@@ -52,13 +52,21 @@ const ATMOSPHERE_PALETTES = [
     { name: "Golden Hour", top: 0x1a2e4c, bottom: 0xcc7a3d }, // Desaturated Amber    { name: "Cotton Candy", top: 0x4facfe, bottom: 0xf5b7b1 },
     { name: "Deep Dusk", top: 0x080c17, bottom: 0x3b1c32 },
     { name: "Arctic Mist", top: 0x89f7fe, bottom: 0x66a6ff },
-    { name: "Emerald Dream", top: 0x134e5e, bottom: 0x71b280 },
-    { name: "Dusty Twilight", top: 0x141e30, bottom: 0x4b3f31 }, // Neutral Warmth
+    { name: "Emerald Dream", top: 0x061a1a, bottom: 0x4a7c59 }, // Misty Sage Haze
     { name: "Desert Haze", top: 0xe9d362, bottom: 0x333333 }
 ];
 
-const _paletteRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + 99);
-const selectedPalette = ATMOSPHERE_PALETTES[Math.floor(_paletteRng() * ATMOSPHERE_PALETTES.length)];
+const urlParams = new URLSearchParams(window.location.search);
+const paletteParam = urlParams.get('palette');
+let selectedPalette;
+
+if (paletteParam !== null && !isNaN(parseInt(paletteParam))) {
+    const paletteIndex = parseInt(paletteParam);
+    selectedPalette = ATMOSPHERE_PALETTES[paletteIndex % ATMOSPHERE_PALETTES.length];
+} else {
+    const _paletteRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + 99);
+    selectedPalette = ATMOSPHERE_PALETTES[Math.floor(_paletteRng() * ATMOSPHERE_PALETTES.length)];
+}
 
 console.log(`Atmosphere Palette: ${selectedPalette.name}`);
 
