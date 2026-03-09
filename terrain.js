@@ -756,7 +756,7 @@ function generateChunk(chunkX, chunkZ) {
                 const barnThreshold = houseThreshold + 0.002 * densityScale;
                 const monasteryThreshold = barnThreshold + 0.0003 * densityScale;
                 const castleThreshold = monasteryThreshold + 0.0001 * densityScale;
-                const windmillThreshold = castleThreshold + 0.001 * densityScale;
+                const windmillThreshold = castleThreshold + 0.0004 * densityScale;
 
                 const plainsRoll = rng();
                 if (plainsRoll < houseThreshold) {
