@@ -46,9 +46,24 @@ const skyFragmentShader = `
     }
 `;
 
+// --- ATMOSPHERE PALETTES ---
+const ATMOSPHERE_PALETTES = [
+    { name: "Classic Blue", top: 0x0077ff, bottom: 0xffffff },
+    { name: "Golden Hour", top: 0x1e3c72, bottom: 0xffa500 },
+    { name: "Cotton Candy", top: 0x4facfe, bottom: 0xf5b7b1 },
+    { name: "Deep Dusk", top: 0x0f0c29, bottom: 0xec008c },
+    { name: "Arctic Mist", top: 0x89f7fe, bottom: 0x66a6ff },
+    { name: "Emerald Dream", top: 0x134e5e, bottom: 0x71b280 },
+    { name: "Desert Haze", top: 0xe9d362, bottom: 0x333333 }
+];
+
+const _paletteRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + 99);
+const selectedPalette = ATMOSPHERE_PALETTES[Math.floor(_paletteRng() * ATMOSPHERE_PALETTES.length)];
+console.log(`Atmosphere Palette: ${selectedPalette.name}`);
+
 const skyUniforms = {
-    topColor: { value: new THREE.Color(0x0077ff) },
-    bottomColor: { value: new THREE.Color(0xffffff) },
+    topColor: { value: new THREE.Color(selectedPalette.top) },
+    bottomColor: { value: new THREE.Color(selectedPalette.bottom) },
     sunDirection: { value: new THREE.Vector3(0, 1, 0) },
     offset: { value: 33 },
     exponent: { value: 0.6 },
@@ -64,6 +79,9 @@ const skyMat = new THREE.ShaderMaterial({
     depthWrite: false, // Don't block stars/celestials
     fog: false
 });
+
+scene.fog.color.set(selectedPalette.bottom);
+
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
 

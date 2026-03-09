@@ -837,7 +837,9 @@ function animate() {
         document.getElementById('debug-fov').textContent = Math.round(camera.fov);
         document.getElementById('debug-pullback').textContent = Math.round(pullBack);
         document.getElementById('debug-pitch').textContent = Math.round(planeGroup.rotation.x * 180 / Math.PI);
+        document.getElementById('debug-palette').textContent = selectedPalette.name;
         document.getElementById('debug-speed-mult').textContent = flightSpeedMultiplier.toFixed(2);
+
         document.getElementById('debug-target-speed').textContent = targetFlightSpeed.toFixed(2);
         document.getElementById('debug-maneuver').textContent = smoothedManeuverFactor.toFixed(2);
     }
