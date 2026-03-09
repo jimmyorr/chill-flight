@@ -59,6 +59,7 @@ const ATMOSPHERE_PALETTES = [
 
 const _paletteRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + 99);
 const selectedPalette = ATMOSPHERE_PALETTES[Math.floor(_paletteRng() * ATMOSPHERE_PALETTES.length)];
+
 console.log(`Atmosphere Palette: ${selectedPalette.name}`);
 
 const skyUniforms = {

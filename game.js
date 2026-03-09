@@ -428,11 +428,14 @@ const _hubOffset = new THREE.Vector3(0, 0, 8.5);
 const _uncloudedSkyColor = new THREE.Color();
 const _uncloudedFogColor = new THREE.Color();
 const _daySky = new THREE.Color(0x87ceeb);
-const _sunriseSky = new THREE.Color(0xff7b54); // Morning orange/pink
-const _goldenSky = new THREE.Color(0xffb26b);  // Morning gold
-const _sunsetSky = new THREE.Color(0x8A2387);  // Evening violet/magenta
-const _goldenSunsetSky = new THREE.Color(0xE94057); // Evening fiery red
+const _sunriseSky = new THREE.Color(selectedPalette.bottom).lerp(new THREE.Color(selectedPalette.top), 0.2); // Derived from palette
+const _goldenSky = new THREE.Color(selectedPalette.bottom).lerp(new THREE.Color(0xffffff), 0.1);  // Highlighted palette bottom
+const _sunsetSky = new THREE.Color(selectedPalette.bottom); // Pure palette bottom
+const _goldenSunsetSky = new THREE.Color(selectedPalette.bottom).lerp(new THREE.Color(0x000000), 0.2); // Deeper palette bottom
+
 const _twilightSky = new THREE.Color(0x2c3e50);
+
+
 const _currentSunriseSky = new THREE.Color();
 const _currentGoldenSky = new THREE.Color();
 const _cloudyColor = new THREE.Color();
@@ -1077,6 +1080,8 @@ function animate() {
     _uncloudedSkyColor.setHex(0x0a0c20); // Brighter night sky for a chill view
     _uncloudedFogColor.setHex(0x060815);
 
+
+
     if (dayFactor > 0.0) {
         let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
         dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
@@ -1150,11 +1155,12 @@ function animate() {
         const sunsetLightCol = (sunX > 0) ? new THREE.Color(0xffd5a0) : new THREE.Color(0xffad60);
         dirLight.color.copy(dayLightCol).lerp(sunsetLightCol, dawnDuskFactor);
 
-        // Adjust fog to be slightly warmer at the horizon during sunset
+        // Adjust fog to be slightly warmer at the horizon during sunset - using palette bottom
         if (dawnDuskFactor > 0.2) {
-            const warmFog = (sunX > 0) ? new THREE.Color(0xff9a4d) : new THREE.Color(0xff6a3d);
+            const warmFog = new THREE.Color(selectedPalette.bottom);
             scene.fog.color.lerp(warmFog, (dawnDuskFactor - 0.2) * 0.5);
         }
+
     } else {
         dirLight.color.setHex(0xfff0dd); // Reset for next day
     }
@@ -1174,10 +1180,11 @@ function animate() {
 
         let bottomCol = _finalSkyColor.clone();
         if (dawnDuskFactor > 0.1) {
-            // During dawn/dusk, make the horizon (bottom) warmer
-            const warmHorizon = (sunX > 0) ? new THREE.Color(0xff7e00) : new THREE.Color(0xff4500); // Orange/Red-Orange
+            // During dawn/dusk, make the horizon (bottom) follow the palette
+            const warmHorizon = new THREE.Color(selectedPalette.bottom);
             bottomCol.lerp(warmHorizon, dawnDuskFactor * 0.8);
         }
+
         skyUniforms.bottomColor.value.copy(bottomCol);
     } else {
         // At night, preserve a slight vertical depth to the sky
