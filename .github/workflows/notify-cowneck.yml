@@ -12,6 +12,6 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.COWNECK_UPDATE_TOKEN }}
-          repository: your-username/cowneck
+          repository: jimmyorr/cowneck
           event-type: update-game
 
