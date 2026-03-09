@@ -2,8 +2,46 @@
 // Dependencies: THREE (CDN)
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xa0d8ef);
+// Background will be handled by a Skysphere shader
 scene.fog = new THREE.FogExp2(0xa0d8ef, 0.00005);
+
+// --- SKY SHADER MATERIAL ---
+const skyVertexShader = `
+    varying vec3 vWorldPosition;
+    void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
+
+const skyFragmentShader = `
+    uniform vec3 topColor;
+    uniform vec3 bottomColor;
+    uniform float offset;
+    uniform float exponent;
+    varying vec3 vWorldPosition;
+    void main() {
+        float h = normalize(vWorldPosition + offset).y;
+        gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+    }
+`;
+
+const skyUniforms = {
+    topColor: { value: new THREE.Color(0x0077ff) },
+    bottomColor: { value: new THREE.Color(0xffffff) },
+    offset: { value: 33 },
+    exponent: { value: 0.6 }
+};
+
+const skyMat = new THREE.ShaderMaterial({
+    vertexShader: skyVertexShader,
+    fragmentShader: skyFragmentShader,
+    uniforms: skyUniforms,
+    side: THREE.BackSide,
+    depthWrite: false, // Don't block stars/celestials
+    fog: false
+});
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
 
@@ -32,6 +70,11 @@ let daySpeedMultiplier = 1;
 // Sky Objects Group (follows player, hosts celestial bodies)
 const skyGroup = new THREE.Group();
 scene.add(skyGroup);
+
+// Skysphere (Backdrop)
+const skySphereGeo = new THREE.SphereGeometry(9500, 32, 12);
+const skySphereMesh = new THREE.Mesh(skySphereGeo, skyMat);
+skyGroup.add(skySphereMesh);
 
 // Sun
 const sunGeo = new THREE.SphereGeometry(400, 32, 32);
