@@ -1131,9 +1131,30 @@ function animate() {
     _finalSkyColor.copy(_uncloudedSkyColor).lerp(_cloudyColor, weatherNoise);
     _finalFogColor.copy(_uncloudedFogColor).lerp(_cloudyColor, weatherNoise);
 
-    scene.background.lerp(_finalSkyColor, 0.05);
     scene.fog.color.lerp(_finalFogColor, 0.05);
     scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, THREE.MathUtils.lerp(0.00005, 0.0004, weatherNoise), 0.01);
+
+    // Update Sky Shader Colors
+    // The top color follows the final computed sky color.
+    skyUniforms.topColor.value.copy(_finalSkyColor);
+
+    // The bottom color is adjusted for sunset/sunrise to create a gradient.
+    if (dayFactor > 0.0) {
+        let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
+        dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
+
+        let bottomCol = _finalSkyColor.clone();
+        if (dawnDuskFactor > 0.1) {
+            // During dawn/dusk, make the horizon (bottom) warmer
+            const warmHorizon = (sunX > 0) ? new THREE.Color(0xff7e00) : new THREE.Color(0xff4500); // Orange/Red-Orange
+            bottomCol.lerp(warmHorizon, dawnDuskFactor * 0.8);
+        }
+        skyUniforms.bottomColor.value.copy(bottomCol);
+    } else {
+        // At night, preserve a slight vertical depth to the sky
+        let bottomCol = _finalSkyColor.clone().multiplyScalar(0.8);
+        skyUniforms.bottomColor.value.copy(bottomCol);
+    }
 
     renderer.render(scene, camera);
 
