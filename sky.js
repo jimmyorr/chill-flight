@@ -49,11 +49,11 @@ const skyFragmentShader = `
 // --- ATMOSPHERE PALETTES ---
 const ATMOSPHERE_PALETTES = [
     { name: "Classic Blue", top: 0x0077ff, bottom: 0xffffff },
-    { name: "Golden Hour", top: 0x1e3c72, bottom: 0xffa500 },
-    { name: "Cotton Candy", top: 0x4facfe, bottom: 0xf5b7b1 },
-    { name: "Deep Dusk", top: 0x0f0c29, bottom: 0xec008c },
+    { name: "Golden Hour", top: 0x1a2e4c, bottom: 0xcc7a3d }, // Desaturated Amber    { name: "Cotton Candy", top: 0x4facfe, bottom: 0xf5b7b1 },
+    { name: "Deep Dusk", top: 0x080c17, bottom: 0x3b1c32 },
     { name: "Arctic Mist", top: 0x89f7fe, bottom: 0x66a6ff },
     { name: "Emerald Dream", top: 0x134e5e, bottom: 0x71b280 },
+    { name: "Dusty Twilight", top: 0x141e30, bottom: 0x4b3f31 }, // Neutral Warmth
     { name: "Desert Haze", top: 0xe9d362, bottom: 0x333333 }
 ];
 
