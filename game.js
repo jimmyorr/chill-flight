@@ -504,7 +504,7 @@ function animate() {
                 }
             }
 
-            if (p.targetSpeedMult > 0 && p.mesh.userData.propeller) {
+            if (p.targetSpeedMult > 0.01 && p.mesh.userData.propeller) {
                 const spinSpeed = 15 * Math.max(0.2, p.targetSpeedMult);
                 p.mesh.userData.propeller.rotation.z += spinSpeed * delta;
             }
@@ -512,7 +512,7 @@ function animate() {
     }
 
     // Spin the propeller
-    if (flightSpeedMultiplier > 0) {
+    if (flightSpeedMultiplier > 0.01) {
         const spinSpeed = 15 * Math.max(0.2, flightSpeedMultiplier);
         propGroup.rotation.z += spinSpeed * delta;
     }
