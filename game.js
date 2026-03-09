@@ -624,16 +624,16 @@ function animate() {
     const manualRollSpeed = 4.0;
     const manualLoopSpeed = 2.5;
     if (flightSpeedMultiplier > 0) {
-        if (isUp && dtUp && (nowTime - startUp > STEER_HOLD_THRESHOLD)) {
+        if (isUp && dtUp && (nowTime - startUp > STEER_HOLD_THRESHOLD) && !keys.Shift) {
             // Double-tap up and hold: loop (Direct rotation, no trim pollution)
             planeGroup.rotation.x += manualLoopSpeed * delta;
             isLooping = true;
-        } else if (isDown && dtDown && (nowTime - startDown > STEER_HOLD_THRESHOLD)) {
+        } else if (isDown && dtDown && (nowTime - startDown > STEER_HOLD_THRESHOLD) && !keys.Shift) {
             // Double-tap down and hold: steep dive
             const targetDive = -(Math.PI * 70) / 180; // 70 degrees
             planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, targetDive, 0.05);
             isLooping = true;
-        } else if (keys.ArrowLeft) {
+        } else if (keys.ArrowLeft && !keys.Shift) {
             if (doubleTap.ArrowLeft) {
                 // Double-tap: full barrel roll
                 planeGroup.rotation.z += manualRollSpeed * delta;
@@ -644,7 +644,7 @@ function animate() {
                 isClampedRoll = true;
             }
             isBarrelRolling = true;
-        } else if (keys.ArrowRight) {
+        } else if (keys.ArrowRight && !keys.Shift) {
             if (doubleTap.ArrowRight) {
                 // Double-tap: full barrel roll
                 planeGroup.rotation.z -= manualRollSpeed * delta;
