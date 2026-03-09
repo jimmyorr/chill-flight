@@ -438,6 +438,7 @@ const _currentGoldenSky = new THREE.Color();
 const _cloudyColor = new THREE.Color();
 const _finalSkyColor = new THREE.Color();
 const _finalFogColor = new THREE.Color();
+const _tempVec = new THREE.Vector3();
 const _weatherLerpBase = new THREE.Color(0x8899aa);
 
 function animate() {
@@ -1102,7 +1103,10 @@ function animate() {
 
     hemiLight.intensity = THREE.MathUtils.lerp(0.3, 0.6, dayFactor); // Less contrast at night
     dirLight.intensity = THREE.MathUtils.lerp(0, 0.8, dayFactor);
-    moonLight.intensity = THREE.MathUtils.lerp(0.4, 0, dayFactor); // Moon takes over during the night
+
+    // Sharper Moonlight Cutoff: Only active during deep night, fades before sun transition begins
+    let moonFactor = Math.max(0, Math.min(1, (-sunY - 0.25) / 0.25));
+    moonLight.intensity = moonFactor * 0.4;
 
     // Dynamic Weather (Drifting Fog & Clouds)
     const weatherTimeOffset = (now / 100000); // Very slow drift
@@ -1134,9 +1138,32 @@ function animate() {
     scene.fog.color.lerp(_finalFogColor, 0.05);
     scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, THREE.MathUtils.lerp(0.00005, 0.0004, weatherNoise), 0.01);
 
+    // Update Light and Fog Colors for Sunset Atmosphere
+    if (dayFactor > 0.0) {
+        let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
+        dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
+
+        // Warm up the directional light during golden hour
+        const dayLightCol = new THREE.Color(0xfff0dd);
+        const sunsetLightCol = (sunX > 0) ? new THREE.Color(0xffd5a0) : new THREE.Color(0xffad60);
+        dirLight.color.copy(dayLightCol).lerp(sunsetLightCol, dawnDuskFactor);
+
+        // Adjust fog to be slightly warmer at the horizon during sunset
+        if (dawnDuskFactor > 0.2) {
+            const warmFog = (sunX > 0) ? new THREE.Color(0xff9a4d) : new THREE.Color(0xff6a3d);
+            scene.fog.color.lerp(warmFog, (dawnDuskFactor - 0.2) * 0.5);
+        }
+    } else {
+        dirLight.color.setHex(0xfff0dd); // Reset for next day
+    }
+
     // Update Sky Shader Colors
     // The top color follows the final computed sky color.
     skyUniforms.topColor.value.copy(_finalSkyColor);
+
+    // Update sun direction for directional gradient
+    _tempVec.set(sunX, sunY, sunZ).normalize();
+    skyUniforms.sunDirection.value.copy(_tempVec);
 
     // The bottom color is adjusted for sunset/sunrise to create a gradient.
     if (dayFactor > 0.0) {

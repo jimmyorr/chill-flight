@@ -18,20 +18,42 @@ const skyVertexShader = `
 const skyFragmentShader = `
     uniform vec3 topColor;
     uniform vec3 bottomColor;
+    uniform vec3 sunDirection;
     uniform float offset;
     uniform float exponent;
+    uniform float glowPower;
+    uniform float mieFactor;
     varying vec3 vWorldPosition;
     void main() {
-        float h = normalize(vWorldPosition + offset).y;
-        gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+        vec3 dir = normalize(vWorldPosition + offset);
+        float h = dir.y;
+        
+        // Calculate sun influence (0 to 1) based on direction
+        float sunIntensity = max(0.0, dot(dir, sunDirection));
+        float glow = pow(sunIntensity, glowPower);
+        
+        // Mute the bottom color when away from the sun
+        // When away, the horizon looks more like the topColor or a neutral fade
+        vec3 effectiveBottom = mix(topColor * 0.8, bottomColor, glow * mieFactor + (1.0 - mieFactor));
+        
+        // Base vertical gradient using the potentially muted bottom color
+        vec3 col = mix(effectiveBottom, topColor, max(pow(max(h, 0.0), exponent), 0.0));
+        
+        // Additional sun glow boost
+        col += bottomColor * glow * 0.5 * (1.0 - h);
+        
+        gl_FragColor = vec4(col, 1.0);
     }
 `;
 
 const skyUniforms = {
     topColor: { value: new THREE.Color(0x0077ff) },
     bottomColor: { value: new THREE.Color(0xffffff) },
+    sunDirection: { value: new THREE.Vector3(0, 1, 0) },
     offset: { value: 33 },
-    exponent: { value: 0.6 }
+    exponent: { value: 0.6 },
+    glowPower: { value: 2.0 },  // Higher = more concentrated sunset
+    mieFactor: { value: 0.9 }   // Higher = more aggressive muting away from sun
 };
 
 const skyMat = new THREE.ShaderMaterial({
