@@ -30,7 +30,12 @@ const skyFragmentShader = `
         
         // Calculate sun influence (0 to 1) based on direction
         float sunIntensity = max(0.0, dot(dir, sunDirection));
+        
+        // Base glow used for the general atmospheric scattering (horizon muting)
         float glow = pow(sunIntensity, glowPower);
+        
+        // Tighter highlight specifically for the intense sun bloom
+        float sunHighlight = pow(sunIntensity, glowPower * 4.0);
         
         // Mute the bottom color when away from the sun
         // When away, the horizon looks more like the topColor or a neutral fade
@@ -40,7 +45,10 @@ const skyFragmentShader = `
         vec3 col = mix(effectiveBottom, topColor, max(pow(max(h, 0.0), exponent), 0.0));
         
         // Additional sun glow boost
-        col += bottomColor * glow * 0.5 * (1.0 - h);
+        // We use a screen blend with the tighter sun highlight to warmly brighten the sky
+        // without harsh clamping to white, preserving the palette's beautiful colors.
+        vec3 glowColor = bottomColor * sunHighlight * 0.8 * (1.0 - h);
+        col = col + glowColor * (vec3(1.0) - col); // Screen blend
         
         gl_FragColor = vec4(col, 1.0);
     }
