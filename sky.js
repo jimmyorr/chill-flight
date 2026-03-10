@@ -48,12 +48,11 @@ const skyFragmentShader = `
 
 // --- ATMOSPHERE PALETTES ---
 const ATMOSPHERE_PALETTES = [
-    { name: "Classic Blue", top: 0x0077ff, bottom: 0xffffff },
-    { name: "Golden Hour", top: 0x1a2e4c, bottom: 0xcc7a3d }, // Desaturated Amber    { name: "Cotton Candy", top: 0x4facfe, bottom: 0xf5b7b1 },
-    { name: "Deep Dusk", top: 0x080c17, bottom: 0x3b1c32 },
+    // 0: Warm sunset or sunrise tones with desaturated amber highlights
+    { name: "Golden Hour", top: 0x1a2e4c, bottom: 0xcc7a3d },
+
+    // 1: High-latitude cold morning with bright, icy tones
     { name: "Arctic Mist", top: 0x89f7fe, bottom: 0x66a6ff },
-    { name: "Emerald Dream", top: 0x061a1a, bottom: 0x4a7c59 }, // Misty Sage Haze
-    { name: "Desert Haze", top: 0xe9d362, bottom: 0x333333 }
 ];
 
 const urlParams = new URLSearchParams(window.location.search);
