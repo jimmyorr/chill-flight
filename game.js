@@ -465,18 +465,29 @@ function animate() {
 
     const CYCLE_DURATION_MS = 300000;
 
+    let secondsInCycle, currentWarpedProgress;
     if (isDebugMode) {
-        timeOfDay += delta * (2 * Math.PI / (CYCLE_DURATION_MS / 1000)) * daySpeedMultiplier;
+        // In debug mode, we use a virtual clock that we increment ourselves,
+        // allowing for speed multipliers while maintaining the same "warped" physics
+        // as the server-synced clock.
+        if (window._debugVirtualSeconds === undefined) {
+            const serverNow = Date.now() + (window.serverTimeOffset || 0);
+            window._debugVirtualSeconds = (serverNow % CYCLE_DURATION_MS) / 1000;
+        } else {
+            window._debugVirtualSeconds += delta * daySpeedMultiplier;
+        }
+        secondsInCycle = window._debugVirtualSeconds % (CYCLE_DURATION_MS / 1000);
+        currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle);
+        timeOfDay = currentWarpedProgress * Math.PI * 2;
     } else {
+        // In normal mode, we always sync to the absolute server time.
+        // We reset the virtual clock so it picks up from current server time if re-enabled.
+        window._debugVirtualSeconds = undefined;
         const serverNow = Date.now() + (window.serverTimeOffset || 0);
-        const secondsInCycle = (serverNow % CYCLE_DURATION_MS) / 1000;
-        const currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle);
+        secondsInCycle = (serverNow % CYCLE_DURATION_MS) / 1000;
+        currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle);
         timeOfDay = currentWarpedProgress * Math.PI * 2;
     }
-
-    if (timeOfDay > Math.PI * 2) timeOfDay -= Math.PI * 2;
-    if (timeOfDay < 0) timeOfDay += Math.PI * 2;
-
     // Window glow
     houseWindowMats.forEach((mat, i) => {
         const offset = i * 0.05;
@@ -842,6 +853,7 @@ function animate() {
         document.getElementById('debug-pitch').textContent = Math.round(planeGroup.rotation.x * 180 / Math.PI);
         document.getElementById('debug-palette').textContent = selectedPalette.name;
         document.getElementById('debug-speed-mult').textContent = flightSpeedMultiplier.toFixed(2);
+        document.getElementById('debug-day-speed').textContent = daySpeedMultiplier.toFixed(1);
 
         document.getElementById('debug-target-speed').textContent = targetFlightSpeed.toFixed(2);
         document.getElementById('debug-maneuver').textContent = smoothedManeuverFactor.toFixed(2);
