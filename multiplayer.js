@@ -25,11 +25,17 @@ function initMultiplayer() {
     const analytics = getAnalytics(app);
 
     // App Check — reCAPTCHA v3 (site key is public; secret key stays server-side)
-    initializeAppCheck(app, {
+    const appCheck = initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider('6LfyyIEsAAAAANhEtJpPFwPYSs4Egde3RHFxnokB'),
         isTokenAutoRefreshEnabled: true
     });
-
+    getToken(appCheck)
+        .then((response) => {
+            console.log("✅ App Check: Verified");
+        })
+        .catch((err) => {
+            console.error("❌ App Check: Failed", err.message);
+        });
     const auth = getAuth(app);
     const db = getDatabase(app);
 
