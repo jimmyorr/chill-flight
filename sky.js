@@ -53,6 +53,21 @@ const ATMOSPHERE_PALETTES = [
 
     // 1: High-latitude cold morning with bright, icy tones
     { name: "Arctic Mist", top: 0x89f7fe, bottom: 0x66a6ff },
+
+    // 2: Soft, dusty desert sunset fading into a warm rose horizon
+    { name: "Dusty Mojave", top: 0x4a6b99, bottom: 0xdc9c76 },
+
+    // 3: Crisp, high-altitude deep blue sky turning to a soft azure
+    { name: "Alpine Clear", top: 0x0a2342, bottom: 0x8eb8e5 },
+
+    // 4: Moody, overcast evening with slate and steel gray tones
+    { name: "Storm Front", top: 0x404a59, bottom: 0x8f9aa1 },
+
+    // 5: Rich tropical twilight with deep violet overhead and a coral horizon
+    { name: "Tropical Dawn", top: 0x2c1b4d, bottom: 0xe27a5e },
+
+    // 6: Gentle pastel morning with soft lavender and pale pink
+    { name: "Lavender Morning", top: 0x645c84, bottom: 0xe2b6cf }
 ];
 
 const urlParams = new URLSearchParams(window.location.search);
