@@ -81,26 +81,51 @@ const ATMOSPHERE_PALETTES = [
 const urlParams = new URLSearchParams(window.location.search);
 const paletteParam = urlParams.get('palette');
 let selectedPalette;
+let currentPaletteCycle = -1;
 
-if (paletteParam !== null && !isNaN(parseInt(paletteParam))) {
-    const paletteIndex = parseInt(paletteParam);
-    selectedPalette = ATMOSPHERE_PALETTES[paletteIndex % ATMOSPHERE_PALETTES.length];
-} else {
-    const _paletteRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + 99);
-    selectedPalette = ATMOSPHERE_PALETTES[Math.floor(_paletteRng() * ATMOSPHERE_PALETTES.length)];
+function updateSkyPalette(serverNow) {
+    const CYCLE_DURATION_MS = 300000;
+    const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
+
+    if (cycleNumber !== currentPaletteCycle) {
+        currentPaletteCycle = cycleNumber;
+
+        if (paletteParam !== null && !isNaN(parseInt(paletteParam))) {
+            const paletteIndex = parseInt(paletteParam);
+            selectedPalette = ATMOSPHERE_PALETTES[paletteIndex % ATMOSPHERE_PALETTES.length];
+        } else {
+            // Seed the RNG with the world seed plus the cycle number,
+            // so every cycle (in-game day) gets a synchronized random palette.
+            const _paletteRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + cycleNumber);
+            selectedPalette = ATMOSPHERE_PALETTES[Math.floor(_paletteRng() * ATMOSPHERE_PALETTES.length)];
+        }
+
+        console.log(`Atmosphere Palette Updated (Cycle ${cycleNumber}): ${selectedPalette.name}`);
+
+        // If uniforms already exist, update them
+        if (typeof skyUniforms !== 'undefined') {
+            skyUniforms.topColor.value.setHex(selectedPalette.top);
+            skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
+        }
+
+        // Dispatch an event so game.js can recalculate derived gradient colors
+        window.dispatchEvent(new CustomEvent('paletteChanged', { detail: selectedPalette }));
+    }
 }
 
-console.log(`Atmosphere Palette: ${selectedPalette.name}`);
-
+// Initial object creation with dummy values; updateSkyPalette will populate them
 const skyUniforms = {
-    topColor: { value: new THREE.Color(selectedPalette.top) },
-    bottomColor: { value: new THREE.Color(selectedPalette.bottom) },
+    topColor: { value: new THREE.Color() },
+    bottomColor: { value: new THREE.Color() },
     sunDirection: { value: new THREE.Vector3(0, 1, 0) },
     offset: { value: 33 },
     exponent: { value: 0.6 },
     glowPower: { value: 2.0 },  // Higher = more concentrated sunset
     mieFactor: { value: 0.9 }   // Higher = more aggressive muting away from sun
 };
+
+// Initial calculation
+updateSkyPalette(Date.now() + (window.serverTimeOffset || 0));
 
 const skyMat = new THREE.ShaderMaterial({
     vertexShader: skyVertexShader,
@@ -112,7 +137,6 @@ const skyMat = new THREE.ShaderMaterial({
 });
 
 scene.fog.color.set(selectedPalette.bottom);
-
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
 

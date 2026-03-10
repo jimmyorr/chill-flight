@@ -405,6 +405,12 @@ if (savedDistance) {
 }
 
 
+// Setup timeOfDay before chunk gen
+const serverNowFirst = Date.now() + (window.serverTimeOffset || 0);
+const secondsInCycleFirst = (serverNowFirst % 300000) / 1000;
+const currentWarpedProgressFirst = ChillFlightLogic.computeTimeOfDay(secondsInCycleFirst);
+window.timeOfDay = currentWarpedProgressFirst * Math.PI * 2;
+
 // Initial chunk generation
 updateChunks();
 
@@ -428,10 +434,22 @@ const _hubOffset = new THREE.Vector3(0, 0, 8.5);
 const _uncloudedSkyColor = new THREE.Color();
 const _uncloudedFogColor = new THREE.Color();
 const _daySky = new THREE.Color(0x87ceeb);
-const _sunriseSky = new THREE.Color(selectedPalette.bottom).lerp(new THREE.Color(selectedPalette.top), 0.2); // Derived from palette
-const _goldenSky = new THREE.Color(selectedPalette.bottom).lerp(new THREE.Color(0xffffff), 0.1);  // Highlighted palette bottom
-const _sunsetSky = new THREE.Color(selectedPalette.bottom); // Pure palette bottom
-const _goldenSunsetSky = new THREE.Color(selectedPalette.bottom).lerp(new THREE.Color(0x000000), 0.2); // Deeper palette bottom
+const _sunriseSky = new THREE.Color();
+const _goldenSky = new THREE.Color();
+const _sunsetSky = new THREE.Color();
+const _goldenSunsetSky = new THREE.Color();
+
+function updateSkyBaseColors(palette) {
+    _sunriseSky.copy(new THREE.Color(palette.bottom)).lerp(new THREE.Color(palette.top), 0.2); // Derived from palette
+    _goldenSky.copy(new THREE.Color(palette.bottom)).lerp(new THREE.Color(0xffffff), 0.1);  // Highlighted palette bottom
+    _sunsetSky.copy(new THREE.Color(palette.bottom)); // Pure palette bottom
+    _goldenSunsetSky.copy(new THREE.Color(palette.bottom)).lerp(new THREE.Color(0x000000), 0.2); // Deeper palette bottom
+}
+updateSkyBaseColors(selectedPalette);
+
+window.addEventListener('paletteChanged', (e) => {
+    updateSkyBaseColors(e.detail);
+});
 
 const _twilightSky = new THREE.Color(0x2c3e50);
 
@@ -466,27 +484,39 @@ function animate() {
     const CYCLE_DURATION_MS = 300000;
 
     let secondsInCycle, currentWarpedProgress;
+    let passedServerNow;
+
     if (isDebugMode) {
         // In debug mode, we use a virtual clock that we increment ourselves,
         // allowing for speed multipliers while maintaining the same "warped" physics
         // as the server-synced clock.
-        if (window._debugVirtualSeconds === undefined) {
-            const serverNow = Date.now() + (window.serverTimeOffset || 0);
-            window._debugVirtualSeconds = (serverNow % CYCLE_DURATION_MS) / 1000;
+        if (window._debugVirtualServerNow === undefined) {
+            window._debugVirtualServerNow = Date.now() + (window.serverTimeOffset || 0);
         } else {
-            window._debugVirtualSeconds += delta * daySpeedMultiplier;
+            window._debugVirtualServerNow += (delta * 1000) * daySpeedMultiplier;
         }
-        secondsInCycle = window._debugVirtualSeconds % (CYCLE_DURATION_MS / 1000);
-        currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle);
-        timeOfDay = currentWarpedProgress * Math.PI * 2;
+        passedServerNow = window._debugVirtualServerNow;
+        secondsInCycle = (passedServerNow % CYCLE_DURATION_MS) / 1000;
+
+        // Keep older debug virtual seconds for compat just in case
+        window._debugVirtualSeconds = secondsInCycle;
     } else {
         // In normal mode, we always sync to the absolute server time.
         // We reset the virtual clock so it picks up from current server time if re-enabled.
+        window._debugVirtualServerNow = undefined;
         window._debugVirtualSeconds = undefined;
+
         const serverNow = Date.now() + (window.serverTimeOffset || 0);
+        passedServerNow = serverNow;
         secondsInCycle = (serverNow % CYCLE_DURATION_MS) / 1000;
-        currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle);
-        timeOfDay = currentWarpedProgress * Math.PI * 2;
+    }
+
+    currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle);
+    timeOfDay = currentWarpedProgress * Math.PI * 2;
+
+    // Check and update the sky palette if it's a new cycle
+    if (typeof updateSkyPalette === 'function') {
+        updateSkyPalette(passedServerNow);
     }
     // Window glow
     houseWindowMats.forEach((mat, i) => {
