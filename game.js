@@ -1392,8 +1392,8 @@ window.addEventListener('keydown', (e) => {
 
     const action = keyMap[key];
     if (action) {
-        // Exclude actions that have other Shift-modifiers (like Shift+D for debug)
-        const isConflict = (key === 'd' && e.shiftKey);
+        // Exclude actions that have other Shift-modifiers (like Shift+D for debug) or system modifiers (Cmd/Ctrl)
+        const isConflict = (key === 'd' && e.shiftKey) || e.metaKey || e.ctrlKey;
 
         if (!isConflict) {
             const wasKeyPressed = keys[action];
@@ -1479,7 +1479,7 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
-    if (document.activeElement && document.activeElement.tagName !== 'INPUT') {
+    if (document.activeElement && document.activeElement.tagName !== 'INPUT' && !e.metaKey && !e.ctrlKey) {
         if (e.key === '1') {
             const procList = [1, 2, 3, 4];
             let idx = procList.indexOf(currentStation);
