@@ -447,8 +447,13 @@ function updateSkyBaseColors(palette) {
 }
 updateSkyBaseColors(selectedPalette);
 
+let targetPaletteTop = new THREE.Color(selectedPalette.top);
+let targetPaletteBottom = new THREE.Color(selectedPalette.bottom);
+
 window.addEventListener('paletteChanged', (e) => {
     updateSkyBaseColors(e.detail);
+    targetPaletteTop.setHex(e.detail.top);
+    targetPaletteBottom.setHex(e.detail.bottom);
 });
 
 const _twilightSky = new THREE.Color(0x2c3e50);
@@ -1115,6 +1120,12 @@ function animate() {
     dirLight.position.copy(sunMesh.position);
     moonLight.position.copy(moonMesh.position);
     skyGroup.position.copy(camera.position);
+
+    // Smoothly interpolate sky shader palettes
+    if (typeof skyUniforms !== 'undefined') {
+        skyUniforms.topColor.value.lerp(targetPaletteTop, delta * 0.1);
+        skyUniforms.bottomColor.value.lerp(targetPaletteBottom, delta * 0.1);
+    }
 
     // Sky color / fog / weather
     // At 12:00 (PI), SunY = 1.0.
