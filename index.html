@@ -158,8 +158,10 @@
     <div id="debug-menu">
         <div style="margin-top: 10px; margin-bottom: 15px;">
             <div style="margin-bottom: 5px;">Time speed:</div>
+            <button class="speed-btn" data-speed="-1">-1x</button>
             <button class="speed-btn" data-speed="0">0x</button>
             <button class="speed-btn active" data-speed="1">1x</button>
+            <button class="speed-btn" data-speed="2">2x</button>
             <button class="speed-btn" data-speed="10">10x</button>
             <button class="speed-btn" data-speed="100">100x</button>
         </div>
@@ -192,6 +194,7 @@
                 <div>Pitch: <span id="debug-pitch">0</span>°</div>
                 <div>Palette: <span id="debug-palette">None</span></div>
                 <div>Speed: <span id="debug-speed-mult">0.0</span>x</div>
+                <div>Day: <span id="debug-day-speed">1.0</span>x</div>
 
                 <div>Target: <span id="debug-target-speed">0.0</span>x</div>
                 <div>Factor: <span id="debug-maneuver">0.0</span></div>
@@ -212,6 +215,7 @@
     <script src="game.js"></script>
 
     <!-- Firebase multiplayer: must be last (ES module, deferred by default) -->
+    <script src="https://www.google.com/recaptcha/api.js?render=6LfyyIEsAAAAANhEtJpPFwPYSs4Egde3RHFxnokB"></script>
     <script type="module" src="multiplayer.js"></script>
 
 </body>
