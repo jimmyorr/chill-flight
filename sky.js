@@ -88,9 +88,10 @@ function updateSkyPalette(serverNow) {
     const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
 
     if (cycleNumber !== currentPaletteCycle) {
+        const isFirstLoad = (currentPaletteCycle === -1);
         currentPaletteCycle = cycleNumber;
 
-        if (paletteParam !== null && !isNaN(parseInt(paletteParam))) {
+        if (isFirstLoad && paletteParam !== null && !isNaN(parseInt(paletteParam))) {
             const paletteIndex = parseInt(paletteParam);
             selectedPalette = ATMOSPHERE_PALETTES[paletteIndex % ATMOSPHERE_PALETTES.length];
         } else {
