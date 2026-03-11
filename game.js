@@ -629,10 +629,15 @@ function animate() {
 
     // Shift+Up/Down: throttle control, works at any speed including 0
     if (keys.Shift) {
-        const throttleRate = 2.0 * delta;
         if (isUp) {
+            const heldTime = nowTime - startUp;
+            const ramp = Math.min(1.0, heldTime / 2000); // Ramps up over 2 seconds
+            const throttleRate = (0.5 + ramp * 3.5) * delta; // 0.5/s to 4.0/s
             targetFlightSpeed = Math.min(10, targetFlightSpeed + throttleRate);
         } else if (isDown) {
+            const heldTime = nowTime - startDown;
+            const ramp = Math.min(1.0, heldTime / 2000); // Ramps up over 2 seconds
+            const throttleRate = (0.5 + ramp * 3.5) * delta; // 0.5/s to 4.0/s
             targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
         }
     }
