@@ -367,7 +367,7 @@ setTimeout(() => {
 window.onYouTubeIframeAPIReady = function () {
     console.log("YouTube API Loaded.");
     ytApiLoaded = true;
-    updateLoadingProgress(20, "Syncing origins...");
+    updateLoadingProgress(20, "Calculating flight paths...");
 
     // Short buffer to allow GA configs to settle
     setTimeout(() => {
@@ -386,7 +386,7 @@ function finishCalibration() {
     if (calibrationFinished) return;
     calibrationFinished = true;
 
-    updateLoadingProgress(100, "All systems go.");
+    updateLoadingProgress(100, "Ready to chill.");
     const overlay = document.getElementById('loading-overlay');
 
     if (overlay) {
@@ -417,7 +417,7 @@ function ensureYTPlayerInitialized(callback) {
         return;
     }
     ytInitializing = true;
-    updateLoadingProgress(40, "Handshaking radio...");
+    updateLoadingProgress(40, "Tuning radios...");
 
     const ytContainer = document.getElementById('yt-container');
     const origin = window.location.origin || window.location.protocol + '//' + window.location.host;
@@ -427,7 +427,7 @@ function ensureYTPlayerInitialized(callback) {
     ytContainer.style.opacity = '0';
     ytContainer.style.pointerEvents = 'none';
 
-    updateLoadingProgress(60, "Binding player...");
+    updateLoadingProgress(60, "Reticulating splines...");
 
     ytPlayer = new YT.Player('youtube-player', {
         width: '220',
