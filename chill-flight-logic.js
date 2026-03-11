@@ -242,8 +242,8 @@
         // --- RIVER CARVING LOGIC ---
         // Define a meandering path running East-West around the equator (Z = 0)
         // Use multiple frequencies of noise for more natural, unpredictable bends
-        let riverCenterZ = simplex.noise2D(x * 0.0003, 0) * 800; // Master sweeping curve
-        riverCenterZ += simplex.noise2D(x * 0.001, 100) * 200;    // Tighter, secondary zig-zags
+        const riverCenterZ = exports.getRiverCenterZ ? exports.getRiverCenterZ(x, simplex) : 
+            (simplex.noise2D(x * 0.0003, 0) * 800 + simplex.noise2D(x * 0.001, 100) * 200);
 
         const distToRiver = Math.abs(z - riverCenterZ);
 
@@ -287,7 +287,14 @@
     exports.computeTimeOfDay = computeTimeOfDay;
     exports.computeInputPosition = computeInputPosition;
     exports.computeHeadingDirection = computeHeadingDirection;
+    // --- RIVER CENTER ---
+    // Returns the absolute Z coordinate of the center of the river at a given X.
+    function getRiverCenterZ(x, simplex) {
+        return (simplex.noise2D(x * 0.0003, 0) * 800) + (simplex.noise2D(x * 0.001, 100) * 200);
+    }
+
     exports.getBiome = getBiome;
     exports.getElevation = getElevation;
+    exports.getRiverCenterZ = getRiverCenterZ;
 
 }(typeof module !== 'undefined' ? module.exports : (window.ChillFlightLogic = {})));
