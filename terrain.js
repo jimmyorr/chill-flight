@@ -756,7 +756,7 @@ function generateChunk(chunkX, chunkZ) {
                 const barnThreshold = houseThreshold + 0.002 * densityScale;
                 const monasteryThreshold = houseThreshold + 0.0023 * densityScale;
                 const castleThreshold = houseThreshold + 0.0024 * densityScale;
-                const windmillThreshold = houseThreshold + 0.0028 * densityScale;
+                const windmillThreshold = houseThreshold + 0.0025 * densityScale;
 
                 const plainsRoll = rng();
                 if (plainsRoll < houseThreshold) {
@@ -785,7 +785,7 @@ function generateChunk(chunkX, chunkZ) {
                     && desertFactor < 0.3 && snowFactor < 0.3) {
                     // Windmills in temperate plains
                     windmillPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                } else if (!lighthousePos && rng() < 0.004 * densityScale && height > WATER_LEVEL && height < WATER_LEVEL + 10) {
+                } else if (!lighthousePos && rng() < 0.001 * densityScale && height > WATER_LEVEL && height < WATER_LEVEL + 10) {
                     // Lighthouses on islands - Max 1 per chunk
                     lighthousePos = { x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 };
                 }
