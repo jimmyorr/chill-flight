@@ -785,8 +785,8 @@ function generateChunk(chunkX, chunkZ) {
                     && desertFactor < 0.3 && snowFactor < 0.3) {
                     // Windmills in temperate plains
                     windmillPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                } else if (!lighthousePos && rng() < 0.002 * densityScale && worldX > 3000 && height > WATER_LEVEL && height < WATER_LEVEL + 10) {
-                    // Lighthouses on Eastern islands - Max 1 per chunk
+                } else if (!lighthousePos && rng() < 0.004 * densityScale && height > WATER_LEVEL && height < WATER_LEVEL + 10) {
+                    // Lighthouses on islands - Max 1 per chunk
                     lighthousePos = { x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 };
                 }
 
