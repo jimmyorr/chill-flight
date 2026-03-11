@@ -956,6 +956,9 @@ function animate() {
 
         document.getElementById('debug-target-speed').textContent = targetFlightSpeed.toFixed(2);
         document.getElementById('debug-maneuver').textContent = smoothedManeuverFactor.toFixed(2);
+        document.getElementById('debug-world-x').textContent = Math.round(planeGroup.position.x);
+        document.getElementById('debug-world-y').textContent = Math.round(planeGroup.position.y);
+        document.getElementById('debug-world-z').textContent = Math.round(planeGroup.position.z);
 
         // Update Counters
         let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0;
