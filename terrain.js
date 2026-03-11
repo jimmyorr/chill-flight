@@ -1542,6 +1542,30 @@ function generateChunk(chunkX, chunkZ) {
         group.userData.birds.push(hawk);
     }
 
+    group.userData.counts = {
+        trees_pine: treePositions.length + snowTreePositions.length,
+        trees_decid: deciduousTreePositions.length,
+        trees_palm: palmTreePositions.length,
+        trees_dead: deadTreePositions.length,
+        trees_autumn: autumnTree1Positions.length + autumnTree2Positions.length + autumnTree3Positions.length,
+        trees_cherry: cherryTreePositions.length,
+        houses: housePositions.length + pagodaPositions.length + barnPositions.length + monasteryPositions.length + castleRuinsPositions.length,
+        clouds: numClouds,
+        rocks: rockPositions.length + snowRockPositions.length + desertRockPositions.length,
+        bushes: bushPositions.length,
+        snowmen: snowmanPositions.length,
+        cactus: cactusPositions.length,
+        lighthouses: lighthousePos ? 1 : 0,
+        castles: castleRuinsPositions.length,
+        windmills: windmillPositions.length,
+        campfires: campfirePositions.length,
+        boats: sailboatPositions.length,
+        lily_pads: lilyPadPositions.length,
+        piers: pierPositions.length,
+        birds: group.userData.birds.length,
+        chimneys: chimneySmokePositions.length
+    };
+
     scene.add(group);
     return group;
 }
