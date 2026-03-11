@@ -678,7 +678,57 @@ function animate() {
     let isLooping = false;
     const manualRollSpeed = 4.0;
     const manualLoopSpeed = 2.5;
-    if (flightSpeedMultiplier > 0) {
+
+    if (window.autopilotEnabled && flightSpeedMultiplier > 0) {
+        // 1. Maintain cruising speed (150 kts = 1.0 multiplier)
+        targetFlightSpeed = 1.0;
+
+        // 2. Altitude Control -> y = 145.5, which translates to 2500 displayed altitude
+        const targetAltY = 145.5;
+        const altError = targetAltY - planeGroup.position.y;
+        const maxAutoPitch = Math.PI / 6; // 30 degrees limit
+        targetPitch = THREE.MathUtils.clamp(altError * 0.01, -maxAutoPitch, maxAutoPitch);
+
+        // 3. Direction Control -> Follow the River West (-x)
+        // We look ahead a bit to calculate the river's local angle
+        const lookAheadX = planeGroup.position.x - 300; // Look West
+        const currentRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ 
+            ? window.ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, simplex)
+            : 0;
+        const targetRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ 
+            ? window.ChillFlightLogic.getRiverCenterZ(lookAheadX, simplex)
+            : 0;
+            
+        // Calculate the vector pointing down the river (West is -x, so dx is negative)
+        const dx = lookAheadX - planeGroup.position.x; // -300
+        const dz = targetRiverZ - currentRiverZ;
+        
+        // In this coordinate system, looking down -Z is rotation.y = 0.
+        // Looking down -X (West) is rotation.y = Math.PI / 2.
+        // Math.atan2(x, z) gives the angle from the Z axis.
+        const riverAngle = Math.atan2(-dx, -dz);
+        
+        // Offset to steer back towards the center of the river. 
+        // If we are to the "right" (positive Z) of the river while facing West, we need to steer "left" (negative Z direction).
+        const zError = currentRiverZ - planeGroup.position.z;
+        // In the local frame, a positive yaw pushes us right (positive Z when flying -X).
+        const correctionAngle = THREE.MathUtils.clamp(zError * 0.003, -Math.PI / 4, Math.PI / 4);
+        
+        const targetYaw = riverAngle + correctionAngle;
+        
+        let yawError = targetYaw - planeGroup.rotation.y;
+        while (yawError > Math.PI) yawError -= Math.PI * 2;
+        while (yawError < -Math.PI) yawError += Math.PI * 2;
+        
+        // Bank (roll) the plane to turn
+        const maxAutoRoll = Math.PI / 4;
+        targetRoll = THREE.MathUtils.clamp(yawError * 1.5, -maxAutoRoll, maxAutoRoll);
+
+        // Cancel manual maneuvers
+        isLooping = false;
+        isBarrelRolling = false;
+        isClampedRoll = false;
+    } else if (flightSpeedMultiplier > 0) {
         if (isUp && dtUp && (nowTime - startUp > STEER_HOLD_THRESHOLD) && !keys.Shift) {
             // Double-tap up and hold: loop (Direct rotation, no trim pollution)
             planeGroup.rotation.x += manualLoopSpeed * delta;
@@ -1477,6 +1527,32 @@ window.addEventListener('keydown', (e) => {
     if (isPaused) return;
 
     const key = e.key.toLowerCase();
+    
+    // Autopilot toggle
+    if (key === 'a' && e.shiftKey) {
+        e.preventDefault();
+        window.autopilotEnabled = !window.autopilotEnabled;
+        const msg = window.autopilotEnabled ? "AUTOPILOT ENABLED" : "AUTOPILOT DISABLED";
+        console.log(msg);
+        
+        // Show persistent UI indicator
+        const autoIndicator = document.getElementById('autopilot-indicator');
+        if (autoIndicator) {
+            autoIndicator.style.display = window.autopilotEnabled ? 'block' : 'none';
+        }
+        
+        // Show a brief on-screen message if possible, reuse the center-message element
+        const centerMsg = document.getElementById('debug-fps') || document.querySelector('.title');
+        if (centerMsg) {
+            const oldText = centerMsg.textContent;
+            centerMsg.textContent = msg;
+            setTimeout(() => {
+                if (centerMsg.textContent === msg) centerMsg.textContent = oldText;
+            }, 2000);
+        }
+        return;
+    }
+
     const keyMap = {
         'arrowleft': 'ArrowLeft', 'a': 'ArrowLeft',
         'arrowright': 'ArrowRight', 'd': 'ArrowRight',
@@ -1491,8 +1567,8 @@ window.addEventListener('keydown', (e) => {
 
     const action = keyMap[key];
     if (action) {
-        // Exclude actions that have other Shift-modifiers (like Shift+D for debug) or system modifiers (Cmd/Ctrl)
-        const isConflict = (key === 'd' && e.shiftKey) || e.metaKey || e.ctrlKey;
+        // Exclude actions that have other Shift-modifiers (like Shift+A for autopilot, Shift+D for debug) or system modifiers (Cmd/Ctrl)
+        const isConflict = (key === 'd' && e.shiftKey) || (key === 'a' && e.shiftKey) || e.metaKey || e.ctrlKey;
 
         if (!isConflict) {
             const wasKeyPressed = keys[action];
