@@ -785,9 +785,17 @@ function generateChunk(chunkX, chunkZ) {
                     && desertFactor < 0.3 && snowFactor < 0.3) {
                     // Windmills in temperate plains
                     windmillPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                } else if (!lighthousePos && rng() < 0.001 * densityScale && height > WATER_LEVEL && height < WATER_LEVEL + 10) {
-                    // Lighthouses on islands - Max 1 per chunk
-                    lighthousePos = { x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 };
+                } else if (!lighthousePos && rng() < 0.0008 * densityScale && height < sandMaxHeight + 15) {
+                    // Check neighbors to guarantee proximity to water
+                    const hN = getElevation(worldX, worldZ - 50);
+                    const hS = getElevation(worldX, worldZ + 50);
+                    const hE = getElevation(worldX + 50, worldZ);
+                    const hW = getElevation(worldX - 50, worldZ);
+
+                    if (hN <= WATER_LEVEL || hS <= WATER_LEVEL || hE <= WATER_LEVEL || hW <= WATER_LEVEL) {
+                        // Lighthouses on coasts - Max 1 per chunk
+                        lighthousePos = { x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 };
+                    }
                 }
 
 
