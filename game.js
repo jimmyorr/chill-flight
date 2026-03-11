@@ -683,8 +683,20 @@ function animate() {
         // 1. Maintain cruising speed (150 kts = 1.0 multiplier)
         targetFlightSpeed = 1.0;
 
-        // 2. Altitude Control -> y = 145.5, which translates to 2500 displayed altitude
-        const targetAltY = 145.5;
+        // 2. Altitude Control
+        const currentRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ 
+            ? window.ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, simplex)
+            : 0;
+            
+        const distToRiver = Math.abs(currentRiverZ - planeGroup.position.z);
+        let targetAltY = 145.5; // 2500 altitude
+        if (distToRiver > 1500) {
+            targetAltY = 445.5; // 10000 altitude
+        } else if (distToRiver > 500) {
+            const t = (distToRiver - 500) / 1000;
+            targetAltY = 145.5 + t * (445.5 - 145.5);
+        }
+
         const altError = targetAltY - planeGroup.position.y;
         const maxAutoPitch = Math.PI / 6; // 30 degrees limit
         targetPitch = THREE.MathUtils.clamp(altError * 0.01, -maxAutoPitch, maxAutoPitch);
@@ -692,9 +704,6 @@ function animate() {
         // 3. Direction Control -> Follow the River West (-x)
         // We look ahead a bit to calculate the river's local angle
         const lookAheadX = planeGroup.position.x - 300; // Look West
-        const currentRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ 
-            ? window.ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, simplex)
-            : 0;
         const targetRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ 
             ? window.ChillFlightLogic.getRiverCenterZ(lookAheadX, simplex)
             : 0;
