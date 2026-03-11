@@ -897,6 +897,59 @@ function animate() {
 
         document.getElementById('debug-target-speed').textContent = targetFlightSpeed.toFixed(2);
         document.getElementById('debug-maneuver').textContent = smoothedManeuverFactor.toFixed(2);
+
+        // Update Counters
+        let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0;
+        let totalHouses = 0, totalClouds = 0, totalRocks = 0, totalBushes = 0;
+        let totalSnowmen = 0, totalCactus = 0, totalLighthouses = 0, totalCastles = 0, totalChunks = 0;
+        let totalWindmills = 0, totalCampfires = 0;
+        let totalBoats = 0, totalLilyPads = 0, totalPiers = 0, totalBirds = 0;
+        chunks.forEach(chunkGroup => {
+            if (chunkGroup.userData.counts) {
+                totalTreesPine += chunkGroup.userData.counts.trees_pine || 0;
+                totalTreesDecid += chunkGroup.userData.counts.trees_decid || 0;
+                totalTreesPalm += chunkGroup.userData.counts.trees_palm || 0;
+                totalTreesDead += chunkGroup.userData.counts.trees_dead || 0;
+                totalTreesAutumn += chunkGroup.userData.counts.trees_autumn || 0;
+                totalTreesCherry += chunkGroup.userData.counts.trees_cherry || 0;
+                totalHouses += chunkGroup.userData.counts.houses;
+                totalClouds += chunkGroup.userData.counts.clouds;
+                totalRocks += chunkGroup.userData.counts.rocks;
+                totalBushes += chunkGroup.userData.counts.bushes;
+                totalSnowmen += chunkGroup.userData.counts.snowmen || 0;
+                totalCactus += chunkGroup.userData.counts.cactus || 0;
+                totalLighthouses += chunkGroup.userData.counts.lighthouses || 0;
+                totalCastles += chunkGroup.userData.counts.castles || 0;
+                totalWindmills += chunkGroup.userData.counts.windmills || 0;
+                totalCampfires += chunkGroup.userData.counts.campfires || 0;
+                totalBoats += chunkGroup.userData.counts.boats || 0;
+                totalLilyPads += chunkGroup.userData.counts.lily_pads || 0;
+                totalPiers += chunkGroup.userData.counts.piers || 0;
+                totalBirds += chunkGroup.userData.counts.birds || 0;
+                totalChunks += 1;
+            }
+        });
+        document.getElementById('debug-chunks').textContent = totalChunks;
+        document.getElementById('debug-trees-pine').textContent = totalTreesPine;
+        document.getElementById('debug-trees-decid').textContent = totalTreesDecid;
+        document.getElementById('debug-trees-palm').textContent = totalTreesPalm;
+        document.getElementById('debug-trees-dead').textContent = totalTreesDead;
+        document.getElementById('debug-trees-autumn').textContent = totalTreesAutumn;
+        document.getElementById('debug-trees-cherry').textContent = totalTreesCherry;
+        document.getElementById('debug-houses').textContent = totalHouses;
+        document.getElementById('debug-clouds').textContent = totalClouds;
+        document.getElementById('debug-rocks').textContent = totalRocks;
+        document.getElementById('debug-bushes').textContent = totalBushes;
+        document.getElementById('debug-snowmen').textContent = totalSnowmen;
+        document.getElementById('debug-cactus').textContent = totalCactus;
+        document.getElementById('debug-lighthouses').textContent = totalLighthouses;
+        document.getElementById('debug-castles').textContent = totalCastles;
+        document.getElementById('debug-windmills').textContent = totalWindmills;
+        document.getElementById('debug-campfires').textContent = totalCampfires;
+        document.getElementById('debug-boats').textContent = totalBoats;
+        document.getElementById('debug-lily-pads').textContent = totalLilyPads;
+        document.getElementById('debug-piers').textContent = totalPiers;
+        document.getElementById('debug-birds').textContent = totalBirds;
     }
 
     // Add subtle camera vibration at high speeds/steep dives
