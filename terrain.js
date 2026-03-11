@@ -754,9 +754,9 @@ function generateChunk(chunkX, chunkZ) {
 
                 const houseThreshold = (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
                 const barnThreshold = houseThreshold + 0.002 * densityScale;
-                const monasteryThreshold = barnThreshold + 0.0003 * densityScale;
-                const castleThreshold = monasteryThreshold + 0.0001 * densityScale;
-                const windmillThreshold = castleThreshold + 0.0004 * densityScale;
+                const monasteryThreshold = houseThreshold + 0.0023 * densityScale;
+                const castleThreshold = houseThreshold + 0.0024 * densityScale;
+                const windmillThreshold = houseThreshold + 0.0028 * densityScale;
 
                 const plainsRoll = rng();
                 if (plainsRoll < houseThreshold) {
