@@ -19,6 +19,7 @@ let smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
 let manualPitch = 0;
 let verticalVelocity = 0; // units/sec, negative = falling
 let keyPressStartTime = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
+let cameraMode = 'follow'; // 'follow' or 'top-down'
 
 function updateInputPosition(clientX, clientY) {
     const pos = ChillFlightLogic.computeInputPosition(clientX, clientY, window.innerWidth, window.innerHeight);
@@ -1021,25 +1022,44 @@ function animate() {
         _cameraOffset.y += (Math.random() - 0.5) * shakeIntensity;
     }
 
-    _idealCameraPos.copy(_cameraOffset).applyMatrix4(planeGroup.matrixWorld);
-    camera.position.lerp(_idealCameraPos, 0.1);
+    if (cameraMode === 'follow') {
+        _idealCameraPos.copy(_cameraOffset).applyMatrix4(planeGroup.matrixWorld);
+        camera.position.lerp(_idealCameraPos, 0.1);
 
-    _lookOffset.set(0, 0, -20);
-    _idealLookTarget.copy(_lookOffset).applyMatrix4(planeGroup.matrixWorld);
+        _lookOffset.set(0, 0, -20);
+        _idealLookTarget.copy(_lookOffset).applyMatrix4(planeGroup.matrixWorld);
 
-    camera.getWorldDirection(_currentLookTarget);
-    _currentLookTarget.add(camera.position);
-    _currentLookTarget.lerp(_idealLookTarget, 0.1);
+        camera.getWorldDirection(_currentLookTarget);
+        _currentLookTarget.add(camera.position);
+        _currentLookTarget.lerp(_idealLookTarget, 0.1);
 
-    if (isLooping) {
-        _idealUp.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
-        camera.up.lerp(_idealUp, 0.1).normalize();
+        if (isLooping) {
+            _idealUp.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
+            camera.up.lerp(_idealUp, 0.1).normalize();
+        } else {
+            _upVector.set(0, 1, 0);
+            camera.up.lerp(_upVector, 0.1).normalize();
+        }
+
+        camera.lookAt(_currentLookTarget);
     } else {
-        _upVector.set(0, 1, 0);
-        camera.up.lerp(_upVector, 0.1).normalize();
-    }
+        // Top-down mode
+        const topDownHeight = 2000;
+        _idealCameraPos.set(planeGroup.position.x, planeGroup.position.y + topDownHeight, planeGroup.position.z);
+        camera.position.lerp(_idealCameraPos, 0.1);
 
-    camera.lookAt(_currentLookTarget);
+        _idealLookTarget.copy(planeGroup.position);
+        _currentLookTarget.lerp(_idealLookTarget, 0.1);
+
+        _idealUp.set(0, 0, -1); // North is UP
+        camera.up.lerp(_idealUp, 0.1).normalize();
+
+        camera.lookAt(_currentLookTarget);
+        
+        // Disable FOV expansion etc. for top-down
+        camera.fov = THREE.MathUtils.lerp(camera.fov, 60, 0.05);
+        camera.updateProjectionMatrix();
+    }
 
     // Update terrain chunks
     updateChunks();
@@ -1539,6 +1559,13 @@ window.addEventListener('keydown', (e) => {
     if (isPaused) return;
 
     const key = e.key.toLowerCase();
+
+    // Camera mode toggle
+    if (key === 'c' && !e.metaKey && !e.ctrlKey) {
+        cameraMode = cameraMode === 'follow' ? 'top-down' : 'follow';
+        console.log("Camera mode switched to:", cameraMode);
+        return;
+    }
     
     // Autopilot toggle
     if (key === 'a' && e.shiftKey) {
