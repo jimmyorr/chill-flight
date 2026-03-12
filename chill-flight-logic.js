@@ -129,8 +129,57 @@
     // Requires a simplex noise object and a constants object { WATER_LEVEL, MOUNTAIN_LEVEL }.
     // The lerp argument defaults to a simple linear interpolation if not provided.
     function getElevation(x, z, simplex, constants, lerp) {
-        const { WATER_LEVEL } = constants;
+        const { WATER_LEVEL, MAP_WORLD_SIZE = 5000, MAP_HEIGHT_SCALE = 1000 } = constants;
         const _lerp = lerp || function (a, b, t) { return a + (b - a) * t; };
+
+        // --- CUSTOM MAP INGESTION ---
+        if (exports.customMap) {
+            const { data, width, height } = exports.customMap;
+            
+            // u, v should map from world coords (-MAP_WORLD_SIZE/2 to +MAP_WORLD_SIZE/2)
+            // to image coords (0 to 1)
+            const u = (x / MAP_WORLD_SIZE) + 0.5;
+            const v = (z / MAP_WORLD_SIZE) + 0.5;
+            
+            if (u < 0 || u > 1 || v < 0 || v > 1) {
+                return WATER_LEVEL;
+            }
+            
+            // For a 1024x1024 image, max index is 1023
+            const px = u * (width - 1);
+            const py = v * (height - 1);
+            
+            let x1 = Math.floor(px);
+            let x2 = Math.min(x1 + 1, width - 1);
+            let y1 = Math.floor(py);
+            let y2 = Math.min(y1 + 1, height - 1);
+            
+            // Saftey clamp if math precision errors push us slightly out of bounds
+            x1 = Math.max(0, Math.min(x1, width - 1));
+            x2 = Math.max(0, Math.min(x2, width - 1));
+            y1 = Math.max(0, Math.min(y1, height - 1));
+            y2 = Math.max(0, Math.min(y2, height - 1));
+            
+            const dx = px - x1;
+            const dy = py - y1;
+            
+            // Float32Array is row-major: index = (y * width) + x
+            const h11 = data[(y1 * width) + x1];
+            const h21 = data[(y1 * width) + x2];
+            const h12 = data[(y2 * width) + x1];
+            const h22 = data[(y2 * width) + x2];
+            
+            // Handle undefined cases gracefully if somehow OOB
+            if (h11 === undefined || h21 === undefined || h12 === undefined || h22 === undefined) {
+                 return WATER_LEVEL;
+            }
+            
+            const r1 = _lerp(h11, h21, dx);
+            const r2 = _lerp(h12, h22, dx);
+            
+            const normalizedHeight = _lerp(r1, r2, dy) / 255.0;
+            return WATER_LEVEL + (normalizedHeight * MAP_HEIGHT_SCALE);
+        }
 
         const biome = getBiome(x, z, simplex);
 
@@ -279,6 +328,7 @@
     }
 
     // --- EXPORTS ---
+    exports.customMap = null;
     exports.WORLD_SEED = WORLD_SEED;
     exports.mulberry32 = mulberry32;
     exports.chunkRng = chunkRng;
