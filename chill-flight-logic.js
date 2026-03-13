@@ -343,8 +343,17 @@
         return (simplex.noise2D(x * 0.0003, 0) * 800) + (simplex.noise2D(x * 0.001, 100) * 200);
     }
 
+    // --- ANGLE INTERPOLATION ---
+    function lerpAngle(a, b, t) {
+        let diff = (b - a) % (Math.PI * 2);
+        if (diff < -Math.PI) diff += Math.PI * 2;
+        if (diff > Math.PI) diff -= Math.PI * 2;
+        return a + diff * t;
+    }
+
     exports.getBiome = getBiome;
     exports.getElevation = getElevation;
     exports.getRiverCenterZ = getRiverCenterZ;
+    exports.lerpAngle = lerpAngle;
 
 }(typeof module !== 'undefined' ? module.exports : (window.ChillFlightLogic = {})));
