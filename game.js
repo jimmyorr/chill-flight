@@ -502,7 +502,7 @@ window.addEventListener('paletteChanged', (e) => {
     updateSkyBaseColors(e.detail);
     targetPaletteTop.setHex(e.detail.top);
     targetPaletteBottom.setHex(e.detail.bottom);
-    
+
     // Only update picker UI if NOT in custom mode to avoid fighting the user
     if (!isCustomPalette) {
         updateColorPickers(e.detail);
@@ -737,10 +737,10 @@ function animate() {
         targetFlightSpeed = 1.0;
 
         // 2. Altitude Control
-        const currentRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ 
+        const currentRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ
             ? window.ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, simplex)
             : 0;
-            
+
         const distToRiver = Math.abs(currentRiverZ - planeGroup.position.z);
         let targetAltY = 145.5; // 2500 altitude
         if (distToRiver > 1500) {
@@ -757,31 +757,31 @@ function animate() {
         // 3. Direction Control -> Follow the River West (-x)
         // We look ahead a bit to calculate the river's local angle
         const lookAheadX = planeGroup.position.x - 300; // Look West
-        const targetRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ 
+        const targetRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ
             ? window.ChillFlightLogic.getRiverCenterZ(lookAheadX, simplex)
             : 0;
-            
+
         // Calculate the vector pointing down the river (West is -x, so dx is negative)
         const dx = lookAheadX - planeGroup.position.x; // -300
         const dz = targetRiverZ - currentRiverZ;
-        
+
         // In this coordinate system, looking down -Z is rotation.y = 0.
         // Looking down -X (West) is rotation.y = Math.PI / 2.
         // Math.atan2(x, z) gives the angle from the Z axis.
         const riverAngle = Math.atan2(-dx, -dz);
-        
+
         // Offset to steer back towards the center of the river. 
         // If we are to the "right" (positive Z) of the river while facing West, we need to steer "left" (negative Z direction).
         const zError = currentRiverZ - planeGroup.position.z;
         // In the local frame, a positive yaw pushes us right (positive Z when flying -X).
         const correctionAngle = THREE.MathUtils.clamp(zError * 0.003, -Math.PI / 4, Math.PI / 4);
-        
+
         const targetYaw = riverAngle + correctionAngle;
-        
+
         let yawError = targetYaw - planeGroup.rotation.y;
         while (yawError > Math.PI) yawError -= Math.PI * 2;
         while (yawError < -Math.PI) yawError += Math.PI * 2;
-        
+
         // Bank (roll) the plane to turn
         const maxAutoRoll = Math.PI / 4;
         targetRoll = THREE.MathUtils.clamp(yawError * 1.5, -maxAutoRoll, maxAutoRoll);
@@ -1077,13 +1077,13 @@ function animate() {
     // --- CAMERA UPDATES ---
     const transitionDuration = 1.25; // Seconds for full swoop
     const isBirdEye = cameraMode === 'birds-eye-close' || cameraMode === 'birds-eye-far';
-    
+
     if (isBirdEye) {
         cameraTransitionProgress = Math.min(1, cameraTransitionProgress + delta / transitionDuration);
     } else {
         cameraTransitionProgress = Math.max(0, cameraTransitionProgress - delta / transitionDuration);
     }
- 
+
     // Smoothly transition between different bird's eye heights
     const targetBirdEyeHeight = cameraMode === 'birds-eye-close' ? 500 : 2000;
     currentBirdEyeHeight = THREE.MathUtils.lerp(currentBirdEyeHeight, targetBirdEyeHeight, 0.05);
@@ -1094,10 +1094,10 @@ function animate() {
 
     // 1. Calculate Follow State
     _idealCameraPos_Follow.copy(_cameraOffset).applyMatrix4(planeGroup.matrixWorld);
-    
+
     _lookOffset.set(0, 0, -20);
     _idealLookTarget_Follow.copy(_lookOffset).applyMatrix4(planeGroup.matrixWorld);
-    
+
     if (isLooping) {
         _up_Follow.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
     } else {
@@ -1113,7 +1113,7 @@ function animate() {
     const cinematicConfig = CINEMATIC_CONFIGS[currentCinematicIndex];
     if (cameraMode === 'cinematic') {
         cinematicTimer += delta;
-        if (cinematicTimer > 6) { // Switch every 6 seconds
+        if (cinematicTimer > 10) { // Switch every 6 seconds
             cinematicTimer = 0;
             currentCinematicIndex = (currentCinematicIndex + 1) % CINEMATIC_CONFIGS.length;
         }
@@ -1121,7 +1121,7 @@ function animate() {
         // Smoothen the switches between cinematic offsets
         _cinematicOffsetCurrent.lerp(cinematicConfig.offset, 0.02);
         _cinematicLookTargetCurrent.lerp(cinematicConfig.lookOffset, 0.02);
-        
+
         // Stabilize heading for steering
         _cinematicStableHeading = ChillFlightLogic.lerpAngle(_cinematicStableHeading, planeGroup.rotation.y, 0.05);
         _cinematicStableQuat.setFromAxisAngle(_yAxis, _cinematicStableHeading);
@@ -1131,7 +1131,7 @@ function animate() {
         // Keep heading in sync while not in cinematic mode for smooth entry
         _cinematicStableHeading = planeGroup.rotation.y;
     }
-    
+
     _idealCameraPos_Cinematic.copy(_cinematicOffsetCurrent).applyMatrix4(_cinematicStableMatrix);
     _idealLookTarget_Cinematic.copy(_cinematicLookTargetCurrent).applyMatrix4(_cinematicStableMatrix);
 
@@ -1147,7 +1147,7 @@ function animate() {
     } else {
         targetBlendedFov = THREE.MathUtils.lerp(followFov, topDownFov, easedT);
     }
-    
+
     camera.fov = THREE.MathUtils.lerp(camera.fov, targetBlendedFov, 0.1);
     camera.updateProjectionMatrix();
 
@@ -1688,20 +1688,20 @@ window.addEventListener('keydown', (e) => {
         console.log("Camera mode switched to:", cameraMode);
         return;
     }
-    
+
     // Autopilot toggle
     if (key === 'a' && e.shiftKey) {
         e.preventDefault();
         window.autopilotEnabled = !window.autopilotEnabled;
         const msg = window.autopilotEnabled ? "AUTOPILOT ENABLED" : "AUTOPILOT DISABLED";
         console.log(msg);
-        
+
         // Show persistent UI indicator
         const autoIndicator = document.getElementById('autopilot-indicator');
         if (autoIndicator) {
             autoIndicator.style.display = window.autopilotEnabled ? 'block' : 'none';
         }
-        
+
         // Show a brief on-screen message if possible, reuse the center-message element
         const centerMsg = document.getElementById('debug-fps') || document.querySelector('.title');
         if (centerMsg) {
