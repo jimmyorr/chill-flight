@@ -20,6 +20,7 @@ let manualPitch = 0;
 let verticalVelocity = 0; // units/sec, negative = falling
 let keyPressStartTime = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
 let cameraMode = 'follow'; // 'follow' or 'top-down'
+let cameraTransitionProgress = 0; // 0 = follow, 1 = top-down
 
 function updateInputPosition(clientX, clientY) {
     const pos = ChillFlightLogic.computeInputPosition(clientX, clientY, window.innerWidth, window.innerHeight);
@@ -430,6 +431,12 @@ const _upVector = new THREE.Vector3(0, 1, 0);
 const _chunkDummy = new THREE.Object3D();
 const _yAxis = new THREE.Vector3(0, 1, 0);
 const _hubOffset = new THREE.Vector3(0, 0, 8.5);
+const _idealCameraPos_Follow = new THREE.Vector3();
+const _idealCameraPos_TopDown = new THREE.Vector3();
+const _idealLookTarget_Follow = new THREE.Vector3();
+const _idealLookTarget_TopDown = new THREE.Vector3();
+const _up_Follow = new THREE.Vector3();
+const _up_TopDown = new THREE.Vector3();
 
 // Optimization: Pre-allocate colors for sky gradients
 const _uncloudedSkyColor = new THREE.Color();
@@ -1046,44 +1053,55 @@ function animate() {
         _cameraOffset.y += (Math.random() - 0.5) * shakeIntensity;
     }
 
-    if (cameraMode === 'follow') {
-        _idealCameraPos.copy(_cameraOffset).applyMatrix4(planeGroup.matrixWorld);
-        camera.position.lerp(_idealCameraPos, 0.1);
-
-        _lookOffset.set(0, 0, -20);
-        _idealLookTarget.copy(_lookOffset).applyMatrix4(planeGroup.matrixWorld);
-
-        camera.getWorldDirection(_currentLookTarget);
-        _currentLookTarget.add(camera.position);
-        _currentLookTarget.lerp(_idealLookTarget, 0.1);
-
-        if (isLooping) {
-            _idealUp.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
-            camera.up.lerp(_idealUp, 0.1).normalize();
-        } else {
-            _upVector.set(0, 1, 0);
-            camera.up.lerp(_upVector, 0.1).normalize();
-        }
-
-        camera.lookAt(_currentLookTarget);
+    // --- CAMERA UPDATES ---
+    const transitionDuration = 1.25; // Seconds for full swoop
+    if (cameraMode === 'top-down') {
+        cameraTransitionProgress = Math.min(1, cameraTransitionProgress + delta / transitionDuration);
     } else {
-        // Top-down mode
-        const topDownHeight = 2000;
-        _idealCameraPos.set(planeGroup.position.x, planeGroup.position.y + topDownHeight, planeGroup.position.z);
-        camera.position.lerp(_idealCameraPos, 0.1);
-
-        _idealLookTarget.copy(planeGroup.position);
-        _currentLookTarget.lerp(_idealLookTarget, 0.1);
-
-        _idealUp.set(0, 0, -1); // North is UP
-        camera.up.lerp(_idealUp, 0.1).normalize();
-
-        camera.lookAt(_currentLookTarget);
-        
-        // Disable FOV expansion etc. for top-down
-        camera.fov = THREE.MathUtils.lerp(camera.fov, 60, 0.05);
-        camera.updateProjectionMatrix();
+        cameraTransitionProgress = Math.max(0, cameraTransitionProgress - delta / transitionDuration);
     }
+
+    // Cubic ease-in for the "swoop up" drama: t^3
+    // This makes it start slow and accelerate significantly towards the top-down view.
+    const easedT = cameraTransitionProgress * cameraTransitionProgress * cameraTransitionProgress;
+
+    // 1. Calculate Follow State
+    _idealCameraPos_Follow.copy(_cameraOffset).applyMatrix4(planeGroup.matrixWorld);
+    
+    _lookOffset.set(0, 0, -20);
+    _idealLookTarget_Follow.copy(_lookOffset).applyMatrix4(planeGroup.matrixWorld);
+    
+    if (isLooping) {
+        _up_Follow.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
+    } else {
+        _up_Follow.set(0, 1, 0);
+    }
+
+    // 2. Calculate Top-Down State
+    const topDownHeight = 2000;
+    _idealCameraPos_TopDown.set(planeGroup.position.x, planeGroup.position.y + topDownHeight, planeGroup.position.z);
+    _idealLookTarget_TopDown.copy(planeGroup.position);
+    _up_TopDown.set(0, 0, -1); // North is UP
+
+    // 3. Blend FOV
+    // Follow mode has dynamic FOV, Top-down is fixed at 60
+    const followFov = targetFov; // already calculated earlier
+    const topDownFov = 60;
+    const targetBlendedFov = THREE.MathUtils.lerp(followFov, topDownFov, easedT);
+    camera.fov = THREE.MathUtils.lerp(camera.fov, targetBlendedFov, 0.1);
+    camera.updateProjectionMatrix();
+
+    // 4. Blend Positions & Targets
+    _idealCameraPos.lerpVectors(_idealCameraPos_Follow, _idealCameraPos_TopDown, easedT);
+    _idealLookTarget.lerpVectors(_idealLookTarget_Follow, _idealLookTarget_TopDown, easedT);
+    _idealUp.lerpVectors(_up_Follow, _up_TopDown, easedT);
+
+    // Apply smooth tracking to the results
+    camera.position.lerp(_idealCameraPos, 0.15);
+    _currentLookTarget.lerp(_idealLookTarget, 0.15);
+    camera.up.lerp(_idealUp, 0.1).normalize();
+
+    camera.lookAt(_currentLookTarget);
 
     // Update terrain chunks
     updateChunks();
