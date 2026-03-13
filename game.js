@@ -19,8 +19,9 @@ let smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
 let manualPitch = 0;
 let verticalVelocity = 0; // units/sec, negative = falling
 let keyPressStartTime = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
-let cameraMode = 'follow'; // 'follow' or 'top-down'
-let cameraTransitionProgress = 0; // 0 = follow, 1 = top-down
+let cameraMode = 'follow'; // 'follow', 'birds-eye-close', or 'birds-eye-far'
+let cameraTransitionProgress = 0; // 0 = follow, 1 = bird's eye (either close or far)
+let currentBirdEyeHeight = 2000; // Tracks the height during bird's eye modes
 
 function updateInputPosition(clientX, clientY) {
     const pos = ChillFlightLogic.computeInputPosition(clientX, clientY, window.innerWidth, window.innerHeight);
@@ -1055,11 +1056,17 @@ function animate() {
 
     // --- CAMERA UPDATES ---
     const transitionDuration = 1.25; // Seconds for full swoop
-    if (cameraMode === 'top-down') {
+    const isBirdEye = cameraMode === 'birds-eye-close' || cameraMode === 'birds-eye-far';
+    
+    if (isBirdEye) {
         cameraTransitionProgress = Math.min(1, cameraTransitionProgress + delta / transitionDuration);
     } else {
         cameraTransitionProgress = Math.max(0, cameraTransitionProgress - delta / transitionDuration);
     }
+
+    // Smoothly transition between different bird's eye heights
+    const targetBirdEyeHeight = cameraMode === 'birds-eye-close' ? 500 : 2000;
+    currentBirdEyeHeight = THREE.MathUtils.lerp(currentBirdEyeHeight, targetBirdEyeHeight, 0.05);
 
     // Cubic ease-in for the "swoop up" drama: t^3
     // This makes it start slow and accelerate significantly towards the top-down view.
@@ -1078,8 +1085,7 @@ function animate() {
     }
 
     // 2. Calculate Top-Down State
-    const topDownHeight = 2000;
-    _idealCameraPos_TopDown.set(planeGroup.position.x, planeGroup.position.y + topDownHeight, planeGroup.position.z);
+    _idealCameraPos_TopDown.set(planeGroup.position.x, planeGroup.position.y + currentBirdEyeHeight, planeGroup.position.z);
     _idealLookTarget_TopDown.copy(planeGroup.position);
     _up_TopDown.set(0, 0, -1); // North is UP
 
@@ -1608,7 +1614,13 @@ window.addEventListener('keydown', (e) => {
 
     // Camera mode toggle
     if (key === 'c' && !e.metaKey && !e.ctrlKey) {
-        cameraMode = cameraMode === 'follow' ? 'top-down' : 'follow';
+        if (cameraMode === 'follow') {
+            cameraMode = 'birds-eye-close';
+        } else if (cameraMode === 'birds-eye-close') {
+            cameraMode = 'birds-eye-far';
+        } else {
+            cameraMode = 'follow';
+        }
         console.log("Camera mode switched to:", cameraMode);
         return;
     }
