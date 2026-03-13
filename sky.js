@@ -82,8 +82,32 @@ const urlParams = new URLSearchParams(window.location.search);
 const paletteParam = urlParams.get('palette');
 let selectedPalette;
 let currentPaletteCycle = -1;
+let isCustomPalette = false;
+
+function applyCustomSkyColors(top, bottom) {
+    isCustomPalette = true;
+    
+    // Convert hex string (from picker) or number to hex if needed
+    const topHex = typeof top === 'string' ? parseInt(top.replace('#', ''), 16) : top;
+    const bottomHex = typeof bottom === 'string' ? parseInt(bottom.replace('#', ''), 16) : bottom;
+
+    selectedPalette = { 
+        name: "Custom", 
+        top: topHex, 
+        bottom: bottomHex 
+    };
+
+    if (typeof skyUniforms !== 'undefined') {
+        skyUniforms.topColor.value.setHex(selectedPalette.top);
+        skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
+    }
+
+    window.dispatchEvent(new CustomEvent('paletteChanged', { detail: selectedPalette }));
+}
 
 function updateSkyPalette(serverNow) {
+    if (isCustomPalette) return;
+
     const CYCLE_DURATION_MS = 300000;
     const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
 
