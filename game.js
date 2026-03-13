@@ -19,9 +19,29 @@ let smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
 let manualPitch = 0;
 let verticalVelocity = 0; // units/sec, negative = falling
 let keyPressStartTime = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
-let cameraMode = 'follow'; // 'follow', 'birds-eye-close', or 'birds-eye-far'
-let cameraTransitionProgress = 0; // 0 = follow, 1 = bird's eye (either close or far)
-let currentBirdEyeHeight = 2000; // Tracks the height during bird's eye modes
+let cameraMode = 'follow'; // 'follow', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
+let cameraTransitionProgress = 0; // 0 = follow/cinematic, 1 = bird's eye
+let currentBirdEyeHeight = 2000;
+let cinematicTimer = 0;
+let currentCinematicIndex = 0;
+let _cinematicStableHeading = 0;
+
+const CINEMATIC_CONFIGS = [
+    { offset: new THREE.Vector3(40, 10, 40), lookOffset: new THREE.Vector3(0, 5, -10), fov: 65 }, // Side-on follow
+    { offset: new THREE.Vector3(0, -15, -60), lookOffset: new THREE.Vector3(0, 0, 5), fov: 80 },  // From below-front (low angle)
+    { offset: new THREE.Vector3(-50, 20, 30), lookOffset: new THREE.Vector3(0, 0, -20), fov: 60 }, // Front-quarter
+    { offset: new THREE.Vector3(0, 80, 20), lookOffset: new THREE.Vector3(0, 0, -30), fov: 75 },   // High-angle vertical
+    { offset: new THREE.Vector3(80, 5, -20), lookOffset: new THREE.Vector3(0, 0, 10), fov: 50 },  // Wing-tip view
+];
+
+const _idealCameraPos_Cinematic = new THREE.Vector3();
+const _idealLookTarget_Cinematic = new THREE.Vector3();
+const _up_Cinematic = new THREE.Vector3(0, 1, 0);
+
+const _cinematicOffsetCurrent = new THREE.Vector3().copy(CINEMATIC_CONFIGS[0].offset);
+const _cinematicLookTargetCurrent = new THREE.Vector3().copy(CINEMATIC_CONFIGS[0].lookOffset);
+const _cinematicStableMatrix = new THREE.Matrix4();
+const _cinematicStableQuat = new THREE.Quaternion();
 
 function updateInputPosition(clientX, clientY) {
     const pos = ChillFlightLogic.computeInputPosition(clientX, clientY, window.innerWidth, window.innerHeight);
@@ -1063,7 +1083,7 @@ function animate() {
     } else {
         cameraTransitionProgress = Math.max(0, cameraTransitionProgress - delta / transitionDuration);
     }
-
+ 
     // Smoothly transition between different bird's eye heights
     const targetBirdEyeHeight = cameraMode === 'birds-eye-close' ? 500 : 2000;
     currentBirdEyeHeight = THREE.MathUtils.lerp(currentBirdEyeHeight, targetBirdEyeHeight, 0.05);
@@ -1089,18 +1109,58 @@ function animate() {
     _idealLookTarget_TopDown.copy(planeGroup.position);
     _up_TopDown.set(0, 0, -1); // North is UP
 
-    // 3. Blend FOV
-    // Follow mode has dynamic FOV, Top-down is fixed at 60
-    const followFov = targetFov; // already calculated earlier
+    // 3. Calculate Cinematic State
+    const cinematicConfig = CINEMATIC_CONFIGS[currentCinematicIndex];
+    if (cameraMode === 'cinematic') {
+        cinematicTimer += delta;
+        if (cinematicTimer > 6) { // Switch every 6 seconds
+            cinematicTimer = 0;
+            currentCinematicIndex = (currentCinematicIndex + 1) % CINEMATIC_CONFIGS.length;
+        }
+
+        // Smoothen the switches between cinematic offsets
+        _cinematicOffsetCurrent.lerp(cinematicConfig.offset, 0.02);
+        _cinematicLookTargetCurrent.lerp(cinematicConfig.lookOffset, 0.02);
+        
+        // Stabilize heading for steering
+        _cinematicStableHeading = ChillFlightLogic.lerpAngle(_cinematicStableHeading, planeGroup.rotation.y, 0.05);
+        _cinematicStableQuat.setFromAxisAngle(_yAxis, _cinematicStableHeading);
+        _cinematicStableMatrix.makeRotationFromQuaternion(_cinematicStableQuat);
+        _cinematicStableMatrix.setPosition(planeGroup.position);
+    } else {
+        // Keep heading in sync while not in cinematic mode for smooth entry
+        _cinematicStableHeading = planeGroup.rotation.y;
+    }
+    
+    _idealCameraPos_Cinematic.copy(_cinematicOffsetCurrent).applyMatrix4(_cinematicStableMatrix);
+    _idealLookTarget_Cinematic.copy(_cinematicLookTargetCurrent).applyMatrix4(_cinematicStableMatrix);
+
+    // 4. Blend FOV
+    // Follow mode has dynamic FOV, Top-down is fixed at 60, Cinematic is per-config
+    const followFov = targetFov;
     const topDownFov = 60;
-    const targetBlendedFov = THREE.MathUtils.lerp(followFov, topDownFov, easedT);
+    const cinematicFov = cinematicConfig.fov;
+
+    let targetBlendedFov;
+    if (cameraMode === 'cinematic') {
+        targetBlendedFov = THREE.MathUtils.lerp(followFov, cinematicFov, 1.0); // Simple snap for FOV in cinematic
+    } else {
+        targetBlendedFov = THREE.MathUtils.lerp(followFov, topDownFov, easedT);
+    }
+    
     camera.fov = THREE.MathUtils.lerp(camera.fov, targetBlendedFov, 0.1);
     camera.updateProjectionMatrix();
 
-    // 4. Blend Positions & Targets
-    _idealCameraPos.lerpVectors(_idealCameraPos_Follow, _idealCameraPos_TopDown, easedT);
-    _idealLookTarget.lerpVectors(_idealLookTarget_Follow, _idealLookTarget_TopDown, easedT);
-    _idealUp.lerpVectors(_up_Follow, _up_TopDown, easedT);
+    // 5. Blend Positions & Targets
+    if (cameraMode === 'cinematic') {
+        _idealCameraPos.copy(_idealCameraPos_Cinematic);
+        _idealLookTarget.copy(_idealLookTarget_Cinematic);
+        _idealUp.set(0, 1, 0); // Always world-up for cinematic
+    } else {
+        _idealCameraPos.lerpVectors(_idealCameraPos_Follow, _idealCameraPos_TopDown, easedT);
+        _idealLookTarget.lerpVectors(_idealLookTarget_Follow, _idealLookTarget_TopDown, easedT);
+        _idealUp.lerpVectors(_up_Follow, _up_TopDown, easedT);
+    }
 
     // Apply smooth tracking to the results
     camera.position.lerp(_idealCameraPos, 0.15);
@@ -1618,6 +1678,10 @@ window.addEventListener('keydown', (e) => {
             cameraMode = 'birds-eye-close';
         } else if (cameraMode === 'birds-eye-close') {
             cameraMode = 'birds-eye-far';
+        } else if (cameraMode === 'birds-eye-far') {
+            cameraMode = 'cinematic';
+            cinematicTimer = 0;
+            currentCinematicIndex = 0;
         } else {
             cameraMode = 'follow';
         }
