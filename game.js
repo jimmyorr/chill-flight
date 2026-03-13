@@ -451,10 +451,34 @@ updateSkyBaseColors(selectedPalette);
 let targetPaletteTop = new THREE.Color(selectedPalette.top);
 let targetPaletteBottom = new THREE.Color(selectedPalette.bottom);
 
+const zenithPicker = document.getElementById('sky-zenith-picker');
+const horizonPicker = document.getElementById('sky-horizon-picker');
+
+function updateColorPickers(palette) {
+    if (zenithPicker) zenithPicker.value = '#' + palette.top.toString(16).padStart(6, '0');
+    if (horizonPicker) horizonPicker.value = '#' + palette.bottom.toString(16).padStart(6, '0');
+}
+
+// Initial sync
+updateColorPickers(selectedPalette);
+
+if (zenithPicker && horizonPicker) {
+    const handlePickerChange = () => {
+        applyCustomSkyColors(zenithPicker.value, horizonPicker.value);
+    };
+    zenithPicker.addEventListener('input', handlePickerChange);
+    horizonPicker.addEventListener('input', handlePickerChange);
+}
+
 window.addEventListener('paletteChanged', (e) => {
     updateSkyBaseColors(e.detail);
     targetPaletteTop.setHex(e.detail.top);
     targetPaletteBottom.setHex(e.detail.bottom);
+    
+    // Only update picker UI if NOT in custom mode to avoid fighting the user
+    if (!isCustomPalette) {
+        updateColorPickers(e.detail);
+    }
 });
 
 const _twilightSky = new THREE.Color(0x2c3e50);
@@ -1262,7 +1286,7 @@ function animate() {
     skyGroup.position.copy(camera.position);
 
     // Smoothly interpolate sky shader palettes
-    if (typeof skyUniforms !== 'undefined') {
+    if (typeof skyUniforms !== 'undefined' && !isCustomPalette) {
         skyUniforms.topColor.value.lerp(targetPaletteTop, delta * 0.1);
         skyUniforms.bottomColor.value.lerp(targetPaletteBottom, delta * 0.1);
     }
@@ -1360,29 +1384,33 @@ function animate() {
 
     // Update Sky Shader Colors
     // The top color follows the final computed sky color.
-    skyUniforms.topColor.value.copy(_finalSkyColor);
+    if (!isCustomPalette) {
+        skyUniforms.topColor.value.copy(_finalSkyColor);
+    }
 
     // Update sun direction for directional gradient
     _tempVec.set(sunX, sunY, sunZ).normalize();
     skyUniforms.sunDirection.value.copy(_tempVec);
 
     // The bottom color is adjusted for sunset/sunrise to create a gradient.
-    if (dayFactor > 0.0) {
-        let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
-        dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
+    if (!isCustomPalette) {
+        if (dayFactor > 0.0) {
+            let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
+            dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
 
-        let bottomCol = _finalSkyColor.clone();
-        if (dawnDuskFactor > 0.1) {
-            // During dawn/dusk, make the horizon (bottom) follow the palette
-            const warmHorizon = new THREE.Color(selectedPalette.bottom);
-            bottomCol.lerp(warmHorizon, dawnDuskFactor * 0.8);
+            let bottomCol = _finalSkyColor.clone();
+            if (dawnDuskFactor > 0.1) {
+                // During dawn/dusk, make the horizon (bottom) follow the palette
+                const warmHorizon = new THREE.Color(selectedPalette.bottom);
+                bottomCol.lerp(warmHorizon, dawnDuskFactor * 0.8);
+            }
+
+            skyUniforms.bottomColor.value.copy(bottomCol);
+        } else {
+            // At night, preserve a slight vertical depth to the sky
+            let bottomCol = _finalSkyColor.clone().multiplyScalar(0.8);
+            skyUniforms.bottomColor.value.copy(bottomCol);
         }
-
-        skyUniforms.bottomColor.value.copy(bottomCol);
-    } else {
-        // At night, preserve a slight vertical depth to the sky
-        let bottomCol = _finalSkyColor.clone().multiplyScalar(0.8);
-        skyUniforms.bottomColor.value.copy(bottomCol);
     }
 
     renderer.render(scene, camera);
