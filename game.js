@@ -113,7 +113,7 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 
     const ytContainer = document.getElementById('yt-container');
-    if (currentStation === 2 || currentStation === 3) {
+    if (currentStation === 1) {
         ytContainer.style.display = window.innerWidth <= 1024 ? 'none' : 'block';
     }
 });
@@ -165,19 +165,14 @@ function togglePause() {
         if (radioPanel) radioPanel.classList.remove('pulse-radio');
 
         if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
-        if (ytPlayerReady && currentStation === 5) ytPlayer.pauseVideo();
+        if (ytPlayerReady && currentStation === 1) ytPlayer.pauseVideo();
     } else {
         pauseOverlay.style.display = 'none';
         clock.getDelta(); // clear accumulated time so plane doesn't skip
         clearInputState();  // wipe any input that bled through from the pause overlay
         justResumed = true; // suppress the first animate frame's input application
 
-        const isProcedural = (currentStation >= 1 && currentStation <= 4);
-        if (isProcedural && audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume();
-            nextNoteTime = audioCtx.currentTime + 0.1;
-        }
-        if (ytPlayerReady && currentStation === 5) ytPlayer.playVideo();
+        if (ytPlayerReady && currentStation === 1) ytPlayer.playVideo();
     }
 }
 
@@ -195,7 +190,6 @@ function getMenuGrid() {
     return [
         [document.getElementById('player-name-input')],
         Array.from(document.querySelectorAll('.color-swatch')),
-        Array.from(document.querySelectorAll('.station-btn')),
         [document.getElementById('quality-select')],
         [document.getElementById('distance-select')],
         [document.getElementById('invert-y-input')],
@@ -1677,14 +1671,10 @@ if (radToggle) {
     radToggle.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const procList = [1, 2, 3, 4];
-        let idx = procList.indexOf(currentStation);
-        if (idx !== -1) {
-            setStation(5); // PROC -> LG
-        } else if (currentStation === 5) {
-            setStation(0); // LG -> OFF
+        if (currentStation === 0) {
+            setStation(1);
         } else {
-            setStation(1); // OFF -> PROC
+            setStation(0);
         }
     });
 }
@@ -1932,18 +1922,10 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (document.activeElement && document.activeElement.tagName !== 'INPUT' && !e.metaKey && !e.ctrlKey) {
-        if (e.key === '1') {
-            const procList = [1, 2, 3, 4];
-            let idx = procList.indexOf(currentStation);
-            if (idx !== -1) {
-                setStation(procList[(idx + 1) % procList.length]);
-            } else {
-                setStation(1);
-            }
+        if (e.key === '1' || e.key === '2' || e.key === '5') {
+            setStation(1);
         } else if (e.key === '0') {
             setStation(0);
-        } else if (e.key === '2' || e.key === '5') {
-            setStation(5);
         }
     }
 });
@@ -1988,23 +1970,6 @@ window.addEventListener('focus', () => {
     windowJustFocused = true;
 });
 
-// Radio button wiring
-document.querySelectorAll('.station-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        const s = e.target.getAttribute('data-station');
-        if (s === 'procedural') {
-            const procList = [1, 2, 3, 4];
-            let idx = procList.indexOf(currentStation);
-            if (idx !== -1) {
-                setStation(procList[(idx + 1) % procList.length]);
-            } else {
-                setStation(1);
-            }
-        } else {
-            setStation(parseInt(s));
-        }
-    });
-});
 
 // Debug menu speed buttons
 document.querySelectorAll('.speed-btn').forEach(btn => {
