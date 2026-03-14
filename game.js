@@ -1618,6 +1618,33 @@ const pauseTrigger = document.getElementById('mobile-pause-trigger');
 const camToggle = document.getElementById('mobile-cam-toggle');
 const radToggle = document.getElementById('mobile-rad-toggle');
 const hdgtSub = document.getElementById('mobile-hdgt-sub');
+const autoToggle = document.getElementById('mobile-auto-toggle');
+
+function toggleAutopilot() {
+    window.autopilotEnabled = !window.autopilotEnabled;
+    const msg = window.autopilotEnabled ? "AUTOPILOT ENABLED" : "AUTOPILOT DISABLED";
+    console.log(msg);
+
+    const autoIndicator = document.getElementById('autopilot-indicator');
+    if (autoIndicator) {
+        autoIndicator.style.display = window.autopilotEnabled ? 'block' : 'none';
+    }
+
+    const mAutoBtn = document.getElementById('mobile-auto-toggle');
+    if (mAutoBtn) {
+        if (window.autopilotEnabled) mAutoBtn.classList.add('active');
+        else mAutoBtn.classList.remove('active');
+    }
+
+    const centerMsg = document.getElementById('debug-fps') || document.querySelector('.title');
+    if (centerMsg) {
+        const oldText = centerMsg.textContent;
+        centerMsg.textContent = msg;
+        setTimeout(() => {
+            if (centerMsg.textContent === msg) centerMsg.textContent = oldText;
+        }, 2000);
+    }
+}
 
 if (menuTrigger && menuContainer) {
     menuTrigger.addEventListener('click', (e) => {
@@ -1681,6 +1708,14 @@ if (hdgtSub) {
             headlightGlow.intensity = 0;
             hdgtSub.classList.remove('active');
         }
+    });
+}
+
+if (autoToggle) {
+    autoToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleAutopilot();
     });
 }
 
