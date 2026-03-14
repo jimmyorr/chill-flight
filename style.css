@@ -179,7 +179,7 @@ input[type=number].customization-input {
 
 #cockpit-ui {
     position: absolute;
-    bottom: 20px;
+    top: 20px;
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.6);
@@ -301,7 +301,7 @@ input[type=number].customization-input {
 
 #debug-menu {
     position: absolute;
-    top: 70px;
+    top: 100px;
     left: 30px;
     background: rgba(0, 0, 0, 0.7);
     color: #fff;
@@ -350,7 +350,7 @@ input[type=number].customization-input {
     transform: translateX(-50%);
     width: 90%;
     max-width: 500px;
-    display: none;
+    display: flex;
     gap: 10px;
     z-index: 60;
 }
@@ -394,7 +394,7 @@ input[type=number].customization-input {
 
 #online-players {
     position: absolute;
-    top: 30px;
+    top: 100px;
     right: 30px;
     background: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(8px);
@@ -557,10 +557,6 @@ input[type=number].customization-input {
         display: none !important;
     }
 
-    #mobile-controls {
-        display: flex;
-    }
-
     #yt-container {
         display: none !important;
     }
@@ -568,6 +564,8 @@ input[type=number].customization-input {
     #cockpit-ui {
         top: 0px;
         bottom: auto;
+        left: 0;
+        transform: none;
         width: 100%;
         border-radius: 0;
         border-top: none;
