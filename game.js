@@ -1610,7 +1610,91 @@ const lastKeyUpTime = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
 // Mobile controls
 const btnUp = document.getElementById('mobile-spd-up');
 const btnDown = document.getElementById('mobile-spd-down');
-const btnHdgt = document.getElementById('mobile-hdgt');
+
+/* --- MOBILE ACTION MENU --- */
+const menuContainer = document.getElementById('mobile-action-menu');
+const menuTrigger = document.getElementById('mobile-menu-trigger');
+const pauseTrigger = document.getElementById('mobile-pause-trigger');
+const camToggle = document.getElementById('mobile-cam-toggle');
+const radToggle = document.getElementById('mobile-rad-toggle');
+const hdgtSub = document.getElementById('mobile-hdgt-sub');
+
+if (menuTrigger && menuContainer) {
+    menuTrigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        menuContainer.classList.toggle('expanded');
+    });
+}
+
+if (pauseTrigger) {
+    pauseTrigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePause();
+        menuContainer.classList.remove('expanded');
+    });
+}
+
+if (camToggle) {
+    camToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (cameraMode === 'follow') {
+            cameraMode = 'birds-eye-close';
+        } else if (cameraMode === 'birds-eye-close') {
+            cameraMode = 'birds-eye-far';
+        } else if (cameraMode === 'birds-eye-far') {
+            cameraMode = 'cinematic';
+        } else {
+            cameraMode = 'follow';
+        }
+    });
+}
+
+if (radToggle) {
+    radToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const procList = [1, 2, 3, 4];
+        let idx = procList.indexOf(currentStation);
+        if (idx !== -1) {
+            setStation(5); // PROC -> LG
+        } else if (currentStation === 5) {
+            setStation(0); // LG -> OFF
+        } else {
+            setStation(1); // OFF -> PROC
+        }
+    });
+}
+
+if (hdgtSub) {
+    hdgtSub.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (headlight.intensity === 0) {
+            headlight.intensity = 2;
+            headlightGlow.intensity = 0.1;
+            hdgtSub.classList.add('active');
+        } else {
+            headlight.intensity = 0;
+            headlightGlow.intensity = 0;
+            hdgtSub.classList.remove('active');
+        }
+    });
+}
+
+// --- INPUT SAFETY GUARD ---
+function resetSteering() {
+    mouseX = 0;
+    mouseY = 0;
+    mouseControlActive = false;
+}
+
+document.querySelectorAll('.mobile-btn, .sub-btn').forEach(btn => {
+    btn.addEventListener('mouseenter', resetSteering);
+    btn.addEventListener('touchstart', resetSteering, { passive: true });
+});
 
 if (btnUp) {
     const down = (e) => {
@@ -1668,26 +1752,6 @@ if (btnDown) {
     btnDown.addEventListener('pointercancel', up);
     btnDown.addEventListener('pointerleave', up);
     btnDown.addEventListener('contextmenu', (e) => e.preventDefault());
-}
-if (btnHdgt) {
-    const toggleHdgt = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        mouseControlActive = false; // Explicitly stop steering
-        mouseX = 0;
-        mouseY = 0;
-        if (headlight.intensity === 0) {
-            headlight.intensity = 2;
-            headlightGlow.intensity = 0.1;
-            btnHdgt.classList.add('active');
-        } else {
-            headlight.intensity = 0;
-            headlightGlow.intensity = 0;
-            btnHdgt.classList.remove('active');
-        }
-    };
-    btnHdgt.addEventListener('touchstart', toggleHdgt);
-    btnHdgt.addEventListener('mousedown', toggleHdgt);
 }
 
 window.addEventListener('keydown', (e) => {
