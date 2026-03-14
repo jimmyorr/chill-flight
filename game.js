@@ -64,13 +64,16 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('touchstart', (e) => {
     if (e.touches.length > 0) {
-        const isPauseOverlay = e.target.closest('#pause-overlay');
-        const isUI = isPauseOverlay || e.target.closest('#cockpit-ui') || e.target.closest('#debug-menu') || e.target.closest('.title') || e.target.closest('#mobile-controls') || e.target.closest('#player-list');
+        const target = e.target;
+        const isPauseOverlay = target.closest('#pause-overlay');
+        const isUI = isPauseOverlay || target.closest('#cockpit-ui') || target.closest('#debug-menu') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.station-btn') || target.closest('.color-swatch');
         if (!isUI) {
             updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
             mouseControlActive = true;
         } else {
             mouseControlActive = false; // Stop steering if touching UI
+            mouseX = 0;
+            mouseY = 0;
         }
     }
     windowJustFocused = false;
@@ -78,20 +81,31 @@ window.addEventListener('touchstart', (e) => {
 
 window.addEventListener('touchmove', (e) => {
     if (e.touches.length > 0) {
-        const isCockpit = e.target.closest('#cockpit-ui');
+        const target = e.target;
+        const isCockpit = target.closest('#cockpit-ui');
         if (!isCockpit && !isPaused) {
             e.preventDefault();
         }
-        const isPauseOverlay = e.target.closest('#pause-overlay');
-        const isUI = isCockpit || isPauseOverlay || e.target.closest('#debug-menu') || e.target.closest('.title') || e.target.closest('#mobile-controls') || e.target.closest('#player-list');
+        const isPauseOverlay = target.closest('#pause-overlay');
+        const isUI = isCockpit || isPauseOverlay || target.closest('#debug-menu') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.station-btn') || target.closest('.color-swatch');
         if (!isUI) {
             updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
             mouseControlActive = true;
+        } else {
+            mouseControlActive = false;
+            mouseX = 0;
+            mouseY = 0;
         }
     }
 }, { passive: false });
 
-window.addEventListener('touchend', () => { });
+window.addEventListener('touchend', (e) => {
+    if (e.touches.length === 0) {
+        mouseControlActive = false;
+        mouseX = 0;
+        mouseY = 0;
+    }
+});
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -1602,6 +1616,9 @@ if (btnUp) {
     const down = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        mouseControlActive = false; // Explicitly stop steering
+        mouseX = 0;
+        mouseY = 0;
         keys.Shift = true;
         keys.ArrowUp = true;
         keyPressStartTime.ArrowUp = performance.now();
@@ -1627,6 +1644,9 @@ if (btnDown) {
     const down = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        mouseControlActive = false; // Explicitly stop steering
+        mouseX = 0;
+        mouseY = 0;
         keys.Shift = true;
         keys.ArrowDown = true;
         keys.ArrowUp = false;
@@ -1653,6 +1673,9 @@ if (btnHdgt) {
     const toggleHdgt = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        mouseControlActive = false; // Explicitly stop steering
+        mouseX = 0;
+        mouseY = 0;
         if (headlight.intensity === 0) {
             headlight.intensity = 2;
             headlightGlow.intensity = 0.1;
