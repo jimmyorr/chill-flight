@@ -19,7 +19,7 @@ function setStation(num) {
     const nameDisplay = document.getElementById('station-name');
 
     if (nameDisplay) {
-        nameDisplay.innerText = 'C H I L L - F L I G H T';
+        nameDisplay.innerText = window.autopilotEnabled ? 'A U T O P I L O T' : 'C H I L L - F L I G H T';
     }
 
     const btns = document.querySelectorAll('.station-btn');
