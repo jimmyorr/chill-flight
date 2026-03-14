@@ -405,7 +405,7 @@ input[type=number].customization-input {
 /* The Sub-Menu Animation */
 .menu-items {
     position: absolute;
-    bottom: 75px; 
+    bottom: 60px; /* Reduced from 75px to close the 15px gap */
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -414,6 +414,7 @@ input[type=number].customization-input {
     transform: translateY(20px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     width: 100%; /* Match trigger button width */
+    padding-bottom: 15px; /* Maintain visual gap while ensuring container covers the space */
 }
 
 .menu-container.expanded .menu-items {
