@@ -389,6 +389,70 @@ input[type=number].customization-input {
     box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
 }
 
+.menu-container {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: auto;
+}
+
+.menu-container .mobile-btn {
+    width: 100%;
+}
+
+/* The Sub-Menu Animation */
+.menu-items {
+    position: absolute;
+    bottom: 75px; 
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(20px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%; /* Match trigger button width */
+}
+
+.menu-container.expanded .menu-items {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+/* The Chevron Rotation */
+#chevron-icon {
+    transition: transform 0.4s ease;
+}
+
+.menu-container.expanded #chevron-icon {
+    transform: rotate(180deg);
+}
+
+.sub-btn {
+    width: 100%;
+    height: 60px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sub-btn:active {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(0.95);
+}
+
 
 
 
