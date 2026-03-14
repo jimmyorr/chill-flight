@@ -155,4 +155,4 @@ planeGroup.add(headlightGlow);
 planeGroup.add(headlight);
 
 // Initial position
-planeGroup.position.set(0, 200, 0);
+planeGroup.position.set(0, 445.5, 0);
