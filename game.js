@@ -1619,9 +1619,9 @@ function toggleAutopilot() {
     const msg = window.autopilotEnabled ? "AUTOPILOT ENABLED" : "AUTOPILOT DISABLED";
     console.log(msg);
 
-    const autoIndicator = document.getElementById('autopilot-indicator');
-    if (autoIndicator) {
-        autoIndicator.style.display = window.autopilotEnabled ? 'block' : 'none';
+    const nameDisplay = document.getElementById('station-name');
+    if (nameDisplay) {
+        nameDisplay.innerText = window.autopilotEnabled ? 'A U T O P I L O T' : 'C H I L L - F L I G H T';
     }
 
     const centerMsg = document.getElementById('debug-fps') || document.querySelector('.title');
@@ -1798,25 +1798,7 @@ window.addEventListener('keydown', (e) => {
     // Autopilot toggle
     if (key === 'a' && e.shiftKey) {
         e.preventDefault();
-        window.autopilotEnabled = !window.autopilotEnabled;
-        const msg = window.autopilotEnabled ? "AUTOPILOT ENABLED" : "AUTOPILOT DISABLED";
-        console.log(msg);
-
-        // Show persistent UI indicator
-        const autoIndicator = document.getElementById('autopilot-indicator');
-        if (autoIndicator) {
-            autoIndicator.style.display = window.autopilotEnabled ? 'block' : 'none';
-        }
-
-        // Show a brief on-screen message if possible, reuse the center-message element
-        const centerMsg = document.getElementById('debug-fps') || document.querySelector('.title');
-        if (centerMsg) {
-            const oldText = centerMsg.textContent;
-            centerMsg.textContent = msg;
-            setTimeout(() => {
-                if (centerMsg.textContent === msg) centerMsg.textContent = oldText;
-            }, 2000);
-        }
+        toggleAutopilot();
         return;
     }
 
