@@ -132,51 +132,63 @@
         const { WATER_LEVEL, MAP_WORLD_SIZE = 5000, MAP_HEIGHT_SCALE = 1000 } = constants;
         const _lerp = lerp || function (a, b, t) { return a + (b - a) * t; };
 
+        // --- MASSIVE MOUNTAIN LOGIC ---
+        // deterministic center between -2 and 2 lat/long
+        // latScale is 5000 (from game.js)
+        // latVal = -z / 5000 => z = -latVal * 5000
+        // lonVal = x / 5000 => x = lonVal * 5000
+        const latScale = 5000;
+        const mtLat = -1; // 1 South
+        const mtLon = -1; // 1 West
+        const mtMaxHeight = 1600;
+        const xStart = mtLon * latScale; // -5000
+        const zCenterBase = -mtLat * latScale; // 5000
+
         // --- CUSTOM MAP INGESTION ---
         if (exports.customMap) {
             const { data, width, height } = exports.customMap;
-            
+
             // u, v should map from world coords (-MAP_WORLD_SIZE/2 to +MAP_WORLD_SIZE/2)
             // to image coords (0 to 1)
             const u = (x / MAP_WORLD_SIZE) + 0.5;
             const v = (z / MAP_WORLD_SIZE) + 0.5;
-            
+
             if (u < 0 || u > 1 || v < 0 || v > 1) {
                 return WATER_LEVEL;
             }
-            
+
             // For a 1024x1024 image, max index is 1023
             const px = u * (width - 1);
             const py = v * (height - 1);
-            
+
             let x1 = Math.floor(px);
             let x2 = Math.min(x1 + 1, width - 1);
             let y1 = Math.floor(py);
             let y2 = Math.min(y1 + 1, height - 1);
-            
+
             // Saftey clamp if math precision errors push us slightly out of bounds
             x1 = Math.max(0, Math.min(x1, width - 1));
             x2 = Math.max(0, Math.min(x2, width - 1));
             y1 = Math.max(0, Math.min(y1, height - 1));
             y2 = Math.max(0, Math.min(y2, height - 1));
-            
+
             const dx = px - x1;
             const dy = py - y1;
-            
+
             // Float32Array is row-major: index = (y * width) + x
             const h11 = data[(y1 * width) + x1];
             const h21 = data[(y1 * width) + x2];
             const h12 = data[(y2 * width) + x1];
             const h22 = data[(y2 * width) + x2];
-            
+
             // Handle undefined cases gracefully if somehow OOB
             if (h11 === undefined || h21 === undefined || h12 === undefined || h22 === undefined) {
-                 return WATER_LEVEL;
+                return WATER_LEVEL;
             }
-            
+
             const r1 = _lerp(h11, h21, dx);
             const r2 = _lerp(h12, h22, dx);
-            
+
             const normalizedHeight = _lerp(r1, r2, dy) / 255.0;
             return WATER_LEVEL + (normalizedHeight * MAP_HEIGHT_SCALE);
         }
@@ -291,7 +303,7 @@
         // --- RIVER CARVING LOGIC ---
         // Define a meandering path running East-West around the equator (Z = 0)
         // Use multiple frequencies of noise for more natural, unpredictable bends
-        const riverCenterZ = exports.getRiverCenterZ ? exports.getRiverCenterZ(x, simplex) : 
+        const riverCenterZ = exports.getRiverCenterZ ? exports.getRiverCenterZ(x, simplex) :
             (simplex.noise2D(x * 0.0003, 0) * 800 + simplex.noise2D(x * 0.001, 100) * 200);
 
         const distToRiver = Math.abs(z - riverCenterZ);
@@ -324,6 +336,65 @@
         if (n < WATER_LEVEL) {
             n = WATER_LEVEL;
         }
+
+        // Apply Massive Mountain Range
+        const mountainRanges = [
+            { lat: 2, lonStart: -1, maxHeight: 1600 },  // Northern snowy range
+            { lat: -1, lonStart: -1, maxHeight: 1600 }  // Southern Arizona range
+        ];
+
+        // Process each range
+        for (const range of mountainRanges) {
+            const xStart = range.lonStart * latScale;
+            const zCenterBase = -range.lat * latScale;
+
+            if (x < xStart) {
+                // Low-frequency meandering for the range center
+                const ridgeMeander = simplex.noise2D(x * 0.0001 + (range.lat * 100), 123);
+                const currentZCenter = zCenterBase + ridgeMeander * 2000;
+                
+                // Vary mountain presence - some areas have peaks, others are just foothills
+                const presenceMod = 0.5 + simplex.noise2D(x * 0.0002 + (range.lat * 50), 789) * 0.5; // [0, 1]
+                
+                const dxRange = xStart - x;
+                const fadeIn = Math.min(1, dxRange / 5000); 
+                
+                const dz = z - currentZCenter;
+                const dist = Math.abs(dz);
+                
+                // 1. Broad base "mass" (Gaussian)
+                const baseRadius = 2500;
+                const baseDistSq = dz * dz;
+                const baseFalloff = Math.exp(-baseDistSq / (2 * baseRadius * baseRadius));
+                
+                if (baseFalloff > 0.01) {
+                    // 2. Sharper peaks (Power function)
+                    const peakRadius = 1800;
+                    const peakDist = Math.min(peakRadius, dist);
+                    // Power of 2.2 provides a slightly sharper silhouette than 1.8 or 1.5
+                    const peakShape = Math.pow(1.0 - (peakDist / peakRadius), 2.2);
+                    
+                    // 3. Fractal ruggedness
+                    const n1 = simplex.noise2D(x * 0.002, z * 0.002) * 0.6;
+                    const n2 = simplex.noise2D(x * 0.008, z * 0.008) * 0.3;
+                    const ruggedness = (n1 + n2 + 0.6); // [0.3, 1.5]
+                    
+                    // Combine: Peaks rise out of the broad base mass
+                    const baseHeight = 300 * baseFalloff; // Smooth foothold
+                    // Use presenceMod to make some peaks much higher than others
+                    const peakHeight = range.maxHeight * peakShape * ruggedness * (0.4 + 0.6 * presenceMod);
+                    
+                    let totalContribution = (baseHeight + peakHeight) * fadeIn;
+                    
+                    // Land/Water Protection
+                    const landFactor = Math.min(1, Math.max(0, n - WATER_LEVEL) / 15);
+                    if (landFactor > 0.3 || totalContribution > 25) {
+                        n += totalContribution;
+                    }
+                }
+            }
+        }
+
         return n;
     }
 

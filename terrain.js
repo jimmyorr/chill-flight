@@ -660,38 +660,59 @@ function generateChunk(chunkX, chunkZ) {
         const height = getElevation(worldX, worldZ);
         positions[i + 1] = height;
 
+        // --- ORGANIC TEXTURING & SLOPE LOGIC ---
+        // 1. Calculate local slope (quick approximation)
+        const sampleOffset = 4.0;
+        const hRight = getElevation(worldX + sampleOffset, worldZ);
+        const hDown = getElevation(worldX, worldZ + sampleOffset);
+        const slopeX = (hRight - height) / sampleOffset;
+        const slopeZ = (hDown - height) / sampleOffset;
+        const slope = Math.sqrt(slopeX * slopeX + slopeZ * slopeZ);
+        const slopeFactor = Math.min(1, slope * 0.5); // [0, 1] — steeper means higher factor
+
+        // 2. Procedural Mottling (Multi-octave patches)
+        const mottle1 = simplex.noise2D(worldX * 0.002, worldZ * 0.002);
+        const mottle2 = simplex.noise2D(worldX * 0.01, worldZ * 0.01) * 0.3;
+        const mottle = (mottle1 + mottle2 + 0.5) * 0.5; // Shifted [0, 1] range approx
+
+        // 3. High-frequency micro-grain
+        const grain = simplex.noise2D(worldX * 0.2, worldZ * 0.2) * 0.05;
+
+        // --- BIOME FACTORS ---
         const northInfluence = Math.max(0, -worldZ / 4500);
-        const tempNoise = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
-        const snowRaw = Math.max(0, Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5));
+        // Add more noise to biome transitions to avoid smooth boring circles
+        const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
+        const biomeNoise = simplex.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
+        
+        const snowRaw = Math.max(0, Math.min(1, (northInfluence + noisePath * 0.05 + biomeNoise - 0.7) * 1.5));
         const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
         const southInfluence = Math.max(0, worldZ / 4500);
-        const desertRaw = Math.max(0, Math.min(1, (southInfluence + tempNoise * 0.05 - 0.7) * 1.5));
+        const desertRaw = Math.max(0, Math.min(1, (southInfluence + noisePath * 0.05 - biomeNoise - 0.7) * 1.5));
         const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
 
-        const temperature = tempNoise - (northInfluence * 1.5);
+        const temperature = noisePath - (northInfluence * 1.5);
         const isSnowBiome = snowFactor > 0.5;
 
-        // East coast beachfront: sand extends higher up the terrain
+        // East code beachfront
         const eastCoastFactor = Math.max(0, Math.min(1, worldX / 3000));
-        // Base sand height is +2, but on the east coast it extends up to +10
         const sandMaxHeight = WATER_LEVEL + 2 + (eastCoastFactor * 8);
 
         let isForest = false;
         let autumnNoise = 0;
         let cherryNoise = 0;
 
+        // --- COLOR ASSIGNMENT ---
         if (height <= sandMaxHeight) {
             if (height <= WATER_LEVEL) {
                 hasWater = true;
                 if (rng() < 0.0005 * densityScale) { // Very rare sailboat
                     sailboatPositions.push({ x: localX, y: WATER_LEVEL, z: localZ, rotY: rng() * Math.PI * 2 });
                 }
-                // Spawning lily pads in plains biomes near the shore. Needs no snow or desert factor, and excludes open ocean
                 if (snowFactor < 0.1 && desertFactor < 0.1 && getBiome(worldX, worldZ) > -0.15 && rng() < 0.015 * densityScale) {
                     lilyPadPositions.push({ x: localX, y: WATER_LEVEL, z: localZ, rotY: rng() * Math.PI * 2 });
                 }
-                positions[i + 1] = height - 5; // Drop seafloor so moving water waves don't clip into it
+                positions[i + 1] = height - 5; 
                 _tempColorObj.copy(_colorSand);
                 if (snowFactor > 0) _tempColorObj.lerp(_colorSandSnowTint, snowFactor);
                 if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
@@ -702,12 +723,60 @@ function generateChunk(chunkX, chunkZ) {
                 _tempColorObj.copy(_colorSand);
                 if (snowFactor > 0) _tempColorObj.lerp(_colorUpperSandSnowTint, snowFactor);
                 if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
+                
+                // Mottling for sand (adding some dark/light patches)
+                if (mottle > 0.6) _tempColorObj.lerp(new THREE.Color(0xD2B48C), (mottle - 0.6) * 0.5);
+                if (mottle < 0.4) _tempColorObj.lerp(new THREE.Color(0xDEB887), (0.4 - mottle) * 0.5);
             }
         } else if (height > MOUNTAIN_LEVEL || (snowFactor > 0.5 && height > MOUNTAIN_LEVEL - 50)) {
-            if (height > MOUNTAIN_LEVEL + 40 || snowFactor > 0.8) {
-                _tempColorObj.copy(_colorSnow);
+            // Massive sierra gets highly refined, patchy-to-solid snow OR Arizona desert rock
+            const sierraSnowNoise1 = simplex.noise2D(worldX * 0.003, worldZ * 0.003);
+            const sierraSnowNoise2 = simplex.noise2D(worldX * 0.012, worldZ * 0.012) * 0.5;
+            const organicNoise = (sierraSnowNoise1 + sierraSnowNoise2); 
+            
+            const isSouth = worldZ > 0;
+            const canHaveSnow = !isSouth; 
+
+            if (height > 600) {
+                const baseThreshold = 1450 + organicNoise * 400;
+                if (canHaveSnow && (height > baseThreshold || (height > 2000 && organicNoise > -0.5))) {
+                    _tempColorObj.copy(_colorSnow);
+                } else {
+                    if (isSouth) {
+                        _tempColorObj.setHex(0xC24B2B); // Reddish mountain rock
+                        if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
+                        // Arizona mottling: subtle dark red patches
+                        if (mottle > 0.7) _tempColorObj.lerp(new THREE.Color(0x8B0000), 0.2);
+                    } else {
+                        _tempColorObj.copy(desertFactor > 0.5 ? _colorMountainDesertTint : _colorMountainTint);
+                    }
+                }
             } else {
-                _tempColorObj.copy(desertFactor > 0.5 ? _colorMountainDesertTint : _colorMountainTint);
+                const rockStartHeight = MOUNTAIN_LEVEL + 500 + organicNoise * 100;
+                if (canHaveSnow && height > (MOUNTAIN_LEVEL + 50 + organicNoise * 60)) {
+                    _tempColorObj.copy(_colorSnow);
+                } else if (height > rockStartHeight) {
+                    if (isSouth) {
+                        _tempColorObj.setHex(0xC24B2B);
+                        if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
+                        if (mottle > 0.7) _tempColorObj.lerp(new THREE.Color(0x8B0000), 0.2);
+                    } else {
+                        _tempColorObj.copy(desertFactor > 0.5 ? _colorMountainDesertTint : _colorMountainTint);
+                    }
+                } else {
+                    if (desertFactor > 0.3) {
+                        _tempColorObj.copy(_colorDesertSand);
+                        if (height > WATER_LEVEL + 5) _tempColorObj.lerp(new THREE.Color(0xD2B48C), 0.3);
+                        // Desert mottling
+                        _tempColorObj.lerp(new THREE.Color(0xDAA520), mottle * 0.2);
+                    } else if (snowFactor > 0.4) {
+                        _tempColorObj.copy(_colorForestSnowTint);
+                    } else {
+                        _tempColorObj.copy(_colorForest);
+                        // Forest mottling: darker green patches
+                        _tempColorObj.lerp(new THREE.Color(0x006400), mottle * 0.3);
+                    }
+                }
             }
         } else {
             isForest = simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005) > 0.2;
@@ -718,6 +787,10 @@ function generateChunk(chunkX, chunkZ) {
                 _tempColorObj.copy(_colorForest);
                 if (snowFactor > 0) _tempColorObj.lerp(_colorForestSnowTint, snowFactor);
                 if (desertFactor > 0) _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
+                
+                // Mottling for Forest: Mix in some darker evergreens and lighter mossy patches
+                _tempColorObj.lerp(new THREE.Color(0x004d00), mottle * 0.4);
+                if (mottle < 0.3) _tempColorObj.lerp(new THREE.Color(0x6B8E23), 0.2);
 
                 const treeRoll = rng();
                 if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
@@ -740,8 +813,6 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
                 } else if (treeRoll < (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale) {
-                    // Campfires in forest community - mutually exclusive with trees
-                    // Spawns with 0.1% chance instead of old 0.5% chance
                     const offX = (rng() - 0.5) * 15;
                     const offZ = (rng() - 0.5) * 15;
                     const h = getElevation(worldX + offX, worldZ + offZ);
@@ -751,6 +822,10 @@ function generateChunk(chunkX, chunkZ) {
                 _tempColorObj.copy(_colorPlains);
                 if (snowFactor > 0) _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
                 if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
+                
+                // Mottling for Plains: Dry grass vs lush grass
+                _tempColorObj.lerp(new THREE.Color(0x556B2F), mottle * 0.4);
+                if (mottle > 0.8) _tempColorObj.lerp(new THREE.Color(0xBDB76B), 0.3);
 
                 const houseThreshold = (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
                 const barnThreshold = houseThreshold + 0.002 * densityScale;
@@ -798,10 +873,8 @@ function generateChunk(chunkX, chunkZ) {
                     }
                 }
 
-
                 // Piers near shore community
-                if (height > WATER_LEVEL + 0.5 && height < WATER_LEVEL + 3 && rng() < 0.15 * densityScale) { // Increased from 0.05 community
-                    // Check neighbors to align with water community
+                if (height > WATER_LEVEL + 0.5 && height < WATER_LEVEL + 3 && rng() < 0.15 * densityScale) { 
                     const hN = getElevation(worldX, worldZ - 20);
                     const hS = getElevation(worldX, worldZ + 20);
                     const hE = getElevation(worldX + 20, worldZ);
@@ -834,7 +907,6 @@ function generateChunk(chunkX, chunkZ) {
             }
         }
 
-
         // Cactus Spawning
         if (desertFactor > 0.4 && rng() < 0.04 * densityScale) {
             if (height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 50) {
@@ -860,19 +932,23 @@ function generateChunk(chunkX, chunkZ) {
         // Apply special biome ground colors dynamically for both forest and plains
         if (snowFactor < 0.2) {
             if (autumnNoise > 0.35) {
-                // Smooth transition from 0.35 to 0.45
                 const factor = Math.min(1, (autumnNoise - 0.35) / 0.1);
-                // Turn to earth/amber for autumn
                 const tint = isForest ? _colorAutumnForestTint : _colorAutumnPlainsTint;
                 _tempColorObj.lerp(tint, factor * (isForest ? 0.65 : 0.45));
             } else if (cherryNoise > 0.55) {
-                // Smooth transition from 0.55 to 0.65
                 const factor = Math.min(1, (cherryNoise - 0.55) / 0.1);
-                // Turn to pinkish for blossoms
                 const tint = isForest ? _colorCherryForestTint : _colorCherryPlainsTint;
                 _tempColorObj.lerp(tint, factor * (isForest ? 0.45 : 0.3));
             }
         }
+
+        // --- FINAL DETAIL PASS ---
+        // Apply Slope Shading: Darken terrain on steeper faces/ridges
+        if (slopeFactor > 0.1) {
+            _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.3);
+        }
+        // Apply Micro-Grain Detail
+        _tempColorObj.multiplyScalar(1.0 + grain);
 
         colors.push(_tempColorObj.r, _tempColorObj.g, _tempColorObj.b);
     }
