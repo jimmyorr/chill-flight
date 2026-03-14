@@ -1630,12 +1630,6 @@ function toggleAutopilot() {
         autoIndicator.style.display = window.autopilotEnabled ? 'block' : 'none';
     }
 
-    const mAutoBtn = document.getElementById('mobile-auto-toggle');
-    if (mAutoBtn) {
-        if (window.autopilotEnabled) mAutoBtn.classList.add('active');
-        else mAutoBtn.classList.remove('active');
-    }
-
     const centerMsg = document.getElementById('debug-fps') || document.querySelector('.title');
     if (centerMsg) {
         const oldText = centerMsg.textContent;
