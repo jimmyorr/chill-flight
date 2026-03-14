@@ -33,7 +33,7 @@
         <div class="customization-box">
             <div class="customization-row">
                 <span class="customization-label">Callsign</span>
-                <input type="text" id="player-name-input" class="customization-input" placeholder="Enter Name"
+                <input type="text" id="player-name-input" class="customization-input" placeholder="Enter name"
                     maxlength="12">
             </div>
             <div class="customization-row">
@@ -117,7 +117,8 @@
             <div id="radio-panel" class="cockpit-module"
                 style="grid-column: span 3; display: flex; justify-content: center; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; margin-top: 4px;">
                 <span id="station-name" class="cockpit-value"
-                    style="font-size: 11px; width: 100%; text-align: center; line-height: 1; min-height: 11px;">C H I L L - F L I G H T</span>
+                    style="font-size: 11px; width: 100%; text-align: center; line-height: 1; min-height: 11px;">C H I L
+                    L - F L I G H T</span>
             </div>
         </div>
     </div>
@@ -127,39 +128,53 @@
         <div id="mobile-action-menu" class="menu-container">
             <div class="menu-items" id="mobile-sub-menu">
                 <button class="sub-btn" id="mobile-pause-trigger" title="Settings">
-                    <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;">
+                    <svg viewBox="0 0 24 24"
+                        style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;">
                         <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                        </path>
                     </svg>
                 </button>
                 <button class="sub-btn" id="mobile-cam-toggle" title="Camera">
-                    <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;">
+                    <svg viewBox="0 0 24 24"
+                        style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;">
                         <polygon points="23 7 16 12 23 17 23 7"></polygon>
                         <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
                     </svg>
                 </button>
                 <button class="sub-btn" id="mobile-rad-toggle" title="Radio">
-                    <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;">
-                        <path d="M4.9 19.1a1 1 0 0 0 1.4 0l1.4-1.4a1 1 0 0 0 0-1.4 7 7 0 0 1 0-9.8 1 1 0 0 0 0-1.4l-1.4-1.4a1 1 0 0 0-1.4 0 11 11 0 0 0 0 15.4z"></path>
-                        <path d="M19.1 4.9a1 1 0 0 0-1.4 0l-1.4 1.4a1 1 0 0 0 0 1.4 7 7 0 0 1 0 9.8 1 1 0 0 0 0 1.4l1.4 1.4a1 1 0 0 0 1.4 0 11 11 0 0 0 0-15.4z"></path>
+                    <svg viewBox="0 0 24 24"
+                        style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;">
+                        <path
+                            d="M4.9 19.1a1 1 0 0 0 1.4 0l1.4-1.4a1 1 0 0 0 0-1.4 7 7 0 0 1 0-9.8 1 1 0 0 0 0-1.4l-1.4-1.4a1 1 0 0 0-1.4 0 11 11 0 0 0 0 15.4z">
+                        </path>
+                        <path
+                            d="M19.1 4.9a1 1 0 0 0-1.4 0l-1.4 1.4a1 1 0 0 0 0 1.4 7 7 0 0 1 0 9.8 1 1 0 0 0 0 1.4l1.4 1.4a1 1 0 0 0 1.4 0 11 11 0 0 0 0-15.4z">
+                        </path>
                         <circle cx="12" cy="12" r="2"></circle>
                     </svg>
                 </button>
                 <button class="sub-btn" id="mobile-hdgt-sub" title="Lights">
-                    <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;">
-                        <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"></path>
+                    <svg viewBox="0 0 24 24"
+                        style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;">
+                        <path
+                            d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5">
+                        </path>
                         <line x1="9" y1="18" x2="15" y2="18"></line>
                         <line x1="10" y1="22" x2="14" y2="22"></line>
                     </svg>
                 </button>
                 <button class="sub-btn" id="mobile-auto-toggle" title="Autopilot">
-                    <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;">
+                    <svg viewBox="0 0 24 24"
+                        style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;">
                         <path d="M22 12L3 20l3.5-8L3 4l19 8zL6.5 12"></path>
                     </svg>
                 </button>
             </div>
             <button class="mobile-btn" id="mobile-menu-trigger">
-                <svg id="chevron-icon" viewBox="0 0 24 24" style="width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2;">
+                <svg id="chevron-icon" viewBox="0 0 24 24"
+                    style="width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2;">
                     <path d="M18 15l-6-6-6 6" />
                 </svg>
             </button>
@@ -215,11 +230,13 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <div>
                     <div style="font-size: 10px; opacity: 0.6; margin-bottom: 2px;">Zenith</div>
-                    <input type="color" id="sky-zenith-picker" style="width: 100%; height: 24px; cursor: pointer; border: none; background: none; padding: 0;">
+                    <input type="color" id="sky-zenith-picker"
+                        style="width: 100%; height: 24px; cursor: pointer; border: none; background: none; padding: 0;">
                 </div>
                 <div>
                     <div style="font-size: 10px; opacity: 0.6; margin-bottom: 2px;">Horizon</div>
-                    <input type="color" id="sky-horizon-picker" style="width: 100%; height: 24px; cursor: pointer; border: none; background: none; padding: 0;">
+                    <input type="color" id="sky-horizon-picker"
+                        style="width: 100%; height: 24px; cursor: pointer; border: none; background: none; padding: 0;">
                 </div>
             </div>
         </div>
