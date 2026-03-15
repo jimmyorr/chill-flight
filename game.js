@@ -1972,6 +1972,12 @@ if (btnDown) {
 window.addEventListener('keydown', (e) => {
     if (isPaused) return;
 
+    // Block flight controls if mobile action menu is expanded
+    const menuContainer = document.getElementById('mobile-action-menu');
+    if (menuContainer && menuContainer.classList.contains('expanded')) {
+        return;
+    }
+
     const key = e.key.toLowerCase();
 
     // Camera mode toggle
@@ -2110,6 +2116,12 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
     if (isPaused) return;
+
+    // Block flight control releases if menu is open (menu handles its own navigation)
+    const menuContainer = document.getElementById('mobile-action-menu');
+    if (menuContainer && menuContainer.classList.contains('expanded')) {
+        return;
+    }
 
     const key = e.key.toLowerCase();
     const keyMap = {
