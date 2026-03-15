@@ -394,8 +394,16 @@
 
                     // Land/Water Protection
                     const landFactor = Math.min(1, Math.max(0, n - WATER_LEVEL) / 15);
+
+                    // --- VALLEY LOGIC ---
+                    // Introduced occasional valleys using low-frequency noise.
+                    const valleyNoise = simplex.noise2D(x * 0.00012 + (range.lat * 77), z * 0.00012 + (range.lat * 88));
+                    // Map noise [-1, 1] to a factor where most of the noise (above -0.5) is 1.0 (mountain present),
+                    // and values below -0.5 dip into valleys (mountain absent).
+                    const valleyFactor = Math.max(0, Math.min(1, (valleyNoise + 0.5) * 5.0));
+
                     if (landFactor > 0.3 || totalContribution > 25) {
-                        n += totalContribution;
+                        n += totalContribution * valleyFactor;
                     }
                 }
             }
