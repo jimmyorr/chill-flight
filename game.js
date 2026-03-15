@@ -232,6 +232,12 @@ function pollGamepad(delta) {
         targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
     }
 
+    // 3. Pause: Map 'Start' or 'Menu' button (Button 9) to toggle pause
+    if (gp.buttons[9].pressed) {
+        if (!gamepadPauseLatched) {
+            togglePause();
+            gamepadPauseLatched = true;
+        }
     } else {
         gamepadPauseLatched = false;
     }
