@@ -180,6 +180,8 @@ function togglePause() {
 // --- GAMEPAD SUPPORT ---
 let gamepadPauseLatched = false;
 let gamepadSteeringActive = false;
+let lastGamepadButtons = [];
+
 function pollGamepad(delta) {
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
     let gp = null;
@@ -190,7 +192,10 @@ function pollGamepad(delta) {
         }
     }
 
-    if (!gp) return;
+    if (!gp) {
+        lastGamepadButtons = [];
+        return;
+    }
 
     // 1. Flight Stick: Map Left Analog Stick (Axes 0 and 1) to Pitch and Roll
     // Axis 0: Roll (Left/Right), Axis 1: Pitch (Up/Down)
@@ -227,15 +232,40 @@ function pollGamepad(delta) {
         targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
     }
 
-    // 3. Pause: Map 'Start' or 'Menu' button (Button 9) to toggle pause
-    if (gp.buttons[9].pressed) {
-        if (!gamepadPauseLatched) {
-            togglePause();
-            gamepadPauseLatched = true;
-        }
     } else {
         gamepadPauseLatched = false;
     }
+
+    // 4. Bumpers: Map LB (4) and RB (5) to ArrowLeft/ArrowRight (handled for barrel rolls)
+    const bumperMap = [
+        { btn: 4, key: 'ArrowLeft' },
+        { btn: 5, key: 'ArrowRight' }
+    ];
+
+    bumperMap.forEach(map => {
+        const isPressed = gp.buttons[map.btn].pressed;
+        const wasPressed = !!lastGamepadButtons[map.btn];
+
+        if (isPressed && !wasPressed) {
+            keys[map.key] = true;
+            const now = performance.now();
+            if (now - lastArrowTap[map.key] < DOUBLE_TAP_MS) {
+                doubleTap[map.key] = true;
+            }
+            lastArrowTap[map.key] = now;
+            keyPressStartTime[map.key] = now;
+
+            // Keyboard/Gamepad takes control from mouse/stick
+            mouseControlActive = false;
+            mouseX = 0;
+            mouseY = 0;
+        } else if (!isPressed && wasPressed) {
+            keys[map.key] = false;
+            doubleTap[map.key] = false;
+            lastKeyUpTime[map.key] = performance.now();
+        }
+        lastGamepadButtons[map.btn] = isPressed;
+    });
 }
 
 const nameInput = document.getElementById('player-name-input');
