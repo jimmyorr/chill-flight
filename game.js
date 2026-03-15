@@ -59,6 +59,7 @@ window.addEventListener('mousemove', (e) => {
             return;
         }
         mouseControlActive = true;
+        gamepadSteeringActive = false;
     }
 });
 
@@ -173,6 +174,67 @@ function togglePause() {
         justResumed = true; // suppress the first animate frame's input application
 
         if (ytPlayerReady && currentStation === 1) ytPlayer.playVideo();
+}
+}
+
+// --- GAMEPAD SUPPORT ---
+let gamepadPauseLatched = false;
+let gamepadSteeringActive = false;
+function pollGamepad(delta) {
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
+    let gp = null;
+    for (let i = 0; i < gamepads.length; i++) {
+        if (gamepads[i] && gamepads[i].connected) {
+            gp = gamepads[i];
+            break;
+        }
+    }
+
+    if (!gp) return;
+
+    // 1. Flight Stick: Map Left Analog Stick (Axes 0 and 1) to Pitch and Roll
+    // Axis 0: Roll (Left/Right), Axis 1: Pitch (Up/Down)
+    let roll = gp.axes[0];
+    let pitch = gp.axes[1];
+
+    // Deadzone: 0.15
+    const deadzone = 0.15;
+    if (Math.abs(roll) < deadzone) roll = 0;
+    if (Math.abs(pitch) < deadzone) pitch = 0;
+
+    // Map to global mouseX/mouseY which are used for targetRoll/targetPitch
+    if (Math.abs(gp.axes[0]) > deadzone || Math.abs(gp.axes[1]) > deadzone) {
+        mouseX = roll;
+        mouseY = pitch;
+        mouseControlActive = true;
+        gamepadSteeringActive = true;
+    } else if (gamepadSteeringActive) {
+        mouseX = 0;
+        mouseY = 0;
+        gamepadSteeringActive = false;
+    }
+
+    // 2. Throttle: Map Right Trigger (Button 7) to accelerate and Left Trigger (Button 6) to decelerate
+    const rt = gp.buttons[7].value !== undefined ? gp.buttons[7].value : (gp.buttons[7].pressed ? 1 : 0);
+    const lt = gp.buttons[6].value !== undefined ? gp.buttons[6].value : (gp.buttons[6].pressed ? 1 : 0);
+
+    if (rt > 0.1) {
+        const throttleRate = (0.5 + rt * 3.5) * delta;
+        targetFlightSpeed = Math.min(10, targetFlightSpeed + throttleRate);
+    }
+    if (lt > 0.1) {
+        const throttleRate = (0.5 + lt * 3.5) * delta;
+        targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
+    }
+
+    // 3. Pause: Map 'Start' or 'Menu' button (Button 9) to toggle pause
+    if (gp.buttons[9].pressed) {
+        if (!gamepadPauseLatched) {
+            togglePause();
+            gamepadPauseLatched = true;
+        }
+    } else {
+        gamepadPauseLatched = false;
     }
 }
 
@@ -532,6 +594,8 @@ function animate() {
     requestAnimationFrame(animate);
     const now = performance.now();
     const delta = clock.getDelta();
+
+    pollGamepad(delta);
 
     if (isPaused || window.isNamePromptOpen) return;
 
