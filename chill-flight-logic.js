@@ -371,13 +371,19 @@
                     // 2. Sharper peaks (Power function)
                     const peakRadius = 1800;
                     const peakDist = Math.min(peakRadius, dist);
-                    // Power of 2.2 provides a slightly sharper silhouette than 1.8 or 1.5
-                    const peakShape = Math.pow(1.0 - (peakDist / peakRadius), 2.2);
+                    // Increased exponent to 2.8 for steeper ascent curves
+                    const peakShape = Math.pow(1.0 - (peakDist / peakRadius), 2.8);
                     
-                    // 3. Fractal ruggedness
-                    const n1 = simplex.noise2D(x * 0.002, z * 0.002) * 0.6;
-                    const n2 = simplex.noise2D(x * 0.008, z * 0.008) * 0.3;
-                    const ruggedness = (n1 + n2 + 0.6); // [0.3, 1.5]
+                    // 3. Ridged Multi-Fractal ruggedness (Sharp Peaks)
+                    // Math.abs creates valleys, 1.0 - Math.abs flips them into sharp ridges
+                    let ridge1 = 1.0 - Math.abs(simplex.noise2D(x * 0.002, z * 0.002));
+                    let ridge2 = 1.0 - Math.abs(simplex.noise2D(x * 0.006, z * 0.006));
+                    
+                    // Squaring the ridges sharpens the drop-off even further
+                    ridge1 *= ridge1;
+                    ridge2 *= ridge2;
+                    
+                    const ruggedness = (ridge1 * 0.8 + ridge2 * 0.4 + 0.1); 
                     
                     // Combine: Peaks rise out of the broad base mass
                     const baseHeight = 300 * baseFalloff; // Smooth foothold

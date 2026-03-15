@@ -943,10 +943,23 @@ function generateChunk(chunkX, chunkZ) {
         }
 
         // --- FINAL DETAIL PASS ---
-        // Apply Slope Shading: Darken terrain on steeper faces/ridges
-        if (slopeFactor > 0.1) {
+        // Expose sheer rock cliffs on steep slopes
+        if (slopeFactor > 0.45 && height > WATER_LEVEL + 5) {
+            // Fade sharply into rock color based on how steep the cliff is
+            const cliffBlend = Math.min(1, (slopeFactor - 0.45) * 5.0); 
+            
+            // Choose red rock for the southern ranges and gray slate for the northern/standard ranges
+            const isSouthBiome = desertFactor > 0.3;
+            const rockColor = isSouthBiome ? new THREE.Color(0x8B3A3A) : new THREE.Color(0x7F8C8D);
+            
+            _tempColorObj.lerp(rockColor, cliffBlend);
+            _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.15); // Add subtle ambient occlusion
+            
+        } else if (slopeFactor > 0.1) {
+            // Apply Slope Shading: Darken terrain on standard slopes
             _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.3);
         }
+
         // Apply Micro-Grain Detail
         _tempColorObj.multiplyScalar(1.0 + grain);
 
