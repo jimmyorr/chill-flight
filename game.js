@@ -179,8 +179,20 @@ function togglePause() {
 
 // --- GAMEPAD SUPPORT ---
 let gamepadPauseLatched = false;
+let gamepadSelectLatched = false;
 let gamepadSteeringActive = false;
 let lastGamepadButtons = [];
+
+let mobileFocusIndex = -1;
+function updateMobileMenuFocus() {
+    const subMenu = document.getElementById('mobile-sub-menu');
+    if (!subMenu) return;
+    const items = Array.from(subMenu.querySelectorAll('.sub-btn'));
+    document.querySelectorAll('#mobile-action-menu .tv-focused').forEach(el => el.classList.remove('tv-focused'));
+    if (mobileFocusIndex >= 0 && mobileFocusIndex < items.length) {
+        items[mobileFocusIndex].classList.add('tv-focused');
+    }
+}
 
 function pollGamepad(delta) {
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
@@ -242,7 +254,58 @@ function pollGamepad(delta) {
         gamepadPauseLatched = false;
     }
 
-    // 4. Bumpers: Map LB (4) and RB (5) to ArrowLeft/ArrowRight (handled for barrel rolls)
+    // Toggle Mobile Menu: Map 'Select' or 'Back' button (Button 8)
+    if (gp.buttons[8].pressed) {
+        if (!gamepadSelectLatched) {
+            const menuContainer = document.getElementById('mobile-action-menu');
+            if (menuContainer) {
+                const expanding = !menuContainer.classList.contains('expanded');
+                menuContainer.classList.toggle('expanded');
+                if (expanding) {
+                    mobileFocusIndex = 0;
+                    updateMobileMenuFocus();
+                } else {
+                    mobileFocusIndex = -1;
+                    updateMobileMenuFocus();
+                }
+            }
+            gamepadSelectLatched = true;
+        }
+    } else {
+        gamepadSelectLatched = false;
+    }
+
+    // 4. Buttons and D-pad
+    const currentButtons = gp.buttons.map(b => b.pressed);
+
+    // Map D-pad to Arrows
+    const dpadMap = [
+        { btn: 12, key: 'ArrowUp' },
+        { btn: 13, key: 'ArrowDown' },
+        { btn: 14, key: 'ArrowLeft' },
+        { btn: 15, key: 'ArrowRight' }
+    ];
+
+    dpadMap.forEach(map => {
+        const isPressed = gp.buttons[map.btn].pressed;
+        const wasPressed = !!lastGamepadButtons[map.btn];
+
+        if (isPressed && !wasPressed) {
+            // Dispatch a native keydown for D-pad so it reaches our menu logic
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: map.key }));
+        } else if (!isPressed && wasPressed) {
+            window.dispatchEvent(new KeyboardEvent('keyup', { key: map.key }));
+        }
+    });
+
+    // Map Button 0 (A) to Enter for selection
+    if (gp.buttons[0].pressed && !lastGamepadButtons[0]) {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    } else if (!gp.buttons[0].pressed && lastGamepadButtons[0]) {
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+    }
+
+    // 5. Bumpers: Map LB (4) and RB (5) to ArrowLeft/ArrowRight (handled for barrel rolls)
     const bumperMap = [
         { btn: 4, key: 'ArrowLeft' },
         { btn: 5, key: 'ArrowRight' }
@@ -270,7 +333,12 @@ function pollGamepad(delta) {
             doubleTap[map.key] = false;
             lastKeyUpTime[map.key] = performance.now();
         }
-        lastGamepadButtons[map.btn] = isPressed;
+        // State is updated for all buttons at the end of pollGamepad
+    });
+
+    // Update lastGamepadButtons for all buttons
+    gp.buttons.forEach((btn, idx) => {
+        lastGamepadButtons[idx] = btn.pressed;
     });
 }
 
@@ -311,10 +379,37 @@ window.addEventListener('mousemove', () => {
 });
 
 window.addEventListener('keydown', (e) => {
-    // 1. Toggle Pause: Escape = PC, Backspace = TV Back, MediaPlayPause = TV Play/Pause, Enter = TV Center (if playing)
+    // 1. Mobile Action Menu Navigation (Priority when expanded)
+    const menuContainer = document.getElementById('mobile-action-menu');
+    const isMenuExpanded = menuContainer && menuContainer.classList.contains('expanded');
+    if (isMenuExpanded && !isPaused) {
+        const subMenu = document.getElementById('mobile-sub-menu');
+        const items = subMenu ? Array.from(subMenu.querySelectorAll('.sub-btn')) : [];
+        if (items.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                mobileFocusIndex = (mobileFocusIndex + 1) % items.length;
+                updateMobileMenuFocus();
+                return;
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                mobileFocusIndex = (mobileFocusIndex - 1 + items.length) % items.length;
+                updateMobileMenuFocus();
+                return;
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (mobileFocusIndex >= 0 && mobileFocusIndex < items.length) {
+                    items[mobileFocusIndex].click();
+                }
+                return;
+            }
+        }
+    }
+
+    // 2. Toggle Pause: Escape = PC, Backspace = TV Back, MediaPlayPause = TV Play/Pause, Enter = TV Center (if playing)
     const isToggleKey = e.key === 'Escape' || e.code === 'MediaPlayPause' ||
         (e.key === 'Backspace' && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) ||
-        (e.key === 'Enter' && !isPaused && (!document.activeElement || document.activeElement.id !== 'resume-btn'));
+        (e.key === 'Enter' && !isPaused && !isMenuExpanded && (!document.activeElement || document.activeElement.id !== 'resume-btn'));
 
     if (isToggleKey) {
         togglePause();
@@ -326,7 +421,7 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
-    // 2. Navigation in pause menu
+    // 3. Navigation in pause menu
     if (isPaused) {
         // Prevent arrow keys from scrolling the page
         if (e.key.startsWith('Arrow')) {
@@ -390,6 +485,7 @@ window.addEventListener('keydown', (e) => {
             e.preventDefault();
             updateTVFocus();
         }
+        return; // Important: don't let pause menu keys leak to flight controls
     }
 });
 
