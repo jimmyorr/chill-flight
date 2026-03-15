@@ -340,7 +340,7 @@
         // Apply Massive Mountain Range
         const mountainRanges = [
             { lat: 2, lonStart: -1, maxHeight: 1600 },  // Northern snowy range
-            { lat: -1, lonStart: -1, maxHeight: 1600 }  // Southern Arizona range
+            { lat: -2, lonStart: -1, maxHeight: 1600 }  // Southern Arizona range
         ];
 
         // Process each range
@@ -352,46 +352,46 @@
                 // Low-frequency meandering for the range center
                 const ridgeMeander = simplex.noise2D(x * 0.0001 + (range.lat * 100), 123);
                 const currentZCenter = zCenterBase + ridgeMeander * 2000;
-                
+
                 // Vary mountain presence - some areas have peaks, others are just foothills
                 const presenceMod = 0.5 + simplex.noise2D(x * 0.0002 + (range.lat * 50), 789) * 0.5; // [0, 1]
-                
+
                 const dxRange = xStart - x;
-                const fadeIn = Math.min(1, dxRange / 5000); 
-                
+                const fadeIn = Math.min(1, dxRange / 5000);
+
                 const dz = z - currentZCenter;
                 const dist = Math.abs(dz);
-                
+
                 // 1. Broad base "mass" (Gaussian)
                 const baseRadius = 2500;
                 const baseDistSq = dz * dz;
                 const baseFalloff = Math.exp(-baseDistSq / (2 * baseRadius * baseRadius));
-                
+
                 if (baseFalloff > 0.01) {
                     // 2. Sharper peaks (Power function)
                     const peakRadius = 1800;
                     const peakDist = Math.min(peakRadius, dist);
                     // Increased exponent to 2.8 for steeper ascent curves
                     const peakShape = Math.pow(1.0 - (peakDist / peakRadius), 2.8);
-                    
+
                     // 3. Ridged Multi-Fractal ruggedness (Sharp Peaks)
                     // Math.abs creates valleys, 1.0 - Math.abs flips them into sharp ridges
                     let ridge1 = 1.0 - Math.abs(simplex.noise2D(x * 0.002, z * 0.002));
                     let ridge2 = 1.0 - Math.abs(simplex.noise2D(x * 0.006, z * 0.006));
-                    
+
                     // Squaring the ridges sharpens the drop-off even further
                     ridge1 *= ridge1;
                     ridge2 *= ridge2;
-                    
-                    const ruggedness = (ridge1 * 0.8 + ridge2 * 0.4 + 0.1); 
-                    
+
+                    const ruggedness = (ridge1 * 0.8 + ridge2 * 0.4 + 0.1);
+
                     // Combine: Peaks rise out of the broad base mass
                     const baseHeight = 300 * baseFalloff; // Smooth foothold
                     // Use presenceMod to make some peaks much higher than others
                     const peakHeight = range.maxHeight * peakShape * ruggedness * (0.4 + 0.6 * presenceMod);
-                    
+
                     let totalContribution = (baseHeight + peakHeight) * fadeIn;
-                    
+
                     // Land/Water Protection
                     const landFactor = Math.min(1, Math.max(0, n - WATER_LEVEL) / 15);
                     if (landFactor > 0.3 || totalContribution > 25) {
