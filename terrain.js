@@ -650,6 +650,7 @@ function generateChunk(chunkX, chunkZ) {
     // Normalize density so higher SEGMENTS doesn't mean more trees/houses/etc
     const densityFactor = 40 / SEGMENTS;
     const densityScale = densityFactor * densityFactor;
+    let maxChunkHeight = WATER_LEVEL;
 
     for (let i = 0; i < positions.length; i += 3) {
         const localX = positions[i];
@@ -659,6 +660,7 @@ function generateChunk(chunkX, chunkZ) {
 
         const height = getElevation(worldX, worldZ);
         positions[i + 1] = height;
+        if (height > maxChunkHeight) maxChunkHeight = height;
 
         // --- ORGANIC TEXTURING & SLOPE LOGIC ---
         // 1. Calculate local slope (quick approximation)
@@ -1576,10 +1578,17 @@ function generateChunk(chunkX, chunkZ) {
         roughness: 1.0
     });
 
+    // Boost clouds as they approach mountains based on the highest point in this chunk
+    // This ensures all clouds in a mountainous chunk rise consistently.
+    const elevationBoost = Math.max(0, maxChunkHeight - 100) * 1.5;
+
     for (let i = 0; i < numClouds; i++) {
         const cx = (rng() - 0.5) * CHUNK_SIZE;
         const cz = (rng() - 0.5) * CHUNK_SIZE;
-        const cy = 350 + rng() * 150;
+        
+        // Base cloud height
+        const baseHeight = 350 + rng() * 150;
+        const cy = baseHeight + elevationBoost;
 
         const cloudGroup = new THREE.Group();
         const parts = 3 + Math.floor(rng() * 3);
