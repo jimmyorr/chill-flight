@@ -121,7 +121,7 @@ setTimeout(() => {
 window.onYouTubeIframeAPIReady = function () {
     console.log("YouTube API Loaded.");
     ytApiLoaded = true;
-    updateLoadingProgress(20, "Calculating flight paths...");
+    updateLoadingProgress(20, "Reticulating splines...");
 
     // Short buffer to allow GA configs to settle
     setTimeout(() => {
@@ -181,7 +181,7 @@ function ensureYTPlayerInitialized(callback) {
     ytContainer.style.opacity = '0';
     ytContainer.style.pointerEvents = 'none';
 
-    updateLoadingProgress(60, "Reticulating splines...");
+    updateLoadingProgress(60, "Calculating flight paths...");
 
     ytPlayer = new YT.Player('youtube-player', {
         width: '220',
@@ -210,6 +210,7 @@ function ensureYTPlayerInitialized(callback) {
                     ytQueuedStation = null;
                 }
 
+                updateLoadingProgress(80, "Cooking...");
                 finishCalibration();
                 if (callback) callback();
             },
