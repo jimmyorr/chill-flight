@@ -6,6 +6,30 @@ body {
     user-select: none;
 }
 
+/* Prevent text selection and default tap highlights on interactive elements */
+.btn, 
+.mobile-btn, 
+.sub-btn, 
+.station-btn, 
+.color-swatch,
+.customization-input {
+    -webkit-user-select: none; /* Safari */
+    -ms-user-select: none;      /* IE 10+ */
+    user-select: none;          /* Standard */
+    
+    /* Disables the blue/gray highlight box that appears on tap in mobile browsers */
+    -webkit-tap-highlight-color: transparent;
+    
+    /* Prevents the browser from showing the "Copy/Paste" callout on long-press */
+    -webkit-touch-callout: none;
+}
+
+/* Ensure inputs still allow text entry if you want users to type their Callsign */
+#player-name-input {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
 #ui-layer {
     position: absolute;
     top: 0;
