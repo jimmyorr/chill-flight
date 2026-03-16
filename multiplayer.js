@@ -433,13 +433,13 @@ function initMultiplayer() {
                 }
 
                 // 1. Determine tickRate
-                let tickRate = 5000; // Stopped
+                let tickRate = 5000; // Stopped (Heartbeat)
                 const isSteering = typeof keys !== 'undefined' && (keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight);
                 
                 if (isSteering) {
-                    tickRate = 100;
+                    tickRate = 100; // 10Hz maneuvering
                 } else if (flightSpeedMultiplier > 0) {
-                    tickRate = 500;
+                    tickRate = 500; // 2Hz straight flight
                 }
 
                 // 2. Evaluate movement thresholds or heartbeat
@@ -457,6 +457,7 @@ function initMultiplayer() {
                 const lightsChanged = headlightsOn !== lastSentLights;
                 const isHeartbeat = (Date.now() - lastSyncTime) >= 5000;
 
+                // Thresholds: distance > 2.0 or rotation > 0.02 (total angular change)
                 if (!hasSentInitial || distMoved > 2.0 || rotChanged > 0.02 || speedChanged || lightsChanged || isHeartbeat) {
                     set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(pos, rot, flightSpeedMultiplier, headlightsOn));
                     
