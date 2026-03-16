@@ -800,14 +800,21 @@ function animate() {
                 p.mesh.position.copy(p.targetPos);
                 p.mesh.rotation.set(p.targetRotX || 0, p.targetRotY || 0, p.targetRotZ || 0);
             } else {
-                p.mesh.position.lerp(p.targetPos, delta * 12.0);
+                // Position Catch-Up: Linear step based on speed
+                const catchUpSpeed = (BASE_FLIGHT_SPEED * (p.targetSpeedMult || 1) * 60) + 150; 
+                const posStep = catchUpSpeed * delta;
+                if (dist > 0.01) { 
+                    p.mesh.position.lerp(p.targetPos, Math.min(posStep, dist) / dist); 
+                }
+
+                // Rotation Catch-Up: Maximum turn rate
                 if (p.targetQuat) {
                     p.targetQuat.setFromEuler(_targetEuler);
-                    p.mesh.quaternion.slerp(p.targetQuat, delta * 12.0);
-                } else {
-                    p.mesh.rotation.x = THREE.MathUtils.lerp(p.mesh.rotation.x, p.targetRotX || 0, delta * 12.0);
-                    p.mesh.rotation.y = THREE.MathUtils.lerp(p.mesh.rotation.y, p.targetRotY || 0, delta * 12.0);
-                    p.mesh.rotation.z = THREE.MathUtils.lerp(p.mesh.rotation.z, p.targetRotZ || 0, delta * 12.0);
+                    const angle = p.mesh.quaternion.angleTo(p.targetQuat);
+                    const maxTurn = 3.5 * delta; // Max rotation speed in radians per second
+                    if (angle > 0.001) { 
+                        p.mesh.quaternion.slerp(p.targetQuat, Math.min(maxTurn, angle) / angle); 
+                    }
                 }
             }
 
