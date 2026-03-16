@@ -39,6 +39,18 @@ function initMultiplayer() {
     const auth = getAuth(app);
     const db = getDatabase(app);
 
+    // Helpers for CSV packing optimization: x,y,z,rotX,rotY,rotZ,speed,lights
+    const packPos = (p, r, s, l) => `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)},${r.x.toFixed(3)},${r.y.toFixed(3)},${r.z.toFixed(3)},${s.toFixed(2)},${l?1:0}`;
+    const unpackPos = (csv) => {
+        if (typeof csv !== 'string') return csv || {};
+        const v = csv.split(',');
+        return {
+            x: parseFloat(v[0]), y: parseFloat(v[1]), z: parseFloat(v[2]),
+            rotX: parseFloat(v[3]), rotY: parseFloat(v[4]), rotZ: parseFloat(v[5]),
+            speedMult: parseFloat(v[6]), headlightsOn: v[7] === '1'
+        };
+    };
+
     const ENABLE_MULTIPLAYER_HEADLIGHTS = false;
     // Scope all Firebase paths under the world seed so players on different seeds
     // are completely isolated from each other.
@@ -267,17 +279,7 @@ function initMultiplayer() {
 
             const initialPos = planeGroup.position;
             const initialRot = planeGroup.rotation;
-            set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), {
-                x: Number(initialPos.x.toFixed(1)),
-                y: Number(initialPos.y.toFixed(1)),
-                z: Number(initialPos.z.toFixed(1)),
-                rotX: Number(initialRot.x.toFixed(3)),
-                rotY: Number(initialRot.y.toFixed(3)),
-                rotZ: Number(initialRot.z.toFixed(3)),
-                speedMult: Number(flightSpeedMultiplier.toFixed(2)),
-                headlightsOn: false,
-                updatedAt: new Date().toISOString()
-            });
+            set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(initialPos, initialRot, flightSpeedMultiplier, false));
 
             const playersRef = ref(db, `${worldPrefix}/players`);
             onChildAdded(playersRef, (snapshot) => {
@@ -285,15 +287,9 @@ function initMultiplayer() {
                 if (snapKey === playerUid) return;
 
                 const data = snapshot.val();
-                const posData = data.position || {};
+                const posData = unpackPos(data.position);
 
-                if (!posData.x && posData.x !== 0) return;
-
-                if (posData.updatedAt) {
-                    const packetTime = new Date(posData.updatedAt).getTime();
-                    const now = Date.now() + (window.serverTimeOffset || 0);
-                    if (now - packetTime > 10000) return;
-                }
+                if (posData.x === undefined || isNaN(posData.x)) return;
 
                 if (otherPlayers.has(snapKey)) {
                     const oldP = otherPlayers.get(snapKey);
@@ -344,38 +340,20 @@ function initMultiplayer() {
                 if (data.name) p.name = data.name;
 
                 if (data.position) {
-                    if (data.position.updatedAt) {
-                        const packetTime = new Date(data.position.updatedAt).getTime();
-                        const now = Date.now() + (window.serverTimeOffset || 0);
-                        if (now - packetTime > 10000) {
-                            scene.remove(p.mesh);
-                            otherPlayers.delete(snapKey);
-                            return;
-                        }
-                    }
-
-                    // Update targets
-                    p.targetRotX = data.position.rotX || 0;
-                    p.targetRotY = data.position.rotY || 0;
-                    p.targetRotZ = data.position.rotZ || 0;
-                    p.targetSpeedMult = data.position.speedMult !== undefined ? data.position.speedMult : 1;
+                    const posData = unpackPos(data.position);
                     p.lastReceivedMs = Date.now();
 
-                    // Set target position with latency compensation (Extrapolation)
-                    p.targetPos.set(data.position.x || 0, data.position.y || 200, data.position.z || 0);
+                    // Update targets
+                    p.targetRotX = posData.rotX || 0;
+                    p.targetRotY = posData.rotY || 0;
+                    p.targetRotZ = posData.rotZ || 0;
+                    p.targetSpeedMult = posData.speedMult !== undefined ? posData.speedMult : 1;
+                    p.targetPos.set(posData.x || 0, posData.y || 200, posData.z || 0);
 
-                    if (data.position.updatedAt) {
-                        const packetTime = new Date(data.position.updatedAt).getTime();
-                        const now = Date.now() + (window.serverTimeOffset || 0);
-                        let latencySecs = (now - packetTime) / 1000;
-
-                        // Only compensate for reasonable latency (up to 2 seconds)
-                        if (latencySecs > 0 && latencySecs < 2.0) {
-                            const targetEuler = new THREE.Euler(p.targetRotX, p.targetRotY, p.targetRotZ, 'XYZ');
-                            const forward = new THREE.Vector3(0, 0, -1).applyEuler(targetEuler);
-                            // Extrapolate: move the target position forward by how much time has passed since it was sent
-                            p.targetPos.add(forward.multiplyScalar(BASE_FLIGHT_SPEED * p.targetSpeedMult * 60 * latencySecs));
-                        }
+                    if (ENABLE_MULTIPLAYER_HEADLIGHTS && p.mesh.userData.headlight) {
+                        const isLightsOn = posData.headlightsOn || false;
+                        p.mesh.userData.headlight.intensity = isLightsOn ? 2 : 0;
+                        p.mesh.userData.headlightGlow.intensity = isLightsOn ? 0.1 : 0;
                     }
                 }
             });
@@ -416,17 +394,7 @@ function initMultiplayer() {
                     if (c.type === 'SpotLight' && c.intensity > 0) headlightsOn = true;
                 });
 
-                set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), {
-                    x: Number(pos.x.toFixed(1)),
-                    y: Number(pos.y.toFixed(1)),
-                    z: Number(pos.z.toFixed(1)),
-                    rotX: Number(rot.x.toFixed(3)),
-                    rotY: Number(rot.y.toFixed(3)),
-                    rotZ: Number(rot.z.toFixed(3)),
-                    speedMult: Number(flightSpeedMultiplier.toFixed(2)),
-                    headlightsOn: headlightsOn,
-                    updatedAt: new Date().toISOString()
-                });
+                set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(pos, rot, flightSpeedMultiplier, headlightsOn));
             }, 200);
         })
         .catch((error) => {
