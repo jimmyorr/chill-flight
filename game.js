@@ -1042,6 +1042,7 @@ function animate() {
         planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, targetRoll, TURN_SPEED);
     }
 
+    // --- FLIGHT PHYSICS & SPEED ---
     if (flightSpeedMultiplier > 0) {
         let turningRoll = (isBarrelRolling && !isClampedRoll) ? targetRoll : planeGroup.rotation.z;
         planeGroup.rotation.y += turningRoll * 0.025;
@@ -1056,11 +1057,12 @@ function animate() {
             // Accelerate in dive (reduced for softer feel)
             flightSpeedMultiplier += gravityEffect * 0.7 * delta;
         }
+    }
 
-        // --- SPEED RECOVERY (DRAG) ---
-        // Naturally return to the target throttle speed.
-        // We use a high recovery speed for manual throttle (Shift) and acceleration 
-        // to keep it snappy. We use a lower "drag" rate for bleeding off excess dive speed.
+    // --- SPEED RECOVERY (DRAG & THROTTLE) ---
+    // Naturally return to the target throttle speed.
+    // We update this even at speed 0 so the plane can start moving again.
+    if (flightSpeedMultiplier > 0 || targetFlightSpeed > 0) {
         let recoveryRate = 0.6; // Base drag rate
         if (keys.Shift || flightSpeedMultiplier < targetFlightSpeed) {
             recoveryRate = 10.0; // Snappy responsiveness for active control/acceleration
