@@ -378,8 +378,15 @@ function initMultiplayer() {
                     }
                 });
             }, 5000);
+ 
+            // State for Adaptive Thresholds
+            let lastSentPos = new THREE.Vector3();
+            let lastSentRot = new THREE.Euler();
+            let lastSentSpeed = 0;
+            let lastSentLights = false;
+            let hasSentInitial = false;
 
-            // Periodic position sync every 200ms
+            // Periodic position sync every 400ms
             setInterval(() => {
                 if (!navigator.onLine) return;
                 if (!window.firebaseDB) return;
@@ -394,8 +401,22 @@ function initMultiplayer() {
                     if (c.type === 'SpotLight' && c.intensity > 0) headlightsOn = true;
                 });
 
-                set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(pos, rot, flightSpeedMultiplier, headlightsOn));
-            }, 200);
+                // Adaptive Threshold Check
+                const distMoved = pos.distanceTo(lastSentPos);
+                const rotChanged = Math.abs(rot.x - lastSentRot.x) + Math.abs(rot.y - lastSentRot.y) + Math.abs(rot.z - lastSentRot.z);
+                const speedChanged = Math.abs(flightSpeedMultiplier - lastSentSpeed) > 0.01;
+                const lightsChanged = headlightsOn !== lastSentLights;
+
+                if (!hasSentInitial || distMoved > 2.0 || rotChanged > 0.02 || speedChanged || lightsChanged) {
+                    set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(pos, rot, flightSpeedMultiplier, headlightsOn));
+                    
+                    lastSentPos.copy(pos);
+                    lastSentRot.copy(rot);
+                    lastSentSpeed = flightSpeedMultiplier;
+                    lastSentLights = headlightsOn;
+                    hasSentInitial = true;
+                }
+            }, 400);
         })
         .catch((error) => {
             console.warn("Firebase auth failed (offline or config error):", error.code || error.message);
