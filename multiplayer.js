@@ -418,14 +418,31 @@ function initMultiplayer() {
             let lastSentSpeed = 0;
             let lastSentLights = false;
             let hasSentInitial = false;
+            let lastSyncTime = Date.now();
 
-            // Periodic position sync every 400ms
-            setInterval(() => {
-                if (!navigator.onLine) return;
-                if (!window.firebaseDB) return;
+            function scheduleNextSync() {
+                if (!navigator.onLine || !window.firebaseDB) {
+                    setTimeout(scheduleNextSync, 1000);
+                    return;
+                }
+
                 const debugMenu = document.getElementById('debug-menu');
-                if (debugMenu && debugMenu.style.display === 'block') return;
+                if (debugMenu && debugMenu.style.display === 'block') {
+                    setTimeout(scheduleNextSync, 1000);
+                    return;
+                }
 
+                // 1. Determine tickRate
+                let tickRate = 5000; // Stopped
+                const isSteering = typeof keys !== 'undefined' && (keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight);
+                
+                if (isSteering) {
+                    tickRate = 100;
+                } else if (flightSpeedMultiplier > 0) {
+                    tickRate = 500;
+                }
+
+                // 2. Evaluate movement thresholds or heartbeat
                 const pos = planeGroup.position;
                 const rot = planeGroup.rotation;
 
@@ -434,13 +451,13 @@ function initMultiplayer() {
                     if (c.type === 'SpotLight' && c.intensity > 0) headlightsOn = true;
                 });
 
-                // Adaptive Threshold Check
                 const distMoved = pos.distanceTo(lastSentPos);
                 const rotChanged = Math.abs(rot.x - lastSentRot.x) + Math.abs(rot.y - lastSentRot.y) + Math.abs(rot.z - lastSentRot.z);
                 const speedChanged = Math.abs(flightSpeedMultiplier - lastSentSpeed) > 0.01;
                 const lightsChanged = headlightsOn !== lastSentLights;
+                const isHeartbeat = (Date.now() - lastSyncTime) >= 5000;
 
-                if (!hasSentInitial || distMoved > 2.0 || rotChanged > 0.02 || speedChanged || lightsChanged) {
+                if (!hasSentInitial || distMoved > 2.0 || rotChanged > 0.02 || speedChanged || lightsChanged || isHeartbeat) {
                     set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(pos, rot, flightSpeedMultiplier, headlightsOn));
                     
                     lastSentPos.copy(pos);
@@ -448,8 +465,14 @@ function initMultiplayer() {
                     lastSentSpeed = flightSpeedMultiplier;
                     lastSentLights = headlightsOn;
                     hasSentInitial = true;
+                    lastSyncTime = Date.now();
                 }
-            }, 400);
+
+                setTimeout(scheduleNextSync, tickRate);
+            }
+
+            // Start the sync loop
+            scheduleNextSync();
         })
         .catch((error) => {
             console.warn("Firebase auth failed (offline or config error):", error.code || error.message);
