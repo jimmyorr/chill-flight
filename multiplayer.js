@@ -52,9 +52,7 @@ function initMultiplayer() {
     };
 
     const ENABLE_MULTIPLAYER_HEADLIGHTS = false;
-    // Scope all Firebase paths under the world seed so players on different seeds
-    // are completely isolated from each other.
-    const worldPrefix = `world/${ChillFlightLogic.WORLD_SEED}`;
+
     // otherPlayers must be on window so game.js (a plain script) can read it
     // Module-scoped const/let never lands on window, unlike top-level var in plain <script>s
     window.otherPlayers = new Map();
@@ -180,11 +178,46 @@ function initMultiplayer() {
     }
 
     signInAnonymously(auth)
-        .then((result) => {
+        .then(async (result) => {
             playerUid = result.user.uid;
             multiplayerActive = true;
             window.currentUserUid = playerUid;
             console.log("Logged in anonymously! ID:", playerUid);
+
+            let worldPrefix;
+            let roomIndex = 1;
+
+            async function findAvailableRoom(baseSeed) {
+                console.log(`🔎 Finding available room for seed: ${baseSeed}...`);
+                while (true) {
+                    const testPrefix = `world/${baseSeed}_room_${roomIndex}`;
+                    const playersRef = ref(db, `${testPrefix}/players`);
+                    try {
+                        const snapshot = await get(playersRef);
+                        const count = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+                        console.log(`🏠 Checking Room ${roomIndex} (${testPrefix}): ${count} players`);
+                        if (count < 10) {
+                            console.log(`✅ Joined Room ${roomIndex}`);
+                            return { testPrefix, roomIndex };
+                        }
+                    } catch (err) {
+                        console.error("❌ Room check failed:", err);
+                        return { testPrefix, roomIndex }; // Fallback to current if query fails
+                    }
+                    roomIndex++;
+                }
+            }
+
+            const roomData = await findAvailableRoom(ChillFlightLogic.WORLD_SEED);
+            worldPrefix = roomData.testPrefix;
+            roomIndex = roomData.roomIndex;
+
+            // Update UI with Room Number
+            const title = document.getElementById('online-title');
+            if (title) {
+                title.textContent = `ONLINE - RM ${roomIndex}`;
+                title.style.color = '';
+            }
 
             if (planeMat) {
                 if (!hasSavedColor) {
