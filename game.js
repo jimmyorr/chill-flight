@@ -1780,15 +1780,33 @@ function updatePlayerList() {
     const top5 = players.slice(0, 5);
 
     // Render
-    listEl.innerHTML = top5.map(p => `
-        <div class="player-entry ${p.isSelf ? 'player-self' : ''}" ${p.uid ? `data-uid="${p.uid}"` : ''}>
-            <span class="player-name">${p.name}</span>
-            <div class="player-info">
-                <span class="player-dist">${p.isSelf ? '-' : Math.round(p.dist) + 'm'}</span>
-                <span class="player-dir">${p.isSelf ? '-' : p.dir}</span>
-            </div>
-        </div>
-    `).join('');
+    listEl.innerHTML = '';
+    top5.forEach(p => {
+        const entry = document.createElement('div');
+        entry.className = 'player-entry' + (p.isSelf ? ' player-self' : '');
+        if (p.uid) entry.setAttribute('data-uid', p.uid);
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'player-name';
+        nameSpan.textContent = p.name;
+        entry.appendChild(nameSpan);
+
+        const info = document.createElement('div');
+        info.className = 'player-info';
+
+        const distSpan = document.createElement('span');
+        distSpan.className = 'player-dist';
+        distSpan.textContent = p.isSelf ? '-' : Math.round(p.dist) + 'm';
+        info.appendChild(distSpan);
+
+        const dirSpan = document.createElement('span');
+        dirSpan.className = 'player-dir';
+        dirSpan.textContent = p.isSelf ? '-' : p.dir;
+        info.appendChild(dirSpan);
+
+        entry.appendChild(info);
+        listEl.appendChild(entry);
+    });
 }
 
 // Start loop
