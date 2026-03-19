@@ -1,8 +1,6 @@
 // --- PROCEDURAL AUDIO RADIO & YOUTUBE ---
-// Dependencies: none (self-contained, uses global audioCtx)
+// Dependencies: none (self-contained)
 
-let audioCtx;
-let mainGain;
 let currentStation = 0;
 let nextNoteTime = 0;
 let beatCount = 0;
@@ -158,10 +156,6 @@ function finishCalibration() {
             if (radioPanel) radioPanel.classList.add('pulse-radio');
         }
     }, 1500);
-
-    if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
 }
 
 function ensureYTPlayerInitialized(callback) {
