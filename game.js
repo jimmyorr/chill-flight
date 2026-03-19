@@ -5,7 +5,7 @@
 //               CHUNK_SIZE, WATER_LEVEL, BASE_FLIGHT_SPEED, TURN_SPEED, flightSpeedMultiplier,
 //               pontoonGroup, pontoonL, pontoonR, hingeLF, hingeLB, hingeRF, hingeRB,
 //               headlight, headlightGlow, otherPlayers (set by multiplayer.js),
-//               audioCtx, currentStation, ytPlayer, ytPlayerReady, setStation
+//               currentStation, ytPlayer, ytPlayerReady, setStation
 
 // --- INPUT ---
 let mouseX = 0;
@@ -165,7 +165,6 @@ function togglePause() {
         const radioPanel = document.getElementById('radio-panel');
         if (radioPanel) radioPanel.classList.remove('pulse-radio');
 
-        if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
         if (ytPlayerReady && currentStation === 1) ytPlayer.pauseVideo();
     } else {
         pauseOverlay.style.display = 'none';
