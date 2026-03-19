@@ -9,5 +9,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [~] **Track: Fix High-Severity XSS Vulnerability in Player List**
+- [x] **Track: Fix High-Severity XSS Vulnerability in Player List**
   *Link: [./tracks/xss_fix_20260318/](./tracks/xss_fix_20260318/)*
