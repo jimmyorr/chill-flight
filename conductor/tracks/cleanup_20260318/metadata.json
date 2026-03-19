@@ -1,0 +1,8 @@
+{
+  "track_id": "cleanup_20260318",
+  "type": "maintenance",
+  "status": "new",
+  "created_at": "2026-03-18T10:00:00Z",
+  "updated_at": "2026-03-18T10:00:00Z",
+  "description": "Review the existing codebase for safe and simple cleanup"
+}
