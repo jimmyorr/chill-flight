@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>XSS Fix Verification - Chill Flight</title>
+    <style>
+        body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+        .player-entry { border: 1px solid #444; padding: 10px; margin-bottom: 10px; }
+        .player-name { font-weight: bold; color: #00ffcc; }
+        #player-list { margin-top: 20px; }
+        #status { color: #44ff44; font-weight: bold; }
+        .error { color: #ff4444; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>XSS Fix Verification</h1>
+    <p>This page simulates the FIXED <code>updatePlayerList</code> logic in <code>game.js</code>.</p>
+    
+    <div id="player-list"></div>
+    <div id="status"></div>
+
+    <script>
+        // Vulnerable payload: a name that includes a script tag
+        const maliciousName = "Attacker <img src=x onerror=\"document.getElementById('status').innerHTML = '<span class=error>XSS EXECUTED! FIX FAILED.</span>';\">";
+        
+        const players = [
+            { name: maliciousName, dist: 100, dir: '↑', isSelf: false, uid: 'attacker-123' }
+        ];
+
+        function fixedUpdatePlayerList(top5) {
+            const listEl = document.getElementById('player-list');
+            
+            // This is the FIXED logic from game.js
+            listEl.innerHTML = '';
+            top5.forEach(p => {
+                const entry = document.createElement('div');
+                entry.className = 'player-entry' + (p.isSelf ? ' player-self' : '');
+                if (p.uid) entry.setAttribute('data-uid', p.uid);
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'player-name';
+                nameSpan.textContent = p.name; // This is the key fix
+                entry.appendChild(nameSpan);
+
+                const info = document.createElement('div');
+                info.className = 'player-info';
+
+                const distSpan = document.createElement('span');
+                distSpan.className = 'player-dist';
+                distSpan.textContent = p.isSelf ? '-' : Math.round(p.dist) + 'm';
+                info.appendChild(distSpan);
+
+                const dirSpan = document.createElement('span');
+                dirSpan.className = 'player-dir';
+                dirSpan.textContent = p.isSelf ? '-' : p.dir;
+                info.appendChild(dirSpan);
+
+                entry.appendChild(info);
+                listEl.appendChild(entry);
+            });
+        }
+
+        console.log("Running simulation...");
+        fixedUpdatePlayerList(players);
+
+        // If the status is still empty after a brief delay, it means the script didn't execute
+        setTimeout(() => {
+            const status = document.getElementById('status');
+            if (status.innerHTML === '') {
+                status.innerText = "VERIFICATION SUCCESS: XSS payload was rendered as text and NOT executed.";
+            }
+        }, 500);
+    </script>
+</body>
+</html>
