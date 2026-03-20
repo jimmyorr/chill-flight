@@ -292,6 +292,15 @@ function initMultiplayer() {
                     localStorage.setItem('chill_flight_name', playerName);
                     updatePlayerProfile();
                 });
+
+                nameInput.addEventListener('blur', (e) => {
+                    if (!e.target.value.trim()) {
+                        e.target.value = window.defaultCallsign;
+                        playerName = window.defaultCallsign;
+                        localStorage.setItem('chill_flight_name', playerName);
+                        updatePlayerProfile();
+                    }
+                });
             }
 
             if (colorOptions) {

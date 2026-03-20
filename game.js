@@ -153,18 +153,6 @@ function togglePause() {
         keys.ArrowUp = keys.ArrowDown = keys.ArrowLeft = keys.ArrowRight = false;
         doubleTap.ArrowUp = doubleTap.ArrowDown = doubleTap.ArrowLeft = doubleTap.ArrowRight = false;
 
-        const defaultNames = window.CALLSIGNS || ['Pilot'];
-        const nameInput = document.getElementById('player-name-input');
-        const currentName = window.playerName || localStorage.getItem('chill_flight_name');
-        if (nameInput && (!currentName || defaultNames.includes(currentName) || currentName === 'Pilot')) {
-            nameInput.classList.add('pulse');
-        } else if (nameInput) {
-            nameInput.classList.remove('pulse');
-        }
-
-        const radioPanel = document.getElementById('radio-panel');
-        if (radioPanel) radioPanel.classList.remove('pulse-radio');
-
         if (ytPlayerReady && currentStation === 1) ytPlayer.pauseVideo();
     } else {
         pauseOverlay.style.display = 'none';
@@ -338,13 +326,6 @@ function pollGamepad(delta) {
     // Update lastGamepadButtons for all buttons
     gp.buttons.forEach((btn, idx) => {
         lastGamepadButtons[idx] = btn.pressed;
-    });
-}
-
-const nameInput = document.getElementById('player-name-input');
-if (nameInput) {
-    nameInput.addEventListener('input', () => {
-        nameInput.classList.remove('pulse');
     });
 }
 
