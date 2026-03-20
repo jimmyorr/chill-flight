@@ -3,3 +3,6 @@ node_modules/
 www/
 android/
 ios/
+.server-info
+.server.pid
+.superpowers/
