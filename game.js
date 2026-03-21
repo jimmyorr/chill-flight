@@ -19,7 +19,7 @@ let smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
 let manualPitch = 0;
 let verticalVelocity = 0; // units/sec, negative = falling
 let keyPressStartTime = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
-let cameraMode = 'follow'; // 'follow', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
+let cameraMode = 'follow'; // 'follow', 'birds-eye-close', 'birds-eye-far', 'birds-eye-ultra', or 'cinematic'
 let cameraTransitionProgress = 0; // 0 = follow/cinematic, 1 = bird's eye
 let currentBirdEyeHeight = 2000;
 let cinematicTimer = 0;
@@ -1269,7 +1269,7 @@ function animate() {
 
     // --- CAMERA UPDATES ---
     const transitionDuration = 1.25; // Seconds for full swoop
-    const isBirdEye = cameraMode === 'birds-eye-close' || cameraMode === 'birds-eye-far';
+    const isBirdEye = cameraMode === 'birds-eye-close' || cameraMode === 'birds-eye-far' || cameraMode === 'birds-eye-ultra';
 
     if (isBirdEye) {
         cameraTransitionProgress = Math.min(1, cameraTransitionProgress + delta / transitionDuration);
@@ -1278,7 +1278,10 @@ function animate() {
     }
 
     // Smoothly transition between different bird's eye heights
-    const targetBirdEyeHeight = cameraMode === 'birds-eye-close' ? 500 : 2000;
+    let targetBirdEyeHeight = 2000;
+    if (cameraMode === 'birds-eye-close') targetBirdEyeHeight = 500;
+    if (cameraMode === 'birds-eye-ultra') targetBirdEyeHeight = 5000;
+
     currentBirdEyeHeight = THREE.MathUtils.lerp(currentBirdEyeHeight, targetBirdEyeHeight, 0.05);
 
     // Cubic ease-in for the "swoop up" drama: t^3
@@ -1863,6 +1866,8 @@ if (camToggle) {
         } else if (cameraMode === 'birds-eye-close') {
             cameraMode = 'birds-eye-far';
         } else if (cameraMode === 'birds-eye-far') {
+            cameraMode = 'birds-eye-ultra';
+        } else if (cameraMode === 'birds-eye-ultra') {
             cameraMode = 'cinematic';
         } else {
             cameraMode = 'follow';
@@ -1994,6 +1999,8 @@ window.addEventListener('keydown', (e) => {
         } else if (cameraMode === 'birds-eye-close') {
             cameraMode = 'birds-eye-far';
         } else if (cameraMode === 'birds-eye-far') {
+            cameraMode = 'birds-eye-ultra';
+        } else if (cameraMode === 'birds-eye-ultra') {
             cameraMode = 'cinematic';
             cinematicTimer = 0;
             currentCinematicIndex = 0;
