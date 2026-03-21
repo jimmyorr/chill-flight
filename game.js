@@ -1913,7 +1913,7 @@ function resetSteering() {
     mouseControlActive = false;
 }
 
-document.querySelectorAll('.mobile-btn, .sub-btn').forEach(btn => {
+document.querySelectorAll('.mobile-btn, .sub-btn, #debug-menu').forEach(btn => {
     btn.addEventListener('mouseenter', resetSteering);
     btn.addEventListener('touchstart', resetSteering, { passive: true });
 });
@@ -2074,6 +2074,8 @@ window.addEventListener('keydown', (e) => {
         const debugMenu = document.getElementById('debug-menu');
         const isOpening = debugMenu.style.display !== 'block';
         debugMenu.style.display = isOpening ? 'block' : 'none';
+        
+        if (isOpening) resetSteering();
 
         if (window.firebaseDB && window.currentUserUid) {
             const _wp = `world/${ChillFlightLogic.WORLD_SEED}`;
