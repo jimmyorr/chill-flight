@@ -55,22 +55,36 @@
                     console.log(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
                     
                     // Force terrain rebuild
-                    if (window.chunks && typeof window.updateChunks === 'function') {
+                    if (typeof chunks !== 'undefined' && typeof updateChunks === 'function') {
                         // Dispose all previous procedural chunks manually
-                        window.chunks.forEach((group, key) => {
+                        chunks.forEach((group, key) => {
                             group.traverse(child => {
                                 if (child.isMesh || child.isInstancedMesh) {
                                     child.geometry.dispose();
                                 }
                             });
-                            if (window.scene) {
-                                window.scene.remove(group);
+                            if (typeof scene !== 'undefined') {
+                                scene.remove(group);
                             }
                         });
-                        window.chunks.clear();
-                        window.updateChunks();
+                        chunks.clear();
+                        
+                        // Reset plane position and state
+                        if (typeof planeGroup !== 'undefined') {
+                            planeGroup.position.set(0, 1000, 0); 
+                            planeGroup.rotation.set(0, 0, 0);
+                        }
+                        
+                        try {
+                            if (typeof targetFlightSpeed !== 'undefined') {
+                                targetFlightSpeed = 1.0; // Cruise speed
+                                flightSpeedMultiplier = 1.0;
+                            }
+                        } catch(e) {}
+                        
+                        updateChunks();
                     } else {
-                        console.warn("window.chunks or window.updateChunks is not available yet.");
+                        console.warn("chunks or updateChunks is not available yet.");
                     }
                 };
                 img.src = event.target.result;

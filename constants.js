@@ -7,7 +7,7 @@ const MOUNTAIN_LEVEL = 180;
 let RENDER_DISTANCE = 2;
 
 // Custom Map Parameters
-const MAP_WORLD_SIZE = 20000;
+const MAP_WORLD_SIZE = 10000;
 const MAP_HEIGHT_SCALE = 400;
 
 // Flight parameters
