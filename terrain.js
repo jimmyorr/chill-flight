@@ -706,9 +706,10 @@ function generateChunk(chunkX, chunkZ) {
         let cherryNoise = 0;
         // --- COLOR ASSIGNMENT & FEATURE SPAWNING ---
         if (isCustom) {
-            if (height <= WATER_LEVEL + 0.5) {
+            if (height <= WATER_LEVEL + 5.0) {
                 hasWater = true;
                 _tempColorObj.copy(_colorSand);
+                positions[i + 1] = height - 5;
             } else if (height > MOUNTAIN_LEVEL + 400) {
                 _tempColorObj.copy(_colorSnow);
             } else if (height > MOUNTAIN_LEVEL + 100) {
@@ -739,8 +740,8 @@ function generateChunk(chunkX, chunkZ) {
                     if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
                     
                     // Mottling for sand (adding some dark/light patches)
-                    if (mottle > 0.6) _tempColorObj.lerp(new THREE.Color(0xD2B48C), (mottle - 0.6) * 0.5);
-                    if (mottle < 0.4) _tempColorObj.lerp(new THREE.Color(0xDEB887), (0.4 - mottle) * 0.5);
+                    if (!isCustom && mottle > 0.6) _tempColorObj.lerp(new THREE.Color(0xD2B48C), (mottle - 0.6) * 0.5);
+                    if (!isCustom && mottle < 0.4) _tempColorObj.lerp(new THREE.Color(0xDEB887), (0.4 - mottle) * 0.5);
                 }
             } else if (height > MOUNTAIN_LEVEL || (snowFactor > 0.5 && height > MOUNTAIN_LEVEL - 50)) {
                 // Massive sierra gets highly refined, patchy-to-solid snow OR Arizona desert rock
@@ -788,7 +789,7 @@ function generateChunk(chunkX, chunkZ) {
                         } else {
                             _tempColorObj.copy(_colorForest);
                             // Forest mottling: darker green patches
-                            _tempColorObj.lerp(new THREE.Color(0x006400), mottle * 0.3);
+                            if (!isCustom) _tempColorObj.lerp(new THREE.Color(0x006400), mottle * 0.3);
                         }
                     }
                 }
@@ -803,8 +804,10 @@ function generateChunk(chunkX, chunkZ) {
                     if (desertFactor > 0) _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
                     
                     // Mottling for Forest: Mix in some darker evergreens and lighter mossy patches
-                    _tempColorObj.lerp(new THREE.Color(0x004d00), mottle * 0.4);
-                    if (mottle < 0.3) _tempColorObj.lerp(new THREE.Color(0x6B8E23), 0.2);
+                    if (!isCustom) {
+                        _tempColorObj.lerp(new THREE.Color(0x004d00), mottle * 0.4);
+                        if (mottle < 0.3) _tempColorObj.lerp(new THREE.Color(0x6B8E23), 0.2);
+                    }
 
                     const treeRoll = rng();
                     if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
@@ -838,8 +841,10 @@ function generateChunk(chunkX, chunkZ) {
                     if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
                     
                     // Mottling for Plains: Dry grass vs lush grass
-                    _tempColorObj.lerp(new THREE.Color(0x556B2F), mottle * 0.4);
-                    if (mottle > 0.8) _tempColorObj.lerp(new THREE.Color(0xBDB76B), 0.3);
+                    if (!isCustom) {
+                        _tempColorObj.lerp(new THREE.Color(0x556B2F), mottle * 0.4);
+                        if (mottle > 0.8) _tempColorObj.lerp(new THREE.Color(0xBDB76B), 0.3);
+                    }
 
                     const houseThreshold = (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
                     const barnThreshold = houseThreshold + 0.002 * densityScale;
@@ -943,7 +948,9 @@ function generateChunk(chunkX, chunkZ) {
             _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.3);
         }
 
-        _tempColorObj.multiplyScalar(1.0 + grain);
+        if (!isCustom) {
+            _tempColorObj.multiplyScalar(1.0 + grain);
+        }
         colors.push(_tempColorObj.r, _tempColorObj.g, _tempColorObj.b);
     }
 
@@ -1540,7 +1547,7 @@ function generateChunk(chunkX, chunkZ) {
     // 3. Generate Clouds
     let cloudiness = (simplex.noise2D(chunkX * 0.1 + 500, chunkZ * 0.1) + 1) / 2;
     const cloudThreshold = 0.5;
-    if (cloudiness < cloudThreshold) {
+    if (isCustom || cloudiness < cloudThreshold) {
         cloudiness = 0;
     } else {
         cloudiness = (cloudiness - cloudThreshold) / (1 - cloudThreshold);
@@ -1588,8 +1595,7 @@ function generateChunk(chunkX, chunkZ) {
 
     // 4. Generate Birds
     group.userData.birds = [];
-
-    if (rng() < 0.20) {
+    if (!isCustom && rng() < 0.20) {
         const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
         const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
         let baseY = getElevation(baseX, baseZ) + 150 + rng() * 200;
