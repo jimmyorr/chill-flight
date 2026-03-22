@@ -1021,7 +1021,9 @@ function animate() {
             const targetDive = -(Math.PI * 70) / 180; // 70 degrees
             planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, targetDive, 0.05);
             isLooping = true;
-        } else if (keys.ArrowLeft && !keys.Shift) {
+        }
+        
+        if (keys.ArrowLeft && !keys.Shift) {
             if (doubleTap.ArrowLeft) {
                 // Double-tap: full barrel roll
                 planeGroup.rotation.z += manualRollSpeed * delta;
