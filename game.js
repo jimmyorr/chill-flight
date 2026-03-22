@@ -921,12 +921,10 @@ function animate() {
 
         manualPitch = THREE.MathUtils.lerp(manualPitch, 0, 0.1);
 
-        const isHeliVTOL = (vehicleType === 'helicopter' && flightSpeedMultiplier < 0.33);
-
         if (keys.Shift) {
             // Throttle already handled above; no pitch changes while Shift is held
-        } else if (isHeliVTOL && (isUp || isDown)) {
-            targetPitch = 0; // Maintain level flight during vertical takeoff/landing
+        } else if (vehicleType === 'helicopter' && (isUp || isDown)) {
+            targetPitch = 0; // Maintain level flight during vertical movement
         } else if (isUp && !dtUp) {
             const heldTime = nowTime - startUp;
             if (heldTime > STEER_HOLD_THRESHOLD) {
@@ -1136,14 +1134,10 @@ function animate() {
         }
 
         // --- LIFT & ALTITUDE CONTROL ---
-        // Stable hover band between 0.1 and 0.33 multiplier (stationary)
-        // AND stable forward band between 0.33 and 1.0 (moving forward)
-        // Below 0.1 = Controlled Descent
-        // Above 1.0 = Ascent
         let liftFactor = 0;
         
-        // VTOL Mode: Manual altitude control under 50 KTS (0.33 multiplier)
-        if (flightSpeedMultiplier < 0.33 && !keys.Shift) {
+        // Manual altitude control (at all speeds for helicopter)
+        if (!keys.Shift) {
             if (invertYAxis ? keys.ArrowDown : keys.ArrowUp) {
                 liftFactor = 40; // Manual Rise
             } else if (invertYAxis ? keys.ArrowUp : keys.ArrowDown) {
@@ -1151,14 +1145,7 @@ function animate() {
             }
         }
 
-        // Automatic lift logic based on throttle
-        if (liftFactor === 0) {
-            if (flightSpeedMultiplier < 0.1) {
-                liftFactor = (flightSpeedMultiplier - 0.1) * 60; // Sinking
-            } else if (flightSpeedMultiplier > 1.0) {
-                liftFactor = (flightSpeedMultiplier - 1.0) * 80; // Climbing
-            }
-        }
+        // Automatic lift logic removed for helicopter to ensure constant altitude flight
 
         if (Math.abs(liftFactor) > 0.1) {
             planeGroup.position.y += liftFactor * delta;
