@@ -467,6 +467,13 @@ window.addEventListener('keydown', (e) => {
         }
         return; // Important: don't let pause menu keys leak to flight controls
     }
+
+    // 4. Vehicle Switch Shortcut: 'v' or 'V'
+    if (e.key.toLowerCase() === 'v' && !isPaused && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
+        const nextType = vehicleType === 'airplane' ? 'helicopter' : (vehicleType === 'helicopter' ? 'boat' : 'airplane');
+        setVehicle(nextType);
+        return;
+    }
 });
 
 
@@ -490,15 +497,15 @@ if (vehicleSelect) {
     });
 }
 
-const vehicleToggle = document.getElementById('mobile-vehicle-toggle');
-if (vehicleToggle) {
-    vehicleToggle.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const nextType = vehicleType === 'airplane' ? 'helicopter' : 'airplane';
-        setVehicle(nextType);
-    });
-}
+    const vehicleToggle = document.getElementById('mobile-vehicle-toggle');
+    if (vehicleToggle) {
+        vehicleToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const nextType = vehicleType === 'airplane' ? 'helicopter' : (vehicleType === 'helicopter' ? 'boat' : 'airplane');
+            setVehicle(nextType);
+        });
+    }
 
 // Distance selection
 const distanceSelect = document.getElementById('distance-select');
@@ -836,6 +843,8 @@ function animate() {
         } else if (vehicleType === 'helicopter') {
             mainRotorGroup.rotation.y += spinSpeed * delta;
             tailRotorGroup.rotation.x += spinSpeed * 1.5 * delta;
+        } else if (vehicleType === 'boat' && window.boatPropellerGroup) {
+            window.boatPropellerGroup.rotation.z += spinSpeed * 2 * delta;
         }
     }
 
@@ -899,30 +908,46 @@ function animate() {
     const startUp = invertYAxis ? keyPressStartTime.ArrowDown : keyPressStartTime.ArrowUp;
     const startDown = invertYAxis ? keyPressStartTime.ArrowUp : keyPressStartTime.ArrowDown;
 
-    // Shift+Up/Down: throttle control, works at any speed including 0
-    if (keys.Shift) {
+    // Shift+Up/Down: throttle control (For boat, it is just Up/Down)
+    if (keys.Shift || vehicleType === 'boat') {
         if (isUp) {
             const heldTime = nowTime - startUp;
-            const ramp = Math.min(1.0, heldTime / 2000); // Ramps up over 2 seconds
-            const throttleRate = (0.5 + ramp * 3.5) * delta; // 0.5/s to 4.0/s
-            targetFlightSpeed = Math.min(10, targetFlightSpeed + throttleRate);
+            const ramp = Math.min(1.0, heldTime / 2000); 
+            const throttleRate = (0.5 + ramp * 3.5) * delta; 
+            targetFlightSpeed = targetFlightSpeed + throttleRate;
+            if (vehicleType !== 'boat') {
+                targetFlightSpeed = Math.min(10, targetFlightSpeed);
+            } else {
+                targetFlightSpeed = Math.min(0.33, targetFlightSpeed); // Cap forward boat speed
+            }
         } else if (isDown) {
             const heldTime = nowTime - startDown;
-            const ramp = Math.min(1.0, heldTime / 2000); // Ramps up over 2 seconds
-            const throttleRate = (0.5 + ramp * 3.5) * delta; // 0.5/s to 4.0/s
-            targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
+            const ramp = Math.min(1.0, heldTime / 2000); 
+            const throttleRate = (0.5 + ramp * 3.5) * delta; 
+            targetFlightSpeed = targetFlightSpeed - throttleRate;
+            if (vehicleType !== 'boat') {
+                targetFlightSpeed = Math.max(0, targetFlightSpeed);
+            } else {
+                targetFlightSpeed = Math.max(-0.15, targetFlightSpeed); // Cap reverse boat speed
+            }
         }
     }
 
-    if (flightSpeedMultiplier > 0) {
+    if (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0) {
         let yMultiplier = invertYAxis ? -1 : 1;
-        targetPitch = effMouseY * maxPitch * yMultiplier;
-        targetRoll = -effMouseX * (maxRoll * 1.25);
+        
+        if (vehicleType === 'boat') {
+            targetPitch = 0;
+            targetRoll = 0;
+        } else {
+            targetPitch = effMouseY * maxPitch * yMultiplier;
+            targetRoll = -effMouseX * (maxRoll * 1.25);
+        }
 
         manualPitch = THREE.MathUtils.lerp(manualPitch, 0, 0.1);
 
-        if (keys.Shift) {
-            // Throttle already handled above; no pitch changes while Shift is held
+        if (keys.Shift || vehicleType === 'boat') {
+            // Throttle already handled above; no pitch changes while Shift is held or if boat
         } else if (vehicleType === 'helicopter' && (isUp || isDown)) {
             targetPitch = 0; // Maintain level flight during vertical movement
         } else if (isUp && !dtUp) {
@@ -1080,18 +1105,18 @@ function animate() {
         const pitchRad = planeGroup.rotation.x;
         const gravityEffect = -Math.sin(pitchRad); // positive when diving
 
-        if (gravityEffect > 0 && vehicleType !== 'helicopter') {
+        if (gravityEffect > 0 && vehicleType === 'airplane') {
             // Accelerate in dive (reduced for softer feel)
-            // Airplane only: helicopters don't gain forward speed from vertical pitch in this model
+            // Airplane only: helicopters and boats don't gain forward speed from vertical pitch in this model
             flightSpeedMultiplier += gravityEffect * 0.7 * delta;
         }
     }
 
     // --- SPEED RECOVERY (DRAG & THROTTLE) ---
-    // Naturally return to the target throttle speed.
-    // We update this even at speed 0 so the plane can start moving again.
-    if (flightSpeedMultiplier > 0 || targetFlightSpeed > 0) {
-        let recoveryRate = 0.6; // Base drag rate
+    // Automatically return to the target throttle speed.
+    // We update this even at speed 0 so the vehicle can start moving again.
+    if (Math.abs(flightSpeedMultiplier) > 0.001 || Math.abs(targetFlightSpeed) > 0.001) {
+        let recoveryRate = vehicleType === 'boat' ? 3.5 : 0.6; // Boat needs snappy throttle
         
         if (window._isRecoveringFromHeli) {
             if (keys.Shift || Math.abs(flightSpeedMultiplier - targetFlightSpeed) < 0.05) {
@@ -1104,8 +1129,12 @@ function animate() {
         }
         flightSpeedMultiplier = THREE.MathUtils.lerp(flightSpeedMultiplier, targetFlightSpeed, recoveryRate * delta);
 
-        // Keep speed in [0, 10] range
-        flightSpeedMultiplier = Math.max(0, Math.min(10, flightSpeedMultiplier));
+        // Keep speed in bounds based on vehicle type
+        if (vehicleType === 'boat') {
+            flightSpeedMultiplier = Math.max(-0.15, Math.min(0.33, flightSpeedMultiplier));
+        } else {
+            flightSpeedMultiplier = Math.max(0, Math.min(10, flightSpeedMultiplier));
+        }
     }
 
     // Altitude and Speed constants
@@ -1115,13 +1144,21 @@ function animate() {
 
     // Ground avoidance heights
     const terrainHeight = getElevation(planeGroup.position.x, planeGroup.position.z);
-    let isWater = terrainHeight <= WATER_LEVEL + 0.1;
+    let isWater = terrainHeight <= WATER_LEVEL + (vehicleType === 'boat' ? 0.3 : 0.1);
     const minFlightHeight = isWater ? terrainHeight + 5.5 : terrainHeight + 30;
-    const restingHeight = minFlightHeight + (isWater ? 0 : 5);
+    let restingHeight = minFlightHeight + (isWater ? 0 : 5);
 
+    if (vehicleType === 'boat') {
+        // Boat sits submerged by 0.5 units (like the sailboats)
+        // Hull height at 0.8 scale is 1.6 units. Center at 0. Bottom at -0.8.
+        // To have bottom at W.L - 0.5, center must be at W.L + 0.3
+        restingHeight = isWater ? (WATER_LEVEL + 0.3) : (terrainHeight + 0.8);
+    }
+    
     // Move vehicle
-    const currentKTS = BASE_FLIGHT_SPEED * flightSpeedMultiplier * 60;
-    const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2);
+    const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
+    // Lower threshold for isFreefalling to eliminate the "stuck in mid-air" dead zone
+    const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2) || (vehicleType === 'boat' && planeGroup.position.y > restingHeight + 0.1) || (vehicleType === 'helicopter' && planeGroup.position.y > restingHeight + 0.1);
 
     // Calculate actual forward speed factor based on vehicle type and thresholds
     let moveSpeedFactor = 0;
@@ -1129,6 +1166,9 @@ function animate() {
         moveSpeedFactor = (flightSpeedMultiplier > 0 && !isFreefalling) ? flightSpeedMultiplier : 0;
     } else if (vehicleType === 'helicopter') {
         moveSpeedFactor = Math.max(0, flightSpeedMultiplier - 0.33);
+    } else if (vehicleType === 'boat') {
+        // Boats can move if they are in the water OR if they are falling (drifting)
+        moveSpeedFactor = (Math.abs(flightSpeedMultiplier) > 0 && (isWater || isFreefalling)) ? flightSpeedMultiplier : 0;
     }
 
     if (vehicleType === 'airplane') {
@@ -1167,6 +1207,11 @@ function animate() {
         if (Math.abs(liftFactor) > 0.1) {
             planeGroup.position.y += liftFactor * delta;
         }
+    } else if (vehicleType === 'boat') {
+        // Apply forward/backward movement
+        if (Math.abs(moveSpeedFactor) > 0) {
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
+        }
     }
 
     if (isFreefalling) {
@@ -1180,14 +1225,16 @@ function animate() {
 
         planeGroup.position.y += verticalVelocity * delta;
 
-        // Tumble chaos scales with fall speed for extra drama
-        const tumbleIntensity = Math.min(1.5, Math.abs(verticalVelocity) / 300);
-        planeGroup.rotation.x += (Math.sin(now * 0.002) + Math.cos(now * 0.0011)) * 0.8 * tumbleIntensity * delta;
-        planeGroup.rotation.z += (Math.cos(now * 0.0025) + Math.sin(now * 0.0017)) * 0.8 * tumbleIntensity * delta;
-        planeGroup.rotation.y += (Math.sin(now * 0.0015) + Math.cos(now * 0.0009)) * 0.5 * tumbleIntensity * delta;
+        // Tumble chaos scales with fall speed for extra drama (Disabled for boat)
+        if (vehicleType !== 'boat') {
+            const tumbleIntensity = Math.min(1.5, Math.abs(verticalVelocity) / 300);
+            planeGroup.rotation.x += (Math.sin(now * 0.002) + Math.cos(now * 0.0011)) * 0.8 * tumbleIntensity * delta;
+            planeGroup.rotation.z += (Math.cos(now * 0.0025) + Math.sin(now * 0.0017)) * 0.8 * tumbleIntensity * delta;
+            planeGroup.rotation.y += (Math.sin(now * 0.0015) + Math.cos(now * 0.0009)) * 0.5 * tumbleIntensity * delta;
+        }
 
         // Keep drifting forward if there is residual speed
-        if (moveSpeedFactor > 0) {
+        if (Math.abs(moveSpeedFactor) > 0) {
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
         }
     } else if (planeGroup.position.y <= restingHeight + 0.1) {
@@ -1202,8 +1249,9 @@ function animate() {
 
         planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, 0, 0.05);
         planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, 0, 0.05);
+        planeGroup.position.y = THREE.MathUtils.lerp(planeGroup.position.y, restingHeight, 0.1); // Smooth landing
 
-        if (moveSpeedFactor > 0) {
+        if (Math.abs(moveSpeedFactor) > 0) {
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
         }
     }
@@ -1214,8 +1262,8 @@ function animate() {
         keys.ArrowUp = false;
     }
 
-    // Apply Ground avoidance — hard clamp + kill velocity on impact
-    if (planeGroup.position.y < minFlightHeight) {
+    // Apply Ground avoidance — hard clamp + kill velocity on impact (Disabled for boat)
+    if (vehicleType !== 'boat' && planeGroup.position.y < minFlightHeight) {
         planeGroup.position.y = minFlightHeight; // Hard clamp, not lerp
         verticalVelocity = 0; // Kill accumulated gravity immediately on ground impact
 
@@ -2024,7 +2072,10 @@ if (btnUp) {
         e.stopPropagation();
         const nowTime = performance.now();
         if (nowTime - keyPressStartTime.ArrowUp < STEER_HOLD_THRESHOLD) {
-            flightSpeedMultiplier = Math.min(10, flightSpeedMultiplier + 0.1);
+            const step = vehicleType === 'boat' ? 0.05 : 0.1;
+            targetFlightSpeed += step;
+            if (vehicleType === 'boat') targetFlightSpeed = Math.min(0.33, targetFlightSpeed);
+            else targetFlightSpeed = Math.min(10, targetFlightSpeed);
         }
         keys.Shift = false;
         keys.ArrowUp = false;
@@ -2053,7 +2104,10 @@ if (btnDown) {
         e.stopPropagation();
         const nowTime = performance.now();
         if (nowTime - keyPressStartTime.ArrowDown < 250) {
-            flightSpeedMultiplier = Math.max(0, flightSpeedMultiplier - 0.1);
+            const step = vehicleType === 'boat' ? 0.05 : 0.1;
+            targetFlightSpeed -= step;
+            if (vehicleType === 'boat') targetFlightSpeed = Math.max(-0.15, targetFlightSpeed);
+            else targetFlightSpeed = Math.max(0, targetFlightSpeed);
         }
         keys.Shift = false;
         keys.ArrowDown = false;

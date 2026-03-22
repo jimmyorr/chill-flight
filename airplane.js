@@ -39,12 +39,16 @@ const helicopterModel = new THREE.Group();
 helicopterModel.visible = false;
 planeGroup.add(helicopterModel);
 
+const boatModel = new THREE.Group();
+boatModel.visible = false;
+planeGroup.add(boatModel);
+
 /** @type {string} */
 let vehicleType = localStorage.getItem('chill_flight_vehicle') || 'airplane';
 
 /**
  * Sets the player's active vehicle type and updates visibility/UI.
- * @param {string} type - The vehicle type ('airplane' or 'helicopter').
+ * @param {string} type - The vehicle type ('airplane' or 'helicopter' or 'boat').
  */
 function setVehicle(type) {
     vehicleType = type;
@@ -52,12 +56,16 @@ function setVehicle(type) {
     
     airplaneModel.visible = (vehicleType === 'airplane');
     helicopterModel.visible = (vehicleType === 'helicopter');
+    boatModel.visible = (vehicleType === 'boat');
     
     // Automatically adjust throttle for a natural feel on switch
     if (typeof targetFlightSpeed !== 'undefined') {
         if (vehicleType === 'helicopter') {
             const maxHeliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
             targetFlightSpeed = Math.min(targetFlightSpeed, maxHeliSpeed); // Only reduce speed to 100 KTS
+        } else if (vehicleType === 'boat') {
+            const maxBoatSpeed = 50 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
+            targetFlightSpeed = Math.min(targetFlightSpeed, maxBoatSpeed); // Only reduce speed to 50 KTS
         } else {
             targetFlightSpeed = 1.0; // Naturally return to airplane cruise
             window._isRecoveringFromHeli = true; // Use softer acceleration after switch
@@ -193,6 +201,63 @@ helicopterModel.add(skidStrutRF);
 const skidStrutRB = new THREE.Mesh(skidStrutGeo, skidMat);
 skidStrutRB.position.set(2.5, -2.5, 3);
 helicopterModel.add(skidStrutRB);
+
+// --- BOAT MODEL ---
+const playerBoatHullGeo = new THREE.BoxGeometry(6, 2, 12);
+const playerBoatHullMat = createMaterial({ color: 0x2e865f, flatShading: true }); // Greenish tint
+const playerBoatHull = new THREE.Mesh(playerBoatHullGeo, playerBoatHullMat);
+boatModel.add(playerBoatHull);
+
+const playerBoatInsideGeo = new THREE.BoxGeometry(5.6, 1.8, 11.6);
+const playerBoatInsideMat = createMaterial({ color: 0x1f5c40, flatShading: true }); // Darker green
+const playerBoatInside = new THREE.Mesh(playerBoatInsideGeo, playerBoatInsideMat);
+playerBoatInside.position.y = 0.2;
+boatModel.add(playerBoatInside);
+
+const playerBoatSeatGeo = new THREE.BoxGeometry(5.6, 0.4, 2);
+const playerBoatSeatMat = createMaterial({ color: 0x8b5a2b, flatShading: true }); // Wood
+const playerBoatSeat1 = new THREE.Mesh(playerBoatSeatGeo, playerBoatSeatMat);
+playerBoatSeat1.position.set(0, 0.8, -3);
+boatModel.add(playerBoatSeat1);
+
+const playerBoatSeat2 = new THREE.Mesh(playerBoatSeatGeo, playerBoatSeatMat);
+playerBoatSeat2.position.set(0, 0.8, 3);
+boatModel.add(playerBoatSeat2);
+
+const playerBoatMotorGroup = new THREE.Group();
+playerBoatMotorGroup.position.set(0, 1, 6.2);
+boatModel.add(playerBoatMotorGroup);
+
+const playerBoatMotorBodyGeo = new THREE.BoxGeometry(1.5, 2, 2);
+const playerBoatMotorBody = new THREE.Mesh(playerBoatMotorBodyGeo, createMaterial({ color: 0x222222 }));
+playerBoatMotorGroup.add(playerBoatMotorBody);
+
+const playerBoatMotorShaftGeo = new THREE.CylinderGeometry(0.2, 0.2, 3, 8);
+const playerBoatMotorShaft = new THREE.Mesh(playerBoatMotorShaftGeo, createMaterial({ color: 0x555555 }));
+playerBoatMotorShaft.position.set(0, -1.5, 0.5);
+playerBoatMotorGroup.add(playerBoatMotorShaft);
+
+const playerBoatPropellerGroup = new THREE.Group();
+playerBoatPropellerGroup.position.set(0, -2.8, 0.5);
+playerBoatMotorGroup.add(playerBoatPropellerGroup);
+
+const playerBoatPropCenterGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 8);
+playerBoatPropCenterGeo.rotateX(Math.PI / 2);
+const playerBoatPropCenter = new THREE.Mesh(playerBoatPropCenterGeo, createMaterial({ color: 0x888888 }));
+playerBoatPropellerGroup.add(playerBoatPropCenter);
+
+const playerBoatBladeGeo = new THREE.BoxGeometry(1.5, 0.2, 0.1);
+const playerBoatBladeMat = createMaterial({ color: 0xaaaaaa });
+const playerBoatBlade1 = new THREE.Mesh(playerBoatBladeGeo, playerBoatBladeMat);
+const playerBoatBlade2 = new THREE.Mesh(playerBoatBladeGeo, playerBoatBladeMat);
+playerBoatBlade2.rotation.z = Math.PI / 2;
+playerBoatPropellerGroup.add(playerBoatBlade1);
+playerBoatPropellerGroup.add(playerBoatBlade2);
+
+window.boatPropellerGroup = playerBoatPropellerGroup;
+
+boatModel.scale.set(0.8, 0.8, 0.8);
+boatModel.position.set(0, 0, 0); 
 
 // Initialize vehicle
 setVehicle(vehicleType);
