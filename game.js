@@ -161,7 +161,7 @@ function togglePause() {
         justResumed = true; // suppress the first animate frame's input application
 
         if (ytPlayerReady && currentStation === 1) ytPlayer.playVideo();
-}
+    }
 }
 
 // --- GAMEPAD SUPPORT ---
@@ -497,15 +497,15 @@ if (vehicleSelect) {
     });
 }
 
-    const vehicleToggle = document.getElementById('mobile-vehicle-toggle');
-    if (vehicleToggle) {
-        vehicleToggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const nextType = vehicleType === 'airplane' ? 'helicopter' : (vehicleType === 'helicopter' ? 'boat' : 'airplane');
-            setVehicle(nextType);
-        });
-    }
+const vehicleToggle = document.getElementById('mobile-vehicle-toggle');
+if (vehicleToggle) {
+    vehicleToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const nextType = vehicleType === 'airplane' ? 'helicopter' : (vehicleType === 'helicopter' ? 'boat' : 'airplane');
+        setVehicle(nextType);
+    });
+}
 
 // Distance selection
 const distanceSelect = document.getElementById('distance-select');
@@ -806,10 +806,10 @@ function animate() {
                 p.mesh.rotation.set(p.targetRotX || 0, p.targetRotY || 0, p.targetRotZ || 0);
             } else {
                 // Position Catch-Up: Linear step based on speed
-                const catchUpSpeed = (BASE_FLIGHT_SPEED * (p.targetSpeedMult || 1) * 60) + 150; 
+                const catchUpSpeed = (BASE_FLIGHT_SPEED * (p.targetSpeedMult || 1) * 60) + 150;
                 const posStep = catchUpSpeed * delta;
-                if (dist > 0.01) { 
-                    p.mesh.position.lerp(p.targetPos, Math.min(posStep, dist) / dist); 
+                if (dist > 0.01) {
+                    p.mesh.position.lerp(p.targetPos, Math.min(posStep, dist) / dist);
                 }
 
                 // Rotation Catch-Up: Maximum turn rate
@@ -817,8 +817,8 @@ function animate() {
                     p.targetQuat.setFromEuler(_targetEuler);
                     const angle = p.mesh.quaternion.angleTo(p.targetQuat);
                     const maxTurn = 3.5 * delta; // Max rotation speed in radians per second
-                    if (angle > 0.001) { 
-                        p.mesh.quaternion.slerp(p.targetQuat, Math.min(maxTurn, angle) / angle); 
+                    if (angle > 0.001) {
+                        p.mesh.quaternion.slerp(p.targetQuat, Math.min(maxTurn, angle) / angle);
                     }
                 }
             }
@@ -912,8 +912,8 @@ function animate() {
     if (keys.Shift || vehicleType === 'boat') {
         if (isUp) {
             const heldTime = nowTime - startUp;
-            const ramp = Math.min(1.0, heldTime / 2000); 
-            const throttleRate = (0.5 + ramp * 3.5) * delta; 
+            const ramp = Math.min(1.0, heldTime / 2000);
+            const throttleRate = (0.5 + ramp * 3.5) * delta;
             targetFlightSpeed = targetFlightSpeed + throttleRate;
             if (vehicleType !== 'boat') {
                 targetFlightSpeed = Math.min(10, targetFlightSpeed);
@@ -922,13 +922,13 @@ function animate() {
             }
         } else if (isDown) {
             const heldTime = nowTime - startDown;
-            const ramp = Math.min(1.0, heldTime / 2000); 
-            const throttleRate = (0.5 + ramp * 3.5) * delta; 
-            
+            const ramp = Math.min(1.0, heldTime / 2000);
+            const throttleRate = (0.5 + ramp * 3.5) * delta;
+
             if (vehicleType === 'boat') {
                 const prevSpeed = targetFlightSpeed;
                 targetFlightSpeed = targetFlightSpeed - throttleRate;
-                
+
                 // Safeguard: Stop at zero. User must release and press again to go negative.
                 if (prevSpeed > 0 && targetFlightSpeed < 0) {
                     targetFlightSpeed = 0;
@@ -945,7 +945,7 @@ function animate() {
 
     if (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0) {
         let yMultiplier = invertYAxis ? -1 : 1;
-        
+
         if (vehicleType === 'boat') {
             targetPitch = 0;
             targetRoll = 0;
@@ -1014,7 +1014,7 @@ function animate() {
         const _sunY = -Math.cos(timeOfDay);
         const _sunX = Math.sin(timeOfDay);
         const dawnDuskFactor = Math.max(0, 1.0 - Math.abs(_sunY) * 2.5);
-        
+
         // 1 for East (Sunrise), -1 for West (Sunset or default)
         let lookDirX = -1;
         if (dawnDuskFactor > 0.05) {
@@ -1065,29 +1065,41 @@ function animate() {
             planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, targetDive, 0.05);
             isLooping = true;
         }
-        
+
         if (keys.ArrowLeft && !keys.Shift) {
-            if (doubleTap.ArrowLeft) {
+            if (vehicleType === 'boat' || vehicleType === 'helicopter') {
+                const maxRoll = (vehicleType === 'boat') ? MAX_BANK_BOAT : MAX_BANK_HELI;
+                planeGroup.rotation.z = Math.min(maxRoll, planeGroup.rotation.z + manualRollSpeed * 0.5 * delta);
+                isClampedRoll = true;
+                isBarrelRolling = true;
+            } else if (doubleTap.ArrowLeft) {
                 // Double-tap: full barrel roll
                 planeGroup.rotation.z += manualRollSpeed * delta;
+                isBarrelRolling = true;
             } else {
                 // Single-tap: bank to 90° and hold
                 const target = Math.PI / 2;
                 planeGroup.rotation.z = Math.min(target, planeGroup.rotation.z + manualRollSpeed * delta);
                 isClampedRoll = true;
+                isBarrelRolling = true;
             }
-            isBarrelRolling = true;
         } else if (keys.ArrowRight && !keys.Shift) {
-            if (doubleTap.ArrowRight) {
+            if (vehicleType === 'boat' || vehicleType === 'helicopter') {
+                const maxRoll = (vehicleType === 'boat') ? MAX_BANK_BOAT : MAX_BANK_HELI;
+                planeGroup.rotation.z = Math.max(-maxRoll, planeGroup.rotation.z - manualRollSpeed * 0.5 * delta);
+                isClampedRoll = true;
+                isBarrelRolling = true;
+            } else if (doubleTap.ArrowRight) {
                 // Double-tap: full barrel roll
                 planeGroup.rotation.z -= manualRollSpeed * delta;
+                isBarrelRolling = true;
             } else {
                 // Single-tap: bank to -90° and hold
                 const target = -Math.PI / 2;
                 planeGroup.rotation.z = Math.max(target, planeGroup.rotation.z - manualRollSpeed * delta);
                 isClampedRoll = true;
+                isBarrelRolling = true;
             }
-            isBarrelRolling = true;
         }
     }
 
@@ -1105,9 +1117,10 @@ function animate() {
     }
 
     // --- FLIGHT PHYSICS & SPEED ---
-    if (flightSpeedMultiplier > 0) {
+    if (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0) {
         let turningRoll = (isBarrelRolling && !isClampedRoll) ? targetRoll : planeGroup.rotation.z;
-        planeGroup.rotation.y += turningRoll * 0.025;
+        const turnFactor = vehicleType === 'boat' ? 0.08 : 0.025; // Boat turns sharper since it banks less
+        planeGroup.rotation.y += turningRoll * turnFactor;
 
         // --- GRAVITY ACCELERATION/DECELERATION ---
         // Nose down = gain speed, Nose up = lose speed
@@ -1127,7 +1140,7 @@ function animate() {
     // We update this even at speed 0 so the vehicle can start moving again.
     if (Math.abs(flightSpeedMultiplier) > 0.001 || Math.abs(targetFlightSpeed) > 0.001) {
         let recoveryRate = vehicleType === 'boat' ? 3.5 : 0.6; // Boat needs snappy throttle
-        
+
         if (window._isRecoveringFromHeli) {
             if (keys.Shift || Math.abs(flightSpeedMultiplier - targetFlightSpeed) < 0.05) {
                 window._isRecoveringFromHeli = false;
@@ -1164,7 +1177,7 @@ function animate() {
         // To have bottom at W.L - 0.5, center must be at W.L + 0.3
         restingHeight = isWater ? (WATER_LEVEL + 0.3) : (terrainHeight + 0.8);
     }
-    
+
     // Move vehicle
     const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
     // Lower threshold for isFreefalling to eliminate the "stuck in mid-air" dead zone
@@ -1194,7 +1207,7 @@ function animate() {
         }
     } else if (vehicleType === 'helicopter') {
         verticalVelocity = 0; // Helicopters don't freefall like airplanes in this arcade model
-        
+
         // Apply forward movement
         if (moveSpeedFactor > 0) {
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
@@ -1202,7 +1215,7 @@ function animate() {
 
         // --- LIFT & ALTITUDE CONTROL ---
         let liftFactor = 0;
-        
+
         // Manual altitude control (at all speeds for helicopter)
         if (!keys.Shift) {
             const isUp = invertYAxis ? keys.ArrowDown : keys.ArrowUp;
@@ -2244,7 +2257,7 @@ window.addEventListener('keydown', (e) => {
         const debugMenu = document.getElementById('debug-menu');
         const isOpening = debugMenu.style.display !== 'block';
         debugMenu.style.display = isOpening ? 'block' : 'none';
-        
+
         if (isOpening) resetSteering();
 
         if (window.firebaseDB && window.currentUserUid) {
