@@ -152,12 +152,14 @@
             // to image coords (0 to 1)
             const mapWidth = exports.customMap.worldWidth || MAP_WORLD_SIZE;
             const mapHeight = exports.customMap.worldHeight || MAP_WORLD_SIZE;
-            
+
             const u = (x / mapWidth) + 0.5;
             const v = (z / mapHeight) + 0.5;
 
             if (u < 0 || u > 1 || v < 0 || v > 1) {
-                return WATER_LEVEL;
+                // Out of bounds is deep ocean (well below WATER_LEVEL=40)
+                // to avoid Z-fighting and "patchwork" effects.
+                return 30.0;
             }
 
             // For a 1024x1024 image, max index is 1023
@@ -193,7 +195,11 @@
             const r2 = _lerp(h12, h22, dx);
 
             const normalizedHeight = _lerp(r1, r2, dy) / 255.0;
-            return WATER_LEVEL + (normalizedHeight * MAP_HEIGHT_SCALE);
+            // --- ALTITUDE-BASED MAPPING ---
+            // Map 0-255 luminance to a world Y range of 38.0 -> 125.5.
+            // In-game altitude 2000ft is approximately 125.5 world units.
+            // Starting at 38.0 ensures that luminance 0 is slightly underwater (WATER_LEVEL=40).
+            return 38.0 + (normalizedHeight * 87.5);
         }
 
         const biome = getBiome(x, z, simplex);
