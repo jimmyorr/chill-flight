@@ -1101,11 +1101,19 @@ function animate() {
 
     // Move vehicle
     const currentKTS = BASE_FLIGHT_SPEED * flightSpeedMultiplier * 60;
-    const isFreefalling = (currentKTS < 50 && planeGroup.position.y > restingHeight + 2);
+    const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2);
+
+    // Calculate actual forward speed factor based on vehicle type and thresholds
+    let moveSpeedFactor = 0;
+    if (vehicleType === 'airplane') {
+        moveSpeedFactor = (flightSpeedMultiplier > 0 && !isFreefalling) ? flightSpeedMultiplier : 0;
+    } else if (vehicleType === 'helicopter') {
+        moveSpeedFactor = Math.max(0, flightSpeedMultiplier - 0.33);
+    }
 
     if (vehicleType === 'airplane') {
-        if (flightSpeedMultiplier > 0 && !isFreefalling) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * flightSpeedMultiplier));
+        if (moveSpeedFactor > 0) {
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
             verticalVelocity = 0; // Reset gravity accumulation while flying normally
 
             // Low speed stall/sink mechanics
@@ -1117,12 +1125,9 @@ function animate() {
     } else if (vehicleType === 'helicopter') {
         verticalVelocity = 0; // Helicopters don't freefall like airplanes in this arcade model
         
-        // --- FORWARD MOVEMENT ---
-        // Below 50 KTS (multiplier 0.33), we hover in place (no forward movement)
-        // Above 50 KTS, we start moving forward. 
-        const forwardSpeedFactor = Math.max(0, flightSpeedMultiplier - 0.33);
-        if (forwardSpeedFactor > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * forwardSpeedFactor));
+        // Apply forward movement
+        if (moveSpeedFactor > 0) {
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
         }
 
         // --- LIFT & ALTITUDE CONTROL ---
@@ -1142,7 +1147,7 @@ function animate() {
         }
     }
 
-    if (isFreefalling && vehicleType === 'airplane') {
+    if (isFreefalling) {
         // Freefall tumble & accelerating gravity
         const GRAVITY = 120; // units/sec² — feels weighty but not instant
         verticalVelocity -= GRAVITY * delta;
@@ -1160,10 +1165,10 @@ function animate() {
         planeGroup.rotation.y += (Math.sin(now * 0.0015) + Math.cos(now * 0.0009)) * 0.5 * tumbleIntensity * delta;
 
         // Keep drifting forward if there is residual speed
-        if (flightSpeedMultiplier > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * flightSpeedMultiplier));
+        if (moveSpeedFactor > 0) {
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
         }
-    } else {
+    } else if (planeGroup.position.y <= restingHeight + 0.1) {
         // Grounded — rest flat peacefully, kill vertical velocity
         verticalVelocity = 0;
         targetPitch = 0;
@@ -1176,8 +1181,8 @@ function animate() {
         planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, 0, 0.05);
         planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, 0, 0.05);
 
-        if (flightSpeedMultiplier > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * flightSpeedMultiplier));
+        if (moveSpeedFactor > 0) {
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
         }
     }
 
