@@ -1082,7 +1082,14 @@ function animate() {
     // We update this even at speed 0 so the plane can start moving again.
     if (flightSpeedMultiplier > 0 || targetFlightSpeed > 0) {
         let recoveryRate = 0.6; // Base drag rate
-        if (keys.Shift || flightSpeedMultiplier < targetFlightSpeed) {
+        
+        if (window._isRecoveringFromHeli) {
+            if (keys.Shift || Math.abs(flightSpeedMultiplier - targetFlightSpeed) < 0.05) {
+                window._isRecoveringFromHeli = false;
+            }
+        }
+
+        if (!window._isRecoveringFromHeli && (keys.Shift || flightSpeedMultiplier < targetFlightSpeed)) {
             recoveryRate = 10.0; // Snappy responsiveness for active control/acceleration
         }
         flightSpeedMultiplier = THREE.MathUtils.lerp(flightSpeedMultiplier, targetFlightSpeed, recoveryRate * delta);

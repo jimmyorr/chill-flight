@@ -60,6 +60,7 @@ function setVehicle(type) {
             targetFlightSpeed = Math.min(targetFlightSpeed, maxHeliSpeed); // Only reduce speed to 100 KTS
         } else {
             targetFlightSpeed = 1.0; // Naturally return to airplane cruise
+            window._isRecoveringFromHeli = true; // Use softer acceleration after switch
         }
     }
 
