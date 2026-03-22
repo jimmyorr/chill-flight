@@ -11,8 +11,9 @@ Chill Flight provides a pure, infinite flying experience for chill gamers and mo
 
 # Key Features
 - **Procedural Low-Poly Terrain**: Immersive, procedurally generated landscapes with varied elevations and environments, optimized for performance.
-- **Refined Flight Physics**: Better plane handling and physics to provide a satisfying and "chill" flight feel.
-- **Dynamic Multiplayer**: Real-time position and rotation synchronization using Firebase, with support for player customization (name, livery).
+- **Refined Flight Physics**: Satisfying and "chill" flight physics tailored to each vehicle type, including arcade-style airplane momentum and stable helicopter hovering.
+- **Multiple Vehicles**: Support for different vehicle types (e.g., Airplane, Helicopter) with in-game switching, designed to be extensible for future additions like jeeps and boats.
+- **Dynamic Multiplayer**: Real-time synchronization of position, rotation, and vehicle type using Firebase, ensuring all players see the correct models and movement.
 - **YouTube-Based Radio**: A dedicated in-game radio system using a YouTube iframe for personalized soundtracks, integrated directly into the cockpit UI.
 
 # Constraints & Aesthetics
