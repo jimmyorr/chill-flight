@@ -1,12 +1,12 @@
 # Implementation Plan: Support for Other Vehicles (Helicopter)
 
 ## Phase 1: Core Vehicle Switch Logic & UI
-- [ ] Task: Create UI button for vehicle switching
-    - [ ] Add a prominent "Switch Vehicle" button to the in-game UI (`index.html`, `style.css`).
-    - [ ] Add event listener to toggle a global `vehicleType` state between 'airplane' and 'helicopter' (`game.js` or UI handler).
-- [ ] Task: Load Helicopter Model
-    - [ ] Find/add a simple low-poly helicopter model or create a basic Three.js primitive representation for now (`game.js` or asset loader).
-    - [ ] Update rendering logic to switch the visible player mesh based on `vehicleType`.
+- [x] Task: Create UI button for vehicle switching (8b59225)
+    - [x] Add a prominent "Switch Vehicle" button to the in-game UI (`index.html`, `style.css`).
+    - [x] Add event listener to toggle a global `vehicleType` state between 'airplane' and 'helicopter' (`game.js` or UI handler).
+- [x] Task: Load Helicopter Model (8b59225)
+    - [x] Find/add a simple low-poly helicopter model or create a basic Three.js primitive representation for now (`game.js` or asset loader).
+    - [x] Update rendering logic to switch the visible player mesh based on `vehicleType`.
 - [ ] Task: Conductor - User Manual Verification 'Core Vehicle Switch Logic & UI' (Protocol in workflow.md)
 
 ## Phase 2: Helicopter Physics
