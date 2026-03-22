@@ -921,8 +921,12 @@ function animate() {
 
         manualPitch = THREE.MathUtils.lerp(manualPitch, 0, 0.1);
 
+        const isHeliVTOL = (vehicleType === 'helicopter' && flightSpeedMultiplier < 0.33);
+
         if (keys.Shift) {
             // Throttle already handled above; no pitch changes while Shift is held
+        } else if (isHeliVTOL && (isUp || isDown)) {
+            targetPitch = 0; // Maintain level flight during vertical takeoff/landing
         } else if (isUp && !dtUp) {
             const heldTime = nowTime - startUp;
             if (heldTime > STEER_HOLD_THRESHOLD) {
@@ -1068,8 +1072,9 @@ function animate() {
         const pitchRad = planeGroup.rotation.x;
         const gravityEffect = -Math.sin(pitchRad); // positive when diving
 
-        if (gravityEffect > 0) {
+        if (gravityEffect > 0 && vehicleType !== 'helicopter') {
             // Accelerate in dive (reduced for softer feel)
+            // Airplane only: helicopters don't gain forward speed from vertical pitch in this model
             flightSpeedMultiplier += gravityEffect * 0.7 * delta;
         }
     }
@@ -1136,10 +1141,23 @@ function animate() {
         // Below 0.1 = Controlled Descent
         // Above 1.0 = Ascent
         let liftFactor = 0;
-        if (flightSpeedMultiplier < 0.1) {
-            liftFactor = (flightSpeedMultiplier - 0.1) * 60; // Sinking
-        } else if (flightSpeedMultiplier > 1.0) {
-            liftFactor = (flightSpeedMultiplier - 1.0) * 80; // Climbing
+        
+        // VTOL Mode: Manual altitude control under 50 KTS (0.33 multiplier)
+        if (flightSpeedMultiplier < 0.33 && !keys.Shift) {
+            if (invertYAxis ? keys.ArrowDown : keys.ArrowUp) {
+                liftFactor = 40; // Manual Rise
+            } else if (invertYAxis ? keys.ArrowUp : keys.ArrowDown) {
+                liftFactor = -40; // Manual Lower
+            }
+        }
+
+        // Automatic lift logic based on throttle
+        if (liftFactor === 0) {
+            if (flightSpeedMultiplier < 0.1) {
+                liftFactor = (flightSpeedMultiplier - 0.1) * 60; // Sinking
+            } else if (flightSpeedMultiplier > 1.0) {
+                liftFactor = (flightSpeedMultiplier - 1.0) * 80; // Climbing
+            }
         }
 
         if (Math.abs(liftFactor) > 0.1) {
