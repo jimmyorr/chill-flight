@@ -26,40 +26,69 @@ planeGroup.rotation.y = 0;
 scene.add(planeGroup);
 
 // Fuselage
+// better rotation order for airplanes
+planeGroup.rotation.order = 'YXZ';
+
+// --- VEHICLE SWITCHING ---
+const airplaneModel = new THREE.Group();
+planeGroup.add(airplaneModel);
+
+const helicopterModel = new THREE.Group();
+helicopterModel.visible = false;
+planeGroup.add(helicopterModel);
+
+var vehicleType = localStorage.getItem('chill_flight_vehicle') || 'airplane';
+
+function setVehicle(type) {
+    vehicleType = type;
+    localStorage.setItem('chill_flight_vehicle', vehicleType);
+    
+    airplaneModel.visible = (vehicleType === 'airplane');
+    helicopterModel.visible = (vehicleType === 'helicopter');
+    
+    // Update UI if it exists
+    const select = document.getElementById('vehicle-select');
+    if (select) select.value = vehicleType;
+
+    console.log(`Vehicle switched to: ${vehicleType}`);
+}
+
+// --- AIRPLANE MODEL ---
+// Fuselage
 const bodyGeo = new THREE.BoxGeometry(4, 4, 16);
 planeMat = createMaterial({ color: planeColor, flatShading: true });
 const body = new THREE.Mesh(bodyGeo, planeMat);
-planeGroup.add(body);
+airplaneModel.add(body);
 
 // Cockpit window
 const windowGeo = new THREE.BoxGeometry(3, 2, 4);
 const windowMat = createMaterial({ color: 0x111111, roughness: 0.1 });
 const cockpit = new THREE.Mesh(windowGeo, windowMat);
 cockpit.position.set(0, 2.5, -2);
-planeGroup.add(cockpit);
+airplaneModel.add(cockpit);
 
 // Wings
 const wingGeo = new THREE.BoxGeometry(30, 0.5, 4);
 const wingMat = createMaterial({ color: 0xecf0f1, flatShading: true });
 const wings = new THREE.Mesh(wingGeo, wingMat);
 wings.position.set(0, 0, -1);
-planeGroup.add(wings);
+airplaneModel.add(wings);
 
 // Tail
 const tailGeo = new THREE.BoxGeometry(10, 0.5, 3);
 const tail = new THREE.Mesh(tailGeo, wingMat);
 tail.position.set(0, 0, 7);
-planeGroup.add(tail);
+airplaneModel.add(tail);
 
 const rudderGeo = new THREE.BoxGeometry(0.5, 5, 3);
 const rudder = new THREE.Mesh(rudderGeo, planeMat);
 rudder.position.set(0, 2.5, 7);
-planeGroup.add(rudder);
+airplaneModel.add(rudder);
 
 // Propeller
 const propGroup = new THREE.Group();
 propGroup.position.set(0, 0, -8.5);
-planeGroup.add(propGroup);
+airplaneModel.add(propGroup);
 
 const propCenterGeo = new THREE.CylinderGeometry(0.8, 0.8, 2, 8);
 propCenterGeo.rotateX(Math.PI / 2);
@@ -74,10 +103,84 @@ blade2.rotation.z = Math.PI / 2;
 propGroup.add(blade1);
 propGroup.add(blade2);
 
+// --- HELICOPTER MODEL ---
+// Fuselage
+const heliBodyGeo = new THREE.BoxGeometry(5, 5, 8);
+const heliBody = new THREE.Mesh(heliBodyGeo, planeMat);
+helicopterModel.add(heliBody);
+
+// Cockpit window
+const heliWindowGeo = new THREE.BoxGeometry(4, 3, 3);
+const heliCockpit = new THREE.Mesh(heliWindowGeo, windowMat);
+heliCockpit.position.set(0, 0.5, -3);
+helicopterModel.add(heliCockpit);
+
+// Tail Boom
+const tailBoomGeo = new THREE.BoxGeometry(1.5, 1.5, 10);
+const tailBoom = new THREE.Mesh(tailBoomGeo, planeMat);
+tailBoom.position.set(0, 1, 8);
+helicopterModel.add(tailBoom);
+
+// Main Rotor
+var mainRotorGroup = new THREE.Group();
+mainRotorGroup.position.set(0, 3, 0);
+helicopterModel.add(mainRotorGroup);
+
+const rotorCenterGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
+const rotorCenter = new THREE.Mesh(rotorCenterGeo, createMaterial({ color: 0x333333 }));
+mainRotorGroup.add(rotorCenter);
+
+const mainBladeGeo = new THREE.BoxGeometry(24, 0.2, 1.5);
+const mainBlade = new THREE.Mesh(mainBladeGeo, bladeMat);
+mainRotorGroup.add(mainBlade);
+const mainBlade2 = mainBlade.clone();
+mainBlade2.rotation.y = Math.PI / 2;
+mainRotorGroup.add(mainBlade2);
+
+// Tail Rotor
+var tailRotorGroup = new THREE.Group();
+tailRotorGroup.position.set(1.2, 1, 13);
+helicopterModel.add(tailRotorGroup);
+
+const tailRotorBladeGeo = new THREE.BoxGeometry(4, 0.1, 0.4);
+const tailRotorBlade = new THREE.Mesh(tailRotorBladeGeo, bladeMat);
+tailRotorBlade.rotation.y = Math.PI / 2;
+tailRotorGroup.add(tailRotorBlade);
+const tailRotorBlade2 = tailRotorBlade.clone();
+tailRotorBlade2.rotation.x = Math.PI / 2;
+tailRotorGroup.add(tailRotorBlade2);
+
+// Skids
+const skidGeo = new THREE.BoxGeometry(0.5, 0.5, 10);
+const skidMat = createMaterial({ color: 0x333333 });
+const skidL = new THREE.Mesh(skidGeo, skidMat);
+skidL.position.set(-2.5, -3.5, 0);
+helicopterModel.add(skidL);
+const skidR = new THREE.Mesh(skidGeo, skidMat);
+skidR.position.set(2.5, -3.5, 0);
+helicopterModel.add(skidR);
+
+const skidStrutGeo = new THREE.BoxGeometry(0.3, 2, 0.3);
+const skidStrutLF = new THREE.Mesh(skidStrutGeo, skidMat);
+skidStrutLF.position.set(-2.5, -2.5, -3);
+helicopterModel.add(skidStrutLF);
+const skidStrutLB = new THREE.Mesh(skidStrutGeo, skidMat);
+skidStrutLB.position.set(-2.5, -2.5, 3);
+helicopterModel.add(skidStrutLB);
+const skidStrutRF = new THREE.Mesh(skidStrutGeo, skidMat);
+skidStrutRF.position.set(2.5, -2.5, -3);
+helicopterModel.add(skidStrutRF);
+const skidStrutRB = new THREE.Mesh(skidStrutGeo, skidMat);
+skidStrutRB.position.set(2.5, -2.5, 3);
+helicopterModel.add(skidStrutRB);
+
+// Initialize vehicle
+setVehicle(vehicleType);
+
 // Pontoons Group
 const pontoonGroup = new THREE.Group();
 pontoonGroup.visible = false;
-planeGroup.add(pontoonGroup);
+airplaneModel.add(pontoonGroup);
 
 let pontoonDeploymentProgress = 0;
 let isDeployingPontoons = false;
