@@ -489,13 +489,6 @@ if (radioPanel) {
     });
 }
 
-// Vehicle selection
-const vehicleSelect = document.getElementById('vehicle-select');
-if (vehicleSelect) {
-    vehicleSelect.addEventListener('change', (e) => {
-        setVehicle(e.target.value);
-    });
-}
 
 const vehicleToggle = document.getElementById('mobile-vehicle-toggle');
 if (vehicleToggle) {
