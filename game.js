@@ -1206,15 +1206,8 @@ function animate() {
             }
         }
     } else if (vehicleType === 'helicopter') {
-        verticalVelocity = 0; // Helicopters don't freefall like airplanes in this arcade model
-
-        // Apply forward movement
-        if (moveSpeedFactor > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
-        }
-
-        // --- LIFT & ALTITUDE CONTROL ---
-        let liftFactor = 0;
+        // Helicopters don't freefall, but we use verticalVelocity for smooth lift momentum
+        let targetLiftSpeed = 0;
 
         // Manual altitude control (at all speeds for helicopter)
         if (!keys.Shift) {
@@ -1225,19 +1218,26 @@ function animate() {
 
             if (isUp) {
                 const heldTime = (performance.now() - startTimeUp);
-                const ramp = Math.min(3.0, 1.0 + heldTime / 1200); // Ramps from 1.0 to 3.0 over 1.2s
-                liftFactor = 40 * ramp;
+                const ramp = Math.min(1.0, heldTime / 3000); // 3 seconds to reach full acceleration
+                targetLiftSpeed = 8 + 112 * (ramp * ramp); // Starts gently at 8, reaches 120
             } else if (isDown) {
                 const heldTime = (performance.now() - startTimeDown);
-                const ramp = Math.min(3.0, 1.0 + heldTime / 1200); // Ramps from 1.0 to 3.0 over 1.2s
-                liftFactor = -40 * ramp;
+                const ramp = Math.min(1.0, heldTime / 3000); // 3 seconds to reach full acceleration
+                targetLiftSpeed = -(8 + 112 * (ramp * ramp)); // Starts gently at -8, reaches -120
             }
         }
 
-        // Automatic lift logic removed for helicopter to ensure constant altitude flight
+        // Apply momentum (acceleration/deceleration)
+        const liftLerp = (targetLiftSpeed === 0) ? 0.05 : 0.08; // Slower decay for a "coasting" feel
+        verticalVelocity = THREE.MathUtils.lerp(verticalVelocity, targetLiftSpeed, liftLerp);
 
-        if (Math.abs(liftFactor) > 0.1) {
-            planeGroup.position.y += liftFactor * delta;
+        if (Math.abs(verticalVelocity) > 0.1) {
+            planeGroup.position.y += verticalVelocity * delta;
+        }
+
+        // Apply forward movement
+        if (moveSpeedFactor > 0) {
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
         }
     } else if (vehicleType === 'boat') {
         // Apply forward/backward movement
