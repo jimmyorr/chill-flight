@@ -701,9 +701,10 @@ function generateChunk(chunkX, chunkZ) {
         const eastCoastFactor = Math.max(0, Math.min(1, worldX / 3000));
         const sandMaxHeight = WATER_LEVEL + 2 + (eastCoastFactor * 8);
 
-        let isForest = false;
-        let autumnNoise = 0;
-        let cherryNoise = 0;
+        const isForest = simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005) > 0.2;
+        const autumnNoise = simplex.noise2D(worldX * 0.0003 + 500, worldZ * 0.0003 + 500);
+        const cherryNoise = simplex.noise2D(worldX * 0.0005 + 1000, worldZ * 0.0005 + 1000);
+
         // --- COLOR ASSIGNMENT & FEATURE SPAWNING ---
         if (isCustom) {
             let finalHeight = height;
@@ -720,7 +721,9 @@ function generateChunk(chunkX, chunkZ) {
             } else if (height > 105.0) {
                 _tempColorObj.copy(_colorMountainTint);
             } else {
-                _tempColorObj.copy(_colorForest);
+                _tempColorObj.copy(isForest ? _colorForest : _colorPlains);
+                // Apply subtle mottling for custom maps too
+                _tempColorObj.lerp(new THREE.Color(0x000000), mottle * 0.1);
             }
             positions[i + 1] = finalHeight; 
         } else {
@@ -799,23 +802,28 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
                 }
-            } else {
-                isForest = simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005) > 0.2;
-                autumnNoise = simplex.noise2D(worldX * 0.0003 + 500, worldZ * 0.0003 + 500);
-                cherryNoise = simplex.noise2D(worldX * 0.0005 + 1000, worldZ * 0.0005 + 1000);
+            }
+        }
 
-                if (isForest) {
+        // --- FEATURE SPAWNING (Common) ---
+        // Conditions for land: not sand/water height (Standard) OR safely above water (Custom)
+        // Also ensure we aren't at high mountain levels where trees/houses shouldn't be.
+        const isStandardLand = !isCustom && height > sandMaxHeight && height <= MOUNTAIN_LEVEL + (snowFactor > 0.5 ? -50 : 0);
+        const isCustomLand = isCustom && height > WATER_LEVEL + 5.0 && height < 105.0;
+
+        if (isStandardLand || isCustomLand) {
+            if (isForest) {
+                if (!isCustom) {
                     _tempColorObj.copy(_colorForest);
                     if (snowFactor > 0) _tempColorObj.lerp(_colorForestSnowTint, snowFactor);
                     if (desertFactor > 0) _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
                     
                     // Mottling for Forest: Mix in some darker evergreens and lighter mossy patches
-                    if (!isCustom) {
-                        _tempColorObj.lerp(new THREE.Color(0x004d00), mottle * 0.4);
-                        if (mottle < 0.3) _tempColorObj.lerp(new THREE.Color(0x6B8E23), 0.2);
-                    }
+                    _tempColorObj.lerp(new THREE.Color(0x004d00), mottle * 0.4);
+                    if (mottle < 0.3) _tempColorObj.lerp(new THREE.Color(0x6B8E23), 0.2);
+                }
 
-                    const treeRoll = rng();
+                const treeRoll = rng();
                     if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
                         if (snowFactor > 0.4 || height > MOUNTAIN_LEVEL - 100) {
                             snowTreePositions.push({ x: localX, y: height, z: localZ });
@@ -842,12 +850,12 @@ function generateChunk(chunkX, chunkZ) {
                         campfirePositions.push({ x: localX + offX, y: h, z: localZ + offZ });
                     }
                 } else {
-                    _tempColorObj.copy(_colorPlains);
-                    if (snowFactor > 0) _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
-                    if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
-                    
-                    // Mottling for Plains: Dry grass vs lush grass
                     if (!isCustom) {
+                        _tempColorObj.copy(_colorPlains);
+                        if (snowFactor > 0) _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
+                        if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
+                        
+                        // Mottling for Plains: Dry grass vs lush grass
                         _tempColorObj.lerp(new THREE.Color(0x556B2F), mottle * 0.4);
                         if (mottle > 0.8) _tempColorObj.lerp(new THREE.Color(0xBDB76B), 0.3);
                     }
@@ -928,7 +936,6 @@ function generateChunk(chunkX, chunkZ) {
                 if (desertFactor < 0.2 && snowFactor < 0.3 && height > WATER_LEVEL + 3 && height < MOUNTAIN_LEVEL - 100 && rng() < 0.08 * densityScale) {
                     bushPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
                 }
-            }
 
             if (snowFactor < 0.2) {
                 if (autumnNoise > 0.35) {
