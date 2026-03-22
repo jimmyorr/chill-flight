@@ -1195,10 +1195,19 @@ function animate() {
         
         // Manual altitude control (at all speeds for helicopter)
         if (!keys.Shift) {
-            if (invertYAxis ? keys.ArrowDown : keys.ArrowUp) {
-                liftFactor = 40; // Manual Rise
-            } else if (invertYAxis ? keys.ArrowUp : keys.ArrowDown) {
-                liftFactor = -40; // Manual Lower
+            const isUp = invertYAxis ? keys.ArrowDown : keys.ArrowUp;
+            const isDown = invertYAxis ? keys.ArrowUp : keys.ArrowDown;
+            const startTimeUp = invertYAxis ? keyPressStartTime.ArrowDown : keyPressStartTime.ArrowUp;
+            const startTimeDown = invertYAxis ? keyPressStartTime.ArrowUp : keyPressStartTime.ArrowDown;
+
+            if (isUp) {
+                const heldTime = (performance.now() - startTimeUp);
+                const ramp = Math.min(3.0, 1.0 + heldTime / 1200); // Ramps from 1.0 to 3.0 over 1.2s
+                liftFactor = 40 * ramp;
+            } else if (isDown) {
+                const heldTime = (performance.now() - startTimeDown);
+                const ramp = Math.min(3.0, 1.0 + heldTime / 1200); // Ramps from 1.0 to 3.0 over 1.2s
+                liftFactor = -40 * ramp;
             }
         }
 
