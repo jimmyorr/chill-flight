@@ -39,15 +39,16 @@ function initMultiplayer() {
     const auth = getAuth(app);
     const db = getDatabase(app);
 
-    // Helpers for CSV packing optimization: x,y,z,rotX,rotY,rotZ,speed,lights
-    const packPos = (p, r, s, l) => `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)},${r.x.toFixed(3)},${r.y.toFixed(3)},${r.z.toFixed(3)},${s.toFixed(2)},${l?1:0}`;
+    // Helpers for CSV packing optimization: x,y,z,rotX,rotY,rotZ,speed,lights,vehicle
+    const packPos = (p, r, s, l, v) => `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)},${r.x.toFixed(3)},${r.y.toFixed(3)},${r.z.toFixed(3)},${s.toFixed(2)},${l?1:0},${v==='helicopter'?1:0}`;
     const unpackPos = (csv) => {
         if (typeof csv !== 'string') return csv || {};
         const v = csv.split(',');
         return {
             x: parseFloat(v[0]), y: parseFloat(v[1]), z: parseFloat(v[2]),
             rotX: parseFloat(v[3]), rotY: parseFloat(v[4]), rotZ: parseFloat(v[5]),
-            speedMult: parseFloat(v[6]), headlightsOn: v[7] === '1'
+            speedMult: parseFloat(v[6]), headlightsOn: v[7] === '1',
+            vehicleType: v[8] === '1' ? 'helicopter' : 'airplane'
         };
     };
 
@@ -113,23 +114,85 @@ function initMultiplayer() {
 
     function createOtherPlaneMesh(uid, forcedColor) {
         const group = new THREE.Group();
-        const bodyGeo = new THREE.BoxGeometry(4, 4, 16);
+        const airplaneModel = new THREE.Group();
+        const helicopterModel = new THREE.Group();
+        group.add(airplaneModel);
+        group.add(helicopterModel);
+
         const color = forcedColor !== undefined ? forcedColor : getPlaneColor(uid);
         const mat = createMaterial({ color: color, flatShading: true });
+
+        // --- AIRPLANE MODEL ---
+        const bodyGeo = new THREE.BoxGeometry(4, 4, 16);
         const body = new THREE.Mesh(bodyGeo, mat);
-        group.add(body);
+        airplaneModel.add(body);
         const cp = new THREE.Mesh(windowGeo, windowMat);
         cp.position.set(0, 2.5, -2);
-        group.add(cp);
+        airplaneModel.add(cp);
         const w = new THREE.Mesh(wingGeo, wingMat);
         w.position.set(0, 0, -1);
-        group.add(w);
+        airplaneModel.add(w);
         const t = new THREE.Mesh(tailGeo, wingMat);
         t.position.set(0, 0, 7);
-        group.add(t);
+        airplaneModel.add(t);
         const r = new THREE.Mesh(rudderGeo, mat);
         r.position.set(0, 2.5, 7);
-        group.add(r);
+        airplaneModel.add(r);
+
+        const propGroup = new THREE.Group();
+        propGroup.position.set(0, 0, -8.5);
+        airplaneModel.add(propGroup);
+        const propCenterGeo = new THREE.CylinderGeometry(0.8, 0.8, 2, 8);
+        propCenterGeo.rotateX(Math.PI / 2);
+        const propCenter = new THREE.Mesh(propCenterGeo, createMaterial({ color: 0x333333 }));
+        propGroup.add(propCenter);
+        const bladeGeo = new THREE.BoxGeometry(12, 0.4, 0.4);
+        const bladeMat = createMaterial({ color: 0x222222 });
+        const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
+        const blade2 = new THREE.Mesh(bladeGeo, bladeMat);
+        blade2.rotation.z = Math.PI / 2;
+        propGroup.add(blade1);
+        propGroup.add(blade2);
+
+        // --- HELICOPTER MODEL ---
+        const heliBodyGeo = new THREE.BoxGeometry(5, 5, 8);
+        const heliBody = new THREE.Mesh(heliBodyGeo, mat);
+        helicopterModel.add(heliBody);
+        const heliCockpit = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 3), windowMat);
+        heliCockpit.position.set(0, 0.5, -3);
+        helicopterModel.add(heliCockpit);
+        const tailBoom = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 10), mat);
+        tailBoom.position.set(0, 1, 8);
+        helicopterModel.add(tailBoom);
+
+        const mainRotorGroup = new THREE.Group();
+        mainRotorGroup.position.set(0, 3, 0);
+        helicopterModel.add(mainRotorGroup);
+        const rotorCenter = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 8), createMaterial({ color: 0x333333 }));
+        mainRotorGroup.add(rotorCenter);
+        const mainBlade = new THREE.Mesh(new THREE.BoxGeometry(24, 0.2, 1.5), bladeMat);
+        mainRotorGroup.add(mainBlade);
+        const mainBlade2 = mainBlade.clone();
+        mainBlade2.rotation.y = Math.PI / 2;
+        mainRotorGroup.add(mainBlade2);
+
+        const tailRotorGroup = new THREE.Group();
+        tailRotorGroup.position.set(1.2, 1, 13);
+        helicopterModel.add(tailRotorGroup);
+        const tailRotorBlade = new THREE.Mesh(new THREE.BoxGeometry(4, 0.1, 0.4), bladeMat);
+        tailRotorBlade.rotation.y = Math.PI / 2;
+        tailRotorGroup.add(tailRotorBlade);
+        const tailRotorBlade2 = tailRotorBlade.clone();
+        tailRotorBlade2.rotation.x = Math.PI / 2;
+        tailRotorGroup.add(tailRotorBlade2);
+
+        const skidMat = createMaterial({ color: 0x333333 });
+        const skidL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 10), skidMat);
+        skidL.position.set(-2.5, -3.5, 0);
+        helicopterModel.add(skidL);
+        const skidR = skidL.clone();
+        skidR.position.x = 2.5;
+        helicopterModel.add(skidR);
 
         let headlight = null;
         let headlightGlow = null;
@@ -151,27 +214,14 @@ function initMultiplayer() {
             group.add(headlight);
         }
 
-        const propGroup = new THREE.Group();
-        propGroup.position.set(0, 0, -8.5);
-        group.add(propGroup);
-
-        const propCenterGeo = new THREE.CylinderGeometry(0.8, 0.8, 2, 8);
-        propCenterGeo.rotateX(Math.PI / 2);
-        const propCenter = new THREE.Mesh(propCenterGeo, createMaterial({ color: 0x333333 }));
-        propGroup.add(propCenter);
-
-        const bladeGeo = new THREE.BoxGeometry(12, 0.4, 0.4);
-        const bladeMat = createMaterial({ color: 0x222222 });
-        const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
-        const blade2 = new THREE.Mesh(bladeGeo, bladeMat);
-        blade2.rotation.z = Math.PI / 2;
-        propGroup.add(blade1);
-        propGroup.add(blade2);
-
         group.userData = {
-            headlight: headlight,
-            headlightGlow: headlightGlow,
-            propeller: propGroup
+            airplaneModel,
+            helicopterModel,
+            headlight,
+            headlightGlow,
+            propeller: propGroup,
+            mainRotor: mainRotorGroup,
+            tailRotor: tailRotorGroup
         };
 
         return group;
@@ -321,7 +371,7 @@ function initMultiplayer() {
 
             const initialPos = planeGroup.position;
             const initialRot = planeGroup.rotation;
-            set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(initialPos, initialRot, flightSpeedMultiplier, false));
+            set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(initialPos, initialRot, flightSpeedMultiplier, false, vehicleType));
 
             const playersRef = ref(db, `${worldPrefix}/players`);
             onChildAdded(playersRef, (snapshot) => {
@@ -341,6 +391,10 @@ function initMultiplayer() {
 
                 const mesh = createOtherPlaneMesh(snapKey, data.color);
 
+                // Toggle model visibility
+                mesh.userData.airplaneModel.visible = (posData.vehicleType === 'airplane');
+                mesh.userData.helicopterModel.visible = (posData.vehicleType === 'helicopter');
+
                 if (ENABLE_MULTIPLAYER_HEADLIGHTS && mesh.userData.headlight) {
                     const isLightsOn = posData.headlightsOn || false;
                     mesh.userData.headlight.intensity = isLightsOn ? 2 : 0;
@@ -356,6 +410,7 @@ function initMultiplayer() {
                     targetRotY: posData.rotY || 0,
                     targetRotZ: posData.rotZ || 0,
                     targetSpeedMult: posData.speedMult !== undefined ? posData.speedMult : 1,
+                    targetVehicleType: posData.vehicleType,
                     targetQuat: new THREE.Quaternion(),
                     lastReceivedMs: Date.now()
                 });
@@ -370,12 +425,14 @@ function initMultiplayer() {
                 if (!p) return;
 
                 if (data.color !== undefined) {
-                    p.mesh.children.forEach(child => {
-                        if (child.isMesh && child.geometry.type === 'BoxGeometry' && child.geometry.parameters.width === 4) {
-                            if (child.material && child.material.color) {
-                                child.material.color.setHex(data.color);
+                    p.mesh.children.forEach(groupChild => {
+                        groupChild.children.forEach(child => {
+                            if (child.isMesh && child.geometry.type === 'BoxGeometry' && (child.geometry.parameters.width === 4 || child.geometry.parameters.width === 5)) {
+                                if (child.material && child.material.color) {
+                                    child.material.color.setHex(data.color);
+                                }
                             }
-                        }
+                        });
                     });
                 }
 
@@ -391,6 +448,11 @@ function initMultiplayer() {
                     p.targetRotZ = posData.rotZ || 0;
                     p.targetSpeedMult = posData.speedMult !== undefined ? posData.speedMult : 1;
                     p.targetPos.set(posData.x || 0, posData.y || 200, posData.z || 0);
+                    p.targetVehicleType = posData.vehicleType;
+
+                    // Toggle model visibility
+                    p.mesh.userData.airplaneModel.visible = (p.targetVehicleType === 'airplane');
+                    p.mesh.userData.helicopterModel.visible = (p.targetVehicleType === 'helicopter');
 
                     if (ENABLE_MULTIPLAYER_HEADLIGHTS && p.mesh.userData.headlight) {
                         const isLightsOn = posData.headlightsOn || false;
@@ -464,16 +526,18 @@ function initMultiplayer() {
                 const rotChanged = Math.abs(rot.x - lastSentRot.x) + Math.abs(rot.y - lastSentRot.y) + Math.abs(rot.z - lastSentRot.z);
                 const speedChanged = Math.abs(flightSpeedMultiplier - lastSentSpeed) > 0.01;
                 const lightsChanged = headlightsOn !== lastSentLights;
+                const vehicleChanged = vehicleType !== window.lastSentVehicle;
                 const isHeartbeat = (Date.now() - lastSyncTime) >= 5000;
 
                 // Thresholds: distance > 2.0 or rotation > 0.02 (total angular change)
-                if (!hasSentInitial || distMoved > 2.0 || rotChanged > 0.02 || speedChanged || lightsChanged || isHeartbeat) {
-                    set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(pos, rot, flightSpeedMultiplier, headlightsOn));
+                if (!hasSentInitial || distMoved > 2.0 || rotChanged > 0.02 || speedChanged || lightsChanged || vehicleChanged || isHeartbeat) {
+                    set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(pos, rot, flightSpeedMultiplier, headlightsOn, vehicleType));
                     
                     lastSentPos.copy(pos);
                     lastSentRot.copy(rot);
                     lastSentSpeed = flightSpeedMultiplier;
                     lastSentLights = headlightsOn;
+                    window.lastSentVehicle = vehicleType;
                     hasSentInitial = true;
                     lastSyncTime = Date.now();
                 }
