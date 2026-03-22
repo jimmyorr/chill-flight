@@ -1118,22 +1118,21 @@ function animate() {
         verticalVelocity = 0; // Helicopters don't freefall like airplanes in this arcade model
         
         // --- FORWARD MOVEMENT ---
-        // Below 100 KTS (multiplier 0.67), we hover in place (no forward movement)
-        // Above 100 KTS, we start moving forward. 
-        // Note: Default throttle (1.0) results in ~50 KTS of forward progress.
-        const forwardSpeedFactor = Math.max(0, flightSpeedMultiplier - 0.67);
+        // Below 50 KTS (multiplier 0.33), we hover in place (no forward movement)
+        // Above 50 KTS, we start moving forward. 
+        const forwardSpeedFactor = Math.max(0, flightSpeedMultiplier - 0.33);
         if (forwardSpeedFactor > 0) {
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * forwardSpeedFactor));
         }
 
         // --- LIFT & ALTITUDE CONTROL ---
-        // "Hover in place and do not lose altitude": 
-        // We define a stable band between 0.2 and 1.0 multiplier where altitude is constant.
-        // Below 0.2 = Controlled Descent
+        // Stable hover band between 0.1 and 0.33 multiplier (stationary)
+        // AND stable forward band between 0.33 and 1.0 (moving forward)
+        // Below 0.1 = Controlled Descent
         // Above 1.0 = Ascent
         let liftFactor = 0;
-        if (flightSpeedMultiplier < 0.2) {
-            liftFactor = (flightSpeedMultiplier - 0.2) * 60; // Sinking
+        if (flightSpeedMultiplier < 0.1) {
+            liftFactor = (flightSpeedMultiplier - 0.1) * 60; // Sinking
         } else if (flightSpeedMultiplier > 1.0) {
             liftFactor = (flightSpeedMultiplier - 1.0) * 80; // Climbing
         }

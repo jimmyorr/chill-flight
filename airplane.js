@@ -53,6 +53,15 @@ function setVehicle(type) {
     airplaneModel.visible = (vehicleType === 'airplane');
     helicopterModel.visible = (vehicleType === 'helicopter');
     
+    // Automatically adjust throttle for a natural feel on switch
+    if (typeof targetFlightSpeed !== 'undefined') {
+        if (vehicleType === 'helicopter') {
+            targetFlightSpeed = 0.2; // Naturally enter a stable hover
+        } else {
+            targetFlightSpeed = 1.0; // Naturally return to airplane cruise
+        }
+    }
+
     // Update UI if it exists
     const select = document.getElementById('vehicle-select');
     if (select) select.value = vehicleType;
