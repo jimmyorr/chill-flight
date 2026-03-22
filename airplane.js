@@ -81,9 +81,8 @@ function setVehicle(type) {
         }
     }
 
-    // Update UI if it exists
-    const select = document.getElementById('vehicle-select');
-    if (select) select.value = vehicleType;
+    // Update UI if it exists - the vehicle-select was removed from pause menu
+    // but we can still have other UI elements that need syncing if added later.
 
     console.log(`Vehicle switched to: ${vehicleType}`);
 }
