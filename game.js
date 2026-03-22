@@ -1118,18 +1118,18 @@ function animate() {
         verticalVelocity = 0; // Helicopters don't freefall like airplanes in this arcade model
         
         // Hovering vs Forward Movement
-        // Below 100 KTS (multiplier 0.67), we hover (no forward movement)
-        // Above 100 KTS, we start moving forward
-        const forwardSpeedFactor = Math.max(0, flightSpeedMultiplier - 0.67);
+        // Below 1.0 multiplier (150 KTS), we hover (no forward movement)
+        // Above 1.0 multiplier, we start moving forward
+        const forwardSpeedFactor = Math.max(0, flightSpeedMultiplier - 1.0);
         if (forwardSpeedFactor > 0) {
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * forwardSpeedFactor));
         }
 
         // Lift Control: targetFlightSpeed controls vertical velocity directly for helicopter
-        // 0.5 (75 KTS) is neutral hover
-        // > 0.5 = Ascent
-        // < 0.5 = Descent
-        const liftFactor = (flightSpeedMultiplier - 0.5) * 80; // Scaled for better feel
+        // 1.0 multiplier (150 KTS) is neutral hover
+        // > 1.0 = Ascent
+        // < 1.0 = Descent
+        const liftFactor = (flightSpeedMultiplier - 1.0) * 80; // Scaled for better feel
         if (Math.abs(liftFactor) > 0.1) {
             planeGroup.position.y += liftFactor * delta;
         }
