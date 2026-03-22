@@ -924,11 +924,21 @@ function animate() {
             const heldTime = nowTime - startDown;
             const ramp = Math.min(1.0, heldTime / 2000); 
             const throttleRate = (0.5 + ramp * 3.5) * delta; 
-            targetFlightSpeed = targetFlightSpeed - throttleRate;
-            if (vehicleType !== 'boat') {
-                targetFlightSpeed = Math.max(0, targetFlightSpeed);
+            
+            if (vehicleType === 'boat') {
+                const prevSpeed = targetFlightSpeed;
+                targetFlightSpeed = targetFlightSpeed - throttleRate;
+                
+                // Safeguard: Stop at zero. User must release and press again to go negative.
+                if (prevSpeed > 0 && targetFlightSpeed < 0) {
+                    targetFlightSpeed = 0;
+                } else if (prevSpeed === 0 && heldTime > 100) {
+                    // Already at zero and holding the button down
+                    targetFlightSpeed = 0;
+                }
+                targetFlightSpeed = Math.max(-0.15, targetFlightSpeed);
             } else {
-                targetFlightSpeed = Math.max(-0.15, targetFlightSpeed); // Cap reverse boat speed
+                targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
             }
         }
     }
@@ -2114,9 +2124,14 @@ if (btnDown) {
         const nowTime = performance.now();
         if (nowTime - keyPressStartTime.ArrowDown < 250) {
             const step = vehicleType === 'boat' ? 0.05 : 0.1;
+            const prevSpeed = targetFlightSpeed;
             targetFlightSpeed -= step;
-            if (vehicleType === 'boat') targetFlightSpeed = Math.max(-0.15, targetFlightSpeed);
-            else targetFlightSpeed = Math.max(0, targetFlightSpeed);
+            if (vehicleType === 'boat') {
+                if (prevSpeed > 0 && targetFlightSpeed < 0) targetFlightSpeed = 0;
+                targetFlightSpeed = Math.max(-0.15, targetFlightSpeed);
+            } else {
+                targetFlightSpeed = Math.max(0, targetFlightSpeed);
+            }
         }
         keys.Shift = false;
         keys.ArrowDown = false;
