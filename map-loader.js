@@ -55,7 +55,7 @@
             
             // Reset plane position and state
             if (typeof planeGroup !== 'undefined') {
-                planeGroup.position.set(0, 205.5, 0); 
+                planeGroup.position.set(0, 445.5, 0); 
                 planeGroup.rotation.set(0, 0, 0);
             }
             
