@@ -46,10 +46,15 @@
                     }
                     
                     // Update the logic engine
+                    const maxDim = Math.max(canvas.width, canvas.height);
+                    const worldScale = (typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000) / maxDim;
+                    
                     window.ChillFlightLogic.customMap = {
                         data: floatData,
                         width: canvas.width,
-                        height: canvas.height
+                        height: canvas.height,
+                        worldWidth: canvas.width * worldScale,
+                        worldHeight: canvas.height * worldScale
                     };
                     
                     console.log(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
