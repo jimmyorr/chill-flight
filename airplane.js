@@ -56,7 +56,8 @@ function setVehicle(type) {
     // Automatically adjust throttle for a natural feel on switch
     if (typeof targetFlightSpeed !== 'undefined') {
         if (vehicleType === 'helicopter') {
-            targetFlightSpeed = 0.2; // Naturally enter a stable hover
+            const maxHeliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
+            targetFlightSpeed = Math.min(targetFlightSpeed, maxHeliSpeed); // Only reduce speed to 100 KTS
         } else {
             targetFlightSpeed = 1.0; // Naturally return to airplane cruise
         }
