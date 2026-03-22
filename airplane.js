@@ -57,6 +57,8 @@ function setVehicle(type) {
     airplaneModel.visible = (vehicleType === 'airplane');
     helicopterModel.visible = (vehicleType === 'helicopter');
     boatModel.visible = (vehicleType === 'boat');
+
+    if (typeof verticalVelocity !== 'undefined') verticalVelocity = 0; // Reset vertical momentum on switch
     
     // Automatically adjust throttle for a natural feel on switch
     const heliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
