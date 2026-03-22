@@ -975,27 +975,35 @@ function animate() {
         const maxAutoPitch = Math.PI / 6; // 30 degrees limit
         targetPitch = THREE.MathUtils.clamp(altError * 0.01, -maxAutoPitch, maxAutoPitch);
 
-        // 3. Direction Control -> Follow the River West (-x)
+        // 3. Direction Control -> Head towards sunset/sunrise when applicable, otherwise West
+        const _sunY = -Math.cos(timeOfDay);
+        const _sunX = Math.sin(timeOfDay);
+        const dawnDuskFactor = Math.max(0, 1.0 - Math.abs(_sunY) * 2.5);
+        
+        // 1 for East (Sunrise), -1 for West (Sunset or default)
+        let lookDirX = -1;
+        if (dawnDuskFactor > 0.05) {
+            lookDirX = (_sunX > 0) ? 1 : -1;
+        }
+
         // We look ahead a bit to calculate the river's local angle
-        const lookAheadX = planeGroup.position.x - 300; // Look West
+        const lookAheadX = planeGroup.position.x + (lookDirX * 300);
         const targetRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ
             ? window.ChillFlightLogic.getRiverCenterZ(lookAheadX, simplex)
             : 0;
 
-        // Calculate the vector pointing down the river (West is -x, so dx is negative)
-        const dx = lookAheadX - planeGroup.position.x; // -300
+        // Calculate the vector pointing down the river
+        const dx = lookAheadX - planeGroup.position.x;
         const dz = targetRiverZ - currentRiverZ;
 
         // In this coordinate system, looking down -Z is rotation.y = 0.
-        // Looking down -X (West) is rotation.y = Math.PI / 2.
-        // Math.atan2(x, z) gives the angle from the Z axis.
         const riverAngle = Math.atan2(-dx, -dz);
 
         // Offset to steer back towards the center of the river. 
-        // If we are to the "right" (positive Z) of the river while facing West, we need to steer "left" (negative Z direction).
         const zError = currentRiverZ - planeGroup.position.z;
-        // In the local frame, a positive yaw pushes us right (positive Z when flying -X).
-        const correctionAngle = THREE.MathUtils.clamp(zError * 0.003, -Math.PI / 4, Math.PI / 4);
+        // If flying East (+X), we need the opposite correction sign to steer correctly towards the river.
+        const correctionSign = (lookDirX < 0) ? 1 : -1;
+        const correctionAngle = THREE.MathUtils.clamp(zError * 0.003 * correctionSign, -Math.PI / 4, Math.PI / 4);
 
         const targetYaw = riverAngle + correctionAngle;
 
