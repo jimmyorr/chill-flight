@@ -14,5 +14,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Add support for other vehicles, starting with a helicopter, but plan to add support for jeep and boat**
+- [x] **Track: Add support for other vehicles, starting with a helicopter, but plan to add support for jeep and boat**
 *Link: [./tracks/other_vehicles_20260321/](./tracks/other_vehicles_20260321/)*
