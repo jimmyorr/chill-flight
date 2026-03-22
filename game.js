@@ -14,7 +14,7 @@ let mouseControlActive = false; // becomes true once the mouse moves; cleared by
 let windowJustFocused = false;  // absorbs the first mousemove after returning to the tab
 let targetPitch = 0;
 let targetRoll = 0;
-let targetFlightSpeed = 1.0; // The intended throttle speed (0-10)
+let targetFlightSpeed = flightSpeedMultiplier; // Initialize based on current vehicle speed multiplier
 let smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
 let manualPitch = 0;
 let verticalVelocity = 0; // units/sec, negative = falling
@@ -1181,7 +1181,7 @@ function animate() {
     // Move vehicle
     const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
     // Lower threshold for isFreefalling to eliminate the "stuck in mid-air" dead zone
-    const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2) || (vehicleType === 'boat' && planeGroup.position.y > restingHeight + 0.1) || (vehicleType === 'helicopter' && planeGroup.position.y > restingHeight + 0.1);
+    const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2) || (vehicleType === 'boat' && planeGroup.position.y > restingHeight + 0.1);
 
     // Calculate actual forward speed factor based on vehicle type and thresholds
     let moveSpeedFactor = 0;

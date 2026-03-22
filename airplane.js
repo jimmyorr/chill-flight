@@ -59,16 +59,23 @@ function setVehicle(type) {
     boatModel.visible = (vehicleType === 'boat');
     
     // Automatically adjust throttle for a natural feel on switch
+    const heliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
+    const boatSpeed = 50 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
+    const airplaneSpeed = 1.0;
+
     if (typeof targetFlightSpeed !== 'undefined') {
         if (vehicleType === 'helicopter') {
-            const maxHeliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
-            targetFlightSpeed = Math.min(targetFlightSpeed, maxHeliSpeed); // Only reduce speed to 100 KTS
+            targetFlightSpeed = heliSpeed;
         } else if (vehicleType === 'boat') {
-            const maxBoatSpeed = 50 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
-            targetFlightSpeed = Math.min(targetFlightSpeed, maxBoatSpeed); // Only reduce speed to 50 KTS
+            targetFlightSpeed = boatSpeed;
         } else {
-            targetFlightSpeed = 1.0; // Naturally return to airplane cruise
+            targetFlightSpeed = airplaneSpeed;
             window._isRecoveringFromHeli = true; // Use softer acceleration after switch
+        }
+
+        // If this is the initial load (before the game loop starts), also sync flightSpeedMultiplier
+        if (typeof flightSpeedMultiplier !== 'undefined' && (performance.now() < 2000)) {
+            flightSpeedMultiplier = targetFlightSpeed;
         }
     }
 
@@ -344,3 +351,6 @@ planeGroup.add(headlight);
 
 // Initial position
 planeGroup.position.set(0, 445.5, 0);
+
+// Set initial vehicle based on saved state
+setVehicle(vehicleType);
