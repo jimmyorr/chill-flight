@@ -1,8 +1,8 @@
 // --- AIRPLANE ---
 // Dependencies: THREE, scene, planeMat (set here as global for multiplayer to update)
 
-// planeMat is declared as a global var so multiplayer.js can update it after Firebase auth
-var planeMat = null;
+/** @type {THREE.Material|null} */
+let planeMat = null;
 
 window.CALLSIGNS = [
     'Maverick', 'Goose', 'Iceman', 'Slider', 'Hollywood',
@@ -11,10 +11,12 @@ window.CALLSIGNS = [
 ];
 window.defaultCallsign = window.CALLSIGNS[Math.floor(Math.random() * window.CALLSIGNS.length)];
 
-// Global player state for customization (Load from localStorage if available)
-var playerName = localStorage.getItem('chill_flight_name') || window.defaultCallsign;
-var planeColor = parseInt(localStorage.getItem('chill_flight_color')) || 0xe74c3c;
-var hasSavedColor = localStorage.getItem('chill_flight_color') !== null;
+/** @type {string} */
+let playerName = localStorage.getItem('chill_flight_name') || window.defaultCallsign;
+/** @type {number} */
+let planeColor = parseInt(localStorage.getItem('chill_flight_color')) || 0xe74c3c;
+/** @type {boolean} */
+let hasSavedColor = localStorage.getItem('chill_flight_color') !== null;
 
 // Helper to get a deterministic "chill" color for a player
 function getPlaneColor(uid) {
@@ -37,8 +39,13 @@ const helicopterModel = new THREE.Group();
 helicopterModel.visible = false;
 planeGroup.add(helicopterModel);
 
-var vehicleType = localStorage.getItem('chill_flight_vehicle') || 'airplane';
+/** @type {string} */
+let vehicleType = localStorage.getItem('chill_flight_vehicle') || 'airplane';
 
+/**
+ * Sets the player's active vehicle type and updates visibility/UI.
+ * @param {string} type - The vehicle type ('airplane' or 'helicopter').
+ */
 function setVehicle(type) {
     vehicleType = type;
     localStorage.setItem('chill_flight_vehicle', vehicleType);
@@ -122,7 +129,8 @@ tailBoom.position.set(0, 1, 8);
 helicopterModel.add(tailBoom);
 
 // Main Rotor
-var mainRotorGroup = new THREE.Group();
+/** @type {THREE.Group} */
+let mainRotorGroup = new THREE.Group();
 mainRotorGroup.position.set(0, 3, 0);
 helicopterModel.add(mainRotorGroup);
 
@@ -138,7 +146,8 @@ mainBlade2.rotation.y = Math.PI / 2;
 mainRotorGroup.add(mainBlade2);
 
 // Tail Rotor
-var tailRotorGroup = new THREE.Group();
+/** @type {THREE.Group} */
+let tailRotorGroup = new THREE.Group();
 tailRotorGroup.position.set(1.2, 1, 13);
 helicopterModel.add(tailRotorGroup);
 
