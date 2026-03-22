@@ -816,9 +816,14 @@ function animate() {
                 }
             }
 
-            if (p.targetSpeedMult > 0.01 && p.mesh.userData.propeller) {
+            if (p.targetSpeedMult > 0.01) {
                 const spinSpeed = 15 * Math.max(0.2, p.targetSpeedMult);
-                p.mesh.userData.propeller.rotation.z += spinSpeed * delta;
+                if (p.mesh.userData.airplaneModel.visible && p.mesh.userData.propeller) {
+                    p.mesh.userData.propeller.rotation.z += spinSpeed * delta;
+                } else if (p.mesh.userData.helicopterModel.visible && p.mesh.userData.mainRotor) {
+                    p.mesh.userData.mainRotor.rotation.y += spinSpeed * delta;
+                    p.mesh.userData.tailRotor.rotation.x += spinSpeed * 1.5 * delta;
+                }
             }
         });
     }
@@ -1094,20 +1099,43 @@ function animate() {
     const minFlightHeight = isWater ? terrainHeight + 5.5 : terrainHeight + 30;
     const restingHeight = minFlightHeight + (isWater ? 0 : 5);
 
-    // Move forward
+    // Move vehicle
     const currentKTS = BASE_FLIGHT_SPEED * flightSpeedMultiplier * 60;
     const isFreefalling = (currentKTS < 50 && planeGroup.position.y > restingHeight + 2);
 
-    if (flightSpeedMultiplier > 0 && !isFreefalling) {
-        planeGroup.translateZ(-(BASE_FLIGHT_SPEED * flightSpeedMultiplier));
-        verticalVelocity = 0; // Reset gravity accumulation while flying normally
+    if (vehicleType === 'airplane') {
+        if (flightSpeedMultiplier > 0 && !isFreefalling) {
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * flightSpeedMultiplier));
+            verticalVelocity = 0; // Reset gravity accumulation while flying normally
 
-        // Low speed stall/sink mechanics
-        if (currentKTS < 100 && planeGroup.position.y > minFlightHeight) {
-            const stallFactor = Math.max(0, (100 - Math.max(50, currentKTS)) / 50);
-            planeGroup.position.y -= 15 * stallFactor * delta;
+            // Low speed stall/sink mechanics
+            if (currentKTS < 100 && planeGroup.position.y > minFlightHeight) {
+                const stallFactor = Math.max(0, (100 - Math.max(50, currentKTS)) / 50);
+                planeGroup.position.y -= 15 * stallFactor * delta;
+            }
         }
-    } else if (isFreefalling) {
+    } else if (vehicleType === 'helicopter') {
+        verticalVelocity = 0; // Helicopters don't freefall like airplanes in this arcade model
+        
+        // Hovering vs Forward Movement
+        // Below 100 KTS (multiplier 0.67), we hover (no forward movement)
+        // Above 100 KTS, we start moving forward
+        const forwardSpeedFactor = Math.max(0, flightSpeedMultiplier - 0.67);
+        if (forwardSpeedFactor > 0) {
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * forwardSpeedFactor));
+        }
+
+        // Lift Control: targetFlightSpeed controls vertical velocity directly for helicopter
+        // 0.5 (75 KTS) is neutral hover
+        // > 0.5 = Ascent
+        // < 0.5 = Descent
+        const liftFactor = (flightSpeedMultiplier - 0.5) * 80; // Scaled for better feel
+        if (Math.abs(liftFactor) > 0.1) {
+            planeGroup.position.y += liftFactor * delta;
+        }
+    }
+
+    if (isFreefalling && vehicleType === 'airplane') {
         // Freefall tumble & accelerating gravity
         const GRAVITY = 120; // units/sec² — feels weighty but not instant
         verticalVelocity -= GRAVITY * delta;
