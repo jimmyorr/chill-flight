@@ -11,3 +11,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 - [x] **Track: Fix High-Severity XSS Vulnerability in Player List**
   *Link: [./tracks/xss_fix_20260318/](./tracks/xss_fix_20260318/)*
+
+---
+
+- [ ] **Track: Add support for other vehicles, starting with a helicopter, but plan to add support for jeep and boat**
+*Link: [./tracks/other_vehicles_20260321/](./tracks/other_vehicles_20260321/)*
