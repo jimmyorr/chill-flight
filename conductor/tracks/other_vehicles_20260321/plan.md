@@ -7,21 +7,21 @@
 - [x] Task: Load Helicopter Model (8b59225)
     - [x] Find/add a simple low-poly helicopter model or create a basic Three.js primitive representation for now (`game.js` or asset loader).
     - [x] Update rendering logic to switch the visible player mesh based on `vehicleType`.
-- [ ] Task: Conductor - User Manual Verification 'Core Vehicle Switch Logic & UI' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Core Vehicle Switch Logic & UI' (Protocol in workflow.md)
 
 ## Phase 2: Helicopter Physics
-- [ ] Task: Implement basic helicopter movement
-    - [ ] Modify the main update loop / physics logic to check `vehicleType` (`chill-flight-logic.js` or `airplane.js`).
-    - [ ] If 'helicopter', apply arcade-style hovering physics (e.g., vertical lift, direct forward/backward/strafing movement) instead of airplane forward-momentum physics.
-- [ ] Task: Tune helicopter controls
-    - [ ] Adjust speed, lift, and turning rates to feel simple and easy to control.
-- [ ] Task: Conductor - User Manual Verification 'Helicopter Physics' (Protocol in workflow.md)
+- [x] Task: Implement basic helicopter movement (1de8860)
+    - [x] Modify the main update loop / physics logic to check `vehicleType` (`chill-flight-logic.js` or `airplane.js`).
+    - [x] If 'helicopter', apply arcade-style hovering physics (e.g., vertical lift, direct forward/backward/strafing movement) instead of airplane forward-momentum physics.
+- [x] Task: Tune helicopter controls (1de8860)
+    - [x] Adjust speed, lift, and turning rates to feel simple and easy to control.
+- [x] Task: Conductor - User Manual Verification 'Helicopter Physics' (Protocol in workflow.md)
 
 ## Phase 3: Multiplayer Synchronization
-- [ ] Task: Sync Vehicle Type
-    - [ ] Update the Firebase state payload to include the current `vehicleType` (`multiplayer.js`).
-    - [ ] Broadcast `vehicleType` changes immediately when the player switches.
-- [ ] Task: Render other players correctly
-    - [ ] Update the `multiplayer.js` logic that creates other player meshes. It should instantiate or update their model based on their broadcasted `vehicleType`.
-    - [ ] Ensure position and rotation sync still works smoothly for both model types.
-- [ ] Task: Conductor - User Manual Verification 'Multiplayer Synchronization' (Protocol in workflow.md)
+- [x] Task: Sync Vehicle Type (8294238)
+    - [x] Update the Firebase state payload to include the current `vehicleType` (`multiplayer.js`).
+    - [x] Broadcast `vehicleType` changes immediately when the player switches.
+- [x] Task: Render other players correctly (8294238)
+    - [x] Update the `multiplayer.js` logic that creates other player meshes. It should instantiate or update their model based on their broadcasted `vehicleType`.
+    - [x] Ensure position and rotation sync still works smoothly for both model types.
+- [x] Task: Conductor - User Manual Verification 'Multiplayer Synchronization' (Protocol in workflow.md)
