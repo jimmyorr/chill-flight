@@ -482,6 +482,24 @@ if (radioPanel) {
     });
 }
 
+// Vehicle selection
+const vehicleSelect = document.getElementById('vehicle-select');
+if (vehicleSelect) {
+    vehicleSelect.addEventListener('change', (e) => {
+        setVehicle(e.target.value);
+    });
+}
+
+const vehicleToggle = document.getElementById('mobile-vehicle-toggle');
+if (vehicleToggle) {
+    vehicleToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const nextType = vehicleType === 'airplane' ? 'helicopter' : 'airplane';
+        setVehicle(nextType);
+    });
+}
+
 // Distance selection
 const distanceSelect = document.getElementById('distance-select');
 if (distanceSelect) {
@@ -805,10 +823,15 @@ function animate() {
         });
     }
 
-    // Spin the propeller
+    // Spin the propellers/rotors
     if (flightSpeedMultiplier > 0.01) {
         const spinSpeed = 15 * Math.max(0.2, flightSpeedMultiplier);
-        propGroup.rotation.z += spinSpeed * delta;
+        if (vehicleType === 'airplane') {
+            propGroup.rotation.z += spinSpeed * delta;
+        } else if (vehicleType === 'helicopter') {
+            mainRotorGroup.rotation.y += spinSpeed * delta;
+            tailRotorGroup.rotation.x += spinSpeed * 1.5 * delta;
+        }
     }
 
     // Animate pontoons
