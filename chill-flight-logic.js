@@ -148,10 +148,13 @@
         if (exports.customMap) {
             const { data, width, height } = exports.customMap;
 
-            // u, v should map from world coords (-MAP_WORLD_SIZE/2 to +MAP_WORLD_SIZE/2)
+            // u, v should map from world coords (-worldWidth/2 to +worldWidth/2)
             // to image coords (0 to 1)
-            const u = (x / MAP_WORLD_SIZE) + 0.5;
-            const v = (z / MAP_WORLD_SIZE) + 0.5;
+            const mapWidth = exports.customMap.worldWidth || MAP_WORLD_SIZE;
+            const mapHeight = exports.customMap.worldHeight || MAP_WORLD_SIZE;
+            
+            const u = (x / mapWidth) + 0.5;
+            const v = (z / mapHeight) + 0.5;
 
             if (u < 0 || u > 1 || v < 0 || v > 1) {
                 return WATER_LEVEL;
