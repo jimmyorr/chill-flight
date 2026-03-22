@@ -425,14 +425,12 @@ function initMultiplayer() {
                 if (!p) return;
 
                 if (data.color !== undefined) {
-                    p.mesh.children.forEach(groupChild => {
-                        groupChild.children.forEach(child => {
-                            if (child.isMesh && child.geometry.type === 'BoxGeometry' && (child.geometry.parameters.width === 4 || child.geometry.parameters.width === 5)) {
-                                if (child.material && child.material.color) {
-                                    child.material.color.setHex(data.color);
-                                }
+                    p.mesh.traverse(child => {
+                        if (child.isMesh && child.geometry.type === 'BoxGeometry' && (child.geometry.parameters.width === 4 || child.geometry.parameters.width === 5)) {
+                            if (child.material && child.material.color) {
+                                child.material.color.setHex(data.color);
                             }
-                        });
+                        }
                     });
                 }
 
@@ -543,11 +541,11 @@ function initMultiplayer() {
                 }
 
                 setTimeout(scheduleNextSync, tickRate);
-            }
+                }
 
-            // Start the sync loop
-            scheduleNextSync();
-        })
+                // Start the sync loop
+                scheduleNextSync();
+                })
         .catch((error) => {
             console.warn("Firebase auth failed (offline or config error):", error.code || error.message);
             setMultiplayerOfflineBanner(true);
