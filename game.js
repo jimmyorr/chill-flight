@@ -823,28 +823,41 @@ function animate() {
                 }
             }
 
-            if (p.targetSpeedMult > 0.01) {
-                const spinSpeed = 15 * Math.max(0.2, p.targetSpeedMult);
-                if (p.mesh.userData.airplaneModel.visible && p.mesh.userData.propeller) {
-                    p.mesh.userData.propeller.rotation.z += spinSpeed * delta;
-                } else if (p.mesh.userData.helicopterModel.visible && p.mesh.userData.mainRotor) {
-                    p.mesh.userData.mainRotor.rotation.y += spinSpeed * delta;
-                    p.mesh.userData.tailRotor.rotation.x += spinSpeed * 1.5 * delta;
+            if (Math.abs(p.targetSpeedMult || 0) > 0.001) {
+                const baseSpin = 15 * p.targetSpeedMult;
+                if (p.mesh.userData.airplaneModel && p.mesh.userData.airplaneModel.visible && p.mesh.userData.propeller) {
+                    const spin = Math.max(4, Math.min(25, baseSpin));
+                    p.mesh.userData.propeller.rotation.z += spin * delta;
+                } else if (p.mesh.userData.helicopterModel && p.mesh.userData.helicopterModel.visible && p.mesh.userData.mainRotor) {
+                    const heliBase = baseSpin * 1.5;
+                    // Ensure a higher floor (5.0) even at low speeds so it doesn't look silly, ramping to 7.5 @ 50kts
+                    const spin = (Math.abs(p.targetSpeedMult) < 0.33) ? Math.max(5.0, heliBase) : Math.max(7.5, Math.min(18.75, heliBase));
+                    p.mesh.userData.mainRotor.rotation.y += spin * delta;
+                    p.mesh.userData.tailRotor.rotation.x += spin * 1.5 * delta;
+                } else if (p.mesh.userData.boatModel && p.mesh.userData.boatModel.visible && p.mesh.userData.boatPropeller) {
+                    const spin = Math.max(2, Math.min(20, baseSpin * 0.8));
+                    p.mesh.userData.boatPropeller.rotation.z += spin * 2 * delta;
                 }
             }
         });
     }
 
     // Spin the propellers/rotors
-    if (flightSpeedMultiplier > 0.01) {
-        const spinSpeed = 15 * Math.max(0.2, flightSpeedMultiplier);
+    if (Math.abs(flightSpeedMultiplier) > 0.001) {
+        const baseSpin = 15 * Math.abs(flightSpeedMultiplier);
         if (vehicleType === 'airplane') {
-            propGroup.rotation.z += spinSpeed * delta;
+            const spin = Math.max(4, Math.min(25, baseSpin));
+            propGroup.rotation.z += spin * delta;
         } else if (vehicleType === 'helicopter') {
-            mainRotorGroup.rotation.y += spinSpeed * delta;
-            tailRotorGroup.rotation.x += spinSpeed * 1.5 * delta;
+            const heliBase = baseSpin * 1.5;
+            // Higher floor (5.0) for low speeds so it doesn't look silly, ramping to 7.5 @ 50kts
+            // Then clamp between 7.5 and 18.75 (reached at 125 KTS / 0.83 mult)
+            const spin = (Math.abs(flightSpeedMultiplier) < 0.33) ? Math.max(5.0, heliBase) : Math.max(7.5, Math.min(18.75, heliBase));
+            mainRotorGroup.rotation.y += spin * delta;
+            tailRotorGroup.rotation.x += spin * 1.5 * delta;
         } else if (vehicleType === 'boat' && window.boatPropellerGroup) {
-            window.boatPropellerGroup.rotation.z += spinSpeed * 2 * delta;
+            const spin = Math.max(2, Math.min(20, baseSpin * 0.8));
+            window.boatPropellerGroup.rotation.z += spin * 2 * delta;
         }
     }
 
@@ -1181,7 +1194,7 @@ function animate() {
     // Move vehicle
     const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
     // Lower threshold for isFreefalling to eliminate the "stuck in mid-air" dead zone
-    const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2) || (vehicleType === 'boat' && planeGroup.position.y > restingHeight + 0.1);
+    const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2) || (vehicleType === 'boat' && planeGroup.position.y > restingHeight + 0.1) || (vehicleType === 'helicopter' && Math.abs(flightSpeedMultiplier) < 0.01 && planeGroup.position.y > restingHeight + 2);
 
     // Calculate actual forward speed factor based on vehicle type and thresholds
     let moveSpeedFactor = 0;
