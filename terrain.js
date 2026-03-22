@@ -706,17 +706,23 @@ function generateChunk(chunkX, chunkZ) {
         let cherryNoise = 0;
         // --- COLOR ASSIGNMENT & FEATURE SPAWNING ---
         if (isCustom) {
+            let finalHeight = height;
+            // Altitude mapping (38.0 -> 125.5 range)
             if (height <= WATER_LEVEL + 5.0) {
                 hasWater = true;
                 _tempColorObj.copy(_colorSand);
-                positions[i + 1] = height - 5;
-            } else if (height > MOUNTAIN_LEVEL + 400) {
-                _tempColorObj.copy(_colorSnow);
-            } else if (height > MOUNTAIN_LEVEL + 100) {
+                
+                // Smooth dip from 5 units deep at water level to 0 at +5 units elevation
+                // This ensures that shallow land stays underwater and avoids Z-fighting.
+                const t = Math.max(0, Math.min(1, (height - WATER_LEVEL) / 5.0));
+                const dip = 5.0 * (1.0 - t);
+                finalHeight = height - dip;
+            } else if (height > 105.0) {
                 _tempColorObj.copy(_colorMountainTint);
             } else {
                 _tempColorObj.copy(_colorForest);
             }
+            positions[i + 1] = finalHeight; 
         } else {
             if (height <= sandMaxHeight) {
                 if (height <= WATER_LEVEL) {
