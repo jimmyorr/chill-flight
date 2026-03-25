@@ -125,6 +125,7 @@ function initMultiplayer() {
         // --- AIRPLANE MODEL ---
         const bodyGeo = new THREE.BoxGeometry(4, 4, 16);
         const body = new THREE.Mesh(bodyGeo, mat);
+        body.userData.isBody = true;
         airplaneModel.add(body);
         const cp = new THREE.Mesh(windowGeo, windowMat);
         cp.position.set(0, 2.5, -2);
@@ -136,6 +137,7 @@ function initMultiplayer() {
         t.position.set(0, 0, 7);
         airplaneModel.add(t);
         const r = new THREE.Mesh(rudderGeo, mat);
+        r.userData.isBody = true;
         r.position.set(0, 2.5, 7);
         airplaneModel.add(r);
 
@@ -157,11 +159,13 @@ function initMultiplayer() {
         // --- HELICOPTER MODEL ---
         const heliBodyGeo = new THREE.BoxGeometry(5, 5, 8);
         const heliBody = new THREE.Mesh(heliBodyGeo, mat);
+        heliBody.userData.isBody = true;
         helicopterModel.add(heliBody);
         const heliCockpit = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 3), windowMat);
         heliCockpit.position.set(0, 0.5, -3);
         helicopterModel.add(heliCockpit);
         const tailBoom = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 10), mat);
+        tailBoom.userData.isBody = true;
         tailBoom.position.set(0, 1, 8);
         helicopterModel.add(tailBoom);
 
@@ -426,7 +430,7 @@ function initMultiplayer() {
 
                 if (data.color !== undefined) {
                     p.mesh.traverse(child => {
-                        if (child.isMesh && child.geometry.type === 'BoxGeometry' && (child.geometry.parameters.width === 4 || child.geometry.parameters.width === 5)) {
+                        if (child.isMesh && child.userData.isBody) {
                             if (child.material && child.material.color) {
                                 child.material.color.setHex(data.color);
                             }
