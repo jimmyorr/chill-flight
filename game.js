@@ -655,15 +655,17 @@ if (typeof planeGroup !== 'undefined') {
 }
 
 // --- WEATHER SYSTEM ---
-let weatherType = 'auto'; // Default to 'auto' now
+let weatherType = 'auto'; // 'auto', 'none', 'snow', 'rain'
 let snowParticles = null;
-// Scale snow based on quality: High = 5000, Low = 1500
-const _savedQualityForSnow = localStorage.getItem('chill_flight_quality');
-const _currentQualityForSnow = _savedQualityForSnow ? parseInt(_savedQualityForSnow) : 32;
-const SNOW_COUNT = _currentQualityForSnow <= 16 ? 1500 : 5000;
-const SNOW_RANGE = 500; // Spawn in a 500-unit box around the camera
+let rainParticles = null;
 
-// Generate a soft, glowing circle instead of a harsh square
+// Scale particles based on quality
+const _savedQualityForWeather = localStorage.getItem('chill_flight_quality');
+const _currentQualityForWeather = _savedQualityForWeather ? parseInt(_savedQualityForWeather) : 32;
+const WEATHER_PARTICLE_COUNT = _currentQualityForWeather <= 16 ? 1500 : 5000;
+const WEATHER_RANGE = 500; 
+
+// Generate a soft, glowing circle for snow
 function createSnowTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 16;
@@ -676,90 +678,156 @@ function createSnowTexture() {
     return new THREE.CanvasTexture(canvas);
 }
 
+// Generate a motion-blurred streak for rain
+function createRainTexture() {
+    const canvas = document.createElement('canvas');
+    // The canvas MUST be square for PointsMaterial to prevent stretching
+    canvas.width = 64; 
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    
+    // Vertical gradient to simulate motion blur
+    const grad = ctx.createLinearGradient(0, 0, 0, 64);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.8)'); // Brighter core
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    
+    ctx.fillStyle = grad;
+    // Draw a thin streak directly down the middle (X=31, Y=0, Width=2, Height=64)
+    ctx.fillRect(31, 0, 2, 64);
+    
+    return new THREE.CanvasTexture(canvas);
+}
+
 function initWeather() {
+    // Geometries
     const snowGeo = new THREE.BufferGeometry();
-    const snowPos = new Float32Array(SNOW_COUNT * 3);
-    const snowVel = new Float32Array(SNOW_COUNT * 3); // Individual drift/fall speeds
+    const rainGeo = new THREE.BufferGeometry();
+    
+    const snowPos = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
+    const snowVel = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
+    const rainPos = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
+    const rainVel = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
 
-    for (let i = 0; i < SNOW_COUNT; i++) {
-        snowPos[i * 3] = (Math.random() - 0.5) * SNOW_RANGE;
-        snowPos[i * 3 + 1] = (Math.random() - 0.5) * SNOW_RANGE;
-        snowPos[i * 3 + 2] = (Math.random() - 0.5) * SNOW_RANGE;
+    for (let i = 0; i < WEATHER_PARTICLE_COUNT; i++) {
+        // Shared random spawn positions
+        const startX = (Math.random() - 0.5) * WEATHER_RANGE;
+        const startY = (Math.random() - 0.5) * WEATHER_RANGE;
+        const startZ = (Math.random() - 0.5) * WEATHER_RANGE;
 
-        // X drift, Y fall speed, Z drift
+        snowPos[i * 3] = startX; snowPos[i * 3 + 1] = startY; snowPos[i * 3 + 2] = startZ;
+        rainPos[i * 3] = startX; rainPos[i * 3 + 1] = startY; rainPos[i * 3 + 2] = startZ;
+
+        // Snow velocity: gentle drift and slow fall
         snowVel[i * 3] = (Math.random() - 0.5) * 15;
         snowVel[i * 3 + 1] = -(Math.random() * 25 + 30);
         snowVel[i * 3 + 2] = (Math.random() - 0.5) * 15;
+
+        // Rain velocity: fast fall, minimal horizontal drift
+        rainVel[i * 3] = (Math.random() - 0.5) * 5;
+        rainVel[i * 3 + 1] = -(Math.random() * 200 + 250); 
+        rainVel[i * 3 + 2] = (Math.random() - 0.5) * 5;
     }
 
     snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
     snowGeo.setAttribute('velocity', new THREE.BufferAttribute(snowVel, 3));
+    
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+    rainGeo.setAttribute('velocity', new THREE.BufferAttribute(rainVel, 3));
 
+    // Materials
     const snowMat = new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 2.0,
-        map: createSnowTexture(),
-        transparent: true,
-        opacity: 0.0, // Start at 0 so it can fade in smoothly
-        depthWrite: false,
-        blending: THREE.AdditiveBlending 
+        color: 0xffffff, size: 2.0, map: createSnowTexture(),
+        transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending
     });
 
+    const rainMat = new THREE.PointsMaterial({
+        color: 0xaaccff, 
+        size: 15.0, // Increased size to compensate for the larger square canvas
+        map: createRainTexture(), 
+        transparent: true, 
+        opacity: 0.0, 
+        depthWrite: false, 
+        blending: THREE.AdditiveBlending
+    });
+
+    // Meshes
     snowParticles = new THREE.Points(snowGeo, snowMat);
     snowParticles.visible = false;
-
     snowParticles.frustumCulled = false;
     scene.add(snowParticles);
+
+    rainParticles = new THREE.Points(rainGeo, rainMat);
+    rainParticles.visible = false;
+    rainParticles.frustumCulled = false;
+    scene.add(rainParticles);
 
     // Bind UI
     const weatherSelect = document.getElementById('weather-select');
     if (weatherSelect) {
         weatherSelect.value = 'auto';
         weatherSelect.addEventListener('change', (e) => {
-            setWeather(e.target.value);
+            weatherType = e.target.value;
+            console.log(`Weather changed to: ${weatherType}`);
         });
     }
 }
 
-function setWeather(type) {
-    weatherType = type;
-    console.log(`Weather changed to: ${type}`);
-    // Removed direct visibility toggling here; updateWeather handles smooth fading now
+// Reusable physics/wrapping loop for any particle system
+function moveAndWrapParticles(particles, delta, minX, maxX, minY, maxY, minZ, maxZ) {
+    const positions = particles.geometry.attributes.position.array;
+    const velocities = particles.geometry.attributes.velocity.array;
+    const len = positions.length;
+
+    for (let i = 0; i < len; i += 3) {
+        positions[i]     += velocities[i] * delta;
+        positions[i + 1] += velocities[i + 1] * delta;
+        positions[i + 2] += velocities[i + 2] * delta;
+
+        if      (positions[i] < minX) positions[i] += WEATHER_RANGE;
+        else if (positions[i] > maxX) positions[i] -= WEATHER_RANGE;
+
+        if      (positions[i + 1] < minY) positions[i + 1] += WEATHER_RANGE;
+        else if (positions[i + 1] > maxY) positions[i + 1] -= WEATHER_RANGE;
+
+        if      (positions[i + 2] < minZ) positions[i + 2] += WEATHER_RANGE;
+        else if (positions[i + 2] > maxZ) positions[i + 2] -= WEATHER_RANGE;
+    }
+    particles.geometry.attributes.position.needsUpdate = true;
 }
 
 function updateWeather(delta) {
-    if (!snowParticles) return;
+    if (!snowParticles || !rainParticles) return;
 
-    let targetOpacity = 0;
+    let targetSnowOpacity = 0;
+    let targetRainOpacity = 0;
 
+    // Determine target opacities based on active mode
     if (weatherType === 'snow') {
-        targetOpacity = 0.8;
+        targetSnowOpacity = 0.8;
+    } else if (weatherType === 'rain') {
+        targetRainOpacity = 0.5; // Rain looks better slightly more transparent than snow
     } else if (weatherType === 'auto') {
-        // Calculate latitude using the same scale as the cockpit HUD
+        // Existing logic: Fade in snow at +1.0 Latitude
         const latVal = (-planeGroup.position.z / 5000);
-        
         if (latVal > 1.0) {
-            // Fade in gradually from 1.0°N to 1.5°N
-            targetOpacity = THREE.MathUtils.clamp((latVal - 1.0) / 0.5, 0, 1) * 0.5;
+            targetSnowOpacity = THREE.MathUtils.clamp((latVal - 1.0) / 0.5, 0, 1) * 0.8;
         }
     }
 
-    // Smoothly transition the opacity
-    snowParticles.material.opacity = THREE.MathUtils.lerp(snowParticles.material.opacity, targetOpacity, delta * 0.5);
+    // Smoothly transition the materials
+    snowParticles.material.opacity = THREE.MathUtils.lerp(snowParticles.material.opacity, targetSnowOpacity, delta * 0.5);
+    rainParticles.material.opacity = THREE.MathUtils.lerp(rainParticles.material.opacity, targetRainOpacity, delta * 0.5);
 
-    // If invisible, skip the heavy CPU math to save performance
-    if (snowParticles.material.opacity < 0.01) {
-        snowParticles.visible = false;
-        return; 
-    } else {
-        snowParticles.visible = true;
-    }
+    // Toggle visibility to save CPU when completely transparent
+    snowParticles.visible = snowParticles.material.opacity >= 0.01;
+    rainParticles.visible = rainParticles.material.opacity >= 0.01;
 
-    const positions = snowParticles.geometry.attributes.position.array;
-    const velocities = snowParticles.geometry.attributes.velocity.array;
+    if (!snowParticles.visible && !rainParticles.visible) return;
+
+    // Pre-calculate boundaries once per frame
     const camPos = camera.position;
-
-    const halfRange = SNOW_RANGE / 2;
+    const halfRange = WEATHER_RANGE / 2;
     const minX = camPos.x - halfRange;
     const maxX = camPos.x + halfRange;
     const minY = camPos.y - halfRange;
@@ -767,24 +835,9 @@ function updateWeather(delta) {
     const minZ = camPos.z - halfRange;
     const maxZ = camPos.z + halfRange;
 
-    const len = SNOW_COUNT * 3;
-
-    for (let i = 0; i < len; i += 3) {
-        positions[i]     += velocities[i] * delta;
-        positions[i + 1] += velocities[i + 1] * delta;
-        positions[i + 2] += velocities[i + 2] * delta;
-
-        if      (positions[i] < minX) positions[i] += SNOW_RANGE;
-        else if (positions[i] > maxX) positions[i] -= SNOW_RANGE;
-
-        if      (positions[i + 1] < minY) positions[i + 1] += SNOW_RANGE;
-        else if (positions[i + 1] > maxY) positions[i + 1] -= SNOW_RANGE;
-
-        if      (positions[i + 2] < minZ) positions[i + 2] += SNOW_RANGE;
-        else if (positions[i + 2] > maxZ) positions[i + 2] -= SNOW_RANGE;
-    }
-
-    snowParticles.geometry.attributes.position.needsUpdate = true;
+    // Only run the heavy math on visible systems
+    if (snowParticles.visible) moveAndWrapParticles(snowParticles, delta, minX, maxX, minY, maxY, minZ, maxZ);
+    if (rainParticles.visible) moveAndWrapParticles(rainParticles, delta, minX, maxX, minY, maxY, minZ, maxZ);
 }
 
 // Initialize immediately
