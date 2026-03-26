@@ -655,7 +655,7 @@ if (typeof planeGroup !== 'undefined') {
 }
 
 // --- WEATHER SYSTEM ---
-let weatherType = 'none'; // 'none' or 'snow'
+let weatherType = 'auto'; // Default to 'auto' now
 let snowParticles = null;
 // Scale snow based on quality: High = 5000, Low = 1500
 const _savedQualityForSnow = localStorage.getItem('chill_flight_quality');
@@ -700,22 +700,21 @@ function initWeather() {
         size: 2.0,
         map: createSnowTexture(),
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.0, // Start at 0 so it can fade in smoothly
         depthWrite: false,
-        blending: THREE.AdditiveBlending // Gives the snow a nice glow against the sky
+        blending: THREE.AdditiveBlending 
     });
 
     snowParticles = new THREE.Points(snowGeo, snowMat);
     snowParticles.visible = false;
 
-    // CRITICAL: Prevent Three.js from hiding the snow when the camera flies far from the origin
     snowParticles.frustumCulled = false;
     scene.add(snowParticles);
 
     // Bind UI
     const weatherSelect = document.getElementById('weather-select');
     if (weatherSelect) {
-        weatherSelect.value = 'none';
+        weatherSelect.value = 'auto';
         weatherSelect.addEventListener('change', (e) => {
             setWeather(e.target.value);
         });
@@ -724,20 +723,42 @@ function initWeather() {
 
 function setWeather(type) {
     weatherType = type;
-    if (snowParticles) {
-        snowParticles.visible = (type === 'snow');
-    }
     console.log(`Weather changed to: ${type}`);
+    // Removed direct visibility toggling here; updateWeather handles smooth fading now
 }
 
 function updateWeather(delta) {
-    if (weatherType !== 'snow' || !snowParticles) return;
+    if (!snowParticles) return;
+
+    let targetOpacity = 0;
+
+    if (weatherType === 'snow') {
+        targetOpacity = 0.8;
+    } else if (weatherType === 'auto') {
+        // Calculate latitude using the same scale as the cockpit HUD
+        const latVal = (-planeGroup.position.z / 5000);
+        
+        if (latVal > 1.0) {
+            // Fade in gradually from 1.0°N to 1.5°N
+            targetOpacity = THREE.MathUtils.clamp((latVal - 1.0) / 0.5, 0, 1) * 0.8;
+        }
+    }
+
+    // Smoothly transition the opacity
+    snowParticles.material.opacity = THREE.MathUtils.lerp(snowParticles.material.opacity, targetOpacity, delta * 0.5);
+
+    // If invisible, skip the heavy CPU math to save performance
+    if (snowParticles.material.opacity < 0.01) {
+        snowParticles.visible = false;
+        return; 
+    } else {
+        snowParticles.visible = true;
+    }
 
     const positions = snowParticles.geometry.attributes.position.array;
     const velocities = snowParticles.geometry.attributes.velocity.array;
     const camPos = camera.position;
 
-    // OPTIMIZATION 1: Pre-calculate boundaries once per frame
     const halfRange = SNOW_RANGE / 2;
     const minX = camPos.x - halfRange;
     const maxX = camPos.x + halfRange;
@@ -746,16 +767,13 @@ function updateWeather(delta) {
     const minZ = camPos.z - halfRange;
     const maxZ = camPos.z + halfRange;
 
-    // OPTIMIZATION 2: Single variable loop limit to help the JIT compiler
     const len = SNOW_COUNT * 3;
 
     for (let i = 0; i < len; i += 3) {
-        // Apply individual velocity
         positions[i]     += velocities[i] * delta;
         positions[i + 1] += velocities[i + 1] * delta;
         positions[i + 2] += velocities[i + 2] * delta;
 
-        // OPTIMIZATION 3: Use if/else instead of while.
         if      (positions[i] < minX) positions[i] += SNOW_RANGE;
         else if (positions[i] > maxX) positions[i] -= SNOW_RANGE;
 
