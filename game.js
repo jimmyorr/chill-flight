@@ -640,7 +640,10 @@ updateChunks();
 // --- WEATHER SYSTEM ---
 let weatherType = 'none'; // 'none' or 'snow'
 let snowParticles = null;
-const SNOW_COUNT = 5000;
+// Scale snow based on quality: High = 5000, Low = 1500
+const _savedQualityForSnow = localStorage.getItem('chill_flight_quality');
+const _currentQualityForSnow = _savedQualityForSnow ? parseInt(_savedQualityForSnow) : 32;
+const SNOW_COUNT = _currentQualityForSnow <= 16 ? 1500 : 5000;
 const SNOW_RANGE = 500; // Spawn in a 500-unit box around the camera
 
 // Generate a soft, glowing circle instead of a harsh square
@@ -717,22 +720,33 @@ function updateWeather(delta) {
     const velocities = snowParticles.geometry.attributes.velocity.array;
     const camPos = camera.position;
 
-    for (let i = 0; i < SNOW_COUNT; i++) {
+    // OPTIMIZATION 1: Pre-calculate boundaries once per frame
+    const halfRange = SNOW_RANGE / 2;
+    const minX = camPos.x - halfRange;
+    const maxX = camPos.x + halfRange;
+    const minY = camPos.y - halfRange;
+    const maxY = camPos.y + halfRange;
+    const minZ = camPos.z - halfRange;
+    const maxZ = camPos.z + halfRange;
+
+    // OPTIMIZATION 2: Single variable loop limit to help the JIT compiler
+    const len = SNOW_COUNT * 3;
+
+    for (let i = 0; i < len; i += 3) {
         // Apply individual velocity
-        positions[i * 3] += velocities[i * 3] * delta;
-        positions[i * 3 + 1] += velocities[i * 3 + 1] * delta;
-        positions[i * 3 + 2] += velocities[i * 3 + 2] * delta;
+        positions[i]     += velocities[i] * delta;
+        positions[i + 1] += velocities[i + 1] * delta;
+        positions[i + 2] += velocities[i + 2] * delta;
 
-        // Infinite wrapping effect relative to the camera in world space
-        // Using 'while' in case delta spikes during a lag frame
-        while (positions[i * 3] < camPos.x - SNOW_RANGE / 2) positions[i * 3] += SNOW_RANGE;
-        while (positions[i * 3] > camPos.x + SNOW_RANGE / 2) positions[i * 3] -= SNOW_RANGE;
+        // OPTIMIZATION 3: Use if/else instead of while.
+        if      (positions[i] < minX) positions[i] += SNOW_RANGE;
+        else if (positions[i] > maxX) positions[i] -= SNOW_RANGE;
 
-        while (positions[i * 3 + 1] < camPos.y - SNOW_RANGE / 2) positions[i * 3 + 1] += SNOW_RANGE;
-        while (positions[i * 3 + 1] > camPos.y + SNOW_RANGE / 2) positions[i * 3 + 1] -= SNOW_RANGE;
+        if      (positions[i + 1] < minY) positions[i + 1] += SNOW_RANGE;
+        else if (positions[i + 1] > maxY) positions[i + 1] -= SNOW_RANGE;
 
-        while (positions[i * 3 + 2] < camPos.z - SNOW_RANGE / 2) positions[i * 3 + 2] += SNOW_RANGE;
-        while (positions[i * 3 + 2] > camPos.z + SNOW_RANGE / 2) positions[i * 3 + 2] -= SNOW_RANGE;
+        if      (positions[i + 2] < minZ) positions[i + 2] += SNOW_RANGE;
+        else if (positions[i + 2] > maxZ) positions[i + 2] -= SNOW_RANGE;
     }
 
     snowParticles.geometry.attributes.position.needsUpdate = true;
