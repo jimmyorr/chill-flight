@@ -1683,7 +1683,7 @@ function animate() {
     const dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) * 2)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0 (6 AM)
 
     // Update water shader uniform — the GPU handles all wave displacement
-    waterUniforms.uTime.value = now * 0.0015;
+    window.waterUniforms.uTime.value = now * 0.0015;
 
     // Animate Birds, Windmills, Lighthouses, Campfires, Chimney Smoke
     chunks.forEach(chunkGroup => {
