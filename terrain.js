@@ -3,8 +3,8 @@
 
 const chunks = new Map();
 
-// GPU water uniform — updated once per frame from animate()
-const waterUniforms = { uTime: { value: 0.0 } };
+// GPU water uniform — shared globally so game.js animate() can update uTime
+window.waterUniforms = { uTime: { value: 0.0 } };
 
 // Materials for terrain
 const terrainMaterial = createMaterial({
@@ -25,7 +25,7 @@ const waterMaterial = createMaterial({
 // Inject GPU wave math into the water material's vertex shader.
 // This replaces the CPU-side per-vertex loop and computeVertexNormals().
 waterMaterial.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = waterUniforms.uTime;
+    shader.uniforms.uTime = window.waterUniforms.uTime;
 
     // Add time uniform declaration to the top of the vertex shader
     shader.vertexShader = `
