@@ -51,7 +51,7 @@ function updateInputPosition(clientX, clientY) {
 }
 
 window.addEventListener('mousemove', (e) => {
-    if (!e.target.closest('#cockpit-ui') && !e.target.closest('#debug-menu') && !e.target.closest('.title') && !e.target.closest('#mobile-controls') && !e.target.closest('#online-players')) {
+    if (!e.target.closest('#cockpit-ui') && !e.target.closest('#debug-menu') && !e.target.closest('#debug-telemetry') && !e.target.closest('.title') && !e.target.closest('#mobile-controls') && !e.target.closest('#online-players')) {
         updateInputPosition(e.clientX, e.clientY);
         if (windowJustFocused) {
             // Silently sync position without steering — swallows the spurious
@@ -68,7 +68,7 @@ window.addEventListener('touchstart', (e) => {
     if (e.touches.length > 0) {
         const target = e.target;
         const isPauseOverlay = target.closest('#pause-overlay');
-        const isUI = isPauseOverlay || target.closest('#cockpit-ui') || target.closest('#debug-menu') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.station-btn') || target.closest('.color-swatch');
+        const isUI = isPauseOverlay || target.closest('#cockpit-ui') || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.station-btn') || target.closest('.color-swatch');
         if (!isUI) {
             updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
             mouseControlActive = true;
@@ -89,7 +89,7 @@ window.addEventListener('touchmove', (e) => {
             e.preventDefault();
         }
         const isPauseOverlay = target.closest('#pause-overlay');
-        const isUI = isCockpit || isPauseOverlay || target.closest('#debug-menu') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.station-btn') || target.closest('.color-swatch');
+        const isUI = isCockpit || isPauseOverlay || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.station-btn') || target.closest('.color-swatch');
         if (!isUI) {
             updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
             mouseControlActive = true;
@@ -2361,7 +2361,7 @@ function resetSteering() {
     mouseControlActive = false;
 }
 
-document.querySelectorAll('.mobile-btn, .sub-btn, #debug-menu').forEach(btn => {
+document.querySelectorAll('.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #online-players, #cockpit-ui').forEach(btn => {
     btn.addEventListener('mouseenter', resetSteering);
     btn.addEventListener('touchstart', resetSteering, { passive: true });
 });
@@ -2533,8 +2533,10 @@ window.addEventListener('keydown', (e) => {
 
     if ((e.key === 'd' || e.key === 'D') && e.shiftKey) {
         const debugMenu = document.getElementById('debug-menu');
+        const debugTelem = document.getElementById('debug-telemetry');
         const isOpening = debugMenu.style.display !== 'block';
         debugMenu.style.display = isOpening ? 'block' : 'none';
+        if (debugTelem) debugTelem.style.display = isOpening ? 'block' : 'none';
 
         if (isOpening) resetSteering();
 
