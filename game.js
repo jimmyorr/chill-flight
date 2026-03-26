@@ -10,6 +10,7 @@
 // --- INPUT ---
 let mouseX = 0;
 let mouseY = 0;
+const _lastChunkUpdatePos = new THREE.Vector3(Infinity, Infinity, Infinity);
 let mouseControlActive = false; // becomes true once the mouse moves; cleared by arrow-key presses
 let windowJustFocused = false;  // absorbs the first mousemove after returning to the tab
 let targetPitch = 0;
@@ -646,8 +647,12 @@ const secondsInCycleFirst = (serverNowFirst % 300000) / 1000;
 const currentWarpedProgressFirst = ChillFlightLogic.computeTimeOfDay(secondsInCycleFirst);
 window.timeOfDay = currentWarpedProgressFirst * Math.PI * 2;
 
+
 // Initial chunk generation
 updateChunks();
+if (typeof planeGroup !== 'undefined') {
+    _lastChunkUpdatePos.copy(planeGroup.position); 
+}
 
 // --- WEATHER SYSTEM ---
 let weatherType = 'none'; // 'none' or 'snow'
@@ -788,7 +793,6 @@ const _idealLookTarget_Follow = new THREE.Vector3();
 const _idealLookTarget_TopDown = new THREE.Vector3();
 const _up_Follow = new THREE.Vector3();
 const _up_TopDown = new THREE.Vector3();
-const _lastChunkUpdatePos = new THREE.Vector3(Infinity, Infinity, Infinity);
 let lastPlayerListUpdate = 0;
 const _dirArrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
 
