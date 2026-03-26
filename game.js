@@ -651,7 +651,7 @@ window.timeOfDay = currentWarpedProgressFirst * Math.PI * 2;
 // Initial chunk generation
 updateChunks();
 if (typeof planeGroup !== 'undefined') {
-    _lastChunkUpdatePos.copy(planeGroup.position); 
+    _lastChunkUpdatePos.copy(planeGroup.position);
 }
 
 // --- WEATHER SYSTEM ---
@@ -663,7 +663,7 @@ let rainParticles = null;
 const _savedQualityForWeather = localStorage.getItem('chill_flight_quality');
 const _currentQualityForWeather = _savedQualityForWeather ? parseInt(_savedQualityForWeather) : 32;
 const WEATHER_PARTICLE_COUNT = _currentQualityForWeather <= 16 ? 1500 : 5000;
-const WEATHER_RANGE = 500; 
+const WEATHER_RANGE = 500;
 
 // Generate a soft, glowing circle for snow
 function createSnowTexture() {
@@ -682,20 +682,20 @@ function createSnowTexture() {
 function createRainTexture() {
     const canvas = document.createElement('canvas');
     // The canvas MUST be square for PointsMaterial to prevent stretching
-    canvas.width = 64; 
+    canvas.width = 64;
     canvas.height = 64;
     const ctx = canvas.getContext('2d');
-    
+
     // Vertical gradient to simulate motion blur
     const grad = ctx.createLinearGradient(0, 0, 0, 64);
     grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
     grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.8)'); // Brighter core
     grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    
+
     ctx.fillStyle = grad;
     // Draw a thin streak directly down the middle (X=31, Y=0, Width=2, Height=64)
     ctx.fillRect(31, 0, 2, 64);
-    
+
     return new THREE.CanvasTexture(canvas);
 }
 
@@ -703,7 +703,7 @@ function initWeather() {
     // Geometries
     const snowGeo = new THREE.BufferGeometry();
     const rainGeo = new THREE.BufferGeometry();
-    
+
     const snowPos = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
     const snowVel = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
     const rainPos = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
@@ -725,13 +725,13 @@ function initWeather() {
 
         // Rain velocity: fast fall, minimal horizontal drift
         rainVel[i * 3] = (Math.random() - 0.5) * 5;
-        rainVel[i * 3 + 1] = -(Math.random() * 200 + 250); 
+        rainVel[i * 3 + 1] = -(Math.random() * 200 + 250);
         rainVel[i * 3 + 2] = (Math.random() - 0.5) * 5;
     }
 
     snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
     snowGeo.setAttribute('velocity', new THREE.BufferAttribute(snowVel, 3));
-    
+
     rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
     rainGeo.setAttribute('velocity', new THREE.BufferAttribute(rainVel, 3));
 
@@ -742,12 +742,12 @@ function initWeather() {
     });
 
     const rainMat = new THREE.PointsMaterial({
-        color: 0xaaccff, 
+        color: 0xaaccff,
         size: 15.0, // Increased size to compensate for the larger square canvas
-        map: createRainTexture(), 
-        transparent: true, 
-        opacity: 0.0, 
-        depthWrite: false, 
+        map: createRainTexture(),
+        transparent: true,
+        opacity: 0.0,
+        depthWrite: false,
         blending: THREE.AdditiveBlending
     });
 
@@ -780,17 +780,17 @@ function moveAndWrapParticles(particles, delta, minX, maxX, minY, maxY, minZ, ma
     const len = positions.length;
 
     for (let i = 0; i < len; i += 3) {
-        positions[i]     += velocities[i] * delta;
+        positions[i] += velocities[i] * delta;
         positions[i + 1] += velocities[i + 1] * delta;
         positions[i + 2] += velocities[i + 2] * delta;
 
-        if      (positions[i] < minX) positions[i] += WEATHER_RANGE;
+        if (positions[i] < minX) positions[i] += WEATHER_RANGE;
         else if (positions[i] > maxX) positions[i] -= WEATHER_RANGE;
 
-        if      (positions[i + 1] < minY) positions[i + 1] += WEATHER_RANGE;
+        if (positions[i + 1] < minY) positions[i + 1] += WEATHER_RANGE;
         else if (positions[i + 1] > maxY) positions[i + 1] -= WEATHER_RANGE;
 
-        if      (positions[i + 2] < minZ) positions[i + 2] += WEATHER_RANGE;
+        if (positions[i + 2] < minZ) positions[i + 2] += WEATHER_RANGE;
         else if (positions[i + 2] > maxZ) positions[i + 2] -= WEATHER_RANGE;
     }
     particles.geometry.attributes.position.needsUpdate = true;
@@ -1939,13 +1939,59 @@ function animate() {
         skyUniforms.bottomColor.value.lerp(targetPaletteBottom, delta * 0.1);
     }
 
-    // Sky color / fog / weather
-    // At 12:00 (PI), SunY = 1.0.
+    // --- OVERCAST & WEATHER CALCULATION ---
+    // 1. Check if forced precipitation is currently visible on screen
+    let precipIntensity = 0;
+    if (snowParticles && rainParticles) {
+        const sInt = snowParticles.material.opacity / 0.8;
+        const rInt = rainParticles.material.opacity / 0.5;
+        precipIntensity = Math.max(sInt, rInt);
+    }
 
-    _uncloudedSkyColor.setHex(0x0a0c20); // Brighter night sky for a chill view
+    // 2. Check for procedural cloudy biomes
+    const weatherTimeOffset = (now / 100000);
+    let weatherNoise = (simplex.noise2D((planeGroup.position.x / CHUNK_SIZE) * 0.1 + 500 + weatherTimeOffset, (planeGroup.position.z / CHUNK_SIZE) * 0.1 + weatherTimeOffset) + 1) / 2;
+    const weatherThreshold = 0.7;
+    weatherNoise = weatherNoise < weatherThreshold ? 0 : (weatherNoise - weatherThreshold) / (1 - weatherThreshold);
+
+    // 3. The world is overcast if there are clouds OR if it's raining/snowing
+    const targetOvercast = Math.max(weatherNoise, precipIntensity);
+    window._currentOvercast = THREE.MathUtils.lerp(window._currentOvercast || 0, targetOvercast, 0.01);
+    const overcast = window._currentOvercast;
+
+    // --- APPLY LIGHTING & CELESTIAL BODIES ---
+    // Stars disappear when overcast
+    let starFactor = Math.max(0, Math.min(1, (sunY + 0.2) / -0.3));
+    starsMat.opacity = starFactor * (1.0 - overcast);
+
+    // Fix: Three.js requires needsUpdate to be true the first time transparency is enabled
+    if (sunMesh && sunMesh.material) {
+        if (!sunMesh.material.transparent) {
+            sunMesh.material.transparent = true;
+            sunMesh.material.needsUpdate = true;
+        }
+        sunMesh.material.opacity = 1.0 - overcast;
+    }
+    if (moonMesh && moonMesh.material) {
+        if (!moonMesh.material.transparent) {
+            moonMesh.material.transparent = true;
+            moonMesh.material.needsUpdate = true;
+        }
+        moonMesh.material.opacity = 1.0 - overcast;
+    }
+
+    let baseHemi = THREE.MathUtils.lerp(0.3, 0.6, dayFactor);
+    hemiLight.intensity = THREE.MathUtils.lerp(baseHemi, 0.7, overcast * dayFactor);
+
+    let baseDir = THREE.MathUtils.lerp(0, 0.8, dayFactor);
+    dirLight.intensity = THREE.MathUtils.lerp(baseDir, 0.05, overcast);
+
+    let moonFactor = Math.max(0, Math.min(1, (-sunY - 0.25) / 0.25));
+    moonLight.intensity = moonFactor * 0.4 * (1.0 - overcast);
+
+    // --- APPLY SKY & FOG ---
+    _uncloudedSkyColor.setHex(0x0a0c20);
     _uncloudedFogColor.setHex(0x060815);
-
-
 
     if (dayFactor > 0.0) {
         let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
@@ -1960,87 +2006,46 @@ function animate() {
         }
 
         _uncloudedSkyColor.lerp(_twilightSky, dayFactor * 0.4);
-        _uncloudedSkyColor.lerp(_currentSunriseSky, dawnDuskFactor);
+
+        // KILL THE SUNSET COLORS IN THE MAIN SKY WHEN OVERCAST
+        _uncloudedSkyColor.lerp(_currentSunriseSky, dawnDuskFactor * (1.0 - overcast));
+
         if (sunY > -0.1 && sunY < 0.15) {
             let goldT = 1.0 - Math.abs(sunY - 0.02) * 10;
-            _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.6);
+            _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.6 * (1.0 - overcast));
         }
+
         _uncloudedSkyColor.lerp(_daySky, dayFactor * (1.0 - dawnDuskFactor));
         _uncloudedFogColor.copy(_uncloudedSkyColor);
-    }
 
-    // Stars fade starting at 4 AM (-0.5) and disappear by roughly 5:15 AM (-0.2)
-    let starFactor = Math.max(0, Math.min(1, (sunY + 0.2) / -0.3));
-    starsMat.opacity = starFactor;
-
-    hemiLight.intensity = THREE.MathUtils.lerp(0.3, 0.6, dayFactor); // Less contrast at night
-    dirLight.intensity = THREE.MathUtils.lerp(0, 0.8, dayFactor);
-
-    // Sharper Moonlight Cutoff: Only active during deep night, fades before sun transition begins
-    let moonFactor = Math.max(0, Math.min(1, (-sunY - 0.25) / 0.25));
-    moonLight.intensity = moonFactor * 0.4;
-
-    // Dynamic Weather (Drifting Fog & Clouds)
-    const weatherTimeOffset = (now / 100000); // Very slow drift
-    let weatherNoise = (simplex.noise2D((planeGroup.position.x / CHUNK_SIZE) * 0.1 + 500 + weatherTimeOffset, (planeGroup.position.z / CHUNK_SIZE) * 0.1 + weatherTimeOffset) + 1) / 2;
-    const weatherThreshold = 0.7;
-    weatherNoise = weatherNoise < weatherThreshold ? 0 : (weatherNoise - weatherThreshold) / (1 - weatherThreshold);
-
-    // Cloud Drifting
-    chunks.forEach((chunk, key) => {
-        if (chunk.userData.clouds) {
-            const [cx, cz] = key.split(',').map(Number);
-            const chunkCenterX = cx * CHUNK_SIZE;
-
-            chunk.userData.clouds.forEach(cloud => {
-                // Drift 2 units per second (very lazy)
-                cloud.position.x += delta * 2;
-                // Wrap clouds within the chunk (2000x2000)
-                if (cloud.position.x > chunkCenterX + (CHUNK_SIZE / 2)) {
-                    cloud.position.x -= CHUNK_SIZE;
-                }
-            });
-        }
-    });
-
-    _cloudyColor.setHex(0x0a0c10).lerp(_weatherLerpBase, dayFactor);
-    _finalSkyColor.copy(_uncloudedSkyColor).lerp(_cloudyColor, weatherNoise);
-    _finalFogColor.copy(_uncloudedFogColor).lerp(_cloudyColor, weatherNoise);
-
-    scene.fog.color.lerp(_finalFogColor, 0.05);
-    scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, THREE.MathUtils.lerp(0.00005, 0.0004, weatherNoise), 0.01);
-
-    // Update Light and Fog Colors for Sunset Atmosphere
-    if (dayFactor > 0.0) {
-        let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
-        dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
-
-        // Warm up the directional light during golden hour
+        // Warm up the directional light during golden hour, suppress if overcast
         const dayLightCol = new THREE.Color(0xfff0dd);
         const sunsetLightCol = (sunX > 0) ? new THREE.Color(0xffd5a0) : new THREE.Color(0xffad60);
-        dirLight.color.copy(dayLightCol).lerp(sunsetLightCol, dawnDuskFactor);
-
-        // Adjust fog to be slightly warmer at the horizon during sunset - using palette bottom
-        if (dawnDuskFactor > 0.2) {
-            const warmFog = new THREE.Color(selectedPalette.bottom);
-            scene.fog.color.lerp(warmFog, (dawnDuskFactor - 0.2) * 0.5);
-        }
-
+        dirLight.color.copy(dayLightCol).lerp(sunsetLightCol, dawnDuskFactor * (1.0 - overcast));
     } else {
-        dirLight.color.setHex(0xfff0dd); // Reset for next day
+        dirLight.color.setHex(0xfff0dd);
     }
 
+    const stormColor = new THREE.Color(0x5A6B7C);
+    _cloudyColor.setHex(0x0a0c10).lerp(stormColor, dayFactor);
+
+    _finalSkyColor.copy(_uncloudedSkyColor).lerp(_cloudyColor, overcast);
+    _finalFogColor.copy(_uncloudedFogColor).lerp(_cloudyColor, overcast);
+
+    scene.fog.color.lerp(_finalFogColor, 0.05);
+
+    // If it's actively raining or snowing, the fog should be much thicker to obscure the horizon
+    const maxFogDensity = precipIntensity > 0 ? 0.00025 : 0.0002;
+    scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, THREE.MathUtils.lerp(0.00002, maxFogDensity, overcast), 0.01);
+
     // Update Sky Shader Colors
-    // The top color follows the final computed sky color.
     if (!isCustomPalette) {
         skyUniforms.topColor.value.copy(_finalSkyColor);
     }
 
-    // Update sun direction for directional gradient
     _tempVec.set(sunX, sunY, sunZ).normalize();
     skyUniforms.sunDirection.value.copy(_tempVec);
 
-    // The bottom color is adjusted for sunset/sunrise to create a gradient.
     if (!isCustomPalette) {
         if (dayFactor > 0.0) {
             let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
@@ -2048,21 +2053,33 @@ function animate() {
 
             let bottomCol = _finalSkyColor.clone();
             if (dawnDuskFactor > 0.1) {
-                // During dawn/dusk, make the horizon (bottom) follow the palette
                 const warmHorizon = new THREE.Color(selectedPalette.bottom);
-                bottomCol.lerp(warmHorizon, dawnDuskFactor * 0.8);
+                // KILL THE SUNSET HORIZON WHEN OVERCAST
+                const actualDawnDusk = (dawnDuskFactor * 0.8) * (1.0 - overcast);
+                bottomCol.lerp(warmHorizon, actualDawnDusk);
             }
 
             skyUniforms.bottomColor.value.copy(bottomCol);
         } else {
-            // At night, preserve a slight vertical depth to the sky
             let bottomCol = _finalSkyColor.clone().multiplyScalar(0.8);
             skyUniforms.bottomColor.value.copy(bottomCol);
         }
     }
 
+    // --- CLOUD DRIFTING ---
+    chunks.forEach((chunk, key) => {
+        if (chunk.userData.clouds) {
+            const [cx, cz] = key.split(',').map(Number);
+            const chunkCenterX = cx * CHUNK_SIZE;
 
-
+            chunk.userData.clouds.forEach(cloud => {
+                cloud.position.x += delta * 2;
+                if (cloud.position.x > chunkCenterX + (CHUNK_SIZE / 2)) {
+                    cloud.position.x -= CHUNK_SIZE;
+                }
+            });
+        }
+    });
     // Update the particle positions
     updateWeather(delta);
 
