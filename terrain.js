@@ -3,6 +3,9 @@
 
 const chunks = new Map();
 
+// GPU water uniform — updated once per frame from animate()
+const waterUniforms = { uTime: { value: 0.0 } };
+
 // Materials for terrain
 const terrainMaterial = createMaterial({
     vertexColors: true,
@@ -18,6 +21,47 @@ const waterMaterial = createMaterial({
     roughness: 0.05,
     flatShading: true
 });
+
+// Inject GPU wave math into the water material's vertex shader.
+// This replaces the CPU-side per-vertex loop and computeVertexNormals().
+waterMaterial.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = waterUniforms.uTime;
+
+    // Add time uniform declaration to the top of the vertex shader
+    shader.vertexShader = `
+        uniform float uTime;
+    ` + shader.vertexShader;
+
+    // Inject analytical normal calculation (replaces computeVertexNormals)
+    shader.vertexShader = shader.vertexShader.replace(
+        `#include <beginnormal_vertex>`,
+        `
+        // Get world position for seamless tiling across chunks
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+
+        // Analytical derivatives of the wave functions for correct lighting
+        float dx = 0.8 * 0.02 * cos(uTime + worldPos.x * 0.02);
+        float dz = -0.8 * 0.015 * sin(uTime * 0.8 + worldPos.z * 0.015);
+
+        // Perpendicular vector for light reflection
+        vec3 objectNormal = normalize(vec3(-dx, 1.0, -dz));
+        `
+    );
+
+    // Inject wave height displacement (replaces the CPU position array modification)
+    shader.vertexShader = shader.vertexShader.replace(
+        `#include <begin_vertex>`,
+        `
+        vec3 transformed = vec3(position);
+
+        // Wave math running in parallel on the GPU
+        float wave1 = sin(uTime + worldPos.x * 0.02) * 0.8;
+        float wave2 = cos(uTime * 0.8 + worldPos.z * 0.015) * 0.8;
+
+        transformed.y += wave1 + wave2;
+        `
+    );
+};
 
 // Reusable tree geometries for forest instances
 const treeTrunkGeo = new THREE.CylinderGeometry(1.5, 2.5, 12, 5);
