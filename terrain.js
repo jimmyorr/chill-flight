@@ -1741,6 +1741,11 @@ function updateChunks() {
             group.traverse(child => {
                 if (child.isMesh || child.isInstancedMesh) {
                     child.geometry.dispose();
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(mat => mat.dispose());
+                    } else if (child.material) {
+                        child.material.dispose();
+                    }
                 }
             });
             scene.remove(group);
