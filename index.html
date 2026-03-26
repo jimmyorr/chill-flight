@@ -232,8 +232,9 @@
             </select>
         </div>
         <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
-            <div style="margin-bottom: 5px;">Force Weather:</div>
-            <select id="weather-select" class="customization-input" style="width: 100%; padding: 4px 8px; font-size: 14px;">
+            <div style="margin-bottom: 5px;">Force weather:</div>
+            <select id="weather-select" class="customization-input"
+                style="width: 100%; padding: 4px 8px; font-size: 14px;">
                 <option value="auto" selected>Auto (Default)</option>
                 <option value="none">None</option>
                 <option value="snow">Snow</option>
@@ -271,9 +272,22 @@
                 <div>X: <span id="debug-world-x">0</span></div>
                 <div>Y: <span id="debug-world-y">0</span></div>
                 <div>Z: <span id="debug-world-z">0</span></div>
-            </div>
         </div>
 
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+            <div style="margin-bottom: 5px; font-weight: bold; font-size: 11px; opacity: 0.7;">WEATHER:</div>
+            <div
+                style="font-size: 11px; font-family: monospace; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                <div>Overcast: <span id="debug-overcast">0</span></div>
+                <div>Storm: <span id="debug-storm-noise">0</span></div>
+                <div>Precip: <span id="debug-precip">0</span></div>
+                <div>Zone: <span id="debug-climate-zone">-</span></div>
+                <div>Snow α: <span id="debug-snow-opacity">0</span></div>
+                <div>Rain α: <span id="debug-rain-opacity">0</span></div>
+                <div>Fog: <span id="debug-fog-density">0</span></div>
+                <div>Mode: <span id="debug-weather-mode">-</span></div>
+            </div>
+        </div>
         <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
             <div style="margin-bottom: 5px; font-weight: bold; font-size: 11px; opacity: 0.7;">COUNTERS:</div>
             <div

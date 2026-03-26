@@ -847,6 +847,13 @@ function updateWeather(delta) {
             }
             // If latVal <= -1.1 (Deep Desert), targets remain 0 (Dry Storm)
         }
+
+        // Expose debug data
+        window._weatherDebug = {
+            stormNoise: stormNoise,
+            latVal: latVal,
+            zone: latVal > 0.9 ? 'Snow' : latVal > 0.7 ? 'Sleet' : latVal > -0.8 ? 'Rain' : latVal > -1.1 ? 'Dry Edge' : 'Desert'
+        };
     }
 
     // Smoothly transition the materials
@@ -1619,6 +1626,17 @@ function animate() {
         document.getElementById('debug-world-x').textContent = Math.round(planeGroup.position.x);
         document.getElementById('debug-world-y').textContent = Math.round(planeGroup.position.y);
         document.getElementById('debug-world-z').textContent = Math.round(planeGroup.position.z);
+
+        // Weather Telemetry
+        const oc = (window._currentOvercast || 0);
+        document.getElementById('debug-overcast').textContent = oc.toFixed(2);
+        document.getElementById('debug-storm-noise').textContent = (window._weatherDebug ? window._weatherDebug.stormNoise.toFixed(2) : '-');
+        document.getElementById('debug-precip').textContent = (snowParticles && rainParticles ? Math.max(snowParticles.material.opacity / 0.8, rainParticles.material.opacity / 0.5).toFixed(2) : '-');
+        document.getElementById('debug-climate-zone').textContent = (window._weatherDebug ? window._weatherDebug.zone : '-');
+        document.getElementById('debug-snow-opacity').textContent = (snowParticles ? snowParticles.material.opacity.toFixed(2) : '-');
+        document.getElementById('debug-rain-opacity').textContent = (rainParticles ? rainParticles.material.opacity.toFixed(2) : '-');
+        document.getElementById('debug-fog-density').textContent = scene.fog.density.toFixed(5);
+        document.getElementById('debug-weather-mode').textContent = weatherType;
 
         // Update Counters
         let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0;
