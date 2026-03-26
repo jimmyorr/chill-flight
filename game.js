@@ -637,6 +637,110 @@ window.timeOfDay = currentWarpedProgressFirst * Math.PI * 2;
 // Initial chunk generation
 updateChunks();
 
+// --- WEATHER SYSTEM ---
+let weatherType = 'none'; // 'none' or 'snow'
+let snowParticles = null;
+const SNOW_COUNT = 5000;
+const SNOW_RANGE = 500; // Spawn in a 500-unit box around the camera
+
+// Generate a soft, glowing circle instead of a harsh square
+function createSnowTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.arc(8, 8, 8, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fill();
+    return new THREE.CanvasTexture(canvas);
+}
+
+function initWeather() {
+    const snowGeo = new THREE.BufferGeometry();
+    const snowPos = new Float32Array(SNOW_COUNT * 3);
+    const snowVel = new Float32Array(SNOW_COUNT * 3); // Individual drift/fall speeds
+
+    for (let i = 0; i < SNOW_COUNT; i++) {
+        snowPos[i * 3] = (Math.random() - 0.5) * SNOW_RANGE;
+        snowPos[i * 3 + 1] = (Math.random() - 0.5) * SNOW_RANGE;
+        snowPos[i * 3 + 2] = (Math.random() - 0.5) * SNOW_RANGE;
+
+        // X drift, Y fall speed, Z drift
+        snowVel[i * 3] = (Math.random() - 0.5) * 15;
+        snowVel[i * 3 + 1] = -(Math.random() * 25 + 30);
+        snowVel[i * 3 + 2] = (Math.random() - 0.5) * 15;
+    }
+
+    snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+    snowGeo.setAttribute('velocity', new THREE.BufferAttribute(snowVel, 3));
+
+    const snowMat = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 2.0,
+        map: createSnowTexture(),
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending // Gives the snow a nice glow against the sky
+    });
+
+    snowParticles = new THREE.Points(snowGeo, snowMat);
+    snowParticles.visible = false;
+
+    // CRITICAL: Prevent Three.js from hiding the snow when the camera flies far from the origin
+    snowParticles.frustumCulled = false;
+    scene.add(snowParticles);
+
+    // Bind UI
+    const weatherSelect = document.getElementById('weather-select');
+    if (weatherSelect) {
+        weatherSelect.value = 'none';
+        weatherSelect.addEventListener('change', (e) => {
+            setWeather(e.target.value);
+        });
+    }
+}
+
+function setWeather(type) {
+    weatherType = type;
+    if (snowParticles) {
+        snowParticles.visible = (type === 'snow');
+    }
+    console.log(`Weather changed to: ${type}`);
+}
+
+function updateWeather(delta) {
+    if (weatherType !== 'snow' || !snowParticles) return;
+
+    const positions = snowParticles.geometry.attributes.position.array;
+    const velocities = snowParticles.geometry.attributes.velocity.array;
+    const camPos = camera.position;
+
+    for (let i = 0; i < SNOW_COUNT; i++) {
+        // Apply individual velocity
+        positions[i * 3] += velocities[i * 3] * delta;
+        positions[i * 3 + 1] += velocities[i * 3 + 1] * delta;
+        positions[i * 3 + 2] += velocities[i * 3 + 2] * delta;
+
+        // Infinite wrapping effect relative to the camera in world space
+        // Using 'while' in case delta spikes during a lag frame
+        while (positions[i * 3] < camPos.x - SNOW_RANGE / 2) positions[i * 3] += SNOW_RANGE;
+        while (positions[i * 3] > camPos.x + SNOW_RANGE / 2) positions[i * 3] -= SNOW_RANGE;
+
+        while (positions[i * 3 + 1] < camPos.y - SNOW_RANGE / 2) positions[i * 3 + 1] += SNOW_RANGE;
+        while (positions[i * 3 + 1] > camPos.y + SNOW_RANGE / 2) positions[i * 3 + 1] -= SNOW_RANGE;
+
+        while (positions[i * 3 + 2] < camPos.z - SNOW_RANGE / 2) positions[i * 3 + 2] += SNOW_RANGE;
+        while (positions[i * 3 + 2] > camPos.z + SNOW_RANGE / 2) positions[i * 3 + 2] -= SNOW_RANGE;
+    }
+
+    snowParticles.geometry.attributes.position.needsUpdate = true;
+}
+
+// Initialize immediately
+initWeather();
+
 const fpsCounterEl = document.getElementById('debug-fps');
 
 // Optimization: Pre-allocate reusable objects for the animate loop to prevent GC stutter
@@ -1863,6 +1967,11 @@ function animate() {
             skyUniforms.bottomColor.value.copy(bottomCol);
         }
     }
+
+
+
+    // Update the particle positions
+    updateWeather(delta);
 
     renderer.render(scene, camera);
 
