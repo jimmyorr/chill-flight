@@ -513,11 +513,17 @@ if (distanceSelect) {
             group.traverse(child => {
                 if (child.isMesh || child.isInstancedMesh) {
                     child.geometry.dispose();
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(mat => mat.dispose());
+                    } else if (child.material) {
+                        child.material.dispose();
+                    }
                 }
             });
             scene.remove(group);
         });
         chunks.clear();
+        _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
     });
 }
 const qualitySelect = document.getElementById('quality-select');
@@ -532,11 +538,17 @@ if (qualitySelect) {
             group.traverse(child => {
                 if (child.isMesh || child.isInstancedMesh) {
                     child.geometry.dispose();
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(mat => mat.dispose());
+                    } else if (child.material) {
+                        child.material.dispose();
+                    }
                 }
             });
             scene.remove(group);
         });
         chunks.clear();
+        _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
 
         // The animate loop will call updateChunks() next frame and rebuild everything
     });
@@ -776,6 +788,9 @@ const _idealLookTarget_Follow = new THREE.Vector3();
 const _idealLookTarget_TopDown = new THREE.Vector3();
 const _up_Follow = new THREE.Vector3();
 const _up_TopDown = new THREE.Vector3();
+const _lastChunkUpdatePos = new THREE.Vector3(Infinity, Infinity, Infinity);
+let lastPlayerListUpdate = 0;
+const _dirArrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
 
 // Optimization: Pre-allocate colors for sky gradients
 const _uncloudedSkyColor = new THREE.Color();
@@ -1654,8 +1669,11 @@ function animate() {
 
     camera.lookAt(_currentLookTarget);
 
-    // Update terrain chunks
-    updateChunks();
+    // Update terrain chunks (only if the plane has moved ~50 units)
+    if (planeGroup.position.distanceToSquared(_lastChunkUpdatePos) > 2500) {
+        updateChunks();
+        _lastChunkUpdatePos.copy(planeGroup.position);
+    }
 
     // Celestial positions
     const orbitRadius = 8000;
@@ -1975,9 +1993,10 @@ function animate() {
 
     renderer.render(scene, camera);
 
-    // Update Online Players List (Desktop only)
-    if (window.innerWidth > 768) {
+    // Update Online Players List (Desktop only, throttled to 2Hz)
+    if (window.innerWidth > 768 && now - lastPlayerListUpdate > 500) {
         updatePlayerList();
+        lastPlayerListUpdate = now;
     }
 }
 
@@ -2016,9 +2035,8 @@ function updatePlayerList() {
 
             // Map angle to 8 directions (45 deg each) 
             // Arrows are ordered clockwise: Up, Up-Right, Right, etc.
-            const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
             const arrowIdx = Math.floor(((relativeAngle * (180 / Math.PI) + 22.5) % 360) / 45);
-            const dirEmoji = arrows[arrowIdx];
+            const dirEmoji = _dirArrows[arrowIdx];
 
             players.push({
                 uid: uid,
