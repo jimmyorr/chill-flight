@@ -740,7 +740,7 @@ function updateWeather(delta) {
         
         if (latVal > 1.0) {
             // Fade in gradually from 1.0°N to 1.5°N
-            targetOpacity = THREE.MathUtils.clamp((latVal - 1.0) / 0.5, 0, 1) * 0.8;
+            targetOpacity = THREE.MathUtils.clamp((latVal - 1.0) / 0.5, 0, 1) * 0.5;
         }
     }
 
