@@ -806,12 +806,46 @@ function updateWeather(delta) {
     if (weatherType === 'snow') {
         targetSnowOpacity = 0.8;
     } else if (weatherType === 'rain') {
-        targetRainOpacity = 0.5; // Rain looks better slightly more transparent than snow
+        targetRainOpacity = 0.5;
     } else if (weatherType === 'auto') {
-        // Existing logic: Fade in snow at +1.0 Latitude
         const latVal = (-planeGroup.position.z / 5000);
-        if (latVal > 1.0) {
-            targetSnowOpacity = THREE.MathUtils.clamp((latVal - 1.0) / 0.5, 0, 1) * 0.8;
+
+        // Always snow above 0.9°N, fading in from 0.9 to 1.5
+        if (latVal > 0.9) {
+            const permanentSnow = THREE.MathUtils.clamp((latVal - 0.9) / 0.6, 0, 1);
+            targetSnowOpacity = Math.max(targetSnowOpacity, permanentSnow * 0.4);
+        }
+
+        // 1. Sync with the global overcast/cloud noise map
+        const timeOffset = ((window._gameServerNow || performance.now()) / 100000);
+        const chunkSize = typeof CHUNK_SIZE !== 'undefined' ? CHUNK_SIZE : 2000;
+
+        // This math perfectly matches the cloud generation in your animate() loop
+        let stormNoise = (simplex.noise2D((planeGroup.position.x / chunkSize) * 0.1 + 500 + timeOffset, (planeGroup.position.z / chunkSize) * 0.1 + timeOffset) + 1) / 2;
+
+        // Only trigger precipitation where the clouds are the thickest (> 0.75)
+        if (stormNoise > 0.75) {
+            // Normalize storm intensity from 0.0 (just started) to 1.0 (heavy storm)
+            const stormIntensity = (stormNoise - 0.75) / 0.25;
+
+            // 2. Distribute the storm intensity based on latitude
+            if (latVal > 0.9) {
+                // North: Storm intensifies the already-falling snow
+                targetSnowOpacity = Math.max(targetSnowOpacity, stormIntensity * 0.8);
+            } else if (latVal > 0.7) {
+                // Transition Zone (0.7 to 0.9): Sleet (Mix of Rain and Snow)
+                const snowRatio = (latVal - 0.7) / 0.2; // 0.0 at 0.7, 1.0 at 0.9
+                targetSnowOpacity = Math.max(targetSnowOpacity, (stormIntensity * 0.8) * snowRatio);
+                targetRainOpacity = (stormIntensity * 0.5) * (1.0 - snowRatio);
+            } else if (latVal > -0.8) {
+                // Temperate/Equator: Full Rain
+                targetRainOpacity = stormIntensity * 0.5;
+            } else if (latVal > -1.1) {
+                // Desert Border (-0.8 to -1.1): Rain dries up quickly
+                const fadeOut = 1.0 - ((Math.abs(latVal) - 0.8) / 0.3);
+                targetRainOpacity = (stormIntensity * 0.5) * Math.max(0, fadeOut);
+            }
+            // If latVal <= -1.1 (Deep Desert), targets remain 0 (Dry Storm)
         }
     }
 
@@ -981,6 +1015,7 @@ function animate() {
 
     currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle);
     timeOfDay = currentWarpedProgress * Math.PI * 2;
+    window._gameServerNow = passedServerNow;
 
     // Check and update the sky palette if it's a new cycle
     if (typeof updateSkyPalette === 'function') {
@@ -1949,7 +1984,7 @@ function animate() {
     }
 
     // 2. Check for procedural cloudy biomes
-    const weatherTimeOffset = (now / 100000);
+    const weatherTimeOffset = ((window._gameServerNow || now) / 100000);
     let weatherNoise = (simplex.noise2D((planeGroup.position.x / CHUNK_SIZE) * 0.1 + 500 + weatherTimeOffset, (planeGroup.position.z / CHUNK_SIZE) * 0.1 + weatherTimeOffset) + 1) / 2;
     const weatherThreshold = 0.7;
     weatherNoise = weatherNoise < weatherThreshold ? 0 : (weatherNoise - weatherThreshold) / (1 - weatherThreshold);
