@@ -599,14 +599,31 @@ boatSailGeo.computeVertexNormals();
 const boatHullMat = createMaterial({ color: 0x8B4513, flatShading: true });
 const boatSailMat = createMaterial({ color: 0xFFFFFF, flatShading: true, side: THREE.DoubleSide });
 
-// Lighthouse Beam geometry - narrow (2) at lighthouse, wide (20) at tip community
-const lighthouseBeamGeo = new THREE.CylinderGeometry(20, 2, 300, 16, 1, true);
+// Lighthouse Beam geometry - wider and longer
+const lighthouseBeamGeo = new THREE.CylinderGeometry(40, 2, 500, 16, 1, true);
 lighthouseBeamGeo.rotateX(Math.PI / 2);
-lighthouseBeamGeo.translate(0, 0, 150);
+lighthouseBeamGeo.translate(0, 0, 250);
+
+// Add vertex colors for a volumetric fade out
+const count = lighthouseBeamGeo.attributes.position.count;
+const colors = new Float32Array(count * 3);
+const posArray = lighthouseBeamGeo.attributes.position.array;
+const baseColor = new THREE.Color(0xFFFFaa);
+
+for (let i = 0; i < count; i++) {
+    const z = posArray[i * 3 + 2]; // Z goes from 0 to 500
+    // Non-linear fade: keeps core bright, fades tail out smoothly
+    const intensity = Math.pow(Math.max(0, 1.0 - (z / 500)), 1.5);
+    colors[i * 3] = baseColor.r * intensity;
+    colors[i * 3 + 1] = baseColor.g * intensity;
+    colors[i * 3 + 2] = baseColor.b * intensity;
+}
+lighthouseBeamGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
 const lighthouseBeamMat = new THREE.MeshBasicMaterial({
-    color: 0xFFFF99,
+    vertexColors: true,
     transparent: true,
-    opacity: 0.3,
+    opacity: 0.8,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
     depthWrite: false
@@ -1452,7 +1469,7 @@ function generateChunk(chunkX, chunkZ) {
         group.userData.lighthouseBeam = beam;
 
         // Functional Light (SpotLight)
-        const spotLight = new THREE.SpotLight(0xFFFF99, 50, 600, Math.PI / 8, 0.5, 1);
+        const spotLight = new THREE.SpotLight(0xFFFFaa, 25, 1500, Math.PI / 6, 0.8, 1);
         spotLight.position.set(pos.x + worldOffsetX, pos.y + 65, pos.z + worldOffsetZ);
         // Initial target position matching beam rotation and tilted down community
         spotLight.target.position.set(
