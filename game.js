@@ -984,6 +984,7 @@ const _tempVec = new THREE.Vector3();
 const _weatherLerpBase = new THREE.Color(0x8899aa);
 
 function animate() {
+    const frameStartTime = performance.now(); // Start CPU timer
     requestAnimationFrame(animate);
     const now = performance.now();
     const delta = clock.getDelta();
@@ -1651,6 +1652,32 @@ function animate() {
         document.getElementById('debug-rain-opacity').textContent = (rainParticles ? rainParticles.material.opacity.toFixed(2) : '-');
         document.getElementById('debug-fog-density').textContent = scene.fog.density.toFixed(5);
         document.getElementById('debug-weather-mode').textContent = weatherType;
+
+        // Performance Telemetry
+        const frameEndTime = performance.now();
+        const cpuMsEl = document.getElementById('debug-cpu-ms');
+        if (cpuMsEl) cpuMsEl.textContent = (frameEndTime - frameStartTime).toFixed(1);
+
+        const heapEl = document.getElementById('debug-heap');
+        if (heapEl) {
+            if (performance.memory) {
+                heapEl.textContent = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+            } else {
+                heapEl.textContent = "N/A";
+            }
+        }
+
+        if (renderer && renderer.info) {
+            const drawCallsEl = document.getElementById('debug-draw-calls');
+            const trianglesEl = document.getElementById('debug-triangles');
+            const geometriesEl = document.getElementById('debug-geometries');
+            const texturesEl = document.getElementById('debug-textures');
+            
+            if (drawCallsEl) drawCallsEl.textContent = renderer.info.render.calls;
+            if (trianglesEl) trianglesEl.textContent = renderer.info.render.triangles;
+            if (geometriesEl) geometriesEl.textContent = renderer.info.memory.geometries;
+            if (texturesEl) texturesEl.textContent = renderer.info.memory.textures;
+        }
 
         // Update Counters
         let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0;
