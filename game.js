@@ -2201,18 +2201,26 @@ function animate() {
         }
     }
 
-    // --- CLOUD DRIFTING ---
+    // --- CLOUD DRIFTING (Instanced) ---
     chunks.forEach((chunk, key) => {
-        if (chunk.userData.clouds) {
-            const [cx, cz] = key.split(',').map(Number);
-            const chunkCenterX = cx * CHUNK_SIZE;
-
-            chunk.userData.clouds.forEach(cloud => {
-                cloud.position.x += delta * 2;
-                if (cloud.position.x > chunkCenterX + (CHUNK_SIZE / 2)) {
-                    cloud.position.x -= CHUNK_SIZE;
+        if (chunk.userData.cloudInst && chunk.userData.cloudData) {
+            const inst = chunk.userData.cloudInst;
+            const data = chunk.userData.cloudData;
+            
+            for (let i = 0; i < data.length; i++) {
+                data[i].x += delta * 2;
+                // Wrap around chunk boundaries
+                if (data[i].x > (CHUNK_SIZE / 2)) {
+                    data[i].x -= CHUNK_SIZE;
                 }
-            });
+                
+                _chunkDummy.position.set(data[i].x, data[i].y, data[i].z);
+                _chunkDummy.scale.set(data[i].sx, data[i].sy, data[i].sz);
+                _chunkDummy.rotation.set(0, data[i].rotY, 0);
+                _chunkDummy.updateMatrix();
+                inst.setMatrixAt(i, _chunkDummy.matrix);
+            }
+            inst.instanceMatrix.needsUpdate = true;
         }
     });
     // Update the particle positions

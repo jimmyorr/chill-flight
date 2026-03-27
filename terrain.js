@@ -1284,9 +1284,11 @@ function generateChunk(chunkX, chunkZ) {
         });
 
         for (let i = 0; i < 5; i++) {
-            windowPools[i] = new THREE.InstancedMesh(houseWindowGeo, houseWindowMats[i], poolCounts[i] * 2);
-            windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(windowPools[i]);
+            if (poolCounts[i] > 0) {
+                windowPools[i] = new THREE.InstancedMesh(houseWindowGeo, houseWindowMats[i], poolCounts[i] * 2);
+                windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
+                group.add(windowPools[i]);
+            }
         }
 
         const poolIndices = [0, 0, 0, 0, 0];
@@ -1642,30 +1644,46 @@ function generateChunk(chunkX, chunkZ) {
     // This ensures all clouds in a mountainous chunk rise consistently.
     const elevationBoost = Math.max(0, maxChunkHeight - 100) * 1.5;
 
+    // 3. Generate Clouds (Optimized InstancedMesh)
+    let totalCloudParts = 0;
+    const cloudData = [];
+
     for (let i = 0; i < numClouds; i++) {
         const cx = (rng() - 0.5) * CHUNK_SIZE;
         const cz = (rng() - 0.5) * CHUNK_SIZE;
-        
-        // Base cloud height
         const baseHeight = 350 + rng() * 150;
         const cy = baseHeight + elevationBoost;
 
-        const cloudGroup = new THREE.Group();
         const parts = 3 + Math.floor(rng() * 3);
         for (let p = 0; p < parts; p++) {
-            const mesh = new THREE.Mesh(cloudGeo, cloudMat);
-            mesh.position.set((rng() - 0.5) * 50, (rng() - 0.5) * 20, (rng() - 0.5) * 50);
-            mesh.scale.set(40 + rng() * 60, 20 + rng() * 30, 40 + rng() * 60);
-            mesh.rotation.y = rng() * Math.PI;
-            cloudGroup.add(mesh);
+            cloudData.push({
+                x: cx + (rng() - 0.5) * 50,
+                y: cy + (rng() - 0.5) * 20,
+                z: cz + (rng() - 0.5) * 50,
+                sx: 40 + rng() * 60,
+                sy: 20 + rng() * 30,
+                sz: 40 + rng() * 60,
+                rotY: rng() * Math.PI
+            });
         }
-        cloudGroup.position.set(worldOffsetX + cx, cy, worldOffsetZ + cz);
-        cloudGroup.userData.isCloud = true;
-        group.add(cloudGroup);
     }
 
-    // Store clouds for easy access in animate loop
-    group.userData.clouds = group.children.filter(c => c.userData.isCloud);
+    if (cloudData.length > 0) {
+        const cloudInst = new THREE.InstancedMesh(cloudGeo, cloudMat, cloudData.length);
+        cloudData.forEach((data, index) => {
+            dummy.position.set(data.x, data.y, data.z);
+            dummy.scale.set(data.sx, data.sy, data.sz);
+            dummy.rotation.set(0, data.rotY, 0);
+            dummy.updateMatrix();
+            cloudInst.setMatrixAt(index, dummy.matrix);
+        });
+        cloudInst.position.set(worldOffsetX, 0, worldOffsetZ);
+        group.add(cloudInst);
+        
+        // Save data for the animate loop to drift them
+        group.userData.cloudInst = cloudInst;
+        group.userData.cloudData = cloudData;
+    }
 
     // 4. Generate Birds
     group.userData.birds = [];
