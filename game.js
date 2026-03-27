@@ -115,8 +115,22 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 
     const ytContainer = document.getElementById('yt-container');
-    if (currentStation === 1) {
-        ytContainer.style.display = window.innerWidth <= 1024 ? 'none' : 'block';
+    if (ytContainer && currentStation === 1) {
+        if (window.innerWidth <= 1024) {
+            // Keep in render tree for iOS background playback, but hide visually
+            ytContainer.style.display = 'block';
+            ytContainer.style.opacity = '0.01'; // 0.01 is safer than 0 for older iOS versions
+            ytContainer.style.pointerEvents = 'none';
+            ytContainer.style.position = 'absolute'; 
+            ytContainer.style.zIndex = '-1000';
+        } else {
+            // Restore desktop view
+            ytContainer.style.display = 'block';
+            ytContainer.style.opacity = '1';
+            ytContainer.style.pointerEvents = 'auto';
+            ytContainer.style.position = 'absolute'; // Matches CSS default
+            ytContainer.style.zIndex = '49'; // Matches CSS default
+        }
     }
 });
 
