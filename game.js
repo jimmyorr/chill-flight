@@ -1653,30 +1653,69 @@ function animate() {
         document.getElementById('debug-fog-density').textContent = scene.fog.density.toFixed(5);
         document.getElementById('debug-weather-mode').textContent = weatherType;
 
+        // Helper function for performance color coding
+        function getPerfColor(val, warnThresh, critThresh) {
+            if (val >= critThresh) return '#ff4444'; // Red
+            if (val >= warnThresh) return '#ffeb3b'; // Yellow
+            return ''; // Default (inherits from CSS)
+        }
+
         // Performance Telemetry
         const frameEndTime = performance.now();
+        const cpuMs = frameEndTime - frameStartTime;
         const cpuMsEl = document.getElementById('debug-cpu-ms');
-        if (cpuMsEl) cpuMsEl.textContent = (frameEndTime - frameStartTime).toFixed(1);
+        if (cpuMsEl) {
+            cpuMsEl.textContent = cpuMs.toFixed(1);
+            // Warn at 24ms, Critical at 32ms (stuttering on 30fps cap)
+            cpuMsEl.style.color = getPerfColor(cpuMs, 24, 32); 
+        }
 
         const heapEl = document.getElementById('debug-heap');
         if (heapEl) {
             if (performance.memory) {
-                heapEl.textContent = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+                const heapMb = performance.memory.usedJSHeapSize / 1048576;
+                heapEl.textContent = heapMb.toFixed(1);
+                // Warn at 150MB, Critical at 250MB
+                heapEl.style.color = getPerfColor(heapMb, 150, 250);
             } else {
                 heapEl.textContent = "N/A";
+                heapEl.style.color = '';
             }
         }
 
         if (renderer && renderer.info) {
+            const calls = renderer.info.render.calls;
+            const tris = renderer.info.render.triangles;
+            const geos = renderer.info.memory.geometries;
+            const texs = renderer.info.memory.textures;
+
             const drawCallsEl = document.getElementById('debug-draw-calls');
+            if (drawCallsEl) {
+                drawCallsEl.textContent = calls;
+                // Warn at 150, Critical at 250 (Since you use InstancedMesh, calls should be low)
+                drawCallsEl.style.color = getPerfColor(calls, 150, 250); 
+            }
+
             const trianglesEl = document.getElementById('debug-triangles');
+            if (trianglesEl) {
+                trianglesEl.textContent = tris;
+                // Warn at 800k, Critical at 1.5M
+                trianglesEl.style.color = getPerfColor(tris, 800000, 1500000); 
+            }
+
             const geometriesEl = document.getElementById('debug-geometries');
+            if (geometriesEl) {
+                geometriesEl.textContent = geos;
+                // Warn at 50, Critical at 100
+                geometriesEl.style.color = getPerfColor(geos, 50, 100); 
+            }
+
             const texturesEl = document.getElementById('debug-textures');
-            
-            if (drawCallsEl) drawCallsEl.textContent = renderer.info.render.calls;
-            if (trianglesEl) trianglesEl.textContent = renderer.info.render.triangles;
-            if (geometriesEl) geometriesEl.textContent = renderer.info.memory.geometries;
-            if (texturesEl) texturesEl.textContent = renderer.info.memory.textures;
+            if (texturesEl) {
+                texturesEl.textContent = texs;
+                // Warn at 15, Critical at 30
+                texturesEl.style.color = getPerfColor(texs, 15, 30); 
+            }
         }
 
         // Update Counters
