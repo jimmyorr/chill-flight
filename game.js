@@ -1692,8 +1692,8 @@ function animate() {
             const drawCallsEl = document.getElementById('debug-draw-calls');
             if (drawCallsEl) {
                 drawCallsEl.textContent = calls;
-                // Warn at 150, Critical at 250 (Since you use InstancedMesh, calls should be low)
-                drawCallsEl.style.color = getPerfColor(calls, 150, 250); 
+                // Baseline is ~600. Warn at 800, Critical at 1200.
+                drawCallsEl.style.color = getPerfColor(calls, 800, 1200); 
             }
 
             const trianglesEl = document.getElementById('debug-triangles');
@@ -1706,8 +1706,8 @@ function animate() {
             const geometriesEl = document.getElementById('debug-geometries');
             if (geometriesEl) {
                 geometriesEl.textContent = geos;
-                // Warn at 50, Critical at 100
-                geometriesEl.style.color = getPerfColor(geos, 50, 100); 
+                // Baseline is ~100. Warn at 150, Critical at 250.
+                geometriesEl.style.color = getPerfColor(geos, 150, 250); 
             }
 
             const texturesEl = document.getElementById('debug-textures');
