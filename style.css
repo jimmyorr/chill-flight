@@ -663,9 +663,6 @@ input[type=number].customization-input {
         display: none !important;
     }
 
-    #yt-container {
-        display: none !important;
-    }
 
     #cockpit-ui {
         top: 0px;

@@ -42,14 +42,30 @@ function updateYTPlayer(num) {
     if (!ytPlayerReady) return;
     const ytContainer = document.getElementById('yt-container');
     if (num === 1) {
-        const isVisible = window.innerWidth > 768;
-        ytContainer.style.display = isVisible ? 'block' : 'none';
-        ytContainer.style.opacity = isVisible ? '1' : '0';
+        if (window.innerWidth <= 1024) {
+            // Keep in render tree for iOS background playback, but hide visually
+            ytContainer.style.display = 'block';
+            ytContainer.style.opacity = '0.01';
+            ytContainer.style.pointerEvents = 'none';
+            ytContainer.style.position = 'absolute';
+            ytContainer.style.zIndex = '-1000';
+        } else {
+            // Restore desktop view
+            ytContainer.style.display = 'block';
+            ytContainer.style.opacity = '1';
+            ytContainer.style.pointerEvents = 'auto';
+            ytContainer.style.position = 'absolute'; // Matches CSS default
+            ytContainer.style.zIndex = '49'; // Matches CSS default (almost, CSS says 49)
+        }
         ytPlayer.loadVideoById(lofiGirlVideos[lofiGirlIdx]);
         setTimeout(() => ytPlayer.playVideo(), 100);
     } else {
-        ytContainer.style.display = 'none';
-        ytContainer.style.opacity = '0';
+        // Radio turned off: hide visually
+        ytContainer.style.display = 'block';
+        ytContainer.style.opacity = '0.01';
+        ytContainer.style.pointerEvents = 'none';
+        ytContainer.style.position = 'absolute';
+        ytContainer.style.zIndex = '-1000';
         ytPlayer.pauseVideo();
     }
 }
@@ -163,7 +179,7 @@ function ensureYTPlayerInitialized(callback) {
     const videoId = lofiGirlVideos[lofiGirlIdx];
 
     ytContainer.style.display = 'block';
-    ytContainer.style.opacity = '0';
+    ytContainer.style.opacity = '0.01';
     ytContainer.style.pointerEvents = 'none';
 
     updateLoadingProgress(60, "Calculating flight paths...");
