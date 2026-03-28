@@ -78,7 +78,7 @@ const ATMOSPHERE_PALETTES = [
     { name: "Lavender Morning", top: 0x645c84, bottom: 0xe2b6cf },
 
     // 7: Cowneck
-    { name: "Cowneck", top: 0x2a5285, bottom: 0xe6b794 }
+    { name: "Cowneck", top: 0xb4aeb5, bottom: 0xff9542 }
 ];
 
 const urlParams = new URLSearchParams(window.location.search);
