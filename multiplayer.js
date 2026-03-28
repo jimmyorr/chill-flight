@@ -416,7 +416,15 @@ function initMultiplayer() {
                     targetSpeedMult: posData.speedMult !== undefined ? posData.speedMult : 1,
                     targetVehicleType: posData.vehicleType,
                     targetQuat: new THREE.Quaternion(),
-                    lastReceivedMs: Date.now()
+                    lastReceivedMs: Date.now(),
+                    stateBuffer: [{
+                        timestamp: Date.now(),
+                        pos: new THREE.Vector3(posData.x || 0, posData.y || 200, posData.z || 0),
+                        rotX: posData.rotX || 0,
+                        rotY: posData.rotY || 0,
+                        rotZ: posData.rotZ || 0,
+                        speedMult: posData.speedMult !== undefined ? posData.speedMult : 1
+                    }]
                 });
             });
 
@@ -451,6 +459,17 @@ function initMultiplayer() {
                     p.targetSpeedMult = posData.speedMult !== undefined ? posData.speedMult : 1;
                     p.targetPos.set(posData.x || 0, posData.y || 200, posData.z || 0);
                     p.targetVehicleType = posData.vehicleType;
+
+                    if (!p.stateBuffer) p.stateBuffer = [];
+                    p.stateBuffer.push({
+                        timestamp: Date.now(),
+                        pos: new THREE.Vector3(posData.x || 0, posData.y || 200, posData.z || 0),
+                        rotX: posData.rotX || 0,
+                        rotY: posData.rotY || 0,
+                        rotZ: posData.rotZ || 0,
+                        speedMult: posData.speedMult !== undefined ? posData.speedMult : 1
+                    });
+                    if (p.stateBuffer.length > 20) p.stateBuffer.shift();
 
                     // Toggle model visibility
                     p.mesh.userData.airplaneModel.visible = (p.targetVehicleType === 'airplane');

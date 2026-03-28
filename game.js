@@ -1077,31 +1077,65 @@ function animate() {
     // Update other players (interpolate & dead reckoning)
     if (typeof otherPlayers !== 'undefined') {
         otherPlayers.forEach((p) => {
-            _targetEuler.set(p.targetRotX || 0, p.targetRotY || 0, p.targetRotZ || 0, 'XYZ');
-            _forward.set(0, 0, -1).applyEuler(_targetEuler);
-            p.targetPos.add(_forward.multiplyScalar(BASE_FLIGHT_SPEED * (p.targetSpeedMult || 1) * 60 * delta));
-
-            const dist = p.mesh.position.distanceTo(p.targetPos);
-            if (dist > 500) {
-                p.mesh.position.copy(p.targetPos);
-                p.mesh.rotation.set(p.targetRotX || 0, p.targetRotY || 0, p.targetRotZ || 0);
-            } else {
-                // Position Catch-Up: Linear step based on speed
-                const catchUpSpeed = (BASE_FLIGHT_SPEED * (p.targetSpeedMult || 1) * 60) + 150;
-                const posStep = catchUpSpeed * delta;
-                if (dist > 0.01) {
-                    p.mesh.position.lerp(p.targetPos, Math.min(posStep, dist) / dist);
-                }
-
-                // Rotation Catch-Up: Maximum turn rate
-                if (p.targetQuat) {
-                    p.targetQuat.setFromEuler(_targetEuler);
-                    const angle = p.mesh.quaternion.angleTo(p.targetQuat);
-                    const maxTurn = 3.5 * delta; // Max rotation speed in radians per second
-                    if (angle > 0.001) {
-                        p.mesh.quaternion.slerp(p.targetQuat, Math.min(maxTurn, angle) / angle);
+            const now = Date.now();
+            const renderTimestamp = now - 150; // 150ms playback delay
+            
+            if (p.stateBuffer && p.stateBuffer.length > 0) {
+                let state0 = null;
+                let state1 = null;
+                
+                for (let i = p.stateBuffer.length - 1; i >= 0; i--) {
+                    if (p.stateBuffer[i].timestamp <= renderTimestamp) {
+                        state0 = p.stateBuffer[i];
+                        state1 = p.stateBuffer[i + 1] || null;
+                        break;
                     }
                 }
+                
+                let idealPos = new THREE.Vector3();
+                let idealSpeed = 1;
+                
+                if (state0 && state1) {
+                    const timeDiff = state1.timestamp - state0.timestamp;
+                    const t = timeDiff > 0 ? (renderTimestamp - state0.timestamp) / timeDiff : 0;
+                    
+                    idealPos.lerpVectors(state0.pos, state1.pos, t);
+                    p.targetQuat.setFromEuler(_targetEuler.set(state1.rotX, state1.rotY, state1.rotZ, 'XYZ'));
+                    idealSpeed = THREE.MathUtils.lerp(state0.speedMult, state1.speedMult, t);
+                } else if (state0 && !state1) {
+                    const extrapolateTime = Math.min(renderTimestamp - state0.timestamp, 500);
+                    const dtSec = extrapolateTime / 1000;
+                    
+                    _targetEuler.set(state0.rotX, state0.rotY, state0.rotZ, 'XYZ');
+                    _forward.set(0, 0, -1).applyEuler(_targetEuler);
+                    
+                    const speed = BASE_FLIGHT_SPEED * (state0.speedMult || 1) * 60;
+                    idealPos.copy(state0.pos).add(_forward.multiplyScalar(speed * dtSec));
+                    p.targetQuat.setFromEuler(_targetEuler);
+                    idealSpeed = state0.speedMult;
+                } else {
+                    const s = p.stateBuffer[0];
+                    idealPos.copy(s.pos);
+                    p.targetQuat.setFromEuler(_targetEuler.set(s.rotX, s.rotY, s.rotZ, 'XYZ'));
+                    idealSpeed = s.speedMult;
+                }
+                
+                const distToIdeal = p.mesh.position.distanceTo(idealPos);
+                if (distToIdeal > 500) {
+                    p.mesh.position.copy(idealPos);
+                    p.mesh.quaternion.copy(p.targetQuat);
+                } else {
+                    // Smoothly chase the ideal interpolated path
+                    p.mesh.position.lerp(idealPos, 0.4);
+                    const angle = p.mesh.quaternion.angleTo(p.targetQuat);
+                    if (angle > 0.001) {
+                        p.mesh.quaternion.slerp(p.targetQuat, 0.3);
+                    }
+                }
+                p.targetSpeedMult = idealSpeed;
+            } else {
+                p.mesh.position.copy(p.targetPos);
+                p.mesh.rotation.set(p.targetRotX || 0, p.targetRotY || 0, p.targetRotZ || 0);
             }
 
             if (Math.abs(p.targetSpeedMult || 0) > 0.001) {
