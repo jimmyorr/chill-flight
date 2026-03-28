@@ -249,15 +249,165 @@ const skySphereGeo = new THREE.SphereGeometry(25000, 32, 12);
 const skySphereMesh = new THREE.Mesh(skySphereGeo, skyMat);
 skyGroup.add(skySphereMesh);
 
+// --- CELESTIAL SHADERS ---
+const sunMoonVertShader = `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+    void main() {
+        vUv = uv;
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = -mvPosition.xyz;
+        gl_Position = projectionMatrix * mvPosition;
+    }
+`;
+
+const sunFragShader = `
+    uniform float uTime;
+    uniform float overcast;
+    uniform float dayFactor;
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+    }
+
+    float noise(vec2 st) {
+        vec2 i = floor(st);
+        vec2 f = fract(st);
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    }
+
+    float fbm(vec2 st) {
+        float value = 0.0;
+        float amplitude = 0.5;
+        for (int i = 0; i < 4; i++) {
+            value += amplitude * noise(st);
+            st *= 2.0;
+            amplitude *= 0.5;
+        }
+        return value;
+    }
+
+    void main() {
+        // Boiling surface
+        vec2 uv = vUv * 5.0; // Larger features, less noisy
+        uv.y += uTime * 0.05; // Slower movement
+        float n = fbm(uv + fbm(uv + uTime * 0.1));
+        
+        vec3 color1 = vec3(1.0, 0.85, 0.6); // Base warm yellow (closer to original 0xffddaa)
+        vec3 color2 = vec3(1.0, 0.95, 0.8); // Slightly brighter hot spots
+        vec3 baseColor = mix(color1, color2, n * 0.5 + 0.25); // Subtle blend
+        
+        // Fresnel rim glow
+        vec3 normal = normalize(vNormal);
+        vec3 viewDir = normalize(vViewPosition);
+        float fresnel = 1.0 - max(dot(viewDir, normal), 0.0);
+        fresnel = pow(fresnel, 3.0);
+        baseColor += vec3(1.0, 0.9, 0.7) * fresnel * 0.4; // Softer rim light
+        
+        // Fade based on overcast and dayFactor
+        float alpha = clamp(1.0 - overcast, 0.0, 1.0);
+        alpha *= clamp(dayFactor * 2.0, 0.0, 1.0);
+        
+        gl_FragColor = vec4(baseColor, alpha);
+    }
+`;
+
+const moonFragShader = `
+    uniform float uTime;
+    uniform float overcast;
+    uniform float dayFactor;
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    vec2 random2(vec2 p) {
+        return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453);
+    }
+
+    float voronoi(vec2 x) {
+        vec2 n = floor(x);
+        vec2 f = fract(x);
+        float res = 8.0;
+        for(int j=-1; j<=1; j++)
+        for(int i=-1; i<=1; i++) {
+            vec2 g = vec2(float(i),float(j));
+            vec2 o = random2(n + g);
+            o = 0.5 + 0.5*sin(uTime*0.05 + 6.2831*o);
+            vec2 r = g + o - f;
+            float d = dot(r,r);
+            res = min(res, d);
+        }
+        return sqrt(res);
+    }
+
+    void main() {
+        vec2 uv = vUv * 6.0; // Slightly larger/fewer craters
+        float v1 = voronoi(uv);
+        float v2 = voronoi(uv * 2.0 + uTime * 0.02); // Slower movement
+        float n = v1 * 0.7 + v2 * 0.3;
+        
+        // Craters and very subtle shading
+        vec3 baseCol = vec3(0.85, 0.85, 0.95);
+        vec3 darkCol = vec3(0.8, 0.8, 0.9); // Much less contrast
+        vec3 color = mix(darkCol, baseCol, smoothstep(0.3, 0.7, n));
+        
+        // Fresnel rim glow
+        vec3 normal = normalize(vNormal);
+        vec3 viewDir = normalize(vViewPosition);
+        float fresnel = 1.0 - max(dot(viewDir, normal), 0.0);
+        fresnel = pow(fresnel, 3.0); // Tighter rim
+        color += vec3(0.95, 0.95, 1.0) * fresnel * 0.15; // Dimmer glow
+        
+        // Fade based on overcast
+        float alpha = clamp(1.0 - overcast, 0.0, 1.0);
+        
+        gl_FragColor = vec4(color, alpha);
+    }
+`;
+
+const sunUniforms = {
+    uTime: { value: 0.0 },
+    overcast: { value: 0.0 },
+    dayFactor: { value: 1.0 }
+};
+
+const moonUniforms = {
+    uTime: { value: 0.0 },
+    overcast: { value: 0.0 },
+    dayFactor: { value: 1.0 }
+};
+
 // Sun
 const sunGeo = new THREE.SphereGeometry(400, 32, 32);
-const sunMat = new THREE.MeshBasicMaterial({ color: 0xffddaa, fog: false });
+const sunMat = new THREE.ShaderMaterial({
+    vertexShader: sunMoonVertShader,
+    fragmentShader: sunFragShader,
+    uniforms: sunUniforms,
+    transparent: true,
+    fog: false
+});
 const sunMesh = new THREE.Mesh(sunGeo, sunMat);
 skyGroup.add(sunMesh);
 
 // Moon
 const moonGeo = new THREE.SphereGeometry(240, 32, 32);
-const moonMat = new THREE.MeshBasicMaterial({ color: 0xddddff, fog: false });
+const moonMat = new THREE.ShaderMaterial({
+    vertexShader: sunMoonVertShader,
+    fragmentShader: moonFragShader,
+    uniforms: moonUniforms,
+    transparent: true,
+    fog: false
+});
 const moonMesh = new THREE.Mesh(moonGeo, moonMat);
 skyGroup.add(moonMesh);
 
