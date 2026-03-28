@@ -1778,6 +1778,15 @@ function generateChunk(chunkX, chunkZ) {
             group.userData.birds.push(hawk);
         }
 
+            group.traverse(child => {
+                if (child.isMesh || child.isInstancedMesh) {
+                    if (child.material !== waterMaterial && child.material !== cloudMat && child.material !== smokeMat && child.material !== lighthouseBeamMat) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                }
+            });
+
         group.userData.counts = {
             trees_pine: treePositions.length + snowTreePositions.length,
             trees_decid: deciduousTreePositions.length,

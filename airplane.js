@@ -355,3 +355,11 @@ planeGroup.position.set(0, 445.5, 0);
 
 // Set initial vehicle based on saved state
 setVehicle(vehicleType);
+
+// Enable shadows for the vehicle
+planeGroup.traverse((child) => {
+    if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+    }
+});
