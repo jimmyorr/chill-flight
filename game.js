@@ -1385,15 +1385,17 @@ function animate() {
         isBarrelRolling = false;
         isClampedRoll = false;
     } else if (flightSpeedMultiplier > 0) {
-        if (isUp && dtUp && (nowTime - startUp > STEER_HOLD_THRESHOLD) && !keys.Shift) {
-            // Double-tap up and hold: loop (Direct rotation, no trim pollution)
-            planeGroup.rotation.x += manualLoopSpeed * delta;
-            isLooping = true;
-        } else if (isDown && dtDown && (nowTime - startDown > STEER_HOLD_THRESHOLD) && !keys.Shift) {
-            // Double-tap down and hold: steep dive
-            const targetDive = -(Math.PI * 70) / 180; // 70 degrees
-            planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, targetDive, 0.05);
-            isLooping = true;
+        if (vehicleType !== 'helicopter' && vehicleType !== 'boat') {
+            if (isUp && dtUp && (nowTime - startUp > STEER_HOLD_THRESHOLD) && !keys.Shift) {
+                // Double-tap up and hold: loop (Direct rotation, no trim pollution)
+                planeGroup.rotation.x += manualLoopSpeed * delta;
+                isLooping = true;
+            } else if (isDown && dtDown && (nowTime - startDown > STEER_HOLD_THRESHOLD) && !keys.Shift) {
+                // Double-tap down and hold: steep dive
+                const targetDive = -(Math.PI * 70) / 180; // 70 degrees
+                planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, targetDive, 0.05);
+                isLooping = true;
+            }
         }
 
         if (keys.ArrowLeft) {
