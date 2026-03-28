@@ -945,10 +945,20 @@ const _sunsetSky = new THREE.Color();
 const _goldenSunsetSky = new THREE.Color();
 
 function updateSkyBaseColors(palette) {
-    _sunriseSky.copy(new THREE.Color(palette.bottom)).lerp(new THREE.Color(palette.top), 0.2); // Derived from palette
-    _goldenSky.copy(new THREE.Color(palette.bottom)).lerp(new THREE.Color(0xffffff), 0.1);  // Highlighted palette bottom
-    _sunsetSky.copy(new THREE.Color(palette.bottom)); // Pure palette bottom
-    _goldenSunsetSky.copy(new THREE.Color(palette.bottom)).lerp(new THREE.Color(0x000000), 0.2); // Deeper palette bottom
+    const top = new THREE.Color(palette.top);
+    const bottom = new THREE.Color(palette.bottom);
+
+    // Sunrise: 80% horizon, 20% zenith -> 60% horizon, 40% zenith
+    _sunriseSky.copy(bottom).lerp(top, 0.4);
+
+    // Golden morning: horizon + white highlight -> also blend 20% zenith
+    _goldenSky.copy(bottom).lerp(new THREE.Color(0xffffff), 0.1).lerp(top, 0.2);
+
+    // Sunset: Pure horizon -> 50% horizon, 50% zenith
+    _sunsetSky.copy(bottom).lerp(top, 0.5);
+
+    // Golden sunset: horizon + black shadow -> also blend 30% zenith
+    _goldenSunsetSky.copy(bottom).lerp(new THREE.Color(0x000000), 0.2).lerp(top, 0.3);
 }
 updateSkyBaseColors(selectedPalette);
 
