@@ -63,6 +63,40 @@ waterMaterial.onBeforeCompile = (shader) => {
     );
 };
 
+// --- CLOUD GLOBALS ---
+const cloudGeo = new THREE.BoxGeometry(1, 1, 1);
+const cloudMat = createMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.85,
+    flatShading: true,
+    roughness: 1.0
+});
+
+cloudMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = window.waterUniforms.uTime; 
+    shader.vertexShader = `uniform float uTime;\n` + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+        `#include <project_vertex>`,
+        `
+        vec4 mvPosition = vec4( transformed, 1.0 );
+        
+        float drift = mod(uTime * 2.64, 2000.0);
+        
+        #ifdef USE_INSTANCING
+            mat4 modInstanceMatrix = instanceMatrix;
+            modInstanceMatrix[3].x = mod(modInstanceMatrix[3].x + drift + 1000.0, 2000.0) - 1000.0;
+            mvPosition = modInstanceMatrix * mvPosition;
+        #else
+            mvPosition.x = mod(mvPosition.x + drift + 1000.0, 2000.0) - 1000.0;
+        #endif
+
+        mvPosition = modelViewMatrix * mvPosition;
+        gl_Position = projectionMatrix * mvPosition;
+        `
+    );
+};
+
 // Reusable tree geometries for forest instances
 const treeTrunkGeo = new THREE.CylinderGeometry(1.5, 2.5, 12, 5);
 treeTrunkGeo.translate(0, 6, 0);
@@ -1657,41 +1691,6 @@ function generateChunk(chunkX, chunkZ) {
     }
 
     const numClouds = Math.floor(cloudiness * 40);
-
-    const cloudGeo = new THREE.BoxGeometry(1, 1, 1);
-    const cloudMat = createMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.85,
-        flatShading: true,
-        roughness: 1.0
-    });
-
-    cloudMat.onBeforeCompile = (shader) => {
-        shader.uniforms.uTime = window.waterUniforms.uTime; // Reuse the existing global time uniform
-        shader.vertexShader = `uniform float uTime;\n` + shader.vertexShader;
-        shader.vertexShader = shader.vertexShader.replace(
-            `#include <project_vertex>`,
-            `
-            vec4 mvPosition = vec4( transformed, 1.0 );
-            
-            // 2.64 * uTime roughly equals 4 units per second (original speed).
-            float drift = mod(uTime * 2.64, 2000.0);
-            
-            #ifdef USE_INSTANCING
-                mat4 modInstanceMatrix = instanceMatrix;
-                // Wrap the instance X position instead of vertex X to prevent stretching
-                modInstanceMatrix[3].x = mod(modInstanceMatrix[3].x + drift + 1000.0, 2000.0) - 1000.0;
-                mvPosition = modInstanceMatrix * mvPosition;
-            #else
-                mvPosition.x = mod(mvPosition.x + drift + 1000.0, 2000.0) - 1000.0;
-            #endif
-
-            mvPosition = modelViewMatrix * mvPosition;
-            gl_Position = projectionMatrix * mvPosition;
-            `
-        );
-    };
 
     // Boost clouds as they approach mountains based on the highest point in this chunk
     // This ensures all clouds in a mountainous chunk rise consistently.
