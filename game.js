@@ -1970,7 +1970,8 @@ function animate() {
     // Animate Birds, Windmills, Lighthouses, Campfires, Chimney Smoke
     chunks.forEach(chunkGroup => {
         // Optimization: Distance culling (6000 units)
-        if (chunkGroup.position.distanceToSquared(camera.position) > 36000000) return;
+        const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
+        if (checkPos.distanceToSquared(camera.position) > 36000000) return;
 
         if (chunkGroup.userData.birds) {
 
