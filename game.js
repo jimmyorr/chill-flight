@@ -2271,6 +2271,9 @@ function animate() {
         moonUniforms.uTime.value = now * 0.001;
         moonUniforms.overcast.value = overcast;
         moonUniforms.dayFactor.value = dayFactor;
+        
+        // 8-day moon cycle (CYCLE_DURATION_MS = 300000 * 8)
+        moonUniforms.moonPhase.value = (passedServerNow % 2400000) / 2400000;
     }
 
     if (!isCustomPalette) {
