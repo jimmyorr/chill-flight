@@ -1237,7 +1237,7 @@ function animate() {
     const startDown = invertYAxis ? keyPressStartTime.ArrowUp : keyPressStartTime.ArrowDown;
 
     // Shift+Up/Down: throttle control (For boat, it is just Up/Down)
-    if (keys.Shift || vehicleType === 'boat') {
+    if ((keys.Shift && vehicleType !== 'helicopter') || vehicleType === 'boat') {
         if (isUp) {
             const heldTime = nowTime - startUp;
             const ramp = Math.min(1.0, heldTime / 2000);
@@ -1284,10 +1284,12 @@ function animate() {
 
         manualPitch = THREE.MathUtils.lerp(manualPitch, 0, 0.1);
 
-        if (keys.Shift || vehicleType === 'boat') {
+        if ((keys.Shift && vehicleType !== 'helicopter') || vehicleType === 'boat') {
             // Throttle already handled above; no pitch changes while Shift is held or if boat
-        } else if (vehicleType === 'helicopter' && (isUp || isDown)) {
-            targetPitch = 0; // Maintain level flight during vertical movement
+        } else if (vehicleType === 'helicopter') {
+            if (isUp && !keys.Shift) targetPitch = (-10 * Math.PI / 180);
+            else if (isDown && !keys.Shift) targetPitch = (5 * Math.PI / 180);
+            else targetPitch = 0;
         } else if (isUp && !dtUp) {
             const heldTime = nowTime - startUp;
             if (heldTime > STEER_HOLD_THRESHOLD) {
@@ -1395,8 +1397,14 @@ function animate() {
         }
 
         if (keys.ArrowLeft && !keys.Shift) {
-            if (vehicleType === 'boat' || vehicleType === 'helicopter') {
-                const maxRoll = (vehicleType === 'boat') ? MAX_BANK_BOAT : MAX_BANK_HELI;
+            if (vehicleType === 'helicopter') {
+                planeGroup.rotation.y += 1.5 * delta;
+                const maxRoll = Math.PI / 12; // visual bank
+                planeGroup.rotation.z = Math.min(maxRoll, planeGroup.rotation.z + manualRollSpeed * 0.5 * delta);
+                isClampedRoll = true;
+                isBarrelRolling = true;
+            } else if (vehicleType === 'boat') {
+                const maxRoll = MAX_BANK_BOAT;
                 planeGroup.rotation.z = Math.min(maxRoll, planeGroup.rotation.z + manualRollSpeed * 0.5 * delta);
                 isClampedRoll = true;
                 isBarrelRolling = true;
@@ -1412,8 +1420,14 @@ function animate() {
                 isBarrelRolling = true;
             }
         } else if (keys.ArrowRight && !keys.Shift) {
-            if (vehicleType === 'boat' || vehicleType === 'helicopter') {
-                const maxRoll = (vehicleType === 'boat') ? MAX_BANK_BOAT : MAX_BANK_HELI;
+            if (vehicleType === 'helicopter') {
+                planeGroup.rotation.y -= 1.5 * delta;
+                const maxRoll = -Math.PI / 12; // visual bank
+                planeGroup.rotation.z = Math.max(maxRoll, planeGroup.rotation.z - manualRollSpeed * 0.5 * delta);
+                isClampedRoll = true;
+                isBarrelRolling = true;
+            } else if (vehicleType === 'boat') {
+                const maxRoll = MAX_BANK_BOAT;
                 planeGroup.rotation.z = Math.max(-maxRoll, planeGroup.rotation.z - manualRollSpeed * 0.5 * delta);
                 isClampedRoll = true;
                 isBarrelRolling = true;
@@ -1509,14 +1523,12 @@ function animate() {
     // Move vehicle
     const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
     // Lower threshold for isFreefalling to eliminate the "stuck in mid-air" dead zone
-    const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2) || (vehicleType === 'boat' && planeGroup.position.y > restingHeight + 0.1) || (vehicleType === 'helicopter' && Math.abs(flightSpeedMultiplier) < 0.01 && planeGroup.position.y > restingHeight + 2);
+    const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2) || (vehicleType === 'boat' && planeGroup.position.y > restingHeight + 0.1);
 
     // Calculate actual forward speed factor based on vehicle type and thresholds
     let moveSpeedFactor = 0;
     if (vehicleType === 'airplane') {
         moveSpeedFactor = (flightSpeedMultiplier > 0 && !isFreefalling) ? flightSpeedMultiplier : 0;
-    } else if (vehicleType === 'helicopter') {
-        moveSpeedFactor = Math.max(0, flightSpeedMultiplier - 0.33);
     } else if (vehicleType === 'boat') {
         // Boats can move if they are in the water OR if they are falling (drifting)
         moveSpeedFactor = (Math.abs(flightSpeedMultiplier) > 0 && (isWater || isFreefalling)) ? flightSpeedMultiplier : 0;
@@ -1534,38 +1546,36 @@ function animate() {
             }
         }
     } else if (vehicleType === 'helicopter') {
-        // Helicopters don't freefall, but we use verticalVelocity for smooth lift momentum
+        const isUpAlt = keys.Plus || (keys.Shift && (invertYAxis ? keys.ArrowDown : keys.ArrowUp));
+        const isDownAlt = keys.Minus || (keys.Shift && (invertYAxis ? keys.ArrowUp : keys.ArrowDown));
+
         let targetLiftSpeed = 0;
+        if (isUpAlt) targetLiftSpeed = 80;
+        else if (isDownAlt) targetLiftSpeed = -80;
 
-        // Manual altitude control (at all speeds for helicopter)
-        if (!keys.Shift) {
-            const isUp = invertYAxis ? keys.ArrowDown : keys.ArrowUp;
-            const isDown = invertYAxis ? keys.ArrowUp : keys.ArrowDown;
-            const startTimeUp = invertYAxis ? keyPressStartTime.ArrowDown : keyPressStartTime.ArrowUp;
-            const startTimeDown = invertYAxis ? keyPressStartTime.ArrowUp : keyPressStartTime.ArrowDown;
-
-            if (isUp) {
-                const heldTime = (performance.now() - startTimeUp);
-                const ramp = Math.min(1.0, heldTime / 3000); // 3 seconds to reach full acceleration
-                targetLiftSpeed = 8 + 112 * (ramp * ramp); // Starts gently at 8, reaches 120
-            } else if (isDown) {
-                const heldTime = (performance.now() - startTimeDown);
-                const ramp = Math.min(1.0, heldTime / 3000); // 3 seconds to reach full acceleration
-                targetLiftSpeed = -(8 + 112 * (ramp * ramp)); // Starts gently at -8, reaches -120
-            }
-        }
-
-        // Apply momentum (acceleration/deceleration)
-        const liftLerp = (targetLiftSpeed === 0) ? 0.05 : 0.08; // Slower decay for a "coasting" feel
-        verticalVelocity = THREE.MathUtils.lerp(verticalVelocity, targetLiftSpeed, liftLerp);
+        verticalVelocity = THREE.MathUtils.lerp(verticalVelocity, targetLiftSpeed, 0.05);
 
         if (Math.abs(verticalVelocity) > 0.1) {
             planeGroup.position.y += verticalVelocity * delta;
         }
 
-        // Apply forward movement
-        if (moveSpeedFactor > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
+        const moveUp = !keys.Shift && (invertYAxis ? keys.ArrowDown : keys.ArrowUp);
+        const moveDown = !keys.Shift && (invertYAxis ? keys.ArrowUp : keys.ArrowDown);
+
+        let targetHeliMove = 0;
+        if (moveUp) targetHeliMove = 1.0;
+        else if (moveDown) targetHeliMove = -1.0;
+
+        window._heliMoveSpeed = THREE.MathUtils.lerp(window._heliMoveSpeed || 0, targetHeliMove, 0.05);
+
+        if (Math.abs(window._heliMoveSpeed) > 0.01) {
+            const savedX = planeGroup.rotation.x;
+            const savedZ = planeGroup.rotation.z;
+            planeGroup.rotation.x = 0;
+            planeGroup.rotation.z = 0;
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * window._heliMoveSpeed));
+            planeGroup.rotation.x = savedX;
+            planeGroup.rotation.z = savedZ;
         }
     } else if (vehicleType === 'boat') {
         // Apply forward/backward movement
@@ -2133,7 +2143,10 @@ function animate() {
     const lonStr = Math.abs(lonVal).toFixed(3) + "\u00b0 " + (lonVal >= 0 ? "E" : "W");
     const coordStr = `${latStr} ${lonStr}`;
     const altStr = `${Math.round(Math.max(0, planeGroup.position.y - 45.5) * 25)}`;
-    const spdStr = `${Math.round(BASE_FLIGHT_SPEED * flightSpeedMultiplier * 60)} KTS`;
+    let spdStr = `${Math.round(BASE_FLIGHT_SPEED * flightSpeedMultiplier * 60)} KTS`;
+    if (vehicleType === 'helicopter') {
+        spdStr = "-- KTS";
+    }
 
     updateDOM(document.getElementById('cockpit-time'), timeStr);
     updateDOM(document.getElementById('cockpit-dir'), dirStr);
@@ -2404,7 +2417,7 @@ function updatePlayerList() {
 window.onload = animate;
 
 // --- KEY STATE ---
-const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, Shift: false };
+const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, Shift: false, Plus: false, Minus: false };
 
 // Double-tap detection for barrel roll and loops
 const lastArrowTap = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
@@ -2682,6 +2695,8 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (e.key === 'Shift') keys.Shift = true;
+    if (e.key === '+' || e.key === '=') keys.Plus = true;
+    if (e.key === '-' || e.key === '_') keys.Minus = true;
 
     if ((e.key === 'l' || e.key === 'L') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (headlight.intensity === 0) {
@@ -2783,6 +2798,8 @@ window.addEventListener('keyup', (e) => {
     }
 
     if (e.key === 'Shift') keys.Shift = false;
+    if (e.key === '+' || e.key === '=') keys.Plus = false;
+    if (e.key === '-' || e.key === '_') keys.Minus = false;
 });
 
 window.addEventListener('blur', () => {
