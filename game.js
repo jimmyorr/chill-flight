@@ -1167,7 +1167,9 @@ function animate() {
             const heliBase = baseSpin * 1.5;
             // Higher floor (5.0) for low speeds so it doesn't look silly, ramping to 7.5 @ 50kts
             // Then clamp between 7.5 and 18.75 (reached at 125 KTS / 0.83 mult)
-            const spin = (Math.abs(flightSpeedMultiplier) < 0.33) ? Math.max(5.0, heliBase) : Math.max(7.5, Math.min(18.75, heliBase));
+            const targetSpin = (Math.abs(flightSpeedMultiplier) < 0.33) ? Math.max(5.0, heliBase) : Math.max(7.5, Math.min(18.75, heliBase));
+            const spin = targetSpin * (window._heliRotorPower || 0);
+
             mainRotorGroup.rotation.y += spin * delta;
             tailRotorGroup.rotation.x += spin * 1.5 * delta;
         } else if (vehicleType === 'boat' && window.boatPropellerGroup) {
@@ -1522,6 +1524,14 @@ function animate() {
     if (vehicleType === 'helicopter') {
         minFlightHeight = terrainHeight + 3.5;
         restingHeight = terrainHeight + 3.5;
+
+        // Take off / Landing rotor animation
+        const isActuallyGrounded = (planeGroup.position.y <= restingHeight + 0.5);
+        const targetPower = isActuallyGrounded ? 0.0 : 1.0;
+        // Use a faster lerp for spin-up/down feel (roughly 2-3 seconds)
+        window._heliRotorPower = THREE.MathUtils.lerp(window._heliRotorPower || 0, targetPower, 1.5 * delta);
+    } else {
+        window._heliRotorPower = 1.0; // Reset for other vehicles
     }
 
     if (vehicleType === 'boat') {
