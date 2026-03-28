@@ -44,6 +44,17 @@ const _cinematicLookTargetCurrent = new THREE.Vector3().copy(CINEMATIC_CONFIGS[0
 const _cinematicStableMatrix = new THREE.Matrix4();
 const _cinematicStableQuat = new THREE.Quaternion();
 
+/**
+ * Throttles DOM updates by only writing if the value has changed.
+ */
+function updateDOM(element, newValue) {
+    if (!element) return;
+    if (element.textContent !== newValue) {
+        element.textContent = newValue;
+    }
+}
+
+
 function updateInputPosition(clientX, clientY) {
     const pos = ChillFlightLogic.computeInputPosition(clientX, clientY, window.innerWidth, window.innerHeight);
     mouseX = pos.x;
@@ -1629,29 +1640,30 @@ function animate() {
 
     // Update Debug Telemetry
     if (debugMenu.style.display === 'block') {
-        document.getElementById('debug-fov').textContent = Math.round(camera.fov);
-        document.getElementById('debug-pullback').textContent = Math.round(pullBack);
-        document.getElementById('debug-pitch').textContent = Math.round(planeGroup.rotation.x * 180 / Math.PI);
-        document.getElementById('debug-palette').textContent = selectedPalette.name;
-        document.getElementById('debug-speed-mult').textContent = flightSpeedMultiplier.toFixed(2);
-        document.getElementById('debug-day-speed').textContent = daySpeedMultiplier.toFixed(1);
+        updateDOM(document.getElementById('debug-fov'), Math.round(camera.fov));
+        updateDOM(document.getElementById('debug-pullback'), Math.round(pullBack));
+        updateDOM(document.getElementById('debug-pitch'), Math.round(planeGroup.rotation.x * 180 / Math.PI));
+        updateDOM(document.getElementById('debug-palette'), selectedPalette.name);
+        updateDOM(document.getElementById('debug-speed-mult'), flightSpeedMultiplier.toFixed(2));
+        updateDOM(document.getElementById('debug-day-speed'), daySpeedMultiplier.toFixed(1));
 
-        document.getElementById('debug-target-speed').textContent = targetFlightSpeed.toFixed(2);
-        document.getElementById('debug-maneuver').textContent = smoothedManeuverFactor.toFixed(2);
-        document.getElementById('debug-world-x').textContent = Math.round(planeGroup.position.x);
-        document.getElementById('debug-world-y').textContent = Math.round(planeGroup.position.y);
-        document.getElementById('debug-world-z').textContent = Math.round(planeGroup.position.z);
+        updateDOM(document.getElementById('debug-target-speed'), targetFlightSpeed.toFixed(2));
+        updateDOM(document.getElementById('debug-maneuver'), smoothedManeuverFactor.toFixed(2));
+        updateDOM(document.getElementById('debug-world-x'), Math.round(planeGroup.position.x));
+        updateDOM(document.getElementById('debug-world-y'), Math.round(planeGroup.position.y));
+        updateDOM(document.getElementById('debug-world-z'), Math.round(planeGroup.position.z));
 
         // Weather Telemetry
         const oc = (window._currentOvercast || 0);
-        document.getElementById('debug-overcast').textContent = oc.toFixed(2);
-        document.getElementById('debug-storm-noise').textContent = (window._weatherDebug ? window._weatherDebug.stormNoise.toFixed(2) : '-');
-        document.getElementById('debug-precip').textContent = (snowParticles && rainParticles ? Math.max(snowParticles.material.opacity / 0.8, rainParticles.material.opacity / 0.5).toFixed(2) : '-');
-        document.getElementById('debug-climate-zone').textContent = (window._weatherDebug ? window._weatherDebug.zone : '-');
-        document.getElementById('debug-snow-opacity').textContent = (snowParticles ? snowParticles.material.opacity.toFixed(2) : '-');
-        document.getElementById('debug-rain-opacity').textContent = (rainParticles ? rainParticles.material.opacity.toFixed(2) : '-');
-        document.getElementById('debug-fog-density').textContent = scene.fog.density.toFixed(5);
-        document.getElementById('debug-weather-mode').textContent = weatherType;
+        updateDOM(document.getElementById('debug-overcast'), oc.toFixed(2));
+        updateDOM(document.getElementById('debug-storm-noise'), (window._weatherDebug ? window._weatherDebug.stormNoise.toFixed(2) : '-'));
+        updateDOM(document.getElementById('debug-precip'), (snowParticles && rainParticles ? Math.max(snowParticles.material.opacity / 0.8, rainParticles.material.opacity / 0.5).toFixed(2) : '-'));
+        updateDOM(document.getElementById('debug-climate-zone'), (window._weatherDebug ? window._weatherDebug.zone : '-'));
+        updateDOM(document.getElementById('debug-snow-opacity'), (snowParticles ? snowParticles.material.opacity.toFixed(2) : '-'));
+        updateDOM(document.getElementById('debug-rain-opacity'), (rainParticles ? rainParticles.material.opacity.toFixed(2) : '-'));
+        updateDOM(document.getElementById('debug-fog-density'), scene.fog.density.toFixed(5));
+        updateDOM(document.getElementById('debug-weather-mode'), weatherType);
+
 
         // Helper function for performance color coding
         function getPerfColor(val, warnThresh, critThresh) {
@@ -1665,23 +1677,25 @@ function animate() {
         const cpuMs = frameEndTime - frameStartTime;
         const cpuMsEl = document.getElementById('debug-cpu-ms');
         if (cpuMsEl) {
-            cpuMsEl.textContent = cpuMs.toFixed(1);
+            updateDOM(cpuMsEl, cpuMs.toFixed(1));
             // Warn at 24ms, Critical at 32ms (stuttering on 30fps cap)
             cpuMsEl.style.color = getPerfColor(cpuMs, 24, 32); 
         }
+
 
         const heapEl = document.getElementById('debug-heap');
         if (heapEl) {
             if (performance.memory) {
                 const heapMb = performance.memory.usedJSHeapSize / 1048576;
-                heapEl.textContent = heapMb.toFixed(1);
+                updateDOM(heapEl, heapMb.toFixed(1));
                 // Warn at 150MB, Critical at 250MB
                 heapEl.style.color = getPerfColor(heapMb, 150, 250);
             } else {
-                heapEl.textContent = "N/A";
+                updateDOM(heapEl, "N/A");
                 heapEl.style.color = '';
             }
         }
+
 
         if (renderer && renderer.info) {
             const calls = renderer.info.render.calls;
@@ -1691,31 +1705,32 @@ function animate() {
 
             const drawCallsEl = document.getElementById('debug-draw-calls');
             if (drawCallsEl) {
-                drawCallsEl.textContent = calls;
+                updateDOM(drawCallsEl, calls);
                 // Baseline is ~600. Warn at 800, Critical at 1200.
                 drawCallsEl.style.color = getPerfColor(calls, 800, 1200); 
             }
 
             const trianglesEl = document.getElementById('debug-triangles');
             if (trianglesEl) {
-                trianglesEl.textContent = tris;
+                updateDOM(trianglesEl, tris);
                 // Warn at 800k, Critical at 1.5M
                 trianglesEl.style.color = getPerfColor(tris, 800000, 1500000); 
             }
 
             const geometriesEl = document.getElementById('debug-geometries');
             if (geometriesEl) {
-                geometriesEl.textContent = geos;
+                updateDOM(geometriesEl, geos);
                 // Baseline is ~100. Warn at 150, Critical at 250.
                 geometriesEl.style.color = getPerfColor(geos, 150, 250); 
             }
 
             const texturesEl = document.getElementById('debug-textures');
             if (texturesEl) {
-                texturesEl.textContent = texs;
+                updateDOM(texturesEl, texs);
                 // Warn at 15, Critical at 30
                 texturesEl.style.color = getPerfColor(texs, 15, 30); 
             }
+
         }
 
         // Update Counters
@@ -1749,27 +1764,28 @@ function animate() {
                 totalChunks += 1;
             }
         });
-        document.getElementById('debug-chunks').textContent = totalChunks;
-        document.getElementById('debug-trees-pine').textContent = totalTreesPine;
-        document.getElementById('debug-trees-decid').textContent = totalTreesDecid;
-        document.getElementById('debug-trees-palm').textContent = totalTreesPalm;
-        document.getElementById('debug-trees-dead').textContent = totalTreesDead;
-        document.getElementById('debug-trees-autumn').textContent = totalTreesAutumn;
-        document.getElementById('debug-trees-cherry').textContent = totalTreesCherry;
-        document.getElementById('debug-houses').textContent = totalHouses;
-        document.getElementById('debug-clouds').textContent = totalClouds;
-        document.getElementById('debug-rocks').textContent = totalRocks;
-        document.getElementById('debug-bushes').textContent = totalBushes;
-        document.getElementById('debug-snowmen').textContent = totalSnowmen;
-        document.getElementById('debug-cactus').textContent = totalCactus;
-        document.getElementById('debug-lighthouses').textContent = totalLighthouses;
-        document.getElementById('debug-castles').textContent = totalCastles;
-        document.getElementById('debug-windmills').textContent = totalWindmills;
-        document.getElementById('debug-campfires').textContent = totalCampfires;
-        document.getElementById('debug-boats').textContent = totalBoats;
-        document.getElementById('debug-lily-pads').textContent = totalLilyPads;
-        document.getElementById('debug-piers').textContent = totalPiers;
-        document.getElementById('debug-birds').textContent = totalBirds;
+        updateDOM(document.getElementById('debug-chunks'), totalChunks);
+        updateDOM(document.getElementById('debug-trees-pine'), totalTreesPine);
+        updateDOM(document.getElementById('debug-trees-decid'), totalTreesDecid);
+        updateDOM(document.getElementById('debug-trees-palm'), totalTreesPalm);
+        updateDOM(document.getElementById('debug-trees-dead'), totalTreesDead);
+        updateDOM(document.getElementById('debug-trees-autumn'), totalTreesAutumn);
+        updateDOM(document.getElementById('debug-trees-cherry'), totalTreesCherry);
+        updateDOM(document.getElementById('debug-houses'), totalHouses);
+        updateDOM(document.getElementById('debug-clouds'), totalClouds);
+        updateDOM(document.getElementById('debug-rocks'), totalRocks);
+        updateDOM(document.getElementById('debug-bushes'), totalBushes);
+        updateDOM(document.getElementById('debug-snowmen'), totalSnowmen);
+        updateDOM(document.getElementById('debug-cactus'), totalCactus);
+        updateDOM(document.getElementById('debug-lighthouses'), totalLighthouses);
+        updateDOM(document.getElementById('debug-castles'), totalCastles);
+        updateDOM(document.getElementById('debug-windmills'), totalWindmills);
+        updateDOM(document.getElementById('debug-campfires'), totalCampfires);
+        updateDOM(document.getElementById('debug-boats'), totalBoats);
+        updateDOM(document.getElementById('debug-lily-pads'), totalLilyPads);
+        updateDOM(document.getElementById('debug-piers'), totalPiers);
+        updateDOM(document.getElementById('debug-birds'), totalBirds);
+
     }
 
     // Add subtle camera vibration at high speeds/steep dives
@@ -1827,18 +1843,30 @@ function animate() {
         }
 
         // Smoothen the switches between cinematic offsets
-        _cinematicOffsetCurrent.lerp(cinematicConfig.offset, 0.02);
-        _cinematicLookTargetCurrent.lerp(cinematicConfig.lookOffset, 0.02);
+        const hasOffsetJumped = _cinematicOffsetCurrent.distanceToSquared(cinematicConfig.offset) > 0.001;
+        if (hasOffsetJumped) {
+            _cinematicOffsetCurrent.lerp(cinematicConfig.offset, 0.02);
+            _cinematicLookTargetCurrent.lerp(cinematicConfig.lookOffset, 0.02);
+        }
 
-        // Stabilize heading for steering
-        _cinematicStableHeading = ChillFlightLogic.lerpAngle(_cinematicStableHeading, planeGroup.rotation.y, 0.05);
-        _cinematicStableQuat.setFromAxisAngle(_yAxis, _cinematicStableHeading);
-        _cinematicStableMatrix.makeRotationFromQuaternion(_cinematicStableQuat);
-        _cinematicStableMatrix.setPosition(planeGroup.position);
+        // Optimize: Only recalculate matrix if plane has moved or rotated, or if offset is still transitioning
+        const rotationChanged = Math.abs(_cinematicStableHeading - planeGroup.rotation.y) > 0.0001;
+        // Check position change without expensive extra calculations
+        const positionChanged = Math.abs(_cinematicStableMatrix.elements[12] - planeGroup.position.x) > 0.1 ||
+                              Math.abs(_cinematicStableMatrix.elements[13] - planeGroup.position.y) > 0.1 ||
+                              Math.abs(_cinematicStableMatrix.elements[14] - planeGroup.position.z) > 0.1;
+
+        if (rotationChanged || positionChanged || hasOffsetJumped) {
+            _cinematicStableHeading = ChillFlightLogic.lerpAngle(_cinematicStableHeading, planeGroup.rotation.y, 0.05);
+            _cinematicStableQuat.setFromAxisAngle(_yAxis, _cinematicStableHeading);
+            _cinematicStableMatrix.makeRotationFromQuaternion(_cinematicStableQuat);
+            _cinematicStableMatrix.setPosition(planeGroup.position);
+        }
     } else {
         // Keep heading in sync while not in cinematic mode for smooth entry
         _cinematicStableHeading = planeGroup.rotation.y;
     }
+
 
     _idealCameraPos_Cinematic.copy(_cinematicOffsetCurrent).applyMatrix4(_cinematicStableMatrix);
     _idealLookTarget_Cinematic.copy(_cinematicLookTargetCurrent).applyMatrix4(_cinematicStableMatrix);
@@ -1895,7 +1923,11 @@ function animate() {
 
     // Animate Birds, Windmills, Lighthouses, Campfires, Chimney Smoke
     chunks.forEach(chunkGroup => {
+        // Optimization: Distance culling (6000 units)
+        if (chunkGroup.position.distanceToSquared(camera.position) > 36000000) return;
+
         if (chunkGroup.userData.birds) {
+
             chunkGroup.userData.birds.forEach(bird => {
                 const data = bird.userData;
                 const flap = Math.sin(clock.elapsedTime * data.flapSpeed + data.flapPhase) * 0.5;
@@ -2056,11 +2088,12 @@ function animate() {
     const altStr = `${Math.round(Math.max(0, planeGroup.position.y - 45.5) * 25)}`;
     const spdStr = `${Math.round(BASE_FLIGHT_SPEED * flightSpeedMultiplier * 60)} KTS`;
 
-    const cTime = document.getElementById('cockpit-time'); if (cTime) cTime.innerText = timeStr;
-    const cDir = document.getElementById('cockpit-dir'); if (cDir) cDir.innerText = dirStr;
-    const cCoords = document.getElementById('cockpit-coords'); if (cCoords) cCoords.innerText = coordStr;
-    const cAlt = document.getElementById('cockpit-alt'); if (cAlt) cAlt.innerText = altStr;
-    const cSpd = document.getElementById('cockpit-spd'); if (cSpd) cSpd.innerText = spdStr;
+    updateDOM(document.getElementById('cockpit-time'), timeStr);
+    updateDOM(document.getElementById('cockpit-dir'), dirStr);
+    updateDOM(document.getElementById('cockpit-coords'), coordStr);
+    updateDOM(document.getElementById('cockpit-alt'), altStr);
+    updateDOM(document.getElementById('cockpit-spd'), spdStr);
+
 
     sunMesh.position.set(sunX * orbitRadius, sunY * orbitRadius, sunZ * orbitRadius);
     moonMesh.position.set(-sunX * orbitRadius, -sunY * orbitRadius, -sunZ * orbitRadius);
