@@ -23,7 +23,36 @@ const skyFragmentShader = `
     uniform float exponent;
     uniform float glowPower;
     uniform float mieFactor;
+    uniform float uTime;
+    uniform float uCloudDensity;
     varying vec3 vWorldPosition;
+
+    float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+    }
+
+    float noise(vec2 st) {
+        vec2 i = floor(st);
+        vec2 f = fract(st);
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    }
+
+    float fbm(vec2 st) {
+        float value = 0.0;
+        float amplitude = 0.5;
+        for (int i = 0; i < 4; i++) {
+            value += amplitude * noise(st);
+            st *= 2.0;
+            amplitude *= 0.5;
+        }
+        return value;
+    }
+
     void main() {
         vec3 dir = normalize(vWorldPosition + offset);
         float h = dir.y;
@@ -50,6 +79,25 @@ const skyFragmentShader = `
         vec3 glowColor = bottomColor * sunHighlight * 0.8 * (1.0 - h);
         col = col + glowColor * (vec3(1.0) - col); // Screen blend
         
+        // Procedural Clouds
+        if (h > 0.0) {
+            vec2 cloudUV = dir.xz / (h + 0.05);
+            vec2 drift = vec2(uTime * 0.1, 0.0);
+            
+            float n = fbm((cloudUV + drift) * 2.5);
+            
+            float densityOffset = (uCloudDensity - 0.5) * 0.4;
+            float cloudAlpha = smoothstep(0.4 - densityOffset, 0.7 - densityOffset, n);
+            
+            cloudAlpha *= smoothstep(0.0, 0.15, h); // fade at horizon
+            
+            float cloudSunGlow = pow(sunIntensity, 2.0);
+            vec3 cloudBaseColor = mix(topColor * 1.2, bottomColor * 1.5, cloudSunGlow * (1.0 - h));
+            vec3 cloudColor = mix(cloudBaseColor, bottomColor * 2.0, sunHighlight * 0.8);
+            
+            col = mix(col, cloudColor, cloudAlpha * 0.9);
+        }
+
         gl_FragColor = vec4(col, 1.0);
     }
 `;
@@ -149,7 +197,9 @@ const skyUniforms = {
     offset: { value: 33 },
     exponent: { value: 0.6 },
     glowPower: { value: 2.0 },  // Higher = more concentrated sunset
-    mieFactor: { value: 0.9 }   // Higher = more aggressive muting away from sun
+    mieFactor: { value: 0.9 },   // Higher = more aggressive muting away from sun
+    uTime: { value: 0.0 }, // ADDED
+    uCloudDensity: { value: 0.5 } // ADDED
 };
 
 // Initial calculation
