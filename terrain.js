@@ -665,11 +665,18 @@ const _colorCherryForestTint = new THREE.Color(0xF8BBD0);
 const _colorCherryPlainsTint = new THREE.Color(0xFCE4EC);
 
 function generateChunk(chunkX, chunkZ) {
-    const rng = ChillFlightLogic.chunkRng(chunkX, chunkZ);
     const group = new THREE.Group();
-    const isCustom = !!ChillFlightLogic.customMap;
+    scene.add(group);
+    
+    // Start background generation
+    buildChunk();
+    return group;
 
-    const elevationCache = new Map();
+    async function buildChunk() {
+        const rng = ChillFlightLogic.chunkRng(chunkX, chunkZ);
+        const isCustom = !!ChillFlightLogic.customMap;
+
+        const elevationCache = new Map();
     function getCachedElevation(x, z) {
         // Round to 1 decimal place for the key to handle slight floating point variances
         const key = Math.round(x * 10) + '_' + Math.round(z * 10);
@@ -725,6 +732,9 @@ function generateChunk(chunkX, chunkZ) {
     let maxChunkHeight = WATER_LEVEL;
 
     for (let i = 0; i < positions.length; i += 3) {
+        if (i > 0 && i % 1500 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
         const localX = positions[i];
         const localZ = positions[i + 2];
         const worldX = worldOffsetX + localX;
@@ -1040,6 +1050,13 @@ function generateChunk(chunkX, chunkZ) {
 
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
+
+    const chunkKey = `${chunkX},${chunkZ}`;
+    if (!chunks.has(chunkKey)) {
+        // The chunk was deleted by updateChunks while we were building it. Abort.
+        geometry.dispose();
+        return; 
+    }
 
     const mesh = new THREE.Mesh(geometry, terrainMaterial);
     mesh.position.set(worldOffsetX, 0, worldOffsetZ);
@@ -1784,9 +1801,7 @@ function generateChunk(chunkX, chunkZ) {
         birds: group.userData.birds.length,
         chimneys: chimneySmokePositions.length
     };
-
-    scene.add(group);
-    return group;
+    }
 }
 
 function updateChunks() {
