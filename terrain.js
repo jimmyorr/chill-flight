@@ -1647,16 +1647,18 @@ function generateChunk(chunkX, chunkZ) {
             `#include <project_vertex>`,
             `
             vec4 mvPosition = vec4( transformed, 1.0 );
-            #ifdef USE_INSTANCING
-                mvPosition = instanceMatrix * mvPosition;
-            #endif
-
-            // Apply world-aligned drift (relative to chunk center). 
+            
             // 2.64 * uTime roughly equals 4 units per second (original speed).
             float drift = mod(uTime * 2.64, 2000.0);
             
-            // Wrap X position within the chunk boundaries to maintain density and cluster integrity.
-            mvPosition.x = mod(mvPosition.x + drift + 1000.0, 2000.0) - 1000.0;
+            #ifdef USE_INSTANCING
+                mat4 modInstanceMatrix = instanceMatrix;
+                // Wrap the instance X position instead of vertex X to prevent stretching
+                modInstanceMatrix[3].x = mod(modInstanceMatrix[3].x + drift + 1000.0, 2000.0) - 1000.0;
+                mvPosition = modInstanceMatrix * mvPosition;
+            #else
+                mvPosition.x = mod(mvPosition.x + drift + 1000.0, 2000.0) - 1000.0;
+            #endif
 
             mvPosition = modelViewMatrix * mvPosition;
             gl_Position = projectionMatrix * mvPosition;
