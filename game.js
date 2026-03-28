@@ -49,10 +49,12 @@ const _cinematicStableQuat = new THREE.Quaternion();
  */
 function updateDOM(element, newValue) {
     if (!element) return;
-    if (element.textContent !== newValue) {
-        element.textContent = newValue;
+    const strValue = String(newValue); // Cast to string for accurate comparison
+    if (element.textContent !== strValue) {
+        element.textContent = strValue;
     }
 }
+
 
 
 function updateInputPosition(clientX, clientY) {
