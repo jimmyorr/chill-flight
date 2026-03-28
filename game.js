@@ -2259,6 +2259,8 @@ function animate() {
 
     _tempVec.set(sunX, sunY, sunZ).normalize();
     skyUniforms.sunDirection.value.copy(_tempVec);
+    skyUniforms.uTime.value = now * 0.001;
+    skyUniforms.uCloudDensity.value = overcast;
 
     if (!isCustomPalette) {
         if (dayFactor > 0.0) {
