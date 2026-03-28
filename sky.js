@@ -75,7 +75,10 @@ const ATMOSPHERE_PALETTES = [
     { name: "Tropical Dawn", top: 0x2c1b4d, bottom: 0xe27a5e },
 
     // 6: Gentle pastel morning with soft lavender and pale pink
-    { name: "Lavender Morning", top: 0x645c84, bottom: 0xe2b6cf }
+    { name: "Lavender Morning", top: 0x645c84, bottom: 0xe2b6cf },
+
+    // 7: Cowneck
+    { name: "Cowneck", top: 0x2a5285, bottom: 0xe6b794 }
 ];
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -86,15 +89,15 @@ let isCustomPalette = false;
 
 function applyCustomSkyColors(top, bottom) {
     isCustomPalette = true;
-    
+
     // Convert hex string (from picker) or number to hex if needed
     const topHex = typeof top === 'string' ? parseInt(top.replace('#', ''), 16) : top;
     const bottomHex = typeof bottom === 'string' ? parseInt(bottom.replace('#', ''), 16) : bottom;
 
-    selectedPalette = { 
-        name: "Custom", 
-        top: topHex, 
-        bottom: bottomHex 
+    selectedPalette = {
+        name: "Custom",
+        top: topHex,
+        bottom: bottomHex
     };
 
     if (typeof skyUniforms !== 'undefined') {
