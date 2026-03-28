@@ -700,6 +700,7 @@ const _colorCherryPlainsTint = new THREE.Color(0xFCE4EC);
 
 function generateChunk(chunkX, chunkZ) {
     const group = new THREE.Group();
+    group.userData.worldPosition = new THREE.Vector3(chunkX * CHUNK_SIZE, 0, chunkZ * CHUNK_SIZE);
     scene.add(group);
 
     // Start background generation
