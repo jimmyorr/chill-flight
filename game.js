@@ -1516,8 +1516,13 @@ function animate() {
     // Ground avoidance heights
     const terrainHeight = getElevation(planeGroup.position.x, planeGroup.position.z);
     let isWater = terrainHeight <= WATER_LEVEL + (vehicleType === 'boat' ? 0.3 : 0.1);
-    const minFlightHeight = isWater ? terrainHeight + 5.5 : terrainHeight + 30;
+    let minFlightHeight = isWater ? terrainHeight + 5.5 : terrainHeight + 30;
     let restingHeight = minFlightHeight + (isWater ? 0 : 5);
+
+    if (vehicleType === 'helicopter') {
+        minFlightHeight = terrainHeight + 3.5;
+        restingHeight = terrainHeight + 3.5;
+    }
 
     if (vehicleType === 'boat') {
         // Boat sits submerged by 0.5 units (like the sailboats)
