@@ -1640,6 +1640,30 @@ function generateChunk(chunkX, chunkZ) {
         roughness: 1.0
     });
 
+    cloudMat.onBeforeCompile = (shader) => {
+        shader.uniforms.uTime = window.waterUniforms.uTime; // Reuse the existing global time uniform
+        shader.vertexShader = `uniform float uTime;\n` + shader.vertexShader;
+        shader.vertexShader = shader.vertexShader.replace(
+            `#include <project_vertex>`,
+            `
+            vec4 mvPosition = vec4( transformed, 1.0 );
+            #ifdef USE_INSTANCING
+                mvPosition = instanceMatrix * mvPosition;
+            #endif
+
+            // Apply world-aligned drift (relative to chunk center). 
+            // 2.64 * uTime roughly equals 4 units per second (original speed).
+            float drift = mod(uTime * 2.64, 2000.0);
+            
+            // Wrap X position within the chunk boundaries to maintain density and cluster integrity.
+            mvPosition.x = mod(mvPosition.x + drift + 1000.0, 2000.0) - 1000.0;
+
+            mvPosition = modelViewMatrix * mvPosition;
+            gl_Position = projectionMatrix * mvPosition;
+            `
+        );
+    };
+
     // Boost clouds as they approach mountains based on the highest point in this chunk
     // This ensures all clouds in a mountainous chunk rise consistently.
     const elevationBoost = Math.max(0, maxChunkHeight - 100) * 1.5;
