@@ -747,7 +747,7 @@ function generateChunk(chunkX, chunkZ) {
         // Add more noise to biome transitions to avoid smooth boring circles
         const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
         const biomeNoise = simplex.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
-        
+
         const snowRaw = Math.max(0, Math.min(1, (northInfluence + noisePath * 0.05 + biomeNoise - 0.7) * 1.5));
         const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
@@ -773,7 +773,7 @@ function generateChunk(chunkX, chunkZ) {
             if (height <= WATER_LEVEL + 5.0) {
                 hasWater = true;
                 _tempColorObj.copy(_colorSand);
-                
+
                 // Smooth dip from 5 units deep at water level to 0 at +5 units elevation
                 // This ensures that shallow land stays underwater and avoids Z-fighting.
                 const t = Math.max(0, Math.min(1, (height - WATER_LEVEL) / 5.0));
@@ -786,7 +786,7 @@ function generateChunk(chunkX, chunkZ) {
                 // Apply subtle mottling for custom maps too
                 _tempColorObj.lerp(new THREE.Color(0x000000), mottle * 0.1);
             }
-            positions[i + 1] = finalHeight; 
+            positions[i + 1] = finalHeight;
         } else {
             if (height <= sandMaxHeight) {
                 if (height <= WATER_LEVEL) {
@@ -797,7 +797,7 @@ function generateChunk(chunkX, chunkZ) {
                     if (snowFactor < 0.1 && desertFactor < 0.1 && getBiome(worldX, worldZ) > -0.15 && rng() < 0.015 * densityScale) {
                         lilyPadPositions.push({ x: localX, y: WATER_LEVEL, z: localZ, rotY: rng() * Math.PI * 2 });
                     }
-                    positions[i + 1] = height - 5; 
+                    positions[i + 1] = height - 5;
                     _tempColorObj.copy(_colorSand);
                     if (snowFactor > 0) _tempColorObj.lerp(_colorSandSnowTint, snowFactor);
                     if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
@@ -808,7 +808,7 @@ function generateChunk(chunkX, chunkZ) {
                     _tempColorObj.copy(_colorSand);
                     if (snowFactor > 0) _tempColorObj.lerp(_colorUpperSandSnowTint, snowFactor);
                     if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
-                    
+
                     // Mottling for sand (adding some dark/light patches)
                     if (!isCustom && mottle > 0.6) _tempColorObj.lerp(new THREE.Color(0xD2B48C), (mottle - 0.6) * 0.5);
                     if (!isCustom && mottle < 0.4) _tempColorObj.lerp(new THREE.Color(0xDEB887), (0.4 - mottle) * 0.5);
@@ -817,10 +817,10 @@ function generateChunk(chunkX, chunkZ) {
                 // Massive sierra gets highly refined, patchy-to-solid snow OR Arizona desert rock
                 const sierraSnowNoise1 = simplex.noise2D(worldX * 0.003, worldZ * 0.003);
                 const sierraSnowNoise2 = simplex.noise2D(worldX * 0.012, worldZ * 0.012) * 0.5;
-                const organicNoise = (sierraSnowNoise1 + sierraSnowNoise2); 
-                
+                const organicNoise = (sierraSnowNoise1 + sierraSnowNoise2);
+
                 const isSouth = worldZ > 0;
-                const canHaveSnow = !isSouth; 
+                const canHaveSnow = !isSouth;
 
                 if (height > 600) {
                     const baseThreshold = 1450 + organicNoise * 400;
@@ -878,125 +878,125 @@ function generateChunk(chunkX, chunkZ) {
                     _tempColorObj.copy(_colorForest);
                     if (snowFactor > 0) _tempColorObj.lerp(_colorForestSnowTint, snowFactor);
                     if (desertFactor > 0) _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
-                    
+
                     // Mottling for Forest: Mix in some darker evergreens and lighter mossy patches
                     _tempColorObj.lerp(new THREE.Color(0x004d00), mottle * 0.4);
                     if (mottle < 0.3) _tempColorObj.lerp(new THREE.Color(0x6B8E23), 0.2);
                 }
 
                 const treeRoll = rng();
-                    if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
-                        if (snowFactor > 0.4 || height > MOUNTAIN_LEVEL - 100) {
-                            snowTreePositions.push({ x: localX, y: height, z: localZ });
-                        } else if (desertFactor > 0.6) {
-                            deadTreePositions.push({ x: localX, y: height, z: localZ });
-                        } else if (eastCoastFactor > 0.7 && height < WATER_LEVEL + 40) {
-                            palmTreePositions.push({ x: localX, y: height, z: localZ });
+                if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
+                    if (snowFactor > 0.4 || height > MOUNTAIN_LEVEL - 100) {
+                        snowTreePositions.push({ x: localX, y: height, z: localZ });
+                    } else if (desertFactor > 0.6) {
+                        deadTreePositions.push({ x: localX, y: height, z: localZ });
+                    } else if (eastCoastFactor > 0.7 && height < WATER_LEVEL + 40) {
+                        palmTreePositions.push({ x: localX, y: height, z: localZ });
+                    } else {
+                        if (cherryNoise > 0.65) {
+                            cherryTreePositions.push({ x: localX, y: height, z: localZ });
+                        } else if (autumnNoise > 0.45) {
+                            const variety = rng();
+                            if (variety < 0.33) autumnTree1Positions.push({ x: localX, y: height, z: localZ });
+                            else if (variety < 0.66) autumnTree2Positions.push({ x: localX, y: height, z: localZ });
+                            else autumnTree3Positions.push({ x: localX, y: height, z: localZ });
                         } else {
-                            if (cherryNoise > 0.65) {
-                                cherryTreePositions.push({ x: localX, y: height, z: localZ });
-                            } else if (autumnNoise > 0.45) {
-                                const variety = rng();
-                                if (variety < 0.33) autumnTree1Positions.push({ x: localX, y: height, z: localZ });
-                                else if (variety < 0.66) autumnTree2Positions.push({ x: localX, y: height, z: localZ });
-                                else autumnTree3Positions.push({ x: localX, y: height, z: localZ });
-                            } else {
-                                deciduousTreePositions.push({ x: localX, y: height, z: localZ });
-                            }
-                        }
-                    } else if (treeRoll < (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale) {
-                        const offX = (rng() - 0.5) * 15;
-                        const offZ = (rng() - 0.5) * 15;
-                        const h = getElevation(worldX + offX, worldZ + offZ);
-                        campfirePositions.push({ x: localX + offX, y: h, z: localZ + offZ });
-                    }
-                } else {
-                    if (!isCustom) {
-                        _tempColorObj.copy(_colorPlains);
-                        if (snowFactor > 0) _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
-                        if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
-                        
-                        // Mottling for Plains: Dry grass vs lush grass
-                        _tempColorObj.lerp(new THREE.Color(0x556B2F), mottle * 0.4);
-                        if (mottle > 0.8) _tempColorObj.lerp(new THREE.Color(0xBDB76B), 0.3);
-                    }
-
-                    const houseThreshold = (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
-                    const barnThreshold = houseThreshold + 0.002 * densityScale;
-                    const monasteryThreshold = houseThreshold + 0.0023 * densityScale;
-                    const castleThreshold = houseThreshold + 0.0024 * densityScale;
-                    const windmillThreshold = houseThreshold + 0.0025 * densityScale;
-
-                    const plainsRoll = rng();
-                    if (plainsRoll < houseThreshold) {
-                        housePositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                        // Chimney smoke for houses in snowy areas
-                        if (snowFactor > 0.3) {
-                            chimneySmokePositions.push({ x: localX, y: height + 10, z: localZ });
-                        }
-                    } else if (ENABLE_BARNS && plainsRoll < barnThreshold
-                        && snowFactor < 0.4 && desertFactor < 0.3
-                        && height > WATER_LEVEL + 3 && height < MOUNTAIN_LEVEL - 100) {
-                        barnPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                    } else if (ENABLE_MONASTERIES && plainsRoll < monasteryThreshold
-                        && snowFactor < 0.2 && desertFactor < 0.2
-                        && height > WATER_LEVEL + 50 && height < MOUNTAIN_LEVEL - 50) {
-                        monasteryPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                    } else if (ENABLE_CASTLE_RUINS && plainsRoll < castleThreshold
-                        && snowFactor < 0.5 && desertFactor < 0.3
-                        && height > WATER_LEVEL + 40 && height < MOUNTAIN_LEVEL - 30) {
-                        castleRuinsPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                    } else if (plainsRoll < windmillThreshold
-                        && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 100
-                        && desertFactor < 0.3 && snowFactor < 0.3) {
-                        windmillPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                    } else if (!lighthousePos && rng() < 0.0008 * densityScale && height < sandMaxHeight + 15) {
-                        const hN = getElevation(worldX, worldZ - 50);
-                        const hS = getElevation(worldX, worldZ + 50);
-                        const hE = getElevation(worldX + 50, worldZ);
-                        const hW = getElevation(worldX - 50, worldZ);
-                        if (hN <= WATER_LEVEL || hS <= WATER_LEVEL || hE <= WATER_LEVEL || hW <= WATER_LEVEL) {
-                            lighthousePos = { x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 };
+                            deciduousTreePositions.push({ x: localX, y: height, z: localZ });
                         }
                     }
+                } else if (treeRoll < (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale) {
+                    const offX = (rng() - 0.5) * 15;
+                    const offZ = (rng() - 0.5) * 15;
+                    const h = getElevation(worldX + offX, worldZ + offZ);
+                    campfirePositions.push({ x: localX + offX, y: h, z: localZ + offZ });
+                }
+            } else {
+                if (!isCustom) {
+                    _tempColorObj.copy(_colorPlains);
+                    if (snowFactor > 0) _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
+                    if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
 
-                    if (height > WATER_LEVEL + 0.5 && height < WATER_LEVEL + 3 && rng() < 0.15 * densityScale) { 
-                        const hN = getElevation(worldX, worldZ - 20);
-                        const hS = getElevation(worldX, worldZ + 20);
-                        const hE = getElevation(worldX + 20, worldZ);
-                        const hW = getElevation(worldX - 20, worldZ);
-                        let angleToWater = -1;
-                        if (hN <= WATER_LEVEL) angleToWater = Math.PI;
-                        else if (hS <= WATER_LEVEL) angleToWater = 0;
-                        else if (hE <= WATER_LEVEL) angleToWater = -Math.PI / 2;
-                        else if (hW <= WATER_LEVEL) angleToWater = Math.PI / 2;
-                        if (angleToWater !== -1) {
-                            pierPositions.push({ x: localX, y: height, z: localZ, rotY: angleToWater });
-                        }
+                    // Mottling for Plains: Dry grass vs lush grass
+                    _tempColorObj.lerp(new THREE.Color(0x556B2F), mottle * 0.4);
+                    if (mottle > 0.8) _tempColorObj.lerp(new THREE.Color(0xBDB76B), 0.3);
+                }
+
+                const houseThreshold = (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
+                const barnThreshold = houseThreshold + 0.002 * densityScale;
+                const monasteryThreshold = houseThreshold + 0.0023 * densityScale;
+                const castleThreshold = houseThreshold + 0.0024 * densityScale;
+                const windmillThreshold = houseThreshold + 0.0025 * densityScale;
+
+                const plainsRoll = rng();
+                if (plainsRoll < houseThreshold) {
+                    housePositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+                    // Chimney smoke for houses in snowy areas
+                    if (snowFactor > 0.3) {
+                        chimneySmokePositions.push({ x: localX, y: height + 10, z: localZ });
+                    }
+                } else if (ENABLE_BARNS && plainsRoll < barnThreshold
+                    && snowFactor < 0.4 && desertFactor < 0.3
+                    && height > WATER_LEVEL + 3 && height < MOUNTAIN_LEVEL - 100) {
+                    barnPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+                } else if (ENABLE_MONASTERIES && plainsRoll < monasteryThreshold
+                    && snowFactor < 0.2 && desertFactor < 0.2
+                    && height > WATER_LEVEL + 50 && height < MOUNTAIN_LEVEL - 50) {
+                    monasteryPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+                } else if (ENABLE_CASTLE_RUINS && plainsRoll < castleThreshold
+                    && snowFactor < 0.5 && desertFactor < 0.3
+                    && height > WATER_LEVEL + 40 && height < MOUNTAIN_LEVEL - 30) {
+                    castleRuinsPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+                } else if (plainsRoll < windmillThreshold
+                    && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 100
+                    && desertFactor < 0.3 && snowFactor < 0.3) {
+                    windmillPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+                } else if (!lighthousePos && rng() < 0.0008 * densityScale && height < sandMaxHeight + 15) {
+                    const hN = getElevation(worldX, worldZ - 50);
+                    const hS = getElevation(worldX, worldZ + 50);
+                    const hE = getElevation(worldX + 50, worldZ);
+                    const hW = getElevation(worldX - 50, worldZ);
+                    if (hN <= WATER_LEVEL || hS <= WATER_LEVEL || hE <= WATER_LEVEL || hW <= WATER_LEVEL) {
+                        lighthousePos = { x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 };
                     }
                 }
 
-                if (ENABLE_PAGODAS && cherryNoise > 0.65 && snowFactor < 0.2 && desertFactor < 0.2
-                    && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 80
-                    && rng() < 0.0003 * densityScale) {
-                    pagodaPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+                if (height > WATER_LEVEL + 0.5 && height < WATER_LEVEL + 3 && rng() < 0.15 * densityScale) {
+                    const hN = getElevation(worldX, worldZ - 20);
+                    const hS = getElevation(worldX, worldZ + 20);
+                    const hE = getElevation(worldX + 20, worldZ);
+                    const hW = getElevation(worldX - 20, worldZ);
+                    let angleToWater = -1;
+                    if (hN <= WATER_LEVEL) angleToWater = Math.PI;
+                    else if (hS <= WATER_LEVEL) angleToWater = 0;
+                    else if (hE <= WATER_LEVEL) angleToWater = -Math.PI / 2;
+                    else if (hW <= WATER_LEVEL) angleToWater = Math.PI / 2;
+                    if (angleToWater !== -1) {
+                        pierPositions.push({ x: localX, y: height, z: localZ, rotY: angleToWater });
+                    }
                 }
+            }
 
-                if (rng() < 0.015 * densityScale) {
-                    if (snowFactor > 0.4) snowRockPositions.push({ x: localX, y: height, z: localZ });
-                    else if (desertFactor > 0.4) desertRockPositions.push({ x: localX, y: height, z: localZ });
-                    else rockPositions.push({ x: localX, y: height, z: localZ });
-                }
+            if (ENABLE_PAGODAS && cherryNoise > 0.65 && snowFactor < 0.2 && desertFactor < 0.2
+                && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 80
+                && rng() < 0.0003 * densityScale) {
+                pagodaPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+            }
 
-                if (desertFactor > 0.4 && rng() < 0.04 * densityScale && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 50) {
-                    cactusPositions.push({ x: localX, y: height, z: localZ });
-                }
-                if (snowFactor > 0.6 && rng() < 0.002 * densityScale && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 50) {
-                    snowmanPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                }
-                if (desertFactor < 0.2 && snowFactor < 0.3 && height > WATER_LEVEL + 3 && height < MOUNTAIN_LEVEL - 100 && rng() < 0.08 * densityScale) {
-                    bushPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                }
+            if (rng() < 0.015 * densityScale) {
+                if (snowFactor > 0.4) snowRockPositions.push({ x: localX, y: height, z: localZ });
+                else if (desertFactor > 0.4) desertRockPositions.push({ x: localX, y: height, z: localZ });
+                else rockPositions.push({ x: localX, y: height, z: localZ });
+            }
+
+            if (desertFactor > 0.4 && rng() < 0.04 * densityScale && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 50) {
+                cactusPositions.push({ x: localX, y: height, z: localZ });
+            }
+            if (snowFactor > 0.6 && rng() < 0.002 * densityScale && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 50) {
+                snowmanPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+            }
+            if (desertFactor < 0.2 && snowFactor < 0.3 && height > WATER_LEVEL + 3 && height < MOUNTAIN_LEVEL - 100 && rng() < 0.08 * densityScale) {
+                bushPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+            }
 
             if (snowFactor < 0.2) {
                 if (autumnNoise > 0.35) {
@@ -1013,7 +1013,7 @@ function generateChunk(chunkX, chunkZ) {
 
         // --- FINAL DETAIL PASS ---
         if (slopeFactor > 0.45 && height > WATER_LEVEL + 5) {
-            const cliffBlend = Math.min(1, (slopeFactor - 0.45) * 5.0); 
+            const cliffBlend = Math.min(1, (slopeFactor - 0.45) * 5.0);
             const isSouthBiome = !isCustom && desertFactor > 0.3;
             const rockColor = isSouthBiome ? new THREE.Color(0x8B3A3A) : new THREE.Color(0x7F8C8D);
             _tempColorObj.lerp(rockColor, cliffBlend);
@@ -1679,7 +1679,7 @@ function generateChunk(chunkX, chunkZ) {
         });
         cloudInst.position.set(worldOffsetX, 0, worldOffsetZ);
         group.add(cloudInst);
-        
+
         // Save data for the animate loop to drift them
         group.userData.cloudInst = cloudInst;
         group.userData.cloudData = cloudData;
