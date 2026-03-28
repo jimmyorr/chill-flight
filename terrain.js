@@ -669,6 +669,16 @@ function generateChunk(chunkX, chunkZ) {
     const group = new THREE.Group();
     const isCustom = !!ChillFlightLogic.customMap;
 
+    const elevationCache = new Map();
+    function getCachedElevation(x, z) {
+        // Round to 1 decimal place for the key to handle slight floating point variances
+        const key = Math.round(x * 10) + '_' + Math.round(z * 10);
+        if (elevationCache.has(key)) return elevationCache.get(key);
+        const h = getElevation(x, z);
+        elevationCache.set(key, h);
+        return h;
+    }
+
     // 1. Generate Terrain Mesh
     const geometry = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, SEGMENTS, SEGMENTS);
     geometry.rotateX(-Math.PI / 2);
@@ -720,15 +730,15 @@ function generateChunk(chunkX, chunkZ) {
         const worldX = worldOffsetX + localX;
         const worldZ = worldOffsetZ + localZ;
 
-        const height = getElevation(worldX, worldZ);
+        const height = getCachedElevation(worldX, worldZ);
         positions[i + 1] = height;
         if (height > maxChunkHeight) maxChunkHeight = height;
 
         // --- ORGANIC TEXTURING & SLOPE LOGIC ---
         // 1. Calculate local slope (quick approximation)
         const sampleOffset = 4.0;
-        const hRight = getElevation(worldX + sampleOffset, worldZ);
-        const hDown = getElevation(worldX, worldZ + sampleOffset);
+        const hRight = getCachedElevation(worldX + sampleOffset, worldZ);
+        const hDown = getCachedElevation(worldX, worldZ + sampleOffset);
         const slopeX = (hRight - height) / sampleOffset;
         const slopeZ = (hDown - height) / sampleOffset;
         const slope = Math.sqrt(slopeX * slopeX + slopeZ * slopeZ);
@@ -907,7 +917,7 @@ function generateChunk(chunkX, chunkZ) {
                 } else if (treeRoll < (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale) {
                     const offX = (rng() - 0.5) * 15;
                     const offZ = (rng() - 0.5) * 15;
-                    const h = getElevation(worldX + offX, worldZ + offZ);
+                    const h = getCachedElevation(worldX + offX, worldZ + offZ);
                     campfirePositions.push({ x: localX + offX, y: h, z: localZ + offZ });
                 }
             } else {
@@ -951,20 +961,20 @@ function generateChunk(chunkX, chunkZ) {
                     && desertFactor < 0.3 && snowFactor < 0.3) {
                     windmillPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
                 } else if (!lighthousePos && rng() < 0.0004 * densityScale && height < sandMaxHeight + 15) {
-                    const hN = getElevation(worldX, worldZ - 50);
-                    const hS = getElevation(worldX, worldZ + 50);
-                    const hE = getElevation(worldX + 50, worldZ);
-                    const hW = getElevation(worldX - 50, worldZ);
+                    const hN = getCachedElevation(worldX, worldZ - 50);
+                    const hS = getCachedElevation(worldX, worldZ + 50);
+                    const hE = getCachedElevation(worldX + 50, worldZ);
+                    const hW = getCachedElevation(worldX - 50, worldZ);
                     if (hN <= WATER_LEVEL || hS <= WATER_LEVEL || hE <= WATER_LEVEL || hW <= WATER_LEVEL) {
                         lighthousePos = { x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 };
                     }
                 }
 
                 if (height > WATER_LEVEL + 0.5 && height < WATER_LEVEL + 3 && rng() < 0.15 * densityScale) {
-                    const hN = getElevation(worldX, worldZ - 20);
-                    const hS = getElevation(worldX, worldZ + 20);
-                    const hE = getElevation(worldX + 20, worldZ);
-                    const hW = getElevation(worldX - 20, worldZ);
+                    const hN = getCachedElevation(worldX, worldZ - 20);
+                    const hS = getCachedElevation(worldX, worldZ + 20);
+                    const hE = getCachedElevation(worldX + 20, worldZ);
+                    const hW = getCachedElevation(worldX - 20, worldZ);
                     let angleToWater = -1;
                     if (hN <= WATER_LEVEL) angleToWater = Math.PI;
                     else if (hS <= WATER_LEVEL) angleToWater = 0;
@@ -1547,7 +1557,7 @@ function generateChunk(chunkX, chunkZ) {
             const dist = 12 + rng() * 4;
             const tentX = pos.x + Math.cos(angle) * dist;
             const tentZ = pos.z + Math.sin(angle) * dist;
-            const tentY = getElevation(worldOffsetX + tentX, worldOffsetZ + tentZ);
+            const tentY = getCachedElevation(worldOffsetX + tentX, worldOffsetZ + tentZ);
 
             dummy.position.set(tentX, tentY, tentZ);
             dummy.rotation.set(0, angle, 0);
@@ -1716,7 +1726,7 @@ function generateChunk(chunkX, chunkZ) {
     if (!isCustom && rng() < 0.20) {
         const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
         const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
-        let baseY = getElevation(baseX, baseZ) + 150 + rng() * 200;
+        let baseY = getCachedElevation(baseX, baseZ) + 150 + rng() * 200;
         if (baseY > 400) baseY = 400;
 
         const baseRotationY = rng() * Math.PI * 2;
