@@ -1078,7 +1078,7 @@ function animate() {
     if (typeof otherPlayers !== 'undefined') {
         otherPlayers.forEach((p) => {
             const now = Date.now();
-            const renderTimestamp = now - 150; // 150ms playback delay
+            const renderTimestamp = now - 400; // 400ms playback delay avoids extrapolation snapping
             
             if (p.stateBuffer && p.stateBuffer.length > 0) {
                 let state0 = null;

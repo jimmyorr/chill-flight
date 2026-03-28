@@ -531,7 +531,7 @@ function initMultiplayer() {
                 if (isSteering) {
                     tickRate = 100; // 10Hz maneuvering
                 } else if (flightSpeedMultiplier > 0) {
-                    tickRate = 500; // 2Hz straight flight
+                    tickRate = 250; // 4Hz straight flight
                 }
 
                 // 2. Evaluate movement thresholds or heartbeat
