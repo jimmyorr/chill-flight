@@ -326,6 +326,7 @@ const moonFragShader = `
     uniform float uTime;
     uniform float overcast;
     uniform float dayFactor;
+    uniform float moonPhase;
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vViewPosition;
@@ -351,25 +352,33 @@ const moonFragShader = `
     }
 
     void main() {
-        vec2 uv = vUv * 6.0; // Slightly larger/fewer craters
+        vec2 uv = vUv * 6.0;
         float v1 = voronoi(uv);
-        float v2 = voronoi(uv * 2.0 + uTime * 0.02); // Slower movement
+        float v2 = voronoi(uv * 2.0 + uTime * 0.02);
         float n = v1 * 0.7 + v2 * 0.3;
         
-        // Craters and very subtle shading
         vec3 baseCol = vec3(0.85, 0.85, 0.95);
-        vec3 darkCol = vec3(0.8, 0.8, 0.9); // Much less contrast
+        vec3 darkCol = vec3(0.8, 0.8, 0.9);
         vec3 color = mix(darkCol, baseCol, smoothstep(0.3, 0.7, n));
         
-        // Fresnel rim glow
         vec3 normal = normalize(vNormal);
+        float phaseAngle = moonPhase * 6.283185307;
+        vec3 lightDir = normalize(vec3(sin(phaseAngle), 0.0, cos(phaseAngle)));
+        
+        float illum = dot(normal, lightDir);
+        float phaseMask = smoothstep(-0.05, 0.05, illum);
+        
+        // Earthshine is basically invisible, just a tiny bit of opacity
+        float baseAlpha = mix(0.02, 1.0, phaseMask);
+        
+        // Fresnel rim glow only on the lit portion
         vec3 viewDir = normalize(vViewPosition);
         float fresnel = 1.0 - max(dot(viewDir, normal), 0.0);
-        fresnel = pow(fresnel, 3.0); // Tighter rim
-        color += vec3(0.95, 0.95, 1.0) * fresnel * 0.15; // Dimmer glow
+        fresnel = pow(fresnel, 3.0);
+        color += vec3(0.95, 0.95, 1.0) * fresnel * 0.15 * phaseMask;
         
-        // Fade based on overcast
-        float alpha = clamp(1.0 - overcast, 0.0, 1.0);
+        // Final alpha includes the phase mask (so the dark side is transparent)
+        float alpha = baseAlpha * clamp(1.0 - overcast, 0.0, 1.0);
         
         gl_FragColor = vec4(color, alpha);
     }
@@ -384,7 +393,8 @@ const sunUniforms = {
 const moonUniforms = {
     uTime: { value: 0.0 },
     overcast: { value: 0.0 },
-    dayFactor: { value: 1.0 }
+    dayFactor: { value: 1.0 },
+    moonPhase: { value: 0.0 }
 };
 
 // Sun
