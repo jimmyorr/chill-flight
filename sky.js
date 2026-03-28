@@ -221,6 +221,8 @@ const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 // Lights
@@ -229,7 +231,18 @@ hemiLight.position.set(0, 500, 0);
 scene.add(hemiLight);
 
 const dirLight = new THREE.DirectionalLight(0xfff0dd, 0.8);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 10;
+dirLight.shadow.camera.far = 4000;
+dirLight.shadow.camera.left = -500;
+dirLight.shadow.camera.right = 500;
+dirLight.shadow.camera.top = 500;
+dirLight.shadow.camera.bottom = -500;
+dirLight.shadow.bias = -0.001;
 scene.add(dirLight);
+scene.add(dirLight.target);
 
 const moonLight = new THREE.DirectionalLight(0xbad2ff, 0.3); // Cool moonlight
 scene.add(moonLight);

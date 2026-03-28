@@ -2187,7 +2187,13 @@ function animate() {
 
     sunMesh.position.set(sunX * orbitRadius, sunY * orbitRadius, sunZ * orbitRadius);
     moonMesh.position.set(-sunX * orbitRadius, -sunY * orbitRadius, -sunZ * orbitRadius);
-    dirLight.position.copy(sunMesh.position);
+    
+    const sunDir = sunMesh.position.clone().normalize();
+    dirLight.position.copy(camera.position).add(sunDir.multiplyScalar(2000));
+    if (dirLight.target) {
+        dirLight.target.position.copy(camera.position);
+    }
+
     moonLight.position.copy(moonMesh.position);
     skyGroup.position.copy(camera.position);
 
