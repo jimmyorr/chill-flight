@@ -2262,6 +2262,17 @@ function animate() {
     skyUniforms.uTime.value = now * 0.001;
     skyUniforms.uCloudDensity.value = overcast;
 
+    if (typeof sunUniforms !== 'undefined') {
+        sunUniforms.uTime.value = now * 0.001;
+        sunUniforms.overcast.value = overcast;
+        sunUniforms.dayFactor.value = dayFactor;
+    }
+    if (typeof moonUniforms !== 'undefined') {
+        moonUniforms.uTime.value = now * 0.001;
+        moonUniforms.overcast.value = overcast;
+        moonUniforms.dayFactor.value = dayFactor;
+    }
+
     if (!isCustomPalette) {
         if (dayFactor > 0.0) {
             let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
