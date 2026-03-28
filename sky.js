@@ -166,7 +166,7 @@ const skyMat = new THREE.ShaderMaterial({
 
 scene.fog.color.set(selectedPalette.bottom);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 30000);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -195,7 +195,7 @@ const skyGroup = new THREE.Group();
 scene.add(skyGroup);
 
 // Skysphere (Backdrop)
-const skySphereGeo = new THREE.SphereGeometry(9500, 32, 12);
+const skySphereGeo = new THREE.SphereGeometry(25000, 32, 12);
 const skySphereMesh = new THREE.Mesh(skySphereGeo, skyMat);
 skyGroup.add(skySphereMesh);
 
@@ -221,7 +221,7 @@ for (let i = 0; i < starsCount * 3; i += 3) {
     const v = _starsRng();
     const theta = u * 2.0 * Math.PI;
     const phi = Math.acos(2.0 * v - 1.0);
-    const r = 7000 + _starsRng() * 2000;
+    const r = 20000 + _starsRng() * 4000;
     starsPos[i] = r * Math.sin(phi) * Math.cos(theta);
     starsPos[i + 1] = r * Math.sin(phi) * Math.sin(theta);
     starsPos[i + 2] = r * Math.cos(phi);
