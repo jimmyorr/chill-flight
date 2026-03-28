@@ -1396,51 +1396,55 @@ function animate() {
             isLooping = true;
         }
 
-        if (keys.ArrowLeft && !keys.Shift) {
+        if (keys.ArrowLeft) {
             if (vehicleType === 'helicopter') {
-                planeGroup.rotation.y += 1.5 * delta;
+                if (!keys.Shift) planeGroup.rotation.y += 1.5 * delta;
                 const maxRoll = Math.PI / 12; // visual bank
                 planeGroup.rotation.z = Math.min(maxRoll, planeGroup.rotation.z + manualRollSpeed * 0.5 * delta);
                 isClampedRoll = true;
                 isBarrelRolling = true;
-            } else if (vehicleType === 'boat') {
-                const maxRoll = MAX_BANK_BOAT;
-                planeGroup.rotation.z = Math.min(maxRoll, planeGroup.rotation.z + manualRollSpeed * 0.5 * delta);
-                isClampedRoll = true;
-                isBarrelRolling = true;
-            } else if (doubleTap.ArrowLeft) {
-                // Double-tap: full barrel roll
-                planeGroup.rotation.z += manualRollSpeed * delta;
-                isBarrelRolling = true;
-            } else {
-                // Single-tap: bank to 90° and hold
-                const target = Math.PI / 2;
-                planeGroup.rotation.z = Math.min(target, planeGroup.rotation.z + manualRollSpeed * delta);
-                isClampedRoll = true;
-                isBarrelRolling = true;
+            } else if (!keys.Shift) {
+                if (vehicleType === 'boat') {
+                    const maxRoll = MAX_BANK_BOAT;
+                    planeGroup.rotation.z = Math.min(maxRoll, planeGroup.rotation.z + manualRollSpeed * 0.5 * delta);
+                    isClampedRoll = true;
+                    isBarrelRolling = true;
+                } else if (doubleTap.ArrowLeft) {
+                    // Double-tap: full barrel roll
+                    planeGroup.rotation.z += manualRollSpeed * delta;
+                    isBarrelRolling = true;
+                } else {
+                    // Single-tap: bank to 90° and hold
+                    const target = Math.PI / 2;
+                    planeGroup.rotation.z = Math.min(target, planeGroup.rotation.z + manualRollSpeed * delta);
+                    isClampedRoll = true;
+                    isBarrelRolling = true;
+                }
             }
-        } else if (keys.ArrowRight && !keys.Shift) {
+        } else if (keys.ArrowRight) {
             if (vehicleType === 'helicopter') {
-                planeGroup.rotation.y -= 1.5 * delta;
+                if (!keys.Shift) planeGroup.rotation.y -= 1.5 * delta;
                 const maxRoll = -Math.PI / 12; // visual bank
                 planeGroup.rotation.z = Math.max(maxRoll, planeGroup.rotation.z - manualRollSpeed * 0.5 * delta);
                 isClampedRoll = true;
                 isBarrelRolling = true;
-            } else if (vehicleType === 'boat') {
-                const maxRoll = MAX_BANK_BOAT;
-                planeGroup.rotation.z = Math.max(-maxRoll, planeGroup.rotation.z - manualRollSpeed * 0.5 * delta);
-                isClampedRoll = true;
-                isBarrelRolling = true;
-            } else if (doubleTap.ArrowRight) {
-                // Double-tap: full barrel roll
-                planeGroup.rotation.z -= manualRollSpeed * delta;
-                isBarrelRolling = true;
-            } else {
-                // Single-tap: bank to -90° and hold
-                const target = -Math.PI / 2;
-                planeGroup.rotation.z = Math.max(target, planeGroup.rotation.z - manualRollSpeed * delta);
-                isClampedRoll = true;
-                isBarrelRolling = true;
+            } else if (!keys.Shift) {
+                if (vehicleType === 'boat') {
+                    const maxRoll = MAX_BANK_BOAT;
+                    planeGroup.rotation.z = Math.max(-maxRoll, planeGroup.rotation.z - manualRollSpeed * 0.5 * delta);
+                    isClampedRoll = true;
+                    isBarrelRolling = true;
+                } else if (doubleTap.ArrowRight) {
+                    // Double-tap: full barrel roll
+                    planeGroup.rotation.z -= manualRollSpeed * delta;
+                    isBarrelRolling = true;
+                } else {
+                    // Single-tap: bank to -90° and hold
+                    const target = -Math.PI / 2;
+                    planeGroup.rotation.z = Math.max(target, planeGroup.rotation.z - manualRollSpeed * delta);
+                    isClampedRoll = true;
+                    isBarrelRolling = true;
+                }
             }
         }
     }
@@ -1561,19 +1565,28 @@ function animate() {
 
         const moveUp = !keys.Shift && (invertYAxis ? keys.ArrowDown : keys.ArrowUp);
         const moveDown = !keys.Shift && (invertYAxis ? keys.ArrowUp : keys.ArrowDown);
+        
+        const strafeLeft = keys.Shift && keys.ArrowLeft;
+        const strafeRight = keys.Shift && keys.ArrowRight;
 
         let targetHeliMove = 0;
         if (moveUp) targetHeliMove = 1.0;
         else if (moveDown) targetHeliMove = -1.0;
 
-        window._heliMoveSpeed = THREE.MathUtils.lerp(window._heliMoveSpeed || 0, targetHeliMove, 0.05);
+        let targetHeliStrafe = 0;
+        if (strafeLeft) targetHeliStrafe = -1.0;
+        else if (strafeRight) targetHeliStrafe = 1.0;
 
-        if (Math.abs(window._heliMoveSpeed) > 0.01) {
+        window._heliMoveSpeed = THREE.MathUtils.lerp(window._heliMoveSpeed || 0, targetHeliMove, 0.05);
+        window._heliStrafeSpeed = THREE.MathUtils.lerp(window._heliStrafeSpeed || 0, targetHeliStrafe, 0.05);
+
+        if (Math.abs(window._heliMoveSpeed) > 0.01 || Math.abs(window._heliStrafeSpeed) > 0.01) {
             const savedX = planeGroup.rotation.x;
             const savedZ = planeGroup.rotation.z;
             planeGroup.rotation.x = 0;
             planeGroup.rotation.z = 0;
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * window._heliMoveSpeed));
+            planeGroup.translateX(BASE_FLIGHT_SPEED * window._heliStrafeSpeed);
             planeGroup.rotation.x = savedX;
             planeGroup.rotation.z = savedZ;
         }
