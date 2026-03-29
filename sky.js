@@ -218,7 +218,11 @@ scene.fog.color.set(selectedPalette.bottom);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 30000);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// Antialiasing is expensive; disable it on the 'Low' preset (SEGMENTS <= 20) to prioritize performance.
+// Since AA belongs to the WebGL context, this won't change until the next page load.
+const _initQuality = localStorage.getItem('chill_flight_quality');
+const _isLowQuality = _initQuality && parseInt(_initQuality) <= 20;
+const renderer = new THREE.WebGLRenderer({ antialias: !_isLowQuality });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
