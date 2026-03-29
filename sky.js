@@ -25,6 +25,7 @@ const skyFragmentShader = `
     uniform float mieFactor;
     uniform float uTime;
     uniform float uCloudDensity;
+    uniform bool uShowClouds;
     varying vec3 vWorldPosition;
 
     float random(vec2 st) {
@@ -79,8 +80,8 @@ const skyFragmentShader = `
         vec3 glowColor = bottomColor * sunHighlight * 0.8 * (1.0 - h);
         col = col + glowColor * (vec3(1.0) - col); // Screen blend
         
-        // Procedural Clouds
-        if (h > 0.0) {
+        // Procedural Clouds: Expensive 4-octave fBm loop is skipped on Low graphics
+        if (uShowClouds && h > 0.0) {
             vec2 cloudUV = dir.xz / (h + 0.05);
             vec2 drift = vec2(uTime * 0.1, 0.0);
             
@@ -199,7 +200,8 @@ const skyUniforms = {
     glowPower: { value: 2.0 },  // Higher = more concentrated sunset
     mieFactor: { value: 0.9 },   // Higher = more aggressive muting away from sun
     uTime: { value: 0.0 }, // ADDED
-    uCloudDensity: { value: 0.5 } // ADDED
+    uCloudDensity: { value: 0.5 }, // ADDED
+    uShowClouds: { value: true }
 };
 
 // Initial calculation
@@ -222,6 +224,10 @@ const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerH
 // Since AA belongs to the WebGL context, this won't change until the next page load.
 const _initQuality = localStorage.getItem('chill_flight_quality');
 const _isLowQuality = _initQuality && parseInt(_initQuality) <= 20;
+
+// Update uniforms for initial load
+skyUniforms.uShowClouds.value = !_isLowQuality;
+
 const renderer = new THREE.WebGLRenderer({ antialias: !_isLowQuality });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(_isLowQuality ? 1 : Math.min(window.devicePixelRatio, 2));
