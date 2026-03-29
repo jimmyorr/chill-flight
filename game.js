@@ -569,6 +569,18 @@ if (qualitySelect) {
             skyUniforms.uShowClouds.value = (SEGMENTS > 20);
         }
 
+        // Toggle overdraw optimizations (transparency)
+        const isLow = SEGMENTS <= 20;
+        if (typeof waterMaterial !== 'undefined' && typeof cloudMat !== 'undefined') {
+            waterMaterial.transparent = !isLow;
+            waterMaterial.opacity = isLow ? 1.0 : 0.6;
+            waterMaterial.needsUpdate = true;
+
+            cloudMat.transparent = !isLow;
+            cloudMat.opacity = isLow ? 1.0 : 0.85;
+            cloudMat.needsUpdate = true;
+        }
+
         const enableShadows = (SEGMENTS > 20);
         if (dirLight.castShadow !== enableShadows) {
             dirLight.castShadow = enableShadows;
@@ -852,6 +864,15 @@ function moveAndWrapParticles(particles, delta, minX, maxX, minY, maxY, minZ, ma
 
 function updateWeather(delta) {
     if (!snowParticles || !rainParticles) return;
+
+    // Optimization: Skip entire weather simulation and hide particles on Low graphics
+    if (SEGMENTS <= 20) {
+        snowParticles.visible = false;
+        rainParticles.visible = false;
+        snowParticles.material.opacity = 0;
+        rainParticles.material.opacity = 0;
+        return;
+    }
 
     let targetSnowOpacity = 0;
     let targetRainOpacity = 0;
