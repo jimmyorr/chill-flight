@@ -561,6 +561,9 @@ if (qualitySelect) {
         localStorage.setItem('chill_flight_quality', SEGMENTS);
         console.log(`Quality changed: SEGMENTS = ${SEGMENTS}`);
 
+        // Update pixel ratio dynamically: force 1:1 on low mode to save GPU performance
+        renderer.setPixelRatio(SEGMENTS <= 20 ? 1 : Math.min(window.devicePixelRatio, 2));
+
         const enableShadows = (SEGMENTS > 20);
         if (dirLight.castShadow !== enableShadows) {
             dirLight.castShadow = enableShadows;

@@ -224,7 +224,7 @@ const _initQuality = localStorage.getItem('chill_flight_quality');
 const _isLowQuality = _initQuality && parseInt(_initQuality) <= 20;
 const renderer = new THREE.WebGLRenderer({ antialias: !_isLowQuality });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(_isLowQuality ? 1 : Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
