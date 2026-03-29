@@ -703,8 +703,8 @@ function generateChunk(chunkX, chunkZ) {
     group.userData.worldPosition = new THREE.Vector3(chunkX * CHUNK_SIZE, 0, chunkZ * CHUNK_SIZE);
     scene.add(group);
 
-    // Start background generation
-    buildChunk();
+    // Start background generation in the next macro-task so the chunk map registers it first
+    setTimeout(buildChunk, 0);
     return group;
 
     async function buildChunk() {

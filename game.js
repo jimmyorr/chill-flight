@@ -561,6 +561,24 @@ if (qualitySelect) {
         localStorage.setItem('chill_flight_quality', SEGMENTS);
         console.log(`Quality changed: SEGMENTS = ${SEGMENTS}`);
 
+        const enableShadows = (SEGMENTS > 20);
+        if (dirLight.castShadow !== enableShadows) {
+            dirLight.castShadow = enableShadows;
+            scene.traverse(child => {
+                if (child.isMesh || child.isInstancedMesh) {
+                    child.castShadow = enableShadows;
+                    child.receiveShadow = enableShadows;
+                    if (child.material) {
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(m => m.needsUpdate = true);
+                        } else {
+                            child.material.needsUpdate = true;
+                        }
+                    }
+                }
+            });
+        }
+
         // Clear all existing chunks to force regeneration
         chunks.forEach((group, key) => {
             group.traverse(child => {
@@ -661,6 +679,7 @@ if (savedQuality) {
     SEGMENTS = parseInt(savedQuality);
     if (qualitySelect) qualitySelect.value = savedQuality;
 }
+dirLight.castShadow = (SEGMENTS > 20);
 const savedDistance = localStorage.getItem('chill_flight_distance');
 if (savedDistance) {
     RENDER_DISTANCE = parseInt(savedDistance);
