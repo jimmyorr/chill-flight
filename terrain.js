@@ -6,6 +6,9 @@ const chunks = new Map();
 // GPU water uniform — shared globally so game.js animate() can update uTime
 window.waterUniforms = { uTime: { value: 0.0 } };
 
+const _initQualityForTerrain = localStorage.getItem('chill_flight_quality');
+const _isLowQualityInitial = _initQualityForTerrain && parseInt(_initQualityForTerrain) <= 20;
+
 // Materials for terrain
 const terrainMaterial = createMaterial({
     vertexColors: true,
@@ -15,8 +18,8 @@ const terrainMaterial = createMaterial({
 
 const waterMaterial = createMaterial({
     vertexColors: true,
-    transparent: true,
-    opacity: 0.6,
+    transparent: !_isLowQualityInitial,
+    opacity: _isLowQualityInitial ? 1.0 : 0.6,
     metalness: 0.1,
     roughness: 0.05,
     flatShading: true
@@ -67,8 +70,8 @@ waterMaterial.onBeforeCompile = (shader) => {
 const cloudGeo = new THREE.BoxGeometry(1, 1, 1);
 const cloudMat = createMaterial({
     color: 0xffffff,
-    transparent: true,
-    opacity: 0.85,
+    transparent: !_isLowQualityInitial,
+    opacity: _isLowQualityInitial ? 1.0 : 0.85,
     flatShading: true,
     roughness: 1.0
 });
