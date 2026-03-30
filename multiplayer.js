@@ -228,14 +228,6 @@ function initMultiplayer() {
             tailRotor: tailRotorGroup
         };
 
-        // Disable self-shadowing for remote planes
-        group.traverse(child => {
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = false;
-            }
-        });
-
         return group;
     }
 

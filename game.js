@@ -2237,34 +2237,12 @@ function animate() {
     moonMesh.position.set(-sunX * orbitRadius, -sunY * orbitRadius, -sunZ * orbitRadius);
     
     const sunDir = sunMesh.position.clone().normalize();
-    
-    // Stabilize shadows using texel snapping to prevent "swimming" map edges.
-    // We snap the focal point of the shadow camera (light target) to the texel grid.
-    if (dirLight.castShadow) {
-        const shadowFrustum = dirLight.shadow.camera.right - dirLight.shadow.camera.left;
-        const shadowMapRes = dirLight.shadow.mapSize.width;
-        const texelSize = shadowFrustum / shadowMapRes;
-
-        const snappedPos = camera.position.clone();
-        snappedPos.x = Math.floor(snappedPos.x / texelSize) * texelSize;
-        snappedPos.y = Math.floor(snappedPos.y / texelSize) * texelSize;
-        snappedPos.z = Math.floor(snappedPos.z / texelSize) * texelSize;
-
-        // Massive distance (10,000 units) mimics a distant sun and fixes the "looming giant" effect.
-        dirLight.position.copy(snappedPos).add(sunDir.multiplyScalar(10000));
-        if (dirLight.target) {
-            dirLight.target.position.copy(snappedPos);
-        }
-    } else {
-        // Fallback or non-shadow logic
-        dirLight.position.copy(camera.position).add(sunDir.multiplyScalar(2000));
-        if (dirLight.target) {
-            dirLight.target.position.copy(camera.position);
-        }
+    dirLight.position.copy(camera.position).add(sunDir.multiplyScalar(2000));
+    if (dirLight.target) {
+        dirLight.target.position.copy(camera.position);
     }
 
-    // Synchronize secondary lights and skysphere with camera
-    moonLight.position.copy(camera.position).add(moonMesh.position);
+    moonLight.position.copy(moonMesh.position);
     skyGroup.position.copy(camera.position);
 
     // Smoothly interpolate sky shader palettes
