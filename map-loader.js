@@ -105,8 +105,7 @@
     });
 
     // Check for map parameter in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const mapName = urlParams.get('map');
+    const mapName = ChillFlightLogic.MAP_NAME;
     if (mapName) {
         console.log(`Loading map from URL param: ${mapName}`);
         const img = new Image();

@@ -9,8 +9,7 @@ window.waterUniforms = { uTime: { value: 0.0 } };
 const _initQualityForTerrain = localStorage.getItem('chill_flight_quality');
 const _isLowQualityInitial = _initQualityForTerrain && parseInt(_initQualityForTerrain) <= 20;
 
-const _terrainSearchParams = new URLSearchParams(window.location.search);
-const _enableBlockClouds = _terrainSearchParams.get('cloud') === 'block';
+const _enableBlockClouds = ChillFlightLogic.SHOW_CLOUDS;
 
 
 // Materials for terrain

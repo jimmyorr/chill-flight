@@ -566,7 +566,7 @@ if (qualitySelect) {
 
         // Toggle sky clouds dynamically: disable expensive fBm on low mode
         if (typeof skyUniforms !== 'undefined') {
-            skyUniforms.uShowClouds.value = (SEGMENTS > 20);
+            skyUniforms.uShowClouds.value = (SEGMENTS > 20) && ChillFlightLogic.SHOW_CLOUDS;
         }
 
         // Toggle overdraw optimizations (transparency)
@@ -623,7 +623,7 @@ if (qualitySelect) {
 // Theme selection
 const themeSelect = document.getElementById('theme-select');
 if (themeSelect) {
-    const currentTheme = new URLSearchParams(window.location.search).get('theme') || 'standard';
+    const currentTheme = ChillFlightLogic.THEME;
     themeSelect.value = currentTheme;
     themeSelect.addEventListener('change', (e) => {
         const newTheme = e.target.value;

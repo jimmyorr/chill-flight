@@ -130,8 +130,7 @@ const ATMOSPHERE_PALETTES = [
     { name: "Cowneck", top: 0xb4aeb5, bottom: 0xff9542 }
 ];
 
-const urlParams = new URLSearchParams(window.location.search);
-const paletteParam = urlParams.get('palette');
+// Standard parameters are handled by ChillFlightLogic
 let selectedPalette;
 let currentPaletteCycle = -1;
 let isCustomPalette = false;
@@ -167,8 +166,8 @@ function updateSkyPalette(serverNow) {
         const isFirstLoad = (currentPaletteCycle === -1);
         currentPaletteCycle = cycleNumber;
 
-        if (isFirstLoad && paletteParam !== null && !isNaN(parseInt(paletteParam))) {
-            const paletteIndex = parseInt(paletteParam);
+        if (isFirstLoad && ChillFlightLogic.PALETTE_INDEX !== null && !isNaN(parseInt(ChillFlightLogic.PALETTE_INDEX))) {
+            const paletteIndex = parseInt(ChillFlightLogic.PALETTE_INDEX);
             selectedPalette = ATMOSPHERE_PALETTES[paletteIndex % ATMOSPHERE_PALETTES.length];
         } else {
             // Seed the RNG with the world seed plus the cycle number,
@@ -226,7 +225,7 @@ const _initQuality = localStorage.getItem('chill_flight_quality');
 const _isLowQuality = _initQuality && parseInt(_initQuality) <= 20;
 
 // Update uniforms for initial load
-skyUniforms.uShowClouds.value = !_isLowQuality;
+skyUniforms.uShowClouds.value = ChillFlightLogic.SHOW_CLOUDS && !_isLowQuality;
 
 const renderer = new THREE.WebGLRenderer({ antialias: !_isLowQuality });
 renderer.setSize(window.innerWidth, window.innerHeight);
