@@ -1065,7 +1065,8 @@ function animate() {
     const frameStartTime = performance.now(); // Start CPU timer
     requestAnimationFrame(animate);
     const now = performance.now();
-    const delta = clock.getDelta();
+    let delta = clock.getDelta();
+    if (delta > 0.1) delta = 0.1; // Cap at 100ms to prevent logic blowouts
 
     pollGamepad(delta);
 
@@ -2937,6 +2938,9 @@ window.addEventListener('blur', () => {
 
 window.addEventListener('focus', () => {
     windowJustFocused = true;
+    if (typeof clock !== 'undefined') {
+        clock.getDelta(); // This "consumes" the time passed while the tab was hidden
+    }
 });
 
 
