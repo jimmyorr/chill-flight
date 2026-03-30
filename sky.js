@@ -242,15 +242,16 @@ scene.add(hemiLight);
 
 const dirLight = new THREE.DirectionalLight(0xfff0dd, 0.8);
 dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-dirLight.shadow.camera.near = 10;
-dirLight.shadow.camera.far = 4000;
-dirLight.shadow.camera.left = -500;
-dirLight.shadow.camera.right = 500;
-dirLight.shadow.camera.top = 500;
-dirLight.shadow.camera.bottom = -500;
-dirLight.shadow.bias = -0.001;
+dirLight.shadow.mapSize.width = 4096;
+dirLight.shadow.mapSize.height = 4096;
+dirLight.shadow.camera.near = 8000;
+dirLight.shadow.camera.far = 12000;
+dirLight.shadow.camera.left = -1500;
+dirLight.shadow.camera.right = 1500;
+dirLight.shadow.camera.top = 1500;
+dirLight.shadow.camera.bottom = -1500;
+dirLight.shadow.bias = 0.001;
+dirLight.shadow.normalBias = 0.1;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
