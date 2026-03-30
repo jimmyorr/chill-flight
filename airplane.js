@@ -360,6 +360,6 @@ setVehicle(vehicleType);
 planeGroup.traverse((child) => {
     if (child.isMesh) {
         child.castShadow = true;
-        child.receiveShadow = true;
+        child.receiveShadow = false; // Fix: Disable self-shadowing to prevent wing flickering
     }
 });
