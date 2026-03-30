@@ -9,6 +9,10 @@ window.waterUniforms = { uTime: { value: 0.0 } };
 const _initQualityForTerrain = localStorage.getItem('chill_flight_quality');
 const _isLowQualityInitial = _initQualityForTerrain && parseInt(_initQualityForTerrain) <= 20;
 
+const _terrainSearchParams = new URLSearchParams(window.location.search);
+const _enableBlockClouds = _terrainSearchParams.get('cloud') === 'block';
+
+
 // Materials for terrain
 const terrainMaterial = createMaterial({
     vertexColors: true,
@@ -1688,7 +1692,7 @@ function generateChunk(chunkX, chunkZ) {
         // 3. Generate Clouds
         let cloudiness = (simplex.noise2D(chunkX * 0.1 + 500, chunkZ * 0.1) + 1) / 2;
         const cloudThreshold = 0.5;
-        if (isCustom || cloudiness < cloudThreshold) {
+        if (!_enableBlockClouds || isCustom || cloudiness < cloudThreshold) {
             cloudiness = 0;
         } else {
             cloudiness = (cloudiness - cloudThreshold) / (1 - cloudThreshold);
@@ -1781,14 +1785,14 @@ function generateChunk(chunkX, chunkZ) {
             group.userData.birds.push(hawk);
         }
 
-            group.traverse(child => {
-                if (child.isMesh || child.isInstancedMesh) {
-                    if (child.material !== waterMaterial && child.material !== cloudMat && child.material !== smokeMat && child.material !== lighthouseBeamMat) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
+        group.traverse(child => {
+            if (child.isMesh || child.isInstancedMesh) {
+                if (child.material !== waterMaterial && child.material !== cloudMat && child.material !== smokeMat && child.material !== lighthouseBeamMat) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
                 }
-            });
+            }
+        });
 
         group.userData.counts = {
             trees_pine: treePositions.length + snowTreePositions.length,
