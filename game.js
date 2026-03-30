@@ -2407,6 +2407,16 @@ function animate() {
         sunUniforms.uTime.value = now * 0.001;
         sunUniforms.overcast.value = overcast;
         sunUniforms.dayFactor.value = dayFactor;
+
+        // Dynamic Sun Sizing (Moon Illusion)
+        const sunElevation = Math.max(0.0, sunY);
+        const sunScale = 1.0 + (1.0 - sunElevation) * 0.4;
+        sunMesh.scale.setScalar(sunScale);
+
+        // Dynamic Sun Color (Golden Hour)
+        const noonColor = new THREE.Color(0xfffceb);
+        const sunsetColor = new THREE.Color(0xffa542);
+        sunUniforms.uSunColor.value.copy(sunsetColor).lerp(noonColor, sunElevation);
     }
     if (typeof moonUniforms !== 'undefined') {
         moonUniforms.uTime.value = now * 0.001;
@@ -2415,6 +2425,11 @@ function animate() {
         
         // 8-day moon cycle (CYCLE_DURATION_MS = 300000 * 8)
         moonUniforms.moonPhase.value = (passedServerNow % 2400000) / 2400000;
+
+        // Dynamic Moon Sizing (Moon Illusion)
+        const moonElevation = Math.max(0.0, -sunY);
+        const moonScale = 1.0 + (1.0 - moonElevation) * 0.4;
+        moonMesh.scale.setScalar(moonScale);
     }
 
     if (!isCustomPalette) {

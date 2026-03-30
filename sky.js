@@ -290,6 +290,7 @@ const sunFragShader = `
     uniform float uTime;
     uniform float overcast;
     uniform float dayFactor;
+    uniform vec3 uSunColor;
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vViewPosition;
@@ -326,8 +327,8 @@ const sunFragShader = `
         uv.y += uTime * 0.05; // Slower movement
         float n = fbm(uv + fbm(uv + uTime * 0.1));
         
-        vec3 color1 = vec3(1.0, 0.85, 0.6); // Base warm yellow (closer to original 0xffddaa)
-        vec3 color2 = vec3(1.0, 0.95, 0.8); // Slightly brighter hot spots
+        vec3 color1 = uSunColor * 0.85; // Dynamic base color
+        vec3 color2 = uSunColor;        // Dynamic hot spots
         vec3 baseColor = mix(color1, color2, n * 0.5 + 0.25); // Subtle blend
         
         // Fresnel rim glow
@@ -410,7 +411,8 @@ const moonFragShader = `
 const sunUniforms = {
     uTime: { value: 0.0 },
     overcast: { value: 0.0 },
-    dayFactor: { value: 1.0 }
+    dayFactor: { value: 1.0 },
+    uSunColor: { value: new THREE.Color(0xffffff) }
 };
 
 const moonUniforms = {
