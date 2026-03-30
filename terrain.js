@@ -1012,7 +1012,7 @@ function generateChunk(chunkX, chunkZ) {
                         && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 100
                         && desertFactor < 0.3 && snowFactor < 0.3) {
                         windmillPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                    } else if (!lighthousePos && rng() < 0.0004 * densityScale && height < sandMaxHeight + 15) {
+                    } else if (ENABLE_LIGHTHOUSES && !lighthousePos && rng() < 0.0004 * densityScale && height < sandMaxHeight + 15) {
                         const hN = getCachedElevation(worldX, worldZ - 50);
                         const hS = getCachedElevation(worldX, worldZ + 50);
                         const hE = getCachedElevation(worldX + 50, worldZ);
