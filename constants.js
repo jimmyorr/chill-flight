@@ -7,9 +7,7 @@ const MOUNTAIN_LEVEL = 180;
 let RENDER_DISTANCE = 2;
 
 // Custom Map Parameters
-const urlParamsForScale = new URLSearchParams(window.location.search);
-const mapScaleParam = parseFloat(urlParamsForScale.get('scale')) || 1.0;
-const MAP_WORLD_SIZE = 10000 * mapScaleParam;
+const MAP_WORLD_SIZE = 10000 * ChillFlightLogic.SCALE;
 const MAP_HEIGHT_SCALE = 400;
 
 // Flight parameters
@@ -30,7 +28,7 @@ const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = false;
 const ENABLE_LIGHTHOUSES = false;
 
-const THEME = new URLSearchParams(window.location.search).get('theme') || 'standard';
+const THEME = ChillFlightLogic.THEME;
 
 function createMaterial(params) {
     // Make a copy of params to avoid mutating the original

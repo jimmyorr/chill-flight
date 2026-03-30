@@ -16,8 +16,20 @@
     };
 
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const seedParam = urlParams ? urlParams.get('seed') : null;
-    const WORLD_SEED = seedParam ? parseInt(seedParam, 10) : getTodaySeed();
+    
+    // Helper to get parameters safely in both Browser and Node (for tests)
+    const getParam = (key, defaultValue) => {
+        if (!urlParams) return defaultValue;
+        const val = urlParams.get(key);
+        return val === null ? defaultValue : val;
+    };
+
+    const WORLD_SEED = parseInt(getParam('seed', getTodaySeed()), 10);
+    const THEME = getParam('theme', 'standard');
+    const SHOW_CLOUDS = getParam('cloud', null) !== 'none';
+    const MAP_NAME = getParam('map', null);
+    const PALETTE_INDEX = getParam('palette', null);
+    const SCALE = parseFloat(getParam('scale', '1.0'));
 
     // --- SEEDED PRNG: Mulberry32 ---
     // Returns a closure that produces deterministic floats in [0, 1).
@@ -449,5 +461,13 @@
     exports.getElevation = getElevation;
     exports.getRiverCenterZ = getRiverCenterZ;
     exports.lerpAngle = lerpAngle;
+
+    // Export centralized URL parameters
+    exports.urlParams = urlParams;
+    exports.THEME = THEME;
+    exports.SHOW_CLOUDS = SHOW_CLOUDS;
+    exports.MAP_NAME = MAP_NAME;
+    exports.PALETTE_INDEX = PALETTE_INDEX;
+    exports.SCALE = SCALE;
 
 }(typeof module !== 'undefined' ? module.exports : (window.ChillFlightLogic = {})));
