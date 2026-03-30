@@ -245,12 +245,13 @@ dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
 dirLight.shadow.camera.near = 10;
-dirLight.shadow.camera.far = 4000;
-dirLight.shadow.camera.left = -500;
-dirLight.shadow.camera.right = 500;
-dirLight.shadow.camera.top = 500;
-dirLight.shadow.camera.bottom = -500;
-dirLight.shadow.bias = -0.001;
+dirLight.shadow.camera.far = 8000;      // Increased so distant shadows aren't clipped
+dirLight.shadow.camera.left = -2048;    // Massively expanded coverage
+dirLight.shadow.camera.right = 2048;
+dirLight.shadow.camera.top = 2048;
+dirLight.shadow.camera.bottom = -2048;
+dirLight.shadow.bias = -0.0007;
+dirLight.shadow.normalBias = 0.005;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
