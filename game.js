@@ -1054,6 +1054,13 @@ const _finalFogColor = new THREE.Color();
 const _tempVec = new THREE.Vector3();
 const _weatherLerpBase = new THREE.Color(0x8899aa);
 
+// --- PRE-ALLOCATED SCRATCH OBJECTS FOR SHADOW TEXEL SNAPPING ---
+// These must live outside animate() to avoid GC pressure at 60fps.
+const _shadowSunDir = new THREE.Vector3();
+const _shadowRight = new THREE.Vector3();
+const _shadowUp = new THREE.Vector3();
+const _worldUp = new THREE.Vector3(0, 1, 0);
+
 function animate() {
     const frameStartTime = performance.now(); // Start CPU timer
     requestAnimationFrame(animate);
@@ -2236,11 +2243,46 @@ function animate() {
     sunMesh.position.set(sunX * orbitRadius, sunY * orbitRadius, sunZ * orbitRadius);
     moonMesh.position.set(-sunX * orbitRadius, -sunY * orbitRadius, -sunZ * orbitRadius);
     
-    const sunDir = sunMesh.position.clone().normalize();
-    dirLight.position.copy(camera.position).add(sunDir.multiplyScalar(2000));
-    if (dirLight.target) {
-        dirLight.target.position.copy(camera.position);
-    }
+    // --- SHADOW TEXEL SNAPPING (View-Space) ---
+    // Eliminates "shadow swimming" and depth-band "creeping" by locking the
+    // shadow camera in all 3 dimensions to a rigid, sun-aligned grid.
+
+    // Step 1: Compute the sun direction (Forward vector)
+    _shadowSunDir.set(sunX, sunY, sunZ).normalize();
+
+    // Step 2: Build a rigid local coordinate system for the light.
+    _shadowRight.crossVectors(_worldUp, _shadowSunDir).normalize();
+    _shadowUp.crossVectors(_shadowSunDir, _shadowRight).normalize();
+
+    // Use planeGroup instead of camera. This prevents high-speed camera shake
+    // (which alters camera.position) from causing erratic shadow snapping.
+    const anchorPos = planeGroup.position;
+
+    // Step 3: Project the anchor's position onto this rigid light-grid.
+    const dotX = anchorPos.dot(_shadowRight);
+    const dotY = anchorPos.dot(_shadowUp);
+    const dotZ = anchorPos.dot(_shadowSunDir); // Project depth
+
+    // Step 4: Snap the projections to the exact texel size.
+    // texelSize = frustum width (4096) / map width (2048) = 2.0
+    const _shadowTexelSize = 4096 / 2048;
+    const snappedX = Math.floor(dotX / _shadowTexelSize) * _shadowTexelSize;
+    const snappedY = Math.floor(dotY / _shadowTexelSize) * _shadowTexelSize;
+    const snappedZ = Math.floor(dotZ / _shadowTexelSize) * _shadowTexelSize; // Lock depth to stop creeping
+
+    // Step 5: Calculate the exact offset needed to snap.
+    const dx = snappedX - dotX;
+    const dy = snappedY - dotY;
+    const dz = snappedZ - dotZ;
+
+    // Step 6: Apply the snapped offsets to the target.
+    dirLight.target.position.copy(anchorPos);
+    dirLight.target.position.addScaledVector(_shadowRight, dx);
+    dirLight.target.position.addScaledVector(_shadowUp, dy);
+    dirLight.target.position.addScaledVector(_shadowSunDir, dz); // Apply depth snap
+
+    // Position the light exactly 4000 units behind the target (must be larger than frustum radius)
+    dirLight.position.copy(dirLight.target.position).addScaledVector(_shadowSunDir, 4000);
 
     moonLight.position.copy(moonMesh.position);
     skyGroup.position.copy(camera.position);
