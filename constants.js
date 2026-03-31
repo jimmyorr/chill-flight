@@ -17,7 +17,7 @@ const MAX_BANK_BOAT = 30 * Math.PI / 180;
 const MAX_BANK_HELI = 45 * Math.PI / 180;
 // Initial vehicle-aware speed calculation
 const savedInitVehicle = localStorage.getItem('chill_flight_vehicle') || 'airplane';
-const INITIAL_SPEED = savedInitVehicle === 'helicopter' ? (100 / 150) : (savedInitVehicle === 'boat' ? (50 / 150) : 1);
+const INITIAL_SPEED = savedInitVehicle === 'helicopter' ? (100 / 150) : (savedInitVehicle === 'boat' ? (25 / 150) : 1);
 
 let flightSpeedMultiplier = INITIAL_SPEED;
 

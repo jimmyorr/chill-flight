@@ -62,7 +62,7 @@ function setVehicle(type) {
     
     // Automatically adjust throttle for a natural feel on switch
     const heliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
-    const boatSpeed = 50 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
+    const boatSpeed = 25 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
     const airplaneSpeed = 1.0;
 
     if (typeof targetFlightSpeed !== 'undefined') {
