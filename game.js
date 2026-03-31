@@ -1730,11 +1730,15 @@ function animate() {
                 pontoonGroup.visible = true;
                 isDeployingPontoons = true;
             }
-            if (flightSpeedMultiplier > 0.5) {
-                flightSpeedMultiplier = THREE.MathUtils.lerp(flightSpeedMultiplier, 0.5, 0.015);
+            if (vehicleType === 'airplane') {
+                if (!keys.Shift) {
+                    // Apply water drag: smoothly reduce targetFlightSpeed to 0
+                    targetFlightSpeed = Math.max(0, targetFlightSpeed - (delta * 0.5));
+                }
+                // When on water, force neutral pitch/roll to ensure a level rest on water
+                targetPitch = THREE.MathUtils.lerp(targetPitch, 0, 0.05);
+                targetRoll = THREE.MathUtils.lerp(targetRoll, 0, 0.05);
             }
-            targetPitch = THREE.MathUtils.lerp(targetPitch, 0, 0.05);
-            targetRoll = THREE.MathUtils.lerp(targetRoll, 0, 0.05);
         }
     }
 
