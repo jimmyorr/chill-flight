@@ -4,7 +4,7 @@
   "description": "",
   "main": "airplane.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "for f in tests/*.test.js; do node \"$f\" || exit 1; done",
     "build": "mkdir -p www && cp *.html *.js *.css www/ && cp -r vendor www/vendor/",
     "build:tv": "npm run build && npx cap sync android"
   },
