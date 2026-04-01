@@ -27,6 +27,7 @@
     const WORLD_SEED = parseInt(getParam('seed', getTodaySeed()), 10);
     const THEME = getParam('theme', 'standard');
     const SHOW_CLOUDS = getParam('cloud', null) !== 'none';
+    const SHOW_OBJECTS = getParam('objects', null) !== 'none';
     const MAP_NAME = getParam('map', null);
     const PALETTE_INDEX = getParam('palette', null);
     const SCALE = parseFloat(getParam('scale', '1.0'));
@@ -466,6 +467,7 @@
     exports.urlParams = urlParams;
     exports.THEME = THEME;
     exports.SHOW_CLOUDS = SHOW_CLOUDS;
+    exports.SHOW_OBJECTS = SHOW_OBJECTS;
     exports.MAP_NAME = MAP_NAME;
     exports.PALETTE_INDEX = PALETTE_INDEX;
     exports.SCALE = SCALE;

@@ -10,6 +10,7 @@ const _initQualityForTerrain = localStorage.getItem('chill_flight_quality');
 const _isLowQualityInitial = _initQualityForTerrain && parseInt(_initQualityForTerrain) <= 20;
 
 const _enableBlockClouds = ChillFlightLogic.SHOW_CLOUDS;
+const _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
 
 
 // Materials for terrain
@@ -852,11 +853,13 @@ function generateChunk(chunkX, chunkZ) {
                 if (height <= sandMaxHeight) {
                     if (height <= WATER_LEVEL) {
                         hasWater = true;
-                        if (rng() < 0.0005 * densityScale) { // Very rare sailboat
-                            sailboatPositions.push({ x: localX, y: WATER_LEVEL, z: localZ, rotY: rng() * Math.PI * 2 });
-                        }
-                        if (snowFactor < 0.1 && desertFactor < 0.1 && getBiome(worldX, worldZ) > -0.15 && rng() < 0.015 * densityScale) {
-                            lilyPadPositions.push({ x: localX, y: WATER_LEVEL, z: localZ, rotY: rng() * Math.PI * 2 });
+                        if (_enableObjects) {
+                            if (rng() < 0.0005 * densityScale) { // Very rare sailboat
+                                sailboatPositions.push({ x: localX, y: WATER_LEVEL, z: localZ, rotY: rng() * Math.PI * 2 });
+                            }
+                            if (snowFactor < 0.1 && desertFactor < 0.1 && getBiome(worldX, worldZ) > -0.15 && rng() < 0.015 * densityScale) {
+                                lilyPadPositions.push({ x: localX, y: WATER_LEVEL, z: localZ, rotY: rng() * Math.PI * 2 });
+                            }
                         }
                         positions[i + 1] = height - 5;
                         _tempColorObj.copy(_colorSand);
@@ -933,7 +936,7 @@ function generateChunk(chunkX, chunkZ) {
             const isStandardLand = !isCustom && height > sandMaxHeight && height <= MOUNTAIN_LEVEL + (snowFactor > 0.5 ? -50 : 0);
             const isCustomLand = isCustom && height > WATER_LEVEL + 5.0 && height < 105.0;
 
-            if (isStandardLand || isCustomLand) {
+            if (_enableObjects && (isStandardLand || isCustomLand)) {
                 if (isForest) {
                     if (!isCustom) {
                         _tempColorObj.copy(_colorForest);
