@@ -115,22 +115,41 @@ function generateDynamicPalette(rng) {
     // HSL Hue in Three.js is 0.0 to 1.0 (0=Red, 0.33=Green, 0.66=Blue, 1.0=Red)
     // 0.5 to 0.85 covers Cyan -> Blue -> Purple -> Deep Pink
     const topHue = rand(0.5, 0.85);
+
+    // Pick Top Names based on Top Hue
+    let tNames;
+    if (topHue < 0.6) {
+        // Cyan/Teal
+        tNames = ["Stormy", "Deep", "Slate"];
+    } else if (topHue < 0.75) {
+        // Core Blue
+        tNames = ["Midnight", "Abyssal", "Deep", "Abyss"];
+    } else {
+        // Purple/Indigo
+        tNames = ["Twilight", "Cosmic", "Velvet", "Starry"];
+    }
+
     const topSat = rand(0.3, 0.7);   // Medium saturation so it isn't blindingly neon
     const topLight = rand(0.1, 0.35); // Keep it dark and moody
 
     // --- HORIZON (Bottom Color) ---
     // Lighter, brighter tones (sunsets, sunrises, mist).
     let bottomHue;
+    let bNames; // Name category for bottom
     const hueType = rng();
+
     if (hueType < 0.6) {
         // 60% chance: Warm sunset (Reds, Oranges, Yellows) -> 0.0 to 0.16
         bottomHue = rand(0.0, 0.16);
+        bNames = ["Amber", "Gold", "Peach", "Crimson", "Coral"];
     } else if (hueType < 0.8) {
         // 20% chance: Dawn pastels (Pinks, Magentas) -> 0.83 to 1.0
         bottomHue = rand(0.83, 1.0);
+        bNames = ["Rose", "Blush", "Velvet", "Dusty"];
     } else {
         // 20% chance: Icy/Clear morning (Light blues, cyans) -> 0.45 to 0.55
         bottomHue = rand(0.45, 0.55);
+        bNames = ["Azure", "Mist", "Icy", "Arctic", "Slate"];
     }
     
     const bottomSat = rand(0.5, 0.9);   // Higher saturation for vibrant horizons
@@ -140,13 +159,9 @@ function generateDynamicPalette(rng) {
     const topColor = new THREE.Color().setHSL(topHue, topSat, topLight);
     const bottomColor = new THREE.Color().setHSL(bottomHue, bottomSat, bottomLight);
 
-    // Procedural Naming (Visible in the debug menu!)
-    const topNames = ["Midnight", "Deep", "Twilight", "Stormy", "Cosmic", "Velvet", "Abyssal", "Slate"];
-    const bottomNames = ["Amber", "Coral", "Rose", "Gold", "Peach", "Crimson", "Azure", "Mist"];
-    
-    // Use the RNG again to pick names so they match for all players
-    const tName = topNames[Math.floor(rng() * topNames.length)];
-    const bName = bottomNames[Math.floor(rng() * bottomNames.length)];
+    // Use the RNG again to pick names from the narrowed categories
+    const tName = tNames[Math.floor(rng() * tNames.length)];
+    const bName = bNames[Math.floor(rng() * bNames.length)];
 
     return {
         name: `${tName} ${bName}`,
