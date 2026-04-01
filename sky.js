@@ -103,32 +103,57 @@ const skyFragmentShader = `
     }
 `;
 
-// --- ATMOSPHERE PALETTES ---
-const ATMOSPHERE_PALETTES = [
-    // 0: Warm sunset or sunrise tones with desaturated amber highlights
-    { name: "Golden Hour", top: 0x1a2e4c, bottom: 0xcc7a3d },
+// --- DYNAMIC ATMOSPHERE PALETTE GENERATOR ---
+// Replaces the static ATMOSPHERE_PALETTES array
 
-    // 1: High-latitude cold morning with bright, icy tones
-    { name: "Arctic Mist", top: 0x89f7fe, bottom: 0x66a6ff },
+function generateDynamicPalette(rng) {
+    // Helper to get random value between min and max using the seeded RNG
+    const rand = (min, max) => min + rng() * (max - min);
 
-    // 2: Soft, dusty desert sunset fading into a warm rose horizon
-    { name: "Dusty Mojave", top: 0x4a6b99, bottom: 0xdc9c76 },
+    // --- ZENITH (Top Color) ---
+    // Darker, deeper tones. We bias towards blues, purples, and deep slates.
+    // HSL Hue in Three.js is 0.0 to 1.0 (0=Red, 0.33=Green, 0.66=Blue, 1.0=Red)
+    // 0.5 to 0.85 covers Cyan -> Blue -> Purple -> Deep Pink
+    const topHue = rand(0.5, 0.85);
+    const topSat = rand(0.3, 0.7);   // Medium saturation so it isn't blindingly neon
+    const topLight = rand(0.1, 0.35); // Keep it dark and moody
 
-    // 3: Crisp, high-altitude deep blue sky turning to a soft azure
-    { name: "Alpine Clear", top: 0x0a2342, bottom: 0x8eb8e5 },
+    // --- HORIZON (Bottom Color) ---
+    // Lighter, brighter tones (sunsets, sunrises, mist).
+    let bottomHue;
+    const hueType = rng();
+    if (hueType < 0.6) {
+        // 60% chance: Warm sunset (Reds, Oranges, Yellows) -> 0.0 to 0.16
+        bottomHue = rand(0.0, 0.16);
+    } else if (hueType < 0.8) {
+        // 20% chance: Dawn pastels (Pinks, Magentas) -> 0.83 to 1.0
+        bottomHue = rand(0.83, 1.0);
+    } else {
+        // 20% chance: Icy/Clear morning (Light blues, cyans) -> 0.45 to 0.55
+        bottomHue = rand(0.45, 0.55);
+    }
+    
+    const bottomSat = rand(0.5, 0.9);   // Higher saturation for vibrant horizons
+    const bottomLight = rand(0.5, 0.8); // Much lighter than zenith
 
-    // 4: Moody, overcast evening with slate and steel gray tones
-    { name: "Storm Front", top: 0x404a59, bottom: 0x8f9aa1 },
+    // Convert our procedural HSL values to a standard Three.js hex color
+    const topColor = new THREE.Color().setHSL(topHue, topSat, topLight);
+    const bottomColor = new THREE.Color().setHSL(bottomHue, bottomSat, bottomLight);
 
-    // 5: Rich tropical twilight with deep violet overhead and a coral horizon
-    { name: "Tropical Dawn", top: 0x2c1b4d, bottom: 0xe27a5e },
+    // Procedural Naming (Visible in the debug menu!)
+    const topNames = ["Midnight", "Deep", "Twilight", "Stormy", "Cosmic", "Velvet", "Abyssal", "Slate"];
+    const bottomNames = ["Amber", "Coral", "Rose", "Gold", "Peach", "Crimson", "Azure", "Mist"];
+    
+    // Use the RNG again to pick names so they match for all players
+    const tName = topNames[Math.floor(rng() * topNames.length)];
+    const bName = bottomNames[Math.floor(rng() * bottomNames.length)];
 
-    // 6: Gentle pastel morning with soft lavender and pale pink
-    { name: "Lavender Morning", top: 0x645c84, bottom: 0xe2b6cf },
-
-    // 7: Cowneck
-    { name: "Cowneck", top: 0xb4aeb5, bottom: 0xff9542 }
-];
+    return {
+        name: `${tName} ${bName}`,
+        top: topColor.getHex(),
+        bottom: bottomColor.getHex()
+    };
+}
 
 // Standard parameters are handled by ChillFlightLogic
 let selectedPalette;
@@ -166,15 +191,20 @@ function updateSkyPalette(serverNow) {
         const isFirstLoad = (currentPaletteCycle === -1);
         currentPaletteCycle = cycleNumber;
 
+        let rng;
         if (isFirstLoad && ChillFlightLogic.PALETTE_INDEX !== null && !isNaN(parseInt(ChillFlightLogic.PALETTE_INDEX))) {
+            // If a user forces a specific palette index via URL, we use it as the RNG seed 
+            // so they get a deterministic custom palette.
             const paletteIndex = parseInt(ChillFlightLogic.PALETTE_INDEX);
-            selectedPalette = ATMOSPHERE_PALETTES[paletteIndex % ATMOSPHERE_PALETTES.length];
+            rng = ChillFlightLogic.mulberry32(paletteIndex);
         } else {
             // Seed the RNG with the world seed plus the cycle number,
-            // so every cycle (in-game day) gets a synchronized random palette.
-            const _paletteRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + cycleNumber);
-            selectedPalette = ATMOSPHERE_PALETTES[Math.floor(_paletteRng() * ATMOSPHERE_PALETTES.length)];
+            // so every cycle (in-game day) gets a synchronized random palette across the server.
+            rng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + cycleNumber);
         }
+
+        // Generate the colors!
+        selectedPalette = generateDynamicPalette(rng);
 
         console.log(`Atmosphere Palette Updated (Cycle ${cycleNumber}): ${selectedPalette.name}`);
 
