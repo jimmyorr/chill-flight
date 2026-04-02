@@ -10,7 +10,7 @@ const _initQualityForTerrain = localStorage.getItem('chill_flight_quality');
 const _isLowQualityInitial = _initQualityForTerrain && parseInt(_initQualityForTerrain) <= 20;
 
 const _enableBlockClouds = ChillFlightLogic.SHOW_CLOUDS;
-const _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
+let _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
 
 
 // Materials for terrain
@@ -1139,6 +1139,13 @@ function generateChunk(chunkX, chunkZ) {
             group.userData.water = waterMesh; // accessible for animation!
         }
 
+        // 1.6 Dedicated group for procedural objects (trees, houses, etc.)
+        // This allows for bulk toggling visibility via the debug menu.
+        const objectsGroup = new THREE.Group();
+        objectsGroup.visible = _enableObjects;
+        group.add(objectsGroup);
+        group.userData.objectsGroup = objectsGroup;
+
         // 2. Generate Trees
         const dummy = new THREE.Object3D();
 
@@ -1183,8 +1190,8 @@ function generateChunk(chunkX, chunkZ) {
 
             trunkInst.position.set(worldOffsetX, 0, worldOffsetZ);
             leavesInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(trunkInst);
-            group.add(leavesInst);
+            objectsGroup.add(trunkInst);
+            objectsGroup.add(leavesInst);
         };
 
         // Render variations — pass hex color so gradient lerps correctly from green → white
@@ -1208,7 +1215,7 @@ function generateChunk(chunkX, chunkZ) {
                 deadInst.setMatrixAt(index, dummy.matrix);
             });
             deadInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(deadInst);
+            objectsGroup.add(deadInst);
         }
 
 
@@ -1239,7 +1246,7 @@ function generateChunk(chunkX, chunkZ) {
                 });
 
                 rockInst.position.set(worldOffsetX, 0, worldOffsetZ);
-                group.add(rockInst);
+                objectsGroup.add(rockInst);
             }
         });
 
@@ -1255,7 +1262,7 @@ function generateChunk(chunkX, chunkZ) {
                 cactusInst.setMatrixAt(index, dummy.matrix);
             });
             cactusInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(cactusInst);
+            objectsGroup.add(cactusInst);
         }
 
         // 2.45 Generate Snowmen
@@ -1275,8 +1282,8 @@ function generateChunk(chunkX, chunkZ) {
 
             bodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
             noseInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(bodyInst);
-            group.add(noseInst);
+            objectsGroup.add(bodyInst);
+            objectsGroup.add(noseInst);
         }
 
         // 2.47 Generate Lily Pads
@@ -1293,7 +1300,7 @@ function generateChunk(chunkX, chunkZ) {
             });
 
             padInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(padInst);
+            objectsGroup.add(padInst);
         }
 
         // 2.48 Generate Bushes
@@ -1308,7 +1315,7 @@ function generateChunk(chunkX, chunkZ) {
                 bushInst.setMatrixAt(index, dummy.matrix);
             });
             bushInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(bushInst);
+            objectsGroup.add(bushInst);
         }
 
         // 2.5 Generate Houses
@@ -1337,8 +1344,8 @@ function generateChunk(chunkX, chunkZ) {
                 roofInsts[key] = new THREE.InstancedMesh(houseRoofGeo, houseRoofPalette[roofId], comboCounts[key]);
                 bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
                 roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
-                group.add(bodyInsts[key]);
-                group.add(roofInsts[key]);
+                objectsGroup.add(bodyInsts[key]);
+                objectsGroup.add(roofInsts[key]);
                 comboIndices[key] = 0;
             }
 
@@ -1356,7 +1363,7 @@ function generateChunk(chunkX, chunkZ) {
                 if (poolCounts[i] > 0) {
                     windowPools[i] = new THREE.InstancedMesh(houseWindowGeo, houseWindowMats[i], poolCounts[i] * 2);
                     windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
-                    group.add(windowPools[i]);
+                    objectsGroup.add(windowPools[i]);
                 }
             }
 
@@ -1409,8 +1416,8 @@ function generateChunk(chunkX, chunkZ) {
             });
             pagodaBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
             pagodaRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(pagodaBodyInst);
-            group.add(pagodaRoofInst);
+            objectsGroup.add(pagodaBodyInst);
+            objectsGroup.add(pagodaRoofInst);
         }
 
         // 2.61 Generate Barns (temperate plains)
@@ -1427,8 +1434,8 @@ function generateChunk(chunkX, chunkZ) {
             });
             barnBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
             barnRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(barnBodyInst);
-            group.add(barnRoofInst);
+            objectsGroup.add(barnBodyInst);
+            objectsGroup.add(barnRoofInst);
         }
 
         // 2.62 Generate Monasteries (rare, temperate highlands)
@@ -1445,8 +1452,8 @@ function generateChunk(chunkX, chunkZ) {
             });
             monasteryBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
             monasteryCapInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(monasteryBodyInst);
-            group.add(monasteryCapInst);
+            objectsGroup.add(monasteryBodyInst);
+            objectsGroup.add(monasteryCapInst);
         }
 
         // 2.63 Generate Castle Ruins (very rare, elevated terrain)
@@ -1460,7 +1467,7 @@ function generateChunk(chunkX, chunkZ) {
                 castleInst.setMatrixAt(i, dummy.matrix);
             });
             castleInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(castleInst);
+            objectsGroup.add(castleInst);
         }
 
         // 2.7 Generate Windmills
@@ -1491,8 +1498,8 @@ function generateChunk(chunkX, chunkZ) {
 
             baseInst.position.set(worldOffsetX, 0, worldOffsetZ);
             bladesInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(baseInst);
-            group.add(bladesInst);
+            objectsGroup.add(baseInst);
+            objectsGroup.add(bladesInst);
 
             // Store blade info for animation
             group.userData.windmillBlades = bladesInst;
@@ -1528,7 +1535,7 @@ function generateChunk(chunkX, chunkZ) {
             const pieces = [piece1Inst, piece2Inst, piece3Inst, topInst];
             pieces.forEach(p => {
                 p.position.set(worldOffsetX, 0, worldOffsetZ);
-                group.add(p);
+                objectsGroup.add(p);
             });
 
             // Beam
@@ -1536,7 +1543,7 @@ function generateChunk(chunkX, chunkZ) {
             beam.position.set(pos.x + worldOffsetX, pos.y + 65, pos.z + worldOffsetZ);
             beam.rotation.y = pos.rotY;
             beam.rotation.x = 0.15; // Tilt slightly downward community
-            group.add(beam);
+            objectsGroup.add(beam);
             group.userData.lighthouseBeam = beam;
 
             // Functional Light (SpotLight)
@@ -1548,8 +1555,8 @@ function generateChunk(chunkX, chunkZ) {
                 pos.y + 65 - 15, // Aim lower community
                 pos.z + worldOffsetZ + Math.cos(pos.rotY) * 100
             );
-            group.add(spotLight);
-            group.add(spotLight.target);
+            objectsGroup.add(spotLight);
+            objectsGroup.add(spotLight.target);
             group.userData.lighthouseLight = spotLight;
             group.userData.lighthouseTarget = spotLight.target;
         }
@@ -1578,8 +1585,8 @@ function generateChunk(chunkX, chunkZ) {
 
             deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
             postInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(deckInst);
-            group.add(postInst);
+            objectsGroup.add(deckInst);
+            objectsGroup.add(postInst);
         }
 
         // 2.96 Generate Campfires
@@ -1629,10 +1636,10 @@ function generateChunk(chunkX, chunkZ) {
             coreInst.position.set(worldOffsetX, 0, worldOffsetZ);
             smokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
             tentInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(logInst);
-            group.add(coreInst);
-            group.add(smokeInst);
-            group.add(tentInst);
+            objectsGroup.add(logInst);
+            objectsGroup.add(coreInst);
+            objectsGroup.add(smokeInst);
+            objectsGroup.add(tentInst);
 
             group.userData.campfires = coreInst;
             group.userData.campfireSmoke = smokeInst;
@@ -1659,7 +1666,7 @@ function generateChunk(chunkX, chunkZ) {
             });
 
             chimneySmokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(chimneySmokeInst);
+            objectsGroup.add(chimneySmokeInst);
 
             group.userData.chimneySmoke = chimneySmokeInst;
             group.userData.chimneySmokePositions = chimneySmokePositions;
@@ -1684,9 +1691,9 @@ function generateChunk(chunkX, chunkZ) {
             hullInst.position.set(worldOffsetX, 0, worldOffsetZ);
             mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
             sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(hullInst);
-            group.add(mastInst);
-            group.add(sailInst);
+            objectsGroup.add(hullInst);
+            objectsGroup.add(mastInst);
+            objectsGroup.add(sailInst);
         }
 
         // 3. Generate Clouds
@@ -1781,7 +1788,7 @@ function generateChunk(chunkX, chunkZ) {
             hawk.userData.flapPhase = 0;
             hawk.userData.flapSpeed = 2;
 
-            group.add(hawk);
+            objectsGroup.add(hawk);
             group.userData.birds.push(hawk);
         }
 
@@ -1855,3 +1862,21 @@ function updateChunks() {
         }
     });
 }
+function toggleProceduralObjects(enabled) {
+    _enableObjects = enabled;
+    ChillFlightLogic.setShowObjects(enabled);
+    
+    // Update all existing chunks
+    chunks.forEach(group => {
+        if (group.userData.objectsGroup) {
+            group.userData.objectsGroup.visible = enabled;
+        }
+    });
+
+    // Update debug menu UI if it exists
+    const toggle = document.getElementById('debug-objects-toggle');
+    if (toggle) toggle.checked = enabled;
+}
+
+// Global expose
+window.toggleProceduralObjects = toggleProceduralObjects;

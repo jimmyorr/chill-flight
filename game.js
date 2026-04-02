@@ -661,6 +661,17 @@ if (seedInput) {
     });
 }
 
+// Procedural Objects toggle
+const objectsToggle = document.getElementById('debug-objects-toggle');
+if (objectsToggle) {
+    objectsToggle.checked = ChillFlightLogic.SHOW_OBJECTS;
+    objectsToggle.addEventListener('change', (e) => {
+        if (typeof window.toggleProceduralObjects === 'function') {
+            window.toggleProceduralObjects(e.target.checked);
+        }
+    });
+}
+
 // --- MOBILE UI ADJUSTMENTS ---
 if (window.innerWidth <= 1024) {
     const cockpitUI = document.getElementById('cockpit-ui');
