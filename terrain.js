@@ -1745,7 +1745,8 @@ function generateChunk(chunkX, chunkZ) {
                 cloudInst.setMatrixAt(index, dummy.matrix);
             });
             cloudInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(cloudInst);
+            objectsGroup.add(cloudInst);
+
 
             // Save data for the animate loop to drift them
             group.userData.cloudInst = cloudInst;
