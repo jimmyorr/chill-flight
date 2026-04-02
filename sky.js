@@ -143,8 +143,8 @@ function generateDynamicPalette(rng) {
         bottomHue = rand(0.0, 0.16);
         bNames = ["Amber", "Gold", "Peach", "Crimson", "Coral"];
     } else if (hueType < 0.8) {
-        // 20% chance: Dawn pastels (Pinks, Magentas) -> 0.83 to 1.0
-        bottomHue = rand(0.83, 1.0);
+        // 20% chance: Dawn pastels (soft Pinks, Roses) -> 0.92 to 0.99
+        bottomHue = rand(0.92, 0.99);
         bNames = ["Rose", "Blush", "Velvet", "Dusty"];
     } else {
         // 20% chance: Icy/Clear morning (Light blues, cyans) -> 0.45 to 0.55
@@ -152,8 +152,8 @@ function generateDynamicPalette(rng) {
         bNames = ["Azure", "Mist", "Icy", "Arctic", "Slate"];
     }
     
-    const bottomSat = rand(0.5, 0.9);   // Higher saturation for vibrant horizons
-    const bottomLight = rand(0.5, 0.8); // Much lighter than zenith
+    const bottomSat = rand(0.35, 0.65);  // Moderate saturation for natural horizons
+    const bottomLight = rand(0.55, 0.75); // Lighter than zenith but not washed out
 
     // Convert our procedural HSL values to a standard Three.js hex color
     const topColor = new THREE.Color().setHSL(topHue, topSat, topLight);
