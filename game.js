@@ -561,8 +561,9 @@ if (qualitySelect) {
         localStorage.setItem('chill_flight_quality', SEGMENTS);
         console.log(`Quality changed: SEGMENTS = ${SEGMENTS}`);
 
-        // Update pixel ratio dynamically: force 1:1 on low mode to save GPU performance
-        renderer.setPixelRatio(SEGMENTS <= 20 ? 1 : Math.min(window.devicePixelRatio, 2));
+        // Update pixel ratio dynamically: respect resolution scale and force 1:1 on low mode to save GPU performance
+        const resScale = parseFloat(localStorage.getItem('chill_flight_res_scale') || '1.0');
+        renderer.setPixelRatio(SEGMENTS <= 20 ? resScale : Math.min(window.devicePixelRatio, 2) * resScale);
 
         // Toggle sky clouds dynamically: disable expensive fBm on low mode
         if (typeof skyUniforms !== 'undefined') {
@@ -716,6 +717,51 @@ if (savedDistance) {
     RENDER_DISTANCE = parseInt(savedDistance);
     if (distanceSelect) distanceSelect.value = savedDistance;
 }
+
+// --- PERFORMANCE SETTINGS ---
+let maxFPS = 60;
+let frameMinDelay = 1000 / 60;
+let lastFrameTime = 0;
+
+const savedFPS = localStorage.getItem('chill_flight_fps');
+if (savedFPS !== null) {
+    maxFPS = parseInt(savedFPS);
+    frameMinDelay = maxFPS > 0 ? 1000 / maxFPS : 0;
+    const fpsSelectEl = document.getElementById('fps-select');
+    if (fpsSelectEl) fpsSelectEl.value = savedFPS;
+}
+
+const fpsSelectEl = document.getElementById('fps-select');
+if (fpsSelectEl) {
+    fpsSelectEl.addEventListener('change', (e) => {
+        maxFPS = parseInt(e.target.value);
+        frameMinDelay = maxFPS > 0 ? 1000 / maxFPS : 0;
+        localStorage.setItem('chill_flight_fps', maxFPS);
+    });
+}
+
+let resolutionScale = 1.0;
+const savedRes = localStorage.getItem('chill_flight_res_scale');
+if (savedRes !== null) {
+    resolutionScale = parseFloat(savedRes);
+    const resSelectEl = document.getElementById('resolution-select');
+    if (resSelectEl) resSelectEl.value = savedRes;
+}
+
+const resSelectEl = document.getElementById('resolution-select');
+if (resSelectEl) {
+    resSelectEl.addEventListener('change', (e) => {
+        const valStr = e.target.value;
+        resolutionScale = parseFloat(valStr);
+        localStorage.setItem('chill_flight_res_scale', valStr);
+        
+        // Update pixel ratio dynamically
+        renderer.setPixelRatio(SEGMENTS <= 20 ? resolutionScale : Math.min(window.devicePixelRatio, 2) * resolutionScale);
+    });
+}
+
+// Apply initial pixel ratio correctly
+renderer.setPixelRatio(SEGMENTS <= 20 ? resolutionScale : Math.min(window.devicePixelRatio, 2) * resolutionScale);
 
 
 // Setup timeOfDay before chunk gen
@@ -1075,6 +1121,16 @@ const _worldUp = new THREE.Vector3(0, 1, 0);
 function animate() {
     const frameStartTime = performance.now(); // Start CPU timer
     requestAnimationFrame(animate);
+
+    // --- FPS CAPPING ---
+    if (maxFPS > 0) {
+        const timeSinceLastFrame = frameStartTime - lastFrameTime;
+        if (timeSinceLastFrame < frameMinDelay - 1) { // 1ms buffer for vsync jitter
+            return;
+        }
+    }
+    lastFrameTime = frameStartTime;
+
     const now = performance.now();
     let delta = clock.getDelta();
     if (delta > 0.1) delta = 0.1; // Cap at 100ms to prevent logic blowouts
@@ -1351,7 +1407,7 @@ function animate() {
             targetRoll = -effMouseX * (maxRoll * 1.25);
         }
 
-        manualPitch = THREE.MathUtils.lerp(manualPitch, 0, 0.1);
+        manualPitch = THREE.MathUtils.lerp(manualPitch, 0, 0.1 * delta * 60);
 
         if ((keys.Shift && vehicleType !== 'helicopter') || vehicleType === 'boat') {
             // Throttle already handled above; no pitch changes while Shift is held or if boat
@@ -1462,7 +1518,7 @@ function animate() {
             } else if (isDown && dtDown && (nowTime - startDown > STEER_HOLD_THRESHOLD) && !keys.Shift) {
                 // Double-tap down and hold: steep dive
                 const targetDive = -(Math.PI * 70) / 180; // 70 degrees
-                planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, targetDive, 0.05);
+                planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, targetDive, 0.05 * delta * 60);
                 isLooping = true;
             }
         }
@@ -1524,20 +1580,19 @@ function animate() {
         const finalTargetPitch = targetPitch + manualPitch;
         while (planeGroup.rotation.x > finalTargetPitch + Math.PI) planeGroup.rotation.x -= 2 * Math.PI;
         while (planeGroup.rotation.x < finalTargetPitch - Math.PI) planeGroup.rotation.x += 2 * Math.PI;
-        planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, finalTargetPitch, TURN_SPEED);
+        planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, finalTargetPitch, TURN_SPEED * delta * 60);
     }
-
     if (!isBarrelRolling) {
         while (planeGroup.rotation.z > targetRoll + Math.PI) planeGroup.rotation.z -= 2 * Math.PI;
         while (planeGroup.rotation.z < targetRoll - Math.PI) planeGroup.rotation.z += 2 * Math.PI;
-        planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, targetRoll, TURN_SPEED);
+        planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, targetRoll, TURN_SPEED * delta * 60);
     }
 
     // --- FLIGHT PHYSICS & SPEED ---
     if (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0) {
         let turningRoll = (isBarrelRolling && !isClampedRoll) ? targetRoll : planeGroup.rotation.z;
         const turnFactor = vehicleType === 'boat' ? 0.08 : 0.025; // Boat turns sharper since it banks less
-        planeGroup.rotation.y += turningRoll * turnFactor;
+        planeGroup.rotation.y += turningRoll * turnFactor * delta * 60;
 
         // --- GRAVITY ACCELERATION/DECELERATION ---
         // Nose down = gain speed, Nose up = lose speed
@@ -1624,7 +1679,7 @@ function animate() {
 
     if (vehicleType === 'airplane') {
         if (moveSpeedFactor > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
             verticalVelocity = 0; // Reset gravity accumulation while flying normally
 
             // Low speed stall/sink mechanics
@@ -1641,7 +1696,7 @@ function animate() {
         if (isUpAlt) targetLiftSpeed = 80;
         else if (isDownAlt) targetLiftSpeed = -80;
 
-        verticalVelocity = THREE.MathUtils.lerp(verticalVelocity, targetLiftSpeed, 0.05);
+        verticalVelocity = THREE.MathUtils.lerp(verticalVelocity, targetLiftSpeed, 0.05 * delta * 60);
 
         if (Math.abs(verticalVelocity) > 0.1) {
             planeGroup.position.y += verticalVelocity * delta;
@@ -1661,23 +1716,23 @@ function animate() {
         if (strafeLeft) targetHeliStrafe = -1.0;
         else if (strafeRight) targetHeliStrafe = 1.0;
 
-        window._heliMoveSpeed = THREE.MathUtils.lerp(window._heliMoveSpeed || 0, targetHeliMove, 0.05);
-        window._heliStrafeSpeed = THREE.MathUtils.lerp(window._heliStrafeSpeed || 0, targetHeliStrafe, 0.05);
+        window._heliMoveSpeed = THREE.MathUtils.lerp(window._heliMoveSpeed || 0, targetHeliMove, 0.05 * delta * 60);
+        window._heliStrafeSpeed = THREE.MathUtils.lerp(window._heliStrafeSpeed || 0, targetHeliStrafe, 0.05 * delta * 60);
 
         if (Math.abs(window._heliMoveSpeed) > 0.01 || Math.abs(window._heliStrafeSpeed) > 0.01) {
             const savedX = planeGroup.rotation.x;
             const savedZ = planeGroup.rotation.z;
             planeGroup.rotation.x = 0;
             planeGroup.rotation.z = 0;
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * window._heliMoveSpeed));
-            planeGroup.translateX(BASE_FLIGHT_SPEED * window._heliStrafeSpeed);
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * window._heliMoveSpeed * delta * 60));
+            planeGroup.translateX(BASE_FLIGHT_SPEED * window._heliStrafeSpeed * delta * 60);
             planeGroup.rotation.x = savedX;
             planeGroup.rotation.z = savedZ;
         }
     } else if (vehicleType === 'boat') {
         // Apply forward/backward movement
         if (Math.abs(moveSpeedFactor) > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
         }
     }
 
@@ -1702,7 +1757,7 @@ function animate() {
 
         // Keep drifting forward if there is residual speed
         if (Math.abs(moveSpeedFactor) > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
         }
     } else if (planeGroup.position.y <= restingHeight + 0.1) {
         // Grounded — rest flat peacefully, kill vertical velocity
@@ -1714,12 +1769,12 @@ function animate() {
         while (planeGroup.rotation.z > Math.PI) planeGroup.rotation.z -= 2 * Math.PI;
         while (planeGroup.rotation.z < -Math.PI) planeGroup.rotation.z += 2 * Math.PI;
 
-        planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, 0, 0.05);
-        planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, 0, 0.05);
-        planeGroup.position.y = THREE.MathUtils.lerp(planeGroup.position.y, restingHeight, 0.1); // Smooth landing
+        planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, 0, 0.05 * delta * 60);
+        planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, 0, 0.05 * delta * 60);
+        planeGroup.position.y = THREE.MathUtils.lerp(planeGroup.position.y, restingHeight, 0.1 * delta * 60); // Smooth landing
 
         if (Math.abs(moveSpeedFactor) > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor));
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
         }
     }
 
@@ -1747,8 +1802,8 @@ function animate() {
                     targetFlightSpeed = Math.max(0, targetFlightSpeed - (delta * 0.5));
                 }
                 // When on water, force neutral pitch/roll to ensure a level rest on water
-                targetPitch = THREE.MathUtils.lerp(targetPitch, 0, 0.05);
-                targetRoll = THREE.MathUtils.lerp(targetRoll, 0, 0.05);
+                targetPitch = THREE.MathUtils.lerp(targetPitch, 0, 0.05 * delta * 60);
+                targetRoll = THREE.MathUtils.lerp(targetRoll, 0, 0.05 * delta * 60);
             }
         }
     }
@@ -1783,7 +1838,7 @@ function animate() {
     // FOV expands with speed AND dive/loop steepness, capped at 70 to avoid excessive distortion
     // We use a smoothed factor to prevent "jumping" when entering loops
     const maneuverFactor = Math.max(diveFactor, isLooping ? 3.0 : 0);
-    smoothedManeuverFactor = THREE.MathUtils.lerp(smoothedManeuverFactor, maneuverFactor, 0.05);
+    smoothedManeuverFactor = THREE.MathUtils.lerp(smoothedManeuverFactor, maneuverFactor, 0.05 * delta * 60);
 
     const baseFov = THREE.MathUtils.lerp(60, 85, speedFactor);
     const targetFov = Math.min(70, baseFov + (smoothedManeuverFactor * 15 * Math.min(1, flightSpeedMultiplier / 2)));
@@ -1970,7 +2025,7 @@ function animate() {
     if (cameraMode === 'birds-eye-close') targetBirdEyeHeight = 500;
     if (cameraMode === 'birds-eye-ultra') targetBirdEyeHeight = 5000;
 
-    currentBirdEyeHeight = THREE.MathUtils.lerp(currentBirdEyeHeight, targetBirdEyeHeight, 0.05);
+    currentBirdEyeHeight = THREE.MathUtils.lerp(currentBirdEyeHeight, targetBirdEyeHeight, 0.05 * delta * 60);
 
     // Cubic ease-in for the "swoop up" drama: t^3
     // This makes it start slow and accelerate significantly towards the top-down view.
@@ -2005,8 +2060,8 @@ function animate() {
         // Smoothen the switches between cinematic offsets
         const hasOffsetJumped = _cinematicOffsetCurrent.distanceToSquared(cinematicConfig.offset) > 0.001;
         if (hasOffsetJumped) {
-            _cinematicOffsetCurrent.lerp(cinematicConfig.offset, 0.02);
-            _cinematicLookTargetCurrent.lerp(cinematicConfig.lookOffset, 0.02);
+            _cinematicOffsetCurrent.lerp(cinematicConfig.offset, 0.02 * delta * 60);
+            _cinematicLookTargetCurrent.lerp(cinematicConfig.lookOffset, 0.02 * delta * 60);
         }
 
         // Optimize: Only recalculate matrix if plane has moved or rotated, or if offset is still transitioning
@@ -2017,7 +2072,7 @@ function animate() {
                               Math.abs(_cinematicStableMatrix.elements[14] - planeGroup.position.z) > 0.1;
 
         if (rotationChanged || positionChanged || hasOffsetJumped) {
-            _cinematicStableHeading = ChillFlightLogic.lerpAngle(_cinematicStableHeading, planeGroup.rotation.y, 0.05);
+            _cinematicStableHeading = ChillFlightLogic.lerpAngle(_cinematicStableHeading, planeGroup.rotation.y, 0.05 * delta * 60);
             _cinematicStableQuat.setFromAxisAngle(_yAxis, _cinematicStableHeading);
             _cinematicStableMatrix.makeRotationFromQuaternion(_cinematicStableQuat);
             _cinematicStableMatrix.setPosition(planeGroup.position);
@@ -2044,7 +2099,7 @@ function animate() {
         targetBlendedFov = THREE.MathUtils.lerp(followFov, topDownFov, easedT);
     }
 
-    camera.fov = THREE.MathUtils.lerp(camera.fov, targetBlendedFov, 0.1);
+    camera.fov = THREE.MathUtils.lerp(camera.fov, targetBlendedFov, 0.1 * delta * 60);
     camera.updateProjectionMatrix();
 
     // 5. Blend Positions & Targets
@@ -2059,9 +2114,9 @@ function animate() {
     }
 
     // Apply smooth tracking to the results
-    camera.position.lerp(_idealCameraPos, 0.15);
-    _currentLookTarget.lerp(_idealLookTarget, 0.15);
-    camera.up.lerp(_idealUp, 0.1).normalize();
+    camera.position.lerp(_idealCameraPos, 0.15 * delta * 60);
+    _currentLookTarget.lerp(_idealLookTarget, 0.15 * delta * 60);
+    camera.up.lerp(_idealUp, 0.1 * delta * 60).normalize();
 
     camera.lookAt(_currentLookTarget);
 
