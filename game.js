@@ -1850,158 +1850,6 @@ function animate() {
     const pullBack = smoothedManeuverFactor * 20 * Math.min(1, flightSpeedMultiplier / 2);
     _cameraOffset.set(0, yOffset, zOffset + pullBack);
 
-    // Update Debug Telemetry
-    if (debugMenu.style.display === 'block') {
-        updateDOM(document.getElementById('debug-fov'), Math.round(camera.fov));
-        updateDOM(document.getElementById('debug-pullback'), Math.round(pullBack));
-        updateDOM(document.getElementById('debug-pitch'), Math.round(planeGroup.rotation.x * 180 / Math.PI));
-        updateDOM(document.getElementById('debug-palette'), selectedPalette.name);
-        updateDOM(document.getElementById('debug-speed-mult'), flightSpeedMultiplier.toFixed(2));
-        updateDOM(document.getElementById('debug-day-speed'), daySpeedMultiplier.toFixed(1));
-
-        updateDOM(document.getElementById('debug-target-speed'), targetFlightSpeed.toFixed(2));
-        updateDOM(document.getElementById('debug-maneuver'), smoothedManeuverFactor.toFixed(2));
-        updateDOM(document.getElementById('debug-world-x'), Math.round(planeGroup.position.x));
-        updateDOM(document.getElementById('debug-world-y'), Math.round(planeGroup.position.y));
-        updateDOM(document.getElementById('debug-world-z'), Math.round(planeGroup.position.z));
-
-        // Weather Telemetry
-        const oc = (window._currentOvercast || 0);
-        updateDOM(document.getElementById('debug-overcast'), oc.toFixed(2));
-        updateDOM(document.getElementById('debug-storm-noise'), (window._weatherDebug ? window._weatherDebug.stormNoise.toFixed(2) : '-'));
-        updateDOM(document.getElementById('debug-precip'), (snowParticles && rainParticles ? Math.max(snowParticles.material.opacity / 0.8, rainParticles.material.opacity / 0.5).toFixed(2) : '-'));
-        updateDOM(document.getElementById('debug-climate-zone'), (window._weatherDebug ? window._weatherDebug.zone : '-'));
-        updateDOM(document.getElementById('debug-snow-opacity'), (snowParticles ? snowParticles.material.opacity.toFixed(2) : '-'));
-        updateDOM(document.getElementById('debug-rain-opacity'), (rainParticles ? rainParticles.material.opacity.toFixed(2) : '-'));
-        updateDOM(document.getElementById('debug-fog-density'), scene.fog.density.toFixed(5));
-        updateDOM(document.getElementById('debug-weather-mode'), weatherType);
-
-
-        // Helper function for performance color coding
-        function getPerfColor(val, warnThresh, critThresh) {
-            if (val >= critThresh) return '#ff4444'; // Red
-            if (val >= warnThresh) return '#ffeb3b'; // Yellow
-            return ''; // Default (inherits from CSS)
-        }
-
-        // Performance Telemetry
-        const frameEndTime = performance.now();
-        const cpuMs = frameEndTime - frameStartTime;
-        const cpuMsEl = document.getElementById('debug-cpu-ms');
-        if (cpuMsEl) {
-            updateDOM(cpuMsEl, cpuMs.toFixed(1));
-            // Warn at 24ms, Critical at 32ms (stuttering on 30fps cap)
-            cpuMsEl.style.color = getPerfColor(cpuMs, 24, 32); 
-        }
-
-
-        const heapEl = document.getElementById('debug-heap');
-        if (heapEl) {
-            if (performance.memory) {
-                const heapMb = performance.memory.usedJSHeapSize / 1048576;
-                updateDOM(heapEl, heapMb.toFixed(1));
-                // Warn at 150MB, Critical at 250MB
-                heapEl.style.color = getPerfColor(heapMb, 150, 250);
-            } else {
-                updateDOM(heapEl, "N/A");
-                heapEl.style.color = '';
-            }
-        }
-
-
-        if (renderer && renderer.info) {
-            const calls = renderer.info.render.calls;
-            const tris = renderer.info.render.triangles;
-            const geos = renderer.info.memory.geometries;
-            const texs = renderer.info.memory.textures;
-
-            const drawCallsEl = document.getElementById('debug-draw-calls');
-            if (drawCallsEl) {
-                updateDOM(drawCallsEl, calls);
-                // Baseline is ~600. Warn at 800, Critical at 1200.
-                drawCallsEl.style.color = getPerfColor(calls, 800, 1200); 
-            }
-
-            const trianglesEl = document.getElementById('debug-triangles');
-            if (trianglesEl) {
-                updateDOM(trianglesEl, tris);
-                // Warn at 800k, Critical at 1.5M
-                trianglesEl.style.color = getPerfColor(tris, 800000, 1500000); 
-            }
-
-            const geometriesEl = document.getElementById('debug-geometries');
-            if (geometriesEl) {
-                updateDOM(geometriesEl, geos);
-                // Baseline is ~100. Warn at 150, Critical at 250.
-                geometriesEl.style.color = getPerfColor(geos, 150, 250); 
-            }
-
-            const texturesEl = document.getElementById('debug-textures');
-            if (texturesEl) {
-                updateDOM(texturesEl, texs);
-                // Warn at 15, Critical at 30
-                texturesEl.style.color = getPerfColor(texs, 15, 30); 
-            }
-
-        }
-
-        // Update Counters
-        let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0;
-        let totalHouses = 0, totalClouds = 0, totalRocks = 0, totalBushes = 0;
-        let totalSnowmen = 0, totalCactus = 0, totalLighthouses = 0, totalCastles = 0, totalChunks = 0;
-        let totalWindmills = 0, totalCampfires = 0;
-        let totalBoats = 0, totalLilyPads = 0, totalPiers = 0, totalBirds = 0;
-        const objectsVisible = ChillFlightLogic.SHOW_OBJECTS;
-        chunks.forEach(chunkGroup => {
-            if (chunkGroup.userData.counts) {
-                totalChunks += 1;
-                if (objectsVisible) {
-                    totalTreesPine += chunkGroup.userData.counts.trees_pine || 0;
-                    totalTreesDecid += chunkGroup.userData.counts.trees_decid || 0;
-                    totalTreesPalm += chunkGroup.userData.counts.trees_palm || 0;
-                    totalTreesDead += chunkGroup.userData.counts.trees_dead || 0;
-                    totalTreesAutumn += chunkGroup.userData.counts.trees_autumn || 0;
-                    totalTreesCherry += chunkGroup.userData.counts.trees_cherry || 0;
-                    totalHouses += chunkGroup.userData.counts.houses;
-                    totalClouds += chunkGroup.userData.counts.clouds;
-                    totalRocks += chunkGroup.userData.counts.rocks;
-                    totalBushes += chunkGroup.userData.counts.bushes;
-                    totalSnowmen += chunkGroup.userData.counts.snowmen || 0;
-                    totalCactus += chunkGroup.userData.counts.cactus || 0;
-                    totalLighthouses += chunkGroup.userData.counts.lighthouses || 0;
-                    totalCastles += chunkGroup.userData.counts.castles || 0;
-                    totalWindmills += chunkGroup.userData.counts.windmills || 0;
-                    totalCampfires += chunkGroup.userData.counts.campfires || 0;
-                    totalBoats += chunkGroup.userData.counts.boats || 0;
-                    totalLilyPads += chunkGroup.userData.counts.lily_pads || 0;
-                    totalPiers += chunkGroup.userData.counts.piers || 0;
-                    totalBirds += chunkGroup.userData.counts.birds || 0;
-                }
-            }
-        });
-        updateDOM(document.getElementById('debug-chunks'), totalChunks);
-        updateDOM(document.getElementById('debug-trees-pine'), totalTreesPine);
-        updateDOM(document.getElementById('debug-trees-decid'), totalTreesDecid);
-        updateDOM(document.getElementById('debug-trees-palm'), totalTreesPalm);
-        updateDOM(document.getElementById('debug-trees-dead'), totalTreesDead);
-        updateDOM(document.getElementById('debug-trees-autumn'), totalTreesAutumn);
-        updateDOM(document.getElementById('debug-trees-cherry'), totalTreesCherry);
-        updateDOM(document.getElementById('debug-houses'), totalHouses);
-        updateDOM(document.getElementById('debug-clouds'), totalClouds);
-        updateDOM(document.getElementById('debug-rocks'), totalRocks);
-        updateDOM(document.getElementById('debug-bushes'), totalBushes);
-        updateDOM(document.getElementById('debug-snowmen'), totalSnowmen);
-        updateDOM(document.getElementById('debug-cactus'), totalCactus);
-        updateDOM(document.getElementById('debug-lighthouses'), totalLighthouses);
-        updateDOM(document.getElementById('debug-castles'), totalCastles);
-        updateDOM(document.getElementById('debug-windmills'), totalWindmills);
-        updateDOM(document.getElementById('debug-campfires'), totalCampfires);
-        updateDOM(document.getElementById('debug-boats'), totalBoats);
-        updateDOM(document.getElementById('debug-lily-pads'), totalLilyPads);
-        updateDOM(document.getElementById('debug-piers'), totalPiers);
-        updateDOM(document.getElementById('debug-birds'), totalBirds);
-
-    }
 
     // Add subtle camera vibration at high speeds/steep dives
     if (flightSpeedMultiplier > 4.0 && diveFactor > 0.5) {
@@ -2534,7 +2382,153 @@ function animate() {
     if (window.innerWidth > 768 && now - lastPlayerListUpdate > 500) {
         updatePlayerList();
         lastPlayerListUpdate = now;
+}
+
+// Update Debug Telemetry (at the very end of frame)
+if (debugMenu && debugMenu.style.display === 'block') {
+    const pullBackVal = smoothedManeuverFactor * 20 * Math.min(1, flightSpeedMultiplier / 2); // Re-calculate or pass from earlier
+    updateDOM(document.getElementById('debug-fov'), Math.round(camera.fov));
+    updateDOM(document.getElementById('debug-pullback'), Math.round(pullBackVal));
+    updateDOM(document.getElementById('debug-pitch'), Math.round(planeGroup.rotation.x * 180 / Math.PI));
+    updateDOM(document.getElementById('debug-palette'), selectedPalette.name);
+    updateDOM(document.getElementById('debug-speed-mult'), flightSpeedMultiplier.toFixed(2));
+    updateDOM(document.getElementById('debug-day-speed'), daySpeedMultiplier.toFixed(1));
+
+    updateDOM(document.getElementById('debug-target-speed'), targetFlightSpeed.toFixed(2));
+    updateDOM(document.getElementById('debug-maneuver'), smoothedManeuverFactor.toFixed(2));
+    updateDOM(document.getElementById('debug-world-x'), Math.round(planeGroup.position.x));
+    updateDOM(document.getElementById('debug-world-y'), Math.round(planeGroup.position.y));
+    updateDOM(document.getElementById('debug-world-z'), Math.round(planeGroup.position.z));
+
+    // Weather Telemetry
+    const oc = (window._currentOvercast || 0);
+    updateDOM(document.getElementById('debug-overcast'), oc.toFixed(2));
+    updateDOM(document.getElementById('debug-storm-noise'), (window._weatherDebug ? window._weatherDebug.stormNoise.toFixed(2) : '-'));
+    updateDOM(document.getElementById('debug-precip'), (snowParticles && rainParticles ? Math.max(snowParticles.material.opacity / 0.8, rainParticles.material.opacity / 0.5).toFixed(2) : '-'));
+    updateDOM(document.getElementById('debug-climate-zone'), (window._weatherDebug ? window._weatherDebug.zone : '-'));
+    updateDOM(document.getElementById('debug-snow-opacity'), (snowParticles ? snowParticles.material.opacity.toFixed(2) : '-'));
+    updateDOM(document.getElementById('debug-rain-opacity'), (rainParticles ? rainParticles.material.opacity.toFixed(2) : '-'));
+    updateDOM(document.getElementById('debug-fog-density'), scene.fog.density.toFixed(5));
+    updateDOM(document.getElementById('debug-weather-mode'), weatherType);
+
+    // Helper function for performance color coding
+    function getPerfColor(val, warnThresh, critThresh) {
+        if (val >= critThresh) return '#ff4444'; // Red
+        if (val >= warnThresh) return '#ffeb3b'; // Yellow
+        return ''; // Default (inherits from CSS)
     }
+
+    // Performance Telemetry
+    const frameEndTime = performance.now();
+    const cpuMs = frameEndTime - frameStartTime;
+    const cpuMsEl = document.getElementById('debug-cpu-ms');
+    if (cpuMsEl) {
+        updateDOM(cpuMsEl, cpuMs.toFixed(1));
+        // Warn at 24ms, Critical at 32ms (stuttering on 30fps cap)
+        cpuMsEl.style.color = getPerfColor(cpuMs, 24, 32); 
+    }
+
+    const heapEl = document.getElementById('debug-heap');
+    if (heapEl) {
+        if (performance.memory) {
+            const heapMb = performance.memory.usedJSHeapSize / 1048576;
+            updateDOM(heapEl, heapMb.toFixed(1));
+            // Warn at 150MB, Critical at 250MB
+            heapEl.style.color = getPerfColor(heapMb, 150, 250);
+        } else {
+            updateDOM(heapEl, "N/A");
+            heapEl.style.color = '';
+        }
+    }
+
+    if (renderer && renderer.info) {
+        const calls = renderer.info.render.calls;
+        const tris = renderer.info.render.triangles;
+        const geos = renderer.info.memory.geometries;
+        const texs = renderer.info.memory.textures;
+
+        const drawCallsEl = document.getElementById('debug-draw-calls');
+        if (drawCallsEl) {
+            updateDOM(drawCallsEl, calls);
+            drawCallsEl.style.color = getPerfColor(calls, 800, 1200); 
+        }
+
+        const trianglesEl = document.getElementById('debug-triangles');
+        if (trianglesEl) {
+            updateDOM(trianglesEl, tris);
+            trianglesEl.style.color = getPerfColor(tris, 800000, 1500000); 
+        }
+
+        const geometriesEl = document.getElementById('debug-geometries');
+        if (geometriesEl) {
+            updateDOM(geometriesEl, geos);
+            geometriesEl.style.color = getPerfColor(geos, 150, 250); 
+        }
+
+        const texturesEl = document.getElementById('debug-textures');
+        if (texturesEl) {
+            updateDOM(texturesEl, texs);
+            texturesEl.style.color = getPerfColor(texs, 15, 30); 
+        }
+    }
+
+    // Update Counters
+    let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0;
+    let totalHouses = 0, totalClouds = 0, totalRocks = 0, totalBushes = 0;
+    let totalSnowmen = 0, totalCactus = 0, totalLighthouses = 0, totalCastles = 0, totalChunks = 0;
+    let totalWindmills = 0, totalCampfires = 0;
+    let totalBoats = 0, totalLilyPads = 0, totalPiers = 0, totalBirds = 0;
+    const objectsVisible = ChillFlightLogic.SHOW_OBJECTS;
+    chunks.forEach(cg => {
+        if (cg.userData.counts) {
+            totalChunks += 1;
+            if (objectsVisible) {
+                totalTreesPine += cg.userData.counts.trees_pine || 0;
+                totalTreesDecid += cg.userData.counts.trees_decid || 0;
+                totalTreesPalm += cg.userData.counts.trees_palm || 0;
+                totalTreesDead += cg.userData.counts.trees_dead || 0;
+                totalTreesAutumn += cg.userData.counts.trees_autumn || 0;
+                totalTreesCherry += cg.userData.counts.trees_cherry || 0;
+                totalHouses += cg.userData.counts.houses;
+                totalClouds += cg.userData.counts.clouds;
+                totalRocks += cg.userData.counts.rocks;
+                totalBushes += cg.userData.counts.bushes;
+                totalSnowmen += cg.userData.counts.snowmen || 0;
+                totalCactus += cg.userData.counts.cactus || 0;
+                totalLighthouses += cg.userData.counts.lighthouses || 0;
+                totalCastles += cg.userData.counts.castles || 0;
+                totalWindmills += cg.userData.counts.windmills || 0;
+                totalCampfires += cg.userData.counts.campfires || 0;
+                totalBoats += cg.userData.counts.boats || 0;
+                totalLilyPads += cg.userData.counts.lily_pads || 0;
+                totalPiers += cg.userData.counts.piers || 0;
+                totalBirds += cg.userData.counts.birds || 0;
+            }
+        }
+    });
+
+    updateDOM(document.getElementById('debug-chunks'), totalChunks);
+    updateDOM(document.getElementById('debug-trees-pine'), totalTreesPine);
+    updateDOM(document.getElementById('debug-trees-decid'), totalTreesDecid);
+    updateDOM(document.getElementById('debug-trees-palm'), totalTreesPalm);
+    updateDOM(document.getElementById('debug-trees-dead'), totalTreesDead);
+    updateDOM(document.getElementById('debug-trees-autumn'), totalTreesAutumn);
+    updateDOM(document.getElementById('debug-trees-cherry'), totalTreesCherry);
+    updateDOM(document.getElementById('debug-houses'), totalHouses);
+    updateDOM(document.getElementById('debug-clouds'), totalClouds);
+    updateDOM(document.getElementById('debug-rocks'), totalRocks);
+    updateDOM(document.getElementById('debug-bushes'), totalBushes);
+    updateDOM(document.getElementById('debug-snowmen'), totalSnowmen);
+    updateDOM(document.getElementById('debug-cactus'), totalCactus);
+    updateDOM(document.getElementById('debug-lighthouses'), totalLighthouses);
+    updateDOM(document.getElementById('debug-castles'), totalCastles);
+    updateDOM(document.getElementById('debug-windmills'), totalWindmills);
+    updateDOM(document.getElementById('debug-campfires'), totalCampfires);
+    updateDOM(document.getElementById('debug-boats'), totalBoats);
+    updateDOM(document.getElementById('debug-lily-pads'), totalLilyPads);
+    updateDOM(document.getElementById('debug-piers'), totalPiers);
+    updateDOM(document.getElementById('debug-birds'), totalBirds);
+}
 }
 
 function updatePlayerList() {
