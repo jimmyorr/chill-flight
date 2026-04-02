@@ -27,7 +27,17 @@
     const WORLD_SEED = parseInt(getParam('seed', getTodaySeed()), 10);
     const THEME = getParam('theme', 'standard');
     const SHOW_CLOUDS = getParam('cloud', null) !== 'none';
-    let SHOW_OBJECTS = getParam('objects', null) !== 'none';
+    let SHOW_OBJECTS = true;
+    const objectsParam = getParam('objects', null);
+    if (objectsParam === 'none') {
+        SHOW_OBJECTS = false;
+    } else if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('chill_flight_show_objects');
+        if (saved !== null) {
+            SHOW_OBJECTS = (saved === 'true');
+        }
+    }
+
     const MAP_NAME = getParam('map', null);
     const PALETTE_INDEX = getParam('palette', null);
     const SCALE = parseFloat(getParam('scale', '1.0'));
