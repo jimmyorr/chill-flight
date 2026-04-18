@@ -88,49 +88,52 @@
     }
 
     // --- DAY / NIGHT WARP ---
-    // Maps a position within a cycle to a normalized progress value [0, 1).
-    // This refined approach uses a "Physic-Based Warping" model:
-    // 1. We derive time velocity from the actual solar elevation formula used in game.js.
-    // 2. Speed of time v(p) is proportional to 1 + K * (SunY - offset)^2.
-    // 3. This ensures the progression automatically slows to its absolute minimum 
-    //    at precisely the desired elevation (e.g., Civil Twilight).
+    // Maps raw cycle progress [0,1) to a warped time-of-day [0,1) that
+    // lingers during sunrise/sunset and rushes through night and midday.
+    //
+    // Strategy: piecewise smoothstep between keyframe knots derived from the
+    // actual solar geometry (lat=0.71, dec=0.409).  Knot unwarped-p values
+    // come from when sunY crosses key thresholds; warped-p values are chosen
+    // to hit the desired phase durations in a 5-minute cycle:
+    //
+    //   Night        ~1.0 min  (0.5m each half around midnight)
+    //   Sunrise zone ~1.5 min  (civil-twilight → horizon)
+    //   Midday       ~1.0 min  (horizon → horizon)
+    //   Sunset zone  ~1.5 min  (horizon → civil-twilight)
+    //
+    // Knot derivation (for reference, not recomputed at runtime):
+    //   sunY = sin(lat)*sin(dec) + cos(lat)*cos(dec)*cos(hourAngle)
+    //   Dawn civil twilight (sunY ≈ -0.105) → unwarped p ≈ 0.164
+    //   Sunrise horizon     (sunY = 0)       → unwarped p ≈ 0.311
+    //   Noon                                 → unwarped p = 0.500
+    //   Sunset horizon      (sunY = 0)       → unwarped p ≈ 0.689
+    //   Dusk civil twilight (sunY ≈ -0.105)  → unwarped p ≈ 0.836
     function computeTimeOfDay(secondsInCycle, latInRadians = 0.71) {
         const CYCLE_DURATION_S = 300;
         const p = (secondsInCycle % CYCLE_DURATION_S) / CYCLE_DURATION_S;
 
-        // Solar path constants (matching game.js)
-        const lat = latInRadians;
-        const dec = 0.409;
+        // [unwarped_p, warped_p] knots — edit warped_p column to tune phase durations.
+        const knots = [
+            [0.000, 0.000],  // midnight (start)
+            [0.164, 0.100],  // dawn civil twilight  → 0.5m of night before it
+            [0.311, 0.400],  // sunrise horizon       → 1.5m of golden-hour glow
+            [0.500, 0.500],  // solar noon            → 0.5m of cruising midday
+            [0.689, 0.600],  // sunset horizon        → 0.5m of cruising midday
+            [0.836, 0.900],  // dusk civil twilight   → 1.5m of golden-hour glow
+            [1.000, 1.000],  // midnight (end)        → 0.5m of night after it
+        ];
 
-        // SunY = a + b * cos(h), where h is the unwarped hour angle
-        const a = Math.sin(lat) * Math.sin(dec);
-        const b = Math.cos(lat) * Math.cos(dec);
+        for (let i = 0; i < knots.length - 1; i++) {
+            const [p0, w0] = knots[i];
+            const [p1, w1] = knots[i + 1];
+            if (p >= p0 && p <= p1) {
+                const t = (p - p0) / (p1 - p0);
+                const s = t * t * (3 - 2 * t); // smoothstep for organic easing
+                return w0 + s * (w1 - w0);
+            }
+        }
 
-        // We want time to be slowest when SunY is at our target "pretty" elevation.
-        // -0.08 correlates to the sun being just fully submerged (Civil Twilight).
-        const targetElevation = -0.10;
-        const warpStrength = 15.0;
-
-        // Derived coefficients for the velocity integral v(h) = 1 + K * ( (a-target) + b*cos(h) )^2
-        const A = a - targetElevation;
-        const B = b;
-
-        // Integral of (A + B*cos(h))^2 is: (A^2 + B^2/2)h + 2AB*sin(h) + (B^2/4)*sin(2h)
-        const getIntegral = (h) => {
-            return (A * A + B * B / 2) * h + 2 * A * B * Math.sin(h) + (B * B / 4) * Math.sin(2 * h);
-        };
-
-        const h_start = Math.PI; // Corresponds to p=0 (Midnight)
-        const h_end = p * 2 * Math.PI + Math.PI;
-
-        const rawWarp = (h_end - h_start) + warpStrength * (getIntegral(h_end) - getIntegral(h_start));
-
-        // Normalize so one full cycle (2PI) is exactly 1.0 progress.
-        // The periodic sin components vanish over 2PI, leaving only the linear term.
-        const totalWarp = 2 * Math.PI + warpStrength * (A * A + B * B / 2) * 2 * Math.PI;
-
-        const resultProgress = rawWarp / totalWarp;
-        return (resultProgress + 1.0) % 1.0; // Ensure [0, 1)
+        return p; // fallback (should never reach here)
     }
 
     // --- INPUT NORMALIZATION ---
