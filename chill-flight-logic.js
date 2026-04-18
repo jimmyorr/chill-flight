@@ -89,24 +89,48 @@
 
     // --- DAY / NIGHT WARP ---
     // Maps a position within a cycle to a normalized progress value [0, 1).
-    // The "Realistic Sun Path" model in game.js has horizon crossings at:
-    //   Sunrise (SunY=0): progress ≈ 0.19
-    //   Sunset (SunY=0):  progress ≈ 0.81
-    //
-    // This warping uses a composite sine wave to align its slowest points
-    // (minima of the derivative) with these realistic horizons, ensuring
-    // the sun lingers at the horizon and "slows down until it's no longer visible".
+    // This refined approach uses a "Physic-Based Warping" model:
+    // 1. We derive time velocity from the actual solar elevation formula used in game.js.
+    // 2. Speed of time v(p) is proportional to 1 + K * (SunY - offset)^2.
+    // 3. This ensures the progression automatically slows to its absolute minimum 
+    //    at precisely the desired elevation (e.g., Civil Twilight).
     function computeTimeOfDay(secondsInCycle) {
         const CYCLE_DURATION_S = 300;
-        const linearProgress = (secondsInCycle % CYCLE_DURATION_S) / CYCLE_DURATION_S;
+        const p = (secondsInCycle % CYCLE_DURATION_S) / CYCLE_DURATION_S;
         
-        // This composite sine wave has minima exactly at p=0.189 and p=0.811
-        // giving the "slowest" speed at the realistic horizons for lat=0.71, dec=0.409
-        const warpedProgress = linearProgress 
-            - 0.05 * Math.sin(2 * Math.PI * linearProgress) 
-            + 0.07 * Math.sin(4 * Math.PI * linearProgress);
+        // Solar path constants (matching game.js)
+        const lat = 0.71; 
+        const dec = 0.409;
+        
+        // SunY = a + b * cos(h), where h is the unwarped hour angle
+        const a = Math.sin(lat) * Math.sin(dec);
+        const b = Math.cos(lat) * Math.cos(dec);
+        
+        // We want time to be slowest when SunY is at our target "pretty" elevation.
+        // -0.08 correlates to the sun being just fully submerged (Civil Twilight).
+        const targetElevation = -0.08;
+        const warpStrength = 8.0; 
 
-        return (warpedProgress + 1.0) % 1.0; // Ensure positive [0, 1)
+        // Derived coefficients for the velocity integral v(h) = 1 + K * ( (a-target) + b*cos(h) )^2
+        const A = a - targetElevation;
+        const B = b;
+        
+        // Integral of (A + B*cos(h))^2 is: (A^2 + B^2/2)h + 2AB*sin(h) + (B^2/4)*sin(2h)
+        const getIntegral = (h) => {
+            return (A * A + B * B / 2) * h + 2 * A * B * Math.sin(h) + (B * B / 4) * Math.sin(2 * h);
+        };
+        
+        const h_start = Math.PI; // Corresponds to p=0 (Midnight)
+        const h_end = p * 2 * Math.PI + Math.PI;
+        
+        const rawWarp = (h_end - h_start) + warpStrength * (getIntegral(h_end) - getIntegral(h_start));
+        
+        // Normalize so one full cycle (2PI) is exactly 1.0 progress.
+        // The periodic sin components vanish over 2PI, leaving only the linear term.
+        const totalWarp = 2 * Math.PI + warpStrength * (A * A + B * B / 2) * 2 * Math.PI;
+        
+        const resultProgress = rawWarp / totalWarp;
+        return (resultProgress + 1.0) % 1.0; // Ensure [0, 1)
     }
 
     // --- INPUT NORMALIZATION ---
