@@ -16,7 +16,7 @@
     };
 
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    
+
     // Helper to get parameters safely in both Browser and Node (for tests)
     const getParam = (key, defaultValue) => {
         if (!urlParams) return defaultValue;
@@ -94,41 +94,41 @@
     // 2. Speed of time v(p) is proportional to 1 + K * (SunY - offset)^2.
     // 3. This ensures the progression automatically slows to its absolute minimum 
     //    at precisely the desired elevation (e.g., Civil Twilight).
-    function computeTimeOfDay(secondsInCycle) {
+    function computeTimeOfDay(secondsInCycle, latInRadians = 0.71) {
         const CYCLE_DURATION_S = 300;
         const p = (secondsInCycle % CYCLE_DURATION_S) / CYCLE_DURATION_S;
-        
+
         // Solar path constants (matching game.js)
-        const lat = 0.71; 
+        const lat = latInRadians;
         const dec = 0.409;
-        
+
         // SunY = a + b * cos(h), where h is the unwarped hour angle
         const a = Math.sin(lat) * Math.sin(dec);
         const b = Math.cos(lat) * Math.cos(dec);
-        
+
         // We want time to be slowest when SunY is at our target "pretty" elevation.
         // -0.08 correlates to the sun being just fully submerged (Civil Twilight).
-        const targetElevation = -0.08;
-        const warpStrength = 8.0; 
+        const targetElevation = -0.10;
+        const warpStrength = 15.0;
 
         // Derived coefficients for the velocity integral v(h) = 1 + K * ( (a-target) + b*cos(h) )^2
         const A = a - targetElevation;
         const B = b;
-        
+
         // Integral of (A + B*cos(h))^2 is: (A^2 + B^2/2)h + 2AB*sin(h) + (B^2/4)*sin(2h)
         const getIntegral = (h) => {
             return (A * A + B * B / 2) * h + 2 * A * B * Math.sin(h) + (B * B / 4) * Math.sin(2 * h);
         };
-        
+
         const h_start = Math.PI; // Corresponds to p=0 (Midnight)
         const h_end = p * 2 * Math.PI + Math.PI;
-        
+
         const rawWarp = (h_end - h_start) + warpStrength * (getIntegral(h_end) - getIntegral(h_start));
-        
+
         // Normalize so one full cycle (2PI) is exactly 1.0 progress.
         // The periodic sin components vanish over 2PI, leaving only the linear term.
         const totalWarp = 2 * Math.PI + warpStrength * (A * A + B * B / 2) * 2 * Math.PI;
-        
+
         const resultProgress = rawWarp / totalWarp;
         return (resultProgress + 1.0) % 1.0; // Ensure [0, 1)
     }

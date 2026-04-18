@@ -1175,7 +1175,11 @@ function animate() {
         secondsInCycle = (serverNow % CYCLE_DURATION_MS) / 1000;
     }
 
-    currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle);
+    const latScale = 5000;
+    const currentLatDeg = (-planeGroup.position.z / latScale);
+    const currentLatRad = (currentLatDeg * Math.PI) / 180;
+
+    currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle, currentLatRad);
     timeOfDay = currentWarpedProgress * Math.PI * 2;
     window._gameServerNow = passedServerNow;
 
@@ -1972,7 +1976,7 @@ function animate() {
     const orbitRadius = 8000;
 
     // 1. Realistic Sun Path
-    const latitude = 0.71; // ~40.7N
+    const latitude = currentLatRad;
     const declination = 0.409; // Summer tilt
     const hourAngle = timeOfDay + Math.PI;
 
@@ -2080,8 +2084,7 @@ function animate() {
     const timeStr = `${hh}:${mm}`;
 
     const dirStr = ChillFlightLogic.computeHeadingDirection(planeGroup.rotation.y);
-    const latScale = 5000;
-    const latVal = (-planeGroup.position.z / latScale);
+    const latVal = currentLatDeg;
     const lonVal = (planeGroup.position.x / latScale);
     const latStr = Math.abs(latVal).toFixed(3) + "\u00b0 " + (latVal >= 0 ? "N" : "S");
     const lonStr = Math.abs(lonVal).toFixed(3) + "\u00b0 " + (lonVal >= 0 ? "E" : "W");
