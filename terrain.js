@@ -1200,6 +1200,15 @@ function generateChunk(chunkX, chunkZ) {
                 if (snowFactor > 0) _tempWColorObj.lerp(_colorIcyWater, snowFactor);
                 if (desertFactor > 0) _tempWColorObj.lerp(_colorDesertWater, desertFactor);
 
+                const terrainHeight = getCachedElevation(worldX, worldZ);
+                const inlandHeight = terrainHeight - WATER_LEVEL;
+                if (inlandHeight > 0) {
+                    // Only apply foam to water vertices that intersect or are under the land.
+                    // The interpolation between the land vertex and the deep ocean vertex creates the foam line.
+                    const foamFactor = Math.min(1.0, inlandHeight / 2.0);
+                    _tempWColorObj.lerp(_colorFoam, foamFactor);
+                }
+
                 wColors.push(_tempWColorObj.r, _tempWColorObj.g, _tempWColorObj.b);
             }
             waterGeo.setAttribute('color', new THREE.Float32BufferAttribute(wColors, 3));
