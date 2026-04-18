@@ -8,7 +8,9 @@ scene.fog = new THREE.FogExp2(0xa0d8ef, 0.00005);
 // --- SKY SHADER MATERIAL ---
 const skyVertexShader = `
     varying vec3 vWorldPosition;
+    varying vec3 vDirection;
     void main() {
+        vDirection = position.xyz;
         vec4 worldPosition = modelMatrix * vec4(position, 1.0);
         vWorldPosition = worldPosition.xyz;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -27,6 +29,7 @@ const skyFragmentShader = `
     uniform float uCloudDensity;
     uniform bool uShowClouds;
     varying vec3 vWorldPosition;
+    varying vec3 vDirection;
 
     float random(vec2 st) {
         return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
@@ -55,7 +58,7 @@ const skyFragmentShader = `
     }
 
     void main() {
-        vec3 dir = normalize(vWorldPosition + offset);
+        vec3 dir = normalize(vDirection + vec3(0.0, offset, 0.0));
         float h = dir.y;
         
         // Calculate sun influence (0 to 1) based on direction
