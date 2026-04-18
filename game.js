@@ -1970,10 +1970,26 @@ function animate() {
 
     // Celestial positions
     const orbitRadius = 8000;
-    const sunY = -Math.cos(timeOfDay);
-    const sunX = Math.sin(timeOfDay);
-    const sunZ = Math.cos(timeOfDay) * 0.3;
+
+    // 1. Realistic Sun Path
+    const latitude = 0.71; // ~40.7N
+    const declination = 0.409; // Summer tilt
+    const hourAngle = timeOfDay + Math.PI;
+
+    const sunY = (Math.sin(latitude) * Math.sin(declination)) + (Math.cos(latitude) * Math.cos(declination) * Math.cos(hourAngle));
+    const sunX = -Math.cos(declination) * Math.sin(hourAngle);
+    const sunZ = (Math.cos(latitude) * Math.sin(declination)) - (Math.sin(latitude) * Math.cos(declination) * Math.cos(hourAngle));
     const dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) * 2)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0 (6 AM)
+
+    // 2. Realistic Moon Position (Phase Elongation)
+    const lunarPhase = (passedServerNow % 2400000) / 2400000;
+    const elongation = lunarPhase * Math.PI * 2;
+    const moonTimeOfDay = timeOfDay - elongation;
+    const moonHourAngle = moonTimeOfDay + Math.PI;
+
+    const moonY = (Math.sin(latitude) * Math.sin(declination)) + (Math.cos(latitude) * Math.cos(declination) * Math.cos(moonHourAngle));
+    const moonX = -Math.cos(declination) * Math.sin(moonHourAngle);
+    const moonZ = (Math.cos(latitude) * Math.sin(declination)) - (Math.sin(latitude) * Math.cos(declination) * Math.cos(moonHourAngle));
 
     // Update water shader uniform — the GPU handles all wave displacement
     window.waterUniforms.uTime.value = now * 0.0015;
@@ -2084,7 +2100,7 @@ function animate() {
 
 
     sunMesh.position.set(sunX * orbitRadius, sunY * orbitRadius, sunZ * orbitRadius);
-    moonMesh.position.set(-sunX * orbitRadius, -sunY * orbitRadius, -sunZ * orbitRadius);
+    moonMesh.position.set(moonX * orbitRadius, moonY * orbitRadius, moonZ * orbitRadius);
     
     // --- SHADOW TEXEL SNAPPING (View-Space) ---
     // Eliminates "shadow swimming" and depth-band "creeping" by locking the
@@ -2184,6 +2200,7 @@ function animate() {
     dirLight.intensity = THREE.MathUtils.lerp(baseDir, 0.05, overcast);
 
     let moonFactor = Math.max(0, Math.min(1, (-sunY - 0.25) / 0.25));
+    moonFactor *= Math.max(0, Math.min(1, (moonY) * 10.0)); // Only shine when moon is up
     moonLight.intensity = moonFactor * 0.4 * (1.0 - overcast);
 
     // --- APPLY SKY & FOG ---
@@ -2269,7 +2286,7 @@ function animate() {
         moonUniforms.moonPhase.value = (passedServerNow % 2400000) / 2400000;
 
         // Dynamic Moon Sizing (Moon Illusion)
-        const moonElevation = Math.max(0.0, -sunY);
+        const moonElevation = Math.max(0.0, moonY);
         const moonScale = 1.0 + (1.0 - moonElevation) * 0.4;
         moonMesh.scale.setScalar(moonScale);
     }
