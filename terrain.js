@@ -624,6 +624,74 @@ const smokeMat = createMaterial({
     flatShading: true
 });
 
+const whiteSmokeMat = createMaterial({
+    color: 0xDDDDDD,
+    transparent: true,
+    opacity: 0.6,
+    flatShading: true
+});
+
+// --- GPU ANIMATION SHADER INJECTIONS ---
+if (!window.animationUniforms) window.animationUniforms = { uTime: { value: 0 } };
+
+windmillBladesMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = window.animationUniforms.uTime;
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\nuniform float uTime;`);
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `
+        #include <begin_vertex>
+        float c = cos(uTime * 1.5);
+        float s = sin(uTime * 1.5);
+        mat3 rotZ = mat3(c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0);
+        transformed = rotZ * transformed;
+    `);
+};
+
+fireMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = window.animationUniforms.uTime;
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\nuniform float uTime;`);
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `
+        #include <begin_vertex>
+        float phase = instanceMatrix[3][0] + instanceMatrix[3][2];
+        float pulse = 1.0 + sin(uTime * 10.0 + phase) * 0.2;
+        transformed *= pulse;
+    `);
+};
+
+const smokeShaderInject = (shader, isChimney) => {
+    shader.uniforms.uTime = window.animationUniforms.uTime;
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\nuniform float uTime;`);
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `
+        #include <begin_vertex>
+        #ifdef USE_INSTANCING_COLOR
+        float particleIndex = instanceColor.r * 10.0;
+        float phase = instanceColor.g * 10.0;
+        #else
+        float particleIndex = 0.0;
+        float phase = 0.0;
+        #endif
+        
+        float offsetTime = mod(uTime * 0.5 + particleIndex * ${isChimney ? '0.6' : '0.4'} + phase, ${isChimney ? '2.4' : '2.0'});
+        float rise = offsetTime * ${isChimney ? '45.0' : '60.0'};
+        float driftX = sin(uTime * 0.5 + particleIndex) * 8.0;
+        float driftZ = ${isChimney ? 'cos(uTime * 0.6 + particleIndex) * 6.0' : '0.0'};
+        float smokeScale = (${isChimney ? '0.8' : '1.0'} + particleIndex * ${isChimney ? '0.3' : '0.5'}) * (1.0 + offsetTime * ${isChimney ? '0.6' : '0.5'});
+        
+        float st = sin(offsetTime * ${isChimney ? '0.5' : '1.0'});
+        float ct = cos(offsetTime * ${isChimney ? '0.5' : '1.0'});
+        mat3 rotY = mat3(ct, 0.0, st, 0.0, 1.0, 0.0, -st, 0.0, ct);
+        mat3 rotZ = mat3(ct, -st, 0.0, st, ct, 0.0, 0.0, 0.0, 1.0);
+        
+        transformed = rotY * rotZ * transformed * smokeScale;
+        transformed.x += driftX;
+        transformed.y += rise;
+        transformed.z += driftZ;
+    `);
+};
+
+smokeMat.onBeforeCompile = (shader) => smokeShaderInject(shader, false);
+whiteSmokeMat.onBeforeCompile = (shader) => smokeShaderInject(shader, true);
+
+
 // Sailboat geometries
 const boatHullGeo = new THREE.BoxGeometry(4, 2, 10);
 boatHullGeo.translate(0, 0.5, 0); // slight lift
@@ -1502,10 +1570,6 @@ function generateChunk(chunkX, chunkZ) {
             bladesInst.position.set(worldOffsetX, 0, worldOffsetZ);
             objectsGroup.add(baseInst);
             objectsGroup.add(bladesInst);
-
-            // Store blade info for animation
-            group.userData.windmillBlades = bladesInst;
-            group.userData.windmillPositions = windmillPositions;
         }
 
         // 2.9 Generate Lighthouses
@@ -1614,10 +1678,15 @@ function generateChunk(chunkX, chunkZ) {
 
                 // Smoke community
                 for (let i = 0; i < 5; i++) {
-                    dummy.position.set(pos.x, pos.y + 5 + i * 5, pos.z);
-                    dummy.scale.set(1 + i * 0.5, 1 + i * 0.5, 1 + i * 0.5);
+                    dummy.position.set(pos.x, pos.y + 5, pos.z);
+                    dummy.scale.set(1, 1, 1);
+                    dummy.rotation.set(0, 0, 0);
                     dummy.updateMatrix();
-                    smokeInst.setMatrixAt(index * 5 + i, dummy.matrix);
+                    const smokeIdx = index * 5 + i;
+                    smokeInst.setMatrixAt(smokeIdx, dummy.matrix);
+                    
+                    const phase = ((pos.x + pos.z) % 10.0) / 10.0;
+                    smokeInst.setColorAt(smokeIdx, new THREE.Color(i / 10.0, phase, 0));
                 }
 
                 // Tent community
@@ -1645,25 +1714,23 @@ function generateChunk(chunkX, chunkZ) {
 
             group.userData.campfires = coreInst;
             group.userData.campfireSmoke = smokeInst;
-            group.userData.campfirePositions = campfirePositions;
         }
 
         // 2.97 Generate Chimney Smoke
         if (chimneySmokePositions.length > 0) {
-            const whiteSmokeMat = createMaterial({
-                color: 0xDDDDDD,
-                transparent: true,
-                opacity: 0.6,
-                flatShading: true
-            });
             const chimneySmokeInst = new THREE.InstancedMesh(smokeGeo, whiteSmokeMat, chimneySmokePositions.length * 4);
 
             chimneySmokePositions.forEach((pos, index) => {
                 for (let i = 0; i < 4; i++) {
-                    dummy.position.set(pos.x, pos.y + i * 4, pos.z);
-                    dummy.scale.set(0.8 + i * 0.3, 0.8 + i * 0.3, 0.8 + i * 0.3);
+                    dummy.position.set(pos.x, pos.y, pos.z);
+                    dummy.scale.set(1, 1, 1);
+                    dummy.rotation.set(0, 0, 0);
                     dummy.updateMatrix();
-                    chimneySmokeInst.setMatrixAt(index * 4 + i, dummy.matrix);
+                    const smokeIdx = index * 4 + i;
+                    chimneySmokeInst.setMatrixAt(smokeIdx, dummy.matrix);
+
+                    const phase = ((pos.x + pos.z) % 10.0) / 10.0;
+                    chimneySmokeInst.setColorAt(smokeIdx, new THREE.Color(i / 10.0, phase, 0));
                 }
             });
 
@@ -1671,7 +1738,6 @@ function generateChunk(chunkX, chunkZ) {
             objectsGroup.add(chimneySmokeInst);
 
             group.userData.chimneySmoke = chimneySmokeInst;
-            group.userData.chimneySmokePositions = chimneySmokePositions;
         }
 
         // 2.98 Generate Sailboats

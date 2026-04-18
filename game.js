@@ -1978,7 +1978,11 @@ function animate() {
     // Update water shader uniform — the GPU handles all wave displacement
     window.waterUniforms.uTime.value = now * 0.0015;
 
-    // Animate Birds, Windmills, Lighthouses, Campfires, Chimney Smoke
+    // Update global animation time for GPU-offloaded objects
+    if (!window.animationUniforms) window.animationUniforms = { uTime: { value: 0 } };
+    window.animationUniforms.uTime.value = performance.now() * 0.001;
+
+    // Animate Birds, Lighthouses
     chunks.forEach(chunkGroup => {
         // Optimization: Distance culling (6000 units)
         const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
@@ -2010,27 +2014,6 @@ function animate() {
             });
         }
 
-        // Animate Windmills
-        if (chunkGroup.userData.windmillBlades && chunkGroup.userData.windmillPositions) {
-            const bladesInst = chunkGroup.userData.windmillBlades;
-            const windmillPositions = chunkGroup.userData.windmillPositions;
-            const windmillRotation = performance.now() * 0.001 * 1.5;
-
-            windmillPositions.forEach((pos, index) => {
-                for (let b = 0; b < 4; b++) {
-                    const bladeIdx = index * 4 + b;
-                    _chunkDummy.position.set(pos.x, pos.y + 45, pos.z);
-                    _hubOffset.set(0, 0, 8.5).applyAxisAngle(_yAxis, pos.rotY);
-                    _chunkDummy.position.add(_hubOffset);
-                    _chunkDummy.rotation.set(0, pos.rotY, (b * Math.PI / 2) + windmillRotation);
-                    _chunkDummy.scale.set(1.5, 1.5, 1.5);
-                    _chunkDummy.updateMatrix();
-                    bladesInst.setMatrixAt(bladeIdx, _chunkDummy.matrix);
-                }
-            });
-            bladesInst.instanceMatrix.needsUpdate = true;
-        }
-
         // Animate Lighthouse Beam
         if (chunkGroup.userData.lighthouseBeam) {
             const beam = chunkGroup.userData.lighthouseBeam;
@@ -2055,78 +2038,17 @@ function animate() {
             }
         }
 
-        // Animate Campfires
-        if (chunkGroup.userData.campfires && chunkGroup.userData.campfirePositions) {
+        // Global opacity updates for GPU-animated elements
+        if (chunkGroup.userData.campfires) {
             const cores = chunkGroup.userData.campfires;
             const smoke = chunkGroup.userData.campfireSmoke;
-            const positions = chunkGroup.userData.campfirePositions;
-            const time = performance.now() * 0.01;
-
-            positions.forEach((pos, index) => {
-                // Animate Core community
-                const scale = 1.0 + Math.sin(time + index) * 0.2;
-                _chunkDummy.position.set(pos.x, pos.y + 2, pos.z);
-                _chunkDummy.scale.set(scale, scale, scale);
-                _chunkDummy.updateMatrix();
-                cores.setMatrixAt(index, _chunkDummy.matrix);
-
-                // Animate Smoke community
-                if (smoke) {
-                    for (let i = 0; i < 5; i++) {
-                        const smokeIdx = index * 5 + i;
-                        const offsetTime = (performance.now() * 0.0005 + i * 0.4) % 2.0; // 4 second cycle community
-                        const rise = offsetTime * 60; // Slower rise, goes higher
-                        const drift = Math.sin(performance.now() * 0.001 + i) * 8;
-                        const smokeScale = (1.0 + i * 0.5) * (1.0 + offsetTime * 0.5);
-
-                        _chunkDummy.position.set(pos.x + drift, pos.y + 5 + rise, pos.z);
-                        _chunkDummy.scale.set(smokeScale, smokeScale, smokeScale);
-                        _chunkDummy.rotation.set(offsetTime, offsetTime, offsetTime);
-                        _chunkDummy.updateMatrix();
-                        smoke.setMatrixAt(smokeIdx, _chunkDummy.matrix);
-                    }
-                }
-            });
-            cores.instanceMatrix.needsUpdate = true;
-            if (smoke) smoke.instanceMatrix.needsUpdate = true;
-
-            // Fade out campfires/smoke during day community
-            if (cores.material) {
-                cores.material.emissiveIntensity = 2.0 * (1.0 - dayFactor * 0.8);
-            }
-            if (smoke && smoke.material) {
-                smoke.material.opacity = 0.4 * (1.0 - dayFactor * 0.5);
-            }
+            if (cores.material) cores.material.emissiveIntensity = 2.0 * (1.0 - dayFactor * 0.8);
+            if (smoke && smoke.material) smoke.material.opacity = 0.4 * (1.0 - dayFactor * 0.5);
         }
 
-        // Animate Chimney Smoke
-        if (chunkGroup.userData.chimneySmoke && chunkGroup.userData.chimneySmokePositions) {
+        if (chunkGroup.userData.chimneySmoke) {
             const smoke = chunkGroup.userData.chimneySmoke;
-            const positions = chunkGroup.userData.chimneySmokePositions;
-
-            positions.forEach((pos, index) => {
-                for (let i = 0; i < 4; i++) {
-                    const smokeIdx = index * 4 + i;
-                    const offsetTime = (performance.now() * 0.0005 + i * 0.6) % 2.4; // 4.8s cycle
-                    const rise = offsetTime * 45; // Slower rise, goes higher
-                    const driftX = Math.sin(performance.now() * 0.0005 + i) * 8;
-                    const driftZ = Math.cos(performance.now() * 0.0006 + i) * 6;
-                    const smokeScale = (0.8 + i * 0.3) * (1.0 + offsetTime * 0.6); // Expands more
-
-                    _chunkDummy.position.set(pos.x + driftX, pos.y + rise, pos.z + driftZ);
-                    _chunkDummy.scale.set(smokeScale, smokeScale, smokeScale);
-                    _chunkDummy.rotation.set(offsetTime * 0.5, offsetTime * 0.5, offsetTime * 0.5);
-                    _chunkDummy.updateMatrix();
-                    smoke.setMatrixAt(smokeIdx, _chunkDummy.matrix);
-                }
-            });
-
-            smoke.instanceMatrix.needsUpdate = true;
-
-            // Chimney smoke gets slightly more transparent during the day but doesn't vanish completely
-            if (smoke.material) {
-                smoke.material.opacity = 0.6 - (dayFactor * 0.3);
-            }
+            if (smoke.material) smoke.material.opacity = 0.6 - (dayFactor * 0.3);
         }
     });
 
