@@ -88,19 +88,25 @@
     }
 
     // --- DAY / NIGHT WARP ---
-    // Maps a position within a 330-second cycle to a normalized progress value [0, 1).
-    // Segments (in seconds):
-    //   0   –  60 → day     (progress 0.25 – 0.50)  [60s]
-    //   60  – 180 → sunset  (progress 0.50 – 0.75) [120s]
-    //   180 – 210 → night   (progress 0.75 – 1.00)  [30s]
-    //   210 – 330 → sunrise (progress 0.00 – 0.25) [120s]
+    // Maps a position within a cycle to a normalized progress value [0, 1).
+    // The "Realistic Sun Path" model in game.js has horizon crossings at:
+    //   Sunrise (SunY=0): progress ≈ 0.19
+    //   Sunset (SunY=0):  progress ≈ 0.81
+    //
+    // This warping uses a composite sine wave to align its slowest points
+    // (minima of the derivative) with these realistic horizons, ensuring
+    // the sun lingers at the horizon and "slows down until it's no longer visible".
     function computeTimeOfDay(secondsInCycle) {
         const CYCLE_DURATION_S = 300;
         const linearProgress = (secondsInCycle % CYCLE_DURATION_S) / CYCLE_DURATION_S;
-        const warpAmplitude = 0.07;
-        // Progress 0.0 = Midnight (6 hours before Sunrise at 0.25)
-        const currentWarpedProgress = linearProgress + warpAmplitude * Math.sin(4 * Math.PI * linearProgress);
-        return currentWarpedProgress;
+        
+        // This composite sine wave has minima exactly at p=0.189 and p=0.811
+        // giving the "slowest" speed at the realistic horizons for lat=0.71, dec=0.409
+        const warpedProgress = linearProgress 
+            - 0.05 * Math.sin(2 * Math.PI * linearProgress) 
+            + 0.07 * Math.sin(4 * Math.PI * linearProgress);
+
+        return (warpedProgress + 1.0) % 1.0; // Ensure positive [0, 1)
     }
 
     // --- INPUT NORMALIZATION ---
