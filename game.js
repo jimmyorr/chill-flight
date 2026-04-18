@@ -540,11 +540,8 @@ if (distanceSelect) {
         chunks.forEach((group, key) => {
             group.traverse(child => {
                 if (child.isMesh || child.isInstancedMesh) {
-                    child.geometry.dispose();
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => mat.dispose());
-                    } else if (child.material) {
-                        child.material.dispose();
+                    if (child.geometry && child.geometry.userData.unique) {
+                        child.geometry.dispose();
                     }
                 }
             });
@@ -604,11 +601,8 @@ if (qualitySelect) {
         chunks.forEach((group, key) => {
             group.traverse(child => {
                 if (child.isMesh || child.isInstancedMesh) {
-                    child.geometry.dispose();
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => mat.dispose());
-                    } else if (child.material) {
-                        child.material.dispose();
+                    if (child.geometry && child.geometry.userData.unique) {
+                        child.geometry.dispose();
                     }
                 }
             });

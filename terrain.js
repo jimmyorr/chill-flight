@@ -730,6 +730,7 @@ function generateChunk(chunkX, chunkZ) {
 
         // 1. Generate Terrain Mesh
         const geometry = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, SEGMENTS, SEGMENTS);
+        geometry.userData = { unique: true };
         geometry.rotateX(-Math.PI / 2);
 
         const positions = geometry.attributes.position.array;
@@ -1108,6 +1109,7 @@ function generateChunk(chunkX, chunkZ) {
         if (hasWater) {
             const wSegments = Math.max(1, Math.floor(SEGMENTS / 4));
             const waterGeo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, wSegments, wSegments);
+            waterGeo.userData = { unique: true };
             waterGeo.rotateX(-Math.PI / 2);
             const wPositions = waterGeo.attributes.position.array;
             const wColors = [];
@@ -1850,11 +1852,8 @@ function updateChunks() {
             Math.abs(cz - currentChunkZ) > renderDistance + 1) {
             group.traverse(child => {
                 if (child.isMesh || child.isInstancedMesh) {
-                    child.geometry.dispose();
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => mat.dispose());
-                    } else if (child.material) {
-                        child.material.dispose();
+                    if (child.geometry && child.geometry.userData.unique) {
+                        child.geometry.dispose();
                     }
                 }
             });

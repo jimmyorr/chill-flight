@@ -45,7 +45,9 @@
             chunks.forEach((group, key) => {
                 group.traverse(child => {
                     if (child.isMesh || child.isInstancedMesh) {
-                        child.geometry.dispose();
+                        if (child.geometry && child.geometry.userData.unique) {
+                            child.geometry.dispose();
+                        }
                     }
                 });
                 if (typeof scene !== 'undefined') {
