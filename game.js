@@ -1983,6 +1983,11 @@ function animate() {
     window.animationUniforms.uTime.value = performance.now() * 0.001;
 
     // Animate Birds, Lighthouses
+    // Note: Windmills, campfires, and smoke particles are animated entirely on the GPU via Material.onBeforeCompile.
+    // Birds and Lighthouses remain entirely on the CPU because:
+    // 1. Lighthouses require updating an actual THREE.Light target's position for correct shadow/lighting calculations.
+    // 2. Birds use complex nested THREE.Group structures with hinges (flapping) and orientation matrices (.lookAt)
+    //    which are sparse enough that rewriting a full skeletal/flocking vertex shader introduces unnecessary complexity.
     chunks.forEach(chunkGroup => {
         // Optimization: Distance culling (6000 units)
         const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
