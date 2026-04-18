@@ -82,10 +82,14 @@ const cloudMat = createMaterial({
 
 cloudMat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = window.waterUniforms.uTime;
-    shader.vertexShader = `uniform float uTime;\n` + shader.vertexShader;
+    shader.vertexShader = `
+        uniform float uTime;
+        varying float vLocalY;
+    ` + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace(
         `#include <project_vertex>`,
         `
+        vLocalY = position.y;
         vec4 mvPosition = vec4( transformed, 1.0 );
         
         float drift = mod(uTime * 2.64, 2000.0);
@@ -100,6 +104,23 @@ cloudMat.onBeforeCompile = (shader) => {
 
         mvPosition = modelViewMatrix * mvPosition;
         gl_Position = projectionMatrix * mvPosition;
+        `
+    );
+
+    shader.fragmentShader = `
+        varying float vLocalY;
+    ` + shader.fragmentShader;
+
+    // Tint darker towards the bottom (-0.5). Top is 0.5.
+    shader.fragmentShader = shader.fragmentShader.replace(
+        `#include <color_fragment>`,
+        `
+        #include <color_fragment>
+        // map vLocalY (-0.5 to 0.5) to a 0.0 - 1.0 range
+        float cloudYNorm = clamp(vLocalY + 0.5, 0.0, 1.0);
+        // Base tint for the bottom (slightly darker, subtle blue/grey for scattering)
+        vec3 aoColor = vec3(0.65, 0.75, 0.85); 
+        diffuseColor.rgb *= mix(aoColor, vec3(1.0), cloudYNorm);
         `
     );
 };
