@@ -91,36 +91,35 @@
     // Maps raw cycle progress [0,1) to a warped time-of-day [0,1) that
     // lingers during sunrise/sunset and rushes through night and midday.
     //
-    // Strategy: piecewise smoothstep between keyframe knots derived from the
-    // actual solar geometry (lat=0.71, dec=0.409).  Knot unwarped-p values
-    // come from when sunY crosses key thresholds; warped-p values are chosen
-    // to hit the desired phase durations in a 5-minute cycle:
+    // Knot table: [unwarped_p, warped_p]
+    // The SLOPE of each segment (dw/dp) is the sun's visual speed multiplier:
+    //   slope > 1 → sun moves faster than real-time (night, midday)
+    //   slope < 1 → sun moves slower than real-time (golden hour near horizon)
     //
-    //   Night        ~1.0 min  (0.5m each half around midnight)
-    //   Sunrise zone ~1.5 min  (civil-twilight → horizon)
-    //   Midday       ~1.0 min  (horizon → horizon)
-    //   Sunset zone  ~1.5 min  (horizon → civil-twilight)
+    // Visual horizon crossing = warpedP 0.25 (sunrise) and 0.75 (sunset).
+    // The "horizon zone" segment is centered on those values and has slope 0.40
+    // so the sun crawls visibly slowly near the horizon.
     //
-    // Knot derivation (for reference, not recomputed at runtime):
-    //   sunY = sin(lat)*sin(dec) + cos(lat)*cos(dec)*cos(hourAngle)
-    //   Dawn civil twilight (sunY ≈ -0.105) → unwarped p ≈ 0.164
-    //   Sunrise horizon     (sunY = 0)       → unwarped p ≈ 0.311
-    //   Noon                                 → unwarped p = 0.500
-    //   Sunset horizon      (sunY = 0)       → unwarped p ≈ 0.689
-    //   Dusk civil twilight (sunY ≈ -0.105)  → unwarped p ≈ 0.836
+    // Segment slopes (dw/dp):
+    //   Night       p [0.00–0.10]: slope 2.00x  → night passes quickly
+    //   Horizon zone p [0.10–0.35]: slope 0.40x  → sun crawls near horizon ✓
+    //   Midday climb p [0.35–0.50]: slope 1.33x  → sun rises/sets at moderate speed
+    //   [Symmetric for second half]
+    //
+    // Phase durations (5-min cycle): ~1m night, ~2.5m horizon glow, ~1.5m midday
     function computeTimeOfDay(secondsInCycle, latInRadians = 0.71) {
         const CYCLE_DURATION_S = 300;
         const p = (secondsInCycle % CYCLE_DURATION_S) / CYCLE_DURATION_S;
 
-        // [unwarped_p, warped_p] knots — edit warped_p column to tune phase durations.
+        // [unwarped_p, warped_p] — edit warped_p to tune feel.
         const knots = [
-            [0.000, 0.000],  // midnight (start)
-            [0.164, 0.100],  // dawn civil twilight  → 0.5m of night before it
-            [0.311, 0.400],  // sunrise horizon       → 1.5m of golden-hour glow
-            [0.500, 0.500],  // solar noon            → 0.5m of cruising midday
-            [0.689, 0.600],  // sunset horizon        → 0.5m of cruising midday
-            [0.836, 0.900],  // dusk civil twilight   → 1.5m of golden-hour glow
-            [1.000, 1.000],  // midnight (end)        → 0.5m of night after it
+            [0.000, 0.000],  // midnight
+            [0.100, 0.200],  // end of night      → slope 2.00x (fast night)
+            [0.350, 0.300],  // horizon zone ends  → slope 0.40x (slow sun near horizon)
+            [0.500, 0.500],  // solar noon         → slope 1.33x (moderate climb)
+            [0.650, 0.700],  // horizon zone starts (symmetric)
+            [0.900, 0.800],  // night begins       (symmetric)
+            [1.000, 1.000],  // midnight
         ];
 
         for (let i = 0; i < knots.length - 1; i++) {
