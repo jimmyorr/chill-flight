@@ -128,8 +128,10 @@
             const [p1, w1] = knots[i + 1];
             if (p >= p0 && p <= p1) {
                 const t = (p - p0) / (p1 - p0);
-                const s = t * t * (3 - 2 * t); // smoothstep for organic easing
-                return w0 + s * (w1 - w0);
+                // Linear interpolation: constant velocity within each segment.
+                // Avoids the S-curve double-zero-velocity at knot boundaries
+                // that caused phantom pauses (e.g. at 14:30 and 00:00).
+                return w0 + t * (w1 - w0);
             }
         }
 
