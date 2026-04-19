@@ -1407,6 +1407,10 @@ function animate() {
             } else {
                 targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
             }
+        } else if (vehicleType === 'buggy') {
+            // Coast to a stop when no keys are pressed for buggy
+            targetFlightSpeed = THREE.MathUtils.lerp(targetFlightSpeed, 0, 2.5 * delta);
+            if (Math.abs(targetFlightSpeed) < 0.01) targetFlightSpeed = 0;
         }
     }
 
@@ -1629,7 +1633,7 @@ function animate() {
     // Automatically return to the target throttle speed.
     // We update this even at speed 0 so the vehicle can start moving again.
     if (Math.abs(flightSpeedMultiplier) > 0.001 || Math.abs(targetFlightSpeed) > 0.001) {
-        let recoveryRate = vehicleType === 'boat' ? 3.5 : 0.6; // Boat needs snappy throttle
+        let recoveryRate = (vehicleType === 'boat' || vehicleType === 'buggy') ? 3.5 : 0.6; // Boat/Buggy needs snappy throttle
 
         if (window._isRecoveringFromHeli) {
             if (keys.Shift || Math.abs(flightSpeedMultiplier - targetFlightSpeed) < 0.05) {
@@ -1637,14 +1641,14 @@ function animate() {
             }
         }
 
-        if (!window._isRecoveringFromHeli && (keys.Shift || flightSpeedMultiplier < targetFlightSpeed)) {
+        if (!window._isRecoveringFromHeli && (keys.Shift || vehicleType === 'boat' || vehicleType === 'buggy' || flightSpeedMultiplier < targetFlightSpeed)) {
             recoveryRate = 10.0; // Snappy responsiveness for active control/acceleration
         }
         flightSpeedMultiplier = THREE.MathUtils.lerp(flightSpeedMultiplier, targetFlightSpeed, recoveryRate * delta);
 
         // Keep speed in bounds based on vehicle type
-        if (vehicleType === 'boat') {
-            flightSpeedMultiplier = Math.max(-0.15, Math.min(0.33, flightSpeedMultiplier));
+        if (vehicleType === 'boat' || vehicleType === 'buggy') {
+            flightSpeedMultiplier = Math.max(-0.33, Math.min(0.66, flightSpeedMultiplier));
         } else {
             flightSpeedMultiplier = Math.max(0, Math.min(10, flightSpeedMultiplier));
         }
@@ -1759,7 +1763,7 @@ function animate() {
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
         }
     } else if (vehicleType === 'buggy') {
-        if (Math.abs(moveSpeedFactor) > 0 && !isFreefalling) {
+        if (Math.abs(moveSpeedFactor) > 0) {
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
         }
     }
@@ -1784,7 +1788,7 @@ function animate() {
         }
 
         // Keep drifting forward if there is residual speed
-        if (Math.abs(moveSpeedFactor) > 0) {
+        if (Math.abs(moveSpeedFactor) > 0 && vehicleType !== 'buggy') {
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
         }
     } else if (planeGroup.position.y <= restingHeight + 0.1) {
@@ -1820,7 +1824,7 @@ function animate() {
         planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, finalRoll, 0.1 * delta * 60);
         planeGroup.position.y = THREE.MathUtils.lerp(planeGroup.position.y, restingHeight, 0.1 * delta * 60); // Smooth landing
 
-        if (Math.abs(moveSpeedFactor) > 0) {
+        if (Math.abs(moveSpeedFactor) > 0 && vehicleType !== 'buggy') {
             planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
         }
     }
