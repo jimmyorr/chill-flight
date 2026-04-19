@@ -1797,8 +1797,27 @@ function animate() {
         while (planeGroup.rotation.z > Math.PI) planeGroup.rotation.z -= 2 * Math.PI;
         while (planeGroup.rotation.z < -Math.PI) planeGroup.rotation.z += 2 * Math.PI;
 
-        planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, 0, 0.05 * delta * 60);
-        planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, 0, 0.05 * delta * 60);
+        let finalPitch = 0;
+        let finalRoll = 0;
+
+        if (vehicleType === 'buggy') {
+            const hDelta = 2.0;
+            const fwdX = -Math.sin(planeGroup.rotation.y) * hDelta;
+            const fwdZ = -Math.cos(planeGroup.rotation.y) * hDelta;
+            const rightX = Math.cos(planeGroup.rotation.y) * hDelta;
+            const rightZ = -Math.sin(planeGroup.rotation.y) * hDelta;
+
+            const hFront = getElevation(planeGroup.position.x + fwdX, planeGroup.position.z + fwdZ);
+            const hBack = getElevation(planeGroup.position.x - fwdX, planeGroup.position.z - fwdZ);
+            const hRight = getElevation(planeGroup.position.x + rightX, planeGroup.position.z + rightZ);
+            const hLeft = getElevation(planeGroup.position.x - rightX, planeGroup.position.z - rightZ);
+
+            finalPitch = Math.atan2(hFront - hBack, hDelta * 2);
+            finalRoll = Math.atan2(hRight - hLeft, hDelta * 2);
+        }
+
+        planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, finalPitch, 0.1 * delta * 60);
+        planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, finalRoll, 0.1 * delta * 60);
         planeGroup.position.y = THREE.MathUtils.lerp(planeGroup.position.y, restingHeight, 0.1 * delta * 60); // Smooth landing
 
         if (Math.abs(moveSpeedFactor) > 0) {
