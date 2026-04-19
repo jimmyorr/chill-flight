@@ -43,6 +43,11 @@ const boatModel = new THREE.Group();
 boatModel.visible = false;
 planeGroup.add(boatModel);
 
+const buggyModel = new THREE.Group();
+buggyModel.visible = false;
+planeGroup.add(buggyModel);
+window.buggyWheels = [];
+
 /** @type {string} */
 let vehicleType = localStorage.getItem('chill_flight_vehicle') || 'airplane';
 
@@ -57,12 +62,14 @@ function setVehicle(type) {
     airplaneModel.visible = (vehicleType === 'airplane');
     helicopterModel.visible = (vehicleType === 'helicopter');
     boatModel.visible = (vehicleType === 'boat');
+    buggyModel.visible = (vehicleType === 'buggy');
 
     if (typeof verticalVelocity !== 'undefined') verticalVelocity = 0; // Reset vertical momentum on switch
     
     // Automatically adjust throttle for a natural feel on switch
     const heliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
     const boatSpeed = 25 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
+    const buggySpeed = 50 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
     const airplaneSpeed = 1.0;
 
     if (typeof targetFlightSpeed !== 'undefined') {
@@ -70,6 +77,8 @@ function setVehicle(type) {
             targetFlightSpeed = heliSpeed;
         } else if (vehicleType === 'boat') {
             targetFlightSpeed = boatSpeed;
+        } else if (vehicleType === 'buggy') {
+            targetFlightSpeed = buggySpeed;
         } else {
             targetFlightSpeed = airplaneSpeed;
             window._isRecoveringFromHeli = true; // Use softer acceleration after switch
@@ -266,6 +275,47 @@ window.boatPropellerGroup = playerBoatPropellerGroup;
 
 boatModel.scale.set(0.8, 0.8, 0.8);
 boatModel.position.set(0, 0, 0); 
+
+// --- BUGGY MODEL ---
+const buggyChassisGeo = new THREE.BoxGeometry(4, 2, 8);
+const buggyChassisMat = createMaterial({ color: planeColor, flatShading: true });
+const buggyChassis = new THREE.Mesh(buggyChassisGeo, buggyChassisMat);
+buggyChassis.position.y = 1;
+buggyModel.add(buggyChassis);
+
+// Roll cage / Window
+const buggyCageGeo = new THREE.BoxGeometry(3.5, 2, 4);
+const buggyCageMat = createMaterial({ color: 0x111111, roughness: 0.1 });
+const buggyCage = new THREE.Mesh(buggyCageGeo, buggyCageMat);
+buggyCage.position.set(0, 3, -1);
+buggyModel.add(buggyCage);
+
+// Wheels
+const wheelGeo = new THREE.CylinderGeometry(1.5, 1.5, 1, 12);
+wheelGeo.rotateZ(Math.PI / 2);
+const wheelMat = createMaterial({ color: 0x222222 });
+
+const wheelFL = new THREE.Mesh(wheelGeo, wheelMat);
+wheelFL.position.set(-2.5, 1.5, -3);
+buggyModel.add(wheelFL);
+window.buggyWheels.push(wheelFL);
+
+const wheelFR = new THREE.Mesh(wheelGeo, wheelMat);
+wheelFR.position.set(2.5, 1.5, -3);
+buggyModel.add(wheelFR);
+window.buggyWheels.push(wheelFR);
+
+const wheelBL = new THREE.Mesh(wheelGeo, wheelMat);
+wheelBL.position.set(-2.5, 1.5, 3);
+buggyModel.add(wheelBL);
+window.buggyWheels.push(wheelBL);
+
+const wheelBR = new THREE.Mesh(wheelGeo, wheelMat);
+wheelBR.position.set(2.5, 1.5, 3);
+buggyModel.add(wheelBR);
+window.buggyWheels.push(wheelBR);
+
+buggyModel.scale.set(0.8, 0.8, 0.8); 
 
 // Initialize vehicle
 setVehicle(vehicleType);
