@@ -56,4 +56,4 @@ These areas are layered on top of the primary biomes using noise-based "patches"
 *   **Autumn Zones:** Large patches of burnt orange and red forests. These appear randomly in temperate areas, changing common trees into three varieties of autumn-foliage trees.
 *   **Cherry Blossom Groves:** Rare pink-tinted forests (#F8BBD0). These are the **only** places where Pagodas will spawn.
 *   **The Equator River:** A massive, meandering river that runs primarily East-West around $Z=0$. It features fluctuating widths (80 to 300 units) and smooth, carved banks.
-*   **The World Tree (Yggdrasil):** A permanent landmark located at **2° West, Equator** ($X = -10000, Z = 0$). It is a colossal, unique asset that bypasses standard chunk culling.
+
