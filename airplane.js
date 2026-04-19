@@ -296,21 +296,25 @@ wheelGeo.rotateZ(Math.PI / 2);
 const wheelMat = createMaterial({ color: 0x222222 });
 
 const wheelFL = new THREE.Mesh(wheelGeo, wheelMat);
+wheelFL.rotation.order = 'YXZ';
 wheelFL.position.set(-2.5, 1.5, -3);
 buggyModel.add(wheelFL);
 window.buggyWheels.push(wheelFL);
 
 const wheelFR = new THREE.Mesh(wheelGeo, wheelMat);
+wheelFR.rotation.order = 'YXZ';
 wheelFR.position.set(2.5, 1.5, -3);
 buggyModel.add(wheelFR);
 window.buggyWheels.push(wheelFR);
 
 const wheelBL = new THREE.Mesh(wheelGeo, wheelMat);
+wheelBL.rotation.order = 'YXZ';
 wheelBL.position.set(-2.5, 1.5, 3);
 buggyModel.add(wheelBL);
 window.buggyWheels.push(wheelBL);
 
 const wheelBR = new THREE.Mesh(wheelGeo, wheelMat);
+wheelBR.rotation.order = 'YXZ';
 wheelBR.position.set(2.5, 1.5, 3);
 buggyModel.add(wheelBR);
 window.buggyWheels.push(wheelBR);
