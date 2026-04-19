@@ -2051,15 +2051,27 @@ function animate() {
     const sunZ = (Math.cos(latitude) * Math.sin(declination)) - (Math.sin(latitude) * Math.cos(declination) * Math.cos(hourAngle));
     const dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) * 2)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0 (6 AM)
 
-    // 2. Realistic Moon Position (Phase Elongation)
-    const lunarPhase = (passedServerNow % 2400000) / 2400000;
-    const elongation = lunarPhase * Math.PI * 2;
-    const moonTimeOfDay = timeOfDay - elongation;
-    const moonHourAngle = moonTimeOfDay + Math.PI;
+    // 2. Realistic Moon Position (Decoupled & Slower)
+    // Lunar phase cycle: 2 hours (previously 40 minutes)
+    const LUNAR_PHASE_MS = 7200000;
+    const lunarPhase = (passedServerNow % LUNAR_PHASE_MS) / LUNAR_PHASE_MS;
+    if (typeof moonUniforms !== 'undefined') {
+        moonUniforms.moonPhase.value = lunarPhase;
+    }
 
-    const moonY = (Math.sin(latitude) * Math.sin(declination)) + (Math.cos(latitude) * Math.cos(declination) * Math.cos(moonHourAngle));
-    const moonX = -Math.cos(declination) * Math.sin(moonHourAngle);
-    const moonZ = (Math.cos(latitude) * Math.sin(declination)) - (Math.sin(latitude) * Math.cos(declination) * Math.cos(moonHourAngle));
+    // Lunar sky cycle: 24 minutes for a full 360° orbit (12 mins horizon-to-horizon)
+    // This allows the moon to move much more slowly and drift independently of the 5-min sun cycle.
+    const LUNAR_SKY_MS = 1440000;
+    const moonTimeProgress = (passedServerNow % LUNAR_SKY_MS) / LUNAR_SKY_MS;
+    const moonHourAngle = (moonTimeProgress * Math.PI * 2) + Math.PI; 
+
+    // Slow lunar wobble: path drifts ±10° over ~1.7 hours for orbital diversity
+    const moonWobble = Math.sin(passedServerNow * 0.000001) * 0.17;
+    const moonDeclination = declination + moonWobble;
+
+    const moonY = (Math.sin(latitude) * Math.sin(moonDeclination)) + (Math.cos(latitude) * Math.cos(moonDeclination) * Math.cos(moonHourAngle));
+    const moonX = -Math.cos(moonDeclination) * Math.sin(moonHourAngle);
+    const moonZ = (Math.cos(latitude) * Math.sin(moonDeclination)) - (Math.sin(latitude) * Math.cos(moonDeclination) * Math.cos(moonHourAngle));
 
     // Update water shader uniform — the GPU handles all wave displacement
     window.waterUniforms.uTime.value = now * 0.0015;
@@ -2351,8 +2363,7 @@ function animate() {
         moonUniforms.overcast.value = overcast;
         moonUniforms.dayFactor.value = dayFactor;
         
-        // 8-day moon cycle (CYCLE_DURATION_MS = 300000 * 8)
-        moonUniforms.moonPhase.value = (passedServerNow % 2400000) / 2400000;
+        // moonPhase is now updated at the top of animate() with a 4-hour cycle
 
         // Dynamic Moon Sizing (Moon Illusion)
         const moonElevation = Math.max(0.0, moonY);

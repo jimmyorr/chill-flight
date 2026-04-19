@@ -415,7 +415,7 @@ const moonFragShader = `
         for(int i=-1; i<=1; i++) {
             vec2 g = vec2(float(i),float(j));
             vec2 o = random2(n + g);
-            o = 0.5 + 0.5*sin(uTime*0.05 + 6.2831*o);
+            o = 0.5 + 0.5*sin(uTime * 0.01 + 6.2831 * o);
             vec2 r = g + o - f;
             float d = dot(r,r);
             res = min(res, d);
@@ -426,7 +426,7 @@ const moonFragShader = `
     void main() {
         vec2 uv = vUv * 6.0;
         float v1 = voronoi(uv);
-        float v2 = voronoi(uv * 2.0 + uTime * 0.02);
+        float v2 = voronoi(uv * 2.0 + uTime * 0.004);
         float n = v1 * 0.7 + v2 * 0.3;
         
         vec3 baseCol = vec3(0.85, 0.85, 0.95);
