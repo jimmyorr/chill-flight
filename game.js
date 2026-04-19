@@ -2008,8 +2008,21 @@ function animate() {
         _idealUp.lerpVectors(_up_Follow, _up_TopDown, easedT);
     }
 
+    // Camera collision avoidance with terrain
+    const idealTerrainHeight = getElevation(_idealCameraPos.x, _idealCameraPos.z);
+    if (_idealCameraPos.y < idealTerrainHeight + 2.0) {
+        _idealCameraPos.y = idealTerrainHeight + 2.0;
+    }
+
     // Apply smooth tracking to the results
     camera.position.lerp(_idealCameraPos, 0.15 * delta * 60);
+
+    // Hard clamp to prevent dipping below terrain during fast movement
+    const actualTerrainHeight = getElevation(camera.position.x, camera.position.z);
+    if (camera.position.y < actualTerrainHeight + 1.0) {
+        camera.position.y = actualTerrainHeight + 1.0;
+    }
+
     _currentLookTarget.lerp(_idealLookTarget, 0.15 * delta * 60);
     camera.up.lerp(_idealUp, 0.1 * delta * 60).normalize();
 
