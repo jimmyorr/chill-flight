@@ -1304,6 +1304,17 @@ function animate() {
         }
     }
 
+    // Buggy front wheel steering
+    if (vehicleType === 'buggy' && window.buggyWheels && window.buggyWheels.length >= 2) {
+        let targetSteer = 0;
+        if (!keys.Shift) {
+            if (keys.ArrowLeft) targetSteer = Math.PI / 6;
+            else if (keys.ArrowRight) targetSteer = -Math.PI / 6;
+        }
+        window.buggyWheels[0].rotation.y = THREE.MathUtils.lerp(window.buggyWheels[0].rotation.y, targetSteer, 10 * delta);
+        window.buggyWheels[1].rotation.y = THREE.MathUtils.lerp(window.buggyWheels[1].rotation.y, targetSteer, 10 * delta);
+    }
+
     // Animate pontoons
     if (isDeployingPontoons && !isRetractingPontoons && pontoonDeploymentProgress < 1) {
         pontoonDeploymentProgress += delta * 0.5;
