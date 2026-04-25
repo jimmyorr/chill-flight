@@ -1,7 +1,19 @@
-node_modules/
 .DS_Store
-android/
-ios/
 .server-info
 .server.pid
-.superpowers/
+android/
+ios/
+node_modules/
+
+# --- Antigravity / AI Agent Config ---
+
+# 1. Ignore the "Trash" (Temporary session data, logs, and cache)
+.agent/cache/
+.agent/logs/
+.agent/sessions/
+.agent/temp/
+
+# 2. Keep the "Brain" (The instructions you actually want)
+!.agent/rules/
+!.agent/skills/
+!.agent/workflows/
