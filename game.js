@@ -2960,7 +2960,7 @@ window.addEventListener('keydown', (e) => {
                 import('https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js').then(({ goOnline, set, ref }) => {
                     goOnline(window.firebaseDB);
                     if (typeof otherPlayers !== 'undefined') otherPlayers.forEach(p => p.mesh.visible = true);
-                    const profileRef = ref(window.firebaseDB, `${_wp}/users/` + window.currentUserUid);
+                    const profileRef = ref(window.firebaseDB, `users/` + window.currentUserUid);
                     const sessionRef = ref(window.firebaseDB, `${_wp}/players/` + window.currentUserUid);
                     set(profileRef, { name: playerName, color: planeColor, updatedAt: new Date().toISOString() });
                     set(sessionRef, { name: playerName, color: planeColor, lastSeen: new Date().toISOString() });

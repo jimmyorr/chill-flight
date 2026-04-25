@@ -283,7 +283,7 @@ function initMultiplayer() {
                 if (nameInput) nameInput.value = playerName;
             }
 
-            const profileRef = ref(db, `${worldPrefix}/users/` + playerUid);
+            const profileRef = ref(db, `users/` + playerUid);
             const sessionRef = ref(db, `${worldPrefix}/players/` + playerUid);
 
             const updatePlayerProfile = () => {
