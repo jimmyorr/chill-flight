@@ -248,8 +248,24 @@ function initMultiplayer() {
                     const playersRef = ref(db, `${testPrefix}/players`);
                     try {
                         const snapshot = await get(playersRef);
-                        const count = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
-                        console.log(`🏠 Checking Room ${roomIndex} (${testPrefix}): ${count} players`);
+                        let count = 0;
+                        if (snapshot.exists()) {
+                            const players = snapshot.val();
+                            const now = new Date();
+                            for (const uid in players) {
+                                const lastSeen = players[uid].lastSeen;
+                                if (lastSeen) {
+                                    const lastSeenDate = new Date(lastSeen);
+                                    if (now - lastSeenDate < 60000) { // Only count if seen in last 60 seconds
+                                        count++;
+                                    }
+                                } else {
+                                    // If no lastSeen, assume they are active for now (new player)
+                                    count++;
+                                }
+                            }
+                        }
+                        console.log(`🏠 Checking Room ${roomIndex} (${testPrefix}): ${count} active players`);
                         if (count < 10) {
                             console.log(`✅ Joined Room ${roomIndex}`);
                             return { testPrefix, roomIndex };
@@ -375,7 +391,10 @@ function initMultiplayer() {
 
             const initialPos = planeGroup.position;
             const initialRot = planeGroup.rotation;
-            set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(initialPos, initialRot, flightSpeedMultiplier, false, vehicleType));
+            update(sessionRef, {
+                position: packPos(initialPos, initialRot, flightSpeedMultiplier, false, vehicleType),
+                lastSeen: new Date().toISOString()
+            });
 
             const playersRef = ref(db, `${worldPrefix}/players`);
             onChildAdded(playersRef, (snapshot) => {
@@ -552,7 +571,10 @@ function initMultiplayer() {
 
                 // Thresholds: distance > 2.0 or rotation > 0.02 (total angular change)
                 if (!hasSentInitial || distMoved > 2.0 || rotChanged > 0.02 || speedChanged || lightsChanged || vehicleChanged || isHeartbeat) {
-                    set(ref(db, `${worldPrefix}/players/` + playerUid + '/position'), packPos(pos, rot, flightSpeedMultiplier, headlightsOn, vehicleType));
+                    update(sessionRef, {
+                        position: packPos(pos, rot, flightSpeedMultiplier, headlightsOn, vehicleType),
+                        lastSeen: new Date().toISOString()
+                    });
                     
                     lastSentPos.copy(pos);
                     lastSentRot.copy(rot);
