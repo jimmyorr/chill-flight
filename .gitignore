@@ -1,19 +1,33 @@
+# --- System / OS ---
 .DS_Store
+Thumbs.db
+
+# --- Dependencies & Build Artifacts ---
+node_modules/
+dist/
+build/
 .server-info
 .server.pid
+
+# --- Mobile (React Native / Capacitor) ---
 android/
 ios/
-node_modules/
+*.swp
+*.lock
 
-# --- Antigravity / AI Agent Config ---
+# --- Environment / Secrets ---
+.env
+.env.*
+!.env.example
 
-# 1. Ignore the "Trash" (Temporary session data, logs, and cache)
-.agent/cache/
-.agent/logs/
+# --- Antigravity / AI Agent Infra ---
+# Ignore the "Runtime" (logs, sessions, and heavy cache)
 .agent/sessions/
+.agent/logs/
+.agent/cache/
 .agent/temp/
 
-# 2. Keep the "Brain" (The instructions you actually want)
-!.agent/rules/
-!.agent/skills/
-!.agent/workflows/
+# DO NOT ignore these (The "Brain")
+# !.agent/workflows/
+# !.agent/skills/
+# !.agent/rules/
