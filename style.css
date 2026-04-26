@@ -10,7 +10,6 @@ body {
 .btn, 
 .mobile-btn, 
 .sub-btn, 
-.station-btn, 
 .color-swatch,
 .customization-input {
     -webkit-user-select: none; /* Safari */
@@ -167,7 +166,6 @@ input[type=number].customization-input {
 }
 
 .color-swatch.tv-focused,
-.station-btn.tv-focused,
 .btn.tv-focused {
     transform: scale(1.15) !important;
 }
@@ -271,41 +269,6 @@ input[type=number].customization-input {
     background: rgba(255, 255, 255, 0.1) !important;
 }
 
-.station-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.8);
-    min-width: 28px;
-    height: 28px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    padding: 0 4px;
-    touch-action: none;
-}
-
-.station-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-    color: white;
-}
-
-.station-btn.active {
-    background: #FFD700;
-    color: #000;
-    border-color: #FFD700;
-    box-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
-}
-
-.station-btn.disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    pointer-events: none;
-}
 
 
 

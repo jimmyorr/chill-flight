@@ -1,6 +1,6 @@
 // --- AUDIO (PURRPLE CAT) ---
 
-let currentStation = 0;
+let musicEnabled = true;
 
 let purrpleCatAudio = new Audio();
 const purrpleCatTracks = [
@@ -17,36 +17,37 @@ let purrpleCatIdx = 0;
 // Loop to the next track automatically
 purrpleCatAudio.addEventListener('ended', () => {
     purrpleCatIdx = (purrpleCatIdx + 1) % purrpleCatTracks.length;
-    updateAudioPlayer(currentStation);
+    updateAudioPlayer(musicEnabled);
 });
 
-function setStation(num) {
-    if (num === 1 && currentStation === 1) {
-        // Clicking the same station again skips to the next track
-        purrpleCatIdx = (purrpleCatIdx + 1) % purrpleCatTracks.length;
-    }
-
-    currentStation = num;
-
-    const btns = document.querySelectorAll('.station-btn');
-    if (btns.length > 0) {
-        btns.forEach(b => {
-            b.classList.remove('active');
-            const ds = b.getAttribute('data-station');
-            if (parseInt(ds) === num) b.classList.add('active');
-        });
-    }
-
-    updateAudioPlayer(num);
+function setMusicEnabled(enabled) {
+    musicEnabled = enabled;
+    updateAudioPlayer(enabled);
 }
 
-function updateAudioPlayer(num) {
-    if (num === 1) {
-        purrpleCatAudio.src = purrpleCatTracks[purrpleCatIdx];
-        purrpleCatAudio.play().catch(e => console.log('Audio play blocked:', e));
+function updateAudioPlayer(enabled) {
+    if (enabled) {
+        if (!purrpleCatAudio.src) {
+            purrpleCatAudio.src = purrpleCatTracks[purrpleCatIdx];
+        }
+        purrpleCatAudio.play().catch(e => {
+            console.log('Audio play blocked:', e);
+            // Safety net: resume on first interaction if blocked
+            const resumeOnInteraction = () => {
+                if (musicEnabled) {
+                    purrpleCatAudio.play().then(() => {
+                        console.log('Audio resumed on interaction');
+                    }).catch(e => console.log('Still blocked:', e));
+                }
+                window.removeEventListener('mousedown', resumeOnInteraction);
+                window.removeEventListener('keydown', resumeOnInteraction);
+                window.removeEventListener('touchstart', resumeOnInteraction);
+            };
+            window.addEventListener('mousedown', resumeOnInteraction);
+            window.addEventListener('keydown', resumeOnInteraction);
+            window.addEventListener('touchstart', resumeOnInteraction);
+        });
     } else {
         purrpleCatAudio.pause();
     }
 }
-
-
