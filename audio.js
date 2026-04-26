@@ -1,6 +1,6 @@
 // --- AUDIO (PURRPLE CAT) ---
 
-let musicEnabled = true;
+let musicEnabled = localStorage.getItem('chill_flight_music_enabled') !== 'false';
 
 let purrpleCatAudio = new Audio();
 const purrpleCatTracks = [
@@ -40,6 +40,7 @@ purrpleCatAudio.addEventListener('play', () => {
 
 function setMusicEnabled(enabled) {
     musicEnabled = enabled;
+    localStorage.setItem('chill_flight_music_enabled', enabled);
     updateAudioPlayer(enabled);
 }
 
