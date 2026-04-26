@@ -5,7 +5,7 @@
 //               CHUNK_SIZE, WATER_LEVEL, BASE_FLIGHT_SPEED, TURN_SPEED, flightSpeedMultiplier,
 //               pontoonGroup, pontoonL, pontoonR, hingeLF, hingeLB, hingeRF, hingeRB,
 //               headlight, headlightGlow, otherPlayers (set by multiplayer.js),
-//               currentStation, setStation
+//               musicEnabled, setMusicEnabled
 
 // --- INPUT ---
 let mouseX = 0;
@@ -81,7 +81,7 @@ window.addEventListener('touchstart', (e) => {
     if (e.touches.length > 0) {
         const target = e.target;
         const isPauseOverlay = target.closest('#pause-overlay');
-        const isUI = isPauseOverlay || target.closest('#cockpit-ui') || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.station-btn') || target.closest('.color-swatch');
+        const isUI = isPauseOverlay || target.closest('#cockpit-ui') || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.color-swatch');
         if (!isUI) {
             updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
             mouseControlActive = true;
@@ -102,7 +102,7 @@ window.addEventListener('touchmove', (e) => {
             e.preventDefault();
         }
         const isPauseOverlay = target.closest('#pause-overlay');
-        const isUI = isCockpit || isPauseOverlay || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.station-btn') || target.closest('.color-swatch');
+        const isUI = isCockpit || isPauseOverlay || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.color-swatch');
         if (!isUI) {
             updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
             mouseControlActive = true;
@@ -137,7 +137,7 @@ let lastY = 250; // track for ascent/descent detection
 
 
 // --- PAUSE ---
-let isPaused = false;
+let isPaused = true;
 let justResumed = false; // one-frame guard to suppress any input that bled through from the pause menu
 
 function clearInputState() {
@@ -164,14 +164,14 @@ function togglePause() {
         keys.ArrowUp = keys.ArrowDown = keys.ArrowLeft = keys.ArrowRight = false;
         doubleTap.ArrowUp = doubleTap.ArrowDown = doubleTap.ArrowLeft = doubleTap.ArrowRight = false;
 
-        if (currentStation === 1 && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.pause();
+        if (musicEnabled && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.pause();
     } else {
         pauseOverlay.style.display = 'none';
         clock.getDelta(); // clear accumulated time so plane doesn't skip
         clearInputState();  // wipe any input that bled through from the pause overlay
         justResumed = true; // suppress the first animate frame's input application
 
-        if (currentStation === 1 && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.play();
+        if (musicEnabled && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.play();
     }
 }
 
@@ -414,6 +414,20 @@ window.addEventListener('keydown', (e) => {
 
     // 3. Navigation in pause menu
     if (isPaused) {
+        // --- START SCREEN OVERRIDE ---
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay && overlay.style.display !== 'none') {
+            if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+                const beginBtn = document.getElementById('begin-btn');
+                if (beginBtn && beginBtn.style.display !== 'none') {
+                    beginBtn.click();
+                    e.preventDefault();
+                    return;
+                }
+            }
+            return;
+        }
+
         // Prevent arrow keys from scrolling the page
         if (e.key.startsWith('Arrow')) {
             e.preventDefault();
@@ -496,7 +510,7 @@ document.getElementById('resume-btn').addEventListener('click', () => {
 const radioPanel = document.getElementById('radio-panel');
 if (radioPanel) {
     radioPanel.addEventListener('click', () => {
-        togglePause();
+        setMusicEnabled(!musicEnabled);
     });
 }
 
@@ -2709,11 +2723,7 @@ if (radToggle) {
     radToggle.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (currentStation === 0) {
-            setStation(1);
-        } else {
-            setStation(0);
-        }
+        setMusicEnabled(!musicEnabled);
     });
 }
 
@@ -2967,10 +2977,8 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (document.activeElement && document.activeElement.tagName !== 'INPUT' && !e.metaKey && !e.ctrlKey) {
-        if (e.key === '1' || e.key === '2' || e.key === '5') {
-            setStation(1);
-        } else if (e.key === '0') {
-            setStation(0);
+        if (e.key === 'm' || e.key === 'M') {
+            setMusicEnabled(!musicEnabled);
         }
     }
 });
@@ -3037,24 +3045,40 @@ document.querySelectorAll('.speed-btn').forEach(btn => {
 });
 
 // --- DISMISS LOADING SCREEN ---
-function updateLoadingProgress(percent, status) {
-    const bar = document.getElementById('loading-bar');
-    const text = document.getElementById('loading-status');
-    if (bar) bar.style.width = percent + '%';
-    if (text) text.innerText = status;
-}
-
 const overlay = document.getElementById('loading-overlay');
 if (overlay) {
-    updateLoadingProgress(30, "Generating terrain...");
-    setTimeout(() => {
-        updateLoadingProgress(70, "Compiling shaders...");
-        setTimeout(() => {
-            updateLoadingProgress(100, "Ready to chill.");
+    const beginBtn = document.getElementById('begin-btn');
+    if (beginBtn) {
+        beginBtn.style.display = 'block';
+        beginBtn.focus();
+
+        beginBtn.addEventListener('click', () => {
             overlay.style.transition = 'opacity 0.8s ease';
             overlay.style.opacity = '0';
             overlay.style.pointerEvents = 'none';
             setTimeout(() => overlay.style.display = 'none', 800);
-        }, 500);
-    }, 500);
+
+            // Unpause the game and clear the clock delta
+            isPaused = false;
+            if (typeof clock !== 'undefined') clock.getDelta();
+
+            // Start music!
+            if (typeof setMusicEnabled === 'function') {
+                setMusicEnabled(true);
+            }
+        });
+    } else {
+        // Fallback: automatic behavior
+        overlay.style.transition = 'opacity 0.8s ease';
+        overlay.style.opacity = '0';
+        overlay.style.pointerEvents = 'none';
+        setTimeout(() => overlay.style.display = 'none', 800);
+        
+        isPaused = false;
+        if (typeof clock !== 'undefined') clock.getDelta();
+
+        if (typeof setMusicEnabled === 'function') {
+            setMusicEnabled(true);
+        }
+    }
 }
