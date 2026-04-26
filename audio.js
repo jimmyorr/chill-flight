@@ -45,10 +45,11 @@ async function getCachedTrackUrl(url) {
 }
 
 // Loop to the next track automatically
-purrpleCatAudio.addEventListener('ended', () => {
+purrpleCatAudio.addEventListener('ended', async () => {
     purrpleCatIdx = (purrpleCatIdx + 1) % purrpleCatTracks.length;
     // Update the source immediately so play() uses the new track
-    purrpleCatAudio.src = purrpleCatTracks[purrpleCatIdx];
+    const url = purrpleCatTracks[purrpleCatIdx];
+    purrpleCatAudio.src = await getCachedTrackUrl(url);
     updateAudioPlayer(musicEnabled);
 });
 
