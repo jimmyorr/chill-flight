@@ -154,7 +154,7 @@ function generateDynamicPalette(rng) {
         bottomHue = rand(0.45, 0.55);
         bNames = ["Azure", "Mist", "Icy", "Arctic", "Slate"];
     }
-    
+
     const bottomSat = rand(0.35, 0.65);  // Moderate saturation for natural horizons
     const bottomLight = rand(0.55, 0.75); // Lighter than zenith but not washed out
 

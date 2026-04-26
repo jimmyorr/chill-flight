@@ -7,18 +7,21 @@ body {
 }
 
 /* Prevent text selection and default tap highlights on interactive elements */
-.btn, 
-.mobile-btn, 
-.sub-btn, 
+.btn,
+.mobile-btn,
+.sub-btn,
 .color-swatch,
 .customization-input {
-    -webkit-user-select: none; /* Safari */
-    -ms-user-select: none;      /* IE 10+ */
-    user-select: none;          /* Standard */
-    
+    -webkit-user-select: none;
+    /* Safari */
+    -ms-user-select: none;
+    /* IE 10+ */
+    user-select: none;
+    /* Standard */
+
     /* Disables the blue/gray highlight box that appears on tap in mobile browsers */
     -webkit-tap-highlight-color: transparent;
-    
+
     /* Prevents the browser from showing the "Copy/Paste" callout on long-press */
     -webkit-touch-callout: none;
 }
@@ -284,7 +287,8 @@ input[type=number].customization-input {
     display: none;
     z-index: 100;
     pointer-events: auto;
-    width: 200px; /* Added fixed width for consistency */
+    width: 200px;
+    /* Added fixed width for consistency */
 }
 
 #debug-telemetry {
@@ -382,7 +386,8 @@ input[type=number].customization-input {
 /* The Sub-Menu Animation */
 .menu-items {
     position: absolute;
-    bottom: 60px; /* Reduced from 75px to close the 15px gap */
+    bottom: 60px;
+    /* Reduced from 75px to close the 15px gap */
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -390,8 +395,10 @@ input[type=number].customization-input {
     pointer-events: none;
     transform: translateY(20px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    width: 100%; /* Match trigger button width */
-    padding-bottom: 15px; /* Maintain visual gap while ensuring container covers the space */
+    width: 100%;
+    /* Match trigger button width */
+    padding-bottom: 15px;
+    /* Maintain visual gap while ensuring container covers the space */
 }
 
 .menu-container.expanded .menu-items {
@@ -634,7 +641,7 @@ input[type=number].customization-input {
             font-size: 11px;
             min-width: 45px;
         }
-        
+
         #flight-status {
             font-size: 10px;
             width: 100px;

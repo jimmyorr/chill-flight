@@ -3078,7 +3078,7 @@ if (overlay) {
         overlay.style.opacity = '0';
         overlay.style.pointerEvents = 'none';
         setTimeout(() => overlay.style.display = 'none', 800);
-        
+
         isPaused = false;
         if (typeof clock !== 'undefined') clock.getDelta();
 

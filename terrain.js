@@ -1714,7 +1714,7 @@ function generateChunk(chunkX, chunkZ) {
                     dummy.updateMatrix();
                     const smokeIdx = index * 5 + i;
                     smokeInst.setMatrixAt(smokeIdx, dummy.matrix);
-                    
+
                     const phase = ((pos.x + pos.z) % 10.0) / 10.0;
                     smokeInst.setColorAt(smokeIdx, new THREE.Color(i / 10.0, phase, 0));
                 }
@@ -1965,7 +1965,7 @@ function toggleProceduralObjects(enabled) {
         window.localStorage.setItem('chill_flight_show_objects', enabled);
     }
 
-    
+
     // Update all existing chunks
     chunks.forEach(group => {
         if (group.userData.objectsGroup) {
