@@ -4,7 +4,7 @@ console.log("📡 Multiplayer: Script loading (Non-module mode)...");
 async function startMultiplayer() {
     try {
         console.log("📡 Multiplayer: Fetching Firebase modules via dynamic import...");
-        
+
         // Using dynamic imports to bypass the 401 error caused by the server's module-blocking
         const [
             { initializeApp },
@@ -42,7 +42,7 @@ async function startMultiplayer() {
         const auth = getAuth(app);
         const db = getDatabase(app);
 
-        const packPos = (p, r, s, l, v) => `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)},${r.x.toFixed(3)},${r.y.toFixed(3)},${r.z.toFixed(3)},${s.toFixed(2)},${l?1:0},${v==='helicopter'?1:0}`;
+        const packPos = (p, r, s, l, v) => `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)},${r.x.toFixed(3)},${r.y.toFixed(3)},${r.z.toFixed(3)},${s.toFixed(2)},${l ? 1 : 0},${v === 'helicopter' ? 1 : 0}`;
         const unpackPos = (csv) => {
             if (typeof csv !== 'string') return csv || {};
             const v = csv.split(',');
@@ -69,7 +69,7 @@ async function startMultiplayer() {
             const isConnected = snap.val() === true;
             setMultiplayerOfflineBanner(!isConnected);
             if (!isConnected && multiplayerActive) {
-                otherPlayers.forEach((p) => { if(typeof scene !== 'undefined') scene.remove(p.mesh); });
+                otherPlayers.forEach((p) => { if (typeof scene !== 'undefined') scene.remove(p.mesh); });
                 otherPlayers.clear();
             }
         });
@@ -103,7 +103,7 @@ async function startMultiplayer() {
             const r = new THREE.Mesh(rudderGeo, mat); r.position.set(0, 2.5, 7); airplaneModel.add(r);
             const propGroup = new THREE.Group(); propGroup.position.set(0, 0, -8.5); airplaneModel.add(propGroup);
             const bladeGeo = new THREE.BoxGeometry(12, 0.4, 0.4); const bladeMat = createMaterial({ color: 0x222222 });
-            const b1 = new THREE.Mesh(bladeGeo, bladeMat); const b2 = b1.clone(); b2.rotation.z = Math.PI/2;
+            const b1 = new THREE.Mesh(bladeGeo, bladeMat); const b2 = b1.clone(); b2.rotation.z = Math.PI / 2;
             propGroup.add(b1); propGroup.add(b2);
 
             // Helicopter Model
@@ -112,7 +112,7 @@ async function startMultiplayer() {
             const tail = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 10), mat); tail.position.set(0, 1, 8); helicopterModel.add(tail);
             const mainRotor = new THREE.Group(); mainRotor.position.set(0, 3, 0); helicopterModel.add(mainRotor);
             const mb1 = new THREE.Mesh(new THREE.BoxGeometry(24, 0.2, 1.5), bladeMat); mainRotor.add(mb1);
-            const mb2 = mb1.clone(); mb2.rotation.y = Math.PI/2; mainRotor.add(mb2);
+            const mb2 = mb1.clone(); mb2.rotation.y = Math.PI / 2; mainRotor.add(mb2);
 
             group.userData = { airplaneModel, helicopterModel, propeller: propGroup, mainRotor };
             return group;
@@ -129,10 +129,10 @@ async function startMultiplayer() {
         const sessionRef = ref(db, `${worldPrefix}/players/` + playerUid);
 
         // --- INITIAL SESSION WRITE (Denormalize immediately from localStorage) ---
-        update(sessionRef, { 
-            name: playerName, 
-            color: planeColor, 
-            lastSeen: new Date().toISOString() 
+        update(sessionRef, {
+            name: playerName,
+            color: planeColor,
+            lastSeen: new Date().toISOString()
         });
 
         // --- RESTORE PROFILE FROM FIREBASE ---
@@ -142,7 +142,7 @@ async function startMultiplayer() {
                 playerName = profile.name || playerName;
                 planeColor = profile.color !== undefined ? profile.color : planeColor;
                 console.log("📡 Profile restored from Firebase:", playerName);
-                
+
                 localStorage.setItem('chill_flight_name', playerName);
                 localStorage.setItem('chill_flight_color', planeColor.toString());
 
@@ -150,7 +150,7 @@ async function startMultiplayer() {
                 const nameInput = document.getElementById('player-name-input');
                 if (nameInput) nameInput.value = playerName;
                 if (typeof planeMat !== 'undefined' && planeMat) planeMat.color.setHex(planeColor);
-                
+
                 update(sessionRef, { name: playerName, color: planeColor });
             }
         });
@@ -169,7 +169,7 @@ async function startMultiplayer() {
                 playerName = newName || defaultCallsign;
                 playerName = playerName.substring(0, 15);
                 localStorage.setItem('chill_flight_name', playerName);
-                
+
                 // Debounce the Firebase update to prevent spamming on every keystroke
                 if (nameUpdateTimeout) clearTimeout(nameUpdateTimeout);
                 nameUpdateTimeout = setTimeout(() => {
@@ -185,7 +185,7 @@ async function startMultiplayer() {
                     planeColor = parseInt(e.target.getAttribute('data-color'));
                     localStorage.setItem('chill_flight_color', planeColor.toString());
                     if (typeof planeMat !== 'undefined' && planeMat) planeMat.color.setHex(planeColor);
-                    
+
                     // Update swatches
                     colorOptions.querySelectorAll('.color-swatch').forEach(sw => {
                         sw.classList.toggle('active', parseInt(sw.getAttribute('data-color')) === planeColor);
@@ -198,23 +198,23 @@ async function startMultiplayer() {
         onDisconnect(sessionRef).remove();
 
         const playersRef = ref(db, `${worldPrefix}/players`);
-        
+
         onChildAdded(playersRef, (snapshot) => {
             const snapKey = snapshot.key;
             if (snapKey === playerUid) return;
             const data = snapshot.val();
             const posData = unpackPos(data.position);
             const mesh = createOtherPlaneMesh(snapKey, data.color);
-            
+
             const remoteName = data.name || "Player";
             console.log(`📡 Player joined: ${remoteName} (${snapKey})`);
-            
+
             if (typeof scene !== 'undefined') scene.add(mesh);
-            otherPlayers.set(snapKey, { 
-                mesh, 
+            otherPlayers.set(snapKey, {
+                mesh,
                 name: remoteName,
-                targetPos: new THREE.Vector3(posData.x, posData.y, posData.z), 
-                lastReceivedMs: Date.now() 
+                targetPos: new THREE.Vector3(posData.x, posData.y, posData.z),
+                lastReceivedMs: Date.now()
             });
         });
 
@@ -223,7 +223,7 @@ async function startMultiplayer() {
             if (!p) return;
             const data = snapshot.val();
             const posData = unpackPos(data.position);
-            
+
             p.targetPos.set(posData.x, posData.y, posData.z);
             p.mesh.position.copy(p.targetPos);
             p.lastReceivedMs = Date.now();
@@ -236,7 +236,7 @@ async function startMultiplayer() {
 
         onChildRemoved(playersRef, (snapshot) => {
             const p = otherPlayers.get(snapshot.key);
-            if (p) { if(typeof scene !== 'undefined') scene.remove(p.mesh); otherPlayers.delete(snapshot.key); }
+            if (p) { if (typeof scene !== 'undefined') scene.remove(p.mesh); otherPlayers.delete(snapshot.key); }
         });
 
         function sync() {

@@ -305,14 +305,14 @@
         if (x < 0) {
             // 1. Reduce the dampening of the main height scale to retain more verticality
             heightScale *= (1 - westFactor * 0.4); // Was 0.8
-            
+
             // 2. Increase the base altitude in the west (was 65, now 120)
-            offset = _lerp(offset, 120, westFactor); 
-            
+            offset = _lerp(offset, 120, westFactor);
+
             // 3. Inject new, low-frequency noise specifically for broad rolling hills
             const rollingHills = simplex.noise2D(x * 0.0003, z * 0.0003) * 140;
             offset += rollingHills * westFactor;
-            
+
             // 4. Heavily dampen roughness and rockiness so the hills are smooth, not jagged
             roughness *= (1 - westFactor * 0.85); // Was 0.7
             rockiness *= (1 - westFactor * 0.95); // Was 0.9

@@ -1,17 +1,17 @@
 // map-loader.js
 
-(function() {
+(function () {
     function processImage(img) {
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
-        
+
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
-        
+
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const pixels = imgData.data;
-        
+
         // Extract Luminance with alpha pre-multiplication (so transparent regions are correctly 0)
         const floatData = new Float32Array(canvas.width * canvas.height);
         for (let i = 0; i < floatData.length; i++) {
@@ -23,11 +23,11 @@
             const luminance = (0.299 * r + 0.587 * g + 0.114 * b) * a;
             floatData[i] = luminance; // 0-255 range
         }
-        
+
         // Update the logic engine
         const maxDim = Math.max(canvas.width, canvas.height);
         const worldScale = (typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000) / maxDim;
-        
+
         window.ChillFlightLogic.customMap = {
             data: floatData,
             width: canvas.width,
@@ -35,10 +35,10 @@
             worldWidth: canvas.width * worldScale,
             worldHeight: canvas.height * worldScale
         };
-        
+
         console.log(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
         console.log(`World size: ${window.ChillFlightLogic.customMap.worldWidth.toFixed(0)}x${window.ChillFlightLogic.customMap.worldHeight.toFixed(0)} units (MAP_WORLD_SIZE: ${MAP_WORLD_SIZE})`);
-        
+
         // Force terrain rebuild
         if (typeof chunks !== 'undefined' && typeof updateChunks === 'function') {
             // Dispose all previous procedural chunks manually
@@ -55,20 +55,20 @@
                 }
             });
             chunks.clear();
-            
+
             // Reset plane position and state
             if (typeof planeGroup !== 'undefined') {
-                planeGroup.position.set(0, 445.5, 0); 
+                planeGroup.position.set(0, 445.5, 0);
                 planeGroup.rotation.set(0, 0, 0);
             }
-            
+
             try {
                 if (typeof targetFlightSpeed !== 'undefined') {
                     targetFlightSpeed = 1.0; // Cruise speed
                     flightSpeedMultiplier = 1.0;
                 }
-            } catch(e) {}
-            
+            } catch (e) { }
+
             updateChunks();
         } else {
             console.warn("chunks or updateChunks is not available yet.");
@@ -85,7 +85,7 @@
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
-            
+
             // Only accept images
             if (!file.type.match('image.*')) {
                 console.warn("Dropped file is not an image.");

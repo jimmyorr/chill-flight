@@ -64,14 +64,14 @@ let vehicleType = localStorage.getItem('chill_flight_vehicle') || 'airplane';
 function setVehicle(type) {
     vehicleType = type;
     localStorage.setItem('chill_flight_vehicle', vehicleType);
-    
+
     airplaneModel.visible = (vehicleType === 'airplane');
     helicopterModel.visible = (vehicleType === 'helicopter');
     boatModel.visible = (vehicleType === 'boat');
     buggyModel.visible = (vehicleType === 'buggy');
 
     if (typeof verticalVelocity !== 'undefined') verticalVelocity = 0; // Reset vertical momentum on switch
-    
+
     // Automatically adjust throttle for a natural feel on switch
     const heliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
     const boatSpeed = 25 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
@@ -280,7 +280,7 @@ playerBoatPropellerGroup.add(playerBoatBlade2);
 window.boatPropellerGroup = playerBoatPropellerGroup;
 
 boatModel.scale.set(0.8, 0.8, 0.8);
-boatModel.position.set(0, 0, 0); 
+boatModel.position.set(0, 0, 0);
 
 // --- BUGGY MODEL ---
 const buggyChassisGeo = new THREE.BoxGeometry(4, 2, 8);
@@ -325,7 +325,7 @@ wheelBR.position.set(2.5, 1.5, 3);
 buggyModel.add(wheelBR);
 window.buggyWheels.push(wheelBR);
 
-buggyModel.scale.set(0.8, 0.8, 0.8); 
+buggyModel.scale.set(0.8, 0.8, 0.8);
 
 // Initialize vehicle
 setVehicle(vehicleType);
