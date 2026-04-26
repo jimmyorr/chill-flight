@@ -168,6 +168,9 @@ function togglePause() {
         if (musicEnabled && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.pause();
     } else {
         pauseOverlay.style.display = 'none';
+        const box = document.querySelector('.customization-box');
+        if (box) box.style.transform = 'none';
+        
         clock.getDelta(); // clear accumulated time so plane doesn't skip
         clearInputState();  // wipe any input that bled through from the pause overlay
         justResumed = true; // suppress the first animate frame's input application
@@ -348,8 +351,8 @@ function getMenuGrid() {
     return [
         [document.getElementById('player-name-input')],
         Array.from(document.querySelectorAll('.color-swatch')),
-        [document.getElementById('quality-select')],
-        [document.getElementById('distance-select')],
+        [document.getElementById('quality-select'), document.getElementById('distance-select')],
+        [document.getElementById('fps-select'), document.getElementById('resolution-select')],
         [document.getElementById('invert-y-input')],
         [document.getElementById('resume-btn')]
     ];
@@ -364,9 +367,18 @@ function updateTVFocus() {
     el.focus();
 }
 
-window.addEventListener('mousemove', () => {
+window.addEventListener('mousemove', (e) => {
     if (isPaused) {
         document.querySelectorAll('.tv-focused').forEach(el => el.classList.remove('tv-focused'));
+        
+        const box = document.querySelector('.customization-box');
+        if (box) {
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const tiltX = ((e.clientY - centerY) / centerY) * -5;
+            const tiltY = ((e.clientX - centerX) / centerX) * 5;
+            box.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+        }
     }
 });
 
