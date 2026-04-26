@@ -367,9 +367,8 @@
     <script src="native-adapter.js"></script>
     <script src="game.js"></script>
     <script src="map-loader.js"></script>
-
-    <!-- Firebase multiplayer: must be last (ES module, deferred by default) -->
-    <script type="module" src="multiplayer.js"></script>
+    <!-- Firebase multiplayer: Refactored to standard script with dynamic imports to bypass 401 errors -->
+    <script src="multiplayer.js"></script>
 
 </body>
 

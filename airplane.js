@@ -4,19 +4,25 @@
 /** @type {THREE.Material|null} */
 let planeMat = null;
 
-window.CALLSIGNS = [
+var CALLSIGNS = [
     'Maverick', 'Goose', 'Iceman', 'Slider', 'Hollywood',
     'Wolfman', 'Cougar', 'Merlin', 'Viper', 'Jester',
     'Chipper', 'Sundown', 'Stinger'
 ];
-window.defaultCallsign = window.CALLSIGNS[Math.floor(Math.random() * window.CALLSIGNS.length)];
+var defaultCallsign = CALLSIGNS[Math.floor(Math.random() * CALLSIGNS.length)];
 
 /** @type {string} */
-let playerName = localStorage.getItem('chill_flight_name') || window.defaultCallsign;
+let playerName = (localStorage.getItem('chill_flight_name') || '').trim() || defaultCallsign;
 /** @type {number} */
 let planeColor = parseInt(localStorage.getItem('chill_flight_color')) || 0xe74c3c;
 /** @type {boolean} */
 let hasSavedColor = localStorage.getItem('chill_flight_color') !== null;
+
+// Global map for multiplayer players, shared across all scripts
+var otherPlayers = new Map();
+var currentUserUid = null;
+var serverTimeOffset = 0;
+var firebaseDB = null;
 
 // Helper to get a deterministic "chill" color for a player
 function getPlaneColor(uid) {

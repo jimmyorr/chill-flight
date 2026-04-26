@@ -428,8 +428,13 @@ window.addEventListener('keydown', (e) => {
             return;
         }
 
-        // Prevent arrow keys from scrolling the page
-        if (e.key.startsWith('Arrow')) {
+        // Ignore menu navigation if typing in an input field
+        if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+            return;
+        }
+
+        // Prevent arrow keys from scrolling the page (with safety check for e.key)
+        if (e.key && e.key.startsWith('Arrow')) {
             e.preventDefault();
         }
 
