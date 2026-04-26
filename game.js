@@ -353,7 +353,7 @@ function getMenuGrid() {
         Array.from(document.querySelectorAll('.color-swatch')),
         [document.getElementById('quality-select'), document.getElementById('distance-select')],
         [document.getElementById('fps-select'), document.getElementById('resolution-select')],
-        [document.getElementById('invert-y-input')],
+        [null, document.getElementById('invert-y-input')],
         [document.getElementById('resume-btn')]
     ];
 }
