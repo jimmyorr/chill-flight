@@ -14,6 +14,36 @@ const purrpleCatTracks = [
 ];
 let purrpleCatIdx = 0;
 
+const CACHE_NAME = 'chill-flight-music-v1';
+
+/**
+ * Resolves a remote URL to a local Blob URL via the Cache API.
+ * Falls back to the remote URL on any error.
+ */
+async function getCachedTrackUrl(url) {
+    if (!('caches' in window)) return url;
+
+    try {
+        const cache = await caches.open(CACHE_NAME);
+        let response = await cache.match(url);
+
+        if (!response) {
+            console.log(`Caching new track: ${url}`);
+            response = await fetch(url);
+            // We must clone the response to both save it and use it
+            await cache.put(url, response.clone());
+        } else {
+            console.log(`Serving track from cache: ${url}`);
+        }
+
+        const blob = await response.blob();
+        return URL.createObjectURL(blob);
+    } catch (e) {
+        console.warn('Cache API error, falling back to remote URL:', e);
+        return url;
+    }
+}
+
 // Loop to the next track automatically
 purrpleCatAudio.addEventListener('ended', () => {
     purrpleCatIdx = (purrpleCatIdx + 1) % purrpleCatTracks.length;
