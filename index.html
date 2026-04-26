@@ -11,7 +11,7 @@
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         gtag('js', new Date());
-        gtag('config', 'G-6RNVL7JZVJ', { 'youtube_tracking': false });
+        gtag('config', 'G-6RNVL7JZVJ');
     </script>
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
     <link rel="stylesheet" href="style.css">
@@ -98,6 +98,9 @@
         </div>
 
         <button id="resume-btn" class="btn" style="margin-bottom: 15px;">Resume flight</button>
+        <div style="margin-top: 20px; font-size: 12px; color: rgba(255,255,255,0.5);">
+            Music by <a href="https://purrplecat.com" target="_blank" style="color: #3498db; text-decoration: none;">Purrple Cat</a>
+        </div>
     </div>
 
     <div id="loading-overlay">
@@ -136,7 +139,7 @@
             </div>
             <div id="radio-panel" class="cockpit-module"
                 style="grid-column: span 3; display: flex; justify-content: center; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; margin-top: 4px;">
-                <span id="station-name" class="cockpit-value"
+                <span id="flight-status" class="cockpit-value"
                     style="font-size: 11px; width: 100%; text-align: center; line-height: 1; min-height: 11px;">C H I L
                     L - F L I G H T</span>
             </div>
@@ -215,10 +218,6 @@
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
             </svg>
         </button>
-    </div>
-
-    <div id="yt-container">
-        <div id="youtube-player"></div>
     </div>
 
     <div id="debug-menu">
@@ -370,7 +369,6 @@
     <script src="airplane.js"></script>
     <script src="terrain.js"></script>
     <script src="audio.js"></script>
-    <script src="https://www.youtube.com/iframe_api"></script>
     <script src="native-adapter.js"></script>
     <script src="game.js"></script>
     <script src="map-loader.js"></script>
