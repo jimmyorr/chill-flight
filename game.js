@@ -3105,7 +3105,7 @@ if (overlay) {
 
             // Start music!
             if (typeof setMusicEnabled === 'function') {
-                setMusicEnabled(true);
+                setMusicEnabled(musicEnabled);
             }
         });
     } else {
@@ -3119,7 +3119,7 @@ if (overlay) {
         if (typeof clock !== 'undefined') clock.getDelta();
 
         if (typeof setMusicEnabled === 'function') {
-            setMusicEnabled(true);
+            setMusicEnabled(musicEnabled);
         }
     }
 }
