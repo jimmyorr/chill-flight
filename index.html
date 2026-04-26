@@ -115,8 +115,13 @@
     <div id="loading-overlay">
         <div class="loading-content">
             <h1 class="loading-title">C H I L L<br>F L I G H T</h1>
+            <div class="customization-row" style="width: 100%; align-items: center;">
+                <span class="customization-label">Callsign</span>
+                <input type="text" id="splash-name-input" class="customization-input"
+                    maxlength="12" style="max-width: 280px; text-align: center; height: 48px; font-size: 16px;">
+            </div>
             <button id="begin-btn" class="btn"
-                style="display: none; margin-top: 30px; margin-left: auto; margin-right: auto;">S T A R T</button>
+                style="display: none;">S T A R T</button>
         </div>
     </div>
 
@@ -288,7 +293,7 @@
             </div>
         </div>
         <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-            <div style="font-size: 11px; font-family: monospace;">Palette: <span id="debug-palette">None</span></div>
+            <div style="font-size: 11px; font-family: monospace; opacity: 0.5;">Palette: <span id="debug-palette">None</span></div>
         </div>
     </div>
 
