@@ -74,10 +74,11 @@ function setMusicEnabled(enabled) {
     updateAudioPlayer(enabled);
 }
 
-function updateAudioPlayer(enabled) {
+async function updateAudioPlayer(enabled) {
     if (enabled) {
         if (!purrpleCatAudio.src) {
-            purrpleCatAudio.src = purrpleCatTracks[purrpleCatIdx];
+            const url = purrpleCatTracks[purrpleCatIdx];
+            purrpleCatAudio.src = await getCachedTrackUrl(url);
         }
         purrpleCatAudio.play().catch(e => {
             console.log('Audio play blocked:', e);
