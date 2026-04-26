@@ -5,7 +5,7 @@
 //               CHUNK_SIZE, WATER_LEVEL, BASE_FLIGHT_SPEED, TURN_SPEED, flightSpeedMultiplier,
 //               pontoonGroup, pontoonL, pontoonR, hingeLF, hingeLB, hingeRF, hingeRB,
 //               headlight, headlightGlow, otherPlayers (set by multiplayer.js),
-//               currentStation, ytPlayer, ytPlayerReady, setStation
+//               currentStation, setStation
 
 // --- INPUT ---
 let mouseX = 0;
@@ -127,24 +127,7 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    const ytContainer = document.getElementById('yt-container');
-    if (ytContainer && currentStation === 1) {
-        if (window.innerWidth <= 1024) {
-            // Keep in render tree for iOS background playback, but hide visually
-            ytContainer.style.display = 'block';
-            ytContainer.style.opacity = '0.01'; // 0.01 is safer than 0 for older iOS versions
-            ytContainer.style.pointerEvents = 'none';
-            ytContainer.style.position = 'absolute'; 
-            ytContainer.style.zIndex = '-1000';
-        } else {
-            // Restore desktop view
-            ytContainer.style.display = 'block';
-            ytContainer.style.opacity = '1';
-            ytContainer.style.pointerEvents = 'auto';
-            ytContainer.style.position = 'absolute'; // Matches CSS default
-            ytContainer.style.zIndex = '49'; // Matches CSS default
-        }
-    }
+
 });
 
 // --- EXPLOSIONS ---
@@ -181,14 +164,14 @@ function togglePause() {
         keys.ArrowUp = keys.ArrowDown = keys.ArrowLeft = keys.ArrowRight = false;
         doubleTap.ArrowUp = doubleTap.ArrowDown = doubleTap.ArrowLeft = doubleTap.ArrowRight = false;
 
-        if (ytPlayerReady && currentStation === 1) ytPlayer.pauseVideo();
+        if (currentStation === 1 && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.pause();
     } else {
         pauseOverlay.style.display = 'none';
         clock.getDelta(); // clear accumulated time so plane doesn't skip
         clearInputState();  // wipe any input that bled through from the pause overlay
         justResumed = true; // suppress the first animate frame's input application
 
-        if (ytPlayerReady && currentStation === 1) ytPlayer.playVideo();
+        if (currentStation === 1 && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.play();
     }
 }
 
@@ -748,7 +731,7 @@ if (resSelectEl) {
         const valStr = e.target.value;
         resolutionScale = parseFloat(valStr);
         localStorage.setItem('chill_flight_res_scale', valStr);
-        
+
         // Update pixel ratio dynamically
         renderer.setPixelRatio(SEGMENTS <= 20 ? resolutionScale : Math.min(window.devicePixelRatio, 2) * resolutionScale);
     });
@@ -1200,11 +1183,11 @@ function animate() {
         otherPlayers.forEach((p) => {
             const now = Date.now();
             const renderTimestamp = now - 400; // 400ms playback delay avoids extrapolation snapping
-            
+
             if (p.stateBuffer && p.stateBuffer.length > 0) {
                 let state0 = null;
                 let state1 = null;
-                
+
                 for (let i = p.stateBuffer.length - 1; i >= 0; i--) {
                     if (p.stateBuffer[i].timestamp <= renderTimestamp) {
                         state0 = p.stateBuffer[i];
@@ -1212,24 +1195,24 @@ function animate() {
                         break;
                     }
                 }
-                
+
                 let idealPos = new THREE.Vector3();
                 let idealSpeed = 1;
-                
+
                 if (state0 && state1) {
                     const timeDiff = state1.timestamp - state0.timestamp;
                     const t = timeDiff > 0 ? (renderTimestamp - state0.timestamp) / timeDiff : 0;
-                    
+
                     idealPos.lerpVectors(state0.pos, state1.pos, t);
                     p.targetQuat.setFromEuler(_targetEuler.set(state1.rotX, state1.rotY, state1.rotZ, 'XYZ'));
                     idealSpeed = THREE.MathUtils.lerp(state0.speedMult, state1.speedMult, t);
                 } else if (state0 && !state1) {
                     const extrapolateTime = Math.min(renderTimestamp - state0.timestamp, 500);
                     const dtSec = extrapolateTime / 1000;
-                    
+
                     _targetEuler.set(state0.rotX, state0.rotY, state0.rotZ, 'XYZ');
                     _forward.set(0, 0, -1).applyEuler(_targetEuler);
-                    
+
                     const speed = BASE_FLIGHT_SPEED * (state0.speedMult || 1) * 60;
                     idealPos.copy(state0.pos).add(_forward.multiplyScalar(speed * dtSec));
                     p.targetQuat.setFromEuler(_targetEuler);
@@ -1240,7 +1223,7 @@ function animate() {
                     p.targetQuat.setFromEuler(_targetEuler.set(s.rotX, s.rotY, s.rotZ, 'XYZ'));
                     idealSpeed = s.speedMult;
                 }
-                
+
                 const distToIdeal = p.mesh.position.distanceTo(idealPos);
                 if (distToIdeal > 500) {
                     p.mesh.position.copy(idealPos);
@@ -1732,7 +1715,7 @@ function animate() {
 
         const moveUp = !keys.Shift && (invertYAxis ? keys.ArrowDown : keys.ArrowUp);
         const moveDown = !keys.Shift && (invertYAxis ? keys.ArrowUp : keys.ArrowDown);
-        
+
         const strafeLeft = keys.Shift && keys.ArrowLeft;
         const strafeRight = keys.Shift && keys.ArrowRight;
 
@@ -1967,8 +1950,8 @@ function animate() {
         const rotationChanged = Math.abs(_cinematicStableHeading - planeGroup.rotation.y) > 0.0001;
         // Check position change without expensive extra calculations
         const positionChanged = Math.abs(_cinematicStableMatrix.elements[12] - planeGroup.position.x) > 0.1 ||
-                              Math.abs(_cinematicStableMatrix.elements[13] - planeGroup.position.y) > 0.1 ||
-                              Math.abs(_cinematicStableMatrix.elements[14] - planeGroup.position.z) > 0.1;
+            Math.abs(_cinematicStableMatrix.elements[13] - planeGroup.position.y) > 0.1 ||
+            Math.abs(_cinematicStableMatrix.elements[14] - planeGroup.position.z) > 0.1;
 
         if (rotationChanged || positionChanged || hasOffsetJumped) {
             _cinematicStableHeading = ChillFlightLogic.lerpAngle(_cinematicStableHeading, planeGroup.rotation.y, 0.05 * delta * 60);
@@ -2063,7 +2046,7 @@ function animate() {
     // This allows the moon to move much more slowly and drift independently of the 5-min sun cycle.
     const LUNAR_SKY_MS = 1440000;
     const moonTimeProgress = (passedServerNow % LUNAR_SKY_MS) / LUNAR_SKY_MS;
-    const moonHourAngle = (moonTimeProgress * Math.PI * 2) + Math.PI; 
+    const moonHourAngle = (moonTimeProgress * Math.PI * 2) + Math.PI;
 
     // Slow lunar wobble: path drifts ±10° over ~1.7 hours for orbital diversity
     const moonWobble = Math.sin(passedServerNow * 0.000001) * 0.17;
@@ -2127,7 +2110,7 @@ function animate() {
             if (chunkGroup.userData.lighthouseTarget && chunkGroup.userData.lighthouseLight) {
                 const target = chunkGroup.userData.lighthouseTarget;
                 const light = chunkGroup.userData.lighthouseLight;
-                
+
                 // Align target perfectly with the beam's Z-axis trajectory
                 const distance = 300;
                 target.position.set(
@@ -2135,7 +2118,7 @@ function animate() {
                     light.position.y - Math.sin(beam.rotation.x) * distance, // Account for downward tilt
                     light.position.z + Math.cos(beam.rotation.y) * distance
                 );
-                
+
                 // Fade out lighthouse light during day
                 light.intensity = 25 * (1.0 - dayFactor * 0.95);
             }
@@ -2182,7 +2165,7 @@ function animate() {
 
     sunMesh.position.set(sunX * orbitRadius, sunY * orbitRadius, sunZ * orbitRadius);
     moonMesh.position.set(moonX * orbitRadius, moonY * orbitRadius, moonZ * orbitRadius);
-    
+
     // --- SHADOW TEXEL SNAPPING (View-Space) ---
     // Eliminates "shadow swimming" and depth-band "creeping" by locking the
     // shadow camera in all 3 dimensions to a rigid, sun-aligned grid.
@@ -2362,7 +2345,7 @@ function animate() {
         moonUniforms.uTime.value = now * 0.001;
         moonUniforms.overcast.value = overcast;
         moonUniforms.dayFactor.value = dayFactor;
-        
+
         // moonPhase is now updated at the top of animate() with a 4-hour cycle
 
         // Dynamic Moon Sizing (Moon Illusion)
@@ -2400,153 +2383,153 @@ function animate() {
     if (window.innerWidth > 768 && now - lastPlayerListUpdate > 500) {
         updatePlayerList();
         lastPlayerListUpdate = now;
-}
-
-// Update Debug Telemetry (at the very end of frame)
-if (debugMenu && debugMenu.style.display === 'block') {
-    const pullBackVal = smoothedManeuverFactor * 20 * Math.min(1, flightSpeedMultiplier / 2); // Re-calculate or pass from earlier
-    updateDOM(document.getElementById('debug-fov'), Math.round(camera.fov));
-    updateDOM(document.getElementById('debug-pullback'), Math.round(pullBackVal));
-    updateDOM(document.getElementById('debug-pitch'), Math.round(planeGroup.rotation.x * 180 / Math.PI));
-    updateDOM(document.getElementById('debug-palette'), selectedPalette.name);
-    updateDOM(document.getElementById('debug-speed-mult'), flightSpeedMultiplier.toFixed(2));
-    updateDOM(document.getElementById('debug-day-speed'), daySpeedMultiplier.toFixed(1));
-
-    updateDOM(document.getElementById('debug-target-speed'), targetFlightSpeed.toFixed(2));
-    updateDOM(document.getElementById('debug-maneuver'), smoothedManeuverFactor.toFixed(2));
-    updateDOM(document.getElementById('debug-world-x'), Math.round(planeGroup.position.x));
-    updateDOM(document.getElementById('debug-world-y'), Math.round(planeGroup.position.y));
-    updateDOM(document.getElementById('debug-world-z'), Math.round(planeGroup.position.z));
-
-    // Weather Telemetry
-    const oc = (window._currentOvercast || 0);
-    updateDOM(document.getElementById('debug-overcast'), oc.toFixed(2));
-    updateDOM(document.getElementById('debug-storm-noise'), (window._weatherDebug ? window._weatherDebug.stormNoise.toFixed(2) : '-'));
-    updateDOM(document.getElementById('debug-precip'), (snowParticles && rainParticles ? Math.max(snowParticles.material.opacity / 0.8, rainParticles.material.opacity / 0.5).toFixed(2) : '-'));
-    updateDOM(document.getElementById('debug-climate-zone'), (window._weatherDebug ? window._weatherDebug.zone : '-'));
-    updateDOM(document.getElementById('debug-snow-opacity'), (snowParticles ? snowParticles.material.opacity.toFixed(2) : '-'));
-    updateDOM(document.getElementById('debug-rain-opacity'), (rainParticles ? rainParticles.material.opacity.toFixed(2) : '-'));
-    updateDOM(document.getElementById('debug-fog-density'), scene.fog.density.toFixed(5));
-    updateDOM(document.getElementById('debug-weather-mode'), weatherType);
-
-    // Helper function for performance color coding
-    function getPerfColor(val, warnThresh, critThresh) {
-        if (val >= critThresh) return '#ff4444'; // Red
-        if (val >= warnThresh) return '#ffeb3b'; // Yellow
-        return ''; // Default (inherits from CSS)
     }
 
-    // Performance Telemetry
-    const frameEndTime = performance.now();
-    const cpuMs = frameEndTime - frameStartTime;
-    const cpuMsEl = document.getElementById('debug-cpu-ms');
-    if (cpuMsEl) {
-        updateDOM(cpuMsEl, cpuMs.toFixed(1));
-        // Warn at 24ms, Critical at 32ms (stuttering on 30fps cap)
-        cpuMsEl.style.color = getPerfColor(cpuMs, 24, 32); 
-    }
+    // Update Debug Telemetry (at the very end of frame)
+    if (debugMenu && debugMenu.style.display === 'block') {
+        const pullBackVal = smoothedManeuverFactor * 20 * Math.min(1, flightSpeedMultiplier / 2); // Re-calculate or pass from earlier
+        updateDOM(document.getElementById('debug-fov'), Math.round(camera.fov));
+        updateDOM(document.getElementById('debug-pullback'), Math.round(pullBackVal));
+        updateDOM(document.getElementById('debug-pitch'), Math.round(planeGroup.rotation.x * 180 / Math.PI));
+        updateDOM(document.getElementById('debug-palette'), selectedPalette.name);
+        updateDOM(document.getElementById('debug-speed-mult'), flightSpeedMultiplier.toFixed(2));
+        updateDOM(document.getElementById('debug-day-speed'), daySpeedMultiplier.toFixed(1));
 
-    const heapEl = document.getElementById('debug-heap');
-    if (heapEl) {
-        if (performance.memory) {
-            const heapMb = performance.memory.usedJSHeapSize / 1048576;
-            updateDOM(heapEl, heapMb.toFixed(1));
-            // Warn at 150MB, Critical at 250MB
-            heapEl.style.color = getPerfColor(heapMb, 150, 250);
-        } else {
-            updateDOM(heapEl, "N/A");
-            heapEl.style.color = '';
-        }
-    }
+        updateDOM(document.getElementById('debug-target-speed'), targetFlightSpeed.toFixed(2));
+        updateDOM(document.getElementById('debug-maneuver'), smoothedManeuverFactor.toFixed(2));
+        updateDOM(document.getElementById('debug-world-x'), Math.round(planeGroup.position.x));
+        updateDOM(document.getElementById('debug-world-y'), Math.round(planeGroup.position.y));
+        updateDOM(document.getElementById('debug-world-z'), Math.round(planeGroup.position.z));
 
-    if (renderer && renderer.info) {
-        const calls = renderer.info.render.calls;
-        const tris = renderer.info.render.triangles;
-        const geos = renderer.info.memory.geometries;
-        const texs = renderer.info.memory.textures;
+        // Weather Telemetry
+        const oc = (window._currentOvercast || 0);
+        updateDOM(document.getElementById('debug-overcast'), oc.toFixed(2));
+        updateDOM(document.getElementById('debug-storm-noise'), (window._weatherDebug ? window._weatherDebug.stormNoise.toFixed(2) : '-'));
+        updateDOM(document.getElementById('debug-precip'), (snowParticles && rainParticles ? Math.max(snowParticles.material.opacity / 0.8, rainParticles.material.opacity / 0.5).toFixed(2) : '-'));
+        updateDOM(document.getElementById('debug-climate-zone'), (window._weatherDebug ? window._weatherDebug.zone : '-'));
+        updateDOM(document.getElementById('debug-snow-opacity'), (snowParticles ? snowParticles.material.opacity.toFixed(2) : '-'));
+        updateDOM(document.getElementById('debug-rain-opacity'), (rainParticles ? rainParticles.material.opacity.toFixed(2) : '-'));
+        updateDOM(document.getElementById('debug-fog-density'), scene.fog.density.toFixed(5));
+        updateDOM(document.getElementById('debug-weather-mode'), weatherType);
 
-        const drawCallsEl = document.getElementById('debug-draw-calls');
-        if (drawCallsEl) {
-            updateDOM(drawCallsEl, calls);
-            drawCallsEl.style.color = getPerfColor(calls, 800, 1200); 
-        }
-
-        const trianglesEl = document.getElementById('debug-triangles');
-        if (trianglesEl) {
-            updateDOM(trianglesEl, tris);
-            trianglesEl.style.color = getPerfColor(tris, 800000, 1500000); 
+        // Helper function for performance color coding
+        function getPerfColor(val, warnThresh, critThresh) {
+            if (val >= critThresh) return '#ff4444'; // Red
+            if (val >= warnThresh) return '#ffeb3b'; // Yellow
+            return ''; // Default (inherits from CSS)
         }
 
-        const geometriesEl = document.getElementById('debug-geometries');
-        if (geometriesEl) {
-            updateDOM(geometriesEl, geos);
-            geometriesEl.style.color = getPerfColor(geos, 150, 250); 
+        // Performance Telemetry
+        const frameEndTime = performance.now();
+        const cpuMs = frameEndTime - frameStartTime;
+        const cpuMsEl = document.getElementById('debug-cpu-ms');
+        if (cpuMsEl) {
+            updateDOM(cpuMsEl, cpuMs.toFixed(1));
+            // Warn at 24ms, Critical at 32ms (stuttering on 30fps cap)
+            cpuMsEl.style.color = getPerfColor(cpuMs, 24, 32);
         }
 
-        const texturesEl = document.getElementById('debug-textures');
-        if (texturesEl) {
-            updateDOM(texturesEl, texs);
-            texturesEl.style.color = getPerfColor(texs, 15, 30); 
-        }
-    }
-
-    // Update Counters
-    let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0;
-    let totalHouses = 0, totalClouds = 0, totalRocks = 0, totalBushes = 0;
-    let totalSnowmen = 0, totalCactus = 0, totalLighthouses = 0, totalCastles = 0, totalChunks = 0;
-    let totalWindmills = 0, totalCampfires = 0;
-    let totalBoats = 0, totalLilyPads = 0, totalPiers = 0, totalBirds = 0;
-    const objectsVisible = ChillFlightLogic.SHOW_OBJECTS;
-    chunks.forEach(cg => {
-        if (cg.userData.counts) {
-            totalChunks += 1;
-            if (objectsVisible) {
-                totalTreesPine += cg.userData.counts.trees_pine || 0;
-                totalTreesDecid += cg.userData.counts.trees_decid || 0;
-                totalTreesPalm += cg.userData.counts.trees_palm || 0;
-                totalTreesDead += cg.userData.counts.trees_dead || 0;
-                totalTreesAutumn += cg.userData.counts.trees_autumn || 0;
-                totalTreesCherry += cg.userData.counts.trees_cherry || 0;
-                totalHouses += cg.userData.counts.houses;
-                totalClouds += cg.userData.counts.clouds;
-                totalRocks += cg.userData.counts.rocks;
-                totalBushes += cg.userData.counts.bushes;
-                totalSnowmen += cg.userData.counts.snowmen || 0;
-                totalCactus += cg.userData.counts.cactus || 0;
-                totalLighthouses += cg.userData.counts.lighthouses || 0;
-                totalCastles += cg.userData.counts.castles || 0;
-                totalWindmills += cg.userData.counts.windmills || 0;
-                totalCampfires += cg.userData.counts.campfires || 0;
-                totalBoats += cg.userData.counts.boats || 0;
-                totalLilyPads += cg.userData.counts.lily_pads || 0;
-                totalPiers += cg.userData.counts.piers || 0;
-                totalBirds += cg.userData.counts.birds || 0;
+        const heapEl = document.getElementById('debug-heap');
+        if (heapEl) {
+            if (performance.memory) {
+                const heapMb = performance.memory.usedJSHeapSize / 1048576;
+                updateDOM(heapEl, heapMb.toFixed(1));
+                // Warn at 150MB, Critical at 250MB
+                heapEl.style.color = getPerfColor(heapMb, 150, 250);
+            } else {
+                updateDOM(heapEl, "N/A");
+                heapEl.style.color = '';
             }
         }
-    });
 
-    updateDOM(document.getElementById('debug-chunks'), totalChunks);
-    updateDOM(document.getElementById('debug-trees-pine'), totalTreesPine);
-    updateDOM(document.getElementById('debug-trees-decid'), totalTreesDecid);
-    updateDOM(document.getElementById('debug-trees-palm'), totalTreesPalm);
-    updateDOM(document.getElementById('debug-trees-dead'), totalTreesDead);
-    updateDOM(document.getElementById('debug-trees-autumn'), totalTreesAutumn);
-    updateDOM(document.getElementById('debug-trees-cherry'), totalTreesCherry);
-    updateDOM(document.getElementById('debug-houses'), totalHouses);
-    updateDOM(document.getElementById('debug-clouds'), totalClouds);
-    updateDOM(document.getElementById('debug-rocks'), totalRocks);
-    updateDOM(document.getElementById('debug-bushes'), totalBushes);
-    updateDOM(document.getElementById('debug-snowmen'), totalSnowmen);
-    updateDOM(document.getElementById('debug-cactus'), totalCactus);
-    updateDOM(document.getElementById('debug-lighthouses'), totalLighthouses);
-    updateDOM(document.getElementById('debug-castles'), totalCastles);
-    updateDOM(document.getElementById('debug-windmills'), totalWindmills);
-    updateDOM(document.getElementById('debug-campfires'), totalCampfires);
-    updateDOM(document.getElementById('debug-boats'), totalBoats);
-    updateDOM(document.getElementById('debug-lily-pads'), totalLilyPads);
-    updateDOM(document.getElementById('debug-piers'), totalPiers);
-    updateDOM(document.getElementById('debug-birds'), totalBirds);
-}
+        if (renderer && renderer.info) {
+            const calls = renderer.info.render.calls;
+            const tris = renderer.info.render.triangles;
+            const geos = renderer.info.memory.geometries;
+            const texs = renderer.info.memory.textures;
+
+            const drawCallsEl = document.getElementById('debug-draw-calls');
+            if (drawCallsEl) {
+                updateDOM(drawCallsEl, calls);
+                drawCallsEl.style.color = getPerfColor(calls, 800, 1200);
+            }
+
+            const trianglesEl = document.getElementById('debug-triangles');
+            if (trianglesEl) {
+                updateDOM(trianglesEl, tris);
+                trianglesEl.style.color = getPerfColor(tris, 800000, 1500000);
+            }
+
+            const geometriesEl = document.getElementById('debug-geometries');
+            if (geometriesEl) {
+                updateDOM(geometriesEl, geos);
+                geometriesEl.style.color = getPerfColor(geos, 150, 250);
+            }
+
+            const texturesEl = document.getElementById('debug-textures');
+            if (texturesEl) {
+                updateDOM(texturesEl, texs);
+                texturesEl.style.color = getPerfColor(texs, 15, 30);
+            }
+        }
+
+        // Update Counters
+        let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0;
+        let totalHouses = 0, totalClouds = 0, totalRocks = 0, totalBushes = 0;
+        let totalSnowmen = 0, totalCactus = 0, totalLighthouses = 0, totalCastles = 0, totalChunks = 0;
+        let totalWindmills = 0, totalCampfires = 0;
+        let totalBoats = 0, totalLilyPads = 0, totalPiers = 0, totalBirds = 0;
+        const objectsVisible = ChillFlightLogic.SHOW_OBJECTS;
+        chunks.forEach(cg => {
+            if (cg.userData.counts) {
+                totalChunks += 1;
+                if (objectsVisible) {
+                    totalTreesPine += cg.userData.counts.trees_pine || 0;
+                    totalTreesDecid += cg.userData.counts.trees_decid || 0;
+                    totalTreesPalm += cg.userData.counts.trees_palm || 0;
+                    totalTreesDead += cg.userData.counts.trees_dead || 0;
+                    totalTreesAutumn += cg.userData.counts.trees_autumn || 0;
+                    totalTreesCherry += cg.userData.counts.trees_cherry || 0;
+                    totalHouses += cg.userData.counts.houses;
+                    totalClouds += cg.userData.counts.clouds;
+                    totalRocks += cg.userData.counts.rocks;
+                    totalBushes += cg.userData.counts.bushes;
+                    totalSnowmen += cg.userData.counts.snowmen || 0;
+                    totalCactus += cg.userData.counts.cactus || 0;
+                    totalLighthouses += cg.userData.counts.lighthouses || 0;
+                    totalCastles += cg.userData.counts.castles || 0;
+                    totalWindmills += cg.userData.counts.windmills || 0;
+                    totalCampfires += cg.userData.counts.campfires || 0;
+                    totalBoats += cg.userData.counts.boats || 0;
+                    totalLilyPads += cg.userData.counts.lily_pads || 0;
+                    totalPiers += cg.userData.counts.piers || 0;
+                    totalBirds += cg.userData.counts.birds || 0;
+                }
+            }
+        });
+
+        updateDOM(document.getElementById('debug-chunks'), totalChunks);
+        updateDOM(document.getElementById('debug-trees-pine'), totalTreesPine);
+        updateDOM(document.getElementById('debug-trees-decid'), totalTreesDecid);
+        updateDOM(document.getElementById('debug-trees-palm'), totalTreesPalm);
+        updateDOM(document.getElementById('debug-trees-dead'), totalTreesDead);
+        updateDOM(document.getElementById('debug-trees-autumn'), totalTreesAutumn);
+        updateDOM(document.getElementById('debug-trees-cherry'), totalTreesCherry);
+        updateDOM(document.getElementById('debug-houses'), totalHouses);
+        updateDOM(document.getElementById('debug-clouds'), totalClouds);
+        updateDOM(document.getElementById('debug-rocks'), totalRocks);
+        updateDOM(document.getElementById('debug-bushes'), totalBushes);
+        updateDOM(document.getElementById('debug-snowmen'), totalSnowmen);
+        updateDOM(document.getElementById('debug-cactus'), totalCactus);
+        updateDOM(document.getElementById('debug-lighthouses'), totalLighthouses);
+        updateDOM(document.getElementById('debug-castles'), totalCastles);
+        updateDOM(document.getElementById('debug-windmills'), totalWindmills);
+        updateDOM(document.getElementById('debug-campfires'), totalCampfires);
+        updateDOM(document.getElementById('debug-boats'), totalBoats);
+        updateDOM(document.getElementById('debug-lily-pads'), totalLilyPads);
+        updateDOM(document.getElementById('debug-piers'), totalPiers);
+        updateDOM(document.getElementById('debug-birds'), totalBirds);
+    }
 }
 
 function updatePlayerList() {
@@ -2672,7 +2655,7 @@ function toggleAutopilot() {
     const msg = window.autopilotEnabled ? "AUTOPILOT ENABLED" : "AUTOPILOT DISABLED";
     console.log(msg);
 
-    const nameDisplay = document.getElementById('station-name');
+    const nameDisplay = document.getElementById('flight-status');
     if (nameDisplay) {
         nameDisplay.innerText = window.autopilotEnabled ? 'A U T O P I L O T' : 'C H I L L - F L I G H T';
     }
@@ -3052,3 +3035,26 @@ document.querySelectorAll('.speed-btn').forEach(btn => {
         daySpeedMultiplier = parseFloat(e.target.getAttribute('data-speed'));
     });
 });
+
+// --- DISMISS LOADING SCREEN ---
+function updateLoadingProgress(percent, status) {
+    const bar = document.getElementById('loading-bar');
+    const text = document.getElementById('loading-status');
+    if (bar) bar.style.width = percent + '%';
+    if (text) text.innerText = status;
+}
+
+const overlay = document.getElementById('loading-overlay');
+if (overlay) {
+    updateLoadingProgress(30, "Generating terrain...");
+    setTimeout(() => {
+        updateLoadingProgress(70, "Compiling shaders...");
+        setTimeout(() => {
+            updateLoadingProgress(100, "Ready to chill.");
+            overlay.style.transition = 'opacity 0.8s ease';
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
+            setTimeout(() => overlay.style.display = 'none', 800);
+        }, 500);
+    }, 500);
+}
