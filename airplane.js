@@ -13,6 +13,17 @@ var defaultCallsign = CALLSIGNS[Math.floor(Math.random() * CALLSIGNS.length)];
 
 /** @type {string} */
 let playerName = (localStorage.getItem('chill_flight_name') || '').trim() || defaultCallsign;
+
+// --- IMMEDIATE UI INITIALIZATION ---
+// This runs synchronously to ensure the name appears instantly, 
+// without waiting for multiplayer/Firebase modules to load.
+(function() {
+    const ni = document.getElementById('player-name-input');
+    const si = document.getElementById('splash-name-input');
+    if (ni) ni.value = playerName;
+    if (si) si.value = playerName;
+})();
+
 /** @type {number} */
 let planeColor = parseInt(localStorage.getItem('chill_flight_color')) || 0xe74c3c;
 /** @type {boolean} */

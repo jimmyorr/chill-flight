@@ -81,10 +81,6 @@ async function startMultiplayer() {
 
         firebaseDB = db;
 
-        // --- IMMEDIATE UI INITIALIZATION ---
-        const initialNameInput = document.getElementById('player-name-input');
-        if (initialNameInput) initialNameInput.value = playerName;
-        if (typeof planeMat !== 'undefined' && planeMat) planeMat.color.setHex(planeColor);
 
         function createOtherPlaneMesh(uid, forcedColor) {
             const group = new THREE.Group();
@@ -149,6 +145,8 @@ async function startMultiplayer() {
                 // Update UI and session again with confirmed profile data
                 const nameInput = document.getElementById('player-name-input');
                 if (nameInput) nameInput.value = playerName;
+                const splashInput = document.getElementById('splash-name-input');
+                if (splashInput) splashInput.value = playerName;
                 if (typeof planeMat !== 'undefined' && planeMat) planeMat.color.setHex(planeColor);
 
                 update(sessionRef, { name: playerName, color: planeColor });
@@ -162,21 +160,28 @@ async function startMultiplayer() {
 
         // --- UI WIRING ---
         const nameInput = document.getElementById('player-name-input');
+        const splashInput = document.getElementById('splash-name-input');
         let nameUpdateTimeout = null;
-        if (nameInput) {
-            nameInput.addEventListener('input', (e) => {
-                let newName = (e.target.value || '').trim();
-                playerName = newName || defaultCallsign;
-                playerName = playerName.substring(0, 15);
-                localStorage.setItem('chill_flight_name', playerName);
 
-                // Debounce the Firebase update to prevent spamming on every keystroke
-                if (nameUpdateTimeout) clearTimeout(nameUpdateTimeout);
-                nameUpdateTimeout = setTimeout(() => {
-                    updatePlayerProfile();
-                }, 500);
-            });
-        }
+        const handleNameChange = (e) => {
+            let newName = (e.target.value || '').trim();
+            playerName = newName || defaultCallsign;
+            playerName = playerName.substring(0, 15);
+            localStorage.setItem('chill_flight_name', playerName);
+
+            // Sync other input if it exists
+            if (e.target === nameInput && splashInput) splashInput.value = e.target.value;
+            if (e.target === splashInput && nameInput) nameInput.value = e.target.value;
+
+            // Debounce the Firebase update to prevent spamming on every keystroke
+            if (nameUpdateTimeout) clearTimeout(nameUpdateTimeout);
+            nameUpdateTimeout = setTimeout(() => {
+                updatePlayerProfile();
+            }, 500);
+        };
+
+        if (nameInput) nameInput.addEventListener('input', handleNameChange);
+        if (splashInput) splashInput.addEventListener('input', handleNameChange);
 
         const colorOptions = document.getElementById('plane-color-options');
         if (colorOptions) {

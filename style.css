@@ -209,6 +209,15 @@ body {
     box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
 }
 
+.customization-input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+    transition: opacity 0.2s;
+}
+
+.customization-input:focus::placeholder {
+    opacity: 0;
+}
+
 .customization-checkbox {
     -webkit-appearance: none;
     appearance: none;
@@ -646,7 +655,7 @@ input[type=number].customization-input {
 .loading-content {
     text-align: center;
     background: rgba(255, 255, 255, 0.05);
-    padding: 40px 20px;
+    padding: 60px 40px 80px 40px;
     border-radius: 24px;
     backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -654,6 +663,12 @@ input[type=number].customization-input {
     max-width: 450px;
     width: 90%;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 60px;
+    min-height: 420px;
 }
 
 .loading-title {
@@ -661,7 +676,7 @@ input[type=number].customization-input {
     font-weight: 200;
     letter-spacing: 12px;
     line-height: 1.6;
-    margin: 0 0 40px 0;
+    margin: 0;
     color: #fff;
     text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
     text-transform: uppercase;
