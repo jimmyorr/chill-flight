@@ -164,6 +164,7 @@ function togglePause() {
         keys.ArrowUp = keys.ArrowDown = keys.ArrowLeft = keys.ArrowRight = false;
         doubleTap.ArrowUp = doubleTap.ArrowDown = doubleTap.ArrowLeft = doubleTap.ArrowRight = false;
 
+        if (typeof updatePauseMenuMusicInfo === 'function') updatePauseMenuMusicInfo();
         if (musicEnabled && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.pause();
     } else {
         pauseOverlay.style.display = 'none';
@@ -516,7 +517,30 @@ const radioPanel = document.getElementById('radio-panel');
 if (radioPanel) {
     radioPanel.addEventListener('click', () => {
         setMusicEnabled(!musicEnabled);
+
+        // Update the pause menu UI immediately if it's open
+        updatePauseMenuMusicInfo();
     });
+}
+
+function updatePauseMenuMusicInfo() {
+    const cpEl = document.getElementById('currently-playing');
+    const titleEl = document.getElementById('song-title-text');
+    if (cpEl && titleEl) {
+        if (musicEnabled && typeof getCurrentTrackName === 'function') {
+            cpEl.style.display = 'block';
+            titleEl.textContent = getCurrentTrackName();
+        } else {
+            cpEl.style.display = 'none';
+        }
+    }
+}
+
+// Register for automatic track change updates
+if (typeof window !== 'undefined') {
+    window.onTrackChange = (name) => {
+        updatePauseMenuMusicInfo();
+    };
 }
 
 

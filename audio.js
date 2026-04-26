@@ -17,7 +17,25 @@ let purrpleCatIdx = 0;
 // Loop to the next track automatically
 purrpleCatAudio.addEventListener('ended', () => {
     purrpleCatIdx = (purrpleCatIdx + 1) % purrpleCatTracks.length;
+    // Update the source immediately so play() uses the new track
+    purrpleCatAudio.src = purrpleCatTracks[purrpleCatIdx];
     updateAudioPlayer(musicEnabled);
+});
+
+function getCurrentTrackName() {
+    const url = purrpleCatTracks[purrpleCatIdx];
+    const fileName = url.split('/').pop().replace('.mp3', '');
+    // Convert 'purrple-cat-birds-of-a-feather' to 'Birds Of A Feather'
+    return fileName.replace('purrple-cat-', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
+// Global callback for UI updates
+window.onTrackChange = null;
+
+purrpleCatAudio.addEventListener('play', () => {
+    if (window.onTrackChange && musicEnabled) {
+        window.onTrackChange(getCurrentTrackName());
+    }
 });
 
 function setMusicEnabled(enabled) {
