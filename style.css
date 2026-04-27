@@ -564,7 +564,7 @@ input[type=number].customization-input {
 
 #online-players {
     position: absolute;
-    top: 100px;
+    top: 20px;
     right: 30px;
     background: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(8px);
