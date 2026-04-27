@@ -167,6 +167,13 @@ async function startMultiplayer() {
                 if (splashInput) splashInput.value = playerName;
                 if (typeof planeMat !== 'undefined' && planeMat) planeMat.color.setHex(planeColor);
 
+                const colorOptions = document.getElementById('plane-color-options');
+                if (colorOptions) {
+                    colorOptions.querySelectorAll('.color-swatch').forEach(sw => {
+                        sw.classList.toggle('active', parseInt(sw.getAttribute('data-color')) === planeColor);
+                    });
+                }
+
                 update(sessionRef, { name: playerName, color: planeColor });
             }
         });

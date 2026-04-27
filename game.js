@@ -728,6 +728,13 @@ if (window.innerWidth <= 1024) {
 const clock = new THREE.Clock();
 
 // --- PERSISTENCE ---
+const colorOptionsInit = document.getElementById('plane-color-options');
+if (colorOptionsInit && typeof planeColor !== 'undefined') {
+    colorOptionsInit.querySelectorAll('.color-swatch').forEach(sw => {
+        sw.classList.toggle('active', parseInt(sw.getAttribute('data-color')) === planeColor);
+    });
+}
+
 let invertYAxis = false;
 const savedInvertY = localStorage.getItem('chill_flight_invert_y');
 if (savedInvertY !== null) {
