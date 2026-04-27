@@ -77,7 +77,7 @@ function setMusicEnabled(enabled) {
     // Update mobile button UI
     const radToggle = document.getElementById('mobile-rad-toggle');
     if (radToggle) {
-        radToggle.title = enabled ? "Pause Music" : "Play Music";
+        radToggle.title = enabled ? "Pause" : "Play";
         const svg = radToggle.querySelector('svg');
         if (svg) {
             if (enabled) {
