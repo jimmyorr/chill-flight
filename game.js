@@ -170,7 +170,7 @@ function togglePause() {
         pauseOverlay.style.display = 'none';
         const box = document.querySelector('.customization-box');
         if (box) box.style.transform = 'none';
-        
+
         clock.getDelta(); // clear accumulated time so plane doesn't skip
         clearInputState();  // wipe any input that bled through from the pause overlay
         justResumed = true; // suppress the first animate frame's input application
@@ -370,7 +370,7 @@ function updateTVFocus() {
 window.addEventListener('mousemove', (e) => {
     if (isPaused) {
         document.querySelectorAll('.tv-focused').forEach(el => el.classList.remove('tv-focused'));
-        
+
         const box = document.querySelector('.customization-box');
         if (box) {
             const centerX = window.innerWidth / 2;
@@ -1113,14 +1113,14 @@ function updateSkyBaseColors(palette) {
         // Keep saturation relatively high, but drastically drop lightness for background
         const darkTop = new THREE.Color().setHSL(topHSL.h, Math.max(topHSL.s, 0.5), 0.18).getStyle();
         const darkBottom = new THREE.Color().setHSL(bottomHSL.h, Math.max(bottomHSL.s, 0.5), 0.08).getStyle();
-        
+
         overlay.style.background = `radial-gradient(circle at center, ${darkTop} 0%, ${darkBottom} 100%)`;
 
         // Set Dynamic Accent Colors for the Button
         const accentColor = bottom.clone().multiplyScalar(1.2).getStyle();
         const accentGlow = bottom.clone().multiplyScalar(1.2);
         const glowStyle = `rgba(${Math.round(accentGlow.r * 255)}, ${Math.round(accentGlow.g * 255)}, ${Math.round(accentGlow.b * 255)}, 0.4)`;
-        
+
         overlay.style.setProperty('--accent-color', accentColor);
         overlay.style.setProperty('--accent-glow', glowStyle);
     }
@@ -3140,17 +3140,40 @@ if (overlay) {
     };
 
     if (beginBtn) {
-        beginBtn.style.display = 'block';
-        beginBtn.focus();
-
         beginBtn.addEventListener('click', () => {
             dismissLoadingScreen(false);
         });
 
         // Auto-skip if music was paused last time
         if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
-            console.log("🎵 Music was paused last session. Skipping splash screen.");
-            dismissLoadingScreen(true);
+            console.log("🎵 Music was paused last session. Auto-skipping with progress.");
+
+            // Hide normal UI
+            const nameContainer = document.getElementById('splash-name-container');
+            if (nameContainer) nameContainer.style.display = 'none';
+            beginBtn.style.display = 'none';
+
+            // Show progress
+            const progressContainer = document.getElementById('splash-progress-container');
+            const progressBar = document.getElementById('splash-progress-bar');
+
+            if (progressContainer && progressBar) {
+                progressContainer.style.display = 'block';
+
+                // Use a slight delay to ensure transition triggers after display:block
+                setTimeout(() => {
+                    progressBar.style.width = '100%';
+                }, 50);
+
+                setTimeout(() => {
+                    dismissLoadingScreen(false); // Use fade out after progress
+                }, 1500);
+            } else {
+                dismissLoadingScreen(true); // Fallback to instant
+            }
+        } else {
+            beginBtn.style.display = 'block';
+            beginBtn.focus();
         }
     } else {
         // Fallback: respect music state for skip logic even if button is missing
