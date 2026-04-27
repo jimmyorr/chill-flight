@@ -139,7 +139,11 @@ const purrpleCatTracks = [
     'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wishing-well.mp3',
     'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-yesteryear.mp3'
 ];
-let purrpleCatIdx = 0;
+// Sync the starting track with the world seed for a deterministic radio experience
+let purrpleCatIdx = (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED) 
+    ? (Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length) 
+    : 0;
+
 
 const CACHE_NAME = 'chill-flight-music-v1';
 
