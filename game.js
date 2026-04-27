@@ -64,7 +64,7 @@ function updateInputPosition(clientX, clientY) {
 }
 
 window.addEventListener('mousemove', (e) => {
-    if (!e.target.closest('#cockpit-ui') && !e.target.closest('#debug-menu') && !e.target.closest('#debug-telemetry') && !e.target.closest('.title') && !e.target.closest('#mobile-controls') && !e.target.closest('#online-players')) {
+    if (!e.target.closest('#loading-overlay') && !e.target.closest('#cockpit-ui') && !e.target.closest('#debug-menu') && !e.target.closest('#debug-telemetry') && !e.target.closest('.title') && !e.target.closest('#mobile-controls') && !e.target.closest('#online-players')) {
         updateInputPosition(e.clientX, e.clientY);
         if (windowJustFocused) {
             // Silently sync position without steering — swallows the spurious
@@ -81,7 +81,7 @@ window.addEventListener('touchstart', (e) => {
     if (e.touches.length > 0) {
         const target = e.target;
         const isPauseOverlay = target.closest('#pause-overlay');
-        const isUI = isPauseOverlay || target.closest('#cockpit-ui') || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.color-swatch');
+        const isUI = isPauseOverlay || target.closest('#loading-overlay') || target.closest('#cockpit-ui') || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.color-swatch');
         if (!isUI) {
             updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
             mouseControlActive = true;
@@ -102,7 +102,7 @@ window.addEventListener('touchmove', (e) => {
             e.preventDefault();
         }
         const isPauseOverlay = target.closest('#pause-overlay');
-        const isUI = isCockpit || isPauseOverlay || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.color-swatch');
+        const isUI = isCockpit || isPauseOverlay || target.closest('#loading-overlay') || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.color-swatch');
         if (!isUI) {
             updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
             mouseControlActive = true;
@@ -3101,6 +3101,7 @@ if (overlay) {
 
             // Unpause the game and clear the clock delta
             isPaused = false;
+            justResumed = true;
             if (typeof clock !== 'undefined') clock.getDelta();
 
             // Start music!
@@ -3116,6 +3117,7 @@ if (overlay) {
         setTimeout(() => overlay.style.display = 'none', 800);
 
         isPaused = false;
+        justResumed = true;
         if (typeof clock !== 'undefined') clock.getDelta();
 
         if (typeof setMusicEnabled === 'function') {
