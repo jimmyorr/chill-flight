@@ -1096,6 +1096,22 @@ function updateSkyBaseColors(palette) {
 
     // Golden sunset: horizon + black shadow -> also blend 30% zenith
     _goldenSunsetSky.copy(bottom).lerp(new THREE.Color(0x000000), 0.2).lerp(top, 0.3);
+
+    // Update Splash Screen Background
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        // Keep it dark but clearly influenced by the current colors
+        const topHSL = {};
+        top.getHSL(topHSL);
+        const bottomHSL = {};
+        bottom.getHSL(bottomHSL);
+
+        // Keep saturation relatively high, but drastically drop lightness
+        const darkTop = new THREE.Color().setHSL(topHSL.h, Math.max(topHSL.s, 0.5), 0.18).getStyle();
+        const darkBottom = new THREE.Color().setHSL(bottomHSL.h, Math.max(bottomHSL.s, 0.5), 0.08).getStyle();
+        
+        overlay.style.background = `radial-gradient(circle at center, ${darkTop} 0%, ${darkBottom} 100%)`;
+    }
 }
 updateSkyBaseColors(selectedPalette);
 
