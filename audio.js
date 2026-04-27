@@ -73,6 +73,22 @@ function setMusicEnabled(enabled) {
     musicEnabled = enabled;
     localStorage.setItem('chill_flight_music_enabled', enabled);
     updateAudioPlayer(enabled);
+
+    // Update mobile button UI
+    const radToggle = document.getElementById('mobile-rad-toggle');
+    if (radToggle) {
+        radToggle.title = enabled ? "Pause Music" : "Play Music";
+        const svg = radToggle.querySelector('svg');
+        if (svg) {
+            if (enabled) {
+                // Pause icon
+                svg.innerHTML = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"></path>';
+            } else {
+                // Play icon
+                svg.innerHTML = '<path d="M5 3l14 9-14 9V3z"></path>';
+            }
+        }
+    }
 }
 
 async function updateAudioPlayer(enabled) {
