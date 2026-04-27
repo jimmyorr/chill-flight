@@ -726,6 +726,9 @@ if (window.innerWidth <= 1024) {
 
 // --- MAIN GAME LOOP ---
 const clock = new THREE.Clock();
+const deltaBuffer = [];
+const DELTA_BUFFER_SIZE = 10;
+let smoothedDelta = 1 / 60;
 
 // --- PERSISTENCE ---
 const colorOptionsInit = document.getElementById('plane-color-options');
@@ -1199,8 +1202,15 @@ function animate() {
     lastFrameTime = frameStartTime;
 
     const now = performance.now();
-    let delta = clock.getDelta();
-    if (delta > 0.1) delta = 0.1; // Cap at 100ms to prevent logic blowouts
+    let rawDelta = clock.getDelta();
+    if (rawDelta > 0.1) rawDelta = 0.1; // Cap at 100ms to prevent logic blowouts
+
+    // Apply delta smoothing (moving average) to eliminate jitter from OS/browser timing
+    deltaBuffer.push(rawDelta);
+    if (deltaBuffer.length > DELTA_BUFFER_SIZE) deltaBuffer.shift();
+    smoothedDelta = deltaBuffer.reduce((a, b) => a + b, 0) / deltaBuffer.length;
+
+    const delta = smoothedDelta; // Use smoothed delta for all game logic below
 
     pollGamepad(delta);
 
@@ -1320,10 +1330,10 @@ function animate() {
                     p.mesh.quaternion.copy(p.targetQuat);
                 } else {
                     // Smoothly chase the ideal interpolated path
-                    p.mesh.position.lerp(idealPos, 0.4);
+                    p.mesh.position.lerp(idealPos, 1 - Math.pow(1 - 0.4, delta * 60));
                     const angle = p.mesh.quaternion.angleTo(p.targetQuat);
                     if (angle > 0.001) {
-                        p.mesh.quaternion.slerp(p.targetQuat, 0.3);
+                        p.mesh.quaternion.slerp(p.targetQuat, 1 - Math.pow(1 - 0.3, delta * 60));
                     }
                 }
                 p.targetSpeedMult = idealSpeed;
@@ -1675,12 +1685,12 @@ function animate() {
         const finalTargetPitch = targetPitch + manualPitch;
         while (planeGroup.rotation.x > finalTargetPitch + Math.PI) planeGroup.rotation.x -= 2 * Math.PI;
         while (planeGroup.rotation.x < finalTargetPitch - Math.PI) planeGroup.rotation.x += 2 * Math.PI;
-        planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, finalTargetPitch, TURN_SPEED * delta * 60);
+        planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, finalTargetPitch, 1 - Math.pow(1 - TURN_SPEED, delta * 60));
     }
     if (!isBarrelRolling) {
         while (planeGroup.rotation.z > targetRoll + Math.PI) planeGroup.rotation.z -= 2 * Math.PI;
         while (planeGroup.rotation.z < targetRoll - Math.PI) planeGroup.rotation.z += 2 * Math.PI;
-        planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, targetRoll, TURN_SPEED * delta * 60);
+        planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, targetRoll, 1 - Math.pow(1 - TURN_SPEED, delta * 60));
     }
 
     // --- FLIGHT PHYSICS & SPEED ---
@@ -1952,6 +1962,10 @@ function animate() {
         isDeployingPontoons = true;
     }
 
+    // Ensure the plane's matrix is fully updated before camera calculations
+    // This prevents the camera from "jittering" or lagging one frame behind.
+    planeGroup.updateMatrixWorld();
+
     // Camera follow
     const speedFactor = (flightSpeedMultiplier - 0.5) / 9.5;
     const diveFactor = Math.max(0, -planeGroup.rotation.x / (Math.PI / 4)); // 1.0 at 45 degree dive
@@ -1962,12 +1976,12 @@ function animate() {
     // FOV expands with speed AND dive/loop steepness, capped at 70 to avoid excessive distortion
     // We use a smoothed factor to prevent "jumping" when entering loops
     const maneuverFactor = Math.max(diveFactor, isLooping ? 3.0 : 0);
-    smoothedManeuverFactor = THREE.MathUtils.lerp(smoothedManeuverFactor, maneuverFactor, 0.05 * delta * 60);
+    smoothedManeuverFactor = THREE.MathUtils.lerp(smoothedManeuverFactor, maneuverFactor, 1 - Math.pow(1 - 0.05, delta * 60));
 
     const baseFov = THREE.MathUtils.lerp(60, 85, speedFactor);
     const targetFov = Math.min(70, baseFov + (smoothedManeuverFactor * 15 * Math.min(1, flightSpeedMultiplier / 2)));
 
-    camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 0.05);
+    camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 1 - Math.pow(1 - 0.05, delta * 60));
     camera.updateProjectionMatrix();
 
     // Pull back the camera during high-G maneuvers for extra scale
@@ -1997,7 +2011,7 @@ function animate() {
     if (cameraMode === 'birds-eye-close') targetBirdEyeHeight = 500;
     if (cameraMode === 'birds-eye-ultra') targetBirdEyeHeight = 5000;
 
-    currentBirdEyeHeight = THREE.MathUtils.lerp(currentBirdEyeHeight, targetBirdEyeHeight, 0.05 * delta * 60);
+    currentBirdEyeHeight = THREE.MathUtils.lerp(currentBirdEyeHeight, targetBirdEyeHeight, 1 - Math.pow(1 - 0.05, delta * 60));
 
     // Cubic ease-in for the "swoop up" drama: t^3
     // This makes it start slow and accelerate significantly towards the top-down view.
@@ -2071,7 +2085,7 @@ function animate() {
         targetBlendedFov = THREE.MathUtils.lerp(followFov, topDownFov, easedT);
     }
 
-    camera.fov = THREE.MathUtils.lerp(camera.fov, targetBlendedFov, 0.1 * delta * 60);
+    camera.fov = THREE.MathUtils.lerp(camera.fov, targetBlendedFov, 1 - Math.pow(1 - 0.1, delta * 60));
     camera.updateProjectionMatrix();
 
     // 5. Blend Positions & Targets
@@ -2092,7 +2106,8 @@ function animate() {
     }
 
     // Apply smooth tracking to the results
-    camera.position.lerp(_idealCameraPos, 0.15 * delta * 60);
+    // We use smoothedDelta and a higher lerp factor for a more "locked-in" feel.
+    camera.position.lerp(_idealCameraPos, 1 - Math.pow(1 - 0.25, delta * 60));
 
     // Hard clamp to prevent dipping below terrain during fast movement
     const actualTerrainHeight = getElevation(camera.position.x, camera.position.z);
@@ -2100,8 +2115,8 @@ function animate() {
         camera.position.y = actualTerrainHeight + 1.0;
     }
 
-    _currentLookTarget.lerp(_idealLookTarget, 0.15 * delta * 60);
-    camera.up.lerp(_idealUp, 0.1 * delta * 60).normalize();
+    _currentLookTarget.lerp(_idealLookTarget, 1 - Math.pow(1 - 0.25, delta * 60));
+    camera.up.lerp(_idealUp, 1 - Math.pow(1 - 0.1, delta * 60)).normalize();
 
     camera.lookAt(_currentLookTarget);
 
@@ -2288,11 +2303,14 @@ function animate() {
     const dy = snappedY - dotY;
     const dz = snappedZ - dotZ;
 
-    // Step 6: Apply the snapped offsets to the target.
-    dirLight.target.position.copy(anchorPos);
-    dirLight.target.position.addScaledVector(_shadowRight, dx);
-    dirLight.target.position.addScaledVector(_shadowUp, dy);
-    dirLight.target.position.addScaledVector(_shadowSunDir, dz); // Apply depth snap
+    // Step 6: Apply the snapped offsets to a target vector, then smoothly lerp the light
+    // This "softens" the snapping jumps so they aren't perceivable as jitter.
+    const _targetShadowPos = new THREE.Vector3().copy(anchorPos);
+    _targetShadowPos.addScaledVector(_shadowRight, dx);
+    _targetShadowPos.addScaledVector(_shadowUp, dy);
+    _targetShadowPos.addScaledVector(_shadowSunDir, dz); // Apply depth snap
+
+    dirLight.target.position.lerp(_targetShadowPos, 1 - Math.pow(1 - 0.1, delta * 60));
 
     // Position the light exactly 4000 units behind the target (must be larger than frustum radius)
     dirLight.position.copy(dirLight.target.position).addScaledVector(_shadowSunDir, 4000);
@@ -2400,11 +2418,11 @@ function animate() {
     _finalSkyColor.copy(_uncloudedSkyColor).lerp(_cloudyColor, overcast);
     _finalFogColor.copy(_uncloudedFogColor).lerp(_cloudyColor, overcast);
 
-    scene.fog.color.lerp(_finalFogColor, 0.05);
+    scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
 
     // If it's actively raining or snowing, the fog should be much thicker to obscure the horizon
     const maxFogDensity = precipIntensity > 0 ? 0.00025 : 0.0002;
-    scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, THREE.MathUtils.lerp(0.00002, maxFogDensity, overcast), 0.01);
+    scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, THREE.MathUtils.lerp(0.00002, maxFogDensity, overcast), 1 - Math.pow(1 - 0.01, delta * 60));
 
     // Update Sky Shader Colors
     if (!isCustomPalette) {
