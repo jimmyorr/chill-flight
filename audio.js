@@ -148,10 +148,48 @@ let purrpleCatIdx = (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic
 const CACHE_NAME = 'chill-flight-music-v1';
 
 /**
- * Resolves a remote URL to a local Blob URL via the Cache API.
+ * Resolves a remote URL to a local path or Blob URL.
  * Falls back to the remote URL on any error.
  */
 async function getCachedTrackUrl(url) {
+    const fileName = url.split('/').pop();
+
+    // -- NATIVE MOBILE APP PATH (Capacitor) --
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+        try {
+            const Filesystem = Capacitor.Plugins.Filesystem;
+            if (!Filesystem) throw new Error('Filesystem plugin not available');
+
+            // 1. Check if file already exists in native cache
+            const result = await Filesystem.getUri({
+                directory: 'CACHE',
+                path: fileName
+            });
+
+            console.log(`Serving track from native cache: ${fileName}`);
+            return Capacitor.convertFileSrc(result.uri);
+
+        } catch (e) {
+            // 2. If it doesn't exist, download it natively
+            console.log(`Downloading new track to native cache: ${url}`);
+
+            try {
+                const Filesystem = Capacitor.Plugins.Filesystem;
+                const downloadResult = await Filesystem.downloadFile({
+                    url: url,
+                    path: fileName,
+                    directory: 'CACHE'
+                });
+
+                return Capacitor.convertFileSrc(downloadResult.path);
+            } catch (downloadErr) {
+                console.error('Failed to download audio natively:', downloadErr);
+                return url; // Fallback to streaming
+            }
+        }
+    }
+
+    // -- STANDARD WEB BROWSER PATH --
     if (!('caches' in window)) return url;
 
     try {
@@ -161,7 +199,6 @@ async function getCachedTrackUrl(url) {
         if (!response) {
             console.log(`Caching new track: ${url}`);
             response = await fetch(url);
-            // We must clone the response to both save it and use it
             await cache.put(url, response.clone());
         } else {
             console.log(`Serving track from cache: ${url}`);
