@@ -10,7 +10,7 @@ async function startMultiplayer() {
             { initializeApp },
             { getAnalytics },
             { getAuth, signInAnonymously },
-            { getDatabase, ref, set, update, get, onValue, onDisconnect, onChildAdded, onChildChanged, onChildRemoved }
+            { getDatabase, ref, set, update, get, remove, onValue, onDisconnect, onChildAdded, onChildChanged, onChildRemoved }
         ] = await Promise.all([
             import("https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js"),
             import("https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js"),
@@ -57,10 +57,10 @@ async function startMultiplayer() {
         let playerUid = null;
         let multiplayerActive = false;
 
-        function setMultiplayerOfflineBanner(isOffline) {
+        function setMultiplayerOfflineBanner(isOffline, afk = false) {
             const title = document.getElementById('online-title');
             if (!title) return;
-            title.textContent = isOffline ? 'OFFLINE' : 'ONLINE';
+            title.textContent = isOffline ? (afk ? 'AFK - OFFLINE' : 'OFFLINE') : 'ONLINE';
             title.style.color = isOffline ? 'rgba(255,100,100,0.7)' : '';
         }
 
@@ -269,7 +269,21 @@ async function startMultiplayer() {
         }
         cleanupStalePlayers();
 
+        let lastActiveTime = Date.now();
+        const updateActivity = () => { lastActiveTime = Date.now(); };
+        window.addEventListener('keydown', updateActivity);
+        window.addEventListener('mousedown', updateActivity);
+
         function sync() {
+            const timeSinceActive = Date.now() - lastActiveTime;
+            if (timeSinceActive > 600000) { // 10 minutes
+                console.log("💤 AFK Timeout reached. Disconnecting from multiplayer.");
+                remove(sessionRef);
+                setMultiplayerOfflineBanner(true, true);
+                multiplayerActive = false;
+                return;
+            }
+
             if (typeof planeGroup !== 'undefined') {
                 update(sessionRef, {
                     position: packPos(planeGroup.position, planeGroup.rotation, flightSpeedMultiplier, false, vehicleType),
