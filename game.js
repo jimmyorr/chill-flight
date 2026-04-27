@@ -512,7 +512,7 @@ window.addEventListener('keydown', (e) => {
     }
 
     // 4. Vehicle Switch Shortcut: 'v' or 'V'
-    if (e.key.toLowerCase() === 'v' && !isPaused && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
+    if (ENABLE_VEHICLE_SWITCH && e.key.toLowerCase() === 'v' && !isPaused && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
         const nextType = vehicleType === 'airplane' ? 'helicopter' : (vehicleType === 'helicopter' ? 'boat' : (vehicleType === 'boat' ? 'buggy' : 'airplane'));
         setVehicle(nextType);
         return;
@@ -558,12 +558,16 @@ if (typeof window !== 'undefined') {
 
 const vehicleToggle = document.getElementById('mobile-vehicle-toggle');
 if (vehicleToggle) {
-    vehicleToggle.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const nextType = vehicleType === 'airplane' ? 'helicopter' : (vehicleType === 'helicopter' ? 'boat' : (vehicleType === 'boat' ? 'buggy' : 'airplane'));
-        setVehicle(nextType);
-    });
+    if (!ENABLE_VEHICLE_SWITCH) {
+        vehicleToggle.style.display = 'none';
+    } else {
+        vehicleToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const nextType = vehicleType === 'airplane' ? 'helicopter' : (vehicleType === 'helicopter' ? 'boat' : (vehicleType === 'boat' ? 'buggy' : 'airplane'));
+            setVehicle(nextType);
+        });
+    }
 }
 
 // Distance selection
