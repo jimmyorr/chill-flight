@@ -3117,39 +3117,43 @@ document.querySelectorAll('.speed-btn').forEach(btn => {
 const overlay = document.getElementById('loading-overlay');
 if (overlay) {
     const beginBtn = document.getElementById('begin-btn');
+
+    const dismissLoadingScreen = (instant = false) => {
+        if (instant) {
+            overlay.style.display = 'none';
+        } else {
+            overlay.style.transition = 'opacity 0.8s ease';
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
+            setTimeout(() => overlay.style.display = 'none', 800);
+        }
+
+        // Unpause the game and clear the clock delta
+        isPaused = false;
+        justResumed = true;
+        if (typeof clock !== 'undefined') clock.getDelta();
+
+        // Start music! (Will respect the musicEnabled state)
+        if (typeof setMusicEnabled === 'function') {
+            setMusicEnabled(musicEnabled);
+        }
+    };
+
     if (beginBtn) {
         beginBtn.style.display = 'block';
         beginBtn.focus();
 
         beginBtn.addEventListener('click', () => {
-            overlay.style.transition = 'opacity 0.8s ease';
-            overlay.style.opacity = '0';
-            overlay.style.pointerEvents = 'none';
-            setTimeout(() => overlay.style.display = 'none', 800);
-
-            // Unpause the game and clear the clock delta
-            isPaused = false;
-            justResumed = true;
-            if (typeof clock !== 'undefined') clock.getDelta();
-
-            // Start music!
-            if (typeof setMusicEnabled === 'function') {
-                setMusicEnabled(musicEnabled);
-            }
+            dismissLoadingScreen(false);
         });
-    } else {
-        // Fallback: automatic behavior
-        overlay.style.transition = 'opacity 0.8s ease';
-        overlay.style.opacity = '0';
-        overlay.style.pointerEvents = 'none';
-        setTimeout(() => overlay.style.display = 'none', 800);
 
-        isPaused = false;
-        justResumed = true;
-        if (typeof clock !== 'undefined') clock.getDelta();
-
-        if (typeof setMusicEnabled === 'function') {
-            setMusicEnabled(musicEnabled);
+        // Auto-skip if music was paused last time
+        if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
+            console.log("🎵 Music was paused last session. Skipping splash screen.");
+            dismissLoadingScreen(true);
         }
+    } else {
+        // Fallback: respect music state for skip logic even if button is missing
+        dismissLoadingScreen(typeof musicEnabled !== 'undefined' && !musicEnabled);
     }
 }
