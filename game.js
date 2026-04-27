@@ -1106,11 +1106,19 @@ function updateSkyBaseColors(palette) {
         const bottomHSL = {};
         bottom.getHSL(bottomHSL);
 
-        // Keep saturation relatively high, but drastically drop lightness
+        // Keep saturation relatively high, but drastically drop lightness for background
         const darkTop = new THREE.Color().setHSL(topHSL.h, Math.max(topHSL.s, 0.5), 0.18).getStyle();
         const darkBottom = new THREE.Color().setHSL(bottomHSL.h, Math.max(bottomHSL.s, 0.5), 0.08).getStyle();
         
         overlay.style.background = `radial-gradient(circle at center, ${darkTop} 0%, ${darkBottom} 100%)`;
+
+        // Set Dynamic Accent Colors for the Button
+        const accentColor = bottom.clone().multiplyScalar(1.2).getStyle();
+        const accentGlow = bottom.clone().multiplyScalar(1.2);
+        const glowStyle = `rgba(${Math.round(accentGlow.r * 255)}, ${Math.round(accentGlow.g * 255)}, ${Math.round(accentGlow.b * 255)}, 0.4)`;
+        
+        overlay.style.setProperty('--accent-color', accentColor);
+        overlay.style.setProperty('--accent-glow', glowStyle);
     }
 }
 updateSkyBaseColors(selectedPalette);
