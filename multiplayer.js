@@ -208,6 +208,17 @@ async function startMultiplayer() {
             const snapKey = snapshot.key;
             if (snapKey === playerUid) return;
             const data = snapshot.val();
+
+            // Ignore players locally if they haven't updated in over 60 seconds
+            if (data.lastSeen) {
+                const lastSeenTime = new Date(data.lastSeen).getTime();
+                const now = Date.now() + (typeof serverTimeOffset !== 'undefined' ? serverTimeOffset : 0);
+                if (now - lastSeenTime > 60000) {
+                    console.log(`👻 Ignoring stale ghost player ${snapKey}...`);
+                    return; // Skip adding them to the scene locally
+                }
+            }
+
             const posData = unpackPos(data.position);
             const mesh = createOtherPlaneMesh(snapKey, data.color);
 
@@ -243,6 +254,20 @@ async function startMultiplayer() {
             const p = otherPlayers.get(snapshot.key);
             if (p) { if (typeof scene !== 'undefined') scene.remove(p.mesh); otherPlayers.delete(snapshot.key); }
         });
+
+        function cleanupStalePlayers() {
+            const now = Date.now();
+            otherPlayers.forEach((p, uid) => {
+                // If we haven't received an update from this player in 60 seconds, remove them locally
+                if (now - p.lastReceivedMs > 60000) {
+                    console.log(`🧹 Local cleanup: Player ${uid} timed out.`);
+                    if (typeof scene !== 'undefined') scene.remove(p.mesh);
+                    otherPlayers.delete(uid);
+                }
+            });
+            setTimeout(cleanupStalePlayers, 10000); // check every 10 seconds
+        }
+        cleanupStalePlayers();
 
         function sync() {
             if (typeof planeGroup !== 'undefined') {
