@@ -338,9 +338,6 @@ window.buggyWheels.push(wheelBR);
 
 buggyModel.scale.set(0.8, 0.8, 0.8);
 
-// Initialize vehicle
-setVehicle(vehicleType);
-
 // Pontoons Group
 const pontoonGroup = new THREE.Group();
 pontoonGroup.visible = false;
