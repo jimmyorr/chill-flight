@@ -3160,9 +3160,23 @@ if (overlay) {
             if (progressContainer && progressBar) {
                 progressContainer.style.display = 'block';
 
+                const msgEl = document.getElementById('splash-loading-msg');
+                const messages = [
+                    "Generating terrain chunks...",
+                    "Reticulating splines...",
+                    "Calculating flight paths...",
+                    "Ready to chill."
+                ];
+
                 // Use a slight delay to ensure transition triggers after display:block
                 setTimeout(() => {
                     progressBar.style.width = '100%';
+
+                    if (msgEl) {
+                        setTimeout(() => msgEl.textContent = messages[1], 400);
+                        setTimeout(() => msgEl.textContent = messages[2], 800);
+                        setTimeout(() => msgEl.textContent = messages[3], 1200);
+                    }
                 }, 50);
 
                 setTimeout(() => {
