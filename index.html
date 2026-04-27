@@ -59,7 +59,7 @@
                     </select>
                 </div>
                 <div class="customization-row">
-                    <span class="customization-label">View Distance</span>
+                    <span class="customization-label">View distance</span>
                     <select id="distance-select" class="customization-input">
                         <option value="1">Short</option>
                         <option value="2" selected>Medium</option>
@@ -70,7 +70,7 @@
 
             <div class="customization-split">
                 <div class="customization-row">
-                    <span class="customization-label">Frame Rate</span>
+                    <span class="customization-label">Frame rate</span>
                     <select id="fps-select" class="customization-input">
                         <option value="0">Uncapped</option>
                         <option value="60" selected>60 FPS</option>
@@ -78,7 +78,7 @@
                     </select>
                 </div>
                 <div class="customization-row">
-                    <span class="customization-label">Res Scale</span>
+                    <span class="customization-label">Res scale</span>
                     <select id="resolution-select" class="customization-input">
                         <option value="1" selected>100%</option>
                         <option value="0.75">75%</option>
@@ -92,7 +92,7 @@
                 <div class="customization-row"></div>
                 <div class="customization-row horizontal">
                     <input type="checkbox" id="invert-y-input" class="customization-checkbox">
-                    <span class="customization-label">Invert Y Axis</span>
+                    <span class="customization-label">Invert y axis</span>
                 </div>
             </div>
 
@@ -159,7 +159,7 @@
     <div id="mobile-controls">
         <div id="mobile-action-menu" class="menu-container">
             <div class="menu-items" id="mobile-sub-menu">
-                <button class="sub-btn" id="mobile-vehicle-toggle" title="Switch Vehicle">
+                <button class="sub-btn" id="mobile-vehicle-toggle" title="Switch vehicle">
                     <svg viewBox="0 0 24 24"
                         style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;">
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
@@ -204,19 +204,19 @@
                     </svg>
                 </button>
             </div>
-            <button class="mobile-btn" id="mobile-menu-trigger">
+            <button class="mobile-btn" id="mobile-menu-trigger" title="Action menu">
                 <svg id="chevron-icon" viewBox="0 0 24 24"
                     style="width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2;">
                     <path d="M18 15l-6-6-6 6" />
                 </svg>
             </button>
         </div>
-        <button class="mobile-btn" id="mobile-spd-down" title="Decelerate">
+        <button class="mobile-btn" id="mobile-spd-down" title="Decrease speed">
             <svg viewBox="0 0 24 24">
                 <path d="M19 13H5v-2h14v2z" />
             </svg>
         </button>
-        <button class="mobile-btn" id="mobile-spd-up" title="Accelerate">
+        <button class="mobile-btn" id="mobile-spd-up" title="Increase speed">
             <svg viewBox="0 0 24 24">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
             </svg>
@@ -226,12 +226,12 @@
     <div id="debug-menu">
         <div style="margin-top: 10px; margin-bottom: 15px;">
             <div style="margin-bottom: 5px;">Time speed:</div>
-            <button class="speed-btn" data-speed="-1">-1x</button>
-            <button class="speed-btn" data-speed="0">0x</button>
-            <button class="speed-btn active" data-speed="1">1x</button>
-            <button class="speed-btn" data-speed="2">2x</button>
-            <button class="speed-btn" data-speed="10">10x</button>
-            <button class="speed-btn" data-speed="100">100x</button>
+            <button class="speed-btn" data-speed="-1" title="Reverse time">-1x</button>
+            <button class="speed-btn" data-speed="0" title="Pause time">0x</button>
+            <button class="speed-btn active" data-speed="1" title="Normal time">1x</button>
+            <button class="speed-btn" data-speed="2" title="2x time speed">2x</button>
+            <button class="speed-btn" data-speed="10" title="10x time speed">10x</button>
+            <button class="speed-btn" data-speed="100" title="100x time speed">100x</button>
         </div>
 
         <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
@@ -329,7 +329,7 @@
                 style="font-size: 11px; font-family: monospace; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
                 <div>CPU ms: <span id="debug-cpu-ms">0.0</span></div>
                 <div>Heap: <span id="debug-heap">0.0</span> MB</div>
-                <div>Draw Calls: <span id="debug-draw-calls">0</span></div>
+                <div>Draw calls: <span id="debug-draw-calls">0</span></div>
                 <div>Triangles: <span id="debug-triangles">0</span></div>
                 <div>Geometries: <span id="debug-geometries">0</span></div>
                 <div>Textures: <span id="debug-textures">0</span></div>
@@ -353,7 +353,7 @@
                 <div>Dead: <span id="debug-trees-dead">0</span></div>
                 <div>Houses: <span id="debug-houses">0</span></div>
                 <div>Lighthouses: <span id="debug-lighthouses">0</span></div>
-                <div>Lily Pads: <span id="debug-lily-pads">0</span></div>
+                <div>Lily pads: <span id="debug-lily-pads">0</span></div>
                 <div>Oak: <span id="debug-trees-decid">0</span></div>
                 <div>Palm: <span id="debug-trees-palm">0</span></div>
                 <div>Piers: <span id="debug-piers">0</span></div>
