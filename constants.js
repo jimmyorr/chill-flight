@@ -12,6 +12,8 @@ const MAP_HEIGHT_SCALE = 400;
 
 // Flight parameters
 const BASE_FLIGHT_SPEED = 2.5;
+const MAX_AIRPLANE_SPEED_KTS = 500;
+const MAX_FLIGHT_SPEED_MULT = MAX_AIRPLANE_SPEED_KTS / (BASE_FLIGHT_SPEED * 60);
 const TURN_SPEED = 0.03;
 const MAX_BANK_BOAT = 30 * Math.PI / 180;
 const MAX_BANK_HELI = 45 * Math.PI / 180;
