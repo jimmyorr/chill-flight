@@ -239,7 +239,7 @@ function pollGamepad(delta) {
 
     if (rt > 0.1) {
         const throttleRate = (0.5 + rt * 3.5) * delta;
-        targetFlightSpeed = Math.min(10, targetFlightSpeed + throttleRate);
+        targetFlightSpeed = Math.min((window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335), targetFlightSpeed + throttleRate);
     }
     if (lt > 0.1) {
         const throttleRate = (0.5 + lt * 3.5) * delta;
@@ -1421,7 +1421,7 @@ function animate() {
             const throttleRate = (0.5 + ramp * 3.5) * delta;
             targetFlightSpeed = targetFlightSpeed + throttleRate;
             if (vehicleType !== 'boat' && vehicleType !== 'buggy') {
-                targetFlightSpeed = Math.min(10, targetFlightSpeed);
+                targetFlightSpeed = Math.min((window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335), targetFlightSpeed);
             } else {
                 targetFlightSpeed = Math.min(0.66, targetFlightSpeed); // Cap forward boat/buggy speed
             }
@@ -2823,7 +2823,7 @@ if (btnUp) {
             const step = vehicleType === 'boat' ? 0.05 : 0.1;
             targetFlightSpeed += step;
             if (vehicleType === 'boat') targetFlightSpeed = Math.min(0.33, targetFlightSpeed);
-            else targetFlightSpeed = Math.min(10, targetFlightSpeed);
+            else targetFlightSpeed = Math.min((window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335), targetFlightSpeed);
         }
         keys.Shift = false;
         keys.ArrowUp = false;
