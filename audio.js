@@ -50,6 +50,11 @@ purrpleCatAudio.addEventListener('ended', async () => {
     // Update the source immediately so play() uses the new track
     const url = purrpleCatTracks[purrpleCatIdx];
     purrpleCatAudio.src = await getCachedTrackUrl(url);
+    
+    // Explicitly load the new track to reset the audio element's state 
+    // before updateAudioPlayer attempts to call .play()
+    purrpleCatAudio.load(); 
+    
     updateAudioPlayer(musicEnabled);
 });
 
