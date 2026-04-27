@@ -3009,7 +3009,7 @@ window.addEventListener('keydown', (e) => {
         if (isOpening) resetSteering();
 
         if (window.firebaseDB && window.currentUserUid) {
-            const _wp = `world/${ChillFlightLogic.WORLD_SEED}`;
+            const _wp = window.currentWorldPrefix || `world/${ChillFlightLogic.WORLD_SEED}_room_1`;
             if (isOpening) {
                 import('https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js').then(({ remove, ref, goOffline }) => {
                     remove(ref(window.firebaseDB, `${_wp}/players/` + window.currentUserUid)).then(() => {

@@ -120,7 +120,25 @@ async function startMultiplayer() {
         currentUserUid = playerUid;
         console.log("✅ Logged in anonymously:", playerUid);
 
-        let worldPrefix = `world/${ChillFlightLogic.WORLD_SEED}_room_1`;
+        let roomNum = 1;
+        let worldPrefix = "";
+        while (true) {
+            worldPrefix = `world/${ChillFlightLogic.WORLD_SEED}_room_${roomNum}`;
+            const playersRef = ref(db, `${worldPrefix}/players`);
+            const snapshot = await get(playersRef);
+            const players = snapshot.val() || {};
+            const playerCount = Object.keys(players).length;
+
+            // If we're already in this room, or it has space, take it
+            if (players[playerUid] || playerCount < 10) {
+                console.log(`📡 Joining ${worldPrefix} (${playerCount}/10 players)`);
+                break;
+            }
+            roomNum++;
+            if (roomNum > 50) break; // Safety limit
+        }
+        window.currentWorldPrefix = worldPrefix; // Store for other scripts
+
         const profileRef = ref(db, `users/` + playerUid);
         const sessionRef = ref(db, `${worldPrefix}/players/` + playerUid);
 
