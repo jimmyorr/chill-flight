@@ -709,12 +709,14 @@ input[type=number].customization-input {
 
 #begin-btn {
     animation: pulse 2s infinite;
+    border-color: var(--accent-color, rgba(255, 255, 255, 0.3));
+    transition: all 0.3s ease;
 }
 
 @keyframes pulse {
     0% {
         transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.2);
+        box-shadow: 0 0 0 0 var(--accent-glow, rgba(255, 255, 255, 0.2));
     }
 
     70% {
