@@ -5,7 +5,7 @@
   "main": "airplane.js",
   "scripts": {
     "test": "for f in tests/*.test.js; do node \"$f\" || exit 1; done",
-    "build": "mkdir -p www && cp index.html *.js style.css www/ && cp -r assets/ vendor/ www/",
+    "build": "mkdir -p www && cp index.html *.js style.css www/ && cp -r assets vendor www/",
     "ios": "npm run build && npx cap sync ios && npx cap open ios",
     "android": "npm run build && npx cap sync android && npx cap open android"
   },
