@@ -740,30 +740,22 @@ input[type=number].customization-input {
 
 
     #cockpit-ui {
-        /* Pure CSS Notch Toggle: Anchors to top: 0 if notch exists, otherwise top: 20px */
-        top: calc(20px - min(20px, env(safe-area-inset-top, 0px))) !important;
-        left: 50%;
-        transform: translateX(-50%);
-        
-        /* Expand to 100% width if notch exists, otherwise remain a pill */
-        width: calc(100% - (20px - min(20px, env(safe-area-inset-top, 0px))) * 2);
-        max-width: 100%;
-        
-        /* Remove radius if notch exists */
-        border-radius: calc(8px - min(8px, env(safe-area-inset-top, 0px))) !important;
-        
-        /* Hide borders if notch exists */
-        border-top: calc(1px - min(1px, env(safe-area-inset-top, 0px))) solid rgba(255, 255, 255, 0.15);
-        border-left: calc(1px - min(1px, env(safe-area-inset-top, 0px))) solid rgba(255, 255, 255, 0.15);
-        border-right: calc(1px - min(1px, env(safe-area-inset-top, 0px))) solid rgba(255, 255, 255, 0.15);
-        
+        top: env(safe-area-inset-top, 0px);
+        bottom: auto;
+        left: 0;
+        transform: none;
+        width: 100%;
+        border-radius: 0;
+        border-top: none;
+        border-left: none;
+        border-right: none;
         justify-content: center;
-        padding: calc(env(safe-area-inset-top, 0px) + 8px) 15px 8px 15px;
+        padding: 5px 10px;
     }
 
     @media (max-width: 500px) {
         #cockpit-ui {
-            padding: calc(env(safe-area-inset-top, 0px) + 5px) 10px 5px 10px;
+            padding: 4px 8px;
             gap: 10px;
         }
 
