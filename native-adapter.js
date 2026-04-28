@@ -15,18 +15,15 @@
     if (isNative()) {
         console.log("Native platform detected. Applying overrides.");
 
-        // Force "Basic" theme on TV
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('theme') !== 'basic') {
-            urlParams.set('theme', 'basic');
-            console.log("Forcing 'basic' theme on TV...");
-            window.location.search = urlParams.toString();
-        }
-
-        // Performance: Cap at 1.0 device pixel ratio
-        if (typeof renderer !== 'undefined') {
-            renderer.setPixelRatio(1.0);
-        }
+        // Performance: Cap at 1.0 device pixel ratio (Wait for renderer)
+        const applyRendererFix = () => {
+            if (typeof renderer !== 'undefined') {
+                renderer.setPixelRatio(1.0);
+            } else {
+                setTimeout(applyRendererFix, 100);
+            }
+        };
+        applyRendererFix();
 
         // Hide Status Bar
         if (Capacitor.Plugins && Capacitor.Plugins.StatusBar) {

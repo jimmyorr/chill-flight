@@ -44,11 +44,11 @@ waterMaterial.onBeforeCompile = (shader) => {
         `#include <beginnormal_vertex>`,
         `
         // Get world position for seamless tiling across chunks
-        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vec4 worldPosN = modelMatrix * vec4(position, 1.0);
 
         // Analytical derivatives of the wave functions for correct lighting
-        float dx = 0.8 * 0.02 * cos(uTime + worldPos.x * 0.02);
-        float dz = -0.8 * 0.015 * sin(uTime * 0.8 + worldPos.z * 0.015);
+        float dx = 0.8 * 0.02 * cos(uTime + worldPosN.x * 0.02);
+        float dz = -0.8 * 0.015 * sin(uTime * 0.8 + worldPosN.z * 0.015);
 
         // Perpendicular vector for light reflection
         vec3 objectNormal = normalize(vec3(-dx, 1.0, -dz));
@@ -60,10 +60,11 @@ waterMaterial.onBeforeCompile = (shader) => {
         `#include <begin_vertex>`,
         `
         vec3 transformed = vec3(position);
+        vec4 worldPosV = modelMatrix * vec4(position, 1.0);
 
         // Wave math running in parallel on the GPU
-        float wave1 = sin(uTime + worldPos.x * 0.02) * 0.8;
-        float wave2 = cos(uTime * 0.8 + worldPos.z * 0.015) * 0.8;
+        float wave1 = sin(uTime + worldPosV.x * 0.02) * 0.8;
+        float wave2 = cos(uTime * 0.8 + worldPosV.z * 0.015) * 0.8;
 
         transformed.y += wave1 + wave2;
         `
