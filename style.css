@@ -740,7 +740,7 @@ input[type=number].customization-input {
 
 
     #cockpit-ui {
-        top: env(safe-area-inset-top, 0px);
+        top: 0;
         bottom: auto;
         left: 0;
         transform: none;
@@ -750,7 +750,7 @@ input[type=number].customization-input {
         border-left: none;
         border-right: none;
         justify-content: center;
-        padding: 5px 10px;
+        padding: calc(env(safe-area-inset-top, 0px) + 5px) 10px 5px 10px;
     }
 
     @media (max-width: 500px) {
