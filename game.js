@@ -1967,19 +1967,24 @@ function animate() {
     planeGroup.updateMatrixWorld();
 
     // Camera follow
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const isNative = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+    const mobileCameraScale = (isPortrait || isNative) ? 1.35 : 1.0;
+
     const speedFactor = (flightSpeedMultiplier - 0.5) / 9.5;
     const diveFactor = Math.max(0, -planeGroup.rotation.x / (Math.PI / 4)); // 1.0 at 45 degree dive
 
-    const zOffset = THREE.MathUtils.lerp(40, 60, speedFactor);
-    const yOffset = THREE.MathUtils.lerp(12, 20, speedFactor);
+    const zOffset = THREE.MathUtils.lerp(40 * mobileCameraScale, 60 * mobileCameraScale, speedFactor);
+    const yOffset = THREE.MathUtils.lerp(12 * mobileCameraScale, 20 * mobileCameraScale, speedFactor);
 
     // FOV expands with speed AND dive/loop steepness, capped at 70 to avoid excessive distortion
     // We use a smoothed factor to prevent "jumping" when entering loops
     const maneuverFactor = Math.max(diveFactor, isLooping ? 3.0 : 0);
     smoothedManeuverFactor = THREE.MathUtils.lerp(smoothedManeuverFactor, maneuverFactor, 1 - Math.pow(1 - 0.05, delta * 60));
 
-    const baseFov = THREE.MathUtils.lerp(60, 85, speedFactor);
-    const targetFov = Math.min(70, baseFov + (smoothedManeuverFactor * 15 * Math.min(1, flightSpeedMultiplier / 2)));
+    // Slightly wider base FOV for mobile to increase peripheral awareness
+    const baseFov = THREE.MathUtils.lerp(60, 85, speedFactor) + (mobileCameraScale > 1.0 ? 5 : 0);
+    const targetFov = Math.min(75, baseFov + (smoothedManeuverFactor * 15 * Math.min(1, flightSpeedMultiplier / 2)));
 
     camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 1 - Math.pow(1 - 0.05, delta * 60));
     camera.updateProjectionMatrix();
