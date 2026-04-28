@@ -326,6 +326,7 @@ input[type=number].customization-input {
 #cockpit-ui {
     position: absolute;
     top: 20px;
+    top: max(20px, env(safe-area-inset-top));
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.6);
@@ -448,6 +449,7 @@ input[type=number].customization-input {
 #mobile-controls {
     position: absolute;
     bottom: 30px;
+    bottom: max(30px, env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%);
     width: 90%;
@@ -738,7 +740,7 @@ input[type=number].customization-input {
 
 
     #cockpit-ui {
-        top: 0px;
+        top: env(safe-area-inset-top, 0px);
         bottom: auto;
         left: 0;
         transform: none;

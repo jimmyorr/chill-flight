@@ -12,6 +12,11 @@
         return typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
     }
 
+    function isTV() {
+        const ua = navigator.userAgent.toLowerCase();
+        return ua.includes('tv') || ua.includes('googletv') || ua.includes('atv') || ua.includes('firetv');
+    }
+
     if (isNative()) {
         console.log("Native platform detected. Applying overrides.");
 
@@ -30,17 +35,20 @@
             Capacitor.Plugins.StatusBar.hide().catch(() => { });
         }
 
-        // Force-hide mobile controls (Permanent override)
-        const hideControls = () => {
-            const mobileControls = document.getElementById('mobile-controls');
-            if (mobileControls) mobileControls.style.display = 'none';
-        };
-        hideControls();
-        setInterval(hideControls, 1000); // Re-assert in case of DOM changes
+        if (isTV()) {
+            console.log("TV platform detected. Hiding mobile controls.");
+            // Force-hide mobile controls (Permanent override) for TV
+            const hideControls = () => {
+                const mobileControls = document.getElementById('mobile-controls');
+                if (mobileControls) mobileControls.style.display = 'none';
+            };
+            hideControls();
+            setInterval(hideControls, 1000); // Re-assert in case of DOM changes
 
-        const sheet = document.createElement('style');
-        sheet.innerHTML = "#mobile-controls { display: none !important; } *:focus { outline: none !important; }";
-        document.head.appendChild(sheet);
+            const sheet = document.createElement('style');
+            sheet.innerHTML = "#mobile-controls { display: none !important; } *:focus { outline: none !important; }";
+            document.head.appendChild(sheet);
+        }
 
         // Handle Hardware Back Button
         document.addEventListener("deviceready", () => {
