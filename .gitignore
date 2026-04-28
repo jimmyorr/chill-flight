@@ -12,6 +12,7 @@ build/
 # --- Mobile (React Native / Capacitor) ---
 android/
 ios/
+www/
 *.swp
 *.lock
 
