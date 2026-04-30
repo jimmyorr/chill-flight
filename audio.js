@@ -236,24 +236,17 @@ function getCurrentTrackName() {
 // Global callback for UI updates
 window.onTrackChange = null;
 
-purrpleCatAudio.addEventListener('play', () => {
-    if (window.onTrackChange && musicEnabled) {
-        window.onTrackChange(getCurrentTrackName());
-    }
-});
+let isMusicInternalAction = false;
+let isPausedByVisibility = false;
 
-function setMusicEnabled(enabled) {
-    musicEnabled = enabled;
-    localStorage.setItem('chill_flight_music_enabled', enabled);
-    updateAudioPlayer(enabled);
-
+function syncMusicUI(playing) {
     // Update mobile button UI
     const radToggle = document.getElementById('mobile-rad-toggle');
     if (radToggle) {
-        radToggle.title = enabled ? "Pause" : "Play";
+        radToggle.title = playing ? "Pause" : "Play";
         const svg = radToggle.querySelector('svg');
         if (svg) {
-            if (enabled) {
+            if (playing) {
                 // Pause icon
                 svg.innerHTML = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"></path>';
             } else {
@@ -262,6 +255,60 @@ function setMusicEnabled(enabled) {
             }
         }
     }
+
+    if (window.onTrackChange) {
+        window.onTrackChange(getCurrentTrackName());
+    }
+}
+
+purrpleCatAudio.addEventListener('play', () => {
+    if (!isMusicInternalAction) {
+        musicEnabled = true;
+        localStorage.setItem('chill_flight_music_enabled', 'true');
+    }
+    syncMusicUI(true);
+});
+
+purrpleCatAudio.addEventListener('pause', () => {
+    if (!isMusicInternalAction) {
+        musicEnabled = false;
+        localStorage.setItem('chill_flight_music_enabled', 'false');
+    }
+    syncMusicUI(false);
+});
+
+function pauseMusicInternal() {
+    isMusicInternalAction = true;
+    purrpleCatAudio.pause();
+    isMusicInternalAction = false;
+}
+
+function playMusicInternal() {
+    isMusicInternalAction = true;
+    purrpleCatAudio.play().catch(e => {
+        console.log('Internal audio play blocked:', e);
+    });
+    isMusicInternalAction = false;
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+        if (musicEnabled && !purrpleCatAudio.paused) {
+            isPausedByVisibility = true;
+            pauseMusicInternal();
+        }
+    } else {
+        if (isPausedByVisibility) {
+            isPausedByVisibility = false;
+            playMusicInternal();
+        }
+    }
+});
+
+function setMusicEnabled(enabled) {
+    musicEnabled = enabled;
+    localStorage.setItem('chill_flight_music_enabled', enabled);
+    updateAudioPlayer(enabled);
 }
 
 async function updateAudioPlayer(enabled) {
