@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="style.css">
     <!-- Three.js (Local) -->
     <script src="vendor/three.min.js"></script>
+    <script src="config.js"></script>
 </head>
 
 <body>
@@ -111,7 +112,7 @@
             Music by <a href="https://purrplecat.com" target="_blank"
                 style="color: #3498db; text-decoration: none;">Purrple Cat</a>
         </div>
-        <div class="version-tag">v0.8.0</div>
+        <div class="version-tag"></div>
     </div>
 
     <div id="loading-overlay">
@@ -135,7 +136,7 @@
             </div>
             <button id="begin-btn" class="btn" style="display: none;">S T A R T</button>
         </div>
-        <div class="version-tag">v0.8.0</div>
+        <div class="version-tag"></div>
     </div>
 
     <div id="cockpit-ui">
@@ -392,6 +393,13 @@
     <script src="map-loader.js"></script>
     <!-- Firebase multiplayer: Refactored to standard script with dynamic imports to bypass 401 errors -->
     <script src="multiplayer.js"></script>
+
+    <script>
+        // Set version from config
+        document.querySelectorAll('.version-tag').forEach(el => {
+            el.textContent = 'v' + (window.APP_CONFIG?.version || '0.0.0');
+        });
+    </script>
 
 </body>
 

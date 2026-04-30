@@ -1,17 +1,13 @@
 {
   "name": "chill-flight",
-  "version": "1.0.0",
-  "description": "",
-  "main": "airplane.js",
+  "version": "0.8.0",
+  "author": "Jimmy Orr",
+  "license": "MIT",
   "scripts": {
-    "test": "for f in tests/*.test.js; do node \"$f\" || exit 1; done",
     "build": "mkdir -p www && cp index.html *.js style.css www/ && cp -r assets vendor www/",
     "ios": "npm run build && npx cap sync ios && npx cap open ios",
     "android": "npm run build && npx cap sync android && npx cap open android"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@capacitor/android": "^8.2.0",
     "@capacitor/assets": "^3.0.5",
