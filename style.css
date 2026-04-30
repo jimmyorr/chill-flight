@@ -1,7 +1,7 @@
 body {
     margin: 0;
     overflow: hidden;
-    background-color: #87CEEB;
+    background-color: #000;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     user-select: none;
 }
@@ -449,7 +449,6 @@ input[type=number].customization-input {
 #mobile-controls {
     position: absolute;
     bottom: 30px;
-    bottom: max(30px, env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%);
     width: 90%;
