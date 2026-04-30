@@ -384,13 +384,13 @@ input[type=number].customization-input {
     width: 120px;
 }
 
-#radio-panel {
+#cockpit-status-panel {
     cursor: pointer;
     transition: background 0.2s;
     border-radius: 4px;
 }
 
-#radio-panel:hover {
+#cockpit-status-panel:hover {
     background: rgba(255, 255, 255, 0.1) !important;
 }
 
