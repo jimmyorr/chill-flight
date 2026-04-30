@@ -2120,7 +2120,8 @@ function animate() {
     }
 
     // Celestial positions
-    const orbitRadius = 8000;
+    const sunOrbitRadius = 8000;
+    const moonOrbitRadius = 7500; // Moon is closer so it renders in front of sun during overlaps
 
     // 1. Realistic Sun Path
     const latitude = currentLatRad;
@@ -2151,8 +2152,15 @@ function animate() {
     const moonDeclination = declination + moonWobble;
 
     const moonY = (Math.sin(latitude) * Math.sin(moonDeclination)) + (Math.cos(latitude) * Math.cos(moonDeclination) * Math.cos(moonHourAngle));
-    const moonX = -Math.cos(moonDeclination) * Math.sin(moonHourAngle);
-    const moonZ = (Math.cos(latitude) * Math.sin(moonDeclination)) - (Math.sin(latitude) * Math.cos(moonDeclination) * Math.cos(moonHourAngle));
+    const rawMoonX = -Math.cos(moonDeclination) * Math.sin(moonHourAngle);
+    const rawMoonZ = (Math.cos(latitude) * Math.sin(moonDeclination)) - (Math.sin(latitude) * Math.cos(moonDeclination) * Math.cos(moonHourAngle));
+
+    // Rotate moon orbit by 30 degrees to give it a totally distinct path from the sun
+    const moonOrbitRotation = 0.52; // ~30 degrees
+    const cosR = Math.cos(moonOrbitRotation);
+    const sinR = Math.sin(moonOrbitRotation);
+    const moonX = rawMoonX * cosR - rawMoonZ * sinR;
+    const moonZ = rawMoonX * sinR + rawMoonZ * cosR;
 
     // Update water shader uniform — the GPU handles all wave displacement
     window.waterUniforms.uTime.value = now * 0.0015;
@@ -2261,8 +2269,8 @@ function animate() {
     updateDOM(document.getElementById('cockpit-spd'), spdStr);
 
 
-    sunMesh.position.set(sunX * orbitRadius, sunY * orbitRadius, sunZ * orbitRadius);
-    moonMesh.position.set(moonX * orbitRadius, moonY * orbitRadius, moonZ * orbitRadius);
+    sunMesh.position.set(sunX * sunOrbitRadius, sunY * sunOrbitRadius, sunZ * sunOrbitRadius);
+    moonMesh.position.set(moonX * moonOrbitRadius, moonY * moonOrbitRadius, moonZ * moonOrbitRadius);
 
     // --- SHADOW TEXEL SNAPPING (View-Space) ---
     // Eliminates "shadow swimming" and depth-band "creeping" by locking the
