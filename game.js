@@ -525,13 +525,10 @@ document.getElementById('resume-btn').addEventListener('click', () => {
     togglePause();
 });
 
-const radioPanel = document.getElementById('radio-panel');
-if (radioPanel) {
-    radioPanel.addEventListener('click', () => {
-        setMusicEnabled(!musicEnabled);
-
-        // Update the pause menu UI immediately if it's open
-        updatePauseMenuMusicInfo();
+const cockpitStatusPanel = document.getElementById('cockpit-status-panel');
+if (cockpitStatusPanel) {
+    cockpitStatusPanel.addEventListener('click', () => {
+        togglePause();
     });
 }
 
