@@ -352,8 +352,7 @@ function getMenuGrid() {
         [document.getElementById('player-name-input')],
         Array.from(document.querySelectorAll('.color-swatch')),
         [document.getElementById('quality-select'), document.getElementById('distance-select')],
-        [document.getElementById('fps-select'), document.getElementById('resolution-select')],
-        [null, document.getElementById('invert-y-input')],
+        [document.getElementById('fps-select'), document.getElementById('invert-y-input')],
         [document.getElementById('resume-btn')]
     ];
 }
@@ -590,67 +589,78 @@ if (distanceSelect) {
         _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
     });
 }
+function applyGraphicsQuality(segments) {
+    SEGMENTS = segments;
+    localStorage.setItem('chill_flight_quality', segments);
+    console.log(`Quality applied: SEGMENTS = ${segments}`);
+
+    // Update pixel ratio dynamically: baked resolution scale into quality levels
+    let pixelRatio = window.devicePixelRatio;
+    if (segments <= 20) { // Low
+        pixelRatio = 0.5;
+    } else if (segments <= 40) { // Mid
+        pixelRatio = Math.min(window.devicePixelRatio, 2) * 0.75;
+    } else if (segments <= 80) { // High
+        pixelRatio = Math.min(window.devicePixelRatio, 2) * 1.0;
+    } else { // Ultra
+        pixelRatio = window.devicePixelRatio; // No cap for Ultra
+    }
+    renderer.setPixelRatio(pixelRatio);
+
+    // Toggle sky clouds dynamically: disable expensive fBm on low mode
+    if (typeof skyUniforms !== 'undefined') {
+        skyUniforms.uShowClouds.value = (segments > 20) && ChillFlightLogic.SHOW_CLOUDS;
+    }
+
+    // Toggle overdraw optimizations (transparency)
+    const isLow = segments <= 20;
+    if (typeof waterMaterial !== 'undefined' && typeof cloudMat !== 'undefined') {
+        waterMaterial.transparent = !isLow;
+        waterMaterial.opacity = isLow ? 1.0 : 0.6;
+        waterMaterial.needsUpdate = true;
+
+        cloudMat.transparent = !isLow;
+        cloudMat.opacity = isLow ? 1.0 : 0.85;
+        cloudMat.needsUpdate = true;
+    }
+
+    const enableShadows = (segments > 20);
+    if (dirLight.castShadow !== enableShadows) {
+        dirLight.castShadow = enableShadows;
+        scene.traverse(child => {
+            if (child.isMesh || child.isInstancedMesh) {
+                child.castShadow = enableShadows;
+                child.receiveShadow = enableShadows;
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.needsUpdate = true);
+                    } else {
+                        child.material.needsUpdate = true;
+                    }
+                }
+            }
+        });
+    }
+
+    // Clear all existing chunks to force regeneration
+    chunks.forEach((group, key) => {
+        group.traverse(child => {
+            if (child.isMesh || child.isInstancedMesh) {
+                if (child.geometry && child.geometry.userData.unique) {
+                    child.geometry.dispose();
+                }
+            }
+        });
+        scene.remove(group);
+    });
+    chunks.clear();
+    _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
+}
+
 const qualitySelect = document.getElementById('quality-select');
 if (qualitySelect) {
     qualitySelect.addEventListener('change', (e) => {
-        SEGMENTS = parseInt(e.target.value);
-        localStorage.setItem('chill_flight_quality', SEGMENTS);
-        console.log(`Quality changed: SEGMENTS = ${SEGMENTS}`);
-
-        // Update pixel ratio dynamically: respect resolution scale and force 1:1 on low mode to save GPU performance
-        const resScale = parseFloat(localStorage.getItem('chill_flight_res_scale') || '1.0');
-        renderer.setPixelRatio(SEGMENTS <= 20 ? resScale : Math.min(window.devicePixelRatio, 2) * resScale);
-
-        // Toggle sky clouds dynamically: disable expensive fBm on low mode
-        if (typeof skyUniforms !== 'undefined') {
-            skyUniforms.uShowClouds.value = (SEGMENTS > 20) && ChillFlightLogic.SHOW_CLOUDS;
-        }
-
-        // Toggle overdraw optimizations (transparency)
-        const isLow = SEGMENTS <= 20;
-        if (typeof waterMaterial !== 'undefined' && typeof cloudMat !== 'undefined') {
-            waterMaterial.transparent = !isLow;
-            waterMaterial.opacity = isLow ? 1.0 : 0.6;
-            waterMaterial.needsUpdate = true;
-
-            cloudMat.transparent = !isLow;
-            cloudMat.opacity = isLow ? 1.0 : 0.85;
-            cloudMat.needsUpdate = true;
-        }
-
-        const enableShadows = (SEGMENTS > 20);
-        if (dirLight.castShadow !== enableShadows) {
-            dirLight.castShadow = enableShadows;
-            scene.traverse(child => {
-                if (child.isMesh || child.isInstancedMesh) {
-                    child.castShadow = enableShadows;
-                    child.receiveShadow = enableShadows;
-                    if (child.material) {
-                        if (Array.isArray(child.material)) {
-                            child.material.forEach(m => m.needsUpdate = true);
-                        } else {
-                            child.material.needsUpdate = true;
-                        }
-                    }
-                }
-            });
-        }
-
-        // Clear all existing chunks to force regeneration
-        chunks.forEach((group, key) => {
-            group.traverse(child => {
-                if (child.isMesh || child.isInstancedMesh) {
-                    if (child.geometry && child.geometry.userData.unique) {
-                        child.geometry.dispose();
-                    }
-                }
-            });
-            scene.remove(group);
-        });
-        chunks.clear();
-        _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
-
-        // The animate loop will call updateChunks() next frame and rebuild everything
+        applyGraphicsQuality(parseInt(e.target.value));
     });
 }
 
@@ -749,12 +759,6 @@ if (invertYInput) {
     });
 }
 
-const savedQuality = localStorage.getItem('chill_flight_quality');
-if (savedQuality) {
-    SEGMENTS = parseInt(savedQuality);
-    if (qualitySelect) qualitySelect.value = savedQuality;
-}
-dirLight.castShadow = (SEGMENTS > 20);
 const savedDistance = localStorage.getItem('chill_flight_distance');
 if (savedDistance) {
     RENDER_DISTANCE = parseInt(savedDistance);
@@ -783,28 +787,15 @@ if (fpsSelectEl) {
     });
 }
 
-let resolutionScale = 1.0;
-const savedRes = localStorage.getItem('chill_flight_res_scale');
-if (savedRes !== null) {
-    resolutionScale = parseFloat(savedRes);
-    const resSelectEl = document.getElementById('resolution-select');
-    if (resSelectEl) resSelectEl.value = savedRes;
+// Apply initial quality (which also sets resolution)
+const savedQuality = localStorage.getItem('chill_flight_quality');
+if (savedQuality) {
+    const qVal = parseInt(savedQuality);
+    if (qualitySelect) qualitySelect.value = qVal;
+    applyGraphicsQuality(qVal);
+} else {
+    applyGraphicsQuality(SEGMENTS);
 }
-
-const resSelectEl = document.getElementById('resolution-select');
-if (resSelectEl) {
-    resSelectEl.addEventListener('change', (e) => {
-        const valStr = e.target.value;
-        resolutionScale = parseFloat(valStr);
-        localStorage.setItem('chill_flight_res_scale', valStr);
-
-        // Update pixel ratio dynamically
-        renderer.setPixelRatio(SEGMENTS <= 20 ? resolutionScale : Math.min(window.devicePixelRatio, 2) * resolutionScale);
-    });
-}
-
-// Apply initial pixel ratio correctly
-renderer.setPixelRatio(SEGMENTS <= 20 ? resolutionScale : Math.min(window.devicePixelRatio, 2) * resolutionScale);
 
 
 // Setup timeOfDay before chunk gen
