@@ -165,7 +165,7 @@ function togglePause() {
         doubleTap.ArrowUp = doubleTap.ArrowDown = doubleTap.ArrowLeft = doubleTap.ArrowRight = false;
 
         if (typeof updatePauseMenuMusicInfo === 'function') updatePauseMenuMusicInfo();
-        if (musicEnabled && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.pause();
+        if (musicEnabled && typeof pauseMusicInternal === 'function') pauseMusicInternal();
     } else {
         pauseOverlay.style.display = 'none';
         const box = document.querySelector('.customization-box');
@@ -175,7 +175,7 @@ function togglePause() {
         clearInputState();  // wipe any input that bled through from the pause overlay
         justResumed = true; // suppress the first animate frame's input application
 
-        if (musicEnabled && typeof purrpleCatAudio !== 'undefined') purrpleCatAudio.play();
+        if (musicEnabled && typeof playMusicInternal === 'function') playMusicInternal();
     }
 }
 
