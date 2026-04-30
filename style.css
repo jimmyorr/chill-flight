@@ -810,3 +810,16 @@ input[type=number].customization-input {
         left: 0;
     }
 }
+.version-tag {
+    position: absolute;
+    bottom: 24px;
+    right: 30px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: inherit;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+    z-index: 100;
+}
