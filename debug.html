@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug | Chill flight model viewer</title>
+    <script src="vendor/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --sidebar-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --text-color: #f1f5f9;
+            --hover-color: #334155;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            display: flex;
+        }
+
+        #sidebar {
+            width: 300px;
+            height: 100vh;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #viewer {
+            flex-grow: 1;
+            height: 100vh;
+            position: relative;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+        }
+
+        .category-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.5);
+            margin: 20px 0 10px 0;
+        }
+
+        .model-btn {
+            display: block;
+            width: 100%;
+            padding: 10px 15px;
+            margin-bottom: 5px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            color: var(--text-color);
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+
+        .model-btn:hover {
+            background-color: var(--hover-color);
+            border-color: var(--accent-color);
+        }
+
+        .model-btn.active {
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+            font-weight: bold;
+        }
+
+        #info {
+            position: absolute;
+            bottom: 20px;
+            left: 320px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+
+        .controls-hint {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+            text-align: right;
+        }
+
+        /* Scrollbar styling */
+        #sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        #sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        #sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h1>Model debug</h1>
+        
+        <div class="category-title">Vehicles</div>
+        <button class="model-btn" onclick="viewModel('airplane', event)">Airplane</button>
+        <button class="model-btn" onclick="viewModel('helicopter', event)">Helicopter</button>
+        <button class="model-btn" onclick="viewModel('boat', event)">Boat</button>
+        <button class="model-btn" onclick="viewModel('buggy', event)">Buggy</button>
+
+        <div class="category-title">Nature</div>
+        <button class="model-btn" onclick="viewModel('pine', event)">Pine tree</button>
+        <button class="model-btn" onclick="viewModel('deciduous', event)">Deciduous tree</button>
+        <button class="model-btn" onclick="viewModel('palm', event)">Palm tree</button>
+        <button class="model-btn" onclick="viewModel('dead_tree', event)">Dead tree</button>
+        <button class="model-btn" onclick="viewModel('cactus', event)">Cactus</button>
+        <button class="model-btn" onclick="viewModel('bush', event)">Bush</button>
+        <button class="model-btn" onclick="viewModel('rock', event)">Rock</button>
+        <button class="model-btn" onclick="viewModel('lily_pad', event)">Lily pad</button>
+        <button class="model-btn" onclick="viewModel('snowman', event)">Snowman</button>
+
+        <div class="category-title">Structures</div>
+        <button class="model-btn" onclick="viewModel('house', event)">House</button>
+        <button class="model-btn" onclick="viewModel('pagoda', event)">Pagoda</button>
+        <button class="model-btn" onclick="viewModel('barn', event)">Barn</button>
+        <button class="model-btn" onclick="viewModel('monastery', event)">Monastery</button>
+        <button class="model-btn" onclick="viewModel('castle', event)">Castle ruins</button>
+        <button class="model-btn" onclick="viewModel('windmill', event)">Windmill</button>
+        <button class="model-btn" onclick="viewModel('lighthouse', event)">Lighthouse</button>
+        <button class="model-btn" onclick="viewModel('pier', event)">Pier</button>
+        <button class="model-btn" onclick="viewModel('tent', event)">Tent</button>
+        <button class="model-btn" onclick="viewModel('campfire', event)">Campfire</button>
+        
+        <div class="category-title">Other</div>
+        <button class="model-btn" onclick="viewModel('bird', event)">Bird (hawk)</button>
+        <button class="model-btn" onclick="viewModel('sailboat', event)">Sailboat</button>
+    </div>
+
+    <div id="viewer">
+        <div class="controls-hint">
+            Left click to rotate<br>
+            Right click to pan<br>
+            Scroll to zoom
+        </div>
+        <div id="info">
+            <div id="model-name" style="font-weight: bold; margin-bottom: 5px; font-size: 1rem;">Select a model</div>
+            <div id="model-stats">0 vertices | 0 triangles</div>
+        </div>
+    </div>
+
+    <!-- Mocks and Dependencies for game scripts -->
+    <script>
+        // Global constants expected by scripts
+        window.CHUNK_SIZE = 1500;
+        window.SEGMENTS = 40;
+        window.WATER_LEVEL = 40;
+        window.MOUNTAIN_LEVEL = 180;
+        window.MAP_WORLD_SIZE = 10000;
+        window.MAP_HEIGHT_SCALE = 400;
+        window.scene = new THREE.Scene(); // Mock scene for scripts to add to
+        window.ChillFlightLogic = {
+            SCALE: 1,
+            getPlaneColor: () => 0xe74c3c,
+            SHOW_CLOUDS: true,
+            SHOW_OBJECTS: true,
+            THEME: 'standard'
+        };
+        window.simplex = { noise2D: () => 0 }; // Mock noise
+        window.animationUniforms = { uTime: { value: 0 } };
+        window.waterUniforms = { uTime: { value: 0 } };
+    </script>
+
+    <script src="chill-flight-logic.js"></script>
+    <script src="constants.js"></script>
+    <script src="airplane.js"></script>
+    <script src="terrain.js"></script>
+
+    <script>
+        // Setup Viewer
+        const container = document.getElementById('viewer');
+        window.viewScene = new THREE.Scene();
+        viewScene.background = new THREE.Color(0x0f172a);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(20, 20, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        viewScene.add(ambientLight);
+
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        viewScene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        dirLight.position.set(50, 100, 50);
+        dirLight.castShadow = true;
+        viewScene.add(dirLight);
+
+        // Grid
+        const grid = new THREE.GridHelper(100, 20, 0x475569, 0x1e293b);
+        viewScene.add(grid);
+
+        window.currentModel = null;
+
+        function clearViewer() {
+            if (window.currentModel) {
+                viewScene.remove(window.currentModel);
+                window.currentModel = null;
+            }
+        }
+
+        function viewModel(type, e) {
+            clearViewer();
+            
+            // Update UI
+            document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+            if (e && e.target) {
+                e.target.classList.add('active');
+                document.getElementById('model-name').innerText = e.target.innerText;
+            }
+
+            const previewGroup = new THREE.Group();
+
+            switch(type) {
+                // VEHICLES
+                case 'airplane':
+                    const ap = airplaneModel.clone();
+                    ap.visible = true;
+                    previewGroup.add(ap);
+                    break;
+                case 'helicopter':
+                    const hp = helicopterModel.clone();
+                    hp.visible = true;
+                    previewGroup.add(hp);
+                    break;
+                case 'boat':
+                    const bt = boatModel.clone();
+                    bt.visible = true;
+                    previewGroup.add(bt);
+                    break;
+                case 'buggy':
+                    const bg = buggyModel.clone();
+                    bg.visible = true;
+                    previewGroup.add(bg);
+                    break;
+
+                // NATURE
+                case 'pine':
+                    const pineTrunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
+                    const pineLeaves = new THREE.Mesh(treeLeavesGeo, createMaterial({color: 0x2d5a27}));
+                    previewGroup.add(pineTrunk, pineLeaves);
+                    break;
+                case 'deciduous':
+                    const dTrunk = new THREE.Mesh(deciduousGeos.trunk, treeTrunkMat);
+                    const dLeaves = new THREE.Mesh(deciduousGeos.leaves, createMaterial({color: 0x4a7c44}));
+                    previewGroup.add(dTrunk, dLeaves);
+                    break;
+                case 'palm':
+                    const pTrunk = new THREE.Mesh(palmGeos.trunk, treeTrunkMat);
+                    const pLeaves = new THREE.Mesh(palmGeos.leaves, createMaterial({color: 0x6db33f}));
+                    previewGroup.add(pTrunk, pLeaves);
+                    break;
+                case 'dead_tree':
+                    previewGroup.add(new THREE.Mesh(deadTreeGeo, deadTreeMat));
+                    break;
+                case 'cactus':
+                    previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
+                    break;
+                case 'bush':
+                    previewGroup.add(new THREE.Mesh(bushGeo, bushMat));
+                    break;
+                case 'rock':
+                    previewGroup.add(new THREE.Mesh(rockGeo, rockMat));
+                    break;
+                case 'lily_pad':
+                    previewGroup.add(new THREE.Mesh(lilyPadGeo, lilyPadMat));
+                    break;
+                case 'snowman':
+                    previewGroup.add(new THREE.Mesh(snowmanGeos.body, snowmanBodyMat));
+                    previewGroup.add(new THREE.Mesh(snowmanGeos.nose, snowmanNoseMat));
+                    break;
+
+                // STRUCTURES
+                case 'house':
+                    const hBody = new THREE.Mesh(houseBodyGeo, houseBodyPalette[0]);
+                    const hRoof = new THREE.Mesh(houseRoofGeo, houseRoofPalette[0]);
+                    previewGroup.add(hBody, hRoof);
+                    break;
+                case 'pagoda':
+                    previewGroup.add(new THREE.Mesh(pagodaBodyGeo, pagodaBodyMat));
+                    previewGroup.add(new THREE.Mesh(pagodaRoofGeo, pagodaRoofMat));
+                    break;
+                case 'barn':
+                    previewGroup.add(new THREE.Mesh(barnBodyGeo, barnBodyMat));
+                    previewGroup.add(new THREE.Mesh(barnRoofGeo, barnRoofMat));
+                    break;
+                case 'monastery':
+                    previewGroup.add(new THREE.Mesh(monasteryBodyGeo, monasteryBodyMat));
+                    previewGroup.add(new THREE.Mesh(monasteryCapGeo, monasteryCapMat));
+                    break;
+                case 'castle':
+                    previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));
+                    break;
+                case 'windmill':
+                    previewGroup.add(new THREE.Mesh(windmillBaseGeo, windmillBaseMat));
+                    const wmBlades = new THREE.Mesh(windmillBladesGeo, windmillBladesMat);
+                    wmBlades.position.y = 30;
+                    previewGroup.add(wmBlades);
+                    break;
+                case 'lighthouse':
+                    const lhBase = new THREE.Mesh(lighthousePieceGeo, lighthouseWhiteMat);
+                    const lhTop = new THREE.Mesh(lighthouseTopGeo, lighthouseRedMat);
+                    previewGroup.add(lhBase, lhTop);
+                    break;
+                case 'pier':
+                    previewGroup.add(new THREE.Mesh(pierDeckGeo, woodMat));
+                    break;
+                case 'tent':
+                    previewGroup.add(new THREE.Mesh(tentGeo, tentMat));
+                    break;
+                case 'campfire':
+                    previewGroup.add(new THREE.Mesh(fireLogGeo, woodMat));
+                    previewGroup.add(new THREE.Mesh(fireCoreGeo, fireMat));
+                    break;
+
+                // OTHER
+                case 'bird':
+                    const bBody = new THREE.Mesh(birdBodyGeo, hawkMat);
+                    const bWingL = new THREE.Mesh(birdWingGeo, hawkMat);
+                    const bWingR = new THREE.Mesh(birdWingGeo, hawkMat);
+                    bWingR.scale.x = -1;
+                    previewGroup.add(bBody, bWingL, bWingR);
+                    break;
+                case 'sailboat':
+                    previewGroup.add(new THREE.Mesh(boatHullGeo, boatHullMat));
+                    previewGroup.add(new THREE.Mesh(boatMastGeo, woodMat));
+                    previewGroup.add(new THREE.Mesh(boatSailGeo, boatSailMat));
+                    break;
+            }
+
+            // Force visibility on all children
+            previewGroup.traverse(child => {
+                child.visible = true;
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            // Center and scale
+            const box = new THREE.Box3().setFromObject(previewGroup);
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = (maxDim > 0) ? (15 / maxDim) : 1;
+            
+            previewGroup.scale.setScalar(scale);
+            
+            // Re-calculate box after scale to get accurate offset
+            const scaledBox = new THREE.Box3().setFromObject(previewGroup);
+            const scaledCenter = new THREE.Vector3();
+            scaledBox.getCenter(scaledCenter);
+            
+            previewGroup.position.sub(scaledCenter);
+            previewGroup.position.y += (size.y * scale) / 2; // Sit on grid
+
+            window.currentModel = previewGroup;
+            viewScene.add(window.currentModel);
+
+            // Update stats
+            let vertices = 0;
+            let triangles = 0;
+            previewGroup.traverse(child => {
+                if (child.isMesh) {
+                    vertices += child.geometry.attributes.position.count;
+                    if (child.geometry.index) {
+                        triangles += child.geometry.index.count / 3;
+                    } else {
+                        triangles += child.geometry.attributes.position.count / 3;
+                    }
+                }
+            });
+            document.getElementById('model-stats').innerText = `${Math.round(vertices)} vertices | ${Math.round(triangles)} triangles`;
+            
+            // Adjust camera to fit
+            controls.reset();
+            camera.position.set(15, 15, 15);
+            controls.update();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = performance.now() * 0.001;
+            window.animationUniforms.uTime.value = time;
+            window.waterUniforms.uTime.value = time;
+            
+            controls.update();
+            renderer.render(viewScene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // Start
+        animate();
+        // Default to airplane
+        setTimeout(() => {
+            const firstBtn = document.querySelector('.model-btn');
+            if (firstBtn) firstBtn.click();
+        }, 100);
+    </script>
+</body>
+</html>
