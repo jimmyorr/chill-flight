@@ -276,11 +276,16 @@ const _isLowQuality = _initQuality && parseInt(_initQuality) <= 20;
 skyUniforms.uShowClouds.value = ChillFlightLogic.SHOW_CLOUDS && !_isLowQuality;
 
 const renderer = new THREE.WebGLRenderer({ antialias: !_isLowQuality });
-renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Sync with CSS-forced size
+const width = renderer.domElement.clientWidth || window.innerWidth;
+const height = renderer.domElement.clientHeight || window.innerHeight;
+renderer.setSize(width, height, false);
+
 renderer.setPixelRatio(_isLowQuality ? 1 : Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-document.body.appendChild(renderer.domElement);
 
 // Lights
 const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);

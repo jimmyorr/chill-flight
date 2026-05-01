@@ -123,11 +123,15 @@ window.addEventListener('touchend', (e) => {
 });
 
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    // Sync with the canvas element's actual size (forced by CSS)
+    const canvas = renderer.domElement;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    
+    camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-
-
+    // Second argument 'false' prevents Three.js from overriding our CSS styles
+    renderer.setSize(width, height, false);
 });
 
 // --- EXPLOSIONS ---
