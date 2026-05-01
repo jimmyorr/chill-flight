@@ -115,9 +115,11 @@ function setVehicle(type) {
 
 // --- AIRPLANE MODEL ---
 // Fuselage
-const bodyGeo = new THREE.BoxGeometry(4, 4, 16);
+const bodyGeo = new THREE.CylinderGeometry(1.2, 2.2, 16, 8);
+bodyGeo.rotateX(Math.PI / 2);
 planeMat = createMaterial({ color: planeColor, flatShading: true });
 const body = new THREE.Mesh(bodyGeo, planeMat);
+body.scale.set(1, 1.1, 1);
 airplaneModel.add(body);
 
 // Cockpit window
@@ -131,18 +133,40 @@ airplaneModel.add(cockpit);
 const wingGeo = new THREE.BoxGeometry(30, 0.5, 4);
 const wingMat = createMaterial({ color: 0xecf0f1, flatShading: true });
 const wings = new THREE.Mesh(wingGeo, wingMat);
-wings.position.set(0, 0, -1);
+wings.position.set(0, 4.5, -1);
 airplaneModel.add(wings);
+
+// Wing Struts
+const wingStrutGeo = new THREE.CylinderGeometry(0.15, 0.15, 9.5, 6);
+const wingStrutL = new THREE.Mesh(wingStrutGeo, wingMat);
+wingStrutL.position.set(-5.25, 1.375, -1);
+wingStrutL.rotation.z = Math.PI / 3.5; 
+airplaneModel.add(wingStrutL);
+
+const wingStrutR = new THREE.Mesh(wingStrutGeo, wingMat);
+wingStrutR.position.set(5.25, 1.375, -1);
+wingStrutR.rotation.z = -Math.PI / 3.5;
+airplaneModel.add(wingStrutR);
 
 // Tail
 const tailGeo = new THREE.BoxGeometry(10, 0.5, 3);
 const tail = new THREE.Mesh(tailGeo, wingMat);
-tail.position.set(0, 0, 7);
+tail.position.set(0, 0, 8.5);
 airplaneModel.add(tail);
 
-const rudderGeo = new THREE.BoxGeometry(0.5, 5, 3);
+const rudderShape = new THREE.Shape();
+rudderShape.moveTo(0, 0);
+rudderShape.lineTo(3, 0);
+rudderShape.lineTo(5, 5);
+rudderShape.lineTo(3, 5);
+rudderShape.lineTo(0, 0);
+
+const extrudeSettings = { depth: 0.5, bevelEnabled: false };
+const rudderGeo = new THREE.ExtrudeGeometry(rudderShape, extrudeSettings);
+rudderGeo.rotateY(Math.PI / 2);
+rudderGeo.translate(-0.25, 0, 5.5);
 const rudder = new THREE.Mesh(rudderGeo, planeMat);
-rudder.position.set(0, 2.5, 7);
+rudder.position.set(0, 1.1, 0);
 airplaneModel.add(rudder);
 
 // Propeller
