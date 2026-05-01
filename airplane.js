@@ -394,20 +394,10 @@ pontoonR.add(pontoonNoseMeshR);
 pontoonR.position.set(5, -4.5, 0);
 pontoonGroup.add(pontoonR);
 
-const strutGeo = new THREE.CylinderGeometry(0.2, 0.2, 4.5, 4);
-const strutMat = createMaterial({ color: 0x333333 });
-
 const hingeLF = new THREE.Group(); hingeLF.position.set(-5, 0, -3); pontoonGroup.add(hingeLF);
-const strutLF = new THREE.Mesh(strutGeo, strutMat); strutLF.position.set(0, -2.25, 0); hingeLF.add(strutLF);
-
 const hingeLB = new THREE.Group(); hingeLB.position.set(-5, 0, 3); pontoonGroup.add(hingeLB);
-const strutLB = new THREE.Mesh(strutGeo, strutMat); strutLB.position.set(0, -2.25, 0); hingeLB.add(strutLB);
-
 const hingeRF = new THREE.Group(); hingeRF.position.set(5, 0, -3); pontoonGroup.add(hingeRF);
-const strutRF = new THREE.Mesh(strutGeo, strutMat); strutRF.position.set(0, -2.25, 0); hingeRF.add(strutRF);
-
 const hingeRB = new THREE.Group(); hingeRB.position.set(5, 0, 3); pontoonGroup.add(hingeRB);
-const strutRB = new THREE.Mesh(strutGeo, strutMat); strutRB.position.set(0, -2.25, 0); hingeRB.add(strutRB);
 
 // Initial folded state
 pontoonL.position.set(-5, -0.5, 0);
