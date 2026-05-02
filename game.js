@@ -122,13 +122,20 @@ window.addEventListener('touchend', (e) => {
     }
 });
 
-window.addEventListener('resize', () => {
+function onWindowResize() {
+    if (!camera || !renderer) return;
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+}
 
+window.addEventListener('resize', onWindowResize);
 
-});
+// Robustness: Force resize check after page load and at intervals to catch late-settling layout
+window.addEventListener('load', onWindowResize);
+setTimeout(onWindowResize, 100);
+setTimeout(onWindowResize, 500);
+setTimeout(onWindowResize, 2000); // Final check for very slow loading environments
 
 // --- EXPLOSIONS ---
 let explosionParticles = null;

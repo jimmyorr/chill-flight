@@ -6,6 +6,16 @@ body {
     user-select: none;
 }
 
+canvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+
 /* Prevent text selection and default tap highlights on interactive elements */
 .btn,
 .mobile-btn,
