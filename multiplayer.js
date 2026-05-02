@@ -1,6 +1,13 @@
 // --- FIREBASE MULTIPLAYER ---
 console.log("📡 Multiplayer: Script loading (Non-module mode)...");
 
+function setMultiplayerOfflineBanner(isOffline, afk = false) {
+    const title = document.getElementById('online-title');
+    if (!title) return;
+    title.textContent = isOffline ? (afk ? 'AFK - OFFLINE' : 'OFFLINE') : 'ONLINE';
+    title.style.color = isOffline ? 'rgba(255,100,100,0.7)' : '';
+}
+
 async function startMultiplayer() {
     try {
         console.log("📡 Multiplayer: Fetching Firebase modules via dynamic import...");
@@ -56,13 +63,6 @@ async function startMultiplayer() {
 
         let playerUid = null;
         let multiplayerActive = false;
-
-        function setMultiplayerOfflineBanner(isOffline, afk = false) {
-            const title = document.getElementById('online-title');
-            if (!title) return;
-            title.textContent = isOffline ? (afk ? 'AFK - OFFLINE' : 'OFFLINE') : 'ONLINE';
-            title.style.color = isOffline ? 'rgba(255,100,100,0.7)' : '';
-        }
 
         const connectedRef = ref(db, '.info/connected');
         onValue(connectedRef, (snap) => {
@@ -320,7 +320,8 @@ async function startMultiplayer() {
         sync();
 
     } catch (err) {
-        console.error("❌ Multiplayer startup failed:", err);
+        console.warn("📡 Multiplayer: Running in offline mode (Connection blocked or unavailable).");
+        setMultiplayerOfflineBanner(true);
     }
 }
 
