@@ -144,6 +144,9 @@ let purrpleCatIdx = (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic
     ? (Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length) 
     : 0;
 
+// Pre-cache the first track immediately to avoid breaking user-gesture chain later
+getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).catch(e => console.warn("Failed to pre-cache first track:", e));
+
 
 const CACHE_NAME = 'chill-flight-music-v1';
 
@@ -214,6 +217,7 @@ async function getCachedTrackUrl(url) {
 
 // Loop to the next track automatically
 purrpleCatAudio.addEventListener('ended', async () => {
+    isMusicInternalAction = true;
     purrpleCatIdx = (purrpleCatIdx + 1) % purrpleCatTracks.length;
     // Update the source immediately so play() uses the new track
     const url = purrpleCatTracks[purrpleCatIdx];
@@ -223,7 +227,8 @@ purrpleCatAudio.addEventListener('ended', async () => {
     // before updateAudioPlayer attempts to call .play()
     purrpleCatAudio.load();
 
-    updateAudioPlayer(musicEnabled);
+    await updateAudioPlayer(musicEnabled);
+    isMusicInternalAction = false;
 });
 
 function getCurrentTrackName() {
@@ -263,16 +268,20 @@ function syncMusicUI(playing) {
 
 purrpleCatAudio.addEventListener('play', () => {
     if (!isMusicInternalAction) {
-        musicEnabled = true;
-        localStorage.setItem('chill_flight_music_enabled', 'true');
+        if (!musicEnabled) {
+            musicEnabled = true;
+            localStorage.setItem('chill_flight_music_enabled', 'true');
+        }
     }
     syncMusicUI(true);
 });
 
 purrpleCatAudio.addEventListener('pause', () => {
     if (!isMusicInternalAction) {
-        musicEnabled = false;
-        localStorage.setItem('chill_flight_music_enabled', 'false');
+        if (musicEnabled) {
+            musicEnabled = false;
+            localStorage.setItem('chill_flight_music_enabled', 'false');
+        }
     }
     syncMusicUI(false);
 });
@@ -280,15 +289,13 @@ purrpleCatAudio.addEventListener('pause', () => {
 function pauseMusicInternal() {
     isMusicInternalAction = true;
     purrpleCatAudio.pause();
-    isMusicInternalAction = false;
+    // Ensure the flag stays true through the event loop to catch the 'pause' event
+    setTimeout(() => { isMusicInternalAction = false; }, 100);
 }
 
 function playMusicInternal() {
-    isMusicInternalAction = true;
-    purrpleCatAudio.play().catch(e => {
-        console.log('Internal audio play blocked:', e);
-    });
-    isMusicInternalAction = false;
+    // We use updateAudioPlayer here because it has the safety net for blocked autoplay
+    updateAudioPlayer(musicEnabled);
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -317,14 +324,23 @@ async function updateAudioPlayer(enabled) {
             const url = purrpleCatTracks[purrpleCatIdx];
             purrpleCatAudio.src = await getCachedTrackUrl(url);
         }
-        purrpleCatAudio.play().catch(e => {
+        isMusicInternalAction = true;
+        purrpleCatAudio.play().then(() => {
+            isMusicInternalAction = false;
+        }).catch(e => {
+            isMusicInternalAction = false;
             console.log('Audio play blocked:', e);
             // Safety net: resume on first interaction if blocked
             const resumeOnInteraction = () => {
                 if (musicEnabled) {
+                    isMusicInternalAction = true;
                     purrpleCatAudio.play().then(() => {
                         console.log('Audio resumed on interaction');
-                    }).catch(e => console.log('Still blocked:', e));
+                        isMusicInternalAction = false;
+                    }).catch(e => {
+                        isMusicInternalAction = false;
+                        console.log('Still blocked:', e);
+                    });
                 }
                 window.removeEventListener('mousedown', resumeOnInteraction);
                 window.removeEventListener('keydown', resumeOnInteraction);
@@ -335,6 +351,9 @@ async function updateAudioPlayer(enabled) {
             window.addEventListener('touchstart', resumeOnInteraction);
         });
     } else {
-        purrpleCatAudio.pause();
+        pauseMusicInternal();
     }
 }
+
+// Initial UI sync
+syncMusicUI(!purrpleCatAudio.paused);

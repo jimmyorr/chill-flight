@@ -2825,7 +2825,12 @@ if (radToggle) {
     radToggle.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        setMusicEnabled(!musicEnabled);
+        // If music is supposed to be on but is paused (likely blocked), try to play it
+        if (musicEnabled && purrpleCatAudio.paused) {
+            updateAudioPlayer(true);
+        } else {
+            setMusicEnabled(!musicEnabled);
+        }
     });
 }
 
@@ -3080,7 +3085,11 @@ window.addEventListener('keydown', (e) => {
 
     if (document.activeElement && document.activeElement.tagName !== 'INPUT' && !e.metaKey && !e.ctrlKey) {
         if (e.key === 'm' || e.key === 'M') {
-            setMusicEnabled(!musicEnabled);
+            if (musicEnabled && purrpleCatAudio.paused) {
+                updateAudioPlayer(true);
+            } else {
+                setMusicEnabled(!musicEnabled);
+            }
         }
     }
 });
