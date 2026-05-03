@@ -178,52 +178,10 @@ async function startMultiplayer() {
             }
         });
 
-        const updatePlayerProfile = () => {
+        updateMultiplayerProfile = () => {
             update(profileRef, { name: playerName, color: planeColor, updatedAt: new Date().toISOString() });
             update(sessionRef, { name: playerName, color: planeColor, lastSeen: new Date().toISOString() });
         };
-
-        // --- UI WIRING ---
-        const nameInput = document.getElementById('player-name-input');
-        const splashInput = document.getElementById('splash-name-input');
-        let nameUpdateTimeout = null;
-
-        const handleNameChange = (e) => {
-            let newName = (e.target.value || '').trim();
-            playerName = newName || defaultCallsign;
-            playerName = playerName.substring(0, 15);
-            localStorage.setItem('chill_flight_name', playerName);
-
-            // Sync other input if it exists
-            if (e.target === nameInput && splashInput) splashInput.value = e.target.value;
-            if (e.target === splashInput && nameInput) nameInput.value = e.target.value;
-
-            // Debounce the Firebase update to prevent spamming on every keystroke
-            if (nameUpdateTimeout) clearTimeout(nameUpdateTimeout);
-            nameUpdateTimeout = setTimeout(() => {
-                updatePlayerProfile();
-            }, 500);
-        };
-
-        if (nameInput) nameInput.addEventListener('input', handleNameChange);
-        if (splashInput) splashInput.addEventListener('input', handleNameChange);
-
-        const colorOptions = document.getElementById('plane-color-options');
-        if (colorOptions) {
-            colorOptions.addEventListener('click', (e) => {
-                if (e.target.classList.contains('color-swatch')) {
-                    planeColor = parseInt(e.target.getAttribute('data-color'));
-                    localStorage.setItem('chill_flight_color', planeColor.toString());
-                    if (typeof planeMat !== 'undefined' && planeMat) planeMat.color.setHex(planeColor);
-
-                    // Update swatches
-                    colorOptions.querySelectorAll('.color-swatch').forEach(sw => {
-                        sw.classList.toggle('active', parseInt(sw.getAttribute('data-color')) === planeColor);
-                    });
-                    updatePlayerProfile();
-                }
-            });
-        }
 
         onDisconnect(sessionRef).remove();
 
@@ -325,6 +283,58 @@ async function startMultiplayer() {
     }
 }
 
+let updateMultiplayerProfile = null;
+
+// --- MULTIPLAYER UI WIRING ---
+// These listeners run regardless of whether we are connected to Firebase
+function initMultiplayerUI() {
+    const nameInput = document.getElementById('player-name-input');
+    const splashInput = document.getElementById('splash-name-input');
+    let nameUpdateTimeout = null;
+
+    const handleNameChange = (e) => {
+        let newName = (e.target.value || '').trim();
+        playerName = newName || defaultCallsign;
+        playerName = playerName.substring(0, 15);
+        localStorage.setItem('chill_flight_name', playerName);
+
+        // Sync other input if it exists
+        if (e.target === nameInput && splashInput) splashInput.value = e.target.value;
+        if (e.target === splashInput && nameInput) nameInput.value = e.target.value;
+
+        // Debounce the Firebase update if available
+        if (typeof updateMultiplayerProfile === 'function') {
+            if (nameUpdateTimeout) clearTimeout(nameUpdateTimeout);
+            nameUpdateTimeout = setTimeout(() => {
+                updateMultiplayerProfile();
+            }, 500);
+        }
+    };
+
+    if (nameInput) nameInput.addEventListener('input', handleNameChange);
+    if (splashInput) splashInput.addEventListener('input', handleNameChange);
+
+    const colorOptions = document.getElementById('plane-color-options');
+    if (colorOptions) {
+        colorOptions.addEventListener('click', (e) => {
+            if (e.target.classList.contains('color-swatch')) {
+                planeColor = parseInt(e.target.getAttribute('data-color'));
+                localStorage.setItem('chill_flight_color', planeColor.toString());
+                if (typeof planeMat !== 'undefined' && planeMat) planeMat.color.setHex(planeColor);
+
+                // Update swatches UI
+                colorOptions.querySelectorAll('.color-swatch').forEach(sw => {
+                    sw.classList.toggle('active', parseInt(sw.getAttribute('data-color')) === planeColor);
+                });
+
+                if (typeof updateMultiplayerProfile === 'function') {
+                    updateMultiplayerProfile();
+                }
+            }
+        });
+    }
+}
+
 // Ensure game globals are ready before starting
 if (ChillFlightLogic.ENABLE_MP) {
     if (typeof Capacitor !== 'undefined' && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform()) {
@@ -338,20 +348,16 @@ if (ChillFlightLogic.ENABLE_MP) {
         }
     }
 } else {
-    // Hide multiplayer UI elements if disabled
+    // Hide ONLY the online player list if MP is disabled, keep customization UI
     document.addEventListener('DOMContentLoaded', () => {
-        const hideIds = ['online-players', 'player-name-input', 'splash-name-container', 'plane-color-options'];
-        hideIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                // For inputs and color pickers, hide the entire row
-                if (id === 'player-name-input' || id === 'plane-color-options') {
-                    const row = el.closest('.customization-row');
-                    if (row) row.style.display = 'none';
-                } else {
-                    el.style.display = 'none';
-                }
-            }
-        });
+        const el = document.getElementById('online-players');
+        if (el) el.style.display = 'none';
     });
+}
+
+// Always initialize the UI listeners for name/color
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initMultiplayerUI();
+} else {
+    document.addEventListener('DOMContentLoaded', initMultiplayerUI);
 }
