@@ -254,141 +254,87 @@
 
             const previewGroup = new THREE.Group();
 
-            switch(type) {
-                // VEHICLES
-                case 'airplane':
-                    const ap = airplaneModel.clone();
-                    ap.visible = true;
-                    previewGroup.add(ap);
-                    break;
-                case 'helicopter':
-                    const hp = helicopterModel.clone();
-                    hp.visible = true;
-                    previewGroup.add(hp);
-                    break;
-                case 'boat':
-                    const bt = boatModel.clone();
-                    bt.visible = true;
-                    previewGroup.add(bt);
-                    break;
-                case 'buggy':
-                    const bg = buggyModel.clone();
-                    bg.visible = true;
-                    previewGroup.add(bg);
-                    break;
+            // 1. Try assembling via shared ModelAssembler first
+            const structure = window.ModelAssembler ? ModelAssembler.getStructure(type) : null;
+            
+            if (structure) {
+                structure.forEach(part => {
+                    const mesh = new THREE.Mesh(part.geo, part.mat);
+                    mesh.position.set(...part.pos);
+                    mesh.rotation.set(...part.rot);
+                    if (part.order) mesh.rotation.order = part.order;
+                    if (part.scale) mesh.scale.set(...part.scale);
+                    previewGroup.add(mesh);
+                });
+            } else {
+                // 2. Fallback for simple or unique models
+                switch (type) {
+                    case 'airplane':
+                        const ap = airplaneModel.clone();
+                        ap.visible = true;
+                        previewGroup.add(ap);
+                        break;
+                    case 'helicopter':
+                        const hp = helicopterModel.clone();
+                        hp.visible = true;
+                        previewGroup.add(hp);
+                        break;
+                    case 'boat':
+                        const bt = boatModel.clone();
+                        bt.visible = true;
+                        previewGroup.add(bt);
+                        break;
+                    case 'buggy':
+                        const bg = buggyModel.clone();
+                        bg.visible = true;
+                        previewGroup.add(bg);
+                        break;
 
-                // NATURE
-                case 'pine':
-                    const pineTrunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
-                    const pineLeaves = new THREE.Mesh(treeLeavesGeo, createMaterial({color: 0x2d5a27}));
-                    previewGroup.add(pineTrunk, pineLeaves);
-                    break;
-                case 'deciduous':
-                    const dTrunk = new THREE.Mesh(deciduousGeos.trunk, treeTrunkMat);
-                    const dLeaves = new THREE.Mesh(deciduousGeos.leaves, createMaterial({color: 0x4a7c44}));
-                    previewGroup.add(dTrunk, dLeaves);
-                    break;
-                case 'palm':
-                    const pTrunk = new THREE.Mesh(palmGeos.trunk, treeTrunkMat);
-                    const pLeaves = new THREE.Mesh(palmGeos.leaves, createMaterial({color: 0x6db33f}));
-                    previewGroup.add(pTrunk, pLeaves);
-                    break;
-                case 'dead_tree':
-                    previewGroup.add(new THREE.Mesh(deadTreeGeo, deadTreeMat));
-                    break;
-                case 'cactus':
-                    previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
-                    break;
-                case 'bush':
-                    previewGroup.add(new THREE.Mesh(bushGeo, bushMat));
-                    break;
-                case 'rock':
-                    previewGroup.add(new THREE.Mesh(rockGeo, rockMat));
-                    break;
-                case 'lily_pad':
-                    previewGroup.add(new THREE.Mesh(lilyPadGeo, lilyPadMat));
-                    break;
-                case 'snowman':
-                    previewGroup.add(new THREE.Mesh(snowmanGeos.body, snowmanBodyMat));
-                    previewGroup.add(new THREE.Mesh(snowmanGeos.nose, snowmanNoseMat));
-                    break;
-
-                // STRUCTURES
-                case 'house':
-                    const hBody = new THREE.Mesh(houseBodyGeo, houseBodyPalette[0]);
-                    const hRoof = new THREE.Mesh(houseRoofGeo, houseRoofPalette[0]);
-                    previewGroup.add(hBody, hRoof);
-                    break;
-                case 'pagoda':
-                    previewGroup.add(new THREE.Mesh(pagodaBodyGeo, pagodaBodyMat));
-                    previewGroup.add(new THREE.Mesh(pagodaRoofGeo, pagodaRoofMat));
-                    break;
-                case 'barn':
-                    previewGroup.add(new THREE.Mesh(barnBodyGeo, barnBodyMat));
-                    previewGroup.add(new THREE.Mesh(barnRoofGeo, barnRoofMat));
-                    break;
-                case 'monastery':
-                    previewGroup.add(new THREE.Mesh(monasteryBodyGeo, monasteryBodyMat));
-                    previewGroup.add(new THREE.Mesh(monasteryCapGeo, monasteryCapMat));
-                    break;
-                case 'castle':
-                    previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));
-                    break;
-                case 'windmill':
-                    const wmBase = new THREE.Mesh(windmillBaseGeo, windmillBaseMat);
-                    wmBase.scale.set(1.5, 1.5, 1.5);
-                    previewGroup.add(wmBase);
-                    for (let i = 0; i < 4; i++) {
-                        const blade = new THREE.Mesh(windmillBladesGeo, windmillBladesMat);
-                        blade.position.y = 45;
-                        blade.rotation.z = (i * Math.PI / 2);
-                        blade.scale.set(1.5, 1.5, 1.5);
-                        previewGroup.add(blade);
-                    }
-                    break;
-                case 'lighthouse':
-                    // Lighthouse is built from segments
-                    const piece1 = new THREE.Mesh(lighthousePieceGeo, lighthouseRedMat);
-                    piece1.position.y = 10;
-                    const piece2 = new THREE.Mesh(lighthousePieceGeo, lighthouseWhiteMat);
-                    piece2.position.y = 30;
-                    const piece3 = new THREE.Mesh(lighthousePieceGeo, lighthouseRedMat);
-                    piece3.position.y = 50;
-                    const lhTop = new THREE.Mesh(lighthouseTopGeo, lighthouseWhiteMat);
-                    // The geometry itself is already offset to the top in the game engine
-                    lhTop.position.y = 0; 
-                    previewGroup.add(piece1, piece2, piece3, lhTop);
-                    break;
-                case 'pier':
-                    previewGroup.add(new THREE.Mesh(pierDeckGeo, woodMat));
-                    break;
-                case 'tent':
-                    previewGroup.add(new THREE.Mesh(tentGeo, tentMat));
-                    break;
-                case 'campfire':
-                    // Three logs in a tripod
-                    for (let i = 0; i < 3; i++) {
-                        const log = new THREE.Mesh(fireLogGeo, woodMat);
-                        log.position.y = 1;
-                        log.rotation.set(0.5, (i * Math.PI * 2 / 3), 0);
-                        previewGroup.add(log);
-                    }
-                    previewGroup.add(new THREE.Mesh(fireCoreGeo, fireMat));
-                    break;
-
-                // OTHER
-                case 'bird':
-                    const bBody = new THREE.Mesh(birdBodyGeo, hawkMat);
-                    const bWingL = new THREE.Mesh(birdWingGeo, hawkMat);
-                    const bWingR = new THREE.Mesh(birdWingGeo, hawkMat);
-                    bWingR.scale.x = -1;
-                    previewGroup.add(bBody, bWingL, bWingR);
-                    break;
-                case 'sailboat':
-                    previewGroup.add(new THREE.Mesh(boatHullGeo, boatHullMat));
-                    previewGroup.add(new THREE.Mesh(boatMastGeo, woodMat));
-                    previewGroup.add(new THREE.Mesh(boatSailGeo, boatSailMat));
-                    break;
+                    // NATURE
+                    case 'pine':
+                        const pineTrunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
+                        const pineLeaves = new THREE.Mesh(treeLeavesGeo, createMaterial({ color: 0x2d5a27 }));
+                        previewGroup.add(pineTrunk, pineLeaves);
+                        break;
+                    case 'deciduous':
+                        const dTrunk = new THREE.Mesh(deciduousGeos.trunk, treeTrunkMat);
+                        const dLeaves = new THREE.Mesh(deciduousGeos.leaves, createMaterial({ color: 0x4a7c44 }));
+                        previewGroup.add(dTrunk, dLeaves);
+                        break;
+                    case 'palm':
+                        const pTrunk = new THREE.Mesh(palmGeos.trunk, treeTrunkMat);
+                        const pLeaves = new THREE.Mesh(palmGeos.leaves, createMaterial({ color: 0x6db33f }));
+                        previewGroup.add(pTrunk, pLeaves);
+                        break;
+                    case 'dead_tree':
+                        previewGroup.add(new THREE.Mesh(deadTreeGeo, deadTreeMat));
+                        break;
+                    case 'cactus':
+                        previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
+                        break;
+                    case 'bush':
+                        previewGroup.add(new THREE.Mesh(bushGeo, bushMat));
+                        break;
+                    case 'rock':
+                        previewGroup.add(new THREE.Mesh(rockGeo, rockMat));
+                        break;
+                    case 'lily_pad':
+                        previewGroup.add(new THREE.Mesh(lilyPadGeo, lilyPadMat));
+                        break;
+                    case 'snowman':
+                        previewGroup.add(new THREE.Mesh(snowmanGeos.body, snowmanBodyMat));
+                        previewGroup.add(new THREE.Mesh(snowmanGeos.nose, snowmanNoseMat));
+                        break;
+                    case 'castle':
+                        previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));
+                        break;
+                    case 'pier':
+                        previewGroup.add(new THREE.Mesh(pierDeckGeo, woodMat));
+                        break;
+                    case 'tent':
+                        previewGroup.add(new THREE.Mesh(tentGeo, tentMat));
+                        break;
+                }
             }
 
             // Force visibility on all children

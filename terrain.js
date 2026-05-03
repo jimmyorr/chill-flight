@@ -673,7 +673,11 @@ fireMat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\nuniform float uTime;`);
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `
         #include <begin_vertex>
+        #ifdef USE_INSTANCING
         float phase = instanceMatrix[3][0] + instanceMatrix[3][2];
+        #else
+        float phase = 0.0;
+        #endif
         float pulse = 1.0 + sin(uTime * 10.0 + phase) * 0.2;
         transformed *= pulse;
     `);
@@ -759,6 +763,74 @@ const lighthouseBeamMat = new THREE.MeshBasicMaterial({
     side: THREE.DoubleSide,
     depthWrite: false
 });
+
+// --- MODEL ASSEMBLER: SINGLE SOURCE OF TRUTH ---
+// This object defines how complex multi-part models are constructed.
+// Both terrain.js (during world gen) and debug.html (during preview) 
+// use this to ensure they stay in perfect sync.
+window.ModelAssembler = {
+    getStructure: function (id, rotY = 0) {
+        switch (id) {
+            case 'house':
+                return [
+                    { geo: houseBodyGeo, mat: houseBodyPalette[0], pos: [0, 0, 0], rot: [0, rotY, 0] },
+                    { geo: houseRoofGeo, mat: houseRoofPalette[0], pos: [0, 0, 0], rot: [0, rotY, 0] }
+                ];
+            case 'pagoda':
+                return [
+                    { geo: pagodaBodyGeo, mat: pagodaBodyMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+                    { geo: pagodaRoofGeo, mat: pagodaRoofMat, pos: [0, 0, 0], rot: [0, rotY, 0] }
+                ];
+            case 'barn':
+                return [
+                    { geo: barnBodyGeo, mat: barnBodyMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+                    { geo: barnRoofGeo, mat: barnRoofMat, pos: [0, 0, 0], rot: [0, rotY, 0] }
+                ];
+            case 'monastery':
+                return [
+                    { geo: monasteryBodyGeo, mat: monasteryBodyMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+                    { geo: monasteryCapGeo, mat: monasteryCapMat, pos: [0, 0, 0], rot: [0, rotY, 0] }
+                ];
+            case 'windmill':
+                const hubOffset = new THREE.Vector3(0, 0, 8.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+                return [
+                    { geo: windmillBaseGeo, mat: windmillBaseMat, pos: [0, 0, 0], rot: [0, rotY, 0], scale: [1.5, 1.5, 1.5] },
+                    { geo: windmillBladesGeo, mat: windmillBladesMat, pos: [hubOffset.x, 45, hubOffset.z], rot: [0, rotY, 0], scale: [1.5, 1.5, 1.5] },
+                    { geo: windmillBladesGeo, mat: windmillBladesMat, pos: [hubOffset.x, 45, hubOffset.z], rot: [0, rotY, Math.PI / 2], scale: [1.5, 1.5, 1.5] },
+                    { geo: windmillBladesGeo, mat: windmillBladesMat, pos: [hubOffset.x, 45, hubOffset.z], rot: [0, rotY, Math.PI], scale: [1.5, 1.5, 1.5] },
+                    { geo: windmillBladesGeo, mat: windmillBladesMat, pos: [hubOffset.x, 45, hubOffset.z], rot: [0, rotY, 3 * Math.PI / 2], scale: [1.5, 1.5, 1.5] }
+                ];
+            case 'lighthouse':
+                return [
+                    { geo: lighthousePieceGeo, mat: lighthouseRedMat, pos: [0, 10, 0], rot: [0, rotY, 0] },
+                    { geo: lighthousePieceGeo, mat: lighthouseWhiteMat, pos: [0, 30, 0], rot: [0, rotY, 0] },
+                    { geo: lighthousePieceGeo, mat: lighthouseRedMat, pos: [0, 50, 0], rot: [0, rotY, 0] },
+                    { geo: lighthouseTopGeo, mat: lighthouseWhiteMat, pos: [0, 0, 0], rot: [0, rotY, 0] }
+                ];
+            case 'campfire':
+                return [
+                    { geo: fireLogGeo, mat: woodMat, pos: [0, 1, 0], rot: [0, rotY, 0.5], order: 'YXZ' },
+                    { geo: fireLogGeo, mat: woodMat, pos: [0, 1, 0], rot: [0, rotY + 2 * Math.PI / 3, 0.5], order: 'YXZ' },
+                    { geo: fireLogGeo, mat: woodMat, pos: [0, 1, 0], rot: [0, rotY + 4 * Math.PI / 3, 0.5], order: 'YXZ' },
+                    { geo: fireCoreGeo, mat: fireMat, pos: [0, 2, 0], rot: [0, rotY, 0] }
+                ];
+            case 'bird':
+                return [
+                    { geo: birdBodyGeo, mat: hawkMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+                    { geo: birdWingGeo, mat: hawkMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+                    { geo: birdWingGeo, mat: hawkMat, pos: [0, 0, 0], rot: [0, rotY, 0], scale: [-1, 1, 1] }
+                ];
+            case 'sailboat':
+                return [
+                    { geo: boatHullGeo, mat: boatHullMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+                    { geo: boatMastGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+                    { geo: boatSailGeo, mat: boatSailMat, pos: [0, 0, 0], rot: [0, rotY, 0] }
+                ];
+            default:
+                return null;
+        }
+    }
+};
 
 function getBiome(x, z) {
     return ChillFlightLogic.getBiome(x, z, simplex);
@@ -1577,24 +1649,20 @@ function generateChunk(chunkX, chunkZ) {
             const bladesInst = new THREE.InstancedMesh(windmillBladesGeo, windmillBladesMat, windmillPositions.length * 4);
 
             windmillPositions.forEach((pos, index) => {
-                // Base
-                dummy.position.set(pos.x, pos.y, pos.z);
-                dummy.rotation.set(0, pos.rotY, 0);
-                dummy.scale.set(1.5, 1.5, 1.5);
-                dummy.updateMatrix();
-                baseInst.setMatrixAt(index, dummy.matrix);
-
-                // Blades (initial state, will be updated in animate)
-                for (let b = 0; b < 4; b++) {
-                    const bladeIdx = index * 4 + b;
-                    dummy.position.set(pos.x, pos.y + 45, pos.z);
-                    const hubOffset = new THREE.Vector3(0, 0, 8.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
-                    dummy.position.add(hubOffset);
-                    dummy.rotation.set(0, pos.rotY, (b * Math.PI / 2));
-                    dummy.scale.set(1.5, 1.5, 1.5);
+                const structure = ModelAssembler.getStructure('windmill', pos.rotY);
+                structure.forEach((part, pIdx) => {
+                    dummy.position.set(pos.x + part.pos[0], pos.y + part.pos[1], pos.z + part.pos[2]);
+                    dummy.rotation.order = part.order || 'XYZ';
+                    dummy.rotation.set(...part.rot);
+                    dummy.scale.set(...part.scale);
                     dummy.updateMatrix();
-                    bladesInst.setMatrixAt(bladeIdx, dummy.matrix);
-                }
+                    
+                    if (pIdx === 0) {
+                        baseInst.setMatrixAt(index, dummy.matrix);
+                    } else {
+                        bladesInst.setMatrixAt(index * 4 + (pIdx - 1), dummy.matrix);
+                    }
+                });
             });
 
             baseInst.position.set(worldOffsetX, 0, worldOffsetZ);
@@ -1611,23 +1679,18 @@ function generateChunk(chunkX, chunkZ) {
             const topInst = new THREE.InstancedMesh(lighthouseTopGeo, lighthouseWhiteMat, 1);
 
             const pos = lighthousePos;
-            dummy.position.set(pos.x, pos.y + 10, pos.z);
-            dummy.rotation.set(0, 0, 0);
-            dummy.updateMatrix();
-            piece1Inst.setMatrixAt(0, dummy.matrix);
-
-            dummy.position.set(pos.x, pos.y + 30, pos.z);
-            dummy.updateMatrix();
-            piece2Inst.setMatrixAt(0, dummy.matrix);
-
-            dummy.position.set(pos.x, pos.y + 50, pos.z);
-            dummy.updateMatrix();
-            piece3Inst.setMatrixAt(0, dummy.matrix);
-
-            dummy.position.set(pos.x, pos.y, pos.z);
-            dummy.rotation.set(0, pos.rotY, 0);
-            dummy.updateMatrix();
-            topInst.setMatrixAt(0, dummy.matrix);
+            const structure = ModelAssembler.getStructure('lighthouse', pos.rotY || 0);
+            structure.forEach((part, pIdx) => {
+                dummy.position.set(pos.x + part.pos[0], pos.y + part.pos[1], pos.z + part.pos[2]);
+                dummy.rotation.set(...part.rot);
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                
+                if (pIdx === 0) piece1Inst.setMatrixAt(0, dummy.matrix);
+                else if (pIdx === 1) piece2Inst.setMatrixAt(0, dummy.matrix);
+                else if (pIdx === 2) piece3Inst.setMatrixAt(0, dummy.matrix);
+                else topInst.setMatrixAt(0, dummy.matrix);
+            });
 
             const pieces = [piece1Inst, piece2Inst, piece3Inst, topInst];
             pieces.forEach(p => {
@@ -1694,18 +1757,20 @@ function generateChunk(chunkX, chunkZ) {
             const tentInst = new THREE.InstancedMesh(tentGeo, tentMat, campfirePositions.length);
 
             campfirePositions.forEach((pos, index) => {
-                // Logs in a tripod/teepee shape
-                for (let i = 0; i < 3; i++) {
-                    dummy.position.set(pos.x, pos.y + 1, pos.z);
-                    dummy.rotation.set(0.5, (i * Math.PI * 2 / 3), 0);
+                const structure = ModelAssembler.getStructure('campfire', pos.rotY || 0);
+                structure.forEach((part, pIdx) => {
+                    dummy.position.set(pos.x + part.pos[0], pos.y + part.pos[1], pos.z + part.pos[2]);
+                    dummy.rotation.order = part.order || 'XYZ';
+                    dummy.rotation.set(...part.rot);
+                    dummy.scale.set(1, 1, 1);
                     dummy.updateMatrix();
-                    logInst.setMatrixAt(index * 3 + i, dummy.matrix);
-                }
-                // Fire core
-                dummy.position.set(pos.x, pos.y + 2, pos.z);
-                dummy.rotation.set(0, 0, 0);
-                dummy.updateMatrix();
-                coreInst.setMatrixAt(index, dummy.matrix);
+                    
+                    if (part.geo === fireLogGeo) {
+                        logInst.setMatrixAt(index * 3 + (pIdx), dummy.matrix);
+                    } else if (part.geo === fireCoreGeo) {
+                        coreInst.setMatrixAt(index, dummy.matrix);
+                    }
+                });
 
                 // Smoke community
                 for (let i = 0; i < 5; i++) {
