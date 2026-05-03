@@ -326,13 +326,32 @@ async function startMultiplayer() {
 }
 
 // Ensure game globals are ready before starting
-if (typeof Capacitor !== 'undefined' && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform()) {
-    document.addEventListener("deviceready", startMultiplayer, false);
-} else {
-    // Wait for DOM and game initialization
-    if (document.readyState === 'complete') {
-        startMultiplayer();
+if (ChillFlightLogic.ENABLE_MP) {
+    if (typeof Capacitor !== 'undefined' && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform()) {
+        document.addEventListener("deviceready", startMultiplayer, false);
     } else {
-        window.addEventListener('load', startMultiplayer);
+        // Wait for DOM and game initialization
+        if (document.readyState === 'complete') {
+            startMultiplayer();
+        } else {
+            window.addEventListener('load', startMultiplayer);
+        }
     }
+} else {
+    // Hide multiplayer UI elements if disabled
+    document.addEventListener('DOMContentLoaded', () => {
+        const hideIds = ['online-players', 'player-name-input', 'splash-name-container', 'plane-color-options'];
+        hideIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                // For inputs and color pickers, hide the entire row
+                if (id === 'player-name-input' || id === 'plane-color-options') {
+                    const row = el.closest('.customization-row');
+                    if (row) row.style.display = 'none';
+                } else {
+                    el.style.display = 'none';
+                }
+            }
+        });
+    });
 }

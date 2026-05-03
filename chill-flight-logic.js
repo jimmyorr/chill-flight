@@ -27,6 +27,7 @@
     const WORLD_SEED = parseInt(getParam('seed', getTodaySeed()), 10);
     const THEME = getParam('theme', 'standard');
     const SHOW_CLOUDS = getParam('cloud', null) !== 'none';
+    const ENABLE_MP = getParam('enableMp', 'false') === 'true';
     let SHOW_OBJECTS = true;
     const objectsParam = getParam('objects', null);
     if (objectsParam === 'none') {
@@ -520,6 +521,7 @@
     exports.urlParams = urlParams;
     exports.THEME = THEME;
     exports.SHOW_CLOUDS = SHOW_CLOUDS;
+    exports.ENABLE_MP = ENABLE_MP;
     exports.SHOW_OBJECTS = SHOW_OBJECTS;
     exports.setShowObjects = (val) => {
         exports.SHOW_OBJECTS = val;
