@@ -140,8 +140,8 @@ const purrpleCatTracks = [
     'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-yesteryear.mp3'
 ];
 // Sync the starting track with the world seed for a deterministic radio experience
-let purrpleCatIdx = (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED) 
-    ? (Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length) 
+let purrpleCatIdx = (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED)
+    ? (Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length)
     : 0;
 
 // Pre-cache the first track immediately to avoid breaking user-gesture chain later
@@ -215,20 +215,32 @@ async function getCachedTrackUrl(url) {
     }
 }
 
-// Loop to the next track automatically
-purrpleCatAudio.addEventListener('ended', async () => {
+// Track switching logic
+async function nextTrack() {
     isMusicInternalAction = true;
     purrpleCatIdx = (purrpleCatIdx + 1) % purrpleCatTracks.length;
-    // Update the source immediately so play() uses the new track
     const url = purrpleCatTracks[purrpleCatIdx];
     purrpleCatAudio.src = await getCachedTrackUrl(url);
-
-    // Explicitly load the new track to reset the audio element's state 
-    // before updateAudioPlayer attempts to call .play()
     purrpleCatAudio.load();
-
     await updateAudioPlayer(musicEnabled);
+    updateMediaMetadata();
     isMusicInternalAction = false;
+}
+
+async function previousTrack() {
+    isMusicInternalAction = true;
+    purrpleCatIdx = (purrpleCatIdx - 1 + purrpleCatTracks.length) % purrpleCatTracks.length;
+    const url = purrpleCatTracks[purrpleCatIdx];
+    purrpleCatAudio.src = await getCachedTrackUrl(url);
+    purrpleCatAudio.load();
+    await updateAudioPlayer(musicEnabled);
+    updateMediaMetadata();
+    isMusicInternalAction = false;
+}
+
+// Loop to the next track automatically
+purrpleCatAudio.addEventListener('ended', async () => {
+    await nextTrack();
 });
 
 function getCurrentTrackName() {
@@ -264,6 +276,8 @@ function syncMusicUI(playing) {
     if (window.onTrackChange) {
         window.onTrackChange(getCurrentTrackName());
     }
+
+    updateMediaMetadata();
 }
 
 purrpleCatAudio.addEventListener('play', () => {
@@ -327,6 +341,7 @@ async function updateAudioPlayer(enabled) {
         isMusicInternalAction = true;
         purrpleCatAudio.play().then(() => {
             isMusicInternalAction = false;
+            updateMediaMetadata();
         }).catch(e => {
             isMusicInternalAction = false;
             console.log('Audio play blocked:', e);
@@ -337,6 +352,7 @@ async function updateAudioPlayer(enabled) {
                     purrpleCatAudio.play().then(() => {
                         console.log('Audio resumed on interaction');
                         isMusicInternalAction = false;
+                        updateMediaMetadata();
                     }).catch(e => {
                         isMusicInternalAction = false;
                         console.log('Still blocked:', e);
@@ -353,6 +369,38 @@ async function updateAudioPlayer(enabled) {
     } else {
         pauseMusicInternal();
     }
+}
+
+function updateMediaMetadata() {
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: getCurrentTrackName(),
+            artist: 'Purrple Cat',
+            artwork: [
+                { src: 'assets/icon.svg', sizes: '96x96', type: 'image/svg+xml' },
+                { src: 'assets/icon.svg', sizes: '128x128', type: 'image/svg+xml' },
+                { src: 'assets/icon.svg', sizes: '192x192', type: 'image/svg+xml' },
+                { src: 'assets/icon.svg', sizes: '256x256', type: 'image/svg+xml' },
+                { src: 'assets/icon.svg', sizes: '384x384', type: 'image/svg+xml' },
+                { src: 'assets/icon.svg', sizes: '512x512', type: 'image/svg+xml' },
+            ]
+        });
+    }
+}
+
+if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', () => {
+        setMusicEnabled(true);
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+        setMusicEnabled(false);
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+        previousTrack();
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+        nextTrack();
+    });
 }
 
 // Initial UI sync
