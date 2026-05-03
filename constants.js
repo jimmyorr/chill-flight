@@ -31,7 +31,7 @@ const ENABLE_BARNS = false;
 const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = false;
 const ENABLE_LIGHTHOUSES = false;
-const ENABLE_VEHICLE_SWITCH = false;
+const ENABLE_VEHICLE_SWITCH = ChillFlightLogic.ENABLE_V;
 
 const THEME = ChillFlightLogic.THEME;
 

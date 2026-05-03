@@ -335,15 +335,29 @@
                     previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));
                     break;
                 case 'windmill':
-                    previewGroup.add(new THREE.Mesh(windmillBaseGeo, windmillBaseMat));
-                    const wmBlades = new THREE.Mesh(windmillBladesGeo, windmillBladesMat);
-                    wmBlades.position.y = 30;
-                    previewGroup.add(wmBlades);
+                    const wmBase = new THREE.Mesh(windmillBaseGeo, windmillBaseMat);
+                    wmBase.scale.set(1.5, 1.5, 1.5);
+                    previewGroup.add(wmBase);
+                    for (let i = 0; i < 4; i++) {
+                        const blade = new THREE.Mesh(windmillBladesGeo, windmillBladesMat);
+                        blade.position.y = 45;
+                        blade.rotation.z = (i * Math.PI / 2);
+                        blade.scale.set(1.5, 1.5, 1.5);
+                        previewGroup.add(blade);
+                    }
                     break;
                 case 'lighthouse':
-                    const lhBase = new THREE.Mesh(lighthousePieceGeo, lighthouseWhiteMat);
-                    const lhTop = new THREE.Mesh(lighthouseTopGeo, lighthouseRedMat);
-                    previewGroup.add(lhBase, lhTop);
+                    // Lighthouse is built from segments
+                    const piece1 = new THREE.Mesh(lighthousePieceGeo, lighthouseRedMat);
+                    piece1.position.y = 10;
+                    const piece2 = new THREE.Mesh(lighthousePieceGeo, lighthouseWhiteMat);
+                    piece2.position.y = 30;
+                    const piece3 = new THREE.Mesh(lighthousePieceGeo, lighthouseRedMat);
+                    piece3.position.y = 50;
+                    const lhTop = new THREE.Mesh(lighthouseTopGeo, lighthouseWhiteMat);
+                    // The geometry itself is already offset to the top in the game engine
+                    lhTop.position.y = 0; 
+                    previewGroup.add(piece1, piece2, piece3, lhTop);
                     break;
                 case 'pier':
                     previewGroup.add(new THREE.Mesh(pierDeckGeo, woodMat));
@@ -352,7 +366,13 @@
                     previewGroup.add(new THREE.Mesh(tentGeo, tentMat));
                     break;
                 case 'campfire':
-                    previewGroup.add(new THREE.Mesh(fireLogGeo, woodMat));
+                    // Three logs in a tripod
+                    for (let i = 0; i < 3; i++) {
+                        const log = new THREE.Mesh(fireLogGeo, woodMat);
+                        log.position.y = 1;
+                        log.rotation.set(0.5, (i * Math.PI * 2 / 3), 0);
+                        previewGroup.add(log);
+                    }
                     previewGroup.add(new THREE.Mesh(fireCoreGeo, fireMat));
                     break;
 

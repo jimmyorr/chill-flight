@@ -42,6 +42,7 @@
     const MAP_NAME = getParam('map', null);
     const PALETTE_INDEX = getParam('palette', null);
     const SCALE = parseFloat(getParam('scale', '1.0'));
+    const ENABLE_V = getParam('enableV', 'false') === 'true';
 
     // --- SEEDED PRNG: Mulberry32 ---
     // Returns a closure that produces deterministic floats in [0, 1).
@@ -529,5 +530,6 @@
     exports.MAP_NAME = MAP_NAME;
     exports.PALETTE_INDEX = PALETTE_INDEX;
     exports.SCALE = SCALE;
+    exports.ENABLE_V = ENABLE_V;
 
 }(typeof module !== 'undefined' ? module.exports : (window.ChillFlightLogic = {})));
