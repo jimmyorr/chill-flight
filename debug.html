@@ -419,8 +419,18 @@
             document.getElementById('model-stats').innerText = `${Math.round(vertices)} vertices | ${Math.round(triangles)} triangles`;
             
             // Adjust camera to fit
+            const finalBox = new THREE.Box3().setFromObject(previewGroup);
+            const finalCenter = new THREE.Vector3();
+            finalBox.getCenter(finalCenter);
+            const finalSize = new THREE.Vector3();
+            finalBox.getSize(finalSize);
+            
+            const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);
+            const distance = maxDimension * 1.5; // Adjusted multiplier for better framing
+            
             controls.reset();
-            camera.position.set(15, 15, 15);
+            controls.target.copy(finalCenter);
+            camera.position.set(distance, distance, distance);
             controls.update();
         }
 
