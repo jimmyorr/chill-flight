@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Debug | Chill flight model viewer</title>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-6RNVL7JZVJ"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-6RNVL7JZVJ');
+    </script>
     <script src="vendor/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
@@ -246,10 +254,18 @@
             clearViewer();
             
             // Update UI
-            document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
-            if (e && e.target) {
-                e.target.classList.add('active');
-                document.getElementById('model-name').innerText = e.target.innerText;
+            document.querySelectorAll('.model-btn').forEach(btn => {
+                btn.classList.remove('active');
+                // If this was triggered via hash, we need to find the right button
+                if (btn.getAttribute('onclick').includes(`'${type}'`)) {
+                    btn.classList.add('active');
+                    document.getElementById('model-name').innerText = btn.innerText;
+                }
+            });
+
+            // Update URL hash
+            if (window.location.hash !== `#${type}`) {
+                history.pushState(null, null, `#${type}`);
             }
 
             const previewGroup = new THREE.Group();
@@ -416,12 +432,24 @@
             renderer.setSize(container.clientWidth, container.clientHeight);
         });
 
+        window.addEventListener('hashchange', () => {
+            const hash = window.location.hash.substring(1);
+            if (hash) viewModel(hash);
+        });
+
         // Start
         animate();
-        // Default to airplane
+        
+        // Initial load
         setTimeout(() => {
-            const firstBtn = document.querySelector('.model-btn');
-            if (firstBtn) firstBtn.click();
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                viewModel(hash);
+            } else {
+                // Default to airplane
+                const firstBtn = document.querySelector('.model-btn');
+                if (firstBtn) firstBtn.click();
+            }
         }, 100);
     </script>
 </body>
