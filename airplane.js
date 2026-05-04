@@ -399,17 +399,6 @@ const hingeLB = new THREE.Group(); hingeLB.position.set(-5, 0, 3); pontoonGroup.
 const hingeRF = new THREE.Group(); hingeRF.position.set(5, 0, -3); pontoonGroup.add(hingeRF);
 const hingeRB = new THREE.Group(); hingeRB.position.set(5, 0, 3); pontoonGroup.add(hingeRB);
 
-// Initial folded state
-pontoonL.position.set(-5, -0.5, 0);
-pontoonL.rotation.z = Math.PI / 2;
-pontoonR.position.set(5, -0.5, 0);
-pontoonR.rotation.z = -Math.PI / 2;
-
-hingeLF.rotation.z = Math.PI / 2;
-hingeLB.rotation.z = Math.PI / 2;
-hingeRF.rotation.z = -Math.PI / 2;
-hingeRB.rotation.z = -Math.PI / 2;
-
 // Better rotation order for airplanes
 planeGroup.rotation.order = 'YXZ';
 
