@@ -1702,8 +1702,16 @@ function animate() {
 
         if (gravityEffect > 0 && vehicleType === 'airplane') {
             // Accelerate in dive (reduced for softer feel)
-            // Airplane only: helicopters and boats don't gain forward speed from vertical pitch in this model
-            flightSpeedMultiplier += gravityEffect * 0.7 * delta;
+            // Suppress gravity acceleration if we are actively being pushed up by ground avoidance
+            const softBuffer = 2.0;
+            const isAvoidingGround = (planeGroup.position.y < (isWater ? (terrainHeight + 5.5) : (terrainHeight + 10.0)) + softBuffer);
+            
+            if (!isAvoidingGround) {
+                flightSpeedMultiplier += gravityEffect * 0.7 * delta;
+            } else {
+                // Dramatically reduced acceleration when skimming the ground/water
+                flightSpeedMultiplier += gravityEffect * 0.1 * delta;
+            }
         }
     }
 
@@ -1740,8 +1748,8 @@ function animate() {
     // Ground avoidance heights
     const terrainHeight = getElevation(planeGroup.position.x, planeGroup.position.z);
     let isWater = terrainHeight <= WATER_LEVEL + (vehicleType === 'boat' ? 0.3 : 0.1);
-    let minFlightHeight = isWater ? terrainHeight + 5.5 : terrainHeight + 30;
-    let restingHeight = minFlightHeight + (isWater ? 0 : 5);
+    let minFlightHeight = isWater ? terrainHeight + 5.5 : terrainHeight + 10.0;
+    let restingHeight = minFlightHeight + (isWater ? 0 : 2.0);
 
     if (vehicleType === 'helicopter') {
         minFlightHeight = terrainHeight + 3.5;
@@ -1772,20 +1780,24 @@ function animate() {
     // Lower threshold for isFreefalling to eliminate the "stuck in mid-air" dead zone
     const isFreefalling = (vehicleType === 'airplane' && currentKTS < 50 && planeGroup.position.y > restingHeight + 2) || (vehicleType === 'boat' && planeGroup.position.y > restingHeight + 0.1) || (vehicleType === 'buggy' && planeGroup.position.y > restingHeight + 0.5);
 
-    // Calculate actual forward speed factor based on vehicle type and thresholds
+    // Calculate actual forward speed factor based on vehicle type
     let moveSpeedFactor = 0;
-    if (vehicleType === 'airplane') {
-        moveSpeedFactor = (flightSpeedMultiplier > 0 && !isFreefalling) ? flightSpeedMultiplier : 0;
-    } else if (vehicleType === 'boat') {
-        // Boats can move if they are in the water OR if they are falling (drifting)
-        moveSpeedFactor = (Math.abs(flightSpeedMultiplier) > 0 && (isWater || isFreefalling)) ? flightSpeedMultiplier : 0;
-    } else if (vehicleType === 'buggy') {
-        moveSpeedFactor = Math.abs(flightSpeedMultiplier) > 0 ? flightSpeedMultiplier : 0;
+    if (vehicleType === 'airplane' || vehicleType === 'boat' || vehicleType === 'buggy') {
+        moveSpeedFactor = flightSpeedMultiplier;
+    }
+
+    // Apply forward/backward movement for non-helicopter vehicles
+    if (vehicleType !== 'helicopter' && Math.abs(moveSpeedFactor) > 0) {
+        let canMove = true;
+        if (vehicleType === 'boat' && !isWater && !isFreefalling) canMove = false;
+        
+        if (canMove) {
+            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
+        }
     }
 
     if (vehicleType === 'airplane') {
-        if (moveSpeedFactor > 0) {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
+        if (moveSpeedFactor > 0 && !isFreefalling) {
             verticalVelocity = 0; // Reset gravity accumulation while flying normally
 
             // Low speed stall/sink mechanics
@@ -1865,10 +1877,7 @@ function animate() {
             planeGroup.rotation.y += (Math.sin(now * 0.0015) + Math.cos(now * 0.0009)) * 0.5 * tumbleIntensity * delta;
         }
 
-        // Keep drifting forward if there is residual speed
-        if (Math.abs(moveSpeedFactor) > 0 && vehicleType !== 'buggy') {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
-        }
+        // Forward movement is now handled by the consolidated block above
     } else if (planeGroup.position.y <= restingHeight + 0.1) {
         // Grounded — rest flat peacefully, kill vertical velocity
         verticalVelocity = 0;
@@ -1902,9 +1911,7 @@ function animate() {
         planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, finalRoll, 0.1 * delta * 60);
         planeGroup.position.y = THREE.MathUtils.lerp(planeGroup.position.y, restingHeight, 0.1 * delta * 60); // Smooth landing
 
-        if (Math.abs(moveSpeedFactor) > 0 && vehicleType !== 'buggy') {
-            planeGroup.translateZ(-(BASE_FLIGHT_SPEED * moveSpeedFactor * delta * 60));
-        }
+        // Forward movement is now handled by the consolidated block above
     }
 
     // Speed controls
@@ -1913,10 +1920,19 @@ function animate() {
         keys.ArrowUp = false;
     }
 
-    // Apply Ground avoidance — hard clamp + kill velocity on impact (Disabled for boat)
-    if (vehicleType !== 'boat' && planeGroup.position.y < minFlightHeight) {
-        planeGroup.position.y = minFlightHeight; // Hard clamp, not lerp
-        verticalVelocity = 0; // Kill accumulated gravity immediately on ground impact
+    // Apply Ground avoidance — soft cushion + hard clamp + kill velocity on impact (Disabled for boat)
+    if (vehicleType !== 'boat') {
+        const softBuffer = 2.0;
+        if (planeGroup.position.y < minFlightHeight + softBuffer) {
+            // Smoothly push up if we're in the "soft" buffer zone
+            planeGroup.position.y = THREE.MathUtils.lerp(planeGroup.position.y, minFlightHeight + softBuffer, 0.1 * delta * 60);
+            
+            // Hard clamp at the actual minimum
+            if (planeGroup.position.y < minFlightHeight) {
+                planeGroup.position.y = minFlightHeight;
+                verticalVelocity = 0; // Kill accumulated gravity immediately on ground impact
+            }
+        }
 
         if (isWater && planeGroup.position.y < minFlightHeight + 2) {
             if (!pontoonGroup.visible) {
