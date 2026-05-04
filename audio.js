@@ -144,11 +144,10 @@ let purrpleCatIdx = (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic
     ? (Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length)
     : 0;
 
+const CACHE_NAME = 'chill-flight-music-v1';
+
 // Pre-cache the first track immediately to avoid breaking user-gesture chain later
 getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).catch(e => console.warn("Failed to pre-cache first track:", e));
-
-
-const CACHE_NAME = 'chill-flight-music-v1';
 
 /**
  * Resolves a remote URL to a local path or Blob URL.

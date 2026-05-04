@@ -1689,6 +1689,9 @@ function animate() {
     }
 
     // --- FLIGHT PHYSICS & SPEED ---
+    const terrainHeight = getElevation(planeGroup.position.x, planeGroup.position.z);
+    let isWater = terrainHeight <= WATER_LEVEL + (vehicleType === 'boat' ? 0.3 : 0.1);
+
     if (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0) {
         let turningRoll = (isBarrelRolling && !isClampedRoll) ? targetRoll : planeGroup.rotation.z;
         const turnFactor = vehicleType === 'boat' ? 0.08 : 0.025; // Boat turns sharper since it banks less
@@ -1746,8 +1749,6 @@ function animate() {
     const accelRate = 0.8 * delta;
 
     // Ground avoidance heights
-    const terrainHeight = getElevation(planeGroup.position.x, planeGroup.position.z);
-    let isWater = terrainHeight <= WATER_LEVEL + (vehicleType === 'boat' ? 0.3 : 0.1);
     let minFlightHeight = isWater ? terrainHeight + 5.5 : terrainHeight + 10.0;
     let restingHeight = minFlightHeight + (isWater ? 0 : 2.0);
 
