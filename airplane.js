@@ -5,9 +5,10 @@
 let planeMat = null;
 
 var CALLSIGNS = [
-    'Maverick', 'Goose', 'Iceman', 'Slider', 'Hollywood',
-    'Wolfman', 'Cougar', 'Merlin', 'Viper', 'Jester',
-    'Chipper', 'Sundown', 'Stinger'
+    'Abbot', 'Arbor', 'Bandit', 'Bart', 'Box', 'Chipper',
+    'Drifter', 'Droopy', 'Gambit', 'Genner', 'Hackett', 'Kingfisher',
+    'Meeple', 'Pawn', 'Ranger', 'Ray', 'Roger', 'Scout',
+    'Shadow', 'Slider', 'Skipper', 'Stinger', 'Viper'
 ];
 var defaultCallsign = CALLSIGNS[Math.floor(Math.random() * CALLSIGNS.length)];
 
@@ -17,7 +18,7 @@ let playerName = (localStorage.getItem('chill_flight_name') || '').trim() || def
 // --- IMMEDIATE UI INITIALIZATION ---
 // This runs synchronously to ensure the name appears instantly, 
 // without waiting for multiplayer/Firebase modules to load.
-(function() {
+(function () {
     const ni = document.getElementById('player-name-input');
     const si = document.getElementById('splash-name-input');
     if (ni) ni.value = playerName;
@@ -140,7 +141,7 @@ airplaneModel.add(wings);
 const wingStrutGeo = new THREE.CylinderGeometry(0.15, 0.15, 9.5, 6);
 const wingStrutL = new THREE.Mesh(wingStrutGeo, wingMat);
 wingStrutL.position.set(-5.25, 1.375, -1);
-wingStrutL.rotation.z = Math.PI / 3.5; 
+wingStrutL.rotation.z = Math.PI / 3.5;
 airplaneModel.add(wingStrutL);
 
 const wingStrutR = new THREE.Mesh(wingStrutGeo, wingMat);
