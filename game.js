@@ -418,7 +418,7 @@ window.addEventListener('keydown', (e) => {
 
     // 2. Toggle Pause: Escape = PC, Backspace = TV Back, MediaPlayPause = TV Play/Pause, Enter = TV Center (if playing)
     const isToggleKey = e.key === 'Escape' || e.code === 'MediaPlayPause' ||
-        (e.key === 'Backspace' && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) ||
+        (e.key === 'Backspace' && (!document.activeElement || document.activeElement.tagName !== 'INPUT' || document.activeElement.type === 'checkbox')) ||
         (e.key === 'Enter' && !isPaused && !isMenuExpanded && (!document.activeElement || document.activeElement.id !== 'resume-btn'));
 
     if (isToggleKey) {
@@ -448,7 +448,7 @@ window.addEventListener('keydown', (e) => {
         }
 
         // Ignore menu navigation if typing in an input field
-        if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type !== 'checkbox') {
             return;
         }
 
@@ -475,7 +475,7 @@ window.addEventListener('keydown', (e) => {
                     sel.selectedIndex--;
                     sel.dispatchEvent(new Event('change'));
                 }
-            } else if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+            } else if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type !== 'checkbox') {
                 return; // Let native cursor move
             } else {
                 tvFocusCol = Math.max(tvFocusCol - 1, 0);
@@ -488,7 +488,7 @@ window.addEventListener('keydown', (e) => {
                     sel.selectedIndex++;
                     sel.dispatchEvent(new Event('change'));
                 }
-            } else if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+            } else if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type !== 'checkbox') {
                 return; // Let native cursor move
             } else {
                 tvFocusCol = Math.min(tvFocusCol + 1, grid[tvFocusRow].length - 1);
@@ -497,7 +497,7 @@ window.addEventListener('keydown', (e) => {
         } else if (e.key === 'Enter') {
             const el = grid[tvFocusRow][tvFocusCol];
             if (el) {
-                if (el.tagName === 'INPUT') {
+                if (el.tagName === 'INPUT' && el.type !== 'checkbox') {
                     el.blur();
                     tvFocusRow = 1;
                     tvFocusCol = 0;
