@@ -482,6 +482,7 @@ input[type=number].customization-input {
     display: flex;
     gap: 10px;
     z-index: 200;
+    touch-action: none;
 }
 
 .mobile-btn {
@@ -497,6 +498,10 @@ input[type=number].customization-input {
     justify-content: center;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     transition: all 0.2s ease;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .mobile-btn svg {
@@ -579,6 +584,10 @@ input[type=number].customization-input {
     font-size: 20px;
     cursor: pointer;
     transition: all 0.2s ease;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .sub-btn:active {

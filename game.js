@@ -2885,12 +2885,18 @@ function resetSteering() {
 
 document.querySelectorAll('.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #online-players, #cockpit-ui').forEach(btn => {
     btn.addEventListener('mouseenter', resetSteering);
-    btn.addEventListener('touchstart', resetSteering, { passive: true });
+    btn.addEventListener('touchstart', (e) => {
+        resetSteering();
+        // If it's a button, we might want to prevent default to stop system gestures
+        if (e.currentTarget.classList.contains('mobile-btn') || e.currentTarget.classList.contains('sub-btn')) {
+            // But only if we aren't using pointer events for the same thing elsewhere
+        }
+    }, { passive: true });
 });
 
 if (btnUp) {
     const down = (e) => {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
         mouseControlActive = false; // Explicitly stop steering
         mouseX = 0;
@@ -2900,7 +2906,7 @@ if (btnUp) {
         keyPressStartTime.ArrowUp = performance.now();
     };
     const up = (e) => {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
         const nowTime = performance.now();
         if (nowTime - keyPressStartTime.ArrowUp < STEER_HOLD_THRESHOLD) {
@@ -2917,11 +2923,13 @@ if (btnUp) {
     btnUp.addEventListener('pointerup', up);
     btnUp.addEventListener('pointercancel', up);
     btnUp.addEventListener('pointerleave', up);
+    btnUp.addEventListener('touchstart', down);
+    btnUp.addEventListener('touchend', up);
     btnUp.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 if (btnDown) {
     const down = (e) => {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
         mouseControlActive = false; // Explicitly stop steering
         mouseX = 0;
@@ -2932,7 +2940,7 @@ if (btnDown) {
         keyPressStartTime.ArrowDown = performance.now();
     };
     const up = (e) => {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
         const nowTime = performance.now();
         if (nowTime - keyPressStartTime.ArrowDown < 250) {
@@ -2954,6 +2962,8 @@ if (btnDown) {
     btnDown.addEventListener('pointerup', up);
     btnDown.addEventListener('pointercancel', up);
     btnDown.addEventListener('pointerleave', up);
+    btnDown.addEventListener('touchstart', down);
+    btnDown.addEventListener('touchend', up);
     btnDown.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
