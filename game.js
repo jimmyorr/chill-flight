@@ -83,6 +83,7 @@ window.addEventListener('touchstart', (e) => {
         const isPauseOverlay = target.closest('#pause-overlay');
         const isUI = isPauseOverlay || target.closest('#loading-overlay') || target.closest('#cockpit-ui') || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.color-swatch');
         if (!isUI) {
+            if (e.cancelable) e.preventDefault(); // Stop iOS from starting a selection gesture
             updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
             mouseControlActive = true;
         } else {
