@@ -820,20 +820,6 @@ input[type=number].customization-input {
     #mobile-controls {
         display: none !important;
     }
-
-    #cockpit-ui,
-    #ui-layer {
-        margin: 5%;
-        width: 90% !important;
-        height: 90% !important;
-        box-sizing: border-box;
-    }
-
-    #ui-layer {
-        position: absolute;
-        top: 0;
-        left: 0;
-    }
 }
 .version-tag {
     position: absolute;

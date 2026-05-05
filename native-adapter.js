@@ -14,42 +14,52 @@
 
     function isTV() {
         const ua = navigator.userAgent.toLowerCase();
-        return ua.includes('tv') || ua.includes('googletv') || ua.includes('atv') || ua.includes('firetv');
+        // A Native TV app client is a Capacitor app that either:
+        // 1. Explicitly identifies as TV/GoogleTV/FireTV
+        // 2. Or is a native app that lacks touch support and does not have "mobile" in its UA
+        const isNative = typeof Capacitor !== 'undefined';
+        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const isMobileUA = ua.includes('mobile') || ua.includes('iphone') || ua.includes('ipad');
+        const hasTVKeyword = ua.includes('tv') || ua.includes('googletv') || ua.includes('firetv') || ua.includes('bravia');
+
+        const isTVClient = isNative && (hasTVKeyword || (!hasTouch && !isMobileUA));
+        
+        console.log(`isTV check: Native=${isNative}, Touch=${hasTouch}, MobileUA=${isMobileUA}, TVKey=${hasTVKeyword} => Result=${isTVClient}`);
+        return isTVClient;
+    }
+
+    if (isTV()) {
+        console.log("TV Client 0.8.1 detected. Applying hider.");
+        const style = document.createElement('style');
+        style.id = 'tv-button-hider';
+        style.innerHTML = `
+            #mobile-controls, 
+            #mobile-spd-up, 
+            #mobile-spd-down, 
+            #mobile-menu-trigger, 
+            .mobile-btn { 
+                display: none !important; 
+                visibility: hidden !important; 
+                pointer-events: none !important; 
+                opacity: 0 !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Immediate and persistent JS enforcement
+        const forceHide = () => {
+            const el = document.getElementById('mobile-controls');
+            if (el) el.style.setProperty('display', 'none', 'important');
+        };
+        forceHide();
+        setInterval(forceHide, 500);
     }
 
     if (isNative()) {
-        console.log("Native platform detected. Applying overrides.");
-
-        // Performance: Cap at 1.0 device pixel ratio (Wait for renderer)
-        const applyRendererFix = () => {
-            if (typeof renderer !== 'undefined') {
-                renderer.setPixelRatio(1.0);
-            } else {
-                setTimeout(applyRendererFix, 100);
-            }
-        };
-        applyRendererFix();
-
         // Hide Status Bar
         if (Capacitor.Plugins && Capacitor.Plugins.StatusBar) {
             Capacitor.Plugins.StatusBar.hide().catch(() => { });
         }
-
-        if (isTV()) {
-            console.log("TV platform detected. Hiding mobile controls.");
-            // Force-hide mobile controls (Permanent override) for TV
-            const hideControls = () => {
-                const mobileControls = document.getElementById('mobile-controls');
-                if (mobileControls) mobileControls.style.display = 'none';
-            };
-            hideControls();
-            setInterval(hideControls, 1000); // Re-assert in case of DOM changes
-
-            const sheet = document.createElement('style');
-            sheet.innerHTML = "#mobile-controls { display: none !important; } *:focus { outline: none !important; }";
-            document.head.appendChild(sheet);
-        }
-
         // Handle Hardware Back Button
         document.addEventListener("deviceready", () => {
             if (Capacitor.Plugins.App) {
