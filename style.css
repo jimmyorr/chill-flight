@@ -11,14 +11,23 @@ html {
     background-color: #000;
 }
 
+body,
+canvas {
+    /* Tells iOS we handle all touches manually, disables native browser panning/zooming */
+    touch-action: none;
+
+    /* Disables text selection and magnifier glass */
+    -webkit-user-select: none;
+    user-select: none;
+
+    /* Disables the default tap highlight color on iOS */
+    -webkit-tap-highlight-color: transparent;
+}
+
 body {
     background-color: transparent;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    -webkit-user-select: none;
     -webkit-touch-callout: none;
-    user-select: none;
-    /* Prevent system gestures like double-tap to zoom or long-press context menus */
-    touch-action: none;
 }
 
 canvas {
