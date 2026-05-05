@@ -348,11 +348,26 @@ if (ChillFlightLogic.ENABLE_MP) {
         }
     }
 } else {
-    // Hide ONLY the online player list if MP is disabled, keep customization UI
-    document.addEventListener('DOMContentLoaded', () => {
+    // Hide online player list and callsign inputs if MP is disabled
+    const hideUI = () => {
         const el = document.getElementById('online-players');
         if (el) el.style.display = 'none';
-    });
+
+        const splashNameContainer = document.getElementById('splash-name-container');
+        if (splashNameContainer) splashNameContainer.style.display = 'none';
+
+        const playerNameInput = document.getElementById('player-name-input');
+        if (playerNameInput) {
+            const row = playerNameInput.closest('.customization-row');
+            if (row) row.style.display = 'none';
+        }
+    };
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', hideUI);
+    } else {
+        hideUI();
+    }
 }
 
 // Always initialize the UI listeners for name/color
