@@ -3236,7 +3236,7 @@ if (overlay) {
                     "Generating terrain chunks...",
                     "Reticulating splines...",
                     "Calculating flight paths...",
-                    "Ready to chill."
+                    "Have a chill flight."
                 ];
 
                 // Use a slight delay to ensure transition triggers after display:block
