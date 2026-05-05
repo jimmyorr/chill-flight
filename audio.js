@@ -163,6 +163,8 @@ async function getCachedTrackUrl(url) {
             if (!Filesystem) throw new Error('Filesystem plugin not available');
 
             // 1. Check if file already exists in native cache
+            await Filesystem.stat({ directory: 'CACHE', path: fileName });
+
             const result = await Filesystem.getUri({
                 directory: 'CACHE',
                 path: fileName
