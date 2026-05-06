@@ -379,7 +379,6 @@ const sunFragShader = `
         vec3 color2 = uSunColor;        // Dynamic hot spots
         vec3 baseColor = mix(color1, color2, n * 0.5 + 0.25); // Subtle blend
         
-        // Fresnel rim glow
         vec3 normal = normalize(vNormal);
         vec3 viewDir = normalize(vViewPosition);
         float fresnel = 1.0 - max(dot(viewDir, normal), 0.0);
@@ -470,6 +469,54 @@ const moonUniforms = {
     moonPhase: { value: 0.0 }
 };
 
+const sunGlowVertShader = `
+    varying vec2 vUv;
+    void main() {
+        vUv = uv;
+        mat4 modelView = modelViewMatrix;
+        
+        // Extract scale from modelViewMatrix to preserve scaling
+        float scaleX = length(vec3(modelView[0].x, modelView[0].y, modelView[0].z));
+        float scaleY = length(vec3(modelView[1].x, modelView[1].y, modelView[1].z));
+        float scaleZ = length(vec3(modelView[2].x, modelView[2].y, modelView[2].z));
+
+        // Spherical billboarding
+        modelView[0][0] = scaleX; modelView[0][1] = 0.0; modelView[0][2] = 0.0;
+        modelView[1][0] = 0.0; modelView[1][1] = scaleY; modelView[1][2] = 0.0;
+        modelView[2][0] = 0.0; modelView[2][1] = 0.0; modelView[2][2] = scaleZ;
+        
+        gl_Position = projectionMatrix * modelView * vec4(position, 1.0);
+    }
+`;
+
+const sunGlowFragShader = `
+    uniform float overcast;
+    uniform float dayFactor;
+    uniform vec3 uSunColor;
+    varying vec2 vUv;
+
+    void main() {
+        float dist = distance(vUv, vec2(0.5));
+        
+        // Smooth, gentle falloff
+        float alpha = pow(max(0.0, 1.0 - (dist * 2.0)), 2.5);
+        
+        // Use purely the natural sun color, no artificial white core
+        vec3 color = uSunColor;
+        
+        // Very slight intensity boost
+        color *= (1.0 + alpha * 0.2);
+        
+        // Lower overall opacity for maximum subtlety
+        alpha *= 0.35;
+        
+        alpha *= clamp(1.0 - overcast, 0.0, 1.0);
+        alpha *= clamp(dayFactor * 2.0, 0.0, 1.0);
+        
+        gl_FragColor = vec4(color, alpha);
+    }
+`;
+
 // Sun
 const sunGeo = new THREE.SphereGeometry(400, 32, 32);
 const sunMat = new THREE.ShaderMaterial({
@@ -477,10 +524,26 @@ const sunMat = new THREE.ShaderMaterial({
     fragmentShader: sunFragShader,
     uniforms: sunUniforms,
     transparent: true,
+    depthWrite: false, // Fix: Prevent the sphere from blocking the glow's depth test
     fog: false
 });
 const sunMesh = new THREE.Mesh(sunGeo, sunMat);
 skyGroup.add(sunMesh);
+
+const sunGlowGeo = new THREE.PlaneGeometry(1600, 1600);
+const sunGlowMat = new THREE.ShaderMaterial({
+    vertexShader: sunGlowVertShader,
+    fragmentShader: sunGlowFragShader,
+    uniforms: sunUniforms,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    fog: false
+});
+const sunGlowMesh = new THREE.Mesh(sunGlowGeo, sunGlowMat);
+sunGlowMesh.position.z = 0; 
+sunGlowMesh.renderOrder = 1; // Force it to render AFTER the solid sun sphere
+sunMesh.add(sunGlowMesh);
 
 // Moon
 const moonGeo = new THREE.SphereGeometry(240, 32, 32);
