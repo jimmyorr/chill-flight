@@ -108,7 +108,7 @@
     //   Midday climb p [0.35–0.50]: slope 1.33x  → sun rises/sets at moderate speed
     //   [Symmetric for second half]
     //
-    // Phase durations (5-min cycle): ~1m night, ~2.5m horizon glow, ~1.5m midday
+    // Phase durations (5-min cycle): ~45s night, ~3m horizon glow, ~1.25m midday
     function computeTimeOfDay(secondsInCycle, latInRadians = 0.71) {
         const CYCLE_DURATION_S = 300;
         const p = (secondsInCycle % CYCLE_DURATION_S) / CYCLE_DURATION_S;
@@ -116,11 +116,11 @@
         // [unwarped_p, warped_p] — edit warped_p to tune feel.
         const knots = [
             [0.000, 0.000],  // midnight
-            [0.100, 0.200],  // end of night      → slope 2.00x (fast night)
-            [0.350, 0.300],  // horizon zone ends  → slope 0.40x (slow sun near horizon)
-            [0.500, 0.500],  // solar noon         → slope 1.33x (moderate climb)
-            [0.650, 0.700],  // horizon zone starts (symmetric)
-            [0.900, 0.800],  // night begins       (symmetric)
+            [0.075, 0.200],  // end of night      → slope 2.67x (fast night)
+            [0.375, 0.300],  // horizon zone ends  → slope 0.33x (slow sun near horizon)
+            [0.500, 0.500],  // solar noon         → slope 1.60x (moderate climb)
+            [0.625, 0.700],  // horizon zone starts (symmetric)
+            [0.925, 0.800],  // night begins       (symmetric)
             [1.000, 1.000],  // midnight
         ];
 
