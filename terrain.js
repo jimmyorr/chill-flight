@@ -82,6 +82,7 @@ waterMaterial.onBeforeCompile = (shader) => {
     );
 
     shader.fragmentShader = `
+        uniform float uTime;
         uniform vec3 uSunDirection;
         uniform vec3 uSunColor;
         varying vec3 vWorldPosition;
@@ -96,15 +97,33 @@ waterMaterial.onBeforeCompile = (shader) => {
 
         vec3 viewDir = normalize(cameraPosition - vWorldPosition);
         vec3 sunReflNormal = normalize(vSmoothNormal);
+        
+        // Organic high-frequency ripples for shimmering specular
+        vec2 pos = vWorldPosition.xz * 0.1; // Scale of ripples
+        float t = uTime * 1.5;
+        
+        // 3 non-axis-aligned waves to break the grid interference pattern
+        float dx = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.8
+                 + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * -0.6
+                 + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * 0.9;
+                 
+        float dz = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.6
+                 + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * 0.8
+                 + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * -0.4;
+        
+        vec3 rippleNormal = vec3(dx * 0.05, 0.0, dz * 0.05); // Perturbation strength
+        
+        sunReflNormal = normalize(sunReflNormal + rippleNormal);
+
         vec3 halfVector = normalize(uSunDirection + viewDir);
         float dotNormalHalf = max(dot(sunReflNormal, halfVector), 0.0);
         
         // Specular intensity
-        float specularIntensity = pow(dotNormalHalf, 250.0);
+        float specularIntensity = pow(dotNormalHalf, 200.0); // Softer, broader organic glints
         float fresnel = 1.0 - max(dot(viewDir, sunReflNormal), 0.0);
         fresnel = pow(fresnel, 3.0);
         
-        vec3 sunHighlight = uSunColor * specularIntensity * (0.2 + fresnel * 0.8);
+        vec3 sunHighlight = uSunColor * specularIntensity * (0.3 + fresnel * 0.7);
         gl_FragColor.rgb += sunHighlight;
         `
     );
