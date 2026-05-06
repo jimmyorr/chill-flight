@@ -2166,11 +2166,9 @@ function animate() {
         moonUniforms.moonPhase.value = lunarPhase;
     }
 
-    // Lunar sky cycle: 24 minutes for a full 360° orbit (12 mins horizon-to-horizon)
-    // This allows the moon to move much more slowly and drift independently of the 5-min sun cycle.
-    const LUNAR_SKY_MS = 1440000;
-    const moonTimeProgress = (passedServerNow % LUNAR_SKY_MS) / LUNAR_SKY_MS;
-    const moonHourAngle = (moonTimeProgress * Math.PI * 2) + Math.PI;
+    // Lunar sky cycle: Synced to exactly opposite the sun
+    // This ensures the moon is always prominent in the sky at night.
+    const moonHourAngle = timeOfDay; // Sun is timeOfDay + Math.PI
 
     // Slow lunar wobble: path drifts ±10° over ~1.7 hours for orbital diversity
     const moonWobble = Math.sin(passedServerNow * 0.000001) * 0.17;
