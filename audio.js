@@ -292,7 +292,7 @@ purrpleCatAudio.addEventListener('play', () => {
 });
 
 purrpleCatAudio.addEventListener('pause', () => {
-    if (!isMusicInternalAction) {
+    if (!isMusicInternalAction && !purrpleCatAudio.ended) {
         if (musicEnabled) {
             musicEnabled = false;
             localStorage.setItem('chill_flight_music_enabled', 'false');
