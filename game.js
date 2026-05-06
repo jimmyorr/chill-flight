@@ -2459,6 +2459,11 @@ function animate() {
     skyUniforms.uTime.value = now * 0.001;
     skyUniforms.uCloudDensity.value = overcast;
 
+    if (window.waterUniforms && window.waterUniforms.uSunDirection) {
+        window.waterUniforms.uSunDirection.value.copy(_tempVec);
+        window.waterUniforms.uSunColor.value.copy(dirLight.color).multiplyScalar(Math.max(0, 1.0 - overcast));
+    }
+
     if (typeof sunUniforms !== 'undefined') {
         sunUniforms.uTime.value = now * 0.001;
         sunUniforms.overcast.value = overcast;

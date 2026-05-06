@@ -4,7 +4,11 @@
 const chunks = new Map();
 
 // GPU water uniform — shared globally so game.js animate() can update uTime
-window.waterUniforms = { uTime: { value: 0.0 } };
+window.waterUniforms = { 
+    uTime: { value: 0.0 },
+    uSunDirection: { value: new THREE.Vector3(0, 1, 0) },
+    uSunColor: { value: new THREE.Color(0xffffff) }
+};
 
 const _initQualityForTerrain = localStorage.getItem('chill_flight_quality');
 const _isLowQualityInitial = _initQualityForTerrain && parseInt(_initQualityForTerrain) <= 20;
@@ -23,7 +27,7 @@ const terrainMaterial = createMaterial({
 const waterMaterial = createMaterial({
     vertexColors: true,
     transparent: !_isLowQualityInitial,
-    opacity: _isLowQualityInitial ? 1.0 : 0.6,
+    opacity: _isLowQualityInitial ? 1.0 : 0.85,
     metalness: 0.1,
     roughness: 0.05,
     flatShading: true
@@ -34,9 +38,14 @@ const waterMaterial = createMaterial({
 waterMaterial.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = window.waterUniforms.uTime;
 
+    shader.uniforms.uSunDirection = window.waterUniforms.uSunDirection;
+    shader.uniforms.uSunColor = window.waterUniforms.uSunColor;
+
     // Add time uniform declaration to the top of the vertex shader
     shader.vertexShader = `
         uniform float uTime;
+        varying vec3 vWorldPosition;
+        varying vec3 vSmoothNormal;
     ` + shader.vertexShader;
 
     // Inject analytical normal calculation (replaces computeVertexNormals)
@@ -52,6 +61,7 @@ waterMaterial.onBeforeCompile = (shader) => {
 
         // Perpendicular vector for light reflection
         vec3 objectNormal = normalize(vec3(-dx, 1.0, -dz));
+        vSmoothNormal = normalize(mat3(modelMatrix) * objectNormal);
         `
     );
 
@@ -67,6 +77,35 @@ waterMaterial.onBeforeCompile = (shader) => {
         float wave2 = cos(uTime * 0.8 + worldPosV.z * 0.015) * 0.8;
 
         transformed.y += wave1 + wave2;
+        vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        `
+    );
+
+    shader.fragmentShader = `
+        uniform vec3 uSunDirection;
+        uniform vec3 uSunColor;
+        varying vec3 vWorldPosition;
+        varying vec3 vSmoothNormal;
+    ` + shader.fragmentShader;
+
+    // Inject custom specular
+    shader.fragmentShader = shader.fragmentShader.replace(
+        `#include <dithering_fragment>`,
+        `
+        #include <dithering_fragment>
+
+        vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+        vec3 sunReflNormal = normalize(vSmoothNormal);
+        vec3 halfVector = normalize(uSunDirection + viewDir);
+        float dotNormalHalf = max(dot(sunReflNormal, halfVector), 0.0);
+        
+        // Specular intensity
+        float specularIntensity = pow(dotNormalHalf, 250.0);
+        float fresnel = 1.0 - max(dot(viewDir, sunReflNormal), 0.0);
+        fresnel = pow(fresnel, 3.0);
+        
+        vec3 sunHighlight = uSunColor * specularIntensity * (0.2 + fresnel * 0.8);
+        gl_FragColor.rgb += sunHighlight;
         `
     );
 };
