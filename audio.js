@@ -167,8 +167,17 @@ async function getCachedTrackUrl(url) {
             const Filesystem = Capacitor.Plugins.Filesystem;
             if (!Filesystem) throw new Error('Filesystem plugin not available');
 
-            // 1. Check if file already exists in native cache
-            await Filesystem.stat({ directory: 'CACHE', path: fileName });
+            // 1. Check if file already exists in native cache by reading the directory
+            // This avoids the native 'stat' error log when the file doesn't exist yet
+            let fileExists = false;
+            try {
+                const dirResult = await Filesystem.readdir({ directory: 'CACHE', path: '' });
+                fileExists = dirResult.files.some(f => (f.name || f) === fileName);
+            } catch (e) {}
+
+            if (!fileExists) {
+                throw new Error('Cache miss (expected)');
+            }
 
             const result = await Filesystem.getUri({
                 directory: 'CACHE',
