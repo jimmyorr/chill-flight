@@ -23,6 +23,15 @@
     <!-- Three.js (Local) -->
     <script src="vendor/three.min.js"></script>
     <script src="config.js"></script>
+
+    <!-- Sentry Error Tracking -->
+    <script src="https://js.sentry-cdn.com/7d9671463431e10775c66852b238ad8e.min.js" crossorigin="anonymous"></script>
+    <script>
+        Sentry.init({
+            dsn: "https://7d9671463431e10775c66852b238ad8e@o4511337089400832.ingest.us.sentry.io/4511346247532544",
+            tracesSampleRate: 1.0,
+        });
+    </script>
 </head>
 
 <body>
@@ -292,6 +301,12 @@
                 <input type="checkbox" id="debug-objects-toggle" checked
                     style="width: 18px; height: 18px; cursor: pointer;">
             </div>
+        </div>
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+            <div style="margin-bottom: 5px; font-weight: bold; font-size: 11px; opacity: 0.7;">SENTRY TEST:</div>
+            <button class="btn" style="width: 100%; padding: 4px; font-size: 12px; background: #c0392b; color: white;"
+                onclick="throw new Error('This is a test error to verify Sentry integration!')">Throw Test
+                Error</button>
         </div>
         <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
             <div style="font-size: 11px; font-family: monospace; opacity: 0.5;">Palette: <span
