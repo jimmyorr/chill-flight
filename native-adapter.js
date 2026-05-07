@@ -60,11 +60,18 @@
         if (Capacitor.Plugins && Capacitor.Plugins.StatusBar) {
             Capacitor.Plugins.StatusBar.hide().catch(() => { });
         }
-        // Handle Hardware Back Button
+        // Handle Hardware Back Button and App State
         document.addEventListener("deviceready", () => {
             if (Capacitor.Plugins.App) {
                 Capacitor.Plugins.App.addListener('backButton', () => {
                     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', keyCode: 8 }));
+                });
+                Capacitor.Plugins.App.addListener('appStateChange', (state) => {
+                    if (!state.isActive) {
+                        if (typeof isPaused !== 'undefined' && !isPaused && typeof togglePause === 'function') {
+                            togglePause();
+                        }
+                    }
                 });
             }
         });
