@@ -70,6 +70,15 @@
         });
     }
 
+    // Export a safe external link handler for Capacitor Apps
+    window.openExternalLink = async function(url) {
+        if (isNative() && Capacitor.Plugins.Browser) {
+            await Capacitor.Plugins.Browser.open({ url: url });
+        } else {
+            window.open(url, '_blank');
+        }
+    };
+
     // 3. KEY MAPPING (Applies everywhere, helpful for keyboard/remote)
     window.addEventListener('keydown', (e) => {
         // D-pad center (23) or Enter Key (13/66) or 'Select'
@@ -91,4 +100,21 @@
             }));
         }
     }, true);
+
+    // 4. WEB ANALYTICS
+    // Dynamically inject Google Analytics ONLY for web environments
+    // This restores tracking for web players without triggering App Store privacy issues.
+    if (!isNative()) {
+        console.log("Web environment detected. Initializing Google Analytics...");
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=G-6RNVL7JZVJ';
+        document.head.appendChild(script);
+
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { window.dataLayer.push(arguments); }
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', 'G-6RNVL7JZVJ');
+    }
 })();

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -121,22 +122,26 @@
         #sidebar::-webkit-scrollbar {
             width: 6px;
         }
+
         #sidebar::-webkit-scrollbar-track {
             background: transparent;
         }
+
         #sidebar::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 3px;
         }
+
         #sidebar::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.2);
         }
     </style>
 </head>
+
 <body>
     <div id="sidebar">
         <h1>Model debug</h1>
-        
+
         <div class="category-title">Vehicles</div>
         <button class="model-btn" onclick="viewModel('airplane', event)">Airplane</button>
         <button class="model-btn" onclick="viewModel('helicopter', event)">Helicopter</button>
@@ -165,7 +170,7 @@
         <button class="model-btn" onclick="viewModel('pier', event)">Pier</button>
         <button class="model-btn" onclick="viewModel('tent', event)">Tent</button>
         <button class="model-btn" onclick="viewModel('campfire', event)">Campfire</button>
-        
+
         <div class="category-title">Other</div>
         <button class="model-btn" onclick="viewModel('bird', event)">Bird (hawk)</button>
         <button class="model-btn" onclick="viewModel('sailboat', event)">Sailboat</button>
@@ -253,7 +258,7 @@
 
         function viewModel(type, e) {
             clearViewer();
-            
+
             // Update UI
             document.querySelectorAll('.model-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -273,7 +278,7 @@
 
             // 1. Try assembling via shared ModelAssembler first
             const structure = window.ModelAssembler ? ModelAssembler.getStructure(type) : null;
-            
+
             if (structure) {
                 structure.forEach(part => {
                     const mesh = new THREE.Mesh(part.geo, part.mat);
@@ -369,17 +374,17 @@
             box.getCenter(center);
             const size = new THREE.Vector3();
             box.getSize(size);
-            
+
             const maxDim = Math.max(size.x, size.y, size.z);
             const scale = (maxDim > 0) ? (15 / maxDim) : 1;
-            
+
             previewGroup.scale.setScalar(scale);
-            
+
             // Re-calculate box after scale to get accurate offset
             const scaledBox = new THREE.Box3().setFromObject(previewGroup);
             const scaledCenter = new THREE.Vector3();
             scaledBox.getCenter(scaledCenter);
-            
+
             previewGroup.position.sub(scaledCenter);
             previewGroup.position.y += (size.y * scale) / 2; // Sit on grid
 
@@ -400,17 +405,17 @@
                 }
             });
             document.getElementById('model-stats').innerText = `${Math.round(vertices)} vertices | ${Math.round(triangles)} triangles`;
-            
+
             // Adjust camera to fit
             const finalBox = new THREE.Box3().setFromObject(previewGroup);
             const finalCenter = new THREE.Vector3();
             finalBox.getCenter(finalCenter);
             const finalSize = new THREE.Vector3();
             finalBox.getSize(finalSize);
-            
+
             const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);
             const distance = maxDimension * 1.5; // Adjusted multiplier for better framing
-            
+
             controls.reset();
             controls.target.copy(finalCenter);
             camera.position.set(distance, distance, distance);
@@ -422,7 +427,7 @@
             const time = performance.now() * 0.001;
             window.animationUniforms.uTime.value = time;
             window.waterUniforms.uTime.value = time;
-            
+
             controls.update();
             renderer.render(viewScene, camera);
         }
@@ -440,7 +445,7 @@
 
         // Start
         animate();
-        
+
         // Initial load
         setTimeout(() => {
             const hash = window.location.hash.substring(1);
@@ -454,4 +459,5 @@
         }, 100);
     </script>
 </body>
+
 </html>
