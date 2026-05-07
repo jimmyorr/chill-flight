@@ -138,6 +138,12 @@ let purrpleCatIdx = (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic
     ? (Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length)
     : 0;
 
+// Use the bundled track the first time the user ever plays the game
+if (localStorage.getItem('chill_flight_played_before') !== 'true') {
+    purrpleCatIdx = 0;
+    localStorage.setItem('chill_flight_played_before', 'true');
+}
+
 const CACHE_NAME = 'chill-flight-music-v1';
 
 // Pre-cache the first track immediately to avoid breaking user-gesture chain later
@@ -149,6 +155,11 @@ getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).catch(e => console.warn("Fail
  */
 async function getCachedTrackUrl(url) {
     const fileName = url.split('/').pop();
+
+    // If it's the bundled track, just use the local asset directly to save bandwidth and storage
+    if (fileName === 'purrple-cat-birds-of-a-feather.mp3') {
+        return 'assets/purrple-cat-birds-of-a-feather.mp3';
+    }
 
     // -- NATIVE MOBILE APP PATH (Capacitor) --
     if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
@@ -171,6 +182,12 @@ async function getCachedTrackUrl(url) {
             // 2. If it doesn't exist, download it natively
             console.log(`Downloading new track to native cache: ${url}`);
 
+            if (!navigator.onLine) {
+                console.log('Offline and not cached: Falling back to bundled track');
+                purrpleCatIdx = 0;
+                return 'assets/purrple-cat-birds-of-a-feather.mp3';
+            }
+
             try {
                 const Filesystem = Capacitor.Plugins.Filesystem;
                 const downloadResult = await Filesystem.downloadFile({
@@ -182,7 +199,8 @@ async function getCachedTrackUrl(url) {
                 return Capacitor.convertFileSrc(downloadResult.path);
             } catch (downloadErr) {
                 console.error('Failed to download audio natively:', downloadErr);
-                return url; // Fallback to streaming
+                purrpleCatIdx = 0;
+                return 'assets/purrple-cat-birds-of-a-feather.mp3';
             }
         }
     }
@@ -195,6 +213,12 @@ async function getCachedTrackUrl(url) {
         let response = await cache.match(url);
 
         if (!response) {
+            if (!navigator.onLine) {
+                console.log('Offline and not cached: Falling back to bundled track');
+                purrpleCatIdx = 0;
+                return 'assets/purrple-cat-birds-of-a-feather.mp3';
+            }
+
             console.log(`Caching new track: ${url}`);
             response = await fetch(url);
             await cache.put(url, response.clone());
@@ -206,7 +230,8 @@ async function getCachedTrackUrl(url) {
         return URL.createObjectURL(blob);
     } catch (e) {
         console.warn('Cache API error, falling back to remote URL:', e);
-        return url;
+        purrpleCatIdx = 0;
+        return 'assets/purrple-cat-birds-of-a-feather.mp3';
     }
 }
 
