@@ -5,8 +5,8 @@
   "license": "MIT",
   "scripts": {
     "build": "mkdir -p www && cp index.html *.js style.css www/ && cp -r assets vendor www/",
-    "ios": "npm run build && npx cap sync ios && cp GoogleService-Info.plist ios/App/App/GoogleService-Info.plist && npx cap open ios",
-    "android": "npm run build && npx cap sync android && cp google-services.json android/app/google-services.json && npx cap open android"
+    "ios": "npm run build && npx cap sync ios && (cp GoogleService-Info.plist ios/App/App/GoogleService-Info.plist || true) && npx cap open ios",
+    "android": "npm run build && npx cap sync android && (cp google-services.json android/app/google-services.json || true) && npx cap open android"
   },
   "dependencies": {
     "@capacitor-firebase/analytics": "^8.2.0",
