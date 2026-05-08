@@ -492,14 +492,17 @@ input[type=number].customization-input {
     transform: translateX(-50%);
     width: 90%;
     max-width: 500px;
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     z-index: 200;
     touch-action: none;
 }
 
 .mobile-btn {
-    flex: 1;
+    flex: 1 1 0%;
+    min-width: 0;
+    box-sizing: border-box;
     height: 60px;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
@@ -538,7 +541,9 @@ input[type=number].customization-input {
 
 .menu-container {
     position: relative;
-    flex: 1;
+    flex: 1 1 0%;
+    min-width: 0;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
