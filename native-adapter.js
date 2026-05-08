@@ -29,7 +29,7 @@
     }
 
     if (isTV()) {
-        console.log("TV Client 0.8.1 detected. Applying hider.");
+        console.log("TV Client 0.8.2 detected. Applying hider.");
         const style = document.createElement('style');
         style.id = 'tv-button-hider';
         style.innerHTML = `
