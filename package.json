@@ -20,5 +20,8 @@
     "@capacitor/ios": "^8.2.0",
     "@capacitor/status-bar": "^8.0.1",
     "firebase": "^12.12.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.1"
   }
 }
