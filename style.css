@@ -613,6 +613,12 @@ input[type=number].customization-input {
     transform: scale(0.95);
 }
 
+.sub-btn.active {
+    color: #FFD700;
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 215, 0, 0.5);
+}
+
 
 
 

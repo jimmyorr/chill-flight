@@ -2793,9 +2793,13 @@ function toggleAutopilot() {
     const msg = window.autopilotEnabled ? "AUTOPILOT ENABLED" : "AUTOPILOT DISABLED";
     console.log(msg);
 
-    const nameDisplay = document.getElementById('flight-status');
-    if (nameDisplay) {
-        nameDisplay.innerText = window.autopilotEnabled ? 'A U T O P I L O T' : 'C H I L L - F L I G H T';
+    const autoToggle = document.getElementById('mobile-auto-toggle');
+    if (autoToggle) {
+        if (window.autopilotEnabled) {
+            autoToggle.classList.add('active');
+        } else {
+            autoToggle.classList.remove('active');
+        }
     }
 
     const centerMsg = document.getElementById('debug-fps') || document.querySelector('.title');
@@ -3061,11 +3065,11 @@ window.addEventListener('keydown', (e) => {
         if (headlight.intensity === 0) {
             headlight.intensity = 2;
             headlightGlow.intensity = 0.1;
-            if (btnHdgt) btnHdgt.classList.add('active');
+            if (hdgtSub) hdgtSub.classList.add('active');
         } else {
             headlight.intensity = 0;
             headlightGlow.intensity = 0;
-            if (btnHdgt) btnHdgt.classList.remove('active');
+            if (hdgtSub) hdgtSub.classList.remove('active');
         }
     }
 
