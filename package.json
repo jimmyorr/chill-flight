@@ -19,6 +19,7 @@
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/ios": "^8.2.0",
     "@capacitor/status-bar": "^8.0.1",
+    "@tauri-apps/plugin-fs": "^2.5.1",
     "firebase": "^12.12.1"
   },
   "devDependencies": {
