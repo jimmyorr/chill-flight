@@ -214,6 +214,54 @@ async function getCachedTrackUrl(url) {
         }
     }
 
+    // -- NATIVE DESKTOP APP PATH (Tauri) --
+    if (window.__TAURI__ !== undefined) {
+        try {
+            const fs = window.__TAURI__.plugins.fs;
+            const BaseDirectory = window.__TAURI__.plugins.fs.BaseDirectory;
+
+            // 1. Check if file already exists in cache
+            const fileExists = await fs.exists(fileName, { baseDir: BaseDirectory.Cache });
+
+            if (fileExists) {
+                console.log(`Serving track from Tauri cache: ${fileName}`);
+                const fileData = await fs.readFile(fileName, { baseDir: BaseDirectory.Cache });
+                const blob = new Blob([fileData], { type: 'audio/mpeg' });
+                return URL.createObjectURL(blob);
+            } else {
+                throw new Error('Cache miss');
+            }
+
+        } catch (e) {
+            // 2. If it doesn't exist, download it
+            console.log(`Downloading new track to Tauri cache: ${url}`);
+
+            if (!navigator.onLine) {
+                console.log('Offline and not cached: Falling back to bundled track');
+                purrpleCatIdx = 0;
+                return 'assets/purrple-cat-birds-of-a-feather.mp3';
+            }
+
+            try {
+                const fs = window.__TAURI__.plugins.fs;
+                const BaseDirectory = window.__TAURI__.plugins.fs.BaseDirectory;
+                
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const fileData = new Uint8Array(arrayBuffer);
+
+                await fs.writeFile(fileName, fileData, { baseDir: BaseDirectory.Cache });
+
+                const blob = new Blob([fileData], { type: 'audio/mpeg' });
+                return URL.createObjectURL(blob);
+            } catch (downloadErr) {
+                console.error('Failed to download audio in Tauri:', downloadErr);
+                purrpleCatIdx = 0;
+                return 'assets/purrple-cat-birds-of-a-feather.mp3';
+            }
+        }
+    }
+
     // -- STANDARD WEB BROWSER PATH --
     if (!('caches' in window)) return url;
 
