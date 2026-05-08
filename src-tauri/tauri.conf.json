@@ -4,7 +4,7 @@
   "version": "0.8.1",
   "identifier": "com.cowneck.chillflight",
   "build": {
-    "frontendDist": "../",
+    "frontendDist": "../www",
     "devUrl": "http://localhost:3000"
   },
   "app": {
