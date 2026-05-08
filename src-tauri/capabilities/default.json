@@ -7,6 +7,8 @@
   ],
   "permissions": [
     "core:default",
-    "fs:default"
+    "fs:default",
+    "fs:allow-cache-write",
+    "fs:allow-cache-read"
   ]
 }

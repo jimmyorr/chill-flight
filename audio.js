@@ -217,8 +217,8 @@ async function getCachedTrackUrl(url) {
     // -- NATIVE DESKTOP APP PATH (Tauri) --
     if (window.__TAURI__ !== undefined) {
         try {
-            const fs = window.__TAURI__.plugins.fs;
-            const BaseDirectory = window.__TAURI__.plugins.fs.BaseDirectory;
+            const fs = window.__TAURI__.fs;
+            const BaseDirectory = window.__TAURI__.fs.BaseDirectory;
 
             // 1. Check if file already exists in cache
             const fileExists = await fs.exists(fileName, { baseDir: BaseDirectory.Cache });
@@ -243,8 +243,8 @@ async function getCachedTrackUrl(url) {
             }
 
             try {
-                const fs = window.__TAURI__.plugins.fs;
-                const BaseDirectory = window.__TAURI__.plugins.fs.BaseDirectory;
+                const fs = window.__TAURI__.fs;
+                const BaseDirectory = window.__TAURI__.fs.BaseDirectory;
                 
                 const response = await fetch(url);
                 const arrayBuffer = await response.arrayBuffer();
