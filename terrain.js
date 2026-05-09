@@ -17,6 +17,10 @@ const _enableBlockClouds = ChillFlightLogic.SHOW_CLOUDS;
 let _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
 let _volcanoElementsAdded = false;
 
+// Volcano center — single source of truth for all coloring and landmark placement
+const VOLCANO_X = -5000;
+const VOLCANO_Z =  5000;
+
 
 // Materials for terrain
 const terrainMaterial = createMaterial({
@@ -823,6 +827,10 @@ const lighthouseBeamMat = new THREE.MeshBasicMaterial({
     depthWrite: false
 });
 
+// --- VOLCANO ACTIVE ELEMENTS (pre-allocated, shared via ModelAssembler) ---
+const volcanoLavaGeo = new THREE.SphereGeometry(300, 16, 16);
+const volcanoLavaMat = new THREE.MeshBasicMaterial({ color: 0xFF4500 });
+
 // --- MODEL ASSEMBLER: SINGLE SOURCE OF TRUTH ---
 // This object defines how complex multi-part models are constructed.
 // Both terrain.js (during world gen) and debug.html (during preview) 
@@ -887,7 +895,7 @@ window.ModelAssembler = {
                 ];
             case 'volcano_active_elements':
                 return [
-                    { geo: new THREE.SphereGeometry(300, 16, 16), mat: new THREE.MeshBasicMaterial({ color: 0xFF4500 }), pos: [0, 890, 0], rot: [0, 0, 0] }
+                    { geo: volcanoLavaGeo, mat: volcanoLavaMat, pos: [0, 890, 0], rot: [0, 0, 0] }
                 ];
             default:
                 return null;
@@ -911,7 +919,6 @@ function getElevation(x, z) {
 const _colorPlains = new THREE.Color(0x7CB342);
 const _colorForest = new THREE.Color(0x388E3C);
 const _colorSnow = new THREE.Color(0xFFFFFF);
-const _colorDesert = new THREE.Color(0xE2725B);
 const _colorSand = new THREE.Color(0xE0E0A8);
 const _colorDesertSand = new THREE.Color(0xF4A460);
 const _colorWater = new THREE.Color(0x40C4FF);
@@ -929,6 +936,20 @@ const _colorAutumnForestTint = new THREE.Color(0x5D4037);
 const _colorAutumnPlainsTint = new THREE.Color(0x8D6E63);
 const _colorCherryForestTint = new THREE.Color(0xF8BBD0);
 const _colorCherryPlainsTint = new THREE.Color(0xFCE4EC);
+// Mottling & detail colors (promoted from hot loop to avoid per-vertex GC allocations)
+const _colorBlack           = new THREE.Color(0x000000);
+const _colorSandMottleHigh  = new THREE.Color(0xD2B48C);
+const _colorSandMottleLow   = new THREE.Color(0xDEB887);
+const _colorArizonaDark     = new THREE.Color(0x8B0000);
+const _colorDesertMottle    = new THREE.Color(0xDAA520);
+const _colorForestDark      = new THREE.Color(0x006400);
+const _colorForestDeep      = new THREE.Color(0x004d00);
+const _colorForestLight     = new THREE.Color(0x6B8E23);
+const _colorPlainsDark      = new THREE.Color(0x556B2F);
+const _colorPlainsBright    = new THREE.Color(0xBDB76B);
+const _colorCliffSouth      = new THREE.Color(0x8B3A3A);
+const _colorVolcanoBasaltHi = new THREE.Color(0x5C5C5C);
+const _colorVolcanoBasaltLo = new THREE.Color(0x3A3A3A);
 
 function generateChunk(chunkX, chunkZ) {
     const group = new THREE.Group();
@@ -1072,7 +1093,7 @@ function generateChunk(chunkX, chunkZ) {
                 } else {
                     _tempColorObj.copy(isForest ? _colorForest : _colorPlains);
                     // Apply subtle mottling for custom maps too
-                    _tempColorObj.lerp(new THREE.Color(0x000000), mottle * 0.1);
+                    _tempColorObj.lerp(_colorBlack, mottle * 0.1);
                 }
                 positions[i + 1] = finalHeight;
             } else {
@@ -1100,8 +1121,8 @@ function generateChunk(chunkX, chunkZ) {
                         if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
 
                         // Mottling for sand (adding some dark/light patches)
-                        if (!isCustom && mottle > 0.6) _tempColorObj.lerp(new THREE.Color(0xD2B48C), (mottle - 0.6) * 0.5);
-                        if (!isCustom && mottle < 0.4) _tempColorObj.lerp(new THREE.Color(0xDEB887), (0.4 - mottle) * 0.5);
+                        if (!isCustom && mottle > 0.6) _tempColorObj.lerp(_colorSandMottleHigh, (mottle - 0.6) * 0.5);
+                        if (!isCustom && mottle < 0.4) _tempColorObj.lerp(_colorSandMottleLow, (0.4 - mottle) * 0.5);
                     }
                 } else if (height > MOUNTAIN_LEVEL || (snowFactor > 0.5 && height > MOUNTAIN_LEVEL - 50)) {
                     // Massive sierra gets highly refined, patchy-to-solid snow OR Arizona desert rock
@@ -1121,7 +1142,7 @@ function generateChunk(chunkX, chunkZ) {
                                 _tempColorObj.setHex(0xC24B2B); // Reddish mountain rock
                                 if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
                                 // Arizona mottling: subtle dark red patches
-                                if (mottle > 0.7) _tempColorObj.lerp(new THREE.Color(0x8B0000), 0.2);
+                                if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.2);
                             } else {
                                 _tempColorObj.copy(desertFactor > 0.5 ? _colorMountainDesertTint : _colorMountainTint);
                             }
@@ -1134,22 +1155,22 @@ function generateChunk(chunkX, chunkZ) {
                             if (isSouth) {
                                 _tempColorObj.setHex(0xC24B2B);
                                 if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
-                                if (mottle > 0.7) _tempColorObj.lerp(new THREE.Color(0x8B0000), 0.2);
+                                if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.2);
                             } else {
                                 _tempColorObj.copy(desertFactor > 0.5 ? _colorMountainDesertTint : _colorMountainTint);
                             }
                         } else {
                             if (desertFactor > 0.3) {
                                 _tempColorObj.copy(_colorDesertSand);
-                                if (height > WATER_LEVEL + 5) _tempColorObj.lerp(new THREE.Color(0xD2B48C), 0.3);
+                                if (height > WATER_LEVEL + 5) _tempColorObj.lerp(_colorSandMottleHigh, 0.3);
                                 // Desert mottling
-                                _tempColorObj.lerp(new THREE.Color(0xDAA520), mottle * 0.2);
+                                _tempColorObj.lerp(_colorDesertMottle, mottle * 0.2);
                             } else if (snowFactor > 0.4) {
                                 _tempColorObj.copy(_colorForestSnowTint);
                             } else {
                                 _tempColorObj.copy(_colorForest);
                                 // Forest mottling: darker green patches
-                                if (!isCustom) _tempColorObj.lerp(new THREE.Color(0x006400), mottle * 0.3);
+                                if (!isCustom) _tempColorObj.lerp(_colorForestDark, mottle * 0.3);
                             }
                         }
                     }
@@ -1161,16 +1182,16 @@ function generateChunk(chunkX, chunkZ) {
                         if (desertFactor > 0) _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
 
                         // Mottling for Forest: Mix in some darker evergreens and lighter mossy patches
-                        _tempColorObj.lerp(new THREE.Color(0x004d00), mottle * 0.4);
-                        if (mottle < 0.3) _tempColorObj.lerp(new THREE.Color(0x6B8E23), 0.2);
+                        _tempColorObj.lerp(_colorForestDeep, mottle * 0.4);
+                        if (mottle < 0.3) _tempColorObj.lerp(_colorForestLight, 0.2);
                     } else {
                         _tempColorObj.copy(_colorPlains);
                         if (snowFactor > 0) _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
                         if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, desertFactor);
 
                         // Mottling for Plains: Dry grass vs lush grass
-                        _tempColorObj.lerp(new THREE.Color(0x556B2F), mottle * 0.4);
-                        if (mottle > 0.8) _tempColorObj.lerp(new THREE.Color(0xBDB76B), 0.3);
+                        _tempColorObj.lerp(_colorPlainsDark, mottle * 0.4);
+                        if (mottle > 0.8) _tempColorObj.lerp(_colorPlainsBright, 0.3);
                     }
                 }
             }
@@ -1303,7 +1324,7 @@ function generateChunk(chunkX, chunkZ) {
             if (slopeFactor > 0.45 && height > WATER_LEVEL + 5) {
                 const cliffBlend = Math.min(1, (slopeFactor - 0.45) * 5.0);
                 const isSouthBiome = !isCustom && desertFactor > 0.3;
-                const rockColor = isSouthBiome ? new THREE.Color(0x8B3A3A) : new THREE.Color(0x7F8C8D);
+                const rockColor = isSouthBiome ? _colorCliffSouth : _colorMountainTint;
                 _tempColorObj.lerp(rockColor, cliffBlend);
                 _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.15);
             } else if (slopeFactor > 0.1) {
@@ -1315,12 +1336,10 @@ function generateChunk(chunkX, chunkZ) {
             }
 
             // --- VOLCANO TEXTURING ---
-            const vX = -5000;
-            const vZ = 5000;
-            const distToVolcano = Math.sqrt((worldX - vX) ** 2 + (worldZ - vZ) ** 2);
+            const distToVolcano = Math.sqrt((worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2);
             if (distToVolcano < 2000) {
                 const vFactor = Math.max(0, Math.min(1, (2000 - distToVolcano) / 1000));
-                const basaltColor = new THREE.Color(0x5C5C5C).lerp(new THREE.Color(0x3A3A3A), height / 1400);
+                const basaltColor = _colorVolcanoBasaltHi.clone().lerp(_colorVolcanoBasaltLo, height / 1400);
                 _tempColorObj.lerp(basaltColor, vFactor);
             }
 
@@ -1335,8 +1354,8 @@ function generateChunk(chunkX, chunkZ) {
         // gets evicted while building, which would prevent these from ever being added.
         // Added directly to `scene` (not the chunk group) so they survive chunk reloads.
         {
-            const vX = -5000;
-            const vZ = 5000;
+            const vX = VOLCANO_X;
+            const vZ = VOLCANO_Z;
             const isVolcanoChunk =
                 Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 &&
                 Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2;
@@ -1984,7 +2003,7 @@ function generateChunk(chunkX, chunkZ) {
         // This ensures all clouds in a mountainous chunk rise consistently.
         const elevationBoost = Math.max(0, maxChunkHeight - 100) * 1.5;
 
-        // 3. Generate Clouds (Optimized InstancedMesh)
+        // 3b. Generate clouds (InstancedMesh)
         let totalCloudParts = 0;
         const cloudData = [];
 
