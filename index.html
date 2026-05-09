@@ -234,8 +234,8 @@
     </div>
 
     <div id="debug-menu">
-        <div style="margin-top: 10px; margin-bottom: 15px;">
-            <div style="margin-bottom: 5px;">Time speed:</div>
+        <div style="margin-top: 5px; margin-bottom: 10px;">
+            <div style="font-size: 11px; margin-bottom: 3px;">Time speed:</div>
             <button class="speed-btn" data-speed="-1" title="Reverse time">-1x</button>
             <button class="speed-btn" data-speed="0" title="Pause time">0x</button>
             <button class="speed-btn active" data-speed="1" title="Normal time">1x</button>
@@ -244,16 +244,24 @@
             <button class="speed-btn" data-speed="100" title="100x time speed">100x</button>
         </div>
 
-        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
-            <div style="margin-bottom: 5px;">Seed:</div>
-            <input type="number" id="seed-input" class="customization-input" placeholder="Seed"
-                style="width: 100%; padding: 4px 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 5px;">
+        <div style="margin-top: 5px; margin-bottom: 10px;">
+            <div style="font-size: 11px; margin-bottom: 3px; display: flex; justify-content: space-between;">
+                <span>Time of day:</span>
+                <span id="debug-time-val">12:00</span>
+            </div>
+            <input type="range" id="debug-time-slider" min="0" max="1" step="0.001" value="0.5" style="width: 100%; cursor: pointer;">
         </div>
 
-        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
-            <div style="margin-bottom: 5px;">Theme:</div>
+        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+            <div style="font-size: 11px; margin-bottom: 3px;">Seed:</div>
+            <input type="number" id="seed-input" class="customization-input" placeholder="Seed"
+                style="width: 100%; padding: 2px 4px; font-size: 12px; box-sizing: border-box; margin-bottom: 3px;">
+        </div>
+
+        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+            <div style="font-size: 11px; margin-bottom: 3px;">Theme:</div>
             <select id="theme-select" class="customization-input"
-                style="width: 100%; padding: 4px 8px; font-size: 16px;">
+                style="width: 100%; padding: 2px 4px; font-size: 12px;">
                 <option value="standard" selected>Standard</option>
                 <option value="toon">Toon</option>
                 <option value="basic">Basic (Flat)</option>
@@ -263,55 +271,55 @@
                 <option value="wireframe">Wireframe</option>
             </select>
         </div>
-        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
-            <div style="margin-bottom: 5px;">Force weather:</div>
+        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+            <div style="font-size: 11px; margin-bottom: 3px;">Force weather:</div>
             <select id="weather-select" class="customization-input"
-                style="width: 100%; padding: 4px 8px; font-size: 16px;">
+                style="width: 100%; padding: 2px 4px; font-size: 12px;">
                 <option value="auto" selected>Auto (Default)</option>
                 <option value="none">None</option>
                 <option value="snow">Snow</option>
                 <option value="rain">Rain</option>
             </select>
         </div>
-        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
-            <div style="margin-bottom: 5px; font-weight: bold; font-size: 11px; opacity: 0.7;">SKY COLORS:</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+            <div style="font-size: 10px; margin-bottom: 3px; font-weight: bold; opacity: 0.7;">SKY COLORS:</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
                 <div>
-                    <div style="font-size: 10px; opacity: 0.6; margin-bottom: 2px;">Zenith</div>
+                    <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px;">Zenith</div>
                     <input type="color" id="sky-zenith-picker"
-                        style="width: 100%; height: 24px; cursor: pointer; border: none; background: none; padding: 0;">
+                        style="width: 100%; height: 16px; cursor: pointer; border: none; background: none; padding: 0;">
                 </div>
                 <div>
-                    <div style="font-size: 10px; opacity: 0.6; margin-bottom: 2px;">Horizon</div>
+                    <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px;">Horizon</div>
                     <input type="color" id="sky-horizon-picker"
-                        style="width: 100%; height: 24px; cursor: pointer; border: none; background: none; padding: 0;">
+                        style="width: 100%; height: 16px; cursor: pointer; border: none; background: none; padding: 0;">
                 </div>
             </div>
         </div>
-        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
             <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="font-size: 13px;">Procedural objects:</div>
+                <div style="font-size: 11px;">Procedural objects:</div>
                 <input type="checkbox" id="debug-objects-toggle" checked
-                    style="width: 18px; height: 18px; cursor: pointer;">
+                    style="width: 14px; height: 14px; cursor: pointer;">
             </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-                <div style="font-size: 13px; color: #ffeb3b;">Free camera:</div>
-                <input type="checkbox" id="debug-free-cam-toggle" style="width: 18px; height: 18px; cursor: pointer;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+                <div style="font-size: 11px; color: #ffeb3b;">Free camera:</div>
+                <input type="checkbox" id="debug-free-cam-toggle" style="width: 14px; height: 14px; cursor: pointer;">
             </div>
-            <div style="margin-top: 8px;">
-                <div style="font-size: 13px; margin-bottom: 4px; display: flex; justify-content: space-between;">
+            <div style="margin-top: 4px;">
+                <div style="font-size: 11px; margin-bottom: 2px; display: flex; justify-content: space-between;">
                     <span>Base fog:</span>
                     <span id="debug-base-fog-val">0.00005</span>
                 </div>
                 <input type="range" id="debug-fog-slider" min="0" max="0.0005" step="0.000005" value="0.00005" style="width: 100%; cursor: pointer;">
-                <div style="font-size: 11px; opacity: 0.6; margin-top: 2px; display: flex; justify-content: space-between;">
+                <div style="font-size: 9px; opacity: 0.6; margin-top: 1px; display: flex; justify-content: space-between;">
                     <span>Final fog:</span>
                     <span id="debug-final-fog-val">0.00005</span>
                 </div>
             </div>
         </div>
-        <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-            <div style="font-size: 11px; font-family: monospace; opacity: 0.5;">Palette: <span
+        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+            <div style="font-size: 10px; font-family: monospace; opacity: 0.5;">Palette: <span
                     id="debug-palette">None</span></div>
         </div>
     </div>

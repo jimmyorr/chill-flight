@@ -1286,6 +1286,25 @@ function animate() {
 
     currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(secondsInCycle, currentLatRad);
     timeOfDay = currentWarpedProgress * Math.PI * 2;
+    
+    if (window.manualTimeOfDay !== undefined) {
+        timeOfDay = window.manualTimeOfDay * Math.PI * 2;
+        currentWarpedProgress = window.manualTimeOfDay;
+    }
+    
+    // Update slider UI if not manual
+    const timeSlider = document.getElementById('debug-time-slider');
+    const timeSliderVal = document.getElementById('debug-time-val');
+    if (timeSlider && window.manualTimeOfDay === undefined) {
+        timeSlider.value = currentWarpedProgress;
+        if (timeSliderVal) {
+            const hours = currentWarpedProgress * 24;
+            const hh = Math.floor(hours).toString().padStart(2, '0');
+            const mm = Math.floor((hours % 1) * 60).toString().padStart(2, '0');
+            timeSliderVal.textContent = `${hh}:${mm}`;
+        }
+    }
+    
     window._gameServerNow = passedServerNow;
 
     // Check and update the sky palette if it's a new cycle
@@ -3279,6 +3298,21 @@ document.querySelectorAll('.speed-btn').forEach(btn => {
         daySpeedMultiplier = parseFloat(e.target.getAttribute('data-speed'));
     });
 });
+
+// Time of day slider
+const timeSlider = document.getElementById('debug-time-slider');
+const timeSliderVal = document.getElementById('debug-time-val');
+if (timeSlider) {
+    timeSlider.addEventListener('input', (e) => {
+        window.manualTimeOfDay = parseFloat(e.target.value);
+        if (timeSliderVal) {
+            const hours = window.manualTimeOfDay * 24;
+            const hh = Math.floor(hours).toString().padStart(2, '0');
+            const mm = Math.floor((hours % 1) * 60).toString().padStart(2, '0');
+            timeSliderVal.textContent = `${hh}:${mm}`;
+        }
+    });
+}
 
 // --- DISMISS LOADING SCREEN ---
 const overlay = document.getElementById('loading-overlay');
