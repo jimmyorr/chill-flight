@@ -724,6 +724,20 @@ if (objectsToggle) {
     });
 }
 
+// Free Camera toggle
+let isFreeCamera = false;
+const freeCamToggle = document.getElementById('debug-free-cam-toggle');
+if (freeCamToggle) {
+    freeCamToggle.addEventListener('change', (e) => {
+        isFreeCamera = e.target.checked;
+        if (isFreeCamera) {
+            camera.rotation.order = 'YXZ'; // Better for fly-cam
+        } else {
+            camera.rotation.order = 'XYZ'; // Reset to default
+        }
+    });
+}
+
 // --- MOBILE UI ADJUSTMENTS ---
 if (window.innerWidth <= 1024) {
     const cockpitUI = document.getElementById('cockpit-ui');
@@ -1079,6 +1093,8 @@ const _idealLookTarget_Follow = new THREE.Vector3();
 const _idealLookTarget_TopDown = new THREE.Vector3();
 const _up_Follow = new THREE.Vector3();
 const _up_TopDown = new THREE.Vector3();
+const _freeCamFwd = new THREE.Vector3();
+const _freeCamSide = new THREE.Vector3();
 let lastPlayerListUpdate = 0;
 const _dirArrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
 
@@ -1358,7 +1374,7 @@ function animate() {
     }
 
     // Spin the propellers/rotors
-    if (Math.abs(flightSpeedMultiplier) > 0.001) {
+    if (!isFreeCamera && Math.abs(flightSpeedMultiplier) > 0.001) {
         const baseSpin = 15 * Math.abs(flightSpeedMultiplier);
         if (vehicleType === 'airplane') {
             const spin = Math.max(4, Math.min(25, baseSpin));
@@ -1384,7 +1400,7 @@ function animate() {
     }
 
     // Buggy front wheel steering
-    if (vehicleType === 'buggy' && window.buggyWheels && window.buggyWheels.length >= 2) {
+    if (!isFreeCamera && vehicleType === 'buggy' && window.buggyWheels && window.buggyWheels.length >= 2) {
         let targetSteer = 0;
         if (!keys.Shift) {
             if (keys.ArrowLeft) targetSteer = Math.PI / 6;
@@ -1395,7 +1411,7 @@ function animate() {
     }
 
     // Animate pontoons
-    if (isDeployingPontoons && !isRetractingPontoons && pontoonDeploymentProgress < 1) {
+    if (!isFreeCamera && isDeployingPontoons && !isRetractingPontoons && pontoonDeploymentProgress < 1) {
         pontoonDeploymentProgress += delta * 0.5;
         if (pontoonDeploymentProgress > 1) pontoonDeploymentProgress = 1;
         const t = pontoonDeploymentProgress;
@@ -1413,7 +1429,7 @@ function animate() {
         hingeRB.rotation.z = rightRotAngle;
         pontoonL.position.y = -0.5 - (4.0 * easeOut);
         pontoonR.position.y = -0.5 - (4.0 * easeOut);
-    } else if (isRetractingPontoons && pontoonDeploymentProgress > 0) {
+    } else if (!isFreeCamera && isRetractingPontoons && pontoonDeploymentProgress > 0) {
         pontoonDeploymentProgress -= delta * 0.4;
         if (pontoonDeploymentProgress < 0) {
             pontoonDeploymentProgress = 0;
@@ -1441,18 +1457,23 @@ function animate() {
     // Plane rotation control
     const maxPitch = Math.PI / 4;
     const maxRoll = Math.PI / 3;
-    let effMouseX = (mouseControlActive && Math.abs(mouseX) >= 0.15) ? mouseX : 0;
-    let effMouseY = (mouseControlActive && Math.abs(mouseY) >= 0.15) ? mouseY : 0;
+    let effMouseX = (mouseControlActive && !isFreeCamera && Math.abs(mouseX) >= 0.15) ? mouseX : 0;
+    let effMouseY = (mouseControlActive && !isFreeCamera && Math.abs(mouseY) >= 0.15) ? mouseY : 0;
 
     const nowTime = performance.now();
 
     // Logical inputs based on Y-axis inversion
-    const isUp = invertYAxis ? keys.ArrowDown : keys.ArrowUp;
-    const isDown = invertYAxis ? keys.ArrowUp : keys.ArrowDown;
-    const dtUp = invertYAxis ? doubleTap.ArrowDown : doubleTap.ArrowUp;
-    const dtDown = invertYAxis ? doubleTap.ArrowUp : doubleTap.ArrowDown;
+    const isUp = (invertYAxis ? keys.ArrowDown : keys.ArrowUp) && !isFreeCamera;
+    const isDown = (invertYAxis ? keys.ArrowUp : keys.ArrowDown) && !isFreeCamera;
+    const dtUp = (invertYAxis ? doubleTap.ArrowDown : doubleTap.ArrowUp) && !isFreeCamera;
+    const dtDown = (invertYAxis ? doubleTap.ArrowUp : doubleTap.ArrowDown) && !isFreeCamera;
     const startUp = invertYAxis ? keyPressStartTime.ArrowDown : keyPressStartTime.ArrowUp;
     const startDown = invertYAxis ? keyPressStartTime.ArrowUp : keyPressStartTime.ArrowDown;
+
+    const isLeft = keys.ArrowLeft && !isFreeCamera;
+    const isRight = keys.ArrowRight && !isFreeCamera;
+    const dtLeft = doubleTap.ArrowLeft && !isFreeCamera;
+    const dtRight = doubleTap.ArrowRight && !isFreeCamera;
 
     // Shift+Up/Down: throttle control (For boat, it is just Up/Down)
     if ((keys.Shift && vehicleType !== 'helicopter') || vehicleType === 'boat' || vehicleType === 'buggy') {
@@ -1493,7 +1514,7 @@ function animate() {
         }
     }
 
-    if (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0) {
+    if (!isFreeCamera && (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0)) {
         let yMultiplier = invertYAxis ? -1 : 1;
 
         if (vehicleType === 'boat' || vehicleType === 'buggy') {
@@ -1529,7 +1550,7 @@ function animate() {
                 targetPitch = (-5 * Math.PI / 180) * ramp;
             }
         }
-    } else {
+    } else if (!isFreeCamera) {
         targetPitch = 0;
         targetRoll = 0;
     }
@@ -1540,7 +1561,7 @@ function animate() {
     const manualRollSpeed = 4.0;
     const manualLoopSpeed = 2.5;
 
-    if (window.autopilotEnabled && flightSpeedMultiplier > 0) {
+    if (!isFreeCamera && window.autopilotEnabled && flightSpeedMultiplier > 0) {
         // 1. Maintain cruising speed (150 kts = 1.0 multiplier)
         targetFlightSpeed = 1.0;
 
@@ -1606,7 +1627,7 @@ function animate() {
         isLooping = false;
         isBarrelRolling = false;
         isClampedRoll = false;
-    } else if (flightSpeedMultiplier > 0) {
+    } else if (!isFreeCamera && flightSpeedMultiplier > 0) {
         if (vehicleType !== 'helicopter' && vehicleType !== 'boat') {
             if (isUp && dtUp && (nowTime - startUp > STEER_HOLD_THRESHOLD) && !keys.Shift) {
                 // Double-tap up and hold: loop (Direct rotation, no trim pollution)
@@ -1620,7 +1641,7 @@ function animate() {
             }
         }
 
-        if (keys.ArrowLeft) {
+        if (isLeft) {
             if (vehicleType === 'helicopter') {
                 if (!keys.Shift) planeGroup.rotation.y += 1.5 * delta;
                 const maxRoll = Math.PI / 12; // visual bank
@@ -1635,7 +1656,7 @@ function animate() {
                     planeGroup.rotation.z = Math.min(maxRoll, planeGroup.rotation.z + manualRollSpeed * 0.5 * delta);
                     isClampedRoll = true;
                     isBarrelRolling = true;
-                } else if (doubleTap.ArrowLeft) {
+                } else if (dtLeft) {
                     // Double-tap: full barrel roll
                     planeGroup.rotation.z += manualRollSpeed * delta;
                     isBarrelRolling = true;
@@ -1647,7 +1668,7 @@ function animate() {
                     isBarrelRolling = true;
                 }
             }
-        } else if (keys.ArrowRight) {
+        } else if (isRight) {
             if (vehicleType === 'helicopter') {
                 if (!keys.Shift) planeGroup.rotation.y -= 1.5 * delta;
                 const maxRoll = -Math.PI / 12; // visual bank
@@ -1662,7 +1683,7 @@ function animate() {
                     planeGroup.rotation.z = Math.max(-maxRoll, planeGroup.rotation.z - manualRollSpeed * 0.5 * delta);
                     isClampedRoll = true;
                     isBarrelRolling = true;
-                } else if (doubleTap.ArrowRight) {
+                } else if (dtRight) {
                     // Double-tap: full barrel roll
                     planeGroup.rotation.z -= manualRollSpeed * delta;
                     isBarrelRolling = true;
@@ -1677,13 +1698,13 @@ function animate() {
         }
     }
 
-    if (!isLooping) {
+    if (!isLooping && !isFreeCamera) {
         const finalTargetPitch = targetPitch + manualPitch;
         while (planeGroup.rotation.x > finalTargetPitch + Math.PI) planeGroup.rotation.x -= 2 * Math.PI;
         while (planeGroup.rotation.x < finalTargetPitch - Math.PI) planeGroup.rotation.x += 2 * Math.PI;
         planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, finalTargetPitch, 1 - Math.pow(1 - TURN_SPEED, delta * 60));
     }
-    if (!isBarrelRolling) {
+    if (!isBarrelRolling && !isFreeCamera) {
         while (planeGroup.rotation.z > targetRoll + Math.PI) planeGroup.rotation.z -= 2 * Math.PI;
         while (planeGroup.rotation.z < targetRoll - Math.PI) planeGroup.rotation.z += 2 * Math.PI;
         planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, targetRoll, 1 - Math.pow(1 - TURN_SPEED, delta * 60));
@@ -1693,7 +1714,7 @@ function animate() {
     const terrainHeight = getElevation(planeGroup.position.x, planeGroup.position.z);
     let isWater = terrainHeight <= WATER_LEVEL + (vehicleType === 'boat' ? 0.3 : 0.1);
 
-    if (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0) {
+    if (!isFreeCamera && (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0)) {
         let turningRoll = (isBarrelRolling && !isClampedRoll) ? targetRoll : planeGroup.rotation.z;
         const turnFactor = vehicleType === 'boat' ? 0.08 : 0.025; // Boat turns sharper since it banks less
         planeGroup.rotation.y += turningRoll * turnFactor * delta * 60;
@@ -1789,7 +1810,7 @@ function animate() {
     }
 
     // Apply forward/backward movement for non-helicopter vehicles
-    if (vehicleType !== 'helicopter' && Math.abs(moveSpeedFactor) > 0) {
+    if (!isFreeCamera && vehicleType !== 'helicopter' && Math.abs(moveSpeedFactor) > 0) {
         let canMove = true;
         if (vehicleType === 'boat' && !isWater && !isFreefalling) canMove = false;
         
@@ -1809,8 +1830,8 @@ function animate() {
             }
         }
     } else if (vehicleType === 'helicopter') {
-        const isUpAlt = keys.Plus || (keys.Shift && (invertYAxis ? keys.ArrowDown : keys.ArrowUp));
-        const isDownAlt = keys.Minus || (keys.Shift && (invertYAxis ? keys.ArrowUp : keys.ArrowDown));
+        const isUpAlt = (keys.Plus || (keys.Shift && (invertYAxis ? keys.ArrowDown : keys.ArrowUp))) && !isFreeCamera;
+        const isDownAlt = (keys.Minus || (keys.Shift && (invertYAxis ? keys.ArrowUp : keys.ArrowDown))) && !isFreeCamera;
 
         let targetLiftSpeed = 0;
         if (isUpAlt) targetLiftSpeed = 80;
@@ -1818,15 +1839,15 @@ function animate() {
 
         verticalVelocity = THREE.MathUtils.lerp(verticalVelocity, targetLiftSpeed, 0.05 * delta * 60);
 
-        if (Math.abs(verticalVelocity) > 0.1) {
+        if (!isFreeCamera && Math.abs(verticalVelocity) > 0.1) {
             planeGroup.position.y += verticalVelocity * delta;
         }
 
-        const moveUp = !keys.Shift && (invertYAxis ? keys.ArrowDown : keys.ArrowUp);
-        const moveDown = !keys.Shift && (invertYAxis ? keys.ArrowUp : keys.ArrowDown);
+        const moveUp = !keys.Shift && isUp;
+        const moveDown = !keys.Shift && isDown;
 
-        const strafeLeft = keys.Shift && keys.ArrowLeft;
-        const strafeRight = keys.Shift && keys.ArrowRight;
+        const strafeLeft = keys.Shift && isLeft;
+        const strafeRight = keys.Shift && isRight;
 
         let targetHeliMove = 0;
         if (moveUp) targetHeliMove = 1.0;
@@ -1839,7 +1860,7 @@ function animate() {
         window._heliMoveSpeed = THREE.MathUtils.lerp(window._heliMoveSpeed || 0, targetHeliMove, 0.05 * delta * 60);
         window._heliStrafeSpeed = THREE.MathUtils.lerp(window._heliStrafeSpeed || 0, targetHeliStrafe, 0.05 * delta * 60);
 
-        if (Math.abs(window._heliMoveSpeed) > 0.01 || Math.abs(window._heliStrafeSpeed) > 0.01) {
+        if (!isFreeCamera && (Math.abs(window._heliMoveSpeed) > 0.01 || Math.abs(window._heliStrafeSpeed) > 0.01)) {
             const savedX = planeGroup.rotation.x;
             const savedZ = planeGroup.rotation.z;
             planeGroup.rotation.x = 0;
@@ -1860,7 +1881,7 @@ function animate() {
         }
     }
 
-    if (isFreefalling) {
+    if (!isFreeCamera && isFreefalling) {
         // Freefall tumble & accelerating gravity
         const GRAVITY = 120; // units/sec² — feels weighty but not instant
         verticalVelocity -= GRAVITY * delta;
@@ -1880,7 +1901,7 @@ function animate() {
         }
 
         // Forward movement is now handled by the consolidated block above
-    } else if (planeGroup.position.y <= restingHeight + 0.1) {
+    } else if (!isFreeCamera && planeGroup.position.y <= restingHeight + 0.1) {
         // Grounded — rest flat peacefully, kill vertical velocity
         verticalVelocity = 0;
         targetPitch = 0;
@@ -2015,14 +2036,50 @@ function animate() {
     }
 
     // --- CAMERA UPDATES ---
-    const transitionDuration = 1.25; // Seconds for full swoop
-    const isBirdEye = cameraMode === 'birds-eye-close' || cameraMode === 'birds-eye-far';
-
-    if (isBirdEye) {
-        cameraTransitionProgress = Math.min(1, cameraTransitionProgress + delta / transitionDuration);
-    } else {
-        cameraTransitionProgress = Math.max(0, cameraTransitionProgress - delta / transitionDuration);
+    // Sync free camera with debug menu visibility
+    if (!isDebugMode && isFreeCamera) {
+        isFreeCamera = false;
+        const freeCamToggle = document.getElementById('debug-free-cam-toggle');
+        if (freeCamToggle) freeCamToggle.checked = false;
+        camera.rotation.order = 'XYZ';
     }
+
+    if (isFreeCamera && isDebugMode) {
+        // Free movement logic
+        const moveSpeed = (keys.Shift ? 1000 : 250) * delta;
+        const rotateSpeed = 0.04;
+
+        // Rotation from Mouse (respecting invertYAxis)
+        camera.rotation.y -= mouseX * rotateSpeed;
+        camera.rotation.x += mouseY * rotateSpeed * (invertYAxis ? -1 : 1);
+        camera.rotation.z = 0;
+
+        // Translation
+        _freeCamFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+        _freeCamSide.set(1, 0, 0).applyQuaternion(camera.quaternion);
+
+        if (keys.ArrowUp) camera.position.addScaledVector(_freeCamFwd, moveSpeed);
+        if (keys.ArrowDown) camera.position.addScaledVector(_freeCamFwd, -moveSpeed);
+        if (keys.ArrowLeft) camera.position.addScaledVector(_freeCamSide, -moveSpeed);
+        if (keys.ArrowRight) camera.position.addScaledVector(_freeCamSide, moveSpeed);
+        if (keys.E) camera.position.y += moveSpeed;
+        if (keys.Q) camera.position.y -= moveSpeed;
+
+        // Still update chunks based on camera position
+        if (camera.position.distanceToSquared(_lastChunkUpdatePos) > 10000) {
+            updateChunks();
+            _lastChunkUpdatePos.copy(camera.position);
+        }
+
+    } else {
+        const transitionDuration = 1.25; // Seconds for full swoop
+        const isBirdEye = cameraMode === 'birds-eye-close' || cameraMode === 'birds-eye-far';
+
+        if (isBirdEye) {
+            cameraTransitionProgress = Math.min(1, cameraTransitionProgress + delta / transitionDuration);
+        } else {
+            cameraTransitionProgress = Math.max(0, cameraTransitionProgress - delta / transitionDuration);
+        }
 
     // Smoothly transition between different bird's eye heights
     let targetBirdEyeHeight = 2000;
@@ -2137,10 +2194,11 @@ function animate() {
 
     camera.lookAt(_currentLookTarget);
 
-    // Update terrain chunks (only if the plane has moved ~50 units)
-    if (planeGroup.position.distanceToSquared(_lastChunkUpdatePos) > 2500) {
-        updateChunks();
-        _lastChunkUpdatePos.copy(planeGroup.position);
+        // Update terrain chunks (only if the plane has moved ~50 units)
+        if (planeGroup.position.distanceToSquared(_lastChunkUpdatePos) > 2500) {
+            updateChunks();
+            _lastChunkUpdatePos.copy(planeGroup.position);
+        }
     }
 
     // Celestial positions
@@ -2764,7 +2822,7 @@ function updatePlayerList() {
 window.onload = animate;
 
 // --- KEY STATE ---
-const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, Shift: false, Plus: false, Minus: false };
+const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, Shift: false, Plus: false, Minus: false, Q: false, E: false };
 
 // Double-tap detection for barrel roll and loops
 const lastArrowTap = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
@@ -3057,6 +3115,8 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Shift') keys.Shift = true;
     if (e.key === '+' || e.key === '=') keys.Plus = true;
     if (e.key === '-' || e.key === '_') keys.Minus = true;
+    if (key === 'q') keys.Q = true;
+    if (key === 'e') keys.E = true;
 
     if ((e.key === 'l' || e.key === 'L') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (headlight.intensity === 0) {
@@ -3162,6 +3222,8 @@ window.addEventListener('keyup', (e) => {
     if (e.key === 'Shift') keys.Shift = false;
     if (e.key === '+' || e.key === '=') keys.Plus = false;
     if (e.key === '-' || e.key === '_') keys.Minus = false;
+    if (key === 'q') keys.Q = false;
+    if (key === 'e') keys.E = false;
 });
 
 window.addEventListener('blur', () => {
