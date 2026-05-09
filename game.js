@@ -2512,7 +2512,7 @@ function animate() {
     scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
 
     // If it's actively raining or snowing, the fog should be much thicker to obscure the horizon
-    let baseFogDensity = 1.2 / (RENDER_DISTANCE * CHUNK_SIZE);
+    let baseFogDensity = 0.75 / (RENDER_DISTANCE * CHUNK_SIZE);
     if (window.manualBaseFogDensity !== undefined) {
         baseFogDensity = window.manualBaseFogDensity;
     }
