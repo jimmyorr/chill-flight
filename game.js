@@ -724,6 +724,14 @@ if (objectsToggle) {
     });
 }
 
+// Fog toggle
+const fogToggle = document.getElementById('debug-fog-toggle');
+if (fogToggle) {
+    fogToggle.addEventListener('change', (e) => {
+        window.fogEnabled = e.target.checked;
+    });
+}
+
 // Free Camera toggle
 let isFreeCamera = false;
 const freeCamToggle = document.getElementById('debug-free-cam-toggle');
@@ -2504,7 +2512,8 @@ function animate() {
     // If it's actively raining or snowing, the fog should be much thicker to obscure the horizon
     const baseFogDensity = 1.2 / (RENDER_DISTANCE * CHUNK_SIZE);
     const maxFogDensity = Math.max(baseFogDensity, precipIntensity > 0 ? 0.00025 : 0.0002);
-    scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, THREE.MathUtils.lerp(baseFogDensity, maxFogDensity, overcast), 1 - Math.pow(1 - 0.01, delta * 60));
+    const targetFogDensity = (window.fogEnabled === false) ? 0 : THREE.MathUtils.lerp(baseFogDensity, maxFogDensity, overcast);
+    scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, targetFogDensity, 1 - Math.pow(1 - 0.01, delta * 60));
 
     // Update Sky Shader Colors
     if (!isCustomPalette) {
