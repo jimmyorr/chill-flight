@@ -886,8 +886,7 @@ window.ModelAssembler = {
                 ];
             case 'volcano_active_elements':
                 return [
-                    { geo: new THREE.CircleGeometry(100, 16), mat: createMaterial({ color: 0xFF4500, emissive: 0xFF4500, emissiveIntensity: 2.0 }), pos: [0, 850, 0], rot: [-Math.PI/2, 0, 0] },
-                    { geo: fireCoreGeo, mat: fireMat, pos: [0, 850, 0], scale: [20, 10, 20] } // Extra glow core
+                    { geo: new THREE.SphereGeometry(300, 16, 16), mat: new THREE.MeshBasicMaterial({ color: 0xFF4500 }), pos: [0, 890, 0], rot: [0, 0, 0] }
                 ];
             default:
                 return null;
@@ -1937,37 +1936,31 @@ function generateChunk(chunkX, chunkZ) {
         // 2.99 Volcano Landmark Details
         const vX = -5000;
         const vZ = 5000;
-        // Only generate volcano elements in the chunk that contains the center
-        if (Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 && Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2) {
+        // Only generate volcano elements in the specific chunk containing (-5000, 5000)
+        if (chunkX === -3 && chunkZ === 3) {
             
             // Lava and Glow
             const vElements = ModelAssembler.getStructure('volcano_active_elements');
             vElements.forEach(part => {
                 const mesh = new THREE.Mesh(part.geo, part.mat);
-                // Position at absolute world coordinates since objectsGroup is at (0,0,0)
+                // Position at absolute world coordinates
                 mesh.position.set(vX + part.pos[0], part.pos[1], vZ + part.pos[2]);
                 mesh.rotation.set(...part.rot);
                 if (part.scale) mesh.scale.set(...part.scale);
-                objectsGroup.add(mesh);
+                group.add(mesh); // Add directly to group to bypass objects toggle
             });
 
-            // Point Light
-            const pLight = new THREE.PointLight(0xFFAA00, 15, 800);
-            pLight.position.set(vX, 900, vZ);
-            objectsGroup.add(pLight);
+            // Spot Light pointing up to create a shaft of light
+            const sLight = new THREE.SpotLight(0xFF4500, 30.0, 3000, Math.PI / 6, 0.5, 1);
+            sLight.position.set(vX, 880, vZ);
+            
+            const sTarget = new THREE.Object3D();
+            sTarget.position.set(vX, 2000, vZ); // Pointing straight up
+            group.add(sTarget);
+            
+            sLight.target = sTarget;
+            group.add(sLight);
 
-            // Large Smoke Plume
-            const vSmokeInst = new THREE.InstancedMesh(smokeGeo, smokeMat, 15);
-            for (let i = 0; i < 15; i++) {
-                dummy.position.set(vX + (rng() - 0.5) * 40, 900, vZ + (rng() - 0.5) * 40);
-                dummy.scale.set(15, 15, 15); // Large smoke
-                dummy.updateMatrix();
-                vSmokeInst.setMatrixAt(i, dummy.matrix);
-                vSmokeInst.setColorAt(i, new THREE.Color(i / 15.0, rng(), 0));
-            }
-            vSmokeInst.position.set(0, 0, 0);
-            objectsGroup.add(vSmokeInst);
-            group.userData.volcanoSmoke = vSmokeInst;
         }
 
         // 3. Generate Clouds
