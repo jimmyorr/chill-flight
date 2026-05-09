@@ -884,6 +884,11 @@ window.ModelAssembler = {
                     { geo: boatMastGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
                     { geo: boatSailGeo, mat: boatSailMat, pos: [0, 0, 0], rot: [0, rotY, 0] }
                 ];
+            case 'volcano_active_elements':
+                return [
+                    { geo: new THREE.CircleGeometry(100, 16), mat: createMaterial({ color: 0xFF4500, emissive: 0xFF4500, emissiveIntensity: 2.0 }), pos: [0, 850, 0], rot: [-Math.PI/2, 0, 0] },
+                    { geo: fireCoreGeo, mat: fireMat, pos: [0, 850, 0], scale: [20, 10, 20] } // Extra glow core
+                ];
             default:
                 return null;
         }
@@ -1308,6 +1313,17 @@ function generateChunk(chunkX, chunkZ) {
             if (!isCustom) {
                 _tempColorObj.multiplyScalar(1.0 + grain);
             }
+
+            // --- VOLCANO TEXTURING ---
+            const vX = -5000;
+            const vZ = 5000;
+            const distToVolcano = Math.sqrt((worldX - vX) ** 2 + (worldZ - vZ) ** 2);
+            if (distToVolcano < 2000) {
+                const vFactor = Math.max(0, Math.min(1, (2000 - distToVolcano) / 1000));
+                const basaltColor = new THREE.Color(0x5C5C5C).lerp(new THREE.Color(0x3A3A3A), height / 1400);
+                _tempColorObj.lerp(basaltColor, vFactor);
+            }
+
             colors.push(_tempColorObj.r, _tempColorObj.g, _tempColorObj.b);
         }
 
@@ -1916,6 +1932,42 @@ function generateChunk(chunkX, chunkZ) {
             objectsGroup.add(hullInst);
             objectsGroup.add(mastInst);
             objectsGroup.add(sailInst);
+        }
+
+        // 2.99 Volcano Landmark Details
+        const vX = -5000;
+        const vZ = 5000;
+        // Only generate volcano elements in the chunk that contains the center
+        if (Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 && Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2) {
+            
+            // Lava and Glow
+            const vElements = ModelAssembler.getStructure('volcano_active_elements');
+            vElements.forEach(part => {
+                const mesh = new THREE.Mesh(part.geo, part.mat);
+                // Position at absolute world coordinates since objectsGroup is at (0,0,0)
+                mesh.position.set(vX + part.pos[0], part.pos[1], vZ + part.pos[2]);
+                mesh.rotation.set(...part.rot);
+                if (part.scale) mesh.scale.set(...part.scale);
+                objectsGroup.add(mesh);
+            });
+
+            // Point Light
+            const pLight = new THREE.PointLight(0xFFAA00, 15, 800);
+            pLight.position.set(vX, 900, vZ);
+            objectsGroup.add(pLight);
+
+            // Large Smoke Plume
+            const vSmokeInst = new THREE.InstancedMesh(smokeGeo, smokeMat, 15);
+            for (let i = 0; i < 15; i++) {
+                dummy.position.set(vX + (rng() - 0.5) * 40, 900, vZ + (rng() - 0.5) * 40);
+                dummy.scale.set(15, 15, 15); // Large smoke
+                dummy.updateMatrix();
+                vSmokeInst.setMatrixAt(i, dummy.matrix);
+                vSmokeInst.setColorAt(i, new THREE.Color(i / 15.0, rng(), 0));
+            }
+            vSmokeInst.position.set(0, 0, 0);
+            objectsGroup.add(vSmokeInst);
+            group.userData.volcanoSmoke = vSmokeInst;
         }
 
         // 3. Generate Clouds

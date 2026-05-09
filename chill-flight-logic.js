@@ -486,6 +486,44 @@
             }
         }
 
+        // --- VOLCANO INJECTION (Volcano at 1W, 1S) ---
+        const vX = -5000;
+        const vZ = 5000;
+        const dxV = x - vX;
+        const dzV = z - vZ;
+        const distSqV = dxV * dxV + dzV * dzV;
+        const vRadius = 1200; // Increased radius for check area
+
+        if (distSqV < vRadius * vRadius * 4) { // Check wide area
+            const distV = Math.sqrt(distSqV);
+            
+            // Add noise to the distance to make the shape irregular (domain warping)
+            const warpNoise = simplex.noise2D(x * 0.0005, z * 0.0005) * 200;
+            const warpedDistSq = Math.pow(distV + warpNoise, 2);
+
+            // Main Peak (Gaussian) - Wider base (sigma = 700 instead of 500)
+            let vHeight = 1400 * Math.exp(-warpedDistSq / (2 * 700 * 700));
+
+            // Add ridged noise for the gullies/ridges on the sides
+            // Based on angle from center to create vertical ridges
+            const angle = Math.atan2(dzV, dxV);
+            const ridgeNoise = 1.0 - Math.abs(simplex.noise2D(Math.cos(angle) * 5, Math.sin(angle) * 5));
+            
+            // Apply ridges more strongly on the slopes (scaled with sigma)
+            const slopeFactor = Math.exp(-warpedDistSq / (2 * 560 * 560)) * (1.0 - Math.exp(-warpedDistSq / (2 * 140 * 140)));
+            vHeight += ridgeNoise * 150 * slopeFactor;
+
+            // Crater Subtraction (Sharper Gaussian)
+            const vCrater = 400 * Math.exp(-distSqV / (2 * 80 * 80));
+
+            n += (vHeight - vCrater);
+            
+            // Fix glitchy water by preventing extremely shallow shelves at the volcano base.
+            if (n > WATER_LEVEL && n < WATER_LEVEL + 1.5) {
+                n = WATER_LEVEL;
+            }
+        }
+
         return n;
     }
 
