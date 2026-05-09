@@ -15,6 +15,7 @@ const _isLowQualityInitial = _initQualityForTerrain && parseInt(_initQualityForT
 
 const _enableBlockClouds = ChillFlightLogic.SHOW_CLOUDS;
 let _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
+let _volcanoElementsAdded = false;
 
 
 // Materials for terrain
@@ -1329,6 +1330,41 @@ function generateChunk(chunkX, chunkZ) {
         geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         geometry.computeVertexNormals();
 
+        // 2.99 Volcano Landmark Details
+        // Must run BEFORE the early-exit guard to avoid the async race where the chunk
+        // gets evicted while building, which would prevent these from ever being added.
+        // Added directly to `scene` (not the chunk group) so they survive chunk reloads.
+        {
+            const vX = -5000;
+            const vZ = 5000;
+            const isVolcanoChunk =
+                Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 &&
+                Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2;
+
+            if (isVolcanoChunk && !_volcanoElementsAdded) {
+                _volcanoElementsAdded = true;
+
+                // Lava disk
+                const vElements = ModelAssembler.getStructure('volcano_active_elements');
+                vElements.forEach(part => {
+                    const mesh = new THREE.Mesh(part.geo, part.mat);
+                    mesh.position.set(vX + part.pos[0], part.pos[1], vZ + part.pos[2]);
+                    mesh.rotation.set(...part.rot);
+                    if (part.scale) mesh.scale.set(...part.scale);
+                    scene.add(mesh);
+                });
+
+                // Spot light pointing up to cast a glow on the underside of passing planes
+                const sLight = new THREE.SpotLight(0xFF4500, 30.0, 3000, Math.PI / 6, 0.5, 1);
+                sLight.position.set(vX, 880, vZ);
+                const sTarget = new THREE.Object3D();
+                sTarget.position.set(vX, 2000, vZ);
+                scene.add(sTarget);
+                sLight.target = sTarget;
+                scene.add(sLight);
+            }
+        }
+
         const chunkKey = `${chunkX},${chunkZ}`;
         if (!chunks.has(chunkKey)) {
             // The chunk was deleted by updateChunks while we were building it. Abort.
@@ -1931,36 +1967,6 @@ function generateChunk(chunkX, chunkZ) {
             objectsGroup.add(hullInst);
             objectsGroup.add(mastInst);
             objectsGroup.add(sailInst);
-        }
-
-        // 2.99 Volcano Landmark Details
-        const vX = -5000;
-        const vZ = 5000;
-        // Only generate volcano elements in the chunk that contains the center
-        if (Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 && Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2) {
-            
-            // Lava and Glow
-            const vElements = ModelAssembler.getStructure('volcano_active_elements');
-            vElements.forEach(part => {
-                const mesh = new THREE.Mesh(part.geo, part.mat);
-                // Position at absolute world coordinates
-                mesh.position.set(vX + part.pos[0], part.pos[1], vZ + part.pos[2]);
-                mesh.rotation.set(...part.rot);
-                if (part.scale) mesh.scale.set(...part.scale);
-                group.add(mesh); // Add directly to group to bypass objects toggle
-            });
-
-            // Spot Light pointing up to create a shaft of light
-            const sLight = new THREE.SpotLight(0xFF4500, 30.0, 3000, Math.PI / 6, 0.5, 1);
-            sLight.position.set(vX, 880, vZ);
-            
-            const sTarget = new THREE.Object3D();
-            sTarget.position.set(vX, 2000, vZ); // Pointing straight up
-            group.add(sTarget);
-            
-            sLight.target = sTarget;
-            group.add(sLight);
-
         }
 
         // 3. Generate Clouds
