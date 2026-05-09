@@ -1936,8 +1936,8 @@ function generateChunk(chunkX, chunkZ) {
         // 2.99 Volcano Landmark Details
         const vX = -5000;
         const vZ = 5000;
-        // Only generate volcano elements in the specific chunk containing (-5000, 5000)
-        if (chunkX === -3 && chunkZ === 3) {
+        // Only generate volcano elements in the chunk that contains the center
+        if (Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 && Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2) {
             
             // Lava and Glow
             const vElements = ModelAssembler.getStructure('volcano_active_elements');
