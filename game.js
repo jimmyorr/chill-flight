@@ -724,11 +724,13 @@ if (objectsToggle) {
     });
 }
 
-// Fog toggle
-const fogToggle = document.getElementById('debug-fog-toggle');
-if (fogToggle) {
-    fogToggle.addEventListener('change', (e) => {
-        window.fogEnabled = e.target.checked;
+// Fog slider
+const fogSlider = document.getElementById('debug-fog-slider');
+const baseFogVal = document.getElementById('debug-base-fog-val');
+if (fogSlider) {
+    fogSlider.addEventListener('input', (e) => {
+        window.manualBaseFogDensity = parseFloat(e.target.value);
+        if (baseFogVal) baseFogVal.textContent = window.manualBaseFogDensity.toFixed(5);
     });
 }
 
@@ -2510,10 +2512,29 @@ function animate() {
     scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
 
     // If it's actively raining or snowing, the fog should be much thicker to obscure the horizon
-    const baseFogDensity = 1.2 / (RENDER_DISTANCE * CHUNK_SIZE);
+    let baseFogDensity = 1.2 / (RENDER_DISTANCE * CHUNK_SIZE);
+    if (window.manualBaseFogDensity !== undefined) {
+        baseFogDensity = window.manualBaseFogDensity;
+    }
+    
     const maxFogDensity = Math.max(baseFogDensity, precipIntensity > 0 ? 0.00025 : 0.0002);
-    const targetFogDensity = (window.fogEnabled === false) ? 0 : THREE.MathUtils.lerp(baseFogDensity, maxFogDensity, overcast);
+    const targetFogDensity = THREE.MathUtils.lerp(baseFogDensity, maxFogDensity, overcast);
     scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, targetFogDensity, 1 - Math.pow(1 - 0.01, delta * 60));
+    
+    // Update slider UI and values
+    const fogSlider = document.getElementById('debug-fog-slider');
+    const baseFogVal = document.getElementById('debug-base-fog-val');
+    const finalFogVal = document.getElementById('debug-final-fog-val');
+    
+    if (fogSlider && window.manualBaseFogDensity === undefined) {
+        fogSlider.value = baseFogDensity;
+    }
+    if (baseFogVal && window.manualBaseFogDensity === undefined) {
+        baseFogVal.textContent = baseFogDensity.toFixed(5);
+    }
+    if (finalFogVal) {
+        finalFogVal.textContent = scene.fog.density.toFixed(5);
+    }
 
     // Update Sky Shader Colors
     if (!isCustomPalette) {
