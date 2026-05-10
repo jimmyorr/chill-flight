@@ -3136,8 +3136,6 @@ window.addEventListener('keydown', (e) => {
         } else if (cameraMode === 'birds-eye-close') {
             cameraMode = 'birds-eye-far';
         } else if (cameraMode === 'birds-eye-far') {
-            cameraMode = 'birds-eye-ultra';
-        } else if (cameraMode === 'birds-eye-ultra') {
             cameraMode = 'cinematic';
             cinematicTimer = 0;
             currentCinematicIndex = 0;
