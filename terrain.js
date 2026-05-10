@@ -1032,7 +1032,7 @@ function generateChunk(chunkX, chunkZ) {
         const strawHutPositions = [];
         const windmillPositions = [];
         let lighthousePos = null;
-        const isMontaukChunk = (chunkX === 0 && chunkZ === 2);
+        const isMontaukChunk = (chunkX === 4 && chunkZ === 2);
         let bestMontaukPos = null;
         const pierPositions = [];
         const campfirePositions = [];
@@ -1322,10 +1322,16 @@ function generateChunk(chunkX, chunkZ) {
                         const hS = getCachedElevation(worldX, worldZ + 50);
                         const hE = getCachedElevation(worldX + 50, worldZ);
                         const hW = getCachedElevation(worldX - 50, worldZ);
-                        if (hN <= WATER_LEVEL || hS <= WATER_LEVEL || hE <= WATER_LEVEL || hW <= WATER_LEVEL) {
-                            const distToTarget = Math.sqrt(localX * localX + (localZ + 500) * (localZ + 500));
-                            if (!bestMontaukPos || distToTarget < bestMontaukPos.dist) {
-                                bestMontaukPos = { x: localX, y: height, z: localZ, dist: distToTarget };
+                        let waterNeighbors = 0;
+                        if (hN <= WATER_LEVEL) waterNeighbors++;
+                        if (hS <= WATER_LEVEL) waterNeighbors++;
+                        if (hE <= WATER_LEVEL) waterNeighbors++;
+                        if (hW <= WATER_LEVEL) waterNeighbors++;
+
+                        if (waterNeighbors >= 1) {
+                            const score = (waterNeighbors * 1000) + localX - height;
+                            if (!bestMontaukPos || score > bestMontaukPos.score) {
+                                bestMontaukPos = { x: localX, y: height, z: localZ, score: score };
                             }
                         }
                     } else if (ENABLE_LIGHTHOUSES && !isMontaukChunk && !lighthousePos && rng() < 0.0004 * densityScale && height < sandMaxHeight + 15) {
