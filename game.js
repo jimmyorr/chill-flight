@@ -1106,6 +1106,7 @@ const _up_TopDown = new THREE.Vector3();
 const _freeCamFwd = new THREE.Vector3();
 const _freeCamSide = new THREE.Vector3();
 let lastPlayerListUpdate = 0;
+let _auroraSessionMax = 0; // tracks highest aurora intensity seen this session
 const _dirArrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
 
 // Optimization: Pre-allocate colors for sky gradients
@@ -2465,7 +2466,21 @@ function animate() {
     // The aurora ramps in from latVal 0.5 to 1.0 (fully visible at 1.0+).
     const auroraLatFactor = THREE.MathUtils.clamp((currentLatDeg - 0.5) / 0.5, 0, 1);
     const auroraNightFactor = starFactor; // reuse: 0 at day, 1 at deep night
-    const targetAuroraIntensity = auroraLatFactor * auroraNightFactor * (1.0 - overcast);
+
+    // Geomagnetic activity: slow simplex noise on server time so the aurora
+    // naturally waxes and wanes — sometimes absent, sometimes a faint shimmer,
+    // sometimes blazing. Two samples at different rates give organic variation.
+    // Period ~20 min (primary) + ~7 min (secondary). Server-synced across players.
+    const _auroraT1 = passedServerNow / 1200000; // ~20-min primary cycle
+    const _auroraT2 = passedServerNow / 420000;  // ~7-min secondary detail
+    const _auroraRaw = (simplex.noise2D(_auroraT1, 0.37) * 0.7
+                      + simplex.noise2D(_auroraT2, 1.91) * 0.3); // -1 to 1
+    // Map noise to 0..1: quiet (~33% of the time when noise is low/negative),
+    // linearly scaling to 1.0 at peak. No pow bias — overcast already suppresses it.
+    const auroraActivity = THREE.MathUtils.clamp(_auroraRaw * 0.6 + 0.4, 0, 1);
+
+    const targetAuroraIntensity = Math.min(0.08,
+        auroraLatFactor * auroraNightFactor * (1.0 - overcast) * auroraActivity);
     if (typeof skyUniforms !== 'undefined') {
         skyUniforms.uAuroraIntensity.value = THREE.MathUtils.lerp(
             skyUniforms.uAuroraIntensity.value,
@@ -2671,6 +2686,15 @@ function animate() {
         updateDOM(document.getElementById('debug-fog-density'), scene.fog.density.toFixed(5));
         updateDOM(document.getElementById('debug-weather-mode'), weatherType);
 
+        // Aurora telemetry
+        const auroraVal = (typeof skyUniforms !== 'undefined') ? skyUniforms.uAuroraIntensity.value : 0;
+        if (auroraVal > _auroraSessionMax) _auroraSessionMax = auroraVal;
+        const _auroraLabelFn = v => v < 0.01 ? 'None'
+                                  : v < 0.03 ? 'Faint'
+                                  : v < 0.06 ? 'Moderate'
+                                  : 'Active';
+        updateDOM(document.getElementById('debug-aurora'), `${_auroraLabelFn(auroraVal)} (${auroraVal.toFixed(3)})`);
+        updateDOM(document.getElementById('debug-aurora-peak'), `${_auroraLabelFn(_auroraSessionMax)} (${_auroraSessionMax.toFixed(3)})`);
         // Helper function for performance color coding
         function getPerfColor(val, warnThresh, critThresh) {
             if (val >= critThresh) return '#ff4444'; // Red
