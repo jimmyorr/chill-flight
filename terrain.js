@@ -683,12 +683,22 @@ const windmillBaseMat = createMaterial({ color: 0x8D6E63, flatShading: true });
 const windmillBladesMat = createMaterial({ color: 0xEEEEEE, flatShading: true });
 
 // Lighthouse geometries
-const lighthousePieceGeo = new THREE.CylinderGeometry(8, 8, 20, 8);
-const lighthouseTopGeo = new THREE.SphereGeometry(10, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-lighthouseTopGeo.translate(0, 60, 0);
+const lighthouseTowerBottomGeo = new THREE.CylinderGeometry(8, 9, 20, 8);
+const lighthouseTowerMidGeo = new THREE.CylinderGeometry(7, 8, 20, 8);
+const lighthouseTowerTopGeo = new THREE.CylinderGeometry(6, 7, 20, 8);
+const lighthouseLanternGeo = new THREE.CylinderGeometry(5.5, 5.5, 6, 8);
+const lighthouseInnerLightGeo = new THREE.CylinderGeometry(3, 3, 5, 8);
+const lighthouseDomeGeo = new THREE.SphereGeometry(5.5, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+
+const flagpoleGeo = new THREE.CylinderGeometry(0.2, 0.2, 20, 4);
+const flagGeo = new THREE.BoxGeometry(4, 3, 0.1);
 
 const lighthouseRedMat = createMaterial({ color: 0xC62828, flatShading: true });
 const lighthouseWhiteMat = createMaterial({ color: 0xFFFFFF, flatShading: true });
+const lighthouseBandMat = createMaterial({ color: 0x7B3F2A, flatShading: true }); // Reddish-brown
+const lighthouseBlackMat = createMaterial({ color: 0x212121, flatShading: true }); // Dark grey/black
+const lighthouseGlassMat = createMaterial({ color: 0x212121, flatShading: true, transparent: true, opacity: 0.4 });
+const lighthouseGlowMat = createMaterial({ color: 0xFFFFaa, emissive: 0xFFFFaa, emissiveIntensity: 1.0 });
 
 // Pier geometries
 const pierDeckGeo = new THREE.BoxGeometry(15, 2, 30);
@@ -881,11 +891,21 @@ window.ModelAssembler = {
                     { geo: windmillBladesGeo, mat: windmillBladesMat, pos: [hubOffset.x, 45, hubOffset.z], rot: [0, rotY, 3 * Math.PI / 2], scale: [1.5, 1.5, 1.5] }
                 ];
             case 'lighthouse':
+                const houseOffset = new THREE.Vector3(16, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+                const flagpoleOffset = new THREE.Vector3(-15, 0, 10).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
                 return [
-                    { geo: lighthousePieceGeo, mat: lighthouseRedMat, pos: [0, 10, 0], rot: [0, rotY, 0] },
-                    { geo: lighthousePieceGeo, mat: lighthouseWhiteMat, pos: [0, 30, 0], rot: [0, rotY, 0] },
-                    { geo: lighthousePieceGeo, mat: lighthouseRedMat, pos: [0, 50, 0], rot: [0, rotY, 0] },
-                    { geo: lighthouseTopGeo, mat: lighthouseWhiteMat, pos: [0, 0, 0], rot: [0, rotY, 0] }
+                    { geo: lighthouseTowerBottomGeo, mat: lighthouseWhiteMat, pos: [0, 10, 0], rot: [0, rotY, 0] },
+                    { geo: lighthouseTowerMidGeo, mat: lighthouseBandMat, pos: [0, 30, 0], rot: [0, rotY, 0] },
+                    { geo: lighthouseTowerTopGeo, mat: lighthouseWhiteMat, pos: [0, 50, 0], rot: [0, rotY, 0] },
+                    { geo: lighthouseLanternGeo, mat: lighthouseGlassMat, pos: [0, 63, 0], rot: [0, rotY, 0] },
+                    { geo: lighthouseInnerLightGeo, mat: lighthouseGlowMat, pos: [0, 63, 0], rot: [0, rotY, 0] },
+                    { geo: lighthouseDomeGeo, mat: lighthouseBlackMat, pos: [0, 66, 0], rot: [0, rotY, 0] },
+                    // House
+                    { geo: houseBodyGeo, mat: lighthouseWhiteMat, pos: [houseOffset.x, 0, houseOffset.z], rot: [0, rotY, 0] },
+                    { geo: houseRoofGeo, mat: lighthouseRedMat, pos: [houseOffset.x, 0, houseOffset.z], rot: [0, rotY, 0] },
+                    // Flagpole
+                    { geo: flagpoleGeo, mat: woodMat, pos: [flagpoleOffset.x, 10, flagpoleOffset.z], rot: [0, rotY, 0] },
+                    { geo: flagGeo, mat: lighthouseRedMat, pos: [flagpoleOffset.x, 20, flagpoleOffset.z], rot: [0, rotY, 0] }
                 ];
             case 'campfire':
                 return [
@@ -1012,6 +1032,8 @@ function generateChunk(chunkX, chunkZ) {
         const strawHutPositions = [];
         const windmillPositions = [];
         let lighthousePos = null;
+        const isMontaukChunk = (chunkX === 0 && chunkZ === 2);
+        let bestMontaukPos = null;
         const pierPositions = [];
         const campfirePositions = [];
         const chimneySmokePositions = [];
@@ -1295,7 +1317,18 @@ function generateChunk(chunkX, chunkZ) {
                         && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 100
                         && desertFactor < 0.3 && snowFactor < 0.3) {
                         windmillPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                    } else if (ENABLE_LIGHTHOUSES && !lighthousePos && rng() < 0.0004 * densityScale && height < sandMaxHeight + 15) {
+                    } else if (isMontaukChunk && height < sandMaxHeight + 15) {
+                        const hN = getCachedElevation(worldX, worldZ - 50);
+                        const hS = getCachedElevation(worldX, worldZ + 50);
+                        const hE = getCachedElevation(worldX + 50, worldZ);
+                        const hW = getCachedElevation(worldX - 50, worldZ);
+                        if (hN <= WATER_LEVEL || hS <= WATER_LEVEL || hE <= WATER_LEVEL || hW <= WATER_LEVEL) {
+                            const distToTarget = Math.sqrt(localX * localX + (localZ + 500) * (localZ + 500));
+                            if (!bestMontaukPos || distToTarget < bestMontaukPos.dist) {
+                                bestMontaukPos = { x: localX, y: height, z: localZ, dist: distToTarget };
+                            }
+                        }
+                    } else if (ENABLE_LIGHTHOUSES && !isMontaukChunk && !lighthousePos && rng() < 0.0004 * densityScale && height < sandMaxHeight + 15) {
                         const hN = getCachedElevation(worldX, worldZ - 50);
                         const hS = getCachedElevation(worldX, worldZ + 50);
                         const hE = getCachedElevation(worldX + 50, worldZ);
@@ -1368,6 +1401,10 @@ function generateChunk(chunkX, chunkZ) {
             }
 
             colors.push(_tempColorObj.r, _tempColorObj.g, _tempColorObj.b);
+        }
+
+        if (isMontaukChunk && bestMontaukPos) {
+            lighthousePos = { ...bestMontaukPos, rotY: rng() * Math.PI * 2 };
         }
 
         geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -1849,46 +1886,37 @@ function generateChunk(chunkX, chunkZ) {
 
         // 2.9 Generate Lighthouses
         if (lighthousePos) {
-            const piece1Inst = new THREE.InstancedMesh(lighthousePieceGeo, lighthouseRedMat, 1);
-            const piece2Inst = new THREE.InstancedMesh(lighthousePieceGeo, lighthouseWhiteMat, 1);
-            const piece3Inst = new THREE.InstancedMesh(lighthousePieceGeo, lighthouseRedMat, 1);
-            const topInst = new THREE.InstancedMesh(lighthouseTopGeo, lighthouseWhiteMat, 1);
-
             const pos = lighthousePos;
             const structure = ModelAssembler.getStructure('lighthouse', pos.rotY || 0);
-            structure.forEach((part, pIdx) => {
-                dummy.position.set(pos.x + part.pos[0], pos.y + part.pos[1], pos.z + part.pos[2]);
-                dummy.rotation.set(...part.rot);
-                dummy.scale.set(1, 1, 1);
-                dummy.updateMatrix();
-                
-                if (pIdx === 0) piece1Inst.setMatrixAt(0, dummy.matrix);
-                else if (pIdx === 1) piece2Inst.setMatrixAt(0, dummy.matrix);
-                else if (pIdx === 2) piece3Inst.setMatrixAt(0, dummy.matrix);
-                else topInst.setMatrixAt(0, dummy.matrix);
+            const lighthouseGroup = new THREE.Group();
+            
+            structure.forEach(part => {
+                const mesh = new THREE.Mesh(part.geo, part.mat);
+                mesh.position.set(...part.pos);
+                mesh.rotation.set(...part.rot);
+                if (part.scale) mesh.scale.set(...part.scale);
+                lighthouseGroup.add(mesh);
             });
-
-            const pieces = [piece1Inst, piece2Inst, piece3Inst, topInst];
-            pieces.forEach(p => {
-                p.position.set(worldOffsetX, 0, worldOffsetZ);
-                objectsGroup.add(p);
-            });
+            
+            lighthouseGroup.position.set(pos.x + worldOffsetX, pos.y, pos.z + worldOffsetZ);
+            objectsGroup.add(lighthouseGroup);
 
             // Beam
+            const beamHeight = 63; // Middle of lantern
             const beam = new THREE.Mesh(lighthouseBeamGeo, lighthouseBeamMat);
-            beam.position.set(pos.x + worldOffsetX, pos.y + 65, pos.z + worldOffsetZ);
+            beam.position.set(pos.x + worldOffsetX, pos.y + beamHeight, pos.z + worldOffsetZ);
             beam.rotation.y = pos.rotY;
-            beam.rotation.x = 0.15; // Tilt slightly downward community
+            beam.rotation.x = 0.15; // Tilt slightly downward
             objectsGroup.add(beam);
             group.userData.lighthouseBeam = beam;
 
             // Functional Light (SpotLight)
             const spotLight = new THREE.SpotLight(0xFFFFaa, 25, 1500, Math.PI / 6, 0.8, 1);
-            spotLight.position.set(pos.x + worldOffsetX, pos.y + 65, pos.z + worldOffsetZ);
-            // Initial target position matching beam rotation and tilted down community
+            spotLight.position.set(pos.x + worldOffsetX, pos.y + beamHeight, pos.z + worldOffsetZ);
+            // Initial target position matching beam rotation and tilted down
             spotLight.target.position.set(
                 pos.x + worldOffsetX + Math.sin(pos.rotY) * 100,
-                pos.y + 65 - 15, // Aim lower community
+                pos.y + beamHeight - 15, // Aim lower
                 pos.z + worldOffsetZ + Math.cos(pos.rotY) * 100
             );
             objectsGroup.add(spotLight);
