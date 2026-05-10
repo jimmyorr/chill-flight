@@ -8,3 +8,6 @@
 
 ## UI & Typography Rules
 - **Sentence Case Only**: Always use "Sentence case" instead of "Title Case" for UI text, labels, buttons, and titles. Strings that are intended to be ALL CAPS should remain so.
+
+## Geometry & Model Rules
+- **Debug Page Update**: When adding a new geometry or model to the game, always add it to the model debug page (`debug.html`) as well, so it can be previewed.

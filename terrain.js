@@ -476,6 +476,14 @@ houseRoofGeo.rotateY(Math.PI / 4);
 houseRoofGeo.translate(0, 11, 0);
 const houseWindowGeo = new THREE.BoxGeometry(2.5, 3.5, 0.5);
 
+// Straw hut geometries
+const strawHutBodyGeo = new THREE.CylinderGeometry(4, 4, 6, 8);
+strawHutBodyGeo.translate(0, 3, 0);
+const strawHutRoofGeo = new THREE.ConeGeometry(5.5, 5, 8);
+strawHutRoofGeo.translate(0, 8.5, 0);
+const strawHutMat = createMaterial({ color: 0xE6C280, flatShading: true }); // Straw color
+
+
 // House color palettes
 const houseBodyPalette = [
     createMaterial({ color: 0xF5E6C8, flatShading: true }), // Cream
@@ -843,6 +851,11 @@ window.ModelAssembler = {
                     { geo: houseBodyGeo, mat: houseBodyPalette[0], pos: [0, 0, 0], rot: [0, rotY, 0] },
                     { geo: houseRoofGeo, mat: houseRoofPalette[0], pos: [0, 0, 0], rot: [0, rotY, 0] }
                 ];
+            case 'straw_hut':
+                return [
+                    { geo: strawHutBodyGeo, mat: strawHutMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+                    { geo: strawHutRoofGeo, mat: strawHutMat, pos: [0, 0, 0], rot: [0, rotY, 0] }
+                ];
             case 'pagoda':
                 return [
                     { geo: pagodaBodyGeo, mat: pagodaBodyMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
@@ -996,6 +1009,7 @@ function generateChunk(chunkX, chunkZ) {
         const autumnTree3Positions = [];
         const cherryTreePositions = [];
         const housePositions = [];
+        const strawHutPositions = [];
         const windmillPositions = [];
         let lighthousePos = null;
         const pierPositions = [];
@@ -1217,11 +1231,16 @@ function generateChunk(chunkX, chunkZ) {
                 if (isForest) {
                     const treeRoll = rng();
                     if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
-                        if (snowFactor > 0.4 || height > MOUNTAIN_LEVEL - 100) {
+                        const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
+                        const isSouthOf1N = worldZ > -5000;
+
+                        if (isIsland && isSouthOf1N) {
+                            palmTreePositions.push({ x: localX, y: height, z: localZ });
+                        } else if (snowFactor > 0.4 || height > MOUNTAIN_LEVEL - 100) {
                             snowTreePositions.push({ x: localX, y: height, z: localZ });
                         } else if (desertFactor > 0.6) {
                             deadTreePositions.push({ x: localX, y: height, z: localZ });
-                        } else if (eastCoastFactor > 0.7 && height < WATER_LEVEL + 40) {
+                        } else if (eastCoastFactor > 0.7 && height < WATER_LEVEL + 40 && !isIsland) {
                             palmTreePositions.push({ x: localX, y: height, z: localZ });
                         } else {
                             if (cherryNoise > 0.65) {
@@ -1250,10 +1269,15 @@ function generateChunk(chunkX, chunkZ) {
 
                     const plainsRoll = rng();
                     if (plainsRoll < houseThreshold) {
-                        housePositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                        // Chimney smoke for houses in snowy areas
-                        if (snowFactor > 0.3) {
-                            chimneySmokePositions.push({ x: localX, y: height + 10, z: localZ });
+                        const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
+                        if (isIsland) {
+                            strawHutPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+                        } else {
+                            housePositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
+                            // Chimney smoke for houses in snowy areas
+                            if (snowFactor > 0.3) {
+                                chimneySmokePositions.push({ x: localX, y: height + 10, z: localZ });
+                            }
                         }
                     } else if (ENABLE_BARNS && plainsRoll < barnThreshold
                         && snowFactor < 0.4 && desertFactor < 0.3
@@ -1705,6 +1729,25 @@ function generateChunk(chunkX, chunkZ) {
 
                 poolIndices[poolId]++;
             });
+        }
+
+        // 2.55 Generate Straw Huts (islands)
+        if (strawHutPositions.length > 0) {
+            const strawHutBodyInst = new THREE.InstancedMesh(strawHutBodyGeo, strawHutMat, strawHutPositions.length);
+            const strawHutRoofInst = new THREE.InstancedMesh(strawHutRoofGeo, strawHutMat, strawHutPositions.length);
+            strawHutPositions.forEach((pos, i) => {
+                const scale = 0.9 + rng() * 0.3;
+                dummy.position.set(pos.x, pos.y, pos.z);
+                dummy.rotation.set(0, pos.rotY, 0);
+                dummy.scale.set(scale, scale, scale);
+                dummy.updateMatrix();
+                strawHutBodyInst.setMatrixAt(i, dummy.matrix);
+                strawHutRoofInst.setMatrixAt(i, dummy.matrix);
+            });
+            strawHutBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+            strawHutRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+            objectsGroup.add(strawHutBodyInst);
+            objectsGroup.add(strawHutRoofInst);
         }
 
         // 2.6 Generate Pagodas (rare, cherry blossom zones)
