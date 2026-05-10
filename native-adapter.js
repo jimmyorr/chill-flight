@@ -23,13 +23,13 @@
         const hasTVKeyword = ua.includes('tv') || ua.includes('googletv') || ua.includes('firetv') || ua.includes('bravia');
 
         const isTVClient = isNative && (hasTVKeyword || (!hasTouch && !isMobileUA));
-        
+
         console.log(`isTV check: Native=${isNative}, Touch=${hasTouch}, MobileUA=${isMobileUA}, TVKey=${hasTVKeyword} => Result=${isTVClient}`);
         return isTVClient;
     }
 
     if (isTV()) {
-        console.log("TV Client 0.8.2 detected. Applying hider.");
+        console.log("TV Client detected. Applying hider.");
         const style = document.createElement('style');
         style.id = 'tv-button-hider';
         style.innerHTML = `
@@ -78,7 +78,7 @@
     }
 
     // Export a safe external link handler for Capacitor Apps
-    window.openExternalLink = async function(url) {
+    window.openExternalLink = async function (url) {
         if (isNative() && Capacitor.Plugins.Browser) {
             await Capacitor.Plugins.Browser.open({ url: url });
         } else {
