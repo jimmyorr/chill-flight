@@ -21,6 +21,6 @@ module.exports = [
         }
     },
     {
-        ignores: ["node_modules/", "vendor/", "www/"]
+        ignores: ["node_modules/", "vendor/", "www/", "src-tauri/", "ios/", "android/"]
     }
 ];
