@@ -28,6 +28,7 @@ const skyFragmentShader = `
     uniform float uTime;
     uniform float uCloudDensity;
     uniform bool uShowClouds;
+    uniform float uAuroraIntensity;
     varying vec3 vWorldPosition;
     varying vec3 vDirection;
 
@@ -100,6 +101,56 @@ const skyFragmentShader = `
             vec3 cloudColor = mix(cloudBaseColor, bottomColor * 2.0, sunHighlight * 0.8);
             
             col = mix(col, cloudColor, cloudAlpha * 0.9);
+        }
+
+        // --- AURORA BOREALIS ---
+        // Only renders when uAuroraIntensity > 0 (night + high latitude).
+        // Hybrid: one wide sine wave gives the curtain sweep; an fBm brightness
+        // mask breaks the uniform stripe look into organic patches of light.
+        if (uAuroraIntensity > 0.001 && h > 0.0) {
+            // Project onto the upper-sky dome using the xz plane
+            vec2 auv = dir.xz / (h + 0.1);
+
+            float tSlow = uTime * 0.04;
+            float tMed  = uTime * 0.08;
+
+            // Organic UV warp: gives the curtains a natural flowing twist
+            float warp = fbm(auv * 0.9 + vec2(tSlow * 0.6, tSlow * 0.35));
+
+            // Primary curtain: reduced amplitude (0.25 not 0.5) so the troughs
+            // stay at ~0.37 instead of 0 — no pure-black gaps between bands
+            float sweep = sin((auv.x + warp * 1.4) * 2.2 + tMed * 0.45) * 0.25 + 0.62;
+
+            // Second harmonic: very subtle, just adds organic variation
+            float sweep2 = sin((auv.x + warp * 0.9) * 3.5 - tMed * 0.3 + 2.1) * 0.12 + 0.50;
+
+            float curtain = sweep * 0.78 + sweep2 * 0.22;
+
+            // fBm brightness mask: some curtain patches glow brighter, others dimmer
+            float brightMask = fbm(auv * 1.8 + vec2(tSlow * 0.35, tMed * 0.25 + 0.6));
+            curtain *= (brightMask * 1.2 + 0.4);
+
+            // Low smoothstep floor so the dim inter-band areas still emit a faint glow
+            curtain = smoothstep(0.08, 0.88, curtain);
+
+            // Soft vertical fade: aurora blends to zero right at the horizon (h=0)
+            float vFade = smoothstep(0.0, 0.15, h) * smoothstep(0.72, 0.30, h);
+
+            float auroraAlpha = curtain * vFade * uAuroraIntensity;
+
+            // Three-band colour gradient: green core, teal edge, purple top
+            vec3 auroraGreen  = vec3(0.05, 0.90, 0.45);
+            vec3 auroraTeal   = vec3(0.0,  0.75, 0.70);
+            vec3 auroraViolet = vec3(0.52, 0.15, 0.75);
+
+            // Separate fBm layer controls which hue dominates in each patch
+            float hueShift = fbm(auv * 1.8 + vec2(-tSlow * 0.4, tSlow * 0.8));
+            vec3 auroraColor = mix(auroraGreen, auroraTeal,   smoothstep(0.35, 0.58, hueShift));
+            auroraColor      = mix(auroraColor, auroraViolet, smoothstep(0.58, 0.82, hueShift));
+
+            // Screen blend so the aurora brightens without crushing the star field
+            vec3 auroraContrib = auroraColor * auroraAlpha * 0.85;
+            col = col + auroraContrib * (vec3(1.0) - col);
         }
 
         gl_FragColor = vec4(col, 1.0);
@@ -246,9 +297,10 @@ const skyUniforms = {
     exponent: { value: 0.6 },
     glowPower: { value: 2.0 },  // Higher = more concentrated sunset
     mieFactor: { value: 0.9 },   // Higher = more aggressive muting away from sun
-    uTime: { value: 0.0 }, // ADDED
-    uCloudDensity: { value: 0.5 }, // ADDED
-    uShowClouds: { value: true }
+    uTime: { value: 0.0 },
+    uCloudDensity: { value: 0.5 },
+    uShowClouds: { value: true },
+    uAuroraIntensity: { value: 0.0 } // 0 = off, 1 = full intensity; driven by latitude + night
 };
 
 // Initial calculation

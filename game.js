@@ -2459,6 +2459,21 @@ function animate() {
     let starFactor = Math.max(0, Math.min(1, (sunY + 0.2) / -0.3));
     starsMat.opacity = starFactor * (1.0 - overcast);
 
+    // --- AURORA BOREALIS ---
+    // Aurora is visible only at night AND at high northern latitudes.
+    // latVal > 0.5 => player is north of ~0.5°N in our coordinate system.
+    // The aurora ramps in from latVal 0.5 to 1.0 (fully visible at 1.0+).
+    const auroraLatFactor = THREE.MathUtils.clamp((currentLatDeg - 0.5) / 0.5, 0, 1);
+    const auroraNightFactor = starFactor; // reuse: 0 at day, 1 at deep night
+    const targetAuroraIntensity = auroraLatFactor * auroraNightFactor * (1.0 - overcast);
+    if (typeof skyUniforms !== 'undefined') {
+        skyUniforms.uAuroraIntensity.value = THREE.MathUtils.lerp(
+            skyUniforms.uAuroraIntensity.value,
+            targetAuroraIntensity,
+            1 - Math.pow(1 - 0.015, delta * 60)
+        );
+    }
+
     // Fix: Three.js requires needsUpdate to be true the first time transparency is enabled
     if (sunMesh && sunMesh.material) {
         if (!sunMesh.material.transparent) {
