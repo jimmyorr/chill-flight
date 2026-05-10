@@ -1363,11 +1363,15 @@ function generateChunk(chunkX, chunkZ) {
             if (isVolcanoChunk && !_volcanoElementsAdded) {
                 _volcanoElementsAdded = true;
 
+                const craterBottom = getElevation(vX, vZ);
+
                 // Lava disk
                 const vElements = ModelAssembler.getStructure('volcano_active_elements');
                 vElements.forEach(part => {
                     const mesh = new THREE.Mesh(part.geo, part.mat);
-                    mesh.position.set(vX + part.pos[0], part.pos[1], vZ + part.pos[2]);
+                    // Position relative to crater bottom. Yesterday's seed gave height ~1070.
+                    // Hardcoded 890 was ~180 below crater bottom. We preserve that offset.
+                    mesh.position.set(vX + part.pos[0], craterBottom - 180, vZ + part.pos[2]);
                     mesh.rotation.set(...part.rot);
                     if (part.scale) mesh.scale.set(...part.scale);
                     scene.add(mesh);
@@ -1375,7 +1379,8 @@ function generateChunk(chunkX, chunkZ) {
 
                 // Spot light pointing up to cast a glow on the underside of passing planes
                 const sLight = new THREE.SpotLight(0xFF4500, 30.0, 3000, Math.PI / 6, 0.5, 1);
-                sLight.position.set(vX, 880, vZ);
+                // Place spotlight slightly above crater bottom to avoid being buried
+                sLight.position.set(vX, craterBottom + 10, vZ);
                 const sTarget = new THREE.Object3D();
                 sTarget.position.set(vX, 2000, vZ);
                 scene.add(sTarget);
