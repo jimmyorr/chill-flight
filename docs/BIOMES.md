@@ -29,7 +29,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 *   **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192).
 *   **Weather:** Frequent falling snow (~80% of the time) with occasional global breaks.
 *   **Key Features:**
-    *   **Mountain Range:** The "Northern Snowy Range" features sharp, ridged peaks reaching altitudes up to 1600 units.
+    *   **Mountain Range:** The "Northern Snowy Range" is located at approximately 2.0 North latitude (Z = -10000) and extends west from 1.0 West longitude (X = -5000). It features sharp, ridged peaks reaching altitudes up to 1600 units.
     *   **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
     *   **Water:** Icy, pale blue water (#88CCFF).
 
@@ -37,7 +37,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 *   **Location:** Latitude 1.5+ South (Z > 7500).
 *   **Landscape:** Reddish-orange sand (#F4A460) and deep red canyon rock (#C24B2B).
 *   **Key Features:**
-    *   **Mountain Range:** The "Southern Arizona Range" features broad mesas and rugged red-rock peaks.
+    *   **Mountain Range:** The "Southern Arizona Range" is located at approximately 2.0 South latitude (Z = 10000) and extends west from 1.0 West longitude (X = -5000). It features broad mesas and rugged red-rock peaks.
     *   **Vegetation:** Cactuses and skeletal "dead" trees.
     *   **Water:** Deep turquoise tropical-style water (#00CED1).
 
