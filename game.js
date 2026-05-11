@@ -2540,21 +2540,21 @@ function animate() {
 
         _uncloudedSkyColor.lerp(_twilightSky, dayFactor * 0.4);
 
-        // KILL THE SUNSET COLORS IN THE MAIN SKY WHEN OVERCAST
-        _uncloudedSkyColor.lerp(_currentSunriseSky, dawnDuskFactor * (1.0 - overcast));
+        // Allow sunset colors in the main sky even when overcast (Issue #24)
+        _uncloudedSkyColor.lerp(_currentSunriseSky, dawnDuskFactor);
 
         if (sunY > -0.1 && sunY < 0.15) {
             let goldT = 1.0 - Math.abs(sunY - 0.02) * 10;
-            _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.6 * (1.0 - overcast));
+            _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.6);
         }
 
         _uncloudedSkyColor.lerp(_daySky, dayFactor * (1.0 - dawnDuskFactor));
         _uncloudedFogColor.copy(_uncloudedSkyColor);
 
-        // Warm up the directional light during golden hour, suppress if overcast
+        // Warm up the directional light during golden hour
         const dayLightCol = new THREE.Color(0xfff0dd);
         const sunsetLightCol = (sunX > 0) ? new THREE.Color(0xffd5a0) : new THREE.Color(0xffad60);
-        dirLight.color.copy(dayLightCol).lerp(sunsetLightCol, dawnDuskFactor * (1.0 - overcast));
+        dirLight.color.copy(dayLightCol).lerp(sunsetLightCol, dawnDuskFactor);
     } else {
         dirLight.color.setHex(0xfff0dd);
     }
