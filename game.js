@@ -160,6 +160,12 @@ function clearInputState() {
     if (typeof doubleTap !== 'undefined') {
         doubleTap.ArrowUp = doubleTap.ArrowDown = doubleTap.ArrowLeft = doubleTap.ArrowRight = false;
     }
+    if (typeof tripleTap !== 'undefined') {
+        tripleTap.ArrowUp = tripleTap.ArrowDown = tripleTap.ArrowLeft = tripleTap.ArrowRight = false;
+    }
+    if (typeof tapCount !== 'undefined') {
+        tapCount.ArrowUp = tapCount.ArrowDown = tapCount.ArrowLeft = tapCount.ArrowRight = 0;
+    }
 }
 const pauseOverlay = document.getElementById('pause-overlay');
 
@@ -171,6 +177,12 @@ function togglePause() {
         // Clear all movement keys so they aren't stuck when unpausing
         keys.ArrowUp = keys.ArrowDown = keys.ArrowLeft = keys.ArrowRight = false;
         doubleTap.ArrowUp = doubleTap.ArrowDown = doubleTap.ArrowLeft = doubleTap.ArrowRight = false;
+        if (typeof tripleTap !== 'undefined') {
+            tripleTap.ArrowUp = tripleTap.ArrowDown = tripleTap.ArrowLeft = tripleTap.ArrowRight = false;
+        }
+        if (typeof tapCount !== 'undefined') {
+            tapCount.ArrowUp = tapCount.ArrowDown = tapCount.ArrowLeft = tapCount.ArrowRight = 0;
+        }
 
         if (typeof updatePauseMenuMusicInfo === 'function') updatePauseMenuMusicInfo();
         if (musicEnabled && typeof pauseMusicInternal === 'function') pauseMusicInternal();
@@ -1504,6 +1516,8 @@ function animate() {
     const isDown = (invertYAxis ? keys.ArrowUp : keys.ArrowDown) && !isFreeCamera;
     const dtUp = (invertYAxis ? doubleTap.ArrowDown : doubleTap.ArrowUp) && !isFreeCamera;
     const dtDown = (invertYAxis ? doubleTap.ArrowUp : doubleTap.ArrowDown) && !isFreeCamera;
+    const ttUp = (invertYAxis ? tripleTap.ArrowDown : tripleTap.ArrowUp) && !isFreeCamera;
+    const ttDown = (invertYAxis ? tripleTap.ArrowUp : tripleTap.ArrowDown) && !isFreeCamera;
     const startUp = invertYAxis ? keyPressStartTime.ArrowDown : keyPressStartTime.ArrowUp;
     const startDown = invertYAxis ? keyPressStartTime.ArrowUp : keyPressStartTime.ArrowDown;
 
@@ -1666,7 +1680,12 @@ function animate() {
         isClampedRoll = false;
     } else if (!isFreeCamera && flightSpeedMultiplier > 0) {
         if (vehicleType !== 'helicopter' && vehicleType !== 'boat') {
-            if (isUp && dtUp && (nowTime - startUp > STEER_HOLD_THRESHOLD) && !keys.Shift) {
+            if (isUp && ttUp && (nowTime - startUp > STEER_HOLD_THRESHOLD) && !keys.Shift) {
+                // Triple-tap up and hold: steep ascent
+                const targetAscent = (Math.PI * 60) / 180; // 60 degrees
+                planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, targetAscent, 0.05 * delta * 60);
+                isLooping = true;
+            } else if (isUp && dtUp && (nowTime - startUp > STEER_HOLD_THRESHOLD) && !keys.Shift) {
                 // Double-tap up and hold: loop (Direct rotation, no trim pollution)
                 planeGroup.rotation.x += manualLoopSpeed * delta;
                 isLooping = true;
@@ -2924,6 +2943,8 @@ const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: f
 // Double-tap detection for barrel roll and loops
 const lastArrowTap = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
 const doubleTap = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false };
+const tripleTap = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false };
+const tapCount = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
 const DOUBLE_TAP_MS = 300;
 let STEER_HOLD_THRESHOLD = window.STEER_HOLD_THRESHOLD || 100; // ms to wait before a tap becomes a hold for pitch/looping
 const STUTTER_BUFFER_MS = window.STUTTER_BUFFER_MS || 0; // Only preserve hold state if configured (TV)
@@ -3193,7 +3214,15 @@ window.addEventListener('keydown', (e) => {
                     const timeSinceLastUp = now - lastKeyUpTime[action];
                     if (STUTTER_BUFFER_MS === 0 || timeSinceLastUp > STUTTER_BUFFER_MS) {
                         if (now - lastArrowTap[action] < DOUBLE_TAP_MS) {
+                            tapCount[action] = (tapCount[action] || 0) + 1;
+                        } else {
+                            tapCount[action] = 1;
+                        }
+                        
+                        if (tapCount[action] === 2) {
                             doubleTap[action] = true;
+                        } else if (tapCount[action] >= 3) {
+                            tripleTap[action] = true;
                         }
                         lastArrowTap[action] = now;
                     }
@@ -3311,6 +3340,7 @@ window.addEventListener('keyup', (e) => {
 
         keys[action] = false;
         doubleTap[action] = false;
+        if (typeof tripleTap !== 'undefined') tripleTap[action] = false;
         lastKeyUpTime[action] = now;
     }
 
