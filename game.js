@@ -1802,7 +1802,7 @@ function animate() {
 
     // Ground avoidance heights
     let minFlightHeight = isWater ? terrainHeight + 5.5 : terrainHeight + 10.0;
-    let restingHeight = minFlightHeight + (isWater ? 0 : 2.0);
+    let restingHeight = minFlightHeight + 2.0;
 
     if (vehicleType === 'helicopter') {
         minFlightHeight = terrainHeight + 3.5;
