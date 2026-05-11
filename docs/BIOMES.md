@@ -51,6 +51,42 @@ The world is organized around a central coordinate system (0,0) where latitude (
 
 ---
 
+## Weather and climate systems
+
+Weather in Chill Flight is dynamic and procedural, tied to a global noise map and the player's latitude.
+
+### Overcast skies
+Overcast conditions occur when the procedural cloud noise exceeds a threshold (0.7) or during active precipitation.
+*   **Atmospheric effects**:
+    *   **Celestial visibility**: Stars and the Aurora Borealis become invisible. The Sun and Moon are dimmed.
+    *   **Lighting**: Sunlight and Moonlight intensity is reduced, shifting to ambient, diffuse lighting.
+    *   **Fog**: Base fog density increases, reducing visibility.
+    *   **Colors**: The sky and fog colors blend towards a dark, stormy gray.
+
+### Storms and precipitation
+Storms are triggered when the global cloud noise map reaches peak density (> 0.75). The type of precipitation depends on your latitude (Z coordinate):
+
+*   **The deep North** (Latitude > 0.9 North / Z < -4500): Storms intensify the already frequent snowfall.
+*   **The transition zone** (Latitude 0.7 to 0.9 North / Z between -3500 and -4500): Sleet (a mix of rain and snow).
+*   **Temperate and Equator** (Latitude 0.8 South to 0.7 North / Z between 4000 and -3500): Full rain.
+*   **Desert border** (Latitude 0.8 to 1.1 South / Z between 4000 and 5500): Light rain that quickly dries up as you move further south.
+*   **Deep desert** (Latitude > 1.1 South / Z > 5500): Dry storms (the sky becomes overcast, but no rain falls).
+
+### Permanent weather
+*   **Snowy biome**: Above Latitude 0.9 North, snow falls roughly 80% of the time, regardless of the storm noise map, with occasional brief breaks.
+
+### Debug menu weather entries
+The telemetry overlay provides real-time values for the weather system:
+*   **Overcast**: The current interpolated overcast value (0.0 to 1.0), determining cloud density and atmospheric effects.
+*   **Storm**: The raw noise value used to determine storm triggers. Values above 0.75 trigger precipitation.
+*   **Precip**: The calculated precipitation intensity (0.0 to 1.0), based on the maximum of normalized snow or rain opacity.
+*   **Zone**: The current climate zone based on latitude (Snow, Sleet, Rain, Dry Edge, Desert).
+*   **Snow α**: The visual opacity of the snow particle system (maxes out at 0.8).
+*   **Rain α**: The visual opacity of the rain particle system (maxes out at 0.5).
+*   **Fog**: The current density of the scene fog.
+
+---
+
 ## Special Sub-Biomes & Landmarks
 These areas are layered on top of the primary biomes using noise-based "patches":
 
