@@ -9,7 +9,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 | Biome | Direction | Latitude/Longitude | Primary Characteristics |
 | :--- | :--- | :--- | :--- |
 | **Temperate** | Central | Around (0, 0) (Center) | Lush green plains and thick forests. High density of civilization (houses, barns, windmills). |
-| **Snowy** | North | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, and pine forests. |
+| **Snowy** | North | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and frequent snow (~80% duty cycle). |
 | **Desert** | South | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees. |
 | **Archipelago** | East | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000). |
 | **Lake District**| West | Negative X (West Longitude) | Broad rolling hills, and vast inland lakes beyond X=-3000 (0.6 West). |
@@ -27,6 +27,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 ## 2. The Frozen North
 *   **Location:** Latitude 1.5+ North (Z < -7500).
 *   **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192).
+*   **Weather:** Frequent falling snow (~80% of the time) with occasional global breaks.
 *   **Key Features:**
     *   **Mountain Range:** The "Northern Snowy Range" features sharp, ridged peaks reaching altitudes up to 1600 units.
     *   **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
