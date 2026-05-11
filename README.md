@@ -108,7 +108,7 @@ These areas are layered on top of the primary biomes using noise-based "patches"
 
 ## Controls
 
-Multiple control methods are supported, including keyboard, mouse/trackpad, gamepad, and TV remote.
+Multiple control methods are supported: keyboard, mouse or trackpad, gamepad, and TV remote.
 
 ### Keyboard Controls
 
