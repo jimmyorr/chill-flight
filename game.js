@@ -2764,7 +2764,7 @@ function animate() {
         }
 
         // Update Counters
-        let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0;
+        let totalTreesPine = 0, totalTreesDecid = 0, totalTreesPalm = 0, totalTreesDead = 0, totalTreesAutumn = 0, totalTreesCherry = 0, totalTreesYellowCortez = 0;
         let totalHouses = 0, totalClouds = 0, totalRocks = 0, totalBushes = 0;
         let totalSnowmen = 0, totalCactus = 0, totalLighthouses = 0, totalCastles = 0, totalChunks = 0;
         let totalWindmills = 0, totalCampfires = 0;
@@ -2780,6 +2780,7 @@ function animate() {
                     totalTreesDead += cg.userData.counts.trees_dead || 0;
                     totalTreesAutumn += cg.userData.counts.trees_autumn || 0;
                     totalTreesCherry += cg.userData.counts.trees_cherry || 0;
+                    totalTreesYellowCortez += cg.userData.counts.trees_yellow_cortez || 0;
                     totalHouses += cg.userData.counts.houses;
                     totalClouds += cg.userData.counts.clouds;
                     totalRocks += cg.userData.counts.rocks;
@@ -2805,6 +2806,7 @@ function animate() {
         updateDOM(document.getElementById('debug-trees-dead'), totalTreesDead);
         updateDOM(document.getElementById('debug-trees-autumn'), totalTreesAutumn);
         updateDOM(document.getElementById('debug-trees-cherry'), totalTreesCherry);
+        updateDOM(document.getElementById('debug-trees-yellow-cortez'), totalTreesYellowCortez);
         updateDOM(document.getElementById('debug-houses'), totalHouses);
         updateDOM(document.getElementById('debug-clouds'), totalClouds);
         updateDOM(document.getElementById('debug-rocks'), totalRocks);

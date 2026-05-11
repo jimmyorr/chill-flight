@@ -1028,6 +1028,7 @@ function generateChunk(chunkX, chunkZ) {
         const autumnTree2Positions = [];
         const autumnTree3Positions = [];
         const cherryTreePositions = [];
+        const yellowCortezTreePositions = [];
         const housePositions = [];
         const strawHutPositions = [];
         const windmillPositions = [];
@@ -1249,6 +1250,8 @@ function generateChunk(chunkX, chunkZ) {
                 }
             }
 
+            const distToVolcano = Math.sqrt((worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2);
+
             if (_enableObjects && (isStandardLand || isCustomLand)) {
                 if (isForest) {
                     const treeRoll = rng();
@@ -1256,7 +1259,9 @@ function generateChunk(chunkX, chunkZ) {
                         const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
                         const isSouthOf1N = worldZ > -5000;
 
-                        if (isIsland && isSouthOf1N) {
+                        if (distToVolcano < 3000 && rng() < 0.7) {
+                            yellowCortezTreePositions.push({ x: localX, y: height, z: localZ });
+                        } else if (isIsland && isSouthOf1N) {
                             palmTreePositions.push({ x: localX, y: height, z: localZ });
                         } else if (snowFactor > 0.4 || height > MOUNTAIN_LEVEL - 100) {
                             snowTreePositions.push({ x: localX, y: height, z: localZ });
@@ -1399,7 +1404,6 @@ function generateChunk(chunkX, chunkZ) {
             }
 
             // --- VOLCANO TEXTURING ---
-            const distToVolcano = Math.sqrt((worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2);
             if (distToVolcano < 2000) {
                 const vFactor = Math.max(0, Math.min(1, (2000 - distToVolcano) / 1000));
                 const basaltColor = _colorVolcanoBasaltHi.clone().lerp(_colorVolcanoBasaltLo, height / 1400);
@@ -1576,6 +1580,7 @@ function generateChunk(chunkX, chunkZ) {
         renderTrees(autumnTree1Positions, deciduousGeos.trunk, deciduousGeos.leaves, treeTrunkMat, 0xD35400);
         renderTrees(autumnTree2Positions, deciduousGeos.trunk, deciduousGeos.leaves, treeTrunkMat, 0xF39C12);
         renderTrees(autumnTree3Positions, deciduousGeos.trunk, deciduousGeos.leaves, treeTrunkMat, 0xC0392B);
+        renderTrees(yellowCortezTreePositions, deciduousGeos.trunk, deciduousGeos.leaves, treeTrunkMat, 0xFFEB3B); // Yellow Cortez
 
         if (deadTreePositions.length > 0) {
             const deadInst = new THREE.InstancedMesh(deadTreeGeo, deadTreeMat, deadTreePositions.length);
@@ -2183,6 +2188,7 @@ function generateChunk(chunkX, chunkZ) {
             trees_dead: deadTreePositions.length,
             trees_autumn: autumnTree1Positions.length + autumnTree2Positions.length + autumnTree3Positions.length,
             trees_cherry: cherryTreePositions.length,
+            trees_yellow_cortez: yellowCortezTreePositions.length,
             houses: housePositions.length + pagodaPositions.length + barnPositions.length + monasteryPositions.length + castleRuinsPositions.length,
             clouds: numClouds,
             rocks: rockPositions.length + snowRockPositions.length + desertRockPositions.length,

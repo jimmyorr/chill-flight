@@ -151,6 +151,7 @@
         <div class="category-title">Nature</div>
         <button class="model-btn" onclick="viewModel('pine', event)">Pine tree</button>
         <button class="model-btn" onclick="viewModel('deciduous', event)">Deciduous tree</button>
+        <button class="model-btn" onclick="viewModel('yellow_cortez', event)">Yellow cortez</button>
         <button class="model-btn" onclick="viewModel('palm', event)">Palm tree</button>
         <button class="model-btn" onclick="viewModel('dead_tree', event)">Dead tree</button>
         <button class="model-btn" onclick="viewModel('cactus', event)">Cactus</button>
@@ -323,6 +324,11 @@
                         const dTrunk = new THREE.Mesh(deciduousGeos.trunk, treeTrunkMat);
                         const dLeaves = new THREE.Mesh(deciduousGeos.leaves, createMaterial({ color: 0x4a7c44 }));
                         previewGroup.add(dTrunk, dLeaves);
+                        break;
+                    case 'yellow_cortez':
+                        const ycTrunk = new THREE.Mesh(deciduousGeos.trunk, treeTrunkMat);
+                        const ycLeaves = new THREE.Mesh(deciduousGeos.leaves, createMaterial({ color: 0xFFEB3B }));
+                        previewGroup.add(ycTrunk, ycLeaves);
                         break;
                     case 'palm':
                         const pTrunk = new THREE.Mesh(palmGeos.trunk, treeTrunkMat);
