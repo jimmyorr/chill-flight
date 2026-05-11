@@ -3,98 +3,108 @@
 A minimalist flight simulator built with Three.js, featuring an infinite world driven by procedural terrain generation.
 
 ## Music
+
 In-game radio features tracks by Purrple Cat (Used with permission/attribution).
 
 ## Biomes
 
 The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts.
 
-| Biome | Direction | Latitude/Longitude | Primary Characteristics |
-| :--- | :--- | :--- | :--- |
-| **Temperate** | Central | Around (0, 0) (Center) | Lush green plains and thick forests. High density of civilization (houses, barns, windmills). |
-| **Snowy** | North | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and frequent snow (~80% duty cycle). |
-| **Desert** | South | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees. |
-| **Archipelago** | East | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000). |
-| **Lake District**| West | Negative X (West Longitude) | Broad rolling hills, and vast inland lakes beyond X=-3000 (0.6 West). |
+| Biome             | Direction | Latitude/Longitude          | Primary Characteristics                                                                                  |
+| :---------------- | :-------- | :-------------------------- | :------------------------------------------------------------------------------------------------------- |
+| **Temperate**     | Central   | Around (0, 0) (Center)      | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).            |
+| **Snowy**         | North     | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and frequent snow (~80% duty cycle).     |
+| **Desert**        | South     | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                            |
+| **Archipelago**   | East      | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000). |
+| **Lake District** | West      | Negative X (West Longitude) | Broad rolling hills, and vast inland lakes beyond X=-3000 (0.6 West).                                    |
 
 ### 1. Temperate Central (The Heartland)
-*   **Location:** The area surrounding the equator (Z=0, 0.0 Latitude) and prime meridian (X=0, 0.0 Longitude).
-*   **Landscape:** A mix of rolling plains (#7CB342) and dense deciduous forests (#388E3C).
-*   **Key Features:** 
-    *   **Structures:** Most common area for houses, barns, windmills, and monasteries.
-    *   **Vegetation:** Oak-like deciduous trees and bushes.
-    *   **Water:** Standard sky-blue water (#40C4FF) often featuring lily pads and piers.
+
+- **Location:** The area surrounding the equator (Z=0, 0.0 Latitude) and prime meridian (X=0, 0.0 Longitude).
+- **Landscape:** A mix of rolling plains (#7CB342) and dense deciduous forests (#388E3C).
+- **Key Features:**
+  - **Structures:** Most common area for houses, barns, windmills, and monasteries.
+  - **Vegetation:** Oak-like deciduous trees and bushes.
+  - **Water:** Standard sky-blue water (#40C4FF) often featuring lily pads and piers.
 
 ### 2. The Frozen North
-*   **Location:** Latitude 1.5+ North (Z < -7500).
-*   **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192).
-*   **Weather:** Frequent falling snow (~80% of the time) with occasional global breaks.
-*   **Key Features:**
-    *   **Mountain Range:** The "Northern Snowy Range" is located at approximately 2.0 North latitude (Z = -10000) and extends west from 1.0 West longitude (X = -5000). It features sharp, ridged peaks reaching altitudes up to 1600 units.
-    *   **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
-    *   **Water:** Icy, pale blue water (#88CCFF).
+
+- **Location:** Latitude 1.5+ North (Z < -7500).
+- **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192).
+- **Weather:** Frequent falling snow (~80% of the time) with occasional global breaks.
+- **Key Features:**
+  - **Mountain Range:** The "Northern Snowy Range" is located at approximately 2.0 North latitude (Z = -10000) and extends west from 1.0 West longitude (X = -5000). It features sharp, ridged peaks reaching altitudes up to 1600 units.
+  - **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
+  - **Water:** Icy, pale blue water (#88CCFF).
 
 ### 3. The Arid South (Arizona Style)
-*   **Location:** Latitude 1.5+ South (Z > 7500).
-*   **Landscape:** Reddish-orange sand (#F4A460) and deep red canyon rock (#C24B2B).
-*   **Key Features:**
-    *   **Mountain Range:** The "Southern Arizona Range" is located at approximately 2.0 South latitude (Z = 10000) and extends west from 1.0 West longitude (X = -5000). It features broad mesas and rugged red-rock peaks.
-    *   **Vegetation:** Cactuses and skeletal "dead" trees.
-    *   **Water:** Deep turquoise tropical-style water (#00CED1).
+
+- **Location:** Latitude 1.5+ South (Z > 7500).
+- **Landscape:** Reddish-orange sand (#F4A460) and deep red canyon rock (#C24B2B).
+- **Key Features:**
+  - **Mountain Range:** The "Southern Arizona Range" is located at approximately 2.0 South latitude (Z = 10000) and extends west from 1.0 West longitude (X = -5000). It features broad mesas and rugged red-rock peaks.
+  - **Vegetation:** Cactuses and skeletal "dead" trees.
+  - **Water:** Deep turquoise tropical-style water (#00CED1).
 
 ### 4. Coastal Islands (The East)
-*   **Location:** Longitude 0.0+ East (X > 0), transitioning to full ocean and islands beyond 0.6 East (X > 3000).
-*   **Landscape:** The land flattens significantly into sandy beaches before transitioning into the deep ocean. 
-*   **Key Features:**
-    *   **Islands:** Large island chains generated by low-frequency noise.
-    *   **Vegetation:** Palm trees (#689F38) are found exclusively along these coasts.
-    *   **Maritime:** Sailboats.
+
+- **Location:** Longitude 0.0+ East (X > 0), transitioning to full ocean and islands beyond 0.6 East (X > 3000).
+- **Landscape:** The land flattens significantly into sandy beaches before transitioning into the deep ocean.
+- **Key Features:**
+  - **Islands:** Large island chains generated by low-frequency noise.
+  - **Vegetation:** Palm trees (#689F38) are found exclusively along these coasts.
+  - **Maritime:** Sailboats.
 
 ## Weather
 
 Weather is dynamic and procedural, tied to a global noise map and the player's latitude.
 
 ### Overcast skies
+
 Overcast conditions occur when the procedural cloud noise exceeds a threshold (0.7) or during active precipitation.
-*   **Atmospheric effects**:
-    *   **Celestial visibility**: Stars and the Aurora Borealis become invisible. The Sun and Moon are dimmed.
-    *   **Lighting**: Sunlight and Moonlight intensity is reduced, shifting to ambient, diffuse lighting.
-    *   **Fog**: Base fog density increases, reducing visibility.
-    *   **Colors**: The sky and fog colors blend towards a dark, stormy gray.
+
+- **Atmospheric effects**:
+  - **Celestial visibility**: Stars and the Aurora Borealis become invisible. The Sun and Moon are dimmed.
+  - **Lighting**: Sunlight and Moonlight intensity is reduced, shifting to ambient, diffuse lighting.
+  - **Fog**: Base fog density increases, reducing visibility.
+  - **Colors**: The sky and fog colors blend towards a dark, stormy gray.
 
 ### Storms and precipitation
+
 Storms are triggered when the global cloud noise map reaches peak density (> 0.75). The type of precipitation depends on your latitude (Z coordinate):
 
-*   **The deep North** (Latitude > 0.9 North / Z < -4500): Storms intensify the already frequent snowfall.
-*   **The transition zone** (Latitude 0.7 to 0.9 North / Z between -3500 and -4500): Sleet (a mix of rain and snow).
-*   **Temperate and Equator** (Latitude 0.8 South to 0.7 North / Z between 4000 and -3500): Full rain.
-*   **Desert border** (Latitude 0.8 to 1.1 South / Z between 4000 and 5500): Light rain that quickly dries up as you move further south.
-*   **Deep desert** (Latitude > 1.1 South / Z > 5500): Dry storms (the sky becomes overcast, but no rain falls).
+- **The deep North** (Latitude > 0.9 North / Z < -4500): Storms intensify the already frequent snowfall.
+- **The transition zone** (Latitude 0.7 to 0.9 North / Z between -3500 and -4500): Sleet (a mix of rain and snow).
+- **Temperate and Equator** (Latitude 0.8 South to 0.7 North / Z between 4000 and -3500): Full rain.
+- **Desert border** (Latitude 0.8 to 1.1 South / Z between 4000 and 5500): Light rain that quickly dries up as you move further south.
+- **Deep desert** (Latitude > 1.1 South / Z > 5500): Dry storms (the sky becomes overcast, but no rain falls).
 
 ### Permanent weather
-*   **Snowy biome**: Above Latitude 0.9 North, snow falls roughly 80% of the time, regardless of the storm noise map, with occasional brief breaks.
+
+- **Snowy biome**: Above Latitude 0.9 North, snow falls roughly 80% of the time, regardless of the storm noise map, with occasional brief breaks.
 
 ### Debug menu weather entries
+
 The telemetry overlay provides real-time values for the weather system:
-*   **Overcast**: The current interpolated overcast value (0.0 to 1.0), determining cloud density and atmospheric effects.
-*   **Storm**: The raw noise value used to determine storm triggers. Values above 0.75 trigger precipitation.
-*   **Precip**: The calculated precipitation intensity (0.0 to 1.0), based on the maximum of normalized snow or rain opacity.
-*   **Zone**: The current climate zone based on latitude (Snow, Sleet, Rain, Dry Edge, Desert).
-*   **Snow α**: The visual opacity of the snow particle system (maxes out at 0.8).
-*   **Rain α**: The visual opacity of the rain particle system (maxes out at 0.5).
-*   **Fog**: The current density of the scene fog.
+
+- **Overcast**: The current interpolated overcast value (0.0 to 1.0), determining cloud density and atmospheric effects.
+- **Storm**: The raw noise value used to determine storm triggers. Values above 0.75 trigger precipitation.
+- **Precip**: The calculated precipitation intensity (0.0 to 1.0), based on the maximum of normalized snow or rain opacity.
+- **Zone**: The current climate zone based on latitude (Snow, Sleet, Rain, Dry Edge, Desert).
+- **Snow α**: The visual opacity of the snow particle system (maxes out at 0.8).
+- **Rain α**: The visual opacity of the rain particle system (maxes out at 0.5).
+- **Fog**: The current density of the scene fog.
 
 ## Landmarks
 
 These areas are layered on top of the primary biomes using noise-based "patches":
 
-*   **Autumn Zones:** Large patches of burnt orange and red forests. These appear randomly in temperate areas, changing common trees into three varieties of autumn-foliage trees.
-*   **Cherry Blossom Groves:** Rare pink-tinted forests (#F8BBD0). These are the **only** places where Pagodas will spawn.
-*   **The Equator River:** A massive, meandering river that runs primarily East-West around Z=0 (0.0 Latitude). It features fluctuating widths (80 to 300 units) and smooth, carved banks.
-*   **Grid Rivers:** Smaller rivers running East-West every 5 degrees (25,000 units) North and South of the equator. These feature widths of 60 to 200 units and have unique snaking patterns determined by the world seed.
-*   **Volcano:** Located at approximately `1.0 South, 1.0 West` (X=-5000, Z=5000). This is a massive, procedural volcano featuring a wide base, ridged slopes, a caldera crater, and active visual elements like lava and smoke. The surrounding terrain is textured with dark basalt rock.
-*   **Montauk Lighthouse:** Located at approximately `0.6 South, 1.2 East` (X=6000, Z=3000). This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
-
+- **Autumn Zones:** Large patches of burnt orange and red forests. These appear randomly in temperate areas, changing common trees into three varieties of autumn-foliage trees.
+- **Cherry Blossom Groves:** Rare pink-tinted forests (#F8BBD0). These are the **only** places where Pagodas will spawn.
+- **The Equator River:** A massive, meandering river that runs primarily East-West around Z=0 (0.0 Latitude). It features fluctuating widths (80 to 300 units) and smooth, carved banks.
+- **Grid Rivers:** Smaller rivers running East-West every 5 degrees (25,000 units) North and South of the equator. These feature widths of 60 to 200 units and have unique snaking patterns determined by the world seed.
+- **Volcano:** Located at approximately `1.0 South, 1.0 West` (X=-5000, Z=5000). This is a massive, procedural volcano featuring a wide base, ridged slopes, a caldera crater, and active visual elements like lava and smoke. The surrounding terrain is textured with dark basalt rock.
+- **Montauk Lighthouse:** Located at approximately `0.6 South, 1.2 East` (X=6000, Z=3000). This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
 
 ## Controls
 
@@ -103,47 +113,50 @@ Multiple control methods are supported, including keyboard, mouse/trackpad, game
 ### Keyboard Controls
 
 #### General Flight
-*   **Arrow Up / Down**: Control pitch (Climb / Dive).
-*   **Arrow Left / Right**: Control roll and turning.
-*   **Shift + Arrow Up / Down**: Throttle control (Increase / Decrease speed).
-*   **L**: Toggle headlight.
-*   **Escape**: Toggle pause menu.
+
+- **Arrow Up / Down**: Control pitch (Climb / Dive).
+- **Arrow Left / Right**: Control roll and turning.
+- **Shift + Arrow Up / Down**: Throttle control (Increase / Decrease speed).
+- **L**: Toggle headlight.
+- **Escape**: Toggle pause menu.
 
 #### Special Maneuvers
-*   **Double-Tap Arrow Up**: Perform a loop.
-*   **Triple-Tap Arrow Up**: Perform a steep ascent.
-*   **Double-Tap Arrow Down**: Perform a steep dive.
-*   **Double-Tap Arrow Left / Right**: Perform a barrel roll.
+
+- **Double-Tap Arrow Up**: Perform a loop.
+- **Triple-Tap Arrow Up**: Perform a steep ascent.
+- **Double-Tap Arrow Down**: Perform a steep dive.
+- **Double-Tap Arrow Left / Right**: Perform a barrel roll.
 
 #### Helicopter Controls
-*   **Arrow Up / Down**: Move forward / backward.
-*   **Shift + Arrow Left / Right**: Strafe left / right.
-*   **Plus (+) / Minus (-)** or **Shift + Arrow Up / Down**: Control altitude (Lift / Descend).
+
+- **Arrow Up / Down**: Move forward / backward.
+- **Shift + Arrow Left / Right**: Strafe left / right.
+- **Plus (+) / Minus (-)** or **Shift + Arrow Up / Down**: Control altitude (Lift / Descend).
 
 #### Free Camera Mode (if active)
-*   **Arrow Keys**: Move camera horizontally.
-*   **Q / E**: Move camera vertically (Down / Up).
-*   **Shift**: Boost camera movement speed.
+
+- **Arrow Keys**: Move camera horizontally.
+- **Q / E**: Move camera vertically (Down / Up).
+- **Shift**: Boost camera movement speed.
 
 ### Controller Support
 
 Full gamepad support mapped to standard flight controls.
 
-*   **Left Analog Stick**: Control pitch (Up/Down) and roll (Left/Right).
-*   **Right Trigger (RT)**: Accelerate.
-*   **Left Trigger (LT)**: Decelerate.
-*   **Left Bumper (LB) / Right Bumper (RB)**: Control roll. Double-tap to trigger a barrel roll.
-*   **D-Pad**: Mapped to arrow keys for menu navigation and alternative flight control.
-*   **Button A**: Select / Enter.
-*   **Start / Menu Button**: Toggle pause menu.
-*   **Select / Back Button**: Toggle mobile action menu.
+- **Left Analog Stick**: Control pitch (Up/Down) and roll (Left/Right).
+- **Right Trigger (RT)**: Accelerate.
+- **Left Trigger (LT)**: Decelerate.
+- **Left Bumper (LB) / Right Bumper (RB)**: Control roll. Double-tap to trigger a barrel roll.
+- **D-Pad**: Mapped to arrow keys for menu navigation and alternative flight control.
+- **Button A**: Select / Enter.
+- **Start / Menu Button**: Toggle pause menu.
+- **Select / Back Button**: Toggle mobile action menu.
 
 ### TV Remote Support
 
 The game is optimized for Android TV and similar devices using a standard remote control.
 
-*   **Arrow Keys**: Navigate menus and control flight.
-*   **Enter / Center Button**: Select items or toggle pause (when playing).
-*   **Backspace / Back Button**: Toggle pause menu or go back.
-*   **Media Play / Pause**: Toggle pause menu.
-
+- **Arrow Keys**: Navigate menus and control flight.
+- **Enter / Center Button**: Select items or toggle pause (when playing).
+- **Backspace / Back Button**: Toggle pause menu or go back.
+- **Media Play / Pause**: Toggle pause menu.
