@@ -1008,10 +1008,17 @@ function updateWeather(delta) {
     } else if (weatherType === 'auto') {
         const latVal = (-planeGroup.position.z / 5000);
 
-        // Always snow above 0.9°N, fading in from 0.9 to 1.5
+        // Continuous snow above 0.9°N, but with occasional breaks (80% duty cycle)
         if (latVal > 0.9) {
-            const permanentSnow = THREE.MathUtils.clamp((latVal - 0.9) / 0.6, 0, 1);
-            targetSnowOpacity = Math.max(targetSnowOpacity, permanentSnow * 0.4);
+            const timeOffset = ((window._gameServerNow || performance.now()) / 100000);
+            // Use a slow-moving noise wave based on time for global breaks
+            const snowBreakNoise = (simplex.noise2D(timeOffset * 0.2, 999) + 1) / 2; // Value between 0 and 1
+            
+            // Snows ~80% of the time (when noise is > 0.2)
+            if (snowBreakNoise > 0.2) {
+                const permanentSnow = THREE.MathUtils.clamp((latVal - 0.9) / 0.6, 0, 1);
+                targetSnowOpacity = Math.max(targetSnowOpacity, permanentSnow * 0.4);
+            }
         }
 
         // 1. Sync with the global overcast/cloud noise map
