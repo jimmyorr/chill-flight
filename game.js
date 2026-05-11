@@ -1604,7 +1604,7 @@ function animate() {
 
         // 2. Altitude Control
         const currentRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ
-            ? window.ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, simplex)
+            ? window.ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, planeGroup.position.z, simplex)
             : 0;
 
         const distToRiver = Math.abs(currentRiverZ - planeGroup.position.z);
@@ -1634,7 +1634,7 @@ function animate() {
         // We look ahead a bit to calculate the river's local angle
         const lookAheadX = planeGroup.position.x + (lookDirX * 300);
         const targetRiverZ = typeof window.ChillFlightLogic !== 'undefined' && window.ChillFlightLogic.getRiverCenterZ
-            ? window.ChillFlightLogic.getRiverCenterZ(lookAheadX, simplex)
+            ? window.ChillFlightLogic.getRiverCenterZ(lookAheadX, planeGroup.position.z, simplex)
             : 0;
 
         // Calculate the vector pointing down the river

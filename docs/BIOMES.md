@@ -57,6 +57,7 @@ These areas are layered on top of the primary biomes using noise-based "patches"
 *   **Autumn Zones:** Large patches of burnt orange and red forests. These appear randomly in temperate areas, changing common trees into three varieties of autumn-foliage trees.
 *   **Cherry Blossom Groves:** Rare pink-tinted forests (#F8BBD0). These are the **only** places where Pagodas will spawn.
 *   **The Equator River:** A massive, meandering river that runs primarily East-West around Z=0 (0.0 Latitude). It features fluctuating widths (80 to 300 units) and smooth, carved banks.
+*   **Grid Rivers:** Smaller rivers running East-West every 5 degrees (25,000 units) North and South of the equator. These feature widths of 60 to 200 units and have unique snaking patterns determined by the world seed.
 *   **Volcano:** Located at approximately `1.0 South, 1.0 West` (X=-5000, Z=5000). This is a massive, procedural volcano featuring a wide base, ridged slopes, a caldera crater, and active visual elements like lava and smoke. The surrounding terrain is textured with dark basalt rock.
 *   **Montauk Lighthouse:** Located at approximately `0.6 South, 1.2 East` (X=6000, Z=3000). This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
 

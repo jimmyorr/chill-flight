@@ -379,19 +379,35 @@
 
         // --- RIVER CARVING LOGIC ---
         // Define a meandering path running East-West around the equator (Z = 0)
-        // Use multiple frequencies of noise for more natural, unpredictable bends
-        const riverCenterZ = exports.getRiverCenterZ ? exports.getRiverCenterZ(x, simplex) :
-            (simplex.noise2D(x * 0.0003, 0) * 800 + simplex.noise2D(x * 0.001, 100) * 200);
+        // and additional rivers every 5 degrees (25000 units).
+        const riverSpacing = 25000;
+        const riverIndex = Math.round(z / riverSpacing);
+        const baseRiverZ = riverIndex * riverSpacing;
+        const isEquatorRiver = (riverIndex === 0);
+
+        const riverCenterZ = exports.getRiverCenterZ ? exports.getRiverCenterZ(x, z, simplex) :
+            (isEquatorRiver ? 
+                (simplex.noise2D(x * 0.0003, 0) * 800 + simplex.noise2D(x * 0.001, 100) * 200) :
+                baseRiverZ
+            );
 
         const distToRiver = Math.abs(z - riverCenterZ);
 
         // Vary the width of the river to break up uniformity
-        const widthNoise = simplex.noise2D(x * 0.0005, 200);
-        const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
-
-        const riverWidth = 80 + (widthVariation * 220); // River width fluctuates between 80 and 300
-        const riverBankWidth = 100 + (widthVariation * 100); // Bank width also fluctuates
-
+        let riverWidth, riverBankWidth;
+        
+        if (isEquatorRiver) {
+            const widthNoise = simplex.noise2D(x * 0.0005, 200);
+            const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
+            riverWidth = 80 + (widthVariation * 220); // River width fluctuates between 80 and 300
+            riverBankWidth = 100 + (widthVariation * 100); // Bank width also fluctuates
+        } else {
+            // Smaller rivers: 60 to 200
+            const widthNoise = simplex.noise2D(x * 0.0008, riverIndex * 10.0);
+            const widthVariation = (widthNoise + 1) * 0.5;
+            riverWidth = 60 + (widthVariation * 140);
+            riverBankWidth = 50 + (widthVariation * 50); // Smaller banks too
+        }
 
         // Calculate river factor
         let riverFactor = 0;
@@ -539,8 +555,30 @@
     exports.computeHeadingDirection = computeHeadingDirection;
     // --- RIVER CENTER ---
     // Returns the absolute Z coordinate of the center of the river at a given X.
-    function getRiverCenterZ(x, simplex) {
-        return (simplex.noise2D(x * 0.0003, 0) * 800) + (simplex.noise2D(x * 0.001, 100) * 200);
+    // Updated to take Z and return the center of the nearest river.
+    function getRiverCenterZ(x, z, simplex) {
+        const riverSpacing = 25000; // 5 degrees * 5000 units/degree
+        const riverIndex = Math.round(z / riverSpacing);
+        const baseRiverZ = riverIndex * riverSpacing;
+        
+        if (riverIndex === 0) {
+            return baseRiverZ + (simplex.noise2D(x * 0.0003, 0) * 800) + (simplex.noise2D(x * 0.001, 100) * 200);
+        } else {
+            // Additional rivers
+            // Use riverIndex to create unique noise offsets
+            const noiseOffset = riverIndex * 12.34;
+            
+            // Vary frequency and amplitude for unique snaking
+            const freq1 = 0.0002 + (simplex.noise2D(noiseOffset, 0) * 0.0001);
+            const amp1 = 400 + (simplex.noise2D(noiseOffset, 1) * 200);
+            
+            const freq2 = 0.0008 + (simplex.noise2D(noiseOffset, 2) * 0.0004);
+            const amp2 = 80 + (simplex.noise2D(noiseOffset, 3) * 40);
+            
+            return baseRiverZ + 
+                (simplex.noise2D(x * freq1, noiseOffset) * amp1) + 
+                (simplex.noise2D(x * freq2, noiseOffset + 50) * amp2);
+        }
     }
 
     // --- ANGLE INTERPOLATION ---
