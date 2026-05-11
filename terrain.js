@@ -1909,26 +1909,28 @@ function generateChunk(chunkX, chunkZ) {
                 lighthouseGroup.add(mesh);
             });
             
+            lighthouseGroup.scale.set(2, 2, 2); // Scale lighthouse by 100% bigger (double size)
             lighthouseGroup.position.set(pos.x + worldOffsetX, pos.y, pos.z + worldOffsetZ);
             objectsGroup.add(lighthouseGroup);
 
             // Beam
-            const beamHeight = 63; // Middle of lantern
+            const beamHeight = 126; // Middle of lantern (63 * 2)
             const beam = new THREE.Mesh(lighthouseBeamGeo, lighthouseBeamMat);
             beam.position.set(pos.x + worldOffsetX, pos.y + beamHeight, pos.z + worldOffsetZ);
             beam.rotation.y = pos.rotY;
             beam.rotation.x = 0.15; // Tilt slightly downward
+            beam.scale.set(2, 2, 2); // Scale beam to match
             objectsGroup.add(beam);
             group.userData.lighthouseBeam = beam;
 
             // Functional Light (SpotLight)
-            const spotLight = new THREE.SpotLight(0xFFFFaa, 25, 1500, Math.PI / 6, 0.8, 1);
+            const spotLight = new THREE.SpotLight(0xFFFFaa, 25, 3000, Math.PI / 6, 0.8, 1); // Doubled range
             spotLight.position.set(pos.x + worldOffsetX, pos.y + beamHeight, pos.z + worldOffsetZ);
             // Initial target position matching beam rotation and tilted down
             spotLight.target.position.set(
-                pos.x + worldOffsetX + Math.sin(pos.rotY) * 100,
-                pos.y + beamHeight - 15, // Aim lower
-                pos.z + worldOffsetZ + Math.cos(pos.rotY) * 100
+                pos.x + worldOffsetX + Math.sin(pos.rotY) * 200, // Doubled distance
+                pos.y + beamHeight - 30, // Doubled offset
+                pos.z + worldOffsetZ + Math.cos(pos.rotY) * 200
             );
             objectsGroup.add(spotLight);
             objectsGroup.add(spotLight.target);

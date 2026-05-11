@@ -2335,7 +2335,7 @@ function animate() {
                 const light = chunkGroup.userData.lighthouseLight;
 
                 // Align target perfectly with the beam's Z-axis trajectory
-                const distance = 300;
+                const distance = 600; // Doubled distance for scaled lighthouse
                 target.position.set(
                     light.position.x + Math.sin(beam.rotation.y) * distance,
                     light.position.y - Math.sin(beam.rotation.x) * distance, // Account for downward tilt
