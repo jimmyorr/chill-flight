@@ -52,7 +52,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 
 ## Weather
 
-Weather in Chill Flight is dynamic and procedural, tied to a global noise map and the player's latitude.
+Weather is dynamic and procedural, tied to a global noise map and the player's latitude.
 
 ### Overcast skies
 Overcast conditions occur when the procedural cloud noise exceeds a threshold (0.7) or during active precipitation.
@@ -94,3 +94,56 @@ These areas are layered on top of the primary biomes using noise-based "patches"
 *   **Grid Rivers:** Smaller rivers running East-West every 5 degrees (25,000 units) North and South of the equator. These feature widths of 60 to 200 units and have unique snaking patterns determined by the world seed.
 *   **Volcano:** Located at approximately `1.0 South, 1.0 West` (X=-5000, Z=5000). This is a massive, procedural volcano featuring a wide base, ridged slopes, a caldera crater, and active visual elements like lava and smoke. The surrounding terrain is textured with dark basalt rock.
 *   **Montauk Lighthouse:** Located at approximately `0.6 South, 1.2 East` (X=6000, Z=3000). This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
+
+
+## Controls
+
+Multiple control methods are supported, including keyboard, mouse/trackpad, gamepad, and TV remote.
+
+### Keyboard Controls
+
+#### General Flight
+*   **Arrow Up / Down**: Control pitch (Climb / Dive).
+*   **Arrow Left / Right**: Control roll and turning.
+*   **Shift + Arrow Up / Down**: Throttle control (Increase / Decrease speed).
+*   **L**: Toggle headlight.
+*   **Escape**: Toggle pause menu.
+
+#### Special Maneuvers
+*   **Double-Tap Arrow Up**: Perform a loop.
+*   **Triple-Tap Arrow Up**: Perform a steep ascent.
+*   **Double-Tap Arrow Down**: Perform a steep dive.
+*   **Double-Tap Arrow Left / Right**: Perform a barrel roll.
+
+#### Helicopter Controls
+*   **Arrow Up / Down**: Move forward / backward.
+*   **Shift + Arrow Left / Right**: Strafe left / right.
+*   **Plus (+) / Minus (-)** or **Shift + Arrow Up / Down**: Control altitude (Lift / Descend).
+
+#### Free Camera Mode (if active)
+*   **Arrow Keys**: Move camera horizontally.
+*   **Q / E**: Move camera vertically (Down / Up).
+*   **Shift**: Boost camera movement speed.
+
+### Controller Support
+
+Full gamepad support mapped to standard flight controls.
+
+*   **Left Analog Stick**: Control pitch (Up/Down) and roll (Left/Right).
+*   **Right Trigger (RT)**: Accelerate.
+*   **Left Trigger (LT)**: Decelerate.
+*   **Left Bumper (LB) / Right Bumper (RB)**: Control roll. Double-tap to trigger a barrel roll.
+*   **D-Pad**: Mapped to arrow keys for menu navigation and alternative flight control.
+*   **Button A**: Select / Enter.
+*   **Start / Menu Button**: Toggle pause menu.
+*   **Select / Back Button**: Toggle mobile action menu.
+
+### TV Remote Support
+
+The game is optimized for Android TV and similar devices using a standard remote control.
+
+*   **Arrow Keys**: Navigate menus and control flight.
+*   **Enter / Center Button**: Select items or toggle pause (when playing).
+*   **Backspace / Back Button**: Toggle pause menu or go back.
+*   **Media Play / Pause**: Toggle pause menu.
+
