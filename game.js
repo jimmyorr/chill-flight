@@ -962,7 +962,7 @@ function handleGyroData(beta, gamma) {
     if (targetX > 1) targetX = 1;
     if (targetX < -1) targetX = -1;
     
-    let targetY = -(diffPitch / 30.0); 
+    let targetY = (diffPitch / 30.0); // Reversed to match non-inverted preference
     if (targetY > 1) targetY = 1;
     if (targetY < -1) targetY = -1;
     
