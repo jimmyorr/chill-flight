@@ -76,6 +76,9 @@ window.addEventListener('mousemove', (e) => {
         gamepadSteeringActive = false;
     }
 });
+// --- MOBILE SPECIAL MOVES GESTURE STATE ---
+let activeGestureTouchId = null;
+let activeGestureAction = null;
 
 window.addEventListener('touchstart', (e) => {
     if (e.touches.length > 0) {
@@ -84,8 +87,54 @@ window.addEventListener('touchstart', (e) => {
         const isUI = isPauseOverlay || target.closest('#loading-overlay') || target.closest('#cockpit-ui') || target.closest('#debug-menu') || target.closest('#debug-telemetry') || target.closest('.title') || target.closest('#mobile-controls') || target.closest('#player-list') || target.closest('.color-swatch');
         if (!isUI) {
             if (e.cancelable) e.preventDefault(); // Stop iOS from starting a selection gesture
-            updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
+            
+            const touch = e.touches[0];
+            updateInputPosition(touch.clientX, touch.clientY);
             mouseControlActive = true;
+            
+            // --- Gesture Detection ---
+            const now = performance.now();
+            const x = touch.clientX / window.innerWidth;
+            const y = touch.clientY / window.innerHeight;
+            
+            let action = null;
+            if (x < 0.33) action = 'ArrowLeft';
+            else if (x > 0.66) action = 'ArrowRight';
+            else if (y < 0.33) action = 'ArrowUp'; // Top middle
+            else if (y > 0.66) action = 'ArrowDown'; // Bottom middle
+            
+            if (action) {
+                const timeSinceLastTap = now - lastArrowTap[action];
+                if (timeSinceLastTap < DOUBLE_TAP_MS) {
+                    tapCount[action] = (tapCount[action] || 0) + 1;
+                } else {
+                    tapCount[action] = 1;
+                }
+                lastArrowTap[action] = now;
+                
+                if (tapCount[action] === 2) {
+                    doubleTap[action] = true;
+                    keys[action] = true;
+                    keyPressStartTime[action] = now;
+                    activeGestureTouchId = touch.identifier;
+                    activeGestureAction = action;
+                } else if (tapCount[action] >= 3) {
+                    if (y < 0.33) {
+                        // Triple tap on top of screen -> Steep climb
+                        tripleTap.ArrowUp = true;
+                        keys.ArrowUp = true;
+                        keyPressStartTime.ArrowUp = now;
+                        activeGestureTouchId = touch.identifier;
+                        activeGestureAction = 'ArrowUp';
+                    } else {
+                        tripleTap[action] = true;
+                        keys[action] = true;
+                        keyPressStartTime[action] = now;
+                        activeGestureTouchId = touch.identifier;
+                        activeGestureAction = action;
+                    }
+                }
+            }
         } else {
             mouseControlActive = false; // Stop steering if touching UI
             mouseX = 0;
@@ -116,6 +165,22 @@ window.addEventListener('touchmove', (e) => {
 }, { passive: false });
 
 window.addEventListener('touchend', (e) => {
+    if (activeGestureTouchId !== null) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === activeGestureTouchId) {
+                if (activeGestureAction) {
+                    doubleTap[activeGestureAction] = false;
+                    if (typeof tripleTap !== 'undefined') tripleTap[activeGestureAction] = false;
+                    keys[activeGestureAction] = false;
+                }
+                activeGestureTouchId = null;
+                activeGestureAction = null;
+                break;
+            }
+        }
+    }
+
     if (e.touches.length === 0) {
         mouseControlActive = false;
         mouseX = 0;
@@ -166,6 +231,8 @@ function clearInputState() {
     if (typeof tapCount !== 'undefined') {
         tapCount.ArrowUp = tapCount.ArrowDown = tapCount.ArrowLeft = tapCount.ArrowRight = 0;
     }
+    if (typeof activeGestureTouchId !== 'undefined') activeGestureTouchId = null;
+    if (typeof activeGestureAction !== 'undefined') activeGestureAction = null;
 }
 const pauseOverlay = document.getElementById('pause-overlay');
 
