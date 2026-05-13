@@ -60,9 +60,12 @@ waterMaterial.onBeforeCompile = (shader) => {
         // Get world position for seamless tiling across chunks
         vec4 worldPosN = modelMatrix * vec4(position, 1.0);
 
+        float macroWaveN = sin(worldPosN.x * 0.0002) * cos(worldPosN.z * 0.00025);
+        float waveAmpN = 0.8 + macroWaveN * 0.4;
+
         // Analytical derivatives of the wave functions for correct lighting
-        float dx = 0.8 * 0.02 * cos(uTime + worldPosN.x * 0.02);
-        float dz = -0.8 * 0.015 * sin(uTime * 0.8 + worldPosN.z * 0.015);
+        float dx = waveAmpN * 0.02 * cos(uTime + worldPosN.x * 0.02);
+        float dz = -waveAmpN * 0.015 * sin(uTime * 0.8 + worldPosN.z * 0.015);
 
         // Perpendicular vector for light reflection
         vec3 objectNormal = normalize(vec3(-dx, 1.0, -dz));
@@ -77,9 +80,12 @@ waterMaterial.onBeforeCompile = (shader) => {
         vec3 transformed = vec3(position);
         vec4 worldPosV = modelMatrix * vec4(position, 1.0);
 
+        float macroWave = sin(worldPosV.x * 0.0002) * cos(worldPosV.z * 0.00025);
+        float waveAmp = 0.8 + macroWave * 0.4;
+
         // Wave math running in parallel on the GPU
-        float wave1 = sin(uTime + worldPosV.x * 0.02) * 0.8;
-        float wave2 = cos(uTime * 0.8 + worldPosV.z * 0.015) * 0.8;
+        float wave1 = sin(uTime + worldPosV.x * 0.02) * waveAmp;
+        float wave2 = cos(uTime * 0.8 + worldPosV.z * 0.015) * waveAmp;
 
         transformed.y += wave1 + wave2;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
@@ -103,9 +109,15 @@ waterMaterial.onBeforeCompile = (shader) => {
         vec3 viewDir = normalize(cameraPosition - vWorldPosition);
         vec3 sunReflNormal = normalize(vSmoothNormal);
         
+        // Add macro-scale spatial variation to break up monotony across different water bodies
+        float macro = sin(vWorldPosition.x * 0.0002) * cos(vWorldPosition.z * 0.00025);
+        float rippleScale = 0.1 + macro * 0.05; // 0.05 to 0.15
+        float timeScale = 1.5 + macro * 0.5; // 1.0 to 2.0
+        float perturbStrength = 0.05 + macro * 0.03; // 0.02 to 0.08
+        
         // Organic high-frequency ripples for shimmering specular
-        vec2 pos = vWorldPosition.xz * 0.1; // Scale of ripples
-        float t = uTime * 1.5;
+        vec2 pos = vWorldPosition.xz * rippleScale; // Scale of ripples
+        float t = uTime * timeScale;
         
         // 3 non-axis-aligned waves to break the grid interference pattern
         float dx = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.8
@@ -116,7 +128,7 @@ waterMaterial.onBeforeCompile = (shader) => {
                  + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * 0.8
                  + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * -0.4;
         
-        vec3 rippleNormal = vec3(dx * 0.05, 0.0, dz * 0.05); // Perturbation strength
+        vec3 rippleNormal = vec3(dx * perturbStrength, 0.0, dz * perturbStrength); // Perturbation strength
         
         sunReflNormal = normalize(sunReflNormal + rippleNormal);
 
