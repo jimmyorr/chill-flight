@@ -15,7 +15,7 @@ const _isLowQualityInitial = _initQualityForTerrain && parseInt(_initQualityForT
 
 const _enableBlockClouds = ChillFlightLogic.SHOW_CLOUDS;
 let _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
-let _volcanoElementsAdded = false;
+// Flag removed to fix issue #25
 
 // Volcano center — single source of truth for all coloring and landmark placement
 const VOLCANO_X = -5000;
@@ -1459,9 +1459,7 @@ function generateChunk(chunkX, chunkZ) {
                 Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 &&
                 Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2;
 
-            if (isVolcanoChunk && !_volcanoElementsAdded) {
-                _volcanoElementsAdded = true;
-
+            if (isVolcanoChunk) {
                 const craterBottom = getElevation(vX, vZ);
 
                 // Lava disk
@@ -1473,7 +1471,7 @@ function generateChunk(chunkX, chunkZ) {
                     mesh.position.set(vX + part.pos[0], craterBottom - 180, vZ + part.pos[2]);
                     mesh.rotation.set(...part.rot);
                     if (part.scale) mesh.scale.set(...part.scale);
-                    scene.add(mesh);
+                    group.add(mesh);
                 });
 
                 // Spot light pointing up to cast a glow on the underside of passing planes
@@ -1482,9 +1480,9 @@ function generateChunk(chunkX, chunkZ) {
                 sLight.position.set(vX, craterBottom + 10, vZ);
                 const sTarget = new THREE.Object3D();
                 sTarget.position.set(vX, 2000, vZ);
-                scene.add(sTarget);
+                group.add(sTarget);
                 sLight.target = sTarget;
-                scene.add(sLight);
+                group.add(sLight);
             }
         }
 
