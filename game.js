@@ -233,6 +233,10 @@ function clearInputState() {
     }
     if (typeof activeGestureTouchId !== 'undefined') activeGestureTouchId = null;
     if (typeof activeGestureAction !== 'undefined') activeGestureAction = null;
+    if (typeof gyroBasePitch !== 'undefined') {
+        gyroBasePitch = null;
+        gyroBaseRoll = null;
+    }
 }
 const pauseOverlay = document.getElementById('pause-overlay');
 
@@ -867,6 +871,113 @@ if (invertYInput) {
     invertYInput.addEventListener('change', (e) => {
         invertYAxis = e.target.checked;
         localStorage.setItem('chill_flight_invert_y', invertYAxis);
+    });
+}
+
+let gyroEnabled = false;
+const savedGyro = localStorage.getItem('chill_flight_gyro');
+if (savedGyro !== null) {
+    gyroEnabled = savedGyro === 'true';
+}
+
+let gyroBasePitch = null;
+let gyroBaseRoll = null;
+
+const gyroInput = document.getElementById('gyro-input');
+const gyroContainer = document.getElementById('gyro-container');
+
+function checkGyroSupport() {
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+        if (gyroContainer) gyroContainer.style.display = 'flex';
+        return;
+    }
+    
+    // On iOS, deviceorientation might not fire until permission is granted.
+    // So we check if the API exists AND if it's a mobile/touch device.
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (window.DeviceOrientationEvent && hasTouch) {
+        if (gyroContainer) gyroContainer.style.display = 'flex';
+    }
+}
+checkGyroSupport();
+
+if (gyroInput) {
+    gyroInput.checked = gyroEnabled;
+    gyroInput.addEventListener('change', async (e) => {
+        let enable = e.target.checked;
+        
+        if (enable && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try {
+                const permissionState = await DeviceOrientationEvent.requestPermission();
+                if (permissionState !== 'granted') {
+                    enable = false;
+                    gyroInput.checked = false;
+                    alert("Gyro permission denied.");
+                }
+            } catch (err) {
+                console.error("Error requesting gyro permission", err);
+                enable = false;
+                gyroInput.checked = false;
+            }
+        }
+        
+        gyroEnabled = enable;
+        localStorage.setItem('chill_flight_gyro', gyroEnabled);
+        gyroBasePitch = null;
+        gyroBaseRoll = null;
+    });
+}
+
+function handleGyroData(beta, gamma) {
+    if (!gyroEnabled || isPaused) return;
+    if (beta === null || gamma === null) return;
+
+    let roll = gamma;
+    let pitch = beta;
+    const orientation = window.screen && window.screen.orientation ? window.screen.orientation.angle : (window.orientation || 0);
+
+    if (orientation === 90) {
+        roll = beta;
+        pitch = -gamma;
+    } else if (orientation === -90 || orientation === 270) {
+        roll = -beta;
+        pitch = gamma;
+    }
+
+    if (gyroBasePitch === null || gyroBaseRoll === null) {
+        gyroBasePitch = pitch;
+        gyroBaseRoll = roll;
+    }
+
+    let diffRoll = roll - gyroBaseRoll;
+    let diffPitch = pitch - gyroBasePitch;
+
+    // Handle wrap-around bounds
+    if (diffRoll > 180) diffRoll -= 360;
+    if (diffRoll < -180) diffRoll += 360;
+    if (diffPitch > 180) diffPitch -= 360;
+    if (diffPitch < -180) diffPitch += 360;
+
+    let targetX = diffRoll / 30.0; // 30 degrees for max turn
+    if (targetX > 1) targetX = 1;
+    if (targetX < -1) targetX = -1;
+    
+    let targetY = -(diffPitch / 30.0); 
+    if (targetY > 1) targetY = 1;
+    if (targetY < -1) targetY = -1;
+    
+    mouseX = targetX;
+    mouseY = targetY;
+    mouseControlActive = true;
+}
+
+if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Motion) {
+    Capacitor.Plugins.Motion.addListener('orientation', (event) => {
+        handleGyroData(event.beta, event.gamma);
+    });
+} else {
+    window.addEventListener('deviceorientation', (event) => {
+        handleGyroData(event.beta, event.gamma);
     });
 }
 
