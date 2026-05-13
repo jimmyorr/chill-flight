@@ -845,6 +845,25 @@ const lighthouseBeamMat = new THREE.MeshBasicMaterial({
     depthWrite: false
 });
 
+let persistentLighthouseLight = null;
+let persistentLighthouseBeam = null;
+
+window.initLighthouse = function() {
+    if (persistentLighthouseLight) return; // Already initialized
+    
+    // Create spotlight
+    persistentLighthouseLight = new THREE.SpotLight(0xFFFFaa, 0, 3000, Math.PI / 6, 0.8, 1);
+    scene.add(persistentLighthouseLight);
+    scene.add(persistentLighthouseLight.target);
+    
+    // Create beam
+    persistentLighthouseBeam = new THREE.Mesh(lighthouseBeamGeo, lighthouseBeamMat);
+    persistentLighthouseBeam.visible = false;
+    scene.add(persistentLighthouseBeam);
+    
+    console.log("[Lighthouse] Persistent light and beam initialized.");
+};
+
 // --- VOLCANO ACTIVE ELEMENTS (pre-allocated, shared via ModelAssembler) ---
 const volcanoLavaGeo = new THREE.SphereGeometry(300, 16, 16);
 const volcanoLavaMat = new THREE.MeshBasicMaterial({ color: 0xFF4500 });
@@ -941,11 +960,31 @@ function getBiome(x, z) {
 }
 
 function getElevation(x, z) {
-    return ChillFlightLogic.getElevation(
+    let n = ChillFlightLogic.getElevation(
         x, z, simplex,
         { WATER_LEVEL, MOUNTAIN_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE },
         THREE.MathUtils.lerp
     );
+    
+    // Add a large island for the Montauk lighthouse at chunk 4,2 (world 6000, 3000)
+    const dx = x - 6000;
+    const dz = z - 3000;
+    const distSq = dx * dx + dz * dz;
+    const islandRadius = 400; // Big island
+    if (distSq < islandRadius * islandRadius) {
+        const dist = Math.sqrt(distSq);
+        const factor = 1.0 - (dist / islandRadius);
+        const sFactor = factor * factor * (3 - 2 * factor); // Smoothstep
+        
+        // Add noise to make it irregular
+        const noise = simplex.noise2D(x * 0.002, z * 0.002) * 0.5 + 0.5; // [0, 1]
+        const irregularFactor = sFactor * (0.7 + noise * 0.3);
+        
+        // Raise terrain to at least WATER_LEVEL + 20 in the center
+        n = Math.max(n, WATER_LEVEL + 20 * irregularFactor);
+    }
+    
+    return n;
 }
 
 // Optimization: Pre-allocate colors used in chunk generation loop to prevent GC stalling
@@ -1035,6 +1074,7 @@ function generateChunk(chunkX, chunkZ) {
         let lighthousePos = null;
         const isMontaukChunk = (chunkX === 4 && chunkZ === 2);
         let bestMontaukPos = null;
+        let fallbackMontaukPos = null;
         const pierPositions = [];
         const campfirePositions = [];
         const chimneySmokePositions = [];
@@ -1069,6 +1109,8 @@ function generateChunk(chunkX, chunkZ) {
             const height = getCachedElevation(worldX, worldZ);
             positions[i + 1] = height;
             if (height > maxChunkHeight) maxChunkHeight = height;
+
+
 
             // --- ORGANIC TEXTURING & SLOPE LOGIC ---
             // 1. Calculate local slope (quick approximation)
@@ -1253,6 +1295,8 @@ function generateChunk(chunkX, chunkZ) {
             const distToVolcano = Math.sqrt((worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2);
 
             if (_enableObjects && (isStandardLand || isCustomLand)) {
+
+
                 if (isForest) {
                     const treeRoll = rng();
                     if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
@@ -1322,23 +1366,6 @@ function generateChunk(chunkX, chunkZ) {
                         && height > WATER_LEVEL + 5 && height < MOUNTAIN_LEVEL - 100
                         && desertFactor < 0.3 && snowFactor < 0.3) {
                         windmillPositions.push({ x: localX, y: height, z: localZ, rotY: rng() * Math.PI * 2 });
-                    } else if (isMontaukChunk && height < sandMaxHeight + 15) {
-                        const hN = getCachedElevation(worldX, worldZ - 50);
-                        const hS = getCachedElevation(worldX, worldZ + 50);
-                        const hE = getCachedElevation(worldX + 50, worldZ);
-                        const hW = getCachedElevation(worldX - 50, worldZ);
-                        let waterNeighbors = 0;
-                        if (hN <= WATER_LEVEL) waterNeighbors++;
-                        if (hS <= WATER_LEVEL) waterNeighbors++;
-                        if (hE <= WATER_LEVEL) waterNeighbors++;
-                        if (hW <= WATER_LEVEL) waterNeighbors++;
-
-                        if (waterNeighbors >= 1) {
-                            const score = (waterNeighbors * 1000) + localX - height;
-                            if (!bestMontaukPos || score > bestMontaukPos.score) {
-                                bestMontaukPos = { x: localX, y: height, z: localZ, score: score };
-                            }
-                        }
                     } else if (ENABLE_LIGHTHOUSES && !isMontaukChunk && !lighthousePos && rng() < 0.0004 * densityScale && height < sandMaxHeight + 15) {
                         const hN = getCachedElevation(worldX, worldZ - 50);
                         const hS = getCachedElevation(worldX, worldZ + 50);
@@ -1413,8 +1440,9 @@ function generateChunk(chunkX, chunkZ) {
             colors.push(_tempColorObj.r, _tempColorObj.g, _tempColorObj.b);
         }
 
-        if (isMontaukChunk && bestMontaukPos) {
-            lighthousePos = { ...bestMontaukPos, rotY: rng() * Math.PI * 2 };
+        if (isMontaukChunk) {
+            lighthousePos = { x: 0, y: getElevation(6000, 3000), z: 0, rotY: rng() * Math.PI * 2 };
+            console.log(`[Lighthouse] Placed Montauk lighthouse at fixed position (0, ${lighthousePos.y}, 0)`);
         }
 
         geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -1895,8 +1923,7 @@ function generateChunk(chunkX, chunkZ) {
             objectsGroup.add(bladesInst);
         }
 
-        // 2.9 Generate Lighthouses
-        if (lighthousePos) {
+        // 2.9 Generate        if (lighthousePos) {
             const pos = lighthousePos;
             const structure = ModelAssembler.getStructure('lighthouse', pos.rotY || 0);
             const lighthouseGroup = new THREE.Group();
@@ -1913,29 +1940,33 @@ function generateChunk(chunkX, chunkZ) {
             lighthouseGroup.position.set(pos.x + worldOffsetX, pos.y, pos.z + worldOffsetZ);
             objectsGroup.add(lighthouseGroup);
 
-            // Beam
+            // Use persistent beam and light
             const beamHeight = 126; // Middle of lantern (63 * 2)
-            const beam = new THREE.Mesh(lighthouseBeamGeo, lighthouseBeamMat);
-            beam.position.set(pos.x + worldOffsetX, pos.y + beamHeight, pos.z + worldOffsetZ);
-            beam.rotation.y = pos.rotY;
-            beam.rotation.x = 0.15; // Tilt slightly downward
-            beam.scale.set(2, 2, 2); // Scale beam to match
-            objectsGroup.add(beam);
-            group.userData.lighthouseBeam = beam;
+            
+            if (persistentLighthouseBeam) {
+                persistentLighthouseBeam.position.set(pos.x + worldOffsetX, pos.y + beamHeight, pos.z + worldOffsetZ);
+                persistentLighthouseBeam.rotation.y = pos.rotY;
+                persistentLighthouseBeam.rotation.x = 0.15; // Tilt slightly downward
+                persistentLighthouseBeam.scale.set(2, 2, 2); // Scale beam to match
+                persistentLighthouseBeam.visible = true;
+                
+                // Store in userData for game.js to animate!
+                group.userData.lighthouseBeam = persistentLighthouseBeam;
+            }
 
-            // Functional Light (SpotLight)
-            const spotLight = new THREE.SpotLight(0xFFFFaa, 25, 3000, Math.PI / 6, 0.8, 1); // Doubled range
-            spotLight.position.set(pos.x + worldOffsetX, pos.y + beamHeight, pos.z + worldOffsetZ);
-            // Initial target position matching beam rotation and tilted down
-            spotLight.target.position.set(
-                pos.x + worldOffsetX + Math.sin(pos.rotY) * 200, // Doubled distance
-                pos.y + beamHeight - 30, // Doubled offset
-                pos.z + worldOffsetZ + Math.cos(pos.rotY) * 200
-            );
-            objectsGroup.add(spotLight);
-            objectsGroup.add(spotLight.target);
-            group.userData.lighthouseLight = spotLight;
-            group.userData.lighthouseTarget = spotLight.target;
+            if (persistentLighthouseLight) {
+                persistentLighthouseLight.position.set(pos.x + worldOffsetX, pos.y + beamHeight, pos.z + worldOffsetZ);
+                persistentLighthouseLight.target.position.set(
+                    pos.x + worldOffsetX + Math.sin(pos.rotY) * 200,
+                    pos.y + beamHeight - 30,
+                    pos.z + worldOffsetZ + Math.cos(pos.rotY) * 200
+                );
+                persistentLighthouseLight.intensity = 25;
+                
+                // Store in userData for game.js to animate!
+                group.userData.lighthouseLight = persistentLighthouseLight;
+                group.userData.lighthouseTarget = persistentLighthouseLight.target;
+            }
         }
 
         // 2.95 Generate Piers
@@ -2208,7 +2239,6 @@ function generateChunk(chunkX, chunkZ) {
             chimneys: chimneySmokePositions.length
         };
     }
-}
 
 function updateChunks() {
     const currentChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
@@ -2239,6 +2269,10 @@ function updateChunks() {
             });
             scene.remove(group);
             chunks.delete(key);
+            if (key === "4,2") {
+                if (persistentLighthouseLight) persistentLighthouseLight.intensity = 0;
+                if (persistentLighthouseBeam) persistentLighthouseBeam.visible = false;
+            }
         }
     });
 }

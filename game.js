@@ -1100,6 +1100,9 @@ function updateWeather(delta) {
 
 // Initialize immediately
 initWeather();
+if (typeof window.initLighthouse === 'function') {
+    window.initLighthouse();
+}
 
 const fpsCounterEl = document.getElementById('debug-fps');
 
