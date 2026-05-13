@@ -20,7 +20,7 @@ let smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
 let manualPitch = 0;
 let verticalVelocity = 0; // units/sec, negative = falling
 let keyPressStartTime = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
-let cameraMode = 'follow'; // 'follow', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
+let cameraMode = 'follow'; // 'follow', 'first-person', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
 let cameraTransitionProgress = 0; // 0 = follow/cinematic, 1 = bird's eye
 let currentBirdEyeHeight = 2000;
 let cinematicTimer = 0;
@@ -1120,10 +1120,13 @@ const _chunkDummy = new THREE.Object3D();
 const _yAxis = new THREE.Vector3(0, 1, 0);
 const _hubOffset = new THREE.Vector3(0, 0, 8.5);
 const _idealCameraPos_Follow = new THREE.Vector3();
+const _idealCameraPos_FirstPerson = new THREE.Vector3();
 const _idealCameraPos_TopDown = new THREE.Vector3();
 const _idealLookTarget_Follow = new THREE.Vector3();
+const _idealLookTarget_FirstPerson = new THREE.Vector3();
 const _idealLookTarget_TopDown = new THREE.Vector3();
 const _up_Follow = new THREE.Vector3();
+const _up_FirstPerson = new THREE.Vector3();
 const _up_TopDown = new THREE.Vector3();
 const _freeCamFwd = new THREE.Vector3();
 const _freeCamSide = new THREE.Vector3();
@@ -2131,13 +2134,16 @@ function animate() {
         }
 
     } else {
-        const transitionDuration = 1.25; // Seconds for full swoop
-        const isBirdEye = cameraMode === 'birds-eye-close' || cameraMode === 'birds-eye-far';
+        let targetProgress = 0;
+        if (cameraMode === 'first-person') targetProgress = 0.5;
+        else if (cameraMode === 'birds-eye-close' || cameraMode === 'birds-eye-far') targetProgress = 1.0;
 
-        if (isBirdEye) {
-            cameraTransitionProgress = Math.min(1, cameraTransitionProgress + delta / transitionDuration);
-        } else {
-            cameraTransitionProgress = Math.max(0, cameraTransitionProgress - delta / transitionDuration);
+        let speed = 0.25; // Slower transitions for all modes
+
+        if (cameraTransitionProgress < targetProgress) {
+            cameraTransitionProgress = Math.min(targetProgress, cameraTransitionProgress + delta * speed);
+        } else if (cameraTransitionProgress > targetProgress) {
+            cameraTransitionProgress = Math.max(targetProgress, cameraTransitionProgress - delta * speed);
         }
 
     // Smoothly transition between different bird's eye heights
@@ -2161,6 +2167,11 @@ function animate() {
     } else {
         _up_Follow.set(0, 1, 0);
     }
+
+    // 1.5 Calculate First Person State
+    _idealCameraPos_FirstPerson.set(0, 1.0, -50).applyMatrix4(planeGroup.matrixWorld);
+    _idealLookTarget_FirstPerson.set(0, 1.0, -70).applyMatrix4(planeGroup.matrixWorld);
+    _up_FirstPerson.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
 
     // 2. Calculate Top-Down State
     _idealCameraPos_TopDown.set(planeGroup.position.x, planeGroup.position.y + currentBirdEyeHeight, planeGroup.position.z);
@@ -2227,9 +2238,20 @@ function animate() {
         _idealLookTarget.copy(_idealLookTarget_Cinematic);
         _idealUp.set(0, 1, 0); // Always world-up for cinematic
     } else {
-        _idealCameraPos.lerpVectors(_idealCameraPos_Follow, _idealCameraPos_TopDown, easedT);
-        _idealLookTarget.lerpVectors(_idealLookTarget_Follow, _idealLookTarget_TopDown, easedT);
-        _idealUp.lerpVectors(_up_Follow, _up_TopDown, easedT);
+        const p = cameraTransitionProgress;
+        if (p < 0.5) {
+            const t = p / 0.5;
+            const easedSegT = t * t * (3 - 2 * t); // smoothstep
+            _idealCameraPos.lerpVectors(_idealCameraPos_Follow, _idealCameraPos_FirstPerson, easedSegT);
+            _idealLookTarget.lerpVectors(_idealLookTarget_Follow, _idealLookTarget_FirstPerson, easedSegT);
+            _idealUp.lerpVectors(_up_Follow, _up_FirstPerson, easedSegT);
+        } else {
+            const t = (p - 0.5) / 0.5;
+            const easedSegT = t * t * (3 - 2 * t); // smoothstep
+            _idealCameraPos.lerpVectors(_idealCameraPos_FirstPerson, _idealCameraPos_TopDown, easedSegT);
+            _idealLookTarget.lerpVectors(_idealLookTarget_FirstPerson, _idealLookTarget_TopDown, easedSegT);
+            _idealUp.lerpVectors(_up_FirstPerson, _up_TopDown, easedSegT);
+        }
     }
 
     // Camera collision avoidance with terrain
@@ -3012,6 +3034,8 @@ if (camToggle) {
         e.preventDefault();
         e.stopPropagation();
         if (cameraMode === 'follow') {
+            cameraMode = 'first-person';
+        } else if (cameraMode === 'first-person') {
             cameraMode = 'birds-eye-close';
         } else if (cameraMode === 'birds-eye-close') {
             cameraMode = 'birds-eye-far';
@@ -3019,6 +3043,7 @@ if (camToggle) {
             cameraMode = 'cinematic';
         } else {
             cameraMode = 'follow';
+            cameraTransitionProgress = 0; // Reset progress to avoid bounce
         }
     });
 }
@@ -3165,6 +3190,8 @@ window.addEventListener('keydown', (e) => {
     // Camera mode toggle
     if (key === 'c' && !e.metaKey && !e.ctrlKey) {
         if (cameraMode === 'follow') {
+            cameraMode = 'first-person';
+        } else if (cameraMode === 'first-person') {
             cameraMode = 'birds-eye-close';
         } else if (cameraMode === 'birds-eye-close') {
             cameraMode = 'birds-eye-far';
@@ -3174,6 +3201,7 @@ window.addEventListener('keydown', (e) => {
             currentCinematicIndex = 0;
         } else {
             cameraMode = 'follow';
+            cameraTransitionProgress = 0; // Reset progress to avoid bounce
         }
         console.log("Camera mode switched to:", cameraMode);
         return;
