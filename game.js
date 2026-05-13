@@ -3079,6 +3079,17 @@ function toggleAutopilot() {
         }
     }
 
+    const flightStatusEl = document.getElementById('flight-status');
+    if (flightStatusEl) {
+        if (window.autopilotEnabled) {
+            flightStatusEl.textContent = "A U T O P I L O T";
+            flightStatusEl.style.color = "#e74c3c";
+        } else {
+            flightStatusEl.textContent = "C H I L L - F L I G H T";
+            flightStatusEl.style.color = ""; // Reset to default CSS color
+        }
+    }
+
     const centerMsg = document.getElementById('debug-fps') || document.querySelector('.title');
     if (centerMsg) {
         const oldText = centerMsg.textContent;
