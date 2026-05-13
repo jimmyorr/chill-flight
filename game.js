@@ -2371,23 +2371,33 @@ function animate() {
         if (chunkGroup.userData.lighthouseBeam) {
             const beam = chunkGroup.userData.lighthouseBeam;
             beam.rotation.y += delta * 0.15; // Slower sweep
-            beam.material.opacity = 0.5 + Math.sin(performance.now() * 0.002) * 0.3; // Slower pulsing
+
+            // Fade on after sunset and fade off before sunrise using dayFactor
+            const fadeFactor = 1.0 - dayFactor;
+            beam.visible = fadeFactor > 0;
+
+            if (beam.visible) {
+                const baseOpacity = 0.5 + Math.sin(performance.now() * 0.002) * 0.3; // Slower pulsing
+                beam.material.opacity = baseOpacity * fadeFactor;
+            }
 
             // Rotate functional light target
             if (chunkGroup.userData.lighthouseTarget && chunkGroup.userData.lighthouseLight) {
                 const target = chunkGroup.userData.lighthouseTarget;
                 const light = chunkGroup.userData.lighthouseLight;
 
-                // Align target perfectly with the beam's Z-axis trajectory
-                const distance = 600; // Doubled distance for scaled lighthouse
-                target.position.set(
-                    light.position.x + Math.sin(beam.rotation.y) * distance,
-                    light.position.y - Math.sin(beam.rotation.x) * distance, // Account for downward tilt
-                    light.position.z + Math.cos(beam.rotation.y) * distance
-                );
-
-                // Fade out lighthouse light during day
-                light.intensity = 25 * (1.0 - dayFactor * 0.95);
+                if (beam.visible) {
+                    // Align target perfectly with the beam's Z-axis trajectory
+                    const distance = 600; // Doubled distance for scaled lighthouse
+                    target.position.set(
+                        light.position.x + Math.sin(beam.rotation.y) * distance,
+                        light.position.y - Math.sin(beam.rotation.x) * distance, // Account for downward tilt
+                        light.position.z + Math.cos(beam.rotation.y) * distance
+                    );
+                    light.intensity = 25 * fadeFactor;
+                } else {
+                    light.intensity = 0;
+                }
             }
         }
 
