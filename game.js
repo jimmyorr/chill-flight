@@ -855,8 +855,14 @@ let smoothedDelta = 1 / 60;
 // --- PERSISTENCE ---
 const colorOptionsInit = document.getElementById('plane-color-options');
 if (colorOptionsInit && typeof planeColor !== 'undefined') {
-    colorOptionsInit.querySelectorAll('.color-swatch').forEach(sw => {
-        sw.classList.toggle('active', parseInt(sw.getAttribute('data-color')) === planeColor);
+    colorOptionsInit.innerHTML = ''; // Clear fallback or existing content
+    ChillFlightLogic.PLANE_COLORS.forEach(color => {
+        const sw = document.createElement('div');
+        sw.className = 'color-swatch' + (color === planeColor ? ' active' : '');
+        sw.setAttribute('data-color', color);
+        // Ensure hex string is always 6 characters with leading zeros
+        sw.style.backgroundColor = '#' + color.toString(16).padStart(6, '0');
+        colorOptionsInit.appendChild(sw);
     });
 }
 

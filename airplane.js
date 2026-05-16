@@ -26,7 +26,8 @@ let playerName = (localStorage.getItem('chill_flight_name') || '').trim() || def
 })();
 
 /** @type {number} */
-let planeColor = parseInt(localStorage.getItem('chill_flight_color')) || 0xe74c3c;
+let storedColor = localStorage.getItem('chill_flight_color');
+let planeColor = storedColor !== null && !isNaN(parseInt(storedColor)) ? parseInt(storedColor) : ChillFlightLogic.PLANE_COLORS[0];
 /** @type {boolean} */
 let hasSavedColor = localStorage.getItem('chill_flight_color') !== null;
 
