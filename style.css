@@ -760,6 +760,7 @@ input[type=number].customization-input {
     margin-bottom: 40px;
     font-size: 32px;
     font-weight: 200;
+    font-family: var(--font-mono);
     letter-spacing: 12px;
     line-height: 1.6;
     margin: 0;
@@ -797,6 +798,7 @@ input[type=number].customization-input {
 :root {
     --splash-intro-duration: 0.4s;
     --splash-crossfade-duration: 1.2s;
+    --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
 .splash-fade-item {
