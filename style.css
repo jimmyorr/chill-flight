@@ -753,11 +753,11 @@ input[type=number].customization-input {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 60px;
     min-height: 420px;
 }
 
 .loading-title {
+    margin-bottom: 40px;
     font-size: 32px;
     font-weight: 200;
     letter-spacing: 12px;

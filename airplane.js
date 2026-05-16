@@ -20,9 +20,7 @@ let playerName = (localStorage.getItem('chill_flight_name') || '').trim() || def
 // without waiting for multiplayer/Firebase modules to load.
 (function () {
     const ni = document.getElementById('player-name-input');
-    const si = document.getElementById('splash-name-input');
     if (ni) ni.value = playerName;
-    if (si) si.value = playerName;
 })();
 
 /** @type {number} */

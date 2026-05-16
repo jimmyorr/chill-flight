@@ -521,8 +521,9 @@ window.addEventListener('keydown', (e) => {
         const overlay = document.getElementById('loading-overlay');
         if (overlay && overlay.style.display !== 'none') {
             if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+                const btnContainer = document.getElementById('splash-btn-container');
                 const beginBtn = document.getElementById('begin-btn');
-                if (beginBtn && beginBtn.style.display !== 'none') {
+                if (beginBtn && btnContainer && btnContainer.style.visibility === 'visible') {
                     beginBtn.click();
                     e.preventDefault();
                     return;
@@ -3652,60 +3653,65 @@ if (overlay) {
         }
     };
 
+    const progressContainer = document.getElementById('splash-progress-container');
+    const progressBar = document.getElementById('splash-progress-bar');
+    const btnContainer = document.getElementById('splash-btn-container');
+
     if (beginBtn) {
         beginBtn.addEventListener('click', () => {
             dismissLoadingScreen(false);
         });
+    }
 
-        // Auto-skip if music was paused last time
-        if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
-            console.log("🎵 Music was paused last session. Auto-skipping with progress.");
+    // Always run the progress bar animation first
+    if (progressContainer && progressBar) {
+        progressContainer.style.visibility = 'visible';
+        progressContainer.style.opacity = '1';
 
-            // Hide normal UI
-            const nameContainer = document.getElementById('splash-name-container');
-            if (nameContainer) nameContainer.style.display = 'none';
-            beginBtn.style.display = 'none';
+        const msgEl = document.getElementById('splash-loading-msg');
+        const messages = [
+            "Generating terrain chunks...",
+            "Reticulating splines...",
+            "Calculating flight paths...",
+            "Ready for takeoff."
+        ];
 
-            // Show progress
-            const progressContainer = document.getElementById('splash-progress-container');
-            const progressBar = document.getElementById('splash-progress-bar');
+        setTimeout(() => {
+            progressBar.style.width = '100%';
 
-            if (progressContainer && progressBar) {
-                progressContainer.style.display = 'block';
-
-                const msgEl = document.getElementById('splash-loading-msg');
-                const messages = [
-                    "Generating terrain chunks...",
-                    "Reticulating splines...",
-                    "Calculating flight paths...",
-                    "Have a chill flight."
-                ];
-
-                // Use a slight delay to ensure transition triggers after display:block
-                setTimeout(() => {
-                    progressBar.style.width = '100%';
-
-                    if (msgEl) {
-                        setTimeout(() => msgEl.textContent = messages[1], 400);
-                        setTimeout(() => msgEl.textContent = messages[2], 800);
-                        setTimeout(() => msgEl.textContent = messages[3], 1200);
-                    }
-                }, 50);
-
-                setTimeout(() => {
-                    dismissLoadingScreen(false); // Use fade out after progress
-                }, 1500);
-            } else {
-                dismissLoadingScreen(true); // Fallback to instant
+            if (msgEl) {
+                setTimeout(() => msgEl.textContent = messages[1], 400);
+                setTimeout(() => msgEl.textContent = messages[2], 800);
+                setTimeout(() => msgEl.textContent = messages[3], 1200);
             }
-        } else {
-            const nameContainer = document.getElementById('splash-name-container');
-            if (nameContainer) nameContainer.style.display = 'flex';
-            beginBtn.style.display = 'block';
-            beginBtn.focus();
-        }
+        }, 50);
+
+        // When progress finishes, decide next step
+        setTimeout(() => {
+            if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
+                // Auto-skip
+                console.log("🎵 Music was paused last session. Auto-skipping.");
+                dismissLoadingScreen(false);
+            } else {
+                // Require start button
+                progressContainer.style.opacity = '0';
+                setTimeout(() => {
+                    progressContainer.style.visibility = 'hidden';
+                    if (btnContainer) {
+                        btnContainer.style.visibility = 'visible';
+                        btnContainer.style.opacity = '1';
+                        if (beginBtn) beginBtn.focus();
+                    }
+                }, 500); // Wait for fade out
+            }
+        }, 1500);
     } else {
-        // Fallback: respect music state for skip logic even if button is missing
-        dismissLoadingScreen(typeof musicEnabled !== 'undefined' && !musicEnabled);
+        // Fallback if elements are missing
+        if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
+            dismissLoadingScreen(true);
+        } else if (btnContainer) {
+            btnContainer.style.visibility = 'visible';
+            btnContainer.style.opacity = '1';
+        }
     }
 }
