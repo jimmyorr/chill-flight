@@ -3693,6 +3693,8 @@ if (overlay) {
                 dismissLoadingScreen(true); // Fallback to instant
             }
         } else {
+            const nameContainer = document.getElementById('splash-name-container');
+            if (nameContainer) nameContainer.style.display = 'flex';
             beginBtn.style.display = 'block';
             beginBtn.focus();
         }
