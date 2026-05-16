@@ -3665,8 +3665,8 @@ if (overlay) {
 
     // Always run the progress bar animation first
     if (progressContainer && progressBar) {
-        progressContainer.style.visibility = 'visible';
-        progressContainer.style.opacity = '1';
+        progressContainer.classList.remove('hidden');
+        progressContainer.classList.add('visible');
 
         const msgEl = document.getElementById('splash-loading-msg');
         const messages = [
@@ -3696,20 +3696,20 @@ if (overlay) {
                 dismissLoadingScreen(false);
             } else {
                 // Start cross-fade: fade out progress, fade in button simultaneously
-                progressContainer.style.opacity = '0';
-                if (btnContainer) {
-                    btnContainer.style.visibility = 'visible';
-                    // Small delay to ensure browser registers visibility change before opacity transition
-                    setTimeout(() => {
-                        btnContainer.style.opacity = '1';
-                        if (beginBtn) beginBtn.focus();
-                    }, 50);
-                }
+                const interactiveArea = document.getElementById('splash-interactive-area');
+                if (interactiveArea) interactiveArea.classList.add('crossfading');
 
-                // Cleanup: hide progress container after it fades out
-                setTimeout(() => {
-                    progressContainer.style.visibility = 'hidden';
-                }, 500); 
+                progressContainer.classList.remove('visible');
+                progressContainer.classList.add('hidden');
+
+                if (btnContainer) {
+                    btnContainer.classList.remove('hidden');
+                    btnContainer.classList.add('visible');
+                    if (beginBtn) {
+                        // Focus after a short delay to allow transition to start
+                        setTimeout(() => beginBtn.focus(), 100);
+                    }
+                }
             }
         }, 1500);
     } else {

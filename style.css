@@ -793,6 +793,69 @@ input[type=number].customization-input {
     margin: 0;
 }
 
+/* Splash Screen Transitions */
+:root {
+    --splash-intro-duration: 0.4s;
+    --splash-crossfade-duration: 1.2s;
+}
+
+.splash-fade-item {
+    transition: opacity var(--splash-intro-duration) ease-in-out;
+    will-change: opacity;
+}
+
+#splash-interactive-area.crossfading .splash-fade-item {
+    transition-duration: var(--splash-crossfade-duration);
+}
+
+.splash-fade-item.hidden {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    /* Delay visibility: hidden until the opacity transition is done */
+    transition: opacity var(--splash-intro-duration) ease-in-out, 
+                visibility 0s var(--splash-intro-duration);
+}
+
+#splash-interactive-area.crossfading .splash-fade-item.hidden {
+    transition: opacity var(--splash-crossfade-duration) ease-in-out, 
+                visibility 0s var(--splash-crossfade-duration);
+}
+
+.splash-fade-item.visible {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+    /* visibility: visible should happen immediately */
+    transition: opacity var(--splash-intro-duration) ease-in-out, 
+                visibility 0s 0s;
+}
+
+#splash-interactive-area.crossfading .splash-fade-item.visible {
+    transition: opacity var(--splash-crossfade-duration) ease-in-out, 
+                visibility 0s 0s;
+}
+
+#splash-interactive-area {
+    display: grid;
+    grid-template-areas: "overlap";
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    width: 100%;
+    margin-top: 30px;
+    min-height: 80px; /* Ensure space for content */
+}
+
+#splash-progress-container,
+#splash-btn-container {
+    grid-area: overlap;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
 #begin-btn {
     animation: pulse 2s infinite;
     border-color: var(--accent-color, rgba(255, 255, 255, 0.3));
