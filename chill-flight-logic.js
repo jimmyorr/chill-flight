@@ -67,14 +67,14 @@
     // --- PLANE COLOR ---
     // Deterministic color picker based on a hash of the user's UID.
     const PLANE_COLORS = [
-        0xF85858, // NES Red
-        0x6888FC, // NES Blue
-        0x58D854, // NES Green
-        0xF8D878, // NES Yellow
-        0xF87800, // NES Orange
-        0xD010A2, // NES Pink
-        0x3CBCFC, // NES Cyan
-        0xBCBCBC  // NES Gray
+        0xD16D6A, // Sunset Coral
+        0x47949B, // Chill Teal
+        0x7A9E7E, // Muted Sage
+        0x8675A9, // Lofi Purple
+        0x5C8092, // Ocean Slate
+        0xE8C382, // Soft Sand
+        0xA75A7A, // Deep Rose
+        0x3E5C76  // Twilight Blue
     ];
 
     function getPlaneColor(uid) {
