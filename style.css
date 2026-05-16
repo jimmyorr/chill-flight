@@ -41,6 +41,15 @@ canvas {
     z-index: 1;
 }
 
+/* Prevent default browser focus outlines on all interactive elements */
+a,
+button,
+input,
+select,
+textarea {
+    outline: none;
+}
+
 /* Prevent text selection and default tap highlights on interactive elements */
 .btn,
 .mobile-btn,
@@ -160,6 +169,11 @@ canvas {
     align-items: center;
     justify-content: center;
     letter-spacing: 2px;
+    outline: none;
+}
+
+.btn:focus {
+    outline: none;
 }
 
 .btn:hover {
@@ -519,6 +533,11 @@ input[type=number].customization-input {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
+    outline: none;
+}
+
+.mobile-btn:focus {
+    outline: none;
 }
 
 .mobile-btn svg {
@@ -607,6 +626,11 @@ input[type=number].customization-input {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
+    outline: none;
+}
+
+.sub-btn:focus {
+    outline: none;
 }
 
 .sub-btn:active {
