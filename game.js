@@ -3695,16 +3695,21 @@ if (overlay) {
                 console.log("🎵 Music was paused last session. Auto-skipping.");
                 dismissLoadingScreen(false);
             } else {
-                // Require start button
+                // Start cross-fade: fade out progress, fade in button simultaneously
                 progressContainer.style.opacity = '0';
-                setTimeout(() => {
-                    progressContainer.style.visibility = 'hidden';
-                    if (btnContainer) {
-                        btnContainer.style.visibility = 'visible';
+                if (btnContainer) {
+                    btnContainer.style.visibility = 'visible';
+                    // Small delay to ensure browser registers visibility change before opacity transition
+                    setTimeout(() => {
                         btnContainer.style.opacity = '1';
                         if (beginBtn) beginBtn.focus();
-                    }
-                }, 500); // Wait for fade out
+                    }, 50);
+                }
+
+                // Cleanup: hide progress container after it fades out
+                setTimeout(() => {
+                    progressContainer.style.visibility = 'hidden';
+                }, 500); 
             }
         }, 1500);
     } else {
