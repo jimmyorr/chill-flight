@@ -3673,16 +3673,18 @@ if (overlay) {
             "Generating terrain chunks...",
             "Reticulating splines...",
             "Calculating flight paths...",
-            "Ready for takeoff."
+            "Have a chill flight."
         ];
 
         setTimeout(() => {
             progressBar.style.width = '100%';
 
             if (msgEl) {
-                setTimeout(() => msgEl.textContent = messages[1], 400);
-                setTimeout(() => msgEl.textContent = messages[2], 800);
-                setTimeout(() => msgEl.textContent = messages[3], 1200);
+                // Cycle through first 3 messages quickly, leaving the final 
+                // message on screen until the 1500ms timer below hits.
+                setTimeout(() => msgEl.textContent = messages[1], 300);
+                setTimeout(() => msgEl.textContent = messages[2], 600);
+                setTimeout(() => msgEl.textContent = messages[3], 900);
             }
         }, 50);
 
