@@ -1933,7 +1933,8 @@ function generateChunk(chunkX, chunkZ) {
             objectsGroup.add(bladesInst);
         }
 
-        // 2.9 Generate        if (lighthousePos) {
+        // 2.9 Generate Lighthouse
+        if (lighthousePos) {
             const pos = lighthousePos;
             const structure = ModelAssembler.getStructure('lighthouse', pos.rotY || 0);
             const lighthouseGroup = new THREE.Group();
@@ -2249,6 +2250,7 @@ function generateChunk(chunkX, chunkZ) {
             chimneys: chimneySmokePositions.length
         };
     }
+}
 
 function updateChunks() {
     const currentChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
