@@ -6,7 +6,7 @@ import { transform } from 'esbuild';
 export default defineConfig({
   base: './',
   build: {
-    outDir: 'www',
+    outDir: 'docs',
     emptyOutDir: true,
     rollupOptions: {
       input: {
@@ -20,7 +20,7 @@ export default defineConfig({
     apply: 'build', // Only run during the production build
     enforce: 'post',
     async closeBundle() {
-      const outDir = 'www';
+      const outDir = 'docs';
       const htmlPath = path.join(outDir, 'index.html');
       let html = fs.readFileSync(htmlPath, 'utf-8');
       

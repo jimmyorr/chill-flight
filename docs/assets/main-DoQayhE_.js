@@ -1,0 +1,1 @@
+import"./main-o8ExmTKr.js";document.querySelectorAll(`.version-tag`).forEach(e=>{e.textContent=`v`+(window.APP_CONFIG?.version||`0.0.0`)});
