@@ -15,10 +15,10 @@ let mouseControlActive = false; // becomes true once the mouse moves; cleared by
 let windowJustFocused = false;  // absorbs the first mousemove after returning to the tab
 let targetPitch = 0;
 let targetRoll = 0;
-let targetFlightSpeed = flightSpeedMultiplier; // Initialize based on current vehicle speed multiplier
+targetFlightSpeed = flightSpeedMultiplier; // Initialize based on current vehicle speed multiplier
 let smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
 let manualPitch = 0;
-let verticalVelocity = 0; // units/sec, negative = falling
+verticalVelocity = 0; // units/sec, negative = falling
 let keyPressStartTime = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
 let cameraMode = 'follow'; // 'follow', 'first-person', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
 let cameraTransitionProgress = 0; // 0 = follow/cinematic, 1 = bird's eye

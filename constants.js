@@ -80,3 +80,8 @@ function createMaterial(params) {
             return new THREE.MeshStandardMaterial(params);
     }
 }
+
+// Variables shared between airplane.js and game.js that need early declaration to avoid TDZ errors in the production bundle
+let targetFlightSpeed = flightSpeedMultiplier;
+let verticalVelocity = 0;
+

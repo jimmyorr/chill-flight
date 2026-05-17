@@ -4,6 +4,7 @@ import path from 'path';
 import { transform } from 'esbuild';
 
 export default defineConfig({
+  base: './',
   build: {
     outDir: 'www',
     emptyOutDir: true,
