@@ -5,7 +5,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "npm version patch --no-git-tag-version && vite build",
+    "build": "vite build",
+    "release": "npm version patch --no-git-tag-version && npm run build",
     "preview": "vite preview",
     "ios": "npm run build && npx cap sync ios && (cp GoogleService-Info.plist ios/App/App/GoogleService-Info.plist || true) && npx cap open ios",
     "android": "npm run build && npx cap sync android && (cp google-services.json android/app/google-services.json || true) && npx cap open android",

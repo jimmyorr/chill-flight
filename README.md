@@ -217,10 +217,12 @@ Once started, open `http://localhost:4173` in your browser. This spins up a ligh
 
 The application's version number is managed using a single-source-of-truth system centered around `package.json`. 
 
-Running a production build automatically handles versioning for you:
-* **Production Builds (`npm run build`)**: Simply running the build automatically bumps the patch version of the application (e.g., `0.8.6` -> `0.8.7`) and compiles it directly into all static assets in a single step!
+To release a new production version:
+* **Release Builds (`npm run release`)**: Running this command automatically bumps the patch version of the application (e.g., `0.8.7` -> `0.8.8`), builds the optimized frontend assets, and packages them inside `docs/` in a single step!
 
-If you need to manually perform a version bump (e.g., for major or minor releases):
+For local development compiles (including wrapper scripts like `npm run ios` and `npm run android`), standard compilation is done via `npm run build`, which compiles the assets **without** modifying any version numbers.
+
+If you need to manually perform a custom version bump (e.g., for major or minor releases):
 
 1. **Automated CLI**: Run the standard npm command to bump the version without creating git tags:
    ```bash
@@ -231,7 +233,7 @@ If you need to manually perform a version bump (e.g., for major or minor release
 
 2. **Manual Update**: Alternatively, you can directly edit the `"version"` field in `package.json`. The next time you run any package operation, npm will automatically keep `package-lock.json` in sync.
 
-When you run the build, the bundler reads the newly incremented version and injects it dynamically into the in-game UI. The desktop build (Tauri) is also linked and will update automatically.
+When a build is run, the bundler reads the version and injects it dynamically into the in-game UI. The desktop build (Tauri) is also linked and will update automatically.
 
 ### Native Mobile App Development (Capacitor)
 
