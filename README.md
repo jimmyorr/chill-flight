@@ -213,6 +213,23 @@ npm run preview
 
 Once started, open `http://localhost:4173` in your browser. This spins up a lightweight server hosting your compiled `docs/` directory. You can test production features and parameters (such as `http://localhost:4173/?map=long-island`) flawlessly!
 
+### Version Management
+
+The application's version number is managed using a single-source-of-truth system centered around `package.json`. You do not need to manually update version numbers across multiple files.
+
+To update the version of the application:
+
+1. **Automated CLI (Recommended)**: Run the standard npm command to bump the version without creating git tags:
+   ```bash
+   npm version <new-version> --no-git-tag-version
+   ```
+   *(e.g., `npm version 0.8.4 --no-git-tag-version`)*
+   This automatically updates both `package.json` and `package-lock.json` in a single command.
+
+2. **Manual Update**: Alternatively, you can directly edit the `"version"` field in `package.json`. The next time you run any package operation, npm will automatically keep `package-lock.json` in sync.
+
+When you run `npm run build`, the bundler automatically reads the new version from `package.json` and injects it dynamically into the in-game UI. The desktop build (Tauri) is also linked and will update automatically.
+
 ### Native Mobile App Development
 
 This project uses **Capacitor** to build fully native apps for iOS and Android.
