@@ -391,6 +391,24 @@ input[type='number'].customization-input {
   border: 1px solid rgba(255, 255, 255, 0.15);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   box-sizing: border-box;
+
+  /* Make entire HUD interactive with clean hover state */
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+
+  /* Eliminate webapp behaviors (selection, tap highlight, long-press callouts) */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+#cockpit-ui:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
 }
 
 .cockpit-grid {
@@ -434,13 +452,7 @@ input[type='number'].customization-input {
 }
 
 #cockpit-status-panel {
-  cursor: pointer;
-  transition: background 0.2s;
-  border-radius: 4px;
-}
-
-#cockpit-status-panel:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
+  /* Inherits interactivity from #cockpit-ui */
 }
 
 #debug-menu {

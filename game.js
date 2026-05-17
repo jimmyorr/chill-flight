@@ -783,9 +783,9 @@ document.getElementById('resume-btn').addEventListener('click', () => {
   togglePause();
 });
 
-const cockpitStatusPanel = document.getElementById('cockpit-status-panel');
-if (cockpitStatusPanel) {
-  cockpitStatusPanel.addEventListener('click', () => {
+const cockpitUI = document.getElementById('cockpit-ui');
+if (cockpitUI) {
+  cockpitUI.addEventListener('click', () => {
     togglePause();
   });
 }
