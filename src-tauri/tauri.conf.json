@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Chill Flight",
-  "version": "0.8.3",
+  "version": "../package.json",
   "identifier": "com.cowneck.chillflight",
   "build": {
     "frontendDist": "../www",

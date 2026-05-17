@@ -1,1 +1,0 @@
-import"./main-o8ExmTKr.js";var e={version:`0.8.3`};document.querySelectorAll(`.version-tag`).forEach(t=>{t.textContent=`v`+(e?.version||`0.0.0`)});

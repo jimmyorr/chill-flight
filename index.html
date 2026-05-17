@@ -402,10 +402,9 @@
     <script defer src="multiplayer.js"></script>
 
     <script type="module">
-        import { APP_CONFIG } from './version.js';
-        // Set version from config natively using ES modules
+        // Set version automatically from package.json version injected by Vite
         document.querySelectorAll('.version-tag').forEach(el => {
-            el.textContent = 'v' + (APP_CONFIG?.version || '0.0.0');
+            el.textContent = 'v' + (__APP_VERSION__ || '0.0.0');
         });
     </script>
 
