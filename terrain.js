@@ -954,7 +954,7 @@ const smokeShaderInject = (shader, isChimney) => {
   shader.uniforms.uTime = window.animationUniforms.uTime;
   shader.vertexShader = shader.vertexShader.replace(
     '#include <common>',
-    `#include <common>\nuniform float uTime;`
+    `#include <common>\nuniform float uTime;\nvarying float vFade;`
   );
   shader.vertexShader = shader.vertexShader.replace(
     '#include <begin_vertex>',
@@ -968,10 +968,25 @@ const smokeShaderInject = (shader, isChimney) => {
         float phase = 0.0;
         #endif
         
-        float offsetTime = mod(uTime * 0.5 + particleIndex * ${isChimney ? '0.6' : '0.4'} + phase, ${isChimney ? '2.4' : '2.0'});
+        float maxLifetime = ${isChimney ? '2.4' : '2.0'};
+        float offsetTime = mod(uTime * 0.5 + particleIndex * ${isChimney ? '0.6' : '0.4'} + phase, maxLifetime);
+        float age = offsetTime / maxLifetime;
+        
+        // Emitter angle combines phase-based unique direction with slow global sway
+        float emitterAngle = phase * 1.34 + sin(uTime * 0.2 + phase) * 0.5;
+        
+        // Dynamic fanning out / cone-spread per particle
+        float particleAngle = emitterAngle + (particleIndex - ${isChimney ? '1.5' : '2.0'}) * 0.35;
+        
+        // Turbulence sways that grow larger as the particle rises
+        float turbulence = offsetTime * 0.5;
+        float swayX = sin(uTime * 1.2 + particleIndex * 2.3 + phase) * turbulence * 3.5;
+        float swayZ = cos(uTime * 1.0 + particleIndex * 1.7 + phase * 1.3) * turbulence * 3.5;
+        
         float rise = offsetTime * ${isChimney ? '45.0' : '60.0'};
-        float driftX = sin(uTime * 0.5 + particleIndex) * 8.0;
-        float driftZ = ${isChimney ? 'cos(uTime * 0.6 + particleIndex) * 6.0' : '0.0'};
+        float driftX = cos(particleAngle) * offsetTime * ${isChimney ? '12.0' : '15.0'} + swayX;
+        float driftZ = sin(particleAngle) * offsetTime * ${isChimney ? '12.0' : '15.0'} + swayZ;
+        
         float smokeScale = (${isChimney ? '0.8' : '1.0'} + particleIndex * ${isChimney ? '0.3' : '0.5'}) * (1.0 + offsetTime * ${isChimney ? '0.6' : '0.5'});
         
         float st = sin(offsetTime * ${isChimney ? '0.5' : '1.0'});
@@ -983,7 +998,18 @@ const smokeShaderInject = (shader, isChimney) => {
         transformed.x += driftX;
         transformed.y += rise;
         transformed.z += driftZ;
+        
+        // Smoothstep fade in at start and fade out at end
+        float fadeIn = smoothstep(0.0, 0.15, age);
+        float fadeOut = 1.0 - smoothstep(0.4, 1.0, age);
+        vFade = fadeIn * fadeOut;
     `
+  );
+
+  shader.fragmentShader = `varying float vFade;\n` + shader.fragmentShader;
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <color_fragment>',
+    `#include <color_fragment>\ndiffuseColor.a *= vFade;`
   );
 };
 
