@@ -215,22 +215,23 @@ Once started, open `http://localhost:4173` in your browser. This spins up a ligh
 
 ### Version Management
 
-The application's version number is managed using a single-source-of-truth system centered around `package.json`. You do not need to manually update version numbers across multiple files.
+The application's version number is managed using a single-source-of-truth system centered around `package.json`. 
 
-To update the version of the application:
+Running a production build automatically handles versioning for you:
+* **Production Builds (`npm run build`)**: Simply running the build automatically bumps the patch version of the application (e.g., `0.8.6` -> `0.8.7`) and compiles it directly into all static assets in a single step!
 
-1. **Automated CLI (Recommended)**: Run the standard npm command to bump the version without creating git tags:
+If you need to manually perform a version bump (e.g., for major or minor releases):
 
+1. **Automated CLI**: Run the standard npm command to bump the version without creating git tags:
    ```bash
    npm version <new-version> --no-git-tag-version
    ```
-
-   _(e.g., `npm version 0.8.4 --no-git-tag-version`)_
-   This automatically updates both `package.json` and `package-lock.json` in a single command.
+   *(e.g., `npm version 0.9.0 --no-git-tag-version`)*
+   This automatically updates both `package.json` and `package-lock.json`.
 
 2. **Manual Update**: Alternatively, you can directly edit the `"version"` field in `package.json`. The next time you run any package operation, npm will automatically keep `package-lock.json` in sync.
 
-When you run `npm run build`, the bundler automatically reads the new version from `package.json` and injects it dynamically into the in-game UI. The desktop build (Tauri) is also linked and will update automatically.
+When you run the build, the bundler reads the newly incremented version and injects it dynamically into the in-game UI. The desktop build (Tauri) is also linked and will update automatically.
 
 ### Native Mobile App Development (Capacitor)
 
