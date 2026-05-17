@@ -173,6 +173,9 @@
       <button class="model-btn" onclick="viewModel('yellow_cortez', event)">
         Yellow cortez
       </button>
+      <button class="model-btn" onclick="viewModel('japanese_maple', event)">
+        Japanese maple tree
+      </button>
       <button class="model-btn" onclick="viewModel('palm', event)">
         Palm tree
       </button>
@@ -401,6 +404,17 @@
                 createMaterial({color: 0xffeb3b})
               );
               previewGroup.add(ycTrunk, ycLeaves);
+              break;
+            case 'japanese_maple':
+              const jmTrunk = new THREE.Mesh(
+                japaneseMapleGeos.trunk,
+                treeTrunkMat
+              );
+              const jmLeaves = new THREE.Mesh(
+                japaneseMapleGeos.leaves,
+                createMaterial({color: 0xa31515})
+              );
+              previewGroup.add(jmTrunk, jmLeaves);
               break;
             case 'palm':
               const pTrunk = new THREE.Mesh(palmGeos.trunk, treeTrunkMat);

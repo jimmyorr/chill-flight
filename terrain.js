@@ -277,6 +277,49 @@ function createDeciduousGeometry() {
 }
 const deciduousGeos = createDeciduousGeometry();
 
+function createJapaneseMapleGeometry() {
+  const trunk = new THREE.CylinderGeometry(0.8, 1.4, 9, 5);
+  trunk.translate(0, 4.5, 0);
+
+  // Layered canopy using squashed low-poly spheres (cloud pruning / Niwaki)
+  const leaf1 = new THREE.SphereGeometry(5, 5, 4);
+  leaf1.scale(1.6, 0.5, 1.6);
+  leaf1.translate(0, 9, 0);
+
+  const leaf2 = new THREE.SphereGeometry(3.5, 5, 4);
+  leaf2.scale(1.5, 0.5, 1.5);
+  leaf2.translate(3.5, 7.5, 1.5);
+
+  const leaf3 = new THREE.SphereGeometry(3.5, 5, 4);
+  leaf3.scale(1.5, 0.5, 1.5);
+  leaf3.translate(-3.5, 7.5, -1.5);
+
+  const leaf4 = new THREE.SphereGeometry(2.5, 5, 4);
+  leaf4.scale(1.4, 0.45, 1.4);
+  leaf4.translate(1, 10.5, -2);
+
+  const geometries = [leaf1, leaf2, leaf3, leaf4];
+  const pos = [],
+    norm = [],
+    idx = [];
+  let offset = 0;
+
+  for (const g of geometries) {
+    pos.push(...g.attributes.position.array);
+    norm.push(...g.attributes.normal.array);
+    for (let i = 0; i < g.index.array.length; i++)
+      idx.push(g.index.array[i] + offset);
+    offset += g.attributes.position.count;
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return {trunk, leaves: geom};
+}
+const japaneseMapleGeos = createJapaneseMapleGeometry();
+
 function createPalmGeometry() {
   const trunkSegments = 6;
   const trunkHeights = [];
@@ -1418,6 +1461,7 @@ function generateChunk(chunkX, chunkZ) {
     const autumnTree3Positions = [];
     const cherryTreePositions = [];
     const yellowCortezTreePositions = [];
+    const japaneseMapleTreePositions = [];
     const housePositions = [];
     const strawHutPositions = [];
     const windmillPositions = [];
@@ -1744,12 +1788,26 @@ function generateChunk(chunkX, chunkZ) {
               palmTreePositions.push({x: localX, y: height, z: localZ});
             } else {
               if (cherryNoise > 0.65) {
-                cherryTreePositions.push({x: localX, y: height, z: localZ});
+                if (rng() < 0.35) {
+                  japaneseMapleTreePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                  });
+                } else {
+                  cherryTreePositions.push({x: localX, y: height, z: localZ});
+                }
               } else if (autumnNoise > 0.45) {
                 const variety = rng();
-                if (variety < 0.33)
+                if (variety < 0.12)
+                  japaneseMapleTreePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                  });
+                else if (variety < 0.41)
                   autumnTree1Positions.push({x: localX, y: height, z: localZ});
-                else if (variety < 0.66)
+                else if (variety < 0.7)
                   autumnTree2Positions.push({x: localX, y: height, z: localZ});
                 else
                   autumnTree3Positions.push({x: localX, y: height, z: localZ});
@@ -1920,6 +1978,24 @@ function generateChunk(chunkX, chunkZ) {
             y: height,
             z: localZ,
             rotY: rng() * Math.PI * 2,
+          });
+          // Decorate pagoda with Japanese maples to create a beautiful zen garden
+          const offset1X = -12;
+          const offset1Z = 12;
+          const h1 = getCachedElevation(worldX + offset1X, worldZ + offset1Z);
+          japaneseMapleTreePositions.push({
+            x: localX + offset1X,
+            y: h1,
+            z: localZ + offset1Z,
+          });
+
+          const offset2X = 12;
+          const offset2Z = -12;
+          const h2 = getCachedElevation(worldX + offset2X, worldZ + offset2Z);
+          japaneseMapleTreePositions.push({
+            x: localX + offset2X,
+            y: h2,
+            z: localZ + offset2Z,
           });
         }
 
@@ -2271,6 +2347,13 @@ function generateChunk(chunkX, chunkZ) {
       treeTrunkMat,
       0xffeb3b
     ); // Yellow Cortez
+    renderTrees(
+      japaneseMapleTreePositions,
+      japaneseMapleGeos.trunk,
+      japaneseMapleGeos.leaves,
+      treeTrunkMat,
+      0xa31515
+    ); // Japanese Maple
 
     if (deadTreePositions.length > 0) {
       const deadInst = new THREE.InstancedMesh(

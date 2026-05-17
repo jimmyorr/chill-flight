@@ -394,7 +394,10 @@ input[type='number'].customization-input {
 
   /* Make entire HUD interactive with clean hover state */
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
 
   /* Eliminate webapp behaviors (selection, tap highlight, long-press callouts) */
   -webkit-user-select: none;
