@@ -13,9 +13,9 @@
 
     <link rel="icon" type="image/svg+xml" href="/assets/icon-CkWSre9u.svg">
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
-    <script defer src="config.js"></script>
-  <script type="module" crossorigin src="/assets/index-BlQqjZ5Y.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-_WUb_PUs.css">
+    <script type="module" crossorigin src="/assets/main-DoQayhE_.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/main-o8ExmTKr.js">
+  <link rel="stylesheet" crossorigin href="/assets/main-_WUb_PUs.css">
 </head>
 
 <body>
@@ -389,20 +389,9 @@
     </div>
 
     <!-- Game files: plain globals, loaded sequentially -->
-    <script defer src="chill-flight-logic.js"></script>
-    <script defer src="noise.js"></script>
-    <script defer src="constants.js"></script>
-    <script defer src="sky.js"></script>
-    <script defer src="airplane.js"></script>
-    <script defer src="terrain.js"></script>
-    <script defer src="audio.js"></script>
-    <script defer src="native-adapter.js"></script>
-    <script defer src="game.js"></script>
-    <script defer src="map-loader.js"></script>
     <!-- Firebase multiplayer: Refactored to standard script with dynamic imports to bypass 401 errors -->
-    <script defer src="multiplayer.js"></script>
-
-
+        <!-- Optimized Game Bundle -->
+    <script defer src="game-bundle.js"></script>
 </body>
 
 </html>
