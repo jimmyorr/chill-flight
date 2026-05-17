@@ -15,7 +15,6 @@
     <link rel="stylesheet" href="style.css">
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
     <script type="module" src="/src/main.js"></script>
-    <script defer src="version.js"></script>
 </head>
 
 <body>
@@ -403,9 +402,10 @@
     <script defer src="multiplayer.js"></script>
 
     <script type="module">
-        // Set version from config
+        import { APP_CONFIG } from './version.js';
+        // Set version from config natively using ES modules
         document.querySelectorAll('.version-tag').forEach(el => {
-            el.textContent = 'v' + (window.APP_CONFIG?.version || '0.0.0');
+            el.textContent = 'v' + (APP_CONFIG?.version || '0.0.0');
         });
     </script>
 
