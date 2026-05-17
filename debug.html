@@ -14,8 +14,7 @@
         gtag('config', 'G-6RNVL7JZVJ');
     </script>
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-    <script src="vendor/three.min.js"></script>
-    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script type="module" src="/src/main.js"></script>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -191,7 +190,7 @@
     </div>
 
     <!-- Mocks and Dependencies for game scripts -->
-    <script>
+    <script type="module">
         // Global constants expected by scripts
         window.CHUNK_SIZE = 1500;
         window.SEGMENTS = 40;
@@ -212,12 +211,12 @@
         window.waterUniforms = { uTime: { value: 0 } };
     </script>
 
-    <script src="chill-flight-logic.js"></script>
-    <script src="constants.js"></script>
-    <script src="airplane.js"></script>
-    <script src="terrain.js"></script>
+    <script defer src="chill-flight-logic.js"></script>
+    <script defer src="constants.js"></script>
+    <script defer src="airplane.js"></script>
+    <script defer src="terrain.js"></script>
 
-    <script>
+    <script type="module">
         // Setup Viewer
         const container = document.getElementById('viewer');
         window.viewScene = new THREE.Scene();
@@ -464,6 +463,9 @@
                 if (firstBtn) firstBtn.click();
             }
         }, 100);
+        
+        // Expose viewModel to global scope since module scope hides it
+        window.viewModel = viewModel;
     </script>
 </body>
 

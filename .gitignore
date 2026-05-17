@@ -6,13 +6,14 @@ Thumbs.db
 node_modules/
 dist/
 build/
+vendor/
+.npm-cache/
 .server-info
 .server.pid
 
 # --- Mobile (React Native / Capacitor) ---
 android/
 ios/
-www/
 *.swp
 *.lock
 

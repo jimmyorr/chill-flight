@@ -1,0 +1,436 @@
+// --- AIRPLANE ---
+// Dependencies: THREE, scene, planeMat (set here as global for multiplayer to update)
+
+/** @type {THREE.Material|null} */
+let planeMat = null;
+
+var CALLSIGNS = [
+    'Abbot', 'Arbor', 'Bandit', 'Bart', 'Box', 'Chipper',
+    'Drifter', 'Droopy', 'Gambit', 'Genner', 'Hackett', 'Kingfisher',
+    'Meeple', 'Pawn', 'Ranger', 'Ray', 'Roger', 'Scout',
+    'Shadow', 'Slider', 'Skipper', 'Stinger', 'Viper'
+];
+var defaultCallsign = CALLSIGNS[Math.floor(Math.random() * CALLSIGNS.length)];
+
+/** @type {string} */
+let playerName = (localStorage.getItem('chill_flight_name') || '').trim() || defaultCallsign;
+
+// --- IMMEDIATE UI INITIALIZATION ---
+// This runs synchronously to ensure the name appears instantly, 
+// without waiting for multiplayer/Firebase modules to load.
+(function () {
+    const ni = document.getElementById('player-name-input');
+    if (ni) ni.value = playerName;
+})();
+
+/** @type {number} */
+let storedColor = localStorage.getItem('chill_flight_color');
+let planeColor = storedColor !== null && !isNaN(parseInt(storedColor)) ? parseInt(storedColor) : ChillFlightLogic.PLANE_COLORS[0];
+/** @type {boolean} */
+let hasSavedColor = localStorage.getItem('chill_flight_color') !== null;
+
+// Global map for multiplayer players, shared across all scripts
+var otherPlayers = new Map();
+var currentUserUid = null;
+var serverTimeOffset = 0;
+var firebaseDB = null;
+
+// Helper to get a deterministic "chill" color for a player
+function getPlaneColor(uid) {
+    return ChillFlightLogic.getPlaneColor(uid);
+}
+
+const planeGroup = new THREE.Group();
+planeGroup.rotation.y = 0;
+scene.add(planeGroup);
+
+// Fuselage
+// better rotation order for airplanes
+planeGroup.rotation.order = 'YXZ';
+
+// --- VEHICLE SWITCHING ---
+const airplaneModel = new THREE.Group();
+planeGroup.add(airplaneModel);
+
+const helicopterModel = new THREE.Group();
+helicopterModel.visible = false;
+planeGroup.add(helicopterModel);
+
+const boatModel = new THREE.Group();
+boatModel.visible = false;
+planeGroup.add(boatModel);
+
+const buggyModel = new THREE.Group();
+buggyModel.visible = false;
+planeGroup.add(buggyModel);
+window.buggyWheels = [];
+
+/** @type {string} */
+let vehicleType = localStorage.getItem('chill_flight_vehicle') || 'airplane';
+
+/**
+ * Sets the player's active vehicle type and updates visibility/UI.
+ * @param {string} type - The vehicle type ('airplane' or 'helicopter' or 'boat').
+ */
+function setVehicle(type) {
+    vehicleType = type;
+    localStorage.setItem('chill_flight_vehicle', vehicleType);
+
+    airplaneModel.visible = (vehicleType === 'airplane');
+    helicopterModel.visible = (vehicleType === 'helicopter');
+    boatModel.visible = (vehicleType === 'boat');
+    buggyModel.visible = (vehicleType === 'buggy');
+
+    if (typeof verticalVelocity !== 'undefined') verticalVelocity = 0; // Reset vertical momentum on switch
+
+    // Automatically adjust throttle for a natural feel on switch
+    const heliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
+    const boatSpeed = 25 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
+    const buggySpeed = 50 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
+    const airplaneSpeed = 1.0;
+
+    if (typeof targetFlightSpeed !== 'undefined') {
+        if (vehicleType === 'helicopter') {
+            targetFlightSpeed = heliSpeed;
+        } else if (vehicleType === 'boat') {
+            targetFlightSpeed = boatSpeed;
+        } else if (vehicleType === 'buggy') {
+            targetFlightSpeed = buggySpeed;
+        } else {
+            targetFlightSpeed = airplaneSpeed;
+            window._isRecoveringFromHeli = true; // Use softer acceleration after switch
+        }
+
+        // If this is the initial load (before the game loop starts), also sync flightSpeedMultiplier
+        if (typeof flightSpeedMultiplier !== 'undefined' && (performance.now() < 2000)) {
+            flightSpeedMultiplier = targetFlightSpeed;
+        }
+    }
+
+    // Update UI if it exists - the vehicle-select was removed from pause menu
+    // but we can still have other UI elements that need syncing if added later.
+
+    console.log(`Vehicle switched to: ${vehicleType}`);
+}
+
+// --- AIRPLANE MODEL ---
+// Fuselage
+const bodyGeo = new THREE.CylinderGeometry(1.2, 2.2, 16, 8);
+bodyGeo.rotateX(Math.PI / 2);
+planeMat = createMaterial({ color: planeColor, flatShading: true });
+const body = new THREE.Mesh(bodyGeo, planeMat);
+body.scale.set(1, 1.1, 1);
+airplaneModel.add(body);
+
+// Cockpit window
+const windowGeo = new THREE.BoxGeometry(3, 2, 4);
+const windowMat = createMaterial({ color: 0x111111, roughness: 0.1 });
+const cockpit = new THREE.Mesh(windowGeo, windowMat);
+cockpit.position.set(0, 2.5, -2);
+airplaneModel.add(cockpit);
+
+// Wings
+const wingGeo = new THREE.BoxGeometry(30, 0.5, 4);
+const wingMat = createMaterial({ color: 0xecf0f1, flatShading: true });
+const wings = new THREE.Mesh(wingGeo, wingMat);
+wings.position.set(0, 4.5, -1);
+airplaneModel.add(wings);
+
+// Wing Struts
+const wingStrutGeo = new THREE.CylinderGeometry(0.15, 0.15, 9.5, 6);
+const wingStrutL = new THREE.Mesh(wingStrutGeo, wingMat);
+wingStrutL.position.set(-5.25, 1.375, -1);
+wingStrutL.rotation.z = Math.PI / 3.5;
+airplaneModel.add(wingStrutL);
+
+const wingStrutR = new THREE.Mesh(wingStrutGeo, wingMat);
+wingStrutR.position.set(5.25, 1.375, -1);
+wingStrutR.rotation.z = -Math.PI / 3.5;
+airplaneModel.add(wingStrutR);
+
+// Tail
+const tailGeo = new THREE.BoxGeometry(10, 0.5, 3);
+const tail = new THREE.Mesh(tailGeo, wingMat);
+tail.position.set(0, 0, 8.5);
+airplaneModel.add(tail);
+
+const rudderShape = new THREE.Shape();
+rudderShape.moveTo(0, 0);
+rudderShape.lineTo(3, 0);
+rudderShape.lineTo(5, 5);
+rudderShape.lineTo(3, 5);
+rudderShape.lineTo(0, 0);
+
+const extrudeSettings = { depth: 0.5, bevelEnabled: false };
+const rudderGeo = new THREE.ExtrudeGeometry(rudderShape, extrudeSettings);
+rudderGeo.rotateY(Math.PI / 2);
+rudderGeo.translate(-0.25, 0, 5.5);
+const rudder = new THREE.Mesh(rudderGeo, planeMat);
+rudder.position.set(0, 1.1, 0);
+airplaneModel.add(rudder);
+
+// Propeller
+const propGroup = new THREE.Group();
+propGroup.position.set(0, 0, -8.5);
+airplaneModel.add(propGroup);
+
+const propCenterGeo = new THREE.CylinderGeometry(0.8, 0.8, 2, 8);
+propCenterGeo.rotateX(Math.PI / 2);
+const propCenter = new THREE.Mesh(propCenterGeo, createMaterial({ color: 0x333333 }));
+propGroup.add(propCenter);
+
+const bladeGeo = new THREE.BoxGeometry(12, 0.4, 0.4);
+const bladeMat = createMaterial({ color: 0x222222 });
+const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
+const blade2 = new THREE.Mesh(bladeGeo, bladeMat);
+blade2.rotation.z = Math.PI / 2;
+propGroup.add(blade1);
+propGroup.add(blade2);
+
+// --- HELICOPTER MODEL ---
+// Fuselage
+const heliBodyGeo = new THREE.BoxGeometry(5, 5, 8);
+const heliBody = new THREE.Mesh(heliBodyGeo, planeMat);
+helicopterModel.add(heliBody);
+
+// Cockpit window
+const heliWindowGeo = new THREE.BoxGeometry(4, 3, 3);
+const heliCockpit = new THREE.Mesh(heliWindowGeo, windowMat);
+heliCockpit.position.set(0, 0.5, -3);
+helicopterModel.add(heliCockpit);
+
+// Tail Boom
+const tailBoomGeo = new THREE.BoxGeometry(1.5, 1.5, 10);
+const tailBoom = new THREE.Mesh(tailBoomGeo, planeMat);
+tailBoom.position.set(0, 1, 8);
+helicopterModel.add(tailBoom);
+
+// Main Rotor
+/** @type {THREE.Group} */
+let mainRotorGroup = new THREE.Group();
+mainRotorGroup.position.set(0, 3, 0);
+helicopterModel.add(mainRotorGroup);
+
+const rotorCenterGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
+const rotorCenter = new THREE.Mesh(rotorCenterGeo, createMaterial({ color: 0x333333 }));
+mainRotorGroup.add(rotorCenter);
+
+const mainBladeGeo = new THREE.BoxGeometry(24, 0.2, 1.5);
+const mainBlade = new THREE.Mesh(mainBladeGeo, bladeMat);
+mainRotorGroup.add(mainBlade);
+const mainBlade2 = mainBlade.clone();
+mainBlade2.rotation.y = Math.PI / 2;
+mainRotorGroup.add(mainBlade2);
+
+// Tail Rotor
+/** @type {THREE.Group} */
+let tailRotorGroup = new THREE.Group();
+tailRotorGroup.position.set(1.2, 1, 13);
+helicopterModel.add(tailRotorGroup);
+
+const tailRotorBladeGeo = new THREE.BoxGeometry(4, 0.1, 0.4);
+const tailRotorBlade = new THREE.Mesh(tailRotorBladeGeo, bladeMat);
+tailRotorBlade.rotation.y = Math.PI / 2;
+tailRotorGroup.add(tailRotorBlade);
+const tailRotorBlade2 = tailRotorBlade.clone();
+tailRotorBlade2.rotation.x = Math.PI / 2;
+tailRotorGroup.add(tailRotorBlade2);
+
+// Skids
+const skidGeo = new THREE.BoxGeometry(0.5, 0.5, 10);
+const skidMat = createMaterial({ color: 0x333333 });
+const skidL = new THREE.Mesh(skidGeo, skidMat);
+skidL.position.set(-2.5, -3.5, 0);
+helicopterModel.add(skidL);
+const skidR = new THREE.Mesh(skidGeo, skidMat);
+skidR.position.set(2.5, -3.5, 0);
+helicopterModel.add(skidR);
+
+const skidStrutGeo = new THREE.BoxGeometry(0.3, 2, 0.3);
+const skidStrutLF = new THREE.Mesh(skidStrutGeo, skidMat);
+skidStrutLF.position.set(-2.5, -2.5, -3);
+helicopterModel.add(skidStrutLF);
+const skidStrutLB = new THREE.Mesh(skidStrutGeo, skidMat);
+skidStrutLB.position.set(-2.5, -2.5, 3);
+helicopterModel.add(skidStrutLB);
+const skidStrutRF = new THREE.Mesh(skidStrutGeo, skidMat);
+skidStrutRF.position.set(2.5, -2.5, -3);
+helicopterModel.add(skidStrutRF);
+const skidStrutRB = new THREE.Mesh(skidStrutGeo, skidMat);
+skidStrutRB.position.set(2.5, -2.5, 3);
+helicopterModel.add(skidStrutRB);
+
+// --- BOAT MODEL ---
+const playerBoatHullGeo = new THREE.BoxGeometry(6, 2, 12);
+const playerBoatHullMat = createMaterial({ color: 0x2e865f, flatShading: true }); // Greenish tint
+const playerBoatHull = new THREE.Mesh(playerBoatHullGeo, playerBoatHullMat);
+boatModel.add(playerBoatHull);
+
+const playerBoatInsideGeo = new THREE.BoxGeometry(5.6, 1.8, 11.6);
+const playerBoatInsideMat = createMaterial({ color: 0x1f5c40, flatShading: true }); // Darker green
+const playerBoatInside = new THREE.Mesh(playerBoatInsideGeo, playerBoatInsideMat);
+playerBoatInside.position.y = 0.2;
+boatModel.add(playerBoatInside);
+
+const playerBoatSeatGeo = new THREE.BoxGeometry(5.6, 0.4, 2);
+const playerBoatSeatMat = createMaterial({ color: 0x8b5a2b, flatShading: true }); // Wood
+const playerBoatSeat1 = new THREE.Mesh(playerBoatSeatGeo, playerBoatSeatMat);
+playerBoatSeat1.position.set(0, 0.8, -3);
+boatModel.add(playerBoatSeat1);
+
+const playerBoatSeat2 = new THREE.Mesh(playerBoatSeatGeo, playerBoatSeatMat);
+playerBoatSeat2.position.set(0, 0.8, 3);
+boatModel.add(playerBoatSeat2);
+
+const playerBoatMotorGroup = new THREE.Group();
+playerBoatMotorGroup.position.set(0, 1, 6.2);
+boatModel.add(playerBoatMotorGroup);
+
+const playerBoatMotorBodyGeo = new THREE.BoxGeometry(1.5, 2, 2);
+const playerBoatMotorBody = new THREE.Mesh(playerBoatMotorBodyGeo, createMaterial({ color: 0x222222 }));
+playerBoatMotorGroup.add(playerBoatMotorBody);
+
+const playerBoatMotorShaftGeo = new THREE.CylinderGeometry(0.2, 0.2, 3, 8);
+const playerBoatMotorShaft = new THREE.Mesh(playerBoatMotorShaftGeo, createMaterial({ color: 0x555555 }));
+playerBoatMotorShaft.position.set(0, -1.5, 0.5);
+playerBoatMotorGroup.add(playerBoatMotorShaft);
+
+const playerBoatPropellerGroup = new THREE.Group();
+playerBoatPropellerGroup.position.set(0, -2.8, 0.5);
+playerBoatMotorGroup.add(playerBoatPropellerGroup);
+
+const playerBoatPropCenterGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 8);
+playerBoatPropCenterGeo.rotateX(Math.PI / 2);
+const playerBoatPropCenter = new THREE.Mesh(playerBoatPropCenterGeo, createMaterial({ color: 0x888888 }));
+playerBoatPropellerGroup.add(playerBoatPropCenter);
+
+const playerBoatBladeGeo = new THREE.BoxGeometry(1.5, 0.2, 0.1);
+const playerBoatBladeMat = createMaterial({ color: 0xaaaaaa });
+const playerBoatBlade1 = new THREE.Mesh(playerBoatBladeGeo, playerBoatBladeMat);
+const playerBoatBlade2 = new THREE.Mesh(playerBoatBladeGeo, playerBoatBladeMat);
+playerBoatBlade2.rotation.z = Math.PI / 2;
+playerBoatPropellerGroup.add(playerBoatBlade1);
+playerBoatPropellerGroup.add(playerBoatBlade2);
+
+window.boatPropellerGroup = playerBoatPropellerGroup;
+
+boatModel.scale.set(0.8, 0.8, 0.8);
+boatModel.position.set(0, 0, 0);
+
+// --- BUGGY MODEL ---
+const buggyChassisGeo = new THREE.BoxGeometry(4, 2, 8);
+const buggyChassisMat = createMaterial({ color: planeColor, flatShading: true });
+const buggyChassis = new THREE.Mesh(buggyChassisGeo, buggyChassisMat);
+buggyChassis.position.y = 1;
+buggyModel.add(buggyChassis);
+
+// Roll cage / Window
+const buggyCageGeo = new THREE.BoxGeometry(3.5, 2, 4);
+const buggyCageMat = createMaterial({ color: 0x111111, roughness: 0.1 });
+const buggyCage = new THREE.Mesh(buggyCageGeo, buggyCageMat);
+buggyCage.position.set(0, 3, -1);
+buggyModel.add(buggyCage);
+
+// Wheels
+const wheelGeo = new THREE.CylinderGeometry(1.5, 1.5, 1, 12);
+wheelGeo.rotateZ(Math.PI / 2);
+const wheelMat = createMaterial({ color: 0x222222 });
+
+const wheelFL = new THREE.Mesh(wheelGeo, wheelMat);
+wheelFL.rotation.order = 'YXZ';
+wheelFL.position.set(-2.5, 1.5, -3);
+buggyModel.add(wheelFL);
+window.buggyWheels.push(wheelFL);
+
+const wheelFR = new THREE.Mesh(wheelGeo, wheelMat);
+wheelFR.rotation.order = 'YXZ';
+wheelFR.position.set(2.5, 1.5, -3);
+buggyModel.add(wheelFR);
+window.buggyWheels.push(wheelFR);
+
+const wheelBL = new THREE.Mesh(wheelGeo, wheelMat);
+wheelBL.rotation.order = 'YXZ';
+wheelBL.position.set(-2.5, 1.5, 3);
+buggyModel.add(wheelBL);
+window.buggyWheels.push(wheelBL);
+
+const wheelBR = new THREE.Mesh(wheelGeo, wheelMat);
+wheelBR.rotation.order = 'YXZ';
+wheelBR.position.set(2.5, 1.5, 3);
+buggyModel.add(wheelBR);
+window.buggyWheels.push(wheelBR);
+
+buggyModel.scale.set(0.8, 0.8, 0.8);
+
+// Pontoons Group
+const pontoonGroup = new THREE.Group();
+pontoonGroup.visible = false;
+airplaneModel.add(pontoonGroup);
+
+let pontoonDeploymentProgress = 0;
+let isDeployingPontoons = false;
+let isRetractingPontoons = false;
+
+const pontoonMat = createMaterial({ color: 0xcccccc, flatShading: true });
+const pontoonGeo = new THREE.CylinderGeometry(1.5, 1.5, 18, 8);
+pontoonGeo.rotateX(Math.PI / 2);
+const pontoonNoseGeo = new THREE.ConeGeometry(1.5, 4, 8);
+pontoonNoseGeo.rotateX(Math.PI / 2);
+const pontoonNoseMeshL = new THREE.Mesh(pontoonNoseGeo, pontoonMat);
+pontoonNoseMeshL.position.set(0, 0, -11);
+
+const pontoonL = new THREE.Group();
+const pontoonBodyL = new THREE.Mesh(pontoonGeo, pontoonMat);
+pontoonL.add(pontoonBodyL);
+pontoonL.add(pontoonNoseMeshL);
+pontoonL.position.set(-5, -4.5, 0);
+pontoonGroup.add(pontoonL);
+
+const pontoonNoseMeshR = pontoonNoseMeshL.clone();
+const pontoonR = new THREE.Group();
+const pontoonBodyR = new THREE.Mesh(pontoonGeo, pontoonMat);
+pontoonR.add(pontoonBodyR);
+pontoonR.add(pontoonNoseMeshR);
+pontoonR.position.set(5, -4.5, 0);
+pontoonGroup.add(pontoonR);
+
+const hingeLF = new THREE.Group(); hingeLF.position.set(-5, 0, -3); pontoonGroup.add(hingeLF);
+const hingeLB = new THREE.Group(); hingeLB.position.set(-5, 0, 3); pontoonGroup.add(hingeLB);
+const hingeRF = new THREE.Group(); hingeRF.position.set(5, 0, -3); pontoonGroup.add(hingeRF);
+const hingeRB = new THREE.Group(); hingeRB.position.set(5, 0, 3); pontoonGroup.add(hingeRB);
+
+// Better rotation order for airplanes
+planeGroup.rotation.order = 'YXZ';
+
+// Headlight
+const headlight = new THREE.SpotLight(0xffd1a3, 0);
+headlight.position.set(0, 0, -10);
+
+const headlightTarget = new THREE.Object3D();
+headlightTarget.position.set(0, -20, -100);
+planeGroup.add(headlightTarget);
+headlight.target = headlightTarget;
+
+headlight.angle = Math.PI / 4;
+headlight.penumbra = 1.0;
+headlight.distance = 1500;
+headlight.decay = 2.0;
+
+const headlightGlow = new THREE.PointLight(0xffd1a3, 0, 50);
+headlightGlow.position.set(0, 5, 0);
+planeGroup.add(headlightGlow);
+planeGroup.add(headlight);
+
+// Initial position
+planeGroup.position.set(0, 445.5, 0);
+
+// Set initial vehicle based on saved state
+setVehicle(vehicleType);
+
+// Enable shadows for the vehicle
+planeGroup.traverse((child) => {
+    if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+    }
+});

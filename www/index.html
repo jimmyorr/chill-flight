@@ -11,11 +11,11 @@
     <meta name="theme-color" content="#000000">
     <title>Chill Flight</title>
 
-    <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="/assets/icon-CkWSre9u.svg">
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
-    <script type="module" src="/src/main.js"></script>
     <script defer src="config.js"></script>
+  <script type="module" crossorigin src="/assets/index-BlQqjZ5Y.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-_WUb_PUs.css">
 </head>
 
 <body>
@@ -402,12 +402,6 @@
     <!-- Firebase multiplayer: Refactored to standard script with dynamic imports to bypass 401 errors -->
     <script defer src="multiplayer.js"></script>
 
-    <script type="module">
-        // Set version from config
-        document.querySelectorAll('.version-tag').forEach(el => {
-            el.textContent = 'v' + (window.APP_CONFIG?.version || '0.0.0');
-        });
-    </script>
 
 </body>
 
