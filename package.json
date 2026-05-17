@@ -1,42 +1,42 @@
 {
-    "name": "chill-flight",
-    "version": "0.8.5",
-    "author": "Jimmy Orr",
-    "license": "MIT",
-    "scripts": {
-        "dev": "vite",
-        "build": "vite build",
-        "preview": "vite preview",
-        "ios": "npm run build && npx cap sync ios && (cp GoogleService-Info.plist ios/App/App/GoogleService-Info.plist || true) && npx cap open ios",
-        "android": "npm run build && npx cap sync android && (cp google-services.json android/app/google-services.json || true) && npx cap open android",
-        "test:syntax": "for f in *.js; do node --check \"$f\" || exit 1; done",
-        "lint": "eslint .",
-        "format": "prettier --write \"**/*.{js,json,css,html,md}\" --ignore-path .gitignore"
-    },
-    "dependencies": {
-        "@capacitor-firebase/analytics": "^8.2.0",
-        "@capacitor/android": "^8.3.1",
-        "@capacitor/app": "^8.0.0",
-        "@capacitor/assets": "^3.0.5",
-        "@capacitor/browser": "^8.0.3",
-        "@capacitor/cli": "^8.2.0",
-        "@capacitor/core": "^8.2.0",
-        "@capacitor/filesystem": "^8.1.2",
-        "@capacitor/ios": "^8.2.0",
-        "@capacitor/motion": "^8.0.0",
-        "@capacitor/status-bar": "^8.0.1",
-        "@sentry/browser": "^8.26.0",
-        "@tauri-apps/plugin-fs": "^2.5.1",
-        "firebase": "^12.12.1",
-        "three": "^0.128.0"
-    },
-    "devDependencies": {
-        "@eslint/js": "^10.0.1",
-        "@tauri-apps/cli": "^2.11.1",
-        "esbuild": "^0.28.0",
-        "eslint": "^10.3.0",
-        "globals": "^17.6.0",
-        "prettier": "^3.8.3",
-        "vite": "^8.0.13"
-    }
+  "name": "chill-flight",
+  "version": "0.8.5",
+  "author": "Jimmy Orr",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "ios": "npm run build && npx cap sync ios && (cp GoogleService-Info.plist ios/App/App/GoogleService-Info.plist || true) && npx cap open ios",
+    "android": "npm run build && npx cap sync android && (cp google-services.json android/app/google-services.json || true) && npx cap open android",
+    "test:syntax": "for f in *.js; do node --check \"$f\" || exit 1; done",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{js,json,css,html,md}\" --ignore-path .prettierignore"
+  },
+  "dependencies": {
+    "@capacitor-firebase/analytics": "^8.2.0",
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/ios": "^8.2.0",
+    "@capacitor/motion": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.1",
+    "@sentry/browser": "^8.26.0",
+    "@tauri-apps/plugin-fs": "^2.5.1",
+    "firebase": "^12.12.1",
+    "three": "^0.128.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tauri-apps/cli": "^2.11.1",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.3.0",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.3",
+    "vite": "^8.0.13"
+  }
 }

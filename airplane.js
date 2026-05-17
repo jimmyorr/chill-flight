@@ -5,27 +5,50 @@
 let planeMat = null;
 
 var CALLSIGNS = [
-    'Abbot', 'Arbor', 'Bandit', 'Bart', 'Box', 'Chipper',
-    'Drifter', 'Droopy', 'Gambit', 'Genner', 'Hackett', 'Kingfisher',
-    'Meeple', 'Pawn', 'Ranger', 'Ray', 'Roger', 'Scout',
-    'Shadow', 'Slider', 'Skipper', 'Stinger', 'Viper'
+  'Abbot',
+  'Arbor',
+  'Bandit',
+  'Bart',
+  'Box',
+  'Chipper',
+  'Drifter',
+  'Droopy',
+  'Gambit',
+  'Genner',
+  'Hackett',
+  'Kingfisher',
+  'Meeple',
+  'Pawn',
+  'Ranger',
+  'Ray',
+  'Roger',
+  'Scout',
+  'Shadow',
+  'Slider',
+  'Skipper',
+  'Stinger',
+  'Viper',
 ];
 var defaultCallsign = CALLSIGNS[Math.floor(Math.random() * CALLSIGNS.length)];
 
 /** @type {string} */
-let playerName = (localStorage.getItem('chill_flight_name') || '').trim() || defaultCallsign;
+let playerName =
+  (localStorage.getItem('chill_flight_name') || '').trim() || defaultCallsign;
 
 // --- IMMEDIATE UI INITIALIZATION ---
-// This runs synchronously to ensure the name appears instantly, 
+// This runs synchronously to ensure the name appears instantly,
 // without waiting for multiplayer/Firebase modules to load.
 (function () {
-    const ni = document.getElementById('player-name-input');
-    if (ni) ni.value = playerName;
+  const ni = document.getElementById('player-name-input');
+  if (ni) ni.value = playerName;
 })();
 
 /** @type {number} */
 let storedColor = localStorage.getItem('chill_flight_color');
-let planeColor = storedColor !== null && !isNaN(parseInt(storedColor)) ? parseInt(storedColor) : ChillFlightLogic.PLANE_COLORS[0];
+let planeColor =
+  storedColor !== null && !isNaN(parseInt(storedColor))
+    ? parseInt(storedColor)
+    : ChillFlightLogic.PLANE_COLORS[0];
 /** @type {boolean} */
 let hasSavedColor = localStorage.getItem('chill_flight_color') !== null;
 
@@ -37,7 +60,7 @@ var firebaseDB = null;
 
 // Helper to get a deterministic "chill" color for a player
 function getPlaneColor(uid) {
-    return ChillFlightLogic.getPlaneColor(uid);
+  return ChillFlightLogic.getPlaneColor(uid);
 }
 
 const planeGroup = new THREE.Group();
@@ -73,65 +96,74 @@ let vehicleType = localStorage.getItem('chill_flight_vehicle') || 'airplane';
  * @param {string} type - The vehicle type ('airplane' or 'helicopter' or 'boat').
  */
 function setVehicle(type) {
-    vehicleType = type;
-    localStorage.setItem('chill_flight_vehicle', vehicleType);
+  vehicleType = type;
+  localStorage.setItem('chill_flight_vehicle', vehicleType);
 
-    airplaneModel.visible = (vehicleType === 'airplane');
-    helicopterModel.visible = (vehicleType === 'helicopter');
-    boatModel.visible = (vehicleType === 'boat');
-    buggyModel.visible = (vehicleType === 'buggy');
+  airplaneModel.visible = vehicleType === 'airplane';
+  helicopterModel.visible = vehicleType === 'helicopter';
+  boatModel.visible = vehicleType === 'boat';
+  buggyModel.visible = vehicleType === 'buggy';
 
-    if (typeof verticalVelocity !== 'undefined') verticalVelocity = 0; // Reset vertical momentum on switch
+  if (typeof verticalVelocity !== 'undefined') verticalVelocity = 0; // Reset vertical momentum on switch
 
-    // Automatically adjust throttle for a natural feel on switch
-    const heliSpeed = 100 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
-    const boatSpeed = 25 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
-    const buggySpeed = 50 / (typeof BASE_FLIGHT_SPEED !== 'undefined' ? (BASE_FLIGHT_SPEED * 60) : 150);
-    const airplaneSpeed = 1.0;
+  // Automatically adjust throttle for a natural feel on switch
+  const heliSpeed =
+    100 /
+    (typeof BASE_FLIGHT_SPEED !== 'undefined' ? BASE_FLIGHT_SPEED * 60 : 150);
+  const boatSpeed =
+    25 /
+    (typeof BASE_FLIGHT_SPEED !== 'undefined' ? BASE_FLIGHT_SPEED * 60 : 150);
+  const buggySpeed =
+    50 /
+    (typeof BASE_FLIGHT_SPEED !== 'undefined' ? BASE_FLIGHT_SPEED * 60 : 150);
+  const airplaneSpeed = 1.0;
 
-    if (typeof targetFlightSpeed !== 'undefined') {
-        if (vehicleType === 'helicopter') {
-            targetFlightSpeed = heliSpeed;
-        } else if (vehicleType === 'boat') {
-            targetFlightSpeed = boatSpeed;
-        } else if (vehicleType === 'buggy') {
-            targetFlightSpeed = buggySpeed;
-        } else {
-            targetFlightSpeed = airplaneSpeed;
-            window._isRecoveringFromHeli = true; // Use softer acceleration after switch
-        }
-
-        // If this is the initial load (before the game loop starts), also sync flightSpeedMultiplier
-        if (typeof flightSpeedMultiplier !== 'undefined' && (performance.now() < 2000)) {
-            flightSpeedMultiplier = targetFlightSpeed;
-        }
+  if (typeof targetFlightSpeed !== 'undefined') {
+    if (vehicleType === 'helicopter') {
+      targetFlightSpeed = heliSpeed;
+    } else if (vehicleType === 'boat') {
+      targetFlightSpeed = boatSpeed;
+    } else if (vehicleType === 'buggy') {
+      targetFlightSpeed = buggySpeed;
+    } else {
+      targetFlightSpeed = airplaneSpeed;
+      window._isRecoveringFromHeli = true; // Use softer acceleration after switch
     }
 
-    // Update UI if it exists - the vehicle-select was removed from pause menu
-    // but we can still have other UI elements that need syncing if added later.
+    // If this is the initial load (before the game loop starts), also sync flightSpeedMultiplier
+    if (
+      typeof flightSpeedMultiplier !== 'undefined' &&
+      performance.now() < 2000
+    ) {
+      flightSpeedMultiplier = targetFlightSpeed;
+    }
+  }
 
-    console.log(`Vehicle switched to: ${vehicleType}`);
+  // Update UI if it exists - the vehicle-select was removed from pause menu
+  // but we can still have other UI elements that need syncing if added later.
+
+  console.log(`Vehicle switched to: ${vehicleType}`);
 }
 
 // --- AIRPLANE MODEL ---
 // Fuselage
 const bodyGeo = new THREE.CylinderGeometry(1.2, 2.2, 16, 8);
 bodyGeo.rotateX(Math.PI / 2);
-planeMat = createMaterial({ color: planeColor, flatShading: true });
+planeMat = createMaterial({color: planeColor, flatShading: true});
 const body = new THREE.Mesh(bodyGeo, planeMat);
 body.scale.set(1, 1.1, 1);
 airplaneModel.add(body);
 
 // Cockpit window
 const windowGeo = new THREE.BoxGeometry(3, 2, 4);
-const windowMat = createMaterial({ color: 0x111111, roughness: 0.1 });
+const windowMat = createMaterial({color: 0x111111, roughness: 0.1});
 const cockpit = new THREE.Mesh(windowGeo, windowMat);
 cockpit.position.set(0, 2.5, -2);
 airplaneModel.add(cockpit);
 
 // Wings
 const wingGeo = new THREE.BoxGeometry(30, 0.5, 4);
-const wingMat = createMaterial({ color: 0xecf0f1, flatShading: true });
+const wingMat = createMaterial({color: 0xecf0f1, flatShading: true});
 const wings = new THREE.Mesh(wingGeo, wingMat);
 wings.position.set(0, 4.5, -1);
 airplaneModel.add(wings);
@@ -161,7 +193,7 @@ rudderShape.lineTo(5, 5);
 rudderShape.lineTo(3, 5);
 rudderShape.lineTo(0, 0);
 
-const extrudeSettings = { depth: 0.5, bevelEnabled: false };
+const extrudeSettings = {depth: 0.5, bevelEnabled: false};
 const rudderGeo = new THREE.ExtrudeGeometry(rudderShape, extrudeSettings);
 rudderGeo.rotateY(Math.PI / 2);
 rudderGeo.translate(-0.25, 0, 5.5);
@@ -176,11 +208,14 @@ airplaneModel.add(propGroup);
 
 const propCenterGeo = new THREE.CylinderGeometry(0.8, 0.8, 2, 8);
 propCenterGeo.rotateX(Math.PI / 2);
-const propCenter = new THREE.Mesh(propCenterGeo, createMaterial({ color: 0x333333 }));
+const propCenter = new THREE.Mesh(
+  propCenterGeo,
+  createMaterial({color: 0x333333})
+);
 propGroup.add(propCenter);
 
 const bladeGeo = new THREE.BoxGeometry(12, 0.4, 0.4);
-const bladeMat = createMaterial({ color: 0x222222 });
+const bladeMat = createMaterial({color: 0x222222});
 const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
 const blade2 = new THREE.Mesh(bladeGeo, bladeMat);
 blade2.rotation.z = Math.PI / 2;
@@ -212,7 +247,10 @@ mainRotorGroup.position.set(0, 3, 0);
 helicopterModel.add(mainRotorGroup);
 
 const rotorCenterGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
-const rotorCenter = new THREE.Mesh(rotorCenterGeo, createMaterial({ color: 0x333333 }));
+const rotorCenter = new THREE.Mesh(
+  rotorCenterGeo,
+  createMaterial({color: 0x333333})
+);
 mainRotorGroup.add(rotorCenter);
 
 const mainBladeGeo = new THREE.BoxGeometry(24, 0.2, 1.5);
@@ -238,7 +276,7 @@ tailRotorGroup.add(tailRotorBlade2);
 
 // Skids
 const skidGeo = new THREE.BoxGeometry(0.5, 0.5, 10);
-const skidMat = createMaterial({ color: 0x333333 });
+const skidMat = createMaterial({color: 0x333333});
 const skidL = new THREE.Mesh(skidGeo, skidMat);
 skidL.position.set(-2.5, -3.5, 0);
 helicopterModel.add(skidL);
@@ -262,18 +300,24 @@ helicopterModel.add(skidStrutRB);
 
 // --- BOAT MODEL ---
 const playerBoatHullGeo = new THREE.BoxGeometry(6, 2, 12);
-const playerBoatHullMat = createMaterial({ color: 0x2e865f, flatShading: true }); // Greenish tint
+const playerBoatHullMat = createMaterial({color: 0x2e865f, flatShading: true}); // Greenish tint
 const playerBoatHull = new THREE.Mesh(playerBoatHullGeo, playerBoatHullMat);
 boatModel.add(playerBoatHull);
 
 const playerBoatInsideGeo = new THREE.BoxGeometry(5.6, 1.8, 11.6);
-const playerBoatInsideMat = createMaterial({ color: 0x1f5c40, flatShading: true }); // Darker green
-const playerBoatInside = new THREE.Mesh(playerBoatInsideGeo, playerBoatInsideMat);
+const playerBoatInsideMat = createMaterial({
+  color: 0x1f5c40,
+  flatShading: true,
+}); // Darker green
+const playerBoatInside = new THREE.Mesh(
+  playerBoatInsideGeo,
+  playerBoatInsideMat
+);
 playerBoatInside.position.y = 0.2;
 boatModel.add(playerBoatInside);
 
 const playerBoatSeatGeo = new THREE.BoxGeometry(5.6, 0.4, 2);
-const playerBoatSeatMat = createMaterial({ color: 0x8b5a2b, flatShading: true }); // Wood
+const playerBoatSeatMat = createMaterial({color: 0x8b5a2b, flatShading: true}); // Wood
 const playerBoatSeat1 = new THREE.Mesh(playerBoatSeatGeo, playerBoatSeatMat);
 playerBoatSeat1.position.set(0, 0.8, -3);
 boatModel.add(playerBoatSeat1);
@@ -287,11 +331,17 @@ playerBoatMotorGroup.position.set(0, 1, 6.2);
 boatModel.add(playerBoatMotorGroup);
 
 const playerBoatMotorBodyGeo = new THREE.BoxGeometry(1.5, 2, 2);
-const playerBoatMotorBody = new THREE.Mesh(playerBoatMotorBodyGeo, createMaterial({ color: 0x222222 }));
+const playerBoatMotorBody = new THREE.Mesh(
+  playerBoatMotorBodyGeo,
+  createMaterial({color: 0x222222})
+);
 playerBoatMotorGroup.add(playerBoatMotorBody);
 
 const playerBoatMotorShaftGeo = new THREE.CylinderGeometry(0.2, 0.2, 3, 8);
-const playerBoatMotorShaft = new THREE.Mesh(playerBoatMotorShaftGeo, createMaterial({ color: 0x555555 }));
+const playerBoatMotorShaft = new THREE.Mesh(
+  playerBoatMotorShaftGeo,
+  createMaterial({color: 0x555555})
+);
 playerBoatMotorShaft.position.set(0, -1.5, 0.5);
 playerBoatMotorGroup.add(playerBoatMotorShaft);
 
@@ -301,11 +351,14 @@ playerBoatMotorGroup.add(playerBoatPropellerGroup);
 
 const playerBoatPropCenterGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 8);
 playerBoatPropCenterGeo.rotateX(Math.PI / 2);
-const playerBoatPropCenter = new THREE.Mesh(playerBoatPropCenterGeo, createMaterial({ color: 0x888888 }));
+const playerBoatPropCenter = new THREE.Mesh(
+  playerBoatPropCenterGeo,
+  createMaterial({color: 0x888888})
+);
 playerBoatPropellerGroup.add(playerBoatPropCenter);
 
 const playerBoatBladeGeo = new THREE.BoxGeometry(1.5, 0.2, 0.1);
-const playerBoatBladeMat = createMaterial({ color: 0xaaaaaa });
+const playerBoatBladeMat = createMaterial({color: 0xaaaaaa});
 const playerBoatBlade1 = new THREE.Mesh(playerBoatBladeGeo, playerBoatBladeMat);
 const playerBoatBlade2 = new THREE.Mesh(playerBoatBladeGeo, playerBoatBladeMat);
 playerBoatBlade2.rotation.z = Math.PI / 2;
@@ -319,14 +372,14 @@ boatModel.position.set(0, 0, 0);
 
 // --- BUGGY MODEL ---
 const buggyChassisGeo = new THREE.BoxGeometry(4, 2, 8);
-const buggyChassisMat = createMaterial({ color: planeColor, flatShading: true });
+const buggyChassisMat = createMaterial({color: planeColor, flatShading: true});
 const buggyChassis = new THREE.Mesh(buggyChassisGeo, buggyChassisMat);
 buggyChassis.position.y = 1;
 buggyModel.add(buggyChassis);
 
 // Roll cage / Window
 const buggyCageGeo = new THREE.BoxGeometry(3.5, 2, 4);
-const buggyCageMat = createMaterial({ color: 0x111111, roughness: 0.1 });
+const buggyCageMat = createMaterial({color: 0x111111, roughness: 0.1});
 const buggyCage = new THREE.Mesh(buggyCageGeo, buggyCageMat);
 buggyCage.position.set(0, 3, -1);
 buggyModel.add(buggyCage);
@@ -334,7 +387,7 @@ buggyModel.add(buggyCage);
 // Wheels
 const wheelGeo = new THREE.CylinderGeometry(1.5, 1.5, 1, 12);
 wheelGeo.rotateZ(Math.PI / 2);
-const wheelMat = createMaterial({ color: 0x222222 });
+const wheelMat = createMaterial({color: 0x222222});
 
 const wheelFL = new THREE.Mesh(wheelGeo, wheelMat);
 wheelFL.rotation.order = 'YXZ';
@@ -371,7 +424,7 @@ let pontoonDeploymentProgress = 0;
 let isDeployingPontoons = false;
 let isRetractingPontoons = false;
 
-const pontoonMat = createMaterial({ color: 0xcccccc, flatShading: true });
+const pontoonMat = createMaterial({color: 0xcccccc, flatShading: true});
 const pontoonGeo = new THREE.CylinderGeometry(1.5, 1.5, 18, 8);
 pontoonGeo.rotateX(Math.PI / 2);
 const pontoonNoseGeo = new THREE.ConeGeometry(1.5, 4, 8);
@@ -394,10 +447,18 @@ pontoonR.add(pontoonNoseMeshR);
 pontoonR.position.set(5, -4.5, 0);
 pontoonGroup.add(pontoonR);
 
-const hingeLF = new THREE.Group(); hingeLF.position.set(-5, 0, -3); pontoonGroup.add(hingeLF);
-const hingeLB = new THREE.Group(); hingeLB.position.set(-5, 0, 3); pontoonGroup.add(hingeLB);
-const hingeRF = new THREE.Group(); hingeRF.position.set(5, 0, -3); pontoonGroup.add(hingeRF);
-const hingeRB = new THREE.Group(); hingeRB.position.set(5, 0, 3); pontoonGroup.add(hingeRB);
+const hingeLF = new THREE.Group();
+hingeLF.position.set(-5, 0, -3);
+pontoonGroup.add(hingeLF);
+const hingeLB = new THREE.Group();
+hingeLB.position.set(-5, 0, 3);
+pontoonGroup.add(hingeLB);
+const hingeRF = new THREE.Group();
+hingeRF.position.set(5, 0, -3);
+pontoonGroup.add(hingeRF);
+const hingeRB = new THREE.Group();
+hingeRB.position.set(5, 0, 3);
+pontoonGroup.add(hingeRB);
 
 // Better rotation order for airplanes
 planeGroup.rotation.order = 'YXZ';
@@ -429,8 +490,8 @@ setVehicle(vehicleType);
 
 // Enable shadows for the vehicle
 planeGroup.traverse((child) => {
-    if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-    }
+  if (child.isMesh) {
+    child.castShadow = true;
+    child.receiveShadow = true;
+  }
 });

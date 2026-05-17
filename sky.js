@@ -161,67 +161,71 @@ const skyFragmentShader = `
 // Replaces the static ATMOSPHERE_PALETTES array
 
 function generateDynamicPalette(rng) {
-    // Helper to get random value between min and max using the seeded RNG
-    const rand = (min, max) => min + rng() * (max - min);
+  // Helper to get random value between min and max using the seeded RNG
+  const rand = (min, max) => min + rng() * (max - min);
 
-    // --- ZENITH (Top Color) ---
-    // Darker, deeper tones. We bias towards blues, purples, and deep slates.
-    // HSL Hue in Three.js is 0.0 to 1.0 (0=Red, 0.33=Green, 0.66=Blue, 1.0=Red)
-    // 0.5 to 0.85 covers Cyan -> Blue -> Purple -> Deep Pink
-    const topHue = rand(0.5, 0.85);
+  // --- ZENITH (Top Color) ---
+  // Darker, deeper tones. We bias towards blues, purples, and deep slates.
+  // HSL Hue in Three.js is 0.0 to 1.0 (0=Red, 0.33=Green, 0.66=Blue, 1.0=Red)
+  // 0.5 to 0.85 covers Cyan -> Blue -> Purple -> Deep Pink
+  const topHue = rand(0.5, 0.85);
 
-    // Pick Top Names based on Top Hue
-    let tNames;
-    if (topHue < 0.6) {
-        // Cyan/Teal
-        tNames = ["Stormy", "Deep", "Slate"];
-    } else if (topHue < 0.75) {
-        // Core Blue
-        tNames = ["Midnight", "Abyssal", "Deep", "Abyss"];
-    } else {
-        // Purple/Indigo
-        tNames = ["Twilight", "Cosmic", "Velvet", "Starry"];
-    }
+  // Pick Top Names based on Top Hue
+  let tNames;
+  if (topHue < 0.6) {
+    // Cyan/Teal
+    tNames = ['Stormy', 'Deep', 'Slate'];
+  } else if (topHue < 0.75) {
+    // Core Blue
+    tNames = ['Midnight', 'Abyssal', 'Deep', 'Abyss'];
+  } else {
+    // Purple/Indigo
+    tNames = ['Twilight', 'Cosmic', 'Velvet', 'Starry'];
+  }
 
-    const topSat = rand(0.3, 0.7);   // Medium saturation so it isn't blindingly neon
-    const topLight = rand(0.1, 0.35); // Keep it dark and moody
+  const topSat = rand(0.3, 0.7); // Medium saturation so it isn't blindingly neon
+  const topLight = rand(0.1, 0.35); // Keep it dark and moody
 
-    // --- HORIZON (Bottom Color) ---
-    // Lighter, brighter tones (sunsets, sunrises, mist).
-    let bottomHue;
-    let bNames; // Name category for bottom
-    const hueType = rng();
+  // --- HORIZON (Bottom Color) ---
+  // Lighter, brighter tones (sunsets, sunrises, mist).
+  let bottomHue;
+  let bNames; // Name category for bottom
+  const hueType = rng();
 
-    if (hueType < 0.6) {
-        // 60% chance: Warm sunset (Reds, Oranges, Yellows) -> 0.0 to 0.16
-        bottomHue = rand(0.0, 0.16);
-        bNames = ["Amber", "Gold", "Peach", "Crimson", "Coral"];
-    } else if (hueType < 0.8) {
-        // 20% chance: Dawn pastels (soft Pinks, Roses) -> 0.92 to 0.99
-        bottomHue = rand(0.92, 0.99);
-        bNames = ["Rose", "Blush", "Velvet", "Dusty"];
-    } else {
-        // 20% chance: Icy/Clear morning (Light blues, cyans) -> 0.45 to 0.55
-        bottomHue = rand(0.45, 0.55);
-        bNames = ["Azure", "Mist", "Icy", "Arctic", "Slate"];
-    }
+  if (hueType < 0.6) {
+    // 60% chance: Warm sunset (Reds, Oranges, Yellows) -> 0.0 to 0.16
+    bottomHue = rand(0.0, 0.16);
+    bNames = ['Amber', 'Gold', 'Peach', 'Crimson', 'Coral'];
+  } else if (hueType < 0.8) {
+    // 20% chance: Dawn pastels (soft Pinks, Roses) -> 0.92 to 0.99
+    bottomHue = rand(0.92, 0.99);
+    bNames = ['Rose', 'Blush', 'Velvet', 'Dusty'];
+  } else {
+    // 20% chance: Icy/Clear morning (Light blues, cyans) -> 0.45 to 0.55
+    bottomHue = rand(0.45, 0.55);
+    bNames = ['Azure', 'Mist', 'Icy', 'Arctic', 'Slate'];
+  }
 
-    const bottomSat = rand(0.35, 0.65);  // Moderate saturation for natural horizons
-    const bottomLight = rand(0.55, 0.75); // Lighter than zenith but not washed out
+  const bottomSat = rand(0.35, 0.65); // Moderate saturation for natural horizons
+  const bottomLight = rand(0.55, 0.75); // Lighter than zenith but not washed out
 
-    // Convert our procedural HSL values to a standard Three.js hex color
-    const topColor = new THREE.Color().setHSL(topHue, topSat, topLight);
-    const bottomColor = new THREE.Color().setHSL(bottomHue, bottomSat, bottomLight);
+  // Convert our procedural HSL values to a standard Three.js hex color
+  const topColor = new THREE.Color().setHSL(topHue, topSat, topLight);
+  const bottomColor = new THREE.Color().setHSL(
+    bottomHue,
+    bottomSat,
+    bottomLight
+  );
 
-    // Use the RNG again to pick names from the narrowed categories
-    const tName = tNames[Math.floor(rng() * tNames.length)];
-    const bName = bNames[Math.floor(rng() * bNames.length)];
+  // Use the RNG again to pick names from the narrowed categories
+  const tName = tNames[Math.floor(rng() * tNames.length)];
+  const bName = bNames[Math.floor(rng() * bNames.length)];
 
-    return {
-        name: `${tName} ${bName}`,
-        top: topColor.getHex(),
-        bottom: bottomColor.getHex()
-    };
+  return {
+    name: `${tName} ${bName}`,
+    top: topColor.getHex(),
+    bottom: bottomColor.getHex(),
+  };
 }
 
 // Standard parameters are handled by ChillFlightLogic
@@ -230,94 +234,113 @@ let currentPaletteCycle = -1;
 let isCustomPalette = false;
 
 function applyCustomSkyColors(top, bottom) {
-    isCustomPalette = true;
+  isCustomPalette = true;
 
-    // Convert hex string (from picker) or number to hex if needed
-    const topHex = typeof top === 'string' ? parseInt(top.replace('#', ''), 16) : top;
-    const bottomHex = typeof bottom === 'string' ? parseInt(bottom.replace('#', ''), 16) : bottom;
+  // Convert hex string (from picker) or number to hex if needed
+  const topHex =
+    typeof top === 'string' ? parseInt(top.replace('#', ''), 16) : top;
+  const bottomHex =
+    typeof bottom === 'string' ? parseInt(bottom.replace('#', ''), 16) : bottom;
 
-    selectedPalette = {
-        name: "Custom",
-        top: topHex,
-        bottom: bottomHex
-    };
+  selectedPalette = {
+    name: 'Custom',
+    top: topHex,
+    bottom: bottomHex,
+  };
 
-    if (typeof skyUniforms !== 'undefined') {
-        skyUniforms.topColor.value.setHex(selectedPalette.top);
-        skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
-    }
+  if (typeof skyUniforms !== 'undefined') {
+    skyUniforms.topColor.value.setHex(selectedPalette.top);
+    skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
+  }
 
-    window.dispatchEvent(new CustomEvent('paletteChanged', { detail: selectedPalette }));
+  window.dispatchEvent(
+    new CustomEvent('paletteChanged', {detail: selectedPalette})
+  );
 }
 
 function updateSkyPalette(serverNow) {
-    if (isCustomPalette) return;
+  if (isCustomPalette) return;
 
-    const CYCLE_DURATION_MS = 300000;
-    const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
+  const CYCLE_DURATION_MS = 300000;
+  const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
 
-    if (cycleNumber !== currentPaletteCycle) {
-        const isFirstLoad = (currentPaletteCycle === -1);
-        currentPaletteCycle = cycleNumber;
+  if (cycleNumber !== currentPaletteCycle) {
+    const isFirstLoad = currentPaletteCycle === -1;
+    currentPaletteCycle = cycleNumber;
 
-        let rng;
-        if (isFirstLoad && ChillFlightLogic.PALETTE_INDEX !== null && !isNaN(parseInt(ChillFlightLogic.PALETTE_INDEX))) {
-            // If a user forces a specific palette index via URL, we use it as the RNG seed 
-            // so they get a deterministic custom palette.
-            const paletteIndex = parseInt(ChillFlightLogic.PALETTE_INDEX);
-            rng = ChillFlightLogic.mulberry32(paletteIndex);
-        } else {
-            // Seed the RNG with the world seed plus the cycle number,
-            // so every cycle (in-game day) gets a synchronized random palette across the server.
-            rng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + cycleNumber);
-        }
-
-        // Generate the colors!
-        selectedPalette = generateDynamicPalette(rng);
-
-        console.log(`Atmosphere Palette Updated (Cycle ${cycleNumber}): ${selectedPalette.name}`);
-
-        // If uniforms already exist, update them
-        if (typeof skyUniforms !== 'undefined') {
-            skyUniforms.topColor.value.setHex(selectedPalette.top);
-            skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
-        }
-
-        // Dispatch an event so game.js can recalculate derived gradient colors
-        window.dispatchEvent(new CustomEvent('paletteChanged', { detail: selectedPalette }));
+    let rng;
+    if (
+      isFirstLoad &&
+      ChillFlightLogic.PALETTE_INDEX !== null &&
+      !isNaN(parseInt(ChillFlightLogic.PALETTE_INDEX))
+    ) {
+      // If a user forces a specific palette index via URL, we use it as the RNG seed
+      // so they get a deterministic custom palette.
+      const paletteIndex = parseInt(ChillFlightLogic.PALETTE_INDEX);
+      rng = ChillFlightLogic.mulberry32(paletteIndex);
+    } else {
+      // Seed the RNG with the world seed plus the cycle number,
+      // so every cycle (in-game day) gets a synchronized random palette across the server.
+      rng = ChillFlightLogic.mulberry32(
+        ChillFlightLogic.WORLD_SEED + cycleNumber
+      );
     }
+
+    // Generate the colors!
+    selectedPalette = generateDynamicPalette(rng);
+
+    console.log(
+      `Atmosphere Palette Updated (Cycle ${cycleNumber}): ${selectedPalette.name}`
+    );
+
+    // If uniforms already exist, update them
+    if (typeof skyUniforms !== 'undefined') {
+      skyUniforms.topColor.value.setHex(selectedPalette.top);
+      skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
+    }
+
+    // Dispatch an event so game.js can recalculate derived gradient colors
+    window.dispatchEvent(
+      new CustomEvent('paletteChanged', {detail: selectedPalette})
+    );
+  }
 }
 
 // Initial object creation with dummy values; updateSkyPalette will populate them
 const skyUniforms = {
-    topColor: { value: new THREE.Color() },
-    bottomColor: { value: new THREE.Color() },
-    sunDirection: { value: new THREE.Vector3(0, 1, 0) },
-    offset: { value: 33 },
-    exponent: { value: 0.6 },
-    glowPower: { value: 2.0 },  // Higher = more concentrated sunset
-    mieFactor: { value: 0.9 },   // Higher = more aggressive muting away from sun
-    uTime: { value: 0.0 },
-    uCloudDensity: { value: 0.5 },
-    uShowClouds: { value: true },
-    uAuroraIntensity: { value: 0.0 } // 0 = off, 1 = full intensity; driven by latitude + night
+  topColor: {value: new THREE.Color()},
+  bottomColor: {value: new THREE.Color()},
+  sunDirection: {value: new THREE.Vector3(0, 1, 0)},
+  offset: {value: 33},
+  exponent: {value: 0.6},
+  glowPower: {value: 2.0}, // Higher = more concentrated sunset
+  mieFactor: {value: 0.9}, // Higher = more aggressive muting away from sun
+  uTime: {value: 0.0},
+  uCloudDensity: {value: 0.5},
+  uShowClouds: {value: true},
+  uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
 };
 
 // Initial calculation
 updateSkyPalette(Date.now() + (window.serverTimeOffset || 0));
 
 const skyMat = new THREE.ShaderMaterial({
-    vertexShader: skyVertexShader,
-    fragmentShader: skyFragmentShader,
-    uniforms: skyUniforms,
-    side: THREE.BackSide,
-    depthWrite: false, // Don't block stars/celestials
-    fog: false
+  vertexShader: skyVertexShader,
+  fragmentShader: skyFragmentShader,
+  uniforms: skyUniforms,
+  side: THREE.BackSide,
+  depthWrite: false, // Don't block stars/celestials
+  fog: false,
 });
 
 scene.fog.color.set(selectedPalette.bottom);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 30000);
+const camera = new THREE.PerspectiveCamera(
+  60,
+  window.innerWidth / window.innerHeight,
+  1,
+  30000
+);
 
 // Antialiasing is expensive; disable it on the 'Low' preset (SEGMENTS <= 20) to prioritize performance.
 // Since AA belongs to the WebGL context, this won't change until the next page load.
@@ -327,9 +350,11 @@ const _isLowQuality = _initQuality && parseInt(_initQuality) <= 20;
 // Update uniforms for initial load
 skyUniforms.uShowClouds.value = ChillFlightLogic.SHOW_CLOUDS && !_isLowQuality;
 
-const renderer = new THREE.WebGLRenderer({ antialias: !_isLowQuality });
+const renderer = new THREE.WebGLRenderer({antialias: !_isLowQuality});
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(_isLowQuality ? 1 : Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(
+  _isLowQuality ? 1 : Math.min(window.devicePixelRatio, 2)
+);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -344,8 +369,8 @@ dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
 dirLight.shadow.camera.near = 10;
-dirLight.shadow.camera.far = 8000;      // Increased so distant shadows aren't clipped
-dirLight.shadow.camera.left = -2048;    // Massively expanded coverage
+dirLight.shadow.camera.far = 8000; // Increased so distant shadows aren't clipped
+dirLight.shadow.camera.left = -2048; // Massively expanded coverage
 dirLight.shadow.camera.right = 2048;
 dirLight.shadow.camera.top = 2048;
 dirLight.shadow.camera.bottom = -2048;
@@ -508,17 +533,17 @@ const moonFragShader = `
 `;
 
 const sunUniforms = {
-    uTime: { value: 0.0 },
-    overcast: { value: 0.0 },
-    dayFactor: { value: 1.0 },
-    uSunColor: { value: new THREE.Color(0xffffff) }
+  uTime: {value: 0.0},
+  overcast: {value: 0.0},
+  dayFactor: {value: 1.0},
+  uSunColor: {value: new THREE.Color(0xffffff)},
 };
 
 const moonUniforms = {
-    uTime: { value: 0.0 },
-    overcast: { value: 0.0 },
-    dayFactor: { value: 1.0 },
-    moonPhase: { value: 0.0 }
+  uTime: {value: 0.0},
+  overcast: {value: 0.0},
+  dayFactor: {value: 1.0},
+  moonPhase: {value: 0.0},
 };
 
 const sunGlowVertShader = `
@@ -572,39 +597,39 @@ const sunGlowFragShader = `
 // Sun
 const sunGeo = new THREE.SphereGeometry(400, 32, 32);
 const sunMat = new THREE.ShaderMaterial({
-    vertexShader: sunMoonVertShader,
-    fragmentShader: sunFragShader,
-    uniforms: sunUniforms,
-    transparent: true,
-    depthWrite: false, // Fix: Prevent the sphere from blocking the glow's depth test
-    fog: false
+  vertexShader: sunMoonVertShader,
+  fragmentShader: sunFragShader,
+  uniforms: sunUniforms,
+  transparent: true,
+  depthWrite: false, // Fix: Prevent the sphere from blocking the glow's depth test
+  fog: false,
 });
 const sunMesh = new THREE.Mesh(sunGeo, sunMat);
 skyGroup.add(sunMesh);
 
 const sunGlowGeo = new THREE.PlaneGeometry(1600, 1600);
 const sunGlowMat = new THREE.ShaderMaterial({
-    vertexShader: sunGlowVertShader,
-    fragmentShader: sunGlowFragShader,
-    uniforms: sunUniforms,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    fog: false
+  vertexShader: sunGlowVertShader,
+  fragmentShader: sunGlowFragShader,
+  uniforms: sunUniforms,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  fog: false,
 });
 const sunGlowMesh = new THREE.Mesh(sunGlowGeo, sunGlowMat);
-sunGlowMesh.position.z = 0; 
+sunGlowMesh.position.z = 0;
 sunGlowMesh.renderOrder = 1; // Force it to render AFTER the solid sun sphere
 sunMesh.add(sunGlowMesh);
 
 // Moon
 const moonGeo = new THREE.SphereGeometry(240, 32, 32);
 const moonMat = new THREE.ShaderMaterial({
-    vertexShader: sunMoonVertShader,
-    fragmentShader: moonFragShader,
-    uniforms: moonUniforms,
-    transparent: true,
-    fog: false
+  vertexShader: sunMoonVertShader,
+  fragmentShader: moonFragShader,
+  uniforms: moonUniforms,
+  transparent: true,
+  fog: false,
 });
 const moonMesh = new THREE.Mesh(moonGeo, moonMat);
 skyGroup.add(moonMesh);
@@ -615,16 +640,22 @@ const starsCount = 2000;
 const starsPos = new Float32Array(starsCount * 3);
 const _starsRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + 1);
 for (let i = 0; i < starsCount * 3; i += 3) {
-    const u = _starsRng();
-    const v = _starsRng();
-    const theta = u * 2.0 * Math.PI;
-    const phi = Math.acos(2.0 * v - 1.0);
-    const r = 20000 + _starsRng() * 4000;
-    starsPos[i] = r * Math.sin(phi) * Math.cos(theta);
-    starsPos[i + 1] = r * Math.sin(phi) * Math.sin(theta);
-    starsPos[i + 2] = r * Math.cos(phi);
+  const u = _starsRng();
+  const v = _starsRng();
+  const theta = u * 2.0 * Math.PI;
+  const phi = Math.acos(2.0 * v - 1.0);
+  const r = 20000 + _starsRng() * 4000;
+  starsPos[i] = r * Math.sin(phi) * Math.cos(theta);
+  starsPos[i + 1] = r * Math.sin(phi) * Math.sin(theta);
+  starsPos[i + 2] = r * Math.cos(phi);
 }
 starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
-const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 20, sizeAttenuation: true, fog: false, transparent: true });
+const starsMat = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 20,
+  sizeAttenuation: true,
+  fog: false,
+  transparent: true,
+});
 const starsMesh = new THREE.Points(starsGeo, starsMat);
 skyGroup.add(starsMesh);

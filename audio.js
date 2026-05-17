@@ -1,330 +1,344 @@
 // --- AUDIO (PURRPLE CAT) ---
 
-let musicEnabled = localStorage.getItem('chill_flight_music_enabled') !== 'false';
+let musicEnabled =
+  localStorage.getItem('chill_flight_music_enabled') !== 'false';
 
 let purrpleCatAudio = new Audio();
 const purrpleCatTracks = [
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-birds-of-a-feather.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-a-place-to-hide.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-aether.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-after-hours.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-alienated.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-around-the-campfire.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-beautiful-day.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-bird-bath.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-birdhouse.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-black-cherry.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-bloom.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-calm-waters.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-caramellow.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-cats-cradle.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-changes.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-creation.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-crescent-moon.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-crossroads.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dark-chocolate.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dark-forest.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dark-moon.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-days-end.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-deja-vu.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-desert-rain.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-discovery.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dream-machine.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dreams-come-true.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-drifting.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-echoes-of-yesterday.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-edge-of-the-universe.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-embrace.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-equinox.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-exhale.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-exploration.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-falling-star.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-ferris-wheel.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-field-of-fireflies.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-first-snow.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-flourish.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-forget-me-not.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-frolic.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-gentle-breeze.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-ghost-town.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-glowing-tides.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-green-tea.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-happy-trails.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-heart-of-the-ocean.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-in-the-past.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-introspection.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-journeys-end.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-late-night-latte.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-light-years-apart.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-long-day.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-lost-and-found.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-lost-paradise.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-lost-treasure.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-low-tide.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-lullaby.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-magical-moments.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-message-in-a-bottle.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-meteorites.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-midnight-snack.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-moonlit-walk.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-morning-dew.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-moving-landscapes.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-muse.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-mysterious-lights.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-mystic-mountain.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-neon-tiger.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-night-train.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-once-in-a-lifetime.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-out-of-the-blue.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-palm-tree.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-passing-time.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-pillars-of-creation.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-pillow-fort.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-pineapple-popsicle.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-pitter-patter.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-please-hold-me.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-puddle-jumping.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-rainbow-falls.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-reverie.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-rocky-shores.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-rooftop-rendezvous.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sand-castles.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sea-of-stars.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-seashells.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-secret-of-the-forest.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-secrets.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-shipwreck-cove.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-silent-wood.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sky-lake.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sleeping-cat.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sleepless.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-smores.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-snooze-button.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-solitude.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-somewhere-new.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-space-rain.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-spring-showers.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-star-bright.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-stars-collide.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-stasis.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-storm-clouds.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-stranded.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sugar-coat.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sundae-sunset.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-supernova.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-swingin.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-take-me-with-you.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-through-the-trees.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-through-the-wormhole.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-thunder-nap.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-time-stands-still.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-time-to-think.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-timeless.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-tunnels.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-underwater-cavern.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-visions.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-waiting-for-the-sun.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wanted.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-where-the-waves-take-us.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wild-strawberry.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-winter-morning.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wish-you-were-here.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wishes.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wishing-well.mp3',
-    'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-yesteryear.mp3'
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-birds-of-a-feather.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-a-place-to-hide.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-aether.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-after-hours.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-alienated.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-around-the-campfire.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-beautiful-day.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-bird-bath.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-birdhouse.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-black-cherry.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-bloom.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-calm-waters.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-caramellow.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-cats-cradle.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-changes.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-creation.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-crescent-moon.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-crossroads.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dark-chocolate.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dark-forest.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dark-moon.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-days-end.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-deja-vu.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-desert-rain.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-discovery.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dream-machine.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-dreams-come-true.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-drifting.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-echoes-of-yesterday.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-edge-of-the-universe.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-embrace.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-equinox.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-exhale.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-exploration.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-falling-star.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-ferris-wheel.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-field-of-fireflies.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-first-snow.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-flourish.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-forget-me-not.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-frolic.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-gentle-breeze.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-ghost-town.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-glowing-tides.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-green-tea.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-happy-trails.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-heart-of-the-ocean.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-in-the-past.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-introspection.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-journeys-end.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-late-night-latte.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-light-years-apart.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-long-day.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-lost-and-found.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-lost-paradise.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-lost-treasure.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-low-tide.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-lullaby.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-magical-moments.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-message-in-a-bottle.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-meteorites.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-midnight-snack.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-moonlit-walk.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-morning-dew.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-moving-landscapes.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-muse.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-mysterious-lights.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-mystic-mountain.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-neon-tiger.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-night-train.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-once-in-a-lifetime.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-out-of-the-blue.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-palm-tree.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-passing-time.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-pillars-of-creation.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-pillow-fort.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-pineapple-popsicle.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-pitter-patter.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-please-hold-me.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-puddle-jumping.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-rainbow-falls.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-reverie.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-rocky-shores.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-rooftop-rendezvous.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sand-castles.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sea-of-stars.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-seashells.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-secret-of-the-forest.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-secrets.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-shipwreck-cove.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-silent-wood.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sky-lake.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sleeping-cat.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sleepless.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-smores.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-snooze-button.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-solitude.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-somewhere-new.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-space-rain.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-spring-showers.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-star-bright.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-stars-collide.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-stasis.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-storm-clouds.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-stranded.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sugar-coat.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-sundae-sunset.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-supernova.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-swingin.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-take-me-with-you.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-through-the-trees.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-through-the-wormhole.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-thunder-nap.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-time-stands-still.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-time-to-think.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-timeless.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-tunnels.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-underwater-cavern.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-visions.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-waiting-for-the-sun.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wanted.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-where-the-waves-take-us.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wild-strawberry.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-winter-morning.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wish-you-were-here.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wishes.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-wishing-well.mp3',
+  'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-yesteryear.mp3',
 ];
 // Sync the starting track with the world seed for a deterministic radio experience
-let purrpleCatIdx = (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED)
-    ? (Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length)
+let purrpleCatIdx =
+  typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED
+    ? Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length
     : 0;
 
 // Use the bundled track the first time the user ever plays the game
 if (localStorage.getItem('chill_flight_played_before') !== 'true') {
-    purrpleCatIdx = 0;
-    localStorage.setItem('chill_flight_played_before', 'true');
+  purrpleCatIdx = 0;
+  localStorage.setItem('chill_flight_played_before', 'true');
 }
 
 const CACHE_NAME = 'chill-flight-music-v1';
 
 // Pre-cache the first track immediately to avoid breaking user-gesture chain later
-getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).catch(e => console.warn("Failed to pre-cache first track:", e));
+getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).catch((e) =>
+  console.warn('Failed to pre-cache first track:', e)
+);
 
 /**
  * Resolves a remote URL to a local path or Blob URL.
  * Falls back to the remote URL on any error.
  */
 async function getCachedTrackUrl(url) {
-    const fileName = url.split('/').pop();
+  const fileName = url.split('/').pop();
 
-    // If it's the bundled track, just use the local asset directly to save bandwidth and storage
-    if (fileName === 'purrple-cat-birds-of-a-feather.mp3') {
-        return 'assets/purrple-cat-birds-of-a-feather.mp3';
-    }
+  // If it's the bundled track, just use the local asset directly to save bandwidth and storage
+  if (fileName === 'purrple-cat-birds-of-a-feather.mp3') {
+    return 'assets/purrple-cat-birds-of-a-feather.mp3';
+  }
 
-    // -- NATIVE MOBILE APP PATH (Capacitor) --
-    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
-        try {
-            const Filesystem = Capacitor.Plugins.Filesystem;
-            if (!Filesystem) throw new Error('Filesystem plugin not available');
-
-            // 1. Check if file already exists in native cache by reading the directory
-            // This avoids the native 'stat' error log when the file doesn't exist yet
-            let fileExists = false;
-            try {
-                const dirResult = await Filesystem.readdir({ directory: 'CACHE', path: '' });
-                fileExists = dirResult.files.some(f => (f.name || f) === fileName);
-            } catch (e) {}
-
-            if (!fileExists) {
-                throw new Error('Cache miss (expected)');
-            }
-
-            const result = await Filesystem.getUri({
-                directory: 'CACHE',
-                path: fileName
-            });
-
-            console.log(`Serving track from native cache: ${fileName}`);
-            return Capacitor.convertFileSrc(result.uri);
-
-        } catch (e) {
-            // 2. If it doesn't exist, download it natively
-            console.log(`Downloading new track to native cache: ${url}`);
-
-            if (!navigator.onLine) {
-                console.log('Offline and not cached: Falling back to bundled track');
-                purrpleCatIdx = 0;
-                return 'assets/purrple-cat-birds-of-a-feather.mp3';
-            }
-
-            try {
-                const Filesystem = Capacitor.Plugins.Filesystem;
-                const downloadResult = await Filesystem.downloadFile({
-                    url: url,
-                    path: fileName,
-                    directory: 'CACHE'
-                });
-
-                return Capacitor.convertFileSrc(downloadResult.path);
-            } catch (downloadErr) {
-                console.error('Failed to download audio natively:', downloadErr);
-                purrpleCatIdx = 0;
-                return 'assets/purrple-cat-birds-of-a-feather.mp3';
-            }
-        }
-    }
-
-    // -- NATIVE DESKTOP APP PATH (Tauri) --
-    if (window.__TAURI__ !== undefined) {
-        try {
-            const fs = window.__TAURI__.fs;
-            const BaseDirectory = window.__TAURI__.fs.BaseDirectory;
-
-            // 1. Check if file already exists in cache
-            const fileExists = await fs.exists(fileName, { baseDir: BaseDirectory.Cache });
-
-            if (fileExists) {
-                console.log(`Serving track from Tauri cache: ${fileName}`);
-                const fileData = await fs.readFile(fileName, { baseDir: BaseDirectory.Cache });
-                const blob = new Blob([fileData], { type: 'audio/mpeg' });
-                return URL.createObjectURL(blob);
-            } else {
-                throw new Error('Cache miss');
-            }
-
-        } catch (e) {
-            // 2. If it doesn't exist, download it
-            console.log(`Downloading new track to Tauri cache: ${url}`);
-
-            if (!navigator.onLine) {
-                console.log('Offline and not cached: Falling back to bundled track');
-                purrpleCatIdx = 0;
-                return 'assets/purrple-cat-birds-of-a-feather.mp3';
-            }
-
-            try {
-                const fs = window.__TAURI__.fs;
-                const BaseDirectory = window.__TAURI__.fs.BaseDirectory;
-                
-                const response = await fetch(url);
-                const arrayBuffer = await response.arrayBuffer();
-                const fileData = new Uint8Array(arrayBuffer);
-
-                await fs.writeFile(fileName, fileData, { baseDir: BaseDirectory.Cache });
-
-                const blob = new Blob([fileData], { type: 'audio/mpeg' });
-                return URL.createObjectURL(blob);
-            } catch (downloadErr) {
-                console.error('Failed to download audio in Tauri:', downloadErr);
-                purrpleCatIdx = 0;
-                return 'assets/purrple-cat-birds-of-a-feather.mp3';
-            }
-        }
-    }
-
-    // -- STANDARD WEB BROWSER PATH --
-    if (!('caches' in window)) return url;
-
+  // -- NATIVE MOBILE APP PATH (Capacitor) --
+  if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
     try {
-        const cache = await caches.open(CACHE_NAME);
-        let response = await cache.match(url);
+      const Filesystem = Capacitor.Plugins.Filesystem;
+      if (!Filesystem) throw new Error('Filesystem plugin not available');
 
-        if (!response) {
-            if (!navigator.onLine) {
-                console.log('Offline and not cached: Falling back to bundled track');
-                purrpleCatIdx = 0;
-                return 'assets/purrple-cat-birds-of-a-feather.mp3';
-            }
+      // 1. Check if file already exists in native cache by reading the directory
+      // This avoids the native 'stat' error log when the file doesn't exist yet
+      let fileExists = false;
+      try {
+        const dirResult = await Filesystem.readdir({
+          directory: 'CACHE',
+          path: '',
+        });
+        fileExists = dirResult.files.some((f) => (f.name || f) === fileName);
+      } catch (e) {}
 
-            console.log(`Caching new track: ${url}`);
-            response = await fetch(url);
-            await cache.put(url, response.clone());
-        } else {
-            console.log(`Serving track from cache: ${url}`);
-        }
+      if (!fileExists) {
+        throw new Error('Cache miss (expected)');
+      }
 
-        const blob = await response.blob();
-        return URL.createObjectURL(blob);
+      const result = await Filesystem.getUri({
+        directory: 'CACHE',
+        path: fileName,
+      });
+
+      console.log(`Serving track from native cache: ${fileName}`);
+      return Capacitor.convertFileSrc(result.uri);
     } catch (e) {
-        console.warn('Cache API error, falling back to remote URL:', e);
+      // 2. If it doesn't exist, download it natively
+      console.log(`Downloading new track to native cache: ${url}`);
+
+      if (!navigator.onLine) {
+        console.log('Offline and not cached: Falling back to bundled track');
         purrpleCatIdx = 0;
         return 'assets/purrple-cat-birds-of-a-feather.mp3';
+      }
+
+      try {
+        const Filesystem = Capacitor.Plugins.Filesystem;
+        const downloadResult = await Filesystem.downloadFile({
+          url: url,
+          path: fileName,
+          directory: 'CACHE',
+        });
+
+        return Capacitor.convertFileSrc(downloadResult.path);
+      } catch (downloadErr) {
+        console.error('Failed to download audio natively:', downloadErr);
+        purrpleCatIdx = 0;
+        return 'assets/purrple-cat-birds-of-a-feather.mp3';
+      }
     }
+  }
+
+  // -- NATIVE DESKTOP APP PATH (Tauri) --
+  if (window.__TAURI__ !== undefined) {
+    try {
+      const fs = window.__TAURI__.fs;
+      const BaseDirectory = window.__TAURI__.fs.BaseDirectory;
+
+      // 1. Check if file already exists in cache
+      const fileExists = await fs.exists(fileName, {
+        baseDir: BaseDirectory.Cache,
+      });
+
+      if (fileExists) {
+        console.log(`Serving track from Tauri cache: ${fileName}`);
+        const fileData = await fs.readFile(fileName, {
+          baseDir: BaseDirectory.Cache,
+        });
+        const blob = new Blob([fileData], {type: 'audio/mpeg'});
+        return URL.createObjectURL(blob);
+      } else {
+        throw new Error('Cache miss');
+      }
+    } catch (e) {
+      // 2. If it doesn't exist, download it
+      console.log(`Downloading new track to Tauri cache: ${url}`);
+
+      if (!navigator.onLine) {
+        console.log('Offline and not cached: Falling back to bundled track');
+        purrpleCatIdx = 0;
+        return 'assets/purrple-cat-birds-of-a-feather.mp3';
+      }
+
+      try {
+        const fs = window.__TAURI__.fs;
+        const BaseDirectory = window.__TAURI__.fs.BaseDirectory;
+
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const fileData = new Uint8Array(arrayBuffer);
+
+        await fs.writeFile(fileName, fileData, {baseDir: BaseDirectory.Cache});
+
+        const blob = new Blob([fileData], {type: 'audio/mpeg'});
+        return URL.createObjectURL(blob);
+      } catch (downloadErr) {
+        console.error('Failed to download audio in Tauri:', downloadErr);
+        purrpleCatIdx = 0;
+        return 'assets/purrple-cat-birds-of-a-feather.mp3';
+      }
+    }
+  }
+
+  // -- STANDARD WEB BROWSER PATH --
+  if (!('caches' in window)) return url;
+
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    let response = await cache.match(url);
+
+    if (!response) {
+      if (!navigator.onLine) {
+        console.log('Offline and not cached: Falling back to bundled track');
+        purrpleCatIdx = 0;
+        return 'assets/purrple-cat-birds-of-a-feather.mp3';
+      }
+
+      console.log(`Caching new track: ${url}`);
+      response = await fetch(url);
+      await cache.put(url, response.clone());
+    } else {
+      console.log(`Serving track from cache: ${url}`);
+    }
+
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  } catch (e) {
+    console.warn('Cache API error, falling back to remote URL:', e);
+    purrpleCatIdx = 0;
+    return 'assets/purrple-cat-birds-of-a-feather.mp3';
+  }
 }
 
 // Track switching logic
 async function nextTrack() {
-    isMusicInternalAction = true;
-    purrpleCatIdx = (purrpleCatIdx + 1) % purrpleCatTracks.length;
-    const url = purrpleCatTracks[purrpleCatIdx];
-    purrpleCatAudio.src = await getCachedTrackUrl(url);
-    purrpleCatAudio.load();
-    await updateAudioPlayer(musicEnabled);
-    updateMediaMetadata();
-    isMusicInternalAction = false;
+  isMusicInternalAction = true;
+  purrpleCatIdx = (purrpleCatIdx + 1) % purrpleCatTracks.length;
+  const url = purrpleCatTracks[purrpleCatIdx];
+  purrpleCatAudio.src = await getCachedTrackUrl(url);
+  purrpleCatAudio.load();
+  await updateAudioPlayer(musicEnabled);
+  updateMediaMetadata();
+  isMusicInternalAction = false;
 }
 
 async function previousTrack() {
-    isMusicInternalAction = true;
-    purrpleCatIdx = (purrpleCatIdx - 1 + purrpleCatTracks.length) % purrpleCatTracks.length;
-    const url = purrpleCatTracks[purrpleCatIdx];
-    purrpleCatAudio.src = await getCachedTrackUrl(url);
-    purrpleCatAudio.load();
-    await updateAudioPlayer(musicEnabled);
-    updateMediaMetadata();
-    isMusicInternalAction = false;
+  isMusicInternalAction = true;
+  purrpleCatIdx =
+    (purrpleCatIdx - 1 + purrpleCatTracks.length) % purrpleCatTracks.length;
+  const url = purrpleCatTracks[purrpleCatIdx];
+  purrpleCatAudio.src = await getCachedTrackUrl(url);
+  purrpleCatAudio.load();
+  await updateAudioPlayer(musicEnabled);
+  updateMediaMetadata();
+  isMusicInternalAction = false;
 }
 
 // Loop to the next track automatically
 purrpleCatAudio.addEventListener('ended', async () => {
-    await nextTrack();
+  await nextTrack();
 });
 
 function getCurrentTrackName() {
-    const url = purrpleCatTracks[purrpleCatIdx];
-    const fileName = url.split('/').pop().replace('.mp3', '');
-    // Convert 'purrple-cat-birds-of-a-feather' to 'Birds Of A Feather'
-    return fileName.replace('purrple-cat-', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  const url = purrpleCatTracks[purrpleCatIdx];
+  const fileName = url.split('/').pop().replace('.mp3', '');
+  // Convert 'purrple-cat-birds-of-a-feather' to 'Birds Of A Feather'
+  return fileName
+    .replace('purrple-cat-', '')
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 // Global callback for UI updates
@@ -334,150 +348,158 @@ let isMusicInternalAction = false;
 let isPausedByVisibility = false;
 
 function syncMusicUI(playing) {
-    // Update mobile button UI
-    const radToggle = document.getElementById('mobile-rad-toggle');
-    if (radToggle) {
-        radToggle.title = playing ? "Pause" : "Play";
-        const svg = radToggle.querySelector('svg');
-        if (svg) {
-            if (playing) {
-                // Pause icon
-                svg.innerHTML = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"></path>';
-            } else {
-                // Play icon
-                svg.innerHTML = '<path d="M5 3l14 9-14 9V3z"></path>';
-            }
-        }
+  // Update mobile button UI
+  const radToggle = document.getElementById('mobile-rad-toggle');
+  if (radToggle) {
+    radToggle.title = playing ? 'Pause' : 'Play';
+    const svg = radToggle.querySelector('svg');
+    if (svg) {
+      if (playing) {
+        // Pause icon
+        svg.innerHTML = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"></path>';
+      } else {
+        // Play icon
+        svg.innerHTML = '<path d="M5 3l14 9-14 9V3z"></path>';
+      }
     }
+  }
 
-    if (window.onTrackChange) {
-        window.onTrackChange(getCurrentTrackName());
-    }
+  if (window.onTrackChange) {
+    window.onTrackChange(getCurrentTrackName());
+  }
 
-    updateMediaMetadata();
+  updateMediaMetadata();
 }
 
 purrpleCatAudio.addEventListener('play', () => {
-    if (!isMusicInternalAction) {
-        if (!musicEnabled) {
-            musicEnabled = true;
-            localStorage.setItem('chill_flight_music_enabled', 'true');
-        }
+  if (!isMusicInternalAction) {
+    if (!musicEnabled) {
+      musicEnabled = true;
+      localStorage.setItem('chill_flight_music_enabled', 'true');
     }
-    syncMusicUI(true);
+  }
+  syncMusicUI(true);
 });
 
 purrpleCatAudio.addEventListener('pause', () => {
-    if (!isMusicInternalAction && !purrpleCatAudio.ended) {
-        if (musicEnabled) {
-            musicEnabled = false;
-            localStorage.setItem('chill_flight_music_enabled', 'false');
-        }
+  if (!isMusicInternalAction && !purrpleCatAudio.ended) {
+    if (musicEnabled) {
+      musicEnabled = false;
+      localStorage.setItem('chill_flight_music_enabled', 'false');
     }
-    syncMusicUI(false);
+  }
+  syncMusicUI(false);
 });
 
 function pauseMusicInternal() {
-    isMusicInternalAction = true;
-    purrpleCatAudio.pause();
-    // Ensure the flag stays true through the event loop to catch the 'pause' event
-    setTimeout(() => { isMusicInternalAction = false; }, 100);
+  isMusicInternalAction = true;
+  purrpleCatAudio.pause();
+  // Ensure the flag stays true through the event loop to catch the 'pause' event
+  setTimeout(() => {
+    isMusicInternalAction = false;
+  }, 100);
 }
 
 function playMusicInternal() {
-    // We use updateAudioPlayer here because it has the safety net for blocked autoplay
-    updateAudioPlayer(musicEnabled);
+  // We use updateAudioPlayer here because it has the safety net for blocked autoplay
+  updateAudioPlayer(musicEnabled);
 }
 
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-        if (musicEnabled && !purrpleCatAudio.paused) {
-            isPausedByVisibility = true;
-            pauseMusicInternal();
-        }
-    } else {
-        if (isPausedByVisibility) {
-            isPausedByVisibility = false;
-            playMusicInternal();
-        }
+  if (document.visibilityState === 'hidden') {
+    if (musicEnabled && !purrpleCatAudio.paused) {
+      isPausedByVisibility = true;
+      pauseMusicInternal();
     }
+  } else {
+    if (isPausedByVisibility) {
+      isPausedByVisibility = false;
+      playMusicInternal();
+    }
+  }
 });
 
 function setMusicEnabled(enabled) {
-    musicEnabled = enabled;
-    localStorage.setItem('chill_flight_music_enabled', enabled);
-    updateAudioPlayer(enabled);
+  musicEnabled = enabled;
+  localStorage.setItem('chill_flight_music_enabled', enabled);
+  updateAudioPlayer(enabled);
 }
 
 async function updateAudioPlayer(enabled) {
-    if (enabled) {
-        if (!purrpleCatAudio.src) {
-            const url = purrpleCatTracks[purrpleCatIdx];
-            purrpleCatAudio.src = await getCachedTrackUrl(url);
-        }
-        isMusicInternalAction = true;
-        purrpleCatAudio.play().then(() => {
-            isMusicInternalAction = false;
-            updateMediaMetadata();
-        }).catch(e => {
-            isMusicInternalAction = false;
-            console.log('Audio play blocked:', e);
-            // Safety net: resume on first interaction if blocked
-            const resumeOnInteraction = () => {
-                if (musicEnabled) {
-                    isMusicInternalAction = true;
-                    purrpleCatAudio.play().then(() => {
-                        console.log('Audio resumed on interaction');
-                        isMusicInternalAction = false;
-                        updateMediaMetadata();
-                    }).catch(e => {
-                        isMusicInternalAction = false;
-                        console.log('Still blocked:', e);
-                    });
-                }
-                window.removeEventListener('mousedown', resumeOnInteraction);
-                window.removeEventListener('keydown', resumeOnInteraction);
-                window.removeEventListener('touchstart', resumeOnInteraction);
-            };
-            window.addEventListener('mousedown', resumeOnInteraction);
-            window.addEventListener('keydown', resumeOnInteraction);
-            window.addEventListener('touchstart', resumeOnInteraction);
-        });
-    } else {
-        pauseMusicInternal();
+  if (enabled) {
+    if (!purrpleCatAudio.src) {
+      const url = purrpleCatTracks[purrpleCatIdx];
+      purrpleCatAudio.src = await getCachedTrackUrl(url);
     }
+    isMusicInternalAction = true;
+    purrpleCatAudio
+      .play()
+      .then(() => {
+        isMusicInternalAction = false;
+        updateMediaMetadata();
+      })
+      .catch((e) => {
+        isMusicInternalAction = false;
+        console.log('Audio play blocked:', e);
+        // Safety net: resume on first interaction if blocked
+        const resumeOnInteraction = () => {
+          if (musicEnabled) {
+            isMusicInternalAction = true;
+            purrpleCatAudio
+              .play()
+              .then(() => {
+                console.log('Audio resumed on interaction');
+                isMusicInternalAction = false;
+                updateMediaMetadata();
+              })
+              .catch((e) => {
+                isMusicInternalAction = false;
+                console.log('Still blocked:', e);
+              });
+          }
+          window.removeEventListener('mousedown', resumeOnInteraction);
+          window.removeEventListener('keydown', resumeOnInteraction);
+          window.removeEventListener('touchstart', resumeOnInteraction);
+        };
+        window.addEventListener('mousedown', resumeOnInteraction);
+        window.addEventListener('keydown', resumeOnInteraction);
+        window.addEventListener('touchstart', resumeOnInteraction);
+      });
+  } else {
+    pauseMusicInternal();
+  }
 }
 
 function updateMediaMetadata() {
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: getCurrentTrackName(),
-            artist: 'Purrple Cat',
-            artwork: [
-                { src: 'assets/icon.svg', sizes: '96x96', type: 'image/svg+xml' },
-                { src: 'assets/icon.svg', sizes: '128x128', type: 'image/svg+xml' },
-                { src: 'assets/icon.svg', sizes: '192x192', type: 'image/svg+xml' },
-                { src: 'assets/icon.svg', sizes: '256x256', type: 'image/svg+xml' },
-                { src: 'assets/icon.svg', sizes: '384x384', type: 'image/svg+xml' },
-                { src: 'assets/icon.svg', sizes: '512x512', type: 'image/svg+xml' },
-            ]
-        });
-    }
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: getCurrentTrackName(),
+      artist: 'Purrple Cat',
+      artwork: [
+        {src: 'assets/icon.svg', sizes: '96x96', type: 'image/svg+xml'},
+        {src: 'assets/icon.svg', sizes: '128x128', type: 'image/svg+xml'},
+        {src: 'assets/icon.svg', sizes: '192x192', type: 'image/svg+xml'},
+        {src: 'assets/icon.svg', sizes: '256x256', type: 'image/svg+xml'},
+        {src: 'assets/icon.svg', sizes: '384x384', type: 'image/svg+xml'},
+        {src: 'assets/icon.svg', sizes: '512x512', type: 'image/svg+xml'},
+      ],
+    });
+  }
 }
 
 if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('play', () => {
-        setMusicEnabled(true);
-    });
-    navigator.mediaSession.setActionHandler('pause', () => {
-        setMusicEnabled(false);
-    });
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-        previousTrack();
-    });
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-        nextTrack();
-    });
+  navigator.mediaSession.setActionHandler('play', () => {
+    setMusicEnabled(true);
+  });
+  navigator.mediaSession.setActionHandler('pause', () => {
+    setMusicEnabled(false);
+  });
+  navigator.mediaSession.setActionHandler('previoustrack', () => {
+    previousTrack();
+  });
+  navigator.mediaSession.setActionHandler('nexttrack', () => {
+    nextTrack();
+  });
 }
 
 // Initial UI sync

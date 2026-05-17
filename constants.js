@@ -17,11 +17,17 @@ const MAX_FLIGHT_SPEED_MULT = MAX_AIRPLANE_SPEED_KTS / (BASE_FLIGHT_SPEED * 60);
 window.MAX_AIRPLANE_SPEED_KTS = MAX_AIRPLANE_SPEED_KTS;
 window.MAX_FLIGHT_SPEED_MULT = MAX_FLIGHT_SPEED_MULT;
 const TURN_SPEED = 0.03;
-const MAX_BANK_BOAT = 30 * Math.PI / 180;
-const MAX_BANK_HELI = 45 * Math.PI / 180;
+const MAX_BANK_BOAT = (30 * Math.PI) / 180;
+const MAX_BANK_HELI = (45 * Math.PI) / 180;
 // Initial vehicle-aware speed calculation
-const savedInitVehicle = localStorage.getItem('chill_flight_vehicle') || 'airplane';
-const INITIAL_SPEED = savedInitVehicle === 'helicopter' ? (100 / 150) : (savedInitVehicle === 'boat' ? (25 / 150) : 1);
+const savedInitVehicle =
+  localStorage.getItem('chill_flight_vehicle') || 'airplane';
+const INITIAL_SPEED =
+  savedInitVehicle === 'helicopter'
+    ? 100 / 150
+    : savedInitVehicle === 'boat'
+      ? 25 / 150
+      : 1;
 
 let flightSpeedMultiplier = INITIAL_SPEED;
 
@@ -36,52 +42,51 @@ const ENABLE_VEHICLE_SWITCH = ChillFlightLogic.ENABLE_V;
 const THEME = ChillFlightLogic.THEME;
 
 function createMaterial(params) {
-    // Make a copy of params to avoid mutating the original
-    const newParams = { ...params };
+  // Make a copy of params to avoid mutating the original
+  const newParams = {...params};
 
-    switch (THEME) {
-        case 'toon':
-            delete newParams.roughness;
-            delete newParams.metalness;
-            delete newParams.envMap;
-            delete newParams.envMapIntensity;
-            return new THREE.MeshToonMaterial(newParams);
+  switch (THEME) {
+    case 'toon':
+      delete newParams.roughness;
+      delete newParams.metalness;
+      delete newParams.envMap;
+      delete newParams.envMapIntensity;
+      return new THREE.MeshToonMaterial(newParams);
 
-        case 'basic':
-            // Flat, unlit colors - completely ignores lighting
-            delete newParams.roughness;
-            delete newParams.metalness;
-            return new THREE.MeshBasicMaterial(newParams);
+    case 'basic':
+      // Flat, unlit colors - completely ignores lighting
+      delete newParams.roughness;
+      delete newParams.metalness;
+      return new THREE.MeshBasicMaterial(newParams);
 
-        case 'phong':
-            // Shiny, plastic-like appearance
-            delete newParams.roughness;
-            delete newParams.metalness;
-            newParams.shininess = 60; // Add some specular shine
-            return new THREE.MeshPhongMaterial(newParams);
+    case 'phong':
+      // Shiny, plastic-like appearance
+      delete newParams.roughness;
+      delete newParams.metalness;
+      newParams.shininess = 60; // Add some specular shine
+      return new THREE.MeshPhongMaterial(newParams);
 
-        case 'lambert':
-            // Matte, non-shiny surface (often used for retro low-poly)
-            delete newParams.roughness;
-            delete newParams.metalness;
-            return new THREE.MeshLambertMaterial(newParams);
+    case 'lambert':
+      // Matte, non-shiny surface (often used for retro low-poly)
+      delete newParams.roughness;
+      delete newParams.metalness;
+      return new THREE.MeshLambertMaterial(newParams);
 
-        case 'normal':
-            // Psychedelic look based on object normals (ignores color completely)
-            return new THREE.MeshNormalMaterial({ flatShading: params.flatShading });
+    case 'normal':
+      // Psychedelic look based on object normals (ignores color completely)
+      return new THREE.MeshNormalMaterial({flatShading: params.flatShading});
 
-        case 'wireframe':
-            // The Matrix or Tron aesthetic - just lines!
-            newParams.wireframe = true;
-            return new THREE.MeshBasicMaterial(newParams);
+    case 'wireframe':
+      // The Matrix or Tron aesthetic - just lines!
+      newParams.wireframe = true;
+      return new THREE.MeshBasicMaterial(newParams);
 
-        case 'standard':
-        default:
-            return new THREE.MeshStandardMaterial(params);
-    }
+    case 'standard':
+    default:
+      return new THREE.MeshStandardMaterial(params);
+  }
 }
 
 // Variables shared between airplane.js and game.js that need early declaration to avoid TDZ errors in the production bundle
 let targetFlightSpeed = flightSpeedMultiplier;
 let verticalVelocity = 0;
-

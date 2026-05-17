@@ -1,0 +1,9 @@
+# Ignore compiled production assets
+docs/
+
+# Ignore local dependency folders
+node_modules/
+vendor/
+src-tauri/target/
+android/
+ios/

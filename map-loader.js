@@ -1,123 +1,126 @@
 // map-loader.js
 
 (function () {
-    function processImage(img) {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
+  function processImage(img) {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
 
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
 
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const pixels = imgData.data;
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imgData.data;
 
-        // Extract Luminance with alpha pre-multiplication (so transparent regions are correctly 0)
-        const floatData = new Float32Array(canvas.width * canvas.height);
-        for (let i = 0; i < floatData.length; i++) {
-            const idx = i * 4;
-            const r = pixels[idx];
-            const g = pixels[idx + 1];
-            const b = pixels[idx + 2];
-            const a = pixels[idx + 3] / 255.0;
-            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) * a;
-            floatData[i] = luminance; // 0-255 range
-        }
-
-        // Update the logic engine
-        const maxDim = Math.max(canvas.width, canvas.height);
-        const worldScale = (typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000) / maxDim;
-
-        window.ChillFlightLogic.customMap = {
-            data: floatData,
-            width: canvas.width,
-            height: canvas.height,
-            worldWidth: canvas.width * worldScale,
-            worldHeight: canvas.height * worldScale
-        };
-
-        console.log(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
-        console.log(`World size: ${window.ChillFlightLogic.customMap.worldWidth.toFixed(0)}x${window.ChillFlightLogic.customMap.worldHeight.toFixed(0)} units (MAP_WORLD_SIZE: ${MAP_WORLD_SIZE})`);
-
-        // Force terrain rebuild
-        if (typeof chunks !== 'undefined' && typeof updateChunks === 'function') {
-            // Dispose all previous procedural chunks manually
-            chunks.forEach((group, key) => {
-                group.traverse(child => {
-                    if (child.isMesh || child.isInstancedMesh) {
-                        if (child.geometry && child.geometry.userData.unique) {
-                            child.geometry.dispose();
-                        }
-                    }
-                });
-                if (typeof scene !== 'undefined') {
-                    scene.remove(group);
-                }
-            });
-            chunks.clear();
-
-            // Reset plane position and state
-            if (typeof planeGroup !== 'undefined') {
-                planeGroup.position.set(0, 445.5, 0);
-                planeGroup.rotation.set(0, 0, 0);
-            }
-
-            try {
-                if (typeof targetFlightSpeed !== 'undefined') {
-                    targetFlightSpeed = 1.0; // Cruise speed
-                    flightSpeedMultiplier = 1.0;
-                }
-            } catch (e) { }
-
-            updateChunks();
-        } else {
-            console.warn("chunks or updateChunks is not available yet.");
-        }
+    // Extract Luminance with alpha pre-multiplication (so transparent regions are correctly 0)
+    const floatData = new Float32Array(canvas.width * canvas.height);
+    for (let i = 0; i < floatData.length; i++) {
+      const idx = i * 4;
+      const r = pixels[idx];
+      const g = pixels[idx + 1];
+      const b = pixels[idx + 2];
+      const a = pixels[idx + 3] / 255.0;
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) * a;
+      floatData[i] = luminance; // 0-255 range
     }
 
-    window.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-    });
+    // Update the logic engine
+    const maxDim = Math.max(canvas.width, canvas.height);
+    const worldScale =
+      (typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000) / maxDim;
 
-    window.addEventListener('drop', (e) => {
-        e.preventDefault();
+    window.ChillFlightLogic.customMap = {
+      data: floatData,
+      width: canvas.width,
+      height: canvas.height,
+      worldWidth: canvas.width * worldScale,
+      worldHeight: canvas.height * worldScale,
+    };
 
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
+    console.log(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
+    console.log(
+      `World size: ${window.ChillFlightLogic.customMap.worldWidth.toFixed(0)}x${window.ChillFlightLogic.customMap.worldHeight.toFixed(0)} units (MAP_WORLD_SIZE: ${MAP_WORLD_SIZE})`
+    );
 
-            // Only accept images
-            if (!file.type.match('image.*')) {
-                console.warn("Dropped file is not an image.");
-                return;
+    // Force terrain rebuild
+    if (typeof chunks !== 'undefined' && typeof updateChunks === 'function') {
+      // Dispose all previous procedural chunks manually
+      chunks.forEach((group, key) => {
+        group.traverse((child) => {
+          if (child.isMesh || child.isInstancedMesh) {
+            if (child.geometry && child.geometry.userData.unique) {
+              child.geometry.dispose();
             }
-
-            const reader = new FileReader();
-
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    processImage(img);
-                };
-                img.src = event.target.result;
-            };
-
-            reader.readAsDataURL(file);
+          }
+        });
+        if (typeof scene !== 'undefined') {
+          scene.remove(group);
         }
-    });
+      });
+      chunks.clear();
 
-    // Check for map parameter in URL
-    const mapName = ChillFlightLogic.MAP_NAME;
-    if (mapName) {
-        console.log(`Loading map from URL param: ${mapName}`);
+      // Reset plane position and state
+      if (typeof planeGroup !== 'undefined') {
+        planeGroup.position.set(0, 445.5, 0);
+        planeGroup.rotation.set(0, 0, 0);
+      }
+
+      try {
+        if (typeof targetFlightSpeed !== 'undefined') {
+          targetFlightSpeed = 1.0; // Cruise speed
+          flightSpeedMultiplier = 1.0;
+        }
+      } catch (e) {}
+
+      updateChunks();
+    } else {
+      console.warn('chunks or updateChunks is not available yet.');
+    }
+  }
+
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+
+      // Only accept images
+      if (!file.type.match('image.*')) {
+        console.warn('Dropped file is not an image.');
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
         const img = new Image();
-        img.crossOrigin = "anonymous";
         img.onload = () => {
-            processImage(img);
+          processImage(img);
         };
-        img.onerror = () => {
-            console.error(`Failed to load map: assets/${mapName}.png`);
-        };
-        img.src = `assets/${mapName}.png`;
+        img.src = event.target.result;
+      };
+
+      reader.readAsDataURL(file);
     }
+  });
+
+  // Check for map parameter in URL
+  const mapName = ChillFlightLogic.MAP_NAME;
+  if (mapName) {
+    console.log(`Loading map from URL param: ${mapName}`);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      processImage(img);
+    };
+    img.onerror = () => {
+      console.error(`Failed to load map: assets/${mapName}.png`);
+    };
+    img.src = `assets/${mapName}.png`;
+  }
 })();

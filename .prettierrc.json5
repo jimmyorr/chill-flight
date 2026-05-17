@@ -1,0 +1,16 @@
+{
+  // Google JavaScript Style Guide (§4.2) - 2-space indentation
+  "tabWidth": 2,
+  // Google JavaScript Style Guide (§4.4) - 80-character line limit
+  "printWidth": 80,
+  // Google JavaScript Style Guide (§5.2.4) - single quotes for strings
+  "singleQuote": true,
+  // Google preferred spacing - no spaces inside braces (e.g. {x: y})
+  "bracketSpacing": false,
+  // Enforces consistent parentheses around arrow function parameters
+  "arrowParens": "always",
+  // Semicolons are required
+  "semi": true,
+  // Trailing commas where valid in ES5 (objects, arrays, etc.)
+  "trailingComma": "es5"
+}
