@@ -11,3 +11,7 @@
 
 ## Geometry & Model Rules
 - **Debug Page Update**: When adding a new geometry or model to the game, always add it to the model debug page (`debug.html`) as well, so it can be previewed.
+
+## Directory Rules
+- **Do Not Touch the www Directory**: The `www/` directory is strictly for compiled production builds generated automatically by Vite. Never edit, search, or read files inside the `www/` directory. All development, changes, and queries must be executed against the root source files (like `game.js`, `airplane.js`, `style.css`, root `index.html`, root `debug.html`, etc.).
+
