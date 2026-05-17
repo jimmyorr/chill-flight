@@ -10,7 +10,7 @@
 
 ## Server & Verification Rules
 
-- **Use Existing Server**: Do not start a local development server (e.g., `npx serve`, `npm run dev`). A Live Server is already running on port 3000. Use `http://localhost:3000` for all browser-based verification. Avoid browser-based verification unless it is absolutely necessary.
+- **Use Existing Server**: Do not start a local development server (e.g., `npx serve`, `npm run dev`). A Live Server is already running on port 5173. Use `http://localhost:5173` for all browser-based verification. Avoid browser-based verification unless it is absolutely necessary.
 
 ## UI & Typography Rules
 
