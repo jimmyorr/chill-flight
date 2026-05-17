@@ -160,3 +160,48 @@ The game is optimized for Android TV and similar devices using a standard remote
 - **Enter / Center Button**: Select items or toggle pause (when playing).
 - **Backspace / Back Button**: Toggle pause menu or go back.
 - **Media Play / Pause**: Toggle pause menu.
+
+## Development
+
+### Prerequisites
+Ensure you have [Node.js](https://nodejs.org/) installed.
+
+### Installation
+Clone the repository and install the required dependencies:
+```bash
+npm install
+```
+
+### Running Locally
+To launch the local development server with Hot Module Replacement (HMR):
+```bash
+npm run dev
+```
+Once started, open `http://localhost:5173` in your browser. 
+> [!NOTE]
+> During development, classic script files (e.g., `game.js`, `airplane.js`) are served unbundled to maintain original file structure mappings, enabling effortless hot-reloading and exact console log line numbers.
+
+### Production Build
+To optimize, minify, and bundle the entire codebase for deployment:
+```bash
+npm run build
+```
+This builds the optimized code into the `docs/` folder (which is hosted directly on GitHub Pages):
+* Third-party dependencies (`three`, `@sentry/browser`) are compiled into a shared chunk.
+* Classic legacy scripts are concatenated, minified, and outputted into a single, high-performance `docs/game-bundle.js` script.
+
+### Native Mobile App Development
+This project uses **Capacitor** to build fully native apps for iOS and Android.
+
+#### Build and Run iOS App
+To compile the web assets, sync with the iOS project, copy multiplayer configuration files, and open Xcode:
+```bash
+npm run ios
+```
+
+#### Build and Run Android App
+To compile the web assets, sync with the Android project, copy Firebase configurations, and open Android Studio:
+```bash
+npm run android
+```
+
