@@ -220,17 +220,19 @@ The application's version number is managed using a single-source-of-truth syste
 To update the version of the application:
 
 1. **Automated CLI (Recommended)**: Run the standard npm command to bump the version without creating git tags:
-   ```bash
-   npm version <new-version> --no-git-tag-version
-   ```
-   *(e.g., `npm version 0.8.4 --no-git-tag-version`)*
-   This automatically updates both `package.json` and `package-lock.json` in a single command.
+
+    ```bash
+    npm version <new-version> --no-git-tag-version
+    ```
+
+    _(e.g., `npm version 0.8.4 --no-git-tag-version`)_
+    This automatically updates both `package.json` and `package-lock.json` in a single command.
 
 2. **Manual Update**: Alternatively, you can directly edit the `"version"` field in `package.json`. The next time you run any package operation, npm will automatically keep `package-lock.json` in sync.
 
 When you run `npm run build`, the bundler automatically reads the new version from `package.json` and injects it dynamically into the in-game UI. The desktop build (Tauri) is also linked and will update automatically.
 
-### Native Mobile App Development
+### Native Mobile App Development (Capacitor)
 
 This project uses **Capacitor** to build fully native apps for iOS and Android.
 
@@ -249,3 +251,25 @@ To compile the web assets, sync with the Android project, copy Firebase configur
 ```bash
 npm run android
 ```
+
+### Desktop App Development (Tauri)
+
+This project uses **Tauri** to build lightweight, native desktop apps for macOS, Windows, and Linux.
+
+#### Run Desktop App in Development
+
+To run the application locally in a native desktop window with hot-reloading:
+
+```bash
+npx tauri dev
+```
+
+#### Build Desktop App for Production
+
+To package and compile the production desktop application:
+
+```bash
+npm run build && npx tauri build
+```
+
+This compiles the web assets into `docs/` and triggers the Rust compiler to bundle them into a native desktop installer.
