@@ -4,8 +4,9 @@
 - **No Standing Permission**: A previous approval to commit does not grant permission for future commits. Each commit requires a fresh "go ahead."
 - **Verification First**: Always run the relevant verification/test command before asking to commit, but do not proceed to the `git commit` command yourself.
 - **Isolated Production Commits**: Keep updates to the production build (files under the `docs/` directory) completely isolated in their own commits, separate from dev source code changes.
+  - **No Automatic Production Builds**: Never generate a production build (`npm run build` or updating the `docs/` folder) unless the USER explicitly requests it.
   - Making regular source changes (e.g., editing `game.js` or `index.html`) should be committed in small, clean, source-only commits first.
-  - Generating a production build (`npm run build` updating the `docs/` folder) should be treated as an intentional, independent step.
+  - Generating a production build should be treated as an intentional, independent step only executed upon direct USER request.
   - **Exception**: You should bundle the version bump (updating `package.json` and `package-lock.json`) in the same commit as the production build, as generating a new build often corresponds with a version release.
 
 ## Server & Verification Rules
