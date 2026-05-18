@@ -399,8 +399,8 @@
 
     // --- RIVER CARVING LOGIC ---
     // Define a meandering path running East-West around the equator (Z = 0)
-    // and additional rivers every 5 degrees (25000 units).
-    const riverSpacing = 25000;
+    // and additional rivers every 3 degrees (15000 units).
+    const riverSpacing = 15000;
     const riverIndex = Math.round(z / riverSpacing);
     const baseRiverZ = riverIndex * riverSpacing;
     const isEquatorRiver = riverIndex === 0;
@@ -596,7 +596,7 @@
   // Returns the absolute Z coordinate of the center of the river at a given X.
   // Updated to take Z and return the center of the nearest river.
   function getRiverCenterZ(x, z, simplex) {
-    const riverSpacing = 25000; // 5 degrees * 5000 units/degree
+    const riverSpacing = 15000; // 3 degrees * 5000 units/degree
     const riverIndex = Math.round(z / riverSpacing);
     const baseRiverZ = riverIndex * riverSpacing;
 
