@@ -1384,14 +1384,28 @@ function moveAndWrapParticles(
     positions[i + 1] += velocities[i + 1] * delta;
     positions[i + 2] += velocities[i + 2] * delta;
 
-    if (positions[i] < minX) positions[i] += WEATHER_RANGE;
-    else if (positions[i] > maxX) positions[i] -= WEATHER_RANGE;
+    while (positions[i] < minX) positions[i] += WEATHER_RANGE;
+    while (positions[i] > maxX) positions[i] -= WEATHER_RANGE;
 
-    if (positions[i + 1] < minY) positions[i + 1] += WEATHER_RANGE;
-    else if (positions[i + 1] > maxY) positions[i + 1] -= WEATHER_RANGE;
+    while (positions[i + 1] < minY) positions[i + 1] += WEATHER_RANGE;
+    while (positions[i + 1] > maxY) positions[i + 1] -= WEATHER_RANGE;
 
-    if (positions[i + 2] < minZ) positions[i + 2] += WEATHER_RANGE;
-    else if (positions[i + 2] > maxZ) positions[i + 2] -= WEATHER_RANGE;
+    while (positions[i + 2] < minZ) positions[i + 2] += WEATHER_RANGE;
+    while (positions[i + 2] > maxZ) positions[i + 2] -= WEATHER_RANGE;
+  }
+  particles.geometry.attributes.position.needsUpdate = true;
+}
+
+// Reset particles in a 3D box centered around the camera
+function resetParticlesAroundCamera(particles) {
+  const positions = particles.geometry.attributes.position.array;
+  const len = positions.length;
+  const camPos = camera.position;
+
+  for (let i = 0; i < len; i += 3) {
+    positions[i] = camPos.x + (Math.random() - 0.5) * WEATHER_RANGE;
+    positions[i + 1] = camPos.y + (Math.random() - 0.5) * WEATHER_RANGE;
+    positions[i + 2] = camPos.z + (Math.random() - 0.5) * WEATHER_RANGE;
   }
   particles.geometry.attributes.position.needsUpdate = true;
 }
@@ -1490,17 +1504,33 @@ function updateWeather(delta) {
     };
   }
 
+  // Reset particle positions around the camera when they start fading in
+  if (targetSnowOpacity > 0 && snowParticles.material.opacity === 0) {
+    resetParticlesAroundCamera(snowParticles);
+  }
+  if (targetRainOpacity > 0 && rainParticles.material.opacity === 0) {
+    resetParticlesAroundCamera(rainParticles);
+  }
+
   // Smoothly transition the materials
   snowParticles.material.opacity = THREE.MathUtils.lerp(
     snowParticles.material.opacity,
     targetSnowOpacity,
-    delta * 0.5
+    1 - Math.exp(-0.75 * delta)
   );
   rainParticles.material.opacity = THREE.MathUtils.lerp(
     rainParticles.material.opacity,
     targetRainOpacity,
-    delta * 0.5
+    1 - Math.exp(-0.75 * delta)
   );
+
+  // Clamp very small values to 0 to enable clean reset detection next time
+  if (snowParticles.material.opacity < 0.001) {
+    snowParticles.material.opacity = 0;
+  }
+  if (rainParticles.material.opacity < 0.001) {
+    rainParticles.material.opacity = 0;
+  }
 
   // Toggle visibility to save CPU when completely transparent
   snowParticles.visible = snowParticles.material.opacity >= 0.01;
