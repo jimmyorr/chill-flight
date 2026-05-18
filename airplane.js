@@ -489,6 +489,7 @@ let startY = 445.5;
 
 const urlLatVal = ChillFlightLogic.parsedLat;
 const urlLonVal = ChillFlightLogic.parsedLon;
+const urlAltVal = ChillFlightLogic.parsedAlt;
 
 if (urlLatVal !== null && urlLatVal !== undefined) {
   startZ = -urlLatVal * 5000;
@@ -497,7 +498,9 @@ if (urlLonVal !== null && urlLonVal !== undefined) {
   startX = urlLonVal * 5000;
 }
 
-if (urlLatVal !== null || urlLonVal !== null) {
+if (urlAltVal !== null && urlAltVal !== undefined) {
+  startY = urlAltVal;
+} else if (urlLatVal !== null || urlLonVal !== null) {
   // If starting position was specified, calculate terrain elevation at startX, startZ
   // to ensure player starts at a safe altitude above the ground (e.g. 400 units above terrain)
   try {

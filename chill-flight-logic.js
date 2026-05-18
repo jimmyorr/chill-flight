@@ -59,6 +59,11 @@
     false
   );
 
+  const altParamVal = getParam('alt', null);
+  const parsedAlt =
+    altParamVal !== null && altParamVal !== '' ? parseFloat(altParamVal) : null;
+  const validAlt = parsedAlt !== null && !isNaN(parsedAlt) ? parsedAlt : null;
+
   const WORLD_SEED = parseInt(getParam('seed', getTodaySeed()), 10);
   const THEME = getParam('theme', 'standard');
   const SHOW_CLOUDS = getParam('cloud', null) !== 'none';
@@ -693,6 +698,7 @@
   exports.ENABLE_V = ENABLE_V;
   exports.parsedLat = parsedLat;
   exports.parsedLon = parsedLon;
+  exports.parsedAlt = validAlt;
 })(
   typeof module !== 'undefined'
     ? module.exports

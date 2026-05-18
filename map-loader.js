@@ -67,6 +67,7 @@
 
         const urlLatVal = ChillFlightLogic.parsedLat;
         const urlLonVal = ChillFlightLogic.parsedLon;
+        const urlAltVal = ChillFlightLogic.parsedAlt;
 
         if (urlLatVal !== null && urlLatVal !== undefined) {
           startZ = -urlLatVal * 5000;
@@ -75,7 +76,9 @@
           startX = urlLonVal * 5000;
         }
 
-        if (urlLatVal !== null || urlLonVal !== null) {
+        if (urlAltVal !== null && urlAltVal !== undefined) {
+          startY = urlAltVal;
+        } else if (urlLatVal !== null || urlLonVal !== null) {
           try {
             const terrainHeight = ChillFlightLogic.getElevation(
               startX,
