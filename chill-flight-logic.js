@@ -397,55 +397,6 @@
       }
     }
 
-    // --- RIVER CARVING LOGIC ---
-    // Define a meandering path running East-West around the equator (Z = 0)
-    // and additional rivers every 3 degrees (15000 units).
-    const riverSpacing = 15000;
-    const riverIndex = Math.round(z / riverSpacing);
-    const baseRiverZ = riverIndex * riverSpacing;
-    const isEquatorRiver = riverIndex === 0;
-
-    const riverCenterZ = exports.getRiverCenterZ
-      ? exports.getRiverCenterZ(x, z, simplex)
-      : isEquatorRiver
-        ? simplex.noise2D(x * 0.0003, 0) * 800 +
-          simplex.noise2D(x * 0.001, 100) * 200
-        : baseRiverZ;
-
-    const distToRiver = Math.abs(z - riverCenterZ);
-
-    // Vary the width of the river to break up uniformity
-    let riverWidth, riverBankWidth;
-
-    if (isEquatorRiver) {
-      const widthNoise = simplex.noise2D(x * 0.0005, 200);
-      const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
-      riverWidth = 80 + widthVariation * 220; // River width fluctuates between 80 and 300
-      riverBankWidth = 100 + widthVariation * 100; // Bank width also fluctuates
-    } else {
-      // Smaller rivers: 60 to 200
-      const widthNoise = simplex.noise2D(x * 0.0008, riverIndex * 10.0);
-      const widthVariation = (widthNoise + 1) * 0.5;
-      riverWidth = 60 + widthVariation * 140;
-      riverBankWidth = 50 + widthVariation * 50; // Smaller banks too
-    }
-
-    // Calculate river factor
-    let riverFactor = 0;
-    if (distToRiver <= riverWidth) {
-      riverFactor = 1.0;
-    } else if (distToRiver < riverWidth + riverBankWidth) {
-      // Smooth transition zone
-      const t = (distToRiver - riverWidth) / riverBankWidth;
-      // Smoothstep curve for natural banks
-      riverFactor = 1.0 - t * t * (3 - 2 * t);
-    }
-
-    if (riverFactor > 0) {
-      // Carve down to just below water level
-      n = _lerp(n, WATER_LEVEL - 2, riverFactor);
-    }
-
     // Strict water level clamping
     if (n < WATER_LEVEL) {
       n = WATER_LEVEL;
@@ -577,6 +528,61 @@
       if (n > WATER_LEVEL && n < WATER_LEVEL + 1.5) {
         n = WATER_LEVEL;
       }
+    }
+
+    // --- RIVER CARVING LOGIC ---
+    // Runs after all additive terrain passes (mountains, volcano) so it always wins.
+    // Define a meandering path running East-West around the equator (Z = 0)
+    // and additional rivers every 3 degrees (15000 units).
+    const riverSpacing = 15000;
+    const riverIndex = Math.round(z / riverSpacing);
+    const baseRiverZ = riverIndex * riverSpacing;
+    const isEquatorRiver = riverIndex === 0;
+
+    const riverCenterZ = exports.getRiverCenterZ
+      ? exports.getRiverCenterZ(x, z, simplex)
+      : isEquatorRiver
+        ? simplex.noise2D(x * 0.0003, 0) * 800 +
+          simplex.noise2D(x * 0.001, 100) * 200
+        : baseRiverZ;
+
+    const distToRiver = Math.abs(z - riverCenterZ);
+
+    // Vary the width of the river to break up uniformity
+    let riverWidth, riverBankWidth;
+
+    if (isEquatorRiver) {
+      const widthNoise = simplex.noise2D(x * 0.0005, 200);
+      const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
+      riverWidth = 80 + widthVariation * 220; // River width fluctuates between 80 and 300
+      riverBankWidth = 100 + widthVariation * 100; // Bank width also fluctuates
+    } else {
+      // Smaller rivers: 60 to 200
+      const widthNoise = simplex.noise2D(x * 0.0008, riverIndex * 10.0);
+      const widthVariation = (widthNoise + 1) * 0.5;
+      riverWidth = 60 + widthVariation * 140;
+      riverBankWidth = 50 + widthVariation * 50; // Smaller banks too
+    }
+
+    // Calculate river factor
+    let riverFactor = 0;
+    if (distToRiver <= riverWidth) {
+      riverFactor = 1.0;
+    } else if (distToRiver < riverWidth + riverBankWidth) {
+      // Smooth transition zone
+      const t = (distToRiver - riverWidth) / riverBankWidth;
+      // Smoothstep curve for natural banks
+      riverFactor = 1.0 - t * t * (3 - 2 * t);
+    }
+
+    if (riverFactor > 0) {
+      // Carve down to just below water level, overriding any mountain/volcano additions
+      n = _lerp(n, WATER_LEVEL - 2, riverFactor);
+    }
+
+    // Final water level clamp
+    if (n < WATER_LEVEL) {
+      n = WATER_LEVEL;
     }
 
     return n;
