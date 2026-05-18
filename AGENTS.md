@@ -25,3 +25,7 @@
 ## Directory Rules
 
 - **Do Not Touch the docs Directory**: The `docs/` directory is strictly for compiled production builds generated automatically by Vite. Never edit, search, or read files inside the `docs/` directory. All development, changes, and queries must be executed against the root source files (like `game.js`, `airplane.js`, `style.css`, root `index.html`, root `debug.html`, etc.).
+
+## Location Reporting Rules
+
+- **Always Report Locations in Both Units and Lat/Long**: Whenever identifying, referencing, or reporting a landmark, biome boundary, or coordinates in the game world, always specify the location in both in-game coordinate units (e.g., `X = -3000`, `Z = 5000`) and latitude/longitude format (e.g., `0.6 West`, `1.0 South`).
