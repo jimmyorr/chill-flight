@@ -3,6 +3,7 @@
 - **Manual Commits Only**: Do not create git commits automatically. When a task or skill (including TDD or subagent workflows) reaches a commit point, you must stop, stage the changes, and ask for explicit permission before committing.
 - **No Standing Permission**: A previous approval to commit does not grant permission for future commits. Each commit requires a fresh "go ahead."
 - **Verification First**: Always run the relevant verification/test command before asking to commit, but do not proceed to the `git commit` command yourself.
+- **Format Before Staging**: Always run the project's code formatter (`npm run format`) on modified files before verifying or staging changes. This ensures formatting remains consistent and prevents stylistic changes from being mixed into functional commits.
 - **Isolated Production Commits**: Keep updates to the production build (files under the `docs/` directory) completely isolated in their own commits, separate from dev source code changes.
   - **No Automatic Production Builds**: Never generate a production build (`npm run build` or updating the `docs/` folder) unless the USER explicitly requests it.
   - Making regular source changes (e.g., editing `game.js` or `index.html`) should be committed in small, clean, source-only commits first.
