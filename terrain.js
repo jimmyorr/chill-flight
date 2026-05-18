@@ -1802,7 +1802,10 @@ function generateChunk(chunkX, chunkZ) {
               yellowCortezTreePositions.push({x: localX, y: height, z: localZ});
             } else if (isIsland && isSouthOf1N) {
               palmTreePositions.push({x: localX, y: height, z: localZ});
-            } else if (snowFactor > 0.4 || (height > MOUNTAIN_LEVEL - 100 && desertFactor < 0.3)) {
+            } else if (
+              snowFactor > 0.4 ||
+              (height > MOUNTAIN_LEVEL - 100 && desertFactor < 0.3)
+            ) {
               snowTreePositions.push({x: localX, y: height, z: localZ});
             } else if (desertFactor > 0.6) {
               deadTreePositions.push({x: localX, y: height, z: localZ});
