@@ -26,6 +26,39 @@
     return val === null ? defaultValue : val;
   };
 
+  // Parse a coordinate parameter which can be a number (e.g. 1.5, -2) or string (e.g. 1S, 2E, 1.5N, 2.3W)
+  function parseCoordinate(val, isLatitude) {
+    if (val === null || val === undefined || val === '') return null;
+    const cleaned = val.trim();
+    // Match number and optional direction suffix (N, S, E, W, n, s, e, w)
+    const match = cleaned.match(
+      /^([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*([NnSsEeWw][a-zA-Z]*)?$/
+    );
+    if (!match) {
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? null : parsed;
+    }
+    const num = parseFloat(match[1]);
+    const suffix = match[2] ? match[2].charAt(0).toUpperCase() : null;
+    if (isNaN(num)) return null;
+    if (suffix) {
+      if (isLatitude) {
+        if (suffix === 'S') return -Math.abs(num);
+        if (suffix === 'N') return Math.abs(num);
+      } else {
+        if (suffix === 'W') return -Math.abs(num);
+        if (suffix === 'E') return Math.abs(num);
+      }
+    }
+    return num;
+  }
+
+  const parsedLat = parseCoordinate(getParam('lat', null), true);
+  const parsedLon = parseCoordinate(
+    getParam('long', getParam('lon', null)),
+    false
+  );
+
   const WORLD_SEED = parseInt(getParam('seed', getTodaySeed()), 10);
   const THEME = getParam('theme', 'standard');
   const SHOW_CLOUDS = getParam('cloud', null) !== 'none';
@@ -658,6 +691,8 @@
   exports.PALETTE_INDEX = PALETTE_INDEX;
   exports.SCALE = SCALE;
   exports.ENABLE_V = ENABLE_V;
+  exports.parsedLat = parsedLat;
+  exports.parsedLon = parsedLon;
 })(
   typeof module !== 'undefined'
     ? module.exports

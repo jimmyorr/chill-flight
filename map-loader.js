@@ -61,7 +61,46 @@
 
       // Reset plane position and state
       if (typeof planeGroup !== 'undefined') {
-        planeGroup.position.set(0, 445.5, 0);
+        let startX = 0;
+        let startZ = 0;
+        let startY = 445.5;
+
+        const urlLatVal = ChillFlightLogic.parsedLat;
+        const urlLonVal = ChillFlightLogic.parsedLon;
+
+        if (urlLatVal !== null && urlLatVal !== undefined) {
+          startZ = -urlLatVal * 5000;
+        }
+        if (urlLonVal !== null && urlLonVal !== undefined) {
+          startX = urlLonVal * 5000;
+        }
+
+        if (urlLatVal !== null || urlLonVal !== null) {
+          try {
+            const terrainHeight = ChillFlightLogic.getElevation(
+              startX,
+              startZ,
+              simplex,
+              {
+                WATER_LEVEL:
+                  typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40,
+                MAP_WORLD_SIZE:
+                  typeof MAP_WORLD_SIZE !== 'undefined'
+                    ? MAP_WORLD_SIZE
+                    : 10000,
+                MAP_HEIGHT_SCALE:
+                  typeof MAP_HEIGHT_SCALE !== 'undefined'
+                    ? MAP_HEIGHT_SCALE
+                    : 400,
+              }
+            );
+            startY = terrainHeight + 400.0;
+          } catch (e) {
+            startY = 445.5;
+          }
+        }
+
+        planeGroup.position.set(startX, startY, startZ);
         planeGroup.rotation.set(0, 0, 0);
       }
 

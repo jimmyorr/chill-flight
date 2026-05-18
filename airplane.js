@@ -483,7 +483,47 @@ planeGroup.add(headlightGlow);
 planeGroup.add(headlight);
 
 // Initial position
-planeGroup.position.set(0, 445.5, 0);
+let startX = 0;
+let startZ = 0;
+let startY = 445.5;
+
+const urlLatVal = ChillFlightLogic.parsedLat;
+const urlLonVal = ChillFlightLogic.parsedLon;
+
+if (urlLatVal !== null && urlLatVal !== undefined) {
+  startZ = -urlLatVal * 5000;
+}
+if (urlLonVal !== null && urlLonVal !== undefined) {
+  startX = urlLonVal * 5000;
+}
+
+if (urlLatVal !== null || urlLonVal !== null) {
+  // If starting position was specified, calculate terrain elevation at startX, startZ
+  // to ensure player starts at a safe altitude above the ground (e.g. 400 units above terrain)
+  try {
+    const terrainHeight = ChillFlightLogic.getElevation(
+      startX,
+      startZ,
+      simplex,
+      {
+        WATER_LEVEL: typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40,
+        MAP_WORLD_SIZE:
+          typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000,
+        MAP_HEIGHT_SCALE:
+          typeof MAP_HEIGHT_SCALE !== 'undefined' ? MAP_HEIGHT_SCALE : 400,
+      }
+    );
+    startY = terrainHeight + 400.0;
+  } catch (e) {
+    console.warn(
+      'Failed to calculate exact starting height, using default flying altitude:',
+      e
+    );
+    startY = 445.5;
+  }
+}
+
+planeGroup.position.set(startX, startY, startZ);
 
 // Set initial vehicle based on saved state
 setVehicle(vehicleType);
