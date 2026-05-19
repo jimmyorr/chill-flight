@@ -969,3 +969,90 @@ input[type='number'].customization-input {
   user-select: none;
   z-index: 100;
 }
+
+@media (min-width: 1025px) {
+  #pause-overlay .version-tag {
+    right: auto;
+    left: 30px;
+  }
+}
+
+/* Minimap CSS overlay styled with glassmorphism to look premium */
+#minimap-container {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  width: 180px;
+  height: 180px; /* Exact 1:1 match with canvas size */
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  z-index: 150;
+  overflow: hidden;
+  pointer-events: auto;
+  transition: opacity 0.3s ease;
+}
+
+#minimap-header {
+  position: absolute; /* Overlay header absolutely at the top of the map */
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.45); /* Elegant translucent dark HUD overlay */
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  user-select: none;
+  z-index: 10;
+}
+
+#minimap-canvas {
+  width: 180px;
+  height: 180px;
+  display: block;
+}
+
+.minimap-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 4px;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+  padding: 0;
+  margin: 0;
+  outline: none;
+}
+
+.minimap-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.minimap-btn:focus {
+  outline: none;
+}

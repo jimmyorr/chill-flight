@@ -4484,7 +4484,7 @@ window.addEventListener('keydown', (e) => {
     !e.metaKey &&
     !e.ctrlKey
   ) {
-    if (e.key === 'm' || e.key === 'M') {
+    if (e.key === 'p' || e.key === 'P') {
       if (musicEnabled && purrpleCatAudio.paused) {
         updateAudioPlayer(true);
       } else {
