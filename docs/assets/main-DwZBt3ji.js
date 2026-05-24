@@ -1,0 +1,1 @@
+import"./main-o8ExmTKr.js";document.querySelectorAll(`.version-tag`).forEach(e=>{e.textContent=`v0.8.12`});
