@@ -551,19 +551,43 @@ let tvFocusRow = 2; // Default to radio section
 let tvFocusCol = 0;
 
 function getMenuGrid() {
-  return [
-    [document.getElementById('player-name-input')],
-    Array.from(document.querySelectorAll('.color-swatch')),
-    [
-      document.getElementById('quality-select'),
-      document.getElementById('distance-select'),
-    ],
-    [
-      document.getElementById('fps-select'),
-      document.getElementById('invert-y-input'),
-    ],
-    [document.getElementById('resume-btn')],
-  ];
+  const grid = [];
+
+  // Row 0: Callsign input
+  const nameInput = document.getElementById('player-name-input');
+  if (nameInput) grid.push([nameInput]);
+
+  // Row 1: Livery colors
+  const swatches = Array.from(document.querySelectorAll('.color-swatch'));
+  if (swatches.length > 0) grid.push(swatches);
+
+  // Row 2: Graphics / View distance
+  const row2 = [];
+  const qSelect = document.getElementById('quality-select');
+  if (qSelect) row2.push(qSelect);
+  const dSelect = document.getElementById('distance-select');
+  if (dSelect) row2.push(dSelect);
+  if (row2.length > 0) grid.push(row2);
+
+  // Row 3: Frame rate / Invert Y / Gyro
+  const row3 = [];
+  const fpsSelect = document.getElementById('fps-select');
+  if (fpsSelect) row3.push(fpsSelect);
+  const invertY = document.getElementById('invert-y-input');
+  if (invertY) row3.push(invertY);
+
+  const gyroCont = document.getElementById('gyro-container');
+  const gyroInp = document.getElementById('gyro-input');
+  if (gyroCont && gyroCont.style.display !== 'none' && gyroInp) {
+    row3.push(gyroInp);
+  }
+  if (row3.length > 0) grid.push(row3);
+
+  // Row 4: Resume button
+  const resumeBtn = document.getElementById('resume-btn');
+  if (resumeBtn) grid.push([resumeBtn]);
+
+  return grid;
 }
 
 function updateTVFocus() {
@@ -571,8 +595,12 @@ function updateTVFocus() {
     .querySelectorAll('.tv-focused')
     .forEach((el) => el.classList.remove('tv-focused'));
   const grid = getMenuGrid();
-  if (!grid[tvFocusRow] || !grid[tvFocusRow][tvFocusCol]) return;
+  tvFocusRow = Math.min(tvFocusRow, grid.length - 1);
+  if (tvFocusRow < 0) return;
+  tvFocusCol = Math.min(tvFocusCol, grid[tvFocusRow].length - 1);
+  if (tvFocusCol < 0) return;
   const el = grid[tvFocusRow][tvFocusCol];
+  if (!el) return;
   el.classList.add('tv-focused');
   el.focus();
 }
@@ -1070,6 +1098,8 @@ if (savedGyro !== null) {
   gyroEnabled = savedGyro === 'true';
 }
 
+const gyroSensitivity = 60.0; // Hardcoded to low sensitivity (60 degrees for max control response) as requested
+
 let gyroBasePitch = null;
 let gyroBaseRoll = null;
 
@@ -1077,16 +1107,20 @@ const gyroInput = document.getElementById('gyro-input');
 const gyroContainer = document.getElementById('gyro-container');
 
 function checkGyroSupport() {
+  let supported = false;
   if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
-    if (gyroContainer) gyroContainer.style.display = 'flex';
-    return;
+    supported = true;
+  } else {
+    // On iOS, deviceorientation might not fire until permission is granted.
+    // So we check if the API exists AND if it's a mobile/touch device.
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (window.DeviceOrientationEvent && hasTouch) {
+      supported = true;
+    }
   }
 
-  // On iOS, deviceorientation might not fire until permission is granted.
-  // So we check if the API exists AND if it's a mobile/touch device.
-  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  if (window.DeviceOrientationEvent && hasTouch) {
-    if (gyroContainer) gyroContainer.style.display = 'flex';
+  if (supported && gyroContainer) {
+    gyroContainer.style.display = 'flex';
   }
 }
 checkGyroSupport();
@@ -1156,11 +1190,11 @@ function handleGyroData(beta, gamma) {
   if (diffPitch > 180) diffPitch -= 360;
   if (diffPitch < -180) diffPitch += 360;
 
-  let targetX = diffRoll / 30.0; // 30 degrees for max turn
+  let targetX = diffRoll / gyroSensitivity;
   if (targetX > 1) targetX = 1;
   if (targetX < -1) targetX = -1;
 
-  let targetY = diffPitch / 30.0; // Reversed to match non-inverted preference
+  let targetY = diffPitch / gyroSensitivity;
   if (targetY > 1) targetY = 1;
   if (targetY < -1) targetY = -1;
 
