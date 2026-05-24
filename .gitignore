@@ -12,7 +12,10 @@ vendor/
 .server.pid
 
 # --- Mobile (React Native / Capacitor) ---
-android/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/captmp/
 ios/
 *.swp
 *.lock
