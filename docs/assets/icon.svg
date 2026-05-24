@@ -1,10 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Dark Background for Mobile Icons -->
-  <rect width="100" height="100" rx="20" fill="#1a1a2e" />
-  
-  <!-- Sleek Paper Plane -->
-  <g transform="translate(10, 10) scale(0.8)">
-    <path d="M10,50 L90,15 L70,85 L50,60 L10,50 Z" fill="white" />
-    <path d="M90,15 L50,60 L70,85 Z" fill="rgba(0,0,0,0.15)" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Vibrant, high-contrast sunset gradient optimized for small scale -->
+    <linearGradient id="sunset-fav" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b0764" /> <!-- Very deep violet -->
+      <stop offset="50%" stop-color="#db2777" /> <!-- Radiant magenta/pink -->
+      <stop offset="100%" stop-color="#f97316" /> <!-- Bold orange -->
+    </linearGradient>
+  </defs>
+
+  <!-- Perfect high-contrast circle background that pops beautifully in light and dark browser tabs -->
+  <circle cx="256" cy="256" r="230" fill="url(#sunset-fav)" />
+
+  <!-- Micro-scale optimized, bold paper plane silhouette for maximum legibility at 16x16 -->
+  <g transform="translate(106, 116) scale(3)">
+    <!-- Main wing face -->
+    <path d="M10,50 L90,15 L70,85 L50,60 L10,50 Z" fill="#ffffff" />
+    <!-- Underwing shadow for depth -->
+    <path d="M90,15 L50,60 L70,85 Z" fill="rgba(0, 0, 0, 0.18)" />
   </g>
 </svg>
