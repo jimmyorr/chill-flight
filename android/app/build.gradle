@@ -1,4 +1,4 @@
-iapply plugin: 'com.android.application'
+apply plugin: 'com.android.application'
 import groovy.json.JsonSlurper
 
 def getAppVersion() {
