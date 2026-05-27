@@ -17,9 +17,9 @@
 
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
-    <script type="module" crossorigin src="./assets/main-CkYgbSJ7.js"></script>
+    <script type="module" crossorigin src="./assets/main-BeGh_GFP.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/main-o8ExmTKr.js">
-    <link rel="stylesheet" crossorigin href="./assets/main-BLGUlyDK.css">
+    <link rel="stylesheet" crossorigin href="./assets/main-BQKE9wag.css">
   </head>
 
   <body>
@@ -94,8 +94,11 @@
                 id="invert-y-input"
                 class="customization-checkbox"
               />
-              <span class="customization-label" style="margin-bottom: 0"
-                >Invert y axis</span
+              <label
+                for="invert-y-input"
+                class="customization-label"
+                style="margin-bottom: 0; cursor: pointer"
+                >Invert y axis</label
               >
             </div>
             <div
@@ -108,8 +111,11 @@
                 id="gyro-input"
                 class="customization-checkbox"
               />
-              <span class="customization-label" style="margin-bottom: 0"
-                >Gyro controls</span
+              <label
+                for="gyro-input"
+                class="customization-label"
+                style="margin-bottom: 0; cursor: pointer"
+                >Gyro</label
               >
             </div>
           </div>
@@ -254,6 +260,17 @@
     <!-- mobile flight controls -->
     <div id="mobile-controls">
       <div id="mobile-action-menu" class="menu-container">
+        <!-- Onboarding Tooltip -->
+        <div id="onboarding-tooltip" class="onboarding-tooltip hidden">
+          <h3 class="tooltip-title">Explore controls</h3>
+          <p class="tooltip-text">
+            Tap here to customize settings, play or pause music, adjust camera,
+            and more.
+          </p>
+          <button id="onboarding-dismiss-btn" class="tooltip-btn">
+            Got it
+          </button>
+        </div>
         <div class="menu-items" id="mobile-sub-menu">
           <button
             class="sub-btn"
@@ -413,16 +430,28 @@
           <path d="M19 13H5v-2h14v2z" />
         </svg>
       </button>
-      <button
-        class="mobile-btn"
-        id="mobile-spd-up"
-        title="Increase speed"
-        tabindex="-1"
-      >
-        <svg viewBox="0 0 24 24">
-          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-        </svg>
-      </button>
+      <div class="menu-container" id="mobile-spd-up-container">
+        <!-- Start Plane Onboarding Tooltip -->
+        <div id="start-plane-tooltip" class="onboarding-tooltip hidden">
+          <h3 class="tooltip-title">Start the plane</h3>
+          <p class="tooltip-text">
+            Hold the + button to increase speed and start flying again.
+          </p>
+          <button id="start-plane-dismiss-btn" class="tooltip-btn">
+            Got it
+          </button>
+        </div>
+        <button
+          class="mobile-btn"
+          id="mobile-spd-up"
+          title="Increase speed"
+          tabindex="-1"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div id="debug-menu">
