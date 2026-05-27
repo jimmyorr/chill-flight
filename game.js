@@ -4638,6 +4638,61 @@ if (overlay) {
     if (typeof setMusicEnabled === 'function') {
       setMusicEnabled(musicEnabled);
     }
+
+    // Initialize onboarding
+    initOnboarding(instant ? 0 : 4000);
+  };
+
+  const initOnboarding = (delay = 4000) => {
+    // If the user has already been onboarded, do nothing
+    if (localStorage.getItem('chill_flight_onboarded') === 'true') {
+      return;
+    }
+
+    setTimeout(() => {
+      const tooltip = document.getElementById('onboarding-tooltip');
+      const dismissBtn = document.getElementById('onboarding-dismiss-btn');
+      const menuTrigger = document.getElementById('mobile-menu-trigger');
+
+      if (!tooltip || !menuTrigger) return;
+
+      // Show onboarding tooltip and apply pulsating glow to caret trigger
+      tooltip.classList.remove('hidden');
+      tooltip.classList.add('visible');
+      menuTrigger.classList.add('onboarding-glow');
+
+      const dismissOnboarding = () => {
+        // Save onboarding status
+        localStorage.setItem('chill_flight_onboarded', 'true');
+
+        // Fade out onboarding elements
+        tooltip.classList.remove('visible');
+        tooltip.classList.add('hidden');
+        menuTrigger.classList.remove('onboarding-glow');
+
+        // Clean up listeners
+        if (dismissBtn) {
+          dismissBtn.removeEventListener('click', handleDismiss);
+        }
+        menuTrigger.removeEventListener('click', handleTriggerClick);
+      };
+
+      const handleDismiss = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dismissOnboarding();
+      };
+
+      const handleTriggerClick = () => {
+        // Direct interaction with caret dismisses onboarding immediately
+        dismissOnboarding();
+      };
+
+      if (dismissBtn) {
+        dismissBtn.addEventListener('click', handleDismiss);
+      }
+      menuTrigger.addEventListener('click', handleTriggerClick);
+    }, delay);
   };
 
   const progressContainer = document.getElementById(
