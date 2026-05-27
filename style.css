@@ -1194,4 +1194,15 @@ input[type='number'].customization-input {
     left: 70px;
     transform: translateX(-50%) rotate(45deg);
   }
+
+  #start-plane-tooltip {
+    left: auto;
+    right: -15px;
+  }
+
+  #start-plane-tooltip::after {
+    left: auto;
+    right: 70px;
+    transform: translateX(50%) rotate(45deg);
+  }
 }

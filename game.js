@@ -13,6 +13,10 @@ let mouseY = 0;
 const _lastChunkUpdatePos = new THREE.Vector3(Infinity, Infinity, Infinity);
 let mouseControlActive = false; // becomes true once the mouse moves; cleared by arrow-key presses
 let windowJustFocused = false; // absorbs the first mousemove after returning to the tab
+let startPlaneTooltipShown =
+  localStorage.getItem('chill_flight_stopped_tooltip_shown') === 'true';
+let dismissStartPlaneTooltipFunc = null;
+let stoppedStartTime = null;
 let targetPitch = 0;
 let targetRoll = 0;
 targetFlightSpeed = flightSpeedMultiplier; // Initialize based on current vehicle speed multiplier
@@ -1809,6 +1813,31 @@ function animate() {
     justResumed = false;
     clearInputState();
     return;
+  }
+
+  // Trigger start plane tooltip if plane is stopped for the first time after a 5 second delay
+  const onboardingTooltip = document.getElementById('onboarding-tooltip');
+  const isOnboardingVisible =
+    onboardingTooltip && onboardingTooltip.classList.contains('visible');
+  if (
+    !startPlaneTooltipShown &&
+    !isOnboardingVisible &&
+    targetFlightSpeed === 0 &&
+    Math.abs(flightSpeedMultiplier) < 0.01
+  ) {
+    if (stoppedStartTime === null) {
+      stoppedStartTime = now;
+    } else if (now - stoppedStartTime >= 5000) {
+      showStartPlaneTooltip();
+    }
+  } else {
+    stoppedStartTime = null;
+  }
+
+  // Dismiss start plane tooltip if we start moving
+  if (dismissStartPlaneTooltipFunc && Math.abs(targetFlightSpeed) > 0) {
+    dismissStartPlaneTooltipFunc();
+    dismissStartPlaneTooltipFunc = null;
   }
 
   // --- DAY/NIGHT CYCLE ---
@@ -4788,4 +4817,71 @@ if (overlay) {
       btnContainer.style.opacity = '1';
     }
   }
+}
+
+function showStartPlaneTooltip() {
+  if (startPlaneTooltipShown) return;
+  startPlaneTooltipShown = true;
+  localStorage.setItem('chill_flight_stopped_tooltip_shown', 'true');
+
+  const tooltip = document.getElementById('start-plane-tooltip');
+  const dismissBtn = document.getElementById('start-plane-dismiss-btn');
+  const spdUpBtn = document.getElementById('mobile-spd-up');
+
+  if (!tooltip || !spdUpBtn) return;
+
+  // Show onboarding tooltip and apply pulsating glow to + trigger
+  tooltip.classList.remove('hidden');
+  tooltip.classList.add('visible');
+  spdUpBtn.classList.add('onboarding-glow');
+
+  const dismissStartPlaneTooltip = () => {
+    tooltip.classList.remove('visible');
+    tooltip.classList.add('hidden');
+    spdUpBtn.classList.remove('onboarding-glow');
+
+    // Clean up listeners
+    if (dismissBtn) {
+      dismissBtn.removeEventListener('click', handleDismiss);
+    }
+    spdUpBtn.removeEventListener('pointerdown', handleSpdUpInteraction);
+    spdUpBtn.removeEventListener('touchstart', handleSpdUpInteraction);
+    window.removeEventListener('keydown', handleKeyInteraction);
+  };
+
+  dismissStartPlaneTooltipFunc = dismissStartPlaneTooltip;
+
+  const handleDismiss = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dismissStartPlaneTooltip();
+    dismissStartPlaneTooltipFunc = null;
+  };
+
+  const handleSpdUpInteraction = () => {
+    dismissStartPlaneTooltip();
+    dismissStartPlaneTooltipFunc = null;
+  };
+
+  const handleKeyInteraction = (e) => {
+    const key = e.key.toLowerCase();
+    // Dismiss on any keyboard interaction that increases speed
+    if (
+      e.key === '+' ||
+      e.key === '=' ||
+      e.key === 'Shift' ||
+      key === 'arrowup' ||
+      key === 'w'
+    ) {
+      dismissStartPlaneTooltip();
+      dismissStartPlaneTooltipFunc = null;
+    }
+  };
+
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', handleDismiss);
+  }
+  spdUpBtn.addEventListener('pointerdown', handleSpdUpInteraction);
+  spdUpBtn.addEventListener('touchstart', handleSpdUpInteraction);
+  window.addEventListener('keydown', handleKeyInteraction);
 }
