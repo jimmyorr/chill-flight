@@ -182,6 +182,13 @@ window.addEventListener(
             }
           }
         }
+
+        // Suppress steering if this touch is an active gesture (double/triple-tap)
+        if (activeGestureTouchId !== null) {
+          mouseControlActive = false;
+          mouseX = 0;
+          mouseY = 0;
+        }
       } else {
         mouseControlActive = false; // Stop steering if touching UI
         mouseX = 0;
@@ -214,8 +221,22 @@ window.addEventListener(
         target.closest('#player-list') ||
         target.closest('.color-swatch');
       if (!isUI) {
-        updateInputPosition(e.touches[0].clientX, e.touches[0].clientY);
-        mouseControlActive = true;
+        // Find a touch that is not the active gesture touch
+        let steeringTouch = null;
+        for (let i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier !== activeGestureTouchId) {
+            steeringTouch = e.touches[i];
+            break;
+          }
+        }
+        if (steeringTouch) {
+          updateInputPosition(steeringTouch.clientX, steeringTouch.clientY);
+          mouseControlActive = true;
+        } else {
+          mouseControlActive = false;
+          mouseX = 0;
+          mouseY = 0;
+        }
       } else {
         mouseControlActive = false;
         mouseX = 0;
