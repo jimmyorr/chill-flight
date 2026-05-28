@@ -2185,8 +2185,13 @@ function animate() {
     vehicleType === 'boat' ||
     vehicleType === 'buggy'
   ) {
-    if (isUp) {
-      const heldTime = nowTime - startUp;
+    const rawUp = keys.ArrowUp && !isFreeCamera;
+    const rawDown = keys.ArrowDown && !isFreeCamera;
+    const startRawUp = keyPressStartTime.ArrowUp;
+    const startRawDown = keyPressStartTime.ArrowDown;
+
+    if (rawUp) {
+      const heldTime = nowTime - startRawUp;
       const ramp = Math.min(1.0, heldTime / 2000);
       const throttleRate = (0.5 + ramp * 3.5) * delta;
       targetFlightSpeed = targetFlightSpeed + throttleRate;
@@ -2198,8 +2203,8 @@ function animate() {
       } else {
         targetFlightSpeed = Math.min(0.66, targetFlightSpeed); // Cap forward boat/buggy speed
       }
-    } else if (isDown) {
-      const heldTime = nowTime - startDown;
+    } else if (rawDown) {
+      const heldTime = nowTime - startRawDown;
       const ramp = Math.min(1.0, heldTime / 2000);
       const throttleRate = (0.5 + ramp * 3.5) * delta;
 
@@ -2684,13 +2689,9 @@ function animate() {
     }
   } else if (vehicleType === 'helicopter') {
     const isUpAlt =
-      (keys.Plus ||
-        (keys.Shift && (invertYAxis ? keys.ArrowDown : keys.ArrowUp))) &&
-      !isFreeCamera;
+      (keys.Plus || (keys.Shift && keys.ArrowUp)) && !isFreeCamera;
     const isDownAlt =
-      (keys.Minus ||
-        (keys.Shift && (invertYAxis ? keys.ArrowUp : keys.ArrowDown))) &&
-      !isFreeCamera;
+      (keys.Minus || (keys.Shift && keys.ArrowDown)) && !isFreeCamera;
 
     let targetLiftSpeed = 0;
     if (isUpAlt) targetLiftSpeed = 80;
@@ -2706,8 +2707,8 @@ function animate() {
       planeGroup.position.y += verticalVelocity * delta;
     }
 
-    const moveUp = !keys.Shift && isUp;
-    const moveDown = !keys.Shift && isDown;
+    const moveUp = !keys.Shift && keys.ArrowUp && !isFreeCamera;
+    const moveDown = !keys.Shift && keys.ArrowDown && !isFreeCamera;
 
     const strafeLeft = keys.Shift && isLeft;
     const strafeRight = keys.Shift && isRight;
