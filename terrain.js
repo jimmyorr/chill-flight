@@ -3157,8 +3157,10 @@ function generateChunk(chunkX, chunkZ) {
       hawk.userData.circleRadius = 150 + rng() * 100;
       hawk.userData.circleCenter = new THREE.Vector3(baseX, baseY, baseZ);
       hawk.userData.angle = rng() * Math.PI * 2;
-      hawk.userData.flapPhase = 0;
-      hawk.userData.flapSpeed = 2;
+      hawk.userData.flapPhase = rng() * Math.PI * 2;
+      hawk.userData.flapSpeed = 8.0 + rng() * 4.0;
+      hawk.userData.flapDuration = 3.0 + rng() * 3.0;
+      hawk.userData.soarDuration = 4.0 + rng() * 4.0;
 
       objectsGroup.add(hawk);
       group.userData.birds.push(hawk);

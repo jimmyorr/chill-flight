@@ -3317,11 +3317,30 @@ function animate() {
     if (chunkGroup.userData.birds) {
       chunkGroup.userData.birds.forEach((bird) => {
         const data = bird.userData;
-        const flap =
-          Math.sin(clock.elapsedTime * data.flapSpeed + data.flapPhase) * 0.5;
+        const flapSpeed = data.flapSpeed || 2;
+        const flapPhase = data.flapPhase || 0;
+        const flapDuration = data.flapDuration || 4.0;
+        const soarDuration = data.soarDuration || 6.0;
+
+        const totalCycle = flapDuration + soarDuration;
+        const cycleProgress = (clock.elapsedTime + flapPhase * 10) % totalCycle;
+        const isSoaring = cycleProgress > flapDuration;
+
+        let flap = 0;
+        if (!isSoaring) {
+          let amplitude = 0.5;
+          const transitionTime = 0.5; // 0.5s smooth fade envelope
+          if (cycleProgress < transitionTime) {
+            amplitude *= cycleProgress / transitionTime;
+          } else if (flapDuration - cycleProgress < transitionTime) {
+            amplitude *= (flapDuration - cycleProgress) / transitionTime;
+          }
+          flap =
+            Math.sin(clock.elapsedTime * flapSpeed + flapPhase) * amplitude;
+        }
         if (data.wings) {
           data.wings[0].rotation.z = flap;
-          data.wings[1].rotation.z = -flap;
+          data.wings[1].rotation.z = flap;
         }
         bird.translateZ(-(data.speed * delta * 50));
 
