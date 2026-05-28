@@ -3058,6 +3058,11 @@ function generateChunk(chunkX, chunkZ) {
       objectsGroup.add(hullInst);
       objectsGroup.add(mastInst);
       objectsGroup.add(sailInst);
+
+      group.userData.sailboatPositions = sailboatPositions;
+      group.userData.boatHulls = hullInst;
+      group.userData.boatMasts = mastInst;
+      group.userData.boatSails = sailInst;
     }
 
     // 3. Generate Clouds

@@ -1777,6 +1777,7 @@ const _shadowSunDir = new THREE.Vector3();
 const _shadowRight = new THREE.Vector3();
 const _shadowUp = new THREE.Vector3();
 const _worldUp = new THREE.Vector3(0, 1, 0);
+const _boatDummy = new THREE.Object3D();
 
 function animate() {
   const frameStartTime = performance.now(); // Start CPU timer
@@ -3360,6 +3361,76 @@ function animate() {
           bird.position.set(targetX, bird.position.y, targetZ);
         }
       });
+    }
+
+    // Animate Sailboats (Drifting & Bobbing)
+    if (
+      chunkGroup.userData.boatHulls &&
+      chunkGroup.userData.sailboatPositions
+    ) {
+      const hulls = chunkGroup.userData.boatHulls;
+      const masts = chunkGroup.userData.boatMasts;
+      const sails = chunkGroup.userData.boatSails;
+      const positions = chunkGroup.userData.sailboatPositions;
+
+      const hash = (index, seed) => {
+        const val = Math.sin(index * 12.9898 + seed * 78.233) * 43758.5453;
+        return val - Math.floor(val);
+      };
+
+      positions.forEach((pos, index) => {
+        const driftPhase = hash(index, 1) * Math.PI * 2;
+        const driftSpeed = 0.03 + hash(index, 2) * 0.04; // Extremely slow drifting
+        const doesDrift = hash(index, 3) < 0.8; // 80% drift, 20% completely anchored in place
+        const isAnchored = doesDrift && hash(index, 4) < 0.6; // 60% of drifting ones are on a tight anchor, 40% are loose
+
+        let driftRadius = 0;
+        if (doesDrift) {
+          driftRadius = isAnchored
+            ? 4 + hash(index, 5) * 4
+            : 15 + hash(index, 5) * 15;
+        }
+
+        let dx = 0;
+        let dz = 0;
+        let yawOffset = Math.sin(clock.elapsedTime * 0.4 + driftPhase) * 0.05; // Gentle sway
+
+        if (driftRadius > 0) {
+          const t = clock.elapsedTime * driftSpeed + driftPhase;
+          dx = Math.sin(t * 1.6) * driftRadius;
+          dz = Math.cos(t * 1.0) * driftRadius;
+
+          // Tangent of the slow drift Lissajous trajectory for orientation heading
+          const tx = 1.6 * Math.cos(t * 1.6) * driftRadius;
+          const tz = -1.0 * Math.sin(t * 1.0) * driftRadius;
+
+          // Compute angle of movement
+          const tangentYaw = Math.atan2(tx, tz);
+          yawOffset += tangentYaw;
+        }
+
+        // Bobbing & Wave dynamics (Roll/Pitch)
+        const bobTime = clock.elapsedTime * 1.2 + driftPhase;
+        const dy = Math.sin(bobTime) * 0.15;
+        const roll = Math.sin(bobTime * 0.8) * 0.04;
+        const pitch = Math.cos(bobTime * 1.1) * 0.03;
+
+        _boatDummy.position.set(pos.x + dx, pos.y + dy, pos.z + dz);
+        _boatDummy.rotation.set(0, 0, 0);
+        _boatDummy.rotation.y = pos.rotY + yawOffset;
+        _boatDummy.rotation.x = pitch;
+        _boatDummy.rotation.z = roll;
+        _boatDummy.scale.set(1, 1, 1);
+        _boatDummy.updateMatrix();
+
+        hulls.setMatrixAt(index, _boatDummy.matrix);
+        masts.setMatrixAt(index, _boatDummy.matrix);
+        sails.setMatrixAt(index, _boatDummy.matrix);
+      });
+
+      hulls.instanceMatrix.needsUpdate = true;
+      masts.instanceMatrix.needsUpdate = true;
+      sails.instanceMatrix.needsUpdate = true;
     }
 
     // Animate Lighthouse Beam
