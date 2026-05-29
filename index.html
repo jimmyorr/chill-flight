@@ -100,23 +100,24 @@
                 >Invert y axis</label
               >
             </div>
-            <div
-              class="customization-row horizontal"
-              id="gyro-container"
-              style="height: 38px; display: none"
+          </div>
+        </div>
+
+        <div id="control-scheme-toggle" style="display: none">
+          <span class="customization-label">Controls</span>
+          <div class="scheme-btn-group">
+            <button class="scheme-btn" data-scheme="touch">Touch</button>
+            <button class="scheme-btn active" data-scheme="joystick">
+              Joystick
+            </button>
+            <button
+              class="scheme-btn"
+              data-scheme="gyro"
+              id="gyro-scheme-btn"
+              style="display: none"
             >
-              <input
-                type="checkbox"
-                id="gyro-input"
-                class="customization-checkbox"
-              />
-              <label
-                for="gyro-input"
-                class="customization-label"
-                style="margin-bottom: 0; cursor: pointer"
-                >Gyro</label
-              >
-            </div>
+              Gyro
+            </button>
           </div>
         </div>
 
@@ -254,6 +255,11 @@
           >
         </div>
       </div>
+    </div>
+
+    <!-- Virtual Joystick (Outside transform parent for correct position: fixed rendering) -->
+    <div id="virtual-joystick-base" class="joystick-hidden">
+      <div id="virtual-joystick-stick"></div>
     </div>
 
     <!-- mobile flight controls -->

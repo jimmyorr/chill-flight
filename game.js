@@ -13,6 +13,18 @@ let mouseY = 0;
 const _lastChunkUpdatePos = new THREE.Vector3(Infinity, Infinity, Infinity);
 let mouseControlActive = false; // becomes true once the mouse moves; cleared by arrow-key presses
 let windowJustFocused = false; // absorbs the first mousemove after returning to the tab
+
+// Control scheme state ('touch', 'joystick', or 'gyro')
+let currentControlScheme =
+  localStorage.getItem('chill_flight_control_scheme') || 'joystick';
+
+// Joystick state
+let joystickActive = false;
+let joystickTouchId = null;
+let joystickStartX = 0;
+let joystickStartY = 0;
+const JOYSTICK_MAX_RADIUS = 50;
+
 let startPlaneTooltipShown =
   localStorage.getItem('chill_flight_stopped_tooltip_shown') === 'true';
 let dismissStartPlaneTooltipFunc = null;
@@ -138,60 +150,195 @@ window.addEventListener(
       if (!isUI) {
         if (e.cancelable) e.preventDefault(); // Stop iOS from starting a selection gesture
 
-        const touch = e.touches[0];
-        updateInputPosition(touch.clientX, touch.clientY);
-        mouseControlActive = true;
+        // --- Gyro mode: skip all screen-drag steering ---
+        if (currentControlScheme === 'gyro') {
+          // Don't update mouseX/mouseY from touch; gyro handles steering.
+          // But still process gesture detection (double/triple-tap) for barrel rolls etc.
+          const touch = e.touches[0];
+          const now = performance.now();
+          const x = touch.clientX / window.innerWidth;
+          const y = touch.clientY / window.innerHeight;
 
-        // --- Gesture Detection ---
-        const now = performance.now();
-        const x = touch.clientX / window.innerWidth;
-        const y = touch.clientY / window.innerHeight;
+          let action = null;
+          if (x < 0.33) action = 'ArrowLeft';
+          else if (x > 0.66) action = 'ArrowRight';
+          else if (y < 0.33) action = 'ArrowUp';
+          else if (y > 0.66) action = 'ArrowDown';
 
-        let action = null;
-        if (x < 0.33) action = 'ArrowLeft';
-        else if (x > 0.66) action = 'ArrowRight';
-        else if (y < 0.33)
-          action = 'ArrowUp'; // Top middle
-        else if (y > 0.66) action = 'ArrowDown'; // Bottom middle
-
-        if (action) {
-          const timeSinceLastTap = now - lastArrowTap[action];
-          if (timeSinceLastTap < DOUBLE_TAP_MS) {
-            tapCount[action] = (tapCount[action] || 0) + 1;
-          } else {
-            tapCount[action] = 1;
-          }
-          lastArrowTap[action] = now;
-
-          if (tapCount[action] === 2) {
-            doubleTap[action] = true;
-            keys[action] = true;
-            keyPressStartTime[action] = now;
-            activeGestureTouchId = touch.identifier;
-            activeGestureAction = action;
-          } else if (tapCount[action] >= 3) {
-            if (y < 0.33) {
-              // Triple tap on top of screen -> Steep climb
-              tripleTap.ArrowUp = true;
-              keys.ArrowUp = true;
-              keyPressStartTime.ArrowUp = now;
-              activeGestureTouchId = touch.identifier;
-              activeGestureAction = 'ArrowUp';
+          if (action) {
+            const timeSinceLastTap = now - lastArrowTap[action];
+            if (timeSinceLastTap < DOUBLE_TAP_MS) {
+              tapCount[action] = (tapCount[action] || 0) + 1;
             } else {
-              tripleTap[action] = true;
+              tapCount[action] = 1;
+            }
+            lastArrowTap[action] = now;
+
+            if (tapCount[action] === 2) {
+              doubleTap[action] = true;
               keys[action] = true;
               keyPressStartTime[action] = now;
               activeGestureTouchId = touch.identifier;
               activeGestureAction = action;
+            } else if (tapCount[action] >= 3) {
+              if (y < 0.33) {
+                tripleTap.ArrowUp = true;
+                keys.ArrowUp = true;
+                keyPressStartTime.ArrowUp = now;
+                activeGestureTouchId = touch.identifier;
+                activeGestureAction = 'ArrowUp';
+              } else {
+                tripleTap[action] = true;
+                keys[action] = true;
+                keyPressStartTime[action] = now;
+                activeGestureTouchId = touch.identifier;
+                activeGestureAction = action;
+              }
             }
           }
-        }
+          // Do NOT set mouseControlActive or update mouseX/mouseY
+        } else if (currentControlScheme === 'joystick') {
+          // --- Joystick mode ---
+          const touch = e.touches[0];
 
-        // Suppress steering if this touch is an active gesture (double/triple-tap)
-        if (activeGestureTouchId !== null) {
-          mouseControlActive = false;
-          mouseX = 0;
-          mouseY = 0;
+          if (!joystickActive) {
+            // Activate joystick centered at touch position
+            joystickActive = true;
+            joystickTouchId = touch.identifier;
+            joystickStartX = touch.clientX;
+            joystickStartY = touch.clientY;
+            mouseControlActive = true;
+
+            // Show and position joystick dynamically
+            const joystickBase = document.getElementById(
+              'virtual-joystick-base'
+            );
+            if (joystickBase) {
+              joystickBase.style.left = `${touch.clientX}px`;
+              joystickBase.style.top = `${touch.clientY}px`;
+              joystickBase.classList.remove('joystick-hidden');
+              joystickBase.classList.add('joystick-visible');
+            }
+          }
+
+          // --- Gesture Detection ---
+          const now = performance.now();
+          const x = touch.clientX / window.innerWidth;
+          const y = touch.clientY / window.innerHeight;
+
+          let action = null;
+          if (x < 0.33) action = 'ArrowLeft';
+          else if (x > 0.66) action = 'ArrowRight';
+          else if (y < 0.33) action = 'ArrowUp';
+          else if (y > 0.66) action = 'ArrowDown';
+
+          if (action) {
+            const timeSinceLastTap = now - lastArrowTap[action];
+            if (timeSinceLastTap < DOUBLE_TAP_MS) {
+              tapCount[action] = (tapCount[action] || 0) + 1;
+            } else {
+              tapCount[action] = 1;
+            }
+            lastArrowTap[action] = now;
+
+            if (tapCount[action] === 2) {
+              doubleTap[action] = true;
+              keys[action] = true;
+              keyPressStartTime[action] = now;
+              activeGestureTouchId = touch.identifier;
+              activeGestureAction = action;
+            } else if (tapCount[action] >= 3) {
+              if (y < 0.33) {
+                tripleTap.ArrowUp = true;
+                keys.ArrowUp = true;
+                keyPressStartTime.ArrowUp = now;
+                activeGestureTouchId = touch.identifier;
+                activeGestureAction = 'ArrowUp';
+              } else {
+                tripleTap[action] = true;
+                keys[action] = true;
+                keyPressStartTime[action] = now;
+                activeGestureTouchId = touch.identifier;
+                activeGestureAction = action;
+              }
+            }
+          }
+
+          // Suppress steering and hide joystick if gesture is active
+          if (activeGestureTouchId !== null) {
+            mouseControlActive = false;
+            mouseX = 0;
+            mouseY = 0;
+            joystickActive = false;
+            joystickTouchId = null;
+            const joystickBase = document.getElementById(
+              'virtual-joystick-base'
+            );
+            if (joystickBase) {
+              joystickBase.classList.remove('joystick-visible');
+              joystickBase.classList.add('joystick-hidden');
+            }
+            const stick = document.getElementById('virtual-joystick-stick');
+            if (stick) {
+              stick.style.transform = 'translate(-50%, -50%)';
+            }
+          }
+        } else {
+          // --- Touch mode (original absolute-positioning) ---
+          const touch = e.touches[0];
+          updateInputPosition(touch.clientX, touch.clientY);
+          mouseControlActive = true;
+
+          // --- Gesture Detection ---
+          const now = performance.now();
+          const x = touch.clientX / window.innerWidth;
+          const y = touch.clientY / window.innerHeight;
+
+          let action = null;
+          if (x < 0.33) action = 'ArrowLeft';
+          else if (x > 0.66) action = 'ArrowRight';
+          else if (y < 0.33) action = 'ArrowUp';
+          else if (y > 0.66) action = 'ArrowDown';
+
+          if (action) {
+            const timeSinceLastTap = now - lastArrowTap[action];
+            if (timeSinceLastTap < DOUBLE_TAP_MS) {
+              tapCount[action] = (tapCount[action] || 0) + 1;
+            } else {
+              tapCount[action] = 1;
+            }
+            lastArrowTap[action] = now;
+
+            if (tapCount[action] === 2) {
+              doubleTap[action] = true;
+              keys[action] = true;
+              keyPressStartTime[action] = now;
+              activeGestureTouchId = touch.identifier;
+              activeGestureAction = action;
+            } else if (tapCount[action] >= 3) {
+              if (y < 0.33) {
+                // Triple tap on top of screen -> Steep climb
+                tripleTap.ArrowUp = true;
+                keys.ArrowUp = true;
+                keyPressStartTime.ArrowUp = now;
+                activeGestureTouchId = touch.identifier;
+                activeGestureAction = 'ArrowUp';
+              } else {
+                tripleTap[action] = true;
+                keys[action] = true;
+                keyPressStartTime[action] = now;
+                activeGestureTouchId = touch.identifier;
+                activeGestureAction = action;
+              }
+            }
+          }
+
+          // Suppress steering if this touch is an active gesture (double/triple-tap)
+          if (activeGestureTouchId !== null) {
+            mouseControlActive = false;
+            mouseX = 0;
+            mouseY = 0;
+          }
         }
       } else {
         mouseControlActive = false; // Stop steering if touching UI
@@ -225,21 +372,54 @@ window.addEventListener(
         target.closest('#player-list') ||
         target.closest('.color-swatch');
       if (!isUI) {
-        // Find a touch that is not the active gesture touch
-        let steeringTouch = null;
-        for (let i = 0; i < e.touches.length; i++) {
-          if (e.touches[i].identifier !== activeGestureTouchId) {
-            steeringTouch = e.touches[i];
-            break;
+        // --- Gyro mode: skip all screen-drag steering ---
+        if (currentControlScheme === 'gyro') {
+          // Do nothing for steering; gyro handles it
+        } else if (currentControlScheme === 'joystick' && joystickActive) {
+          // --- Joystick mode ---
+          for (let i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier === joystickTouchId) {
+              const touch = e.touches[i];
+              const dx = touch.clientX - joystickStartX;
+              const dy = touch.clientY - joystickStartY;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const clampedDist = Math.min(dist, JOYSTICK_MAX_RADIUS);
+              const angle = Math.atan2(dy, dx);
+              const stickX = Math.cos(angle) * clampedDist;
+              const stickY = Math.sin(angle) * clampedDist;
+
+              // Move stick knob visually
+              const stick = document.getElementById('virtual-joystick-stick');
+              if (stick) {
+                stick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
+              }
+
+              // Write normalized values to mouseX/mouseY
+              // X: positive = right, Y: negative = down (matching computeInputPosition convention)
+              mouseX = stickX / JOYSTICK_MAX_RADIUS;
+              mouseY = -(stickY / JOYSTICK_MAX_RADIUS);
+              mouseControlActive = true;
+              break;
+            }
           }
-        }
-        if (steeringTouch) {
-          updateInputPosition(steeringTouch.clientX, steeringTouch.clientY);
-          mouseControlActive = true;
-        } else {
-          mouseControlActive = false;
-          mouseX = 0;
-          mouseY = 0;
+        } else if (currentControlScheme === 'touch') {
+          // --- Touch mode (original absolute-positioning) ---
+          // Find a touch that is not the active gesture touch
+          let steeringTouch = null;
+          for (let i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier !== activeGestureTouchId) {
+              steeringTouch = e.touches[i];
+              break;
+            }
+          }
+          if (steeringTouch) {
+            updateInputPosition(steeringTouch.clientX, steeringTouch.clientY);
+            mouseControlActive = true;
+          } else {
+            mouseControlActive = false;
+            mouseX = 0;
+            mouseY = 0;
+          }
         }
       } else {
         mouseControlActive = false;
@@ -252,6 +432,32 @@ window.addEventListener(
 );
 
 window.addEventListener('touchend', (e) => {
+  // --- Joystick cleanup ---
+  if (joystickActive) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joystickTouchId) {
+        joystickActive = false;
+        joystickTouchId = null;
+        mouseControlActive = false;
+        mouseX = 0;
+        mouseY = 0;
+
+        // Hide joystick and reset stick position
+        const joystickBase = document.getElementById('virtual-joystick-base');
+        if (joystickBase) {
+          joystickBase.classList.remove('joystick-visible');
+          joystickBase.classList.add('joystick-hidden');
+        }
+        const stick = document.getElementById('virtual-joystick-stick');
+        if (stick) {
+          stick.style.transform = 'translate(-50%, -50%)';
+        }
+        break;
+      }
+    }
+  }
+
+  // --- Gesture cleanup ---
   if (activeGestureTouchId !== null) {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
@@ -339,6 +545,18 @@ function clearInputState() {
   if (typeof gyroBasePitch !== 'undefined') {
     gyroBasePitch = null;
     gyroBaseRoll = null;
+  }
+  // Joystick cleanup
+  joystickActive = false;
+  joystickTouchId = null;
+  const _joystickBase = document.getElementById('virtual-joystick-base');
+  if (_joystickBase) {
+    _joystickBase.classList.remove('joystick-visible');
+    _joystickBase.classList.add('joystick-hidden');
+  }
+  const _joystickStick = document.getElementById('virtual-joystick-stick');
+  if (_joystickStick) {
+    _joystickStick.style.transform = 'translate(-50%, -50%)';
   }
 }
 const pauseOverlay = document.getElementById('pause-overlay');
@@ -594,21 +812,24 @@ function getMenuGrid() {
   if (dSelect) row2.push(dSelect);
   if (row2.length > 0) grid.push(row2);
 
-  // Row 3: Frame rate / Invert Y / Gyro
+  // Row 3: Frame rate / Invert Y
   const row3 = [];
   const fpsSelect = document.getElementById('fps-select');
   if (fpsSelect) row3.push(fpsSelect);
   const invertY = document.getElementById('invert-y-input');
   if (invertY) row3.push(invertY);
-
-  const gyroCont = document.getElementById('gyro-container');
-  const gyroInp = document.getElementById('gyro-input');
-  if (gyroCont && gyroCont.style.display !== 'none' && gyroInp) {
-    row3.push(gyroInp);
-  }
   if (row3.length > 0) grid.push(row3);
 
-  // Row 4: Resume button
+  // Row 4: Control scheme toggle buttons (if visible)
+  const schemeToggle = document.getElementById('control-scheme-toggle');
+  if (schemeToggle && schemeToggle.style.display !== 'none') {
+    const schemeBtnsArr = Array.from(
+      schemeToggle.querySelectorAll('.scheme-btn')
+    ).filter((btn) => btn.style.display !== 'none');
+    if (schemeBtnsArr.length > 0) grid.push(schemeBtnsArr);
+  }
+
+  // Row 5: Resume button
   const resumeBtn = document.getElementById('resume-btn');
   if (resumeBtn) grid.push([resumeBtn]);
 
@@ -1117,19 +1338,15 @@ if (invertYInput) {
   });
 }
 
-let gyroEnabled = false;
-const savedGyro = localStorage.getItem('chill_flight_gyro');
-if (savedGyro !== null) {
-  gyroEnabled = savedGyro === 'true';
-}
+let gyroEnabled = currentControlScheme === 'gyro';
 
 const gyroSensitivity = 60.0; // Hardcoded to low sensitivity (60 degrees for max control response) as requested
 
 let gyroBasePitch = null;
 let gyroBaseRoll = null;
 
-const gyroInput = document.getElementById('gyro-input');
-const gyroContainer = document.getElementById('gyro-container');
+const controlSchemeToggle = document.getElementById('control-scheme-toggle');
+const gyroSchemeBtn = document.getElementById('gyro-scheme-btn');
 
 function checkGyroSupport() {
   let supported = false;
@@ -1144,46 +1361,84 @@ function checkGyroSupport() {
     }
   }
 
-  if (supported && gyroContainer) {
-    gyroContainer.style.display = 'flex';
+  // Show gyro button if supported
+  if (supported && gyroSchemeBtn) {
+    gyroSchemeBtn.style.display = '';
+  }
+
+  // Show the entire control scheme toggle on touch devices
+  if (supported || 'ontouchstart' in window || navigator.maxTouchPoints > 0) {
+    if (controlSchemeToggle) {
+      controlSchemeToggle.style.display = '';
+    }
   }
 }
 checkGyroSupport();
 
-if (gyroInput) {
-  gyroInput.checked = gyroEnabled;
-  gyroInput.addEventListener('change', async (e) => {
-    let enable = e.target.checked;
+// Set active state on scheme buttons from saved preference
+if (controlSchemeToggle) {
+  const schemeBtns = controlSchemeToggle.querySelectorAll('.scheme-btn');
+  schemeBtns.forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.scheme === currentControlScheme);
+  });
 
-    if (
-      enable &&
-      typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function'
-    ) {
-      try {
-        const permissionState =
-          await DeviceOrientationEvent.requestPermission();
-        if (permissionState !== 'granted') {
-          enable = false;
-          gyroInput.checked = false;
-          alert('Gyro permission denied.');
+  schemeBtns.forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      let scheme = btn.dataset.scheme;
+
+      // Request gyro permission on iOS if selecting gyro
+      if (
+        scheme === 'gyro' &&
+        typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function'
+      ) {
+        try {
+          const permissionState =
+            await DeviceOrientationEvent.requestPermission();
+          if (permissionState !== 'granted') {
+            alert('Gyro permission denied.');
+            return; // Don't switch to gyro
+          }
+        } catch (err) {
+          console.error('Error requesting gyro permission', err);
+          return;
         }
-      } catch (err) {
-        console.error('Error requesting gyro permission', err);
-        enable = false;
-        gyroInput.checked = false;
       }
-    }
 
-    gyroEnabled = enable;
-    localStorage.setItem('chill_flight_gyro', gyroEnabled);
-    gyroBasePitch = null;
-    gyroBaseRoll = null;
+      currentControlScheme = scheme;
+      gyroEnabled = scheme === 'gyro';
+      localStorage.setItem('chill_flight_control_scheme', scheme);
+      gyroBasePitch = null;
+      gyroBaseRoll = null;
+
+      // Update button active states
+      schemeBtns.forEach((b) => {
+        b.classList.toggle('active', b.dataset.scheme === scheme);
+      });
+
+      // Reset steering state when switching
+      mouseX = 0;
+      mouseY = 0;
+      mouseControlActive = false;
+      joystickActive = false;
+      joystickTouchId = null;
+      const _jBase = document.getElementById('virtual-joystick-base');
+      if (_jBase) {
+        _jBase.classList.remove('joystick-visible');
+        _jBase.classList.add('joystick-hidden');
+      }
+      const _jStick = document.getElementById('virtual-joystick-stick');
+      if (_jStick) {
+        _jStick.style.transform = 'translate(-50%, -50%)';
+      }
+    });
   });
 }
 
 function handleGyroData(beta, gamma) {
-  if (!gyroEnabled || isPaused) return;
+  if (currentControlScheme !== 'gyro' || isPaused) return;
   if (beta === null || gamma === null) return;
 
   let roll = gamma;

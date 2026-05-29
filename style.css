@@ -956,6 +956,97 @@ input[type='number'].customization-input {
     display: none !important;
   }
 }
+
+/* Control Scheme Toggle */
+#control-scheme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+#control-scheme-toggle .customization-label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.scheme-btn-group {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.scheme-btn {
+  flex: 1;
+  height: 30px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0 8px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  outline: none;
+}
+
+.scheme-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.scheme-btn:focus {
+  outline: none;
+}
+
+.scheme-btn.active {
+  background: rgba(255, 215, 0, 0.15);
+  border-color: rgba(255, 215, 0, 0.5);
+  color: #ffd700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.15);
+}
+
+/* Virtual Joystick */
+#virtual-joystick-base {
+  position: fixed;
+  width: 100px;
+  height: 100px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1000;
+  transition: opacity 0.15s ease-out;
+}
+
+#virtual-joystick-stick {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.joystick-hidden {
+  opacity: 0;
+}
+
+.joystick-visible {
+  opacity: 1;
+}
+
 .version-tag {
   position: absolute;
   bottom: 24px;
