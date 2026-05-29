@@ -804,21 +804,13 @@ function getMenuGrid() {
   const swatches = Array.from(document.querySelectorAll('.color-swatch'));
   if (swatches.length > 0) grid.push(swatches);
 
-  // Row 2: Graphics / View distance
+  // Row 2: Graphics / Invert Y
   const row2 = [];
-  const qSelect = document.getElementById('quality-select');
-  if (qSelect) row2.push(qSelect);
-  const dSelect = document.getElementById('distance-select');
-  if (dSelect) row2.push(dSelect);
-  if (row2.length > 0) grid.push(row2);
-
-  // Row 3: Frame rate / Invert Y
-  const row3 = [];
-  const fpsSelect = document.getElementById('fps-select');
-  if (fpsSelect) row3.push(fpsSelect);
+  const presetSelect = document.getElementById('graphics-preset-select');
+  if (presetSelect) row2.push(presetSelect);
   const invertY = document.getElementById('invert-y-input');
-  if (invertY) row3.push(invertY);
-  if (row3.length > 0) grid.push(row3);
+  if (invertY) row2.push(invertY);
+  if (row2.length > 0) grid.push(row2);
 
   // Row 4: Control scheme toggle buttons (if visible)
   const schemeToggle = document.getElementById('control-scheme-toggle');
@@ -1105,50 +1097,69 @@ if (vehicleToggle) {
   }
 }
 
-// Distance selection
-const distanceSelect = document.getElementById('distance-select');
-if (distanceSelect) {
-  distanceSelect.addEventListener('change', (e) => {
-    RENDER_DISTANCE = parseInt(e.target.value);
-    localStorage.setItem('chill_flight_distance', RENDER_DISTANCE);
-    console.log(`Draw distance changed: RENDER_DISTANCE = ${RENDER_DISTANCE}`);
+function applyGraphicsPreset(preset) {
+  let segments = 40;
+  let dist = 2;
+  let fps = 60;
 
-    // Clear all existing chunks to force regeneration
-    chunks.forEach((group, key) => {
-      group.traverse((child) => {
-        if (child.isMesh || child.isInstancedMesh) {
-          if (child.geometry && child.geometry.userData.unique) {
-            child.geometry.dispose();
-          }
-        }
-      });
-      scene.remove(group);
-    });
-    chunks.clear();
-    _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
-  });
-}
-function applyGraphicsQuality(segments) {
+  switch (preset) {
+    case 'ultra':
+      segments = 120;
+      dist = 3;
+      fps = 60;
+      break;
+    case 'high':
+      segments = 80;
+      dist = 3;
+      fps = 60;
+      break;
+    case 'mid':
+      segments = 40;
+      dist = 2;
+      fps = 60;
+      break;
+    case 'low':
+      segments = 20;
+      dist = 2;
+      fps = 30;
+      break;
+    default:
+      preset = 'mid';
+      segments = 40;
+      dist = 2;
+      fps = 60;
+      break;
+  }
+
+  localStorage.setItem('chill_flight_graphics_preset', preset);
+
+  // Set global variables
   SEGMENTS = segments;
-  localStorage.setItem('chill_flight_quality', segments);
-  console.log(`Quality applied: SEGMENTS = ${segments}`);
+  RENDER_DISTANCE = dist;
+  if (typeof maxFPS !== 'undefined') {
+    maxFPS = fps;
+    frameMinDelay = maxFPS > 0 ? 1000 / maxFPS : 0;
+  }
+
+  console.log(
+    `Graphics preset applied: ${preset} (SEGMENTS=${segments}, DIST=${dist}, FPS=${fps})`
+  );
 
   // Update pixel ratio dynamically: baked resolution scale into quality levels
   let pixelRatio = window.devicePixelRatio;
   if (segments <= 20) {
-    // Low
     pixelRatio = 0.5;
   } else if (segments <= 40) {
-    // Mid
     pixelRatio = Math.min(window.devicePixelRatio, 2) * 0.75;
   } else if (segments <= 80) {
-    // High
     pixelRatio = Math.min(window.devicePixelRatio, 2) * 1.0;
   } else {
-    // Ultra
     pixelRatio = window.devicePixelRatio; // No cap for Ultra
   }
-  renderer.setPixelRatio(pixelRatio);
+
+  if (typeof renderer !== 'undefined' && renderer) {
+    renderer.setPixelRatio(pixelRatio);
+  }
 
   // Toggle sky clouds dynamically: disable expensive fBm on low mode
   if (typeof skyUniforms !== 'undefined') {
@@ -1169,42 +1180,51 @@ function applyGraphicsQuality(segments) {
   }
 
   const enableShadows = segments > 20;
-  if (dirLight.castShadow !== enableShadows) {
+  if (
+    typeof dirLight !== 'undefined' &&
+    dirLight.castShadow !== enableShadows
+  ) {
     dirLight.castShadow = enableShadows;
-    scene.traverse((child) => {
-      if (child.isMesh || child.isInstancedMesh) {
-        child.castShadow = enableShadows;
-        child.receiveShadow = enableShadows;
-        if (child.material) {
-          if (Array.isArray(child.material)) {
-            child.material.forEach((m) => (m.needsUpdate = true));
-          } else {
-            child.material.needsUpdate = true;
+    if (typeof scene !== 'undefined') {
+      scene.traverse((child) => {
+        if (child.isMesh || child.isInstancedMesh) {
+          child.castShadow = enableShadows;
+          child.receiveShadow = enableShadows;
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach((m) => (m.needsUpdate = true));
+            } else {
+              child.material.needsUpdate = true;
+            }
           }
         }
-      }
-    });
+      });
+    }
   }
 
   // Clear all existing chunks to force regeneration
-  chunks.forEach((group, key) => {
-    group.traverse((child) => {
-      if (child.isMesh || child.isInstancedMesh) {
-        if (child.geometry && child.geometry.userData.unique) {
-          child.geometry.dispose();
+  if (typeof chunks !== 'undefined') {
+    chunks.forEach((group, key) => {
+      group.traverse((child) => {
+        if (child.isMesh || child.isInstancedMesh) {
+          if (child.geometry && child.geometry.userData.unique) {
+            child.geometry.dispose();
+          }
         }
-      }
+      });
+      if (typeof scene !== 'undefined') scene.remove(group);
     });
-    scene.remove(group);
-  });
-  chunks.clear();
-  _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
+    chunks.clear();
+  }
+  if (typeof _lastChunkUpdatePos !== 'undefined') {
+    _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
+  }
 }
 
-const qualitySelect = document.getElementById('quality-select');
-if (qualitySelect) {
-  qualitySelect.addEventListener('change', (e) => {
-    applyGraphicsQuality(parseInt(e.target.value));
+const graphicsPresetSelect = document.getElementById('graphics-preset-select');
+if (graphicsPresetSelect) {
+  graphicsPresetSelect.addEventListener('change', (e) => {
+    applyGraphicsPreset(e.target.value);
   });
 }
 
@@ -1497,43 +1517,18 @@ if (
   });
 }
 
-const savedDistance = localStorage.getItem('chill_flight_distance');
-if (savedDistance) {
-  RENDER_DISTANCE = parseInt(savedDistance);
-  if (distanceSelect) distanceSelect.value = savedDistance;
-}
-
 // --- PERFORMANCE SETTINGS ---
 let maxFPS = 60;
 let frameMinDelay = 1000 / 60;
 let lastFrameTime = 0;
 
-const savedFPS = localStorage.getItem('chill_flight_fps');
-if (savedFPS !== null) {
-  maxFPS = parseInt(savedFPS);
-  frameMinDelay = maxFPS > 0 ? 1000 / maxFPS : 0;
-  const fpsSelectEl = document.getElementById('fps-select');
-  if (fpsSelectEl) fpsSelectEl.value = savedFPS;
+// Apply initial graphics preset
+const savedPreset = localStorage.getItem('chill_flight_graphics_preset');
+const presetToUse = savedPreset ? savedPreset : 'mid';
+if (graphicsPresetSelect) {
+  graphicsPresetSelect.value = presetToUse;
 }
-
-const fpsSelectEl = document.getElementById('fps-select');
-if (fpsSelectEl) {
-  fpsSelectEl.addEventListener('change', (e) => {
-    maxFPS = parseInt(e.target.value);
-    frameMinDelay = maxFPS > 0 ? 1000 / maxFPS : 0;
-    localStorage.setItem('chill_flight_fps', maxFPS);
-  });
-}
-
-// Apply initial quality (which also sets resolution)
-const savedQuality = localStorage.getItem('chill_flight_quality');
-if (savedQuality) {
-  const qVal = parseInt(savedQuality);
-  if (qualitySelect) qualitySelect.value = qVal;
-  applyGraphicsQuality(qVal);
-} else {
-  applyGraphicsQuality(SEGMENTS);
-}
+applyGraphicsPreset(presetToUse);
 
 // Setup timeOfDay before chunk gen
 const serverNowFirst = Date.now() + (window.serverTimeOffset || 0);
