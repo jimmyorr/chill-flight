@@ -43,6 +43,14 @@ let cinematicTimer = 0;
 let currentCinematicIndex = 0;
 let _cinematicStableHeading = 0;
 
+// Intro Cinematic Transition
+let isIntroTransitionActive = false;
+let introTransitionStartTime = 0;
+const _introCameraPosStart = new THREE.Vector3();
+const _introLookTargetStart = new THREE.Vector3();
+const _virtualCameraPos = new THREE.Vector3();
+const _virtualLookTarget = new THREE.Vector3();
+
 const CINEMATIC_CONFIGS = [
   {
     offset: new THREE.Vector3(40, 10, 40),
@@ -2066,7 +2074,31 @@ function animate() {
 
   pollGamepad(delta);
 
-  if (isPaused || window.isNamePromptOpen) return;
+  if (isPaused || window.isNamePromptOpen) {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (
+      loadingOverlay &&
+      loadingOverlay.style.display !== 'none' &&
+      !isIntroTransitionActive
+    ) {
+      // Intro orbit camera rendering
+      const t = now * 0.00015;
+      camera.position.x = planeGroup.position.x + Math.sin(t) * 150;
+      camera.position.z = planeGroup.position.z + Math.cos(t) * 150;
+      camera.position.y = planeGroup.position.y + 80;
+
+      _currentLookTarget.copy(planeGroup.position);
+      camera.lookAt(_currentLookTarget);
+
+      if (typeof sunUniforms !== 'undefined') {
+        sunUniforms.uTime.value = now * 0.001;
+      }
+
+      updateWeather(delta);
+      renderer.render(scene, camera);
+    }
+    return;
+  }
 
   // One-frame blanket suppression of all input after resuming from pause,
   // to catch any input that slipped through despite clearInputState().
@@ -3482,7 +3514,48 @@ function animate() {
 
     // Apply smooth tracking to the results
     // We use smoothedDelta and a higher lerp factor for a more "locked-in" feel.
-    camera.position.lerp(_idealCameraPos, 1 - Math.pow(1 - 0.25, delta * 60));
+    if (isIntroTransitionActive) {
+      // Update the virtual tracking camera (steady state lag)
+      _virtualCameraPos.lerp(
+        _idealCameraPos,
+        1 - Math.pow(1 - 0.25, delta * 60)
+      );
+      _virtualLookTarget.lerp(
+        _idealLookTarget,
+        1 - Math.pow(1 - 0.25, delta * 60)
+      );
+
+      const progress = (now - introTransitionStartTime) / 2500;
+      if (progress < 1) {
+        // Ease In Out Cubic
+        const easedProgress =
+          progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        // Interpolate visual camera between start and virtual tracking camera
+        _currentLookTarget.lerpVectors(
+          _introLookTargetStart,
+          _virtualLookTarget,
+          easedProgress
+        );
+        camera.position.lerpVectors(
+          _introCameraPosStart,
+          _virtualCameraPos,
+          easedProgress
+        );
+      } else {
+        isIntroTransitionActive = false;
+        camera.position.copy(_virtualCameraPos);
+        _currentLookTarget.copy(_virtualLookTarget);
+      }
+    } else {
+      camera.position.lerp(_idealCameraPos, 1 - Math.pow(1 - 0.25, delta * 60));
+      _currentLookTarget.lerp(
+        _idealLookTarget,
+        1 - Math.pow(1 - 0.25, delta * 60)
+      );
+    }
 
     // Hard clamp to prevent dipping below terrain during fast movement
     const actualTerrainHeight = getElevation(
@@ -3493,10 +3566,6 @@ function animate() {
       camera.position.y = actualTerrainHeight + 1.0;
     }
 
-    _currentLookTarget.lerp(
-      _idealLookTarget,
-      1 - Math.pow(1 - 0.25, delta * 60)
-    );
     camera.up.lerp(_idealUp, 1 - Math.pow(1 - 0.1, delta * 60)).normalize();
 
     camera.lookAt(_currentLookTarget);
@@ -5024,10 +5093,18 @@ if (overlay) {
     if (instant) {
       overlay.style.display = 'none';
     } else {
-      overlay.style.transition = 'opacity 0.8s ease';
+      overlay.style.transition = 'opacity 2.5s ease-in-out';
       overlay.style.opacity = '0';
       overlay.style.pointerEvents = 'none';
-      setTimeout(() => (overlay.style.display = 'none'), 800);
+      setTimeout(() => (overlay.style.display = 'none'), 2500);
+
+      // Trigger cinematic camera transition
+      isIntroTransitionActive = true;
+      introTransitionStartTime = performance.now();
+      _introCameraPosStart.copy(camera.position);
+      _introLookTargetStart.copy(_currentLookTarget);
+      _virtualCameraPos.copy(camera.position);
+      _virtualLookTarget.copy(_currentLookTarget);
     }
 
     // Unpause the game and clear the clock delta
