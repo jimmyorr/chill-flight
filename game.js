@@ -5101,6 +5101,11 @@ if (overlay) {
   );
   const progressBar = document.getElementById('splash-progress-bar');
   const btnContainer = document.getElementById('splash-btn-container');
+  const loadingAttrEl = document.getElementById('loading-music-attribution');
+
+  if (loadingAttrEl) {
+    loadingAttrEl.style.display = musicEnabled ? 'block' : 'none';
+  }
 
   if (beginBtn) {
     beginBtn.addEventListener('click', () => {
