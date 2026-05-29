@@ -24,6 +24,7 @@ let joystickTouchId = null;
 let joystickStartX = 0;
 let joystickStartY = 0;
 const JOYSTICK_MAX_RADIUS = 50;
+const JOYSTICK_SENSITIVITY = 0.5;
 
 let startPlaneTooltipShown =
   localStorage.getItem('chill_flight_stopped_tooltip_shown') === 'true';
@@ -404,8 +405,8 @@ window.addEventListener(
 
               // Write normalized values to mouseX/mouseY
               // X: positive = right, Y: negative = down (matching computeInputPosition convention)
-              mouseX = stickX / JOYSTICK_MAX_RADIUS;
-              mouseY = -(stickY / JOYSTICK_MAX_RADIUS);
+              mouseX = (stickX / JOYSTICK_MAX_RADIUS) * JOYSTICK_SENSITIVITY;
+              mouseY = -(stickY / JOYSTICK_MAX_RADIUS) * JOYSTICK_SENSITIVITY;
               mouseControlActive = true;
               break;
             }
