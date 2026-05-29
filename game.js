@@ -1059,13 +1059,21 @@ if (cockpitUI) {
 function updatePauseMenuMusicInfo() {
   const cpEl = document.getElementById('currently-playing');
   const titleEl = document.getElementById('song-title-text');
+  const attrEl = document.getElementById('music-attribution');
+  const showMusicInfo =
+    musicEnabled && typeof getCurrentTrackName === 'function';
+
   if (cpEl && titleEl) {
-    if (musicEnabled && typeof getCurrentTrackName === 'function') {
+    if (showMusicInfo) {
       cpEl.style.display = 'block';
       titleEl.textContent = getCurrentTrackName();
     } else {
       cpEl.style.display = 'none';
     }
+  }
+
+  if (attrEl) {
+    attrEl.style.display = showMusicInfo ? 'block' : 'none';
   }
 }
 
@@ -1074,6 +1082,8 @@ if (typeof window !== 'undefined') {
   window.onTrackChange = (name) => {
     updatePauseMenuMusicInfo();
   };
+  // Initialize initial visibility based on startup state
+  updatePauseMenuMusicInfo();
 }
 
 const vehicleToggle = document.getElementById('mobile-vehicle-toggle');
