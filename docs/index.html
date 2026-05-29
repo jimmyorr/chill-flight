@@ -17,9 +17,9 @@
 
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
-    <script type="module" crossorigin src="./assets/main-BoMtT55Q.js"></script>
+    <script type="module" crossorigin src="./assets/main-DoEJcp4H.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/main-o8ExmTKr.js">
-    <link rel="stylesheet" crossorigin href="./assets/main-BQKE9wag.css">
+    <link rel="stylesheet" crossorigin href="./assets/main-BwlpV5Uq.css">
   </head>
 
   <body>
@@ -51,31 +51,11 @@
         <div class="customization-split">
           <div class="customization-row">
             <span class="customization-label">Graphics</span>
-            <select id="quality-select" class="customization-input">
-              <option value="20">Low</option>
-              <option value="40" selected>Mid</option>
-              <option value="80">High</option>
-              <option value="120">Ultra</option>
-            </select>
-          </div>
-          <div class="customization-row">
-            <span class="customization-label">View distance</span>
-            <select id="distance-select" class="customization-input">
-              <option value="1">Short</option>
-              <option value="2" selected>Medium</option>
-              <option value="3">Long</option>
-              <option value="4">Extreme</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="customization-split">
-          <div class="customization-row">
-            <span class="customization-label">Frame rate</span>
-            <select id="fps-select" class="customization-input">
-              <option value="0">Uncapped</option>
-              <option value="60" selected>60 FPS</option>
-              <option value="30">30 FPS</option>
+            <select id="graphics-preset-select" class="customization-input">
+              <option value="low">Low</option>
+              <option value="mid" selected>Mid</option>
+              <option value="high">High</option>
+              <option value="ultra">Ultra</option>
             </select>
           </div>
           <div
@@ -101,23 +81,24 @@
                 >Invert y axis</label
               >
             </div>
-            <div
-              class="customization-row horizontal"
-              id="gyro-container"
-              style="height: 38px; display: none"
+          </div>
+        </div>
+
+        <div id="control-scheme-toggle" style="display: none">
+          <span class="customization-label">Controls</span>
+          <div class="scheme-btn-group">
+            <button class="scheme-btn" data-scheme="touch">Touch</button>
+            <button class="scheme-btn active" data-scheme="joystick">
+              Joystick
+            </button>
+            <button
+              class="scheme-btn"
+              data-scheme="gyro"
+              id="gyro-scheme-btn"
+              style="display: none"
             >
-              <input
-                type="checkbox"
-                id="gyro-input"
-                class="customization-checkbox"
-              />
-              <label
-                for="gyro-input"
-                class="customization-label"
-                style="margin-bottom: 0; cursor: pointer"
-                >Gyro</label
-              >
-            </div>
+              Gyro
+            </button>
           </div>
         </div>
 
@@ -140,6 +121,7 @@
         <span id="song-title-text" style="color: #3498db"></span>
       </div>
       <div
+        id="music-attribution"
         class="pause-metadata"
         style="
           margin-top: 5px;
@@ -200,6 +182,33 @@
           </div>
           <div id="splash-btn-container" class="splash-fade-item hidden">
             <button id="begin-btn" class="btn">S T A R T</button>
+            <div
+              id="loading-music-attribution"
+              class="pause-metadata"
+              style="
+                position: absolute;
+                bottom: 24px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 11px;
+                color: rgba(255, 255, 255, 0.4);
+                font-family: inherit;
+                letter-spacing: 1px;
+                margin: 0;
+                white-space: nowrap;
+              "
+            >
+              Music by
+              <a
+                href="#"
+                onclick="
+                  window.openExternalLink('https://purrplecat.com');
+                  return false;
+                "
+                style="color: #3498db; text-decoration: none"
+                >Purrple Cat</a
+              >
+            </div>
           </div>
         </div>
       </div>
@@ -255,6 +264,11 @@
           >
         </div>
       </div>
+    </div>
+
+    <!-- Virtual Joystick (Outside transform parent for correct position: fixed rendering) -->
+    <div id="virtual-joystick-base" class="joystick-hidden">
+      <div id="virtual-joystick-stick"></div>
     </div>
 
     <!-- mobile flight controls -->
