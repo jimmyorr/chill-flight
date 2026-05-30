@@ -399,20 +399,38 @@
     // --- LARGE ISLANDS LOGIC (East) ---
     if (x > 3000 && biome < -0.1) {
       const islandRegion = simplex.noise2D(x * 0.0001 + 500, z * 0.0001 + 500);
-      if (islandRegion > 0.2) {
+      // 0.1 keeps plenty of open ocean, but increases cluster frequency
+      if (islandRegion > 0.1) {
+        // Domain warping to create organic, jagged coastlines instead of round blobs
+        const warpX = simplex.noise2D(x * 0.0005, z * 0.0005) * 500;
+        const warpZ = simplex.noise2D(x * 0.0005 + 100, z * 0.0005 + 100) * 500;
+
         const islandShape = simplex.noise2D(
-          x * 0.0003 + 1000,
-          z * 0.0003 + 1000
+          (x + warpX) * 0.0003 + 1000,
+          (z + warpZ) * 0.0003 + 1000
         );
-        if (islandShape > -0.1) {
+
+        // -0.2 makes the islands slightly larger within their clusters
+        if (islandShape > -0.2) {
           const eastIntensity = Math.min(1, (x - 3000) / 7000);
-          const shapeFactor = Math.max(0, islandShape + 0.1);
+          const shapeFactor = Math.max(0, islandShape + 0.2);
           const heightFactor =
-            shapeFactor * (islandRegion - 0.2) * eastIntensity;
+            shapeFactor * (islandRegion - 0.1) * eastIntensity;
+
           if (heightFactor > 0) {
-            let islandHeight = heightFactor * 800;
+            // Add ridged noise for jagged peaks
+            const ridgeNoise =
+              1.0 - Math.abs(simplex.noise2D(x * 0.001, z * 0.001));
+            const ruggedness = ridgeNoise * ridgeNoise; // Sharpen ridges
+
+            // Base height + mountain peaks
+            let islandHeight = heightFactor * 600; // Base land
+            islandHeight += ruggedness * 1200 * heightFactor; // Sharp peaks
+
+            // Small scale surface roughness
             islandHeight +=
-              simplex.noise2D(x * 0.002, z * 0.002) * 80 * heightFactor;
+              simplex.noise2D(x * 0.003, z * 0.003) * 150 * heightFactor;
+
             n += islandHeight;
           }
         }
