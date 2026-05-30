@@ -17,7 +17,7 @@
 
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
-    <script type="module" crossorigin src="./assets/main-Bsq0tRNY.js"></script>
+    <script type="module" crossorigin src="./assets/main-CnTXN-bQ.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/main-o8ExmTKr.js">
     <link rel="stylesheet" crossorigin href="./assets/main-Bj55lGWZ.css">
   </head>
@@ -593,7 +593,9 @@
         >
           SKY COLORS:
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px">
+        <div
+          style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px"
+        >
           <div>
             <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px">
               Zenith
@@ -605,6 +607,24 @@
                 width: 100%;
                 height: 16px;
                 cursor: pointer;
+                border: none;
+                background: none;
+                padding: 0;
+              "
+            />
+          </div>
+          <div>
+            <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px">
+              Day Blue
+            </div>
+            <input
+              type="color"
+              id="sky-day-picker"
+              disabled
+              style="
+                width: 100%;
+                height: 16px;
+                cursor: not-allowed;
                 border: none;
                 background: none;
                 padding: 0;
