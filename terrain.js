@@ -1063,7 +1063,7 @@ lighthouseBeamGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 const lighthouseBeamMat = new THREE.MeshBasicMaterial({
   vertexColors: true,
   transparent: true,
-  opacity: 0.8,
+  opacity: LIGHTHOUSE_BEAM_OPACITY_MAX,
   blending: THREE.AdditiveBlending,
   side: THREE.DoubleSide,
   depthWrite: false,
@@ -1082,7 +1082,7 @@ window.initLighthouse = function () {
     3000,
     Math.PI / 6,
     0.8,
-    1
+    2
   );
   scene.add(persistentLighthouseLight);
   scene.add(persistentLighthouseLight.target);
@@ -2856,7 +2856,7 @@ function generateChunk(chunkX, chunkZ) {
           pos.y + beamHeight - 30,
           pos.z + worldOffsetZ + Math.cos(pos.rotY) * 200
         );
-        persistentLighthouseLight.intensity = 25;
+        persistentLighthouseLight.intensity = LIGHTHOUSE_LIGHT_INTENSITY;
 
         // Store in userData for game.js to animate!
         group.userData.lighthouseLight = persistentLighthouseLight;

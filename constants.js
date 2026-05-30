@@ -7,6 +7,11 @@ const MOUNTAIN_LEVEL = 180;
 let RENDER_DISTANCE = 2;
 const CLOUD_OPACITY = 0.55;
 
+// Lighthouse parameters
+const LIGHTHOUSE_LIGHT_INTENSITY = 3.5;
+const LIGHTHOUSE_BEAM_OPACITY_MIN = 0.08;
+const LIGHTHOUSE_BEAM_OPACITY_MAX = 0.25;
+
 // Custom Map Parameters
 const MAP_WORLD_SIZE = 10000 * ChillFlightLogic.SCALE;
 const MAP_HEIGHT_SCALE = 400;

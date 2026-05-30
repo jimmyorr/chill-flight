@@ -3806,7 +3806,10 @@ function animate() {
       beam.visible = fadeFactor > 0;
 
       if (beam.visible) {
-        const baseOpacity = 0.5 + Math.sin(performance.now() * 0.002) * 0.3; // Slower pulsing
+        const baseOpacity =
+          LIGHTHOUSE_BEAM_OPACITY_MIN +
+          (Math.sin(performance.now() * 0.002) * 0.5 + 0.5) *
+            (LIGHTHOUSE_BEAM_OPACITY_MAX - LIGHTHOUSE_BEAM_OPACITY_MIN);
         beam.material.opacity = baseOpacity * fadeFactor;
       }
 
@@ -3826,7 +3829,7 @@ function animate() {
             light.position.y - Math.sin(beam.rotation.x) * distance, // Account for downward tilt
             light.position.z + Math.cos(beam.rotation.y) * distance
           );
-          light.intensity = 25 * fadeFactor;
+          light.intensity = LIGHTHOUSE_LIGHT_INTENSITY * fadeFactor;
         } else {
           light.intensity = 0;
         }
