@@ -30,3 +30,10 @@
 ## Location reporting rules
 
 - **Always report locations in both units and lat/long**: Whenever identifying, referencing, or reporting a landmark, biome boundary, or coordinates in the game world, always specify the location in both in-game coordinate units (e.g., `X = -3000`, `Z = 5000`) and latitude/longitude format (e.g., `0.6 West`, `1.0 South`).
+
+## Release notes generation
+
+- **Release notes command**: When the user requests you to generate release notes (e.g., by saying "generate release notes" or after running `npm run release`), review the git commit history since the last version bump.
+- **Append to RELEASE_NOTES.md**: Write the new release notes directly to the top of `RELEASE_NOTES.md`.
+- **Length limit**: Each version entry MUST be kept concise and explicitly limited to a maximum of **500 characters** per entry.
+- **Formatting**: Use sentence case for bullet points. Group changes into bolded categories (e.g., `* **Controls:** Added ...`).
