@@ -2217,14 +2217,22 @@ function animate() {
   timeOfDay = currentWarpedProgress * Math.PI * 2;
 
   if (window.manualTimeOfDay !== undefined) {
+    if (daySpeedMultiplier > 0) {
+      window.manualTimeOfDay +=
+        (delta * daySpeedMultiplier) / (CYCLE_DURATION_MS / 1000);
+      if (window.manualTimeOfDay > 1.0) window.manualTimeOfDay -= 1.0;
+    }
     timeOfDay = window.manualTimeOfDay * Math.PI * 2;
     currentWarpedProgress = window.manualTimeOfDay;
   }
 
-  // Update slider UI if not manual
+  // Update slider UI if not manual, or if manual but time is flowing
   const timeSlider = document.getElementById('debug-time-slider');
   const timeSliderVal = document.getElementById('debug-time-val');
-  if (timeSlider && window.manualTimeOfDay === undefined) {
+  if (
+    timeSlider &&
+    (window.manualTimeOfDay === undefined || daySpeedMultiplier > 0)
+  ) {
     timeSlider.value = currentWarpedProgress;
     if (timeSliderVal) {
       const hours = currentWarpedProgress * 24;
@@ -4140,7 +4148,7 @@ function animate() {
     }
 
     _uncloudedSkyColor.lerp(localDaySky, dayFactor * (1.0 - dawnDuskFactor));
-    
+
     if (dayPicker) {
       const hex = '#' + localDaySky.getHexString();
       if (dayPicker.value !== hex) dayPicker.value = hex;
@@ -5174,6 +5182,15 @@ const timeSliderVal = document.getElementById('debug-time-val');
 if (timeSlider) {
   timeSlider.addEventListener('input', (e) => {
     window.manualTimeOfDay = parseFloat(e.target.value);
+
+    // Automatically pause time so the user can observe the time they set
+    document
+      .querySelectorAll('.speed-btn')
+      .forEach((b) => b.classList.remove('active'));
+    const zeroBtn = document.querySelector('.speed-btn[data-speed="0"]');
+    if (zeroBtn) zeroBtn.classList.add('active');
+    daySpeedMultiplier = 0;
+
     if (timeSliderVal) {
       const hours = window.manualTimeOfDay * 24;
       const hh = Math.floor(hours).toString().padStart(2, '0');
