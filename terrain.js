@@ -153,7 +153,7 @@ const cloudGeo = new THREE.BoxGeometry(1, 1, 1);
 const cloudMat = createMaterial({
   color: 0xffffff,
   transparent: !_isLowQualityInitial,
-  opacity: _isLowQualityInitial ? 1.0 : 0.85,
+  opacity: _isLowQualityInitial ? 1.0 : CLOUD_OPACITY,
   flatShading: true,
   roughness: 1.0,
 });
@@ -201,6 +201,10 @@ cloudMat.onBeforeCompile = (shader) => {
         // Base tint for the bottom (slightly darker, subtle blue/grey for scattering)
         vec3 aoColor = vec3(0.65, 0.75, 0.85); 
         diffuseColor.rgb *= mix(aoColor, vec3(1.0), cloudYNorm);
+        
+        #ifndef OPAQUE
+        diffuseColor.a = opacity;
+        #endif
         `
   );
 };

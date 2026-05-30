@@ -5,6 +5,7 @@ let SEGMENTS = 40;
 const WATER_LEVEL = 40;
 const MOUNTAIN_LEVEL = 180;
 let RENDER_DISTANCE = 2;
+const CLOUD_OPACITY = 0.55;
 
 // Custom Map Parameters
 const MAP_WORLD_SIZE = 10000 * ChillFlightLogic.SCALE;

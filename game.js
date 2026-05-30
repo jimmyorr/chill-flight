@@ -1197,7 +1197,7 @@ function applyGraphicsPreset(preset) {
     waterMaterial.needsUpdate = true;
 
     cloudMat.transparent = !isLow;
-    cloudMat.opacity = isLow ? 1.0 : 0.85;
+    cloudMat.opacity = isLow ? 1.0 : CLOUD_OPACITY;
     cloudMat.needsUpdate = true;
   }
 
