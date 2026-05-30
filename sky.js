@@ -131,8 +131,9 @@ const skyFragmentShader = `
             // Project onto the upper-sky dome using the xz plane
             vec2 auv = dir.xz / (h + 0.1);
 
-            float tSlow = uTime * 0.04;
-            float tMed  = uTime * 0.08;
+            // Speed up the animation so the aurora visibly dances and pulses in real time
+            float tSlow = uTime * 0.40;
+            float tMed  = uTime * 0.80;
 
             // Organic UV warp: gives the curtains a natural flowing twist
             float warp = fbm(auv * 0.9 + vec2(tSlow * 0.6, tSlow * 0.35));
