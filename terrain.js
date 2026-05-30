@@ -1464,6 +1464,12 @@ const _colorPlainsBright = new THREE.Color(0xbdb76b);
 const _colorCliffSouth = new THREE.Color(0x8b3a3a);
 const _colorVolcanoBasaltHi = new THREE.Color(0x5c5c5c);
 const _colorVolcanoBasaltLo = new THREE.Color(0x3a3a3a);
+// Extreme zone palette — alien, surreal colors blended in beyond 5 degrees E/W
+const _colorExtremeLowland = new THREE.Color(0x1a4d3a); // Deep teal (bioluminescent jungle floor)
+const _colorExtremeRock = new THREE.Color(0x1a0a2e); // Obsidian purple-black
+const _colorExtremePeak = new THREE.Color(0xc8f000); // Acid yellow-green peak
+const _colorExtremeCliff = new THREE.Color(0x4b0082); // Deep indigo cliff face
+const _colorExtremeWater = new THREE.Color(0x00ffe7); // Neon cyan water
 
 function generateChunk(chunkX, chunkZ) {
   const group = new THREE.Group();
@@ -1579,6 +1585,17 @@ function generateChunk(chunkX, chunkZ) {
 
       // 3. High-frequency micro-grain
       const grain = simplex.noise2D(worldX * 0.2, worldZ * 0.2) * 0.05;
+
+      // --- EXTREME ZONE FACTOR (East/West beyond 5 degrees) ---
+      const extremeEdgeWorld = 25000;
+      const absWorldX = Math.abs(worldX);
+      const extremeZoneFactor = Math.max(
+        0,
+        Math.min(1, (absWorldX - extremeEdgeWorld) / 10000)
+      );
+      // Smoothstep for a less abrupt transition
+      const extremeBlend =
+        extremeZoneFactor * extremeZoneFactor * (3 - 2 * extremeZoneFactor);
 
       // --- BIOME FACTORS ---
       const northInfluence = Math.max(0, -worldZ / 4500);
@@ -1791,6 +1808,27 @@ function generateChunk(chunkX, chunkZ) {
             _tempColorObj.lerp(_colorPlainsDark, mottle * 0.4);
             if (mottle > 0.8) _tempColorObj.lerp(_colorPlainsBright, 0.3);
           }
+        }
+      }
+
+      // --- EXTREME ZONE COLOR BLEND ---
+      // Gradually paint alien colors over whatever biome is underneath,
+      // so the transition feels organic rather than a hard cut.
+      if (extremeBlend > 0) {
+        if (height <= WATER_LEVEL) {
+          // Neon cyan alien ocean
+          _tempColorObj.lerp(_colorExtremeWater, extremeBlend * 0.85);
+        } else if (height > MOUNTAIN_LEVEL) {
+          // Acid yellow / indigo cliffs
+          const peakFrac = Math.min(1, (height - MOUNTAIN_LEVEL) / 400);
+          _tempColorObj.lerp(_colorExtremeCliff, extremeBlend * 0.7);
+          _tempColorObj.lerp(_colorExtremePeak, extremeBlend * peakFrac * 0.9);
+        } else {
+          // Mid-elevation: obsidian rock on slopes, teal lowland flat areas
+          _tempColorObj.lerp(
+            slopeFactor > 0.4 ? _colorExtremeRock : _colorExtremeLowland,
+            extremeBlend * 0.75
+          );
         }
       }
 

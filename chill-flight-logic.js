@@ -639,7 +639,63 @@
       n = _lerp(n, WATER_LEVEL - 2, riverFactor);
     }
 
+    // --- EXTREME TERRAIN (Beyond 5 degrees East or West) ---
+    // As the player ventures beyond |x| = 25000 (5 degrees), terrain becomes
+    // increasingly alien: domain-warped, towering, canyon-carved, and surreal.
+    const extremeEdge = 25000;
+    const absx = Math.abs(x);
+    if (absx > extremeEdge) {
+      // extremeFactor: 0 at the threshold, grows to 1.0 as you fly further.
+      const extremeFactor = Math.min(1.0, (absx - extremeEdge) / 15000);
+      // Smoothstep so it eases in rather than snapping on
+      const ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
+
+      // --- 1. DOMAIN WARPING ---
+      // Warp the sampling coordinates so noise reads from a twisted space,
+      // creating swirling, non-axis-aligned ridges that look genuinely alien.
+      const warpStrength = ef * 3000;
+      const wx1 = simplex.noise2D(x * 0.0002, z * 0.0002 + 77.3) * warpStrength;
+      const wz1 = simplex.noise2D(x * 0.0002 + 33.1, z * 0.0002) * warpStrength;
+      const wx2 =
+        simplex.noise2D((x + wx1) * 0.00015, (z + wz1) * 0.00015 + 11.5) *
+        warpStrength *
+        0.5;
+      const wz2 =
+        simplex.noise2D((x + wx1) * 0.00015 + 55.2, (z + wz1) * 0.00015) *
+        warpStrength *
+        0.5;
+      const xw = x + wx1 + wx2;
+      const zw = z + wz1 + wz2;
+
+      // --- 2. HIGHLANDS vs. LOWLANDS ---
+      // broadBase [-1, 1] decides whether this spot is a towering peak (positive)
+      // or an alien sea basin (negative). This is the key to creating water.
+      const broadBase = simplex.noise2D(xw * 0.0003, zw * 0.0003);
+
+      if (broadBase > 0) {
+        // HIGHLAND: add ridged peaks on top
+        const ridge1 = 1.0 - Math.abs(simplex.noise2D(xw * 0.0006, zw * 0.0006));
+        const ridge2 = 1.0 - Math.abs(simplex.noise2D(xw * 0.0012, zw * 0.0012));
+        const ridgeVal = ridge1 * 0.6 + ridge2 * 0.25 + broadBase * 0.15;
+        // Max ~600 extra height — dramatic but not floating-chunk territory
+        n += ridgeVal * 600 * ef;
+      } else {
+        // LOWLAND BASIN: lerp n down toward water level so alien seas appear.
+        // The deeper broadBase goes negative, the more aggressively we flood the basin.
+        const basinDepth = Math.min(1, -broadBase * 2.5); // [0, 1]
+        const basinSmooth = basinDepth * basinDepth * (3 - 2 * basinDepth); // smoothstep
+        // Pull terrain all the way down to water level (or slightly below for depth)
+        n = n + (WATER_LEVEL - 5 - n) * basinSmooth * ef;
+      }
+
+      // Re-clamp so we don't dip below ocean floor
+      if (n < WATER_LEVEL) n = WATER_LEVEL;
+    }
+
+
+
     // Final water level clamp
+
     if (n < WATER_LEVEL) {
       n = WATER_LEVEL;
     }
