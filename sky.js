@@ -402,9 +402,11 @@ const sunMoonVertShader = `
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vViewPosition;
+    varying vec3 vObjectNormal;
     void main() {
         vUv = uv;
         vNormal = normalize(normalMatrix * normal);
+        vObjectNormal = normal;
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
         vViewPosition = -mvPosition.xyz;
         gl_Position = projectionMatrix * mvPosition;
@@ -478,6 +480,7 @@ const moonFragShader = `
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vViewPosition;
+    varying vec3 vObjectNormal;
 
     vec2 random2(vec2 p) {
         return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453);
@@ -510,10 +513,12 @@ const moonFragShader = `
         vec3 color = mix(darkCol, baseCol, smoothstep(0.3, 0.7, n));
         
         vec3 normal = normalize(vNormal);
+        vec3 objNormal = normalize(vObjectNormal);
+        
         float phaseAngle = moonPhase * 6.283185307;
         vec3 lightDir = normalize(vec3(sin(phaseAngle), 0.0, cos(phaseAngle)));
         
-        float illum = dot(normal, lightDir);
+        float illum = dot(objNormal, lightDir);
         float phaseMask = smoothstep(-0.05, 0.05, illum);
         
         // Earthshine is basically invisible, just a tiny bit of opacity
