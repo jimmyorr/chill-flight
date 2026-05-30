@@ -1057,6 +1057,39 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+window.addEventListener(
+  'wheel',
+  (e) => {
+    if (isPaused || isFreeCamera) return;
+
+    // Use e.deltaY to scale the throttle change.
+    // This handles both fast trackpad scrolls (many small deltas)
+    // and standard mouse wheels (few large deltas, e.g. 100 per notch).
+    // e.deltaY > 0 -> scrolling down -> throttle down
+    // e.deltaY < 0 -> scrolling up -> throttle up
+    const throttleDelta = -e.deltaY * 0.005;
+
+    const isBoatOrBuggy = vehicleType === 'boat' || vehicleType === 'buggy';
+    const maxSpeed = isBoatOrBuggy
+      ? 0.66
+      : window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335;
+    const minSpeed = isBoatOrBuggy ? -0.33 : 0;
+
+    targetFlightSpeed += throttleDelta;
+
+    // Snap to 0 if very close to avoid creeping
+    if (Math.abs(targetFlightSpeed) < 0.05) {
+      targetFlightSpeed = 0;
+    }
+
+    targetFlightSpeed = Math.max(
+      minSpeed,
+      Math.min(maxSpeed, targetFlightSpeed)
+    );
+  },
+  {passive: true}
+);
+
 document.getElementById('resume-btn').addEventListener('click', () => {
   togglePause();
 });
