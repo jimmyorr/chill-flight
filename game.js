@@ -2695,7 +2695,9 @@ function animate() {
         } else {
           isDoingImmelmann = false;
           // Snap the Euler rotation to a clean upright heading
-          const forward = new THREE.Vector3(0, 0, -1).applyEuler(planeGroup.rotation);
+          const forward = new THREE.Vector3(0, 0, -1).applyEuler(
+            planeGroup.rotation
+          );
           const newYaw = Math.atan2(-forward.x, -forward.z);
           planeGroup.rotation.set(0, newYaw, 0, 'YXZ');
         }
@@ -2723,12 +2725,7 @@ function animate() {
             0.05 * delta * 60
           );
           isLooping = true;
-        } else if (
-          isDown &&
-          ttDown &&
-          !keys.Shift &&
-          !isDoingImmelmann
-        ) {
+        } else if (isDown && ttDown && !keys.Shift && !isDoingImmelmann) {
           // Triple-tap down: Immelmann turn (automatic maneuver, no hold required)
           isDoingImmelmann = true;
           immelmannProgress = 0;

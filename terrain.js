@@ -3111,6 +3111,7 @@ function generateChunk(chunkX, chunkZ) {
         cloudMat,
         cloudData.length
       );
+      cloudInst.frustumCulled = false;
       cloudData.forEach((data, index) => {
         dummy.position.set(data.x, data.y, data.z);
         dummy.scale.set(data.sx, data.sy, data.sz);
