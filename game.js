@@ -2035,6 +2035,7 @@ let targetPaletteTop = new THREE.Color(selectedPalette.top);
 let targetPaletteBottom = new THREE.Color(selectedPalette.bottom);
 
 const zenithPicker = document.getElementById('sky-zenith-picker');
+const dayPicker = document.getElementById('sky-day-picker');
 const horizonPicker = document.getElementById('sky-horizon-picker');
 
 function updateColorPickers(palette) {
@@ -4139,6 +4140,11 @@ function animate() {
     }
 
     _uncloudedSkyColor.lerp(localDaySky, dayFactor * (1.0 - dawnDuskFactor));
+    
+    if (dayPicker) {
+      const hex = '#' + localDaySky.getHexString();
+      if (dayPicker.value !== hex) dayPicker.value = hex;
+    }
     _uncloudedFogColor.copy(_uncloudedSkyColor);
 
     // Warm up the directional light during golden hour
