@@ -55,6 +55,9 @@ The world is organized around a central coordinate system (0,0) where latitude (
   - **Vegetation:** Palm trees (#689F38) are found exclusively along these coasts.
   - **Maritime:** Sailboats.
 
+> [!NOTE]
+> **Dynamic Coastlines:** Across all biomes, wherever the procedural water intersects with the land, the water's color dynamically blends into a white foam (#EEEEEE) to simulate natural shorelines and river banks.
+
 ## Weather
 
 Weather is dynamic and procedural, tied to a global noise map and the player's latitude.
