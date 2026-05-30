@@ -160,10 +160,14 @@ const cloudMat = createMaterial({
 
 cloudMat.onBeforeCompile = (shader) => {
   shader.uniforms.uTime = window.waterUniforms.uTime;
+  shader.uniforms.uSunDirection = window.waterUniforms.uSunDirection;
+  shader.uniforms.uSunColor = window.waterUniforms.uSunColor;
+
   shader.vertexShader =
     `
         uniform float uTime;
         varying float vLocalY;
+        varying vec3 vWorldNormal;
     ` + shader.vertexShader;
   shader.vertexShader = shader.vertexShader.replace(
     `#include <project_vertex>`,
@@ -177,8 +181,10 @@ cloudMat.onBeforeCompile = (shader) => {
             mat4 modInstanceMatrix = instanceMatrix;
             modInstanceMatrix[3].x = mod(modInstanceMatrix[3].x + drift + 1000.0, 2000.0) - 1000.0;
             mvPosition = modInstanceMatrix * mvPosition;
+            vWorldNormal = normalize((modInstanceMatrix * vec4(normal, 0.0)).xyz);
         #else
             mvPosition.x = mod(mvPosition.x + drift + 1000.0, 2000.0) - 1000.0;
+            vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
         #endif
 
         mvPosition = modelViewMatrix * mvPosition;
@@ -188,19 +194,41 @@ cloudMat.onBeforeCompile = (shader) => {
 
   shader.fragmentShader =
     `
+        uniform vec3 uSunDirection;
+        uniform vec3 uSunColor;
         varying float vLocalY;
+        varying vec3 vWorldNormal;
     ` + shader.fragmentShader;
 
-  // Tint darker towards the bottom (-0.5). Top is 0.5.
   shader.fragmentShader = shader.fragmentShader.replace(
     `#include <color_fragment>`,
     `
         #include <color_fragment>
-        // map vLocalY (-0.5 to 0.5) to a 0.0 - 1.0 range
+        
         float cloudYNorm = clamp(vLocalY + 0.5, 0.0, 1.0);
-        // Base tint for the bottom (slightly darker, subtle blue/grey for scattering)
-        vec3 aoColor = vec3(0.65, 0.75, 0.85); 
-        diffuseColor.rgb *= mix(aoColor, vec3(1.0), cloudYNorm);
+        
+        // 1. Ambient Sky Light (Blueish shadow core)
+        vec3 aoColor = vec3(0.55, 0.65, 0.85); 
+        vec3 baseAmbient = mix(aoColor, vec3(1.0), cloudYNorm);
+        
+        // 2. Sun Directional Light
+        // How much is the face pointing towards the sun?
+        float sunIncidence = max(0.0, dot(vWorldNormal, normalize(uSunDirection)));
+        
+        // 3. Subsurface Scattering / Under-lighting
+        // Sun hits the bottom and bleeds through. Very intense during sunset.
+        float sunElevation = max(0.0, uSunDirection.y);
+        float sunsetFactor = pow(1.0 - sunElevation, 3.0); // 1.0 at sunset, 0.0 at noon
+        
+        // The bottom gets a HUGE boost of sun color during sunset
+        float underLight = (1.0 - cloudYNorm) * sunsetFactor;
+        
+        // Combine lighting
+        vec3 finalLight = baseAmbient;
+        finalLight += uSunColor * sunIncidence * 0.8; // Direct sunlight
+        finalLight += uSunColor * underLight * 1.5;   // Sunset underglow
+        
+        diffuseColor.rgb *= finalLight;
         
         #ifndef OPAQUE
         diffuseColor.a = opacity;

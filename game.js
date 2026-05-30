@@ -1976,7 +1976,7 @@ const _dirArrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
 // Optimization: Pre-allocate colors for sky gradients
 const _uncloudedSkyColor = new THREE.Color();
 const _uncloudedFogColor = new THREE.Color();
-const _daySky = new THREE.Color(0x87ceeb);
+const _daySky = new THREE.Color(0x4ca1f0); // Azure blue
 const _sunriseSky = new THREE.Color();
 const _goldenSky = new THREE.Color();
 const _sunsetSky = new THREE.Color();

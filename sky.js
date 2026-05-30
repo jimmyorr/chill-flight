@@ -65,42 +65,62 @@ const skyFragmentShader = `
         // Calculate sun influence (0 to 1) based on direction
         float sunIntensity = max(0.0, dot(dir, sunDirection));
         
-        // Base glow used for the general atmospheric scattering (horizon muting)
+        // Base atmospheric scattering glow
         float glow = pow(sunIntensity, glowPower);
         
-        // Tighter highlight specifically for the intense sun bloom
-        float sunHighlight = pow(sunIntensity, glowPower * 4.0);
+        // Mute the bottom color when away from the sun for realistic horizon falloff
+        vec3 effectiveBottom = mix(topColor * 0.7, bottomColor, glow * mieFactor + (1.0 - mieFactor));
         
-        // Mute the bottom color when away from the sun
-        // When away, the horizon looks more like the topColor or a neutral fade
-        vec3 effectiveBottom = mix(topColor * 0.8, bottomColor, glow * mieFactor + (1.0 - mieFactor));
-        
-        // Base vertical gradient using the potentially muted bottom color
+        // Base vertical gradient
         vec3 col = mix(effectiveBottom, topColor, max(pow(max(h, 0.0), exponent), 0.0));
         
-        // Additional sun glow boost
-        // We use a screen blend with the tighter sun highlight to warmly brighten the sky
-        // without harsh clamping to white, preserving the palette's beautiful colors.
-        vec3 glowColor = bottomColor * sunHighlight * 0.8 * (1.0 - h);
-        col = col + glowColor * (vec3(1.0) - col); // Screen blend
+        // --- STUNNING SUN BLOOM ---
+        // 1. Wide, soft atmospheric scattering (takes on the sunset's bottomColor)
+        vec3 wideGlow = bottomColor * pow(sunIntensity, 6.0) * 0.6 * (1.0 - h);
+        // 2. Warm fiery mid-halo
+        vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(sunIntensity, 24.0) * 0.8;
+        // 3. Intense hot core (bright golden-white, tighter)
+        vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(sunIntensity, 512.0) * 2.5;
+        // Screen blend the bloom so it brightens beautifully without blowing out completely
+        vec3 totalGlow = wideGlow + warmHalo + hotCore;
+        col = col + totalGlow * (vec3(1.0) - col);
         
-        // Procedural Clouds: Expensive 4-octave fBm loop is skipped on Low graphics
+        // --- VOLUMETRIC PROCEDURAL CLOUDS ---
         if (uShowClouds && h > 0.0) {
             vec2 cloudUV = dir.xz / (h + 0.05);
-            vec2 drift = vec2(uTime * 0.1, 0.0);
+            vec2 drift = vec2(uTime * 0.03, uTime * 0.015);
             
-            float n = fbm((cloudUV + drift) * 2.5);
+            // Primary cloud shape noise
+            float n = fbm((cloudUV + drift) * 2.0);
             
             float densityOffset = (uCloudDensity - 0.5) * 0.4;
-            float cloudAlpha = smoothstep(0.4 - densityOffset, 0.7 - densityOffset, n);
-            
+            float cloudAlpha = smoothstep(0.4 - densityOffset, 0.75 - densityOffset, n);
             cloudAlpha *= smoothstep(0.0, 0.15, h); // fade at horizon
             
-            float cloudSunGlow = pow(sunIntensity, 2.0);
-            vec3 cloudBaseColor = mix(topColor * 1.2, bottomColor * 1.5, cloudSunGlow * (1.0 - h));
-            vec3 cloudColor = mix(cloudBaseColor, bottomColor * 2.0, sunHighlight * 0.8);
-            
-            col = mix(col, cloudColor, cloudAlpha * 0.9);
+            if (cloudAlpha > 0.0) {
+                // Faux Self-Shadowing: Sample noise slightly offset away from the sun
+                vec2 sunDir2D = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
+                float n_offset = fbm((cloudUV + drift + sunDir2D * 0.06) * 2.0);
+                
+                // If the offset density is lower, we are on the lit edge facing the sun.
+                float litEdge = smoothstep(0.1, -0.1, n_offset - n);
+                
+                // Deep, moody shadows for the cloud cores
+                vec3 shadowColor = mix(topColor * 0.5, vec3(0.15, 0.15, 0.2), 0.5);
+                
+                // Fiery sunlit edges
+                float sunProximity = pow(sunIntensity, 3.0);
+                vec3 brightEdgeColor = mix(vec3(0.9, 0.9, 0.95), bottomColor * 2.0, sunProximity);
+                
+                // Combine shadow and edge
+                vec3 cloudColor = mix(shadowColor, brightEdgeColor, litEdge);
+                
+                // Add an intense rim light directly around the sun
+                float sunRim = pow(sunIntensity, 16.0) * litEdge;
+                cloudColor += bottomColor * sunRim * 2.0;
+                
+                col = mix(col, cloudColor, cloudAlpha * 0.9);
+            }
         }
 
         // --- AURORA BOREALIS ---
@@ -610,6 +630,7 @@ const sunMat = new THREE.ShaderMaterial({
   fog: false,
 });
 const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+sunMesh.visible = false; // Hide physical sun mesh to rely completely on the stunning volumetric shader bloom
 skyGroup.add(sunMesh);
 
 const sunGlowGeo = new THREE.PlaneGeometry(800, 800);
