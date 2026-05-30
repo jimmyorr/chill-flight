@@ -18,7 +18,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 | **Archipelago**   | East      | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000). |
 | **Lake District** | West      | Negative X (West Longitude) | Broad rolling hills, and vast inland lakes beyond X=-3000 (0.6 West).                                    |
 
-### 1. Temperate Central (The Heartland)
+### 1. Temperate central (the heartland)
 
 - **Location:** The area surrounding the equator (Z=0, 0.0 Latitude) and prime meridian (X=0, 0.0 Longitude).
 - **Landscape:** A mix of rolling plains (#7CB342) and dense deciduous forests (#388E3C).
@@ -27,7 +27,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
   - **Vegetation:** Oak-like deciduous trees and bushes.
   - **Water:** Standard sky-blue water (#40C4FF) often featuring lily pads and piers.
 
-### 2. The Frozen North
+### 2. The frozen north
 
 - **Location:** Latitude 1.5+ North (Z < -7500).
 - **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192).
@@ -37,7 +37,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
   - **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
   - **Water:** Icy, pale blue water (#88CCFF).
 
-### 3. The Arid South (Arizona Style)
+### 3. The arid south (Arizona style)
 
 - **Location:** Latitude 1.5+ South (Z > 7500).
 - **Landscape:** Reddish-orange sand (#F4A460) and deep red canyon rock (#C24B2B).
@@ -46,7 +46,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
   - **Vegetation:** Cactuses and skeletal "dead" trees.
   - **Water:** Deep turquoise tropical-style water (#00CED1).
 
-### 4. Coastal Islands (The East)
+### 4. Coastal islands (the east)
 
 - **Location:** Longitude 0.0+ East (X > 0), transitioning to full ocean and islands beyond 0.6 East (X > 3000).
 - **Landscape:** The land flattens significantly into sandy beaches before transitioning into the deep ocean.
@@ -73,9 +73,9 @@ Overcast conditions occur when the procedural cloud noise exceeds a threshold (0
 
 Storms are triggered when the global cloud noise map reaches peak density (> 0.75). The type of precipitation depends on your latitude (Z coordinate):
 
-- **The deep North** (Latitude > 0.9 North / Z < -4500): Storms intensify the already frequent snowfall.
+- **The deep north** (Latitude > 0.9 North / Z < -4500): Storms intensify the already frequent snowfall.
 - **The transition zone** (Latitude 0.7 to 0.9 North / Z between -3500 and -4500): Sleet (a mix of rain and snow).
-- **Temperate and Equator** (Latitude 0.8 South to 0.7 North / Z between 4000 and -3500): Full rain.
+- **Temperate and equator** (Latitude 0.8 South to 0.7 North / Z between 4000 and -3500): Full rain.
 - **Desert border** (Latitude 0.8 to 1.1 South / Z between 4000 and 5500): Light rain that quickly dries up as you move further south.
 - **Deep desert** (Latitude > 1.1 South / Z > 5500): Dry storms (the sky becomes overcast, but no rain falls).
 
@@ -99,63 +99,63 @@ The telemetry overlay provides real-time values for the weather system:
 
 These areas are layered on top of the primary biomes using noise-based "patches":
 
-- **Autumn Zones:** Large patches of burnt orange and red forests. These appear randomly in temperate areas, changing common trees into three varieties of autumn-foliage trees.
-- **Cherry Blossom Groves:** Rare pink-tinted forests (#F8BBD0). These are the **only** places where Pagodas will spawn.
-- **The Equator River:** A massive, meandering river that runs primarily East-West around Z=0 (0.0 Latitude). It features fluctuating widths (80 to 300 units) and smooth, carved banks.
-- **Grid Rivers:** Smaller rivers running East-West every 3 degrees (15,000 units) North and South of the equator. These feature widths of 60 to 200 units and have unique snaking patterns determined by the world seed.
+- **Autumn zones:** Large patches of burnt orange and red forests. These appear randomly in temperate areas, changing common trees into three varieties of autumn-foliage trees.
+- **Cherry blossom groves:** Rare pink-tinted forests (#F8BBD0). These are the **only** places where Pagodas will spawn.
+- **The equator river:** A massive, meandering river that runs primarily East-West around Z=0 (0.0 Latitude). It features fluctuating widths (80 to 300 units) and smooth, carved banks.
+- **Grid rivers:** Smaller rivers running East-West every 3 degrees (15,000 units) North and South of the equator. These feature widths of 60 to 200 units and have unique snaking patterns determined by the world seed.
 - **Volcano:** Located at approximately `1.0 South, 1.0 West` (X=-5000, Z=5000). This is a massive, procedural volcano featuring a wide base, ridged slopes, a caldera crater, and active visual elements like lava and smoke. The surrounding terrain is textured with dark basalt rock.
-- **Montauk Lighthouse:** Located at approximately `0.6 South, 1.2 East` (X=6000, Z=3000). This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
+- **Montauk lighthouse:** Located at approximately `0.6 South, 1.2 East` (X=6000, Z=3000). This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
 
 ## Controls
 
 Multiple control methods are supported: keyboard, mouse or trackpad, gamepad, and TV remote.
 
-### Keyboard & Mouse Controls
+### Keyboard & mouse controls
 
-#### General Flight
+#### General flight
 
-- **Arrow Up / Down**: Control pitch (Climb / Dive).
-- **Arrow Left / Right**: Control roll and turning.
-- **Shift + Arrow Up / Down**: Throttle control (Increase / Decrease speed).
-- **Mouse Wheel / Trackpad Scroll**: Smoothly adjust throttle (Increase / Decrease speed).
+- **Arrow up / down**: Control pitch (climb / dive).
+- **Arrow left / right**: Control roll and turning.
+- **Shift + arrow up / down**: Throttle control (increase / decrease speed).
+- **Mouse wheel / trackpad scroll**: Smoothly adjust throttle (increase / decrease speed).
 - **L**: Toggle headlight.
 - **Escape**: Toggle pause menu.
 
-#### Special Maneuvers
+#### Special maneuvers
 
-- **Double-Tap Arrow Up and hold**: Perform a steep climb.
-- **Triple-Tap Arrow Up and hold**: Perform a continuous loop.
-- **Double-Tap Arrow Down and hold**: Perform a steep dive.
-- **Triple-Tap Arrow Down**: Perform an Immelmann turn (loop followed by a half-roll).
-- **Double-Tap Arrow Left / Right and hold**: Perform a barrel roll.
+- **Double-tap arrow up and hold**: Perform a steep climb.
+- **Triple-tap arrow up and hold**: Perform a continuous loop.
+- **Double-tap arrow down and hold**: Perform a steep dive.
+- **Triple-tap arrow down**: Perform an Immelmann turn (loop followed by a half-roll).
+- **Double-tap arrow left / right and hold**: Perform a barrel roll.
 
-#### Free Camera Mode (if active)
+#### Free camera mode (if active)
 
-- **Arrow Keys**: Move camera horizontally.
-- **Q / E**: Move camera vertically (Down / Up).
+- **Arrow keys**: Move camera horizontally.
+- **Q / E**: Move camera vertically (down / up).
 - **Shift**: Boost camera movement speed.
 
-### Controller Support
+### Controller support
 
 Full gamepad support mapped to standard flight controls.
 
-- **Left Analog Stick**: Control pitch (Up/Down) and roll (Left/Right).
-- **Right Trigger (RT)**: Accelerate.
-- **Left Trigger (LT)**: Decelerate.
-- **Left Bumper (LB) / Right Bumper (RB)**: Control roll. Double-tap to trigger a barrel roll.
-- **D-Pad**: Mapped to arrow keys for menu navigation and alternative flight control.
-- **Button A**: Select / Enter.
-- **Start / Menu Button**: Toggle pause menu.
-- **Select / Back Button**: Toggle mobile action menu.
+- **Left analog stick**: Control pitch (up/down) and roll (left/right).
+- **Right trigger (RT)**: Accelerate.
+- **Left trigger (LT)**: Decelerate.
+- **Left bumper (LB) / right bumper (RB)**: Control roll. Double-tap to trigger a barrel roll.
+- **D-pad**: Mapped to arrow keys for menu navigation and alternative flight control.
+- **Button A**: Select / enter.
+- **Start / menu button**: Toggle pause menu.
+- **Select / back button**: Toggle mobile action menu.
 
-### TV Remote Support
+### TV remote support
 
 The game is optimized for Android TV and similar devices using a standard remote control.
 
-- **Arrow Keys**: Navigate menus and control flight.
-- **Enter / Center Button**: Select items or toggle pause (when playing).
-- **Backspace / Back Button**: Toggle pause menu or go back.
-- **Media Play / Pause**: Toggle pause menu.
+- **Arrow keys**: Navigate menus and control flight.
+- **Enter / center button**: Select items or toggle pause (when playing).
+- **Backspace / back button**: Toggle pause menu or go back.
+- **Media play / pause**: Toggle pause menu.
 
 ## Development
 
@@ -171,7 +171,7 @@ Clone the repository and install the required dependencies:
 npm install
 ```
 
-### Running Locally
+### Running locally
 
 To launch the local development server with Hot Module Replacement (HMR):
 
@@ -184,7 +184,7 @@ Once started, open `http://localhost:5173` in your browser.
 > [!NOTE]
 > During development, classic script files (e.g., `game.js`, `airplane.js`) are served unbundled to maintain original file structure mappings, enabling effortless hot-reloading and exact console log line numbers.
 
-### Production Build
+### Production build
 
 To optimize, minify, and bundle the entire codebase for deployment:
 
@@ -197,7 +197,7 @@ This builds the optimized code into the `docs/` folder (which is hosted directly
 - Third-party dependencies (`three`, `@sentry/browser`) are compiled into a shared chunk.
 - Classic legacy scripts are concatenated, minified, and outputted into a single, high-performance `docs/game-bundle.js` script.
 
-### Previewing Production Build
+### Previewing production build
 
 Since the development server (`npm run dev`) serves files dynamically from source, relative asset paths (like those requested by query parameters) will not resolve correctly when navigating directly to folders inside the dev environment.
 
@@ -209,13 +209,13 @@ npm run preview
 
 Once started, open `http://localhost:4173` in your browser. This spins up a lightweight server hosting your compiled `docs/` directory. You can test production features and parameters (such as `http://localhost:4173/?map=long-island`) flawlessly!
 
-### Version Management
+### Version management
 
 The application's version number is managed using a single-source-of-truth system centered around `package.json`.
 
 To release a new production version:
 
-- **Release Builds (`npm run release`)**: Running this command automatically bumps the patch version of the application (e.g., `0.8.7` -> `0.8.8`), builds the optimized frontend assets, and packages them inside `docs/` in a single step!
+- **Release builds (`npm run release`)**: Running this command automatically bumps the patch version of the application (e.g., `0.8.7` -> `0.8.8`), builds the optimized frontend assets, and packages them inside `docs/` in a single step!
 
 For local development compiles (including wrapper scripts like `npm run ios` and `npm run android`), standard compilation is done via `npm run build`, which compiles the assets **without** modifying any version numbers.
 
@@ -234,11 +234,11 @@ If you need to manually perform a custom version bump (e.g., for major or minor 
 
 When a build is run, the bundler reads the version and injects it dynamically into the in-game UI. The desktop build (Tauri) is also linked and will update automatically.
 
-### Native Mobile App Development (Capacitor)
+### Native mobile app development (Capacitor)
 
 This project uses **Capacitor** to build fully native apps for iOS and Android.
 
-#### Build and Run iOS App
+#### Build and run iOS app
 
 To compile the web assets, sync with the iOS project, copy multiplayer configuration files, and open Xcode:
 
@@ -246,7 +246,7 @@ To compile the web assets, sync with the iOS project, copy multiplayer configura
 npm run ios
 ```
 
-#### Build and Run Android App
+#### Build and run Android app
 
 To compile the web assets, sync with the Android project, copy Firebase configurations, and open Android Studio:
 
@@ -254,11 +254,11 @@ To compile the web assets, sync with the Android project, copy Firebase configur
 npm run android
 ```
 
-### Desktop App Development (Tauri)
+### Desktop app development (Tauri)
 
 This project uses **Tauri** to build lightweight, native desktop apps for macOS, Windows, and Linux.
 
-#### Run Desktop App in Development
+#### Run desktop app in development
 
 To run the application locally in a native desktop window with hot-reloading:
 
@@ -266,7 +266,7 @@ To run the application locally in a native desktop window with hot-reloading:
 npx tauri dev
 ```
 
-#### Build Desktop App for Production
+#### Build desktop app for production
 
 To package and compile the production desktop application:
 
