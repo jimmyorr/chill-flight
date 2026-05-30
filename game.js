@@ -4114,7 +4114,31 @@ function animate() {
       _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.6);
     }
 
-    _uncloudedSkyColor.lerp(_daySky, dayFactor * (1.0 - dawnDuskFactor));
+    // --- DYNAMIC REGIONAL DAY SKY ---
+    // Calculate local biome factors for the sky based on camera position
+    const pX = camera.position.x;
+    const pZ = camera.position.z;
+
+    // Desert (South Z > 5000)
+    const desertRaw = Math.max(0, Math.min(1, (pZ - 5000) / 3000));
+    const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
+
+    // Snow/Mountain (North Z < -5000)
+    const snowRaw = Math.max(0, Math.min(1, (-pZ - 5000) / 3000));
+    const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
+
+    // Start with default azure day sky
+    const localDaySky = new THREE.Color(_daySky);
+
+    // Blend in regional sky characteristics
+    if (desertFactor > 0) {
+      localDaySky.lerp(new THREE.Color(0x6ca3d8), desertFactor * 0.85); // Hazier, lighter blue
+    }
+    if (snowFactor > 0) {
+      localDaySky.lerp(new THREE.Color(0x1a4a8c), snowFactor * 0.85); // Deeper, crisper blue
+    }
+
+    _uncloudedSkyColor.lerp(localDaySky, dayFactor * (1.0 - dawnDuskFactor));
     _uncloudedFogColor.copy(_uncloudedSkyColor);
 
     // Warm up the directional light during golden hour
