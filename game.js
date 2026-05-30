@@ -44,6 +44,9 @@ let cinematicTimer = 0;
 let currentCinematicIndex = 0;
 let _cinematicStableHeading = 0;
 
+let isDoingImmelmann = false;
+let immelmannProgress = 0;
+
 // Intro Cinematic Transition
 let isIntroTransitionActive = false;
 let introTransitionStartTime = 0;
@@ -2583,6 +2586,7 @@ function animate() {
   const manualLoopSpeed = 2.5;
 
   if (!isFreeCamera && window.autopilotEnabled && flightSpeedMultiplier > 0) {
+    isDoingImmelmann = false;
     // 1. Maintain cruising speed (150 kts = 1.0 multiplier)
     targetFlightSpeed = 1.0;
 
@@ -2674,43 +2678,75 @@ function animate() {
     isClampedRoll = false;
   } else if (!isFreeCamera && flightSpeedMultiplier > 0) {
     if (vehicleType !== 'helicopter' && vehicleType !== 'boat') {
-      if (
-        isUp &&
-        ttUp &&
-        nowTime - startUp > STEER_HOLD_THRESHOLD &&
-        !keys.Shift
-      ) {
-        // Triple-tap up and hold: steep ascent
-        const targetAscent = (Math.PI * 60) / 180; // 60 degrees
-        planeGroup.rotation.x = THREE.MathUtils.lerp(
-          planeGroup.rotation.x,
-          targetAscent,
-          0.05 * delta * 60
-        );
-        isLooping = true;
-      } else if (
-        isUp &&
-        dtUp &&
-        nowTime - startUp > STEER_HOLD_THRESHOLD &&
-        !keys.Shift
-      ) {
-        // Double-tap up and hold: loop (Direct rotation, no trim pollution)
-        planeGroup.rotation.x += manualLoopSpeed * delta;
-        isLooping = true;
-      } else if (
-        isDown &&
-        dtDown &&
-        nowTime - startDown > STEER_HOLD_THRESHOLD &&
-        !keys.Shift
-      ) {
-        // Double-tap down and hold: steep dive
-        const targetDive = -(Math.PI * 70) / 180; // 70 degrees
-        planeGroup.rotation.x = THREE.MathUtils.lerp(
-          planeGroup.rotation.x,
-          targetDive,
-          0.05 * delta * 60
-        );
-        isLooping = true;
+      if (isDoingImmelmann) {
+        if (immelmannProgress < Math.PI) {
+          // Stage 1: Half-loop (pull up)
+          const step = manualLoopSpeed * delta;
+          planeGroup.rotation.x += step;
+          immelmannProgress += step;
+          isLooping = true;
+        } else if (immelmannProgress < Math.PI * 2) {
+          // Stage 2: Half-roll (roll upright)
+          const rollStep = manualRollSpeed * delta;
+          planeGroup.rotation.z += rollStep;
+          immelmannProgress += rollStep;
+          isLooping = true;
+          isBarrelRolling = true;
+        } else {
+          isDoingImmelmann = false;
+          // Snap the Euler rotation to a clean upright heading
+          const forward = new THREE.Vector3(0, 0, -1).applyEuler(planeGroup.rotation);
+          const newYaw = Math.atan2(-forward.x, -forward.z);
+          planeGroup.rotation.set(0, newYaw, 0, 'YXZ');
+        }
+      } else {
+        if (
+          isUp &&
+          ttUp &&
+          nowTime - startUp > STEER_HOLD_THRESHOLD &&
+          !keys.Shift
+        ) {
+          // Triple-tap up and hold: loop
+          planeGroup.rotation.x += manualLoopSpeed * delta;
+          isLooping = true;
+        } else if (
+          isUp &&
+          dtUp &&
+          nowTime - startUp > STEER_HOLD_THRESHOLD &&
+          !keys.Shift
+        ) {
+          // Double-tap up and hold: steep ascent
+          const targetAscent = (Math.PI * 60) / 180; // 60 degrees
+          planeGroup.rotation.x = THREE.MathUtils.lerp(
+            planeGroup.rotation.x,
+            targetAscent,
+            0.05 * delta * 60
+          );
+          isLooping = true;
+        } else if (
+          isDown &&
+          ttDown &&
+          !keys.Shift &&
+          !isDoingImmelmann
+        ) {
+          // Triple-tap down: Immelmann turn (automatic maneuver, no hold required)
+          isDoingImmelmann = true;
+          immelmannProgress = 0;
+        } else if (
+          isDown &&
+          dtDown &&
+          nowTime - startDown > STEER_HOLD_THRESHOLD &&
+          !keys.Shift
+        ) {
+          // Double-tap down and hold: steep dive
+          const targetDive = -(Math.PI * 70) / 180; // 70 degrees
+          planeGroup.rotation.x = THREE.MathUtils.lerp(
+            planeGroup.rotation.x,
+            targetDive,
+            0.05 * delta * 60
+          );
+          isLooping = true;
+        }
       }
     }
 
