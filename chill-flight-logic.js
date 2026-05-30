@@ -216,6 +216,9 @@
       if (x < 0) {
         const westDamp = Math.max(0, Math.min(1, 1 + x / 5000));
         mtnInf *= westDamp;
+      } else if (x > 0) {
+        const eastDamp = Math.max(0, Math.min(1, 1 - x / 5000));
+        mtnInf *= eastDamp;
       }
       biomeBase += mtnInf;
     }
