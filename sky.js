@@ -156,7 +156,10 @@ const skyFragmentShader = `
             // Soft vertical fade: aurora blends to zero right at the horizon (h=0)
             float vFade = smoothstep(0.0, 0.15, h) * smoothstep(0.72, 0.30, h);
 
-            float auroraAlpha = curtain * vFade * uAuroraIntensity;
+            // Compress the dynamic range: this makes low intensities (like 0.08) pop beautifully
+            // without letting peak storms (1.0) blow out into a blinding neon light.
+            float curvedIntensity = pow(uAuroraIntensity, 0.3);
+            float auroraAlpha = curtain * vFade * curvedIntensity;
 
             // Three-band colour gradient: green core, teal edge, purple top
             vec3 auroraGreen  = vec3(0.05, 0.90, 0.45);
@@ -169,7 +172,8 @@ const skyFragmentShader = `
             auroraColor      = mix(auroraColor, auroraViolet, smoothstep(0.58, 0.82, hueShift));
 
             // Screen blend so the aurora brightens without crushing the star field
-            vec3 auroraContrib = auroraColor * auroraAlpha * 0.85;
+            // A gentle 0.45 multiplier keeps the peak storms vivid but incredibly chill
+            vec3 auroraContrib = auroraColor * auroraAlpha * 0.45;
             col = col + auroraContrib * (vec3(1.0) - col);
         }
 
