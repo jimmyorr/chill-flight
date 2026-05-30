@@ -4161,13 +4161,14 @@ function animate() {
 
     // Dynamic Sun Sizing (Moon Illusion)
     const sunElevation = Math.max(0.0, sunY);
-    const sunScale = 1.0 + (1.0 - sunElevation) * 0.4;
+    const sunScale = 1.0 + Math.pow(1.0 - sunElevation, 3.0) * 1.5;
     sunMesh.scale.setScalar(sunScale);
 
     // Dynamic Sun Color (Golden Hour)
     const noonColor = new THREE.Color(0xfffceb);
     const sunsetColor = new THREE.Color(0xffa542);
-    sunUniforms.uSunColor.value.copy(sunsetColor).lerp(noonColor, sunElevation);
+    const colorFactor = 1.0 - Math.pow(1.0 - sunElevation, 3.0);
+    sunUniforms.uSunColor.value.copy(sunsetColor).lerp(noonColor, colorFactor);
   }
   if (typeof moonUniforms !== 'undefined') {
     moonUniforms.uTime.value = now * 0.001;
@@ -4178,7 +4179,7 @@ function animate() {
 
     // Dynamic Moon Sizing (Moon Illusion)
     const moonElevation = Math.max(0.0, moonY);
-    const moonScale = 1.0 + (1.0 - moonElevation) * 0.4;
+    const moonScale = 1.0 + Math.pow(1.0 - moonElevation, 3.0) * 1.5;
     moonMesh.scale.setScalar(moonScale);
   }
 

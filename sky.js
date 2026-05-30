@@ -595,7 +595,7 @@ const sunGlowFragShader = `
 `;
 
 // Sun
-const sunGeo = new THREE.SphereGeometry(400, 32, 32);
+const sunGeo = new THREE.SphereGeometry(200, 32, 32);
 const sunMat = new THREE.ShaderMaterial({
   vertexShader: sunMoonVertShader,
   fragmentShader: sunFragShader,
@@ -607,7 +607,7 @@ const sunMat = new THREE.ShaderMaterial({
 const sunMesh = new THREE.Mesh(sunGeo, sunMat);
 skyGroup.add(sunMesh);
 
-const sunGlowGeo = new THREE.PlaneGeometry(1600, 1600);
+const sunGlowGeo = new THREE.PlaneGeometry(800, 800);
 const sunGlowMat = new THREE.ShaderMaterial({
   vertexShader: sunGlowVertShader,
   fragmentShader: sunGlowFragShader,
@@ -623,7 +623,7 @@ sunGlowMesh.renderOrder = 1; // Force it to render AFTER the solid sun sphere
 sunMesh.add(sunGlowMesh);
 
 // Moon
-const moonGeo = new THREE.SphereGeometry(240, 32, 32);
+const moonGeo = new THREE.SphereGeometry(120, 32, 32);
 const moonMat = new THREE.ShaderMaterial({
   vertexShader: sunMoonVertShader,
   fragmentShader: moonFragShader,
