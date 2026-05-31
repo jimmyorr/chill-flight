@@ -674,8 +674,10 @@
 
       if (broadBase > 0) {
         // HIGHLAND: add ridged peaks on top
-        const ridge1 = 1.0 - Math.abs(simplex.noise2D(xw * 0.0006, zw * 0.0006));
-        const ridge2 = 1.0 - Math.abs(simplex.noise2D(xw * 0.0012, zw * 0.0012));
+        const ridge1 =
+          1.0 - Math.abs(simplex.noise2D(xw * 0.0006, zw * 0.0006));
+        const ridge2 =
+          1.0 - Math.abs(simplex.noise2D(xw * 0.0012, zw * 0.0012));
         const ridgeVal = ridge1 * 0.6 + ridge2 * 0.25 + broadBase * 0.15;
         // Max ~600 extra height — dramatic but not floating-chunk territory
         n += ridgeVal * 600 * ef;
@@ -691,8 +693,6 @@
       // Re-clamp so we don't dip below ocean floor
       if (n < WATER_LEVEL) n = WATER_LEVEL;
     }
-
-
 
     // Final water level clamp
 
