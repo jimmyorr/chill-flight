@@ -912,7 +912,13 @@ const woodMat = createMaterial({color: 0x5d4037, flatShading: true});
 const tentGeo = new THREE.ConeGeometry(8, 12, 4);
 tentGeo.rotateY(Math.PI / 4);
 tentGeo.translate(0, 6, 0);
-const tentMat = createMaterial({color: 0xd2b48c, flatShading: true}); // Tan color
+// Tent color palettes
+const tentPalette = [
+  createMaterial({color: 0xd2b48c, flatShading: true}), // Tan color
+  createMaterial({color: 0x485c3f, flatShading: true}), // Army green
+  createMaterial({color: 0x1d3557, flatShading: true}), // Navy blue
+];
+const tentMat = tentPalette[0];
 
 // Campfire geometries
 const fireLogGeo = new THREE.CylinderGeometry(0.8, 0.8, 6, 6);
@@ -2991,11 +2997,30 @@ function generateChunk(chunkX, chunkZ) {
         smokeMat,
         campfirePositions.length * 5
       ); // 5 particles per fire community
-      const tentInst = new THREE.InstancedMesh(
-        tentGeo,
-        tentMat,
-        campfirePositions.length
-      );
+      const numTentColors = tentPalette.length;
+      const tentCounts = Array(numTentColors).fill(0);
+      const tentColorIndices = []; // Maps index to colorIndex
+
+      campfirePositions.forEach((pos, index) => {
+        // Deterministic color selection using seed-based RNG
+        const colorIdx = Math.floor(rng() * numTentColors);
+        tentColorIndices[index] = colorIdx;
+        tentCounts[colorIdx]++;
+      });
+
+      const tentInsts = [];
+      const currentComboIndices = Array(numTentColors).fill(0);
+      for (let i = 0; i < numTentColors; i++) {
+        if (tentCounts[i] > 0) {
+          tentInsts[i] = new THREE.InstancedMesh(
+            tentGeo,
+            tentPalette[i],
+            tentCounts[i]
+          );
+          tentInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
+          objectsGroup.add(tentInsts[i]);
+        }
+      }
 
       campfirePositions.forEach((pos, index) => {
         const structure = ModelAssembler.getStructure(
@@ -3047,17 +3072,18 @@ function generateChunk(chunkX, chunkZ) {
         dummy.rotation.set(0, angle, 0);
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
-        tentInst.setMatrixAt(index, dummy.matrix);
+
+        const colorIdx = tentColorIndices[index];
+        const instIdx = currentComboIndices[colorIdx]++;
+        tentInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
       });
 
       logInst.position.set(worldOffsetX, 0, worldOffsetZ);
       coreInst.position.set(worldOffsetX, 0, worldOffsetZ);
       smokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      tentInst.position.set(worldOffsetX, 0, worldOffsetZ);
       objectsGroup.add(logInst);
       objectsGroup.add(coreInst);
       objectsGroup.add(smokeInst);
-      objectsGroup.add(tentInst);
 
       group.userData.campfires = coreInst;
       group.userData.campfireSmoke = smokeInst;
