@@ -1340,9 +1340,19 @@ if (fogSlider) {
 }
 
 // Free Camera toggle
-let isFreeCamera = false;
+let isFreeCamera = ChillFlightLogic.START_FREE_CAM || false;
 const freeCamToggle = document.getElementById('debug-free-cam-toggle');
 if (freeCamToggle) {
+  if (isFreeCamera) {
+    freeCamToggle.checked = true;
+    camera.rotation.order = 'YXZ'; // Better for fly-cam
+
+    // Show the debug menu/telemetry so isDebugMode evaluates to true and freecam doesn't auto-reset
+    const debugMenu = document.getElementById('debug-menu');
+    const debugTelem = document.getElementById('debug-telemetry');
+    if (debugMenu) debugMenu.style.display = 'block';
+    if (debugTelem) debugTelem.style.display = 'block';
+  }
   freeCamToggle.addEventListener('change', (e) => {
     isFreeCamera = e.target.checked;
     if (isFreeCamera) {

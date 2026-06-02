@@ -83,6 +83,9 @@
   const PALETTE_INDEX = getParam('palette', null);
   const SCALE = parseFloat(getParam('scale', '1.0'));
   const ENABLE_V = getParam('enableV', 'false') === 'true';
+  const START_FREE_CAM =
+    getParam('freecam', 'false') === 'true' ||
+    getParam('freeCamera', 'false') === 'true';
 
   // --- SEEDED PRNG: Mulberry32 ---
   // Returns a closure that produces deterministic floats in [0, 1).
@@ -776,6 +779,7 @@
   exports.parsedLat = parsedLat;
   exports.parsedLon = parsedLon;
   exports.parsedAlt = validAlt;
+  exports.START_FREE_CAM = START_FREE_CAM;
 })(
   typeof module !== 'undefined'
     ? module.exports
