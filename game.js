@@ -1356,7 +1356,18 @@ if (freeCamToggle) {
   freeCamToggle.addEventListener('change', (e) => {
     isFreeCamera = e.target.checked;
     if (isFreeCamera) {
+      // Force camera up vector to vertical
+      camera.up.set(0, 1, 0);
+
+      // Re-align camera to face the same forward direction but with zero roll
+      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(
+        camera.quaternion
+      );
+      const target = new THREE.Vector3().copy(camera.position).add(forward);
+      camera.lookAt(target);
+
       camera.rotation.order = 'YXZ'; // Better for fly-cam
+      camera.rotation.z = 0;
     } else {
       camera.rotation.order = 'XYZ'; // Reset to default
     }
