@@ -8,6 +8,10 @@
 //               musicEnabled, setMusicEnabled
 
 // --- INPUT ---
+if (ChillFlightLogic.START_TOD !== null) {
+  window.manualTimeOfDay = ChillFlightLogic.START_TOD;
+}
+
 let mouseX = 0;
 let mouseY = 0;
 const _lastChunkUpdatePos = new THREE.Vector3(Infinity, Infinity, Infinity);
@@ -1438,6 +1442,9 @@ if (copyCamUrlBtn) {
       'pitch',
       Math.round(THREE.MathUtils.radToDeg(camera.rotation.x))
     );
+    if (typeof currentWarpedProgress !== 'undefined') {
+      url.searchParams.set('tod', currentWarpedProgress.toFixed(4));
+    }
 
     navigator.clipboard.writeText(url.toString()).then(() => {
       const originalText = copyCamUrlBtn.textContent;

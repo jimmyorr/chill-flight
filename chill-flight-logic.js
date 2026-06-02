@@ -106,6 +106,10 @@
   const START_PITCH =
     _pitchParam !== null && _pitchParam !== '' ? parseFloat(_pitchParam) : null;
 
+  const _todParam = getParam('tod', null);
+  const START_TOD =
+    _todParam !== null && _todParam !== '' ? parseFloat(_todParam) : null;
+
   // --- SEEDED PRNG: Mulberry32 ---
   // Returns a closure that produces deterministic floats in [0, 1).
   // Usage: const rng = mulberry32(seed); rng(); // next value
@@ -804,6 +808,7 @@
   exports.START_Z = START_Z;
   exports.START_HEADING = START_HEADING;
   exports.START_PITCH = START_PITCH;
+  exports.START_TOD = START_TOD;
 })(
   typeof module !== 'undefined'
     ? module.exports
