@@ -110,6 +110,12 @@
   const START_TOD =
     _todParam !== null && _todParam !== '' ? parseFloat(_todParam) : null;
 
+  const _timeSpeedParam = getParam('timeSpeed', null);
+  const START_TIME_SPEED =
+    _timeSpeedParam !== null && _timeSpeedParam !== ''
+      ? parseFloat(_timeSpeedParam)
+      : null;
+
   // --- SEEDED PRNG: Mulberry32 ---
   // Returns a closure that produces deterministic floats in [0, 1).
   // Usage: const rng = mulberry32(seed); rng(); // next value
@@ -809,6 +815,7 @@
   exports.START_HEADING = START_HEADING;
   exports.START_PITCH = START_PITCH;
   exports.START_TOD = START_TOD;
+  exports.START_TIME_SPEED = START_TIME_SPEED;
 })(
   typeof module !== 'undefined'
     ? module.exports

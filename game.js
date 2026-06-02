@@ -1442,8 +1442,17 @@ if (copyCamUrlBtn) {
       'pitch',
       Math.round(THREE.MathUtils.radToDeg(camera.rotation.x))
     );
-    if (typeof currentWarpedProgress !== 'undefined') {
-      url.searchParams.set('tod', currentWarpedProgress.toFixed(4));
+    let currentTod;
+    if (window.manualTimeOfDay !== undefined) {
+      currentTod = window.manualTimeOfDay;
+    } else if (typeof timeOfDay !== 'undefined') {
+      currentTod = timeOfDay / (Math.PI * 2);
+    }
+    if (currentTod !== undefined) {
+      url.searchParams.set('tod', currentTod.toFixed(4));
+    }
+    if (typeof daySpeedMultiplier !== 'undefined') {
+      url.searchParams.set('timeSpeed', daySpeedMultiplier);
     }
 
     navigator.clipboard.writeText(url.toString()).then(() => {

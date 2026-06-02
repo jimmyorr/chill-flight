@@ -411,7 +411,11 @@ scene.add(moonLight);
 // timeOfDay goes from 0 to 2PI (0 = midnight, PI/2 = 6am, PI = noon, 3PI/2 = 6pm)
 let timeOfDay = Math.PI * (5.5 / 12); // Start at 05:30 to catch the heart of the sunrise transition
 const BASE_DAY_SPEED = 0.02;
-let daySpeedMultiplier = 1;
+let daySpeedMultiplier =
+  typeof ChillFlightLogic !== 'undefined' &&
+  ChillFlightLogic.START_TIME_SPEED !== null
+    ? ChillFlightLogic.START_TIME_SPEED
+    : 1;
 
 // Sky Objects Group (follows player, hosts celestial bodies)
 const skyGroup = new THREE.Group();
