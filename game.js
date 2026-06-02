@@ -1397,9 +1397,9 @@ if (freeCamToggle) {
         camera.quaternion
       );
       const target = new THREE.Vector3().copy(camera.position).add(forward);
-      camera.lookAt(target);
 
       camera.rotation.order = 'YXZ'; // Better for fly-cam
+      camera.lookAt(target);
       camera.rotation.z = 0;
     } else {
       camera.rotation.order = 'XYZ'; // Reset to default
