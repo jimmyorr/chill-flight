@@ -17,9 +17,9 @@
 
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
-    <script type="module" crossorigin src="./assets/main-CnTXN-bQ.js"></script>
+    <script type="module" crossorigin src="./assets/main-CUGPaq_l.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/main-o8ExmTKr.js">
-    <link rel="stylesheet" crossorigin href="./assets/main-Bj55lGWZ.css">
+    <link rel="stylesheet" crossorigin href="./assets/main-CTvFvBEB.css">
   </head>
 
   <body>
@@ -105,6 +105,10 @@
         <div class="customization-footer">
           <button id="resume-btn" class="btn">R E S U M E</button>
         </div>
+
+        <div class="pause-footer">
+          Chill Flight &bull; <span class="version-tag"></span>
+        </div>
       </div>
 
       <div
@@ -140,12 +144,12 @@
           >Purrple Cat</a
         >
       </div>
-      <div class="version-tag"></div>
     </div>
 
     <div id="loading-overlay">
       <div class="loading-content">
         <h1 class="loading-title">C H I L L<br />F L I G H T</h1>
+        <div class="version-tag"></div>
         <div id="splash-interactive-area">
           <div id="splash-progress-container" class="splash-fade-item hidden">
             <div
@@ -212,7 +216,6 @@
           </div>
         </div>
       </div>
-      <div class="version-tag"></div>
     </div>
 
     <div id="cockpit-ui">
@@ -687,6 +690,23 @@
             style="width: 14px; height: 14px; cursor: pointer"
           />
         </div>
+        <div style="margin-top: 8px; margin-bottom: 4px">
+          <button
+            id="debug-copy-cam-url"
+            style="
+              background: rgba(255, 255, 255, 0.2);
+              border: 1px solid rgba(255, 255, 255, 0.4);
+              color: white;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 10px;
+              cursor: pointer;
+              width: 100%;
+            "
+          >
+            Copy camera URL
+          </button>
+        </div>
         <div style="margin-top: 4px">
           <div
             style="
@@ -771,9 +791,30 @@
           <div style="grid-column: 1">
             Factor: <span id="debug-maneuver">0.0</span>
           </div>
-          <div style="grid-column: 1">X: <span id="debug-world-x">0</span></div>
-          <div style="grid-column: 1">Y: <span id="debug-world-y">0</span></div>
-          <div style="grid-column: 1">Z: <span id="debug-world-z">0</span></div>
+          <div style="grid-column: 1">
+            Plane X: <span id="debug-world-x">0</span>
+          </div>
+          <div style="grid-column: 2">
+            Cam X: <span id="debug-camera-x">0</span>
+          </div>
+          <div style="grid-column: 1">
+            Plane Y: <span id="debug-world-y">0</span>
+          </div>
+          <div style="grid-column: 2">
+            Cam Y: <span id="debug-camera-y">0</span>
+          </div>
+          <div style="grid-column: 1">
+            Plane Z: <span id="debug-world-z">0</span>
+          </div>
+          <div style="grid-column: 2">
+            Cam Z: <span id="debug-camera-z">0</span>
+          </div>
+          <div style="grid-column: 1">
+            Cam Head: <span id="debug-camera-heading">0</span>°
+          </div>
+          <div style="grid-column: 2">
+            Cam Pitch: <span id="debug-camera-pitch">0</span>°
+          </div>
         </div>
       </div>
 
