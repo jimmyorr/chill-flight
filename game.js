@@ -1422,6 +1422,35 @@ if (freeCamToggle) {
   });
 }
 
+const copyCamUrlBtn = document.getElementById('debug-copy-cam-url');
+if (copyCamUrlBtn) {
+  copyCamUrlBtn.addEventListener('click', () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('freecam', 'true');
+    url.searchParams.set('x', Math.round(camera.position.x));
+    url.searchParams.set('y', Math.round(camera.position.y));
+    url.searchParams.set('z', Math.round(camera.position.z));
+    url.searchParams.set(
+      'heading',
+      Math.round(THREE.MathUtils.radToDeg(camera.rotation.y))
+    );
+    url.searchParams.set(
+      'pitch',
+      Math.round(THREE.MathUtils.radToDeg(camera.rotation.x))
+    );
+
+    navigator.clipboard.writeText(url.toString()).then(() => {
+      const originalText = copyCamUrlBtn.textContent;
+      copyCamUrlBtn.textContent = 'Copied!';
+      copyCamUrlBtn.style.color = '#4caf50';
+      setTimeout(() => {
+        copyCamUrlBtn.textContent = originalText;
+        copyCamUrlBtn.style.color = 'white';
+      }, 2000);
+    });
+  });
+}
+
 // --- MOBILE UI ADJUSTMENTS ---
 if (window.innerWidth <= 1024) {
   const cockpitUI = document.getElementById('cockpit-ui');
