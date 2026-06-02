@@ -127,9 +127,7 @@ let freeCamDeltaX = 0;
 let freeCamDeltaY = 0;
 
 window.addEventListener('mousedown', (e) => {
-  const isDebugMode =
-    document.getElementById('debug-menu')?.style.display === 'block';
-  if (isFreeCamera && isDebugMode) {
+  if (isFreeCamera) {
     if (
       !e.target.closest('#loading-overlay') &&
       !e.target.closest('#cockpit-ui') &&
@@ -149,9 +147,7 @@ window.addEventListener('mouseup', () => {
 });
 
 window.addEventListener('mousemove', (e) => {
-  const isDebugMode =
-    document.getElementById('debug-menu')?.style.display === 'block';
-  if (isFreeCameraDragging && isFreeCamera && isDebugMode) {
+  if (isFreeCameraDragging && isFreeCamera) {
     freeCamDeltaX += e.movementX || 0;
     freeCamDeltaY += e.movementY || 0;
   }
@@ -2285,7 +2281,12 @@ function animate() {
   let secondsInCycle, currentWarpedProgress;
   let passedServerNow;
 
-  if (isDebugMode) {
+  const useVirtualClock =
+    isDebugMode ||
+    window.manualTimeOfDay !== undefined ||
+    daySpeedMultiplier !== 1;
+
+  if (useVirtualClock) {
     // In debug mode, we use a virtual clock that we increment ourselves,
     // allowing for speed multipliers while maintaining the same "warped" physics
     // as the server-synced clock.
@@ -3461,15 +3462,8 @@ function animate() {
   }
 
   // --- CAMERA UPDATES ---
-  // Sync free camera with debug menu visibility
-  if (!isDebugMode && isFreeCamera) {
-    isFreeCamera = false;
-    const freeCamToggle = document.getElementById('debug-free-cam-toggle');
-    if (freeCamToggle) freeCamToggle.checked = false;
-    camera.rotation.order = 'XYZ';
-  }
 
-  if (isFreeCamera && isDebugMode) {
+  if (isFreeCamera) {
     // Free movement logic
     const moveSpeed = (keys.Shift ? 1000 : 250) * delta;
     const rotateSpeedDrag = 0.005;
