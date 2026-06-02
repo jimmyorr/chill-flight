@@ -4375,6 +4375,18 @@ function animate() {
       document.getElementById('debug-world-z'),
       Math.round(planeGroup.position.z)
     );
+    updateDOM(
+      document.getElementById('debug-camera-x'),
+      Math.round(camera.position.x)
+    );
+    updateDOM(
+      document.getElementById('debug-camera-y'),
+      Math.round(camera.position.y)
+    );
+    updateDOM(
+      document.getElementById('debug-camera-z'),
+      Math.round(camera.position.z)
+    );
 
     // Weather Telemetry
     const oc = window._currentOvercast || 0;
