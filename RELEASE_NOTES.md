@@ -1,5 +1,10 @@
 # Release notes
 
+## 0.8.22
+
+- **Camera & UI:** Enhanced the free camera with click-and-drag rotation. Relocated the version identifier to the main start screen card and pause menu footer.
+- **Debug tooling:** Added shareable URLs for camera position, pitch, heading, and time configurations. Debug settings (like free camera and manual time) now persist after hiding the debug menu.
+
 ## 0.8.21
 
 - **Cinematic sky overhaul:** Introduced stunning volumetric sun bloom, procedural clouds, and dynamic regional day sky colors that shift based on your biome.
