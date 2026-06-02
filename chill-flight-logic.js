@@ -87,6 +87,25 @@
     getParam('freecam', 'false') === 'true' ||
     getParam('freeCamera', 'false') === 'true';
 
+  const _xParam = getParam('x', null);
+  const START_X =
+    _xParam !== null && _xParam !== '' ? parseFloat(_xParam) : null;
+  const _yParam = getParam('y', null);
+  const START_Y =
+    _yParam !== null && _yParam !== '' ? parseFloat(_yParam) : null;
+  const _zParam = getParam('z', null);
+  const START_Z =
+    _zParam !== null && _zParam !== '' ? parseFloat(_zParam) : null;
+
+  const _headingParam = getParam('heading', null);
+  const START_HEADING =
+    _headingParam !== null && _headingParam !== ''
+      ? parseFloat(_headingParam)
+      : null;
+  const _pitchParam = getParam('pitch', null);
+  const START_PITCH =
+    _pitchParam !== null && _pitchParam !== '' ? parseFloat(_pitchParam) : null;
+
   // --- SEEDED PRNG: Mulberry32 ---
   // Returns a closure that produces deterministic floats in [0, 1).
   // Usage: const rng = mulberry32(seed); rng(); // next value
@@ -780,6 +799,11 @@
   exports.parsedLon = parsedLon;
   exports.parsedAlt = validAlt;
   exports.START_FREE_CAM = START_FREE_CAM;
+  exports.START_X = START_X;
+  exports.START_Y = START_Y;
+  exports.START_Z = START_Z;
+  exports.START_HEADING = START_HEADING;
+  exports.START_PITCH = START_PITCH;
 })(
   typeof module !== 'undefined'
     ? module.exports

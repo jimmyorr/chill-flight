@@ -1380,6 +1380,21 @@ if (freeCamToggle) {
     freeCamToggle.checked = true;
     camera.rotation.order = 'YXZ'; // Better for fly-cam
 
+    if (ChillFlightLogic.START_X !== null)
+      camera.position.x = ChillFlightLogic.START_X;
+    if (ChillFlightLogic.START_Y !== null)
+      camera.position.y = ChillFlightLogic.START_Y;
+    if (ChillFlightLogic.START_Z !== null)
+      camera.position.z = ChillFlightLogic.START_Z;
+    if (ChillFlightLogic.START_HEADING !== null)
+      camera.rotation.y = THREE.MathUtils.degToRad(
+        ChillFlightLogic.START_HEADING
+      );
+    if (ChillFlightLogic.START_PITCH !== null)
+      camera.rotation.x = THREE.MathUtils.degToRad(
+        ChillFlightLogic.START_PITCH
+      );
+
     // Show the debug menu/telemetry so isDebugMode evaluates to true and freecam doesn't auto-reset
     const debugMenu = document.getElementById('debug-menu');
     const debugTelem = document.getElementById('debug-telemetry');
@@ -2163,13 +2178,15 @@ function animate() {
       !isIntroTransitionActive
     ) {
       // Intro orbit camera rendering
-      const t = now * 0.00015;
-      camera.position.x = planeGroup.position.x + Math.sin(t) * 150;
-      camera.position.z = planeGroup.position.z + Math.cos(t) * 150;
-      camera.position.y = planeGroup.position.y + 80;
+      if (!isFreeCamera) {
+        const t = now * 0.00015;
+        camera.position.x = planeGroup.position.x + Math.sin(t) * 150;
+        camera.position.z = planeGroup.position.z + Math.cos(t) * 150;
+        camera.position.y = planeGroup.position.y + 80;
 
-      _currentLookTarget.copy(planeGroup.position);
-      camera.lookAt(_currentLookTarget);
+        _currentLookTarget.copy(planeGroup.position);
+        camera.lookAt(_currentLookTarget);
+      }
 
       if (typeof sunUniforms !== 'undefined') {
         sunUniforms.uTime.value = now * 0.001;
@@ -4387,6 +4404,16 @@ function animate() {
       document.getElementById('debug-camera-z'),
       Math.round(camera.position.z)
     );
+    const camHeadingDegrees = THREE.MathUtils.radToDeg(camera.rotation.y);
+    const camPitchDegrees = THREE.MathUtils.radToDeg(camera.rotation.x);
+    updateDOM(
+      document.getElementById('debug-camera-heading'),
+      Math.round(camHeadingDegrees)
+    );
+    updateDOM(
+      document.getElementById('debug-camera-pitch'),
+      Math.round(camPitchDegrees)
+    );
 
     // Weather Telemetry
     const oc = window._currentOvercast || 0;
@@ -5276,12 +5303,14 @@ if (overlay) {
       setTimeout(() => (overlay.style.display = 'none'), 2500);
 
       // Trigger cinematic camera transition
-      isIntroTransitionActive = true;
-      introTransitionStartTime = performance.now();
-      _introCameraPosStart.copy(camera.position);
-      _introLookTargetStart.copy(_currentLookTarget);
-      _virtualCameraPos.copy(camera.position);
-      _virtualLookTarget.copy(_currentLookTarget);
+      if (!isFreeCamera) {
+        isIntroTransitionActive = true;
+        introTransitionStartTime = performance.now();
+        _introCameraPosStart.copy(camera.position);
+        _introLookTargetStart.copy(_currentLookTarget);
+        _virtualCameraPos.copy(camera.position);
+        _virtualLookTarget.copy(_currentLookTarget);
+      }
     }
 
     // Unpause the game and clear the clock delta
