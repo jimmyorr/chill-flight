@@ -160,6 +160,35 @@ The game is optimized for Android TV and similar devices using a standard remote
 - **Backspace / back button**: Toggle pause menu or go back.
 - **Media play / pause**: Toggle pause menu.
 
+## URL Parameters
+
+The game supports various URL query parameters for deep linking to specific locations, times, or configurations. Combine parameters using standard URL query syntax (e.g., `?lat=1.0N&lon=0.5W&tod=0.25`).
+
+### Location and Orientation
+
+- **`lat`**: Starting latitude (e.g., `1.0N`, `-1.0`).
+- **`long`** or **`lon`**: Starting longitude (e.g., `0.5W`, `0.5`).
+- **`alt`**: Starting altitude.
+- **`heading`**: Starting compass heading in degrees (0 = North).
+- **`pitch`**: Starting pitch angle in degrees.
+- **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
+
+### Environment and Time
+
+- **`tod`**: Time of day (value between `0.0` and `1.0`, where 0 is midnight and 0.5 is solar noon).
+- **`timeSpeed`**: Speed multiplier for the day/night cycle (set to `0` to lock the time of day).
+- **`seed`**: Integer world seed for procedural terrain generation.
+- **`theme`**: The visual theme to load (e.g., `standard`).
+- **`cloud`**: Set to `none` to disable procedural clouds.
+- **`objects`**: Set to `none` to disable all spawned objects (trees, houses, etc.).
+
+### Camera and System
+
+- **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros).
+- **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera (useful for exact freecam sharing).
+- **`palette`**: Force a specific plane color by providing a palette index.
+- **`scale`**: Override the overall visual scaling factor (default `1.0`).
+
 ## Development
 
 ### Prerequisites
