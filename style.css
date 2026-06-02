@@ -1071,6 +1071,13 @@ input[type='number'].customization-input {
   z-index: 100;
 }
 
+.loading-content .version-tag {
+  position: static;
+  margin-top: 12px;
+  margin-bottom: -10px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 @media (min-width: 1025px) {
   #pause-overlay .version-tag {
     right: auto;
