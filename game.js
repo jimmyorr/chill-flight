@@ -118,7 +118,40 @@ function updateInputPosition(clientX, clientY) {
   mouseY = pos.y;
 }
 
+let isFreeCameraDragging = false;
+let freeCamDeltaX = 0;
+let freeCamDeltaY = 0;
+
+window.addEventListener('mousedown', (e) => {
+  const isDebugMode =
+    document.getElementById('debug-menu')?.style.display === 'block';
+  if (isFreeCamera && isDebugMode) {
+    if (
+      !e.target.closest('#loading-overlay') &&
+      !e.target.closest('#cockpit-ui') &&
+      !e.target.closest('#debug-menu') &&
+      !e.target.closest('#debug-telemetry') &&
+      !e.target.closest('.title') &&
+      !e.target.closest('#mobile-controls') &&
+      !e.target.closest('#online-players')
+    ) {
+      isFreeCameraDragging = true;
+    }
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  isFreeCameraDragging = false;
+});
+
 window.addEventListener('mousemove', (e) => {
+  const isDebugMode =
+    document.getElementById('debug-menu')?.style.display === 'block';
+  if (isFreeCameraDragging && isFreeCamera && isDebugMode) {
+    freeCamDeltaX += e.movementX || 0;
+    freeCamDeltaY += e.movementY || 0;
+  }
+
   if (
     !e.target.closest('#loading-overlay') &&
     !e.target.closest('#cockpit-ui') &&
@@ -3377,12 +3410,16 @@ function animate() {
   if (isFreeCamera && isDebugMode) {
     // Free movement logic
     const moveSpeed = (keys.Shift ? 1000 : 250) * delta;
-    const rotateSpeed = 0.04;
+    const rotateSpeedDrag = 0.005;
 
-    // Rotation from Mouse (respecting invertYAxis)
-    camera.rotation.y -= mouseX * rotateSpeed;
-    camera.rotation.x += mouseY * rotateSpeed * (invertYAxis ? -1 : 1);
+    // Rotation from Drag (respecting invertYAxis)
+    camera.rotation.y += freeCamDeltaX * rotateSpeedDrag;
+    camera.rotation.x +=
+      freeCamDeltaY * rotateSpeedDrag * (invertYAxis ? -1 : 1);
     camera.rotation.z = 0;
+
+    freeCamDeltaX = 0;
+    freeCamDeltaY = 0;
 
     // Translation
     _freeCamFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
