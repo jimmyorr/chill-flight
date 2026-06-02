@@ -181,7 +181,7 @@ textarea {
 .customization-box {
   background: rgba(20, 20, 20, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 28px 24px;
+  padding: 24px 24px 16px 24px;
   border-radius: 12px;
   margin-bottom: 25px;
   display: flex;
@@ -369,8 +369,8 @@ input[type='number'].customization-input {
 }
 
 .customization-footer {
-  margin-top: 10px;
-  padding-top: 20px;
+  margin-top: 4px;
+  padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: center;
@@ -1078,11 +1078,23 @@ input[type='number'].customization-input {
   color: rgba(255, 255, 255, 0.4);
 }
 
-@media (min-width: 1025px) {
-  #pause-overlay .version-tag {
-    right: auto;
-    left: 30px;
-  }
+.pause-footer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: -4px;
+  font-family: inherit;
+  letter-spacing: 1px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.pause-footer .version-tag {
+  position: static;
+  font-size: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
 }
 
 /* Minimap CSS overlay styled with glassmorphism to look premium */
