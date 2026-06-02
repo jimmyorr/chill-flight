@@ -606,8 +606,6 @@ function togglePause() {
       pauseMusicInternal();
   } else {
     pauseOverlay.style.display = 'none';
-    const box = document.querySelector('.customization-box');
-    if (box) box.style.transform = 'none';
 
     clock.getDelta(); // clear accumulated time so plane doesn't skip
     clearInputState(); // wipe any input that bled through from the pause overlay
@@ -860,15 +858,6 @@ window.addEventListener('mousemove', (e) => {
     document
       .querySelectorAll('.tv-focused')
       .forEach((el) => el.classList.remove('tv-focused'));
-
-    const box = document.querySelector('.customization-box');
-    if (box) {
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
-      const tiltX = ((e.clientY - centerY) / centerY) * -5;
-      const tiltY = ((e.clientX - centerX) / centerX) * 5;
-      box.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
-    }
   }
 });
 
