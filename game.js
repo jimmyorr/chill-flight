@@ -1678,11 +1678,19 @@ let lastFrameTime = 0;
 
 // Apply initial graphics preset
 const savedPreset = localStorage.getItem('chill_flight_graphics_preset');
-const presetToUse = savedPreset ? savedPreset : 'mid';
-if (graphicsPresetSelect) {
-  graphicsPresetSelect.value = presetToUse;
+if (savedPreset) {
+  if (graphicsPresetSelect) graphicsPresetSelect.value = savedPreset;
+  applyGraphicsPreset(savedPreset);
+} else if (window.detectGraphicsPreset) {
+  window.detectGraphicsPreset().then((detected) => {
+    if (graphicsPresetSelect) graphicsPresetSelect.value = detected;
+    applyGraphicsPreset(detected);
+  });
+} else {
+  const defaultPreset = 'mid';
+  if (graphicsPresetSelect) graphicsPresetSelect.value = defaultPreset;
+  applyGraphicsPreset(defaultPreset);
 }
-applyGraphicsPreset(presetToUse);
 
 // Setup timeOfDay before chunk gen
 const serverNowFirst = Date.now() + (window.serverTimeOffset || 0);

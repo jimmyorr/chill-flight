@@ -99,6 +99,60 @@
     }
   };
 
+  // Export a graphics capability detector that gracefully handles Web and Capacitor
+  window.detectGraphicsPreset = async function () {
+    const cores = navigator.hardwareConcurrency || 4;
+    const memory = navigator.deviceMemory || 4;
+    
+    const isMobileFormFactor = window.matchMedia("(any-pointer: coarse)").matches || 
+                               /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (isNative()) {
+      try {
+        if (Capacitor.Plugins && Capacitor.Plugins.Device) {
+          const info = await Capacitor.Plugins.Device.getInfo();
+
+          if (info.platform === 'ios') {
+            const isOlderIos = info.model.startsWith('iPhone9') ||   // iPhone 7/8/X
+                               info.model.startsWith('iPhone10') ||  // iPhone 8/X
+                               info.model.startsWith('iPhone11') ||  // iPhone XS/XR
+                               info.model.startsWith('iPhone12') ||  // iPhone 11
+                               (info.model.startsWith('iPad') && !info.model.includes('Pro'));
+                               
+            const preset = isOlderIos ? 'low' : 'mid'; 
+            console.log(`[Graphics Auto-Detect] Native iOS via Capacitor. Model: ${info.model}. Assessed as ${isOlderIos ? 'Older Device' : 'Modern Device'}. Chose preset: ${preset}`);
+            return preset;
+          }
+          
+          if (info.platform === 'android') {
+            let preset = 'mid';
+            if (cores <= 4 || memory <= 4) preset = 'low';
+            else if (cores >= 8 && memory >= 8) preset = 'high';
+            console.log(`[Graphics Auto-Detect] Native Android via Capacitor. Cores: ${cores}, RAM: ~${memory}GB. Chose preset: ${preset}`);
+            return preset;
+          }
+        }
+      } catch (e) {
+        console.warn("[Graphics Auto-Detect] Device plugin failed. Falling back to Web APIs.");
+      }
+    }
+
+    // Fallback: Web Browser
+    let preset = 'mid';
+    if (isMobileFormFactor) {
+      if (cores <= 4 || memory <= 4) preset = 'low';
+      else if (cores >= 8 && memory >= 8) preset = 'mid'; 
+      else preset = 'low';
+      console.log(`[Graphics Auto-Detect] Mobile Web Browser. Cores: ${cores}, RAM: ~${memory}GB. Chose preset: ${preset}`);
+    } else {
+      if (cores <= 4) preset = 'low';
+      else if (cores >= 8 && memory >= 8) preset = 'high';
+      else preset = 'mid';
+      console.log(`[Graphics Auto-Detect] Desktop Web Browser. Cores: ${cores}, RAM: ~${memory}GB. Chose preset: ${preset}`);
+    }
+    return preset;
+  };
+
   // 3. KEY MAPPING (Applies everywhere, helpful for keyboard/remote)
   window.addEventListener(
     'keydown',
