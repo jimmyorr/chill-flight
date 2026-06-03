@@ -4318,8 +4318,13 @@ function animate() {
 
   _tempVec.set(sunX, sunY, sunZ).normalize();
   skyUniforms.sunDirection.value.copy(_tempVec);
-  skyUniforms.uTime.value = now * 0.001;
+  window._cloudTime =
+    (window._cloudTime || now * 0.001) +
+    delta *
+      (typeof daySpeedMultiplier !== 'undefined' ? daySpeedMultiplier : 1);
+  skyUniforms.uTime.value = window._cloudTime;
   skyUniforms.uCloudDensity.value = overcast;
+  skyUniforms.uCameraPos.value.copy(camera.position);
 
   if (window.waterUniforms && window.waterUniforms.uSunDirection) {
     window.waterUniforms.uSunDirection.value.copy(_tempVec);

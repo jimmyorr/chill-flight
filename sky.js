@@ -29,6 +29,7 @@ const skyFragmentShader = `
     uniform float uCloudDensity;
     uniform bool uShowClouds;
     uniform float uAuroraIntensity;
+    uniform vec3 uCameraPos;
     varying vec3 vWorldPosition;
     varying vec3 vDirection;
 
@@ -81,7 +82,9 @@ const skyFragmentShader = `
         
         // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---
         if (uShowClouds && h > 0.0) {
-            vec2 cloudUV = dir.xz / (h + 0.05);
+            float cloudHeight = 3000.0;
+            float t = (cloudHeight - uCameraPos.y) / max(0.001, h);
+            vec2 cloudUV = (uCameraPos.xz + dir.xz * t) / cloudHeight;
             vec2 sunDir2D = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
             
             // Dim the sun's influence on clouds during a storm
@@ -372,6 +375,7 @@ const skyUniforms = {
   uShowClouds: {value: true},
   uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
   uNoiseTex: {value: skyNoiseTexture},
+  uCameraPos: {value: new THREE.Vector3()},
 };
 
 // Initial calculation
