@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.8.23
+
+- **Cinematic sky overhaul:** Upgraded procedural clouds with dual-layer parallax and hardware texture sampling. Clouds are now physically anchored to the 3D world.
+- **Environment:** Added the ability to fly above the cloud layer and dynamically disabled precipitation at high altitudes. Defaulted blocky object clouds to off.
+- **System & mobile:** Upgraded capacitor-swift-pm to 8.3.4 and initialized iOS project structures for native builds.
+
 ## 0.8.22
 
 - **Camera & UI:** Enhanced the free camera with click-and-drag rotation. Relocated the version identifier to the main start screen card and pause menu footer.
