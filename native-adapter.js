@@ -141,11 +141,21 @@
 
     // Fallback: Web Browser
     let preset = 'mid';
+    const isIOSWeb = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
     if (isMobileFormFactor) {
-      if (cores <= 4 || effectiveMemory <= 4) preset = 'low';
-      else if (cores >= 8 && effectiveMemory >= 8) preset = 'mid'; 
-      else preset = 'mid'; // iPhones have 6 cores and unknown RAM, so they fall here
-      console.log(`[Graphics Auto-Detect] Mobile Web Browser. Cores: ${cores}, RAM: ${memory ? '~'+memory+'GB' : 'Unknown'}. Chose preset: ${preset}`);
+      if (isIOSWeb) {
+        // Apple's WebKit heavily clamps cores and memory to prevent fingerprinting.
+        // A 6-core A17 Pro might literally report 2 cores and undefined RAM.
+        // Because almost all iPhones are extremely powerful, 'mid' is a safe baseline.
+        preset = 'mid';
+        console.log(`[Graphics Auto-Detect] iOS Web Browser (Clamped APIs). Assumed preset: ${preset}`);
+      } else {
+        if (cores <= 4 || effectiveMemory <= 4) preset = 'low';
+        else if (cores >= 8 && effectiveMemory >= 8) preset = 'mid'; 
+        else preset = 'mid'; 
+        console.log(`[Graphics Auto-Detect] Mobile Web Browser. Cores: ${cores}, RAM: ${memory ? '~'+memory+'GB' : 'Unknown'}. Chose preset: ${preset}`);
+      }
     } else {
       if (cores <= 4) preset = 'low';
       else if (cores >= 8 && effectiveMemory >= 8) preset = 'high';
