@@ -81,9 +81,12 @@ const skyFragmentShader = `
         col = col + totalGlow * (vec3(1.0) - col);
         
         // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---
-        if (uShowClouds && h > 0.0) {
-            float cloudHeight = 3000.0;
-            float t = (cloudHeight - uCameraPos.y) / max(0.001, h);
+        float cloudHeight = 3000.0;
+        float distToPlane = cloudHeight - uCameraPos.y;
+        
+        // If below clouds (dist > 0), we look up (h > 0). If above clouds (dist < 0), we look down (h < 0).
+        if (uShowClouds && (distToPlane * h) > 0.0) {
+            float t = distToPlane / h;
             vec2 cloudUV = (uCameraPos.xz + dir.xz * t) / cloudHeight;
             vec2 sunDir2D = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
             
@@ -100,7 +103,7 @@ const skyFragmentShader = `
             
             // Widen the density range for clearer skies and thicker storms
             float densityOffset = (uCloudDensity - 0.5) * 0.6;
-            float horizonFade = smoothstep(0.0, 0.15, h);
+            float horizonFade = smoothstep(0.0, 0.15, abs(h));
 
             // -- Layer 1: High Altitude (Cirrus/Altocumulus) --
             // Moves slower, larger scale, slightly more sparse

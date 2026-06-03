@@ -1967,6 +1967,22 @@ function updateWeather(delta) {
     };
   }
 
+  // Store unfaded opacities to drive cloud density even when above clouds
+  window._unfadedSnowOpacity = targetSnowOpacity;
+  window._unfadedRainOpacity = targetRainOpacity;
+
+  // Fade out precipitation when flying above the cloud layer
+  const cloudCeiling = 3000.0;
+  const fadeStart = cloudCeiling - 100.0; // Start fading 100 units below the clouds
+  if (camera.position.y > fadeStart) {
+    const fadeFactor = Math.max(
+      0,
+      1.0 - (camera.position.y - fadeStart) / 100.0
+    );
+    targetRainOpacity *= fadeFactor;
+    targetSnowOpacity *= fadeFactor;
+  }
+
   // Reset particle positions around the camera when they start fading in
   if (targetSnowOpacity > 0 && snowParticles.material.opacity === 0) {
     resetParticlesAroundCamera(snowParticles);
@@ -4096,12 +4112,17 @@ function animate() {
     skyUniforms.bottomColor.value.lerp(targetPaletteBottom, delta * 0.1);
   }
 
-  // --- OVERCAST & WEATHER CALCULATION ---
-  // 1. Check if forced precipitation is currently visible on screen
+  // 1. Check if forced precipitation is currently visible on screen (or would be, if not above clouds)
   let precipIntensity = 0;
   if (snowParticles && rainParticles) {
-    const sInt = snowParticles.material.opacity / 0.8;
-    const rInt = rainParticles.material.opacity / 0.5;
+    const sInt =
+      (window._unfadedSnowOpacity !== undefined
+        ? window._unfadedSnowOpacity
+        : snowParticles.material.opacity) / 0.8;
+    const rInt =
+      (window._unfadedRainOpacity !== undefined
+        ? window._unfadedRainOpacity
+        : rainParticles.material.opacity) / 0.5;
     precipIntensity = Math.max(sInt, rInt);
   }
 
