@@ -102,7 +102,9 @@
   // Export a graphics capability detector that gracefully handles Web and Capacitor
   window.detectGraphicsPreset = async function () {
     const cores = navigator.hardwareConcurrency || 4;
-    const memory = navigator.deviceMemory || 4;
+    // iOS Safari blocks deviceMemory (returns undefined). We shouldn't punish it by assuming 4GB.
+    const memory = navigator.deviceMemory; 
+    const effectiveMemory = memory || 8; // If unknown, give it the benefit of the doubt
     
     const isMobileFormFactor = window.matchMedia("(any-pointer: coarse)").matches || 
                                /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -126,9 +128,9 @@
           
           if (info.platform === 'android') {
             let preset = 'mid';
-            if (cores <= 4 || memory <= 4) preset = 'low';
-            else if (cores >= 8 && memory >= 8) preset = 'high';
-            console.log(`[Graphics Auto-Detect] Native Android via Capacitor. Cores: ${cores}, RAM: ~${memory}GB. Chose preset: ${preset}`);
+            if (cores <= 4 || effectiveMemory <= 4) preset = 'low';
+            else if (cores >= 8 && effectiveMemory >= 8) preset = 'high';
+            console.log(`[Graphics Auto-Detect] Native Android via Capacitor. Cores: ${cores}, RAM: ~${effectiveMemory}GB. Chose preset: ${preset}`);
             return preset;
           }
         }
@@ -140,15 +142,15 @@
     // Fallback: Web Browser
     let preset = 'mid';
     if (isMobileFormFactor) {
-      if (cores <= 4 || memory <= 4) preset = 'low';
-      else if (cores >= 8 && memory >= 8) preset = 'mid'; 
-      else preset = 'low';
-      console.log(`[Graphics Auto-Detect] Mobile Web Browser. Cores: ${cores}, RAM: ~${memory}GB. Chose preset: ${preset}`);
+      if (cores <= 4 || effectiveMemory <= 4) preset = 'low';
+      else if (cores >= 8 && effectiveMemory >= 8) preset = 'mid'; 
+      else preset = 'mid'; // iPhones have 6 cores and unknown RAM, so they fall here
+      console.log(`[Graphics Auto-Detect] Mobile Web Browser. Cores: ${cores}, RAM: ${memory ? '~'+memory+'GB' : 'Unknown'}. Chose preset: ${preset}`);
     } else {
       if (cores <= 4) preset = 'low';
-      else if (cores >= 8 && memory >= 8) preset = 'high';
+      else if (cores >= 8 && effectiveMemory >= 8) preset = 'high';
       else preset = 'mid';
-      console.log(`[Graphics Auto-Detect] Desktop Web Browser. Cores: ${cores}, RAM: ~${memory}GB. Chose preset: ${preset}`);
+      console.log(`[Graphics Auto-Detect] Desktop Web Browser. Cores: ${cores}, RAM: ${memory ? '~'+memory+'GB' : 'Unknown'}. Chose preset: ${preset}`);
     }
     return preset;
   };
