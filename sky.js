@@ -83,10 +83,20 @@ const skyFragmentShader = `
         if (uShowClouds && h > 0.0) {
             vec2 cloudUV = dir.xz / (h + 0.05);
             vec2 sunDir2D = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
-            float sunProximity = pow(sunIntensity, 3.0);
-            vec3 shadowColor = mix(topColor * 0.5, vec3(0.15, 0.15, 0.2), 0.5);
-            vec3 brightEdgeColor = mix(vec3(0.9, 0.9, 0.95), bottomColor * 2.0, sunProximity);
-            float densityOffset = (uCloudDensity - 0.5) * 0.4;
+            
+            // Dim the sun's influence on clouds during a storm
+            float stormDimming = 1.0 - uCloudDensity * 0.8;
+            float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
+            
+            // Darken the base cloud colors during a storm
+            vec3 baseShadow = mix(vec3(0.15, 0.15, 0.2), vec3(0.05, 0.06, 0.08), uCloudDensity);
+            vec3 baseBright = mix(vec3(0.9, 0.9, 0.95), vec3(0.4, 0.45, 0.5), uCloudDensity);
+            
+            vec3 shadowColor = mix(topColor * 0.5, baseShadow, 0.5);
+            vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
+            
+            // Widen the density range for clearer skies and thicker storms
+            float densityOffset = (uCloudDensity - 0.5) * 0.6;
             float horizonFade = smoothstep(0.0, 0.15, h);
 
             // -- Layer 1: High Altitude (Cirrus/Altocumulus) --
@@ -99,7 +109,7 @@ const skyFragmentShader = `
                 float nHigh_offset = fbm((cloudUV + driftHigh + sunDir2D * 0.04) * 3.5);
                 float litEdgeHigh = smoothstep(0.1, -0.1, nHigh_offset - nHigh);
                 vec3 cloudColorHigh = mix(shadowColor, brightEdgeColor, litEdgeHigh);
-                float sunRimHigh = pow(sunIntensity, 16.0) * litEdgeHigh;
+                float sunRimHigh = pow(sunIntensity, 16.0) * litEdgeHigh * stormDimming;
                 cloudColorHigh += bottomColor * sunRimHigh * 1.5;
                 // Mix high altitude layer first
                 col = mix(col, cloudColorHigh, alphaHigh * 0.7);
@@ -115,7 +125,7 @@ const skyFragmentShader = `
                 float nLow_offset = fbm((cloudUV + driftLow + sunDir2D * 0.06) * 2.0);
                 float litEdgeLow = smoothstep(0.1, -0.1, nLow_offset - nLow);
                 vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, litEdgeLow);
-                float sunRimLow = pow(sunIntensity, 16.0) * litEdgeLow;
+                float sunRimLow = pow(sunIntensity, 16.0) * litEdgeLow * stormDimming;
                 cloudColorLow += bottomColor * sunRimLow * 2.0;
                 // Mix low altitude layer on top
                 col = mix(col, cloudColorLow, alphaLow * 0.9);
