@@ -14,7 +14,7 @@ const _initQualityForTerrain = localStorage.getItem('chill_flight_quality');
 const _isLowQualityInitial =
   _initQualityForTerrain && parseInt(_initQualityForTerrain) <= 20;
 
-const _enableBlockClouds = ChillFlightLogic.SHOW_CLOUDS;
+const _enableBlockClouds = ChillFlightLogic.SHOW_BLOCK_CLOUDS;
 let _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
 // Flag removed to fix issue #25
 
