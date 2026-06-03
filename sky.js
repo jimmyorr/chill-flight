@@ -79,41 +79,46 @@ const skyFragmentShader = `
         vec3 totalGlow = wideGlow + warmHalo + hotCore;
         col = col + totalGlow * (vec3(1.0) - col);
         
-        // --- VOLUMETRIC PROCEDURAL CLOUDS ---
+        // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---
         if (uShowClouds && h > 0.0) {
             vec2 cloudUV = dir.xz / (h + 0.05);
-            vec2 drift = vec2(uTime * 0.03, uTime * 0.015);
-            
-            // Primary cloud shape noise
-            float n = fbm((cloudUV + drift) * 2.0);
-            
+            vec2 sunDir2D = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
+            float sunProximity = pow(sunIntensity, 3.0);
+            vec3 shadowColor = mix(topColor * 0.5, vec3(0.15, 0.15, 0.2), 0.5);
+            vec3 brightEdgeColor = mix(vec3(0.9, 0.9, 0.95), bottomColor * 2.0, sunProximity);
             float densityOffset = (uCloudDensity - 0.5) * 0.4;
-            float cloudAlpha = smoothstep(0.4 - densityOffset, 0.75 - densityOffset, n);
-            cloudAlpha *= smoothstep(0.0, 0.15, h); // fade at horizon
+            float horizonFade = smoothstep(0.0, 0.15, h);
+
+            // -- Layer 1: High Altitude (Cirrus/Altocumulus) --
+            // Moves slower, larger scale, slightly more sparse
+            vec2 driftHigh = vec2(uTime * 0.015, uTime * 0.0075);
+            float nHigh = fbm((cloudUV + driftHigh) * 3.5);
+            float alphaHigh = smoothstep(0.45 - densityOffset, 0.8 - densityOffset, nHigh) * horizonFade;
             
-            if (cloudAlpha > 0.0) {
-                // Faux Self-Shadowing: Sample noise slightly offset away from the sun
-                vec2 sunDir2D = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
-                float n_offset = fbm((cloudUV + drift + sunDir2D * 0.06) * 2.0);
-                
-                // If the offset density is lower, we are on the lit edge facing the sun.
-                float litEdge = smoothstep(0.1, -0.1, n_offset - n);
-                
-                // Deep, moody shadows for the cloud cores
-                vec3 shadowColor = mix(topColor * 0.5, vec3(0.15, 0.15, 0.2), 0.5);
-                
-                // Fiery sunlit edges
-                float sunProximity = pow(sunIntensity, 3.0);
-                vec3 brightEdgeColor = mix(vec3(0.9, 0.9, 0.95), bottomColor * 2.0, sunProximity);
-                
-                // Combine shadow and edge
-                vec3 cloudColor = mix(shadowColor, brightEdgeColor, litEdge);
-                
-                // Add an intense rim light directly around the sun
-                float sunRim = pow(sunIntensity, 16.0) * litEdge;
-                cloudColor += bottomColor * sunRim * 2.0;
-                
-                col = mix(col, cloudColor, cloudAlpha * 0.9);
+            if (alphaHigh > 0.0) {
+                float nHigh_offset = fbm((cloudUV + driftHigh + sunDir2D * 0.04) * 3.5);
+                float litEdgeHigh = smoothstep(0.1, -0.1, nHigh_offset - nHigh);
+                vec3 cloudColorHigh = mix(shadowColor, brightEdgeColor, litEdgeHigh);
+                float sunRimHigh = pow(sunIntensity, 16.0) * litEdgeHigh;
+                cloudColorHigh += bottomColor * sunRimHigh * 1.5;
+                // Mix high altitude layer first
+                col = mix(col, cloudColorHigh, alphaHigh * 0.7);
+            }
+
+            // -- Layer 2: Low Altitude (Cumulus) --
+            // Moves faster, normal scale
+            vec2 driftLow = vec2(uTime * 0.03, uTime * 0.015);
+            float nLow = fbm((cloudUV + driftLow) * 2.0);
+            float alphaLow = smoothstep(0.4 - densityOffset, 0.75 - densityOffset, nLow) * horizonFade;
+            
+            if (alphaLow > 0.0) {
+                float nLow_offset = fbm((cloudUV + driftLow + sunDir2D * 0.06) * 2.0);
+                float litEdgeLow = smoothstep(0.1, -0.1, nLow_offset - nLow);
+                vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, litEdgeLow);
+                float sunRimLow = pow(sunIntensity, 16.0) * litEdgeLow;
+                cloudColorLow += bottomColor * sunRimLow * 2.0;
+                // Mix low altitude layer on top
+                col = mix(col, cloudColorLow, alphaLow * 0.9);
             }
         }
 
