@@ -66,7 +66,7 @@
 
   const WORLD_SEED = parseInt(getParam('seed', getTodaySeed()), 10);
   const THEME = getParam('theme', 'standard');
-  const SHOW_CLOUDS = getParam('cloud', null) !== 'none';
+  const SHOW_CLOUDS = getParam('cloud', null) === 'true';
   const ENABLE_MP = getParam('enableMp', 'false') === 'true';
   let SHOW_OBJECTS = true;
   const objectsParam = getParam('objects', null);
