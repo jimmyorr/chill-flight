@@ -32,19 +32,13 @@ const skyFragmentShader = `
     varying vec3 vWorldPosition;
     varying vec3 vDirection;
 
-    float random(vec2 st) {
-        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-    }
+    uniform sampler2D uNoiseTex;
 
     float noise(vec2 st) {
         vec2 i = floor(st);
         vec2 f = fract(st);
-        float a = random(i);
-        float b = random(i + vec2(1.0, 0.0));
-        float c = random(i + vec2(0.0, 1.0));
-        float d = random(i + vec2(1.0, 1.0));
         vec2 u = f * f * (3.0 - 2.0 * f);
-        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+        return texture2D(uNoiseTex, (i + u + 0.5) / 256.0).r;
     }
 
     float fbm(vec2 st) {
@@ -331,6 +325,24 @@ function updateSkyPalette(serverNow) {
   }
 }
 
+// --- NOISE TEXTURE GENERATOR ---
+const _noiseSize = 256;
+const _noiseData = new Uint8Array(_noiseSize * _noiseSize);
+for (let i = 0; i < _noiseData.length; i++) {
+  _noiseData[i] = Math.floor(Math.random() * 256);
+}
+const skyNoiseTexture = new THREE.DataTexture(
+  _noiseData,
+  _noiseSize,
+  _noiseSize,
+  THREE.LuminanceFormat
+);
+skyNoiseTexture.wrapS = THREE.RepeatWrapping;
+skyNoiseTexture.wrapT = THREE.RepeatWrapping;
+skyNoiseTexture.minFilter = THREE.LinearFilter;
+skyNoiseTexture.magFilter = THREE.LinearFilter;
+skyNoiseTexture.needsUpdate = true;
+
 // Initial object creation with dummy values; updateSkyPalette will populate them
 const skyUniforms = {
   topColor: {value: new THREE.Color()},
@@ -344,6 +356,7 @@ const skyUniforms = {
   uCloudDensity: {value: 0.5},
   uShowClouds: {value: true},
   uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
+  uNoiseTex: {value: skyNoiseTexture},
 };
 
 // Initial calculation
@@ -451,19 +464,13 @@ const sunFragShader = `
     varying vec3 vNormal;
     varying vec3 vViewPosition;
 
-    float random(vec2 st) {
-        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-    }
+    uniform sampler2D uNoiseTex;
 
     float noise(vec2 st) {
         vec2 i = floor(st);
         vec2 f = fract(st);
-        float a = random(i);
-        float b = random(i + vec2(1.0, 0.0));
-        float c = random(i + vec2(0.0, 1.0));
-        float d = random(i + vec2(1.0, 1.0));
         vec2 u = f * f * (3.0 - 2.0 * f);
-        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+        return texture2D(uNoiseTex, (i + u + 0.5) / 256.0).r;
     }
 
     float fbm(vec2 st) {
@@ -571,6 +578,7 @@ const sunUniforms = {
   overcast: {value: 0.0},
   dayFactor: {value: 1.0},
   uSunColor: {value: new THREE.Color(0xffffff)},
+  uNoiseTex: {value: skyNoiseTexture},
 };
 
 const moonUniforms = {
