@@ -2023,6 +2023,19 @@ function updateWeather(delta) {
   snowParticles.visible = snowParticles.material.opacity >= 0.01;
   rainParticles.visible = rainParticles.material.opacity >= 0.01;
 
+  // Natural rainbow trigger
+  // Trigger when the target opacity hits 0 (weather is clearing), but rain is still visibly falling
+  const isRainClearing = targetRainOpacity === 0;
+  const isRainHeavy = rainParticles.material.opacity > 0.1;
+
+  if (isRainClearing && !wasRainClearing && isRainHeavy) {
+    // 70% chance to spawn a rainbow when rain starts to clear
+    if (Math.random() < 0.7) {
+      forceRainbow = true;
+    }
+  }
+  wasRainClearing = isRainClearing;
+
   if (!snowParticles.visible && !rainParticles.visible) return;
 
   // Pre-calculate boundaries once per frame
@@ -2214,6 +2227,11 @@ let shootingStarProgress = 0;
 let shootingStarStart = new THREE.Vector3();
 let shootingStarEnd = new THREE.Vector3();
 let shootingStarDuration = 1.0;
+
+let forceRainbow = false;
+let rainbowTimer = 0;
+let rainbowIntensity = 0;
+let wasRainClearing = true;
 
 function animate() {
   const frameStartTime = performance.now(); // Start CPU timer
@@ -4263,6 +4281,45 @@ function animate() {
     if (starMesh) starMesh.visible = false;
   }
 
+  // --- RAINBOW ---
+  const isRaining = window._unfadedRainOpacity > 0.1;
+  const isDaytime = sunY > 0;
+
+  const rainbowMesh = skyGroup.getObjectByName('rainbow');
+
+  const startRainbow = () => {
+    if (rainbowTimer <= 0 && rainbowMesh) {
+      // Lock position when spawned so it doesn't move across the sky
+      const sunDir = new THREE.Vector3(sunX, sunY, sunZ).normalize();
+      const antiSunDir = sunDir.clone().negate();
+      rainbowMesh.position.copy(antiSunDir).multiplyScalar(10000);
+      rainbowMesh.lookAt(camera.position);
+    }
+    rainbowTimer = 120.0;
+  };
+
+  if (forceRainbow) {
+    forceRainbow = false;
+    startRainbow();
+  }
+
+  if (rainbowMesh) {
+    if (rainbowTimer > 0 && isDaytime) {
+      rainbowTimer -= delta;
+      rainbowIntensity = Math.min(1.0, rainbowIntensity + delta * 0.2);
+      rainbowMesh.visible = true;
+      rainbowMesh.material.uniforms.uAlpha.value = rainbowIntensity;
+    } else {
+      rainbowTimer = 0;
+      rainbowIntensity = Math.max(0.0, rainbowIntensity - delta * 0.2);
+      if (rainbowIntensity <= 0) {
+        rainbowMesh.visible = false;
+      } else {
+        rainbowMesh.material.uniforms.uAlpha.value = rainbowIntensity;
+      }
+    }
+  }
+
   // --- AURORA BOREALIS ---
   // Aurora is visible only at night AND at high northern latitudes.
   // latVal > 0.5 => player is north of ~0.5°N in our coordinate system.
@@ -4633,6 +4690,12 @@ function animate() {
     updateDOM(
       document.getElementById('debug-aurora'),
       `${_auroraLabelFn(auroraVal)} (${auroraVal.toFixed(3)})`
+    );
+
+    // Rainbow telemetry
+    updateDOM(
+      document.getElementById('debug-rainbow'),
+      rainbowIntensity > 0 ? (rainbowIntensity * 100).toFixed(0) + '%' : '-'
     );
     updateDOM(
       document.getElementById('debug-aurora-peak'),
@@ -5152,9 +5215,20 @@ window.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
 
   // Secret shooting star trigger
-  if (key === 's' && e.shiftKey) {
+  if (key === 's' && e.shiftKey && !e.metaKey && !e.ctrlKey) {
     e.preventDefault();
     forceShootingStar = true;
+    return;
+  }
+
+  // Secret rainbow trigger
+  if (key === 'u' && e.shiftKey && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    if (rainbowTimer > 0) {
+      rainbowTimer = 0;
+    } else {
+      forceRainbow = true;
+    }
     return;
   }
 
