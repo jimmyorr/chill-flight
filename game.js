@@ -724,14 +724,14 @@ function pollGamepad(delta) {
         : 0;
 
   if (rt > 0.1) {
-    const throttleRate = (0.5 + rt * 3.5) * delta;
+    const throttleRate = (0.2 + rt * 1.0) * delta;
     targetFlightSpeed = Math.min(
       window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335,
       targetFlightSpeed + throttleRate
     );
   }
   if (lt > 0.1) {
-    const throttleRate = (0.5 + lt * 3.5) * delta;
+    const throttleRate = (0.2 + lt * 1.0) * delta;
     targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
   }
 
@@ -2687,7 +2687,7 @@ function animate() {
     if (rawUp) {
       const heldTime = nowTime - startRawUp;
       const ramp = Math.min(1.0, heldTime / 2000);
-      const throttleRate = (0.5 + ramp * 3.5) * delta;
+      const throttleRate = (0.2 + ramp * 1.0) * delta;
       targetFlightSpeed = targetFlightSpeed + throttleRate;
       if (vehicleType !== 'boat' && vehicleType !== 'buggy') {
         targetFlightSpeed = Math.min(
@@ -2700,7 +2700,7 @@ function animate() {
     } else if (rawDown) {
       const heldTime = nowTime - startRawDown;
       const ramp = Math.min(1.0, heldTime / 2000);
-      const throttleRate = (0.5 + ramp * 3.5) * delta;
+      const throttleRate = (0.2 + ramp * 1.0) * delta;
 
       if (vehicleType === 'boat' || vehicleType === 'buggy') {
         const prevSpeed = targetFlightSpeed;
@@ -5140,7 +5140,10 @@ if (btnUp) {
     if (e.cancelable) e.preventDefault();
     e.stopPropagation();
     const nowTime = performance.now();
-    if (nowTime - keyPressStartTime.ArrowUp < STEER_HOLD_THRESHOLD) {
+    if (
+      keyPressStartTime.ArrowUp > 0 &&
+      nowTime - keyPressStartTime.ArrowUp < STEER_HOLD_THRESHOLD
+    ) {
       const step = vehicleType === 'boat' ? 0.05 : 0.1;
       targetFlightSpeed += step;
       if (vehicleType === 'boat')
@@ -5153,6 +5156,7 @@ if (btnUp) {
     }
     keys.Shift = false;
     keys.ArrowUp = false;
+    keyPressStartTime.ArrowUp = 0;
     doubleTap.ArrowUp = false;
   };
   btnUp.addEventListener('pointerdown', down);
@@ -5179,7 +5183,10 @@ if (btnDown) {
     if (e.cancelable) e.preventDefault();
     e.stopPropagation();
     const nowTime = performance.now();
-    if (nowTime - keyPressStartTime.ArrowDown < 250) {
+    if (
+      keyPressStartTime.ArrowDown > 0 &&
+      nowTime - keyPressStartTime.ArrowDown < 250
+    ) {
       const step = vehicleType === 'boat' ? 0.05 : 0.1;
       const prevSpeed = targetFlightSpeed;
       targetFlightSpeed -= step;
@@ -5192,6 +5199,7 @@ if (btnDown) {
     }
     keys.Shift = false;
     keys.ArrowDown = false;
+    keyPressStartTime.ArrowDown = 0;
     doubleTap.ArrowDown = false;
   };
   btnDown.addEventListener('pointerdown', down);
