@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.8.24 - 0.8.25
+
+- **Environment:** Added dynamic shooting stars and rainbow weather effects. Fixed muddy sunset colors in the procedural sky.
+- **Controls:** Reduced global flight throttle acceleration rates. Fixed mobile speed button sensitivity and double-trigger bugs.
+- **System:** Added automatic graphics preset detection using device hardware capabilities. Consolidated core game logic into `game-bundle.js`.
+
 ## 0.8.23
 
 - **Cinematic sky overhaul:** Upgraded procedural clouds with dual-layer parallax and hardware texture sampling. Clouds are now physically anchored to the 3D world.
