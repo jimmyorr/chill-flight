@@ -2208,6 +2208,13 @@ const _shadowUp = new THREE.Vector3();
 const _worldUp = new THREE.Vector3(0, 1, 0);
 const _boatDummy = new THREE.Object3D();
 
+let isShootingStarActive = false;
+let forceShootingStar = false;
+let shootingStarProgress = 0;
+let shootingStarStart = new THREE.Vector3();
+let shootingStarEnd = new THREE.Vector3();
+let shootingStarDuration = 1.0;
+
 function animate() {
   const frameStartTime = performance.now(); // Start CPU timer
   requestAnimationFrame(animate);
@@ -4163,6 +4170,99 @@ function animate() {
   let starFactor = Math.max(0, Math.min(1, (sunY + 0.2) / -0.3));
   starsMat.opacity = starFactor * (1.0 - overcast);
 
+  // --- SHOOTING STARS ---
+  if (
+    (starFactor > 0.5 && overcast < 0.5) ||
+    isShootingStarActive ||
+    forceShootingStar
+  ) {
+    if (!isShootingStarActive) {
+      if (forceShootingStar || Math.random() < delta / 45.0) {
+        forceShootingStar = false;
+        isShootingStarActive = true;
+        shootingStarProgress = 0;
+        shootingStarDuration = 0.8 + Math.random() * 0.4;
+
+        const lookDir = new THREE.Vector3();
+        camera.getWorldDirection(lookDir);
+
+        lookDir.y += 0.3 + Math.random() * 0.4;
+        lookDir.x += (Math.random() - 0.5) * 1.5;
+        lookDir.z += (Math.random() - 0.5) * 1.5;
+        lookDir.normalize();
+
+        const distance = 15000;
+        shootingStarStart
+          .copy(camera.position)
+          .add(lookDir.multiplyScalar(distance));
+
+        const streakDir = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.5,
+          -0.2 - Math.random() * 0.3,
+          (Math.random() - 0.5) * 0.5
+        ).normalize();
+
+        const streakLength = 4000 + Math.random() * 3000;
+        shootingStarEnd
+          .copy(shootingStarStart)
+          .add(streakDir.multiplyScalar(streakLength));
+
+        const starMesh = skyGroup.getObjectByName('shootingStar');
+        if (starMesh) starMesh.visible = true;
+      }
+    } else {
+      shootingStarProgress += delta / shootingStarDuration;
+      const starMesh = skyGroup.getObjectByName('shootingStar');
+
+      if (shootingStarProgress >= 1.0) {
+        isShootingStarActive = false;
+        if (starMesh) starMesh.visible = false;
+      } else if (starMesh) {
+        const headPos = new THREE.Vector3().lerpVectors(
+          shootingStarStart,
+          shootingStarEnd,
+          shootingStarProgress
+        );
+        const tailLength = 0.15;
+        const tailProgress = Math.max(0, shootingStarProgress - tailLength);
+        const tailPos = new THREE.Vector3().lerpVectors(
+          shootingStarStart,
+          shootingStarEnd,
+          tailProgress
+        );
+
+        const positions = starMesh.geometry.attributes.position.array;
+
+        headPos.sub(skyGroup.position);
+        tailPos.sub(skyGroup.position);
+
+        positions[0] = headPos.x;
+        positions[1] = headPos.y;
+        positions[2] = headPos.z;
+        positions[3] = tailPos.x;
+        positions[4] = tailPos.y;
+        positions[5] = tailPos.z;
+        starMesh.geometry.attributes.position.needsUpdate = true;
+
+        const fadeOut = 1.0 - Math.pow(shootingStarProgress, 4);
+        const alpha = Math.min(1.0, fadeOut) * (1.0 - overcast);
+
+        const colors = starMesh.geometry.attributes.color.array;
+        colors[0] = alpha;
+        colors[1] = alpha;
+        colors[2] = alpha;
+        colors[3] = 0;
+        colors[4] = 0;
+        colors[5] = 0;
+        starMesh.geometry.attributes.color.needsUpdate = true;
+      }
+    }
+  } else if (isShootingStarActive) {
+    isShootingStarActive = false;
+    const starMesh = skyGroup.getObjectByName('shootingStar');
+    if (starMesh) starMesh.visible = false;
+  }
+
   // --- AURORA BOREALIS ---
   // Aurora is visible only at night AND at high northern latitudes.
   // latVal > 0.5 => player is north of ~0.5°N in our coordinate system.
@@ -5050,6 +5150,13 @@ window.addEventListener('keydown', (e) => {
   }
 
   const key = e.key.toLowerCase();
+
+  // Secret shooting star trigger
+  if (key === 's' && e.shiftKey) {
+    e.preventDefault();
+    forceShootingStar = true;
+    return;
+  }
 
   // Camera mode toggle
   if (key === 'c' && !e.metaKey && !e.ctrlKey) {

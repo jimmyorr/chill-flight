@@ -724,3 +724,31 @@ const starsMat = new THREE.PointsMaterial({
 });
 const starsMesh = new THREE.Points(starsGeo, starsMat);
 skyGroup.add(starsMesh);
+
+// Shooting Star
+const shootingStarGeo = new THREE.BufferGeometry();
+const shootingStarPos = new Float32Array([0, 0, 0, 0, 0, 0]); // Start with a zero-length line
+shootingStarGeo.setAttribute(
+  'position',
+  new THREE.BufferAttribute(shootingStarPos, 3)
+);
+// Use vertex colors for the fading tail
+const shootingStarColors = new Float32Array([1, 1, 1, 1, 1, 1]);
+shootingStarGeo.setAttribute(
+  'color',
+  new THREE.BufferAttribute(shootingStarColors, 3)
+);
+
+const shootingStarMat = new THREE.LineBasicMaterial({
+  color: 0xe0ffff, // Light cyan/white
+  vertexColors: true,
+  transparent: true,
+  linewidth: 2, // Note: WebGL standard limits linewidth to 1 on most platforms, but it still works
+  fog: false,
+  depthWrite: false,
+});
+const shootingStarMesh = new THREE.Line(shootingStarGeo, shootingStarMat);
+shootingStarMesh.name = 'shootingStar';
+shootingStarMesh.visible = false;
+shootingStarMesh.frustumCulled = false; // Prevent it from being culled since we update vertices dynamically
+skyGroup.add(shootingStarMesh);
