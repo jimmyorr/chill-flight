@@ -246,8 +246,13 @@ function generateDynamicPalette(rng) {
     bNames = ['Azure', 'Mist', 'Icy', 'Arctic', 'Slate'];
   }
 
-  const bottomSat = rand(0.35, 0.65); // Moderate saturation for natural horizons
-  const bottomLight = rand(0.55, 0.75); // Lighter than zenith but not washed out
+  let bottomSat = rand(0.5, 0.8); // Higher saturation prevents muddy/brown colors
+  let bottomLight = rand(0.65, 0.85); // Keep it bright to prevent it looking like dirt
+
+  if (hueType >= 0.8) {
+    // For icy blues, we can allow slightly lower saturation
+    bottomSat = rand(0.4, 0.6);
+  }
 
   // Convert our procedural HSL values to a standard Three.js hex color
   const topColor = new THREE.Color().setHSL(topHue, topSat, topLight);
