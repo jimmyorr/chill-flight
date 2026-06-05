@@ -356,7 +356,7 @@ Copy-ready metadata assets for the Chill Flight store listings (Google Play Stor
 
 ### Short description
 
-`Drift through endless, ever-changing skies in a minimalist, calming flight experience.`
+`Drift through endless, ever-changing skies in a minimalist flight experience.`
 
 ### Full description
 
