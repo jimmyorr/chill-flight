@@ -3481,7 +3481,7 @@ function generateChunk(chunkX, chunkZ) {
       group.userData.birds.push(hawk);
     }
 
-    if (!isCustom && rng() < 0.15) {
+    if (!isCustom && rng() < 0.04) {
       const flockSize = 7 + Math.floor(rng() * 6); // 7 to 12 geese
       const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
       const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
