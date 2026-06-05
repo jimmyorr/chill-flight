@@ -58,6 +58,12 @@ The world is organized around a central coordinate system (0,0) where latitude (
 > [!NOTE]
 > **Dynamic Coastlines:** Across all biomes, wherever the procedural water intersects with the land, the water's color dynamically blends into a white foam (#EEEEEE) to simulate natural shorelines and river banks.
 
+## Atmosphere & Sky Colors
+
+The game's dynamic sky utilizes a procedural palette generator that seamlessly transitions between various mood-driven colors for the zenith and horizon, depending on the time of day and random world seed.
+
+![Chill Flight Sky Color Palette](sky-palette.jpg)
+
 ## Weather
 
 Weather is dynamic and procedural, tied to a global noise map and the player's latitude.
