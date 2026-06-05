@@ -3874,6 +3874,9 @@ function animate() {
 
     if (chunkGroup.userData.birds) {
       chunkGroup.userData.birds.forEach((bird) => {
+        bird.visible = dayFactor > 0.1;
+        if (!bird.visible) return;
+
         const data = bird.userData;
         const flapSpeed = data.flapSpeed || 2;
         const flapPhase = data.flapPhase || 0;
