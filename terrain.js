@@ -2144,27 +2144,33 @@ function generateChunk(chunkX, chunkZ) {
           const plainsRoll = rng();
           if (plainsRoll < houseThreshold) {
             const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
-            if (isIsland) {
-              strawHutPositions.push({
-                x: localX,
-                y: height,
-                z: localZ,
-                rotY: rng() * Math.PI * 2,
-              });
-            } else {
-              housePositions.push({
-                x: localX,
-                y: height,
-                z: localZ,
-                rotY: rng() * Math.PI * 2,
-              });
-              // Chimney smoke for houses in snowy areas
-              if (snowFactor > 0.3) {
-                chimneySmokePositions.push({
+            const isAlienLand = Math.abs(worldX) > 25000;
+            const isBeyond5DegNorth = worldZ < -25000;
+            const isBeyond1DegNorth = worldZ < -5000;
+
+            if (!isAlienLand && !isBeyond5DegNorth) {
+              if (isIsland && !isBeyond1DegNorth) {
+                strawHutPositions.push({
                   x: localX,
-                  y: height + 10,
+                  y: height,
                   z: localZ,
+                  rotY: rng() * Math.PI * 2,
                 });
+              } else if (!isIsland) {
+                housePositions.push({
+                  x: localX,
+                  y: height,
+                  z: localZ,
+                  rotY: rng() * Math.PI * 2,
+                });
+                // Chimney smoke for houses in snowy areas
+                if (snowFactor > 0.3) {
+                  chimneySmokePositions.push({
+                    x: localX,
+                    y: height + 10,
+                    z: localZ,
+                  });
+                }
               }
             }
           } else if (
