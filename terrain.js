@@ -851,13 +851,46 @@ const castleRuinsGeo = createCastleRuinsGeometry();
 const castleRuinsMat = createMaterial({color: 0x78909c, flatShading: true}); // weathered stone
 
 // Bird geometry
-const birdBodyGeo = new THREE.BoxGeometry(1, 0.8, 4);
-const birdWingGeo = new THREE.BoxGeometry(6, 0.1, 2);
-birdWingGeo.translate(3, 0, 0);
-const birdHeadGeo = new THREE.ConeGeometry(0.5, 1.5, 4);
-birdHeadGeo.rotateX(-Math.PI / 2);
-birdHeadGeo.translate(0, 0, -2);
-const hawkMat = createMaterial({color: 0x442200, flatShading: true});
+// Hawk geometries
+const hawkBodyGeo = new THREE.BoxGeometry(1.2, 0.8, 3.5);
+const hawkBellyGeo = new THREE.BoxGeometry(1.25, 0.2, 2.5);
+hawkBellyGeo.translate(0, -0.35, -0.2);
+const hawkHeadGeo = new THREE.BoxGeometry(0.8, 0.8, 1.0);
+hawkHeadGeo.translate(0, 0.2, -2.0);
+const hawkBeakGeo = new THREE.ConeGeometry(0.3, 0.6, 4);
+hawkBeakGeo.rotateX(-Math.PI / 2);
+hawkBeakGeo.translate(0, 0.1, -2.8);
+const hawkTailGeo = new THREE.BoxGeometry(1.4, 0.2, 1.5);
+hawkTailGeo.translate(0, 0, 2.2);
+const hawkWingGeo = new THREE.BoxGeometry(5, 0.1, 2.5);
+hawkWingGeo.translate(2.5, 0, 0);
+
+const hawkBrownMat = createMaterial({color: 0x4a2e15, flatShading: true});
+const hawkLightMat = createMaterial({color: 0xd2b48c, flatShading: true}); // Tan belly
+const hawkBeakMat = createMaterial({color: 0xffcc00, flatShading: true}); // Yellow beak
+
+// Canada Goose geometries
+const gooseBodyGeo = new THREE.BoxGeometry(1.2, 0.9, 3.5);
+const gooseNeckGeo = new THREE.CylinderGeometry(0.25, 0.35, 2.5, 6);
+gooseNeckGeo.rotateX(Math.PI / 2);
+gooseNeckGeo.translate(0, 0.5, -2.5);
+const gooseHeadGeo = new THREE.BoxGeometry(0.6, 0.6, 1.2);
+gooseHeadGeo.translate(0, 0.5, -4.0);
+const gooseBeakGeo = new THREE.ConeGeometry(0.2, 0.8, 4);
+gooseBeakGeo.rotateX(-Math.PI / 2);
+gooseBeakGeo.translate(0, 0.5, -4.8);
+const gooseCheekGeo = new THREE.BoxGeometry(0.65, 0.3, 0.5);
+gooseCheekGeo.translate(0, 0.4, -4.0);
+const gooseTailGeo = new THREE.BoxGeometry(0.8, 0.4, 1.5);
+gooseTailGeo.translate(0, 0.2, 2.0);
+const gooseWhiteTailGeo = new THREE.BoxGeometry(1.0, 0.5, 1.0);
+gooseWhiteTailGeo.translate(0, -0.1, 1.5);
+
+const gooseBrownMat = createMaterial({color: 0x8B7355, flatShading: true});
+const gooseBlackMat = createMaterial({color: 0x222222, flatShading: true});
+const gooseWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
+const gooseWingGeo = new THREE.BoxGeometry(6, 0.1, 2);
+gooseWingGeo.translate(3, 0, 0);
 
 // Windmill geometries
 const windmillBaseGeo = new THREE.CylinderGeometry(5, 8, 30, 6);
@@ -1360,11 +1393,33 @@ window.ModelAssembler = {
         ];
       case 'bird':
         return [
-          {geo: birdBodyGeo, mat: hawkMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: birdWingGeo, mat: hawkMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: hawkBodyGeo, mat: hawkBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: hawkBellyGeo, mat: hawkLightMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: hawkHeadGeo, mat: hawkBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: hawkBeakGeo, mat: hawkBeakMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: hawkTailGeo, mat: hawkBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: hawkWingGeo, mat: hawkBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
           {
-            geo: birdWingGeo,
-            mat: hawkMat,
+            geo: hawkWingGeo,
+            mat: hawkBrownMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+            scale: [-1, 1, 1],
+          },
+        ];
+      case 'goose':
+        return [
+          {geo: gooseBodyGeo, mat: gooseBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: gooseNeckGeo, mat: gooseBlackMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: gooseHeadGeo, mat: gooseBlackMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: gooseBeakGeo, mat: gooseBlackMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: gooseCheekGeo, mat: gooseWhiteMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: gooseWhiteTailGeo, mat: gooseWhiteMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: gooseTailGeo, mat: gooseBlackMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: gooseWingGeo, mat: gooseBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {
+            geo: gooseWingGeo,
+            mat: gooseBrownMat,
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
             scale: [-1, 1, 1],
@@ -3233,23 +3288,23 @@ function generateChunk(chunkX, chunkZ) {
 
       const baseRotationY = rng() * Math.PI * 2;
 
-      function assembleBird(mat, scale) {
+      function assembleHawk(scale) {
         const bird = new THREE.Group();
-        const body = new THREE.Mesh(birdBodyGeo, mat);
-        const head = new THREE.Mesh(birdHeadGeo, mat);
-        const wingL = new THREE.Mesh(birdWingGeo, mat);
-        const wingR = new THREE.Mesh(birdWingGeo, mat);
+        const body = new THREE.Mesh(hawkBodyGeo, hawkBrownMat);
+        const belly = new THREE.Mesh(hawkBellyGeo, hawkLightMat);
+        const head = new THREE.Mesh(hawkHeadGeo, hawkBrownMat);
+        const beak = new THREE.Mesh(hawkBeakGeo, hawkBeakMat);
+        const tail = new THREE.Mesh(hawkTailGeo, hawkBrownMat);
+        const wingL = new THREE.Mesh(hawkWingGeo, hawkBrownMat);
+        const wingR = new THREE.Mesh(hawkWingGeo, hawkBrownMat);
         wingL.rotation.y = Math.PI;
-        bird.add(body);
-        bird.add(head);
-        bird.add(wingL);
-        bird.add(wingR);
+        bird.add(body, belly, head, beak, tail, wingL, wingR);
         bird.scale.set(scale, scale, scale);
         bird.userData.wings = [wingL, wingR];
         return bird;
       }
 
-      const hawk = assembleBird(hawkMat, 4.0);
+      const hawk = assembleHawk(4.0);
       hawk.position.set(baseX, baseY, baseZ);
       hawk.rotation.y = baseRotationY;
 
@@ -3266,6 +3321,59 @@ function generateChunk(chunkX, chunkZ) {
 
       objectsGroup.add(hawk);
       group.userData.birds.push(hawk);
+    }
+
+    if (!isCustom && rng() < 0.15) {
+      const flockSize = 7 + Math.floor(rng() * 6); // 7 to 12 geese
+      const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+      const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+      let baseY = getCachedElevation(baseX, baseZ) + 400 + rng() * 600;
+      if (baseY > 1200) baseY = 1200;
+
+      const baseRotationY = rng() * Math.PI * 2;
+      const speed = 0.5 + rng() * 0.2;
+
+      for (let i = 0; i < flockSize; i++) {
+        const goose = new THREE.Group();
+        const body = new THREE.Mesh(gooseBodyGeo, gooseBrownMat);
+        const neck = new THREE.Mesh(gooseNeckGeo, gooseBlackMat);
+        const head = new THREE.Mesh(gooseHeadGeo, gooseBlackMat);
+        const beak = new THREE.Mesh(gooseBeakGeo, gooseBlackMat);
+        const cheek = new THREE.Mesh(gooseCheekGeo, gooseWhiteMat);
+        const tailWhite = new THREE.Mesh(gooseWhiteTailGeo, gooseWhiteMat);
+        const tailBlack = new THREE.Mesh(gooseTailGeo, gooseBlackMat);
+        const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+        const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+        wingL.rotation.y = Math.PI;
+        goose.add(body, neck, head, beak, cheek, tailWhite, tailBlack, wingL, wingR);
+        goose.scale.set(3.5, 3.5, 3.5);
+        goose.userData.wings = [wingL, wingR];
+
+        let offsetX = 0;
+        let offsetZ = 0;
+        if (i > 0) {
+          const row = Math.floor((i + 1) / 2);
+          const side = i % 2 === 0 ? 1 : -1;
+          offsetX = side * row * 35;
+          offsetZ = row * 35;
+        }
+
+        const localPos = new THREE.Vector3(offsetX, 0, offsetZ);
+        localPos.applyAxisAngle(new THREE.Vector3(0, 1, 0), baseRotationY);
+
+        goose.position.set(baseX + localPos.x, baseY, baseZ + localPos.z);
+        goose.rotation.y = baseRotationY;
+
+        goose.userData.type = 'goose';
+        goose.userData.speed = speed;
+        goose.userData.flapPhase = rng() * Math.PI * 2;
+        goose.userData.flapSpeed = 3.0 + rng() * 1.0;
+        goose.userData.flapDuration = 1000.0;
+        goose.userData.soarDuration = 0.0;
+
+        objectsGroup.add(goose);
+        group.userData.birds.push(goose);
+      }
     }
 
     group.traverse((child) => {
