@@ -1,5 +1,10 @@
 # Release notes
 
+## 0.8.26
+
+- **Models:** Added a new Canada goose model. Enhanced the sailboat with a detailed hollow hull, rim, deck, and boom. Replaced the basic tent with a detailed A-frame body, inset entrance, and structural crossing poles.
+- **Environment:** Flocks of geese now occasionally spawn across the terrain. Birds now sleep and disappear at night, resuming their flight in the morning.
+
 ## 0.8.24 - 0.8.25
 
 - **Environment:** Added dynamic shooting stars and rainbow weather effects. Fixed muddy sunset colors in the procedural sky.
