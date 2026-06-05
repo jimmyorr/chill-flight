@@ -1674,12 +1674,19 @@ const _colorPlainsBright = new THREE.Color(0xbdb76b);
 const _colorCliffSouth = new THREE.Color(0x8b3a3a);
 const _colorVolcanoBasaltHi = new THREE.Color(0x5c5c5c);
 const _colorVolcanoBasaltLo = new THREE.Color(0x3a3a3a);
-// Extreme zone palette — alien, surreal colors blended in beyond 5 degrees E/W
-const _colorExtremeLowland = new THREE.Color(0x1a4d3a); // Deep teal (bioluminescent jungle floor)
-const _colorExtremeRock = new THREE.Color(0x1a0a2e); // Obsidian purple-black
-const _colorExtremePeak = new THREE.Color(0xc8f000); // Acid yellow-green peak
-const _colorExtremeCliff = new THREE.Color(0x4b0082); // Deep indigo cliff face
-const _colorExtremeWater = new THREE.Color(0x00ffe7); // Neon cyan water
+// Eastern Alien Biome (Swirling, organic, neon)
+const _colorEasternLowland = new THREE.Color(0x1a4d3a); // Deep teal (bioluminescent jungle floor)
+const _colorEasternRock = new THREE.Color(0x1a0a2e); // Obsidian purple-black
+const _colorEasternPeak = new THREE.Color(0xc8f000); // Acid yellow-green peak
+const _colorEasternCliff = new THREE.Color(0x4b0082); // Deep indigo cliff face
+const _colorEasternWater = new THREE.Color(0x00ffe7); // Neon cyan water
+
+// Western Alien Biome (Crystalline, geometric, fiery/magenta)
+const _colorWesternLowland = new THREE.Color(0x400020); // Deep maroon/magenta dust
+const _colorWesternRock = new THREE.Color(0x200000); // Dark crimson rock
+const _colorWesternPeak = new THREE.Color(0xffffff); // Blinding white crystal peak
+const _colorWesternCliff = new THREE.Color(0xff4500); // Glowing orange-red fiery faults
+const _colorWesternWater = new THREE.Color(0xff00ff); // Hot pink/magenta liquid
 
 function generateChunk(chunkX, chunkZ) {
   const group = new THREE.Group();
@@ -1773,6 +1780,7 @@ function generateChunk(chunkX, chunkZ) {
       const localZ = positions[i + 2];
       const worldX = worldOffsetX + localX;
       const worldZ = worldOffsetZ + localZ;
+      const isAlienLand = Math.abs(worldX) > 25000;
 
       const height = getCachedElevation(worldX, worldZ);
       positions[i + 1] = height;
@@ -2025,18 +2033,25 @@ function generateChunk(chunkX, chunkZ) {
       // Gradually paint alien colors over whatever biome is underneath,
       // so the transition feels organic rather than a hard cut.
       if (extremeBlend > 0) {
+        const isEast = worldX > 0;
+        const colorWater = isEast ? _colorEasternWater : _colorWesternWater;
+        const colorCliff = isEast ? _colorEasternCliff : _colorWesternCliff;
+        const colorPeak = isEast ? _colorEasternPeak : _colorWesternPeak;
+        const colorRock = isEast ? _colorEasternRock : _colorWesternRock;
+        const colorLowland = isEast ? _colorEasternLowland : _colorWesternLowland;
+
         if (height <= WATER_LEVEL) {
-          // Neon cyan alien ocean
-          _tempColorObj.lerp(_colorExtremeWater, extremeBlend * 0.85);
+          // Neon cyan alien ocean / Magenta liquid
+          _tempColorObj.lerp(colorWater, extremeBlend * 0.85);
         } else if (height > MOUNTAIN_LEVEL) {
-          // Acid yellow / indigo cliffs
+          // Acid yellow / indigo cliffs / White crystal / Fiery faults
           const peakFrac = Math.min(1, (height - MOUNTAIN_LEVEL) / 400);
-          _tempColorObj.lerp(_colorExtremeCliff, extremeBlend * 0.7);
-          _tempColorObj.lerp(_colorExtremePeak, extremeBlend * peakFrac * 0.9);
+          _tempColorObj.lerp(colorCliff, extremeBlend * 0.7);
+          _tempColorObj.lerp(colorPeak, extremeBlend * peakFrac * 0.9);
         } else {
           // Mid-elevation: obsidian rock on slopes, teal lowland flat areas
           _tempColorObj.lerp(
-            slopeFactor > 0.4 ? _colorExtremeRock : _colorExtremeLowland,
+            slopeFactor > 0.4 ? colorRock : colorLowland,
             extremeBlend * 0.75
           );
         }
@@ -2125,6 +2140,7 @@ function generateChunk(chunkX, chunkZ) {
               }
             }
           } else if (
+            !isAlienLand &&
             treeRoll <
             (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale
           ) {
@@ -2144,7 +2160,6 @@ function generateChunk(chunkX, chunkZ) {
           const plainsRoll = rng();
           if (plainsRoll < houseThreshold) {
             const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
-            const isAlienLand = Math.abs(worldX) > 25000;
             const isBeyond5DegNorth = worldZ < -25000;
             const isBeyond1DegNorth = worldZ < -5000;
 
@@ -2174,6 +2189,7 @@ function generateChunk(chunkX, chunkZ) {
               }
             }
           } else if (
+            !isAlienLand &&
             ENABLE_BARNS &&
             plainsRoll < barnThreshold &&
             snowFactor < 0.4 &&
@@ -2188,6 +2204,7 @@ function generateChunk(chunkX, chunkZ) {
               rotY: rng() * Math.PI * 2,
             });
           } else if (
+            !isAlienLand &&
             ENABLE_MONASTERIES &&
             plainsRoll < monasteryThreshold &&
             snowFactor < 0.2 &&
@@ -2202,6 +2219,7 @@ function generateChunk(chunkX, chunkZ) {
               rotY: rng() * Math.PI * 2,
             });
           } else if (
+            !isAlienLand &&
             ENABLE_CASTLE_RUINS &&
             plainsRoll < castleThreshold &&
             snowFactor < 0.5 &&
@@ -2216,6 +2234,7 @@ function generateChunk(chunkX, chunkZ) {
               rotY: rng() * Math.PI * 2,
             });
           } else if (
+            !isAlienLand &&
             plainsRoll < windmillThreshold &&
             height > WATER_LEVEL + 5 &&
             height < MOUNTAIN_LEVEL - 100 &&
@@ -3444,7 +3463,8 @@ function generateChunk(chunkX, chunkZ) {
 
     // 4. Generate Birds
     group.userData.birds = [];
-    if (!isCustom && rng() < 0.2) {
+    const isAlienChunk = Math.abs(worldOffsetX) > 25000;
+    if (!isCustom && !isAlienChunk && rng() < 0.2) {
       const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
       const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
       let baseY = getCachedElevation(baseX, baseZ) + 150 + rng() * 200;
@@ -3487,7 +3507,7 @@ function generateChunk(chunkX, chunkZ) {
       group.userData.birds.push(hawk);
     }
 
-    if (!isCustom && rng() < 0.04) {
+    if (!isCustom && !isAlienChunk && rng() < 0.04) {
       const flockSize = 7 + Math.floor(rng() * 6); // 7 to 12 geese
       const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
       const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
