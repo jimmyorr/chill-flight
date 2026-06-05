@@ -942,9 +942,77 @@ const pierPostGeo = new THREE.CylinderGeometry(1, 1, 10, 6);
 const woodMat = createMaterial({color: 0x5d4037, flatShading: true});
 
 // Tent geometries
-const tentGeo = new THREE.ConeGeometry(8, 12, 4);
-tentGeo.rotateY(Math.PI / 4);
-tentGeo.translate(0, 6, 0);
+function createTentBodyGeometry() {
+  const geom = new THREE.BoxGeometry(8, 6, 10);
+  geom.translate(0, 3, 0); // Base at Y=0
+  const pos = geom.attributes.position.array;
+  for (let i = 0; i < pos.length; i += 3) {
+    if (pos[i+1] > 5) { // Top vertices
+      pos[i] = 0; // Pinch X to 0 (ridge)
+    }
+  }
+  geom.computeVertexNormals();
+  return geom;
+}
+const tentGeo = createTentBodyGeometry();
+
+function createTentEntranceGeometry() {
+  const geom = new THREE.BoxGeometry(4, 4, 0.2);
+  geom.translate(0, 2, 5.05); // Front of the tent
+  const pos = geom.attributes.position.array;
+  for (let i = 0; i < pos.length; i += 3) {
+    if (pos[i+1] > 3) { // Top vertices
+      pos[i] = 0; // Pinch to triangle
+    }
+  }
+  geom.computeVertexNormals();
+  return geom;
+}
+const tentEntranceGeo = createTentEntranceGeometry();
+
+function createTentPolesGeometry() {
+  const poleLength = Math.sqrt(4 * 4 + 6 * 6); // ~7.211
+  const poleBase = new THREE.CylinderGeometry(0.2, 0.2, poleLength, 4);
+  const angle = Math.atan2(4, 6); // Matches tent slope
+  
+  const poleF1 = poleBase.clone();
+  poleF1.rotateZ(angle);
+  poleF1.translate(2, 3, 5.2);
+  
+  const poleF2 = poleBase.clone();
+  poleF2.rotateZ(-angle);
+  poleF2.translate(-2, 3, 5.2);
+  
+  const poleB1 = poleBase.clone();
+  poleB1.rotateZ(angle);
+  poleB1.translate(2, 3, -5.2);
+  
+  const poleB2 = poleBase.clone();
+  poleB2.rotateZ(-angle);
+  poleB2.translate(-2, 3, -5.2);
+  
+  const ridgePole = new THREE.CylinderGeometry(0.2, 0.2, 11, 4);
+  ridgePole.rotateX(Math.PI / 2);
+  ridgePole.translate(0, 6.1, 0);
+
+  const geos = [poleF1, poleF2, poleB1, poleB2, ridgePole];
+  const pos = [], norm = [], idx = [];
+  let offset = 0;
+  for (const g of geos) {
+    pos.push(...g.attributes.position.array);
+    norm.push(...g.attributes.normal.array);
+    for (let i = 0; i < g.index.array.length; i++) idx.push(g.index.array[i] + offset);
+    offset += g.attributes.position.count;
+  }
+  
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+const tentPolesGeo = createTentPolesGeometry();
+const tentEntranceMat = createMaterial({color: 0x111111, flatShading: true});
 // Tent color palettes
 const tentPalette = [
   createMaterial({color: 0xd2b48c, flatShading: true}), // Tan color
@@ -3145,7 +3213,10 @@ function generateChunk(chunkX, chunkZ) {
       });
 
       const tentInsts = [];
+      const tentPolesInst = new THREE.InstancedMesh(tentPolesGeo, woodMat, campfirePositions.length);
+      const tentEntranceInst = new THREE.InstancedMesh(tentEntranceGeo, tentEntranceMat, campfirePositions.length);
       const currentComboIndices = Array(numTentColors).fill(0);
+
       for (let i = 0; i < numTentColors; i++) {
         if (tentCounts[i] > 0) {
           tentInsts[i] = new THREE.InstancedMesh(
@@ -3157,6 +3228,10 @@ function generateChunk(chunkX, chunkZ) {
           objectsGroup.add(tentInsts[i]);
         }
       }
+      
+      tentPolesInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      tentEntranceInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(tentPolesInst, tentEntranceInst);
 
       campfirePositions.forEach((pos, index) => {
         const structure = ModelAssembler.getStructure(
@@ -3212,6 +3287,9 @@ function generateChunk(chunkX, chunkZ) {
         const colorIdx = tentColorIndices[index];
         const instIdx = currentComboIndices[colorIdx]++;
         tentInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
+        
+        tentPolesInst.setMatrixAt(index, dummy.matrix);
+        tentEntranceInst.setMatrixAt(index, dummy.matrix);
       });
 
       logInst.position.set(worldOffsetX, 0, worldOffsetZ);
