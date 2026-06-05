@@ -356,20 +356,17 @@ Copy-ready metadata assets for the Chill Flight store listings (Google Play Stor
 
 ### Short description
 
-`A minimalist, peaceful flight simulator with an infinite, procedural world.` (75 characters / 80 character limit)
+`Drift through endless, ever-changing skies in a minimalist, calming flight experience.`
 
 ### Full description
 
 ```text
-Take to the skies in Chill Flight, a minimalist, peaceful flight simulator with an infinite, procedural world.
+Find your flow in Chill Flight, a tranquil flight simulator with a procedurally generated world, featuring relaxing music by Purrple Cat.
 
-Designed for relaxation, this seamless, stress-free sandbox features no combat, no timers, and no pressure. Just you, your plane, and the endless horizon.
-
-Soar in any direction to discover an ever-changing world. Glide over lush plains, weave through deep canyons, navigate towering snowy peaks, and skim across tranquil coastal islands.
-
-Watch the landscape transform with dynamic weather and a real-time day-night cycle. Drift through golden afternoon sun, fly through gentle rain and snow, or cruise beneath the glowing Aurora Borealis.
-
-Fly your way with intuitive mobile tilt steering, responsive touch inputs, or full gamepad support.
+Explore an endlessly unfolding horizon featuring:
+• Dynamic weather
+• Day-night cycles
+• Diverse biomes
 
 Have a chill flight.
 ```
