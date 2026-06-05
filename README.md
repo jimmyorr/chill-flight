@@ -88,6 +88,11 @@ Storms are triggered when the global cloud noise map reaches peak density (> 0.7
 - **Desert border** (Latitude 0.8 to 1.1 South / Z between 4000 and 5500): Light rain that quickly dries up as you move further south.
 - **Deep desert** (Latitude > 1.1 South / Z > 5500): Dry storms (the sky becomes overcast, but no rain falls).
 
+### Atmospheric phenomena
+
+- **Shooting stars**: Rare shooting stars streak across the clear night sky.
+- **Rainbows**: Dynamic rainbows can appear when the sun shines shortly after a rainstorm.
+
 ### Permanent weather
 
 - **Snowy biome**: Above Latitude 0.9 North, snow falls roughly 80% of the time, regardless of the storm noise map, with occasional brief breaks.
@@ -115,6 +120,13 @@ These areas are layered on top of the primary biomes using noise-based "patches"
 - **Volcano:** Located at approximately `1.0 South, 1.0 West` (X=-5000, Z=5000). This is a massive, procedural volcano featuring a wide base, ridged slopes, a caldera crater, and active visual elements like lava and smoke. The surrounding terrain is textured with dark basalt rock.
 - **Montauk lighthouse:** Located at approximately `0.6 South, 1.2 East` (X=6000, Z=3000). This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
 
+## Wildlife
+
+The world is populated with dynamic, procedural wildlife that adds life to the environment:
+
+- **Geese:** Flocks of Canada geese fly in V-formations across the sky. They sleep and disappear at night, resuming their flight in the morning.
+- **Hawks:** Solitary hawks glide on thermal currents, dynamically transitioning between flapping and soaring.
+
 ## Controls
 
 Multiple control methods are supported: keyboard, mouse or trackpad, gamepad, and TV remote.
@@ -127,6 +139,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, gamepad, an
 - **Arrow left / right**: Control roll and turning.
 - **Shift + arrow up / down**: Throttle control (increase / decrease speed).
 - **Mouse wheel / trackpad scroll**: Smoothly adjust throttle (increase / decrease speed).
+- **M**: Toggle minimap overlay.
 - **L**: Toggle headlight.
 - **Escape**: Toggle pause menu.
 
@@ -165,6 +178,21 @@ The game is optimized for Android TV and similar devices using a standard remote
 - **Enter / center button**: Select items or toggle pause (when playing).
 - **Backspace / back button**: Toggle pause menu or go back.
 - **Media play / pause**: Toggle pause menu.
+
+### Touch & mobile controls
+
+When playing on a touch device, specialized UI and controls become available:
+
+- **Virtual joystick:** A premium, floating virtual joystick appears on screen for smooth, thumb-based flight control.
+- **Control schemes:** A dedicated control scheme selector allows you to choose between virtual joystick, device tilt (gyroscope), or directional button steering.
+- **Throttle:** A dedicated slider interface on the right side controls engine speed.
+
+## Graphics & Settings
+
+The game features automatic graphics preset detection that evaluates your device's hardware capabilities upon loading and seamlessly scales visual fidelity to ensure a smooth frame rate.
+
+- **Presets (Low / Medium / High):** These presets automatically adjust render resolution, shadow maps, draw distances, and particle densities.
+- **Manual override:** You can manually override the auto-detected graphics preset via the pause menu settings.
 
 ## URL Parameters
 
@@ -221,6 +249,10 @@ Once started, open `http://localhost:5173` in your browser.
 
 > [!NOTE]
 > During development, classic script files (e.g., `game.js`, `airplane.js`) are served unbundled to maintain original file structure mappings, enabling effortless hot-reloading and exact console log line numbers.
+
+### Model debug page
+
+A standalone 3D model viewer is available during development at `/debug.html` (e.g., `http://localhost:5173/debug.html`). This page allows you to inspect and preview all in-game geometries and structures in isolation, making it easy to tweak vertices, test materials, and verify rotations before adding them to the procedural world.
 
 ### Production build
 
