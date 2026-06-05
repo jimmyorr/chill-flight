@@ -3369,6 +3369,9 @@ function generateChunk(chunkX, chunkZ) {
       group.userData.boatHulls = hullInst;
       group.userData.boatMasts = mastInst;
       group.userData.boatSails = sailInst;
+      group.userData.boatRims = rimInst;
+      group.userData.boatDecks = deckInst;
+      group.userData.boatBooms = boomInst;
     }
 
     // 3. Generate Clouds

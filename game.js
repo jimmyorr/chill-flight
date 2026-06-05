@@ -3928,6 +3928,9 @@ function animate() {
       const hulls = chunkGroup.userData.boatHulls;
       const masts = chunkGroup.userData.boatMasts;
       const sails = chunkGroup.userData.boatSails;
+      const rims = chunkGroup.userData.boatRims;
+      const decks = chunkGroup.userData.boatDecks;
+      const booms = chunkGroup.userData.boatBooms;
       const positions = chunkGroup.userData.sailboatPositions;
 
       const hash = (index, seed) => {
@@ -3983,11 +3986,17 @@ function animate() {
         hulls.setMatrixAt(index, _boatDummy.matrix);
         masts.setMatrixAt(index, _boatDummy.matrix);
         sails.setMatrixAt(index, _boatDummy.matrix);
+        if (rims) rims.setMatrixAt(index, _boatDummy.matrix);
+        if (decks) decks.setMatrixAt(index, _boatDummy.matrix);
+        if (booms) booms.setMatrixAt(index, _boatDummy.matrix);
       });
 
       hulls.instanceMatrix.needsUpdate = true;
       masts.instanceMatrix.needsUpdate = true;
       sails.instanceMatrix.needsUpdate = true;
+      if (rims) rims.instanceMatrix.needsUpdate = true;
+      if (decks) decks.instanceMatrix.needsUpdate = true;
+      if (booms) booms.instanceMatrix.needsUpdate = true;
     }
 
     // Animate Lighthouse Beam
