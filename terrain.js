@@ -886,7 +886,7 @@ gooseTailGeo.translate(0, 0.2, 2.0);
 const gooseWhiteTailGeo = new THREE.BoxGeometry(1.0, 0.5, 1.0);
 gooseWhiteTailGeo.translate(0, -0.1, 1.5);
 
-const gooseBrownMat = createMaterial({color: 0x8B7355, flatShading: true});
+const gooseBrownMat = createMaterial({color: 0x8b7355, flatShading: true});
 const gooseBlackMat = createMaterial({color: 0x222222, flatShading: true});
 const gooseWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
 const gooseWingGeo = new THREE.BoxGeometry(6, 0.1, 2);
@@ -947,7 +947,8 @@ function createTentBodyGeometry() {
   geom.translate(0, 3, 0); // Base at Y=0
   const pos = geom.attributes.position.array;
   for (let i = 0; i < pos.length; i += 3) {
-    if (pos[i+1] > 5) { // Top vertices
+    if (pos[i + 1] > 5) {
+      // Top vertices
       pos[i] = 0; // Pinch X to 0 (ridge)
     }
   }
@@ -961,7 +962,8 @@ function createTentEntranceGeometry() {
   geom.translate(0, 2, 5.05); // Front of the tent
   const pos = geom.attributes.position.array;
   for (let i = 0; i < pos.length; i += 3) {
-    if (pos[i+1] > 3) { // Top vertices
+    if (pos[i + 1] > 3) {
+      // Top vertices
       pos[i] = 0; // Pinch to triangle
     }
   }
@@ -974,37 +976,40 @@ function createTentPolesGeometry() {
   const poleLength = Math.sqrt(4 * 4 + 6 * 6); // ~7.211
   const poleBase = new THREE.CylinderGeometry(0.2, 0.2, poleLength, 4);
   const angle = Math.atan2(4, 6); // Matches tent slope
-  
+
   const poleF1 = poleBase.clone();
   poleF1.rotateZ(angle);
   poleF1.translate(2, 3, 5.2);
-  
+
   const poleF2 = poleBase.clone();
   poleF2.rotateZ(-angle);
   poleF2.translate(-2, 3, 5.2);
-  
+
   const poleB1 = poleBase.clone();
   poleB1.rotateZ(angle);
   poleB1.translate(2, 3, -5.2);
-  
+
   const poleB2 = poleBase.clone();
   poleB2.rotateZ(-angle);
   poleB2.translate(-2, 3, -5.2);
-  
+
   const ridgePole = new THREE.CylinderGeometry(0.2, 0.2, 11, 4);
   ridgePole.rotateX(Math.PI / 2);
   ridgePole.translate(0, 6.1, 0);
 
   const geos = [poleF1, poleF2, poleB1, poleB2, ridgePole];
-  const pos = [], norm = [], idx = [];
+  const pos = [],
+    norm = [],
+    idx = [];
   let offset = 0;
   for (const g of geos) {
     pos.push(...g.attributes.position.array);
     norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++) idx.push(g.index.array[i] + offset);
+    for (let i = 0; i < g.index.array.length; i++)
+      idx.push(g.index.array[i] + offset);
     offset += g.attributes.position.count;
   }
-  
+
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
@@ -1159,22 +1164,30 @@ whiteSmokeMat.onBeforeCompile = (shader) => smokeShaderInject(shader, true);
 // Sailboat geometries
 function createBoatHullBaseGeometry() {
   const main = new THREE.BoxGeometry(3.6, 2, 8);
-  
+
   const prow = new THREE.BoxGeometry(3.6, 2, 4);
   prow.translate(0, 0, -6); // from -4 to -8
   const prowPos = prow.attributes.position.array;
   for (let i = 0; i < prowPos.length; i += 3) {
-    if (prowPos[i + 2] < -5) { // front face at -8
+    if (prowPos[i + 2] < -5) {
+      // front face at -8
       prowPos[i] = 0; // pinch X to 0
     }
   }
   prow.computeVertexNormals();
 
-  const pos = [...main.attributes.position.array, ...prow.attributes.position.array];
-  const norm = [...main.attributes.normal.array, ...prow.attributes.normal.array];
+  const pos = [
+    ...main.attributes.position.array,
+    ...prow.attributes.position.array,
+  ];
+  const norm = [
+    ...main.attributes.normal.array,
+    ...prow.attributes.normal.array,
+  ];
   const idx = [...main.index.array];
   let offset = main.attributes.position.count;
-  for (let i = 0; i < prow.index.array.length; i++) idx.push(prow.index.array[i] + offset);
+  for (let i = 0; i < prow.index.array.length; i++)
+    idx.push(prow.index.array[i] + offset);
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
@@ -1186,22 +1199,30 @@ boatHullGeo.translate(0, 0.5, 0);
 
 function createBoatRimGeometry() {
   const main = new THREE.BoxGeometry(4.0, 0.4, 8.2);
-  
+
   const prow = new THREE.BoxGeometry(4.0, 0.4, 4.2);
   prow.translate(0, 0, -6.2); // from -4.1 to -8.3
   const prowPos = prow.attributes.position.array;
   for (let i = 0; i < prowPos.length; i += 3) {
-    if (prowPos[i + 2] < -5.2) { // front face at -8.3
+    if (prowPos[i + 2] < -5.2) {
+      // front face at -8.3
       prowPos[i] = 0; // pinch X to 0
     }
   }
   prow.computeVertexNormals();
 
-  const pos = [...main.attributes.position.array, ...prow.attributes.position.array];
-  const norm = [...main.attributes.normal.array, ...prow.attributes.normal.array];
+  const pos = [
+    ...main.attributes.position.array,
+    ...prow.attributes.position.array,
+  ];
+  const norm = [
+    ...main.attributes.normal.array,
+    ...prow.attributes.normal.array,
+  ];
   const idx = [...main.index.array];
   let offset = main.attributes.position.count;
-  for (let i = 0; i < prow.index.array.length; i++) idx.push(prow.index.array[i] + offset);
+  for (let i = 0; i < prow.index.array.length; i++)
+    idx.push(prow.index.array[i] + offset);
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
@@ -1213,22 +1234,29 @@ boatRimGeo.translate(0, 1.7, 0);
 
 function createBoatDeckGeometry() {
   const main = new THREE.BoxGeometry(3.2, 0.2, 7.8);
-  
+
   const prow = new THREE.BoxGeometry(3.2, 0.2, 4.0);
   prow.translate(0, 0, -5.9); // from -3.9 to -7.9
   const prowPos = prow.attributes.position.array;
   for (let i = 0; i < prowPos.length; i += 3) {
-    if (prowPos[i + 2] < -4.9) { 
-      prowPos[i] = 0; 
+    if (prowPos[i + 2] < -4.9) {
+      prowPos[i] = 0;
     }
   }
   prow.computeVertexNormals();
 
-  const pos = [...main.attributes.position.array, ...prow.attributes.position.array];
-  const norm = [...main.attributes.normal.array, ...prow.attributes.normal.array];
+  const pos = [
+    ...main.attributes.position.array,
+    ...prow.attributes.position.array,
+  ];
+  const norm = [
+    ...main.attributes.normal.array,
+    ...prow.attributes.normal.array,
+  ];
   const idx = [...main.index.array];
   let offset = main.attributes.position.count;
-  for (let i = 0; i < prow.index.array.length; i++) idx.push(prow.index.array[i] + offset);
+  for (let i = 0; i < prow.index.array.length; i++)
+    idx.push(prow.index.array[i] + offset);
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
@@ -1245,12 +1273,11 @@ boatBoomGeo.rotateX(Math.PI / 2);
 boatBoomGeo.translate(0, 2.5, 2.5);
 
 const boatSailGeo = new THREE.BufferGeometry();
-const sailVertices = new Float32Array([
-  0, 2.5, -0.9,
-  0, 11, -0.9,
-  0, 2.5, 5.5
-]);
-boatSailGeo.setAttribute('position', new THREE.BufferAttribute(sailVertices, 3));
+const sailVertices = new Float32Array([0, 2.5, -0.9, 0, 11, -0.9, 0, 2.5, 5.5]);
+boatSailGeo.setAttribute(
+  'position',
+  new THREE.BufferAttribute(sailVertices, 3)
+);
 boatSailGeo.computeVertexNormals();
 
 const boatHullMat = createMaterial({color: 0xaa0000, flatShading: true});
@@ -1549,12 +1576,42 @@ window.ModelAssembler = {
         ];
       case 'bird':
         return [
-          {geo: hawkBodyGeo, mat: hawkBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: hawkBellyGeo, mat: hawkLightMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: hawkHeadGeo, mat: hawkBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: hawkBeakGeo, mat: hawkBeakMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: hawkTailGeo, mat: hawkBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: hawkWingGeo, mat: hawkBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {
+            geo: hawkBodyGeo,
+            mat: hawkBrownMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: hawkBellyGeo,
+            mat: hawkLightMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: hawkHeadGeo,
+            mat: hawkBrownMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: hawkBeakGeo,
+            mat: hawkBeakMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: hawkTailGeo,
+            mat: hawkBrownMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: hawkWingGeo,
+            mat: hawkBrownMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
           {
             geo: hawkWingGeo,
             mat: hawkBrownMat,
@@ -1565,14 +1622,54 @@ window.ModelAssembler = {
         ];
       case 'goose':
         return [
-          {geo: gooseBodyGeo, mat: gooseBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: gooseNeckGeo, mat: gooseBlackMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: gooseHeadGeo, mat: gooseBlackMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: gooseBeakGeo, mat: gooseBlackMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: gooseCheekGeo, mat: gooseWhiteMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: gooseWhiteTailGeo, mat: gooseWhiteMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: gooseTailGeo, mat: gooseBlackMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: gooseWingGeo, mat: gooseBrownMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {
+            geo: gooseBodyGeo,
+            mat: gooseBrownMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: gooseNeckGeo,
+            mat: gooseBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: gooseHeadGeo,
+            mat: gooseBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: gooseBeakGeo,
+            mat: gooseBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: gooseCheekGeo,
+            mat: gooseWhiteMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: gooseWhiteTailGeo,
+            mat: gooseWhiteMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: gooseTailGeo,
+            mat: gooseBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: gooseWingGeo,
+            mat: gooseBrownMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
           {
             geo: gooseWingGeo,
             mat: gooseBrownMat,
@@ -1583,12 +1680,27 @@ window.ModelAssembler = {
         ];
       case 'sailboat':
         return [
-          {geo: boatHullGeo, mat: boatHullMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {
+            geo: boatHullGeo,
+            mat: boatHullMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
           {geo: boatRimGeo, mat: boatRimMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: boatDeckGeo, mat: boatDeckMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {
+            geo: boatDeckGeo,
+            mat: boatDeckMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
           {geo: boatMastGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
           {geo: boatBoomGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: boatSailGeo, mat: boatSailMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {
+            geo: boatSailGeo,
+            mat: boatSailMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
         ];
       case 'volcano_active_elements':
         return [
@@ -2038,7 +2150,9 @@ function generateChunk(chunkX, chunkZ) {
         const colorCliff = isEast ? _colorEasternCliff : _colorWesternCliff;
         const colorPeak = isEast ? _colorEasternPeak : _colorWesternPeak;
         const colorRock = isEast ? _colorEasternRock : _colorWesternRock;
-        const colorLowland = isEast ? _colorEasternLowland : _colorWesternLowland;
+        const colorLowland = isEast
+          ? _colorEasternLowland
+          : _colorWesternLowland;
 
         if (height <= WATER_LEVEL) {
           // Neon cyan alien ocean / Magenta liquid
@@ -2141,8 +2255,7 @@ function generateChunk(chunkX, chunkZ) {
             }
           } else if (
             !isAlienLand &&
-            treeRoll <
-            (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale
+            treeRoll < (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale
           ) {
             const offX = (rng() - 0.5) * 15;
             const offZ = (rng() - 0.5) * 15;
@@ -3238,8 +3351,16 @@ function generateChunk(chunkX, chunkZ) {
       });
 
       const tentInsts = [];
-      const tentPolesInst = new THREE.InstancedMesh(tentPolesGeo, woodMat, campfirePositions.length);
-      const tentEntranceInst = new THREE.InstancedMesh(tentEntranceGeo, tentEntranceMat, campfirePositions.length);
+      const tentPolesInst = new THREE.InstancedMesh(
+        tentPolesGeo,
+        woodMat,
+        campfirePositions.length
+      );
+      const tentEntranceInst = new THREE.InstancedMesh(
+        tentEntranceGeo,
+        tentEntranceMat,
+        campfirePositions.length
+      );
       const currentComboIndices = Array(numTentColors).fill(0);
 
       for (let i = 0; i < numTentColors; i++) {
@@ -3253,7 +3374,7 @@ function generateChunk(chunkX, chunkZ) {
           objectsGroup.add(tentInsts[i]);
         }
       }
-      
+
       tentPolesInst.position.set(worldOffsetX, 0, worldOffsetZ);
       tentEntranceInst.position.set(worldOffsetX, 0, worldOffsetZ);
       objectsGroup.add(tentPolesInst, tentEntranceInst);
@@ -3312,7 +3433,7 @@ function generateChunk(chunkX, chunkZ) {
         const colorIdx = tentColorIndices[index];
         const instIdx = currentComboIndices[colorIdx]++;
         tentInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
-        
+
         tentPolesInst.setMatrixAt(index, dummy.matrix);
         tentEntranceInst.setMatrixAt(index, dummy.matrix);
       });
@@ -3361,12 +3482,36 @@ function generateChunk(chunkX, chunkZ) {
 
     // 2.98 Generate Sailboats
     if (sailboatPositions.length > 0) {
-      const hullInst = new THREE.InstancedMesh(boatHullGeo, boatHullMat, sailboatPositions.length);
-      const rimInst = new THREE.InstancedMesh(boatRimGeo, boatRimMat, sailboatPositions.length);
-      const deckInst = new THREE.InstancedMesh(boatDeckGeo, boatDeckMat, sailboatPositions.length);
-      const mastInst = new THREE.InstancedMesh(boatMastGeo, woodMat, sailboatPositions.length);
-      const boomInst = new THREE.InstancedMesh(boatBoomGeo, woodMat, sailboatPositions.length);
-      const sailInst = new THREE.InstancedMesh(boatSailGeo, boatSailMat, sailboatPositions.length);
+      const hullInst = new THREE.InstancedMesh(
+        boatHullGeo,
+        boatHullMat,
+        sailboatPositions.length
+      );
+      const rimInst = new THREE.InstancedMesh(
+        boatRimGeo,
+        boatRimMat,
+        sailboatPositions.length
+      );
+      const deckInst = new THREE.InstancedMesh(
+        boatDeckGeo,
+        boatDeckMat,
+        sailboatPositions.length
+      );
+      const mastInst = new THREE.InstancedMesh(
+        boatMastGeo,
+        woodMat,
+        sailboatPositions.length
+      );
+      const boomInst = new THREE.InstancedMesh(
+        boatBoomGeo,
+        woodMat,
+        sailboatPositions.length
+      );
+      const sailInst = new THREE.InstancedMesh(
+        boatSailGeo,
+        boatSailMat,
+        sailboatPositions.length
+      );
 
       sailboatPositions.forEach((pos, index) => {
         dummy.position.set(pos.x, pos.y, pos.z);
@@ -3388,7 +3533,14 @@ function generateChunk(chunkX, chunkZ) {
       mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
       boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
       sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(hullInst, rimInst, deckInst, mastInst, boomInst, sailInst);
+      objectsGroup.add(
+        hullInst,
+        rimInst,
+        deckInst,
+        mastInst,
+        boomInst,
+        sailInst
+      );
 
       group.userData.sailboatPositions = sailboatPositions;
       group.userData.boatHulls = hullInst;
@@ -3529,7 +3681,17 @@ function generateChunk(chunkX, chunkZ) {
         const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
         const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
         wingL.rotation.y = Math.PI;
-        goose.add(body, neck, head, beak, cheek, tailWhite, tailBlack, wingL, wingR);
+        goose.add(
+          body,
+          neck,
+          head,
+          beak,
+          cheek,
+          tailWhite,
+          tailBlack,
+          wingL,
+          wingR
+        );
         goose.scale.set(3.5, 3.5, 3.5);
         goose.userData.wings = [wingL, wingR];
 

@@ -721,9 +721,12 @@
       const terraceHeight = 120;
       let terracedN = Math.floor(n / terraceHeight) * terraceHeight;
       // Smooth the edges of the steps slightly
-      const stepAlpha = Math.min(1, Math.max(0, (n % terraceHeight) / (terraceHeight * 0.1)));
+      const stepAlpha = Math.min(
+        1,
+        Math.max(0, (n % terraceHeight) / (terraceHeight * 0.1))
+      );
       terracedN += stepAlpha * terraceHeight;
-      
+
       n = _lerp(n, terracedN, ef * 0.8);
 
       // 2. Giant Crystalline Spires (High-frequency, sharp, tall)
@@ -736,7 +739,9 @@
 
       // 3. Endless Chasms (Deep, narrow fractures intersecting)
       const chasm1 = Math.abs(simplex.noise2D(x * 0.0008, z * 0.0008));
-      const chasm2 = Math.abs(simplex.noise2D(x * 0.0008 + 100, z * 0.0008 + 100));
+      const chasm2 = Math.abs(
+        simplex.noise2D(x * 0.0008 + 100, z * 0.0008 + 100)
+      );
       const minChasm = Math.min(chasm1, chasm2);
 
       if (minChasm < 0.05) {
