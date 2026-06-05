@@ -1088,18 +1088,106 @@ smokeMat.onBeforeCompile = (shader) => smokeShaderInject(shader, false);
 whiteSmokeMat.onBeforeCompile = (shader) => smokeShaderInject(shader, true);
 
 // Sailboat geometries
-const boatHullGeo = new THREE.BoxGeometry(4, 2, 10);
-boatHullGeo.translate(0, 0.5, 0); // slight lift
-const boatMastGeo = new THREE.CylinderGeometry(0.2, 0.2, 12, 4);
+// Sailboat geometries
+function createBoatHullBaseGeometry() {
+  const main = new THREE.BoxGeometry(3.6, 2, 8);
+  
+  const prow = new THREE.BoxGeometry(3.6, 2, 4);
+  prow.translate(0, 0, -6); // from -4 to -8
+  const prowPos = prow.attributes.position.array;
+  for (let i = 0; i < prowPos.length; i += 3) {
+    if (prowPos[i + 2] < -5) { // front face at -8
+      prowPos[i] = 0; // pinch X to 0
+    }
+  }
+  prow.computeVertexNormals();
+
+  const pos = [...main.attributes.position.array, ...prow.attributes.position.array];
+  const norm = [...main.attributes.normal.array, ...prow.attributes.normal.array];
+  const idx = [...main.index.array];
+  let offset = main.attributes.position.count;
+  for (let i = 0; i < prow.index.array.length; i++) idx.push(prow.index.array[i] + offset);
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+const boatHullGeo = createBoatHullBaseGeometry();
+boatHullGeo.translate(0, 0.5, 0);
+
+function createBoatRimGeometry() {
+  const main = new THREE.BoxGeometry(4.0, 0.4, 8.2);
+  
+  const prow = new THREE.BoxGeometry(4.0, 0.4, 4.2);
+  prow.translate(0, 0, -6.2); // from -4.1 to -8.3
+  const prowPos = prow.attributes.position.array;
+  for (let i = 0; i < prowPos.length; i += 3) {
+    if (prowPos[i + 2] < -5.2) { // front face at -8.3
+      prowPos[i] = 0; // pinch X to 0
+    }
+  }
+  prow.computeVertexNormals();
+
+  const pos = [...main.attributes.position.array, ...prow.attributes.position.array];
+  const norm = [...main.attributes.normal.array, ...prow.attributes.normal.array];
+  const idx = [...main.index.array];
+  let offset = main.attributes.position.count;
+  for (let i = 0; i < prow.index.array.length; i++) idx.push(prow.index.array[i] + offset);
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+const boatRimGeo = createBoatRimGeometry();
+boatRimGeo.translate(0, 1.7, 0);
+
+function createBoatDeckGeometry() {
+  const main = new THREE.BoxGeometry(3.2, 0.2, 7.8);
+  
+  const prow = new THREE.BoxGeometry(3.2, 0.2, 4.0);
+  prow.translate(0, 0, -5.9); // from -3.9 to -7.9
+  const prowPos = prow.attributes.position.array;
+  for (let i = 0; i < prowPos.length; i += 3) {
+    if (prowPos[i + 2] < -4.9) { 
+      prowPos[i] = 0; 
+    }
+  }
+  prow.computeVertexNormals();
+
+  const pos = [...main.attributes.position.array, ...prow.attributes.position.array];
+  const norm = [...main.attributes.normal.array, ...prow.attributes.normal.array];
+  const idx = [...main.index.array];
+  let offset = main.attributes.position.count;
+  for (let i = 0; i < prow.index.array.length; i++) idx.push(prow.index.array[i] + offset);
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+const boatDeckGeo = createBoatDeckGeometry();
+boatDeckGeo.translate(0, 1.91, 0); // slightly above the white rim (1.7 + 0.2)
+
+const boatMastGeo = new THREE.CylinderGeometry(0.15, 0.15, 12, 4);
 boatMastGeo.translate(0, 6, -1);
+const boatBoomGeo = new THREE.CylinderGeometry(0.1, 0.1, 7, 4);
+boatBoomGeo.rotateX(Math.PI / 2);
+boatBoomGeo.translate(0, 2.5, 2.5);
+
 const boatSailGeo = new THREE.BufferGeometry();
-const sailVertices = new Float32Array([0, 2, -1, 0, 12, -1, 0, 2, -8]);
-boatSailGeo.setAttribute(
-  'position',
-  new THREE.BufferAttribute(sailVertices, 3)
-);
+const sailVertices = new Float32Array([
+  0, 2.5, -0.9,
+  0, 11, -0.9,
+  0, 2.5, 5.5
+]);
+boatSailGeo.setAttribute('position', new THREE.BufferAttribute(sailVertices, 3));
 boatSailGeo.computeVertexNormals();
-const boatHullMat = createMaterial({color: 0x8b4513, flatShading: true});
+
+const boatHullMat = createMaterial({color: 0xaa0000, flatShading: true});
+const boatRimMat = createMaterial({color: 0xffffff, flatShading: true});
+const boatDeckMat = createMaterial({color: 0xd2b48c, flatShading: true});
 const boatSailMat = createMaterial({
   color: 0xffffff,
   flatShading: true,
@@ -1427,19 +1515,12 @@ window.ModelAssembler = {
         ];
       case 'sailboat':
         return [
-          {
-            geo: boatHullGeo,
-            mat: boatHullMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
+          {geo: boatHullGeo, mat: boatHullMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: boatRimGeo, mat: boatRimMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: boatDeckGeo, mat: boatDeckMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
           {geo: boatMastGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {
-            geo: boatSailGeo,
-            mat: boatSailMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
+          {geo: boatBoomGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: boatSailGeo, mat: boatSailMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
         ];
       case 'volcano_active_elements':
         return [
@@ -3177,38 +3258,34 @@ function generateChunk(chunkX, chunkZ) {
 
     // 2.98 Generate Sailboats
     if (sailboatPositions.length > 0) {
-      const hullInst = new THREE.InstancedMesh(
-        boatHullGeo,
-        boatHullMat,
-        sailboatPositions.length
-      );
-      const mastInst = new THREE.InstancedMesh(
-        boatMastGeo,
-        woodMat,
-        sailboatPositions.length
-      );
-      const sailInst = new THREE.InstancedMesh(
-        boatSailGeo,
-        boatSailMat,
-        sailboatPositions.length
-      );
+      const hullInst = new THREE.InstancedMesh(boatHullGeo, boatHullMat, sailboatPositions.length);
+      const rimInst = new THREE.InstancedMesh(boatRimGeo, boatRimMat, sailboatPositions.length);
+      const deckInst = new THREE.InstancedMesh(boatDeckGeo, boatDeckMat, sailboatPositions.length);
+      const mastInst = new THREE.InstancedMesh(boatMastGeo, woodMat, sailboatPositions.length);
+      const boomInst = new THREE.InstancedMesh(boatBoomGeo, woodMat, sailboatPositions.length);
+      const sailInst = new THREE.InstancedMesh(boatSailGeo, boatSailMat, sailboatPositions.length);
 
       sailboatPositions.forEach((pos, index) => {
         dummy.position.set(pos.x, pos.y, pos.z);
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
+
         hullInst.setMatrixAt(index, dummy.matrix);
+        rimInst.setMatrixAt(index, dummy.matrix);
+        deckInst.setMatrixAt(index, dummy.matrix);
         mastInst.setMatrixAt(index, dummy.matrix);
+        boomInst.setMatrixAt(index, dummy.matrix);
         sailInst.setMatrixAt(index, dummy.matrix);
       });
 
       hullInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
       mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
       sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(hullInst);
-      objectsGroup.add(mastInst);
-      objectsGroup.add(sailInst);
+      objectsGroup.add(hullInst, rimInst, deckInst, mastInst, boomInst, sailInst);
 
       group.userData.sailboatPositions = sailboatPositions;
       group.userData.boatHulls = hullInst;
