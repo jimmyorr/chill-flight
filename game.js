@@ -1874,16 +1874,17 @@ function moveAndWrapParticles(
   minY,
   maxY,
   minZ,
-  maxZ
+  maxZ,
+  speedMultiplier = 1.0
 ) {
   const positions = particles.geometry.attributes.position.array;
   const velocities = particles.geometry.attributes.velocity.array;
   const len = positions.length;
 
   for (let i = 0; i < len; i += 3) {
-    positions[i] += velocities[i] * delta;
-    positions[i + 1] += velocities[i + 1] * delta;
-    positions[i + 2] += velocities[i + 2] * delta;
+    positions[i] += velocities[i] * delta * speedMultiplier;
+    positions[i + 1] += velocities[i + 1] * delta * speedMultiplier;
+    positions[i + 2] += velocities[i + 2] * delta * speedMultiplier;
 
     while (positions[i] < minX) positions[i] += WEATHER_RANGE;
     while (positions[i] > maxX) positions[i] -= WEATHER_RANGE;
@@ -1943,7 +1944,7 @@ function updateWeather(delta) {
       // Snows ~80% of the time (when noise is > 0.2)
       if (snowBreakNoise > 0.2) {
         const permanentSnow = THREE.MathUtils.clamp((latVal - 0.9) / 0.6, 0, 1);
-        targetSnowOpacity = Math.max(targetSnowOpacity, permanentSnow * 0.4);
+        targetSnowOpacity = Math.max(targetSnowOpacity, permanentSnow * 0.15);
       }
     }
 
@@ -1968,13 +1969,13 @@ function updateWeather(delta) {
       // 2. Distribute the storm intensity based on latitude
       if (latVal > 0.9) {
         // North: Storm intensifies the already-falling snow
-        targetSnowOpacity = Math.max(targetSnowOpacity, stormIntensity * 0.8);
+        targetSnowOpacity = Math.max(targetSnowOpacity, stormIntensity * 0.4);
       } else if (latVal > 0.7) {
         // Transition Zone (0.7 to 0.9): Sleet (Mix of Rain and Snow)
         const snowRatio = (latVal - 0.7) / 0.2; // 0.0 at 0.7, 1.0 at 0.9
         targetSnowOpacity = Math.max(
           targetSnowOpacity,
-          stormIntensity * 0.8 * snowRatio
+          stormIntensity * 0.4 * snowRatio
         );
         targetRainOpacity = stormIntensity * 0.5 * (1.0 - snowRatio);
       } else if (latVal > -0.8) {
@@ -2078,8 +2079,9 @@ function updateWeather(delta) {
   const minZ = camPos.z - halfRange;
   const maxZ = camPos.z + halfRange;
 
-  // Only run the heavy math on visible systems
-  if (snowParticles.visible)
+  if (snowParticles.visible) {
+    // Snow speed varies subtly: base speed is 0.8x, speeding up to 1.0x during heavy storms
+    const snowSpeed = 0.8 + (snowParticles.material.opacity / 0.4) * 0.2;
     moveAndWrapParticles(
       snowParticles,
       delta,
@@ -2088,8 +2090,10 @@ function updateWeather(delta) {
       minY,
       maxY,
       minZ,
-      maxZ
+      maxZ,
+      snowSpeed
     );
+  }
   if (rainParticles.visible)
     moveAndWrapParticles(
       rainParticles,
