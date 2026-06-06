@@ -125,6 +125,8 @@ function updateInputPosition(clientX, clientY) {
 let isFreeCameraDragging = false;
 let freeCamDeltaX = 0;
 let freeCamDeltaY = 0;
+let lastFreeCamTouchX = 0;
+let lastFreeCamTouchY = 0;
 
 window.addEventListener('mousedown', (e) => {
   if (isFreeCamera) {
@@ -194,6 +196,13 @@ window.addEventListener(
         target.closest('.color-swatch');
       if (!isUI) {
         if (e.cancelable) e.preventDefault(); // Stop iOS from starting a selection gesture
+
+        if (isFreeCamera) {
+          isFreeCameraDragging = true;
+          lastFreeCamTouchX = e.touches[0].clientX;
+          lastFreeCamTouchY = e.touches[0].clientY;
+          return;
+        }
 
         // --- Gyro mode: skip all screen-drag steering ---
         if (currentControlScheme === 'gyro') {
@@ -417,6 +426,15 @@ window.addEventListener(
         target.closest('#player-list') ||
         target.closest('.color-swatch');
       if (!isUI) {
+        if (isFreeCameraDragging && isFreeCamera) {
+          const touch = e.touches[0];
+          freeCamDeltaX += touch.clientX - lastFreeCamTouchX;
+          freeCamDeltaY += touch.clientY - lastFreeCamTouchY;
+          lastFreeCamTouchX = touch.clientX;
+          lastFreeCamTouchY = touch.clientY;
+          return;
+        }
+
         // --- Gyro mode: skip all screen-drag steering ---
         if (currentControlScheme === 'gyro') {
           // Do nothing for steering; gyro handles it
@@ -524,6 +542,7 @@ window.addEventListener('touchend', (e) => {
     mouseControlActive = false;
     mouseX = 0;
     mouseY = 0;
+    isFreeCameraDragging = false;
   }
 });
 
