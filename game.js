@@ -410,13 +410,9 @@ window.addEventListener(
   (e) => {
     if (e.touches.length > 0) {
       const target = e.target;
-      const isCockpit = target.closest('#cockpit-ui');
-      if (!isCockpit && !isPaused) {
-        e.preventDefault();
-      }
       const isPauseOverlay = target.closest('#pause-overlay');
       const isUI =
-        isCockpit ||
+        target.closest('#cockpit-ui') ||
         isPauseOverlay ||
         target.closest('#loading-overlay') ||
         target.closest('#debug-menu') ||
@@ -425,6 +421,11 @@ window.addEventListener(
         target.closest('#mobile-controls') ||
         target.closest('#player-list') ||
         target.closest('.color-swatch');
+
+      if (!isUI && !isPaused) {
+        e.preventDefault();
+      }
+
       if (!isUI) {
         if (isFreeCameraDragging && isFreeCamera) {
           const touch = e.touches[0];
