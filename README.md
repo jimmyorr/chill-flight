@@ -362,8 +362,6 @@ Copy-ready metadata assets for the Chill Flight store listings (Google Play Stor
 
 ```text
 Find your flow in Chill Flight, a tranquil flight simulator with a procedurally generated world, featuring relaxing music by Purrple Cat.
-
-Explore an endlessly unfolding horizon featuring:
 • Dynamic weather
 • Day-night cycles
 • Diverse biomes
