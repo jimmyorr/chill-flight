@@ -672,9 +672,9 @@
       n = _lerp(n, WATER_LEVEL - 2, riverFactor);
     }
 
-    // --- EASTERN ALIEN BIOME (Beyond 5 degrees East) ---
+    // --- EASTERN ALIEN BIOME (Beyond 10 degrees East) ---
     // Swirling domain-warped ridges and alien sea basins
-    const extremeEdge = 25000;
+    const extremeEdge = 50000;
     if (x > extremeEdge) {
       const extremeFactor = Math.min(1.0, (x - extremeEdge) / 15000);
       const ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
@@ -710,7 +710,7 @@
 
       if (n < WATER_LEVEL) n = WATER_LEVEL;
     }
-    // --- WESTERN ALIEN BIOME (Beyond 5 degrees West) ---
+    // --- WESTERN ALIEN BIOME (Beyond 10 degrees West) ---
     // Massive geometric stepped plateaus, jagged crystal spires, and deep fractured chasms
     else if (x < -extremeEdge) {
       const extremeFactor = Math.min(1.0, (-x - extremeEdge) / 15000);
