@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.8.27
+
+- **Controls:** Completely rewrote gyro orientation math using quaternions to permanently fix axis confusion when starting at an angle, and restored original landscape pitch polarity.
+- **Controls:** Added a "GYRO RESET" button to the mobile pause menu to instantly recalibrate device orientation center point.
+- **Gameplay:** Adjusted airplane flight speed initialization and vehicle-specific constants.
+
 ## 0.8.26
 
 - **Models:** Added a new Canada goose model. Enhanced the sailboat with a detailed hollow hull, rim, deck, and boom. Replaced the basic tent with a detailed A-frame body, inset entrance, and structural crossing poles.
