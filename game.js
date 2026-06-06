@@ -128,6 +128,16 @@ let freeCamDeltaY = 0;
 let lastFreeCamTouchX = 0;
 let lastFreeCamTouchY = 0;
 
+window.addEventListener('contextmenu', (e) => {
+  if (
+    e.target.tagName !== 'INPUT' ||
+    e.target.type === 'range' ||
+    e.target.type === 'checkbox'
+  ) {
+    e.preventDefault();
+  }
+});
+
 window.addEventListener('mousedown', (e) => {
   if (isFreeCamera) {
     if (
