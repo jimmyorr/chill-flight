@@ -4216,8 +4216,8 @@ function animate() {
       ? 0
       : (weatherNoise - weatherThreshold) / (1 - weatherThreshold);
 
-  // 3. The world is overcast if there are clouds OR if it's raining/snowing
-  const targetOvercast = Math.max(weatherNoise, precipIntensity);
+  // 3. The world is overcast if there are thick clouds (we don't force overcast for snow/rain so we can have beautiful snowy sunsets)
+  const targetOvercast = weatherNoise;
   window._currentOvercast = THREE.MathUtils.lerp(
     window._currentOvercast || 0,
     targetOvercast,
