@@ -1296,6 +1296,10 @@ input[type='number'].customization-input {
 
 /* Position overrides for mobile screens to prevent clipping */
 @media (max-width: 768px) {
+  #debug-telemetry {
+    display: none !important;
+  }
+
   .onboarding-tooltip {
     left: -15px;
     transform: translateY(0);
