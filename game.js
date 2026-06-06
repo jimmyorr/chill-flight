@@ -1622,6 +1622,11 @@ if (controlSchemeToggle) {
         b.classList.toggle('active', b.dataset.scheme === scheme);
       });
 
+      const recalibrateBtn = document.getElementById('mobile-recalibrate-btn');
+      if (recalibrateBtn) {
+        recalibrateBtn.style.display = scheme === 'gyro' ? '' : 'none';
+      }
+
       // Reset steering state when switching
       mouseX = 0;
       mouseY = 0;
@@ -1641,38 +1646,81 @@ if (controlSchemeToggle) {
   });
 }
 
-function handleGyroData(beta, gamma) {
+const _zee = new THREE.Vector3(0, 0, 1);
+const _q0 = new THREE.Quaternion();
+const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+const _euler = new THREE.Euler();
+
+function getDeviceQuaternion(alpha, beta, gamma, orient) {
+  const degToRad = Math.PI / 180;
+  _euler.set(
+    beta * degToRad,
+    (alpha || 0) * degToRad,
+    -(gamma || 0) * degToRad,
+    'YXZ'
+  );
+  const q = new THREE.Quaternion();
+  q.setFromEuler(_euler);
+  q.multiply(_q1);
+  q.multiply(_q0.setFromAxisAngle(_zee, -orient * degToRad));
+  return q;
+}
+
+let gyroBaseQuat = null;
+let gyroBaseGravity = null;
+const recalibrateBtn = document.getElementById('mobile-recalibrate-btn');
+if (recalibrateBtn) {
+  recalibrateBtn.style.display = currentControlScheme === 'gyro' ? '' : 'none';
+  recalibrateBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    gyroBaseQuat = null;
+    gyroBaseGravity = null;
+
+    // Provide a little UI feedback (e.g. green icon temporarily)
+    recalibrateBtn.style.color = '#4caf50';
+    recalibrateBtn.style.borderColor = '#4caf50';
+    setTimeout(() => {
+      recalibrateBtn.style.color = '';
+      recalibrateBtn.style.borderColor = '';
+    }, 1500);
+  });
+}
+
+function handleGyroData(alpha, beta, gamma) {
   if (currentControlScheme !== 'gyro' || isPaused) return;
   if (beta === null || gamma === null) return;
 
-  let roll = gamma;
-  let pitch = beta;
   const orientation =
     window.screen && window.screen.orientation
       ? window.screen.orientation.angle
       : window.orientation || 0;
 
-  if (orientation === 90) {
-    roll = beta;
-    pitch = -gamma;
-  } else if (orientation === -90 || orientation === 270) {
-    roll = -beta;
-    pitch = gamma;
+  const currentQuat = getDeviceQuaternion(alpha, beta, gamma, orientation);
+
+  // Gravity is -Y in the World Frame (Three.js deviceorientation convention)
+  const gravityWorld = new THREE.Vector3(0, -1, 0);
+  const currentGravity = gravityWorld
+    .clone()
+    .applyQuaternion(currentQuat.clone().invert());
+
+  if (!gyroBaseQuat) {
+    gyroBaseQuat = currentQuat.clone();
+    gyroBaseGravity = currentGravity.clone();
   }
 
-  if (gyroBasePitch === null || gyroBaseRoll === null) {
-    gyroBasePitch = pitch;
-    gyroBaseRoll = roll;
-  }
+  // Pitch is the rotation around the local X axis
+  const relQuat = gyroBaseQuat.clone().invert().multiply(currentQuat);
+  const relEuler = new THREE.Euler().setFromQuaternion(relQuat, 'XYZ');
+  // Removed negation to match original landscape gyro polarity
+  let diffPitch = relEuler.x * (180 / Math.PI);
 
-  let diffRoll = roll - gyroBaseRoll;
-  let diffPitch = pitch - gyroBasePitch;
-
-  // Handle wrap-around bounds
-  if (diffRoll > 180) diffRoll -= 360;
-  if (diffRoll < -180) diffRoll += 360;
-  if (diffPitch > 180) diffPitch -= 360;
-  if (diffPitch < -180) diffPitch += 360;
+  // Roll is the tilt of the right side of the device towards gravity
+  let currentRollAngle =
+    Math.asin(THREE.MathUtils.clamp(currentGravity.x, -1, 1)) * (180 / Math.PI);
+  let baseRollAngle =
+    Math.asin(THREE.MathUtils.clamp(gyroBaseGravity.x, -1, 1)) *
+    (180 / Math.PI);
+  let diffRoll = currentRollAngle - baseRollAngle;
 
   let targetX = diffRoll / gyroSensitivity;
   if (targetX > 1) targetX = 1;
@@ -1693,11 +1741,11 @@ if (
   Capacitor.Plugins.Motion
 ) {
   Capacitor.Plugins.Motion.addListener('orientation', (event) => {
-    handleGyroData(event.beta, event.gamma);
+    handleGyroData(event.alpha, event.beta, event.gamma);
   });
 } else {
   window.addEventListener('deviceorientation', (event) => {
-    handleGyroData(event.beta, event.gamma);
+    handleGyroData(event.alpha, event.beta, event.gamma);
   });
 }
 
