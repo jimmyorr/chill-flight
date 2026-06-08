@@ -224,7 +224,7 @@
     console.log('Web environment detected. Initializing Google Analytics...');
     const script = document.createElement('script');
     script.async = true;
-    script.src = 'https://www.googletagmanager.com/gtag/js?id=G-6RNVL7JZVJ';
+    script.src = 'https://www.googletagmanager.com/gtag/js?id=G-N6RGBLQCZ8';
     document.head.appendChild(script);
 
     window.dataLayer = window.dataLayer || [];
@@ -233,6 +233,6 @@
     }
     window.gtag = gtag;
     gtag('js', new Date());
-    gtag('config', 'G-6RNVL7JZVJ');
+    gtag('config', 'G-N6RGBLQCZ8');
   }
 })();
