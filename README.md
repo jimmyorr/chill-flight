@@ -356,15 +356,15 @@ Copy-ready metadata assets for the Chill Flight store listings (Google Play Stor
 
 ### Short description
 
-`Drift through endless, ever-changing skies in a minimalist flight experience.`
+`Drift through endless, ever-changing skies to relaxing lofi beats.`
 
 ### Full description
 
 ```text
-Find your flow in Chill Flight, a tranquil flight simulator with a procedurally generated world, featuring relaxing music by Purrple Cat.
-• Dynamic weather
-• Day-night cycles
-• Diverse biomes
+Find your flow in Chill Flight, a relaxing flight simulator set in a procedurally generated world. Drift through the skies to lofi music by Purrple Cat and explore endless horizons featuring:
+• 🌧️ Dynamic weather
+• ☀️ Seamless day-night cycles
+• 🌲 Diverse biomes
 
 Have a chill flight.
 ```
