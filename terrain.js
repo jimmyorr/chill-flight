@@ -238,18 +238,23 @@ cloudMat.onBeforeCompile = (shader) => {
 };
 
 // Reusable tree geometries for forest instances
-const treeTrunkGeo = new THREE.CylinderGeometry(1.5, 2.5, 12, 5);
-treeTrunkGeo.translate(0, 6, 0);
+const treeTrunkGeo = new THREE.CylinderGeometry(1.5, 2.5, 14, 6);
+treeTrunkGeo.translate(0, 7, 0);
 
 function createPineGeometry() {
-  const c1 = new THREE.ConeGeometry(9, 14, 5);
-  c1.translate(0, 12, 0);
-  const c2 = new THREE.ConeGeometry(7, 12, 5);
-  c2.translate(0, 20, 0);
-  const c3 = new THREE.ConeGeometry(5, 10, 5);
-  c3.translate(0, 27, 0);
+  // 4 overlapping conical tiers — each sinks into the one below so no gaps show.
+  // Widest at the bottom, narrowest at the top, giving a classic conifer silhouette.
+  const segs = 6;
+  const c1 = new THREE.ConeGeometry(10, 12, segs);
+  c1.translate(0, 14, 0); // base of bottom tier sits at y=8
+  const c2 = new THREE.ConeGeometry(8, 11, segs);
+  c2.translate(0, 19, 0); // overlaps ~3 units into c1
+  const c3 = new THREE.ConeGeometry(6, 10, segs);
+  c3.translate(0, 24, 0); // overlaps ~3 units into c2
+  const c4 = new THREE.ConeGeometry(3.5, 8, segs);
+  c4.translate(0, 28.5, 0); // top spire
 
-  const geometries = [c1, c2, c3];
+  const geometries = [c1, c2, c3, c4];
   const pos = [],
     norm = [],
     uvs = [],
