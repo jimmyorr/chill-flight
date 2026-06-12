@@ -379,46 +379,135 @@ function createJapaneseMapleGeometry() {
 const japaneseMapleGeos = createJapaneseMapleGeometry();
 
 function createPalmGeometry() {
+  // Stacked, flared trunk segments to create a bumpy, ridged bark texture
   const trunkSegments = 6;
-  const trunkHeights = [];
-  const geometries = [];
+  const segHeight = 3.5;
+  const trunkHeight = trunkSegments * segHeight;
+  const trunkGeos = [];
 
-  // Curved trunk parts
-  for (let i = 0; i < trunkSegments; i++) {
-    const h = 3;
-    const g = new THREE.CylinderGeometry(1.2 - i * 0.1, 1.3 - i * 0.1, h, 6);
-    const angle = i * 0.15;
-    g.rotateZ(angle);
-    g.translate(Math.sin(angle) * i * 2, i * h + h / 2, 0);
-    geometries.push(g);
+  for (let j = 0; j < trunkSegments; j++) {
+    const tBottom = j / trunkSegments;
+    const tTop = (j + 1) / trunkSegments;
+
+    // Bottom flare is wider than the top of the previous segment
+    const rBottom = 2.2 * (1.0 - tBottom * 0.45);
+    const rTop = rBottom * 0.85;
+
+    const segGeo = new THREE.CylinderGeometry(rTop, rBottom, segHeight, 6);
+    // Move to correct height
+    segGeo.translate(0, j * segHeight + segHeight / 2, 0);
+
+    // Apply lean on X axis
+    const pos = segGeo.attributes.position.array;
+    for (let idx = 0; idx < pos.length; idx += 3) {
+      const y = pos[idx + 1];
+      const lean = Math.pow(y / trunkHeight, 2) * 2.5;
+      pos[idx] += lean;
+    }
+    segGeo.computeVertexNormals();
+    trunkGeos.push(segGeo);
   }
 
-  const leafShape = new THREE.BoxGeometry(12, 0.2, 2.5);
-  leafShape.translate(6, 0, 0);
+  // Crown knob where fronds emerge at top
+  const crown = new THREE.SphereGeometry(
+    1.8,
+    6,
+    4,
+    0,
+    Math.PI * 2,
+    0,
+    Math.PI / 2
+  );
+  crown.translate(2.5, trunkHeight, 0);
+  trunkGeos.push(crown);
 
+  // Fronds — V-creased leaves with jagged cutouts/notches along the edges
+  const frondCount = 9;
+  const frondLength = 15;
   const leafGeos = [];
-  for (let i = 0; i < 6; i++) {
-    const lg = leafShape.clone();
-    lg.rotateY((i * Math.PI * 2) / 6);
-    lg.rotateZ(-0.4);
-    const lastAngle = (trunkSegments - 1) * 0.15;
-    lg.translate(
-      Math.sin(lastAngle) * (trunkSegments - 1) * 2,
-      trunkSegments * 3,
-      0
+
+  for (let i = 0; i < frondCount; i++) {
+    // Steps defining X along length and leaf width (w)
+    // Duplicate X values create sharp, stylized cutouts (notches)
+    const steps = [
+      {x: 0, w: 0.4},
+      {x: 3.5, w: 2.8},
+      {x: 3.5, w: 0.8}, // Notch 1
+      {x: 7.5, w: 3.2},
+      {x: 7.5, w: 1.0}, // Notch 2
+      {x: 11.5, w: 2.4},
+      {x: 11.5, w: 0.6}, // Notch 3
+      {x: 15, w: 0.0},
+    ];
+
+    const bendFactor = 0.045 + (i % 3) * 0.012; // Varying droop
+    const verts = [];
+    const indices = [];
+
+    for (let k = 0; k < steps.length; k++) {
+      const {x, w} = steps[k];
+      const y = x * 0.42 - x * x * bendFactor;
+
+      // Creased V-shape (Center is raised, Left/Right are lowered)
+      verts.push(x, y - 0.25, -w / 2); // Left
+      verts.push(x, y + 0.25, 0); // Center
+      verts.push(x, y - 0.25, w / 2); // Right
+    }
+
+    for (let k = 0; k < steps.length - 1; k++) {
+      const idx_L = k * 3;
+      const idx_C = k * 3 + 1;
+      const idx_R = k * 3 + 2;
+
+      const idx_L_next = (k + 1) * 3;
+      const idx_C_next = (k + 1) * 3 + 1;
+      const idx_R_next = (k + 1) * 3 + 2;
+
+      // Front faces
+      indices.push(idx_L, idx_L_next, idx_C_next);
+      indices.push(idx_L, idx_C_next, idx_C);
+      indices.push(idx_C, idx_C_next, idx_R_next);
+      indices.push(idx_C, idx_R_next, idx_R);
+
+      // Back faces
+      indices.push(idx_L, idx_C_next, idx_L_next);
+      indices.push(idx_L, idx_C, idx_C_next);
+      indices.push(idx_C, idx_R_next, idx_C_next);
+      indices.push(idx_C, idx_R, idx_R_next);
+    }
+
+    const frondGeo = new THREE.BufferGeometry();
+    frondGeo.setAttribute(
+      'position',
+      new THREE.BufferAttribute(new Float32Array(verts), 3)
     );
-    leafGeos.push(lg);
+    frondGeo.setIndex(indices);
+    frondGeo.computeVertexNormals();
+
+    // Slight roll around the leaf's central axis (X)
+    const roll = 0.15 * Math.sin(i * 1.7);
+    frondGeo.rotateX(roll);
+
+    // Rotate around Y to spread evenly
+    const yAngle = (i * Math.PI * 2) / frondCount + (i % 2 === 0 ? 0.1 : -0.08);
+    frondGeo.rotateY(yAngle);
+
+    // Position at trunk top (shifted for lean)
+    frondGeo.translate(2.5, trunkHeight + 0.5 + (i % 3) * 0.25, 0);
+    leafGeos.push(frondGeo);
   }
 
+  // Combine trunk geometries
   const combinedTrunkPos = [],
     combinedTrunkNorm = [],
     combinedTrunkIdx = [];
   let trunkOffset = 0;
-  for (const g of geometries) {
+  for (const g of trunkGeos) {
     combinedTrunkPos.push(...g.attributes.position.array);
     combinedTrunkNorm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      combinedTrunkIdx.push(g.index.array[i] + trunkOffset);
+    const gIdx = g.index ? g.index.array : [];
+    for (let i = 0; i < gIdx.length; i++)
+      combinedTrunkIdx.push(gIdx[i] + trunkOffset);
     trunkOffset += g.attributes.position.count;
   }
   const trunkGeom = new THREE.BufferGeometry();
@@ -432,6 +521,7 @@ function createPalmGeometry() {
   );
   trunkGeom.setIndex(combinedTrunkIdx);
 
+  // Combine leaf geometries
   const combinedLeafPos = [],
     combinedLeafNorm = [],
     combinedLeafIdx = [];
@@ -439,8 +529,9 @@ function createPalmGeometry() {
   for (const g of leafGeos) {
     combinedLeafPos.push(...g.attributes.position.array);
     combinedLeafNorm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      combinedLeafIdx.push(g.index.array[i] + leafOffset);
+    const gIdx = g.index ? g.index.array : [];
+    for (let i = 0; i < gIdx.length; i++)
+      combinedLeafIdx.push(gIdx[i] + leafOffset);
     leafOffset += g.attributes.position.count;
   }
   const leafGeom = new THREE.BufferGeometry();
