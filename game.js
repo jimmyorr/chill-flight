@@ -3496,14 +3496,14 @@ function animate() {
 
     // Forward movement is now handled by the consolidated block above
   } else if (window.airplaneModel && vehicleType === 'airplane') {
-    // Subtle in-flight turbulence bobbing
+    // In-flight turbulence bobbing
     const t = performance.now() * 0.001;
     window.airplaneModel.position.y =
-      Math.sin(t * 0.7) * 0.04 + Math.sin(t * 1.3) * 0.02;
+      Math.sin(t * 0.7) * 0.12 + Math.sin(t * 1.3) * 0.06;
     window.airplaneModel.rotation.x =
-      Math.cos(t * 0.9) * 0.005 + Math.sin(t * 1.7) * 0.003;
+      Math.cos(t * 0.9) * 0.015 + Math.sin(t * 1.7) * 0.008;
     window.airplaneModel.rotation.z =
-      Math.sin(t * 0.6) * 0.008 + Math.cos(t * 1.1) * 0.004;
+      Math.sin(t * 0.6) * 0.02 + Math.cos(t * 1.1) * 0.01;
   } else if (window.airplaneModel) {
     // Reset for non-airplane vehicles
     window.airplaneModel.position.y = 0;
