@@ -3499,6 +3499,7 @@ function generateChunk(chunkX, chunkZ) {
 
       const hullInsts = [];
       const currentComboIndices = Array(numBoatColors).fill(0);
+      const boatInstIndices = [];
 
       for (let i = 0; i < numBoatColors; i++) {
         if (boatCounts[i] > 0) {
@@ -3546,6 +3547,7 @@ function generateChunk(chunkX, chunkZ) {
 
         const colorIdx = boatColorIndices[index];
         const instIdx = currentComboIndices[colorIdx]++;
+        boatInstIndices[index] = instIdx;
         hullInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
 
         rimInst.setMatrixAt(index, dummy.matrix);
@@ -3564,6 +3566,8 @@ function generateChunk(chunkX, chunkZ) {
 
       group.userData.sailboatPositions = sailboatPositions;
       group.userData.boatHulls = hullInsts;
+      group.userData.boatColorIndices = boatColorIndices;
+      group.userData.boatInstIndices = boatInstIndices;
       group.userData.boatMasts = mastInst;
       group.userData.boatSails = sailInst;
       group.userData.boatRims = rimInst;

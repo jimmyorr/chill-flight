@@ -3101,6 +3101,19 @@ function animate() {
     }
   }
 
+  // Taxi steering: allow airplane to yaw when stopped or at very low speed
+  if (
+    !isFreeCamera &&
+    vehicleType === 'airplane' &&
+    flightSpeedMultiplier < 0.4
+  ) {
+    if (isLeft && !keys.Shift) {
+      planeGroup.rotation.y += 1.5 * delta;
+    } else if (isRight && !keys.Shift) {
+      planeGroup.rotation.y -= 1.5 * delta;
+    }
+  }
+
   if (!isLooping && !isFreeCamera) {
     const finalTargetPitch = targetPitch + manualPitch;
     while (planeGroup.rotation.x > finalTargetPitch + Math.PI)
@@ -3216,7 +3229,7 @@ function animate() {
   const accelRate = 0.8 * delta;
 
   // Ground avoidance heights
-  let minFlightHeight = isWater ? terrainHeight + 5.5 : terrainHeight + 10.0;
+  let minFlightHeight = isWater ? terrainHeight + 3.5 : terrainHeight + 10.0;
   let restingHeight = minFlightHeight + 2.0;
 
   if (vehicleType === 'helicopter') {
@@ -3464,7 +3477,38 @@ function animate() {
       0.1 * delta * 60
     ); // Smooth landing
 
+    if (window.airplaneModel) {
+      if (
+        isWater &&
+        vehicleType === 'airplane' &&
+        planeGroup.position.y <= restingHeight + 0.1
+      ) {
+        const bobTime = performance.now() * 0.001 * 1.2;
+        window.airplaneModel.position.y = Math.sin(bobTime) * 0.15;
+        window.airplaneModel.rotation.x = Math.cos(bobTime * 1.1) * 0.03;
+        window.airplaneModel.rotation.z = Math.sin(bobTime * 0.8) * 0.04;
+      } else {
+        window.airplaneModel.position.y = 0;
+        window.airplaneModel.rotation.x = 0;
+        window.airplaneModel.rotation.z = 0;
+      }
+    }
+
     // Forward movement is now handled by the consolidated block above
+  } else if (window.airplaneModel && vehicleType === 'airplane') {
+    // Subtle in-flight turbulence bobbing
+    const t = performance.now() * 0.001;
+    window.airplaneModel.position.y =
+      Math.sin(t * 0.7) * 0.04 + Math.sin(t * 1.3) * 0.02;
+    window.airplaneModel.rotation.x =
+      Math.cos(t * 0.9) * 0.005 + Math.sin(t * 1.7) * 0.003;
+    window.airplaneModel.rotation.z =
+      Math.sin(t * 0.6) * 0.008 + Math.cos(t * 1.1) * 0.004;
+  } else if (window.airplaneModel) {
+    // Reset for non-airplane vehicles
+    window.airplaneModel.position.y = 0;
+    window.airplaneModel.rotation.x = 0;
+    window.airplaneModel.rotation.z = 0;
   }
 
   // Speed controls
@@ -3502,6 +3546,9 @@ function animate() {
         if (!keys.Shift) {
           // Apply water drag: smoothly reduce targetFlightSpeed to 0
           targetFlightSpeed = Math.max(0, targetFlightSpeed - delta * 0.5);
+        }
+        if (targetFlightSpeed === 0 && flightSpeedMultiplier < 0.05) {
+          flightSpeedMultiplier = 0; // Force full stop to prevent prop twitching
         }
         // When on water, force neutral pitch/roll to ensure a level rest on water
         targetPitch = THREE.MathUtils.lerp(targetPitch, 0, 0.05 * delta * 60);
@@ -4068,7 +4115,14 @@ function animate() {
         _boatDummy.scale.set(1, 1, 1);
         _boatDummy.updateMatrix();
 
-        hulls.setMatrixAt(index, _boatDummy.matrix);
+        if (Array.isArray(hulls)) {
+          const colorIdx = chunkGroup.userData.boatColorIndices[index];
+          const instIdx = chunkGroup.userData.boatInstIndices[index];
+          hulls[colorIdx].setMatrixAt(instIdx, _boatDummy.matrix);
+        } else {
+          hulls.setMatrixAt(index, _boatDummy.matrix);
+        }
+
         masts.setMatrixAt(index, _boatDummy.matrix);
         sails.setMatrixAt(index, _boatDummy.matrix);
         if (rims) rims.setMatrixAt(index, _boatDummy.matrix);
@@ -4076,7 +4130,14 @@ function animate() {
         if (booms) booms.setMatrixAt(index, _boatDummy.matrix);
       });
 
-      hulls.instanceMatrix.needsUpdate = true;
+      if (Array.isArray(hulls)) {
+        hulls.forEach((h) => {
+          if (h) h.instanceMatrix.needsUpdate = true;
+        });
+      } else {
+        hulls.instanceMatrix.needsUpdate = true;
+      }
+
       masts.instanceMatrix.needsUpdate = true;
       sails.instanceMatrix.needsUpdate = true;
       if (rims) rims.instanceMatrix.needsUpdate = true;

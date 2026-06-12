@@ -74,6 +74,7 @@ planeGroup.rotation.order = 'YXZ';
 // --- VEHICLE SWITCHING ---
 const airplaneModel = new THREE.Group();
 planeGroup.add(airplaneModel);
+window.airplaneModel = airplaneModel;
 
 const helicopterModel = new THREE.Group();
 helicopterModel.visible = false;
