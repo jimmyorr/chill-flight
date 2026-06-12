@@ -320,27 +320,43 @@ function createDeciduousGeometry() {
 const deciduousGeos = createDeciduousGeometry();
 
 function createJapaneseMapleGeometry() {
-  const trunk = new THREE.CylinderGeometry(0.8, 1.4, 9, 5);
-  trunk.translate(0, 4.5, 0);
+  const trunk = new THREE.CylinderGeometry(0.8, 1.4, 11, 6);
+  trunk.translate(0, 5.5, 0);
 
-  // Layered canopy using squashed low-poly spheres (cloud pruning / Niwaki)
-  const leaf1 = new THREE.SphereGeometry(5, 5, 4);
-  leaf1.scale(1.6, 0.5, 1.6);
-  leaf1.translate(0, 9, 0);
+  // Cloud-pruned Niwaki canopy — gently squashed spheres at staggered heights
+  const segs = 7;
+  const hSegs = 5;
 
-  const leaf2 = new THREE.SphereGeometry(3.5, 5, 4);
-  leaf2.scale(1.5, 0.5, 1.5);
-  leaf2.translate(3.5, 7.5, 1.5);
+  // Main central canopy pad
+  const leaf1 = new THREE.SphereGeometry(4.5, segs, hSegs);
+  leaf1.scale(1.4, 0.6, 1.4);
+  leaf1.translate(0, 12, 0);
 
-  const leaf3 = new THREE.SphereGeometry(3.5, 5, 4);
-  leaf3.scale(1.5, 0.5, 1.5);
-  leaf3.translate(-3.5, 7.5, -1.5);
+  // Lower side pads — asymmetric placement for organic feel
+  const leaf2 = new THREE.SphereGeometry(3.5, segs, hSegs);
+  leaf2.scale(1.3, 0.6, 1.3);
+  leaf2.translate(4, 10, 2);
 
-  const leaf4 = new THREE.SphereGeometry(2.5, 5, 4);
-  leaf4.scale(1.4, 0.45, 1.4);
-  leaf4.translate(1, 10.5, -2);
+  const leaf3 = new THREE.SphereGeometry(3.5, segs, hSegs);
+  leaf3.scale(1.3, 0.6, 1.3);
+  leaf3.translate(-4, 10.5, -2);
 
-  const geometries = [leaf1, leaf2, leaf3, leaf4];
+  // Upper crown pad — slightly offset
+  const leaf4 = new THREE.SphereGeometry(3, segs, hSegs);
+  leaf4.scale(1.2, 0.6, 1.2);
+  leaf4.translate(1, 14, -1.5);
+
+  // Small accent pad — rear fill
+  const leaf5 = new THREE.SphereGeometry(2.5, segs, hSegs);
+  leaf5.scale(1.2, 0.55, 1.2);
+  leaf5.translate(-2, 11, 3);
+
+  // Drooping lower accent
+  const leaf6 = new THREE.SphereGeometry(2, segs, hSegs);
+  leaf6.scale(1.3, 0.55, 1.3);
+  leaf6.translate(2.5, 8.5, -3);
+
+  const geometries = [leaf1, leaf2, leaf3, leaf4, leaf5, leaf6];
   const pos = [],
     norm = [],
     idx = [];
