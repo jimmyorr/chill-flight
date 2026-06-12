@@ -39,7 +39,7 @@ let flightSpeedMultiplier = INITIAL_SPEED;
 
 // Feature Flags
 const ENABLE_PAGODAS = false;
-const ENABLE_BARNS = false;
+const ENABLE_BARNS = true;
 const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = false;
 const ENABLE_LIGHTHOUSES = false;

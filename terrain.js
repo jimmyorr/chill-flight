@@ -849,69 +849,42 @@ const pagodaRoofMat = createMaterial({color: 0x1b5e20, flatShading: true}); // d
 
 // --- BARN ---
 function createBarnRoofGeometry() {
-  // Triangular prism gable roof
-  const hw = 11.5,
-    hl = 15,
-    yBase = 12,
-    yPeak = 22;
-  const verts = new Float32Array([
-    -hw,
-    yBase,
-    hl, // 0 front-left
-    hw,
-    yBase,
-    hl, // 1 front-right
-    0,
-    yPeak,
-    hl, // 2 front-peak
-    -hw,
-    yBase,
-    -hl, // 3 back-left
-    hw,
-    yBase,
-    -hl, // 4 back-right
-    0,
-    yPeak,
-    -hl, // 5 back-peak
-  ]);
-  const indices = [
-    0,
-    1,
-    2, // front gable
-    3,
-    5,
-    4, // back gable
-    0,
-    2,
-    5,
-    0,
-    5,
-    3, // left slope
-    1,
-    4,
-    5,
-    1,
-    5,
-    2, // right slope
-    0,
-    3,
-    4,
-    0,
-    4,
-    1, // bottom (under barn body)
-  ];
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-  geo.setIndex(indices);
-  geo.computeVertexNormals();
+  const shape = new THREE.Shape();
+  shape.moveTo(-10, 12);
+  shape.lineTo(-10, 16);
+  shape.lineTo(-4, 23);
+  shape.lineTo(4, 23);
+  shape.lineTo(10, 16);
+  shape.lineTo(10, 12);
+  shape.lineTo(-10, 12);
+
+  const extrudeSettings = {
+    depth: 30,
+    bevelEnabled: false,
+  };
+  const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  // Center along Z (depth is 30, so translate by -15)
+  geo.translate(0, 0, -15);
   return geo;
 }
 const barnBodyGeo = new THREE.BoxGeometry(18, 12, 28);
 barnBodyGeo.translate(0, 6, 0);
 const barnRoofGeo = createBarnRoofGeometry();
-const barnBodyMat = createMaterial({color: 0xb71c1c, flatShading: true}); // barn red
-const barnRoofMat = createMaterial({color: 0x4e342e, flatShading: true}); // dark timber
 
+// Details
+const barnDoorGeo = new THREE.BoxGeometry(8, 9, 0.5);
+const barnTrimGeo = new THREE.BoxGeometry(0.5, 12.04, 0.6); // sqrt(8^2 + 9^2) = 12.04
+
+const barnSiloBodyGeo = new THREE.CylinderGeometry(4, 4, 22, 12);
+barnSiloBodyGeo.translate(0, 11, 0);
+const barnSiloRoofGeo = new THREE.SphereGeometry(4, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+barnSiloRoofGeo.translate(0, 22, 0);
+
+const barnBodyMat = createMaterial({color: 0x9b1c1c, flatShading: true}); // classic barn red
+const barnRoofMat = createMaterial({color: 0x3e2723, flatShading: true}); // dark timber
+const barnWhiteMat = createMaterial({color: 0xeeeeee, flatShading: true});
+const barnSiloMat = createMaterial({color: 0xaaaaaa, metalness: 0.2, roughness: 0.6, flatShading: true});
+const barnSiloRoofMat = createMaterial({color: 0xc2c2c2, metalness: 0.3, roughness: 0.5, flatShading: true});
 // --- MONASTERY ---
 function createMonasteryBodyGeometry() {
   // Long main hall
@@ -1674,21 +1647,27 @@ window.ModelAssembler = {
             rot: [0, rotY, 0],
           },
         ];
-      case 'barn':
+      case 'barn': {
+        const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+
         return [
-          {
-            geo: barnBodyGeo,
-            mat: barnBodyMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: barnRoofGeo,
-            mat: barnRoofMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
+          { geo: barnBodyGeo, mat: barnBodyMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+          { geo: barnRoofGeo, mat: barnRoofMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+          // Front Door
+          { geo: barnDoorGeo, mat: barnWhiteMat, pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z], rot: [0, rotY, 0] },
+          { geo: barnTrimGeo, mat: barnBodyMat, pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z], rot: [0, rotY, Math.atan2(8, 9)] },
+          { geo: barnTrimGeo, mat: barnBodyMat, pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z], rot: [0, rotY, -Math.atan2(8, 9)] },
+          // Back Door
+          { geo: barnDoorGeo, mat: barnWhiteMat, pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z], rot: [0, rotY, 0] },
+          { geo: barnTrimGeo, mat: barnBodyMat, pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z], rot: [0, rotY, Math.atan2(8, 9)] },
+          { geo: barnTrimGeo, mat: barnBodyMat, pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z], rot: [0, rotY, -Math.atan2(8, 9)] },
+          // Silo
+          { geo: barnSiloBodyGeo, mat: barnSiloMat, pos: [siloOffset.x, siloOffset.y, siloOffset.z], rot: [0, rotY, 0] },
+          { geo: barnSiloRoofGeo, mat: barnSiloRoofMat, pos: [siloOffset.x, siloOffset.y, siloOffset.z], rot: [0, rotY, 0] }
         ];
+      }
       case 'monastery':
         return [
           {
@@ -2589,7 +2568,7 @@ function generateChunk(chunkX, chunkZ) {
             plainsRoll < barnThreshold &&
             snowFactor < 0.4 &&
             desertFactor < 0.3 &&
-            height > WATER_LEVEL + 3 &&
+            height > WATER_LEVEL + 15 &&
             height < MOUNTAIN_LEVEL - 100
           ) {
             barnPositions.push({
@@ -3611,16 +3590,13 @@ function generateChunk(chunkX, chunkZ) {
 
     // 2.61 Generate Barns (temperate plains)
     if (barnPositions.length > 0) {
-      const barnBodyInst = new THREE.InstancedMesh(
-        barnBodyGeo,
-        barnBodyMat,
-        barnPositions.length
-      );
-      const barnRoofInst = new THREE.InstancedMesh(
-        barnRoofGeo,
-        barnRoofMat,
-        barnPositions.length
-      );
+      const barnBodyInst = new THREE.InstancedMesh(barnBodyGeo, barnBodyMat, barnPositions.length);
+      const barnRoofInst = new THREE.InstancedMesh(barnRoofGeo, barnRoofMat, barnPositions.length);
+      const barnDoorInst = new THREE.InstancedMesh(barnDoorGeo, barnWhiteMat, barnPositions.length * 2);
+      const barnTrimInst = new THREE.InstancedMesh(barnTrimGeo, barnBodyMat, barnPositions.length * 4);
+      const barnSiloBodyInst = new THREE.InstancedMesh(barnSiloBodyGeo, barnSiloMat, barnPositions.length);
+      const barnSiloRoofInst = new THREE.InstancedMesh(barnSiloRoofGeo, barnSiloRoofMat, barnPositions.length);
+
       barnPositions.forEach((pos, i) => {
         dummy.position.set(pos.x, pos.y, pos.z);
         dummy.rotation.set(0, pos.rotY, 0);
@@ -3628,11 +3604,60 @@ function generateChunk(chunkX, chunkZ) {
         dummy.updateMatrix();
         barnBodyInst.setMatrixAt(i, dummy.matrix);
         barnRoofInst.setMatrixAt(i, dummy.matrix);
+
+        const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+        const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+        const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+
+        // Front Door
+        dummy.position.set(pos.x + doorFOffset.x, pos.y + doorFOffset.y, pos.z + doorFOffset.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.updateMatrix();
+        barnDoorInst.setMatrixAt(i * 2, dummy.matrix);
+
+        dummy.rotation.set(0, pos.rotY, Math.atan2(8, 9));
+        dummy.updateMatrix();
+        barnTrimInst.setMatrixAt(i * 4, dummy.matrix);
+
+        dummy.rotation.set(0, pos.rotY, -Math.atan2(8, 9));
+        dummy.updateMatrix();
+        barnTrimInst.setMatrixAt(i * 4 + 1, dummy.matrix);
+
+        // Back Door
+        dummy.position.set(pos.x + doorBOffset.x, pos.y + doorBOffset.y, pos.z + doorBOffset.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.updateMatrix();
+        barnDoorInst.setMatrixAt(i * 2 + 1, dummy.matrix);
+
+        dummy.rotation.set(0, pos.rotY, Math.atan2(8, 9));
+        dummy.updateMatrix();
+        barnTrimInst.setMatrixAt(i * 4 + 2, dummy.matrix);
+
+        dummy.rotation.set(0, pos.rotY, -Math.atan2(8, 9));
+        dummy.updateMatrix();
+        barnTrimInst.setMatrixAt(i * 4 + 3, dummy.matrix);
+
+        // Silo
+        dummy.position.set(pos.x + siloOffset.x, pos.y + siloOffset.y, pos.z + siloOffset.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.updateMatrix();
+        barnSiloBodyInst.setMatrixAt(i, dummy.matrix);
+        barnSiloRoofInst.setMatrixAt(i, dummy.matrix);
       });
+
       barnBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
       barnRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      barnDoorInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      barnTrimInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      barnSiloBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      barnSiloRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+
       objectsGroup.add(barnBodyInst);
       objectsGroup.add(barnRoofInst);
+      objectsGroup.add(barnDoorInst);
+      objectsGroup.add(barnTrimInst);
+      objectsGroup.add(barnSiloBodyInst);
+      objectsGroup.add(barnSiloRoofInst);
     }
 
     // 2.62 Generate Monasteries (rare, temperate highlands)
