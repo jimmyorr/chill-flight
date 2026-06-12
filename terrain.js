@@ -1280,7 +1280,12 @@ boatSailGeo.setAttribute(
 );
 boatSailGeo.computeVertexNormals();
 
-const boatHullMat = createMaterial({color: 0xaa0000, flatShading: true});
+const boatHullPalette = [
+  createMaterial({color: 0xaa0000, flatShading: true}), // Dark Red
+  createMaterial({color: 0x004400, flatShading: true}), // Dark Green
+  createMaterial({color: 0x000055, flatShading: true}), // Dark Blue
+];
+const boatHullMat = boatHullPalette[0];
 const boatRimMat = createMaterial({color: 0xffffff, flatShading: true});
 const boatDeckMat = createMaterial({color: 0xd2b48c, flatShading: true});
 const boatSailMat = createMaterial({
@@ -3482,11 +3487,31 @@ function generateChunk(chunkX, chunkZ) {
 
     // 2.98 Generate Sailboats
     if (sailboatPositions.length > 0) {
-      const hullInst = new THREE.InstancedMesh(
-        boatHullGeo,
-        boatHullMat,
-        sailboatPositions.length
-      );
+      const numBoatColors = boatHullPalette.length;
+      const boatCounts = Array(numBoatColors).fill(0);
+      const boatColorIndices = [];
+
+      sailboatPositions.forEach((pos, index) => {
+        const colorIdx = Math.floor(rng() * numBoatColors);
+        boatColorIndices[index] = colorIdx;
+        boatCounts[colorIdx]++;
+      });
+
+      const hullInsts = [];
+      const currentComboIndices = Array(numBoatColors).fill(0);
+
+      for (let i = 0; i < numBoatColors; i++) {
+        if (boatCounts[i] > 0) {
+          hullInsts[i] = new THREE.InstancedMesh(
+            boatHullGeo,
+            boatHullPalette[i],
+            boatCounts[i]
+          );
+          hullInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
+          objectsGroup.add(hullInsts[i]);
+        }
+      }
+
       const rimInst = new THREE.InstancedMesh(
         boatRimGeo,
         boatRimMat,
@@ -3519,7 +3544,10 @@ function generateChunk(chunkX, chunkZ) {
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
 
-        hullInst.setMatrixAt(index, dummy.matrix);
+        const colorIdx = boatColorIndices[index];
+        const instIdx = currentComboIndices[colorIdx]++;
+        hullInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
+
         rimInst.setMatrixAt(index, dummy.matrix);
         deckInst.setMatrixAt(index, dummy.matrix);
         mastInst.setMatrixAt(index, dummy.matrix);
@@ -3527,23 +3555,15 @@ function generateChunk(chunkX, chunkZ) {
         sailInst.setMatrixAt(index, dummy.matrix);
       });
 
-      hullInst.position.set(worldOffsetX, 0, worldOffsetZ);
       rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
       deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
       mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
       boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
       sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(
-        hullInst,
-        rimInst,
-        deckInst,
-        mastInst,
-        boomInst,
-        sailInst
-      );
+      objectsGroup.add(rimInst, deckInst, mastInst, boomInst, sailInst);
 
       group.userData.sailboatPositions = sailboatPositions;
-      group.userData.boatHulls = hullInst;
+      group.userData.boatHulls = hullInsts;
       group.userData.boatMasts = mastInst;
       group.userData.boatSails = sailInst;
       group.userData.boatRims = rimInst;
