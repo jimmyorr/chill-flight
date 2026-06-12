@@ -253,6 +253,10 @@
         </div>
         <div id="model-stats">0 vertices | 0 triangles</div>
       </div>
+
+      <div id="color-options" style="display: none; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+        <button class="model-btn" onclick="cycleColors()" style="border-color: var(--accent-color);">Cycle Colors</button>
+      </div>
     </div>
 
     <!-- Mocks and Dependencies for game scripts -->
@@ -320,6 +324,8 @@
       viewScene.add(grid);
 
       window.currentModel = null;
+      window.currentColorSeed = 0;
+      window.currentModelType = null;
 
       function clearViewer() {
         if (window.currentModel) {
@@ -328,8 +334,23 @@
         }
       }
 
-      function viewModel(type, e) {
+      function cycleColors() {
+        window.currentColorSeed++;
+        if (window.currentModelType) {
+          viewModel(window.currentModelType, null, window.currentColorSeed);
+        }
+      }
+
+      function viewModel(type, e, colorSeed = 0) {
         clearViewer();
+        
+        if (!e && colorSeed === 0) {
+          window.currentColorSeed = 0;
+        }
+        window.currentModelType = type;
+
+        const supportsColors = ['house', 'two_story_house', 'tent', 'sailboat'].includes(type);
+        document.getElementById('color-options').style.display = supportsColors ? 'block' : 'none';
 
         // Update UI
         document.querySelectorAll('.model-btn').forEach((btn) => {
@@ -350,7 +371,10 @@
 
         // 1. Try assembling via shared ModelAssembler first
         const structure = window.ModelAssembler
-          ? ModelAssembler.getStructure(type)
+          ? window.ModelAssembler.getStructure(type, 0, {
+              bodyId: colorSeed,
+              roofId: colorSeed,
+            })
           : null;
 
         if (structure) {
@@ -569,8 +593,9 @@
         }
       }, 100);
 
-      // Expose viewModel to global scope since module scope hides it
+      // Expose globally
       window.viewModel = viewModel;
+      window.cycleColors = cycleColors;
     </script>
   </body>
 </html>

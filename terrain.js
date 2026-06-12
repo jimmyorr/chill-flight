@@ -1495,9 +1495,11 @@ const volcanoLavaMat = new THREE.MeshBasicMaterial({color: 0xff4500});
 // Both terrain.js (during world gen) and debug.html (during preview)
 // use this to ensure they stay in perfect sync.
 window.ModelAssembler = {
-  getStructure: function (id, rotY = 0) {
+  getStructure: function (id, rotY = 0, opts = {}) {
     switch (id) {
       case 'house': {
+        const bodyId = (opts.bodyId || 0) % houseBodyPalette.length;
+        const roofId = (opts.roofId || 0) % houseRoofPalette.length;
         const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
           new THREE.Vector3(0, 1, 0),
           rotY
@@ -1521,13 +1523,13 @@ window.ModelAssembler = {
         return [
           {
             geo: houseBodyGeo,
-            mat: houseBodyPalette[0],
+            mat: houseBodyPalette[bodyId],
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
           {
             geo: houseRoofGeo,
-            mat: houseRoofPalette[0],
+            mat: houseRoofPalette[roofId],
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
@@ -1564,60 +1566,22 @@ window.ModelAssembler = {
         ];
       }
       case 'two_story_house': {
-        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
-        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
-        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
-        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
-        const winF3Offset = new THREE.Vector3(0, 10, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
-        const winF4Offset = new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
-        const winF5Offset = new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
-        const winB2Offset = new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
-        const winB3Offset = new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
+        const bodyId = (opts.bodyId || 0) % houseBodyPalette.length;
+        const roofId = (opts.roofId || 0) % houseRoofPalette.length;
+        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const winF3Offset = new THREE.Vector3(0, 10, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const winF4Offset = new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const winF5Offset = new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const winB2Offset = new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const winB3Offset = new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
 
-        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          rotY
-        );
+        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
         return [
-          {
-            geo: twoStoryBodyGeo,
-            mat: houseBodyPalette[0],
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: twoStoryRoofGeo,
-            mat: houseRoofPalette[0],
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
+          { geo: twoStoryBodyGeo, mat: houseBodyPalette[bodyId], pos: [0, 0, 0], rot: [0, rotY, 0] },
+          { geo: twoStoryRoofGeo, mat: houseRoofPalette[roofId], pos: [0, 0, 0], rot: [0, rotY, 0] },
           {
             geo: houseDoorGeo,
             mat: houseDoorMat,
@@ -1984,11 +1948,12 @@ window.ModelAssembler = {
             scale: [-1, 1, 1],
           },
         ];
-      case 'sailboat':
+      case 'sailboat': {
+        const bodyId = (opts.bodyId || 0) % boatHullPalette.length;
         return [
           {
             geo: boatHullGeo,
-            mat: boatHullMat,
+            mat: boatHullPalette[bodyId],
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
@@ -2008,13 +1973,14 @@ window.ModelAssembler = {
             rot: [0, rotY, 0],
           },
         ];
+      }
       case 'volcano_active_elements':
         return [
           {
             geo: volcanoLavaGeo,
             mat: volcanoLavaMat,
             pos: [0, 890, 0],
-            rot: [0, 0, 0],
+            rot: [0, rotY, 0],
           },
         ];
       default:
