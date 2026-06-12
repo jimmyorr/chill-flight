@@ -282,17 +282,22 @@ function createPineGeometry() {
 const treeLeavesGeo = createPineGeometry();
 
 function createDeciduousGeometry() {
-  const trunk = new THREE.CylinderGeometry(1.2, 1.8, 10, 5);
-  trunk.translate(0, 5, 0);
+  const trunk = new THREE.CylinderGeometry(1.2, 1.8, 12, 6);
+  trunk.translate(0, 6, 0);
 
-  const leaf1 = new THREE.SphereGeometry(6, 6, 5);
-  leaf1.translate(0, 10, 0);
-  const leaf2 = new THREE.SphereGeometry(4.5, 6, 5);
-  leaf2.translate(3, 8, 2);
-  const leaf3 = new THREE.SphereGeometry(4.5, 6, 5);
-  leaf3.translate(-3, 8, -2);
+  // 5 overlapping spheres form a full, round canopy
+  const leaf1 = new THREE.SphereGeometry(6, 7, 5); // Main center mass
+  leaf1.translate(0, 14, 0);
+  const leaf2 = new THREE.SphereGeometry(4.5, 7, 5); // Lower-right cluster
+  leaf2.translate(3.5, 11, 2.5);
+  const leaf3 = new THREE.SphereGeometry(4.5, 7, 5); // Lower-left cluster
+  leaf3.translate(-3.5, 11, -2.5);
+  const leaf4 = new THREE.SphereGeometry(4, 7, 5); // Back fill
+  leaf4.translate(-1, 12, 3.5);
+  const leaf5 = new THREE.SphereGeometry(3.5, 7, 5); // Top crown
+  leaf5.translate(0.5, 17, -0.5);
 
-  const geometries = [leaf1, leaf2, leaf3];
+  const geometries = [leaf1, leaf2, leaf3, leaf4, leaf5];
   const pos = [],
     norm = [],
     idx = [];
