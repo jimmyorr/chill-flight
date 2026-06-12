@@ -738,6 +738,15 @@ houseChimneyGeo.translate(0, 11, 0);
 const houseDoorMat = createMaterial({color: 0x5c4033, flatShading: true});
 const houseChimneyMat = createMaterial({color: 0x8b3a3a, flatShading: true});
 
+// Two story house geometries
+const twoStoryBodyGeo = new THREE.BoxGeometry(10, 14, 10);
+twoStoryBodyGeo.translate(0, 7, 0);
+const twoStoryRoofGeo = new THREE.ConeGeometry(8.5, 7, 4);
+twoStoryRoofGeo.rotateY(Math.PI / 4);
+twoStoryRoofGeo.translate(0, 17.5, 0);
+const twoStoryChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
+twoStoryChimneyGeo.translate(0, 17.5, 0);
+
 // Straw hut geometries
 const strawHutBodyGeo = new THREE.CylinderGeometry(4, 4, 6, 8);
 strawHutBodyGeo.translate(0, 3, 0);
@@ -1554,6 +1563,123 @@ window.ModelAssembler = {
           },
         ];
       }
+      case 'two_story_house': {
+        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF3Offset = new THREE.Vector3(0, 10, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF4Offset = new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF5Offset = new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winB2Offset = new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winB3Offset = new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+
+        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        return [
+          {
+            geo: twoStoryBodyGeo,
+            mat: houseBodyPalette[0],
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: twoStoryRoofGeo,
+            mat: houseRoofPalette[0],
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseDoorGeo,
+            mat: houseDoorMat,
+            pos: [doorOffset.x, doorOffset.y, doorOffset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: twoStoryChimneyGeo,
+            mat: houseChimneyMat,
+            pos: [chimneyOffset.x, chimneyOffset.y, chimneyOffset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[0],
+            pos: [winF1Offset.x, winF1Offset.y, winF1Offset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[1],
+            pos: [winF2Offset.x, winF2Offset.y, winF2Offset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[2],
+            pos: [winBOffset.x, winBOffset.y, winBOffset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[0],
+            pos: [winF3Offset.x, winF3Offset.y, winF3Offset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[1],
+            pos: [winF4Offset.x, winF4Offset.y, winF4Offset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[2],
+            pos: [winF5Offset.x, winF5Offset.y, winF5Offset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[3],
+            pos: [winB2Offset.x, winB2Offset.y, winB2Offset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[4],
+            pos: [winB3Offset.x, winB3Offset.y, winB3Offset.z],
+            rot: [0, rotY, 0],
+          },
+        ];
+      }
       case 'straw_hut':
         return [
           {
@@ -2036,6 +2162,7 @@ function generateChunk(chunkX, chunkZ) {
     const yellowCortezTreePositions = [];
     const japaneseMapleTreePositions = [];
     const housePositions = [];
+    const twoStoryHousePositions = [];
     const strawHutPositions = [];
     const windmillPositions = [];
     let lighthousePos = null;
@@ -2465,12 +2592,21 @@ function generateChunk(chunkX, chunkZ) {
                   rotY: rng() * Math.PI * 2,
                 });
               } else if (!isIsland) {
-                housePositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                  rotY: rng() * Math.PI * 2,
-                });
+                if (rng() > 0.85) {
+                  twoStoryHousePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                    rotY: rng() * Math.PI * 2,
+                  });
+                } else {
+                  housePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                    rotY: rng() * Math.PI * 2,
+                  });
+                }
                 // Chimney smoke for houses in snowy areas
                 if (snowFactor > 0.3) {
                   chimneySmokePositions.push({
@@ -3184,8 +3320,16 @@ function generateChunk(chunkX, chunkZ) {
         }
       }
 
-      const doorInst = new THREE.InstancedMesh(houseDoorGeo, houseDoorMat, housePositions.length);
-      const chimneyInst = new THREE.InstancedMesh(houseChimneyGeo, houseChimneyMat, housePositions.length);
+      const doorInst = new THREE.InstancedMesh(
+        houseDoorGeo,
+        houseDoorMat,
+        housePositions.length
+      );
+      const chimneyInst = new THREE.InstancedMesh(
+        houseChimneyGeo,
+        houseChimneyMat,
+        housePositions.length
+      );
       doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
       chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
       objectsGroup.add(doorInst);
@@ -3208,36 +3352,238 @@ function generateChunk(chunkX, chunkZ) {
         const poolId = houseToPool[index];
         const pIdx = poolIndices[poolId];
 
-        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
-        dummy.position.set(pos.x + doorOffset.x, pos.y + doorOffset.y, pos.z + doorOffset.z);
+        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        dummy.position.set(
+          pos.x + doorOffset.x,
+          pos.y + doorOffset.y,
+          pos.z + doorOffset.z
+        );
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
         doorInst.setMatrixAt(index, dummy.matrix);
 
-        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
-        dummy.position.set(pos.x + chimneyOffset.x, pos.y + chimneyOffset.y, pos.z + chimneyOffset.z);
+        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        dummy.position.set(
+          pos.x + chimneyOffset.x,
+          pos.y + chimneyOffset.y,
+          pos.z + chimneyOffset.z
+        );
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
         chimneyInst.setMatrixAt(index, dummy.matrix);
 
-        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
-        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
-        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
 
-        dummy.position.set(pos.x + winF1Offset.x, pos.y + winF1Offset.y, pos.z + winF1Offset.z);
+        dummy.position.set(
+          pos.x + winF1Offset.x,
+          pos.y + winF1Offset.y,
+          pos.z + winF1Offset.z
+        );
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
         windowPools[poolId].setMatrixAt(pIdx * 3, dummy.matrix);
 
-        dummy.position.set(pos.x + winF2Offset.x, pos.y + winF2Offset.y, pos.z + winF2Offset.z);
+        dummy.position.set(
+          pos.x + winF2Offset.x,
+          pos.y + winF2Offset.y,
+          pos.z + winF2Offset.z
+        );
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
         windowPools[poolId].setMatrixAt(pIdx * 3 + 1, dummy.matrix);
 
-        dummy.position.set(pos.x + winBOffset.x, pos.y + winBOffset.y, pos.z + winBOffset.z);
+        dummy.position.set(
+          pos.x + winBOffset.x,
+          pos.y + winBOffset.y,
+          pos.z + winBOffset.z
+        );
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
         windowPools[poolId].setMatrixAt(pIdx * 3 + 2, dummy.matrix);
+
+        poolIndices[poolId]++;
+      });
+    }
+
+    // 2.52 Generate Two Story Houses
+    if (twoStoryHousePositions.length > 0) {
+      const numBodyColors = houseBodyPalette.length;
+      const numRoofColors = houseRoofPalette.length;
+
+      const comboCounts = {};
+      const houseCombo = [];
+      twoStoryHousePositions.forEach((pos, idx) => {
+        const bodyId = Math.floor(rng() * numBodyColors);
+        const roofId = Math.floor(rng() * numRoofColors);
+        const key = `${bodyId}_${roofId}`;
+        houseCombo[idx] = {bodyId, roofId, key};
+        comboCounts[key] = (comboCounts[key] || 0) + 1;
+      });
+
+      const bodyInsts = {};
+      const roofInsts = {};
+      const comboIndices = {};
+      for (const key of Object.keys(comboCounts)) {
+        const [bodyId, roofId] = key.split('_').map(Number);
+        bodyInsts[key] = new THREE.InstancedMesh(
+          twoStoryBodyGeo,
+          houseBodyPalette[bodyId],
+          comboCounts[key]
+        );
+        roofInsts[key] = new THREE.InstancedMesh(
+          twoStoryRoofGeo,
+          houseRoofPalette[roofId],
+          comboCounts[key]
+        );
+        bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+        roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+        objectsGroup.add(bodyInsts[key]);
+        objectsGroup.add(roofInsts[key]);
+        comboIndices[key] = 0;
+      }
+
+      const windowPools = [];
+      const poolCounts = [0, 0, 0, 0, 0];
+      const houseToPool = [];
+
+      twoStoryHousePositions.forEach((pos, idx) => {
+        const poolId = Math.floor(rng() * 5);
+        houseToPool[idx] = poolId;
+        poolCounts[poolId]++;
+      });
+
+      for (let i = 0; i < 5; i++) {
+        if (poolCounts[i] > 0) {
+          windowPools[i] = new THREE.InstancedMesh(
+            houseWindowGeo,
+            houseWindowMats[i],
+            poolCounts[i] * 8
+          );
+          windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
+          objectsGroup.add(windowPools[i]);
+        }
+      }
+
+      const doorInst = new THREE.InstancedMesh(
+        houseDoorGeo,
+        houseDoorMat,
+        twoStoryHousePositions.length
+      );
+      const chimneyInst = new THREE.InstancedMesh(
+        twoStoryChimneyGeo,
+        houseChimneyMat,
+        twoStoryHousePositions.length
+      );
+      doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(doorInst);
+      objectsGroup.add(chimneyInst);
+
+      const poolIndices = [0, 0, 0, 0, 0];
+
+      twoStoryHousePositions.forEach((pos, index) => {
+        dummy.position.set(pos.x, pos.y, pos.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+
+        const {key} = houseCombo[index];
+        const ci = comboIndices[key];
+        bodyInsts[key].setMatrixAt(ci, dummy.matrix);
+        roofInsts[key].setMatrixAt(ci, dummy.matrix);
+        comboIndices[key]++;
+
+        const poolId = houseToPool[index];
+        const pIdx = poolIndices[poolId];
+
+        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        dummy.position.set(
+          pos.x + doorOffset.x,
+          pos.y + doorOffset.y,
+          pos.z + doorOffset.z
+        );
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.updateMatrix();
+        doorInst.setMatrixAt(index, dummy.matrix);
+
+        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        dummy.position.set(
+          pos.x + chimneyOffset.x,
+          pos.y + chimneyOffset.y,
+          pos.z + chimneyOffset.z
+        );
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.updateMatrix();
+        chimneyInst.setMatrixAt(index, dummy.matrix);
+
+        const offsets = [
+          new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            pos.rotY
+          ),
+          new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            pos.rotY
+          ),
+          new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            pos.rotY
+          ),
+          new THREE.Vector3(0, 10, 5.1).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            pos.rotY
+          ),
+          new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            pos.rotY
+          ),
+          new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            pos.rotY
+          ),
+          new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            pos.rotY
+          ),
+          new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            pos.rotY
+          ),
+        ];
+
+        offsets.forEach((offset, i) => {
+          dummy.position.set(
+            pos.x + offset.x,
+            pos.y + offset.y,
+            pos.z + offset.z
+          );
+          dummy.rotation.set(0, pos.rotY, 0);
+          dummy.updateMatrix();
+          windowPools[poolId].setMatrixAt(pIdx * 8 + i, dummy.matrix);
+        });
 
         poolIndices[poolId]++;
       });
