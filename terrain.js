@@ -729,7 +729,14 @@ houseBodyGeo.translate(0, 4, 0);
 const houseRoofGeo = new THREE.ConeGeometry(8.5, 6, 4);
 houseRoofGeo.rotateY(Math.PI / 4);
 houseRoofGeo.translate(0, 11, 0);
-const houseWindowGeo = new THREE.BoxGeometry(2.5, 3.5, 0.5);
+const houseWindowGeo = new THREE.BoxGeometry(2, 2.5, 0.5);
+
+const houseDoorGeo = new THREE.BoxGeometry(2.5, 4.5, 0.5);
+const houseChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
+houseChimneyGeo.translate(0, 11, 0);
+
+const houseDoorMat = createMaterial({color: 0x5c4033, flatShading: true});
+const houseChimneyMat = createMaterial({color: 0x8b3a3a, flatShading: true});
 
 // Straw hut geometries
 const strawHutBodyGeo = new THREE.CylinderGeometry(4, 4, 6, 8);
@@ -759,10 +766,10 @@ const houseWindowMats = [];
 for (let i = 0; i < 5; i++) {
   houseWindowMats.push(
     createMaterial({
-      color: 0x111111,
+      color: 0x4a6a8a, // Soft glassy blue instead of black
       emissive: 0xffd54f,
       emissiveIntensity: 0.0,
-      roughness: 0,
+      roughness: 0.2, // Slightly rough instead of perfectly smooth for better lighting capture
     })
   );
 }
@@ -1481,7 +1488,27 @@ const volcanoLavaMat = new THREE.MeshBasicMaterial({color: 0xff4500});
 window.ModelAssembler = {
   getStructure: function (id, rotY = 0) {
     switch (id) {
-      case 'house':
+      case 'house': {
+        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
         return [
           {
             geo: houseBodyGeo,
@@ -1495,7 +1522,38 @@ window.ModelAssembler = {
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
+          {
+            geo: houseDoorGeo,
+            mat: houseDoorMat,
+            pos: [doorOffset.x, doorOffset.y, doorOffset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseChimneyGeo,
+            mat: houseChimneyMat,
+            pos: [chimneyOffset.x, chimneyOffset.y, chimneyOffset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[0],
+            pos: [winF1Offset.x, winF1Offset.y, winF1Offset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[1],
+            pos: [winF2Offset.x, winF2Offset.y, winF2Offset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: houseWindowGeo,
+            mat: houseWindowMats[2],
+            pos: [winBOffset.x, winBOffset.y, winBOffset.z],
+            rot: [0, rotY, 0],
+          },
         ];
+      }
       case 'straw_hut':
         return [
           {
@@ -3119,12 +3177,19 @@ function generateChunk(chunkX, chunkZ) {
           windowPools[i] = new THREE.InstancedMesh(
             houseWindowGeo,
             houseWindowMats[i],
-            poolCounts[i] * 2
+            poolCounts[i] * 3
           );
           windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
           objectsGroup.add(windowPools[i]);
         }
       }
+
+      const doorInst = new THREE.InstancedMesh(houseDoorGeo, houseDoorMat, housePositions.length);
+      const chimneyInst = new THREE.InstancedMesh(houseChimneyGeo, houseChimneyMat, housePositions.length);
+      doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(doorInst);
+      objectsGroup.add(chimneyInst);
 
       const poolIndices = [0, 0, 0, 0, 0];
 
@@ -3143,32 +3208,36 @@ function generateChunk(chunkX, chunkZ) {
         const poolId = houseToPool[index];
         const pIdx = poolIndices[poolId];
 
-        const frontOffset = new THREE.Vector3(0, 4, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        const backOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-
-        dummy.position.set(
-          pos.x + frontOffset.x,
-          pos.y + frontOffset.y,
-          pos.z + frontOffset.z
-        );
+        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+        dummy.position.set(pos.x + doorOffset.x, pos.y + doorOffset.y, pos.z + doorOffset.z);
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
-        windowPools[poolId].setMatrixAt(pIdx * 2, dummy.matrix);
+        doorInst.setMatrixAt(index, dummy.matrix);
 
-        dummy.position.set(
-          pos.x + backOffset.x,
-          pos.y + backOffset.y,
-          pos.z + backOffset.z
-        );
+        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+        dummy.position.set(pos.x + chimneyOffset.x, pos.y + chimneyOffset.y, pos.z + chimneyOffset.z);
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
-        windowPools[poolId].setMatrixAt(pIdx * 2 + 1, dummy.matrix);
+        chimneyInst.setMatrixAt(index, dummy.matrix);
+
+        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+
+        dummy.position.set(pos.x + winF1Offset.x, pos.y + winF1Offset.y, pos.z + winF1Offset.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.updateMatrix();
+        windowPools[poolId].setMatrixAt(pIdx * 3, dummy.matrix);
+
+        dummy.position.set(pos.x + winF2Offset.x, pos.y + winF2Offset.y, pos.z + winF2Offset.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.updateMatrix();
+        windowPools[poolId].setMatrixAt(pIdx * 3 + 1, dummy.matrix);
+
+        dummy.position.set(pos.x + winBOffset.x, pos.y + winBOffset.y, pos.z + winBOffset.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.updateMatrix();
+        windowPools[poolId].setMatrixAt(pIdx * 3 + 2, dummy.matrix);
 
         poolIndices[poolId]++;
       });
