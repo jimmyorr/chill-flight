@@ -2108,8 +2108,8 @@ function updateWeather(delta) {
   const isRainHeavy = rainParticles.material.opacity > 0.1;
 
   if (isRainClearing && !wasRainClearing && isRainHeavy) {
-    // 70% chance to spawn a rainbow when rain starts to clear
-    if (Math.random() < 0.7) {
+    // 90% chance to spawn a rainbow when rain starts to clear
+    if (Math.random() < 0.9) {
       forceRainbow = true;
     }
   }
