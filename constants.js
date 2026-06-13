@@ -41,7 +41,7 @@ let flightSpeedMultiplier = INITIAL_SPEED;
 const ENABLE_PAGODAS = false;
 const ENABLE_BARNS = true;
 const ENABLE_MONASTERIES = true;
-const ENABLE_CASTLE_RUINS = false;
+const ENABLE_CASTLE_RUINS = true;
 const ENABLE_LIGHTHOUSES = false;
 const ENABLE_VEHICLE_SWITCH = ChillFlightLogic.ENABLE_V;
 

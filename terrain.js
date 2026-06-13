@@ -977,33 +977,126 @@ const monasteryRoofMat = createMaterial({color: 0x546e7a, flatShading: true}); /
 
 // --- CASTLE RUINS ---
 function createCastleRuinsGeometry() {
-  // Tall main tower
+  const geometries = [];
+
+  // Helper to add battlements to a circular tower
+  function addCircularBattlements(radius, y, cx, cz, count) {
+    for (let i = 0; i < count; i++) {
+      if (Math.random() > 0.3) {
+        const angle = (i / count) * Math.PI * 2;
+        const b = new THREE.BoxGeometry(2, 2.5, 2);
+        b.translate(Math.cos(angle) * radius + cx, y + 1.25, Math.sin(angle) * radius + cz);
+        geometries.push(b);
+      }
+    }
+  }
+
+  // 1. Tall main tower
   const tower1 = new THREE.CylinderGeometry(5, 6.5, 36, 8);
   tower1.translate(0, 18, 0);
-  // Shorter broken tower
-  const tower2 = new THREE.CylinderGeometry(4.5, 6, 20, 8);
-  tower2.translate(26, 10, 4);
-  // Connecting curtain wall
-  const wall = new THREE.BoxGeometry(24, 9, 4);
-  wall.translate(13, 4.5, 2);
-  // Crumbled wall stub (offset, slightly rotated look via translate)
-  const stub = new THREE.BoxGeometry(8, 5, 3);
-  stub.translate(-7, 2.5, -10);
-  const geometries = [tower1, tower2, wall, stub];
+  geometries.push(tower1);
+  addCircularBattlements(4.8, 36, 0, 0, 8);
+
+  // 2. Shorter broken tower
+  const tower2 = new THREE.CylinderGeometry(4.5, 6, 18, 8);
+  tower2.translate(24, 9, 4);
+  geometries.push(tower2);
+  
+  // Broken chunks on top of tower2
+  for (let i = 0; i < 5; i++) {
+    const chunk = new THREE.BoxGeometry(3, Math.random() * 4 + 1, 3);
+    const angle = Math.random() * Math.PI * 2;
+    chunk.rotateY(Math.random());
+    chunk.rotateZ(Math.random() * 0.2);
+    chunk.translate(Math.cos(angle) * 3 + 24, 18 + Math.random(), Math.sin(angle) * 3 + 4);
+    geometries.push(chunk);
+  }
+
+  // 3. Main Gatehouse / Keep
+  const keep = new THREE.BoxGeometry(16, 22, 14);
+  keep.translate(12, 11, -12);
+  geometries.push(keep);
+
+  // Archway cutout via side pillars and top block
+  const gateLeft = new THREE.BoxGeometry(5, 14, 4);
+  gateLeft.translate(12 - 5, 7, 2);
+  geometries.push(gateLeft);
+
+  const gateRight = new THREE.BoxGeometry(5, 14, 4);
+  gateRight.translate(12 + 5, 7, 2);
+  geometries.push(gateRight);
+
+  const gateTop = new THREE.BoxGeometry(16, 6, 4);
+  gateTop.translate(12, 17, 2);
+  geometries.push(gateTop);
+
+  // Battlements on Gatehouse
+  for (let i = 0; i < 4; i++) {
+     if (Math.random() > 0.2) {
+       const b = new THREE.BoxGeometry(2, 2.5, 4);
+       b.translate(6 + i * 4, 20 + 1.25, 2);
+       geometries.push(b);
+     }
+  }
+
+  // 4. Connecting curtain walls
+  const wall1 = new THREE.BoxGeometry(4, 12, 12);
+  wall1.translate(2, 6, -6);
+  geometries.push(wall1);
+
+  const wall2 = new THREE.BoxGeometry(8, 10, 4);
+  wall2.translate(20, 5, 0);
+  wall2.rotateY(0.1); 
+  geometries.push(wall2);
+
+  // 5. Ruined wall stubs and scattered stones
+  const stub1 = new THREE.BoxGeometry(6, 4, 3);
+  stub1.rotateY(0.4);
+  stub1.translate(-6, 2, -10);
+  geometries.push(stub1);
+
+  const stub2 = new THREE.BoxGeometry(4, 6, 4);
+  stub2.rotateY(-0.2);
+  stub2.rotateZ(0.1);
+  stub2.translate(28, 3, -4);
+  geometries.push(stub2);
+
+  for (let i = 0; i < 15; i++) {
+    const block = new THREE.BoxGeometry(2, 2, 2);
+    block.rotateX(Math.random());
+    block.rotateY(Math.random());
+    block.rotateZ(Math.random());
+    const angle = Math.random() * Math.PI * 2;
+    const r = 10 + Math.random() * 20;
+    block.translate(12 + Math.cos(angle) * r, 1, Math.sin(angle) * r);
+    geometries.push(block);
+  }
+
   const pos = [],
     norm = [],
     idx = [];
   let offset = 0;
   for (const g of geometries) {
     pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
+    if (g.attributes.normal) {
+      norm.push(...g.attributes.normal.array);
+    }
+    if (g.index) {
+      for (let i = 0; i < g.index.array.length; i++)
+        idx.push(g.index.array[i] + offset);
+    } else {
+      for (let i = 0; i < g.attributes.position.count; i++)
+        idx.push(i + offset);
+    }
     offset += g.attributes.position.count;
   }
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  if (norm.length === pos.length) {
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  } else {
+    geom.computeVertexNormals();
+  }
   geom.setIndex(idx);
   return geom;
 }
@@ -2648,7 +2741,6 @@ function generateChunk(chunkX, chunkZ) {
             });
           } else if (
             !isAlienLand &&
-            ENABLE_CASTLE_RUINS &&
             plainsRoll < castleThreshold &&
             snowFactor < 0.5 &&
             desertFactor < 0.3 &&
