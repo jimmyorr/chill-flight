@@ -914,12 +914,66 @@ function createMonasteryBodyGeometry() {
   geom.setIndex(idx);
   return geom;
 }
+
+function createGableRoof(width, depth, height, overhang) {
+  const shape = new THREE.Shape();
+  const hw = width / 2 + overhang;
+  shape.moveTo(-hw, 0);
+  shape.lineTo(hw, 0);
+  shape.lineTo(0, height);
+  shape.lineTo(-hw, 0);
+  const geo = new THREE.ExtrudeGeometry(shape, {depth: depth + overhang * 2, bevelEnabled: false});
+  geo.translate(0, 0, -(depth + overhang * 2) / 2);
+  return geo;
+}
+
+function createMonasteryRoofGeometry() {
+  const hallRoof = createGableRoof(16, 30, 8, 1.5);
+  hallRoof.rotateY(Math.PI / 2);
+  hallRoof.translate(0, 10, 0);
+
+  const wingRoof = createGableRoof(8, 18, 5, 1.5);
+  wingRoof.rotateY(Math.PI / 2);
+  wingRoof.translate(4, 6, -12);
+
+  const towerCap = new THREE.ConeGeometry(7.5, 9, 4);
+  towerCap.rotateY(Math.PI / 4);
+  towerCap.translate(-16, 22 + 4.5, 0);
+
+  const geometries = [hallRoof, wingRoof, towerCap];
+  const pos = [],
+    norm = [],
+    idx = [];
+  let offset = 0;
+  for (const g of geometries) {
+    pos.push(...g.attributes.position.array);
+    if (g.attributes.normal) {
+      norm.push(...g.attributes.normal.array);
+    }
+    if (g.index) {
+      for (let i = 0; i < g.index.array.length; i++)
+        idx.push(g.index.array[i] + offset);
+    } else {
+      for (let i = 0; i < g.attributes.position.count; i++)
+        idx.push(i + offset);
+    }
+    offset += g.attributes.position.count;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (norm.length === pos.length) {
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  } else {
+    geom.computeVertexNormals();
+  }
+  geom.setIndex(idx);
+  return geom;
+}
+
 const monasteryBodyGeo = createMonasteryBodyGeometry();
-const monasteryCapGeo = new THREE.ConeGeometry(5.5, 7, 4);
-monasteryCapGeo.rotateY(Math.PI / 4);
-monasteryCapGeo.translate(-16, 23, 0); // sits on top of the tower
+const monasteryRoofGeo = createMonasteryRoofGeometry();
 const monasteryBodyMat = createMaterial({color: 0x9e9e9e, flatShading: true}); // stone
-const monasteryCapMat = createMaterial({color: 0x546e7a, flatShading: true}); // slate
+const monasteryRoofMat = createMaterial({color: 0x546e7a, flatShading: true}); // slate
 
 // --- CASTLE RUINS ---
 function createCastleRuinsGeometry() {
@@ -1677,8 +1731,8 @@ window.ModelAssembler = {
             rot: [0, rotY, 0],
           },
           {
-            geo: monasteryCapGeo,
-            mat: monasteryCapMat,
+            geo: monasteryRoofGeo,
+            mat: monasteryRoofMat,
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
@@ -3667,9 +3721,9 @@ function generateChunk(chunkX, chunkZ) {
         monasteryBodyMat,
         monasteryPositions.length
       );
-      const monasteryCapInst = new THREE.InstancedMesh(
-        monasteryCapGeo,
-        monasteryCapMat,
+      const monasteryRoofInst = new THREE.InstancedMesh(
+        monasteryRoofGeo,
+        monasteryRoofMat,
         monasteryPositions.length
       );
       monasteryPositions.forEach((pos, i) => {
@@ -3678,12 +3732,12 @@ function generateChunk(chunkX, chunkZ) {
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
         monasteryBodyInst.setMatrixAt(i, dummy.matrix);
-        monasteryCapInst.setMatrixAt(i, dummy.matrix);
+        monasteryRoofInst.setMatrixAt(i, dummy.matrix);
       });
       monasteryBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      monasteryCapInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      monasteryRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
       objectsGroup.add(monasteryBodyInst);
-      objectsGroup.add(monasteryCapInst);
+      objectsGroup.add(monasteryRoofInst);
     }
 
     // 2.63 Generate Castle Ruins (very rare, elevated terrain)
