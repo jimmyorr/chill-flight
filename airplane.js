@@ -147,67 +147,97 @@ function setVehicle(type) {
 }
 
 // --- AIRPLANE MODEL ---
-// Fuselage
-const bodyGeo = new THREE.CylinderGeometry(1.2, 2.2, 16, 8);
-bodyGeo.rotateX(Math.PI / 2);
+const planeWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
 planeMat = createMaterial({color: planeColor, flatShading: true});
-const body = new THREE.Mesh(bodyGeo, planeMat);
-body.scale.set(1, 1.1, 1);
+
+// Fuselage (Main Body)
+const bodyGeo = new THREE.CylinderGeometry(0.7, 1.8, 14, 8);
+bodyGeo.rotateX(Math.PI / 2);
+const body = new THREE.Mesh(bodyGeo, planeWhiteMat);
+body.position.set(0, 0, -2);
+body.scale.set(1, 1.3, 1);
 airplaneModel.add(body);
 
-// Cockpit window
-const windowGeo = new THREE.BoxGeometry(3, 2, 4);
+// Nose Cowling
+const noseGeo = new THREE.CylinderGeometry(1.8, 1.0, 2.5, 8); // Made front (1.0) blunter
+noseGeo.rotateX(Math.PI / 2); // Same rotation as body for perfect segment alignment
+const nose = new THREE.Mesh(noseGeo, planeWhiteMat);
+nose.position.set(0, 0, -10.25);
+nose.scale.set(1, 1.3, 1);
+airplaneModel.add(nose);
+
+// Cabin / Cockpit
+const cabinGeo = new THREE.BoxGeometry(2.6, 2.0, 4.0);
+const cabin = new THREE.Mesh(cabinGeo, planeWhiteMat);
+cabin.position.set(0, 1.5, -3.5);
+airplaneModel.add(cabin);
+
+// Windshield
 const windowMat = createMaterial({color: 0x111111, roughness: 0.1});
+const windowGeo = new THREE.BoxGeometry(2.65, 1.8, 1.5);
 const cockpit = new THREE.Mesh(windowGeo, windowMat);
-cockpit.position.set(0, 2.5, -2);
+cockpit.position.set(0, 1.8, -5.5);
+cockpit.rotation.x = Math.PI / 5.5;
 airplaneModel.add(cockpit);
 
+// Side Windows
+const sideWindowGeo = new THREE.BoxGeometry(2.7, 1.0, 2.0);
+const sideWindow = new THREE.Mesh(sideWindowGeo, windowMat);
+sideWindow.position.set(0, 1.7, -3.5);
+airplaneModel.add(sideWindow);
+
+// Accent Stripe
+const stripeGeo = new THREE.BoxGeometry(3.0, 0.4, 13);
+const stripe = new THREE.Mesh(stripeGeo, planeMat);
+stripe.position.set(0, 0.2, -2.0);
+airplaneModel.add(stripe);
+
 // Wings
-const wingGeo = new THREE.BoxGeometry(30, 0.5, 4);
-const wingMat = createMaterial({color: 0xecf0f1, flatShading: true});
-const wings = new THREE.Mesh(wingGeo, wingMat);
-wings.position.set(0, 4.5, -1);
+const wingGeo = new THREE.BoxGeometry(32, 0.5, 4.5);
+const wings = new THREE.Mesh(wingGeo, planeWhiteMat);
+wings.position.set(0, 2.8, -3.5);
 airplaneModel.add(wings);
 
 // Wing Struts
-const wingStrutGeo = new THREE.CylinderGeometry(0.15, 0.15, 9.5, 6);
-const wingStrutL = new THREE.Mesh(wingStrutGeo, wingMat);
-wingStrutL.position.set(-5.25, 1.375, -1);
-wingStrutL.rotation.z = Math.PI / 3.5;
+const wingStrutGeo = new THREE.CylinderGeometry(0.15, 0.15, 7.5, 6);
+const wingStrutL = new THREE.Mesh(wingStrutGeo, planeWhiteMat);
+wingStrutL.position.set(-4.5, 1.65, -3.5);
+wingStrutL.rotation.z = Math.PI * 0.4;
 airplaneModel.add(wingStrutL);
 
-const wingStrutR = new THREE.Mesh(wingStrutGeo, wingMat);
-wingStrutR.position.set(5.25, 1.375, -1);
-wingStrutR.rotation.z = -Math.PI / 3.5;
+const wingStrutR = new THREE.Mesh(wingStrutGeo, planeWhiteMat);
+wingStrutR.position.set(4.5, 1.65, -3.5);
+wingStrutR.rotation.z = -Math.PI * 0.4;
 airplaneModel.add(wingStrutR);
 
-// Tail
-const tailGeo = new THREE.BoxGeometry(10, 0.5, 3);
-const tail = new THREE.Mesh(tailGeo, wingMat);
-tail.position.set(0, 0, 8.5);
+// Tail (Empennage) - Horizontal Stabilizer
+const tailGeo = new THREE.BoxGeometry(10, 0.4, 3);
+const tail = new THREE.Mesh(tailGeo, planeWhiteMat);
+tail.position.set(0, 0.5, 5.5);
 airplaneModel.add(tail);
 
+// Rudder (Vertical Stabilizer)
 const rudderShape = new THREE.Shape();
-rudderShape.moveTo(0, 0);
-rudderShape.lineTo(3, 0);
-rudderShape.lineTo(5, 5);
-rudderShape.lineTo(3, 5);
+rudderShape.moveTo(0, 0); 
+rudderShape.lineTo(3, 0); 
+rudderShape.lineTo(2.5, 4); 
+rudderShape.lineTo(1.0, 4); 
 rudderShape.lineTo(0, 0);
 
-const extrudeSettings = {depth: 0.5, bevelEnabled: false};
+const extrudeSettings = {depth: 0.3, bevelEnabled: false};
 const rudderGeo = new THREE.ExtrudeGeometry(rudderShape, extrudeSettings);
-rudderGeo.rotateY(Math.PI / 2);
-rudderGeo.translate(-0.25, 0, 5.5);
+rudderGeo.translate(-1.5, 0, -0.15); // center locally
+rudderGeo.rotateY(Math.PI / -2); // point forward
 const rudder = new THREE.Mesh(rudderGeo, planeMat);
-rudder.position.set(0, 1.1, 0);
+rudder.position.set(0, 0.7, 5.5); // Place at tail
 airplaneModel.add(rudder);
 
 // Propeller
 const propGroup = new THREE.Group();
-propGroup.position.set(0, 0, -8.5);
+propGroup.position.set(0, -0.2, -11.6); // Moved to tip of nose
 airplaneModel.add(propGroup);
 
-const propCenterGeo = new THREE.CylinderGeometry(0.8, 0.8, 2, 8);
+const propCenterGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.0, 8);
 propCenterGeo.rotateX(Math.PI / 2);
 const propCenter = new THREE.Mesh(
   propCenterGeo,
@@ -215,7 +245,7 @@ const propCenter = new THREE.Mesh(
 );
 propGroup.add(propCenter);
 
-const bladeGeo = new THREE.BoxGeometry(12, 0.4, 0.4);
+const bladeGeo = new THREE.BoxGeometry(9, 0.6, 0.1);
 const bladeMat = createMaterial({color: 0x222222});
 const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
 const blade2 = new THREE.Mesh(bladeGeo, bladeMat);
@@ -426,26 +456,54 @@ let isDeployingPontoons = false;
 let isRetractingPontoons = false;
 
 const pontoonMat = createMaterial({color: 0xcccccc, flatShading: true});
-const pontoonGeo = new THREE.CylinderGeometry(1.5, 1.5, 18, 8);
+const pontoonGeo = new THREE.CylinderGeometry(1.0, 1.0, 15, 8);
 pontoonGeo.rotateX(Math.PI / 2);
-const pontoonNoseGeo = new THREE.ConeGeometry(1.5, 4, 8);
-pontoonNoseGeo.rotateX(Math.PI / 2);
+const pontoonNoseGeo = new THREE.ConeGeometry(1.0, 3, 8);
+pontoonNoseGeo.rotateX(-Math.PI / 2); // Fix: point forward
 const pontoonNoseMeshL = new THREE.Mesh(pontoonNoseGeo, pontoonMat);
-pontoonNoseMeshL.position.set(0, 0, -11);
+pontoonNoseMeshL.position.set(0, 0, -9);
 
 const pontoonL = new THREE.Group();
 const pontoonBodyL = new THREE.Mesh(pontoonGeo, pontoonMat);
+pontoonBodyL.scale.set(1, 0.7, 1);
+pontoonNoseMeshL.scale.set(1, 0.7, 1);
 pontoonL.add(pontoonBodyL);
 pontoonL.add(pontoonNoseMeshL);
 pontoonL.position.set(-5, -4.5, 0);
+
+// Add visual struts to pontoons
+const strutGeo = new THREE.CylinderGeometry(0.1, 0.1, 5.0, 6);
+const strut1L = new THREE.Mesh(strutGeo, pontoonMat);
+strut1L.position.set(2.5, 2.0, -3);
+strut1L.rotation.z = -Math.PI / 4;
+pontoonL.add(strut1L);
+
+const strut2L = new THREE.Mesh(strutGeo, pontoonMat);
+strut2L.position.set(2.5, 2.0, 3);
+strut2L.rotation.z = -Math.PI / 4;
+pontoonL.add(strut2L);
+
 pontoonGroup.add(pontoonL);
 
 const pontoonNoseMeshR = pontoonNoseMeshL.clone();
 const pontoonR = new THREE.Group();
 const pontoonBodyR = new THREE.Mesh(pontoonGeo, pontoonMat);
+pontoonBodyR.scale.set(1, 0.7, 1);
+pontoonNoseMeshR.scale.set(1, 0.7, 1);
 pontoonR.add(pontoonBodyR);
 pontoonR.add(pontoonNoseMeshR);
 pontoonR.position.set(5, -4.5, 0);
+
+const strut1R = new THREE.Mesh(strutGeo, pontoonMat);
+strut1R.position.set(-2.5, 2.0, -3);
+strut1R.rotation.z = Math.PI / 4;
+pontoonR.add(strut1R);
+
+const strut2R = new THREE.Mesh(strutGeo, pontoonMat);
+strut2R.position.set(-2.5, 2.0, 3);
+strut2R.rotation.z = Math.PI / 4;
+pontoonR.add(strut2R);
+
 pontoonGroup.add(pontoonR);
 
 const hingeLF = new THREE.Group();
