@@ -643,15 +643,30 @@ const lilyPadMat = createMaterial({color: 0x4caf50, flatShading: true});
 
 // Bush geometry and material
 function createBushGeometry() {
-  // Clustered spheres for a bushy look
-  const b1 = new THREE.SphereGeometry(1.5, 6, 6);
-  b1.translate(0, 1.5, 0);
-  const b2 = new THREE.SphereGeometry(1.2, 6, 6);
-  b2.translate(1, 1, 0.5);
-  const b3 = new THREE.SphereGeometry(1.3, 6, 6);
-  b3.translate(-0.8, 1.2, -0.8);
+  const geometries = [];
 
-  const geometries = [b1, b2, b3];
+  // A lush, organic low-poly cluster
+  const clumps = [
+    {r: 1.6, x: 0, y: 1.4, z: 0},
+    {r: 1.2, x: 1.1, y: 1.0, z: 0.8},
+    {r: 1.3, x: -1.0, y: 0.9, z: 0.9},
+    {r: 1.1, x: 0.8, y: 0.8, z: -1.0},
+    {r: 1.2, x: -0.9, y: 1.1, z: -0.8},
+    {r: 0.9, x: 0.2, y: 2.2, z: 0.3},
+  ];
+
+  for (const c of clumps) {
+    const geo = new THREE.IcosahedronGeometry(c.r, 1);
+    // Add varying rotations to catch the light beautifully
+    geo.rotateX(c.x * 2.5);
+    geo.rotateY(c.y * 2.5);
+    geo.rotateZ(c.z * 2.5);
+    // Squish it slightly on the Y axis to look softer and bush-like
+    geo.scale(1, 0.8, 1);
+    geo.translate(c.x, c.y, c.z);
+    geometries.push(geo);
+  }
+
   let pos = [],
     norm = [],
     idx = [];
@@ -659,18 +674,30 @@ function createBushGeometry() {
 
   for (const g of geometries) {
     pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++) {
-      idx.push(g.index.array[i] + offset);
+    if (g.attributes.normal) {
+      norm.push(...g.attributes.normal.array);
     }
-    offset += g.attributes.position.count;
+    const count = g.attributes.position.count;
+    if (g.index) {
+      for (let i = 0; i < g.index.array.length; i++) {
+        idx.push(g.index.array[i] + offset);
+      }
+    } else {
+      for (let i = 0; i < count; i++) {
+        idx.push(i + offset);
+      }
+    }
+    offset += count;
   }
 
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  if (norm.length === pos.length) {
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  } else {
+    geom.computeVertexNormals();
+  }
   geom.setIndex(idx);
-
   return geom;
 }
 const bushGeo = createBushGeometry();
