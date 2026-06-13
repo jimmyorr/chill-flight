@@ -354,13 +354,13 @@ Copy-ready metadata assets for the Chill Flight store listings (Google Play Stor
 
 `Chill Flight` (12 characters / 30 character limit)
 
-## Promotional text
+### Promotional text
 
 <!-- Max 170 characters -->
 
 Drift through endless, ever-changing skies to relaxing lofi beats.
 
-## Description
+### Description
 
 <!-- Max 4,000 characters -->
 
@@ -371,7 +371,7 @@ Find your flow in Chill Flight, a relaxing flight simulator set in a procedurall
 
 Have a chill flight.
 
-## Keywords
+### Keywords
 
 <!-- Max 100 characters -->
 
