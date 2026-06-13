@@ -144,7 +144,7 @@
         background: rgba(255, 255, 255, 0.2);
       }
     </style>
-    <script type="module" crossorigin src="./assets/debug-CdNsCgg-.js"></script>
+    <script type="module" crossorigin src="./assets/debug-DH0UIKur.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/main-o8ExmTKr.js">
   </head>
 
@@ -199,6 +199,9 @@
       <button class="model-btn" onclick="viewModel('house', event)">
         House
       </button>
+      <button class="model-btn" onclick="viewModel('two_story_house', event)">
+        Two story house
+      </button>
       <button class="model-btn" onclick="viewModel('straw_hut', event)">
         Straw hut
       </button>
@@ -250,6 +253,24 @@
           Select a model
         </div>
         <div id="model-stats">0 vertices | 0 triangles</div>
+      </div>
+
+      <div
+        id="color-options"
+        style="
+          display: none;
+          margin-top: 15px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          padding-top: 15px;
+        "
+      >
+        <button
+          class="model-btn"
+          onclick="cycleColors()"
+          style="border-color: var(--accent-color)"
+        >
+          Cycle Colors
+        </button>
       </div>
     </div>
 
