@@ -354,17 +354,25 @@ Copy-ready metadata assets for the Chill Flight store listings (Google Play Stor
 
 `Chill Flight` (12 characters / 30 character limit)
 
-### Short description
+## Promotional text
 
-`Drift through endless, ever-changing skies to relaxing lofi beats.`
+<!-- Max 170 characters -->
 
-### Full description
+Drift through endless, ever-changing skies to relaxing lofi beats.
 
-```text
+## Description
+
+<!-- Max 4,000 characters -->
+
 Find your flow in Chill Flight, a relaxing flight simulator set in a procedurally generated world. Drift through the skies to lofi music by Purrple Cat and explore endless horizons featuring:
 • 🌧️ Dynamic weather
 • ☀️ Seamless day-night cycles
 • 🌲 Diverse biomes
 
 Have a chill flight.
-```
+
+## Keywords
+
+<!-- Max 100 characters -->
+
+flight, simulator, chill, lofi, relaxing, procedural, flying, airplanes

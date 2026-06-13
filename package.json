@@ -4,7 +4,9 @@
   "author": "Jimmy Orr",
   "license": "MIT",
   "scripts": {
+    "predev": "node scripts/sync-metadata.js",
     "dev": "vite",
+    "prebuild": "node scripts/sync-metadata.js",
     "build": "vite build",
     "release": "npm version patch --no-git-tag-version && node scripts/sync-version.js && npm run build",
     "preview": "vite preview",
@@ -40,5 +42,16 @@
     "globals": "^17.6.0",
     "prettier": "^3.8.3",
     "vite": "^8.0.13"
-  }
+  },
+  "description": "Drift through endless, ever-changing skies to relaxing lofi beats.",
+  "keywords": [
+    "flight",
+    "simulator",
+    "chill",
+    "lofi",
+    "relaxing",
+    "procedural",
+    "flying",
+    "airplanes"
+  ]
 }
