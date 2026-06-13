@@ -1,6 +1,37 @@
 # Chill Flight
 
-A minimalist flight simulator built with Three.js, featuring an infinite world driven by procedural terrain generation.
+## Store metadata
+
+<!-- Copy-ready metadata assets for store listings (Google Play Store, Apple App Store, and other distribution platforms). Storing these in version control ensures consistent description updates across platforms. -->
+
+### Game title
+
+<!-- Max 30 characters -->
+
+Chill Flight
+
+### Promotional text
+
+<!-- Max 170 characters -->
+
+Drift through endless, ever-changing skies to relaxing lofi beats.
+
+### Description
+
+<!-- Max 4,000 characters -->
+
+Find your flow in Chill Flight, a relaxing flight simulator set in a procedurally generated world. Drift through the skies to lofi music by Purrple Cat and explore endless horizons featuring:
+• 🌧️ Dynamic weather
+• ☀️ Seamless day-night cycles
+• 🌲 Diverse biomes
+
+Have a chill flight.
+
+### Keywords
+
+<!-- Max 100 characters -->
+
+flight, simulator, chill, lofi, relaxing, procedural, flying, airplanes
 
 ## Music
 
@@ -345,34 +376,3 @@ npm run build && npx tauri build
 ```
 
 This compiles the web assets into `docs/` and triggers the Rust compiler to bundle them into a native desktop installer.
-
-## Store metadata
-
-Copy-ready metadata assets for the Chill Flight store listings (Google Play Store, Apple App Store, and other distribution platforms). Storing these in version control ensures consistent description updates across platforms.
-
-### Game title
-
-`Chill Flight` (12 characters / 30 character limit)
-
-### Promotional text
-
-<!-- Max 170 characters -->
-
-Drift through endless, ever-changing skies to relaxing lofi beats.
-
-### Description
-
-<!-- Max 4,000 characters -->
-
-Find your flow in Chill Flight, a relaxing flight simulator set in a procedurally generated world. Drift through the skies to lofi music by Purrple Cat and explore endless horizons featuring:
-• 🌧️ Dynamic weather
-• ☀️ Seamless day-night cycles
-• 🌲 Diverse biomes
-
-Have a chill flight.
-
-### Keywords
-
-<!-- Max 100 characters -->
-
-flight, simulator, chill, lofi, relaxing, procedural, flying, airplanes
