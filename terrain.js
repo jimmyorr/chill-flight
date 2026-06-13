@@ -600,23 +600,41 @@ function createCactusGeometry() {
   // Main trunk
   const mainRadius = 1.4;
   const mainHeight = 14;
-  const trunk = new THREE.CylinderGeometry(mainRadius * 0.9, mainRadius, mainHeight, 8);
+  const trunk = new THREE.CylinderGeometry(
+    mainRadius * 0.9,
+    mainRadius,
+    mainHeight,
+    8
+  );
   trunk.translate(0, mainHeight / 2, 0);
   geometries.push(trunk);
 
   // Trunk top cap (hemisphere)
-  const trunkCap = new THREE.SphereGeometry(mainRadius * 0.9, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2);
+  const trunkCap = new THREE.SphereGeometry(
+    mainRadius * 0.9,
+    8,
+    4,
+    0,
+    Math.PI * 2,
+    0,
+    Math.PI / 2
+  );
   trunkCap.translate(0, mainHeight, 0);
   geometries.push(trunkCap);
 
   // Helper function to create an arm
   function createArm(direction, startY, horizontalLen, verticalHeight) {
     const armRadius = 1.0;
-    
+
     // Horizontal connecting piece
-    const hPiece = new THREE.CylinderGeometry(armRadius, armRadius, horizontalLen, 8);
+    const hPiece = new THREE.CylinderGeometry(
+      armRadius,
+      armRadius,
+      horizontalLen,
+      8
+    );
     hPiece.rotateZ(Math.PI / 2);
-    const hCenterX = direction * (mainRadius + horizontalLen / 2 - 0.5); 
+    const hCenterX = direction * (mainRadius + horizontalLen / 2 - 0.5);
     hPiece.translate(hCenterX, startY, 0);
     geometries.push(hPiece);
 
@@ -627,23 +645,38 @@ function createCactusGeometry() {
     geometries.push(elbow);
 
     // Vertical piece
-    const vPiece = new THREE.CylinderGeometry(armRadius * 0.9, armRadius, verticalHeight, 8);
+    const vPiece = new THREE.CylinderGeometry(
+      armRadius * 0.9,
+      armRadius,
+      verticalHeight,
+      8
+    );
     vPiece.translate(elbowX, startY + verticalHeight / 2, 0);
     geometries.push(vPiece);
 
     // Top cap
-    const cap = new THREE.SphereGeometry(armRadius * 0.9, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2);
+    const cap = new THREE.SphereGeometry(
+      armRadius * 0.9,
+      8,
+      4,
+      0,
+      Math.PI * 2,
+      0,
+      Math.PI / 2
+    );
     cap.translate(elbowX, startY + verticalHeight, 0);
     geometries.push(cap);
   }
 
   // Right arm (lower, longer)
   createArm(1, 6, 3, 6);
-  
+
   // Left arm (higher, shorter)
   createArm(-1, 9, 2.5, 4);
 
-  let pos = [], norm = [], idx = [];
+  let pos = [],
+    norm = [],
+    idx = [];
   let offset = 0;
   for (const g of geometries) {
     pos.push(...g.attributes.position.array);

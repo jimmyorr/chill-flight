@@ -368,7 +368,7 @@
           'two_story_house',
           'tent',
           'sailboat',
-          'airplane'
+          'airplane',
         ].includes(type);
         document.getElementById('color-options').style.display = supportsColors
           ? 'block'
@@ -413,22 +413,32 @@
           switch (type) {
             case 'airplane':
               const ap = airplaneModel.clone();
-              
-              if (colorSeed > 0 && window.ChillFlightLogic && window.ChillFlightLogic.PLANE_COLORS) {
-                 const colors = window.ChillFlightLogic.PLANE_COLORS;
-                 const newColor = colors[colorSeed % colors.length];
-                 ap.traverse((child) => {
-                    if (child.isMesh && child.material && child.material.color) {
-                       const hex = child.material.color.getHex();
-                       // Identify accent material by excluding white, dark grey, black, and light grey (pontoons)
-                       if (hex !== 0xffffff && hex !== 0x111111 && hex !== 0x222222 && hex !== 0x333333 && hex !== 0xcccccc) {
-                          child.material = child.material.clone();
-                          child.material.color.setHex(newColor);
-                       }
+
+              if (
+                colorSeed > 0 &&
+                window.ChillFlightLogic &&
+                window.ChillFlightLogic.PLANE_COLORS
+              ) {
+                const colors = window.ChillFlightLogic.PLANE_COLORS;
+                const newColor = colors[colorSeed % colors.length];
+                ap.traverse((child) => {
+                  if (child.isMesh && child.material && child.material.color) {
+                    const hex = child.material.color.getHex();
+                    // Identify accent material by excluding white, dark grey, black, and light grey (pontoons)
+                    if (
+                      hex !== 0xffffff &&
+                      hex !== 0x111111 &&
+                      hex !== 0x222222 &&
+                      hex !== 0x333333 &&
+                      hex !== 0xcccccc
+                    ) {
+                      child.material = child.material.clone();
+                      child.material.color.setHex(newColor);
                     }
-                 });
+                  }
+                });
               }
-              
+
               ap.visible = true;
               previewGroup.add(ap);
               break;
