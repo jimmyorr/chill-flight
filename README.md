@@ -31,7 +31,7 @@ Have a chill flight.
 
 <!-- Max 100 characters -->
 
-flight, simulator, chill, lofi, relaxing, procedural, flying, airplanes
+flight,simulator,chill,lofi,relaxing,procedural,flying,airplanes
 
 ## Music
 
