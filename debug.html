@@ -254,8 +254,22 @@
         <div id="model-stats">0 vertices | 0 triangles</div>
       </div>
 
-      <div id="color-options" style="display: none; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-        <button class="model-btn" onclick="cycleColors()" style="border-color: var(--accent-color);">Cycle Colors</button>
+      <div
+        id="color-options"
+        style="
+          display: none;
+          margin-top: 15px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          padding-top: 15px;
+        "
+      >
+        <button
+          class="model-btn"
+          onclick="cycleColors()"
+          style="border-color: var(--accent-color)"
+        >
+          Cycle Colors
+        </button>
       </div>
     </div>
 
@@ -343,14 +357,21 @@
 
       function viewModel(type, e, colorSeed = 0) {
         clearViewer();
-        
+
         if (!e && colorSeed === 0) {
           window.currentColorSeed = 0;
         }
         window.currentModelType = type;
 
-        const supportsColors = ['house', 'two_story_house', 'tent', 'sailboat'].includes(type);
-        document.getElementById('color-options').style.display = supportsColors ? 'block' : 'none';
+        const supportsColors = [
+          'house',
+          'two_story_house',
+          'tent',
+          'sailboat',
+        ].includes(type);
+        document.getElementById('color-options').style.display = supportsColors
+          ? 'block'
+          : 'none';
 
         // Update UI
         document.querySelectorAll('.model-btn').forEach((btn) => {

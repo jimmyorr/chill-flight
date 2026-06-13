@@ -877,14 +877,32 @@ const barnTrimGeo = new THREE.BoxGeometry(0.5, 12.04, 0.6); // sqrt(8^2 + 9^2) =
 
 const barnSiloBodyGeo = new THREE.CylinderGeometry(4, 4, 22, 12);
 barnSiloBodyGeo.translate(0, 11, 0);
-const barnSiloRoofGeo = new THREE.SphereGeometry(4, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+const barnSiloRoofGeo = new THREE.SphereGeometry(
+  4,
+  12,
+  8,
+  0,
+  Math.PI * 2,
+  0,
+  Math.PI / 2
+);
 barnSiloRoofGeo.translate(0, 22, 0);
 
 const barnBodyMat = createMaterial({color: 0x9b1c1c, flatShading: true}); // classic barn red
 const barnRoofMat = createMaterial({color: 0x3e2723, flatShading: true}); // dark timber
 const barnWhiteMat = createMaterial({color: 0xeeeeee, flatShading: true});
-const barnSiloMat = createMaterial({color: 0xaaaaaa, metalness: 0.2, roughness: 0.6, flatShading: true});
-const barnSiloRoofMat = createMaterial({color: 0xc2c2c2, metalness: 0.3, roughness: 0.5, flatShading: true});
+const barnSiloMat = createMaterial({
+  color: 0xaaaaaa,
+  metalness: 0.2,
+  roughness: 0.6,
+  flatShading: true,
+});
+const barnSiloRoofMat = createMaterial({
+  color: 0xc2c2c2,
+  metalness: 0.3,
+  roughness: 0.5,
+  flatShading: true,
+});
 // --- MONASTERY ---
 function createMonasteryBodyGeometry() {
   // Long main hall
@@ -922,7 +940,10 @@ function createGableRoof(width, depth, height, overhang) {
   shape.lineTo(hw, 0);
   shape.lineTo(0, height);
   shape.lineTo(-hw, 0);
-  const geo = new THREE.ExtrudeGeometry(shape, {depth: depth + overhang * 2, bevelEnabled: false});
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: depth + overhang * 2,
+    bevelEnabled: false,
+  });
   geo.translate(0, 0, -(depth + overhang * 2) / 2);
   return geo;
 }
@@ -985,7 +1006,11 @@ function createCastleRuinsGeometry() {
       if (Math.random() > 0.3) {
         const angle = (i / count) * Math.PI * 2;
         const b = new THREE.BoxGeometry(2, 2.5, 2);
-        b.translate(Math.cos(angle) * radius + cx, y + 1.25, Math.sin(angle) * radius + cz);
+        b.translate(
+          Math.cos(angle) * radius + cx,
+          y + 1.25,
+          Math.sin(angle) * radius + cz
+        );
         geometries.push(b);
       }
     }
@@ -1001,14 +1026,18 @@ function createCastleRuinsGeometry() {
   const tower2 = new THREE.CylinderGeometry(4.5, 6, 18, 8);
   tower2.translate(24, 9, 4);
   geometries.push(tower2);
-  
+
   // Broken chunks on top of tower2
   for (let i = 0; i < 5; i++) {
     const chunk = new THREE.BoxGeometry(3, Math.random() * 4 + 1, 3);
     const angle = Math.random() * Math.PI * 2;
     chunk.rotateY(Math.random());
     chunk.rotateZ(Math.random() * 0.2);
-    chunk.translate(Math.cos(angle) * 3 + 24, 18 + Math.random(), Math.sin(angle) * 3 + 4);
+    chunk.translate(
+      Math.cos(angle) * 3 + 24,
+      18 + Math.random(),
+      Math.sin(angle) * 3 + 4
+    );
     geometries.push(chunk);
   }
 
@@ -1032,11 +1061,11 @@ function createCastleRuinsGeometry() {
 
   // Battlements on Gatehouse
   for (let i = 0; i < 4; i++) {
-     if (Math.random() > 0.2) {
-       const b = new THREE.BoxGeometry(2, 2.5, 4);
-       b.translate(6 + i * 4, 20 + 1.25, 2);
-       geometries.push(b);
-     }
+    if (Math.random() > 0.2) {
+      const b = new THREE.BoxGeometry(2, 2.5, 4);
+      b.translate(6 + i * 4, 20 + 1.25, 2);
+      geometries.push(b);
+    }
   }
 
   // 4. Connecting curtain walls
@@ -1046,7 +1075,7 @@ function createCastleRuinsGeometry() {
 
   const wall2 = new THREE.BoxGeometry(8, 10, 4);
   wall2.translate(20, 5, 0);
-  wall2.rotateY(0.1); 
+  wall2.rotateY(0.1);
   geometries.push(wall2);
 
   // 5. Ruined wall stubs and scattered stones
@@ -1146,12 +1175,126 @@ const gooseWingGeo = new THREE.BoxGeometry(6, 0.1, 2);
 gooseWingGeo.translate(3, 0, 0);
 
 // Windmill geometries
-const windmillBaseGeo = new THREE.CylinderGeometry(5, 8, 30, 6);
-windmillBaseGeo.translate(0, 15, 0);
-const windmillBladesGeo = new THREE.BoxGeometry(2, 30, 0.5);
-windmillBladesGeo.translate(0, 15, 0); // Rotate around bottom center
-const windmillBaseMat = createMaterial({color: 0x8d6e63, flatShading: true});
-const windmillBladesMat = createMaterial({color: 0xeeeeee, flatShading: true});
+function createWindmillBaseGeometry() {
+  const geometries = [];
+
+  // 1. Tapered white stone base
+  const base = new THREE.CylinderGeometry(4, 9, 30, 8);
+  base.translate(0, 15, 0);
+  geometries.push({geo: base, color: new THREE.Color(0xeeeeee)});
+
+  // 2. Small dark windows/doors on the sides
+  for (let i = 0; i < 3; i++) {
+    const windowGeo = new THREE.BoxGeometry(2, 2.5, 2);
+    // Position windows on the front side (+Z) going up
+    windowGeo.translate(0, 8 + i * 6, 3.5 - i * 0.5);
+    geometries.push({geo: windowGeo, color: new THREE.Color(0x222222)});
+  }
+
+  // 3. Dark octagonal/conical roof cap
+  const roof = new THREE.CylinderGeometry(0.5, 4.5, 8, 8);
+  roof.translate(0, 34, 0);
+  geometries.push({geo: roof, color: new THREE.Color(0x3a404d)});
+
+  // 4. Wooden hub sticking out the front (+Z) for the blades
+  const hub = new THREE.CylinderGeometry(0.8, 1.2, 10, 8);
+  hub.rotateX(Math.PI / 2);
+  hub.translate(0, 30, 6);
+  geometries.push({geo: hub, color: new THREE.Color(0x5c4033)});
+
+  const pos = [],
+    norm = [],
+    col = [],
+    idx = [];
+  let offset = 0;
+  for (const g of geometries) {
+    pos.push(...g.geo.attributes.position.array);
+    if (g.geo.attributes.normal) norm.push(...g.geo.attributes.normal.array);
+    const colorCount = g.geo.attributes.position.count;
+    for (let i = 0; i < colorCount; i++)
+      col.push(g.color.r, g.color.g, g.color.b);
+    if (g.geo.index) {
+      for (let i = 0; i < g.geo.index.array.length; i++)
+        idx.push(g.geo.index.array[i] + offset);
+    } else {
+      for (let i = 0; i < colorCount; i++) idx.push(i + offset);
+    }
+    offset += colorCount;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (norm.length === pos.length)
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  else geom.computeVertexNormals();
+  geom.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+
+function createWindmillBladesGeometry() {
+  const geometries = [];
+
+  // Main central spine (wooden pole)
+  const spine = new THREE.BoxGeometry(0.6, 26, 0.4);
+  spine.translate(0, 15, 0); // Rotate around Y=0 at the bottom
+  geometries.push(spine);
+
+  // Lattice crossbars
+  // We'll place the lattice on one side of the spine (e.g., +X)
+  const numBars = 14;
+  for (let i = 0; i < numBars; i++) {
+    const bar = new THREE.BoxGeometry(4.5, 0.3, 0.2);
+    // Shift slightly to the right of the spine
+    bar.translate(2.25, 7 + i * 1.5, 0);
+    geometries.push(bar);
+  }
+
+  // Outer frame for the lattice
+  const outerFrame = new THREE.BoxGeometry(0.3, numBars * 1.5, 0.2);
+  outerFrame.translate(4.5, 7 + (numBars - 1) * 0.75, 0);
+  geometries.push(outerFrame);
+
+  const innerFrame = new THREE.BoxGeometry(0.3, numBars * 1.5, 0.2);
+  innerFrame.translate(0.5, 7 + (numBars - 1) * 0.75, 0);
+  geometries.push(innerFrame);
+
+  const pos = [],
+    norm = [],
+    idx = [];
+  let offset = 0;
+  for (const g of geometries) {
+    pos.push(...g.attributes.position.array);
+    if (g.attributes.normal) norm.push(...g.attributes.normal.array);
+    const count = g.attributes.position.count;
+    if (g.index) {
+      for (let i = 0; i < g.index.array.length; i++)
+        idx.push(g.index.array[i] + offset);
+    } else {
+      for (let i = 0; i < count; i++) idx.push(i + offset);
+    }
+    offset += count;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (norm.length === pos.length)
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  else geom.computeVertexNormals();
+  geom.setIndex(idx);
+  return geom;
+}
+
+const windmillBaseGeo = createWindmillBaseGeometry();
+const windmillBladesGeo = createWindmillBladesGeometry();
+const windmillBaseMat = createMaterial({
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.9,
+});
+const windmillBladesMat = createMaterial({
+  color: 0x5c4033,
+  flatShading: true,
+  roughness: 0.9,
+});
 
 // Lighthouse geometries
 const lighthouseTowerBottomGeo = new THREE.CylinderGeometry(8, 9, 20, 8);
@@ -1688,20 +1831,60 @@ window.ModelAssembler = {
       case 'two_story_house': {
         const bodyId = (opts.bodyId || 0) % houseBodyPalette.length;
         const roofId = (opts.roofId || 0) % houseRoofPalette.length;
-        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const winF3Offset = new THREE.Vector3(0, 10, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const winF4Offset = new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const winF5Offset = new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const winB2Offset = new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const winB3Offset = new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF3Offset = new THREE.Vector3(0, 10, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF4Offset = new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winF5Offset = new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winB2Offset = new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const winB3Offset = new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
 
-        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
         return [
-          { geo: twoStoryBodyGeo, mat: houseBodyPalette[bodyId], pos: [0, 0, 0], rot: [0, rotY, 0] },
-          { geo: twoStoryRoofGeo, mat: houseRoofPalette[roofId], pos: [0, 0, 0], rot: [0, rotY, 0] },
+          {
+            geo: twoStoryBodyGeo,
+            mat: houseBodyPalette[bodyId],
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: twoStoryRoofGeo,
+            mat: houseRoofPalette[roofId],
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
           {
             geo: houseDoorGeo,
             mat: houseDoorMat,
@@ -1795,24 +1978,83 @@ window.ModelAssembler = {
           },
         ];
       case 'barn': {
-        const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-        const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
+        const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          rotY
+        );
 
         return [
-          { geo: barnBodyGeo, mat: barnBodyMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
-          { geo: barnRoofGeo, mat: barnRoofMat, pos: [0, 0, 0], rot: [0, rotY, 0] },
+          {
+            geo: barnBodyGeo,
+            mat: barnBodyMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: barnRoofGeo,
+            mat: barnRoofMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
           // Front Door
-          { geo: barnDoorGeo, mat: barnWhiteMat, pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z], rot: [0, rotY, 0] },
-          { geo: barnTrimGeo, mat: barnBodyMat, pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z], rot: [0, rotY, Math.atan2(8, 9)] },
-          { geo: barnTrimGeo, mat: barnBodyMat, pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z], rot: [0, rotY, -Math.atan2(8, 9)] },
+          {
+            geo: barnDoorGeo,
+            mat: barnWhiteMat,
+            pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: barnTrimGeo,
+            mat: barnBodyMat,
+            pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z],
+            rot: [0, rotY, Math.atan2(8, 9)],
+          },
+          {
+            geo: barnTrimGeo,
+            mat: barnBodyMat,
+            pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z],
+            rot: [0, rotY, -Math.atan2(8, 9)],
+          },
           // Back Door
-          { geo: barnDoorGeo, mat: barnWhiteMat, pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z], rot: [0, rotY, 0] },
-          { geo: barnTrimGeo, mat: barnBodyMat, pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z], rot: [0, rotY, Math.atan2(8, 9)] },
-          { geo: barnTrimGeo, mat: barnBodyMat, pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z], rot: [0, rotY, -Math.atan2(8, 9)] },
+          {
+            geo: barnDoorGeo,
+            mat: barnWhiteMat,
+            pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: barnTrimGeo,
+            mat: barnBodyMat,
+            pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z],
+            rot: [0, rotY, Math.atan2(8, 9)],
+          },
+          {
+            geo: barnTrimGeo,
+            mat: barnBodyMat,
+            pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z],
+            rot: [0, rotY, -Math.atan2(8, 9)],
+          },
           // Silo
-          { geo: barnSiloBodyGeo, mat: barnSiloMat, pos: [siloOffset.x, siloOffset.y, siloOffset.z], rot: [0, rotY, 0] },
-          { geo: barnSiloRoofGeo, mat: barnSiloRoofMat, pos: [siloOffset.x, siloOffset.y, siloOffset.z], rot: [0, rotY, 0] }
+          {
+            geo: barnSiloBodyGeo,
+            mat: barnSiloMat,
+            pos: [siloOffset.x, siloOffset.y, siloOffset.z],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: barnSiloRoofGeo,
+            mat: barnSiloRoofMat,
+            pos: [siloOffset.x, siloOffset.y, siloOffset.z],
+            rot: [0, rotY, 0],
+          },
         ];
       }
       case 'monastery':
@@ -1831,7 +2073,7 @@ window.ModelAssembler = {
           },
         ];
       case 'windmill':
-        const hubOffset = new THREE.Vector3(0, 0, 8.5).applyAxisAngle(
+        const hubOffset = new THREE.Vector3(0, 0, 16.5).applyAxisAngle(
           new THREE.Vector3(0, 1, 0),
           rotY
         );
@@ -3736,12 +3978,36 @@ function generateChunk(chunkX, chunkZ) {
 
     // 2.61 Generate Barns (temperate plains)
     if (barnPositions.length > 0) {
-      const barnBodyInst = new THREE.InstancedMesh(barnBodyGeo, barnBodyMat, barnPositions.length);
-      const barnRoofInst = new THREE.InstancedMesh(barnRoofGeo, barnRoofMat, barnPositions.length);
-      const barnDoorInst = new THREE.InstancedMesh(barnDoorGeo, barnWhiteMat, barnPositions.length * 2);
-      const barnTrimInst = new THREE.InstancedMesh(barnTrimGeo, barnBodyMat, barnPositions.length * 4);
-      const barnSiloBodyInst = new THREE.InstancedMesh(barnSiloBodyGeo, barnSiloMat, barnPositions.length);
-      const barnSiloRoofInst = new THREE.InstancedMesh(barnSiloRoofGeo, barnSiloRoofMat, barnPositions.length);
+      const barnBodyInst = new THREE.InstancedMesh(
+        barnBodyGeo,
+        barnBodyMat,
+        barnPositions.length
+      );
+      const barnRoofInst = new THREE.InstancedMesh(
+        barnRoofGeo,
+        barnRoofMat,
+        barnPositions.length
+      );
+      const barnDoorInst = new THREE.InstancedMesh(
+        barnDoorGeo,
+        barnWhiteMat,
+        barnPositions.length * 2
+      );
+      const barnTrimInst = new THREE.InstancedMesh(
+        barnTrimGeo,
+        barnBodyMat,
+        barnPositions.length * 4
+      );
+      const barnSiloBodyInst = new THREE.InstancedMesh(
+        barnSiloBodyGeo,
+        barnSiloMat,
+        barnPositions.length
+      );
+      const barnSiloRoofInst = new THREE.InstancedMesh(
+        barnSiloRoofGeo,
+        barnSiloRoofMat,
+        barnPositions.length
+      );
 
       barnPositions.forEach((pos, i) => {
         dummy.position.set(pos.x, pos.y, pos.z);
@@ -3751,12 +4017,25 @@ function generateChunk(chunkX, chunkZ) {
         barnBodyInst.setMatrixAt(i, dummy.matrix);
         barnRoofInst.setMatrixAt(i, dummy.matrix);
 
-        const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
-        const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
-        const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), pos.rotY);
+        const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
 
         // Front Door
-        dummy.position.set(pos.x + doorFOffset.x, pos.y + doorFOffset.y, pos.z + doorFOffset.z);
+        dummy.position.set(
+          pos.x + doorFOffset.x,
+          pos.y + doorFOffset.y,
+          pos.z + doorFOffset.z
+        );
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
         barnDoorInst.setMatrixAt(i * 2, dummy.matrix);
@@ -3770,7 +4049,11 @@ function generateChunk(chunkX, chunkZ) {
         barnTrimInst.setMatrixAt(i * 4 + 1, dummy.matrix);
 
         // Back Door
-        dummy.position.set(pos.x + doorBOffset.x, pos.y + doorBOffset.y, pos.z + doorBOffset.z);
+        dummy.position.set(
+          pos.x + doorBOffset.x,
+          pos.y + doorBOffset.y,
+          pos.z + doorBOffset.z
+        );
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
         barnDoorInst.setMatrixAt(i * 2 + 1, dummy.matrix);
@@ -3784,7 +4067,11 @@ function generateChunk(chunkX, chunkZ) {
         barnTrimInst.setMatrixAt(i * 4 + 3, dummy.matrix);
 
         // Silo
-        dummy.position.set(pos.x + siloOffset.x, pos.y + siloOffset.y, pos.z + siloOffset.z);
+        dummy.position.set(
+          pos.x + siloOffset.x,
+          pos.y + siloOffset.y,
+          pos.z + siloOffset.z
+        );
         dummy.rotation.set(0, pos.rotY, 0);
         dummy.updateMatrix();
         barnSiloBodyInst.setMatrixAt(i, dummy.matrix);
