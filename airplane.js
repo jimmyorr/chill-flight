@@ -139,11 +139,6 @@ function setVehicle(type) {
       flightSpeedMultiplier = targetFlightSpeed;
     }
   }
-
-  // Update UI if it exists - the vehicle-select was removed from pause menu
-  // but we can still have other UI elements that need syncing if added later.
-
-  console.log(`Vehicle switched to: ${vehicleType}`);
 }
 
 // --- AIRPLANE MODEL ---
@@ -193,10 +188,19 @@ stripe.position.set(0, 0.2, -2.0);
 airplaneModel.add(stripe);
 
 // Wings
-const wingGeo = new THREE.BoxGeometry(32, 0.5, 4.5);
-const wings = new THREE.Mesh(wingGeo, planeWhiteMat);
-wings.position.set(0, 2.8, -3.5);
-airplaneModel.add(wings);
+const mainWingGeo = new THREE.BoxGeometry(28, 0.5, 4.5);
+const mainWings = new THREE.Mesh(mainWingGeo, planeWhiteMat);
+mainWings.position.set(0, 2.8, -3.5);
+airplaneModel.add(mainWings);
+
+const wingTipGeo = new THREE.BoxGeometry(2, 0.5, 4.5);
+const wingTipL = new THREE.Mesh(wingTipGeo, planeMat);
+wingTipL.position.set(-15, 2.8, -3.5);
+airplaneModel.add(wingTipL);
+
+const wingTipR = new THREE.Mesh(wingTipGeo, planeMat);
+wingTipR.position.set(15, 2.8, -3.5);
+airplaneModel.add(wingTipR);
 
 // Wing Struts
 const wingStrutGeo = new THREE.CylinderGeometry(0.15, 0.15, 7.5, 6);
@@ -211,17 +215,26 @@ wingStrutR.rotation.z = -Math.PI * 0.4;
 airplaneModel.add(wingStrutR);
 
 // Tail (Empennage) - Horizontal Stabilizer
-const tailGeo = new THREE.BoxGeometry(10, 0.4, 3);
-const tail = new THREE.Mesh(tailGeo, planeWhiteMat);
-tail.position.set(0, 0.5, 5.5);
-airplaneModel.add(tail);
+const tailCenterGeo = new THREE.BoxGeometry(8, 0.4, 3);
+const tailCenter = new THREE.Mesh(tailCenterGeo, planeWhiteMat);
+tailCenter.position.set(0, 0.5, 5.5);
+airplaneModel.add(tailCenter);
+
+const tailTipGeo = new THREE.BoxGeometry(1, 0.4, 3);
+const tailTipL = new THREE.Mesh(tailTipGeo, planeMat);
+tailTipL.position.set(-4.5, 0.5, 5.5);
+airplaneModel.add(tailTipL);
+
+const tailTipR = new THREE.Mesh(tailTipGeo, planeMat);
+tailTipR.position.set(4.5, 0.5, 5.5);
+airplaneModel.add(tailTipR);
 
 // Rudder (Vertical Stabilizer)
 const rudderShape = new THREE.Shape();
-rudderShape.moveTo(0, 0); 
-rudderShape.lineTo(3, 0); 
-rudderShape.lineTo(2.5, 4); 
-rudderShape.lineTo(1.0, 4); 
+rudderShape.moveTo(0, 0);
+rudderShape.lineTo(3, 0);
+rudderShape.lineTo(2.5, 4);
+rudderShape.lineTo(1.0, 4);
 rudderShape.lineTo(0, 0);
 
 const extrudeSettings = {depth: 0.3, bevelEnabled: false};
