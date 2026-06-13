@@ -1,5 +1,12 @@
 # Release notes
 
+## 0.9.0
+
+- **Models:** Rebuilt airplane geometry with dynamic colors. Enhanced bushes with squished icosahedrons and cacti with procedural arms.
+- **Environment:** Redesigned castle ruins, windmills, and monasteries. Added a two-story house and upgraded buildings with doors, silos, and chimneys.
+- **Gameplay:** Scaled airplane turbulence intensity based on rain and increased base amplitude.
+- **System:** Added CapacitorDevice dependency to SPM configuration.
+
 ## 0.8.27
 
 - **Controls:** Completely rewrote gyro orientation math using quaternions to permanently fix axis confusion when starting at an angle, and restored original landscape pitch polarity.
