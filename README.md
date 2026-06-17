@@ -20,10 +20,12 @@ Drift through endless, ever-changing skies to relaxing lofi beats.
 
 <!-- Max 4,000 characters -->
 
-Find your flow in Chill Flight, a relaxing flight simulator set in a procedurally generated world. Drift through the skies to lofi music by Purrple Cat and explore endless horizons featuring:
-• 🌧️ Dynamic weather
-• ☀️ Seamless day-night cycles
-• 🌲 Diverse biomes
+A minimalist flight simulator in a procedurally generated world. Take flight and discover new horizons featuring:
+
+- Dynamic weather
+- Day-night cycles
+- Diverse biomes
+- Music by Purrple Cat
 
 Have a chill flight.
 
