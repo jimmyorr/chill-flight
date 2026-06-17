@@ -1690,10 +1690,12 @@ function handleGyroData(alpha, beta, gamma) {
   if (currentControlScheme !== 'gyro' || isPaused) return;
   if (beta === null || gamma === null) return;
 
-  const orientation =
-    window.screen && window.screen.orientation
-      ? window.screen.orientation.angle
-      : window.orientation || 0;
+  let orientation = 0;
+  if (typeof window.orientation !== 'undefined') {
+    orientation = window.orientation;
+  } else if (window.screen && window.screen.orientation) {
+    orientation = window.screen.orientation.angle || 0;
+  }
 
   const currentQuat = getDeviceQuaternion(alpha, beta, gamma, orientation);
 
