@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.9.1
+
+- **Controls:** Fixed an issue where iPad gyroscope controls could be inverted in landscape mode.
+
 ## 0.9.0
 
 - **Models:** Rebuilt airplane geometry with dynamic colors. Enhanced bushes with squished icosahedrons and cacti with procedural arms.
