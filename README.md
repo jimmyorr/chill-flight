@@ -95,7 +95,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 
 The game's dynamic sky utilizes a procedural palette generator that seamlessly transitions between various mood-driven colors for the zenith and horizon, depending on the time of day and random world seed.
 
-![Chill Flight Sky Color Palette](sky-palette.jpg)
+![Chill Flight Sky Color Palette](sky-palette.svg)
 
 ## Weather
 

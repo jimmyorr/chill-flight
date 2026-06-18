@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="540" viewBox="0 0 840 540">
+  <rect width="840" height="540" fill="#0d1117" rx="8"/>
+  <style>
+    .title { font-family: -apple-system, sans-serif; font-size: 26px; font-weight: bold; fill: #ffffff; }
+    .subtitle { font-family: -apple-system, sans-serif; font-size: 16px; font-weight: 500; fill: #8b949e; }
+    .swatch-text { font-family: -apple-system, sans-serif; font-size: 16px; font-weight: bold; fill: #c9d1d9; }
+    .hex-text { font-family: monospace; font-size: 13px; fill: #8b949e; }
+    .group-text { font-family: -apple-system, sans-serif; font-size: 12px; font-weight: bold; fill: #8b949e; text-transform: uppercase; letter-spacing: 1.5px; }
+  </style>
+
+  <text x="40" y="55" class="title">Curated Horizon Palettes</text>
+  <text x="40" y="80" class="subtitle">Vibrant, hand-crafted sunset colors dynamically paired with procedural zenith hues.</text>
+
+  <!-- Cyan/Teal Group -->
+  <text x="40" y="130" class="group-text">PAIRS WITH CYAN / TEAL ZENITH</text>
+  
+  <g transform="translate(40, 145)">
+    <rect width="160" height="120" fill="#66a6ff" rx="12"/>
+    <text x="0" y="145" class="swatch-text">Arctic Mist</text>
+    <text x="0" y="165" class="hex-text">#66A6FF</text>
+  </g>
+
+  <g transform="translate(240, 145)">
+    <rect width="160" height="120" fill="#8eb8e5" rx="12"/>
+    <text x="0" y="145" class="swatch-text">Alpine Clear</text>
+    <text x="0" y="165" class="hex-text">#8EB8E5</text>
+  </g>
+
+  <g transform="translate(440, 145)">
+    <rect width="160" height="120" fill="#8f9aa1" rx="12"/>
+    <text x="0" y="145" class="swatch-text">Storm Front</text>
+    <text x="0" y="165" class="hex-text">#8F9AA1</text>
+  </g>
+
+  <!-- Purple Group -->
+  <text x="640" y="130" class="group-text">PAIRS WITH PURPLE</text>
+
+  <g transform="translate(640, 145)">
+    <rect width="160" height="120" fill="#e27a5e" rx="12"/>
+    <text x="0" y="145" class="swatch-text">Tropical Dawn</text>
+    <text x="0" y="165" class="hex-text">#E27A5E</text>
+  </g>
+
+  <!-- Blue Group -->
+  <text x="40" y="340" class="group-text">PAIRS WITH CORE BLUE ZENITH</text>
+
+  <g transform="translate(40, 355)">
+    <rect width="160" height="120" fill="#cc7a3d" rx="12"/>
+    <text x="0" y="145" class="swatch-text">Golden Hour</text>
+    <text x="0" y="165" class="hex-text">#CC7A3D</text>
+  </g>
+
+  <g transform="translate(240, 355)">
+    <rect width="160" height="120" fill="#dc9c76" rx="12"/>
+    <text x="0" y="145" class="swatch-text">Dusty Mojave</text>
+    <text x="0" y="165" class="hex-text">#DC9C76</text>
+  </g>
+
+  <g transform="translate(440, 355)">
+    <rect width="160" height="120" fill="#ff9542" rx="12"/>
+    <text x="0" y="145" class="swatch-text">Cowneck</text>
+    <text x="0" y="165" class="hex-text">#FF9542</text>
+  </g>
+
+  <!-- Purple Group Row 2 -->
+  <g transform="translate(640, 355)">
+    <rect width="160" height="120" fill="#e2b6cf" rx="12"/>
+    <text x="0" y="145" class="swatch-text">Lavender Morning</text>
+    <text x="0" y="165" class="hex-text">#E2B6CF</text>
+  </g>
+</svg>

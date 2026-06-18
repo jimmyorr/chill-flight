@@ -200,6 +200,24 @@ const skyFragmentShader = `
 // --- DYNAMIC ATMOSPHERE PALETTE GENERATOR ---
 // Replaces the static ATMOSPHERE_PALETTES array
 
+// Curated horizon colors (derived from preset palettes) grouped by complementary zenith hues
+const CURATED_HORIZONS = {
+  cyan: [
+    {name: 'Arctic', color: 0x66a6ff},
+    {name: 'Alpine', color: 0x8eb8e5},
+    {name: 'Storm', color: 0x8f9aa1},
+  ],
+  blue: [
+    {name: 'Golden', color: 0xcc7a3d},
+    {name: 'Mojave', color: 0xdc9c76},
+    {name: 'Cowneck', color: 0xff9542},
+  ],
+  purple: [
+    {name: 'Tropical', color: 0xe27a5e},
+    {name: 'Lavender', color: 0xe2b6cf},
+  ],
+};
+
 function generateDynamicPalette(rng) {
   // Helper to get random value between min and max using the seeded RNG
   const rand = (min, max) => min + rng() * (max - min);
@@ -210,66 +228,42 @@ function generateDynamicPalette(rng) {
   // 0.5 to 0.85 covers Cyan -> Blue -> Purple -> Deep Pink
   const topHue = rand(0.5, 0.85);
 
-  // Pick Top Names based on Top Hue
+  // Pick Top Names and matching horizon category based on Top Hue
   let tNames;
+  let horizonCategory;
   if (topHue < 0.6) {
     // Cyan/Teal
     tNames = ['Stormy', 'Deep', 'Slate'];
+    horizonCategory = 'cyan';
   } else if (topHue < 0.75) {
     // Core Blue
     tNames = ['Midnight', 'Abyssal', 'Deep', 'Abyss'];
+    horizonCategory = 'blue';
   } else {
     // Purple/Indigo
     tNames = ['Twilight', 'Cosmic', 'Velvet', 'Starry'];
+    horizonCategory = 'purple';
   }
 
   const topSat = rand(0.3, 0.7); // Medium saturation so it isn't blindingly neon
   const topLight = rand(0.1, 0.35); // Keep it dark and moody
 
-  // --- HORIZON (Bottom Color) ---
-  // Lighter, brighter tones (sunsets, sunrises, mist).
-  let bottomHue;
-  let bNames; // Name category for bottom
-  const hueType = rng();
-
-  if (hueType < 0.6) {
-    // 60% chance: Warm sunset (Reds, Oranges, Yellows) -> 0.0 to 0.16
-    bottomHue = rand(0.0, 0.16);
-    bNames = ['Amber', 'Gold', 'Peach', 'Crimson', 'Coral'];
-  } else if (hueType < 0.8) {
-    // 20% chance: Dawn pastels (soft Pinks, Roses) -> 0.92 to 0.99
-    bottomHue = rand(0.92, 0.99);
-    bNames = ['Rose', 'Blush', 'Velvet', 'Dusty'];
-  } else {
-    // 20% chance: Icy/Clear morning (Light blues, cyans) -> 0.45 to 0.55
-    bottomHue = rand(0.45, 0.55);
-    bNames = ['Azure', 'Mist', 'Icy', 'Arctic', 'Slate'];
-  }
-
-  let bottomSat = rand(0.7, 1.0); // High saturation prevents muddy/brown colors
-  let bottomLight = rand(0.75, 0.9); // Keep it very bright to prevent it looking like dirt
-
-  if (hueType >= 0.8) {
-    // For icy blues, we can allow slightly lower saturation
-    bottomSat = rand(0.4, 0.6);
-  }
-
-  // Convert our procedural HSL values to a standard Three.js hex color
   const topColor = new THREE.Color().setHSL(topHue, topSat, topLight);
-  const bottomColor = new THREE.Color().setHSL(
-    bottomHue,
-    bottomSat,
-    bottomLight
-  );
+
+  // --- HORIZON (Bottom Color) ---
+  // We use our curated presets to guarantee vibrant, beautiful sunsets
+  const horizons = CURATED_HORIZONS[horizonCategory];
+  const selectedHorizon = horizons[Math.floor(rng() * horizons.length)];
+  const bottomColor = selectedHorizon.color;
+  const bName = selectedHorizon.name;
 
   // Use the RNG again to pick names from the narrowed categories
   const tName = tNames[Math.floor(rng() * tNames.length)];
-  const bName = bNames[Math.floor(rng() * bNames.length)];
 
   return {
     name: `${tName} ${bName}`,
     top: topColor.getHex(),
-    bottom: bottomColor.getHex(),
+    bottom: bottomColor,
   };
 }
 
