@@ -2409,7 +2409,7 @@ function animate() {
   const debugMenu = document.getElementById('debug-menu');
   const isDebugMode = debugMenu && debugMenu.style.display === 'block';
 
-  const CYCLE_DURATION_MS = 300000;
+  const CYCLE_DURATION_MS = 360000;
 
   let secondsInCycle, currentWarpedProgress;
   let passedServerNow;

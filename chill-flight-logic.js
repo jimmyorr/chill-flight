@@ -163,38 +163,45 @@
   }
 
   // --- DAY / NIGHT WARP ---
-  // Maps raw cycle progress [0,1) to a warped time-of-day [0,1) that
-  // lingers during sunrise/sunset and rushes through night and midday.
+  // Maps raw cycle progress (unwarped_p) [0,1) to a warped time-of-day (warped_p) [0,1).
+  // This causes the sun to linger during sunrise/sunset and rush through the night.
   //
-  // Knot table: [unwarped_p, warped_p]
-  // The SLOPE of each segment (dw/dp) is the sun's visual speed multiplier:
-  //   slope > 1 → sun moves faster than real-time (night, midday)
-  //   slope < 1 → sun moves slower than real-time (golden hour near horizon)
+  // Knot table format: [unwarped_p, warped_p]
+  // Time acceleration/deceleration is determined by the mathematical slope (dw / dp):
+  //   slope > 1.0 → sun moves FASTER than real-time (e.g., night passes quickly)
+  //   slope < 1.0 → sun moves SLOWER than real-time (e.g., lingers during golden hour)
   //
-  // Visual horizon crossing = warpedP 0.25 (sunrise) and 0.75 (sunset).
-  // The "horizon zone" segment is centered on those values and has slope 0.40
-  // so the sun crawls visibly slowly near the horizon.
+  // Visual horizon crossing occurs at warped_p 0.25 (6:00 AM) and 0.75 (6:00 PM).
+  // We configure the "horizon zones" to have a gentle slope (0.50x) so the sunset
+  // is fully enjoyed before the speedup occurs.
   //
-  // Segment slopes (dw/dp):
-  //   Night       p [0.00–0.10]: slope 2.00x  → night passes quickly
-  //   Horizon zone p [0.10–0.35]: slope 0.40x  → sun crawls near horizon ✓
-  //   Midday climb p [0.35–0.50]: slope 1.33x  → sun rises/sets at moderate speed
-  //   [Symmetric for second half]
+  // How the 6-minute (360s) cycle breaks down in real-time:
+  //   - Sunset Lingering Horizon (4:00pm - 8:30pm): Lasts exactly 120s (2 minutes).
+  //   - Ultra-fast Night (8:30pm - 3:30am): Sprints through the night in exactly 30s.
+  //   - Sunrise Lingering Horizon (3:30am - 8:00am): Lasts exactly 120s (2 minutes).
+  //   - Daylight (8:00am - 4:00pm): Sails through midday in exactly 90s.
   //
-  // Phase durations (5-min cycle): ~45s night, ~3m horizon glow, ~1.25m midday
   function computeTimeOfDay(secondsInCycle, latInRadians = 0.71) {
-    const CYCLE_DURATION_S = 300;
+    const CYCLE_DURATION_S = 360;
     const p = (secondsInCycle % CYCLE_DURATION_S) / CYCLE_DURATION_S;
 
     // [unwarped_p, warped_p] — edit warped_p to tune feel.
+    // warped_p maps strictly to a 24-hour clock (e.g., 0.5 = 12:00 PM, 0.7 = 4:48 PM)
     const knots = [
-      [0.0, 0.0], // midnight
-      [0.075, 0.2], // end of night      → slope 2.67x (fast night)
-      [0.375, 0.3], // horizon zone ends  → slope 0.33x (slow sun near horizon)
-      [0.5, 0.5], // solar noon         → slope 1.60x (moderate climb)
-      [0.625, 0.7], // horizon zone starts (symmetric)
-      [0.925, 0.8], // night begins       (symmetric)
-      [1.0, 1.0], // midnight
+      // midnight
+      [0.0, 0.0],
+      // end of night        →  3:30 AM  (Slope 3.50x)  [Lasts 15.0s]
+      [0.0417, 0.1458],
+      // horizon zone ends   →  8:00 AM  (Slope 0.56x)  [Lasts 120.0s]
+      [0.375, 0.3333],
+      // solar noon          → 12:00 PM  (Slope 1.33x)  [Lasts 45.0s]
+      [0.5, 0.5],
+      // horizon zone starts →  4:00 PM  (Slope 1.33x)  [Lasts 45.0s]
+      [0.625, 0.6667],
+      // night begins        →  8:30 PM  (Slope 0.56x)  [Lasts 120.0s]
+      [0.9583, 0.8542],
+      // midnight            → 12:00 AM  (Slope 3.50x)  [Lasts 15.0s]
+      [1.0, 1.0],
     ];
 
     for (let i = 0; i < knots.length - 1; i++) {
