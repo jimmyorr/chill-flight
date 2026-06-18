@@ -93,7 +93,13 @@ The world is organized around a central coordinate system (0,0) where latitude (
 
 ## Atmosphere & Sky Colors
 
-The game's dynamic sky utilizes a procedural palette generator that seamlessly transitions between various mood-driven colors for the zenith and horizon, depending on the time of day and random world seed.
+The game features a custom atmospheric scattering shader that dynamically handles transitions from day to sunset to night based on the sun's directional lighting, mie scattering, and a volumetric sun bloom effect.
+
+To ensure every day looks unique while maintaining cinematic quality, the sky color engine utilizes a **Hybrid Palette System**:
+
+- **Dynamic Zenith (Top Color):** The overarching sky color is procedurally generated each in-game day, offering infinite variations of cyan, deep blue, and twilight purple.
+- **Curated Horizon (Bottom Color):** To prevent "muddy" or washed-out sunsets, the horizon color is strictly selected from a curated list of highly vibrant, hand-crafted sunset palettes (such as _Golden Hour_, _Arctic Mist_, or _Tropical Dawn_).
+- **Smart Pairing:** The system automatically categorizes the procedural zenith color and pairs it with the most complementary curated horizon color, guaranteeing a stunning sunset every time.
 
 ![Chill Flight Sky Color Palette](sky-palette.svg)
 
