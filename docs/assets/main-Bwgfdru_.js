@@ -1,0 +1,1 @@
+import"./main-CV1obp06.js";document.querySelectorAll(`.version-tag`).forEach(e=>{e.textContent=`v0.9.2`});
