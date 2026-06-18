@@ -1,5 +1,10 @@
 # Release notes
 
+## 0.9.2
+
+- **Environment:** Extended the day-night cycle to 6 minutes, lingering on sunrise and sunset for 2 minutes each.
+- **Environment:** Implemented a hybrid dynamic sky that pairs the procedural zenith with curated, vibrant horizon color palettes.
+
 ## 0.9.1
 
 - **Controls:** Fixed an issue where iPad gyroscope controls could be inverted in landscape mode.
