@@ -138,6 +138,54 @@ const skyFragmentShader = `
             }
         }
 
+        // --- HORIZON CUMULUS CLOUDS ---
+        // Rendered on a cylindrical band hugging the horizon
+        if (uShowClouds && h > -0.05 && h < 0.30) {
+            float driftTime = uTime * 0.001;
+            float angle = atan(dir.x, dir.z);
+            
+            // UV Scale: 5.0 horizontally creates ~15 massive cloud banks around the circle
+            // 15.0 vertically keeps them from stretching too tall
+            vec2 horizonUV = vec2(angle * 5.0 + driftTime, h * 15.0);
+            
+            // Generate the puffy shapes (using 4 octaves)
+            float nHorizon = fbm(horizonUV);
+            
+            // Fade out the upper bounds completely by 30 degrees up
+            // Fade the bottom bounds softly into the horizon haze to eliminate hard cutoffs over water
+            float vFade = (1.0 - smoothstep(0.15, 0.30, h)) * smoothstep(-0.02, 0.04, h);
+            
+            float densityOffset = (uCloudDensity - 0.5) * 0.4;
+            
+            // Elevation-based threshold: 
+            // Thick and solid near the horizon (h=0), becoming sparse and puffy at the top
+            float shapeThreshold = 0.30 - densityOffset + max(0.0, h) * 1.5;
+            float alphaHorizon = smoothstep(shapeThreshold, shapeThreshold + 0.25, nHorizon) * vFade;
+            
+            if (alphaHorizon > 0.0) {
+                float stormDimming = 1.0 - uCloudDensity * 0.8;
+                float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
+                
+                vec3 baseShadow = mix(vec3(0.15, 0.15, 0.2), vec3(0.05, 0.06, 0.08), uCloudDensity);
+                vec3 baseBright = mix(vec3(0.95, 0.95, 1.0), vec3(0.4, 0.45, 0.5), uCloudDensity);
+                
+                vec3 shadowColor = mix(topColor * 0.5, baseShadow, 0.5);
+                vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
+                
+                // Small vertical offset for top-lighting volume
+                float nHorizon_offset = fbm(horizonUV + vec2(0.02, 0.08));
+                float litEdgeHorizon = smoothstep(0.05, -0.05, nHorizon_offset - nHorizon);
+                
+                vec3 cloudColorHorizon = mix(shadowColor, brightEdgeColor, litEdgeHorizon);
+                
+                float sunRimHorizon = pow(sunIntensity, 16.0) * litEdgeHorizon * stormDimming;
+                cloudColorHorizon += bottomColor * sunRimHorizon * 2.0;
+                
+                // Blend them beautifully into the sky
+                col = mix(col, cloudColorHorizon, alphaHorizon);
+            }
+        }
+
         // --- AURORA BOREALIS ---
         // Only renders when uAuroraIntensity > 0 (night + high latitude).
         // Hybrid: one wide sine wave gives the curtain sweep; an fBm brightness
