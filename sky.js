@@ -144,12 +144,21 @@ const skyFragmentShader = `
             float driftTime = uTime * 0.001;
             float angle = atan(dir.x, dir.z);
             
-            // UV Scale: 5.0 horizontally creates ~15 massive cloud banks around the circle
-            // 15.0 vertically keeps them from stretching too tall
-            vec2 horizonUV = vec2(angle * 5.0 + driftTime, h * 15.0);
+            // The atan function wraps from -PI to PI when looking North, causing a sharp vertical seam.
+            // We fix this by crossfading to a shifted UV space (horizonUV2) right at the seam.
+            // Using a very tight window (0.05 radians) prevents blurry smudges during overcast weather.
+            float w = smoothstep(3.14159 - 0.05, 3.14159, abs(angle));
             
-            // Generate the puffy shapes (using 4 octaves)
-            float nHorizon = fbm(horizonUV);
+            vec2 uvScale = vec2(5.0, 15.0);
+            // A slow vertical drift makes them convect upwards and slowly morph over time
+            vec2 horizonUV1 = vec2(angle, h) * uvScale + vec2(driftTime, driftTime * 0.2);
+            
+            // Shift the second UV's seam to South (where w=0, so it's safely ignored)
+            float angle2 = angle > 0.0 ? angle - 3.14159 : angle + 3.14159;
+            vec2 horizonUV2 = vec2(angle2, h) * uvScale + vec2(driftTime, driftTime * 0.2);
+            
+            // Blend the two noise maps to completely eliminate the wrapping seam
+            float nHorizon = mix(fbm(horizonUV1), fbm(horizonUV2), w);
             
             // Fade out the upper bounds completely by 30 degrees up
             // Fade the bottom bounds softly into the horizon haze to eliminate hard cutoffs over water
@@ -172,8 +181,18 @@ const skyFragmentShader = `
                 vec3 shadowColor = mix(topColor * 0.5, baseShadow, 0.5);
                 vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
                 
-                // Small vertical offset for top-lighting volume
-                float nHorizon_offset = fbm(horizonUV + vec2(0.02, 0.08));
+                // Dynamic volumetric shadowing based on true sun position
+                vec3 tangentU = normalize(vec3(dir.z, 0.0, -dir.x));
+                vec3 tangentV = cross(dir, tangentU);
+                vec2 sunOffsetDir = vec2(dot(sunDirection, tangentU), dot(sunDirection, tangentV));
+                
+                vec2 dynamicOffset = sunOffsetDir * 0.05 * uvScale;
+                
+                // Apply the seam blending to the shadowing offset as well
+                float nOffset1 = fbm(horizonUV1 + dynamicOffset);
+                float nOffset2 = fbm(horizonUV2 + dynamicOffset);
+                float nHorizon_offset = mix(nOffset1, nOffset2, w);
+                
                 float litEdgeHorizon = smoothstep(0.05, -0.05, nHorizon_offset - nHorizon);
                 
                 vec3 cloudColorHorizon = mix(shadowColor, brightEdgeColor, litEdgeHorizon);
