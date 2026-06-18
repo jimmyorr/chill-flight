@@ -178,3 +178,15 @@ fs.writeFileSync(aboutPath, aboutContent, 'utf8');
 console.log(
   'Successfully updated promotional text and description in public/about.html'
 );
+
+// Format the updated files using Prettier so they don't appear as unstaged changes later
+const {execSync} = require('child_process');
+console.log('Formatting synced files...');
+try {
+  execSync('npx prettier --write package.json index.html public/about.html', {
+    stdio: 'inherit',
+  });
+  console.log('Formatting complete.');
+} catch (error) {
+  console.error('Failed to format synced files:', error.message);
+}
