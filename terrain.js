@@ -82,10 +82,21 @@ terrainMaterial.onBeforeCompile = (shader) => {
     `#include <fog_fragment>`,
     `
      #ifdef USE_FOG
-       vec3 viewDir = normalize(vWorldPosition - cameraPosition);
-       float sunIntensity = max(0.0, dot(viewDir, uSunDirection));
-       float glow = pow(sunIntensity, 2.5);
-       vec3 effectiveBottom = mix(uTopColor * 0.7, uBottomColor, glow * 0.9 + 0.1);
+       vec3 viewDirFog = normalize(vWorldPosition - cameraPosition);
+       vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
+       float hFog = skyDir.y;
+       float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
+       float sunInt = baseSunInt * smoothstep(-0.15, 0.0, uSunDirection.y);
+       float g = pow(sunInt, 2.0);
+       vec3 effBottom = mix(uTopColor * 0.7, uBottomColor, g * 0.9 + 0.1);
+       vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
+       if (hFog < 0.0) fogSkyColor = effBottom;
+       
+       vec3 wideGlow = uBottomColor * pow(sunInt, 6.0) * 0.6 * (1.0 - hFog);
+       vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(sunInt, 24.0) * 0.8;
+       vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(sunInt, 512.0) * 2.5;
+       vec3 totalGlow = (wideGlow + warmHalo + hotCore) * clamp(hFog * 10.0 + 1.0, 0.0, 1.0);
+       fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
        
        #ifdef FOG_EXP2
            float fogFactor = 1.0 - exp( - fogDensity * fogDensity * fogDepth * fogDepth );
@@ -93,11 +104,11 @@ terrainMaterial.onBeforeCompile = (shader) => {
            float fogFactor = smoothstep( fogNear, fogFar, fogDepth );
        #endif
        
-       float distRatio = vDistanceXZ / uRenderRadius;
-       float xzFogFactor = smoothstep(0.8, 1.0, distRatio);
+       float xzFogFactor = smoothstep(uRenderRadius - 500.0, uRenderRadius + 250.0, vDistanceXZ);
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
-       gl_FragColor.rgb = mix(gl_FragColor.rgb, effectiveBottom, finalFogFactor);
+       
+       gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
      #endif
     `
   );
@@ -170,8 +181,6 @@ waterMaterial.onBeforeCompile = (shader) => {
 
   shader.fragmentShader =
     `
-        uniform float uRenderRadius;
-        varying float vDistanceXZ;
         uniform float uTime;
         uniform vec3 uSunDirection;
         uniform vec3 uSunColor;
@@ -179,6 +188,8 @@ waterMaterial.onBeforeCompile = (shader) => {
         uniform vec3 uBottomColor;
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
+        uniform float uRenderRadius;
+        varying float vDistanceXZ;
     ` + shader.fragmentShader;
 
   // Inject custom specular
@@ -234,9 +245,20 @@ waterMaterial.onBeforeCompile = (shader) => {
     `
      #ifdef USE_FOG
        vec3 viewDirFog = normalize(vWorldPosition - cameraPosition);
-       float sunIntensityFog = max(0.0, dot(viewDirFog, uSunDirection));
-       float glowFog = pow(sunIntensityFog, 2.5);
-       vec3 effectiveBottom = mix(uTopColor * 0.7, uBottomColor, glowFog * 0.9 + 0.1);
+       vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
+       float hFog = skyDir.y;
+       float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
+       float sunInt = baseSunInt * smoothstep(-0.15, 0.0, uSunDirection.y);
+       float g = pow(sunInt, 2.0);
+       vec3 effBottom = mix(uTopColor * 0.7, uBottomColor, g * 0.9 + 0.1);
+       vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
+       if (hFog < 0.0) fogSkyColor = effBottom;
+       
+       vec3 wideGlow = uBottomColor * pow(sunInt, 6.0) * 0.6 * (1.0 - hFog);
+       vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(sunInt, 24.0) * 0.8;
+       vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(sunInt, 512.0) * 2.5;
+       vec3 totalGlow = (wideGlow + warmHalo + hotCore) * clamp(hFog * 10.0 + 1.0, 0.0, 1.0);
+       fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
        
        #ifdef FOG_EXP2
            float fogFactor = 1.0 - exp( - fogDensity * fogDensity * fogDepth * fogDepth );
@@ -248,7 +270,8 @@ waterMaterial.onBeforeCompile = (shader) => {
        float xzFogFactor = smoothstep(0.8, 1.0, distRatio);
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
-       gl_FragColor.rgb = mix(gl_FragColor.rgb, effectiveBottom, finalFogFactor);
+       
+       gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
      #endif
     `
   );

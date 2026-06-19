@@ -1212,17 +1212,17 @@ function applyGraphicsPreset(preset) {
   switch (preset) {
     case 'ultra':
       segments = 120;
-      dist = 3;
+      dist = 4;
       fps = 60;
       break;
     case 'high':
       segments = 80;
-      dist = 3;
+      dist = 4;
       fps = 60;
       break;
     case 'mid':
       segments = 40;
-      dist = 2;
+      dist = 3;
       fps = 60;
       break;
     case 'low':
@@ -1233,7 +1233,7 @@ function applyGraphicsPreset(preset) {
     default:
       preset = 'mid';
       segments = 40;
-      dist = 2;
+      dist = 3;
       fps = 60;
       break;
   }
@@ -4249,7 +4249,11 @@ function animate() {
   // shadow camera in all 3 dimensions to a rigid, sun-aligned grid.
 
   // Step 1: Compute the sun direction (Forward vector)
-  _shadowSunDir.set(sunX, sunY, sunZ).normalize();
+  if (sunY > 0) {
+    _shadowSunDir.set(sunX, sunY, sunZ).normalize();
+  } else {
+    _shadowSunDir.set(-sunX, -sunY, -sunZ).normalize();
+  }
 
   // Step 2: Build a rigid local coordinate system for the light.
   _shadowRight.crossVectors(_worldUp, _shadowSunDir).normalize();
@@ -4622,7 +4626,7 @@ function animate() {
   scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
 
   // If it's actively raining or snowing, the fog should be much thicker to obscure the horizon
-  let baseFogDensity = 0.75 / (RENDER_DISTANCE * CHUNK_SIZE);
+  let baseFogDensity = 0.45 / (RENDER_DISTANCE * CHUNK_SIZE);
   if (window.manualBaseFogDensity !== undefined) {
     baseFogDensity = window.manualBaseFogDensity;
   }
