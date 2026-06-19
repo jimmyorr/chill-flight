@@ -75,10 +75,10 @@
             float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
             
             // Darken the base cloud colors during a storm
-            vec3 baseShadow = mix(vec3(0.15, 0.15, 0.2), vec3(0.05, 0.06, 0.08), uCloudDensity);
+            vec3 baseShadow = mix(vec3(0.4, 0.45, 0.5), vec3(0.15, 0.18, 0.22), uCloudDensity);
             vec3 baseBright = mix(vec3(0.9, 0.9, 0.95), vec3(0.4, 0.45, 0.5), uCloudDensity);
             
-            vec3 shadowColor = mix(topColor * 0.5, baseShadow, 0.5);
+            vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
             vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
             
             // Widen the density range for clearer skies and thicker storms
@@ -155,10 +155,10 @@
                 float stormDimming = 1.0 - uCloudDensity * 0.8;
                 float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
                 
-                vec3 baseShadow = mix(vec3(0.15, 0.15, 0.2), vec3(0.05, 0.06, 0.08), uCloudDensity);
+                vec3 baseShadow = mix(vec3(0.4, 0.45, 0.5), vec3(0.15, 0.18, 0.22), uCloudDensity);
                 vec3 baseBright = mix(vec3(0.95, 0.95, 1.0), vec3(0.4, 0.45, 0.5), uCloudDensity);
                 
-                vec3 shadowColor = mix(topColor * 0.5, baseShadow, 0.5);
+                vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
                 vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
                 
                 // Dynamic volumetric shadowing based on true sun position
