@@ -3575,7 +3575,9 @@ ${GI}
         
         // Calculate sun influence (0 to 1) based on direction
         float baseSunIntensity = max(0.0, dot(dir, sunDirection));
-        float sunIntensity = baseSunIntensity * smoothstep(-0.15, 0.0, sunDirection.y);
+        // Gradual fade for sun effects as sun dips below horizon
+        float sunFade = smoothstep(-0.25, 0.0, sunDirection.y);
+        float sunIntensity = baseSunIntensity * sunFade;
         
         // Base atmospheric scattering glow
         float glow = pow(sunIntensity, glowPower);
@@ -3592,14 +3594,17 @@ ${GI}
         }
         
         // --- STUNNING SUN BLOOM ---
+        // Bloom is computed from raw baseSunIntensity (geometric alignment only),
+        // then faded linearly by sunFade. This prevents pow(512) from amplifying
+        // a tiny fade into an instant cliff at sunset.
         // 1. Wide, soft atmospheric scattering (takes on the sunset's bottomColor)
-        vec3 wideGlow = bottomColor * pow(sunIntensity, 6.0) * 0.6 * (1.0 - h);
+        vec3 wideGlow = bottomColor * pow(baseSunIntensity, 6.0) * 0.6 * (1.0 - h);
         // 2. Warm fiery mid-halo
-        vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(sunIntensity, 24.0) * 0.8;
+        vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(baseSunIntensity, 24.0) * 0.8;
         // 3. Intense hot core (bright golden-white, tighter)
-        vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(sunIntensity, 512.0) * 2.5;
+        vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(baseSunIntensity, 512.0) * 2.5;
         // Screen blend the bloom so it brightens beautifully without blowing out completely
-        vec3 totalGlow = wideGlow + warmHalo + hotCore;
+        vec3 totalGlow = (wideGlow + warmHalo + hotCore) * sunFade;
         
         // Prevent sun bloom from bleeding into the void below the horizon
         // so it perfectly matches the terrain fog which doesn't have bloom
