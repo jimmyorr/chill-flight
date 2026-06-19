@@ -86,7 +86,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
        vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
        float hFog = skyDir.y;
        float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
-       float sunFade = smoothstep(-0.15, 0.0, uSunDirection.y);
+       float sunFade = smoothstep(-0.25, 0.0, uSunDirection.y);
        float g = pow(baseSunInt * sunFade, 2.0);
        vec3 effBottom = mix(uTopColor * 0.7, uBottomColor, g * 0.9 + 0.1);
        vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
@@ -248,7 +248,7 @@ waterMaterial.onBeforeCompile = (shader) => {
        vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
        float hFog = skyDir.y;
        float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
-       float sunFade = smoothstep(-0.15, 0.0, uSunDirection.y);
+       float sunFade = smoothstep(-0.25, 0.0, uSunDirection.y);
        float g = pow(baseSunInt * sunFade, 2.0);
        vec3 effBottom = mix(uTopColor * 0.7, uBottomColor, g * 0.9 + 0.1);
        vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
