@@ -2011,10 +2011,10 @@ function updateWeather(delta) {
         1) /
       2;
 
-    // Only trigger precipitation where the clouds are the thickest (> 0.75)
-    if (stormNoise > 0.75) {
+    // Only trigger precipitation where the clouds are very thick (> 0.82)
+    if (stormNoise > 0.82) {
       // Normalize storm intensity from 0.0 (just started) to 1.0 (heavy storm)
-      const stormIntensity = (stormNoise - 0.75) / 0.25;
+      const stormIntensity = (stormNoise - 0.82) / 0.18;
 
       // 2. Distribute the storm intensity based on latitude
       if (latVal > 0.9) {
