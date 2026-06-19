@@ -4511,7 +4511,7 @@ function animate() {
     skyUniforms.uAuroraIntensity.value = THREE.MathUtils.lerp(
       skyUniforms.uAuroraIntensity.value,
       targetAuroraIntensity,
-      1 - Math.pow(1 - 0.015, delta * 60)
+      1 - Math.pow(1 - 0.002, delta * 60)
     );
   }
 

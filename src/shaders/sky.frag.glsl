@@ -222,6 +222,10 @@
             // Compress the dynamic range: this makes low intensities (like 0.08) pop beautifully
             // without letting peak storms (1.0) blow out into a blinding neon light.
             float curvedIntensity = pow(uAuroraIntensity, 0.3);
+            
+            // Add a smooth fade at the very bottom to prevent it popping in when crossing the 0.001 threshold
+            curvedIntensity *= smoothstep(0.0, 0.05, uAuroraIntensity);
+            
             float auroraAlpha = curtain * vFade * curvedIntensity;
 
             // Three-band colour gradient: green core, teal edge, purple top
