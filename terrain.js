@@ -904,6 +904,138 @@ const strawHutRoofGeo = new THREE.ConeGeometry(5.5, 5, 8);
 strawHutRoofGeo.translate(0, 8.5, 0);
 const strawHutMat = createMaterial({color: 0xe6c280, flatShading: true}); // Straw color
 
+// Iceberg & Ice floe geometries & materials
+const icebergMainGeo = new THREE.CylinderGeometry(8, 16, 20, 6, 2);
+icebergMainGeo.translate(0, 10, 0);
+const posMain = icebergMainGeo.attributes.position.array;
+for (let i = 0; i < posMain.length; i += 3) {
+  const px = posMain[i];
+  const py = posMain[i + 1];
+  const pz = posMain[i + 2];
+  const angle = Math.atan2(pz, px);
+  posMain[i] += Math.cos(angle * 3) * 2.0;
+  posMain[i + 2] += Math.sin(angle * 3) * 2.0;
+  posMain[i + 1] += Math.sin(px * 0.5) * 1.5;
+}
+icebergMainGeo.computeVertexNormals();
+
+const iceFloeMainGeo = new THREE.CylinderGeometry(15, 18, 4, 7, 1);
+iceFloeMainGeo.translate(0, 2, 0);
+const posFloe = iceFloeMainGeo.attributes.position.array;
+for (let i = 0; i < posFloe.length; i += 3) {
+  const px = posFloe[i];
+  const py = posFloe[i + 1];
+  const pz = posFloe[i + 2];
+  const angle = Math.atan2(pz, px);
+  posFloe[i] += Math.cos(angle * 4) * 1.5;
+  posFloe[i + 2] += Math.sin(angle * 4) * 1.5;
+  posFloe[i + 1] += Math.sin(px * 0.3) * 0.3;
+}
+iceFloeMainGeo.computeVertexNormals();
+
+const icebergMat = createMaterial({
+  color: 0xd0f0f5,
+  emissive: 0x0a1c28,
+  roughness: 0.15,
+  metalness: 0.05,
+  flatShading: true,
+});
+
+// Penguin geometries & materials
+const penguinBodyGeo = new THREE.CylinderGeometry(1.1, 1.3, 3.2, 6);
+penguinBodyGeo.translate(0, 1.6, 0);
+
+const penguinBellyGeo = new THREE.BoxGeometry(1.4, 2.4, 0.3);
+penguinBellyGeo.translate(0, 1.5, 1.2);
+
+const penguinHeadGeo = new THREE.SphereGeometry(1.0, 6, 6);
+penguinHeadGeo.translate(0, 3.8, 0.2);
+
+const penguinBeakGeo = new THREE.ConeGeometry(0.3, 0.9, 4);
+penguinBeakGeo.rotateX(Math.PI / 2);
+penguinBeakGeo.translate(0, 3.8, 1.5);
+
+const penguinWingGeo = new THREE.BoxGeometry(0.25, 2.0, 0.8);
+const penguinWingLGeo = penguinWingGeo.clone();
+penguinWingLGeo.rotateZ(-0.15);
+penguinWingLGeo.translate(-1.4, 1.8, 0.2);
+
+const penguinWingRGeo = penguinWingGeo.clone();
+penguinWingRGeo.rotateZ(0.15);
+penguinWingRGeo.translate(1.4, 1.8, 0.2);
+
+const penguinFootGeo = new THREE.BoxGeometry(0.7, 0.2, 1.3);
+const penguinFootLGeo = penguinFootGeo.clone();
+penguinFootLGeo.translate(-0.6, 0.1, 0.4);
+
+const penguinFootRGeo = penguinFootGeo.clone();
+penguinFootRGeo.translate(0.6, 0.1, 0.4);
+
+const penguinBlackMat = createMaterial({color: 0x222222, flatShading: true});
+const penguinWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
+const penguinOrangeMat = createMaterial({color: 0xffa500, flatShading: true});
+
+// Waddling shader animation
+const penguinShaderInject = (shader) => {
+  shader.uniforms.uTime = window.animationUniforms.uTime;
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <common>',
+    `#include <common>\nuniform float uTime;`
+  );
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <begin_vertex>',
+    `
+        #include <begin_vertex>
+        #ifdef USE_INSTANCING
+        float phase = instanceMatrix[3][0] + instanceMatrix[3][2];
+        #else
+        float phase = 0.0;
+        #endif
+        // Waddling flag (e.g., 60% waddle, 40% stand still)
+        float isWaddling = step(0.4, fract(phase * 1.543));
+        
+        // Waddling animation: sway side to side (rotation around Z axis)
+        float waddleCycle = uTime * 4.0 + phase;
+        float sway = sin(waddleCycle) * 0.15 * isWaddling;
+        float bob = abs(cos(waddleCycle)) * 0.2 * isWaddling;
+        
+        // Calculate circular walk path
+        float walkAngle = uTime * 0.8 + phase * 2.5;
+        float walkRadius = 2.5; // Walk in a small 2.5-unit circle
+        
+        // Walk rotation around Y-axis (tangent to circle: walkAngle + PI/2)
+        float ry = (walkAngle + 1.5708) * isWaddling;
+        float cy = cos(ry);
+        float sy = sin(ry);
+        mat3 rotY = mat3(
+          cy,  0.0, sy,
+          0.0, 1.0, 0.0,
+          -sy, 0.0, cy
+        );
+        
+        // Apply waddle sway (Z rotation)
+        float cz = cos(sway);
+        float sz = sin(sway);
+        mat3 rotZ = mat3(
+          cz, -sz, 0.0,
+          sz,  cz, 0.0,
+          0.0, 0.0, 1.0
+        );
+        
+        // Apply local rotations
+        transformed = rotY * rotZ * transformed;
+        
+        // Add vertical bobbing and circular XZ translation
+        transformed.y += bob;
+        transformed.x += cos(walkAngle) * walkRadius * isWaddling;
+        transformed.z += sin(walkAngle) * walkRadius * isWaddling;
+    `
+  );
+};
+penguinBlackMat.onBeforeCompile = penguinShaderInject;
+penguinWhiteMat.onBeforeCompile = penguinShaderInject;
+penguinOrangeMat.onBeforeCompile = penguinShaderInject;
+
 // House color palettes
 const houseBodyPalette = [
   createMaterial({color: 0xf5e6c8, flatShading: true}), // Cream
@@ -2503,6 +2635,103 @@ window.ModelAssembler = {
             rot: [0, rotY, 0],
           },
         ];
+      case 'iceberg':
+        return [
+          {
+            geo: icebergMainGeo,
+            mat: icebergMat,
+            pos: [0, -4, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: icebergMainGeo,
+            mat: icebergMat,
+            pos: [14, -8, 6],
+            rot: [0, rotY + 1.2, 0],
+            scale: [0.5, 0.4, 0.5],
+          },
+          {
+            geo: icebergMainGeo,
+            mat: icebergMat,
+            pos: [-12, -9, -8],
+            rot: [0, rotY - 0.8, 0],
+            scale: [0.4, 0.3, 0.4],
+          },
+        ];
+      case 'iceFloe':
+        return [
+          {
+            geo: iceFloeMainGeo,
+            mat: icebergMat,
+            pos: [0, -1, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: iceFloeMainGeo,
+            mat: icebergMat,
+            pos: [16, -1.8, 4],
+            rot: [0, rotY + 0.5, 0],
+            scale: [0.5, 0.6, 0.5],
+          },
+          {
+            geo: iceFloeMainGeo,
+            mat: icebergMat,
+            pos: [-15, -2, -6],
+            rot: [0, rotY - 0.5, 0],
+            scale: [0.4, 0.5, 0.4],
+          },
+        ];
+      case 'penguin':
+        return [
+          {
+            geo: penguinBodyGeo,
+            mat: penguinBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: penguinBellyGeo,
+            mat: penguinWhiteMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: penguinHeadGeo,
+            mat: penguinBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: penguinBeakGeo,
+            mat: penguinOrangeMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: penguinWingLGeo,
+            mat: penguinBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: penguinWingRGeo,
+            mat: penguinBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: penguinFootLGeo,
+            mat: penguinOrangeMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: penguinFootRGeo,
+            mat: penguinOrangeMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+        ];
       default:
         return null;
     }
@@ -2659,6 +2888,9 @@ function generateChunk(chunkX, chunkZ) {
     const campfirePositions = [];
     const chimneySmokePositions = [];
     const sailboatPositions = [];
+    const icebergPositions = [];
+    const iceFloePositions = [];
+    const penguinPositions = [];
     const rockPositions = [];
     const snowRockPositions = [];
     const desertRockPositions = [];
@@ -2798,6 +3030,34 @@ function generateChunk(chunkX, chunkZ) {
                   z: localZ,
                   rotY: rng() * Math.PI * 2,
                 });
+              } else if (snowFactor > 0.5) {
+                if (rng() < 0.0005 * densityScale) {
+                  // Iceberg
+                  icebergPositions.push({
+                    x: localX,
+                    y: WATER_LEVEL,
+                    z: localZ,
+                    rotY: rng() * Math.PI * 2,
+                  });
+                } else if (rng() < 0.00075 * densityScale) {
+                  // Ice floe
+                  iceFloePositions.push({
+                    x: localX,
+                    y: WATER_LEVEL,
+                    z: localZ,
+                    rotY: rng() * Math.PI * 2,
+                  });
+                  // 0-3 penguins on the ice floe (sometimes none)
+                  const numPenguins = Math.floor(rng() * 4);
+                  for (let p = 0; p < numPenguins; p++) {
+                    penguinPositions.push({
+                      x: localX + (rng() - 0.5) * 12,
+                      y: WATER_LEVEL + 3,
+                      z: localZ + (rng() - 0.5) * 12,
+                      rotY: rng() * Math.PI * 2,
+                    });
+                  }
+                }
               }
               if (
                 snowFactor < 0.1 &&
@@ -3702,6 +3962,174 @@ function generateChunk(chunkX, chunkZ) {
       noseInst.position.set(worldOffsetX, 0, worldOffsetZ);
       objectsGroup.add(bodyInst);
       objectsGroup.add(noseInst);
+    }
+
+    // 2.46 Generate Icebergs, Ice Floes, and Penguins
+    if (icebergPositions.length > 0) {
+      const icebergInst = new THREE.InstancedMesh(
+        icebergMainGeo,
+        icebergMat,
+        icebergPositions.length * 3
+      );
+
+      let count = 0;
+      icebergPositions.forEach((pos) => {
+        // Main iceberg
+        dummy.position.set(pos.x, pos.y - 4, pos.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        icebergInst.setMatrixAt(count++, dummy.matrix);
+
+        // Small 1
+        const offset1 = new THREE.Vector3(14, -4, 6).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        dummy.position.set(pos.x + offset1.x, pos.y - 8, pos.z + offset1.z);
+        dummy.rotation.set(0, pos.rotY + 1.2, 0);
+        dummy.scale.set(0.5, 0.4, 0.5);
+        dummy.updateMatrix();
+        icebergInst.setMatrixAt(count++, dummy.matrix);
+
+        // Small 2
+        const offset2 = new THREE.Vector3(-12, -5, -8).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        dummy.position.set(pos.x + offset2.x, pos.y - 9, pos.z + offset2.z);
+        dummy.rotation.set(0, pos.rotY - 0.8, 0);
+        dummy.scale.set(0.4, 0.3, 0.4);
+        dummy.updateMatrix();
+        icebergInst.setMatrixAt(count++, dummy.matrix);
+      });
+
+      icebergInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(icebergInst);
+    }
+
+    if (iceFloePositions.length > 0) {
+      const iceFloeInst = new THREE.InstancedMesh(
+        iceFloeMainGeo,
+        icebergMat,
+        iceFloePositions.length * 3
+      );
+
+      let count = 0;
+      iceFloePositions.forEach((pos) => {
+        // Main floe
+        dummy.position.set(pos.x, pos.y - 1, pos.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        iceFloeInst.setMatrixAt(count++, dummy.matrix);
+
+        // Small 1
+        const offset1 = new THREE.Vector3(16, -0.8, 4).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        dummy.position.set(pos.x + offset1.x, pos.y - 1.8, pos.z + offset1.z);
+        dummy.rotation.set(0, pos.rotY + 0.5, 0);
+        dummy.scale.set(0.5, 0.6, 0.5);
+        dummy.updateMatrix();
+        iceFloeInst.setMatrixAt(count++, dummy.matrix);
+
+        // Small 2
+        const offset2 = new THREE.Vector3(-15, -1, -6).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        dummy.position.set(pos.x + offset2.x, pos.y - 2, pos.z + offset2.z);
+        dummy.rotation.set(0, pos.rotY - 0.5, 0);
+        dummy.scale.set(0.4, 0.5, 0.4);
+        dummy.updateMatrix();
+        iceFloeInst.setMatrixAt(count++, dummy.matrix);
+      });
+
+      iceFloeInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(iceFloeInst);
+    }
+
+    if (penguinPositions.length > 0) {
+      const pCount = penguinPositions.length;
+      const pBodyInst = new THREE.InstancedMesh(
+        penguinBodyGeo,
+        penguinBlackMat,
+        pCount
+      );
+      const pBellyInst = new THREE.InstancedMesh(
+        penguinBellyGeo,
+        penguinWhiteMat,
+        pCount
+      );
+      const pHeadInst = new THREE.InstancedMesh(
+        penguinHeadGeo,
+        penguinBlackMat,
+        pCount
+      );
+      const pBeakInst = new THREE.InstancedMesh(
+        penguinBeakGeo,
+        penguinOrangeMat,
+        pCount
+      );
+      const pWingLInst = new THREE.InstancedMesh(
+        penguinWingLGeo,
+        penguinBlackMat,
+        pCount
+      );
+      const pWingRInst = new THREE.InstancedMesh(
+        penguinWingRGeo,
+        penguinBlackMat,
+        pCount
+      );
+      const pFootLInst = new THREE.InstancedMesh(
+        penguinFootLGeo,
+        penguinOrangeMat,
+        pCount
+      );
+      const pFootRInst = new THREE.InstancedMesh(
+        penguinFootRGeo,
+        penguinOrangeMat,
+        pCount
+      );
+
+      penguinPositions.forEach((pos, index) => {
+        const scale = 0.8 + rng() * 0.4;
+        dummy.position.set(pos.x, pos.y, pos.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(scale, scale, scale);
+        dummy.updateMatrix();
+
+        pBodyInst.setMatrixAt(index, dummy.matrix);
+        pBellyInst.setMatrixAt(index, dummy.matrix);
+        pHeadInst.setMatrixAt(index, dummy.matrix);
+        pBeakInst.setMatrixAt(index, dummy.matrix);
+        pWingLInst.setMatrixAt(index, dummy.matrix);
+        pWingRInst.setMatrixAt(index, dummy.matrix);
+        pFootLInst.setMatrixAt(index, dummy.matrix);
+        pFootRInst.setMatrixAt(index, dummy.matrix);
+      });
+
+      pBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      pBellyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      pHeadInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      pBeakInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      pWingLInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      pWingRInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      pFootLInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      pFootRInst.position.set(worldOffsetX, 0, worldOffsetZ);
+
+      objectsGroup.add(
+        pBodyInst,
+        pBellyInst,
+        pHeadInst,
+        pBeakInst,
+        pWingLInst,
+        pWingRInst,
+        pFootLInst,
+        pFootRInst
+      );
     }
 
     // 2.47 Generate Lily Pads
