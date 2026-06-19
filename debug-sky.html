@@ -169,13 +169,21 @@
       </div>
 
       <div class="control-group">
-        <label>Top Color (Zenith)</label>
-        <input type="color" id="color-top" value="#000000" />
-      </div>
-
-      <div class="control-group">
-        <label>Bottom Color (Horizon)</label>
-        <input type="color" id="color-bottom" value="#000000" />
+        <button
+          id="btn-random-palette"
+          style="
+            width: 100%;
+            padding: 10px;
+            background: var(--accent-color);
+            color: var(--bg-color);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+          "
+        >
+          RANDOMIZE PALETTE
+        </button>
       </div>
     </div>
 
@@ -237,20 +245,19 @@
         const todSlider = document.getElementById('tod-slider');
         const cloudSlider = document.getElementById('cloud-slider');
         const auroraSlider = document.getElementById('aurora-slider');
-        const colorTop = document.getElementById('color-top');
-        const colorBottom = document.getElementById('color-bottom');
+        const btnRandomPalette = document.getElementById('btn-random-palette');
 
         const valTod = document.getElementById('val-tod');
         const valCloud = document.getElementById('val-cloud');
         const valAurora = document.getElementById('val-aurora');
 
-        // Initialize colors to the dynamically generated ones
-        if (typeof selectedPalette !== 'undefined') {
-          colorTop.value =
-            '#' + selectedPalette.top.toString(16).padStart(6, '0');
-          colorBottom.value =
-            '#' + selectedPalette.bottom.toString(16).padStart(6, '0');
-        }
+        btnRandomPalette.addEventListener('click', () => {
+          if (typeof updateSkyPalette === 'function') {
+            // Force a new cycle to get a random palette
+            window.serverTimeOffset = (window.serverTimeOffset || 0) + 300000;
+            updateSkyPalette(Date.now() + window.serverTimeOffset);
+          }
+        });
 
         function formatTime(radians) {
           const normalized = radians % (Math.PI * 2);
@@ -276,10 +283,10 @@
           const sz = 0; // Fixed orbit
 
           const dir = new THREE.Vector3(sx, sy, sz).normalize();
-          if (typeof skyUniforms !== 'undefined')
-            skyUniforms.sunDirection.value.copy(dir);
-          if (typeof sunUniforms !== 'undefined')
-            sunUniforms.dayFactor.value = Math.max(
+          if (typeof window.skyUniforms !== 'undefined')
+            window.skyUniforms.sunDirection.value.copy(dir);
+          if (typeof window.sunUniforms !== 'undefined')
+            window.sunUniforms.dayFactor.value = Math.max(
               0.0,
               Math.min(1.0, sy * 2.0 + 0.2)
             );
@@ -309,26 +316,19 @@
 
         cloudSlider.addEventListener('input', (e) => {
           const val = parseFloat(e.target.value);
-          if (typeof skyUniforms !== 'undefined')
-            skyUniforms.uCloudDensity.value = val;
-          if (typeof sunUniforms !== 'undefined')
-            sunUniforms.overcast.value = val;
+          if (typeof window.skyUniforms !== 'undefined')
+            window.skyUniforms.uCloudDensity.value = val;
+          if (typeof window.sunUniforms !== 'undefined')
+            window.sunUniforms.overcast.value = val;
 
           valCloud.innerText = val.toFixed(2);
         });
 
         auroraSlider.addEventListener('input', (e) => {
           const val = parseFloat(e.target.value);
-          skyUniforms.uAuroraIntensity.value = val;
+          if (typeof window.skyUniforms !== 'undefined')
+            window.skyUniforms.uAuroraIntensity.value = val;
           valAurora.innerText = val.toFixed(2);
-        });
-
-        colorTop.addEventListener('input', (e) => {
-          applyCustomSkyColors(e.target.value, colorBottom.value);
-        });
-
-        colorBottom.addEventListener('input', (e) => {
-          applyCustomSkyColors(colorTop.value, e.target.value);
         });
 
         // Trigger initial time to set sun position
@@ -342,7 +342,9 @@
           const time = performance.now() * 0.001;
 
           if (window.skyUniforms) {
+            window.skyUniforms.uShowClouds.value = true;
             window.skyUniforms.uTime.value = time;
+            window.skyUniforms.uCameraPos.value.copy(camera.position);
           }
           if (window.sunUniforms) window.sunUniforms.uTime.value = time;
           if (window.moonUniforms) window.moonUniforms.uTime.value = time;

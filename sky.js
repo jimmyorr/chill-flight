@@ -168,7 +168,7 @@ const skyNoiseTexture = new THREE.DataTexture(
   _noiseData,
   _noiseSize,
   _noiseSize,
-  THREE.LuminanceFormat
+  THREE.RedFormat
 );
 skyNoiseTexture.wrapS = THREE.RepeatWrapping;
 skyNoiseTexture.wrapT = THREE.RepeatWrapping;
@@ -192,6 +192,7 @@ const skyUniforms = {
   uNoiseTex: {value: skyNoiseTexture},
   uCameraPos: {value: new THREE.Vector3()},
 };
+window.skyUniforms = skyUniforms;
 
 // Initial calculation
 updateSkyPalette(Date.now() + (window.serverTimeOffset || 0));
@@ -294,6 +295,8 @@ const moonUniforms = {
   dayFactor: {value: 1.0},
   moonPhase: {value: 0.0},
 };
+window.sunUniforms = sunUniforms;
+window.moonUniforms = moonUniforms;
 
 const sunGlowVertShader = window.SKY_SHADERS.sunGlowVert;
 
