@@ -104,7 +104,8 @@ terrainMaterial.onBeforeCompile = (shader) => {
            float fogFactor = smoothstep( fogNear, fogFar, fogDepth );
        #endif
        
-       float xzFogFactor = smoothstep(uRenderRadius - 500.0, uRenderRadius + 250.0, vDistanceXZ);
+       float distRatio = vDistanceXZ / uRenderRadius;
+       float xzFogFactor = smoothstep(0.8, 1.0, distRatio);
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
        
@@ -121,7 +122,7 @@ waterMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uCameraPosXZ = window.terrainUniforms.uCameraPosXZ;
   shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
 
-  shader.uniforms.uSunDirection = window.waterUniforms.uSunDirection;
+  shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
   shader.uniforms.uSunColor = window.waterUniforms.uSunColor;
   shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
@@ -136,9 +137,7 @@ waterMaterial.onBeforeCompile = (shader) => {
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
     ` + shader.vertexShader;
-  shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
-  shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
-  shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
+
   // Inject analytical normal calculation (replaces computeVertexNormals)
   shader.vertexShader = shader.vertexShader.replace(
     `#include <beginnormal_vertex>`,
@@ -1150,11 +1149,13 @@ const monasteryRoofMat = createMaterial({color: 0x546e7a, flatShading: true}); /
 // --- CASTLE RUINS ---
 function createCastleRuinsGeometry() {
   const geometries = [];
+  // Use seeded RNG for deterministic layout across sessions
+  const _castleRng = ChillFlightLogic.mulberry32(91827);
 
   // Helper to add battlements to a circular tower
   function addCircularBattlements(radius, y, cx, cz, count) {
     for (let i = 0; i < count; i++) {
-      if (Math.random() > 0.3) {
+      if (_castleRng() > 0.3) {
         const angle = (i / count) * Math.PI * 2;
         const b = new THREE.BoxGeometry(2, 2.5, 2);
         b.translate(
@@ -1180,13 +1181,13 @@ function createCastleRuinsGeometry() {
 
   // Broken chunks on top of tower2
   for (let i = 0; i < 5; i++) {
-    const chunk = new THREE.BoxGeometry(3, Math.random() * 4 + 1, 3);
-    const angle = Math.random() * Math.PI * 2;
-    chunk.rotateY(Math.random());
-    chunk.rotateZ(Math.random() * 0.2);
+    const chunk = new THREE.BoxGeometry(3, _castleRng() * 4 + 1, 3);
+    const angle = _castleRng() * Math.PI * 2;
+    chunk.rotateY(_castleRng());
+    chunk.rotateZ(_castleRng() * 0.2);
     chunk.translate(
       Math.cos(angle) * 3 + 24,
-      18 + Math.random(),
+      18 + _castleRng(),
       Math.sin(angle) * 3 + 4
     );
     geometries.push(chunk);
@@ -1212,7 +1213,7 @@ function createCastleRuinsGeometry() {
 
   // Battlements on Gatehouse
   for (let i = 0; i < 4; i++) {
-    if (Math.random() > 0.2) {
+    if (_castleRng() > 0.2) {
       const b = new THREE.BoxGeometry(2, 2.5, 4);
       b.translate(6 + i * 4, 20 + 1.25, 2);
       geometries.push(b);
@@ -1243,11 +1244,11 @@ function createCastleRuinsGeometry() {
 
   for (let i = 0; i < 15; i++) {
     const block = new THREE.BoxGeometry(2, 2, 2);
-    block.rotateX(Math.random());
-    block.rotateY(Math.random());
-    block.rotateZ(Math.random());
-    const angle = Math.random() * Math.PI * 2;
-    const r = 10 + Math.random() * 20;
+    block.rotateX(_castleRng());
+    block.rotateY(_castleRng());
+    block.rotateZ(_castleRng());
+    const angle = _castleRng() * Math.PI * 2;
+    const r = 10 + _castleRng() * 20;
     block.translate(12 + Math.cos(angle) * r, 1, Math.sin(angle) * r);
     geometries.push(block);
   }

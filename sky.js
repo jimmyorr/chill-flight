@@ -302,34 +302,11 @@ const sunGlowVertShader = window.SKY_SHADERS.sunGlowVert;
 
 const sunGlowFragShader = window.SKY_SHADERS.sunGlowFrag;
 
-// Sun
-const sunGeo = new THREE.SphereGeometry(200, 32, 32);
-const sunMat = new THREE.ShaderMaterial({
-  vertexShader: sunMoonVertShader,
-  fragmentShader: sunFragShader,
-  uniforms: sunUniforms,
-  transparent: true,
-  depthWrite: false, // Fix: Prevent the sphere from blocking the glow's depth test
-  fog: false,
-});
-const sunMesh = new THREE.Mesh(sunGeo, sunMat);
-sunMesh.visible = false; // Hide physical sun mesh to rely completely on the stunning volumetric shader bloom
+// Note: The physical sun mesh and glow plane geometries/materials have been removed
+// because the sky relies completely on the stunning volumetric shader bloom.
+// sunMesh is preserved as a dummy Group to maintain compatibility with animation references.
+const sunMesh = new THREE.Group();
 skyGroup.add(sunMesh);
-
-const sunGlowGeo = new THREE.PlaneGeometry(800, 800);
-const sunGlowMat = new THREE.ShaderMaterial({
-  vertexShader: sunGlowVertShader,
-  fragmentShader: sunGlowFragShader,
-  uniforms: sunUniforms,
-  transparent: true,
-  blending: THREE.AdditiveBlending,
-  depthWrite: false,
-  fog: false,
-});
-const sunGlowMesh = new THREE.Mesh(sunGlowGeo, sunGlowMat);
-sunGlowMesh.position.z = 0;
-sunGlowMesh.renderOrder = 1; // Force it to render AFTER the solid sun sphere
-sunMesh.add(sunGlowMesh);
 
 // Moon
 const moonGeo = new THREE.SphereGeometry(120, 32, 32);

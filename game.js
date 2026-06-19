@@ -2295,6 +2295,16 @@ const _finalFogColor = new THREE.Color();
 const _tempVec = new THREE.Vector3();
 const _weatherLerpBase = new THREE.Color(0x8899aa);
 
+// Pre-allocated colors and vectors for updateTimeOfDay() hot path
+const _targetShadowPos = new THREE.Vector3();
+const _localDaySky = new THREE.Color();
+const _desertSkyColor = new THREE.Color(0x6ca3d8);
+const _snowSkyColor = new THREE.Color(0x1a4a8c);
+const _dayLightColor = new THREE.Color(0xfff0dd);
+const _sunriseLightColor = new THREE.Color(0xffd5a0);
+const _sunsetLightColor = new THREE.Color(0xffad60);
+const _stormColor = new THREE.Color(0x5a6b7c);
+
 // --- PRE-ALLOCATED SCRATCH OBJECTS FOR SHADOW TEXEL SNAPPING ---
 // These must live outside animate() to avoid GC pressure at 60fps.
 const _shadowSunDir = new THREE.Vector3();
@@ -4282,7 +4292,7 @@ function animate() {
 
   // Step 6: Apply the snapped offsets to a target vector, then smoothly lerp the light
   // This "softens" the snapping jumps so they aren't perceivable as jitter.
-  const _targetShadowPos = new THREE.Vector3().copy(anchorPos);
+  _targetShadowPos.copy(anchorPos);
   _targetShadowPos.addScaledVector(_shadowRight, dx);
   _targetShadowPos.addScaledVector(_shadowUp, dy);
   _targetShadowPos.addScaledVector(_shadowSunDir, dz); // Apply depth snap
@@ -4591,14 +4601,14 @@ function animate() {
     const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
     // Start with default azure day sky
-    const localDaySky = new THREE.Color(_daySky);
+    const localDaySky = _localDaySky.copy(_daySky);
 
     // Blend in regional sky characteristics
     if (desertFactor > 0) {
-      localDaySky.lerp(new THREE.Color(0x6ca3d8), desertFactor * 0.85); // Hazier, lighter blue
+      localDaySky.lerp(_desertSkyColor, desertFactor * 0.85); // Hazier, lighter blue
     }
     if (snowFactor > 0) {
-      localDaySky.lerp(new THREE.Color(0x1a4a8c), snowFactor * 0.85); // Deeper, crisper blue
+      localDaySky.lerp(_snowSkyColor, snowFactor * 0.85); // Deeper, crisper blue
     }
 
     _uncloudedSkyColor.lerp(localDaySky, dayFactor * (1.0 - dawnDuskFactor));
@@ -4609,16 +4619,13 @@ function animate() {
     }
 
     // Warm up the directional light during golden hour
-    const dayLightCol = new THREE.Color(0xfff0dd);
-    const sunsetLightCol =
-      sunX > 0 ? new THREE.Color(0xffd5a0) : new THREE.Color(0xffad60);
-    dirLight.color.copy(dayLightCol).lerp(sunsetLightCol, dawnDuskFactor);
+    const sunsetLightCol = sunX > 0 ? _sunriseLightColor : _sunsetLightColor;
+    dirLight.color.copy(_dayLightColor).lerp(sunsetLightCol, dawnDuskFactor);
   } else {
     dirLight.color.setHex(0xfff0dd);
   }
 
-  const stormColor = new THREE.Color(0x5a6b7c);
-  _cloudyColor.setHex(0x0a0c10).lerp(stormColor, dayFactor);
+  _cloudyColor.setHex(0x0a0c10).lerp(_stormColor, dayFactor);
 
   _finalSkyColor.copy(_uncloudedSkyColor).lerp(_cloudyColor, overcast);
   _finalFogColor.copy(_uncloudedFogColor).lerp(_cloudyColor, overcast);

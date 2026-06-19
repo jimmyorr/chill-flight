@@ -133,16 +133,16 @@ function createMaterial(params) {
          vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
          float hFog = skyDir.y;
          float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
-         float sunInt = baseSunInt * smoothstep(-0.15, 0.0, uSunDirection.y);
-         float g = pow(sunInt, 2.0);
+         float sunFade = smoothstep(-0.25, 0.0, uSunDirection.y);
+         float g = pow(baseSunInt * sunFade, 2.0);
          vec3 effBottom = mix(uTopColor * 0.7, uBottomColor, g * 0.9 + 0.1);
          vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
          if (hFog < 0.0) fogSkyColor = effBottom;
          
-         vec3 wideGlow = uBottomColor * pow(sunInt, 6.0) * 0.6 * (1.0 - hFog);
-         vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(sunInt, 24.0) * 0.8;
-         vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(sunInt, 512.0) * 2.5;
-         vec3 totalGlow = (wideGlow + warmHalo + hotCore) * clamp(hFog * 10.0 + 1.0, 0.0, 1.0);
+         vec3 wideGlow = uBottomColor * pow(baseSunInt, 6.0) * 0.6 * (1.0 - hFog);
+         vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(baseSunInt, 24.0) * 0.8;
+         vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(baseSunInt, 512.0) * 2.5;
+         vec3 totalGlow = (wideGlow + warmHalo + hotCore) * sunFade * clamp(hFog * 10.0 + 1.0, 0.0, 1.0);
          fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
          
          #ifdef FOG_EXP2
