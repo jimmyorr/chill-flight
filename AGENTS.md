@@ -21,7 +21,7 @@
 
 ## Geometry & model rules
 
-- **Debug page update**: When adding a new geometry or model to the game, always add it to the model debug page (`debug.html`) as well, so it can be previewed.
+- **Debug page update**: When adding a new geometry or model to the game, always add it to the model debug page (`debug-models.html`) as well, so it can be previewed.
 
 ## Directory rules
 

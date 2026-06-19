@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug | Models</title>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-N6RGBLQCZ8"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag('js', new Date());
+      gtag('config', 'G-N6RGBLQCZ8');
+    </script>
+    <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+    <script type="module" src="/src/main.js"></script>
+    <style>
+      :root {
+        --bg-color: #0f172a;
+        --sidebar-bg: #1e293b;
+        --accent-color: #38bdf8;
+        --text-color: #f1f5f9;
+        --hover-color: #334155;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        overflow: hidden;
+        display: flex;
+      }
+
+      #sidebar {
+        width: 300px;
+        height: 100vh;
+        background-color: var(--sidebar-bg);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        overflow-y: auto;
+        z-index: 10;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+
+      #viewer {
+        flex-grow: 1;
+        height: 100vh;
+        position: relative;
+      }
+
+      h1 {
+        font-size: 1.2rem;
+        margin-bottom: 20px;
+        color: var(--accent-color);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 10px;
+      }
+
+      .category-title {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: rgba(255, 255, 255, 0.5);
+        margin: 20px 0 10px 0;
+      }
+
+      .model-btn {
+        display: block;
+        width: 100%;
+        padding: 10px 15px;
+        margin-bottom: 5px;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+        color: var(--text-color);
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.9rem;
+      }
+
+      .model-btn:hover {
+        background-color: var(--hover-color);
+        border-color: var(--accent-color);
+      }
+
+      .model-btn.active {
+        background-color: var(--accent-color);
+        color: var(--bg-color);
+        font-weight: bold;
+      }
+
+      #info {
+        position: absolute;
+        bottom: 20px;
+        left: 320px;
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(8px);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 0.8rem;
+        pointer-events: none;
+      }
+
+      .controls-hint {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.8rem;
+        text-align: right;
+      }
+
+      /* Scrollbar styling */
+      #sidebar::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      #sidebar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      #sidebar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+      }
+
+      #sidebar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="sidebar">
+      <h1>Model debug</h1>
+
+      <div class="category-title">Vehicles</div>
+      <button class="model-btn" onclick="viewModel('airplane', event)">
+        Airplane
+      </button>
+      <button class="model-btn" onclick="viewModel('helicopter', event)">
+        Helicopter
+      </button>
+      <button class="model-btn" onclick="viewModel('boat', event)">Boat</button>
+      <button class="model-btn" onclick="viewModel('buggy', event)">
+        Buggy
+      </button>
+
+      <div class="category-title">Nature</div>
+      <button class="model-btn" onclick="viewModel('pine', event)">
+        Pine tree
+      </button>
+      <button class="model-btn" onclick="viewModel('deciduous', event)">
+        Deciduous tree
+      </button>
+      <button class="model-btn" onclick="viewModel('yellow_cortez', event)">
+        Yellow cortez
+      </button>
+      <button class="model-btn" onclick="viewModel('japanese_maple', event)">
+        Japanese maple tree
+      </button>
+      <button class="model-btn" onclick="viewModel('palm', event)">
+        Palm tree
+      </button>
+      <button class="model-btn" onclick="viewModel('dead_tree', event)">
+        Dead tree
+      </button>
+      <button class="model-btn" onclick="viewModel('cactus', event)">
+        Cactus
+      </button>
+      <button class="model-btn" onclick="viewModel('bush', event)">Bush</button>
+      <button class="model-btn" onclick="viewModel('rock', event)">Rock</button>
+      <button class="model-btn" onclick="viewModel('lily_pad', event)">
+        Lily pad
+      </button>
+      <button class="model-btn" onclick="viewModel('snowman', event)">
+        Snowman
+      </button>
+
+      <div class="category-title">Structures</div>
+      <button class="model-btn" onclick="viewModel('house', event)">
+        House
+      </button>
+      <button class="model-btn" onclick="viewModel('two_story_house', event)">
+        Two story house
+      </button>
+      <button class="model-btn" onclick="viewModel('straw_hut', event)">
+        Straw hut
+      </button>
+      <button class="model-btn" onclick="viewModel('pagoda', event)">
+        Pagoda
+      </button>
+      <button class="model-btn" onclick="viewModel('barn', event)">Barn</button>
+      <button class="model-btn" onclick="viewModel('monastery', event)">
+        Monastery
+      </button>
+      <button class="model-btn" onclick="viewModel('castle', event)">
+        Castle ruins
+      </button>
+      <button class="model-btn" onclick="viewModel('windmill', event)">
+        Windmill
+      </button>
+      <button class="model-btn" onclick="viewModel('lighthouse', event)">
+        Lighthouse
+      </button>
+      <button class="model-btn" onclick="viewModel('pier', event)">Pier</button>
+      <button class="model-btn" onclick="viewModel('tent', event)">Tent</button>
+      <button class="model-btn" onclick="viewModel('campfire', event)">
+        Campfire
+      </button>
+
+      <div class="category-title">Other</div>
+      <button class="model-btn" onclick="viewModel('bird', event)">
+        Bird (hawk)
+      </button>
+      <button class="model-btn" onclick="viewModel('goose', event)">
+        Bird (goose)
+      </button>
+      <button class="model-btn" onclick="viewModel('sailboat', event)">
+        Sailboat
+      </button>
+    </div>
+
+    <div id="viewer">
+      <div class="controls-hint">
+        Left click to rotate<br />
+        Right click to pan<br />
+        Scroll to zoom
+      </div>
+      <div id="info">
+        <div
+          id="model-name"
+          style="font-weight: bold; margin-bottom: 5px; font-size: 1rem"
+        >
+          Select a model
+        </div>
+        <div id="model-stats">0 vertices | 0 triangles</div>
+      </div>
+
+      <div
+        id="color-options"
+        style="
+          display: none;
+          margin-top: 15px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          padding-top: 15px;
+        "
+      >
+        <button
+          class="model-btn"
+          onclick="cycleColors()"
+          style="border-color: var(--accent-color)"
+        >
+          Cycle Colors
+        </button>
+      </div>
+    </div>
+
+    <!-- Mocks and Dependencies for game scripts -->
+    <script type="module">
+      // Global constants expected by scripts
+      window.CHUNK_SIZE = 1500;
+      window.SEGMENTS = 40;
+      window.WATER_LEVEL = 40;
+      window.MOUNTAIN_LEVEL = 180;
+      window.MAP_WORLD_SIZE = 10000;
+      window.MAP_HEIGHT_SCALE = 400;
+      window.scene = new THREE.Scene(); // Mock scene for scripts to add to
+      window.ChillFlightLogic = {
+        SCALE: 1,
+        getPlaneColor: () => 0xe74c3c,
+        SHOW_CLOUDS: true,
+        SHOW_OBJECTS: true,
+        THEME: 'standard',
+      };
+      window.simplex = {noise2D: () => 0}; // Mock noise
+      window.animationUniforms = {uTime: {value: 0}};
+      window.waterUniforms = {uTime: {value: 0}};
+    </script>
+
+    <script defer src="chill-flight-logic.js"></script>
+    <script defer src="constants.js"></script>
+    <script defer src="airplane.js"></script>
+    <script defer src="terrain.js"></script>
+
+    <script type="module">
+      // Setup Viewer
+      const container = document.getElementById('viewer');
+      window.viewScene = new THREE.Scene();
+      viewScene.background = new THREE.Color(0x0f172a);
+
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(20, 20, 20);
+
+      const renderer = new THREE.WebGLRenderer({antialias: true});
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+
+      // Lights - Synchronized with game settings for consistent colors
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+      viewScene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfff0dd, 0.8);
+      dirLight.position.set(50, 100, 50);
+      dirLight.castShadow = true;
+      viewScene.add(dirLight);
+
+      // Grid
+      const grid = new THREE.GridHelper(100, 20, 0x475569, 0x1e293b);
+      viewScene.add(grid);
+
+      window.currentModel = null;
+      window.currentColorSeed = 0;
+      window.currentModelType = null;
+
+      function clearViewer() {
+        if (window.currentModel) {
+          viewScene.remove(window.currentModel);
+          window.currentModel = null;
+        }
+      }
+
+      function cycleColors() {
+        window.currentColorSeed++;
+        if (window.currentModelType) {
+          viewModel(window.currentModelType, null, window.currentColorSeed);
+        }
+      }
+
+      function viewModel(type, e, colorSeed = 0) {
+        clearViewer();
+
+        if (!e && colorSeed === 0) {
+          window.currentColorSeed = 0;
+        }
+        window.currentModelType = type;
+
+        const supportsColors = [
+          'house',
+          'two_story_house',
+          'tent',
+          'sailboat',
+          'airplane',
+        ].includes(type);
+        document.getElementById('color-options').style.display = supportsColors
+          ? 'block'
+          : 'none';
+
+        // Update UI
+        document.querySelectorAll('.model-btn').forEach((btn) => {
+          btn.classList.remove('active');
+          // If this was triggered via hash, we need to find the right button
+          if (btn.getAttribute('onclick').includes(`'${type}'`)) {
+            btn.classList.add('active');
+            document.getElementById('model-name').innerText = btn.innerText;
+          }
+        });
+
+        // Update URL hash
+        if (window.location.hash !== `#${type}`) {
+          history.pushState(null, null, `#${type}`);
+        }
+
+        const previewGroup = new THREE.Group();
+
+        // 1. Try assembling via shared ModelAssembler first
+        const structure = window.ModelAssembler
+          ? window.ModelAssembler.getStructure(type, 0, {
+              bodyId: colorSeed,
+              roofId: colorSeed,
+            })
+          : null;
+
+        if (structure) {
+          structure.forEach((part) => {
+            const mesh = new THREE.Mesh(part.geo, part.mat);
+            mesh.position.set(...part.pos);
+            mesh.rotation.set(...part.rot);
+            if (part.order) mesh.rotation.order = part.order;
+            if (part.scale) mesh.scale.set(...part.scale);
+            previewGroup.add(mesh);
+          });
+        } else {
+          // 2. Fallback for simple or unique models
+          switch (type) {
+            case 'airplane':
+              const ap = airplaneModel.clone();
+
+              if (
+                colorSeed > 0 &&
+                window.ChillFlightLogic &&
+                window.ChillFlightLogic.PLANE_COLORS
+              ) {
+                const colors = window.ChillFlightLogic.PLANE_COLORS;
+                const newColor = colors[colorSeed % colors.length];
+                ap.traverse((child) => {
+                  if (child.isMesh && child.material && child.material.color) {
+                    const hex = child.material.color.getHex();
+                    // Identify accent material by excluding white, dark grey, black, and light grey (pontoons)
+                    if (
+                      hex !== 0xffffff &&
+                      hex !== 0x111111 &&
+                      hex !== 0x222222 &&
+                      hex !== 0x333333 &&
+                      hex !== 0xcccccc
+                    ) {
+                      child.material = child.material.clone();
+                      child.material.color.setHex(newColor);
+                    }
+                  }
+                });
+              }
+
+              ap.visible = true;
+              previewGroup.add(ap);
+              break;
+            case 'helicopter':
+              const hp = helicopterModel.clone();
+              hp.visible = true;
+              previewGroup.add(hp);
+              break;
+            case 'boat':
+              const bt = boatModel.clone();
+              bt.visible = true;
+              previewGroup.add(bt);
+              break;
+            case 'buggy':
+              const bg = buggyModel.clone();
+              bg.visible = true;
+              previewGroup.add(bg);
+              break;
+
+            // NATURE
+            case 'pine':
+              const pineTrunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
+              const pineLeaves = new THREE.Mesh(
+                treeLeavesGeo,
+                createMaterial({color: 0x2d5a27})
+              );
+              previewGroup.add(pineTrunk, pineLeaves);
+              break;
+            case 'deciduous':
+              const dTrunk = new THREE.Mesh(deciduousGeos.trunk, treeTrunkMat);
+              const dLeaves = new THREE.Mesh(
+                deciduousGeos.leaves,
+                createMaterial({color: 0x4a7c44})
+              );
+              previewGroup.add(dTrunk, dLeaves);
+              break;
+            case 'yellow_cortez':
+              const ycTrunk = new THREE.Mesh(deciduousGeos.trunk, treeTrunkMat);
+              const ycLeaves = new THREE.Mesh(
+                deciduousGeos.leaves,
+                createMaterial({color: 0xffeb3b})
+              );
+              previewGroup.add(ycTrunk, ycLeaves);
+              break;
+            case 'japanese_maple':
+              const jmTrunk = new THREE.Mesh(
+                japaneseMapleGeos.trunk,
+                treeTrunkMat
+              );
+              const jmLeaves = new THREE.Mesh(
+                japaneseMapleGeos.leaves,
+                createMaterial({color: 0xa31515})
+              );
+              previewGroup.add(jmTrunk, jmLeaves);
+              break;
+            case 'palm':
+              const pTrunk = new THREE.Mesh(palmGeos.trunk, treeTrunkMat);
+              const pLeaves = new THREE.Mesh(
+                palmGeos.leaves,
+                createMaterial({color: 0x6db33f})
+              );
+              previewGroup.add(pTrunk, pLeaves);
+              break;
+            case 'dead_tree':
+              previewGroup.add(new THREE.Mesh(deadTreeGeo, deadTreeMat));
+              break;
+            case 'cactus':
+              previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
+              break;
+            case 'bush':
+              previewGroup.add(new THREE.Mesh(bushGeo, bushMat));
+              break;
+            case 'rock':
+              previewGroup.add(new THREE.Mesh(rockGeo, rockMat));
+              break;
+            case 'lily_pad':
+              previewGroup.add(new THREE.Mesh(lilyPadGeo, lilyPadMat));
+              break;
+            case 'snowman':
+              previewGroup.add(
+                new THREE.Mesh(snowmanGeos.body, snowmanBodyMat)
+              );
+              previewGroup.add(
+                new THREE.Mesh(snowmanGeos.nose, snowmanNoseMat)
+              );
+              break;
+            case 'castle':
+              previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));
+              break;
+            case 'pier':
+              previewGroup.add(new THREE.Mesh(pierDeckGeo, woodMat));
+              break;
+            case 'tent':
+              previewGroup.add(new THREE.Mesh(tentGeo, tentMat));
+              previewGroup.add(
+                new THREE.Mesh(tentEntranceGeo, tentEntranceMat)
+              );
+              previewGroup.add(new THREE.Mesh(tentPolesGeo, woodMat));
+              break;
+          }
+        }
+
+        // Force visibility on all children
+        previewGroup.traverse((child) => {
+          child.visible = true;
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        // Center and scale
+        const box = new THREE.Box3().setFromObject(previewGroup);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = maxDim > 0 ? 15 / maxDim : 1;
+
+        previewGroup.scale.setScalar(scale);
+
+        // Re-calculate box after scale to get accurate offset
+        const scaledBox = new THREE.Box3().setFromObject(previewGroup);
+        const scaledCenter = new THREE.Vector3();
+        scaledBox.getCenter(scaledCenter);
+
+        previewGroup.position.sub(scaledCenter);
+        previewGroup.position.y += (size.y * scale) / 2; // Sit on grid
+
+        window.currentModel = previewGroup;
+        viewScene.add(window.currentModel);
+
+        // Update stats
+        let vertices = 0;
+        let triangles = 0;
+        previewGroup.traverse((child) => {
+          if (child.isMesh) {
+            vertices += child.geometry.attributes.position.count;
+            if (child.geometry.index) {
+              triangles += child.geometry.index.count / 3;
+            } else {
+              triangles += child.geometry.attributes.position.count / 3;
+            }
+          }
+        });
+        document.getElementById('model-stats').innerText =
+          `${Math.round(vertices)} vertices | ${Math.round(triangles)} triangles`;
+
+        // Adjust camera to fit
+        const finalBox = new THREE.Box3().setFromObject(previewGroup);
+        const finalCenter = new THREE.Vector3();
+        finalBox.getCenter(finalCenter);
+        const finalSize = new THREE.Vector3();
+        finalBox.getSize(finalSize);
+
+        const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);
+        const distance = maxDimension * 1.5; // Adjusted multiplier for better framing
+
+        controls.reset();
+        controls.target.copy(finalCenter);
+        camera.position.set(distance, distance, distance);
+        controls.update();
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const time = performance.now() * 0.001;
+        window.animationUniforms.uTime.value = time;
+        window.waterUniforms.uTime.value = time;
+
+        controls.update();
+        renderer.render(viewScene, camera);
+      }
+
+      window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+      });
+
+      window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.substring(1);
+        if (hash) viewModel(hash);
+      });
+
+      // Start
+      animate();
+
+      // Initial load
+      setTimeout(() => {
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+          viewModel(hash);
+        } else {
+          // Default to airplane
+          const firstBtn = document.querySelector('.model-btn');
+          if (firstBtn) firstBtn.click();
+        }
+      }, 100);
+
+      // Expose globally
+      window.viewModel = viewModel;
+      window.cycleColors = cycleColors;
+    </script>
+  </body>
+</html>

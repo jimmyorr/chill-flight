@@ -291,7 +291,7 @@ Once started, open `http://localhost:5173` in your browser.
 
 ### Model debug page
 
-A standalone 3D model viewer is available during development at `/debug.html` (e.g., `http://localhost:5173/debug.html`). This page allows you to inspect and preview all in-game geometries and structures in isolation, making it easy to tweak vertices, test materials, and verify rotations before adding them to the procedural world.
+A debug directory is available during development at `/debug.html` (e.g., `http://localhost:5173/debug.html`), which links to standalone viewers like the model viewer (`/debug-models.html`). These pages allow you to inspect and preview in-game geometries and structures in isolation, making it easy to tweak vertices, test materials, and verify rotations before adding them to the procedural world.
 
 ### Production build
 

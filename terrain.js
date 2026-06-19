@@ -14,7 +14,6 @@ const _initQualityForTerrain = localStorage.getItem('chill_flight_quality');
 const _isLowQualityInitial =
   _initQualityForTerrain && parseInt(_initQualityForTerrain) <= 20;
 
-const _enableBlockClouds = ChillFlightLogic.SHOW_BLOCK_CLOUDS;
 let _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
 // Flag removed to fix issue #25
 
@@ -144,95 +143,6 @@ waterMaterial.onBeforeCompile = (shader) => {
         
         vec3 sunHighlight = uSunColor * specularIntensity * (0.3 + fresnel * 0.7);
         gl_FragColor.rgb += sunHighlight;
-        `
-  );
-};
-
-// --- CLOUD GLOBALS ---
-const cloudGeo = new THREE.BoxGeometry(1, 1, 1);
-const cloudMat = createMaterial({
-  color: 0xffffff,
-  transparent: !_isLowQualityInitial,
-  opacity: _isLowQualityInitial ? 1.0 : CLOUD_OPACITY,
-  flatShading: true,
-  roughness: 1.0,
-});
-
-cloudMat.onBeforeCompile = (shader) => {
-  shader.uniforms.uTime = window.waterUniforms.uTime;
-  shader.uniforms.uSunDirection = window.waterUniforms.uSunDirection;
-  shader.uniforms.uSunColor = window.waterUniforms.uSunColor;
-
-  shader.vertexShader =
-    `
-        uniform float uTime;
-        varying float vLocalY;
-        varying vec3 vWorldNormal;
-    ` + shader.vertexShader;
-  shader.vertexShader = shader.vertexShader.replace(
-    `#include <project_vertex>`,
-    `
-        vLocalY = position.y;
-        vec4 mvPosition = vec4( transformed, 1.0 );
-        
-        float drift = mod(uTime * 2.64, 2000.0);
-        
-        #ifdef USE_INSTANCING
-            mat4 modInstanceMatrix = instanceMatrix;
-            modInstanceMatrix[3].x = mod(modInstanceMatrix[3].x + drift + 1000.0, 2000.0) - 1000.0;
-            mvPosition = modInstanceMatrix * mvPosition;
-            vWorldNormal = normalize((modInstanceMatrix * vec4(normal, 0.0)).xyz);
-        #else
-            mvPosition.x = mod(mvPosition.x + drift + 1000.0, 2000.0) - 1000.0;
-            vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-        #endif
-
-        mvPosition = modelViewMatrix * mvPosition;
-        gl_Position = projectionMatrix * mvPosition;
-        `
-  );
-
-  shader.fragmentShader =
-    `
-        uniform vec3 uSunDirection;
-        uniform vec3 uSunColor;
-        varying float vLocalY;
-        varying vec3 vWorldNormal;
-    ` + shader.fragmentShader;
-
-  shader.fragmentShader = shader.fragmentShader.replace(
-    `#include <color_fragment>`,
-    `
-        #include <color_fragment>
-        
-        float cloudYNorm = clamp(vLocalY + 0.5, 0.0, 1.0);
-        
-        // 1. Ambient Sky Light (Blueish shadow core)
-        vec3 aoColor = vec3(0.55, 0.65, 0.85); 
-        vec3 baseAmbient = mix(aoColor, vec3(1.0), cloudYNorm);
-        
-        // 2. Sun Directional Light
-        // How much is the face pointing towards the sun?
-        float sunIncidence = max(0.0, dot(vWorldNormal, normalize(uSunDirection)));
-        
-        // 3. Subsurface Scattering / Under-lighting
-        // Sun hits the bottom and bleeds through. Very intense during sunset.
-        float sunElevation = max(0.0, uSunDirection.y);
-        float sunsetFactor = pow(1.0 - sunElevation, 3.0); // 1.0 at sunset, 0.0 at noon
-        
-        // The bottom gets a HUGE boost of sun color during sunset
-        float underLight = (1.0 - cloudYNorm) * sunsetFactor;
-        
-        // Combine lighting
-        vec3 finalLight = baseAmbient;
-        finalLight += uSunColor * sunIncidence * 0.8; // Direct sunlight
-        finalLight += uSunColor * underLight * 1.5;   // Sunset underglow
-        
-        diffuseColor.rgb *= finalLight;
-        
-        #ifndef OPAQUE
-        diffuseColor.a = opacity;
-        #endif
         `
   );
 };
@@ -4642,68 +4552,6 @@ function generateChunk(chunkX, chunkZ) {
       group.userData.boatBooms = boomInst;
     }
 
-    // 3. Generate Clouds
-    let cloudiness =
-      (simplex.noise2D(chunkX * 0.1 + 500, chunkZ * 0.1) + 1) / 2;
-    const cloudThreshold = 0.5;
-    if (!_enableBlockClouds || isCustom || cloudiness < cloudThreshold) {
-      cloudiness = 0;
-    } else {
-      cloudiness = (cloudiness - cloudThreshold) / (1 - cloudThreshold);
-    }
-
-    const numClouds = Math.floor(cloudiness * 40);
-
-    // Boost clouds as they approach mountains based on the highest point in this chunk
-    // This ensures all clouds in a mountainous chunk rise consistently.
-    const elevationBoost = Math.max(0, maxChunkHeight - 100) * 1.5;
-
-    // 3b. Generate clouds (InstancedMesh)
-    let totalCloudParts = 0;
-    const cloudData = [];
-
-    for (let i = 0; i < numClouds; i++) {
-      const cx = (rng() - 0.5) * CHUNK_SIZE;
-      const cz = (rng() - 0.5) * CHUNK_SIZE;
-      const baseHeight = 550 + rng() * 150;
-      const cy = baseHeight + elevationBoost;
-
-      const parts = 3 + Math.floor(rng() * 3);
-      for (let p = 0; p < parts; p++) {
-        cloudData.push({
-          x: cx + (rng() - 0.5) * 50,
-          y: cy + (rng() - 0.5) * 20,
-          z: cz + (rng() - 0.5) * 50,
-          sx: 40 + rng() * 60,
-          sy: 20 + rng() * 30,
-          sz: 40 + rng() * 60,
-          rotY: rng() * Math.PI,
-        });
-      }
-    }
-
-    if (cloudData.length > 0) {
-      const cloudInst = new THREE.InstancedMesh(
-        cloudGeo,
-        cloudMat,
-        cloudData.length
-      );
-      cloudInst.frustumCulled = false;
-      cloudData.forEach((data, index) => {
-        dummy.position.set(data.x, data.y, data.z);
-        dummy.scale.set(data.sx, data.sy, data.sz);
-        dummy.rotation.set(0, data.rotY, 0);
-        dummy.updateMatrix();
-        cloudInst.setMatrixAt(index, dummy.matrix);
-      });
-      cloudInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(cloudInst);
-
-      // Save data for the animate loop to drift them
-      group.userData.cloudInst = cloudInst;
-      group.userData.cloudData = cloudData;
-    }
-
     // 4. Generate Birds
     group.userData.birds = [];
     const isAlienChunk = Math.abs(worldOffsetX) > 25000;
@@ -4817,7 +4665,6 @@ function generateChunk(chunkX, chunkZ) {
       if (child.isMesh || child.isInstancedMesh) {
         if (
           child.material !== waterMaterial &&
-          child.material !== cloudMat &&
           child.material !== smokeMat &&
           child.material !== lighthouseBeamMat
         ) {
