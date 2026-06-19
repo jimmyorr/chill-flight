@@ -4691,7 +4691,7 @@ function generateChunk(chunkX, chunkZ) {
         barnPositions.length +
         monasteryPositions.length +
         castleRuinsPositions.length,
-      clouds: numClouds,
+
       rocks:
         rockPositions.length +
         snowRockPositions.length +

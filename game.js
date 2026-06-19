@@ -4930,7 +4930,6 @@ function animate() {
       totalTreesCherry = 0,
       totalTreesYellowCortez = 0;
     let totalHouses = 0,
-      totalClouds = 0,
       totalRocks = 0,
       totalBushes = 0;
     let totalSnowmen = 0,
@@ -4957,7 +4956,6 @@ function animate() {
           totalTreesCherry += cg.userData.counts.trees_cherry || 0;
           totalTreesYellowCortez += cg.userData.counts.trees_yellow_cortez || 0;
           totalHouses += cg.userData.counts.houses;
-          totalClouds += cg.userData.counts.clouds;
           totalRocks += cg.userData.counts.rocks;
           totalBushes += cg.userData.counts.bushes;
           totalSnowmen += cg.userData.counts.snowmen || 0;
@@ -4986,7 +4984,6 @@ function animate() {
       totalTreesYellowCortez
     );
     updateDOM(document.getElementById('debug-houses'), totalHouses);
-    updateDOM(document.getElementById('debug-clouds'), totalClouds);
     updateDOM(document.getElementById('debug-rocks'), totalRocks);
     updateDOM(document.getElementById('debug-bushes'), totalBushes);
     updateDOM(document.getElementById('debug-snowmen'), totalSnowmen);
