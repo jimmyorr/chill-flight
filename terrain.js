@@ -37,22 +37,97 @@ const waterMaterial = createMaterial({
   flatShading: true,
 });
 
+window.terrainUniforms = {
+  uCameraPosXZ: {value: new THREE.Vector2(0, 0)},
+  uRenderRadius: {value: RENDER_DISTANCE * CHUNK_SIZE},
+  uSunDirection: {value: new THREE.Vector3(0, 1, 0)},
+  uTopColor: {value: new THREE.Color()},
+  uBottomColor: {value: new THREE.Color()},
+};
+
+terrainMaterial.onBeforeCompile = (shader) => {
+  shader.uniforms.uCameraPosXZ = window.terrainUniforms.uCameraPosXZ;
+  shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
+  shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
+  shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
+  shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
+
+  shader.vertexShader =
+    `
+    uniform vec2 uCameraPosXZ;
+    uniform float uRenderRadius;
+    varying float vDistanceXZ;
+    varying vec3 vWorldPosition;
+  ` + shader.vertexShader;
+
+  shader.vertexShader = shader.vertexShader.replace(
+    `#include <worldpos_vertex>`,
+    `#include <worldpos_vertex>
+     vec4 customWorldPosition = modelMatrix * vec4( transformed, 1.0 );
+     vDistanceXZ = length(customWorldPosition.xz - uCameraPosXZ);
+     vWorldPosition = customWorldPosition.xyz;`
+  );
+
+  shader.fragmentShader =
+    `
+    uniform float uRenderRadius;
+    varying float vDistanceXZ;
+    uniform vec3 uSunDirection;
+    uniform vec3 uTopColor;
+    uniform vec3 uBottomColor;
+    varying vec3 vWorldPosition;
+  ` + shader.fragmentShader;
+
+  shader.fragmentShader = shader.fragmentShader.replace(
+    `#include <fog_fragment>`,
+    `
+     #ifdef USE_FOG
+       vec3 viewDir = normalize(vWorldPosition - cameraPosition);
+       float sunIntensity = max(0.0, dot(viewDir, uSunDirection));
+       float glow = pow(sunIntensity, 2.5);
+       vec3 effectiveBottom = mix(uTopColor * 0.7, uBottomColor, glow * 0.9 + 0.1);
+       
+       #ifdef FOG_EXP2
+           float fogFactor = 1.0 - exp( - fogDensity * fogDensity * fogDepth * fogDepth );
+       #else
+           float fogFactor = smoothstep( fogNear, fogFar, fogDepth );
+       #endif
+       
+       float distRatio = vDistanceXZ / uRenderRadius;
+       float xzFogFactor = smoothstep(0.8, 1.0, distRatio);
+       
+       float finalFogFactor = max(fogFactor, xzFogFactor);
+       gl_FragColor.rgb = mix(gl_FragColor.rgb, effectiveBottom, finalFogFactor);
+     #endif
+    `
+  );
+};
+
 // Inject GPU wave math into the water material's vertex shader.
 // This replaces the CPU-side per-vertex loop and computeVertexNormals().
 waterMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uTime = window.waterUniforms.uTime;
+  shader.uniforms.uCameraPosXZ = window.terrainUniforms.uCameraPosXZ;
+  shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
 
   shader.uniforms.uSunDirection = window.waterUniforms.uSunDirection;
   shader.uniforms.uSunColor = window.waterUniforms.uSunColor;
+  shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
+  shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
 
   // Add time uniform declaration to the top of the vertex shader
   shader.vertexShader =
     `
+        uniform vec2 uCameraPosXZ;
+        uniform float uRenderRadius;
+        varying float vDistanceXZ;
         uniform float uTime;
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
     ` + shader.vertexShader;
-
+  shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
+  shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
+  shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
   // Inject analytical normal calculation (replaces computeVertexNormals)
   shader.vertexShader = shader.vertexShader.replace(
     `#include <beginnormal_vertex>`,
@@ -89,14 +164,19 @@ waterMaterial.onBeforeCompile = (shader) => {
 
         transformed.y += wave1 + wave2;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
         `
   );
 
   shader.fragmentShader =
     `
+        uniform float uRenderRadius;
+        varying float vDistanceXZ;
         uniform float uTime;
         uniform vec3 uSunDirection;
         uniform vec3 uSunColor;
+        uniform vec3 uTopColor;
+        uniform vec3 uBottomColor;
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
     ` + shader.fragmentShader;
@@ -141,9 +221,36 @@ waterMaterial.onBeforeCompile = (shader) => {
         float fresnel = 1.0 - max(dot(viewDir, sunReflNormal), 0.0);
         fresnel = pow(fresnel, 3.0);
         
-        vec3 sunHighlight = uSunColor * specularIntensity * (0.3 + fresnel * 0.7);
-        gl_FragColor.rgb += sunHighlight;
+        // Tone down spec during overcast/night
+        float lightIntensity = max(0.1, length(uSunColor));
+        specularIntensity *= lightIntensity;
+        
+        gl_FragColor.rgb += uSunColor * specularIntensity * (0.3 + fresnel * 0.7);
         `
+  );
+
+  shader.fragmentShader = shader.fragmentShader.replace(
+    `#include <fog_fragment>`,
+    `
+     #ifdef USE_FOG
+       vec3 viewDirFog = normalize(vWorldPosition - cameraPosition);
+       float sunIntensityFog = max(0.0, dot(viewDirFog, uSunDirection));
+       float glowFog = pow(sunIntensityFog, 2.5);
+       vec3 effectiveBottom = mix(uTopColor * 0.7, uBottomColor, glowFog * 0.9 + 0.1);
+       
+       #ifdef FOG_EXP2
+           float fogFactor = 1.0 - exp( - fogDensity * fogDensity * fogDepth * fogDepth );
+       #else
+           float fogFactor = smoothstep( fogNear, fogFar, fogDepth );
+       #endif
+       
+       float distRatio = vDistanceXZ / uRenderRadius;
+       float xzFogFactor = smoothstep(0.8, 1.0, distRatio);
+       
+       float finalFogFactor = max(fogFactor, xzFogFactor);
+       gl_FragColor.rgb = mix(gl_FragColor.rgb, effectiveBottom, finalFogFactor);
+     #endif
+    `
   );
 };
 

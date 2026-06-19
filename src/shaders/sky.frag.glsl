@@ -49,6 +49,11 @@
         // Base vertical gradient
         vec3 col = mix(effectiveBottom, topColor, max(pow(max(h, 0.0), exponent), 0.0));
         
+        // Lower hemisphere continues the base color
+        if (h < 0.0) {
+            col = effectiveBottom;
+        }
+        
         // --- STUNNING SUN BLOOM ---
         // 1. Wide, soft atmospheric scattering (takes on the sunset's bottomColor)
         vec3 wideGlow = bottomColor * pow(sunIntensity, 6.0) * 0.6 * (1.0 - h);
@@ -58,6 +63,11 @@
         vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(sunIntensity, 512.0) * 2.5;
         // Screen blend the bloom so it brightens beautifully without blowing out completely
         vec3 totalGlow = wideGlow + warmHalo + hotCore;
+        
+        // Prevent sun bloom from bleeding into the void below the horizon
+        // so it perfectly matches the terrain fog which doesn't have bloom
+        totalGlow *= clamp(h * 10.0 + 1.0, 0.0, 1.0);
+        
         col = col + totalGlow * (vec3(1.0) - col);
         
         // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---

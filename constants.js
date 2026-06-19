@@ -51,46 +51,108 @@ function createMaterial(params) {
   // Make a copy of params to avoid mutating the original
   const newParams = {...params};
 
+  let mat;
   switch (THEME) {
     case 'toon':
       delete newParams.roughness;
       delete newParams.metalness;
       delete newParams.envMap;
       delete newParams.envMapIntensity;
-      return new THREE.MeshToonMaterial(newParams);
-
+      mat = new THREE.MeshToonMaterial(newParams);
+      break;
     case 'basic':
-      // Flat, unlit colors - completely ignores lighting
       delete newParams.roughness;
       delete newParams.metalness;
-      return new THREE.MeshBasicMaterial(newParams);
-
+      mat = new THREE.MeshBasicMaterial(newParams);
+      break;
     case 'phong':
-      // Shiny, plastic-like appearance
       delete newParams.roughness;
       delete newParams.metalness;
-      newParams.shininess = 60; // Add some specular shine
-      return new THREE.MeshPhongMaterial(newParams);
-
+      newParams.shininess = 60;
+      mat = new THREE.MeshPhongMaterial(newParams);
+      break;
     case 'lambert':
-      // Matte, non-shiny surface (often used for retro low-poly)
       delete newParams.roughness;
       delete newParams.metalness;
-      return new THREE.MeshLambertMaterial(newParams);
-
+      mat = new THREE.MeshLambertMaterial(newParams);
+      break;
     case 'normal':
-      // Psychedelic look based on object normals (ignores color completely)
-      return new THREE.MeshNormalMaterial({flatShading: params.flatShading});
-
+      mat = new THREE.MeshNormalMaterial({flatShading: params.flatShading});
+      break;
     case 'wireframe':
-      // The Matrix or Tron aesthetic - just lines!
       newParams.wireframe = true;
-      return new THREE.MeshBasicMaterial(newParams);
-
+      mat = new THREE.MeshBasicMaterial(newParams);
+      break;
     case 'standard':
     default:
-      return new THREE.MeshStandardMaterial(params);
+      mat = new THREE.MeshStandardMaterial(newParams);
+      break;
   }
+
+  // Inject universal directional fog into all generated materials
+  mat.onBeforeCompile = (shader) => {
+    if (window.terrainUniforms) {
+      shader.uniforms.uCameraPosXZ = window.terrainUniforms.uCameraPosXZ;
+      shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
+      shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
+      shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
+      shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
+    }
+
+    shader.vertexShader =
+      `
+      uniform vec2 uCameraPosXZ;
+      uniform float uRenderRadius;
+      varying float vDistanceXZ;
+      varying vec3 vWorldPosition;
+    ` + shader.vertexShader;
+
+    shader.vertexShader = shader.vertexShader.replace(
+      `#include <worldpos_vertex>`,
+      `#include <worldpos_vertex>
+       #ifdef USE_FOG
+         vDistanceXZ = length(worldPosition.xz - uCameraPosXZ);
+         vWorldPosition = worldPosition.xyz;
+       #endif`
+    );
+
+    shader.fragmentShader =
+      `
+      uniform vec3 uSunDirection;
+      uniform vec3 uTopColor;
+      uniform vec3 uBottomColor;
+      uniform float uRenderRadius;
+      varying float vDistanceXZ;
+      varying vec3 vWorldPosition;
+    ` + shader.fragmentShader;
+
+    shader.fragmentShader = shader.fragmentShader.replace(
+      `#include <fog_fragment>`,
+      `#ifdef USE_FOG
+         vec3 viewDirFog = normalize(vWorldPosition - cameraPosition);
+         float sunIntensityFog = max(0.0, dot(viewDirFog, uSunDirection));
+         float glowFog = pow(sunIntensityFog, 2.5);
+         vec3 effectiveBottom = mix(uTopColor * 0.7, uBottomColor, glowFog * 0.9 + 0.1);
+         
+         #ifdef FOG_EXP2
+             float fogFactor = 1.0 - exp( - fogDensity * fogDensity * fogDepth * fogDepth );
+         #else
+             float fogFactor = smoothstep( fogNear, fogFar, fogDepth );
+         #endif
+         
+         float finalFogFactor = fogFactor;
+         if (uRenderRadius > 0.0) {
+             float distRatio = vDistanceXZ / uRenderRadius;
+             float xzFogFactor = smoothstep(0.8, 1.0, distRatio);
+             finalFogFactor = max(fogFactor, xzFogFactor);
+         }
+         
+         gl_FragColor.rgb = mix(gl_FragColor.rgb, effectiveBottom, finalFogFactor);
+       #endif`
+    );
+  };
+
+  return mat;
 }
 
 // Variables shared between airplane.js and game.js that need early declaration to avoid TDZ errors in the production bundle

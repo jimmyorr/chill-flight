@@ -1269,8 +1269,8 @@ function applyGraphicsPreset(preset) {
   }
 
   // Toggle sky clouds dynamically: disable expensive fBm on low mode
-  if (typeof skyUniforms !== 'undefined') {
-    skyUniforms.uShowClouds.value =
+  if (window.skyUniforms !== undefined) {
+    window.skyUniforms.uShowClouds.value =
       segments > 20 && ChillFlightLogic.SHOW_CLOUDS;
   }
 
@@ -4297,9 +4297,9 @@ function animate() {
   skyGroup.position.copy(camera.position);
 
   // Smoothly interpolate sky shader palettes
-  if (typeof skyUniforms !== 'undefined' && !isCustomPalette) {
-    skyUniforms.topColor.value.lerp(targetPaletteTop, delta * 0.1);
-    skyUniforms.bottomColor.value.lerp(targetPaletteBottom, delta * 0.1);
+  if (window.skyUniforms !== undefined && !isCustomPalette) {
+    window.skyUniforms.topColor.value.lerp(targetPaletteTop, delta * 0.1);
+    window.skyUniforms.bottomColor.value.lerp(targetPaletteBottom, delta * 0.1);
   }
 
   // 1. Check if forced precipitation is currently visible on screen (or would be, if not above clouds)
@@ -4505,9 +4505,9 @@ function animate() {
     0.08,
     auroraLatFactor * auroraNightFactor * (1.0 - overcast) * auroraActivity
   );
-  if (typeof skyUniforms !== 'undefined') {
-    skyUniforms.uAuroraIntensity.value = THREE.MathUtils.lerp(
-      skyUniforms.uAuroraIntensity.value,
+  if (window.skyUniforms !== undefined) {
+    window.skyUniforms.uAuroraIntensity.value = THREE.MathUtils.lerp(
+      window.skyUniforms.uAuroraIntensity.value,
       targetAuroraIntensity,
       1 - Math.pow(1 - 0.002, delta * 60)
     );
@@ -4545,7 +4545,11 @@ function animate() {
 
   // --- APPLY SKY & FOG ---
   _uncloudedSkyColor.setHex(0x0a0c20);
-  _uncloudedFogColor.setHex(0x060815);
+  if (window.skyUniforms !== undefined && window.skyUniforms.bottomColor) {
+    _uncloudedFogColor.copy(window.skyUniforms.bottomColor.value);
+  } else {
+    _uncloudedFogColor.setHex(0x060815);
+  }
 
   if (dayFactor > 0.0) {
     let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
@@ -4599,7 +4603,6 @@ function animate() {
       const hex = '#' + localDaySky.getHexString();
       if (dayPicker.value !== hex) dayPicker.value = hex;
     }
-    _uncloudedFogColor.copy(_uncloudedSkyColor);
 
     // Warm up the directional light during golden hour
     const dayLightCol = new THREE.Color(0xfff0dd);
@@ -4656,18 +4659,35 @@ function animate() {
 
   // Update Sky Shader Colors
   if (!isCustomPalette) {
-    skyUniforms.topColor.value.copy(_finalSkyColor);
+    window.skyUniforms.topColor.value.copy(_finalSkyColor);
   }
 
   _tempVec.set(sunX, sunY, sunZ).normalize();
-  skyUniforms.sunDirection.value.copy(_tempVec);
+  window.skyUniforms.sunDirection.value.copy(_tempVec);
   window._cloudTime =
     (window._cloudTime || now * 0.001) +
     delta *
       (typeof daySpeedMultiplier !== 'undefined' ? daySpeedMultiplier : 1);
-  skyUniforms.uTime.value = window._cloudTime;
-  skyUniforms.uCloudDensity.value = overcast;
-  skyUniforms.uCameraPos.value.copy(camera.position);
+  window.skyUniforms.uTime.value = window._cloudTime;
+  window.skyUniforms.uCloudDensity.value = overcast;
+  window.skyUniforms.uCameraPos.value.copy(camera.position);
+
+  if (window.terrainUniforms) {
+    window.terrainUniforms.uCameraPosXZ.value.set(
+      camera.position.x,
+      camera.position.z
+    );
+    window.terrainUniforms.uRenderRadius.value = RENDER_DISTANCE * CHUNK_SIZE;
+    window.terrainUniforms.uSunDirection.value.copy(_tempVec);
+    if (window.skyUniforms) {
+      window.terrainUniforms.uTopColor.value.copy(
+        window.skyUniforms.topColor.value
+      );
+      window.terrainUniforms.uBottomColor.value.copy(
+        window.skyUniforms.bottomColor.value
+      );
+    }
+  }
 
   if (window.waterUniforms && window.waterUniforms.uSunDirection) {
     window.waterUniforms.uSunDirection.value.copy(_tempVec);
@@ -4718,10 +4738,10 @@ function animate() {
         bottomCol.lerp(warmHorizon, actualDawnDusk);
       }
 
-      skyUniforms.bottomColor.value.copy(bottomCol);
+      window.skyUniforms.bottomColor.value.copy(bottomCol);
     } else {
       let bottomCol = _finalSkyColor.clone().multiplyScalar(0.8);
-      skyUniforms.bottomColor.value.copy(bottomCol);
+      window.skyUniforms.bottomColor.value.copy(bottomCol);
     }
   }
 
@@ -4838,8 +4858,8 @@ function animate() {
 
     // Aurora telemetry
     const auroraVal =
-      typeof skyUniforms !== 'undefined'
-        ? skyUniforms.uAuroraIntensity.value
+      window.skyUniforms !== undefined
+        ? window.skyUniforms.uAuroraIntensity.value
         : 0;
     if (auroraVal > _auroraSessionMax) _auroraSessionMax = auroraVal;
     const _auroraLabelFn = (v) =>
