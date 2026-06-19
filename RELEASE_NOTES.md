@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.3
+
+- **Environment:** Added procedural distant horizon clouds. Enhanced sky gradients and implemented a universal directional fog for seamless blending across all objects.
+- **Environment:** Smoothed aurora borealis transitions. Guaranteed rainbows to spawn when heavy rain clears and reduced overall rain frequency.
+- **System:** Extracted GLSL shaders to dedicated files and restructured the debug UI with dedicated testing pages.
+
 ## 0.9.2
 
 - **Environment:** Extended the day-night cycle to 6 minutes, lingering on sunrise and sunset for 2 minutes each.

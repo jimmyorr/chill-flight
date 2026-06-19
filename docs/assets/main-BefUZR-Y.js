@@ -3585,6 +3585,11 @@ ${GI}
         // Base vertical gradient
         vec3 col = mix(effectiveBottom, topColor, max(pow(max(h, 0.0), exponent), 0.0));
         
+        // Lower hemisphere continues the base color
+        if (h < 0.0) {
+            col = effectiveBottom;
+        }
+        
         // --- STUNNING SUN BLOOM ---
         // 1. Wide, soft atmospheric scattering (takes on the sunset's bottomColor)
         vec3 wideGlow = bottomColor * pow(sunIntensity, 6.0) * 0.6 * (1.0 - h);
@@ -3594,6 +3599,11 @@ ${GI}
         vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(sunIntensity, 512.0) * 2.5;
         // Screen blend the bloom so it brightens beautifully without blowing out completely
         vec3 totalGlow = wideGlow + warmHalo + hotCore;
+        
+        // Prevent sun bloom from bleeding into the void below the horizon
+        // so it perfectly matches the terrain fog which doesn't have bloom
+        totalGlow *= clamp(h * 10.0 + 1.0, 0.0, 1.0);
+        
         col = col + totalGlow * (vec3(1.0) - col);
         
         // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---
@@ -3611,11 +3621,15 @@ ${GI}
             float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
             
             // Darken the base cloud colors during a storm
-            vec3 baseShadow = mix(vec3(0.15, 0.15, 0.2), vec3(0.05, 0.06, 0.08), uCloudDensity);
+            vec3 baseShadow = mix(vec3(0.4, 0.45, 0.5), vec3(0.15, 0.18, 0.22), uCloudDensity);
             vec3 baseBright = mix(vec3(0.9, 0.9, 0.95), vec3(0.4, 0.45, 0.5), uCloudDensity);
             
-            vec3 shadowColor = mix(topColor * 0.5, baseShadow, 0.5);
+            vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
             vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
+            
+            // Dramatic sunset/sunrise cloud under-lighting
+            float sunsetGlow = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
+            brightEdgeColor = mix(brightEdgeColor, bottomColor * 3.0, sunsetGlow * stormDimming);
             
             // Widen the density range for clearer skies and thicker storms
             float densityOffset = (uCloudDensity - 0.5) * 0.6;
@@ -3691,11 +3705,15 @@ ${GI}
                 float stormDimming = 1.0 - uCloudDensity * 0.8;
                 float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
                 
-                vec3 baseShadow = mix(vec3(0.15, 0.15, 0.2), vec3(0.05, 0.06, 0.08), uCloudDensity);
+                vec3 baseShadow = mix(vec3(0.4, 0.45, 0.5), vec3(0.15, 0.18, 0.22), uCloudDensity);
                 vec3 baseBright = mix(vec3(0.95, 0.95, 1.0), vec3(0.4, 0.45, 0.5), uCloudDensity);
                 
-                vec3 shadowColor = mix(topColor * 0.5, baseShadow, 0.5);
+                vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
                 vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
+                
+                // Dramatic sunset/sunrise horizon cloud under-lighting
+                float sunsetGlowHorizon = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
+                brightEdgeColor = mix(brightEdgeColor, bottomColor * 3.0, sunsetGlowHorizon * stormDimming);
                 
                 // Dynamic volumetric shadowing based on true sun position
                 vec3 tangentU = normalize(vec3(dir.z, 0.0, -dir.x));
@@ -3758,6 +3776,10 @@ ${GI}
             // Compress the dynamic range: this makes low intensities (like 0.08) pop beautifully
             // without letting peak storms (1.0) blow out into a blinding neon light.
             float curvedIntensity = pow(uAuroraIntensity, 0.3);
+            
+            // Add a smooth fade at the very bottom to prevent it popping in when crossing the 0.001 threshold
+            curvedIntensity *= smoothstep(0.0, 0.05, uAuroraIntensity);
+            
             float auroraAlpha = curtain * vFade * curvedIntensity;
 
             // Three-band colour gradient: green core, teal edge, purple top
