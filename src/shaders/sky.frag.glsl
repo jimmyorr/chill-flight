@@ -81,6 +81,10 @@
             vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
             vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
             
+            // Dramatic sunset/sunrise cloud under-lighting
+            float sunsetGlow = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
+            brightEdgeColor = mix(brightEdgeColor, bottomColor * 3.0, sunsetGlow * stormDimming);
+            
             // Widen the density range for clearer skies and thicker storms
             float densityOffset = (uCloudDensity - 0.5) * 0.6;
             float horizonFade = smoothstep(0.0, 0.15, abs(h));
@@ -160,6 +164,10 @@
                 
                 vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
                 vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
+                
+                // Dramatic sunset/sunrise horizon cloud under-lighting
+                float sunsetGlowHorizon = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
+                brightEdgeColor = mix(brightEdgeColor, bottomColor * 3.0, sunsetGlowHorizon * stormDimming);
                 
                 // Dynamic volumetric shadowing based on true sun position
                 vec3 tangentU = normalize(vec3(dir.z, 0.0, -dir.x));
