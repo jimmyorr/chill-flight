@@ -3574,7 +3574,8 @@ ${GI}
         float h = dir.y;
         
         // Calculate sun influence (0 to 1) based on direction
-        float sunIntensity = max(0.0, dot(dir, sunDirection));
+        float baseSunIntensity = max(0.0, dot(dir, sunDirection));
+        float sunIntensity = baseSunIntensity * smoothstep(-0.15, 0.0, sunDirection.y);
         
         // Base atmospheric scattering glow
         float glow = pow(sunIntensity, glowPower);
