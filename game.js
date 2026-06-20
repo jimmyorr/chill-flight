@@ -2899,7 +2899,7 @@ function animate() {
       targetAltY = 145.5 + t * (445.5 - 145.5);
     }
 
-    const altError = targetAltY - planeGroup.position.y;
+    const altError = Math.max(0, targetAltY - planeGroup.position.y);
     const maxAutoPitch = Math.PI / 6; // 30 degrees limit
     targetPitch = THREE.MathUtils.clamp(
       altError * 0.01,
