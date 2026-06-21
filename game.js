@@ -29,6 +29,7 @@ let joystickStartX = 0;
 let joystickStartY = 0;
 const JOYSTICK_MAX_RADIUS = 50;
 const JOYSTICK_SENSITIVITY = 0.5;
+let steeringTouchId = null; // Track active touch for 'touch' mode
 
 let startPlaneTooltipShown =
   localStorage.getItem('chill_flight_stopped_tooltip_shown') === 'true';
@@ -209,8 +210,8 @@ window.addEventListener(
 
         if (isFreeCamera) {
           isFreeCameraDragging = true;
-          lastFreeCamTouchX = e.touches[0].clientX;
-          lastFreeCamTouchY = e.touches[0].clientY;
+          lastFreeCamTouchX = e.changedTouches[0].clientX;
+          lastFreeCamTouchY = e.changedTouches[0].clientY;
           return;
         }
 
@@ -218,7 +219,7 @@ window.addEventListener(
         if (currentControlScheme === 'gyro') {
           // Don't update mouseX/mouseY from touch; gyro handles steering.
           // But still process gesture detection (double/triple-tap) for barrel rolls etc.
-          const touch = e.touches[0];
+          const touch = e.changedTouches[0];
           const now = performance.now();
           const x = touch.clientX / window.innerWidth;
           const y = touch.clientY / window.innerHeight;
@@ -263,7 +264,7 @@ window.addEventListener(
           // Do NOT set mouseControlActive or update mouseX/mouseY
         } else if (currentControlScheme === 'joystick') {
           // --- Joystick mode ---
-          const touch = e.touches[0];
+          const touch = e.changedTouches[0];
 
           if (!joystickActive) {
             // Activate joystick centered at touch position
@@ -349,7 +350,8 @@ window.addEventListener(
           }
         } else {
           // --- Touch mode (original absolute-positioning) ---
-          const touch = e.touches[0];
+          const touch = e.changedTouches[0];
+          steeringTouchId = touch.identifier;
           updateInputPosition(touch.clientX, touch.clientY);
           mouseControlActive = true;
 
@@ -404,10 +406,6 @@ window.addEventListener(
             mouseY = 0;
           }
         }
-      } else {
-        mouseControlActive = false; // Stop steering if touching UI
-        mouseX = 0;
-        mouseY = 0;
       }
     }
     windowJustFocused = false;
@@ -438,7 +436,7 @@ window.addEventListener(
 
       if (!isUI) {
         if (isFreeCameraDragging && isFreeCamera) {
-          const touch = e.touches[0];
+          const touch = e.changedTouches[0];
           freeCamDeltaX += touch.clientX - lastFreeCamTouchX;
           freeCamDeltaY += touch.clientY - lastFreeCamTouchY;
           lastFreeCamTouchX = touch.clientX;
@@ -478,27 +476,19 @@ window.addEventListener(
           }
         } else if (currentControlScheme === 'touch') {
           // --- Touch mode (original absolute-positioning) ---
-          // Find a touch that is not the active gesture touch
+          // Update steering only if the tracked steering touch moves
           let steeringTouch = null;
-          for (let i = 0; i < e.touches.length; i++) {
-            if (e.touches[i].identifier !== activeGestureTouchId) {
-              steeringTouch = e.touches[i];
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === steeringTouchId && e.changedTouches[i].identifier !== activeGestureTouchId) {
+              steeringTouch = e.changedTouches[i];
               break;
             }
           }
           if (steeringTouch) {
             updateInputPosition(steeringTouch.clientX, steeringTouch.clientY);
             mouseControlActive = true;
-          } else {
-            mouseControlActive = false;
-            mouseX = 0;
-            mouseY = 0;
           }
         }
-      } else {
-        mouseControlActive = false;
-        mouseX = 0;
-        mouseY = 0;
       }
     }
   },
@@ -525,6 +515,21 @@ window.addEventListener('touchend', (e) => {
         const stick = document.getElementById('virtual-joystick-stick');
         if (stick) {
           stick.style.transform = 'translate(-50%, -50%)';
+        }
+        break;
+      }
+    }
+  }
+
+  // --- Touch mode cleanup ---
+  if (steeringTouchId !== null) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === steeringTouchId) {
+        steeringTouchId = null;
+        if (!joystickActive) {
+          mouseControlActive = false;
+          mouseX = 0;
+          mouseY = 0;
         }
         break;
       }
@@ -633,6 +638,7 @@ function clearInputState() {
   if (_joystickStick) {
     _joystickStick.style.transform = 'translate(-50%, -50%)';
   }
+  steeringTouchId = null;
 }
 const pauseOverlay = document.getElementById('pause-overlay');
 
