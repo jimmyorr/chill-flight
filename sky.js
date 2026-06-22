@@ -327,26 +327,95 @@ skyGroup.add(moonMesh);
 
 // Stars
 const starsGeo = new THREE.BufferGeometry();
-const starsCount = 2000;
+const starsCount = 4000;
 const starsPos = new Float32Array(starsCount * 3);
+const starsColors = new Float32Array(starsCount * 3);
+const starsSizes = new Float32Array(starsCount);
 const _starsRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + 1);
-for (let i = 0; i < starsCount * 3; i += 3) {
+for (let i = 0; i < starsCount; i++) {
+  const i3 = i * 3;
   const u = _starsRng();
   const v = _starsRng();
   const theta = u * 2.0 * Math.PI;
   const phi = Math.acos(2.0 * v - 1.0);
   const r = 20000 + _starsRng() * 4000;
-  starsPos[i] = r * Math.sin(phi) * Math.cos(theta);
-  starsPos[i + 1] = r * Math.sin(phi) * Math.sin(theta);
-  starsPos[i + 2] = r * Math.cos(phi);
+  starsPos[i3] = r * Math.sin(phi) * Math.cos(theta);
+  starsPos[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+  starsPos[i3 + 2] = r * Math.cos(phi);
+
+  const sizeRand = _starsRng();
+  if (sizeRand < 0.8) starsSizes[i] = 1.0 + _starsRng() * 1.5;
+  else if (sizeRand < 0.98) starsSizes[i] = 3.0 + _starsRng() * 2.0;
+  else starsSizes[i] = 6.0 + _starsRng() * 4.0;
+
+  const colorType = _starsRng();
+  let rC = 1,
+    gC = 1,
+    bC = 1;
+  if (colorType < 0.6) {
+    rC = 1;
+    gC = 1;
+    bC = 1;
+  } else if (colorType < 0.8) {
+    rC = 0.8;
+    gC = 0.9;
+    bC = 1;
+  } else if (colorType < 0.95) {
+    rC = 1;
+    gC = 0.9;
+    bC = 0.8;
+  } else {
+    rC = 1;
+    gC = 0.8;
+    bC = 0.8;
+  }
+
+  const brightness = 0.5 + _starsRng() * 0.5;
+  starsColors[i3] = rC * brightness;
+  starsColors[i3 + 1] = gC * brightness;
+  starsColors[i3 + 2] = bC * brightness;
 }
 starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
-const starsMat = new THREE.PointsMaterial({
-  color: 0xffffff,
-  size: 20,
-  sizeAttenuation: true,
-  fog: false,
+starsGeo.setAttribute('color', new THREE.BufferAttribute(starsColors, 3));
+starsGeo.setAttribute('size', new THREE.BufferAttribute(starsSizes, 1));
+
+const starsMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uOpacity: {value: 1.0},
+  },
+  vertexShader: `
+    attribute float size;
+    attribute vec3 color;
+    varying vec3 vColor;
+    void main() {
+      vColor = color;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = size;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    uniform float uOpacity;
+    varying vec3 vColor;
+    void main() {
+      float dist = length(gl_PointCoord - vec2(0.5));
+      if (dist > 0.5) discard;
+      float alpha = pow((0.5 - dist) * 2.0, 1.5);
+      gl_FragColor = vec4(vColor, alpha * uOpacity);
+    }
+  `,
   transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  fog: false,
+});
+Object.defineProperty(starsMat, 'opacity', {
+  get: function () {
+    return this.uniforms.uOpacity.value;
+  },
+  set: function (v) {
+    this.uniforms.uOpacity.value = v;
+  },
 });
 const starsMesh = new THREE.Points(starsGeo, starsMat);
 skyGroup.add(starsMesh);
