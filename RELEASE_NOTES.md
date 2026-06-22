@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.4
+
+- **Environment:** Overhauled stars with varying sizes, colors, and a twinkling effect. Added icebergs, ice floes, and animated penguins to deep north waters.
+- **Environment:** Updated moon position, phase math, and cloud occlusion. Increased render distances to reveal distant landmarks.
+- **Controls:** Stabilized mobile steering with improved touch tracking. Updated autopilot to treat target altitude as a minimum. Fixed hawk flight orientation.
+
 ## 0.9.3
 
 - **Environment:** Added procedural distant horizon clouds. Enhanced sky gradients and implemented a universal directional fog for seamless blending across all objects.
