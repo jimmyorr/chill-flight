@@ -4050,13 +4050,13 @@ function animate() {
             data.circleCenter.x + Math.cos(data.angle) * data.circleRadius;
           const targetZ =
             data.circleCenter.z + Math.sin(data.angle) * data.circleRadius;
-          bird.rotation.z = 0.3;
           bird.lookAt(
             data.circleCenter.x +
-              Math.cos(data.angle + 0.1) * data.circleRadius,
+              Math.cos(data.angle - 0.1) * data.circleRadius,
             bird.position.y,
-            data.circleCenter.z + Math.sin(data.angle + 0.1) * data.circleRadius
+            data.circleCenter.z + Math.sin(data.angle - 0.1) * data.circleRadius
           );
+          bird.rotation.z = 0.3;
           bird.position.set(targetX, bird.position.y, targetZ);
         }
       });
