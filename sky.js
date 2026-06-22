@@ -331,6 +331,7 @@ const starsCount = 4000;
 const starsPos = new Float32Array(starsCount * 3);
 const starsColors = new Float32Array(starsCount * 3);
 const starsSizes = new Float32Array(starsCount);
+const starsPhases = new Float32Array(starsCount);
 const _starsRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED + 1);
 for (let i = 0; i < starsCount; i++) {
   const i3 = i * 3;
@@ -374,21 +375,28 @@ for (let i = 0; i < starsCount; i++) {
   starsColors[i3] = rC * brightness;
   starsColors[i3 + 1] = gC * brightness;
   starsColors[i3 + 2] = bC * brightness;
+
+  starsPhases[i] = _starsRng() * Math.PI * 2.0;
 }
 starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
 starsGeo.setAttribute('color', new THREE.BufferAttribute(starsColors, 3));
 starsGeo.setAttribute('size', new THREE.BufferAttribute(starsSizes, 1));
+starsGeo.setAttribute('phase', new THREE.BufferAttribute(starsPhases, 1));
 
 const starsMat = new THREE.ShaderMaterial({
   uniforms: {
     uOpacity: {value: 1.0},
+    uTime: skyUniforms.uTime,
   },
   vertexShader: `
     attribute float size;
     attribute vec3 color;
+    attribute float phase;
     varying vec3 vColor;
+    varying float vPhase;
     void main() {
       vColor = color;
+      vPhase = phase;
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       gl_PointSize = size;
       gl_Position = projectionMatrix * mvPosition;
@@ -396,12 +404,18 @@ const starsMat = new THREE.ShaderMaterial({
   `,
   fragmentShader: `
     uniform float uOpacity;
+    uniform float uTime;
     varying vec3 vColor;
+    varying float vPhase;
     void main() {
       float dist = length(gl_PointCoord - vec2(0.5));
       if (dist > 0.5) discard;
       float alpha = pow((0.5 - dist) * 2.0, 1.5);
-      gl_FragColor = vec4(vColor, alpha * uOpacity);
+      
+      // Twinkle effect (slow)
+      float twinkle = 0.85 + 0.15 * sin(uTime * 1.5 + vPhase);
+      
+      gl_FragColor = vec4(vColor, alpha * uOpacity * twinkle);
     }
   `,
   transparent: true,
