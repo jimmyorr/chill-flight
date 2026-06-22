@@ -479,7 +479,10 @@ window.addEventListener(
           // Update steering only if the tracked steering touch moves
           let steeringTouch = null;
           for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === steeringTouchId && e.changedTouches[i].identifier !== activeGestureTouchId) {
+            if (
+              e.changedTouches[i].identifier === steeringTouchId &&
+              e.changedTouches[i].identifier !== activeGestureTouchId
+            ) {
               steeringTouch = e.changedTouches[i];
               break;
             }
@@ -3970,36 +3973,25 @@ function animate() {
     Math.sin(latitude) * Math.cos(declination) * Math.cos(hourAngle);
   const dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) * 2)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0 (6 AM)
 
-  // 2. Realistic Moon Position (Decoupled & Slower)
-  // Lunar phase cycle: 2 hours (previously 40 minutes)
-  const LUNAR_PHASE_MS = 7200000;
-  const lunarPhase = (passedServerNow % LUNAR_PHASE_MS) / LUNAR_PHASE_MS;
-  if (typeof moonUniforms !== 'undefined') {
-    moonUniforms.moonPhase.value = lunarPhase;
-  }
+  // 2. Fixed Moon Position (West-Southwest Sky near Horizon)
 
-  // Lunar sky cycle: Synced to exactly opposite the sun
-  // This ensures the moon is always prominent in the sky at night.
-  const moonHourAngle = timeOfDay; // Sun is timeOfDay + Math.PI
+  // Set WSW fixed position (approx. -126 degrees azimuth)
+  const baseMoonAngle = -2.2;
+  // Low elevation (~10 degrees above the horizon)
+  const baseMoonElev = 0.18;
 
-  // Slow lunar wobble: path drifts ±10° over ~1.7 hours for orbital diversity
-  const moonWobble = Math.sin(passedServerNow * 0.000001) * 0.17;
-  const moonDeclination = declination + moonWobble;
+  // Slow lunar wobble: drifts slightly over time so it feels alive
+  const moonWobbleSpeed = passedServerNow * 0.00005;
+  const moonWobbleX = Math.sin(moonWobbleSpeed) * 0.03;
+  const moonWobbleY = Math.cos(moonWobbleSpeed) * 0.015;
 
-  const moonY =
-    Math.sin(latitude) * Math.sin(moonDeclination) +
-    Math.cos(latitude) * Math.cos(moonDeclination) * Math.cos(moonHourAngle);
-  const rawMoonX = -Math.cos(moonDeclination) * Math.sin(moonHourAngle);
-  const rawMoonZ =
-    Math.cos(latitude) * Math.sin(moonDeclination) -
-    Math.sin(latitude) * Math.cos(moonDeclination) * Math.cos(moonHourAngle);
-
-  // Rotate moon orbit by 30 degrees to give it a totally distinct path from the sun
-  const moonOrbitRotation = 0.52; // ~30 degrees
-  const cosR = Math.cos(moonOrbitRotation);
-  const sinR = Math.sin(moonOrbitRotation);
-  const moonX = rawMoonX * cosR - rawMoonZ * sinR;
-  const moonZ = rawMoonX * sinR + rawMoonZ * cosR;
+  const moonY = Math.sin(baseMoonElev + moonWobbleY);
+  const moonX =
+    Math.cos(baseMoonAngle + moonWobbleX) *
+    Math.cos(baseMoonElev + moonWobbleY);
+  const moonZ =
+    Math.sin(baseMoonAngle + moonWobbleX) *
+    Math.cos(baseMoonElev + moonWobbleY);
 
   // Update water shader uniform — the GPU handles all wave displacement
   window.waterUniforms.uTime.value = now * 0.0015;
@@ -4541,12 +4533,14 @@ function animate() {
     }
     sunMesh.material.opacity = 1.0 - overcast;
   }
+  // Fade moon opacity: fully visible at night, subtle silhouette during day
+  const moonCycleFactor = THREE.MathUtils.lerp(1.0, 0.08, dayFactor);
   if (moonMesh && moonMesh.material) {
     if (!moonMesh.material.transparent) {
       moonMesh.material.transparent = true;
       moonMesh.material.needsUpdate = true;
     }
-    moonMesh.material.opacity = 1.0 - overcast;
+    moonMesh.material.opacity = moonCycleFactor * (1.0 - overcast);
   }
 
   let baseHemi = THREE.MathUtils.lerp(0.3, 0.6, dayFactor);
@@ -4559,8 +4553,8 @@ function animate() {
   let baseDir = THREE.MathUtils.lerp(0, 0.8, dayFactor);
   dirLight.intensity = THREE.MathUtils.lerp(baseDir, 0.05, overcast);
 
+  // Moonlight shines when the sun is down, independent of moon's now-fixed elevation
   let moonFactor = Math.max(0, Math.min(1, (-sunY - 0.25) / 0.25));
-  moonFactor *= Math.max(0, Math.min(1, moonY * 10.0)); // Only shine when moon is up
   moonLight.intensity = moonFactor * 0.4 * (1.0 - overcast);
 
   // --- APPLY SKY & FOG ---
@@ -4733,10 +4727,52 @@ function animate() {
     moonUniforms.uTime.value = now * 0.001;
     moonUniforms.overcast.value = overcast;
     moonUniforms.dayFactor.value = dayFactor;
+    moonUniforms.uCloudDensity.value = skyUniforms.uCloudDensity?.value ?? 0.5;
+    moonUniforms.uMoonSkyDir.value.set(moonX, moonY, moonZ).normalize();
+    moonUniforms.uCameraPos.value.copy(camera.position);
 
-    // moonPhase is now updated at the top of animate() with a 4-hour cycle
+    // Update moon direction local to its rotation for consistent phase lighting
 
-    // Dynamic Moon Sizing (Moon Illusion)
+    // Build a CAMERA-INDEPENDENT billboard basis so the phase never rotates
+    // Z always points from moon toward Earth (camera), X is world-horizontal,
+    // Y is approximately world-up on the moon face.
+    const vMoonDir = new THREE.Vector3().copy(moonMesh.position).normalize();
+    const vZ = new THREE.Vector3().copy(vMoonDir).negate();
+    let vX = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), vZ);
+    if (vX.lengthSq() < 0.0001) vX.set(1, 0, 0); // fallback if moon is at zenith
+    vX.normalize();
+    const vY = new THREE.Vector3().crossVectors(vZ, vX).normalize();
+
+    const mRot = new THREE.Matrix4().makeBasis(vX, vY, vZ);
+    moonMesh.quaternion.setFromRotationMatrix(mRot);
+
+    // Pass the rotation matrix so the shader can recover world normals
+    const moonRotMat = new THREE.Matrix3().setFromMatrix4(mRot);
+    moonUniforms.uMoonRotMat.value.copy(moonRotMat);
+    // Phase light direction — 29.5 game days per cycle
+    // Ties the moon phase back to the game clock so it advances faster when time is sped up
+    const PHASE_CYCLE_MS = 29.5 * 360000; // 29.5 game days (at 360,000ms per day)
+    const phaseAngle =
+      ((passedServerNow % PHASE_CYCLE_MS) / PHASE_CYCLE_MS) * Math.PI * 2;
+    const moonDirNorm = new THREE.Vector3(moonX, moonY, moonZ).normalize();
+    let phaseX = new THREE.Vector3().crossVectors(
+      new THREE.Vector3(0, 1, 0),
+      moonDirNorm
+    );
+    if (phaseX.lengthSq() < 0.001) phaseX.set(1, 0, 0);
+    phaseX.normalize();
+    const phaseY = new THREE.Vector3()
+      .crossVectors(moonDirNorm, phaseX)
+      .normalize();
+    // Sun orbits through the moon-origin axis to create full/new moon phases
+    const phaseSunDir = new THREE.Vector3()
+      .copy(moonDirNorm)
+      .multiplyScalar(Math.cos(phaseAngle))
+      .addScaledVector(phaseX, Math.sin(phaseAngle))
+      .normalize();
+    moonUniforms.uSunDirectionWorld.value.copy(phaseSunDir);
+
+    // Dynamic Moon Sizing (Moon Illusion) — uniform scale only
     const moonElevation = Math.max(0.0, moonY);
     const moonScale = 1.0 + Math.pow(1.0 - moonElevation, 3.0) * 1.5;
     moonMesh.scale.setScalar(moonScale);

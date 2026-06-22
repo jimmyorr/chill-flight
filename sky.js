@@ -293,7 +293,12 @@ const moonUniforms = {
   uTime: {value: 0.0},
   overcast: {value: 0.0},
   dayFactor: {value: 1.0},
-  moonPhase: {value: 0.0},
+  uSunDirectionWorld: {value: new THREE.Vector3(1, 0, 0)},
+  uMoonRotMat: {value: new THREE.Matrix3()},
+  uNoiseTex: {value: skyNoiseTexture},
+  uCloudDensity: {value: 0.5},
+  uMoonSkyDir: {value: new THREE.Vector3(0, 0.2, -1)},
+  uCameraPos: {value: new THREE.Vector3()},
 };
 window.sunUniforms = sunUniforms;
 window.moonUniforms = moonUniforms;
