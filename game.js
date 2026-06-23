@@ -2774,6 +2774,17 @@ function animate() {
   const dtLeft = doubleTap.ArrowLeft && !isFreeCamera;
   const dtRight = doubleTap.ArrowRight && !isFreeCamera;
 
+  // Auto-disable autopilot on manual steering input
+  if (
+    window.autopilotEnabled &&
+    !keys.Shift &&
+    (isUp || isDown || isLeft || isRight)
+  ) {
+    if (typeof toggleAutopilot === 'function') {
+      toggleAutopilot();
+    }
+  }
+
   // Shift+Up/Down: throttle control (For boat, it is just Up/Down)
   if (
     (keys.Shift && vehicleType !== 'helicopter') ||
