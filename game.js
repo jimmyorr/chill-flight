@@ -4310,11 +4310,13 @@ function animate() {
   // shadow camera in all 3 dimensions to a rigid, sun-aligned grid.
 
   // Step 1: Compute the sun direction (Forward vector)
-  if (sunY > 0) {
-    _shadowSunDir.set(sunX, sunY, sunZ).normalize();
-  } else {
-    _shadowSunDir.set(-sunX, -sunY, -sunZ).normalize();
-  }
+  // Clamp sunY to a small positive value so the shadow direction never flips.
+  // This makes shadows smoothly stretch toward the horizon at sunset/sunrise
+  // and then freeze. The dirLight intensity fades to 0 via dayFactor anyway,
+  // so the frozen direction is invisible by the time it diverges from reality.
+  _shadowSunDir
+    .set(sunX, Math.max(0.05, sunY), sunZ)
+    .normalize();
 
   // Step 2: Build a rigid local coordinate system for the light.
   _shadowRight.crossVectors(_worldUp, _shadowSunDir).normalize();
