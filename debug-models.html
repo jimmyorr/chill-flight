@@ -475,57 +475,60 @@
 
             // NATURE
             case 'pine':
-              const pineTrunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
-              const pineLeaves = new THREE.Mesh(
-                treeLeavesGeo,
-                createMaterial({color: 0x2d5a27})
-              );
-              previewGroup.add(pineTrunk, pineLeaves);
-              break;
             case 'deciduous':
-              const dTrunk = new THREE.Mesh(deciduousGeos.trunk, treeTrunkMat);
-              const dLeaves = new THREE.Mesh(
-                deciduousGeos.leaves,
-                createMaterial({color: 0x4a7c44})
-              );
-              previewGroup.add(dTrunk, dLeaves);
-              break;
             case 'yellow_cortez':
-              const ycTrunk = new THREE.Mesh(deciduousGeos.trunk, treeTrunkMat);
-              const ycLeaves = new THREE.Mesh(
-                deciduousGeos.leaves,
-                createMaterial({color: 0xffeb3b})
-              );
-              previewGroup.add(ycTrunk, ycLeaves);
-              break;
             case 'japanese_maple':
-              const jmTrunk = new THREE.Mesh(
-                japaneseMapleGeos.trunk,
-                treeTrunkMat
-              );
-              const jmLeaves = new THREE.Mesh(
-                japaneseMapleGeos.leaves,
-                createMaterial({color: 0xa31515})
-              );
-              previewGroup.add(jmTrunk, jmLeaves);
+            case 'palm': {
+              const variations = [-15, 0, 15];
+              variations.forEach((xOffset, i) => {
+                let trunkGeo, leavesGeo, baseHex;
+                if (type === 'pine') { trunkGeo = treeTrunkGeo; leavesGeo = treeLeavesGeo; baseHex = 0x1b5e20; }
+                else if (type === 'deciduous') { trunkGeo = deciduousGeos.trunk; leavesGeo = deciduousGeos.leaves; baseHex = 0x1b5e20; }
+                else if (type === 'yellow_cortez') { trunkGeo = deciduousGeos.trunk; leavesGeo = deciduousGeos.leaves; baseHex = 0xffeb3b; }
+                else if (type === 'japanese_maple') { trunkGeo = japaneseMapleGeos.trunk; leavesGeo = japaneseMapleGeos.leaves; baseHex = 0xa31515; }
+                else if (type === 'palm') { trunkGeo = palmGeos.trunk; leavesGeo = palmGeos.leaves; baseHex = 0x689f38; }
+
+                const trunk = new THREE.Mesh(trunkGeo, treeTrunkMat);
+                
+                const colorObj = new THREE.Color(baseHex);
+                // Apply deterministic variations so they stay consistent
+                const v = (i - 1) * 0.05; // -0.05, 0, 0.05
+                colorObj.r = Math.max(0, Math.min(1, colorObj.r + v));
+                colorObj.g = Math.max(0, Math.min(1, colorObj.g + v));
+                colorObj.b = Math.max(0, Math.min(1, colorObj.b + v));
+                
+                const leaves = new THREE.Mesh(
+                  leavesGeo,
+                  createMaterial({color: colorObj.getHex()})
+                );
+                
+                trunk.position.x = xOffset;
+                leaves.position.x = xOffset;
+                previewGroup.add(trunk, leaves);
+              });
               break;
-            case 'palm':
-              const pTrunk = new THREE.Mesh(palmGeos.trunk, treeTrunkMat);
-              const pLeaves = new THREE.Mesh(
-                palmGeos.leaves,
-                createMaterial({color: 0x6db33f})
-              );
-              previewGroup.add(pTrunk, pLeaves);
-              break;
+            }
             case 'dead_tree':
               previewGroup.add(new THREE.Mesh(deadTreeGeo, deadTreeMat));
               break;
             case 'cactus':
               previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
               break;
-            case 'bush':
-              previewGroup.add(new THREE.Mesh(bushGeo, bushMat));
+            case 'bush': {
+              const variations = [-10, 0, 10];
+              variations.forEach((xOffset, i) => {
+                const colorObj = new THREE.Color(0x558b2f);
+                const v = (i - 1) * 0.075; // -0.075, 0, 0.075
+                colorObj.r = Math.max(0, Math.min(1, colorObj.r + v));
+                colorObj.g = Math.max(0, Math.min(1, colorObj.g + v));
+                colorObj.b = Math.max(0, Math.min(1, colorObj.b + v));
+                
+                const bMesh = new THREE.Mesh(bushGeo, createMaterial({color: colorObj.getHex()}));
+                bMesh.position.x = xOffset;
+                previewGroup.add(bMesh);
+              });
               break;
+            }
             case 'rock':
               previewGroup.add(new THREE.Mesh(rockGeo, rockMat));
               break;
