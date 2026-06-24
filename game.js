@@ -4055,20 +4055,62 @@ function animate() {
         }
         bird.translateZ(-(data.speed * delta * 50));
 
-        if (data.type === 'hawk') {
+        if (data.type === 'hawk' || data.type === 'seagull') {
           data.angle += data.circleSpeed * delta;
           const targetX =
             data.circleCenter.x + Math.cos(data.angle) * data.circleRadius;
           const targetZ =
             data.circleCenter.z + Math.sin(data.angle) * data.circleRadius;
+
+          let targetY = bird.position.y;
+          let tiltZ = 0.3; // Bank angle for circling
+          let tiltX = 0; // Pitch angle
+
+          // Seagull diving logic
+          if (data.type === 'seagull') {
+            if (data.isDiving) {
+              data.diveTimer += delta;
+              const diveProgress = data.diveTimer / data.diveDuration;
+              if (diveProgress > 1.0) {
+                data.isDiving = false;
+                data.diveTimer = 0;
+              } else {
+                // Parabolic dive towards WATER_LEVEL
+                const baseHeight = data.circleCenter.y;
+                // We want to dive down to water level and back up
+                const diveDepth = baseHeight - WATER_LEVEL - 5;
+                // sine wave from 0 to PI makes a parabola-like curve
+                const diveOffset = Math.sin(diveProgress * Math.PI) * diveDepth;
+                targetY = baseHeight - diveOffset;
+
+                // Pitch down then up
+                tiltX = Math.sin(diveProgress * Math.PI * 2) * -0.8;
+                tiltZ = 0; // Stop banking while diving
+              }
+            } else {
+              data.diveTimer += delta;
+              if (data.diveTimer > data.nextDiveWait) {
+                data.isDiving = true;
+                data.diveTimer = 0;
+                data.diveDuration = 3.0 + Math.random() * 2.0;
+                data.nextDiveWait = 10.0 + Math.random() * 20.0;
+              }
+            }
+          }
+
           bird.lookAt(
             data.circleCenter.x +
               Math.cos(data.angle - 0.1) * data.circleRadius,
-            bird.position.y,
+            data.type === 'seagull' && data.isDiving
+              ? targetY
+              : bird.position.y,
             data.circleCenter.z + Math.sin(data.angle - 0.1) * data.circleRadius
           );
-          bird.rotation.z = 0.3;
-          bird.position.set(targetX, bird.position.y, targetZ);
+
+          bird.rotation.z = tiltZ;
+          bird.rotation.x += tiltX;
+
+          bird.position.set(targetX, targetY, targetZ);
         }
       });
     }

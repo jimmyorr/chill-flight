@@ -1551,6 +1551,65 @@ const hawkBrownMat = createMaterial({color: 0x4a2e15, flatShading: true});
 const hawkLightMat = createMaterial({color: 0xd2b48c, flatShading: true}); // Tan belly
 const hawkBeakMat = createMaterial({color: 0xffcc00, flatShading: true}); // Yellow beak
 
+// Seagull geometries
+const seagullBodyGeo = new THREE.BoxGeometry(1.0, 0.7, 3.0);
+const seagullHeadGeo = new THREE.BoxGeometry(0.7, 0.7, 0.9);
+seagullHeadGeo.translate(0, 0.3, -1.8);
+const seagullBeakGeo = new THREE.ConeGeometry(0.2, 0.7, 4);
+seagullBeakGeo.rotateX(-Math.PI / 2);
+seagullBeakGeo.translate(0, 0.2, -2.6);
+const seagullTailGeo = new THREE.BoxGeometry(1.2, 0.2, 1.2);
+seagullTailGeo.translate(0, 0, 1.8);
+const seagullWingGeo = new THREE.BoxGeometry(4.5, 0.1, 1.8);
+seagullWingGeo.translate(2.25, 0, 0);
+const seagullWingTipGeo = new THREE.BoxGeometry(1.5, 0.11, 1.6);
+seagullWingTipGeo.translate(4.0, 0, 0);
+
+const seagullWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
+const seagullGreyMat = createMaterial({color: 0xcccccc, flatShading: true});
+const seagullBlackMat = createMaterial({color: 0x333333, flatShading: true});
+const seagullBeakMat = createMaterial({color: 0xffd54f, flatShading: true});
+
+function assembleHawk(scale) {
+  const bird = new THREE.Group();
+  const body = new THREE.Mesh(hawkBodyGeo, hawkBrownMat);
+  const belly = new THREE.Mesh(hawkBellyGeo, hawkLightMat);
+  const head = new THREE.Mesh(hawkHeadGeo, hawkBrownMat);
+  const beak = new THREE.Mesh(hawkBeakGeo, hawkBeakMat);
+  const tail = new THREE.Mesh(hawkTailGeo, hawkBrownMat);
+  const wingL = new THREE.Mesh(hawkWingGeo, hawkBrownMat);
+  const wingR = new THREE.Mesh(hawkWingGeo, hawkBrownMat);
+  wingL.rotation.y = Math.PI;
+  bird.add(body, belly, head, beak, tail, wingL, wingR);
+  bird.scale.set(scale, scale, scale);
+  bird.userData.wings = [wingL, wingR];
+  return bird;
+}
+
+function assembleSeagull(scale) {
+  const bird = new THREE.Group();
+  const body = new THREE.Mesh(seagullBodyGeo, seagullWhiteMat);
+  const head = new THREE.Mesh(seagullHeadGeo, seagullWhiteMat);
+  const beak = new THREE.Mesh(seagullBeakGeo, seagullBeakMat);
+  const tail = new THREE.Mesh(seagullTailGeo, seagullWhiteMat);
+
+  const wingL = new THREE.Group();
+  const wingBaseL = new THREE.Mesh(seagullWingGeo, seagullGreyMat);
+  const wingTipL = new THREE.Mesh(seagullWingTipGeo, seagullBlackMat);
+  wingL.add(wingBaseL, wingTipL);
+  wingL.rotation.y = Math.PI; // flip for left
+
+  const wingR = new THREE.Group();
+  const wingBaseR = new THREE.Mesh(seagullWingGeo, seagullGreyMat);
+  const wingTipR = new THREE.Mesh(seagullWingTipGeo, seagullBlackMat);
+  wingR.add(wingBaseR, wingTipR);
+
+  bird.add(body, head, beak, tail, wingL, wingR);
+  bird.scale.set(scale, scale, scale);
+  bird.userData.wings = [wingL, wingR];
+  return bird;
+}
+
 // Canada Goose geometries
 const gooseBodyGeo = new THREE.BoxGeometry(1.2, 0.9, 3.5);
 const gooseNeckGeo = new THREE.CylinderGeometry(0.25, 0.35, 2.5, 6);
@@ -2612,7 +2671,7 @@ window.ModelAssembler = {
           },
           {geo: fireCoreGeo, mat: fireMat, pos: [0, 2, 0], rot: [0, rotY, 0]},
         ];
-      case 'bird':
+      case 'hawk':
         return [
           {
             geo: hawkBodyGeo,
@@ -2656,6 +2715,57 @@ window.ModelAssembler = {
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
             scale: [-1, 1, 1],
+          },
+        ];
+      case 'seagull':
+        return [
+          {
+            geo: seagullBodyGeo,
+            mat: seagullWhiteMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: seagullHeadGeo,
+            mat: seagullWhiteMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: seagullBeakGeo,
+            mat: seagullBeakMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: seagullTailGeo,
+            mat: seagullWhiteMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: seagullWingGeo,
+            mat: seagullGreyMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: seagullWingTipGeo,
+            mat: seagullBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: seagullWingGeo,
+            mat: seagullGreyMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY + Math.PI, 0],
+          },
+          {
+            geo: seagullWingTipGeo,
+            mat: seagullBlackMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY + Math.PI, 0],
           },
         ];
       case 'goose':
@@ -3922,7 +4032,7 @@ function generateChunk(chunkX, chunkZ) {
         const rVariation = (rng() - 0.5) * 0.1;
         const gVariation = (rng() - 0.5) * 0.1;
         const bVariation = (rng() - 0.5) * 0.1;
-        
+
         // Use a clean temporary color for the variation
         const baseColorObj = new THREE.Color(baseLeafColor);
         baseColorObj.r = Math.max(0, Math.min(1, baseColorObj.r + rVariation));
@@ -4369,12 +4479,21 @@ function generateChunk(chunkX, chunkZ) {
         const rVariation = (rng() - 0.5) * 0.15;
         const gVariation = (rng() - 0.5) * 0.15;
         const bVariation = (rng() - 0.5) * 0.15;
-        
+
         const baseBushColor = new THREE.Color(0x558b2f);
-        baseBushColor.r = Math.max(0, Math.min(1, baseBushColor.r + rVariation));
-        baseBushColor.g = Math.max(0, Math.min(1, baseBushColor.g + gVariation));
-        baseBushColor.b = Math.max(0, Math.min(1, baseBushColor.b + bVariation));
-        
+        baseBushColor.r = Math.max(
+          0,
+          Math.min(1, baseBushColor.r + rVariation)
+        );
+        baseBushColor.g = Math.max(
+          0,
+          Math.min(1, baseBushColor.g + gVariation)
+        );
+        baseBushColor.b = Math.max(
+          0,
+          Math.min(1, baseBushColor.b + bVariation)
+        );
+
         bushInst.setColorAt(index, baseBushColor);
       });
       if (bushInst.instanceColor) bushInst.instanceColor.needsUpdate = true;
@@ -5332,39 +5451,66 @@ function generateChunk(chunkX, chunkZ) {
 
       const baseRotationY = rng() * Math.PI * 2;
 
-      function assembleHawk(scale) {
-        const bird = new THREE.Group();
-        const body = new THREE.Mesh(hawkBodyGeo, hawkBrownMat);
-        const belly = new THREE.Mesh(hawkBellyGeo, hawkLightMat);
-        const head = new THREE.Mesh(hawkHeadGeo, hawkBrownMat);
-        const beak = new THREE.Mesh(hawkBeakGeo, hawkBeakMat);
-        const tail = new THREE.Mesh(hawkTailGeo, hawkBrownMat);
-        const wingL = new THREE.Mesh(hawkWingGeo, hawkBrownMat);
-        const wingR = new THREE.Mesh(hawkWingGeo, hawkBrownMat);
-        wingL.rotation.y = Math.PI;
-        bird.add(body, belly, head, beak, tail, wingL, wingR);
-        bird.scale.set(scale, scale, scale);
-        bird.userData.wings = [wingL, wingR];
-        return bird;
+      const isSouth = worldOffsetZ > 0;
+      const heightAtCenter = getCachedElevation(worldOffsetX, worldOffsetZ);
+      const isBeach =
+        heightAtCenter > WATER_LEVEL - 20 && heightAtCenter < WATER_LEVEL + 40;
+
+      if (isSouth && isBeach && rng() < 0.3) {
+        // Spawn seagulls
+        const numSeagulls = 2 + Math.floor(rng() * 4); // 2 to 5
+        const flockCenterX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+        const flockCenterZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+        let flockBaseY =
+          getCachedElevation(flockCenterX, flockCenterZ) + 40 + rng() * 60;
+
+        for (let i = 0; i < numSeagulls; i++) {
+          const seagull = assembleSeagull(2.5 + rng() * 1.0); // Slightly smaller scale than hawk
+          seagull.position.set(flockCenterX, flockBaseY, flockCenterZ);
+
+          seagull.userData.type = 'seagull';
+          seagull.userData.speed = 0.5; // Slightly faster
+          seagull.userData.circleSpeed = 0.4 + rng() * 0.2;
+          seagull.userData.circleRadius = 50 + rng() * 80;
+          seagull.userData.circleCenter = new THREE.Vector3(
+            flockCenterX,
+            flockBaseY + (rng() - 0.5) * 40,
+            flockCenterZ
+          );
+          seagull.userData.angle = rng() * Math.PI * 2;
+          seagull.userData.flapPhase = rng() * Math.PI * 2;
+          seagull.userData.flapSpeed = 10.0 + rng() * 5.0; // Faster flapping
+          seagull.userData.flapDuration = 2.0 + rng() * 2.0;
+          seagull.userData.soarDuration = 3.0 + rng() * 3.0;
+          seagull.userData.isDiving = false;
+          seagull.userData.diveTimer = rng() * 10;
+          seagull.userData.nextDiveWait = 10.0 + rng() * 20.0;
+
+          objectsGroup.add(seagull);
+          group.userData.birds.push(seagull);
+        }
+      } else {
+        // Spawn hawk
+
+        const hawk = assembleHawk(4.0);
+        hawk.position.set(baseX, baseY, baseZ);
+        hawk.rotation.y = baseRotationY;
+
+        hawk.userData.type = 'hawk';
+        hawk.userData.speed = 0.4;
+        hawk.userData.circleSpeed = 0.3 + rng() * 0.2;
+        hawk.userData.circleRadius = 150 + rng() * 100;
+        hawk.userData.circleCenter = new THREE.Vector3(baseX, baseY, baseZ);
+        hawk.userData.angle = rng() * Math.PI * 2;
+        hawk.userData.flapPhase = rng() * Math.PI * 2;
+        hawk.userData.flapSpeed = 8.0 + rng() * 4.0;
+        hawk.userData.flapDuration = 3.0 + rng() * 3.0;
+        hawk.userData.soarDuration = 4.0 + rng() * 4.0;
+        hawk.userData.isDiving = false;
+
+        objectsGroup.add(hawk);
+        group.userData.birds.push(hawk);
       }
-
-      const hawk = assembleHawk(4.0);
-      hawk.position.set(baseX, baseY, baseZ);
-      hawk.rotation.y = baseRotationY;
-
-      hawk.userData.type = 'hawk';
-      hawk.userData.speed = 0.4;
-      hawk.userData.circleSpeed = 0.3 + rng() * 0.2;
-      hawk.userData.circleRadius = 150 + rng() * 100;
-      hawk.userData.circleCenter = new THREE.Vector3(baseX, baseY, baseZ);
-      hawk.userData.angle = rng() * Math.PI * 2;
-      hawk.userData.flapPhase = rng() * Math.PI * 2;
-      hawk.userData.flapSpeed = 8.0 + rng() * 4.0;
-      hawk.userData.flapDuration = 3.0 + rng() * 3.0;
-      hawk.userData.soarDuration = 4.0 + rng() * 4.0;
-
-      objectsGroup.add(hawk);
-      group.userData.birds.push(hawk);
     }
 
     if (!isCustom && !isAlienChunk && rng() < 0.04) {

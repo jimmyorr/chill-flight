@@ -233,9 +233,8 @@
       </button>
 
       <div class="category-title">Other</div>
-      <button class="model-btn" onclick="viewModel('bird', event)">
-        Bird (hawk)
-      </button>
+      <button class="model-btn" onclick="viewModel('hawk')">Hawk</button>
+      <button class="model-btn" onclick="viewModel('seagull')">Seagull</button>
       <button class="model-btn" onclick="viewModel('goose', event)">
         Bird (goose)
       </button>
@@ -482,26 +481,42 @@
               const variations = [-15, 0, 15];
               variations.forEach((xOffset, i) => {
                 let trunkGeo, leavesGeo, baseHex;
-                if (type === 'pine') { trunkGeo = treeTrunkGeo; leavesGeo = treeLeavesGeo; baseHex = 0x1b5e20; }
-                else if (type === 'deciduous') { trunkGeo = deciduousGeos.trunk; leavesGeo = deciduousGeos.leaves; baseHex = 0x1b5e20; }
-                else if (type === 'yellow_cortez') { trunkGeo = deciduousGeos.trunk; leavesGeo = deciduousGeos.leaves; baseHex = 0xffeb3b; }
-                else if (type === 'japanese_maple') { trunkGeo = japaneseMapleGeos.trunk; leavesGeo = japaneseMapleGeos.leaves; baseHex = 0xa31515; }
-                else if (type === 'palm') { trunkGeo = palmGeos.trunk; leavesGeo = palmGeos.leaves; baseHex = 0x689f38; }
+                if (type === 'pine') {
+                  trunkGeo = treeTrunkGeo;
+                  leavesGeo = treeLeavesGeo;
+                  baseHex = 0x1b5e20;
+                } else if (type === 'deciduous') {
+                  trunkGeo = deciduousGeos.trunk;
+                  leavesGeo = deciduousGeos.leaves;
+                  baseHex = 0x1b5e20;
+                } else if (type === 'yellow_cortez') {
+                  trunkGeo = deciduousGeos.trunk;
+                  leavesGeo = deciduousGeos.leaves;
+                  baseHex = 0xffeb3b;
+                } else if (type === 'japanese_maple') {
+                  trunkGeo = japaneseMapleGeos.trunk;
+                  leavesGeo = japaneseMapleGeos.leaves;
+                  baseHex = 0xa31515;
+                } else if (type === 'palm') {
+                  trunkGeo = palmGeos.trunk;
+                  leavesGeo = palmGeos.leaves;
+                  baseHex = 0x689f38;
+                }
 
                 const trunk = new THREE.Mesh(trunkGeo, treeTrunkMat);
-                
+
                 const colorObj = new THREE.Color(baseHex);
                 // Apply deterministic variations so they stay consistent
                 const v = (i - 1) * 0.05; // -0.05, 0, 0.05
                 colorObj.r = Math.max(0, Math.min(1, colorObj.r + v));
                 colorObj.g = Math.max(0, Math.min(1, colorObj.g + v));
                 colorObj.b = Math.max(0, Math.min(1, colorObj.b + v));
-                
+
                 const leaves = new THREE.Mesh(
                   leavesGeo,
                   createMaterial({color: colorObj.getHex()})
                 );
-                
+
                 trunk.position.x = xOffset;
                 leaves.position.x = xOffset;
                 previewGroup.add(trunk, leaves);
@@ -522,8 +537,11 @@
                 colorObj.r = Math.max(0, Math.min(1, colorObj.r + v));
                 colorObj.g = Math.max(0, Math.min(1, colorObj.g + v));
                 colorObj.b = Math.max(0, Math.min(1, colorObj.b + v));
-                
-                const bMesh = new THREE.Mesh(bushGeo, createMaterial({color: colorObj.getHex()}));
+
+                const bMesh = new THREE.Mesh(
+                  bushGeo,
+                  createMaterial({color: colorObj.getHex()})
+                );
                 bMesh.position.x = xOffset;
                 previewGroup.add(bMesh);
               });
