@@ -829,6 +829,7 @@ function createBushGeometry() {
 }
 const bushGeo = createBushGeometry();
 const bushMat = createMaterial({color: 0x558b2f, flatShading: true}); // Darker green
+const bushBaseMat = createMaterial({color: 0xffffff, flatShading: true}); // For instance coloring
 
 // Snowman geometries and materials
 function createSnowmanGeometry() {
@@ -3895,17 +3896,16 @@ function generateChunk(chunkX, chunkZ) {
 
       positions.forEach((pos, index) => {
         const worldZ = worldOffsetZ + pos.z;
-        // northInfluence reaches 1.0 at worldZ = -4000; frost starts around -1800
         const northInfluence = Math.max(0, -worldZ / 4000);
 
         const tempNoise = simplex.noise2D(
           (worldOffsetX + pos.x) * 0.0001,
           worldZ * 0.0001
         );
-        // Threshold 0.78 means frost only appears deep in the snowy biome (worldZ < -3100 approx)
+        // Fix smooth snow blending (matching terrain snowFactor logic)
         const snowRaw = Math.max(
           0,
-          Math.min(1, (northInfluence + tempNoise * 0.05 - 0.78) * 3.5)
+          Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
         );
         const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
@@ -3918,8 +3918,19 @@ function generateChunk(chunkX, chunkZ) {
         trunkInst.setMatrixAt(index, dummy.matrix);
         leavesInst.setMatrixAt(index, dummy.matrix);
 
+        // Add slight random color variation per tree
+        const rVariation = (rng() - 0.5) * 0.1;
+        const gVariation = (rng() - 0.5) * 0.1;
+        const bVariation = (rng() - 0.5) * 0.1;
+        
+        // Use a clean temporary color for the variation
+        const baseColorObj = new THREE.Color(baseLeafColor);
+        baseColorObj.r = Math.max(0, Math.min(1, baseColorObj.r + rVariation));
+        baseColorObj.g = Math.max(0, Math.min(1, baseColorObj.g + gVariation));
+        baseColorObj.b = Math.max(0, Math.min(1, baseColorObj.b + bVariation));
+
         // Set leaf color: base leaf color lerped toward snow-white based on snowFactor
-        _tempColor.set(baseLeafColor);
+        _tempColor.copy(baseColorObj);
         if (snowFactor > 0) {
           _tempColor.lerp(_snowColor, snowFactor);
         }
@@ -4343,7 +4354,7 @@ function generateChunk(chunkX, chunkZ) {
     if (bushPositions.length > 0) {
       const bushInst = new THREE.InstancedMesh(
         bushGeo,
-        bushMat,
+        bushBaseMat,
         bushPositions.length
       );
       bushPositions.forEach((pos, index) => {
@@ -4353,7 +4364,20 @@ function generateChunk(chunkX, chunkZ) {
         dummy.scale.set(scale, scale, scale);
         dummy.updateMatrix();
         bushInst.setMatrixAt(index, dummy.matrix);
+
+        // Base bush green: 0x558b2f
+        const rVariation = (rng() - 0.5) * 0.15;
+        const gVariation = (rng() - 0.5) * 0.15;
+        const bVariation = (rng() - 0.5) * 0.15;
+        
+        const baseBushColor = new THREE.Color(0x558b2f);
+        baseBushColor.r = Math.max(0, Math.min(1, baseBushColor.r + rVariation));
+        baseBushColor.g = Math.max(0, Math.min(1, baseBushColor.g + gVariation));
+        baseBushColor.b = Math.max(0, Math.min(1, baseBushColor.b + bVariation));
+        
+        bushInst.setColorAt(index, baseBushColor);
       });
+      if (bushInst.instanceColor) bushInst.instanceColor.needsUpdate = true;
       bushInst.position.set(worldOffsetX, 0, worldOffsetZ);
       objectsGroup.add(bushInst);
     }
