@@ -3508,6 +3508,7 @@ function generateChunk(chunkX, chunkZ) {
           } else if (
             !isAlienLand &&
             ENABLE_BARNS &&
+            worldX < -5000 &&
             plainsRoll < barnThreshold &&
             snowFactor < 0.4 &&
             desertFactor < 0.3 &&
