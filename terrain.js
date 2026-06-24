@@ -1754,6 +1754,9 @@ const windmillBladesMat = createMaterial({
   flatShading: true,
   roughness: 0.9,
 });
+const windmillBladesDepthMat = new THREE.MeshDepthMaterial({
+  depthPacking: THREE.RGBADepthPacking,
+});
 
 // Lighthouse geometries
 const lighthouseTowerBottomGeo = new THREE.CylinderGeometry(8, 9, 20, 8);
@@ -1927,6 +1930,7 @@ windmillBladesMat.onBeforeCompile = (shader) => {
     `
   );
 };
+windmillBladesDepthMat.onBeforeCompile = windmillBladesMat.onBeforeCompile;
 
 fireMat.onBeforeCompile = (shader) => {
   shader.uniforms.uTime = window.animationUniforms.uTime;
@@ -5058,6 +5062,7 @@ function generateChunk(chunkX, chunkZ) {
         windmillBladesMat,
         windmillPositions.length * 4
       );
+      bladesInst.customDepthMaterial = windmillBladesDepthMat;
 
       windmillPositions.forEach((pos, index) => {
         const structure = ModelAssembler.getStructure('windmill', pos.rotY);

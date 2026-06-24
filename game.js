@@ -4314,9 +4314,7 @@ function animate() {
   // This makes shadows smoothly stretch toward the horizon at sunset/sunrise
   // and then freeze. The dirLight intensity fades to 0 via dayFactor anyway,
   // so the frozen direction is invisible by the time it diverges from reality.
-  _shadowSunDir
-    .set(sunX, Math.max(0.05, sunY), sunZ)
-    .normalize();
+  _shadowSunDir.set(sunX, Math.max(0.05, sunY), sunZ).normalize();
 
   // Step 2: Build a rigid local coordinate system for the light.
   _shadowRight.crossVectors(_worldUp, _shadowSunDir).normalize();
@@ -4608,9 +4606,14 @@ function animate() {
   let baseDir = THREE.MathUtils.lerp(0, 0.8, dayFactor);
   dirLight.intensity = THREE.MathUtils.lerp(baseDir, 0.05, overcast);
 
+  const PHASE_CYCLE_MS = 29.5 * 360000;
+  const phaseAngle =
+    ((passedServerNow % PHASE_CYCLE_MS) / PHASE_CYCLE_MS) * Math.PI * 2;
+  const phaseIntensity = (-Math.cos(phaseAngle) + 1.0) / 2.0;
+
   // Moonlight shines when the sun is down, independent of moon's now-fixed elevation
   let moonFactor = Math.max(0, Math.min(1, (-sunY - 0.25) / 0.25));
-  moonLight.intensity = moonFactor * 0.4 * (1.0 - overcast);
+  moonLight.intensity = moonFactor * 0.4 * (1.0 - overcast) * phaseIntensity;
 
   // --- APPLY SKY & FOG ---
   _uncloudedSkyColor.setHex(0x0a0c20);
@@ -4756,10 +4759,19 @@ function animate() {
   }
 
   if (window.waterUniforms && window.waterUniforms.uSunDirection) {
-    window.waterUniforms.uSunDirection.value.copy(_tempVec);
-    window.waterUniforms.uSunColor.value
-      .copy(dirLight.color)
-      .multiplyScalar(Math.max(0, 1.0 - overcast));
+    if (sunY > 0) {
+      window.waterUniforms.uSunDirection.value.copy(_tempVec);
+      window.waterUniforms.uSunColor.value
+        .copy(dirLight.color)
+        .multiplyScalar(Math.max(0, 1.0 - overcast));
+    } else {
+      const moonDirNorm = new THREE.Vector3(moonX, moonY, moonZ).normalize();
+      window.waterUniforms.uSunDirection.value.copy(moonDirNorm);
+
+      window.waterUniforms.uSunColor.value
+        .setHex(0xbad2ff)
+        .multiplyScalar(Math.max(0, 1.0 - overcast) * phaseIntensity * 0.5);
+    }
   }
 
   if (typeof sunUniforms !== 'undefined') {
@@ -4806,9 +4818,6 @@ function animate() {
     moonUniforms.uMoonRotMat.value.copy(moonRotMat);
     // Phase light direction — 29.5 game days per cycle
     // Ties the moon phase back to the game clock so it advances faster when time is sped up
-    const PHASE_CYCLE_MS = 29.5 * 360000; // 29.5 game days (at 360,000ms per day)
-    const phaseAngle =
-      ((passedServerNow % PHASE_CYCLE_MS) / PHASE_CYCLE_MS) * Math.PI * 2;
     const moonDirNorm = new THREE.Vector3(moonX, moonY, moonZ).normalize();
     let phaseX = new THREE.Vector3().crossVectors(
       new THREE.Vector3(0, 1, 0),
