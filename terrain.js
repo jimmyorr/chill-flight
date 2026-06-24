@@ -206,6 +206,10 @@ waterMaterial.onBeforeCompile = (shader) => {
         float timeScale = 1.5 + macro * 0.5; // 1.0 to 2.0
         float perturbStrength = 0.05 + macro * 0.03; // 0.02 to 0.08
         
+        // Distance fade for high-frequency normal perturbations to reduce aliasing
+        float distanceFade = smoothstep(1500.0, 0.0, vDistanceXZ);
+        perturbStrength *= distanceFade;
+        
         // Organic high-frequency ripples for shimmering specular
         vec2 pos = vWorldPosition.xz * rippleScale; // Scale of ripples
         float t = uTime * timeScale;
@@ -1279,6 +1283,117 @@ const monasteryBodyMat = createMaterial({color: 0x9e9e9e, flatShading: true}); /
 const monasteryRoofMat = createMaterial({color: 0x546e7a, flatShading: true}); // slate
 
 // --- CASTLE RUINS ---
+function createRockArchGeometries(rng) {
+  const rockGeos = [];
+  const grassGeos = [];
+
+  // We'll build the arch by placing blocks along a parabolic curve
+  // that is thick at the base and thins out at the top.
+  const numBlocks = 40;
+  for (let i = 0; i < numBlocks; i++) {
+    // t goes from -1 to 1 (left to right)
+    const t = (i / (numBlocks - 1)) * 2 - 1;
+
+    // Parabolic arch equation: y = h * (1 - t^2)
+    // We want the base at y=0, peak at y=135
+    const peakHeight = 135;
+    const archWidth = 250; // Total width increased for wider opening
+
+    const x = (t * archWidth) / 2;
+    // We can make the curve a bit steeper to open up the inside more
+    // y = peakHeight * (1 - t^2)
+    const y = peakHeight * (1 - Math.pow(Math.abs(t), 1.8)) + 5;
+
+    // Thickness decreases towards the top, but base thickness reduced
+    const thickness = 25 + Math.pow(Math.abs(t), 2) * 30;
+
+    // Add multiple jittered blocks at this position for volume
+    const blocksPerPos = 2 + Math.floor(Math.abs(t) * 2);
+
+    for (let j = 0; j < blocksPerPos; j++) {
+      const w = thickness * (0.6 + rng() * 0.8);
+      const h = thickness * (0.6 + rng() * 0.8);
+      const d = thickness * (0.6 + rng() * 0.8);
+
+      const box = new THREE.BoxGeometry(w, h, d);
+      box.rotateY(rng() * Math.PI);
+      box.rotateZ((rng() - 0.5) * 0.8);
+      box.rotateX((rng() - 0.5) * 0.8);
+
+      const jx = x + (rng() - 0.5) * thickness * 0.3;
+      const jy = y + (rng() - 0.5) * thickness * 0.3;
+      const jz = (rng() - 0.5) * 15;
+
+      box.translate(jx, jy, jz);
+      rockGeos.push(box);
+
+      // Grass logic - only add grass on the top-facing blocks of the arch
+      // We check if this block is relatively high up, or just add a grass block slightly above it
+      if (jy > 30) {
+        // Only top layer of grass, maybe probability based on height
+        if (rng() > 0.3) {
+          const grassBox = new THREE.BoxGeometry(
+            w * 0.9,
+            4 + rng() * 3,
+            d * 0.9
+          );
+          grassBox.rotateY(rng() * Math.PI);
+          grassBox.rotateZ((rng() - 0.5) * 0.2);
+          grassBox.rotateX((rng() - 0.5) * 0.2);
+          grassBox.translate(jx, jy + h / 2, jz);
+          grassGeos.push(grassBox);
+        }
+      }
+    }
+  }
+
+  function merge(geometries) {
+    const pos = [],
+      norm = [],
+      idx = [],
+      uv = [];
+    let offset = 0;
+    for (const g of geometries) {
+      if (g.attributes.position) pos.push(...g.attributes.position.array);
+      if (g.attributes.normal) norm.push(...g.attributes.normal.array);
+      if (g.attributes.uv) uv.push(...g.attributes.uv.array);
+      if (g.index) {
+        for (let i = 0; i < g.index.array.length; i++) {
+          idx.push(g.index.array[i] + offset);
+        }
+      } else {
+        // Fallback for unindexed geometries
+        for (let i = 0; i < g.attributes.position.count; i++) {
+          idx.push(i + offset);
+        }
+      }
+      offset += g.attributes.position.count;
+    }
+    const geom = new THREE.BufferGeometry();
+    if (pos.length > 0)
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    if (norm.length > 0)
+      geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+    if (uv.length > 0)
+      geom.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    if (idx.length > 0) geom.setIndex(idx);
+    return geom;
+  }
+
+  const mergedRock = merge(rockGeos);
+  const mergedGrass = merge(grassGeos);
+
+  // Clean up
+  rockGeos.forEach((g) => g.dispose());
+  grassGeos.forEach((g) => g.dispose());
+
+  return {rock: mergedRock, grass: mergedGrass};
+}
+if (typeof window !== 'undefined')
+  window.createRockArchGeometries = createRockArchGeometries;
+
+const rockArchGrassMat = createMaterial({color: 0x7cb342});
+
 function createCastleRuinsGeometry() {
   const geometries = [];
   // Use seeded RNG for deterministic layout across sessions
@@ -2902,6 +3017,8 @@ function generateChunk(chunkX, chunkZ) {
     const barnPositions = [];
     const monasteryPositions = [];
     const castleRuinsPositions = [];
+    const rockArchPositions = [];
+    const rockArchGrassPositions = [];
     let hasWater = false;
 
     // Normalize density so higher SEGMENTS doesn't mean more trees/houses/etc
@@ -3030,6 +3147,31 @@ function generateChunk(chunkX, chunkZ) {
                   z: localZ,
                   rotY: rng() * Math.PI * 2,
                 });
+              } else if (
+                chunkX === 2 &&
+                chunkZ === 0 &&
+                Math.abs(localX - 0) < 20 &&
+                Math.abs(localZ - 0) < 20 &&
+                rockArchPositions.length === 0 &&
+                rockArchGrassPositions.length === 0
+              ) {
+                // Rock arch (exactly one, in chunk 2,0 roughly at center)
+                // We ensure it only pushes once per chunk by checking the arrays
+                if (rng() < 0.5) {
+                  rockArchPositions.push({
+                    x: localX,
+                    y: WATER_LEVEL - 10,
+                    z: localZ,
+                    rotY: rng() * Math.PI * 2,
+                  });
+                } else {
+                  rockArchGrassPositions.push({
+                    x: localX,
+                    y: WATER_LEVEL - 10,
+                    z: localZ,
+                    rotY: rng() * Math.PI * 2,
+                  });
+                }
               } else if (snowFactor > 0.5) {
                 if (rng() < 0.0005 * densityScale) {
                   // Iceberg
@@ -3915,6 +4057,49 @@ function generateChunk(chunkX, chunkZ) {
         objectsGroup.add(rockInst);
       }
     });
+
+    // 2.3b Generate Rock Arches (Unique instances)
+    if (rockArchPositions.length > 0) {
+      rockArchPositions.forEach((pos) => {
+        const geos = createRockArchGeometries(rng);
+        const mesh = new THREE.Mesh(geos.rock, rockMat);
+        mesh.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+        mesh.rotation.y = pos.rotY;
+
+        // Store unique geometries so they can be disposed
+        mesh.geometry.userData.unique = true;
+        geos.grass.dispose(); // Unused in this variant
+
+        objectsGroup.add(mesh);
+      });
+    }
+
+    if (rockArchGrassPositions.length > 0) {
+      rockArchGrassPositions.forEach((pos) => {
+        const geos = createRockArchGeometries(rng);
+
+        const rockMesh = new THREE.Mesh(geos.rock, rockMat);
+        rockMesh.position.set(
+          worldOffsetX + pos.x,
+          pos.y,
+          worldOffsetZ + pos.z
+        );
+        rockMesh.rotation.y = pos.rotY;
+        rockMesh.geometry.userData.unique = true;
+
+        const grassMesh = new THREE.Mesh(geos.grass, rockArchGrassMat);
+        grassMesh.position.set(
+          worldOffsetX + pos.x,
+          pos.y,
+          worldOffsetZ + pos.z
+        );
+        grassMesh.rotation.y = pos.rotY;
+        grassMesh.geometry.userData.unique = true;
+
+        objectsGroup.add(rockMesh);
+        objectsGroup.add(grassMesh);
+      });
+    }
 
     // 2.4 Generate Cactuses
     if (cactusPositions.length > 0) {

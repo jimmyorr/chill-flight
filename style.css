@@ -150,22 +150,33 @@ textarea {
 }
 
 .btn {
-  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.05)
+  );
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
   padding: 0 24px;
   height: 42px;
   font-size: 16px;
+  font-weight: 600;
+  font-family:
+    'Inter',
+    -apple-system,
+    sans-serif;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 8px;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   margin-top: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   letter-spacing: 2px;
   outline: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(8px);
 }
 
 .btn:focus {
@@ -173,9 +184,14 @@ textarea {
 }
 
 .btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.05);
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.25),
+    rgba(255, 255, 255, 0.1)
+  );
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .customization-box {
@@ -387,18 +403,31 @@ input[type='number'].customization-input {
   top: max(20px, env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.6);
-  padding: 10px 20px;
-  border-radius: 8px;
-  backdrop-filter: blur(8px);
+  background: linear-gradient(
+    135deg,
+    rgba(25, 25, 30, 0.5),
+    rgba(10, 10, 15, 0.7)
+  );
+  padding: 12px 24px;
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   color: white;
   display: flex;
   align-items: center;
   gap: 20px;
   z-index: 150;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
   box-sizing: border-box;
 
   /* Make entire HUD interactive with clean hover state */
@@ -418,9 +447,13 @@ input[type='number'].customization-input {
 }
 
 #cockpit-ui:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(
+    135deg,
+    rgba(35, 35, 40, 0.6),
+    rgba(20, 20, 25, 0.8)
+  ) !important;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
 .cockpit-grid {
@@ -438,12 +471,12 @@ input[type='number'].customization-input {
 }
 
 .cockpit-label {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
   font-weight: 600;
-  width: 35px;
+  width: 38px;
   text-align: right;
 }
 
@@ -458,7 +491,9 @@ input[type='number'].customization-input {
 
 #flight-status {
   font-weight: bold;
+  font-family: 'Courier New', Courier, monospace;
   color: #ffd700;
+  text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
   display: inline-block;
   width: 120px;
 }
@@ -783,6 +818,7 @@ input[type='number'].customization-input {
   color: #fff;
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
   text-transform: uppercase;
+  margin-left: 12px; /* Fix centering issue caused by letter-spacing */
 }
 
 .loading-bar-container {

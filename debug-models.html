@@ -217,6 +217,12 @@
       <button class="model-btn" onclick="viewModel('windmill', event)">
         Windmill
       </button>
+      <button class="model-btn" onclick="viewModel('rock_arch', event)">
+        Rock arch
+      </button>
+      <button class="model-btn" onclick="viewModel('rock_arch_grass', event)">
+        Rock arch (Grass)
+      </button>
       <button class="model-btn" onclick="viewModel('lighthouse', event)">
         Lighthouse
       </button>
@@ -523,6 +529,23 @@
             case 'rock':
               previewGroup.add(new THREE.Mesh(rockGeo, rockMat));
               break;
+            case 'rock_arch': {
+              const geos = createRockArchGeometries(
+                ChillFlightLogic.mulberry32(Math.random() * 1000000)
+              );
+              previewGroup.add(new THREE.Mesh(geos.rock, rockMat));
+              break;
+            }
+            case 'rock_arch_grass': {
+              const geos = createRockArchGeometries(
+                ChillFlightLogic.mulberry32(Math.random() * 1000000)
+              );
+              previewGroup.add(new THREE.Mesh(geos.rock, rockMat));
+              previewGroup.add(
+                new THREE.Mesh(geos.grass, createMaterial({color: 0x7cb342}))
+              );
+              break;
+            }
             case 'lily_pad':
               previewGroup.add(new THREE.Mesh(lilyPadGeo, lilyPadMat));
               break;
