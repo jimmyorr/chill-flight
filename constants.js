@@ -110,6 +110,13 @@ function createMaterial(params) {
     shader.vertexShader = shader.vertexShader.replace(
       `#include <worldpos_vertex>`,
       `#include <worldpos_vertex>
+       #if !defined( USE_ENVMAP ) && !defined( DISTANCE ) && !defined ( USE_SHADOWMAP ) && !defined ( USE_TRANSMISSION )
+         vec4 worldPosition = vec4( transformed, 1.0 );
+         #ifdef USE_INSTANCING
+           worldPosition = instanceMatrix * worldPosition;
+         #endif
+         worldPosition = modelMatrix * worldPosition;
+       #endif
        #ifdef USE_FOG
          vDistanceXZ = length(worldPosition.xz - uCameraPosXZ);
          vWorldPosition = worldPosition.xyz;
