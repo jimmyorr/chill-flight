@@ -4,7 +4,7 @@
 //               houseWindowMats, chunks, updateChunks, getElevation,
 //               CHUNK_SIZE, WATER_LEVEL, BASE_FLIGHT_SPEED, TURN_SPEED, flightSpeedMultiplier,
 //               pontoonGroup, pontoonL, pontoonR, hingeLF, hingeLB, hingeRF, hingeRB,
-//               headlight, headlightGlow, otherPlayers (set by multiplayer.js),
+//               headlight, headlightGlow, otherPlayers (set by firebase.js),
 //               musicEnabled, setMusicEnabled
 
 // --- INPUT ---

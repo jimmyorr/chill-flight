@@ -58,10 +58,17 @@ async function startMultiplayer() {
 
     const app = initializeApp(firebaseConfig);
 
-    try {
-      getAnalytics(app);
-    } catch (e) {
-      console.warn('⚠️ Multiplayer: Analytics blocked.');
+    const isNative =
+      typeof Capacitor !== 'undefined' &&
+      typeof Capacitor.isNativePlatform === 'function' &&
+      Capacitor.isNativePlatform();
+
+    if (!isNative) {
+      try {
+        getAnalytics(app);
+      } catch (e) {
+        console.warn('⚠️ Multiplayer: Analytics blocked.');
+      }
     }
 
     const auth = getAuth(app);

@@ -234,5 +234,34 @@
     window.gtag = gtag;
     gtag('js', new Date());
     gtag('config', 'G-N6RGBLQCZ8');
+  } else {
+    console.log(
+      'Native environment detected. Initializing Firebase Analytics...'
+    );
+    // Expose a compatible window.gtag wrapper that forwards calls to native FirebaseAnalytics
+    window.gtag = function (command, eventName, params) {
+      if (command === 'event') {
+        if (window.FirebaseAnalytics) {
+          window.FirebaseAnalytics.logEvent({
+            name: eventName,
+            params: params || {},
+          }).catch((err) => {
+            console.warn('⚠️ Native Analytics error logging event:', err);
+          });
+        }
+      }
+    };
+
+    // Log app launch/init event
+    setTimeout(() => {
+      if (window.FirebaseAnalytics) {
+        window.FirebaseAnalytics.logEvent({
+          name: 'app_launch',
+          params: {platform: Capacitor.getPlatform()},
+        }).catch((err) => {
+          console.warn('⚠️ Native Analytics error logging app launch:', err);
+        });
+      }
+    }, 1000);
   }
 })();
