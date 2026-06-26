@@ -4425,7 +4425,7 @@ function animate() {
     forceShootingStar
   ) {
     if (!isShootingStarActive) {
-      if (forceShootingStar || Math.random() < delta / 15.0) {
+      if (forceShootingStar || Math.random() < delta / 30.0) {
         forceShootingStar = false;
         isShootingStarActive = true;
         shootingStarProgress = 0;
