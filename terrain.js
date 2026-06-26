@@ -362,6 +362,53 @@ function createDeciduousGeometry() {
 }
 const deciduousGeos = createDeciduousGeometry();
 
+function createTallDeciduousGeometry() {
+  const trunk = new THREE.CylinderGeometry(1.5, 2.2, 16, 6);
+  trunk.translate(0, 8, 0);
+
+  // Tall canopy, vase/oval shape
+  const leaf1 = new THREE.SphereGeometry(6, 7, 5); // Main lower mass
+  leaf1.scale(1, 1.2, 1);
+  leaf1.translate(0, 16, 0);
+
+  const leaf2 = new THREE.SphereGeometry(5.5, 7, 5); // Mid mass
+  leaf2.scale(1, 1.3, 1);
+  leaf2.translate(0, 22, 0);
+
+  const leaf3 = new THREE.SphereGeometry(4.5, 7, 5); // Top crown
+  leaf3.scale(1, 1.2, 1);
+  leaf3.translate(0, 28, 0);
+
+  const leaf4 = new THREE.SphereGeometry(4, 7, 5); // Side cluster 1
+  leaf4.scale(1, 1.1, 1);
+  leaf4.translate(3.5, 18, 2);
+
+  const leaf5 = new THREE.SphereGeometry(4, 7, 5); // Side cluster 2
+  leaf5.scale(1, 1.1, 1);
+  leaf5.translate(-3.5, 19, -2);
+
+  const geometries = [leaf1, leaf2, leaf3, leaf4, leaf5];
+  const pos = [],
+    norm = [],
+    idx = [];
+  let offset = 0;
+
+  for (const g of geometries) {
+    pos.push(...g.attributes.position.array);
+    norm.push(...g.attributes.normal.array);
+    for (let i = 0; i < g.index.array.length; i++)
+      idx.push(g.index.array[i] + offset);
+    offset += g.attributes.position.count;
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return {trunk, leaves: geom};
+}
+const tallDeciduousGeos = createTallDeciduousGeometry();
+
 function createJapaneseMapleGeometry() {
   const trunk = new THREE.CylinderGeometry(0.8, 1.4, 11, 6);
   trunk.translate(0, 5.5, 0);
@@ -3097,6 +3144,7 @@ function generateChunk(chunkX, chunkZ) {
 
     const treePositions = []; // Pines (Snow/Mountain)
     const deciduousTreePositions = []; // Standard green oak
+    const tallDeciduousTreePositions = []; // Tall green oak
     const palmTreePositions = []; // Tropical
     const deadTreePositions = []; // Desert
     const snowTreePositions = [];
@@ -3560,7 +3608,20 @@ function generateChunk(chunkX, chunkZ) {
                 else
                   autumnTree3Positions.push({x: localX, y: height, z: localZ});
               } else {
-                deciduousTreePositions.push({x: localX, y: height, z: localZ});
+                if (rng() < 0.25) {
+                  // 25% chance of tall deciduous tree
+                  tallDeciduousTreePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                  });
+                } else {
+                  deciduousTreePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                  });
+                }
               }
             }
           } else if (
@@ -4080,6 +4141,13 @@ function generateChunk(chunkX, chunkZ) {
       deciduousGeos.leaves,
       treeTrunkMat,
       0x1b5e20
+    );
+    renderTrees(
+      tallDeciduousTreePositions,
+      tallDeciduousGeos.trunk,
+      tallDeciduousGeos.leaves,
+      treeTrunkMat,
+      0x1a451d
     );
     renderTrees(
       palmTreePositions,
@@ -5596,7 +5664,8 @@ function generateChunk(chunkX, chunkZ) {
 
     group.userData.counts = {
       trees_pine: treePositions.length + snowTreePositions.length,
-      trees_decid: deciduousTreePositions.length,
+      trees_decid:
+        deciduousTreePositions.length + tallDeciduousTreePositions.length,
       trees_palm: palmTreePositions.length,
       trees_dead: deadTreePositions.length,
       trees_autumn:

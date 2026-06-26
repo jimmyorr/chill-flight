@@ -170,6 +170,9 @@
       <button class="model-btn" onclick="viewModel('deciduous', event)">
         Deciduous tree
       </button>
+      <button class="model-btn" onclick="viewModel('tall_deciduous', event)">
+        Tall deciduous tree
+      </button>
       <button class="model-btn" onclick="viewModel('yellow_cortez', event)">
         Yellow cortez
       </button>
@@ -475,6 +478,7 @@
             // NATURE
             case 'pine':
             case 'deciduous':
+            case 'tall_deciduous':
             case 'yellow_cortez':
             case 'japanese_maple':
             case 'palm': {
@@ -489,6 +493,10 @@
                   trunkGeo = deciduousGeos.trunk;
                   leavesGeo = deciduousGeos.leaves;
                   baseHex = 0x1b5e20;
+                } else if (type === 'tall_deciduous') {
+                  trunkGeo = tallDeciduousGeos.trunk;
+                  leavesGeo = tallDeciduousGeos.leaves;
+                  baseHex = 0x1a451d; // Slightly darker green
                 } else if (type === 'yellow_cortez') {
                   trunkGeo = deciduousGeos.trunk;
                   leavesGeo = deciduousGeos.leaves;
