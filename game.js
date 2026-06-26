@@ -4111,6 +4111,14 @@ function animate() {
           bird.rotation.x += tiltX;
 
           bird.position.set(targetX, targetY, targetZ);
+        } else if (data.type === 'goose') {
+          // Prevent geese from flying into the volcano or terrain
+          const groundY = getElevation(bird.position.x, bird.position.z);
+          const minClearance = 250;
+          if (bird.position.y < groundY + minClearance) {
+            bird.position.y +=
+              (groundY + minClearance - bird.position.y) * 3.0 * delta;
+          }
         }
       });
     }
