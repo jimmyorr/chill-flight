@@ -2093,7 +2093,7 @@ function updateWeather(delta) {
   snowParticles.material.opacity = THREE.MathUtils.lerp(
     snowParticles.material.opacity,
     targetSnowOpacity,
-    1 - Math.exp(-0.75 * delta)
+    1 - Math.exp(-0.5 * delta)
   );
   rainParticles.material.opacity = THREE.MathUtils.lerp(
     rainParticles.material.opacity,
