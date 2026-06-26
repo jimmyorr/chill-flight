@@ -3354,31 +3354,6 @@ function generateChunk(chunkX, chunkZ) {
                   z: localZ,
                   rotY: rng() * Math.PI * 2,
                 });
-              } else if (
-                chunkX === 2 &&
-                chunkZ === 0 &&
-                Math.abs(localX - 0) < 20 &&
-                Math.abs(localZ - 0) < 20 &&
-                rockArchPositions.length === 0 &&
-                rockArchGrassPositions.length === 0
-              ) {
-                // Rock arch (exactly one, in chunk 2,0 roughly at center)
-                // We ensure it only pushes once per chunk by checking the arrays
-                if (rng() < 0.5) {
-                  rockArchPositions.push({
-                    x: localX,
-                    y: WATER_LEVEL - 10,
-                    z: localZ,
-                    rotY: rng() * Math.PI * 2,
-                  });
-                } else {
-                  rockArchGrassPositions.push({
-                    x: localX,
-                    y: WATER_LEVEL - 10,
-                    z: localZ,
-                    rotY: rng() * Math.PI * 2,
-                  });
-                }
               } else if (snowFactor > 0.5) {
                 if (rng() < 0.0005 * densityScale) {
                   // Iceberg
@@ -3952,6 +3927,28 @@ function generateChunk(chunkX, chunkZ) {
       console.log(
         `[Lighthouse] Placed Montauk lighthouse at fixed position (0, ${lighthousePos.y}, 0)`
       );
+    }
+
+    if (chunkX === 2 && chunkZ === 0 && _enableObjects) {
+      if (rockArchPositions.length === 0 && rockArchGrassPositions.length === 0) {
+        // Rock arch (exactly one, in chunk 2,0 roughly at center)
+        const archHeight = Math.max(WATER_LEVEL, getCachedElevation(worldOffsetX, worldOffsetZ));
+        if (rng() < 0.5) {
+          rockArchPositions.push({
+            x: 0,
+            y: archHeight - 10,
+            z: 0,
+            rotY: rng() * Math.PI * 2,
+          });
+        } else {
+          rockArchGrassPositions.push({
+            x: 0,
+            y: archHeight - 10,
+            z: 0,
+            rotY: rng() * Math.PI * 2,
+          });
+        }
+      }
     }
 
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
