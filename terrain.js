@@ -1841,8 +1841,52 @@ const lighthouseGlowMat = createMaterial({
 });
 
 // Pier geometries
-const pierDeckGeo = new THREE.BoxGeometry(15, 2, 30);
-pierDeckGeo.translate(0, 1, 15); // Extend from shore
+function createPierDeckGeometry() {
+  const geometries = [];
+
+  // Main support beams (lengthwise)
+  const beam1 = new THREE.BoxGeometry(1.5, 1.5, 30);
+  beam1.translate(-5, 0.75, 15);
+  const beam2 = new THREE.BoxGeometry(1.5, 1.5, 30);
+  beam2.translate(5, 0.75, 15);
+  geometries.push(beam1, beam2);
+
+  // Planks across
+  for (let i = 0; i < 15; i++) {
+    const plank = new THREE.BoxGeometry(16, 0.5, 1.8);
+    plank.translate(0, 1.75, 1 + i * 2);
+    geometries.push(plank);
+  }
+
+  const pos = [],
+    norm = [],
+    idx = [];
+  let offset = 0;
+  for (const g of geometries) {
+    pos.push(...g.attributes.position.array);
+    if (g.attributes.normal) {
+      norm.push(...g.attributes.normal.array);
+    }
+    if (g.index) {
+      for (let i = 0; i < g.index.array.length; i++)
+        idx.push(g.index.array[i] + offset);
+    } else {
+      for (let i = 0; i < g.attributes.position.count; i++)
+        idx.push(i + offset);
+    }
+    offset += g.attributes.position.count;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (norm.length === pos.length) {
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  } else {
+    geom.computeVertexNormals();
+  }
+  geom.setIndex(idx);
+  return geom;
+}
+const pierDeckGeo = createPierDeckGeometry();
 const pierPostGeo = new THREE.CylinderGeometry(1, 1, 10, 6);
 const woodMat = createMaterial({color: 0x5d4037, flatShading: true});
 
