@@ -414,6 +414,10 @@ function initMultiplayerUI() {
         localStorage.setItem('chill_flight_color', planeColor.toString());
         if (typeof planeMat !== 'undefined' && planeMat)
           planeMat.color.setHex(planeColor);
+        if (typeof planeWhiteMat !== 'undefined' && planeWhiteMat)
+          planeWhiteMat.color.setHex(
+            planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff
+          );
 
         // Update swatches UI
         colorOptions.querySelectorAll('.color-swatch').forEach((sw) => {

@@ -149,7 +149,7 @@
     0x5c8092, // Ocean Slate
     0xe8c382, // Soft Sand
     0xa75a7a, // Deep Rose
-    0x3e5c76, // Twilight Blue
+    0x333333, // Charcoal Black
   ];
 
   function getPlaneColor(uid) {

@@ -142,7 +142,10 @@ function setVehicle(type) {
 }
 
 // --- AIRPLANE MODEL ---
-const planeWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
+const planeWhiteMat = createMaterial({
+  color: planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff,
+  flatShading: true,
+});
 planeMat = createMaterial({color: planeColor, flatShading: true});
 
 // Fuselage (Main Body)
