@@ -68,7 +68,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 - **Key Features:**
   - **Mountain Range:** The "Northern Snowy Range" is located at approximately 2.0 North latitude (Z = -10000) and extends west from 1.0 West longitude (X = -5000). It features sharp, ridged peaks reaching altitudes up to 1600 units.
   - **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
-  - **Water:** Icy, pale blue water (#88CCFF).
+  - **Water:** Icy, pale blue water (#88CCFF) featuring massive floating icebergs and shattered ice floes in the deep north.
 
 ### 3. The arid south (Arizona style)
 
@@ -158,6 +158,21 @@ These areas are layered on top of the primary biomes using noise-based "patches"
 - **Grid rivers:** Smaller rivers running East-West every 3 degrees (15,000 units) North and South of the equator. These feature widths of 60 to 200 units and have unique snaking patterns determined by the world seed.
 - **Volcano:** Located at approximately `1.0 South, 1.0 West` (X=-5000, Z=5000). This is a massive, procedural volcano featuring a wide base, ridged slopes, a caldera crater, and active visual elements like lava and smoke. The surrounding terrain is textured with dark basalt rock.
 - **Montauk lighthouse:** Located at approximately `0.6 South, 1.2 East` (X=6000, Z=3000). This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
+- **Rock Arch:** Located on the coast directly East of spawn at approximately `0.0 Latitude, 0.6 East` (X=3000, Z=0). A massive stone archway covered in grass, serving as a gateway to the islands.
+
+## Liveries
+
+The plane's color is deterministically chosen based on a hash of the player's unique UID. There are 8 available liveries:
+- Sunset Coral
+- Chill Teal
+- Muted Sage
+- Lofi Purple
+- Ocean Slate
+- Soft Sand
+- Deep Rose
+- Charcoal Black
+
+You can force a specific livery using the `?palette=<index>` URL parameter (0-7).
 
 ## Wildlife
 
@@ -165,6 +180,8 @@ The world is populated with dynamic, procedural wildlife that adds life to the e
 
 - **Geese:** Flocks of Canada geese fly in V-formations across the sky. They sleep and disappear at night, resuming their flight in the morning.
 - **Hawks:** Solitary hawks glide on thermal currents, dynamically transitioning between flapping and soaring.
+- **Seagulls:** Flocks of gulls circle over coastal regions and beaches.
+- **Penguins:** Animated waddling penguins inhabit the icy terrain and floating icebergs of the deep north.
 
 ## Controls
 
@@ -180,6 +197,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, gamepad, an
 - **Mouse wheel / trackpad scroll**: Smoothly adjust throttle (increase / decrease speed).
 - **M**: Toggle minimap overlay.
 - **L**: Toggle headlight.
+- **Shift + A**: Toggle autopilot (automatically levels out and maintains heading/altitude). Manual steering input will auto-disable autopilot.
 - **Escape**: Toggle pause menu.
 
 #### Special maneuvers
