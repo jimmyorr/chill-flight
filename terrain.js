@@ -3930,9 +3930,15 @@ function generateChunk(chunkX, chunkZ) {
     }
 
     if (chunkX === 2 && chunkZ === 0 && _enableObjects) {
-      if (rockArchPositions.length === 0 && rockArchGrassPositions.length === 0) {
+      if (
+        rockArchPositions.length === 0 &&
+        rockArchGrassPositions.length === 0
+      ) {
         // Rock arch (exactly one, in chunk 2,0 roughly at center)
-        const archHeight = Math.max(WATER_LEVEL, getCachedElevation(worldOffsetX, worldOffsetZ));
+        const archHeight = Math.max(
+          WATER_LEVEL,
+          getCachedElevation(worldOffsetX, worldOffsetZ)
+        );
         if (rng() < 0.5) {
           rockArchPositions.push({
             x: 0,
