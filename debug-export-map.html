@@ -171,7 +171,7 @@
           parseFloat(document.getElementById('input-scale').value) || 10;
         const statusEl = document.getElementById('status');
 
-        statusEl.innerText = 'Generating... Please wait.';
+        statusEl.innerText = 'Generating... 0%';
 
         // Use setTimeout to allow the UI to update before heavy processing
         setTimeout(() => {
@@ -203,57 +203,70 @@
           const WATER_LEVEL_VAL =
             typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40;
 
-          // Generate pixels
-          for (let py = 0; py < pixelHeight; py++) {
-            for (let px = 0; px < pixelWidth; px++) {
-              const worldX = startX + px * scale;
-              const worldZ = startZ + py * scale;
+          let py = 0;
+          
+          function generateChunk() {
+            const rowsPerFrame = 50; // Process 50 rows per frame to balance speed and UI updates
+            const maxPy = Math.min(py + rowsPerFrame, pixelHeight);
+            
+            for (; py < maxPy; py++) {
+              for (let px = 0; px < pixelWidth; px++) {
+                const worldX = startX + px * scale;
+                const worldZ = startZ + py * scale;
+  
+                const h = ChillFlightLogic.getElevation(
+                  worldX,
+                  worldZ,
+                  customSimplex,
+                  {
+                    WATER_LEVEL: WATER_LEVEL_VAL,
+                    MOUNTAIN_LEVEL:
+                      typeof MOUNTAIN_LEVEL !== 'undefined'
+                        ? MOUNTAIN_LEVEL
+                        : 180,
+                    MAP_HEIGHT_SCALE: MAP_HEIGHT_SCALE_VAL,
+                    MAP_WORLD_SIZE:
+                      typeof MAP_WORLD_SIZE !== 'undefined'
+                        ? MAP_WORLD_SIZE
+                        : 10000,
+                  },
+                  null
+                );
+  
+                let normalized = Math.floor(((h + 100) / 800) * 255);
+                if (normalized < 0) normalized = 0;
+                if (normalized > 255) normalized = 255;
+  
+                const idx = (py * pixelWidth + px) * 4;
+                data[idx] = normalized;
+                data[idx + 1] = normalized;
+                data[idx + 2] = normalized;
+                data[idx + 3] = 255;
+              }
+            }
+            
+            if (py < pixelHeight) {
+              const percent = Math.floor((py / pixelHeight) * 100);
+              statusEl.innerText = `Generating... ${percent}%`;
+              // Use setTimeout so the DOM has a chance to render the new text
+              setTimeout(generateChunk, 0);
+            } else {
+              ctx.putImageData(imgData, 0, 0);
 
-              const h = ChillFlightLogic.getElevation(
-                worldX,
-                worldZ,
-                customSimplex,
-                {
-                  WATER_LEVEL: WATER_LEVEL_VAL,
-                  MOUNTAIN_LEVEL:
-                    typeof MOUNTAIN_LEVEL !== 'undefined'
-                      ? MOUNTAIN_LEVEL
-                      : 180,
-                  MAP_HEIGHT_SCALE: MAP_HEIGHT_SCALE_VAL,
-                  MAP_WORLD_SIZE:
-                    typeof MAP_WORLD_SIZE !== 'undefined'
-                      ? MAP_WORLD_SIZE
-                      : 10000,
-                },
-                null
-              );
+              // Download
+              const dataURL = canvas.toDataURL('image/png');
+              const link = document.createElement('a');
+              link.href = dataURL;
+              link.download = `heightmap-${seed}-${chunkWidth}x${chunkHeight}.png`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
 
-              // Map elevation to 0-255 luminance
-              // Map [-100, 700] to [0, 255] roughly
-              let normalized = Math.floor(((h + 100) / 800) * 255);
-              if (normalized < 0) normalized = 0;
-              if (normalized > 255) normalized = 255;
-
-              const idx = (py * pixelWidth + px) * 4;
-              data[idx] = normalized; // R
-              data[idx + 1] = normalized; // G
-              data[idx + 2] = normalized; // B
-              data[idx + 3] = 255; // Alpha
+              statusEl.innerText = `Downloaded ${pixelWidth}x${pixelHeight} map successfully.`;
             }
           }
-
-          ctx.putImageData(imgData, 0, 0);
-
-          // Download
-          const dataURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
-          link.href = dataURL;
-          link.download = `heightmap-${seed}-${chunkWidth}x${chunkHeight}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          statusEl.innerText = `Downloaded ${pixelWidth}x${pixelHeight} map successfully.`;
+          
+          generateChunk();
         }, 50);
       });
     </script>
