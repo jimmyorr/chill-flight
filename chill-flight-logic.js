@@ -653,14 +653,14 @@
     if (isEquatorRiver) {
       const widthNoise = simplex.noise2D(x * 0.0005, 200);
       const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
-      riverWidth = 80 + widthVariation * 220; // River width fluctuates between 80 and 300
-      riverBankWidth = 100 + widthVariation * 100; // Bank width also fluctuates
+      riverWidth = 120 + widthVariation * 180; // Min 120, max 300
+      riverBankWidth = 100 + widthVariation * 100;
     } else {
-      // Smaller rivers: 60 to 200
+      // Smaller rivers
       const widthNoise = simplex.noise2D(x * 0.0008, riverIndex * 10.0);
       const widthVariation = (widthNoise + 1) * 0.5;
-      riverWidth = 60 + widthVariation * 140;
-      riverBankWidth = 50 + widthVariation * 50; // Smaller banks too
+      riverWidth = 100 + widthVariation * 100; // Min 100, max 200
+      riverBankWidth = 60 + widthVariation * 40;
     }
 
     // Calculate river factor
@@ -782,27 +782,41 @@
   // Returns the absolute Z coordinate of the center of the river at a given X.
   // Updated to take Z and return the center of the nearest river.
   function getRiverCenterZ(x, z, simplex) {
-    const riverSpacing = 15000; // 3 degrees * 5000 units/degree
+    const riverSpacing = 15000;
     const riverIndex = Math.round(z / riverSpacing);
-    const baseRiverZ = riverIndex * riverSpacing;
+    let baseRiverZ = riverIndex * riverSpacing;
+
+    const noiseOffset = riverIndex * 12.34;
+
+    // Macro-meander: Massive, slow north/south shifting to break horizontal lines
+    // Frequency 0.00002 means a wavelength of 50,000 units. Very smooth.
+    const macroMeander = simplex.noise2D(x * 0.00002, noiseOffset + 50) * 5000;
+    baseRiverZ += macroMeander;
+
+    // Squiggle intensity factor: Changes slowly over 20,000 units
+    const squiggleFactor =
+      (simplex.noise2D(x * 0.00005, noiseOffset + 100) + 1) * 0.5; // [0, 1]
 
     if (riverIndex === 0) {
+      // Equator river (massive main river)
+      const freq1 = 0.0001;
+      const amp1 = 1500 + squiggleFactor * 2500; // Large sweeping curves
+
+      const freq2 = 0.0002;
+      const amp2 = 500 + squiggleFactor * 800; // Medium detail
+
       return (
         baseRiverZ +
-        simplex.noise2D(x * 0.0003, 0) * 800 +
-        simplex.noise2D(x * 0.001, 100) * 200
+        simplex.noise2D(x * freq1, 0) * amp1 +
+        simplex.noise2D(x * freq2, 100) * amp2
       );
     } else {
       // Additional rivers
-      // Use riverIndex to create unique noise offsets
-      const noiseOffset = riverIndex * 12.34;
+      const freq1 = 0.00015;
+      const amp1 = 1000 + squiggleFactor * 2000;
 
-      // Vary frequency and amplitude for unique snaking
-      const freq1 = 0.0002 + simplex.noise2D(noiseOffset, 0) * 0.0001;
-      const amp1 = 400 + simplex.noise2D(noiseOffset, 1) * 200;
-
-      const freq2 = 0.0008 + simplex.noise2D(noiseOffset, 2) * 0.0004;
-      const amp2 = 80 + simplex.noise2D(noiseOffset, 3) * 40;
+      const freq2 = 0.0003;
+      const amp2 = 300 + squiggleFactor * 600;
 
       return (
         baseRiverZ +
