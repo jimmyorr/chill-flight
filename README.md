@@ -163,6 +163,7 @@ These areas are layered on top of the primary biomes using noise-based "patches"
 ## Liveries
 
 The plane's color is deterministically chosen based on a hash of the player's unique UID. There are 8 available liveries:
+
 - Sunset Coral
 - Chill Teal
 - Muted Sage
