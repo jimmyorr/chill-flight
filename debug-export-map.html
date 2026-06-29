@@ -253,6 +253,18 @@
             } else {
               ctx.putImageData(imgData, 0, 0);
 
+              // Draw a red X at the lighthouse location (X=7500, Z=3000)
+              const lx = (7500 - startX) / scale;
+              const lz = (3000 - startZ) / scale;
+              ctx.strokeStyle = 'red';
+              ctx.lineWidth = Math.max(2, 20 / scale);
+              ctx.beginPath();
+              ctx.moveTo(lx - 5, lz - 5);
+              ctx.lineTo(lx + 5, lz + 5);
+              ctx.moveTo(lx + 5, lz - 5);
+              ctx.lineTo(lx - 5, lz + 5);
+              ctx.stroke();
+
               // Download
               const dataURL = canvas.toDataURL('image/png');
               const link = document.createElement('a');
