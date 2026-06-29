@@ -204,16 +204,16 @@
             typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40;
 
           let py = 0;
-          
+
           function generateChunk() {
             const rowsPerFrame = 50; // Process 50 rows per frame to balance speed and UI updates
             const maxPy = Math.min(py + rowsPerFrame, pixelHeight);
-            
+
             for (; py < maxPy; py++) {
               for (let px = 0; px < pixelWidth; px++) {
                 const worldX = startX + px * scale;
                 const worldZ = startZ + py * scale;
-  
+
                 const h = ChillFlightLogic.getElevation(
                   worldX,
                   worldZ,
@@ -232,11 +232,11 @@
                   },
                   null
                 );
-  
+
                 let normalized = Math.floor(((h + 100) / 800) * 255);
                 if (normalized < 0) normalized = 0;
                 if (normalized > 255) normalized = 255;
-  
+
                 const idx = (py * pixelWidth + px) * 4;
                 data[idx] = normalized;
                 data[idx + 1] = normalized;
@@ -244,7 +244,7 @@
                 data[idx + 3] = 255;
               }
             }
-            
+
             if (py < pixelHeight) {
               const percent = Math.floor((py / pixelHeight) * 100);
               statusEl.innerText = `Generating... ${percent}%`;
@@ -265,7 +265,7 @@
               statusEl.innerText = `Downloaded ${pixelWidth}x${pixelHeight} map successfully.`;
             }
           }
-          
+
           generateChunk();
         }, 50);
       });

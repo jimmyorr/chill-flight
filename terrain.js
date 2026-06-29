@@ -3072,8 +3072,8 @@ function getElevation(x, z) {
     THREE.MathUtils.lerp
   );
 
-  // Add a large island for the Montauk lighthouse at chunk 4,2 (world 6000, 3000)
-  const dx = x - 6000;
+  // Add a large island for the Montauk lighthouse at chunk 5,2 (world 7500, 3000)
+  const dx = x - 7500;
   const dz = z - 3000;
   const distSq = dx * dx + dz * dz;
   const islandRadius = 400; // Big island
@@ -3203,7 +3203,7 @@ function generateChunk(chunkX, chunkZ) {
     const strawHutPositions = [];
     const windmillPositions = [];
     let lighthousePos = null;
-    const isMontaukChunk = chunkX === 4 && chunkZ === 2;
+    const isMontaukChunk = chunkX === 5 && chunkZ === 2;
     let bestMontaukPos = null;
     let fallbackMontaukPos = null;
     const pierPositions = [];
@@ -3920,7 +3920,7 @@ function generateChunk(chunkX, chunkZ) {
     if (isMontaukChunk) {
       lighthousePos = {
         x: 0,
-        y: getElevation(6000, 3000),
+        y: getElevation(7500, 3000),
         z: 0,
         rotY: rng() * Math.PI * 2,
       };

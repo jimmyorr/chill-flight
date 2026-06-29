@@ -257,7 +257,23 @@
         const westDamp = Math.max(0, Math.min(1, 1 + x / 5000));
         mtnInf *= westDamp;
       } else if (x > 0) {
-        const eastDamp = Math.max(0, Math.min(1, 1 - x / 5000));
+        // South-East transition zone starts much further south (Z > 8000)
+        const zFade = Math.max(0, Math.min(1, (z - 8000) / 4000)); // Fades in from Z=8000 to Z=12000
+        
+        // Montauk Peninsula bulge: peaks at Z=3000, pushes coast out to X=8000
+        const montaukDistZ = Math.abs(z - 3000);
+        const montaukBulge = Math.max(0, 1 - montaukDistZ / 2500); // 1 at Z=3000, 0 at Z=500 and 5500
+        
+        // The land extends to 5,000 normally, stretches to 30,000 in the deep South-East, and bulges to 8,000 for Montauk
+        const landExtent = 5000 + zFade * 25000 + montaukBulge * 3000;
+        let eastDamp = Math.max(0, Math.min(1, 1 - x / landExtent));
+        
+        // Fracture noise only applies in the extended South-East zone
+        const xFade = Math.min(1, x / 5000);
+        const fractureNoise = simplex.noise2D(x * 0.00015, z * 0.00015) * 0.5 * xFade * zFade;
+        
+        eastDamp = Math.max(0, Math.min(1, eastDamp + fractureNoise));
+        
         mtnInf *= eastDamp;
       }
       biomeBase += mtnInf;
@@ -440,41 +456,64 @@
     n += offset;
 
     // --- LARGE ISLANDS LOGIC (East) ---
-    if (x > 3000 && biome < -0.1) {
-      const islandRegion = simplex.noise2D(x * 0.0001 + 500, z * 0.0001 + 500);
-      // 0.1 keeps plenty of open ocean, but increases cluster frequency
-      if (islandRegion > 0.1) {
-        // Domain warping to create organic, jagged coastlines instead of round blobs
-        const warpX = simplex.noise2D(x * 0.0005, z * 0.0005) * 500;
-        const warpZ = simplex.noise2D(x * 0.0005 + 100, z * 0.0005 + 100) * 500;
+    if (x > 3000) {
+      // Smoothly fade in the islands as the biome becomes more ocean-like
+      // 0 at biome >= 0.0, 1 at biome <= -0.2
+      const biomeFade = Math.max(0, Math.min(1, -biome * 5));
+      
+      // Suppress large islands near the Montauk lighthouse (X=7500, Z=3000)
+      const distToLighthouseSq = (x - 7500) * (x - 7500) + (z - 3000) * (z - 3000);
+      const suppressionRadius = 4000; // Keep a 4000 unit radius clear
+      let suppressionFactor = 1.0;
+      if (distToLighthouseSq < suppressionRadius * suppressionRadius) {
+         // Use smoothstep for a softer suppression transition
+         const dist = Math.sqrt(distToLighthouseSq);
+         const t = dist / suppressionRadius;
+         suppressionFactor = t * t * (3 - 2 * t);
+      }
+      const finalFade = biomeFade * suppressionFactor;
 
-        const islandShape = simplex.noise2D(
-          (x + warpX) * 0.0003 + 1000,
-          (z + warpZ) * 0.0003 + 1000
+      if (finalFade > 0) {
+        const islandRegion = simplex.noise2D(
+          x * 0.0001 + 500,
+          z * 0.0001 + 500
         );
+        // 0.1 keeps plenty of open ocean, but increases cluster frequency
+        if (islandRegion > 0.1) {
+          // Domain warping to create organic, jagged coastlines instead of round blobs
+          const warpX = simplex.noise2D(x * 0.0005, z * 0.0005) * 500;
+          const warpZ =
+            simplex.noise2D(x * 0.0005 + 100, z * 0.0005 + 100) * 500;
 
-        // -0.2 makes the islands slightly larger within their clusters
-        if (islandShape > -0.2) {
-          const eastIntensity = Math.min(1, (x - 3000) / 7000);
-          const shapeFactor = Math.max(0, islandShape + 0.2);
-          const heightFactor =
-            shapeFactor * (islandRegion - 0.1) * eastIntensity;
+          const islandShape = simplex.noise2D(
+            (x + warpX) * 0.0003 + 1000,
+            (z + warpZ) * 0.0003 + 1000
+          );
 
-          if (heightFactor > 0) {
-            // Add ridged noise for jagged peaks
-            const ridgeNoise =
-              1.0 - Math.abs(simplex.noise2D(x * 0.001, z * 0.001));
-            const ruggedness = ridgeNoise * ridgeNoise; // Sharpen ridges
+          // -0.2 makes the islands slightly larger within their clusters
+          if (islandShape > -0.2) {
+            const eastIntensity = Math.min(1, (x - 3000) / 7000);
+            const shapeFactor = Math.max(0, islandShape + 0.2);
+            const heightFactor =
+              shapeFactor * (islandRegion - 0.1) * eastIntensity * finalFade;
 
-            // Base height + mountain peaks
-            let islandHeight = heightFactor * 600; // Base land
-            islandHeight += ruggedness * 1200 * heightFactor; // Sharp peaks
+            // Islands are steep
+            if (heightFactor > 0) {
+              // Add ridged noise for jagged peaks
+              const ridgeNoise =
+                1.0 - Math.abs(simplex.noise2D(x * 0.001, z * 0.001));
+              const ruggedness = ridgeNoise * ridgeNoise; // Sharpen ridges
 
-            // Small scale surface roughness
-            islandHeight +=
-              simplex.noise2D(x * 0.003, z * 0.003) * 150 * heightFactor;
+              // Base height + mountain peaks
+              let islandHeight = heightFactor * 600; // Base land
+              islandHeight += ruggedness * 1200 * heightFactor; // Sharp peaks
 
-            n += islandHeight;
+              // Small scale surface roughness
+              islandHeight +=
+                simplex.noise2D(x * 0.003, z * 0.003) * 150 * heightFactor;
+
+              n += islandHeight;
+            }
           }
         }
       }
