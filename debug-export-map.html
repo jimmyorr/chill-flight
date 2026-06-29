@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug | Export Heightmap</title>
+    <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Courier New', Courier, monospace;
+        color: white;
+        background: linear-gradient(-45deg, #1a1a2e, #051f15, #1a0526, #0f172a);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+      }
+
+      @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+
+      .debug-menu-box {
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        max-width: 400px;
+        width: 100%;
+      }
+
+      h1 {
+        margin-top: 0;
+        margin-bottom: 20px;
+        font-weight: 300;
+        letter-spacing: 4px;
+        font-size: 24px;
+      }
+
+      .input-group {
+        margin-bottom: 15px;
+        text-align: left;
+      }
+
+      .input-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 14px;
+        letter-spacing: 1px;
+        color: #ccc;
+      }
+
+      .input-group input {
+        width: 100%;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 6px;
+        color: white;
+        font-family: 'Courier New', Courier, monospace;
+        box-sizing: border-box;
+      }
+
+      .debug-btn {
+        display: block;
+        width: 100%;
+        margin-top: 20px;
+        margin-bottom: 15px;
+        color: white;
+        text-decoration: none;
+        background: rgba(56, 189, 248, 0.2);
+        border: 1px solid rgba(56, 189, 248, 0.5);
+        border-radius: 6px;
+        padding: 15px 20px;
+        font-size: 16px;
+        letter-spacing: 2px;
+        transition: all 0.2s;
+        box-sizing: border-box;
+        cursor: pointer;
+      }
+
+      .debug-btn:hover {
+        background: rgba(56, 189, 248, 0.4);
+        transform: scale(1.05);
+      }
+
+      .return-btn {
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .return-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      
+      #status {
+        margin-top: 15px;
+        font-size: 14px;
+        color: #38bdf8;
+        min-height: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="debug-menu-box">
+      <h1>EXPORT HEIGHTMAP</h1>
+      
+      <div class="input-group">
+        <label>Seed (Number)</label>
+        <input type="number" id="input-seed" value="123456" />
+      </div>
+
+      <div class="input-group">
+        <label>Width in Chunks (1 chunk = 1500 units)</label>
+        <input type="number" id="input-width" value="20" />
+      </div>
+
+      <div class="input-group">
+        <label>Height in Chunks</label>
+        <input type="number" id="input-height" value="20" />
+      </div>
+
+      <div class="input-group">
+        <label>Units per Pixel (Scale)</label>
+        <input type="number" id="input-scale" value="10" />
+      </div>
+
+      <button class="debug-btn" id="btn-export">GENERATE & DOWNLOAD</button>
+      <div id="status"></div>
+
+      <a href="debug.html" class="debug-btn return-btn" style="margin-top: 30px;">BACK</a>
+    </div>
+
+    <!-- Scripts needed for generation -->
+    <script src="chill-flight-logic.js"></script>
+    <script src="noise.js"></script>
+    <script src="constants.js"></script>
+
+    <script>
+      // Set the default seed to the game's actual WORLD_SEED
+      document.getElementById('input-seed').value = ChillFlightLogic.WORLD_SEED;
+
+      document.getElementById('btn-export').addEventListener('click', () => {
+        const seed = parseInt(document.getElementById('input-seed').value) || ChillFlightLogic.WORLD_SEED;
+        const chunkWidth = parseInt(document.getElementById('input-width').value) || 20;
+        const chunkHeight = parseInt(document.getElementById('input-height').value) || 20;
+        const scale = parseFloat(document.getElementById('input-scale').value) || 10;
+        const statusEl = document.getElementById('status');
+
+        statusEl.innerText = "Generating... Please wait.";
+        
+        // Use setTimeout to allow the UI to update before heavy processing
+        setTimeout(() => {
+          // Re-seed logic
+          ChillFlightLogic.WORLD_SEED = seed;
+          const customSimplex = SimplexNoise(); // Will use the updated seed
+
+          // Calculate dimensions
+          const CHUNK_SIZE = 1500; // From constants.js
+          const totalWidthUnits = chunkWidth * CHUNK_SIZE;
+          const totalHeightUnits = chunkHeight * CHUNK_SIZE;
+          
+          const pixelWidth = Math.floor(totalWidthUnits / scale);
+          const pixelHeight = Math.floor(totalHeightUnits / scale);
+
+          // Create offscreen canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = pixelWidth;
+          canvas.height = pixelHeight;
+          const ctx = canvas.getContext('2d');
+          const imgData = ctx.createImageData(pixelWidth, pixelHeight);
+          const data = imgData.data;
+
+          const startX = -(totalWidthUnits / 2);
+          const startZ = -(totalHeightUnits / 2);
+
+          const MAP_HEIGHT_SCALE_VAL = typeof MAP_HEIGHT_SCALE !== 'undefined' ? MAP_HEIGHT_SCALE : 400;
+          const WATER_LEVEL_VAL = typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40;
+
+          // Generate pixels
+          for (let py = 0; py < pixelHeight; py++) {
+            for (let px = 0; px < pixelWidth; px++) {
+              const worldX = startX + (px * scale);
+              const worldZ = startZ + (py * scale);
+
+              const h = ChillFlightLogic.getElevation(worldX, worldZ, customSimplex, {
+                WATER_LEVEL: WATER_LEVEL_VAL,
+                MOUNTAIN_LEVEL: typeof MOUNTAIN_LEVEL !== 'undefined' ? MOUNTAIN_LEVEL : 180,
+                MAP_HEIGHT_SCALE: MAP_HEIGHT_SCALE_VAL,
+                MAP_WORLD_SIZE: typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000
+              }, null);
+
+              // Map elevation to 0-255 luminance
+              // Map [-100, 700] to [0, 255] roughly
+              let normalized = Math.floor(((h + 100) / 800) * 255);
+              if (normalized < 0) normalized = 0;
+              if (normalized > 255) normalized = 255;
+
+              const idx = (py * pixelWidth + px) * 4;
+              data[idx] = normalized;     // R
+              data[idx + 1] = normalized; // G
+              data[idx + 2] = normalized; // B
+              data[idx + 3] = 255;        // Alpha
+            }
+          }
+
+          ctx.putImageData(imgData, 0, 0);
+
+          // Download
+          const dataURL = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.href = dataURL;
+          link.download = `heightmap-${seed}-${chunkWidth}x${chunkHeight}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          statusEl.innerText = `Downloaded ${pixelWidth}x${pixelHeight} map successfully.`;
+        }, 50);
+      });
+    </script>
+  </body>
+</html>
