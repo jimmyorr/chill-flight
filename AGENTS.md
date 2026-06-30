@@ -37,3 +37,7 @@
 - **Append to RELEASE_NOTES.md**: Write the new release notes directly to the top of `RELEASE_NOTES.md`.
 - **Length limit**: Each version entry MUST be kept concise and explicitly limited to a maximum of **500 characters** per entry.
 - **Formatting**: Use sentence case for bullet points. Group changes into bolded categories (e.g., `* **Controls:** Added ...`).
+
+## Communication rules
+
+- **No background task announcements**: Do NOT send a separate, unprompted chat message to the user simply to announce that a background task (like `npm run format`) has completed. If a task completes and the user has not spoken, just end your turn silently so you do not overwrite or bury previous useful messages.
