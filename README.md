@@ -121,11 +121,11 @@ Overcast conditions occur when the procedural cloud noise exceeds a threshold (0
 
 Storms are triggered when the global cloud noise map reaches peak density (> 0.75). The type of precipitation depends on your latitude (Z coordinate):
 
-- **The deep north** (Latitude > 0.9 North / Z < -4500): Storms intensify the already frequent snowfall.
-- **The transition zone** (Latitude 0.7 to 0.9 North / Z between -3500 and -4500): Sleet (a mix of rain and snow).
-- **Temperate and equator** (Latitude 0.8 South to 0.7 North / Z between 4000 and -3500): Full rain.
-- **Desert border** (Latitude 0.8 to 1.1 South / Z between 4000 and 5500): Light rain that quickly dries up as you move further south.
-- **Deep desert** (Latitude > 1.1 South / Z > 5500): Dry storms (the sky becomes overcast, but no rain falls).
+- **The deep north** (Latitude > 2.0 North / Z < -10000): Storms intensify the already frequent snowfall.
+- **The transition zone** (Latitude 1.0 to 2.0 North / Z between -5000 and -10000): Sleet (a mix of rain and snow).
+- **Temperate and equator** (Latitude 2.0 South to 1.0 North / Z between 10000 and -5000): Full rain.
+- **Desert border** (Latitude 2.0 to 3.0 South / Z between 10000 and 15000): Light rain that quickly dries up as you move further south.
+- **Deep desert** (Latitude > 3.0 South / Z > 15000): Dry storms (the sky becomes overcast, but no rain falls).
 
 ### Atmospheric phenomena
 
@@ -134,7 +134,7 @@ Storms are triggered when the global cloud noise map reaches peak density (> 0.7
 
 ### Permanent weather
 
-- **Snowy biome**: Above Latitude 0.9 North, snow falls roughly 80% of the time, regardless of the storm noise map, with occasional brief breaks.
+- **Snowy biome**: Above Latitude 2.0 North, snow falls roughly 80% of the time, regardless of the storm noise map, with occasional brief breaks.
 
 ### Debug menu weather entries
 

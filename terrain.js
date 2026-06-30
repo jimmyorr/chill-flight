@@ -3277,7 +3277,7 @@ function generateChunk(chunkX, chunkZ) {
         extremeZoneFactor * extremeZoneFactor * (3 - 2 * extremeZoneFactor);
 
       // --- BIOME FACTORS ---
-      const northInfluence = Math.max(0, -worldZ / 4500);
+      const northInfluence = Math.max(0, -worldZ / 5000);
       // Add more noise to biome transitions to avoid smooth boring circles
       const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
       const biomeNoise =
@@ -3287,17 +3287,17 @@ function generateChunk(chunkX, chunkZ) {
         0,
         Math.min(
           1,
-          (northInfluence + noisePath * 0.05 + biomeNoise - 0.7) * 1.5
+          (northInfluence + noisePath * 0.05 + biomeNoise - 1.0) * 1.5
         )
       );
       const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
-      const southInfluence = Math.max(0, worldZ / 4500);
+      const southInfluence = Math.max(0, worldZ / 5000);
       const desertRaw = Math.max(
         0,
         Math.min(
           1,
-          (southInfluence + noisePath * 0.05 - biomeNoise - 0.7) * 1.5
+          (southInfluence + noisePath * 0.05 - biomeNoise - 2.0) * 1.0
         )
       );
       const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);

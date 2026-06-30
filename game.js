@@ -2000,9 +2000,8 @@ function updateWeather(delta) {
       // Use a slow-moving noise wave based on time for global breaks
       const snowBreakNoise = (simplex.noise2D(timeOffset * 0.2, 999) + 1) / 2; // Value between 0 and 1
 
-      // Snows ~80% of the time (when noise is > 0.2)
       if (snowBreakNoise > 0.2) {
-        const permanentSnow = THREE.MathUtils.clamp((latVal - 0.9) / 0.6, 0, 1);
+        const permanentSnow = THREE.MathUtils.clamp((latVal - 1.0) / 1.0, 0, 1);
         targetSnowOpacity = Math.max(targetSnowOpacity, permanentSnow * 0.15);
       }
     }
@@ -2026,26 +2025,26 @@ function updateWeather(delta) {
       const stormIntensity = (stormNoise - 0.82) / 0.18;
 
       // 2. Distribute the storm intensity based on latitude
-      if (latVal > 0.9) {
+      if (latVal > 2.0) {
         // North: Storm intensifies the already-falling snow
         targetSnowOpacity = Math.max(targetSnowOpacity, stormIntensity * 0.4);
-      } else if (latVal > 0.7) {
-        // Transition Zone (0.7 to 0.9): Sleet (Mix of Rain and Snow)
-        const snowRatio = (latVal - 0.7) / 0.2; // 0.0 at 0.7, 1.0 at 0.9
+      } else if (latVal > 1.0) {
+        // Transition Zone (1.0 to 2.0): Sleet (Mix of Rain and Snow)
+        const snowRatio = (latVal - 1.0) / 1.0; // 0.0 at 1.0, 1.0 at 2.0
         targetSnowOpacity = Math.max(
           targetSnowOpacity,
           stormIntensity * 0.4 * snowRatio
         );
         targetRainOpacity = stormIntensity * 0.5 * (1.0 - snowRatio);
-      } else if (latVal > -0.8) {
+      } else if (latVal > -2.0) {
         // Temperate/Equator: Full Rain
         targetRainOpacity = stormIntensity * 0.5;
-      } else if (latVal > -1.1) {
-        // Desert Border (-0.8 to -1.1): Rain dries up quickly
-        const fadeOut = 1.0 - (Math.abs(latVal) - 0.8) / 0.3;
+      } else if (latVal > -3.0) {
+        // Desert Border (-2.0 to -3.0): Rain dries up quickly
+        const fadeOut = 1.0 - (Math.abs(latVal) - 2.0) / 1.0;
         targetRainOpacity = stormIntensity * 0.5 * Math.max(0, fadeOut);
       }
-      // If latVal <= -1.1 (Deep Desert), targets remain 0 (Dry Storm)
+      // If latVal <= -3.0 (Deep Desert), targets remain 0 (Dry Storm)
     }
 
     // Expose debug data
@@ -2053,13 +2052,13 @@ function updateWeather(delta) {
       stormNoise: stormNoise,
       latVal: latVal,
       zone:
-        latVal > 0.9
+        latVal > 2.0
           ? 'Snow'
-          : latVal > 0.7
+          : latVal > 1.0
             ? 'Sleet'
-            : latVal > -0.8
+            : latVal > -2.0
               ? 'Rain'
-              : latVal > -1.1
+              : latVal > -3.0
                 ? 'Dry Edge'
                 : 'Desert',
     };

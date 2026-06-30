@@ -296,8 +296,8 @@
       // Use a non-zero Y coordinate so we don't sample along an axis (which can be 0)
       // Multiply by 1.5 to stretch the Simplex noise output closer to the [-1.0, 1.0] range
       const tNoise = simplex.noise2D(latIndex * terrainFrequency, 1234.5) * 1.5;
-      if (tNoise > 0.6) return 'mountain';
-      if (tNoise < -0.6) return 'minor_river';
+      if (tNoise > 0.4) return 'mountain';
+      if (tNoise < -0.4) return 'minor_river';
       return 'buffer';
     }
 
@@ -549,7 +549,7 @@
       if (getProceduralTerrainType(l, terrainFrequency) !== 'mountain')
         continue;
 
-      const xStart = -5000;
+      const xStart = -2500;
       const zCenterBase = l * latScale;
       const rangeLat = l;
       const maxHeight = 1600;
