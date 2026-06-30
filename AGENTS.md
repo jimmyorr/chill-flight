@@ -40,4 +40,4 @@
 
 ## Communication rules
 
-- **No background task announcements**: Do NOT send a separate, unprompted chat message to the user simply to announce that a background task (like `npm run format`) has completed. If a task completes and the user has not spoken, just end your turn silently so you do not overwrite or bury previous useful messages.
+- **No background task announcements**: To avoid sending separate, unprompted chat messages that bury important context, **never** run short commands like `npm run format` or `git add` asynchronously. Always set `WaitMsBeforeAsync` to a high value (e.g., `5000` or `10000`) for these tools so they complete synchronously within your turn. You can then provide a single, comprehensive response to the user.
