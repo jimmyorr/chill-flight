@@ -259,21 +259,22 @@
       } else if (x > 0) {
         // South-East transition zone starts much further south (Z > 8000)
         const zFade = Math.max(0, Math.min(1, (z - 8000) / 4000)); // Fades in from Z=8000 to Z=12000
-        
+
         // Montauk Peninsula bulge: peaks at Z=3000, pushes coast out to X=8000
         const montaukDistZ = Math.abs(z - 3000);
         const montaukBulge = Math.max(0, 1 - montaukDistZ / 2500); // 1 at Z=3000, 0 at Z=500 and 5500
-        
+
         // The land extends to 5,000 normally, stretches to 30,000 in the deep South-East, and bulges to 8,000 for Montauk
         const landExtent = 5000 + zFade * 25000 + montaukBulge * 3000;
         let eastDamp = Math.max(0, Math.min(1, 1 - x / landExtent));
-        
+
         // Fracture noise only applies in the extended South-East zone
         const xFade = Math.min(1, x / 5000);
-        const fractureNoise = simplex.noise2D(x * 0.00015, z * 0.00015) * 0.5 * xFade * zFade;
-        
+        const fractureNoise =
+          simplex.noise2D(x * 0.00015, z * 0.00015) * 0.5 * xFade * zFade;
+
         eastDamp = Math.max(0, Math.min(1, eastDamp + fractureNoise));
-        
+
         mtnInf *= eastDamp;
       }
       biomeBase += mtnInf;
@@ -285,30 +286,27 @@
   // --- ELEVATION ---
   // Returns the terrain height (always >= WATER_LEVEL) for a given world (x, z) position.
   // Requires a simplex noise object and a constants object { WATER_LEVEL, MOUNTAIN_LEVEL }.
-  // The lerp argument defaults to a simple linear interpolation if not provided.
   function getElevation(x, z, simplex, constants, lerp) {
-    const {
-      WATER_LEVEL,
-      MAP_WORLD_SIZE = 5000,
-      MAP_HEIGHT_SCALE = 1000,
-    } = constants;
+    const WATER_LEVEL = constants.WATER_LEVEL || 40;
+
+    // --- PROCEDURAL TERRAIN HELPER ---
+    // Unified grid where 1 lat = 5000 units.
+    function getProceduralTerrainType(latIndex, terrainFrequency = 0.8) {
+      if (latIndex === 0) return 'major_river'; // Equator override
+      // Use a non-zero Y coordinate so we don't sample along an axis (which can be 0)
+      // Multiply by 1.5 to stretch the Simplex noise output closer to the [-1.0, 1.0] range
+      const tNoise = simplex.noise2D(latIndex * terrainFrequency, 1234.5) * 1.5;
+      if (tNoise > 0.6) return 'mountain';
+      if (tNoise < -0.6) return 'minor_river';
+      return 'buffer';
+    }
+
+    const {MAP_WORLD_SIZE = 5000, MAP_HEIGHT_SCALE = 1000} = constants;
     const _lerp =
       lerp ||
       function (a, b, t) {
         return a + (b - a) * t;
       };
-
-    // --- MASSIVE MOUNTAIN LOGIC ---
-    // deterministic center between -2 and 2 lat/long
-    // latScale is 5000 (from game.js)
-    // latVal = -z / 5000 => z = -latVal * 5000
-    // lonVal = x / 5000 => x = lonVal * 5000
-    const latScale = 5000;
-    const mtLat = -1; // 1 South
-    const mtLon = -1; // 1 West
-    const mtMaxHeight = 1600;
-    const xStart = mtLon * latScale; // -5000
-    const zCenterBase = -mtLat * latScale; // 5000
 
     // --- CUSTOM MAP INGESTION ---
     if (exports.customMap) {
@@ -335,7 +333,7 @@
       let x1 = Math.floor(px);
       let x2 = Math.min(x1 + 1, width - 1);
       let y1 = Math.floor(py);
-      let y2 = Math.min(y1 + 1, height - 1);
+      let y2 = Math.min(y2 + 1, height - 1);
 
       // Saftey clamp if math precision errors push us slightly out of bounds
       x1 = Math.max(0, Math.min(x1, width - 1));
@@ -460,16 +458,17 @@
       // Smoothly fade in the islands as the biome becomes more ocean-like
       // 0 at biome >= 0.0, 1 at biome <= -0.2
       const biomeFade = Math.max(0, Math.min(1, -biome * 5));
-      
+
       // Suppress large islands near the Montauk lighthouse (X=7500, Z=3000)
-      const distToLighthouseSq = (x - 7500) * (x - 7500) + (z - 3000) * (z - 3000);
+      const distToLighthouseSq =
+        (x - 7500) * (x - 7500) + (z - 3000) * (z - 3000);
       const suppressionRadius = 4000; // Keep a 4000 unit radius clear
       let suppressionFactor = 1.0;
       if (distToLighthouseSq < suppressionRadius * suppressionRadius) {
-         // Use smoothstep for a softer suppression transition
-         const dist = Math.sqrt(distToLighthouseSq);
-         const t = dist / suppressionRadius;
-         suppressionFactor = t * t * (3 - 2 * t);
+        // Use smoothstep for a softer suppression transition
+        const dist = Math.sqrt(distToLighthouseSq);
+        const t = dist / suppressionRadius;
+        suppressionFactor = t * t * (3 - 2 * t);
       }
       const finalFade = biomeFade * suppressionFactor;
 
@@ -540,25 +539,29 @@
       n = WATER_LEVEL;
     }
 
-    // Apply Massive Mountain Range
-    const mountainRanges = [
-      {lat: 2, lonStart: -1, maxHeight: 1600}, // Northern snowy range
-      {lat: -2, lonStart: -1, maxHeight: 1600}, // Southern Arizona range
-    ];
+    // Apply Massive Mountain Range - Procedural
+    const latScale = 5000;
+    const currentLat = Math.round(z / latScale);
+    const terrainFrequency = 0.8; // Tunable variable for feature density
 
-    // Process each range
-    for (const range of mountainRanges) {
-      const xStart = range.lonStart * latScale;
-      const zCenterBase = -range.lat * latScale;
+    // Check center latitude and adjacent ones to handle meander overlap
+    for (let l = currentLat - 1; l <= currentLat + 1; l++) {
+      if (getProceduralTerrainType(l, terrainFrequency) !== 'mountain')
+        continue;
+
+      const xStart = -5000;
+      const zCenterBase = l * latScale;
+      const rangeLat = l;
+      const maxHeight = 1600;
 
       if (x < xStart) {
         // Low-frequency meandering for the range center
-        const ridgeMeander = simplex.noise2D(x * 0.0001 + range.lat * 100, 123);
+        const ridgeMeander = simplex.noise2D(x * 0.0001 + rangeLat * 100, 123);
         const currentZCenter = zCenterBase + ridgeMeander * 2000;
 
         // Vary mountain presence - some areas have peaks, others are just foothills
         const presenceMod =
-          0.5 + simplex.noise2D(x * 0.0002 + range.lat * 50, 789) * 0.5; // [0, 1]
+          0.5 + simplex.noise2D(x * 0.0002 + rangeLat * 50, 789) * 0.5; // [0, 1]
 
         const dxRange = xStart - x;
         const fadeIn = Math.min(1, dxRange / 5000);
@@ -595,10 +598,7 @@
           const baseHeight = 300 * baseFalloff; // Smooth foothold
           // Use presenceMod to make some peaks much higher than others
           const peakHeight =
-            range.maxHeight *
-            peakShape *
-            ruggedness *
-            (0.4 + 0.6 * presenceMod);
+            maxHeight * peakShape * ruggedness * (0.4 + 0.6 * presenceMod);
 
           let totalContribution = (baseHeight + peakHeight) * fadeIn;
 
@@ -608,8 +608,8 @@
           // --- VALLEY LOGIC ---
           // Introduced occasional valleys using low-frequency noise.
           const valleyNoise = simplex.noise2D(
-            x * 0.00012 + range.lat * 77,
-            z * 0.00012 + range.lat * 88
+            x * 0.00012 + rangeLat * 77,
+            z * 0.00012 + rangeLat * 88
           );
           // Map noise [-1, 1] to a factor where most of the noise (above -0.5) is 1.0 (mountain present),
           // and values below -0.5 dip into valleys (mountain absent).
@@ -670,52 +670,51 @@
 
     // --- RIVER CARVING LOGIC ---
     // Runs after all additive terrain passes (mountains, volcano) so it always wins.
-    // Define a meandering path running East-West around the equator (Z = 0)
-    // and additional rivers every 3 degrees (15000 units).
-    const riverSpacing = 15000;
-    const riverIndex = Math.round(z / riverSpacing);
-    const baseRiverZ = riverIndex * riverSpacing;
-    const isEquatorRiver = riverIndex === 0;
+    let maxRiverFactor = 0;
 
-    const riverCenterZ = exports.getRiverCenterZ
-      ? exports.getRiverCenterZ(x, z, simplex)
-      : isEquatorRiver
-        ? simplex.noise2D(x * 0.0003, 0) * 800 +
-          simplex.noise2D(x * 0.001, 100) * 200
-        : baseRiverZ;
+    // Check adjacent latitudes to find any nearby rivers (since they meander up to 5000 units)
+    for (let l = currentLat - 1; l <= currentLat + 1; l++) {
+      const type = getProceduralTerrainType(l, terrainFrequency);
+      if (type === 'major_river' || type === 'minor_river') {
+        const riverCenterZ = exports.getRiverCenterZ
+          ? exports.getRiverCenterZ(x, z, simplex, l)
+          : l * latScale; // Fallback
 
-    const distToRiver = Math.abs(z - riverCenterZ);
+        const distToRiver = Math.abs(z - riverCenterZ);
 
-    // Vary the width of the river to break up uniformity
-    let riverWidth, riverBankWidth;
+        let riverWidth, riverBankWidth;
+        if (type === 'major_river') {
+          const widthNoise = simplex.noise2D(x * 0.0005, 200);
+          const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
+          riverWidth = 120 + widthVariation * 180; // Min 120, max 300
+          riverBankWidth = 100 + widthVariation * 100;
+        } else {
+          // Smaller rivers
+          const widthNoise = simplex.noise2D(x * 0.0008, l * 10.0);
+          const widthVariation = (widthNoise + 1) * 0.5;
+          riverWidth = 100 + widthVariation * 100; // Min 100, max 200
+          riverBankWidth = 60 + widthVariation * 40;
+        }
 
-    if (isEquatorRiver) {
-      const widthNoise = simplex.noise2D(x * 0.0005, 200);
-      const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
-      riverWidth = 120 + widthVariation * 180; // Min 120, max 300
-      riverBankWidth = 100 + widthVariation * 100;
-    } else {
-      // Smaller rivers
-      const widthNoise = simplex.noise2D(x * 0.0008, riverIndex * 10.0);
-      const widthVariation = (widthNoise + 1) * 0.5;
-      riverWidth = 100 + widthVariation * 100; // Min 100, max 200
-      riverBankWidth = 60 + widthVariation * 40;
+        let riverFactor = 0;
+        if (distToRiver <= riverWidth) {
+          riverFactor = 1.0;
+        } else if (distToRiver < riverWidth + riverBankWidth) {
+          // Smooth transition zone
+          const t = (distToRiver - riverWidth) / riverBankWidth;
+          // Smoothstep curve for natural banks
+          riverFactor = 1.0 - t * t * (3 - 2 * t);
+        }
+
+        if (riverFactor > maxRiverFactor) {
+          maxRiverFactor = riverFactor;
+        }
+      }
     }
 
-    // Calculate river factor
-    let riverFactor = 0;
-    if (distToRiver <= riverWidth) {
-      riverFactor = 1.0;
-    } else if (distToRiver < riverWidth + riverBankWidth) {
-      // Smooth transition zone
-      const t = (distToRiver - riverWidth) / riverBankWidth;
-      // Smoothstep curve for natural banks
-      riverFactor = 1.0 - t * t * (3 - 2 * t);
-    }
-
-    if (riverFactor > 0) {
+    if (maxRiverFactor > 0) {
       // Carve down to just below water level, overriding any mountain/volcano additions
-      n = _lerp(n, WATER_LEVEL - 2, riverFactor);
+      n = _lerp(n, WATER_LEVEL - 2, maxRiverFactor);
     }
 
     // --- EASTERN ALIEN BIOME (Beyond 10 degrees East) ---
@@ -820,12 +819,12 @@
   // --- RIVER CENTER ---
   // Returns the absolute Z coordinate of the center of the river at a given X.
   // Updated to take Z and return the center of the nearest river.
-  function getRiverCenterZ(x, z, simplex) {
-    const riverSpacing = 15000;
-    const riverIndex = Math.round(z / riverSpacing);
-    let baseRiverZ = riverIndex * riverSpacing;
+  function getRiverCenterZ(x, z, simplex, latIndex = null) {
+    const latScale = 5000;
+    const l = latIndex !== null ? latIndex : Math.round(z / latScale);
+    let baseRiverZ = l * latScale;
 
-    const noiseOffset = riverIndex * 12.34;
+    const noiseOffset = l * 12.34;
 
     // Macro-meander: Massive, slow north/south shifting to break horizontal lines
     // Frequency 0.00002 means a wavelength of 50,000 units. Very smooth.
@@ -836,7 +835,7 @@
     const squiggleFactor =
       (simplex.noise2D(x * 0.00005, noiseOffset + 100) + 1) * 0.5; // [0, 1]
 
-    if (riverIndex === 0) {
+    if (l === 0) {
       // Equator river (massive main river)
       const freq1 = 0.0001;
       const amp1 = 1500 + squiggleFactor * 2500; // Large sweeping curves
