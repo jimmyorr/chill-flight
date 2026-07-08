@@ -1344,16 +1344,16 @@ function createRockArchGeometries(rng) {
 
     // Parabolic arch equation: y = h * (1 - t^2)
     // We want the base at y=0, peak at y=135
-    const peakHeight = 135;
-    const archWidth = 250; // Total width increased for wider opening
+    const peakHeight = 270;
+    const archWidth = 500; // Total width increased for wider opening
 
     const x = (t * archWidth) / 2;
     // We can make the curve a bit steeper to open up the inside more
     // y = peakHeight * (1 - t^2)
-    const y = peakHeight * (1 - Math.pow(Math.abs(t), 1.8)) + 5;
+    const y = peakHeight * (1 - Math.pow(Math.abs(t), 1.8)) + 10;
 
     // Thickness decreases towards the top, but base thickness reduced
-    const thickness = 25 + Math.pow(Math.abs(t), 2) * 30;
+    const thickness = 50 + Math.pow(Math.abs(t), 2) * 60;
 
     // Add multiple jittered blocks at this position for volume
     const blocksPerPos = 2 + Math.floor(Math.abs(t) * 2);
@@ -1370,19 +1370,19 @@ function createRockArchGeometries(rng) {
 
       const jx = x + (rng() - 0.5) * thickness * 0.3;
       const jy = y + (rng() - 0.5) * thickness * 0.3;
-      const jz = (rng() - 0.5) * 15;
+      const jz = (rng() - 0.5) * 30;
 
       box.translate(jx, jy, jz);
       rockGeos.push(box);
 
       // Grass logic - only add grass on the top-facing blocks of the arch
       // We check if this block is relatively high up, or just add a grass block slightly above it
-      if (jy > 30) {
+      if (jy > 60) {
         // Only top layer of grass, maybe probability based on height
         if (rng() > 0.3) {
           const grassBox = new THREE.BoxGeometry(
             w * 0.9,
-            4 + rng() * 3,
+            8 + rng() * 6,
             d * 0.9
           );
           grassBox.rotateY(rng() * Math.PI);
