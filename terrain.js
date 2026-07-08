@@ -3980,9 +3980,22 @@ function generateChunk(chunkX, chunkZ) {
       if (isVolcanoChunk) {
         const craterBottom = getElevation(vX, vZ);
 
-        // If craterBottom is extremely low, a river has carved through the volcano.
+        // Sample the edges of the lava disk (radius 280) to ensure the river didn't carve the side
+        const northEdge = getElevation(vX, vZ - 300);
+        const southEdge = getElevation(vX, vZ + 300);
+        const eastEdge = getElevation(vX + 300, vZ);
+        const westEdge = getElevation(vX - 300, vZ);
+        const minElevation = Math.min(
+          craterBottom,
+          northEdge,
+          southEdge,
+          eastEdge,
+          westEdge
+        );
+
+        // If any part of the crater's footprint is extremely low, a river has carved through the volcano.
         // We shouldn't place hovering lava or spotlights in the middle of a river gorge.
-        if (craterBottom > 500) {
+        if (minElevation > 500) {
           // Lava disk
           const vElements = ModelAssembler.getStructure(
             'volcano_active_elements'
