@@ -2304,7 +2304,7 @@ window.initLighthouse = function () {
 };
 
 // --- VOLCANO ACTIVE ELEMENTS (pre-allocated, shared via ModelAssembler) ---
-const volcanoLavaGeo = new THREE.SphereGeometry(300, 16, 16);
+const volcanoLavaGeo = new THREE.CylinderGeometry(280, 280, 40, 16);
 const volcanoLavaMat = new THREE.MeshBasicMaterial({color: 0xff4500});
 
 // --- MODEL ASSEMBLER: SINGLE SOURCE OF TRUTH ---
@@ -2952,7 +2952,7 @@ window.ModelAssembler = {
           {
             geo: volcanoLavaGeo,
             mat: volcanoLavaMat,
-            pos: [0, 890, 0],
+            pos: [0, 980, 0],
             rot: [0, rotY, 0],
           },
         ];
@@ -3980,40 +3980,44 @@ function generateChunk(chunkX, chunkZ) {
       if (isVolcanoChunk) {
         const craterBottom = getElevation(vX, vZ);
 
-        // Lava disk
-        const vElements = ModelAssembler.getStructure(
-          'volcano_active_elements'
-        );
-        vElements.forEach((part) => {
-          const mesh = new THREE.Mesh(part.geo, part.mat);
-          // Position relative to crater bottom. Yesterday's seed gave height ~1070.
-          // Hardcoded 890 was ~180 below crater bottom. We preserve that offset.
-          mesh.position.set(
-            vX + part.pos[0],
-            craterBottom - 180,
-            vZ + part.pos[2]
+        // If craterBottom is extremely low, a river has carved through the volcano.
+        // We shouldn't place hovering lava or spotlights in the middle of a river gorge.
+        if (craterBottom > 500) {
+          // Lava disk
+          const vElements = ModelAssembler.getStructure(
+            'volcano_active_elements'
           );
-          mesh.rotation.set(...part.rot);
-          if (part.scale) mesh.scale.set(...part.scale);
-          group.add(mesh);
-        });
+          vElements.forEach((part) => {
+            const mesh = new THREE.Mesh(part.geo, part.mat);
+            // Position relative to crater bottom. Yesterday's seed gave height ~1070.
+            // Hardcoded 890 was ~180 below crater bottom. We preserve that offset.
+            mesh.position.set(
+              vX + part.pos[0],
+              craterBottom - 180,
+              vZ + part.pos[2]
+            );
+            mesh.rotation.set(...part.rot);
+            if (part.scale) mesh.scale.set(...part.scale);
+            group.add(mesh);
+          });
 
-        // Spot light pointing up to cast a glow on the underside of passing planes
-        const sLight = new THREE.SpotLight(
-          0xff4500,
-          30.0,
-          3000,
-          Math.PI / 6,
-          0.5,
-          1
-        );
-        // Place spotlight slightly above crater bottom to avoid being buried
-        sLight.position.set(vX, craterBottom + 10, vZ);
-        const sTarget = new THREE.Object3D();
-        sTarget.position.set(vX, 2000, vZ);
-        group.add(sTarget);
-        sLight.target = sTarget;
-        group.add(sLight);
+          // Spot light pointing up to cast a glow on the crater walls
+          const sLight = new THREE.SpotLight(
+            0xff4500,
+            30.0,
+            3000,
+            Math.PI / 6,
+            0.5,
+            1
+          );
+          // Place spotlight slightly above crater bottom to avoid being buried
+          sLight.position.set(vX, craterBottom + 10, vZ);
+          const sTarget = new THREE.Object3D();
+          sTarget.position.set(vX, 2000, vZ);
+          group.add(sTarget);
+          sLight.target = sTarget;
+          group.add(sLight);
+        }
       }
     }
 
