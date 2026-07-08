@@ -3929,28 +3929,34 @@ function generateChunk(chunkX, chunkZ) {
       );
     }
 
-    if (chunkX === 2 && chunkZ === 0 && _enableObjects) {
+    const archSeededRng = ChillFlightLogic.mulberry32(
+      ChillFlightLogic.WORLD_SEED
+    );
+    const archTargetZ = archSeededRng() * 10000 - 5000;
+    const archTargetChunkZ = Math.round(archTargetZ / CHUNK_SIZE);
+
+    if (chunkX === 2 && chunkZ === archTargetChunkZ && _enableObjects) {
       if (
         rockArchPositions.length === 0 &&
         rockArchGrassPositions.length === 0
       ) {
-        // Rock arch (exactly one, in chunk 2,0 roughly at center)
+        const localArchZ = archTargetZ - worldOffsetZ;
         const archHeight = Math.max(
           WATER_LEVEL,
-          getCachedElevation(worldOffsetX, worldOffsetZ)
+          getCachedElevation(worldOffsetX, worldOffsetZ + localArchZ)
         );
         if (rng() < 0.5) {
           rockArchPositions.push({
             x: 0,
             y: archHeight - 10,
-            z: 0,
+            z: localArchZ,
             rotY: rng() * Math.PI * 2,
           });
         } else {
           rockArchGrassPositions.push({
             x: 0,
             y: archHeight - 10,
-            z: 0,
+            z: localArchZ,
             rotY: rng() * Math.PI * 2,
           });
         }
