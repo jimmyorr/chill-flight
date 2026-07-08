@@ -3096,7 +3096,7 @@ function getElevation(x, z) {
 // Optimization: Pre-allocate colors used in chunk generation loop to prevent GC stalling
 const _colorPlains = new THREE.Color(0x7cb342);
 const _colorForest = new THREE.Color(0x388e3c);
-const _colorSnow = new THREE.Color(0xffffff);
+const _colorSnow = new THREE.Color(0xa2b4bc); // Off-white/slate to prevent blowout
 const _colorSand = new THREE.Color(0xe0e0a8);
 const _colorDesertSand = new THREE.Color(0xf4a460);
 const _colorWater = new THREE.Color(0x40c4ff);
@@ -3110,6 +3110,7 @@ const _colorForestDesertTint = new THREE.Color(0xa0522d);
 const _colorPlainsSnowTint = new THREE.Color(0xfafafa);
 const _colorMountainDesertTint = new THREE.Color(0xcd853f);
 const _colorMountainTint = new THREE.Color(0x7f8c8d);
+const _colorIce = new THREE.Color(0x6ca6a8); // Frosty cyan ice
 const _colorAutumnForestTint = new THREE.Color(0x5d4037);
 const _colorAutumnPlainsTint = new THREE.Color(0x8d6e63);
 const _colorCherryForestTint = new THREE.Color(0xf8bbd0);
@@ -3548,6 +3549,46 @@ function generateChunk(chunkX, chunkZ) {
         }
       }
 
+      // --- FROZEN NORTH ZONE ---
+      let isFrozen = false;
+      const freezeBoundaryZ =
+        -20000 + simplex.noise2D(worldX * 0.0002, worldZ * 0.0002) * 2000;
+      if (worldZ < freezeBoundaryZ) {
+        const freezeFactor = Math.max(
+          0,
+          Math.min(1, (freezeBoundaryZ - worldZ) / 5000)
+        );
+        if (freezeFactor > 0) {
+          isFrozen = freezeFactor > 0.5;
+
+          // Generate a local mottle for the ice texturing
+          const iceMottle = simplex.noise2D(worldX * 0.01, worldZ * 0.01);
+
+          // Blend everything toward snow, with slight noise variation
+          _tempColorObj.lerp(_colorSnow, freezeFactor);
+          if (iceMottle > 0) {
+            _tempColorObj.lerpHSL(
+              new THREE.Color(0xffffff),
+              iceMottle * 0.15 * freezeFactor
+            );
+          } else {
+            _tempColorObj.lerpHSL(
+              new THREE.Color(0x8a9ea8),
+              -iceMottle * 0.15 * freezeFactor
+            );
+          }
+
+          // Smoothly blend in cyan ice near the water level
+          const iceBlend = Math.max(
+            0,
+            Math.min(1, (WATER_LEVEL + 10 - height) / 10)
+          );
+          if (iceBlend > 0) {
+            _tempColorObj.lerp(_colorIce, freezeFactor * iceBlend);
+          }
+        }
+      }
+
       // --- LAND TYPE CLASSIFICATION ---
       const isStandardLand =
         !isCustom &&
@@ -3557,7 +3598,7 @@ function generateChunk(chunkX, chunkZ) {
         isCustom && height > WATER_LEVEL + 5.0 && height < 105.0;
 
       // --- BIOME TINTING (Autumn/Cherry) ---
-      if ((isStandardLand || isCustomLand) && snowFactor < 0.2) {
+      if ((isStandardLand || isCustomLand) && snowFactor < 0.2 && !isFrozen) {
         if (autumnNoise > 0.35) {
           const factor = Math.min(1, (autumnNoise - 0.35) / 0.1);
           const tint = isForest
@@ -3577,7 +3618,7 @@ function generateChunk(chunkX, chunkZ) {
         (worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2
       );
 
-      if (_enableObjects && (isStandardLand || isCustomLand)) {
+      if (_enableObjects && (isStandardLand || isCustomLand) && !isFrozen) {
         if (isForest) {
           const treeRoll = rng();
           if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {

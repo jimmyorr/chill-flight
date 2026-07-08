@@ -798,9 +798,33 @@
     }
 
     // Final water level clamp
-
     if (n < WATER_LEVEL) {
       n = WATER_LEVEL;
+    }
+
+    // --- FROZEN NORTH ICE SHELF ---
+    // Start freezing around 4°N (Z=-20000), fully frozen ~5000 units later
+    const freezeBoundaryZ =
+      -20000 + simplex.noise2D(x * 0.0002, z * 0.0002) * 2000;
+    if (z < freezeBoundaryZ) {
+      const freezeFactor = Math.min(1, (freezeBoundaryZ - z) / 5000);
+      if (freezeFactor > 0) {
+        // Create an ice shelf that is strictly above water (WATER_LEVEL + 3 to WATER_LEVEL + 7)
+        const targetIceLevel =
+          WATER_LEVEL +
+          3 +
+          Math.abs(simplex.noise2D(x * 0.0005, z * 0.0005)) * 4;
+        let blendedIce = _lerp(n, targetIceLevel, freezeFactor);
+
+        // Pack ice has a distinct edge. If it's barely above water, snap it up to avoid Z-fighting.
+        if (blendedIce > WATER_LEVEL && blendedIce < WATER_LEVEL + 2.5) {
+          blendedIce = WATER_LEVEL + 2.5;
+        }
+
+        if (n < blendedIce) {
+          n = blendedIce;
+        }
+      }
     }
 
     return n;
