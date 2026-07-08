@@ -1,5 +1,17 @@
 # Release notes
 
+## 0.9.6
+
+- **Environment:** Expanded map and implemented an alien biome at the far extremes featuring distorted terrain and glowing neon seas. Added a frozen north biome with jagged pack ice shelves and deep frozen oceans.
+- **Models:** Scaled the Rock Arch landmark, thickened its geometry, and randomized its position based on the world seed. Fixed volcano lava generating inside carved rivers.
+- **System:** Added latitude/longitude grid lines and coordinate labels to the debug map view.
+
+## 0.9.5
+
+- **Environment:** Added seagulls to coastal regions. Implemented procedural color variations for trees and bushes. Added the Rock Arch landmark.
+- **Controls:** Autopilot now automatically disables upon detecting manual steering input.
+- **System:** Implemented dynamic module loading for entry points. Enabled native Firebase Analytics. Fixed windmill shadows, moon reflections on water, and prevented shadow projection flipping during sunsets.
+
 ## 0.9.4
 
 - **Environment:** Overhauled stars with varying sizes, colors, and a twinkling effect. Added icebergs, ice floes, and animated penguins to deep north waters.
