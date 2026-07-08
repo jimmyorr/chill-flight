@@ -3266,12 +3266,12 @@ function generateChunk(chunkX, chunkZ) {
       // 3. High-frequency micro-grain
       const grain = simplex.noise2D(worldX * 0.2, worldZ * 0.2) * 0.05;
 
-      // --- EXTREME ZONE FACTOR (East/West beyond 5 degrees) ---
-      const extremeEdgeWorld = 25000;
+      // --- EXTREME ZONE FACTOR (East/West beyond 10 degrees) ---
+      const extremeEdgeWorld = 50000;
       const absWorldX = Math.abs(worldX);
       const extremeZoneFactor = Math.max(
         0,
-        Math.min(1, (absWorldX - extremeEdgeWorld) / 10000)
+        Math.min(1, (absWorldX - extremeEdgeWorld) / 15000)
       );
       // Smoothstep for a less abrupt transition
       const extremeBlend =
@@ -3532,9 +3532,16 @@ function generateChunk(chunkX, chunkZ) {
           ? _colorEasternLowland
           : _colorWesternLowland;
 
+        const baseLandColor = slopeFactor > 0.4 ? colorRock : colorLowland;
+
         if (height <= WATER_LEVEL) {
           // Neon cyan alien ocean / Magenta liquid
           _tempColorObj.lerp(colorWater, extremeBlend * 0.85);
+        } else if (height < WATER_LEVEL + 4) {
+          // Smoothly bleed the glowing water color onto the immediate shoreline
+          const bleed = 1.0 - (height - WATER_LEVEL) / 4.0;
+          const shoreColor = baseLandColor.clone().lerp(colorWater, bleed);
+          _tempColorObj.lerp(shoreColor, extremeBlend * 0.85);
         } else if (height > MOUNTAIN_LEVEL) {
           // Acid yellow / indigo cliffs / White crystal / Fiery faults
           const peakFrac = Math.min(1, (height - MOUNTAIN_LEVEL) / 400);
@@ -3542,10 +3549,7 @@ function generateChunk(chunkX, chunkZ) {
           _tempColorObj.lerp(colorPeak, extremeBlend * peakFrac * 0.9);
         } else {
           // Mid-elevation: obsidian rock on slopes, teal lowland flat areas
-          _tempColorObj.lerp(
-            slopeFactor > 0.4 ? colorRock : colorLowland,
-            extremeBlend * 0.75
-          );
+          _tempColorObj.lerp(baseLandColor, extremeBlend * 0.75);
         }
       }
 

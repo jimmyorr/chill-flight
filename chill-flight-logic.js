@@ -535,8 +535,8 @@
     }
 
     // Strict water level clamping
-    if (n < WATER_LEVEL) {
-      n = WATER_LEVEL;
+    if (n < WATER_LEVEL - 1) {
+      n = WATER_LEVEL - 1;
     }
 
     // Apply Massive Mountain Range - Procedural
@@ -753,7 +753,7 @@
         n = n + (WATER_LEVEL - 5 - n) * basinSmooth * ef;
       }
 
-      if (n < WATER_LEVEL) n = WATER_LEVEL;
+      if (n < WATER_LEVEL - 4) n = WATER_LEVEL - 4;
     }
     // --- WESTERN ALIEN BIOME (Beyond 10 degrees West) ---
     // Massive geometric stepped plateaus, jagged crystal spires, and deep fractured chasms
@@ -794,12 +794,12 @@
         n -= depth * ef;
       }
 
-      if (n < WATER_LEVEL) n = WATER_LEVEL;
+      if (n < WATER_LEVEL - 1) n = WATER_LEVEL - 1;
     }
 
     // Final water level clamp
-    if (n < WATER_LEVEL) {
-      n = WATER_LEVEL;
+    if (n < WATER_LEVEL - 1) {
+      n = WATER_LEVEL - 1;
     }
 
     // --- FROZEN NORTH ICE SHELF ---
