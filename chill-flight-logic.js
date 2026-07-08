@@ -333,7 +333,7 @@
       let x1 = Math.floor(px);
       let x2 = Math.min(x1 + 1, width - 1);
       let y1 = Math.floor(py);
-      let y2 = Math.min(y2 + 1, height - 1);
+      let y2 = Math.min(y1 + 1, height - 1);
 
       // Saftey clamp if math precision errors push us slightly out of bounds
       x1 = Math.max(0, Math.min(x1, width - 1));
