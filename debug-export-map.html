@@ -265,6 +265,61 @@
               ctx.lineTo(lx - 5, lz + 5);
               ctx.stroke();
 
+              // Draw Lat/Long grid
+              ctx.lineWidth = 1;
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+              ctx.font = '14px Courier New';
+
+              const LAT_SCALE = 5000; // 1 degree = 5000 units
+
+              // Draw longitude lines (vertical)
+              const startXDeg = Math.floor(startX / LAT_SCALE);
+              const endXDeg = Math.ceil((startX + totalWidthUnits) / LAT_SCALE);
+              for (let xd = startXDeg; xd <= endXDeg; xd++) {
+                const worldX = xd * LAT_SCALE;
+                const canvasX = (worldX - startX) / scale;
+                ctx.beginPath();
+                ctx.moveTo(canvasX, 0);
+                ctx.lineTo(canvasX, pixelHeight);
+                ctx.stroke();
+              }
+
+              // Draw latitude lines (horizontal)
+              const startZDeg = Math.floor(startZ / LAT_SCALE);
+              const endZDeg = Math.ceil(
+                (startZ + totalHeightUnits) / LAT_SCALE
+              );
+              for (let zd = startZDeg; zd <= endZDeg; zd++) {
+                const worldZ = zd * LAT_SCALE;
+                const canvasY = (worldZ - startZ) / scale;
+                ctx.beginPath();
+                ctx.moveTo(0, canvasY);
+                ctx.lineTo(pixelWidth, canvasY);
+                ctx.stroke();
+              }
+
+              // Label every intersection
+              for (let xd = startXDeg; xd <= endXDeg; xd++) {
+                for (let zd = startZDeg; zd <= endZDeg; zd++) {
+                  const worldX = xd * LAT_SCALE;
+                  const canvasX = (worldX - startX) / scale;
+                  const worldZ = zd * LAT_SCALE;
+                  const canvasY = (worldZ - startZ) / scale;
+
+                  const labelX =
+                    xd === 0 ? '0°' : xd > 0 ? `${xd}° E` : `${-xd}° W`;
+                  const labelZ =
+                    zd === 0 ? '0°' : zd > 0 ? `${zd}° S` : `${-zd}° N`;
+
+                  ctx.fillText(
+                    `${labelZ}, ${labelX}`,
+                    canvasX + 4,
+                    canvasY - 4
+                  );
+                }
+              }
+
               // Download
               const dataURL = canvas.toDataURL('image/png');
               const link = document.createElement('a');
