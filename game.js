@@ -1158,6 +1158,12 @@ document.getElementById('resume-btn').addEventListener('click', () => {
   togglePause();
 });
 
+pauseOverlay.addEventListener('click', (e) => {
+  if (e.target === pauseOverlay) {
+    togglePause();
+  }
+});
+
 const cockpitUI = document.getElementById('cockpit-ui');
 if (cockpitUI) {
   cockpitUI.addEventListener('click', () => {
