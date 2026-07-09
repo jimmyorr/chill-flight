@@ -205,6 +205,8 @@ async function getCachedTrackUrl(url) {
 
       try {
         const Filesystem = Capacitor.Plugins.Filesystem;
+        if (!Filesystem) throw new Error('Filesystem plugin not available');
+
         const downloadResult = await Filesystem.downloadFile({
           url: url,
           path: fileName,
@@ -213,9 +215,11 @@ async function getCachedTrackUrl(url) {
 
         return Capacitor.convertFileSrc(downloadResult.path);
       } catch (downloadErr) {
-        console.error('Failed to download audio natively:', downloadErr);
-        purrpleCatIdx = 0;
-        return 'assets/purrple-cat-birds-of-a-feather.mp3';
+        console.error(
+          'Failed to download audio natively, streaming directly:',
+          downloadErr
+        );
+        return url;
       }
     }
   }
@@ -272,33 +276,15 @@ async function getCachedTrackUrl(url) {
   }
 
   // -- STANDARD WEB BROWSER PATH --
-  if (!('caches' in window)) return url;
-
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    let response = await cache.match(url);
-
-    if (!response) {
-      if (!navigator.onLine) {
-        console.log('Offline and not cached: Falling back to bundled track');
-        purrpleCatIdx = 0;
-        return 'assets/purrple-cat-birds-of-a-feather.mp3';
-      }
-
-      console.log(`Caching new track: ${url}`);
-      response = await fetch(url);
-      await cache.put(url, response.clone());
-    } else {
-      console.log(`Serving track from cache: ${url}`);
-    }
-
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
-  } catch (e) {
-    console.warn('Cache API error, falling back to remote URL:', e);
+  // Note: We do not use the CacheStorage API + blob: URLs here because
+  // iOS Safari (WKWebView) has a long-standing bug where AVPlayer fails
+  // to play blob: URIs correctly. Standard browser HTTP caching is sufficient.
+  if (!navigator.onLine) {
+    console.log('Offline: Falling back to bundled track');
     purrpleCatIdx = 0;
     return 'assets/purrple-cat-birds-of-a-feather.mp3';
   }
+  return url;
 }
 
 // Track switching logic
