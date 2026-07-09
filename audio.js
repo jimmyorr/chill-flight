@@ -401,6 +401,12 @@ function setMusicEnabled(enabled) {
   updateAudioPlayer(enabled);
 }
 
+function setMusicVolume(volume) {
+  if (purrpleCatAudio) {
+    purrpleCatAudio.volume = volume;
+  }
+}
+
 async function updateAudioPlayer(enabled) {
   if (enabled) {
     if (!purrpleCatAudio.src) {

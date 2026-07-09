@@ -672,10 +672,18 @@ function togglePause() {
           0;
     }
 
+    if (typeof setMusicVolume === 'function') {
+      setMusicVolume(0.15);
+    }
+
     if (typeof updatePauseMenuMusicInfo === 'function')
       updatePauseMenuMusicInfo();
   } else {
     pauseOverlay.style.display = 'none';
+
+    if (typeof setMusicVolume === 'function') {
+      setMusicVolume(1.0);
+    }
 
     clock.getDelta(); // clear accumulated time so plane doesn't skip
     clearInputState(); // wipe any input that bled through from the pause overlay
