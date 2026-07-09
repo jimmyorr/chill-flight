@@ -674,17 +674,12 @@ function togglePause() {
 
     if (typeof updatePauseMenuMusicInfo === 'function')
       updatePauseMenuMusicInfo();
-    if (musicEnabled && typeof pauseMusicInternal === 'function')
-      pauseMusicInternal();
   } else {
     pauseOverlay.style.display = 'none';
 
     clock.getDelta(); // clear accumulated time so plane doesn't skip
     clearInputState(); // wipe any input that bled through from the pause overlay
     justResumed = true; // suppress the first animate frame's input application
-
-    if (musicEnabled && typeof playMusicInternal === 'function')
-      playMusicInternal();
   }
 }
 
@@ -1171,15 +1166,15 @@ function updatePauseMenuMusicInfo() {
 
   if (cpEl && titleEl) {
     if (showMusicInfo) {
-      cpEl.style.display = 'block';
+      cpEl.style.visibility = 'visible';
       titleEl.textContent = getCurrentTrackName();
     } else {
-      cpEl.style.display = 'none';
+      cpEl.style.visibility = 'hidden';
     }
   }
 
   if (attrEl) {
-    attrEl.style.display = showMusicInfo ? 'block' : 'none';
+    attrEl.style.visibility = showMusicInfo ? 'visible' : 'hidden';
   }
 }
 
@@ -5279,7 +5274,19 @@ const menuContainer = document.getElementById('mobile-action-menu');
 const menuTrigger = document.getElementById('mobile-menu-trigger');
 const pauseTrigger = document.getElementById('mobile-pause-trigger');
 const camToggle = document.getElementById('mobile-cam-toggle');
-const radToggle = document.getElementById('mobile-rad-toggle');
+// Music toggle in settings
+const musicToggle = document.getElementById('music-toggle-input');
+if (musicToggle) {
+  // Initial sync
+  musicToggle.checked =
+    typeof musicEnabled !== 'undefined' ? musicEnabled : true;
+
+  musicToggle.addEventListener('change', (e) => {
+    if (typeof setMusicEnabled === 'function') {
+      setMusicEnabled(e.target.checked);
+    }
+  });
+}
 const hdgtSub = document.getElementById('mobile-hdgt-sub');
 const autoToggle = document.getElementById('mobile-auto-toggle');
 
@@ -5353,19 +5360,6 @@ if (camToggle) {
     } else {
       cameraMode = 'follow';
       cameraTransitionProgress = 0; // Reset progress to avoid bounce
-    }
-  });
-}
-
-if (radToggle) {
-  radToggle.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // If music is supposed to be on but is paused (likely blocked), try to play it
-    if (musicEnabled && purrpleCatAudio.paused) {
-      updateAudioPlayer(true);
-    } else {
-      setMusicEnabled(!musicEnabled);
     }
   });
 }

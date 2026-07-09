@@ -334,20 +334,10 @@ let isMusicInternalAction = false;
 let isPausedByVisibility = false;
 
 function syncMusicUI(playing) {
-  // Update mobile button UI
-  const radToggle = document.getElementById('mobile-rad-toggle');
-  if (radToggle) {
-    radToggle.title = playing ? 'Pause' : 'Play';
-    const svg = radToggle.querySelector('svg');
-    if (svg) {
-      if (playing) {
-        // Pause icon
-        svg.innerHTML = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"></path>';
-      } else {
-        // Play icon
-        svg.innerHTML = '<path d="M5 3l14 9-14 9V3z"></path>';
-      }
-    }
+  // Update music settings toggle
+  const musicToggle = document.getElementById('music-toggle-input');
+  if (musicToggle) {
+    musicToggle.checked = playing;
   }
 
   if (window.onTrackChange) {
@@ -490,3 +480,11 @@ if ('mediaSession' in navigator) {
 
 // Initial UI sync
 syncMusicUI(!purrpleCatAudio.paused);
+
+// Pre-resolve the initial track URL so the first user interaction
+// can trigger .play() synchronously without being blocked by an await
+getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).then((url) => {
+  if (!purrpleCatAudio.src) {
+    purrpleCatAudio.src = url;
+  }
+});

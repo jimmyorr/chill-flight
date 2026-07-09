@@ -94,6 +94,19 @@
                 >Invert y axis</label
               >
             </div>
+            <div class="customization-row horizontal" style="height: 38px">
+              <input
+                type="checkbox"
+                id="music-toggle-input"
+                class="customization-checkbox"
+              />
+              <label
+                for="music-toggle-input"
+                class="customization-label"
+                style="margin-bottom: 0; cursor: pointer"
+                >Music</label
+              >
+            </div>
           </div>
         </div>
 
@@ -131,7 +144,7 @@
           margin-top: 20px;
           font-size: 12px;
           color: rgba(255, 255, 255, 0.5);
-          display: none;
+          visibility: hidden;
         "
       >
         Currently playing:
@@ -144,6 +157,7 @@
           margin-top: 5px;
           font-size: 12px;
           color: rgba(255, 255, 255, 0.5);
+          visibility: hidden;
         "
       >
         Music by
@@ -365,25 +379,6 @@
             >
               <polygon points="23 7 16 12 23 17 23 7"></polygon>
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-            </svg>
-          </button>
-          <button
-            class="sub-btn"
-            id="mobile-rad-toggle"
-            title="Pause"
-            tabindex="-1"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              style="
-                width: 24px;
-                height: 24px;
-                fill: none;
-                stroke: currentColor;
-                stroke-width: 2;
-              "
-            >
-              <path d="M6 4h4v16H6zM14 4h4v16h-4z"></path>
             </svg>
           </button>
           <button
