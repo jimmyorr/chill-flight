@@ -17,7 +17,7 @@
     // A Native TV app client is a Capacitor app that either:
     // 1. Explicitly identifies as TV/GoogleTV/FireTV
     // 2. Or is a native app that lacks touch support and does not have "mobile" in its UA
-    const isNative = typeof Capacitor !== 'undefined';
+    const isNativeClient = isNative();
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const isMobileUA =
       ua.includes('mobile') || ua.includes('iphone') || ua.includes('ipad');
@@ -27,10 +27,11 @@
       ua.includes('firetv') ||
       ua.includes('bravia');
 
-    const isTVClient = isNative && (hasTVKeyword || (!hasTouch && !isMobileUA));
+    const isTVClient =
+      isNativeClient && (hasTVKeyword || (!hasTouch && !isMobileUA));
 
     console.log(
-      `isTV check: Native=${isNative}, Touch=${hasTouch}, MobileUA=${isMobileUA}, TVKey=${hasTVKeyword} => Result=${isTVClient}`
+      `isTV check: Native=${isNativeClient}, Touch=${hasTouch}, MobileUA=${isMobileUA}, TVKey=${hasTVKeyword} => Result=${isTVClient}`
     );
     return isTVClient;
   }

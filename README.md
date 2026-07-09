@@ -43,14 +43,14 @@ In-game radio features tracks by Purrple Cat (Used with permission/attribution).
 
 The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts.
 
-| Biome             | Direction | Latitude/Longitude          | Primary Characteristics                                                                                  |
-| :---------------- | :-------- | :-------------------------- | :------------------------------------------------------------------------------------------------------- |
-| **Temperate**     | Central   | Around (0, 0) (Center)      | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).            |
-| **Snowy**         | North     | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and frequent snow (~80% duty cycle).     |
-| **Desert**        | South     | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                            |
-| **Archipelago**   | East      | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000). |
-| **Lake District** | West      | Negative X (West Longitude) | Broad rolling hills, and vast inland lakes beyond X=-3000 (0.6 West).                                    |
-| **Alien Zone**    | Far East/West | Beyond 10.0 East/West | Warped, jagged alien topography with glowing neon seas and surreal colors.                               |
+| Biome             | Direction     | Latitude/Longitude          | Primary Characteristics                                                                                  |
+| :---------------- | :------------ | :-------------------------- | :------------------------------------------------------------------------------------------------------- |
+| **Temperate**     | Central       | Around (0, 0) (Center)      | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).            |
+| **Snowy**         | North         | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and frequent snow (~80% duty cycle).     |
+| **Desert**        | South         | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                            |
+| **Archipelago**   | East          | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000). |
+| **Lake District** | West          | Negative X (West Longitude) | Broad rolling hills, and vast inland lakes beyond X=-3000 (0.6 West).                                    |
+| **Alien Zone**    | Far East/West | Beyond 10.0 East/West       | Warped, jagged alien topography with glowing neon seas and surreal colors.                               |
 
 ### 1. Temperate central (the heartland)
 
