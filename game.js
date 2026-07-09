@@ -3788,14 +3788,6 @@ function animate() {
     // 3. Calculate Cinematic State
     const cinematicConfig = CINEMATIC_CONFIGS[currentCinematicIndex];
     if (cameraMode === 'cinematic') {
-      cinematicTimer += delta;
-      if (cinematicTimer > 10) {
-        // Switch every 6 seconds
-        cinematicTimer = 0;
-        currentCinematicIndex =
-          (currentCinematicIndex + 1) % CINEMATIC_CONFIGS.length;
-      }
-
       // Smoothen the switches between cinematic offsets
       const hasOffsetJumped =
         _cinematicOffsetCurrent.distanceToSquared(cinematicConfig.offset) >
