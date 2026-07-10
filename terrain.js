@@ -22,34 +22,10 @@ const VOLCANO_X = -5000;
 const VOLCANO_Z = 5000;
 
 // Materials for terrain
-const textureLoader = new THREE.TextureLoader();
-const grassTex = textureLoader.load('textures/grass.png');
-grassTex.wrapS = THREE.RepeatWrapping;
-grassTex.wrapT = THREE.RepeatWrapping;
-// Basic sRGB encoding handling based on typical three.js version usage
-if (grassTex.colorSpace !== undefined)
-  grassTex.colorSpace = THREE.SRGBColorSpace;
-
-const rockTex = textureLoader.load('textures/rock.png');
-rockTex.wrapS = THREE.RepeatWrapping;
-rockTex.wrapT = THREE.RepeatWrapping;
-if (rockTex.colorSpace !== undefined) rockTex.colorSpace = THREE.SRGBColorSpace;
-
-window.texturesEnabled =
-  localStorage.getItem('chillFlight_texturesEnabled') === 'true';
-
-window.setTexturesEnabled = function (enabled) {
-  window.texturesEnabled = enabled;
-  localStorage.setItem('chillFlight_texturesEnabled', enabled);
-  terrainMaterial.flatShading = !enabled;
-  terrainMaterial.needsUpdate = true;
-  window.terrainUniforms.uEnableTextures.value = enabled ? 1.0 : 0.0;
-};
-
 const terrainMaterial = createMaterial({
   vertexColors: true,
-  flatShading: !window.texturesEnabled,
-  roughness: 0.9,
+  flatShading: true,
+  roughness: 0.8,
 });
 
 const waterMaterial = createMaterial({
@@ -67,9 +43,6 @@ window.terrainUniforms = {
   uSunDirection: {value: new THREE.Vector3(0, 1, 0)},
   uTopColor: {value: new THREE.Color()},
   uBottomColor: {value: new THREE.Color()},
-  uGrassTex: {value: grassTex},
-  uRockTex: {value: rockTex},
-  uEnableTextures: {value: window.texturesEnabled ? 1.0 : 0.0},
 };
 
 terrainMaterial.onBeforeCompile = (shader) => {
@@ -78,9 +51,6 @@ terrainMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
   shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
-  shader.uniforms.uGrassTex = window.terrainUniforms.uGrassTex;
-  shader.uniforms.uRockTex = window.terrainUniforms.uRockTex;
-  shader.uniforms.uEnableTextures = window.terrainUniforms.uEnableTextures;
 
   shader.vertexShader =
     `
@@ -88,7 +58,6 @@ terrainMaterial.onBeforeCompile = (shader) => {
     uniform float uRenderRadius;
     varying float vDistanceXZ;
     varying vec3 vWorldPosition;
-    varying vec3 vWorldNormal;
   ` + shader.vertexShader;
 
   shader.vertexShader = shader.vertexShader.replace(
@@ -96,8 +65,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
     `#include <worldpos_vertex>
      vec4 customWorldPosition = modelMatrix * vec4( transformed, 1.0 );
      vDistanceXZ = length(customWorldPosition.xz - uCameraPosXZ);
-     vWorldPosition = customWorldPosition.xyz;
-     vWorldNormal = normalize( mat3( modelMatrix[0].xyz, modelMatrix[1].xyz, modelMatrix[2].xyz ) * normal );`
+     vWorldPosition = customWorldPosition.xyz;`
   );
 
   shader.fragmentShader =
@@ -108,52 +76,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
     uniform vec3 uTopColor;
     uniform vec3 uBottomColor;
     varying vec3 vWorldPosition;
-    varying vec3 vWorldNormal;
-    
-    uniform sampler2D uGrassTex;
-    uniform sampler2D uRockTex;
-    uniform float uEnableTextures;
   ` + shader.fragmentShader;
-
-  shader.fragmentShader = shader.fragmentShader.replace(
-    `#include <color_fragment>`,
-    `
-    #include <color_fragment>
-    
-    // Triplanar mapping scale
-    float scale = 0.005;
-    vec3 blendWeights = abs(vWorldNormal);
-    blendWeights = (blendWeights - 0.2) * 7.0;  
-    blendWeights = max(blendWeights, 0.0);
-    blendWeights /= (blendWeights.x + blendWeights.y + blendWeights.z);
-    
-    // Sample Grass Texture
-    vec4 grassX = texture2D(uGrassTex, vWorldPosition.yz * scale);
-    vec4 grassY = texture2D(uGrassTex, vWorldPosition.xz * scale);
-    vec4 grassZ = texture2D(uGrassTex, vWorldPosition.xy * scale);
-    vec4 grassTexel = grassX * blendWeights.x + grassY * blendWeights.y + grassZ * blendWeights.z;
-    
-    // Sample Rock Texture
-    vec4 rockX = texture2D(uRockTex, vWorldPosition.yz * scale);
-    vec4 rockY = texture2D(uRockTex, vWorldPosition.xz * scale);
-    vec4 rockZ = texture2D(uRockTex, vWorldPosition.xy * scale);
-    vec4 rockTexel = rockX * blendWeights.x + rockY * blendWeights.y + rockZ * blendWeights.z;
-    
-    // Blend Grass and Rock based on steepness (Y-normal)
-    float slope = 1.0 - blendWeights.y;
-    float rockBlend = smoothstep(0.4, 0.8, slope);
-    
-    vec4 finalTexel = mix(grassTexel, rockTexel, rockBlend);
-    
-    // Fade out texture entirely near water/beach level (Y < 60) so sand vertex color shows cleanly
-    float elevationBlend = smoothstep(30.0, 90.0, vWorldPosition.y);
-    finalTexel = mix(vec4(1.0), finalTexel, elevationBlend);
-    
-    // Mix the triplanar texture with the vertex colors (toggleable)
-    vec3 texturedColor = diffuseColor.rgb * finalTexel.rgb;
-    diffuseColor.rgb = mix(diffuseColor.rgb, texturedColor, uEnableTextures);
-    `
-  );
 
   shader.fragmentShader = shader.fragmentShader.replace(
     `#include <fog_fragment>`,

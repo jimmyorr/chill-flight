@@ -5293,17 +5293,6 @@ if (musicToggle) {
     }
   });
 }
-
-const texturesToggle = document.getElementById('textures-toggle-input');
-if (texturesToggle) {
-  texturesToggle.checked = window.texturesEnabled === true; // Default to false
-
-  texturesToggle.addEventListener('change', (e) => {
-    if (typeof window.setTexturesEnabled === 'function') {
-      window.setTexturesEnabled(e.target.checked);
-    }
-  });
-}
 const hdgtSub = document.getElementById('mobile-hdgt-sub');
 const autoToggle = document.getElementById('mobile-auto-toggle');
 
