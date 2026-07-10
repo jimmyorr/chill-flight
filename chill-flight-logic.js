@@ -902,7 +902,7 @@
   // Returns the X coordinate of the road center for a given Z position.
   // The road winds along the west coast using layered simplex noise.
   const ROAD_BASE_X = -7500; // Base X position (west coast)
-  const ROAD_WIDTH = 20; // Half-width of the paved road surface
+  const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
 
   function getRoadCenterX(z) {
