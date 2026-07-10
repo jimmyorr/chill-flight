@@ -957,7 +957,43 @@
     // Layer 3: Small wobbles (wavelength ~1,000 units)
     const wobble = simplex.noise2D(z * 0.001, 999) * 40;
 
-    return ROAD_BASE_X + sweep + detail + wobble;
+    let x = ROAD_BASE_X + sweep + detail + wobble;
+
+    // --- LAKE AVOIDANCE (DOMAIN WARPING) ---
+    // Repel the road away from deep lakes using the gradient of the lake noise
+    if (x < -3000) {
+      const lakeRegion = simplex.noise2D(x * 0.0001 + 200, z * 0.0001 + 200);
+
+      // Start avoiding when getting near a lake region
+      if (lakeRegion > 0.0) {
+        const lakeShape = simplex.noise2D(x * 0.0003 + 300, z * 0.0003 + 300);
+
+        if (lakeShape > -0.2) {
+          // Calculate the gradient (slope) of the lake shape along the X axis
+          const dx = 50;
+          const shapeLeft = simplex.noise2D(
+            (x - dx) * 0.0003 + 300,
+            z * 0.0003 + 300
+          );
+          const shapeRight = simplex.noise2D(
+            (x + dx) * 0.0003 + 300,
+            z * 0.0003 + 300
+          );
+
+          // Positive gradient means the lake gets deeper to the East (right)
+          const gradX = (shapeRight - shapeLeft) / (2 * dx);
+
+          // Calculate how intense the lake is at the original base X position
+          const intensity =
+            Math.max(0, lakeRegion) * Math.max(0, lakeShape + 0.2);
+
+          // Push X smoothly down the gradient (away from the lake center).
+          x -= gradX * intensity * 400000;
+        }
+      }
+    }
+
+    return x;
   }
 
   // Returns a [0, 1] factor indicating how much a point is on the road.
