@@ -1013,8 +1013,26 @@
           const intensity =
             Math.max(0, lakeRegion) * Math.max(0, lakeShape + 0.2);
 
+          // IMPORTANT: Check the actual elevation of the terrain at this spot.
+          // If it's a dry lake basin (desert), don't repel! Only repel if near water level.
+          const naturalH = exports.getElevation(
+            x,
+            z,
+            simplex,
+            {WATER_LEVEL: 40},
+            null,
+            {ignoreRivers: true, ignoreRoads: true}
+          );
+
+          // Depth factor: 1.0 if at or below water level (40), 0.0 if 50+ units above water.
+          const depthFactor = Math.max(
+            0,
+            Math.min(1, (40 + 50 - naturalH) / 50)
+          );
+
           // Push X smoothly down the gradient (away from the lake center).
-          x -= gradX * intensity * 400000;
+          // We can use a strong multiplier (2,000,000) now that we only push when there is actual water!
+          x -= gradX * intensity * depthFactor * 2000000;
         }
       }
     }
