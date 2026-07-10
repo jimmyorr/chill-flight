@@ -2073,6 +2073,44 @@ function updateWeather(delta) {
     };
   }
 
+  // Initialize lightning light if it doesn't exist
+  if (!window.lightningLight && typeof scene !== 'undefined') {
+    window.lightningLight = new THREE.DirectionalLight(0xe0e0ff, 0);
+    scene.add(window.lightningLight);
+    window.lightningFlashIntensity = 0;
+  }
+
+  // Lightning logic
+  if (window.lightningFlashIntensity > 0) {
+    // Rapidly decay the flash
+    window.lightningFlashIntensity = Math.max(
+      0,
+      window.lightningFlashIntensity - delta * 4.0
+    );
+    if (window.lightningLight) {
+      // Randomly turn it off to create a flickering strobe effect
+      window.lightningLight.intensity =
+        Math.random() < 0.3 ? 0 : window.lightningFlashIntensity;
+    }
+  } else if (
+    targetRainOpacity > 0.2 &&
+    Math.random() < targetRainOpacity * 0.0025
+  ) {
+    // Only allow lightning between 6pm and 6am
+    const hours = (timeOfDay / (Math.PI * 2)) * 24;
+    if (hours >= 18 || hours <= 6) {
+      // Trigger a new lightning strike during heavy rain
+      window.lightningFlashIntensity = 1.5 + Math.random() * 1.0;
+      if (window.lightningLight) {
+        // Set a random overhead angle for the strike
+        window.lightningLight.position
+          .set((Math.random() - 0.5) * 2, 1, (Math.random() - 0.5) * 2)
+          .normalize();
+        window.lightningLight.color.setHSL(0.6, 0.2, 0.8 + Math.random() * 0.2); // Cool white/blue
+      }
+    }
+  }
+
   // Store unfaded opacities to drive cloud density even when above clouds
   window._unfadedSnowOpacity = targetSnowOpacity;
   window._unfadedRainOpacity = targetRainOpacity;
