@@ -944,20 +944,46 @@
   // --- WEST COAST HIGHWAY ---
   // Returns the X coordinate of the road center for a given Z position.
   // The road winds along the west coast using layered simplex noise.
-  const ROAD_BASE_X = -7500; // Base X position (west coast)
+  const ROAD_BASE_X = -5000; // Base X position (center of 0.5W and 1.5W)
   const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
   const MAX_HIGHWAY_HEIGHT = 40 + 400; // Maximum altitude before carving a trench (WATER_LEVEL + 400)
 
   function getRoadCenterX(z) {
     // Layer 1: Large sweeping curves (wavelength ~10,000 units)
-    const sweep = simplex.noise2D(z * 0.0001, 777) * 600;
+    // Amplified to 2500 so it swings between -2500 (0.5W) and -7500 (1.5W)
+    const sweep = simplex.noise2D(z * 0.0001, 777) * 2500;
     // Layer 2: Medium detail curves (wavelength ~3,000 units)
-    const detail = simplex.noise2D(z * 0.0003, 888) * 200;
+    const detail = simplex.noise2D(z * 0.0003, 888) * 500;
     // Layer 3: Small wobbles (wavelength ~1,000 units)
-    const wobble = simplex.noise2D(z * 0.001, 999) * 40;
+    const wobble = simplex.noise2D(z * 0.001, 999) * 100;
 
     let x = ROAD_BASE_X + sweep + detail + wobble;
+
+    // --- VOLCANO AVOIDANCE (REPULSION FIELD) ---
+    // The volcano is located exactly at X = -5000, Z = 5000.
+    const VOLCANO_X = -5000;
+    const VOLCANO_Z = 5000;
+    const VOLCANO_AVOID_RADIUS = 2500; // Pushes road up to 2500 units away from center
+
+    const dxV = x - VOLCANO_X;
+    const dzV = z - VOLCANO_Z;
+    const distSqV = dxV * dxV + dzV * dzV;
+
+    if (distSqV < VOLCANO_AVOID_RADIUS * VOLCANO_AVOID_RADIUS) {
+      const dist = Math.sqrt(distSqV);
+      // We are inside the danger zone! Calculate a smooth push factor.
+      const t = (VOLCANO_AVOID_RADIUS - dist) / VOLCANO_AVOID_RADIUS;
+      const smoothFactor = t * t * (3 - 2 * t); // Smoothstep for seamless blend
+      const pushAmount = smoothFactor * VOLCANO_AVOID_RADIUS;
+
+      // Push east or west depending on which side of the center it's naturally on
+      if (dxV <= 0) {
+        x -= pushAmount;
+      } else {
+        x += pushAmount;
+      }
+    }
 
     // --- LAKE AVOIDANCE (DOMAIN WARPING) ---
     // Repel the road away from deep lakes using the gradient of the lake noise
