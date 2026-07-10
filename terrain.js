@@ -1890,6 +1890,19 @@ const pierDeckGeo = createPierDeckGeometry();
 const pierPostGeo = new THREE.CylinderGeometry(1, 1, 10, 6);
 const woodMat = createMaterial({color: 0x5d4037, flatShading: true});
 
+// Bridge geometries (for the east coast road)
+const BRIDGE_SEGMENT_LENGTH = 30; // Z-length of each bridge deck segment
+const BRIDGE_DECK_HEIGHT = 8; // Height above water level
+const bridgeDeckGeo = new THREE.BoxGeometry(
+  ChillFlightLogic.ROAD_WIDTH * 2 + 4, // A little wider than the road
+  1.5, // Deck thickness
+  BRIDGE_SEGMENT_LENGTH
+);
+const bridgePilingGeo = new THREE.CylinderGeometry(1.2, 1.2, 20, 6);
+const bridgeRailGeo = new THREE.BoxGeometry(0.5, 3, BRIDGE_SEGMENT_LENGTH);
+const bridgeDeckMat = createMaterial({color: 0x555555, flatShading: true}); // Concrete gray
+const bridgePilingMat = createMaterial({color: 0x4a4a4a, flatShading: true}); // Slightly darker
+
 // Tent geometries
 function createTentBodyGeometry() {
   const geom = new THREE.BoxGeometry(8, 6, 10);
@@ -3143,6 +3156,11 @@ const _colorWesternPeak = new THREE.Color(0xffffff); // Blinding white crystal p
 const _colorWesternCliff = new THREE.Color(0xff4500); // Glowing orange-red fiery faults
 const _colorWesternWater = new THREE.Color(0xff00ff); // Hot pink/magenta liquid
 
+// East coast road
+const _colorRoad = new THREE.Color(0x3a3a3a); // Dark asphalt
+const _colorRoadCenterLine = new THREE.Color(0xccaa00); // Dashed yellow center line
+const _colorRoadShoulder = new THREE.Color(0x555555); // Lighter edge
+
 function generateChunk(chunkX, chunkZ) {
   const group = new THREE.Group();
   group.userData.worldPosition = new THREE.Vector3(
@@ -3622,7 +3640,14 @@ function generateChunk(chunkX, chunkZ) {
         (worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2
       );
 
-      if (_enableObjects && (isStandardLand || isCustomLand) && !isFrozen) {
+      const isOnRoad = ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0;
+
+      if (
+        _enableObjects &&
+        (isStandardLand || isCustomLand) &&
+        !isFrozen &&
+        !isOnRoad
+      ) {
         if (isForest) {
           const treeRoll = rng();
           if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
@@ -3958,6 +3983,8 @@ function generateChunk(chunkX, chunkZ) {
           .lerp(_colorVolcanoBasaltLo, height / 1400);
         _tempColorObj.lerp(basaltColor, vFactor);
       }
+
+      // --- EAST COAST ROAD REMOVED ---
 
       colors.push(_tempColorObj.r, _tempColorObj.g, _tempColorObj.b);
     }
@@ -5378,6 +5405,197 @@ function generateChunk(chunkX, chunkZ) {
       postInst.position.set(worldOffsetX, 0, worldOffsetZ);
       objectsGroup.add(deckInst);
       objectsGroup.add(postInst);
+    }
+
+    // 2.955 Generate West Coast Highway
+    // Spawn continuous geometric road segments that elevate into bridges over water/valleys
+    if (!isCustom) {
+      const bridgePositions = [];
+      const halfChunk = CHUNK_SIZE / 2;
+      const sampleStep = BRIDGE_SEGMENT_LENGTH;
+
+      // Ensure we have access to the constants
+      const constants = {
+        WATER_LEVEL,
+        MOUNTAIN_LEVEL:
+          typeof MOUNTAIN_LEVEL !== 'undefined' ? MOUNTAIN_LEVEL : 180,
+      };
+
+      for (
+        let sampleZ = -halfChunk;
+        sampleZ < halfChunk;
+        sampleZ += sampleStep
+      ) {
+        const wz = worldOffsetZ + sampleZ + sampleStep / 2;
+        const roadX = ChillFlightLogic.getRoadCenterX(wz);
+        const localRoadX = roadX - worldOffsetX;
+
+        // Check if the road center is inside this chunk (with some margin)
+        if (Math.abs(localRoadX) > halfChunk + 50) continue;
+
+        // Get natural terrain height (ignoring rivers) for smooth road elevation
+        const naturalH = ChillFlightLogic.getElevation(
+          roadX,
+          wz,
+          simplex,
+          constants,
+          null,
+          {ignoreRivers: true}
+        );
+
+        // Ensure minimum clearance height over water
+        const minHeight = WATER_LEVEL + 60;
+        const roadY = Math.max(naturalH + 2, minHeight);
+
+        // Actual terrain height (including rivers) to determine if we need pilings
+        const actualTerrainH = getCachedElevation(roadX, wz);
+        const needsPilings = roadY - actualTerrainH > 10;
+
+        // Calculate the next point on the road to determine slope and yaw
+        const nextWz = wz + sampleStep;
+        const nextRoadX = ChillFlightLogic.getRoadCenterX(nextWz);
+        const nextNaturalH = ChillFlightLogic.getElevation(
+          nextRoadX,
+          nextWz,
+          simplex,
+          constants,
+          null,
+          {ignoreRivers: true}
+        );
+        const nextRoadY = Math.max(nextNaturalH + 2, minHeight);
+
+        bridgePositions.push({
+          x: localRoadX,
+          y: roadY,
+          z: sampleZ + sampleStep / 2,
+          needsPilings: needsPilings,
+          terrainH: actualTerrainH,
+          nextPos: {
+            x: nextRoadX - worldOffsetX,
+            y: nextRoadY,
+            z: sampleZ + sampleStep * 1.5,
+          },
+        });
+      }
+
+      if (bridgePositions.length > 0) {
+        // Count how many pilings and railings we need
+        let numPilings = 0;
+        let numRailSegments = 0;
+        bridgePositions.forEach((p) => {
+          if (p.needsPilings) {
+            numPilings += 4;
+            numRailSegments += 1;
+          }
+        });
+
+        // Bridge decks
+        const deckInst = new THREE.InstancedMesh(
+          bridgeDeckGeo,
+          bridgeDeckMat,
+          bridgePositions.length
+        );
+
+        // Pilings
+        const pilingInst = new THREE.InstancedMesh(
+          bridgePilingGeo,
+          bridgePilingMat,
+          numPilings > 0 ? numPilings : 1 // Avoid 0 size buffer error
+        );
+
+        // Railings — 2 per segment (one on each side) ONLY for bridge sections
+        const railInst = new THREE.InstancedMesh(
+          bridgeRailGeo,
+          bridgeDeckMat,
+          numRailSegments > 0 ? numRailSegments * 2 : 1
+        );
+
+        const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 2;
+        let pilingIndex = 0;
+        let railIndex = 0;
+
+        bridgePositions.forEach((pos, index) => {
+          const currentVec = new THREE.Vector3(pos.x, pos.y, pos.z);
+          const nextVec = new THREE.Vector3(
+            pos.nextPos.x,
+            pos.nextPos.y,
+            pos.nextPos.z
+          );
+
+          // Calculate center of the edge and the exact distance
+          const midVec = currentVec.clone().lerp(nextVec, 0.5);
+          const dist = currentVec.distanceTo(nextVec);
+
+          // Deck
+          dummy.position.copy(midVec);
+          dummy.lookAt(nextVec);
+          dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+          dummy.updateMatrix();
+          deckInst.setMatrixAt(index, dummy.matrix);
+
+          // Extract just the yaw from the deck's rotation for pilings
+          const euler = new THREE.Euler().setFromQuaternion(
+            dummy.quaternion,
+            'YXZ'
+          );
+          const yaw = euler.y;
+
+          // Pilings — 4 per segment at the corners if needed
+          if (pos.needsPilings) {
+            // Height of the piling needed to reach from the bridge deck down to the ground
+            const pilingHeight = midVec.y - pos.terrainH;
+            if (pilingHeight > 0) {
+              const yScale = pilingHeight / 20.0; // Geo is 20 units tall
+              const pilingY = midVec.y - pilingHeight / 2;
+
+              const pilingOffsets = [
+                [-halfRoadW, -BRIDGE_SEGMENT_LENGTH / 3],
+                [halfRoadW, -BRIDGE_SEGMENT_LENGTH / 3],
+                [-halfRoadW, BRIDGE_SEGMENT_LENGTH / 3],
+                [halfRoadW, BRIDGE_SEGMENT_LENGTH / 3],
+              ];
+              pilingOffsets.forEach((off) => {
+                // Apply yaw to the offset so pilings match the road curve
+                const dx = off[0] * Math.cos(yaw) + off[1] * Math.sin(yaw);
+                const dz = -off[0] * Math.sin(yaw) + off[1] * Math.cos(yaw);
+
+                dummy.position.set(midVec.x + dx, pilingY, midVec.z + dz);
+                dummy.rotation.set(0, yaw, 0); // Keep them vertical
+                dummy.scale.set(1, yScale, 1);
+                dummy.updateMatrix();
+                pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
+              });
+            }
+          }
+
+          // Railings — one on each side, only if it's a bridge section
+          if (pos.needsPilings) {
+            [-halfRoadW, halfRoadW].forEach((xOff) => {
+              // Apply deck's rotation to local offset
+              dummy.position.copy(midVec);
+              dummy.lookAt(nextVec);
+              dummy.translateX(xOff);
+              dummy.translateY(2);
+              dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+              dummy.updateMatrix();
+              railInst.setMatrixAt(railIndex++, dummy.matrix);
+            });
+          }
+        });
+
+        deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+        group.add(deckInst);
+
+        if (numRailSegments > 0) {
+          railInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(railInst);
+        }
+
+        if (numPilings > 0) {
+          pilingInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(pilingInst);
+        }
+      }
     }
 
     // 2.96 Generate Campfires

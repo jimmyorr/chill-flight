@@ -230,6 +230,9 @@
         Lighthouse
       </button>
       <button class="model-btn" onclick="viewModel('pier', event)">Pier</button>
+      <button class="model-btn" onclick="viewModel('bridge', event)">
+        Bridge
+      </button>
       <button class="model-btn" onclick="viewModel('tent', event)">Tent</button>
       <button class="model-btn" onclick="viewModel('campfire', event)">
         Campfire
@@ -592,6 +595,29 @@
             case 'pier':
               previewGroup.add(new THREE.Mesh(pierDeckGeo, woodMat));
               break;
+            case 'bridge': {
+              previewGroup.add(new THREE.Mesh(bridgeDeckGeo, bridgeDeckMat));
+              // Pilings
+              const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 2;
+              const pilingOffsets = [
+                [-halfRoadW, -BRIDGE_SEGMENT_LENGTH / 3],
+                [halfRoadW, -BRIDGE_SEGMENT_LENGTH / 3],
+                [-halfRoadW, BRIDGE_SEGMENT_LENGTH / 3],
+                [halfRoadW, BRIDGE_SEGMENT_LENGTH / 3],
+              ];
+              pilingOffsets.forEach((off) => {
+                const piling = new THREE.Mesh(bridgePilingGeo, bridgePilingMat);
+                piling.position.set(off[0], -10, off[1]);
+                previewGroup.add(piling);
+              });
+              // Railings
+              [-halfRoadW, halfRoadW].forEach((xOff) => {
+                const rail = new THREE.Mesh(bridgeRailGeo, bridgeDeckMat);
+                rail.position.set(xOff, 2, 0);
+                previewGroup.add(rail);
+              });
+              break;
+            }
             case 'tent':
               previewGroup.add(new THREE.Mesh(tentGeo, tentMat));
               previewGroup.add(

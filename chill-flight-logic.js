@@ -286,7 +286,7 @@
   // --- ELEVATION ---
   // Returns the terrain height (always >= WATER_LEVEL) for a given world (x, z) position.
   // Requires a simplex noise object and a constants object { WATER_LEVEL, MOUNTAIN_LEVEL }.
-  function getElevation(x, z, simplex, constants, lerp) {
+  function getElevation(x, z, simplex, constants, lerp, options = {}) {
     const WATER_LEVEL = constants.WATER_LEVEL || 40;
 
     // --- PROCEDURAL TERRAIN HELPER ---
@@ -670,51 +670,53 @@
 
     // --- RIVER CARVING LOGIC ---
     // Runs after all additive terrain passes (mountains, volcano) so it always wins.
-    let maxRiverFactor = 0;
+    if (!options.ignoreRivers) {
+      let maxRiverFactor = 0;
 
-    // Check adjacent latitudes to find any nearby rivers (since they meander up to 5000 units)
-    for (let l = currentLat - 1; l <= currentLat + 1; l++) {
-      const type = getProceduralTerrainType(l, terrainFrequency);
-      if (type === 'major_river' || type === 'minor_river') {
-        const riverCenterZ = exports.getRiverCenterZ
-          ? exports.getRiverCenterZ(x, z, simplex, l)
-          : l * latScale; // Fallback
+      // Check adjacent latitudes to find any nearby rivers (since they meander up to 5000 units)
+      for (let l = currentLat - 1; l <= currentLat + 1; l++) {
+        const type = getProceduralTerrainType(l, terrainFrequency);
+        if (type === 'major_river' || type === 'minor_river') {
+          const riverCenterZ = exports.getRiverCenterZ
+            ? exports.getRiverCenterZ(x, z, simplex, l)
+            : l * latScale; // Fallback
 
-        const distToRiver = Math.abs(z - riverCenterZ);
+          const distToRiver = Math.abs(z - riverCenterZ);
 
-        let riverWidth, riverBankWidth;
-        if (type === 'major_river') {
-          const widthNoise = simplex.noise2D(x * 0.0005, 200);
-          const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
-          riverWidth = 120 + widthVariation * 180; // Min 120, max 300
-          riverBankWidth = 100 + widthVariation * 100;
-        } else {
-          // Smaller rivers
-          const widthNoise = simplex.noise2D(x * 0.0008, l * 10.0);
-          const widthVariation = (widthNoise + 1) * 0.5;
-          riverWidth = 100 + widthVariation * 100; // Min 100, max 200
-          riverBankWidth = 60 + widthVariation * 40;
-        }
+          let riverWidth, riverBankWidth;
+          if (type === 'major_river') {
+            const widthNoise = simplex.noise2D(x * 0.0005, 200);
+            const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
+            riverWidth = 120 + widthVariation * 180; // Min 120, max 300
+            riverBankWidth = 100 + widthVariation * 100;
+          } else {
+            // Smaller rivers
+            const widthNoise = simplex.noise2D(x * 0.0008, l * 10.0);
+            const widthVariation = (widthNoise + 1) * 0.5;
+            riverWidth = 100 + widthVariation * 100; // Min 100, max 200
+            riverBankWidth = 60 + widthVariation * 40;
+          }
 
-        let riverFactor = 0;
-        if (distToRiver <= riverWidth) {
-          riverFactor = 1.0;
-        } else if (distToRiver < riverWidth + riverBankWidth) {
-          // Smooth transition zone
-          const t = (distToRiver - riverWidth) / riverBankWidth;
-          // Smoothstep curve for natural banks
-          riverFactor = 1.0 - t * t * (3 - 2 * t);
-        }
+          let riverFactor = 0;
+          if (distToRiver <= riverWidth) {
+            riverFactor = 1.0;
+          } else if (distToRiver < riverWidth + riverBankWidth) {
+            // Smooth transition zone
+            const t = (distToRiver - riverWidth) / riverBankWidth;
+            // Smoothstep curve for natural banks
+            riverFactor = 1.0 - t * t * (3 - 2 * t);
+          }
 
-        if (riverFactor > maxRiverFactor) {
-          maxRiverFactor = riverFactor;
+          if (riverFactor > maxRiverFactor) {
+            maxRiverFactor = riverFactor;
+          }
         }
       }
-    }
 
-    if (maxRiverFactor > 0) {
-      // Carve down to just below water level, overriding any mountain/volcano additions
-      n = _lerp(n, WATER_LEVEL - 2, maxRiverFactor);
+      if (maxRiverFactor > 0) {
+        // Carve down to just below water level, overriding any mountain/volcano additions
+        n = _lerp(n, WATER_LEVEL - 2, maxRiverFactor);
+      }
     }
 
     // --- EASTERN ALIEN BIOME (Beyond 10 degrees East) ---
@@ -896,9 +898,47 @@
     return a + diff * t;
   }
 
+  // --- WEST COAST HIGHWAY ---
+  // Returns the X coordinate of the road center for a given Z position.
+  // The road winds along the west coast using layered simplex noise.
+  const ROAD_BASE_X = -7500; // Base X position (west coast)
+  const ROAD_WIDTH = 20; // Half-width of the paved road surface
+  const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
+
+  function getRoadCenterX(z) {
+    // Layer 1: Large sweeping curves (wavelength ~10,000 units)
+    const sweep = simplex.noise2D(z * 0.0001, 777) * 600;
+    // Layer 2: Medium detail curves (wavelength ~3,000 units)
+    const detail = simplex.noise2D(z * 0.0003, 888) * 200;
+    // Layer 3: Small wobbles (wavelength ~1,000 units)
+    const wobble = simplex.noise2D(z * 0.001, 999) * 40;
+
+    return ROAD_BASE_X + sweep + detail + wobble;
+  }
+
+  // Returns a [0, 1] factor indicating how much a point is on the road.
+  // 1.0 = fully on road, 0.0 = outside road + shoulder.
+  function getRoadFactor(x, z) {
+    const centerX = getRoadCenterX(z);
+    const dist = Math.abs(x - centerX);
+
+    if (dist <= ROAD_WIDTH) {
+      return 1.0;
+    } else if (dist <= ROAD_WIDTH + ROAD_SHOULDER) {
+      // Smooth shoulder falloff
+      const t = (dist - ROAD_WIDTH) / ROAD_SHOULDER;
+      return 1.0 - t * t * (3 - 2 * t); // Smoothstep
+    }
+    return 0.0;
+  }
+
   exports.getBiome = getBiome;
   exports.getElevation = getElevation;
   exports.getRiverCenterZ = getRiverCenterZ;
+  exports.getRoadCenterX = getRoadCenterX;
+  exports.getRoadFactor = getRoadFactor;
+  exports.ROAD_WIDTH = ROAD_WIDTH;
+  exports.ROAD_SHOULDER = ROAD_SHOULDER;
   exports.lerpAngle = lerpAngle;
 
   // Export centralized URL parameters
