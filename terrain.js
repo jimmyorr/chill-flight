@@ -5433,19 +5433,20 @@ function generateChunk(chunkX, chunkZ) {
         // Check if the road center is inside this chunk (with some margin)
         if (Math.abs(localRoadX) > halfChunk + 50) continue;
 
-        // Get natural terrain height (ignoring rivers) for smooth road elevation
+        // Get natural terrain height (ignoring rivers and trenches) for smooth road elevation
         const naturalH = ChillFlightLogic.getElevation(
           roadX,
           wz,
           simplex,
           constants,
           null,
-          {ignoreRivers: true}
+          {ignoreRivers: true, ignoreRoads: true}
         );
 
-        // Ensure minimum clearance height over water
+        // Ensure minimum clearance height over water and max height for trenches
         const minHeight = WATER_LEVEL + 60;
-        const roadY = Math.max(naturalH + 2, minHeight);
+        let roadY = Math.max(naturalH + 2, minHeight);
+        roadY = Math.min(roadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
         // Actual terrain height (including rivers) to determine if we need pilings
         const actualTerrainH = getCachedElevation(roadX, wz);
@@ -5460,9 +5461,10 @@ function generateChunk(chunkX, chunkZ) {
           simplex,
           constants,
           null,
-          {ignoreRivers: true}
+          {ignoreRivers: true, ignoreRoads: true}
         );
-        const nextRoadY = Math.max(nextNaturalH + 2, minHeight);
+        let nextRoadY = Math.max(nextNaturalH + 2, minHeight);
+        nextRoadY = Math.min(nextRoadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
         bridgePositions.push({
           x: localRoadX,

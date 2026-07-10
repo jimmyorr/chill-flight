@@ -719,6 +719,49 @@
       }
     }
 
+    // --- HIGHWAY TRENCH CARVING LOGIC ---
+    if (!options.ignoreRoads) {
+      const roadCenterX = getRoadCenterX(z);
+      const distToRoad = Math.abs(x - roadCenterX);
+
+      const CANYON_FLOOR_WIDTH = 50; // Flat area at the bottom for the road to sit in
+      const CANYON_WALL_WIDTH = 250; // How far the walls smoothly slope out
+
+      if (distToRoad < CANYON_FLOOR_WIDTH + CANYON_WALL_WIDTH) {
+        // Find the intended natural height of the road center
+        // We MUST ignore roads and rivers here to avoid recursion and hitting trenches
+        const centerNaturalH = exports.getElevation(
+          roadCenterX,
+          z,
+          simplex,
+          constants,
+          _lerp,
+          {ignoreRivers: true, ignoreRoads: true}
+        );
+
+        const MIN_ROAD_HEIGHT = WATER_LEVEL + 60;
+        let roadY = Math.max(centerNaturalH + 2, MIN_ROAD_HEIGHT);
+        roadY = Math.min(roadY, exports.MAX_HIGHWAY_HEIGHT);
+
+        // If the terrain is higher than the road, carve a canyon
+        if (n > roadY) {
+          let carveFactor = 0;
+          if (distToRoad <= CANYON_FLOOR_WIDTH) {
+            carveFactor = 1.0;
+          } else {
+            // Smoothly slope the canyon walls up to the natural terrain
+            const t = (distToRoad - CANYON_FLOOR_WIDTH) / CANYON_WALL_WIDTH;
+            carveFactor = 1.0 - t * t * (3 - 2 * t);
+          }
+
+          if (carveFactor > 0) {
+            // roadY - 1 avoids z-fighting with the road deck
+            n = _lerp(n, roadY - 1, carveFactor);
+          }
+        }
+      }
+    }
+
     // --- EASTERN ALIEN BIOME (Beyond 10 degrees East) ---
     // Swirling domain-warped ridges and alien sea basins
     const extremeEdge = 50000;
@@ -904,6 +947,7 @@
   const ROAD_BASE_X = -7500; // Base X position (west coast)
   const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
+  const MAX_HIGHWAY_HEIGHT = 40 + 400; // Maximum altitude before carving a trench (WATER_LEVEL + 400)
 
   function getRoadCenterX(z) {
     // Layer 1: Large sweeping curves (wavelength ~10,000 units)
@@ -937,8 +981,10 @@
   exports.getRiverCenterZ = getRiverCenterZ;
   exports.getRoadCenterX = getRoadCenterX;
   exports.getRoadFactor = getRoadFactor;
+  exports.ROAD_BASE_X = ROAD_BASE_X;
   exports.ROAD_WIDTH = ROAD_WIDTH;
   exports.ROAD_SHOULDER = ROAD_SHOULDER;
+  exports.MAX_HIGHWAY_HEIGHT = MAX_HIGHWAY_HEIGHT;
   exports.lerpAngle = lerpAngle;
 
   // Export centralized URL parameters
