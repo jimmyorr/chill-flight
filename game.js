@@ -1448,6 +1448,26 @@ if (freeCamToggle) {
     const debugTelem = document.getElementById('debug-telemetry');
     if (debugMenu) debugMenu.style.display = 'block';
     if (debugTelem) debugTelem.style.display = 'block';
+  } else {
+    // Not free camera: spawn the plane at the requested coordinates
+    if (ChillFlightLogic.START_X !== null)
+      planeGroup.position.x = ChillFlightLogic.START_X;
+    if (ChillFlightLogic.START_Y !== null)
+      planeGroup.position.y = ChillFlightLogic.START_Y;
+    if (ChillFlightLogic.START_Z !== null)
+      planeGroup.position.z = ChillFlightLogic.START_Z;
+    
+    // Set rotation order to YXZ for proper flight controls
+    planeGroup.rotation.order = 'YXZ';
+    
+    if (ChillFlightLogic.START_HEADING !== null)
+      planeGroup.rotation.y = THREE.MathUtils.degToRad(
+        ChillFlightLogic.START_HEADING
+      );
+    if (ChillFlightLogic.START_PITCH !== null)
+      planeGroup.rotation.x = THREE.MathUtils.degToRad(
+        ChillFlightLogic.START_PITCH
+      );
   }
   freeCamToggle.addEventListener('change', (e) => {
     isFreeCamera = e.target.checked;
