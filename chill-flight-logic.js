@@ -992,58 +992,6 @@
 
     let x = ROAD_BASE_X + sweep + detail + wobble;
 
-    // --- LAKE AVOIDANCE (DOMAIN WARPING) ---
-    // Repel the road away from deep lakes using the gradient of the lake noise
-    if (x < -3000) {
-      const lakeRegion = simplex.noise2D(x * 0.0001 + 200, z * 0.0001 + 200);
-
-      // Start avoiding when getting near a lake region
-      if (lakeRegion > 0.0) {
-        const lakeShape = simplex.noise2D(x * 0.0003 + 300, z * 0.0003 + 300);
-
-        if (lakeShape > -0.2) {
-          // Calculate the gradient (slope) of the lake shape along the X axis
-          const dx = 50;
-          const shapeLeft = simplex.noise2D(
-            (x - dx) * 0.0003 + 300,
-            z * 0.0003 + 300
-          );
-          const shapeRight = simplex.noise2D(
-            (x + dx) * 0.0003 + 300,
-            z * 0.0003 + 300
-          );
-
-          // Positive gradient means the lake gets deeper to the East (right)
-          const gradX = (shapeRight - shapeLeft) / (2 * dx);
-
-          // Calculate how intense the lake is at the original base X position
-          const intensity =
-            Math.max(0, lakeRegion) * Math.max(0, lakeShape + 0.2);
-
-          // IMPORTANT: Check the actual elevation of the terrain at this spot.
-          // If it's a dry lake basin (desert), don't repel! Only repel if near water level.
-          const naturalH = exports.getElevation(
-            x,
-            z,
-            simplex,
-            {WATER_LEVEL: 40},
-            null,
-            {ignoreRivers: true, ignoreRoads: true}
-          );
-
-          // Depth factor: 1.0 if at or below water level (40), 0.0 if 50+ units above water.
-          const depthFactor = Math.max(
-            0,
-            Math.min(1, (40 + 50 - naturalH) / 50)
-          );
-
-          // Push X smoothly down the gradient (away from the lake center).
-          // We can use a strong multiplier (2,000,000) now that we only push when there is actual water!
-          x -= gradX * intensity * depthFactor * 2000000;
-        }
-      }
-    }
-
     return x;
   }
 
