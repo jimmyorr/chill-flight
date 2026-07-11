@@ -1511,6 +1511,47 @@ if (copyCamUrlBtn) {
   });
 }
 
+const copyPlaneUrlBtn = document.getElementById('debug-copy-plane-url');
+if (copyPlaneUrlBtn) {
+  copyPlaneUrlBtn.addEventListener('click', () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('freecam'); // ensure freecam is disabled to spawn at plane
+    url.searchParams.set('x', Math.round(planeGroup.position.x));
+    url.searchParams.set('y', Math.round(planeGroup.position.y));
+    url.searchParams.set('z', Math.round(planeGroup.position.z));
+    url.searchParams.set(
+      'heading',
+      Math.round(THREE.MathUtils.radToDeg(planeGroup.rotation.y))
+    );
+    url.searchParams.set(
+      'pitch',
+      Math.round(THREE.MathUtils.radToDeg(planeGroup.rotation.x))
+    );
+    let currentTod;
+    if (window.manualTimeOfDay !== undefined) {
+      currentTod = window.manualTimeOfDay;
+    } else if (typeof timeOfDay !== 'undefined') {
+      currentTod = timeOfDay / (Math.PI * 2);
+    }
+    if (currentTod !== undefined) {
+      url.searchParams.set('tod', currentTod.toFixed(4));
+    }
+    if (typeof daySpeedMultiplier !== 'undefined') {
+      url.searchParams.set('timeSpeed', daySpeedMultiplier);
+    }
+
+    navigator.clipboard.writeText(url.toString()).then(() => {
+      const originalText = copyPlaneUrlBtn.textContent;
+      copyPlaneUrlBtn.textContent = 'Copied!';
+      copyPlaneUrlBtn.style.color = '#4caf50';
+      setTimeout(() => {
+        copyPlaneUrlBtn.textContent = originalText;
+        copyPlaneUrlBtn.style.color = 'white';
+      }, 2000);
+    });
+  });
+}
+
 // --- MOBILE UI ADJUSTMENTS ---
 if (window.innerWidth <= 1024) {
   const cockpitUI = document.getElementById('cockpit-ui');
