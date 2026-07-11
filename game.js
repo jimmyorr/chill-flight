@@ -2556,7 +2556,7 @@ function animate() {
       window._debugVirtualServerNow += delta * 1000 * daySpeedMultiplier;
     }
     passedServerNow = window._debugVirtualServerNow;
-    secondsInCycle = (passedServerNow % CYCLE_DURATION_MS) / 1000;
+    secondsInCycle = (((passedServerNow % CYCLE_DURATION_MS) + CYCLE_DURATION_MS) % CYCLE_DURATION_MS) / 1000;
 
     // Keep older debug virtual seconds for compat just in case
     window._debugVirtualSeconds = secondsInCycle;
@@ -2582,10 +2582,11 @@ function animate() {
   timeOfDay = currentWarpedProgress * Math.PI * 2;
 
   if (window.manualTimeOfDay !== undefined) {
-    if (daySpeedMultiplier > 0) {
+    if (daySpeedMultiplier !== 0) {
       window.manualTimeOfDay +=
         (delta * daySpeedMultiplier) / (CYCLE_DURATION_MS / 1000);
       if (window.manualTimeOfDay > 1.0) window.manualTimeOfDay -= 1.0;
+      if (window.manualTimeOfDay < 0.0) window.manualTimeOfDay += 1.0;
     }
     timeOfDay = window.manualTimeOfDay * Math.PI * 2;
     currentWarpedProgress = window.manualTimeOfDay;
@@ -2596,7 +2597,7 @@ function animate() {
   const timeSliderVal = document.getElementById('debug-time-val');
   if (
     timeSlider &&
-    (window.manualTimeOfDay === undefined || daySpeedMultiplier > 0)
+    (window.manualTimeOfDay === undefined || daySpeedMultiplier !== 0)
   ) {
     timeSlider.value = currentWarpedProgress;
     if (timeSliderVal) {
