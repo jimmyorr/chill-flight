@@ -725,9 +725,11 @@
       const distToRoad = Math.abs(x - roadCenterX);
 
       const CANYON_FLOOR_WIDTH = 50; // Flat area at the bottom for the road to sit in
-      const CANYON_WALL_WIDTH = 250; // How far the walls smoothly slope out
+      
+      // Conservative check to avoid computing center elevation for far away points
+      const MAX_POSSIBLE_WALL_WIDTH = 3500; 
 
-      if (distToRoad < CANYON_FLOOR_WIDTH + CANYON_WALL_WIDTH) {
+      if (distToRoad < CANYON_FLOOR_WIDTH + MAX_POSSIBLE_WALL_WIDTH) {
         // Find the intended natural height of the road center
         // We MUST ignore roads and rivers here to avoid recursion and hitting trenches
         const centerNaturalH = exports.getElevation(
@@ -743,20 +745,26 @@
         let roadY = Math.max(centerNaturalH + 2, MIN_ROAD_HEIGHT);
         roadY = Math.min(roadY, exports.MAX_HIGHWAY_HEIGHT);
 
-        // If the terrain is higher than the road, carve a canyon
-        if (n > roadY) {
-          let carveFactor = 0;
-          if (distToRoad <= CANYON_FLOOR_WIDTH) {
-            carveFactor = 1.0;
-          } else {
-            // Smoothly slope the canyon walls up to the natural terrain
-            const t = (distToRoad - CANYON_FLOOR_WIDTH) / CANYON_WALL_WIDTH;
-            carveFactor = 1.0 - t * t * (3 - 2 * t);
-          }
+        // Dynamically scale wall width based on depth of the cut to maintain a smooth slope
+        const canyonDepth = Math.max(0, centerNaturalH - roadY);
+        const CANYON_WALL_WIDTH = 250 + canyonDepth * 1.5;
 
-          if (carveFactor > 0) {
-            // roadY - 1 avoids z-fighting with the road deck
-            n = _lerp(n, roadY - 1, carveFactor);
+        if (distToRoad < CANYON_FLOOR_WIDTH + CANYON_WALL_WIDTH) {
+          // If the terrain is higher than the road, carve a canyon
+          if (n > roadY) {
+            let carveFactor = 0;
+            if (distToRoad <= CANYON_FLOOR_WIDTH) {
+              carveFactor = 1.0;
+            } else {
+              // Smoothly slope the canyon walls up to the natural terrain
+              const t = (distToRoad - CANYON_FLOOR_WIDTH) / CANYON_WALL_WIDTH;
+              carveFactor = 1.0 - t * t * (3 - 2 * t);
+            }
+
+            if (carveFactor > 0) {
+              // roadY - 1 avoids z-fighting with the road deck
+              n = _lerp(n, roadY - 1, carveFactor);
+            }
           }
         }
       }
@@ -950,40 +958,39 @@
   const MAX_HIGHWAY_HEIGHT = 40 + 400; // Maximum altitude before carving a trench (WATER_LEVEL + 400)
 
   function getRoadCenterX(z) {
-    // Layer 1: Large sweeping curves (wavelength ~10,000 units)
+    // --- VOLCANO AVOIDANCE (CONTINUOUS DOMAIN WARPING) ---
+    // The volcano is located exactly at X = -5000, Z = 5000.
+    // Instead of a radial repulsion field (which creates a massive teleportation discontinuity if the road crosses X=-5000),
+    // we smoothly warp the base sweep noise to steer the road predictably East (X = -2500) as it approaches Z = 5000.
+    const VOLCANO_Z = 5000;
+    const AVOID_Z_RADIUS = 3000; // Start veering 3000 units north/south of the volcano
+
+    let baseSweep = simplex.noise2D(z * 0.0001, 777);
+    let detailAmplitude = 500;
+
+    const distZ = Math.abs(z - VOLCANO_Z);
+    if (distZ < AVOID_Z_RADIUS) {
+      const t = 1.0 - distZ / AVOID_Z_RADIUS;
+      const avoidFactor = t * t * (3 - 2 * t); // Smoothstep
+
+      // Force the base sweep towards +1.0 (East) using the smooth factor
+      baseSweep = (1 - avoidFactor) * baseSweep + avoidFactor * 1.0;
+      
+      // Suppress medium wobbles near the volcano so they don't accidentally swing the road back in
+      detailAmplitude = (1 - avoidFactor) * 500 + avoidFactor * 100;
+    }
+
+    // Layer 1: Large sweeping curves
     // Amplified to 2500 so it swings between -2500 (0.5W) and -7500 (1.5W)
-    const sweep = simplex.noise2D(z * 0.0001, 777) * 2500;
+    const sweep = baseSweep * 2500;
+    
     // Layer 2: Medium detail curves (wavelength ~3,000 units)
-    const detail = simplex.noise2D(z * 0.0003, 888) * 500;
+    const detail = simplex.noise2D(z * 0.0003, 888) * detailAmplitude;
+    
     // Layer 3: Small wobbles (wavelength ~1,000 units)
     const wobble = simplex.noise2D(z * 0.001, 999) * 100;
 
     let x = ROAD_BASE_X + sweep + detail + wobble;
-
-    // --- VOLCANO AVOIDANCE (REPULSION FIELD) ---
-    // The volcano is located exactly at X = -5000, Z = 5000.
-    const VOLCANO_X = -5000;
-    const VOLCANO_Z = 5000;
-    const VOLCANO_AVOID_RADIUS = 2500; // Pushes road up to 2500 units away from center
-
-    const dxV = x - VOLCANO_X;
-    const dzV = z - VOLCANO_Z;
-    const distSqV = dxV * dxV + dzV * dzV;
-
-    if (distSqV < VOLCANO_AVOID_RADIUS * VOLCANO_AVOID_RADIUS) {
-      const dist = Math.sqrt(distSqV);
-      // We are inside the danger zone! Calculate a smooth push factor.
-      const t = (VOLCANO_AVOID_RADIUS - dist) / VOLCANO_AVOID_RADIUS;
-      const smoothFactor = t * t * (3 - 2 * t); // Smoothstep for seamless blend
-      const pushAmount = smoothFactor * VOLCANO_AVOID_RADIUS;
-
-      // Push east or west depending on which side of the center it's naturally on
-      if (dxV <= 0) {
-        x -= pushAmount;
-      } else {
-        x += pushAmount;
-      }
-    }
 
     // --- LAKE AVOIDANCE (DOMAIN WARPING) ---
     // Repel the road away from deep lakes using the gradient of the lake noise
