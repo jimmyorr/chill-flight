@@ -283,6 +283,8 @@
     return Math.max(-1, Math.min(1, biomeBase + noise));
   }
 
+  const MAX_HIGHWAY_HEIGHT = 40 + 400; // Maximum altitude before carving a trench (WATER_LEVEL + 400)
+
   // --- ELEVATION ---
   // Returns the terrain height (always >= WATER_LEVEL) for a given world (x, z) position.
   // Requires a simplex noise object and a constants object { WATER_LEVEL, MOUNTAIN_LEVEL }.
@@ -725,14 +727,14 @@
       const distToRoad = Math.abs(x - roadCenterX);
 
       const CANYON_FLOOR_WIDTH = 50; // Flat area at the bottom for the road to sit in
-      
+
       // Conservative check to avoid computing center elevation for far away points
-      const MAX_POSSIBLE_WALL_WIDTH = 3500; 
+      const MAX_POSSIBLE_WALL_WIDTH = 3500;
 
       if (distToRoad < CANYON_FLOOR_WIDTH + MAX_POSSIBLE_WALL_WIDTH) {
         // Find the intended natural height of the road center
         // We MUST ignore roads and rivers here to avoid recursion and hitting trenches
-        const centerNaturalH = exports.getElevation(
+        const centerNaturalH = getElevation(
           roadCenterX,
           z,
           simplex,
@@ -742,8 +744,9 @@
         );
 
         const MIN_ROAD_HEIGHT = WATER_LEVEL + 60;
-        let roadY = Math.max(centerNaturalH + 2, MIN_ROAD_HEIGHT);
-        roadY = Math.min(roadY, exports.MAX_HIGHWAY_HEIGHT);
+        let roadY = MIN_ROAD_HEIGHT + (centerNaturalH - MIN_ROAD_HEIGHT) * 0.3;
+        roadY = Math.max(roadY, MIN_ROAD_HEIGHT);
+        roadY = Math.min(roadY, MAX_HIGHWAY_HEIGHT);
 
         // Dynamically scale wall width based on depth of the cut to maintain a smooth slope
         const canyonDepth = Math.max(0, centerNaturalH - roadY);
@@ -955,8 +958,6 @@
   const ROAD_BASE_X = -5000; // Base X position (center of 0.5W and 1.5W)
   const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
-  const MAX_HIGHWAY_HEIGHT = 40 + 400; // Maximum altitude before carving a trench (WATER_LEVEL + 400)
-
   function getRoadCenterX(z) {
     // --- VOLCANO AVOIDANCE (CONTINUOUS DOMAIN WARPING) ---
     // The volcano is located exactly at X = -5000, Z = 5000.
@@ -975,7 +976,7 @@
 
       // Force the base sweep towards +1.0 (East) using the smooth factor
       baseSweep = (1 - avoidFactor) * baseSweep + avoidFactor * 1.0;
-      
+
       // Suppress medium wobbles near the volcano so they don't accidentally swing the road back in
       detailAmplitude = (1 - avoidFactor) * 500 + avoidFactor * 100;
     }
@@ -983,10 +984,10 @@
     // Layer 1: Large sweeping curves
     // Amplified to 2500 so it swings between -2500 (0.5W) and -7500 (1.5W)
     const sweep = baseSweep * 2500;
-    
+
     // Layer 2: Medium detail curves (wavelength ~3,000 units)
     const detail = simplex.noise2D(z * 0.0003, 888) * detailAmplitude;
-    
+
     // Layer 3: Small wobbles (wavelength ~1,000 units)
     const wobble = simplex.noise2D(z * 0.001, 999) * 100;
 

@@ -1456,10 +1456,10 @@ if (freeCamToggle) {
       planeGroup.position.y = ChillFlightLogic.START_Y;
     if (ChillFlightLogic.START_Z !== null)
       planeGroup.position.z = ChillFlightLogic.START_Z;
-    
+
     // Set rotation order to YXZ for proper flight controls
     planeGroup.rotation.order = 'YXZ';
-    
+
     if (ChillFlightLogic.START_HEADING !== null)
       planeGroup.rotation.y = THREE.MathUtils.degToRad(
         ChillFlightLogic.START_HEADING

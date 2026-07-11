@@ -5456,7 +5456,8 @@ function generateChunk(chunkX, chunkZ) {
 
         // Ensure minimum clearance height over water and max height for trenches
         const minHeight = WATER_LEVEL + 60;
-        let roadY = Math.max(naturalH + 2, minHeight);
+        let roadY = minHeight + (naturalH - minHeight) * 0.3;
+        roadY = Math.max(roadY, minHeight);
         roadY = Math.min(roadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
         // Actual terrain height (including rivers) to determine if we need pilings
@@ -5474,7 +5475,8 @@ function generateChunk(chunkX, chunkZ) {
           null,
           {ignoreRivers: true, ignoreRoads: true}
         );
-        let nextRoadY = Math.max(nextNaturalH + 2, minHeight);
+        let nextRoadY = minHeight + (nextNaturalH - minHeight) * 0.3;
+        nextRoadY = Math.max(nextRoadY, minHeight);
         nextRoadY = Math.min(nextRoadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
         bridgePositions.push({
