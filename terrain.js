@@ -5606,14 +5606,16 @@ function generateChunk(chunkX, chunkZ) {
 
         // Streetlights
         let slFrequency = 2; // Normal: every other segment
-        // Stop completely (Z = -50000, 10.0° North)
-        if (worldOffsetZ < -50000) {
+        const absZ = Math.abs(worldOffsetZ);
+        
+        // Stop completely (abs(Z) > 50000, 10.0° North/South)
+        if (absZ > 50000) {
           slFrequency = 0; 
-        // Sparse further north (Z < -25000, 5.0° North)
-        } else if (worldOffsetZ < -25000) {
+        // Sparse further out (abs(Z) > 25000, 5.0° North/South)
+        } else if (absZ > 25000) {
           slFrequency = 8; 
-        // Somewhat sparse further north (Z < -15000, 3.0° North)
-        } else if (worldOffsetZ < -15000) {
+        // Somewhat sparse further out (abs(Z) > 15000, 3.0° North/South)
+        } else if (absZ > 15000) {
           slFrequency = 4;
         }
         
