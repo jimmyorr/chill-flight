@@ -3654,7 +3654,7 @@ function generateChunk(chunkX, chunkZ) {
               if (rng() < 0.0001 * densityScale) {
                 // Pirate Ship spawn
                 if (
-                  height < WATER_LEVEL - 5 && // depth check
+                  height <= WATER_LEVEL + 0.1 && // depth check (compatible with custom maps)
                   snowFactor < 0.2 // avoid frozen north
                 ) {
                   // open water check
@@ -3663,10 +3663,10 @@ function generateChunk(chunkX, chunkZ) {
                   const eE = getCachedElevation(worldX + 300, worldZ);
                   const eW = getCachedElevation(worldX - 300, worldZ);
                   if (
-                    eN <= WATER_LEVEL &&
-                    eS <= WATER_LEVEL &&
-                    eE <= WATER_LEVEL &&
-                    eW <= WATER_LEVEL
+                    eN <= WATER_LEVEL + 0.1 &&
+                    eS <= WATER_LEVEL + 0.1 &&
+                    eE <= WATER_LEVEL + 0.1 &&
+                    eW <= WATER_LEVEL + 0.1
                   ) {
                     pirateShipPositions.push({
                       x: localX,
@@ -4343,6 +4343,29 @@ function generateChunk(chunkX, chunkZ) {
             z: localArchZ,
             rotY: rng() * Math.PI * 2,
           });
+        }
+
+        // Guarantee a pirate ship spawns nearby in a water spot
+        const offsets = [
+          [150, 150], [-150, -150], [150, -150], [-150, 150],
+          [250, 0], [-250, 0], [0, 250], [0, -250]
+        ];
+        for (const [dx, dz] of offsets) {
+          const px = dx;
+          const pz = localArchZ + dz;
+          const wX = worldOffsetX + px;
+          const wZ = worldOffsetZ + pz;
+          const h = getCachedElevation(wX, wZ);
+          if (h <= WATER_LEVEL + 1.1) {
+            pirateShipPositions.push({
+              x: px,
+              y: WATER_LEVEL,
+              z: pz,
+              rotY: rng() * Math.PI * 2,
+              bodyId: Math.floor(rng() * 4),
+            });
+            break;
+          }
         }
       }
     }
@@ -6291,7 +6314,7 @@ function generateChunk(chunkX, chunkZ) {
       sailboatPositions.forEach((pos, index) => {
         dummy.position.set(pos.x, pos.y, pos.z);
         dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1, 1, 1);
+        dummy.scale.set(1.8, 1.8, 1.8);
         dummy.updateMatrix();
 
         const colorIdx = boatColorIndices[index];
@@ -6341,7 +6364,7 @@ function generateChunk(chunkX, chunkZ) {
       pirateShipPositions.forEach((pos, index) => {
         dummy.position.set(pos.x, pos.y, pos.z);
         dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1, 1, 1);
+        dummy.scale.set(2.5, 2.5, 2.5);
         dummy.updateMatrix();
 
         const colorIdx = pos.bodyId;
