@@ -5530,7 +5530,7 @@ function generateChunk(chunkX, chunkZ) {
 
         // Ensure minimum clearance height over water and max height for trenches
         const minHeight = WATER_LEVEL + 60;
-        let roadY = minHeight + (naturalH - minHeight) * 0.3;
+        let roadY = minHeight + (naturalH - minHeight) * 0.85;
         roadY = Math.max(roadY, minHeight);
         roadY = Math.min(roadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
@@ -5549,7 +5549,7 @@ function generateChunk(chunkX, chunkZ) {
           null,
           {ignoreRivers: true, ignoreRoads: true}
         );
-        let nextRoadY = minHeight + (nextNaturalH - minHeight) * 0.3;
+        let nextRoadY = minHeight + (nextNaturalH - minHeight) * 0.85;
         nextRoadY = Math.max(nextRoadY, minHeight);
         nextRoadY = Math.min(nextRoadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
@@ -5628,7 +5628,18 @@ function generateChunk(chunkX, chunkZ) {
           slFrequency = 4;
         }
         
-        const numStreetlights = slFrequency > 0 ? Math.floor(bridgePositions.length / slFrequency) : 0;
+        // Calculate exact number of streetlights based on global segment alignment
+        let numStreetlights = 0;
+        if (slFrequency > 0) {
+          bridgePositions.forEach((pos) => {
+            const midZ = (pos.z + pos.nextPos.z) / 2;
+            const globalZ = worldOffsetZ + midZ;
+            const globalSegmentIndex = Math.round(globalZ / BRIDGE_SEGMENT_LENGTH);
+            if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
+              numStreetlights++;
+            }
+          });
+        }
         const slBaseInst = new THREE.InstancedMesh(
           streetlightPoleGeo,
           streetlightPoleMat,
@@ -5743,11 +5754,12 @@ function generateChunk(chunkX, chunkZ) {
           }
 
           // Streetlights
-          if (slFrequency > 0 && index % slFrequency === 0 && slIndex < numStreetlights) {
-            // Use global Z coordinate to ensure lights strictly alternate sides, even across chunk boundaries
-            const globalZ = Math.abs(worldOffsetZ + midVec.z);
-            const globalIndex = Math.floor(globalZ / (50 * slFrequency));
-            const isLeftSide = globalIndex % 2 === 0;
+          if (slFrequency > 0 && slIndex < numStreetlights) {
+            const globalZ = worldOffsetZ + midVec.z;
+            const globalSegmentIndex = Math.round(globalZ / BRIDGE_SEGMENT_LENGTH);
+            
+            if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
+              const isLeftSide = Math.floor(Math.abs(globalSegmentIndex) / slFrequency) % 2 === 0;
 
             const sideOff = isLeftSide ? halfRoadW - 0.5 : -halfRoadW + 0.5;
             const slYaw = isLeftSide ? yaw + Math.PI : yaw;
@@ -5791,7 +5803,8 @@ function generateChunk(chunkX, chunkZ) {
             dummy.updateMatrix();
             slDecalInst.setMatrixAt(slIndex, dummy.matrix);
 
-            slIndex++;
+              slIndex++;
+            }
           }
         });
 
