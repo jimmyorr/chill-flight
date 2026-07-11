@@ -1297,6 +1297,7 @@ function applyGraphicsPreset(preset) {
   if (typeof waterMaterial !== 'undefined' && typeof cloudMat !== 'undefined') {
     waterMaterial.transparent = !isLow;
     waterMaterial.opacity = isLow ? 1.0 : 0.6;
+    waterMaterial.depthWrite = isLow ? true : false;
     waterMaterial.needsUpdate = true;
 
     cloudMat.transparent = !isLow;
@@ -4312,6 +4313,17 @@ function animate() {
         if (rims) rims.setMatrixAt(index, _boatDummy.matrix);
         if (decks) decks.setMatrixAt(index, _boatDummy.matrix);
         if (booms) booms.setMatrixAt(index, _boatDummy.matrix);
+
+        if (chunkGroup.userData.boatReflections) {
+          _boatDummy.position.set(pos.x + dx, pos.y - dy, pos.z + dz);
+          _boatDummy.rotation.set(0, 0, 0);
+          _boatDummy.rotation.y = pos.rotY + yawOffset;
+          _boatDummy.rotation.x = -pitch;
+          _boatDummy.rotation.z = -roll;
+          _boatDummy.scale.set(1.8, -1.8, 1.8);
+          _boatDummy.updateMatrix();
+          chunkGroup.userData.boatReflections.setMatrixAt(index, _boatDummy.matrix);
+        }
       });
 
       if (Array.isArray(hulls)) {
@@ -4327,6 +4339,9 @@ function animate() {
       if (rims) rims.instanceMatrix.needsUpdate = true;
       if (decks) decks.instanceMatrix.needsUpdate = true;
       if (booms) booms.instanceMatrix.needsUpdate = true;
+      if (chunkGroup.userData.boatReflections) {
+        chunkGroup.userData.boatReflections.instanceMatrix.needsUpdate = true;
+      }
     }
 
     // Animate Pirate Ships (Patrolling & Bobbing)
@@ -4385,6 +4400,17 @@ function animate() {
         masts.setMatrixAt(index, _boatDummy.matrix);
         flags.setMatrixAt(index, _boatDummy.matrix);
         jollyRogers.setMatrixAt(index, _boatDummy.matrix);
+
+        if (chunkGroup.userData.pirateReflections) {
+          _boatDummy.position.set(pos.x + dx, pos.y - dy, pos.z + dz);
+          _boatDummy.rotation.set(0, 0, 0);
+          _boatDummy.rotation.y = tangentYaw + Math.PI;
+          _boatDummy.rotation.x = -pitch;
+          _boatDummy.rotation.z = -roll;
+          _boatDummy.scale.set(2.5, -2.5, 2.5);
+          _boatDummy.updateMatrix();
+          chunkGroup.userData.pirateReflections.setMatrixAt(index, _boatDummy.matrix);
+        }
       });
 
       hulls.instanceMatrix.needsUpdate = true;
@@ -4396,6 +4422,9 @@ function animate() {
       sailInsts.forEach((inst) => {
         if (inst) inst.instanceMatrix.needsUpdate = true;
       });
+      if (chunkGroup.userData.pirateReflections) {
+        chunkGroup.userData.pirateReflections.instanceMatrix.needsUpdate = true;
+      }
     }
 
     // Animate Lighthouse Beam

@@ -35,6 +35,7 @@ const waterMaterial = createMaterial({
   metalness: 0.1,
   roughness: 0.05,
   flatShading: true,
+  depthWrite: false,
 });
 
 window.terrainUniforms = {
@@ -2319,8 +2320,15 @@ function mergeGeometries(geos) {
   for (const g of geos) {
     pos.push(...g.attributes.position.array);
     if (g.attributes.normal) norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++) {
-      idx.push(g.index.array[i] + offset);
+    if (g.index) {
+      for (let i = 0; i < g.index.array.length; i++) {
+        idx.push(g.index.array[i] + offset);
+      }
+    } else {
+      const count = g.attributes.position.count;
+      for (let i = 0; i < count; i++) {
+        idx.push(i + offset);
+      }
     }
     offset += g.attributes.position.count;
   }
@@ -2507,6 +2515,32 @@ const pirateSailPalette = [
   createMaterial({color: 0xd2c4a7, flatShading: true, side: THREE.DoubleSide}), // Dirty canvas
   createMaterial({color: 0x660000, flatShading: true, side: THREE.DoubleSide}), // Dark red
 ];
+
+const reflectionMat = new THREE.MeshBasicMaterial({
+  color: 0x07151e,
+  transparent: true,
+  opacity: 0.35,
+  side: THREE.DoubleSide
+});
+
+const sailboatReflectionGeo = mergeGeometries([
+  boatHullGeo,
+  boatRimGeo,
+  boatDeckGeo,
+  boatMastGeo,
+  boatBoomGeo,
+  boatSailGeo
+]);
+
+const pirateShipReflectionGeo = mergeGeometries([
+  pirateHullGeo,
+  pirateRimGeo,
+  pirateDeckGeo,
+  pirateMastGeo,
+  pirateSailGeo,
+  pirateFlagGeo,
+  pirateJollyRogerGeo
+]);
 
 // Lighthouse Beam geometry - wider and longer
 const lighthouseBeamGeo = new THREE.CylinderGeometry(40, 2, 500, 16, 1, true);
@@ -6312,6 +6346,11 @@ function generateChunk(chunkX, chunkZ) {
         boatSailMat,
         sailboatPositions.length
       );
+      const sailboatReflectionInst = new THREE.InstancedMesh(
+        sailboatReflectionGeo,
+        reflectionMat,
+        sailboatPositions.length
+      );
 
       sailboatPositions.forEach((pos, index) => {
         dummy.position.set(pos.x, pos.y, pos.z);
@@ -6329,6 +6368,11 @@ function generateChunk(chunkX, chunkZ) {
         mastInst.setMatrixAt(index, dummy.matrix);
         boomInst.setMatrixAt(index, dummy.matrix);
         sailInst.setMatrixAt(index, dummy.matrix);
+
+        // Initialize reflection matrix with Y-flipped scale
+        dummy.scale.set(1.8, -1.8, 1.8);
+        dummy.updateMatrix();
+        sailboatReflectionInst.setMatrixAt(index, dummy.matrix);
       });
 
       rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
@@ -6336,7 +6380,8 @@ function generateChunk(chunkX, chunkZ) {
       mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
       boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
       sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(rimInst, deckInst, mastInst, boomInst, sailInst);
+      sailboatReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(rimInst, deckInst, mastInst, boomInst, sailInst, sailboatReflectionInst);
 
       group.userData.sailboatPositions = sailboatPositions;
       group.userData.boatHulls = hullInsts;
@@ -6347,6 +6392,7 @@ function generateChunk(chunkX, chunkZ) {
       group.userData.boatRims = rimInst;
       group.userData.boatDecks = deckInst;
       group.userData.boatBooms = boomInst;
+      group.userData.boatReflections = sailboatReflectionInst;
     }
 
     // 3.5 Pirate Ships
@@ -6360,6 +6406,11 @@ function generateChunk(chunkX, chunkZ) {
       const mastInst = new THREE.InstancedMesh(pirateMastGeo, woodMat, pirateShipPositions.length);
       const flagInst = new THREE.InstancedMesh(pirateFlagGeo, pirateFlagMat, pirateShipPositions.length);
       const jrInst = new THREE.InstancedMesh(pirateJollyRogerGeo, pirateJollyRogerMat, pirateShipPositions.length);
+      const pirateReflectionInst = new THREE.InstancedMesh(
+        pirateShipReflectionGeo,
+        reflectionMat,
+        pirateShipPositions.length
+      );
 
       const sailCounts = new Array(pirateSailPalette.length).fill(0);
 
@@ -6379,6 +6430,11 @@ function generateChunk(chunkX, chunkZ) {
         mastInst.setMatrixAt(index, dummy.matrix);
         flagInst.setMatrixAt(index, dummy.matrix);
         jrInst.setMatrixAt(index, dummy.matrix);
+
+        // Initialize reflection matrix with Y-flipped scale
+        dummy.scale.set(2.5, -2.5, 2.5);
+        dummy.updateMatrix();
+        pirateReflectionInst.setMatrixAt(index, dummy.matrix);
       });
 
       hullInst.position.set(worldOffsetX, 0, worldOffsetZ);
@@ -6387,7 +6443,8 @@ function generateChunk(chunkX, chunkZ) {
       mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
       flagInst.position.set(worldOffsetX, 0, worldOffsetZ);
       jrInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(hullInst, rimInst, deckInst, mastInst, flagInst, jrInst);
+      pirateReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(hullInst, rimInst, deckInst, mastInst, flagInst, jrInst, pirateReflectionInst);
 
       sailInsts.forEach((inst, idx) => {
         if (sailCounts[idx] > 0) {
@@ -6405,6 +6462,7 @@ function generateChunk(chunkX, chunkZ) {
       group.userData.pirateFlags = flagInst;
       group.userData.pirateJollyRogers = jrInst;
       group.userData.pirateSails = sailInsts;
+      group.userData.pirateReflections = pirateReflectionInst;
     }
 
     // 4. Generate Birds
