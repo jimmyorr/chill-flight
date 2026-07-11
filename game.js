@@ -4386,6 +4386,9 @@ function animate() {
   });
 
   // Update Cockpit HUD
+  const hudTarget = isFreeCamera ? camera : planeGroup;
+  const hudHeadingY = isFreeCamera ? camera.rotation.y : planeGroup.rotation.y;
+  
   const hours = (timeOfDay / (Math.PI * 2)) * 24;
   const hh = Math.floor(hours).toString().padStart(2, '0');
   const mm = Math.floor((hours % 1) * 60)
@@ -4393,17 +4396,15 @@ function animate() {
     .padStart(2, '0');
   const timeStr = `${hh}:${mm}`;
 
-  const dirStr = ChillFlightLogic.computeHeadingDirection(
-    planeGroup.rotation.y
-  );
-  const latVal = currentLatDeg;
-  const lonVal = planeGroup.position.x / latScale;
+  const dirStr = ChillFlightLogic.computeHeadingDirection(hudHeadingY);
+  const latVal = -hudTarget.position.z / latScale;
+  const lonVal = hudTarget.position.x / latScale;
   const latStr =
     Math.abs(latVal).toFixed(3) + '\u00b0 ' + (latVal >= 0 ? 'N' : 'S');
   const lonStr =
     Math.abs(lonVal).toFixed(3) + '\u00b0 ' + (lonVal >= 0 ? 'E' : 'W');
   const coordStr = `${latStr} ${lonStr}`;
-  const altStr = `${Math.round(Math.max(0, planeGroup.position.y - 45.5) * 25)}`;
+  const altStr = `${Math.round(Math.max(0, hudTarget.position.y - 45.5) * 25)}`;
   let spdStr = `${Math.round(BASE_FLIGHT_SPEED * flightSpeedMultiplier * 60)} KTS`;
   if (vehicleType === 'helicopter') {
     spdStr = '-- KTS';
