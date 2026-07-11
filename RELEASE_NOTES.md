@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.7
+
+- **Environment:** Upgraded road generation to feature multi-lane highways and smoother surface alignment. Added procedural streetlights with time-of-day brightness scaling, light-pooling decals, and adaptive frequency.
+- **Visuals:** Fixed shadow rendering and chunk loading to correctly anchor to the camera during free cam mode.
+- **UI & Controls:** HUD telemetry now accurately reflects the free cam position and heading. Fixed the manual time slider to properly handle reversing time.
+
 ## 0.9.6
 
 - **Environment:** Expanded map and implemented an alien biome at the far extremes featuring distorted terrain and glowing neon seas. Added a frozen north biome with jagged pack ice shelves and deep frozen oceans.
