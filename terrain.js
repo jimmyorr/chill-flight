@@ -5489,7 +5489,7 @@ function generateChunk(chunkX, chunkZ) {
       const halfChunk = CHUNK_SIZE / 2;
       const activeRoads = [];
       for (let n = -20; n <= 20; n++) {
-        const baseX = ChillFlightLogic.ROAD_BASE_X + n * -25000;
+        const baseX = ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
         if (baseX + 4000 >= worldOffsetX - halfChunk && baseX - 4000 <= worldOffsetX + halfChunk) {
           activeRoads.push(n);
         }

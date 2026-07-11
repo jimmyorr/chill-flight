@@ -958,7 +958,7 @@
   // Returns the X coordinate of the road center for a given Z position.
   // The road winds along the west coast using layered simplex noise.
   const ROAD_BASE_X = -5000; // Base X position (center of 0.5W and 1.5W)
-  const ROAD_SPACING = -25000; // 5 degrees West
+  const ROAD_SPACING = -10000; // 2 degrees West
   const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
   
@@ -1036,6 +1036,7 @@
   exports.getRoadCenterX = getRoadCenterX;
   exports.getRoadFactor = getRoadFactor;
   exports.ROAD_BASE_X = ROAD_BASE_X;
+  exports.ROAD_SPACING = ROAD_SPACING;
   exports.ROAD_WIDTH = ROAD_WIDTH;
   exports.ROAD_SHOULDER = ROAD_SHOULDER;
   exports.MAX_HIGHWAY_HEIGHT = MAX_HIGHWAY_HEIGHT;
