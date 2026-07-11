@@ -6396,6 +6396,13 @@ function generateChunk(chunkX, chunkZ) {
       });
 
       group.userData.pirateShipPositions = pirateShipPositions;
+      group.userData.pirateHulls = hullInst;
+      group.userData.pirateRims = rimInst;
+      group.userData.pirateDecks = deckInst;
+      group.userData.pirateMasts = mastInst;
+      group.userData.pirateFlags = flagInst;
+      group.userData.pirateJollyRogers = jrInst;
+      group.userData.pirateSails = sailInsts;
     }
 
     // 4. Generate Birds

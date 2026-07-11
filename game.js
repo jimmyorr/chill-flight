@@ -4296,7 +4296,7 @@ function animate() {
         _boatDummy.rotation.y = pos.rotY + yawOffset;
         _boatDummy.rotation.x = pitch;
         _boatDummy.rotation.z = roll;
-        _boatDummy.scale.set(1, 1, 1);
+        _boatDummy.scale.set(1.8, 1.8, 1.8);
         _boatDummy.updateMatrix();
 
         if (Array.isArray(hulls)) {
@@ -4327,6 +4327,75 @@ function animate() {
       if (rims) rims.instanceMatrix.needsUpdate = true;
       if (decks) decks.instanceMatrix.needsUpdate = true;
       if (booms) booms.instanceMatrix.needsUpdate = true;
+    }
+
+    // Animate Pirate Ships (Patrolling & Bobbing)
+    if (
+      chunkGroup.userData.pirateHulls &&
+      chunkGroup.userData.pirateShipPositions
+    ) {
+      const hulls = chunkGroup.userData.pirateHulls;
+      const rims = chunkGroup.userData.pirateRims;
+      const decks = chunkGroup.userData.pirateDecks;
+      const masts = chunkGroup.userData.pirateMasts;
+      const flags = chunkGroup.userData.pirateFlags;
+      const jollyRogers = chunkGroup.userData.pirateJollyRogers;
+      const sailInsts = chunkGroup.userData.pirateSails;
+      const positions = chunkGroup.userData.pirateShipPositions;
+
+      const hash = (index, seed) => {
+        const val = Math.sin(index * 12.9898 + seed * 78.233) * 43758.5453;
+        return val - Math.floor(val);
+      };
+
+      const sailCounts = new Array(4).fill(0);
+
+      positions.forEach((pos, index) => {
+        const patrolRadius = 40 + hash(index, 7) * 30;
+        const patrolSpeed = 0.05 + hash(index, 8) * 0.03;
+        const patrolPhase = hash(index, 9) * Math.PI * 2;
+
+        const t = clock.elapsedTime * patrolSpeed + patrolPhase;
+        const dx = Math.cos(t) * patrolRadius;
+        const dz = Math.sin(t) * patrolRadius;
+
+        const tangentYaw = Math.atan2(-Math.sin(t), Math.cos(t));
+
+        // Bobbing & Wave dynamics (Roll/Pitch)
+        const bobTime = clock.elapsedTime * 0.8 + patrolPhase;
+        const dy = Math.sin(bobTime) * 0.25;
+        const roll = Math.sin(bobTime * 0.7) * 0.03;
+        const pitch = Math.cos(bobTime * 0.9) * 0.02;
+
+        _boatDummy.position.set(pos.x + dx, pos.y + dy, pos.z + dz);
+        _boatDummy.rotation.set(0, 0, 0);
+        _boatDummy.rotation.y = tangentYaw + Math.PI;
+        _boatDummy.rotation.x = pitch;
+        _boatDummy.rotation.z = roll;
+        _boatDummy.scale.set(2.5, 2.5, 2.5);
+        _boatDummy.updateMatrix();
+
+        const colorIdx = pos.bodyId;
+        const instIdx = sailCounts[colorIdx]++;
+        sailInsts[colorIdx].setMatrixAt(instIdx, _boatDummy.matrix);
+
+        hulls.setMatrixAt(index, _boatDummy.matrix);
+        rims.setMatrixAt(index, _boatDummy.matrix);
+        decks.setMatrixAt(index, _boatDummy.matrix);
+        masts.setMatrixAt(index, _boatDummy.matrix);
+        flags.setMatrixAt(index, _boatDummy.matrix);
+        jollyRogers.setMatrixAt(index, _boatDummy.matrix);
+      });
+
+      hulls.instanceMatrix.needsUpdate = true;
+      rims.instanceMatrix.needsUpdate = true;
+      decks.instanceMatrix.needsUpdate = true;
+      masts.instanceMatrix.needsUpdate = true;
+      flags.instanceMatrix.needsUpdate = true;
+      jollyRogers.instanceMatrix.needsUpdate = true;
+      sailInsts.forEach((inst) => {
+        if (inst) inst.instanceMatrix.needsUpdate = true;
+      });
     }
 
     // Animate Lighthouse Beam
