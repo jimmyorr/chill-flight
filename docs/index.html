@@ -719,7 +719,15 @@
             style="width: 14px; height: 14px; cursor: pointer"
           />
         </label>
-        <div style="margin-top: 8px; margin-bottom: 4px">
+        <div
+          style="
+            margin-top: 8px;
+            margin-bottom: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          "
+        >
           <button
             id="debug-copy-cam-url"
             style="
@@ -734,6 +742,21 @@
             "
           >
             Copy camera URL
+          </button>
+          <button
+            id="debug-copy-plane-url"
+            style="
+              background: rgba(255, 255, 255, 0.2);
+              border: 1px solid rgba(255, 255, 255, 0.4);
+              color: white;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 10px;
+              cursor: pointer;
+              width: 100%;
+            "
+          >
+            Copy plane URL
           </button>
         </div>
         <div style="margin-top: 4px">
