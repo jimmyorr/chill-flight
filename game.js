@@ -1422,6 +1422,7 @@ if (fogSlider) {
 
 // Free Camera toggle
 let isFreeCamera = ChillFlightLogic.START_FREE_CAM || false;
+window.isFreeCamera = isFreeCamera;
 const freeCamToggle = document.getElementById('debug-free-cam-toggle');
 if (freeCamToggle) {
   if (isFreeCamera) {
@@ -1469,8 +1470,9 @@ if (freeCamToggle) {
         ChillFlightLogic.START_PITCH
       );
   }
-  freeCamToggle.addEventListener('change', (e) => {
+  document.getElementById('debug-free-cam-toggle').addEventListener('change', (e) => {
     isFreeCamera = e.target.checked;
+    window.isFreeCamera = isFreeCamera;
     if (isFreeCamera) {
       // Force camera up vector to vertical
       camera.up.set(0, 1, 0);

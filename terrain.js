@@ -6264,8 +6264,9 @@ function generateChunk(chunkX, chunkZ) {
 }
 
 function updateChunks() {
-  const currentChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
-  const currentChunkZ = Math.round(planeGroup.position.z / CHUNK_SIZE);
+  const target = (typeof window !== 'undefined' && window.isFreeCamera) ? camera : planeGroup;
+  const currentChunkX = Math.round(target.position.x / CHUNK_SIZE);
+  const currentChunkZ = Math.round(target.position.z / CHUNK_SIZE);
   const renderDistance = RENDER_DISTANCE;
 
   for (let x = -renderDistance; x <= renderDistance; x++) {
