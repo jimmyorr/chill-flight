@@ -1898,7 +1898,18 @@ const bridgeDeckGeo = new THREE.BoxGeometry(
   1.5, // Deck thickness
   BRIDGE_SEGMENT_LENGTH
 );
-const bridgePilingGeo = new THREE.CylinderGeometry(1.2, 1.2, 20, 6);
+const bridgePilingGeo = new THREE.CylinderGeometry(1.2, 1.2, 1, 6);
+bridgePilingGeo.translate(0, -0.5, 0); // Origin at top so scaling Y stretches it down
+
+const bridgeArchGeo = new THREE.TorusGeometry(
+  BRIDGE_SEGMENT_LENGTH / 2, // 15
+  1.2, // Match piling thickness
+  6, // radialSegments
+  16, // tubularSegments
+  Math.PI // Half circle
+);
+bridgeArchGeo.rotateY(Math.PI / 2); // Align to Z axis
+
 const bridgeRailGeo = new THREE.BoxGeometry(0.5, 3, BRIDGE_SEGMENT_LENGTH);
 const bridgeDeckMat = createMaterial({color: 0x555555, flatShading: true}); // Concrete gray
 const bridgePilingMat = createMaterial({color: 0x4a4a4a, flatShading: true}); // Slightly darker
@@ -5483,10 +5494,12 @@ function generateChunk(chunkX, chunkZ) {
       if (bridgePositions.length > 0) {
         // Count how many pilings and railings we need
         let numPilings = 0;
+        let numArches = 0;
         let numRailSegments = 0;
         bridgePositions.forEach((p) => {
           if (p.needsPilings) {
-            numPilings += 4;
+            numPilings += 6; // 2 main pillars + 4 spandrel columns
+            numArches += 2; // 2 arches
             numRailSegments += 1;
           }
         });
@@ -5505,6 +5518,13 @@ function generateChunk(chunkX, chunkZ) {
           numPilings > 0 ? numPilings : 1 // Avoid 0 size buffer error
         );
 
+        // Arches
+        const archInst = new THREE.InstancedMesh(
+          bridgeArchGeo,
+          bridgePilingMat,
+          numArches > 0 ? numArches : 1
+        );
+
         // Railings — 2 per segment (one on each side) ONLY for bridge sections
         const railInst = new THREE.InstancedMesh(
           bridgeRailGeo,
@@ -5514,6 +5534,7 @@ function generateChunk(chunkX, chunkZ) {
 
         const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 2;
         let pilingIndex = 0;
+        let archIndex = 0;
         let railIndex = 0;
 
         bridgePositions.forEach((pos, index) => {
@@ -5542,30 +5563,53 @@ function generateChunk(chunkX, chunkZ) {
           );
           const yaw = euler.y;
 
-          // Pilings — 4 per segment at the corners if needed
+          // Pilings and Arches
           if (pos.needsPilings) {
-            // Height of the piling needed to reach from the bridge deck down to the ground
             const pilingHeight = midVec.y - pos.terrainH;
             if (pilingHeight > 0) {
-              const yScale = pilingHeight / 20.0; // Geo is 20 units tall
-              const pilingY = midVec.y - pilingHeight / 2;
+              // 1. Main pilings at the start of the segment
+              [-halfRoadW, halfRoadW].forEach((xOff) => {
+                const zOff = -BRIDGE_SEGMENT_LENGTH / 2;
+                const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
+                const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
 
-              const pilingOffsets = [
-                [-halfRoadW, -BRIDGE_SEGMENT_LENGTH / 3],
-                [halfRoadW, -BRIDGE_SEGMENT_LENGTH / 3],
-                [-halfRoadW, BRIDGE_SEGMENT_LENGTH / 3],
-                [halfRoadW, BRIDGE_SEGMENT_LENGTH / 3],
-              ];
-              pilingOffsets.forEach((off) => {
-                // Apply yaw to the offset so pilings match the road curve
-                const dx = off[0] * Math.cos(yaw) + off[1] * Math.sin(yaw);
-                const dz = -off[0] * Math.sin(yaw) + off[1] * Math.cos(yaw);
-
-                dummy.position.set(midVec.x + dx, pilingY, midVec.z + dz);
+                dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
                 dummy.rotation.set(0, yaw, 0); // Keep them vertical
-                dummy.scale.set(1, yScale, 1);
+                dummy.scale.set(1, pilingHeight, 1);
                 dummy.updateMatrix();
                 pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
+              });
+
+              // 2. Semi-circular arches spanning the segment
+              [-halfRoadW, halfRoadW].forEach((xOff) => {
+                const zOff = 0;
+                const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
+                const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
+
+                dummy.position.set(
+                  midVec.x + dx,
+                  midVec.y - BRIDGE_SEGMENT_LENGTH / 2,
+                  midVec.z + dz
+                );
+                dummy.rotation.set(0, yaw, 0);
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                archInst.setMatrixAt(archIndex++, dummy.matrix);
+              });
+
+              // 3. Spandrel columns (short columns on top of the arch)
+              [-halfRoadW, halfRoadW].forEach((xOff) => {
+                [-BRIDGE_SEGMENT_LENGTH / 4, BRIDGE_SEGMENT_LENGTH / 4].forEach(
+                  (zOff) => {
+                    const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
+                    const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
+                    dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
+                    dummy.rotation.set(0, yaw, 0);
+                    dummy.scale.set(1, 2.5, 1); // Sink into the arch slightly
+                    dummy.updateMatrix();
+                    pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
+                  }
+                );
               });
             }
           }
@@ -5596,6 +5640,11 @@ function generateChunk(chunkX, chunkZ) {
         if (numPilings > 0) {
           pilingInst.position.set(worldOffsetX, 0, worldOffsetZ);
           group.add(pilingInst);
+        }
+
+        if (numArches > 0) {
+          archInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(archInst);
         }
       }
     }
