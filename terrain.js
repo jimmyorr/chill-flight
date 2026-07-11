@@ -2497,9 +2497,16 @@ pirateJollyRogerGeo.computeVertexNormals();
 
 const pirateHullMat = createMaterial({color: 0x3d2314, flatShading: true}); // Dark brown wood
 const pirateRimMat = createMaterial({color: 0x8b0000, flatShading: true}); // Dark red trim
-const pirateSailMat = createMaterial({color: 0x111111, flatShading: true, side: THREE.DoubleSide}); // Black sails
 const pirateFlagMat = createMaterial({color: 0x050505, flatShading: true, side: THREE.DoubleSide}); // Pitch black flag
 const pirateJollyRogerMat = createMaterial({color: 0xeeeeee, flatShading: true}); // White skull & bones
+
+// Sail color variants
+const pirateSailPalette = [
+  createMaterial({color: 0x111111, flatShading: true, side: THREE.DoubleSide}), // Black
+  createMaterial({color: 0xffffff, flatShading: true, side: THREE.DoubleSide}), // White
+  createMaterial({color: 0xd2c4a7, flatShading: true, side: THREE.DoubleSide}), // Dirty canvas
+  createMaterial({color: 0x660000, flatShading: true, side: THREE.DoubleSide}), // Dark red
+];
 
 // Lighthouse Beam geometry - wider and longer
 const lighthouseBeamGeo = new THREE.CylinderGeometry(40, 2, 500, 16, 1, true);
@@ -3227,12 +3234,13 @@ window.ModelAssembler = {
         ];
       }
       case 'pirateship': {
+        const sailId = (opts.bodyId || 0) % pirateSailPalette.length;
         return [
           {geo: pirateHullGeo, mat: pirateHullMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
           {geo: pirateRimGeo, mat: pirateRimMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
           {geo: pirateDeckGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
           {geo: pirateMastGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: pirateSailGeo, mat: pirateSailMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: pirateSailGeo, mat: pirateSailPalette[sailId], pos: [0, 0, 0], rot: [0, rotY, 0]},
           {geo: pirateFlagGeo, mat: pirateFlagMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
           {geo: pirateJollyRogerGeo, mat: pirateJollyRogerMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
         ];
