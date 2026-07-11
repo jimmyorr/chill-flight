@@ -5787,6 +5787,8 @@ function generateChunk(chunkX, chunkZ) {
           {ignoreRivers: true, ignoreRoads: true}
         );
 
+        if (roadX >= 0) continue;
+
         // Ensure minimum clearance height over water and max height for trenches
         const minHeight = WATER_LEVEL + 60;
         let roadY = minHeight + (naturalH - minHeight) * 0.85;

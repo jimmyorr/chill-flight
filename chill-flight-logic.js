@@ -745,6 +745,10 @@
           {ignoreRivers: true, ignoreRoads: true}
         );
 
+        if (roadCenterX >= 0) {
+          return n;
+        }
+
         const MIN_ROAD_HEIGHT = WATER_LEVEL + 60;
         let roadY = MIN_ROAD_HEIGHT + (centerNaturalH - MIN_ROAD_HEIGHT) * 0.85;
         roadY = Math.max(roadY, MIN_ROAD_HEIGHT);
