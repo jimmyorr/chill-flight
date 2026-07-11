@@ -5605,7 +5605,19 @@ function generateChunk(chunkX, chunkZ) {
         let railIndex = 0;
 
         // Streetlights
-        const numStreetlights = Math.floor(bridgePositions.length / 2); // Every other segment
+        let slFrequency = 2; // Normal: every other segment
+        // Stop completely (Z = -50000, 10.0° North)
+        if (worldOffsetZ < -50000) {
+          slFrequency = 0; 
+        // Sparse further north (Z < -25000, 5.0° North)
+        } else if (worldOffsetZ < -25000) {
+          slFrequency = 8; 
+        // Somewhat sparse further north (Z < -15000, 3.0° North)
+        } else if (worldOffsetZ < -15000) {
+          slFrequency = 4;
+        }
+        
+        const numStreetlights = slFrequency > 0 ? Math.floor(bridgePositions.length / slFrequency) : 0;
         const slBaseInst = new THREE.InstancedMesh(
           streetlightPoleGeo,
           streetlightPoleMat,
@@ -5719,10 +5731,12 @@ function generateChunk(chunkX, chunkZ) {
             });
           }
 
-          // Streetlights - every other segment
-          if (index % 2 === 0 && slIndex < numStreetlights) {
-            const sideOff = index % 4 === 0 ? halfRoadW - 0.5 : -halfRoadW + 0.5;
-            const slYaw = index % 4 === 0 ? yaw + Math.PI : yaw;
+          // Streetlights
+          if (slFrequency > 0 && index % slFrequency === 0 && slIndex < numStreetlights) {
+            // Alternate sides of the road based on which streetlight we are placing
+            // slIndex is sequential, so slIndex % 2 handles the alternating sides.
+            const sideOff = slIndex % 2 === 0 ? halfRoadW - 0.5 : -halfRoadW + 0.5;
+            const slYaw = slIndex % 2 === 0 ? yaw + Math.PI : yaw;
 
             const dxSl = sideOff * Math.cos(yaw);
             const dzSl = -sideOff * Math.sin(yaw);
