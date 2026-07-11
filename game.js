@@ -4721,8 +4721,7 @@ function animate() {
     overcast * dayFactor
   );
 
-  let baseDir = THREE.MathUtils.lerp(0, 0.8, dayFactor);
-  dirLight.intensity = THREE.MathUtils.lerp(baseDir, 0.05, overcast);
+  dirLight.intensity = THREE.MathUtils.lerp(0.8, 0.05, overcast) * dayFactor;
 
   const PHASE_CYCLE_MS = 29.5 * 360000;
   const phaseAngle =
