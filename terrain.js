@@ -5733,10 +5733,13 @@ function generateChunk(chunkX, chunkZ) {
 
           // Streetlights
           if (slFrequency > 0 && index % slFrequency === 0 && slIndex < numStreetlights) {
-            // Alternate sides of the road based on which streetlight we are placing
-            // slIndex is sequential, so slIndex % 2 handles the alternating sides.
-            const sideOff = slIndex % 2 === 0 ? halfRoadW - 0.5 : -halfRoadW + 0.5;
-            const slYaw = slIndex % 2 === 0 ? yaw + Math.PI : yaw;
+            // Use global Z coordinate to ensure lights strictly alternate sides, even across chunk boundaries
+            const globalZ = Math.abs(worldOffsetZ + midVec.z);
+            const globalIndex = Math.floor(globalZ / (50 * slFrequency));
+            const isLeftSide = globalIndex % 2 === 0;
+
+            const sideOff = isLeftSide ? halfRoadW - 0.5 : -halfRoadW + 0.5;
+            const slYaw = isLeftSide ? yaw + Math.PI : yaw;
 
             const dxSl = sideOff * Math.cos(yaw);
             const dzSl = -sideOff * Math.sin(yaw);
