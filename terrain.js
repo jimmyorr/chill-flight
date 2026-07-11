@@ -6603,8 +6603,9 @@ function generateChunk(chunkX, chunkZ) {
 
     group.traverse((child) => {
       if (child.isMesh || child.isInstancedMesh) {
-        if (
-          child.material !== waterMaterial &&
+        if (child.material === waterMaterial) {
+          child.receiveShadow = true;
+        } else if (
           child.material !== smokeMat &&
           child.material !== lighthouseBeamMat
         ) {
