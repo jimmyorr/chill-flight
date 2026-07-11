@@ -391,7 +391,7 @@
     }
 
     // East coast beach flattening
-    const eastCoastFactor = Math.max(0, Math.min(1, x / 3000));
+    const eastCoastFactor = Math.max(0, Math.min(1, (x + 2000) / 2000));
     if (eastCoastFactor > 0) {
       if (biome < 0.1 && biome > -0.3) {
         // Peek flattening around biome = -0.1 (the shoreline)
@@ -889,6 +889,13 @@
       }
     }
 
+    // East coast beach widening: stretch the slope near the water level to create wider beaches
+    if (eastCoastFactor > 0 && n > WATER_LEVEL && n < WATER_LEVEL + 15.0) {
+      const t = (n - WATER_LEVEL) / 15.0;
+      const easedT = Math.pow(t, 2.5); // Pulls heights down towards WATER_LEVEL, flattening the beach
+      n = WATER_LEVEL + easedT * 15.0;
+    }
+
     return n;
   }
 
@@ -965,7 +972,7 @@
   const ROAD_SPACING = -10000; // 2 degrees West
   const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
-  
+
   function getRoadSweepOffset(z, n = 0) {
     // --- VOLCANO AVOIDANCE (CONTINUOUS DOMAIN WARPING) ---
     // The volcano is located exactly at X = -5000, Z = 5000.
@@ -1009,7 +1016,7 @@
   }
 
   function getRoadCenterX(z, n = 0) {
-    return ROAD_BASE_X + (n * ROAD_SPACING) + getRoadSweepOffset(z, n);
+    return ROAD_BASE_X + n * ROAD_SPACING + getRoadSweepOffset(z, n);
   }
 
   // Returns a [0, 1] factor indicating how much a point is on the road.
@@ -1019,7 +1026,7 @@
     // The road is at ROAD_BASE_X + n * ROAD_SPACING + sweep.
     // We can estimate `n` by ignoring the sweep first (which is max +/- 3000).
     const n = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
-    
+
     // Now get the exact center X of the closest highway
     const centerX = getRoadCenterX(z, n);
     const dist = Math.abs(x - centerX);

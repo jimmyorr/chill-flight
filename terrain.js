@@ -2334,7 +2334,8 @@ function mergeGeometries(geos) {
   }
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  if (norm.length > 0) geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  if (norm.length > 0)
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
   geom.setIndex(idx);
   return geom;
 }
@@ -2342,16 +2343,16 @@ function mergeGeometries(geos) {
 function createPirateHullGeometry() {
   const main = new THREE.BoxGeometry(6, 4, 16);
   const prow = new THREE.BoxGeometry(6, 4, 6);
-  prow.translate(0, 0, -11); 
+  prow.translate(0, 0, -11);
   const prowPos = prow.attributes.position.array;
   for (let i = 0; i < prowPos.length; i += 3) {
     if (prowPos[i + 2] < -10) prowPos[i] *= 0.2; // Pinch X
   }
   prow.computeVertexNormals();
 
-  const stern = new THREE.BoxGeometry(6, 6, 6); 
-  stern.translate(0, 1, 11); 
-  
+  const stern = new THREE.BoxGeometry(6, 6, 6);
+  stern.translate(0, 1, 11);
+
   const merged = mergeGeometries([main, prow, stern]);
   const pos = merged.attributes.position.array;
   for (let i = 0; i < pos.length; i += 3) {
@@ -2368,16 +2369,16 @@ pirateHullGeo.translate(0, 1, 0); // lift above water
 function createPirateRimGeometry() {
   const main = new THREE.BoxGeometry(6.4, 0.4, 16.4);
   const prow = new THREE.BoxGeometry(6.4, 0.4, 6.4);
-  prow.translate(0, 0, -11.4); 
+  prow.translate(0, 0, -11.4);
   const prowPos = prow.attributes.position.array;
   for (let i = 0; i < prowPos.length; i += 3) {
     if (prowPos[i + 2] < -10.4) prowPos[i] *= 0.2;
   }
   prow.computeVertexNormals();
 
-  const stern = new THREE.BoxGeometry(6.4, 0.4, 6.4); 
-  stern.translate(0, 1, 11.4); 
-  
+  const stern = new THREE.BoxGeometry(6.4, 0.4, 6.4);
+  stern.translate(0, 1, 11.4);
+
   return mergeGeometries([main, prow, stern]);
 }
 const pirateRimGeo = createPirateRimGeometry();
@@ -2386,16 +2387,16 @@ pirateRimGeo.translate(0, 3, 0);
 function createPirateDeckGeometry() {
   const main = new THREE.BoxGeometry(5.8, 0.2, 15.8);
   const prow = new THREE.BoxGeometry(5.8, 0.2, 5.8);
-  prow.translate(0, 0, -10.8); 
+  prow.translate(0, 0, -10.8);
   const prowPos = prow.attributes.position.array;
   for (let i = 0; i < prowPos.length; i += 3) {
     if (prowPos[i + 2] < -9.8) prowPos[i] *= 0.2;
   }
   prow.computeVertexNormals();
 
-  const stern = new THREE.BoxGeometry(5.8, 0.2, 5.8); 
-  stern.translate(0, 1, 10.8); 
-  
+  const stern = new THREE.BoxGeometry(5.8, 0.2, 5.8);
+  stern.translate(0, 1, 10.8);
+
   return mergeGeometries([main, prow, stern]);
 }
 const pirateDeckGeo = createPirateDeckGeometry();
@@ -2411,7 +2412,7 @@ function createPirateMastGeometry() {
   const bowsprit = new THREE.CylinderGeometry(0.15, 0.15, 10, 6);
   bowsprit.rotateX(-Math.PI / 3); // point UP and forward
   bowsprit.translate(0, 5, -12); // lower so it connects to the prow
-  
+
   // Yardarms (horizontal poles holding the sails)
   const yards = [];
   const addYard = (width, y, z) => {
@@ -2420,16 +2421,16 @@ function createPirateMastGeometry() {
     yard.translate(0, y, z);
     yards.push(yard);
   };
-  
+
   // Mainmast yards
   addYard(10.5, 15, -0.2);
   addYard(8.5, 20.5, -0.2);
   addYard(5.5, 25, -0.2);
-  
+
   // Foremast yards
   addYard(8.5, 12.5, -7.2);
   addYard(6.5, 17, -7.2);
-  
+
   // Mizzenmast yards
   addYard(6.5, 12.5, 7.8);
 
@@ -2445,15 +2446,15 @@ function createPirateSailGeometry() {
     for (let i = 0; i < pos.length; i += 3) {
       const x = pos[i];
       const y = pos[i + 1]; // Local Y goes from -h/2 to h/2
-      
+
       // We want billow to be 0 at the top (attached to yard), max at bottom.
-      const factor = (h / 2 - y) / h; 
-      
+      const factor = (h / 2 - y) / h;
+
       // Forward is negative Z.
       // 1. Pull edges back (positive Z)
-      pos[i + 2] += (x * x) * 0.05 * factor; 
+      pos[i + 2] += x * x * 0.05 * factor;
       // 2. Push center forward (negative Z)
-      pos[i + 2] -= factor * 1.5; 
+      pos[i + 2] -= factor * 1.5;
     }
     sail.computeVertexNormals();
     sail.translate(0, yOffset, zOffset);
@@ -2461,17 +2462,17 @@ function createPirateSailGeometry() {
   };
 
   // Mainmast sails
-  createSail(10, 6, 12, -0.2); 
-  createSail(8, 5, 18, -0.2); 
-  createSail(5, 4, 23, -0.2); 
+  createSail(10, 6, 12, -0.2);
+  createSail(8, 5, 18, -0.2);
+  createSail(5, 4, 23, -0.2);
 
   // Foremast sails
-  createSail(8, 5, 10, -7.2); 
-  createSail(6, 4, 15, -7.2); 
+  createSail(8, 5, 10, -7.2);
+  createSail(6, 4, 15, -7.2);
 
   // Mizzenmast sails
-  createSail(6, 5, 10, 7.8); 
-  
+  createSail(6, 5, 10, 7.8);
+
   return mergeGeometries(sails);
 }
 const pirateSailGeo = createPirateSailGeometry();
@@ -2480,8 +2481,8 @@ const pirateFlagGeo = new THREE.PlaneGeometry(3, 2, 4, 2);
 pirateFlagGeo.rotateY(Math.PI / 2); // align with Z axis
 pirateFlagGeo.translate(0, 25, 1.5); // attach to mast at Z=0
 const flagPos = pirateFlagGeo.attributes.position.array;
-for(let i=0; i<flagPos.length; i+=3) {
-  const z = flagPos[i+2]; 
+for (let i = 0; i < flagPos.length; i += 3) {
+  const z = flagPos[i + 2];
   flagPos[i] += Math.sin(z * 2) * 0.3; // Wavy
 }
 pirateFlagGeo.computeVertexNormals();
@@ -2497,16 +2498,23 @@ bone2.translate(0, 24.6, 1.5);
 
 const pirateJollyRogerGeo = mergeGeometries([skull, bone1, bone2]);
 const jrPos = pirateJollyRogerGeo.attributes.position.array;
-for(let i=0; i<jrPos.length; i+=3) {
-  const z = jrPos[i+2];
+for (let i = 0; i < jrPos.length; i += 3) {
+  const z = jrPos[i + 2];
   jrPos[i] += Math.sin(z * 2) * 0.3; // Match flag wave
 }
 pirateJollyRogerGeo.computeVertexNormals();
 
 const pirateHullMat = createMaterial({color: 0x3d2314, flatShading: true}); // Dark brown wood
 const pirateRimMat = createMaterial({color: 0x8b0000, flatShading: true}); // Dark red trim
-const pirateFlagMat = createMaterial({color: 0x050505, flatShading: true, side: THREE.DoubleSide}); // Pitch black flag
-const pirateJollyRogerMat = createMaterial({color: 0xeeeeee, flatShading: true}); // White skull & bones
+const pirateFlagMat = createMaterial({
+  color: 0x050505,
+  flatShading: true,
+  side: THREE.DoubleSide,
+}); // Pitch black flag
+const pirateJollyRogerMat = createMaterial({
+  color: 0xeeeeee,
+  flatShading: true,
+}); // White skull & bones
 
 // Sail color variants
 const pirateSailPalette = [
@@ -2520,7 +2528,7 @@ const reflectionMat = new THREE.MeshBasicMaterial({
   color: 0x07151e,
   transparent: true,
   opacity: 0.35,
-  side: THREE.DoubleSide
+  side: THREE.DoubleSide,
 });
 
 const sailboatReflectionGeo = mergeGeometries([
@@ -2529,7 +2537,7 @@ const sailboatReflectionGeo = mergeGeometries([
   boatDeckGeo,
   boatMastGeo,
   boatBoomGeo,
-  boatSailGeo
+  boatSailGeo,
 ]);
 
 const pirateShipReflectionGeo = mergeGeometries([
@@ -2539,7 +2547,7 @@ const pirateShipReflectionGeo = mergeGeometries([
   pirateMastGeo,
   pirateSailGeo,
   pirateFlagGeo,
-  pirateJollyRogerGeo
+  pirateJollyRogerGeo,
 ]);
 
 // Lighthouse Beam geometry - wider and longer
@@ -3270,13 +3278,38 @@ window.ModelAssembler = {
       case 'pirateship': {
         const sailId = (opts.bodyId || 0) % pirateSailPalette.length;
         return [
-          {geo: pirateHullGeo, mat: pirateHullMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: pirateRimGeo, mat: pirateRimMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {
+            geo: pirateHullGeo,
+            mat: pirateHullMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: pirateRimGeo,
+            mat: pirateRimMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
           {geo: pirateDeckGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
           {geo: pirateMastGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: pirateSailGeo, mat: pirateSailPalette[sailId], pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: pirateFlagGeo, mat: pirateFlagMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: pirateJollyRogerGeo, mat: pirateJollyRogerMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {
+            geo: pirateSailGeo,
+            mat: pirateSailPalette[sailId],
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: pirateFlagGeo,
+            mat: pirateFlagMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: pirateJollyRogerGeo,
+            mat: pirateJollyRogerMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
         ];
       }
       case 'volcano_active_elements':
@@ -3645,8 +3678,8 @@ function generateChunk(chunkX, chunkZ) {
       const isSnowBiome = snowFactor > 0.5;
 
       // East code beachfront
-      const eastCoastFactor = Math.max(0, Math.min(1, worldX / 3000));
-      const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 8;
+      const eastCoastFactor = Math.max(0, Math.min(1, (worldX + 2000) / 2000));
+      const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 10;
 
       const isForest =
         simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005) > 0.2;
@@ -4381,8 +4414,14 @@ function generateChunk(chunkX, chunkZ) {
 
         // Guarantee a pirate ship spawns nearby in a water spot
         const offsets = [
-          [150, 150], [-150, -150], [150, -150], [-150, 150],
-          [250, 0], [-250, 0], [0, 250], [0, -250]
+          [150, 150],
+          [-150, -150],
+          [150, -150],
+          [-150, 150],
+          [250, 0],
+          [-250, 0],
+          [0, 250],
+          [0, -250],
         ];
         for (const [dx, dz] of offsets) {
           const px = dx;
@@ -5782,245 +5821,253 @@ function generateChunk(chunkX, chunkZ) {
       const halfChunk = CHUNK_SIZE / 2;
       const activeRoads = [];
       for (let n = -20; n <= 20; n++) {
-        const baseX = ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
-        if (baseX + 4000 >= worldOffsetX - halfChunk && baseX - 4000 <= worldOffsetX + halfChunk) {
+        const baseX =
+          ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
+        if (
+          baseX + 4000 >= worldOffsetX - halfChunk &&
+          baseX - 4000 <= worldOffsetX + halfChunk
+        ) {
           activeRoads.push(n);
         }
       }
 
       activeRoads.forEach((n) => {
         const bridgePositions = [];
-      const sampleStep = BRIDGE_SEGMENT_LENGTH;
+        const sampleStep = BRIDGE_SEGMENT_LENGTH;
 
-      // Ensure we have access to the constants
-      const constants = {
-        WATER_LEVEL,
-        MOUNTAIN_LEVEL:
-          typeof MOUNTAIN_LEVEL !== 'undefined' ? MOUNTAIN_LEVEL : 180,
-      };
+        // Ensure we have access to the constants
+        const constants = {
+          WATER_LEVEL,
+          MOUNTAIN_LEVEL:
+            typeof MOUNTAIN_LEVEL !== 'undefined' ? MOUNTAIN_LEVEL : 180,
+        };
 
-      for (
-        let sampleZ = -halfChunk;
-        sampleZ < halfChunk;
-        sampleZ += sampleStep
-      ) {
-        const wz = worldOffsetZ + sampleZ + sampleStep / 2;
-        const roadX = ChillFlightLogic.getRoadCenterX(wz, n);
-        const localRoadX = roadX - worldOffsetX;
+        for (
+          let sampleZ = -halfChunk;
+          sampleZ < halfChunk;
+          sampleZ += sampleStep
+        ) {
+          const wz = worldOffsetZ + sampleZ + sampleStep / 2;
+          const roadX = ChillFlightLogic.getRoadCenterX(wz, n);
+          const localRoadX = roadX - worldOffsetX;
 
-        // Check if the road center is inside this chunk (with some margin)
-        if (Math.abs(localRoadX) > halfChunk + 50) continue;
+          // Check if the road center is inside this chunk (with some margin)
+          if (Math.abs(localRoadX) > halfChunk + 50) continue;
 
-        // Get natural terrain height (ignoring rivers and trenches) for smooth road elevation
-        const naturalH = ChillFlightLogic.getElevation(
-          roadX,
-          wz,
-          simplex,
-          constants,
-          null,
-          {ignoreRivers: true, ignoreRoads: true}
-        );
+          // Get natural terrain height (ignoring rivers and trenches) for smooth road elevation
+          const naturalH = ChillFlightLogic.getElevation(
+            roadX,
+            wz,
+            simplex,
+            constants,
+            null,
+            {ignoreRivers: true, ignoreRoads: true}
+          );
 
-        if (roadX >= 0) continue;
+          if (roadX >= 0) continue;
 
-        // Ensure minimum clearance height over water and max height for trenches
-        const minHeight = WATER_LEVEL + 60;
-        let roadY = minHeight + (naturalH - minHeight) * 0.85;
-        roadY = Math.max(roadY, minHeight);
-        roadY = Math.min(roadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
+          // Ensure minimum clearance height over water and max height for trenches
+          const minHeight = WATER_LEVEL + 60;
+          let roadY = minHeight + (naturalH - minHeight) * 0.85;
+          roadY = Math.max(roadY, minHeight);
+          roadY = Math.min(roadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
-        // Actual terrain height (including rivers) to determine if we need pilings
-        const actualTerrainH = getCachedElevation(roadX, wz);
-        const needsPilings = roadY - actualTerrainH > 10;
+          // Actual terrain height (including rivers) to determine if we need pilings
+          const actualTerrainH = getCachedElevation(roadX, wz);
+          const needsPilings = roadY - actualTerrainH > 10;
 
-        // Calculate the next point on the road to determine slope and yaw
-        const nextWz = wz + sampleStep;
-        const nextRoadX = ChillFlightLogic.getRoadCenterX(nextWz, n);
-        const nextNaturalH = ChillFlightLogic.getElevation(
-          nextRoadX,
-          nextWz,
-          simplex,
-          constants,
-          null,
-          {ignoreRivers: true, ignoreRoads: true}
-        );
-        let nextRoadY = minHeight + (nextNaturalH - minHeight) * 0.85;
-        nextRoadY = Math.max(nextRoadY, minHeight);
-        nextRoadY = Math.min(nextRoadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
+          // Calculate the next point on the road to determine slope and yaw
+          const nextWz = wz + sampleStep;
+          const nextRoadX = ChillFlightLogic.getRoadCenterX(nextWz, n);
+          const nextNaturalH = ChillFlightLogic.getElevation(
+            nextRoadX,
+            nextWz,
+            simplex,
+            constants,
+            null,
+            {ignoreRivers: true, ignoreRoads: true}
+          );
+          let nextRoadY = minHeight + (nextNaturalH - minHeight) * 0.85;
+          nextRoadY = Math.max(nextRoadY, minHeight);
+          nextRoadY = Math.min(nextRoadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
-        bridgePositions.push({
-          x: localRoadX,
-          y: roadY,
-          z: sampleZ + sampleStep / 2,
-          needsPilings: needsPilings,
-          terrainH: actualTerrainH,
-          nextPos: {
-            x: nextRoadX - worldOffsetX,
-            y: nextRoadY,
-            z: sampleZ + sampleStep * 1.5,
-          },
-        });
-      }
-
-      if (bridgePositions.length > 0) {
-        // Count how many pilings and railings we need
-        let numPilings = 0;
-        let numArches = 0;
-        let numRailSegments = 0;
-        bridgePositions.forEach((p) => {
-          if (p.needsPilings) {
-            numPilings += 6; // 2 main pillars + 4 spandrel columns
-            numArches += 2; // 2 arches
-            numRailSegments += 1;
-          }
-        });
-
-        // Bridge decks
-        const deckInst = new THREE.InstancedMesh(
-          bridgeDeckGeo,
-          bridgeDeckMat,
-          bridgePositions.length
-        );
-
-        // Pilings
-        const pilingInst = new THREE.InstancedMesh(
-          bridgePilingGeo,
-          bridgePilingMat,
-          numPilings > 0 ? numPilings : 1 // Avoid 0 size buffer error
-        );
-
-        // Arches
-        const archInst = new THREE.InstancedMesh(
-          bridgeArchGeo,
-          bridgePilingMat,
-          numArches > 0 ? numArches : 1
-        );
-
-        // Railings — 2 per segment (one on each side) ONLY for bridge sections
-        const railInst = new THREE.InstancedMesh(
-          bridgeRailGeo,
-          bridgeDeckMat,
-          numRailSegments > 0 ? numRailSegments * 2 : 1
-        );
-
-        const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 2;
-        let pilingIndex = 0;
-        let archIndex = 0;
-        let railIndex = 0;
-
-        // Streetlights
-        let slFrequency = 2; // Normal: every other segment
-        const absZ = Math.abs(worldOffsetZ);
-        
-        // Stop completely (abs(Z) > 50000, 10.0° North/South)
-        if (absZ > 50000) {
-          slFrequency = 0; 
-        // Sparse further out (abs(Z) > 25000, 5.0° North/South)
-        } else if (absZ > 25000) {
-          slFrequency = 8; 
-        // Somewhat sparse further out (abs(Z) > 15000, 3.0° North/South)
-        } else if (absZ > 15000) {
-          slFrequency = 4;
-        }
-        
-        // Calculate exact number of streetlights based on global segment alignment
-        let numStreetlights = 0;
-        if (slFrequency > 0) {
-          bridgePositions.forEach((pos) => {
-            const midZ = (pos.z + pos.nextPos.z) / 2;
-            const globalZ = worldOffsetZ + midZ;
-            const globalSegmentIndex = Math.round(globalZ / BRIDGE_SEGMENT_LENGTH);
-            if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
-              numStreetlights++;
-            }
+          bridgePositions.push({
+            x: localRoadX,
+            y: roadY,
+            z: sampleZ + sampleStep / 2,
+            needsPilings: needsPilings,
+            terrainH: actualTerrainH,
+            nextPos: {
+              x: nextRoadX - worldOffsetX,
+              y: nextRoadY,
+              z: sampleZ + sampleStep * 1.5,
+            },
           });
         }
-        const slBaseInst = new THREE.InstancedMesh(
-          streetlightPoleGeo,
-          streetlightPoleMat,
-          numStreetlights > 0 ? numStreetlights : 1
-        );
-        const slArmInst = new THREE.InstancedMesh(
-          streetlightArmGeo,
-          streetlightPoleMat,
-          numStreetlights > 0 ? numStreetlights : 1
-        );
-        const slBulbInst = new THREE.InstancedMesh(
-          streetlightBulbGeo,
-          window.streetlightBulbMat,
-          numStreetlights > 0 ? numStreetlights : 1
-        );
-        const slDecalInst = new THREE.InstancedMesh(
-          streetlightDecalGeo,
-          window.streetlightDecalMat,
-          numStreetlights > 0 ? numStreetlights : 1
-        );
-        let slIndex = 0;
 
-        bridgePositions.forEach((pos, index) => {
-          const currentVec = new THREE.Vector3(pos.x, pos.y, pos.z);
-          const nextVec = new THREE.Vector3(
-            pos.nextPos.x,
-            pos.nextPos.y,
-            pos.nextPos.z
+        if (bridgePositions.length > 0) {
+          // Count how many pilings and railings we need
+          let numPilings = 0;
+          let numArches = 0;
+          let numRailSegments = 0;
+          bridgePositions.forEach((p) => {
+            if (p.needsPilings) {
+              numPilings += 6; // 2 main pillars + 4 spandrel columns
+              numArches += 2; // 2 arches
+              numRailSegments += 1;
+            }
+          });
+
+          // Bridge decks
+          const deckInst = new THREE.InstancedMesh(
+            bridgeDeckGeo,
+            bridgeDeckMat,
+            bridgePositions.length
           );
 
-          // Calculate center of the edge and the exact distance
-          const midVec = currentVec.clone().lerp(nextVec, 0.5);
-          const dist = currentVec.distanceTo(nextVec);
-
-          // Deck
-          dummy.position.copy(midVec);
-          dummy.lookAt(nextVec);
-          dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
-          dummy.updateMatrix();
-          deckInst.setMatrixAt(index, dummy.matrix);
-
-          // Extract just the yaw from the deck's rotation for pilings
-          const euler = new THREE.Euler().setFromQuaternion(
-            dummy.quaternion,
-            'YXZ'
+          // Pilings
+          const pilingInst = new THREE.InstancedMesh(
+            bridgePilingGeo,
+            bridgePilingMat,
+            numPilings > 0 ? numPilings : 1 // Avoid 0 size buffer error
           );
-          const yaw = euler.y;
 
-          // Pilings and Arches
-          if (pos.needsPilings) {
-            const pilingHeight = midVec.y - pos.terrainH;
-            if (pilingHeight > 0) {
-              // 1. Main pilings at the start of the segment
-              [-halfRoadW, halfRoadW].forEach((xOff) => {
-                const zOff = -BRIDGE_SEGMENT_LENGTH / 2;
-                const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
-                const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
+          // Arches
+          const archInst = new THREE.InstancedMesh(
+            bridgeArchGeo,
+            bridgePilingMat,
+            numArches > 0 ? numArches : 1
+          );
 
-                dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
-                dummy.rotation.set(0, yaw, 0); // Keep them vertical
-                dummy.scale.set(1, pilingHeight, 1);
-                dummy.updateMatrix();
-                pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
-              });
+          // Railings — 2 per segment (one on each side) ONLY for bridge sections
+          const railInst = new THREE.InstancedMesh(
+            bridgeRailGeo,
+            bridgeDeckMat,
+            numRailSegments > 0 ? numRailSegments * 2 : 1
+          );
 
-              // 2. Semi-circular arches spanning the segment
-              [-halfRoadW, halfRoadW].forEach((xOff) => {
-                const zOff = 0;
-                const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
-                const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
+          const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 2;
+          let pilingIndex = 0;
+          let archIndex = 0;
+          let railIndex = 0;
 
-                dummy.position.set(
-                  midVec.x + dx,
-                  midVec.y - BRIDGE_SEGMENT_LENGTH / 2,
-                  midVec.z + dz
-                );
-                dummy.rotation.set(0, yaw, 0);
-                dummy.scale.set(1, 1, 1);
-                dummy.updateMatrix();
-                archInst.setMatrixAt(archIndex++, dummy.matrix);
-              });
+          // Streetlights
+          let slFrequency = 2; // Normal: every other segment
+          const absZ = Math.abs(worldOffsetZ);
 
-              // 3. Spandrel columns (short columns on top of the arch)
-              [-halfRoadW, halfRoadW].forEach((xOff) => {
-                [-BRIDGE_SEGMENT_LENGTH / 4, BRIDGE_SEGMENT_LENGTH / 4].forEach(
-                  (zOff) => {
+          // Stop completely (abs(Z) > 50000, 10.0° North/South)
+          if (absZ > 50000) {
+            slFrequency = 0;
+            // Sparse further out (abs(Z) > 25000, 5.0° North/South)
+          } else if (absZ > 25000) {
+            slFrequency = 8;
+            // Somewhat sparse further out (abs(Z) > 15000, 3.0° North/South)
+          } else if (absZ > 15000) {
+            slFrequency = 4;
+          }
+
+          // Calculate exact number of streetlights based on global segment alignment
+          let numStreetlights = 0;
+          if (slFrequency > 0) {
+            bridgePositions.forEach((pos) => {
+              const midZ = (pos.z + pos.nextPos.z) / 2;
+              const globalZ = worldOffsetZ + midZ;
+              const globalSegmentIndex = Math.round(
+                globalZ / BRIDGE_SEGMENT_LENGTH
+              );
+              if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
+                numStreetlights++;
+              }
+            });
+          }
+          const slBaseInst = new THREE.InstancedMesh(
+            streetlightPoleGeo,
+            streetlightPoleMat,
+            numStreetlights > 0 ? numStreetlights : 1
+          );
+          const slArmInst = new THREE.InstancedMesh(
+            streetlightArmGeo,
+            streetlightPoleMat,
+            numStreetlights > 0 ? numStreetlights : 1
+          );
+          const slBulbInst = new THREE.InstancedMesh(
+            streetlightBulbGeo,
+            window.streetlightBulbMat,
+            numStreetlights > 0 ? numStreetlights : 1
+          );
+          const slDecalInst = new THREE.InstancedMesh(
+            streetlightDecalGeo,
+            window.streetlightDecalMat,
+            numStreetlights > 0 ? numStreetlights : 1
+          );
+          let slIndex = 0;
+
+          bridgePositions.forEach((pos, index) => {
+            const currentVec = new THREE.Vector3(pos.x, pos.y, pos.z);
+            const nextVec = new THREE.Vector3(
+              pos.nextPos.x,
+              pos.nextPos.y,
+              pos.nextPos.z
+            );
+
+            // Calculate center of the edge and the exact distance
+            const midVec = currentVec.clone().lerp(nextVec, 0.5);
+            const dist = currentVec.distanceTo(nextVec);
+
+            // Deck
+            dummy.position.copy(midVec);
+            dummy.lookAt(nextVec);
+            dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+            dummy.updateMatrix();
+            deckInst.setMatrixAt(index, dummy.matrix);
+
+            // Extract just the yaw from the deck's rotation for pilings
+            const euler = new THREE.Euler().setFromQuaternion(
+              dummy.quaternion,
+              'YXZ'
+            );
+            const yaw = euler.y;
+
+            // Pilings and Arches
+            if (pos.needsPilings) {
+              const pilingHeight = midVec.y - pos.terrainH;
+              if (pilingHeight > 0) {
+                // 1. Main pilings at the start of the segment
+                [-halfRoadW, halfRoadW].forEach((xOff) => {
+                  const zOff = -BRIDGE_SEGMENT_LENGTH / 2;
+                  const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
+                  const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
+
+                  dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
+                  dummy.rotation.set(0, yaw, 0); // Keep them vertical
+                  dummy.scale.set(1, pilingHeight, 1);
+                  dummy.updateMatrix();
+                  pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
+                });
+
+                // 2. Semi-circular arches spanning the segment
+                [-halfRoadW, halfRoadW].forEach((xOff) => {
+                  const zOff = 0;
+                  const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
+                  const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
+
+                  dummy.position.set(
+                    midVec.x + dx,
+                    midVec.y - BRIDGE_SEGMENT_LENGTH / 2,
+                    midVec.z + dz
+                  );
+                  dummy.rotation.set(0, yaw, 0);
+                  dummy.scale.set(1, 1, 1);
+                  dummy.updateMatrix();
+                  archInst.setMatrixAt(archIndex++, dummy.matrix);
+                });
+
+                // 3. Spandrel columns (short columns on top of the arch)
+                [-halfRoadW, halfRoadW].forEach((xOff) => {
+                  [
+                    -BRIDGE_SEGMENT_LENGTH / 4,
+                    BRIDGE_SEGMENT_LENGTH / 4,
+                  ].forEach((zOff) => {
                     const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
                     const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
                     dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
@@ -6028,110 +6075,123 @@ function generateChunk(chunkX, chunkZ) {
                     dummy.scale.set(1, 2.5, 1); // Sink into the arch slightly
                     dummy.updateMatrix();
                     pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
-                  }
-                );
+                  });
+                });
+              }
+            }
+
+            // Railings — one on each side, only if it's a bridge section
+            if (pos.needsPilings) {
+              [-halfRoadW, halfRoadW].forEach((xOff) => {
+                // Apply deck's rotation to local offset
+                dummy.position.copy(midVec);
+                dummy.lookAt(nextVec);
+                dummy.translateX(xOff);
+                dummy.translateY(2);
+                dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+                dummy.updateMatrix();
+                railInst.setMatrixAt(railIndex++, dummy.matrix);
               });
             }
-          }
 
-          // Railings — one on each side, only if it's a bridge section
-          if (pos.needsPilings) {
-            [-halfRoadW, halfRoadW].forEach((xOff) => {
-              // Apply deck's rotation to local offset
-              dummy.position.copy(midVec);
-              dummy.lookAt(nextVec);
-              dummy.translateX(xOff);
-              dummy.translateY(2);
-              dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
-              dummy.updateMatrix();
-              railInst.setMatrixAt(railIndex++, dummy.matrix);
-            });
-          }
-
-          // Streetlights
-          if (slFrequency > 0 && slIndex < numStreetlights) {
-            const globalZ = worldOffsetZ + midVec.z;
-            const globalSegmentIndex = Math.round(globalZ / BRIDGE_SEGMENT_LENGTH);
-            
-            if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
-              const isLeftSide = Math.floor(Math.abs(globalSegmentIndex) / slFrequency) % 2 === 0;
-
-            const sideOff = isLeftSide ? halfRoadW - 0.5 : -halfRoadW + 0.5;
-            const slYaw = isLeftSide ? yaw + Math.PI : yaw;
-
-            const dxSl = sideOff * Math.cos(yaw);
-            const dzSl = -sideOff * Math.sin(yaw);
-
-            const slPos = new THREE.Vector3(
-              midVec.x + dxSl,
-              midVec.y,
-              midVec.z + dzSl
-            );
-
-            const structure = ModelAssembler.getStructure('streetlight', slYaw);
-            structure.forEach((part, pIdx) => {
-              dummy.position.set(
-                slPos.x + part.pos[0],
-                slPos.y + part.pos[1],
-                slPos.z + part.pos[2]
+            // Streetlights
+            if (slFrequency > 0 && slIndex < numStreetlights) {
+              const globalZ = worldOffsetZ + midVec.z;
+              const globalSegmentIndex = Math.round(
+                globalZ / BRIDGE_SEGMENT_LENGTH
               );
-              dummy.rotation.set(...part.rot);
-              dummy.scale.set(1, 1, 1);
-              dummy.updateMatrix();
-              if (pIdx === 0) slBaseInst.setMatrixAt(slIndex, dummy.matrix);
-              else if (pIdx === 1) slArmInst.setMatrixAt(slIndex, dummy.matrix);
-              else if (pIdx === 2)
-                slBulbInst.setMatrixAt(slIndex, dummy.matrix);
-            });
 
-            // Decal on the road under the bulb
-            const decalDx = 17 * Math.cos(slYaw);
-            const decalDz = -17 * Math.sin(slYaw);
-            // Push it slightly higher (1.2) to prevent any Z-fighting on steep bridges
-            const decalPos = new THREE.Vector3(slPos.x + decalDx, slPos.y + 1.2, slPos.z + decalDz);
-            
-            const forward = new THREE.Vector3().subVectors(nextVec, midVec).normalize();
-            
-            dummy.position.copy(decalPos);
-            dummy.lookAt(decalPos.clone().add(forward));
-            dummy.scale.set(1.5, 1, 1.5); // Perfectly circular, large soft pool
-            dummy.updateMatrix();
-            slDecalInst.setMatrixAt(slIndex, dummy.matrix);
+              if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
+                const isLeftSide =
+                  Math.floor(Math.abs(globalSegmentIndex) / slFrequency) % 2 ===
+                  0;
 
-              slIndex++;
+                const sideOff = isLeftSide ? halfRoadW - 0.5 : -halfRoadW + 0.5;
+                const slYaw = isLeftSide ? yaw + Math.PI : yaw;
+
+                const dxSl = sideOff * Math.cos(yaw);
+                const dzSl = -sideOff * Math.sin(yaw);
+
+                const slPos = new THREE.Vector3(
+                  midVec.x + dxSl,
+                  midVec.y,
+                  midVec.z + dzSl
+                );
+
+                const structure = ModelAssembler.getStructure(
+                  'streetlight',
+                  slYaw
+                );
+                structure.forEach((part, pIdx) => {
+                  dummy.position.set(
+                    slPos.x + part.pos[0],
+                    slPos.y + part.pos[1],
+                    slPos.z + part.pos[2]
+                  );
+                  dummy.rotation.set(...part.rot);
+                  dummy.scale.set(1, 1, 1);
+                  dummy.updateMatrix();
+                  if (pIdx === 0) slBaseInst.setMatrixAt(slIndex, dummy.matrix);
+                  else if (pIdx === 1)
+                    slArmInst.setMatrixAt(slIndex, dummy.matrix);
+                  else if (pIdx === 2)
+                    slBulbInst.setMatrixAt(slIndex, dummy.matrix);
+                });
+
+                // Decal on the road under the bulb
+                const decalDx = 17 * Math.cos(slYaw);
+                const decalDz = -17 * Math.sin(slYaw);
+                // Push it slightly higher (1.2) to prevent any Z-fighting on steep bridges
+                const decalPos = new THREE.Vector3(
+                  slPos.x + decalDx,
+                  slPos.y + 1.2,
+                  slPos.z + decalDz
+                );
+
+                const forward = new THREE.Vector3()
+                  .subVectors(nextVec, midVec)
+                  .normalize();
+
+                dummy.position.copy(decalPos);
+                dummy.lookAt(decalPos.clone().add(forward));
+                dummy.scale.set(1.5, 1, 1.5); // Perfectly circular, large soft pool
+                dummy.updateMatrix();
+                slDecalInst.setMatrixAt(slIndex, dummy.matrix);
+
+                slIndex++;
+              }
             }
+          });
+
+          deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(deckInst);
+
+          if (numRailSegments > 0) {
+            railInst.position.set(worldOffsetX, 0, worldOffsetZ);
+            group.add(railInst);
           }
-        });
 
-        deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
-        group.add(deckInst);
+          if (numPilings > 0) {
+            pilingInst.position.set(worldOffsetX, 0, worldOffsetZ);
+            group.add(pilingInst);
+          }
 
-        if (numRailSegments > 0) {
-          railInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(railInst);
+          if (numArches > 0) {
+            archInst.position.set(worldOffsetX, 0, worldOffsetZ);
+            group.add(archInst);
+          }
+
+          if (numStreetlights > 0) {
+            slBaseInst.position.set(worldOffsetX, 0, worldOffsetZ);
+            slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
+            slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
+            slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
+            group.add(slBaseInst);
+            group.add(slArmInst);
+            group.add(slBulbInst);
+            group.add(slDecalInst);
+          }
         }
-
-        if (numPilings > 0) {
-          pilingInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(pilingInst);
-        }
-
-        if (numArches > 0) {
-          archInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(archInst);
-        }
-
-        if (numStreetlights > 0) {
-          slBaseInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(slBaseInst);
-          group.add(slArmInst);
-          group.add(slBulbInst);
-          group.add(slDecalInst);
-        }
-      }
       }); // End activeRoads.forEach
     }
 
@@ -6381,7 +6441,14 @@ function generateChunk(chunkX, chunkZ) {
       boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
       sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
       sailboatReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(rimInst, deckInst, mastInst, boomInst, sailInst, sailboatReflectionInst);
+      objectsGroup.add(
+        rimInst,
+        deckInst,
+        mastInst,
+        boomInst,
+        sailInst,
+        sailboatReflectionInst
+      );
 
       group.userData.sailboatPositions = sailboatPositions;
       group.userData.boatHulls = hullInsts;
@@ -6398,14 +6465,43 @@ function generateChunk(chunkX, chunkZ) {
     // 3.5 Pirate Ships
     if (pirateShipPositions.length > 0) {
       const sailInsts = pirateSailPalette.map(
-        (mat) => new THREE.InstancedMesh(pirateSailGeo, mat, pirateShipPositions.length)
+        (mat) =>
+          new THREE.InstancedMesh(
+            pirateSailGeo,
+            mat,
+            pirateShipPositions.length
+          )
       );
-      const hullInst = new THREE.InstancedMesh(pirateHullGeo, pirateHullMat, pirateShipPositions.length);
-      const rimInst = new THREE.InstancedMesh(pirateRimGeo, pirateRimMat, pirateShipPositions.length);
-      const deckInst = new THREE.InstancedMesh(pirateDeckGeo, woodMat, pirateShipPositions.length);
-      const mastInst = new THREE.InstancedMesh(pirateMastGeo, woodMat, pirateShipPositions.length);
-      const flagInst = new THREE.InstancedMesh(pirateFlagGeo, pirateFlagMat, pirateShipPositions.length);
-      const jrInst = new THREE.InstancedMesh(pirateJollyRogerGeo, pirateJollyRogerMat, pirateShipPositions.length);
+      const hullInst = new THREE.InstancedMesh(
+        pirateHullGeo,
+        pirateHullMat,
+        pirateShipPositions.length
+      );
+      const rimInst = new THREE.InstancedMesh(
+        pirateRimGeo,
+        pirateRimMat,
+        pirateShipPositions.length
+      );
+      const deckInst = new THREE.InstancedMesh(
+        pirateDeckGeo,
+        woodMat,
+        pirateShipPositions.length
+      );
+      const mastInst = new THREE.InstancedMesh(
+        pirateMastGeo,
+        woodMat,
+        pirateShipPositions.length
+      );
+      const flagInst = new THREE.InstancedMesh(
+        pirateFlagGeo,
+        pirateFlagMat,
+        pirateShipPositions.length
+      );
+      const jrInst = new THREE.InstancedMesh(
+        pirateJollyRogerGeo,
+        pirateJollyRogerMat,
+        pirateShipPositions.length
+      );
       const pirateReflectionInst = new THREE.InstancedMesh(
         pirateShipReflectionGeo,
         reflectionMat,
@@ -6444,7 +6540,15 @@ function generateChunk(chunkX, chunkZ) {
       flagInst.position.set(worldOffsetX, 0, worldOffsetZ);
       jrInst.position.set(worldOffsetX, 0, worldOffsetZ);
       pirateReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(hullInst, rimInst, deckInst, mastInst, flagInst, jrInst, pirateReflectionInst);
+      objectsGroup.add(
+        hullInst,
+        rimInst,
+        deckInst,
+        mastInst,
+        flagInst,
+        jrInst,
+        pirateReflectionInst
+      );
 
       sailInsts.forEach((inst, idx) => {
         if (sailCounts[idx] > 0) {
@@ -6656,7 +6760,8 @@ function generateChunk(chunkX, chunkZ) {
 }
 
 function updateChunks() {
-  const target = (typeof window !== 'undefined' && window.isFreeCamera) ? camera : planeGroup;
+  const target =
+    typeof window !== 'undefined' && window.isFreeCamera ? camera : planeGroup;
   const currentChunkX = Math.round(target.position.x / CHUNK_SIZE);
   const currentChunkZ = Math.round(target.position.z / CHUNK_SIZE);
   const renderDistance = RENDER_DISTANCE;

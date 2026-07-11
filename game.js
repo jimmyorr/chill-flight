@@ -1471,26 +1471,28 @@ if (freeCamToggle) {
         ChillFlightLogic.START_PITCH
       );
   }
-  document.getElementById('debug-free-cam-toggle').addEventListener('change', (e) => {
-    isFreeCamera = e.target.checked;
-    window.isFreeCamera = isFreeCamera;
-    if (isFreeCamera) {
-      // Force camera up vector to vertical
-      camera.up.set(0, 1, 0);
+  document
+    .getElementById('debug-free-cam-toggle')
+    .addEventListener('change', (e) => {
+      isFreeCamera = e.target.checked;
+      window.isFreeCamera = isFreeCamera;
+      if (isFreeCamera) {
+        // Force camera up vector to vertical
+        camera.up.set(0, 1, 0);
 
-      // Re-align camera to face the same forward direction but with zero roll
-      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(
-        camera.quaternion
-      );
-      const target = new THREE.Vector3().copy(camera.position).add(forward);
+        // Re-align camera to face the same forward direction but with zero roll
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(
+          camera.quaternion
+        );
+        const target = new THREE.Vector3().copy(camera.position).add(forward);
 
-      camera.rotation.order = 'YXZ'; // Better for fly-cam
-      camera.lookAt(target);
-      camera.rotation.z = 0;
-    } else {
-      camera.rotation.order = 'XYZ'; // Reset to default
-    }
-  });
+        camera.rotation.order = 'YXZ'; // Better for fly-cam
+        camera.lookAt(target);
+        camera.rotation.z = 0;
+      } else {
+        camera.rotation.order = 'XYZ'; // Reset to default
+      }
+    });
 }
 
 const copyCamUrlBtn = document.getElementById('debug-copy-cam-url');
@@ -2557,7 +2559,10 @@ function animate() {
       window._debugVirtualServerNow += delta * 1000 * daySpeedMultiplier;
     }
     passedServerNow = window._debugVirtualServerNow;
-    secondsInCycle = (((passedServerNow % CYCLE_DURATION_MS) + CYCLE_DURATION_MS) % CYCLE_DURATION_MS) / 1000;
+    secondsInCycle =
+      (((passedServerNow % CYCLE_DURATION_MS) + CYCLE_DURATION_MS) %
+        CYCLE_DURATION_MS) /
+      1000;
 
     // Keep older debug virtual seconds for compat just in case
     window._debugVirtualSeconds = secondsInCycle;
@@ -2628,9 +2633,12 @@ function animate() {
   // Calculate streetlight intensity based on time of day
   const slSunY = -Math.cos(timeOfDay);
   const slNightValue = Math.max(0, (-slSunY + 0.1) * 2);
-  
+
   if (typeof window.streetlightBulbMat !== 'undefined') {
-    window.streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
+    window.streetlightBulbMat.emissiveIntensity = Math.min(
+      2.0,
+      slNightValue * 2.0
+    );
   }
   if (typeof window.streetlightDecalMat !== 'undefined') {
     window.streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
@@ -4322,7 +4330,10 @@ function animate() {
           _boatDummy.rotation.z = -roll;
           _boatDummy.scale.set(1.8, -1.8, 1.8);
           _boatDummy.updateMatrix();
-          chunkGroup.userData.boatReflections.setMatrixAt(index, _boatDummy.matrix);
+          chunkGroup.userData.boatReflections.setMatrixAt(
+            index,
+            _boatDummy.matrix
+          );
         }
       });
 
@@ -4409,7 +4420,10 @@ function animate() {
           _boatDummy.rotation.z = -roll;
           _boatDummy.scale.set(2.5, -2.5, 2.5);
           _boatDummy.updateMatrix();
-          chunkGroup.userData.pirateReflections.setMatrixAt(index, _boatDummy.matrix);
+          chunkGroup.userData.pirateReflections.setMatrixAt(
+            index,
+            _boatDummy.matrix
+          );
         }
       });
 
@@ -4486,7 +4500,7 @@ function animate() {
   // Update Cockpit HUD
   const hudTarget = isFreeCamera ? camera : planeGroup;
   const hudHeadingY = isFreeCamera ? camera.rotation.y : planeGroup.rotation.y;
-  
+
   const hours = (timeOfDay / (Math.PI * 2)) * 24;
   const hh = Math.floor(hours).toString().padStart(2, '0');
   const mm = Math.floor((hours % 1) * 60)
