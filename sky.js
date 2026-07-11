@@ -16,18 +16,18 @@ const skyFragmentShader = window.SKY_SHADERS.skyFrag;
 // Curated horizon colors (derived from preset palettes) grouped by complementary zenith hues
 const CURATED_HORIZONS = {
   cyan: [
-    {name: 'Arctic', color: 0x66a6ff},
-    {name: 'Alpine', color: 0x8eb8e5},
-    {name: 'Storm', color: 0x8f9aa1},
+    {name: 'Coral', color: 0xff7e67}, // Soft, vibrant pinkish-orange
+    {name: 'Peach', color: 0xffb08a}, // Light, warm pastel orange
+    {name: 'Rose', color: 0xffa3af}, // Delicate, cool-toned sunset pink
   ],
   blue: [
-    {name: 'Golden', color: 0xcc7a3d},
-    {name: 'Mojave', color: 0xdc9c76},
-    {name: 'Cowneck', color: 0xff9542},
+    {name: 'Sunset', color: 0xff8260}, // Warm, natural sunset pink-orange
+    {name: 'Mango', color: 0xffb347}, // Bright, clean golden yellow-orange
+    {name: 'Cowneck', color: 0xff9542}, // Bold, fiery saturated orange
   ],
   purple: [
-    {name: 'Tropical', color: 0xe27a5e},
-    {name: 'Lavender', color: 0xe2b6cf},
+    {name: 'Tropical', color: 0xe27a5e}, // Warm, earthy terracotta sunrise
+    {name: 'Lavender', color: 0xe2b6cf}, // Soft, dreamy pastel purple-pink
   ],
 };
 
