@@ -1914,6 +1914,49 @@ const bridgeRailGeo = new THREE.BoxGeometry(0.5, 3, BRIDGE_SEGMENT_LENGTH);
 const bridgeDeckMat = createMaterial({color: 0x555555, flatShading: true}); // Concrete gray
 const bridgePilingMat = createMaterial({color: 0x4a4a4a, flatShading: true}); // Slightly darker
 
+// Streetlight geometries
+const streetlightPoleGeo = new THREE.CylinderGeometry(0.5, 0.8, 25, 6);
+streetlightPoleGeo.translate(0, 12.5, 0); // Origin at base
+const streetlightArmGeo = new THREE.CylinderGeometry(0.3, 0.5, 18, 6);
+streetlightArmGeo.rotateZ(Math.PI / 2);
+streetlightArmGeo.translate(8.5, 24, 0);
+const streetlightBulbGeo = new THREE.BoxGeometry(1.5, 0.5, 1);
+streetlightBulbGeo.translate(17, 23.8, 0);
+
+const streetlightPoleMat = createMaterial({
+  color: 0x222222,
+  flatShading: true,
+});
+window.streetlightBulbMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  emissive: 0xffeebb,
+  emissiveIntensity: 2.0,
+  flatShading: true,
+});
+
+// Streetlight Decal
+const streetlightDecalGeo = new THREE.PlaneGeometry(40, 40);
+streetlightDecalGeo.rotateX(-Math.PI / 2);
+const decalCanvas = document.createElement('canvas');
+decalCanvas.width = 128;
+decalCanvas.height = 128;
+const decalCtx = decalCanvas.getContext('2d');
+const decalGradient = decalCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+decalGradient.addColorStop(0, 'rgba(120, 110, 60, 0.4)');
+decalGradient.addColorStop(0.2, 'rgba(100, 90, 45, 0.25)');
+decalGradient.addColorStop(0.5, 'rgba(60, 50, 25, 0.1)');
+decalGradient.addColorStop(1, 'rgba(0, 0, 0, 0.0)');
+decalCtx.fillStyle = decalGradient;
+decalCtx.fillRect(0, 0, 128, 128);
+const decalTex = new THREE.CanvasTexture(decalCanvas);
+window.streetlightDecalMat = new THREE.MeshBasicMaterial({
+  map: decalTex,
+  transparent: true,
+  opacity: 1.0,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+
 // Tent geometries
 function createTentBodyGeometry() {
   const geom = new THREE.BoxGeometry(8, 6, 10);
@@ -2338,6 +2381,28 @@ const volcanoLavaMat = new THREE.MeshBasicMaterial({color: 0xff4500});
 window.ModelAssembler = {
   getStructure: function (id, rotY = 0, opts = {}) {
     switch (id) {
+      case 'streetlight': {
+        return [
+          {
+            geo: streetlightPoleGeo,
+            mat: streetlightPoleMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: streetlightArmGeo,
+            mat: streetlightPoleMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+          {
+            geo: streetlightBulbGeo,
+            mat: window.streetlightBulbMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
+          },
+        ];
+      }
       case 'house': {
         const bodyId = (opts.bodyId || 0) % houseBodyPalette.length;
         const roofId = (opts.roofId || 0) % houseRoofPalette.length;
@@ -5539,6 +5604,30 @@ function generateChunk(chunkX, chunkZ) {
         let archIndex = 0;
         let railIndex = 0;
 
+        // Streetlights
+        const numStreetlights = Math.floor(bridgePositions.length / 2); // Every other segment
+        const slBaseInst = new THREE.InstancedMesh(
+          streetlightPoleGeo,
+          streetlightPoleMat,
+          numStreetlights > 0 ? numStreetlights : 1
+        );
+        const slArmInst = new THREE.InstancedMesh(
+          streetlightArmGeo,
+          streetlightPoleMat,
+          numStreetlights > 0 ? numStreetlights : 1
+        );
+        const slBulbInst = new THREE.InstancedMesh(
+          streetlightBulbGeo,
+          window.streetlightBulbMat,
+          numStreetlights > 0 ? numStreetlights : 1
+        );
+        const slDecalInst = new THREE.InstancedMesh(
+          streetlightDecalGeo,
+          window.streetlightDecalMat,
+          numStreetlights > 0 ? numStreetlights : 1
+        );
+        let slIndex = 0;
+
         bridgePositions.forEach((pos, index) => {
           const currentVec = new THREE.Vector3(pos.x, pos.y, pos.z);
           const nextVec = new THREE.Vector3(
@@ -5629,6 +5718,53 @@ function generateChunk(chunkX, chunkZ) {
               railInst.setMatrixAt(railIndex++, dummy.matrix);
             });
           }
+
+          // Streetlights - every other segment
+          if (index % 2 === 0 && slIndex < numStreetlights) {
+            const sideOff = index % 4 === 0 ? halfRoadW - 0.5 : -halfRoadW + 0.5;
+            const slYaw = index % 4 === 0 ? yaw + Math.PI : yaw;
+
+            const dxSl = sideOff * Math.cos(yaw);
+            const dzSl = -sideOff * Math.sin(yaw);
+
+            const slPos = new THREE.Vector3(
+              midVec.x + dxSl,
+              midVec.y,
+              midVec.z + dzSl
+            );
+
+            const structure = ModelAssembler.getStructure('streetlight', slYaw);
+            structure.forEach((part, pIdx) => {
+              dummy.position.set(
+                slPos.x + part.pos[0],
+                slPos.y + part.pos[1],
+                slPos.z + part.pos[2]
+              );
+              dummy.rotation.set(...part.rot);
+              dummy.scale.set(1, 1, 1);
+              dummy.updateMatrix();
+              if (pIdx === 0) slBaseInst.setMatrixAt(slIndex, dummy.matrix);
+              else if (pIdx === 1) slArmInst.setMatrixAt(slIndex, dummy.matrix);
+              else if (pIdx === 2)
+                slBulbInst.setMatrixAt(slIndex, dummy.matrix);
+            });
+
+            // Decal on the road under the bulb
+            const decalDx = 17 * Math.cos(slYaw);
+            const decalDz = -17 * Math.sin(slYaw);
+            // Push it slightly higher (1.2) to prevent any Z-fighting on steep bridges
+            const decalPos = new THREE.Vector3(slPos.x + decalDx, slPos.y + 1.2, slPos.z + decalDz);
+            
+            const forward = new THREE.Vector3().subVectors(nextVec, midVec).normalize();
+            
+            dummy.position.copy(decalPos);
+            dummy.lookAt(decalPos.clone().add(forward));
+            dummy.scale.set(1.5, 1, 1.5); // Perfectly circular, large soft pool
+            dummy.updateMatrix();
+            slDecalInst.setMatrixAt(slIndex, dummy.matrix);
+
+            slIndex++;
+          }
         });
 
         deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
@@ -5647,6 +5783,17 @@ function generateChunk(chunkX, chunkZ) {
         if (numArches > 0) {
           archInst.position.set(worldOffsetX, 0, worldOffsetZ);
           group.add(archInst);
+        }
+
+        if (numStreetlights > 0) {
+          slBaseInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(slBaseInst);
+          group.add(slArmInst);
+          group.add(slBulbInst);
+          group.add(slDecalInst);
         }
       }
     }

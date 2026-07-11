@@ -2621,6 +2621,17 @@ function animate() {
     mat.emissiveIntensity = Math.min(2.0, nightValue);
   });
 
+  // Calculate streetlight intensity based on time of day
+  const slSunY = -Math.cos(timeOfDay);
+  const slNightValue = Math.max(0, (-slSunY + 0.1) * 2);
+  
+  if (typeof window.streetlightBulbMat !== 'undefined') {
+    window.streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
+  }
+  if (typeof window.streetlightDecalMat !== 'undefined') {
+    window.streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
+  }
+
   // Update other players (interpolate & dead reckoning)
   if (typeof otherPlayers !== 'undefined') {
     otherPlayers.forEach((p) => {
