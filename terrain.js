@@ -5486,8 +5486,17 @@ function generateChunk(chunkX, chunkZ) {
     // 2.955 Generate West Coast Highway
     // Spawn continuous geometric road segments that elevate into bridges over water/valleys
     if (!isCustom) {
-      const bridgePositions = [];
       const halfChunk = CHUNK_SIZE / 2;
+      const activeRoads = [];
+      for (let n = -20; n <= 20; n++) {
+        const baseX = ChillFlightLogic.ROAD_BASE_X + n * -25000;
+        if (baseX + 4000 >= worldOffsetX - halfChunk && baseX - 4000 <= worldOffsetX + halfChunk) {
+          activeRoads.push(n);
+        }
+      }
+
+      activeRoads.forEach((n) => {
+        const bridgePositions = [];
       const sampleStep = BRIDGE_SEGMENT_LENGTH;
 
       // Ensure we have access to the constants
@@ -5503,7 +5512,7 @@ function generateChunk(chunkX, chunkZ) {
         sampleZ += sampleStep
       ) {
         const wz = worldOffsetZ + sampleZ + sampleStep / 2;
-        const roadX = ChillFlightLogic.getRoadCenterX(wz);
+        const roadX = ChillFlightLogic.getRoadCenterX(wz, n);
         const localRoadX = roadX - worldOffsetX;
 
         // Check if the road center is inside this chunk (with some margin)
@@ -5531,7 +5540,7 @@ function generateChunk(chunkX, chunkZ) {
 
         // Calculate the next point on the road to determine slope and yaw
         const nextWz = wz + sampleStep;
-        const nextRoadX = ChillFlightLogic.getRoadCenterX(nextWz);
+        const nextRoadX = ChillFlightLogic.getRoadCenterX(nextWz, n);
         const nextNaturalH = ChillFlightLogic.getElevation(
           nextRoadX,
           nextWz,
@@ -5815,6 +5824,7 @@ function generateChunk(chunkX, chunkZ) {
           group.add(slDecalInst);
         }
       }
+      }); // End activeRoads.forEach
     }
 
     // 2.96 Generate Campfires

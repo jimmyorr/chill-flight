@@ -723,7 +723,9 @@
 
     // --- HIGHWAY TRENCH CARVING LOGIC ---
     if (!options.ignoreRoads) {
-      const roadCenterX = getRoadCenterX(z);
+      // Find the closest highway index mathematically
+      const highwayIndex = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
+      const roadCenterX = getRoadCenterX(z, highwayIndex);
       const distToRoad = Math.abs(x - roadCenterX);
 
       const CANYON_FLOOR_WIDTH = 50; // Flat area at the bottom for the road to sit in
@@ -956,9 +958,11 @@
   // Returns the X coordinate of the road center for a given Z position.
   // The road winds along the west coast using layered simplex noise.
   const ROAD_BASE_X = -5000; // Base X position (center of 0.5W and 1.5W)
+  const ROAD_SPACING = -25000; // 5 degrees West
   const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
-  function getRoadCenterX(z) {
+  
+  function getRoadSweepOffset(z, n = 0) {
     // --- VOLCANO AVOIDANCE (CONTINUOUS DOMAIN WARPING) ---
     // The volcano is located exactly at X = -5000, Z = 5000.
     // Instead of a radial repulsion field (which creates a massive teleportation discontinuity if the road crosses X=-5000),
@@ -966,40 +970,54 @@
     const VOLCANO_Z = 5000;
     const AVOID_Z_RADIUS = 3000; // Start veering 3000 units north/south of the volcano
 
-    let baseSweep = simplex.noise2D(z * 0.0001, 777);
+    // Offset Z significantly based on highway index 'n' to ensure each highway is totally unique
+    const zNoise = z + n * 99999;
+
+    let baseSweep = simplex.noise2D(zNoise * 0.0001, 777);
     let detailAmplitude = 500;
 
-    const distZ = Math.abs(z - VOLCANO_Z);
-    if (distZ < AVOID_Z_RADIUS) {
-      const t = 1.0 - distZ / AVOID_Z_RADIUS;
-      const avoidFactor = t * t * (3 - 2 * t); // Smoothstep
+    // Only apply volcano avoidance to highway n = 0
+    if (n === 0) {
+      const distZ = Math.abs(z - VOLCANO_Z);
+      if (distZ < AVOID_Z_RADIUS) {
+        const t = 1.0 - distZ / AVOID_Z_RADIUS;
+        const avoidFactor = t * t * (3 - 2 * t); // Smoothstep
 
-      // Force the base sweep towards +1.0 (East) using the smooth factor
-      baseSweep = (1 - avoidFactor) * baseSweep + avoidFactor * 1.0;
+        // Force the base sweep towards +1.0 (East) using the smooth factor
+        baseSweep = (1 - avoidFactor) * baseSweep + avoidFactor * 1.0;
 
-      // Suppress medium wobbles near the volcano so they don't accidentally swing the road back in
-      detailAmplitude = (1 - avoidFactor) * 500 + avoidFactor * 100;
+        // Suppress medium wobbles near the volcano so they don't accidentally swing the road back in
+        detailAmplitude = (1 - avoidFactor) * 500 + avoidFactor * 100;
+      }
     }
 
     // Layer 1: Large sweeping curves
-    // Amplified to 2500 so it swings between -2500 (0.5W) and -7500 (1.5W)
+    // Amplified to 2500 so it swings +/- 2500
     const sweep = baseSweep * 2500;
 
     // Layer 2: Medium detail curves (wavelength ~3,000 units)
-    const detail = simplex.noise2D(z * 0.0003, 888) * detailAmplitude;
+    const detail = simplex.noise2D(zNoise * 0.0003, 888) * detailAmplitude;
 
     // Layer 3: Small wobbles (wavelength ~1,000 units)
-    const wobble = simplex.noise2D(z * 0.001, 999) * 100;
+    const wobble = simplex.noise2D(zNoise * 0.001, 999) * 100;
 
-    let x = ROAD_BASE_X + sweep + detail + wobble;
+    return sweep + detail + wobble;
+  }
 
-    return x;
+  function getRoadCenterX(z, n = 0) {
+    return ROAD_BASE_X + (n * ROAD_SPACING) + getRoadSweepOffset(z, n);
   }
 
   // Returns a [0, 1] factor indicating how much a point is on the road.
   // 1.0 = fully on road, 0.0 = outside road + shoulder.
   function getRoadFactor(x, z) {
-    const centerX = getRoadCenterX(z);
+    // Determine the closest highway index `n` mathematically.
+    // The road is at ROAD_BASE_X + n * ROAD_SPACING + sweep.
+    // We can estimate `n` by ignoring the sweep first (which is max +/- 3000).
+    const n = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
+    
+    // Now get the exact center X of the closest highway
+    const centerX = getRoadCenterX(z, n);
     const dist = Math.abs(x - centerX);
 
     if (dist <= ROAD_WIDTH) {
