@@ -2311,6 +2311,196 @@ const boatSailMat = createMaterial({
   side: THREE.DoubleSide,
 });
 
+function mergeGeometries(geos) {
+  let pos = [];
+  let norm = [];
+  let idx = [];
+  let offset = 0;
+  for (const g of geos) {
+    pos.push(...g.attributes.position.array);
+    if (g.attributes.normal) norm.push(...g.attributes.normal.array);
+    for (let i = 0; i < g.index.array.length; i++) {
+      idx.push(g.index.array[i] + offset);
+    }
+    offset += g.attributes.position.count;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (norm.length > 0) geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+
+function createPirateHullGeometry() {
+  const main = new THREE.BoxGeometry(6, 4, 16);
+  const prow = new THREE.BoxGeometry(6, 4, 6);
+  prow.translate(0, 0, -11); 
+  const prowPos = prow.attributes.position.array;
+  for (let i = 0; i < prowPos.length; i += 3) {
+    if (prowPos[i + 2] < -10) prowPos[i] *= 0.2; // Pinch X
+  }
+  prow.computeVertexNormals();
+
+  const stern = new THREE.BoxGeometry(6, 6, 6); 
+  stern.translate(0, 1, 11); 
+  
+  const merged = mergeGeometries([main, prow, stern]);
+  const pos = merged.attributes.position.array;
+  for (let i = 0; i < pos.length; i += 3) {
+    if (pos[i + 1] < 0) {
+      pos[i] *= 0.6; // Pinch bottom X for a boat shape
+    }
+  }
+  merged.computeVertexNormals();
+  return merged;
+}
+const pirateHullGeo = createPirateHullGeometry();
+pirateHullGeo.translate(0, 1, 0); // lift above water
+
+function createPirateRimGeometry() {
+  const main = new THREE.BoxGeometry(6.4, 0.4, 16.4);
+  const prow = new THREE.BoxGeometry(6.4, 0.4, 6.4);
+  prow.translate(0, 0, -11.4); 
+  const prowPos = prow.attributes.position.array;
+  for (let i = 0; i < prowPos.length; i += 3) {
+    if (prowPos[i + 2] < -10.4) prowPos[i] *= 0.2;
+  }
+  prow.computeVertexNormals();
+
+  const stern = new THREE.BoxGeometry(6.4, 0.4, 6.4); 
+  stern.translate(0, 1, 11.4); 
+  
+  return mergeGeometries([main, prow, stern]);
+}
+const pirateRimGeo = createPirateRimGeometry();
+pirateRimGeo.translate(0, 3, 0);
+
+function createPirateDeckGeometry() {
+  const main = new THREE.BoxGeometry(5.8, 0.2, 15.8);
+  const prow = new THREE.BoxGeometry(5.8, 0.2, 5.8);
+  prow.translate(0, 0, -10.8); 
+  const prowPos = prow.attributes.position.array;
+  for (let i = 0; i < prowPos.length; i += 3) {
+    if (prowPos[i + 2] < -9.8) prowPos[i] *= 0.2;
+  }
+  prow.computeVertexNormals();
+
+  const stern = new THREE.BoxGeometry(5.8, 0.2, 5.8); 
+  stern.translate(0, 1, 10.8); 
+  
+  return mergeGeometries([main, prow, stern]);
+}
+const pirateDeckGeo = createPirateDeckGeometry();
+pirateDeckGeo.translate(0, 3.2, 0);
+
+function createPirateMastGeometry() {
+  const mainmast = new THREE.CylinderGeometry(0.3, 0.3, 24, 6);
+  mainmast.translate(0, 14, 0);
+  const foremast = new THREE.CylinderGeometry(0.25, 0.25, 20, 6);
+  foremast.translate(0, 12, -7);
+  const mizzenmast = new THREE.CylinderGeometry(0.2, 0.2, 16, 6);
+  mizzenmast.translate(0, 11, 8);
+  const bowsprit = new THREE.CylinderGeometry(0.15, 0.15, 10, 6);
+  bowsprit.rotateX(-Math.PI / 3); // point UP and forward
+  bowsprit.translate(0, 5, -12); // lower so it connects to the prow
+  
+  // Yardarms (horizontal poles holding the sails)
+  const yards = [];
+  const addYard = (width, y, z) => {
+    const yard = new THREE.CylinderGeometry(0.1, 0.1, width, 6);
+    yard.rotateZ(Math.PI / 2);
+    yard.translate(0, y, z);
+    yards.push(yard);
+  };
+  
+  // Mainmast yards
+  addYard(10.5, 15, -0.2);
+  addYard(8.5, 20.5, -0.2);
+  addYard(5.5, 25, -0.2);
+  
+  // Foremast yards
+  addYard(8.5, 12.5, -7.2);
+  addYard(6.5, 17, -7.2);
+  
+  // Mizzenmast yards
+  addYard(6.5, 12.5, 7.8);
+
+  return mergeGeometries([mainmast, foremast, mizzenmast, bowsprit, ...yards]);
+}
+const pirateMastGeo = createPirateMastGeometry();
+
+function createPirateSailGeometry() {
+  const sails = [];
+  const createSail = (w, h, yOffset, zOffset) => {
+    const sail = new THREE.BoxGeometry(w, h, 0.2, 4, 2);
+    const pos = sail.attributes.position.array;
+    for (let i = 0; i < pos.length; i += 3) {
+      const x = pos[i];
+      const y = pos[i + 1]; // Local Y goes from -h/2 to h/2
+      
+      // We want billow to be 0 at the top (attached to yard), max at bottom.
+      const factor = (h / 2 - y) / h; 
+      
+      // Forward is negative Z.
+      // 1. Pull edges back (positive Z)
+      pos[i + 2] += (x * x) * 0.05 * factor; 
+      // 2. Push center forward (negative Z)
+      pos[i + 2] -= factor * 1.5; 
+    }
+    sail.computeVertexNormals();
+    sail.translate(0, yOffset, zOffset);
+    sails.push(sail);
+  };
+
+  // Mainmast sails
+  createSail(10, 6, 12, -0.2); 
+  createSail(8, 5, 18, -0.2); 
+  createSail(5, 4, 23, -0.2); 
+
+  // Foremast sails
+  createSail(8, 5, 10, -7.2); 
+  createSail(6, 4, 15, -7.2); 
+
+  // Mizzenmast sails
+  createSail(6, 5, 10, 7.8); 
+  
+  return mergeGeometries(sails);
+}
+const pirateSailGeo = createPirateSailGeometry();
+
+const pirateFlagGeo = new THREE.PlaneGeometry(3, 2, 4, 2);
+pirateFlagGeo.rotateY(Math.PI / 2); // align with Z axis
+pirateFlagGeo.translate(0, 25, 1.5); // attach to mast at Z=0
+const flagPos = pirateFlagGeo.attributes.position.array;
+for(let i=0; i<flagPos.length; i+=3) {
+  const z = flagPos[i+2]; 
+  flagPos[i] += Math.sin(z * 2) * 0.3; // Wavy
+}
+pirateFlagGeo.computeVertexNormals();
+
+const skull = new THREE.BoxGeometry(0.2, 0.4, 0.5);
+skull.translate(0, 25.2, 1.5);
+const bone1 = new THREE.BoxGeometry(0.2, 0.8, 0.15);
+bone1.rotateX(Math.PI / 4);
+bone1.translate(0, 24.6, 1.5);
+const bone2 = new THREE.BoxGeometry(0.2, 0.8, 0.15);
+bone2.rotateX(-Math.PI / 4);
+bone2.translate(0, 24.6, 1.5);
+
+const pirateJollyRogerGeo = mergeGeometries([skull, bone1, bone2]);
+const jrPos = pirateJollyRogerGeo.attributes.position.array;
+for(let i=0; i<jrPos.length; i+=3) {
+  const z = jrPos[i+2];
+  jrPos[i] += Math.sin(z * 2) * 0.3; // Match flag wave
+}
+pirateJollyRogerGeo.computeVertexNormals();
+
+const pirateHullMat = createMaterial({color: 0x3d2314, flatShading: true}); // Dark brown wood
+const pirateRimMat = createMaterial({color: 0x8b0000, flatShading: true}); // Dark red trim
+const pirateSailMat = createMaterial({color: 0x111111, flatShading: true, side: THREE.DoubleSide}); // Black sails
+const pirateFlagMat = createMaterial({color: 0x050505, flatShading: true, side: THREE.DoubleSide}); // Pitch black flag
+const pirateJollyRogerMat = createMaterial({color: 0xeeeeee, flatShading: true}); // White skull & bones
+
 // Lighthouse Beam geometry - wider and longer
 const lighthouseBeamGeo = new THREE.CylinderGeometry(40, 2, 500, 16, 1, true);
 lighthouseBeamGeo.rotateX(Math.PI / 2);
@@ -3034,6 +3224,17 @@ window.ModelAssembler = {
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
+        ];
+      }
+      case 'pirateship': {
+        return [
+          {geo: pirateHullGeo, mat: pirateHullMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: pirateRimGeo, mat: pirateRimMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: pirateDeckGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: pirateMastGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: pirateSailGeo, mat: pirateSailMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: pirateFlagGeo, mat: pirateFlagMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: pirateJollyRogerGeo, mat: pirateJollyRogerMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
         ];
       }
       case 'volcano_active_elements':
