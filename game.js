@@ -5083,8 +5083,16 @@ function animate() {
       let bottomCol = _finalSkyColor.clone();
       if (dawnDuskFactor > 0.1) {
         const warmHorizon = new THREE.Color(selectedPalette.bottom);
-        // KILL THE SUNSET HORIZON WHEN OVERCAST
-        const actualDawnDusk = dawnDuskFactor * 0.8 * (1.0 - overcast);
+        // LET THE SUNSET HORIZON BLEED THROUGH OVERCAST, ESPECIALLY DURING SNOW
+        const isSnowing =
+          snowParticles &&
+          rainParticles &&
+          (window._unfadedSnowOpacity || snowParticles.material.opacity) >
+            (window._unfadedRainOpacity || rainParticles.material.opacity);
+
+        const overcastMuteFactor = isSnowing ? 0.3 : 0.6; // Snow only mutes by 30%, rain by 60%
+        const actualDawnDusk =
+          dawnDuskFactor * 0.8 * (1.0 - overcast * overcastMuteFactor);
         bottomCol.lerp(warmHorizon, actualDawnDusk);
       }
 
