@@ -5911,10 +5911,16 @@ window.addEventListener('keyup', (e) => {
 });
 
 window.addEventListener('blur', () => {
-  mouseControlActive = false;
   windowJustFocused = false;
-  for (let k in keys) keys[k] = false;
-  console.log('Window blur: Resetting all keys and mouse control.');
+  clearInputState();
+  console.log('Window blur: Resetting all input state.');
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    clearInputState();
+    console.log('Document hidden: Resetting all input state.');
+  }
 });
 
 window.addEventListener('focus', () => {
