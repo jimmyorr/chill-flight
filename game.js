@@ -4440,9 +4440,9 @@ function animate() {
   _shadowRight.crossVectors(_worldUp, _shadowSunDir).normalize();
   _shadowUp.crossVectors(_shadowSunDir, _shadowRight).normalize();
 
-  // Use planeGroup instead of camera. This prevents high-speed camera shake
-  // (which alters camera.position) from causing erratic shadow snapping.
-  const anchorPos = planeGroup.position;
+  // Use planeGroup instead of camera by default to prevent high-speed camera shake
+  // from causing erratic shadow snapping. If in free camera mode, use the camera.
+  const anchorPos = isFreeCamera ? camera.position : planeGroup.position;
 
   // Step 3: Project the anchor's position onto this rigid light-grid.
   const dotX = anchorPos.dot(_shadowRight);
