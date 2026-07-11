@@ -5196,6 +5196,7 @@ function animate() {
     let totalWindmills = 0,
       totalCampfires = 0;
     let totalBoats = 0,
+      totalPirateShips = 0,
       totalLilyPads = 0,
       totalPiers = 0,
       totalBirds = 0;
@@ -5221,6 +5222,7 @@ function animate() {
           totalWindmills += cg.userData.counts.windmills || 0;
           totalCampfires += cg.userData.counts.campfires || 0;
           totalBoats += cg.userData.counts.boats || 0;
+          totalPirateShips += cg.userData.counts.pirateships || 0;
           totalLilyPads += cg.userData.counts.lily_pads || 0;
           totalPiers += cg.userData.counts.piers || 0;
           totalBirds += cg.userData.counts.birds || 0;
@@ -5249,6 +5251,7 @@ function animate() {
     updateDOM(document.getElementById('debug-windmills'), totalWindmills);
     updateDOM(document.getElementById('debug-campfires'), totalCampfires);
     updateDOM(document.getElementById('debug-boats'), totalBoats);
+    updateDOM(document.getElementById('debug-pirateships'), totalPirateShips);
     updateDOM(document.getElementById('debug-lily-pads'), totalLilyPads);
     updateDOM(document.getElementById('debug-piers'), totalPiers);
     updateDOM(document.getElementById('debug-birds'), totalBirds);

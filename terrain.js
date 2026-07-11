@@ -3514,6 +3514,7 @@ function generateChunk(chunkX, chunkZ) {
     const campfirePositions = [];
     const chimneySmokePositions = [];
     const sailboatPositions = [];
+    const pirateShipPositions = [];
     const icebergPositions = [];
     const iceFloePositions = [];
     const penguinPositions = [];
@@ -3650,7 +3651,33 @@ function generateChunk(chunkX, chunkZ) {
           if (height <= WATER_LEVEL) {
             hasWater = true;
             if (_enableObjects) {
-              if (rng() < 0.0005 * densityScale) {
+              if (rng() < 0.0001 * densityScale) {
+                // Pirate Ship spawn
+                if (
+                  height < WATER_LEVEL - 5 && // depth check
+                  snowFactor < 0.2 // avoid frozen north
+                ) {
+                  // open water check
+                  const eN = getCachedElevation(worldX, worldZ - 300);
+                  const eS = getCachedElevation(worldX, worldZ + 300);
+                  const eE = getCachedElevation(worldX + 300, worldZ);
+                  const eW = getCachedElevation(worldX - 300, worldZ);
+                  if (
+                    eN <= WATER_LEVEL &&
+                    eS <= WATER_LEVEL &&
+                    eE <= WATER_LEVEL &&
+                    eW <= WATER_LEVEL
+                  ) {
+                    pirateShipPositions.push({
+                      x: localX,
+                      y: WATER_LEVEL,
+                      z: localZ,
+                      rotY: rng() * Math.PI * 2,
+                      bodyId: Math.floor(rng() * 4), // 4 sail colors
+                    });
+                  }
+                }
+              } else if (rng() < 0.0005 * densityScale) {
                 // Very rare sailboat
                 sailboatPositions.push({
                   x: localX,
@@ -6297,6 +6324,57 @@ function generateChunk(chunkX, chunkZ) {
       group.userData.boatBooms = boomInst;
     }
 
+    // 3.5 Pirate Ships
+    if (pirateShipPositions.length > 0) {
+      const sailInsts = pirateSailPalette.map(
+        (mat) => new THREE.InstancedMesh(pirateSailGeo, mat, pirateShipPositions.length)
+      );
+      const hullInst = new THREE.InstancedMesh(pirateHullGeo, pirateHullMat, pirateShipPositions.length);
+      const rimInst = new THREE.InstancedMesh(pirateRimGeo, pirateRimMat, pirateShipPositions.length);
+      const deckInst = new THREE.InstancedMesh(pirateDeckGeo, woodMat, pirateShipPositions.length);
+      const mastInst = new THREE.InstancedMesh(pirateMastGeo, woodMat, pirateShipPositions.length);
+      const flagInst = new THREE.InstancedMesh(pirateFlagGeo, pirateFlagMat, pirateShipPositions.length);
+      const jrInst = new THREE.InstancedMesh(pirateJollyRogerGeo, pirateJollyRogerMat, pirateShipPositions.length);
+
+      const sailCounts = new Array(pirateSailPalette.length).fill(0);
+
+      pirateShipPositions.forEach((pos, index) => {
+        dummy.position.set(pos.x, pos.y, pos.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+
+        const colorIdx = pos.bodyId;
+        const instIdx = sailCounts[colorIdx]++;
+        sailInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
+
+        hullInst.setMatrixAt(index, dummy.matrix);
+        rimInst.setMatrixAt(index, dummy.matrix);
+        deckInst.setMatrixAt(index, dummy.matrix);
+        mastInst.setMatrixAt(index, dummy.matrix);
+        flagInst.setMatrixAt(index, dummy.matrix);
+        jrInst.setMatrixAt(index, dummy.matrix);
+      });
+
+      hullInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      flagInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      jrInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(hullInst, rimInst, deckInst, mastInst, flagInst, jrInst);
+
+      sailInsts.forEach((inst, idx) => {
+        if (sailCounts[idx] > 0) {
+          inst.count = sailCounts[idx];
+          inst.position.set(worldOffsetX, 0, worldOffsetZ);
+          objectsGroup.add(inst);
+        }
+      });
+
+      group.userData.pirateShipPositions = pirateShipPositions;
+    }
+
     // 4. Generate Birds
     group.userData.birds = [];
     const isAlienChunk = Math.abs(worldOffsetX) > 25000;
@@ -6477,6 +6555,7 @@ function generateChunk(chunkX, chunkZ) {
       windmills: windmillPositions.length,
       campfires: campfirePositions.length,
       boats: sailboatPositions.length,
+      pirateships: pirateShipPositions.length,
       lily_pads: lilyPadPositions.length,
       piers: pierPositions.length,
       birds: group.userData.birds.length,
