@@ -130,6 +130,9 @@
 
         <div class="customization-footer">
           <button id="resume-btn" class="btn">R E S U M E</button>
+          <button id="achievements-btn">
+            🏆 Achievements <span id="achievements-counter"></span>
+          </button>
         </div>
 
         <div class="pause-footer">
@@ -170,6 +173,19 @@
           style="color: #3498db; text-decoration: none"
           >Purrple Cat</a
         >
+      </div>
+    </div>
+
+    <div id="achievements-overlay">
+      <div class="achievements-content">
+        <div class="achievements-header">
+          <span class="achievements-title">Achievements</span>
+          <button id="achievements-close-btn" class="achievements-close-btn">
+            ✕
+          </button>
+        </div>
+        <div id="achievements-progress" class="achievements-progress"></div>
+        <div id="achievements-grid"></div>
       </div>
     </div>
 
@@ -1011,6 +1027,7 @@
     <script defer src="terrain.js"></script>
     <script defer src="audio.js"></script>
     <script defer src="native-adapter.js"></script>
+    <script defer src="achievements.js"></script>
     <script defer src="game.js"></script>
     <script defer src="map-loader.js"></script>
     <!-- Firebase analytics and multiplayer: Refactored to standard script with dynamic imports to bypass 401 errors -->

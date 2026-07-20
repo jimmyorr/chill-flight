@@ -197,6 +197,7 @@ window.addEventListener(
       const isPauseOverlay = target.closest('#pause-overlay');
       const isUI =
         isPauseOverlay ||
+        target.closest('#achievements-overlay') ||
         target.closest('#loading-overlay') ||
         target.closest('#cockpit-ui') ||
         target.closest('#debug-menu') ||
@@ -422,6 +423,7 @@ window.addEventListener(
       const isUI =
         target.closest('#cockpit-ui') ||
         isPauseOverlay ||
+        target.closest('#achievements-overlay') ||
         target.closest('#loading-overlay') ||
         target.closest('#debug-menu') ||
         target.closest('#debug-telemetry') ||
@@ -680,6 +682,9 @@ function togglePause() {
       updatePauseMenuMusicInfo();
   } else {
     pauseOverlay.style.display = 'none';
+    // Also close achievements overlay if it was open
+    const _achOverlay = document.getElementById('achievements-overlay');
+    if (_achOverlay) _achOverlay.style.display = 'none';
 
     if (typeof setMusicVolume === 'function') {
       setMusicVolume(1.0);
@@ -910,6 +915,10 @@ function getMenuGrid() {
   const resumeBtn = document.getElementById('resume-btn');
   if (resumeBtn) grid.push([resumeBtn]);
 
+  // Row 6: Achievements button
+  const achievementsBtn = document.getElementById('achievements-btn');
+  if (achievementsBtn) grid.push([achievementsBtn]);
+
   return grid;
 }
 
@@ -981,6 +990,16 @@ window.addEventListener('keydown', (e) => {
       (!document.activeElement || document.activeElement.id !== 'resume-btn'));
 
   if (isToggleKey) {
+    // If achievements overlay is open, close it back to pause menu instead of toggling pause
+    const achievementsOverlay = document.getElementById('achievements-overlay');
+    if (
+      achievementsOverlay &&
+      achievementsOverlay.style.display === 'flex' &&
+      isPaused
+    ) {
+      achievementsOverlay.style.display = 'none';
+      return;
+    }
     togglePause();
     if (isPaused) {
       tvFocusRow = 2;
@@ -1168,6 +1187,51 @@ const cockpitUI = document.getElementById('cockpit-ui');
 if (cockpitUI) {
   cockpitUI.addEventListener('click', () => {
     togglePause();
+  });
+}
+
+// --- ACHIEVEMENTS OVERLAY ---
+const achievementsOverlay = document.getElementById('achievements-overlay');
+const achievementsBtn = document.getElementById('achievements-btn');
+const achievementsCloseBtn = document.getElementById('achievements-close-btn');
+
+function openAchievementsOverlay() {
+  if (!achievementsOverlay) return;
+  // Render the grid and update progress text
+  if (typeof Achievements !== 'undefined') {
+    Achievements.renderAchievementsOverlay();
+    const progressEl = document.getElementById('achievements-progress');
+    if (progressEl) {
+      progressEl.textContent = `${Achievements.getUnlockedCount()} of ${Achievements.getTotalCount()} unlocked`;
+    }
+  }
+  achievementsOverlay.style.display = 'flex';
+}
+
+function closeAchievementsOverlay() {
+  if (achievementsOverlay) {
+    achievementsOverlay.style.display = 'none';
+  }
+}
+
+if (achievementsBtn) {
+  achievementsBtn.addEventListener('click', () => {
+    openAchievementsOverlay();
+  });
+}
+
+if (achievementsCloseBtn) {
+  achievementsCloseBtn.addEventListener('click', () => {
+    closeAchievementsOverlay();
+  });
+}
+
+// Click outside achievements content to close
+if (achievementsOverlay) {
+  achievementsOverlay.addEventListener('click', (e) => {
+    if (e.target === achievementsOverlay) {
+      closeAchievementsOverlay();
+    }
   });
 }
 
