@@ -55,18 +55,18 @@ function extractSection(content, headerName) {
   return sectionLines.join('\n').trim();
 }
 
-// 1. Extract Promotional Text
-const promoText = extractSection(readmeContent, 'Promotional text');
-if (!promoText) {
-  console.error('Error: Could not extract "Promotional text" from README.md.');
-  process.exit(1);
-}
-
-// 2. Extract Description
+// 1. Extract Description
 const descriptionRaw = extractSection(readmeContent, 'Description');
 if (!descriptionRaw) {
   console.error('Error: Could not extract "Description" from README.md.');
   process.exit(1);
+}
+
+// 2. Extract Promotional Text
+let promoText = extractSection(readmeContent, 'Promotional text');
+if (!promoText) {
+  console.warn('Warning: Could not extract "Promotional text" from README.md. Falling back to the first line of the description.');
+  promoText = descriptionRaw.split('\n')[0].trim();
 }
 
 // 3. Extract Keywords
