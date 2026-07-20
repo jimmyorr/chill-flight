@@ -263,6 +263,11 @@
 
     grid.innerHTML = '';
 
+    const progressEl = document.getElementById('achievements-progress');
+    if (progressEl) {
+      progressEl.textContent = `${getUnlockedCount()} of ${getTotalCount()} unlocked`;
+    }
+
     ACHIEVEMENTS.forEach((achievement) => {
       const card = document.createElement('div');
       const unlocked = isUnlocked(achievement.id);
@@ -297,6 +302,13 @@
     updateButtonCounter();
   });
 
+  /** Reset all achievements — clears localStorage and in-memory cache */
+  function reset() {
+    unlockedMap = {};
+    saveUnlocked(unlockedMap);
+    updateButtonCounter();
+  }
+
   // --- EXPOSE GLOBAL API ---
   window.Achievements = {
     getAll,
@@ -305,6 +317,7 @@
     getUnlockedCount,
     getTotalCount,
     unlock,
+    reset,
     renderAchievementsOverlay,
     updateButtonCounter,
   };

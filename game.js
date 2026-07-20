@@ -51,6 +51,11 @@ let _cinematicStableHeading = 0;
 
 let isDoingImmelmann = false;
 let immelmannProgress = 0;
+let wasLooping = false;
+let wasDoingFullLoop = false;
+let wasBarrelRolling = false;
+let wasDoingFullBarrelRoll = false;
+let wasDoingImmelmann = false;
 
 // Intro Cinematic Transition
 let isIntroTransitionActive = false;
@@ -1200,10 +1205,6 @@ function openAchievementsOverlay() {
   // Render the grid and update progress text
   if (typeof Achievements !== 'undefined') {
     Achievements.renderAchievementsOverlay();
-    const progressEl = document.getElementById('achievements-progress');
-    if (progressEl) {
-      progressEl.textContent = `${Achievements.getUnlockedCount()} of ${Achievements.getTotalCount()} unlocked`;
-    }
   }
   achievementsOverlay.style.display = 'flex';
 }
@@ -1231,6 +1232,16 @@ if (achievementsOverlay) {
   achievementsOverlay.addEventListener('click', (e) => {
     if (e.target === achievementsOverlay) {
       closeAchievementsOverlay();
+    }
+  });
+}
+
+const achievementsResetBtn = document.getElementById('achievements-reset-btn');
+if (achievementsResetBtn) {
+  achievementsResetBtn.addEventListener('click', () => {
+    if (window.Achievements) {
+      window.Achievements.reset();
+      window.Achievements.renderAchievementsOverlay();
     }
   });
 }
@@ -3083,8 +3094,10 @@ function animate() {
   }
 
   let isBarrelRolling = false;
+  let isDoingFullBarrelRoll = false;
   let isClampedRoll = false;
   let isLooping = false;
+  let isDoingFullLoop = false;
   const manualRollSpeed = 4.0;
   const manualLoopSpeed = 2.5;
 
@@ -3214,6 +3227,7 @@ function animate() {
           // Triple-tap up and hold: loop
           planeGroup.rotation.x += manualLoopSpeed * delta;
           isLooping = true;
+          isDoingFullLoop = true;
         } else if (
           isUp &&
           dtUp &&
@@ -3275,6 +3289,7 @@ function animate() {
           // Double-tap: full barrel roll
           planeGroup.rotation.z += manualRollSpeed * delta;
           isBarrelRolling = true;
+          isDoingFullBarrelRoll = true;
         } else {
           // Single-tap: bank to 90° and hold
           const target = Math.PI / 2;
@@ -3311,6 +3326,7 @@ function animate() {
           // Double-tap: full barrel roll
           planeGroup.rotation.z -= manualRollSpeed * delta;
           isBarrelRolling = true;
+          isDoingFullBarrelRoll = true;
         } else {
           // Single-tap: bank to -90° and hold
           const target = -Math.PI / 2;
@@ -3361,6 +3377,45 @@ function animate() {
       1 - Math.pow(1 - TURN_SPEED, delta * 60)
     );
   }
+
+  // --- MANEUVER & PITCH ACHIEVEMENTS ---
+  if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+    // 1. Maneuver completions
+    if (wasDoingFullLoop && !isDoingFullLoop) {
+      Achievements.unlock('froot_loops');
+    }
+    if (wasDoingFullBarrelRoll && !isDoingFullBarrelRoll) {
+      Achievements.unlock('barrel_roll');
+    }
+    if (wasDoingImmelmann && !isDoingImmelmann) {
+      Achievements.unlock('u_turn');
+    }
+
+    // 2. Steep climb / steep dive
+    if (planeGroup.rotation.x > Math.PI / 4) {
+      Achievements.unlock('to_the_moon');
+    } else if (planeGroup.rotation.x < -Math.PI / 4) {
+      Achievements.unlock('nose_dive');
+    }
+
+    // 3. Free falling plummet (engine cut/idle, steep pitch down or stalling, high altitude)
+    // We recreate the isFreefalling condition here since it is defined later in the file.
+    const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
+    const isFallingOutSky = currentKTS < 50;
+
+    if (
+      targetFlightSpeed <= 0.05 &&
+      (planeGroup.rotation.x < -Math.PI / 6 || isFallingOutSky) &&
+      planeGroup.position.y > 80
+    ) {
+      Achievements.unlock('free_falling');
+    }
+  }
+  wasLooping = isLooping;
+  wasDoingFullLoop = isDoingFullLoop;
+  wasBarrelRolling = isBarrelRolling;
+  wasDoingFullBarrelRoll = isDoingFullBarrelRoll;
+  wasDoingImmelmann = isDoingImmelmann;
 
   // --- FLIGHT PHYSICS & SPEED ---
   const terrainHeight = getElevation(
@@ -3762,6 +3817,9 @@ function animate() {
     }
 
     if (isWater && planeGroup.position.y < minFlightHeight + 2) {
+      if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+        Achievements.unlock('splash_down');
+      }
       if (!pontoonGroup.visible) {
         pontoonGroup.scale.setScalar(0);
         pontoonDeploymentProgress = 0;
@@ -3801,6 +3859,28 @@ function animate() {
     pontoonDeploymentProgress = 0;
     pontoonGroup.visible = true;
     isDeployingPontoons = true;
+  }
+
+  // --- SPATIAL / BIOME ACHIEVEMENTS ---
+  if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+    // 1. Volcano (Pura Vida) - Volcano center is X = -5000, Z = 5000
+    const distToVolcano = planeGroup.position.distanceTo(
+      new THREE.Vector3(-5000, planeGroup.position.y, 5000)
+    );
+    if (distToVolcano < 800) {
+      Achievements.unlock('pura_vida');
+      console.log(
+        '[Volcano flyover] Position: X = -5000.0, Z = 5000.0 (1.00 West, 1.00 South)'
+      );
+    }
+
+    // 2. Alien Lands (Xen) - Beyond 10 degrees East (X > 50000) or West (X < -50000)
+    if (planeGroup.position.x > 50000 || planeGroup.position.x < -50000) {
+      Achievements.unlock('xen');
+      console.log(
+        `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} ${planeGroup.position.x >= 0 ? 'East' : 'West'}, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
+      );
+    }
   }
 
   // Ensure the plane's matrix is fully updated before camera calculations
@@ -4306,6 +4386,18 @@ function animate() {
               (groundY + minClearance - bird.position.y) * 3.0 * delta;
           }
         }
+
+        // Collide check (goose trigger)
+        if (
+          data.type === 'goose' &&
+          typeof Achievements !== 'undefined' &&
+          !isFreeCamera
+        ) {
+          const distToPlane = bird.position.distanceTo(planeGroup.position);
+          if (distToPlane < 25) {
+            Achievements.unlock('geese_police');
+          }
+        }
       });
     }
 
@@ -4520,6 +4612,19 @@ function animate() {
           (Math.sin(performance.now() * 0.002) * 0.5 + 0.5) *
             (LIGHTHOUSE_BEAM_OPACITY_MAX - LIGHTHOUSE_BEAM_OPACITY_MIN);
         beam.material.opacity = baseOpacity * fadeFactor;
+      }
+
+      // Check for gatsby achievement (Lighthouse flyby)
+      if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+        const absolutePos = new THREE.Vector3();
+        beam.getWorldPosition(absolutePos);
+        const dist = planeGroup.position.distanceTo(absolutePos);
+        if (dist < 150) {
+          Achievements.unlock('gatsby');
+          console.log(
+            `[Lighthouse flyby] Position: X = ${absolutePos.x.toFixed(1)}, Z = ${absolutePos.z.toFixed(1)} (${(absolutePos.x / 5000).toFixed(2)} ${absolutePos.x >= 0 ? 'East' : 'West'}, ${(-absolutePos.z / 5000).toFixed(2)} ${absolutePos.z <= 0 ? 'North' : 'South'})`
+          );
+        }
       }
 
       // Rotate functional light target
@@ -5612,6 +5717,10 @@ function toggleAutopilot() {
     }
   }
 
+  if (window.autopilotEnabled && typeof Achievements !== 'undefined') {
+    Achievements.unlock('otto');
+  }
+
   const flightStatusEl = document.getElementById('flight-status');
   if (flightStatusEl) {
     if (window.autopilotEnabled) {
@@ -5667,6 +5776,9 @@ if (camToggle) {
       cameraMode = 'follow';
       cameraTransitionProgress = 0; // Reset progress to avoid bounce
     }
+    if (typeof Achievements !== 'undefined') {
+      Achievements.unlock('directors_cut');
+    }
   });
 }
 
@@ -5678,6 +5790,9 @@ if (hdgtSub) {
       headlight.intensity = 2;
       headlightGlow.intensity = 0.1;
       hdgtSub.classList.add('active');
+      if (typeof Achievements !== 'undefined') {
+        Achievements.unlock('night_vision');
+      }
     } else {
       headlight.intensity = 0;
       headlightGlow.intensity = 0;
@@ -5854,6 +5969,9 @@ window.addEventListener('keydown', (e) => {
       cameraMode = 'follow';
       cameraTransitionProgress = 0; // Reset progress to avoid bounce
     }
+    if (typeof Achievements !== 'undefined') {
+      Achievements.unlock('directors_cut');
+    }
     console.log('Camera mode switched to:', cameraMode);
     return;
   }
@@ -5950,6 +6068,9 @@ window.addEventListener('keydown', (e) => {
       headlight.intensity = 2;
       headlightGlow.intensity = 0.1;
       if (hdgtSub) hdgtSub.classList.add('active');
+      if (typeof Achievements !== 'undefined') {
+        Achievements.unlock('night_vision');
+      }
     } else {
       headlight.intensity = 0;
       headlightGlow.intensity = 0;
@@ -6184,6 +6305,11 @@ if (overlay) {
     justResumed = true;
     if (typeof clock !== 'undefined') clock.getDelta();
 
+    // Unlock "welcome" achievement
+    if (typeof Achievements !== 'undefined') {
+      Achievements.unlock('welcome');
+    }
+
     // Start music! (Will respect the musicEnabled state)
     if (typeof setMusicEnabled === 'function') {
       setMusicEnabled(musicEnabled);
@@ -6390,3 +6516,18 @@ function showStartPlaneTooltip() {
   spdUpBtn.addEventListener('touchstart', handleSpdUpInteraction);
   window.addEventListener('keydown', handleKeyInteraction);
 }
+
+// Track play count for "frequent_flyer"
+(function () {
+  try {
+    const playCountKey = 'chill_flight_play_count';
+    let count = parseInt(localStorage.getItem(playCountKey) || '0', 10);
+    count++;
+    localStorage.setItem(playCountKey, count.toString());
+    if (count >= 10 && typeof Achievements !== 'undefined') {
+      Achievements.unlock('frequent_flyer');
+    }
+  } catch (e) {
+    console.error('[Achievements] Failed to track play count', e);
+  }
+})();

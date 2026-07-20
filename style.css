@@ -1620,6 +1620,34 @@ input[type='number'].customization-input {
   margin-top: -2px;
 }
 
+/* Reset button at bottom of achievements overlay */
+.achievements-reset-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  padding: 0 16px;
+  height: 32px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family:
+    'Inter',
+    -apple-system,
+    sans-serif;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.25s ease;
+  letter-spacing: 3px;
+  margin-top: 8px;
+  outline: none;
+}
+
+.achievements-reset-btn:active {
+  background: rgba(200, 50, 50, 0.15);
+  border-color: rgba(200, 50, 50, 0.4);
+  color: rgba(255, 100, 100, 0.8);
+  transform: scale(0.97);
+}
+
 /* ============================================================
    ACHIEVEMENTS BUTTON IN PAUSE MENU
    ============================================================ */
