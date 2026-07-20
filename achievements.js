@@ -82,6 +82,12 @@
       emoji: '↩️',
       hint: 'Perform an Immelmann turn',
     },
+    {
+      id: 'mach_1',
+      title: 'Mach 1',
+      emoji: '🚀',
+      hint: 'Reach a speed of 500 KTS',
+    },
     // 3. Exploration & Locations
     {
       id: 'gatsby',

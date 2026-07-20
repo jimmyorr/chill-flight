@@ -3408,9 +3408,15 @@ function animate() {
       Achievements.unlock('nose_dive');
     }
 
-    // 3. Free falling plummet (engine cut/idle, steep pitch down or stalling, high altitude)
-    // We recreate the isFreefalling condition here since it is defined later in the file.
     const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
+
+    // 3. Mach 1
+    if (currentKTS > 500) {
+      Achievements.unlock('mach_1');
+    }
+
+    // 4. Free falling plummet (engine cut/idle, steep pitch down or stalling, high altitude)
+    // We recreate the isFreefalling condition here since it is defined later in the file.
     const isFallingOutSky = currentKTS < 50;
 
     if (
