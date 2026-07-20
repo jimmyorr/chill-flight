@@ -60,6 +60,10 @@ let wasDoingImmelmann = false;
 // --- Distance Tracking ---
 let sessionDistanceTravelled = 0;
 let previousPosition = null;
+let lifetimeDistanceTravelled = parseFloat(
+  localStorage.getItem('chill_flight_lifetime_distance') || '0'
+);
+let distanceSinceLastSave = 0;
 
 // Intro Cinematic Transition
 let isIntroTransitionActive = false;
@@ -3100,13 +3104,9 @@ function animate() {
   let isBarrelRolling = false;
   let isDoingFullBarrelRoll = false;
   let isClampedRoll = false;
+  let isLooping = false;
   let isDoingFullLoop = false;
   let isDoingImmelmann = false;
-
-  // --- Distance Tracking ---
-  let sessionDistanceTravelled = 0;
-  let previousPosition = null;
-  let isWater = false; // Is the terrain underneath water?
 
   const manualRollSpeed = 4.0;
   const manualLoopSpeed = 2.5;
@@ -3876,13 +3876,28 @@ function animate() {
     if (!previousPosition) {
       previousPosition = planeGroup.position.clone();
     } else {
-      sessionDistanceTravelled +=
-        planeGroup.position.distanceTo(previousPosition);
+      const dist = planeGroup.position.distanceTo(previousPosition);
+      sessionDistanceTravelled += dist;
+      distanceSinceLastSave += dist;
+
+      if (distanceSinceLastSave > 1000) {
+        lifetimeDistanceTravelled += distanceSinceLastSave;
+        localStorage.setItem(
+          'chill_flight_lifetime_distance',
+          lifetimeDistanceTravelled.toString()
+        );
+
+        if (typeof Achievements !== 'undefined' && Achievements.updateStats) {
+          Achievements.updateStats(lifetimeDistanceTravelled);
+        }
+        distanceSinceLastSave = 0;
+      }
+
       previousPosition.copy(planeGroup.position);
     }
 
-    // ~1 minute of cruising flight is roughly 9000 units.
-    if (sessionDistanceTravelled > 10000) {
+    // ~30 seconds of cruising flight is roughly 4500-5000 units.
+    if (sessionDistanceTravelled > 5000) {
       Achievements.unlock('welcome');
     }
 

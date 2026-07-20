@@ -1547,6 +1547,14 @@ input[type='number'].customization-input {
   letter-spacing: 1px;
 }
 
+.achievements-stats {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  font-family: monospace;
+}
+
 #achievements-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

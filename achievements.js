@@ -278,6 +278,10 @@
       progressEl.textContent = `${getUnlockedCount()} of ${getTotalCount()} unlocked`;
     }
 
+    updateStats(
+      parseFloat(localStorage.getItem('chill_flight_lifetime_distance') || '0')
+    );
+
     ACHIEVEMENTS.forEach((achievement) => {
       const card = document.createElement('div');
       const unlocked = isUnlocked(achievement.id);
@@ -325,6 +329,15 @@
     }
   }
 
+  function updateStats(distance) {
+    const statsEl = document.getElementById('achievements-stats');
+    if (statsEl) {
+      // Divide by 1000 to simulate 'miles/km' and round to 1 decimal place
+      const displayDist = (distance / 1000).toFixed(1);
+      statsEl.textContent = `LIFETIME DISTANCE: ${displayDist} KM`;
+    }
+  }
+
   // --- EXPOSE GLOBAL API ---
   window.Achievements = {
     getAll,
@@ -336,5 +349,6 @@
     reset,
     renderAchievementsOverlay,
     updateButtonCounter,
+    updateStats,
   };
 })();
