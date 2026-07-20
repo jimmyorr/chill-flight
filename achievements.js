@@ -8,29 +8,12 @@
   // --- ACHIEVEMENT REGISTRY ---
   // Each achievement has: id (snake_case key), title (display name), emoji, hint (shown after unlock)
   const ACHIEVEMENTS = [
-    {
-      id: 'barrel_roll',
-      title: 'Do a barrel roll',
-      emoji: '🔄',
-      hint: 'Homage to Star Fox',
-    },
-    {
-      id: 'pura_vida',
-      title: 'Pura vida',
-      emoji: '🌋',
-      hint: 'Flyover volcano',
-    },
-    {
-      id: 'froot_loops',
-      title: 'Froot loops',
-      emoji: '🫠',
-      hint: 'Loop',
-    },
+    // 1. Intro & UI
     {
       id: 'welcome',
-      title: 'Welcome to chill flight',
+      title: 'Welcome to Chill Flight',
       emoji: '✈️',
-      hint: 'Homage to Forza Horizon',
+      hint: 'Take your first flight',
     },
     {
       id: 'frequent_flyer',
@@ -39,11 +22,24 @@
       hint: 'Play 10 times',
     },
     {
-      id: 'splash_down',
-      title: 'Splash down',
-      emoji: '💦',
-      hint: 'Land in water',
+      id: 'directors_cut',
+      title: "Director's cut",
+      emoji: '🎬',
+      hint: 'Camera',
     },
+    {
+      id: 'night_vision',
+      title: 'Night vision',
+      emoji: '🔦',
+      hint: 'Light',
+    },
+    {
+      id: 'otto',
+      title: 'Otto',
+      emoji: '🤖',
+      hint: 'Autopilot',
+    },
+    // 2. Flight & Maneuvers
     {
       id: 'to_the_moon',
       title: 'To the moon',
@@ -60,19 +56,25 @@
       id: 'free_falling',
       title: 'Free falling',
       emoji: '🪂',
-      hint: 'Cut engine mid flight and trigger plummet',
+      hint: 'Cut engine mid flight',
     },
     {
-      id: 'night_vision',
-      title: 'Night vision',
-      emoji: '🔦',
-      hint: 'Light',
+      id: 'splash_down',
+      title: 'Splash down',
+      emoji: '💦',
+      hint: 'Land in water',
     },
     {
-      id: 'directors_cut',
-      title: "Director's cut",
-      emoji: '🎬',
-      hint: 'Camera',
+      id: 'barrel_roll',
+      title: 'Do a barrel roll',
+      emoji: '🔄',
+      hint: 'Do it for Peppy',
+    },
+    {
+      id: 'froot_loops',
+      title: 'Froot loops',
+      emoji: '🫠',
+      hint: 'Loop',
     },
     {
       id: 'u_turn',
@@ -80,12 +82,7 @@
       emoji: '↩️',
       hint: 'Immelmann',
     },
-    {
-      id: 'otto',
-      title: 'Otto',
-      emoji: '🤖',
-      hint: 'Autopilot',
-    },
+    // 3. Exploration & Locations
     {
       id: 'gatsby',
       title: 'Gatsby',
@@ -93,11 +90,24 @@
       hint: 'Lighthouse flyby',
     },
     {
+      id: 'pura_vida',
+      title: 'Pura vida',
+      emoji: '🌋',
+      hint: 'Volcano flyover',
+    },
+    {
       id: 'xen',
       title: 'Xen',
       emoji: '👽',
-      hint: 'Reach alien lands',
+      hint: 'Reach alien lands to the East',
     },
+    {
+      id: 'westworld',
+      title: 'Westworld',
+      emoji: '🤠',
+      hint: 'Reach alien lands to the West',
+    },
+    // 4. Events
     {
       id: 'geese_police',
       title: 'Geese police',

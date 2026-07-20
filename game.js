@@ -3874,11 +3874,16 @@ function animate() {
       );
     }
 
-    // 2. Alien Lands (Xen) - Beyond 10 degrees East (X > 50000) or West (X < -50000)
-    if (planeGroup.position.x > 50000 || planeGroup.position.x < -50000) {
+    // 2. Alien Lands - East (X > 50000) for Xen, West (X < -50000) for Westworld
+    if (planeGroup.position.x > 50000) {
       Achievements.unlock('xen');
       console.log(
-        `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} ${planeGroup.position.x >= 0 ? 'East' : 'West'}, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
+        `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} East, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
+      );
+    } else if (planeGroup.position.x < -50000) {
+      Achievements.unlock('westworld');
+      console.log(
+        `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} West, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
       );
     }
   }
