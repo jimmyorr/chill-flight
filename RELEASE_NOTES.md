@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.9.8
+
+- **Achievements:** Implemented a full achievements system with a progress tracking UI overlay. Added session and lifetime distance tracking, persistent storage, and 18 unique unlockable achievements based on flight maneuvers, exploration, and events.
+
 ## 0.9.7
 
 - **Environment:** Upgraded road generation to feature multi-lane highways and smoother surface alignment. Added procedural streetlights with time-of-day brightness scaling, light-pooling decals, and adaptive frequency.

@@ -31,9 +31,9 @@
       content="A minimalist flight simulator in a procedurally generated world. Take flight and discover new horizons featuring:"
     />
     <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-BkhToFWr.js"></script>
+    <script type="module" crossorigin src="./assets/main-CcIIcHxl.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/main-WxT0f0wG.js">
-    <link rel="stylesheet" crossorigin href="./assets/style-B9pM62ms.css">
+    <link rel="stylesheet" crossorigin href="./assets/style-CpfbEt73.css">
   </head>
 
   <body>
@@ -131,6 +131,9 @@
 
         <div class="customization-footer">
           <button id="resume-btn" class="btn">R E S U M E</button>
+          <button id="achievements-btn">
+            🏆 Achievements <span id="achievements-counter"></span>
+          </button>
         </div>
 
         <div class="pause-footer">
@@ -171,6 +174,23 @@
           style="color: #3498db; text-decoration: none"
           >Purrple Cat</a
         >
+      </div>
+    </div>
+
+    <div id="achievements-overlay">
+      <div class="achievements-content">
+        <div class="achievements-header">
+          <span class="achievements-title">Achievements</span>
+          <button id="achievements-close-btn" class="achievements-close-btn">
+            ✕
+          </button>
+        </div>
+        <div id="achievements-progress" class="achievements-progress"></div>
+        <div id="achievements-stats" class="achievements-stats"></div>
+        <div id="achievements-grid"></div>
+        <button id="achievements-reset-btn" class="achievements-reset-btn">
+          R E S E T
+        </button>
       </div>
     </div>
 
