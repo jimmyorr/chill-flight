@@ -25,19 +25,19 @@
       id: 'directors_cut',
       title: "Director's cut",
       emoji: '🎬',
-      hint: 'Camera',
+      hint: 'Cycle the camera views',
     },
     {
       id: 'night_vision',
       title: 'Night vision',
       emoji: '🔦',
-      hint: 'Light',
+      hint: 'Toggle your headlights',
     },
     {
       id: 'otto',
       title: 'Otto',
       emoji: '🤖',
-      hint: 'Autopilot',
+      hint: 'Otto, take the wheel',
     },
     // 2. Flight & Maneuvers
     {
@@ -74,13 +74,13 @@
       id: 'froot_loops',
       title: 'Froot loops',
       emoji: '🫠',
-      hint: 'Loop',
+      hint: 'Perform a vertical loop',
     },
     {
       id: 'u_turn',
       title: 'U-turn',
       emoji: '↩️',
-      hint: 'Immelmann',
+      hint: 'Perform an Immelmann turn',
     },
     // 3. Exploration & Locations
     {
@@ -112,7 +112,7 @@
       id: 'geese_police',
       title: 'Geese police',
       emoji: '🪿',
-      hint: 'Hit a goose',
+      hint: 'Startle a goose',
     },
   ];
 
