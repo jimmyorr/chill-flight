@@ -91,7 +91,7 @@
     },
     {
       id: 'pura_vida',
-      title: 'Pura vida',
+      title: 'Pura Vida',
       emoji: '🌋',
       hint: 'Volcano flyover',
     },
