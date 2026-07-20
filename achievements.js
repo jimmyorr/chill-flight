@@ -314,9 +314,15 @@
 
   /** Reset all achievements — clears localStorage and in-memory cache */
   function reset() {
-    unlockedMap = {};
-    saveUnlocked(unlockedMap);
-    updateButtonCounter();
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('chill_flight_play_count');
+      unlockedMap = {};
+      console.log('[Achievements] Reset successfully.');
+      updateButtonCounter();
+    } catch (e) {
+      console.error('[Achievements] Reset failed:', e);
+    }
   }
 
   // --- EXPOSE GLOBAL API ---

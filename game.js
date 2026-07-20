@@ -57,6 +57,10 @@ let wasBarrelRolling = false;
 let wasDoingFullBarrelRoll = false;
 let wasDoingImmelmann = false;
 
+// --- Distance Tracking ---
+let sessionDistanceTravelled = 0;
+let previousPosition = null;
+
 // Intro Cinematic Transition
 let isIntroTransitionActive = false;
 let introTransitionStartTime = 0;
@@ -3096,8 +3100,14 @@ function animate() {
   let isBarrelRolling = false;
   let isDoingFullBarrelRoll = false;
   let isClampedRoll = false;
-  let isLooping = false;
   let isDoingFullLoop = false;
+  let isDoingImmelmann = false;
+
+  // --- Distance Tracking ---
+  let sessionDistanceTravelled = 0;
+  let previousPosition = null;
+  let isWater = false; // Is the terrain underneath water?
+
   const manualRollSpeed = 4.0;
   const manualLoopSpeed = 2.5;
 
@@ -3863,6 +3873,19 @@ function animate() {
 
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
   if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+    if (!previousPosition) {
+      previousPosition = planeGroup.position.clone();
+    } else {
+      sessionDistanceTravelled +=
+        planeGroup.position.distanceTo(previousPosition);
+      previousPosition.copy(planeGroup.position);
+    }
+
+    // ~1 minute of cruising flight is roughly 9000 units.
+    if (sessionDistanceTravelled > 10000) {
+      Achievements.unlock('welcome');
+    }
+
     // 1. Volcano (Pura Vida) - Volcano center is X = -5000, Z = 5000
     const distToVolcano = planeGroup.position.distanceTo(
       new THREE.Vector3(-5000, planeGroup.position.y, 5000)
@@ -6309,11 +6332,6 @@ if (overlay) {
     isPaused = false;
     justResumed = true;
     if (typeof clock !== 'undefined') clock.getDelta();
-
-    // Unlock "welcome" achievement
-    if (typeof Achievements !== 'undefined') {
-      Achievements.unlock('welcome');
-    }
 
     // Start music! (Will respect the musicEnabled state)
     if (typeof setMusicEnabled === 'function') {
