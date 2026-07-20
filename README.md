@@ -10,17 +10,13 @@
 
 Chill Flight
 
-### Promotional text
-
-<!-- Max 170 characters -->
-
-Drift through endless, ever-changing skies to relaxing lofi beats.
-
 ### Description
 
 <!-- Max 4,000 characters -->
 
-A minimalist flight simulator in a procedurally generated world. Take flight and discover new horizons featuring:
+A minimalist flight simulator set in a procedurally generated world that changes every single day.
+
+Drift through endless skies to relaxing lofi beats as you take flight and discover new horizons featuring:
 
 - Dynamic weather
 - Day-night cycles
