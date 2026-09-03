@@ -2,6 +2,10 @@
 // Dependencies: THREE, simplex, CHUNK_SIZE, SEGMENTS, WATER_LEVEL, MOUNTAIN_LEVEL, scene
 
 const chunks = new Map();
+const _terrainGeometryPool = [];
+const _waterGeometryPool = [];
+window._terrainGeometryPool = _terrainGeometryPool;
+window._waterGeometryPool = _waterGeometryPool;
 
 // GPU water uniform — shared globally so game.js animate() can update uTime
 window.waterUniforms = {
@@ -3541,17 +3545,34 @@ function generateChunk(chunkX, chunkZ) {
     }
 
     // 1. Generate Terrain Mesh
-    const geometry = new THREE.PlaneGeometry(
-      CHUNK_SIZE,
-      CHUNK_SIZE,
-      SEGMENTS,
-      SEGMENTS
-    );
-    geometry.userData = {unique: true};
-    geometry.rotateX(-Math.PI / 2);
+    let geometry;
+    if (
+      _terrainGeometryPool.length > 0 &&
+      _terrainGeometryPool[_terrainGeometryPool.length - 1].parameters
+        .widthSegments === SEGMENTS
+    ) {
+      geometry = _terrainGeometryPool.pop();
+    } else {
+      geometry = new THREE.PlaneGeometry(
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        SEGMENTS,
+        SEGMENTS
+      );
+      geometry.rotateX(-Math.PI / 2);
+      geometry.setAttribute(
+        'color',
+        new THREE.BufferAttribute(
+          new Float32Array(geometry.attributes.position.count * 3),
+          3
+        )
+      );
+    }
+    geometry.userData = {unique: true, poolType: 'terrain'};
 
     const positions = geometry.attributes.position.array;
-    const colors = [];
+    const colors = geometry.attributes.color.array;
+    let colorIdx = 0;
     const _tempColorObj = new THREE.Color();
 
     const worldOffsetX = chunkX * CHUNK_SIZE;
@@ -4365,7 +4386,9 @@ function generateChunk(chunkX, chunkZ) {
 
       // --- EAST COAST ROAD REMOVED ---
 
-      colors.push(_tempColorObj.r, _tempColorObj.g, _tempColorObj.b);
+      colors[colorIdx++] = _tempColorObj.r;
+      colors[colorIdx++] = _tempColorObj.g;
+      colors[colorIdx++] = _tempColorObj.b;
     }
 
     if (isMontaukChunk) {
@@ -4443,7 +4466,8 @@ function generateChunk(chunkX, chunkZ) {
       }
     }
 
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.color.needsUpdate = true;
     geometry.computeVertexNormals();
 
     // 2.99 Volcano Landmark Details
@@ -4528,16 +4552,33 @@ function generateChunk(chunkX, chunkZ) {
     // 1.5 Generate Water Plane
     if (hasWater) {
       const wSegments = Math.max(1, Math.floor(SEGMENTS / 4));
-      const waterGeo = new THREE.PlaneGeometry(
-        CHUNK_SIZE,
-        CHUNK_SIZE,
-        wSegments,
-        wSegments
-      );
-      waterGeo.userData = {unique: true};
-      waterGeo.rotateX(-Math.PI / 2);
+      let waterGeo;
+      if (
+        _waterGeometryPool.length > 0 &&
+        _waterGeometryPool[_waterGeometryPool.length - 1].parameters
+          .widthSegments === wSegments
+      ) {
+        waterGeo = _waterGeometryPool.pop();
+      } else {
+        waterGeo = new THREE.PlaneGeometry(
+          CHUNK_SIZE,
+          CHUNK_SIZE,
+          wSegments,
+          wSegments
+        );
+        waterGeo.rotateX(-Math.PI / 2);
+        waterGeo.setAttribute(
+          'color',
+          new THREE.BufferAttribute(
+            new Float32Array(waterGeo.attributes.position.count * 3),
+            3
+          )
+        );
+      }
+      waterGeo.userData = {unique: true, poolType: 'water'};
       const wPositions = waterGeo.attributes.position.array;
-      const wColors = [];
+      const wColors = waterGeo.attributes.color.array;
+      let wColorIdx = 0;
       const _tempWColorObj = new THREE.Color();
       for (let i = 0; i < wPositions.length; i += 3) {
         const worldX = worldOffsetX + wPositions[i];
@@ -4573,12 +4614,12 @@ function generateChunk(chunkX, chunkZ) {
           _tempWColorObj.lerp(_colorFoam, foamFactor);
         }
 
-        wColors.push(_tempWColorObj.r, _tempWColorObj.g, _tempWColorObj.b);
+        wColors[wColorIdx++] = _tempWColorObj.r;
+        wColors[wColorIdx++] = _tempWColorObj.g;
+        wColors[wColorIdx++] = _tempWColorObj.b;
       }
-      waterGeo.setAttribute(
-        'color',
-        new THREE.Float32BufferAttribute(wColors, 3)
-      );
+      waterGeo.attributes.position.needsUpdate = true;
+      waterGeo.attributes.color.needsUpdate = true;
       const waterMesh = new THREE.Mesh(waterGeo, waterMaterial);
       waterMesh.position.set(worldOffsetX, 0, worldOffsetZ);
       group.add(waterMesh);
@@ -6786,7 +6827,13 @@ function updateChunks() {
       group.traverse((child) => {
         if (child.isMesh || child.isInstancedMesh) {
           if (child.geometry && child.geometry.userData.unique) {
-            child.geometry.dispose();
+            if (child.geometry.userData.poolType === 'terrain') {
+              _terrainGeometryPool.push(child.geometry);
+            } else if (child.geometry.userData.poolType === 'water') {
+              _waterGeometryPool.push(child.geometry);
+            } else {
+              child.geometry.dispose();
+            }
           }
         }
       });
