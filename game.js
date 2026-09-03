@@ -2517,6 +2517,34 @@ const _shadowUp = new THREE.Vector3();
 const _worldUp = new THREE.Vector3(0, 1, 0);
 const _boatDummy = new THREE.Object3D();
 
+// --- PRE-ALLOCATED SCRATCH OBJECTS FOR ANIMATE() LOOP TO PREVENT GC CHURN ---
+const _idealOtherPlayerPos = new THREE.Vector3();
+const _immelmannForward = new THREE.Vector3();
+const _volcanoPos = new THREE.Vector3(-5000, 0, 5000);
+const _pirateSailCounts = [0, 0, 0, 0];
+const _lighthouseBeamWorldPos = new THREE.Vector3();
+const _shootingStarLookDir = new THREE.Vector3();
+const _shootingStarStreakDir = new THREE.Vector3();
+const _shootingStarHeadPos = new THREE.Vector3();
+const _shootingStarTailPos = new THREE.Vector3();
+const _rainbowSunDir = new THREE.Vector3();
+const _rainbowAntiSunDir = new THREE.Vector3();
+const _waterMoonDirNorm = new THREE.Vector3();
+const _sunNoonColor = new THREE.Color(0xfffceb);
+const _sunSunsetColor = new THREE.Color(0xffa542);
+const _moonVMoonDir = new THREE.Vector3();
+const _moonVZ = new THREE.Vector3();
+const _moonVX = new THREE.Vector3();
+const _moonVY = new THREE.Vector3();
+const _moonMRot = new THREE.Matrix4();
+const _moonRotMat = new THREE.Matrix3();
+const _moonDirNorm = new THREE.Vector3();
+const _moonPhaseX = new THREE.Vector3();
+const _moonPhaseY = new THREE.Vector3();
+const _moonPhaseSunDir = new THREE.Vector3();
+const _skyBottomCol = new THREE.Color();
+const _warmHorizonColor = new THREE.Color();
+
 let isShootingStarActive = false;
 let forceShootingStar = false;
 let shootingStarProgress = 0;
@@ -2745,7 +2773,7 @@ function animate() {
           }
         }
 
-        let idealPos = new THREE.Vector3();
+        const idealPos = _idealOtherPlayerPos;
         let idealSpeed = 1;
 
         if (state0 && state1) {
@@ -3221,9 +3249,9 @@ function animate() {
         } else {
           isDoingImmelmann = false;
           // Snap the Euler rotation to a clean upright heading
-          const forward = new THREE.Vector3(0, 0, -1).applyEuler(
-            planeGroup.rotation
-          );
+          const forward = _immelmannForward
+            .set(0, 0, -1)
+            .applyEuler(planeGroup.rotation);
           const newYaw = Math.atan2(-forward.x, -forward.z);
           planeGroup.rotation.set(0, newYaw, 0, 'YXZ');
         }
@@ -3908,9 +3936,8 @@ function animate() {
     }
 
     // 1. Volcano (Pura Vida) - Volcano center is X = -5000, Z = 5000
-    const distToVolcano = planeGroup.position.distanceTo(
-      new THREE.Vector3(-5000, planeGroup.position.y, 5000)
-    );
+    _volcanoPos.y = planeGroup.position.y;
+    const distToVolcano = planeGroup.position.distanceTo(_volcanoPos);
     if (distToVolcano < 800) {
       Achievements.unlock('pura_vida');
       console.log(
@@ -4579,7 +4606,7 @@ function animate() {
         return val - Math.floor(val);
       };
 
-      const sailCounts = new Array(4).fill(0);
+      const sailCounts = _pirateSailCounts.fill(0);
 
       positions.forEach((pos, index) => {
         const patrolRadius = 40 + hash(index, 7) * 30;
@@ -4665,13 +4692,12 @@ function animate() {
 
       // Check for gatsby achievement (Lighthouse flyby)
       if (typeof Achievements !== 'undefined' && !isFreeCamera) {
-        const absolutePos = new THREE.Vector3();
-        beam.getWorldPosition(absolutePos);
-        const dist = planeGroup.position.distanceTo(absolutePos);
+        beam.getWorldPosition(_lighthouseBeamWorldPos);
+        const dist = planeGroup.position.distanceTo(_lighthouseBeamWorldPos);
         if (dist < 150) {
           Achievements.unlock('gatsby');
           console.log(
-            `[Lighthouse flyby] Position: X = ${absolutePos.x.toFixed(1)}, Z = ${absolutePos.z.toFixed(1)} (${(absolutePos.x / 5000).toFixed(2)} ${absolutePos.x >= 0 ? 'East' : 'West'}, ${(-absolutePos.z / 5000).toFixed(2)} ${absolutePos.z <= 0 ? 'North' : 'South'})`
+            `[Lighthouse flyby] Position: X = ${_lighthouseBeamWorldPos.x.toFixed(1)}, Z = ${_lighthouseBeamWorldPos.z.toFixed(1)} (${(_lighthouseBeamWorldPos.x / 5000).toFixed(2)} ${_lighthouseBeamWorldPos.x >= 0 ? 'East' : 'West'}, ${(-_lighthouseBeamWorldPos.z / 5000).toFixed(2)} ${_lighthouseBeamWorldPos.z <= 0 ? 'North' : 'South'})`
           );
         }
       }
@@ -4875,7 +4901,7 @@ function animate() {
         shootingStarProgress = 0;
         shootingStarDuration = 0.8 + Math.random() * 0.4;
 
-        const lookDir = new THREE.Vector3();
+        const lookDir = _shootingStarLookDir;
         camera.getWorldDirection(lookDir);
 
         lookDir.y += 0.3 + Math.random() * 0.4;
@@ -4888,11 +4914,13 @@ function animate() {
           .copy(camera.position)
           .add(lookDir.multiplyScalar(distance));
 
-        const streakDir = new THREE.Vector3(
-          (Math.random() - 0.5) * 0.5,
-          -0.2 - Math.random() * 0.3,
-          (Math.random() - 0.5) * 0.5
-        ).normalize();
+        const streakDir = _shootingStarStreakDir
+          .set(
+            (Math.random() - 0.5) * 0.5,
+            -0.2 - Math.random() * 0.3,
+            (Math.random() - 0.5) * 0.5
+          )
+          .normalize();
 
         const streakLength = 4000 + Math.random() * 3000;
         shootingStarEnd
@@ -4910,14 +4938,14 @@ function animate() {
         isShootingStarActive = false;
         if (starMesh) starMesh.visible = false;
       } else if (starMesh) {
-        const headPos = new THREE.Vector3().lerpVectors(
+        const headPos = _shootingStarHeadPos.lerpVectors(
           shootingStarStart,
           shootingStarEnd,
           shootingStarProgress
         );
         const tailLength = 0.15;
         const tailProgress = Math.max(0, shootingStarProgress - tailLength);
-        const tailPos = new THREE.Vector3().lerpVectors(
+        const tailPos = _shootingStarTailPos.lerpVectors(
           shootingStarStart,
           shootingStarEnd,
           tailProgress
@@ -4964,8 +4992,8 @@ function animate() {
   const startRainbow = () => {
     if (rainbowTimer <= 0 && rainbowMesh) {
       // Lock position when spawned so it doesn't move across the sky
-      const sunDir = new THREE.Vector3(sunX, sunY, sunZ).normalize();
-      const antiSunDir = sunDir.clone().negate();
+      const sunDir = _rainbowSunDir.set(sunX, sunY, sunZ).normalize();
+      const antiSunDir = _rainbowAntiSunDir.copy(sunDir).negate();
       rainbowMesh.position.copy(antiSunDir).multiplyScalar(10000);
       rainbowMesh.lookAt(camera.position);
     }
@@ -5216,7 +5244,9 @@ function animate() {
         .copy(dirLight.color)
         .multiplyScalar(Math.max(0, 1.0 - overcast));
     } else {
-      const moonDirNorm = new THREE.Vector3(moonX, moonY, moonZ).normalize();
+      const moonDirNorm = _waterMoonDirNorm
+        .set(moonX, moonY, moonZ)
+        .normalize();
       window.waterUniforms.uSunDirection.value.copy(moonDirNorm);
 
       window.waterUniforms.uSunColor.value
@@ -5236,10 +5266,10 @@ function animate() {
     sunMesh.scale.setScalar(sunScale);
 
     // Dynamic Sun Color (Golden Hour)
-    const noonColor = new THREE.Color(0xfffceb);
-    const sunsetColor = new THREE.Color(0xffa542);
     const colorFactor = 1.0 - Math.pow(1.0 - sunElevation, 3.0);
-    sunUniforms.uSunColor.value.copy(sunsetColor).lerp(noonColor, colorFactor);
+    sunUniforms.uSunColor.value
+      .copy(_sunSunsetColor)
+      .lerp(_sunNoonColor, colorFactor);
   }
   if (typeof moonUniforms !== 'undefined') {
     moonUniforms.uTime.value = now * 0.001;
@@ -5254,33 +5284,28 @@ function animate() {
     // Build a CAMERA-INDEPENDENT billboard basis so the phase never rotates
     // Z always points from moon toward Earth (camera), X is world-horizontal,
     // Y is approximately world-up on the moon face.
-    const vMoonDir = new THREE.Vector3().copy(moonMesh.position).normalize();
-    const vZ = new THREE.Vector3().copy(vMoonDir).negate();
-    let vX = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), vZ);
+    const vMoonDir = _moonVMoonDir.copy(moonMesh.position).normalize();
+    const vZ = _moonVZ.copy(vMoonDir).negate();
+    const vX = _moonVX.crossVectors(_upVector, vZ);
     if (vX.lengthSq() < 0.0001) vX.set(1, 0, 0); // fallback if moon is at zenith
     vX.normalize();
-    const vY = new THREE.Vector3().crossVectors(vZ, vX).normalize();
+    const vY = _moonVY.crossVectors(vZ, vX).normalize();
 
-    const mRot = new THREE.Matrix4().makeBasis(vX, vY, vZ);
+    const mRot = _moonMRot.makeBasis(vX, vY, vZ);
     moonMesh.quaternion.setFromRotationMatrix(mRot);
 
     // Pass the rotation matrix so the shader can recover world normals
-    const moonRotMat = new THREE.Matrix3().setFromMatrix4(mRot);
+    const moonRotMat = _moonRotMat.setFromMatrix4(mRot);
     moonUniforms.uMoonRotMat.value.copy(moonRotMat);
     // Phase light direction — 29.5 game days per cycle
     // Ties the moon phase back to the game clock so it advances faster when time is sped up
-    const moonDirNorm = new THREE.Vector3(moonX, moonY, moonZ).normalize();
-    let phaseX = new THREE.Vector3().crossVectors(
-      new THREE.Vector3(0, 1, 0),
-      moonDirNorm
-    );
+    const moonDirNorm = _moonDirNorm.set(moonX, moonY, moonZ).normalize();
+    const phaseX = _moonPhaseX.crossVectors(_upVector, moonDirNorm);
     if (phaseX.lengthSq() < 0.001) phaseX.set(1, 0, 0);
     phaseX.normalize();
-    const phaseY = new THREE.Vector3()
-      .crossVectors(moonDirNorm, phaseX)
-      .normalize();
+    const phaseY = _moonPhaseY.crossVectors(moonDirNorm, phaseX).normalize();
     // Sun orbits through the moon-origin axis to create full/new moon phases
-    const phaseSunDir = new THREE.Vector3()
+    const phaseSunDir = _moonPhaseSunDir
       .copy(moonDirNorm)
       .multiplyScalar(Math.cos(phaseAngle))
       .addScaledVector(phaseX, Math.sin(phaseAngle))
@@ -5298,9 +5323,9 @@ function animate() {
       let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
       dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
 
-      let bottomCol = _finalSkyColor.clone();
+      _skyBottomCol.copy(_finalSkyColor);
       if (dawnDuskFactor > 0.1) {
-        const warmHorizon = new THREE.Color(selectedPalette.bottom);
+        _warmHorizonColor.set(selectedPalette.bottom);
         // LET THE SUNSET HORIZON BLEED THROUGH OVERCAST, ESPECIALLY DURING SNOW
         const isSnowing =
           snowParticles &&
@@ -5311,13 +5336,13 @@ function animate() {
         const overcastMuteFactor = isSnowing ? 0.3 : 0.6; // Snow only mutes by 30%, rain by 60%
         const actualDawnDusk =
           dawnDuskFactor * 0.8 * (1.0 - overcast * overcastMuteFactor);
-        bottomCol.lerp(warmHorizon, actualDawnDusk);
+        _skyBottomCol.lerp(_warmHorizonColor, actualDawnDusk);
       }
 
-      window.skyUniforms.bottomColor.value.copy(bottomCol);
+      window.skyUniforms.bottomColor.value.copy(_skyBottomCol);
     } else {
-      let bottomCol = _finalSkyColor.clone().multiplyScalar(0.8);
-      window.skyUniforms.bottomColor.value.copy(bottomCol);
+      _skyBottomCol.copy(_finalSkyColor).multiplyScalar(0.8);
+      window.skyUniforms.bottomColor.value.copy(_skyBottomCol);
     }
   }
 
