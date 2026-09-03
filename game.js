@@ -12,6 +12,50 @@ if (ChillFlightLogic.START_TOD !== null) {
   window.manualTimeOfDay = ChillFlightLogic.START_TOD;
 }
 
+const inputManager = new window.InputManager();
+
+inputManager.onCameraToggle = () => {
+  if (cameraMode === 'follow') cameraMode = 'first-person';
+  else if (cameraMode === 'first-person') cameraMode = 'birds-eye-close';
+  else if (cameraMode === 'birds-eye-close') cameraMode = 'birds-eye-far';
+  else if (cameraMode === 'birds-eye-far') {
+    cameraMode = 'cinematic';
+    cinematicTimer = 0;
+    currentCinematicIndex = 0;
+  } else {
+    cameraMode = 'follow';
+    cameraTransitionProgress = 0;
+  }
+  if (typeof Achievements !== 'undefined') Achievements.unlock('directors_cut');
+};
+inputManager.onAutopilotToggle = toggleAutopilot;
+inputManager.onHeadlightToggle = () => {
+  if (headlight.intensity === 0) {
+    headlight.intensity = 2;
+    headlightGlow.intensity = 0.1;
+    if (hdgtSub) hdgtSub.classList.add('active');
+    if (typeof Achievements !== 'undefined')
+      Achievements.unlock('night_vision');
+  } else {
+    headlight.intensity = 0;
+    headlightGlow.intensity = 0;
+    if (hdgtSub) hdgtSub.classList.remove('active');
+  }
+};
+inputManager.onDebugToggle = () => {
+  const dm = document.getElementById('debug-menu');
+  if (dm)
+    dm.style.display =
+      dm.style.display === 'none' || dm.style.display === '' ? 'block' : 'none';
+};
+inputManager.onRainbowToggle = () => {
+  if (rainbowTimer > 0) rainbowTimer = 0;
+  else forceRainbow = true;
+};
+inputManager.onShootingStarToggle = () => {
+  forceShootingStar = true;
+};
+
 let mouseX = 0;
 let mouseY = 0;
 const _lastChunkUpdatePos = new THREE.Vector3(Infinity, Infinity, Infinity);
@@ -2558,6 +2602,35 @@ let rainbowIntensity = 0;
 let wasRainClearing = true;
 
 function animate() {
+  // Sync InputManager state
+  inputManager.state.isPaused = isPaused;
+  inputManager.state.isFreeCamera = isFreeCamera;
+
+  if (
+    inputManager.state.gamepad.x !== 0 ||
+    inputManager.state.gamepad.y !== 0
+  ) {
+    // Gamepad overrides
+    mouseX = inputManager.state.gamepad.x;
+    mouseY = inputManager.state.gamepad.y;
+    mouseControlActive = false;
+  } else if (inputManager.state.mouse.controlActive) {
+    mouseX = inputManager.state.mouse.x;
+    mouseY = inputManager.state.mouse.y;
+    mouseControlActive = true;
+  } else if (!mouseControlActive) {
+    mouseX = 0;
+    mouseY = 0;
+  }
+
+  // Handle freeCam
+  if (isFreeCamera) {
+    freeCamDeltaX += inputManager.state.freeCam.deltaX;
+    freeCamDeltaY += inputManager.state.freeCam.deltaY;
+    inputManager.state.freeCam.deltaX = 0;
+    inputManager.state.freeCam.deltaY = 0;
+  }
+
   const frameStartTime = performance.now(); // Start CPU timer
   requestAnimationFrame(animate);
 
@@ -5718,32 +5791,12 @@ function updatePlayerList() {
 window.onload = animate;
 
 // --- KEY STATE ---
-const keys = {
-  ArrowLeft: false,
-  ArrowRight: false,
-  ArrowUp: false,
-  ArrowDown: false,
-  Shift: false,
-  Plus: false,
-  Minus: false,
-  Q: false,
-  E: false,
-};
+const keys = inputManager.state.keys;
 
 // Double-tap detection for barrel roll and loops
 const lastArrowTap = {ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0};
-const doubleTap = {
-  ArrowLeft: false,
-  ArrowRight: false,
-  ArrowUp: false,
-  ArrowDown: false,
-};
-const tripleTap = {
-  ArrowLeft: false,
-  ArrowRight: false,
-  ArrowUp: false,
-  ArrowDown: false,
-};
+const doubleTap = inputManager.state.doubleTap;
+const tripleTap = inputManager.state.tripleTap;
 const tapCount = {ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0};
 const DOUBLE_TAP_MS = 300;
 let STEER_HOLD_THRESHOLD = window.STEER_HOLD_THRESHOLD || 100; // ms to wait before a tap becomes a hold for pitch/looping

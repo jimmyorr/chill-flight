@@ -14,7 +14,7 @@
 
 ## 3. High-Leverage Architectural Upgrades
 
-- [x] **`perf: Implement chunk pooling in terrain.js`** *(High Priority)*
+- [x] **`perf: Implement chunk pooling in terrain.js`** _(High Priority)_
   - **Issue:** New `THREE.BufferGeometry` and material allocations inside `terrain.js` (`generateChunk`) cause stuttering when chunks load/unload (see performance audit).
   - **Action:** Pool `THREE.PlaneGeometry` instances for both terrain and water. Update vertex colors rather than instantiating new geometries and array buffers.
 - **Instanced Rendering:** Convert scattered environmental objects (trees, clouds) into `THREE.InstancedMesh` to drastically reduce draw calls.
@@ -31,7 +31,7 @@
 ### Implementation Checklist
 
 - [x] `git commit -m "chore: Pre-allocate Vector3s in game loop to reduce GC"`
-- [ ] `git commit -m "refactor: Extract InputManager from game.js"`
+- [x] `git commit -m "refactor: Extract InputManager from game.js"`
 - [ ] `git commit -m "refactor: Move aerodynamics to chill-flight-logic.js"`
 - [x] `git commit -m "perf: Implement chunk pooling in terrain.js"`
 - [ ] `git commit -m "perf: Convert static props to InstancedMesh"`
