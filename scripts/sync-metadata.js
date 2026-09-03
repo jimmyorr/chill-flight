@@ -65,7 +65,9 @@ if (!descriptionRaw) {
 // 2. Extract Promotional Text
 let promoText = extractSection(readmeContent, 'Promotional text');
 if (!promoText) {
-  console.warn('Warning: Could not extract "Promotional text" from README.md. Falling back to the first line of the description.');
+  console.warn(
+    'Warning: Could not extract "Promotional text" from README.md. Falling back to the first line of the description.'
+  );
   promoText = descriptionRaw.split('\n')[0].trim();
 }
 

@@ -33,6 +33,6 @@
 - [x] `git commit -m "chore: Pre-allocate Vector3s in game loop to reduce GC"`
 - [ ] `git commit -m "refactor: Extract InputManager from game.js"`
 - [ ] `git commit -m "refactor: Move aerodynamics to chill-flight-logic.js"`
-- [ ] `git commit -m "perf: Implement chunk pooling in terrain.js"`
+- [x] `git commit -m "perf: Implement chunk pooling in terrain.js"`
 - [ ] `git commit -m "perf: Convert static props to InstancedMesh"`
 - [ ] `git commit -m "feat: Add floating origin shift for infinite flight"`

@@ -1,6 +1,7 @@
 # Architecture & Modularity Audit
 
 ## 1. Monolith Decomposition
+
 The `game.js` (~220KB) and `terrain.js` (~229KB) files have grown into "god objects". They tightly couple the rendering loop, input state (`mouseX`, `mouseY`, touch/joystick states), procedural generation, and UI updates.
 
 **Issue (game.js):** Global state for controls and camera are entangled with initialization and the render loop.
@@ -8,30 +9,36 @@ The `game.js` (~220KB) and `terrain.js` (~229KB) files have grown into "god obje
 **Fix (Decouple Input State):**
 Extract the `// --- INPUT ---` block and control states into an `input-manager.js` class.
 
-*Before (game.js):*
+_Before (game.js):_
+
 ```javascript
 let mouseX = 0;
 let mouseY = 0;
 let joystickActive = false;
 window.addEventListener('mousemove', (e) => { ... updateInputPosition(e.clientX, e.clientY); });
 ```
-*After (input-manager.js):*
+
+_After (input-manager.js):_
+
 ```javascript
 export class InputManager {
   constructor() {
-    this.state = { mouseX: 0, mouseY: 0, joystickActive: false };
+    this.state = {mouseX: 0, mouseY: 0, joystickActive: false};
     this._bindEvents();
   }
   _bindEvents() {
     window.addEventListener('mousemove', (e) => {
-       // logic here, outputting normalized values
+      // logic here, outputting normalized values
     });
   }
-  getSteering() { return { x: this.state.mouseX, y: this.state.mouseY }; }
+  getSteering() {
+    return {x: this.state.mouseX, y: this.state.mouseY};
+  }
 }
 ```
 
 ## 2. Subsystem Boundaries
+
 Currently, `game.js` directly modifies `targetPitch` and `targetRoll`. We should establish a strict boundary between Input, Flight Physics, and Rendering.
 
 - **Game Loop (`main.js` or `engine.js`)**: Orchestrates subsystems.
@@ -39,10 +46,12 @@ Currently, `game.js` directly modifies `targetPitch` and `targetRoll`. We should
 - **Terrain Manager (`terrain-manager.js`)**: Handles chunk lifecycle, isolating it from Three.js scene setup.
 
 ## 3. State Management & Data Flow
+
 Global variables like `lifetimeDistanceTravelled` and `sessionDistanceTravelled` are mixed with rendering logic.
 We should introduce a `PlayerState` module that handles persistence and progression.
 
 ## 4. Target Architecture Tree
+
 ```text
 src/
   ├── core/
