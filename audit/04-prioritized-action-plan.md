@@ -34,5 +34,5 @@
 - [x] `git commit -m "refactor: Extract InputManager from game.js"`
 - [ ] `git commit -m "refactor: Move aerodynamics to chill-flight-logic.js"`
 - [x] `git commit -m "perf: Implement chunk pooling in terrain.js"`
-- [ ] `git commit -m "perf: Convert static props to InstancedMesh"`
+- [x] `git commit -m "perf: Convert static props to InstancedMesh"`
 - [ ] `git commit -m "feat: Add floating origin shift for infinite flight"`
