@@ -1,0 +1,124 @@
+3578: const worldOffsetX = chunkX * CHUNK_SIZE;
+3579: const worldOffsetZ = chunkZ * CHUNK_SIZE;
+3635: const worldX = worldOffsetX + localX;
+3636: const worldZ = worldOffsetZ + localZ;
+4417: const localArchZ = archTargetZ - worldOffsetZ;
+4420: getCachedElevation(worldOffsetX, worldOffsetZ + localArchZ)
+4452: const wX = worldOffsetX + px;
+4453: const wZ = worldOffsetZ + pz;
+4481: Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 &&
+4482: Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2;
+4549: mesh.position.set(worldOffsetX, 0, worldOffsetZ);
+4584: const worldX = worldOffsetX + wPositions[i];
+4585: const worldZ = worldOffsetZ + wPositions[i + 2];
+4624: waterMesh.position.set(worldOffsetX, 0, worldOffsetZ);
+4664: const worldZ = worldOffsetZ + pos.z;
+4668: (worldOffsetX + pos.x) * 0.0001,
+4708: trunkInst.position.set(worldOffsetX, 0, worldOffsetZ);
+4709: leavesInst.position.set(worldOffsetX, 0, worldOffsetZ);
+4807: deadInst.position.set(worldOffsetX, 0, worldOffsetZ);
+4841: rockInst.position.set(worldOffsetX, 0, worldOffsetZ);
+4851: mesh.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+4868: worldOffsetX + pos.x,
+4870: worldOffsetZ + pos.z
+4877: worldOffsetX + pos.x,
+4879: worldOffsetZ + pos.z
+4904: cactusInst.position.set(worldOffsetX, 0, worldOffsetZ);
+4931: bodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+4932: noseInst.position.set(worldOffsetX, 0, worldOffsetZ);
+4977: icebergInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5020: iceFloeInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5084: pBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5085: pBellyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5086: pHeadInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5087: pBeakInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5088: pWingLInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5089: pWingRInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5090: pFootLInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5091: pFootRInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5122: padInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5163: bushInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5199: bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+5200: roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+5223: windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
+5238: doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5239: chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5360: bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+5361: roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+5384: windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
+5399: doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5400: chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5518: strawHutBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5519: strawHutRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5545: pagodaBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5546: pagodaRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5653: barnBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5654: barnRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5655: barnDoorInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5656: barnTrimInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5657: barnSiloBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5658: barnSiloRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5688: monasteryBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5689: monasteryRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5708: castleInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5747: baseInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5748: bladesInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5772: pos.x + worldOffsetX,
+5774: pos.z + worldOffsetZ
+5783: pos.x + worldOffsetX,
+5785: pos.z + worldOffsetZ
+5798: pos.x + worldOffsetX,
+5800: pos.z + worldOffsetZ
+5803: pos.x + worldOffsetX + Math.sin(pos.rotY) * 200,
+5805: pos.z + worldOffsetZ + Math.cos(pos.rotY) * 200
+5853: deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5854: postInst.position.set(worldOffsetX, 0, worldOffsetZ);
+5868: baseX + 4000 >= worldOffsetX - halfChunk &&
+5869: baseX - 4000 <= worldOffsetX + halfChunk
+5891: const wz = worldOffsetZ + sampleZ + sampleStep / 2;
+5893: const localRoadX = roadX - worldOffsetX;
+5942: x: nextRoadX - worldOffsetX,
+5997: const absZ = Math.abs(worldOffsetZ);
+6015: const globalZ = worldOffsetZ + midZ;
+6140: const globalZ = worldOffsetZ + midVec.z;
+6207: deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6211: railInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6216: pilingInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6221: archInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6226: slBaseInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6227: slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6228: slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6229: slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6287: tentInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
+6292: tentPolesInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6293: tentEntranceInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6338: worldOffsetX + tentX,
+6339: worldOffsetZ + tentZ
+6355: logInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6356: coreInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6357: smokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6391: chimneySmokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6420: hullInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
+6479: rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6480: deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6481: mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6482: boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6483: sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6484: sailboatReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6577: hullInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6578: rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6579: deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6580: mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6581: flagInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6582: jrInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6583: pirateReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
+6597: inst.position.set(worldOffsetX, 0, worldOffsetZ);
+6615: const isAlienChunk = Math.abs(worldOffsetX) > 25000;
+6617: const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+6618: const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+6624: const isSouth = worldOffsetZ > 0;
+6625: const heightAtCenter = getCachedElevation(worldOffsetX, worldOffsetZ);
+6632: const flockCenterX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+6633: const flockCenterZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+6688: const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+6689: const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;

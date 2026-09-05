@@ -3433,6 +3433,8 @@ function getBiome(x, z) {
 }
 
 function getElevation(x, z) {
+  x += window.worldOriginOffsetX || 0;
+  z += window.worldOriginOffsetZ || 0;
   let n = ChillFlightLogic.getElevation(
     x,
     z,
@@ -3651,12 +3653,12 @@ function generateChunk(chunkX, chunkZ) {
       const slopeFactor = Math.min(1, slope * 0.5); // [0, 1] — steeper means higher factor
 
       // 2. Procedural Mottling (Multi-octave patches)
-      const mottle1 = simplex.noise2D(worldX * 0.002, worldZ * 0.002);
-      const mottle2 = simplex.noise2D(worldX * 0.01, worldZ * 0.01) * 0.3;
+      const mottle1 = simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.002, worldZ * 0.002);
+      const mottle2 = simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.01, worldZ * 0.01) * 0.3;
       const mottle = (mottle1 + mottle2 + 0.5) * 0.5; // Shifted [0, 1] range approx
 
       // 3. High-frequency micro-grain
-      const grain = simplex.noise2D(worldX * 0.2, worldZ * 0.2) * 0.05;
+      const grain = simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.2, worldZ * 0.2) * 0.05;
 
       // --- EXTREME ZONE FACTOR (East/West beyond 10 degrees) ---
       const extremeEdgeWorld = 50000;
@@ -3672,9 +3674,9 @@ function generateChunk(chunkX, chunkZ) {
       // --- BIOME FACTORS ---
       const northInfluence = Math.max(0, -worldZ / 5000);
       // Add more noise to biome transitions to avoid smooth boring circles
-      const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
+      const noisePath = simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.0001, worldZ * 0.0001);
       const biomeNoise =
-        simplex.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
+        simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.0005, worldZ * 0.0005) * 0.1;
 
       const snowRaw = Math.max(
         0,
@@ -3703,13 +3705,11 @@ function generateChunk(chunkX, chunkZ) {
       const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 10;
 
       const isForest =
-        simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005) > 0.2;
-      const autumnNoise = simplex.noise2D(
-        worldX * 0.0003 + 500,
+        simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.005 + 100, worldZ * 0.005) > 0.2;
+      const autumnNoise = simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.0003 + 500,
         worldZ * 0.0003 + 500
       );
-      const cherryNoise = simplex.noise2D(
-        worldX * 0.0005 + 1000,
+      const cherryNoise = simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.0005 + 1000,
         worldZ * 0.0005 + 1000
       );
 
@@ -3843,12 +3843,11 @@ function generateChunk(chunkX, chunkZ) {
           (snowFactor > 0.5 && height > MOUNTAIN_LEVEL - 50)
         ) {
           // Massive sierra gets highly refined, patchy-to-solid snow OR Arizona desert rock
-          const sierraSnowNoise1 = simplex.noise2D(
-            worldX * 0.003,
+          const sierraSnowNoise1 = simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.003,
             worldZ * 0.003
           );
           const sierraSnowNoise2 =
-            simplex.noise2D(worldX * 0.012, worldZ * 0.012) * 0.5;
+            simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.012, worldZ * 0.012) * 0.5;
           const organicNoise = sierraSnowNoise1 + sierraSnowNoise2;
 
           const isSouth = worldZ > 0;
@@ -3974,7 +3973,7 @@ function generateChunk(chunkX, chunkZ) {
       // --- FROZEN NORTH ZONE ---
       let isFrozen = false;
       const freezeBoundaryZ =
-        -20000 + simplex.noise2D(worldX * 0.0002, worldZ * 0.0002) * 2000;
+        -20000 + simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.0002, worldZ * 0.0002) * 2000;
       if (worldZ < freezeBoundaryZ) {
         const freezeFactor = Math.max(
           0,
@@ -3984,7 +3983,7 @@ function generateChunk(chunkX, chunkZ) {
           isFrozen = freezeFactor > 0.5;
 
           // Generate a local mottle for the ice texturing
-          const iceMottle = simplex.noise2D(worldX * 0.01, worldZ * 0.01);
+          const iceMottle = simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.01, worldZ * 0.01);
 
           // Blend everything toward snow, with slight noise variation
           _tempColorObj.lerp(_colorSnow, freezeFactor);
@@ -4417,7 +4416,7 @@ function generateChunk(chunkX, chunkZ) {
         const localArchZ = archTargetZ - worldOffsetZ;
         const archHeight = Math.max(
           WATER_LEVEL,
-          getCachedElevation(worldOffsetX, worldOffsetZ + localArchZ)
+          getCachedElevation(worldOffsetX + (window.worldOriginOffsetX||0) + (window.worldOriginOffsetX||0), worldOffsetZ + localArchZ)
         );
         if (rng() < 0.5) {
           rockArchPositions.push({
@@ -4586,7 +4585,7 @@ function generateChunk(chunkX, chunkZ) {
 
         wPositions[i + 1] = WATER_LEVEL;
 
-        const tempNoise = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
+        const tempNoise = simplex.noise2D((worldX + (window.worldOriginOffsetX||0)) * 0.0001, worldZ * 0.0001);
         const northInfluence = Math.max(0, -worldZ / 4500);
         const southInfluence = Math.max(0, worldZ / 4500);
         const snowRaw = Math.max(
@@ -4664,8 +4663,7 @@ function generateChunk(chunkX, chunkZ) {
         const worldZ = worldOffsetZ + pos.z;
         const northInfluence = Math.max(0, -worldZ / 4000);
 
-        const tempNoise = simplex.noise2D(
-          (worldOffsetX + pos.x) * 0.0001,
+        const tempNoise = simplex.noise2D((worldOffsetX + pos.x + (window.worldOriginOffsetX||0)) * 0.0001,
           worldZ * 0.0001
         );
         // Fix smooth snow blending (matching terrain snowFactor logic)
@@ -6622,7 +6620,7 @@ function generateChunk(chunkX, chunkZ) {
       const baseRotationY = rng() * Math.PI * 2;
 
       const isSouth = worldOffsetZ > 0;
-      const heightAtCenter = getCachedElevation(worldOffsetX, worldOffsetZ);
+      const heightAtCenter = getCachedElevation(worldOffsetX + (window.worldOriginOffsetX||0) + (window.worldOriginOffsetX||0), worldOffsetZ);
       const isBeach =
         heightAtCenter > WATER_LEVEL - 20 && heightAtCenter < WATER_LEVEL + 40;
 
@@ -6867,3 +6865,34 @@ function toggleProceduralObjects(enabled) {
 
 // Global expose
 window.toggleProceduralObjects = toggleProceduralObjects;
+
+
+window.shiftOrigin = function(dx, dz) {
+  window.worldOriginOffsetX += dx * CHUNK_SIZE;
+  window.worldOriginOffsetZ += dz * CHUNK_SIZE;
+  
+  // Clear the elevation cache because keys are now invalid
+  if (typeof elevationCache !== 'undefined') {
+    elevationCache.clear();
+  }
+
+  // Shift all existing chunks in the map
+  const oldChunks = Array.from(chunks.entries());
+  chunks.clear();
+
+  const shiftDistX = dx * CHUNK_SIZE;
+  const shiftDistZ = dz * CHUNK_SIZE;
+
+  oldChunks.forEach(([key, group]) => {
+    const [cx, cz] = key.split(',').map(Number);
+    const newCx = cx - dx;
+    const newCz = cz - dz;
+    const newKey = `${newCx},${newCz}`;
+    
+    // Physically move the chunk mesh
+    group.position.x -= shiftDistX;
+    group.position.z -= shiftDistZ;
+    
+    chunks.set(newKey, group);
+  });
+};

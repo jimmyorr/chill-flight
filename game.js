@@ -4379,6 +4379,49 @@ function animate() {
       updateChunks();
       _lastChunkUpdatePos.copy(planeGroup.position);
     }
+
+    // Floating origin shift
+    const SHIFT_THRESHOLD = 2000;
+    const shiftTarget = window.isFreeCamera ? camera : planeGroup;
+    if (Math.abs(shiftTarget.position.x) > SHIFT_THRESHOLD || Math.abs(shiftTarget.position.z) > SHIFT_THRESHOLD) {
+      const CHUNK_SIZE = 10000;
+      const dx = Math.round(shiftTarget.position.x / CHUNK_SIZE);
+      const dz = Math.round(shiftTarget.position.z / CHUNK_SIZE);
+
+      const shiftX = dx * CHUNK_SIZE;
+      const shiftZ = dz * CHUNK_SIZE;
+
+      // Shift camera and player
+      planeGroup.position.x -= shiftX;
+      planeGroup.position.z -= shiftZ;
+      camera.position.x -= shiftX;
+      camera.position.z -= shiftZ;
+      
+      _lastChunkUpdatePos.x -= shiftX;
+      _lastChunkUpdatePos.z -= shiftZ;
+      
+      _currentLookTarget.x -= shiftX;
+      _currentLookTarget.z -= shiftZ;
+      
+      if (typeof _virtualCameraPos !== 'undefined') {
+        _virtualCameraPos.x -= shiftX;
+        _virtualCameraPos.z -= shiftZ;
+      }
+
+      // Shift particles
+      if (typeof trailParticles !== 'undefined') trailParticles.forEach(p => { p.mesh.position.x -= shiftX; p.mesh.position.z -= shiftZ; });
+      if (typeof smokeParticles !== 'undefined') smokeParticles.forEach(p => { p.mesh.position.x -= shiftX; p.mesh.position.z -= shiftZ; });
+      if (typeof cloudParticles !== 'undefined') cloudParticles.forEach(p => { p.mesh.position.x -= shiftX; p.mesh.position.z -= shiftZ; });
+      if (typeof fireworks !== 'undefined') fireworks.forEach(p => { p.mesh.position.x -= shiftX; p.mesh.position.z -= shiftZ; });
+
+      // Trigger terrain shift
+      if (typeof window.shiftOrigin === 'function') {
+        window.shiftOrigin(dx, dz);
+      }
+      
+      console.log('Floating origin shifted by', dx, dz, 'chunks');
+    }
+
   }
 
   // Celestial positions
