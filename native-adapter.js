@@ -102,8 +102,8 @@
   };
 
   // 2. WEB ANALYTICS
-  // Dynamically inject Google Analytics ONLY for web environments
-  // This restores tracking for web players without triggering App Store privacy issues.
+  // Dynamically inject Google Analytics for web environments.
+  // Native builds use the native Firebase Analytics bridge instead.
   if (!isNative()) {
     console.log('Web environment detected. Initializing Google Analytics...');
     const script = document.createElement('script');
