@@ -1549,6 +1549,20 @@ input[type='number'].customization-input {
   transform: scale(0.97);
 }
 
+.achievements-reset-btn.confirming {
+  background: rgba(220, 53, 69, 0.2);
+  border-color: rgba(220, 53, 69, 0.6);
+  color: #ff6b6b;
+  box-shadow: 0 0 12px rgba(220, 53, 69, 0.3);
+  letter-spacing: 1.5px;
+}
+
+.achievements-reset-btn.confirming:hover {
+  background: rgba(220, 53, 69, 0.3);
+  border-color: rgba(220, 53, 69, 0.8);
+  color: #ff8585;
+}
+
 /* ============================================================
    ACHIEVEMENTS BUTTON IN PAUSE MENU
    ============================================================ */

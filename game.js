@@ -380,9 +380,22 @@ function openAchievementsOverlay() {
   achievementsOverlay.style.display = 'flex';
 }
 
+let resetConfirmTimeout = null;
+function resetAchievementsResetBtn() {
+  if (resetConfirmTimeout) {
+    clearTimeout(resetConfirmTimeout);
+    resetConfirmTimeout = null;
+  }
+  if (achievementsResetBtn) {
+    achievementsResetBtn.classList.remove('confirming');
+    achievementsResetBtn.textContent = 'R E S E T';
+  }
+}
+
 function closeAchievementsOverlay() {
   if (achievementsOverlay) {
     achievementsOverlay.style.display = 'none';
+    resetAchievementsResetBtn();
   }
 }
 
@@ -409,10 +422,25 @@ if (achievementsOverlay) {
 
 const achievementsResetBtn = document.getElementById('achievements-reset-btn');
 if (achievementsResetBtn) {
-  achievementsResetBtn.addEventListener('click', () => {
-    if (window.Achievements) {
-      window.Achievements.reset();
-      window.Achievements.renderAchievementsOverlay();
+  achievementsResetBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!achievementsResetBtn.classList.contains('confirming')) {
+      achievementsResetBtn.classList.add('confirming');
+      achievementsResetBtn.textContent = 'CONFIRM RESET?';
+      resetConfirmTimeout = setTimeout(resetAchievementsResetBtn, 4000);
+    } else {
+      resetAchievementsResetBtn();
+      if (window.Achievements) {
+        window.Achievements.reset();
+        window.Achievements.renderAchievementsOverlay();
+      }
+    }
+  });
+
+  // Revert button if user clicks elsewhere
+  document.addEventListener('click', (e) => {
+    if (e.target !== achievementsResetBtn) {
+      resetAchievementsResetBtn();
     }
   });
 }
