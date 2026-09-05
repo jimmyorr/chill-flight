@@ -45,85 +45,59 @@
     }
   };
 
-  // Export a graphics capability detector that gracefully handles Web and Capacitor
+  // Graphics auto-detection: defaults to 'low' or 'mid', allowing the user
+  // to manually raise to 'high' or 'ultra' in settings if desired.
   window.detectGraphicsPreset = async function () {
     const cores = navigator.hardwareConcurrency || 4;
-    // iOS Safari blocks deviceMemory (returns undefined). We shouldn't punish it by assuming 4GB.
     const memory = navigator.deviceMemory;
-    const effectiveMemory = memory || 8; // If unknown, give it the benefit of the doubt
+    const isIOSWeb =
+      !isNative() && /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    const isMobileFormFactor =
-      window.matchMedia('(any-pointer: coarse)').matches ||
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      );
+    let isLow = false;
+    let context = isNative() ? 'Native' : 'Web';
 
     if (isNative()) {
       try {
         if (Capacitor.Plugins && Capacitor.Plugins.Device) {
           const info = await Capacitor.Plugins.Device.getInfo();
-
-          if (info.platform === 'ios') {
-            const isOlderIos =
+          context = `Native ${info.platform || 'Device'}`;
+          if (info.platform === 'ios' && info.model) {
+            context += ` (${info.model})`;
+            isLow =
               info.model.startsWith('iPhone9') || // iPhone 7/8/X
               info.model.startsWith('iPhone10') || // iPhone 8/X
               info.model.startsWith('iPhone11') || // iPhone XS/XR
               info.model.startsWith('iPhone12') || // iPhone 11
               (info.model.startsWith('iPad') && !info.model.includes('Pro'));
-
-            const preset = isOlderIos ? 'low' : 'mid';
-            console.log(
-              `[Graphics Auto-Detect] Native iOS via Capacitor. Model: ${info.model}. Assessed as ${isOlderIos ? 'Older Device' : 'Modern Device'}. Chose preset: ${preset}`
-            );
-            return preset;
-          }
-
-          if (info.platform === 'android') {
-            let preset = 'mid';
-            if (cores <= 4 || effectiveMemory <= 4) preset = 'low';
-            else if (cores >= 8 && effectiveMemory >= 8) preset = 'high';
-            console.log(
-              `[Graphics Auto-Detect] Native Android via Capacitor. Cores: ${cores}, RAM: ~${effectiveMemory}GB. Chose preset: ${preset}`
-            );
-            return preset;
+          } else {
+            isLow = cores <= 4 || (memory && memory <= 4);
           }
         }
       } catch (e) {
         console.warn(
-          '[Graphics Auto-Detect] Device plugin failed. Falling back to Web APIs.'
+          '[Graphics Auto-Detect] Device plugin failed; falling back to hardware heuristics.'
         );
+        isLow = cores <= 4 || (memory && memory <= 4);
       }
-    }
-
-    // Fallback: Web Browser
-    let preset = 'mid';
-    const isIOSWeb = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    if (isMobileFormFactor) {
-      if (isIOSWeb) {
-        // Apple's WebKit heavily clamps cores and memory to prevent fingerprinting.
-        // A 6-core A17 Pro might literally report 2 cores and undefined RAM.
-        // Because almost all iPhones are extremely powerful, 'mid' is a safe baseline.
-        preset = 'mid';
-        console.log(
-          `[Graphics Auto-Detect] iOS Web Browser (Clamped APIs). Assumed preset: ${preset}`
-        );
-      } else {
-        if (cores <= 4 || effectiveMemory <= 4) preset = 'low';
-        else if (cores >= 8 && effectiveMemory >= 8) preset = 'mid';
-        else preset = 'mid';
-        console.log(
-          `[Graphics Auto-Detect] Mobile Web Browser. Cores: ${cores}, RAM: ${memory ? '~' + memory + 'GB' : 'Unknown'}. Chose preset: ${preset}`
-        );
-      }
+    } else if (isIOSWeb) {
+      // iOS Safari clamps hardwareConcurrency to 2 for privacy; default modern iOS web to mid
+      isLow = false;
+      context = 'iOS Web';
     } else {
-      if (cores <= 4) preset = 'low';
-      else if (cores >= 8 && effectiveMemory >= 8) preset = 'high';
-      else preset = 'mid';
-      console.log(
-        `[Graphics Auto-Detect] Desktop Web Browser. Cores: ${cores}, RAM: ${memory ? '~' + memory + 'GB' : 'Unknown'}. Chose preset: ${preset}`
-      );
+      isLow = cores <= 4 || (memory && memory <= 4);
+      context =
+        window.matchMedia('(any-pointer: coarse)').matches ||
+        /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent
+        )
+          ? 'Mobile Web'
+          : 'Desktop Web';
     }
+
+    const preset = isLow ? 'low' : 'mid';
+    console.log(
+      `[Graphics Auto-Detect] ${context}. Cores: ${cores}, RAM: ${memory ? `~${memory}GB` : 'Unknown'}. Chose preset: ${preset}`
+    );
     return preset;
   };
 
