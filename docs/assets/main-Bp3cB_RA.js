@@ -3569,6 +3569,17 @@ ${GI}
         return value;
     }
 
+    float fbmMacro(vec2 st) {
+        float value = 0.0;
+        float amplitude = 0.65;
+        for (int i = 0; i < 2; i++) {
+            value += amplitude * noise(st);
+            st *= 2.0;
+            amplitude *= 0.5;
+        }
+        return value;
+    }
+
     void main() {
         vec3 dir = normalize(vDirection + vec3(0.0, offset, 0.0));
         float h = dir.y;
@@ -3622,35 +3633,49 @@ ${GI}
             vec2 cloudUV = (uCameraPos.xz + dir.xz * t) / cloudHeight;
             vec2 sunDir2D = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
             
-            // Dim the sun's influence on clouds during a storm
-            float stormDimming = 1.0 - uCloudDensity * 0.8;
+            // Dim direct sun slightly in overcast conditions, but keep plenty of ambient scatter
+            float stormDimming = 1.0 - uCloudDensity * 0.6;
             float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
             
-            // Darken the base cloud colors during a storm
-            vec3 baseShadow = mix(vec3(0.4, 0.45, 0.5), vec3(0.15, 0.18, 0.22), uCloudDensity);
-            vec3 baseBright = mix(vec3(0.9, 0.9, 0.95), vec3(0.4, 0.45, 0.5), uCloudDensity);
+            // Soft, billowy base tones: bright crests remain luminous (0.75-0.95),
+            // and shadows stay soft (0.42-0.55) instead of collapsing into harsh, pitch-black mud
+            vec3 baseBright = mix(vec3(0.95, 0.96, 0.98), vec3(0.72, 0.75, 0.80), uCloudDensity * 0.6);
+            vec3 baseShadow = mix(vec3(0.55, 0.58, 0.64), vec3(0.42, 0.45, 0.50), uCloudDensity * 0.5);
             
-            vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
-            vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
+            // Shadows are softly tinted by the ambient sky and horizon light rather than dropping to pure darkness
+            vec3 ambientTint = mix(effectiveBottom, topColor, 0.35);
+            vec3 shadowColor = mix(baseShadow, ambientTint * 1.1, 0.25);
+            vec3 brightEdgeColor = mix(baseBright, bottomColor * 1.8, sunProximity * 0.75);
             
             // Dramatic sunset/sunrise cloud under-lighting
             float sunsetGlow = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
-            brightEdgeColor = mix(brightEdgeColor, bottomColor * 3.0, sunsetGlow * stormDimming);
+            brightEdgeColor = mix(brightEdgeColor, bottomColor * 2.2, sunsetGlow * stormDimming * 0.8);
             
             // Widen the density range for clearer skies and thicker storms
             float densityOffset = (uCloudDensity - 0.5) * 0.6;
             float horizonFade = smoothstep(0.0, 0.15, abs(h));
+            
+            // Contrast softening at high density: multiple scattering in thick overcast softens sharp shadow boundaries
+            float contrastFactor = mix(1.0, 0.65, uCloudDensity);
 
             // -- Layer 1: High Altitude (Cirrus/Altocumulus) --
             // Moves slower, larger scale, slightly more sparse
             vec2 driftHigh = vec2(uTime * 0.015, uTime * 0.0075);
-            float nHigh = fbm((cloudUV + driftHigh) * 3.5);
+            vec2 uvHigh = (cloudUV + driftHigh) * 3.5;
+            float nHigh = fbm(uvHigh);
             float alphaHigh = smoothstep(0.45 - densityOffset, 0.8 - densityOffset, nHigh) * horizonFade;
             
             if (alphaHigh > 0.0) {
-                float nHigh_offset = fbm((cloudUV + driftHigh + sunDir2D * 0.04) * 3.5);
-                float litEdgeHigh = smoothstep(0.1, -0.1, nHigh_offset - nHigh);
-                vec3 cloudColorHigh = mix(shadowColor, brightEdgeColor, litEdgeHigh);
+                // Macro-slope avoids high-frequency noise aliasing and striped ripple artifacts
+                float nHighMacro = fbmMacro(uvHigh);
+                float nHighMacro_offset = fbmMacro(uvHigh + sunDir2D * 0.12);
+                float slopeHigh = nHighMacro - nHighMacro_offset;
+                float litEdgeHigh = smoothstep(-0.15, 0.25, slopeHigh);
+                
+                float lightFactorHigh = mix(0.4, 1.0, litEdgeHigh);
+                lightFactorHigh = mix(0.5, lightFactorHigh, contrastFactor);
+                
+                vec3 cloudColorHigh = mix(shadowColor, brightEdgeColor, lightFactorHigh);
                 float sunRimHigh = pow(sunIntensity, 16.0) * litEdgeHigh * stormDimming;
                 cloudColorHigh += bottomColor * sunRimHigh * 1.5;
                 // Mix high altitude layer first
@@ -3660,13 +3685,20 @@ ${GI}
             // -- Layer 2: Low Altitude (Cumulus) --
             // Moves faster, normal scale
             vec2 driftLow = vec2(uTime * 0.03, uTime * 0.015);
-            float nLow = fbm((cloudUV + driftLow) * 2.0);
+            vec2 uvLow = (cloudUV + driftLow) * 2.0;
+            float nLow = fbm(uvLow);
             float alphaLow = smoothstep(0.4 - densityOffset, 0.75 - densityOffset, nLow) * horizonFade;
             
             if (alphaLow > 0.0) {
-                float nLow_offset = fbm((cloudUV + driftLow + sunDir2D * 0.06) * 2.0);
-                float litEdgeLow = smoothstep(0.1, -0.1, nLow_offset - nLow);
-                vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, litEdgeLow);
+                float nLowMacro = fbmMacro(uvLow);
+                float nLowMacro_offset = fbmMacro(uvLow + sunDir2D * 0.15);
+                float slopeLow = nLowMacro - nLowMacro_offset;
+                float litEdgeLow = smoothstep(-0.15, 0.25, slopeLow);
+                
+                float lightFactorLow = mix(0.35, 1.0, litEdgeLow);
+                lightFactorLow = mix(0.5, lightFactorLow, contrastFactor);
+                
+                vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, lightFactorLow);
                 float sunRimLow = pow(sunIntensity, 16.0) * litEdgeLow * stormDimming;
                 cloudColorLow += bottomColor * sunRimLow * 2.0;
                 // Mix low altitude layer on top
@@ -3708,34 +3740,43 @@ ${GI}
             float alphaHorizon = smoothstep(shapeThreshold, shapeThreshold + 0.25, nHorizon) * vFade;
             
             if (alphaHorizon > 0.0) {
-                float stormDimming = 1.0 - uCloudDensity * 0.8;
+                float stormDimming = 1.0 - uCloudDensity * 0.6;
                 float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
                 
-                vec3 baseShadow = mix(vec3(0.4, 0.45, 0.5), vec3(0.15, 0.18, 0.22), uCloudDensity);
-                vec3 baseBright = mix(vec3(0.95, 0.95, 1.0), vec3(0.4, 0.45, 0.5), uCloudDensity);
+                vec3 baseBright = mix(vec3(0.95, 0.96, 0.98), vec3(0.72, 0.75, 0.80), uCloudDensity * 0.6);
+                vec3 baseShadow = mix(vec3(0.55, 0.58, 0.64), vec3(0.42, 0.45, 0.50), uCloudDensity * 0.5);
                 
-                vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
-                vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
+                vec3 ambientTint = mix(effectiveBottom, topColor, 0.35);
+                vec3 shadowColor = mix(baseShadow, ambientTint * 1.1, 0.25);
+                vec3 brightEdgeColor = mix(baseBright, bottomColor * 1.8, sunProximity * 0.75);
                 
                 // Dramatic sunset/sunrise horizon cloud under-lighting
                 float sunsetGlowHorizon = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
-                brightEdgeColor = mix(brightEdgeColor, bottomColor * 3.0, sunsetGlowHorizon * stormDimming);
+                brightEdgeColor = mix(brightEdgeColor, bottomColor * 2.2, sunsetGlowHorizon * stormDimming * 0.8);
                 
                 // Dynamic volumetric shadowing based on true sun position
                 vec3 tangentU = normalize(vec3(dir.z, 0.0, -dir.x));
                 vec3 tangentV = cross(dir, tangentU);
                 vec2 sunOffsetDir = vec2(dot(sunDirection, tangentU), dot(sunDirection, tangentV));
                 
-                vec2 dynamicOffset = sunOffsetDir * 0.05 * uvScale;
+                vec2 dynamicOffset = sunOffsetDir * 0.06 * uvScale;
                 
-                // Apply the seam blending to the shadowing offset as well
-                float nOffset1 = fbm(horizonUV1 + dynamicOffset);
-                float nOffset2 = fbm(horizonUV2 + dynamicOffset);
+                // Use macro noise to prevent high-frequency ripple artifacts
+                float nMacro1 = fbmMacro(horizonUV1);
+                float nMacro2 = fbmMacro(horizonUV2);
+                float nHorizonMacro = mix(nMacro1, nMacro2, w);
+                
+                float nOffset1 = fbmMacro(horizonUV1 + dynamicOffset);
+                float nOffset2 = fbmMacro(horizonUV2 + dynamicOffset);
                 float nHorizon_offset = mix(nOffset1, nOffset2, w);
                 
-                float litEdgeHorizon = smoothstep(0.05, -0.05, nHorizon_offset - nHorizon);
+                float slopeHorizon = nHorizonMacro - nHorizon_offset;
+                float litEdgeHorizon = smoothstep(-0.15, 0.25, slopeHorizon);
                 
-                vec3 cloudColorHorizon = mix(shadowColor, brightEdgeColor, litEdgeHorizon);
+                float lightFactorHorizon = mix(0.4, 1.0, litEdgeHorizon);
+                lightFactorHorizon = mix(0.5, lightFactorHorizon, mix(1.0, 0.65, uCloudDensity));
+                
+                vec3 cloudColorHorizon = mix(shadowColor, brightEdgeColor, lightFactorHorizon);
                 
                 float sunRimHorizon = pow(sunIntensity, 16.0) * litEdgeHorizon * stormDimming;
                 cloudColorHorizon += bottomColor * sunRimHorizon * 2.0;
@@ -4076,4 +4117,4 @@ ${GI}
     // Max alpha bumped to 0.10
     gl_FragColor = vec4(color, uAlpha * edgeFade * 0.10);
   }
-`,BR;(function(e){e.Unimplemented=`UNIMPLEMENTED`,e.Unavailable=`UNAVAILABLE`})(BR||={});var VR=class extends Error{constructor(e,t,n){super(e),this.message=e,this.code=t,this.data=n}},HR=e=>e?.androidBridge?`android`:e?.webkit?.messageHandlers?.bridge?`ios`:`web`,UR=e=>{let t=e.CapacitorCustomPlatform||null,n=e.Capacitor||{},r=n.Plugins=n.Plugins||{},i=()=>t===null?HR(e):t.name,a=()=>i()!==`web`,o=e=>!!(l.get(e)?.platforms.has(i())||s(e)),s=e=>n.PluginHeaders?.find(t=>t.name===e),c=t=>e.console.error(t),l=new Map;return n.convertFileSrc||=e=>e,n.getPlatform=i,n.handleError=c,n.isNativePlatform=a,n.isPluginAvailable=o,n.registerPlugin=(e,a={})=>{let o=l.get(e);if(o)return console.warn(`Capacitor plugin "${e}" already registered. Cannot register plugins twice.`),o.proxy;let c=i(),u=s(e),d,f=async()=>(!d&&c in a?d=d=typeof a[c]==`function`?await a[c]():a[c]:t!==null&&!d&&`web`in a&&(d=d=typeof a.web==`function`?await a.web():a.web),d),p=(t,r)=>{if(u){let i=u?.methods.find(e=>r===e.name);if(i)return i.rtype===`promise`?t=>n.nativePromise(e,r.toString(),t):(t,i)=>n.nativeCallback(e,r.toString(),t,i);if(t)return t[r]?.bind(t)}else if(t)return t[r]?.bind(t);else throw new VR(`"${e}" plugin is not implemented on ${c}`,BR.Unimplemented)},m=t=>{let n,r=(...r)=>{let i=f().then(i=>{let a=p(i,t);if(a){let e=a(...r);return n=e?.remove,e}else throw new VR(`"${e}.${t}()" is not implemented on ${c}`,BR.Unimplemented)});return t===`addListener`&&(i.remove=async()=>n()),i};return r.toString=()=>`${t.toString()}() { [capacitor code] }`,Object.defineProperty(r,`name`,{value:t,writable:!1,configurable:!1}),r},h=m(`addListener`),g=m(`removeListener`),_=(e,t)=>{let n=h({eventName:e},t),r=async()=>{g({eventName:e,callbackId:await n},t)},i=new Promise(e=>n.then(()=>e({remove:r})));return i.remove=async()=>{console.warn(`Using addListener() without 'await' is deprecated.`),await r()},i},v=new Proxy({},{get(e,t){switch(t){case`$$typeof`:return;case`toJSON`:return()=>({});case`addListener`:return u?_:h;case`removeListener`:return g;default:return m(t)}}});return r[e]=v,l.set(e,{name:e,proxy:v,platforms:new Set([...Object.keys(a),...u?[c]:[]])}),v},n.Exception=VR,n.DEBUG=!!n.DEBUG,n.isLoggingEnabled=!!n.isLoggingEnabled,n},WR=(e=>e.Capacitor=UR(e))(typeof globalThis<`u`?globalThis:typeof self<`u`?self:typeof window<`u`?window:typeof global<`u`?global:{}),GR=WR.registerPlugin,KR=class{constructor(){this.listeners={},this.retainedEventArguments={},this.windowListeners={}}addListener(e,t){let n=!1;this.listeners[e]||(this.listeners[e]=[],n=!0),this.listeners[e].push(t);let r=this.windowListeners[e];return r&&!r.registered&&this.addWindowListener(r),n&&this.sendRetainedArgumentsForEvent(e),Promise.resolve({remove:async()=>this.removeListener(e,t)})}async removeAllListeners(){this.listeners={};for(let e in this.windowListeners)this.removeWindowListener(this.windowListeners[e]);this.windowListeners={}}notifyListeners(e,t,n){let r=this.listeners[e];if(!r){if(n){let n=this.retainedEventArguments[e];n||=[],n.push(t),this.retainedEventArguments[e]=n}return}r.forEach(e=>e(t))}hasListeners(e){return!!this.listeners[e]?.length}registerWindowListener(e,t){this.windowListeners[t]={registered:!1,windowEventName:e,pluginEventName:t,handler:e=>{this.notifyListeners(t,e)}}}unimplemented(e=`not implemented`){return new WR.Exception(e,BR.Unimplemented)}unavailable(e=`not available`){return new WR.Exception(e,BR.Unavailable)}async removeListener(e,t){let n=this.listeners[e];if(!n)return;let r=n.indexOf(t);this.listeners[e].splice(r,1),this.listeners[e].length||this.removeWindowListener(this.windowListeners[e])}addWindowListener(e){window.addEventListener(e.windowEventName,e.handler),e.registered=!0}removeWindowListener(e){e&&(window.removeEventListener(e.windowEventName,e.handler),e.registered=!1)}sendRetainedArgumentsForEvent(e){let t=this.retainedEventArguments[e];t&&(delete this.retainedEventArguments[e],t.forEach(t=>{this.notifyListeners(e,t)}))}},qR=e=>encodeURIComponent(e).replace(/%(2[346B]|5E|60|7C)/g,decodeURIComponent).replace(/[()]/g,escape),JR=e=>e.replace(/(%[\dA-F]{2})+/gi,decodeURIComponent),YR=class extends KR{async getCookies(){let e=document.cookie,t={};return e.split(`;`).forEach(e=>{if(e.length<=0)return;let[n,r]=e.replace(/=/,`CAP_COOKIE`).split(`CAP_COOKIE`);n=JR(n).trim(),r=JR(r).trim(),t[n]=r}),t}async setCookie(e){try{let t=qR(e.key),n=qR(e.value),r=e.expires?`; expires=${e.expires.replace(`expires=`,``)}`:``,i=(e.path||`/`).replace(`path=`,``),a=e.url!=null&&e.url.length>0?`domain=${e.url}`:``;document.cookie=`${t}=${n||``}${r}; path=${i}; ${a};`}catch(e){return Promise.reject(e)}}async deleteCookie(e){try{document.cookie=`${e.key}=; Max-Age=0`}catch(e){return Promise.reject(e)}}async clearCookies(){try{let e=document.cookie.split(`;`)||[];for(let t of e)document.cookie=t.replace(/^ +/,``).replace(/=.*/,`=;expires=${new Date().toUTCString()};path=/`)}catch(e){return Promise.reject(e)}}async clearAllCookies(){try{await this.clearCookies()}catch(e){return Promise.reject(e)}}};GR(`CapacitorCookies`,{web:()=>new YR});var XR=async e=>new Promise((t,n)=>{let r=new FileReader;r.onload=()=>{let e=r.result;t(e.indexOf(`,`)>=0?e.split(`,`)[1]:e)},r.onerror=e=>n(e),r.readAsDataURL(e)}),ZR=(e={})=>{let t=Object.keys(e);return Object.keys(e).map(e=>e.toLocaleLowerCase()).reduce((n,r,i)=>(n[r]=e[t[i]],n),{})},QR=(e,t=!0)=>e?Object.entries(e).reduce((e,n)=>{let[r,i]=n,a,o;return Array.isArray(i)?(o=``,i.forEach(e=>{a=t?encodeURIComponent(e):e,o+=`${r}=${a}&`}),o.slice(0,-1)):(a=t?encodeURIComponent(i):i,o=`${r}=${a}`),`${e}&${o}`},``).substr(1):null,$R=(e,t={})=>{let n=Object.assign({method:e.method||`GET`,headers:e.headers},t),r=ZR(e.headers)[`content-type`]||``;if(typeof e.data==`string`)n.body=e.data;else if(r.includes(`application/x-www-form-urlencoded`)){let t=new URLSearchParams;for(let[n,r]of Object.entries(e.data||{}))t.set(n,r);n.body=t.toString()}else if(r.includes(`multipart/form-data`)||e.data instanceof FormData){let t=new FormData;if(e.data instanceof FormData)e.data.forEach((e,n)=>{t.append(n,e)});else for(let n of Object.keys(e.data))t.append(n,e.data[n]);n.body=t;let r=new Headers(n.headers);r.delete(`content-type`),n.headers=r}else (r.includes(`application/json`)||typeof e.data==`object`)&&(n.body=JSON.stringify(e.data));return n},ez=class extends KR{async request(e){let t=$R(e,e.webFetchExtra),n=QR(e.params,e.shouldEncodeUrlParams),r=n?`${e.url}?${n}`:e.url,i=await fetch(r,t),a=i.headers.get(`content-type`)||``,{responseType:o=`text`}=i.ok?e:{};a.includes(`application/json`)&&(o=`json`);let s,c;switch(o){case`arraybuffer`:case`blob`:c=await i.blob(),s=await XR(c);break;case`json`:s=await i.json();break;default:s=await i.text()}let l={};return i.headers.forEach((e,t)=>{l[t]=e}),{data:s,headers:l,status:i.status,url:i.url}}async get(e){return this.request(Object.assign(Object.assign({},e),{method:`GET`}))}async post(e){return this.request(Object.assign(Object.assign({},e),{method:`POST`}))}async put(e){return this.request(Object.assign(Object.assign({},e),{method:`PUT`}))}async patch(e){return this.request(Object.assign(Object.assign({},e),{method:`PATCH`}))}async delete(e){return this.request(Object.assign(Object.assign({},e),{method:`DELETE`}))}};GR(`CapacitorHttp`,{web:()=>new ez});var tz;(function(e){e.Dark=`DARK`,e.Light=`LIGHT`,e.Default=`DEFAULT`})(tz||={});var nz;(function(e){e.StatusBar=`StatusBar`,e.NavigationBar=`NavigationBar`})(nz||={});var rz=class extends KR{async setStyle(){this.unavailable(`not available for web`)}async setAnimation(){this.unavailable(`not available for web`)}async show(){this.unavailable(`not available for web`)}async hide(){this.unavailable(`not available for web`)}};GR(`SystemBars`,{web:()=>new rz});var iz;(function(e){e.AdPersonalization=`AD_PERSONALIZATION`,e.AdStorage=`AD_STORAGE`,e.AdUserData=`AD_USER_DATA`,e.AnalyticsStorage=`ANALYTICS_STORAGE`,e.FunctionalityStorage=`FUNCTIONALITY_STORAGE`,e.PersonalizationStorage=`PERSONALIZATION_STORAGE`})(iz||={});var az;(function(e){e.Granted=`GRANTED`,e.Denied=`DENIED`})(az||={});var oz=`modulepreload`,sz=function(e,t){return new URL(e,t).href},cz={},lz=function(e,t,n){let r=Promise.resolve();if(t&&t.length>0){let e=document.getElementsByTagName(`link`),i=document.querySelector(`meta[property=csp-nonce]`),a=i?.nonce||i?.getAttribute(`nonce`);function o(e){return Promise.all(e.map(e=>Promise.resolve(e).then(e=>({status:`fulfilled`,value:e}),e=>({status:`rejected`,reason:e}))))}r=o(t.map(t=>{if(t=sz(t,n),t in cz)return;cz[t]=!0;let r=t.endsWith(`.css`),i=r?`[rel="stylesheet"]`:``;if(n)for(let n=e.length-1;n>=0;n--){let i=e[n];if(i.href===t&&(!r||i.rel===`stylesheet`))return}else if(document.querySelector(`link[href="${t}"]${i}`))return;let o=document.createElement(`link`);if(o.rel=r?`stylesheet`:oz,r||(o.as=`script`),o.crossOrigin=``,o.href=t,a&&o.setAttribute(`nonce`,a),document.head.appendChild(o),r)return new Promise((e,n)=>{o.addEventListener(`load`,e),o.addEventListener(`error`,()=>n(Error(`Unable to preload CSS for ${t}`)))})}))}function i(e){let t=new Event(`vite:preloadError`,{cancelable:!0});if(t.payload=e,window.dispatchEvent(t),!t.defaultPrevented)throw e}return r.then(t=>{for(let e of t||[])e.status===`rejected`&&i(e.reason);return e().catch(i)})},uz=GR(`FirebaseAnalytics`,{web:()=>lz(()=>import(`./web-B3_ddT6K.js`).then(e=>new e.FirebaseAnalyticsWeb),[],import.meta.url)});window.THREE={...n,OrbitControls:Tm},window.Sentry=AR,window.FirebaseAnalytics=uz,window.SKY_SHADERS={skyVert:jR,skyFrag:MR,sunMoonVert:NR,sunFrag:PR,moonFrag:FR,sunGlowVert:IR,sunGlowFrag:LR,rainbowVert:RR,rainbowFrag:zR},zE({dsn:`https://7d9671463431e10775c66852b238ad8e@o4511337089400832.ingest.us.sentry.io/4511346247532544`,tracesSampleRate:1});export{iz as n,KR as r,az as t};
+`,BR;(function(e){e.Unimplemented=`UNIMPLEMENTED`,e.Unavailable=`UNAVAILABLE`})(BR||={});var VR=class extends Error{constructor(e,t,n){super(e),this.message=e,this.code=t,this.data=n}},HR=e=>e?.androidBridge?`android`:e?.webkit?.messageHandlers?.bridge?`ios`:`web`,UR=e=>{let t=e.CapacitorCustomPlatform||null,n=e.Capacitor||{},r=n.Plugins=n.Plugins||{},i=()=>t===null?HR(e):t.name,a=()=>i()!==`web`,o=e=>!!(l.get(e)?.platforms.has(i())||s(e)),s=e=>n.PluginHeaders?.find(t=>t.name===e),c=t=>e.console.error(t),l=new Map;return n.convertFileSrc||=e=>e,n.getPlatform=i,n.handleError=c,n.isNativePlatform=a,n.isPluginAvailable=o,n.registerPlugin=(e,a={})=>{let o=l.get(e);if(o)return console.warn(`Capacitor plugin "${e}" already registered. Cannot register plugins twice.`),o.proxy;let c=i(),u=s(e),d,f=async()=>(!d&&c in a?d=d=typeof a[c]==`function`?await a[c]():a[c]:t!==null&&!d&&`web`in a&&(d=d=typeof a.web==`function`?await a.web():a.web),d),p=(t,r)=>{if(u){let i=u?.methods.find(e=>r===e.name);if(i)return i.rtype===`promise`?t=>n.nativePromise(e,r.toString(),t):(t,i)=>n.nativeCallback(e,r.toString(),t,i);if(t)return t[r]?.bind(t)}else if(t)return t[r]?.bind(t);else throw new VR(`"${e}" plugin is not implemented on ${c}`,BR.Unimplemented)},m=t=>{let n,r=(...r)=>{let i=f().then(i=>{let a=p(i,t);if(a){let e=a(...r);return n=e?.remove,e}else throw new VR(`"${e}.${t}()" is not implemented on ${c}`,BR.Unimplemented)});return t===`addListener`&&(i.remove=async()=>n()),i};return r.toString=()=>`${t.toString()}() { [capacitor code] }`,Object.defineProperty(r,`name`,{value:t,writable:!1,configurable:!1}),r},h=m(`addListener`),g=m(`removeListener`),_=(e,t)=>{let n=h({eventName:e},t),r=async()=>{g({eventName:e,callbackId:await n},t)},i=new Promise(e=>n.then(()=>e({remove:r})));return i.remove=async()=>{console.warn(`Using addListener() without 'await' is deprecated.`),await r()},i},v=new Proxy({},{get(e,t){switch(t){case`$$typeof`:return;case`toJSON`:return()=>({});case`addListener`:return u?_:h;case`removeListener`:return g;default:return m(t)}}});return r[e]=v,l.set(e,{name:e,proxy:v,platforms:new Set([...Object.keys(a),...u?[c]:[]])}),v},n.Exception=VR,n.DEBUG=!!n.DEBUG,n.isLoggingEnabled=!!n.isLoggingEnabled,n},WR=(e=>e.Capacitor=UR(e))(typeof globalThis<`u`?globalThis:typeof self<`u`?self:typeof window<`u`?window:typeof global<`u`?global:{}),GR=WR.registerPlugin,KR=class{constructor(){this.listeners={},this.retainedEventArguments={},this.windowListeners={}}addListener(e,t){let n=!1;this.listeners[e]||(this.listeners[e]=[],n=!0),this.listeners[e].push(t);let r=this.windowListeners[e];return r&&!r.registered&&this.addWindowListener(r),n&&this.sendRetainedArgumentsForEvent(e),Promise.resolve({remove:async()=>this.removeListener(e,t)})}async removeAllListeners(){this.listeners={};for(let e in this.windowListeners)this.removeWindowListener(this.windowListeners[e]);this.windowListeners={}}notifyListeners(e,t,n){let r=this.listeners[e];if(!r){if(n){let n=this.retainedEventArguments[e];n||=[],n.push(t),this.retainedEventArguments[e]=n}return}r.forEach(e=>e(t))}hasListeners(e){return!!this.listeners[e]?.length}registerWindowListener(e,t){this.windowListeners[t]={registered:!1,windowEventName:e,pluginEventName:t,handler:e=>{this.notifyListeners(t,e)}}}unimplemented(e=`not implemented`){return new WR.Exception(e,BR.Unimplemented)}unavailable(e=`not available`){return new WR.Exception(e,BR.Unavailable)}async removeListener(e,t){let n=this.listeners[e];if(!n)return;let r=n.indexOf(t);this.listeners[e].splice(r,1),this.listeners[e].length||this.removeWindowListener(this.windowListeners[e])}addWindowListener(e){window.addEventListener(e.windowEventName,e.handler),e.registered=!0}removeWindowListener(e){e&&(window.removeEventListener(e.windowEventName,e.handler),e.registered=!1)}sendRetainedArgumentsForEvent(e){let t=this.retainedEventArguments[e];t&&(delete this.retainedEventArguments[e],t.forEach(t=>{this.notifyListeners(e,t)}))}},qR=e=>encodeURIComponent(e).replace(/%(2[346B]|5E|60|7C)/g,decodeURIComponent).replace(/[()]/g,escape),JR=e=>e.replace(/(%[\dA-F]{2})+/gi,decodeURIComponent),YR=class extends KR{async getCookies(){let e=document.cookie,t={};return e.split(`;`).forEach(e=>{if(e.length<=0)return;let[n,r]=e.replace(/=/,`CAP_COOKIE`).split(`CAP_COOKIE`);n=JR(n).trim(),r=JR(r).trim(),t[n]=r}),t}async setCookie(e){try{let t=qR(e.key),n=qR(e.value),r=e.expires?`; expires=${e.expires.replace(`expires=`,``)}`:``,i=(e.path||`/`).replace(`path=`,``),a=e.url!=null&&e.url.length>0?`domain=${e.url}`:``;document.cookie=`${t}=${n||``}${r}; path=${i}; ${a};`}catch(e){return Promise.reject(e)}}async deleteCookie(e){try{document.cookie=`${e.key}=; Max-Age=0`}catch(e){return Promise.reject(e)}}async clearCookies(){try{let e=document.cookie.split(`;`)||[];for(let t of e)document.cookie=t.replace(/^ +/,``).replace(/=.*/,`=;expires=${new Date().toUTCString()};path=/`)}catch(e){return Promise.reject(e)}}async clearAllCookies(){try{await this.clearCookies()}catch(e){return Promise.reject(e)}}};GR(`CapacitorCookies`,{web:()=>new YR});var XR=async e=>new Promise((t,n)=>{let r=new FileReader;r.onload=()=>{let e=r.result;t(e.indexOf(`,`)>=0?e.split(`,`)[1]:e)},r.onerror=e=>n(e),r.readAsDataURL(e)}),ZR=(e={})=>{let t=Object.keys(e);return Object.keys(e).map(e=>e.toLocaleLowerCase()).reduce((n,r,i)=>(n[r]=e[t[i]],n),{})},QR=(e,t=!0)=>e?Object.entries(e).reduce((e,n)=>{let[r,i]=n,a,o;return Array.isArray(i)?(o=``,i.forEach(e=>{a=t?encodeURIComponent(e):e,o+=`${r}=${a}&`}),o.slice(0,-1)):(a=t?encodeURIComponent(i):i,o=`${r}=${a}`),`${e}&${o}`},``).substr(1):null,$R=(e,t={})=>{let n=Object.assign({method:e.method||`GET`,headers:e.headers},t),r=ZR(e.headers)[`content-type`]||``;if(typeof e.data==`string`)n.body=e.data;else if(r.includes(`application/x-www-form-urlencoded`)){let t=new URLSearchParams;for(let[n,r]of Object.entries(e.data||{}))t.set(n,r);n.body=t.toString()}else if(r.includes(`multipart/form-data`)||e.data instanceof FormData){let t=new FormData;if(e.data instanceof FormData)e.data.forEach((e,n)=>{t.append(n,e)});else for(let n of Object.keys(e.data))t.append(n,e.data[n]);n.body=t;let r=new Headers(n.headers);r.delete(`content-type`),n.headers=r}else (r.includes(`application/json`)||typeof e.data==`object`)&&(n.body=JSON.stringify(e.data));return n},ez=class extends KR{async request(e){let t=$R(e,e.webFetchExtra),n=QR(e.params,e.shouldEncodeUrlParams),r=n?`${e.url}?${n}`:e.url,i=await fetch(r,t),a=i.headers.get(`content-type`)||``,{responseType:o=`text`}=i.ok?e:{};a.includes(`application/json`)&&(o=`json`);let s,c;switch(o){case`arraybuffer`:case`blob`:c=await i.blob(),s=await XR(c);break;case`json`:s=await i.json();break;default:s=await i.text()}let l={};return i.headers.forEach((e,t)=>{l[t]=e}),{data:s,headers:l,status:i.status,url:i.url}}async get(e){return this.request(Object.assign(Object.assign({},e),{method:`GET`}))}async post(e){return this.request(Object.assign(Object.assign({},e),{method:`POST`}))}async put(e){return this.request(Object.assign(Object.assign({},e),{method:`PUT`}))}async patch(e){return this.request(Object.assign(Object.assign({},e),{method:`PATCH`}))}async delete(e){return this.request(Object.assign(Object.assign({},e),{method:`DELETE`}))}};GR(`CapacitorHttp`,{web:()=>new ez});var tz;(function(e){e.Dark=`DARK`,e.Light=`LIGHT`,e.Default=`DEFAULT`})(tz||={});var nz;(function(e){e.StatusBar=`StatusBar`,e.NavigationBar=`NavigationBar`})(nz||={});var rz=class extends KR{async setStyle(){this.unavailable(`not available for web`)}async setAnimation(){this.unavailable(`not available for web`)}async show(){this.unavailable(`not available for web`)}async hide(){this.unavailable(`not available for web`)}};GR(`SystemBars`,{web:()=>new rz});var iz;(function(e){e.AdPersonalization=`AD_PERSONALIZATION`,e.AdStorage=`AD_STORAGE`,e.AdUserData=`AD_USER_DATA`,e.AnalyticsStorage=`ANALYTICS_STORAGE`,e.FunctionalityStorage=`FUNCTIONALITY_STORAGE`,e.PersonalizationStorage=`PERSONALIZATION_STORAGE`})(iz||={});var az;(function(e){e.Granted=`GRANTED`,e.Denied=`DENIED`})(az||={});var oz=`modulepreload`,sz=function(e,t){return new URL(e,t).href},cz={},lz=function(e,t,n){let r=Promise.resolve();if(t&&t.length>0){let e=document.getElementsByTagName(`link`),i=document.querySelector(`meta[property=csp-nonce]`),a=i?.nonce||i?.getAttribute(`nonce`);function o(e){return Promise.all(e.map(e=>Promise.resolve(e).then(e=>({status:`fulfilled`,value:e}),e=>({status:`rejected`,reason:e}))))}r=o(t.map(t=>{if(t=sz(t,n),t in cz)return;cz[t]=!0;let r=t.endsWith(`.css`),i=r?`[rel="stylesheet"]`:``;if(n)for(let n=e.length-1;n>=0;n--){let i=e[n];if(i.href===t&&(!r||i.rel===`stylesheet`))return}else if(document.querySelector(`link[href="${t}"]${i}`))return;let o=document.createElement(`link`);if(o.rel=r?`stylesheet`:oz,r||(o.as=`script`),o.crossOrigin=``,o.href=t,a&&o.setAttribute(`nonce`,a),document.head.appendChild(o),r)return new Promise((e,n)=>{o.addEventListener(`load`,e),o.addEventListener(`error`,()=>n(Error(`Unable to preload CSS for ${t}`)))})}))}function i(e){let t=new Event(`vite:preloadError`,{cancelable:!0});if(t.payload=e,window.dispatchEvent(t),!t.defaultPrevented)throw e}return r.then(t=>{for(let e of t||[])e.status===`rejected`&&i(e.reason);return e().catch(i)})},uz=GR(`FirebaseAnalytics`,{web:()=>lz(()=>import(`./web-CgXq5wJk.js`).then(e=>new e.FirebaseAnalyticsWeb),[],import.meta.url)});window.THREE={...n,OrbitControls:Tm},window.Sentry=AR,window.FirebaseAnalytics=uz,window.SKY_SHADERS={skyVert:jR,skyFrag:MR,sunMoonVert:NR,sunFrag:PR,moonFrag:FR,sunGlowVert:IR,sunGlowFrag:LR,rainbowVert:RR,rainbowFrag:zR},zE({dsn:`https://7d9671463431e10775c66852b238ad8e@o4511337089400832.ingest.us.sentry.io/4511346247532544`,tracesSampleRate:1});export{iz as n,KR as r,az as t};

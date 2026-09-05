@@ -107,7 +107,7 @@
       #info {
         position: absolute;
         bottom: 20px;
-        left: 320px;
+        left: 20px;
         background: rgba(15, 23, 42, 0.8);
         backdrop-filter: blur(8px);
         padding: 15px;
@@ -115,6 +115,7 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
         font-size: 0.8rem;
         pointer-events: none;
+        min-width: 180px;
       }
 
       .controls-hint {
@@ -144,8 +145,8 @@
         background: rgba(255, 255, 255, 0.2);
       }
     </style>
-    <script type="module" crossorigin src="./assets/debugModels--0YTCOQq.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/main-WxT0f0wG.js">
+    <script type="module" crossorigin src="./assets/debugModels-CV9xOSiJ.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/main-Bp3cB_RA.js">
   </head>
 
   <body>
@@ -155,13 +156,6 @@
       <div class="category-title">Vehicles</div>
       <button class="model-btn" onclick="viewModel('airplane', event)">
         Airplane
-      </button>
-      <button class="model-btn" onclick="viewModel('helicopter', event)">
-        Helicopter
-      </button>
-      <button class="model-btn" onclick="viewModel('boat', event)">Boat</button>
-      <button class="model-btn" onclick="viewModel('buggy', event)">
-        Buggy
       </button>
 
       <div class="category-title">Nature</div>
@@ -276,24 +270,28 @@
           Select a model
         </div>
         <div id="model-stats">0 vertices | 0 triangles</div>
-      </div>
-
-      <div
-        id="color-options"
-        style="
-          display: none;
-          margin-top: 15px;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
-          padding-top: 15px;
-        "
-      >
-        <button
-          class="model-btn"
-          onclick="cycleColors()"
-          style="border-color: var(--accent-color)"
+        <div
+          id="color-options"
+          style="
+            display: none;
+            margin-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 12px;
+          "
         >
-          Cycle Colors
-        </button>
+          <button
+            class="model-btn"
+            onclick="cycleColors()"
+            style="
+              margin-bottom: 0;
+              text-align: center;
+              border-color: var(--accent-color);
+              pointer-events: auto;
+            "
+          >
+            Cycle colors
+          </button>
+        </div>
       </div>
     </div>
 

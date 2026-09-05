@@ -1,0 +1,1 @@
+import"./main-Bp3cB_RA.js";/* empty css              */document.querySelectorAll(`.version-tag`).forEach(e=>{e.textContent=`v0.9.10`});

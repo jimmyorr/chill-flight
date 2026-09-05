@@ -31,30 +31,15 @@
       content="A minimalist flight simulator set in a procedurally generated world that changes every single day."
     />
     <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-pM09mrwx.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/main-WxT0f0wG.js">
-    <link rel="stylesheet" crossorigin href="./assets/style-CpfbEt73.css">
+    <script type="module" crossorigin src="./assets/main-B3-Uubd-.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/main-Bp3cB_RA.js">
+    <link rel="stylesheet" crossorigin href="./assets/style-CC0fAHlD.css">
   </head>
 
   <body>
-    <div id="ui-layer">
-      <div id="online-players" class="desktop-only">
-        <div id="online-title">ONLINE</div>
-        <div id="player-list"></div>
-      </div>
-    </div>
+    <div id="ui-layer"></div>
     <div id="pause-overlay">
       <div class="customization-box">
-        <div class="customization-row">
-          <span class="customization-label">Callsign</span>
-          <input
-            type="text"
-            id="player-name-input"
-            class="customization-input"
-            placeholder="Enter name"
-            maxlength="12"
-          />
-        </div>
         <div class="customization-row">
           <span class="customization-label">Livery</span>
           <!-- NES Hardware Palette Colors -->
@@ -337,27 +322,6 @@
           </button>
         </div>
         <div class="menu-items" id="mobile-sub-menu">
-          <button
-            class="sub-btn"
-            id="mobile-vehicle-toggle"
-            title="Switch vehicle"
-            tabindex="-1"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              style="
-                width: 24px;
-                height: 24px;
-                fill: none;
-                stroke: currentColor;
-                stroke-width: 2;
-              "
-            >
-              <path
-                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-              ></path>
-            </svg>
-          </button>
           <button
             class="sub-btn"
             id="mobile-pause-trigger"
@@ -1024,7 +988,6 @@
     </div>
 
     <!-- Game files: plain globals, loaded sequentially -->
-    <!-- Firebase analytics and multiplayer: Refactored to standard script with dynamic imports to bypass 401 errors -->
         <!-- Optimized Game Bundle -->
     <script defer src="game-bundle.js"></script>
 </body>

@@ -1,21 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
-    <!-- Vibrant, high-contrast sunset gradient optimized for small scale -->
-    <linearGradient id="sunset-fav" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#3b0764" /> <!-- Very deep violet -->
-      <stop offset="50%" stop-color="#db2777" /> <!-- Radiant magenta/pink -->
-      <stop offset="100%" stop-color="#f97316" /> <!-- Bold orange -->
+    <!-- Luminous golden peach sunset gradient with warm open sky -->
+    <linearGradient id="sunset-fav" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#324080" />
+      <stop offset="10%" stop-color="#5a4580" />
+      <stop offset="22%" stop-color="#965278" />
+      <stop offset="34%" stop-color="#d46759" />
+      <stop offset="48%" stop-color="#f58055" />
+      <stop offset="64%" stop-color="#fca266" />
+      <stop offset="80%" stop-color="#fdbf7a" />
+      <stop offset="100%" stop-color="#ffe0a4" />
     </linearGradient>
+
+    <!-- Circular badge boundary for sharp tab display across dark and light browser themes -->
+    <clipPath id="fav-circle-clip">
+      <circle cx="256" cy="256" r="230" />
+    </clipPath>
   </defs>
 
-  <!-- Perfect high-contrast circle background that pops beautifully in light and dark browser tabs -->
-  <circle cx="256" cy="256" r="230" fill="url(#sunset-fav)" />
+  <g clip-path="url(#fav-circle-clip)">
+    <!-- Sky background -->
+    <circle cx="256" cy="256" r="230" fill="url(#sunset-fav)" />
 
-  <!-- Micro-scale optimized, bold paper plane silhouette for maximum legibility at 16x16 -->
-  <g transform="translate(106, 116) scale(3)">
-    <!-- Main wing face -->
-    <path d="M10,50 L90,15 L70,85 L50,60 L10,50 Z" fill="#ffffff" />
-    <!-- Underwing shadow for depth -->
-    <path d="M90,15 L50,60 L70,85 Z" fill="rgba(0, 0, 0, 0.18)" />
+    <!-- Low-poly faceted mountain peaks with open sky clearance -->
+    <!-- Distant background peaks -->
+    <polygon points="10,512 110,310 220,512" fill="#548979" />
+    <polygon points="250,512 410,280 500,512" fill="#14413f" />
+
+    <!-- Center majestic mountain -->
+    <!-- Sunlit facet -->
+    <polygon points="70,512 250,250 285,512" fill="#88a886" />
+    <!-- Shadow facet -->
+    <polygon points="250,250 440,512 285,512" fill="#296e63" />
+
+    <!-- Foreground foothill facet -->
+    <polygon points="150,512 295,370 380,512" fill="#1d5750" />
+    <polygon points="150,512 295,370 240,512" fill="#6d9988" />
   </g>
 </svg>
