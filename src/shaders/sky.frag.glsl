@@ -33,6 +33,17 @@
         return value;
     }
 
+    float fbmMacro(vec2 st) {
+        float value = 0.0;
+        float amplitude = 0.65;
+        for (int i = 0; i < 2; i++) {
+            value += amplitude * noise(st);
+            st *= 2.0;
+            amplitude *= 0.5;
+        }
+        return value;
+    }
+
     void main() {
         vec3 dir = normalize(vDirection + vec3(0.0, offset, 0.0));
         float h = dir.y;
@@ -86,35 +97,49 @@
             vec2 cloudUV = (uCameraPos.xz + dir.xz * t) / cloudHeight;
             vec2 sunDir2D = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
             
-            // Dim the sun's influence on clouds during a storm
-            float stormDimming = 1.0 - uCloudDensity * 0.8;
+            // Dim direct sun slightly in overcast conditions, but keep plenty of ambient scatter
+            float stormDimming = 1.0 - uCloudDensity * 0.6;
             float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
             
-            // Darken the base cloud colors during a storm
-            vec3 baseShadow = mix(vec3(0.4, 0.45, 0.5), vec3(0.15, 0.18, 0.22), uCloudDensity);
-            vec3 baseBright = mix(vec3(0.9, 0.9, 0.95), vec3(0.4, 0.45, 0.5), uCloudDensity);
+            // Soft, billowy base tones: bright crests remain luminous (0.75-0.95),
+            // and shadows stay soft (0.42-0.55) instead of collapsing into harsh, pitch-black mud
+            vec3 baseBright = mix(vec3(0.95, 0.96, 0.98), vec3(0.72, 0.75, 0.80), uCloudDensity * 0.6);
+            vec3 baseShadow = mix(vec3(0.55, 0.58, 0.64), vec3(0.42, 0.45, 0.50), uCloudDensity * 0.5);
             
-            vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
-            vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
+            // Shadows are softly tinted by the ambient sky and horizon light rather than dropping to pure darkness
+            vec3 ambientTint = mix(effectiveBottom, topColor, 0.35);
+            vec3 shadowColor = mix(baseShadow, ambientTint * 1.1, 0.25);
+            vec3 brightEdgeColor = mix(baseBright, bottomColor * 1.8, sunProximity * 0.75);
             
             // Dramatic sunset/sunrise cloud under-lighting
             float sunsetGlow = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
-            brightEdgeColor = mix(brightEdgeColor, bottomColor * 3.0, sunsetGlow * stormDimming);
+            brightEdgeColor = mix(brightEdgeColor, bottomColor * 2.2, sunsetGlow * stormDimming * 0.8);
             
             // Widen the density range for clearer skies and thicker storms
             float densityOffset = (uCloudDensity - 0.5) * 0.6;
             float horizonFade = smoothstep(0.0, 0.15, abs(h));
+            
+            // Contrast softening at high density: multiple scattering in thick overcast softens sharp shadow boundaries
+            float contrastFactor = mix(1.0, 0.65, uCloudDensity);
 
             // -- Layer 1: High Altitude (Cirrus/Altocumulus) --
             // Moves slower, larger scale, slightly more sparse
             vec2 driftHigh = vec2(uTime * 0.015, uTime * 0.0075);
-            float nHigh = fbm((cloudUV + driftHigh) * 3.5);
+            vec2 uvHigh = (cloudUV + driftHigh) * 3.5;
+            float nHigh = fbm(uvHigh);
             float alphaHigh = smoothstep(0.45 - densityOffset, 0.8 - densityOffset, nHigh) * horizonFade;
             
             if (alphaHigh > 0.0) {
-                float nHigh_offset = fbm((cloudUV + driftHigh + sunDir2D * 0.04) * 3.5);
-                float litEdgeHigh = smoothstep(0.1, -0.1, nHigh_offset - nHigh);
-                vec3 cloudColorHigh = mix(shadowColor, brightEdgeColor, litEdgeHigh);
+                // Macro-slope avoids high-frequency noise aliasing and striped ripple artifacts
+                float nHighMacro = fbmMacro(uvHigh);
+                float nHighMacro_offset = fbmMacro(uvHigh + sunDir2D * 0.12);
+                float slopeHigh = nHighMacro - nHighMacro_offset;
+                float litEdgeHigh = smoothstep(-0.15, 0.25, slopeHigh);
+                
+                float lightFactorHigh = mix(0.4, 1.0, litEdgeHigh);
+                lightFactorHigh = mix(0.5, lightFactorHigh, contrastFactor);
+                
+                vec3 cloudColorHigh = mix(shadowColor, brightEdgeColor, lightFactorHigh);
                 float sunRimHigh = pow(sunIntensity, 16.0) * litEdgeHigh * stormDimming;
                 cloudColorHigh += bottomColor * sunRimHigh * 1.5;
                 // Mix high altitude layer first
@@ -124,13 +149,20 @@
             // -- Layer 2: Low Altitude (Cumulus) --
             // Moves faster, normal scale
             vec2 driftLow = vec2(uTime * 0.03, uTime * 0.015);
-            float nLow = fbm((cloudUV + driftLow) * 2.0);
+            vec2 uvLow = (cloudUV + driftLow) * 2.0;
+            float nLow = fbm(uvLow);
             float alphaLow = smoothstep(0.4 - densityOffset, 0.75 - densityOffset, nLow) * horizonFade;
             
             if (alphaLow > 0.0) {
-                float nLow_offset = fbm((cloudUV + driftLow + sunDir2D * 0.06) * 2.0);
-                float litEdgeLow = smoothstep(0.1, -0.1, nLow_offset - nLow);
-                vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, litEdgeLow);
+                float nLowMacro = fbmMacro(uvLow);
+                float nLowMacro_offset = fbmMacro(uvLow + sunDir2D * 0.15);
+                float slopeLow = nLowMacro - nLowMacro_offset;
+                float litEdgeLow = smoothstep(-0.15, 0.25, slopeLow);
+                
+                float lightFactorLow = mix(0.35, 1.0, litEdgeLow);
+                lightFactorLow = mix(0.5, lightFactorLow, contrastFactor);
+                
+                vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, lightFactorLow);
                 float sunRimLow = pow(sunIntensity, 16.0) * litEdgeLow * stormDimming;
                 cloudColorLow += bottomColor * sunRimLow * 2.0;
                 // Mix low altitude layer on top
@@ -172,34 +204,43 @@
             float alphaHorizon = smoothstep(shapeThreshold, shapeThreshold + 0.25, nHorizon) * vFade;
             
             if (alphaHorizon > 0.0) {
-                float stormDimming = 1.0 - uCloudDensity * 0.8;
+                float stormDimming = 1.0 - uCloudDensity * 0.6;
                 float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
                 
-                vec3 baseShadow = mix(vec3(0.4, 0.45, 0.5), vec3(0.15, 0.18, 0.22), uCloudDensity);
-                vec3 baseBright = mix(vec3(0.95, 0.95, 1.0), vec3(0.4, 0.45, 0.5), uCloudDensity);
+                vec3 baseBright = mix(vec3(0.95, 0.96, 0.98), vec3(0.72, 0.75, 0.80), uCloudDensity * 0.6);
+                vec3 baseShadow = mix(vec3(0.55, 0.58, 0.64), vec3(0.42, 0.45, 0.50), uCloudDensity * 0.5);
                 
-                vec3 shadowColor = mix(topColor * 0.7, baseShadow, 0.4);
-                vec3 brightEdgeColor = mix(baseBright, bottomColor * 2.0, sunProximity);
+                vec3 ambientTint = mix(effectiveBottom, topColor, 0.35);
+                vec3 shadowColor = mix(baseShadow, ambientTint * 1.1, 0.25);
+                vec3 brightEdgeColor = mix(baseBright, bottomColor * 1.8, sunProximity * 0.75);
                 
                 // Dramatic sunset/sunrise horizon cloud under-lighting
                 float sunsetGlowHorizon = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
-                brightEdgeColor = mix(brightEdgeColor, bottomColor * 3.0, sunsetGlowHorizon * stormDimming);
+                brightEdgeColor = mix(brightEdgeColor, bottomColor * 2.2, sunsetGlowHorizon * stormDimming * 0.8);
                 
                 // Dynamic volumetric shadowing based on true sun position
                 vec3 tangentU = normalize(vec3(dir.z, 0.0, -dir.x));
                 vec3 tangentV = cross(dir, tangentU);
                 vec2 sunOffsetDir = vec2(dot(sunDirection, tangentU), dot(sunDirection, tangentV));
                 
-                vec2 dynamicOffset = sunOffsetDir * 0.05 * uvScale;
+                vec2 dynamicOffset = sunOffsetDir * 0.06 * uvScale;
                 
-                // Apply the seam blending to the shadowing offset as well
-                float nOffset1 = fbm(horizonUV1 + dynamicOffset);
-                float nOffset2 = fbm(horizonUV2 + dynamicOffset);
+                // Use macro noise to prevent high-frequency ripple artifacts
+                float nMacro1 = fbmMacro(horizonUV1);
+                float nMacro2 = fbmMacro(horizonUV2);
+                float nHorizonMacro = mix(nMacro1, nMacro2, w);
+                
+                float nOffset1 = fbmMacro(horizonUV1 + dynamicOffset);
+                float nOffset2 = fbmMacro(horizonUV2 + dynamicOffset);
                 float nHorizon_offset = mix(nOffset1, nOffset2, w);
                 
-                float litEdgeHorizon = smoothstep(0.05, -0.05, nHorizon_offset - nHorizon);
+                float slopeHorizon = nHorizonMacro - nHorizon_offset;
+                float litEdgeHorizon = smoothstep(-0.15, 0.25, slopeHorizon);
                 
-                vec3 cloudColorHorizon = mix(shadowColor, brightEdgeColor, litEdgeHorizon);
+                float lightFactorHorizon = mix(0.4, 1.0, litEdgeHorizon);
+                lightFactorHorizon = mix(0.5, lightFactorHorizon, mix(1.0, 0.65, uCloudDensity));
+                
+                vec3 cloudColorHorizon = mix(shadowColor, brightEdgeColor, lightFactorHorizon);
                 
                 float sunRimHorizon = pow(sunIntensity, 16.0) * litEdgeHorizon * stormDimming;
                 cloudColorHorizon += bottomColor * sunRimHorizon * 2.0;
