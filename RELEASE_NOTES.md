@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.9
+
+- **Environment:** Added world origin shifting to support infinite terrain expansion and eliminate floating-point precision issues.
+- **Performance:** Implemented chunk geometry pooling to recycle terrain buffers and pre-allocated vector scratch objects to eliminate garbage collection stutter.
+- **Architecture:** Extracted input handling into a dedicated input manager.
+
 ## 0.9.8
 
 - **Achievements:** Implemented a full achievements system with a progress tracking UI overlay. Added session and lifetime distance tracking, persistent storage, and 18 unique unlockable achievements based on flight maneuvers, exploration, and events.
