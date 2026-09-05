@@ -4014,23 +4014,26 @@ function animate() {
     _volcanoPos.y = planeGroup.position.y;
     const distToVolcano = planeGroup.position.distanceTo(_volcanoPos);
     if (distToVolcano < 800) {
-      Achievements.unlock('pura_vida');
-      console.log(
-        '[Volcano flyover] Position: X = -5000.0, Z = 5000.0 (1.00 West, 1.00 South)'
-      );
+      if (Achievements.unlock('pura_vida')) {
+        console.log(
+          '[Volcano flyover] Position: X = -5000.0, Z = 5000.0 (1.00 West, 1.00 South)'
+        );
+      }
     }
 
     // 2. Alien Lands - East (X > 50000) for Xen, West (X < -50000) for Westworld
     if (planeGroup.position.x > 50000) {
-      Achievements.unlock('xen');
-      console.log(
-        `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} East, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
-      );
+      if (Achievements.unlock('xen')) {
+        console.log(
+          `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} East, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
+        );
+      }
     } else if (planeGroup.position.x < -50000) {
-      Achievements.unlock('westworld');
-      console.log(
-        `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} West, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
-      );
+      if (Achievements.unlock('westworld')) {
+        console.log(
+          `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} West, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
+        );
+      }
     }
   }
 
@@ -4380,67 +4383,6 @@ function animate() {
     if (planeGroup.position.distanceToSquared(_lastChunkUpdatePos) > 2500) {
       updateChunks();
       _lastChunkUpdatePos.copy(planeGroup.position);
-    }
-
-    // Floating origin shift
-    const SHIFT_THRESHOLD = 2000;
-    const shiftTarget = window.isFreeCamera ? camera : planeGroup;
-    if (
-      Math.abs(shiftTarget.position.x) > SHIFT_THRESHOLD ||
-      Math.abs(shiftTarget.position.z) > SHIFT_THRESHOLD
-    ) {
-      const CHUNK_SIZE = 10000;
-      const dx = Math.round(shiftTarget.position.x / CHUNK_SIZE);
-      const dz = Math.round(shiftTarget.position.z / CHUNK_SIZE);
-
-      const shiftX = dx * CHUNK_SIZE;
-      const shiftZ = dz * CHUNK_SIZE;
-
-      // Shift camera and player
-      planeGroup.position.x -= shiftX;
-      planeGroup.position.z -= shiftZ;
-      camera.position.x -= shiftX;
-      camera.position.z -= shiftZ;
-
-      _lastChunkUpdatePos.x -= shiftX;
-      _lastChunkUpdatePos.z -= shiftZ;
-
-      _currentLookTarget.x -= shiftX;
-      _currentLookTarget.z -= shiftZ;
-
-      if (typeof _virtualCameraPos !== 'undefined') {
-        _virtualCameraPos.x -= shiftX;
-        _virtualCameraPos.z -= shiftZ;
-      }
-
-      // Shift particles
-      if (typeof trailParticles !== 'undefined')
-        trailParticles.forEach((p) => {
-          p.mesh.position.x -= shiftX;
-          p.mesh.position.z -= shiftZ;
-        });
-      if (typeof smokeParticles !== 'undefined')
-        smokeParticles.forEach((p) => {
-          p.mesh.position.x -= shiftX;
-          p.mesh.position.z -= shiftZ;
-        });
-      if (typeof cloudParticles !== 'undefined')
-        cloudParticles.forEach((p) => {
-          p.mesh.position.x -= shiftX;
-          p.mesh.position.z -= shiftZ;
-        });
-      if (typeof fireworks !== 'undefined')
-        fireworks.forEach((p) => {
-          p.mesh.position.x -= shiftX;
-          p.mesh.position.z -= shiftZ;
-        });
-
-      // Trigger terrain shift
-      if (typeof window.shiftOrigin === 'function') {
-        window.shiftOrigin(dx, dz);
-      }
-
-      console.log('Floating origin shifted by', dx, dz, 'chunks');
     }
   }
 

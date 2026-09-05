@@ -3441,8 +3441,6 @@ function getBiome(x, z) {
 }
 
 function getElevation(x, z) {
-  x += window.worldOriginOffsetX || 0;
-  z += window.worldOriginOffsetZ || 0;
   let n = ChillFlightLogic.getElevation(
     x,
     z,
@@ -3536,2628 +3534,2535 @@ function generateChunk(chunkX, chunkZ) {
   );
   scene.add(group);
 
-  // Start background generation in the next macro-task so the chunk map registers it first
-  setTimeout(buildChunk, 0);
-  return group;
+  const rng = ChillFlightLogic.chunkRng(chunkX, chunkZ);
+  const isCustom = !!ChillFlightLogic.customMap;
 
-  async function buildChunk() {
-    const rng = ChillFlightLogic.chunkRng(chunkX, chunkZ);
-    const isCustom = !!ChillFlightLogic.customMap;
+  const elevationCache = new Map();
+  function getCachedElevation(x, z) {
+    // Round to 1 decimal place for the key to handle slight floating point variances
+    const key = Math.round(x * 10) + '_' + Math.round(z * 10);
+    if (elevationCache.has(key)) return elevationCache.get(key);
+    const h = getElevation(x, z);
+    elevationCache.set(key, h);
+    return h;
+  }
 
-    const elevationCache = new Map();
-    function getCachedElevation(x, z) {
-      // Round to 1 decimal place for the key to handle slight floating point variances
-      const key = Math.round(x * 10) + '_' + Math.round(z * 10);
-      if (elevationCache.has(key)) return elevationCache.get(key);
-      const h = getElevation(x, z);
-      elevationCache.set(key, h);
-      return h;
-    }
+  // 1. Generate Terrain Mesh
+  let geometry;
+  if (
+    _terrainGeometryPool.length > 0 &&
+    _terrainGeometryPool[_terrainGeometryPool.length - 1].parameters
+      .widthSegments === SEGMENTS
+  ) {
+    geometry = _terrainGeometryPool.pop();
+  } else {
+    geometry = new THREE.PlaneGeometry(
+      CHUNK_SIZE,
+      CHUNK_SIZE,
+      SEGMENTS,
+      SEGMENTS
+    );
+    geometry.rotateX(-Math.PI / 2);
+    geometry.setAttribute(
+      'color',
+      new THREE.BufferAttribute(
+        new Float32Array(geometry.attributes.position.count * 3),
+        3
+      )
+    );
+  }
+  geometry.userData = {unique: true, poolType: 'terrain'};
 
-    // 1. Generate Terrain Mesh
-    let geometry;
-    if (
-      _terrainGeometryPool.length > 0 &&
-      _terrainGeometryPool[_terrainGeometryPool.length - 1].parameters
-        .widthSegments === SEGMENTS
-    ) {
-      geometry = _terrainGeometryPool.pop();
-    } else {
-      geometry = new THREE.PlaneGeometry(
-        CHUNK_SIZE,
-        CHUNK_SIZE,
-        SEGMENTS,
-        SEGMENTS
-      );
-      geometry.rotateX(-Math.PI / 2);
-      geometry.setAttribute(
-        'color',
-        new THREE.BufferAttribute(
-          new Float32Array(geometry.attributes.position.count * 3),
-          3
-        )
-      );
-    }
-    geometry.userData = {unique: true, poolType: 'terrain'};
+  const positions = geometry.attributes.position.array;
+  const colors = geometry.attributes.color.array;
+  let colorIdx = 0;
+  const _tempColorObj = new THREE.Color();
 
-    const positions = geometry.attributes.position.array;
-    const colors = geometry.attributes.color.array;
-    let colorIdx = 0;
-    const _tempColorObj = new THREE.Color();
+  const worldOffsetX = chunkX * CHUNK_SIZE;
+  const worldOffsetZ = chunkZ * CHUNK_SIZE;
 
-    const worldOffsetX = chunkX * CHUNK_SIZE;
-    const worldOffsetZ = chunkZ * CHUNK_SIZE;
+  const treePositions = []; // Pines (Snow/Mountain)
+  const deciduousTreePositions = []; // Standard green oak
+  const tallDeciduousTreePositions = []; // Tall green oak
+  const palmTreePositions = []; // Tropical
+  const deadTreePositions = []; // Desert
+  const snowTreePositions = [];
+  const autumnTree1Positions = [];
+  const autumnTree2Positions = [];
+  const autumnTree3Positions = [];
+  const cherryTreePositions = [];
+  const yellowCortezTreePositions = [];
+  const japaneseMapleTreePositions = [];
+  const housePositions = [];
+  const twoStoryHousePositions = [];
+  const strawHutPositions = [];
+  const windmillPositions = [];
+  let lighthousePos = null;
+  const isMontaukChunk = chunkX === 5 && chunkZ === 2;
+  let bestMontaukPos = null;
+  let fallbackMontaukPos = null;
+  const pierPositions = [];
+  const campfirePositions = [];
+  const chimneySmokePositions = [];
+  const sailboatPositions = [];
+  const pirateShipPositions = [];
+  const icebergPositions = [];
+  const iceFloePositions = [];
+  const penguinPositions = [];
+  const rockPositions = [];
+  const snowRockPositions = [];
+  const desertRockPositions = [];
+  const cactusPositions = [];
+  const snowmanPositions = [];
+  const lilyPadPositions = [];
+  const bushPositions = [];
+  const pagodaPositions = [];
+  const barnPositions = [];
+  const monasteryPositions = [];
+  const castleRuinsPositions = [];
+  const rockArchPositions = [];
+  const rockArchGrassPositions = [];
+  let hasWater = false;
 
-    const treePositions = []; // Pines (Snow/Mountain)
-    const deciduousTreePositions = []; // Standard green oak
-    const tallDeciduousTreePositions = []; // Tall green oak
-    const palmTreePositions = []; // Tropical
-    const deadTreePositions = []; // Desert
-    const snowTreePositions = [];
-    const autumnTree1Positions = [];
-    const autumnTree2Positions = [];
-    const autumnTree3Positions = [];
-    const cherryTreePositions = [];
-    const yellowCortezTreePositions = [];
-    const japaneseMapleTreePositions = [];
-    const housePositions = [];
-    const twoStoryHousePositions = [];
-    const strawHutPositions = [];
-    const windmillPositions = [];
-    let lighthousePos = null;
-    const isMontaukChunk = chunkX === 5 && chunkZ === 2;
-    let bestMontaukPos = null;
-    let fallbackMontaukPos = null;
-    const pierPositions = [];
-    const campfirePositions = [];
-    const chimneySmokePositions = [];
-    const sailboatPositions = [];
-    const pirateShipPositions = [];
-    const icebergPositions = [];
-    const iceFloePositions = [];
-    const penguinPositions = [];
-    const rockPositions = [];
-    const snowRockPositions = [];
-    const desertRockPositions = [];
-    const cactusPositions = [];
-    const snowmanPositions = [];
-    const lilyPadPositions = [];
-    const bushPositions = [];
-    const pagodaPositions = [];
-    const barnPositions = [];
-    const monasteryPositions = [];
-    const castleRuinsPositions = [];
-    const rockArchPositions = [];
-    const rockArchGrassPositions = [];
-    let hasWater = false;
+  // Normalize density so higher SEGMENTS doesn't mean more trees/houses/etc
+  const densityFactor = 40 / SEGMENTS;
+  const densityScale = densityFactor * densityFactor;
+  let maxChunkHeight = WATER_LEVEL;
 
-    // Normalize density so higher SEGMENTS doesn't mean more trees/houses/etc
-    const densityFactor = 40 / SEGMENTS;
-    const densityScale = densityFactor * densityFactor;
-    let maxChunkHeight = WATER_LEVEL;
+  for (let i = 0; i < positions.length; i += 3) {
+    const localX = positions[i];
+    const localZ = positions[i + 2];
+    const worldX = worldOffsetX + localX;
+    const worldZ = worldOffsetZ + localZ;
+    const isAlienLand = Math.abs(worldX) > 25000;
 
-    for (let i = 0; i < positions.length; i += 3) {
-      if (i > 0 && i % 1500 === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-      const localX = positions[i];
-      const localZ = positions[i + 2];
-      const worldX = worldOffsetX + localX;
-      const worldZ = worldOffsetZ + localZ;
-      const isAlienLand = Math.abs(worldX) > 25000;
+    const height = getCachedElevation(worldX, worldZ);
+    positions[i + 1] = height;
+    if (height > maxChunkHeight) maxChunkHeight = height;
 
-      const height = getCachedElevation(worldX, worldZ);
-      positions[i + 1] = height;
-      if (height > maxChunkHeight) maxChunkHeight = height;
+    // --- ORGANIC TEXTURING & SLOPE LOGIC ---
+    // 1. Calculate local slope (quick approximation)
+    const sampleOffset = 4.0;
+    const hRight = getCachedElevation(worldX + sampleOffset, worldZ);
+    const hDown = getCachedElevation(worldX, worldZ + sampleOffset);
+    const slopeX = (hRight - height) / sampleOffset;
+    const slopeZ = (hDown - height) / sampleOffset;
+    const slope = Math.sqrt(slopeX * slopeX + slopeZ * slopeZ);
+    const slopeFactor = Math.min(1, slope * 0.5); // [0, 1] — steeper means higher factor
 
-      // --- ORGANIC TEXTURING & SLOPE LOGIC ---
-      // 1. Calculate local slope (quick approximation)
-      const sampleOffset = 4.0;
-      const hRight = getCachedElevation(worldX + sampleOffset, worldZ);
-      const hDown = getCachedElevation(worldX, worldZ + sampleOffset);
-      const slopeX = (hRight - height) / sampleOffset;
-      const slopeZ = (hDown - height) / sampleOffset;
-      const slope = Math.sqrt(slopeX * slopeX + slopeZ * slopeZ);
-      const slopeFactor = Math.min(1, slope * 0.5); // [0, 1] — steeper means higher factor
+    // 2. Procedural Mottling (Multi-octave patches)
+    const mottle1 = simplex.noise2D(worldX * 0.002, worldZ * 0.002);
+    const mottle2 = simplex.noise2D(worldX * 0.01, worldZ * 0.01) * 0.3;
+    const mottle = (mottle1 + mottle2 + 0.5) * 0.5; // Shifted [0, 1] range approx
 
-      // 2. Procedural Mottling (Multi-octave patches)
-      const mottle1 = simplex.noise2D(
-        (worldX + (window.worldOriginOffsetX || 0)) * 0.002,
-        worldZ * 0.002
-      );
-      const mottle2 =
-        simplex.noise2D(
-          (worldX + (window.worldOriginOffsetX || 0)) * 0.01,
-          worldZ * 0.01
-        ) * 0.3;
-      const mottle = (mottle1 + mottle2 + 0.5) * 0.5; // Shifted [0, 1] range approx
+    // 3. High-frequency micro-grain
+    const grain = simplex.noise2D(worldX * 0.2, worldZ * 0.2) * 0.05;
 
-      // 3. High-frequency micro-grain
-      const grain =
-        simplex.noise2D(
-          (worldX + (window.worldOriginOffsetX || 0)) * 0.2,
-          worldZ * 0.2
-        ) * 0.05;
+    // --- EXTREME ZONE FACTOR (East/West beyond 10 degrees) ---
+    const extremeEdgeWorld = 50000;
+    const absWorldX = Math.abs(worldX);
+    const extremeZoneFactor = Math.max(
+      0,
+      Math.min(1, (absWorldX - extremeEdgeWorld) / 15000)
+    );
+    // Smoothstep for a less abrupt transition
+    const extremeBlend =
+      extremeZoneFactor * extremeZoneFactor * (3 - 2 * extremeZoneFactor);
 
-      // --- EXTREME ZONE FACTOR (East/West beyond 10 degrees) ---
-      const extremeEdgeWorld = 50000;
-      const absWorldX = Math.abs(worldX);
-      const extremeZoneFactor = Math.max(
-        0,
-        Math.min(1, (absWorldX - extremeEdgeWorld) / 15000)
-      );
-      // Smoothstep for a less abrupt transition
-      const extremeBlend =
-        extremeZoneFactor * extremeZoneFactor * (3 - 2 * extremeZoneFactor);
+    // --- BIOME FACTORS ---
+    const northInfluence = Math.max(0, -worldZ / 5000);
+    // Add more noise to biome transitions to avoid smooth boring circles
+    const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
+    const biomeNoise = simplex.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
 
-      // --- BIOME FACTORS ---
-      const northInfluence = Math.max(0, -worldZ / 5000);
-      // Add more noise to biome transitions to avoid smooth boring circles
-      const noisePath = simplex.noise2D(
-        (worldX + (window.worldOriginOffsetX || 0)) * 0.0001,
-        worldZ * 0.0001
-      );
-      const biomeNoise =
-        simplex.noise2D(
-          (worldX + (window.worldOriginOffsetX || 0)) * 0.0005,
-          worldZ * 0.0005
-        ) * 0.1;
+    const snowRaw = Math.max(
+      0,
+      Math.min(1, (northInfluence + noisePath * 0.05 + biomeNoise - 1.0) * 1.5)
+    );
+    const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
-      const snowRaw = Math.max(
-        0,
-        Math.min(
-          1,
-          (northInfluence + noisePath * 0.05 + biomeNoise - 1.0) * 1.5
-        )
-      );
-      const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
+    const southInfluence = Math.max(0, worldZ / 5000);
+    const desertRaw = Math.max(
+      0,
+      Math.min(1, (southInfluence + noisePath * 0.05 - biomeNoise - 2.0) * 1.0)
+    );
+    const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
 
-      const southInfluence = Math.max(0, worldZ / 5000);
-      const desertRaw = Math.max(
-        0,
-        Math.min(
-          1,
-          (southInfluence + noisePath * 0.05 - biomeNoise - 2.0) * 1.0
-        )
-      );
-      const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
+    const temperature = noisePath - northInfluence * 1.5;
+    const isSnowBiome = snowFactor > 0.5;
 
-      const temperature = noisePath - northInfluence * 1.5;
-      const isSnowBiome = snowFactor > 0.5;
+    // East code beachfront
+    const eastCoastFactor = Math.max(0, Math.min(1, (worldX + 2000) / 2000));
+    const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 10;
 
-      // East code beachfront
-      const eastCoastFactor = Math.max(0, Math.min(1, (worldX + 2000) / 2000));
-      const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 10;
+    const isForest =
+      simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005) > 0.2;
+    const autumnNoise = simplex.noise2D(
+      worldX * 0.0003 + 500,
+      worldZ * 0.0003 + 500
+    );
+    const cherryNoise = simplex.noise2D(
+      worldX * 0.0005 + 1000,
+      worldZ * 0.0005 + 1000
+    );
 
-      const isForest =
-        simplex.noise2D(
-          (worldX + (window.worldOriginOffsetX || 0)) * 0.005 + 100,
-          worldZ * 0.005
-        ) > 0.2;
-      const autumnNoise = simplex.noise2D(
-        (worldX + (window.worldOriginOffsetX || 0)) * 0.0003 + 500,
-        worldZ * 0.0003 + 500
-      );
-      const cherryNoise = simplex.noise2D(
-        (worldX + (window.worldOriginOffsetX || 0)) * 0.0005 + 1000,
-        worldZ * 0.0005 + 1000
-      );
+    // --- COLOR ASSIGNMENT & FEATURE SPAWNING ---
+    if (isCustom) {
+      let finalHeight = height;
+      // Altitude mapping (38.0 -> 125.5 range)
+      if (height <= WATER_LEVEL + 5.0) {
+        hasWater = true;
+        _tempColorObj.copy(_colorSand);
 
-      // --- COLOR ASSIGNMENT & FEATURE SPAWNING ---
-      if (isCustom) {
-        let finalHeight = height;
-        // Altitude mapping (38.0 -> 125.5 range)
-        if (height <= WATER_LEVEL + 5.0) {
-          hasWater = true;
-          _tempColorObj.copy(_colorSand);
-
-          // Smooth dip from 5 units deep at water level to 0 at +5 units elevation
-          // This ensures that shallow land stays underwater and avoids Z-fighting.
-          const t = Math.max(0, Math.min(1, (height - WATER_LEVEL) / 5.0));
-          const dip = 5.0 * (1.0 - t);
-          finalHeight = height - dip;
-        } else if (height > 105.0) {
-          _tempColorObj.copy(_colorMountainTint);
-        } else {
-          _tempColorObj.copy(isForest ? _colorForest : _colorPlains);
-          // Apply subtle mottling for custom maps too
-          _tempColorObj.lerp(_colorBlack, mottle * 0.1);
-        }
-        positions[i + 1] = finalHeight;
+        // Smooth dip from 5 units deep at water level to 0 at +5 units elevation
+        // This ensures that shallow land stays underwater and avoids Z-fighting.
+        const t = Math.max(0, Math.min(1, (height - WATER_LEVEL) / 5.0));
+        const dip = 5.0 * (1.0 - t);
+        finalHeight = height - dip;
+      } else if (height > 105.0) {
+        _tempColorObj.copy(_colorMountainTint);
       } else {
-        if (height <= sandMaxHeight) {
-          if (height <= WATER_LEVEL) {
-            hasWater = true;
-            if (_enableObjects) {
-              if (rng() < 0.0001 * densityScale) {
-                // Pirate Ship spawn
+        _tempColorObj.copy(isForest ? _colorForest : _colorPlains);
+        // Apply subtle mottling for custom maps too
+        _tempColorObj.lerp(_colorBlack, mottle * 0.1);
+      }
+      positions[i + 1] = finalHeight;
+    } else {
+      if (height <= sandMaxHeight) {
+        if (height <= WATER_LEVEL) {
+          hasWater = true;
+          if (_enableObjects) {
+            if (rng() < 0.0001 * densityScale) {
+              // Pirate Ship spawn
+              if (
+                height <= WATER_LEVEL + 0.1 && // depth check (compatible with custom maps)
+                snowFactor < 0.2 // avoid frozen north
+              ) {
+                // open water check
+                const eN = getCachedElevation(worldX, worldZ - 300);
+                const eS = getCachedElevation(worldX, worldZ + 300);
+                const eE = getCachedElevation(worldX + 300, worldZ);
+                const eW = getCachedElevation(worldX - 300, worldZ);
                 if (
-                  height <= WATER_LEVEL + 0.1 && // depth check (compatible with custom maps)
-                  snowFactor < 0.2 // avoid frozen north
+                  eN <= WATER_LEVEL + 0.1 &&
+                  eS <= WATER_LEVEL + 0.1 &&
+                  eE <= WATER_LEVEL + 0.1 &&
+                  eW <= WATER_LEVEL + 0.1
                 ) {
-                  // open water check
-                  const eN = getCachedElevation(worldX, worldZ - 300);
-                  const eS = getCachedElevation(worldX, worldZ + 300);
-                  const eE = getCachedElevation(worldX + 300, worldZ);
-                  const eW = getCachedElevation(worldX - 300, worldZ);
-                  if (
-                    eN <= WATER_LEVEL + 0.1 &&
-                    eS <= WATER_LEVEL + 0.1 &&
-                    eE <= WATER_LEVEL + 0.1 &&
-                    eW <= WATER_LEVEL + 0.1
-                  ) {
-                    pirateShipPositions.push({
-                      x: localX,
-                      y: WATER_LEVEL,
-                      z: localZ,
-                      rotY: rng() * Math.PI * 2,
-                      bodyId: Math.floor(rng() * 4), // 4 sail colors
-                    });
-                  }
+                  pirateShipPositions.push({
+                    x: localX,
+                    y: WATER_LEVEL,
+                    z: localZ,
+                    rotY: rng() * Math.PI * 2,
+                    bodyId: Math.floor(rng() * 4), // 4 sail colors
+                  });
                 }
-              } else if (rng() < 0.0005 * densityScale) {
-                // Very rare sailboat
-                sailboatPositions.push({
+              }
+            } else if (rng() < 0.0005 * densityScale) {
+              // Very rare sailboat
+              sailboatPositions.push({
+                x: localX,
+                y: WATER_LEVEL,
+                z: localZ,
+                rotY: rng() * Math.PI * 2,
+              });
+            } else if (snowFactor > 0.5) {
+              if (rng() < 0.0005 * densityScale) {
+                // Iceberg
+                icebergPositions.push({
                   x: localX,
                   y: WATER_LEVEL,
                   z: localZ,
                   rotY: rng() * Math.PI * 2,
                 });
-              } else if (snowFactor > 0.5) {
-                if (rng() < 0.0005 * densityScale) {
-                  // Iceberg
-                  icebergPositions.push({
-                    x: localX,
-                    y: WATER_LEVEL,
-                    z: localZ,
-                    rotY: rng() * Math.PI * 2,
-                  });
-                } else if (rng() < 0.00075 * densityScale) {
-                  // Ice floe
-                  iceFloePositions.push({
-                    x: localX,
-                    y: WATER_LEVEL,
-                    z: localZ,
-                    rotY: rng() * Math.PI * 2,
-                  });
-                  // 0-3 penguins on the ice floe (sometimes none)
-                  const numPenguins = Math.floor(rng() * 4);
-                  for (let p = 0; p < numPenguins; p++) {
-                    penguinPositions.push({
-                      x: localX + (rng() - 0.5) * 12,
-                      y: WATER_LEVEL + 3,
-                      z: localZ + (rng() - 0.5) * 12,
-                      rotY: rng() * Math.PI * 2,
-                    });
-                  }
-                }
-              }
-              if (
-                snowFactor < 0.1 &&
-                desertFactor < 0.1 &&
-                getBiome(worldX, worldZ) > -0.15 &&
-                rng() < 0.015 * densityScale
-              ) {
-                lilyPadPositions.push({
+              } else if (rng() < 0.00075 * densityScale) {
+                // Ice floe
+                iceFloePositions.push({
                   x: localX,
                   y: WATER_LEVEL,
                   z: localZ,
                   rotY: rng() * Math.PI * 2,
+                });
+                // 0-3 penguins on the ice floe (sometimes none)
+                const numPenguins = Math.floor(rng() * 4);
+                for (let p = 0; p < numPenguins; p++) {
+                  penguinPositions.push({
+                    x: localX + (rng() - 0.5) * 12,
+                    y: WATER_LEVEL + 3,
+                    z: localZ + (rng() - 0.5) * 12,
+                    rotY: rng() * Math.PI * 2,
+                  });
+                }
+              }
+            }
+            if (
+              snowFactor < 0.1 &&
+              desertFactor < 0.1 &&
+              getBiome(worldX, worldZ) > -0.15 &&
+              rng() < 0.015 * densityScale
+            ) {
+              lilyPadPositions.push({
+                x: localX,
+                y: WATER_LEVEL,
+                z: localZ,
+                rotY: rng() * Math.PI * 2,
+              });
+            }
+          }
+          positions[i + 1] = height - 5;
+          _tempColorObj.copy(_colorSand);
+          if (snowFactor > 0)
+            _tempColorObj.lerp(_colorSandSnowTint, snowFactor);
+          if (desertFactor > 0)
+            _tempColorObj.lerp(_colorDesertSand, desertFactor);
+        } else if (height <= WATER_LEVEL + 0.5) {
+          _tempColorObj.copy(_colorFoam);
+          if (snowFactor > 0) _tempColorObj.lerp(_colorSnow, snowFactor);
+        } else {
+          _tempColorObj.copy(_colorSand);
+          if (snowFactor > 0)
+            _tempColorObj.lerp(_colorUpperSandSnowTint, snowFactor);
+          if (desertFactor > 0)
+            _tempColorObj.lerp(_colorDesertSand, desertFactor);
+
+          // Mottling for sand (adding some dark/light patches)
+          if (!isCustom && mottle > 0.6)
+            _tempColorObj.lerp(_colorSandMottleHigh, (mottle - 0.6) * 0.5);
+          if (!isCustom && mottle < 0.4)
+            _tempColorObj.lerp(_colorSandMottleLow, (0.4 - mottle) * 0.5);
+        }
+      } else if (
+        height > MOUNTAIN_LEVEL ||
+        (snowFactor > 0.5 && height > MOUNTAIN_LEVEL - 50)
+      ) {
+        // Massive sierra gets highly refined, patchy-to-solid snow OR Arizona desert rock
+        const sierraSnowNoise1 = simplex.noise2D(
+          worldX * 0.003,
+          worldZ * 0.003
+        );
+        const sierraSnowNoise2 =
+          simplex.noise2D(worldX * 0.012, worldZ * 0.012) * 0.5;
+        const organicNoise = sierraSnowNoise1 + sierraSnowNoise2;
+
+        const isSouth = worldZ > 0;
+        const canHaveSnow = !isSouth;
+
+        if (height > 600) {
+          const baseThreshold = 1450 + organicNoise * 400;
+          if (
+            canHaveSnow &&
+            (height > baseThreshold || (height > 2000 && organicNoise > -0.5))
+          ) {
+            _tempColorObj.copy(_colorSnow);
+          } else {
+            if (isSouth) {
+              _tempColorObj.setHex(0xc24b2b); // Reddish mountain rock
+              if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
+              // Arizona mottling: subtle dark red patches
+              if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.2);
+            } else {
+              _tempColorObj.copy(
+                desertFactor > 0.5
+                  ? _colorMountainDesertTint
+                  : _colorMountainTint
+              );
+            }
+          }
+        } else {
+          const rockStartHeight = MOUNTAIN_LEVEL + 500 + organicNoise * 100;
+          if (canHaveSnow && height > MOUNTAIN_LEVEL + 50 + organicNoise * 60) {
+            _tempColorObj.copy(_colorSnow);
+          } else if (height > rockStartHeight) {
+            if (isSouth) {
+              _tempColorObj.setHex(0xc24b2b);
+              if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
+              if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.2);
+            } else {
+              _tempColorObj.copy(
+                desertFactor > 0.5
+                  ? _colorMountainDesertTint
+                  : _colorMountainTint
+              );
+            }
+          } else {
+            if (desertFactor > 0.3) {
+              _tempColorObj.copy(_colorDesertSand);
+              if (height > WATER_LEVEL + 5)
+                _tempColorObj.lerp(_colorSandMottleHigh, 0.3);
+              // Desert mottling
+              _tempColorObj.lerp(_colorDesertMottle, mottle * 0.2);
+            } else if (snowFactor > 0.4) {
+              _tempColorObj.copy(_colorForestSnowTint);
+            } else {
+              _tempColorObj.copy(_colorForest);
+              // Forest mottling: darker green patches
+              if (!isCustom) _tempColorObj.lerp(_colorForestDark, mottle * 0.3);
+            }
+          }
+        }
+      } else {
+        // --- STANDARD LAND COLORING (Plains/Forest) ---
+        if (isForest) {
+          _tempColorObj.copy(_colorForest);
+          if (snowFactor > 0)
+            _tempColorObj.lerp(_colorForestSnowTint, snowFactor);
+          if (desertFactor > 0)
+            _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
+
+          // Mottling for Forest: Mix in some darker evergreens and lighter mossy patches
+          _tempColorObj.lerp(_colorForestDeep, mottle * 0.4);
+          if (mottle < 0.3) _tempColorObj.lerp(_colorForestLight, 0.2);
+        } else {
+          _tempColorObj.copy(_colorPlains);
+          if (snowFactor > 0)
+            _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
+          if (desertFactor > 0)
+            _tempColorObj.lerp(_colorDesertSand, desertFactor);
+
+          // Mottling for Plains: Dry grass vs lush grass
+          _tempColorObj.lerp(_colorPlainsDark, mottle * 0.4);
+          if (mottle > 0.8) _tempColorObj.lerp(_colorPlainsBright, 0.3);
+        }
+      }
+    }
+
+    // --- EXTREME ZONE COLOR BLEND ---
+    // Gradually paint alien colors over whatever biome is underneath,
+    // so the transition feels organic rather than a hard cut.
+    if (extremeBlend > 0) {
+      const isEast = worldX > 0;
+      const colorWater = isEast ? _colorEasternWater : _colorWesternWater;
+      const colorCliff = isEast ? _colorEasternCliff : _colorWesternCliff;
+      const colorPeak = isEast ? _colorEasternPeak : _colorWesternPeak;
+      const colorRock = isEast ? _colorEasternRock : _colorWesternRock;
+      const colorLowland = isEast ? _colorEasternLowland : _colorWesternLowland;
+
+      const baseLandColor = slopeFactor > 0.4 ? colorRock : colorLowland;
+
+      if (height <= WATER_LEVEL) {
+        // Neon cyan alien ocean / Magenta liquid
+        _tempColorObj.lerp(colorWater, extremeBlend * 0.85);
+      } else if (height < WATER_LEVEL + 4) {
+        // Smoothly bleed the glowing water color onto the immediate shoreline
+        const bleed = 1.0 - (height - WATER_LEVEL) / 4.0;
+        const shoreColor = baseLandColor.clone().lerp(colorWater, bleed);
+        _tempColorObj.lerp(shoreColor, extremeBlend * 0.85);
+      } else if (height > MOUNTAIN_LEVEL) {
+        // Acid yellow / indigo cliffs / White crystal / Fiery faults
+        const peakFrac = Math.min(1, (height - MOUNTAIN_LEVEL) / 400);
+        _tempColorObj.lerp(colorCliff, extremeBlend * 0.7);
+        _tempColorObj.lerp(colorPeak, extremeBlend * peakFrac * 0.9);
+      } else {
+        // Mid-elevation: obsidian rock on slopes, teal lowland flat areas
+        _tempColorObj.lerp(baseLandColor, extremeBlend * 0.75);
+      }
+    }
+
+    // --- FROZEN NORTH ZONE ---
+    let isFrozen = false;
+    const freezeBoundaryZ =
+      -20000 + simplex.noise2D(worldX * 0.0002, worldZ * 0.0002) * 2000;
+    if (worldZ < freezeBoundaryZ) {
+      const freezeFactor = Math.max(
+        0,
+        Math.min(1, (freezeBoundaryZ - worldZ) / 5000)
+      );
+      if (freezeFactor > 0) {
+        isFrozen = freezeFactor > 0.5;
+
+        // Generate a local mottle for the ice texturing
+        const iceMottle = simplex.noise2D(worldX * 0.01, worldZ * 0.01);
+
+        // Blend everything toward snow, with slight noise variation
+        _tempColorObj.lerp(_colorSnow, freezeFactor);
+        if (iceMottle > 0) {
+          _tempColorObj.lerpHSL(
+            new THREE.Color(0xffffff),
+            iceMottle * 0.15 * freezeFactor
+          );
+        } else {
+          _tempColorObj.lerpHSL(
+            new THREE.Color(0x8a9ea8),
+            -iceMottle * 0.15 * freezeFactor
+          );
+        }
+
+        // Smoothly blend in cyan ice near the water level
+        const iceBlend = Math.max(
+          0,
+          Math.min(1, (WATER_LEVEL + 10 - height) / 10)
+        );
+        if (iceBlend > 0) {
+          _tempColorObj.lerp(_colorIce, freezeFactor * iceBlend);
+        }
+      }
+    }
+
+    // --- LAND TYPE CLASSIFICATION ---
+    const isStandardLand =
+      !isCustom &&
+      height > sandMaxHeight &&
+      height <= MOUNTAIN_LEVEL + (snowFactor > 0.5 ? -50 : 0);
+    const isCustomLand =
+      isCustom && height > WATER_LEVEL + 5.0 && height < 105.0;
+
+    // --- BIOME TINTING (Autumn/Cherry) ---
+    if ((isStandardLand || isCustomLand) && snowFactor < 0.2 && !isFrozen) {
+      if (autumnNoise > 0.35) {
+        const factor = Math.min(1, (autumnNoise - 0.35) / 0.1);
+        const tint = isForest ? _colorAutumnForestTint : _colorAutumnPlainsTint;
+        _tempColorObj.lerp(tint, factor * (isForest ? 0.65 : 0.45));
+      } else if (cherryNoise > 0.55) {
+        const factor = Math.min(1, (cherryNoise - 0.55) / 0.1);
+        const tint = isForest ? _colorCherryForestTint : _colorCherryPlainsTint;
+        _tempColorObj.lerp(tint, factor * (isForest ? 0.45 : 0.3));
+      }
+    }
+
+    const distToVolcano = Math.sqrt(
+      (worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2
+    );
+
+    const isOnRoad = ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0;
+
+    if (
+      _enableObjects &&
+      (isStandardLand || isCustomLand) &&
+      !isFrozen &&
+      !isOnRoad
+    ) {
+      if (isForest) {
+        const treeRoll = rng();
+        if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
+          const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
+          const isSouthOf1N = worldZ > -5000;
+
+          if (distToVolcano < 3000 && rng() < 0.7) {
+            yellowCortezTreePositions.push({x: localX, y: height, z: localZ});
+          } else if (isIsland && isSouthOf1N) {
+            palmTreePositions.push({x: localX, y: height, z: localZ});
+          } else if (
+            snowFactor > 0.4 ||
+            (height > MOUNTAIN_LEVEL - 100 && desertFactor < 0.3)
+          ) {
+            snowTreePositions.push({x: localX, y: height, z: localZ});
+          } else if (desertFactor > 0.6) {
+            deadTreePositions.push({x: localX, y: height, z: localZ});
+          } else if (
+            eastCoastFactor > 0.7 &&
+            height < WATER_LEVEL + 40 &&
+            !isIsland
+          ) {
+            palmTreePositions.push({x: localX, y: height, z: localZ});
+          } else {
+            if (cherryNoise > 0.65) {
+              if (rng() < 0.35) {
+                japaneseMapleTreePositions.push({
+                  x: localX,
+                  y: height,
+                  z: localZ,
+                });
+              } else {
+                cherryTreePositions.push({x: localX, y: height, z: localZ});
+              }
+            } else if (autumnNoise > 0.45) {
+              const variety = rng();
+              if (variety < 0.12)
+                japaneseMapleTreePositions.push({
+                  x: localX,
+                  y: height,
+                  z: localZ,
+                });
+              else if (variety < 0.41)
+                autumnTree1Positions.push({x: localX, y: height, z: localZ});
+              else if (variety < 0.7)
+                autumnTree2Positions.push({x: localX, y: height, z: localZ});
+              else autumnTree3Positions.push({x: localX, y: height, z: localZ});
+            } else {
+              if (rng() < 0.25) {
+                // 25% chance of tall deciduous tree
+                tallDeciduousTreePositions.push({
+                  x: localX,
+                  y: height,
+                  z: localZ,
+                });
+              } else {
+                deciduousTreePositions.push({
+                  x: localX,
+                  y: height,
+                  z: localZ,
                 });
               }
             }
-            positions[i + 1] = height - 5;
-            _tempColorObj.copy(_colorSand);
-            if (snowFactor > 0)
-              _tempColorObj.lerp(_colorSandSnowTint, snowFactor);
-            if (desertFactor > 0)
-              _tempColorObj.lerp(_colorDesertSand, desertFactor);
-          } else if (height <= WATER_LEVEL + 0.5) {
-            _tempColorObj.copy(_colorFoam);
-            if (snowFactor > 0) _tempColorObj.lerp(_colorSnow, snowFactor);
-          } else {
-            _tempColorObj.copy(_colorSand);
-            if (snowFactor > 0)
-              _tempColorObj.lerp(_colorUpperSandSnowTint, snowFactor);
-            if (desertFactor > 0)
-              _tempColorObj.lerp(_colorDesertSand, desertFactor);
-
-            // Mottling for sand (adding some dark/light patches)
-            if (!isCustom && mottle > 0.6)
-              _tempColorObj.lerp(_colorSandMottleHigh, (mottle - 0.6) * 0.5);
-            if (!isCustom && mottle < 0.4)
-              _tempColorObj.lerp(_colorSandMottleLow, (0.4 - mottle) * 0.5);
           }
         } else if (
-          height > MOUNTAIN_LEVEL ||
-          (snowFactor > 0.5 && height > MOUNTAIN_LEVEL - 50)
+          !isAlienLand &&
+          treeRoll < (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale
         ) {
-          // Massive sierra gets highly refined, patchy-to-solid snow OR Arizona desert rock
-          const sierraSnowNoise1 = simplex.noise2D(
-            (worldX + (window.worldOriginOffsetX || 0)) * 0.003,
-            worldZ * 0.003
-          );
-          const sierraSnowNoise2 =
-            simplex.noise2D(
-              (worldX + (window.worldOriginOffsetX || 0)) * 0.012,
-              worldZ * 0.012
-            ) * 0.5;
-          const organicNoise = sierraSnowNoise1 + sierraSnowNoise2;
-
-          const isSouth = worldZ > 0;
-          const canHaveSnow = !isSouth;
-
-          if (height > 600) {
-            const baseThreshold = 1450 + organicNoise * 400;
-            if (
-              canHaveSnow &&
-              (height > baseThreshold || (height > 2000 && organicNoise > -0.5))
-            ) {
-              _tempColorObj.copy(_colorSnow);
-            } else {
-              if (isSouth) {
-                _tempColorObj.setHex(0xc24b2b); // Reddish mountain rock
-                if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
-                // Arizona mottling: subtle dark red patches
-                if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.2);
-              } else {
-                _tempColorObj.copy(
-                  desertFactor > 0.5
-                    ? _colorMountainDesertTint
-                    : _colorMountainTint
-                );
-              }
-            }
-          } else {
-            const rockStartHeight = MOUNTAIN_LEVEL + 500 + organicNoise * 100;
-            if (
-              canHaveSnow &&
-              height > MOUNTAIN_LEVEL + 50 + organicNoise * 60
-            ) {
-              _tempColorObj.copy(_colorSnow);
-            } else if (height > rockStartHeight) {
-              if (isSouth) {
-                _tempColorObj.setHex(0xc24b2b);
-                if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
-                if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.2);
-              } else {
-                _tempColorObj.copy(
-                  desertFactor > 0.5
-                    ? _colorMountainDesertTint
-                    : _colorMountainTint
-                );
-              }
-            } else {
-              if (desertFactor > 0.3) {
-                _tempColorObj.copy(_colorDesertSand);
-                if (height > WATER_LEVEL + 5)
-                  _tempColorObj.lerp(_colorSandMottleHigh, 0.3);
-                // Desert mottling
-                _tempColorObj.lerp(_colorDesertMottle, mottle * 0.2);
-              } else if (snowFactor > 0.4) {
-                _tempColorObj.copy(_colorForestSnowTint);
-              } else {
-                _tempColorObj.copy(_colorForest);
-                // Forest mottling: darker green patches
-                if (!isCustom)
-                  _tempColorObj.lerp(_colorForestDark, mottle * 0.3);
-              }
-            }
-          }
-        } else {
-          // --- STANDARD LAND COLORING (Plains/Forest) ---
-          if (isForest) {
-            _tempColorObj.copy(_colorForest);
-            if (snowFactor > 0)
-              _tempColorObj.lerp(_colorForestSnowTint, snowFactor);
-            if (desertFactor > 0)
-              _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
-
-            // Mottling for Forest: Mix in some darker evergreens and lighter mossy patches
-            _tempColorObj.lerp(_colorForestDeep, mottle * 0.4);
-            if (mottle < 0.3) _tempColorObj.lerp(_colorForestLight, 0.2);
-          } else {
-            _tempColorObj.copy(_colorPlains);
-            if (snowFactor > 0)
-              _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
-            if (desertFactor > 0)
-              _tempColorObj.lerp(_colorDesertSand, desertFactor);
-
-            // Mottling for Plains: Dry grass vs lush grass
-            _tempColorObj.lerp(_colorPlainsDark, mottle * 0.4);
-            if (mottle > 0.8) _tempColorObj.lerp(_colorPlainsBright, 0.3);
-          }
+          const offX = (rng() - 0.5) * 15;
+          const offZ = (rng() - 0.5) * 15;
+          const h = getCachedElevation(worldX + offX, worldZ + offZ);
+          campfirePositions.push({x: localX + offX, y: h, z: localZ + offZ});
         }
-      }
+      } else {
+        const houseThreshold =
+          (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
+        const barnThreshold = houseThreshold + 0.002 * densityScale;
+        const monasteryThreshold = houseThreshold + 0.0023 * densityScale;
+        const castleThreshold = houseThreshold + 0.0024 * densityScale;
+        const windmillThreshold = houseThreshold + 0.0008 * densityScale;
 
-      // --- EXTREME ZONE COLOR BLEND ---
-      // Gradually paint alien colors over whatever biome is underneath,
-      // so the transition feels organic rather than a hard cut.
-      if (extremeBlend > 0) {
-        const isEast = worldX > 0;
-        const colorWater = isEast ? _colorEasternWater : _colorWesternWater;
-        const colorCliff = isEast ? _colorEasternCliff : _colorWesternCliff;
-        const colorPeak = isEast ? _colorEasternPeak : _colorWesternPeak;
-        const colorRock = isEast ? _colorEasternRock : _colorWesternRock;
-        const colorLowland = isEast
-          ? _colorEasternLowland
-          : _colorWesternLowland;
+        const plainsRoll = rng();
+        if (plainsRoll < houseThreshold) {
+          const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
+          const isBeyond5DegNorth = worldZ < -25000;
+          const isBeyond1DegNorth = worldZ < -5000;
 
-        const baseLandColor = slopeFactor > 0.4 ? colorRock : colorLowland;
-
-        if (height <= WATER_LEVEL) {
-          // Neon cyan alien ocean / Magenta liquid
-          _tempColorObj.lerp(colorWater, extremeBlend * 0.85);
-        } else if (height < WATER_LEVEL + 4) {
-          // Smoothly bleed the glowing water color onto the immediate shoreline
-          const bleed = 1.0 - (height - WATER_LEVEL) / 4.0;
-          const shoreColor = baseLandColor.clone().lerp(colorWater, bleed);
-          _tempColorObj.lerp(shoreColor, extremeBlend * 0.85);
-        } else if (height > MOUNTAIN_LEVEL) {
-          // Acid yellow / indigo cliffs / White crystal / Fiery faults
-          const peakFrac = Math.min(1, (height - MOUNTAIN_LEVEL) / 400);
-          _tempColorObj.lerp(colorCliff, extremeBlend * 0.7);
-          _tempColorObj.lerp(colorPeak, extremeBlend * peakFrac * 0.9);
-        } else {
-          // Mid-elevation: obsidian rock on slopes, teal lowland flat areas
-          _tempColorObj.lerp(baseLandColor, extremeBlend * 0.75);
-        }
-      }
-
-      // --- FROZEN NORTH ZONE ---
-      let isFrozen = false;
-      const freezeBoundaryZ =
-        -20000 +
-        simplex.noise2D(
-          (worldX + (window.worldOriginOffsetX || 0)) * 0.0002,
-          worldZ * 0.0002
-        ) *
-          2000;
-      if (worldZ < freezeBoundaryZ) {
-        const freezeFactor = Math.max(
-          0,
-          Math.min(1, (freezeBoundaryZ - worldZ) / 5000)
-        );
-        if (freezeFactor > 0) {
-          isFrozen = freezeFactor > 0.5;
-
-          // Generate a local mottle for the ice texturing
-          const iceMottle = simplex.noise2D(
-            (worldX + (window.worldOriginOffsetX || 0)) * 0.01,
-            worldZ * 0.01
-          );
-
-          // Blend everything toward snow, with slight noise variation
-          _tempColorObj.lerp(_colorSnow, freezeFactor);
-          if (iceMottle > 0) {
-            _tempColorObj.lerpHSL(
-              new THREE.Color(0xffffff),
-              iceMottle * 0.15 * freezeFactor
-            );
-          } else {
-            _tempColorObj.lerpHSL(
-              new THREE.Color(0x8a9ea8),
-              -iceMottle * 0.15 * freezeFactor
-            );
-          }
-
-          // Smoothly blend in cyan ice near the water level
-          const iceBlend = Math.max(
-            0,
-            Math.min(1, (WATER_LEVEL + 10 - height) / 10)
-          );
-          if (iceBlend > 0) {
-            _tempColorObj.lerp(_colorIce, freezeFactor * iceBlend);
-          }
-        }
-      }
-
-      // --- LAND TYPE CLASSIFICATION ---
-      const isStandardLand =
-        !isCustom &&
-        height > sandMaxHeight &&
-        height <= MOUNTAIN_LEVEL + (snowFactor > 0.5 ? -50 : 0);
-      const isCustomLand =
-        isCustom && height > WATER_LEVEL + 5.0 && height < 105.0;
-
-      // --- BIOME TINTING (Autumn/Cherry) ---
-      if ((isStandardLand || isCustomLand) && snowFactor < 0.2 && !isFrozen) {
-        if (autumnNoise > 0.35) {
-          const factor = Math.min(1, (autumnNoise - 0.35) / 0.1);
-          const tint = isForest
-            ? _colorAutumnForestTint
-            : _colorAutumnPlainsTint;
-          _tempColorObj.lerp(tint, factor * (isForest ? 0.65 : 0.45));
-        } else if (cherryNoise > 0.55) {
-          const factor = Math.min(1, (cherryNoise - 0.55) / 0.1);
-          const tint = isForest
-            ? _colorCherryForestTint
-            : _colorCherryPlainsTint;
-          _tempColorObj.lerp(tint, factor * (isForest ? 0.45 : 0.3));
-        }
-      }
-
-      const distToVolcano = Math.sqrt(
-        (worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2
-      );
-
-      const isOnRoad = ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0;
-
-      if (
-        _enableObjects &&
-        (isStandardLand || isCustomLand) &&
-        !isFrozen &&
-        !isOnRoad
-      ) {
-        if (isForest) {
-          const treeRoll = rng();
-          if (treeRoll < (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale) {
-            const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
-            const isSouthOf1N = worldZ > -5000;
-
-            if (distToVolcano < 3000 && rng() < 0.7) {
-              yellowCortezTreePositions.push({x: localX, y: height, z: localZ});
-            } else if (isIsland && isSouthOf1N) {
-              palmTreePositions.push({x: localX, y: height, z: localZ});
-            } else if (
-              snowFactor > 0.4 ||
-              (height > MOUNTAIN_LEVEL - 100 && desertFactor < 0.3)
-            ) {
-              snowTreePositions.push({x: localX, y: height, z: localZ});
-            } else if (desertFactor > 0.6) {
-              deadTreePositions.push({x: localX, y: height, z: localZ});
-            } else if (
-              eastCoastFactor > 0.7 &&
-              height < WATER_LEVEL + 40 &&
-              !isIsland
-            ) {
-              palmTreePositions.push({x: localX, y: height, z: localZ});
-            } else {
-              if (cherryNoise > 0.65) {
-                if (rng() < 0.35) {
-                  japaneseMapleTreePositions.push({
-                    x: localX,
-                    y: height,
-                    z: localZ,
-                  });
-                } else {
-                  cherryTreePositions.push({x: localX, y: height, z: localZ});
-                }
-              } else if (autumnNoise > 0.45) {
-                const variety = rng();
-                if (variety < 0.12)
-                  japaneseMapleTreePositions.push({
-                    x: localX,
-                    y: height,
-                    z: localZ,
-                  });
-                else if (variety < 0.41)
-                  autumnTree1Positions.push({x: localX, y: height, z: localZ});
-                else if (variety < 0.7)
-                  autumnTree2Positions.push({x: localX, y: height, z: localZ});
-                else
-                  autumnTree3Positions.push({x: localX, y: height, z: localZ});
-              } else {
-                if (rng() < 0.25) {
-                  // 25% chance of tall deciduous tree
-                  tallDeciduousTreePositions.push({
-                    x: localX,
-                    y: height,
-                    z: localZ,
-                  });
-                } else {
-                  deciduousTreePositions.push({
-                    x: localX,
-                    y: height,
-                    z: localZ,
-                  });
-                }
-              }
-            }
-          } else if (
-            !isAlienLand &&
-            treeRoll < (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale
-          ) {
-            const offX = (rng() - 0.5) * 15;
-            const offZ = (rng() - 0.5) * 15;
-            const h = getCachedElevation(worldX + offX, worldZ + offZ);
-            campfirePositions.push({x: localX + offX, y: h, z: localZ + offZ});
-          }
-        } else {
-          const houseThreshold =
-            (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
-          const barnThreshold = houseThreshold + 0.002 * densityScale;
-          const monasteryThreshold = houseThreshold + 0.0023 * densityScale;
-          const castleThreshold = houseThreshold + 0.0024 * densityScale;
-          const windmillThreshold = houseThreshold + 0.0008 * densityScale;
-
-          const plainsRoll = rng();
-          if (plainsRoll < houseThreshold) {
-            const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
-            const isBeyond5DegNorth = worldZ < -25000;
-            const isBeyond1DegNorth = worldZ < -5000;
-
-            if (!isAlienLand && !isBeyond5DegNorth) {
-              if (isIsland && !isBeyond1DegNorth) {
-                strawHutPositions.push({
+          if (!isAlienLand && !isBeyond5DegNorth) {
+            if (isIsland && !isBeyond1DegNorth) {
+              strawHutPositions.push({
+                x: localX,
+                y: height,
+                z: localZ,
+                rotY: rng() * Math.PI * 2,
+              });
+            } else if (!isIsland) {
+              if (rng() > 0.85) {
+                twoStoryHousePositions.push({
                   x: localX,
                   y: height,
                   z: localZ,
                   rotY: rng() * Math.PI * 2,
                 });
-              } else if (!isIsland) {
-                if (rng() > 0.85) {
-                  twoStoryHousePositions.push({
-                    x: localX,
-                    y: height,
-                    z: localZ,
-                    rotY: rng() * Math.PI * 2,
-                  });
-                } else {
-                  housePositions.push({
-                    x: localX,
-                    y: height,
-                    z: localZ,
-                    rotY: rng() * Math.PI * 2,
-                  });
-                }
-                // Chimney smoke for houses in snowy areas
-                if (snowFactor > 0.3) {
-                  chimneySmokePositions.push({
-                    x: localX,
-                    y: height + 10,
-                    z: localZ,
-                  });
-                }
+              } else {
+                housePositions.push({
+                  x: localX,
+                  y: height,
+                  z: localZ,
+                  rotY: rng() * Math.PI * 2,
+                });
+              }
+              // Chimney smoke for houses in snowy areas
+              if (snowFactor > 0.3) {
+                chimneySmokePositions.push({
+                  x: localX,
+                  y: height + 10,
+                  z: localZ,
+                });
               }
             }
-          } else if (
-            !isAlienLand &&
-            ENABLE_BARNS &&
-            worldX < -5000 &&
-            plainsRoll < barnThreshold &&
-            snowFactor < 0.4 &&
-            desertFactor < 0.3 &&
-            height > WATER_LEVEL + 15 &&
-            height < MOUNTAIN_LEVEL - 100
-          ) {
-            barnPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
-          } else if (
-            !isAlienLand &&
-            ENABLE_MONASTERIES &&
-            plainsRoll < monasteryThreshold &&
-            snowFactor < 0.2 &&
-            desertFactor < 0.2 &&
-            height > WATER_LEVEL + 50 &&
-            height < MOUNTAIN_LEVEL - 50
-          ) {
-            monasteryPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
-          } else if (
-            !isAlienLand &&
-            plainsRoll < castleThreshold &&
-            snowFactor < 0.5 &&
-            desertFactor < 0.3 &&
-            height > WATER_LEVEL + 40 &&
-            height < MOUNTAIN_LEVEL - 30
-          ) {
-            castleRuinsPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
-          } else if (
-            !isAlienLand &&
-            plainsRoll < windmillThreshold &&
-            height > WATER_LEVEL + 5 &&
-            height < MOUNTAIN_LEVEL - 100 &&
-            desertFactor < 0.3 &&
-            snowFactor < 0.3
-          ) {
-            windmillPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
-          } else if (
-            ENABLE_LIGHTHOUSES &&
-            !isMontaukChunk &&
-            !lighthousePos &&
-            rng() < 0.0004 * densityScale &&
-            height < sandMaxHeight + 15
-          ) {
-            const hN = getCachedElevation(worldX, worldZ - 50);
-            const hS = getCachedElevation(worldX, worldZ + 50);
-            const hE = getCachedElevation(worldX + 50, worldZ);
-            const hW = getCachedElevation(worldX - 50, worldZ);
-            if (
-              hN <= WATER_LEVEL ||
-              hS <= WATER_LEVEL ||
-              hE <= WATER_LEVEL ||
-              hW <= WATER_LEVEL
-            ) {
-              lighthousePos = {
-                x: localX,
-                y: height,
-                z: localZ,
-                rotY: rng() * Math.PI * 2,
-              };
-            }
           }
-
-          if (
-            height > WATER_LEVEL + 0.5 &&
-            height < WATER_LEVEL + 3 &&
-            rng() < 0.15 * densityScale
-          ) {
-            const hN = getCachedElevation(worldX, worldZ - 20);
-            const hS = getCachedElevation(worldX, worldZ + 20);
-            const hE = getCachedElevation(worldX + 20, worldZ);
-            const hW = getCachedElevation(worldX - 20, worldZ);
-            let angleToWater = -1;
-            if (hN <= WATER_LEVEL) angleToWater = Math.PI;
-            else if (hS <= WATER_LEVEL) angleToWater = 0;
-            else if (hE <= WATER_LEVEL) angleToWater = -Math.PI / 2;
-            else if (hW <= WATER_LEVEL) angleToWater = Math.PI / 2;
-            if (angleToWater !== -1) {
-              pierPositions.push({
-                x: localX,
-                y: height,
-                z: localZ,
-                rotY: angleToWater,
-              });
-            }
-          }
-        }
-
-        if (
-          ENABLE_PAGODAS &&
-          cherryNoise > 0.65 &&
+        } else if (
+          !isAlienLand &&
+          ENABLE_BARNS &&
+          worldX < -5000 &&
+          plainsRoll < barnThreshold &&
+          snowFactor < 0.4 &&
+          desertFactor < 0.3 &&
+          height > WATER_LEVEL + 15 &&
+          height < MOUNTAIN_LEVEL - 100
+        ) {
+          barnPositions.push({
+            x: localX,
+            y: height,
+            z: localZ,
+            rotY: rng() * Math.PI * 2,
+          });
+        } else if (
+          !isAlienLand &&
+          ENABLE_MONASTERIES &&
+          plainsRoll < monasteryThreshold &&
           snowFactor < 0.2 &&
           desertFactor < 0.2 &&
-          height > WATER_LEVEL + 5 &&
-          height < MOUNTAIN_LEVEL - 80 &&
-          rng() < 0.0003 * densityScale
+          height > WATER_LEVEL + 50 &&
+          height < MOUNTAIN_LEVEL - 50
         ) {
-          pagodaPositions.push({
+          monasteryPositions.push({
             x: localX,
             y: height,
             z: localZ,
             rotY: rng() * Math.PI * 2,
           });
-          // Decorate pagoda with Japanese maples to create a beautiful zen garden
-          const offset1X = -12;
-          const offset1Z = 12;
-          const h1 = getCachedElevation(worldX + offset1X, worldZ + offset1Z);
-          japaneseMapleTreePositions.push({
-            x: localX + offset1X,
-            y: h1,
-            z: localZ + offset1Z,
-          });
-
-          const offset2X = 12;
-          const offset2Z = -12;
-          const h2 = getCachedElevation(worldX + offset2X, worldZ + offset2Z);
-          japaneseMapleTreePositions.push({
-            x: localX + offset2X,
-            y: h2,
-            z: localZ + offset2Z,
-          });
-        }
-
-        if (rng() < 0.015 * densityScale) {
-          if (snowFactor > 0.4)
-            snowRockPositions.push({x: localX, y: height, z: localZ});
-          else if (desertFactor > 0.4)
-            desertRockPositions.push({x: localX, y: height, z: localZ});
-          else rockPositions.push({x: localX, y: height, z: localZ});
-        }
-
-        if (
-          desertFactor > 0.4 &&
-          rng() < 0.04 * densityScale &&
-          height > WATER_LEVEL + 5 &&
-          height < MOUNTAIN_LEVEL - 50
+        } else if (
+          !isAlienLand &&
+          plainsRoll < castleThreshold &&
+          snowFactor < 0.5 &&
+          desertFactor < 0.3 &&
+          height > WATER_LEVEL + 40 &&
+          height < MOUNTAIN_LEVEL - 30
         ) {
-          cactusPositions.push({x: localX, y: height, z: localZ});
-        }
-        if (
-          snowFactor > 0.6 &&
-          rng() < 0.002 * densityScale &&
-          height > WATER_LEVEL + 5 &&
-          height < MOUNTAIN_LEVEL - 50
-        ) {
-          snowmanPositions.push({
+          castleRuinsPositions.push({
             x: localX,
             y: height,
             z: localZ,
             rotY: rng() * Math.PI * 2,
           });
-        }
-        if (
-          desertFactor < 0.2 &&
-          snowFactor < 0.3 &&
-          height > WATER_LEVEL + 3 &&
+        } else if (
+          !isAlienLand &&
+          plainsRoll < windmillThreshold &&
+          height > WATER_LEVEL + 5 &&
           height < MOUNTAIN_LEVEL - 100 &&
-          rng() < 0.08 * densityScale
+          desertFactor < 0.3 &&
+          snowFactor < 0.3
         ) {
-          bushPositions.push({
+          windmillPositions.push({
             x: localX,
             y: height,
             z: localZ,
             rotY: rng() * Math.PI * 2,
           });
-        }
-      }
-
-      // --- FINAL DETAIL PASS ---
-      if (slopeFactor > 0.45 && height > WATER_LEVEL + 5) {
-        const cliffBlend = Math.min(1, (slopeFactor - 0.45) * 5.0);
-        const isSouthBiome = !isCustom && desertFactor > 0.3;
-        const rockColor = isSouthBiome ? _colorCliffSouth : _colorMountainTint;
-        _tempColorObj.lerp(rockColor, cliffBlend);
-        _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.15);
-      } else if (slopeFactor > 0.1) {
-        _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.3);
-      }
-
-      if (!isCustom) {
-        _tempColorObj.multiplyScalar(1.0 + grain);
-      }
-
-      // --- VOLCANO TEXTURING ---
-      if (distToVolcano < 2000) {
-        const vFactor = Math.max(0, Math.min(1, (2000 - distToVolcano) / 1000));
-        const basaltColor = _colorVolcanoBasaltHi
-          .clone()
-          .lerp(_colorVolcanoBasaltLo, height / 1400);
-        _tempColorObj.lerp(basaltColor, vFactor);
-      }
-
-      // --- EAST COAST ROAD REMOVED ---
-
-      colors[colorIdx++] = _tempColorObj.r;
-      colors[colorIdx++] = _tempColorObj.g;
-      colors[colorIdx++] = _tempColorObj.b;
-    }
-
-    if (isMontaukChunk) {
-      lighthousePos = {
-        x: 0,
-        y: getElevation(7500, 3000),
-        z: 0,
-        rotY: rng() * Math.PI * 2,
-      };
-      console.log(
-        `[Lighthouse] Placed Montauk lighthouse at fixed position (0, ${lighthousePos.y}, 0)`
-      );
-    }
-
-    const archSeededRng = ChillFlightLogic.mulberry32(
-      ChillFlightLogic.WORLD_SEED
-    );
-    const archTargetZ = archSeededRng() * 10000 - 5000;
-    const archTargetChunkZ = Math.round(archTargetZ / CHUNK_SIZE);
-
-    if (chunkX === 2 && chunkZ === archTargetChunkZ && _enableObjects) {
-      if (
-        rockArchPositions.length === 0 &&
-        rockArchGrassPositions.length === 0
-      ) {
-        const localArchZ = archTargetZ - worldOffsetZ;
-        const archHeight = Math.max(
-          WATER_LEVEL,
-          getCachedElevation(
-            worldOffsetX +
-              (window.worldOriginOffsetX || 0) +
-              (window.worldOriginOffsetX || 0),
-            worldOffsetZ + localArchZ
-          )
-        );
-        if (rng() < 0.5) {
-          rockArchPositions.push({
-            x: 0,
-            y: archHeight - 10,
-            z: localArchZ,
-            rotY: rng() * Math.PI * 2,
-          });
-        } else {
-          rockArchGrassPositions.push({
-            x: 0,
-            y: archHeight - 10,
-            z: localArchZ,
-            rotY: rng() * Math.PI * 2,
-          });
-        }
-
-        // Guarantee a pirate ship spawns nearby in a water spot
-        const offsets = [
-          [150, 150],
-          [-150, -150],
-          [150, -150],
-          [-150, 150],
-          [250, 0],
-          [-250, 0],
-          [0, 250],
-          [0, -250],
-        ];
-        for (const [dx, dz] of offsets) {
-          const px = dx;
-          const pz = localArchZ + dz;
-          const wX = worldOffsetX + px;
-          const wZ = worldOffsetZ + pz;
-          const h = getCachedElevation(wX, wZ);
-          if (h <= WATER_LEVEL + 1.1) {
-            pirateShipPositions.push({
-              x: px,
-              y: WATER_LEVEL,
-              z: pz,
+        } else if (
+          ENABLE_LIGHTHOUSES &&
+          !isMontaukChunk &&
+          !lighthousePos &&
+          rng() < 0.0004 * densityScale &&
+          height < sandMaxHeight + 15
+        ) {
+          const hN = getCachedElevation(worldX, worldZ - 50);
+          const hS = getCachedElevation(worldX, worldZ + 50);
+          const hE = getCachedElevation(worldX + 50, worldZ);
+          const hW = getCachedElevation(worldX - 50, worldZ);
+          if (
+            hN <= WATER_LEVEL ||
+            hS <= WATER_LEVEL ||
+            hE <= WATER_LEVEL ||
+            hW <= WATER_LEVEL
+          ) {
+            lighthousePos = {
+              x: localX,
+              y: height,
+              z: localZ,
               rotY: rng() * Math.PI * 2,
-              bodyId: Math.floor(rng() * 4),
+            };
+          }
+        }
+
+        if (
+          height > WATER_LEVEL + 0.5 &&
+          height < WATER_LEVEL + 3 &&
+          rng() < 0.15 * densityScale
+        ) {
+          const hN = getCachedElevation(worldX, worldZ - 20);
+          const hS = getCachedElevation(worldX, worldZ + 20);
+          const hE = getCachedElevation(worldX + 20, worldZ);
+          const hW = getCachedElevation(worldX - 20, worldZ);
+          let angleToWater = -1;
+          if (hN <= WATER_LEVEL) angleToWater = Math.PI;
+          else if (hS <= WATER_LEVEL) angleToWater = 0;
+          else if (hE <= WATER_LEVEL) angleToWater = -Math.PI / 2;
+          else if (hW <= WATER_LEVEL) angleToWater = Math.PI / 2;
+          if (angleToWater !== -1) {
+            pierPositions.push({
+              x: localX,
+              y: height,
+              z: localZ,
+              rotY: angleToWater,
             });
-            break;
           }
         }
       }
-    }
 
-    geometry.attributes.position.needsUpdate = true;
-    geometry.attributes.color.needsUpdate = true;
-    geometry.computeVertexNormals();
-
-    // 2.99 Volcano Landmark Details
-    // Must run BEFORE the early-exit guard to avoid the async race where the chunk
-    // gets evicted while building, which would prevent these from ever being added.
-    // Added directly to `scene` (not the chunk group) so they survive chunk reloads.
-    {
-      const vX = VOLCANO_X;
-      const vZ = VOLCANO_Z;
-      const isVolcanoChunk =
-        Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 &&
-        Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2;
-
-      if (isVolcanoChunk) {
-        const craterBottom = getElevation(vX, vZ);
-
-        // Sample the edges of the lava disk (radius 280) to ensure the river didn't carve the side
-        const northEdge = getElevation(vX, vZ - 300);
-        const southEdge = getElevation(vX, vZ + 300);
-        const eastEdge = getElevation(vX + 300, vZ);
-        const westEdge = getElevation(vX - 300, vZ);
-        const minElevation = Math.min(
-          craterBottom,
-          northEdge,
-          southEdge,
-          eastEdge,
-          westEdge
-        );
-
-        // If any part of the crater's footprint is extremely low, a river has carved through the volcano.
-        // We shouldn't place hovering lava or spotlights in the middle of a river gorge.
-        if (minElevation > 500) {
-          // Lava disk
-          const vElements = ModelAssembler.getStructure(
-            'volcano_active_elements'
-          );
-          vElements.forEach((part) => {
-            const mesh = new THREE.Mesh(part.geo, part.mat);
-            // Position relative to crater bottom. Yesterday's seed gave height ~1070.
-            // Hardcoded 890 was ~180 below crater bottom. We preserve that offset.
-            mesh.position.set(
-              vX + part.pos[0],
-              craterBottom - 180,
-              vZ + part.pos[2]
-            );
-            mesh.rotation.set(...part.rot);
-            if (part.scale) mesh.scale.set(...part.scale);
-            group.add(mesh);
-          });
-
-          // Spot light pointing up to cast a glow on the crater walls
-          const sLight = new THREE.SpotLight(
-            0xff4500,
-            30.0,
-            3000,
-            Math.PI / 6,
-            0.5,
-            1
-          );
-          // Place spotlight slightly above crater bottom to avoid being buried
-          sLight.position.set(vX, craterBottom + 10, vZ);
-          const sTarget = new THREE.Object3D();
-          sTarget.position.set(vX, 2000, vZ);
-          group.add(sTarget);
-          sLight.target = sTarget;
-          group.add(sLight);
-        }
-      }
-    }
-
-    const chunkKey = `${chunkX},${chunkZ}`;
-    if (!chunks.has(chunkKey)) {
-      // The chunk was deleted by updateChunks while we were building it. Abort.
-      geometry.dispose();
-      return;
-    }
-
-    const mesh = new THREE.Mesh(geometry, terrainMaterial);
-    mesh.position.set(worldOffsetX, 0, worldOffsetZ);
-    group.add(mesh);
-
-    // 1.5 Generate Water Plane
-    if (hasWater) {
-      const wSegments = Math.max(1, Math.floor(SEGMENTS / 4));
-      let waterGeo;
       if (
-        _waterGeometryPool.length > 0 &&
-        _waterGeometryPool[_waterGeometryPool.length - 1].parameters
-          .widthSegments === wSegments
+        ENABLE_PAGODAS &&
+        cherryNoise > 0.65 &&
+        snowFactor < 0.2 &&
+        desertFactor < 0.2 &&
+        height > WATER_LEVEL + 5 &&
+        height < MOUNTAIN_LEVEL - 80 &&
+        rng() < 0.0003 * densityScale
       ) {
-        waterGeo = _waterGeometryPool.pop();
-      } else {
-        waterGeo = new THREE.PlaneGeometry(
-          CHUNK_SIZE,
-          CHUNK_SIZE,
-          wSegments,
-          wSegments
-        );
-        waterGeo.rotateX(-Math.PI / 2);
-        waterGeo.setAttribute(
-          'color',
-          new THREE.BufferAttribute(
-            new Float32Array(waterGeo.attributes.position.count * 3),
-            3
-          )
-        );
-      }
-      waterGeo.userData = {unique: true, poolType: 'water'};
-      const wPositions = waterGeo.attributes.position.array;
-      const wColors = waterGeo.attributes.color.array;
-      let wColorIdx = 0;
-      const _tempWColorObj = new THREE.Color();
-      for (let i = 0; i < wPositions.length; i += 3) {
-        const worldX = worldOffsetX + wPositions[i];
-        const worldZ = worldOffsetZ + wPositions[i + 2];
-
-        wPositions[i + 1] = WATER_LEVEL;
-
-        const tempNoise = simplex.noise2D(
-          (worldX + (window.worldOriginOffsetX || 0)) * 0.0001,
-          worldZ * 0.0001
-        );
-        const northInfluence = Math.max(0, -worldZ / 4500);
-        const southInfluence = Math.max(0, worldZ / 4500);
-        const snowRaw = Math.max(
-          0,
-          Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
-        );
-        const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
-        const desertRaw = Math.max(
-          0,
-          Math.min(1, (southInfluence + tempNoise * 0.05 - 0.7) * 1.5)
-        );
-        const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
-
-        _tempWColorObj.copy(_colorWater);
-        if (snowFactor > 0) _tempWColorObj.lerp(_colorIcyWater, snowFactor);
-        if (desertFactor > 0)
-          _tempWColorObj.lerp(_colorDesertWater, desertFactor);
-
-        const terrainHeight = getCachedElevation(worldX, worldZ);
-        const inlandHeight = terrainHeight - WATER_LEVEL;
-        if (inlandHeight > 0) {
-          // Only apply foam to water vertices that intersect or are under the land.
-          // The interpolation between the land vertex and the deep ocean vertex creates the foam line.
-          const foamFactor = Math.min(1.0, inlandHeight / 2.0);
-          _tempWColorObj.lerp(_colorFoam, foamFactor);
-        }
-
-        wColors[wColorIdx++] = _tempWColorObj.r;
-        wColors[wColorIdx++] = _tempWColorObj.g;
-        wColors[wColorIdx++] = _tempWColorObj.b;
-      }
-      waterGeo.attributes.position.needsUpdate = true;
-      waterGeo.attributes.color.needsUpdate = true;
-      const waterMesh = new THREE.Mesh(waterGeo, waterMaterial);
-      waterMesh.position.set(worldOffsetX, 0, worldOffsetZ);
-      group.add(waterMesh);
-      group.userData.water = waterMesh; // accessible for animation!
-    }
-
-    // 1.6 Dedicated group for procedural objects (trees, houses, etc.)
-    // This allows for bulk toggling visibility via the debug menu.
-    const objectsGroup = new THREE.Group();
-    objectsGroup.visible = _enableObjects;
-    group.add(objectsGroup);
-    group.userData.objectsGroup = objectsGroup;
-
-    // 2. Generate Trees
-    const dummy = new THREE.Object3D();
-
-    // Helper for rendering instanced trees with latitude-based snow coloring
-    const _tempColor = new THREE.Color();
-    const _snowColor = new THREE.Color(0xe0f7fa);
-
-    const renderTrees = (
-      positions,
-      trunkGeo,
-      leavesGeo,
-      trunkMat,
-      baseLeafColor
-    ) => {
-      if (positions.length === 0) return;
-      const trunkInst = new THREE.InstancedMesh(
-        trunkGeo,
-        trunkMat,
-        positions.length
-      );
-      // Use white base material — instance colors will define the actual leaf color
-      const leavesInst = new THREE.InstancedMesh(
-        leavesGeo,
-        treeLeavesBaseMat,
-        positions.length
-      );
-
-      positions.forEach((pos, index) => {
-        const worldZ = worldOffsetZ + pos.z;
-        const northInfluence = Math.max(0, -worldZ / 4000);
-
-        const tempNoise = simplex.noise2D(
-          (worldOffsetX + pos.x + (window.worldOriginOffsetX || 0)) * 0.0001,
-          worldZ * 0.0001
-        );
-        // Fix smooth snow blending (matching terrain snowFactor logic)
-        const snowRaw = Math.max(
-          0,
-          Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
-        );
-        const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
-
-        const baseScale = 0.6 + Math.min(0.6, northInfluence * 0.5);
-        const scale = baseScale + rng() * (0.4 + rng() * 0.5);
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.scale.set(scale, scale, scale);
-        dummy.rotation.y = rng() * Math.PI * 2;
-        dummy.updateMatrix();
-        trunkInst.setMatrixAt(index, dummy.matrix);
-        leavesInst.setMatrixAt(index, dummy.matrix);
-
-        // Add slight random color variation per tree
-        const rVariation = (rng() - 0.5) * 0.1;
-        const gVariation = (rng() - 0.5) * 0.1;
-        const bVariation = (rng() - 0.5) * 0.1;
-
-        // Use a clean temporary color for the variation
-        const baseColorObj = new THREE.Color(baseLeafColor);
-        baseColorObj.r = Math.max(0, Math.min(1, baseColorObj.r + rVariation));
-        baseColorObj.g = Math.max(0, Math.min(1, baseColorObj.g + gVariation));
-        baseColorObj.b = Math.max(0, Math.min(1, baseColorObj.b + bVariation));
-
-        // Set leaf color: base leaf color lerped toward snow-white based on snowFactor
-        _tempColor.copy(baseColorObj);
-        if (snowFactor > 0) {
-          _tempColor.lerp(_snowColor, snowFactor);
-        }
-        leavesInst.setColorAt(index, _tempColor);
-      });
-
-      if (leavesInst.instanceColor) leavesInst.instanceColor.needsUpdate = true;
-
-      trunkInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      leavesInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(trunkInst);
-      objectsGroup.add(leavesInst);
-    };
-
-    // Render variations — pass hex color so gradient lerps correctly from green → white
-    renderTrees(
-      treePositions,
-      treeTrunkGeo,
-      treeLeavesGeo,
-      treeTrunkMat,
-      0x1b5e20
-    );
-    renderTrees(
-      snowTreePositions,
-      treeTrunkGeo,
-      treeLeavesGeo,
-      treeTrunkMat,
-      0x1b5e20
-    );
-    renderTrees(
-      deciduousTreePositions,
-      deciduousGeos.trunk,
-      deciduousGeos.leaves,
-      treeTrunkMat,
-      0x1b5e20
-    );
-    renderTrees(
-      tallDeciduousTreePositions,
-      tallDeciduousGeos.trunk,
-      tallDeciduousGeos.leaves,
-      treeTrunkMat,
-      0x1a451d
-    );
-    renderTrees(
-      palmTreePositions,
-      palmGeos.trunk,
-      palmGeos.leaves,
-      treeTrunkMat,
-      0x689f38
-    );
-    renderTrees(
-      cherryTreePositions,
-      deciduousGeos.trunk,
-      deciduousGeos.leaves,
-      treeTrunkMat,
-      0xf8bbd0
-    );
-    renderTrees(
-      autumnTree1Positions,
-      deciduousGeos.trunk,
-      deciduousGeos.leaves,
-      treeTrunkMat,
-      0xd35400
-    );
-    renderTrees(
-      autumnTree2Positions,
-      deciduousGeos.trunk,
-      deciduousGeos.leaves,
-      treeTrunkMat,
-      0xf39c12
-    );
-    renderTrees(
-      autumnTree3Positions,
-      deciduousGeos.trunk,
-      deciduousGeos.leaves,
-      treeTrunkMat,
-      0xc0392b
-    );
-    renderTrees(
-      yellowCortezTreePositions,
-      deciduousGeos.trunk,
-      deciduousGeos.leaves,
-      treeTrunkMat,
-      0xffeb3b
-    ); // Yellow Cortez
-    renderTrees(
-      japaneseMapleTreePositions,
-      japaneseMapleGeos.trunk,
-      japaneseMapleGeos.leaves,
-      treeTrunkMat,
-      0xa31515
-    ); // Japanese Maple
-
-    if (deadTreePositions.length > 0) {
-      const deadInst = new THREE.InstancedMesh(
-        deadTreeGeo,
-        deadTreeMat,
-        deadTreePositions.length
-      );
-      deadTreePositions.forEach((pos, index) => {
-        const scale = 0.8 + rng() * 0.8;
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.scale.set(scale, scale, scale);
-        dummy.rotation.y = rng() * Math.PI * 2;
-        dummy.updateMatrix();
-        deadInst.setMatrixAt(index, dummy.matrix);
-      });
-      deadInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(deadInst);
-    }
-
-    // 2.3 Generate Rocks
-    const rockVariations = [
-      {pos: rockPositions, mat: rockMat},
-      {pos: snowRockPositions, mat: snowRockMat},
-      {pos: desertRockPositions, mat: desertRockMat},
-    ];
-
-    rockVariations.forEach((variation) => {
-      if (variation.pos.length > 0) {
-        const rockInst = new THREE.InstancedMesh(
-          rockGeo,
-          variation.mat,
-          variation.pos.length
-        );
-
-        variation.pos.forEach((pos, index) => {
-          // Random scale between 0.5 and 2.5 on each axis for uniquely shaped boulders
-          const sx = 0.5 + rng() * 2.0;
-          const sy = 0.5 + rng() * 2.0;
-          const sz = 0.5 + rng() * 2.0;
-
-          // Random rotation
-          dummy.position.set(pos.x, pos.y, pos.z);
-          dummy.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
-          dummy.scale.set(sx, sy, sz);
-          dummy.updateMatrix();
-
-          rockInst.setMatrixAt(index, dummy.matrix);
+        pagodaPositions.push({
+          x: localX,
+          y: height,
+          z: localZ,
+          rotY: rng() * Math.PI * 2,
+        });
+        // Decorate pagoda with Japanese maples to create a beautiful zen garden
+        const offset1X = -12;
+        const offset1Z = 12;
+        const h1 = getCachedElevation(worldX + offset1X, worldZ + offset1Z);
+        japaneseMapleTreePositions.push({
+          x: localX + offset1X,
+          y: h1,
+          z: localZ + offset1Z,
         });
 
-        rockInst.position.set(worldOffsetX, 0, worldOffsetZ);
-        objectsGroup.add(rockInst);
+        const offset2X = 12;
+        const offset2Z = -12;
+        const h2 = getCachedElevation(worldX + offset2X, worldZ + offset2Z);
+        japaneseMapleTreePositions.push({
+          x: localX + offset2X,
+          y: h2,
+          z: localZ + offset2Z,
+        });
       }
+
+      if (rng() < 0.015 * densityScale) {
+        if (snowFactor > 0.4)
+          snowRockPositions.push({x: localX, y: height, z: localZ});
+        else if (desertFactor > 0.4)
+          desertRockPositions.push({x: localX, y: height, z: localZ});
+        else rockPositions.push({x: localX, y: height, z: localZ});
+      }
+
+      if (
+        desertFactor > 0.4 &&
+        rng() < 0.04 * densityScale &&
+        height > WATER_LEVEL + 5 &&
+        height < MOUNTAIN_LEVEL - 50
+      ) {
+        cactusPositions.push({x: localX, y: height, z: localZ});
+      }
+      if (
+        snowFactor > 0.6 &&
+        rng() < 0.002 * densityScale &&
+        height > WATER_LEVEL + 5 &&
+        height < MOUNTAIN_LEVEL - 50
+      ) {
+        snowmanPositions.push({
+          x: localX,
+          y: height,
+          z: localZ,
+          rotY: rng() * Math.PI * 2,
+        });
+      }
+      if (
+        desertFactor < 0.2 &&
+        snowFactor < 0.3 &&
+        height > WATER_LEVEL + 3 &&
+        height < MOUNTAIN_LEVEL - 100 &&
+        rng() < 0.08 * densityScale
+      ) {
+        bushPositions.push({
+          x: localX,
+          y: height,
+          z: localZ,
+          rotY: rng() * Math.PI * 2,
+        });
+      }
+    }
+
+    // --- FINAL DETAIL PASS ---
+    if (slopeFactor > 0.45 && height > WATER_LEVEL + 5) {
+      const cliffBlend = Math.min(1, (slopeFactor - 0.45) * 5.0);
+      const isSouthBiome = !isCustom && desertFactor > 0.3;
+      const rockColor = isSouthBiome ? _colorCliffSouth : _colorMountainTint;
+      _tempColorObj.lerp(rockColor, cliffBlend);
+      _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.15);
+    } else if (slopeFactor > 0.1) {
+      _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.3);
+    }
+
+    if (!isCustom) {
+      _tempColorObj.multiplyScalar(1.0 + grain);
+    }
+
+    // --- VOLCANO TEXTURING ---
+    if (distToVolcano < 2000) {
+      const vFactor = Math.max(0, Math.min(1, (2000 - distToVolcano) / 1000));
+      const basaltColor = _colorVolcanoBasaltHi
+        .clone()
+        .lerp(_colorVolcanoBasaltLo, height / 1400);
+      _tempColorObj.lerp(basaltColor, vFactor);
+    }
+
+    // --- EAST COAST ROAD REMOVED ---
+
+    colors[colorIdx++] = _tempColorObj.r;
+    colors[colorIdx++] = _tempColorObj.g;
+    colors[colorIdx++] = _tempColorObj.b;
+  }
+
+  if (isMontaukChunk) {
+    lighthousePos = {
+      x: 0,
+      y: getElevation(7500, 3000),
+      z: 0,
+      rotY: rng() * Math.PI * 2,
+    };
+    console.log(
+      `[Lighthouse] Placed Montauk lighthouse at fixed position (0, ${lighthousePos.y}, 0)`
+    );
+  }
+
+  const archSeededRng = ChillFlightLogic.mulberry32(
+    ChillFlightLogic.WORLD_SEED
+  );
+  const archTargetZ = archSeededRng() * 10000 - 5000;
+  const archTargetChunkZ = Math.round(archTargetZ / CHUNK_SIZE);
+
+  if (chunkX === 2 && chunkZ === archTargetChunkZ && _enableObjects) {
+    if (rockArchPositions.length === 0 && rockArchGrassPositions.length === 0) {
+      const localArchZ = archTargetZ - worldOffsetZ;
+      const archHeight = Math.max(
+        WATER_LEVEL,
+        getCachedElevation(worldOffsetX, worldOffsetZ + localArchZ)
+      );
+      if (rng() < 0.5) {
+        rockArchPositions.push({
+          x: 0,
+          y: archHeight - 10,
+          z: localArchZ,
+          rotY: rng() * Math.PI * 2,
+        });
+      } else {
+        rockArchGrassPositions.push({
+          x: 0,
+          y: archHeight - 10,
+          z: localArchZ,
+          rotY: rng() * Math.PI * 2,
+        });
+      }
+
+      // Guarantee a pirate ship spawns nearby in a water spot
+      const offsets = [
+        [150, 150],
+        [-150, -150],
+        [150, -150],
+        [-150, 150],
+        [250, 0],
+        [-250, 0],
+        [0, 250],
+        [0, -250],
+      ];
+      for (const [dx, dz] of offsets) {
+        const px = dx;
+        const pz = localArchZ + dz;
+        const wX = worldOffsetX + px;
+        const wZ = worldOffsetZ + pz;
+        const h = getCachedElevation(wX, wZ);
+        if (h <= WATER_LEVEL + 1.1) {
+          pirateShipPositions.push({
+            x: px,
+            y: WATER_LEVEL,
+            z: pz,
+            rotY: rng() * Math.PI * 2,
+            bodyId: Math.floor(rng() * 4),
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  geometry.attributes.position.needsUpdate = true;
+  geometry.attributes.color.needsUpdate = true;
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+
+  // 2.99 Volcano Landmark Details
+  // Must run BEFORE the early-exit guard to avoid the async race where the chunk
+  // gets evicted while building, which would prevent these from ever being added.
+  // Added directly to `scene` (not the chunk group) so they survive chunk reloads.
+  {
+    const vX = VOLCANO_X;
+    const vZ = VOLCANO_Z;
+    const isVolcanoChunk =
+      Math.abs(vX - worldOffsetX) <= CHUNK_SIZE / 2 &&
+      Math.abs(vZ - worldOffsetZ) <= CHUNK_SIZE / 2;
+
+    if (isVolcanoChunk) {
+      const craterBottom = getElevation(vX, vZ);
+
+      // Sample the edges of the lava disk (radius 280) to ensure the river didn't carve the side
+      const northEdge = getElevation(vX, vZ - 300);
+      const southEdge = getElevation(vX, vZ + 300);
+      const eastEdge = getElevation(vX + 300, vZ);
+      const westEdge = getElevation(vX - 300, vZ);
+      const minElevation = Math.min(
+        craterBottom,
+        northEdge,
+        southEdge,
+        eastEdge,
+        westEdge
+      );
+
+      // If any part of the crater's footprint is extremely low, a river has carved through the volcano.
+      // We shouldn't place hovering lava or spotlights in the middle of a river gorge.
+      if (minElevation > 500) {
+        // Lava disk
+        const vElements = ModelAssembler.getStructure(
+          'volcano_active_elements'
+        );
+        vElements.forEach((part) => {
+          const mesh = new THREE.Mesh(part.geo, part.mat);
+          // Position relative to crater bottom. Yesterday's seed gave height ~1070.
+          // Hardcoded 890 was ~180 below crater bottom. We preserve that offset.
+          mesh.position.set(
+            vX + part.pos[0],
+            craterBottom - 180,
+            vZ + part.pos[2]
+          );
+          mesh.rotation.set(...part.rot);
+          if (part.scale) mesh.scale.set(...part.scale);
+          group.add(mesh);
+        });
+
+        // Spot light pointing up to cast a glow on the crater walls
+        const sLight = new THREE.SpotLight(
+          0xff4500,
+          30.0,
+          3000,
+          Math.PI / 6,
+          0.5,
+          1
+        );
+        // Place spotlight slightly above crater bottom to avoid being buried
+        sLight.position.set(vX, craterBottom + 10, vZ);
+        const sTarget = new THREE.Object3D();
+        sTarget.position.set(vX, 2000, vZ);
+        group.add(sTarget);
+        sLight.target = sTarget;
+        group.add(sLight);
+      }
+    }
+  }
+
+  const mesh = new THREE.Mesh(geometry, terrainMaterial);
+  mesh.position.set(worldOffsetX, 0, worldOffsetZ);
+  group.add(mesh);
+
+  // 1.5 Generate Water Plane
+  if (hasWater) {
+    const wSegments = Math.max(1, Math.floor(SEGMENTS / 4));
+    let waterGeo;
+    if (
+      _waterGeometryPool.length > 0 &&
+      _waterGeometryPool[_waterGeometryPool.length - 1].parameters
+        .widthSegments === wSegments
+    ) {
+      waterGeo = _waterGeometryPool.pop();
+    } else {
+      waterGeo = new THREE.PlaneGeometry(
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        wSegments,
+        wSegments
+      );
+      waterGeo.rotateX(-Math.PI / 2);
+      waterGeo.setAttribute(
+        'color',
+        new THREE.BufferAttribute(
+          new Float32Array(waterGeo.attributes.position.count * 3),
+          3
+        )
+      );
+    }
+    waterGeo.userData = {unique: true, poolType: 'water'};
+    const wPositions = waterGeo.attributes.position.array;
+    const wColors = waterGeo.attributes.color.array;
+    let wColorIdx = 0;
+    const _tempWColorObj = new THREE.Color();
+    for (let i = 0; i < wPositions.length; i += 3) {
+      const worldX = worldOffsetX + wPositions[i];
+      const worldZ = worldOffsetZ + wPositions[i + 2];
+
+      wPositions[i + 1] = WATER_LEVEL;
+
+      const tempNoise = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
+      const northInfluence = Math.max(0, -worldZ / 4500);
+      const southInfluence = Math.max(0, worldZ / 4500);
+      const snowRaw = Math.max(
+        0,
+        Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
+      );
+      const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
+      const desertRaw = Math.max(
+        0,
+        Math.min(1, (southInfluence + tempNoise * 0.05 - 0.7) * 1.5)
+      );
+      const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
+
+      _tempWColorObj.copy(_colorWater);
+      if (snowFactor > 0) _tempWColorObj.lerp(_colorIcyWater, snowFactor);
+      if (desertFactor > 0)
+        _tempWColorObj.lerp(_colorDesertWater, desertFactor);
+
+      const terrainHeight = getCachedElevation(worldX, worldZ);
+      const inlandHeight = terrainHeight - WATER_LEVEL;
+      if (inlandHeight > 0) {
+        // Only apply foam to water vertices that intersect or are under the land.
+        // The interpolation between the land vertex and the deep ocean vertex creates the foam line.
+        const foamFactor = Math.min(1.0, inlandHeight / 2.0);
+        _tempWColorObj.lerp(_colorFoam, foamFactor);
+      }
+
+      wColors[wColorIdx++] = _tempWColorObj.r;
+      wColors[wColorIdx++] = _tempWColorObj.g;
+      wColors[wColorIdx++] = _tempWColorObj.b;
+    }
+    waterGeo.attributes.position.needsUpdate = true;
+    waterGeo.attributes.color.needsUpdate = true;
+    waterGeo.computeBoundingBox();
+    waterGeo.computeBoundingSphere();
+    const waterMesh = new THREE.Mesh(waterGeo, waterMaterial);
+    waterMesh.position.set(worldOffsetX, 0, worldOffsetZ);
+    group.add(waterMesh);
+    group.userData.water = waterMesh; // accessible for animation!
+  }
+
+  // 1.6 Dedicated group for procedural objects (trees, houses, etc.)
+  // This allows for bulk toggling visibility via the debug menu.
+  const objectsGroup = new THREE.Group();
+  objectsGroup.visible = _enableObjects;
+  group.add(objectsGroup);
+  group.userData.objectsGroup = objectsGroup;
+
+  // 2. Generate Trees
+  const dummy = new THREE.Object3D();
+
+  // Helper for rendering instanced trees with latitude-based snow coloring
+  const _tempColor = new THREE.Color();
+  const _snowColor = new THREE.Color(0xe0f7fa);
+
+  const renderTrees = (
+    positions,
+    trunkGeo,
+    leavesGeo,
+    trunkMat,
+    baseLeafColor
+  ) => {
+    if (positions.length === 0) return;
+    const trunkInst = new THREE.InstancedMesh(
+      trunkGeo,
+      trunkMat,
+      positions.length
+    );
+    // Use white base material — instance colors will define the actual leaf color
+    const leavesInst = new THREE.InstancedMesh(
+      leavesGeo,
+      treeLeavesBaseMat,
+      positions.length
+    );
+
+    positions.forEach((pos, index) => {
+      const worldZ = worldOffsetZ + pos.z;
+      const northInfluence = Math.max(0, -worldZ / 4000);
+
+      const tempNoise = simplex.noise2D(
+        (worldOffsetX + pos.x) * 0.0001,
+        worldZ * 0.0001
+      );
+      // Fix smooth snow blending (matching terrain snowFactor logic)
+      const snowRaw = Math.max(
+        0,
+        Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
+      );
+      const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
+
+      const baseScale = 0.6 + Math.min(0.6, northInfluence * 0.5);
+      const scale = baseScale + rng() * (0.4 + rng() * 0.5);
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.scale.set(scale, scale, scale);
+      dummy.rotation.y = rng() * Math.PI * 2;
+      dummy.updateMatrix();
+      trunkInst.setMatrixAt(index, dummy.matrix);
+      leavesInst.setMatrixAt(index, dummy.matrix);
+
+      // Add slight random color variation per tree
+      const rVariation = (rng() - 0.5) * 0.1;
+      const gVariation = (rng() - 0.5) * 0.1;
+      const bVariation = (rng() - 0.5) * 0.1;
+
+      // Use a clean temporary color for the variation
+      const baseColorObj = new THREE.Color(baseLeafColor);
+      baseColorObj.r = Math.max(0, Math.min(1, baseColorObj.r + rVariation));
+      baseColorObj.g = Math.max(0, Math.min(1, baseColorObj.g + gVariation));
+      baseColorObj.b = Math.max(0, Math.min(1, baseColorObj.b + bVariation));
+
+      // Set leaf color: base leaf color lerped toward snow-white based on snowFactor
+      _tempColor.copy(baseColorObj);
+      if (snowFactor > 0) {
+        _tempColor.lerp(_snowColor, snowFactor);
+      }
+      leavesInst.setColorAt(index, _tempColor);
     });
 
-    // 2.3b Generate Rock Arches (Unique instances)
-    if (rockArchPositions.length > 0) {
-      rockArchPositions.forEach((pos) => {
-        const geos = createRockArchGeometries(rng);
-        const mesh = new THREE.Mesh(geos.rock, rockMat);
-        mesh.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
-        mesh.rotation.y = pos.rotY;
+    if (leavesInst.instanceColor) leavesInst.instanceColor.needsUpdate = true;
 
-        // Store unique geometries so they can be disposed
-        mesh.geometry.userData.unique = true;
-        geos.grass.dispose(); // Unused in this variant
+    trunkInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    leavesInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(trunkInst);
+    objectsGroup.add(leavesInst);
+  };
 
-        objectsGroup.add(mesh);
-      });
-    }
+  // Render variations — pass hex color so gradient lerps correctly from green → white
+  renderTrees(
+    treePositions,
+    treeTrunkGeo,
+    treeLeavesGeo,
+    treeTrunkMat,
+    0x1b5e20
+  );
+  renderTrees(
+    snowTreePositions,
+    treeTrunkGeo,
+    treeLeavesGeo,
+    treeTrunkMat,
+    0x1b5e20
+  );
+  renderTrees(
+    deciduousTreePositions,
+    deciduousGeos.trunk,
+    deciduousGeos.leaves,
+    treeTrunkMat,
+    0x1b5e20
+  );
+  renderTrees(
+    tallDeciduousTreePositions,
+    tallDeciduousGeos.trunk,
+    tallDeciduousGeos.leaves,
+    treeTrunkMat,
+    0x1a451d
+  );
+  renderTrees(
+    palmTreePositions,
+    palmGeos.trunk,
+    palmGeos.leaves,
+    treeTrunkMat,
+    0x689f38
+  );
+  renderTrees(
+    cherryTreePositions,
+    deciduousGeos.trunk,
+    deciduousGeos.leaves,
+    treeTrunkMat,
+    0xf8bbd0
+  );
+  renderTrees(
+    autumnTree1Positions,
+    deciduousGeos.trunk,
+    deciduousGeos.leaves,
+    treeTrunkMat,
+    0xd35400
+  );
+  renderTrees(
+    autumnTree2Positions,
+    deciduousGeos.trunk,
+    deciduousGeos.leaves,
+    treeTrunkMat,
+    0xf39c12
+  );
+  renderTrees(
+    autumnTree3Positions,
+    deciduousGeos.trunk,
+    deciduousGeos.leaves,
+    treeTrunkMat,
+    0xc0392b
+  );
+  renderTrees(
+    yellowCortezTreePositions,
+    deciduousGeos.trunk,
+    deciduousGeos.leaves,
+    treeTrunkMat,
+    0xffeb3b
+  ); // Yellow Cortez
+  renderTrees(
+    japaneseMapleTreePositions,
+    japaneseMapleGeos.trunk,
+    japaneseMapleGeos.leaves,
+    treeTrunkMat,
+    0xa31515
+  ); // Japanese Maple
 
-    if (rockArchGrassPositions.length > 0) {
-      rockArchGrassPositions.forEach((pos) => {
-        const geos = createRockArchGeometries(rng);
+  if (deadTreePositions.length > 0) {
+    const deadInst = new THREE.InstancedMesh(
+      deadTreeGeo,
+      deadTreeMat,
+      deadTreePositions.length
+    );
+    deadTreePositions.forEach((pos, index) => {
+      const scale = 0.8 + rng() * 0.8;
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.scale.set(scale, scale, scale);
+      dummy.rotation.y = rng() * Math.PI * 2;
+      dummy.updateMatrix();
+      deadInst.setMatrixAt(index, dummy.matrix);
+    });
+    deadInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(deadInst);
+  }
 
-        const rockMesh = new THREE.Mesh(geos.rock, rockMat);
-        rockMesh.position.set(
-          worldOffsetX + pos.x,
-          pos.y,
-          worldOffsetZ + pos.z
-        );
-        rockMesh.rotation.y = pos.rotY;
-        rockMesh.geometry.userData.unique = true;
+  // 2.3 Generate Rocks
+  const rockVariations = [
+    {pos: rockPositions, mat: rockMat},
+    {pos: snowRockPositions, mat: snowRockMat},
+    {pos: desertRockPositions, mat: desertRockMat},
+  ];
 
-        const grassMesh = new THREE.Mesh(geos.grass, rockArchGrassMat);
-        grassMesh.position.set(
-          worldOffsetX + pos.x,
-          pos.y,
-          worldOffsetZ + pos.z
-        );
-        grassMesh.rotation.y = pos.rotY;
-        grassMesh.geometry.userData.unique = true;
-
-        objectsGroup.add(rockMesh);
-        objectsGroup.add(grassMesh);
-      });
-    }
-
-    // 2.4 Generate Cactuses
-    if (cactusPositions.length > 0) {
-      const cactusInst = new THREE.InstancedMesh(
-        cactusGeo,
-        cactusMat,
-        cactusPositions.length
+  rockVariations.forEach((variation) => {
+    if (variation.pos.length > 0) {
+      const rockInst = new THREE.InstancedMesh(
+        rockGeo,
+        variation.mat,
+        variation.pos.length
       );
-      cactusPositions.forEach((pos, index) => {
-        const scale = 0.8 + rng() * 0.6;
+
+      variation.pos.forEach((pos, index) => {
+        // Random scale between 0.5 and 2.5 on each axis for uniquely shaped boulders
+        const sx = 0.5 + rng() * 2.0;
+        const sy = 0.5 + rng() * 2.0;
+        const sz = 0.5 + rng() * 2.0;
+
+        // Random rotation
         dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, rng() * Math.PI * 2, 0);
-        dummy.scale.set(scale, scale, scale);
+        dummy.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
+        dummy.scale.set(sx, sy, sz);
         dummy.updateMatrix();
-        cactusInst.setMatrixAt(index, dummy.matrix);
+
+        rockInst.setMatrixAt(index, dummy.matrix);
       });
-      cactusInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(cactusInst);
+
+      rockInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(rockInst);
+    }
+  });
+
+  // 2.3b Generate Rock Arches (Unique instances)
+  if (rockArchPositions.length > 0) {
+    rockArchPositions.forEach((pos) => {
+      const geos = createRockArchGeometries(rng);
+      const mesh = new THREE.Mesh(geos.rock, rockMat);
+      mesh.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+      mesh.rotation.y = pos.rotY;
+
+      // Store unique geometries so they can be disposed
+      mesh.geometry.userData.unique = true;
+      geos.grass.dispose(); // Unused in this variant
+
+      objectsGroup.add(mesh);
+    });
+  }
+
+  if (rockArchGrassPositions.length > 0) {
+    rockArchGrassPositions.forEach((pos) => {
+      const geos = createRockArchGeometries(rng);
+
+      const rockMesh = new THREE.Mesh(geos.rock, rockMat);
+      rockMesh.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+      rockMesh.rotation.y = pos.rotY;
+      rockMesh.geometry.userData.unique = true;
+
+      const grassMesh = new THREE.Mesh(geos.grass, rockArchGrassMat);
+      grassMesh.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+      grassMesh.rotation.y = pos.rotY;
+      grassMesh.geometry.userData.unique = true;
+
+      objectsGroup.add(rockMesh);
+      objectsGroup.add(grassMesh);
+    });
+  }
+
+  // 2.4 Generate Cactuses
+  if (cactusPositions.length > 0) {
+    const cactusInst = new THREE.InstancedMesh(
+      cactusGeo,
+      cactusMat,
+      cactusPositions.length
+    );
+    cactusPositions.forEach((pos, index) => {
+      const scale = 0.8 + rng() * 0.6;
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, rng() * Math.PI * 2, 0);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      cactusInst.setMatrixAt(index, dummy.matrix);
+    });
+    cactusInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(cactusInst);
+  }
+
+  // 2.45 Generate Snowmen
+  if (snowmanPositions.length > 0) {
+    const bodyInst = new THREE.InstancedMesh(
+      snowmanGeos.body,
+      snowmanBodyMat,
+      snowmanPositions.length
+    );
+    const noseInst = new THREE.InstancedMesh(
+      snowmanGeos.nose,
+      snowmanNoseMat,
+      snowmanPositions.length
+    );
+
+    snowmanPositions.forEach((pos, index) => {
+      const scale = 0.8 + rng() * 0.4;
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      bodyInst.setMatrixAt(index, dummy.matrix);
+      noseInst.setMatrixAt(index, dummy.matrix);
+    });
+
+    bodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    noseInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(bodyInst);
+    objectsGroup.add(noseInst);
+  }
+
+  // 2.46 Generate Icebergs, Ice Floes, and Penguins
+  if (icebergPositions.length > 0) {
+    const icebergInst = new THREE.InstancedMesh(
+      icebergMainGeo,
+      icebergMat,
+      icebergPositions.length * 3
+    );
+
+    let count = 0;
+    icebergPositions.forEach((pos) => {
+      // Main iceberg
+      dummy.position.set(pos.x, pos.y - 4, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      icebergInst.setMatrixAt(count++, dummy.matrix);
+
+      // Small 1
+      const offset1 = new THREE.Vector3(14, -4, 6).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      dummy.position.set(pos.x + offset1.x, pos.y - 8, pos.z + offset1.z);
+      dummy.rotation.set(0, pos.rotY + 1.2, 0);
+      dummy.scale.set(0.5, 0.4, 0.5);
+      dummy.updateMatrix();
+      icebergInst.setMatrixAt(count++, dummy.matrix);
+
+      // Small 2
+      const offset2 = new THREE.Vector3(-12, -5, -8).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      dummy.position.set(pos.x + offset2.x, pos.y - 9, pos.z + offset2.z);
+      dummy.rotation.set(0, pos.rotY - 0.8, 0);
+      dummy.scale.set(0.4, 0.3, 0.4);
+      dummy.updateMatrix();
+      icebergInst.setMatrixAt(count++, dummy.matrix);
+    });
+
+    icebergInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(icebergInst);
+  }
+
+  if (iceFloePositions.length > 0) {
+    const iceFloeInst = new THREE.InstancedMesh(
+      iceFloeMainGeo,
+      icebergMat,
+      iceFloePositions.length * 3
+    );
+
+    let count = 0;
+    iceFloePositions.forEach((pos) => {
+      // Main floe
+      dummy.position.set(pos.x, pos.y - 1, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      iceFloeInst.setMatrixAt(count++, dummy.matrix);
+
+      // Small 1
+      const offset1 = new THREE.Vector3(16, -0.8, 4).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      dummy.position.set(pos.x + offset1.x, pos.y - 1.8, pos.z + offset1.z);
+      dummy.rotation.set(0, pos.rotY + 0.5, 0);
+      dummy.scale.set(0.5, 0.6, 0.5);
+      dummy.updateMatrix();
+      iceFloeInst.setMatrixAt(count++, dummy.matrix);
+
+      // Small 2
+      const offset2 = new THREE.Vector3(-15, -1, -6).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      dummy.position.set(pos.x + offset2.x, pos.y - 2, pos.z + offset2.z);
+      dummy.rotation.set(0, pos.rotY - 0.5, 0);
+      dummy.scale.set(0.4, 0.5, 0.4);
+      dummy.updateMatrix();
+      iceFloeInst.setMatrixAt(count++, dummy.matrix);
+    });
+
+    iceFloeInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(iceFloeInst);
+  }
+
+  if (penguinPositions.length > 0) {
+    const pCount = penguinPositions.length;
+    const pBodyInst = new THREE.InstancedMesh(
+      penguinBodyGeo,
+      penguinBlackMat,
+      pCount
+    );
+    const pBellyInst = new THREE.InstancedMesh(
+      penguinBellyGeo,
+      penguinWhiteMat,
+      pCount
+    );
+    const pHeadInst = new THREE.InstancedMesh(
+      penguinHeadGeo,
+      penguinBlackMat,
+      pCount
+    );
+    const pBeakInst = new THREE.InstancedMesh(
+      penguinBeakGeo,
+      penguinOrangeMat,
+      pCount
+    );
+    const pWingLInst = new THREE.InstancedMesh(
+      penguinWingLGeo,
+      penguinBlackMat,
+      pCount
+    );
+    const pWingRInst = new THREE.InstancedMesh(
+      penguinWingRGeo,
+      penguinBlackMat,
+      pCount
+    );
+    const pFootLInst = new THREE.InstancedMesh(
+      penguinFootLGeo,
+      penguinOrangeMat,
+      pCount
+    );
+    const pFootRInst = new THREE.InstancedMesh(
+      penguinFootRGeo,
+      penguinOrangeMat,
+      pCount
+    );
+
+    penguinPositions.forEach((pos, index) => {
+      const scale = 0.8 + rng() * 0.4;
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+
+      pBodyInst.setMatrixAt(index, dummy.matrix);
+      pBellyInst.setMatrixAt(index, dummy.matrix);
+      pHeadInst.setMatrixAt(index, dummy.matrix);
+      pBeakInst.setMatrixAt(index, dummy.matrix);
+      pWingLInst.setMatrixAt(index, dummy.matrix);
+      pWingRInst.setMatrixAt(index, dummy.matrix);
+      pFootLInst.setMatrixAt(index, dummy.matrix);
+      pFootRInst.setMatrixAt(index, dummy.matrix);
+    });
+
+    pBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    pBellyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    pHeadInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    pBeakInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    pWingLInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    pWingRInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    pFootLInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    pFootRInst.position.set(worldOffsetX, 0, worldOffsetZ);
+
+    objectsGroup.add(
+      pBodyInst,
+      pBellyInst,
+      pHeadInst,
+      pBeakInst,
+      pWingLInst,
+      pWingRInst,
+      pFootLInst,
+      pFootRInst
+    );
+  }
+
+  // 2.47 Generate Lily Pads
+  if (lilyPadPositions.length > 0) {
+    const padInst = new THREE.InstancedMesh(
+      lilyPadGeo,
+      lilyPadMat,
+      lilyPadPositions.length
+    );
+
+    lilyPadPositions.forEach((pos, index) => {
+      const scale = 0.6 + rng() * 0.8;
+      dummy.position.set(pos.x, pos.y + 0.15, pos.z); // Slightly above water to prevent Z-fighting
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      padInst.setMatrixAt(index, dummy.matrix);
+    });
+
+    padInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(padInst);
+  }
+
+  // 2.48 Generate Bushes
+  if (bushPositions.length > 0) {
+    const bushInst = new THREE.InstancedMesh(
+      bushGeo,
+      bushBaseMat,
+      bushPositions.length
+    );
+    bushPositions.forEach((pos, index) => {
+      const scale = 0.5 + rng() * 1.5; // High variance in bush sizes
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      bushInst.setMatrixAt(index, dummy.matrix);
+
+      // Base bush green: 0x558b2f
+      const rVariation = (rng() - 0.5) * 0.15;
+      const gVariation = (rng() - 0.5) * 0.15;
+      const bVariation = (rng() - 0.5) * 0.15;
+
+      const baseBushColor = new THREE.Color(0x558b2f);
+      baseBushColor.r = Math.max(0, Math.min(1, baseBushColor.r + rVariation));
+      baseBushColor.g = Math.max(0, Math.min(1, baseBushColor.g + gVariation));
+      baseBushColor.b = Math.max(0, Math.min(1, baseBushColor.b + bVariation));
+
+      bushInst.setColorAt(index, baseBushColor);
+    });
+    if (bushInst.instanceColor) bushInst.instanceColor.needsUpdate = true;
+    bushInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(bushInst);
+  }
+
+  // 2.5 Generate Houses
+  if (housePositions.length > 0) {
+    const numBodyColors = houseBodyPalette.length;
+    const numRoofColors = houseRoofPalette.length;
+
+    // Count houses per (body, roof) combo
+    const comboCounts = {};
+    const houseCombo = [];
+    housePositions.forEach((pos, idx) => {
+      const bodyId = Math.floor(rng() * numBodyColors);
+      const roofId = Math.floor(rng() * numRoofColors);
+      const key = `${bodyId}_${roofId}`;
+      houseCombo[idx] = {bodyId, roofId, key};
+      comboCounts[key] = (comboCounts[key] || 0) + 1;
+    });
+
+    // Build one InstancedMesh pair per combo that actually appears
+    const bodyInsts = {};
+    const roofInsts = {};
+    const comboIndices = {};
+    for (const key of Object.keys(comboCounts)) {
+      const [bodyId, roofId] = key.split('_').map(Number);
+      bodyInsts[key] = new THREE.InstancedMesh(
+        houseBodyGeo,
+        houseBodyPalette[bodyId],
+        comboCounts[key]
+      );
+      roofInsts[key] = new THREE.InstancedMesh(
+        houseRoofGeo,
+        houseRoofPalette[roofId],
+        comboCounts[key]
+      );
+      bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+      roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(bodyInsts[key]);
+      objectsGroup.add(roofInsts[key]);
+      comboIndices[key] = 0;
     }
 
-    // 2.45 Generate Snowmen
-    if (snowmanPositions.length > 0) {
-      const bodyInst = new THREE.InstancedMesh(
-        snowmanGeos.body,
-        snowmanBodyMat,
-        snowmanPositions.length
-      );
-      const noseInst = new THREE.InstancedMesh(
-        snowmanGeos.nose,
-        snowmanNoseMat,
-        snowmanPositions.length
-      );
+    const windowPools = [];
+    const poolCounts = [0, 0, 0, 0, 0];
+    const houseToPool = [];
 
-      snowmanPositions.forEach((pos, index) => {
-        const scale = 0.8 + rng() * 0.4;
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(scale, scale, scale);
-        dummy.updateMatrix();
-        bodyInst.setMatrixAt(index, dummy.matrix);
-        noseInst.setMatrixAt(index, dummy.matrix);
-      });
+    housePositions.forEach((pos, idx) => {
+      const poolId = Math.floor(rng() * 5);
+      houseToPool[idx] = poolId;
+      poolCounts[poolId]++;
+    });
 
-      bodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      noseInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(bodyInst);
-      objectsGroup.add(noseInst);
-    }
-
-    // 2.46 Generate Icebergs, Ice Floes, and Penguins
-    if (icebergPositions.length > 0) {
-      const icebergInst = new THREE.InstancedMesh(
-        icebergMainGeo,
-        icebergMat,
-        icebergPositions.length * 3
-      );
-
-      let count = 0;
-      icebergPositions.forEach((pos) => {
-        // Main iceberg
-        dummy.position.set(pos.x, pos.y - 4, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        icebergInst.setMatrixAt(count++, dummy.matrix);
-
-        // Small 1
-        const offset1 = new THREE.Vector3(14, -4, 6).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
+    for (let i = 0; i < 5; i++) {
+      if (poolCounts[i] > 0) {
+        windowPools[i] = new THREE.InstancedMesh(
+          houseWindowGeo,
+          houseWindowMats[i],
+          poolCounts[i] * 3
         );
-        dummy.position.set(pos.x + offset1.x, pos.y - 8, pos.z + offset1.z);
-        dummy.rotation.set(0, pos.rotY + 1.2, 0);
-        dummy.scale.set(0.5, 0.4, 0.5);
-        dummy.updateMatrix();
-        icebergInst.setMatrixAt(count++, dummy.matrix);
-
-        // Small 2
-        const offset2 = new THREE.Vector3(-12, -5, -8).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        dummy.position.set(pos.x + offset2.x, pos.y - 9, pos.z + offset2.z);
-        dummy.rotation.set(0, pos.rotY - 0.8, 0);
-        dummy.scale.set(0.4, 0.3, 0.4);
-        dummy.updateMatrix();
-        icebergInst.setMatrixAt(count++, dummy.matrix);
-      });
-
-      icebergInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(icebergInst);
-    }
-
-    if (iceFloePositions.length > 0) {
-      const iceFloeInst = new THREE.InstancedMesh(
-        iceFloeMainGeo,
-        icebergMat,
-        iceFloePositions.length * 3
-      );
-
-      let count = 0;
-      iceFloePositions.forEach((pos) => {
-        // Main floe
-        dummy.position.set(pos.x, pos.y - 1, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        iceFloeInst.setMatrixAt(count++, dummy.matrix);
-
-        // Small 1
-        const offset1 = new THREE.Vector3(16, -0.8, 4).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        dummy.position.set(pos.x + offset1.x, pos.y - 1.8, pos.z + offset1.z);
-        dummy.rotation.set(0, pos.rotY + 0.5, 0);
-        dummy.scale.set(0.5, 0.6, 0.5);
-        dummy.updateMatrix();
-        iceFloeInst.setMatrixAt(count++, dummy.matrix);
-
-        // Small 2
-        const offset2 = new THREE.Vector3(-15, -1, -6).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        dummy.position.set(pos.x + offset2.x, pos.y - 2, pos.z + offset2.z);
-        dummy.rotation.set(0, pos.rotY - 0.5, 0);
-        dummy.scale.set(0.4, 0.5, 0.4);
-        dummy.updateMatrix();
-        iceFloeInst.setMatrixAt(count++, dummy.matrix);
-      });
-
-      iceFloeInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(iceFloeInst);
-    }
-
-    if (penguinPositions.length > 0) {
-      const pCount = penguinPositions.length;
-      const pBodyInst = new THREE.InstancedMesh(
-        penguinBodyGeo,
-        penguinBlackMat,
-        pCount
-      );
-      const pBellyInst = new THREE.InstancedMesh(
-        penguinBellyGeo,
-        penguinWhiteMat,
-        pCount
-      );
-      const pHeadInst = new THREE.InstancedMesh(
-        penguinHeadGeo,
-        penguinBlackMat,
-        pCount
-      );
-      const pBeakInst = new THREE.InstancedMesh(
-        penguinBeakGeo,
-        penguinOrangeMat,
-        pCount
-      );
-      const pWingLInst = new THREE.InstancedMesh(
-        penguinWingLGeo,
-        penguinBlackMat,
-        pCount
-      );
-      const pWingRInst = new THREE.InstancedMesh(
-        penguinWingRGeo,
-        penguinBlackMat,
-        pCount
-      );
-      const pFootLInst = new THREE.InstancedMesh(
-        penguinFootLGeo,
-        penguinOrangeMat,
-        pCount
-      );
-      const pFootRInst = new THREE.InstancedMesh(
-        penguinFootRGeo,
-        penguinOrangeMat,
-        pCount
-      );
-
-      penguinPositions.forEach((pos, index) => {
-        const scale = 0.8 + rng() * 0.4;
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(scale, scale, scale);
-        dummy.updateMatrix();
-
-        pBodyInst.setMatrixAt(index, dummy.matrix);
-        pBellyInst.setMatrixAt(index, dummy.matrix);
-        pHeadInst.setMatrixAt(index, dummy.matrix);
-        pBeakInst.setMatrixAt(index, dummy.matrix);
-        pWingLInst.setMatrixAt(index, dummy.matrix);
-        pWingRInst.setMatrixAt(index, dummy.matrix);
-        pFootLInst.setMatrixAt(index, dummy.matrix);
-        pFootRInst.setMatrixAt(index, dummy.matrix);
-      });
-
-      pBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      pBellyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      pHeadInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      pBeakInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      pWingLInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      pWingRInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      pFootLInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      pFootRInst.position.set(worldOffsetX, 0, worldOffsetZ);
-
-      objectsGroup.add(
-        pBodyInst,
-        pBellyInst,
-        pHeadInst,
-        pBeakInst,
-        pWingLInst,
-        pWingRInst,
-        pFootLInst,
-        pFootRInst
-      );
-    }
-
-    // 2.47 Generate Lily Pads
-    if (lilyPadPositions.length > 0) {
-      const padInst = new THREE.InstancedMesh(
-        lilyPadGeo,
-        lilyPadMat,
-        lilyPadPositions.length
-      );
-
-      lilyPadPositions.forEach((pos, index) => {
-        const scale = 0.6 + rng() * 0.8;
-        dummy.position.set(pos.x, pos.y + 0.15, pos.z); // Slightly above water to prevent Z-fighting
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(scale, scale, scale);
-        dummy.updateMatrix();
-        padInst.setMatrixAt(index, dummy.matrix);
-      });
-
-      padInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(padInst);
-    }
-
-    // 2.48 Generate Bushes
-    if (bushPositions.length > 0) {
-      const bushInst = new THREE.InstancedMesh(
-        bushGeo,
-        bushBaseMat,
-        bushPositions.length
-      );
-      bushPositions.forEach((pos, index) => {
-        const scale = 0.5 + rng() * 1.5; // High variance in bush sizes
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(scale, scale, scale);
-        dummy.updateMatrix();
-        bushInst.setMatrixAt(index, dummy.matrix);
-
-        // Base bush green: 0x558b2f
-        const rVariation = (rng() - 0.5) * 0.15;
-        const gVariation = (rng() - 0.5) * 0.15;
-        const bVariation = (rng() - 0.5) * 0.15;
-
-        const baseBushColor = new THREE.Color(0x558b2f);
-        baseBushColor.r = Math.max(
-          0,
-          Math.min(1, baseBushColor.r + rVariation)
-        );
-        baseBushColor.g = Math.max(
-          0,
-          Math.min(1, baseBushColor.g + gVariation)
-        );
-        baseBushColor.b = Math.max(
-          0,
-          Math.min(1, baseBushColor.b + bVariation)
-        );
-
-        bushInst.setColorAt(index, baseBushColor);
-      });
-      if (bushInst.instanceColor) bushInst.instanceColor.needsUpdate = true;
-      bushInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(bushInst);
-    }
-
-    // 2.5 Generate Houses
-    if (housePositions.length > 0) {
-      const numBodyColors = houseBodyPalette.length;
-      const numRoofColors = houseRoofPalette.length;
-
-      // Count houses per (body, roof) combo
-      const comboCounts = {};
-      const houseCombo = [];
-      housePositions.forEach((pos, idx) => {
-        const bodyId = Math.floor(rng() * numBodyColors);
-        const roofId = Math.floor(rng() * numRoofColors);
-        const key = `${bodyId}_${roofId}`;
-        houseCombo[idx] = {bodyId, roofId, key};
-        comboCounts[key] = (comboCounts[key] || 0) + 1;
-      });
-
-      // Build one InstancedMesh pair per combo that actually appears
-      const bodyInsts = {};
-      const roofInsts = {};
-      const comboIndices = {};
-      for (const key of Object.keys(comboCounts)) {
-        const [bodyId, roofId] = key.split('_').map(Number);
-        bodyInsts[key] = new THREE.InstancedMesh(
-          houseBodyGeo,
-          houseBodyPalette[bodyId],
-          comboCounts[key]
-        );
-        roofInsts[key] = new THREE.InstancedMesh(
-          houseRoofGeo,
-          houseRoofPalette[roofId],
-          comboCounts[key]
-        );
-        bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
-        roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
-        objectsGroup.add(bodyInsts[key]);
-        objectsGroup.add(roofInsts[key]);
-        comboIndices[key] = 0;
+        windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
+        objectsGroup.add(windowPools[i]);
       }
+    }
 
-      const windowPools = [];
-      const poolCounts = [0, 0, 0, 0, 0];
-      const houseToPool = [];
+    const doorInst = new THREE.InstancedMesh(
+      houseDoorGeo,
+      houseDoorMat,
+      housePositions.length
+    );
+    const chimneyInst = new THREE.InstancedMesh(
+      houseChimneyGeo,
+      houseChimneyMat,
+      housePositions.length
+    );
+    doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(doorInst);
+    objectsGroup.add(chimneyInst);
 
-      housePositions.forEach((pos, idx) => {
-        const poolId = Math.floor(rng() * 5);
-        houseToPool[idx] = poolId;
-        poolCounts[poolId]++;
+    const poolIndices = [0, 0, 0, 0, 0];
+
+    housePositions.forEach((pos, index) => {
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+
+      const {key} = houseCombo[index];
+      const ci = comboIndices[key];
+      bodyInsts[key].setMatrixAt(ci, dummy.matrix);
+      roofInsts[key].setMatrixAt(ci, dummy.matrix);
+      comboIndices[key]++;
+
+      const poolId = houseToPool[index];
+      const pIdx = poolIndices[poolId];
+
+      const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      dummy.position.set(
+        pos.x + doorOffset.x,
+        pos.y + doorOffset.y,
+        pos.z + doorOffset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      doorInst.setMatrixAt(index, dummy.matrix);
+
+      const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      dummy.position.set(
+        pos.x + chimneyOffset.x,
+        pos.y + chimneyOffset.y,
+        pos.z + chimneyOffset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      chimneyInst.setMatrixAt(index, dummy.matrix);
+
+      const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+
+      dummy.position.set(
+        pos.x + winF1Offset.x,
+        pos.y + winF1Offset.y,
+        pos.z + winF1Offset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      windowPools[poolId].setMatrixAt(pIdx * 3, dummy.matrix);
+
+      dummy.position.set(
+        pos.x + winF2Offset.x,
+        pos.y + winF2Offset.y,
+        pos.z + winF2Offset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      windowPools[poolId].setMatrixAt(pIdx * 3 + 1, dummy.matrix);
+
+      dummy.position.set(
+        pos.x + winBOffset.x,
+        pos.y + winBOffset.y,
+        pos.z + winBOffset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      windowPools[poolId].setMatrixAt(pIdx * 3 + 2, dummy.matrix);
+
+      poolIndices[poolId]++;
+    });
+  }
+
+  // 2.52 Generate Two Story Houses
+  if (twoStoryHousePositions.length > 0) {
+    const numBodyColors = houseBodyPalette.length;
+    const numRoofColors = houseRoofPalette.length;
+
+    const comboCounts = {};
+    const houseCombo = [];
+    twoStoryHousePositions.forEach((pos, idx) => {
+      const bodyId = Math.floor(rng() * numBodyColors);
+      const roofId = Math.floor(rng() * numRoofColors);
+      const key = `${bodyId}_${roofId}`;
+      houseCombo[idx] = {bodyId, roofId, key};
+      comboCounts[key] = (comboCounts[key] || 0) + 1;
+    });
+
+    const bodyInsts = {};
+    const roofInsts = {};
+    const comboIndices = {};
+    for (const key of Object.keys(comboCounts)) {
+      const [bodyId, roofId] = key.split('_').map(Number);
+      bodyInsts[key] = new THREE.InstancedMesh(
+        twoStoryBodyGeo,
+        houseBodyPalette[bodyId],
+        comboCounts[key]
+      );
+      roofInsts[key] = new THREE.InstancedMesh(
+        twoStoryRoofGeo,
+        houseRoofPalette[roofId],
+        comboCounts[key]
+      );
+      bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+      roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(bodyInsts[key]);
+      objectsGroup.add(roofInsts[key]);
+      comboIndices[key] = 0;
+    }
+
+    const windowPools = [];
+    const poolCounts = [0, 0, 0, 0, 0];
+    const houseToPool = [];
+
+    twoStoryHousePositions.forEach((pos, idx) => {
+      const poolId = Math.floor(rng() * 5);
+      houseToPool[idx] = poolId;
+      poolCounts[poolId]++;
+    });
+
+    for (let i = 0; i < 5; i++) {
+      if (poolCounts[i] > 0) {
+        windowPools[i] = new THREE.InstancedMesh(
+          houseWindowGeo,
+          houseWindowMats[i],
+          poolCounts[i] * 8
+        );
+        windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
+        objectsGroup.add(windowPools[i]);
+      }
+    }
+
+    const doorInst = new THREE.InstancedMesh(
+      houseDoorGeo,
+      houseDoorMat,
+      twoStoryHousePositions.length
+    );
+    const chimneyInst = new THREE.InstancedMesh(
+      twoStoryChimneyGeo,
+      houseChimneyMat,
+      twoStoryHousePositions.length
+    );
+    doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(doorInst);
+    objectsGroup.add(chimneyInst);
+
+    const poolIndices = [0, 0, 0, 0, 0];
+
+    twoStoryHousePositions.forEach((pos, index) => {
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+
+      const {key} = houseCombo[index];
+      const ci = comboIndices[key];
+      bodyInsts[key].setMatrixAt(ci, dummy.matrix);
+      roofInsts[key].setMatrixAt(ci, dummy.matrix);
+      comboIndices[key]++;
+
+      const poolId = houseToPool[index];
+      const pIdx = poolIndices[poolId];
+
+      const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      dummy.position.set(
+        pos.x + doorOffset.x,
+        pos.y + doorOffset.y,
+        pos.z + doorOffset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      doorInst.setMatrixAt(index, dummy.matrix);
+
+      const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      dummy.position.set(
+        pos.x + chimneyOffset.x,
+        pos.y + chimneyOffset.y,
+        pos.z + chimneyOffset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      chimneyInst.setMatrixAt(index, dummy.matrix);
+
+      const offsets = [
+        new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        ),
+        new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        ),
+        new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        ),
+        new THREE.Vector3(0, 10, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        ),
+        new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        ),
+        new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        ),
+        new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        ),
+        new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        ),
+      ];
+
+      offsets.forEach((offset, i) => {
+        dummy.position.set(
+          pos.x + offset.x,
+          pos.y + offset.y,
+          pos.z + offset.z
+        );
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.updateMatrix();
+        windowPools[poolId].setMatrixAt(pIdx * 8 + i, dummy.matrix);
       });
 
-      for (let i = 0; i < 5; i++) {
-        if (poolCounts[i] > 0) {
-          windowPools[i] = new THREE.InstancedMesh(
-            houseWindowGeo,
-            houseWindowMats[i],
-            poolCounts[i] * 3
-          );
-          windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
-          objectsGroup.add(windowPools[i]);
+      poolIndices[poolId]++;
+    });
+  }
+
+  // 2.55 Generate Straw Huts (islands)
+  if (strawHutPositions.length > 0) {
+    const strawHutBodyInst = new THREE.InstancedMesh(
+      strawHutBodyGeo,
+      strawHutMat,
+      strawHutPositions.length
+    );
+    const strawHutRoofInst = new THREE.InstancedMesh(
+      strawHutRoofGeo,
+      strawHutMat,
+      strawHutPositions.length
+    );
+    strawHutPositions.forEach((pos, i) => {
+      const scale = 0.9 + rng() * 0.3;
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      strawHutBodyInst.setMatrixAt(i, dummy.matrix);
+      strawHutRoofInst.setMatrixAt(i, dummy.matrix);
+    });
+    strawHutBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    strawHutRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(strawHutBodyInst);
+    objectsGroup.add(strawHutRoofInst);
+  }
+
+  // 2.6 Generate Pagodas (rare, cherry blossom zones)
+  if (pagodaPositions.length > 0) {
+    const pagodaBodyInst = new THREE.InstancedMesh(
+      pagodaBodyGeo,
+      pagodaBodyMat,
+      pagodaPositions.length
+    );
+    const pagodaRoofInst = new THREE.InstancedMesh(
+      pagodaRoofGeo,
+      pagodaRoofMat,
+      pagodaPositions.length
+    );
+    pagodaPositions.forEach((pos, i) => {
+      const scale = 0.9 + rng() * 0.3;
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      pagodaBodyInst.setMatrixAt(i, dummy.matrix);
+      pagodaRoofInst.setMatrixAt(i, dummy.matrix);
+    });
+    pagodaBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    pagodaRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(pagodaBodyInst);
+    objectsGroup.add(pagodaRoofInst);
+  }
+
+  // 2.61 Generate Barns (temperate plains)
+  if (barnPositions.length > 0) {
+    const barnBodyInst = new THREE.InstancedMesh(
+      barnBodyGeo,
+      barnBodyMat,
+      barnPositions.length
+    );
+    const barnRoofInst = new THREE.InstancedMesh(
+      barnRoofGeo,
+      barnRoofMat,
+      barnPositions.length
+    );
+    const barnDoorInst = new THREE.InstancedMesh(
+      barnDoorGeo,
+      barnWhiteMat,
+      barnPositions.length * 2
+    );
+    const barnTrimInst = new THREE.InstancedMesh(
+      barnTrimGeo,
+      barnBodyMat,
+      barnPositions.length * 4
+    );
+    const barnSiloBodyInst = new THREE.InstancedMesh(
+      barnSiloBodyGeo,
+      barnSiloMat,
+      barnPositions.length
+    );
+    const barnSiloRoofInst = new THREE.InstancedMesh(
+      barnSiloRoofGeo,
+      barnSiloRoofMat,
+      barnPositions.length
+    );
+
+    barnPositions.forEach((pos, i) => {
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      barnBodyInst.setMatrixAt(i, dummy.matrix);
+      barnRoofInst.setMatrixAt(i, dummy.matrix);
+
+      const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+      const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        pos.rotY
+      );
+
+      // Front Door
+      dummy.position.set(
+        pos.x + doorFOffset.x,
+        pos.y + doorFOffset.y,
+        pos.z + doorFOffset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      barnDoorInst.setMatrixAt(i * 2, dummy.matrix);
+
+      dummy.rotation.set(0, pos.rotY, Math.atan2(8, 9));
+      dummy.updateMatrix();
+      barnTrimInst.setMatrixAt(i * 4, dummy.matrix);
+
+      dummy.rotation.set(0, pos.rotY, -Math.atan2(8, 9));
+      dummy.updateMatrix();
+      barnTrimInst.setMatrixAt(i * 4 + 1, dummy.matrix);
+
+      // Back Door
+      dummy.position.set(
+        pos.x + doorBOffset.x,
+        pos.y + doorBOffset.y,
+        pos.z + doorBOffset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      barnDoorInst.setMatrixAt(i * 2 + 1, dummy.matrix);
+
+      dummy.rotation.set(0, pos.rotY, Math.atan2(8, 9));
+      dummy.updateMatrix();
+      barnTrimInst.setMatrixAt(i * 4 + 2, dummy.matrix);
+
+      dummy.rotation.set(0, pos.rotY, -Math.atan2(8, 9));
+      dummy.updateMatrix();
+      barnTrimInst.setMatrixAt(i * 4 + 3, dummy.matrix);
+
+      // Silo
+      dummy.position.set(
+        pos.x + siloOffset.x,
+        pos.y + siloOffset.y,
+        pos.z + siloOffset.z
+      );
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      barnSiloBodyInst.setMatrixAt(i, dummy.matrix);
+      barnSiloRoofInst.setMatrixAt(i, dummy.matrix);
+    });
+
+    barnBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    barnRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    barnDoorInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    barnTrimInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    barnSiloBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    barnSiloRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+
+    objectsGroup.add(barnBodyInst);
+    objectsGroup.add(barnRoofInst);
+    objectsGroup.add(barnDoorInst);
+    objectsGroup.add(barnTrimInst);
+    objectsGroup.add(barnSiloBodyInst);
+    objectsGroup.add(barnSiloRoofInst);
+  }
+
+  // 2.62 Generate Monasteries (rare, temperate highlands)
+  if (monasteryPositions.length > 0) {
+    const monasteryBodyInst = new THREE.InstancedMesh(
+      monasteryBodyGeo,
+      monasteryBodyMat,
+      monasteryPositions.length
+    );
+    const monasteryRoofInst = new THREE.InstancedMesh(
+      monasteryRoofGeo,
+      monasteryRoofMat,
+      monasteryPositions.length
+    );
+    monasteryPositions.forEach((pos, i) => {
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      monasteryBodyInst.setMatrixAt(i, dummy.matrix);
+      monasteryRoofInst.setMatrixAt(i, dummy.matrix);
+    });
+    monasteryBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    monasteryRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(monasteryBodyInst);
+    objectsGroup.add(monasteryRoofInst);
+  }
+
+  // 2.63 Generate Castle Ruins (very rare, elevated terrain)
+  if (castleRuinsPositions.length > 0) {
+    const castleInst = new THREE.InstancedMesh(
+      castleRuinsGeo,
+      castleRuinsMat,
+      castleRuinsPositions.length
+    );
+    castleRuinsPositions.forEach((pos, i) => {
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      castleInst.setMatrixAt(i, dummy.matrix);
+    });
+    castleInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(castleInst);
+  }
+
+  // 2.7 Generate Windmills
+  if (windmillPositions.length > 0) {
+    const baseInst = new THREE.InstancedMesh(
+      windmillBaseGeo,
+      windmillBaseMat,
+      windmillPositions.length
+    );
+    const bladesInst = new THREE.InstancedMesh(
+      windmillBladesGeo,
+      windmillBladesMat,
+      windmillPositions.length * 4
+    );
+    bladesInst.customDepthMaterial = windmillBladesDepthMat;
+
+    windmillPositions.forEach((pos, index) => {
+      const structure = ModelAssembler.getStructure('windmill', pos.rotY);
+      structure.forEach((part, pIdx) => {
+        dummy.position.set(
+          pos.x + part.pos[0],
+          pos.y + part.pos[1],
+          pos.z + part.pos[2]
+        );
+        dummy.rotation.order = part.order || 'XYZ';
+        dummy.rotation.set(...part.rot);
+        dummy.scale.set(...part.scale);
+        dummy.updateMatrix();
+
+        if (pIdx === 0) {
+          baseInst.setMatrixAt(index, dummy.matrix);
+        } else {
+          bladesInst.setMatrixAt(index * 4 + (pIdx - 1), dummy.matrix);
         }
-      }
-
-      const doorInst = new THREE.InstancedMesh(
-        houseDoorGeo,
-        houseDoorMat,
-        housePositions.length
-      );
-      const chimneyInst = new THREE.InstancedMesh(
-        houseChimneyGeo,
-        houseChimneyMat,
-        housePositions.length
-      );
-      doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(doorInst);
-      objectsGroup.add(chimneyInst);
-
-      const poolIndices = [0, 0, 0, 0, 0];
-
-      housePositions.forEach((pos, index) => {
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-
-        const {key} = houseCombo[index];
-        const ci = comboIndices[key];
-        bodyInsts[key].setMatrixAt(ci, dummy.matrix);
-        roofInsts[key].setMatrixAt(ci, dummy.matrix);
-        comboIndices[key]++;
-
-        const poolId = houseToPool[index];
-        const pIdx = poolIndices[poolId];
-
-        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        dummy.position.set(
-          pos.x + doorOffset.x,
-          pos.y + doorOffset.y,
-          pos.z + doorOffset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        doorInst.setMatrixAt(index, dummy.matrix);
-
-        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        dummy.position.set(
-          pos.x + chimneyOffset.x,
-          pos.y + chimneyOffset.y,
-          pos.z + chimneyOffset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        chimneyInst.setMatrixAt(index, dummy.matrix);
-
-        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-
-        dummy.position.set(
-          pos.x + winF1Offset.x,
-          pos.y + winF1Offset.y,
-          pos.z + winF1Offset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        windowPools[poolId].setMatrixAt(pIdx * 3, dummy.matrix);
-
-        dummy.position.set(
-          pos.x + winF2Offset.x,
-          pos.y + winF2Offset.y,
-          pos.z + winF2Offset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        windowPools[poolId].setMatrixAt(pIdx * 3 + 1, dummy.matrix);
-
-        dummy.position.set(
-          pos.x + winBOffset.x,
-          pos.y + winBOffset.y,
-          pos.z + winBOffset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        windowPools[poolId].setMatrixAt(pIdx * 3 + 2, dummy.matrix);
-
-        poolIndices[poolId]++;
       });
-    }
+    });
 
-    // 2.52 Generate Two Story Houses
-    if (twoStoryHousePositions.length > 0) {
-      const numBodyColors = houseBodyPalette.length;
-      const numRoofColors = houseRoofPalette.length;
+    baseInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    bladesInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(baseInst);
+    objectsGroup.add(bladesInst);
+  }
 
-      const comboCounts = {};
-      const houseCombo = [];
-      twoStoryHousePositions.forEach((pos, idx) => {
-        const bodyId = Math.floor(rng() * numBodyColors);
-        const roofId = Math.floor(rng() * numRoofColors);
-        const key = `${bodyId}_${roofId}`;
-        houseCombo[idx] = {bodyId, roofId, key};
-        comboCounts[key] = (comboCounts[key] || 0) + 1;
-      });
+  // 2.9 Generate Lighthouse
+  if (lighthousePos) {
+    const pos = lighthousePos;
+    const structure = ModelAssembler.getStructure('lighthouse', pos.rotY || 0);
+    const lighthouseGroup = new THREE.Group();
 
-      const bodyInsts = {};
-      const roofInsts = {};
-      const comboIndices = {};
-      for (const key of Object.keys(comboCounts)) {
-        const [bodyId, roofId] = key.split('_').map(Number);
-        bodyInsts[key] = new THREE.InstancedMesh(
-          twoStoryBodyGeo,
-          houseBodyPalette[bodyId],
-          comboCounts[key]
-        );
-        roofInsts[key] = new THREE.InstancedMesh(
-          twoStoryRoofGeo,
-          houseRoofPalette[roofId],
-          comboCounts[key]
-        );
-        bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
-        roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
-        objectsGroup.add(bodyInsts[key]);
-        objectsGroup.add(roofInsts[key]);
-        comboIndices[key] = 0;
-      }
+    structure.forEach((part) => {
+      const mesh = new THREE.Mesh(part.geo, part.mat);
+      mesh.position.set(...part.pos);
+      mesh.rotation.set(...part.rot);
+      if (part.scale) mesh.scale.set(...part.scale);
+      lighthouseGroup.add(mesh);
+    });
 
-      const windowPools = [];
-      const poolCounts = [0, 0, 0, 0, 0];
-      const houseToPool = [];
+    lighthouseGroup.scale.set(2, 2, 2); // Scale lighthouse by 100% bigger (double size)
+    lighthouseGroup.position.set(
+      pos.x + worldOffsetX,
+      pos.y,
+      pos.z + worldOffsetZ
+    );
+    objectsGroup.add(lighthouseGroup);
 
-      twoStoryHousePositions.forEach((pos, idx) => {
-        const poolId = Math.floor(rng() * 5);
-        houseToPool[idx] = poolId;
-        poolCounts[poolId]++;
-      });
+    // Use persistent beam and light
+    const beamHeight = 126; // Middle of lantern (63 * 2)
 
-      for (let i = 0; i < 5; i++) {
-        if (poolCounts[i] > 0) {
-          windowPools[i] = new THREE.InstancedMesh(
-            houseWindowGeo,
-            houseWindowMats[i],
-            poolCounts[i] * 8
-          );
-          windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
-          objectsGroup.add(windowPools[i]);
-        }
-      }
-
-      const doorInst = new THREE.InstancedMesh(
-        houseDoorGeo,
-        houseDoorMat,
-        twoStoryHousePositions.length
-      );
-      const chimneyInst = new THREE.InstancedMesh(
-        twoStoryChimneyGeo,
-        houseChimneyMat,
-        twoStoryHousePositions.length
-      );
-      doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(doorInst);
-      objectsGroup.add(chimneyInst);
-
-      const poolIndices = [0, 0, 0, 0, 0];
-
-      twoStoryHousePositions.forEach((pos, index) => {
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-
-        const {key} = houseCombo[index];
-        const ci = comboIndices[key];
-        bodyInsts[key].setMatrixAt(ci, dummy.matrix);
-        roofInsts[key].setMatrixAt(ci, dummy.matrix);
-        comboIndices[key]++;
-
-        const poolId = houseToPool[index];
-        const pIdx = poolIndices[poolId];
-
-        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        dummy.position.set(
-          pos.x + doorOffset.x,
-          pos.y + doorOffset.y,
-          pos.z + doorOffset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        doorInst.setMatrixAt(index, dummy.matrix);
-
-        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        dummy.position.set(
-          pos.x + chimneyOffset.x,
-          pos.y + chimneyOffset.y,
-          pos.z + chimneyOffset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        chimneyInst.setMatrixAt(index, dummy.matrix);
-
-        const offsets = [
-          new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            pos.rotY
-          ),
-          new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            pos.rotY
-          ),
-          new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            pos.rotY
-          ),
-          new THREE.Vector3(0, 10, 5.1).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            pos.rotY
-          ),
-          new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            pos.rotY
-          ),
-          new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            pos.rotY
-          ),
-          new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            pos.rotY
-          ),
-          new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            pos.rotY
-          ),
-        ];
-
-        offsets.forEach((offset, i) => {
-          dummy.position.set(
-            pos.x + offset.x,
-            pos.y + offset.y,
-            pos.z + offset.z
-          );
-          dummy.rotation.set(0, pos.rotY, 0);
-          dummy.updateMatrix();
-          windowPools[poolId].setMatrixAt(pIdx * 8 + i, dummy.matrix);
-        });
-
-        poolIndices[poolId]++;
-      });
-    }
-
-    // 2.55 Generate Straw Huts (islands)
-    if (strawHutPositions.length > 0) {
-      const strawHutBodyInst = new THREE.InstancedMesh(
-        strawHutBodyGeo,
-        strawHutMat,
-        strawHutPositions.length
-      );
-      const strawHutRoofInst = new THREE.InstancedMesh(
-        strawHutRoofGeo,
-        strawHutMat,
-        strawHutPositions.length
-      );
-      strawHutPositions.forEach((pos, i) => {
-        const scale = 0.9 + rng() * 0.3;
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(scale, scale, scale);
-        dummy.updateMatrix();
-        strawHutBodyInst.setMatrixAt(i, dummy.matrix);
-        strawHutRoofInst.setMatrixAt(i, dummy.matrix);
-      });
-      strawHutBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      strawHutRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(strawHutBodyInst);
-      objectsGroup.add(strawHutRoofInst);
-    }
-
-    // 2.6 Generate Pagodas (rare, cherry blossom zones)
-    if (pagodaPositions.length > 0) {
-      const pagodaBodyInst = new THREE.InstancedMesh(
-        pagodaBodyGeo,
-        pagodaBodyMat,
-        pagodaPositions.length
-      );
-      const pagodaRoofInst = new THREE.InstancedMesh(
-        pagodaRoofGeo,
-        pagodaRoofMat,
-        pagodaPositions.length
-      );
-      pagodaPositions.forEach((pos, i) => {
-        const scale = 0.9 + rng() * 0.3;
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(scale, scale, scale);
-        dummy.updateMatrix();
-        pagodaBodyInst.setMatrixAt(i, dummy.matrix);
-        pagodaRoofInst.setMatrixAt(i, dummy.matrix);
-      });
-      pagodaBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      pagodaRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(pagodaBodyInst);
-      objectsGroup.add(pagodaRoofInst);
-    }
-
-    // 2.61 Generate Barns (temperate plains)
-    if (barnPositions.length > 0) {
-      const barnBodyInst = new THREE.InstancedMesh(
-        barnBodyGeo,
-        barnBodyMat,
-        barnPositions.length
-      );
-      const barnRoofInst = new THREE.InstancedMesh(
-        barnRoofGeo,
-        barnRoofMat,
-        barnPositions.length
-      );
-      const barnDoorInst = new THREE.InstancedMesh(
-        barnDoorGeo,
-        barnWhiteMat,
-        barnPositions.length * 2
-      );
-      const barnTrimInst = new THREE.InstancedMesh(
-        barnTrimGeo,
-        barnBodyMat,
-        barnPositions.length * 4
-      );
-      const barnSiloBodyInst = new THREE.InstancedMesh(
-        barnSiloBodyGeo,
-        barnSiloMat,
-        barnPositions.length
-      );
-      const barnSiloRoofInst = new THREE.InstancedMesh(
-        barnSiloRoofGeo,
-        barnSiloRoofMat,
-        barnPositions.length
-      );
-
-      barnPositions.forEach((pos, i) => {
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        barnBodyInst.setMatrixAt(i, dummy.matrix);
-        barnRoofInst.setMatrixAt(i, dummy.matrix);
-
-        const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-        const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          pos.rotY
-        );
-
-        // Front Door
-        dummy.position.set(
-          pos.x + doorFOffset.x,
-          pos.y + doorFOffset.y,
-          pos.z + doorFOffset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        barnDoorInst.setMatrixAt(i * 2, dummy.matrix);
-
-        dummy.rotation.set(0, pos.rotY, Math.atan2(8, 9));
-        dummy.updateMatrix();
-        barnTrimInst.setMatrixAt(i * 4, dummy.matrix);
-
-        dummy.rotation.set(0, pos.rotY, -Math.atan2(8, 9));
-        dummy.updateMatrix();
-        barnTrimInst.setMatrixAt(i * 4 + 1, dummy.matrix);
-
-        // Back Door
-        dummy.position.set(
-          pos.x + doorBOffset.x,
-          pos.y + doorBOffset.y,
-          pos.z + doorBOffset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        barnDoorInst.setMatrixAt(i * 2 + 1, dummy.matrix);
-
-        dummy.rotation.set(0, pos.rotY, Math.atan2(8, 9));
-        dummy.updateMatrix();
-        barnTrimInst.setMatrixAt(i * 4 + 2, dummy.matrix);
-
-        dummy.rotation.set(0, pos.rotY, -Math.atan2(8, 9));
-        dummy.updateMatrix();
-        barnTrimInst.setMatrixAt(i * 4 + 3, dummy.matrix);
-
-        // Silo
-        dummy.position.set(
-          pos.x + siloOffset.x,
-          pos.y + siloOffset.y,
-          pos.z + siloOffset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        barnSiloBodyInst.setMatrixAt(i, dummy.matrix);
-        barnSiloRoofInst.setMatrixAt(i, dummy.matrix);
-      });
-
-      barnBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      barnRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      barnDoorInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      barnTrimInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      barnSiloBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      barnSiloRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-
-      objectsGroup.add(barnBodyInst);
-      objectsGroup.add(barnRoofInst);
-      objectsGroup.add(barnDoorInst);
-      objectsGroup.add(barnTrimInst);
-      objectsGroup.add(barnSiloBodyInst);
-      objectsGroup.add(barnSiloRoofInst);
-    }
-
-    // 2.62 Generate Monasteries (rare, temperate highlands)
-    if (monasteryPositions.length > 0) {
-      const monasteryBodyInst = new THREE.InstancedMesh(
-        monasteryBodyGeo,
-        monasteryBodyMat,
-        monasteryPositions.length
-      );
-      const monasteryRoofInst = new THREE.InstancedMesh(
-        monasteryRoofGeo,
-        monasteryRoofMat,
-        monasteryPositions.length
-      );
-      monasteryPositions.forEach((pos, i) => {
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        monasteryBodyInst.setMatrixAt(i, dummy.matrix);
-        monasteryRoofInst.setMatrixAt(i, dummy.matrix);
-      });
-      monasteryBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      monasteryRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(monasteryBodyInst);
-      objectsGroup.add(monasteryRoofInst);
-    }
-
-    // 2.63 Generate Castle Ruins (very rare, elevated terrain)
-    if (castleRuinsPositions.length > 0) {
-      const castleInst = new THREE.InstancedMesh(
-        castleRuinsGeo,
-        castleRuinsMat,
-        castleRuinsPositions.length
-      );
-      castleRuinsPositions.forEach((pos, i) => {
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        castleInst.setMatrixAt(i, dummy.matrix);
-      });
-      castleInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(castleInst);
-    }
-
-    // 2.7 Generate Windmills
-    if (windmillPositions.length > 0) {
-      const baseInst = new THREE.InstancedMesh(
-        windmillBaseGeo,
-        windmillBaseMat,
-        windmillPositions.length
-      );
-      const bladesInst = new THREE.InstancedMesh(
-        windmillBladesGeo,
-        windmillBladesMat,
-        windmillPositions.length * 4
-      );
-      bladesInst.customDepthMaterial = windmillBladesDepthMat;
-
-      windmillPositions.forEach((pos, index) => {
-        const structure = ModelAssembler.getStructure('windmill', pos.rotY);
-        structure.forEach((part, pIdx) => {
-          dummy.position.set(
-            pos.x + part.pos[0],
-            pos.y + part.pos[1],
-            pos.z + part.pos[2]
-          );
-          dummy.rotation.order = part.order || 'XYZ';
-          dummy.rotation.set(...part.rot);
-          dummy.scale.set(...part.scale);
-          dummy.updateMatrix();
-
-          if (pIdx === 0) {
-            baseInst.setMatrixAt(index, dummy.matrix);
-          } else {
-            bladesInst.setMatrixAt(index * 4 + (pIdx - 1), dummy.matrix);
-          }
-        });
-      });
-
-      baseInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      bladesInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(baseInst);
-      objectsGroup.add(bladesInst);
-    }
-
-    // 2.9 Generate Lighthouse
-    if (lighthousePos) {
-      const pos = lighthousePos;
-      const structure = ModelAssembler.getStructure(
-        'lighthouse',
-        pos.rotY || 0
-      );
-      const lighthouseGroup = new THREE.Group();
-
-      structure.forEach((part) => {
-        const mesh = new THREE.Mesh(part.geo, part.mat);
-        mesh.position.set(...part.pos);
-        mesh.rotation.set(...part.rot);
-        if (part.scale) mesh.scale.set(...part.scale);
-        lighthouseGroup.add(mesh);
-      });
-
-      lighthouseGroup.scale.set(2, 2, 2); // Scale lighthouse by 100% bigger (double size)
-      lighthouseGroup.position.set(
+    if (persistentLighthouseBeam) {
+      persistentLighthouseBeam.position.set(
         pos.x + worldOffsetX,
-        pos.y,
+        pos.y + beamHeight,
         pos.z + worldOffsetZ
       );
-      objectsGroup.add(lighthouseGroup);
+      persistentLighthouseBeam.rotation.y = pos.rotY;
+      persistentLighthouseBeam.rotation.x = 0.15; // Tilt slightly downward
+      persistentLighthouseBeam.scale.set(2, 2, 2); // Scale beam to match
+      persistentLighthouseBeam.visible = true;
 
-      // Use persistent beam and light
-      const beamHeight = 126; // Middle of lantern (63 * 2)
-
-      if (persistentLighthouseBeam) {
-        persistentLighthouseBeam.position.set(
-          pos.x + worldOffsetX,
-          pos.y + beamHeight,
-          pos.z + worldOffsetZ
-        );
-        persistentLighthouseBeam.rotation.y = pos.rotY;
-        persistentLighthouseBeam.rotation.x = 0.15; // Tilt slightly downward
-        persistentLighthouseBeam.scale.set(2, 2, 2); // Scale beam to match
-        persistentLighthouseBeam.visible = true;
-
-        // Store in userData for game.js to animate!
-        group.userData.lighthouseBeam = persistentLighthouseBeam;
-      }
-
-      if (persistentLighthouseLight) {
-        persistentLighthouseLight.position.set(
-          pos.x + worldOffsetX,
-          pos.y + beamHeight,
-          pos.z + worldOffsetZ
-        );
-        persistentLighthouseLight.target.position.set(
-          pos.x + worldOffsetX + Math.sin(pos.rotY) * 200,
-          pos.y + beamHeight - 30,
-          pos.z + worldOffsetZ + Math.cos(pos.rotY) * 200
-        );
-        persistentLighthouseLight.intensity = LIGHTHOUSE_LIGHT_INTENSITY;
-
-        // Store in userData for game.js to animate!
-        group.userData.lighthouseLight = persistentLighthouseLight;
-        group.userData.lighthouseTarget = persistentLighthouseLight.target;
-      }
+      // Store in userData for game.js to animate!
+      group.userData.lighthouseBeam = persistentLighthouseBeam;
     }
 
-    // 2.95 Generate Piers
-    if (pierPositions.length > 0) {
-      const deckInst = new THREE.InstancedMesh(
-        pierDeckGeo,
-        woodMat,
-        pierPositions.length
+    if (persistentLighthouseLight) {
+      persistentLighthouseLight.position.set(
+        pos.x + worldOffsetX,
+        pos.y + beamHeight,
+        pos.z + worldOffsetZ
       );
-      const postInst = new THREE.InstancedMesh(
-        pierPostGeo,
-        woodMat,
-        pierPositions.length * 4
+      persistentLighthouseLight.target.position.set(
+        pos.x + worldOffsetX + Math.sin(pos.rotY) * 200,
+        pos.y + beamHeight - 30,
+        pos.z + worldOffsetZ + Math.cos(pos.rotY) * 200
       );
+      persistentLighthouseLight.intensity = LIGHTHOUSE_LIGHT_INTENSITY;
 
-      pierPositions.forEach((pos, index) => {
-        dummy.position.set(pos.x, pos.y - 1, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
+      // Store in userData for game.js to animate!
+      group.userData.lighthouseLight = persistentLighthouseLight;
+      group.userData.lighthouseTarget = persistentLighthouseLight.target;
+    }
+  }
+
+  // 2.95 Generate Piers
+  if (pierPositions.length > 0) {
+    const deckInst = new THREE.InstancedMesh(
+      pierDeckGeo,
+      woodMat,
+      pierPositions.length
+    );
+    const postInst = new THREE.InstancedMesh(
+      pierPostGeo,
+      woodMat,
+      pierPositions.length * 4
+    );
+
+    pierPositions.forEach((pos, index) => {
+      dummy.position.set(pos.x, pos.y - 1, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.updateMatrix();
+      deckInst.setMatrixAt(index, dummy.matrix);
+
+      // Posts
+      const offsets = [
+        [-6, 10],
+        [6, 10],
+        [-6, 25],
+        [6, 25],
+      ];
+      offsets.forEach((off, i) => {
+        const p = new THREE.Vector3(off[0], -5, off[1]).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          pos.rotY
+        );
+        dummy.position.set(pos.x + p.x, pos.y + p.y, pos.z + p.z);
+        dummy.rotation.set(0, 0, 0);
         dummy.updateMatrix();
-        deckInst.setMatrixAt(index, dummy.matrix);
-
-        // Posts
-        const offsets = [
-          [-6, 10],
-          [6, 10],
-          [-6, 25],
-          [6, 25],
-        ];
-        offsets.forEach((off, i) => {
-          const p = new THREE.Vector3(off[0], -5, off[1]).applyAxisAngle(
-            new THREE.Vector3(0, 1, 0),
-            pos.rotY
-          );
-          dummy.position.set(pos.x + p.x, pos.y + p.y, pos.z + p.z);
-          dummy.rotation.set(0, 0, 0);
-          dummy.updateMatrix();
-          postInst.setMatrixAt(index * 4 + i, dummy.matrix);
-        });
+        postInst.setMatrixAt(index * 4 + i, dummy.matrix);
       });
+    });
 
-      deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      postInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(deckInst);
-      objectsGroup.add(postInst);
+    deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    postInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(deckInst);
+    objectsGroup.add(postInst);
+  }
+
+  // 2.955 Generate West Coast Highway
+  // Spawn continuous geometric road segments that elevate into bridges over water/valleys
+  if (!isCustom) {
+    const halfChunk = CHUNK_SIZE / 2;
+    const activeRoads = [];
+    for (let n = -20; n <= 20; n++) {
+      const baseX =
+        ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
+      if (
+        baseX + 4000 >= worldOffsetX - halfChunk &&
+        baseX - 4000 <= worldOffsetX + halfChunk
+      ) {
+        activeRoads.push(n);
+      }
     }
 
-    // 2.955 Generate West Coast Highway
-    // Spawn continuous geometric road segments that elevate into bridges over water/valleys
-    if (!isCustom) {
-      const halfChunk = CHUNK_SIZE / 2;
-      const activeRoads = [];
-      for (let n = -20; n <= 20; n++) {
-        const baseX =
-          ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
-        if (
-          baseX + 4000 >= worldOffsetX - halfChunk &&
-          baseX - 4000 <= worldOffsetX + halfChunk
-        ) {
-          activeRoads.push(n);
-        }
+    activeRoads.forEach((n) => {
+      const bridgePositions = [];
+      const sampleStep = BRIDGE_SEGMENT_LENGTH;
+
+      // Ensure we have access to the constants
+      const constants = {
+        WATER_LEVEL,
+        MOUNTAIN_LEVEL:
+          typeof MOUNTAIN_LEVEL !== 'undefined' ? MOUNTAIN_LEVEL : 180,
+      };
+
+      for (
+        let sampleZ = -halfChunk;
+        sampleZ < halfChunk;
+        sampleZ += sampleStep
+      ) {
+        const wz = worldOffsetZ + sampleZ + sampleStep / 2;
+        const roadX = ChillFlightLogic.getRoadCenterX(wz, n);
+        const localRoadX = roadX - worldOffsetX;
+
+        // Check if the road center is inside this chunk (with some margin)
+        if (Math.abs(localRoadX) > halfChunk + 50) continue;
+
+        // Get natural terrain height (ignoring rivers and trenches) for smooth road elevation
+        const naturalH = ChillFlightLogic.getElevation(
+          roadX,
+          wz,
+          simplex,
+          constants,
+          null,
+          {ignoreRivers: true, ignoreRoads: true}
+        );
+
+        if (roadX >= 0) continue;
+
+        // Ensure minimum clearance height over water and max height for trenches
+        const minHeight = WATER_LEVEL + 60;
+        let roadY = minHeight + (naturalH - minHeight) * 0.85;
+        roadY = Math.max(roadY, minHeight);
+        roadY = Math.min(roadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
+
+        // Actual terrain height (including rivers) to determine if we need pilings
+        const actualTerrainH = getCachedElevation(roadX, wz);
+        const needsPilings = roadY - actualTerrainH > 10;
+
+        // Calculate the next point on the road to determine slope and yaw
+        const nextWz = wz + sampleStep;
+        const nextRoadX = ChillFlightLogic.getRoadCenterX(nextWz, n);
+        const nextNaturalH = ChillFlightLogic.getElevation(
+          nextRoadX,
+          nextWz,
+          simplex,
+          constants,
+          null,
+          {ignoreRivers: true, ignoreRoads: true}
+        );
+        let nextRoadY = minHeight + (nextNaturalH - minHeight) * 0.85;
+        nextRoadY = Math.max(nextRoadY, minHeight);
+        nextRoadY = Math.min(nextRoadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
+
+        bridgePositions.push({
+          x: localRoadX,
+          y: roadY,
+          z: sampleZ + sampleStep / 2,
+          needsPilings: needsPilings,
+          terrainH: actualTerrainH,
+          nextPos: {
+            x: nextRoadX - worldOffsetX,
+            y: nextRoadY,
+            z: sampleZ + sampleStep * 1.5,
+          },
+        });
       }
 
-      activeRoads.forEach((n) => {
-        const bridgePositions = [];
-        const sampleStep = BRIDGE_SEGMENT_LENGTH;
+      if (bridgePositions.length > 0) {
+        // Count how many pilings and railings we need
+        let numPilings = 0;
+        let numArches = 0;
+        let numRailSegments = 0;
+        bridgePositions.forEach((p) => {
+          if (p.needsPilings) {
+            numPilings += 6; // 2 main pillars + 4 spandrel columns
+            numArches += 2; // 2 arches
+            numRailSegments += 1;
+          }
+        });
 
-        // Ensure we have access to the constants
-        const constants = {
-          WATER_LEVEL,
-          MOUNTAIN_LEVEL:
-            typeof MOUNTAIN_LEVEL !== 'undefined' ? MOUNTAIN_LEVEL : 180,
-        };
+        // Bridge decks
+        const deckInst = new THREE.InstancedMesh(
+          bridgeDeckGeo,
+          bridgeDeckMat,
+          bridgePositions.length
+        );
 
-        for (
-          let sampleZ = -halfChunk;
-          sampleZ < halfChunk;
-          sampleZ += sampleStep
-        ) {
-          const wz = worldOffsetZ + sampleZ + sampleStep / 2;
-          const roadX = ChillFlightLogic.getRoadCenterX(wz, n);
-          const localRoadX = roadX - worldOffsetX;
+        // Pilings
+        const pilingInst = new THREE.InstancedMesh(
+          bridgePilingGeo,
+          bridgePilingMat,
+          numPilings > 0 ? numPilings : 1 // Avoid 0 size buffer error
+        );
 
-          // Check if the road center is inside this chunk (with some margin)
-          if (Math.abs(localRoadX) > halfChunk + 50) continue;
+        // Arches
+        const archInst = new THREE.InstancedMesh(
+          bridgeArchGeo,
+          bridgePilingMat,
+          numArches > 0 ? numArches : 1
+        );
 
-          // Get natural terrain height (ignoring rivers and trenches) for smooth road elevation
-          const naturalH = ChillFlightLogic.getElevation(
-            roadX,
-            wz,
-            simplex,
-            constants,
-            null,
-            {ignoreRivers: true, ignoreRoads: true}
-          );
+        // Railings — 2 per segment (one on each side) ONLY for bridge sections
+        const railInst = new THREE.InstancedMesh(
+          bridgeRailGeo,
+          bridgeDeckMat,
+          numRailSegments > 0 ? numRailSegments * 2 : 1
+        );
 
-          if (roadX >= 0) continue;
+        const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 2;
+        let pilingIndex = 0;
+        let archIndex = 0;
+        let railIndex = 0;
 
-          // Ensure minimum clearance height over water and max height for trenches
-          const minHeight = WATER_LEVEL + 60;
-          let roadY = minHeight + (naturalH - minHeight) * 0.85;
-          roadY = Math.max(roadY, minHeight);
-          roadY = Math.min(roadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
+        // Streetlights
+        let slFrequency = 2; // Normal: every other segment
+        const absZ = Math.abs(worldOffsetZ);
 
-          // Actual terrain height (including rivers) to determine if we need pilings
-          const actualTerrainH = getCachedElevation(roadX, wz);
-          const needsPilings = roadY - actualTerrainH > 10;
-
-          // Calculate the next point on the road to determine slope and yaw
-          const nextWz = wz + sampleStep;
-          const nextRoadX = ChillFlightLogic.getRoadCenterX(nextWz, n);
-          const nextNaturalH = ChillFlightLogic.getElevation(
-            nextRoadX,
-            nextWz,
-            simplex,
-            constants,
-            null,
-            {ignoreRivers: true, ignoreRoads: true}
-          );
-          let nextRoadY = minHeight + (nextNaturalH - minHeight) * 0.85;
-          nextRoadY = Math.max(nextRoadY, minHeight);
-          nextRoadY = Math.min(nextRoadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
-
-          bridgePositions.push({
-            x: localRoadX,
-            y: roadY,
-            z: sampleZ + sampleStep / 2,
-            needsPilings: needsPilings,
-            terrainH: actualTerrainH,
-            nextPos: {
-              x: nextRoadX - worldOffsetX,
-              y: nextRoadY,
-              z: sampleZ + sampleStep * 1.5,
-            },
-          });
+        // Stop completely (abs(Z) > 50000, 10.0° North/South)
+        if (absZ > 50000) {
+          slFrequency = 0;
+          // Sparse further out (abs(Z) > 25000, 5.0° North/South)
+        } else if (absZ > 25000) {
+          slFrequency = 8;
+          // Somewhat sparse further out (abs(Z) > 15000, 3.0° North/South)
+        } else if (absZ > 15000) {
+          slFrequency = 4;
         }
 
-        if (bridgePositions.length > 0) {
-          // Count how many pilings and railings we need
-          let numPilings = 0;
-          let numArches = 0;
-          let numRailSegments = 0;
-          bridgePositions.forEach((p) => {
-            if (p.needsPilings) {
-              numPilings += 6; // 2 main pillars + 4 spandrel columns
-              numArches += 2; // 2 arches
-              numRailSegments += 1;
+        // Calculate exact number of streetlights based on global segment alignment
+        let numStreetlights = 0;
+        if (slFrequency > 0) {
+          bridgePositions.forEach((pos) => {
+            const midZ = (pos.z + pos.nextPos.z) / 2;
+            const globalZ = worldOffsetZ + midZ;
+            const globalSegmentIndex = Math.round(
+              globalZ / BRIDGE_SEGMENT_LENGTH
+            );
+            if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
+              numStreetlights++;
             }
           });
+        }
+        const slBaseInst = new THREE.InstancedMesh(
+          streetlightPoleGeo,
+          streetlightPoleMat,
+          numStreetlights > 0 ? numStreetlights : 1
+        );
+        const slArmInst = new THREE.InstancedMesh(
+          streetlightArmGeo,
+          streetlightPoleMat,
+          numStreetlights > 0 ? numStreetlights : 1
+        );
+        const slBulbInst = new THREE.InstancedMesh(
+          streetlightBulbGeo,
+          window.streetlightBulbMat,
+          numStreetlights > 0 ? numStreetlights : 1
+        );
+        const slDecalInst = new THREE.InstancedMesh(
+          streetlightDecalGeo,
+          window.streetlightDecalMat,
+          numStreetlights > 0 ? numStreetlights : 1
+        );
+        let slIndex = 0;
 
-          // Bridge decks
-          const deckInst = new THREE.InstancedMesh(
-            bridgeDeckGeo,
-            bridgeDeckMat,
-            bridgePositions.length
+        bridgePositions.forEach((pos, index) => {
+          const currentVec = new THREE.Vector3(pos.x, pos.y, pos.z);
+          const nextVec = new THREE.Vector3(
+            pos.nextPos.x,
+            pos.nextPos.y,
+            pos.nextPos.z
           );
 
-          // Pilings
-          const pilingInst = new THREE.InstancedMesh(
-            bridgePilingGeo,
-            bridgePilingMat,
-            numPilings > 0 ? numPilings : 1 // Avoid 0 size buffer error
+          // Calculate center of the edge and the exact distance
+          const midVec = currentVec.clone().lerp(nextVec, 0.5);
+          const dist = currentVec.distanceTo(nextVec);
+
+          // Deck
+          dummy.position.copy(midVec);
+          dummy.lookAt(nextVec);
+          dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+          dummy.updateMatrix();
+          deckInst.setMatrixAt(index, dummy.matrix);
+
+          // Extract just the yaw from the deck's rotation for pilings
+          const euler = new THREE.Euler().setFromQuaternion(
+            dummy.quaternion,
+            'YXZ'
           );
+          const yaw = euler.y;
 
-          // Arches
-          const archInst = new THREE.InstancedMesh(
-            bridgeArchGeo,
-            bridgePilingMat,
-            numArches > 0 ? numArches : 1
-          );
+          // Pilings and Arches
+          if (pos.needsPilings) {
+            const pilingHeight = midVec.y - pos.terrainH;
+            if (pilingHeight > 0) {
+              // 1. Main pilings at the start of the segment
+              [-halfRoadW, halfRoadW].forEach((xOff) => {
+                const zOff = -BRIDGE_SEGMENT_LENGTH / 2;
+                const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
+                const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
 
-          // Railings — 2 per segment (one on each side) ONLY for bridge sections
-          const railInst = new THREE.InstancedMesh(
-            bridgeRailGeo,
-            bridgeDeckMat,
-            numRailSegments > 0 ? numRailSegments * 2 : 1
-          );
+                dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
+                dummy.rotation.set(0, yaw, 0); // Keep them vertical
+                dummy.scale.set(1, pilingHeight, 1);
+                dummy.updateMatrix();
+                pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
+              });
 
-          const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 2;
-          let pilingIndex = 0;
-          let archIndex = 0;
-          let railIndex = 0;
+              // 2. Semi-circular arches spanning the segment
+              [-halfRoadW, halfRoadW].forEach((xOff) => {
+                const zOff = 0;
+                const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
+                const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
 
-          // Streetlights
-          let slFrequency = 2; // Normal: every other segment
-          const absZ = Math.abs(worldOffsetZ);
+                dummy.position.set(
+                  midVec.x + dx,
+                  midVec.y - BRIDGE_SEGMENT_LENGTH / 2,
+                  midVec.z + dz
+                );
+                dummy.rotation.set(0, yaw, 0);
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                archInst.setMatrixAt(archIndex++, dummy.matrix);
+              });
 
-          // Stop completely (abs(Z) > 50000, 10.0° North/South)
-          if (absZ > 50000) {
-            slFrequency = 0;
-            // Sparse further out (abs(Z) > 25000, 5.0° North/South)
-          } else if (absZ > 25000) {
-            slFrequency = 8;
-            // Somewhat sparse further out (abs(Z) > 15000, 3.0° North/South)
-          } else if (absZ > 15000) {
-            slFrequency = 4;
-          }
-
-          // Calculate exact number of streetlights based on global segment alignment
-          let numStreetlights = 0;
-          if (slFrequency > 0) {
-            bridgePositions.forEach((pos) => {
-              const midZ = (pos.z + pos.nextPos.z) / 2;
-              const globalZ = worldOffsetZ + midZ;
-              const globalSegmentIndex = Math.round(
-                globalZ / BRIDGE_SEGMENT_LENGTH
-              );
-              if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
-                numStreetlights++;
-              }
-            });
-          }
-          const slBaseInst = new THREE.InstancedMesh(
-            streetlightPoleGeo,
-            streetlightPoleMat,
-            numStreetlights > 0 ? numStreetlights : 1
-          );
-          const slArmInst = new THREE.InstancedMesh(
-            streetlightArmGeo,
-            streetlightPoleMat,
-            numStreetlights > 0 ? numStreetlights : 1
-          );
-          const slBulbInst = new THREE.InstancedMesh(
-            streetlightBulbGeo,
-            window.streetlightBulbMat,
-            numStreetlights > 0 ? numStreetlights : 1
-          );
-          const slDecalInst = new THREE.InstancedMesh(
-            streetlightDecalGeo,
-            window.streetlightDecalMat,
-            numStreetlights > 0 ? numStreetlights : 1
-          );
-          let slIndex = 0;
-
-          bridgePositions.forEach((pos, index) => {
-            const currentVec = new THREE.Vector3(pos.x, pos.y, pos.z);
-            const nextVec = new THREE.Vector3(
-              pos.nextPos.x,
-              pos.nextPos.y,
-              pos.nextPos.z
-            );
-
-            // Calculate center of the edge and the exact distance
-            const midVec = currentVec.clone().lerp(nextVec, 0.5);
-            const dist = currentVec.distanceTo(nextVec);
-
-            // Deck
-            dummy.position.copy(midVec);
-            dummy.lookAt(nextVec);
-            dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
-            dummy.updateMatrix();
-            deckInst.setMatrixAt(index, dummy.matrix);
-
-            // Extract just the yaw from the deck's rotation for pilings
-            const euler = new THREE.Euler().setFromQuaternion(
-              dummy.quaternion,
-              'YXZ'
-            );
-            const yaw = euler.y;
-
-            // Pilings and Arches
-            if (pos.needsPilings) {
-              const pilingHeight = midVec.y - pos.terrainH;
-              if (pilingHeight > 0) {
-                // 1. Main pilings at the start of the segment
-                [-halfRoadW, halfRoadW].forEach((xOff) => {
-                  const zOff = -BRIDGE_SEGMENT_LENGTH / 2;
-                  const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
-                  const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
-
-                  dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
-                  dummy.rotation.set(0, yaw, 0); // Keep them vertical
-                  dummy.scale.set(1, pilingHeight, 1);
-                  dummy.updateMatrix();
-                  pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
-                });
-
-                // 2. Semi-circular arches spanning the segment
-                [-halfRoadW, halfRoadW].forEach((xOff) => {
-                  const zOff = 0;
-                  const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
-                  const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
-
-                  dummy.position.set(
-                    midVec.x + dx,
-                    midVec.y - BRIDGE_SEGMENT_LENGTH / 2,
-                    midVec.z + dz
-                  );
-                  dummy.rotation.set(0, yaw, 0);
-                  dummy.scale.set(1, 1, 1);
-                  dummy.updateMatrix();
-                  archInst.setMatrixAt(archIndex++, dummy.matrix);
-                });
-
-                // 3. Spandrel columns (short columns on top of the arch)
-                [-halfRoadW, halfRoadW].forEach((xOff) => {
-                  [
-                    -BRIDGE_SEGMENT_LENGTH / 4,
-                    BRIDGE_SEGMENT_LENGTH / 4,
-                  ].forEach((zOff) => {
+              // 3. Spandrel columns (short columns on top of the arch)
+              [-halfRoadW, halfRoadW].forEach((xOff) => {
+                [-BRIDGE_SEGMENT_LENGTH / 4, BRIDGE_SEGMENT_LENGTH / 4].forEach(
+                  (zOff) => {
                     const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
                     const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
                     dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
@@ -6165,693 +6070,683 @@ function generateChunk(chunkX, chunkZ) {
                     dummy.scale.set(1, 2.5, 1); // Sink into the arch slightly
                     dummy.updateMatrix();
                     pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
-                  });
-                });
-              }
-            }
-
-            // Railings — one on each side, only if it's a bridge section
-            if (pos.needsPilings) {
-              [-halfRoadW, halfRoadW].forEach((xOff) => {
-                // Apply deck's rotation to local offset
-                dummy.position.copy(midVec);
-                dummy.lookAt(nextVec);
-                dummy.translateX(xOff);
-                dummy.translateY(2);
-                dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
-                dummy.updateMatrix();
-                railInst.setMatrixAt(railIndex++, dummy.matrix);
+                  }
+                );
               });
             }
+          }
 
-            // Streetlights
-            if (slFrequency > 0 && slIndex < numStreetlights) {
-              const globalZ = worldOffsetZ + midVec.z;
-              const globalSegmentIndex = Math.round(
-                globalZ / BRIDGE_SEGMENT_LENGTH
+          // Railings — one on each side, only if it's a bridge section
+          if (pos.needsPilings) {
+            [-halfRoadW, halfRoadW].forEach((xOff) => {
+              // Apply deck's rotation to local offset
+              dummy.position.copy(midVec);
+              dummy.lookAt(nextVec);
+              dummy.translateX(xOff);
+              dummy.translateY(2);
+              dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+              dummy.updateMatrix();
+              railInst.setMatrixAt(railIndex++, dummy.matrix);
+            });
+          }
+
+          // Streetlights
+          if (slFrequency > 0 && slIndex < numStreetlights) {
+            const globalZ = worldOffsetZ + midVec.z;
+            const globalSegmentIndex = Math.round(
+              globalZ / BRIDGE_SEGMENT_LENGTH
+            );
+
+            if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
+              const isLeftSide =
+                Math.floor(Math.abs(globalSegmentIndex) / slFrequency) % 2 ===
+                0;
+
+              const sideOff = isLeftSide ? halfRoadW - 0.5 : -halfRoadW + 0.5;
+              const slYaw = isLeftSide ? yaw + Math.PI : yaw;
+
+              const dxSl = sideOff * Math.cos(yaw);
+              const dzSl = -sideOff * Math.sin(yaw);
+
+              const slPos = new THREE.Vector3(
+                midVec.x + dxSl,
+                midVec.y,
+                midVec.z + dzSl
               );
 
-              if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
-                const isLeftSide =
-                  Math.floor(Math.abs(globalSegmentIndex) / slFrequency) % 2 ===
-                  0;
-
-                const sideOff = isLeftSide ? halfRoadW - 0.5 : -halfRoadW + 0.5;
-                const slYaw = isLeftSide ? yaw + Math.PI : yaw;
-
-                const dxSl = sideOff * Math.cos(yaw);
-                const dzSl = -sideOff * Math.sin(yaw);
-
-                const slPos = new THREE.Vector3(
-                  midVec.x + dxSl,
-                  midVec.y,
-                  midVec.z + dzSl
+              const structure = ModelAssembler.getStructure(
+                'streetlight',
+                slYaw
+              );
+              structure.forEach((part, pIdx) => {
+                dummy.position.set(
+                  slPos.x + part.pos[0],
+                  slPos.y + part.pos[1],
+                  slPos.z + part.pos[2]
                 );
-
-                const structure = ModelAssembler.getStructure(
-                  'streetlight',
-                  slYaw
-                );
-                structure.forEach((part, pIdx) => {
-                  dummy.position.set(
-                    slPos.x + part.pos[0],
-                    slPos.y + part.pos[1],
-                    slPos.z + part.pos[2]
-                  );
-                  dummy.rotation.set(...part.rot);
-                  dummy.scale.set(1, 1, 1);
-                  dummy.updateMatrix();
-                  if (pIdx === 0) slBaseInst.setMatrixAt(slIndex, dummy.matrix);
-                  else if (pIdx === 1)
-                    slArmInst.setMatrixAt(slIndex, dummy.matrix);
-                  else if (pIdx === 2)
-                    slBulbInst.setMatrixAt(slIndex, dummy.matrix);
-                });
-
-                // Decal on the road under the bulb
-                const decalDx = 17 * Math.cos(slYaw);
-                const decalDz = -17 * Math.sin(slYaw);
-                // Push it slightly higher (1.2) to prevent any Z-fighting on steep bridges
-                const decalPos = new THREE.Vector3(
-                  slPos.x + decalDx,
-                  slPos.y + 1.2,
-                  slPos.z + decalDz
-                );
-
-                const forward = new THREE.Vector3()
-                  .subVectors(nextVec, midVec)
-                  .normalize();
-
-                dummy.position.copy(decalPos);
-                dummy.lookAt(decalPos.clone().add(forward));
-                dummy.scale.set(1.5, 1, 1.5); // Perfectly circular, large soft pool
+                dummy.rotation.set(...part.rot);
+                dummy.scale.set(1, 1, 1);
                 dummy.updateMatrix();
-                slDecalInst.setMatrixAt(slIndex, dummy.matrix);
+                if (pIdx === 0) slBaseInst.setMatrixAt(slIndex, dummy.matrix);
+                else if (pIdx === 1)
+                  slArmInst.setMatrixAt(slIndex, dummy.matrix);
+                else if (pIdx === 2)
+                  slBulbInst.setMatrixAt(slIndex, dummy.matrix);
+              });
 
-                slIndex++;
-              }
+              // Decal on the road under the bulb
+              const decalDx = 17 * Math.cos(slYaw);
+              const decalDz = -17 * Math.sin(slYaw);
+              // Push it slightly higher (1.2) to prevent any Z-fighting on steep bridges
+              const decalPos = new THREE.Vector3(
+                slPos.x + decalDx,
+                slPos.y + 1.2,
+                slPos.z + decalDz
+              );
+
+              const forward = new THREE.Vector3()
+                .subVectors(nextVec, midVec)
+                .normalize();
+
+              dummy.position.copy(decalPos);
+              dummy.lookAt(decalPos.clone().add(forward));
+              dummy.scale.set(1.5, 1, 1.5); // Perfectly circular, large soft pool
+              dummy.updateMatrix();
+              slDecalInst.setMatrixAt(slIndex, dummy.matrix);
+
+              slIndex++;
             }
-          });
-
-          deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(deckInst);
-
-          if (numRailSegments > 0) {
-            railInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(railInst);
-          }
-
-          if (numPilings > 0) {
-            pilingInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(pilingInst);
-          }
-
-          if (numArches > 0) {
-            archInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(archInst);
-          }
-
-          if (numStreetlights > 0) {
-            slBaseInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
-            group.add(slBaseInst);
-            group.add(slArmInst);
-            group.add(slBulbInst);
-            group.add(slDecalInst);
-          }
-        }
-      }); // End activeRoads.forEach
-    }
-
-    // 2.96 Generate Campfires
-    if (campfirePositions.length > 0) {
-      const logInst = new THREE.InstancedMesh(
-        fireLogGeo,
-        woodMat,
-        campfirePositions.length * 3
-      );
-      const coreInst = new THREE.InstancedMesh(
-        fireCoreGeo,
-        fireMat,
-        campfirePositions.length
-      );
-      const smokeInst = new THREE.InstancedMesh(
-        smokeGeo,
-        smokeMat,
-        campfirePositions.length * 5
-      ); // 5 particles per fire community
-      const numTentColors = tentPalette.length;
-      const tentCounts = Array(numTentColors).fill(0);
-      const tentColorIndices = []; // Maps index to colorIndex
-
-      campfirePositions.forEach((pos, index) => {
-        // Deterministic color selection using seed-based RNG
-        const colorIdx = Math.floor(rng() * numTentColors);
-        tentColorIndices[index] = colorIdx;
-        tentCounts[colorIdx]++;
-      });
-
-      const tentInsts = [];
-      const tentPolesInst = new THREE.InstancedMesh(
-        tentPolesGeo,
-        woodMat,
-        campfirePositions.length
-      );
-      const tentEntranceInst = new THREE.InstancedMesh(
-        tentEntranceGeo,
-        tentEntranceMat,
-        campfirePositions.length
-      );
-      const currentComboIndices = Array(numTentColors).fill(0);
-
-      for (let i = 0; i < numTentColors; i++) {
-        if (tentCounts[i] > 0) {
-          tentInsts[i] = new THREE.InstancedMesh(
-            tentGeo,
-            tentPalette[i],
-            tentCounts[i]
-          );
-          tentInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
-          objectsGroup.add(tentInsts[i]);
-        }
-      }
-
-      tentPolesInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      tentEntranceInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(tentPolesInst, tentEntranceInst);
-
-      campfirePositions.forEach((pos, index) => {
-        const structure = ModelAssembler.getStructure(
-          'campfire',
-          pos.rotY || 0
-        );
-        structure.forEach((part, pIdx) => {
-          dummy.position.set(
-            pos.x + part.pos[0],
-            pos.y + part.pos[1],
-            pos.z + part.pos[2]
-          );
-          dummy.rotation.order = part.order || 'XYZ';
-          dummy.rotation.set(...part.rot);
-          dummy.scale.set(1, 1, 1);
-          dummy.updateMatrix();
-
-          if (part.geo === fireLogGeo) {
-            logInst.setMatrixAt(index * 3 + pIdx, dummy.matrix);
-          } else if (part.geo === fireCoreGeo) {
-            coreInst.setMatrixAt(index, dummy.matrix);
           }
         });
 
-        // Smoke community
-        for (let i = 0; i < 5; i++) {
-          dummy.position.set(pos.x, pos.y + 5, pos.z);
-          dummy.scale.set(1, 1, 1);
-          dummy.rotation.set(0, 0, 0);
-          dummy.updateMatrix();
-          const smokeIdx = index * 5 + i;
-          smokeInst.setMatrixAt(smokeIdx, dummy.matrix);
+        deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+        group.add(deckInst);
 
-          const phase = ((pos.x + pos.z) % 10.0) / 10.0;
-          smokeInst.setColorAt(smokeIdx, new THREE.Color(i / 10.0, phase, 0));
+        if (numRailSegments > 0) {
+          railInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(railInst);
         }
 
-        // Tent community
-        const angle = rng() * Math.PI * 2;
-        const dist = 12 + rng() * 4;
-        const tentX = pos.x + Math.cos(angle) * dist;
-        const tentZ = pos.z + Math.sin(angle) * dist;
-        const tentY = getCachedElevation(
-          worldOffsetX + tentX,
-          worldOffsetZ + tentZ
-        );
+        if (numPilings > 0) {
+          pilingInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(pilingInst);
+        }
 
-        dummy.position.set(tentX, tentY, tentZ);
-        dummy.rotation.set(0, angle, 0);
+        if (numArches > 0) {
+          archInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(archInst);
+        }
+
+        if (numStreetlights > 0) {
+          slBaseInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(slBaseInst);
+          group.add(slArmInst);
+          group.add(slBulbInst);
+          group.add(slDecalInst);
+        }
+      }
+    }); // End activeRoads.forEach
+  }
+
+  // 2.96 Generate Campfires
+  if (campfirePositions.length > 0) {
+    const logInst = new THREE.InstancedMesh(
+      fireLogGeo,
+      woodMat,
+      campfirePositions.length * 3
+    );
+    const coreInst = new THREE.InstancedMesh(
+      fireCoreGeo,
+      fireMat,
+      campfirePositions.length
+    );
+    const smokeInst = new THREE.InstancedMesh(
+      smokeGeo,
+      smokeMat,
+      campfirePositions.length * 5
+    ); // 5 particles per fire community
+    const numTentColors = tentPalette.length;
+    const tentCounts = Array(numTentColors).fill(0);
+    const tentColorIndices = []; // Maps index to colorIndex
+
+    campfirePositions.forEach((pos, index) => {
+      // Deterministic color selection using seed-based RNG
+      const colorIdx = Math.floor(rng() * numTentColors);
+      tentColorIndices[index] = colorIdx;
+      tentCounts[colorIdx]++;
+    });
+
+    const tentInsts = [];
+    const tentPolesInst = new THREE.InstancedMesh(
+      tentPolesGeo,
+      woodMat,
+      campfirePositions.length
+    );
+    const tentEntranceInst = new THREE.InstancedMesh(
+      tentEntranceGeo,
+      tentEntranceMat,
+      campfirePositions.length
+    );
+    const currentComboIndices = Array(numTentColors).fill(0);
+
+    for (let i = 0; i < numTentColors; i++) {
+      if (tentCounts[i] > 0) {
+        tentInsts[i] = new THREE.InstancedMesh(
+          tentGeo,
+          tentPalette[i],
+          tentCounts[i]
+        );
+        tentInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
+        objectsGroup.add(tentInsts[i]);
+      }
+    }
+
+    tentPolesInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    tentEntranceInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(tentPolesInst, tentEntranceInst);
+
+    campfirePositions.forEach((pos, index) => {
+      const structure = ModelAssembler.getStructure('campfire', pos.rotY || 0);
+      structure.forEach((part, pIdx) => {
+        dummy.position.set(
+          pos.x + part.pos[0],
+          pos.y + part.pos[1],
+          pos.z + part.pos[2]
+        );
+        dummy.rotation.order = part.order || 'XYZ';
+        dummy.rotation.set(...part.rot);
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
 
-        const colorIdx = tentColorIndices[index];
-        const instIdx = currentComboIndices[colorIdx]++;
-        tentInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
-
-        tentPolesInst.setMatrixAt(index, dummy.matrix);
-        tentEntranceInst.setMatrixAt(index, dummy.matrix);
-      });
-
-      logInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      coreInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      smokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(logInst);
-      objectsGroup.add(coreInst);
-      objectsGroup.add(smokeInst);
-
-      group.userData.campfires = coreInst;
-      group.userData.campfireSmoke = smokeInst;
-    }
-
-    // 2.97 Generate Chimney Smoke
-    if (chimneySmokePositions.length > 0) {
-      const chimneySmokeInst = new THREE.InstancedMesh(
-        smokeGeo,
-        whiteSmokeMat,
-        chimneySmokePositions.length * 4
-      );
-
-      chimneySmokePositions.forEach((pos, index) => {
-        for (let i = 0; i < 4; i++) {
-          dummy.position.set(pos.x, pos.y, pos.z);
-          dummy.scale.set(1, 1, 1);
-          dummy.rotation.set(0, 0, 0);
-          dummy.updateMatrix();
-          const smokeIdx = index * 4 + i;
-          chimneySmokeInst.setMatrixAt(smokeIdx, dummy.matrix);
-
-          const phase = ((pos.x + pos.z) % 10.0) / 10.0;
-          chimneySmokeInst.setColorAt(
-            smokeIdx,
-            new THREE.Color(i / 10.0, phase, 0)
-          );
+        if (part.geo === fireLogGeo) {
+          logInst.setMatrixAt(index * 3 + pIdx, dummy.matrix);
+        } else if (part.geo === fireCoreGeo) {
+          coreInst.setMatrixAt(index, dummy.matrix);
         }
       });
 
-      chimneySmokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(chimneySmokeInst);
+      // Smoke community
+      for (let i = 0; i < 5; i++) {
+        dummy.position.set(pos.x, pos.y + 5, pos.z);
+        dummy.scale.set(1, 1, 1);
+        dummy.rotation.set(0, 0, 0);
+        dummy.updateMatrix();
+        const smokeIdx = index * 5 + i;
+        smokeInst.setMatrixAt(smokeIdx, dummy.matrix);
 
-      group.userData.chimneySmoke = chimneySmokeInst;
-    }
-
-    // 2.98 Generate Sailboats
-    if (sailboatPositions.length > 0) {
-      const numBoatColors = boatHullPalette.length;
-      const boatCounts = Array(numBoatColors).fill(0);
-      const boatColorIndices = [];
-
-      sailboatPositions.forEach((pos, index) => {
-        const colorIdx = Math.floor(rng() * numBoatColors);
-        boatColorIndices[index] = colorIdx;
-        boatCounts[colorIdx]++;
-      });
-
-      const hullInsts = [];
-      const currentComboIndices = Array(numBoatColors).fill(0);
-      const boatInstIndices = [];
-
-      for (let i = 0; i < numBoatColors; i++) {
-        if (boatCounts[i] > 0) {
-          hullInsts[i] = new THREE.InstancedMesh(
-            boatHullGeo,
-            boatHullPalette[i],
-            boatCounts[i]
-          );
-          hullInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
-          objectsGroup.add(hullInsts[i]);
-        }
+        const phase = ((pos.x + pos.z) % 10.0) / 10.0;
+        smokeInst.setColorAt(smokeIdx, new THREE.Color(i / 10.0, phase, 0));
       }
 
-      const rimInst = new THREE.InstancedMesh(
-        boatRimGeo,
-        boatRimMat,
-        sailboatPositions.length
-      );
-      const deckInst = new THREE.InstancedMesh(
-        boatDeckGeo,
-        boatDeckMat,
-        sailboatPositions.length
-      );
-      const mastInst = new THREE.InstancedMesh(
-        boatMastGeo,
-        woodMat,
-        sailboatPositions.length
-      );
-      const boomInst = new THREE.InstancedMesh(
-        boatBoomGeo,
-        woodMat,
-        sailboatPositions.length
-      );
-      const sailInst = new THREE.InstancedMesh(
-        boatSailGeo,
-        boatSailMat,
-        sailboatPositions.length
-      );
-      const sailboatReflectionInst = new THREE.InstancedMesh(
-        sailboatReflectionGeo,
-        reflectionMat,
-        sailboatPositions.length
+      // Tent community
+      const angle = rng() * Math.PI * 2;
+      const dist = 12 + rng() * 4;
+      const tentX = pos.x + Math.cos(angle) * dist;
+      const tentZ = pos.z + Math.sin(angle) * dist;
+      const tentY = getCachedElevation(
+        worldOffsetX + tentX,
+        worldOffsetZ + tentZ
       );
 
-      sailboatPositions.forEach((pos, index) => {
+      dummy.position.set(tentX, tentY, tentZ);
+      dummy.rotation.set(0, angle, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+
+      const colorIdx = tentColorIndices[index];
+      const instIdx = currentComboIndices[colorIdx]++;
+      tentInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
+
+      tentPolesInst.setMatrixAt(index, dummy.matrix);
+      tentEntranceInst.setMatrixAt(index, dummy.matrix);
+    });
+
+    logInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    coreInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    smokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(logInst);
+    objectsGroup.add(coreInst);
+    objectsGroup.add(smokeInst);
+
+    group.userData.campfires = coreInst;
+    group.userData.campfireSmoke = smokeInst;
+  }
+
+  // 2.97 Generate Chimney Smoke
+  if (chimneySmokePositions.length > 0) {
+    const chimneySmokeInst = new THREE.InstancedMesh(
+      smokeGeo,
+      whiteSmokeMat,
+      chimneySmokePositions.length * 4
+    );
+
+    chimneySmokePositions.forEach((pos, index) => {
+      for (let i = 0; i < 4; i++) {
         dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(1.8, 1.8, 1.8);
+        dummy.scale.set(1, 1, 1);
+        dummy.rotation.set(0, 0, 0);
         dummy.updateMatrix();
+        const smokeIdx = index * 4 + i;
+        chimneySmokeInst.setMatrixAt(smokeIdx, dummy.matrix);
 
-        const colorIdx = boatColorIndices[index];
-        const instIdx = currentComboIndices[colorIdx]++;
-        boatInstIndices[index] = instIdx;
-        hullInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
-
-        rimInst.setMatrixAt(index, dummy.matrix);
-        deckInst.setMatrixAt(index, dummy.matrix);
-        mastInst.setMatrixAt(index, dummy.matrix);
-        boomInst.setMatrixAt(index, dummy.matrix);
-        sailInst.setMatrixAt(index, dummy.matrix);
-
-        // Initialize reflection matrix with Y-flipped scale
-        dummy.scale.set(1.8, -1.8, 1.8);
-        dummy.updateMatrix();
-        sailboatReflectionInst.setMatrixAt(index, dummy.matrix);
-      });
-
-      rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      sailboatReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(
-        rimInst,
-        deckInst,
-        mastInst,
-        boomInst,
-        sailInst,
-        sailboatReflectionInst
-      );
-
-      group.userData.sailboatPositions = sailboatPositions;
-      group.userData.boatHulls = hullInsts;
-      group.userData.boatColorIndices = boatColorIndices;
-      group.userData.boatInstIndices = boatInstIndices;
-      group.userData.boatMasts = mastInst;
-      group.userData.boatSails = sailInst;
-      group.userData.boatRims = rimInst;
-      group.userData.boatDecks = deckInst;
-      group.userData.boatBooms = boomInst;
-      group.userData.boatReflections = sailboatReflectionInst;
-    }
-
-    // 3.5 Pirate Ships
-    if (pirateShipPositions.length > 0) {
-      const sailInsts = pirateSailPalette.map(
-        (mat) =>
-          new THREE.InstancedMesh(
-            pirateSailGeo,
-            mat,
-            pirateShipPositions.length
-          )
-      );
-      const hullInst = new THREE.InstancedMesh(
-        pirateHullGeo,
-        pirateHullMat,
-        pirateShipPositions.length
-      );
-      const rimInst = new THREE.InstancedMesh(
-        pirateRimGeo,
-        pirateRimMat,
-        pirateShipPositions.length
-      );
-      const deckInst = new THREE.InstancedMesh(
-        pirateDeckGeo,
-        woodMat,
-        pirateShipPositions.length
-      );
-      const mastInst = new THREE.InstancedMesh(
-        pirateMastGeo,
-        woodMat,
-        pirateShipPositions.length
-      );
-      const flagInst = new THREE.InstancedMesh(
-        pirateFlagGeo,
-        pirateFlagMat,
-        pirateShipPositions.length
-      );
-      const jrInst = new THREE.InstancedMesh(
-        pirateJollyRogerGeo,
-        pirateJollyRogerMat,
-        pirateShipPositions.length
-      );
-      const pirateReflectionInst = new THREE.InstancedMesh(
-        pirateShipReflectionGeo,
-        reflectionMat,
-        pirateShipPositions.length
-      );
-
-      const sailCounts = new Array(pirateSailPalette.length).fill(0);
-
-      pirateShipPositions.forEach((pos, index) => {
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.scale.set(2.5, 2.5, 2.5);
-        dummy.updateMatrix();
-
-        const colorIdx = pos.bodyId;
-        const instIdx = sailCounts[colorIdx]++;
-        sailInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
-
-        hullInst.setMatrixAt(index, dummy.matrix);
-        rimInst.setMatrixAt(index, dummy.matrix);
-        deckInst.setMatrixAt(index, dummy.matrix);
-        mastInst.setMatrixAt(index, dummy.matrix);
-        flagInst.setMatrixAt(index, dummy.matrix);
-        jrInst.setMatrixAt(index, dummy.matrix);
-
-        // Initialize reflection matrix with Y-flipped scale
-        dummy.scale.set(2.5, -2.5, 2.5);
-        dummy.updateMatrix();
-        pirateReflectionInst.setMatrixAt(index, dummy.matrix);
-      });
-
-      hullInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      flagInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      jrInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      pirateReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(
-        hullInst,
-        rimInst,
-        deckInst,
-        mastInst,
-        flagInst,
-        jrInst,
-        pirateReflectionInst
-      );
-
-      sailInsts.forEach((inst, idx) => {
-        if (sailCounts[idx] > 0) {
-          inst.count = sailCounts[idx];
-          inst.position.set(worldOffsetX, 0, worldOffsetZ);
-          objectsGroup.add(inst);
-        }
-      });
-
-      group.userData.pirateShipPositions = pirateShipPositions;
-      group.userData.pirateHulls = hullInst;
-      group.userData.pirateRims = rimInst;
-      group.userData.pirateDecks = deckInst;
-      group.userData.pirateMasts = mastInst;
-      group.userData.pirateFlags = flagInst;
-      group.userData.pirateJollyRogers = jrInst;
-      group.userData.pirateSails = sailInsts;
-      group.userData.pirateReflections = pirateReflectionInst;
-    }
-
-    // 4. Generate Birds
-    group.userData.birds = [];
-    const isAlienChunk = Math.abs(worldOffsetX) > 25000;
-    if (!isCustom && !isAlienChunk && rng() < 0.2) {
-      const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
-      const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
-      let baseY = getCachedElevation(baseX, baseZ) + 150 + rng() * 200;
-      if (baseY > 400) baseY = 400;
-
-      const baseRotationY = rng() * Math.PI * 2;
-
-      const isSouth = worldOffsetZ > 0;
-      const heightAtCenter = getCachedElevation(
-        worldOffsetX +
-          (window.worldOriginOffsetX || 0) +
-          (window.worldOriginOffsetX || 0),
-        worldOffsetZ
-      );
-      const isBeach =
-        heightAtCenter > WATER_LEVEL - 20 && heightAtCenter < WATER_LEVEL + 40;
-
-      if (isSouth && isBeach && rng() < 0.3) {
-        // Spawn seagulls
-        const numSeagulls = 2 + Math.floor(rng() * 4); // 2 to 5
-        const flockCenterX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
-        const flockCenterZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
-        let flockBaseY =
-          getCachedElevation(flockCenterX, flockCenterZ) + 40 + rng() * 60;
-
-        for (let i = 0; i < numSeagulls; i++) {
-          const seagull = assembleSeagull(2.5 + rng() * 1.0); // Slightly smaller scale than hawk
-          seagull.position.set(flockCenterX, flockBaseY, flockCenterZ);
-
-          seagull.userData.type = 'seagull';
-          seagull.userData.speed = 0.5; // Slightly faster
-          seagull.userData.circleSpeed = 0.4 + rng() * 0.2;
-          seagull.userData.circleRadius = 50 + rng() * 80;
-          seagull.userData.circleCenter = new THREE.Vector3(
-            flockCenterX,
-            flockBaseY + (rng() - 0.5) * 40,
-            flockCenterZ
-          );
-          seagull.userData.angle = rng() * Math.PI * 2;
-          seagull.userData.flapPhase = rng() * Math.PI * 2;
-          seagull.userData.flapSpeed = 10.0 + rng() * 5.0; // Faster flapping
-          seagull.userData.flapDuration = 2.0 + rng() * 2.0;
-          seagull.userData.soarDuration = 3.0 + rng() * 3.0;
-          seagull.userData.isDiving = false;
-          seagull.userData.diveTimer = rng() * 10;
-          seagull.userData.nextDiveWait = 10.0 + rng() * 20.0;
-
-          objectsGroup.add(seagull);
-          group.userData.birds.push(seagull);
-        }
-      } else {
-        // Spawn hawk
-
-        const hawk = assembleHawk(4.0);
-        hawk.position.set(baseX, baseY, baseZ);
-        hawk.rotation.y = baseRotationY;
-
-        hawk.userData.type = 'hawk';
-        hawk.userData.speed = 0.4;
-        hawk.userData.circleSpeed = 0.3 + rng() * 0.2;
-        hawk.userData.circleRadius = 150 + rng() * 100;
-        hawk.userData.circleCenter = new THREE.Vector3(baseX, baseY, baseZ);
-        hawk.userData.angle = rng() * Math.PI * 2;
-        hawk.userData.flapPhase = rng() * Math.PI * 2;
-        hawk.userData.flapSpeed = 8.0 + rng() * 4.0;
-        hawk.userData.flapDuration = 3.0 + rng() * 3.0;
-        hawk.userData.soarDuration = 4.0 + rng() * 4.0;
-        hawk.userData.isDiving = false;
-
-        objectsGroup.add(hawk);
-        group.userData.birds.push(hawk);
-      }
-    }
-
-    if (!isCustom && !isAlienChunk && rng() < 0.04) {
-      const flockSize = 7 + Math.floor(rng() * 6); // 7 to 12 geese
-      const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
-      const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
-      let baseY = getCachedElevation(baseX, baseZ) + 400 + rng() * 600;
-      if (baseY > 1200) baseY = 1200;
-
-      const baseRotationY = rng() * Math.PI * 2;
-      const speed = 0.5 + rng() * 0.2;
-
-      for (let i = 0; i < flockSize; i++) {
-        const goose = new THREE.Group();
-        const body = new THREE.Mesh(gooseBodyGeo, gooseBrownMat);
-        const neck = new THREE.Mesh(gooseNeckGeo, gooseBlackMat);
-        const head = new THREE.Mesh(gooseHeadGeo, gooseBlackMat);
-        const beak = new THREE.Mesh(gooseBeakGeo, gooseBlackMat);
-        const cheek = new THREE.Mesh(gooseCheekGeo, gooseWhiteMat);
-        const tailWhite = new THREE.Mesh(gooseWhiteTailGeo, gooseWhiteMat);
-        const tailBlack = new THREE.Mesh(gooseTailGeo, gooseBlackMat);
-        const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
-        const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
-        wingL.rotation.y = Math.PI;
-        goose.add(
-          body,
-          neck,
-          head,
-          beak,
-          cheek,
-          tailWhite,
-          tailBlack,
-          wingL,
-          wingR
+        const phase = ((pos.x + pos.z) % 10.0) / 10.0;
+        chimneySmokeInst.setColorAt(
+          smokeIdx,
+          new THREE.Color(i / 10.0, phase, 0)
         );
-        goose.scale.set(3.5, 3.5, 3.5);
-        goose.userData.wings = [wingL, wingR];
-
-        let offsetX = 0;
-        let offsetZ = 0;
-        if (i > 0) {
-          const row = Math.floor((i + 1) / 2);
-          const side = i % 2 === 0 ? 1 : -1;
-          offsetX = side * row * 35;
-          offsetZ = row * 35;
-        }
-
-        const localPos = new THREE.Vector3(offsetX, 0, offsetZ);
-        localPos.applyAxisAngle(new THREE.Vector3(0, 1, 0), baseRotationY);
-
-        goose.position.set(baseX + localPos.x, baseY, baseZ + localPos.z);
-        goose.rotation.y = baseRotationY;
-
-        goose.userData.type = 'goose';
-        goose.userData.speed = speed;
-        goose.userData.flapPhase = rng() * Math.PI * 2;
-        goose.userData.flapSpeed = 3.0 + rng() * 1.0;
-        goose.userData.flapDuration = 1000.0;
-        goose.userData.soarDuration = 0.0;
-
-        objectsGroup.add(goose);
-        group.userData.birds.push(goose);
-      }
-    }
-
-    group.traverse((child) => {
-      if (child.isMesh || child.isInstancedMesh) {
-        if (child.material === waterMaterial) {
-          child.receiveShadow = true;
-        } else if (
-          child.material !== smokeMat &&
-          child.material !== lighthouseBeamMat
-        ) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
       }
     });
 
-    group.userData.counts = {
-      trees_pine: treePositions.length + snowTreePositions.length,
-      trees_decid:
-        deciduousTreePositions.length + tallDeciduousTreePositions.length,
-      trees_palm: palmTreePositions.length,
-      trees_dead: deadTreePositions.length,
-      trees_autumn:
-        autumnTree1Positions.length +
-        autumnTree2Positions.length +
-        autumnTree3Positions.length,
-      trees_cherry: cherryTreePositions.length,
-      trees_yellow_cortez: yellowCortezTreePositions.length,
-      houses:
-        housePositions.length +
-        pagodaPositions.length +
-        barnPositions.length +
-        monasteryPositions.length +
-        castleRuinsPositions.length,
+    chimneySmokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(chimneySmokeInst);
 
-      rocks:
-        rockPositions.length +
-        snowRockPositions.length +
-        desertRockPositions.length,
-      bushes: bushPositions.length,
-      snowmen: snowmanPositions.length,
-      cactus: cactusPositions.length,
-      lighthouses: lighthousePos ? 1 : 0,
-      castles: castleRuinsPositions.length,
-      windmills: windmillPositions.length,
-      campfires: campfirePositions.length,
-      boats: sailboatPositions.length,
-      pirateships: pirateShipPositions.length,
-      lily_pads: lilyPadPositions.length,
-      piers: pierPositions.length,
-      birds: group.userData.birds.length,
-      chimneys: chimneySmokePositions.length,
-    };
+    group.userData.chimneySmoke = chimneySmokeInst;
   }
+
+  // 2.98 Generate Sailboats
+  if (sailboatPositions.length > 0) {
+    const numBoatColors = boatHullPalette.length;
+    const boatCounts = Array(numBoatColors).fill(0);
+    const boatColorIndices = [];
+
+    sailboatPositions.forEach((pos, index) => {
+      const colorIdx = Math.floor(rng() * numBoatColors);
+      boatColorIndices[index] = colorIdx;
+      boatCounts[colorIdx]++;
+    });
+
+    const hullInsts = [];
+    const currentComboIndices = Array(numBoatColors).fill(0);
+    const boatInstIndices = [];
+
+    for (let i = 0; i < numBoatColors; i++) {
+      if (boatCounts[i] > 0) {
+        hullInsts[i] = new THREE.InstancedMesh(
+          boatHullGeo,
+          boatHullPalette[i],
+          boatCounts[i]
+        );
+        hullInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
+        objectsGroup.add(hullInsts[i]);
+      }
+    }
+
+    const rimInst = new THREE.InstancedMesh(
+      boatRimGeo,
+      boatRimMat,
+      sailboatPositions.length
+    );
+    const deckInst = new THREE.InstancedMesh(
+      boatDeckGeo,
+      boatDeckMat,
+      sailboatPositions.length
+    );
+    const mastInst = new THREE.InstancedMesh(
+      boatMastGeo,
+      woodMat,
+      sailboatPositions.length
+    );
+    const boomInst = new THREE.InstancedMesh(
+      boatBoomGeo,
+      woodMat,
+      sailboatPositions.length
+    );
+    const sailInst = new THREE.InstancedMesh(
+      boatSailGeo,
+      boatSailMat,
+      sailboatPositions.length
+    );
+    const sailboatReflectionInst = new THREE.InstancedMesh(
+      sailboatReflectionGeo,
+      reflectionMat,
+      sailboatPositions.length
+    );
+
+    sailboatPositions.forEach((pos, index) => {
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(1.8, 1.8, 1.8);
+      dummy.updateMatrix();
+
+      const colorIdx = boatColorIndices[index];
+      const instIdx = currentComboIndices[colorIdx]++;
+      boatInstIndices[index] = instIdx;
+      hullInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
+
+      rimInst.setMatrixAt(index, dummy.matrix);
+      deckInst.setMatrixAt(index, dummy.matrix);
+      mastInst.setMatrixAt(index, dummy.matrix);
+      boomInst.setMatrixAt(index, dummy.matrix);
+      sailInst.setMatrixAt(index, dummy.matrix);
+
+      // Initialize reflection matrix with Y-flipped scale
+      dummy.scale.set(1.8, -1.8, 1.8);
+      dummy.updateMatrix();
+      sailboatReflectionInst.setMatrixAt(index, dummy.matrix);
+    });
+
+    rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    sailboatReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(
+      rimInst,
+      deckInst,
+      mastInst,
+      boomInst,
+      sailInst,
+      sailboatReflectionInst
+    );
+
+    group.userData.sailboatPositions = sailboatPositions;
+    group.userData.boatHulls = hullInsts;
+    group.userData.boatColorIndices = boatColorIndices;
+    group.userData.boatInstIndices = boatInstIndices;
+    group.userData.boatMasts = mastInst;
+    group.userData.boatSails = sailInst;
+    group.userData.boatRims = rimInst;
+    group.userData.boatDecks = deckInst;
+    group.userData.boatBooms = boomInst;
+    group.userData.boatReflections = sailboatReflectionInst;
+  }
+
+  // 3.5 Pirate Ships
+  if (pirateShipPositions.length > 0) {
+    const sailInsts = pirateSailPalette.map(
+      (mat) =>
+        new THREE.InstancedMesh(pirateSailGeo, mat, pirateShipPositions.length)
+    );
+    const hullInst = new THREE.InstancedMesh(
+      pirateHullGeo,
+      pirateHullMat,
+      pirateShipPositions.length
+    );
+    const rimInst = new THREE.InstancedMesh(
+      pirateRimGeo,
+      pirateRimMat,
+      pirateShipPositions.length
+    );
+    const deckInst = new THREE.InstancedMesh(
+      pirateDeckGeo,
+      woodMat,
+      pirateShipPositions.length
+    );
+    const mastInst = new THREE.InstancedMesh(
+      pirateMastGeo,
+      woodMat,
+      pirateShipPositions.length
+    );
+    const flagInst = new THREE.InstancedMesh(
+      pirateFlagGeo,
+      pirateFlagMat,
+      pirateShipPositions.length
+    );
+    const jrInst = new THREE.InstancedMesh(
+      pirateJollyRogerGeo,
+      pirateJollyRogerMat,
+      pirateShipPositions.length
+    );
+    const pirateReflectionInst = new THREE.InstancedMesh(
+      pirateShipReflectionGeo,
+      reflectionMat,
+      pirateShipPositions.length
+    );
+
+    const sailCounts = new Array(pirateSailPalette.length).fill(0);
+
+    pirateShipPositions.forEach((pos, index) => {
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(2.5, 2.5, 2.5);
+      dummy.updateMatrix();
+
+      const colorIdx = pos.bodyId;
+      const instIdx = sailCounts[colorIdx]++;
+      sailInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
+
+      hullInst.setMatrixAt(index, dummy.matrix);
+      rimInst.setMatrixAt(index, dummy.matrix);
+      deckInst.setMatrixAt(index, dummy.matrix);
+      mastInst.setMatrixAt(index, dummy.matrix);
+      flagInst.setMatrixAt(index, dummy.matrix);
+      jrInst.setMatrixAt(index, dummy.matrix);
+
+      // Initialize reflection matrix with Y-flipped scale
+      dummy.scale.set(2.5, -2.5, 2.5);
+      dummy.updateMatrix();
+      pirateReflectionInst.setMatrixAt(index, dummy.matrix);
+    });
+
+    hullInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    flagInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    jrInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    pirateReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(
+      hullInst,
+      rimInst,
+      deckInst,
+      mastInst,
+      flagInst,
+      jrInst,
+      pirateReflectionInst
+    );
+
+    sailInsts.forEach((inst, idx) => {
+      if (sailCounts[idx] > 0) {
+        inst.count = sailCounts[idx];
+        inst.position.set(worldOffsetX, 0, worldOffsetZ);
+        objectsGroup.add(inst);
+      }
+    });
+
+    group.userData.pirateShipPositions = pirateShipPositions;
+    group.userData.pirateHulls = hullInst;
+    group.userData.pirateRims = rimInst;
+    group.userData.pirateDecks = deckInst;
+    group.userData.pirateMasts = mastInst;
+    group.userData.pirateFlags = flagInst;
+    group.userData.pirateJollyRogers = jrInst;
+    group.userData.pirateSails = sailInsts;
+    group.userData.pirateReflections = pirateReflectionInst;
+  }
+
+  // 4. Generate Birds
+  group.userData.birds = [];
+  const isAlienChunk = Math.abs(worldOffsetX) > 25000;
+  if (!isCustom && !isAlienChunk && rng() < 0.2) {
+    const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+    const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+    let baseY = getCachedElevation(baseX, baseZ) + 150 + rng() * 200;
+    if (baseY > 400) baseY = 400;
+
+    const baseRotationY = rng() * Math.PI * 2;
+
+    const isSouth = worldOffsetZ > 0;
+    const heightAtCenter = getCachedElevation(worldOffsetX, worldOffsetZ);
+    const isBeach =
+      heightAtCenter > WATER_LEVEL - 20 && heightAtCenter < WATER_LEVEL + 40;
+
+    if (isSouth && isBeach && rng() < 0.3) {
+      // Spawn seagulls
+      const numSeagulls = 2 + Math.floor(rng() * 4); // 2 to 5
+      const flockCenterX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+      const flockCenterZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+      let flockBaseY =
+        getCachedElevation(flockCenterX, flockCenterZ) + 40 + rng() * 60;
+
+      for (let i = 0; i < numSeagulls; i++) {
+        const seagull = assembleSeagull(2.5 + rng() * 1.0); // Slightly smaller scale than hawk
+        seagull.position.set(flockCenterX, flockBaseY, flockCenterZ);
+
+        seagull.userData.type = 'seagull';
+        seagull.userData.speed = 0.5; // Slightly faster
+        seagull.userData.circleSpeed = 0.4 + rng() * 0.2;
+        seagull.userData.circleRadius = 50 + rng() * 80;
+        seagull.userData.circleCenter = new THREE.Vector3(
+          flockCenterX,
+          flockBaseY + (rng() - 0.5) * 40,
+          flockCenterZ
+        );
+        seagull.userData.angle = rng() * Math.PI * 2;
+        seagull.userData.flapPhase = rng() * Math.PI * 2;
+        seagull.userData.flapSpeed = 10.0 + rng() * 5.0; // Faster flapping
+        seagull.userData.flapDuration = 2.0 + rng() * 2.0;
+        seagull.userData.soarDuration = 3.0 + rng() * 3.0;
+        seagull.userData.isDiving = false;
+        seagull.userData.diveTimer = rng() * 10;
+        seagull.userData.nextDiveWait = 10.0 + rng() * 20.0;
+
+        objectsGroup.add(seagull);
+        group.userData.birds.push(seagull);
+      }
+    } else {
+      // Spawn hawk
+
+      const hawk = assembleHawk(4.0);
+      hawk.position.set(baseX, baseY, baseZ);
+      hawk.rotation.y = baseRotationY;
+
+      hawk.userData.type = 'hawk';
+      hawk.userData.speed = 0.4;
+      hawk.userData.circleSpeed = 0.3 + rng() * 0.2;
+      hawk.userData.circleRadius = 150 + rng() * 100;
+      hawk.userData.circleCenter = new THREE.Vector3(baseX, baseY, baseZ);
+      hawk.userData.angle = rng() * Math.PI * 2;
+      hawk.userData.flapPhase = rng() * Math.PI * 2;
+      hawk.userData.flapSpeed = 8.0 + rng() * 4.0;
+      hawk.userData.flapDuration = 3.0 + rng() * 3.0;
+      hawk.userData.soarDuration = 4.0 + rng() * 4.0;
+      hawk.userData.isDiving = false;
+
+      objectsGroup.add(hawk);
+      group.userData.birds.push(hawk);
+    }
+  }
+
+  if (!isCustom && !isAlienChunk && rng() < 0.04) {
+    const flockSize = 7 + Math.floor(rng() * 6); // 7 to 12 geese
+    const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+    const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+    let baseY = getCachedElevation(baseX, baseZ) + 400 + rng() * 600;
+    if (baseY > 1200) baseY = 1200;
+
+    const baseRotationY = rng() * Math.PI * 2;
+    const speed = 0.5 + rng() * 0.2;
+
+    for (let i = 0; i < flockSize; i++) {
+      const goose = new THREE.Group();
+      const body = new THREE.Mesh(gooseBodyGeo, gooseBrownMat);
+      const neck = new THREE.Mesh(gooseNeckGeo, gooseBlackMat);
+      const head = new THREE.Mesh(gooseHeadGeo, gooseBlackMat);
+      const beak = new THREE.Mesh(gooseBeakGeo, gooseBlackMat);
+      const cheek = new THREE.Mesh(gooseCheekGeo, gooseWhiteMat);
+      const tailWhite = new THREE.Mesh(gooseWhiteTailGeo, gooseWhiteMat);
+      const tailBlack = new THREE.Mesh(gooseTailGeo, gooseBlackMat);
+      const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+      const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+      wingL.rotation.y = Math.PI;
+      goose.add(
+        body,
+        neck,
+        head,
+        beak,
+        cheek,
+        tailWhite,
+        tailBlack,
+        wingL,
+        wingR
+      );
+      goose.scale.set(3.5, 3.5, 3.5);
+      goose.userData.wings = [wingL, wingR];
+
+      let offsetX = 0;
+      let offsetZ = 0;
+      if (i > 0) {
+        const row = Math.floor((i + 1) / 2);
+        const side = i % 2 === 0 ? 1 : -1;
+        offsetX = side * row * 35;
+        offsetZ = row * 35;
+      }
+
+      const localPos = new THREE.Vector3(offsetX, 0, offsetZ);
+      localPos.applyAxisAngle(new THREE.Vector3(0, 1, 0), baseRotationY);
+
+      goose.position.set(baseX + localPos.x, baseY, baseZ + localPos.z);
+      goose.rotation.y = baseRotationY;
+
+      goose.userData.type = 'goose';
+      goose.userData.speed = speed;
+      goose.userData.flapPhase = rng() * Math.PI * 2;
+      goose.userData.flapSpeed = 3.0 + rng() * 1.0;
+      goose.userData.flapDuration = 1000.0;
+      goose.userData.soarDuration = 0.0;
+
+      objectsGroup.add(goose);
+      group.userData.birds.push(goose);
+    }
+  }
+
+  group.traverse((child) => {
+    if (child.isMesh || child.isInstancedMesh) {
+      if (child.material === waterMaterial) {
+        child.receiveShadow = true;
+      } else if (
+        child.material !== smokeMat &&
+        child.material !== lighthouseBeamMat
+      ) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    }
+  });
+
+  group.userData.counts = {
+    trees_pine: treePositions.length + snowTreePositions.length,
+    trees_decid:
+      deciduousTreePositions.length + tallDeciduousTreePositions.length,
+    trees_palm: palmTreePositions.length,
+    trees_dead: deadTreePositions.length,
+    trees_autumn:
+      autumnTree1Positions.length +
+      autumnTree2Positions.length +
+      autumnTree3Positions.length,
+    trees_cherry: cherryTreePositions.length,
+    trees_yellow_cortez: yellowCortezTreePositions.length,
+    houses:
+      housePositions.length +
+      pagodaPositions.length +
+      barnPositions.length +
+      monasteryPositions.length +
+      castleRuinsPositions.length,
+
+    rocks:
+      rockPositions.length +
+      snowRockPositions.length +
+      desertRockPositions.length,
+    bushes: bushPositions.length,
+    snowmen: snowmanPositions.length,
+    cactus: cactusPositions.length,
+    lighthouses: lighthousePos ? 1 : 0,
+    castles: castleRuinsPositions.length,
+    windmills: windmillPositions.length,
+    campfires: campfirePositions.length,
+    boats: sailboatPositions.length,
+    pirateships: pirateShipPositions.length,
+    lily_pads: lilyPadPositions.length,
+    piers: pierPositions.length,
+    birds: group.userData.birds.length,
+    chimneys: chimneySmokePositions.length,
+  };
+
+  return group;
 }
 
 function updateChunks() {
@@ -6968,33 +6863,3 @@ function toggleProceduralObjects(enabled) {
 
 // Global expose
 window.toggleProceduralObjects = toggleProceduralObjects;
-
-window.shiftOrigin = function (dx, dz) {
-  window.worldOriginOffsetX += dx * CHUNK_SIZE;
-  window.worldOriginOffsetZ += dz * CHUNK_SIZE;
-
-  // Clear the elevation cache because keys are now invalid
-  if (typeof elevationCache !== 'undefined') {
-    elevationCache.clear();
-  }
-
-  // Shift all existing chunks in the map
-  const oldChunks = Array.from(chunks.entries());
-  chunks.clear();
-
-  const shiftDistX = dx * CHUNK_SIZE;
-  const shiftDistZ = dz * CHUNK_SIZE;
-
-  oldChunks.forEach(([key, group]) => {
-    const [cx, cz] = key.split(',').map(Number);
-    const newCx = cx - dx;
-    const newCz = cz - dz;
-    const newKey = `${newCx},${newCz}`;
-
-    // Physically move the chunk mesh
-    group.position.x -= shiftDistX;
-    group.position.z -= shiftDistZ;
-
-    chunks.set(newKey, group);
-  });
-};
