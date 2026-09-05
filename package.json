@@ -31,7 +31,6 @@
     "@capacitor/status-bar": "^8.0.2",
     "@sentry/browser": "^8.26.0",
     "@tauri-apps/plugin-fs": "^2.5.1",
-    "firebase": "^12.12.1",
     "three": "^0.128.0"
   },
   "devDependencies": {

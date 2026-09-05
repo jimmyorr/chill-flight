@@ -155,13 +155,6 @@
       <button class="model-btn" onclick="viewModel('airplane', event)">
         Airplane
       </button>
-      <button class="model-btn" onclick="viewModel('helicopter', event)">
-        Helicopter
-      </button>
-      <button class="model-btn" onclick="viewModel('boat', event)">Boat</button>
-      <button class="model-btn" onclick="viewModel('buggy', event)">
-        Buggy
-      </button>
 
       <div class="category-title">Nature</div>
       <button class="model-btn" onclick="viewModel('pine', event)">
@@ -465,21 +458,6 @@
 
               ap.visible = true;
               previewGroup.add(ap);
-              break;
-            case 'helicopter':
-              const hp = helicopterModel.clone();
-              hp.visible = true;
-              previewGroup.add(hp);
-              break;
-            case 'boat':
-              const bt = boatModel.clone();
-              bt.visible = true;
-              previewGroup.add(bt);
-              break;
-            case 'buggy':
-              const bg = buggyModel.clone();
-              bg.visible = true;
-              previewGroup.add(bg);
               break;
 
             // NATURE

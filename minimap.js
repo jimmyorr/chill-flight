@@ -1,4 +1,4 @@
-/* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup, otherPlayers */
+/* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
 (function () {
   let minimapContainer = null;
@@ -331,42 +331,6 @@
         ctx.restore();
       }
     });
-
-    // Draw other multiplayer players
-    if (typeof otherPlayers !== 'undefined' && otherPlayers) {
-      otherPlayers.forEach((player) => {
-        if (!player.mesh) return;
-        const ox = player.mesh.position.x;
-        const oz = player.mesh.position.z;
-        const dx = ox - px;
-        const dz = oz - pz;
-
-        if (Math.abs(dx) <= viewRadius && Math.abs(dz) <= viewRadius) {
-          const cx = 90 + (dx / viewRadius) * 90;
-          const cy = 90 + (dz / viewRadius) * 90;
-
-          ctx.save();
-          ctx.shadowColor = 'black';
-          ctx.shadowBlur = 3;
-
-          // Draw other player dot
-          ctx.fillStyle = '#00f2fe'; // bright multiplayer teal
-          ctx.beginPath();
-          ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 0.75;
-          ctx.stroke();
-
-          // Draw their name (Sentence case for UI labels)
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          ctx.font = 'bold 8px "Segoe UI", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(player.name || 'Player', cx, cy - 6);
-          ctx.restore();
-        }
-      });
-    }
 
     // Draw local player indicator in the center
     const canvasAngle = -rotY - Math.PI / 2;

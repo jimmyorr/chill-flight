@@ -105,7 +105,6 @@ class InputManager {
     this.onRainbowToggle = null;
     this.onShootingStarToggle = null;
     this.onWeatherToggle = null;
-    this.onVehicleToggle = null;
     this.onPauseToggle = null;
     this.onMusicToggle = null;
     this.onThrottleChange = null; // function(deltaThrottle)
@@ -260,10 +259,6 @@ class InputManager {
       if (this.onWeatherToggle) this.onWeatherToggle();
       return;
     }
-    if (key === 'v') {
-      if (this.onVehicleToggle) this.onVehicleToggle();
-      return;
-    }
     if (key === 'p') {
       if (this.onMusicToggle) this.onMusicToggle();
       return;
@@ -404,8 +399,7 @@ class InputManager {
         !e.target.closest('#debug-menu') &&
         !e.target.closest('#debug-telemetry') &&
         !e.target.closest('.title') &&
-        !e.target.closest('#mobile-controls') &&
-        !e.target.closest('#online-players')
+        !e.target.closest('#mobile-controls')
       ) {
         this.state.freeCam.dragging = true;
       }
@@ -432,8 +426,6 @@ class InputManager {
       e.target.closest('#debug-telemetry') ||
       e.target.closest('.title') ||
       e.target.closest('#mobile-controls') ||
-      e.target.closest('#online-players') ||
-      e.target.closest('#player-list') ||
       e.target.closest('#pause-overlay') ||
       e.target.closest('#achievements-overlay') ||
       e.target.closest('#mobile-action-menu') ||
@@ -495,7 +487,6 @@ class InputManager {
       target.closest('.title') ||
       target.closest('#mobile-controls') ||
       target.closest('#mobile-action-menu') ||
-      target.closest('#player-list') ||
       target.closest('.color-swatch');
 
     if (isUI) return;
@@ -628,7 +619,6 @@ class InputManager {
       target.closest('.title') ||
       target.closest('#mobile-controls') ||
       target.closest('#mobile-action-menu') ||
-      target.closest('#player-list') ||
       target.closest('.color-swatch');
 
     if (!isUI && !this.state.isPaused) {

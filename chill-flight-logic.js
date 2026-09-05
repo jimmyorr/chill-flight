@@ -68,7 +68,6 @@
   const THEME = getParam('theme', 'standard');
   const SHOW_CLOUDS = getParam('cloud', null) !== 'none';
 
-  const ENABLE_MP = getParam('enableMp', 'false') === 'true';
   let SHOW_OBJECTS = true;
   const objectsParam = getParam('objects', null);
   if (objectsParam === 'none') {
@@ -83,7 +82,6 @@
   const MAP_NAME = getParam('map', null);
   const PALETTE_INDEX = getParam('palette', null);
   const SCALE = parseFloat(getParam('scale', '1.0'));
-  const ENABLE_V = getParam('enableV', 'false') === 'true';
   const START_FREE_CAM =
     getParam('freecam', 'false') === 'true' ||
     getParam('freeCamera', 'false') === 'true';
@@ -132,7 +130,7 @@
 
   // Per-chunk seeded PRNG. Derives a unique seed from (WORLD_SEED, chunkX, chunkZ) so
   // each chunk's detail generation (trees, clouds, birds) is identical regardless of
-  // which order chunks are loaded—critical for multiplayer consistency.
+  // which order chunks are loaded—critical for world consistency.
   function chunkRng(chunkX, chunkZ) {
     const s =
       (WORLD_SEED * 1000003) ^ (chunkX * 374761393 + chunkZ * 1234567891);
@@ -1058,7 +1056,6 @@
   exports.THEME = THEME;
   exports.SHOW_CLOUDS = SHOW_CLOUDS;
 
-  exports.ENABLE_MP = ENABLE_MP;
   exports.SHOW_OBJECTS = SHOW_OBJECTS;
   exports.setShowObjects = (val) => {
     exports.SHOW_OBJECTS = val;
@@ -1066,7 +1063,6 @@
   exports.MAP_NAME = MAP_NAME;
   exports.PALETTE_INDEX = PALETTE_INDEX;
   exports.SCALE = SCALE;
-  exports.ENABLE_V = ENABLE_V;
   exports.parsedLat = parsedLat;
   exports.parsedLon = parsedLon;
   exports.parsedAlt = validAlt;

@@ -23,19 +23,7 @@ const MAX_FLIGHT_SPEED_MULT = MAX_AIRPLANE_SPEED_KTS / (BASE_FLIGHT_SPEED * 60);
 window.MAX_AIRPLANE_SPEED_KTS = MAX_AIRPLANE_SPEED_KTS;
 window.MAX_FLIGHT_SPEED_MULT = MAX_FLIGHT_SPEED_MULT;
 const TURN_SPEED = 0.03;
-const MAX_BANK_BOAT = (30 * Math.PI) / 180;
-const MAX_BANK_HELI = (45 * Math.PI) / 180;
-// Initial vehicle-aware speed calculation
-const savedInitVehicle =
-  localStorage.getItem('chill_flight_vehicle') || 'airplane';
-const INITIAL_SPEED =
-  savedInitVehicle === 'helicopter'
-    ? 100 / 150
-    : savedInitVehicle === 'boat'
-      ? 25 / 150
-      : 1;
-
-let flightSpeedMultiplier = INITIAL_SPEED;
+let flightSpeedMultiplier = 1.0;
 
 // Feature Flags
 const ENABLE_PAGODAS = false;
@@ -43,7 +31,6 @@ const ENABLE_BARNS = true;
 const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = true;
 const ENABLE_LIGHTHOUSES = false;
-const ENABLE_VEHICLE_SWITCH = ChillFlightLogic.ENABLE_V;
 
 const THEME = ChillFlightLogic.THEME;
 

@@ -12,7 +12,6 @@ module.exports = [
         ...globals.browser,
         THREE: 'readonly',
         Sentry: 'readonly',
-        firebase: 'readonly',
       },
     },
     rules: {
