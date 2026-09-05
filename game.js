@@ -1469,6 +1469,7 @@ function applyGraphicsPreset(preset) {
     });
     chunks.clear();
   }
+  if (window.clearChunkQueue) window.clearChunkQueue();
   if (typeof _lastChunkUpdatePos !== 'undefined') {
     _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
   }
@@ -2645,6 +2646,7 @@ function animate() {
   lastFrameTime = frameStartTime;
 
   const now = performance.now();
+  if (window.processChunkQueue) window.processChunkQueue();
   let rawDelta = clock.getDelta();
   if (rawDelta > 0.1) rawDelta = 0.1; // Cap at 100ms to prevent logic blowouts
 
@@ -4383,7 +4385,10 @@ function animate() {
     // Floating origin shift
     const SHIFT_THRESHOLD = 2000;
     const shiftTarget = window.isFreeCamera ? camera : planeGroup;
-    if (Math.abs(shiftTarget.position.x) > SHIFT_THRESHOLD || Math.abs(shiftTarget.position.z) > SHIFT_THRESHOLD) {
+    if (
+      Math.abs(shiftTarget.position.x) > SHIFT_THRESHOLD ||
+      Math.abs(shiftTarget.position.z) > SHIFT_THRESHOLD
+    ) {
       const CHUNK_SIZE = 10000;
       const dx = Math.round(shiftTarget.position.x / CHUNK_SIZE);
       const dz = Math.round(shiftTarget.position.z / CHUNK_SIZE);
@@ -4396,32 +4401,47 @@ function animate() {
       planeGroup.position.z -= shiftZ;
       camera.position.x -= shiftX;
       camera.position.z -= shiftZ;
-      
+
       _lastChunkUpdatePos.x -= shiftX;
       _lastChunkUpdatePos.z -= shiftZ;
-      
+
       _currentLookTarget.x -= shiftX;
       _currentLookTarget.z -= shiftZ;
-      
+
       if (typeof _virtualCameraPos !== 'undefined') {
         _virtualCameraPos.x -= shiftX;
         _virtualCameraPos.z -= shiftZ;
       }
 
       // Shift particles
-      if (typeof trailParticles !== 'undefined') trailParticles.forEach(p => { p.mesh.position.x -= shiftX; p.mesh.position.z -= shiftZ; });
-      if (typeof smokeParticles !== 'undefined') smokeParticles.forEach(p => { p.mesh.position.x -= shiftX; p.mesh.position.z -= shiftZ; });
-      if (typeof cloudParticles !== 'undefined') cloudParticles.forEach(p => { p.mesh.position.x -= shiftX; p.mesh.position.z -= shiftZ; });
-      if (typeof fireworks !== 'undefined') fireworks.forEach(p => { p.mesh.position.x -= shiftX; p.mesh.position.z -= shiftZ; });
+      if (typeof trailParticles !== 'undefined')
+        trailParticles.forEach((p) => {
+          p.mesh.position.x -= shiftX;
+          p.mesh.position.z -= shiftZ;
+        });
+      if (typeof smokeParticles !== 'undefined')
+        smokeParticles.forEach((p) => {
+          p.mesh.position.x -= shiftX;
+          p.mesh.position.z -= shiftZ;
+        });
+      if (typeof cloudParticles !== 'undefined')
+        cloudParticles.forEach((p) => {
+          p.mesh.position.x -= shiftX;
+          p.mesh.position.z -= shiftZ;
+        });
+      if (typeof fireworks !== 'undefined')
+        fireworks.forEach((p) => {
+          p.mesh.position.x -= shiftX;
+          p.mesh.position.z -= shiftZ;
+        });
 
       // Trigger terrain shift
       if (typeof window.shiftOrigin === 'function') {
         window.shiftOrigin(dx, dz);
       }
-      
+
       console.log('Floating origin shifted by', dx, dz, 'chunks');
     }
-
   }
 
   // Celestial positions
@@ -6566,44 +6586,64 @@ if (overlay) {
       'Have a chill flight.',
     ];
 
-    setTimeout(() => {
-      progressBar.style.width = '100%';
+    let messageIndex = 0;
+    if (msgEl) msgEl.textContent = messages[messageIndex];
 
-      if (msgEl) {
-        // Cycle through first 3 messages quickly, leaving the final
-        // message on screen until the 1500ms timer below hits.
-        setTimeout(() => (msgEl.textContent = messages[1]), 300);
-        setTimeout(() => (msgEl.textContent = messages[2]), 600);
-        setTimeout(() => (msgEl.textContent = messages[3]), 900);
-      }
-    }, 50);
-
-    // When progress finishes, decide next step
-    setTimeout(() => {
-      if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
-        // Auto-skip
-        console.log('🎵 Music was paused last session. Auto-skipping.');
-        dismissLoadingScreen(false);
+    const loadInterval = setInterval(() => {
+      let progress = 0;
+      if (window.getChunkLoadingProgress) {
+        progress = window.getChunkLoadingProgress();
       } else {
-        // Start cross-fade: fade out progress, fade in button simultaneously
-        const interactiveArea = document.getElementById(
-          'splash-interactive-area'
-        );
-        if (interactiveArea) interactiveArea.classList.add('crossfading');
+        progress = 1.0; // Fallback
+      }
 
-        progressContainer.classList.remove('visible');
-        progressContainer.classList.add('hidden');
+      progressBar.style.width = `${progress * 100}%`;
 
-        if (btnContainer) {
-          btnContainer.classList.remove('hidden');
-          btnContainer.classList.add('visible');
-          if (beginBtn) {
-            // Focus after a short delay to allow transition to start
-            setTimeout(() => beginBtn.focus(), 100);
-          }
+      // Update messages based on progress
+      if (msgEl) {
+        if (progress > 0.25 && messageIndex === 0) {
+          messageIndex = 1;
+          msgEl.textContent = messages[messageIndex];
+        } else if (progress > 0.5 && messageIndex === 1) {
+          messageIndex = 2;
+          msgEl.textContent = messages[messageIndex];
+        } else if (progress >= 1.0 && messageIndex === 2) {
+          messageIndex = 3;
+          msgEl.textContent = messages[messageIndex];
         }
       }
-    }, 1500);
+
+      if (progress >= 1.0) {
+        clearInterval(loadInterval);
+
+        // Wait a tiny bit so the progress bar visually reaches 100%
+        setTimeout(() => {
+          if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
+            // Auto-skip
+            console.log('🎵 Music was paused last session. Auto-skipping.');
+            dismissLoadingScreen(false);
+          } else {
+            // Start cross-fade: fade out progress, fade in button simultaneously
+            const interactiveArea = document.getElementById(
+              'splash-interactive-area'
+            );
+            if (interactiveArea) interactiveArea.classList.add('crossfading');
+
+            progressContainer.classList.remove('visible');
+            progressContainer.classList.add('hidden');
+
+            if (btnContainer) {
+              btnContainer.classList.remove('hidden');
+              btnContainer.classList.add('visible');
+              if (beginBtn) {
+                // Focus after a short delay to allow transition to start
+                setTimeout(() => beginBtn.focus(), 100);
+              }
+            }
+          }
+        }, 500);
+      }
+    }, 50);
   } else {
     // Fallback if elements are missing
     if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
