@@ -108,7 +108,7 @@
       #info {
         position: absolute;
         bottom: 20px;
-        left: 320px;
+        left: 20px;
         background: rgba(15, 23, 42, 0.8);
         backdrop-filter: blur(8px);
         padding: 15px;
@@ -116,6 +116,7 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
         font-size: 0.8rem;
         pointer-events: none;
+        min-width: 180px;
       }
 
       .controls-hint {
@@ -268,24 +269,28 @@
           Select a model
         </div>
         <div id="model-stats">0 vertices | 0 triangles</div>
-      </div>
-
-      <div
-        id="color-options"
-        style="
-          display: none;
-          margin-top: 15px;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
-          padding-top: 15px;
-        "
-      >
-        <button
-          class="model-btn"
-          onclick="cycleColors()"
-          style="border-color: var(--accent-color)"
+        <div
+          id="color-options"
+          style="
+            display: none;
+            margin-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 12px;
+          "
         >
-          Cycle Colors
-        </button>
+          <button
+            class="model-btn"
+            onclick="cycleColors()"
+            style="
+              margin-bottom: 0;
+              text-align: center;
+              border-color: var(--accent-color);
+              pointer-events: auto;
+            "
+          >
+            Cycle colors
+          </button>
+        </div>
       </div>
     </div>
 
@@ -372,6 +377,8 @@
       }
 
       function viewModel(type, e, colorSeed = 0) {
+        const isColorCycle =
+          !e && colorSeed > 0 && window.currentModelType === type;
         clearViewer();
 
         if (!e && colorSeed === 0) {
@@ -395,7 +402,8 @@
         document.querySelectorAll('.model-btn').forEach((btn) => {
           btn.classList.remove('active');
           // If this was triggered via hash, we need to find the right button
-          if (btn.getAttribute('onclick').includes(`'${type}'`)) {
+          const clickAttr = btn.getAttribute('onclick') || '';
+          if (clickAttr.includes(`'${type}'`)) {
             btn.classList.add('active');
             document.getElementById('model-name').innerText = btn.innerText;
           }
@@ -428,29 +436,28 @@
         } else {
           // 2. Fallback for simple or unique models
           switch (type) {
-            case 'airplane':
+            case 'airplane': {
               const ap = airplaneModel.clone();
 
               if (
-                colorSeed > 0 &&
                 window.ChillFlightLogic &&
                 window.ChillFlightLogic.PLANE_COLORS
               ) {
                 const colors = window.ChillFlightLogic.PLANE_COLORS;
                 const newColor = colors[colorSeed % colors.length];
+                const newAccentMat = window.planeMat.clone();
+                newAccentMat.color.setHex(newColor);
+                const newBodyMat = window.planeWhiteMat.clone();
+                newBodyMat.color.setHex(
+                  newColor === 0xe8c382 ? 0x1c3144 : 0xffffff
+                );
+
                 ap.traverse((child) => {
-                  if (child.isMesh && child.material && child.material.color) {
-                    const hex = child.material.color.getHex();
-                    // Identify accent material by excluding white, dark grey, black, and light grey (pontoons)
-                    if (
-                      hex !== 0xffffff &&
-                      hex !== 0x111111 &&
-                      hex !== 0x222222 &&
-                      hex !== 0x333333 &&
-                      hex !== 0xcccccc
-                    ) {
-                      child.material = child.material.clone();
-                      child.material.color.setHex(newColor);
+                  if (child.isMesh && child.material) {
+                    if (child.material === window.planeMat) {
+                      child.material = newAccentMat;
+                    } else if (child.material === window.planeWhiteMat) {
+                      child.material = newBodyMat;
                     }
                   }
                 });
@@ -459,6 +466,7 @@
               ap.visible = true;
               previewGroup.add(ap);
               break;
+            }
 
             // NATURE
             case 'pine':
@@ -600,13 +608,16 @@
               });
               break;
             }
-            case 'tent':
-              previewGroup.add(new THREE.Mesh(tentGeo, tentMat));
+            case 'tent': {
+              const palette = window.tentPalette || [tentMat];
+              const mat = palette[colorSeed % palette.length];
+              previewGroup.add(new THREE.Mesh(tentGeo, mat));
               previewGroup.add(
                 new THREE.Mesh(tentEntranceGeo, tentEntranceMat)
               );
               previewGroup.add(new THREE.Mesh(tentPolesGeo, woodMat));
               break;
+            }
           }
         }
 
@@ -668,10 +679,12 @@
         const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);
         const distance = maxDimension * 1.5; // Adjusted multiplier for better framing
 
-        controls.reset();
-        controls.target.copy(finalCenter);
-        camera.position.set(distance, distance, distance);
-        controls.update();
+        if (!isColorCycle) {
+          controls.reset();
+          controls.target.copy(finalCenter);
+          camera.position.set(distance, distance, distance);
+          controls.update();
+        }
       }
 
       function animate() {

@@ -2054,6 +2054,7 @@ const tentPalette = [
   createMaterial({color: 0x1d3557, flatShading: true}), // Navy blue
 ];
 const tentMat = tentPalette[0];
+window.tentPalette = tentPalette;
 
 // Campfire geometries
 const fireLogGeo = new THREE.CylinderGeometry(0.8, 0.8, 6, 6);
