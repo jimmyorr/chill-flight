@@ -235,15 +235,6 @@ Full gamepad support mapped to standard flight controls.
 - **Start / menu button**: Toggle pause menu.
 - **Select / back button**: Toggle mobile action menu.
 
-### TV remote support
-
-The game is optimized for Android TV and similar devices using a standard remote control.
-
-- **Arrow keys**: Navigate menus and control flight.
-- **Enter / center button**: Select items or toggle pause (when playing).
-- **Backspace / back button**: Toggle pause menu or go back.
-- **Media play / pause**: Toggle pause menu.
-
 ### Touch & mobile controls
 
 When playing on a touch device, specialized UI and controls become available:

@@ -13,6 +13,10 @@ if (ChillFlightLogic.START_TOD !== null) {
 }
 
 const inputManager = new window.InputManager();
+const keys = inputManager.state.keys;
+const doubleTap = inputManager.state.doubleTap;
+const tripleTap = inputManager.state.tripleTap;
+let STEER_HOLD_THRESHOLD = 100; // ms to wait before a tap becomes a hold for pitch/looping
 
 inputManager.onCameraToggle = () => {
   if (cameraMode === 'follow') cameraMode = 'first-person';
@@ -43,10 +47,84 @@ inputManager.onHeadlightToggle = () => {
   }
 };
 inputManager.onDebugToggle = () => {
-  const dm = document.getElementById('debug-menu');
-  if (dm)
-    dm.style.display =
-      dm.style.display === 'none' || dm.style.display === '' ? 'block' : 'none';
+  const debugMenu = document.getElementById('debug-menu');
+  const debugTelem = document.getElementById('debug-telemetry');
+  if (!debugMenu) return;
+  const isOpening = debugMenu.style.display !== 'block';
+  debugMenu.style.display = isOpening ? 'block' : 'none';
+  if (debugTelem) debugTelem.style.display = isOpening ? 'block' : 'none';
+
+  if (isOpening && typeof resetSteering === 'function') resetSteering();
+
+  if (window.firebaseDB && window.currentUserUid) {
+    const _wp =
+      window.currentWorldPrefix ||
+      `world/${ChillFlightLogic.WORLD_SEED}_room_1`;
+    if (isOpening) {
+      import('https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js').then(
+        ({remove, ref, goOffline}) => {
+          remove(
+            ref(window.firebaseDB, `${_wp}/players/` + window.currentUserUid)
+          ).then(() => {
+            goOffline(window.firebaseDB);
+            if (typeof otherPlayers !== 'undefined')
+              otherPlayers.forEach((p) => (p.mesh.visible = false));
+            console.log(
+              'Debug menu opened: Disconnected from Firebase multiplayer.'
+            );
+          });
+        }
+      );
+    } else {
+      import('https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js').then(
+        ({goOnline, set, ref}) => {
+          goOnline(window.firebaseDB);
+          if (typeof otherPlayers !== 'undefined')
+            otherPlayers.forEach((p) => (p.mesh.visible = true));
+          const profileRef = ref(
+            window.firebaseDB,
+            `users/` + window.currentUserUid
+          );
+          const sessionRef = ref(
+            window.firebaseDB,
+            `${_wp}/players/` + window.currentUserUid
+          );
+          set(profileRef, {
+            name: playerName,
+            color: planeColor,
+            updatedAt: new Date().toISOString(),
+          });
+          set(sessionRef, {
+            name: playerName,
+            color: planeColor,
+            lastSeen: new Date().toISOString(),
+          });
+          const pos = planeGroup.position;
+          const rot = planeGroup.rotation;
+          set(
+            ref(
+              window.firebaseDB,
+              `${_wp}/players/` + window.currentUserUid + '/position'
+            ),
+            {
+              x: Number(pos.x.toFixed(1)),
+              y: Number(pos.y.toFixed(1)),
+              z: Number(pos.z.toFixed(1)),
+              rotX: Number(rot.x.toFixed(3)),
+              rotY: Number(rot.y.toFixed(3)),
+              rotZ: Number(rot.z.toFixed(3)),
+              speedMult: Number(flightSpeedMultiplier.toFixed(2)),
+              headlightsOn: false,
+              updatedAt: new Date().toISOString(),
+            }
+          );
+          console.log(
+            'Debug menu closed: Reconnected to Firebase multiplayer.'
+          );
+        }
+      );
+    }
+  }
 };
 inputManager.onRainbowToggle = () => {
   if (rainbowTimer > 0) rainbowTimer = 0;
@@ -54,6 +132,81 @@ inputManager.onRainbowToggle = () => {
 };
 inputManager.onShootingStarToggle = () => {
   forceShootingStar = true;
+};
+inputManager.onWeatherToggle = () => {
+  if (typeof cycleWeather === 'function') cycleWeather();
+};
+inputManager.onVehicleToggle = () => {
+  if (typeof ENABLE_VEHICLE_SWITCH !== 'undefined' && ENABLE_VEHICLE_SWITCH) {
+    const nextType =
+      vehicleType === 'airplane'
+        ? 'helicopter'
+        : vehicleType === 'helicopter'
+          ? 'boat'
+          : vehicleType === 'boat'
+            ? 'buggy'
+            : 'airplane';
+    setVehicle(nextType);
+  }
+};
+inputManager.onPauseToggle = () => {
+  togglePause();
+};
+inputManager.onMusicToggle = () => {
+  if (
+    typeof musicEnabled !== 'undefined' &&
+    typeof purrpleCatAudio !== 'undefined'
+  ) {
+    if (musicEnabled && purrpleCatAudio.paused) {
+      updateAudioPlayer(true);
+    } else if (typeof setMusicEnabled === 'function') {
+      setMusicEnabled(!musicEnabled);
+    }
+  }
+};
+inputManager.onThrottleChange = (delta) => {
+  const isBoatOrBuggy = vehicleType === 'boat' || vehicleType === 'buggy';
+  const maxSpeed = isBoatOrBuggy
+    ? 0.66
+    : window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335;
+  const minSpeed = isBoatOrBuggy ? -0.33 : 0;
+  targetFlightSpeed += delta;
+  if (Math.abs(targetFlightSpeed) < 0.05) targetFlightSpeed = 0;
+  targetFlightSpeed = Math.max(minSpeed, Math.min(maxSpeed, targetFlightSpeed));
+};
+inputManager.onKeyRelease = (action, heldTime) => {
+  if ((action === 'ArrowLeft' || action === 'ArrowRight') && heldTime < 200) {
+    manualPitch = 0;
+  }
+};
+inputManager.onMenuToggle = () => {
+  const menuContainer = document.getElementById('mobile-action-menu');
+  if (menuContainer) {
+    const expanding = !menuContainer.classList.contains('expanded');
+    menuContainer.classList.toggle('expanded');
+    if (expanding) {
+      mobileFocusIndex = 0;
+      updateMobileMenuFocus();
+    } else {
+      mobileFocusIndex = -1;
+      updateMobileMenuFocus();
+    }
+  }
+};
+inputManager.onTripleTap = (action) => {
+  const downAction = invertYAxis ? 'ArrowUp' : 'ArrowDown';
+  const isDownAction = action === 'ArrowDown' || action === downAction;
+  if (
+    isDownAction &&
+    !isDoingImmelmann &&
+    vehicleType !== 'helicopter' &&
+    vehicleType !== 'boat' &&
+    !isFreeCamera &&
+    flightSpeedMultiplier > 0
+  ) {
+    isDoingImmelmann = true;
+    immelmannProgress = 0;
+  }
 };
 
 let mouseX = 0;
@@ -85,7 +238,7 @@ targetFlightSpeed = flightSpeedMultiplier; // Initialize based on current vehicl
 let smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
 let manualPitch = 0;
 verticalVelocity = 0; // units/sec, negative = falling
-let keyPressStartTime = {ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0};
+let keyPressStartTime = inputManager.state.keyPressStartTime;
 let cameraMode = 'follow'; // 'follow', 'first-person', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
 let cameraTransitionProgress = 0; // 0 = follow/cinematic, 1 = bird's eye
 let currentBirdEyeHeight = 2000;
@@ -186,444 +339,6 @@ let freeCamDeltaY = 0;
 let lastFreeCamTouchX = 0;
 let lastFreeCamTouchY = 0;
 
-window.addEventListener('contextmenu', (e) => {
-  if (
-    e.target.tagName !== 'INPUT' ||
-    e.target.type === 'range' ||
-    e.target.type === 'checkbox'
-  ) {
-    e.preventDefault();
-  }
-});
-
-window.addEventListener('mousedown', (e) => {
-  if (isFreeCamera) {
-    if (
-      !e.target.closest('#loading-overlay') &&
-      !e.target.closest('#cockpit-ui') &&
-      !e.target.closest('#debug-menu') &&
-      !e.target.closest('#debug-telemetry') &&
-      !e.target.closest('.title') &&
-      !e.target.closest('#mobile-controls') &&
-      !e.target.closest('#online-players')
-    ) {
-      isFreeCameraDragging = true;
-    }
-  }
-});
-
-window.addEventListener('mouseup', () => {
-  isFreeCameraDragging = false;
-});
-
-window.addEventListener('mousemove', (e) => {
-  if (isFreeCameraDragging && isFreeCamera) {
-    freeCamDeltaX += e.movementX || 0;
-    freeCamDeltaY += e.movementY || 0;
-  }
-
-  if (
-    !e.target.closest('#loading-overlay') &&
-    !e.target.closest('#cockpit-ui') &&
-    !e.target.closest('#debug-menu') &&
-    !e.target.closest('#debug-telemetry') &&
-    !e.target.closest('.title') &&
-    !e.target.closest('#mobile-controls') &&
-    !e.target.closest('#online-players')
-  ) {
-    updateInputPosition(e.clientX, e.clientY);
-    if (windowJustFocused) {
-      // Silently sync position without steering — swallows the spurious
-      // move event browsers fire when the window regains focus.
-      windowJustFocused = false;
-      return;
-    }
-    mouseControlActive = true;
-    gamepadSteeringActive = false;
-  }
-});
-// --- MOBILE SPECIAL MOVES GESTURE STATE ---
-let activeGestureTouchId = null;
-let activeGestureAction = null;
-
-window.addEventListener(
-  'touchstart',
-  (e) => {
-    if (e.touches.length > 0) {
-      const target = e.target;
-      const isPauseOverlay = target.closest('#pause-overlay');
-      const isUI =
-        isPauseOverlay ||
-        target.closest('#achievements-overlay') ||
-        target.closest('#loading-overlay') ||
-        target.closest('#cockpit-ui') ||
-        target.closest('#debug-menu') ||
-        target.closest('#debug-telemetry') ||
-        target.closest('.title') ||
-        target.closest('#mobile-controls') ||
-        target.closest('#player-list') ||
-        target.closest('.color-swatch');
-      if (!isUI) {
-        if (e.cancelable) e.preventDefault(); // Stop iOS from starting a selection gesture
-
-        if (isFreeCamera) {
-          isFreeCameraDragging = true;
-          lastFreeCamTouchX = e.changedTouches[0].clientX;
-          lastFreeCamTouchY = e.changedTouches[0].clientY;
-          return;
-        }
-
-        // --- Gyro mode: skip all screen-drag steering ---
-        if (currentControlScheme === 'gyro') {
-          // Don't update mouseX/mouseY from touch; gyro handles steering.
-          // But still process gesture detection (double/triple-tap) for barrel rolls etc.
-          const touch = e.changedTouches[0];
-          const now = performance.now();
-          const x = touch.clientX / window.innerWidth;
-          const y = touch.clientY / window.innerHeight;
-
-          let action = null;
-          if (x < 0.33) action = 'ArrowLeft';
-          else if (x > 0.66) action = 'ArrowRight';
-          else if (y < 0.33) action = 'ArrowUp';
-          else if (y > 0.66) action = 'ArrowDown';
-
-          if (action) {
-            const timeSinceLastTap = now - lastArrowTap[action];
-            if (timeSinceLastTap < DOUBLE_TAP_MS) {
-              tapCount[action] = (tapCount[action] || 0) + 1;
-            } else {
-              tapCount[action] = 1;
-            }
-            lastArrowTap[action] = now;
-
-            if (tapCount[action] === 2) {
-              doubleTap[action] = true;
-              keys[action] = true;
-              keyPressStartTime[action] = now;
-              activeGestureTouchId = touch.identifier;
-              activeGestureAction = action;
-            } else if (tapCount[action] >= 3) {
-              if (y < 0.33) {
-                tripleTap.ArrowUp = true;
-                keys.ArrowUp = true;
-                keyPressStartTime.ArrowUp = now;
-                activeGestureTouchId = touch.identifier;
-                activeGestureAction = 'ArrowUp';
-              } else {
-                tripleTap[action] = true;
-                keys[action] = true;
-                keyPressStartTime[action] = now;
-                activeGestureTouchId = touch.identifier;
-                activeGestureAction = action;
-              }
-            }
-          }
-          // Do NOT set mouseControlActive or update mouseX/mouseY
-        } else if (currentControlScheme === 'joystick') {
-          // --- Joystick mode ---
-          const touch = e.changedTouches[0];
-
-          if (!joystickActive) {
-            // Activate joystick centered at touch position
-            joystickActive = true;
-            joystickTouchId = touch.identifier;
-            joystickStartX = touch.clientX;
-            joystickStartY = touch.clientY;
-            mouseControlActive = true;
-
-            // Show and position joystick dynamically
-            const joystickBase = document.getElementById(
-              'virtual-joystick-base'
-            );
-            if (joystickBase) {
-              joystickBase.style.left = `${touch.clientX}px`;
-              joystickBase.style.top = `${touch.clientY}px`;
-              joystickBase.classList.remove('joystick-hidden');
-              joystickBase.classList.add('joystick-visible');
-            }
-          }
-
-          // --- Gesture Detection ---
-          const now = performance.now();
-          const x = touch.clientX / window.innerWidth;
-          const y = touch.clientY / window.innerHeight;
-
-          let action = null;
-          if (x < 0.33) action = 'ArrowLeft';
-          else if (x > 0.66) action = 'ArrowRight';
-          else if (y < 0.33) action = 'ArrowUp';
-          else if (y > 0.66) action = 'ArrowDown';
-
-          if (action) {
-            const timeSinceLastTap = now - lastArrowTap[action];
-            if (timeSinceLastTap < DOUBLE_TAP_MS) {
-              tapCount[action] = (tapCount[action] || 0) + 1;
-            } else {
-              tapCount[action] = 1;
-            }
-            lastArrowTap[action] = now;
-
-            if (tapCount[action] === 2) {
-              doubleTap[action] = true;
-              keys[action] = true;
-              keyPressStartTime[action] = now;
-              activeGestureTouchId = touch.identifier;
-              activeGestureAction = action;
-            } else if (tapCount[action] >= 3) {
-              if (y < 0.33) {
-                tripleTap.ArrowUp = true;
-                keys.ArrowUp = true;
-                keyPressStartTime.ArrowUp = now;
-                activeGestureTouchId = touch.identifier;
-                activeGestureAction = 'ArrowUp';
-              } else {
-                tripleTap[action] = true;
-                keys[action] = true;
-                keyPressStartTime[action] = now;
-                activeGestureTouchId = touch.identifier;
-                activeGestureAction = action;
-              }
-            }
-          }
-
-          // Suppress steering and hide joystick if gesture is active
-          if (activeGestureTouchId !== null) {
-            mouseControlActive = false;
-            mouseX = 0;
-            mouseY = 0;
-            joystickActive = false;
-            joystickTouchId = null;
-            const joystickBase = document.getElementById(
-              'virtual-joystick-base'
-            );
-            if (joystickBase) {
-              joystickBase.classList.remove('joystick-visible');
-              joystickBase.classList.add('joystick-hidden');
-            }
-            const stick = document.getElementById('virtual-joystick-stick');
-            if (stick) {
-              stick.style.transform = 'translate(-50%, -50%)';
-            }
-          }
-        } else {
-          // --- Touch mode (original absolute-positioning) ---
-          const touch = e.changedTouches[0];
-          steeringTouchId = touch.identifier;
-          updateInputPosition(touch.clientX, touch.clientY);
-          mouseControlActive = true;
-
-          // --- Gesture Detection ---
-          const now = performance.now();
-          const x = touch.clientX / window.innerWidth;
-          const y = touch.clientY / window.innerHeight;
-
-          let action = null;
-          if (x < 0.33) action = 'ArrowLeft';
-          else if (x > 0.66) action = 'ArrowRight';
-          else if (y < 0.33) action = 'ArrowUp';
-          else if (y > 0.66) action = 'ArrowDown';
-
-          if (action) {
-            const timeSinceLastTap = now - lastArrowTap[action];
-            if (timeSinceLastTap < DOUBLE_TAP_MS) {
-              tapCount[action] = (tapCount[action] || 0) + 1;
-            } else {
-              tapCount[action] = 1;
-            }
-            lastArrowTap[action] = now;
-
-            if (tapCount[action] === 2) {
-              doubleTap[action] = true;
-              keys[action] = true;
-              keyPressStartTime[action] = now;
-              activeGestureTouchId = touch.identifier;
-              activeGestureAction = action;
-            } else if (tapCount[action] >= 3) {
-              if (y < 0.33) {
-                // Triple tap on top of screen -> Steep climb
-                tripleTap.ArrowUp = true;
-                keys.ArrowUp = true;
-                keyPressStartTime.ArrowUp = now;
-                activeGestureTouchId = touch.identifier;
-                activeGestureAction = 'ArrowUp';
-              } else {
-                tripleTap[action] = true;
-                keys[action] = true;
-                keyPressStartTime[action] = now;
-                activeGestureTouchId = touch.identifier;
-                activeGestureAction = action;
-              }
-            }
-          }
-
-          // Suppress steering if this touch is an active gesture (double/triple-tap)
-          if (activeGestureTouchId !== null) {
-            mouseControlActive = false;
-            mouseX = 0;
-            mouseY = 0;
-          }
-        }
-      }
-    }
-    windowJustFocused = false;
-  },
-  {passive: false}
-);
-
-window.addEventListener(
-  'touchmove',
-  (e) => {
-    if (e.touches.length > 0) {
-      const target = e.target;
-      const isPauseOverlay = target.closest('#pause-overlay');
-      const isUI =
-        target.closest('#cockpit-ui') ||
-        isPauseOverlay ||
-        target.closest('#achievements-overlay') ||
-        target.closest('#loading-overlay') ||
-        target.closest('#debug-menu') ||
-        target.closest('#debug-telemetry') ||
-        target.closest('.title') ||
-        target.closest('#mobile-controls') ||
-        target.closest('#player-list') ||
-        target.closest('.color-swatch');
-
-      if (!isUI && !isPaused) {
-        e.preventDefault();
-      }
-
-      if (!isUI) {
-        if (isFreeCameraDragging && isFreeCamera) {
-          const touch = e.changedTouches[0];
-          freeCamDeltaX += touch.clientX - lastFreeCamTouchX;
-          freeCamDeltaY += touch.clientY - lastFreeCamTouchY;
-          lastFreeCamTouchX = touch.clientX;
-          lastFreeCamTouchY = touch.clientY;
-          return;
-        }
-
-        // --- Gyro mode: skip all screen-drag steering ---
-        if (currentControlScheme === 'gyro') {
-          // Do nothing for steering; gyro handles it
-        } else if (currentControlScheme === 'joystick' && joystickActive) {
-          // --- Joystick mode ---
-          for (let i = 0; i < e.touches.length; i++) {
-            if (e.touches[i].identifier === joystickTouchId) {
-              const touch = e.touches[i];
-              const dx = touch.clientX - joystickStartX;
-              const dy = touch.clientY - joystickStartY;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              const clampedDist = Math.min(dist, JOYSTICK_MAX_RADIUS);
-              const angle = Math.atan2(dy, dx);
-              const stickX = Math.cos(angle) * clampedDist;
-              const stickY = Math.sin(angle) * clampedDist;
-
-              // Move stick knob visually
-              const stick = document.getElementById('virtual-joystick-stick');
-              if (stick) {
-                stick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
-              }
-
-              // Write normalized values to mouseX/mouseY
-              // X: positive = right, Y: negative = down (matching computeInputPosition convention)
-              mouseX = (stickX / JOYSTICK_MAX_RADIUS) * JOYSTICK_SENSITIVITY;
-              mouseY = -(stickY / JOYSTICK_MAX_RADIUS) * JOYSTICK_SENSITIVITY;
-              mouseControlActive = true;
-              break;
-            }
-          }
-        } else if (currentControlScheme === 'touch') {
-          // --- Touch mode (original absolute-positioning) ---
-          // Update steering only if the tracked steering touch moves
-          let steeringTouch = null;
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            if (
-              e.changedTouches[i].identifier === steeringTouchId &&
-              e.changedTouches[i].identifier !== activeGestureTouchId
-            ) {
-              steeringTouch = e.changedTouches[i];
-              break;
-            }
-          }
-          if (steeringTouch) {
-            updateInputPosition(steeringTouch.clientX, steeringTouch.clientY);
-            mouseControlActive = true;
-          }
-        }
-      }
-    }
-  },
-  {passive: false}
-);
-
-window.addEventListener('touchend', (e) => {
-  // --- Joystick cleanup ---
-  if (joystickActive) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      if (e.changedTouches[i].identifier === joystickTouchId) {
-        joystickActive = false;
-        joystickTouchId = null;
-        mouseControlActive = false;
-        mouseX = 0;
-        mouseY = 0;
-
-        // Hide joystick and reset stick position
-        const joystickBase = document.getElementById('virtual-joystick-base');
-        if (joystickBase) {
-          joystickBase.classList.remove('joystick-visible');
-          joystickBase.classList.add('joystick-hidden');
-        }
-        const stick = document.getElementById('virtual-joystick-stick');
-        if (stick) {
-          stick.style.transform = 'translate(-50%, -50%)';
-        }
-        break;
-      }
-    }
-  }
-
-  // --- Touch mode cleanup ---
-  if (steeringTouchId !== null) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      if (e.changedTouches[i].identifier === steeringTouchId) {
-        steeringTouchId = null;
-        if (!joystickActive) {
-          mouseControlActive = false;
-          mouseX = 0;
-          mouseY = 0;
-        }
-        break;
-      }
-    }
-  }
-
-  // --- Gesture cleanup ---
-  if (activeGestureTouchId !== null) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const touch = e.changedTouches[i];
-      if (touch.identifier === activeGestureTouchId) {
-        if (activeGestureAction) {
-          doubleTap[activeGestureAction] = false;
-          if (typeof tripleTap !== 'undefined')
-            tripleTap[activeGestureAction] = false;
-          keys[activeGestureAction] = false;
-        }
-        activeGestureTouchId = null;
-        activeGestureAction = null;
-        break;
-      }
-    }
-  }
-
-  if (e.touches.length === 0) {
-    mouseControlActive = false;
-    mouseX = 0;
-    mouseY = 0;
-    isFreeCameraDragging = false;
-  }
-});
-
 function onWindowResize() {
   if (!camera || !renderer) return;
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -651,46 +366,13 @@ function clearInputState() {
   mouseX = 0;
   mouseY = 0;
   mouseControlActive = false;
-  // keys/doubleTap may not exist yet at first call (togglePause runs before key state is declared),
-  // so guard with typeof.
-  if (typeof keys !== 'undefined') {
-    keys.ArrowUp =
-      keys.ArrowDown =
-      keys.ArrowLeft =
-      keys.ArrowRight =
-      keys.Shift =
-        false;
+  if (typeof inputManager !== 'undefined') {
+    inputManager.handleBlur();
   }
-  if (typeof doubleTap !== 'undefined') {
-    doubleTap.ArrowUp =
-      doubleTap.ArrowDown =
-      doubleTap.ArrowLeft =
-      doubleTap.ArrowRight =
-        false;
-  }
-  if (typeof tripleTap !== 'undefined') {
-    tripleTap.ArrowUp =
-      tripleTap.ArrowDown =
-      tripleTap.ArrowLeft =
-      tripleTap.ArrowRight =
-        false;
-  }
-  if (typeof tapCount !== 'undefined') {
-    tapCount.ArrowUp =
-      tapCount.ArrowDown =
-      tapCount.ArrowLeft =
-      tapCount.ArrowRight =
-        0;
-  }
-  if (typeof activeGestureTouchId !== 'undefined') activeGestureTouchId = null;
-  if (typeof activeGestureAction !== 'undefined') activeGestureAction = null;
   if (typeof gyroBasePitch !== 'undefined') {
     gyroBasePitch = null;
     gyroBaseRoll = null;
   }
-  // Joystick cleanup
-  joystickActive = false;
-  joystickTouchId = null;
   const _joystickBase = document.getElementById('virtual-joystick-base');
   if (_joystickBase) {
     _joystickBase.classList.remove('joystick-visible');
@@ -700,7 +382,6 @@ function clearInputState() {
   if (_joystickStick) {
     _joystickStick.style.transform = 'translate(-50%, -50%)';
   }
-  steeringTouchId = null;
 }
 const pauseOverlay = document.getElementById('pause-overlay');
 
@@ -708,28 +389,7 @@ function togglePause() {
   isPaused = !isPaused;
   if (isPaused) {
     pauseOverlay.style.display = 'flex';
-
-    // Clear all movement keys so they aren't stuck when unpausing
-    keys.ArrowUp = keys.ArrowDown = keys.ArrowLeft = keys.ArrowRight = false;
-    doubleTap.ArrowUp =
-      doubleTap.ArrowDown =
-      doubleTap.ArrowLeft =
-      doubleTap.ArrowRight =
-        false;
-    if (typeof tripleTap !== 'undefined') {
-      tripleTap.ArrowUp =
-        tripleTap.ArrowDown =
-        tripleTap.ArrowLeft =
-        tripleTap.ArrowRight =
-          false;
-    }
-    if (typeof tapCount !== 'undefined') {
-      tapCount.ArrowUp =
-        tapCount.ArrowDown =
-        tapCount.ArrowLeft =
-        tapCount.ArrowRight =
-          0;
-    }
+    clearInputState();
 
     if (typeof setMusicVolume === 'function') {
       setMusicVolume(0.15);
@@ -772,238 +432,8 @@ function updateMobileMenuFocus() {
   }
 }
 
-function pollGamepad(delta) {
-  const gamepads = navigator.getGamepads
-    ? navigator.getGamepads()
-    : navigator.webkitGetGamepads
-      ? navigator.webkitGetGamepads()
-      : [];
-  let gp = null;
-  for (let i = 0; i < gamepads.length; i++) {
-    if (gamepads[i] && gamepads[i].connected) {
-      gp = gamepads[i];
-      break;
-    }
-  }
-
-  if (!gp) {
-    lastGamepadButtons = [];
-    return;
-  }
-
-  // 1. Flight Stick: Map Left Analog Stick (Axes 0 and 1) to Pitch and Roll
-  // Axis 0: Roll (Left/Right), Axis 1: Pitch (Up/Down)
-  let roll = gp.axes[0];
-  let pitch = gp.axes[1];
-
-  // Deadzone: 0.15
-  const deadzone = 0.15;
-  if (Math.abs(roll) < deadzone) roll = 0;
-  if (Math.abs(pitch) < deadzone) pitch = 0;
-
-  // Map to global mouseX/mouseY which are used for targetRoll/targetPitch
-  if (Math.abs(gp.axes[0]) > deadzone || Math.abs(gp.axes[1]) > deadzone) {
-    mouseX = roll;
-    mouseY = pitch;
-    mouseControlActive = true;
-    gamepadSteeringActive = true;
-  } else if (gamepadSteeringActive) {
-    mouseX = 0;
-    mouseY = 0;
-    gamepadSteeringActive = false;
-  }
-
-  // 2. Throttle: Map Right Trigger (Button 7) to accelerate and Left Trigger (Button 6) to decelerate
-  const rt =
-    gp.buttons[7].value !== undefined
-      ? gp.buttons[7].value
-      : gp.buttons[7].pressed
-        ? 1
-        : 0;
-  const lt =
-    gp.buttons[6].value !== undefined
-      ? gp.buttons[6].value
-      : gp.buttons[6].pressed
-        ? 1
-        : 0;
-
-  if (rt > 0.1) {
-    const throttleRate = (0.2 + rt * 1.0) * delta;
-    targetFlightSpeed = Math.min(
-      window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335,
-      targetFlightSpeed + throttleRate
-    );
-  }
-  if (lt > 0.1) {
-    const throttleRate = (0.2 + lt * 1.0) * delta;
-    targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
-  }
-
-  // 3. Pause: Map 'Start' or 'Menu' button (Button 9) to toggle pause
-  if (gp.buttons[9].pressed) {
-    if (!gamepadPauseLatched) {
-      togglePause();
-      gamepadPauseLatched = true;
-    }
-  } else {
-    gamepadPauseLatched = false;
-  }
-
-  // Toggle Mobile Menu: Map 'Select' or 'Back' button (Button 8)
-  if (gp.buttons[8].pressed) {
-    if (!gamepadSelectLatched) {
-      const menuContainer = document.getElementById('mobile-action-menu');
-      if (menuContainer) {
-        const expanding = !menuContainer.classList.contains('expanded');
-        menuContainer.classList.toggle('expanded');
-        if (expanding) {
-          mobileFocusIndex = 0;
-          updateMobileMenuFocus();
-        } else {
-          mobileFocusIndex = -1;
-          updateMobileMenuFocus();
-        }
-      }
-      gamepadSelectLatched = true;
-    }
-  } else {
-    gamepadSelectLatched = false;
-  }
-
-  // 4. Buttons and D-pad
-  const currentButtons = gp.buttons.map((b) => b.pressed);
-
-  // Map D-pad to Arrows
-  const dpadMap = [
-    {btn: 12, key: 'ArrowUp'},
-    {btn: 13, key: 'ArrowDown'},
-    {btn: 14, key: 'ArrowLeft'},
-    {btn: 15, key: 'ArrowRight'},
-  ];
-
-  dpadMap.forEach((map) => {
-    const isPressed = gp.buttons[map.btn].pressed;
-    const wasPressed = !!lastGamepadButtons[map.btn];
-
-    if (isPressed && !wasPressed) {
-      // Dispatch a native keydown for D-pad so it reaches our menu logic
-      window.dispatchEvent(new KeyboardEvent('keydown', {key: map.key}));
-    } else if (!isPressed && wasPressed) {
-      window.dispatchEvent(new KeyboardEvent('keyup', {key: map.key}));
-    }
-  });
-
-  // Map Button 0 (A) to Enter for selection
-  if (gp.buttons[0].pressed && !lastGamepadButtons[0]) {
-    window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));
-  } else if (!gp.buttons[0].pressed && lastGamepadButtons[0]) {
-    window.dispatchEvent(new KeyboardEvent('keyup', {key: 'Enter'}));
-  }
-
-  // 5. Bumpers: Map LB (4) and RB (5) to ArrowLeft/ArrowRight (handled for barrel rolls)
-  const bumperMap = [
-    {btn: 4, key: 'ArrowLeft'},
-    {btn: 5, key: 'ArrowRight'},
-  ];
-
-  bumperMap.forEach((map) => {
-    const isPressed = gp.buttons[map.btn].pressed;
-    const wasPressed = !!lastGamepadButtons[map.btn];
-
-    if (isPressed && !wasPressed) {
-      keys[map.key] = true;
-      const now = performance.now();
-      if (now - lastArrowTap[map.key] < DOUBLE_TAP_MS) {
-        doubleTap[map.key] = true;
-      }
-      lastArrowTap[map.key] = now;
-      keyPressStartTime[map.key] = now;
-
-      // Keyboard/Gamepad takes control from mouse/stick
-      mouseControlActive = false;
-      mouseX = 0;
-      mouseY = 0;
-    } else if (!isPressed && wasPressed) {
-      keys[map.key] = false;
-      doubleTap[map.key] = false;
-      lastKeyUpTime[map.key] = performance.now();
-    }
-    // State is updated for all buttons at the end of pollGamepad
-  });
-
-  // Update lastGamepadButtons for all buttons
-  gp.buttons.forEach((btn, idx) => {
-    lastGamepadButtons[idx] = btn.pressed;
-  });
-}
-
-let tvFocusRow = 2; // Default to radio section
-let tvFocusCol = 0;
-
-function getMenuGrid() {
-  const grid = [];
-
-  // Row 0: Callsign input
-  const nameInput = document.getElementById('player-name-input');
-  if (nameInput) grid.push([nameInput]);
-
-  // Row 1: Livery colors
-  const swatches = Array.from(document.querySelectorAll('.color-swatch'));
-  if (swatches.length > 0) grid.push(swatches);
-
-  // Row 2: Graphics / Invert Y
-  const row2 = [];
-  const presetSelect = document.getElementById('graphics-preset-select');
-  if (presetSelect) row2.push(presetSelect);
-  const invertY = document.getElementById('invert-y-input');
-  if (invertY) row2.push(invertY);
-  if (row2.length > 0) grid.push(row2);
-
-  // Row 4: Control scheme toggle buttons (if visible)
-  const schemeToggle = document.getElementById('control-scheme-toggle');
-  if (schemeToggle && schemeToggle.style.display !== 'none') {
-    const schemeBtnsArr = Array.from(
-      schemeToggle.querySelectorAll('.scheme-btn')
-    ).filter((btn) => btn.style.display !== 'none');
-    if (schemeBtnsArr.length > 0) grid.push(schemeBtnsArr);
-  }
-
-  // Row 5: Resume button
-  const resumeBtn = document.getElementById('resume-btn');
-  if (resumeBtn) grid.push([resumeBtn]);
-
-  // Row 6: Achievements button
-  const achievementsBtn = document.getElementById('achievements-btn');
-  if (achievementsBtn) grid.push([achievementsBtn]);
-
-  return grid;
-}
-
-function updateTVFocus() {
-  document
-    .querySelectorAll('.tv-focused')
-    .forEach((el) => el.classList.remove('tv-focused'));
-  const grid = getMenuGrid();
-  tvFocusRow = Math.min(tvFocusRow, grid.length - 1);
-  if (tvFocusRow < 0) return;
-  tvFocusCol = Math.min(tvFocusCol, grid[tvFocusRow].length - 1);
-  if (tvFocusCol < 0) return;
-  const el = grid[tvFocusRow][tvFocusCol];
-  if (!el) return;
-  el.classList.add('tv-focused');
-  el.focus();
-}
-
-window.addEventListener('mousemove', (e) => {
-  if (isPaused) {
-    document
-      .querySelectorAll('.tv-focused')
-      .forEach((el) => el.classList.remove('tv-focused'));
-  }
-});
-
 window.addEventListener('keydown', (e) => {
-  // 1. Mobile Action Menu Navigation (Priority when expanded)
+  // Mobile Action Menu Navigation (Priority when expanded)
   const menuContainer = document.getElementById('mobile-action-menu');
   const isMenuExpanded =
     menuContainer && menuContainer.classList.contains('expanded');
@@ -1031,169 +461,6 @@ window.addEventListener('keydown', (e) => {
         return;
       }
     }
-  }
-
-  // 2. Toggle Pause: Escape = PC, Backspace = TV Back, MediaPlayPause = TV Play/Pause, Enter = TV Center (if playing)
-  const isToggleKey =
-    e.key === 'Escape' ||
-    e.code === 'MediaPlayPause' ||
-    (e.key === 'Backspace' &&
-      (!document.activeElement ||
-        document.activeElement.tagName !== 'INPUT' ||
-        document.activeElement.type === 'checkbox')) ||
-    (e.key === 'Enter' &&
-      !isPaused &&
-      !isMenuExpanded &&
-      (!document.activeElement || document.activeElement.id !== 'resume-btn'));
-
-  if (isToggleKey) {
-    // If achievements overlay is open, close it back to pause menu instead of toggling pause
-    const achievementsOverlay = document.getElementById('achievements-overlay');
-    if (
-      achievementsOverlay &&
-      achievementsOverlay.style.display === 'flex' &&
-      isPaused
-    ) {
-      achievementsOverlay.style.display = 'none';
-      return;
-    }
-    togglePause();
-    if (isPaused) {
-      tvFocusRow = 2;
-      tvFocusCol = 0;
-      document
-        .querySelectorAll('.tv-focused')
-        .forEach((el) => el.classList.remove('tv-focused'));
-    }
-    return;
-  }
-
-  // 3. Navigation in pause menu
-  if (isPaused) {
-    // --- START SCREEN OVERRIDE ---
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay && overlay.style.display !== 'none') {
-      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-        const btnContainer = document.getElementById('splash-btn-container');
-        const beginBtn = document.getElementById('begin-btn');
-        if (
-          beginBtn &&
-          btnContainer &&
-          btnContainer.style.visibility === 'visible'
-        ) {
-          beginBtn.click();
-          e.preventDefault();
-          return;
-        }
-      }
-      return;
-    }
-
-    // Ignore menu navigation if typing in an input field
-    if (
-      document.activeElement &&
-      document.activeElement.tagName === 'INPUT' &&
-      document.activeElement.type !== 'checkbox'
-    ) {
-      return;
-    }
-
-    // Prevent arrow keys from scrolling the page (with safety check for e.key)
-    if (e.key && e.key.startsWith('Arrow')) {
-      e.preventDefault();
-    }
-
-    const grid = getMenuGrid();
-    let handled = false;
-
-    if (e.key === 'ArrowDown') {
-      tvFocusRow = Math.min(tvFocusRow + 1, grid.length - 1);
-      tvFocusCol = Math.min(tvFocusCol, grid[tvFocusRow].length - 1);
-      handled = true;
-    } else if (e.key === 'ArrowUp') {
-      tvFocusRow = Math.max(tvFocusRow - 1, 0);
-      tvFocusCol = Math.min(tvFocusCol, grid[tvFocusRow].length - 1);
-      handled = true;
-    } else if (e.key === 'ArrowLeft') {
-      if (
-        document.activeElement &&
-        document.activeElement.tagName === 'SELECT'
-      ) {
-        const sel = document.activeElement;
-        if (sel.selectedIndex > 0) {
-          sel.selectedIndex--;
-          sel.dispatchEvent(new Event('change'));
-        }
-      } else if (
-        document.activeElement &&
-        document.activeElement.tagName === 'INPUT' &&
-        document.activeElement.type !== 'checkbox'
-      ) {
-        return; // Let native cursor move
-      } else {
-        tvFocusCol = Math.max(tvFocusCol - 1, 0);
-      }
-      handled = true;
-    } else if (e.key === 'ArrowRight') {
-      if (
-        document.activeElement &&
-        document.activeElement.tagName === 'SELECT'
-      ) {
-        const sel = document.activeElement;
-        if (sel.selectedIndex < sel.options.length - 1) {
-          sel.selectedIndex++;
-          sel.dispatchEvent(new Event('change'));
-        }
-      } else if (
-        document.activeElement &&
-        document.activeElement.tagName === 'INPUT' &&
-        document.activeElement.type !== 'checkbox'
-      ) {
-        return; // Let native cursor move
-      } else {
-        tvFocusCol = Math.min(tvFocusCol + 1, grid[tvFocusRow].length - 1);
-      }
-      handled = true;
-    } else if (e.key === 'Enter') {
-      const el = grid[tvFocusRow][tvFocusCol];
-      if (el) {
-        if (el.tagName === 'INPUT' && el.type !== 'checkbox') {
-          el.blur();
-          tvFocusRow = 1;
-          tvFocusCol = 0;
-        } else if (el.id === 'resume-btn') {
-          togglePause();
-        } else {
-          el.click();
-        }
-      }
-      handled = true;
-    }
-
-    if (handled) {
-      e.preventDefault();
-      updateTVFocus();
-    }
-    return; // Important: don't let pause menu keys leak to flight controls
-  }
-
-  // 4. Vehicle Switch Shortcut: 'v' or 'V'
-  if (
-    ENABLE_VEHICLE_SWITCH &&
-    e.key.toLowerCase() === 'v' &&
-    !isPaused &&
-    (!document.activeElement || document.activeElement.tagName !== 'INPUT')
-  ) {
-    const nextType =
-      vehicleType === 'airplane'
-        ? 'helicopter'
-        : vehicleType === 'helicopter'
-          ? 'boat'
-          : vehicleType === 'boat'
-            ? 'buggy'
-            : 'airplane';
-    setVehicle(nextType);
-    return;
   }
 });
 
@@ -1824,6 +1091,9 @@ if (controlSchemeToggle) {
       }
 
       currentControlScheme = scheme;
+      if (typeof inputManager !== 'undefined') {
+        inputManager.state.controlScheme = scheme;
+      }
       gyroEnabled = scheme === 'gyro';
       localStorage.setItem('chill_flight_control_scheme', scheme);
       gyroBasePitch = null;
@@ -2619,9 +1889,12 @@ function animate() {
     mouseX = inputManager.state.mouse.x;
     mouseY = inputManager.state.mouse.y;
     mouseControlActive = true;
-  } else if (!mouseControlActive) {
+  } else if (currentControlScheme === 'gyro') {
+    // Gyro mode manages mouseX/mouseY directly
+  } else {
     mouseX = 0;
     mouseY = 0;
+    mouseControlActive = false;
   }
 
   // Handle freeCam
@@ -2657,7 +1930,7 @@ function animate() {
 
   const delta = smoothedDelta; // Use smoothed delta for all game logic below
 
-  pollGamepad(delta);
+  inputManager.pollGamepad(delta);
 
   if (isPaused || window.isNamePromptOpen) {
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -3209,7 +2482,6 @@ function animate() {
   let isClampedRoll = false;
   let isLooping = false;
   let isDoingFullLoop = false;
-  let isDoingImmelmann = false;
 
   const manualRollSpeed = 4.0;
   const manualLoopSpeed = 2.5;
@@ -3355,10 +2627,16 @@ function animate() {
             0.05 * delta * 60
           );
           isLooping = true;
-        } else if (isDown && ttDown && !keys.Shift && !isDoingImmelmann) {
+        } else if (
+          (ttDown || tripleTap.ArrowDown) &&
+          !keys.Shift &&
+          !isDoingImmelmann
+        ) {
           // Triple-tap down: Immelmann turn (automatic maneuver, no hold required)
           isDoingImmelmann = true;
           immelmannProgress = 0;
+          tripleTap.ArrowDown = false;
+          tripleTap.ArrowUp = false;
         } else if (
           isDown &&
           dtDown &&
@@ -3377,7 +2655,7 @@ function animate() {
       }
     }
 
-    if (isLeft) {
+    if (!isDoingImmelmann && isLeft) {
       if (vehicleType === 'helicopter') {
         if (!keys.Shift) planeGroup.rotation.y += 1.5 * delta;
         const maxRoll = Math.PI / 12; // visual bank
@@ -3414,7 +2692,7 @@ function animate() {
           isBarrelRolling = true;
         }
       }
-    } else if (isRight) {
+    } else if (!isDoingImmelmann && isRight) {
       if (vehicleType === 'helicopter') {
         if (!keys.Shift) planeGroup.rotation.y -= 1.5 * delta;
         const maxRoll = -Math.PI / 12; // visual bank
@@ -4014,11 +3292,7 @@ function animate() {
     _volcanoPos.y = planeGroup.position.y;
     const distToVolcano = planeGroup.position.distanceTo(_volcanoPos);
     if (distToVolcano < 800) {
-      if (Achievements.unlock('pura_vida')) {
-        console.log(
-          '[Volcano flyover] Position: X = -5000.0, Z = 5000.0 (1.00 West, 1.00 South)'
-        );
-      }
+      Achievements.unlock('pura_vida');
     }
 
     // 2. Alien Lands - East (X > 50000) for Xen, West (X < -50000) for Westworld
@@ -5795,19 +5069,6 @@ function updatePlayerList() {
 // Start loop
 window.onload = animate;
 
-// --- KEY STATE ---
-const keys = inputManager.state.keys;
-
-// Double-tap detection for barrel roll and loops
-const lastArrowTap = {ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0};
-const doubleTap = inputManager.state.doubleTap;
-const tripleTap = inputManager.state.tripleTap;
-const tapCount = {ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0};
-const DOUBLE_TAP_MS = 300;
-let STEER_HOLD_THRESHOLD = window.STEER_HOLD_THRESHOLD || 100; // ms to wait before a tap becomes a hold for pitch/looping
-const STUTTER_BUFFER_MS = window.STUTTER_BUFFER_MS || 0; // Only preserve hold state if configured (TV)
-const lastKeyUpTime = {ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0};
-
 // Mobile controls
 const btnUp = document.getElementById('mobile-spd-up');
 const btnDown = document.getElementById('mobile-spd-down');
@@ -5946,11 +5207,14 @@ function resetSteering() {
   mouseX = 0;
   mouseY = 0;
   mouseControlActive = false;
+  if (typeof inputManager !== 'undefined' && inputManager.resetMouseSteering) {
+    inputManager.resetMouseSteering();
+  }
 }
 
 document
   .querySelectorAll(
-    '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #online-players, #cockpit-ui'
+    '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #online-players, #player-list, #cockpit-ui, #mobile-action-menu, #pause-overlay, #achievements-overlay, button, input, select, a'
   )
   .forEach((btn) => {
     btn.addEventListener('mouseenter', resetSteering);
@@ -5958,25 +5222,26 @@ document
       'touchstart',
       (e) => {
         resetSteering();
-        // If it's a button, we might want to prevent default to stop system gestures
-        if (
-          e.currentTarget.classList.contains('mobile-btn') ||
-          e.currentTarget.classList.contains('sub-btn')
-        ) {
-          // But only if we aren't using pointer events for the same thing elsewhere
-        }
       },
       {passive: true}
     );
   });
 
+document.addEventListener('mouseover', (e) => {
+  if (
+    e.target.closest(
+      '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #online-players, #player-list, #cockpit-ui, #mobile-action-menu, #pause-overlay, #achievements-overlay, button, input, select, a'
+    )
+  ) {
+    resetSteering();
+  }
+});
+
 if (btnUp) {
   const down = (e) => {
     if (e.cancelable) e.preventDefault();
     e.stopPropagation();
-    mouseControlActive = false; // Explicitly stop steering
-    mouseX = 0;
-    mouseY = 0;
+    resetSteering();
     keys.Shift = true;
     keys.ArrowUp = true;
     keyPressStartTime.ArrowUp = performance.now();
@@ -6016,9 +5281,7 @@ if (btnDown) {
   const down = (e) => {
     if (e.cancelable) e.preventDefault();
     e.stopPropagation();
-    mouseControlActive = false; // Explicitly stop steering
-    mouseX = 0;
-    mouseY = 0;
+    resetSteering();
     keys.Shift = true;
     keys.ArrowDown = true;
     keys.ArrowUp = false;
@@ -6055,300 +5318,6 @@ if (btnDown) {
   btnDown.addEventListener('touchend', up);
   btnDown.addEventListener('contextmenu', (e) => e.preventDefault());
 }
-
-window.addEventListener('keydown', (e) => {
-  if (isPaused) return;
-
-  // Block flight controls if mobile action menu is expanded
-  const menuContainer = document.getElementById('mobile-action-menu');
-  if (menuContainer && menuContainer.classList.contains('expanded')) {
-    return;
-  }
-
-  const key = e.key.toLowerCase();
-
-  // Secret shooting star trigger
-  if (key === 's' && e.shiftKey && !e.metaKey && !e.ctrlKey) {
-    e.preventDefault();
-    forceShootingStar = true;
-    return;
-  }
-
-  // Secret rainbow trigger
-  if (key === 'u' && e.shiftKey && !e.metaKey && !e.ctrlKey) {
-    e.preventDefault();
-    if (rainbowTimer > 0) {
-      rainbowTimer = 0;
-    } else {
-      forceRainbow = true;
-    }
-    return;
-  }
-
-  // Camera mode toggle
-  if (key === 'c' && !e.metaKey && !e.ctrlKey) {
-    if (cameraMode === 'follow') {
-      cameraMode = 'first-person';
-    } else if (cameraMode === 'first-person') {
-      cameraMode = 'birds-eye-close';
-    } else if (cameraMode === 'birds-eye-close') {
-      cameraMode = 'birds-eye-far';
-    } else if (cameraMode === 'birds-eye-far') {
-      cameraMode = 'cinematic';
-      cinematicTimer = 0;
-      currentCinematicIndex = 0;
-    } else {
-      cameraMode = 'follow';
-      cameraTransitionProgress = 0; // Reset progress to avoid bounce
-    }
-    if (typeof Achievements !== 'undefined') {
-      Achievements.unlock('directors_cut');
-    }
-    console.log('Camera mode switched to:', cameraMode);
-    return;
-  }
-
-  // Autopilot toggle
-  if (key === 'a' && e.shiftKey) {
-    e.preventDefault();
-    toggleAutopilot();
-    return;
-  }
-
-  const keyMap = {
-    arrowleft: 'ArrowLeft',
-    a: 'ArrowLeft',
-    arrowright: 'ArrowRight',
-    d: 'ArrowRight',
-    arrowup: 'ArrowUp',
-    w: 'ArrowUp',
-    arrowdown: 'ArrowDown',
-    s: 'ArrowDown',
-  };
-
-  // Prevent arrow keys from scrolling the page (important on TV WebView)
-  if (
-    key === 'arrowup' ||
-    key === 'arrowdown' ||
-    key === 'arrowleft' ||
-    key === 'arrowright'
-  ) {
-    e.preventDefault();
-  }
-
-  const action = keyMap[key];
-  if (action) {
-    // Exclude actions that have other Shift-modifiers (like Shift+A for autopilot, Shift+D for debug) or system modifiers (Cmd/Ctrl)
-    const isConflict =
-      (key === 'd' && e.shiftKey) ||
-      (key === 'a' && e.shiftKey) ||
-      e.metaKey ||
-      e.ctrlKey;
-
-    if (!isConflict) {
-      const wasKeyPressed = keys[action];
-      keys[action] = true;
-      if (action === 'ArrowDown') keys.ArrowUp = false;
-
-      if (!wasKeyPressed) {
-        const now = performance.now();
-        if (
-          STUTTER_BUFFER_MS === 0 ||
-          now - lastKeyUpTime[action] > STUTTER_BUFFER_MS
-        ) {
-          keyPressStartTime[action] = now;
-
-          // Double-tap detection: only if NOT within stutter window of the previous key release
-          const timeSinceLastUp = now - lastKeyUpTime[action];
-          if (STUTTER_BUFFER_MS === 0 || timeSinceLastUp > STUTTER_BUFFER_MS) {
-            if (now - lastArrowTap[action] < DOUBLE_TAP_MS) {
-              tapCount[action] = (tapCount[action] || 0) + 1;
-            } else {
-              tapCount[action] = 1;
-            }
-
-            if (tapCount[action] === 2) {
-              doubleTap[action] = true;
-            } else if (tapCount[action] >= 3) {
-              tripleTap[action] = true;
-            }
-            lastArrowTap[action] = now;
-          }
-        }
-
-        // Keyboard taking control
-        mouseControlActive = false;
-        mouseX = 0;
-        mouseY = 0;
-      }
-    }
-  }
-
-  if (e.key === 'Shift') keys.Shift = true;
-  if (e.key === '+' || e.key === '=') keys.Plus = true;
-  if (e.key === '-' || e.key === '_') keys.Minus = true;
-  if (key === 'q') keys.Q = true;
-  if (key === 'e') keys.E = true;
-
-  if (
-    (e.key === 'l' || e.key === 'L') &&
-    !e.metaKey &&
-    !e.ctrlKey &&
-    !e.altKey
-  ) {
-    if (headlight.intensity === 0) {
-      headlight.intensity = 2;
-      headlightGlow.intensity = 0.1;
-      if (hdgtSub) hdgtSub.classList.add('active');
-      if (typeof Achievements !== 'undefined') {
-        Achievements.unlock('night_vision');
-      }
-    } else {
-      headlight.intensity = 0;
-      headlightGlow.intensity = 0;
-      if (hdgtSub) hdgtSub.classList.remove('active');
-    }
-  }
-
-  if ((e.key === 'd' || e.key === 'D') && e.shiftKey) {
-    const debugMenu = document.getElementById('debug-menu');
-    const debugTelem = document.getElementById('debug-telemetry');
-    const isOpening = debugMenu.style.display !== 'block';
-    debugMenu.style.display = isOpening ? 'block' : 'none';
-    if (debugTelem) debugTelem.style.display = isOpening ? 'block' : 'none';
-
-    if (isOpening) resetSteering();
-
-    if (window.firebaseDB && window.currentUserUid) {
-      const _wp =
-        window.currentWorldPrefix ||
-        `world/${ChillFlightLogic.WORLD_SEED}_room_1`;
-      if (isOpening) {
-        import('https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js').then(
-          ({remove, ref, goOffline}) => {
-            remove(
-              ref(window.firebaseDB, `${_wp}/players/` + window.currentUserUid)
-            ).then(() => {
-              goOffline(window.firebaseDB);
-              if (typeof otherPlayers !== 'undefined')
-                otherPlayers.forEach((p) => (p.mesh.visible = false));
-              console.log(
-                'Debug menu opened: Disconnected from Firebase multiplayer.'
-              );
-            });
-          }
-        );
-      } else {
-        import('https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js').then(
-          ({goOnline, set, ref}) => {
-            goOnline(window.firebaseDB);
-            if (typeof otherPlayers !== 'undefined')
-              otherPlayers.forEach((p) => (p.mesh.visible = true));
-            const profileRef = ref(
-              window.firebaseDB,
-              `users/` + window.currentUserUid
-            );
-            const sessionRef = ref(
-              window.firebaseDB,
-              `${_wp}/players/` + window.currentUserUid
-            );
-            set(profileRef, {
-              name: playerName,
-              color: planeColor,
-              updatedAt: new Date().toISOString(),
-            });
-            set(sessionRef, {
-              name: playerName,
-              color: planeColor,
-              lastSeen: new Date().toISOString(),
-            });
-            const pos = planeGroup.position;
-            const rot = planeGroup.rotation;
-            set(
-              ref(
-                window.firebaseDB,
-                `${_wp}/players/` + window.currentUserUid + '/position'
-              ),
-              {
-                x: Number(pos.x.toFixed(1)),
-                y: Number(pos.y.toFixed(1)),
-                z: Number(pos.z.toFixed(1)),
-                rotX: Number(rot.x.toFixed(3)),
-                rotY: Number(rot.y.toFixed(3)),
-                rotZ: Number(rot.z.toFixed(3)),
-                speedMult: Number(flightSpeedMultiplier.toFixed(2)),
-                headlightsOn: false,
-                updatedAt: new Date().toISOString(),
-              }
-            );
-            console.log(
-              'Debug menu closed: Reconnected to Firebase multiplayer.'
-            );
-          }
-        );
-      }
-    }
-  }
-
-  if (
-    document.activeElement &&
-    document.activeElement.tagName !== 'INPUT' &&
-    !e.metaKey &&
-    !e.ctrlKey
-  ) {
-    if (e.key === 'p' || e.key === 'P') {
-      if (musicEnabled && purrpleCatAudio.paused) {
-        updateAudioPlayer(true);
-      } else {
-        setMusicEnabled(!musicEnabled);
-      }
-    }
-  }
-});
-
-window.addEventListener('keyup', (e) => {
-  if (isPaused) return;
-
-  // Block flight control releases if menu is open (menu handles its own navigation)
-  const menuContainer = document.getElementById('mobile-action-menu');
-  if (menuContainer && menuContainer.classList.contains('expanded')) {
-    return;
-  }
-
-  const key = e.key.toLowerCase();
-  const keyMap = {
-    arrowleft: 'ArrowLeft',
-    a: 'ArrowLeft',
-    arrowright: 'ArrowRight',
-    d: 'ArrowRight',
-    arrowup: 'ArrowUp',
-    w: 'ArrowUp',
-    arrowdown: 'ArrowDown',
-    s: 'ArrowDown',
-  };
-
-  const action = keyMap[key];
-  if (action) {
-    const now = performance.now();
-    const TAP_THRESHOLD = 200;
-
-    if (action === 'ArrowLeft' || action === 'ArrowRight') {
-      const heldTime = now - keyPressStartTime[action];
-      if (heldTime < TAP_THRESHOLD) manualPitch = 0;
-    }
-
-    keys[action] = false;
-    doubleTap[action] = false;
-    if (typeof tripleTap !== 'undefined') tripleTap[action] = false;
-    lastKeyUpTime[action] = now;
-  }
-
-  if (e.key === 'Shift') keys.Shift = false;
-  if (e.key === '+' || e.key === '=') keys.Plus = false;
-  if (e.key === '-' || e.key === '_') keys.Minus = false;
-  if (key === 'q') keys.Q = false;
-  if (key === 'e') keys.E = false;
-});
 
 window.addEventListener('blur', () => {
   windowJustFocused = false;
