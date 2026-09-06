@@ -3,7 +3,7 @@
 
 const scene = new THREE.Scene();
 // Background will be handled by a Skysphere shader
-scene.fog = new THREE.FogExp2(0xa0d8ef, 0.00005);
+scene.fog = new THREE.FogExp2(0xa0d8ef, 0.00015);
 
 // --- SKY SHADER MATERIAL ---
 const skyVertexShader = window.SKY_SHADERS.skyVert;
