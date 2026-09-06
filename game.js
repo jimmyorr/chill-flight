@@ -683,6 +683,8 @@ if (freeCamToggle) {
   if (isFreeCamera) {
     freeCamToggle.checked = true;
     camera.rotation.order = 'YXZ'; // Better for fly-cam
+    camera.rotation.z = 0;
+    camera.up.set(0, 1, 0);
 
     if (ChillFlightLogic.START_X !== null)
       camera.position.x = ChillFlightLogic.START_X;
@@ -757,13 +759,17 @@ if (copyCamUrlBtn) {
     url.searchParams.set('x', Math.round(camera.position.x));
     url.searchParams.set('y', Math.round(camera.position.y));
     url.searchParams.set('z', Math.round(camera.position.z));
+    const camEuler = new THREE.Euler().setFromQuaternion(
+      camera.quaternion,
+      'YXZ'
+    );
     url.searchParams.set(
       'heading',
-      Math.round(THREE.MathUtils.radToDeg(camera.rotation.y))
+      Math.round(THREE.MathUtils.radToDeg(camEuler.y))
     );
     url.searchParams.set(
       'pitch',
-      Math.round(THREE.MathUtils.radToDeg(camera.rotation.x))
+      Math.round(THREE.MathUtils.radToDeg(camEuler.x))
     );
     let currentTod;
     if (window.manualTimeOfDay !== undefined) {
@@ -798,13 +804,17 @@ if (copyPlaneUrlBtn) {
     url.searchParams.set('x', Math.round(planeGroup.position.x));
     url.searchParams.set('y', Math.round(planeGroup.position.y));
     url.searchParams.set('z', Math.round(planeGroup.position.z));
+    const planeEuler = new THREE.Euler().setFromQuaternion(
+      planeGroup.quaternion,
+      'YXZ'
+    );
     url.searchParams.set(
       'heading',
-      Math.round(THREE.MathUtils.radToDeg(planeGroup.rotation.y))
+      Math.round(THREE.MathUtils.radToDeg(planeEuler.y))
     );
     url.searchParams.set(
       'pitch',
-      Math.round(THREE.MathUtils.radToDeg(planeGroup.rotation.x))
+      Math.round(THREE.MathUtils.radToDeg(planeEuler.x))
     );
     let currentTod;
     if (window.manualTimeOfDay !== undefined) {
@@ -4155,8 +4165,12 @@ function animate() {
       document.getElementById('debug-camera-z'),
       Math.round(camera.position.z)
     );
-    const camHeadingDegrees = THREE.MathUtils.radToDeg(camera.rotation.y);
-    const camPitchDegrees = THREE.MathUtils.radToDeg(camera.rotation.x);
+    const camEuler = new THREE.Euler().setFromQuaternion(
+      camera.quaternion,
+      'YXZ'
+    );
+    const camHeadingDegrees = THREE.MathUtils.radToDeg(camEuler.y);
+    const camPitchDegrees = THREE.MathUtils.radToDeg(camEuler.x);
     updateDOM(
       document.getElementById('debug-camera-heading'),
       Math.round(camHeadingDegrees)
