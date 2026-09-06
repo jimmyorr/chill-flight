@@ -897,8 +897,12 @@
             gap: 4px;
           "
         >
-          <div>CPU ms: <span id="debug-cpu-ms">0.0</span></div>
-          <div>Heap: <span id="debug-heap">0.0</span> MB</div>
+          <div>CPU ms: <span id="debug-cpu-ms">0</span></div>
+          <div>FPS: <span id="debug-fps">0</span></div>
+          <div>Heap: <span id="debug-heap">0</span> MB</div>
+          <div id="debug-last-gc">
+            GC: <span id="debug-last-gc-val">-</span>
+          </div>
           <div>Draw calls: <span id="debug-draw-calls">0</span></div>
           <div>Triangles: <span id="debug-triangles">0</span></div>
 

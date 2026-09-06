@@ -4226,11 +4226,39 @@ function animate() {
       cpuMsEl.style.color = getPerfColor(cpuMs, 24, 32);
     }
 
+    const fpsEl = document.getElementById('debug-fps');
+    if (fpsEl && delta > 0) {
+      const fps = Math.round(1 / delta);
+      updateDOM(fpsEl, fps);
+      fpsEl.style.color = getPerfColor(60 - fps, 30, 40);
+    }
+
     const heapEl = document.getElementById('debug-heap');
     if (heapEl) {
       if (performance.memory) {
         const heapMb = performance.memory.usedJSHeapSize / 1048576;
         updateDOM(heapEl, heapMb.toFixed(1));
+
+        // --- GC DETECTION INLINE ---
+        if (heapEl._lastHeapMb !== undefined) {
+          const drop = heapEl._lastHeapMb - heapMb;
+          if (drop > 2.0) {
+            // If dropped by more than 2MB, GC likely happened
+            const lastGcEl = document.getElementById('debug-last-gc');
+            const lastGcVal = document.getElementById('debug-last-gc-val');
+            if (lastGcEl && lastGcVal) {
+              updateDOM(lastGcVal, `-${drop.toFixed(1)} MB`);
+
+              // Briefly flash the color to gold
+              lastGcEl.style.color = 'gold';
+              setTimeout(() => {
+                if (lastGcEl) lastGcEl.style.color = '';
+              }, 300);
+            }
+          }
+        }
+        heapEl._lastHeapMb = heapMb;
+
         // Warn at 150MB, Critical at 250MB
         heapEl.style.color = getPerfColor(heapMb, 150, 250);
       } else {
