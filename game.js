@@ -1488,15 +1488,22 @@ function updateWeather(delta) {
   rainParticles.visible = rainParticles.material.opacity >= 0.01;
 
   // Natural rainbow trigger
-  // Trigger when the target opacity hits 0 (weather is clearing), but rain is still visibly falling
+  // Trigger when the target opacity hits 0 (weather is clearing), but only if it was recently raining heavily
   const isRainClearing = targetRainOpacity === 0;
-  const isRainHeavy = rainParticles.material.opacity > 0.1;
 
-  if (isRainClearing && !wasRainClearing && isRainHeavy) {
-    // 100% chance to spawn a rainbow when rain starts to clear
-    forceRainbow = true;
+  if (isRainClearing && !wasRainClearing) {
+    if (window._wasRaining) {
+      forceRainbow = true;
+      window._wasRaining = false;
+    }
   }
   wasRainClearing = isRainClearing;
+
+  // Track if we are currently in a rainstorm (even a light one)
+  // Max rain opacity is 0.5. Anything above 0.05 counts as rain for a rainbow.
+  if (rainParticles.material.opacity > 0.05) {
+    window._wasRaining = true;
+  }
 
   if (!snowParticles.visible && !rainParticles.visible) return;
 
