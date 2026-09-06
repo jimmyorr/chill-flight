@@ -3526,7 +3526,178 @@ const _colorRoad = new THREE.Color(0x3a3a3a); // Dark asphalt
 const _colorRoadCenterLine = new THREE.Color(0xccaa00); // Dashed yellow center line
 const _colorRoadShoulder = new THREE.Color(0x555555); // Lighter edge
 
+// --- GLOBAL INSTANCING ARCHITECTURE ---
+class GlobalInstanceManager {
+  constructor() {
+    this.types = new Map();
+    this.group = new THREE.Group();
+    this.group.name = 'GlobalInstances';
+    scene.add(this.group);
+  }
+
+  registerType(type, geo, mat, maxInstances = 30000, useColor = false) {
+    const instMesh = new THREE.InstancedMesh(geo, mat, maxInstances);
+    instMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    if (useColor) {
+      instMesh.instanceColor = new THREE.InstancedBufferAttribute(
+        new Float32Array(maxInstances * 3),
+        3
+      );
+      instMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+    }
+    instMesh.visible = _enableObjects;
+    instMesh.count = 0;
+    instMesh.receiveShadow = true;
+    instMesh.castShadow = true;
+    this.group.add(instMesh);
+
+    this.types.set(type, {
+      mesh: instMesh,
+      useColor: useColor,
+      maxInstances: maxInstances,
+    });
+  }
+
+  rebuildAll() {
+    const centerPos = window.airplaneModel
+      ? window.airplaneModel.position
+      : new THREE.Vector3();
+    const lodDist = RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2;
+
+    let activeHash = '';
+    const activeChunks = [];
+    chunks.forEach((chunk, key) => {
+      if (chunk.userData.worldPosition.distanceTo(centerPos) <= lodDist) {
+        activeChunks.push(chunk);
+        activeHash += key + '|';
+      }
+    });
+
+    if (this.lastActiveHash === activeHash) return;
+    this.lastActiveHash = activeHash;
+
+    const counts = new Map();
+    for (const type of this.types.keys()) counts.set(type, 0);
+
+    activeChunks.forEach((chunk) => {
+      if (!chunk.userData.instanceData) return;
+
+      for (const [type, data] of Object.entries(chunk.userData.instanceData)) {
+        if (!this.types.has(type)) continue;
+        const typeInfo = this.types.get(type);
+        const mesh = typeInfo.mesh;
+        let count = counts.get(type);
+
+        for (let i = 0; i < data.length; i++) {
+          if (count >= typeInfo.maxInstances) break;
+          mesh.setMatrixAt(count, data[i].matrix);
+          if (typeInfo.useColor && data[i].color) {
+            mesh.setColorAt(count, data[i].color);
+          }
+          count++;
+        }
+        counts.set(type, count);
+      }
+    });
+
+    for (const [type, typeInfo] of this.types.entries()) {
+      typeInfo.mesh.count = counts.get(type);
+      typeInfo.mesh.instanceMatrix.needsUpdate = true;
+      if (typeInfo.useColor) {
+        typeInfo.mesh.instanceColor.needsUpdate = true;
+      }
+      typeInfo.mesh.visible = _enableObjects;
+    }
+  }
+}
+
+const globalInstancer = new GlobalInstanceManager();
+window.globalInstancer = globalInstancer;
+
+class ChunkDataCollector {
+  constructor() {
+    this.data = {};
+  }
+  add(type, matrix, color = null) {
+    if (!this.data[type]) this.data[type] = [];
+    this.data[type].push({
+      matrix: matrix.clone(),
+      color: color ? color.clone() : null,
+    });
+  }
+}
+
+// Register Tree types
+globalInstancer.registerType('pineTrunk', treeTrunkGeo, treeTrunkMat);
+globalInstancer.registerType(
+  'pineLeaves',
+  treeLeavesGeo,
+  treeLeavesBaseMat,
+  30000,
+  true
+);
+globalInstancer.registerType('decidTrunk', deciduousGeos.trunk, treeTrunkMat);
+globalInstancer.registerType(
+  'decidLeaves',
+  deciduousGeos.leaves,
+  treeLeavesBaseMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
+  'tallDecidTrunk',
+  tallDeciduousGeos.trunk,
+  treeTrunkMat
+);
+globalInstancer.registerType(
+  'tallDecidLeaves',
+  tallDeciduousGeos.leaves,
+  treeLeavesBaseMat,
+  30000,
+  true
+);
+globalInstancer.registerType('palmTrunk', palmGeos.trunk, treeTrunkMat);
+globalInstancer.registerType(
+  'palmLeaves',
+  palmGeos.leaves,
+  treeLeavesBaseMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
+  'japaneseMapleTrunk',
+  japaneseMapleGeos.trunk,
+  treeTrunkMat
+);
+globalInstancer.registerType(
+  'japaneseMapleLeaves',
+  japaneseMapleGeos.leaves,
+  treeLeavesBaseMat,
+  30000,
+  true
+);
+globalInstancer.registerType('deadTrunk', deadTreeGeo, deadTreeMat);
+globalInstancer.registerType('rock', rockGeo, rockMat);
+globalInstancer.registerType('snowRock', rockGeo, snowRockMat);
+globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
+globalInstancer.registerType('cactus', cactusGeo, cactusMat);
+globalInstancer.registerType('snowmanBody', snowmanGeos.body, snowmanBodyMat);
+globalInstancer.registerType('snowmanNose', snowmanGeos.nose, snowmanNoseMat);
+globalInstancer.registerType('iceberg', icebergMainGeo, icebergMat);
+globalInstancer.registerType('iceFloe', iceFloeMainGeo, icebergMat);
+globalInstancer.registerType('penguinBody', penguinBodyGeo, penguinBlackMat);
+globalInstancer.registerType('penguinBelly', penguinBellyGeo, penguinWhiteMat);
+globalInstancer.registerType('penguinHead', penguinHeadGeo, penguinBlackMat);
+globalInstancer.registerType('penguinBeak', penguinBeakGeo, penguinOrangeMat);
+globalInstancer.registerType('penguinWingL', penguinWingLGeo, penguinBlackMat);
+globalInstancer.registerType('penguinWingR', penguinWingRGeo, penguinBlackMat);
+globalInstancer.registerType('penguinFootL', penguinFootLGeo, penguinOrangeMat);
+globalInstancer.registerType('penguinFootR', penguinFootRGeo, penguinOrangeMat);
+globalInstancer.registerType('lilypad', lilyPadGeo, lilyPadMat);
+globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
+
 function generateChunk(chunkX, chunkZ) {
+  const collector = new ChunkDataCollector();
   const group = new THREE.Group();
   group.userData.worldPosition = new THREE.Vector3(
     chunkX * CHUNK_SIZE,
@@ -4614,11 +4785,7 @@ function generateChunk(chunkX, chunkZ) {
   objectsLOD.addLevel(objectsGroup, 0);
 
   // Dynamically tie LOD distance to the RENDER_DISTANCE so objects hide in the fog
-  // Capped at 4500 to prevent quadratic scaling of draw calls on high/ultra settings
-  const lodDistance = Math.min(
-    RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
-    4500
-  );
+  const lodDistance = RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2;
   objectsLOD.addLevel(emptyLODGroup, lodDistance);
   objectsLOD.visible = _enableObjects;
 
@@ -4632,27 +4799,10 @@ function generateChunk(chunkX, chunkZ) {
   const _tempColor = new THREE.Color();
   const _snowColor = new THREE.Color(0xe0f7fa);
 
-  const renderTrees = (
-    positions,
-    trunkGeo,
-    leavesGeo,
-    trunkMat,
-    baseLeafColor
-  ) => {
+  const renderTrees = (positions, trunkKey, leavesKey, baseLeafColor) => {
     if (positions.length === 0) return;
-    const trunkInst = new THREE.InstancedMesh(
-      trunkGeo,
-      trunkMat,
-      positions.length
-    );
-    // Use white base material — instance colors will define the actual leaf color
-    const leavesInst = new THREE.InstancedMesh(
-      leavesGeo,
-      treeLeavesBaseMat,
-      positions.length
-    );
 
-    positions.forEach((pos, index) => {
+    positions.forEach((pos) => {
       const worldZ = worldOffsetZ + pos.z;
       const northInfluence = Math.max(0, -worldZ / 4000);
 
@@ -4669,169 +4819,93 @@ function generateChunk(chunkX, chunkZ) {
 
       const baseScale = 0.6 + Math.min(0.6, northInfluence * 0.5);
       const scale = baseScale + rng() * (0.4 + rng() * 0.5);
-      dummy.position.set(pos.x, pos.y, pos.z);
+
+      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
       dummy.scale.set(scale, scale, scale);
       dummy.rotation.y = rng() * Math.PI * 2;
       dummy.updateMatrix();
-      trunkInst.setMatrixAt(index, dummy.matrix);
-      leavesInst.setMatrixAt(index, dummy.matrix);
 
-      // Add slight random color variation per tree
-      const rVariation = (rng() - 0.5) * 0.1;
-      const gVariation = (rng() - 0.5) * 0.1;
-      const bVariation = (rng() - 0.5) * 0.1;
+      if (trunkKey) collector.add(trunkKey, dummy.matrix);
 
-      // Use a clean temporary color for the variation
-      const baseColorObj = new THREE.Color(baseLeafColor);
-      baseColorObj.r = Math.max(0, Math.min(1, baseColorObj.r + rVariation));
-      baseColorObj.g = Math.max(0, Math.min(1, baseColorObj.g + gVariation));
-      baseColorObj.b = Math.max(0, Math.min(1, baseColorObj.b + bVariation));
+      if (leavesKey && baseLeafColor) {
+        // Add slight random color variation per tree
+        const rVariation = (rng() - 0.5) * 0.1;
+        const gVariation = (rng() - 0.5) * 0.1;
+        const bVariation = (rng() - 0.5) * 0.1;
 
-      // Set leaf color: base leaf color lerped toward snow-white based on snowFactor
-      _tempColor.copy(baseColorObj);
-      if (snowFactor > 0) {
-        _tempColor.lerp(_snowColor, snowFactor);
+        // Use a clean temporary color for the variation
+        const baseColorObj = new THREE.Color(baseLeafColor);
+        baseColorObj.r = Math.max(0, Math.min(1, baseColorObj.r + rVariation));
+        baseColorObj.g = Math.max(0, Math.min(1, baseColorObj.g + gVariation));
+        baseColorObj.b = Math.max(0, Math.min(1, baseColorObj.b + bVariation));
+
+        // Set leaf color: base leaf color lerped toward snow-white based on snowFactor
+        _tempColor.copy(baseColorObj);
+        if (snowFactor > 0) {
+          _tempColor.lerp(_snowColor, snowFactor);
+        }
+        collector.add(leavesKey, dummy.matrix, _tempColor);
       }
-      leavesInst.setColorAt(index, _tempColor);
     });
-
-    if (leavesInst.instanceColor) leavesInst.instanceColor.needsUpdate = true;
-
-    trunkInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    leavesInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(trunkInst);
-    objectsGroup.add(leavesInst);
   };
 
-  // Render variations — pass hex color so gradient lerps correctly from green → white
-  renderTrees(
-    treePositions,
-    treeTrunkGeo,
-    treeLeavesGeo,
-    treeTrunkMat,
-    0x1b5e20
-  );
-  renderTrees(
-    snowTreePositions,
-    treeTrunkGeo,
-    treeLeavesGeo,
-    treeTrunkMat,
-    0x1b5e20
-  );
-  renderTrees(
-    deciduousTreePositions,
-    deciduousGeos.trunk,
-    deciduousGeos.leaves,
-    treeTrunkMat,
-    0x1b5e20
-  );
+  // Render variations
+  renderTrees(treePositions, 'pineTrunk', 'pineLeaves', 0x1b5e20);
+  renderTrees(snowTreePositions, 'pineTrunk', 'pineLeaves', 0x1b5e20);
+  renderTrees(deciduousTreePositions, 'decidTrunk', 'decidLeaves', 0x1b5e20);
   renderTrees(
     tallDeciduousTreePositions,
-    tallDeciduousGeos.trunk,
-    tallDeciduousGeos.leaves,
-    treeTrunkMat,
+    'tallDecidTrunk',
+    'tallDecidLeaves',
     0x1a451d
   );
-  renderTrees(
-    palmTreePositions,
-    palmGeos.trunk,
-    palmGeos.leaves,
-    treeTrunkMat,
-    0x689f38
-  );
-  renderTrees(
-    cherryTreePositions,
-    deciduousGeos.trunk,
-    deciduousGeos.leaves,
-    treeTrunkMat,
-    0xf8bbd0
-  );
-  renderTrees(
-    autumnTree1Positions,
-    deciduousGeos.trunk,
-    deciduousGeos.leaves,
-    treeTrunkMat,
-    0xd35400
-  );
-  renderTrees(
-    autumnTree2Positions,
-    deciduousGeos.trunk,
-    deciduousGeos.leaves,
-    treeTrunkMat,
-    0xf39c12
-  );
-  renderTrees(
-    autumnTree3Positions,
-    deciduousGeos.trunk,
-    deciduousGeos.leaves,
-    treeTrunkMat,
-    0xc0392b
-  );
-  renderTrees(
-    yellowCortezTreePositions,
-    deciduousGeos.trunk,
-    deciduousGeos.leaves,
-    treeTrunkMat,
-    0xffeb3b
-  ); // Yellow Cortez
+  renderTrees(palmTreePositions, 'palmTrunk', 'palmLeaves', 0x689f38);
+  renderTrees(cherryTreePositions, 'decidTrunk', 'decidLeaves', 0xf8bbd0);
+  renderTrees(autumnTree1Positions, 'decidTrunk', 'decidLeaves', 0xd35400);
+  renderTrees(autumnTree2Positions, 'decidTrunk', 'decidLeaves', 0xf39c12);
+  renderTrees(autumnTree3Positions, 'decidTrunk', 'decidLeaves', 0xc0392b);
+  renderTrees(yellowCortezTreePositions, 'decidTrunk', 'decidLeaves', 0xffeb3b);
   renderTrees(
     japaneseMapleTreePositions,
-    japaneseMapleGeos.trunk,
-    japaneseMapleGeos.leaves,
-    treeTrunkMat,
+    'japaneseMapleTrunk',
+    'japaneseMapleLeaves',
     0xa31515
-  ); // Japanese Maple
+  );
 
   if (deadTreePositions.length > 0) {
-    const deadInst = new THREE.InstancedMesh(
-      deadTreeGeo,
-      deadTreeMat,
-      deadTreePositions.length
-    );
-    deadTreePositions.forEach((pos, index) => {
+    deadTreePositions.forEach((pos) => {
       const scale = 0.8 + rng() * 0.8;
-      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
       dummy.scale.set(scale, scale, scale);
       dummy.rotation.y = rng() * Math.PI * 2;
       dummy.updateMatrix();
-      deadInst.setMatrixAt(index, dummy.matrix);
+      collector.add('deadTrunk', dummy.matrix);
     });
-    deadInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(deadInst);
   }
 
   // 2.3 Generate Rocks
   const rockVariations = [
-    {pos: rockPositions, mat: rockMat},
-    {pos: snowRockPositions, mat: snowRockMat},
-    {pos: desertRockPositions, mat: desertRockMat},
+    {pos: rockPositions, key: 'rock'},
+    {pos: snowRockPositions, key: 'snowRock'},
+    {pos: desertRockPositions, key: 'desertRock'},
   ];
 
   rockVariations.forEach((variation) => {
     if (variation.pos.length > 0) {
-      const rockInst = new THREE.InstancedMesh(
-        rockGeo,
-        variation.mat,
-        variation.pos.length
-      );
-
-      variation.pos.forEach((pos, index) => {
+      variation.pos.forEach((pos) => {
         // Random scale between 0.5 and 2.5 on each axis for uniquely shaped boulders
         const sx = 0.5 + rng() * 2.0;
         const sy = 0.5 + rng() * 2.0;
         const sz = 0.5 + rng() * 2.0;
 
         // Random rotation
-        dummy.position.set(pos.x, pos.y, pos.z);
+        dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
         dummy.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
         dummy.scale.set(sx, sy, sz);
         dummy.updateMatrix();
 
-        rockInst.setMatrixAt(index, dummy.matrix);
+        collector.add(variation.key, dummy.matrix);
       });
-
-      rockInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(rockInst);
     }
   });
 
@@ -4872,255 +4946,155 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.4 Generate Cactuses
   if (cactusPositions.length > 0) {
-    const cactusInst = new THREE.InstancedMesh(
-      cactusGeo,
-      cactusMat,
-      cactusPositions.length
-    );
-    cactusPositions.forEach((pos, index) => {
+    cactusPositions.forEach((pos) => {
       const scale = 0.8 + rng() * 0.6;
-      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
       dummy.rotation.set(0, rng() * Math.PI * 2, 0);
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
-      cactusInst.setMatrixAt(index, dummy.matrix);
+      collector.add('cactus', dummy.matrix);
     });
-    cactusInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(cactusInst);
   }
 
   // 2.45 Generate Snowmen
   if (snowmanPositions.length > 0) {
-    const bodyInst = new THREE.InstancedMesh(
-      snowmanGeos.body,
-      snowmanBodyMat,
-      snowmanPositions.length
-    );
-    const noseInst = new THREE.InstancedMesh(
-      snowmanGeos.nose,
-      snowmanNoseMat,
-      snowmanPositions.length
-    );
-
-    snowmanPositions.forEach((pos, index) => {
+    snowmanPositions.forEach((pos) => {
       const scale = 0.8 + rng() * 0.4;
-      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
-      bodyInst.setMatrixAt(index, dummy.matrix);
-      noseInst.setMatrixAt(index, dummy.matrix);
+      collector.add('snowmanBody', dummy.matrix);
+      collector.add('snowmanNose', dummy.matrix);
     });
-
-    bodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    noseInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(bodyInst);
-    objectsGroup.add(noseInst);
   }
 
   // 2.46 Generate Icebergs, Ice Floes, and Penguins
   if (icebergPositions.length > 0) {
-    const icebergInst = new THREE.InstancedMesh(
-      icebergMainGeo,
-      icebergMat,
-      icebergPositions.length * 3
-    );
-
-    let count = 0;
     icebergPositions.forEach((pos) => {
       // Main iceberg
-      dummy.position.set(pos.x, pos.y - 4, pos.z);
+      dummy.position.set(worldOffsetX + pos.x, pos.y - 4, worldOffsetZ + pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
-      icebergInst.setMatrixAt(count++, dummy.matrix);
+      collector.add('iceberg', dummy.matrix);
 
       // Small 1
       const offset1 = new THREE.Vector3(14, -4, 6).applyAxisAngle(
         new THREE.Vector3(0, 1, 0),
         pos.rotY
       );
-      dummy.position.set(pos.x + offset1.x, pos.y - 8, pos.z + offset1.z);
+      dummy.position.set(
+        worldOffsetX + pos.x + offset1.x,
+        pos.y - 8,
+        worldOffsetZ + pos.z + offset1.z
+      );
       dummy.rotation.set(0, pos.rotY + 1.2, 0);
       dummy.scale.set(0.5, 0.4, 0.5);
       dummy.updateMatrix();
-      icebergInst.setMatrixAt(count++, dummy.matrix);
+      collector.add('iceberg', dummy.matrix);
 
       // Small 2
       const offset2 = new THREE.Vector3(-12, -5, -8).applyAxisAngle(
         new THREE.Vector3(0, 1, 0),
         pos.rotY
       );
-      dummy.position.set(pos.x + offset2.x, pos.y - 9, pos.z + offset2.z);
+      dummy.position.set(
+        worldOffsetX + pos.x + offset2.x,
+        pos.y - 9,
+        worldOffsetZ + pos.z + offset2.z
+      );
       dummy.rotation.set(0, pos.rotY - 0.8, 0);
       dummy.scale.set(0.4, 0.3, 0.4);
       dummy.updateMatrix();
-      icebergInst.setMatrixAt(count++, dummy.matrix);
+      collector.add('iceberg', dummy.matrix);
     });
-
-    icebergInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(icebergInst);
   }
 
   if (iceFloePositions.length > 0) {
-    const iceFloeInst = new THREE.InstancedMesh(
-      iceFloeMainGeo,
-      icebergMat,
-      iceFloePositions.length * 3
-    );
-
-    let count = 0;
     iceFloePositions.forEach((pos) => {
       // Main floe
-      dummy.position.set(pos.x, pos.y - 1, pos.z);
+      dummy.position.set(worldOffsetX + pos.x, pos.y - 1, worldOffsetZ + pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
-      iceFloeInst.setMatrixAt(count++, dummy.matrix);
+      collector.add('iceFloe', dummy.matrix);
 
       // Small 1
       const offset1 = new THREE.Vector3(16, -0.8, 4).applyAxisAngle(
         new THREE.Vector3(0, 1, 0),
         pos.rotY
       );
-      dummy.position.set(pos.x + offset1.x, pos.y - 1.8, pos.z + offset1.z);
+      dummy.position.set(
+        worldOffsetX + pos.x + offset1.x,
+        pos.y - 1.8,
+        worldOffsetZ + pos.z + offset1.z
+      );
       dummy.rotation.set(0, pos.rotY + 0.5, 0);
       dummy.scale.set(0.5, 0.6, 0.5);
       dummy.updateMatrix();
-      iceFloeInst.setMatrixAt(count++, dummy.matrix);
+      collector.add('iceFloe', dummy.matrix);
 
       // Small 2
       const offset2 = new THREE.Vector3(-15, -1, -6).applyAxisAngle(
         new THREE.Vector3(0, 1, 0),
         pos.rotY
       );
-      dummy.position.set(pos.x + offset2.x, pos.y - 2, pos.z + offset2.z);
+      dummy.position.set(
+        worldOffsetX + pos.x + offset2.x,
+        pos.y - 2,
+        worldOffsetZ + pos.z + offset2.z
+      );
       dummy.rotation.set(0, pos.rotY - 0.5, 0);
       dummy.scale.set(0.4, 0.5, 0.4);
       dummy.updateMatrix();
-      iceFloeInst.setMatrixAt(count++, dummy.matrix);
+      collector.add('iceFloe', dummy.matrix);
     });
-
-    iceFloeInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(iceFloeInst);
   }
 
   if (penguinPositions.length > 0) {
-    const pCount = penguinPositions.length;
-    const pBodyInst = new THREE.InstancedMesh(
-      penguinBodyGeo,
-      penguinBlackMat,
-      pCount
-    );
-    const pBellyInst = new THREE.InstancedMesh(
-      penguinBellyGeo,
-      penguinWhiteMat,
-      pCount
-    );
-    const pHeadInst = new THREE.InstancedMesh(
-      penguinHeadGeo,
-      penguinBlackMat,
-      pCount
-    );
-    const pBeakInst = new THREE.InstancedMesh(
-      penguinBeakGeo,
-      penguinOrangeMat,
-      pCount
-    );
-    const pWingLInst = new THREE.InstancedMesh(
-      penguinWingLGeo,
-      penguinBlackMat,
-      pCount
-    );
-    const pWingRInst = new THREE.InstancedMesh(
-      penguinWingRGeo,
-      penguinBlackMat,
-      pCount
-    );
-    const pFootLInst = new THREE.InstancedMesh(
-      penguinFootLGeo,
-      penguinOrangeMat,
-      pCount
-    );
-    const pFootRInst = new THREE.InstancedMesh(
-      penguinFootRGeo,
-      penguinOrangeMat,
-      pCount
-    );
-
-    penguinPositions.forEach((pos, index) => {
+    penguinPositions.forEach((pos) => {
       const scale = 0.8 + rng() * 0.4;
-      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
 
-      pBodyInst.setMatrixAt(index, dummy.matrix);
-      pBellyInst.setMatrixAt(index, dummy.matrix);
-      pHeadInst.setMatrixAt(index, dummy.matrix);
-      pBeakInst.setMatrixAt(index, dummy.matrix);
-      pWingLInst.setMatrixAt(index, dummy.matrix);
-      pWingRInst.setMatrixAt(index, dummy.matrix);
-      pFootLInst.setMatrixAt(index, dummy.matrix);
-      pFootRInst.setMatrixAt(index, dummy.matrix);
+      collector.add('penguinBody', dummy.matrix);
+      collector.add('penguinBelly', dummy.matrix);
+      collector.add('penguinHead', dummy.matrix);
+      collector.add('penguinBeak', dummy.matrix);
+      collector.add('penguinWingL', dummy.matrix);
+      collector.add('penguinWingR', dummy.matrix);
+      collector.add('penguinFootL', dummy.matrix);
+      collector.add('penguinFootR', dummy.matrix);
     });
-
-    pBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    pBellyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    pHeadInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    pBeakInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    pWingLInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    pWingRInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    pFootLInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    pFootRInst.position.set(worldOffsetX, 0, worldOffsetZ);
-
-    objectsGroup.add(
-      pBodyInst,
-      pBellyInst,
-      pHeadInst,
-      pBeakInst,
-      pWingLInst,
-      pWingRInst,
-      pFootLInst,
-      pFootRInst
-    );
   }
 
   // 2.47 Generate Lily Pads
   if (lilyPadPositions.length > 0) {
-    const padInst = new THREE.InstancedMesh(
-      lilyPadGeo,
-      lilyPadMat,
-      lilyPadPositions.length
-    );
-
-    lilyPadPositions.forEach((pos, index) => {
+    lilyPadPositions.forEach((pos) => {
       const scale = 0.6 + rng() * 0.8;
-      dummy.position.set(pos.x, pos.y + 0.15, pos.z); // Slightly above water to prevent Z-fighting
+      dummy.position.set(
+        worldOffsetX + pos.x,
+        pos.y + 0.15,
+        worldOffsetZ + pos.z
+      ); // Slightly above water to prevent Z-fighting
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
-      padInst.setMatrixAt(index, dummy.matrix);
+      collector.add('lilypad', dummy.matrix);
     });
-
-    padInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(padInst);
   }
 
   // 2.48 Generate Bushes
   if (bushPositions.length > 0) {
-    const bushInst = new THREE.InstancedMesh(
-      bushGeo,
-      bushBaseMat,
-      bushPositions.length
-    );
-    bushPositions.forEach((pos, index) => {
+    bushPositions.forEach((pos) => {
       const scale = 0.5 + rng() * 1.5; // High variance in bush sizes
-      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
-      bushInst.setMatrixAt(index, dummy.matrix);
 
       // Base bush green: 0x558b2f
       const rVariation = (rng() - 0.5) * 0.15;
@@ -5132,11 +5106,8 @@ function generateChunk(chunkX, chunkZ) {
       baseBushColor.g = Math.max(0, Math.min(1, baseBushColor.g + gVariation));
       baseBushColor.b = Math.max(0, Math.min(1, baseBushColor.b + bVariation));
 
-      bushInst.setColorAt(index, baseBushColor);
+      collector.add('bush', dummy.matrix, baseBushColor);
     });
-    if (bushInst.instanceColor) bushInst.instanceColor.needsUpdate = true;
-    bushInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(bushInst);
   }
 
   // 2.5 Generate Houses
@@ -6762,6 +6733,7 @@ function generateChunk(chunkX, chunkZ) {
     chimneys: chimneySmokePositions.length,
   };
 
+  group.userData.instanceData = collector.data;
   return group;
 }
 

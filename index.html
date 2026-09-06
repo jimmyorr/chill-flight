@@ -791,13 +791,7 @@
     </div>
 
     <div id="debug-telemetry">
-      <div
-        style="
-          margin-top: 10px;
-          padding-top: 10px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
+      <div>
         <div
           style="
             margin-bottom: 5px;
@@ -818,38 +812,22 @@
           "
         >
           <div>FOV: <span id="debug-fov">0</span>°</div>
-          <div>Pull: <span id="debug-pullback">0</span></div>
-          <div>Pitch: <span id="debug-pitch">0</span>°</div>
           <div>Speed: <span id="debug-speed-mult">0.0</span>x</div>
-          <div>Day: <span id="debug-day-speed">1.0</span>x</div>
-          <div>Target: <span id="debug-target-speed">0.0</span>x</div>
-          <div style="grid-column: 1">
-            Factor: <span id="debug-maneuver">0.0</span>
+          <div>Pitch: <span id="debug-pitch">0</span>°</div>
+          <div>Cam Head: <span id="debug-camera-heading">0</span>°</div>
+          <div>Cam Pitch: <span id="debug-camera-pitch">0</span>°</div>
+          <div style="grid-column: span 2">
+            Plane: <span id="debug-world-x">0</span>,
+            <span id="debug-world-y">0</span>, <span id="debug-world-z">0</span>
           </div>
-          <div style="grid-column: 1">
-            Plane X: <span id="debug-world-x">0</span>
-          </div>
-          <div style="grid-column: 2">
-            Cam X: <span id="debug-camera-x">0</span>
-          </div>
-          <div style="grid-column: 1">
-            Plane Y: <span id="debug-world-y">0</span>
-          </div>
-          <div style="grid-column: 2">
-            Cam Y: <span id="debug-camera-y">0</span>
-          </div>
-          <div style="grid-column: 1">
-            Plane Z: <span id="debug-world-z">0</span>
-          </div>
-          <div style="grid-column: 2">
-            Cam Z: <span id="debug-camera-z">0</span>
-          </div>
-          <div style="grid-column: 1">
-            Cam Head: <span id="debug-camera-heading">0</span>°
-          </div>
-          <div style="grid-column: 2">
-            Cam Pitch: <span id="debug-camera-pitch">0</span>°
-          </div>
+
+          <span id="debug-pullback" style="display: none"></span>
+          <span id="debug-day-speed" style="display: none"></span>
+          <span id="debug-target-speed" style="display: none"></span>
+          <span id="debug-maneuver" style="display: none"></span>
+          <span id="debug-camera-x" style="display: none"></span>
+          <span id="debug-camera-y" style="display: none"></span>
+          <span id="debug-camera-z" style="display: none"></span>
         </div>
       </div>
 
@@ -883,19 +861,14 @@
           <div>Storm: <span id="debug-storm-noise">0</span></div>
           <div>Precip: <span id="debug-precip">0</span></div>
           <div>Zone: <span id="debug-climate-zone">-</span></div>
-          <div>Snow α: <span id="debug-snow-opacity">0</span></div>
-          <div>Rain α: <span id="debug-rain-opacity">0</span></div>
           <div>Fog: <span id="debug-fog-density">0</span></div>
           <div>Mode: <span id="debug-weather-mode">-</span></div>
-          <div style="grid-column: span 2">
-            Aurora: <span id="debug-aurora">-</span>
-          </div>
-          <div style="grid-column: span 2; opacity: 0.6">
-            Peak: <span id="debug-aurora-peak">-</span>
-          </div>
-          <div style="grid-column: span 2">
-            Rainbow: <span id="debug-rainbow">-</span>
-          </div>
+
+          <span id="debug-snow-opacity" style="display: none"></span>
+          <span id="debug-rain-opacity" style="display: none"></span>
+          <span id="debug-aurora" style="display: none"></span>
+          <span id="debug-aurora-peak" style="display: none"></span>
+          <span id="debug-rainbow" style="display: none"></span>
         </div>
       </div>
       <div
@@ -928,8 +901,9 @@
           <div>Heap: <span id="debug-heap">0.0</span> MB</div>
           <div>Draw calls: <span id="debug-draw-calls">0</span></div>
           <div>Triangles: <span id="debug-triangles">0</span></div>
-          <div>Geometries: <span id="debug-geometries">0</span></div>
-          <div>Textures: <span id="debug-textures">0</span></div>
+
+          <span id="debug-geometries" style="display: none"></span>
+          <span id="debug-textures" style="display: none"></span>
         </div>
       </div>
 
@@ -959,29 +933,28 @@
             gap: 4px;
           "
         >
-          <div>Autumn: <span id="debug-trees-autumn">0</span></div>
-          <div>Houses: <span id="debug-houses">0</span></div>
-          <div>Bushes: <span id="debug-bushes">0</span></div>
-          <div>Boats: <span id="debug-boats">0</span></div>
-          <div>Pirate Ships: <span id="debug-pirateships">0</span></div>
-          <div>Pagodas: <span id="debug-pagodas">0</span></div>
-          <div>Campfires: <span id="debug-campfires">0</span></div>
-          <div>Castles: <span id="debug-castles">0</span></div>
-          <div>Cherry: <span id="debug-trees-cherry">0</span></div>
           <div>Chunks: <span id="debug-chunks">0</span></div>
-          <div>Dead: <span id="debug-trees-dead">0</span></div>
-          <div>Lighthouses: <span id="debug-lighthouses">0</span></div>
-          <div>Lily pads: <span id="debug-lily-pads">0</span></div>
-          <div>Oak: <span id="debug-trees-decid">0</span></div>
-          <div>Palm: <span id="debug-trees-palm">0</span></div>
-          <div>Piers: <span id="debug-piers">0</span></div>
+          <div>Houses: <span id="debug-houses">0</span></div>
           <div>Pine: <span id="debug-trees-pine">0</span></div>
           <div>Rocks: <span id="debug-rocks">0</span></div>
-          <div>Snowmen: <span id="debug-snowmen">0</span></div>
+          <div>Oak: <span id="debug-trees-decid">0</span></div>
+          <div>Bushes: <span id="debug-bushes">0</span></div>
+          <div>Palm: <span id="debug-trees-palm">0</span></div>
+          <div>Cherry: <span id="debug-trees-cherry">0</span></div>
+          <div>Autumn: <span id="debug-trees-autumn">0</span></div>
+          <div>Dead: <span id="debug-trees-dead">0</span></div>
+          <div>Boats: <span id="debug-boats">0</span></div>
+          <div>Piers: <span id="debug-piers">0</span></div>
+          <div>Pirate Ships: <span id="debug-pirateships">0</span></div>
+          <div>Castles: <span id="debug-castles">0</span></div>
+          <div>Pagodas: <span id="debug-pagodas">0</span></div>
           <div>Windmills: <span id="debug-windmills">0</span></div>
-          <div>
-            Yellow cortez: <span id="debug-trees-yellow-cortez">0</span>
-          </div>
+          <div>Lighthouses: <span id="debug-lighthouses">0</span></div>
+
+          <span id="debug-campfires" style="display: none"></span>
+          <span id="debug-trees-yellow-cortez" style="display: none"></span>
+          <span id="debug-snowmen" style="display: none"></span>
+          <span id="debug-lily-pads" style="display: none"></span>
         </div>
       </div>
     </div>

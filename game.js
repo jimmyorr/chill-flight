@@ -1781,6 +1781,7 @@ function animate() {
 
   const now = performance.now();
   if (window.processChunkQueue) window.processChunkQueue();
+  if (window.globalInstancer) window.globalInstancer.rebuildAll();
   let rawDelta = clock.getDelta();
   if (rawDelta > 0.1) rawDelta = 0.1; // Cap at 100ms to prevent logic blowouts
 
