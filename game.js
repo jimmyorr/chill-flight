@@ -1557,6 +1557,8 @@ const fpsCounterEl = document.getElementById('debug-fps');
 const _targetEuler = new THREE.Euler(0, 0, 0, 'XYZ');
 const _forward = new THREE.Vector3(0, 0, -1);
 const _cameraOffset = new THREE.Vector3(0, 0, 0);
+const _cameraAnchorQuat = new THREE.Quaternion();
+const _cameraAnchorMatrix = new THREE.Matrix4();
 const _idealCameraPos = new THREE.Vector3(0, 0, 0);
 const _lookOffset = new THREE.Vector3(0, 0, -20);
 const _idealLookTarget = new THREE.Vector3(0, 0, 0);
@@ -2827,17 +2829,30 @@ function animate() {
       cameraTransitionProgress;
 
     // 1. Calculate Follow State
+
+    // Smooth the plane's rotation to create camera inertia.
+    // If doing acrobatic loops/rolls, snap it to avoid the camera getting lost.
+    if (isLooping || isBarrelRolling) {
+      _cameraAnchorQuat.copy(planeGroup.quaternion);
+    } else {
+      _cameraAnchorQuat.slerp(
+        planeGroup.quaternion,
+        1 - Math.pow(1 - 0.15, delta * 60)
+      );
+    }
+
+    _cameraAnchorMatrix.makeRotationFromQuaternion(_cameraAnchorQuat);
+    _cameraAnchorMatrix.setPosition(planeGroup.position);
+
     _idealCameraPos_Follow
       .copy(_cameraOffset)
-      .applyMatrix4(planeGroup.matrixWorld);
+      .applyMatrix4(_cameraAnchorMatrix);
 
     _lookOffset.set(0, 0, -20);
-    _idealLookTarget_Follow
-      .copy(_lookOffset)
-      .applyMatrix4(planeGroup.matrixWorld);
+    _idealLookTarget_Follow.copy(_lookOffset).applyMatrix4(_cameraAnchorMatrix);
 
     if (isLooping) {
-      _up_Follow.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
+      _up_Follow.set(0, 1, 0).applyQuaternion(_cameraAnchorQuat);
     } else {
       _up_Follow.set(0, 1, 0);
     }
