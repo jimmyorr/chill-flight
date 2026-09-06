@@ -483,28 +483,28 @@ function applyGraphicsPreset(preset) {
   switch (preset) {
     case 'ultra':
       segments = 120;
-      dist = 4;
+      dist = 6;
       fps = 60;
       break;
     case 'high':
       segments = 80;
-      dist = 4;
+      dist = 5;
       fps = 60;
       break;
     case 'mid':
       segments = 40;
-      dist = 3;
+      dist = 4;
       fps = 60;
       break;
     case 'low':
       segments = 20;
-      dist = 2;
+      dist = 3;
       fps = 30;
       break;
     default:
       preset = 'mid';
       segments = 40;
-      dist = 3;
+      dist = 4;
       fps = 60;
       break;
   }
@@ -4270,13 +4270,13 @@ function animate() {
       const trianglesEl = document.getElementById('debug-triangles');
       if (trianglesEl) {
         updateDOM(trianglesEl, tris);
-        trianglesEl.style.color = getPerfColor(tris, 800000, 1500000);
+        trianglesEl.style.color = getPerfColor(tris, 2500000, 4000000);
       }
 
       const geometriesEl = document.getElementById('debug-geometries');
       if (geometriesEl) {
         updateDOM(geometriesEl, geos);
-        geometriesEl.style.color = getPerfColor(geos, 150, 250);
+        geometriesEl.style.color = getPerfColor(geos, 400, 600);
       }
 
       const texturesEl = document.getElementById('debug-textures');

@@ -4612,7 +4612,14 @@ function generateChunk(chunkX, chunkZ) {
   const objectsLOD = new THREE.LOD();
   objectsLOD.position.set(worldOffsetX, 0, worldOffsetZ); // Correct position for distance calculation
   objectsLOD.addLevel(objectsGroup, 0);
-  objectsLOD.addLevel(emptyLODGroup, 2500); // Hide objects beyond 2500 units
+
+  // Dynamically tie LOD distance to the RENDER_DISTANCE so objects hide in the fog
+  // Capped at 4500 to prevent quadratic scaling of draw calls on high/ultra settings
+  const lodDistance = Math.min(
+    RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
+    4500
+  );
+  objectsLOD.addLevel(emptyLODGroup, lodDistance);
   objectsLOD.visible = _enableObjects;
 
   group.add(objectsLOD);
