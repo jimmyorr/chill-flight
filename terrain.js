@@ -3445,7 +3445,38 @@ function getBiome(x, z) {
   return ChillFlightLogic.getBiome(x, z, simplex);
 }
 
+// Performance optimization: Direct-mapped typed array cache for procedural elevation queries.
+// Quantizes coordinates to 0.5 units (~18 inches) to memoize redundant procedural noise calculations
+// from flight collision, camera ground clearance, and geese flocking within and across frames.
+// Uses pre-allocated typed arrays and integer bitwise hashing to eliminate GC allocations entirely.
+const _ELEV_CACHE_SIZE = 512;
+const _ELEV_CACHE_MASK = _ELEV_CACHE_SIZE - 1;
+const _elevCacheKeyX = new Float32Array(_ELEV_CACHE_SIZE);
+const _elevCacheKeyZ = new Float32Array(_ELEV_CACHE_SIZE);
+const _elevCacheVal = new Float32Array(_ELEV_CACHE_SIZE);
+const _elevCacheValid = new Uint8Array(_ELEV_CACHE_SIZE);
+
+window.clearElevationCache = function () {
+  _elevCacheValid.fill(0);
+};
+
 function getElevation(x, z) {
+  // Quantize coordinates to 0.5 units for spatial memoization
+  const ix = Math.round(x * 2);
+  const iz = Math.round(z * 2);
+  const qx = ix * 0.5;
+  const qz = iz * 0.5;
+
+  const slot = (((ix * 73856093) ^ (iz * 19349663)) >>> 0) & _ELEV_CACHE_MASK;
+
+  if (
+    _elevCacheValid[slot] &&
+    _elevCacheKeyX[slot] === qx &&
+    _elevCacheKeyZ[slot] === qz
+  ) {
+    return _elevCacheVal[slot];
+  }
+
   let n = ChillFlightLogic.getElevation(
     x,
     z,
@@ -3471,6 +3502,11 @@ function getElevation(x, z) {
     // Raise terrain to at least WATER_LEVEL + 20 in the center
     n = Math.max(n, WATER_LEVEL + 20 * irregularFactor);
   }
+
+  _elevCacheKeyX[slot] = qx;
+  _elevCacheKeyZ[slot] = qz;
+  _elevCacheVal[slot] = n;
+  _elevCacheValid[slot] = 1;
 
   return n;
 }

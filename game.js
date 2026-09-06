@@ -614,6 +614,7 @@ function applyGraphicsPreset(preset) {
     }
   }
   if (window.clearChunkQueue) window.clearChunkQueue();
+  if (window.clearElevationCache) window.clearElevationCache();
   if (typeof _lastChunkUpdatePos !== 'undefined') {
     _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
   }

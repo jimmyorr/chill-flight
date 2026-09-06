@@ -42,6 +42,11 @@
       `World size: ${window.ChillFlightLogic.customMap.worldWidth.toFixed(0)}x${window.ChillFlightLogic.customMap.worldHeight.toFixed(0)} units (MAP_WORLD_SIZE: ${MAP_WORLD_SIZE})`
     );
 
+    // Clear elevation cache so memoized heights do not persist from procedural terrain
+    if (window.clearElevationCache) {
+      window.clearElevationCache();
+    }
+
     // Force terrain rebuild
     if (typeof chunks !== 'undefined' && typeof updateChunks === 'function') {
       // Dispose all previous procedural chunks manually
