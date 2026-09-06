@@ -1781,7 +1781,11 @@ function animate() {
   lastFrameTime = frameStartTime;
 
   const now = performance.now();
-  if (window.processChunkQueue) window.processChunkQueue();
+  // If the loading screen is active, give chunk generation a massive time budget (e.g., 33ms)
+  // so it finishes in a fraction of a second instead of being artifically throttled for 60fps.
+  const isBootLoadingScreen = isPaused && !isIntroTransitionActive;
+  const chunkBudget = isBootLoadingScreen ? 33 : 4;
+  if (window.processChunkQueue) window.processChunkQueue(chunkBudget);
   if (window.globalInstancer) window.globalInstancer.rebuildAll();
   let rawDelta = clock.getDelta();
   if (rawDelta > 0.1) rawDelta = 0.1; // Cap at 100ms to prevent logic blowouts
@@ -3004,7 +3008,7 @@ function animate() {
         1 - Math.pow(1 - 0.25, delta * 60)
       );
 
-      const progress = (now - introTransitionStartTime) / 2500;
+      const progress = (now - introTransitionStartTime) / 1250;
       if (progress < 1) {
         // Ease In Out Cubic
         const easedProgress =
@@ -4695,10 +4699,10 @@ if (overlay) {
     if (instant) {
       overlay.style.display = 'none';
     } else {
-      overlay.style.transition = 'opacity 2.5s ease-in-out';
+      overlay.style.transition = 'opacity 1.25s ease-in-out';
       overlay.style.opacity = '0';
       overlay.style.pointerEvents = 'none';
-      setTimeout(() => (overlay.style.display = 'none'), 2500);
+      setTimeout(() => (overlay.style.display = 'none'), 1250);
 
       // Trigger cinematic camera transition
       if (!isFreeCamera) {
@@ -4862,7 +4866,7 @@ if (overlay) {
               }
             }
           }
-        }, 500);
+        }, 150);
       }
     }, 50);
   } else {

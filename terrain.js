@@ -6798,7 +6798,7 @@ function updateChunks() {
   });
 }
 
-window.processChunkQueue = function () {
+window.processChunkQueue = function (timeBudget = 4) {
   if (chunkQueue.length === 0) return 1.0; // 100% progress when queue is empty
 
   const startTime = performance.now();
@@ -6813,9 +6813,12 @@ window.processChunkQueue = function () {
       generatedThisFrame++;
     }
 
-    // Limit chunk generation per frame to maintain smoothness
-    // We strictly limit to 1 chunk, or 2 if the first one was very fast (<4ms)
-    if (performance.now() - startTime > 4 || generatedThisFrame >= 1) {
+    // Limit chunk generation per frame to maintain smoothness during gameplay
+    // If we have a large time budget (e.g. loading screen), generate as many as fit in the budget.
+    const isOverTime = performance.now() - startTime > timeBudget;
+    const isStrictFramerateLimiter = timeBudget <= 4 && generatedThisFrame >= 1;
+
+    if (isOverTime || isStrictFramerateLimiter) {
       break;
     }
   }
