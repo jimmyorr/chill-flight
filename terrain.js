@@ -128,7 +128,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
        #endif
        
        float distRatio = vDistanceXZ / uRenderRadius;
-       float xzFogFactor = smoothstep(0.8, 1.0, distRatio);
+       float xzFogFactor = smoothstep(0.75, 0.95, distRatio);
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
        
@@ -299,7 +299,7 @@ waterMaterial.onBeforeCompile = (shader) => {
        #endif
        
        float distRatio = vDistanceXZ / uRenderRadius;
-       float xzFogFactor = smoothstep(0.8, 1.0, distRatio);
+       float xzFogFactor = smoothstep(0.75, 0.95, distRatio);
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
        
@@ -1956,7 +1956,7 @@ const streetlightPoleMat = createMaterial({
   color: 0x222222,
   flatShading: true,
 });
-window.streetlightBulbMat = new THREE.MeshStandardMaterial({
+window.streetlightBulbMat = createMaterial({
   color: 0xffffff,
   emissive: 0xffeebb,
   emissiveIntensity: 2.0,
@@ -1985,6 +1985,40 @@ window.streetlightDecalMat = new THREE.MeshBasicMaterial({
   blending: THREE.AdditiveBlending,
   depthWrite: false,
 });
+window.streetlightDecalMat.onBeforeCompile = (shader) => {
+  if (window.terrainUniforms) {
+    shader.uniforms.uCameraPosXZ = window.terrainUniforms.uCameraPosXZ;
+    shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
+  }
+  shader.vertexShader =
+    `
+    uniform vec2 uCameraPosXZ;
+    varying float vDistanceXZ;
+  ` + shader.vertexShader;
+  shader.vertexShader = shader.vertexShader.replace(
+    `#include <worldpos_vertex>`,
+    `#include <worldpos_vertex>
+     vec4 customWorldPosition = vec4( transformed, 1.0 );
+     #ifdef USE_INSTANCING
+       customWorldPosition = instanceMatrix * customWorldPosition;
+     #endif
+     customWorldPosition = modelMatrix * customWorldPosition;
+     vDistanceXZ = length(customWorldPosition.xz - uCameraPosXZ);`
+  );
+  shader.fragmentShader =
+    `
+    uniform float uRenderRadius;
+    varying float vDistanceXZ;
+  ` + shader.fragmentShader;
+  shader.fragmentShader = shader.fragmentShader.replace(
+    `#include <fog_fragment>`,
+    `#include <fog_fragment>
+     if (uRenderRadius > 0.0) {
+       float distRatio = vDistanceXZ / uRenderRadius;
+       gl_FragColor.a *= (1.0 - smoothstep(0.75, 0.95, distRatio));
+     }`
+  );
+};
 
 // Tent geometries
 function createTentBodyGeometry() {
