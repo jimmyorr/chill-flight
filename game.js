@@ -1738,26 +1738,18 @@ function animate() {
   inputManager.state.isPaused = isPaused;
   inputManager.state.isFreeCamera = isFreeCamera;
 
-  if (
-    inputManager.state.gamepad.x !== 0 ||
-    inputManager.state.gamepad.y !== 0
-  ) {
-    // Gamepad overrides
-    mouseX = inputManager.state.gamepad.x;
-    mouseY = inputManager.state.gamepad.y;
-    mouseControlActive = false;
-  } else if (inputManager.state.mouse.controlActive) {
-    mouseX = inputManager.state.mouse.x;
-    mouseY = inputManager.state.mouse.y;
-    mouseControlActive = true;
-  } else if (currentControlScheme === 'gyro') {
-    // Gyro mode manages mouseX/mouseY directly
-  } else {
-    mouseX = 0;
-    mouseY = 0;
-    mouseControlActive = false;
+  const steering = inputManager.getSteering();
+  if (currentControlScheme !== 'gyro') {
+    if (steering.active) {
+      mouseX = steering.x;
+      mouseY = steering.y;
+      mouseControlActive = true;
+    } else {
+      mouseX = 0;
+      mouseY = 0;
+      mouseControlActive = false;
+    }
   }
-
   // Handle freeCam
   if (isFreeCamera) {
     freeCamDeltaX += inputManager.state.freeCam.deltaX;
@@ -2313,15 +2305,6 @@ function animate() {
           planeGroup.rotation.z += manualRollSpeed * delta;
           isBarrelRolling = true;
           isDoingFullBarrelRoll = true;
-        } else {
-          // Single-tap: bank to 90° and hold
-          const target = Math.PI / 2;
-          planeGroup.rotation.z = Math.min(
-            target,
-            planeGroup.rotation.z + manualRollSpeed * delta
-          );
-          isClampedRoll = true;
-          isBarrelRolling = true;
         }
       }
     } else if (!isDoingImmelmann && isRight) {
@@ -2331,15 +2314,6 @@ function animate() {
           planeGroup.rotation.z -= manualRollSpeed * delta;
           isBarrelRolling = true;
           isDoingFullBarrelRoll = true;
-        } else {
-          // Single-tap: bank to -90° and hold
-          const target = -Math.PI / 2;
-          planeGroup.rotation.z = Math.max(
-            target,
-            planeGroup.rotation.z - manualRollSpeed * delta
-          );
-          isClampedRoll = true;
-          isBarrelRolling = true;
         }
       }
     }
@@ -2434,8 +2408,17 @@ function animate() {
     !isFreeCamera &&
     (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0)
   ) {
+    // During a full barrel roll, we don't want the plane to veer off course.
     let turningRoll =
-      isBarrelRolling && !isClampedRoll ? targetRoll : planeGroup.rotation.z;
+      isBarrelRolling && !isClampedRoll ? 0 : planeGroup.rotation.z;
+
+    // Prevent wildly sharp yawing when the plane is upside down (e.g. recovering from a barrel roll)
+    turningRoll = THREE.MathUtils.clamp(
+      turningRoll,
+      -maxRoll * 1.5,
+      maxRoll * 1.5
+    );
+
     const turnFactor = 0.025;
     planeGroup.rotation.y += turningRoll * turnFactor * delta * 60;
 

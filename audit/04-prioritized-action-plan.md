@@ -18,7 +18,7 @@
   - **Issue:** New `THREE.BufferGeometry` and material allocations inside `terrain.js` (`generateChunk`) cause stuttering when chunks load/unload (see performance audit).
   - **Action:** Pool `THREE.PlaneGeometry` instances for both terrain and water. Update vertex colors rather than instantiating new geometries and array buffers.
 - **Instanced Rendering:** Convert scattered environmental objects (trees, clouds) into `THREE.InstancedMesh` to drastically reduce draw calls.
-- **Floating Origin System:** Implement an origin-shift mechanic to reset coordinates when the plane flies too far, fixing floating-point jitter.
+- **Floating Origin System (REVERTED):** We previously attempted an origin-shift mechanic to reset coordinates when the plane flies too far to fix floating-point jitter. This was reverted because it conflicted with the new Global Instancing architecture and caused massive frame drops and logic complexity when attempting to move thousands of instanced objects simultaneously.
 
 ## 4. Gameplay & Feature Roadmap
 
@@ -35,4 +35,3 @@
 - [ ] `git commit -m "refactor: Move aerodynamics to chill-flight-logic.js"`
 - [x] `git commit -m "perf: Implement chunk pooling in terrain.js"`
 - [x] `git commit -m "perf: Convert static props to InstancedMesh"`
-- [ ] `git commit -m "feat: Add floating origin shift for infinite flight"`

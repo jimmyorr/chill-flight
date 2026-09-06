@@ -905,6 +905,59 @@ class InputManager {
     }
     return false;
   }
+
+  /**
+   * Returns a unified steering vector {x, y, active} where x and y are between -1.0 and 1.0.
+   * Resolves priority between Gamepad > Touch/Joystick/Mouse > Keyboard.
+   */
+  getSteering() {
+    // 1. Gamepad takes highest priority
+    if (this.state.gamepad.steeringActive) {
+      return {
+        x: this.state.gamepad.x,
+        y: this.state.gamepad.y,
+        active: true,
+      };
+    }
+
+    // 2. Touch, Joystick, and Mouse use the unified mouse coordinates
+    if (this.state.mouse.controlActive) {
+      return {
+        x: this.state.mouse.x,
+        y: this.state.mouse.y,
+        active: true,
+      };
+    }
+
+    // 3. Keyboard (Arrow keys) return discrete 1/-1 values
+    let kx = 0;
+    let ky = 0;
+    let kActive = false;
+
+    if (this.state.keys.ArrowLeft) {
+      kx = -1;
+      kActive = true;
+    }
+    if (this.state.keys.ArrowRight) {
+      kx = 1;
+      kActive = true;
+    }
+    if (this.state.keys.ArrowUp) {
+      ky = 1;
+      kActive = true;
+    }
+    if (this.state.keys.ArrowDown) {
+      ky = -1;
+      kActive = true;
+    }
+
+    if (kActive) {
+      return {x: kx, y: ky, active: true};
+    }
+
+    // No active steering
+    return {x: 0, y: 0, active: false};
+  }
 }
 
 window.InputManager = InputManager;

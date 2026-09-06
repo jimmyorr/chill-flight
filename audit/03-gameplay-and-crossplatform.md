@@ -6,8 +6,8 @@ The procedural terrain (`terrain.js` / `noise.js`) generates chunks as the plane
 
 **Issue:** Floating-point precision at world edges.
 **Penalty:** Visual shaking and incorrect physics collisions far from the origin.
-**Fix (Floating Origin):**
-Periodically reset the player's position to `0,0,0` and offset all active chunks and world coordinates by the inverse amount.
+**Fix (Floating Origin - REVERTED):**
+We originally proposed periodically resetting the player's position to `0,0,0` and offsetting chunks. However, this was reverted because shifting thousands of global instanced objects simultaneously caused massive frame drops and excessive complexity.
 
 ## 2. Flight Model & Feel
 
