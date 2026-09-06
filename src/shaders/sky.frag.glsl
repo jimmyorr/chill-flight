@@ -69,22 +69,34 @@
         }
         
         // --- STUNNING SUN BLOOM ---
-        // Bloom is computed from raw baseSunIntensity (geometric alignment only),
-        // then faded linearly by sunFade. This prevents pow(512) from amplifying
-        // a tiny fade into an instant cliff at sunset.
-        // 1. Wide, soft atmospheric scattering (takes on the sunset's bottomColor)
-        vec3 wideGlow = bottomColor * pow(baseSunIntensity, 6.0) * 0.6 * (1.0 - h);
-        // 2. Warm fiery mid-halo
-        vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(baseSunIntensity, 24.0) * 0.8;
-        // 3. Intense hot core (bright golden-white, tighter)
-        vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(baseSunIntensity, 512.0) * 2.5;
-        // Screen blend the bloom so it brightens beautifully without blowing out completely
-        vec3 totalGlow = (wideGlow + warmHalo + hotCore) * sunFade;
-        
-        // Prevent sun bloom from bleeding into the void below the horizon
-        // so it perfectly matches the terrain fog which doesn't have bloom
-        totalGlow *= clamp(h * 10.0 + 1.0, 0.0, 1.0);
-        
+        // Atmospheric extinction: as the sun nears the horizon, dense atmosphere
+        // shifts the sun core from midday bright-white to rich sunset gold, and softens the harsh core.
+        float sunElev = sunDirection.y;
+        float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
+
+        // 1. Wide atmospheric scattering: Fades in early with sunFade to warmly illuminate
+        //    the horizon during twilight before the sun itself emerges.
+        vec3 wideGlow = bottomColor * pow(baseSunIntensity, 6.0) * 0.6 * (1.0 - max(h, 0.0));
+        vec3 ambientSunGlow = wideGlow * sunFade;
+
+        // 2. Direct sun disc (warm halo + hot core):
+        //    - Warm halo emerges smoothly as sun reaches horizon
+        float haloFade = smoothstep(-0.03, 0.06, sunElev);
+        vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunIntensity, 24.0) * 0.8 * haloFade;
+
+        //    - Hot core shifts from golden-amber at the horizon to brilliant white higher up,
+        //      softening its blinding intensity near the horizon so it doesn't glare unnaturally.
+        vec3 coreColor = mix(vec3(1.0, 0.65, 0.25), vec3(1.0, 0.95, 0.8), horizonExtinction);
+        float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunElev);
+        vec3 hotCore = coreColor * pow(baseSunIntensity, 512.0) * coreStrength;
+
+        // Combined sun bloom
+        vec3 totalGlow = ambientSunGlow + warmHalo + hotCore;
+
+        // Soft horizon ground-fade: smooth 9-degree gradient below the horizon so there is NEVER
+        // a sharp cut or shelf across the sun.
+        totalGlow *= smoothstep(-0.12, 0.04, h);
+
         col = col + totalGlow * (vec3(1.0) - col);
         
         // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---
