@@ -3696,6 +3696,8 @@ globalInstancer.registerType('penguinFootR', penguinFootRGeo, penguinOrangeMat);
 globalInstancer.registerType('lilypad', lilyPadGeo, lilyPadMat);
 globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
 
+let _chunkHeightGrid = new Float32Array(65 * 65);
+
 function generateChunk(chunkX, chunkZ) {
   const collector = new ChunkDataCollector();
   const group = new THREE.Group();
@@ -3801,24 +3803,68 @@ function generateChunk(chunkX, chunkZ) {
   const densityScale = densityFactor * densityFactor;
   let maxChunkHeight = WATER_LEVEL;
 
+  const gridX1 = SEGMENTS + 1;
+  const totalVerts = gridX1 * gridX1;
+  if (_chunkHeightGrid.length < totalVerts) {
+    _chunkHeightGrid = new Float32Array(totalVerts);
+  }
+
+  // Pass 1: Compute height for all grid vertices once
+  for (let vertIdx = 0; vertIdx < totalVerts; vertIdx++) {
+    const i = vertIdx * 3;
+    const localX = positions[i];
+    const localZ = positions[i + 2];
+    const worldX = worldOffsetX + localX;
+    const worldZ = worldOffsetZ + localZ;
+
+    const height = getCachedElevation(worldX, worldZ);
+    _chunkHeightGrid[vertIdx] = height;
+    positions[i + 1] = height;
+    if (height > maxChunkHeight) maxChunkHeight = height;
+  }
+
+  const gridSpacing = CHUNK_SIZE / SEGMENTS;
+  const invGridSpacing = 1.0 / gridSpacing;
+  const invTwoGridSpacing = 0.5 / gridSpacing;
+
   for (let i = 0; i < positions.length; i += 3) {
+    const vertIdx = i / 3;
     const localX = positions[i];
     const localZ = positions[i + 2];
     const worldX = worldOffsetX + localX;
     const worldZ = worldOffsetZ + localZ;
     const isAlienLand = Math.abs(worldX) > 25000;
 
-    const height = getCachedElevation(worldX, worldZ);
-    positions[i + 1] = height;
-    if (height > maxChunkHeight) maxChunkHeight = height;
+    const height = _chunkHeightGrid[vertIdx];
 
     // --- ORGANIC TEXTURING & SLOPE LOGIC ---
-    // 1. Calculate local slope (quick approximation)
-    const sampleOffset = 4.0;
-    const hRight = getCachedElevation(worldX + sampleOffset, worldZ);
-    const hDown = getCachedElevation(worldX, worldZ + sampleOffset);
-    const slopeX = (hRight - height) / sampleOffset;
-    const slopeZ = (hDown - height) / sampleOffset;
+    // 1. Calculate local slope using finite differences directly from the elevation grid
+    const ix = vertIdx % gridX1;
+    const iy = (vertIdx / gridX1) | 0;
+
+    let slopeX;
+    if (ix > 0 && ix < SEGMENTS) {
+      slopeX =
+        (_chunkHeightGrid[vertIdx + 1] - _chunkHeightGrid[vertIdx - 1]) *
+        invTwoGridSpacing;
+    } else if (ix === 0) {
+      slopeX = (_chunkHeightGrid[vertIdx + 1] - height) * invGridSpacing;
+    } else {
+      slopeX = (height - _chunkHeightGrid[vertIdx - 1]) * invGridSpacing;
+    }
+
+    let slopeZ;
+    if (iy > 0 && iy < SEGMENTS) {
+      slopeZ =
+        (_chunkHeightGrid[vertIdx + gridX1] -
+          _chunkHeightGrid[vertIdx - gridX1]) *
+        invTwoGridSpacing;
+    } else if (iy === 0) {
+      slopeZ = (_chunkHeightGrid[vertIdx + gridX1] - height) * invGridSpacing;
+    } else {
+      slopeZ = (height - _chunkHeightGrid[vertIdx - gridX1]) * invGridSpacing;
+    }
+
     const slope = Math.sqrt(slopeX * slopeX + slopeZ * slopeZ);
     const slopeFactor = Math.min(1, slope * 0.5); // [0, 1] — steeper means higher factor
 
