@@ -942,13 +942,17 @@ class InputManager {
       kx = 1;
       kActive = true;
     }
-    if (this.state.keys.ArrowUp) {
-      ky = 1;
-      kActive = true;
-    }
-    if (this.state.keys.ArrowDown) {
-      ky = -1;
-      kActive = true;
+
+    // Ignore vertical steering if Shift is held (throttle control)
+    if (!this.state.keys.Shift) {
+      if (this.state.keys.ArrowUp) {
+        ky = 1;
+        kActive = true;
+      }
+      if (this.state.keys.ArrowDown) {
+        ky = -1;
+        kActive = true;
+      }
     }
 
     if (kActive) {
