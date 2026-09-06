@@ -1074,6 +1074,63 @@
   exports.START_PITCH = START_PITCH;
   exports.START_TOD = START_TOD;
   exports.START_TIME_SPEED = START_TIME_SPEED;
+  // --- FLIGHT AERODYNAMICS ---
+  // Calculates the updated pitch, roll, and yaw for the airplane.
+  // Uses frame-rate independent exponential smoothing.
+  function computeFlightRotation({
+    currentPitch,
+    currentRoll,
+    currentYaw,
+    targetPitch,
+    targetRoll,
+    turningRoll,
+    isBarrelRolling,
+    isLooping,
+    isClampedRoll,
+    turnSpeed,
+    delta,
+  }) {
+    let newPitch = currentPitch;
+    let newRoll = currentRoll;
+    let newYaw = currentYaw;
+
+    // Helper: Wrap angle to [-PI, PI] range
+    const wrapAngle = (angle, target) => {
+      let wrapped = angle;
+      while (wrapped > target + Math.PI) wrapped -= 2 * Math.PI;
+      while (wrapped < target - Math.PI) wrapped += 2 * Math.PI;
+      return wrapped;
+    };
+
+    // Frame-rate independent exponential decay: 1 - exp(-k * dt)
+    // TURN_SPEED in game.js is historically applied at 60fps, so we multiply delta by 60
+    const smoothingFactor = 1.0 - Math.exp(-turnSpeed * 60 * delta);
+
+    if (!isLooping) {
+      newPitch = wrapAngle(newPitch, targetPitch);
+      newPitch = newPitch + (targetPitch - newPitch) * smoothingFactor;
+    }
+
+    if (!isBarrelRolling) {
+      newRoll = wrapAngle(newRoll, targetRoll);
+      newRoll = newRoll + (targetRoll - newRoll) * smoothingFactor;
+    }
+
+    // Yaw logic
+    let safeTurningRoll = turningRoll;
+    if (isBarrelRolling && !isClampedRoll) {
+      safeTurningRoll = 0;
+    }
+    // Prevent wildly sharp yawing when the plane is upside down
+    safeTurningRoll = Math.max(-Math.PI, Math.min(Math.PI, safeTurningRoll));
+
+    const turnFactor = 0.025;
+    newYaw += safeTurningRoll * turnFactor * delta * 60;
+
+    return {pitch: newPitch, roll: newRoll, yaw: newYaw};
+  }
+
+  exports.computeFlightRotation = computeFlightRotation;
 })(
   typeof module !== 'undefined'
     ? module.exports

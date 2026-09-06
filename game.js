@@ -2335,28 +2335,26 @@ function animate() {
     }
   }
 
-  if (!isLooping && !isFreeCamera) {
-    const finalTargetPitch = targetPitch + manualPitch;
-    while (planeGroup.rotation.x > finalTargetPitch + Math.PI)
-      planeGroup.rotation.x -= 2 * Math.PI;
-    while (planeGroup.rotation.x < finalTargetPitch - Math.PI)
-      planeGroup.rotation.x += 2 * Math.PI;
-    planeGroup.rotation.x = THREE.MathUtils.lerp(
-      planeGroup.rotation.x,
-      finalTargetPitch,
-      1 - Math.pow(1 - TURN_SPEED, delta * 60)
-    );
-  }
-  if (!isBarrelRolling && !isFreeCamera) {
-    while (planeGroup.rotation.z > targetRoll + Math.PI)
-      planeGroup.rotation.z -= 2 * Math.PI;
-    while (planeGroup.rotation.z < targetRoll - Math.PI)
-      planeGroup.rotation.z += 2 * Math.PI;
-    planeGroup.rotation.z = THREE.MathUtils.lerp(
-      planeGroup.rotation.z,
-      targetRoll,
-      1 - Math.pow(1 - TURN_SPEED, delta * 60)
-    );
+  if (!isFreeCamera) {
+    const flightRot = ChillFlightLogic.computeFlightRotation({
+      currentPitch: planeGroup.rotation.x,
+      currentRoll: planeGroup.rotation.z,
+      currentYaw: planeGroup.rotation.y, // We'll compute yaw here too, but apply it later based on speed
+      targetPitch: targetPitch + manualPitch,
+      targetRoll: targetRoll,
+      turningRoll: planeGroup.rotation.z,
+      isBarrelRolling: isBarrelRolling,
+      isLooping: isLooping,
+      isClampedRoll: isClampedRoll,
+      turnSpeed: TURN_SPEED,
+      delta: delta,
+    });
+
+    planeGroup.rotation.x = flightRot.pitch;
+    planeGroup.rotation.z = flightRot.roll;
+
+    // Store calculated yaw to be applied later in the physics block
+    window._nextYaw = flightRot.yaw;
   }
 
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
@@ -2415,19 +2413,8 @@ function animate() {
     !isFreeCamera &&
     (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0)
   ) {
-    // During a full barrel roll, we don't want the plane to veer off course.
-    let turningRoll =
-      isBarrelRolling && !isClampedRoll ? 0 : planeGroup.rotation.z;
-
-    // Prevent wildly sharp yawing when the plane is upside down (e.g. recovering from a barrel roll)
-    turningRoll = THREE.MathUtils.clamp(
-      turningRoll,
-      -maxRoll * 1.5,
-      maxRoll * 1.5
-    );
-
-    const turnFactor = 0.025;
-    planeGroup.rotation.y += turningRoll * turnFactor * delta * 60;
+    // Apply the yaw calculated by the flight model
+    planeGroup.rotation.y = window._nextYaw;
 
     // --- GRAVITY ACCELERATION/DECELERATION ---
     // Nose down = gain speed, Nose up = lose speed
