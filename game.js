@@ -1178,6 +1178,17 @@ const _currentQualityForWeather = _savedQualityForWeather
 const WEATHER_PARTICLE_COUNT = _currentQualityForWeather <= 16 ? 1500 : 5000;
 const WEATHER_RANGE = 500;
 
+// Optimization: Weather particle GPU simulation uniforms.
+// Rather than updating 5,000 particle positions (15,000 floats) on the CPU and streaming
+// them across the PCIe bus every frame via needsUpdate=true, particle velocities and bounds
+// wrapping are computed entirely on the GPU via custom onBeforeCompile vertex shaders.
+const weatherUniforms = {
+  snowTime: {value: 0},
+  rainTime: {value: 0},
+  cameraPos: {value: new THREE.Vector3()},
+  range: {value: WEATHER_RANGE},
+};
+
 // Generate a soft, glowing circle for snow
 function createSnowTexture() {
   const canvas = document.createElement('canvas');
@@ -1273,6 +1284,43 @@ function initWeather() {
     blending: THREE.AdditiveBlending,
   });
 
+  // Optimization: Weather particle GPU simulation and vertex shader injection.
+  // Why: Evaluating particle trajectories and toroidal box wrapping on the GPU avoids updating
+  // 5,000 particle positions on the CPU every frame, eliminating 60KB/frame (~35MB/min) of PCIe
+  // buffer transfers and main-thread bounds calculation loops.
+  const injectWeatherShader = (shader, timeUniform) => {
+    shader.uniforms.uWeatherTime = timeUniform;
+    shader.uniforms.uCameraPos = weatherUniforms.cameraPos;
+    shader.uniforms.uRange = weatherUniforms.range;
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+       uniform float uWeatherTime;
+       uniform vec3 uCameraPos;
+       uniform float uRange;
+       attribute vec3 velocity;`
+    );
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `
+       // Particles move along their static velocity attribute scaled by accumulated elapsed time.
+       // We compute displacement relative to the camera position and wrap modulo uRange so particles
+       // remain centered in a bounding volume around the airplane.
+       vec3 animatedPos = position + velocity * uWeatherTime;
+       vec3 relPos = animatedPos - uCameraPos;
+       vec3 halfRange = vec3(uRange * 0.5);
+       vec3 transformed = mod(relPos + halfRange, uRange) - halfRange;
+      `
+    );
+  };
+
+  snowMat.onBeforeCompile = (shader) =>
+    injectWeatherShader(shader, weatherUniforms.snowTime);
+  rainMat.onBeforeCompile = (shader) =>
+    injectWeatherShader(shader, weatherUniforms.rainTime);
+
   // Meshes
   snowParticles = new THREE.Points(snowGeo, snowMat);
   snowParticles.visible = false;
@@ -1293,53 +1341,6 @@ function initWeather() {
       console.log(`Weather changed to: ${weatherType}`);
     });
   }
-}
-
-// Reusable physics/wrapping loop for any particle system
-function moveAndWrapParticles(
-  particles,
-  delta,
-  minX,
-  maxX,
-  minY,
-  maxY,
-  minZ,
-  maxZ,
-  speedMultiplier = 1.0
-) {
-  const positions = particles.geometry.attributes.position.array;
-  const velocities = particles.geometry.attributes.velocity.array;
-  const len = positions.length;
-
-  for (let i = 0; i < len; i += 3) {
-    positions[i] += velocities[i] * delta * speedMultiplier;
-    positions[i + 1] += velocities[i + 1] * delta * speedMultiplier;
-    positions[i + 2] += velocities[i + 2] * delta * speedMultiplier;
-
-    while (positions[i] < minX) positions[i] += WEATHER_RANGE;
-    while (positions[i] > maxX) positions[i] -= WEATHER_RANGE;
-
-    while (positions[i + 1] < minY) positions[i + 1] += WEATHER_RANGE;
-    while (positions[i + 1] > maxY) positions[i + 1] -= WEATHER_RANGE;
-
-    while (positions[i + 2] < minZ) positions[i + 2] += WEATHER_RANGE;
-    while (positions[i + 2] > maxZ) positions[i + 2] -= WEATHER_RANGE;
-  }
-  particles.geometry.attributes.position.needsUpdate = true;
-}
-
-// Reset particles in a 3D box centered around the camera
-function resetParticlesAroundCamera(particles) {
-  const positions = particles.geometry.attributes.position.array;
-  const len = positions.length;
-  const camPos = camera.position;
-
-  for (let i = 0; i < len; i += 3) {
-    positions[i] = camPos.x + (Math.random() - 0.5) * WEATHER_RANGE;
-    positions[i + 1] = camPos.y + (Math.random() - 0.5) * WEATHER_RANGE;
-    positions[i + 2] = camPos.z + (Math.random() - 0.5) * WEATHER_RANGE;
-  }
-  particles.geometry.attributes.position.needsUpdate = true;
 }
 
 function updateWeather(delta) {
@@ -1489,14 +1490,6 @@ function updateWeather(delta) {
     targetSnowOpacity *= fadeFactor;
   }
 
-  // Reset particle positions around the camera when they start fading in
-  if (targetSnowOpacity > 0 && snowParticles.material.opacity === 0) {
-    resetParticlesAroundCamera(snowParticles);
-  }
-  if (targetRainOpacity > 0 && rainParticles.material.opacity === 0) {
-    resetParticlesAroundCamera(rainParticles);
-  }
-
   // Smoothly transition the materials
   snowParticles.material.opacity = THREE.MathUtils.lerp(
     snowParticles.material.opacity,
@@ -1541,42 +1534,22 @@ function updateWeather(delta) {
 
   if (!snowParticles.visible && !rainParticles.visible) return;
 
-  // Pre-calculate boundaries once per frame
+  // Optimization: Weather particle physics and wrapping run entirely on the GPU.
+  // We only need to sync the camera position and advance the uniform simulation time for visible precipitation.
   const camPos = camera.position;
-  const halfRange = WEATHER_RANGE / 2;
-  const minX = camPos.x - halfRange;
-  const maxX = camPos.x + halfRange;
-  const minY = camPos.y - halfRange;
-  const maxY = camPos.y + halfRange;
-  const minZ = camPos.z - halfRange;
-  const maxZ = camPos.z + halfRange;
+  weatherUniforms.cameraPos.value.copy(camPos);
 
   if (snowParticles.visible) {
+    snowParticles.position.copy(camPos);
     // Snow speed varies subtly: base speed is 0.8x, speeding up to 1.0x during heavy storms
     const snowSpeed = 0.8 + (snowParticles.material.opacity / 0.4) * 0.2;
-    moveAndWrapParticles(
-      snowParticles,
-      delta,
-      minX,
-      maxX,
-      minY,
-      maxY,
-      minZ,
-      maxZ,
-      snowSpeed
-    );
+    weatherUniforms.snowTime.value += delta * snowSpeed;
   }
-  if (rainParticles.visible)
-    moveAndWrapParticles(
-      rainParticles,
-      delta,
-      minX,
-      maxX,
-      minY,
-      maxY,
-      minZ,
-      maxZ
-    );
+
+  if (rainParticles.visible) {
+    rainParticles.position.copy(camPos);
+    weatherUniforms.rainTime.value += delta;
+  }
 }
 
 // Initialize immediately
