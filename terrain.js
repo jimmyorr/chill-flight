@@ -4606,9 +4606,17 @@ function generateChunk(chunkX, chunkZ) {
   // 1.6 Dedicated group for procedural objects (trees, houses, etc.)
   // This allows for bulk toggling visibility via the debug menu.
   const objectsGroup = new THREE.Group();
-  objectsGroup.visible = _enableObjects;
-  group.add(objectsGroup);
-  group.userData.objectsGroup = objectsGroup;
+  objectsGroup.position.set(-worldOffsetX, 0, -worldOffsetZ); // Counter-shift for children
+  const emptyLODGroup = new THREE.Group();
+
+  const objectsLOD = new THREE.LOD();
+  objectsLOD.position.set(worldOffsetX, 0, worldOffsetZ); // Correct position for distance calculation
+  objectsLOD.addLevel(objectsGroup, 0);
+  objectsLOD.addLevel(emptyLODGroup, 2500); // Hide objects beyond 2500 units
+  objectsLOD.visible = _enableObjects;
+
+  group.add(objectsLOD);
+  group.userData.objectsGroup = objectsLOD;
 
   // 2. Generate Trees
   const dummy = new THREE.Object3D();
