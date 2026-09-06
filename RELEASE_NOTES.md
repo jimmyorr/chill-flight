@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.11
+
+- **Performance:** Optimized terrain rendering with global instancing and LOD scaling. Reduced boot loading delays.
+- **Flight & camera:** Decoupled aerodynamic logic for smooth frame-independent flight. Added camera inertia for flight momentum and fixed throttle key conflict.
+- **UI & visuals:** Prevented loading screen layout shifts, refined telemetry layout, and ensured rainbows reliably appear after rain clears.
+
 ## 0.9.9
 
 - **Environment:** Added world origin shifting to support infinite terrain expansion and eliminate floating-point precision issues.
