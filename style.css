@@ -710,17 +710,15 @@ input[type='number'].customization-input {
 }
 
 .loading-title {
-  margin-bottom: 40px;
   font-size: 32px;
   font-weight: 200;
   font-family: var(--font-mono);
   letter-spacing: 12px;
   line-height: 1.6;
-  margin: 0;
+  margin: 0 0 0 12px; /* Fix centering issue caused by letter-spacing */
   color: #fff;
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
   text-transform: uppercase;
-  margin-left: 12px; /* Fix centering issue caused by letter-spacing */
 }
 
 .loading-bar-container {
@@ -819,6 +817,7 @@ input[type='number'].customization-input {
 }
 
 #begin-btn {
+  margin-top: 0;
   animation: pulse 2s infinite;
   border-color: var(--accent-color, rgba(255, 255, 255, 0.3));
   transition: all 0.3s ease;
@@ -1003,6 +1002,10 @@ input[type='number'].customization-input {
 
 .loading-content .version-tag {
   position: static;
+  display: block;
+  min-height: 14px;
+  line-height: 14px;
+  font-size: 11px;
   margin-top: 12px;
   margin-bottom: -10px;
   color: rgba(255, 255, 255, 0.4);
