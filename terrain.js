@@ -3533,6 +3533,15 @@ class GlobalInstanceManager {
     this.group = new THREE.Group();
     this.group.name = 'GlobalInstances';
     scene.add(this.group);
+    this._dirty = true;
+    this.lastRebuildPos = new THREE.Vector3(Infinity, Infinity, Infinity);
+    this.activeChunks = [];
+    this.counts = new Map();
+    this.lastActiveHash = '';
+  }
+
+  requestRebuild() {
+    this._dirty = true;
   }
 
   registerType(type, geo, mat, maxInstances = 30000, useColor = false) {
@@ -3556,37 +3565,53 @@ class GlobalInstanceManager {
       useColor: useColor,
       maxInstances: maxInstances,
     });
+    this.counts.set(type, 0);
   }
 
   rebuildAll() {
-    const centerPos = window.airplaneModel
-      ? window.airplaneModel.position
-      : new THREE.Vector3();
+    const target =
+      typeof window !== 'undefined' && window.isFreeCamera
+        ? camera
+        : typeof planeGroup !== 'undefined'
+          ? planeGroup
+          : null;
+    const centerPos = target ? target.position : null;
+    if (!centerPos) return;
+
+    // Fast-path: Only rebuild if flagged dirty or if the player moved > 50 units (50^2 = 2500)
+    const distSq = centerPos.distanceToSquared(this.lastRebuildPos);
+    if (!this._dirty && distSq < 2500) return;
+
     const lodDist = RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2;
 
     let activeHash = '';
-    const activeChunks = [];
+    this.activeChunks.length = 0;
     chunks.forEach((chunk, key) => {
       if (chunk.userData.worldPosition.distanceTo(centerPos) <= lodDist) {
-        activeChunks.push(chunk);
+        this.activeChunks.push(chunk);
         activeHash += key + '|';
       }
     });
 
-    if (this.lastActiveHash === activeHash) return;
+    if (this.lastActiveHash === activeHash && !this._dirty) {
+      this.lastRebuildPos.copy(centerPos);
+      return;
+    }
+
+    this._dirty = false;
     this.lastActiveHash = activeHash;
+    this.lastRebuildPos.copy(centerPos);
 
-    const counts = new Map();
-    for (const type of this.types.keys()) counts.set(type, 0);
+    for (const type of this.types.keys()) this.counts.set(type, 0);
 
-    activeChunks.forEach((chunk) => {
+    this.activeChunks.forEach((chunk) => {
       if (!chunk.userData.instanceData) return;
 
       for (const [type, data] of Object.entries(chunk.userData.instanceData)) {
         if (!this.types.has(type)) continue;
         const typeInfo = this.types.get(type);
         const mesh = typeInfo.mesh;
-        let count = counts.get(type);
+        let count = this.counts.get(type);
 
         for (let i = 0; i < data.length; i++) {
           if (count >= typeInfo.maxInstances) break;
@@ -3596,12 +3621,12 @@ class GlobalInstanceManager {
           }
           count++;
         }
-        counts.set(type, count);
+        this.counts.set(type, count);
       }
     });
 
     for (const [type, typeInfo] of this.types.entries()) {
-      typeInfo.mesh.count = counts.get(type);
+      typeInfo.mesh.count = this.counts.get(type);
       typeInfo.mesh.instanceMatrix.needsUpdate = true;
       if (typeInfo.useColor) {
         typeInfo.mesh.instanceColor.needsUpdate = true;
@@ -6815,6 +6840,7 @@ function updateChunks() {
   });
   chunkQueue.sort((a, b) => a.distSq - b.distSq);
 
+  let chunksEvicted = false;
   chunks.forEach((group, key) => {
     const [cx, cz] = key.split(',').map(Number);
     if (
@@ -6836,12 +6862,17 @@ function updateChunks() {
       });
       scene.remove(group);
       chunks.delete(key);
+      chunksEvicted = true;
       if (key === '4,2') {
         if (persistentLighthouseLight) persistentLighthouseLight.intensity = 0;
         if (persistentLighthouseBeam) persistentLighthouseBeam.visible = false;
       }
     }
   });
+
+  if (chunksEvicted && typeof globalInstancer !== 'undefined') {
+    globalInstancer.requestRebuild();
+  }
 }
 
 window.processChunkQueue = function (timeBudget = 4) {
@@ -6869,6 +6900,10 @@ window.processChunkQueue = function (timeBudget = 4) {
     }
   }
 
+  if (generatedThisFrame > 0 && typeof globalInstancer !== 'undefined') {
+    globalInstancer.requestRebuild();
+  }
+
   const totalChunks = chunks.size + chunkQueue.length;
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
@@ -6892,6 +6927,10 @@ function toggleProceduralObjects(enabled) {
       group.userData.objectsGroup.visible = enabled;
     }
   });
+
+  if (typeof globalInstancer !== 'undefined') {
+    globalInstancer.requestRebuild();
+  }
 
   // Update debug menu UI if it exists
   const toggle = document.getElementById('debug-objects-toggle');
