@@ -63,6 +63,14 @@ class InputManager {
       isFreeCamera: false, // Updated every frame from game.js
     };
 
+    // Performance optimization: Pre-allocated steering result object returned by getSteering().
+    // Returning this cached instance 60 times/sec avoids per-frame heap allocation and GC churn.
+    this._steeringResult = {
+      x: 0,
+      y: 0,
+      active: false,
+    };
+
     // Internal timing for double-taps
     this._lastKeyUpTime = {
       ArrowLeft: 0,
@@ -911,22 +919,23 @@ class InputManager {
    * Resolves priority between Gamepad > Touch/Joystick/Mouse > Keyboard.
    */
   getSteering() {
+    // Performance optimization: Mutate and return the pre-allocated this._steeringResult
+    // reference to eliminate 60 object allocations per second in the animation loop.
+
     // 1. Gamepad takes highest priority
     if (this.state.gamepad.steeringActive) {
-      return {
-        x: this.state.gamepad.x,
-        y: this.state.gamepad.y,
-        active: true,
-      };
+      this._steeringResult.x = this.state.gamepad.x;
+      this._steeringResult.y = this.state.gamepad.y;
+      this._steeringResult.active = true;
+      return this._steeringResult;
     }
 
     // 2. Touch, Joystick, and Mouse use the unified mouse coordinates
     if (this.state.mouse.controlActive) {
-      return {
-        x: this.state.mouse.x,
-        y: this.state.mouse.y,
-        active: true,
-      };
+      this._steeringResult.x = this.state.mouse.x;
+      this._steeringResult.y = this.state.mouse.y;
+      this._steeringResult.active = true;
+      return this._steeringResult;
     }
 
     // 3. Keyboard (Arrow keys) return discrete 1/-1 values
@@ -955,12 +964,10 @@ class InputManager {
       }
     }
 
-    if (kActive) {
-      return {x: kx, y: ky, active: true};
-    }
-
-    // No active steering
-    return {x: 0, y: 0, active: false};
+    this._steeringResult.x = kx;
+    this._steeringResult.y = ky;
+    this._steeringResult.active = kActive;
+    return this._steeringResult;
   }
 }
 

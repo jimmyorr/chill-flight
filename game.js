@@ -861,8 +861,13 @@ if (copyPlaneUrlBtn) {
 
 // --- MAIN GAME LOOP ---
 const clock = new THREE.Clock();
-const deltaBuffer = [];
+// Performance optimization: Static Float32Array ring buffer with running sum for delta smoothing.
+// Eliminates per-frame array allocations (push/shift) and closure functions (.reduce()) in the main loop.
 const DELTA_BUFFER_SIZE = 10;
+const _deltaRing = new Float32Array(DELTA_BUFFER_SIZE);
+let _deltaRingIndex = 0;
+let _deltaRingCount = 0;
+let _deltaRingSum = 0;
 let smoothedDelta = 1 / 60;
 
 // --- PERSISTENCE ---
@@ -1823,10 +1828,17 @@ function animate() {
   let rawDelta = clock.getDelta();
   if (rawDelta > 0.1) rawDelta = 0.1; // Cap at 100ms to prevent logic blowouts
 
-  // Apply delta smoothing (moving average) to eliminate jitter from OS/browser timing
-  deltaBuffer.push(rawDelta);
-  if (deltaBuffer.length > DELTA_BUFFER_SIZE) deltaBuffer.shift();
-  smoothedDelta = deltaBuffer.reduce((a, b) => a + b, 0) / deltaBuffer.length;
+  // Apply delta smoothing (moving average) to eliminate jitter from OS/browser timing.
+  // Uses an O(1) ring buffer running sum to prevent garbage collection pauses from array churn.
+  if (_deltaRingCount < DELTA_BUFFER_SIZE) {
+    _deltaRingSum += rawDelta;
+    _deltaRingCount++;
+  } else {
+    _deltaRingSum += rawDelta - _deltaRing[_deltaRingIndex];
+  }
+  _deltaRing[_deltaRingIndex] = rawDelta;
+  _deltaRingIndex = (_deltaRingIndex + 1) % DELTA_BUFFER_SIZE;
+  smoothedDelta = _deltaRingSum / _deltaRingCount;
 
   const delta = smoothedDelta; // Use smoothed delta for all game logic below
 
