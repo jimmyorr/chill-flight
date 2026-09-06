@@ -609,6 +609,9 @@ function applyGraphicsPreset(preset) {
       if (typeof scene !== 'undefined') scene.remove(group);
     });
     chunks.clear();
+    if (typeof watercraftChunks !== 'undefined') {
+      watercraftChunks.clear();
+    }
   }
   if (window.clearChunkQueue) window.clearChunkQueue();
   if (typeof _lastChunkUpdatePos !== 'undefined') {
@@ -1727,6 +1730,11 @@ const _shadowRight = new THREE.Vector3();
 const _shadowUp = new THREE.Vector3();
 const _worldUp = new THREE.Vector3(0, 1, 0);
 const _boatDummy = new THREE.Object3D();
+// Deterministic hash hoisted out of per-frame boat loops to eliminate GC closure allocations
+function _boatHash(index, seed) {
+  const val = Math.sin(index * 12.9898 + seed * 78.233) * 43758.5453;
+  return val - Math.floor(val);
+}
 
 // --- PRE-ALLOCATED SCRATCH OBJECTS FOR ANIMATE() LOOP TO PREVENT GC CHURN ---
 const _immelmannForward = new THREE.Vector3();
@@ -3254,6 +3262,89 @@ function animate() {
       });
     }
 
+    // Animate Lighthouse Beam
+    if (chunkGroup.userData.lighthouseBeam) {
+      const beam = chunkGroup.userData.lighthouseBeam;
+      beam.rotation.y += delta * 0.15; // Slower sweep
+
+      // Fade on after sunset and fade off before sunrise using dayFactor
+      const fadeFactor = 1.0 - dayFactor;
+      beam.visible = fadeFactor > 0;
+
+      if (beam.visible) {
+        const baseOpacity =
+          LIGHTHOUSE_BEAM_OPACITY_MIN +
+          (Math.sin(performance.now() * 0.002) * 0.5 + 0.5) *
+            (LIGHTHOUSE_BEAM_OPACITY_MAX - LIGHTHOUSE_BEAM_OPACITY_MIN);
+        beam.material.opacity = baseOpacity * fadeFactor;
+      }
+
+      // Check for gatsby achievement (Lighthouse flyby)
+      if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+        beam.getWorldPosition(_lighthouseBeamWorldPos);
+        const dist = planeGroup.position.distanceTo(_lighthouseBeamWorldPos);
+        if (dist < 150) {
+          Achievements.unlock('gatsby');
+          console.log(
+            `[Lighthouse flyby] Position: X = ${_lighthouseBeamWorldPos.x.toFixed(1)}, Z = ${_lighthouseBeamWorldPos.z.toFixed(1)} (${(_lighthouseBeamWorldPos.x / 5000).toFixed(2)} ${_lighthouseBeamWorldPos.x >= 0 ? 'East' : 'West'}, ${(-_lighthouseBeamWorldPos.z / 5000).toFixed(2)} ${_lighthouseBeamWorldPos.z <= 0 ? 'North' : 'South'})`
+          );
+        }
+      }
+
+      // Rotate functional light target
+      if (
+        chunkGroup.userData.lighthouseTarget &&
+        chunkGroup.userData.lighthouseLight
+      ) {
+        const target = chunkGroup.userData.lighthouseTarget;
+        const light = chunkGroup.userData.lighthouseLight;
+
+        if (beam.visible) {
+          // Align target perfectly with the beam's Z-axis trajectory
+          const distance = 600; // Doubled distance for scaled lighthouse
+          target.position.set(
+            light.position.x + Math.sin(beam.rotation.y) * distance,
+            light.position.y - Math.sin(beam.rotation.x) * distance, // Account for downward tilt
+            light.position.z + Math.cos(beam.rotation.y) * distance
+          );
+          light.intensity = LIGHTHOUSE_LIGHT_INTENSITY * fadeFactor;
+        } else {
+          light.intensity = 0;
+        }
+      }
+    }
+
+    // Global opacity updates for GPU-animated elements
+    if (chunkGroup.userData.campfires) {
+      const cores = chunkGroup.userData.campfires;
+      const smoke = chunkGroup.userData.campfireSmoke;
+      if (cores.material)
+        cores.material.emissiveIntensity = 2.0 * (1.0 - dayFactor * 0.8);
+      if (smoke && smoke.material)
+        smoke.material.opacity = 0.4 * (1.0 - dayFactor * 0.5);
+    }
+
+    if (chunkGroup.userData.chimneySmoke) {
+      const smoke = chunkGroup.userData.chimneySmoke;
+      if (smoke.material) smoke.material.opacity = 0.6 - dayFactor * 0.3;
+    }
+  });
+
+  // Animate Watercraft (Sailboats & Pirate Ships)
+  // Performance optimization:
+  // 1. Only iterate watercraftChunks (chunks containing boats) rather than all 25-49 chunks.
+  // 2. Beyond 2,000 units (~1.3 chunks), boat bobbing (0.15 units) and yaw sway occupy < 0.1 screen
+  //    pixels and are visually imperceptible. However, setting instanceMatrix.needsUpdate = true
+  //    forces WebGL to re-upload 10-22 buffer attributes to the GPU every frame over the bus.
+  // 3. Beyond 2,000 units (distSq > 4,000,000), boats remain rendered in 3D at their static resting
+  //    matrices. When within 2,000 units, dynamic animation resumes seamlessly based on absolute clock.elapsedTime.
+  const activeWatercraft =
+    typeof watercraftChunks !== 'undefined' ? watercraftChunks : chunks;
+  activeWatercraft.forEach((chunkGroup) => {
+    const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
+    // Culling at 2,000 units (distSq > 4,000,000) prevents unnecessary CPU kinematics and GPU buffer re-uploads
+    if (checkPos.distanceToSquared(camera.position) > 4000000) return;
+
     // Animate Sailboats (Drifting & Bobbing)
     if (
       chunkGroup.userData.boatHulls &&
@@ -3267,22 +3358,17 @@ function animate() {
       const booms = chunkGroup.userData.boatBooms;
       const positions = chunkGroup.userData.sailboatPositions;
 
-      const hash = (index, seed) => {
-        const val = Math.sin(index * 12.9898 + seed * 78.233) * 43758.5453;
-        return val - Math.floor(val);
-      };
-
       positions.forEach((pos, index) => {
-        const driftPhase = hash(index, 1) * Math.PI * 2;
-        const driftSpeed = 0.03 + hash(index, 2) * 0.04; // Extremely slow drifting
-        const doesDrift = hash(index, 3) < 0.8; // 80% drift, 20% completely anchored in place
-        const isAnchored = doesDrift && hash(index, 4) < 0.6; // 60% of drifting ones are on a tight anchor, 40% are loose
+        const driftPhase = _boatHash(index, 1) * Math.PI * 2;
+        const driftSpeed = 0.03 + _boatHash(index, 2) * 0.04; // Extremely slow drifting
+        const doesDrift = _boatHash(index, 3) < 0.8; // 80% drift, 20% completely anchored in place
+        const isAnchored = doesDrift && _boatHash(index, 4) < 0.6; // 60% of drifting ones are on a tight anchor, 40% are loose
 
         let driftRadius = 0;
         if (doesDrift) {
           driftRadius = isAnchored
-            ? 4 + hash(index, 5) * 4
-            : 15 + hash(index, 5) * 15;
+            ? 4 + _boatHash(index, 5) * 4
+            : 15 + _boatHash(index, 5) * 15;
         }
 
         let dx = 0;
@@ -3378,17 +3464,12 @@ function animate() {
       const sailInsts = chunkGroup.userData.pirateSails;
       const positions = chunkGroup.userData.pirateShipPositions;
 
-      const hash = (index, seed) => {
-        const val = Math.sin(index * 12.9898 + seed * 78.233) * 43758.5453;
-        return val - Math.floor(val);
-      };
-
       const sailCounts = _pirateSailCounts.fill(0);
 
       positions.forEach((pos, index) => {
-        const patrolRadius = 40 + hash(index, 7) * 30;
-        const patrolSpeed = 0.05 + hash(index, 8) * 0.03;
-        const patrolPhase = hash(index, 9) * Math.PI * 2;
+        const patrolRadius = 40 + _boatHash(index, 7) * 30;
+        const patrolSpeed = 0.05 + _boatHash(index, 8) * 0.03;
+        const patrolPhase = _boatHash(index, 9) * Math.PI * 2;
 
         const t = clock.elapsedTime * patrolSpeed + patrolPhase;
         const dx = Math.cos(t) * patrolRadius;
@@ -3448,73 +3529,6 @@ function animate() {
       if (chunkGroup.userData.pirateReflections) {
         chunkGroup.userData.pirateReflections.instanceMatrix.needsUpdate = true;
       }
-    }
-
-    // Animate Lighthouse Beam
-    if (chunkGroup.userData.lighthouseBeam) {
-      const beam = chunkGroup.userData.lighthouseBeam;
-      beam.rotation.y += delta * 0.15; // Slower sweep
-
-      // Fade on after sunset and fade off before sunrise using dayFactor
-      const fadeFactor = 1.0 - dayFactor;
-      beam.visible = fadeFactor > 0;
-
-      if (beam.visible) {
-        const baseOpacity =
-          LIGHTHOUSE_BEAM_OPACITY_MIN +
-          (Math.sin(performance.now() * 0.002) * 0.5 + 0.5) *
-            (LIGHTHOUSE_BEAM_OPACITY_MAX - LIGHTHOUSE_BEAM_OPACITY_MIN);
-        beam.material.opacity = baseOpacity * fadeFactor;
-      }
-
-      // Check for gatsby achievement (Lighthouse flyby)
-      if (typeof Achievements !== 'undefined' && !isFreeCamera) {
-        beam.getWorldPosition(_lighthouseBeamWorldPos);
-        const dist = planeGroup.position.distanceTo(_lighthouseBeamWorldPos);
-        if (dist < 150) {
-          Achievements.unlock('gatsby');
-          console.log(
-            `[Lighthouse flyby] Position: X = ${_lighthouseBeamWorldPos.x.toFixed(1)}, Z = ${_lighthouseBeamWorldPos.z.toFixed(1)} (${(_lighthouseBeamWorldPos.x / 5000).toFixed(2)} ${_lighthouseBeamWorldPos.x >= 0 ? 'East' : 'West'}, ${(-_lighthouseBeamWorldPos.z / 5000).toFixed(2)} ${_lighthouseBeamWorldPos.z <= 0 ? 'North' : 'South'})`
-          );
-        }
-      }
-
-      // Rotate functional light target
-      if (
-        chunkGroup.userData.lighthouseTarget &&
-        chunkGroup.userData.lighthouseLight
-      ) {
-        const target = chunkGroup.userData.lighthouseTarget;
-        const light = chunkGroup.userData.lighthouseLight;
-
-        if (beam.visible) {
-          // Align target perfectly with the beam's Z-axis trajectory
-          const distance = 600; // Doubled distance for scaled lighthouse
-          target.position.set(
-            light.position.x + Math.sin(beam.rotation.y) * distance,
-            light.position.y - Math.sin(beam.rotation.x) * distance, // Account for downward tilt
-            light.position.z + Math.cos(beam.rotation.y) * distance
-          );
-          light.intensity = LIGHTHOUSE_LIGHT_INTENSITY * fadeFactor;
-        } else {
-          light.intensity = 0;
-        }
-      }
-    }
-
-    // Global opacity updates for GPU-animated elements
-    if (chunkGroup.userData.campfires) {
-      const cores = chunkGroup.userData.campfires;
-      const smoke = chunkGroup.userData.campfireSmoke;
-      if (cores.material)
-        cores.material.emissiveIntensity = 2.0 * (1.0 - dayFactor * 0.8);
-      if (smoke && smoke.material)
-        smoke.material.opacity = 0.4 * (1.0 - dayFactor * 0.5);
-    }
-
-    if (chunkGroup.userData.chimneySmoke) {
-      const smoke = chunkGroup.userData.chimneySmoke;
-      if (smoke.material) smoke.material.opacity = 0.6 - dayFactor * 0.3;
     }
   });
 

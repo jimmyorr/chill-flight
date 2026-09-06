@@ -2,6 +2,10 @@
 // Dependencies: THREE, simplex, CHUNK_SIZE, SEGMENTS, WATER_LEVEL, MOUNTAIN_LEVEL, scene
 
 const chunks = new Map();
+// Registry of active terrain chunks that contain animated watercraft (sailboats, pirate ships).
+// Allows animate() in game.js to skip iterating dozens of dry land chunks every frame.
+const watercraftChunks = new Set();
+window.watercraftChunks = watercraftChunks;
 const _terrainGeometryPool = [];
 const _waterGeometryPool = [];
 window._terrainGeometryPool = _terrainGeometryPool;
@@ -6501,6 +6505,20 @@ function generateChunk(chunkX, chunkZ) {
       sailboatReflectionInst
     );
 
+    // Performance optimization: When boats are outside the 2,000-unit dynamic animation
+    // radius, per-frame matrix recalculations and buffer re-uploads are paused.
+    // Marking needsUpdate = true once upon creation guarantees their static resting matrices
+    // are uploaded to the GPU on first render so they remain visible from any distance.
+    rimInst.instanceMatrix.needsUpdate = true;
+    deckInst.instanceMatrix.needsUpdate = true;
+    mastInst.instanceMatrix.needsUpdate = true;
+    boomInst.instanceMatrix.needsUpdate = true;
+    sailInst.instanceMatrix.needsUpdate = true;
+    sailboatReflectionInst.instanceMatrix.needsUpdate = true;
+    hullInsts.forEach((h) => {
+      if (h) h.instanceMatrix.needsUpdate = true;
+    });
+
     group.userData.sailboatPositions = sailboatPositions;
     group.userData.boatHulls = hullInsts;
     group.userData.boatColorIndices = boatColorIndices;
@@ -6603,6 +6621,20 @@ function generateChunk(chunkX, chunkZ) {
         inst.position.set(worldOffsetX, 0, worldOffsetZ);
         objectsGroup.add(inst);
       }
+    });
+
+    // Performance optimization: When pirate ships are outside 2,000 units, dynamic
+    // patrol and wave calculations are culled. Marking needsUpdate = true once ensures
+    // their resting matrices are uploaded to the GPU on initial chunk render.
+    hullInst.instanceMatrix.needsUpdate = true;
+    rimInst.instanceMatrix.needsUpdate = true;
+    deckInst.instanceMatrix.needsUpdate = true;
+    mastInst.instanceMatrix.needsUpdate = true;
+    flagInst.instanceMatrix.needsUpdate = true;
+    jrInst.instanceMatrix.needsUpdate = true;
+    pirateReflectionInst.instanceMatrix.needsUpdate = true;
+    sailInsts.forEach((inst) => {
+      if (inst) inst.instanceMatrix.needsUpdate = true;
     });
 
     group.userData.pirateShipPositions = pirateShipPositions;
@@ -6804,6 +6836,10 @@ function generateChunk(chunkX, chunkZ) {
     chimneys: chimneySmokePositions.length,
   };
 
+  if (sailboatPositions.length > 0 || pirateShipPositions.length > 0) {
+    watercraftChunks.add(group);
+  }
+
   group.userData.instanceData = collector.data;
   return group;
 }
@@ -6862,6 +6898,7 @@ function updateChunks() {
       });
       scene.remove(group);
       chunks.delete(key);
+      watercraftChunks.delete(group);
       chunksEvicted = true;
       if (key === '4,2') {
         if (persistentLighthouseLight) persistentLighthouseLight.intensity = 0;
