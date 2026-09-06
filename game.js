@@ -222,10 +222,25 @@ const _cinematicLookTargetCurrent = new THREE.Vector3().copy(
 const _cinematicStableMatrix = new THREE.Matrix4();
 const _cinematicStableQuat = new THREE.Quaternion();
 
+const _domCache = new Map();
+function getCachedElement(id) {
+  let el = _domCache.get(id);
+  if (!el) {
+    el = typeof document !== 'undefined' ? document.getElementById(id) : null;
+    if (el) _domCache.set(id, el);
+  }
+  return el;
+}
+
 /**
  * Throttles DOM updates by only writing if the value has changed.
+ * Accepts either an HTMLElement or an element ID string (cached automatically).
  */
-function updateDOM(element, newValue) {
+function updateDOM(elementOrId, newValue) {
+  const element =
+    typeof elementOrId === 'string'
+      ? getCachedElement(elementOrId)
+      : elementOrId;
   if (!element) return;
   const strValue = String(newValue); // Cast to string for accurate comparison
   if (element.textContent !== strValue) {
@@ -1810,7 +1825,7 @@ function animate() {
   inputManager.pollGamepad(delta);
 
   if (isPaused || window.isNamePromptOpen) {
-    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingOverlay = getCachedElement('loading-overlay');
     if (
       loadingOverlay &&
       loadingOverlay.style.display !== 'none' &&
@@ -1846,7 +1861,7 @@ function animate() {
   }
 
   // Trigger start plane tooltip if plane is stopped for the first time after a 5 second delay
-  const onboardingTooltip = document.getElementById('onboarding-tooltip');
+  const onboardingTooltip = getCachedElement('onboarding-tooltip');
   const isOnboardingVisible =
     onboardingTooltip && onboardingTooltip.classList.contains('visible');
   if (
@@ -1871,7 +1886,7 @@ function animate() {
   }
 
   // --- DAY/NIGHT CYCLE ---
-  const debugMenu = document.getElementById('debug-menu');
+  const debugMenu = getCachedElement('debug-menu');
   const isDebugMode = debugMenu && debugMenu.style.display === 'block';
 
   const CYCLE_DURATION_MS = 360000;
@@ -1935,8 +1950,8 @@ function animate() {
   }
 
   // Update slider UI if not manual, or if manual but time is flowing
-  const timeSlider = document.getElementById('debug-time-slider');
-  const timeSliderVal = document.getElementById('debug-time-val');
+  const timeSlider = getCachedElement('debug-time-slider');
+  const timeSliderVal = getCachedElement('debug-time-val');
   if (
     timeSlider &&
     (window.manualTimeOfDay === undefined || daySpeedMultiplier !== 0)
@@ -3525,11 +3540,11 @@ function animate() {
   const altStr = `${Math.round(Math.max(0, hudTarget.position.y - 45.5) * 25)}`;
   const spdStr = `${Math.round(BASE_FLIGHT_SPEED * flightSpeedMultiplier * 60)} KTS`;
 
-  updateDOM(document.getElementById('cockpit-time'), timeStr);
-  updateDOM(document.getElementById('cockpit-dir'), dirStr);
-  updateDOM(document.getElementById('cockpit-coords'), coordStr);
-  updateDOM(document.getElementById('cockpit-alt'), altStr);
-  updateDOM(document.getElementById('cockpit-spd'), spdStr);
+  updateDOM('cockpit-time', timeStr);
+  updateDOM('cockpit-dir', dirStr);
+  updateDOM('cockpit-coords', coordStr);
+  updateDOM('cockpit-alt', altStr);
+  updateDOM('cockpit-spd', spdStr);
 
   sunMesh.position.set(
     sunX * sunOrbitRadius,
@@ -3950,9 +3965,9 @@ function animate() {
   );
 
   // Update slider UI and values
-  const fogSlider = document.getElementById('debug-fog-slider');
-  const baseFogVal = document.getElementById('debug-base-fog-val');
-  const finalFogVal = document.getElementById('debug-final-fog-val');
+  const fogSlider = getCachedElement('debug-fog-slider');
+  const baseFogVal = getCachedElement('debug-base-fog-val');
+  const finalFogVal = getCachedElement('debug-final-fog-val');
 
   if (fogSlider && window.manualBaseFogDensity === undefined) {
     fogSlider.value = baseFogDensity;
@@ -4114,81 +4129,42 @@ function animate() {
   if (debugMenu && debugMenu.style.display === 'block') {
     const pullBackVal =
       smoothedManeuverFactor * 20 * Math.min(1, flightSpeedMultiplier / 2); // Re-calculate or pass from earlier
-    updateDOM(document.getElementById('debug-fov'), Math.round(camera.fov));
+    updateDOM('debug-fov', Math.round(camera.fov));
+    updateDOM('debug-pullback', Math.round(pullBackVal));
     updateDOM(
-      document.getElementById('debug-pullback'),
-      Math.round(pullBackVal)
-    );
-    updateDOM(
-      document.getElementById('debug-pitch'),
+      'debug-pitch',
       Math.round((planeGroup.rotation.x * 180) / Math.PI)
     );
-    updateDOM(document.getElementById('debug-palette'), selectedPalette.name);
-    updateDOM(
-      document.getElementById('debug-speed-mult'),
-      flightSpeedMultiplier.toFixed(2)
-    );
-    updateDOM(
-      document.getElementById('debug-day-speed'),
-      daySpeedMultiplier.toFixed(1)
-    );
+    updateDOM('debug-palette', selectedPalette.name);
+    updateDOM('debug-speed-mult', flightSpeedMultiplier.toFixed(2));
+    updateDOM('debug-day-speed', daySpeedMultiplier.toFixed(1));
 
-    updateDOM(
-      document.getElementById('debug-target-speed'),
-      targetFlightSpeed.toFixed(2)
-    );
-    updateDOM(
-      document.getElementById('debug-maneuver'),
-      smoothedManeuverFactor.toFixed(2)
-    );
-    updateDOM(
-      document.getElementById('debug-world-x'),
-      Math.round(planeGroup.position.x)
-    );
-    updateDOM(
-      document.getElementById('debug-world-y'),
-      Math.round(planeGroup.position.y)
-    );
-    updateDOM(
-      document.getElementById('debug-world-z'),
-      Math.round(planeGroup.position.z)
-    );
-    updateDOM(
-      document.getElementById('debug-camera-x'),
-      Math.round(camera.position.x)
-    );
-    updateDOM(
-      document.getElementById('debug-camera-y'),
-      Math.round(camera.position.y)
-    );
-    updateDOM(
-      document.getElementById('debug-camera-z'),
-      Math.round(camera.position.z)
-    );
+    updateDOM('debug-target-speed', targetFlightSpeed.toFixed(2));
+    updateDOM('debug-maneuver', smoothedManeuverFactor.toFixed(2));
+    updateDOM('debug-world-x', Math.round(planeGroup.position.x));
+    updateDOM('debug-world-y', Math.round(planeGroup.position.y));
+    updateDOM('debug-world-z', Math.round(planeGroup.position.z));
+    updateDOM('debug-camera-x', Math.round(camera.position.x));
+    updateDOM('debug-camera-y', Math.round(camera.position.y));
+    updateDOM('debug-camera-z', Math.round(camera.position.z));
     const camEuler = new THREE.Euler().setFromQuaternion(
       camera.quaternion,
       'YXZ'
     );
     const camHeadingDegrees = THREE.MathUtils.radToDeg(camEuler.y);
     const camPitchDegrees = THREE.MathUtils.radToDeg(camEuler.x);
-    updateDOM(
-      document.getElementById('debug-camera-heading'),
-      Math.round(camHeadingDegrees)
-    );
-    updateDOM(
-      document.getElementById('debug-camera-pitch'),
-      Math.round(camPitchDegrees)
-    );
+    updateDOM('debug-camera-heading', Math.round(camHeadingDegrees));
+    updateDOM('debug-camera-pitch', Math.round(camPitchDegrees));
 
     // Weather Telemetry
     const oc = window._currentOvercast || 0;
-    updateDOM(document.getElementById('debug-overcast'), oc.toFixed(2));
+    updateDOM('debug-overcast', oc.toFixed(2));
     updateDOM(
-      document.getElementById('debug-storm-noise'),
+      'debug-storm-noise',
       window._weatherDebug ? window._weatherDebug.stormNoise.toFixed(2) : '-'
     );
     updateDOM(
-      document.getElementById('debug-precip'),
+      'debug-precip',
       snowParticles && rainParticles
         ? Math.max(
             snowParticles.material.opacity / 0.8,
@@ -4197,22 +4173,19 @@ function animate() {
         : '-'
     );
     updateDOM(
-      document.getElementById('debug-climate-zone'),
+      'debug-climate-zone',
       window._weatherDebug ? window._weatherDebug.zone : '-'
     );
     updateDOM(
-      document.getElementById('debug-snow-opacity'),
+      'debug-snow-opacity',
       snowParticles ? snowParticles.material.opacity.toFixed(2) : '-'
     );
     updateDOM(
-      document.getElementById('debug-rain-opacity'),
+      'debug-rain-opacity',
       rainParticles ? rainParticles.material.opacity.toFixed(2) : '-'
     );
-    updateDOM(
-      document.getElementById('debug-fog-density'),
-      scene.fog.density.toFixed(5)
-    );
-    updateDOM(document.getElementById('debug-weather-mode'), weatherType);
+    updateDOM('debug-fog-density', scene.fog.density.toFixed(5));
+    updateDOM('debug-weather-mode', weatherType);
 
     // Aurora telemetry
     const auroraVal =
@@ -4223,17 +4196,17 @@ function animate() {
     const _auroraLabelFn = (v) =>
       v < 0.01 ? 'None' : v < 0.03 ? 'Faint' : v < 0.06 ? 'Moderate' : 'Active';
     updateDOM(
-      document.getElementById('debug-aurora'),
+      'debug-aurora',
       `${_auroraLabelFn(auroraVal)} (${auroraVal.toFixed(3)})`
     );
 
     // Rainbow telemetry
     updateDOM(
-      document.getElementById('debug-rainbow'),
+      'debug-rainbow',
       rainbowIntensity > 0 ? (rainbowIntensity * 100).toFixed(0) + '%' : '-'
     );
     updateDOM(
-      document.getElementById('debug-aurora-peak'),
+      'debug-aurora-peak',
       `${_auroraLabelFn(_auroraSessionMax)} (${_auroraSessionMax.toFixed(3)})`
     );
     // Helper function for performance color coding
@@ -4246,21 +4219,21 @@ function animate() {
     // Performance Telemetry
     const frameEndTime = performance.now();
     const cpuMs = frameEndTime - frameStartTime;
-    const cpuMsEl = document.getElementById('debug-cpu-ms');
+    const cpuMsEl = getCachedElement('debug-cpu-ms');
     if (cpuMsEl) {
       updateDOM(cpuMsEl, cpuMs.toFixed(1));
       // Warn at 24ms, Critical at 32ms (stuttering on 30fps cap)
       cpuMsEl.style.color = getPerfColor(cpuMs, 24, 32);
     }
 
-    const fpsEl = document.getElementById('debug-fps');
+    const fpsEl = getCachedElement('debug-fps');
     if (fpsEl && delta > 0) {
       const fps = Math.round(1 / delta);
       updateDOM(fpsEl, fps);
       fpsEl.style.color = getPerfColor(60 - fps, 30, 40);
     }
 
-    const heapEl = document.getElementById('debug-heap');
+    const heapEl = getCachedElement('debug-heap');
     if (heapEl) {
       if (performance.memory) {
         const heapMb = performance.memory.usedJSHeapSize / 1048576;
@@ -4271,8 +4244,8 @@ function animate() {
           const drop = heapEl._lastHeapMb - heapMb;
           if (drop > 2.0) {
             // If dropped by more than 2MB, GC likely happened
-            const lastGcEl = document.getElementById('debug-last-gc');
-            const lastGcVal = document.getElementById('debug-last-gc-val');
+            const lastGcEl = getCachedElement('debug-last-gc');
+            const lastGcVal = getCachedElement('debug-last-gc-val');
             if (lastGcEl && lastGcVal) {
               updateDOM(lastGcVal, `-${drop.toFixed(1)} MB`);
 
@@ -4300,25 +4273,25 @@ function animate() {
       const geos = renderer.info.memory.geometries;
       const texs = renderer.info.memory.textures;
 
-      const drawCallsEl = document.getElementById('debug-draw-calls');
+      const drawCallsEl = getCachedElement('debug-draw-calls');
       if (drawCallsEl) {
         updateDOM(drawCallsEl, calls);
         drawCallsEl.style.color = getPerfColor(calls, 800, 1200);
       }
 
-      const trianglesEl = document.getElementById('debug-triangles');
+      const trianglesEl = getCachedElement('debug-triangles');
       if (trianglesEl) {
         updateDOM(trianglesEl, tris);
         trianglesEl.style.color = getPerfColor(tris, 2500000, 4000000);
       }
 
-      const geometriesEl = document.getElementById('debug-geometries');
+      const geometriesEl = getCachedElement('debug-geometries');
       if (geometriesEl) {
         updateDOM(geometriesEl, geos);
         geometriesEl.style.color = getPerfColor(geos, 400, 600);
       }
 
-      const texturesEl = document.getElementById('debug-textures');
+      const texturesEl = getCachedElement('debug-textures');
       if (texturesEl) {
         updateDOM(texturesEl, texs);
         texturesEl.style.color = getPerfColor(texs, 15, 30);
@@ -4378,31 +4351,28 @@ function animate() {
       }
     });
 
-    updateDOM(document.getElementById('debug-chunks'), totalChunks);
-    updateDOM(document.getElementById('debug-trees-pine'), totalTreesPine);
-    updateDOM(document.getElementById('debug-trees-decid'), totalTreesDecid);
-    updateDOM(document.getElementById('debug-trees-palm'), totalTreesPalm);
-    updateDOM(document.getElementById('debug-trees-dead'), totalTreesDead);
-    updateDOM(document.getElementById('debug-trees-autumn'), totalTreesAutumn);
-    updateDOM(document.getElementById('debug-trees-cherry'), totalTreesCherry);
-    updateDOM(
-      document.getElementById('debug-trees-yellow-cortez'),
-      totalTreesYellowCortez
-    );
-    updateDOM(document.getElementById('debug-houses'), totalHouses);
-    updateDOM(document.getElementById('debug-rocks'), totalRocks);
-    updateDOM(document.getElementById('debug-bushes'), totalBushes);
-    updateDOM(document.getElementById('debug-snowmen'), totalSnowmen);
-    updateDOM(document.getElementById('debug-cactus'), totalCactus);
-    updateDOM(document.getElementById('debug-lighthouses'), totalLighthouses);
-    updateDOM(document.getElementById('debug-castles'), totalCastles);
-    updateDOM(document.getElementById('debug-windmills'), totalWindmills);
-    updateDOM(document.getElementById('debug-campfires'), totalCampfires);
-    updateDOM(document.getElementById('debug-boats'), totalBoats);
-    updateDOM(document.getElementById('debug-pirateships'), totalPirateShips);
-    updateDOM(document.getElementById('debug-lily-pads'), totalLilyPads);
-    updateDOM(document.getElementById('debug-piers'), totalPiers);
-    updateDOM(document.getElementById('debug-birds'), totalBirds);
+    updateDOM('debug-chunks', totalChunks);
+    updateDOM('debug-trees-pine', totalTreesPine);
+    updateDOM('debug-trees-decid', totalTreesDecid);
+    updateDOM('debug-trees-palm', totalTreesPalm);
+    updateDOM('debug-trees-dead', totalTreesDead);
+    updateDOM('debug-trees-autumn', totalTreesAutumn);
+    updateDOM('debug-trees-cherry', totalTreesCherry);
+    updateDOM('debug-trees-yellow-cortez', totalTreesYellowCortez);
+    updateDOM('debug-houses', totalHouses);
+    updateDOM('debug-rocks', totalRocks);
+    updateDOM('debug-bushes', totalBushes);
+    updateDOM('debug-snowmen', totalSnowmen);
+    updateDOM('debug-cactus', totalCactus);
+    updateDOM('debug-lighthouses', totalLighthouses);
+    updateDOM('debug-castles', totalCastles);
+    updateDOM('debug-windmills', totalWindmills);
+    updateDOM('debug-campfires', totalCampfires);
+    updateDOM('debug-boats', totalBoats);
+    updateDOM('debug-pirateships', totalPirateShips);
+    updateDOM('debug-lily-pads', totalLilyPads);
+    updateDOM('debug-piers', totalPiers);
+    updateDOM('debug-birds', totalBirds);
   }
 }
 
