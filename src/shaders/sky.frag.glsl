@@ -57,8 +57,10 @@
         // Base atmospheric scattering glow
         float glow = pow(sunIntensity, glowPower);
         
-        // Mute the bottom color when away from the sun for realistic horizon falloff
-        vec3 effectiveBottom = mix(topColor * 0.7, bottomColor, glow * mieFactor + (1.0 - mieFactor));
+        // Horizon base color matches bottomColor 360 degrees around the player,
+        // guaranteeing 100% seamless blending with Three.js scene.fog.color (which is bottomColor).
+        // Extra sunset warmth towards the sun is provided naturally by the directional bloom below.
+        vec3 effectiveBottom = bottomColor;
         
         // Base vertical gradient
         vec3 col = mix(effectiveBottom, topColor, max(pow(max(h, 0.0), exponent), 0.0));

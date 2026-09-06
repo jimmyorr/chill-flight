@@ -105,14 +105,20 @@ terrainMaterial.onBeforeCompile = (shader) => {
        float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
        float sunFade = smoothstep(-0.25, 0.0, uSunDirection.y);
        float g = pow(baseSunInt * sunFade, 2.0);
-       vec3 effBottom = mix(uTopColor * 0.7, uBottomColor, g * 0.9 + 0.1);
+       vec3 effBottom = uBottomColor;
        vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
        if (hFog < 0.0) fogSkyColor = effBottom;
        
-       vec3 wideGlow = uBottomColor * pow(baseSunInt, 6.0) * 0.6 * (1.0 - hFog);
-       vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(baseSunInt, 24.0) * 0.8;
-       vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(baseSunInt, 512.0) * 2.5;
-       vec3 totalGlow = (wideGlow + warmHalo + hotCore) * sunFade * clamp(hFog * 10.0 + 1.0, 0.0, 1.0);
+       float sunElev = uSunDirection.y;
+       float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
+       vec3 wideGlow = uBottomColor * pow(baseSunInt, 6.0) * 0.6 * (1.0 - max(hFog, 0.0));
+       vec3 ambientSunGlow = wideGlow * sunFade;
+       float haloFade = smoothstep(-0.03, 0.06, sunElev);
+       vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunInt, 24.0) * 0.8 * haloFade;
+       vec3 coreColor = mix(vec3(1.0, 0.65, 0.25), vec3(1.0, 0.95, 0.8), horizonExtinction);
+       float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunElev);
+       vec3 hotCore = coreColor * pow(baseSunInt, 512.0) * coreStrength;
+       vec3 totalGlow = (ambientSunGlow + warmHalo + hotCore) * smoothstep(-0.12, 0.04, hFog);
        fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
        
        #ifdef FOG_EXP2
@@ -270,14 +276,20 @@ waterMaterial.onBeforeCompile = (shader) => {
        float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
        float sunFade = smoothstep(-0.25, 0.0, uSunDirection.y);
        float g = pow(baseSunInt * sunFade, 2.0);
-       vec3 effBottom = mix(uTopColor * 0.7, uBottomColor, g * 0.9 + 0.1);
+       vec3 effBottom = uBottomColor;
        vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
        if (hFog < 0.0) fogSkyColor = effBottom;
        
-       vec3 wideGlow = uBottomColor * pow(baseSunInt, 6.0) * 0.6 * (1.0 - hFog);
-       vec3 warmHalo = vec3(1.0, 0.6, 0.1) * pow(baseSunInt, 24.0) * 0.8;
-       vec3 hotCore = vec3(1.0, 0.95, 0.8) * pow(baseSunInt, 512.0) * 2.5;
-       vec3 totalGlow = (wideGlow + warmHalo + hotCore) * sunFade * clamp(hFog * 10.0 + 1.0, 0.0, 1.0);
+       float sunElev = uSunDirection.y;
+       float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
+       vec3 wideGlow = uBottomColor * pow(baseSunInt, 6.0) * 0.6 * (1.0 - max(hFog, 0.0));
+       vec3 ambientSunGlow = wideGlow * sunFade;
+       float haloFade = smoothstep(-0.03, 0.06, sunElev);
+       vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunInt, 24.0) * 0.8 * haloFade;
+       vec3 coreColor = mix(vec3(1.0, 0.65, 0.25), vec3(1.0, 0.95, 0.8), horizonExtinction);
+       float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunElev);
+       vec3 hotCore = coreColor * pow(baseSunInt, 512.0) * coreStrength;
+       vec3 totalGlow = (ambientSunGlow + warmHalo + hotCore) * smoothstep(-0.12, 0.04, hFog);
        fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
        
        #ifdef FOG_EXP2
