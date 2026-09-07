@@ -25,7 +25,7 @@ window.clearChunkQueue = function () {
 // GPU water uniform — shared globally so game.js animate() can update uTime
 window.waterUniforms = {
   uTime: {value: 0.0},
-  uSunDirection: {value: yAxis},
+  uSpecularDir: {value: yAxis},
   uSunColor: {value: new THREE.Color(0xffffff)},
 };
 
@@ -149,6 +149,7 @@ waterMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
 
   shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
+  shader.uniforms.uSpecularDir = window.waterUniforms.uSpecularDir;
   shader.uniforms.uSunColor = window.waterUniforms.uSunColor;
   shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
@@ -208,6 +209,7 @@ waterMaterial.onBeforeCompile = (shader) => {
     `
         uniform float uTime;
         uniform vec3 uSunDirection;
+        uniform vec3 uSpecularDir;
         uniform vec3 uSunColor;
         uniform vec3 uTopColor;
         uniform vec3 uBottomColor;
@@ -253,7 +255,7 @@ waterMaterial.onBeforeCompile = (shader) => {
         
         sunReflNormal = normalize(sunReflNormal + rippleNormal);
 
-        vec3 halfVector = normalize(uSunDirection + viewDir);
+        vec3 halfVector = normalize(uSpecularDir + viewDir);
         float dotNormalHalf = max(dot(sunReflNormal, halfVector), 0.0);
         
         // Specular intensity

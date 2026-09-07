@@ -1087,7 +1087,9 @@ function handleGyroData(alpha, beta, gamma) {
 
   // Gravity is -Y in the World Frame (Three.js deviceorientation convention)
   _gyroCurrentQuatInv.copy(currentQuat).invert();
-  _gyroCurrentGravity.copy(_gyroGravityWorld).applyQuaternion(_gyroCurrentQuatInv);
+  _gyroCurrentGravity
+    .copy(_gyroGravityWorld)
+    .applyQuaternion(_gyroCurrentQuatInv);
 
   if (!gyroBaseQuat) {
     gyroBaseQuat = currentQuat.clone();
@@ -1102,7 +1104,8 @@ function handleGyroData(alpha, beta, gamma) {
 
   // Roll is the tilt of the right side of the device towards gravity
   let currentRollAngle =
-    Math.asin(THREE.MathUtils.clamp(_gyroCurrentGravity.x, -1, 1)) * (180 / Math.PI);
+    Math.asin(THREE.MathUtils.clamp(_gyroCurrentGravity.x, -1, 1)) *
+    (180 / Math.PI);
   let baseRollAngle =
     Math.asin(THREE.MathUtils.clamp(gyroBaseGravity.x, -1, 1)) *
     (180 / Math.PI);
@@ -3254,7 +3257,9 @@ function animate() {
           typeof Achievements !== 'undefined' &&
           !isFreeCamera
         ) {
-          const distToPlaneSq = bird.position.distanceToSquared(planeGroup.position);
+          const distToPlaneSq = bird.position.distanceToSquared(
+            planeGroup.position
+          );
           if (distToPlaneSq < 625) {
             Achievements.unlock('geese_police');
           }
@@ -3285,7 +3290,9 @@ function animate() {
       // Check for gatsby achievement (Lighthouse flyby)
       if (typeof Achievements !== 'undefined' && !isFreeCamera) {
         beam.getWorldPosition(_lighthouseBeamWorldPos);
-        const distSq = planeGroup.position.distanceToSquared(_lighthouseBeamWorldPos);
+        const distSq = planeGroup.position.distanceToSquared(
+          _lighthouseBeamWorldPos
+        );
         if (distSq < 22500) {
           Achievements.unlock('gatsby');
           console.log(
@@ -4025,9 +4032,9 @@ function animate() {
     }
   }
 
-  if (window.waterUniforms && window.waterUniforms.uSunDirection) {
+  if (window.waterUniforms && window.waterUniforms.uSpecularDir) {
     if (sunY > 0) {
-      window.waterUniforms.uSunDirection.value.copy(_tempVec);
+      window.waterUniforms.uSpecularDir.value.copy(_tempVec);
       window.waterUniforms.uSunColor.value
         .copy(dirLight.color)
         .multiplyScalar(Math.max(0, 1.0 - overcast));
@@ -4035,7 +4042,7 @@ function animate() {
       const moonDirNorm = _waterMoonDirNorm
         .set(moonX, moonY, moonZ)
         .normalize();
-      window.waterUniforms.uSunDirection.value.copy(moonDirNorm);
+      window.waterUniforms.uSpecularDir.value.copy(moonDirNorm);
 
       window.waterUniforms.uSunColor.value
         .setHex(0xbad2ff)
