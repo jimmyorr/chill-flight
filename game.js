@@ -1066,6 +1066,12 @@ if (recalibrateBtn) {
   });
 }
 
+const _gyroGravityWorld = new THREE.Vector3(0, -1, 0);
+const _gyroCurrentGravity = new THREE.Vector3();
+const _gyroCurrentQuatInv = new THREE.Quaternion();
+const _gyroRelQuat = new THREE.Quaternion();
+const _gyroRelEuler = new THREE.Euler();
+
 function handleGyroData(alpha, beta, gamma) {
   if (currentControlScheme !== 'gyro' || isPaused) return;
   if (beta === null || gamma === null) return;
@@ -1080,25 +1086,23 @@ function handleGyroData(alpha, beta, gamma) {
   const currentQuat = getDeviceQuaternion(alpha, beta, gamma, orientation);
 
   // Gravity is -Y in the World Frame (Three.js deviceorientation convention)
-  const gravityWorld = new THREE.Vector3(0, -1, 0);
-  const currentGravity = gravityWorld
-    .clone()
-    .applyQuaternion(currentQuat.clone().invert());
+  _gyroCurrentQuatInv.copy(currentQuat).invert();
+  _gyroCurrentGravity.copy(_gyroGravityWorld).applyQuaternion(_gyroCurrentQuatInv);
 
   if (!gyroBaseQuat) {
     gyroBaseQuat = currentQuat.clone();
-    gyroBaseGravity = currentGravity.clone();
+    gyroBaseGravity = _gyroCurrentGravity.clone();
   }
 
   // Pitch is the rotation around the local X axis
-  const relQuat = gyroBaseQuat.clone().invert().multiply(currentQuat);
-  const relEuler = new THREE.Euler().setFromQuaternion(relQuat, 'XYZ');
+  _gyroRelQuat.copy(gyroBaseQuat).invert().multiply(currentQuat);
+  _gyroRelEuler.setFromQuaternion(_gyroRelQuat, 'XYZ');
   // Removed negation to match original landscape gyro polarity
-  let diffPitch = relEuler.x * (180 / Math.PI);
+  let diffPitch = _gyroRelEuler.x * (180 / Math.PI);
 
   // Roll is the tilt of the right side of the device towards gravity
   let currentRollAngle =
-    Math.asin(THREE.MathUtils.clamp(currentGravity.x, -1, 1)) * (180 / Math.PI);
+    Math.asin(THREE.MathUtils.clamp(_gyroCurrentGravity.x, -1, 1)) * (180 / Math.PI);
   let baseRollAngle =
     Math.asin(THREE.MathUtils.clamp(gyroBaseGravity.x, -1, 1)) *
     (180 / Math.PI);
@@ -2669,8 +2673,10 @@ function animate() {
     if (!previousPosition) {
       previousPosition = planeGroup.position.clone();
     } else {
-      const dist = planeGroup.position.distanceTo(previousPosition);
-      sessionDistanceTravelled += dist;
+      const distSq = planeGroup.position.distanceToSquared(previousPosition);
+      if (distSq > 0) {
+        const dist = Math.sqrt(distSq);
+        sessionDistanceTravelled += dist;
       distanceSinceLastSave += dist;
 
       if (distanceSinceLastSave > 1000) {
@@ -2696,8 +2702,8 @@ function animate() {
 
     // 1. Volcano (Pura Vida) - Volcano center is X = -5000, Z = 5000
     _volcanoPos.y = planeGroup.position.y;
-    const distToVolcano = planeGroup.position.distanceTo(_volcanoPos);
-    if (distToVolcano < 800) {
+    const distToVolcanoSq = planeGroup.position.distanceToSquared(_volcanoPos);
+    if (distToVolcanoSq < 640000) {
       Achievements.unlock('pura_vida');
     }
 
@@ -3247,8 +3253,8 @@ function animate() {
           typeof Achievements !== 'undefined' &&
           !isFreeCamera
         ) {
-          const distToPlane = bird.position.distanceTo(planeGroup.position);
-          if (distToPlane < 25) {
+          const distToPlaneSq = bird.position.distanceToSquared(planeGroup.position);
+          if (distToPlaneSq < 625) {
             Achievements.unlock('geese_police');
           }
         }
@@ -3278,8 +3284,8 @@ function animate() {
       // Check for gatsby achievement (Lighthouse flyby)
       if (typeof Achievements !== 'undefined' && !isFreeCamera) {
         beam.getWorldPosition(_lighthouseBeamWorldPos);
-        const dist = planeGroup.position.distanceTo(_lighthouseBeamWorldPos);
-        if (dist < 150) {
+        const distSq = planeGroup.position.distanceToSquared(_lighthouseBeamWorldPos);
+        if (distSq < 22500) {
           Achievements.unlock('gatsby');
           console.log(
             `[Lighthouse flyby] Position: X = ${_lighthouseBeamWorldPos.x.toFixed(1)}, Z = ${_lighthouseBeamWorldPos.z.toFixed(1)} (${(_lighthouseBeamWorldPos.x / 5000).toFixed(2)} ${_lighthouseBeamWorldPos.x >= 0 ? 'East' : 'West'}, ${(-_lighthouseBeamWorldPos.z / 5000).toFixed(2)} ${_lighthouseBeamWorldPos.z <= 0 ? 'North' : 'South'})`
