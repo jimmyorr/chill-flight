@@ -35,5 +35,6 @@ window.SKY_SHADERS = {
 // Initialize Sentry exactly as it was done in index.html
 Sentry.init({
   dsn: 'https://7d9671463431e10775c66852b238ad8e@o4511337089400832.ingest.us.sentry.io/4511346247532544',
-  tracesSampleRate: 1.0,
+  tracesSampleRate: 0.1,
+  maxBreadcrumbs: 30,
 });

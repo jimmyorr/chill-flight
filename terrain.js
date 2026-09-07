@@ -3849,11 +3849,14 @@ function generateChunk(chunkX, chunkZ) {
 
   // 1. Generate Terrain Mesh
   let geometry;
-  if (
+  while (
     _terrainGeometryPool.length > 0 &&
     _terrainGeometryPool[_terrainGeometryPool.length - 1].parameters
-      .widthSegments === SEGMENTS
+      .widthSegments !== SEGMENTS
   ) {
+    _terrainGeometryPool.pop().dispose();
+  }
+  if (_terrainGeometryPool.length > 0) {
     geometry = _terrainGeometryPool.pop();
   } else {
     geometry = new THREE.PlaneGeometry(
@@ -4871,11 +4874,14 @@ function generateChunk(chunkX, chunkZ) {
   if (hasWater) {
     const wSegments = Math.max(1, Math.floor(SEGMENTS / 4));
     let waterGeo;
-    if (
+    while (
       _waterGeometryPool.length > 0 &&
       _waterGeometryPool[_waterGeometryPool.length - 1].parameters
-        .widthSegments === wSegments
+        .widthSegments !== wSegments
     ) {
+      _waterGeometryPool.pop().dispose();
+    }
+    if (_waterGeometryPool.length > 0) {
       waterGeo = _waterGeometryPool.pop();
     } else {
       waterGeo = new THREE.PlaneGeometry(
@@ -4956,10 +4962,10 @@ function generateChunk(chunkX, chunkZ) {
   objectsLOD.position.set(worldOffsetX, 0, worldOffsetZ); // Correct position for distance calculation
   objectsLOD.addLevel(objectsGroup, 0);
 
-  // Dynamically tie LOD distance to the RENDER_DISTANCE, capped at 5,250 units to prevent draw call explosion on High/Ultra
+  // Dynamically tie LOD distance to the RENDER_DISTANCE, capped at 3,600 units to prevent draw call explosion on High/Ultra
   const lodDistance = Math.min(
     RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
-    5250
+    3600
   );
   objectsLOD.addLevel(emptyLODGroup, lodDistance);
   objectsLOD.visible = _enableObjects;
@@ -6867,9 +6873,16 @@ function generateChunk(chunkX, chunkZ) {
         child.receiveShadow = true;
       } else if (
         child.material !== smokeMat &&
-        child.material !== lighthouseBeamMat
+        child.material !== lighthouseBeamMat &&
+        child.material !== houseDoorMat &&
+        !houseWindowMats.includes(child.material) &&
+        child.geometry !== houseDoorGeo &&
+        child.geometry !== houseWindowGeo &&
+        child.geometry !== streetlightDecalGeo
       ) {
         child.castShadow = true;
+        child.receiveShadow = true;
+      } else {
         child.receiveShadow = true;
       }
     }
@@ -6945,12 +6958,21 @@ function updateChunks() {
   missingChunks.sort((a, b) => b.distSq - a.distSq);
   chunkQueue.push(...missingChunks);
 
-  // Resort the entire queue in case the camera moved significantly
+  // Prune chunks from queue that are beyond renderDistance + 2 to prevent queue bloat
+  const maxQueueDistSq = (renderDistance + 2) * (renderDistance + 2);
+  const prunedQueue = [];
   chunkQueue.forEach((item) => {
     const dx = item.cx - currentChunkX;
     const dz = item.cz - currentChunkZ;
-    item.distSq = dx * dx + dz * dz;
+    const dSq = dx * dx + dz * dz;
+    if (dSq <= maxQueueDistSq) {
+      item.distSq = dSq;
+      prunedQueue.push(item);
+    } else {
+      chunkQueueSet.delete(item.key);
+    }
   });
+  chunkQueue = prunedQueue;
   chunkQueue.sort((a, b) => b.distSq - a.distSq);
 
   let chunksEvicted = false;
@@ -6965,19 +6987,72 @@ function updateChunks() {
         if (child.isMesh || child.isInstancedMesh) {
           if (child.geometry && child.geometry.userData.unique) {
             if (child.geometry.userData.poolType === 'terrain') {
-              _terrainGeometryPool.push(child.geometry);
+              if (
+                _terrainGeometryPool.length < 25 &&
+                child.geometry.parameters &&
+                child.geometry.parameters.widthSegments === SEGMENTS
+              ) {
+                _terrainGeometryPool.push(child.geometry);
+              } else {
+                child.geometry.dispose();
+              }
             } else if (child.geometry.userData.poolType === 'water') {
-              _waterGeometryPool.push(child.geometry);
+              const wSegments = Math.max(1, Math.floor(SEGMENTS / 4));
+              if (
+                _waterGeometryPool.length < 25 &&
+                child.geometry.parameters &&
+                child.geometry.parameters.widthSegments === wSegments
+              ) {
+                _waterGeometryPool.push(child.geometry);
+              } else {
+                child.geometry.dispose();
+              }
             } else {
               child.geometry.dispose();
             }
           }
-          // Fix optimization 4: Dispose WebGL buffers for per-chunk InstancedMeshes
-          if (child.isInstancedMesh && child.dispose) {
-            child.dispose();
+          // Dispose WebGL buffers for per-chunk InstancedMeshes
+          if (child.isInstancedMesh) {
+            if (child.instanceMatrix && child.instanceMatrix.dispose) {
+              child.instanceMatrix.dispose();
+            }
+            if (child.instanceColor && child.instanceColor.dispose) {
+              child.instanceColor.dispose();
+            }
+            if (child.dispose) child.dispose();
           }
         }
       });
+
+      // Detach all child objects and clear chunk references
+      while (group.children.length > 0) {
+        group.remove(group.children[0]);
+      }
+      group.userData.instanceData = null;
+      group.userData.objectsGroup = null;
+      group.userData.water = null;
+      group.userData.sailboatPositions = null;
+      group.userData.boatHulls = null;
+      group.userData.boatColorIndices = null;
+      group.userData.boatInstIndices = null;
+      group.userData.boatMasts = null;
+      group.userData.boatSails = null;
+      group.userData.boatRims = null;
+      group.userData.boatDecks = null;
+      group.userData.boatBooms = null;
+      group.userData.boatReflections = null;
+      group.userData.pirateShipPositions = null;
+      group.userData.pirateHulls = null;
+      group.userData.pirateRims = null;
+      group.userData.pirateDecks = null;
+      group.userData.pirateMasts = null;
+      group.userData.pirateFlags = null;
+      group.userData.pirateJollyRogers = null;
+      group.userData.pirateSails = null;
+      group.userData.pirateReflections = null;
+      group.userData.birds = null;
+      group.userData.counts = null;
+
       scene.remove(group);
       chunks.delete(key);
       watercraftChunks.delete(group);

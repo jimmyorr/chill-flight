@@ -3428,11 +3428,21 @@ function animate() {
 
   // Animate Watercraft (Sailboats & Pirate Ships)
   // Performance optimization:
-  // 1. Only iterate watercraftChunks (chunks containing boats) rather than all 25-49 chunks.
-  // 2. Beyond 2,000 units (~1.3 chunks), boats stagger GPU buffer attribute updates to once
+  // 1. Only iterate watercraftChunks (chunks containing boats) rather than all loaded chunks.
+  // 2. Beyond 1,500 units, boats stagger GPU buffer attribute updates to once
   //    every 30 frames to drastically reduce PCIe bus traffic while preventing visual snapping.
+  // 3. When time speed is paused (daySpeedMultiplier === 0), freeze updates once initialized.
   const activeWatercraft =
     typeof watercraftChunks !== 'undefined' ? watercraftChunks : chunks;
+
+  const isTimePaused =
+    typeof daySpeedMultiplier !== 'undefined' && daySpeedMultiplier === 0;
+  if (isTimePaused) {
+    if (window._boatsFrozen) return;
+    window._boatsFrozen = true;
+  } else {
+    window._boatsFrozen = false;
+  }
 
   if (typeof window._frameCount === 'undefined') window._frameCount = 0;
   window._frameCount++;
@@ -3441,11 +3451,11 @@ function animate() {
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
     const distSq = checkPos.distanceToSquared(camera.position);
 
-    // Completely cull beyond 6000 units
-    if (distSq > 36000000) return;
+    // Completely cull beyond 3500 units
+    if (distSq > 12250000) return;
 
-    // Throttle GPU updates for distant boats (between 2000 and 6000 units)
-    if (distSq > 4000000) {
+    // Throttle GPU updates for distant boats (between 1500 and 3500 units)
+    if (distSq > 2250000) {
       const chunkHash =
         Math.abs(chunkGroup.userData.chunkX + chunkGroup.userData.chunkZ) || 0;
       if ((window._frameCount + chunkHash) % 30 !== 0) {
