@@ -2677,7 +2677,8 @@ function animate() {
       if (distSq > 0) {
         const dist = Math.sqrt(distSq);
         sessionDistanceTravelled += dist;
-      distanceSinceLastSave += dist;
+        distanceSinceLastSave += dist;
+      }
 
       if (distanceSinceLastSave > 1000) {
         lifetimeDistanceTravelled += distanceSinceLastSave;
