@@ -3636,10 +3636,7 @@ class GlobalInstanceManager {
     this.group.name = 'GlobalInstances';
     scene.add(this.group);
     this._dirty = true;
-    this.lastRebuildPos = new THREE.Vector3(Infinity, Infinity, Infinity);
-    this.activeChunks = [];
     this.counts = new Map();
-    this.lastActiveHash = '';
   }
 
   requestRebuild() {
@@ -3671,49 +3668,12 @@ class GlobalInstanceManager {
   }
 
   rebuildAll() {
-    const target =
-      typeof window !== 'undefined' && window.isFreeCamera
-        ? camera
-        : typeof planeGroup !== 'undefined'
-          ? planeGroup
-          : null;
-    const centerPos = target ? target.position : null;
-    if (!centerPos) return;
-
-    // Fast-path: Only rebuild if flagged dirty or if the player moved > 50 units (50^2 = 2500)
-    const distSq = centerPos.distanceToSquared(this.lastRebuildPos);
-    if (!this._dirty && distSq < 2500) return;
-
-    // Cap prop rendering at 5,250 units (3.5 chunks) to prevent excessive draw calls on High/Ultra
-    const lodDist = Math.min(
-      RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
-      5250
-    );
-    const lodDistSq = lodDist * lodDist;
-
-    let activeHash = '';
-    this.activeChunks.length = 0;
-    chunks.forEach((chunk, key) => {
-      if (
-        chunk.userData.worldPosition.distanceToSquared(centerPos) <= lodDistSq
-      ) {
-        this.activeChunks.push(chunk);
-        activeHash += key + '|';
-      }
-    });
-
-    if (this.lastActiveHash === activeHash && !this._dirty) {
-      this.lastRebuildPos.copy(centerPos);
-      return;
-    }
-
+    if (!this._dirty) return;
     this._dirty = false;
-    this.lastActiveHash = activeHash;
-    this.lastRebuildPos.copy(centerPos);
 
     for (const type of this.types.keys()) this.counts.set(type, 0);
 
-    this.activeChunks.forEach((chunk) => {
+    chunks.forEach((chunk) => {
       if (!chunk.userData.instanceData) return;
 
       for (const [type, data] of Object.entries(chunk.userData.instanceData)) {
@@ -4962,11 +4922,8 @@ function generateChunk(chunkX, chunkZ) {
   objectsLOD.position.set(worldOffsetX, 0, worldOffsetZ); // Correct position for distance calculation
   objectsLOD.addLevel(objectsGroup, 0);
 
-  // Dynamically tie LOD distance to the RENDER_DISTANCE, capped at 3,600 units to prevent draw call explosion on High/Ultra
-  const lodDistance = Math.min(
-    RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
-    3600
-  );
+  // Tie LOD distance to the active chunk render distance to eliminate pop-in
+  const lodDistance = (RENDER_DISTANCE + 0.5) * CHUNK_SIZE;
   objectsLOD.addLevel(emptyLODGroup, lodDistance);
   objectsLOD.visible = _enableObjects;
 

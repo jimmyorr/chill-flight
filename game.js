@@ -3451,11 +3451,11 @@ function animate() {
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
     const distSq = checkPos.distanceToSquared(camera.position);
 
-    // Completely cull beyond 3500 units
-    if (distSq > 12250000) return;
+    // Completely cull animation updates beyond 6000 units
+    if (distSq > 36000000) return;
 
-    // Throttle GPU updates for distant boats (between 1500 and 3500 units)
-    if (distSq > 2250000) {
+    // Throttle GPU updates for distant boats (between 2000 and 6000 units)
+    if (distSq > 4000000) {
       const chunkHash =
         Math.abs(chunkGroup.userData.chunkX + chunkGroup.userData.chunkZ) || 0;
       if ((window._frameCount + chunkHash) % 30 !== 0) {
