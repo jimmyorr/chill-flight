@@ -3124,13 +3124,20 @@ function animate() {
   if (!window.animationUniforms) window.animationUniforms = {uTime: {value: 0}};
   window.animationUniforms.uTime.value = performance.now() * 0.001;
 
-  // Animate Birds, Lighthouses
-  // Note: Windmills, campfires, and smoke particles are animated entirely on the GPU via Material.onBeforeCompile.
-  // Birds and Lighthouses remain entirely on the CPU because:
-  // 1. Lighthouses require updating an actual THREE.Light target's position for correct shadow/lighting calculations.
-  // 2. Birds use complex nested THREE.Group structures with hinges (flapping) and orientation matrices (.lookAt)
-  //    which are sparse enough that rewriting a full skeletal/flocking vertex shader introduces unnecessary complexity.
-  chunks.forEach((chunkGroup) => {
+  // Update global opacity materials outside of chunk loop
+  if (typeof fireMat !== 'undefined') {
+    fireMat.emissiveIntensity = 2.0 * (1.0 - dayFactor * 0.8);
+  }
+  if (typeof smokeMat !== 'undefined') {
+    smokeMat.opacity = 0.4 * (1.0 - dayFactor * 0.5);
+  }
+  if (typeof whiteSmokeMat !== 'undefined') {
+    whiteSmokeMat.opacity = 0.6 - dayFactor * 0.3;
+  }
+
+  // Animate Birds
+  const activeBirds = typeof birdChunks !== 'undefined' ? birdChunks : chunks;
+  activeBirds.forEach((chunkGroup) => {
     // Optimization: Distance culling (6000 units)
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
     if (checkPos.distanceToSquared(camera.position) > 36000000) return;
@@ -3247,9 +3254,12 @@ function animate() {
         }
       });
     }
+  });
 
-    // Animate Lighthouse Beam
-    if (chunkGroup.userData.lighthouseBeam) {
+  // Animate Lighthouse Beam directly if active chunk is present
+  if (typeof chunks !== 'undefined' && chunks.has('4,2')) {
+    const chunkGroup = chunks.get('4,2');
+    if (chunkGroup && chunkGroup.userData.lighthouseBeam) {
       const beam = chunkGroup.userData.lighthouseBeam;
       beam.rotation.y += delta * 0.15; // Slower sweep
 
@@ -3299,37 +3309,34 @@ function animate() {
         }
       }
     }
-
-    // Global opacity updates for GPU-animated elements
-    if (chunkGroup.userData.campfires) {
-      const cores = chunkGroup.userData.campfires;
-      const smoke = chunkGroup.userData.campfireSmoke;
-      if (cores.material)
-        cores.material.emissiveIntensity = 2.0 * (1.0 - dayFactor * 0.8);
-      if (smoke && smoke.material)
-        smoke.material.opacity = 0.4 * (1.0 - dayFactor * 0.5);
-    }
-
-    if (chunkGroup.userData.chimneySmoke) {
-      const smoke = chunkGroup.userData.chimneySmoke;
-      if (smoke.material) smoke.material.opacity = 0.6 - dayFactor * 0.3;
-    }
-  });
+  }
 
   // Animate Watercraft (Sailboats & Pirate Ships)
   // Performance optimization:
   // 1. Only iterate watercraftChunks (chunks containing boats) rather than all 25-49 chunks.
-  // 2. Beyond 2,000 units (~1.3 chunks), boat bobbing (0.15 units) and yaw sway occupy < 0.1 screen
-  //    pixels and are visually imperceptible. However, setting instanceMatrix.needsUpdate = true
-  //    forces WebGL to re-upload 10-22 buffer attributes to the GPU every frame over the bus.
-  // 3. Beyond 2,000 units (distSq > 4,000,000), boats remain rendered in 3D at their static resting
-  //    matrices. When within 2,000 units, dynamic animation resumes seamlessly based on absolute clock.elapsedTime.
+  // 2. Beyond 2,000 units (~1.3 chunks), boats stagger GPU buffer attribute updates to once
+  //    every 30 frames to drastically reduce PCIe bus traffic while preventing visual snapping.
   const activeWatercraft =
     typeof watercraftChunks !== 'undefined' ? watercraftChunks : chunks;
+
+  if (typeof window._frameCount === 'undefined') window._frameCount = 0;
+  window._frameCount++;
+
   activeWatercraft.forEach((chunkGroup) => {
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
-    // Culling at 2,000 units (distSq > 4,000,000) prevents unnecessary CPU kinematics and GPU buffer re-uploads
-    if (checkPos.distanceToSquared(camera.position) > 4000000) return;
+    const distSq = checkPos.distanceToSquared(camera.position);
+
+    // Completely cull beyond 6000 units
+    if (distSq > 36000000) return;
+
+    // Throttle GPU updates for distant boats (between 2000 and 6000 units)
+    if (distSq > 4000000) {
+      const chunkHash =
+        Math.abs(chunkGroup.userData.chunkX + chunkGroup.userData.chunkZ) || 0;
+      if ((window._frameCount + chunkHash) % 30 !== 0) {
+        return;
+      }
+    }
 
     // Animate Sailboats (Drifting & Bobbing)
     if (

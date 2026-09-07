@@ -6,6 +6,8 @@ const chunks = new Map();
 // Allows animate() in game.js to skip iterating dozens of dry land chunks every frame.
 const watercraftChunks = new Set();
 window.watercraftChunks = watercraftChunks;
+const birdChunks = new Set();
+window.birdChunks = birdChunks;
 const _terrainGeometryPool = [];
 const _waterGeometryPool = [];
 window._terrainGeometryPool = _terrainGeometryPool;
@@ -2132,6 +2134,10 @@ const whiteSmokeMat = createMaterial({
   flatShading: true,
 });
 
+window.fireMat = fireMat;
+window.smokeMat = smokeMat;
+window.whiteSmokeMat = whiteSmokeMat;
+
 // --- GPU ANIMATION SHADER INJECTIONS ---
 if (!window.animationUniforms) window.animationUniforms = {uTime: {value: 0}};
 
@@ -3506,6 +3512,13 @@ window.clearElevationCache = function () {
   _elevCacheValid.fill(0);
 };
 
+const _ELEV_PARAMS = {
+  WATER_LEVEL,
+  MOUNTAIN_LEVEL,
+  MAP_WORLD_SIZE,
+  MAP_HEIGHT_SCALE,
+};
+
 function getElevation(x, z) {
   // Quantize coordinates to 0.5 units for spatial memoization
   const ix = Math.round(x * 2);
@@ -3527,7 +3540,7 @@ function getElevation(x, z) {
     x,
     z,
     simplex,
-    {WATER_LEVEL, MOUNTAIN_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE},
+    _ELEV_PARAMS,
     THREE.MathUtils.lerp
   );
 
@@ -3673,11 +3686,14 @@ class GlobalInstanceManager {
       RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
       5250
     );
+    const lodDistSq = lodDist * lodDist;
 
     let activeHash = '';
     this.activeChunks.length = 0;
     chunks.forEach((chunk, key) => {
-      if (chunk.userData.worldPosition.distanceTo(centerPos) <= lodDist) {
+      if (
+        chunk.userData.worldPosition.distanceToSquared(centerPos) <= lodDistSq
+      ) {
         this.activeChunks.push(chunk);
         activeHash += key + '|';
       }
@@ -3816,6 +3832,8 @@ let _chunkHeightGrid = new Float32Array(65 * 65);
 function generateChunk(chunkX, chunkZ) {
   const collector = new ChunkDataCollector();
   const group = new THREE.Group();
+  group.userData.chunkX = chunkX;
+  group.userData.chunkZ = chunkZ;
   group.userData.worldPosition = new THREE.Vector3(
     chunkX * CHUNK_SIZE,
     0,
@@ -3825,16 +3843,6 @@ function generateChunk(chunkX, chunkZ) {
 
   const rng = ChillFlightLogic.chunkRng(chunkX, chunkZ);
   const isCustom = !!ChillFlightLogic.customMap;
-
-  const elevationCache = new Map();
-  function getCachedElevation(x, z) {
-    // Round to 1 decimal place for the key to handle slight floating point variances
-    const key = Math.round(x * 10) + '_' + Math.round(z * 10);
-    if (elevationCache.has(key)) return elevationCache.get(key);
-    const h = getElevation(x, z);
-    elevationCache.set(key, h);
-    return h;
-  }
 
   // 1. Generate Terrain Mesh
   let geometry;
@@ -3932,7 +3940,7 @@ function generateChunk(chunkX, chunkZ) {
     const worldX = worldOffsetX + localX;
     const worldZ = worldOffsetZ + localZ;
 
-    const height = getCachedElevation(worldX, worldZ);
+    const height = getElevation(worldX, worldZ);
     _chunkHeightGrid[vertIdx] = height;
     positions[i + 1] = height;
     if (height > maxChunkHeight) maxChunkHeight = height;
@@ -4072,10 +4080,10 @@ function generateChunk(chunkX, chunkZ) {
                 snowFactor < 0.2 // avoid frozen north
               ) {
                 // open water check
-                const eN = getCachedElevation(worldX, worldZ - 300);
-                const eS = getCachedElevation(worldX, worldZ + 300);
-                const eE = getCachedElevation(worldX + 300, worldZ);
-                const eW = getCachedElevation(worldX - 300, worldZ);
+                const eN = getElevation(worldX, worldZ - 300);
+                const eS = getElevation(worldX, worldZ + 300);
+                const eE = getElevation(worldX + 300, worldZ);
+                const eW = getElevation(worldX - 300, worldZ);
                 if (
                   eN <= WATER_LEVEL + 0.1 &&
                   eS <= WATER_LEVEL + 0.1 &&
@@ -4434,7 +4442,7 @@ function generateChunk(chunkX, chunkZ) {
         ) {
           const offX = (rng() - 0.5) * 15;
           const offZ = (rng() - 0.5) * 15;
-          const h = getCachedElevation(worldX + offX, worldZ + offZ);
+          const h = getElevation(worldX + offX, worldZ + offZ);
           campfirePositions.push({x: localX + offX, y: h, z: localZ + offZ});
         }
       } else {
@@ -4551,10 +4559,10 @@ function generateChunk(chunkX, chunkZ) {
           rng() < 0.0004 * densityScale &&
           height < sandMaxHeight + 15
         ) {
-          const hN = getCachedElevation(worldX, worldZ - 50);
-          const hS = getCachedElevation(worldX, worldZ + 50);
-          const hE = getCachedElevation(worldX + 50, worldZ);
-          const hW = getCachedElevation(worldX - 50, worldZ);
+          const hN = getElevation(worldX, worldZ - 50);
+          const hS = getElevation(worldX, worldZ + 50);
+          const hE = getElevation(worldX + 50, worldZ);
+          const hW = getElevation(worldX - 50, worldZ);
           if (
             hN <= WATER_LEVEL ||
             hS <= WATER_LEVEL ||
@@ -4575,10 +4583,10 @@ function generateChunk(chunkX, chunkZ) {
           height < WATER_LEVEL + 3 &&
           rng() < 0.15 * densityScale
         ) {
-          const hN = getCachedElevation(worldX, worldZ - 20);
-          const hS = getCachedElevation(worldX, worldZ + 20);
-          const hE = getCachedElevation(worldX + 20, worldZ);
-          const hW = getCachedElevation(worldX - 20, worldZ);
+          const hN = getElevation(worldX, worldZ - 20);
+          const hS = getElevation(worldX, worldZ + 20);
+          const hE = getElevation(worldX + 20, worldZ);
+          const hW = getElevation(worldX - 20, worldZ);
           let angleToWater = -1;
           if (hN <= WATER_LEVEL) angleToWater = Math.PI;
           else if (hS <= WATER_LEVEL) angleToWater = 0;
@@ -4613,7 +4621,7 @@ function generateChunk(chunkX, chunkZ) {
         // Decorate pagoda with Japanese maples to create a beautiful zen garden
         const offset1X = -12;
         const offset1Z = 12;
-        const h1 = getCachedElevation(worldX + offset1X, worldZ + offset1Z);
+        const h1 = getElevation(worldX + offset1X, worldZ + offset1Z);
         japaneseMapleTreePositions.push({
           x: localX + offset1X,
           y: h1,
@@ -4622,7 +4630,7 @@ function generateChunk(chunkX, chunkZ) {
 
         const offset2X = 12;
         const offset2Z = -12;
-        const h2 = getCachedElevation(worldX + offset2X, worldZ + offset2Z);
+        const h2 = getElevation(worldX + offset2X, worldZ + offset2Z);
         japaneseMapleTreePositions.push({
           x: localX + offset2X,
           y: h2,
@@ -4729,7 +4737,7 @@ function generateChunk(chunkX, chunkZ) {
       const localArchZ = archTargetZ - worldOffsetZ;
       const archHeight = Math.max(
         WATER_LEVEL,
-        getCachedElevation(worldOffsetX, worldOffsetZ + localArchZ)
+        getElevation(worldOffsetX, worldOffsetZ + localArchZ)
       );
       if (rng() < 0.5) {
         rockArchPositions.push({
@@ -4763,7 +4771,7 @@ function generateChunk(chunkX, chunkZ) {
         const pz = localArchZ + dz;
         const wX = worldOffsetX + px;
         const wZ = worldOffsetZ + pz;
-        const h = getCachedElevation(wX, wZ);
+        const h = getElevation(wX, wZ);
         if (h <= WATER_LEVEL + 1.1) {
           pirateShipPositions.push({
             x: px,
@@ -4912,7 +4920,7 @@ function generateChunk(chunkX, chunkZ) {
       if (desertFactor > 0)
         _tempWColorObj.lerp(_colorDesertWater, desertFactor);
 
-      const terrainHeight = getCachedElevation(worldX, worldZ);
+      const terrainHeight = getElevation(worldX, worldZ);
       const inlandHeight = terrainHeight - WATER_LEVEL;
       if (inlandHeight > 0) {
         // Only apply foam to water vertices that intersect or are under the land.
@@ -6021,7 +6029,7 @@ function generateChunk(chunkX, chunkZ) {
         roadY = Math.min(roadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
         // Actual terrain height (including rivers) to determine if we need pilings
-        const actualTerrainH = getCachedElevation(roadX, wz);
+        const actualTerrainH = getElevation(roadX, wz);
         const needsPilings = roadY - actualTerrainH > 10;
 
         // Calculate the next point on the road to determine slope and yaw
@@ -6437,10 +6445,7 @@ function generateChunk(chunkX, chunkZ) {
       const dist = 12 + rng() * 4;
       const tentX = pos.x + Math.cos(angle) * dist;
       const tentZ = pos.z + Math.sin(angle) * dist;
-      const tentY = getCachedElevation(
-        worldOffsetX + tentX,
-        worldOffsetZ + tentZ
-      );
+      const tentY = getElevation(worldOffsetX + tentX, worldOffsetZ + tentZ);
 
       dummy.position.set(tentX, tentY, tentZ);
       dummy.rotation.set(0, angle, 0);
@@ -6743,13 +6748,13 @@ function generateChunk(chunkX, chunkZ) {
   if (!isCustom && !isAlienChunk && rng() < 0.2) {
     const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
     const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
-    let baseY = getCachedElevation(baseX, baseZ) + 150 + rng() * 200;
+    let baseY = getElevation(baseX, baseZ) + 150 + rng() * 200;
     if (baseY > 400) baseY = 400;
 
     const baseRotationY = rng() * Math.PI * 2;
 
     const isSouth = worldOffsetZ > 0;
-    const heightAtCenter = getCachedElevation(worldOffsetX, worldOffsetZ);
+    const heightAtCenter = getElevation(worldOffsetX, worldOffsetZ);
     const isBeach =
       heightAtCenter > WATER_LEVEL - 20 && heightAtCenter < WATER_LEVEL + 40;
 
@@ -6759,7 +6764,7 @@ function generateChunk(chunkX, chunkZ) {
       const flockCenterX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
       const flockCenterZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
       let flockBaseY =
-        getCachedElevation(flockCenterX, flockCenterZ) + 40 + rng() * 60;
+        getElevation(flockCenterX, flockCenterZ) + 40 + rng() * 60;
 
       for (let i = 0; i < numSeagulls; i++) {
         const seagull = assembleSeagull(2.5 + rng() * 1.0); // Slightly smaller scale than hawk
@@ -6814,7 +6819,7 @@ function generateChunk(chunkX, chunkZ) {
     const flockSize = 7 + Math.floor(rng() * 6); // 7 to 12 geese
     const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
     const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
-    let baseY = getCachedElevation(baseX, baseZ) + 400 + rng() * 600;
+    let baseY = getElevation(baseX, baseZ) + 400 + rng() * 600;
     if (baseY > 1200) baseY = 1200;
 
     const baseRotationY = rng() * Math.PI * 2;
@@ -6871,6 +6876,10 @@ function generateChunk(chunkX, chunkZ) {
       objectsGroup.add(goose);
       group.userData.birds.push(goose);
     }
+  }
+
+  if (group.userData.birds.length > 0) {
+    birdChunks.add(group);
   }
 
   group.traverse((child) => {
@@ -6954,7 +6963,7 @@ function updateChunks() {
     }
   }
 
-  missingChunks.sort((a, b) => a.distSq - b.distSq);
+  missingChunks.sort((a, b) => b.distSq - a.distSq);
   chunkQueue.push(...missingChunks);
 
   // Resort the entire queue in case the camera moved significantly
@@ -6963,11 +6972,12 @@ function updateChunks() {
     const dz = item.cz - currentChunkZ;
     item.distSq = dx * dx + dz * dz;
   });
-  chunkQueue.sort((a, b) => a.distSq - b.distSq);
+  chunkQueue.sort((a, b) => b.distSq - a.distSq);
 
   let chunksEvicted = false;
   chunks.forEach((group, key) => {
-    const [cx, cz] = key.split(',').map(Number);
+    const cx = group.userData.chunkX;
+    const cz = group.userData.chunkZ;
     if (
       Math.abs(cx - currentChunkX) > renderDistance + 1 ||
       Math.abs(cz - currentChunkZ) > renderDistance + 1
@@ -6983,11 +6993,16 @@ function updateChunks() {
               child.geometry.dispose();
             }
           }
+          // Fix optimization 4: Dispose WebGL buffers for per-chunk InstancedMeshes
+          if (child.isInstancedMesh && child.dispose) {
+            child.dispose();
+          }
         }
       });
       scene.remove(group);
       chunks.delete(key);
       watercraftChunks.delete(group);
+      birdChunks.delete(group);
       chunksEvicted = true;
       if (key === '4,2') {
         if (persistentLighthouseLight) persistentLighthouseLight.intensity = 0;
@@ -7008,7 +7023,8 @@ window.processChunkQueue = function (timeBudget = 4) {
   let generatedThisFrame = 0;
 
   while (chunkQueue.length > 0) {
-    const item = chunkQueue.shift();
+    // Optimization: Pop from end of descending-sorted array is O(1) instead of shift() which is O(N)
+    const item = chunkQueue.pop();
     chunkQueueSet.delete(item.key);
 
     if (!chunks.has(item.key)) {

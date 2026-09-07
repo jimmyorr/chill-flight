@@ -199,12 +199,18 @@
             // A slow vertical drift makes them convect upwards and slowly morph over time
             vec2 horizonUV1 = vec2(angle, h) * uvScale + vec2(driftTime, driftTime * 0.2);
             
-            // Shift the second UV's seam to South (where w=0, so it's safely ignored)
-            float angle2 = angle > 0.0 ? angle - 3.14159 : angle + 3.14159;
-            vec2 horizonUV2 = vec2(angle2, h) * uvScale + vec2(driftTime, driftTime * 0.2);
+            float nHorizon = fbm(horizonUV1);
+            vec2 horizonUV2;
             
-            // Blend the two noise maps to completely eliminate the wrapping seam
-            float nHorizon = mix(fbm(horizonUV1), fbm(horizonUV2), w);
+            // Branch to avoid calculating secondary noise octaves across 98.4% of the sky
+            if (w > 0.0) {
+                // Shift the second UV's seam to South (where w=0, so it's safely ignored)
+                float angle2 = angle > 0.0 ? angle - 3.14159 : angle + 3.14159;
+                horizonUV2 = vec2(angle2, h) * uvScale + vec2(driftTime, driftTime * 0.2);
+                
+                // Blend the two noise maps to completely eliminate the wrapping seam
+                nHorizon = mix(nHorizon, fbm(horizonUV2), w);
+            }
             
             // Fade out the upper bounds completely by 30 degrees up
             // Fade the bottom bounds softly into the horizon haze to eliminate hard cutoffs over water
@@ -240,13 +246,14 @@
                 vec2 dynamicOffset = sunOffsetDir * 0.06 * uvScale;
                 
                 // Use macro noise to prevent high-frequency ripple artifacts
-                float nMacro1 = fbmMacro(horizonUV1);
-                float nMacro2 = fbmMacro(horizonUV2);
-                float nHorizonMacro = mix(nMacro1, nMacro2, w);
+                float nHorizonMacro = fbmMacro(horizonUV1);
+                float nHorizon_offset = fbmMacro(horizonUV1 + dynamicOffset);
                 
-                float nOffset1 = fbmMacro(horizonUV1 + dynamicOffset);
-                float nOffset2 = fbmMacro(horizonUV2 + dynamicOffset);
-                float nHorizon_offset = mix(nOffset1, nOffset2, w);
+                if (w > 0.0) {
+                    nHorizonMacro = mix(nHorizonMacro, fbmMacro(horizonUV2), w);
+                    nHorizon_offset = mix(nHorizon_offset, fbmMacro(horizonUV2 + dynamicOffset), w);
+                }
+
                 
                 float slopeHorizon = nHorizonMacro - nHorizon_offset;
                 float litEdgeHorizon = smoothstep(-0.15, 0.25, slopeHorizon);
