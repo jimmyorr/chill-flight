@@ -782,6 +782,13 @@ if (copyCamUrlBtn) {
   copyCamUrlBtn.addEventListener('click', () => {
     const url = new URL(window.location.href);
     url.searchParams.set('freecam', 'true');
+    url.searchParams.set('debug', 'true');
+    if (
+      typeof ChillFlightLogic !== 'undefined' &&
+      ChillFlightLogic.WORLD_SEED
+    ) {
+      url.searchParams.set('seed', ChillFlightLogic.WORLD_SEED);
+    }
     url.searchParams.set('x', Math.round(camera.position.x));
     url.searchParams.set('y', Math.round(camera.position.y));
     url.searchParams.set('z', Math.round(camera.position.z));
@@ -809,6 +816,32 @@ if (copyCamUrlBtn) {
     if (typeof daySpeedMultiplier !== 'undefined') {
       url.searchParams.set('timeSpeed', daySpeedMultiplier);
     }
+    if (typeof weatherType !== 'undefined') {
+      if (weatherType !== 'auto') {
+        url.searchParams.set('weather', weatherType);
+      } else {
+        url.searchParams.delete('weather');
+      }
+    }
+    const isCustom =
+      typeof isCustomPalette !== 'undefined'
+        ? isCustomPalette
+        : window.isCustomPalette;
+    const curPalette =
+      typeof selectedPalette !== 'undefined'
+        ? selectedPalette
+        : window.selectedPalette;
+    const curSeed =
+      typeof currentPaletteSeed !== 'undefined'
+        ? currentPaletteSeed
+        : window.currentPaletteSeed;
+    if (isCustom && curPalette) {
+      const topHex = curPalette.top.toString(16).padStart(6, '0');
+      const bottomHex = curPalette.bottom.toString(16).padStart(6, '0');
+      url.searchParams.set('palette', `${topHex},${bottomHex}`);
+    } else if (curSeed !== undefined) {
+      url.searchParams.set('palette', curSeed);
+    }
 
     navigator.clipboard.writeText(url.toString()).then(() => {
       const originalText = copyCamUrlBtn.textContent;
@@ -827,6 +860,12 @@ if (copyPlaneUrlBtn) {
   copyPlaneUrlBtn.addEventListener('click', () => {
     const url = new URL(window.location.href);
     url.searchParams.delete('freecam'); // ensure freecam is disabled to spawn at plane
+    if (
+      typeof ChillFlightLogic !== 'undefined' &&
+      ChillFlightLogic.WORLD_SEED
+    ) {
+      url.searchParams.set('seed', ChillFlightLogic.WORLD_SEED);
+    }
     url.searchParams.set('x', Math.round(planeGroup.position.x));
     url.searchParams.set('y', Math.round(planeGroup.position.y));
     url.searchParams.set('z', Math.round(planeGroup.position.z));
@@ -853,6 +892,32 @@ if (copyPlaneUrlBtn) {
     }
     if (typeof daySpeedMultiplier !== 'undefined') {
       url.searchParams.set('timeSpeed', daySpeedMultiplier);
+    }
+    if (typeof weatherType !== 'undefined') {
+      if (weatherType !== 'auto') {
+        url.searchParams.set('weather', weatherType);
+      } else {
+        url.searchParams.delete('weather');
+      }
+    }
+    const isCustom =
+      typeof isCustomPalette !== 'undefined'
+        ? isCustomPalette
+        : window.isCustomPalette;
+    const curPalette =
+      typeof selectedPalette !== 'undefined'
+        ? selectedPalette
+        : window.selectedPalette;
+    const curSeed =
+      typeof currentPaletteSeed !== 'undefined'
+        ? currentPaletteSeed
+        : window.currentPaletteSeed;
+    if (isCustom && curPalette) {
+      const topHex = curPalette.top.toString(16).padStart(6, '0');
+      const bottomHex = curPalette.bottom.toString(16).padStart(6, '0');
+      url.searchParams.set('palette', `${topHex},${bottomHex}`);
+    } else if (curSeed !== undefined) {
+      url.searchParams.set('palette', curSeed);
     }
 
     navigator.clipboard.writeText(url.toString()).then(() => {
@@ -1698,6 +1763,17 @@ if (zenithPicker && horizonPicker) {
   };
   zenithPicker.addEventListener('input', handlePickerChange);
   horizonPicker.addEventListener('input', handlePickerChange);
+}
+
+const nextPaletteBtn = document.getElementById('debug-next-palette-btn');
+if (nextPaletteBtn) {
+  nextPaletteBtn.addEventListener('click', () => {
+    if (typeof nextSkyPalette === 'function') {
+      nextSkyPalette();
+    } else if (typeof window.nextSkyPalette === 'function') {
+      window.nextSkyPalette();
+    }
+  });
 }
 
 window.addEventListener('paletteChanged', (e) => {
@@ -4181,7 +4257,20 @@ function animate() {
       'debug-pitch',
       Math.round((planeGroup.rotation.x * 180) / Math.PI)
     );
-    updateDOM('debug-palette', selectedPalette.name);
+    const isCustom =
+      typeof isCustomPalette !== 'undefined'
+        ? isCustomPalette
+        : window.isCustomPalette;
+    const curSeed =
+      typeof currentPaletteSeed !== 'undefined'
+        ? currentPaletteSeed
+        : window.currentPaletteSeed;
+    const paletteStr = isCustom
+      ? 'Custom'
+      : curSeed !== undefined
+        ? `${selectedPalette.name} (#${curSeed})`
+        : selectedPalette.name;
+    updateDOM('debug-palette', paletteStr);
     updateDOM('debug-speed-mult', flightSpeedMultiplier.toFixed(2));
     updateDOM('debug-day-speed', daySpeedMultiplier.toFixed(1));
 

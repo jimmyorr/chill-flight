@@ -81,6 +81,8 @@
 
   const MAP_NAME = getParam('map', null);
   const PALETTE_INDEX = getParam('palette', null);
+  const ZENITH_COLOR = getParam('zenith', null);
+  const HORIZON_COLOR = getParam('horizon', null);
   const SCALE = parseFloat(getParam('scale', '1.0'));
   const START_FREE_CAM =
     getParam('freecam', 'false') === 'true' ||
@@ -1092,6 +1094,8 @@
   exports.START_TIME_SPEED = START_TIME_SPEED;
   exports.START_WEATHER = START_WEATHER;
   exports.START_DEBUG = START_DEBUG;
+  exports.ZENITH_COLOR = ZENITH_COLOR;
+  exports.HORIZON_COLOR = HORIZON_COLOR;
   // --- FLIGHT AERODYNAMICS ---
   // Calculates the updated pitch, roll, and yaw for the airplane.
   // Uses frame-rate independent exponential smoothing.

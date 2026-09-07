@@ -84,9 +84,11 @@ function generateDynamicPalette(rng) {
 let selectedPalette;
 let currentPaletteCycle = -1;
 let isCustomPalette = false;
+let currentPaletteSeed;
 
 function applyCustomSkyColors(top, bottom) {
   isCustomPalette = true;
+  window.isCustomPalette = true;
 
   // Convert hex string (from picker) or number to hex if needed
   const topHex =
@@ -99,6 +101,7 @@ function applyCustomSkyColors(top, bottom) {
     top: topHex,
     bottom: bottomHex,
   };
+  window.selectedPalette = selectedPalette;
 
   if (typeof skyUniforms !== 'undefined') {
     skyUniforms.topColor.value.setHex(selectedPalette.top);
@@ -110,8 +113,39 @@ function applyCustomSkyColors(top, bottom) {
   );
 }
 
+function nextSkyPalette() {
+  if (currentPaletteSeed === undefined) {
+    const CYCLE_DURATION_MS = 300000;
+    const serverNow = window._gameServerNow || Date.now();
+    const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
+    currentPaletteSeed = ChillFlightLogic.WORLD_SEED + cycleNumber;
+  }
+  currentPaletteSeed++;
+  window.currentPaletteSeed = currentPaletteSeed;
+  isCustomPalette = false;
+  window.isCustomPalette = false;
+
+  const rng = ChillFlightLogic.mulberry32(currentPaletteSeed);
+  selectedPalette = generateDynamicPalette(rng);
+  selectedPalette.seed = currentPaletteSeed;
+  window.selectedPalette = selectedPalette;
+
+  if (typeof skyUniforms !== 'undefined') {
+    skyUniforms.topColor.value.setHex(selectedPalette.top);
+    skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
+  }
+
+  window.dispatchEvent(
+    new CustomEvent('paletteChanged', {detail: selectedPalette})
+  );
+}
+window.nextSkyPalette = nextSkyPalette;
+window.applyCustomSkyColors = applyCustomSkyColors;
+
 function updateSkyPalette(serverNow) {
   if (isCustomPalette) return;
+  // If the user has a manually chosen palette seed (via URL or next preset button), keep it locked
+  if (currentPaletteSeed !== undefined && selectedPalette) return;
 
   const CYCLE_DURATION_MS = 300000;
   const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
@@ -120,29 +154,58 @@ function updateSkyPalette(serverNow) {
     const isFirstLoad = currentPaletteCycle === -1;
     currentPaletteCycle = cycleNumber;
 
-    let rng;
-    if (
-      isFirstLoad &&
-      ChillFlightLogic.PALETTE_INDEX !== null &&
-      !isNaN(parseInt(ChillFlightLogic.PALETTE_INDEX))
-    ) {
-      // If a user forces a specific palette index via URL, we use it as the RNG seed
-      // so they get a deterministic custom palette.
-      const paletteIndex = parseInt(ChillFlightLogic.PALETTE_INDEX);
-      rng = ChillFlightLogic.mulberry32(paletteIndex);
-    } else {
-      // Seed the RNG with the world seed plus the cycle number,
-      // so every cycle (in-game day) gets a synchronized random palette across the server.
-      rng = ChillFlightLogic.mulberry32(
-        ChillFlightLogic.WORLD_SEED + cycleNumber
-      );
+    if (isFirstLoad) {
+      if (
+        typeof ChillFlightLogic !== 'undefined' &&
+        ChillFlightLogic.PALETTE_INDEX !== null
+      ) {
+        const rawPalette = String(ChillFlightLogic.PALETTE_INDEX).trim();
+        if (rawPalette.includes(',')) {
+          const parts = rawPalette.split(',');
+          const topHex = parseInt(parts[0].replace('#', ''), 16);
+          const bottomHex = parseInt(parts[1].replace('#', ''), 16);
+          if (!isNaN(topHex) && !isNaN(bottomHex)) {
+            applyCustomSkyColors(topHex, bottomHex);
+            return;
+          }
+        } else if (!isNaN(parseInt(rawPalette, 10))) {
+          currentPaletteSeed = parseInt(rawPalette, 10);
+        }
+      } else if (
+        typeof ChillFlightLogic !== 'undefined' &&
+        ChillFlightLogic.ZENITH_COLOR &&
+        ChillFlightLogic.HORIZON_COLOR
+      ) {
+        const topHex = parseInt(
+          ChillFlightLogic.ZENITH_COLOR.replace('#', ''),
+          16
+        );
+        const bottomHex = parseInt(
+          ChillFlightLogic.HORIZON_COLOR.replace('#', ''),
+          16
+        );
+        if (!isNaN(topHex) && !isNaN(bottomHex)) {
+          applyCustomSkyColors(topHex, bottomHex);
+          return;
+        }
+      }
     }
 
+    if (currentPaletteSeed === undefined) {
+      currentPaletteSeed = ChillFlightLogic.WORLD_SEED + cycleNumber;
+    }
+
+    window.currentPaletteSeed = currentPaletteSeed;
+    window.isCustomPalette = false;
+
     // Generate the colors!
+    const rng = ChillFlightLogic.mulberry32(currentPaletteSeed);
     selectedPalette = generateDynamicPalette(rng);
+    selectedPalette.seed = currentPaletteSeed;
+    window.selectedPalette = selectedPalette;
 
     console.log(
-      `Atmosphere Palette Updated (Cycle ${cycleNumber}): ${selectedPalette.name}`
+      `Atmosphere Palette Updated (Cycle ${cycleNumber}, Seed ${currentPaletteSeed}): ${selectedPalette.name}`
     );
 
     // If uniforms already exist, update them
@@ -157,6 +220,7 @@ function updateSkyPalette(serverNow) {
     );
   }
 }
+window.updateSkyPalette = updateSkyPalette;
 
 // --- NOISE TEXTURE GENERATOR ---
 const _noiseSize = 256;

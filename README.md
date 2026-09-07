@@ -271,6 +271,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`theme`**: The visual theme to load (e.g., `standard`).
 - **`cloud`**: Set to `none` to disable procedural clouds.
 - **`weather`**: Force weather conditions (options: `auto`, `none` or `clear`, `snow`, `rain`).
+- **`palette`**: Force a specific sky palette preset seed (e.g., `42`) or custom zenith,horizon hex colors (e.g., `1a2b3c,ff7e67`).
+- **`zenith`** & **`horizon`**: Force custom sky zenith and horizon hex colors (e.g., `zenith=1a2b3c&horizon=ff7e67`).
 - **`objects`**: Set to `none` to disable all spawned objects (trees, houses, etc.).
 
 ### Camera and System
@@ -278,7 +280,6 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros).
 - **`debug`**: Set to `true` (or include `?debug`) to start with the debug menu and telemetry overlay visible.
 - **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera (useful for exact freecam sharing).
-- **`palette`**: Force a specific plane color by providing a palette index.
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).
 
 ## Development
