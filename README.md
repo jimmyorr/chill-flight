@@ -247,7 +247,7 @@ When playing on a touch device, specialized UI and controls become available:
 
 The game features automatic graphics preset detection that evaluates your device's hardware capabilities upon loading and seamlessly scales visual fidelity to ensure a smooth frame rate.
 
-- **Presets (Low / Medium / High):** These presets automatically adjust render resolution, shadow maps, draw distances, and particle densities.
+- **Presets (low / mid / high / ultra):** These presets automatically adjust render resolution, shadow maps, draw distances, and mesh densities.
 - **Manual override:** You can manually override the auto-detected graphics preset via the pause menu settings.
 
 ## URL Parameters

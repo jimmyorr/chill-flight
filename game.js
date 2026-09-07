@@ -497,29 +497,29 @@ function applyGraphicsPreset(preset) {
 
   switch (preset) {
     case 'ultra':
-      segments = 120;
+      segments = 80;
       dist = 6;
       fps = 60;
       break;
     case 'high':
-      segments = 80;
-      dist = 5;
+      segments = 50;
+      dist = 6;
       fps = 60;
       break;
     case 'mid':
       segments = 40;
-      dist = 4;
+      dist = 5;
       fps = 60;
       break;
     case 'low':
       segments = 20;
       dist = 3;
-      fps = 30;
+      fps = 60;
       break;
     default:
       preset = 'mid';
       segments = 40;
-      dist = 4;
+      dist = 5;
       fps = 60;
       break;
   }
@@ -544,10 +544,10 @@ function applyGraphicsPreset(preset) {
     pixelRatio = 0.5;
   } else if (segments <= 40) {
     pixelRatio = Math.min(window.devicePixelRatio, 2) * 0.75;
-  } else if (segments <= 80) {
-    pixelRatio = Math.min(window.devicePixelRatio, 2) * 1.0;
+  } else if (segments <= 50) {
+    pixelRatio = Math.min(window.devicePixelRatio, 1.5);
   } else {
-    pixelRatio = window.devicePixelRatio; // No cap for Ultra
+    pixelRatio = Math.min(window.devicePixelRatio, 2.0); // Capped at 2.0 for Ultra
   }
 
   if (typeof renderer !== 'undefined' && renderer) {

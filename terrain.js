@@ -3668,7 +3668,11 @@ class GlobalInstanceManager {
     const distSq = centerPos.distanceToSquared(this.lastRebuildPos);
     if (!this._dirty && distSq < 2500) return;
 
-    const lodDist = RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2;
+    // Cap prop rendering at 5,250 units (3.5 chunks) to prevent excessive draw calls on High/Ultra
+    const lodDist = Math.min(
+      RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
+      5250
+    );
 
     let activeHash = '';
     this.activeChunks.length = 0;
@@ -4941,8 +4945,11 @@ function generateChunk(chunkX, chunkZ) {
   objectsLOD.position.set(worldOffsetX, 0, worldOffsetZ); // Correct position for distance calculation
   objectsLOD.addLevel(objectsGroup, 0);
 
-  // Dynamically tie LOD distance to the RENDER_DISTANCE so objects hide in the fog
-  const lodDistance = RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2;
+  // Dynamically tie LOD distance to the RENDER_DISTANCE, capped at 5,250 units to prevent draw call explosion on High/Ultra
+  const lodDistance = Math.min(
+    RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
+    5250
+  );
   objectsLOD.addLevel(emptyLODGroup, lodDistance);
   objectsLOD.visible = _enableObjects;
 
@@ -5078,7 +5085,7 @@ function generateChunk(chunkX, chunkZ) {
       mesh.geometry.userData.unique = true;
       geos.grass.dispose(); // Unused in this variant
 
-      objectsGroup.add(mesh);
+      group.add(mesh);
     });
   }
 
@@ -5096,8 +5103,8 @@ function generateChunk(chunkX, chunkZ) {
       grassMesh.rotation.y = pos.rotY;
       grassMesh.geometry.userData.unique = true;
 
-      objectsGroup.add(rockMesh);
-      objectsGroup.add(grassMesh);
+      group.add(rockMesh);
+      group.add(grassMesh);
     });
   }
 
@@ -5809,7 +5816,7 @@ function generateChunk(chunkX, chunkZ) {
       castleInst.setMatrixAt(i, dummy.matrix);
     });
     castleInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(castleInst);
+    group.add(castleInst);
   }
 
   // 2.7 Generate Windmills
@@ -5873,7 +5880,7 @@ function generateChunk(chunkX, chunkZ) {
       pos.y,
       pos.z + worldOffsetZ
     );
-    objectsGroup.add(lighthouseGroup);
+    group.add(lighthouseGroup);
 
     // Use persistent beam and light
     const beamHeight = 126; // Middle of lantern (63 * 2)
