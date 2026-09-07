@@ -276,6 +276,7 @@ The game supports various URL query parameters for deep linking to specific loca
 ### Camera and System
 
 - **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros).
+- **`debug`**: Set to `true` (or include `?debug`) to start with the debug menu and telemetry overlay visible.
 - **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera (useful for exact freecam sharing).
 - **`palette`**: Force a specific plane color by providing a palette index.
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).

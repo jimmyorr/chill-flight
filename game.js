@@ -746,6 +746,13 @@ if (freeCamToggle) {
         ChillFlightLogic.START_PITCH
       );
   }
+
+  if (ChillFlightLogic.START_DEBUG) {
+    const debugMenu = document.getElementById('debug-menu');
+    const debugTelem = document.getElementById('debug-telemetry');
+    if (debugMenu) debugMenu.style.display = 'block';
+    if (debugTelem) debugTelem.style.display = 'block';
+  }
   document
     .getElementById('debug-free-cam-toggle')
     .addEventListener('change', (e) => {

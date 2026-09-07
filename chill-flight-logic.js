@@ -85,6 +85,11 @@
   const START_FREE_CAM =
     getParam('freecam', 'false') === 'true' ||
     getParam('freeCamera', 'false') === 'true';
+  const _debugParam = getParam('debug', null);
+  const START_DEBUG =
+    _debugParam === '' ||
+    _debugParam === '1' ||
+    (_debugParam !== null && _debugParam.trim().toLowerCase() === 'true');
 
   const _xParam = getParam('x', null);
   const START_X =
@@ -1086,6 +1091,7 @@
   exports.START_TOD = START_TOD;
   exports.START_TIME_SPEED = START_TIME_SPEED;
   exports.START_WEATHER = START_WEATHER;
+  exports.START_DEBUG = START_DEBUG;
   // --- FLIGHT AERODYNAMICS ---
   // Calculates the updated pitch, roll, and yaw for the airplane.
   // Uses frame-rate independent exponential smoothing.
