@@ -1972,13 +1972,16 @@ function animate() {
     currentWarpedProgress = window.manualTimeOfDay;
   }
 
-  // Update slider UI if not manual, or if manual but time is flowing
+  // Update slider UI if not manual, or if manual but time is flowing, or on initial load
   const timeSlider = getCachedElement('debug-time-slider');
   const timeSliderVal = getCachedElement('debug-time-val');
   if (
     timeSlider &&
-    (window.manualTimeOfDay === undefined || daySpeedMultiplier !== 0)
+    (window.manualTimeOfDay === undefined ||
+      daySpeedMultiplier !== 0 ||
+      timeSlider.dataset.initialized !== 'true')
   ) {
+    timeSlider.dataset.initialized = 'true';
     timeSlider.value = currentWarpedProgress;
     if (timeSliderVal) {
       const hours = currentWarpedProgress * 24;
@@ -4681,27 +4684,46 @@ window.addEventListener('focus', () => {
 });
 
 // Debug menu speed buttons
-document.querySelectorAll('.speed-btn').forEach((btn) => {
+const speedBtns = document.querySelectorAll('.speed-btn');
+speedBtns.forEach((btn) => {
   btn.addEventListener('click', (e) => {
-    document
-      .querySelectorAll('.speed-btn')
-      .forEach((b) => b.classList.remove('active'));
+    speedBtns.forEach((b) => b.classList.remove('active'));
     e.target.classList.add('active');
     daySpeedMultiplier = parseFloat(e.target.getAttribute('data-speed'));
   });
 });
 
+if (typeof daySpeedMultiplier !== 'undefined') {
+  speedBtns.forEach((b) => {
+    if (parseFloat(b.getAttribute('data-speed')) === daySpeedMultiplier) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+}
+
 // Time of day slider
 const timeSlider = document.getElementById('debug-time-slider');
 const timeSliderVal = document.getElementById('debug-time-val');
 if (timeSlider) {
+  if (window.manualTimeOfDay !== undefined) {
+    timeSlider.value = window.manualTimeOfDay;
+    if (timeSliderVal) {
+      const hours = window.manualTimeOfDay * 24;
+      const hh = Math.floor(hours).toString().padStart(2, '0');
+      const mm = Math.floor((hours % 1) * 60)
+        .toString()
+        .padStart(2, '0');
+      timeSliderVal.textContent = `${hh}:${mm}`;
+    }
+  }
+
   timeSlider.addEventListener('input', (e) => {
     window.manualTimeOfDay = parseFloat(e.target.value);
 
     // Automatically pause time so the user can observe the time they set
-    document
-      .querySelectorAll('.speed-btn')
-      .forEach((b) => b.classList.remove('active'));
+    speedBtns.forEach((b) => b.classList.remove('active'));
     const zeroBtn = document.querySelector('.speed-btn[data-speed="0"]');
     if (zeroBtn) zeroBtn.classList.add('active');
     daySpeedMultiplier = 0;
