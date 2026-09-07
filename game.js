@@ -1173,7 +1173,10 @@ if (typeof planeGroup !== 'undefined') {
 }
 
 // --- WEATHER SYSTEM ---
-let weatherType = 'auto'; // 'auto', 'none', 'snow', 'rain'
+let weatherType =
+  typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.START_WEATHER
+    ? ChillFlightLogic.START_WEATHER
+    : 'auto'; // 'auto', 'none', 'snow', 'rain'
 let snowParticles = null;
 let rainParticles = null;
 
@@ -1342,13 +1345,25 @@ function initWeather() {
   // Bind UI
   const weatherSelect = document.getElementById('weather-select');
   if (weatherSelect) {
-    weatherSelect.value = 'auto';
+    weatherSelect.value = weatherType;
     weatherSelect.addEventListener('change', (e) => {
       weatherType = e.target.value;
       console.log(`Weather changed to: ${weatherType}`);
     });
   }
 }
+
+function cycleWeather() {
+  const modes = ['auto', 'none', 'rain', 'snow'];
+  const nextIndex = (modes.indexOf(weatherType) + 1) % modes.length;
+  weatherType = modes[nextIndex];
+  const weatherSelect = document.getElementById('weather-select');
+  if (weatherSelect) {
+    weatherSelect.value = weatherType;
+  }
+  console.log(`Weather cycled to: ${weatherType}`);
+}
+window.cycleWeather = cycleWeather;
 
 function updateWeather(delta) {
   if (!snowParticles || !rainParticles) return;

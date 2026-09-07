@@ -115,6 +115,17 @@
       ? parseFloat(_timeSpeedParam)
       : null;
 
+  const _weatherParam = getParam('weather', null);
+  let START_WEATHER = null;
+  if (_weatherParam !== null && _weatherParam !== '') {
+    const norm = _weatherParam.trim().toLowerCase();
+    if (norm === 'clear') {
+      START_WEATHER = 'none';
+    } else if (['auto', 'none', 'snow', 'rain'].includes(norm)) {
+      START_WEATHER = norm;
+    }
+  }
+
   // --- SEEDED PRNG: Mulberry32 ---
   // Returns a closure that produces deterministic floats in [0, 1).
   // Usage: const rng = mulberry32(seed); rng(); // next value
@@ -1074,6 +1085,7 @@
   exports.START_PITCH = START_PITCH;
   exports.START_TOD = START_TOD;
   exports.START_TIME_SPEED = START_TIME_SPEED;
+  exports.START_WEATHER = START_WEATHER;
   // --- FLIGHT AERODYNAMICS ---
   // Calculates the updated pitch, roll, and yaw for the airplane.
   // Uses frame-rate independent exponential smoothing.

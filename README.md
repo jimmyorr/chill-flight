@@ -270,6 +270,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`seed`**: Integer world seed for procedural terrain generation.
 - **`theme`**: The visual theme to load (e.g., `standard`).
 - **`cloud`**: Set to `none` to disable procedural clouds.
+- **`weather`**: Force weather conditions (options: `auto`, `none` or `clear`, `snow`, `rain`).
 - **`objects`**: Set to `none` to disable all spawned objects (trees, houses, etc.).
 
 ### Camera and System
