@@ -683,6 +683,59 @@ if (objectsToggle) {
   });
 }
 
+// Chunk borders toggle
+let showChunkBorders = false;
+const _chunkBorderHelpers = new Map(); // key -> Box3Helper
+const _chunkBorderColor = new THREE.Color(0x00ffff);
+
+function syncChunkBorders() {
+  if (!showChunkBorders) {
+    // Remove all helpers when toggled off
+    if (_chunkBorderHelpers.size > 0) {
+      _chunkBorderHelpers.forEach((helper) => scene.remove(helper));
+      _chunkBorderHelpers.clear();
+    }
+    return;
+  }
+
+  const cs = typeof CHUNK_SIZE !== 'undefined' ? CHUNK_SIZE : 1500;
+  const halfH = 800; // half-height of the visualized box
+
+  // Add helpers for new chunks
+  chunks.forEach((group, key) => {
+    if (!_chunkBorderHelpers.has(key)) {
+      const wp = group.userData.worldPosition || group.position;
+      const box = new THREE.Box3(
+        new THREE.Vector3(wp.x - cs / 2, -halfH, wp.z - cs / 2),
+        new THREE.Vector3(wp.x + cs / 2, halfH, wp.z + cs / 2)
+      );
+      const helper = new THREE.Box3Helper(box, _chunkBorderColor);
+      helper.material.transparent = true;
+      helper.material.opacity = 0.35;
+      scene.add(helper);
+      _chunkBorderHelpers.set(key, helper);
+    }
+  });
+
+  // Remove helpers for evicted chunks
+  _chunkBorderHelpers.forEach((helper, key) => {
+    if (!chunks.has(key)) {
+      scene.remove(helper);
+      _chunkBorderHelpers.delete(key);
+    }
+  });
+}
+
+const chunkBordersToggle = document.getElementById(
+  'debug-chunk-borders-toggle'
+);
+if (chunkBordersToggle) {
+  chunkBordersToggle.addEventListener('change', (e) => {
+    showChunkBorders = e.target.checked;
+    syncChunkBorders();
+  });
+}
+
 // Fog slider
 const fogSlider = document.getElementById('debug-fog-slider');
 const baseFogVal = document.getElementById('debug-base-fog-val');
@@ -4268,6 +4321,8 @@ function animate() {
 
   // Update the particle positions
   updateWeather(delta);
+  // Sync chunk border helpers if enabled (low cost — only iterates loaded chunks)
+  syncChunkBorders();
 
   renderer.render(scene, camera);
 
