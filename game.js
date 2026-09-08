@@ -4399,7 +4399,17 @@ function animate() {
       rainParticles ? rainParticles.material.opacity.toFixed(2) : '-'
     );
     updateDOM('debug-fog-density', scene.fog.density.toFixed(5));
-    updateDOM('debug-weather-mode', weatherType);
+    const _snowOp = snowParticles ? snowParticles.material.opacity : 0;
+    const _rainOp = rainParticles ? rainParticles.material.opacity : 0;
+    const _precipType =
+      _snowOp > 0.01 && _rainOp > 0.01
+        ? 'sleet'
+        : _snowOp > 0.01
+          ? 'snow'
+          : _rainOp > 0.01
+            ? 'rain'
+            : 'none';
+    updateDOM('debug-weather-mode', _precipType);
 
     // Aurora telemetry
     const auroraVal =
