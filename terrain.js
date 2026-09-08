@@ -4925,11 +4925,15 @@ function generateChunk(chunkX, chunkZ) {
   // Cull small chunk-local props (houses, chimneys, doors, boats) beyond 4,200 units
   // while trees continue to render globally via GlobalInstanceManager without pop-in
   const maxPropLOD =
-    typeof PROP_LOD_DISTANCE !== 'undefined' ? PROP_LOD_DISTANCE : 4200;
-  const lodDistance = Math.min(
-    RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
-    maxPropLOD
-  );
+    window.manualPropLOD !== undefined
+      ? window.manualPropLOD
+      : typeof PROP_LOD_DISTANCE !== 'undefined'
+        ? PROP_LOD_DISTANCE
+        : 4200;
+  const lodDistance =
+    window.manualPropLOD !== undefined
+      ? window.manualPropLOD
+      : Math.min(RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2, maxPropLOD);
   objectsLOD.addLevel(emptyLODGroup, lodDistance);
   objectsLOD.visible = _enableObjects;
 
@@ -5867,7 +5871,7 @@ function generateChunk(chunkX, chunkZ) {
         pos.y + beamHeight - 30,
         pos.z + worldOffsetZ + Math.cos(pos.rotY) * 200
       );
-      persistentLighthouseLight.intensity = LIGHTHOUSE_LIGHT_INTENSITY;
+      persistentLighthouseLight.intensity = 0; // Controlled by animate loop (dayFactor)
 
       // Store in userData for game.js to animate!
       group.userData.lighthouseLight = persistentLighthouseLight;

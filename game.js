@@ -3440,8 +3440,8 @@ function animate() {
   });
 
   // Animate Lighthouse Beam directly if active chunk is present
-  if (typeof chunks !== 'undefined' && chunks.has('4,2')) {
-    const chunkGroup = chunks.get('4,2');
+  if (typeof chunks !== 'undefined' && chunks.has('5,2')) {
+    const chunkGroup = chunks.get('5,2');
     if (chunkGroup && chunkGroup.userData.lighthouseBeam) {
       const beam = chunkGroup.userData.lighthouseBeam;
       beam.rotation.y += delta * 0.15; // Slower sweep

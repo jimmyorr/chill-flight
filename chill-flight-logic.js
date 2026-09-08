@@ -133,6 +133,12 @@
     }
   }
 
+  const _propLodParam = getParam('propLod', getParam('lod', null));
+  const START_PROP_LOD =
+    _propLodParam !== null && _propLodParam !== ''
+      ? parseFloat(_propLodParam)
+      : null;
+
   // --- SEEDED PRNG: Mulberry32 ---
   // Returns a closure that produces deterministic floats in [0, 1).
   // Usage: const rng = mulberry32(seed); rng(); // next value
@@ -1093,6 +1099,7 @@
   exports.START_TOD = START_TOD;
   exports.START_TIME_SPEED = START_TIME_SPEED;
   exports.START_WEATHER = START_WEATHER;
+  exports.START_PROP_LOD = START_PROP_LOD;
   exports.START_DEBUG = START_DEBUG;
   exports.ZENITH_COLOR = ZENITH_COLOR;
   exports.HORIZON_COLOR = HORIZON_COLOR;
