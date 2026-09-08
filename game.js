@@ -4455,6 +4455,7 @@ function animate() {
       totalCactus = 0,
       totalLighthouses = 0,
       totalCastles = 0,
+      totalPagodas = 0,
       totalChunks = 0;
     let totalWindmills = 0,
       totalCampfires = 0;
@@ -4463,10 +4464,33 @@ function animate() {
       totalLilyPads = 0,
       totalPiers = 0,
       totalBirds = 0;
+
+    let activeLODChunks = 0;
+    let activeHouses = 0,
+      activeBoats = 0,
+      activePirateShips = 0,
+      activePiers = 0,
+      activeCastles = 0,
+      activeWindmills = 0,
+      activePagodas = 0;
+
+    const camPos = isFreeCamera ? camera.position : planeGroup.position;
+    const maxPropLOD =
+      typeof PROP_LOD_DISTANCE !== 'undefined' ? PROP_LOD_DISTANCE : 4200;
+    const currentPropLOD = Math.min(
+      RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
+      maxPropLOD
+    );
+    const lodDistSq = currentPropLOD * currentPropLOD;
+
     const objectsVisible = ChillFlightLogic.SHOW_OBJECTS;
     chunks.forEach((cg) => {
       if (cg.userData.counts) {
         totalChunks += 1;
+        const checkPos = cg.userData.worldPosition || cg.position;
+        const isLODActive = checkPos.distanceToSquared(camPos) <= lodDistSq;
+        if (isLODActive) activeLODChunks += 1;
+
         if (objectsVisible) {
           totalTreesPine += cg.userData.counts.trees_pine || 0;
           totalTreesDecid += cg.userData.counts.trees_decid || 0;
@@ -4475,23 +4499,44 @@ function animate() {
           totalTreesAutumn += cg.userData.counts.trees_autumn || 0;
           totalTreesCherry += cg.userData.counts.trees_cherry || 0;
           totalTreesYellowCortez += cg.userData.counts.trees_yellow_cortez || 0;
-          totalHouses += cg.userData.counts.houses;
-          totalRocks += cg.userData.counts.rocks;
-          totalBushes += cg.userData.counts.bushes;
+          totalHouses += cg.userData.counts.houses || 0;
+          if (isLODActive) activeHouses += cg.userData.counts.houses || 0;
+
+          totalRocks += cg.userData.counts.rocks || 0;
+          totalBushes += cg.userData.counts.bushes || 0;
           totalSnowmen += cg.userData.counts.snowmen || 0;
           totalCactus += cg.userData.counts.cactus || 0;
           totalLighthouses += cg.userData.counts.lighthouses || 0;
           totalCastles += cg.userData.counts.castles || 0;
+          if (isLODActive) activeCastles += cg.userData.counts.castles || 0;
+
           totalWindmills += cg.userData.counts.windmills || 0;
+          if (isLODActive) activeWindmills += cg.userData.counts.windmills || 0;
+
           totalCampfires += cg.userData.counts.campfires || 0;
           totalBoats += cg.userData.counts.boats || 0;
+          if (isLODActive) activeBoats += cg.userData.counts.boats || 0;
+
           totalPirateShips += cg.userData.counts.pirateships || 0;
+          if (isLODActive)
+            activePirateShips += cg.userData.counts.pirateships || 0;
+
           totalLilyPads += cg.userData.counts.lily_pads || 0;
           totalPiers += cg.userData.counts.piers || 0;
+          if (isLODActive) activePiers += cg.userData.counts.piers || 0;
+
           totalBirds += cg.userData.counts.birds || 0;
+          totalPagodas += cg.userData.counts.pagodas || 0;
+          if (isLODActive) activePagodas += cg.userData.counts.pagodas || 0;
         }
       }
     });
+
+    const formatCount = (active, total) =>
+      total === 0 ? '0' : active === total ? `${total}` : `${active}/${total}`;
+
+    updateDOM('debug-prop-lod', Math.round(currentPropLOD));
+    updateDOM('debug-lod-chunks', `${activeLODChunks}/${totalChunks}`);
 
     updateDOM('debug-chunks', totalChunks);
     updateDOM('debug-trees-pine', totalTreesPine);
@@ -4501,20 +4546,24 @@ function animate() {
     updateDOM('debug-trees-autumn', totalTreesAutumn);
     updateDOM('debug-trees-cherry', totalTreesCherry);
     updateDOM('debug-trees-yellow-cortez', totalTreesYellowCortez);
-    updateDOM('debug-houses', totalHouses);
+    updateDOM('debug-houses', formatCount(activeHouses, totalHouses));
     updateDOM('debug-rocks', totalRocks);
     updateDOM('debug-bushes', totalBushes);
     updateDOM('debug-snowmen', totalSnowmen);
     updateDOM('debug-cactus', totalCactus);
     updateDOM('debug-lighthouses', totalLighthouses);
-    updateDOM('debug-castles', totalCastles);
-    updateDOM('debug-windmills', totalWindmills);
+    updateDOM('debug-castles', formatCount(activeCastles, totalCastles));
+    updateDOM('debug-windmills', formatCount(activeWindmills, totalWindmills));
     updateDOM('debug-campfires', totalCampfires);
-    updateDOM('debug-boats', totalBoats);
-    updateDOM('debug-pirateships', totalPirateShips);
+    updateDOM('debug-boats', formatCount(activeBoats, totalBoats));
+    updateDOM(
+      'debug-pirateships',
+      formatCount(activePirateShips, totalPirateShips)
+    );
     updateDOM('debug-lily-pads', totalLilyPads);
-    updateDOM('debug-piers', totalPiers);
+    updateDOM('debug-piers', formatCount(activePiers, totalPiers));
     updateDOM('debug-birds', totalBirds);
+    updateDOM('debug-pagodas', formatCount(activePagodas, totalPagodas));
   }
 }
 

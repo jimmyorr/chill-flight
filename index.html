@@ -826,8 +826,8 @@
             font-size: 11px;
             font-family: monospace;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
+            grid-template-columns: auto auto;
+            gap: 4px 14px;
           "
         >
           <div>FOV: <span id="debug-fov">0</span>°</div>
@@ -872,8 +872,8 @@
             font-size: 11px;
             font-family: monospace;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
+            grid-template-columns: auto auto;
+            gap: 4px 14px;
           "
         >
           <div>Overcast: <span id="debug-overcast">0</span></div>
@@ -912,8 +912,8 @@
             font-size: 11px;
             font-family: monospace;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
+            grid-template-columns: auto auto;
+            gap: 4px 14px;
           "
         >
           <div>CPU ms: <span id="debug-cpu-ms">0</span></div>
@@ -924,6 +924,8 @@
           </div>
           <div>Draw calls: <span id="debug-draw-calls">0</span></div>
           <div>Triangles: <span id="debug-triangles">0</span></div>
+          <div>Prop LOD: <span id="debug-prop-lod">0</span></div>
+          <div>LOD chunks: <span id="debug-lod-chunks">0</span></div>
 
           <span id="debug-geometries" style="display: none"></span>
           <span id="debug-textures" style="display: none"></span>
@@ -952,8 +954,8 @@
             font-size: 11px;
             font-family: monospace;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
+            grid-template-columns: auto auto;
+            gap: 4px 14px;
           "
         >
           <div>Chunks: <span id="debug-chunks">0</span></div>

@@ -509,8 +509,10 @@ input[type='number'].customization-input {
   font-family: monospace;
   display: none;
   z-index: 100;
-  pointer-events: auto;
-  width: 220px;
+  pointer-events: none;
+  font-size: 11px;
+  min-width: 260px;
+  white-space: nowrap;
 }
 
 #debug-menu button {
