@@ -4922,8 +4922,12 @@ function generateChunk(chunkX, chunkZ) {
   objectsLOD.position.set(worldOffsetX, 0, worldOffsetZ); // Correct position for distance calculation
   objectsLOD.addLevel(objectsGroup, 0);
 
-  // Tie LOD distance to the active chunk render distance to eliminate pop-in
-  const lodDistance = (RENDER_DISTANCE + 0.5) * CHUNK_SIZE;
+  // Cull small chunk-local props (houses, chimneys, doors, boats) beyond 4,200 units
+  // while trees continue to render globally via GlobalInstanceManager without pop-in
+  const lodDistance = Math.min(
+    RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
+    4200
+  );
   objectsLOD.addLevel(emptyLODGroup, lodDistance);
   objectsLOD.visible = _enableObjects;
 
