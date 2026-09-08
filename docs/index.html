@@ -31,9 +31,9 @@
       content="A minimalist flight simulator set in a procedurally generated world that changes every single day."
     />
     <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-BKHv8am9.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/main-CLBtb0c7.js">
-    <link rel="stylesheet" crossorigin href="./assets/style-gDHwurOj.css">
+    <script type="module" crossorigin src="./assets/main-DdgBMC_H.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/main-xjqg2ApV.js">
+    <link rel="stylesheet" crossorigin href="./assets/style-DVbC4MC1.css">
   </head>
 
   <body>
@@ -599,13 +599,30 @@
       >
         <div
           style="
-            font-size: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 3px;
-            font-weight: bold;
-            opacity: 0.7;
           "
         >
-          SKY COLORS:
+          <div style="font-size: 10px; font-weight: bold; opacity: 0.7">
+            SKY COLORS:
+          </div>
+          <button
+            id="debug-next-palette-btn"
+            style="
+              background: rgba(255, 255, 255, 0.15);
+              border: 1px solid rgba(255, 255, 255, 0.3);
+              color: white;
+              border-radius: 3px;
+              padding: 1px 6px;
+              font-size: 10px;
+              cursor: pointer;
+            "
+            title="Switch to next sky preset"
+          >
+            Next preset
+          </button>
         </div>
         <div
           style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px"
@@ -685,6 +702,23 @@
             type="checkbox"
             id="debug-objects-toggle"
             checked
+            style="width: 14px; height: 14px; cursor: pointer"
+          />
+        </label>
+        <label
+          for="debug-chunk-borders-toggle"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 4px;
+            cursor: pointer;
+          "
+        >
+          <div style="font-size: 11px">Show chunk borders:</div>
+          <input
+            type="checkbox"
+            id="debug-chunk-borders-toggle"
             style="width: 14px; height: 14px; cursor: pointer"
           />
         </label>
@@ -779,6 +813,28 @@
             <span id="debug-final-fog-val">0.00015</span>
           </div>
         </div>
+        <div style="margin-top: 6px">
+          <div
+            style="
+              font-size: 11px;
+              margin-bottom: 2px;
+              display: flex;
+              justify-content: space-between;
+            "
+          >
+            <span>Prop LOD dist:</span>
+            <span id="debug-prop-lod-slider-val">4200</span>
+          </div>
+          <input
+            type="range"
+            id="debug-prop-lod-slider"
+            min="500"
+            max="8000"
+            step="100"
+            value="4200"
+            style="width: 100%; cursor: pointer"
+          />
+        </div>
       </div>
       <div
         style="
@@ -810,8 +866,8 @@
             font-size: 11px;
             font-family: monospace;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
+            grid-template-columns: auto auto;
+            gap: 4px 14px;
           "
         >
           <div>FOV: <span id="debug-fov">0</span>°</div>
@@ -856,8 +912,8 @@
             font-size: 11px;
             font-family: monospace;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
+            grid-template-columns: auto auto;
+            gap: 4px 14px;
           "
         >
           <div>Overcast: <span id="debug-overcast">0</span></div>
@@ -865,7 +921,7 @@
           <div>Precip: <span id="debug-precip">0</span></div>
           <div>Zone: <span id="debug-climate-zone">-</span></div>
           <div>Fog: <span id="debug-fog-density">0</span></div>
-          <div>Mode: <span id="debug-weather-mode">-</span></div>
+          <div>Type: <span id="debug-weather-mode">-</span></div>
 
           <span id="debug-snow-opacity" style="display: none"></span>
           <span id="debug-rain-opacity" style="display: none"></span>
@@ -896,8 +952,8 @@
             font-size: 11px;
             font-family: monospace;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
+            grid-template-columns: auto auto;
+            gap: 4px 14px;
           "
         >
           <div>CPU ms: <span id="debug-cpu-ms">0</span></div>
@@ -908,6 +964,8 @@
           </div>
           <div>Draw calls: <span id="debug-draw-calls">0</span></div>
           <div>Triangles: <span id="debug-triangles">0</span></div>
+          <div>Prop LOD: <span id="debug-prop-lod">0</span></div>
+          <div>LOD chunks: <span id="debug-lod-chunks">0</span></div>
 
           <span id="debug-geometries" style="display: none"></span>
           <span id="debug-textures" style="display: none"></span>
@@ -936,8 +994,8 @@
             font-size: 11px;
             font-family: monospace;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
+            grid-template-columns: auto auto;
+            gap: 4px 14px;
           "
         >
           <div>Chunks: <span id="debug-chunks">0</span></div>
