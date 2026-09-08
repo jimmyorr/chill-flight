@@ -694,6 +694,23 @@ if (fogSlider) {
   });
 }
 
+// Prop LOD slider
+const propLodSlider = document.getElementById('debug-prop-lod-slider');
+const propLodSliderVal = document.getElementById('debug-prop-lod-slider-val');
+if (propLodSlider) {
+  // Initialize to current PROP_LOD_DISTANCE value
+  const initLod =
+    typeof PROP_LOD_DISTANCE !== 'undefined' ? PROP_LOD_DISTANCE : 4200;
+  propLodSlider.value = initLod;
+  if (propLodSliderVal) propLodSliderVal.textContent = initLod;
+
+  propLodSlider.addEventListener('input', (e) => {
+    window.manualPropLOD = parseFloat(e.target.value);
+    if (propLodSliderVal)
+      propLodSliderVal.textContent = Math.round(window.manualPropLOD);
+  });
+}
+
 // Free Camera toggle
 let isFreeCamera = ChillFlightLogic.START_FREE_CAM || false;
 window.isFreeCamera = isFreeCamera;
@@ -4476,11 +4493,15 @@ function animate() {
 
     const camPos = isFreeCamera ? camera.position : planeGroup.position;
     const maxPropLOD =
-      typeof PROP_LOD_DISTANCE !== 'undefined' ? PROP_LOD_DISTANCE : 4200;
-    const currentPropLOD = Math.min(
-      RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
-      maxPropLOD
-    );
+      window.manualPropLOD !== undefined
+        ? window.manualPropLOD
+        : typeof PROP_LOD_DISTANCE !== 'undefined'
+          ? PROP_LOD_DISTANCE
+          : 4200;
+    const currentPropLOD =
+      window.manualPropLOD !== undefined
+        ? window.manualPropLOD
+        : Math.min(RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2, maxPropLOD);
     const lodDistSq = currentPropLOD * currentPropLOD;
 
     const objectsVisible = ChillFlightLogic.SHOW_OBJECTS;
