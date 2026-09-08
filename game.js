@@ -3437,17 +3437,14 @@ function animate() {
 
   const isTimePaused =
     typeof daySpeedMultiplier !== 'undefined' && daySpeedMultiplier === 0;
-  if (isTimePaused) {
-    if (window._boatsFrozen) return;
-    window._boatsFrozen = true;
-  } else {
-    window._boatsFrozen = false;
-  }
 
   if (typeof window._frameCount === 'undefined') window._frameCount = 0;
   window._frameCount++;
 
   activeWatercraft.forEach((chunkGroup) => {
+    if (isTimePaused && chunkGroup.userData.boatsInitialized) return;
+    chunkGroup.userData.boatsInitialized = true;
+
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
     const distSq = checkPos.distanceToSquared(camera.position);
 
