@@ -25,7 +25,7 @@ window.clearChunkQueue = function () {
 // GPU water uniform — shared globally so game.js animate() can update uTime
 window.waterUniforms = {
   uTime: {value: 0.0},
-  uSpecularDir: {value: yAxis},
+  uSpecularDir: {value: new THREE.Vector3(0, 1, 0)},
   uSunColor: {value: new THREE.Color(0xffffff)},
 };
 
@@ -60,7 +60,7 @@ const waterMaterial = createMaterial({
 window.terrainUniforms = {
   uCameraPosXZ: {value: new THREE.Vector2(0, 0)},
   uRenderRadius: {value: RENDER_DISTANCE * CHUNK_SIZE},
-  uSunDirection: {value: yAxis},
+  uSunDirection: {value: new THREE.Vector3(0, 1, 0)},
   uTopColor: {value: new THREE.Color()},
   uBottomColor: {value: new THREE.Color()},
 };

@@ -3319,7 +3319,8 @@ function animate() {
     Math.sin(latitude) * Math.cos(declination) * Math.cos(hourAngle);
   // Spread dayFactor over a wider sun angle so sunrise/sunset lighting builds up gradually,
   // drawing out the visual transition rather than hitting full intensity right at 6:00 AM.
-  const dayFactor = Math.max(0, Math.min(1, (sunY + 0.2) * 2.0)); // 0.0 at SunY=-0.2 (~5:00 AM), 1.0 at SunY=0.3 (~7:15 AM)
+  // We must ensure the offset (-0.5) is deeper than dawnDuskFactor's fadeout (-0.4) to prevent abrupt clipping!
+  const dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) / 0.8)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0.3 (~7:15 AM)
 
   // 2. Fixed Moon Position (West-Southwest Sky near Horizon)
 
