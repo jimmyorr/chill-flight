@@ -1756,6 +1756,7 @@ let _auroraSessionMax = 0; // tracks highest aurora intensity seen this session
 const _uncloudedSkyColor = new THREE.Color();
 const _uncloudedFogColor = new THREE.Color();
 const _daySky = new THREE.Color(0x4ca1f0); // Azure blue
+window._daySky = _daySky;
 const _sunriseSky = new THREE.Color();
 const _goldenSky = new THREE.Color();
 const _sunsetSky = new THREE.Color();
@@ -1822,6 +1823,7 @@ function updateColorPickers(palette) {
     zenithPicker.value = '#' + palette.top.toString(16).padStart(6, '0');
   if (horizonPicker)
     horizonPicker.value = '#' + palette.bottom.toString(16).padStart(6, '0');
+  if (dayPicker) dayPicker.value = '#' + _daySky.getHexString();
 }
 
 // Initial sync
@@ -1833,6 +1835,12 @@ if (zenithPicker && horizonPicker) {
   };
   zenithPicker.addEventListener('input', handlePickerChange);
   horizonPicker.addEventListener('input', handlePickerChange);
+}
+
+if (dayPicker) {
+  dayPicker.addEventListener('input', () => {
+    _daySky.set(dayPicker.value);
+  });
 }
 
 const nextPaletteBtn = document.getElementById('debug-next-palette-btn');
@@ -4122,11 +4130,6 @@ function animate() {
     }
 
     _uncloudedSkyColor.lerp(localDaySky, dayFactor * (1.0 - dawnDuskFactor));
-
-    if (dayPicker) {
-      const hex = '#' + localDaySky.getHexString();
-      if (dayPicker.value !== hex) dayPicker.value = hex;
-    }
 
     // Warm up the directional light during golden hour
     const sunsetLightCol = sunX > 0 ? _sunriseLightColor : _sunsetLightColor;
