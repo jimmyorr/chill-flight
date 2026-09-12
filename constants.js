@@ -6,7 +6,7 @@ const WATER_LEVEL = 40;
 const MOUNTAIN_LEVEL = 180;
 let RENDER_DISTANCE = 2;
 const CLOUD_OPACITY = 0.55;
-const PROP_LOD_DISTANCE = 4200;
+let PROP_LOD_DISTANCE = 4200;
 window.PROP_LOD_DISTANCE = PROP_LOD_DISTANCE;
 
 // Lighthouse parameters

@@ -252,10 +252,10 @@ The game features automatic graphics preset detection that evaluates your device
 
 | Preset    | Chunk radius | Active chunk grid          | Draw distance | Mesh density (`SEGMENTS`) | Triangles per chunk | Resolution scale          | Visual effects  |
 | :-------- | :----------- | :------------------------- | :------------ | :------------------------ | :------------------ | :------------------------ | :-------------- |
-| **Low**   | 3 chunks     | 7 × 7 (up to 49 chunks)    | 4,500 units   | 20                        | 800                 | Fixed 0.5×                | Off (optimized) |
-| **Mid**   | 5 chunks     | 11 × 11 (up to 121 chunks) | 7,500 units   | 40                        | 3,200               | Up to 1.5× (`dpr × 0.75`) | Full            |
-| **High**  | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 50                        | 5,000               | Up to 1.5× (`dpr`)        | Full            |
-| **Ultra** | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 80                        | 12,800              | Up to 2.0× (`dpr`)        | Full            |
+| **Low**   | 4 chunks     | 9 × 9 (up to 81 chunks)    | 6,000 units   | 20                        | 800                 | Fixed 0.5×                | Off (optimized) |
+| **Mid**   | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 30                        | 1,800               | Up to 1.5× (`dpr × 0.75`) | Full            |
+| **High**  | 7 chunks     | 15 × 15 (up to 225 chunks) | 10,500 units  | 40                        | 3,200               | Up to 1.5× (`dpr`)        | Full            |
+| **Ultra** | 8 chunks     | 17 × 17 (up to 289 chunks) | 12,000 units  | 50                        | 5,000               | Up to 2.0× (`dpr`)        | Full            |
 
 _Note: Full visual effects include real-time shadows, transparent water and clouds, and procedural sky clouds. The low preset disables these to minimize overdraw and maximize frame rate on lower-end devices._
 

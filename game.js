@@ -491,35 +491,41 @@ if (typeof window !== 'undefined') {
 }
 
 function applyGraphicsPreset(preset) {
-  let segments = 40;
-  let dist = 2;
+  let segments = 30;
+  let dist = 6;
+  let propLod = 4000;
   let fps = 60;
 
   switch (preset) {
     case 'ultra':
-      segments = 80;
-      dist = 6;
+      segments = 50;
+      dist = 8;
+      propLod = 6000;
       fps = 60;
       break;
     case 'high':
-      segments = 50;
-      dist = 6;
+      segments = 40;
+      dist = 7;
+      propLod = 5000;
       fps = 60;
       break;
     case 'mid':
-      segments = 40;
-      dist = 5;
+      segments = 30;
+      dist = 6;
+      propLod = 4000;
       fps = 60;
       break;
     case 'low':
       segments = 20;
-      dist = 3;
+      dist = 4;
+      propLod = 3000;
       fps = 60;
       break;
     default:
       preset = 'mid';
-      segments = 40;
-      dist = 5;
+      segments = 30;
+      dist = 6;
+      propLod = 4000;
       fps = 60;
       break;
   }
@@ -529,13 +535,23 @@ function applyGraphicsPreset(preset) {
   // Set global variables
   SEGMENTS = segments;
   RENDER_DISTANCE = dist;
+  PROP_LOD_DISTANCE = propLod;
+  window.PROP_LOD_DISTANCE = propLod;
   if (typeof maxFPS !== 'undefined') {
     maxFPS = fps;
     frameMinDelay = maxFPS > 0 ? 1000 / maxFPS : 0;
   }
 
+  // Sync UI slider if not manually overridden
+  const slider = document.getElementById('debug-prop-lod-slider');
+  const sliderVal = document.getElementById('debug-prop-lod-slider-val');
+  if (slider && window.manualPropLOD === undefined) {
+    slider.value = propLod;
+    if (sliderVal) sliderVal.textContent = propLod;
+  }
+
   console.log(
-    `Graphics preset applied: ${preset} (SEGMENTS=${segments}, DIST=${dist}, FPS=${fps})`
+    `Graphics preset applied: ${preset} (SEGMENTS=${segments}, DIST=${dist}, LOD=${propLod}, FPS=${fps})`
   );
 
   // Update pixel ratio dynamically: baked resolution scale into quality levels
