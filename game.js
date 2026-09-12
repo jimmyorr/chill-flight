@@ -3317,7 +3317,9 @@ function animate() {
   const sunZ =
     Math.cos(latitude) * Math.sin(declination) -
     Math.sin(latitude) * Math.cos(declination) * Math.cos(hourAngle);
-  const dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) * 2)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0 (6 AM)
+  // Spread dayFactor over a wider sun angle so sunrise/sunset lighting builds up gradually,
+  // drawing out the visual transition rather than hitting full intensity right at 6:00 AM.
+  const dayFactor = Math.max(0, Math.min(1, (sunY + 0.2) * 2.0)); // 0.0 at SunY=-0.2 (~5:00 AM), 1.0 at SunY=0.3 (~7:15 AM)
 
   // 2. Fixed Moon Position (West-Southwest Sky near Horizon)
 
@@ -4223,11 +4225,15 @@ function animate() {
   }
 
   if (window.waterUniforms && window.waterUniforms.uSpecularDir) {
-    if (sunY > 0) {
+    // Smoothly fade in/out specular based on elevation to prevent abrupt pop at sunrise/sunset
+    const sunFade = THREE.MathUtils.clamp(sunY * 5.0, 0, 1);
+    const moonFade = THREE.MathUtils.clamp(-sunY * 5.0, 0, 1);
+
+    if (sunFade > moonFade) {
       window.waterUniforms.uSpecularDir.value.copy(_tempVec);
       window.waterUniforms.uSunColor.value
         .copy(dirLight.color)
-        .multiplyScalar(Math.max(0, 1.0 - overcast));
+        .multiplyScalar(Math.max(0, 1.0 - overcast) * sunFade);
     } else {
       const moonDirNorm = _waterMoonDirNorm
         .set(moonX, moonY, moonZ)
@@ -4236,7 +4242,9 @@ function animate() {
 
       window.waterUniforms.uSunColor.value
         .setHex(0xbad2ff)
-        .multiplyScalar(Math.max(0, 1.0 - overcast) * phaseIntensity * 0.5);
+        .multiplyScalar(
+          Math.max(0, 1.0 - overcast) * phaseIntensity * 0.5 * moonFade
+        );
     }
   }
 
