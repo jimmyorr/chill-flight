@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.15
+
+- **Visuals & lighting:** Extended visual sunrise duration, fixed water reflection jumps, and smoothed day-to-night transitions. Replaced regional sky calculations with palette-driven sky colors.
+- **Performance & graphics:** Optimized graphics presets with extended draw distances and dynamic prop LOD scaling.
+- **System:** Added custom day sky color configuration and updated web icons.
+
 ## 0.9.11
 
 - **Performance:** Optimized terrain rendering with global instancing and LOD scaling. Reduced boot loading delays.
