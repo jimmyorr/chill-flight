@@ -38,6 +38,10 @@
 - **Length limit**: Each version entry MUST be kept concise and explicitly limited to a maximum of **500 characters** per entry.
 - **Formatting**: Use sentence case for bullet points. Group changes into bolded categories (e.g., `* **Controls:** Added ...`).
 
+## Documentation rules
+
+- **Keep README up to date**: Whenever modifying, adding, or adjusting game features, controls, graphics presets, mechanics, or URL parameters, always ensure the corresponding documentation and tables in `README.md` are updated to reflect the changes.
+
 ## Communication rules
 
 - **No background task announcements**: To avoid sending separate, unprompted chat messages that bury important context, **never** run short commands like `npm run format` or `git add` asynchronously. Always set `WaitMsBeforeAsync` to a high value (e.g., `5000` or `10000`) for these tools so they complete synchronously within your turn. You can then provide a single, comprehensive response to the user.

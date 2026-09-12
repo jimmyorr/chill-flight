@@ -243,12 +243,21 @@ When playing on a touch device, specialized UI and controls become available:
 - **Control schemes:** A dedicated control scheme selector allows you to choose between virtual joystick, device tilt (gyroscope), or directional button steering.
 - **Throttle:** A dedicated slider interface on the right side controls engine speed.
 
-## Graphics & Settings
+## Graphics & settings
 
 The game features automatic graphics preset detection that evaluates your device's hardware capabilities upon loading and seamlessly scales visual fidelity to ensure a smooth frame rate.
 
 - **Presets (low / mid / high / ultra):** These presets automatically adjust render resolution, shadow maps, draw distances, and mesh densities.
 - **Manual override:** You can manually override the auto-detected graphics preset via the pause menu settings.
+
+| Preset    | Chunk radius | Active chunk grid          | Draw distance | Mesh density (`SEGMENTS`) | Triangles per chunk | Resolution scale          | Visual effects  |
+| :-------- | :----------- | :------------------------- | :------------ | :------------------------ | :------------------ | :------------------------ | :-------------- |
+| **Low**   | 3 chunks     | 7 × 7 (up to 49 chunks)    | 4,500 units   | 20                        | 800                 | Fixed 0.5×                | Off (optimized) |
+| **Mid**   | 5 chunks     | 11 × 11 (up to 121 chunks) | 7,500 units   | 40                        | 3,200               | Up to 1.5× (`dpr × 0.75`) | Full            |
+| **High**  | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 50                        | 5,000               | Up to 1.5× (`dpr`)        | Full            |
+| **Ultra** | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 80                        | 12,800              | Up to 2.0× (`dpr`)        | Full            |
+
+_Note: Full visual effects include real-time shadows, transparent water and clouds, and procedural sky clouds. The low preset disables these to minimize overdraw and maximize frame rate on lower-end devices._
 
 ## URL Parameters
 
