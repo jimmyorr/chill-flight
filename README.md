@@ -271,8 +271,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`theme`**: The visual theme to load (e.g., `standard`).
 - **`cloud`**: Set to `none` to disable procedural clouds.
 - **`weather`**: Force weather conditions (options: `auto`, `none` or `clear`, `snow`, `rain`).
-- **`palette`**: Force a specific sky palette preset seed (e.g., `42`) or custom zenith,horizon hex colors (e.g., `1a2b3c,ff7e67`).
-- **`zenith`** & **`horizon`**: Force custom sky zenith and horizon hex colors (e.g., `zenith=1a2b3c&horizon=ff7e67`).
+- **`palette`**: Force a specific sky palette preset seed (e.g., `42`) or custom zenith,horizon[,day] hex colors (e.g., `1a2b3c,ff7e67` or `1a2b3c,ff7e67,4ca1f0`).
+- **`zenith`**, **`horizon`**, & **`day`** (or **`dayBlue`**): Force custom sky zenith, horizon, and day blue hex colors (e.g., `zenith=1a2b3c&horizon=ff7e67&day=4ca1f0` or `day=4ca1f0`).
 - **`objects`**: Set to `none` to disable all spawned objects (trees, houses, etc.).
 
 ### Camera and System

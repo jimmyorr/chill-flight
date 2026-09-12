@@ -86,7 +86,7 @@ let currentPaletteCycle = -1;
 let isCustomPalette = false;
 let currentPaletteSeed;
 
-function applyCustomSkyColors(top, bottom) {
+function applyCustomSkyColors(top, bottom, day) {
   isCustomPalette = true;
   window.isCustomPalette = true;
 
@@ -101,6 +101,18 @@ function applyCustomSkyColors(top, bottom) {
     top: topHex,
     bottom: bottomHex,
   };
+  if (day !== undefined && day !== null) {
+    const dayHex =
+      typeof day === 'string' ? parseInt(day.replace('#', ''), 16) : day;
+    if (!isNaN(dayHex)) {
+      selectedPalette.day = dayHex;
+      if (typeof _daySky !== 'undefined') {
+        _daySky.setHex(dayHex);
+      } else if (typeof window._daySky !== 'undefined') {
+        window._daySky.setHex(dayHex);
+      }
+    }
+  }
   window.selectedPalette = selectedPalette;
 
   if (typeof skyUniforms !== 'undefined') {
@@ -164,8 +176,22 @@ function updateSkyPalette(serverNow) {
           const parts = rawPalette.split(',');
           const topHex = parseInt(parts[0].replace('#', ''), 16);
           const bottomHex = parseInt(parts[1].replace('#', ''), 16);
+          let dayHex = null;
+          if (parts[2]) {
+            const parsed = parseInt(parts[2].replace('#', ''), 16);
+            if (!isNaN(parsed)) dayHex = parsed;
+          } else if (
+            typeof ChillFlightLogic !== 'undefined' &&
+            ChillFlightLogic.DAY_COLOR
+          ) {
+            const parsed = parseInt(
+              ChillFlightLogic.DAY_COLOR.replace('#', ''),
+              16
+            );
+            if (!isNaN(parsed)) dayHex = parsed;
+          }
           if (!isNaN(topHex) && !isNaN(bottomHex)) {
-            applyCustomSkyColors(topHex, bottomHex);
+            applyCustomSkyColors(topHex, bottomHex, dayHex);
             return;
           }
         } else if (!isNaN(parseInt(rawPalette, 10))) {
@@ -184,8 +210,16 @@ function updateSkyPalette(serverNow) {
           ChillFlightLogic.HORIZON_COLOR.replace('#', ''),
           16
         );
+        let dayHex = null;
+        if (ChillFlightLogic.DAY_COLOR) {
+          const parsed = parseInt(
+            ChillFlightLogic.DAY_COLOR.replace('#', ''),
+            16
+          );
+          if (!isNaN(parsed)) dayHex = parsed;
+        }
         if (!isNaN(topHex) && !isNaN(bottomHex)) {
-          applyCustomSkyColors(topHex, bottomHex);
+          applyCustomSkyColors(topHex, bottomHex, dayHex);
           return;
         }
       }

@@ -1756,6 +1756,12 @@ let _auroraSessionMax = 0; // tracks highest aurora intensity seen this session
 const _uncloudedSkyColor = new THREE.Color();
 const _uncloudedFogColor = new THREE.Color();
 const _daySky = new THREE.Color(0x4ca1f0); // Azure blue
+if (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.DAY_COLOR) {
+  const dayHex = parseInt(ChillFlightLogic.DAY_COLOR.replace('#', ''), 16);
+  if (!isNaN(dayHex)) {
+    _daySky.setHex(dayHex);
+  }
+}
 window._daySky = _daySky;
 const _sunriseSky = new THREE.Color();
 const _goldenSky = new THREE.Color();
@@ -1763,6 +1769,9 @@ const _sunsetSky = new THREE.Color();
 const _goldenSunsetSky = new THREE.Color();
 
 function updateSkyBaseColors(palette) {
+  if (palette && palette.day !== undefined) {
+    _daySky.setHex(palette.day);
+  }
   const top = new THREE.Color(palette.top);
   const bottom = new THREE.Color(palette.bottom);
 
@@ -1831,7 +1840,11 @@ updateColorPickers(selectedPalette);
 
 if (zenithPicker && horizonPicker) {
   const handlePickerChange = () => {
-    applyCustomSkyColors(zenithPicker.value, horizonPicker.value);
+    applyCustomSkyColors(
+      zenithPicker.value,
+      horizonPicker.value,
+      dayPicker ? dayPicker.value : undefined
+    );
   };
   zenithPicker.addEventListener('input', handlePickerChange);
   horizonPicker.addEventListener('input', handlePickerChange);
@@ -1840,6 +1853,9 @@ if (zenithPicker && horizonPicker) {
 if (dayPicker) {
   dayPicker.addEventListener('input', () => {
     _daySky.set(dayPicker.value);
+    if (window.selectedPalette) {
+      window.selectedPalette.day = _daySky.getHex();
+    }
   });
 }
 
