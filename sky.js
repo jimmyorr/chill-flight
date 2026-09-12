@@ -70,6 +70,24 @@ function generateDynamicPalette(rng) {
   const bottomColor = selectedHorizon.color;
   const bName = selectedHorizon.name;
 
+  // --- DAY BLUE (Day Sky Base Color) ---
+  // Harmonize day hue with the zenith hue / horizon category within natural sky-blue tones:
+  // cyan: fresh cerulean / alpine cyan (0.545 - 0.570)
+  // blue: vibrant azure / classic sky blue (0.570 - 0.595)
+  // purple: rich cobalt / cornflower blue (0.595 - 0.612) - strictly blue, avoiding violet/purple
+  let dayHue;
+  if (horizonCategory === 'cyan') {
+    dayHue = rand(0.545, 0.57);
+  } else if (horizonCategory === 'blue') {
+    dayHue = rand(0.57, 0.595);
+  } else {
+    dayHue = rand(0.595, 0.612);
+  }
+
+  const daySat = rand(0.7, 0.85);
+  const dayLight = rand(0.6, 0.68);
+  const dayColor = new THREE.Color().setHSL(dayHue, daySat, dayLight);
+
   // Use the RNG again to pick names from the narrowed categories
   const tName = tNames[Math.floor(rng() * tNames.length)];
 
@@ -77,6 +95,7 @@ function generateDynamicPalette(rng) {
     name: `${tName} ${bName}`,
     top: topColor.getHex(),
     bottom: bottomColor,
+    day: dayColor.getHex(),
   };
 }
 

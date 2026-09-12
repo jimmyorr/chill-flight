@@ -1755,7 +1755,11 @@ let _auroraSessionMax = 0; // tracks highest aurora intensity seen this session
 // Optimization: Pre-allocate colors for sky gradients
 const _uncloudedSkyColor = new THREE.Color();
 const _uncloudedFogColor = new THREE.Color();
-const _daySky = new THREE.Color(0x4ca1f0); // Azure blue
+const _daySky = new THREE.Color(
+  typeof selectedPalette !== 'undefined' && selectedPalette.day !== undefined
+    ? selectedPalette.day
+    : 0x4ca1f0
+);
 if (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.DAY_COLOR) {
   const dayHex = parseInt(ChillFlightLogic.DAY_COLOR.replace('#', ''), 16);
   if (!isNaN(dayHex)) {
@@ -1893,9 +1897,6 @@ const _weatherLerpBase = new THREE.Color(0x8899aa);
 
 // Pre-allocated colors and vectors for updateTimeOfDay() hot path
 const _targetShadowPos = new THREE.Vector3();
-const _localDaySky = new THREE.Color();
-const _desertSkyColor = new THREE.Color(0x6ca3d8);
-const _snowSkyColor = new THREE.Color(0x1a4a8c);
 const _dayLightColor = new THREE.Color(0xfff0dd);
 const _sunriseLightColor = new THREE.Color(0xffd5a0);
 const _sunsetLightColor = new THREE.Color(0xffad60);
@@ -4121,31 +4122,7 @@ function animate() {
       _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.6);
     }
 
-    // --- DYNAMIC REGIONAL DAY SKY ---
-    // Calculate local biome factors for the sky based on camera position
-    const pX = camera.position.x;
-    const pZ = camera.position.z;
-
-    // Desert (South Z > 5000)
-    const desertRaw = Math.max(0, Math.min(1, (pZ - 5000) / 3000));
-    const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
-
-    // Snow/Mountain (North Z < -5000)
-    const snowRaw = Math.max(0, Math.min(1, (-pZ - 5000) / 3000));
-    const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
-
-    // Start with default azure day sky
-    const localDaySky = _localDaySky.copy(_daySky);
-
-    // Blend in regional sky characteristics
-    if (desertFactor > 0) {
-      localDaySky.lerp(_desertSkyColor, desertFactor * 0.85); // Hazier, lighter blue
-    }
-    if (snowFactor > 0) {
-      localDaySky.lerp(_snowSkyColor, snowFactor * 0.85); // Deeper, crisper blue
-    }
-
-    _uncloudedSkyColor.lerp(localDaySky, dayFactor * (1.0 - dawnDuskFactor));
+    _uncloudedSkyColor.lerp(_daySky, dayFactor * (1.0 - dawnDuskFactor));
 
     // Warm up the directional light during golden hour
     const sunsetLightCol = sunX > 0 ? _sunriseLightColor : _sunsetLightColor;
