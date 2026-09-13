@@ -492,6 +492,16 @@ if (typeof window !== 'undefined') {
 
 function updateUrlParams(updates = {}, removals = []) {
   try {
+    const debugMenu =
+      typeof getCachedElement === 'function'
+        ? getCachedElement('debug-menu')
+        : document.getElementById('debug-menu');
+    const isDebugActive = debugMenu && debugMenu.style.display === 'block';
+
+    if (!isDebugActive) {
+      return;
+    }
+
     const url = new URL(window.location.href);
     removals.forEach((key) => url.searchParams.delete(key));
     Object.entries(updates).forEach(([key, val]) => {
