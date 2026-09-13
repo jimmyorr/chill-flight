@@ -847,9 +847,10 @@
         }
       }
 
-      if (maxRiverFactor > 0) {
-        // Carve down to just below water level, overriding any mountain/volcano additions
-        n = _lerp(n, WATER_LEVEL - 2, maxRiverFactor);
+      if (maxRiverFactor > 0 && n > WATER_LEVEL - 5) {
+        // Carve down to well below wave troughs (WATER_LEVEL - 5), but never raise existing seabed
+        const riverBed = WATER_LEVEL - 5;
+        n = Math.min(n, _lerp(n, riverBed, maxRiverFactor));
       }
     }
 
@@ -912,13 +913,13 @@
     }
 
     // --- EASTERN ALIEN BIOME (Beyond 10 degrees East) ---
-    // Swirling domain-warped ridges and alien sea basins
+    // Swirling domain-warped ridges, organic shorelines, and alien sea basins
     const extremeEdge = 50000;
     if (x > extremeEdge) {
-      const extremeFactor = Math.min(1.0, (x - extremeEdge) / 15000);
+      const extremeFactor = Math.min(1.0, (x - extremeEdge) / 3000);
       const ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
 
-      const warpStrength = ef * 3000;
+      const warpStrength = Math.max(0.3, ef) * 3000;
       const wx1 = simplex.noise2D(x * 0.0002, z * 0.0002 + 77.3) * warpStrength;
       const wz1 = simplex.noise2D(x * 0.0002 + 33.1, z * 0.0002) * warpStrength;
       const wx2 =
@@ -929,25 +930,40 @@
         simplex.noise2D((x + wx1) * 0.00015 + 55.2, (z + wz1) * 0.00015) *
         warpStrength *
         0.5;
-      const xw = x + wx1 + wx2;
-      const zw = z + wz1 + wz2;
+      // Medium-frequency organic coastal warp to break up grid alignment
+      const wx3 =
+        simplex.noise2D((x + wx1) * 0.0008, (z + wz1) * 0.0008 + 91.2) * 500;
+      const wz3 =
+        simplex.noise2D((x + wx1) * 0.0008 + 41.8, (z + wz1) * 0.0008) * 500;
+      const xw = x + wx1 + wx2 + wx3;
+      const zw = z + wz1 + wz2 + wz3;
 
       const broadBase = simplex.noise2D(xw * 0.0003, zw * 0.0003);
 
-      if (broadBase > 0) {
+      if (broadBase > 0.05) {
+        const shapeFactor = Math.min(1.0, (broadBase - 0.05) * 4.0);
         const ridge1 =
           1.0 - Math.abs(simplex.noise2D(xw * 0.0006, zw * 0.0006));
         const ridge2 =
           1.0 - Math.abs(simplex.noise2D(xw * 0.0012, zw * 0.0012));
         const ridgeVal = ridge1 * 0.6 + ridge2 * 0.25 + broadBase * 0.15;
-        n += ridgeVal * 600 * ef;
+        // Surface roughness at 0.003 frequency to give organic low-poly detail
+        const roughness =
+          simplex.noise2D(xw * 0.003, zw * 0.003) * 40 * shapeFactor;
+        const heightScale = _lerp(260, 600, ef);
+        n += (ridgeVal * heightScale + roughness + 25) * shapeFactor * ef;
       } else {
         const basinDepth = Math.min(1, -broadBase * 2.5);
         const basinSmooth = basinDepth * basinDepth * (3 - 2 * basinDepth);
-        n = n + (WATER_LEVEL - 5 - n) * basinSmooth * ef;
+        if (n > WATER_LEVEL - 10) {
+          n = Math.max(
+            WATER_LEVEL - 10,
+            n + (WATER_LEVEL - 10 - n) * basinSmooth * ef
+          );
+        }
       }
 
-      if (n < WATER_LEVEL - 4) n = WATER_LEVEL - 4;
+      if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
     }
     // --- WESTERN ALIEN BIOME (Beyond 10 degrees West) ---
     // Massive geometric stepped plateaus, jagged crystal spires, and deep fractured chasms
@@ -1024,18 +1040,22 @@
       }
     }
 
-    // East coast beach widening: stretch the slope near the water level to create wider beaches
-    // We strictly bypass this if we've generated an ice shelf, otherwise it crushes the ice cliff down into the wave intersection zone!
+    // East coast beach widening: stretch the slope near the water level to create wider beaches on the continent's coast
+    // Restrict to the main continental coastline (x <= 8000, biome >= -0.2) and bypass if ice shelf
     if (
       !isIceShelf &&
+      x <= 8000 &&
+      biome >= -0.2 &&
       eastCoastFactor > 0 &&
       n > WATER_LEVEL &&
       n < WATER_LEVEL + 15.0
     ) {
       const t = (n - WATER_LEVEL) / 15.0;
-      const easedT = Math.pow(t, 2.5); // Pulls heights down towards WATER_LEVEL, flattening the beach
+      const easedT = Math.pow(t, 1.3);
       n = WATER_LEVEL + easedT * 15.0;
     }
+
+    // Shoreline steepening removed
 
     return n;
   }
