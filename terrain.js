@@ -5169,10 +5169,17 @@ function* generateChunk(chunkX, chunkZ) {
       : typeof PROP_LOD_DISTANCE !== 'undefined'
         ? PROP_LOD_DISTANCE
         : 4200;
+  const lodMultiplier =
+    typeof window.performanceMonitor !== 'undefined' &&
+    window.performanceMonitor &&
+    typeof window.performanceMonitor.lodMultiplier === 'number'
+      ? window.performanceMonitor.lodMultiplier
+      : 1.0;
   const lodDistance =
-    window.manualPropLOD !== undefined
+    (window.manualPropLOD !== undefined
       ? window.manualPropLOD
-      : Math.min(RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2, maxPropLOD);
+      : Math.min(RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2, maxPropLOD)) *
+    lodMultiplier;
   objectsLOD.addLevel(emptyLODGroup, lodDistance);
   objectsLOD.visible = _enableObjects;
 

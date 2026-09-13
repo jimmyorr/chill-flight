@@ -845,6 +845,9 @@ if (propLodSlider) {
     window.manualPropLOD = parseFloat(e.target.value);
     if (propLodSliderVal)
       propLodSliderVal.textContent = Math.round(window.manualPropLOD);
+    if (window.performanceMonitor) {
+      window.performanceMonitor.applyEffectiveLOD();
+    }
   });
   propLodSlider.addEventListener('change', (e) => {
     window.manualPropLOD = parseFloat(e.target.value);
@@ -2381,7 +2384,11 @@ class DynamicPerformanceMonitor {
 
   getEffectiveLOD() {
     const baseLOD =
-      typeof PROP_LOD_DISTANCE !== 'undefined' ? PROP_LOD_DISTANCE : 4200;
+      window.manualPropLOD !== undefined
+        ? window.manualPropLOD
+        : typeof PROP_LOD_DISTANCE !== 'undefined'
+          ? PROP_LOD_DISTANCE
+          : 4200;
     return baseLOD * this.lodMultiplier;
   }
 
@@ -5182,7 +5189,13 @@ function animate() {
       window.manualPropLOD !== undefined
         ? window.manualPropLOD
         : Math.min(RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2, maxPropLOD);
-    const lodDistSq = currentPropLOD * currentPropLOD;
+    const lodMultiplier =
+      window.performanceMonitor &&
+      typeof window.performanceMonitor.lodMultiplier === 'number'
+        ? window.performanceMonitor.lodMultiplier
+        : 1.0;
+    const effectivePropLOD = currentPropLOD * lodMultiplier;
+    const lodDistSq = effectivePropLOD * effectivePropLOD;
 
     const objectsVisible = ChillFlightLogic.SHOW_OBJECTS;
     chunks.forEach((cg) => {
@@ -5236,7 +5249,10 @@ function animate() {
     const formatCount = (active, total) =>
       total === 0 ? '0' : active === total ? `${total}` : `${active}/${total}`;
 
+    updateDOM('debug-prop-lod-base', Math.round(currentPropLOD));
     updateDOM('debug-prop-lod', Math.round(currentPropLOD));
+    updateDOM('debug-prop-lod-final', Math.round(effectivePropLOD));
+    updateDOM('debug-prop-lod-effective', Math.round(effectivePropLOD));
     if (window.performanceMonitor) {
       updateDOM(
         'debug-lod-mult',
