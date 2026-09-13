@@ -1970,6 +1970,113 @@ let rainbowTimer = 0;
 let rainbowIntensity = 0;
 let wasRainClearing = true;
 
+// --- DYNAMIC PERFORMANCE SCALING ---
+class DynamicPerformanceMonitor {
+  constructor() {
+    this.frameTimeRing = new Float32Array(60);
+    this.ringIndex = 0;
+    this.ringSum = 0;
+    this.ringCount = 0;
+
+    // Config (in ms/frame)
+    this.targetFrameTime = 16.67; // 60 FPS
+    this.slightlyOverloaded = 20; // 50 FPS
+    this.moderatelyOverloaded = 25; // 40 FPS
+    this.severelyOverloaded = 33.33; // 30 FPS
+
+    // State
+    this.lodMultiplier = 1.0;
+    this.cooldownFrames = 0;
+    this.cooldownMax = 60; // Wait 60 frames between adjustments
+  }
+
+  update(delta) {
+    const frameTimeMs = delta * 1000;
+
+    if (this.ringCount < 60) {
+      this.ringSum += frameTimeMs;
+      this.ringCount++;
+    } else {
+      this.ringSum += frameTimeMs - this.frameTimeRing[this.ringIndex];
+    }
+    this.frameTimeRing[this.ringIndex] = frameTimeMs;
+    this.ringIndex = (this.ringIndex + 1) % 60;
+
+    if (this.cooldownFrames > 0) {
+      this.cooldownFrames--;
+      return;
+    }
+
+    if (this.ringCount >= 60) {
+      const avgFrameTime = this.ringSum / 60;
+      let changed = false;
+
+      // Step down LOD if struggling, step up if hitting target
+      if (avgFrameTime > this.severelyOverloaded) {
+        if (this.lodMultiplier > 0.2) {
+          this.lodMultiplier = Math.max(0.2, this.lodMultiplier - 0.2);
+          changed = true;
+        }
+      } else if (avgFrameTime > this.moderatelyOverloaded) {
+        if (this.lodMultiplier > 0.4) {
+          this.lodMultiplier = Math.max(0.4, this.lodMultiplier - 0.1);
+          changed = true;
+        }
+      } else if (avgFrameTime > this.slightlyOverloaded) {
+        if (this.lodMultiplier > 0.6) {
+          this.lodMultiplier = Math.max(0.6, this.lodMultiplier - 0.1);
+          changed = true;
+        }
+      } else if (avgFrameTime <= this.targetFrameTime * 1.05) {
+        if (this.lodMultiplier < 1.0) {
+          this.lodMultiplier = Math.min(1.0, this.lodMultiplier + 0.1);
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        this.applyEffectiveLOD();
+        this.cooldownFrames = this.cooldownMax;
+      }
+    }
+  }
+
+  getEffectiveLOD() {
+    const baseLOD =
+      typeof PROP_LOD_DISTANCE !== 'undefined' ? PROP_LOD_DISTANCE : 4200;
+    return baseLOD * this.lodMultiplier;
+  }
+
+  getSmoothedFrameTime() {
+    return this.ringCount > 0 ? this.ringSum / this.ringCount : 0;
+  }
+
+  applyEffectiveLOD() {
+    const newLOD = this.getEffectiveLOD();
+    // Use the global chunks map from terrain.js if available
+    const chunkMap =
+      typeof window.chunks !== 'undefined'
+        ? window.chunks
+        : typeof chunks !== 'undefined'
+          ? chunks
+          : null;
+    if (chunkMap) {
+      chunkMap.forEach((chunk) => {
+        if (
+          chunk.userData.objectsGroup &&
+          chunk.userData.objectsGroup.levels &&
+          chunk.userData.objectsGroup.levels.length > 1
+        ) {
+          chunk.userData.objectsGroup.levels[1].distance = newLOD;
+        }
+      });
+    }
+  }
+}
+
+const performanceMonitor = new DynamicPerformanceMonitor();
+window.performanceMonitor = performanceMonitor;
+
 function animate() {
   // Sync InputManager state
   inputManager.state.isPaused = isPaused;
@@ -2031,6 +2138,12 @@ function animate() {
   smoothedDelta = _deltaRingSum / _deltaRingCount;
 
   const delta = smoothedDelta; // Use smoothed delta for all game logic below
+  if (
+    window.performanceMonitor &&
+    typeof window.performanceMonitor.update === 'function'
+  ) {
+    window.performanceMonitor.update(delta);
+  }
 
   inputManager.pollGamepad(delta);
 
@@ -4643,6 +4756,16 @@ function animate() {
       total === 0 ? '0' : active === total ? `${total}` : `${active}/${total}`;
 
     updateDOM('debug-prop-lod', Math.round(currentPropLOD));
+    if (window.performanceMonitor) {
+      updateDOM(
+        'debug-lod-mult',
+        window.performanceMonitor.lodMultiplier.toFixed(2)
+      );
+      updateDOM(
+        'debug-avg-ms',
+        window.performanceMonitor.getSmoothedFrameTime().toFixed(2)
+      );
+    }
     updateDOM('debug-lod-chunks', `${activeLODChunks}/${totalChunks}`);
 
     updateDOM('debug-chunks', totalChunks);
