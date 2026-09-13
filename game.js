@@ -55,6 +55,18 @@ inputManager.onDebugToggle = () => {
   if (debugTelem) debugTelem.style.display = isOpening ? 'block' : 'none';
 
   if (isOpening && typeof resetSteering === 'function') resetSteering();
+
+  try {
+    const url = new URL(window.location.href);
+    if (isOpening) {
+      url.searchParams.set('debug', 'true');
+    } else {
+      url.searchParams.delete('debug');
+    }
+    window.history.replaceState(null, '', url.toString());
+  } catch (err) {
+    console.error('Failed to update URL parameters:', err);
+  }
 };
 inputManager.onRainbowToggle = () => {
   if (rainbowTimer > 0) rainbowTimer = 0;
@@ -503,6 +515,9 @@ function updateUrlParams(updates = {}, removals = []) {
     }
 
     const url = new URL(window.location.href);
+    if (!removals.includes('debug') && !url.searchParams.has('debug')) {
+      url.searchParams.set('debug', 'true');
+    }
     removals.forEach((key) => url.searchParams.delete(key));
     Object.entries(updates).forEach(([key, val]) => {
       if (val === null || val === undefined) {
@@ -1041,6 +1056,22 @@ if (copyPlaneUrlBtn) {
     const url = new URL(window.location.href);
     url.searchParams.delete('freecam'); // ensure freecam is disabled to spawn at plane
     url.searchParams.delete('freeCamera');
+
+    const debugMenu =
+      typeof getCachedElement === 'function'
+        ? getCachedElement('debug-menu')
+        : document.getElementById('debug-menu');
+    const isDebugOpen =
+      (debugMenu && debugMenu.style.display === 'block') ||
+      url.searchParams.get('debug') === 'true' ||
+      url.searchParams.get('debug') === '1' ||
+      url.searchParams.get('debug') === '';
+    if (isDebugOpen) {
+      url.searchParams.set('debug', 'true');
+    } else {
+      url.searchParams.delete('debug');
+    }
+
     if (
       typeof ChillFlightLogic !== 'undefined' &&
       ChillFlightLogic.WORLD_SEED
