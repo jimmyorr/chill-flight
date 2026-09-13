@@ -490,6 +490,24 @@ if (typeof window !== 'undefined') {
   updatePauseMenuMusicInfo();
 }
 
+function updateUrlParams(updates = {}, removals = []) {
+  try {
+    const url = new URL(window.location.href);
+    removals.forEach((key) => url.searchParams.delete(key));
+    Object.entries(updates).forEach(([key, val]) => {
+      if (val === null || val === undefined) {
+        url.searchParams.delete(key);
+      } else {
+        url.searchParams.set(key, val);
+      }
+    });
+    window.history.replaceState(null, '', url.toString());
+  } catch (err) {
+    console.error('Failed to update URL parameters:', err);
+  }
+}
+window.updateUrlParams = updateUrlParams;
+
 function applyGraphicsPreset(preset) {
   let segments = 30;
   let dist = 6;
@@ -531,6 +549,19 @@ function applyGraphicsPreset(preset) {
   }
 
   localStorage.setItem('chill_flight_graphics_preset', preset);
+
+  // If the current URL specifies preset or graphics param, keep it in sync
+  if (typeof window !== 'undefined' && window.location) {
+    try {
+      const curUrl = new URL(window.location.href);
+      if (
+        curUrl.searchParams.has('preset') ||
+        curUrl.searchParams.has('graphics')
+      ) {
+        updateUrlParams({preset}, ['graphics']);
+      }
+    } catch (_) {}
+  }
 
   // Set global variables
   SEGMENTS = segments;
@@ -640,6 +671,7 @@ const graphicsPresetSelect = document.getElementById('graphics-preset-select');
 if (graphicsPresetSelect) {
   graphicsPresetSelect.addEventListener('change', (e) => {
     applyGraphicsPreset(e.target.value);
+    updateUrlParams({preset: e.target.value}, ['graphics']);
   });
 }
 
@@ -767,16 +799,28 @@ if (fogSlider) {
 const propLodSlider = document.getElementById('debug-prop-lod-slider');
 const propLodSliderVal = document.getElementById('debug-prop-lod-slider-val');
 if (propLodSlider) {
-  // Initialize to current PROP_LOD_DISTANCE value
-  const initLod =
+  // Initialize to current PROP_LOD_DISTANCE value or URL START_PROP_LOD
+  let initLod =
     typeof PROP_LOD_DISTANCE !== 'undefined' ? PROP_LOD_DISTANCE : 4200;
+  if (
+    typeof ChillFlightLogic !== 'undefined' &&
+    ChillFlightLogic.START_PROP_LOD !== null &&
+    !isNaN(ChillFlightLogic.START_PROP_LOD)
+  ) {
+    initLod = ChillFlightLogic.START_PROP_LOD;
+    window.manualPropLOD = initLod;
+  }
   propLodSlider.value = initLod;
-  if (propLodSliderVal) propLodSliderVal.textContent = initLod;
+  if (propLodSliderVal) propLodSliderVal.textContent = Math.round(initLod);
 
   propLodSlider.addEventListener('input', (e) => {
     window.manualPropLOD = parseFloat(e.target.value);
     if (propLodSliderVal)
       propLodSliderVal.textContent = Math.round(window.manualPropLOD);
+  });
+  propLodSlider.addEventListener('change', (e) => {
+    window.manualPropLOD = parseFloat(e.target.value);
+    updateUrlParams({propLod: Math.round(window.manualPropLOD)}, ['lod']);
   });
 }
 
@@ -845,6 +889,7 @@ if (freeCamToggle) {
       isFreeCamera = e.target.checked;
       window.isFreeCamera = isFreeCamera;
       if (isFreeCamera) {
+        updateUrlParams({freecam: 'true'}, ['freeCamera']);
         // Force camera up vector to vertical
         camera.up.set(0, 1, 0);
 
@@ -858,6 +903,7 @@ if (freeCamToggle) {
         camera.lookAt(target);
         camera.rotation.z = 0;
       } else {
+        updateUrlParams({}, ['freecam', 'freeCamera']);
         camera.rotation.order = 'XYZ'; // Reset to default
       }
     });
@@ -868,6 +914,7 @@ if (copyCamUrlBtn) {
   copyCamUrlBtn.addEventListener('click', () => {
     const url = new URL(window.location.href);
     url.searchParams.set('freecam', 'true');
+    url.searchParams.delete('freeCamera');
     url.searchParams.set('debug', 'true');
     if (
       typeof ChillFlightLogic !== 'undefined' &&
@@ -875,6 +922,12 @@ if (copyCamUrlBtn) {
     ) {
       url.searchParams.set('seed', ChillFlightLogic.WORLD_SEED);
     }
+    url.searchParams.delete('lat');
+    url.searchParams.delete('long');
+    url.searchParams.delete('lon');
+    url.searchParams.delete('alt');
+    url.searchParams.delete('benchmark');
+
     url.searchParams.set('x', Math.round(camera.position.x));
     url.searchParams.set('y', Math.round(camera.position.y));
     url.searchParams.set('z', Math.round(camera.position.z));
@@ -929,6 +982,30 @@ if (copyCamUrlBtn) {
       url.searchParams.set('palette', curSeed);
     }
 
+    const activePreset = graphicsPresetSelect
+      ? graphicsPresetSelect.value
+      : localStorage.getItem('chill_flight_graphics_preset');
+    url.searchParams.delete('graphics');
+    if (activePreset) {
+      url.searchParams.set('preset', activePreset);
+    }
+
+    const showObjs = objectsToggle
+      ? objectsToggle.checked
+      : typeof ChillFlightLogic !== 'undefined'
+        ? ChillFlightLogic.SHOW_OBJECTS
+        : true;
+    if (!showObjs) {
+      url.searchParams.set('objects', 'none');
+    } else {
+      url.searchParams.delete('objects');
+    }
+
+    if (window.manualPropLOD !== undefined) {
+      url.searchParams.set('propLod', Math.round(window.manualPropLOD));
+      url.searchParams.delete('lod');
+    }
+
     navigator.clipboard.writeText(url.toString()).then(() => {
       const originalText = copyCamUrlBtn.textContent;
       copyCamUrlBtn.textContent = 'Copied!';
@@ -946,12 +1023,19 @@ if (copyPlaneUrlBtn) {
   copyPlaneUrlBtn.addEventListener('click', () => {
     const url = new URL(window.location.href);
     url.searchParams.delete('freecam'); // ensure freecam is disabled to spawn at plane
+    url.searchParams.delete('freeCamera');
     if (
       typeof ChillFlightLogic !== 'undefined' &&
       ChillFlightLogic.WORLD_SEED
     ) {
       url.searchParams.set('seed', ChillFlightLogic.WORLD_SEED);
     }
+    url.searchParams.delete('lat');
+    url.searchParams.delete('long');
+    url.searchParams.delete('lon');
+    url.searchParams.delete('alt');
+    url.searchParams.delete('benchmark');
+
     url.searchParams.set('x', Math.round(planeGroup.position.x));
     url.searchParams.set('y', Math.round(planeGroup.position.y));
     url.searchParams.set('z', Math.round(planeGroup.position.z));
@@ -1004,6 +1088,30 @@ if (copyPlaneUrlBtn) {
       url.searchParams.set('palette', `${topHex},${bottomHex}`);
     } else if (curSeed !== undefined) {
       url.searchParams.set('palette', curSeed);
+    }
+
+    const activePreset = graphicsPresetSelect
+      ? graphicsPresetSelect.value
+      : localStorage.getItem('chill_flight_graphics_preset');
+    url.searchParams.delete('graphics');
+    if (activePreset) {
+      url.searchParams.set('preset', activePreset);
+    }
+
+    const showObjs = objectsToggle
+      ? objectsToggle.checked
+      : typeof ChillFlightLogic !== 'undefined'
+        ? ChillFlightLogic.SHOW_OBJECTS
+        : true;
+    if (!showObjs) {
+      url.searchParams.set('objects', 'none');
+    } else {
+      url.searchParams.delete('objects');
+    }
+
+    if (window.manualPropLOD !== undefined) {
+      url.searchParams.set('propLod', Math.round(window.manualPropLOD));
+      url.searchParams.delete('lod');
     }
 
     navigator.clipboard.writeText(url.toString()).then(() => {
@@ -1515,6 +1623,11 @@ function initWeather() {
     weatherSelect.value = weatherType;
     weatherSelect.addEventListener('change', (e) => {
       weatherType = e.target.value;
+      if (weatherType !== 'auto') {
+        updateUrlParams({weather: weatherType});
+      } else {
+        updateUrlParams({}, ['weather']);
+      }
       console.log(`Weather changed to: ${weatherType}`);
     });
   }
@@ -1527,6 +1640,11 @@ function cycleWeather() {
   const weatherSelect = document.getElementById('weather-select');
   if (weatherSelect) {
     weatherSelect.value = weatherType;
+  }
+  if (weatherType !== 'auto') {
+    updateUrlParams({weather: weatherType});
+  } else {
+    updateUrlParams({}, ['weather']);
   }
   console.log(`Weather cycled to: ${weatherType}`);
 }
@@ -1875,8 +1993,27 @@ if (zenithPicker && horizonPicker) {
       dayPicker ? dayPicker.value : undefined
     );
   };
+  const handlePickerCommit = () => {
+    const topHex = zenithPicker.value.replace('#', '');
+    const bottomHex = horizonPicker.value.replace('#', '');
+    const dayHex = dayPicker ? dayPicker.value.replace('#', '') : '';
+    const paletteStr = dayHex
+      ? `${topHex},${bottomHex},${dayHex}`
+      : `${topHex},${bottomHex}`;
+    updateUrlParams({palette: paletteStr}, [
+      'zenith',
+      'horizon',
+      'day',
+      'dayBlue',
+    ]);
+  };
   zenithPicker.addEventListener('input', handlePickerChange);
   horizonPicker.addEventListener('input', handlePickerChange);
+  zenithPicker.addEventListener('change', handlePickerCommit);
+  horizonPicker.addEventListener('change', handlePickerCommit);
+  if (dayPicker) {
+    dayPicker.addEventListener('change', handlePickerCommit);
+  }
 }
 
 if (dayPicker) {
@@ -1907,6 +2044,19 @@ window.addEventListener('paletteChanged', (e) => {
   // Only update picker UI if NOT in custom mode to avoid fighting the user
   if (!isCustomPalette) {
     updateColorPickers(e.detail);
+  }
+
+  const curSeed =
+    typeof currentPaletteSeed !== 'undefined'
+      ? currentPaletteSeed
+      : window.currentPaletteSeed;
+  if (!isCustomPalette && curSeed !== undefined) {
+    updateUrlParams({palette: curSeed}, [
+      'zenith',
+      'horizon',
+      'day',
+      'dayBlue',
+    ]);
   }
 });
 
@@ -5203,6 +5353,7 @@ speedBtns.forEach((btn) => {
     speedBtns.forEach((b) => b.classList.remove('active'));
     e.target.classList.add('active');
     daySpeedMultiplier = parseFloat(e.target.getAttribute('data-speed'));
+    updateUrlParams({timeSpeed: daySpeedMultiplier});
   });
 });
 
@@ -5249,6 +5400,13 @@ if (timeSlider) {
         .padStart(2, '0');
       timeSliderVal.textContent = `${hh}:${mm}`;
     }
+  });
+
+  timeSlider.addEventListener('change', () => {
+    updateUrlParams({
+      tod: window.manualTimeOfDay.toFixed(4),
+      timeSpeed: 0,
+    });
   });
 }
 

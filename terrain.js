@@ -7270,6 +7270,17 @@ function toggleProceduralObjects(enabled) {
   // Update debug menu UI if it exists
   const toggle = document.getElementById('debug-objects-toggle');
   if (toggle) toggle.checked = enabled;
+
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.updateUrlParams === 'function'
+  ) {
+    if (!enabled) {
+      window.updateUrlParams({objects: 'none'});
+    } else {
+      window.updateUrlParams({}, ['objects']);
+    }
+  }
 }
 
 // Global expose
