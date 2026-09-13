@@ -588,25 +588,49 @@
               break;
             case 'bridge': {
               previewGroup.add(new THREE.Mesh(bridgeDeckGeo, bridgeDeckMat));
-              // Pilings
-              const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 2;
-              const pilingOffsets = [
-                [-halfRoadW, -BRIDGE_SEGMENT_LENGTH / 3],
-                [halfRoadW, -BRIDGE_SEGMENT_LENGTH / 3],
-                [-halfRoadW, BRIDGE_SEGMENT_LENGTH / 3],
-                [halfRoadW, BRIDGE_SEGMENT_LENGTH / 3],
-              ];
-              pilingOffsets.forEach((off) => {
-                const piling = new THREE.Mesh(bridgePilingGeo, bridgePilingMat);
-                piling.position.set(off[0], -10, off[1]);
-                previewGroup.add(piling);
-              });
-              // Railings
+              if (window.bridgeGirderGeo) {
+                previewGroup.add(
+                  new THREE.Mesh(
+                    window.bridgeGirderGeo,
+                    window.bridgeGirderMat || bridgePilingMat
+                  )
+                );
+              }
+
+              const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 1.4;
               [-halfRoadW, halfRoadW].forEach((xOff) => {
-                const rail = new THREE.Mesh(bridgeRailGeo, bridgeDeckMat);
-                rail.position.set(xOff, 2, 0);
+                const rail = new THREE.Mesh(bridgeRailGeo, bridgePilingMat);
+                rail.position.set(xOff, 2.05, 0);
                 previewGroup.add(rail);
               });
+
+              if (window.bridgePierCapGeo) {
+                const cap = new THREE.Mesh(
+                  window.bridgePierCapGeo,
+                  bridgePilingMat
+                );
+                cap.position.set(0, 0, 0);
+                previewGroup.add(cap);
+              }
+
+              if (window.bridgePierShaftGeo) {
+                const shaft = new THREE.Mesh(
+                  window.bridgePierShaftGeo,
+                  bridgePilingMat
+                );
+                shaft.position.set(0, -7.0, 0);
+                shaft.scale.set(1, 20, 1);
+                previewGroup.add(shaft);
+              }
+
+              if (window.bridgePierFootingGeo) {
+                const footing = new THREE.Mesh(
+                  window.bridgePierFootingGeo,
+                  bridgePilingMat
+                );
+                footing.position.set(0, -27.0 + 1.5, 0);
+                previewGroup.add(footing);
+              }
               break;
             }
             case 'tent': {

@@ -1981,29 +1981,101 @@ const pierDeckGeo = createPierDeckGeometry();
 const pierPostGeo = new THREE.CylinderGeometry(1, 1, 10, 6);
 const woodMat = createMaterial({color: 0x5d4037, flatShading: true});
 
-// Bridge geometries (for the east coast road)
-const BRIDGE_SEGMENT_LENGTH = 30; // Z-length of each bridge deck segment
-const BRIDGE_DECK_HEIGHT = 8; // Height above water level
+// Bridge geometries (for West Coast Highway elevated viaducts)
+const BRIDGE_SEGMENT_LENGTH = 30; // Z-length of each road/bridge segment
+const BRIDGE_DECK_HEIGHT = 8;
+
+// 1. Road deck: thin 1.5-unit slab (used for all road segments, keeping ground roads paper-thin)
 const bridgeDeckGeo = new THREE.BoxGeometry(
-  ChillFlightLogic.ROAD_WIDTH * 2 + 4, // A little wider than the road
+  ChillFlightLogic.ROAD_WIDTH * 2 + 4,
   1.5, // Deck thickness
   BRIDGE_SEGMENT_LENGTH
 );
-const bridgePilingGeo = new THREE.CylinderGeometry(1.2, 1.2, 1, 6);
-bridgePilingGeo.translate(0, -0.5, 0); // Origin at top so scaling Y stretches it down
 
-const bridgeArchGeo = new THREE.TorusGeometry(
-  BRIDGE_SEGMENT_LENGTH / 2, // 15
-  1.2, // Match piling thickness
-  6, // radialSegments
-  16, // tubularSegments
-  Math.PI // Half circle
-);
-bridgeArchGeo.rotateY(Math.PI / 2); // Align to Z axis
+// 2. Box girder: trapezoidal underside attached ONLY under elevated bridge spans
+function createBridgeGirderGeometry() {
+  const shape = new THREE.Shape();
+  const wTop = ChillFlightLogic.ROAD_WIDTH + 1.5; // 31.5 -> total width 63
+  const wBot = ChillFlightLogic.ROAD_WIDTH - 9; // 21 -> total width 42
+  const yTop = -0.75; // Flush against bottom of deck
+  const yBot = -4.75; // Depth of 4.0 units
+  shape.moveTo(-wTop, yTop);
+  shape.lineTo(wTop, yTop);
+  shape.lineTo(wBot, yBot);
+  shape.lineTo(-wBot, yBot);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: BRIDGE_SEGMENT_LENGTH,
+    bevelEnabled: false,
+  });
+  geo.translate(0, 0, -BRIDGE_SEGMENT_LENGTH / 2);
+  geo.computeVertexNormals();
+  return geo;
+}
+const bridgeGirderGeo = createBridgeGirderGeometry();
 
-const bridgeRailGeo = new THREE.BoxGeometry(0.5, 3, BRIDGE_SEGMENT_LENGTH);
-const bridgeDeckMat = createMaterial({color: 0x555555, flatShading: true}); // Concrete gray
-const bridgePilingMat = createMaterial({color: 0x4a4a4a, flatShading: true}); // Slightly darker
+// 3. Modern parapet railings for bridge spans
+const bridgeRailGeo = new THREE.BoxGeometry(1.2, 2.6, BRIDGE_SEGMENT_LENGTH);
+
+// 4. Hammerhead pier cap (sculpted concrete bracket supporting the deck)
+function createBridgePierCapGeometry() {
+  const shape = new THREE.Shape();
+  const wTop = ChillFlightLogic.ROAD_WIDTH - 2; // 28 -> spans 56 units under the deck
+  const wSeat = 6.5; // Shaft seat width 13 units
+  const yTop = -0.75; // Flush with deck bottom
+  const yTip = -2.2; // Tapered outer cantilever wings
+  const ySeat = -7.0; // Seat for pylon shaft
+  shape.moveTo(-wTop, yTop);
+  shape.lineTo(wTop, yTop);
+  shape.lineTo(wTop, yTip);
+  shape.lineTo(wSeat, ySeat);
+  shape.lineTo(-wSeat, ySeat);
+  shape.lineTo(-wTop, yTip);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: 8,
+    bevelEnabled: false,
+  });
+  geo.translate(0, 0, -4);
+  geo.computeVertexNormals();
+  return geo;
+}
+const bridgePierCapGeo = createBridgePierCapGeometry();
+
+// 5. Faceted octagonal pylon shaft (scalable Y)
+function createBridgePierShaftGeometry() {
+  // Octagonal column, width 10, depth 8, height 1.0 (from Y=0 down to Y=-1)
+  const geo = new THREE.CylinderGeometry(1, 1, 1, 8);
+  geo.scale(5.0, 1, 4.0);
+  geo.translate(0, -0.5, 0); // Origin at top so scaling Y stretches downward
+  geo.computeVertexNormals();
+  return geo;
+}
+const bridgePierShaftGeo = createBridgePierShaftGeometry();
+
+// 6. Foundation caisson footing (anchors pier into terrain/water)
+function createBridgePierFootingGeometry() {
+  const geo = new THREE.CylinderGeometry(1, 1, 4.5, 8);
+  geo.scale(7.5, 1, 6.5); // Width 15, depth 13, height 4.5
+  geo.computeVertexNormals();
+  return geo;
+}
+const bridgePierFootingGeo = createBridgePierFootingGeometry();
+
+// Expose geometries for debug model viewer and global access
+if (typeof window !== 'undefined') {
+  window.bridgeGirderGeo = bridgeGirderGeo;
+  window.bridgePierCapGeo = bridgePierCapGeo;
+  window.bridgePierShaftGeo = bridgePierShaftGeo;
+  window.bridgePierFootingGeo = bridgePierFootingGeo;
+}
+
+const bridgeDeckMat = createMaterial({color: 0x4a4a4a, flatShading: true}); // Asphalt gray
+const bridgePilingMat = createMaterial({color: 0x626262, flatShading: true}); // Concrete gray
+const bridgeGirderMat = createMaterial({color: 0x555555, flatShading: true}); // Girder concrete gray
+if (typeof window !== 'undefined') {
+  window.bridgeGirderMat = bridgeGirderMat;
+}
 
 // Streetlight geometries
 const streetlightPoleGeo = new THREE.CylinderGeometry(0.5, 0.8, 25, 6);
@@ -6152,50 +6224,104 @@ function* generateChunk(chunkX, chunkZ) {
       }
 
       if (bridgePositions.length > 0) {
-        // Count how many pilings and railings we need
-        let numPilings = 0;
-        let numArches = 0;
+        // 1. Determine which segments need girders, railings, and piers
+        let numGirderSegments = 0;
         let numRailSegments = 0;
-        bridgePositions.forEach((p) => {
-          if (p.needsPilings) {
-            numPilings += 6; // 2 main pillars + 4 spandrel columns
-            numArches += 2; // 2 arches
-            numRailSegments += 1;
+        let numPiers = 0;
+
+        bridgePositions.forEach((pos) => {
+          if (pos.needsPilings) {
+            numGirderSegments++;
+            numRailSegments++;
+
+            const midZ = (pos.z + pos.nextPos.z) / 2;
+            const globalZ = worldOffsetZ + midZ;
+            const globalSegmentIndex = Math.round(
+              globalZ / BRIDGE_SEGMENT_LENGTH
+            );
+            // Place major piers every 4 segments (120 units)
+            pos.hasPier = Math.abs(globalSegmentIndex) % 4 === 0;
+          } else {
+            pos.hasPier = false;
           }
         });
 
-        // Bridge decks
+        // Ensure short elevated bridge runs that missed the % 4 cadence still get at least one central pier
+        let runStart = -1;
+        for (let i = 0; i <= bridgePositions.length; i++) {
+          const isElevated =
+            i < bridgePositions.length && bridgePositions[i].needsPilings;
+          if (isElevated && runStart === -1) {
+            runStart = i;
+          } else if (!isElevated && runStart !== -1) {
+            let hasAnyPier = false;
+            let maxClearanceIdx = runStart;
+            let maxClearance = -1;
+            for (let j = runStart; j < i; j++) {
+              if (bridgePositions[j].hasPier) hasAnyPier = true;
+              const cl = bridgePositions[j].y - bridgePositions[j].terrainH;
+              if (cl > maxClearance) {
+                maxClearance = cl;
+                maxClearanceIdx = j;
+              }
+            }
+            if (!hasAnyPier && maxClearance > 12) {
+              bridgePositions[maxClearanceIdx].hasPier = true;
+            }
+            runStart = -1;
+          }
+        }
+
+        bridgePositions.forEach((p) => {
+          if (p.hasPier) numPiers++;
+        });
+
+        // Road decks (paper-thin, for all segments)
         const deckInst = getInstancedMesh(
           bridgeDeckGeo,
           bridgeDeckMat,
           bridgePositions.length
         );
 
-        // Pilings
-        const pilingInst = getInstancedMesh(
-          bridgePilingGeo,
-          bridgePilingMat,
-          numPilings > 0 ? numPilings : 1 // Avoid 0 size buffer error
+        // Box girders (trapezoidal underside, only for elevated bridge sections)
+        const girderInst = getInstancedMesh(
+          bridgeGirderGeo,
+          bridgeGirderMat,
+          numGirderSegments > 0 ? numGirderSegments : 1
         );
 
-        // Arches
-        const archInst = getInstancedMesh(
-          bridgeArchGeo,
-          bridgePilingMat,
-          numArches > 0 ? numArches : 1
-        );
-
-        // Railings — 2 per segment (one on each side) ONLY for bridge sections
+        // Railings (2 per segment, only for elevated bridge sections)
         const railInst = getInstancedMesh(
           bridgeRailGeo,
-          bridgeDeckMat,
+          bridgePilingMat,
           numRailSegments > 0 ? numRailSegments * 2 : 1
         );
 
-        const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 2;
-        let pilingIndex = 0;
-        let archIndex = 0;
+        // Pier caps (sculpted hammerhead brackets)
+        const pierCapInst = getInstancedMesh(
+          bridgePierCapGeo,
+          bridgePilingMat,
+          numPiers > 0 ? numPiers : 1
+        );
+
+        // Pier shafts (faceted octagonal pylons)
+        const pierShaftInst = getInstancedMesh(
+          bridgePierShaftGeo,
+          bridgePilingMat,
+          numPiers > 0 ? numPiers : 1
+        );
+
+        // Pier footings (foundation caissons)
+        const pierFootingInst = getInstancedMesh(
+          bridgePierFootingGeo,
+          bridgePilingMat,
+          numPiers > 0 ? numPiers : 1
+        );
+
+        const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 1.4;
+        let girderIndex = 0;
         let railIndex = 0;
+        let pierIndex = 0;
 
         // Streetlights
         let slFrequency = 2; // Normal: every other segment
@@ -6260,7 +6386,7 @@ function* generateChunk(chunkX, chunkZ) {
           const midVec = currentVec.clone().lerp(nextVec, 0.5);
           const dist = currentVec.distanceTo(nextVec);
 
-          // Deck
+          // 1. Deck (paper-thin, for all segments)
           dummy.position.copy(midVec);
           dummy.lookAt(nextVec);
           dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
@@ -6274,69 +6400,54 @@ function* generateChunk(chunkX, chunkZ) {
           );
           const yaw = euler.y;
 
-          // Pilings and Arches
+          // 2. Box Girder & Railings (only for elevated bridge segments)
           if (pos.needsPilings) {
-            const pilingHeight = midVec.y - pos.terrainH;
-            if (pilingHeight > 0) {
-              // 1. Main pilings at the start of the segment
-              [-halfRoadW, halfRoadW].forEach((xOff) => {
-                const zOff = -BRIDGE_SEGMENT_LENGTH / 2;
-                const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
-                const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
+            dummy.position.copy(midVec);
+            dummy.lookAt(nextVec);
+            dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+            dummy.updateMatrix();
+            girderInst.setMatrixAt(girderIndex++, dummy.matrix);
 
-                dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
-                dummy.rotation.set(0, yaw, 0); // Keep them vertical
-                dummy.scale.set(1, pilingHeight, 1);
-                dummy.updateMatrix();
-                pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
-              });
-
-              // 2. Semi-circular arches spanning the segment
-              [-halfRoadW, halfRoadW].forEach((xOff) => {
-                const zOff = 0;
-                const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
-                const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
-
-                dummy.position.set(
-                  midVec.x + dx,
-                  midVec.y - BRIDGE_SEGMENT_LENGTH / 2,
-                  midVec.z + dz
-                );
-                dummy.rotation.set(0, yaw, 0);
-                dummy.scale.set(1, 1, 1);
-                dummy.updateMatrix();
-                archInst.setMatrixAt(archIndex++, dummy.matrix);
-              });
-
-              // 3. Spandrel columns (short columns on top of the arch)
-              [-halfRoadW, halfRoadW].forEach((xOff) => {
-                [-BRIDGE_SEGMENT_LENGTH / 4, BRIDGE_SEGMENT_LENGTH / 4].forEach(
-                  (zOff) => {
-                    const dx = xOff * Math.cos(yaw) + zOff * Math.sin(yaw);
-                    const dz = -xOff * Math.sin(yaw) + zOff * Math.cos(yaw);
-                    dummy.position.set(midVec.x + dx, midVec.y, midVec.z + dz);
-                    dummy.rotation.set(0, yaw, 0);
-                    dummy.scale.set(1, 2.5, 1); // Sink into the arch slightly
-                    dummy.updateMatrix();
-                    pilingInst.setMatrixAt(pilingIndex++, dummy.matrix);
-                  }
-                );
-              });
-            }
-          }
-
-          // Railings — one on each side, only if it's a bridge section
-          if (pos.needsPilings) {
+            // Railings — one on each side, sitting flush on top of deck (+0.75)
             [-halfRoadW, halfRoadW].forEach((xOff) => {
-              // Apply deck's rotation to local offset
               dummy.position.copy(midVec);
               dummy.lookAt(nextVec);
               dummy.translateX(xOff);
-              dummy.translateY(2);
+              dummy.translateY(2.05);
               dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
               dummy.updateMatrix();
               railInst.setMatrixAt(railIndex++, dummy.matrix);
             });
+          }
+
+          // 3. Viaduct Piers (every 120 units on elevated sections)
+          if (pos.hasPier) {
+            const targetGroundY = Math.max(WATER_LEVEL, pos.terrainH);
+            const seatY = midVec.y - 7.0;
+            const shaftHeight = Math.max(0, seatY - targetGroundY);
+
+            // Hammerhead pier cap (sits flush under deck)
+            dummy.position.set(midVec.x, midVec.y, midVec.z);
+            dummy.rotation.set(0, yaw, 0);
+            dummy.scale.set(1, 1, 1);
+            dummy.updateMatrix();
+            pierCapInst.setMatrixAt(pierIndex, dummy.matrix);
+
+            // Faceted pylon shaft (stretches from pier cap seat down to ground/water)
+            dummy.position.set(midVec.x, seatY, midVec.z);
+            dummy.rotation.set(0, yaw, 0);
+            dummy.scale.set(1, shaftHeight, 1);
+            dummy.updateMatrix();
+            pierShaftInst.setMatrixAt(pierIndex, dummy.matrix);
+
+            // Foundation footing (anchored into ground/water)
+            dummy.position.set(midVec.x, targetGroundY + 1.5, midVec.z);
+            dummy.rotation.set(0, yaw, 0);
+            dummy.scale.set(1, 1, 1);
+            dummy.updateMatrix();
+            pierFootingInst.setMatrixAt(pierIndex, dummy.matrix);
+
+            pierIndex++;
           }
 
           // Streetlights
@@ -6363,11 +6474,18 @@ function* generateChunk(chunkX, chunkZ) {
                 midVec.z + dzSl
               );
 
-              const structure = ModelAssembler.getStructure(
-                'streetlight',
-                slYaw
-              );
-              structure.forEach((part, pIdx) => {
+              // Position pole, arm, bulb
+              const slParts = [
+                {geo: streetlightPoleGeo, rot: [0, slYaw, 0], pos: [0, 0, 0]},
+                {geo: streetlightArmGeo, rot: [0, slYaw, 0], pos: [0, 0, 0]},
+                {
+                  geo: streetlightBulbGeo,
+                  rot: [0, slYaw, 0],
+                  pos: [17 * Math.cos(slYaw), 23.8, -17 * Math.sin(slYaw)],
+                },
+              ];
+
+              slParts.forEach((part, pIdx) => {
                 dummy.position.set(
                   slPos.x + part.pos[0],
                   slPos.y + part.pos[1],
@@ -6411,19 +6529,23 @@ function* generateChunk(chunkX, chunkZ) {
         deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
         group.add(deckInst);
 
+        if (numGirderSegments > 0) {
+          girderInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(girderInst);
+        }
+
         if (numRailSegments > 0) {
           railInst.position.set(worldOffsetX, 0, worldOffsetZ);
           group.add(railInst);
         }
 
-        if (numPilings > 0) {
-          pilingInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(pilingInst);
-        }
-
-        if (numArches > 0) {
-          archInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(archInst);
+        if (numPiers > 0) {
+          pierCapInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          pierShaftInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          pierFootingInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          group.add(pierCapInst);
+          group.add(pierShaftInst);
+          group.add(pierFootingInst);
         }
 
         if (numStreetlights > 0) {
