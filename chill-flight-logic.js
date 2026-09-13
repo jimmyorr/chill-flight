@@ -590,8 +590,8 @@
     }
 
     // Strict water level clamping
-    if (n < WATER_LEVEL - 1) {
-      n = WATER_LEVEL - 1;
+    if (n < WATER_LEVEL - 10) {
+      n = WATER_LEVEL - 10;
     }
 
     // Apply Massive Mountain Range - Procedural
@@ -988,15 +988,16 @@
         n -= depth * ef;
       }
 
-      if (n < WATER_LEVEL - 1) n = WATER_LEVEL - 1;
+      if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
     }
 
     // Final water level clamp
-    if (n < WATER_LEVEL - 1) {
-      n = WATER_LEVEL - 1;
+    if (n < WATER_LEVEL - 10) {
+      n = WATER_LEVEL - 10;
     }
 
     // --- FROZEN NORTH ICE SHELF ---
+    let isIceShelf = false;
     // Start freezing around 4°N (Z=-20000), fully frozen ~5000 units later
     const freezeBoundaryZ =
       -20000 + simplex.noise2D(x * 0.0002, z * 0.0002) * 2000;
@@ -1008,21 +1009,29 @@
           WATER_LEVEL +
           3 +
           Math.abs(simplex.noise2D(x * 0.0005, z * 0.0005)) * 4;
-        let blendedIce = _lerp(n, targetIceLevel, freezeFactor);
 
-        // Pack ice has a distinct edge. If it's barely above water, snap it up to avoid Z-fighting.
-        if (blendedIce > WATER_LEVEL && blendedIce < WATER_LEVEL + 2.5) {
-          blendedIce = WATER_LEVEL + 2.5;
-        }
+        // Instead of lerping the height (which creates a gentle slope that z-fights with waves),
+        // we use a noise threshold to create an organic, sharp ice cliff.
+        // We use a low-frequency noise (0.0005) so the boundary doesn't alias/flicker on low-LOD chunks.
+        const edgeNoise = simplex.noise2D(x * 0.0005, z * 0.0005) * 0.5 + 0.5; // 0 to 1
 
-        if (n < blendedIce) {
-          n = blendedIce;
+        if (freezeFactor > edgeNoise) {
+          if (n < targetIceLevel) {
+            n = targetIceLevel;
+            isIceShelf = true;
+          }
         }
       }
     }
 
     // East coast beach widening: stretch the slope near the water level to create wider beaches
-    if (eastCoastFactor > 0 && n > WATER_LEVEL && n < WATER_LEVEL + 15.0) {
+    // We strictly bypass this if we've generated an ice shelf, otherwise it crushes the ice cliff down into the wave intersection zone!
+    if (
+      !isIceShelf &&
+      eastCoastFactor > 0 &&
+      n > WATER_LEVEL &&
+      n < WATER_LEVEL + 15.0
+    ) {
       const t = (n - WATER_LEVEL) / 15.0;
       const easedT = Math.pow(t, 2.5); // Pulls heights down towards WATER_LEVEL, flattening the beach
       n = WATER_LEVEL + easedT * 15.0;

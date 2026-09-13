@@ -4512,12 +4512,24 @@ function* generateChunk(chunkX, chunkZ) {
         // Generate a local mottle for the ice texturing
         const iceMottle = simplex.noise2D(worldX * 0.01, worldZ * 0.01);
 
-        // Blend everything toward snow, with slight noise variation
-        _tempColorObj.lerp(_colorPackIce, freezeFactor);
+        // If the physical height indicates this is the ice shelf (or land), force it to be white
+        let isPhysicalIceShelf = false;
+        let visualFreeze = freezeFactor;
+        if (height >= WATER_LEVEL + 2.8) {
+          visualFreeze = Math.max(visualFreeze, 0.95);
+          isPhysicalIceShelf = true;
+        }
+
+        // Blend everything toward snow/ice. If it's the physical ice shelf, use pure white so it doesn't look like teal water.
+        const targetColor = isPhysicalIceShelf
+          ? new THREE.Color(0xffffff)
+          : _colorPackIce;
+        _tempColorObj.lerp(targetColor, visualFreeze);
+
         if (iceMottle > 0) {
           _tempColorObj.lerpHSL(
             new THREE.Color(0xffffff),
-            iceMottle * 0.15 * freezeFactor
+            iceMottle * 0.15 * visualFreeze
           );
         } else {
           _tempColorObj.lerpHSL(
