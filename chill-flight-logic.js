@@ -632,24 +632,45 @@
         );
 
         if (baseFalloff > 0.01) {
-          // 2. Sharper peaks (Power function)
+          // 2. Sharper peaks (Power function with natural alpine taper)
           const peakRadius = 1800;
           const peakDist = Math.min(peakRadius, dist);
-          // Increased exponent to 2.8 for steeper ascent curves
-          const peakShape = Math.pow(1.0 - peakDist / peakRadius, 2.8);
+          const peakShape = Math.pow(1.0 - peakDist / peakRadius, 1.8);
 
-          // 3. Ridged Multi-Fractal ruggedness (Sharp Peaks)
-          // Math.abs creates valleys, 1.0 - Math.abs flips them into sharp ridges
+          // 3. Ridged Multi-Fractal ruggedness (Pyramidal Alpine Horns & Arêtes)
           let ruggedness;
           if (options.forRoad) {
             // Smooth mountain pass grade for highway without knife-edge crag spikes
             ruggedness = 0.25;
           } else {
-            let ridge1 = 1.0 - Math.abs(simplex.noise2D(x * 0.002, z * 0.002));
-            let ridge2 = 1.0 - Math.abs(simplex.noise2D(x * 0.006, z * 0.006));
-            ridge1 *= ridge1;
-            ridge2 *= ridge2;
-            ruggedness = ridge1 * 0.8 + ridge2 * 0.4 + 0.1;
+            // Domain warping curves ridges into natural serpentine mountain crests
+            const warpX =
+              simplex.noise2D(x * 0.0004 + rangeLat * 12.3, z * 0.0004) * 350;
+            const warpZ =
+              simplex.noise2D(x * 0.0004, z * 0.0004 + rangeLat * 34.5) * 350;
+            const qx = x + warpX;
+            const qz = z + warpZ;
+
+            // 3-octave ridged multifractal: broad massifs -> arêtes -> crags
+            let r1 = 1.0 - Math.abs(simplex.noise2D(qx * 0.0007, qz * 0.0007));
+            r1 = Math.pow(r1, 1.3);
+
+            let r2 =
+              1.0 -
+              Math.abs(
+                simplex.noise2D(qx * 0.0016 + 127.1, qz * 0.0016 + 311.7)
+              );
+            r2 = Math.pow(r2, 1.4);
+
+            let r3 =
+              1.0 -
+              Math.abs(
+                simplex.noise2D(qx * 0.0035 + 241.3, qz * 0.0035 + 189.5)
+              );
+
+            // Multifractal modulation: fine arête gullies crest along the main peaks
+            ruggedness =
+              r1 * 0.6 + r2 * 0.28 * r1 + r3 * 0.12 * (r1 * 0.5 + 0.5);
           }
 
           // Combine: Peaks rise out of the broad base mass
