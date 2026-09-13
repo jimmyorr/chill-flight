@@ -640,14 +640,17 @@
 
           // 3. Ridged Multi-Fractal ruggedness (Sharp Peaks)
           // Math.abs creates valleys, 1.0 - Math.abs flips them into sharp ridges
-          let ridge1 = 1.0 - Math.abs(simplex.noise2D(x * 0.002, z * 0.002));
-          let ridge2 = 1.0 - Math.abs(simplex.noise2D(x * 0.006, z * 0.006));
-
-          // Squaring the ridges sharpens the drop-off even further
-          ridge1 *= ridge1;
-          ridge2 *= ridge2;
-
-          const ruggedness = ridge1 * 0.8 + ridge2 * 0.4 + 0.1;
+          let ruggedness;
+          if (options.forRoad) {
+            // Smooth mountain pass grade for highway without knife-edge crag spikes
+            ruggedness = 0.25;
+          } else {
+            let ridge1 = 1.0 - Math.abs(simplex.noise2D(x * 0.002, z * 0.002));
+            let ridge2 = 1.0 - Math.abs(simplex.noise2D(x * 0.006, z * 0.006));
+            ridge1 *= ridge1;
+            ridge2 *= ridge2;
+            ruggedness = ridge1 * 0.8 + ridge2 * 0.4 + 0.1;
+          }
 
           // Combine: Peaks rise out of the broad base mass
           const baseHeight = 300 * baseFalloff; // Smooth foothold
@@ -795,7 +798,7 @@
           simplex,
           constants,
           _lerp,
-          {ignoreRivers: true, ignoreRoads: true}
+          {ignoreRivers: true, ignoreRoads: true, forRoad: true}
         );
 
         if (roadCenterX >= 0) {
@@ -824,8 +827,8 @@
             }
 
             if (carveFactor > 0) {
-              // roadY - 1 avoids z-fighting with the road deck
-              n = _lerp(n, roadY - 1, carveFactor);
+              // roadY - 2.5 avoids clipping and z-fighting with the road deck
+              n = _lerp(n, roadY - 2.5, carveFactor);
             }
           }
         }

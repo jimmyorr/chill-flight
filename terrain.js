@@ -6160,67 +6160,111 @@ function* generateChunk(chunkX, chunkZ) {
           typeof MOUNTAIN_LEVEL !== 'undefined' ? MOUNTAIN_LEVEL : 180,
       };
 
+      const margin = 900;
+      const rawSamples = [];
+      const minHeight = WATER_LEVEL + 60;
+
       for (
-        let sampleZ = -halfChunk;
-        sampleZ < halfChunk;
+        let sampleZ = -halfChunk - margin;
+        sampleZ <= halfChunk + margin;
         sampleZ += sampleStep
       ) {
         const wz = worldOffsetZ + sampleZ + sampleStep / 2;
         const roadX = ChillFlightLogic.getRoadCenterX(wz, n);
-        const localRoadX = roadX - worldOffsetX;
+        if (roadX >= 0) continue;
 
-        // Check if the road center is inside this chunk (with some margin)
-        if (Math.abs(localRoadX) > halfChunk + 50) continue;
-
-        // Get natural terrain height (ignoring rivers and trenches) for smooth road elevation
         const naturalH = ChillFlightLogic.getElevation(
           roadX,
           wz,
           simplex,
           constants,
           null,
-          {ignoreRivers: true, ignoreRoads: true}
+          {ignoreRivers: true, ignoreRoads: true, forRoad: true}
         );
+        let rawY = minHeight + (naturalH - minHeight) * 0.85;
+        rawY = Math.max(rawY, minHeight);
+        rawY = Math.min(rawY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 
-        if (roadX >= 0) continue;
-
-        // Ensure minimum clearance height over water and max height for trenches
-        const minHeight = WATER_LEVEL + 60;
-        let roadY = minHeight + (naturalH - minHeight) * 0.85;
-        roadY = Math.max(roadY, minHeight);
-        roadY = Math.min(roadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
-
-        // Actual terrain height (including rivers) to determine if we need pilings
         const actualTerrainH = getElevation(roadX, wz);
-        const needsPilings = roadY - actualTerrainH > 10;
 
-        // Calculate the next point on the road to determine slope and yaw
-        const nextWz = wz + sampleStep;
-        const nextRoadX = ChillFlightLogic.getRoadCenterX(nextWz, n);
-        const nextNaturalH = ChillFlightLogic.getElevation(
-          nextRoadX,
-          nextWz,
-          simplex,
-          constants,
-          null,
-          {ignoreRivers: true, ignoreRoads: true}
-        );
-        let nextRoadY = minHeight + (nextNaturalH - minHeight) * 0.85;
-        nextRoadY = Math.max(nextRoadY, minHeight);
-        nextRoadY = Math.min(nextRoadY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
-
-        bridgePositions.push({
-          x: localRoadX,
-          y: roadY,
-          z: sampleZ + sampleStep / 2,
-          needsPilings: needsPilings,
-          terrainH: actualTerrainH,
-          nextPos: {
-            x: nextRoadX - worldOffsetX,
-            y: nextRoadY,
-            z: sampleZ + sampleStep * 1.5,
-          },
+        rawSamples.push({
+          sampleZ,
+          wz,
+          roadX,
+          localRoadX: roadX - worldOffsetX,
+          rawY,
+          actualTerrainH,
         });
+      }
+
+      if (rawSamples.length > 0) {
+        // 1. Identify elevated bridge spans over water / deep canyons
+        const isBridgeSegment = new Uint8Array(rawSamples.length);
+        for (let i = 0; i < rawSamples.length; i++) {
+          isBridgeSegment[i] =
+            rawSamples[i].rawY - rawSamples[i].actualTerrainH > 10 ? 1 : 0;
+        }
+
+        // Ground highway segments follow rawY directly to sit flush with the carved canyon floor
+        const finalY = new Float32Array(rawSamples.length);
+        for (let i = 0; i < rawSamples.length; i++) {
+          finalY[i] = Math.max(
+            rawSamples[i].rawY,
+            rawSamples[i].actualTerrainH + 1.0
+          );
+        }
+
+        // 2. Linearly grade elevated bridge spans between entry and exit abutments to remove jagged elevation changes
+        let runStart = -1;
+        for (let i = 0; i <= rawSamples.length; i++) {
+          const isElevated = i < rawSamples.length && isBridgeSegment[i] === 1;
+          if (isElevated && runStart === -1) {
+            runStart = i;
+          } else if (!isElevated && runStart !== -1) {
+            const runEnd = i - 1;
+            const yStart =
+              runStart > 0 ? finalY[runStart - 1] : finalY[runStart];
+            const yEnd =
+              runEnd < rawSamples.length - 1
+                ? finalY[runEnd + 1]
+                : finalY[runEnd];
+            const spanLen = runEnd - runStart + 2;
+            for (let k = runStart; k <= runEnd; k++) {
+              const t = (k - runStart + 1) / spanLen;
+              finalY[k] = Math.max(minHeight, yStart + (yEnd - yStart) * t);
+              finalY[k] = Math.max(
+                finalY[k],
+                rawSamples[k].actualTerrainH + 1.0
+              );
+            }
+            runStart = -1;
+          }
+        }
+
+        // 3. Assemble bridgePositions for this chunk
+        for (let i = 0; i < rawSamples.length - 1; i++) {
+          const curr = rawSamples[i];
+          const next = rawSamples[i + 1];
+
+          // Only keep segments whose center falls inside this chunk
+          if (curr.sampleZ < -halfChunk || curr.sampleZ >= halfChunk) continue;
+          if (Math.abs(curr.localRoadX) > halfChunk + 50) continue;
+
+          const needsPilings = finalY[i] - curr.actualTerrainH > 10;
+
+          bridgePositions.push({
+            x: curr.localRoadX,
+            y: finalY[i],
+            z: curr.sampleZ + sampleStep / 2,
+            needsPilings: needsPilings,
+            terrainH: curr.actualTerrainH,
+            nextPos: {
+              x: next.localRoadX,
+              y: finalY[i + 1],
+              z: curr.sampleZ + sampleStep * 1.5,
+            },
+          });
+        }
       }
 
       if (bridgePositions.length > 0) {
