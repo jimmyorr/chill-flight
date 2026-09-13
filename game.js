@@ -1974,7 +1974,8 @@ let wasRainClearing = true;
 // --- DYNAMIC PERFORMANCE SCALING ---
 class DynamicPerformanceMonitor {
   constructor() {
-    this.frameTimeRing = new Float32Array(60);
+    this.windowSize = 120;
+    this.frameTimeRing = new Float32Array(this.windowSize);
     this.ringIndex = 0;
     this.ringSum = 0;
     this.ringCount = 0;
@@ -1994,14 +1995,14 @@ class DynamicPerformanceMonitor {
   update(delta) {
     const frameTimeMs = delta * 1000;
 
-    if (this.ringCount < 60) {
+    if (this.ringCount < this.windowSize) {
       this.ringSum += frameTimeMs;
       this.ringCount++;
     } else {
       this.ringSum += frameTimeMs - this.frameTimeRing[this.ringIndex];
     }
     this.frameTimeRing[this.ringIndex] = frameTimeMs;
-    this.ringIndex = (this.ringIndex + 1) % 60;
+    this.ringIndex = (this.ringIndex + 1) % this.windowSize;
 
     if (this.cooldownFrames > 0) {
       this.cooldownFrames--;
@@ -2009,7 +2010,7 @@ class DynamicPerformanceMonitor {
     }
 
     if (this.ringCount >= 60) {
-      const avgFrameTime = this.ringSum / 60;
+      const avgFrameTime = this.ringSum / this.ringCount;
       let changed = false;
 
       // Step down LOD if struggling, step up if hitting target
@@ -2050,6 +2051,27 @@ class DynamicPerformanceMonitor {
 
   getSmoothedFrameTime() {
     return this.ringCount > 0 ? this.ringSum / this.ringCount : 0;
+  }
+
+  getAvgFPS() {
+    if (this.ringCount === 0) return 0;
+    const avgMs = this.ringSum / this.ringCount;
+    return avgMs > 0 ? Math.round(1000 / avgMs) : 0;
+  }
+
+  get1PercentLowFPS() {
+    if (this.ringCount === 0) return 0;
+    const count = this.ringCount;
+    const slice = new Float32Array(count);
+    slice.set(this.frameTimeRing.subarray(0, count));
+    slice.sort();
+    const p1Count = Math.max(1, Math.floor(count * 0.05));
+    let sum = 0;
+    for (let i = count - p1Count; i < count; i++) {
+      sum += slice[i];
+    }
+    const worstMs = sum / p1Count;
+    return worstMs > 0 ? Math.round(1000 / worstMs) : 0;
   }
 
   applyEffectiveLOD() {
@@ -4678,6 +4700,24 @@ function animate() {
       const fps = Math.round(1 / delta);
       updateDOM(fpsEl, fps);
       fpsEl.style.color = getPerfColor(60 - fps, 30, 40);
+    }
+
+    const avgFpsEl = getCachedElement('debug-avg-fps');
+    const lowFpsEl = getCachedElement('debug-fps-low');
+    if ((avgFpsEl || lowFpsEl) && window.performanceMonitor) {
+      if (!window._lastFpsAggUpdate || now - window._lastFpsAggUpdate > 250) {
+        window._lastFpsAggUpdate = now;
+        const avgFps = window.performanceMonitor.getAvgFPS();
+        const lowFps = window.performanceMonitor.get1PercentLowFPS();
+        if (avgFpsEl) {
+          updateDOM(avgFpsEl, avgFps);
+          avgFpsEl.style.color = getPerfColor(60 - avgFps, 30, 40);
+        }
+        if (lowFpsEl) {
+          updateDOM(lowFpsEl, lowFps);
+          lowFpsEl.style.color = getPerfColor(60 - lowFps, 30, 40);
+        }
+      }
     }
 
     const heapEl = getCachedElement('debug-heap');
