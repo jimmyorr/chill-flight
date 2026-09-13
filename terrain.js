@@ -63,9 +63,12 @@ function releaseInstancedMesh(mesh) {
   }
 
   mesh.userData = {};
-  if (mesh.parent) mesh.removeFromParent();
+  if (mesh.parent) mesh.parent.remove(mesh);
 
-  _instancedMeshPool.get(key).push(mesh);
+  const pool = _instancedMeshPool.get(key);
+  if (!pool.includes(mesh)) {
+    pool.push(mesh);
+  }
 }
 
 let chunkQueue = [];
@@ -3698,7 +3701,7 @@ class GlobalInstanceManager {
   }
 
   registerType(type, geo, mat, maxInstances = 30000, useColor = false) {
-    const instMesh = getInstancedMesh(geo, mat, maxInstances);
+    const instMesh = new THREE.InstancedMesh(geo, mat, maxInstances);
     instMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     if (useColor) {
       instMesh.instanceColor = new THREE.InstancedBufferAttribute(
@@ -3735,26 +3738,41 @@ class GlobalInstanceManager {
         const typeInfo = this.types.get(type);
         const mesh = typeInfo.mesh;
         let count = this.counts.get(type);
+        const maxInstances = typeInfo.maxInstances;
 
-        for (let i = 0; i < data.length; i++) {
-          if (count >= typeInfo.maxInstances) break;
-          mesh.setMatrixAt(count, data[i].matrix);
-          if (typeInfo.useColor && data[i].color) {
-            mesh.setColorAt(count, data[i].color);
-          }
-          count++;
+        const numToCopy = Math.min(data.count, maxInstances - count);
+        if (numToCopy <= 0) continue;
+
+        const matrixSubArray = data.matrices.subarray(0, numToCopy * 16);
+        mesh.instanceMatrix.array.set(matrixSubArray, count * 16);
+
+        if (typeInfo.useColor) {
+          const colorSubArray = data.colors.subarray(0, numToCopy * 3);
+          mesh.instanceColor.array.set(colorSubArray, count * 3);
         }
-        this.counts.set(type, count);
+
+        this.counts.set(type, count + numToCopy);
       }
     });
 
     for (const [type, typeInfo] of this.types.entries()) {
-      typeInfo.mesh.count = this.counts.get(type);
-      typeInfo.mesh.instanceMatrix.needsUpdate = true;
-      if (typeInfo.useColor) {
-        typeInfo.mesh.instanceColor.needsUpdate = true;
+      const count = this.counts.get(type);
+      typeInfo.mesh.count = count;
+      if (count > 0) {
+        if (typeInfo.mesh.instanceMatrix) {
+          typeInfo.mesh.instanceMatrix.updateRange.offset = 0;
+          typeInfo.mesh.instanceMatrix.updateRange.count = count * 16;
+          typeInfo.mesh.instanceMatrix.needsUpdate = true;
+        }
+        if (typeInfo.useColor && typeInfo.mesh.instanceColor) {
+          typeInfo.mesh.instanceColor.updateRange.offset = 0;
+          typeInfo.mesh.instanceColor.updateRange.count = count * 3;
+          typeInfo.mesh.instanceColor.needsUpdate = true;
+        }
+        typeInfo.mesh.visible = _enableObjects;
+      } else {
+        typeInfo.mesh.visible = false;
       }
-      typeInfo.mesh.visible = _enableObjects;
     }
   }
 }
@@ -3766,12 +3784,42 @@ class ChunkDataCollector {
   constructor() {
     this.data = {};
   }
+
   add(type, matrix, color = null) {
-    if (!this.data[type]) this.data[type] = [];
-    this.data[type].push({
-      matrix: matrix.clone(),
-      color: color ? color.clone() : null,
-    });
+    if (!this.data[type]) {
+      const initialCapacity = 256;
+      this.data[type] = {
+        matrices: new Float32Array(initialCapacity * 16),
+        colors: new Float32Array(initialCapacity * 3),
+        count: 0,
+        capacity: initialCapacity,
+      };
+    }
+
+    const d = this.data[type];
+
+    if (d.count >= d.capacity) {
+      const newCapacity = d.capacity * 2;
+      const newMatrices = new Float32Array(newCapacity * 16);
+      newMatrices.set(d.matrices);
+      d.matrices = newMatrices;
+
+      const newColors = new Float32Array(newCapacity * 3);
+      newColors.set(d.colors);
+      d.colors = newColors;
+
+      d.capacity = newCapacity;
+    }
+
+    d.matrices.set(matrix.elements, d.count * 16);
+
+    if (color) {
+      d.colors[d.count * 3] = color.r;
+      d.colors[d.count * 3 + 1] = color.g;
+      d.colors[d.count * 3 + 2] = color.b;
+    }
+
+    d.count++;
   }
 }
 
@@ -3846,7 +3894,17 @@ globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
 
 let _chunkHeightGrid = new Float32Array(65 * 65);
 
-function generateChunk(chunkX, chunkZ) {
+function* generateChunk(chunkX, chunkZ) {
+  const checkYield = () => {
+    if (
+      window._chunkQueueStartTime &&
+      window._chunkQueueTimeBudget &&
+      performance.now() - window._chunkQueueStartTime >
+        window._chunkQueueTimeBudget
+    )
+      return true;
+    return false;
+  };
   const collector = new ChunkDataCollector();
   const group = new THREE.Group();
   group.userData.chunkX = chunkX;
@@ -3856,7 +3914,6 @@ function generateChunk(chunkX, chunkZ) {
     0,
     chunkZ * CHUNK_SIZE
   );
-  scene.add(group);
 
   const rng = ChillFlightLogic.chunkRng(chunkX, chunkZ);
   const isCustom = !!ChillFlightLogic.customMap;
@@ -3954,6 +4011,7 @@ function generateChunk(chunkX, chunkZ) {
 
   // Pass 1: Compute height for all grid vertices once
   for (let vertIdx = 0; vertIdx < totalVerts; vertIdx++) {
+    if (vertIdx % 200 === 0 && checkYield()) yield;
     const i = vertIdx * 3;
     const localX = positions[i];
     const localZ = positions[i + 2];
@@ -3971,6 +4029,7 @@ function generateChunk(chunkX, chunkZ) {
   const invTwoGridSpacing = 0.5 / gridSpacing;
 
   for (let i = 0; i < positions.length; i += 3) {
+    if (i % 600 === 0 && checkYield()) yield;
     const vertIdx = i / 3;
     const localX = positions[i];
     const localZ = positions[i + 2];
@@ -6947,6 +7006,7 @@ function generateChunk(chunkX, chunkZ) {
   }
 
   group.userData.instanceData = collector.data;
+  scene.add(group);
   return group;
 }
 
@@ -6964,7 +7024,11 @@ function updateChunks() {
       const cx = currentChunkX + x;
       const cz = currentChunkZ + z;
       const key = `${cx},${cz}`;
-      if (!chunks.has(key) && !chunkQueueSet.has(key)) {
+      if (
+        !chunks.has(key) &&
+        !chunkQueueSet.has(key) &&
+        !chunkGenerators.has(key)
+      ) {
         missingChunks.push({cx, cz, key, distSq: x * x + z * z});
         chunkQueueSet.add(key);
       }
@@ -6992,6 +7056,20 @@ function updateChunks() {
   chunkQueue.sort((a, b) => b.distSq - a.distSq);
 
   let chunksEvicted = false;
+
+  // Evict generators that are out of bounds
+  chunkGenerators.forEach((gen, key) => {
+    const [cxStr, czStr] = key.split(',');
+    const cx = parseInt(cxStr);
+    const cz = parseInt(czStr);
+    if (
+      Math.abs(cx - currentChunkX) > renderDistance + 1 ||
+      Math.abs(cz - currentChunkZ) > renderDistance + 1
+    ) {
+      chunkGenerators.delete(key);
+    }
+  });
+
   chunks.forEach((group, key) => {
     const cx = group.userData.chunkX;
     const cz = group.userData.chunkZ;
@@ -7030,15 +7108,21 @@ function updateChunks() {
         }
       });
 
+      // Collect instanced meshes first to avoid mutating scene graph during traversal
+      const instancedMeshesToRelease = [];
+      group.traverse((child) => {
+        if (child.isInstancedMesh) {
+          instancedMeshesToRelease.push(child);
+        }
+      });
+
       // Detach all child objects and clear chunk references
       while (group.children.length > 0) {
-        const child = group.children[0];
-        group.remove(child);
-        // Release instanced meshes recursively
-        child.traverse((c) => {
-          if (c.isInstancedMesh) releaseInstancedMesh(c);
-        });
-        if (child.isInstancedMesh) releaseInstancedMesh(child);
+        group.remove(group.children[0]);
+      }
+
+      for (let i = 0; i < instancedMeshesToRelease.length; i++) {
+        releaseInstancedMesh(instancedMeshesToRelease[i]);
       }
       group.userData.instanceData = null;
       group.userData.objectsGroup = null;
@@ -7082,29 +7166,47 @@ function updateChunks() {
   }
 }
 
-window.processChunkQueue = function (timeBudget = 4) {
-  if (chunkQueue.length === 0) return 1.0; // 100% progress when queue is empty
+const chunkGenerators = new Map();
+window.chunkGenerators = chunkGenerators;
 
-  const startTime = performance.now();
+window.processChunkQueue = function (timeBudget = 4) {
+  if (chunkQueue.length === 0 && chunkGenerators.size === 0) return 1.0; // 100% progress when queue is empty
+
+  window._chunkQueueStartTime = performance.now();
+  window._chunkQueueTimeBudget = timeBudget;
   let generatedThisFrame = 0;
 
-  while (chunkQueue.length > 0) {
-    // Optimization: Pop from end of descending-sorted array is O(1) instead of shift() which is O(N)
+  // Process active generators first
+  for (const [key, gen] of chunkGenerators.entries()) {
+    const result = gen.next();
+    if (result.done) {
+      chunks.set(key, result.value);
+      chunkGenerators.delete(key);
+      generatedThisFrame++;
+    }
+    // If we exceed time budget, stop processing generators
+    if (performance.now() - window._chunkQueueStartTime > timeBudget) {
+      break;
+    }
+  }
+
+  // If we still have budget, pop new chunks and start them
+  while (
+    chunkQueue.length > 0 &&
+    performance.now() - window._chunkQueueStartTime < timeBudget
+  ) {
     const item = chunkQueue.pop();
     chunkQueueSet.delete(item.key);
 
-    if (!chunks.has(item.key)) {
-      chunks.set(item.key, generateChunk(item.cx, item.cz));
-      generatedThisFrame++;
-    }
-
-    // Limit chunk generation per frame to maintain smoothness during gameplay
-    // If we have a large time budget (e.g. loading screen), generate as many as fit in the budget.
-    const isOverTime = performance.now() - startTime > timeBudget;
-    const isStrictFramerateLimiter = timeBudget <= 4 && generatedThisFrame >= 1;
-
-    if (isOverTime || isStrictFramerateLimiter) {
-      break;
+    if (!chunks.has(item.key) && !chunkGenerators.has(item.key)) {
+      const gen = generateChunk(item.cx, item.cz);
+      const result = gen.next();
+      if (result.done) {
+        chunks.set(item.key, result.value);
+        generatedThisFrame++;
+      } else {
+        chunkGenerators.set(item.key, gen);
+      }
     }
   }
 
@@ -7112,13 +7214,13 @@ window.processChunkQueue = function (timeBudget = 4) {
     globalInstancer.requestRebuild();
   }
 
-  const totalChunks = chunks.size + chunkQueue.length;
+  const totalChunks = chunks.size + chunkQueue.length + chunkGenerators.size;
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
 };
 
 window.getChunkLoadingProgress = function () {
-  const totalChunks = chunks.size + chunkQueue.length;
+  const totalChunks = chunks.size + chunkQueue.length + chunkGenerators.size;
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
 };
