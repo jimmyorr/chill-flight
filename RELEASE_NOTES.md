@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.16
+
+- **Environment:** Overhauled dynamic mountains with alpine horns, branching spurs, cirque bowls, rolling foothills, and altitude snowcaps. Redesigned viaduct bridges and smoothed highways.
+- **Performance:** Reduced stutter with granular chunk yields, shader pre-warming, mesh pooling, and dynamic LOD. Added benchmark profiling mode.
+- **Controls & UI:** Added URL parameters for autopilot and presets, real-time debug URL syncing, and rolling average and 1% low FPS telemetry.
+
 ## 0.9.15
 
 - **Visuals & lighting:** Extended visual sunrise duration, fixed water reflection jumps, and smoothed day-to-night transitions. Replaced regional sky calculations with palette-driven sky colors.
