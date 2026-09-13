@@ -3705,7 +3705,8 @@ function getElevation(x, z) {
 // Optimization: Pre-allocate colors used in chunk generation loop to prevent GC stalling
 const _colorPlains = new THREE.Color(0x7cb342);
 const _colorForest = new THREE.Color(0x388e3c);
-const _colorSnow = new THREE.Color(0xa2b4bc); // Off-white/slate to prevent blowout
+const _colorSnow = new THREE.Color(0xfafafa); // Crisp alpine snow white
+const _colorPackIce = new THREE.Color(0xa2b4bc); // Slate pack ice shelf
 const _colorSand = new THREE.Color(0xe0e0a8);
 const _colorDesertSand = new THREE.Color(0xf4a460);
 const _colorWater = new THREE.Color(0x40c4ff);
@@ -3719,6 +3720,10 @@ const _colorForestDesertTint = new THREE.Color(0xa0522d);
 const _colorPlainsSnowTint = new THREE.Color(0xfafafa);
 const _colorMountainDesertTint = new THREE.Color(0xcd853f);
 const _colorMountainTint = new THREE.Color(0x7f8c8d);
+const _colorAlpineRockDark = new THREE.Color(0x424a54); // Deep slate granite cliff
+const _colorAlpineRockLight = new THREE.Color(0x9ba2a8); // High ridge granite
+const _colorScree = new THREE.Color(0x736960); // Earthy scree / talus gravel
+const _colorDesertMountainRock = new THREE.Color(0xc24b2b); // Red sandstone
 const _colorIce = new THREE.Color(0x6ca6a8); // Frosty cyan ice
 const _colorAutumnForestTint = new THREE.Color(0x5d4037);
 const _colorAutumnPlainsTint = new THREE.Color(0x8d6e63);
@@ -4344,59 +4349,93 @@ function* generateChunk(chunkX, chunkZ) {
           simplex.noise2D(worldX * 0.012, worldZ * 0.012) * 0.5;
         const organicNoise = sierraSnowNoise1 + sierraSnowNoise2;
 
-        const isSouth = worldZ > 0;
-        const canHaveSnow = !isSouth;
+        const isDesertMountain = !isCustom && desertFactor > 0.35;
+        const canHaveSnow = !isDesertMountain;
 
-        if (height > 600) {
-          const baseThreshold = 1450 + organicNoise * 400;
-          if (
-            canHaveSnow &&
-            (height > baseThreshold || (height > 2000 && organicNoise > -0.5))
-          ) {
-            _tempColorObj.copy(_colorSnow);
+        // In northern snowy biomes (snowFactor > 0.3), permanent snow blankets
+        // the mountain massifs with exposed rock crags on sheer headwalls.
+        // In temperate zones, snowline sits majestically at high altitude (around 1100-1250 units).
+        let baseSnowline;
+        if (snowFactor > 0.3) {
+          baseSnowline = Math.max(WATER_LEVEL + 10, 300 - snowFactor * 400);
+        } else if (isDesertMountain) {
+          baseSnowline = 2400; // Extreme peaks only in desert
+        } else {
+          baseSnowline = 1150;
+        }
+        const snowline = baseSnowline + organicNoise * 180;
+
+        // Sheer rock cliff face detection:
+        // Snow clings to slopes up to ~65° (slopeFactor ~0.78-0.84).
+        // Truly sheer vertical headwalls and couloir walls shed snow to expose dark granite crags.
+        const cliffThreshold = snowFactor > 0.3 ? 0.84 : 0.78;
+        const isSheerCliff = slopeFactor > cliffThreshold;
+        const canHoldSnow =
+          canHaveSnow && (!isSheerCliff || height > snowline + 300);
+
+        if (canHoldSnow && height > snowline) {
+          // Alpine snowcap & couloir snow
+          const snowT = Math.min(1, (height - snowline) / 180);
+          _tempColorObj.copy(_colorSnow);
+          if (snowT < 1.0) {
+            // Transition zone: patchy snow over rock
+            const rockBase = isDesertMountain
+              ? _colorDesertMountainRock
+              : _colorMountainTint;
+            _tempColorObj.lerp(rockBase, 1.0 - snowT);
+          }
+        } else if (height > 550 || isSheerCliff) {
+          // Exposed alpine crags, cliffs, and rocky massifs
+          if (isDesertMountain) {
+            _tempColorObj.copy(_colorDesertMountainRock);
+            if (desertFactor > 0.5) _tempColorObj.lerp(_colorDesertSand, 0.35);
+            if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.25);
           } else {
-            if (isSouth) {
-              _tempColorObj.setHex(0xc24b2b); // Reddish mountain rock
-              if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
-              // Arizona mottling: subtle dark red patches
-              if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.2);
-            } else {
-              _tempColorObj.copy(
-                desertFactor > 0.5
-                  ? _colorMountainDesertTint
-                  : _colorMountainTint
+            // Alpine granite with geological strata and depth
+            const strata =
+              Math.sin(height * 0.025 + worldX * 0.0015 + worldZ * 0.001) *
+              0.15;
+            _tempColorObj.copy(_colorMountainTint);
+            if (strata > 0.04) {
+              _tempColorObj.lerp(
+                _colorAlpineRockLight,
+                Math.min(0.5, strata * 2.5)
               );
+            } else if (strata < -0.04) {
+              _tempColorObj.lerp(
+                _colorAlpineRockDark,
+                Math.min(0.6, -strata * 2.5)
+              );
+            }
+
+            // Darken steep sheer cliff faces
+            if (slopeFactor > 0.5) {
+              const cliffDarken = Math.min(1, (slopeFactor - 0.5) * 2.2);
+              _tempColorObj.lerp(_colorAlpineRockDark, cliffDarken * 0.5);
+            }
+
+            // Lower scree / talus slopes (transition between rock and foothills)
+            if (height < 700 && slopeFactor > 0.25 && slopeFactor < 0.55) {
+              _tempColorObj.lerp(_colorScree, 0.35);
             }
           }
         } else {
-          const rockStartHeight = MOUNTAIN_LEVEL + 500 + organicNoise * 100;
-          if (canHaveSnow && height > MOUNTAIN_LEVEL + 50 + organicNoise * 60) {
-            _tempColorObj.copy(_colorSnow);
-          } else if (height > rockStartHeight) {
-            if (isSouth) {
-              _tempColorObj.setHex(0xc24b2b);
-              if (desertFactor > 0) _tempColorObj.lerp(_colorDesertSand, 0.4);
-              if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.2);
-            } else {
-              _tempColorObj.copy(
-                desertFactor > 0.5
-                  ? _colorMountainDesertTint
-                  : _colorMountainTint
-              );
-            }
+          // Mountain foothills and sub-alpine meadows
+          if (isDesertMountain) {
+            _tempColorObj.copy(_colorDesertSand);
+            if (height > WATER_LEVEL + 5)
+              _tempColorObj.lerp(_colorSandMottleHigh, 0.3);
+            _tempColorObj.lerp(_colorDesertMottle, mottle * 0.2);
+          } else if (snowFactor > 0.4) {
+            _tempColorObj.copy(_colorForestSnowTint);
           } else {
-            if (desertFactor > 0.3) {
-              _tempColorObj.copy(_colorDesertSand);
-              if (height > WATER_LEVEL + 5)
-                _tempColorObj.lerp(_colorSandMottleHigh, 0.3);
-              // Desert mottling
-              _tempColorObj.lerp(_colorDesertMottle, mottle * 0.2);
-            } else if (snowFactor > 0.4) {
-              _tempColorObj.copy(_colorForestSnowTint);
-            } else {
-              _tempColorObj.copy(_colorForest);
-              // Forest mottling: darker green patches
-              if (!isCustom) _tempColorObj.lerp(_colorForestDark, mottle * 0.3);
+            // Lush sub-alpine meadow / forest foothills
+            _tempColorObj.copy(_colorForest);
+            if (!isCustom) _tempColorObj.lerp(_colorForestDark, mottle * 0.3);
+            // Subtle transition into mountain rock as altitude nears 550
+            if (height > 400) {
+              const rockBlend = (height - 400) / 150;
+              _tempColorObj.lerp(_colorMountainTint, rockBlend * 0.5);
             }
           }
         }
@@ -4474,7 +4513,7 @@ function* generateChunk(chunkX, chunkZ) {
         const iceMottle = simplex.noise2D(worldX * 0.01, worldZ * 0.01);
 
         // Blend everything toward snow, with slight noise variation
-        _tempColorObj.lerp(_colorSnow, freezeFactor);
+        _tempColorObj.lerp(_colorPackIce, freezeFactor);
         if (iceMottle > 0) {
           _tempColorObj.lerpHSL(
             new THREE.Color(0xffffff),
@@ -4843,13 +4882,18 @@ function* generateChunk(chunkX, chunkZ) {
     }
 
     // --- FINAL DETAIL PASS ---
-    if (slopeFactor > 0.45 && height > WATER_LEVEL + 5) {
+    // Apply cliff rock to steep lowland bluffs and riverbanks without overwriting mountain snow & crags
+    if (
+      height <= MOUNTAIN_LEVEL &&
+      slopeFactor > 0.45 &&
+      height > WATER_LEVEL + 5
+    ) {
       const cliffBlend = Math.min(1, (slopeFactor - 0.45) * 5.0);
       const isSouthBiome = !isCustom && desertFactor > 0.3;
       const rockColor = isSouthBiome ? _colorCliffSouth : _colorMountainTint;
       _tempColorObj.lerp(rockColor, cliffBlend);
       _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.15);
-    } else if (slopeFactor > 0.1) {
+    } else if (height <= MOUNTAIN_LEVEL && slopeFactor > 0.1) {
       _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.3);
     }
 
