@@ -146,6 +146,12 @@
       ? parseFloat(_propLodParam)
       : null;
 
+  const _benchmarkParam = getParam('benchmark', null);
+  const START_BENCHMARK =
+    _benchmarkParam !== null && _benchmarkParam !== ''
+      ? parseFloat(_benchmarkParam)
+      : null;
+
   // --- SEEDED PRNG: Mulberry32 ---
   // Returns a closure that produces deterministic floats in [0, 1).
   // Usage: const rng = mulberry32(seed); rng(); // next value
@@ -1108,6 +1114,7 @@
   exports.START_WEATHER = START_WEATHER;
   exports.START_PROP_LOD = START_PROP_LOD;
   exports.START_DEBUG = START_DEBUG;
+  exports.START_BENCHMARK = START_BENCHMARK;
   exports.ZENITH_COLOR = ZENITH_COLOR;
   exports.HORIZON_COLOR = HORIZON_COLOR;
   exports.DAY_COLOR = DAY_COLOR;

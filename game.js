@@ -4461,6 +4461,91 @@ function animate() {
 
   renderer.render(scene, camera);
 
+  // --- BENCHMARKING LOGIC ---
+  if (
+    typeof ChillFlightLogic !== 'undefined' &&
+    ChillFlightLogic.START_BENCHMARK !== null &&
+    !window.benchmarkComplete
+  ) {
+    if (!window.benchmarkStartTime) {
+      window.benchmarkStartTime = performance.now();
+      window.benchmarkFrameTimes = [];
+      window.autopilotEnabled = true;
+
+      const overlay = document.createElement('div');
+      overlay.id = 'benchmark-overlay';
+      overlay.style.position = 'absolute';
+      overlay.style.top = '20px';
+      overlay.style.left = '50%';
+      overlay.style.transform = 'translateX(-50%)';
+      overlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
+      overlay.style.color = '#fff';
+      overlay.style.padding = '20px';
+      overlay.style.borderRadius = '8px';
+      overlay.style.fontFamily = 'monospace';
+      overlay.style.zIndex = '9999';
+      overlay.style.pointerEvents = 'none';
+      overlay.innerText = 'BENCHMARKING...';
+      document.body.appendChild(overlay);
+    } else {
+      const elapsed = performance.now() - window.benchmarkStartTime;
+      const durationMs = ChillFlightLogic.START_BENCHMARK * 1000;
+
+      // Record frame time
+      window.benchmarkFrameTimes.push(performance.now() - frameStartTime);
+
+      if (elapsed >= durationMs) {
+        window.benchmarkComplete = true;
+        isPaused = true;
+
+        const times = window.benchmarkFrameTimes;
+        times.sort((a, b) => b - a); // Descending (worst to best)
+
+        const sum = times.reduce((a, b) => a + b, 0);
+        const mean = sum / times.length;
+
+        const p1Index = Math.max(1, Math.floor(times.length * 0.01));
+        const p1Times = times.slice(0, p1Index);
+        const p1Mean = p1Times.reduce((a, b) => a + b, 0) / p1Times.length;
+
+        const p01Index = Math.max(1, Math.floor(times.length * 0.001));
+        const p01Times = times.slice(0, p01Index);
+        const p01Mean = p01Times.reduce((a, b) => a + b, 0) / p01Times.length;
+
+        const maxSpike = times[0];
+
+        const avgFps = (1000 / mean).toFixed(1);
+        const p1Fps = (1000 / p1Mean).toFixed(1);
+        const p01Fps = (1000 / p01Mean).toFixed(1);
+
+        const overlay = document.getElementById('benchmark-overlay');
+        overlay.style.pointerEvents = 'auto';
+        overlay.innerHTML = `
+          <h2 style="margin-top:0;font-family:Inter,sans-serif">Benchmark complete</h2>
+          <table style="text-align:left; width:100%; border-spacing:8px">
+            <tr><td>Duration</td><td>${ChillFlightLogic.START_BENCHMARK}s</td></tr>
+            <tr><td>Total frames</td><td>${times.length}</td></tr>
+            <tr><td>Mean FPS</td><td>${avgFps}</td></tr>
+            <tr><td>1% low FPS</td><td>${p1Fps}</td></tr>
+            <tr><td>0.1% low FPS</td><td>${p01Fps}</td></tr>
+            <tr><td>Max frame spike</td><td>${maxSpike.toFixed(1)}ms</td></tr>
+          </table>
+          <button onclick="document.getElementById('benchmark-overlay').remove(); window.isPaused=false;" style="margin-top:15px; width:100%; padding:8px; cursor:pointer; background:#333; color:#fff; border:none; border-radius:4px">Close and resume</button>
+        `;
+        console.table({
+          'Mean FPS': avgFps,
+          '1% low FPS': p1Fps,
+          '0.1% low FPS': p01Fps,
+          'Max spike (ms)': maxSpike.toFixed(1),
+        });
+      } else {
+        const remaining = ((durationMs - elapsed) / 1000).toFixed(1);
+        document.getElementById('benchmark-overlay').innerText =
+          `BENCHMARKING... ${remaining}s`;
+      }
+    }
+  }
+
   // Update Debug Telemetry (at the very end of frame)
   if (debugMenu && debugMenu.style.display === 'block') {
     const pullBackVal =
