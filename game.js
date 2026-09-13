@@ -4492,7 +4492,13 @@ function animate() {
       const durationMs = ChillFlightLogic.START_BENCHMARK * 1000;
 
       // Record frame time
-      window.benchmarkFrameTimes.push(performance.now() - frameStartTime);
+      const currentFrameTime = performance.now() - frameStartTime;
+      window.benchmarkFrameTimes.push(currentFrameTime);
+      if (currentFrameTime > 50) {
+        console.warn(
+          `[Spike] ${currentFrameTime.toFixed(1)}ms at t=${(elapsed / 1000).toFixed(1)}s`
+        );
+      }
 
       if (elapsed >= durationMs) {
         window.benchmarkComplete = true;
@@ -5203,6 +5209,9 @@ if (overlay) {
   const beginBtn = document.getElementById('begin-btn');
 
   const dismissLoadingScreen = (instant = false) => {
+    if (renderer && typeof renderer.compile === 'function') {
+      renderer.compile(scene, camera);
+    }
     if (instant) {
       overlay.style.display = 'none';
     } else {

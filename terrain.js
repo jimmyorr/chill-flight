@@ -3728,35 +3728,43 @@ class GlobalInstanceManager {
     if (!this._dirty) return;
     this._dirty = false;
 
-    for (const type of this.types.keys()) this.counts.set(type, 0);
+    for (const typeInfo of this.types.values()) {
+      typeInfo.currentCount = 0;
+    }
 
     chunks.forEach((chunk) => {
-      if (!chunk.userData.instanceData) return;
+      const instanceData = chunk.userData.instanceData;
+      if (!instanceData) return;
 
-      for (const [type, data] of Object.entries(chunk.userData.instanceData)) {
-        if (!this.types.has(type)) continue;
+      for (const type in instanceData) {
         const typeInfo = this.types.get(type);
-        const mesh = typeInfo.mesh;
-        let count = this.counts.get(type);
-        const maxInstances = typeInfo.maxInstances;
+        if (!typeInfo) continue;
 
+        const data = instanceData[type];
+        const count = typeInfo.currentCount;
+        const maxInstances = typeInfo.maxInstances;
         const numToCopy = Math.min(data.count, maxInstances - count);
         if (numToCopy <= 0) continue;
 
-        const matrixSubArray = data.matrices.subarray(0, numToCopy * 16);
-        mesh.instanceMatrix.array.set(matrixSubArray, count * 16);
+        const mesh = typeInfo.mesh;
+        mesh.instanceMatrix.array.set(
+          data.matrices.subarray(0, numToCopy * 16),
+          count * 16
+        );
 
         if (typeInfo.useColor) {
-          const colorSubArray = data.colors.subarray(0, numToCopy * 3);
-          mesh.instanceColor.array.set(colorSubArray, count * 3);
+          mesh.instanceColor.array.set(
+            data.colors.subarray(0, numToCopy * 3),
+            count * 3
+          );
         }
 
-        this.counts.set(type, count + numToCopy);
+        typeInfo.currentCount = count + numToCopy;
       }
     });
 
-    for (const [type, typeInfo] of this.types.entries()) {
-      const count = this.counts.get(type);
+    for (const typeInfo of this.types.values()) {
+      const count = typeInfo.currentCount;
       typeInfo.mesh.count = count;
       if (count > 0) {
         if (typeInfo.mesh.instanceMatrix) {
@@ -4029,7 +4037,7 @@ function* generateChunk(chunkX, chunkZ) {
   const invTwoGridSpacing = 0.5 / gridSpacing;
 
   for (let i = 0; i < positions.length; i += 3) {
-    if (i % 600 === 0 && checkYield()) yield;
+    if (i % 300 === 0 && checkYield()) yield;
     const vertIdx = i / 3;
     const localX = positions[i];
     const localZ = positions[i + 2];
@@ -4870,6 +4878,7 @@ function* generateChunk(chunkX, chunkZ) {
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
+  if (checkYield()) yield;
 
   // 2.99 Volcano Landmark Details
   // Must run BEFORE the early-exit guard to avoid the async race where the chunk
@@ -5024,6 +5033,7 @@ function* generateChunk(chunkX, chunkZ) {
     group.add(waterMesh);
     group.userData.water = waterMesh; // accessible for animation!
   }
+  if (checkYield()) yield;
 
   // 1.6 Dedicated group for procedural objects (trees, houses, etc.)
   // This allows for bulk toggling visibility via the debug menu.
@@ -5059,6 +5069,7 @@ function* generateChunk(chunkX, chunkZ) {
   // Helper for rendering instanced trees with latitude-based snow coloring
   const _tempColor = new THREE.Color();
   const _snowColor = new THREE.Color(0xe0f7fa);
+  const _baseColorObj = new THREE.Color();
 
   const renderTrees = (positions, trunkKey, leavesKey, baseLeafColor) => {
     if (positions.length === 0) return;
@@ -5094,14 +5105,23 @@ function* generateChunk(chunkX, chunkZ) {
         const gVariation = (rng() - 0.5) * 0.1;
         const bVariation = (rng() - 0.5) * 0.1;
 
-        // Use a clean temporary color for the variation
-        const baseColorObj = new THREE.Color(baseLeafColor);
-        baseColorObj.r = Math.max(0, Math.min(1, baseColorObj.r + rVariation));
-        baseColorObj.g = Math.max(0, Math.min(1, baseColorObj.g + gVariation));
-        baseColorObj.b = Math.max(0, Math.min(1, baseColorObj.b + bVariation));
+        // Use a reused temporary color for the variation without allocating new objects
+        _baseColorObj.setHex(baseLeafColor);
+        _baseColorObj.r = Math.max(
+          0,
+          Math.min(1, _baseColorObj.r + rVariation)
+        );
+        _baseColorObj.g = Math.max(
+          0,
+          Math.min(1, _baseColorObj.g + gVariation)
+        );
+        _baseColorObj.b = Math.max(
+          0,
+          Math.min(1, _baseColorObj.b + bVariation)
+        );
 
         // Set leaf color: base leaf color lerped toward snow-white based on snowFactor
-        _tempColor.copy(baseColorObj);
+        _tempColor.copy(_baseColorObj);
         if (snowFactor > 0) {
           _tempColor.lerp(_snowColor, snowFactor);
         }
@@ -5120,6 +5140,7 @@ function* generateChunk(chunkX, chunkZ) {
     'tallDecidLeaves',
     0x1a451d
   );
+  if (checkYield()) yield;
   renderTrees(palmTreePositions, 'palmTrunk', 'palmLeaves', 0x689f38);
   renderTrees(cherryTreePositions, 'decidTrunk', 'decidLeaves', 0xf8bbd0);
   renderTrees(autumnTree1Positions, 'decidTrunk', 'decidLeaves', 0xd35400);
@@ -5132,6 +5153,7 @@ function* generateChunk(chunkX, chunkZ) {
     'japaneseMapleLeaves',
     0xa31515
   );
+  if (checkYield()) yield;
 
   if (deadTreePositions.length > 0) {
     deadTreePositions.forEach((pos) => {
@@ -5169,6 +5191,7 @@ function* generateChunk(chunkX, chunkZ) {
       });
     }
   });
+  if (checkYield()) yield;
 
   // 2.3b Generate Rock Arches (Unique instances)
   if (rockArchPositions.length > 0) {
@@ -5370,6 +5393,7 @@ function* generateChunk(chunkX, chunkZ) {
       collector.add('bush', dummy.matrix, baseBushColor);
     });
   }
+  if (checkYield()) yield;
 
   // 2.5 Generate Houses
   if (housePositions.length > 0) {
@@ -5932,6 +5956,7 @@ function* generateChunk(chunkX, chunkZ) {
     objectsGroup.add(baseInst);
     objectsGroup.add(bladesInst);
   }
+  if (checkYield()) yield;
 
   // 2.9 Generate Lighthouse
   if (lighthousePos) {
@@ -7077,7 +7102,12 @@ function updateChunks() {
       Math.abs(cx - currentChunkX) > renderDistance + 1 ||
       Math.abs(cz - currentChunkZ) > renderDistance + 1
     ) {
+      // Collect instanced meshes and pool/dispose unique geometries in a single traversal
+      const instancedMeshesToRelease = [];
       group.traverse((child) => {
+        if (child.isInstancedMesh) {
+          instancedMeshesToRelease.push(child);
+        }
         if (child.isMesh || child.isInstancedMesh) {
           if (child.geometry && child.geometry.userData.unique) {
             if (child.geometry.userData.poolType === 'terrain') {
@@ -7105,14 +7135,6 @@ function updateChunks() {
               child.geometry.dispose();
             }
           }
-        }
-      });
-
-      // Collect instanced meshes first to avoid mutating scene graph during traversal
-      const instancedMeshesToRelease = [];
-      group.traverse((child) => {
-        if (child.isInstancedMesh) {
-          instancedMeshesToRelease.push(child);
         }
       });
 
@@ -7190,9 +7212,12 @@ window.processChunkQueue = function (timeBudget = 4) {
     }
   }
 
-  // If we still have budget, pop new chunks and start them
+  // If we still have budget, pop new chunks and start them.
+  // Limit concurrent active generators during normal flight so we finish chunks sequentially.
+  const maxActiveGenerators = timeBudget > 10 ? 8 : 2;
   while (
     chunkQueue.length > 0 &&
+    chunkGenerators.size < maxActiveGenerators &&
     performance.now() - window._chunkQueueStartTime < timeBudget
   ) {
     const item = chunkQueue.pop();
