@@ -624,20 +624,72 @@
         const dz = z - currentZCenter;
         const dist = Math.abs(dz);
 
-        // 1. Broad base "mass" (Gaussian)
-        const baseRadius = 2500;
-        const baseDistSq = dz * dz;
+        // 1. Broad base "mass" with lateral branching spurs and cirque bowls
+        const side = dz >= 0 ? 1 : -1;
+        // Angled spur coordinate branches out at ~37 degrees from the central spine
+        const spurCoord = x * 0.8 + side * dist * 0.6;
+        const spurFreq = 0.0009;
+        const spurRidge =
+          1.0 -
+          Math.abs(
+            simplex.noise2D(
+              spurCoord * spurFreq + rangeLat * 23.7,
+              dist * 0.0004 + 127.3
+            )
+          );
+        const spurStrength = Math.pow(spurRidge, 1.4);
+
+        // Lateral reach: spurs push peaks outward into buttresses, while hollows pull inward into cirques
+        const spurReach = options.forRoad
+          ? 0
+          : (spurStrength - 0.45) * 650 * Math.min(1, dist / 800);
+        const effectiveDist = Math.max(0, dist - spurReach);
+
+        // Gaussian base mass using effective distance
+        const baseRadius = 2600;
         const baseFalloff = Math.exp(
-          -baseDistSq / (2 * baseRadius * baseRadius)
+          -(effectiveDist * effectiveDist) / (2 * baseRadius * baseRadius)
         );
 
         if (baseFalloff > 0.01) {
-          // 2. Sharper peaks (Power function with natural alpine taper)
-          const peakRadius = 1800;
-          const peakDist = Math.min(peakRadius, dist);
-          const peakShape = Math.pow(1.0 - peakDist / peakRadius, 1.8);
+          // 2. Sharper alpine peaks with natural taper
+          const peakRadius = 2200;
+          const peakDist = Math.min(peakRadius, effectiveDist);
+          const peakShape = Math.pow(1.0 - peakDist / peakRadius, 1.7);
 
-          // 3. Ridged Multi-Fractal ruggedness (Pyramidal Alpine Horns & Arêtes)
+          // 3. Glacial cirque bowls: concave basins hollowed between lateral spurs
+          let cirqueScoop = 0;
+          if (!options.forRoad && dist > 600 && dist < 2200) {
+            const cirqueMask = Math.sin(((dist - 600) / 1600) * Math.PI);
+            const valleyHollow = Math.max(0, 0.45 - spurStrength) * 2.2;
+            cirqueScoop = cirqueMask * valleyHollow * 160;
+          }
+
+          // 4. Lateral spur ridge elevation (buttresses jutting down the flanks)
+          let spurElev = 0;
+          if (!options.forRoad && dist > 400 && dist < 2500) {
+            const flankEnvelope = Math.sin(((dist - 400) / 2100) * Math.PI);
+            spurElev = spurStrength * 200 * flankEnvelope;
+          }
+
+          // 5. Rolling foothills bridging the mountain massif into surrounding plains
+          let foothillHeight = 0;
+          if (dist > 1000 && dist < 3800) {
+            const foothillT = (3800 - dist) / 2800;
+            const foothillEnvelope =
+              foothillT * foothillT * (3 - 2 * foothillT);
+            const foothillNoise =
+              simplex.noise2D(
+                x * 0.0008 + rangeLat * 31.2,
+                z * 0.0008 + rangeLat * 54.1
+              ) *
+                0.65 +
+              simplex.noise2D(x * 0.0018 + 73.1, z * 0.0018 + 89.2) * 0.35;
+            foothillHeight =
+              Math.max(0, foothillNoise + 0.15) * 150 * foothillEnvelope;
+          }
+
+          // 6. Ridged Multi-Fractal ruggedness (Pyramidal Alpine Horns & Arêtes)
           let ruggedness;
           if (options.forRoad) {
             // Smooth mountain pass grade for highway without knife-edge crag spikes
@@ -673,11 +725,14 @@
               r1 * 0.6 + r2 * 0.28 * r1 + r3 * 0.12 * (r1 * 0.5 + 0.5);
           }
 
-          // Combine: Peaks rise out of the broad base mass
-          const baseHeight = 300 * baseFalloff; // Smooth foothold
-          // Use presenceMod to make some peaks much higher than others
-          const peakHeight =
-            maxHeight * peakShape * ruggedness * (0.4 + 0.6 * presenceMod);
+          // Combine: Foothills and base mass supporting alpine peaks and buttresses
+          const baseHeight = 240 * baseFalloff + foothillHeight;
+          const peakHeight = Math.max(
+            0,
+            maxHeight * peakShape * ruggedness * (0.4 + 0.6 * presenceMod) +
+              spurElev -
+              cirqueScoop
+          );
 
           let totalContribution = (baseHeight + peakHeight) * fadeIn;
 
