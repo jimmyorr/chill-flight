@@ -261,18 +261,38 @@ _Note: Full visual effects include real-time shadows, transparent water and clou
 
 ### Dynamic performance scaling
 
-In addition to static presets, the game continuously monitors frame timing and automatically adjusts several parameters to maintain smooth performance:
+In addition to static presets, the game includes a runtime `DynamicPerformanceMonitor` that continuously tracks a 120-frame rolling average frame time and smoothly adjusts multiple graphics subsystems in tandem.
 
-- **Dynamic resolution scaling (DRS):** When frame times exceed target thresholds, the render resolution is scaled down (to a minimum of 50% of the preset's base pixel ratio). Resolution recovers automatically when load decreases.
-- **Shadow map throttling:** Shadow map updates are reduced from every frame to every 2nd–4th frame under load. At night (when the sun is below the horizon and shadows are invisible), shadow rendering is disabled entirely.
-- **Adaptive chunk budget:** The per-frame time budget for procedural terrain generation is reduced from 4 ms to as low as 1 ms under heavy load, preventing chunk generation from causing frame drops during flight.
-- **LOD distance scaling:** The visibility distance for small props (houses, chimneys, piers) is reduced under load to decrease draw calls and geometry processing.
+Rather than choosing between reducing prop detail or lowering resolution, **LOD scaling and dynamic resolution scaling (DRS) operate simultaneously**. Because web performance can be constrained either by CPU draw calls / vertex transformation or by GPU fragment fill rate, adjusting both parameters across synchronized tiers ensures frame recovery regardless of whether the bottleneck is CPU- or GPU-bound.
 
-## URL Parameters
+#### Tiered scaling thresholds
+
+Adjustments occur across four frame-time thresholds with a 30-frame hysteresis cooldown between adjustments:
+
+| Load state            | Frame time threshold | Effective FPS | LOD multiplier           | DRS resolution multiplier | Shadow update cadence | Terrain chunk budget |
+| :-------------------- | :------------------- | :------------ | :----------------------- | :------------------------ | :-------------------- | :------------------- |
+| **Normal / recovery** | ≤ 17.50 ms           | ≥ 57 FPS      | Recovers +0.1 (max 1.0×) | Recovers +0.05 (max 1.0×) | Every frame (1/1)     | 4.0 ms / frame       |
+| **Slight overload**   | > 20.00 ms           | < 50 FPS      | −0.1 step (floor 0.6×)   | −0.05 step (floor 0.7×)   | Every 2nd frame (1/2) | 3.0 ms / frame       |
+| **Moderate overload** | > 25.00 ms           | < 40 FPS      | −0.1 step (floor 0.4×)   | −0.10 step (floor 0.5×)   | Every 3rd frame (1/3) | 2.0 ms / frame       |
+| **Severe overload**   | > 33.33 ms           | < 30 FPS      | −0.2 step (floor 0.2×)   | −0.15 step (floor 0.5×)   | Every 4th frame (1/4) | 1.0 ms / frame       |
+
+#### Subsystem behaviors
+
+- **Dynamic resolution scaling (DRS):** Scales the WebGL renderer's `pixelRatio` relative to the graphics preset's base pixel ratio down to a floor of 50%. This directly reduces fragment shading load and screen-space overdraw.
+- **LOD distance scaling:** Multiplies the prop visibility distance (base 4,200 units) down to a floor of 20% (840 units). Distant houses, chimneys, and piers are culled, significantly reducing vertex counts and draw calls.
+- **Adaptive chunk budget:** Procedural terrain mesh generation on the main thread has an adaptive per-frame time allowance. Under normal conditions, chunk processing runs up to 4.0 ms per frame, dropping to 1.0 ms under severe load to eliminate stutter during flight.
+  - _Boot override:_ During the initial startup loading screen (`isPaused && !isIntroTransitionActive`), the chunk budget is temporarily boosted to 33.0 ms per frame so the initial world geometry generates almost instantaneously.
+- **Shadow throttling and night culling:**
+  - _Dynamic throttling:_ Directional sun shadow map rendering scales down from every frame (cadence 1) to every 2nd, 3rd, or 4th frame under load, amortizing shadow pass render costs.
+  - _Night culling:_ When the sun dips below the horizon (`dayFactor < 0.05`), shadows are completely disabled (`shadowCadence = 0`, `renderer.shadowMap.needsUpdate = false`), saving the entire shadow pass when shadows are visually imperceptible.
+  - _Preset disable:_ Shadows are also completely disabled when using the Low graphics preset.
+- **Telemetry overlay:** In debug mode (`?debug`), the debug panel displays real-time telemetry including average frame time (`Avg ms`), DRS multiplier (`DRS mult`), shadow cadence (`Shadow cad`), active chunk budget (`Chunk budget`), and loaded prop chunk counts.
+
+## URL parameters
 
 The game supports various URL query parameters for deep linking to specific locations, times, or configurations. Combine parameters using standard URL query syntax (e.g., `?lat=1.0N&lon=0.5W&tod=0.25`).
 
-### Location and Orientation
+### Location and orientation
 
 - **`lat`**: Starting latitude (e.g., `1.0N`, `-1.0`).
 - **`long`** or **`lon`**: Starting longitude (e.g., `0.5W`, `0.5`).
@@ -281,7 +301,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`pitch`**: Starting pitch angle in degrees.
 - **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
 
-### Environment and Time
+### Environment and time
 
 - **`tod`**: Time of day (value between `0.0` and `1.0`, where 0 is midnight and 0.5 is solar noon).
 - **`timeSpeed`**: Speed multiplier for the day/night cycle (set to `0` to lock the time of day).
