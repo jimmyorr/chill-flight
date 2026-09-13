@@ -1,10 +1,10 @@
 # Release notes
 
-## 0.9.16
+## 0.9.17
 
-- **Environment:** Overhauled dynamic mountains with alpine horns, branching spurs, cirque bowls, rolling foothills, and altitude snowcaps. Redesigned viaduct bridges and smoothed highways.
-- **Performance:** Reduced stutter with granular chunk yields, shader pre-warming, mesh pooling, and dynamic LOD. Added benchmark profiling mode.
-- **Controls & UI:** Added URL parameters for autopilot and presets, real-time debug URL syncing, and rolling average and 1% low FPS telemetry.
+- **Environment:** Overhauled dynamic mountains with alpine peaks, cirques, and snowcaps. Redesigned viaducts, smoothed highways, and resolved coastline and ice shelf z-fighting.
+- **Performance:** Added dynamic resolution scaling (DRS), shadow throttling, adaptive chunk budgets, and prop LOD scaling.
+- **Controls & debug:** Added telemetry for FPS, DRS, and LOD, real-time URL syncing, and benchmark mode.
 
 ## 0.9.15
 
