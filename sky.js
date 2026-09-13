@@ -334,8 +334,14 @@ const camera = new THREE.PerspectiveCamera(
 
 // Antialiasing is expensive; disable it on the 'Low' preset (SEGMENTS <= 20) to prioritize performance.
 // Since AA belongs to the WebGL context, this won't change until the next page load.
-const _initQuality = localStorage.getItem('chill_flight_quality');
-const _isLowQuality = _initQuality && parseInt(_initQuality) <= 20;
+const _initPreset =
+  (typeof ChillFlightLogic !== 'undefined' &&
+    ChillFlightLogic.GRAPHICS_PRESET) ||
+  localStorage.getItem('chill_flight_graphics_preset');
+const _legacyQuality = localStorage.getItem('chill_flight_quality');
+const _isLowQuality =
+  _initPreset === 'low' ||
+  (!_initPreset && _legacyQuality && parseInt(_legacyQuality) <= 20);
 
 // Update uniforms for initial load
 skyUniforms.uShowClouds.value = ChillFlightLogic.SHOW_CLOUDS && !_isLowQuality;

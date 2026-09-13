@@ -86,9 +86,16 @@ window.waterUniforms = {
   uSunColor: {value: new THREE.Color(0xffffff)},
 };
 
-const _initQualityForTerrain = localStorage.getItem('chill_flight_quality');
+const _initPresetForTerrain =
+  (typeof ChillFlightLogic !== 'undefined' &&
+    ChillFlightLogic.GRAPHICS_PRESET) ||
+  localStorage.getItem('chill_flight_graphics_preset');
+const _legacyQualityForTerrain = localStorage.getItem('chill_flight_quality');
 const _isLowQualityInitial =
-  _initQualityForTerrain && parseInt(_initQualityForTerrain) <= 20;
+  _initPresetForTerrain === 'low' ||
+  (!_initPresetForTerrain &&
+    _legacyQualityForTerrain &&
+    parseInt(_legacyQualityForTerrain) <= 20);
 
 let _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
 // Flag removed to fix issue #25

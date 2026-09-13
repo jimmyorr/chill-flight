@@ -574,6 +574,7 @@ function applyGraphicsPreset(preset) {
   }
 
   localStorage.setItem('chill_flight_graphics_preset', preset);
+  localStorage.setItem('chill_flight_quality', segments);
 
   // If the current URL specifies preset or graphics param, keep it in sync
   if (typeof window !== 'undefined' && window.location) {
@@ -1516,10 +1517,10 @@ let rainParticles = null;
 
 // Scale particles based on quality
 const _savedQualityForWeather = localStorage.getItem('chill_flight_quality');
-const _currentQualityForWeather = _savedQualityForWeather
-  ? parseInt(_savedQualityForWeather)
-  : 32;
-const WEATHER_PARTICLE_COUNT = _currentQualityForWeather <= 16 ? 1500 : 5000;
+const _isLowPresetForWeather =
+  (typeof initialPreset !== 'undefined' && initialPreset === 'low') ||
+  (_savedQualityForWeather && parseInt(_savedQualityForWeather) <= 20);
+const WEATHER_PARTICLE_COUNT = _isLowPresetForWeather ? 1500 : 5000;
 const WEATHER_RANGE = 500;
 
 // Optimization: Weather particle GPU simulation uniforms.
