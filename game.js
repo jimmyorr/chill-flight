@@ -692,18 +692,10 @@ if (themeSelect) {
   themeSelect.value = currentTheme;
   themeSelect.addEventListener('change', (e) => {
     const newTheme = e.target.value;
-    const confirmReload = window.confirm(
-      'Applying a new theme requires a page reload.\n\nReload now?'
-    );
-
-    if (confirmReload) {
-      const url = new URL(window.location);
-      url.searchParams.set('theme', newTheme);
-      window.location.assign(url.toString());
-    } else {
-      // Revert the dropdown selection if they cancel
-      themeSelect.value = currentTheme;
-    }
+    if (!newTheme || newTheme === currentTheme) return;
+    const url = new URL(window.location);
+    url.searchParams.set('theme', newTheme);
+    window.location.assign(url.toString());
   });
 }
 
@@ -711,22 +703,25 @@ if (themeSelect) {
 const seedInput = document.getElementById('seed-input');
 if (seedInput) {
   seedInput.value = ChillFlightLogic.WORLD_SEED;
-  seedInput.addEventListener('change', (e) => {
-    const newSeed = e.target.value;
-    if (!newSeed) return;
-    if (parseInt(newSeed, 10) === ChillFlightLogic.WORLD_SEED) return;
-    const confirmReload = window.confirm(
-      'Applying a new seed requires a page reload.\n\nReload now?'
-    );
 
-    if (confirmReload) {
-      const url = new URL(window.location);
-      url.searchParams.set('seed', newSeed);
-      window.location.assign(url.toString());
-    } else {
-      // Revert to original
-      seedInput.value = ChillFlightLogic.WORLD_SEED;
+  const applySeed = (val) => {
+    if (!val) return;
+    const parsed = parseInt(val, 10);
+    if (isNaN(parsed) || parsed === ChillFlightLogic.WORLD_SEED) return;
+    const url = new URL(window.location);
+    url.searchParams.set('seed', parsed);
+    window.location.assign(url.toString());
+  };
+
+  seedInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applySeed(seedInput.value);
     }
+  });
+
+  seedInput.addEventListener('change', (e) => {
+    applySeed(e.target.value);
   });
 }
 
