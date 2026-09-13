@@ -259,6 +259,15 @@ The game features automatic graphics preset detection that evaluates your device
 
 _Note: Full visual effects include real-time shadows, transparent water and clouds, and procedural sky clouds. The low preset disables these to minimize overdraw and maximize frame rate on lower-end devices._
 
+### Dynamic performance scaling
+
+In addition to static presets, the game continuously monitors frame timing and automatically adjusts several parameters to maintain smooth performance:
+
+- **Dynamic resolution scaling (DRS):** When frame times exceed target thresholds, the render resolution is scaled down (to a minimum of 50% of the preset's base pixel ratio). Resolution recovers automatically when load decreases.
+- **Shadow map throttling:** Shadow map updates are reduced from every frame to every 2nd–4th frame under load. At night (when the sun is below the horizon and shadows are invisible), shadow rendering is disabled entirely.
+- **Adaptive chunk budget:** The per-frame time budget for procedural terrain generation is reduced from 4 ms to as low as 1 ms under heavy load, preventing chunk generation from causing frame drops during flight.
+- **LOD distance scaling:** The visibility distance for small props (houses, chimneys, piers) is reduced under load to decrease draw calls and geometry processing.
+
 ## URL Parameters
 
 The game supports various URL query parameters for deep linking to specific locations, times, or configurations. Combine parameters using standard URL query syntax (e.g., `?lat=1.0N&lon=0.5W&tod=0.25`).

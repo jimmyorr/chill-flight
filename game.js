@@ -607,8 +607,16 @@ function applyGraphicsPreset(preset) {
     pixelRatio = Math.min(window.devicePixelRatio, 2.0); // Capped at 2.0 for Ultra
   }
 
+  // Store the preset's base pixel ratio so DRS can scale relative to it
+  window._basePixelRatio = pixelRatio;
+
   if (typeof renderer !== 'undefined' && renderer) {
     renderer.setPixelRatio(pixelRatio);
+  }
+
+  // Reset DRS multiplier when preset changes so we start fresh
+  if (window.performanceMonitor) {
+    window.performanceMonitor.pixelRatioMultiplier = 1.0;
   }
 
   // Toggle sky clouds dynamically: disable expensive fBm on low mode
@@ -2150,7 +2158,7 @@ let wasRainClearing = true;
 // --- DYNAMIC PERFORMANCE SCALING ---
 class DynamicPerformanceMonitor {
   constructor() {
-    this.windowSize = 120;
+    this.windowSize = 30;
     this.frameTimeRing = new Float32Array(this.windowSize);
     this.ringIndex = 0;
     this.ringSum = 0;
@@ -2162,14 +2170,27 @@ class DynamicPerformanceMonitor {
     this.moderatelyOverloaded = 25; // 40 FPS
     this.severelyOverloaded = 33.33; // 30 FPS
 
-    // State
+    // LOD state
     this.lodMultiplier = 1.0;
     this.cooldownFrames = 0;
-    this.cooldownMax = 60; // Wait 60 frames between adjustments
+    this.cooldownMax = 30; // Wait 30 frames between adjustments
+
+    // Dynamic resolution scaling (DRS) state
+    this.pixelRatioMultiplier = 1.0;
+    this._minPixelRatioMult = 0.5; // Floor: never go below 50% of base
+
+    // Shadow throttling state
+    this.shadowCadence = 1; // 1 = every frame, 2 = every other, 4 = every 4th, 0 = off
+    this._frameCount = 0;
+    this._nightCulling = false; // True when dayFactor < 0.05
+
+    // Chunk budget state
+    this._chunkBudgetMs = 4.0; // Default 4ms per frame
   }
 
   update(delta) {
     const frameTimeMs = delta * 1000;
+    this._frameCount++;
 
     if (this.ringCount < this.windowSize) {
       this.ringSum += frameTimeMs;
@@ -2185,11 +2206,11 @@ class DynamicPerformanceMonitor {
       return;
     }
 
-    if (this.ringCount >= 60) {
+    if (this.ringCount >= this.windowSize) {
       const avgFrameTime = this.ringSum / this.ringCount;
       let changed = false;
 
-      // Step down LOD if struggling, step up if hitting target
+      // --- LOD scaling ---
       if (avgFrameTime > this.severelyOverloaded) {
         if (this.lodMultiplier > 0.2) {
           this.lodMultiplier = Math.max(0.2, this.lodMultiplier - 0.2);
@@ -2212,10 +2233,118 @@ class DynamicPerformanceMonitor {
         }
       }
 
+      // --- Dynamic resolution scaling (DRS) ---
+      if (avgFrameTime > this.severelyOverloaded) {
+        if (this.pixelRatioMultiplier > this._minPixelRatioMult) {
+          this.pixelRatioMultiplier = Math.max(
+            this._minPixelRatioMult,
+            this.pixelRatioMultiplier - 0.15
+          );
+          changed = true;
+        }
+      } else if (avgFrameTime > this.moderatelyOverloaded) {
+        if (this.pixelRatioMultiplier > this._minPixelRatioMult) {
+          this.pixelRatioMultiplier = Math.max(
+            this._minPixelRatioMult,
+            this.pixelRatioMultiplier - 0.1
+          );
+          changed = true;
+        }
+      } else if (avgFrameTime > this.slightlyOverloaded) {
+        if (this.pixelRatioMultiplier > 0.7) {
+          this.pixelRatioMultiplier = Math.max(
+            0.7,
+            this.pixelRatioMultiplier - 0.05
+          );
+          changed = true;
+        }
+      } else if (avgFrameTime <= this.targetFrameTime * 1.05) {
+        if (this.pixelRatioMultiplier < 1.0) {
+          this.pixelRatioMultiplier = Math.min(
+            1.0,
+            this.pixelRatioMultiplier + 0.05
+          );
+          changed = true;
+        }
+      }
+
+      // --- Shadow cadence scaling ---
+      let newCadence = this.shadowCadence;
+      if (this._nightCulling) {
+        newCadence = 0;
+      } else if (avgFrameTime > this.severelyOverloaded) {
+        newCadence = 4;
+      } else if (avgFrameTime > this.moderatelyOverloaded) {
+        newCadence = 3;
+      } else if (avgFrameTime > this.slightlyOverloaded) {
+        newCadence = 2;
+      } else if (avgFrameTime <= this.targetFrameTime * 1.05) {
+        newCadence = 1;
+      }
+      if (newCadence !== this.shadowCadence) {
+        this.shadowCadence = newCadence;
+        changed = true;
+      }
+
+      // --- Chunk budget scaling ---
+      if (avgFrameTime > this.severelyOverloaded) {
+        this._chunkBudgetMs = 1.0;
+      } else if (avgFrameTime > this.moderatelyOverloaded) {
+        this._chunkBudgetMs = 2.0;
+      } else if (avgFrameTime > this.slightlyOverloaded) {
+        this._chunkBudgetMs = 3.0;
+      } else {
+        this._chunkBudgetMs = 4.0;
+      }
+
       if (changed) {
         this.applyEffectiveLOD();
+        this.applyDRS();
         this.cooldownFrames = this.cooldownMax;
       }
+    }
+  }
+
+  /**
+   * Update night culling state. Call each frame with the current dayFactor.
+   * When dayFactor < 0.05, shadows are entirely skipped (no shadow pass at all).
+   */
+  updateDayFactor(dayFactor) {
+    this._nightCulling = dayFactor < 0.05;
+    // If we just entered night, immediately disable shadows without waiting for cooldown
+    if (this._nightCulling && this.shadowCadence !== 0) {
+      this.shadowCadence = 0;
+    }
+  }
+
+  /**
+   * Returns true if the shadow map should be updated this frame.
+   * When cadence is 0 (night culling), always returns false.
+   */
+  shouldUpdateShadows() {
+    if (this.shadowCadence === 0) return false;
+    return this._frameCount % this.shadowCadence === 0;
+  }
+
+  /**
+   * Returns the chunk generation time budget in ms for this frame.
+   * During the loading screen, the caller should use 33ms instead.
+   */
+  getChunkBudget() {
+    return this._chunkBudgetMs;
+  }
+
+  /**
+   * Apply DRS by adjusting the renderer's pixel ratio relative to the base.
+   */
+  applyDRS() {
+    const baseRatio =
+      typeof window._basePixelRatio !== 'undefined'
+        ? window._basePixelRatio
+        : 1.0;
+    const effectiveRatio = baseRatio * this.pixelRatioMultiplier;
+    if (typeof renderer !== 'undefined' && renderer) {
+      renderer.setPixelRatio(effectiveRatio);
     }
   }
 
@@ -2276,6 +2405,11 @@ class DynamicPerformanceMonitor {
 const performanceMonitor = new DynamicPerformanceMonitor();
 window.performanceMonitor = performanceMonitor;
 
+// Disable automatic shadow map updates; DynamicPerformanceMonitor controls the cadence
+if (typeof renderer !== 'undefined' && renderer) {
+  renderer.shadowMap.autoUpdate = false;
+}
+
 function animate() {
   // Sync InputManager state
   inputManager.state.isPaused = isPaused;
@@ -2318,7 +2452,9 @@ function animate() {
   // If the loading screen is active, give chunk generation a massive time budget (e.g., 33ms)
   // so it finishes in a fraction of a second instead of being artifically throttled for 60fps.
   const isBootLoadingScreen = isPaused && !isIntroTransitionActive;
-  const chunkBudget = isBootLoadingScreen ? 33 : 4;
+  const chunkBudget = isBootLoadingScreen
+    ? 33
+    : performanceMonitor.getChunkBudget();
   if (window.processChunkQueue) window.processChunkQueue(chunkBudget);
   if (window.globalInstancer) window.globalInstancer.rebuildAll();
   let rawDelta = clock.getDelta();
@@ -2341,7 +2477,7 @@ function animate() {
     window.performanceMonitor &&
     typeof window.performanceMonitor.update === 'function'
   ) {
-    window.performanceMonitor.update(delta);
+    window.performanceMonitor.update(rawDelta);
   }
 
   inputManager.pollGamepad(delta);
@@ -2369,6 +2505,8 @@ function animate() {
       }
 
       updateWeather(delta);
+      // During loading screen, always update shadows (simple scene, minimal cost)
+      renderer.shadowMap.needsUpdate = true;
       renderer.render(scene, camera);
     }
     return;
@@ -3634,6 +3772,9 @@ function animate() {
   // We must ensure the offset (-0.5) is deeper than dawnDuskFactor's fadeout (-0.4) to prevent abrupt clipping!
   const dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) / 0.8)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0.3 (~7:15 AM)
 
+  // Feed dayFactor to the performance monitor for shadow night culling
+  performanceMonitor.updateDayFactor(dayFactor);
+
   // 2. Fixed Moon Position (West-Southwest Sky near Horizon)
 
   // Set WSW fixed position (approx. -126 degrees azimuth)
@@ -4657,6 +4798,10 @@ function animate() {
   // Sync chunk border helpers if enabled (low cost — only iterates loaded chunks)
   syncChunkBorders();
 
+  // Shadow cadence: DynamicPerformanceMonitor throttles shadow updates under load
+  // and disables them entirely at night when dirLight intensity is effectively zero.
+  renderer.shadowMap.needsUpdate = performanceMonitor.shouldUpdateShadows();
+
   renderer.render(scene, camera);
 
   // --- BENCHMARKING LOGIC ---
@@ -5069,6 +5214,16 @@ function animate() {
       updateDOM(
         'debug-avg-ms',
         window.performanceMonitor.getSmoothedFrameTime().toFixed(2)
+      );
+      updateDOM(
+        'debug-drs-mult',
+        window.performanceMonitor.pixelRatioMultiplier.toFixed(2)
+      );
+      const cadence = window.performanceMonitor.shadowCadence;
+      updateDOM('debug-shadow-cadence', cadence === 0 ? 'off' : `1/${cadence}`);
+      updateDOM(
+        'debug-chunk-budget',
+        window.performanceMonitor.getChunkBudget().toFixed(1)
       );
     }
     updateDOM('debug-lod-chunks', `${activeLODChunks}/${totalChunks}`);
