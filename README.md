@@ -284,11 +284,12 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`zenith`**, **`horizon`**, & **`day`** (or **`dayBlue`**): Force custom sky zenith, horizon, and day blue hex colors (e.g., `zenith=1a2b3c&horizon=ff7e67&day=4ca1f0` or `day=4ca1f0`).
 - **`objects`**: Set to `none` to disable all spawned objects (trees, houses, etc.).
 
-### Camera and System
+### Camera and system
 
 - **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros).
 - **`debug`**: Set to `true` (or include `?debug`) to start with the debug menu and telemetry overlay visible.
 - **`benchmark`**: Duration in seconds (e.g., `?benchmark=30`) to run an automated flight benchmark measuring mean FPS, 1% low, 0.1% low, and maximum frame spike.
+- **`preset`** or **`graphics`**: Override the graphics preset (`low`, `mid`, `high`, `ultra`).
 - **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera (useful for exact freecam sharing).
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).
 

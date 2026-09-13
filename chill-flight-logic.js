@@ -152,6 +152,12 @@
       ? parseFloat(_benchmarkParam)
       : null;
 
+  const _presetParam = getParam('preset', getParam('graphics', null));
+  const GRAPHICS_PRESET =
+    _presetParam !== null && _presetParam !== ''
+      ? _presetParam.toLowerCase()
+      : null;
+
   // --- SEEDED PRNG: Mulberry32 ---
   // Returns a closure that produces deterministic floats in [0, 1).
   // Usage: const rng = mulberry32(seed); rng(); // next value
@@ -1115,6 +1121,7 @@
   exports.START_PROP_LOD = START_PROP_LOD;
   exports.START_DEBUG = START_DEBUG;
   exports.START_BENCHMARK = START_BENCHMARK;
+  exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.ZENITH_COLOR = ZENITH_COLOR;
   exports.HORIZON_COLOR = HORIZON_COLOR;
   exports.DAY_COLOR = DAY_COLOR;

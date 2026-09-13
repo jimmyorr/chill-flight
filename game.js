@@ -1302,10 +1302,19 @@ let frameMinDelay = 1000 / 60;
 let lastFrameTime = 0;
 
 // Apply initial graphics preset
+const urlPreset =
+  typeof ChillFlightLogic !== 'undefined' &&
+  ChillFlightLogic.GRAPHICS_PRESET &&
+  ['low', 'mid', 'high', 'ultra'].includes(ChillFlightLogic.GRAPHICS_PRESET)
+    ? ChillFlightLogic.GRAPHICS_PRESET
+    : null;
+
 const savedPreset = localStorage.getItem('chill_flight_graphics_preset');
-if (savedPreset) {
-  if (graphicsPresetSelect) graphicsPresetSelect.value = savedPreset;
-  applyGraphicsPreset(savedPreset);
+const initialPreset = urlPreset || savedPreset;
+
+if (initialPreset) {
+  if (graphicsPresetSelect) graphicsPresetSelect.value = initialPreset;
+  applyGraphicsPreset(initialPreset);
 } else if (window.detectGraphicsPreset) {
   window.detectGraphicsPreset().then((detected) => {
     if (graphicsPresetSelect) graphicsPresetSelect.value = detected;
