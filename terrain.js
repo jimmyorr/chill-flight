@@ -14,6 +14,60 @@ const _waterGeometryPool = [];
 window._terrainGeometryPool = _terrainGeometryPool;
 window._waterGeometryPool = _waterGeometryPool;
 
+const _instancedMeshPool = new Map();
+
+function getInstancedMesh(geometry, material, count) {
+  const key =
+    geometry.uuid +
+    '_' +
+    (Array.isArray(material)
+      ? material.map((m) => m.uuid).join()
+      : material.uuid);
+
+  if (!_instancedMeshPool.has(key)) {
+    _instancedMeshPool.set(key, []);
+  }
+  const pool = _instancedMeshPool.get(key);
+
+  // Find a pooled mesh with sufficient capacity
+  for (let i = pool.length - 1; i >= 0; i--) {
+    if (pool[i].instanceMatrix.count >= count) {
+      const mesh = pool.splice(i, 1)[0];
+      mesh.count = count;
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      return mesh;
+    }
+  }
+
+  // Allocate with extra capacity to prevent frequent resizing
+  const allocCount = Math.max(count, 16);
+  const mesh = new THREE.InstancedMesh(geometry, material, allocCount);
+  mesh.count = count;
+  return mesh;
+}
+
+function releaseInstancedMesh(mesh) {
+  if (!mesh.geometry || !mesh.material) {
+    if (mesh.dispose) mesh.dispose();
+    return;
+  }
+  const key =
+    mesh.geometry.uuid +
+    '_' +
+    (Array.isArray(mesh.material)
+      ? mesh.material.map((m) => m.uuid).join()
+      : mesh.material.uuid);
+  if (!_instancedMeshPool.has(key)) {
+    _instancedMeshPool.set(key, []);
+  }
+
+  mesh.userData = {};
+  if (mesh.parent) mesh.removeFromParent();
+
+  _instancedMeshPool.get(key).push(mesh);
+}
+
 let chunkQueue = [];
 let chunkQueueSet = new Set();
 
@@ -3644,7 +3698,7 @@ class GlobalInstanceManager {
   }
 
   registerType(type, geo, mat, maxInstances = 30000, useColor = false) {
-    const instMesh = new THREE.InstancedMesh(geo, mat, maxInstances);
+    const instMesh = getInstancedMesh(geo, mat, maxInstances);
     instMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     if (useColor) {
       instMesh.instanceColor = new THREE.InstancedBufferAttribute(
@@ -5280,12 +5334,12 @@ function generateChunk(chunkX, chunkZ) {
     const comboIndices = {};
     for (const key of Object.keys(comboCounts)) {
       const [bodyId, roofId] = key.split('_').map(Number);
-      bodyInsts[key] = new THREE.InstancedMesh(
+      bodyInsts[key] = getInstancedMesh(
         houseBodyGeo,
         houseBodyPalette[bodyId],
         comboCounts[key]
       );
-      roofInsts[key] = new THREE.InstancedMesh(
+      roofInsts[key] = getInstancedMesh(
         houseRoofGeo,
         houseRoofPalette[roofId],
         comboCounts[key]
@@ -5309,7 +5363,7 @@ function generateChunk(chunkX, chunkZ) {
 
     for (let i = 0; i < 5; i++) {
       if (poolCounts[i] > 0) {
-        windowPools[i] = new THREE.InstancedMesh(
+        windowPools[i] = getInstancedMesh(
           houseWindowGeo,
           houseWindowMats[i],
           poolCounts[i] * 3
@@ -5319,12 +5373,12 @@ function generateChunk(chunkX, chunkZ) {
       }
     }
 
-    const doorInst = new THREE.InstancedMesh(
+    const doorInst = getInstancedMesh(
       houseDoorGeo,
       houseDoorMat,
       housePositions.length
     );
-    const chimneyInst = new THREE.InstancedMesh(
+    const chimneyInst = getInstancedMesh(
       houseChimneyGeo,
       houseChimneyMat,
       housePositions.length
@@ -5441,12 +5495,12 @@ function generateChunk(chunkX, chunkZ) {
     const comboIndices = {};
     for (const key of Object.keys(comboCounts)) {
       const [bodyId, roofId] = key.split('_').map(Number);
-      bodyInsts[key] = new THREE.InstancedMesh(
+      bodyInsts[key] = getInstancedMesh(
         twoStoryBodyGeo,
         houseBodyPalette[bodyId],
         comboCounts[key]
       );
-      roofInsts[key] = new THREE.InstancedMesh(
+      roofInsts[key] = getInstancedMesh(
         twoStoryRoofGeo,
         houseRoofPalette[roofId],
         comboCounts[key]
@@ -5470,7 +5524,7 @@ function generateChunk(chunkX, chunkZ) {
 
     for (let i = 0; i < 5; i++) {
       if (poolCounts[i] > 0) {
-        windowPools[i] = new THREE.InstancedMesh(
+        windowPools[i] = getInstancedMesh(
           houseWindowGeo,
           houseWindowMats[i],
           poolCounts[i] * 8
@@ -5480,12 +5534,12 @@ function generateChunk(chunkX, chunkZ) {
       }
     }
 
-    const doorInst = new THREE.InstancedMesh(
+    const doorInst = getInstancedMesh(
       houseDoorGeo,
       houseDoorMat,
       twoStoryHousePositions.length
     );
-    const chimneyInst = new THREE.InstancedMesh(
+    const chimneyInst = getInstancedMesh(
       twoStoryChimneyGeo,
       houseChimneyMat,
       twoStoryHousePositions.length
@@ -5566,12 +5620,12 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.55 Generate Straw Huts (islands)
   if (strawHutPositions.length > 0) {
-    const strawHutBodyInst = new THREE.InstancedMesh(
+    const strawHutBodyInst = getInstancedMesh(
       strawHutBodyGeo,
       strawHutMat,
       strawHutPositions.length
     );
-    const strawHutRoofInst = new THREE.InstancedMesh(
+    const strawHutRoofInst = getInstancedMesh(
       strawHutRoofGeo,
       strawHutMat,
       strawHutPositions.length
@@ -5593,12 +5647,12 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.6 Generate Pagodas (rare, cherry blossom zones)
   if (pagodaPositions.length > 0) {
-    const pagodaBodyInst = new THREE.InstancedMesh(
+    const pagodaBodyInst = getInstancedMesh(
       pagodaBodyGeo,
       pagodaBodyMat,
       pagodaPositions.length
     );
-    const pagodaRoofInst = new THREE.InstancedMesh(
+    const pagodaRoofInst = getInstancedMesh(
       pagodaRoofGeo,
       pagodaRoofMat,
       pagodaPositions.length
@@ -5620,32 +5674,32 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.61 Generate Barns (temperate plains)
   if (barnPositions.length > 0) {
-    const barnBodyInst = new THREE.InstancedMesh(
+    const barnBodyInst = getInstancedMesh(
       barnBodyGeo,
       barnBodyMat,
       barnPositions.length
     );
-    const barnRoofInst = new THREE.InstancedMesh(
+    const barnRoofInst = getInstancedMesh(
       barnRoofGeo,
       barnRoofMat,
       barnPositions.length
     );
-    const barnDoorInst = new THREE.InstancedMesh(
+    const barnDoorInst = getInstancedMesh(
       barnDoorGeo,
       barnWhiteMat,
       barnPositions.length * 2
     );
-    const barnTrimInst = new THREE.InstancedMesh(
+    const barnTrimInst = getInstancedMesh(
       barnTrimGeo,
       barnBodyMat,
       barnPositions.length * 4
     );
-    const barnSiloBodyInst = new THREE.InstancedMesh(
+    const barnSiloBodyInst = getInstancedMesh(
       barnSiloBodyGeo,
       barnSiloMat,
       barnPositions.length
     );
-    const barnSiloRoofInst = new THREE.InstancedMesh(
+    const barnSiloRoofInst = getInstancedMesh(
       barnSiloRoofGeo,
       barnSiloRoofMat,
       barnPositions.length
@@ -5737,12 +5791,12 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.62 Generate Monasteries (rare, temperate highlands)
   if (monasteryPositions.length > 0) {
-    const monasteryBodyInst = new THREE.InstancedMesh(
+    const monasteryBodyInst = getInstancedMesh(
       monasteryBodyGeo,
       monasteryBodyMat,
       monasteryPositions.length
     );
-    const monasteryRoofInst = new THREE.InstancedMesh(
+    const monasteryRoofInst = getInstancedMesh(
       monasteryRoofGeo,
       monasteryRoofMat,
       monasteryPositions.length
@@ -5763,7 +5817,7 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.63 Generate Castle Ruins (very rare, elevated terrain)
   if (castleRuinsPositions.length > 0) {
-    const castleInst = new THREE.InstancedMesh(
+    const castleInst = getInstancedMesh(
       castleRuinsGeo,
       castleRuinsMat,
       castleRuinsPositions.length
@@ -5781,12 +5835,12 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.7 Generate Windmills
   if (windmillPositions.length > 0) {
-    const baseInst = new THREE.InstancedMesh(
+    const baseInst = getInstancedMesh(
       windmillBaseGeo,
       windmillBaseMat,
       windmillPositions.length
     );
-    const bladesInst = new THREE.InstancedMesh(
+    const bladesInst = getInstancedMesh(
       windmillBladesGeo,
       windmillBladesMat,
       windmillPositions.length * 4
@@ -5881,12 +5935,12 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.95 Generate Piers
   if (pierPositions.length > 0) {
-    const deckInst = new THREE.InstancedMesh(
+    const deckInst = getInstancedMesh(
       pierDeckGeo,
       woodMat,
       pierPositions.length
     );
-    const postInst = new THREE.InstancedMesh(
+    const postInst = getInstancedMesh(
       pierPostGeo,
       woodMat,
       pierPositions.length * 4
@@ -6027,28 +6081,28 @@ function generateChunk(chunkX, chunkZ) {
         });
 
         // Bridge decks
-        const deckInst = new THREE.InstancedMesh(
+        const deckInst = getInstancedMesh(
           bridgeDeckGeo,
           bridgeDeckMat,
           bridgePositions.length
         );
 
         // Pilings
-        const pilingInst = new THREE.InstancedMesh(
+        const pilingInst = getInstancedMesh(
           bridgePilingGeo,
           bridgePilingMat,
           numPilings > 0 ? numPilings : 1 // Avoid 0 size buffer error
         );
 
         // Arches
-        const archInst = new THREE.InstancedMesh(
+        const archInst = getInstancedMesh(
           bridgeArchGeo,
           bridgePilingMat,
           numArches > 0 ? numArches : 1
         );
 
         // Railings — 2 per segment (one on each side) ONLY for bridge sections
-        const railInst = new THREE.InstancedMesh(
+        const railInst = getInstancedMesh(
           bridgeRailGeo,
           bridgeDeckMat,
           numRailSegments > 0 ? numRailSegments * 2 : 1
@@ -6088,22 +6142,22 @@ function generateChunk(chunkX, chunkZ) {
             }
           });
         }
-        const slBaseInst = new THREE.InstancedMesh(
+        const slBaseInst = getInstancedMesh(
           streetlightPoleGeo,
           streetlightPoleMat,
           numStreetlights > 0 ? numStreetlights : 1
         );
-        const slArmInst = new THREE.InstancedMesh(
+        const slArmInst = getInstancedMesh(
           streetlightArmGeo,
           streetlightPoleMat,
           numStreetlights > 0 ? numStreetlights : 1
         );
-        const slBulbInst = new THREE.InstancedMesh(
+        const slBulbInst = getInstancedMesh(
           streetlightBulbGeo,
           window.streetlightBulbMat,
           numStreetlights > 0 ? numStreetlights : 1
         );
-        const slDecalInst = new THREE.InstancedMesh(
+        const slDecalInst = getInstancedMesh(
           streetlightDecalGeo,
           window.streetlightDecalMat,
           numStreetlights > 0 ? numStreetlights : 1
@@ -6304,17 +6358,17 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.96 Generate Campfires
   if (campfirePositions.length > 0) {
-    const logInst = new THREE.InstancedMesh(
+    const logInst = getInstancedMesh(
       fireLogGeo,
       woodMat,
       campfirePositions.length * 3
     );
-    const coreInst = new THREE.InstancedMesh(
+    const coreInst = getInstancedMesh(
       fireCoreGeo,
       fireMat,
       campfirePositions.length
     );
-    const smokeInst = new THREE.InstancedMesh(
+    const smokeInst = getInstancedMesh(
       smokeGeo,
       smokeMat,
       campfirePositions.length * 5
@@ -6331,12 +6385,12 @@ function generateChunk(chunkX, chunkZ) {
     });
 
     const tentInsts = [];
-    const tentPolesInst = new THREE.InstancedMesh(
+    const tentPolesInst = getInstancedMesh(
       tentPolesGeo,
       woodMat,
       campfirePositions.length
     );
-    const tentEntranceInst = new THREE.InstancedMesh(
+    const tentEntranceInst = getInstancedMesh(
       tentEntranceGeo,
       tentEntranceMat,
       campfirePositions.length
@@ -6345,11 +6399,7 @@ function generateChunk(chunkX, chunkZ) {
 
     for (let i = 0; i < numTentColors; i++) {
       if (tentCounts[i] > 0) {
-        tentInsts[i] = new THREE.InstancedMesh(
-          tentGeo,
-          tentPalette[i],
-          tentCounts[i]
-        );
+        tentInsts[i] = getInstancedMesh(tentGeo, tentPalette[i], tentCounts[i]);
         tentInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
         objectsGroup.add(tentInsts[i]);
       }
@@ -6425,7 +6475,7 @@ function generateChunk(chunkX, chunkZ) {
 
   // 2.97 Generate Chimney Smoke
   if (chimneySmokePositions.length > 0) {
-    const chimneySmokeInst = new THREE.InstancedMesh(
+    const chimneySmokeInst = getInstancedMesh(
       smokeGeo,
       whiteSmokeMat,
       chimneySmokePositions.length * 4
@@ -6472,7 +6522,7 @@ function generateChunk(chunkX, chunkZ) {
 
     for (let i = 0; i < numBoatColors; i++) {
       if (boatCounts[i] > 0) {
-        hullInsts[i] = new THREE.InstancedMesh(
+        hullInsts[i] = getInstancedMesh(
           boatHullGeo,
           boatHullPalette[i],
           boatCounts[i]
@@ -6482,32 +6532,32 @@ function generateChunk(chunkX, chunkZ) {
       }
     }
 
-    const rimInst = new THREE.InstancedMesh(
+    const rimInst = getInstancedMesh(
       boatRimGeo,
       boatRimMat,
       sailboatPositions.length
     );
-    const deckInst = new THREE.InstancedMesh(
+    const deckInst = getInstancedMesh(
       boatDeckGeo,
       boatDeckMat,
       sailboatPositions.length
     );
-    const mastInst = new THREE.InstancedMesh(
+    const mastInst = getInstancedMesh(
       boatMastGeo,
       woodMat,
       sailboatPositions.length
     );
-    const boomInst = new THREE.InstancedMesh(
+    const boomInst = getInstancedMesh(
       boatBoomGeo,
       woodMat,
       sailboatPositions.length
     );
-    const sailInst = new THREE.InstancedMesh(
+    const sailInst = getInstancedMesh(
       boatSailGeo,
       boatSailMat,
       sailboatPositions.length
     );
-    const sailboatReflectionInst = new THREE.InstancedMesh(
+    const sailboatReflectionInst = getInstancedMesh(
       sailboatReflectionGeo,
       reflectionMat,
       sailboatPositions.length
@@ -6579,41 +6629,40 @@ function generateChunk(chunkX, chunkZ) {
 
   // 3.5 Pirate Ships
   if (pirateShipPositions.length > 0) {
-    const sailInsts = pirateSailPalette.map(
-      (mat) =>
-        new THREE.InstancedMesh(pirateSailGeo, mat, pirateShipPositions.length)
+    const sailInsts = pirateSailPalette.map((mat) =>
+      getInstancedMesh(pirateSailGeo, mat, pirateShipPositions.length)
     );
-    const hullInst = new THREE.InstancedMesh(
+    const hullInst = getInstancedMesh(
       pirateHullGeo,
       pirateHullMat,
       pirateShipPositions.length
     );
-    const rimInst = new THREE.InstancedMesh(
+    const rimInst = getInstancedMesh(
       pirateRimGeo,
       pirateRimMat,
       pirateShipPositions.length
     );
-    const deckInst = new THREE.InstancedMesh(
+    const deckInst = getInstancedMesh(
       pirateDeckGeo,
       woodMat,
       pirateShipPositions.length
     );
-    const mastInst = new THREE.InstancedMesh(
+    const mastInst = getInstancedMesh(
       pirateMastGeo,
       woodMat,
       pirateShipPositions.length
     );
-    const flagInst = new THREE.InstancedMesh(
+    const flagInst = getInstancedMesh(
       pirateFlagGeo,
       pirateFlagMat,
       pirateShipPositions.length
     );
-    const jrInst = new THREE.InstancedMesh(
+    const jrInst = getInstancedMesh(
       pirateJollyRogerGeo,
       pirateJollyRogerMat,
       pirateShipPositions.length
     );
-    const pirateReflectionInst = new THREE.InstancedMesh(
+    const pirateReflectionInst = getInstancedMesh(
       pirateShipReflectionGeo,
       reflectionMat,
       pirateShipPositions.length
@@ -6978,22 +7027,18 @@ function updateChunks() {
               child.geometry.dispose();
             }
           }
-          // Dispose WebGL buffers for per-chunk InstancedMeshes
-          if (child.isInstancedMesh) {
-            if (child.instanceMatrix && child.instanceMatrix.dispose) {
-              child.instanceMatrix.dispose();
-            }
-            if (child.instanceColor && child.instanceColor.dispose) {
-              child.instanceColor.dispose();
-            }
-            if (child.dispose) child.dispose();
-          }
         }
       });
 
       // Detach all child objects and clear chunk references
       while (group.children.length > 0) {
-        group.remove(group.children[0]);
+        const child = group.children[0];
+        group.remove(child);
+        // Release instanced meshes recursively
+        child.traverse((c) => {
+          if (c.isInstancedMesh) releaseInstancedMesh(c);
+        });
+        if (child.isInstancedMesh) releaseInstancedMesh(child);
       }
       group.userData.instanceData = null;
       group.userData.objectsGroup = null;

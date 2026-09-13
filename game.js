@@ -1957,6 +1957,7 @@ const _moonPhaseY = new THREE.Vector3();
 const _moonPhaseSunDir = new THREE.Vector3();
 const _skyBottomCol = new THREE.Color();
 const _warmHorizonColor = new THREE.Color();
+const _debugCamEuler = new THREE.Euler();
 
 let isShootingStarActive = false;
 let forceShootingStar = false;
@@ -4495,12 +4496,9 @@ function animate() {
     updateDOM('debug-camera-x', Math.round(camera.position.x));
     updateDOM('debug-camera-y', Math.round(camera.position.y));
     updateDOM('debug-camera-z', Math.round(camera.position.z));
-    const camEuler = new THREE.Euler().setFromQuaternion(
-      camera.quaternion,
-      'YXZ'
-    );
-    const camHeadingDegrees = THREE.MathUtils.radToDeg(camEuler.y);
-    const camPitchDegrees = THREE.MathUtils.radToDeg(camEuler.x);
+    _debugCamEuler.setFromQuaternion(camera.quaternion, 'YXZ');
+    const camHeadingDegrees = THREE.MathUtils.radToDeg(_debugCamEuler.y);
+    const camPitchDegrees = THREE.MathUtils.radToDeg(_debugCamEuler.x);
     updateDOM('debug-camera-heading', Math.round(camHeadingDegrees));
     updateDOM('debug-camera-pitch', Math.round(camPitchDegrees));
 
