@@ -4635,7 +4635,7 @@ function animate() {
       dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
 
       _skyBottomCol.copy(_finalSkyColor);
-      if (dawnDuskFactor > 0.1) {
+      if (dawnDuskFactor > 0.0) {
         _warmHorizonColor.set(selectedPalette.bottom);
         // LET THE SUNSET HORIZON BLEED THROUGH OVERCAST, ESPECIALLY DURING SNOW
         const isSnowing =
