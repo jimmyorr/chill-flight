@@ -272,13 +272,13 @@ Adjustments occur across four frame-time thresholds with a 30-frame hysteresis c
 | Load state            | Frame time threshold | Effective FPS | LOD multiplier           | DRS resolution multiplier | Shadow update cadence | Terrain chunk budget |
 | :-------------------- | :------------------- | :------------ | :----------------------- | :------------------------ | :-------------------- | :------------------- |
 | **Normal / recovery** | ≤ 17.50 ms           | ≥ 57 FPS      | Recovers +0.1 (max 1.0×) | Recovers +0.05 (max 1.0×) | Every frame (1/1)     | 4.0 ms / frame       |
-| **Slight overload**   | > 20.00 ms           | < 50 FPS      | −0.1 step (floor 0.6×)   | −0.05 step (floor 0.7×)   | Every 2nd frame (1/2) | 3.0 ms / frame       |
-| **Moderate overload** | > 25.00 ms           | < 40 FPS      | −0.1 step (floor 0.4×)   | −0.10 step (floor 0.5×)   | Every 3rd frame (1/3) | 2.0 ms / frame       |
-| **Severe overload**   | > 33.33 ms           | < 30 FPS      | −0.2 step (floor 0.2×)   | −0.15 step (floor 0.5×)   | Every 4th frame (1/4) | 1.0 ms / frame       |
+| **Slight overload**   | > 20.00 ms           | < 50 FPS      | −0.1 step (floor 0.6×)   | Unchanged (1.0×)          | Every 2nd frame (1/2) | 3.0 ms / frame       |
+| **Moderate overload** | > 25.00 ms           | < 40 FPS      | −0.1 step (floor 0.4×)   | −0.05 step (floor 0.8×)   | Every 3rd frame (1/3) | 2.0 ms / frame       |
+| **Severe overload**   | > 33.33 ms           | < 30 FPS      | −0.2 step (floor 0.2×)   | −0.10 step (floor 0.8×)   | Every 4th frame (1/4) | 1.0 ms / frame       |
 
 #### Subsystem behaviors
 
-- **Dynamic resolution scaling (DRS):** Scales the WebGL renderer's `pixelRatio` relative to the graphics preset's base pixel ratio down to a floor of 50%. This directly reduces fragment shading load and screen-space overdraw.
+- **Dynamic resolution scaling (DRS):** Scales the WebGL renderer's `pixelRatio` relative to the graphics preset's base pixel ratio down to a floor of 80% under moderate or severe load (< 40 FPS). This directly reduces fragment shading load and screen-space overdraw while maintaining visual fidelity above native 1:1 screen resolution on high-DPI displays.
 - **LOD distance scaling:** Multiplies the prop visibility distance (base 4,200 units) down to a floor of 20% (840 units). Distant houses, chimneys, and piers are culled, significantly reducing vertex counts and draw calls.
 - **Adaptive chunk budget:** Procedural terrain mesh generation on the main thread has an adaptive per-frame time allowance. Under normal conditions, chunk processing runs up to 4.0 ms per frame, dropping to 1.0 ms under severe load to eliminate stutter during flight.
   - _Boot override:_ During the initial startup loading screen (`isPaused && !isIntroTransitionActive`), the chunk budget is temporarily boosted to 33.0 ms per frame so the initial world geometry generates almost instantaneously.

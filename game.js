@@ -2212,7 +2212,7 @@ class DynamicPerformanceMonitor {
 
     // Dynamic resolution scaling (DRS) state
     this.pixelRatioMultiplier = 1.0;
-    this._minPixelRatioMult = 0.5; // Floor: never go below 50% of base
+    this._minPixelRatioMult = 0.8; // Floor: never drop below 80% of base resolution
 
     // Shadow throttling state
     this.shadowCadence = 1; // 1 = every frame, 2 = every other, 4 = every 4th, 0 = off
@@ -2269,15 +2269,8 @@ class DynamicPerformanceMonitor {
       }
 
       // --- Dynamic resolution scaling (DRS) ---
+      // Reserve DRS for moderate/severe load (< 40 FPS); let LOD and shadows handle slight dips.
       if (avgFrameTime > this.severelyOverloaded) {
-        if (this.pixelRatioMultiplier > this._minPixelRatioMult) {
-          this.pixelRatioMultiplier = Math.max(
-            this._minPixelRatioMult,
-            this.pixelRatioMultiplier - 0.15
-          );
-          changed = true;
-        }
-      } else if (avgFrameTime > this.moderatelyOverloaded) {
         if (this.pixelRatioMultiplier > this._minPixelRatioMult) {
           this.pixelRatioMultiplier = Math.max(
             this._minPixelRatioMult,
@@ -2285,10 +2278,10 @@ class DynamicPerformanceMonitor {
           );
           changed = true;
         }
-      } else if (avgFrameTime > this.slightlyOverloaded) {
-        if (this.pixelRatioMultiplier > 0.7) {
+      } else if (avgFrameTime > this.moderatelyOverloaded) {
+        if (this.pixelRatioMultiplier > this._minPixelRatioMult) {
           this.pixelRatioMultiplier = Math.max(
-            0.7,
+            this._minPixelRatioMult,
             this.pixelRatioMultiplier - 0.05
           );
           changed = true;
