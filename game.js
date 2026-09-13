@@ -1006,6 +1006,10 @@ if (copyCamUrlBtn) {
       url.searchParams.delete('lod');
     }
 
+    url.searchParams.delete('autopilot');
+    url.searchParams.delete('auto');
+    url.searchParams.delete('autoPilot');
+
     navigator.clipboard.writeText(url.toString()).then(() => {
       const originalText = copyCamUrlBtn.textContent;
       copyCamUrlBtn.textContent = 'Copied!';
@@ -1112,6 +1116,14 @@ if (copyPlaneUrlBtn) {
     if (window.manualPropLOD !== undefined) {
       url.searchParams.set('propLod', Math.round(window.manualPropLOD));
       url.searchParams.delete('lod');
+    }
+
+    if (window.autopilotEnabled) {
+      url.searchParams.set('autopilot', 'true');
+    } else {
+      url.searchParams.delete('autopilot');
+      url.searchParams.delete('auto');
+      url.searchParams.delete('autoPilot');
     }
 
     navigator.clipboard.writeText(url.toString()).then(() => {
@@ -5113,8 +5125,12 @@ if (musicToggle) {
 const hdgtSub = document.getElementById('mobile-hdgt-sub');
 const autoToggle = document.getElementById('mobile-auto-toggle');
 
-function toggleAutopilot() {
-  window.autopilotEnabled = !window.autopilotEnabled;
+function toggleAutopilot(forceState) {
+  if (forceState !== undefined) {
+    window.autopilotEnabled = !!forceState;
+  } else {
+    window.autopilotEnabled = !window.autopilotEnabled;
+  }
   const msg = window.autopilotEnabled
     ? 'AUTOPILOT ENABLED'
     : 'AUTOPILOT DISABLED';
@@ -5153,6 +5169,23 @@ function toggleAutopilot() {
       if (centerMsg.textContent === msg) centerMsg.textContent = oldText;
     }, 2000);
   }
+
+  if (typeof updateUrlParams === 'function') {
+    if (window.autopilotEnabled) {
+      updateUrlParams({autopilot: 'true'}, ['auto', 'autoPilot']);
+    } else {
+      updateUrlParams({}, ['autopilot', 'auto', 'autoPilot']);
+    }
+  }
+}
+window.toggleAutopilot = toggleAutopilot;
+
+if (
+  typeof ChillFlightLogic !== 'undefined' &&
+  ChillFlightLogic.START_AUTOPILOT &&
+  !isFreeCamera
+) {
+  toggleAutopilot(true);
 }
 
 if (menuTrigger && menuContainer) {

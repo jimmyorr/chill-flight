@@ -290,6 +290,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`debug`**: Set to `true` (or include `?debug`) to start with the debug menu and telemetry overlay visible.
 - **`benchmark`**: Duration in seconds (e.g., `?benchmark=30`) to run an automated flight benchmark measuring mean FPS, 1% low, 0.1% low, and maximum frame spike.
 - **`preset`** or **`graphics`**: Override the graphics preset (`low`, `mid`, `high`, `ultra`).
+- **`autopilot`** or **`auto`**: Set to `true` (or include `?autopilot`) to engage autopilot immediately upon startup.
 - **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera (useful for exact freecam sharing).
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).
 

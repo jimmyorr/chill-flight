@@ -100,6 +100,18 @@
     _debugParam === '1' ||
     (_debugParam !== null && _debugParam.trim().toLowerCase() === 'true');
 
+  const _autopilotParam = getParam(
+    'autopilot',
+    getParam('autoPilot', getParam('auto', null))
+  );
+  const START_AUTOPILOT =
+    _autopilotParam === '' ||
+    _autopilotParam === '1' ||
+    (_autopilotParam !== null &&
+      ['true', 'yes', 'on', '1'].includes(
+        _autopilotParam.trim().toLowerCase()
+      ));
+
   const _xParam = getParam('x', null);
   const START_X =
     _xParam !== null && _xParam !== '' ? parseFloat(_xParam) : null;
@@ -1120,6 +1132,7 @@
   exports.START_WEATHER = START_WEATHER;
   exports.START_PROP_LOD = START_PROP_LOD;
   exports.START_DEBUG = START_DEBUG;
+  exports.START_AUTOPILOT = START_AUTOPILOT;
   exports.START_BENCHMARK = START_BENCHMARK;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.ZENITH_COLOR = ZENITH_COLOR;
