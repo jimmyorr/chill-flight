@@ -2875,8 +2875,9 @@ function animate() {
       window.ChillFlightLogic.getRiverCenterZ
         ? window.ChillFlightLogic.getRiverCenterZ(
             planeGroup.position.x,
-            planeGroup.position.z,
-            simplex
+            0,
+            simplex,
+            0
           )
         : 0;
 
@@ -2897,27 +2898,17 @@ function animate() {
       maxAutoPitch
     );
 
-    // 3. Direction Control -> Head towards sunset/sunrise when applicable, otherwise West
-    const _sunY = -Math.cos(timeOfDay);
+    // 3. Direction Control -> Always face the sun along the equator river
+    // 1 for East (Sunrise / Morning), -1 for West (Sunset / Afternoon)
     const _sunX = Math.sin(timeOfDay);
-    const dawnDuskFactor = Math.max(0, 1.0 - Math.abs(_sunY) * 2.5);
-
-    // 1 for East (Sunrise), -1 for West (Sunset or default)
-    let lookDirX = -1;
-    if (dawnDuskFactor > 0.05) {
-      lookDirX = _sunX > 0 ? 1 : -1;
-    }
+    const lookDirX = _sunX >= 0 ? 1 : -1;
 
     // We look ahead a bit to calculate the river's local angle
     const lookAheadX = planeGroup.position.x + lookDirX * 300;
     const targetRiverZ =
       typeof window.ChillFlightLogic !== 'undefined' &&
       window.ChillFlightLogic.getRiverCenterZ
-        ? window.ChillFlightLogic.getRiverCenterZ(
-            lookAheadX,
-            planeGroup.position.z,
-            simplex
-          )
+        ? window.ChillFlightLogic.getRiverCenterZ(lookAheadX, 0, simplex, 0)
         : 0;
 
     // Calculate the vector pointing down the river
