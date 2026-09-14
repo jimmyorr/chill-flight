@@ -867,12 +867,59 @@ if (freeCamToggle) {
     camera.rotation.z = 0;
     camera.up.set(0, 1, 0);
 
-    if (ChillFlightLogic.START_X !== null)
-      camera.position.x = ChillFlightLogic.START_X;
-    if (ChillFlightLogic.START_Y !== null)
-      camera.position.y = ChillFlightLogic.START_Y;
-    if (ChillFlightLogic.START_Z !== null)
-      camera.position.z = ChillFlightLogic.START_Z;
+    let startCamX = planeGroup.position.x;
+    let startCamZ = planeGroup.position.z;
+    let startCamY = planeGroup.position.y;
+
+    if (ChillFlightLogic.START_X !== null) {
+      startCamX = ChillFlightLogic.START_X;
+    } else if (
+      ChillFlightLogic.parsedLon !== null &&
+      ChillFlightLogic.parsedLon !== undefined
+    ) {
+      startCamX = ChillFlightLogic.parsedLon * 5000;
+    }
+
+    if (ChillFlightLogic.START_Z !== null) {
+      startCamZ = ChillFlightLogic.START_Z;
+    } else if (
+      ChillFlightLogic.parsedLat !== null &&
+      ChillFlightLogic.parsedLat !== undefined
+    ) {
+      startCamZ = -ChillFlightLogic.parsedLat * 5000;
+    }
+
+    if (ChillFlightLogic.START_Y !== null) {
+      startCamY = ChillFlightLogic.START_Y;
+    } else if (
+      ChillFlightLogic.parsedAlt !== null &&
+      ChillFlightLogic.parsedAlt !== undefined
+    ) {
+      startCamY = ChillFlightLogic.parsedAlt / 25 + 45.5;
+    } else if (
+      ChillFlightLogic.parsedLon !== null ||
+      ChillFlightLogic.parsedLat !== null
+    ) {
+      try {
+        const terrainHeight = ChillFlightLogic.getElevation(
+          startCamX,
+          startCamZ,
+          simplex,
+          {
+            WATER_LEVEL: typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40,
+            MAP_WORLD_SIZE:
+              typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000,
+            MAP_HEIGHT_SCALE:
+              typeof MAP_HEIGHT_SCALE !== 'undefined' ? MAP_HEIGHT_SCALE : 400,
+          }
+        );
+        startCamY = terrainHeight + 400.0;
+      } catch (e) {
+        startCamY = planeGroup.position.y;
+      }
+    }
+
+    camera.position.set(startCamX, startCamY, startCamZ);
     if (ChillFlightLogic.START_HEADING !== null)
       camera.rotation.y = THREE.MathUtils.degToRad(
         ChillFlightLogic.START_HEADING

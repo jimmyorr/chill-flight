@@ -315,13 +315,13 @@ The game supports various URL query parameters for deep linking to specific loca
 
 ### Camera and system
 
-- **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros).
+- **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros). Inherits starting location from `lat`, `long`/`lon`, and `alt`, or from `x`, `y`, and `z`.
 - **`debug`**: Set to `true` (or include `?debug`) to start with the debug menu and telemetry overlay visible.
 - **`benchmark`**: Duration in seconds (e.g., `?benchmark=30`) to run an automated flight benchmark measuring mean FPS, 1% low, 0.1% low, and maximum frame spike.
 - **`preset`** or **`graphics`**: Override the graphics preset (`low`, `mid`, `high`, `ultra`).
 - **`autopilot`** or **`auto`**: Set to `true` (or include `?autopilot`) to engage autopilot immediately upon startup.
 - **`minimap`**: Set to `true` (or include `?minimap`) to start with the minimap overlay visible.
-- **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera (useful for exact freecam sharing).
+- **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera or airplane (takes precedence over lat/long, useful for exact freecam sharing).
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).
 
 ## Development
