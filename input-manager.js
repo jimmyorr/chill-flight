@@ -407,7 +407,8 @@ class InputManager {
         !e.target.closest('#debug-menu') &&
         !e.target.closest('#debug-telemetry') &&
         !e.target.closest('.title') &&
-        !e.target.closest('#mobile-controls')
+        !e.target.closest('#mobile-controls') &&
+        !e.target.closest('#minimap-container')
       ) {
         this.state.freeCam.dragging = true;
       }
@@ -437,6 +438,7 @@ class InputManager {
       e.target.closest('#pause-overlay') ||
       e.target.closest('#achievements-overlay') ||
       e.target.closest('#mobile-action-menu') ||
+      e.target.closest('#minimap-container') ||
       e.target.closest('.mobile-btn') ||
       e.target.closest('.sub-btn') ||
       e.target.closest('button') ||
@@ -495,6 +497,7 @@ class InputManager {
       target.closest('.title') ||
       target.closest('#mobile-controls') ||
       target.closest('#mobile-action-menu') ||
+      target.closest('#minimap-container') ||
       target.closest('.color-swatch');
 
     if (isUI) return;
@@ -627,6 +630,7 @@ class InputManager {
       target.closest('.title') ||
       target.closest('#mobile-controls') ||
       target.closest('#mobile-action-menu') ||
+      target.closest('#minimap-container') ||
       target.closest('.color-swatch');
 
     if (!isUI && !this.state.isPaused) {

@@ -81,11 +81,25 @@
     bgCanvas.height = gridSize;
     bgCtx = bgCanvas.getContext('2d');
 
-    // Create UI elements
     minimapContainer = document.createElement('div');
     minimapContainer.id = 'minimap-container';
     minimapContainer.className = 'desktop-only';
     minimapContainer.style.display = 'none'; // Hidden by default!
+
+    const handleMinimapEnter = () => {
+      if (typeof resetSteering === 'function') {
+        resetSteering();
+      } else if (
+        typeof inputManager !== 'undefined' &&
+        inputManager.resetMouseSteering
+      ) {
+        inputManager.resetMouseSteering();
+      }
+    };
+    minimapContainer.addEventListener('mouseenter', handleMinimapEnter);
+    minimapContainer.addEventListener('touchstart', handleMinimapEnter, {
+      passive: true,
+    });
 
     const header = document.createElement('div');
     header.id = 'minimap-header';
@@ -123,8 +137,8 @@
       }
     });
 
-    controls.appendChild(zoomInBtn);
     controls.appendChild(zoomOutBtn);
+    controls.appendChild(zoomInBtn);
     header.appendChild(controls);
     minimapContainer.appendChild(header);
 
@@ -147,6 +161,14 @@
 
     // Start game loop updater
     updateLoop();
+
+    // Check if minimap should start enabled from URL parameter
+    if (
+      typeof ChillFlightLogic !== 'undefined' &&
+      ChillFlightLogic.START_MINIMAP
+    ) {
+      toggleMinimap(true);
+    }
   }
 
   function forceRedraw() {
@@ -225,6 +247,14 @@
         forceRedraw(); // Rebuild offscreen canvas immediately when shown
       } else {
         minimapContainer.style.display = 'none';
+      }
+    }
+
+    if (typeof updateUrlParams === 'function') {
+      if (minimapVisible) {
+        updateUrlParams({minimap: 'true'}, ['miniMap', 'mapOverlay']);
+      } else {
+        updateUrlParams({}, ['minimap', 'miniMap', 'mapOverlay']);
       }
     }
   }
