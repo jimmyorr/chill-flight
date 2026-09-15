@@ -221,6 +221,8 @@ waterMaterial.onBeforeCompile = (shader) => {
   // Add time uniform declaration to the top of the vertex shader
   shader.vertexShader =
     `
+        attribute float aWaterDepth;
+        varying float vWaterDepth;
         uniform vec2 uCameraPosXZ;
         uniform float uRenderRadius;
         varying float vDistanceXZ;
@@ -253,6 +255,7 @@ waterMaterial.onBeforeCompile = (shader) => {
   shader.vertexShader = shader.vertexShader.replace(
     `#include <begin_vertex>`,
     `
+        vWaterDepth = aWaterDepth;
         vec3 transformed = vec3(position);
         vec4 worldPosV = modelMatrix * vec4(position, 1.0);
 
@@ -271,6 +274,7 @@ waterMaterial.onBeforeCompile = (shader) => {
 
   shader.fragmentShader =
     `
+        varying float vWaterDepth;
         uniform float uTime;
         uniform vec3 uSunDirection;
         uniform vec3 uSpecularDir;
@@ -291,6 +295,10 @@ waterMaterial.onBeforeCompile = (shader) => {
 
         vec3 viewDir = normalize(cameraPosition - vWorldPosition);
         vec3 sunReflNormal = normalize(vSmoothNormal);
+        
+        // Fade opacity near shore based on water depth
+        float depthOpacity = smoothstep(0.0, 4.0, vWaterDepth);
+        gl_FragColor.a *= depthOpacity;
         
         // Add macro-scale spatial variation to break up monotony across different water bodies
         float macro = sin(vWorldPosition.x * 0.0002) * cos(vWorldPosition.z * 0.00025);
@@ -5130,17 +5138,29 @@ function* generateChunk(chunkX, chunkZ) {
           3
         )
       );
+      waterGeo.setAttribute(
+        'aWaterDepth',
+        new THREE.BufferAttribute(
+          new Float32Array(waterGeo.attributes.position.count),
+          1
+        )
+      );
     }
     waterGeo.userData = {unique: true, poolType: 'water'};
     const wPositions = waterGeo.attributes.position.array;
     const wColors = waterGeo.attributes.color.array;
+    const wDepths = waterGeo.attributes.aWaterDepth.array;
     let wColorIdx = 0;
     const _tempWColorObj = new THREE.Color();
     for (let i = 0; i < wPositions.length; i += 3) {
       const worldX = worldOffsetX + wPositions[i];
       const worldZ = worldOffsetZ + wPositions[i + 2];
+      const wIdx = i / 3;
 
       wPositions[i + 1] = WATER_LEVEL;
+      
+      const terrainHeight = getElevation(worldX, worldZ);
+      wDepths[wIdx] = Math.max(0.0, WATER_LEVEL - terrainHeight);
 
       const tempNoise = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
       const northInfluence = Math.max(0, -worldZ / 4500);
@@ -5161,21 +5181,13 @@ function* generateChunk(chunkX, chunkZ) {
       if (desertFactor > 0)
         _tempWColorObj.lerp(_colorDesertWater, desertFactor);
 
-      const terrainHeight = getElevation(worldX, worldZ);
-      const inlandHeight = terrainHeight - WATER_LEVEL;
-      if (inlandHeight > 0) {
-        // Only apply foam to water vertices that intersect or are under the land.
-        // The interpolation between the land vertex and the deep ocean vertex creates the foam line.
-        const foamFactor = Math.min(1.0, inlandHeight / 2.0);
-        _tempWColorObj.lerp(_colorFoam, foamFactor);
-      }
-
       wColors[wColorIdx++] = _tempWColorObj.r;
       wColors[wColorIdx++] = _tempWColorObj.g;
       wColors[wColorIdx++] = _tempWColorObj.b;
     }
     waterGeo.attributes.position.needsUpdate = true;
     waterGeo.attributes.color.needsUpdate = true;
+    waterGeo.attributes.aWaterDepth.needsUpdate = true;
     waterGeo.computeBoundingBox();
     waterGeo.computeBoundingSphere();
     const waterMesh = new THREE.Mesh(waterGeo, waterMaterial);
