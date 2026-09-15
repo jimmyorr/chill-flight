@@ -299,6 +299,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`alt`**: Starting altitude.
 - **`heading`**: Starting compass heading in degrees (0 = North).
 - **`pitch`**: Starting pitch angle in degrees.
+- **`speed`**: Starting flight speed multiplier (e.g., `1.0`, `2.0`, `0`).
 - **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
 
 ### Environment and time

@@ -954,6 +954,20 @@ if (freeCamToggle) {
       planeGroup.rotation.x = THREE.MathUtils.degToRad(
         ChillFlightLogic.START_PITCH
       );
+    if (
+      ChillFlightLogic.START_SPEED !== null &&
+      !isNaN(ChillFlightLogic.START_SPEED)
+    ) {
+      const initialSpeed = Math.max(
+        0,
+        Math.min(10, ChillFlightLogic.START_SPEED)
+      );
+      flightSpeedMultiplier = initialSpeed;
+      targetFlightSpeed = Math.min(
+        window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335,
+        initialSpeed
+      );
+    }
   }
 
   if (ChillFlightLogic.START_DEBUG) {
@@ -1006,6 +1020,7 @@ if (copyCamUrlBtn) {
     url.searchParams.delete('lon');
     url.searchParams.delete('alt');
     url.searchParams.delete('benchmark');
+    url.searchParams.delete('speed');
 
     url.searchParams.set('x', Math.round(camera.position.x));
     url.searchParams.set('y', Math.round(camera.position.y));
@@ -1150,6 +1165,9 @@ if (copyPlaneUrlBtn) {
       'pitch',
       Math.round(THREE.MathUtils.radToDeg(planeEuler.x))
     );
+    if (typeof flightSpeedMultiplier !== 'undefined') {
+      url.searchParams.set('speed', Number(flightSpeedMultiplier.toFixed(2)));
+    }
     let currentTod;
     if (window.manualTimeOfDay !== undefined) {
       currentTod = window.manualTimeOfDay;

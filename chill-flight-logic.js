@@ -141,6 +141,10 @@
   const START_PITCH =
     _pitchParam !== null && _pitchParam !== '' ? parseFloat(_pitchParam) : null;
 
+  const _speedParam = getParam('speed', null);
+  const START_SPEED =
+    _speedParam !== null && _speedParam !== '' ? parseFloat(_speedParam) : null;
+
   const _todParam = getParam('tod', null);
   const START_TOD =
     _todParam !== null && _todParam !== '' ? parseFloat(_todParam) : null;
@@ -1245,6 +1249,7 @@
   exports.START_Z = START_Z;
   exports.START_HEADING = START_HEADING;
   exports.START_PITCH = START_PITCH;
+  exports.START_SPEED = START_SPEED;
   exports.START_TOD = START_TOD;
   exports.START_TIME_SPEED = START_TIME_SPEED;
   exports.START_WEATHER = START_WEATHER;

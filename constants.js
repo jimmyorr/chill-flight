@@ -29,6 +29,16 @@ window.MAX_AIRPLANE_SPEED_KTS = MAX_AIRPLANE_SPEED_KTS;
 window.MAX_FLIGHT_SPEED_MULT = MAX_FLIGHT_SPEED_MULT;
 const TURN_SPEED = 0.03;
 let flightSpeedMultiplier = 1.0;
+if (
+  typeof ChillFlightLogic !== 'undefined' &&
+  ChillFlightLogic.START_SPEED !== null &&
+  !isNaN(ChillFlightLogic.START_SPEED)
+) {
+  flightSpeedMultiplier = Math.max(
+    0,
+    Math.min(10, ChillFlightLogic.START_SPEED)
+  );
+}
 
 // Feature Flags
 const ENABLE_PAGODAS = false;
