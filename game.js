@@ -968,6 +968,36 @@ if (freeCamToggle) {
         initialSpeed
       );
     }
+
+    // Ensure spawn altitude does not submerge the plane below the resting surface
+    const spawnElev = getElevation(
+      planeGroup.position.x,
+      planeGroup.position.z
+    );
+    const spawnIsWater = spawnElev <= WATER_LEVEL + 0.1;
+    const spawnRestingHeight = spawnIsWater
+      ? WATER_LEVEL + 4.8
+      : spawnElev + 12.0;
+    if (planeGroup.position.y < spawnRestingHeight) {
+      planeGroup.position.y = spawnRestingHeight;
+    }
+    if (spawnIsWater && targetFlightSpeed === 0) {
+      if (typeof pontoonGroup !== 'undefined' && pontoonGroup) {
+        pontoonGroup.visible = true;
+        pontoonDeploymentProgress = 1;
+        isDeployingPontoons = false;
+        isRetractingPontoons = false;
+        pontoonGroup.scale.setScalar(1);
+        pontoonL.rotation.z = 0;
+        pontoonR.rotation.z = 0;
+        hingeLF.rotation.z = 0;
+        hingeLB.rotation.z = 0;
+        hingeRF.rotation.z = 0;
+        hingeRB.rotation.z = 0;
+        pontoonL.position.y = -4.5;
+        pontoonR.position.y = -4.5;
+      }
+    }
   }
 
   if (ChillFlightLogic.START_DEBUG) {
@@ -3191,6 +3221,12 @@ function animate() {
   );
   let isWater = terrainHeight <= WATER_LEVEL + 0.1;
 
+  // Ground avoidance heights:
+  // Over water, avoidance and resting heights are anchored to WATER_LEVEL (surface)
+  // rather than terrainHeight (the seabed below the water).
+  let minFlightHeight = isWater ? WATER_LEVEL + 2.8 : terrainHeight + 10.0;
+  let restingHeight = minFlightHeight + 2.0;
+
   if (
     !isFreeCamera &&
     (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0)
@@ -3209,8 +3245,7 @@ function animate() {
       // Suppress gravity acceleration if we are actively being pushed up by ground avoidance
       const softBuffer = 2.0;
       const isAvoidingGround =
-        planeGroup.position.y <
-        (isWater ? terrainHeight + 5.5 : terrainHeight + 10.0) + softBuffer;
+        planeGroup.position.y < minFlightHeight + softBuffer;
 
       if (!isAvoidingGround) {
         flightSpeedMultiplier += gravityEffect * 0.7 * delta;
@@ -3246,10 +3281,6 @@ function animate() {
   const controlBaseAlt = Math.max(0, planeGroup.position.y - 45.5);
   const controlAlt = Math.round(controlBaseAlt * 25);
   const accelRate = 0.8 * delta;
-
-  // Ground avoidance heights
-  let minFlightHeight = isWater ? terrainHeight + 3.5 : terrainHeight + 10.0;
-  let restingHeight = minFlightHeight + 2.0;
 
   // Move vehicle
   const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
@@ -3379,7 +3410,7 @@ function animate() {
     }
   }
 
-  if (isWater && planeGroup.position.y < minFlightHeight + 2) {
+  if (isWater && planeGroup.position.y <= restingHeight + 0.1) {
     if (typeof Achievements !== 'undefined' && !isFreeCamera) {
       Achievements.unlock('splash_down');
     }
@@ -3765,13 +3796,14 @@ function animate() {
       }
     }
 
-    // Camera collision avoidance with terrain
+    // Camera collision avoidance with terrain & water surface
     const idealTerrainHeight = getElevation(
       _idealCameraPos.x,
       _idealCameraPos.z
     );
-    if (_idealCameraPos.y < idealTerrainHeight + 2.0) {
-      _idealCameraPos.y = idealTerrainHeight + 2.0;
+    const minCamSurface = Math.max(WATER_LEVEL, idealTerrainHeight);
+    if (_idealCameraPos.y < minCamSurface + 2.0) {
+      _idealCameraPos.y = minCamSurface + 2.0;
     }
 
     // Apply smooth tracking to the results
