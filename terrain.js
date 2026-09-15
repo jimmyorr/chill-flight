@@ -3715,7 +3715,9 @@ const _colorForest = new THREE.Color(0x388e3c);
 const _colorSnow = new THREE.Color(0xfafafa); // Crisp alpine snow white
 const _colorPackIce = new THREE.Color(0xa2b4bc); // Slate pack ice shelf
 const _colorSand = new THREE.Color(0xe0e0a8);
+const _colorWetSand = new THREE.Color(0xb09d6b);
 const _colorDesertSand = new THREE.Color(0xf4a460);
+const _colorDesertWetSand = new THREE.Color(0xc47e3c);
 const _colorWater = new THREE.Color(0x40c4ff);
 const _colorIcyWater = new THREE.Color(0x88ccff);
 const _colorDesertWater = new THREE.Color(0x00ced1);
@@ -4321,14 +4323,27 @@ function* generateChunk(chunkX, chunkZ) {
               });
             }
           }
+          if (!isCustom) {
+            // Apply beach wave shaping to underwater shore
+            const waveX = Math.sin(worldX * 0.05) * 0.5;
+            const waveZ = Math.cos(worldZ * 0.05) * 0.5;
+            positions[i + 1] += (waveX + waveZ) * 0.3;
+          }
           positions[i + 1] = height - 5;
-          _tempColorObj.copy(_colorSand);
+          _tempColorObj.copy(_colorSand).lerp(_colorWater, 0.15); // Submerged sand tinted with water
           if (snowFactor > 0)
             _tempColorObj.lerp(_colorSandSnowTint, snowFactor);
           if (desertFactor > 0)
             _tempColorObj.lerp(_colorDesertSand, desertFactor);
-        } else if (height <= WATER_LEVEL + 0.5) {
-          _tempColorObj.copy(_colorFoam);
+        } else if (height <= WATER_LEVEL + 1.2) {
+          const wetFactor = 1.0 - (height - WATER_LEVEL) / 1.2;
+          _tempColorObj.copy(_colorSand);
+          if (desertFactor > 0) {
+            _tempColorObj.lerp(_colorDesertSand, desertFactor);
+            _tempColorObj.lerp(_colorDesertWetSand, wetFactor);
+          } else {
+            _tempColorObj.lerp(_colorWetSand, wetFactor);
+          }
           if (snowFactor > 0) _tempColorObj.lerp(_colorSnow, snowFactor);
         } else {
           _tempColorObj.copy(_colorSand);
