@@ -659,6 +659,139 @@
                   simplex.noise2D(x * 0.0035, z * 0.0035) * 45 * heightFactor;
 
                 n += baseShelf + towerHeight + canopy;
+              } else if (archetype === 'caldera') {
+                // --- 2. MASSIVE VOLCANIC CALDERAS ---
+                // Imposing volcanic island with broad flanks rising to an undulating crater rim,
+                // plunging inside into a sunken caldera lagoon with a central resurgent cone.
+                const rimCenter = 0.46;
+                const maxRimElevation = 950 * heightFactor;
+
+                // Volcanic radial erosion fluting
+                const gullyNoise =
+                  1.0 - Math.abs(simplex.noise2D(x * 0.0014, z * 0.0014));
+                const gully = gullyNoise * gullyNoise * 140 * heightFactor;
+
+                // Organic rim variation
+                const rimWobble =
+                  simplex.noise2D(x * 0.00075 + 111, z * 0.00075 + 111) *
+                  110 *
+                  heightFactor;
+
+                // Natural sea breach on one side
+                const breachNoise = simplex.noise2D(
+                  x * 0.00045 + 500,
+                  z * 0.00045 + 500
+                );
+                const breachDip =
+                  Math.max(0, breachNoise - 0.28) * 350 * heightFactor;
+
+                // Base mountain volume: ensures the volcano has solid, wide land flanks
+                const mountainBase =
+                  Math.min(1.0, shapeFactor * 2.2) * 220 * heightFactor;
+
+                let calderaHeight = 0;
+                if (shapeFactor <= rimCenter) {
+                  // Outer volcanic slopes: smooth power rise up to the rim crest
+                  const flankNorm = shapeFactor / rimCenter;
+                  const flankProfile = Math.pow(flankNorm, 1.25);
+                  calderaHeight =
+                    flankProfile * (maxRimElevation + rimWobble) +
+                    gully * flankNorm -
+                    breachDip * flankNorm;
+                } else {
+                  // Inside the caldera: steep inner cliff walls plunging down into the caldera bowl
+                  const innerNorm = Math.min(
+                    1.0,
+                    (shapeFactor - rimCenter) / (0.85 - rimCenter)
+                  );
+                  const peakHeight = maxRimElevation + rimWobble - breachDip;
+
+                  // Carve down to the caldera floor (so it forms a deep bowl dipping slightly into sea level)
+                  const craterFloorTarget = -30 * heightFactor;
+                  const totalDrop = peakHeight - craterFloorTarget;
+
+                  // Steep inner cliff walls that flatten out onto the caldera floor
+                  const dropProfile = Math.pow(innerNorm, 1.15);
+                  calderaHeight = peakHeight - dropProfile * totalDrop;
+
+                  // Central resurgent volcanic cone in the heart of the caldera
+                  if (innerNorm > 0.55) {
+                    const coneNorm = (innerNorm - 0.55) / 0.45;
+                    const resurgentPeak =
+                      Math.pow(coneNorm, 1.8) * 180 * heightFactor;
+                    calderaHeight += resurgentPeak;
+                  }
+                }
+
+                const ashDetail =
+                  simplex.noise2D(x * 0.003, z * 0.003) * 35 * heightFactor;
+                n += mountainBase + calderaHeight + ashDetail;
+              } else if (archetype === 'atoll') {
+                // --- 3. SUNKEN ATOLLS / BARRIER RINGS ---
+                // Low-lying coral barrier reef and sand motus (islets) surrounding a shallow turquoise lagoon.
+                // Low profile: sand beaches, palm trees, dune crests (elevation 10-35m above sea level).
+
+                // Outer reef platform foundation: smoothly lifts the deep ocean floor (-55)
+                // up to the shallow reef flat (~36-38, just 2-4 units below water level 40).
+                const platformEdge = Math.min(1.0, shapeFactor / 0.16);
+                const platformSmooth =
+                  platformEdge * platformEdge * (3 - 2 * platformEdge);
+                const clusterIntensity =
+                  (islandRegion - 0.1) * eastIntensity * finalFade;
+                const depthBelowReef = Math.max(0, WATER_LEVEL - 3.5 - n);
+                const reefPlatform =
+                  platformSmooth *
+                  depthBelowReef *
+                  Math.min(1.0, clusterIntensity * 3.0);
+
+                // Barrier ring: defined around shapeFactor ~ 0.40 - 0.45
+                const ringCenter = 0.42;
+                const ringWidth = 0.24;
+                const distFromRing = Math.abs(shapeFactor - ringCenter);
+                const ringT = Math.max(0, 1.0 - distFromRing / ringWidth);
+                const ringMask = ringT * ringT * (3 - 2 * ringT);
+
+                // Tidal passes / channels breaking the ring into distinct tropical motus (islets)
+                const passNoise = simplex.noise2D(
+                  x * 0.0018 + 444,
+                  z * 0.0018 + 444
+                );
+                const motuFactor = Math.max(0, passNoise + 0.15);
+
+                // Motu dry land elevation: rises to elevation 46 - 72 (6 - 32m above water level 40)
+                const motuElevation =
+                  ringMask *
+                  (10 + motuFactor * 24) *
+                  Math.min(1.0, clusterIntensity * 2.5);
+
+                // Lagoon: broad, shallow protected waters inside the barrier ring (shapeFactor > ringCenter)
+                let lagoonCarve = 0;
+                if (shapeFactor > ringCenter) {
+                  const innerLagoon = Math.min(
+                    1.0,
+                    (shapeFactor - ringCenter) / 0.22
+                  );
+                  // Carves down by 5-6 units so the lagoon bed sits at elevation 31-33 (shallow turquoise water)
+                  lagoonCarve = innerLagoon * innerLagoon * 5.5;
+
+                  // Isolated sandbanks or small coral pinnacles (bommies) in the center of the lagoon
+                  if (shapeFactor > 0.65) {
+                    const pinnacleNoise = simplex.noise2D(
+                      x * 0.0025 + 888,
+                      z * 0.0025 + 888
+                    );
+                    if (pinnacleNoise > 0.25) {
+                      lagoonCarve -=
+                        Math.pow((pinnacleNoise - 0.25) / 0.75, 1.5) * 11;
+                    }
+                  }
+                }
+
+                // Fine sand dunes and beach berms
+                const sandDunes =
+                  simplex.noise2D(x * 0.006, z * 0.006) * 3.0 * ringMask;
+
+                n += reefPlatform + motuElevation - lagoonCarve + sandDunes;
               } else {
                 // Standard ridged mountain islands (fallback until Caldera & Atoll are implemented)
                 // Add ridged noise for jagged peaks

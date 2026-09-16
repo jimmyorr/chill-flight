@@ -5158,7 +5158,7 @@ function* generateChunk(chunkX, chunkZ) {
       const wIdx = i / 3;
 
       wPositions[i + 1] = WATER_LEVEL;
-      
+
       const terrainHeight = getElevation(worldX, worldZ);
       wDepths[wIdx] = Math.max(0.0, WATER_LEVEL - terrainHeight);
 
