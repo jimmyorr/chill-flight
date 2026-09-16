@@ -30,7 +30,7 @@ body {
   -webkit-touch-callout: none;
 }
 
-canvas {
+body > canvas {
   display: block;
   position: fixed;
   /* Pin to all four edges to force full-bleed on iOS PWA */
@@ -1076,9 +1076,13 @@ input[type='number'].customization-input {
 }
 
 #minimap-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 180px;
   height: 180px;
   display: block;
+  z-index: 1;
 }
 
 .minimap-btn {
