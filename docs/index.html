@@ -31,9 +31,9 @@
       content="A minimalist flight simulator set in a procedurally generated world that changes every single day."
     />
     <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-BcN0gKNC.js"></script>
+    <script type="module" crossorigin src="./assets/main-BZuamvos.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/main-xjqg2ApV.js">
-    <link rel="stylesheet" crossorigin href="./assets/style-DVbC4MC1.css">
+    <link rel="stylesheet" crossorigin href="./assets/style-Bv-H-lfU.css">
   </head>
 
   <body>
@@ -597,6 +597,27 @@
           border-top: 1px solid rgba(255, 255, 255, 0.2);
         "
       >
+        <div style="font-size: 11px; margin-bottom: 3px">
+          Force island type:
+        </div>
+        <select
+          id="island-type-select"
+          class="customization-input"
+          style="width: 100%; padding: 2px 4px; font-size: 12px"
+        >
+          <option value="auto" selected>Auto (procedural)</option>
+          <option value="karst">Karst (limestone towers)</option>
+          <option value="caldera">Caldera (volcano crater)</option>
+          <option value="atoll">Atoll (coral lagoon)</option>
+        </select>
+      </div>
+      <div
+        style="
+          margin-top: 5px;
+          padding-top: 5px;
+          border-top: 1px solid rgba(255, 255, 255, 0.2);
+        "
+      >
         <div
           style="
             display: flex;
@@ -921,6 +942,9 @@
           <div>Zone: <span id="debug-climate-zone">-</span></div>
           <div>Fog: <span id="debug-fog-density">0</span></div>
           <div>Type: <span id="debug-weather-mode">-</span></div>
+          <div style="grid-column: span 2">
+            Island: <span id="debug-island-type">-</span>
+          </div>
 
           <span id="debug-snow-opacity" style="display: none"></span>
           <span id="debug-rain-opacity" style="display: none"></span>
