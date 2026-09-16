@@ -184,6 +184,38 @@
       ? _presetParam.toLowerCase()
       : null;
 
+  const _islandTypeParam = getParam('islandType', getParam('island', null));
+  let START_ISLAND_TYPE = 'auto';
+  if (_islandTypeParam !== null && _islandTypeParam !== '') {
+    const norm = _islandTypeParam.trim().toLowerCase();
+    if (['auto', 'karst', 'caldera', 'atoll'].includes(norm)) {
+      START_ISLAND_TYPE = norm;
+    }
+  }
+  let FORCE_ISLAND_TYPE = START_ISLAND_TYPE;
+
+  function getIslandArchetype(x, z, simplexInstance) {
+    const forced =
+      typeof exports !== 'undefined' && exports.FORCE_ISLAND_TYPE
+        ? exports.FORCE_ISLAND_TYPE
+        : typeof ChillFlightLogic !== 'undefined' &&
+            ChillFlightLogic.FORCE_ISLAND_TYPE
+          ? ChillFlightLogic.FORCE_ISLAND_TYPE
+          : FORCE_ISLAND_TYPE;
+    if (forced && forced !== 'auto') {
+      return forced;
+    }
+    if (x <= 3000) return 'none';
+    if (!simplexInstance) return 'standard';
+    const noise = simplexInstance.noise2D(
+      x * 0.00004 + 8191,
+      z * 0.00004 + 8191
+    );
+    if (noise < -0.15) return 'karst';
+    if (noise > 0.15) return 'atoll';
+    return 'caldera';
+  }
+
   // --- SEEDED PRNG: Mulberry32 ---
   // Returns a closure that produces deterministic floats in [0, 1).
   // Usage: const rng = mulberry32(seed); rng(); // next value
@@ -567,20 +599,83 @@
 
             // Islands are steep
             if (heightFactor > 0) {
-              // Add ridged noise for jagged peaks
-              const ridgeNoise =
-                1.0 - Math.abs(simplex.noise2D(x * 0.001, z * 0.001));
-              const ruggedness = ridgeNoise * ridgeNoise; // Sharpen ridges
+              const archetype = getIslandArchetype(x, z, simplex);
 
-              // Base height + mountain peaks
-              let islandHeight = heightFactor * 600; // Base land
-              islandHeight += ruggedness * 1200 * heightFactor; // Sharp peaks
+              if (archetype === 'karst') {
+                // --- 1. KARST LIMESTONE TOWERS (Halong Bay style) ---
+                // Low-lying coastal shelf and beach foundation
+                const baseShelf =
+                  Math.min(1.0, shapeFactor * 3.0) * 50 * heightFactor;
 
-              // Small scale surface roughness
-              islandHeight +=
-                simplex.noise2D(x * 0.003, z * 0.003) * 150 * heightFactor;
+                // Domain warping for organic, jagged tower contours
+                const kWarpX = simplex.noise2D(x * 0.0012, z * 0.0012) * 160;
+                const kWarpZ =
+                  simplex.noise2D(x * 0.0012 + 45.6, z * 0.0012 + 45.6) * 160;
 
-              n += islandHeight;
+                // Tower noise defines the locations of individual monolithic pillars
+                const towerNoise = simplex.noise2D(
+                  (x + kWarpX) * 0.00075 + 300,
+                  (z + kWarpZ) * 0.00075 + 300
+                );
+
+                let towerHeight = 0;
+                if (towerNoise > 0.02) {
+                  // Normalize [0.02, 1.0] -> [0, 1]
+                  const tNorm = Math.min(1.0, (towerNoise - 0.02) / 0.98);
+
+                  // Steep rise for sheer vertical cliff walls
+                  const cliffProfile = Math.pow(tNorm, 0.42);
+
+                  // Domed summit cap: plateau/rounded crest instead of sharp cone
+                  const domeCap =
+                    1.0 -
+                    Math.pow(Math.max(0, tNorm - 0.65) / 0.35, 2.0) * 0.28;
+
+                  towerHeight = cliffProfile * domeCap * 1250 * heightFactor;
+
+                  // Horizontal stratified rock ridges along cliff faces
+                  const strata =
+                    Math.sin(towerHeight * 0.05) * 14 * (1.0 - tNorm);
+                  towerHeight += strata;
+                }
+
+                // Secondary solitary sea stacks in the nearby water
+                const stackNoise = simplex.noise2D(
+                  x * 0.002 + 777,
+                  z * 0.002 + 777
+                );
+                if (stackNoise > 0.42) {
+                  const stackNorm = (stackNoise - 0.42) / 0.58;
+                  towerHeight +=
+                    Math.pow(stackNorm, 0.35) *
+                    380 *
+                    heightFactor *
+                    Math.max(0, islandRegion - 0.05) *
+                    4;
+                }
+
+                // Fine surface crag & jungle canopy roughness
+                const canopy =
+                  simplex.noise2D(x * 0.0035, z * 0.0035) * 45 * heightFactor;
+
+                n += baseShelf + towerHeight + canopy;
+              } else {
+                // Standard ridged mountain islands (fallback until Caldera & Atoll are implemented)
+                // Add ridged noise for jagged peaks
+                const ridgeNoise =
+                  1.0 - Math.abs(simplex.noise2D(x * 0.001, z * 0.001));
+                const ruggedness = ridgeNoise * ridgeNoise; // Sharpen ridges
+
+                // Base height + mountain peaks
+                let islandHeight = heightFactor * 600; // Base land
+                islandHeight += ruggedness * 1200 * heightFactor; // Sharp peaks
+
+                // Small scale surface roughness
+                islandHeight +=
+                  simplex.noise2D(x * 0.003, z * 0.003) * 150 * heightFactor;
+
+                n += islandHeight;
+              }
             }
           }
         }
@@ -1262,6 +1357,9 @@
   exports.ZENITH_COLOR = ZENITH_COLOR;
   exports.HORIZON_COLOR = HORIZON_COLOR;
   exports.DAY_COLOR = DAY_COLOR;
+  exports.START_ISLAND_TYPE = START_ISLAND_TYPE;
+  exports.FORCE_ISLAND_TYPE = FORCE_ISLAND_TYPE;
+  exports.getIslandArchetype = getIslandArchetype;
   // --- FLIGHT AERODYNAMICS ---
   // Calculates the updated pitch, roll, and yaw for the airplane.
   // Uses frame-rate independent exponential smoothing.

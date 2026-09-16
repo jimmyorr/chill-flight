@@ -749,6 +749,47 @@ if (seedInput) {
   });
 }
 
+// Force Island Type selector
+const islandTypeSelect = document.getElementById('island-type-select');
+if (islandTypeSelect) {
+  islandTypeSelect.value = ChillFlightLogic.START_ISLAND_TYPE || 'auto';
+  islandTypeSelect.addEventListener('change', (e) => {
+    const val = e.target.value;
+    ChillFlightLogic.FORCE_ISLAND_TYPE = val;
+    if (val !== 'auto') {
+      updateUrlParams({islandType: val}, ['island']);
+    } else {
+      updateUrlParams({}, ['islandType', 'island']);
+    }
+    // Rebuild terrain chunks so change takes effect immediately
+    if (typeof chunks !== 'undefined') {
+      chunks.forEach((group) => {
+        group.traverse((child) => {
+          if (child.isMesh || child.isInstancedMesh) {
+            if (child.geometry && child.geometry.userData.unique) {
+              child.geometry.dispose();
+            }
+          }
+        });
+        if (typeof scene !== 'undefined') scene.remove(group);
+      });
+      chunks.clear();
+      if (typeof watercraftChunks !== 'undefined') {
+        watercraftChunks.clear();
+      }
+    }
+    if (window.clearChunkQueue) window.clearChunkQueue();
+    if (window.clearElevationCache) window.clearElevationCache();
+    if (typeof _lastChunkUpdatePos !== 'undefined') {
+      _lastChunkUpdatePos.set(Infinity, Infinity, Infinity);
+    }
+    if (typeof updateChunks === 'function') {
+      updateChunks();
+    }
+    console.log(`Island type changed to: ${val}`);
+  });
+}
+
 // Procedural Objects toggle
 const objectsToggle = document.getElementById('debug-objects-toggle');
 if (objectsToggle) {
@@ -5096,6 +5137,25 @@ function animate() {
             ? 'rain'
             : 'none';
     updateDOM('debug-weather-mode', _precipType);
+
+    // Island archetype telemetry
+    const _activeIslandPos = isFreeCamera
+      ? camera.position
+      : planeGroup.position;
+    const _islandArchetype =
+      typeof ChillFlightLogic.getIslandArchetype === 'function'
+        ? ChillFlightLogic.getIslandArchetype(
+            _activeIslandPos.x,
+            _activeIslandPos.z,
+            typeof simplex !== 'undefined' ? simplex : null
+          )
+        : '-';
+    const _islandDisplay =
+      ChillFlightLogic.FORCE_ISLAND_TYPE &&
+      ChillFlightLogic.FORCE_ISLAND_TYPE !== 'auto'
+        ? `${_islandArchetype} (forced)`
+        : _islandArchetype;
+    updateDOM('debug-island-type', _islandDisplay);
 
     // Aurora telemetry
     const auroraVal =

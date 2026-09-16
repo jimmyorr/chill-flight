@@ -308,6 +308,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`timeSpeed`**: Speed multiplier for the day/night cycle (set to `0` to lock the time of day).
 - **`seed`**: Integer world seed for procedural terrain generation.
 - **`theme`**: The visual theme to load (e.g., `standard`).
+- **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
 - **`cloud`**: Set to `none` to disable procedural clouds.
 - **`weather`**: Force weather conditions (options: `auto`, `none` or `clear`, `snow`, `rain`).
 - **`palette`**: Force a specific sky palette preset seed (e.g., `42`) or custom zenith,horizon[,day] hex colors (e.g., `1a2b3c,ff7e67` or `1a2b3c,ff7e67,4ca1f0`).
