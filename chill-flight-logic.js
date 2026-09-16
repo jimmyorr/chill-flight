@@ -738,7 +738,7 @@
                   platformEdge * platformEdge * (3 - 2 * platformEdge);
                 const clusterIntensity =
                   (islandRegion - 0.1) * eastIntensity * finalFade;
-                const depthBelowReef = Math.max(0, WATER_LEVEL - 3.5 - n);
+                const depthBelowReef = Math.max(0, WATER_LEVEL - 2.0 - n);
                 const reefPlatform =
                   platformSmooth *
                   depthBelowReef *
@@ -746,7 +746,7 @@
 
                 // Barrier ring: defined around shapeFactor ~ 0.40 - 0.45
                 const ringCenter = 0.42;
-                const ringWidth = 0.24;
+                const ringWidth = 0.35;
                 const distFromRing = Math.abs(shapeFactor - ringCenter);
                 const ringT = Math.max(0, 1.0 - distFromRing / ringWidth);
                 const ringMask = ringT * ringT * (3 - 2 * ringT);
@@ -769,7 +769,7 @@
                 if (shapeFactor > ringCenter) {
                   const innerLagoon = Math.min(
                     1.0,
-                    (shapeFactor - ringCenter) / 0.22
+                    (shapeFactor - ringCenter) / 0.15
                   );
                   // Carves down by 5-6 units so the lagoon bed sits at elevation 31-33 (shallow turquoise water)
                   lagoonCarve = innerLagoon * innerLagoon * 5.5;
