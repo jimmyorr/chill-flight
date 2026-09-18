@@ -879,6 +879,10 @@
           "
         >
           TELEMETRY:
+          <span
+            id="debug-version-info"
+            style="font-weight: normal; font-family: monospace"
+          ></span>
         </div>
         <div
           style="
@@ -1076,6 +1080,16 @@
       document.querySelectorAll('.version-tag').forEach((el) => {
         el.textContent = 'v' + (__APP_VERSION__ || '0.0.0');
       });
+
+      // Set version info in debug telemetry
+      const debugVersionInfo = document.getElementById('debug-version-info');
+      if (debugVersionInfo) {
+        const hash =
+          typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'unknown';
+        const dirty =
+          typeof __IS_DIRTY__ !== 'undefined' && __IS_DIRTY__ ? '*' : '';
+        debugVersionInfo.textContent = `v${__APP_VERSION__} (${hash}${dirty})`;
+      }
     </script>
   </body>
 </html>

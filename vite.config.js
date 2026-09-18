@@ -2,13 +2,18 @@ import {defineConfig} from 'vite';
 import fs from 'fs';
 import path from 'path';
 import {transform} from 'esbuild';
+import {execSync} from 'child_process';
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
+const commitHash = execSync('git rev-parse --short HEAD').toString().trim();
+const isDirty = execSync('git status --porcelain').toString().trim().length > 0;
 
 export default defineConfig({
   base: './',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __COMMIT_HASH__: JSON.stringify(commitHash),
+    __IS_DIRTY__: JSON.stringify(isDirty),
   },
   build: {
     outDir: 'docs',
