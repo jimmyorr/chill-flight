@@ -548,529 +548,522 @@
     </div>
 
     <div id="debug-menu">
-      <div style="margin-top: 5px; margin-bottom: 10px">
-        <div style="font-size: 11px; margin-bottom: 3px">Time speed:</div>
-        <button class="speed-btn" data-speed="-1" title="Reverse time">
-          -1x
-        </button>
-        <button class="speed-btn" data-speed="0" title="Pause time">0x</button>
-        <button class="speed-btn active" data-speed="1" title="Normal time">
-          1x
-        </button>
-        <button class="speed-btn" data-speed="2" title="2x time speed">
-          2x
-        </button>
-        <button class="speed-btn" data-speed="10" title="10x time speed">
-          10x
-        </button>
-        <button class="speed-btn" data-speed="100" title="100x time speed">
-          100x
-        </button>
-      </div>
-
-      <div style="margin-top: 5px; margin-bottom: 10px">
-        <div
-          style="
-            font-size: 11px;
-            margin-bottom: 3px;
-            display: flex;
-            justify-content: space-between;
-          "
-        >
-          <span>Time of day:</span>
-          <span id="debug-time-val">12:00</span>
-        </div>
-        <input
-          type="range"
-          id="debug-time-slider"
-          min="0"
-          max="1"
-          step="0.001"
-          value="0.5"
-          style="width: 100%; cursor: pointer"
-        />
-      </div>
-
-      <div
-        style="
-          margin-top: 5px;
-          padding-top: 5px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
-        <div style="font-size: 11px; margin-bottom: 3px">Seed:</div>
-        <input
-          type="number"
-          id="seed-input"
-          class="customization-input"
-          placeholder="Seed"
-          style="
-            width: 100%;
-            padding: 2px 4px;
-            font-size: 12px;
-            box-sizing: border-box;
-            margin-bottom: 3px;
-          "
-        />
-      </div>
-
-      <div
-        style="
-          margin-top: 5px;
-          padding-top: 5px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
-        <div style="font-size: 11px; margin-bottom: 3px">Theme:</div>
-        <select
-          id="theme-select"
-          class="customization-input"
-          style="width: 100%; padding: 2px 4px; font-size: 12px"
-        >
-          <option value="standard" selected>Standard</option>
-          <option value="toon">Toon</option>
-          <option value="basic">Basic (Flat)</option>
-          <option value="phong">Phong (Shiny)</option>
-          <option value="lambert">Lambert (Matte)</option>
-          <option value="normal">Normal (Psychedelic)</option>
-          <option value="wireframe">Wireframe</option>
-        </select>
-      </div>
-      <div
-        style="
-          margin-top: 5px;
-          padding-top: 5px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
-        <div style="font-size: 11px; margin-bottom: 3px">Force weather:</div>
-        <select
-          id="weather-select"
-          class="customization-input"
-          style="width: 100%; padding: 2px 4px; font-size: 12px"
-        >
-          <option value="auto" selected>Auto (Default)</option>
-          <option value="none">None</option>
-          <option value="snow">Snow</option>
-          <option value="rain">Rain</option>
-        </select>
-      </div>
-      <div
-        style="
-          margin-top: 5px;
-          padding-top: 5px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 3px;
-          "
-        >
-          <div style="font-size: 10px; font-weight: bold; opacity: 0.7">
-            CLOUDS:
+      <div class="debug-columns">
+        <!-- Left Column: Environment, Sky & Weather -->
+        <div class="debug-col">
+          <!-- Time Controls -->
+          <div class="debug-section">
+            <div style="font-size: 11px; margin-bottom: 3px">Time speed:</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 2px">
+              <button class="speed-btn" data-speed="-1" title="Reverse time">
+                -1x
+              </button>
+              <button class="speed-btn" data-speed="0" title="Pause time">
+                0x
+              </button>
+              <button
+                class="speed-btn active"
+                data-speed="1"
+                title="Normal time"
+              >
+                1x
+              </button>
+              <button class="speed-btn" data-speed="2" title="2x time speed">
+                2x
+              </button>
+              <button class="speed-btn" data-speed="10" title="10x time speed">
+                10x
+              </button>
+              <button
+                class="speed-btn"
+                data-speed="100"
+                title="100x time speed"
+              >
+                100x
+              </button>
+            </div>
+            <div style="margin-top: 5px">
+              <div
+                style="
+                  font-size: 11px;
+                  margin-bottom: 2px;
+                  display: flex;
+                  justify-content: space-between;
+                "
+              >
+                <span>Time of day:</span>
+                <span id="debug-time-val">12:00</span>
+              </div>
+              <input
+                type="range"
+                id="debug-time-slider"
+                min="0"
+                max="1"
+                step="0.001"
+                value="0.5"
+                style="width: 100%; cursor: pointer"
+              />
+            </div>
           </div>
-          <label
-            for="debug-clouds-toggle"
-            style="
-              display: flex;
-              align-items: center;
-              gap: 4px;
-              cursor: pointer;
-              font-size: 10px;
-            "
-          >
-            <span>Show</span>
-            <input
-              type="checkbox"
-              id="debug-clouds-toggle"
-              checked
-              style="width: 12px; height: 12px; cursor: pointer"
-            />
-          </label>
-        </div>
 
-        <div style="margin-bottom: 4px">
-          <div
-            style="
-              font-size: 11px;
-              margin-bottom: 2px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-            "
-          >
-            <span>Cloud cover:</span>
-            <div style="display: flex; align-items: center; gap: 6px">
+          <!-- Clouds -->
+          <div class="debug-section">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 3px;
+              "
+            >
+              <div style="font-size: 10px; font-weight: bold; opacity: 0.7">
+                CLOUDS:
+              </div>
               <label
-                for="debug-cloud-auto-toggle"
+                for="debug-clouds-toggle"
                 style="
                   display: flex;
                   align-items: center;
-                  gap: 3px;
+                  gap: 4px;
                   cursor: pointer;
                   font-size: 10px;
-                  opacity: 0.8;
                 "
               >
-                <span>Auto</span>
+                <span>Show</span>
                 <input
                   type="checkbox"
-                  id="debug-cloud-auto-toggle"
+                  id="debug-clouds-toggle"
                   checked
-                  style="width: 11px; height: 11px; cursor: pointer"
+                  style="width: 12px; height: 12px; cursor: pointer"
                 />
               </label>
-              <span
-                id="debug-cloud-cover-val"
-                style="font-family: monospace; font-size: 10px"
-                >Auto</span
+            </div>
+
+            <div style="margin-bottom: 3px">
+              <div
+                style="
+                  font-size: 11px;
+                  margin-bottom: 2px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
               >
+                <span>Cloud cover:</span>
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <label
+                    for="debug-cloud-auto-toggle"
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 3px;
+                      cursor: pointer;
+                      font-size: 10px;
+                      opacity: 0.8;
+                    "
+                  >
+                    <span>Auto</span>
+                    <input
+                      type="checkbox"
+                      id="debug-cloud-auto-toggle"
+                      checked
+                      style="width: 11px; height: 11px; cursor: pointer"
+                    />
+                  </label>
+                  <span
+                    id="debug-cloud-cover-val"
+                    style="font-family: monospace; font-size: 10px"
+                    >Auto</span
+                  >
+                </div>
+              </div>
+              <input
+                type="range"
+                id="debug-cloud-cover-slider"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.5"
+                style="width: 100%; cursor: pointer"
+              />
+            </div>
+
+            <div style="margin-bottom: 3px">
+              <div
+                style="
+                  font-size: 11px;
+                  margin-bottom: 2px;
+                  display: flex;
+                  justify-content: space-between;
+                "
+              >
+                <span>Cloud height:</span>
+                <span
+                  id="debug-cloud-height-val"
+                  style="font-family: monospace; font-size: 10px"
+                  >3000m</span
+                >
+              </div>
+              <input
+                type="range"
+                id="debug-cloud-height-slider"
+                min="1000"
+                max="6000"
+                step="100"
+                value="3000"
+                style="width: 100%; cursor: pointer"
+              />
+            </div>
+
+            <div>
+              <div
+                style="
+                  font-size: 11px;
+                  margin-bottom: 2px;
+                  display: flex;
+                  justify-content: space-between;
+                "
+              >
+                <span>Cloud speed:</span>
+                <span
+                  id="debug-cloud-speed-val"
+                  style="font-family: monospace; font-size: 10px"
+                  >1.0x</span
+                >
+              </div>
+              <input
+                type="range"
+                id="debug-cloud-speed-slider"
+                min="0"
+                max="5"
+                step="0.1"
+                value="1"
+                style="width: 100%; cursor: pointer"
+              />
             </div>
           </div>
-          <input
-            type="range"
-            id="debug-cloud-cover-slider"
-            min="0"
-            max="1"
-            step="0.01"
-            value="0.5"
-            style="width: 100%; cursor: pointer"
-          />
+
+          <!-- Sky Colors & Palette -->
+          <div class="debug-section">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 3px;
+              "
+            >
+              <div style="font-size: 10px; font-weight: bold; opacity: 0.7">
+                SKY COLORS:
+              </div>
+              <button
+                id="debug-next-palette-btn"
+                style="
+                  background: rgba(255, 255, 255, 0.15);
+                  border: 1px solid rgba(255, 255, 255, 0.3);
+                  color: white;
+                  border-radius: 3px;
+                  padding: 1px 6px;
+                  font-size: 10px;
+                  cursor: pointer;
+                "
+                title="Switch to next sky preset"
+              >
+                Next preset
+              </button>
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 4px;
+              "
+            >
+              <div>
+                <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px">
+                  Zenith
+                </div>
+                <input
+                  type="color"
+                  id="sky-zenith-picker"
+                  style="
+                    width: 100%;
+                    height: 16px;
+                    cursor: pointer;
+                    border: none;
+                    background: none;
+                    padding: 0;
+                  "
+                />
+              </div>
+              <div>
+                <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px">
+                  Day blue
+                </div>
+                <input
+                  type="color"
+                  id="sky-day-picker"
+                  value="#4ca1f0"
+                  style="
+                    width: 100%;
+                    height: 16px;
+                    cursor: pointer;
+                    border: none;
+                    background: none;
+                    padding: 0;
+                  "
+                />
+              </div>
+              <div>
+                <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px">
+                  Horizon
+                </div>
+                <input
+                  type="color"
+                  id="sky-horizon-picker"
+                  style="
+                    width: 100%;
+                    height: 16px;
+                    cursor: pointer;
+                    border: none;
+                    background: none;
+                    padding: 0;
+                  "
+                />
+              </div>
+            </div>
+            <div
+              style="
+                font-size: 10px;
+                font-family: monospace;
+                opacity: 0.5;
+                margin-top: 3px;
+              "
+            >
+              Palette: <span id="debug-palette">None</span>
+            </div>
+          </div>
+
+          <!-- Force Weather -->
+          <div class="debug-section">
+            <div style="font-size: 11px; margin-bottom: 2px">
+              Force weather:
+            </div>
+            <select
+              id="weather-select"
+              class="customization-input"
+              style="width: 100%; padding: 2px 4px; font-size: 12px"
+            >
+              <option value="auto" selected>Auto (Default)</option>
+              <option value="none">None</option>
+              <option value="snow">Snow</option>
+              <option value="rain">Rain</option>
+            </select>
+          </div>
         </div>
 
-        <div style="margin-bottom: 4px">
-          <div
-            style="
-              font-size: 11px;
-              margin-bottom: 2px;
-              display: flex;
-              justify-content: space-between;
-            "
-          >
-            <span>Cloud height:</span>
-            <span
-              id="debug-cloud-height-val"
-              style="font-family: monospace; font-size: 10px"
-              >3000m</span
+        <!-- Right Column: World, Rendering & Camera -->
+        <div class="debug-col">
+          <!-- World Seed & Theme -->
+          <div class="debug-section">
+            <div style="font-size: 11px; margin-bottom: 2px">Seed:</div>
+            <input
+              type="number"
+              id="seed-input"
+              class="customization-input"
+              placeholder="Seed"
+              style="
+                width: 100%;
+                padding: 2px 4px;
+                font-size: 12px;
+                box-sizing: border-box;
+                margin-bottom: 4px;
+              "
+            />
+            <div style="font-size: 11px; margin-bottom: 2px">Theme:</div>
+            <select
+              id="theme-select"
+              class="customization-input"
+              style="
+                width: 100%;
+                padding: 2px 4px;
+                font-size: 12px;
+                margin-bottom: 4px;
+              "
             >
+              <option value="standard" selected>Standard</option>
+              <option value="toon">Toon</option>
+              <option value="basic">Basic (Flat)</option>
+              <option value="phong">Phong (Shiny)</option>
+              <option value="lambert">Lambert (Matte)</option>
+              <option value="normal">Normal (Psychedelic)</option>
+              <option value="wireframe">Wireframe</option>
+            </select>
+            <div style="font-size: 11px; margin-bottom: 2px">
+              Force island type:
+            </div>
+            <select
+              id="island-type-select"
+              class="customization-input"
+              style="width: 100%; padding: 2px 4px; font-size: 12px"
+            >
+              <option value="auto" selected>Auto (procedural)</option>
+              <option value="karst">Karst (limestone towers)</option>
+              <option value="caldera">Caldera (volcano crater)</option>
+              <option value="atoll">Atoll (coral lagoon)</option>
+            </select>
           </div>
-          <input
-            type="range"
-            id="debug-cloud-height-slider"
-            min="1000"
-            max="6000"
-            step="100"
-            value="3000"
-            style="width: 100%; cursor: pointer"
-          />
-        </div>
 
-        <div>
-          <div
-            style="
-              font-size: 11px;
-              margin-bottom: 2px;
-              display: flex;
-              justify-content: space-between;
-            "
-          >
-            <span>Cloud speed:</span>
-            <span
-              id="debug-cloud-speed-val"
-              style="font-family: monospace; font-size: 10px"
-              >1.0x</span
+          <!-- Atmosphere & Rendering (Fog & LOD) -->
+          <div class="debug-section">
+            <div>
+              <div
+                style="
+                  font-size: 11px;
+                  margin-bottom: 2px;
+                  display: flex;
+                  justify-content: space-between;
+                "
+              >
+                <span>Base fog:</span>
+                <span id="debug-base-fog-val">0.00015</span>
+              </div>
+              <input
+                type="range"
+                id="debug-fog-slider"
+                min="0"
+                max="0.0005"
+                step="0.000005"
+                value="0.00015"
+                style="width: 100%; cursor: pointer"
+              />
+              <div
+                style="
+                  font-size: 9px;
+                  opacity: 0.6;
+                  margin-top: 1px;
+                  display: flex;
+                  justify-content: space-between;
+                "
+              >
+                <span>Final fog:</span>
+                <span id="debug-final-fog-val">0.00015</span>
+              </div>
+            </div>
+            <div style="margin-top: 4px">
+              <div
+                style="
+                  font-size: 11px;
+                  margin-bottom: 2px;
+                  display: flex;
+                  justify-content: space-between;
+                "
+              >
+                <span>Prop LOD dist:</span>
+                <span id="debug-prop-lod-slider-val"></span>
+              </div>
+              <input
+                type="range"
+                id="debug-prop-lod-slider"
+                min="500"
+                max="8000"
+                step="100"
+                style="width: 100%; cursor: pointer"
+              />
+            </div>
+          </div>
+
+          <!-- Toggles -->
+          <div class="debug-section">
+            <label
+              for="debug-objects-toggle"
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                cursor: pointer;
+                margin-bottom: 3px;
+              "
             >
-          </div>
-          <input
-            type="range"
-            id="debug-cloud-speed-slider"
-            min="0"
-            max="5"
-            step="0.1"
-            value="1"
-            style="width: 100%; cursor: pointer"
-          />
-        </div>
-      </div>
-      <div
-        style="
-          margin-top: 5px;
-          padding-top: 5px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
-        <div style="font-size: 11px; margin-bottom: 3px">
-          Force island type:
-        </div>
-        <select
-          id="island-type-select"
-          class="customization-input"
-          style="width: 100%; padding: 2px 4px; font-size: 12px"
-        >
-          <option value="auto" selected>Auto (procedural)</option>
-          <option value="karst">Karst (limestone towers)</option>
-          <option value="caldera">Caldera (volcano crater)</option>
-          <option value="atoll">Atoll (coral lagoon)</option>
-        </select>
-      </div>
-      <div
-        style="
-          margin-top: 5px;
-          padding-top: 5px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 3px;
-          "
-        >
-          <div style="font-size: 10px; font-weight: bold; opacity: 0.7">
-            SKY COLORS:
-          </div>
-          <button
-            id="debug-next-palette-btn"
-            style="
-              background: rgba(255, 255, 255, 0.15);
-              border: 1px solid rgba(255, 255, 255, 0.3);
-              color: white;
-              border-radius: 3px;
-              padding: 1px 6px;
-              font-size: 10px;
-              cursor: pointer;
-            "
-            title="Switch to next sky preset"
-          >
-            Next preset
-          </button>
-        </div>
-        <div
-          style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px"
-        >
-          <div>
-            <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px">
-              Zenith
-            </div>
-            <input
-              type="color"
-              id="sky-zenith-picker"
+              <div style="font-size: 11px">Procedural objects:</div>
+              <input
+                type="checkbox"
+                id="debug-objects-toggle"
+                checked
+                style="width: 13px; height: 13px; cursor: pointer"
+              />
+            </label>
+            <label
+              for="debug-chunk-borders-toggle"
               style="
-                width: 100%;
-                height: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
                 cursor: pointer;
-                border: none;
-                background: none;
-                padding: 0;
+                margin-bottom: 3px;
               "
-            />
-          </div>
-          <div>
-            <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px">
-              Day blue
-            </div>
-            <input
-              type="color"
-              id="sky-day-picker"
-              value="#4ca1f0"
+            >
+              <div style="font-size: 11px">Show chunk borders:</div>
+              <input
+                type="checkbox"
+                id="debug-chunk-borders-toggle"
+                style="width: 13px; height: 13px; cursor: pointer"
+              />
+            </label>
+            <label
+              for="debug-free-cam-toggle"
               style="
-                width: 100%;
-                height: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
                 cursor: pointer;
-                border: none;
-                background: none;
-                padding: 0;
               "
-            />
+            >
+              <div style="font-size: 11px; color: #ffeb3b">Free camera:</div>
+              <input
+                type="checkbox"
+                id="debug-free-cam-toggle"
+                style="width: 13px; height: 13px; cursor: pointer"
+              />
+            </label>
           </div>
-          <div>
-            <div style="font-size: 9px; opacity: 0.6; margin-bottom: 1px">
-              Horizon
-            </div>
-            <input
-              type="color"
-              id="sky-horizon-picker"
+
+          <!-- Copy URLs -->
+          <div
+            class="debug-section"
+            style="display: flex; flex-direction: column; gap: 4px"
+          >
+            <button
+              id="debug-copy-cam-url"
               style="
-                width: 100%;
-                height: 16px;
+                background: rgba(255, 255, 255, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.4);
+                color: white;
+                padding: 3px 6px;
+                border-radius: 4px;
+                font-size: 10px;
                 cursor: pointer;
-                border: none;
-                background: none;
-                padding: 0;
+                width: 100%;
               "
-            />
+            >
+              Copy camera URL
+            </button>
+            <button
+              id="debug-copy-plane-url"
+              style="
+                background: rgba(255, 255, 255, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.4);
+                color: white;
+                padding: 3px 6px;
+                border-radius: 4px;
+                font-size: 10px;
+                cursor: pointer;
+                width: 100%;
+              "
+            >
+              Copy plane URL
+            </button>
           </div>
-        </div>
-      </div>
-      <div
-        style="
-          margin-top: 5px;
-          padding-top: 5px;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-        "
-      >
-        <label
-          for="debug-objects-toggle"
-          style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-          "
-        >
-          <div style="font-size: 11px">Procedural objects:</div>
-          <input
-            type="checkbox"
-            id="debug-objects-toggle"
-            checked
-            style="width: 14px; height: 14px; cursor: pointer"
-          />
-        </label>
-        <label
-          for="debug-chunk-borders-toggle"
-          style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 4px;
-            cursor: pointer;
-          "
-        >
-          <div style="font-size: 11px">Show chunk borders:</div>
-          <input
-            type="checkbox"
-            id="debug-chunk-borders-toggle"
-            style="width: 14px; height: 14px; cursor: pointer"
-          />
-        </label>
-        <label
-          for="debug-free-cam-toggle"
-          style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 4px;
-            cursor: pointer;
-          "
-        >
-          <div style="font-size: 11px; color: #ffeb3b">Free camera:</div>
-          <input
-            type="checkbox"
-            id="debug-free-cam-toggle"
-            style="width: 14px; height: 14px; cursor: pointer"
-          />
-        </label>
-        <div
-          style="
-            margin-top: 8px;
-            margin-bottom: 4px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-          "
-        >
-          <button
-            id="debug-copy-cam-url"
-            style="
-              background: rgba(255, 255, 255, 0.2);
-              border: 1px solid rgba(255, 255, 255, 0.4);
-              color: white;
-              padding: 4px 8px;
-              border-radius: 4px;
-              font-size: 10px;
-              cursor: pointer;
-              width: 100%;
-            "
-          >
-            Copy camera URL
-          </button>
-          <button
-            id="debug-copy-plane-url"
-            style="
-              background: rgba(255, 255, 255, 0.2);
-              border: 1px solid rgba(255, 255, 255, 0.4);
-              color: white;
-              padding: 4px 8px;
-              border-radius: 4px;
-              font-size: 10px;
-              cursor: pointer;
-              width: 100%;
-            "
-          >
-            Copy plane URL
-          </button>
-        </div>
-        <div style="margin-top: 4px">
-          <div
-            style="
-              font-size: 11px;
-              margin-bottom: 2px;
-              display: flex;
-              justify-content: space-between;
-            "
-          >
-            <span>Base fog:</span>
-            <span id="debug-base-fog-val">0.00015</span>
-          </div>
-          <input
-            type="range"
-            id="debug-fog-slider"
-            min="0"
-            max="0.0005"
-            step="0.000005"
-            value="0.00015"
-            style="width: 100%; cursor: pointer"
-          />
-          <div
-            style="
-              font-size: 9px;
-              opacity: 0.6;
-              margin-top: 1px;
-              display: flex;
-              justify-content: space-between;
-            "
-          >
-            <span>Final fog:</span>
-            <span id="debug-final-fog-val">0.00015</span>
-          </div>
-        </div>
-        <div style="margin-top: 6px">
-          <div
-            style="
-              font-size: 11px;
-              margin-bottom: 2px;
-              display: flex;
-              justify-content: space-between;
-            "
-          >
-            <span>Prop LOD dist:</span>
-            <span id="debug-prop-lod-slider-val"></span>
-          </div>
-          <input
-            type="range"
-            id="debug-prop-lod-slider"
-            min="500"
-            max="8000"
-            step="100"
-            style="width: 100%; cursor: pointer"
-          />
-        </div>
-      </div>
-      <div
-        style="
-          margin-top: 5px;
-          padding-top: 5px;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
-        "
-      >
-        <div style="font-size: 10px; font-family: monospace; opacity: 0.5">
-          Palette: <span id="debug-palette">None</span>
         </div>
       </div>
     </div>

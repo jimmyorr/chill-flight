@@ -484,18 +484,52 @@ input[type='number'].customization-input {
 
 #debug-menu {
   position: absolute;
-  top: 100px;
-  left: 30px;
-  background: rgba(0, 0, 0, 0.7);
+  top: 70px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.78);
   color: #fff;
-  padding: 10px;
+  padding: 10px 12px;
   border-radius: 8px;
   font-family: monospace;
   display: none;
   z-index: 100;
   pointer-events: auto;
-  width: 170px;
+  width: 380px;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
   font-size: 11px;
+  box-sizing: border-box;
+}
+
+#debug-menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+#debug-menu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.debug-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.debug-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.debug-section {
+  padding-top: 5px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.debug-section:first-child {
+  padding-top: 0;
+  border-top: none;
 }
 
 #debug-telemetry {
