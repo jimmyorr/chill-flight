@@ -241,7 +241,7 @@ let activePlaneType =
   'classic';
 
 function setActivePlane(planeType, skipStorage = false) {
-  if (!['classic', 'biplane', 'glider'].includes(planeType)) return;
+  if (!['classic', 'biplane', 'glider', 'twin'].includes(planeType)) return;
   activePlaneType = planeType;
   window.activePlaneType = activePlaneType;
   if (!skipStorage) {
@@ -285,6 +285,12 @@ function setActivePlane(planeType, skipStorage = false) {
       planeMat: window.planeMat,
       planeWhiteMat: window.planeWhiteMat,
     });
+  } else if (planeType === 'twin' && typeof createTwinModel === 'function') {
+    newModel = createTwinModel({
+      planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
+      planeMat: window.planeMat,
+      planeWhiteMat: window.planeWhiteMat,
+    });
   } else {
     newModel = createClassicAirplaneModel({
       planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
@@ -295,6 +301,8 @@ function setActivePlane(planeType, skipStorage = false) {
 
   window.airplaneModel = newModel;
   window.propGroup = newModel.propGroup || propGroup;
+  window.propGroups =
+    newModel.propGroups || (window.propGroup ? [window.propGroup] : []);
   planeGroup.add(newModel);
 
   // Enable shadow casting

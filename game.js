@@ -89,7 +89,7 @@ inputManager.onPauseToggle = () => {
 };
 inputManager.onPlaneToggle = () => {
   if (typeof setActivePlane === 'function') {
-    const types = ['classic', 'biplane', 'glider'];
+    const types = ['classic', 'biplane', 'glider', 'twin'];
     const currentIndex = types.indexOf(window.activePlaneType);
     const nextPlane = types[(currentIndex + 1) % types.length] || 'classic';
     setActivePlane(nextPlane);
@@ -3091,9 +3091,17 @@ function animate() {
   if (!isFreeCamera && Math.abs(flightSpeedMultiplier) > 0.001) {
     const baseSpin = 15 * Math.abs(flightSpeedMultiplier);
     const spin = Math.max(4, Math.min(25, baseSpin));
-    const activeProp =
-      window.propGroup || (typeof propGroup !== 'undefined' ? propGroup : null);
-    if (activeProp) activeProp.rotation.z += spin * delta;
+    if (window.propGroups && Array.isArray(window.propGroups)) {
+      for (let i = 0; i < window.propGroups.length; i++) {
+        if (window.propGroups[i])
+          window.propGroups[i].rotation.z += spin * delta;
+      }
+    } else {
+      const activeProp =
+        window.propGroup ||
+        (typeof propGroup !== 'undefined' ? propGroup : null);
+      if (activeProp) activeProp.rotation.z += spin * delta;
+    }
   }
 
   // Animate pontoons

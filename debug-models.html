@@ -163,6 +163,9 @@
       <button class="model-btn" onclick="viewModel('glider', event)">
         Glider
       </button>
+      <button class="model-btn" onclick="viewModel('twin', event)">
+        Twin engine
+      </button>
 
       <div class="category-title">Nature</div>
       <button class="model-btn" onclick="viewModel('pine', event)">
@@ -328,6 +331,7 @@
     <script defer src="airplane.js"></script>
     <script defer src="biplane.js"></script>
     <script defer src="glider.js"></script>
+    <script defer src="twin.js"></script>
     <script defer src="terrain.js"></script>
 
     <script type="module">
@@ -404,6 +408,8 @@
           'airplane',
           'biplane',
           'glider',
+          'twin',
+          'twin-engine',
         ].includes(type);
         document.getElementById('color-options').style.display = supportsColors
           ? 'block'
@@ -414,7 +420,10 @@
           btn.classList.remove('active');
           // If this was triggered via hash, we need to find the right button
           const clickAttr = btn.getAttribute('onclick') || '';
-          if (clickAttr.includes(`'${type}'`)) {
+          if (
+            clickAttr.includes(`'${type}'`) ||
+            (type === 'twin-engine' && clickAttr.includes("'twin'"))
+          ) {
             btn.classList.add('active');
             document.getElementById('model-name').innerText = btn.innerText;
           }
@@ -507,6 +516,23 @@
 
               gl.visible = true;
               previewGroup.add(gl);
+              break;
+            }
+
+            case 'twin':
+            case 'twin-engine':
+            case 'twin_engine': {
+              const colors =
+                window.ChillFlightLogic && window.ChillFlightLogic.PLANE_COLORS
+                  ? window.ChillFlightLogic.PLANE_COLORS
+                  : [0xe0564c];
+              const newColor = colors[colorSeed % colors.length];
+              const tw = window.createTwinModel
+                ? window.createTwinModel({planeColor: newColor})
+                : window.twinModel.clone();
+
+              tw.visible = true;
+              previewGroup.add(tw);
               break;
             }
 
@@ -744,7 +770,13 @@
 
         const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);
         const distanceMultiplier =
-          type === 'motor_glider' || type === 'glider' ? 0.75 : 1.5;
+          type === 'motor_glider' || type === 'glider'
+            ? 0.75
+            : type === 'twin' ||
+                type === 'twin-engine' ||
+                type === 'twin_engine'
+              ? 1.15
+              : 1.5;
         const distance = maxDimension * distanceMultiplier;
 
         if (!isColorCycle) {
@@ -755,6 +787,16 @@
               distance * 0.9,
               distance * 0.62,
               -distance * 0.75
+            );
+          } else if (
+            type === 'twin' ||
+            type === 'twin-engine' ||
+            type === 'twin_engine'
+          ) {
+            camera.position.set(
+              distance * 0.92,
+              distance * 0.58,
+              -distance * 0.82
             );
           } else {
             camera.position.set(distance, distance, distance);

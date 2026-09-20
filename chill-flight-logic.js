@@ -278,7 +278,7 @@
     }
   }
 
-  const PLANE_TYPES = ['classic', 'biplane'];
+  const PLANE_TYPES = ['classic', 'biplane', 'glider', 'twin'];
   const _planeParam = getParam('plane', getParam('vehicle', null));
   let START_PLANE = null;
   if (_planeParam !== null && _planeParam !== '') {
