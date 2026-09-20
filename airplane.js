@@ -18,11 +18,6 @@ scene.add(planeGroup);
 // better rotation order for airplanes
 planeGroup.rotation.order = 'YXZ';
 
-const airplaneModel = new THREE.Group();
-planeGroup.add(airplaneModel);
-window.airplaneModel = airplaneModel;
-
-// --- AIRPLANE MODEL ---
 const planeWhiteMat = createMaterial({
   color: planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff,
   flatShading: true,
@@ -30,133 +25,11 @@ const planeWhiteMat = createMaterial({
 const planeMat = createMaterial({color: planeColor, flatShading: true});
 window.planeWhiteMat = planeWhiteMat;
 window.planeMat = planeMat;
+window.planeColor = planeColor;
 
-// Fuselage (Main Body)
-const bodyGeo = new THREE.CylinderGeometry(0.7, 1.8, 14, 8);
-bodyGeo.rotateX(Math.PI / 2);
-const body = new THREE.Mesh(bodyGeo, planeWhiteMat);
-body.position.set(0, 0, -2);
-body.scale.set(1, 1.3, 1);
-airplaneModel.add(body);
-
-// Nose Cowling
-const noseGeo = new THREE.CylinderGeometry(1.8, 1.0, 2.5, 8); // Made front (1.0) blunter
-noseGeo.rotateX(Math.PI / 2); // Same rotation as body for perfect segment alignment
-const nose = new THREE.Mesh(noseGeo, planeWhiteMat);
-nose.position.set(0, 0, -10.25);
-nose.scale.set(1, 1.3, 1);
-airplaneModel.add(nose);
-
-// Cabin / Cockpit
-const cabinGeo = new THREE.BoxGeometry(2.6, 2.0, 4.0);
-const cabin = new THREE.Mesh(cabinGeo, planeWhiteMat);
-cabin.position.set(0, 1.5, -3.5);
-airplaneModel.add(cabin);
-
-// Windshield
-const windowMat = createMaterial({color: 0x111111, roughness: 0.1});
-const windowGeo = new THREE.BoxGeometry(2.65, 1.8, 1.5);
-const cockpit = new THREE.Mesh(windowGeo, windowMat);
-cockpit.position.set(0, 1.8, -5.5);
-cockpit.rotation.x = Math.PI / 5.5;
-airplaneModel.add(cockpit);
-
-// Side Windows
-const sideWindowGeo = new THREE.BoxGeometry(2.7, 1.0, 2.0);
-const sideWindow = new THREE.Mesh(sideWindowGeo, windowMat);
-sideWindow.position.set(0, 1.7, -3.5);
-airplaneModel.add(sideWindow);
-
-// Accent Stripe
-const stripeGeo = new THREE.BoxGeometry(3.0, 0.4, 13);
-const stripe = new THREE.Mesh(stripeGeo, planeMat);
-stripe.position.set(0, 0.2, -2.0);
-airplaneModel.add(stripe);
-
-// Wings
-const mainWingGeo = new THREE.BoxGeometry(28, 0.5, 4.5);
-const mainWings = new THREE.Mesh(mainWingGeo, planeWhiteMat);
-mainWings.position.set(0, 2.8, -3.5);
-airplaneModel.add(mainWings);
-
-const wingTipGeo = new THREE.BoxGeometry(2, 0.5, 4.5);
-const wingTipL = new THREE.Mesh(wingTipGeo, planeMat);
-wingTipL.position.set(-15, 2.8, -3.5);
-airplaneModel.add(wingTipL);
-
-const wingTipR = new THREE.Mesh(wingTipGeo, planeMat);
-wingTipR.position.set(15, 2.8, -3.5);
-airplaneModel.add(wingTipR);
-
-// Wing Struts
-const wingStrutGeo = new THREE.CylinderGeometry(0.15, 0.15, 7.5, 6);
-const wingStrutL = new THREE.Mesh(wingStrutGeo, planeWhiteMat);
-wingStrutL.position.set(-4.5, 1.65, -3.5);
-wingStrutL.rotation.z = Math.PI * 0.4;
-airplaneModel.add(wingStrutL);
-
-const wingStrutR = new THREE.Mesh(wingStrutGeo, planeWhiteMat);
-wingStrutR.position.set(4.5, 1.65, -3.5);
-wingStrutR.rotation.z = -Math.PI * 0.4;
-airplaneModel.add(wingStrutR);
-
-// Tail (Empennage) - Horizontal Stabilizer
-const tailCenterGeo = new THREE.BoxGeometry(8, 0.4, 3);
-const tailCenter = new THREE.Mesh(tailCenterGeo, planeWhiteMat);
-tailCenter.position.set(0, 0.5, 5.5);
-airplaneModel.add(tailCenter);
-
-const tailTipGeo = new THREE.BoxGeometry(1, 0.4, 3);
-const tailTipL = new THREE.Mesh(tailTipGeo, planeMat);
-tailTipL.position.set(-4.5, 0.5, 5.5);
-airplaneModel.add(tailTipL);
-
-const tailTipR = new THREE.Mesh(tailTipGeo, planeMat);
-tailTipR.position.set(4.5, 0.5, 5.5);
-airplaneModel.add(tailTipR);
-
-// Rudder (Vertical Stabilizer)
-const rudderShape = new THREE.Shape();
-rudderShape.moveTo(0, 0);
-rudderShape.lineTo(3, 0);
-rudderShape.lineTo(2.5, 4);
-rudderShape.lineTo(1.0, 4);
-rudderShape.lineTo(0, 0);
-
-const extrudeSettings = {depth: 0.3, bevelEnabled: false};
-const rudderGeo = new THREE.ExtrudeGeometry(rudderShape, extrudeSettings);
-rudderGeo.translate(-1.5, 0, -0.15); // center locally
-rudderGeo.rotateY(Math.PI / -2); // point forward
-const rudder = new THREE.Mesh(rudderGeo, planeMat);
-rudder.position.set(0, 0.7, 5.5); // Place at tail
-airplaneModel.add(rudder);
-
-// Propeller
-const propGroup = new THREE.Group();
-propGroup.position.set(0, -0.2, -11.6); // Moved to tip of nose
-airplaneModel.add(propGroup);
-
-const propCenterGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.0, 8);
-propCenterGeo.rotateX(Math.PI / 2);
-const propCenter = new THREE.Mesh(
-  propCenterGeo,
-  createMaterial({color: 0x333333})
-);
-propGroup.add(propCenter);
-
-const bladeGeo = new THREE.BoxGeometry(9, 0.6, 0.1);
-const bladeMat = createMaterial({color: 0x222222});
-const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
-const blade2 = new THREE.Mesh(bladeGeo, bladeMat);
-blade2.rotation.z = Math.PI / 2;
-propGroup.add(blade1);
-propGroup.add(blade2);
-
-// Pontoons Group
+// Pontoons Group (created for classic plane water landing)
 const pontoonGroup = new THREE.Group();
 pontoonGroup.visible = false;
-airplaneModel.add(pontoonGroup);
-
 let pontoonDeploymentProgress = 0;
 let isDeployingPontoons = false;
 let isRetractingPontoons = false;
@@ -224,6 +97,215 @@ pontoonGroup.add(hingeRF);
 const hingeRB = new THREE.Group();
 hingeRB.position.set(5, 0, 3);
 pontoonGroup.add(hingeRB);
+
+// Classic Cessna-style monoplane model builder
+function createClassicAirplaneModel(opts = {}) {
+  const model = new THREE.Group();
+  const activeWhiteMat = opts.planeWhiteMat || window.planeWhiteMat;
+  const activePlaneMat = opts.planeMat || window.planeMat;
+
+  // Fuselage (Main Body)
+  const bodyGeo = new THREE.CylinderGeometry(0.7, 1.8, 14, 8);
+  bodyGeo.rotateX(Math.PI / 2);
+  const body = new THREE.Mesh(bodyGeo, activeWhiteMat);
+  body.position.set(0, 0, -2);
+  body.scale.set(1, 1.3, 1);
+  model.add(body);
+
+  // Nose Cowling
+  const noseGeo = new THREE.CylinderGeometry(1.8, 1.0, 2.5, 8);
+  noseGeo.rotateX(Math.PI / 2);
+  const nose = new THREE.Mesh(noseGeo, activeWhiteMat);
+  nose.position.set(0, 0, -10.25);
+  nose.scale.set(1, 1.3, 1);
+  model.add(nose);
+
+  // Cabin / Cockpit
+  const cabinGeo = new THREE.BoxGeometry(2.6, 2.0, 4.0);
+  const cabin = new THREE.Mesh(cabinGeo, activeWhiteMat);
+  cabin.position.set(0, 1.5, -3.5);
+  model.add(cabin);
+
+  // Windshield
+  const windowMat = createMaterial({color: 0x111111, roughness: 0.1});
+  const windowGeo = new THREE.BoxGeometry(2.65, 1.8, 1.5);
+  const cockpit = new THREE.Mesh(windowGeo, windowMat);
+  cockpit.position.set(0, 1.8, -5.5);
+  cockpit.rotation.x = Math.PI / 5.5;
+  model.add(cockpit);
+
+  // Side Windows
+  const sideWindowGeo = new THREE.BoxGeometry(2.7, 1.0, 2.0);
+  const sideWindow = new THREE.Mesh(sideWindowGeo, windowMat);
+  sideWindow.position.set(0, 1.7, -3.5);
+  model.add(sideWindow);
+
+  // Accent Stripe
+  const stripeGeo = new THREE.BoxGeometry(3.0, 0.4, 13);
+  const stripe = new THREE.Mesh(stripeGeo, activePlaneMat);
+  stripe.position.set(0, 0.2, -2.0);
+  model.add(stripe);
+
+  // Wings
+  const mainWingGeo = new THREE.BoxGeometry(28, 0.5, 4.5);
+  const mainWings = new THREE.Mesh(mainWingGeo, activeWhiteMat);
+  mainWings.position.set(0, 2.8, -3.5);
+  model.add(mainWings);
+
+  const wingTipGeo = new THREE.BoxGeometry(2, 0.5, 4.5);
+  const wingTipL = new THREE.Mesh(wingTipGeo, activePlaneMat);
+  wingTipL.position.set(-15, 2.8, -3.5);
+  model.add(wingTipL);
+
+  const wingTipR = new THREE.Mesh(wingTipGeo, activePlaneMat);
+  wingTipR.position.set(15, 2.8, -3.5);
+  model.add(wingTipR);
+
+  // Wing Struts
+  const wingStrutGeo = new THREE.CylinderGeometry(0.15, 0.15, 7.5, 6);
+  const wingStrutL = new THREE.Mesh(wingStrutGeo, activeWhiteMat);
+  wingStrutL.position.set(-4.5, 1.65, -3.5);
+  wingStrutL.rotation.z = Math.PI * 0.4;
+  model.add(wingStrutL);
+
+  const wingStrutR = new THREE.Mesh(wingStrutGeo, activeWhiteMat);
+  wingStrutR.position.set(4.5, 1.65, -3.5);
+  wingStrutR.rotation.z = -Math.PI * 0.4;
+  model.add(wingStrutR);
+
+  // Tail (Empennage) - Horizontal Stabilizer
+  const tailCenterGeo = new THREE.BoxGeometry(8, 0.4, 3);
+  const tailCenter = new THREE.Mesh(tailCenterGeo, activeWhiteMat);
+  tailCenter.position.set(0, 0.5, 5.5);
+  model.add(tailCenter);
+
+  const tailTipGeo = new THREE.BoxGeometry(1, 0.4, 3);
+  const tailTipL = new THREE.Mesh(tailTipGeo, activePlaneMat);
+  tailTipL.position.set(-4.5, 0.5, 5.5);
+  model.add(tailTipL);
+
+  const tailTipR = new THREE.Mesh(tailTipGeo, activePlaneMat);
+  tailTipR.position.set(4.5, 0.5, 5.5);
+  model.add(tailTipR);
+
+  // Rudder (Vertical Stabilizer)
+  const rudderShape = new THREE.Shape();
+  rudderShape.moveTo(0, 0);
+  rudderShape.lineTo(3, 0);
+  rudderShape.lineTo(2.5, 4);
+  rudderShape.lineTo(1.0, 4);
+  rudderShape.lineTo(0, 0);
+
+  const extrudeSettings = {depth: 0.3, bevelEnabled: false};
+  const rudderGeo = new THREE.ExtrudeGeometry(rudderShape, extrudeSettings);
+  rudderGeo.translate(-1.5, 0, -0.15); // center locally
+  rudderGeo.rotateY(Math.PI / -2); // point forward
+  const rudder = new THREE.Mesh(rudderGeo, activePlaneMat);
+  rudder.position.set(0, 0.7, 5.5); // Place at tail
+  model.add(rudder);
+
+  // Propeller
+  const propGroup = new THREE.Group();
+  propGroup.position.set(0, -0.2, -11.6); // Moved to tip of nose
+  model.add(propGroup);
+
+  const propCenterGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.0, 8);
+  propCenterGeo.rotateX(Math.PI / 2);
+  const propCenter = new THREE.Mesh(
+    propCenterGeo,
+    createMaterial({color: 0x333333})
+  );
+  propGroup.add(propCenter);
+
+  const bladeGeo = new THREE.BoxGeometry(9, 0.6, 0.1);
+  const bladeMat = createMaterial({color: 0x222222});
+  const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
+  const blade2 = new THREE.Mesh(bladeGeo, bladeMat);
+  blade2.rotation.z = Math.PI / 2;
+  propGroup.add(blade1);
+  propGroup.add(blade2);
+
+  model.propGroup = propGroup;
+
+  // Add pontoons
+  model.add(pontoonGroup);
+  model.pontoonGroup = pontoonGroup;
+
+  return model;
+}
+
+// Active plane state and switching
+let activePlaneType =
+  ChillFlightLogic.START_PLANE ||
+  localStorage.getItem('chill_flight_plane') ||
+  'classic';
+
+function setActivePlane(planeType, skipStorage = false) {
+  if (!['classic', 'biplane'].includes(planeType)) return;
+  activePlaneType = planeType;
+  window.activePlaneType = activePlaneType;
+  if (!skipStorage) {
+    try {
+      localStorage.setItem('chill_flight_plane', planeType);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  // Remove existing model from planeGroup
+  if (window.airplaneModel && planeGroup) {
+    planeGroup.remove(window.airplaneModel);
+  }
+
+  // Build new model
+  let newModel;
+  if (planeType === 'biplane' && typeof createBiplaneModel === 'function') {
+    newModel = createBiplaneModel({
+      planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
+      planeMat: window.planeMat,
+      planeWhiteMat: window.planeWhiteMat,
+    });
+  } else {
+    newModel = createClassicAirplaneModel({
+      planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
+      planeMat: window.planeMat,
+      planeWhiteMat: window.planeWhiteMat,
+    });
+  }
+
+  window.airplaneModel = newModel;
+  window.propGroup = newModel.propGroup || propGroup;
+  planeGroup.add(newModel);
+
+  // Enable shadow casting
+  newModel.traverse((child) => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = false;
+    }
+  });
+
+  // Update UI buttons if present in pause overlay
+  const planeSelectGroup = document.getElementById('plane-select-group');
+  if (planeSelectGroup) {
+    planeSelectGroup.querySelectorAll('.scheme-btn').forEach((btn) => {
+      btn.classList.toggle(
+        'active',
+        btn.getAttribute('data-plane') === planeType
+      );
+    });
+  }
+
+  // Update URL parameters if helper available
+  if (typeof updateUrlParams === 'function') {
+    updateUrlParams({plane: planeType}, ['plane', 'vehicle']);
+  }
+}
+
+// Initialize active plane model
+setActivePlane(activePlaneType, true);
+window.createClassicAirplaneModel = createClassicAirplaneModel;
+window.setActivePlane = setActivePlane;
 
 // Better rotation order for airplanes
 planeGroup.rotation.order = 'YXZ';

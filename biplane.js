@@ -22,17 +22,29 @@ function createBiplaneModel(opts = {}) {
 
   const whiteColor = planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff;
 
-  const accentMat = makeMat({
-    color: planeColor,
-    flatShading: true,
-    roughness: 0.5,
-  });
+  const accentMat =
+    opts.planeMat ||
+    (opts.planeColor === undefined &&
+    typeof window !== 'undefined' &&
+    window.planeMat
+      ? window.planeMat
+      : makeMat({
+          color: planeColor,
+          flatShading: true,
+          roughness: 0.5,
+        }));
 
-  const bodyMat = makeMat({
-    color: whiteColor,
-    flatShading: true,
-    roughness: 0.5,
-  });
+  const bodyMat =
+    opts.planeWhiteMat ||
+    (opts.planeColor === undefined &&
+    typeof window !== 'undefined' &&
+    window.planeWhiteMat
+      ? window.planeWhiteMat
+      : makeMat({
+          color: whiteColor,
+          flatShading: true,
+          roughness: 0.5,
+        }));
 
   const strutMat = makeMat({
     color: 0x2b2b2b,
@@ -92,6 +104,7 @@ function createBiplaneModel(opts = {}) {
   const propGroup = new THREE.Group();
   propGroup.position.set(0, -0.1, -10.3);
   root.add(propGroup);
+  root.propGroup = propGroup;
 
   const bladeGeo = new THREE.BoxGeometry(8.6, 0.7, 0.12);
   const blade1 = new THREE.Mesh(bladeGeo, darkMat);

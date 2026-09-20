@@ -87,6 +87,13 @@ inputManager.onWeatherToggle = () => {
 inputManager.onPauseToggle = () => {
   togglePause();
 };
+inputManager.onPlaneToggle = () => {
+  if (typeof setActivePlane === 'function') {
+    const nextPlane =
+      window.activePlaneType === 'biplane' ? 'classic' : 'biplane';
+    setActivePlane(nextPlane);
+  }
+};
 inputManager.onMusicToggle = () => {
   if (
     typeof musicEnabled !== 'undefined' &&
@@ -1245,6 +1252,13 @@ if (copyCamUrlBtn) {
       url.searchParams.delete('lod');
     }
 
+    if (window.activePlaneType && window.activePlaneType !== 'classic') {
+      url.searchParams.set('plane', window.activePlaneType);
+    } else {
+      url.searchParams.delete('plane');
+      url.searchParams.delete('vehicle');
+    }
+
     url.searchParams.delete('autopilot');
     url.searchParams.delete('auto');
     url.searchParams.delete('autoPilot');
@@ -1408,6 +1422,13 @@ if (copyPlaneUrlBtn) {
       url.searchParams.delete('lod');
     }
 
+    if (window.activePlaneType && window.activePlaneType !== 'classic') {
+      url.searchParams.set('plane', window.activePlaneType);
+    } else {
+      url.searchParams.delete('plane');
+      url.searchParams.delete('vehicle');
+    }
+
     if (window.autopilotEnabled) {
       url.searchParams.set('autopilot', 'true');
     } else {
@@ -1446,6 +1467,27 @@ let _deltaRingSum = 0;
 let smoothedDelta = 1 / 60;
 
 // --- PERSISTENCE ---
+const planeSelectGroupInit = document.getElementById('plane-select-group');
+if (planeSelectGroupInit) {
+  const currentPlane = window.activePlaneType || 'classic';
+  planeSelectGroupInit.querySelectorAll('.scheme-btn').forEach((btn) => {
+    btn.classList.toggle(
+      'active',
+      btn.getAttribute('data-plane') === currentPlane
+    );
+  });
+
+  planeSelectGroupInit.addEventListener('click', (e) => {
+    const btn = e.target.closest('.scheme-btn');
+    if (btn) {
+      const planeType = btn.getAttribute('data-plane');
+      if (typeof setActivePlane === 'function') {
+        setActivePlane(planeType);
+      }
+    }
+  });
+}
+
 const colorOptionsInit = document.getElementById('plane-color-options');
 if (colorOptionsInit && typeof planeColor !== 'undefined') {
   colorOptionsInit.innerHTML = ''; // Clear fallback or existing content
@@ -1462,6 +1504,7 @@ if (colorOptionsInit && typeof planeColor !== 'undefined') {
     const target = e.target.closest('.color-swatch');
     if (target) {
       planeColor = parseInt(target.getAttribute('data-color'));
+      window.planeColor = planeColor;
       localStorage.setItem('chill_flight_color', planeColor.toString());
       if (window.planeMat) window.planeMat.color.setHex(planeColor);
       if (window.planeWhiteMat) {
@@ -3039,7 +3082,9 @@ function animate() {
   if (!isFreeCamera && Math.abs(flightSpeedMultiplier) > 0.001) {
     const baseSpin = 15 * Math.abs(flightSpeedMultiplier);
     const spin = Math.max(4, Math.min(25, baseSpin));
-    propGroup.rotation.z += spin * delta;
+    const activeProp =
+      window.propGroup || (typeof propGroup !== 'undefined' ? propGroup : null);
+    if (activeProp) activeProp.rotation.z += spin * delta;
   }
 
   // Animate pontoons

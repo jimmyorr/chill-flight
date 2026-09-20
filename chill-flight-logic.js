@@ -269,8 +269,22 @@
   let START_ISLAND_TYPE = 'auto';
   if (_islandTypeParam !== null && _islandTypeParam !== '') {
     const norm = _islandTypeParam.trim().toLowerCase();
-    if (['auto', 'karst', 'caldera', 'atoll'].includes(norm)) {
+    if (
+      ['auto', 'temperate', 'subtropical', 'arid', 'alien', 'winter'].includes(
+        norm
+      )
+    ) {
       START_ISLAND_TYPE = norm;
+    }
+  }
+
+  const PLANE_TYPES = ['classic', 'biplane'];
+  const _planeParam = getParam('plane', getParam('vehicle', null));
+  let START_PLANE = null;
+  if (_planeParam !== null && _planeParam !== '') {
+    const normPlane = _planeParam.trim().toLowerCase();
+    if (PLANE_TYPES.includes(normPlane)) {
+      START_PLANE = normPlane;
     }
   }
   let FORCE_ISLAND_TYPE = START_ISLAND_TYPE;
@@ -1578,6 +1592,8 @@
   exports.START_ISLAND_TYPE = START_ISLAND_TYPE;
   exports.FORCE_ISLAND_TYPE = FORCE_ISLAND_TYPE;
   exports.getIslandArchetype = getIslandArchetype;
+  exports.START_PLANE = START_PLANE;
+  exports.PLANE_TYPES = PLANE_TYPES;
   // --- FLIGHT AERODYNAMICS ---
   // Calculates the updated pitch, roll, and yaw for the airplane.
   // Uses frame-rate independent exponential smoothing.

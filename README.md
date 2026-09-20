@@ -205,6 +205,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, gamepad, an
 - **Mouse wheel / trackpad scroll**: Smoothly adjust throttle (increase / decrease speed).
 - **M**: Toggle minimap overlay (or close fullscreen map if open).
 - **L**: Toggle headlight.
+- **V**: Cycle active aircraft (switch between Classic monoplane and vintage Biplane).
 - **Shift + A**: Toggle autopilot (automatically levels out and maintains heading/altitude). Manual steering input will auto-disable autopilot.
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
 - **Fullscreen world map**: Open via the 🗺️ Map button in the pause menu. Drag with mouse to pan, scroll wheel or `+` / `−` keys to zoom, and click 🎯 to center on plane.
@@ -302,6 +303,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`heading`**: Starting compass heading in degrees (0 = North).
 - **`pitch`**: Starting pitch angle in degrees.
 - **`speed`**: Starting flight speed multiplier (e.g., `1.0`, `2.0`, `0`).
+- **`plane`** or **`vehicle`**: Initial aircraft model (`classic` for the standard monoplane, or `biplane` for the vintage biplane).
 - **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
 
 ### Environment and time

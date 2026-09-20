@@ -40,6 +40,15 @@
     <div id="pause-overlay">
       <div class="customization-box">
         <div class="customization-row">
+          <span class="customization-label">Plane</span>
+          <div class="scheme-btn-group" id="plane-select-group">
+            <button class="scheme-btn active" data-plane="classic">
+              Classic
+            </button>
+            <button class="scheme-btn" data-plane="biplane">Biplane</button>
+          </div>
+        </div>
+        <div class="customization-row">
           <span class="customization-label">Livery</span>
           <!-- NES Hardware Palette Colors -->
           <div id="plane-color-options" class="color-picker-container">
@@ -1265,6 +1274,7 @@
     <script defer src="noise.js"></script>
     <script defer src="constants.js"></script>
     <script defer src="sky.js"></script>
+    <script defer src="biplane.js"></script>
     <script defer src="airplane.js"></script>
     <script defer src="terrain.js"></script>
     <script defer src="audio.js"></script>

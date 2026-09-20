@@ -275,6 +275,10 @@ class InputManager {
       if (this.onMusicToggle) this.onMusicToggle();
       return;
     }
+    if (key === 'v') {
+      if (this.onPlaneToggle) this.onPlaneToggle();
+      return;
+    }
 
     const keyMap = {
       arrowleft: 'ArrowLeft',
