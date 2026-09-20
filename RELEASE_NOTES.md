@@ -1,5 +1,12 @@
 # Release notes
 
+## 0.9.23
+
+- **Aircraft:** Added Twin engine transport model (DC-3 style) with twin radial nacelles, lofted fuselage, accent livery, and spinning 3-blade props. Added Glider and Biplane models with full livery support.
+- **Controls:** `V` hotkey cycles aircraft; pause menu aircraft selector; `?plane=` URL parameter support.
+- **Gameplay:** Vehicle-specific speed limits (glider caps at 300 km/h).
+- **Debug:** Removed obsolete sky debug page.
+
 ## 0.9.22
 
 - **Islands & shorelines:** Added Karst limestone towers, calderas, and coral atolls, plus soft water edge blending and wet sand.
