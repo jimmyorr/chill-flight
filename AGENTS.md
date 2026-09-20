@@ -9,7 +9,7 @@
   - **No automatic production builds**: Never generate a production build (`npm run build` or updating the `docs/` folder) unless the USER explicitly requests it.
   - Making regular source changes (e.g., editing `game.js` or `index.html`) should be committed in small, clean, source-only commits first.
   - Generating a production build should be treated as an intentional, independent step only executed upon direct USER request.
-  - **Exception**: You should bundle the version bump (updating `package.json` and `package-lock.json`) in the same commit as the production build, as generating a new build often corresponds with a version release.
+  - **Exception**: You should bundle the version bump (updating `package.json` and `package-lock.json`), mobile project version syncs (iOS and Android), and `RELEASE_NOTES.md` in the same commit as the production build, as generating a new build corresponds with a version release.
 
 ## Server & verification rules
 
@@ -31,12 +31,18 @@
 
 - **Always report locations in both units and lat/long**: Whenever identifying, referencing, or reporting a landmark, biome boundary, or coordinates in the game world, always specify the location in both in-game coordinate units (e.g., `X = -3000`, `Z = 5000`) and latitude/longitude format (e.g., `0.6 West`, `1.0 South`).
 
-## Release notes generation
+## Release workflow & release notes
 
-- **Release notes command**: When the user requests you to generate release notes (e.g., by saying "generate release notes" or after running `npm run release`), review the git commit history since the last version bump.
-- **Append to RELEASE_NOTES.md**: Write the new release notes directly to the top of `RELEASE_NOTES.md`.
-- **Length limit**: Each version entry MUST be kept concise and explicitly limited to a maximum of **500 characters** per entry.
-- **Formatting**: Use sentence case for bullet points. Group changes into bolded categories (e.g., `* **Controls:** Added ...`).
+- **End-to-end release workflow**: Whenever the user asks to prepare, cut, create, or publish a release (using any phrasing such as "cut a release", "release", "make a release", "let's release", "bump version and release", etc.), execute the full end-to-end release process in one cohesive turn:
+  1. **Ensure clean source state**: Verify that any prior source code changes (e.g., `game.js`, `style.css`) have already been committed so the working tree has no uncommitted source changes.
+  2. **Run release command**: Execute `npm run release` synchronously (which bumps the patch version, runs `scripts/sync-version.js` for mobile project versioning, and builds production assets into `docs/`).
+  3. **Generate release notes**: Review the git commit history since the previous version bump and write concise release notes directly to the top of `RELEASE_NOTES.md`.
+  4. **Format & verify**: Run `npm run format` and `npm run test:syntax`.
+  5. **Stage release bundle**: Stage the release files (`package.json`, `package-lock.json`, mobile project files, `RELEASE_NOTES.md`, and `docs/`).
+  6. **Ask for commit approval**: Propose the release commit message (e.g., `Release vX.Y.Z`) and wait for explicit user permission before committing.
+- **Stand-alone release notes request**: If the user specifically asks only to update or generate release notes (e.g., "generate release notes"), review commit history since the last bump, append the entry to the top of `RELEASE_NOTES.md`, format, stage, and ask for permission to commit.
+- **Length limit**: Each version entry in `RELEASE_NOTES.md` MUST be kept concise and explicitly limited to a maximum of **500 characters** per entry.
+- **Formatting**: Use sentence case for bullet points and headers. Group changes into bolded categories (e.g., `* **Controls:** Added ...`).
 
 ## Documentation rules
 
