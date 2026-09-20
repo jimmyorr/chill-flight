@@ -1,5 +1,12 @@
 # Release notes
 
+## 0.9.22
+
+- **Islands & shorelines:** Added Karst limestone towers, calderas, and coral atolls, plus soft water edge blending and wet sand.
+- **World map:** Added an interactive fullscreen map overlay with pinch-to-zoom, pan gestures, and landmark icons.
+- **Performance & LOD:** Tuned DRS thresholds, optimized graphics presets, and exempted watercraft from prop LOD popping.
+- **Achievements & debug:** Added Limbo and Cartographer achievements, cloud controls, and a two-column debug panel.
+
 ## 0.9.17
 
 - **Environment:** Overhauled dynamic mountains with alpine peaks, cirques, and snowcaps. Redesigned viaducts, smoothed highways, and resolved coastline and ice shelf z-fighting.
