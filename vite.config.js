@@ -26,7 +26,6 @@ export default defineConfig({
         main: 'index.html',
         debug: 'debug.html',
         debugModels: 'debug-models.html',
-        debugSky: 'debug-sky.html',
       },
     },
   },
@@ -98,7 +97,6 @@ export default defineConfig({
 
         await bundleHtml('index.html', 'game-bundle.js');
         await bundleHtml('debug-models.html', 'debug-models-bundle.js');
-        await bundleHtml('debug-sky.html', 'debug-sky-bundle.js');
       },
     },
   ],
