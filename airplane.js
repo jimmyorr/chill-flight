@@ -252,6 +252,17 @@ function setActivePlane(planeType, skipStorage = false) {
     }
   }
 
+  // Smoothly ramp down speed if switching to a plane with a lower max speed
+  if (
+    typeof targetFlightSpeed !== 'undefined' &&
+    typeof window.getMaxFlightSpeedMult === 'function'
+  ) {
+    targetFlightSpeed = Math.min(
+      targetFlightSpeed,
+      window.getMaxFlightSpeedMult()
+    );
+  }
+
   // Remove existing model from planeGroup
   if (window.airplaneModel && planeGroup) {
     planeGroup.remove(window.airplaneModel);

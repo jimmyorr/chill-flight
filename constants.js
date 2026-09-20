@@ -27,6 +27,14 @@ const MAX_AIRPLANE_SPEED_KTS = 500;
 const MAX_FLIGHT_SPEED_MULT = MAX_AIRPLANE_SPEED_KTS / (BASE_FLIGHT_SPEED * 60);
 window.MAX_AIRPLANE_SPEED_KTS = MAX_AIRPLANE_SPEED_KTS;
 window.MAX_FLIGHT_SPEED_MULT = MAX_FLIGHT_SPEED_MULT;
+
+window.getMaxFlightSpeedMult = () => {
+  let speedKts = MAX_AIRPLANE_SPEED_KTS;
+  if (window.activePlaneType === 'glider') {
+    speedKts = 300;
+  }
+  return speedKts / (BASE_FLIGHT_SPEED * 60);
+};
 const TURN_SPEED = 0.03;
 let flightSpeedMultiplier = 1.0;
 if (

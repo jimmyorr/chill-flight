@@ -108,7 +108,10 @@ inputManager.onMusicToggle = () => {
   }
 };
 inputManager.onThrottleChange = (delta) => {
-  const maxSpeed = window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335;
+  const maxSpeed =
+    typeof window.getMaxFlightSpeedMult === 'function'
+      ? window.getMaxFlightSpeedMult()
+      : 3.3333333333333335;
   targetFlightSpeed += delta;
   if (Math.abs(targetFlightSpeed) < 0.05) targetFlightSpeed = 0;
   targetFlightSpeed = Math.max(0, Math.min(maxSpeed, targetFlightSpeed));
@@ -380,7 +383,10 @@ window.addEventListener(
     // e.deltaY < 0 -> scrolling up -> throttle up
     const throttleDelta = -e.deltaY * 0.005;
 
-    const maxSpeed = window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335;
+    const maxSpeed =
+      typeof window.getMaxFlightSpeedMult === 'function'
+        ? window.getMaxFlightSpeedMult()
+        : 3.3333333333333335;
     targetFlightSpeed += throttleDelta;
 
     // Snap to 0 if very close to avoid creeping
@@ -1061,7 +1067,9 @@ if (freeCamToggle) {
       );
       flightSpeedMultiplier = initialSpeed;
       targetFlightSpeed = Math.min(
-        window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335,
+        typeof window.getMaxFlightSpeedMult === 'function'
+          ? window.getMaxFlightSpeedMult()
+          : 3.3333333333333335,
         initialSpeed
       );
     }
@@ -3201,7 +3209,9 @@ function animate() {
       const ramp = Math.min(1.0, heldTime / 2000);
       const throttleRate = (0.2 + ramp * 1.0) * delta;
       targetFlightSpeed = Math.min(
-        window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335,
+        typeof window.getMaxFlightSpeedMult === 'function'
+          ? window.getMaxFlightSpeedMult()
+          : 3.3333333333333335,
         targetFlightSpeed + throttleRate
       );
     } else if (rawDown) {
@@ -5945,7 +5955,9 @@ if (btnUp) {
     ) {
       targetFlightSpeed += 0.1;
       targetFlightSpeed = Math.min(
-        window.MAX_FLIGHT_SPEED_MULT || 3.3333333333333335,
+        typeof window.getMaxFlightSpeedMult === 'function'
+          ? window.getMaxFlightSpeedMult()
+          : 3.3333333333333335,
         targetFlightSpeed
       );
     }
