@@ -395,7 +395,7 @@ To release a new production version:
 
 - **Release builds (`npm run release`)**: Running this command automatically bumps the patch version of the application (e.g., `0.8.7` -> `0.8.8`), builds the optimized frontend assets, and packages them inside `docs/` in a single step!
 
-For local development compiles (including wrapper scripts like `npm run ios` and `npm run android`), standard compilation is done via `npm run build`, which compiles the assets **without** modifying any version numbers.
+For local development compiles, standard compilation is done via `npm run build`, which compiles the assets **without** modifying any version numbers.
 
 If you need to manually perform a custom version bump (e.g., for major or minor releases):
 
@@ -416,17 +416,17 @@ When a build is run, the bundler reads the version and injects it dynamically in
 
 This project uses **Capacitor** to build fully native apps for iOS and Android.
 
-#### Build and run iOS app
+#### Sync and run iOS app
 
-To compile the web assets, sync with the iOS project, copy multiplayer configuration files, and open Xcode:
+To sync the latest web assets with the iOS project and open Xcode:
 
 ```bash
 npm run ios
 ```
 
-#### Build and run Android app
+#### Sync and run Android app
 
-To compile the web assets, sync with the Android project, copy Firebase configurations, and open Android Studio:
+To sync the latest web assets with the Android project and open Android Studio:
 
 ```bash
 npm run android

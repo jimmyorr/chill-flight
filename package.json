@@ -10,8 +10,8 @@
     "build": "vite build",
     "release": "npm version patch --no-git-tag-version && node scripts/sync-version.js && npm run build",
     "preview": "vite preview",
-    "ios": "npm run build && npx cap sync ios && npx cap open ios",
-    "android": "npm run build && npx cap sync android && npx cap open android",
+    "ios": "npx cap sync ios && npx cap open ios",
+    "android": "npx cap sync android && npx cap open android",
     "test:syntax": "for f in *.js; do node --check \"$f\" || exit 1; done",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{js,json,css,html,md}\" --ignore-path .prettierignore"
