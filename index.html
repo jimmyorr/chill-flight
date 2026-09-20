@@ -115,9 +115,23 @@
 
         <div class="customization-footer">
           <button id="resume-btn" class="btn">R E S U M E</button>
-          <button id="achievements-btn">
-            🏆 Achievements <span id="achievements-counter"></span>
-          </button>
+          <div class="pause-actions-row">
+            <button
+              id="pause-map-btn"
+              class="pause-icon-btn"
+              title="Map"
+              aria-label="Map"
+            >
+              🗺️ <span>Map</span>
+            </button>
+            <button
+              id="achievements-btn"
+              title="Achievements"
+              aria-label="Achievements"
+            >
+              🏆 <span id="achievements-counter"></span>
+            </button>
+          </div>
         </div>
 
         <div class="pause-footer">
@@ -175,6 +189,58 @@
         <button id="achievements-reset-btn" class="achievements-reset-btn">
           R E S E T
         </button>
+      </div>
+    </div>
+
+    <div id="fullscreen-map-overlay" style="display: none">
+      <canvas id="fullscreen-map-canvas"></canvas>
+      <div class="fullscreen-map-header">
+        <div class="fullscreen-map-info">
+          <span class="fullscreen-map-title">Map</span>
+          <span id="fullscreen-map-coords" class="fullscreen-map-coords"
+            >0.0° N, 0.0° E</span
+          >
+        </div>
+        <div class="fullscreen-map-actions">
+          <button
+            id="fullscreen-map-recenter-btn"
+            class="fullscreen-map-header-btn"
+            title="Center on plane"
+            aria-label="Center on plane"
+          >
+            🎯
+          </button>
+          <button
+            id="fullscreen-map-close-btn"
+            class="fullscreen-map-close-btn"
+            title="Close map"
+            aria-label="Close map"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      <div class="fullscreen-map-zoom-controls">
+        <button
+          id="fullscreen-map-zoom-in"
+          class="fullscreen-map-zoom-btn"
+          title="Zoom in"
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+        <div class="fullscreen-map-zoom-divider"></div>
+        <button
+          id="fullscreen-map-zoom-out"
+          class="fullscreen-map-zoom-btn"
+          title="Zoom out"
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+      </div>
+      <div class="fullscreen-map-hint">
+        <span>Pinch or scroll to zoom &bull; Drag to pan</span>
       </div>
     </div>
 

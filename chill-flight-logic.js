@@ -122,6 +122,29 @@
     (_minimapParam !== null &&
       ['true', 'yes', 'on', '1'].includes(_minimapParam.trim().toLowerCase()));
 
+  const _fullscreenMapParam = getParam(
+    'fullscreenmap',
+    getParam(
+      'fullscreenMap',
+      getParam(
+        'fullscreen-map',
+        getParam('worldmap', getParam('worldMap', getParam('world-map', null)))
+      )
+    )
+  );
+  const _mapParamVal = getParam('map', null);
+  const START_FULLSCREEN_MAP =
+    _fullscreenMapParam === '' ||
+    _fullscreenMapParam === '1' ||
+    (_fullscreenMapParam !== null &&
+      ['true', 'yes', 'on', '1'].includes(
+        _fullscreenMapParam.trim().toLowerCase()
+      )) ||
+    (_mapParamVal !== null &&
+      ['fullscreen', 'full', 'world'].includes(
+        _mapParamVal.trim().toLowerCase()
+      ));
+
   const _xParam = getParam('x', null);
   const START_X =
     _xParam !== null && _xParam !== '' ? parseFloat(_xParam) : null;
@@ -1485,6 +1508,7 @@
   exports.START_DEBUG = START_DEBUG;
   exports.START_AUTOPILOT = START_AUTOPILOT;
   exports.START_MINIMAP = START_MINIMAP;
+  exports.START_FULLSCREEN_MAP = START_FULLSCREEN_MAP;
   exports.START_BENCHMARK = START_BENCHMARK;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.ZENITH_COLOR = ZENITH_COLOR;

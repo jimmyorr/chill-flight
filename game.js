@@ -60,6 +60,12 @@ inputManager.onDebugToggle = () => {
     const url = new URL(window.location.href);
     if (isOpening) {
       url.searchParams.set('debug', 'true');
+      if (window.FullscreenMap && window.FullscreenMap.isOpen()) {
+        url.searchParams.set('fullscreenmap', 'true');
+      }
+      if (window.Minimap && window.Minimap.isVisible()) {
+        url.searchParams.set('minimap', 'true');
+      }
     } else {
       url.searchParams.delete('debug');
     }
@@ -340,6 +346,9 @@ function togglePause() {
     // Also close achievements overlay if it was open
     const _achOverlay = document.getElementById('achievements-overlay');
     if (_achOverlay) _achOverlay.style.display = 'none';
+    if (window.FullscreenMap && window.FullscreenMap.isOpen()) {
+      window.FullscreenMap.close();
+    }
 
     if (typeof setMusicVolume === 'function') {
       setMusicVolume(1.0);
@@ -380,7 +389,14 @@ document.getElementById('resume-btn').addEventListener('click', () => {
   togglePause();
 });
 
+let suppressPauseClickUntil = 0;
+function suppressPauseClick(durationMs = 500) {
+  suppressPauseClickUntil = Date.now() + durationMs;
+}
+window.suppressPauseClick = suppressPauseClick;
+
 pauseOverlay.addEventListener('click', (e) => {
+  if (Date.now() < suppressPauseClickUntil) return;
   if (e.target === pauseOverlay) {
     togglePause();
   }
@@ -435,6 +451,15 @@ if (achievementsBtn) {
 if (achievementsCloseBtn) {
   achievementsCloseBtn.addEventListener('click', () => {
     closeAchievementsOverlay();
+  });
+}
+
+const pauseMapBtn = document.getElementById('pause-map-btn');
+if (pauseMapBtn) {
+  pauseMapBtn.addEventListener('click', () => {
+    if (window.FullscreenMap) {
+      window.FullscreenMap.open();
+    }
   });
 }
 
@@ -1175,6 +1200,12 @@ if (copyCamUrlBtn) {
     url.searchParams.delete('auto');
     url.searchParams.delete('autoPilot');
 
+    if (window.FullscreenMap && window.FullscreenMap.isOpen()) {
+      url.searchParams.set('fullscreenmap', 'true');
+    } else {
+      url.searchParams.delete('fullscreenmap');
+    }
+
     navigator.clipboard.writeText(url.toString()).then(() => {
       const originalText = copyCamUrlBtn.textContent;
       copyCamUrlBtn.textContent = 'Copied!';
@@ -1308,6 +1339,12 @@ if (copyPlaneUrlBtn) {
       url.searchParams.delete('autopilot');
       url.searchParams.delete('auto');
       url.searchParams.delete('autoPilot');
+    }
+
+    if (window.FullscreenMap && window.FullscreenMap.isOpen()) {
+      url.searchParams.set('fullscreenmap', 'true');
+    } else {
+      url.searchParams.delete('fullscreenmap');
     }
 
     navigator.clipboard.writeText(url.toString()).then(() => {
@@ -5615,13 +5652,13 @@ function resetSteering() {
 
 document
   .querySelectorAll(
-    '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #mobile-action-menu, #pause-overlay, #achievements-overlay, #minimap-container, button, input, select, a'
+    '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #mobile-action-menu, #pause-overlay, #achievements-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
   )
   .forEach((btn) => {
     btn.addEventListener('mouseenter', resetSteering);
     btn.addEventListener(
       'touchstart',
-      (e) => {
+      () => {
         resetSteering();
       },
       {passive: true}
@@ -5631,7 +5668,7 @@ document
 document.addEventListener('mouseover', (e) => {
   if (
     e.target.closest(
-      '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #mobile-action-menu, #pause-overlay, #achievements-overlay, #minimap-container, button, input, select, a'
+      '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #mobile-action-menu, #pause-overlay, #achievements-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
     )
   ) {
     resetSteering();

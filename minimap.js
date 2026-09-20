@@ -39,6 +39,13 @@
       color: '#3498db', // vibrant blue beacon
       symbol: '☤',
     },
+    {
+      name: 'Rock Arch',
+      x: 3000,
+      z: 0,
+      color: '#2ecc71', // lush emerald green
+      symbol: '∩',
+    },
   ];
 
   // Sentence case for UI labels per rules
@@ -259,7 +266,7 @@
     }
   }
 
-  // Toggle minimap with the M shortcut key
+  // Toggle minimap with the M shortcut key & handle fullscreen map keys
   window.addEventListener('keydown', (e) => {
     const active = document.activeElement;
     if (
@@ -267,6 +274,29 @@
       (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
     ) {
       return;
+    }
+
+    if (fsVisible) {
+      if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeFullscreenMap();
+        return;
+      }
+      if (e.key === '+' || e.key === '=') {
+        fsViewRadius = Math.max(FS_MIN_RADIUS, fsViewRadius / 1.25);
+        updateCoordsDisplay();
+        generateFsBgCanvas();
+        renderFullscreenMap();
+        return;
+      }
+      if (e.key === '-' || e.key === '_') {
+        fsViewRadius = Math.min(FS_MAX_RADIUS, fsViewRadius * 1.25);
+        updateCoordsDisplay();
+        generateFsBgCanvas();
+        renderFullscreenMap();
+        return;
+      }
     }
 
     if (e.key === 'm' || e.key === 'M') {
@@ -388,10 +418,847 @@
     ctx.restore();
   }
 
+  // ============================================================
+  // FULLSCREEN WORLD MAP IMPLEMENTATION
+  // ============================================================
+
+  let fsOverlay = null;
+  let fsCanvas = null;
+  let fsCtx = null;
+  let fsCoordsEl = null;
+
+  let fsBgCanvas = null;
+  let fsBgCtx = null;
+
+  let fsVisible = false;
+  let fsViewCenterX = 0;
+  let fsViewCenterZ = 0;
+  let fsViewRadius = 7500;
+  const FS_MIN_RADIUS = 1200;
+  const FS_MAX_RADIUS = 40000;
+
+  let fsCachedMinX = 0;
+  let fsCachedMinZ = 0;
+  let fsCachedWorldW = 0;
+  let fsCachedWorldH = 0;
+
+  let fsAnimFrameId = null;
+  let fsRedrawTimer = null;
+
+  const activePointers = new Map();
+  let prevPinchDist = null;
+  let prevPanX = 0;
+  let prevPanY = 0;
+  let isDragging = false;
+
+  function formatLatLon(x, z) {
+    const lat = -z / 5000;
+    const lon = x / 5000;
+    const latStr =
+      lat === 0
+        ? '0.0° Lat'
+        : lat > 0
+          ? `${lat.toFixed(1)}° N`
+          : `${Math.abs(lat).toFixed(1)}° S`;
+    const lonStr =
+      lon === 0
+        ? '0.0° Lon'
+        : lon > 0
+          ? `${lon.toFixed(1)}° E`
+          : `${Math.abs(lon).toFixed(1)}° W`;
+    return `${latStr}, ${lonStr}`;
+  }
+
+  function updateCoordsDisplay() {
+    if (!fsCoordsEl) return;
+    fsCoordsEl.textContent = formatLatLon(fsViewCenterX, fsViewCenterZ);
+  }
+
+  function resizeFsCanvas() {
+    if (!fsCanvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (
+      fsCanvas.width !== Math.round(w * dpr) ||
+      fsCanvas.height !== Math.round(h * dpr)
+    ) {
+      fsCanvas.width = Math.round(w * dpr);
+      fsCanvas.height = Math.round(h * dpr);
+    }
+  }
+
+  let fsElevBuffer = null;
+  let lastBgGenTime = 0;
+
+  function generateFsBgCanvas() {
+    if (!fsCanvas) return;
+    if (typeof WATER_LEVEL !== 'undefined') constants.WATER_LEVEL = WATER_LEVEL;
+    if (typeof MAP_WORLD_SIZE !== 'undefined')
+      constants.MAP_WORLD_SIZE = MAP_WORLD_SIZE;
+    if (typeof MAP_HEIGHT_SCALE !== 'undefined')
+      constants.MAP_HEIGHT_SCALE = MAP_HEIGHT_SCALE;
+
+    const simplexInstance = typeof simplex !== 'undefined' ? simplex : null;
+    if (!simplexInstance) return;
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const aspect = w / h;
+
+    // High resolution grid (over 5x denser than legacy 160x100 for crisp terrain definition)
+    let gridH = 240;
+    let gridW = Math.round(gridH * aspect);
+    if (aspect < 1) {
+      gridW = 220;
+      gridH = Math.round(gridW / aspect);
+    }
+    gridW = Math.min(480, Math.max(160, gridW));
+    gridH = Math.min(480, Math.max(160, gridH));
+
+    if (!fsBgCanvas) {
+      fsBgCanvas = document.createElement('canvas');
+      fsBgCtx = fsBgCanvas.getContext('2d');
+    }
+    if (fsBgCanvas.width !== gridW || fsBgCanvas.height !== gridH) {
+      fsBgCanvas.width = gridW;
+      fsBgCanvas.height = gridH;
+    }
+
+    const minDim = Math.min(w, h);
+    const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
+    const worldW = w * worldUnitsPerPixel * 1.5;
+    const worldH = h * worldUnitsPerPixel * 1.5;
+
+    const minX = fsViewCenterX - worldW / 2;
+    const minZ = fsViewCenterZ - worldH / 2;
+
+    const totalPoints = gridW * gridH;
+    if (!fsElevBuffer || fsElevBuffer.length !== totalPoints) {
+      fsElevBuffer = new Float32Array(totalPoints);
+    }
+
+    for (let gz = 0; gz < gridH; gz++) {
+      const wz = minZ + (gz / (gridH - 1)) * worldH;
+      const rowOffset = gz * gridW;
+      for (let gx = 0; gx < gridW; gx++) {
+        const wx = minX + (gx / (gridW - 1)) * worldW;
+        try {
+          fsElevBuffer[rowOffset + gx] = ChillFlightLogic.getElevation(
+            wx,
+            wz,
+            simplexInstance,
+            constants
+          );
+        } catch {
+          fsElevBuffer[rowOffset + gx] = 40;
+        }
+      }
+    }
+
+    const imgData = fsBgCtx.createImageData(gridW, gridH);
+    const data = imgData.data;
+
+    for (let gz = 0; gz < gridH; gz++) {
+      const rowOffset = gz * gridW;
+      const prevRow = (gz - 1) * gridW;
+      const nextRow = (gz + 1) * gridW;
+
+      for (let gx = 0; gx < gridW; gx++) {
+        const idx = rowOffset + gx;
+        const elev = fsElevBuffer[idx];
+
+        // Northwest directional hillshade for land above water (gives mountains and hills crisp 3D definition)
+        let shade = 0;
+        if (elev > 40 && gx > 0 && gx < gridW - 1 && gz > 0 && gz < gridH - 1) {
+          const dz = fsElevBuffer[nextRow + gx] - fsElevBuffer[prevRow + gx];
+          const dx = fsElevBuffer[idx + 1] - fsElevBuffer[idx - 1];
+          shade = (-dx - dz) * 0.45;
+          if (shade < -32) shade = -32;
+          else if (shade > 32) shade = 32;
+        }
+
+        // Color computation
+        let r, g, b;
+        if (elev <= 40) {
+          // Bathymetry depth variation for crisp, clean coastlines
+          const depth = Math.min(1.0, (40 - elev) / 12);
+          r = Math.round(34 - depth * 12);
+          g = Math.round(66 - depth * 22);
+          b = Math.round(120 - depth * 32);
+        } else if (elev <= 44) {
+          r = 223;
+          g = 204;
+          b = 173; // Sand beach
+        } else if (elev <= 120) {
+          const t = (elev - 44) / 76;
+          r = Math.round(223 - t * 133);
+          g = Math.round(204 - t * 66);
+          b = Math.round(173 - t * 77);
+        } else if (elev <= 250) {
+          const t = (elev - 120) / 130;
+          r = Math.round(90 + t * 49);
+          g = Math.round(138 - t * 10);
+          b = Math.round(96 + t * 5);
+        } else if (elev <= 500) {
+          const t = (elev - 250) / 250;
+          r = Math.round(139 - t * 47);
+          g = Math.round(128 - t * 43);
+          b = Math.round(101 - t * 27);
+        } else {
+          const t = Math.min(1.0, (elev - 500) / 300);
+          r = Math.round(92 + t * 148);
+          g = Math.round(85 + t * 158);
+          b = Math.round(74 + t * 171);
+        }
+
+        if (shade !== 0) {
+          r += shade;
+          g += shade;
+          b += shade;
+          if (r < 0) r = 0;
+          else if (r > 255) r = 255;
+          if (g < 0) g = 0;
+          else if (g > 255) g = 255;
+          if (b < 0) b = 0;
+          else if (b > 255) b = 255;
+        }
+
+        const pIdx = idx * 4;
+        data[pIdx] = r;
+        data[pIdx + 1] = g;
+        data[pIdx + 2] = b;
+        data[pIdx + 3] = 255;
+      }
+    }
+
+    fsBgCtx.putImageData(imgData, 0, 0);
+
+    fsCachedMinX = minX;
+    fsCachedMinZ = minZ;
+    fsCachedWorldW = worldW;
+    fsCachedWorldH = worldH;
+    lastBgGenTime = Date.now();
+  }
+
+  function scheduleFsBgRedraw(delay = 80) {
+    if (fsRedrawTimer) clearTimeout(fsRedrawTimer);
+    fsRedrawTimer = setTimeout(() => {
+      if (fsVisible) {
+        generateFsBgCanvas();
+        renderFullscreenMap();
+      }
+    }, delay);
+  }
+
+  function renderFullscreenMap() {
+    if (!fsVisible || !fsCtx) return;
+
+    resizeFsCanvas();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+    const minDim = Math.min(screenW, screenH);
+    const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
+
+    const visibleWorldW = screenW * worldUnitsPerPixel;
+    const visibleWorldH = screenH * worldUnitsPerPixel;
+    const vMinX = fsViewCenterX - visibleWorldW / 2;
+    const vMinZ = fsViewCenterZ - visibleWorldH / 2;
+
+    fsCtx.save();
+    fsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fsCtx.fillStyle = '#090e17';
+    fsCtx.fillRect(0, 0, screenW, screenH);
+
+    // 1. Draw cached heightmap background transformed to current view
+    if (fsBgCanvas && fsCachedWorldW > 0) {
+      const srcScreenX = (fsCachedMinX - vMinX) / worldUnitsPerPixel;
+      const srcScreenY = (fsCachedMinZ - vMinZ) / worldUnitsPerPixel;
+      const srcScreenW = fsCachedWorldW / worldUnitsPerPixel;
+      const srcScreenH = fsCachedWorldH / worldUnitsPerPixel;
+
+      fsCtx.imageSmoothingEnabled = true;
+      fsCtx.imageSmoothingQuality = 'high';
+      fsCtx.drawImage(
+        fsBgCanvas,
+        srcScreenX,
+        srcScreenY,
+        srcScreenW,
+        srcScreenH
+      );
+    }
+
+    // 2. Coordinate Grid Lines & Lat/Long Labels
+    const LAT_SCALE = 5000;
+    const startLatDeg = Math.floor(vMinZ / LAT_SCALE);
+    const endLatDeg = Math.ceil((vMinZ + visibleWorldH) / LAT_SCALE);
+
+    fsCtx.lineWidth = 1;
+    fsCtx.font =
+      '10px SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace';
+
+    // Horizontal latitude lines
+    for (let l = startLatDeg; l <= endLatDeg; l++) {
+      const lineZ = l * LAT_SCALE;
+      const lineY = (lineZ - vMinZ) / worldUnitsPerPixel;
+      const lat = -l;
+
+      const isEquator = l === 0;
+      fsCtx.strokeStyle = isEquator
+        ? 'rgba(255, 215, 0, 0.28)'
+        : 'rgba(255, 255, 255, 0.08)';
+      fsCtx.beginPath();
+      fsCtx.moveTo(0, lineY);
+      fsCtx.lineTo(screenW, lineY);
+      fsCtx.stroke();
+
+      const latLabel =
+        lat === 0
+          ? '0.0° (Equator)'
+          : lat > 0
+            ? `${lat.toFixed(1)}° N`
+            : `${Math.abs(lat).toFixed(1)}° S`;
+      fsCtx.fillStyle = isEquator
+        ? 'rgba(255, 215, 0, 0.65)'
+        : 'rgba(255, 255, 255, 0.45)';
+      fsCtx.textAlign = 'left';
+      fsCtx.textBaseline = 'bottom';
+      fsCtx.fillText(latLabel, 14, lineY - 4);
+    }
+
+    // Vertical longitude lines
+    const startLonDeg = Math.floor(vMinX / LAT_SCALE);
+    const endLonDeg = Math.ceil((vMinX + visibleWorldW) / LAT_SCALE);
+
+    for (let l = startLonDeg; l <= endLonDeg; l++) {
+      const lineX = l * LAT_SCALE;
+      const screenX = (lineX - vMinX) / worldUnitsPerPixel;
+      const lon = l;
+
+      const isPrime = l === 0;
+      fsCtx.strokeStyle = isPrime
+        ? 'rgba(52, 152, 219, 0.28)'
+        : 'rgba(255, 255, 255, 0.08)';
+      fsCtx.beginPath();
+      fsCtx.moveTo(screenX, 0);
+      fsCtx.lineTo(screenX, screenH);
+      fsCtx.stroke();
+
+      const lonLabel =
+        lon === 0
+          ? '0.0°'
+          : lon > 0
+            ? `${lon.toFixed(1)}° E`
+            : `${Math.abs(lon).toFixed(1)}° W`;
+      fsCtx.fillStyle = isPrime
+        ? 'rgba(52, 152, 219, 0.65)'
+        : 'rgba(255, 255, 255, 0.45)';
+      fsCtx.textAlign = 'center';
+      fsCtx.textBaseline = 'top';
+      fsCtx.fillText(lonLabel, screenX, 72);
+    }
+
+    // 3. Landmarks
+    LANDMARKS.forEach((lm) => {
+      const lx = (lm.x - vMinX) / worldUnitsPerPixel;
+      const lz = (lm.z - vMinZ) / worldUnitsPerPixel;
+
+      if (lx >= -60 && lx <= screenW + 60 && lz >= -60 && lz <= screenH + 60) {
+        fsCtx.save();
+        fsCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        fsCtx.shadowBlur = 6;
+
+        fsCtx.fillStyle = lm.color;
+        fsCtx.beginPath();
+        fsCtx.arc(lx, lz, 10, 0, Math.PI * 2);
+        fsCtx.fill();
+        fsCtx.strokeStyle = '#ffffff';
+        fsCtx.lineWidth = 1.75;
+        fsCtx.stroke();
+
+        fsCtx.fillStyle = '#ffffff';
+        fsCtx.font = 'bold 11px -apple-system, sans-serif';
+        fsCtx.textAlign = 'center';
+        fsCtx.textBaseline = 'middle';
+        fsCtx.fillText(lm.symbol, lx, lz);
+
+        fsCtx.fillStyle = '#ffffff';
+        fsCtx.font = '600 12px Inter, -apple-system, sans-serif';
+        fsCtx.fillText(lm.name, lx, lz + 18);
+
+        const lmLat = -lm.z / 5000;
+        const lmLon = lm.x / 5000;
+        const lmCoordStr = `${Math.abs(lmLat).toFixed(1)}° ${lmLat >= 0 ? 'N' : 'S'}, ${Math.abs(lmLon).toFixed(1)}° ${lmLon >= 0 ? 'E' : 'W'}`;
+        fsCtx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        fsCtx.font =
+          '10px SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace';
+        fsCtx.fillText(lmCoordStr, lx, lz + 32);
+
+        fsCtx.restore();
+      }
+    });
+
+    // 4. Player Plane Indicator
+    if (typeof planeGroup !== 'undefined' && planeGroup) {
+      const px = planeGroup.position.x;
+      const pz = planeGroup.position.z;
+      const rotY = planeGroup.rotation.y;
+
+      const screenPx = (px - vMinX) / worldUnitsPerPixel;
+      const screenPz = (pz - vMinZ) / worldUnitsPerPixel;
+
+      const isOnScreen =
+        screenPx >= 20 &&
+        screenPx <= screenW - 20 &&
+        screenPz >= 20 &&
+        screenPz <= screenH - 20;
+
+      if (isOnScreen) {
+        const pulseT = (Date.now() % 1600) / 1600;
+        const pulseR = 14 + pulseT * 26;
+        const pulseAlpha = Math.max(0, 1 - pulseT) * 0.7;
+
+        fsCtx.save();
+        fsCtx.strokeStyle = `rgba(255, 215, 0, ${pulseAlpha})`;
+        fsCtx.lineWidth = 2;
+        fsCtx.beginPath();
+        fsCtx.arc(screenPx, screenPz, pulseR, 0, Math.PI * 2);
+        fsCtx.stroke();
+        fsCtx.restore();
+
+        const canvasAngle = -rotY - Math.PI / 2;
+        fsCtx.save();
+        fsCtx.translate(screenPx, screenPz);
+        fsCtx.rotate(canvasAngle);
+        fsCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        fsCtx.shadowBlur = 8;
+
+        fsCtx.fillStyle = '#ffd700';
+        fsCtx.beginPath();
+        fsCtx.moveTo(14, 0);
+        fsCtx.lineTo(-11, -11);
+        fsCtx.lineTo(-6, 0);
+        fsCtx.lineTo(-11, 11);
+        fsCtx.closePath();
+        fsCtx.fill();
+
+        fsCtx.strokeStyle = '#ffffff';
+        fsCtx.lineWidth = 1.75;
+        fsCtx.stroke();
+        fsCtx.restore();
+
+        fsCtx.save();
+        fsCtx.font = 'bold 10px Inter, -apple-system, sans-serif';
+        fsCtx.textAlign = 'center';
+        fsCtx.fillStyle = '#ffd700';
+        fsCtx.shadowColor = 'rgba(0,0,0,0.9)';
+        fsCtx.shadowBlur = 4;
+        fsCtx.fillText('YOU', screenPx, screenPz - 18);
+        fsCtx.restore();
+      } else {
+        const dx = screenPx - screenW / 2;
+        const dy = screenPz - screenH / 2;
+        const angle = Math.atan2(dy, dx);
+        const margin = 40;
+
+        let edgeX = screenW / 2;
+        let edgeY = screenH / 2;
+        const halfW = screenW / 2 - margin;
+        const halfH = screenH / 2 - margin;
+
+        if (Math.abs(dx * halfH) > Math.abs(dy * halfW)) {
+          edgeX += dx > 0 ? halfW : -halfW;
+          edgeY += (dx > 0 ? halfW : -halfW) * (dy / dx);
+        } else {
+          edgeY += dy > 0 ? halfH : -halfH;
+          edgeX += (dy > 0 ? halfH : -halfH) * (dx / dy);
+        }
+
+        fsCtx.save();
+        fsCtx.translate(edgeX, edgeY);
+        fsCtx.rotate(angle);
+
+        fsCtx.fillStyle = '#ffd700';
+        fsCtx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        fsCtx.shadowBlur = 6;
+        fsCtx.beginPath();
+        fsCtx.moveTo(10, 0);
+        fsCtx.lineTo(-8, -7);
+        fsCtx.lineTo(-4, 0);
+        fsCtx.lineTo(-8, 7);
+        fsCtx.closePath();
+        fsCtx.fill();
+        fsCtx.strokeStyle = '#ffffff';
+        fsCtx.lineWidth = 1.5;
+        fsCtx.stroke();
+        fsCtx.restore();
+
+        const distUnits = Math.hypot(px - fsViewCenterX, pz - fsViewCenterZ);
+        const distKm = (distUnits / 1000).toFixed(1);
+        fsCtx.save();
+        fsCtx.font = 'bold 9px Inter, -apple-system, sans-serif';
+        fsCtx.textAlign = 'center';
+        fsCtx.fillStyle = '#ffd700';
+        fsCtx.fillText(`${distKm} km`, edgeX, edgeY + 16);
+        fsCtx.restore();
+      }
+    }
+
+    fsCtx.restore();
+  }
+
+  let fsHasCenteredOnPlane = false;
+
+  function fsAnimationLoop() {
+    if (!fsVisible) return;
+    if (
+      !fsHasCenteredOnPlane &&
+      typeof planeGroup !== 'undefined' &&
+      planeGroup
+    ) {
+      fsViewCenterX = planeGroup.position.x;
+      fsViewCenterZ = planeGroup.position.z;
+      fsHasCenteredOnPlane = true;
+      updateCoordsDisplay();
+      generateFsBgCanvas();
+    }
+    renderFullscreenMap();
+    fsAnimFrameId = requestAnimationFrame(fsAnimationLoop);
+  }
+
+  function openFullscreenMap() {
+    if (fsVisible) return;
+    initFullscreenMap();
+    fsVisible = true;
+    if (fsOverlay) {
+      fsOverlay.style.display = 'block';
+    }
+    if (typeof planeGroup !== 'undefined' && planeGroup) {
+      fsViewCenterX = planeGroup.position.x;
+      fsViewCenterZ = planeGroup.position.z;
+      fsHasCenteredOnPlane = true;
+    } else {
+      fsHasCenteredOnPlane = false;
+    }
+    updateCoordsDisplay();
+    resizeFsCanvas();
+    generateFsBgCanvas();
+    renderFullscreenMap();
+    if (fsAnimFrameId) cancelAnimationFrame(fsAnimFrameId);
+    fsAnimFrameId = requestAnimationFrame(fsAnimationLoop);
+
+    if (typeof updateUrlParams === 'function') {
+      updateUrlParams({fullscreenmap: 'true'}, [
+        'fullscreenMap',
+        'worldmap',
+        'worldMap',
+        'fullscreen-map',
+        'world-map',
+      ]);
+    }
+  }
+
+  function closeFullscreenMap() {
+    if (!fsVisible) return;
+    if (typeof window.suppressPauseClick === 'function') {
+      window.suppressPauseClick(500);
+    }
+    fsVisible = false;
+    if (fsOverlay) {
+      fsOverlay.style.display = 'none';
+    }
+    if (fsAnimFrameId) {
+      cancelAnimationFrame(fsAnimFrameId);
+      fsAnimFrameId = null;
+    }
+    activePointers.clear();
+    isDragging = false;
+    prevPinchDist = null;
+
+    if (typeof updateUrlParams === 'function') {
+      updateUrlParams({}, [
+        'fullscreenmap',
+        'fullscreenMap',
+        'worldmap',
+        'worldMap',
+        'fullscreen-map',
+        'world-map',
+      ]);
+    }
+  }
+
+  let fsInitialized = false;
+  function initFullscreenMap() {
+    if (fsInitialized) return;
+    fsOverlay = document.getElementById('fullscreen-map-overlay');
+    fsCanvas = document.getElementById('fullscreen-map-canvas');
+    fsCoordsEl = document.getElementById('fullscreen-map-coords');
+    if (!fsOverlay || !fsCanvas) return;
+
+    fsCtx = fsCanvas.getContext('2d');
+    fsBgCanvas = document.createElement('canvas');
+    fsBgCtx = fsBgCanvas.getContext('2d');
+
+    const attachButtonAction = (btn, action) => {
+      if (!btn) return;
+      let lastTrigger = 0;
+      const handleAction = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const now = Date.now();
+        if (now - lastTrigger < 350) return;
+        lastTrigger = now;
+        action(e);
+      };
+      btn.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+      });
+      btn.addEventListener(
+        'touchstart',
+        (e) => {
+          e.stopPropagation();
+        },
+        {passive: true}
+      );
+      btn.addEventListener('touchend', handleAction);
+      btn.addEventListener('click', handleAction);
+    };
+
+    const closeBtn = document.getElementById('fullscreen-map-close-btn');
+    attachButtonAction(closeBtn, () => {
+      closeFullscreenMap();
+    });
+
+    const recenterBtn = document.getElementById('fullscreen-map-recenter-btn');
+    attachButtonAction(recenterBtn, () => {
+      if (typeof planeGroup !== 'undefined' && planeGroup) {
+        fsViewCenterX = planeGroup.position.x;
+        fsViewCenterZ = planeGroup.position.z;
+        updateCoordsDisplay();
+        generateFsBgCanvas();
+        renderFullscreenMap();
+      }
+    });
+
+    const zoomInBtn = document.getElementById('fullscreen-map-zoom-in');
+    attachButtonAction(zoomInBtn, () => {
+      fsViewRadius = Math.max(FS_MIN_RADIUS, fsViewRadius / 1.3);
+      updateCoordsDisplay();
+      generateFsBgCanvas();
+      renderFullscreenMap();
+    });
+
+    const zoomOutBtn = document.getElementById('fullscreen-map-zoom-out');
+    attachButtonAction(zoomOutBtn, () => {
+      fsViewRadius = Math.min(FS_MAX_RADIUS, fsViewRadius * 1.3);
+      updateCoordsDisplay();
+      generateFsBgCanvas();
+      renderFullscreenMap();
+    });
+
+    // Pointer events for mobile pinch-zoom and drag-to-pan
+    fsCanvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+      if (typeof fsCanvas.setPointerCapture === 'function') {
+        try {
+          fsCanvas.setPointerCapture(e.pointerId);
+        } catch (err) {
+          console.debug('Pointer capture not available', err);
+        }
+      }
+      fsCanvas.classList.add('dragging');
+
+      if (activePointers.size === 1) {
+        isDragging = true;
+        prevPanX = e.clientX;
+        prevPanY = e.clientY;
+      } else if (activePointers.size === 2) {
+        isDragging = false;
+        const pts = Array.from(activePointers.values());
+        prevPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        prevPanX = (pts[0].x + pts[1].x) / 2;
+        prevPanY = (pts[0].y + pts[1].y) / 2;
+      }
+    });
+
+    const handlePointerMove = (e) => {
+      if (!activePointers.has(e.pointerId)) return;
+      activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+      const screenW = window.innerWidth;
+      const screenH = window.innerHeight;
+      const minDim = Math.min(screenW, screenH);
+      const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
+      const visibleWorldW = screenW * worldUnitsPerPixel;
+      const visibleWorldH = screenH * worldUnitsPerPixel;
+
+      if (activePointers.size === 1 && isDragging) {
+        const dx = e.clientX - prevPanX;
+        const dy = e.clientY - prevPanY;
+        prevPanX = e.clientX;
+        prevPanY = e.clientY;
+
+        fsViewCenterX -= dx * worldUnitsPerPixel;
+        fsViewCenterZ -= dy * worldUnitsPerPixel;
+
+        updateCoordsDisplay();
+
+        const cacheCenterWorldX = fsCachedMinX + fsCachedWorldW / 2;
+        const cacheCenterWorldZ = fsCachedMinZ + fsCachedWorldH / 2;
+        if (
+          Math.abs(fsViewCenterX - cacheCenterWorldX) > visibleWorldW * 0.25 ||
+          Math.abs(fsViewCenterZ - cacheCenterWorldZ) > visibleWorldH * 0.25
+        ) {
+          if (Date.now() - lastBgGenTime > 250) {
+            generateFsBgCanvas();
+          }
+        }
+
+        scheduleFsBgRedraw(80);
+        renderFullscreenMap();
+      } else if (activePointers.size >= 2) {
+        const pts = Array.from(activePointers.values());
+        const currDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+
+        if (prevPinchDist && prevPinchDist > 0 && currDist > 0) {
+          const zoomRatio = currDist / prevPinchDist;
+          fsViewRadius = Math.max(
+            FS_MIN_RADIUS,
+            Math.min(FS_MAX_RADIUS, fsViewRadius / zoomRatio)
+          );
+        }
+        prevPinchDist = currDist;
+
+        const midX = (pts[0].x + pts[1].x) / 2;
+        const midY = (pts[0].y + pts[1].y) / 2;
+        const dx = midX - prevPanX;
+        const dy = midY - prevPanY;
+        prevPanX = midX;
+        prevPanY = midY;
+
+        fsViewCenterX -= dx * worldUnitsPerPixel;
+        fsViewCenterZ -= dy * worldUnitsPerPixel;
+
+        updateCoordsDisplay();
+        scheduleFsBgRedraw(80);
+        renderFullscreenMap();
+      }
+    };
+
+    const handlePointerUp = (e) => {
+      if (!activePointers.has(e.pointerId)) return;
+      activePointers.delete(e.pointerId);
+      if (typeof fsCanvas.releasePointerCapture === 'function') {
+        try {
+          fsCanvas.releasePointerCapture(e.pointerId);
+        } catch (err) {
+          console.debug('Release pointer capture not available', err);
+        }
+      }
+
+      if (activePointers.size === 1) {
+        const p = activePointers.values().next().value;
+        prevPanX = p.x;
+        prevPanY = p.y;
+        isDragging = true;
+        prevPinchDist = null;
+      } else if (activePointers.size === 0) {
+        isDragging = false;
+        prevPinchDist = null;
+        fsCanvas.classList.remove('dragging');
+        generateFsBgCanvas();
+        renderFullscreenMap();
+      }
+    };
+
+    fsCanvas.addEventListener('pointermove', handlePointerMove);
+    fsCanvas.addEventListener('pointerup', handlePointerUp);
+    fsCanvas.addEventListener('pointercancel', handlePointerUp);
+
+    // Desktop mouse wheel zoom
+    fsCanvas.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 1.15 : 0.87;
+        fsViewRadius = Math.max(
+          FS_MIN_RADIUS,
+          Math.min(FS_MAX_RADIUS, fsViewRadius * factor)
+        );
+        updateCoordsDisplay();
+        scheduleFsBgRedraw(80);
+        renderFullscreenMap();
+      },
+      {passive: false}
+    );
+
+    // Double-click/tap zoom in
+    fsCanvas.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      const screenW = window.innerWidth;
+      const screenH = window.innerHeight;
+      const minDim = Math.min(screenW, screenH);
+      const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
+
+      const clickDx = e.clientX - screenW / 2;
+      const clickDy = e.clientY - screenH / 2;
+      fsViewCenterX += clickDx * worldUnitsPerPixel * 0.4;
+      fsViewCenterZ += clickDy * worldUnitsPerPixel * 0.4;
+
+      fsViewRadius = Math.max(FS_MIN_RADIUS, fsViewRadius / 1.5);
+      updateCoordsDisplay();
+      generateFsBgCanvas();
+      renderFullscreenMap();
+    });
+
+    window.addEventListener('resize', () => {
+      if (fsVisible) {
+        resizeFsCanvas();
+        generateFsBgCanvas();
+        renderFullscreenMap();
+      }
+    });
+
+    fsInitialized = true;
+  }
+
+  // Global APIs
+  window.FullscreenMap = {
+    open: openFullscreenMap,
+    close: closeFullscreenMap,
+    toggle: function () {
+      if (fsVisible) closeFullscreenMap();
+      else openFullscreenMap();
+    },
+    isOpen: function () {
+      return fsVisible;
+    },
+  };
+
+  window.Minimap = {
+    toggle: toggleMinimap,
+    isVisible: function () {
+      return minimapVisible;
+    },
+  };
+
   // Wait for the DOM and standard game scripts to be loaded before initializing
-  if (document.readyState === 'complete') {
+  function startInit() {
     initMinimap();
+    initFullscreenMap();
+    if (
+      typeof ChillFlightLogic !== 'undefined' &&
+      ChillFlightLogic.START_FULLSCREEN_MAP
+    ) {
+      openFullscreenMap();
+    }
+  }
+
+  if (document.readyState === 'complete') {
+    startInit();
   } else {
-    window.addEventListener('load', initMinimap);
+    window.addEventListener('load', startInit);
   }
 })();

@@ -203,10 +203,11 @@ Multiple control methods are supported: keyboard, mouse or trackpad, gamepad, an
 - **Arrow left / right**: Control roll and turning.
 - **Shift + arrow up / down**: Throttle control (increase / decrease speed).
 - **Mouse wheel / trackpad scroll**: Smoothly adjust throttle (increase / decrease speed).
-- **M**: Toggle minimap overlay.
+- **M**: Toggle minimap overlay (or close fullscreen map if open).
 - **L**: Toggle headlight.
 - **Shift + A**: Toggle autopilot (automatically levels out and maintains heading/altitude). Manual steering input will auto-disable autopilot.
-- **Escape**: Toggle pause menu.
+- **Escape**: Toggle pause menu (or close fullscreen map if open).
+- **Fullscreen world map**: Open via the 🗺️ Map button in the pause menu. Drag with mouse to pan, scroll wheel or `+` / `−` keys to zoom, and click 🎯 to center on plane.
 
 #### Special maneuvers
 
@@ -242,6 +243,7 @@ When playing on a touch device, specialized UI and controls become available:
 - **Virtual joystick:** A premium, floating virtual joystick appears on screen for smooth, thumb-based flight control.
 - **Control schemes:** A dedicated control scheme selector allows you to choose between virtual joystick, device tilt (gyroscope), or directional button steering.
 - **Throttle:** A dedicated slider interface on the right side controls engine speed.
+- **Fullscreen world map:** Tap the 🗺️ Map button in the pause menu to open the full screen map. Press and hold / drag to pan across the world, pinch with two fingers to zoom in and out, double-tap to zoom in, and tap 🎯 to re-center on your plane.
 
 ## Graphics & settings
 
@@ -323,6 +325,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`preset`** or **`graphics`**: Override the graphics preset (`low`, `mid`, `high`, `ultra`).
 - **`autopilot`** or **`auto`**: Set to `true` (or include `?autopilot`) to engage autopilot immediately upon startup.
 - **`minimap`**: Set to `true` (or include `?minimap`) to start with the minimap overlay visible.
+- **`fullscreenmap`** (or **`worldmap`**): Set to `true` (or include `?fullscreenmap` or `?worldmap`) to start with the full-screen world map visible.
 - **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera or airplane (takes precedence over lat/long, useful for exact freecam sharing).
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).
 

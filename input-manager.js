@@ -188,7 +188,7 @@ class InputManager {
       return;
     }
 
-    // 2. Escape toggles pause (or closes achievements overlay if open)
+    // 2. Escape toggles pause (or closes achievements/map overlay if open)
     if (e.key === 'Escape') {
       const achievementsOverlay = document.getElementById(
         'achievements-overlay'
@@ -199,6 +199,10 @@ class InputManager {
         this.state.isPaused
       ) {
         achievementsOverlay.style.display = 'none';
+        return;
+      }
+      if (window.FullscreenMap && window.FullscreenMap.isOpen()) {
+        window.FullscreenMap.close();
         return;
       }
       if (this.onPauseToggle) {
@@ -437,6 +441,7 @@ class InputManager {
       e.target.closest('#mobile-controls') ||
       e.target.closest('#pause-overlay') ||
       e.target.closest('#achievements-overlay') ||
+      e.target.closest('#fullscreen-map-overlay') ||
       e.target.closest('#mobile-action-menu') ||
       e.target.closest('#minimap-container') ||
       e.target.closest('.mobile-btn') ||
@@ -491,6 +496,7 @@ class InputManager {
       target.closest('#cockpit-ui') ||
       target.closest('#pause-overlay') ||
       target.closest('#achievements-overlay') ||
+      target.closest('#fullscreen-map-overlay') ||
       target.closest('#loading-overlay') ||
       target.closest('#debug-menu') ||
       target.closest('#debug-telemetry') ||
@@ -624,6 +630,7 @@ class InputManager {
       target.closest('#cockpit-ui') ||
       target.closest('#pause-overlay') ||
       target.closest('#achievements-overlay') ||
+      target.closest('#fullscreen-map-overlay') ||
       target.closest('#loading-overlay') ||
       target.closest('#debug-menu') ||
       target.closest('#debug-telemetry') ||
