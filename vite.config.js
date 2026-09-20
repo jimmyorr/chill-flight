@@ -10,6 +10,9 @@ const isDirty = execSync('git status --porcelain').toString().trim().length > 0;
 
 export default defineConfig({
   base: './',
+  server: {
+    host: true,
+  },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __COMMIT_HASH__: JSON.stringify(commitHash),
