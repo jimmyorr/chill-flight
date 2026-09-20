@@ -4984,21 +4984,23 @@ function* generateChunk(chunkX, chunkZ) {
         WATER_LEVEL,
         getElevation(worldOffsetX, worldOffsetZ + localArchZ)
       );
+      const archPos = {
+        x: 0,
+        y: archHeight - 10,
+        z: localArchZ,
+        rotY: rng() * Math.PI * 2,
+      };
       if (rng() < 0.5) {
-        rockArchPositions.push({
-          x: 0,
-          y: archHeight - 10,
-          z: localArchZ,
-          rotY: rng() * Math.PI * 2,
-        });
+        rockArchPositions.push(archPos);
       } else {
-        rockArchGrassPositions.push({
-          x: 0,
-          y: archHeight - 10,
-          z: localArchZ,
-          rotY: rng() * Math.PI * 2,
-        });
+        rockArchGrassPositions.push(archPos);
       }
+      group.userData.rockArch = {
+        x: worldOffsetX + archPos.x,
+        y: archPos.y,
+        z: worldOffsetZ + archPos.z,
+        rotY: archPos.rotY,
+      };
 
       // Guarantee a pirate ship spawns nearby in a water spot
       const offsets = [
@@ -7433,6 +7435,7 @@ function updateChunks() {
       group.userData.pirateReflections = null;
       group.userData.birds = null;
       group.userData.counts = null;
+      group.userData.rockArch = null;
 
       scene.remove(group);
       chunks.delete(key);

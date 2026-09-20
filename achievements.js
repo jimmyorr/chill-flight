@@ -108,6 +108,12 @@
       hint: 'Volcano flyover',
     },
     {
+      id: 'limbo',
+      title: 'Limbo',
+      emoji: '🪨',
+      hint: 'How low can you go?',
+    },
+    {
       id: 'xen',
       title: 'Xen',
       emoji: '👽',

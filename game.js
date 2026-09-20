@@ -2326,6 +2326,13 @@ function _boatHash(index, seed) {
 // --- PRE-ALLOCATED SCRATCH OBJECTS FOR ANIMATE() LOOP TO PREVENT GC CHURN ---
 const _immelmannForward = new THREE.Vector3();
 const _volcanoPos = new THREE.Vector3(-5000, 0, 5000);
+const _rockArchPos = new THREE.Vector3(
+  3000,
+  0,
+  typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED
+    ? ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED)() * 10000 - 5000
+    : 0
+);
 const _pirateSailCounts = [0, 0, 0, 0];
 const _lighthouseBeamWorldPos = new THREE.Vector3();
 const _shootingStarLookDir = new THREE.Vector3();
@@ -3581,6 +3588,23 @@ function animate() {
       if (Achievements.unlock('westworld')) {
         console.log(
           `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} West, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
+        );
+      }
+    }
+
+    // 3. Rock Arch (Limbo) - Arch center is X = 3000, Z = _rockArchPos.z
+    if (_rockArchPos.y === 0 && typeof getElevation === 'function') {
+      _rockArchPos.y = Math.max(40, getElevation(3000, _rockArchPos.z)) + 80;
+    }
+    const distToRockArchSq =
+      planeGroup.position.distanceToSquared(_rockArchPos);
+    if (
+      distToRockArchSq < 62500 &&
+      planeGroup.position.y < _rockArchPos.y + 120
+    ) {
+      if (Achievements.unlock('limbo')) {
+        console.log(
+          `[Limbo unlocked] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} ${planeGroup.position.x >= 0 ? 'East' : 'West'}, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
         );
       }
     }

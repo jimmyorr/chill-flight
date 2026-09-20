@@ -42,7 +42,11 @@
     {
       name: 'Rock Arch',
       x: 3000,
-      z: 0,
+      z:
+        typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED
+          ? ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED)() * 10000 -
+            5000
+          : 0,
       color: '#2ecc71', // lush emerald green
       symbol: '∩',
     },
