@@ -1,1 +1,0 @@
-import"./main-CjmdQrar.js";/* empty css              */document.querySelectorAll(`.version-tag`).forEach(e=>{e.textContent=`v0.9.22`});var e=document.getElementById(`debug-version-info`);e&&(e.textContent=`v0.9.22 (730de6d*)`);
