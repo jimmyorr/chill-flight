@@ -293,10 +293,11 @@ if (urlAltVal !== null && urlAltVal !== undefined) {
 
 planeGroup.position.set(startX, startY, startZ);
 
-// Enable shadows for the vehicle
+// Enable shadow casting for the vehicle (receiveShadow disabled to prevent
+// self-shadowing strobe artifacts at low sun angles)
 planeGroup.traverse((child) => {
   if (child.isMesh) {
     child.castShadow = true;
-    child.receiveShadow = true;
+    child.receiveShadow = false;
   }
 });

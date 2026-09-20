@@ -662,6 +662,147 @@
           border-top: 1px solid rgba(255, 255, 255, 0.2);
         "
       >
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3px;
+          "
+        >
+          <div style="font-size: 10px; font-weight: bold; opacity: 0.7">
+            CLOUDS:
+          </div>
+          <label
+            for="debug-clouds-toggle"
+            style="
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              cursor: pointer;
+              font-size: 10px;
+            "
+          >
+            <span>Show</span>
+            <input
+              type="checkbox"
+              id="debug-clouds-toggle"
+              checked
+              style="width: 12px; height: 12px; cursor: pointer"
+            />
+          </label>
+        </div>
+
+        <div style="margin-bottom: 4px">
+          <div
+            style="
+              font-size: 11px;
+              margin-bottom: 2px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <span>Cloud cover:</span>
+            <div style="display: flex; align-items: center; gap: 6px">
+              <label
+                for="debug-cloud-auto-toggle"
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 3px;
+                  cursor: pointer;
+                  font-size: 10px;
+                  opacity: 0.8;
+                "
+              >
+                <span>Auto</span>
+                <input
+                  type="checkbox"
+                  id="debug-cloud-auto-toggle"
+                  checked
+                  style="width: 11px; height: 11px; cursor: pointer"
+                />
+              </label>
+              <span
+                id="debug-cloud-cover-val"
+                style="font-family: monospace; font-size: 10px"
+                >Auto</span
+              >
+            </div>
+          </div>
+          <input
+            type="range"
+            id="debug-cloud-cover-slider"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0.5"
+            style="width: 100%; cursor: pointer"
+          />
+        </div>
+
+        <div style="margin-bottom: 4px">
+          <div
+            style="
+              font-size: 11px;
+              margin-bottom: 2px;
+              display: flex;
+              justify-content: space-between;
+            "
+          >
+            <span>Cloud height:</span>
+            <span
+              id="debug-cloud-height-val"
+              style="font-family: monospace; font-size: 10px"
+              >3000m</span
+            >
+          </div>
+          <input
+            type="range"
+            id="debug-cloud-height-slider"
+            min="1000"
+            max="6000"
+            step="100"
+            value="3000"
+            style="width: 100%; cursor: pointer"
+          />
+        </div>
+
+        <div>
+          <div
+            style="
+              font-size: 11px;
+              margin-bottom: 2px;
+              display: flex;
+              justify-content: space-between;
+            "
+          >
+            <span>Cloud speed:</span>
+            <span
+              id="debug-cloud-speed-val"
+              style="font-family: monospace; font-size: 10px"
+              >1.0x</span
+            >
+          </div>
+          <input
+            type="range"
+            id="debug-cloud-speed-slider"
+            min="0"
+            max="5"
+            step="0.1"
+            value="1"
+            style="width: 100%; cursor: pointer"
+          />
+        </div>
+      </div>
+      <div
+        style="
+          margin-top: 5px;
+          padding-top: 5px;
+          border-top: 1px solid rgba(255, 255, 255, 0.2);
+        "
+      >
         <div style="font-size: 11px; margin-bottom: 3px">
           Force island type:
         </div>

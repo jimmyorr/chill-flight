@@ -66,7 +66,65 @@
 
   const WORLD_SEED = parseInt(getParam('seed', getTodaySeed()), 10);
   const THEME = getParam('theme', 'standard');
-  const SHOW_CLOUDS = getParam('cloud', null) !== 'none';
+
+  const rawCloudParam = getParam(
+    'cloud',
+    getParam('clouds', getParam('cloudCover', getParam('overcast', null)))
+  );
+  let SHOW_CLOUDS = true;
+  let START_CLOUD_COVER = null; // null = auto / procedural noise
+
+  if (rawCloudParam !== null && rawCloudParam !== '') {
+    const cloudStr = rawCloudParam.trim().toLowerCase();
+    if (['none', 'false', 'off'].includes(cloudStr)) {
+      SHOW_CLOUDS = false;
+      START_CLOUD_COVER = 0.0;
+    } else if (cloudStr === 'auto') {
+      SHOW_CLOUDS = true;
+      START_CLOUD_COVER = null;
+    } else if (cloudStr === 'clear') {
+      SHOW_CLOUDS = true;
+      START_CLOUD_COVER = 0.0;
+    } else if (cloudStr === 'scattered') {
+      SHOW_CLOUDS = true;
+      START_CLOUD_COVER = 0.3;
+    } else if (cloudStr === 'broken') {
+      SHOW_CLOUDS = true;
+      START_CLOUD_COVER = 0.6;
+    } else if (cloudStr === 'overcast') {
+      SHOW_CLOUDS = true;
+      START_CLOUD_COVER = 1.0;
+    } else {
+      const parsedDensity = parseFloat(cloudStr);
+      if (!isNaN(parsedDensity)) {
+        SHOW_CLOUDS = true;
+        START_CLOUD_COVER = Math.max(0, Math.min(1, parsedDensity));
+      }
+    }
+  }
+
+  const rawCloudHeight = getParam(
+    'cloudHeight',
+    getParam('cloudAlt', getParam('cloudCeiling', null))
+  );
+  const parsedCloudHeight =
+    rawCloudHeight !== null && rawCloudHeight !== ''
+      ? parseFloat(rawCloudHeight)
+      : null;
+  const START_CLOUD_HEIGHT =
+    parsedCloudHeight !== null && !isNaN(parsedCloudHeight)
+      ? Math.max(500, Math.min(10000, parsedCloudHeight))
+      : 3000.0;
+
+  const rawCloudSpeed = getParam('cloudSpeed', null);
+  const parsedCloudSpeed =
+    rawCloudSpeed !== null && rawCloudSpeed !== ''
+      ? parseFloat(rawCloudSpeed)
+      : null;
+  const START_CLOUD_SPEED =
+    parsedCloudSpeed !== null && !isNaN(parsedCloudSpeed)
+      ? Math.max(0, Math.min(20, parsedCloudSpeed))
+      : 1.0;
 
   let SHOW_OBJECTS = true;
   const objectsParam = getParam('objects', null);
@@ -1483,6 +1541,9 @@
   exports.urlParams = urlParams;
   exports.THEME = THEME;
   exports.SHOW_CLOUDS = SHOW_CLOUDS;
+  exports.START_CLOUD_COVER = START_CLOUD_COVER;
+  exports.START_CLOUD_HEIGHT = START_CLOUD_HEIGHT;
+  exports.START_CLOUD_SPEED = START_CLOUD_SPEED;
 
   exports.SHOW_OBJECTS = SHOW_OBJECTS;
   exports.setShowObjects = (val) => {

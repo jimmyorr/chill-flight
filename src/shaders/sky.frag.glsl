@@ -7,6 +7,7 @@
     uniform float mieFactor;
     uniform float uTime;
     uniform float uCloudDensity;
+    uniform float uCloudHeight;
     uniform bool uShowClouds;
     uniform float uAuroraIntensity;
     uniform vec3 uCameraPos;
@@ -102,7 +103,7 @@
         col = col + totalGlow * (vec3(1.0) - col);
         
         // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---
-        float cloudHeight = 3000.0;
+        float cloudHeight = uCloudHeight > 0.0 ? uCloudHeight : 3000.0;
         float distToPlane = cloudHeight - uCameraPos.y;
         
         // If below clouds (dist > 0), we look up (h > 0). If above clouds (dist < 0), we look down (h < 0).

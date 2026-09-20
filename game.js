@@ -558,6 +558,26 @@ function updateUrlParams(updates = {}, removals = []) {
 }
 window.updateUrlParams = updateUrlParams;
 
+// --- CLOUD CONTROLS STATE ---
+let manualCloudCover =
+  typeof ChillFlightLogic !== 'undefined' &&
+  ChillFlightLogic.START_CLOUD_COVER !== null &&
+  ChillFlightLogic.START_CLOUD_COVER !== undefined
+    ? ChillFlightLogic.START_CLOUD_COVER
+    : null; // null = auto / procedural noise
+let manualCloudHeight =
+  typeof ChillFlightLogic !== 'undefined' &&
+  typeof ChillFlightLogic.START_CLOUD_HEIGHT === 'number'
+    ? ChillFlightLogic.START_CLOUD_HEIGHT
+    : 3000.0;
+let manualCloudSpeed =
+  typeof ChillFlightLogic !== 'undefined' &&
+  typeof ChillFlightLogic.START_CLOUD_SPEED === 'number'
+    ? ChillFlightLogic.START_CLOUD_SPEED
+    : 1.0;
+let showCloudsEnabled =
+  typeof ChillFlightLogic !== 'undefined' ? ChillFlightLogic.SHOW_CLOUDS : true;
+
 function applyGraphicsPreset(preset) {
   let segments = 30;
   let dist = 6;
@@ -662,8 +682,7 @@ function applyGraphicsPreset(preset) {
 
   // Toggle sky clouds dynamically: disable expensive fBm on low mode
   if (window.skyUniforms !== undefined) {
-    window.skyUniforms.uShowClouds.value =
-      segments > 20 && ChillFlightLogic.SHOW_CLOUDS;
+    window.skyUniforms.uShowClouds.value = segments > 20 && showCloudsEnabled;
   }
 
   // Toggle overdraw optimizations (transparency)
@@ -689,7 +708,11 @@ function applyGraphicsPreset(preset) {
       scene.traverse((child) => {
         if (child.isMesh || child.isInstancedMesh) {
           child.castShadow = enableShadows;
-          child.receiveShadow = enableShadows;
+          // Keep receiveShadow=false on the player plane to prevent
+          // self-shadowing strobe artifacts at low sun angles
+          if (!planeGroup || !planeGroup.getObjectById(child.id)) {
+            child.receiveShadow = enableShadows;
+          }
           if (child.material) {
             if (Array.isArray(child.material)) {
               child.material.forEach((m) => (m.needsUpdate = true));
@@ -1152,6 +1175,32 @@ if (copyCamUrlBtn) {
         url.searchParams.delete('weather');
       }
     }
+
+    url.searchParams.delete('clouds');
+    url.searchParams.delete('cloudCover');
+    url.searchParams.delete('overcast');
+    if (!showCloudsEnabled) {
+      url.searchParams.set('cloud', 'none');
+    } else if (manualCloudCover !== null) {
+      url.searchParams.set('clouds', Number(manualCloudCover.toFixed(2)));
+      url.searchParams.delete('cloud');
+    } else {
+      url.searchParams.delete('cloud');
+    }
+
+    if (Math.round(manualCloudHeight) !== 3000) {
+      url.searchParams.set('cloudHeight', Math.round(manualCloudHeight));
+    } else {
+      url.searchParams.delete('cloudHeight');
+      url.searchParams.delete('cloudAlt');
+      url.searchParams.delete('cloudCeiling');
+    }
+
+    if (Number(manualCloudSpeed.toFixed(1)) !== 1.0) {
+      url.searchParams.set('cloudSpeed', Number(manualCloudSpeed.toFixed(1)));
+    } else {
+      url.searchParams.delete('cloudSpeed');
+    }
     const isCustom =
       typeof isCustomPalette !== 'undefined'
         ? isCustomPalette
@@ -1288,6 +1337,32 @@ if (copyPlaneUrlBtn) {
       } else {
         url.searchParams.delete('weather');
       }
+    }
+
+    url.searchParams.delete('clouds');
+    url.searchParams.delete('cloudCover');
+    url.searchParams.delete('overcast');
+    if (!showCloudsEnabled) {
+      url.searchParams.set('cloud', 'none');
+    } else if (manualCloudCover !== null) {
+      url.searchParams.set('clouds', Number(manualCloudCover.toFixed(2)));
+      url.searchParams.delete('cloud');
+    } else {
+      url.searchParams.delete('cloud');
+    }
+
+    if (Math.round(manualCloudHeight) !== 3000) {
+      url.searchParams.set('cloudHeight', Math.round(manualCloudHeight));
+    } else {
+      url.searchParams.delete('cloudHeight');
+      url.searchParams.delete('cloudAlt');
+      url.searchParams.delete('cloudCeiling');
+    }
+
+    if (Number(manualCloudSpeed.toFixed(1)) !== 1.0) {
+      url.searchParams.set('cloudSpeed', Number(manualCloudSpeed.toFixed(1)));
+    } else {
+      url.searchParams.delete('cloudSpeed');
     }
     const isCustom =
       typeof isCustomPalette !== 'undefined'
@@ -1864,6 +1939,95 @@ function initWeather() {
       console.log(`Weather changed to: ${weatherType}`);
     });
   }
+
+  // Bind Clouds UI
+  const debugCloudsToggle = document.getElementById('debug-clouds-toggle');
+  if (debugCloudsToggle) {
+    debugCloudsToggle.checked = showCloudsEnabled;
+    debugCloudsToggle.addEventListener('change', (e) => {
+      showCloudsEnabled = e.target.checked;
+      if (window.skyUniforms) {
+        window.skyUniforms.uShowClouds.value =
+          showCloudsEnabled &&
+          (typeof SEGMENTS === 'undefined' || SEGMENTS > 20);
+      }
+    });
+  }
+
+  const debugCloudCoverSlider = document.getElementById(
+    'debug-cloud-cover-slider'
+  );
+  const debugCloudAutoToggle = document.getElementById(
+    'debug-cloud-auto-toggle'
+  );
+  const debugCloudCoverVal = document.getElementById('debug-cloud-cover-val');
+
+  if (debugCloudCoverSlider) {
+    if (manualCloudCover !== null) {
+      debugCloudCoverSlider.value = manualCloudCover;
+      if (debugCloudAutoToggle) debugCloudAutoToggle.checked = false;
+      if (debugCloudCoverVal)
+        debugCloudCoverVal.textContent = manualCloudCover.toFixed(2);
+    } else {
+      if (debugCloudAutoToggle) debugCloudAutoToggle.checked = true;
+      if (debugCloudCoverVal) debugCloudCoverVal.textContent = 'Auto';
+    }
+
+    debugCloudCoverSlider.addEventListener('input', (e) => {
+      manualCloudCover = parseFloat(e.target.value);
+      if (debugCloudAutoToggle) debugCloudAutoToggle.checked = false;
+      if (debugCloudCoverVal)
+        debugCloudCoverVal.textContent = manualCloudCover.toFixed(2);
+    });
+  }
+
+  if (debugCloudAutoToggle) {
+    debugCloudAutoToggle.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        manualCloudCover = null;
+        if (debugCloudCoverVal) debugCloudCoverVal.textContent = 'Auto';
+      } else {
+        manualCloudCover = parseFloat(
+          debugCloudCoverSlider ? debugCloudCoverSlider.value : 0.5
+        );
+        if (debugCloudCoverVal)
+          debugCloudCoverVal.textContent = manualCloudCover.toFixed(2);
+      }
+    });
+  }
+
+  const debugCloudHeightSlider = document.getElementById(
+    'debug-cloud-height-slider'
+  );
+  const debugCloudHeightVal = document.getElementById('debug-cloud-height-val');
+  if (debugCloudHeightSlider) {
+    debugCloudHeightSlider.value = manualCloudHeight;
+    if (debugCloudHeightVal)
+      debugCloudHeightVal.textContent = `${Math.round(manualCloudHeight)}m`;
+    debugCloudHeightSlider.addEventListener('input', (e) => {
+      manualCloudHeight = parseFloat(e.target.value);
+      if (debugCloudHeightVal)
+        debugCloudHeightVal.textContent = `${Math.round(manualCloudHeight)}m`;
+      if (window.skyUniforms && window.skyUniforms.uCloudHeight) {
+        window.skyUniforms.uCloudHeight.value = manualCloudHeight;
+      }
+    });
+  }
+
+  const debugCloudSpeedSlider = document.getElementById(
+    'debug-cloud-speed-slider'
+  );
+  const debugCloudSpeedVal = document.getElementById('debug-cloud-speed-val');
+  if (debugCloudSpeedSlider) {
+    debugCloudSpeedSlider.value = manualCloudSpeed;
+    if (debugCloudSpeedVal)
+      debugCloudSpeedVal.textContent = `${manualCloudSpeed.toFixed(1)}x`;
+    debugCloudSpeedSlider.addEventListener('input', (e) => {
+      manualCloudSpeed = parseFloat(e.target.value);
+      if (debugCloudSpeedVal)
+        debugCloudSpeedVal.textContent = `${manualCloudSpeed.toFixed(1)}x`;
+    });
+  }
 }
 
 function cycleWeather() {
@@ -2019,7 +2183,8 @@ function updateWeather(delta) {
   window._unfadedRainOpacity = targetRainOpacity;
 
   // Fade out precipitation when flying above the cloud layer
-  const cloudCeiling = 3000.0;
+  const cloudCeiling =
+    typeof manualCloudHeight === 'number' ? manualCloudHeight : 3000.0;
   const fadeStart = cloudCeiling - 100.0; // Start fading 100 units below the clouds
   if (camera.position.y > fadeStart) {
     const fadeFactor = Math.max(
@@ -4484,7 +4649,7 @@ function animate() {
   // This makes shadows smoothly stretch toward the horizon at sunset/sunrise
   // and then freeze. The dirLight intensity fades to 0 via dayFactor anyway,
   // so the frozen direction is invisible by the time it diverges from reality.
-  _shadowSunDir.set(sunX, Math.max(0.05, sunY), sunZ).normalize();
+  _shadowSunDir.set(sunX, Math.max(0.15, sunY), sunZ).normalize();
 
   // Step 2: Build a rigid local coordinate system for the light.
   _shadowRight.crossVectors(_worldUp, _shadowSunDir).normalize();
@@ -4567,12 +4732,23 @@ function animate() {
       : (weatherNoise - weatherThreshold) / (1 - weatherThreshold);
 
   // 3. The world is overcast if there are thick clouds (we don't force overcast for snow/rain so we can have beautiful snowy sunsets)
-  const targetOvercast = weatherNoise;
-  window._currentOvercast = THREE.MathUtils.lerp(
-    window._currentOvercast || 0,
-    targetOvercast,
-    0.01
-  );
+  let targetOvercast;
+  if (manualCloudCover !== null) {
+    targetOvercast = manualCloudCover;
+    window._currentOvercast = manualCloudCover;
+  } else {
+    targetOvercast = weatherNoise;
+    window._currentOvercast = THREE.MathUtils.lerp(
+      window._currentOvercast || 0,
+      targetOvercast,
+      0.01
+    );
+    const coverValElem = document.getElementById('debug-cloud-cover-val');
+    const autoElem = document.getElementById('debug-cloud-auto-toggle');
+    if (coverValElem && autoElem && autoElem.checked) {
+      coverValElem.textContent = `Auto (${window._currentOvercast.toFixed(2)})`;
+    }
+  }
   const overcast = window._currentOvercast;
 
   // --- APPLY LIGHTING & CELESTIAL BODIES ---
@@ -4875,12 +5051,18 @@ function animate() {
 
   _tempVec.set(sunX, sunY, sunZ).normalize();
   window.skyUniforms.sunDirection.value.copy(_tempVec);
+  const cloudSpeed =
+    typeof manualCloudSpeed === 'number' ? manualCloudSpeed : 1.0;
   window._cloudTime =
     (window._cloudTime || now * 0.001) +
     delta *
-      (typeof daySpeedMultiplier !== 'undefined' ? daySpeedMultiplier : 1);
+      (typeof daySpeedMultiplier !== 'undefined' ? daySpeedMultiplier : 1) *
+      cloudSpeed;
   window.skyUniforms.uTime.value = window._cloudTime;
   window.skyUniforms.uCloudDensity.value = overcast;
+  if (window.skyUniforms.uCloudHeight) {
+    window.skyUniforms.uCloudHeight.value = manualCloudHeight;
+  }
   window.skyUniforms.uCameraPos.value.copy(camera.position);
 
   if (window.terrainUniforms) {

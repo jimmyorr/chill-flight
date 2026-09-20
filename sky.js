@@ -304,6 +304,13 @@ const skyUniforms = {
   mieFactor: {value: 0.9}, // Higher = more aggressive muting away from sun
   uTime: {value: 0.0},
   uCloudDensity: {value: 0.5},
+  uCloudHeight: {
+    value:
+      typeof ChillFlightLogic !== 'undefined' &&
+      ChillFlightLogic.START_CLOUD_HEIGHT
+        ? ChillFlightLogic.START_CLOUD_HEIGHT
+        : 3000.0,
+  },
   uShowClouds: {value: true},
   uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
   uNoiseTex: {value: skyNoiseTexture},
@@ -371,7 +378,7 @@ dirLight.shadow.camera.right = 2048;
 dirLight.shadow.camera.top = 2048;
 dirLight.shadow.camera.bottom = -2048;
 dirLight.shadow.bias = -0.0007;
-dirLight.shadow.normalBias = 0.005;
+dirLight.shadow.normalBias = 2.0;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
