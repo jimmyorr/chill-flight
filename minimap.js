@@ -978,6 +978,10 @@
         'world-map',
       ]);
     }
+
+    if (typeof Achievements !== 'undefined') {
+      Achievements.unlock('cartographer');
+    }
   }
 
   function closeFullscreenMap() {

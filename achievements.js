@@ -39,6 +39,12 @@
       emoji: '🤖',
       hint: 'Otto, take the wheel',
     },
+    {
+      id: 'cartographer',
+      title: 'Cartographer',
+      emoji: '🗺️',
+      hint: 'Open the map',
+    },
     // 2. Flight & Maneuvers
     {
       id: 'to_the_moon',
