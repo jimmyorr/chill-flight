@@ -89,8 +89,9 @@ inputManager.onPauseToggle = () => {
 };
 inputManager.onPlaneToggle = () => {
   if (typeof setActivePlane === 'function') {
-    const nextPlane =
-      window.activePlaneType === 'biplane' ? 'classic' : 'biplane';
+    const types = ['classic', 'biplane', 'glider'];
+    const currentIndex = types.indexOf(window.activePlaneType);
+    const nextPlane = types[(currentIndex + 1) % types.length] || 'classic';
     setActivePlane(nextPlane);
   }
 };

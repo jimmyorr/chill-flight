@@ -241,7 +241,7 @@ let activePlaneType =
   'classic';
 
 function setActivePlane(planeType, skipStorage = false) {
-  if (!['classic', 'biplane'].includes(planeType)) return;
+  if (!['classic', 'biplane', 'glider'].includes(planeType)) return;
   activePlaneType = planeType;
   window.activePlaneType = activePlaneType;
   if (!skipStorage) {
@@ -261,6 +261,15 @@ function setActivePlane(planeType, skipStorage = false) {
   let newModel;
   if (planeType === 'biplane' && typeof createBiplaneModel === 'function') {
     newModel = createBiplaneModel({
+      planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
+      planeMat: window.planeMat,
+      planeWhiteMat: window.planeWhiteMat,
+    });
+  } else if (
+    planeType === 'glider' &&
+    typeof createGliderModel === 'function'
+  ) {
+    newModel = createGliderModel({
       planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
       planeMat: window.planeMat,
       planeWhiteMat: window.planeWhiteMat,

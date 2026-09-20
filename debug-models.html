@@ -160,6 +160,9 @@
       <button class="model-btn" onclick="viewModel('biplane', event)">
         Biplane
       </button>
+      <button class="model-btn" onclick="viewModel('glider', event)">
+        Glider
+      </button>
 
       <div class="category-title">Nature</div>
       <button class="model-btn" onclick="viewModel('pine', event)">
@@ -324,6 +327,7 @@
     <script defer src="constants.js"></script>
     <script defer src="airplane.js"></script>
     <script defer src="biplane.js"></script>
+    <script defer src="glider.js"></script>
     <script defer src="terrain.js"></script>
 
     <script type="module">
@@ -399,6 +403,7 @@
           'pirateship',
           'airplane',
           'biplane',
+          'glider',
         ].includes(type);
         document.getElementById('color-options').style.display = supportsColors
           ? 'block'
@@ -486,6 +491,22 @@
 
               bp.visible = true;
               previewGroup.add(bp);
+              break;
+            }
+
+            case 'motor_glider':
+            case 'glider': {
+              const colors =
+                window.ChillFlightLogic && window.ChillFlightLogic.PLANE_COLORS
+                  ? window.ChillFlightLogic.PLANE_COLORS
+                  : [0xe0564c];
+              const newColor = colors[colorSeed % colors.length];
+              const gl = window.createGliderModel
+                ? window.createGliderModel({planeColor: newColor})
+                : window.gliderModel.clone();
+
+              gl.visible = true;
+              previewGroup.add(gl);
               break;
             }
 
@@ -722,12 +743,22 @@
         finalBox.getSize(finalSize);
 
         const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);
-        const distance = maxDimension * 1.5; // Adjusted multiplier for better framing
+        const distanceMultiplier =
+          type === 'motor_glider' || type === 'glider' ? 0.75 : 1.5;
+        const distance = maxDimension * distanceMultiplier;
 
         if (!isColorCycle) {
           controls.reset();
           controls.target.copy(finalCenter);
-          camera.position.set(distance, distance, distance);
+          if (type === 'motor_glider' || type === 'glider') {
+            camera.position.set(
+              distance * 0.9,
+              distance * 0.62,
+              -distance * 0.75
+            );
+          } else {
+            camera.position.set(distance, distance, distance);
+          }
           controls.update();
         }
       }
