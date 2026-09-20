@@ -434,8 +434,8 @@
   let fsViewCenterX = 0;
   let fsViewCenterZ = 0;
   let fsViewRadius = 7500;
-  const FS_MIN_RADIUS = 1200;
-  const FS_MAX_RADIUS = 40000;
+  const FS_MIN_RADIUS = 1000;
+  const FS_MAX_RADIUS = 35000;
 
   let fsCachedMinX = 0;
   let fsCachedMinZ = 0;
@@ -506,15 +506,18 @@
     const h = window.innerHeight;
     const aspect = w / h;
 
-    // High resolution grid (over 5x denser than legacy 160x100 for crisp terrain definition)
-    let gridH = 240;
+    // Adaptive high-resolution grid based on zoom level (denser buffer at close zoom for ultra-crisp detail)
+    const isCloseZoom = fsViewRadius < 3500;
+    const paddingMult = isCloseZoom ? 1.2 : 1.4;
+
+    let gridH = isCloseZoom ? 380 : 300;
     let gridW = Math.round(gridH * aspect);
     if (aspect < 1) {
-      gridW = 220;
+      gridW = isCloseZoom ? 320 : 260;
       gridH = Math.round(gridW / aspect);
     }
-    gridW = Math.min(480, Math.max(160, gridW));
-    gridH = Math.min(480, Math.max(160, gridH));
+    gridW = Math.min(760, Math.max(200, gridW));
+    gridH = Math.min(500, Math.max(200, gridH));
 
     if (!fsBgCanvas) {
       fsBgCanvas = document.createElement('canvas');
@@ -527,8 +530,8 @@
 
     const minDim = Math.min(w, h);
     const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
-    const worldW = w * worldUnitsPerPixel * 1.5;
-    const worldH = h * worldUnitsPerPixel * 1.5;
+    const worldW = w * worldUnitsPerPixel * paddingMult;
+    const worldH = h * worldUnitsPerPixel * paddingMult;
 
     const minX = fsViewCenterX - worldW / 2;
     const minZ = fsViewCenterZ - worldH / 2;
@@ -689,22 +692,38 @@
       );
     }
 
-    // 2. Coordinate Grid Lines & Lat/Long Labels
+    // 2. Coordinate Grid Lines & Lat/Long Labels with Dynamic Step Scaling
     const LAT_SCALE = 5000;
-    const startLatDeg = Math.floor(vMinZ / LAT_SCALE);
-    const endLatDeg = Math.ceil((vMinZ + visibleWorldH) / LAT_SCALE);
+    let gridStepDeg;
+    if (visibleWorldW > 60000) {
+      gridStepDeg = 5.0;
+    } else if (visibleWorldW > 25000) {
+      gridStepDeg = 2.0;
+    } else if (visibleWorldW > 10000) {
+      gridStepDeg = 1.0;
+    } else if (visibleWorldW > 4000) {
+      gridStepDeg = 0.5;
+    } else {
+      gridStepDeg = 0.2;
+    }
+
+    const stepUnits = gridStepDeg * LAT_SCALE;
+    const prec = gridStepDeg < 0.5 ? 2 : gridStepDeg < 1 ? 1 : 0;
 
     fsCtx.lineWidth = 1;
     fsCtx.font =
       '10px SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace';
 
     // Horizontal latitude lines
-    for (let l = startLatDeg; l <= endLatDeg; l++) {
-      const lineZ = l * LAT_SCALE;
-      const lineY = (lineZ - vMinZ) / worldUnitsPerPixel;
-      const lat = -l;
+    const startLatStep = Math.floor(vMinZ / stepUnits);
+    const endLatStep = Math.ceil((vMinZ + visibleWorldH) / stepUnits);
 
-      const isEquator = l === 0;
+    for (let s = startLatStep; s <= endLatStep; s++) {
+      const lineZ = s * stepUnits;
+      const lineY = (lineZ - vMinZ) / worldUnitsPerPixel;
+      const lat = -s * gridStepDeg;
+
+      const isEquator = Math.abs(lat) < 0.0001;
       fsCtx.strokeStyle = isEquator
         ? 'rgba(255, 215, 0, 0.28)'
         : 'rgba(255, 255, 255, 0.08)';
@@ -713,12 +732,11 @@
       fsCtx.lineTo(screenW, lineY);
       fsCtx.stroke();
 
-      const latLabel =
-        lat === 0
-          ? '0.0° (Equator)'
-          : lat > 0
-            ? `${lat.toFixed(1)}° N`
-            : `${Math.abs(lat).toFixed(1)}° S`;
+      const latLabel = isEquator
+        ? '0.0° (Equator)'
+        : lat > 0
+          ? `${lat.toFixed(prec)}° N`
+          : `${Math.abs(lat).toFixed(prec)}° S`;
       fsCtx.fillStyle = isEquator
         ? 'rgba(255, 215, 0, 0.65)'
         : 'rgba(255, 255, 255, 0.45)';
@@ -728,15 +746,15 @@
     }
 
     // Vertical longitude lines
-    const startLonDeg = Math.floor(vMinX / LAT_SCALE);
-    const endLonDeg = Math.ceil((vMinX + visibleWorldW) / LAT_SCALE);
+    const startLonStep = Math.floor(vMinX / stepUnits);
+    const endLonStep = Math.ceil((vMinX + visibleWorldW) / stepUnits);
 
-    for (let l = startLonDeg; l <= endLonDeg; l++) {
-      const lineX = l * LAT_SCALE;
+    for (let s = startLonStep; s <= endLonStep; s++) {
+      const lineX = s * stepUnits;
       const screenX = (lineX - vMinX) / worldUnitsPerPixel;
-      const lon = l;
+      const lon = s * gridStepDeg;
 
-      const isPrime = l === 0;
+      const isPrime = Math.abs(lon) < 0.0001;
       fsCtx.strokeStyle = isPrime
         ? 'rgba(52, 152, 219, 0.28)'
         : 'rgba(255, 255, 255, 0.08)';
@@ -745,12 +763,11 @@
       fsCtx.lineTo(screenX, screenH);
       fsCtx.stroke();
 
-      const lonLabel =
-        lon === 0
-          ? '0.0°'
-          : lon > 0
-            ? `${lon.toFixed(1)}° E`
-            : `${Math.abs(lon).toFixed(1)}° W`;
+      const lonLabel = isPrime
+        ? '0.0°'
+        : lon > 0
+          ? `${lon.toFixed(prec)}° E`
+          : `${Math.abs(lon).toFixed(prec)}° W`;
       fsCtx.fillStyle = isPrime
         ? 'rgba(52, 152, 219, 0.65)'
         : 'rgba(255, 255, 255, 0.45)';
@@ -759,7 +776,8 @@
       fsCtx.fillText(lonLabel, screenX, 72);
     }
 
-    // 3. Landmarks
+    // 3. Landmarks (with LOD: compact pins at distance, full cards when zoomed in)
+    const showFullLandmarks = visibleWorldW <= 30000;
     LANDMARKS.forEach((lm) => {
       const lx = (lm.x - vMinX) / worldUnitsPerPixel;
       const lz = (lm.z - vMinZ) / worldUnitsPerPixel;
@@ -769,31 +787,34 @@
         fsCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
         fsCtx.shadowBlur = 6;
 
+        const pinRadius = showFullLandmarks ? 10 : 7;
         fsCtx.fillStyle = lm.color;
         fsCtx.beginPath();
-        fsCtx.arc(lx, lz, 10, 0, Math.PI * 2);
+        fsCtx.arc(lx, lz, pinRadius, 0, Math.PI * 2);
         fsCtx.fill();
         fsCtx.strokeStyle = '#ffffff';
-        fsCtx.lineWidth = 1.75;
+        fsCtx.lineWidth = showFullLandmarks ? 1.75 : 1.25;
         fsCtx.stroke();
 
-        fsCtx.fillStyle = '#ffffff';
-        fsCtx.font = 'bold 11px -apple-system, sans-serif';
-        fsCtx.textAlign = 'center';
-        fsCtx.textBaseline = 'middle';
-        fsCtx.fillText(lm.symbol, lx, lz);
+        if (showFullLandmarks) {
+          fsCtx.fillStyle = '#ffffff';
+          fsCtx.font = 'bold 11px -apple-system, sans-serif';
+          fsCtx.textAlign = 'center';
+          fsCtx.textBaseline = 'middle';
+          fsCtx.fillText(lm.symbol, lx, lz);
 
-        fsCtx.fillStyle = '#ffffff';
-        fsCtx.font = '600 12px Inter, -apple-system, sans-serif';
-        fsCtx.fillText(lm.name, lx, lz + 18);
+          fsCtx.fillStyle = '#ffffff';
+          fsCtx.font = '600 12px Inter, -apple-system, sans-serif';
+          fsCtx.fillText(lm.name, lx, lz + 18);
 
-        const lmLat = -lm.z / 5000;
-        const lmLon = lm.x / 5000;
-        const lmCoordStr = `${Math.abs(lmLat).toFixed(1)}° ${lmLat >= 0 ? 'N' : 'S'}, ${Math.abs(lmLon).toFixed(1)}° ${lmLon >= 0 ? 'E' : 'W'}`;
-        fsCtx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-        fsCtx.font =
-          '10px SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace';
-        fsCtx.fillText(lmCoordStr, lx, lz + 32);
+          const lmLat = -lm.z / 5000;
+          const lmLon = lm.x / 5000;
+          const lmCoordStr = `${Math.abs(lmLat).toFixed(1)}° ${lmLat >= 0 ? 'N' : 'S'}, ${Math.abs(lmLon).toFixed(1)}° ${lmLon >= 0 ? 'E' : 'W'}`;
+          fsCtx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+          fsCtx.font =
+            '10px SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace';
+          fsCtx.fillText(lmCoordStr, lx, lz + 32);
+        }
 
         fsCtx.restore();
       }
