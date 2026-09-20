@@ -157,6 +157,9 @@
       <button class="model-btn" onclick="viewModel('airplane', event)">
         Airplane
       </button>
+      <button class="model-btn" onclick="viewModel('biplane', event)">
+        Biplane
+      </button>
 
       <div class="category-title">Nature</div>
       <button class="model-btn" onclick="viewModel('pine', event)">
@@ -320,6 +323,7 @@
     <script defer src="chill-flight-logic.js"></script>
     <script defer src="constants.js"></script>
     <script defer src="airplane.js"></script>
+    <script defer src="biplane.js"></script>
     <script defer src="terrain.js"></script>
 
     <script type="module">
@@ -394,6 +398,7 @@
           'sailboat',
           'pirateship',
           'airplane',
+          'biplane',
         ].includes(type);
         document.getElementById('color-options').style.display = supportsColors
           ? 'block'
@@ -466,6 +471,21 @@
 
               ap.visible = true;
               previewGroup.add(ap);
+              break;
+            }
+
+            case 'biplane': {
+              const colors =
+                window.ChillFlightLogic && window.ChillFlightLogic.PLANE_COLORS
+                  ? window.ChillFlightLogic.PLANE_COLORS
+                  : [0x4794db];
+              const newColor = colors[colorSeed % colors.length];
+              const bp = window.createBiplaneModel
+                ? window.createBiplaneModel({planeColor: newColor})
+                : window.biplaneModel.clone();
+
+              bp.visible = true;
+              previewGroup.add(bp);
               break;
             }
 
