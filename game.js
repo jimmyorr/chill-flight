@@ -5614,11 +5614,10 @@ function animate() {
 
           totalCampfires += cg.userData.counts.campfires || 0;
           totalBoats += cg.userData.counts.boats || 0;
-          if (isLODActive) activeBoats += cg.userData.counts.boats || 0;
+          activeBoats += cg.userData.counts.boats || 0;
 
           totalPirateShips += cg.userData.counts.pirateships || 0;
-          if (isLODActive)
-            activePirateShips += cg.userData.counts.pirateships || 0;
+          activePirateShips += cg.userData.counts.pirateships || 0;
 
           totalLilyPads += cg.userData.counts.lily_pads || 0;
           totalPiers += cg.userData.counts.piers || 0;

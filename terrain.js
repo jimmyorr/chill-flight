@@ -6854,6 +6854,14 @@ function* generateChunk(chunkX, chunkZ) {
   }
 
   // 2.98 Generate Sailboats
+  let watercraftGroup = null;
+  if (sailboatPositions.length > 0 || pirateShipPositions.length > 0) {
+    watercraftGroup = new THREE.Group();
+    watercraftGroup.visible = _enableObjects;
+    group.add(watercraftGroup);
+    group.userData.watercraftGroup = watercraftGroup;
+  }
+
   if (sailboatPositions.length > 0) {
     const numBoatColors = boatHullPalette.length;
     const boatCounts = Array(numBoatColors).fill(0);
@@ -6877,7 +6885,7 @@ function* generateChunk(chunkX, chunkZ) {
           boatCounts[i]
         );
         hullInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
-        objectsGroup.add(hullInsts[i]);
+        watercraftGroup.add(hullInsts[i]);
       }
     }
 
@@ -6941,7 +6949,7 @@ function* generateChunk(chunkX, chunkZ) {
     boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
     sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
     sailboatReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(
+    watercraftGroup.add(
       rimInst,
       deckInst,
       mastInst,
@@ -7049,7 +7057,7 @@ function* generateChunk(chunkX, chunkZ) {
     flagInst.position.set(worldOffsetX, 0, worldOffsetZ);
     jrInst.position.set(worldOffsetX, 0, worldOffsetZ);
     pirateReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(
+    watercraftGroup.add(
       hullInst,
       rimInst,
       deckInst,
@@ -7063,7 +7071,7 @@ function* generateChunk(chunkX, chunkZ) {
       if (sailCounts[idx] > 0) {
         inst.count = sailCounts[idx];
         inst.position.set(worldOffsetX, 0, worldOffsetZ);
-        objectsGroup.add(inst);
+        watercraftGroup.add(inst);
       }
     });
 
@@ -7413,6 +7421,7 @@ function updateChunks() {
       }
       group.userData.instanceData = null;
       group.userData.objectsGroup = null;
+      group.userData.watercraftGroup = null;
       group.userData.water = null;
       group.userData.sailboatPositions = null;
       group.userData.boatHulls = null;
@@ -7526,6 +7535,9 @@ function toggleProceduralObjects(enabled) {
   chunks.forEach((group) => {
     if (group.userData.objectsGroup) {
       group.userData.objectsGroup.visible = enabled;
+    }
+    if (group.userData.watercraftGroup) {
+      group.userData.watercraftGroup.visible = enabled;
     }
   });
 
