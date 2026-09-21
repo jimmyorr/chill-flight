@@ -978,7 +978,24 @@
           const shapeFactor = Math.max(0, lakeShape + 0.1);
           let depthFactor = shapeFactor * (lakeRegion - 0.2) * westIntensity;
           if (depthFactor > 0) {
-            n -= depthFactor * 800; // Carve down
+            let carveAmount = depthFactor * 800;
+            
+            // --- ISLAND LOGIC ---
+            // Only potential islands in deeper parts of the lake (towards the middle)
+            if (depthFactor > 0.1) {
+              // Not all large lakes have them
+              const islandRegion = simplex.noise2D(x * 0.0001 + 500, z * 0.0001 + 500);
+              if (islandRegion > 0.2) {
+                const islandNoise = simplex.noise2D(x * 0.002 + 600, z * 0.002 + 600);
+                if (islandNoise > 0.5) {
+                   // Pull the terrain up to form an island
+                   const islandHeight = (islandNoise - 0.5) * 4000; 
+                   carveAmount -= islandHeight;
+                }
+              }
+            }
+            
+            n -= carveAmount; // Carve down
           }
         }
       }
