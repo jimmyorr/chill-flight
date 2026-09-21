@@ -53,9 +53,11 @@
   ];
 
   // Sentence case for UI labels per rules
-  function getColorForHeight(h) {
+  function getColorForHeight(h, wz = 0) {
     if (h <= 40) {
       return '#203c70'; // rich deep water blue
+    } else if (wz < -20000 && h <= 72) {
+      return '#d2dfeb'; // frozen north pack ice shelf
     } else if (h <= 44) {
       return '#dfccad'; // soft warm sand beach
     } else if (h <= 120) {
@@ -215,7 +217,7 @@
         }
 
         // Convert height to color string
-        const colorStr = getColorForHeight(h);
+        const colorStr = getColorForHeight(h, wz);
 
         // Parse color string (either rgb or hex)
         let r = 0,
@@ -567,6 +569,7 @@
     const data = imgData.data;
 
     for (let gz = 0; gz < gridH; gz++) {
+      const wz = minZ + (gz / (gridH - 1)) * worldH;
       const rowOffset = gz * gridW;
       const prevRow = (gz - 1) * gridW;
       const nextRow = (gz + 1) * gridW;
@@ -585,7 +588,9 @@
           else if (shade > 32) shade = 32;
         }
 
-        // Color computation
+        // PALETTE SYNC RULE: Whenever adding elevation passes or regional biomes to
+        // ChillFlightLogic.getElevation(), ensure corresponding coordinate/altitude color mapping
+        // is added here and in getColorForHeight() (e.g. frozen north pack ice vs beach sand).
         let r, g, b;
         if (elev <= 40) {
           // Bathymetry depth variation for crisp, clean coastlines
@@ -593,6 +598,12 @@
           r = Math.round(34 - depth * 12);
           g = Math.round(66 - depth * 22);
           b = Math.round(120 - depth * 32);
+        } else if (wz < -20000 && elev <= 72) {
+          // Frozen north pack ice shelf (slate-blue to crisp snow white)
+          const t = Math.min(1.0, (elev - 40) / 32);
+          r = Math.round(180 + t * 65);
+          g = Math.round(196 + t * 52);
+          b = Math.round(212 + t * 40);
         } else if (elev <= 44) {
           r = 223;
           g = 204;

@@ -567,6 +567,15 @@
       return 38.0 + normalizedHeight * 87.5;
     }
 
+    // =========================================================================
+    // CRITICAL ARCHITECTURE RULE: NEVER EARLY-RETURN FROM getElevation()
+    // Procedural terrain generation is an accumulative sequential pipeline.
+    // Any intermediate `return n;` aborts all subsequent feature passes (e.g.
+    // alien biomes, frozen north pack ice shelf, continental beaches), causing
+    // massive world-scale tears and horizontal/vertical striping artifacts.
+    // Always skip feature blocks using conditional checks instead of returning early.
+    // =========================================================================
+
     const biome = getBiome(x, z, simplex);
 
     let heightScale = 150;
@@ -853,11 +862,51 @@
                 );
                 const motuFactor = Math.max(0, passNoise + 0.15);
 
-                // Motu dry land elevation: rises to elevation 46 - 72 (6 - 32m above water level 40)
+                // Motu dry land elevation: base shelf bringing land above water
                 const motuElevation =
                   ringMask *
                   (10 + motuFactor * 24) *
                   Math.min(1.0, clusterIntensity * 2.5);
+
+                // Interior motu ridge: rugged jungle spine scaled by heightFactor (same
+                // approach as karst/caldera) so it actually reaches green-zone elevations.
+                // Uses ridged noise (1 - |n|) for steep sheer sides.
+                const ridgeRaw = simplex.noise2D(
+                  x * 0.0032 + 222,
+                  z * 0.0032 + 222
+                );
+                const ridgeNoise = 1.0 - Math.abs(ridgeRaw);
+                const ridgeSharp = Math.pow(
+                  Math.max(0, ridgeNoise - 0.22) / 0.78,
+                  1.2
+                );
+                const motuRidge =
+                  ridgeSharp *
+                  ringMask *
+                  Math.max(0, motuFactor - 0.05) *
+                  650 *
+                  heightFactor;
+
+                // Remnant volcanic peak: the drowned original volcano at the atoll center
+                // (Bora Bora / Moorea style — Mt. Otemanu rising from inside the lagoon).
+                // Only appears at high shapeFactor (deep inside the ring) with ridged noise.
+                let volcanicPeak = 0;
+                if (shapeFactor > 0.54) {
+                  const peakNorm = Math.min(1.0, (shapeFactor - 0.54) / 0.38);
+                  const peakRaw = simplex.noise2D(
+                    x * 0.003 + 555,
+                    z * 0.003 + 555
+                  );
+                  const peakNoise = 1.0 - Math.abs(peakRaw);
+                  if (peakNoise > 0.28) {
+                    const peakSharp = Math.pow((peakNoise - 0.28) / 0.72, 0.7);
+                    volcanicPeak =
+                      peakSharp *
+                      Math.pow(peakNorm, 0.75) *
+                      1150 *
+                      heightFactor;
+                  }
+                }
 
                 // Lagoon: broad, shallow protected waters inside the barrier ring (shapeFactor > ringCenter)
                 let lagoonCarve = 0;
@@ -867,7 +916,10 @@
                     (shapeFactor - ringCenter) / 0.15
                   );
                   // Carves down by 5-6 units so the lagoon bed sits at elevation 31-33 (shallow turquoise water)
-                  lagoonCarve = innerLagoon * innerLagoon * 5.5;
+                  // Suppress carve wherever the volcanic peak erupts through
+                  const peakSuppression = Math.min(1.0, volcanicPeak / 80);
+                  lagoonCarve =
+                    innerLagoon * innerLagoon * 5.5 * (1.0 - peakSuppression);
 
                   // Isolated sandbanks or small coral pinnacles (bommies) in the center of the lagoon
                   if (shapeFactor > 0.65) {
@@ -886,7 +938,13 @@
                 const sandDunes =
                   simplex.noise2D(x * 0.006, z * 0.006) * 3.0 * ringMask;
 
-                n += reefPlatform + motuElevation - lagoonCarve + sandDunes;
+                n +=
+                  reefPlatform +
+                  motuElevation +
+                  motuRidge +
+                  volcanicPeak -
+                  lagoonCarve +
+                  sandDunes;
               } else {
                 // Standard ridged mountain islands (fallback until Caldera & Atoll are implemented)
                 // Add ridged noise for jagged peaks
@@ -1192,57 +1250,62 @@
     }
 
     // --- HIGHWAY TRENCH CARVING LOGIC ---
-    if (!options.ignoreRoads) {
+    // GEOGRAPHIC GUARD: Highways only exist on the West Coast (X < 0).
+    // Never execute highway math for X >= 0 to prevent phantom road canyons in the ocean.
+    // NEVER early-return from this block, as that would abort subsequent passes.
+    if (!options.ignoreRoads && x < 0) {
       // Find the closest highway index mathematically
-      const highwayIndex = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
+      const highwayIndex = Math.max(
+        0,
+        Math.round((x - ROAD_BASE_X) / ROAD_SPACING)
+      );
       const roadCenterX = getRoadCenterX(z, highwayIndex);
-      const distToRoad = Math.abs(x - roadCenterX);
+      if (roadCenterX < 0) {
+        const distToRoad = Math.abs(x - roadCenterX);
 
-      const CANYON_FLOOR_WIDTH = 50; // Flat area at the bottom for the road to sit in
+        const CANYON_FLOOR_WIDTH = 50; // Flat area at the bottom for the road to sit in
 
-      // Conservative check to avoid computing center elevation for far away points
-      const MAX_POSSIBLE_WALL_WIDTH = 3500;
+        // Conservative check to avoid computing center elevation for far away points
+        const MAX_POSSIBLE_WALL_WIDTH = 3500;
 
-      if (distToRoad < CANYON_FLOOR_WIDTH + MAX_POSSIBLE_WALL_WIDTH) {
-        // Find the intended natural height of the road center
-        // We MUST ignore roads and rivers here to avoid recursion and hitting trenches
-        const centerNaturalH = getElevation(
-          roadCenterX,
-          z,
-          simplex,
-          constants,
-          _lerp,
-          {ignoreRivers: true, ignoreRoads: true, forRoad: true}
-        );
+        if (distToRoad < CANYON_FLOOR_WIDTH + MAX_POSSIBLE_WALL_WIDTH) {
+          // Find the intended natural height of the road center
+          // We MUST ignore roads and rivers here to avoid recursion and hitting trenches
+          const centerNaturalH = getElevation(
+            roadCenterX,
+            z,
+            simplex,
+            constants,
+            _lerp,
+            {ignoreRivers: true, ignoreRoads: true, forRoad: true}
+          );
 
-        if (roadCenterX >= 0) {
-          return n;
-        }
+          const MIN_ROAD_HEIGHT = WATER_LEVEL + 60;
+          let roadY =
+            MIN_ROAD_HEIGHT + (centerNaturalH - MIN_ROAD_HEIGHT) * 0.85;
+          roadY = Math.max(roadY, MIN_ROAD_HEIGHT);
+          roadY = Math.min(roadY, MAX_HIGHWAY_HEIGHT);
 
-        const MIN_ROAD_HEIGHT = WATER_LEVEL + 60;
-        let roadY = MIN_ROAD_HEIGHT + (centerNaturalH - MIN_ROAD_HEIGHT) * 0.85;
-        roadY = Math.max(roadY, MIN_ROAD_HEIGHT);
-        roadY = Math.min(roadY, MAX_HIGHWAY_HEIGHT);
+          // Dynamically scale wall width based on depth of the cut to maintain a smooth slope
+          const canyonDepth = Math.max(0, centerNaturalH - roadY);
+          const CANYON_WALL_WIDTH = 250 + canyonDepth * 1.5;
 
-        // Dynamically scale wall width based on depth of the cut to maintain a smooth slope
-        const canyonDepth = Math.max(0, centerNaturalH - roadY);
-        const CANYON_WALL_WIDTH = 250 + canyonDepth * 1.5;
+          if (distToRoad < CANYON_FLOOR_WIDTH + CANYON_WALL_WIDTH) {
+            // If the terrain is higher than the road, carve a canyon
+            if (n > roadY) {
+              let carveFactor = 0;
+              if (distToRoad <= CANYON_FLOOR_WIDTH) {
+                carveFactor = 1.0;
+              } else {
+                // Smoothly slope the canyon walls up to the natural terrain
+                const t = (distToRoad - CANYON_FLOOR_WIDTH) / CANYON_WALL_WIDTH;
+                carveFactor = 1.0 - t * t * (3 - 2 * t);
+              }
 
-        if (distToRoad < CANYON_FLOOR_WIDTH + CANYON_WALL_WIDTH) {
-          // If the terrain is higher than the road, carve a canyon
-          if (n > roadY) {
-            let carveFactor = 0;
-            if (distToRoad <= CANYON_FLOOR_WIDTH) {
-              carveFactor = 1.0;
-            } else {
-              // Smoothly slope the canyon walls up to the natural terrain
-              const t = (distToRoad - CANYON_FLOOR_WIDTH) / CANYON_WALL_WIDTH;
-              carveFactor = 1.0 - t * t * (3 - 2 * t);
-            }
-
-            if (carveFactor > 0) {
-              // roadY - 2.5 avoids clipping and z-fighting with the road deck
-              n = _lerp(n, roadY - 2.5, carveFactor);
+              if (carveFactor > 0) {
+                // roadY - 2.5 avoids clipping and z-fighting with the road deck
+                n = _lerp(n, roadY - 2.5, carveFactor);
+              }
             }
           }
         }
@@ -1372,6 +1435,23 @@
           if (n < targetIceLevel) {
             n = targetIceLevel;
             isIceShelf = true;
+
+            // Arctic pack ice terrain relief: pressure ridges, hummocks, and sastrugi
+            // Gives the vast frozen northern shelf natural texture and height variation instead of being flat
+            const hummock =
+              Math.abs(simplex.noise2D(x * 0.0012, z * 0.0012)) * 6.0;
+            const ridgeRaw = simplex.noise2D(
+              x * 0.0028 + 314,
+              z * 0.0028 + 159
+            );
+            const pressureRidge =
+              Math.pow(
+                Math.max(0, 1.0 - Math.abs(ridgeRaw) - 0.25) / 0.75,
+                1.4
+              ) * 14.0;
+            const sastrugi = simplex.noise2D(x * 0.006, z * 0.006) * 2.0;
+
+            n += (hummock + pressureRidge + sastrugi) * freezeFactor;
           }
         }
       }
