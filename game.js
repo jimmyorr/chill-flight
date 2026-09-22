@@ -70,6 +70,14 @@ inputManager.onDebugToggle = () => {
       url.searchParams.delete('debug');
     }
     window.history.replaceState(null, '', url.toString());
+    if (
+      isOpening &&
+      window.FullscreenMap &&
+      window.FullscreenMap.isOpen() &&
+      typeof window.FullscreenMap.syncUrlParams === 'function'
+    ) {
+      window.FullscreenMap.syncUrlParams();
+    }
   } catch (err) {
     console.error('Failed to update URL parameters:', err);
   }

@@ -191,7 +191,53 @@
     )
   );
   const _mapParamVal = getParam('map', null);
+  const _mapLatParam = getParam('mapLat', getParam('maplat', null));
+  const parsedMapLat = parseCoordinate(_mapLatParam, true);
+
+  const _mapLonParam = getParam(
+    'mapLon',
+    getParam('maplon', getParam('mapLong', getParam('maplong', null)))
+  );
+  const parsedMapLon = parseCoordinate(_mapLonParam, false);
+
+  const _mapXParam = getParam('mapX', getParam('mapx', null));
+  const START_MAP_X =
+    _mapXParam !== null && _mapXParam !== '' ? parseFloat(_mapXParam) : null;
+
+  const _mapZParam = getParam('mapZ', getParam('mapz', null));
+  const START_MAP_Z =
+    _mapZParam !== null && _mapZParam !== '' ? parseFloat(_mapZParam) : null;
+
+  const _mapZoomParam = getParam(
+    'mapZoom',
+    getParam('mapzoom', getParam('zoom', getParam('mapRadius', null)))
+  );
+  const parsedMapZoomVal =
+    _mapZoomParam !== null && _mapZoomParam !== ''
+      ? parseFloat(_mapZoomParam)
+      : null;
+  const START_MAP_ZOOM =
+    parsedMapZoomVal !== null &&
+    !isNaN(parsedMapZoomVal) &&
+    parsedMapZoomVal > 0
+      ? parsedMapZoomVal
+      : null;
+
+  const hasMapUrlParams =
+    parsedMapLat !== null ||
+    parsedMapLon !== null ||
+    (START_MAP_X !== null && !isNaN(START_MAP_X)) ||
+    (START_MAP_Z !== null && !isNaN(START_MAP_Z)) ||
+    START_MAP_ZOOM !== null;
+
+  const isFullscreenMapExplicitlyDisabled =
+    _fullscreenMapParam !== null &&
+    ['false', 'off', '0', 'no'].includes(
+      _fullscreenMapParam.trim().toLowerCase()
+    );
+
   const START_FULLSCREEN_MAP =
+    (!isFullscreenMapExplicitlyDisabled && hasMapUrlParams) ||
     _fullscreenMapParam === '' ||
     _fullscreenMapParam === '1' ||
     (_fullscreenMapParam !== null &&
@@ -979,22 +1025,28 @@
           let depthFactor = shapeFactor * (lakeRegion - 0.2) * westIntensity;
           if (depthFactor > 0) {
             let carveAmount = depthFactor * 800;
-            
+
             // --- ISLAND LOGIC ---
             // Only potential islands in deeper parts of the lake (towards the middle)
             if (depthFactor > 0.1) {
               // Not all large lakes have them
-              const islandRegion = simplex.noise2D(x * 0.0001 + 500, z * 0.0001 + 500);
+              const islandRegion = simplex.noise2D(
+                x * 0.0001 + 500,
+                z * 0.0001 + 500
+              );
               if (islandRegion > 0.2) {
-                const islandNoise = simplex.noise2D(x * 0.002 + 600, z * 0.002 + 600);
+                const islandNoise = simplex.noise2D(
+                  x * 0.002 + 600,
+                  z * 0.002 + 600
+                );
                 if (islandNoise > 0.5) {
-                   // Pull the terrain up to form an island
-                   const islandHeight = (islandNoise - 0.5) * 4000; 
-                   carveAmount -= islandHeight;
+                  // Pull the terrain up to form an island
+                  const islandHeight = (islandNoise - 0.5) * 4000;
+                  carveAmount -= islandHeight;
                 }
               }
             }
-            
+
             n -= carveAmount; // Carve down
           }
         }
@@ -1435,7 +1487,7 @@
     const freezeBoundaryZ =
       -20000 + simplex.noise2D(x * 0.0002, z * 0.0002) * 2000;
     if (z < freezeBoundaryZ) {
-      const freezeFactor = Math.min(1, (freezeBoundaryZ - z) / 5000);
+      const freezeFactor = Math.min(1, (freezeBoundaryZ - z) / 3000);
       if (freezeFactor > 0) {
         // Create an ice shelf that is strictly above water (WATER_LEVEL + 3 to WATER_LEVEL + 7)
         const targetIceLevel =
@@ -1681,6 +1733,11 @@
   exports.START_AUTOPILOT = START_AUTOPILOT;
   exports.START_MINIMAP = START_MINIMAP;
   exports.START_FULLSCREEN_MAP = START_FULLSCREEN_MAP;
+  exports.parsedMapLat = parsedMapLat;
+  exports.parsedMapLon = parsedMapLon;
+  exports.START_MAP_X = START_MAP_X;
+  exports.START_MAP_Z = START_MAP_Z;
+  exports.START_MAP_ZOOM = START_MAP_ZOOM;
   exports.START_BENCHMARK = START_BENCHMARK;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.ZENITH_COLOR = ZENITH_COLOR;

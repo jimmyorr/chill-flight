@@ -294,6 +294,7 @@
         updateCoordsDisplay();
         generateFsBgCanvas();
         renderFullscreenMap();
+        updateFsMapUrlParams(true);
         return;
       }
       if (e.key === '-' || e.key === '_') {
@@ -301,6 +302,7 @@
         updateCoordsDisplay();
         generateFsBgCanvas();
         renderFullscreenMap();
+        updateFsMapUrlParams(true);
         return;
       }
     }
@@ -443,6 +445,51 @@
   const FS_MIN_RADIUS = 1000;
   const FS_MAX_RADIUS = 35000;
 
+  const hasCustomMapCenter =
+    typeof ChillFlightLogic !== 'undefined' &&
+    (ChillFlightLogic.START_MAP_X !== null ||
+      ChillFlightLogic.START_MAP_Z !== null ||
+      ChillFlightLogic.parsedMapLat !== null ||
+      ChillFlightLogic.parsedMapLon !== null);
+
+  const hasCustomMapZoom =
+    typeof ChillFlightLogic !== 'undefined' &&
+    ChillFlightLogic.START_MAP_ZOOM !== null &&
+    !isNaN(ChillFlightLogic.START_MAP_ZOOM) &&
+    ChillFlightLogic.START_MAP_ZOOM > 0;
+
+  if (hasCustomMapZoom) {
+    const rawZoom = ChillFlightLogic.START_MAP_ZOOM;
+    if (rawZoom >= 100) {
+      fsViewRadius = Math.max(FS_MIN_RADIUS, Math.min(FS_MAX_RADIUS, rawZoom));
+    } else {
+      fsViewRadius = Math.max(
+        FS_MIN_RADIUS,
+        Math.min(FS_MAX_RADIUS, 7500 / rawZoom)
+      );
+    }
+  }
+
+  if (hasCustomMapCenter) {
+    if (
+      ChillFlightLogic.START_MAP_X !== null &&
+      !isNaN(ChillFlightLogic.START_MAP_X)
+    ) {
+      fsViewCenterX = ChillFlightLogic.START_MAP_X;
+    } else if (ChillFlightLogic.parsedMapLon !== null) {
+      fsViewCenterX = ChillFlightLogic.parsedMapLon * 5000;
+    }
+
+    if (
+      ChillFlightLogic.START_MAP_Z !== null &&
+      !isNaN(ChillFlightLogic.START_MAP_Z)
+    ) {
+      fsViewCenterZ = ChillFlightLogic.START_MAP_Z;
+    } else if (ChillFlightLogic.parsedMapLat !== null) {
+      fsViewCenterZ = -ChillFlightLogic.parsedMapLat * 5000;
+    }
+  }
+
   let fsCachedMinX = 0;
   let fsCachedMinZ = 0;
   let fsCachedWorldW = 0;
@@ -450,6 +497,67 @@
 
   let fsAnimFrameId = null;
   let fsRedrawTimer = null;
+  let fsUrlUpdateTimer = null;
+
+  function updateFsMapUrlParams(immediate = false) {
+    if (!fsVisible) return;
+    if (typeof updateUrlParams !== 'function') return;
+
+    const performUpdate = () => {
+      if (!fsVisible) return;
+      const lat = -fsViewCenterZ / 5000;
+      const lon = fsViewCenterX / 5000;
+
+      const formatCoord = (val, isLatitude) => {
+        const rounded = parseFloat(Math.abs(val).toFixed(3));
+        if (rounded === 0) return '0';
+        const dir = isLatitude ? (val >= 0 ? 'N' : 'S') : val >= 0 ? 'E' : 'W';
+        return `${rounded}${dir}`;
+      };
+
+      const zoomLevel = parseFloat((7500 / fsViewRadius).toFixed(2));
+
+      updateUrlParams(
+        {
+          fullscreenmap: 'true',
+          mapLat: formatCoord(lat, true),
+          mapLon: formatCoord(lon, false),
+          mapZoom: zoomLevel.toString(),
+        },
+        [
+          'fullscreenMap',
+          'worldmap',
+          'worldMap',
+          'fullscreen-map',
+          'world-map',
+          'maplat',
+          'maplon',
+          'maplong',
+          'mapLong',
+          'mapX',
+          'mapx',
+          'mapZ',
+          'mapz',
+          'mapzoom',
+          'zoom',
+        ]
+      );
+    };
+
+    if (immediate) {
+      if (fsUrlUpdateTimer) {
+        clearTimeout(fsUrlUpdateTimer);
+        fsUrlUpdateTimer = null;
+      }
+      performUpdate();
+    } else {
+      if (fsUrlUpdateTimer) clearTimeout(fsUrlUpdateTimer);
+      fsUrlUpdateTimer = setTimeout(() => {
+        fsUrlUpdateTimer = null;
+        performUpdate();
+      }, 150);
+    }
+  }
 
   const activePointers = new Map();
   let prevPinchDist = null;
@@ -944,7 +1052,7 @@
     fsCtx.restore();
   }
 
-  let fsHasCenteredOnPlane = false;
+  let fsHasCenteredOnPlane = hasCustomMapCenter;
 
   function fsAnimationLoop() {
     if (!fsVisible) return;
@@ -958,6 +1066,7 @@
       fsHasCenteredOnPlane = true;
       updateCoordsDisplay();
       generateFsBgCanvas();
+      updateFsMapUrlParams(true);
     }
     renderFullscreenMap();
     fsAnimFrameId = requestAnimationFrame(fsAnimationLoop);
@@ -970,12 +1079,16 @@
     if (fsOverlay) {
       fsOverlay.style.display = 'block';
     }
-    if (typeof planeGroup !== 'undefined' && planeGroup) {
-      fsViewCenterX = planeGroup.position.x;
-      fsViewCenterZ = planeGroup.position.z;
-      fsHasCenteredOnPlane = true;
+    if (!hasCustomMapCenter) {
+      if (typeof planeGroup !== 'undefined' && planeGroup) {
+        fsViewCenterX = planeGroup.position.x;
+        fsViewCenterZ = planeGroup.position.z;
+        fsHasCenteredOnPlane = true;
+      } else {
+        fsHasCenteredOnPlane = false;
+      }
     } else {
-      fsHasCenteredOnPlane = false;
+      fsHasCenteredOnPlane = true;
     }
     updateCoordsDisplay();
     resizeFsCanvas();
@@ -984,15 +1097,7 @@
     if (fsAnimFrameId) cancelAnimationFrame(fsAnimFrameId);
     fsAnimFrameId = requestAnimationFrame(fsAnimationLoop);
 
-    if (typeof updateUrlParams === 'function') {
-      updateUrlParams({fullscreenmap: 'true'}, [
-        'fullscreenMap',
-        'worldmap',
-        'worldMap',
-        'fullscreen-map',
-        'world-map',
-      ]);
-    }
+    updateFsMapUrlParams(true);
 
     if (typeof Achievements !== 'undefined') {
       Achievements.unlock('cartographer');
@@ -1012,6 +1117,10 @@
       cancelAnimationFrame(fsAnimFrameId);
       fsAnimFrameId = null;
     }
+    if (fsUrlUpdateTimer) {
+      clearTimeout(fsUrlUpdateTimer);
+      fsUrlUpdateTimer = null;
+    }
     activePointers.clear();
     isDragging = false;
     prevPinchDist = null;
@@ -1024,6 +1133,19 @@
         'worldMap',
         'fullscreen-map',
         'world-map',
+        'mapLat',
+        'maplat',
+        'mapLon',
+        'maplon',
+        'mapLong',
+        'maplong',
+        'mapX',
+        'mapx',
+        'mapZ',
+        'mapz',
+        'mapZoom',
+        'mapzoom',
+        'zoom',
       ]);
     }
   }
@@ -1078,6 +1200,7 @@
         updateCoordsDisplay();
         generateFsBgCanvas();
         renderFullscreenMap();
+        updateFsMapUrlParams(true);
       }
     });
 
@@ -1087,6 +1210,7 @@
       updateCoordsDisplay();
       generateFsBgCanvas();
       renderFullscreenMap();
+      updateFsMapUrlParams(true);
     });
 
     const zoomOutBtn = document.getElementById('fullscreen-map-zoom-out');
@@ -1095,6 +1219,7 @@
       updateCoordsDisplay();
       generateFsBgCanvas();
       renderFullscreenMap();
+      updateFsMapUrlParams(true);
     });
 
     // Pointer events for mobile pinch-zoom and drag-to-pan
@@ -1158,6 +1283,7 @@
 
         scheduleFsBgRedraw(80);
         renderFullscreenMap();
+        updateFsMapUrlParams(false);
       } else if (activePointers.size >= 2) {
         const pts = Array.from(activePointers.values());
         const currDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -1184,6 +1310,7 @@
         updateCoordsDisplay();
         scheduleFsBgRedraw(80);
         renderFullscreenMap();
+        updateFsMapUrlParams(false);
       }
     };
 
@@ -1210,6 +1337,7 @@
         fsCanvas.classList.remove('dragging');
         generateFsBgCanvas();
         renderFullscreenMap();
+        updateFsMapUrlParams(true);
       }
     };
 
@@ -1230,6 +1358,7 @@
         updateCoordsDisplay();
         scheduleFsBgRedraw(80);
         renderFullscreenMap();
+        updateFsMapUrlParams(false);
       },
       {passive: false}
     );
@@ -1251,6 +1380,7 @@
       updateCoordsDisplay();
       generateFsBgCanvas();
       renderFullscreenMap();
+      updateFsMapUrlParams(true);
     });
 
     window.addEventListener('resize', () => {
@@ -1274,6 +1404,9 @@
     },
     isOpen: function () {
       return fsVisible;
+    },
+    syncUrlParams: function () {
+      updateFsMapUrlParams(true);
     },
   };
 
