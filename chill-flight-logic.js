@@ -481,11 +481,32 @@
     return dirs[sector];
   }
 
+  const MAP_WIDTH = 120000;
+  const wrapRadius = MAP_WIDTH / (Math.PI * 2);
+
+  // Cylinder-wrapped 3D noise: maps the X-axis onto a cylinder so that
+  // x = 0 and x = MAP_WIDTH sample the same noise, eliminating the wrap seam.
+  // The callback receives (nx, ny) — the cylinder-surface coordinates — and
+  // should return a simplex.noise3D(...) call that uses them in place of raw x.
+  function cylNoise(x, fn) {
+    const angle = (x / MAP_WIDTH) * Math.PI * 2;
+    const nx = Math.cos(angle) * wrapRadius;
+    const ny = Math.sin(angle) * wrapRadius;
+    return fn(nx, ny);
+  }
+
   // --- BIOME ---
   // Returns a biome value in [-1, 1] for a given world (x, z) position.
   // Requires a simplex noise object with a noise2D(x, y) method.
   function getBiome(x, z, simplex) {
-    let noise = simplex.noise2D(x * 0.00005 + 1000, z * 0.00005 + 1000) * 0.5;
+    let noise =
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(
+          nx * 0.00005 + 1000,
+          z * 0.00005 + 1000,
+          ny * 0.00005 + 1000
+        )
+      ) * 0.5;
     const mapScale = 10000;
     let biomeBase = 0;
 
@@ -511,7 +532,12 @@
         // Fracture noise only applies in the extended South-East zone
         const xFade = Math.min(1, x / 5000);
         const fractureNoise =
-          simplex.noise2D(x * 0.00015, z * 0.00015) * 0.5 * xFade * zFade;
+          cylNoise(x, (nx, ny) =>
+            simplex.noise3D(nx * 0.00015, z * 0.00015, ny * 0.00015)
+          ) *
+          0.5 *
+          xFade *
+          zFade;
 
         eastDamp = Math.max(0, Math.min(1, eastDamp + fractureNoise));
 
@@ -622,6 +648,21 @@
     // Always skip feature blocks using conditional checks instead of returning early.
     // =========================================================================
 
+    // --- DOMAIN WARPING ---
+    // Warp coordinates for terrain noise sampling — creates organic coastlines
+    // and natural-looking terrain by distorting the noise grid.
+    const dwFactor = 1000;
+    const dwX =
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0002, z * 0.0002, ny * 0.0002)
+      ) * dwFactor;
+    const dwZ =
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0002, z * 0.0002 + 123.4, ny * 0.0002)
+      ) * dwFactor;
+    x += dwX;
+    z += dwZ;
+
     const biome = getBiome(x, z, simplex);
 
     let heightScale = 150;
@@ -673,7 +714,10 @@
       offset = _lerp(offset, 120, westFactor);
 
       // 3. Inject new, low-frequency noise specifically for broad rolling hills
-      const rollingHills = simplex.noise2D(x * 0.0003, z * 0.0003) * 140;
+      const rollingHills =
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * 0.0003, z * 0.0003, ny * 0.0003)
+        ) * 140;
       offset += rollingHills * westFactor;
 
       // 4. Heavily dampen roughness and rockiness so the hills are smooth, not jagged
@@ -681,21 +725,44 @@
       rockiness *= 1 - westFactor * 0.95; // Was 0.9
     }
 
-    let n = simplex.noise2D(x * 0.001, z * 0.001) * heightScale * oceanDamping;
+    let n =
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.001, z * 0.001, ny * 0.001)
+      ) *
+      heightScale *
+      oceanDamping;
 
     if (biome > 0.2) {
       const t = Math.min(1, (biome - 0.2) * 3);
-      let ridge = 1.0 - Math.abs(simplex.noise2D(x * 0.0008, z * 0.0008));
+      let ridge =
+        1.0 -
+        Math.abs(
+          cylNoise(x, (nx, ny) =>
+            simplex.noise3D(nx * 0.0008, z * 0.0008, ny * 0.0008)
+          )
+        );
       n += (ridge * 220 - 100) * t * (1 - westFactor);
     }
 
-    n += simplex.noise2D(x * 0.003, z * 0.003) * roughness * oceanDamping;
-    n += simplex.noise2D(x * 0.01, z * 0.01) * rockiness * oceanDamping;
+    n +=
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.003, z * 0.003, ny * 0.003)
+      ) *
+      roughness *
+      oceanDamping;
+    n +=
+      cylNoise(x, (nx, ny) => simplex.noise3D(nx * 0.01, z * 0.01, ny * 0.01)) *
+      rockiness *
+      oceanDamping;
 
     if (biome < -0.4) {
-      const clusterChance = simplex.noise2D(x * 0.0002, z * 0.0002);
+      const clusterChance = cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0002, z * 0.0002, ny * 0.0002)
+      );
       if (clusterChance > 0.4) {
-        const islandNoise = simplex.noise2D(x * 0.005, z * 0.005);
+        const islandNoise = cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * 0.005, z * 0.005, ny * 0.005)
+        );
         if (islandNoise > 0) {
           n += islandNoise * 80 * (clusterChance - 0.4) * 2 * oceanDamping;
         }
@@ -724,20 +791,35 @@
       const finalFade = biomeFade * suppressionFactor;
 
       if (finalFade > 0) {
-        const islandRegion = simplex.noise2D(
-          x * 0.0001 + 500,
-          z * 0.0001 + 500
+        const islandRegion = cylNoise(x, (nx, ny) =>
+          simplex.noise3D(
+            nx * 0.0001 + 500,
+            z * 0.0001 + 500,
+            ny * 0.0001 + 500
+          )
         );
         // 0.1 keeps plenty of open ocean, but increases cluster frequency
         if (islandRegion > 0.1) {
           // Domain warping to create organic, jagged coastlines instead of round blobs
-          const warpX = simplex.noise2D(x * 0.0005, z * 0.0005) * 500;
+          const warpX =
+            cylNoise(x, (nx, ny) =>
+              simplex.noise3D(nx * 0.0005, z * 0.0005, ny * 0.0005)
+            ) * 500;
           const warpZ =
-            simplex.noise2D(x * 0.0005 + 100, z * 0.0005 + 100) * 500;
+            cylNoise(x, (nx, ny) =>
+              simplex.noise3D(
+                nx * 0.0005 + 100,
+                z * 0.0005 + 100,
+                ny * 0.0005 + 100
+              )
+            ) * 500;
 
-          const islandShape = simplex.noise2D(
-            (x + warpX) * 0.0003 + 1000,
-            (z + warpZ) * 0.0003 + 1000
+          const islandShape = cylNoise(x, (nx, ny) =>
+            simplex.noise3D(
+              (nx + warpX) * 0.0003 + 1000,
+              (z + warpZ) * 0.0003 + 1000,
+              (ny + warpX) * 0.0003 + 1000
+            )
           );
 
           // -0.2 makes the islands slightly larger within their clusters
@@ -758,14 +840,26 @@
                   Math.min(1.0, shapeFactor * 3.0) * 50 * heightFactor;
 
                 // Domain warping for organic, jagged tower contours
-                const kWarpX = simplex.noise2D(x * 0.0012, z * 0.0012) * 160;
+                const kWarpX =
+                  cylNoise(x, (nx, ny) =>
+                    simplex.noise3D(nx * 0.0012, z * 0.0012, ny * 0.0012)
+                  ) * 160;
                 const kWarpZ =
-                  simplex.noise2D(x * 0.0012 + 45.6, z * 0.0012 + 45.6) * 160;
+                  cylNoise(x, (nx, ny) =>
+                    simplex.noise3D(
+                      nx * 0.0012 + 45.6,
+                      z * 0.0012 + 45.6,
+                      ny * 0.0012 + 45.6
+                    )
+                  ) * 160;
 
                 // Tower noise defines the locations of individual monolithic pillars
-                const towerNoise = simplex.noise2D(
-                  (x + kWarpX) * 0.00075 + 300,
-                  (z + kWarpZ) * 0.00075 + 300
+                const towerNoise = cylNoise(x, (nx, ny) =>
+                  simplex.noise3D(
+                    (nx + kWarpX) * 0.00075 + 300,
+                    (z + kWarpZ) * 0.00075 + 300,
+                    (ny + kWarpX) * 0.00075 + 300
+                  )
                 );
 
                 let towerHeight = 0;
@@ -790,9 +884,12 @@
                 }
 
                 // Secondary solitary sea stacks in the nearby water
-                const stackNoise = simplex.noise2D(
-                  x * 0.002 + 777,
-                  z * 0.002 + 777
+                const stackNoise = cylNoise(x, (nx, ny) =>
+                  simplex.noise3D(
+                    nx * 0.002 + 777,
+                    z * 0.002 + 777,
+                    ny * 0.002 + 777
+                  )
                 );
                 if (stackNoise > 0.42) {
                   const stackNorm = (stackNoise - 0.42) / 0.58;
@@ -806,7 +903,11 @@
 
                 // Fine surface crag & jungle canopy roughness
                 const canopy =
-                  simplex.noise2D(x * 0.0035, z * 0.0035) * 45 * heightFactor;
+                  cylNoise(x, (nx, ny) =>
+                    simplex.noise3D(nx * 0.0035, z * 0.0035, ny * 0.0035)
+                  ) *
+                  45 *
+                  heightFactor;
 
                 n += baseShelf + towerHeight + canopy;
               } else if (archetype === 'caldera') {
@@ -818,19 +919,33 @@
 
                 // Volcanic radial erosion fluting
                 const gullyNoise =
-                  1.0 - Math.abs(simplex.noise2D(x * 0.0014, z * 0.0014));
+                  1.0 -
+                  Math.abs(
+                    cylNoise(x, (nx, ny) =>
+                      simplex.noise3D(nx * 0.0014, z * 0.0014, ny * 0.0014)
+                    )
+                  );
                 const gully = gullyNoise * gullyNoise * 140 * heightFactor;
 
                 // Organic rim variation
                 const rimWobble =
-                  simplex.noise2D(x * 0.00075 + 111, z * 0.00075 + 111) *
+                  cylNoise(x, (nx, ny) =>
+                    simplex.noise3D(
+                      nx * 0.00075 + 111,
+                      z * 0.00075 + 111,
+                      ny * 0.00075 + 111
+                    )
+                  ) *
                   110 *
                   heightFactor;
 
                 // Natural sea breach on one side
-                const breachNoise = simplex.noise2D(
-                  x * 0.00045 + 500,
-                  z * 0.00045 + 500
+                const breachNoise = cylNoise(x, (nx, ny) =>
+                  simplex.noise3D(
+                    nx * 0.00045 + 500,
+                    z * 0.00045 + 500,
+                    ny * 0.00045 + 500
+                  )
                 );
                 const breachDip =
                   Math.max(0, breachNoise - 0.28) * 350 * heightFactor;
@@ -874,7 +989,11 @@
                 }
 
                 const ashDetail =
-                  simplex.noise2D(x * 0.003, z * 0.003) * 35 * heightFactor;
+                  cylNoise(x, (nx, ny) =>
+                    simplex.noise3D(nx * 0.003, z * 0.003, ny * 0.003)
+                  ) *
+                  35 *
+                  heightFactor;
                 n += mountainBase + calderaHeight + ashDetail;
               } else if (archetype === 'atoll') {
                 // --- 3. SUNKEN ATOLLS / BARRIER RINGS ---
@@ -902,9 +1021,12 @@
                 const ringMask = ringT * ringT * (3 - 2 * ringT);
 
                 // Tidal passes / channels breaking the ring into distinct tropical motus (islets)
-                const passNoise = simplex.noise2D(
-                  x * 0.0018 + 444,
-                  z * 0.0018 + 444
+                const passNoise = cylNoise(x, (nx, ny) =>
+                  simplex.noise3D(
+                    nx * 0.0018 + 444,
+                    z * 0.0018 + 444,
+                    ny * 0.0018 + 444
+                  )
                 );
                 const motuFactor = Math.max(0, passNoise + 0.15);
 
@@ -917,9 +1039,12 @@
                 // Interior motu ridge: rugged jungle spine scaled by heightFactor (same
                 // approach as karst/caldera) so it actually reaches green-zone elevations.
                 // Uses ridged noise (1 - |n|) for steep sheer sides.
-                const ridgeRaw = simplex.noise2D(
-                  x * 0.0032 + 222,
-                  z * 0.0032 + 222
+                const ridgeRaw = cylNoise(x, (nx, ny) =>
+                  simplex.noise3D(
+                    nx * 0.0032 + 222,
+                    z * 0.0032 + 222,
+                    ny * 0.0032 + 222
+                  )
                 );
                 const ridgeNoise = 1.0 - Math.abs(ridgeRaw);
                 const ridgeSharp = Math.pow(
@@ -939,9 +1064,12 @@
                 let volcanicPeak = 0;
                 if (shapeFactor > 0.54) {
                   const peakNorm = Math.min(1.0, (shapeFactor - 0.54) / 0.38);
-                  const peakRaw = simplex.noise2D(
-                    x * 0.003 + 555,
-                    z * 0.003 + 555
+                  const peakRaw = cylNoise(x, (nx, ny) =>
+                    simplex.noise3D(
+                      nx * 0.003 + 555,
+                      z * 0.003 + 555,
+                      ny * 0.003 + 555
+                    )
                   );
                   const peakNoise = 1.0 - Math.abs(peakRaw);
                   if (peakNoise > 0.28) {
@@ -969,9 +1097,12 @@
 
                   // Isolated sandbanks or small coral pinnacles (bommies) in the center of the lagoon
                   if (shapeFactor > 0.65) {
-                    const pinnacleNoise = simplex.noise2D(
-                      x * 0.0025 + 888,
-                      z * 0.0025 + 888
+                    const pinnacleNoise = cylNoise(x, (nx, ny) =>
+                      simplex.noise3D(
+                        nx * 0.0025 + 888,
+                        z * 0.0025 + 888,
+                        ny * 0.0025 + 888
+                      )
                     );
                     if (pinnacleNoise > 0.25) {
                       lagoonCarve -=
@@ -982,7 +1113,11 @@
 
                 // Fine sand dunes and beach berms
                 const sandDunes =
-                  simplex.noise2D(x * 0.006, z * 0.006) * 3.0 * ringMask;
+                  cylNoise(x, (nx, ny) =>
+                    simplex.noise3D(nx * 0.006, z * 0.006, ny * 0.006)
+                  ) *
+                  3.0 *
+                  ringMask;
 
                 n +=
                   reefPlatform +
@@ -995,7 +1130,12 @@
                 // Standard ridged mountain islands (fallback until Caldera & Atoll are implemented)
                 // Add ridged noise for jagged peaks
                 const ridgeNoise =
-                  1.0 - Math.abs(simplex.noise2D(x * 0.001, z * 0.001));
+                  1.0 -
+                  Math.abs(
+                    cylNoise(x, (nx, ny) =>
+                      simplex.noise3D(nx * 0.001, z * 0.001, ny * 0.001)
+                    )
+                  );
                 const ruggedness = ridgeNoise * ridgeNoise; // Sharpen ridges
 
                 // Base height + mountain peaks
@@ -1004,7 +1144,11 @@
 
                 // Small scale surface roughness
                 islandHeight +=
-                  simplex.noise2D(x * 0.003, z * 0.003) * 150 * heightFactor;
+                  cylNoise(x, (nx, ny) =>
+                    simplex.noise3D(nx * 0.003, z * 0.003, ny * 0.003)
+                  ) *
+                  150 *
+                  heightFactor;
 
                 n += islandHeight;
               }
@@ -1016,9 +1160,17 @@
 
     // --- LARGE LAKES LOGIC (West) ---
     if (x < -3000) {
-      const lakeRegion = simplex.noise2D(x * 0.0001 + 200, z * 0.0001 + 200);
+      const lakeRegion = cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0001 + 200, z * 0.0001 + 200, ny * 0.0001 + 200)
+      );
       if (lakeRegion > 0.2) {
-        const lakeShape = simplex.noise2D(x * 0.0003 + 300, z * 0.0003 + 300);
+        const lakeShape = cylNoise(x, (nx, ny) =>
+          simplex.noise3D(
+            nx * 0.0003 + 300,
+            z * 0.0003 + 300,
+            ny * 0.0003 + 300
+          )
+        );
         if (lakeShape > -0.1) {
           const westIntensity = Math.min(1, (-x - 3000) / 7000);
           const shapeFactor = Math.max(0, lakeShape + 0.1);
@@ -1030,14 +1182,20 @@
             // Only potential islands in deeper parts of the lake (towards the middle)
             if (depthFactor > 0.1) {
               // Not all large lakes have them
-              const islandRegion = simplex.noise2D(
-                x * 0.0001 + 500,
-                z * 0.0001 + 500
+              const islandRegion = cylNoise(x, (nx, ny) =>
+                simplex.noise3D(
+                  nx * 0.0001 + 500,
+                  z * 0.0001 + 500,
+                  ny * 0.0001 + 500
+                )
               );
               if (islandRegion > 0.2) {
-                const islandNoise = simplex.noise2D(
-                  x * 0.002 + 600,
-                  z * 0.002 + 600
+                const islandNoise = cylNoise(x, (nx, ny) =>
+                  simplex.noise3D(
+                    nx * 0.002 + 600,
+                    z * 0.002 + 600,
+                    ny * 0.002 + 600
+                  )
                 );
                 if (islandNoise > 0.5) {
                   // Pull the terrain up to form an island
@@ -1075,12 +1233,26 @@
 
       if (x < xStart) {
         // Low-frequency meandering for the range center
-        const ridgeMeander = simplex.noise2D(x * 0.0001 + rangeLat * 100, 123);
+        const ridgeMeander = cylNoise(x, (nx, ny) =>
+          simplex.noise3D(
+            nx * 0.0001 + rangeLat * 100,
+            123,
+            ny * 0.0001 + rangeLat * 100
+          )
+        );
         const currentZCenter = zCenterBase + ridgeMeander * 2000;
 
         // Vary mountain presence - some areas have peaks, others are just foothills
         const presenceMod =
-          0.5 + simplex.noise2D(x * 0.0002 + rangeLat * 50, 789) * 0.5; // [0, 1]
+          0.5 +
+          cylNoise(x, (nx, ny) =>
+            simplex.noise3D(
+              nx * 0.0002 + rangeLat * 50,
+              789,
+              ny * 0.0002 + rangeLat * 50
+            )
+          ) *
+            0.5; // [0, 1]
 
         const dxRange = xStart - x;
         const fadeIn = Math.min(1, dxRange / 5000);
@@ -1096,9 +1268,12 @@
         const spurRidge =
           1.0 -
           Math.abs(
-            simplex.noise2D(
-              spurCoord * spurFreq + rangeLat * 23.7,
-              dist * 0.0004 + 127.3
+            cylNoise(spurCoord, (nx, ny) =>
+              simplex.noise3D(
+                nx * spurFreq + rangeLat * 23.7,
+                dist * 0.0004 + 127.3,
+                ny * spurFreq + rangeLat * 23.7
+              )
             )
           );
         const spurStrength = Math.pow(spurRidge, 1.4);
@@ -1143,12 +1318,22 @@
             const foothillEnvelope =
               foothillT * foothillT * (3 - 2 * foothillT);
             const foothillNoise =
-              simplex.noise2D(
-                x * 0.0008 + rangeLat * 31.2,
-                z * 0.0008 + rangeLat * 54.1
+              cylNoise(x, (nx, ny) =>
+                simplex.noise3D(
+                  nx * 0.0008 + rangeLat * 31.2,
+                  z * 0.0008 + rangeLat * 54.1,
+                  ny * 0.0008 + rangeLat * 31.2
+                )
               ) *
                 0.65 +
-              simplex.noise2D(x * 0.0018 + 73.1, z * 0.0018 + 89.2) * 0.35;
+              cylNoise(x, (nx, ny) =>
+                simplex.noise3D(
+                  nx * 0.0018 + 73.1,
+                  z * 0.0018 + 89.2,
+                  ny * 0.0018 + 73.1
+                )
+              ) *
+                0.35;
             foothillHeight =
               Math.max(0, foothillNoise + 0.15) * 150 * foothillEnvelope;
           }
@@ -1161,27 +1346,57 @@
           } else {
             // Domain warping curves ridges into natural serpentine mountain crests
             const warpX =
-              simplex.noise2D(x * 0.0004 + rangeLat * 12.3, z * 0.0004) * 350;
+              cylNoise(x, (nx, ny) =>
+                simplex.noise3D(
+                  nx * 0.0004 + rangeLat * 12.3,
+                  z * 0.0004,
+                  ny * 0.0004 + rangeLat * 12.3
+                )
+              ) * 350;
             const warpZ =
-              simplex.noise2D(x * 0.0004, z * 0.0004 + rangeLat * 34.5) * 350;
+              cylNoise(x, (nx, ny) =>
+                simplex.noise3D(
+                  nx * 0.0004,
+                  z * 0.0004 + rangeLat * 34.5,
+                  ny * 0.0004
+                )
+              ) * 350;
             const qx = x + warpX;
             const qz = z + warpZ;
 
             // 3-octave ridged multifractal: broad massifs -> arêtes -> crags
-            let r1 = 1.0 - Math.abs(simplex.noise2D(qx * 0.0007, qz * 0.0007));
+            let r1 =
+              1.0 -
+              Math.abs(
+                cylNoise(qx, (nx, ny) =>
+                  simplex.noise3D(nx * 0.0007, qz * 0.0007, ny * 0.0007)
+                )
+              );
             r1 = Math.pow(r1, 1.3);
 
             let r2 =
               1.0 -
               Math.abs(
-                simplex.noise2D(qx * 0.0016 + 127.1, qz * 0.0016 + 311.7)
+                cylNoise(qx, (nx, ny) =>
+                  simplex.noise3D(
+                    nx * 0.0016 + 127.1,
+                    qz * 0.0016 + 311.7,
+                    ny * 0.0016 + 127.1
+                  )
+                )
               );
             r2 = Math.pow(r2, 1.4);
 
             let r3 =
               1.0 -
               Math.abs(
-                simplex.noise2D(qx * 0.0035 + 241.3, qz * 0.0035 + 189.5)
+                cylNoise(qx, (nx, ny) =>
+                  simplex.noise3D(
+                    nx * 0.0035 + 241.3,
+                    qz * 0.0035 + 189.5,
+                    ny * 0.0035 + 241.3
+                  )
+                )
               );
 
             // Multifractal modulation: fine arête gullies crest along the main peaks
@@ -1205,9 +1420,12 @@
 
           // --- VALLEY LOGIC ---
           // Introduced occasional valleys using low-frequency noise.
-          const valleyNoise = simplex.noise2D(
-            x * 0.00012 + rangeLat * 77,
-            z * 0.00012 + rangeLat * 88
+          const valleyNoise = cylNoise(x, (nx, ny) =>
+            simplex.noise3D(
+              nx * 0.00012 + rangeLat * 77,
+              z * 0.00012 + rangeLat * 88,
+              ny * 0.00012 + rangeLat * 77
+            )
           );
           // Map noise [-1, 1] to a factor where most of the noise (above -0.5) is 1.0 (mountain present),
           // and values below -0.5 dip into valleys (mountain absent).
@@ -1236,7 +1454,10 @@
       const distV = Math.sqrt(distSqV);
 
       // Add noise to the distance to make the shape irregular (domain warping)
-      const warpNoise = simplex.noise2D(x * 0.0005, z * 0.0005) * 200;
+      const warpNoise =
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * 0.0005, z * 0.0005, ny * 0.0005)
+        ) * 200;
       const warpedDistSq = Math.pow(distV + warpNoise, 2);
 
       // Main Peak (Gaussian) - Wider base (sigma = 700 instead of 500)
@@ -1283,13 +1504,17 @@
 
           let riverWidth, riverBankWidth;
           if (type === 'major_river') {
-            const widthNoise = simplex.noise2D(x * 0.0005, 200);
+            const widthNoise = cylNoise(x, (nx, ny) =>
+              simplex.noise3D(nx * 0.0005, 200, ny * 0.0005)
+            );
             const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
             riverWidth = 120 + widthVariation * 180; // Min 120, max 300
             riverBankWidth = 100 + widthVariation * 100;
           } else {
             // Smaller rivers
-            const widthNoise = simplex.noise2D(x * 0.0008, l * 10.0);
+            const widthNoise = cylNoise(x, (nx, ny) =>
+              simplex.noise3D(nx * 0.0008, l * 10.0, ny * 0.0008)
+            );
             const widthVariation = (widthNoise + 1) * 0.5;
             riverWidth = 100 + widthVariation * 100; // Min 100, max 200
             riverBankWidth = 60 + widthVariation * 40;
@@ -1389,36 +1614,82 @@
       const ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
 
       const warpStrength = Math.max(0.3, ef) * 3000;
-      const wx1 = simplex.noise2D(x * 0.0002, z * 0.0002 + 77.3) * warpStrength;
-      const wz1 = simplex.noise2D(x * 0.0002 + 33.1, z * 0.0002) * warpStrength;
+      const wx1 =
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * 0.0002, z * 0.0002 + 77.3, ny * 0.0002)
+        ) * warpStrength;
+      const wz1 =
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * 0.0002 + 33.1, z * 0.0002, ny * 0.0002 + 33.1)
+        ) * warpStrength;
       const wx2 =
-        simplex.noise2D((x + wx1) * 0.00015, (z + wz1) * 0.00015 + 11.5) *
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(
+            (nx + wx1) * 0.00015,
+            (z + wz1) * 0.00015 + 11.5,
+            (ny + wx1) * 0.00015
+          )
+        ) *
         warpStrength *
         0.5;
       const wz2 =
-        simplex.noise2D((x + wx1) * 0.00015 + 55.2, (z + wz1) * 0.00015) *
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(
+            (nx + wx1) * 0.00015 + 55.2,
+            (z + wz1) * 0.00015,
+            (ny + wx1) * 0.00015 + 55.2
+          )
+        ) *
         warpStrength *
         0.5;
       // Medium-frequency organic coastal warp to break up grid alignment
       const wx3 =
-        simplex.noise2D((x + wx1) * 0.0008, (z + wz1) * 0.0008 + 91.2) * 500;
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(
+            (nx + wx1) * 0.0008,
+            (z + wz1) * 0.0008 + 91.2,
+            (ny + wx1) * 0.0008
+          )
+        ) * 500;
       const wz3 =
-        simplex.noise2D((x + wx1) * 0.0008 + 41.8, (z + wz1) * 0.0008) * 500;
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(
+            (nx + wx1) * 0.0008 + 41.8,
+            (z + wz1) * 0.0008,
+            (ny + wx1) * 0.0008 + 41.8
+          )
+        ) * 500;
       const xw = x + wx1 + wx2 + wx3;
       const zw = z + wz1 + wz2 + wz3;
 
-      const broadBase = simplex.noise2D(xw * 0.0003, zw * 0.0003);
+      const broadBase = cylNoise(xw, (nx, ny) =>
+        simplex.noise3D(nx * 0.0003, zw * 0.0003, ny * 0.0003)
+      );
 
       if (broadBase > 0.05) {
         const shapeFactor = Math.min(1.0, (broadBase - 0.05) * 4.0);
         const ridge1 =
-          1.0 - Math.abs(simplex.noise2D(xw * 0.0006, zw * 0.0006));
+          1.0 -
+          Math.abs(
+            cylNoise(xw, (nx, ny) =>
+              simplex.noise3D(nx * 0.0006, zw * 0.0006, ny * 0.0006)
+            )
+          );
         const ridge2 =
-          1.0 - Math.abs(simplex.noise2D(xw * 0.0012, zw * 0.0012));
+          1.0 -
+          Math.abs(
+            cylNoise(xw, (nx, ny) =>
+              simplex.noise3D(nx * 0.0012, zw * 0.0012, ny * 0.0012)
+            )
+          );
         const ridgeVal = ridge1 * 0.6 + ridge2 * 0.25 + broadBase * 0.15;
         // Surface roughness at 0.003 frequency to give organic low-poly detail
         const roughness =
-          simplex.noise2D(xw * 0.003, zw * 0.003) * 40 * shapeFactor;
+          cylNoise(xw, (nx, ny) =>
+            simplex.noise3D(nx * 0.003, zw * 0.003, ny * 0.003)
+          ) *
+          40 *
+          shapeFactor;
         const heightScale = _lerp(260, 600, ef);
         n += (ridgeVal * heightScale + roughness + 25) * shapeFactor * ef;
       } else {
@@ -1454,7 +1725,9 @@
       n = _lerp(n, terracedN, ef * 0.8);
 
       // 2. Giant Crystalline Spires (High-frequency, sharp, tall)
-      const spireNoise = simplex.noise2D(x * 0.0015, z * 0.0015);
+      const spireNoise = cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0015, z * 0.0015, ny * 0.0015)
+      );
       if (spireNoise > 0.5) {
         // Square the noise to make the peaks very narrow and sharp
         const spikeHeight = Math.pow((spireNoise - 0.5) * 2.0, 3) * 3000;
@@ -1462,9 +1735,19 @@
       }
 
       // 3. Endless Chasms (Deep, narrow fractures intersecting)
-      const chasm1 = Math.abs(simplex.noise2D(x * 0.0008, z * 0.0008));
+      const chasm1 = Math.abs(
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * 0.0008, z * 0.0008, ny * 0.0008)
+        )
+      );
       const chasm2 = Math.abs(
-        simplex.noise2D(x * 0.0008 + 100, z * 0.0008 + 100)
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(
+            nx * 0.0008 + 100,
+            z * 0.0008 + 100,
+            ny * 0.0008 + 100
+          )
+        )
       );
       const minChasm = Math.min(chasm1, chasm2);
 
@@ -1485,7 +1768,11 @@
     let isIceShelf = false;
     // Start freezing around 4°N (Z=-20000), fully frozen ~5000 units later
     const freezeBoundaryZ =
-      -20000 + simplex.noise2D(x * 0.0002, z * 0.0002) * 2000;
+      -20000 +
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0002, z * 0.0002, ny * 0.0002)
+      ) *
+        2000;
     if (z < freezeBoundaryZ) {
       const freezeFactor = Math.min(1, (freezeBoundaryZ - z) / 3000);
       if (freezeFactor > 0) {
@@ -1493,12 +1780,22 @@
         const targetIceLevel =
           WATER_LEVEL +
           3 +
-          Math.abs(simplex.noise2D(x * 0.0005, z * 0.0005)) * 4;
+          Math.abs(
+            cylNoise(x, (nx, ny) =>
+              simplex.noise3D(nx * 0.0005, z * 0.0005, ny * 0.0005)
+            )
+          ) *
+            4;
 
         // Instead of lerping the height (which creates a gentle slope that z-fights with waves),
         // we use a noise threshold to create an organic, sharp ice cliff.
         // We use a low-frequency noise (0.0005) so the boundary doesn't alias/flicker on low-LOD chunks.
-        const edgeNoise = simplex.noise2D(x * 0.0005, z * 0.0005) * 0.5 + 0.5; // 0 to 1
+        const edgeNoise =
+          cylNoise(x, (nx, ny) =>
+            simplex.noise3D(nx * 0.0005, z * 0.0005, ny * 0.0005)
+          ) *
+            0.5 +
+          0.5; // 0 to 1
 
         if (freezeFactor > edgeNoise) {
           if (n < targetIceLevel) {
@@ -1508,17 +1805,27 @@
             // Arctic pack ice terrain relief: pressure ridges, hummocks, and sastrugi
             // Gives the vast frozen northern shelf natural texture and height variation instead of being flat
             const hummock =
-              Math.abs(simplex.noise2D(x * 0.0012, z * 0.0012)) * 6.0;
-            const ridgeRaw = simplex.noise2D(
-              x * 0.0028 + 314,
-              z * 0.0028 + 159
+              Math.abs(
+                cylNoise(x, (nx, ny) =>
+                  simplex.noise3D(nx * 0.0012, z * 0.0012, ny * 0.0012)
+                )
+              ) * 6.0;
+            const ridgeRaw = cylNoise(x, (nx, ny) =>
+              simplex.noise3D(
+                nx * 0.0028 + 314,
+                z * 0.0028 + 159,
+                ny * 0.0028 + 314
+              )
             );
             const pressureRidge =
               Math.pow(
                 Math.max(0, 1.0 - Math.abs(ridgeRaw) - 0.25) / 0.75,
                 1.4
               ) * 14.0;
-            const sastrugi = simplex.noise2D(x * 0.006, z * 0.006) * 2.0;
+            const sastrugi =
+              cylNoise(x, (nx, ny) =>
+                simplex.noise3D(nx * 0.006, z * 0.006, ny * 0.006)
+              ) * 2.0;
 
             n += (hummock + pressureRidge + sastrugi) * freezeFactor;
           }
@@ -1568,12 +1875,19 @@
 
     // Macro-meander: Massive, slow north/south shifting to break horizontal lines
     // Frequency 0.00002 means a wavelength of 50,000 units. Very smooth.
-    const macroMeander = simplex.noise2D(x * 0.00002, noiseOffset + 50) * 5000;
+    const macroMeander =
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.00002, noiseOffset + 50, ny * 0.00002)
+      ) * 5000;
     baseRiverZ += macroMeander;
 
     // Squiggle intensity factor: Changes slowly over 20,000 units
     const squiggleFactor =
-      (simplex.noise2D(x * 0.00005, noiseOffset + 100) + 1) * 0.5; // [0, 1]
+      (cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.00005, noiseOffset + 100, ny * 0.00005)
+      ) +
+        1) *
+      0.5; // [0, 1]
 
     if (l === 0) {
       // Equator river (massive main river)
@@ -1585,8 +1899,10 @@
 
       return (
         baseRiverZ +
-        simplex.noise2D(x * freq1, 0) * amp1 +
-        simplex.noise2D(x * freq2, 100) * amp2
+        cylNoise(x, (nx, ny) => simplex.noise3D(nx * freq1, 0, ny * freq1)) *
+          amp1 +
+        cylNoise(x, (nx, ny) => simplex.noise3D(nx * freq2, 100, ny * freq2)) *
+          amp2
       );
     } else {
       // Additional rivers
@@ -1598,8 +1914,14 @@
 
       return (
         baseRiverZ +
-        simplex.noise2D(x * freq1, noiseOffset) * amp1 +
-        simplex.noise2D(x * freq2, noiseOffset + 50) * amp2
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * freq1, noiseOffset, ny * freq1)
+        ) *
+          amp1 +
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * freq2, noiseOffset + 50, ny * freq2)
+        ) *
+          amp2
       );
     }
   }
@@ -1689,6 +2011,7 @@
   }
 
   exports.getBiome = getBiome;
+  exports.MAP_WIDTH = MAP_WIDTH;
   exports.getElevation = getElevation;
   exports.getRiverCenterZ = getRiverCenterZ;
   exports.getRoadCenterX = getRoadCenterX;
