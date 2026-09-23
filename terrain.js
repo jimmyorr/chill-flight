@@ -903,6 +903,28 @@ function createCactusGeometry() {
 const cactusGeo = createCactusGeometry();
 const cactusMat = createMaterial({color: 0x4caf50, flatShading: true});
 
+// Mushroom geometry and materials
+function createMushroomGeometry() {
+  const stalk = new THREE.CylinderGeometry(1.2, 1.8, 12, 8);
+  stalk.translate(0, 6, 0);
+
+  const cap = new THREE.SphereGeometry(
+    7,
+    12,
+    8,
+    0,
+    Math.PI * 2,
+    0,
+    Math.PI / 2
+  );
+  cap.scale(1, 0.6, 1);
+  cap.translate(0, 12, 0);
+
+  return {trunk: stalk, leaves: cap};
+}
+const mushroomGeos = createMushroomGeometry();
+const mushroomStalkMat = createMaterial({color: 0xdddddd, flatShading: true});
+
 // Lily pad geometry and material
 function createLilyPadGeometry() {
   // A flat cylinder with a slice removed (pacman shape)
@@ -3974,6 +3996,18 @@ globalInstancer.registerType(
   30000,
   true
 );
+globalInstancer.registerType(
+  'mushroomStalk',
+  mushroomGeos.trunk,
+  mushroomStalkMat
+);
+globalInstancer.registerType(
+  'mushroomCap',
+  mushroomGeos.leaves,
+  treeLeavesBaseMat,
+  30000,
+  true
+);
 globalInstancer.registerType('deadTrunk', deadTreeGeo, deadTreeMat);
 globalInstancer.registerType('rock', rockGeo, rockMat);
 globalInstancer.registerType('snowRock', rockGeo, snowRockMat);
@@ -4063,6 +4097,7 @@ function* generateChunk(chunkX, chunkZ) {
   const palmTreePositions = []; // Tropical
   const deadTreePositions = []; // Desert
   const snowTreePositions = [];
+  const mushroomTreePositions = [];
   const autumnTree1Positions = [];
   const autumnTree2Positions = [];
   const autumnTree3Positions = [];
@@ -4618,7 +4653,15 @@ function* generateChunk(chunkX, chunkZ) {
           const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
           const isSouthOf1N = worldZ > -5000;
 
-          if (distToVolcano < 3000 && rng() < 0.7) {
+          if (isEast && isAlienLand) {
+            const scale = 0.5 + rng() * 3.5; // Huge variety of sizes
+            mushroomTreePositions.push({
+              x: localX,
+              y: height,
+              z: localZ,
+              scale: scale,
+            });
+          } else if (distToVolcano < 3000 && rng() < 0.7) {
             yellowCortezTreePositions.push({x: localX, y: height, z: localZ});
           } else if (isIsland && isSouthOf1N) {
             palmTreePositions.push({x: localX, y: height, z: localZ});
@@ -5261,7 +5304,10 @@ function* generateChunk(chunkX, chunkZ) {
       const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
       const baseScale = 0.6 + Math.min(0.6, northInfluence * 0.5);
-      const scale = baseScale + rng() * (0.4 + rng() * 0.5);
+      const scale =
+        pos.scale !== undefined
+          ? pos.scale
+          : baseScale + rng() * (0.4 + rng() * 0.5);
 
       dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
       dummy.scale.set(scale, scale, scale);
@@ -5318,6 +5364,7 @@ function* generateChunk(chunkX, chunkZ) {
   renderTrees(autumnTree2Positions, 'decidTrunk', 'decidLeaves', 0xf39c12);
   renderTrees(autumnTree3Positions, 'decidTrunk', 'decidLeaves', 0xc0392b);
   renderTrees(yellowCortezTreePositions, 'decidTrunk', 'decidLeaves', 0xffeb3b);
+  renderTrees(mushroomTreePositions, 'mushroomStalk', 'mushroomCap', 0x9c27b0); // Vibrant purple caps
   renderTrees(
     japaneseMapleTreePositions,
     'japaneseMapleTrunk',
@@ -7273,6 +7320,7 @@ function* generateChunk(chunkX, chunkZ) {
       autumnTree3Positions.length,
     trees_cherry: cherryTreePositions.length,
     trees_yellow_cortez: yellowCortezTreePositions.length,
+    trees_mushroom: mushroomTreePositions.length,
     houses:
       housePositions.length +
       pagodaPositions.length +

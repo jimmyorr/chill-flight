@@ -193,6 +193,9 @@
         Cactus
       </button>
       <button class="model-btn" onclick="viewModel('bush', event)">Bush</button>
+      <button class="model-btn" onclick="viewModel('mushroom', event)">
+        Mushroom
+      </button>
       <button class="model-btn" onclick="viewModel('rock', event)">Rock</button>
       <button class="model-btn" onclick="viewModel('lily_pad', event)">
         Lily pad
@@ -410,6 +413,7 @@
           'glider',
           'twin',
           'twin-engine',
+          'mushroom',
         ].includes(type);
         document.getElementById('color-options').style.display = supportsColors
           ? 'block'
@@ -613,6 +617,38 @@
                 );
                 bMesh.position.x = xOffset;
                 previewGroup.add(bMesh);
+              });
+              break;
+            }
+            case 'mushroom': {
+              const variations = [-15, 0, 15];
+              variations.forEach((xOffset, i) => {
+                const stalk = new THREE.Mesh(
+                  mushroomGeos.trunk,
+                  mushroomStalkMat
+                );
+                const capPalettes = [
+                  0x9c27b0, 0xab47bc, 0x7b1fa2, 0x00bcd4, 0x26a69a, 0xe91e63,
+                ];
+                const baseHex = capPalettes[colorSeed % capPalettes.length];
+                const colorObj = new THREE.Color(baseHex);
+                const v = (i - 1) * 0.08;
+                colorObj.r = Math.max(0, Math.min(1, colorObj.r + v));
+                colorObj.g = Math.max(0, Math.min(1, colorObj.g + v));
+                colorObj.b = Math.max(0, Math.min(1, colorObj.b + v));
+
+                const cap = new THREE.Mesh(
+                  mushroomGeos.leaves,
+                  createMaterial({color: colorObj.getHex()})
+                );
+
+                const scale = [0.8, 1.2, 1.8][i];
+                stalk.scale.set(scale, scale, scale);
+                cap.scale.set(scale, scale, scale);
+
+                stalk.position.x = xOffset;
+                cap.position.x = xOffset;
+                previewGroup.add(stalk, cap);
               });
               break;
             }
