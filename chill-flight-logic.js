@@ -1606,12 +1606,16 @@
       }
     }
 
-    // --- EASTERN ALIEN BIOME (Beyond 10 degrees East) ---
+    // --- EASTERN ALIEN BIOME (Beyond 10 degrees East to 15 degrees East) ---
     // Swirling domain-warped ridges, organic shorelines, and alien sea basins
     const extremeEdge = 50000;
-    if (x > extremeEdge) {
+    if (x > extremeEdge && x < 75000) {
       const extremeFactor = Math.min(1.0, (x - extremeEdge) / 3000);
-      const ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
+      let ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
+
+      // Fade out alien biome towards the new coastline at 15.0E
+      const fadeOut = Math.min(1.0, Math.max(0, (75000 - x) / 10000)); // 0 at 75000, 1 at 65000
+      ef *= fadeOut;
 
       const warpStrength = Math.max(0.3, ef) * 3000;
       const wx1 =
@@ -1702,6 +1706,113 @@
           );
         }
       }
+
+      if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
+    }
+    // --- EASTERN PROCEDURAL COASTLINE & OPEN OCEAN (15.0E - 20.0E) ---
+    else if (x >= 75000) {
+      const coastFactor = Math.min(1.0, (x - 75000) / 25000); // 0 at 75000, 1 at 100000
+      const blendFactor = Math.min(1.0, (x - 75000) / 2500); // Smooth transition from mainland over 2500 units
+
+      // Intense Domain Warping for Micro Edges
+      const dwScale = 800;
+      // Change offsets to avoid symmetry with the west coast
+      const qx =
+        x +
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * 0.0006 + 99, z * 0.0006 + 99, ny * 0.0006 + 99)
+        ) *
+          dwScale;
+      const qz =
+        z +
+        cylNoise(x, (nx, ny) =>
+          simplex.noise3D(nx * 0.0006 - 33, z * 0.0006 - 33, ny * 0.0006 - 33)
+        ) *
+          dwScale;
+
+      // Macro Shape
+      const macroNoise = cylNoise(qx, (nx, ny) =>
+        simplex.noise3D(nx * 0.0001 + 55, qz * 0.0001 + 55, ny * 0.0001 + 55)
+      );
+      let coastHeight = 120 - coastFactor * 160 + macroNoise * 80;
+
+      // Fjords (Rias)
+      const fjordNoise =
+        1.0 -
+        Math.abs(
+          cylNoise(qx, (nx, ny) =>
+            simplex.noise3D(
+              nx * 0.0003 + 222,
+              qz * 0.0003 + 222,
+              ny * 0.0003 + 222
+            )
+          )
+        );
+      if (fjordNoise > 0.7) {
+        const carveT = (fjordNoise - 0.7) / 0.3;
+        const fjordDepth = Math.pow(carveT, 2.0) * 200;
+        coastHeight -= fjordDepth;
+      }
+
+      // Archipelagos
+      const islandRegion = cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0002 + 444, z * 0.0002 + 444, ny * 0.0002 + 444)
+      );
+      if (islandRegion > 0.3) {
+        const islandNoise = cylNoise(qx, (nx, ny) =>
+          simplex.noise3D(
+            nx * 0.0015 + 222,
+            qz * 0.0015 + 222,
+            ny * 0.0015 + 222
+          )
+        );
+        if (islandNoise > 0.3) {
+          const islandHeight = Math.pow((islandNoise - 0.3) / 0.7, 1.5) * 300;
+          coastHeight += islandHeight;
+        }
+      }
+
+      // Transitional Geometries
+      const distToSeaLevel = Math.abs(coastHeight - WATER_LEVEL);
+      if (distToSeaLevel < 15) {
+        const flatT = 1.0 - distToSeaLevel / 15;
+        const flatSmooth = flatT * flatT * (3 - 2 * flatT);
+        coastHeight = _lerp(coastHeight, WATER_LEVEL - 2, flatSmooth * 0.6);
+
+        const barrierNoise =
+          1.0 -
+          Math.abs(
+            cylNoise(qx, (nx, ny) =>
+              simplex.noise3D(
+                nx * 0.001 + 444,
+                qz * 0.001 + 444,
+                ny * 0.001 + 444
+              )
+            )
+          );
+        if (barrierNoise > 0.85) {
+          const barrierElev = Math.pow((barrierNoise - 0.85) / 0.15, 2.0) * 12;
+          coastHeight += barrierElev * flatSmooth;
+        }
+      }
+
+      // Surface roughness
+      if (coastHeight > WATER_LEVEL - 5) {
+        const roughness =
+          cylNoise(qx, (nx, ny) =>
+            simplex.noise3D(nx * 0.004 + 11, qz * 0.004 + 11, ny * 0.004 + 11)
+          ) * 30;
+        coastHeight += roughness;
+      }
+
+      // Open Ocean clamping
+      if (coastFactor >= 1.0) {
+        const deepFactor = Math.min(1.0, (x - 100000) / 10000);
+        coastHeight = _lerp(coastHeight, 30.0, deepFactor);
+      }
+
+      // Blend seamlessly with the preceding procedural terrain (n)
+      n = _lerp(n, coastHeight, blendFactor);
 
       if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
     }
