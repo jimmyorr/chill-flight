@@ -103,17 +103,17 @@ function updateFlightPhysics(delta, nowTime) {
 
     const tumbleIntensity = Math.min(1.5, Math.abs(verticalVelocity) / 300);
     planeGroup.rotation.x +=
-      (Math.sin(now * 0.002) + Math.cos(now * 0.0011)) *
+      (Math.sin(nowTime * 0.002) + Math.cos(nowTime * 0.0011)) *
       0.8 *
       tumbleIntensity *
       delta;
     planeGroup.rotation.z +=
-      (Math.cos(now * 0.0025) + Math.sin(now * 0.0017)) *
+      (Math.cos(nowTime * 0.0025) + Math.sin(nowTime * 0.0017)) *
       0.8 *
       tumbleIntensity *
       delta;
     planeGroup.rotation.y +=
-      (Math.sin(now * 0.0015) + Math.cos(now * 0.0009)) *
+      (Math.sin(nowTime * 0.0015) + Math.cos(nowTime * 0.0009)) *
       0.5 *
       tumbleIntensity *
       delta;

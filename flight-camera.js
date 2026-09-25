@@ -306,7 +306,7 @@ function updateFlightCamera(delta, nowTime) {
         1 - Math.pow(1 - 0.25, delta * 60)
       );
 
-      const progress = (now - introTransitionStartTime) / 1250;
+      const progress = (nowTime - introTransitionStartTime) / 1250;
       if (progress < 1) {
         // Ease In Out Cubic
         const easedProgress =
@@ -427,7 +427,7 @@ function updateFlightCamera(delta, nowTime) {
     Math.cos(baseMoonElev + moonWobbleY);
 
   // Update water shader uniform — the GPU handles all wave displacement
-  window.waterUniforms.uTime.value = now * 0.0015;
+  window.waterUniforms.uTime.value = nowTime * 0.0015;
 
   // Update global animation time for GPU-offloaded objects
   if (!window.animationUniforms) window.animationUniforms = {uTime: {value: 0}};
