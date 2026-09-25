@@ -51,3 +51,7 @@
 ## Communication rules
 
 - **No background task announcements**: To avoid sending separate, unprompted chat messages that bury important context, **never** run short commands like `npm run format` or `git add` asynchronously. Always set `WaitMsBeforeAsync` to a high value (e.g., `5000` or `10000`) for these tools so they complete synchronously within your turn. You can then provide a single, comprehensive response to the user.
+
+## ESLint & refactoring rules
+
+- **Strict refactoring verification**: When refactoring code, extracting functions, or changing variable scope, you MUST run ESLint with the `no-undef` and `no-use-before-define` rules explicitly elevated to errors (e.g., `npx eslint <file> --rule 'no-undef: error' --rule 'no-use-before-define: error' --quiet`) to ensure no variables were broken. The default repository configuration treats these as warnings, meaning they can easily be missed in the output without the `--quiet` flag and explicit error elevation.
