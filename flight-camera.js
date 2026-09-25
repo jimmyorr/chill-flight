@@ -391,17 +391,17 @@ function updateFlightCamera(delta, nowTime) {
   const declination = 0.409; // Summer tilt
   const hourAngle = timeOfDay + Math.PI;
 
-  const sunY =
+  sunY =
     Math.sin(latitude) * Math.sin(declination) +
     Math.cos(latitude) * Math.cos(declination) * Math.cos(hourAngle);
-  const sunX = -Math.cos(declination) * Math.sin(hourAngle);
-  const sunZ =
+  sunX = -Math.cos(declination) * Math.sin(hourAngle);
+  sunZ =
     Math.cos(latitude) * Math.sin(declination) -
     Math.sin(latitude) * Math.cos(declination) * Math.cos(hourAngle);
   // Spread dayFactor over a wider sun angle so sunrise/sunset lighting builds up gradually,
   // drawing out the visual transition rather than hitting full intensity right at 6:00 AM.
   // We must ensure the offset (-0.5) is deeper than dawnDuskFactor's fadeout (-0.4) to prevent abrupt clipping!
-  const dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) / 0.8)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0.3 (~7:15 AM)
+  dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) / 0.8)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0.3 (~7:15 AM)
 
   // Feed dayFactor to the performance monitor for shadow night culling
   performanceMonitor.updateDayFactor(dayFactor);
@@ -418,11 +418,11 @@ function updateFlightCamera(delta, nowTime) {
   const moonWobbleX = Math.sin(moonWobbleSpeed) * 0.03;
   const moonWobbleY = Math.cos(moonWobbleSpeed) * 0.015;
 
-  const moonY = Math.sin(baseMoonElev + moonWobbleY);
-  const moonX =
+  moonY = Math.sin(baseMoonElev + moonWobbleY);
+  moonX =
     Math.cos(baseMoonAngle + moonWobbleX) *
     Math.cos(baseMoonElev + moonWobbleY);
-  const moonZ =
+  moonZ =
     Math.sin(baseMoonAngle + moonWobbleX) *
     Math.cos(baseMoonElev + moonWobbleY);
 

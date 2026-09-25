@@ -3,6 +3,11 @@ var latScale = 5000;
 var currentLatDeg = 0;
 var currentLatRad = 0;
 
+var sunX = 0, sunY = 0, sunZ = 0;
+var moonX = 0, moonY = 0, moonZ = 0;
+var dayFactor = 0;
+
+
 var passedServerNow = 0;
 var secondsInCycle = 0;
 var currentWarpedProgress = 0;
