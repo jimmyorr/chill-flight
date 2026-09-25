@@ -1,4 +1,14 @@
 var isVRPresenting = false;
+var latScale = 5000;
+var currentLatDeg = 0;
+var currentLatRad = 0;
+
+var passedServerNow = 0;
+var secondsInCycle = 0;
+var currentWarpedProgress = 0;
+var daySpeedMultiplier =
+  typeof daySpeedMultiplier !== 'undefined' ? daySpeedMultiplier : 1;
+
 var isBarrelRolling = false;
 var isDoingFullBarrelRoll = false;
 var isClampedRoll = false;
@@ -2487,9 +2497,6 @@ function animate() {
 
   const CYCLE_DURATION_MS = 360000;
 
-  let secondsInCycle, currentWarpedProgress;
-  let passedServerNow;
-
   const useVirtualClock =
     isDebugMode ||
     window.manualTimeOfDay !== undefined ||
@@ -2524,9 +2531,9 @@ function animate() {
     secondsInCycle = (serverNow % CYCLE_DURATION_MS) / 1000;
   }
 
-  const latScale = 5000;
-  const currentLatDeg = -planeGroup.position.z / latScale;
-  const currentLatRad = (currentLatDeg * Math.PI) / 180;
+  latScale = 5000;
+  currentLatDeg = -planeGroup.position.z / latScale;
+  currentLatRad = (currentLatDeg * Math.PI) / 180;
 
   currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(
     secondsInCycle,
