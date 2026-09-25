@@ -6,7 +6,6 @@ var currentLatRad = 0;
 var passedServerNow = 0;
 var secondsInCycle = 0;
 var currentWarpedProgress = 0;
-var daySpeedMultiplier =
   typeof daySpeedMultiplier !== 'undefined' ? daySpeedMultiplier : 1;
 
 var isBarrelRolling = false;
