@@ -144,23 +144,7 @@ inputManager.onMusicToggle = () => {
   }
 };
 inputManager.onThrottleChange = (delta) => {
-  const maxSpeed =
-    typeof window.getMaxFlightSpeedMult === 'function'
-      ? window.getMaxFlightSpeedMult()
-      : 3.3333333333333335;
-  if (delta > 0) {
-    if (targetFlightSpeed === 0) {
-      targetFlightSpeed = Math.max(0.1, delta);
-    } else {
-      targetFlightSpeed += delta;
-    }
-  } else if (delta < 0) {
-    targetFlightSpeed += delta;
-    if (targetFlightSpeed < 0.05) {
-      targetFlightSpeed = 0;
-    }
-  }
-  targetFlightSpeed = Math.max(0, Math.min(maxSpeed, targetFlightSpeed));
+  applyThrottleDelta(delta);
 };
 inputManager.onKeyRelease = (action, heldTime) => {
   if ((action === 'ArrowLeft' || action === 'ArrowRight') && heldTime < 200) {
@@ -221,6 +205,30 @@ let stoppedStartTime = null;
 let targetPitch = 0;
 let targetRoll = 0;
 targetFlightSpeed = flightSpeedMultiplier; // Initialize based on current vehicle speed multiplier
+
+// Apply a throttle delta: snap to 0 near rest, and give a minimum kick
+// when starting from a standstill so small inputs (e.g. VR trigger taps)
+// actually get the plane moving. Shared by all throttle inputs so the
+// behavior can't drift between them.
+function applyThrottleDelta(delta) {
+  const maxSpeed =
+    typeof window.getMaxFlightSpeedMult === 'function'
+      ? window.getMaxFlightSpeedMult()
+      : 3.3333333333333335;
+  if (delta > 0) {
+    if (targetFlightSpeed === 0) {
+      targetFlightSpeed = Math.max(0.1, delta);
+    } else {
+      targetFlightSpeed += delta;
+    }
+  } else if (delta < 0) {
+    targetFlightSpeed += delta;
+    if (targetFlightSpeed < 0.05) {
+      targetFlightSpeed = 0;
+    }
+  }
+  targetFlightSpeed = Math.max(0, Math.min(maxSpeed, targetFlightSpeed));
+}
 let smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
 let manualPitch = 0;
 verticalVelocity = 0; // units/sec, negative = falling
@@ -438,24 +446,7 @@ window.addEventListener(
     // e.deltaY < 0 -> scrolling up -> throttle up
     const throttleDelta = -e.deltaY * 0.005;
 
-    const maxSpeed =
-      typeof window.getMaxFlightSpeedMult === 'function'
-        ? window.getMaxFlightSpeedMult()
-        : 3.3333333333333335;
-    if (throttleDelta > 0) {
-      if (targetFlightSpeed === 0) {
-        targetFlightSpeed = Math.max(0.1, throttleDelta);
-      } else {
-        targetFlightSpeed += throttleDelta;
-      }
-    } else if (throttleDelta < 0) {
-      targetFlightSpeed += throttleDelta;
-      if (targetFlightSpeed < 0.05) {
-        targetFlightSpeed = 0;
-      }
-    }
-
-    targetFlightSpeed = Math.max(0, Math.min(maxSpeed, targetFlightSpeed));
+    applyThrottleDelta(throttleDelta);
   },
   {passive: true}
 );
