@@ -430,6 +430,19 @@ class InputManager {
   handleMouseMove(e) {
     if (this.state.isPaused) return;
 
+    // In VR, flight steering is controlled by VR motion controllers/gamepad, not mouse
+    if (
+      typeof renderer !== 'undefined' &&
+      renderer &&
+      renderer.xr &&
+      renderer.xr.isPresenting
+    ) {
+      if (this.state.mouse.controlActive) {
+        this.resetMouseSteering();
+      }
+      return;
+    }
+
     if (this.state.freeCam.dragging && this.state.isFreeCamera) {
       this.state.freeCam.deltaX += e.movementX || 0;
       this.state.freeCam.deltaY += e.movementY || 0;
@@ -797,19 +810,57 @@ class InputManager {
     }
 
     if (!gp) {
+      if (
+        typeof renderer !== 'undefined' &&
+        renderer &&
+        renderer.xr &&
+        renderer.xr.isPresenting
+      ) {
+        const session = renderer.xr.getSession();
+        if (session && session.inputSources) {
+          for (const source of session.inputSources) {
+            if (source.gamepad && source.gamepad.connected) {
+              gp = source.gamepad;
+              const axes = gp.axes;
+              if (axes && axes.length >= 2) {
+                const sx =
+                  axes.length >= 4 && (axes[2] !== 0 || axes[3] !== 0)
+                    ? axes[2]
+                    : axes[0];
+                const sy =
+                  axes.length >= 4 && (axes[2] !== 0 || axes[3] !== 0)
+                    ? axes[3]
+                    : axes[1];
+                if (Math.abs(sx) > 0.15 || Math.abs(sy) > 0.15) {
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (!gp) {
       this._lastGamepadButtons = [];
       this.state.gamepad.steeringActive = false;
       return;
     }
 
-    // 1. Flight Stick: Map Left Analog Stick (Axes 0 and 1) to Pitch and Roll
-    let roll = gp.axes[0];
-    let pitch = gp.axes[1];
+    // 1. Flight Stick: Map Analog Stick to Pitch and Roll (supporting standard gamepads & WebXR Touch controllers)
+    let roll =
+      gp.axes.length >= 4 && (gp.axes[2] !== 0 || gp.axes[3] !== 0)
+        ? gp.axes[2]
+        : gp.axes[0];
+    let pitch =
+      gp.axes.length >= 4 && (gp.axes[2] !== 0 || gp.axes[3] !== 0)
+        ? gp.axes[3]
+        : gp.axes[1];
     const deadzone = 0.15;
     if (Math.abs(roll) < deadzone) roll = 0;
     if (Math.abs(pitch) < deadzone) pitch = 0;
 
-    if (Math.abs(gp.axes[0]) > deadzone || Math.abs(gp.axes[1]) > deadzone) {
+    if (Math.abs(roll) > deadzone || Math.abs(pitch) > deadzone) {
       this.state.gamepad.x = roll;
       this.state.gamepad.y = pitch;
       this.state.gamepad.steeringActive = true;
@@ -819,19 +870,23 @@ class InputManager {
       this.state.gamepad.steeringActive = false;
     }
 
-    // 2. Throttle Triggers: RT (Button 7) to accelerate, LT (Button 6) to decelerate
+    // 2. Throttle Triggers: RT / Trigger (accelerate), LT / Grip (decelerate)
     const rt =
       gp.buttons[7]?.value !== undefined
         ? gp.buttons[7].value
-        : gp.buttons[7]?.pressed
-          ? 1
-          : 0;
+        : gp.buttons[0]?.value !== undefined
+          ? gp.buttons[0].value
+          : gp.buttons[7]?.pressed || gp.buttons[0]?.pressed
+            ? 1
+            : 0;
     const lt =
       gp.buttons[6]?.value !== undefined
         ? gp.buttons[6].value
-        : gp.buttons[6]?.pressed
-          ? 1
-          : 0;
+        : gp.buttons[1]?.value !== undefined
+          ? gp.buttons[1].value
+          : gp.buttons[6]?.pressed || gp.buttons[1]?.pressed
+            ? 1
+            : 0;
 
     if (this.onThrottleChange) {
       if (rt > 0.1) {

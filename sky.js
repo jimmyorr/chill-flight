@@ -360,6 +360,12 @@ renderer.setPixelRatio(
 );
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+if (renderer.xr) {
+  renderer.xr.enabled = true;
+  if (typeof renderer.xr.setReferenceSpaceType === 'function') {
+    renderer.xr.setReferenceSpaceType('local');
+  }
+}
 document.body.appendChild(renderer.domElement);
 
 // Lights

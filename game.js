@@ -12,6 +12,34 @@ if (ChillFlightLogic.START_TOD !== null) {
   window.manualTimeOfDay = ChillFlightLogic.START_TOD;
 }
 
+// --- WEBXR / VR DOLLY & CAMERA RIG ---
+let dismissLoadingScreen; // Hoisted for early XR events
+let openVRPauseMenu;
+let closeVRPauseMenu;
+let updateVRPauseInteraction;
+function checkVRPresenting() {
+  return !!(
+    typeof renderer !== 'undefined' &&
+    renderer &&
+    renderer.xr &&
+    renderer.xr.isPresenting
+  );
+}
+const cameraDolly = new THREE.Group();
+cameraDolly.name = 'cameraDolly';
+cameraDolly.isCamera = true; // Crucial: Three.js lookAt() points +Z for generic Objects/Groups, but -Z for Cameras
+const _worldCamPos = new THREE.Vector3();
+
+function getCameraWorldPosition(target = _worldCamPos) {
+  if (camera && camera.parent) {
+    return camera.getWorldPosition(target);
+  }
+  if (camera) {
+    return target.copy(camera.position);
+  }
+  return target;
+}
+
 const inputManager = new window.InputManager();
 const keys = inputManager.state.keys;
 const doubleTap = inputManager.state.doubleTap;
@@ -306,7 +334,9 @@ function onWindowResize() {
   if (!camera || !renderer) return;
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (!renderer.xr || !renderer.xr.isPresenting) {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
 }
 
 window.addEventListener('resize', onWindowResize);
@@ -360,8 +390,15 @@ function togglePause() {
 
     if (typeof updatePauseMenuMusicInfo === 'function')
       updatePauseMenuMusicInfo();
+
+    if (checkVRPresenting() && typeof openVRPauseMenu === 'function') {
+      openVRPauseMenu();
+    }
   } else {
     pauseOverlay.style.display = 'none';
+    if (typeof closeVRPauseMenu === 'function') {
+      closeVRPauseMenu();
+    }
     // Also close achievements overlay if it was open
     const _achOverlay = document.getElementById('achievements-overlay');
     if (_achOverlay) _achOverlay.style.display = 'none';
@@ -484,6 +521,414 @@ if (pauseMapBtn) {
     }
   });
 }
+
+// --- WEBXR VR SESSION CONTROLS ---
+const vrBtn = document.getElementById('vr-btn');
+const splashVrBtn = document.getElementById('splash-vr-btn');
+const vrBtnLabel = document.getElementById('vr-btn-label');
+
+if (
+  typeof navigator !== 'undefined' &&
+  navigator.xr &&
+  typeof navigator.xr.isSessionSupported === 'function'
+) {
+  navigator.xr
+    .isSessionSupported('immersive-vr')
+    .then((supported) => {
+      if (supported) {
+        if (vrBtn) vrBtn.style.display = '';
+        if (splashVrBtn) splashVrBtn.style.display = '';
+      }
+    })
+    .catch(() => {});
+}
+
+async function toggleVRSession() {
+  if (typeof renderer === 'undefined' || !renderer || !renderer.xr) return;
+  const currentSession = renderer.xr.getSession();
+  if (!currentSession) {
+    try {
+      const sessionInit = {
+        optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'],
+      };
+      const session = await navigator.xr.requestSession(
+        'immersive-vr',
+        sessionInit
+      );
+      await renderer.xr.setSession(session);
+    } catch (err) {
+      console.warn('Failed to start WebXR session:', err);
+    }
+  } else {
+    await currentSession.end();
+  }
+}
+
+if (vrBtn) {
+  vrBtn.addEventListener('click', toggleVRSession);
+}
+if (splashVrBtn) {
+  splashVrBtn.addEventListener('click', toggleVRSession);
+}
+
+if (typeof renderer !== 'undefined' && renderer && renderer.xr) {
+  renderer.xr.addEventListener('sessionstart', () => {
+    // Attach camera to cameraDolly so headset pose is layered on top of flight positioning
+    cameraDolly.position.copy(camera.position);
+    cameraDolly.quaternion.copy(camera.quaternion);
+    scene.add(cameraDolly);
+    cameraDolly.add(camera);
+    camera.position.set(0, 0, 0);
+    camera.quaternion.identity();
+
+    // Enable Quest 2 fixed foveated rendering (reduces outer lens fillrate cost)
+    if (typeof renderer.xr.setFoveation === 'function') {
+      renderer.xr.setFoveation(1.0);
+    }
+
+    // Negotiate 72 or 90 Hz if supported
+    const session = renderer.xr.getSession();
+    if (
+      session &&
+      session.supportedFrameRates &&
+      typeof session.updateTargetFrameRate === 'function'
+    ) {
+      const targetRate = session.supportedFrameRates.includes(72)
+        ? 72
+        : session.supportedFrameRates.includes(90)
+          ? 90
+          : null;
+      if (targetRate) {
+        session.updateTargetFrameRate(targetRate).catch(() => {});
+      }
+    }
+
+    if (vrBtnLabel) vrBtnLabel.textContent = 'Exit VR';
+    if (splashVrBtn) splashVrBtn.textContent = 'Exit VR';
+
+    // If still at loading screen, dismiss and begin flight immediately
+    const loadingEl = document.getElementById('loading-overlay');
+    if (
+      loadingEl &&
+      loadingEl.style.display !== 'none' &&
+      typeof dismissLoadingScreen === 'function'
+    ) {
+      dismissLoadingScreen(true);
+    } else if (isPaused) {
+      isPaused = false;
+      const pauseOverlayEl = document.getElementById('pause-overlay');
+      if (pauseOverlayEl) pauseOverlayEl.style.display = 'none';
+      if (typeof clearInputState === 'function') clearInputState();
+    }
+  });
+
+  renderer.xr.addEventListener('sessionend', () => {
+    // Detach camera from dolly and restore to standard world camera
+    cameraDolly.remove(camera);
+    scene.remove(cameraDolly);
+    camera.position.copy(_idealCameraPos);
+    camera.lookAt(_currentLookTarget);
+
+    if (typeof closeVRPauseMenu === 'function') {
+      closeVRPauseMenu();
+    }
+
+    if (vrBtnLabel) vrBtnLabel.textContent = 'VR';
+    if (splashVrBtn) splashVrBtn.textContent = 'VR';
+  });
+}
+
+// --- 3D VR PAUSE MENU & INTERACTION ---
+let vrPauseMenu;
+let vrPauseMesh;
+let vrPauseCanvas;
+let vrPauseTexture;
+let vrHoveredButton = -1;
+let xrController0;
+let xrController1;
+let laser0;
+let laser1;
+let _vrButton0Pressed = false;
+let _vrButton1Pressed = false;
+const vrRaycaster = new THREE.Raycaster();
+const _vrRayMatrix = new THREE.Matrix4();
+
+function drawRoundRect(ctx, x, y, width, height, radius) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, radius);
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+}
+
+function drawVRPauseMenu(hovered = -1) {
+  if (!vrPauseCanvas) return;
+  const ctx = vrPauseCanvas.getContext('2d');
+  ctx.clearRect(0, 0, 1024, 680);
+
+  // Background card
+  ctx.save();
+  ctx.fillStyle = 'rgba(18, 22, 28, 0.94)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 4;
+  drawRoundRect(ctx, 40, 30, 944, 620, 36);
+  ctx.fill();
+  ctx.stroke();
+
+  // Header Title
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#e8c382';
+  ctx.font =
+    'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('CHILL FLIGHT', 512, 105);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font =
+    'bold 54px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('PAUSED', 512, 175);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.font =
+    '22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Take a breather or adjust your flight', 512, 220);
+
+  // Button 1: Resume
+  const isResumeHover = hovered === 0;
+  ctx.fillStyle = isResumeHover ? '#ffffff' : '#e8c382';
+  drawRoundRect(ctx, 162, 270, 700, 110, 24);
+  ctx.fill();
+
+  ctx.fillStyle = '#161616';
+  ctx.font =
+    'bold 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Resume flight', 512, 335);
+
+  ctx.fillStyle = 'rgba(22, 22, 22, 0.7)';
+  ctx.font =
+    '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Trigger or Press A / Menu', 512, 365);
+
+  // Button 2: Exit VR
+  const isExitHover = hovered === 1;
+  ctx.fillStyle = isExitHover
+    ? 'rgba(235, 75, 75, 0.9)'
+    : 'rgba(255, 255, 255, 0.08)';
+  ctx.strokeStyle = isExitHover ? '#ff7777' : 'rgba(255, 255, 255, 0.25)';
+  ctx.lineWidth = 3;
+  drawRoundRect(ctx, 162, 420, 700, 110, 24);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font =
+    'bold 38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Exit VR', 512, 485);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.font =
+    '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Trigger or Press B / X', 512, 515);
+
+  // Footer instructions
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.font =
+    '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Point controller & pull trigger to select', 512, 595);
+
+  ctx.restore();
+  if (vrPauseTexture) vrPauseTexture.needsUpdate = true;
+}
+
+function buildLaserPointer() {
+  const geom = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, 0, -3),
+  ]);
+  const mat = new THREE.LineBasicMaterial({
+    color: 0xe8c382,
+    transparent: true,
+    opacity: 0.6,
+  });
+  const line = new THREE.Line(geom, mat);
+  line.name = 'laserPointer';
+  line.visible = false;
+  return line;
+}
+
+function initVRPauseMenu() {
+  if (vrPauseMenu) return;
+
+  vrPauseCanvas = document.createElement('canvas');
+  vrPauseCanvas.width = 1024;
+  vrPauseCanvas.height = 680;
+
+  vrPauseTexture = new THREE.CanvasTexture(vrPauseCanvas);
+  vrPauseTexture.minFilter = THREE.LinearFilter;
+  vrPauseTexture.magFilter = THREE.LinearFilter;
+
+  const mat = new THREE.MeshBasicMaterial({
+    map: vrPauseTexture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+
+  const geo = new THREE.PlaneGeometry(1.6, 1.0625);
+  vrPauseMesh = new THREE.Mesh(geo, mat);
+  vrPauseMesh.renderOrder = 999;
+
+  vrPauseMenu = new THREE.Group();
+  vrPauseMenu.name = 'vrPauseMenu';
+  vrPauseMenu.add(vrPauseMesh);
+  vrPauseMenu.visible = false;
+  cameraDolly.add(vrPauseMenu);
+
+  if (typeof renderer !== 'undefined' && renderer && renderer.xr) {
+    xrController0 = renderer.xr.getController(0);
+    xrController1 = renderer.xr.getController(1);
+
+    laser0 = buildLaserPointer();
+    xrController0.add(laser0);
+
+    laser1 = buildLaserPointer();
+    xrController1.add(laser1);
+
+    cameraDolly.add(xrController0);
+    cameraDolly.add(xrController1);
+
+    const onXRSelect = () => {
+      if (!isPaused || !checkVRPresenting()) return;
+      if (vrHoveredButton === 0) {
+        togglePause();
+      } else if (vrHoveredButton === 1) {
+        toggleVRSession();
+      }
+    };
+
+    xrController0.addEventListener('select', onXRSelect);
+    xrController1.addEventListener('select', onXRSelect);
+  }
+
+  drawVRPauseMenu(-1);
+}
+
+openVRPauseMenu = function () {
+  if (!vrPauseMenu) initVRPauseMenu();
+  if (!vrPauseMenu) return;
+
+  // Position directly in front of the player's current head orientation
+  vrPauseMenu.position.copy(camera.position);
+  vrPauseMenu.quaternion.copy(camera.quaternion);
+  vrPauseMenu.translateZ(-1.8);
+  vrPauseMenu.visible = true;
+
+  vrHoveredButton = -1;
+  drawVRPauseMenu(-1);
+
+  if (laser0) laser0.visible = true;
+  if (laser1) laser1.visible = true;
+};
+
+closeVRPauseMenu = function () {
+  if (!vrPauseMenu) return;
+  vrPauseMenu.visible = false;
+  if (laser0) laser0.visible = false;
+  if (laser1) laser1.visible = false;
+};
+
+updateVRPauseInteraction = function () {
+  if (!isPaused || !vrPauseMenu || !vrPauseMenu.visible || !vrPauseMesh) return;
+
+  let hovered = -1;
+  const controllers = [xrController0, xrController1].filter(Boolean);
+  for (const ctrl of controllers) {
+    if (!ctrl.visible) continue;
+    _vrRayMatrix.identity().extractRotation(ctrl.matrixWorld);
+    vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
+    vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(_vrRayMatrix);
+
+    const hits = vrRaycaster.intersectObject(vrPauseMesh);
+    if (hits.length > 0 && hits[0].uv) {
+      const uv = hits[0].uv;
+      const cy = (1.0 - uv.y) * 680;
+      const cx = uv.x * 1024;
+      if (cx >= 160 && cx <= 864) {
+        if (cy >= 270 && cy <= 380) {
+          hovered = 0; // Resume
+          break;
+        } else if (cy >= 420 && cy <= 530) {
+          hovered = 1; // Exit VR
+          break;
+        }
+      }
+    }
+  }
+
+  if (hovered !== vrHoveredButton) {
+    vrHoveredButton = hovered;
+    drawVRPauseMenu(vrHoveredButton);
+  }
+
+  // Poll gamepad buttons for instant physical presses
+  if (typeof navigator !== 'undefined' && navigator.getGamepads) {
+    const gamepads = navigator.getGamepads();
+    const gps = [];
+    for (let i = 0; i < gamepads.length; i++) {
+      if (gamepads[i] && gamepads[i].connected) gps.push(gamepads[i]);
+    }
+    const session =
+      renderer && renderer.xr && renderer.xr.getSession
+        ? renderer.xr.getSession()
+        : null;
+    if (session && session.inputSources) {
+      for (const src of session.inputSources) {
+        if (src.gamepad && src.gamepad.connected) gps.push(src.gamepad);
+      }
+    }
+    for (const gp of gps) {
+      // Button 0 (A / X): Resume (or activate hovered)
+      if (gp.buttons[0]?.pressed) {
+        if (!_vrButton0Pressed) {
+          _vrButton0Pressed = true;
+          if (vrHoveredButton === 1) {
+            toggleVRSession();
+          } else {
+            togglePause();
+          }
+          return;
+        }
+      } else {
+        _vrButton0Pressed = false;
+      }
+
+      // Button 1 (B / Y): Exit VR
+      if (
+        gp.buttons[1]?.pressed ||
+        gp.buttons[4]?.pressed ||
+        gp.buttons[5]?.pressed
+      ) {
+        if (!_vrButton1Pressed) {
+          _vrButton1Pressed = true;
+          toggleVRSession();
+          return;
+        }
+      } else {
+        _vrButton1Pressed = false;
+      }
+    }
+  }
+};
 
 // Click outside achievements content to close
 if (achievementsOverlay) {
@@ -2771,6 +3216,14 @@ class DynamicPerformanceMonitor {
    * Apply DRS by adjusting the renderer's pixel ratio relative to the base.
    */
   applyDRS() {
+    if (
+      typeof renderer !== 'undefined' &&
+      renderer &&
+      renderer.xr &&
+      renderer.xr.isPresenting
+    ) {
+      return; // Do not manipulate pixel ratio while WebXR manages stereo framebuffers
+    }
     const baseRatio =
       typeof window._basePixelRatio !== 'undefined'
         ? window._basePixelRatio
@@ -2873,10 +3326,18 @@ function animate() {
   }
 
   const frameStartTime = performance.now(); // Start CPU timer
-  requestAnimationFrame(animate);
+  if (!isAnimationLoopRunning) {
+    requestAnimationFrame(animate);
+  }
 
   // --- FPS CAPPING ---
-  if (maxFPS > 0) {
+  // In VR, the headset compositor manages native vsync (72/90/120Hz); bypass manual 60fps throttle
+  const isVRPresenting =
+    typeof renderer !== 'undefined' &&
+    renderer &&
+    renderer.xr &&
+    renderer.xr.isPresenting;
+  if (!isVRPresenting && maxFPS > 0) {
     const timeSinceLastFrame = frameStartTime - lastFrameTime;
     if (timeSinceLastFrame < frameMinDelay - 1) {
       // 1ms buffer for vsync jitter
@@ -2928,13 +3389,14 @@ function animate() {
     ) {
       // Intro orbit camera rendering
       if (!isFreeCamera) {
+        const activeCamTarget = isVRPresenting ? cameraDolly : camera;
         const t = now * 0.00015;
-        camera.position.x = planeGroup.position.x + Math.sin(t) * 150;
-        camera.position.z = planeGroup.position.z + Math.cos(t) * 150;
-        camera.position.y = planeGroup.position.y + 80;
+        activeCamTarget.position.x = planeGroup.position.x + Math.sin(t) * 150;
+        activeCamTarget.position.z = planeGroup.position.z + Math.cos(t) * 150;
+        activeCamTarget.position.y = planeGroup.position.y + 80;
 
         _currentLookTarget.copy(planeGroup.position);
-        camera.lookAt(_currentLookTarget);
+        activeCamTarget.lookAt(_currentLookTarget);
       }
 
       if (typeof sunUniforms !== 'undefined') {
@@ -2944,6 +3406,19 @@ function animate() {
       updateWeather(delta);
       // During loading screen, always update shadows (simple scene, minimal cost)
       renderer.shadowMap.needsUpdate = true;
+    }
+
+    // Always render during pause so VR headset doesn't drop frames.
+    if (isVRPresenting) {
+      if (typeof updateVRPauseInteraction === 'function') {
+        updateVRPauseInteraction();
+      }
+      renderer.render(scene, camera);
+    } else if (
+      loadingOverlay &&
+      loadingOverlay.style.display !== 'none' &&
+      !isIntroTransitionActive
+    ) {
       renderer.render(scene, camera);
     }
     return;
@@ -2954,6 +3429,7 @@ function animate() {
   if (justResumed) {
     justResumed = false;
     clearInputState();
+    if (isVRPresenting) renderer.render(scene, camera);
     return;
   }
 
@@ -4166,42 +4642,66 @@ function animate() {
             ? 4 * progress * progress * progress
             : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
+        const activeCamTarget = isVRPresenting ? cameraDolly : camera;
+
         // Interpolate visual camera between start and virtual tracking camera
         _currentLookTarget.lerpVectors(
           _introLookTargetStart,
           _virtualLookTarget,
           easedProgress
         );
-        camera.position.lerpVectors(
+        activeCamTarget.position.lerpVectors(
           _introCameraPosStart,
           _virtualCameraPos,
           easedProgress
         );
       } else {
         isIntroTransitionActive = false;
-        camera.position.copy(_virtualCameraPos);
+        const activeCamTarget = isVRPresenting ? cameraDolly : camera;
+        activeCamTarget.position.copy(_virtualCameraPos);
         _currentLookTarget.copy(_virtualLookTarget);
       }
     } else {
-      camera.position.lerp(_idealCameraPos, 1 - Math.pow(1 - 0.25, delta * 60));
-      _currentLookTarget.lerp(
-        _idealLookTarget,
-        1 - Math.pow(1 - 0.25, delta * 60)
-      );
+      const activeCamTarget = isVRPresenting ? cameraDolly : camera;
+      if (isLooping) {
+        // In acrobatic loops, lock camera position directly to avoid inertia lag causing lookAt inversion
+        activeCamTarget.position.copy(_idealCameraPos);
+        _currentLookTarget.copy(_idealLookTarget);
+      } else {
+        activeCamTarget.position.lerp(
+          _idealCameraPos,
+          1 - Math.pow(1 - 0.25, delta * 60)
+        );
+        _currentLookTarget.lerp(
+          _idealLookTarget,
+          1 - Math.pow(1 - 0.25, delta * 60)
+        );
+      }
     }
+
+    const activeCamTarget = isVRPresenting ? cameraDolly : camera;
 
     // Hard clamp to prevent dipping below terrain during fast movement
     const actualTerrainHeight = getElevation(
-      camera.position.x,
-      camera.position.z
+      activeCamTarget.position.x,
+      activeCamTarget.position.z
     );
-    if (camera.position.y < actualTerrainHeight + 1.0) {
-      camera.position.y = actualTerrainHeight + 1.0;
+    if (activeCamTarget.position.y < actualTerrainHeight + 1.0) {
+      activeCamTarget.position.y = actualTerrainHeight + 1.0;
     }
 
-    camera.up.lerp(_idealUp, 1 - Math.pow(1 - 0.1, delta * 60)).normalize();
+    if (isLooping) {
+      // During vertical loops, up vector must match the inverted plane to prevent gimbal lock at 90°
+      activeCamTarget.up.copy(_idealUp);
+    } else if (!isVRPresenting) {
+      activeCamTarget.up
+        .lerp(_idealUp, 1 - Math.pow(1 - 0.1, delta * 60))
+        .normalize();
+    } else {
+      activeCamTarget.up.set(0, 1, 0); // Keep world up stable in VR during normal flight
+    }
 
-    camera.lookAt(_currentLookTarget);
+    activeCamTarget.lookAt(_currentLookTarget);
 
     // Update terrain chunks (only if the plane has moved ~50 units)
     if (planeGroup.position.distanceToSquared(_lastChunkUpdatePos) > 2500) {
@@ -4766,7 +5266,7 @@ function animate() {
     .addScaledVector(_shadowSunDir, 4000);
 
   moonLight.position.copy(moonMesh.position);
-  skyGroup.position.copy(camera.position);
+  skyGroup.position.copy(getCameraWorldPosition());
 
   // Smoothly interpolate sky shader palettes
   if (window.skyUniforms !== undefined && !isCustomPalette) {
@@ -4935,7 +5435,7 @@ function animate() {
       const sunDir = _rainbowSunDir.set(sunX, sunY, sunZ).normalize();
       const antiSunDir = _rainbowAntiSunDir.copy(sunDir).negate();
       rainbowMesh.position.copy(antiSunDir).multiplyScalar(10000);
-      rainbowMesh.lookAt(camera.position);
+      rainbowMesh.lookAt(getCameraWorldPosition());
     }
     rainbowTimer = 120.0;
   };
@@ -5135,13 +5635,11 @@ function animate() {
   if (window.skyUniforms.uCloudHeight) {
     window.skyUniforms.uCloudHeight.value = manualCloudHeight;
   }
-  window.skyUniforms.uCameraPos.value.copy(camera.position);
+  const _camWorld = getCameraWorldPosition();
+  window.skyUniforms.uCameraPos.value.copy(_camWorld);
 
   if (window.terrainUniforms) {
-    window.terrainUniforms.uCameraPosXZ.value.set(
-      camera.position.x,
-      camera.position.z
-    );
+    window.terrainUniforms.uCameraPosXZ.value.set(_camWorld.x, _camWorld.z);
     window.terrainUniforms.uRenderRadius.value = RENDER_DISTANCE * CHUNK_SIZE;
     window.terrainUniforms.uSunDirection.value.copy(_tempVec);
     if (window.skyUniforms) {
@@ -5200,7 +5698,7 @@ function animate() {
     moonUniforms.dayFactor.value = dayFactor;
     moonUniforms.uCloudDensity.value = skyUniforms.uCloudDensity?.value ?? 0.5;
     moonUniforms.uMoonSkyDir.value.set(moonX, moonY, moonZ).normalize();
-    moonUniforms.uCameraPos.value.copy(camera.position);
+    moonUniforms.uCameraPos.value.copy(getCameraWorldPosition());
 
     // Update moon direction local to its rotation for consistent phase lighting
 
@@ -5761,7 +6259,27 @@ function animate() {
 }
 
 // Start loop
-window.onload = animate;
+let isAnimationLoopRunning = false;
+function startAnimationLoop() {
+  if (isAnimationLoopRunning) return;
+  if (
+    typeof renderer !== 'undefined' &&
+    renderer &&
+    typeof renderer.setAnimationLoop === 'function'
+  ) {
+    isAnimationLoopRunning = true;
+    renderer.setAnimationLoop(animate);
+  } else {
+    isAnimationLoopRunning = false;
+    requestAnimationFrame(animate);
+  }
+}
+
+if (document.readyState === 'complete') {
+  startAnimationLoop();
+} else {
+  window.addEventListener('load', startAnimationLoop);
+}
 
 // Mobile controls
 const btnUp = document.getElementById('mobile-spd-up');
@@ -6113,7 +6631,7 @@ const overlay = document.getElementById('loading-overlay');
 if (overlay) {
   const beginBtn = document.getElementById('begin-btn');
 
-  const dismissLoadingScreen = (instant = false) => {
+  dismissLoadingScreen = (instant = false) => {
     if (renderer && typeof renderer.compile === 'function') {
       renderer.compile(scene, camera);
     }

@@ -246,6 +246,15 @@ When playing on a touch device, specialized UI and controls become available:
 - **Throttle:** A dedicated slider interface on the right side controls engine speed.
 - **Fullscreen world map:** Tap the 🗺️ Map button in the pause menu to open the full screen map. Press and hold / drag to pan across the world, pinch with two fingers to zoom in and out, double-tap to zoom in, and tap 🎯 to re-center on your plane.
 
+### WebXR & VR headset support
+
+Chill Flight supports immersive virtual reality on devices such as the Meta Quest 2 via the Meta Quest Browser or any WebXR-compliant browser:
+
+- **Enter VR:** An opt-in "Enter VR" button appears in the pause menu and initial splash screen when a compatible WebXR VR headset is detected.
+- **Head tracking:** Full 6DoF head tracking allows you to look around freely from either the follow chase view or cockpit first-person view.
+- **Touch controllers:** Use the analog thumbstick for pitch and roll steering, the front trigger to accelerate, and the grip button to decelerate.
+- **Performance:** Automatically enables fixed foveated rendering and unlocks high display refresh rates (72 Hz / 90 Hz).
+
 ## Graphics & settings
 
 The game features automatic graphics preset detection that evaluates your device's hardware capabilities upon loading and seamlessly scales visual fidelity to ensure a smooth frame rate.
