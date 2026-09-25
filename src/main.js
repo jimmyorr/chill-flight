@@ -16,8 +16,13 @@ import rainbowFrag from './shaders/rainbow.frag.glsl?raw';
 import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 
 // Expose them globally so existing scripts can still find them
-// We create a new object for THREE because ES module imports are immutable
-window.THREE = {...THREE, OrbitControls};
+window.THREE = {OrbitControls};
+for (const key in THREE) {
+  Object.defineProperty(window.THREE, key, {
+    get: () => THREE[key],
+    enumerable: true,
+  });
+}
 window.Sentry = Sentry;
 window.FirebaseAnalytics = FirebaseAnalytics;
 window.SKY_SHADERS = {

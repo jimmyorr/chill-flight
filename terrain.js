@@ -189,9 +189,9 @@ terrainMaterial.onBeforeCompile = (shader) => {
        fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
        
        #ifdef FOG_EXP2
-           float fogFactor = 1.0 - exp( - fogDensity * fogDensity * fogDepth * fogDepth );
+           float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
        #else
-           float fogFactor = smoothstep( fogNear, fogFar, fogDepth );
+           float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
        #endif
        
        float distRatio = vDistanceXZ / uRenderRadius;
@@ -370,9 +370,9 @@ waterMaterial.onBeforeCompile = (shader) => {
        fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
        
        #ifdef FOG_EXP2
-           float fogFactor = 1.0 - exp( - fogDensity * fogDensity * fogDepth * fogDepth );
+           float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
        #else
-           float fogFactor = smoothstep( fogNear, fogFar, fogDepth );
+           float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
        #endif
        
        float distRatio = vDistanceXZ / uRenderRadius;
@@ -3893,13 +3893,13 @@ class GlobalInstanceManager {
       typeInfo.mesh.count = count;
       if (count > 0) {
         if (typeInfo.mesh.instanceMatrix) {
-          typeInfo.mesh.instanceMatrix.updateRange.offset = 0;
-          typeInfo.mesh.instanceMatrix.updateRange.count = count * 16;
+          typeInfo.mesh.instanceMatrix.clearUpdateRanges();
+          typeInfo.mesh.instanceMatrix.addUpdateRange(0, count * 16);
           typeInfo.mesh.instanceMatrix.needsUpdate = true;
         }
         if (typeInfo.useColor && typeInfo.mesh.instanceColor) {
-          typeInfo.mesh.instanceColor.updateRange.offset = 0;
-          typeInfo.mesh.instanceColor.updateRange.count = count * 3;
+          typeInfo.mesh.instanceColor.clearUpdateRanges();
+          typeInfo.mesh.instanceColor.addUpdateRange(0, count * 3);
           typeInfo.mesh.instanceColor.needsUpdate = true;
         }
         typeInfo.mesh.visible = _enableObjects;
@@ -5199,9 +5199,12 @@ function* generateChunk(chunkX, chunkZ) {
         });
 
         // Spot light pointing up to cast a glow on the crater walls
+        // three.js r155+ uses physical light units (candela). Converted from
+        // the legacy-tuned 30.0 to preserve the glow at ~200 m (decay was and
+        // remains 1). Verify visually.
         const sLight = new THREE.SpotLight(
           0xff4500,
-          30.0,
+          5600,
           3000,
           Math.PI / 6,
           0.5,

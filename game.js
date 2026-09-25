@@ -63,8 +63,8 @@ inputManager.onCameraToggle = () => {
 inputManager.onAutopilotToggle = toggleAutopilot;
 inputManager.onHeadlightToggle = () => {
   if (headlight.intensity === 0) {
-    headlight.intensity = 2;
-    headlightGlow.intensity = 0.1;
+    headlight.intensity = HEADLIGHT_INTENSITY;
+    headlightGlow.intensity = HEADLIGHT_GLOW_INTENSITY;
     if (hdgtSub) hdgtSub.classList.add('active');
     if (typeof Achievements !== 'undefined')
       Achievements.unlock('night_vision');
@@ -428,7 +428,7 @@ function togglePause() {
       setMusicVolume(1.0);
     }
 
-    clock.getDelta(); // clear accumulated time so plane doesn't skip
+    clock.update(); // clear accumulated time so plane doesn't skip
     clearInputState(); // wipe any input that bled through from the pause overlay
     justResumed = true; // suppress the first animate frame's input application
   }
@@ -1921,7 +1921,7 @@ if (copyPlaneUrlBtn) {
 }
 
 // --- MAIN GAME LOOP ---
-const clock = new THREE.Clock();
+const clock = new THREE.Timer();
 // Performance optimization: Static Float32Array ring buffer with running sum for delta smoothing.
 // Eliminates per-frame array allocations (push/shift) and closure functions (.reduce()) in the main loop.
 const DELTA_BUFFER_SIZE = 10;
@@ -3358,6 +3358,7 @@ function animate() {
     : performanceMonitor.getChunkBudget();
   if (window.processChunkQueue) window.processChunkQueue(chunkBudget);
   if (window.globalInstancer) window.globalInstancer.rebuildAll();
+  clock.update();
   let rawDelta = clock.getDelta();
   if (rawDelta > 0.1) rawDelta = 0.1; // Cap at 100ms to prevent logic blowouts
 
@@ -4801,7 +4802,8 @@ function animate() {
         const soarDuration = data.soarDuration || 6.0;
 
         const totalCycle = flapDuration + soarDuration;
-        const cycleProgress = (clock.elapsedTime + flapPhase * 10) % totalCycle;
+        const cycleProgress =
+          (clock.getElapsed() + flapPhase * 10) % totalCycle;
         const isSoaring = cycleProgress > flapDuration;
 
         let flap = 0;
@@ -4814,7 +4816,7 @@ function animate() {
             amplitude *= (flapDuration - cycleProgress) / transitionTime;
           }
           flap =
-            Math.sin(clock.elapsedTime * flapSpeed + flapPhase) * amplitude;
+            Math.sin(clock.getElapsed() * flapSpeed + flapPhase) * amplitude;
         }
         if (data.wings) {
           data.wings[0].rotation.z = flap;
@@ -5024,10 +5026,10 @@ function animate() {
 
         let dx = 0;
         let dz = 0;
-        let yawOffset = Math.sin(clock.elapsedTime * 0.4 + driftPhase) * 0.05; // Gentle sway
+        let yawOffset = Math.sin(clock.getElapsed() * 0.4 + driftPhase) * 0.05; // Gentle sway
 
         if (driftRadius > 0) {
-          const t = clock.elapsedTime * driftSpeed + driftPhase;
+          const t = clock.getElapsed() * driftSpeed + driftPhase;
           dx = Math.sin(t * 1.6) * driftRadius;
           dz = Math.cos(t * 1.0) * driftRadius;
 
@@ -5041,7 +5043,7 @@ function animate() {
         }
 
         // Bobbing & Wave dynamics (Roll/Pitch)
-        const bobTime = clock.elapsedTime * 1.2 + driftPhase;
+        const bobTime = clock.getElapsed() * 1.2 + driftPhase;
         const dy = Math.sin(bobTime) * 0.15;
         const roll = Math.sin(bobTime * 0.8) * 0.04;
         const pitch = Math.cos(bobTime * 1.1) * 0.03;
@@ -5122,14 +5124,14 @@ function animate() {
         const patrolSpeed = 0.05 + _boatHash(index, 8) * 0.03;
         const patrolPhase = _boatHash(index, 9) * Math.PI * 2;
 
-        const t = clock.elapsedTime * patrolSpeed + patrolPhase;
+        const t = clock.getElapsed() * patrolSpeed + patrolPhase;
         const dx = Math.cos(t) * patrolRadius;
         const dz = Math.sin(t) * patrolRadius;
 
         const tangentYaw = Math.atan2(-Math.sin(t), Math.cos(t));
 
         // Bobbing & Wave dynamics (Roll/Pitch)
-        const bobTime = clock.elapsedTime * 0.8 + patrolPhase;
+        const bobTime = clock.getElapsed() * 0.8 + patrolPhase;
         const dy = Math.sin(bobTime) * 0.25;
         const roll = Math.sin(bobTime * 0.7) * 0.03;
         const pitch = Math.cos(bobTime * 0.9) * 0.02;
@@ -5527,13 +5529,11 @@ function animate() {
   }
 
   let baseHemi = THREE.MathUtils.lerp(0.3, 0.6, dayFactor);
-  hemiLight.intensity = THREE.MathUtils.lerp(
-    baseHemi,
-    0.7,
-    overcast * dayFactor
-  );
+  hemiLight.intensity =
+    THREE.MathUtils.lerp(baseHemi, 0.7, overcast * dayFactor) * Math.PI;
 
-  dirLight.intensity = THREE.MathUtils.lerp(0.8, 0.05, overcast) * dayFactor;
+  dirLight.intensity =
+    THREE.MathUtils.lerp(0.8, 0.05, overcast) * dayFactor * Math.PI;
 
   const PHASE_CYCLE_MS = 29.5 * 360000;
   const phaseAngle =
@@ -5542,7 +5542,8 @@ function animate() {
 
   // Moonlight shines when the sun is down, independent of moon's now-fixed elevation
   let moonFactor = Math.max(0, Math.min(1, (-sunY - 0.25) / 0.25));
-  moonLight.intensity = moonFactor * 0.4 * (1.0 - overcast) * phaseIntensity;
+  moonLight.intensity =
+    moonFactor * 0.4 * (1.0 - overcast) * phaseIntensity * Math.PI;
 
   // --- APPLY SKY & FOG ---
   _uncloudedSkyColor.setHex(0x0a0c20);
@@ -6423,8 +6424,8 @@ if (hdgtSub) {
     e.preventDefault();
     e.stopPropagation();
     if (headlight.intensity === 0) {
-      headlight.intensity = 2;
-      headlightGlow.intensity = 0.1;
+      headlight.intensity = HEADLIGHT_INTENSITY;
+      headlightGlow.intensity = HEADLIGHT_GLOW_INTENSITY;
       hdgtSub.classList.add('active');
       if (typeof Achievements !== 'undefined') {
         Achievements.unlock('night_vision');
@@ -6555,20 +6556,18 @@ if (btnDown) {
 window.addEventListener('blur', () => {
   windowJustFocused = false;
   clearInputState();
-  console.log('Window blur: Resetting all input state.');
 });
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     clearInputState();
-    console.log('Document hidden: Resetting all input state.');
   }
 });
 
 window.addEventListener('focus', () => {
   windowJustFocused = true;
   if (typeof clock !== 'undefined') {
-    clock.getDelta(); // This "consumes" the time passed while the tab was hidden
+    clock.update(); // This "consumes" the time passed while the tab was hidden
   }
 });
 
@@ -6667,7 +6666,7 @@ if (overlay) {
     // Unpause the game and clear the clock delta
     isPaused = false;
     justResumed = true;
-    if (typeof clock !== 'undefined') clock.getDelta();
+    if (typeof clock !== 'undefined') clock.update();
 
     // Start music! (Will respect the musicEnabled state)
     if (typeof setMusicEnabled === 'function') {

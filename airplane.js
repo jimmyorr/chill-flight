@@ -354,6 +354,13 @@ headlight.decay = 2.0;
 
 const headlightGlow = new THREE.PointLight(0xffd1a3, 0, 50);
 headlightGlow.position.set(0, 5, 0);
+// three.js r155+ uses physical light units (candela). These intensities are
+// converted from the legacy-tuned values to preserve the look: the spotlight
+// matched ~100 m ahead, the glow ~5 m out. r128 PointLight default decay was
+// 1, so keep that explicitly. Verify visually on a night flight.
+const HEADLIGHT_INTENSITY = 15000;
+const HEADLIGHT_GLOW_INTENSITY = 0.3;
+headlightGlow.decay = 1;
 planeGroup.add(headlightGlow);
 planeGroup.add(headlight);
 

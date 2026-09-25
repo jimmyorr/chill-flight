@@ -13,7 +13,10 @@ window.PROP_LOD_DISTANCE = PROP_LOD_DISTANCE;
 const LIGHTHOUSE_CHUNK_X = 5;
 const LIGHTHOUSE_CHUNK_Z = 2;
 const LIGHTHOUSE_CHUNK_KEY = `${LIGHTHOUSE_CHUNK_X},${LIGHTHOUSE_CHUNK_Z}`;
-const LIGHTHOUSE_LIGHT_INTENSITY = 3.5;
+// three.js r155+ uses physical light units (candela) for spotlights.
+// Converted from the legacy-tuned 3.5 to preserve illuminance at the ~600 m
+// beam target distance. Verify visually on a night flight.
+const LIGHTHOUSE_LIGHT_INTENSITY = 800000;
 const LIGHTHOUSE_BEAM_OPACITY_MIN = 0.08;
 const LIGHTHOUSE_BEAM_OPACITY_MAX = 0.25;
 
@@ -167,9 +170,9 @@ function createMaterial(params) {
          fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
          
          #ifdef FOG_EXP2
-             float fogFactor = 1.0 - exp( - fogDensity * fogDensity * fogDepth * fogDepth );
+             float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
          #else
-             float fogFactor = smoothstep( fogNear, fogFar, fogDepth );
+             float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
          #endif
          
          float finalFogFactor = fogFactor;

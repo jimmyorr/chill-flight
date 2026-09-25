@@ -354,12 +354,17 @@ const _isLowQuality =
 skyUniforms.uShowClouds.value = ChillFlightLogic.SHOW_CLOUDS && !_isLowQuality;
 
 const renderer = new THREE.WebGLRenderer({antialias: !_isLowQuality});
+// This project was tuned against the three.js r128 rendering pipeline. r152+
+// enables color management and sRGB output by default; restore the legacy
+// behavior so the established art direction is preserved.
+THREE.ColorManagement.enabled = false;
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(
   _isLowQuality ? 1 : Math.min(window.devicePixelRatio, 2)
 );
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 if (renderer.xr) {
   renderer.xr.enabled = true;
   if (typeof renderer.xr.setReferenceSpaceType === 'function') {
@@ -369,11 +374,11 @@ if (renderer.xr) {
 document.body.appendChild(renderer.domElement);
 
 // Lights
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6 * Math.PI);
 hemiLight.position.set(0, 500, 0);
 scene.add(hemiLight);
 
-const dirLight = new THREE.DirectionalLight(0xfff0dd, 0.8);
+const dirLight = new THREE.DirectionalLight(0xfff0dd, 0.8 * Math.PI);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
@@ -388,7 +393,7 @@ dirLight.shadow.normalBias = 2.0;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
-const moonLight = new THREE.DirectionalLight(0xbad2ff, 0.3); // Cool moonlight
+const moonLight = new THREE.DirectionalLight(0xbad2ff, 0.3 * Math.PI); // Cool moonlight
 scene.add(moonLight);
 
 // --- DAY / NIGHT CYCLE SETUP ---

@@ -33,7 +33,7 @@
     "@capacitor/status-bar": "^8.0.2",
     "@sentry/browser": "^8.26.0",
     "@tauri-apps/plugin-fs": "^2.5.1",
-    "three": "^0.128.0"
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
