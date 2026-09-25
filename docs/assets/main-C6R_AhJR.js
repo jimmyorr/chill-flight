@@ -1,0 +1,1 @@
+import"./main-B5s42Gqc.js";/* empty css              */document.querySelectorAll(`.version-tag`).forEach(e=>{e.textContent=`v0.9.28`});var e=document.getElementById(`debug-version-info`);e&&(e.textContent=`v0.9.28 (52490f2*)`);
