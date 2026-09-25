@@ -148,8 +148,18 @@ inputManager.onThrottleChange = (delta) => {
     typeof window.getMaxFlightSpeedMult === 'function'
       ? window.getMaxFlightSpeedMult()
       : 3.3333333333333335;
-  targetFlightSpeed += delta;
-  if (Math.abs(targetFlightSpeed) < 0.05) targetFlightSpeed = 0;
+  if (delta > 0) {
+    if (targetFlightSpeed === 0) {
+      targetFlightSpeed = Math.max(0.1, delta);
+    } else {
+      targetFlightSpeed += delta;
+    }
+  } else if (delta < 0) {
+    targetFlightSpeed += delta;
+    if (targetFlightSpeed < 0.05) {
+      targetFlightSpeed = 0;
+    }
+  }
   targetFlightSpeed = Math.max(0, Math.min(maxSpeed, targetFlightSpeed));
 };
 inputManager.onKeyRelease = (action, heldTime) => {
@@ -432,11 +442,17 @@ window.addEventListener(
       typeof window.getMaxFlightSpeedMult === 'function'
         ? window.getMaxFlightSpeedMult()
         : 3.3333333333333335;
-    targetFlightSpeed += throttleDelta;
-
-    // Snap to 0 if very close to avoid creeping
-    if (Math.abs(targetFlightSpeed) < 0.05) {
-      targetFlightSpeed = 0;
+    if (throttleDelta > 0) {
+      if (targetFlightSpeed === 0) {
+        targetFlightSpeed = Math.max(0.1, throttleDelta);
+      } else {
+        targetFlightSpeed += throttleDelta;
+      }
+    } else if (throttleDelta < 0) {
+      targetFlightSpeed += throttleDelta;
+      if (targetFlightSpeed < 0.05) {
+        targetFlightSpeed = 0;
+      }
     }
 
     targetFlightSpeed = Math.max(0, Math.min(maxSpeed, targetFlightSpeed));
@@ -3938,6 +3954,8 @@ function animate() {
       planeGroup.rotation.y += 1.5 * delta;
     } else if (isRight && !keys.Shift) {
       planeGroup.rotation.y -= 1.5 * delta;
+    } else if (Math.abs(effMouseX) > 0.1 && !keys.Shift) {
+      planeGroup.rotation.y -= effMouseX * 1.5 * delta;
     }
   }
 
@@ -4214,7 +4232,12 @@ function animate() {
       pontoonGroup.visible = true;
       isDeployingPontoons = true;
     }
-    if (!keys.Shift) {
+    const isThrottlingUp =
+      keys.Shift ||
+      (typeof inputManager !== 'undefined' &&
+        inputManager.isThrottlingUp &&
+        inputManager.isThrottlingUp());
+    if (!isThrottlingUp) {
       // Apply water drag: smoothly reduce targetFlightSpeed to 0
       targetFlightSpeed = Math.max(0, targetFlightSpeed - delta * 0.5);
     }

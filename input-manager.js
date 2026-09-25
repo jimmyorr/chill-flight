@@ -56,6 +56,8 @@ class InputManager {
         x: 0,
         y: 0,
         steeringActive: false,
+        throttlingUp: false,
+        throttlingDown: false,
       },
       controlScheme:
         localStorage.getItem('chill_flight_control_scheme') || 'joystick',
@@ -165,6 +167,14 @@ class InputManager {
       this.state.keys.ArrowRight ||
       this.state.keys.ArrowUp ||
       this.state.keys.ArrowDown
+    );
+  }
+
+  isThrottlingUp() {
+    return !!(
+      (this.state.keys.Shift &&
+        (this.state.keys.ArrowUp || this.state.keys.KeyW)) ||
+      this.state.gamepad.throttlingUp
     );
   }
 
@@ -396,6 +406,8 @@ class InputManager {
     this.state.mouse.x = 0;
     this.state.mouse.y = 0;
     this.state.freeCam.dragging = false;
+    this.state.gamepad.throttlingUp = false;
+    this.state.gamepad.throttlingDown = false;
     this.state.joystick.active = false;
     this.state.joystick.touchId = null;
     this.state.touch.steeringId = null;
@@ -841,6 +853,8 @@ class InputManager {
     if (!gp && !leftGp && !rightGp) {
       this._lastGamepadButtons = [];
       this.state.gamepad.steeringActive = false;
+      this.state.gamepad.throttlingUp = false;
+      this.state.gamepad.throttlingDown = false;
       return;
     }
 
@@ -915,6 +929,9 @@ class InputManager {
               ? 1
               : 0;
     }
+
+    this.state.gamepad.throttlingUp = rt > 0.1;
+    this.state.gamepad.throttlingDown = lt > 0.1;
 
     if (this.onThrottleChange) {
       if (rt > 0.1) {
