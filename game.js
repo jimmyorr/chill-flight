@@ -1,3 +1,4 @@
+var isVRPresenting = false;
 var isBarrelRolling = false;
 var isDoingFullBarrelRoll = false;
 var isClampedRoll = false;
@@ -2353,7 +2354,7 @@ function animate() {
 
   // --- FPS CAPPING ---
   // In VR, the headset compositor manages native vsync (72/90/120Hz); bypass manual 60fps throttle
-  const isVRPresenting =
+  isVRPresenting =
     typeof renderer !== 'undefined' &&
     renderer &&
     renderer.xr &&
