@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.29
+
+- **Engine:** Upgraded three.js from 0.128.0 to 0.186.1 with modernized lighting, color management, and WebGL renderer setups.
+- **Flight & controls:** Refactored throttle handling into an `applyThrottleDelta` helper.
+- **Tooling & release:** Added clean-source guards for production builds and dynamic git telemetry in Vite.
+
 ## 0.9.23
 
 - **Aircraft:** Added Twin engine transport model (DC-3 style) with twin radial nacelles, lofted fuselage, accent livery, and spinning 3-blade props. Added Glider and Biplane models with full livery support.
