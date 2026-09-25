@@ -897,8 +897,8 @@ updateVRPauseInteraction = function () {
       }
     }
     for (const gp of gps) {
-      // Button 0 (A / X): Resume (or activate hovered)
-      if (gp.buttons[0]?.pressed) {
+      // Button 0 (Trigger) or Button 4 (Quest A/X): Resume (or activate hovered button)
+      if (gp.buttons[0]?.pressed || gp.buttons[4]?.pressed) {
         if (!_vrButton0Pressed) {
           _vrButton0Pressed = true;
           if (vrHoveredButton === 1) {
@@ -912,12 +912,8 @@ updateVRPauseInteraction = function () {
         _vrButton0Pressed = false;
       }
 
-      // Button 1 (B / Y): Exit VR
-      if (
-        gp.buttons[1]?.pressed ||
-        gp.buttons[4]?.pressed ||
-        gp.buttons[5]?.pressed
-      ) {
+      // Button 5 (Quest B/Y) or Button 1 (Gamepad B): Exit VR
+      if (gp.buttons[5]?.pressed || gp.buttons[1]?.pressed) {
         if (!_vrButton1Pressed) {
           _vrButton1Pressed = true;
           toggleVRSession();

@@ -809,53 +809,57 @@ class InputManager {
       }
     }
 
-    if (!gp) {
-      if (
-        typeof renderer !== 'undefined' &&
-        renderer &&
-        renderer.xr &&
-        renderer.xr.isPresenting
-      ) {
-        const session = renderer.xr.getSession();
-        if (session && session.inputSources) {
-          for (const source of session.inputSources) {
-            if (source.gamepad && source.gamepad.connected) {
-              gp = source.gamepad;
-              const axes = gp.axes;
-              if (axes && axes.length >= 2) {
-                const sx =
-                  axes.length >= 4 && (axes[2] !== 0 || axes[3] !== 0)
-                    ? axes[2]
-                    : axes[0];
-                const sy =
-                  axes.length >= 4 && (axes[2] !== 0 || axes[3] !== 0)
-                    ? axes[3]
-                    : axes[1];
-                if (Math.abs(sx) > 0.15 || Math.abs(sy) > 0.15) {
-                  break;
-                }
-              }
+    // In WebXR, separate controllers exist for left and right hands
+    let leftGp = null;
+    let rightGp = null;
+    const isVR =
+      typeof renderer !== 'undefined' &&
+      renderer &&
+      renderer.xr &&
+      renderer.xr.isPresenting;
+
+    if (isVR) {
+      const session = renderer.xr.getSession();
+      if (session && session.inputSources) {
+        for (const source of session.inputSources) {
+          if (source.gamepad && source.gamepad.connected) {
+            if (source.handedness === 'left') {
+              leftGp = source.gamepad;
+            } else if (source.handedness === 'right') {
+              rightGp = source.gamepad;
+            } else if (!rightGp) {
+              rightGp = source.gamepad;
             }
           }
         }
       }
+      if (!gp) {
+        gp = rightGp || leftGp;
+      }
     }
 
-    if (!gp) {
+    if (!gp && !leftGp && !rightGp) {
       this._lastGamepadButtons = [];
       this.state.gamepad.steeringActive = false;
       return;
     }
 
     // 1. Flight Stick: Map Analog Stick to Pitch and Roll (supporting standard gamepads & WebXR Touch controllers)
-    let roll =
-      gp.axes.length >= 4 && (gp.axes[2] !== 0 || gp.axes[3] !== 0)
-        ? gp.axes[2]
-        : gp.axes[0];
-    let pitch =
-      gp.axes.length >= 4 && (gp.axes[2] !== 0 || gp.axes[3] !== 0)
-        ? gp.axes[3]
-        : gp.axes[1];
+    const stickGp = isVR ? rightGp || leftGp || gp : gp;
+    let roll = 0;
+    let pitch = 0;
+    if (stickGp && stickGp.axes && stickGp.axes.length >= 2) {
+      roll =
+        stickGp.axes.length >= 4 &&
+        (stickGp.axes[2] !== 0 || stickGp.axes[3] !== 0)
+          ? stickGp.axes[2]
+          : stickGp.axes[0];
+      pitch =
+        stickGp.axes.length >= 4 &&
+        (stickGp.axes[2] !== 0 || stickGp.axes[3] !== 0)
+          ? stickGp.axes[3]
+          : stickGp.axes[1];
+    }
     const deadzone = 0.15;
     if (Math.abs(roll) < deadzone) roll = 0;
     if (Math.abs(pitch) < deadzone) pitch = 0;
@@ -870,23 +874,47 @@ class InputManager {
       this.state.gamepad.steeringActive = false;
     }
 
-    // 2. Throttle Triggers: RT / Trigger (accelerate), LT / Grip (decelerate)
-    const rt =
-      gp.buttons[7]?.value !== undefined
-        ? gp.buttons[7].value
-        : gp.buttons[0]?.value !== undefined
-          ? gp.buttons[0].value
-          : gp.buttons[7]?.pressed || gp.buttons[0]?.pressed
-            ? 1
-            : 0;
-    const lt =
-      gp.buttons[6]?.value !== undefined
-        ? gp.buttons[6].value
-        : gp.buttons[1]?.value !== undefined
-          ? gp.buttons[1].value
-          : gp.buttons[6]?.pressed || gp.buttons[1]?.pressed
-            ? 1
-            : 0;
+    // 2. Throttle Triggers:
+    // In VR: Right trigger accelerates, Left trigger decelerates
+    // On Standard Gamepad: RT (button 7) accelerates, LT (button 6) decelerates
+    let rt = 0;
+    let lt = 0;
+
+    if (isVR && (leftGp || rightGp)) {
+      if (rightGp && rightGp.buttons && rightGp.buttons[0]) {
+        rt =
+          rightGp.buttons[0].value !== undefined
+            ? rightGp.buttons[0].value
+            : rightGp.buttons[0].pressed
+              ? 1
+              : 0;
+      }
+      if (leftGp && leftGp.buttons && leftGp.buttons[0]) {
+        lt =
+          leftGp.buttons[0].value !== undefined
+            ? leftGp.buttons[0].value
+            : leftGp.buttons[0].pressed
+              ? 1
+              : 0;
+      }
+    } else if (gp && gp.buttons) {
+      rt =
+        gp.buttons[7]?.value !== undefined
+          ? gp.buttons[7].value
+          : gp.buttons[0]?.value !== undefined
+            ? gp.buttons[0].value
+            : gp.buttons[7]?.pressed || gp.buttons[0]?.pressed
+              ? 1
+              : 0;
+      lt =
+        gp.buttons[6]?.value !== undefined
+          ? gp.buttons[6].value
+          : gp.buttons[1]?.value !== undefined
+            ? gp.buttons[1].value
+            : gp.buttons[6]?.pressed || gp.buttons[1]?.pressed
+              ? 1
+              : 0;
+    }
 
     if (this.onThrottleChange) {
       if (rt > 0.1) {
@@ -897,8 +925,17 @@ class InputManager {
       }
     }
 
-    // 3. Pause: Map 'Start' or 'Menu' button (Button 9)
-    if (gp.buttons[9]?.pressed) {
+    // 3. Pause:
+    // Standard gamepad: Button 9 (Start/Menu)
+    // WebXR on Quest: Left Controller Y (Button 5) OR Thumbstick Click (Button 3 on either controller)
+    const isPausePressed =
+      (gp && gp.buttons && gp.buttons[9]?.pressed) ||
+      (isVR &&
+        (leftGp?.buttons[5]?.pressed ||
+          leftGp?.buttons[3]?.pressed ||
+          rightGp?.buttons[3]?.pressed));
+
+    if (isPausePressed) {
       if (!this._gamepadPauseLatched) {
         if (this.onPauseToggle) this.onPauseToggle();
         this._gamepadPauseLatched = true;
@@ -908,7 +945,7 @@ class InputManager {
     }
 
     // Toggle Action Menu: Map 'Select' or 'Back' button (Button 8)
-    if (gp.buttons[8]?.pressed) {
+    if (gp && gp.buttons && gp.buttons[8]?.pressed) {
       if (!this._gamepadSelectLatched) {
         if (this.onMenuToggle) this.onMenuToggle();
         this._gamepadSelectLatched = true;
@@ -917,10 +954,13 @@ class InputManager {
       this._gamepadSelectLatched = false;
     }
 
-    // Map Button 0 (A) to Enter for selection
-    if (gp.buttons[0]?.pressed && !this._lastGamepadButtons[0]) {
+    // Map Button 0 (A) to Enter for selection (Standard gamepad: 0, Quest Right: 4)
+    const aBtnPressed =
+      (rightGp && rightGp.buttons && rightGp.buttons[4]?.pressed) ||
+      (gp && gp.buttons && gp.buttons[0]?.pressed);
+    if (aBtnPressed && !this._lastGamepadButtons[0]) {
       window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));
-    } else if (!gp.buttons[0]?.pressed && this._lastGamepadButtons[0]) {
+    } else if (!aBtnPressed && this._lastGamepadButtons[0]) {
       window.dispatchEvent(new KeyboardEvent('keyup', {key: 'Enter'}));
     }
 

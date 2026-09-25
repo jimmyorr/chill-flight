@@ -250,9 +250,10 @@ When playing on a touch device, specialized UI and controls become available:
 
 Chill Flight supports immersive virtual reality on devices such as the Meta Quest 2 via the Meta Quest Browser or any WebXR-compliant browser:
 
-- **Enter VR:** An opt-in "Enter VR" button appears in the pause menu and initial splash screen when a compatible WebXR VR headset is detected.
+- **Enter VR:** An opt-in "VR" button appears in the pause menu and initial splash screen when a compatible WebXR VR headset is detected.
 - **Head tracking:** Full 6DoF head tracking allows you to look around freely from either the follow chase view or cockpit first-person view.
-- **Touch controllers:** Use the analog thumbstick for pitch and roll steering, the front trigger to accelerate, and the grip button to decelerate.
+- **Touch controllers:** Use the right analog thumbstick for pitch and roll steering, right trigger to accelerate, and left trigger to decelerate.
+- **In-game pause menu:** Press the left controller **Y** button or click either thumbstick to bring up the 3D in-world pause menu. Select options using the laser pointer trigger, or press **A** to resume flight and **B** to exit VR.
 - **Performance:** Automatically enables fixed foveated rendering and unlocks high display refresh rates (72 Hz / 90 Hz).
 
 ## Graphics & settings
