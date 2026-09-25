@@ -1312,18 +1312,29 @@
 
     <script type="module">
       // Set version automatically from package.json version injected by Vite
+      const appVersion =
+        (typeof window !== 'undefined' && window.__APP_VERSION__) ||
+        (typeof __APP_VERSION__ !== 'undefined' && __APP_VERSION__) ||
+        '0.0.0';
+      const commitHash =
+        (typeof window !== 'undefined' && window.__COMMIT_HASH__) ||
+        (typeof __COMMIT_HASH__ !== 'undefined' && __COMMIT_HASH__) ||
+        'unknown';
+      const isDirty =
+        typeof window !== 'undefined' &&
+        typeof window.__IS_DIRTY__ !== 'undefined'
+          ? !!window.__IS_DIRTY__
+          : typeof __IS_DIRTY__ !== 'undefined' && __IS_DIRTY__;
+      const dirty = isDirty ? '*' : '';
+
       document.querySelectorAll('.version-tag').forEach((el) => {
-        el.textContent = 'v' + (__APP_VERSION__ || '0.0.0');
+        el.textContent = 'v' + appVersion;
       });
 
       // Set version info in debug telemetry
       const debugVersionInfo = document.getElementById('debug-version-info');
       if (debugVersionInfo) {
-        const hash =
-          typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'unknown';
-        const dirty =
-          typeof __IS_DIRTY__ !== 'undefined' && __IS_DIRTY__ ? '*' : '';
-        debugVersionInfo.textContent = `v${__APP_VERSION__} (${hash}${dirty})`;
+        debugVersionInfo.textContent = `v${appVersion} (${commitHash}${dirty})`;
       }
     </script>
   </body>

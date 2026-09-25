@@ -6,9 +6,9 @@
   "scripts": {
     "predev": "node scripts/sync-metadata.js",
     "dev": "vite",
-    "prebuild": "node scripts/sync-metadata.js",
+    "prebuild": "node scripts/check-clean-source.js --mode=source && node scripts/sync-metadata.js",
     "build": "vite build",
-    "release": "npm version patch --no-git-tag-version && node scripts/sync-version.js && npm run build",
+    "release": "node scripts/check-clean-source.js --mode=all && npm version patch --no-git-tag-version && node scripts/sync-version.js && npm run build",
     "preview": "vite preview",
     "ios": "npx cap sync ios && npx cap open ios",
     "android": "npx cap sync android && npx cap open android",
