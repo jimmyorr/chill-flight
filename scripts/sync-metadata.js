@@ -62,16 +62,7 @@ if (!descriptionRaw) {
   process.exit(1);
 }
 
-// 2. Extract Promotional Text
-let promoText = extractSection(readmeContent, 'Promotional text');
-if (!promoText) {
-  console.warn(
-    'Warning: Could not extract "Promotional text" from README.md. Falling back to the first line of the description.'
-  );
-  promoText = descriptionRaw.split('\n')[0].trim();
-}
-
-// 3. Extract Keywords
+// 2. Extract Keywords
 const keywordsRaw = extractSection(readmeContent, 'Keywords');
 if (!keywordsRaw) {
   console.error('Error: Could not extract "Keywords" from README.md.');
@@ -84,17 +75,19 @@ const keywords = keywordsRaw
   .map((k) => k.trim())
   .filter(Boolean);
 
+// Extract first paragraph of description
+const descParagraph = descriptionRaw.split('\n')[0].trim();
+
 // --- UPDATE package.json ---
 const packageJson = JSON.parse(packageJsonContent);
-packageJson.description = promoText;
+packageJson.description = descParagraph;
 packageJson.keywords = keywords;
 const updatedPackageJson = JSON.stringify(packageJson, null, 2) + '\n';
 fs.writeFileSync(packageJsonPath, updatedPackageJson, 'utf8');
 console.log('Successfully updated description and keywords in package.json');
 
 // --- UPDATE index.html ---
-// Extract first paragraph of description for meta description tag
-const descParagraph = descriptionRaw.split('\n')[0].trim();
+// Meta description tag
 const metaDescriptionHtml = `    <meta name="description" content="${descParagraph}" />`;
 const metaStartTag = '<!-- sync-start:meta-description -->';
 const metaEndTag = '<!-- sync-end:meta-description -->';
@@ -158,15 +151,6 @@ if (inList) {
   htmlDescription += '        </ul>\n';
 }
 
-// Replace promo text
-const promoStartTag = '<!-- sync-start:promo -->';
-const promoEndTag = '<!-- sync-end:promo -->';
-const promoRegex = new RegExp(`${promoStartTag}[\\s\\S]*?${promoEndTag}`);
-aboutContent = aboutContent.replace(
-  promoRegex,
-  `${promoStartTag}\n${promoText}\n${promoEndTag}`
-);
-
 // Replace description text
 const descStartTag = '<!-- sync-start:description -->';
 const descEndTag = '<!-- sync-end:description -->';
@@ -177,9 +161,7 @@ aboutContent = aboutContent.replace(
 );
 
 fs.writeFileSync(aboutPath, aboutContent, 'utf8');
-console.log(
-  'Successfully updated promotional text and description in public/about.html'
-);
+console.log('Successfully updated description in public/about.html');
 
 // Format the updated files using Prettier so they don't appear as unstaged changes later
 const {execSync} = require('child_process');
