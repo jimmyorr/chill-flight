@@ -3,7 +3,7 @@
 - **Manual commits only**: Do not create git commits automatically. When a task or skill (including TDD or subagent workflows) reaches a commit point, you must stop, stage the changes, and ask for explicit permission before committing.
 - **No standing permission**: A previous approval to commit (e.g., "go ahead and commit") applies ONLY to the currently staged changes. It does NOT grant permission for any future commits.
 - **NEVER CHAIN COMMITS**: If you complete a follow-up task, you must ask for permission AGAIN before committing. Do not assume "go ahead and commit" means "commit everything I do from now on."
-- **Verification first**: Always run the relevant verification/test command before asking to commit, but do not proceed to the `git commit` command yourself.
+- **Verification first**: Always run the complete verification sequence (`npm run format && npm test`) before asking to commit, but do not proceed to the `git commit` command yourself.
 - **Format before staging**: Always run the project's code formatter (`npm run format`) on modified files before verifying or staging changes. This ensures formatting remains consistent and prevents stylistic changes from being mixed into functional commits.
 - **Isolated production commits**: Keep updates to the production build (files under the `docs/` directory) completely isolated in their own commits, separate from dev source code changes.
   - **No automatic production builds**: Never generate a production build (`npm run build` or updating the `docs/` folder) unless the USER explicitly requests it.
@@ -54,7 +54,12 @@
 
 ## ESLint & refactoring rules
 
+- **Zero lint warnings standard**: The codebase maintains a strict zero-warning policy enforced by `npm run lint` (`eslint . --max-warnings=0`). Never propose or stage commits that introduce ESLint warnings or errors. Always run `npm run lint` or `npm test` as part of your verification pass before asking for commit approval.
 - **Strict refactoring verification**: When refactoring code, extracting functions, or changing variable scope, you MUST run ESLint with the `no-undef` and `no-use-before-define` rules explicitly elevated to errors (e.g., `npx eslint <file> --rule 'no-undef: error' --rule 'no-use-before-define: error' --quiet`) to ensure no variables were broken. The default repository configuration treats these as warnings, meaning they can easily be missed in the output without the `--quiet` flag and explicit error elevation.
+- **Code hygiene best practices**:
+  - Use optional catch binding (`try { ... } catch { ... }`) when the error object is unused, rather than `catch (e)`.
+  - Remove dead or leftover variables immediately during refactoring rather than leaving unused declarations.
+  - Do not leave unused function arguments or destructured variables from imports or constants.
 
 ## Logging & console rules
 
