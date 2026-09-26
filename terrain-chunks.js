@@ -226,9 +226,6 @@ globalInstancer.registerType('penguinFootR', penguinFootRGeo, penguinOrangeMat);
 globalInstancer.registerType('lilypad', lilyPadGeo, lilyPadMat);
 globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
 
-var chunkGenerators = new Map();
-window.chunkGenerators = chunkGenerators;
-
 var workerChunkRequests = new Map();
 var workerChunkResults = new Map();
 
@@ -253,7 +250,7 @@ function queueWorkerChunk(cx, cz, key, priority = 0) {
     })
     .then((result) => {
       workerChunkRequests.delete(key);
-      if (chunkQueueSet.has(key) || chunkGenerators.has(key)) {
+      if (chunkQueueSet.has(key)) {
         workerChunkResults.set(key, result);
       }
     })
@@ -281,17 +278,7 @@ window.clearChunkQueue = function () {
   }
 };
 
-function* generateChunk(chunkX, chunkZ, workerData = null) {
-  const checkYield = () => {
-    if (
-      window._chunkQueueStartTime &&
-      window._chunkQueueTimeBudget &&
-      performance.now() - window._chunkQueueStartTime >
-        window._chunkQueueTimeBudget
-    )
-      return true;
-    return false;
-  };
+function generateChunk(chunkX, chunkZ, workerData = null) {
   const collector = new ChunkDataCollector();
   const group = new THREE.Group();
   group.userData.chunkX = chunkX;
@@ -401,7 +388,6 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
   } else {
     localHeightGrid = new Float32Array(totalVerts);
     for (let vertIdx = 0; vertIdx < totalVerts; vertIdx++) {
-      if (vertIdx % 200 === 0 && checkYield()) yield;
       const i = vertIdx * 3;
       const localX = positions[i];
       const localZ = positions[i + 2];
@@ -460,7 +446,6 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     const invTwoGridSpacing = 0.5 / gridSpacing;
 
     for (let i = 0; i < positions.length; i += 3) {
-      if (i % 300 === 0 && checkYield()) yield;
       const vertIdx = i / 3;
       const localX = positions[i];
       const localZ = positions[i + 2];
@@ -1450,7 +1435,6 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
-  if (checkYield()) yield;
 
   // 2.99 Volcano Landmark Details
   // Must run BEFORE the early-exit guard to avoid the async race where the chunk
@@ -1619,7 +1603,6 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     group.add(waterMesh);
     group.userData.water = waterMesh; // accessible for animation!
   }
-  if (checkYield()) yield;
 
   // 1.6 Dedicated group for procedural objects (trees, houses, etc.)
   // This allows for bulk toggling visibility via the debug menu.
@@ -1739,7 +1722,6 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
       'tallDecidLeaves',
       0x1a451d
     );
-    if (checkYield()) yield;
     renderTrees(palmTreePositions, 'palmTrunk', 'palmLeaves', 0x689f38);
     renderTrees(cherryTreePositions, 'decidTrunk', 'decidLeaves', 0xf8bbd0);
     renderTrees(autumnTree1Positions, 'decidTrunk', 'decidLeaves', 0xd35400);
@@ -1763,7 +1745,6 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
       'japaneseMapleLeaves',
       0xa31515
     );
-    if (checkYield()) yield;
 
     if (deadTreePositions.length > 0) {
       deadTreePositions.forEach((pos) => {
@@ -1801,7 +1782,6 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
         });
       }
     });
-    if (checkYield()) yield;
   }
 
   // 2.3b Generate Rock Arches (Unique instances)
@@ -2022,7 +2002,6 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
         collector.add('bush', dummy.matrix, baseBushColor);
       });
     }
-    if (checkYield()) yield;
   }
 
   // 2.5 Generate Houses
@@ -2600,7 +2579,6 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     objectsGroup.add(baseInst);
     objectsGroup.add(bladesInst);
   }
-  if (checkYield()) yield;
 
   // 2.9 Generate Lighthouse
   if (lighthousePos) {
@@ -3949,11 +3927,7 @@ function updateChunks() {
       const cx = currentChunkX + x;
       const cz = currentChunkZ + z;
       const key = `${cx},${cz}`;
-      if (
-        !chunks.has(key) &&
-        !chunkQueueSet.has(key) &&
-        !chunkGenerators.has(key)
-      ) {
+      if (!chunks.has(key) && !chunkQueueSet.has(key)) {
         const priority = computeChunkPriority(cx, cz);
         missingChunks.push({
           cx,
@@ -4007,19 +3981,6 @@ function updateChunks() {
   chunkQueue.sort((a, b) => a.priority - b.priority);
 
   let chunksEvicted = false;
-
-  // Evict generators that are out of bounds
-  chunkGenerators.forEach((gen, key) => {
-    const [cxStr, czStr] = key.split(',');
-    const cx = parseInt(cxStr);
-    const cz = parseInt(czStr);
-    if (
-      Math.abs(cx - currentChunkX) > renderDistance + 1 ||
-      Math.abs(cz - currentChunkZ) > renderDistance + 1
-    ) {
-      chunkGenerators.delete(key);
-    }
-  });
 
   chunks.forEach((group, key) => {
     const cx = group.userData.chunkX;
@@ -4125,36 +4086,13 @@ function updateChunks() {
   }
 }
 
-window.processChunkQueue = function (timeBudget = 4) {
-  if (chunkQueue.length === 0 && chunkGenerators.size === 0) return 1.0; // 100% progress when queue is empty
+window.processChunkQueue = function () {
+  if (chunkQueue.length === 0) return 1.0;
 
-  window._chunkQueueStartTime = performance.now();
-  window._chunkQueueTimeBudget = timeBudget;
   let generatedThisFrame = 0;
+  let fallbackGenerated = false;
 
-  // Process active generators first
-  for (const [key, gen] of chunkGenerators.entries()) {
-    const result = gen.next();
-    if (result.done) {
-      chunks.set(key, result.value);
-      chunkGenerators.delete(key);
-      generatedThisFrame++;
-    }
-    // If we exceed time budget, stop processing generators
-    if (performance.now() - window._chunkQueueStartTime > timeBudget) {
-      break;
-    }
-  }
-
-  // If we still have budget, pop new chunks and start them.
-  // Limit concurrent active generators during normal flight so we finish chunks sequentially.
-  const maxActiveGenerators = timeBudget > 10 ? 8 : 2;
-  while (
-    chunkQueue.length > 0 &&
-    chunkGenerators.size < maxActiveGenerators &&
-    performance.now() - window._chunkQueueStartTime < timeBudget
-  ) {
-    // If any queued chunk has ready worker data, prioritize popping it
+  while (chunkQueue.length > 0) {
     let itemIdx = -1;
     for (let i = chunkQueue.length - 1; i >= 0; i--) {
       if (workerChunkResults.has(chunkQueue[i].key)) {
@@ -4162,21 +4100,24 @@ window.processChunkQueue = function (timeBudget = 4) {
         break;
       }
     }
+
+    if (itemIdx === -1 && fallbackGenerated) {
+      break;
+    }
+
     const item =
       itemIdx !== -1 ? chunkQueue.splice(itemIdx, 1)[0] : chunkQueue.pop();
     chunkQueueSet.delete(item.key);
 
-    if (!chunks.has(item.key) && !chunkGenerators.has(item.key)) {
+    if (!chunks.has(item.key)) {
       const workerData = workerChunkResults.get(item.key) || null;
       workerChunkResults.delete(item.key);
-      const gen = generateChunk(item.cx, item.cz, workerData);
-      const result = gen.next();
-      if (result.done) {
-        chunks.set(item.key, result.value);
-        generatedThisFrame++;
-      } else {
-        chunkGenerators.set(item.key, gen);
-      }
+
+      const chunkGroup = generateChunk(item.cx, item.cz, workerData);
+      chunks.set(item.key, chunkGroup);
+      generatedThisFrame++;
+
+      if (!workerData) fallbackGenerated = true;
     }
   }
 
@@ -4184,13 +4125,13 @@ window.processChunkQueue = function (timeBudget = 4) {
     globalInstancer.requestRebuild();
   }
 
-  const totalChunks = chunks.size + chunkQueue.length + chunkGenerators.size;
+  const totalChunks = chunks.size + chunkQueue.length;
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
 };
 
 window.getChunkLoadingProgress = function () {
-  const totalChunks = chunks.size + chunkQueue.length + chunkGenerators.size;
+  const totalChunks = chunks.size + chunkQueue.length;
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
 };
