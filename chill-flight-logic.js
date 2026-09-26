@@ -2355,5 +2355,7 @@
 })(
   typeof module !== 'undefined'
     ? module.exports
-    : (window.ChillFlightLogic = {})
+    : typeof window !== 'undefined'
+      ? (window.ChillFlightLogic = {})
+      : (self.ChillFlightLogic = {})
 );

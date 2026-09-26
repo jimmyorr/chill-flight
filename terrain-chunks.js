@@ -249,6 +249,8 @@ function queueWorkerChunk(cx, cz, key) {
       segments: SEGMENTS,
       chunkSize: CHUNK_SIZE,
       elevParams,
+      worldSeed: ChillFlightLogic.WORLD_SEED,
+      enableObjects: _enableObjects,
     })
     .then((result) => {
       workerChunkRequests.delete(key);
@@ -406,509 +408,666 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     }
   }
 
-  const gridSpacing = CHUNK_SIZE / SEGMENTS;
-  const invGridSpacing = 1.0 / gridSpacing;
-  const invTwoGridSpacing = 0.5 / gridSpacing;
+  if (
+    workerData &&
+    workerData.buffers &&
+    workerData.buffers.terrainColors &&
+    workerData.chunkProps
+  ) {
+    colors.set(workerData.buffers.terrainColors);
+    const cp = workerData.chunkProps;
+    if (cp.housePositions) housePositions.push(...cp.housePositions);
+    if (cp.twoStoryHousePositions)
+      twoStoryHousePositions.push(...cp.twoStoryHousePositions);
+    if (cp.strawHutPositions) strawHutPositions.push(...cp.strawHutPositions);
+    if (cp.pagodaPositions) pagodaPositions.push(...cp.pagodaPositions);
+    if (cp.barnPositions) barnPositions.push(...cp.barnPositions);
+    if (cp.monasteryPositions)
+      monasteryPositions.push(...cp.monasteryPositions);
+    if (cp.castleRuinsPositions)
+      castleRuinsPositions.push(...cp.castleRuinsPositions);
+    if (cp.windmillPositions) windmillPositions.push(...cp.windmillPositions);
+    if (cp.sailboatPositions) sailboatPositions.push(...cp.sailboatPositions);
+    if (cp.pirateShipPositions)
+      pirateShipPositions.push(...cp.pirateShipPositions);
+    if (cp.rockArchPositions) rockArchPositions.push(...cp.rockArchPositions);
+    if (cp.rockArchGrassPositions)
+      rockArchGrassPositions.push(...cp.rockArchGrassPositions);
+    if (cp.pierPositions) pierPositions.push(...cp.pierPositions);
+    if (cp.campfirePositions) campfirePositions.push(...cp.campfirePositions);
+    if (cp.chimneySmokePositions)
+      chimneySmokePositions.push(...cp.chimneySmokePositions);
+    if (cp.lighthousePos) lighthousePos = cp.lighthousePos;
 
-  for (let i = 0; i < positions.length; i += 3) {
-    if (i % 300 === 0 && checkYield()) yield;
-    const vertIdx = i / 3;
-    const localX = positions[i];
-    const localZ = positions[i + 2];
-    const worldX = worldOffsetX + localX;
-    const worldZ = worldOffsetZ + localZ;
-    const isEast = worldX > 0;
-    const isAlienLand = Math.abs(worldX) > 25000;
-    const isEastAlien = isEast && isAlienLand;
-
-    const height = _chunkHeightGrid[vertIdx];
-
-    // --- ORGANIC TEXTURING & SLOPE LOGIC ---
-    // 1. Calculate local slope using finite differences directly from the elevation grid
-    const ix = vertIdx % gridX1;
-    const iy = (vertIdx / gridX1) | 0;
-
-    let slopeX;
-    if (ix > 0 && ix < SEGMENTS) {
-      slopeX =
-        (_chunkHeightGrid[vertIdx + 1] - _chunkHeightGrid[vertIdx - 1]) *
-        invTwoGridSpacing;
-    } else if (ix === 0) {
-      slopeX = (_chunkHeightGrid[vertIdx + 1] - height) * invGridSpacing;
-    } else {
-      slopeX = (height - _chunkHeightGrid[vertIdx - 1]) * invGridSpacing;
+    if (rockArchPositions.length > 0 || rockArchGrassPositions.length > 0) {
+      const archPos = rockArchPositions[0] || rockArchGrassPositions[0];
+      group.userData.rockArch = {
+        x: worldOffsetX + archPos.x,
+        y: archPos.y,
+        z: worldOffsetZ + archPos.z,
+        rotY: archPos.rotY,
+      };
     }
+  } else {
+    const gridSpacing = CHUNK_SIZE / SEGMENTS;
+    const invGridSpacing = 1.0 / gridSpacing;
+    const invTwoGridSpacing = 0.5 / gridSpacing;
 
-    let slopeZ;
-    if (iy > 0 && iy < SEGMENTS) {
-      slopeZ =
-        (_chunkHeightGrid[vertIdx + gridX1] -
-          _chunkHeightGrid[vertIdx - gridX1]) *
-        invTwoGridSpacing;
-    } else if (iy === 0) {
-      slopeZ = (_chunkHeightGrid[vertIdx + gridX1] - height) * invGridSpacing;
-    } else {
-      slopeZ = (height - _chunkHeightGrid[vertIdx - gridX1]) * invGridSpacing;
-    }
+    for (let i = 0; i < positions.length; i += 3) {
+      if (i % 300 === 0 && checkYield()) yield;
+      const vertIdx = i / 3;
+      const localX = positions[i];
+      const localZ = positions[i + 2];
+      const worldX = worldOffsetX + localX;
+      const worldZ = worldOffsetZ + localZ;
+      const isEast = worldX > 0;
+      const isAlienLand = Math.abs(worldX) > 25000;
+      const isEastAlien = isEast && isAlienLand;
 
-    const slope = Math.sqrt(slopeX * slopeX + slopeZ * slopeZ);
-    const slopeFactor = Math.min(1, slope * 0.5); // [0, 1] — steeper means higher factor
+      const height = _chunkHeightGrid[vertIdx];
 
-    // 2. Procedural Mottling (Multi-octave patches)
-    const mottle1 = simplex.noise2D(worldX * 0.002, worldZ * 0.002);
-    const mottle2 = simplex.noise2D(worldX * 0.01, worldZ * 0.01) * 0.3;
-    const mottle = (mottle1 + mottle2 + 0.5) * 0.5; // Shifted [0, 1] range approx
+      // --- ORGANIC TEXTURING & SLOPE LOGIC ---
+      // 1. Calculate local slope using finite differences directly from the elevation grid
+      const ix = vertIdx % gridX1;
+      const iy = (vertIdx / gridX1) | 0;
 
-    // 3. High-frequency micro-grain
-    const grain = simplex.noise2D(worldX * 0.2, worldZ * 0.2) * 0.05;
-
-    // --- EXTREME ZONE FACTOR (East/West beyond 10 degrees) ---
-    const extremeEdgeWorld = 50000;
-    const absWorldX = Math.abs(worldX);
-    const extremeZoneFactor = Math.max(
-      0,
-      Math.min(1, (absWorldX - extremeEdgeWorld) / 15000)
-    );
-    // Smoothstep for a less abrupt transition
-    const extremeBlend =
-      extremeZoneFactor * extremeZoneFactor * (3 - 2 * extremeZoneFactor);
-
-    // --- BIOME FACTORS ---
-    const northInfluence = Math.max(0, -worldZ / 5000);
-    // Add more noise to biome transitions to avoid smooth boring circles
-    const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
-    const biomeNoise = simplex.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
-
-    const snowRaw = Math.max(
-      0,
-      Math.min(1, (northInfluence + noisePath * 0.05 + biomeNoise - 1.0) * 1.5)
-    );
-    const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
-
-    const southInfluence = Math.max(0, worldZ / 5000);
-    const desertRaw = Math.max(
-      0,
-      Math.min(1, (southInfluence + noisePath * 0.05 - biomeNoise - 2.0) * 1.0)
-    );
-    const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
-
-    // East code beachfront
-    const eastCoastFactor = Math.max(0, Math.min(1, (worldX + 2000) / 2000));
-    const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 10;
-
-    const isForest =
-      simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005) > 0.2;
-    const autumnNoise = simplex.noise2D(
-      worldX * 0.0003 + 500,
-      worldZ * 0.0003 + 500
-    );
-    const cherryNoise = simplex.noise2D(
-      worldX * 0.0005 + 1000,
-      worldZ * 0.0005 + 1000
-    );
-
-    // --- COLOR ASSIGNMENT & FEATURE SPAWNING ---
-    if (isCustom) {
-      let finalHeight = height;
-      // Altitude mapping (38.0 -> 125.5 range)
-      if (height <= WATER_LEVEL + 5.0) {
-        hasWater = true;
-        _tempColorObj.copy(_colorSand);
-
-        // Smooth dip from 5 units deep at water level to 0 at +5 units elevation
-        // This ensures that shallow land stays underwater and avoids Z-fighting.
-        const t = Math.max(0, Math.min(1, (height - WATER_LEVEL) / 5.0));
-        const dip = 5.0 * (1.0 - t);
-        finalHeight = height - dip;
-      } else if (height > 105.0) {
-        _tempColorObj.copy(_colorMountainTint);
+      let slopeX;
+      if (ix > 0 && ix < SEGMENTS) {
+        slopeX =
+          (_chunkHeightGrid[vertIdx + 1] - _chunkHeightGrid[vertIdx - 1]) *
+          invTwoGridSpacing;
+      } else if (ix === 0) {
+        slopeX = (_chunkHeightGrid[vertIdx + 1] - height) * invGridSpacing;
       } else {
-        _tempColorObj.copy(isForest ? _colorForest : _colorPlains);
-        // Apply subtle mottling for custom maps too
-        _tempColorObj.lerp(_colorBlack, mottle * 0.1);
+        slopeX = (height - _chunkHeightGrid[vertIdx - 1]) * invGridSpacing;
       }
-      positions[i + 1] = finalHeight;
-    } else {
-      if (height <= sandMaxHeight) {
-        if (height <= WATER_LEVEL) {
+
+      let slopeZ;
+      if (iy > 0 && iy < SEGMENTS) {
+        slopeZ =
+          (_chunkHeightGrid[vertIdx + gridX1] -
+            _chunkHeightGrid[vertIdx - gridX1]) *
+          invTwoGridSpacing;
+      } else if (iy === 0) {
+        slopeZ = (_chunkHeightGrid[vertIdx + gridX1] - height) * invGridSpacing;
+      } else {
+        slopeZ = (height - _chunkHeightGrid[vertIdx - gridX1]) * invGridSpacing;
+      }
+
+      const slope = Math.sqrt(slopeX * slopeX + slopeZ * slopeZ);
+      const slopeFactor = Math.min(1, slope * 0.5); // [0, 1] — steeper means higher factor
+
+      // 2. Procedural Mottling (Multi-octave patches)
+      const mottle1 = simplex.noise2D(worldX * 0.002, worldZ * 0.002);
+      const mottle2 = simplex.noise2D(worldX * 0.01, worldZ * 0.01) * 0.3;
+      const mottle = (mottle1 + mottle2 + 0.5) * 0.5; // Shifted [0, 1] range approx
+
+      // 3. High-frequency micro-grain
+      const grain = simplex.noise2D(worldX * 0.2, worldZ * 0.2) * 0.05;
+
+      // --- EXTREME ZONE FACTOR (East/West beyond 10 degrees) ---
+      const extremeEdgeWorld = 50000;
+      const absWorldX = Math.abs(worldX);
+      const extremeZoneFactor = Math.max(
+        0,
+        Math.min(1, (absWorldX - extremeEdgeWorld) / 15000)
+      );
+      // Smoothstep for a less abrupt transition
+      const extremeBlend =
+        extremeZoneFactor * extremeZoneFactor * (3 - 2 * extremeZoneFactor);
+
+      // --- BIOME FACTORS ---
+      const northInfluence = Math.max(0, -worldZ / 5000);
+      // Add more noise to biome transitions to avoid smooth boring circles
+      const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
+      const biomeNoise =
+        simplex.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
+
+      const snowRaw = Math.max(
+        0,
+        Math.min(
+          1,
+          (northInfluence + noisePath * 0.05 + biomeNoise - 1.0) * 1.5
+        )
+      );
+      const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
+
+      const southInfluence = Math.max(0, worldZ / 5000);
+      const desertRaw = Math.max(
+        0,
+        Math.min(
+          1,
+          (southInfluence + noisePath * 0.05 - biomeNoise - 2.0) * 1.0
+        )
+      );
+      const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
+
+      // East code beachfront
+      const eastCoastFactor = Math.max(0, Math.min(1, (worldX + 2000) / 2000));
+      const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 10;
+
+      const isForest =
+        simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005) > 0.2;
+      const autumnNoise = simplex.noise2D(
+        worldX * 0.0003 + 500,
+        worldZ * 0.0003 + 500
+      );
+      const cherryNoise = simplex.noise2D(
+        worldX * 0.0005 + 1000,
+        worldZ * 0.0005 + 1000
+      );
+
+      // --- COLOR ASSIGNMENT & FEATURE SPAWNING ---
+      if (isCustom) {
+        let finalHeight = height;
+        // Altitude mapping (38.0 -> 125.5 range)
+        if (height <= WATER_LEVEL + 5.0) {
           hasWater = true;
-          if (_enableObjects) {
-            if (rng() < 0.0001 * densityScale) {
-              // Pirate Ship spawn
-              if (
-                height <= WATER_LEVEL + 0.1 && // depth check (compatible with custom maps)
-                snowFactor < 0.2 // avoid frozen north
-              ) {
-                // open water check
-                const eN = getElevation(worldX, worldZ - 300);
-                const eS = getElevation(worldX, worldZ + 300);
-                const eE = getElevation(worldX + 300, worldZ);
-                const eW = getElevation(worldX - 300, worldZ);
+          _tempColorObj.copy(_colorSand);
+
+          // Smooth dip from 5 units deep at water level to 0 at +5 units elevation
+          // This ensures that shallow land stays underwater and avoids Z-fighting.
+          const t = Math.max(0, Math.min(1, (height - WATER_LEVEL) / 5.0));
+          const dip = 5.0 * (1.0 - t);
+          finalHeight = height - dip;
+        } else if (height > 105.0) {
+          _tempColorObj.copy(_colorMountainTint);
+        } else {
+          _tempColorObj.copy(isForest ? _colorForest : _colorPlains);
+          // Apply subtle mottling for custom maps too
+          _tempColorObj.lerp(_colorBlack, mottle * 0.1);
+        }
+        positions[i + 1] = finalHeight;
+      } else {
+        if (height <= sandMaxHeight) {
+          if (height <= WATER_LEVEL) {
+            hasWater = true;
+            if (_enableObjects) {
+              if (rng() < 0.0001 * densityScale) {
+                // Pirate Ship spawn
                 if (
-                  eN <= WATER_LEVEL + 0.1 &&
-                  eS <= WATER_LEVEL + 0.1 &&
-                  eE <= WATER_LEVEL + 0.1 &&
-                  eW <= WATER_LEVEL + 0.1
+                  height <= WATER_LEVEL + 0.1 && // depth check (compatible with custom maps)
+                  snowFactor < 0.2 // avoid frozen north
                 ) {
-                  pirateShipPositions.push({
+                  // open water check
+                  const eN = getElevation(worldX, worldZ - 300);
+                  const eS = getElevation(worldX, worldZ + 300);
+                  const eE = getElevation(worldX + 300, worldZ);
+                  const eW = getElevation(worldX - 300, worldZ);
+                  if (
+                    eN <= WATER_LEVEL + 0.1 &&
+                    eS <= WATER_LEVEL + 0.1 &&
+                    eE <= WATER_LEVEL + 0.1 &&
+                    eW <= WATER_LEVEL + 0.1
+                  ) {
+                    pirateShipPositions.push({
+                      x: localX,
+                      y: WATER_LEVEL,
+                      z: localZ,
+                      rotY: rng() * Math.PI * 2,
+                      bodyId: Math.floor(rng() * 4), // 4 sail colors
+                    });
+                  }
+                }
+              } else if (rng() < 0.0005 * densityScale) {
+                // Very rare sailboat
+                sailboatPositions.push({
+                  x: localX,
+                  y: WATER_LEVEL,
+                  z: localZ,
+                  rotY: rng() * Math.PI * 2,
+                });
+              } else if (snowFactor > 0.5) {
+                if (rng() < 0.0005 * densityScale) {
+                  // Iceberg
+                  icebergPositions.push({
                     x: localX,
                     y: WATER_LEVEL,
                     z: localZ,
                     rotY: rng() * Math.PI * 2,
-                    bodyId: Math.floor(rng() * 4), // 4 sail colors
                   });
-                }
-              }
-            } else if (rng() < 0.0005 * densityScale) {
-              // Very rare sailboat
-              sailboatPositions.push({
-                x: localX,
-                y: WATER_LEVEL,
-                z: localZ,
-                rotY: rng() * Math.PI * 2,
-              });
-            } else if (snowFactor > 0.5) {
-              if (rng() < 0.0005 * densityScale) {
-                // Iceberg
-                icebergPositions.push({
-                  x: localX,
-                  y: WATER_LEVEL,
-                  z: localZ,
-                  rotY: rng() * Math.PI * 2,
-                });
-              } else if (rng() < 0.00075 * densityScale) {
-                // Ice floe
-                iceFloePositions.push({
-                  x: localX,
-                  y: WATER_LEVEL,
-                  z: localZ,
-                  rotY: rng() * Math.PI * 2,
-                });
-                // 0-3 penguins on the ice floe (sometimes none)
-                const numPenguins = Math.floor(rng() * 4);
-                for (let p = 0; p < numPenguins; p++) {
-                  penguinPositions.push({
-                    x: localX + (rng() - 0.5) * 12,
-                    y: WATER_LEVEL + 3,
-                    z: localZ + (rng() - 0.5) * 12,
+                } else if (rng() < 0.00075 * densityScale) {
+                  // Ice floe
+                  iceFloePositions.push({
+                    x: localX,
+                    y: WATER_LEVEL,
+                    z: localZ,
                     rotY: rng() * Math.PI * 2,
                   });
+                  // 0-3 penguins on the ice floe (sometimes none)
+                  const numPenguins = Math.floor(rng() * 4);
+                  for (let p = 0; p < numPenguins; p++) {
+                    penguinPositions.push({
+                      x: localX + (rng() - 0.5) * 12,
+                      y: WATER_LEVEL + 3,
+                      z: localZ + (rng() - 0.5) * 12,
+                      rotY: rng() * Math.PI * 2,
+                    });
+                  }
+                }
+              }
+              if (
+                snowFactor < 0.1 &&
+                desertFactor < 0.1 &&
+                getBiome(worldX, worldZ) > -0.15 &&
+                rng() < 0.015 * densityScale
+              ) {
+                lilyPadPositions.push({
+                  x: localX,
+                  y: WATER_LEVEL,
+                  z: localZ,
+                  rotY: rng() * Math.PI * 2,
+                });
+              }
+            }
+            if (!isCustom) {
+              // Apply beach wave shaping to underwater shore
+              const waveX = Math.sin(worldX * 0.05) * 0.5;
+              const waveZ = Math.cos(worldZ * 0.05) * 0.5;
+              positions[i + 1] += (waveX + waveZ) * 0.3;
+            }
+            positions[i + 1] = height - 5;
+            _tempColorObj.copy(_colorSand).lerp(_colorWater, 0.15); // Submerged sand tinted with water
+            if (snowFactor > 0)
+              _tempColorObj.lerp(_colorSandSnowTint, snowFactor);
+            if (desertFactor > 0)
+              _tempColorObj.lerp(_colorDesertSand, desertFactor);
+          } else if (height <= WATER_LEVEL + 1.2) {
+            const wetFactor = 1.0 - (height - WATER_LEVEL) / 1.2;
+            _tempColorObj.copy(_colorSand);
+            if (desertFactor > 0) {
+              _tempColorObj.lerp(_colorDesertSand, desertFactor);
+              _tempColorObj.lerp(_colorDesertWetSand, wetFactor);
+            } else {
+              _tempColorObj.lerp(_colorWetSand, wetFactor);
+            }
+            if (snowFactor > 0) _tempColorObj.lerp(_colorSnow, snowFactor);
+          } else {
+            _tempColorObj.copy(_colorSand);
+            if (snowFactor > 0)
+              _tempColorObj.lerp(_colorUpperSandSnowTint, snowFactor);
+            if (desertFactor > 0)
+              _tempColorObj.lerp(_colorDesertSand, desertFactor);
+
+            // Mottling for sand (adding some dark/light patches)
+            if (!isCustom && mottle > 0.6)
+              _tempColorObj.lerp(_colorSandMottleHigh, (mottle - 0.6) * 0.5);
+            if (!isCustom && mottle < 0.4)
+              _tempColorObj.lerp(_colorSandMottleLow, (0.4 - mottle) * 0.5);
+          }
+        } else if (
+          height > MOUNTAIN_LEVEL ||
+          (snowFactor > 0.5 && height > MOUNTAIN_LEVEL - 50)
+        ) {
+          // Massive sierra gets highly refined, patchy-to-solid snow OR Arizona desert rock
+          const sierraSnowNoise1 = simplex.noise2D(
+            worldX * 0.003,
+            worldZ * 0.003
+          );
+          const sierraSnowNoise2 =
+            simplex.noise2D(worldX * 0.012, worldZ * 0.012) * 0.5;
+          const organicNoise = sierraSnowNoise1 + sierraSnowNoise2;
+
+          const isDesertMountain = !isCustom && desertFactor > 0.35;
+          const canHaveSnow = !isDesertMountain;
+
+          // In northern snowy biomes (snowFactor > 0.3), permanent snow blankets
+          // the mountain massifs with exposed rock crags on sheer headwalls.
+          // In temperate zones, snowline sits majestically at high altitude (around 1100-1250 units).
+          let baseSnowline;
+          if (snowFactor > 0.3) {
+            baseSnowline = Math.max(WATER_LEVEL + 10, 300 - snowFactor * 400);
+          } else if (isDesertMountain) {
+            baseSnowline = 2400; // Extreme peaks only in desert
+          } else {
+            baseSnowline = 1150;
+          }
+          const snowline = baseSnowline + organicNoise * 180;
+
+          // Sheer rock cliff face detection:
+          // Snow clings to slopes up to ~65° (slopeFactor ~0.78-0.84).
+          // Truly sheer vertical headwalls and couloir walls shed snow to expose dark granite crags.
+          const cliffThreshold = snowFactor > 0.3 ? 0.84 : 0.78;
+          const isSheerCliff = slopeFactor > cliffThreshold;
+          const canHoldSnow =
+            canHaveSnow && (!isSheerCliff || height > snowline + 300);
+
+          if (canHoldSnow && height > snowline) {
+            // Alpine snowcap & couloir snow
+            const snowT = Math.min(1, (height - snowline) / 180);
+            _tempColorObj.copy(_colorSnow);
+            if (snowT < 1.0) {
+              // Transition zone: patchy snow over rock
+              const rockBase = isDesertMountain
+                ? _colorDesertMountainRock
+                : _colorMountainTint;
+              _tempColorObj.lerp(rockBase, 1.0 - snowT);
+            }
+          } else if (height > 550 || isSheerCliff) {
+            // Exposed alpine crags, cliffs, and rocky massifs
+            if (isDesertMountain) {
+              _tempColorObj.copy(_colorDesertMountainRock);
+              if (desertFactor > 0.5)
+                _tempColorObj.lerp(_colorDesertSand, 0.35);
+              if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.25);
+            } else {
+              // Alpine granite with geological strata and depth
+              const strata =
+                Math.sin(height * 0.025 + worldX * 0.0015 + worldZ * 0.001) *
+                0.15;
+              _tempColorObj.copy(_colorMountainTint);
+              if (strata > 0.04) {
+                _tempColorObj.lerp(
+                  _colorAlpineRockLight,
+                  Math.min(0.5, strata * 2.5)
+                );
+              } else if (strata < -0.04) {
+                _tempColorObj.lerp(
+                  _colorAlpineRockDark,
+                  Math.min(0.6, -strata * 2.5)
+                );
+              }
+
+              // Darken steep sheer cliff faces
+              if (slopeFactor > 0.5) {
+                const cliffDarken = Math.min(1, (slopeFactor - 0.5) * 2.2);
+                _tempColorObj.lerp(_colorAlpineRockDark, cliffDarken * 0.5);
+              }
+
+              // Lower scree / talus slopes (transition between rock and foothills)
+              if (height < 700 && slopeFactor > 0.25 && slopeFactor < 0.55) {
+                _tempColorObj.lerp(_colorScree, 0.35);
+              }
+            }
+          } else {
+            // Mountain foothills and sub-alpine meadows
+            if (isDesertMountain) {
+              _tempColorObj.copy(_colorDesertSand);
+              if (height > WATER_LEVEL + 5)
+                _tempColorObj.lerp(_colorSandMottleHigh, 0.3);
+              _tempColorObj.lerp(_colorDesertMottle, mottle * 0.2);
+            } else if (snowFactor > 0.4) {
+              _tempColorObj.copy(_colorForestSnowTint);
+            } else {
+              // Lush sub-alpine meadow / forest foothills
+              _tempColorObj.copy(_colorForest);
+              if (!isCustom) _tempColorObj.lerp(_colorForestDark, mottle * 0.3);
+              // Subtle transition into mountain rock as altitude nears 550
+              if (height > 400) {
+                const rockBlend = (height - 400) / 150;
+                _tempColorObj.lerp(_colorMountainTint, rockBlend * 0.5);
+              }
+            }
+          }
+        } else {
+          // --- STANDARD LAND COLORING (Plains/Forest) ---
+          if (isForest) {
+            _tempColorObj.copy(_colorForest);
+            if (snowFactor > 0)
+              _tempColorObj.lerp(_colorForestSnowTint, snowFactor);
+            if (desertFactor > 0)
+              _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
+
+            // Mottling for Forest: Mix in some darker evergreens and lighter mossy patches
+            _tempColorObj.lerp(_colorForestDeep, mottle * 0.4);
+            if (mottle < 0.3) _tempColorObj.lerp(_colorForestLight, 0.2);
+          } else {
+            _tempColorObj.copy(_colorPlains);
+            if (snowFactor > 0)
+              _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
+            if (desertFactor > 0)
+              _tempColorObj.lerp(_colorDesertSand, desertFactor);
+
+            // Mottling for Plains: Dry grass vs lush grass
+            _tempColorObj.lerp(_colorPlainsDark, mottle * 0.4);
+            if (mottle > 0.8) _tempColorObj.lerp(_colorPlainsBright, 0.3);
+          }
+        }
+      }
+
+      // --- EXTREME ZONE COLOR BLEND ---
+      // Gradually paint alien colors over whatever biome is underneath,
+      // so the transition feels organic rather than a hard cut.
+      if (extremeBlend > 0) {
+        const colorWater = isEast ? _colorEasternWater : _colorWesternWater;
+        const colorCliff = isEast ? _colorEasternCliff : _colorWesternCliff;
+        const colorPeak = isEast ? _colorEasternPeak : _colorWesternPeak;
+        const colorRock = isEast ? _colorEasternRock : _colorWesternRock;
+        const colorLowland = isEast
+          ? _colorEasternLowland
+          : _colorWesternLowland;
+
+        const baseLandColor = slopeFactor > 0.4 ? colorRock : colorLowland;
+
+        if (height <= WATER_LEVEL) {
+          // Neon cyan alien ocean / Magenta liquid
+          _tempColorObj.lerp(colorWater, extremeBlend * 0.85);
+        } else if (height < WATER_LEVEL + 4) {
+          // Smoothly bleed the glowing water color onto the immediate shoreline
+          const bleed = 1.0 - (height - WATER_LEVEL) / 4.0;
+          const shoreColor = baseLandColor.clone().lerp(colorWater, bleed);
+          _tempColorObj.lerp(shoreColor, extremeBlend * 0.85);
+        } else if (height > MOUNTAIN_LEVEL) {
+          // Acid yellow / indigo cliffs / White crystal / Fiery faults
+          const peakFrac = Math.min(1, (height - MOUNTAIN_LEVEL) / 400);
+          _tempColorObj.lerp(colorCliff, extremeBlend * 0.7);
+          _tempColorObj.lerp(colorPeak, extremeBlend * peakFrac * 0.9);
+        } else {
+          // Mid-elevation: obsidian rock on slopes, teal lowland flat areas
+          _tempColorObj.lerp(baseLandColor, extremeBlend * 0.75);
+        }
+      }
+
+      // --- FROZEN NORTH ZONE ---
+      let isFrozen = false;
+      const freezeBoundaryZ =
+        -20000 + simplex.noise2D(worldX * 0.0002, worldZ * 0.0002) * 2000;
+      if (worldZ < freezeBoundaryZ) {
+        const freezeFactor = Math.max(
+          0,
+          Math.min(1, (freezeBoundaryZ - worldZ) / 5000)
+        );
+        if (freezeFactor > 0) {
+          isFrozen = freezeFactor > 0.5;
+
+          // Generate a local mottle for the ice texturing
+          const iceMottle = simplex.noise2D(worldX * 0.01, worldZ * 0.01);
+
+          // If the physical height indicates this is the ice shelf (or land), force it to be white
+          let isPhysicalIceShelf = false;
+          let visualFreeze = freezeFactor;
+          if (height >= WATER_LEVEL + 2.8) {
+            visualFreeze = Math.max(visualFreeze, 0.95);
+            isPhysicalIceShelf = true;
+          }
+
+          // Blend everything toward snow/ice. If it's the physical ice shelf, use pure white so it doesn't look like teal water.
+          const targetColor = isPhysicalIceShelf
+            ? new THREE.Color(0xffffff)
+            : _colorPackIce;
+          _tempColorObj.lerp(targetColor, visualFreeze);
+
+          if (iceMottle > 0) {
+            _tempColorObj.lerpHSL(
+              new THREE.Color(0xffffff),
+              iceMottle * 0.15 * visualFreeze
+            );
+          } else {
+            _tempColorObj.lerpHSL(
+              new THREE.Color(0x8a9ea8),
+              -iceMottle * 0.15 * freezeFactor
+            );
+          }
+
+          // Smoothly blend in cyan ice near the water level
+          const iceBlend = Math.max(
+            0,
+            Math.min(1, (WATER_LEVEL + 10 - height) / 10)
+          );
+          if (iceBlend > 0) {
+            _tempColorObj.lerp(_colorIce, freezeFactor * iceBlend);
+          }
+        }
+      }
+
+      // --- LAND TYPE CLASSIFICATION ---
+      const isStandardLand =
+        !isCustom &&
+        height > sandMaxHeight &&
+        height <= MOUNTAIN_LEVEL + (snowFactor > 0.5 ? -50 : 0);
+      const isCustomLand =
+        isCustom && height > WATER_LEVEL + 5.0 && height < 105.0;
+
+      // --- BIOME TINTING (Autumn/Cherry) ---
+      if ((isStandardLand || isCustomLand) && snowFactor < 0.2 && !isFrozen) {
+        if (autumnNoise > 0.35) {
+          const factor = Math.min(1, (autumnNoise - 0.35) / 0.1);
+          const tint = isForest
+            ? _colorAutumnForestTint
+            : _colorAutumnPlainsTint;
+          _tempColorObj.lerp(tint, factor * (isForest ? 0.65 : 0.45));
+        } else if (cherryNoise > 0.55) {
+          const factor = Math.min(1, (cherryNoise - 0.55) / 0.1);
+          const tint = isForest
+            ? _colorCherryForestTint
+            : _colorCherryPlainsTint;
+          _tempColorObj.lerp(tint, factor * (isForest ? 0.45 : 0.3));
+        }
+      }
+
+      const distToVolcano = Math.sqrt(
+        (worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2
+      );
+
+      const isOnRoad = ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0;
+
+      const isAlienVegetationLand =
+        isAlienLand &&
+        height > WATER_LEVEL + 2.0 &&
+        height <= MOUNTAIN_LEVEL + 50;
+
+      if (
+        _enableObjects &&
+        (isStandardLand || isCustomLand || isAlienVegetationLand) &&
+        !isFrozen &&
+        !isOnRoad
+      ) {
+        if (isForest) {
+          const treeRoll = rng();
+          if (isAlienLand) {
+            if (isEast) {
+              // Eastern alien biome: ONLY tree-sized mushrooms with diverse scales and vibrant cap colors
+              if (treeRoll < 0.032 * densityScale) {
+                const scaleRoll = rng();
+                let scale;
+                if (scaleRoll < 0.25) {
+                  scale = 0.5 + rng() * 0.4; // 0.5 - 0.9 (small understory)
+                } else if (scaleRoll < 0.8) {
+                  scale = 1.0 + rng() * 1.0; // 1.0 - 2.0 (standard tree-sized)
+                } else {
+                  scale = 2.2 + rng() * 2.3; // 2.2 - 4.5 (towering giant canopy)
+                }
+                const capColor =
+                  ALIEN_MUSHROOM_CAP_COLORS[
+                    Math.floor(rng() * ALIEN_MUSHROOM_CAP_COLORS.length)
+                  ];
+                mushroomTreePositions.push({
+                  x: localX,
+                  y: height,
+                  z: localZ,
+                  scale: scale,
+                  color: capColor,
+                });
+              }
+            }
+            // Western alien biome: no trees or mushrooms (completely barren crystalline/fiery biome)
+          } else if (
+            treeRoll <
+            (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale
+          ) {
+            const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
+            const isSouthOf1N = worldZ > -5000;
+
+            if (distToVolcano < 3000 && rng() < 0.7) {
+              yellowCortezTreePositions.push({x: localX, y: height, z: localZ});
+            } else if (isIsland && isSouthOf1N) {
+              palmTreePositions.push({x: localX, y: height, z: localZ});
+            } else if (
+              snowFactor > 0.4 ||
+              (height > MOUNTAIN_LEVEL - 100 && desertFactor < 0.3)
+            ) {
+              snowTreePositions.push({x: localX, y: height, z: localZ});
+            } else if (desertFactor > 0.6) {
+              deadTreePositions.push({x: localX, y: height, z: localZ});
+            } else if (
+              eastCoastFactor > 0.7 &&
+              height < WATER_LEVEL + 40 &&
+              !isIsland
+            ) {
+              palmTreePositions.push({x: localX, y: height, z: localZ});
+            } else {
+              if (cherryNoise > 0.65) {
+                if (rng() < 0.35) {
+                  japaneseMapleTreePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                  });
+                } else {
+                  cherryTreePositions.push({x: localX, y: height, z: localZ});
+                }
+              } else if (autumnNoise > 0.45) {
+                const variety = rng();
+                if (variety < 0.12)
+                  japaneseMapleTreePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                  });
+                else if (variety < 0.41)
+                  autumnTree1Positions.push({x: localX, y: height, z: localZ});
+                else if (variety < 0.7)
+                  autumnTree2Positions.push({x: localX, y: height, z: localZ});
+                else
+                  autumnTree3Positions.push({x: localX, y: height, z: localZ});
+              } else {
+                if (rng() < 0.25) {
+                  // 25% chance of tall deciduous tree
+                  tallDeciduousTreePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                  });
+                } else {
+                  deciduousTreePositions.push({
+                    x: localX,
+                    y: height,
+                    z: localZ,
+                  });
                 }
               }
             }
-            if (
-              snowFactor < 0.1 &&
-              desertFactor < 0.1 &&
-              getBiome(worldX, worldZ) > -0.15 &&
-              rng() < 0.015 * densityScale
-            ) {
-              lilyPadPositions.push({
-                x: localX,
-                y: WATER_LEVEL,
-                z: localZ,
-                rotY: rng() * Math.PI * 2,
-              });
-            }
-          }
-          if (!isCustom) {
-            // Apply beach wave shaping to underwater shore
-            const waveX = Math.sin(worldX * 0.05) * 0.5;
-            const waveZ = Math.cos(worldZ * 0.05) * 0.5;
-            positions[i + 1] += (waveX + waveZ) * 0.3;
-          }
-          positions[i + 1] = height - 5;
-          _tempColorObj.copy(_colorSand).lerp(_colorWater, 0.15); // Submerged sand tinted with water
-          if (snowFactor > 0)
-            _tempColorObj.lerp(_colorSandSnowTint, snowFactor);
-          if (desertFactor > 0)
-            _tempColorObj.lerp(_colorDesertSand, desertFactor);
-        } else if (height <= WATER_LEVEL + 1.2) {
-          const wetFactor = 1.0 - (height - WATER_LEVEL) / 1.2;
-          _tempColorObj.copy(_colorSand);
-          if (desertFactor > 0) {
-            _tempColorObj.lerp(_colorDesertSand, desertFactor);
-            _tempColorObj.lerp(_colorDesertWetSand, wetFactor);
-          } else {
-            _tempColorObj.lerp(_colorWetSand, wetFactor);
-          }
-          if (snowFactor > 0) _tempColorObj.lerp(_colorSnow, snowFactor);
-        } else {
-          _tempColorObj.copy(_colorSand);
-          if (snowFactor > 0)
-            _tempColorObj.lerp(_colorUpperSandSnowTint, snowFactor);
-          if (desertFactor > 0)
-            _tempColorObj.lerp(_colorDesertSand, desertFactor);
-
-          // Mottling for sand (adding some dark/light patches)
-          if (!isCustom && mottle > 0.6)
-            _tempColorObj.lerp(_colorSandMottleHigh, (mottle - 0.6) * 0.5);
-          if (!isCustom && mottle < 0.4)
-            _tempColorObj.lerp(_colorSandMottleLow, (0.4 - mottle) * 0.5);
-        }
-      } else if (
-        height > MOUNTAIN_LEVEL ||
-        (snowFactor > 0.5 && height > MOUNTAIN_LEVEL - 50)
-      ) {
-        // Massive sierra gets highly refined, patchy-to-solid snow OR Arizona desert rock
-        const sierraSnowNoise1 = simplex.noise2D(
-          worldX * 0.003,
-          worldZ * 0.003
-        );
-        const sierraSnowNoise2 =
-          simplex.noise2D(worldX * 0.012, worldZ * 0.012) * 0.5;
-        const organicNoise = sierraSnowNoise1 + sierraSnowNoise2;
-
-        const isDesertMountain = !isCustom && desertFactor > 0.35;
-        const canHaveSnow = !isDesertMountain;
-
-        // In northern snowy biomes (snowFactor > 0.3), permanent snow blankets
-        // the mountain massifs with exposed rock crags on sheer headwalls.
-        // In temperate zones, snowline sits majestically at high altitude (around 1100-1250 units).
-        let baseSnowline;
-        if (snowFactor > 0.3) {
-          baseSnowline = Math.max(WATER_LEVEL + 10, 300 - snowFactor * 400);
-        } else if (isDesertMountain) {
-          baseSnowline = 2400; // Extreme peaks only in desert
-        } else {
-          baseSnowline = 1150;
-        }
-        const snowline = baseSnowline + organicNoise * 180;
-
-        // Sheer rock cliff face detection:
-        // Snow clings to slopes up to ~65° (slopeFactor ~0.78-0.84).
-        // Truly sheer vertical headwalls and couloir walls shed snow to expose dark granite crags.
-        const cliffThreshold = snowFactor > 0.3 ? 0.84 : 0.78;
-        const isSheerCliff = slopeFactor > cliffThreshold;
-        const canHoldSnow =
-          canHaveSnow && (!isSheerCliff || height > snowline + 300);
-
-        if (canHoldSnow && height > snowline) {
-          // Alpine snowcap & couloir snow
-          const snowT = Math.min(1, (height - snowline) / 180);
-          _tempColorObj.copy(_colorSnow);
-          if (snowT < 1.0) {
-            // Transition zone: patchy snow over rock
-            const rockBase = isDesertMountain
-              ? _colorDesertMountainRock
-              : _colorMountainTint;
-            _tempColorObj.lerp(rockBase, 1.0 - snowT);
-          }
-        } else if (height > 550 || isSheerCliff) {
-          // Exposed alpine crags, cliffs, and rocky massifs
-          if (isDesertMountain) {
-            _tempColorObj.copy(_colorDesertMountainRock);
-            if (desertFactor > 0.5) _tempColorObj.lerp(_colorDesertSand, 0.35);
-            if (mottle > 0.7) _tempColorObj.lerp(_colorArizonaDark, 0.25);
-          } else {
-            // Alpine granite with geological strata and depth
-            const strata =
-              Math.sin(height * 0.025 + worldX * 0.0015 + worldZ * 0.001) *
-              0.15;
-            _tempColorObj.copy(_colorMountainTint);
-            if (strata > 0.04) {
-              _tempColorObj.lerp(
-                _colorAlpineRockLight,
-                Math.min(0.5, strata * 2.5)
-              );
-            } else if (strata < -0.04) {
-              _tempColorObj.lerp(
-                _colorAlpineRockDark,
-                Math.min(0.6, -strata * 2.5)
-              );
-            }
-
-            // Darken steep sheer cliff faces
-            if (slopeFactor > 0.5) {
-              const cliffDarken = Math.min(1, (slopeFactor - 0.5) * 2.2);
-              _tempColorObj.lerp(_colorAlpineRockDark, cliffDarken * 0.5);
-            }
-
-            // Lower scree / talus slopes (transition between rock and foothills)
-            if (height < 700 && slopeFactor > 0.25 && slopeFactor < 0.55) {
-              _tempColorObj.lerp(_colorScree, 0.35);
-            }
+          } else if (
+            treeRoll <
+            (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale
+          ) {
+            const offX = (rng() - 0.5) * 15;
+            const offZ = (rng() - 0.5) * 15;
+            const h = getElevation(worldX + offX, worldZ + offZ);
+            campfirePositions.push({x: localX + offX, y: h, z: localZ + offZ});
           }
         } else {
-          // Mountain foothills and sub-alpine meadows
-          if (isDesertMountain) {
-            _tempColorObj.copy(_colorDesertSand);
-            if (height > WATER_LEVEL + 5)
-              _tempColorObj.lerp(_colorSandMottleHigh, 0.3);
-            _tempColorObj.lerp(_colorDesertMottle, mottle * 0.2);
-          } else if (snowFactor > 0.4) {
-            _tempColorObj.copy(_colorForestSnowTint);
-          } else {
-            // Lush sub-alpine meadow / forest foothills
-            _tempColorObj.copy(_colorForest);
-            if (!isCustom) _tempColorObj.lerp(_colorForestDark, mottle * 0.3);
-            // Subtle transition into mountain rock as altitude nears 550
-            if (height > 400) {
-              const rockBlend = (height - 400) / 150;
-              _tempColorObj.lerp(_colorMountainTint, rockBlend * 0.5);
-            }
-          }
-        }
-      } else {
-        // --- STANDARD LAND COLORING (Plains/Forest) ---
-        if (isForest) {
-          _tempColorObj.copy(_colorForest);
-          if (snowFactor > 0)
-            _tempColorObj.lerp(_colorForestSnowTint, snowFactor);
-          if (desertFactor > 0)
-            _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
-
-          // Mottling for Forest: Mix in some darker evergreens and lighter mossy patches
-          _tempColorObj.lerp(_colorForestDeep, mottle * 0.4);
-          if (mottle < 0.3) _tempColorObj.lerp(_colorForestLight, 0.2);
-        } else {
-          _tempColorObj.copy(_colorPlains);
-          if (snowFactor > 0)
-            _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
-          if (desertFactor > 0)
-            _tempColorObj.lerp(_colorDesertSand, desertFactor);
-
-          // Mottling for Plains: Dry grass vs lush grass
-          _tempColorObj.lerp(_colorPlainsDark, mottle * 0.4);
-          if (mottle > 0.8) _tempColorObj.lerp(_colorPlainsBright, 0.3);
-        }
-      }
-    }
-
-    // --- EXTREME ZONE COLOR BLEND ---
-    // Gradually paint alien colors over whatever biome is underneath,
-    // so the transition feels organic rather than a hard cut.
-    if (extremeBlend > 0) {
-      const colorWater = isEast ? _colorEasternWater : _colorWesternWater;
-      const colorCliff = isEast ? _colorEasternCliff : _colorWesternCliff;
-      const colorPeak = isEast ? _colorEasternPeak : _colorWesternPeak;
-      const colorRock = isEast ? _colorEasternRock : _colorWesternRock;
-      const colorLowland = isEast ? _colorEasternLowland : _colorWesternLowland;
-
-      const baseLandColor = slopeFactor > 0.4 ? colorRock : colorLowland;
-
-      if (height <= WATER_LEVEL) {
-        // Neon cyan alien ocean / Magenta liquid
-        _tempColorObj.lerp(colorWater, extremeBlend * 0.85);
-      } else if (height < WATER_LEVEL + 4) {
-        // Smoothly bleed the glowing water color onto the immediate shoreline
-        const bleed = 1.0 - (height - WATER_LEVEL) / 4.0;
-        const shoreColor = baseLandColor.clone().lerp(colorWater, bleed);
-        _tempColorObj.lerp(shoreColor, extremeBlend * 0.85);
-      } else if (height > MOUNTAIN_LEVEL) {
-        // Acid yellow / indigo cliffs / White crystal / Fiery faults
-        const peakFrac = Math.min(1, (height - MOUNTAIN_LEVEL) / 400);
-        _tempColorObj.lerp(colorCliff, extremeBlend * 0.7);
-        _tempColorObj.lerp(colorPeak, extremeBlend * peakFrac * 0.9);
-      } else {
-        // Mid-elevation: obsidian rock on slopes, teal lowland flat areas
-        _tempColorObj.lerp(baseLandColor, extremeBlend * 0.75);
-      }
-    }
-
-    // --- FROZEN NORTH ZONE ---
-    let isFrozen = false;
-    const freezeBoundaryZ =
-      -20000 + simplex.noise2D(worldX * 0.0002, worldZ * 0.0002) * 2000;
-    if (worldZ < freezeBoundaryZ) {
-      const freezeFactor = Math.max(
-        0,
-        Math.min(1, (freezeBoundaryZ - worldZ) / 5000)
-      );
-      if (freezeFactor > 0) {
-        isFrozen = freezeFactor > 0.5;
-
-        // Generate a local mottle for the ice texturing
-        const iceMottle = simplex.noise2D(worldX * 0.01, worldZ * 0.01);
-
-        // If the physical height indicates this is the ice shelf (or land), force it to be white
-        let isPhysicalIceShelf = false;
-        let visualFreeze = freezeFactor;
-        if (height >= WATER_LEVEL + 2.8) {
-          visualFreeze = Math.max(visualFreeze, 0.95);
-          isPhysicalIceShelf = true;
-        }
-
-        // Blend everything toward snow/ice. If it's the physical ice shelf, use pure white so it doesn't look like teal water.
-        const targetColor = isPhysicalIceShelf
-          ? new THREE.Color(0xffffff)
-          : _colorPackIce;
-        _tempColorObj.lerp(targetColor, visualFreeze);
-
-        if (iceMottle > 0) {
-          _tempColorObj.lerpHSL(
-            new THREE.Color(0xffffff),
-            iceMottle * 0.15 * visualFreeze
-          );
-        } else {
-          _tempColorObj.lerpHSL(
-            new THREE.Color(0x8a9ea8),
-            -iceMottle * 0.15 * freezeFactor
-          );
-        }
-
-        // Smoothly blend in cyan ice near the water level
-        const iceBlend = Math.max(
-          0,
-          Math.min(1, (WATER_LEVEL + 10 - height) / 10)
-        );
-        if (iceBlend > 0) {
-          _tempColorObj.lerp(_colorIce, freezeFactor * iceBlend);
-        }
-      }
-    }
-
-    // --- LAND TYPE CLASSIFICATION ---
-    const isStandardLand =
-      !isCustom &&
-      height > sandMaxHeight &&
-      height <= MOUNTAIN_LEVEL + (snowFactor > 0.5 ? -50 : 0);
-    const isCustomLand =
-      isCustom && height > WATER_LEVEL + 5.0 && height < 105.0;
-
-    // --- BIOME TINTING (Autumn/Cherry) ---
-    if ((isStandardLand || isCustomLand) && snowFactor < 0.2 && !isFrozen) {
-      if (autumnNoise > 0.35) {
-        const factor = Math.min(1, (autumnNoise - 0.35) / 0.1);
-        const tint = isForest ? _colorAutumnForestTint : _colorAutumnPlainsTint;
-        _tempColorObj.lerp(tint, factor * (isForest ? 0.65 : 0.45));
-      } else if (cherryNoise > 0.55) {
-        const factor = Math.min(1, (cherryNoise - 0.55) / 0.1);
-        const tint = isForest ? _colorCherryForestTint : _colorCherryPlainsTint;
-        _tempColorObj.lerp(tint, factor * (isForest ? 0.45 : 0.3));
-      }
-    }
-
-    const distToVolcano = Math.sqrt(
-      (worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2
-    );
-
-    const isOnRoad = ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0;
-
-    const isAlienVegetationLand =
-      isAlienLand &&
-      height > WATER_LEVEL + 2.0 &&
-      height <= MOUNTAIN_LEVEL + 50;
-
-    if (
-      _enableObjects &&
-      (isStandardLand || isCustomLand || isAlienVegetationLand) &&
-      !isFrozen &&
-      !isOnRoad
-    ) {
-      if (isForest) {
-        const treeRoll = rng();
-        if (isAlienLand) {
-          if (isEast) {
-            // Eastern alien biome: ONLY tree-sized mushrooms with diverse scales and vibrant cap colors
-            if (treeRoll < 0.032 * densityScale) {
+          if (isEastAlien) {
+            // Scattered individual mushrooms in open alien plains
+            if (rng() < 0.007 * densityScale) {
               const scaleRoll = rng();
               let scale;
-              if (scaleRoll < 0.25) {
-                scale = 0.5 + rng() * 0.4; // 0.5 - 0.9 (small understory)
-              } else if (scaleRoll < 0.8) {
-                scale = 1.0 + rng() * 1.0; // 1.0 - 2.0 (standard tree-sized)
+              if (scaleRoll < 0.3) {
+                scale = 0.5 + rng() * 0.4;
+              } else if (scaleRoll < 0.85) {
+                scale = 1.0 + rng() * 1.0;
               } else {
-                scale = 2.2 + rng() * 2.3; // 2.2 - 4.5 (towering giant canopy)
+                scale = 2.2 + rng() * 2.3;
               }
               const capColor =
                 ALIEN_MUSHROOM_CAP_COLORS[
@@ -922,455 +1081,359 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
                 color: capColor,
               });
             }
-          }
-          // Western alien biome: no trees or mushrooms (completely barren crystalline/fiery biome)
-        } else if (
-          treeRoll <
-          (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale
-        ) {
-          const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
-          const isSouthOf1N = worldZ > -5000;
-
-          if (distToVolcano < 3000 && rng() < 0.7) {
-            yellowCortezTreePositions.push({x: localX, y: height, z: localZ});
-          } else if (isIsland && isSouthOf1N) {
-            palmTreePositions.push({x: localX, y: height, z: localZ});
-          } else if (
-            snowFactor > 0.4 ||
-            (height > MOUNTAIN_LEVEL - 100 && desertFactor < 0.3)
-          ) {
-            snowTreePositions.push({x: localX, y: height, z: localZ});
-          } else if (desertFactor > 0.6) {
-            deadTreePositions.push({x: localX, y: height, z: localZ});
-          } else if (
-            eastCoastFactor > 0.7 &&
-            height < WATER_LEVEL + 40 &&
-            !isIsland
-          ) {
-            palmTreePositions.push({x: localX, y: height, z: localZ});
           } else {
-            if (cherryNoise > 0.65) {
-              if (rng() < 0.35) {
-                japaneseMapleTreePositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                });
-              } else {
-                cherryTreePositions.push({x: localX, y: height, z: localZ});
-              }
-            } else if (autumnNoise > 0.45) {
-              const variety = rng();
-              if (variety < 0.12)
-                japaneseMapleTreePositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                });
-              else if (variety < 0.41)
-                autumnTree1Positions.push({x: localX, y: height, z: localZ});
-              else if (variety < 0.7)
-                autumnTree2Positions.push({x: localX, y: height, z: localZ});
-              else autumnTree3Positions.push({x: localX, y: height, z: localZ});
-            } else {
-              if (rng() < 0.25) {
-                // 25% chance of tall deciduous tree
-                tallDeciduousTreePositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                });
-              } else {
-                deciduousTreePositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                });
-              }
-            }
-          }
-        } else if (
-          treeRoll <
-          (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale
-        ) {
-          const offX = (rng() - 0.5) * 15;
-          const offZ = (rng() - 0.5) * 15;
-          const h = getElevation(worldX + offX, worldZ + offZ);
-          campfirePositions.push({x: localX + offX, y: h, z: localZ + offZ});
-        }
-      } else {
-        if (isEastAlien) {
-          // Scattered individual mushrooms in open alien plains
-          if (rng() < 0.007 * densityScale) {
-            const scaleRoll = rng();
-            let scale;
-            if (scaleRoll < 0.3) {
-              scale = 0.5 + rng() * 0.4;
-            } else if (scaleRoll < 0.85) {
-              scale = 1.0 + rng() * 1.0;
-            } else {
-              scale = 2.2 + rng() * 2.3;
-            }
-            const capColor =
-              ALIEN_MUSHROOM_CAP_COLORS[
-                Math.floor(rng() * ALIEN_MUSHROOM_CAP_COLORS.length)
-              ];
-            mushroomTreePositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              scale: scale,
-              color: capColor,
-            });
-          }
-        } else {
-          const houseThreshold =
-            (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
-          const barnThreshold = houseThreshold + 0.002 * densityScale;
-          const monasteryThreshold = houseThreshold + 0.0023 * densityScale;
-          const castleThreshold = houseThreshold + 0.0024 * densityScale;
-          const windmillThreshold = houseThreshold + 0.0008 * densityScale;
+            const houseThreshold =
+              (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
+            const barnThreshold = houseThreshold + 0.002 * densityScale;
+            const monasteryThreshold = houseThreshold + 0.0023 * densityScale;
+            const castleThreshold = houseThreshold + 0.0024 * densityScale;
+            const windmillThreshold = houseThreshold + 0.0008 * densityScale;
 
-          const plainsRoll = rng();
-          if (plainsRoll < houseThreshold) {
-            const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
-            const isBeyond5DegNorth = worldZ < -25000;
-            const isBeyond1DegNorth = worldZ < -5000;
+            const plainsRoll = rng();
+            if (plainsRoll < houseThreshold) {
+              const isIsland = worldX > 3000 && getBiome(worldX, worldZ) < -0.1;
+              const isBeyond5DegNorth = worldZ < -25000;
+              const isBeyond1DegNorth = worldZ < -5000;
 
-            if (!isAlienLand && !isBeyond5DegNorth) {
-              if (isIsland && !isBeyond1DegNorth) {
-                strawHutPositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                  rotY: rng() * Math.PI * 2,
-                });
-              } else if (!isIsland) {
-                if (rng() > 0.85) {
-                  twoStoryHousePositions.push({
+              if (!isAlienLand && !isBeyond5DegNorth) {
+                if (isIsland && !isBeyond1DegNorth) {
+                  strawHutPositions.push({
                     x: localX,
                     y: height,
                     z: localZ,
                     rotY: rng() * Math.PI * 2,
                   });
-                } else {
-                  housePositions.push({
-                    x: localX,
-                    y: height,
-                    z: localZ,
-                    rotY: rng() * Math.PI * 2,
-                  });
-                }
-                // Chimney smoke for houses in snowy areas
-                if (snowFactor > 0.3) {
-                  chimneySmokePositions.push({
-                    x: localX,
-                    y: height + 10,
-                    z: localZ,
-                  });
+                } else if (!isIsland) {
+                  if (rng() > 0.85) {
+                    twoStoryHousePositions.push({
+                      x: localX,
+                      y: height,
+                      z: localZ,
+                      rotY: rng() * Math.PI * 2,
+                    });
+                  } else {
+                    housePositions.push({
+                      x: localX,
+                      y: height,
+                      z: localZ,
+                      rotY: rng() * Math.PI * 2,
+                    });
+                  }
+                  // Chimney smoke for houses in snowy areas
+                  if (snowFactor > 0.3) {
+                    chimneySmokePositions.push({
+                      x: localX,
+                      y: height + 10,
+                      z: localZ,
+                    });
+                  }
                 }
               }
-            }
-          } else if (
-            !isAlienLand &&
-            ENABLE_BARNS &&
-            worldX < -5000 &&
-            plainsRoll < barnThreshold &&
-            snowFactor < 0.4 &&
-            desertFactor < 0.3 &&
-            height > WATER_LEVEL + 15 &&
-            height < MOUNTAIN_LEVEL - 100
-          ) {
-            barnPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
-          } else if (
-            !isAlienLand &&
-            ENABLE_MONASTERIES &&
-            plainsRoll < monasteryThreshold &&
-            snowFactor < 0.2 &&
-            desertFactor < 0.2 &&
-            height > WATER_LEVEL + 50 &&
-            height < MOUNTAIN_LEVEL - 50
-          ) {
-            monasteryPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
-          } else if (
-            !isAlienLand &&
-            plainsRoll < castleThreshold &&
-            snowFactor < 0.5 &&
-            desertFactor < 0.3 &&
-            height > WATER_LEVEL + 40 &&
-            height < MOUNTAIN_LEVEL - 30
-          ) {
-            castleRuinsPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
-          } else if (
-            !isAlienLand &&
-            plainsRoll < windmillThreshold &&
-            height > WATER_LEVEL + 5 &&
-            height < MOUNTAIN_LEVEL - 100 &&
-            desertFactor < 0.3 &&
-            snowFactor < 0.3
-          ) {
-            windmillPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
-          } else if (
-            ENABLE_LIGHTHOUSES &&
-            !isMontaukChunk &&
-            !lighthousePos &&
-            rng() < 0.0004 * densityScale &&
-            height < sandMaxHeight + 15
-          ) {
-            const hN = getElevation(worldX, worldZ - 50);
-            const hS = getElevation(worldX, worldZ + 50);
-            const hE = getElevation(worldX + 50, worldZ);
-            const hW = getElevation(worldX - 50, worldZ);
-            if (
-              hN <= WATER_LEVEL ||
-              hS <= WATER_LEVEL ||
-              hE <= WATER_LEVEL ||
-              hW <= WATER_LEVEL
+            } else if (
+              !isAlienLand &&
+              ENABLE_BARNS &&
+              worldX < -5000 &&
+              plainsRoll < barnThreshold &&
+              snowFactor < 0.4 &&
+              desertFactor < 0.3 &&
+              height > WATER_LEVEL + 15 &&
+              height < MOUNTAIN_LEVEL - 100
             ) {
-              lighthousePos = {
+              barnPositions.push({
                 x: localX,
                 y: height,
                 z: localZ,
                 rotY: rng() * Math.PI * 2,
-              };
-            }
-          }
-
-          if (
-            height > WATER_LEVEL + 0.5 &&
-            height < WATER_LEVEL + 3 &&
-            rng() < 0.15 * densityScale
-          ) {
-            const hN = getElevation(worldX, worldZ - 20);
-            const hS = getElevation(worldX, worldZ + 20);
-            const hE = getElevation(worldX + 20, worldZ);
-            const hW = getElevation(worldX - 20, worldZ);
-            let angleToWater = -1;
-            if (hN <= WATER_LEVEL) angleToWater = Math.PI;
-            else if (hS <= WATER_LEVEL) angleToWater = 0;
-            else if (hE <= WATER_LEVEL) angleToWater = -Math.PI / 2;
-            else if (hW <= WATER_LEVEL) angleToWater = Math.PI / 2;
-            if (angleToWater !== -1) {
-              pierPositions.push({
+              });
+            } else if (
+              !isAlienLand &&
+              ENABLE_MONASTERIES &&
+              plainsRoll < monasteryThreshold &&
+              snowFactor < 0.2 &&
+              desertFactor < 0.2 &&
+              height > WATER_LEVEL + 50 &&
+              height < MOUNTAIN_LEVEL - 50
+            ) {
+              monasteryPositions.push({
                 x: localX,
                 y: height,
                 z: localZ,
-                rotY: angleToWater,
+                rotY: rng() * Math.PI * 2,
               });
+            } else if (
+              !isAlienLand &&
+              ENABLE_CASTLE_RUINS &&
+              plainsRoll < castleThreshold &&
+              snowFactor < 0.5 &&
+              desertFactor < 0.3 &&
+              height > WATER_LEVEL + 40 &&
+              height < MOUNTAIN_LEVEL - 30
+            ) {
+              castleRuinsPositions.push({
+                x: localX,
+                y: height,
+                z: localZ,
+                rotY: rng() * Math.PI * 2,
+              });
+            } else if (
+              !isAlienLand &&
+              plainsRoll < windmillThreshold &&
+              height > WATER_LEVEL + 5 &&
+              height < MOUNTAIN_LEVEL - 100 &&
+              desertFactor < 0.3 &&
+              snowFactor < 0.3
+            ) {
+              windmillPositions.push({
+                x: localX,
+                y: height,
+                z: localZ,
+                rotY: rng() * Math.PI * 2,
+              });
+            } else if (
+              ENABLE_LIGHTHOUSES &&
+              !isMontaukChunk &&
+              !lighthousePos &&
+              rng() < 0.0004 * densityScale &&
+              height < sandMaxHeight + 15
+            ) {
+              const hN = getElevation(worldX, worldZ - 50);
+              const hS = getElevation(worldX, worldZ + 50);
+              const hE = getElevation(worldX + 50, worldZ);
+              const hW = getElevation(worldX - 50, worldZ);
+              if (
+                hN <= WATER_LEVEL ||
+                hS <= WATER_LEVEL ||
+                hE <= WATER_LEVEL ||
+                hW <= WATER_LEVEL
+              ) {
+                lighthousePos = {
+                  x: localX,
+                  y: height,
+                  z: localZ,
+                  rotY: rng() * Math.PI * 2,
+                };
+              }
+            }
+
+            if (
+              height > WATER_LEVEL + 0.5 &&
+              height < WATER_LEVEL + 3 &&
+              rng() < 0.15 * densityScale
+            ) {
+              const hN = getElevation(worldX, worldZ - 20);
+              const hS = getElevation(worldX, worldZ + 20);
+              const hE = getElevation(worldX + 20, worldZ);
+              const hW = getElevation(worldX - 20, worldZ);
+              let angleToWater = -1;
+              if (hN <= WATER_LEVEL) angleToWater = Math.PI;
+              else if (hS <= WATER_LEVEL) angleToWater = 0;
+              else if (hE <= WATER_LEVEL) angleToWater = -Math.PI / 2;
+              else if (hW <= WATER_LEVEL) angleToWater = Math.PI / 2;
+              if (angleToWater !== -1) {
+                pierPositions.push({
+                  x: localX,
+                  y: height,
+                  z: localZ,
+                  rotY: angleToWater,
+                });
+              }
             }
           }
         }
+
+        if (
+          !isAlienLand &&
+          ENABLE_PAGODAS &&
+          cherryNoise > 0.65 &&
+          snowFactor < 0.2 &&
+          desertFactor < 0.2 &&
+          height > WATER_LEVEL + 5 &&
+          height < MOUNTAIN_LEVEL - 80 &&
+          rng() < 0.0003 * densityScale
+        ) {
+          pagodaPositions.push({
+            x: localX,
+            y: height,
+            z: localZ,
+            rotY: rng() * Math.PI * 2,
+          });
+          // Decorate pagoda with Japanese maples to create a beautiful zen garden
+          const offset1X = -12;
+          const offset1Z = 12;
+          const h1 = getElevation(worldX + offset1X, worldZ + offset1Z);
+          japaneseMapleTreePositions.push({
+            x: localX + offset1X,
+            y: h1,
+            z: localZ + offset1Z,
+          });
+
+          const offset2X = 12;
+          const offset2Z = -12;
+          const h2 = getElevation(worldX + offset2X, worldZ + offset2Z);
+          japaneseMapleTreePositions.push({
+            x: localX + offset2X,
+            y: h2,
+            z: localZ + offset2Z,
+          });
+        }
+
+        if (rng() < 0.015 * densityScale) {
+          if (snowFactor > 0.4)
+            snowRockPositions.push({x: localX, y: height, z: localZ});
+          else if (desertFactor > 0.4)
+            desertRockPositions.push({x: localX, y: height, z: localZ});
+          else rockPositions.push({x: localX, y: height, z: localZ});
+        }
+
+        if (
+          !isAlienLand &&
+          desertFactor > 0.4 &&
+          rng() < 0.04 * densityScale &&
+          height > WATER_LEVEL + 5 &&
+          height < MOUNTAIN_LEVEL - 50
+        ) {
+          cactusPositions.push({x: localX, y: height, z: localZ});
+        }
+        if (
+          !isAlienLand &&
+          snowFactor > 0.6 &&
+          rng() < 0.002 * densityScale &&
+          height > WATER_LEVEL + 5 &&
+          height < MOUNTAIN_LEVEL - 50
+        ) {
+          snowmanPositions.push({
+            x: localX,
+            y: height,
+            z: localZ,
+            rotY: rng() * Math.PI * 2,
+          });
+        }
+        if (
+          !isAlienLand &&
+          desertFactor < 0.2 &&
+          snowFactor < 0.3 &&
+          height > WATER_LEVEL + 3 &&
+          height < MOUNTAIN_LEVEL - 100 &&
+          rng() < 0.08 * densityScale
+        ) {
+          bushPositions.push({
+            x: localX,
+            y: height,
+            z: localZ,
+            rotY: rng() * Math.PI * 2,
+          });
+        }
       }
 
+      // --- FINAL DETAIL PASS ---
+      // Apply cliff rock to steep lowland bluffs and riverbanks without overwriting mountain snow & crags
       if (
-        !isAlienLand &&
-        ENABLE_PAGODAS &&
-        cherryNoise > 0.65 &&
-        snowFactor < 0.2 &&
-        desertFactor < 0.2 &&
-        height > WATER_LEVEL + 5 &&
-        height < MOUNTAIN_LEVEL - 80 &&
-        rng() < 0.0003 * densityScale
+        height <= MOUNTAIN_LEVEL &&
+        slopeFactor > 0.45 &&
+        height > WATER_LEVEL + 5
       ) {
-        pagodaPositions.push({
-          x: localX,
-          y: height,
-          z: localZ,
-          rotY: rng() * Math.PI * 2,
-        });
-        // Decorate pagoda with Japanese maples to create a beautiful zen garden
-        const offset1X = -12;
-        const offset1Z = 12;
-        const h1 = getElevation(worldX + offset1X, worldZ + offset1Z);
-        japaneseMapleTreePositions.push({
-          x: localX + offset1X,
-          y: h1,
-          z: localZ + offset1Z,
-        });
-
-        const offset2X = 12;
-        const offset2Z = -12;
-        const h2 = getElevation(worldX + offset2X, worldZ + offset2Z);
-        japaneseMapleTreePositions.push({
-          x: localX + offset2X,
-          y: h2,
-          z: localZ + offset2Z,
-        });
+        const cliffBlend = Math.min(1, (slopeFactor - 0.45) * 5.0);
+        const isSouthBiome = !isCustom && desertFactor > 0.3;
+        const rockColor = isSouthBiome ? _colorCliffSouth : _colorMountainTint;
+        _tempColorObj.lerp(rockColor, cliffBlend);
+        _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.15);
+      } else if (height <= MOUNTAIN_LEVEL && slopeFactor > 0.1) {
+        _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.3);
       }
 
-      if (rng() < 0.015 * densityScale) {
-        if (snowFactor > 0.4)
-          snowRockPositions.push({x: localX, y: height, z: localZ});
-        else if (desertFactor > 0.4)
-          desertRockPositions.push({x: localX, y: height, z: localZ});
-        else rockPositions.push({x: localX, y: height, z: localZ});
+      if (!isCustom) {
+        _tempColorObj.multiplyScalar(1.0 + grain);
       }
 
-      if (
-        !isAlienLand &&
-        desertFactor > 0.4 &&
-        rng() < 0.04 * densityScale &&
-        height > WATER_LEVEL + 5 &&
-        height < MOUNTAIN_LEVEL - 50
-      ) {
-        cactusPositions.push({x: localX, y: height, z: localZ});
+      // --- VOLCANO TEXTURING ---
+      if (distToVolcano < 2000) {
+        const vFactor = Math.max(0, Math.min(1, (2000 - distToVolcano) / 1000));
+        const basaltColor = _colorVolcanoBasaltHi
+          .clone()
+          .lerp(_colorVolcanoBasaltLo, height / 1400);
+        _tempColorObj.lerp(basaltColor, vFactor);
       }
-      if (
-        !isAlienLand &&
-        snowFactor > 0.6 &&
-        rng() < 0.002 * densityScale &&
-        height > WATER_LEVEL + 5 &&
-        height < MOUNTAIN_LEVEL - 50
-      ) {
-        snowmanPositions.push({
-          x: localX,
-          y: height,
-          z: localZ,
-          rotY: rng() * Math.PI * 2,
-        });
-      }
-      if (
-        !isAlienLand &&
-        desertFactor < 0.2 &&
-        snowFactor < 0.3 &&
-        height > WATER_LEVEL + 3 &&
-        height < MOUNTAIN_LEVEL - 100 &&
-        rng() < 0.08 * densityScale
-      ) {
-        bushPositions.push({
-          x: localX,
-          y: height,
-          z: localZ,
-          rotY: rng() * Math.PI * 2,
-        });
-      }
+
+      // --- EAST COAST ROAD REMOVED ---
+
+      colors[colorIdx++] = _tempColorObj.r;
+      colors[colorIdx++] = _tempColorObj.g;
+      colors[colorIdx++] = _tempColorObj.b;
     }
 
-    // --- FINAL DETAIL PASS ---
-    // Apply cliff rock to steep lowland bluffs and riverbanks without overwriting mountain snow & crags
-    if (
-      height <= MOUNTAIN_LEVEL &&
-      slopeFactor > 0.45 &&
-      height > WATER_LEVEL + 5
-    ) {
-      const cliffBlend = Math.min(1, (slopeFactor - 0.45) * 5.0);
-      const isSouthBiome = !isCustom && desertFactor > 0.3;
-      const rockColor = isSouthBiome ? _colorCliffSouth : _colorMountainTint;
-      _tempColorObj.lerp(rockColor, cliffBlend);
-      _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.15);
-    } else if (height <= MOUNTAIN_LEVEL && slopeFactor > 0.1) {
-      _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.3);
-    }
-
-    if (!isCustom) {
-      _tempColorObj.multiplyScalar(1.0 + grain);
-    }
-
-    // --- VOLCANO TEXTURING ---
-    if (distToVolcano < 2000) {
-      const vFactor = Math.max(0, Math.min(1, (2000 - distToVolcano) / 1000));
-      const basaltColor = _colorVolcanoBasaltHi
-        .clone()
-        .lerp(_colorVolcanoBasaltLo, height / 1400);
-      _tempColorObj.lerp(basaltColor, vFactor);
-    }
-
-    // --- EAST COAST ROAD REMOVED ---
-
-    colors[colorIdx++] = _tempColorObj.r;
-    colors[colorIdx++] = _tempColorObj.g;
-    colors[colorIdx++] = _tempColorObj.b;
-  }
-
-  if (isMontaukChunk) {
-    lighthousePos = {
-      x: 0,
-      y: getElevation(7500, 3000),
-      z: 0,
-      rotY: rng() * Math.PI * 2,
-    };
-    log.info(
-      `[Lighthouse] Placed Montauk lighthouse at fixed position (0, ${lighthousePos.y}, 0)`
-    );
-  }
-
-  const archSeededRng = ChillFlightLogic.mulberry32(
-    ChillFlightLogic.WORLD_SEED
-  );
-  const archTargetZ = archSeededRng() * 10000 - 5000;
-  const archTargetChunkZ = Math.round(archTargetZ / CHUNK_SIZE);
-
-  if (chunkX === 2 && chunkZ === archTargetChunkZ && _enableObjects) {
-    if (rockArchPositions.length === 0 && rockArchGrassPositions.length === 0) {
-      const localArchZ = archTargetZ - worldOffsetZ;
-      const archHeight = Math.max(
-        WATER_LEVEL,
-        getElevation(worldOffsetX, worldOffsetZ + localArchZ)
-      );
-      const archPos = {
+    if (isMontaukChunk) {
+      lighthousePos = {
         x: 0,
-        y: archHeight - 10,
-        z: localArchZ,
+        y: getElevation(7500, 3000),
+        z: 0,
         rotY: rng() * Math.PI * 2,
       };
-      if (rng() < 0.5) {
-        rockArchPositions.push(archPos);
-      } else {
-        rockArchGrassPositions.push(archPos);
-      }
-      group.userData.rockArch = {
-        x: worldOffsetX + archPos.x,
-        y: archPos.y,
-        z: worldOffsetZ + archPos.z,
-        rotY: archPos.rotY,
-      };
+      log.info(
+        `[Lighthouse] Placed Montauk lighthouse at fixed position (0, ${lighthousePos.y}, 0)`
+      );
+    }
 
-      // Guarantee a pirate ship spawns nearby in a water spot
-      const offsets = [
-        [150, 150],
-        [-150, -150],
-        [150, -150],
-        [-150, 150],
-        [250, 0],
-        [-250, 0],
-        [0, 250],
-        [0, -250],
-      ];
-      for (const [dx, dz] of offsets) {
-        const px = dx;
-        const pz = localArchZ + dz;
-        const wX = worldOffsetX + px;
-        const wZ = worldOffsetZ + pz;
-        const h = getElevation(wX, wZ);
-        if (h <= WATER_LEVEL + 1.1) {
-          pirateShipPositions.push({
-            x: px,
-            y: WATER_LEVEL,
-            z: pz,
-            rotY: rng() * Math.PI * 2,
-            bodyId: Math.floor(rng() * 4),
-          });
-          break;
+    const archSeededRng = ChillFlightLogic.mulberry32(
+      ChillFlightLogic.WORLD_SEED
+    );
+    const archTargetZ = archSeededRng() * 10000 - 5000;
+    const archTargetChunkZ = Math.round(archTargetZ / CHUNK_SIZE);
+
+    if (chunkX === 2 && chunkZ === archTargetChunkZ && _enableObjects) {
+      if (
+        rockArchPositions.length === 0 &&
+        rockArchGrassPositions.length === 0
+      ) {
+        const localArchZ = archTargetZ - worldOffsetZ;
+        const archHeight = Math.max(
+          WATER_LEVEL,
+          getElevation(worldOffsetX, worldOffsetZ + localArchZ)
+        );
+        const archPos = {
+          x: 0,
+          y: archHeight - 10,
+          z: localArchZ,
+          rotY: rng() * Math.PI * 2,
+        };
+        if (rng() < 0.5) {
+          rockArchPositions.push(archPos);
+        } else {
+          rockArchGrassPositions.push(archPos);
+        }
+        group.userData.rockArch = {
+          x: worldOffsetX + archPos.x,
+          y: archPos.y,
+          z: worldOffsetZ + archPos.z,
+          rotY: archPos.rotY,
+        };
+
+        // Guarantee a pirate ship spawns nearby in a water spot
+        const offsets = [
+          [150, 150],
+          [-150, -150],
+          [150, -150],
+          [-150, 150],
+          [250, 0],
+          [-250, 0],
+          [0, 250],
+          [0, -250],
+        ];
+        for (const [dx, dz] of offsets) {
+          const px = dx;
+          const pz = localArchZ + dz;
+          const wX = worldOffsetX + px;
+          const wZ = worldOffsetZ + pz;
+          const h = getElevation(wX, wZ);
+          if (h <= WATER_LEVEL + 1.1) {
+            pirateShipPositions.push({
+              x: px,
+              y: WATER_LEVEL,
+              z: pz,
+              rotY: rng() * Math.PI * 2,
+              bodyId: Math.floor(rng() * 4),
+            });
+            break;
+          }
         }
       }
     }
@@ -1590,137 +1653,150 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
   // 2. Generate Trees
   const dummy = new THREE.Object3D();
 
-  // Helper for rendering instanced trees with latitude-based snow coloring
-  const _tempColor = new THREE.Color();
-  const _snowColor = new THREE.Color(0xe0f7fa);
-  const _baseColorObj = new THREE.Color();
+  // 2. Generate Trees & Rocks (Fallback when instanceData is not provided by worker)
+  if (!workerData || !workerData.instanceData) {
+    // Helper for rendering instanced trees with latitude-based snow coloring
+    const _tempColor = new THREE.Color();
+    const _snowColor = new THREE.Color(0xe0f7fa);
+    const _baseColorObj = new THREE.Color();
 
-  const renderTrees = (positions, trunkKey, leavesKey, baseLeafColor) => {
-    if (positions.length === 0) return;
+    const renderTrees = (positions, trunkKey, leavesKey, baseLeafColor) => {
+      if (positions.length === 0) return;
 
-    positions.forEach((pos) => {
-      const worldZ = worldOffsetZ + pos.z;
-      const northInfluence = Math.max(0, -worldZ / 4000);
+      positions.forEach((pos) => {
+        const worldZ = worldOffsetZ + pos.z;
+        const northInfluence = Math.max(0, -worldZ / 4000);
 
-      const tempNoise = simplex.noise2D(
-        (worldOffsetX + pos.x) * 0.0001,
-        worldZ * 0.0001
-      );
-      // Fix smooth snow blending (matching terrain snowFactor logic)
-      const snowRaw = Math.max(
-        0,
-        Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
-      );
-      const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
-
-      const baseScale = 0.6 + Math.min(0.6, northInfluence * 0.5);
-      const scale =
-        pos.scale !== undefined
-          ? pos.scale
-          : baseScale + rng() * (0.4 + rng() * 0.5);
-
-      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
-      dummy.scale.set(scale, scale, scale);
-      dummy.rotation.y = rng() * Math.PI * 2;
-      dummy.updateMatrix();
-
-      if (trunkKey) collector.add(trunkKey, dummy.matrix);
-
-      if (leavesKey && baseLeafColor) {
-        // Add slight random color variation per tree
-        const rVariation = (rng() - 0.5) * 0.1;
-        const gVariation = (rng() - 0.5) * 0.1;
-        const bVariation = (rng() - 0.5) * 0.1;
-
-        // Use a reused temporary color for the variation without allocating new objects
-        const leafHex = pos.color !== undefined ? pos.color : baseLeafColor;
-        _baseColorObj.setHex(leafHex);
-        _baseColorObj.r = Math.max(
-          0,
-          Math.min(1, _baseColorObj.r + rVariation)
+        const tempNoise = simplex.noise2D(
+          (worldOffsetX + pos.x) * 0.0001,
+          worldZ * 0.0001
         );
-        _baseColorObj.g = Math.max(
+        // Fix smooth snow blending (matching terrain snowFactor logic)
+        const snowRaw = Math.max(
           0,
-          Math.min(1, _baseColorObj.g + gVariation)
+          Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
         );
-        _baseColorObj.b = Math.max(
-          0,
-          Math.min(1, _baseColorObj.b + bVariation)
-        );
+        const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
-        // Set leaf color: base leaf color lerped toward snow-white based on snowFactor
-        _tempColor.copy(_baseColorObj);
-        if (snowFactor > 0 && leavesKey !== 'mushroomCap') {
-          _tempColor.lerp(_snowColor, snowFactor);
-        }
-        collector.add(leavesKey, dummy.matrix, _tempColor);
-      }
-    });
-  };
+        const baseScale = 0.6 + Math.min(0.6, northInfluence * 0.5);
+        const scale =
+          pos.scale !== undefined
+            ? pos.scale
+            : baseScale + rng() * (0.4 + rng() * 0.5);
 
-  // Render variations
-  renderTrees(treePositions, 'pineTrunk', 'pineLeaves', 0x1b5e20);
-  renderTrees(snowTreePositions, 'pineTrunk', 'pineLeaves', 0x1b5e20);
-  renderTrees(deciduousTreePositions, 'decidTrunk', 'decidLeaves', 0x1b5e20);
-  renderTrees(
-    tallDeciduousTreePositions,
-    'tallDecidTrunk',
-    'tallDecidLeaves',
-    0x1a451d
-  );
-  if (checkYield()) yield;
-  renderTrees(palmTreePositions, 'palmTrunk', 'palmLeaves', 0x689f38);
-  renderTrees(cherryTreePositions, 'decidTrunk', 'decidLeaves', 0xf8bbd0);
-  renderTrees(autumnTree1Positions, 'decidTrunk', 'decidLeaves', 0xd35400);
-  renderTrees(autumnTree2Positions, 'decidTrunk', 'decidLeaves', 0xf39c12);
-  renderTrees(autumnTree3Positions, 'decidTrunk', 'decidLeaves', 0xc0392b);
-  renderTrees(yellowCortezTreePositions, 'decidTrunk', 'decidLeaves', 0xffeb3b);
-  renderTrees(mushroomTreePositions, 'mushroomStalk', 'mushroomCap', 0x9c27b0); // Vibrant purple caps
-  renderTrees(
-    japaneseMapleTreePositions,
-    'japaneseMapleTrunk',
-    'japaneseMapleLeaves',
-    0xa31515
-  );
-  if (checkYield()) yield;
-
-  if (deadTreePositions.length > 0) {
-    deadTreePositions.forEach((pos) => {
-      const scale = 0.8 + rng() * 0.8;
-      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
-      dummy.scale.set(scale, scale, scale);
-      dummy.rotation.y = rng() * Math.PI * 2;
-      dummy.updateMatrix();
-      collector.add('deadTrunk', dummy.matrix);
-    });
-  }
-
-  // 2.3 Generate Rocks
-  const rockVariations = [
-    {pos: rockPositions, key: 'rock'},
-    {pos: snowRockPositions, key: 'snowRock'},
-    {pos: desertRockPositions, key: 'desertRock'},
-  ];
-
-  rockVariations.forEach((variation) => {
-    if (variation.pos.length > 0) {
-      variation.pos.forEach((pos) => {
-        // Random scale between 0.5 and 2.5 on each axis for uniquely shaped boulders
-        const sx = 0.5 + rng() * 2.0;
-        const sy = 0.5 + rng() * 2.0;
-        const sz = 0.5 + rng() * 2.0;
-
-        // Random rotation
         dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
-        dummy.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
-        dummy.scale.set(sx, sy, sz);
+        dummy.scale.set(scale, scale, scale);
+        dummy.rotation.y = rng() * Math.PI * 2;
         dummy.updateMatrix();
 
-        collector.add(variation.key, dummy.matrix);
+        if (trunkKey) collector.add(trunkKey, dummy.matrix);
+
+        if (leavesKey && baseLeafColor) {
+          // Add slight random color variation per tree
+          const rVariation = (rng() - 0.5) * 0.1;
+          const gVariation = (rng() - 0.5) * 0.1;
+          const bVariation = (rng() - 0.5) * 0.1;
+
+          // Use a reused temporary color for the variation without allocating new objects
+          const leafHex = pos.color !== undefined ? pos.color : baseLeafColor;
+          _baseColorObj.setHex(leafHex);
+          _baseColorObj.r = Math.max(
+            0,
+            Math.min(1, _baseColorObj.r + rVariation)
+          );
+          _baseColorObj.g = Math.max(
+            0,
+            Math.min(1, _baseColorObj.g + gVariation)
+          );
+          _baseColorObj.b = Math.max(
+            0,
+            Math.min(1, _baseColorObj.b + bVariation)
+          );
+
+          // Set leaf color: base leaf color lerped toward snow-white based on snowFactor
+          _tempColor.copy(_baseColorObj);
+          if (snowFactor > 0 && leavesKey !== 'mushroomCap') {
+            _tempColor.lerp(_snowColor, snowFactor);
+          }
+          collector.add(leavesKey, dummy.matrix, _tempColor);
+        }
+      });
+    };
+
+    // Render variations
+    renderTrees(treePositions, 'pineTrunk', 'pineLeaves', 0x1b5e20);
+    renderTrees(snowTreePositions, 'pineTrunk', 'pineLeaves', 0x1b5e20);
+    renderTrees(deciduousTreePositions, 'decidTrunk', 'decidLeaves', 0x1b5e20);
+    renderTrees(
+      tallDeciduousTreePositions,
+      'tallDecidTrunk',
+      'tallDecidLeaves',
+      0x1a451d
+    );
+    if (checkYield()) yield;
+    renderTrees(palmTreePositions, 'palmTrunk', 'palmLeaves', 0x689f38);
+    renderTrees(cherryTreePositions, 'decidTrunk', 'decidLeaves', 0xf8bbd0);
+    renderTrees(autumnTree1Positions, 'decidTrunk', 'decidLeaves', 0xd35400);
+    renderTrees(autumnTree2Positions, 'decidTrunk', 'decidLeaves', 0xf39c12);
+    renderTrees(autumnTree3Positions, 'decidTrunk', 'decidLeaves', 0xc0392b);
+    renderTrees(
+      yellowCortezTreePositions,
+      'decidTrunk',
+      'decidLeaves',
+      0xffeb3b
+    );
+    renderTrees(
+      mushroomTreePositions,
+      'mushroomStalk',
+      'mushroomCap',
+      0x9c27b0
+    ); // Vibrant purple caps
+    renderTrees(
+      japaneseMapleTreePositions,
+      'japaneseMapleTrunk',
+      'japaneseMapleLeaves',
+      0xa31515
+    );
+    if (checkYield()) yield;
+
+    if (deadTreePositions.length > 0) {
+      deadTreePositions.forEach((pos) => {
+        const scale = 0.8 + rng() * 0.8;
+        dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+        dummy.scale.set(scale, scale, scale);
+        dummy.rotation.y = rng() * Math.PI * 2;
+        dummy.updateMatrix();
+        collector.add('deadTrunk', dummy.matrix);
       });
     }
-  });
-  if (checkYield()) yield;
+
+    // 2.3 Generate Rocks
+    const rockVariations = [
+      {pos: rockPositions, key: 'rock'},
+      {pos: snowRockPositions, key: 'snowRock'},
+      {pos: desertRockPositions, key: 'desertRock'},
+    ];
+
+    rockVariations.forEach((variation) => {
+      if (variation.pos.length > 0) {
+        variation.pos.forEach((pos) => {
+          // Random scale between 0.5 and 2.5 on each axis for uniquely shaped boulders
+          const sx = 0.5 + rng() * 2.0;
+          const sy = 0.5 + rng() * 2.0;
+          const sz = 0.5 + rng() * 2.0;
+
+          // Random rotation
+          dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+          dummy.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
+          dummy.scale.set(sx, sy, sz);
+          dummy.updateMatrix();
+
+          collector.add(variation.key, dummy.matrix);
+        });
+      }
+    });
+    if (checkYield()) yield;
+  }
 
   // 2.3b Generate Rock Arches (Unique instances)
   if (rockArchPositions.length > 0) {
@@ -1757,172 +1833,191 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     });
   }
 
-  // 2.4 Generate Cactuses
-  if (cactusPositions.length > 0) {
-    cactusPositions.forEach((pos) => {
-      const scale = 0.8 + rng() * 0.6;
-      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
-      dummy.rotation.set(0, rng() * Math.PI * 2, 0);
-      dummy.scale.set(scale, scale, scale);
-      dummy.updateMatrix();
-      collector.add('cactus', dummy.matrix);
-    });
+  // 2.4 - 2.48 Generate Cactuses, Snowmen, Icebergs, Penguins, Lily Pads, Bushes (Fallback)
+  if (!workerData || !workerData.instanceData) {
+    if (cactusPositions.length > 0) {
+      cactusPositions.forEach((pos) => {
+        const scale = 0.8 + rng() * 0.6;
+        dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+        dummy.rotation.set(0, rng() * Math.PI * 2, 0);
+        dummy.scale.set(scale, scale, scale);
+        dummy.updateMatrix();
+        collector.add('cactus', dummy.matrix);
+      });
+    }
+
+    // 2.45 Generate Snowmen
+    if (snowmanPositions.length > 0) {
+      snowmanPositions.forEach((pos) => {
+        const scale = 0.8 + rng() * 0.4;
+        dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(scale, scale, scale);
+        dummy.updateMatrix();
+        collector.add('snowmanBody', dummy.matrix);
+        collector.add('snowmanNose', dummy.matrix);
+      });
+    }
+
+    // 2.46 Generate Icebergs, Ice Floes, and Penguins
+    if (icebergPositions.length > 0) {
+      icebergPositions.forEach((pos) => {
+        // Main iceberg
+        dummy.position.set(
+          worldOffsetX + pos.x,
+          pos.y - 4,
+          worldOffsetZ + pos.z
+        );
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        collector.add('iceberg', dummy.matrix);
+
+        // Small 1
+        const offset1 = new THREE.Vector3(14, -4, 6).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        );
+        dummy.position.set(
+          worldOffsetX + pos.x + offset1.x,
+          pos.y - 8,
+          worldOffsetZ + pos.z + offset1.z
+        );
+        dummy.rotation.set(0, pos.rotY + 1.2, 0);
+        dummy.scale.set(0.5, 0.4, 0.5);
+        dummy.updateMatrix();
+        collector.add('iceberg', dummy.matrix);
+
+        // Small 2
+        const offset2 = new THREE.Vector3(-12, -5, -8).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        );
+        dummy.position.set(
+          worldOffsetX + pos.x + offset2.x,
+          pos.y - 9,
+          worldOffsetZ + pos.z + offset2.z
+        );
+        dummy.rotation.set(0, pos.rotY - 0.8, 0);
+        dummy.scale.set(0.4, 0.3, 0.4);
+        dummy.updateMatrix();
+        collector.add('iceberg', dummy.matrix);
+      });
+    }
+
+    if (iceFloePositions.length > 0) {
+      iceFloePositions.forEach((pos) => {
+        // Main floe
+        dummy.position.set(
+          worldOffsetX + pos.x,
+          pos.y - 1,
+          worldOffsetZ + pos.z
+        );
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        collector.add('iceFloe', dummy.matrix);
+
+        // Small 1
+        const offset1 = new THREE.Vector3(16, -0.8, 4).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        );
+        dummy.position.set(
+          worldOffsetX + pos.x + offset1.x,
+          pos.y - 1.8,
+          worldOffsetZ + pos.z + offset1.z
+        );
+        dummy.rotation.set(0, pos.rotY + 0.5, 0);
+        dummy.scale.set(0.5, 0.6, 0.5);
+        dummy.updateMatrix();
+        collector.add('iceFloe', dummy.matrix);
+
+        // Small 2
+        const offset2 = new THREE.Vector3(-15, -1, -6).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        );
+        dummy.position.set(
+          worldOffsetX + pos.x + offset2.x,
+          pos.y - 2,
+          worldOffsetZ + pos.z + offset2.z
+        );
+        dummy.rotation.set(0, pos.rotY - 0.5, 0);
+        dummy.scale.set(0.4, 0.5, 0.4);
+        dummy.updateMatrix();
+        collector.add('iceFloe', dummy.matrix);
+      });
+    }
+
+    if (penguinPositions.length > 0) {
+      penguinPositions.forEach((pos) => {
+        const scale = 0.8 + rng() * 0.4;
+        dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(scale, scale, scale);
+        dummy.updateMatrix();
+
+        collector.add('penguinBody', dummy.matrix);
+        collector.add('penguinBelly', dummy.matrix);
+        collector.add('penguinHead', dummy.matrix);
+        collector.add('penguinBeak', dummy.matrix);
+        collector.add('penguinWingL', dummy.matrix);
+        collector.add('penguinWingR', dummy.matrix);
+        collector.add('penguinFootL', dummy.matrix);
+        collector.add('penguinFootR', dummy.matrix);
+      });
+    }
+
+    // 2.47 Generate Lily Pads
+    if (lilyPadPositions.length > 0) {
+      lilyPadPositions.forEach((pos) => {
+        const scale = 0.6 + rng() * 0.8;
+        dummy.position.set(
+          worldOffsetX + pos.x,
+          pos.y + 0.15,
+          worldOffsetZ + pos.z
+        ); // Slightly above water to prevent Z-fighting
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(scale, scale, scale);
+        dummy.updateMatrix();
+        collector.add('lilypad', dummy.matrix);
+      });
+    }
+
+    // 2.48 Generate Bushes
+    if (bushPositions.length > 0) {
+      bushPositions.forEach((pos) => {
+        const scale = 0.5 + rng() * 1.5; // High variance in bush sizes
+        dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
+        dummy.rotation.set(0, pos.rotY, 0);
+        dummy.scale.set(scale, scale, scale);
+        dummy.updateMatrix();
+
+        // Base bush green: 0x558b2f
+        const rVariation = (rng() - 0.5) * 0.15;
+        const gVariation = (rng() - 0.5) * 0.15;
+        const bVariation = (rng() - 0.5) * 0.15;
+
+        const baseBushColor = new THREE.Color(0x558b2f);
+        baseBushColor.r = Math.max(
+          0,
+          Math.min(1, baseBushColor.r + rVariation)
+        );
+        baseBushColor.g = Math.max(
+          0,
+          Math.min(1, baseBushColor.g + gVariation)
+        );
+        baseBushColor.b = Math.max(
+          0,
+          Math.min(1, baseBushColor.b + bVariation)
+        );
+
+        collector.add('bush', dummy.matrix, baseBushColor);
+      });
+    }
+    if (checkYield()) yield;
   }
-
-  // 2.45 Generate Snowmen
-  if (snowmanPositions.length > 0) {
-    snowmanPositions.forEach((pos) => {
-      const scale = 0.8 + rng() * 0.4;
-      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(scale, scale, scale);
-      dummy.updateMatrix();
-      collector.add('snowmanBody', dummy.matrix);
-      collector.add('snowmanNose', dummy.matrix);
-    });
-  }
-
-  // 2.46 Generate Icebergs, Ice Floes, and Penguins
-  if (icebergPositions.length > 0) {
-    icebergPositions.forEach((pos) => {
-      // Main iceberg
-      dummy.position.set(worldOffsetX + pos.x, pos.y - 4, worldOffsetZ + pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(1, 1, 1);
-      dummy.updateMatrix();
-      collector.add('iceberg', dummy.matrix);
-
-      // Small 1
-      const offset1 = new THREE.Vector3(14, -4, 6).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      dummy.position.set(
-        worldOffsetX + pos.x + offset1.x,
-        pos.y - 8,
-        worldOffsetZ + pos.z + offset1.z
-      );
-      dummy.rotation.set(0, pos.rotY + 1.2, 0);
-      dummy.scale.set(0.5, 0.4, 0.5);
-      dummy.updateMatrix();
-      collector.add('iceberg', dummy.matrix);
-
-      // Small 2
-      const offset2 = new THREE.Vector3(-12, -5, -8).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      dummy.position.set(
-        worldOffsetX + pos.x + offset2.x,
-        pos.y - 9,
-        worldOffsetZ + pos.z + offset2.z
-      );
-      dummy.rotation.set(0, pos.rotY - 0.8, 0);
-      dummy.scale.set(0.4, 0.3, 0.4);
-      dummy.updateMatrix();
-      collector.add('iceberg', dummy.matrix);
-    });
-  }
-
-  if (iceFloePositions.length > 0) {
-    iceFloePositions.forEach((pos) => {
-      // Main floe
-      dummy.position.set(worldOffsetX + pos.x, pos.y - 1, worldOffsetZ + pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(1, 1, 1);
-      dummy.updateMatrix();
-      collector.add('iceFloe', dummy.matrix);
-
-      // Small 1
-      const offset1 = new THREE.Vector3(16, -0.8, 4).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      dummy.position.set(
-        worldOffsetX + pos.x + offset1.x,
-        pos.y - 1.8,
-        worldOffsetZ + pos.z + offset1.z
-      );
-      dummy.rotation.set(0, pos.rotY + 0.5, 0);
-      dummy.scale.set(0.5, 0.6, 0.5);
-      dummy.updateMatrix();
-      collector.add('iceFloe', dummy.matrix);
-
-      // Small 2
-      const offset2 = new THREE.Vector3(-15, -1, -6).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      dummy.position.set(
-        worldOffsetX + pos.x + offset2.x,
-        pos.y - 2,
-        worldOffsetZ + pos.z + offset2.z
-      );
-      dummy.rotation.set(0, pos.rotY - 0.5, 0);
-      dummy.scale.set(0.4, 0.5, 0.4);
-      dummy.updateMatrix();
-      collector.add('iceFloe', dummy.matrix);
-    });
-  }
-
-  if (penguinPositions.length > 0) {
-    penguinPositions.forEach((pos) => {
-      const scale = 0.8 + rng() * 0.4;
-      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(scale, scale, scale);
-      dummy.updateMatrix();
-
-      collector.add('penguinBody', dummy.matrix);
-      collector.add('penguinBelly', dummy.matrix);
-      collector.add('penguinHead', dummy.matrix);
-      collector.add('penguinBeak', dummy.matrix);
-      collector.add('penguinWingL', dummy.matrix);
-      collector.add('penguinWingR', dummy.matrix);
-      collector.add('penguinFootL', dummy.matrix);
-      collector.add('penguinFootR', dummy.matrix);
-    });
-  }
-
-  // 2.47 Generate Lily Pads
-  if (lilyPadPositions.length > 0) {
-    lilyPadPositions.forEach((pos) => {
-      const scale = 0.6 + rng() * 0.8;
-      dummy.position.set(
-        worldOffsetX + pos.x,
-        pos.y + 0.15,
-        worldOffsetZ + pos.z
-      ); // Slightly above water to prevent Z-fighting
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(scale, scale, scale);
-      dummy.updateMatrix();
-      collector.add('lilypad', dummy.matrix);
-    });
-  }
-
-  // 2.48 Generate Bushes
-  if (bushPositions.length > 0) {
-    bushPositions.forEach((pos) => {
-      const scale = 0.5 + rng() * 1.5; // High variance in bush sizes
-      dummy.position.set(worldOffsetX + pos.x, pos.y, worldOffsetZ + pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(scale, scale, scale);
-      dummy.updateMatrix();
-
-      // Base bush green: 0x558b2f
-      const rVariation = (rng() - 0.5) * 0.15;
-      const gVariation = (rng() - 0.5) * 0.15;
-      const bVariation = (rng() - 0.5) * 0.15;
-
-      const baseBushColor = new THREE.Color(0x558b2f);
-      baseBushColor.r = Math.max(0, Math.min(1, baseBushColor.r + rVariation));
-      baseBushColor.g = Math.max(0, Math.min(1, baseBushColor.g + gVariation));
-      baseBushColor.b = Math.max(0, Math.min(1, baseBushColor.b + bVariation));
-
-      collector.add('bush', dummy.matrix, baseBushColor);
-    });
-  }
-  if (checkYield()) yield;
 
   // 2.5 Generate Houses
   if (housePositions.length > 0) {
@@ -1933,8 +2028,14 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     const comboCounts = {};
     const houseCombo = [];
     housePositions.forEach((pos, idx) => {
-      const bodyId = Math.floor(rng() * numBodyColors);
-      const roofId = Math.floor(rng() * numRoofColors);
+      const bodyId =
+        pos.bodyId !== undefined
+          ? pos.bodyId % numBodyColors
+          : Math.floor(rng() * numBodyColors);
+      const roofId =
+        pos.roofId !== undefined
+          ? pos.roofId % numRoofColors
+          : Math.floor(rng() * numRoofColors);
       const key = `${bodyId}_${roofId}`;
       houseCombo[idx] = {bodyId, roofId, key};
       comboCounts[key] = (comboCounts[key] || 0) + 1;
@@ -1968,7 +2069,8 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     const houseToPool = [];
 
     housePositions.forEach((pos, idx) => {
-      const poolId = Math.floor(rng() * 5);
+      const poolId =
+        pos.poolId !== undefined ? pos.poolId % 5 : Math.floor(rng() * 5);
       houseToPool[idx] = poolId;
       poolCounts[poolId]++;
     });
@@ -2095,8 +2197,14 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     const comboCounts = {};
     const houseCombo = [];
     twoStoryHousePositions.forEach((pos, idx) => {
-      const bodyId = Math.floor(rng() * numBodyColors);
-      const roofId = Math.floor(rng() * numRoofColors);
+      const bodyId =
+        (pos.bodyId !== undefined
+          ? pos.bodyId
+          : Math.floor(rng() * numBodyColors)) % numBodyColors;
+      const roofId =
+        (pos.roofId !== undefined
+          ? pos.roofId
+          : Math.floor(rng() * numRoofColors)) % numRoofColors;
       const key = `${bodyId}_${roofId}`;
       houseCombo[idx] = {bodyId, roofId, key};
       comboCounts[key] = (comboCounts[key] || 0) + 1;
@@ -2129,7 +2237,8 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     const houseToPool = [];
 
     twoStoryHousePositions.forEach((pos, idx) => {
-      const poolId = Math.floor(rng() * 5);
+      const poolId =
+        (pos.poolId !== undefined ? pos.poolId : Math.floor(rng() * 5)) % 5;
       houseToPool[idx] = poolId;
       poolCounts[poolId]++;
     });
@@ -2243,7 +2352,7 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
       strawHutPositions.length
     );
     strawHutPositions.forEach((pos, i) => {
-      const scale = 0.9 + rng() * 0.3;
+      const scale = pos.scale !== undefined ? pos.scale : 0.9 + rng() * 0.3;
       dummy.position.set(pos.x, pos.y, pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.scale.set(scale, scale, scale);
@@ -2270,7 +2379,7 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
       pagodaPositions.length
     );
     pagodaPositions.forEach((pos, i) => {
-      const scale = 0.9 + rng() * 0.3;
+      const scale = pos.scale !== undefined ? pos.scale : 0.9 + rng() * 0.3;
       dummy.position.set(pos.x, pos.y, pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.scale.set(scale, scale, scale);
@@ -3226,7 +3335,10 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     const boatColorIndices = [];
 
     sailboatPositions.forEach((pos, index) => {
-      const colorIdx = Math.floor(rng() * numBoatColors);
+      const colorIdx =
+        (pos.bodyId !== undefined
+          ? pos.bodyId
+          : Math.floor(rng() * numBoatColors)) % numBoatColors;
       boatColorIndices[index] = colorIdx;
       boatCounts[colorIdx]++;
     });
@@ -3391,7 +3503,8 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
       dummy.scale.set(2.5, 2.5, 2.5);
       dummy.updateMatrix();
 
-      const colorIdx = pos.bodyId;
+      const colorIdx =
+        (pos.bodyId !== undefined ? pos.bodyId : 0) % pirateSailPalette.length;
       const instIdx = sailCounts[colorIdx]++;
       sailInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
 
@@ -3460,137 +3573,229 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
 
   // 4. Generate Birds
   group.userData.birds = [];
-  const isAlienChunk = Math.abs(worldOffsetX) > 25000;
-  if (!isCustom && !isAlienChunk && rng() < 0.2) {
-    const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
-    const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
-    let baseY = getElevation(baseX, baseZ) + 150 + rng() * 200;
-    if (baseY > 400) baseY = 400;
-
-    const baseRotationY = rng() * Math.PI * 2;
-
-    const isSouth = worldOffsetZ > 0;
-    const heightAtCenter = getElevation(worldOffsetX, worldOffsetZ);
-    const isBeach =
-      heightAtCenter > WATER_LEVEL - 20 && heightAtCenter < WATER_LEVEL + 40;
-
-    if (isSouth && isBeach && rng() < 0.3) {
-      // Spawn seagulls
-      const numSeagulls = 2 + Math.floor(rng() * 4); // 2 to 5
-      const flockCenterX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
-      const flockCenterZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
-      let flockBaseY =
-        getElevation(flockCenterX, flockCenterZ) + 40 + rng() * 60;
-
-      for (let i = 0; i < numSeagulls; i++) {
-        const seagull = assembleSeagull(2.5 + rng() * 1.0); // Slightly smaller scale than hawk
-        seagull.position.set(flockCenterX, flockBaseY, flockCenterZ);
+  if (workerData && workerData.chunkProps && workerData.chunkProps.birds) {
+    workerData.chunkProps.birds.forEach((bData) => {
+      if (bData.type === 'seagull') {
+        const seagull = assembleSeagull(bData.scale);
+        seagull.position.set(bData.x, bData.y, bData.z);
 
         seagull.userData.type = 'seagull';
-        seagull.userData.speed = 0.5; // Slightly faster
-        seagull.userData.circleSpeed = 0.4 + rng() * 0.2;
-        seagull.userData.circleRadius = 50 + rng() * 80;
+        seagull.userData.speed = 0.5;
+        seagull.userData.circleSpeed = bData.circleSpeed;
+        seagull.userData.circleRadius = bData.circleRadius;
         seagull.userData.circleCenter = new THREE.Vector3(
-          flockCenterX,
-          flockBaseY + (rng() - 0.5) * 40,
-          flockCenterZ
+          bData.circleCenter.x,
+          bData.circleCenter.y,
+          bData.circleCenter.z
         );
-        seagull.userData.angle = rng() * Math.PI * 2;
-        seagull.userData.flapPhase = rng() * Math.PI * 2;
-        seagull.userData.flapSpeed = 10.0 + rng() * 5.0; // Faster flapping
-        seagull.userData.flapDuration = 2.0 + rng() * 2.0;
-        seagull.userData.soarDuration = 3.0 + rng() * 3.0;
+        seagull.userData.angle = bData.angle;
+        seagull.userData.flapPhase = bData.flapPhase;
+        seagull.userData.flapSpeed = bData.flapSpeed;
+        seagull.userData.flapDuration = bData.flapDuration;
+        seagull.userData.soarDuration = bData.soarDuration;
         seagull.userData.isDiving = false;
-        seagull.userData.diveTimer = rng() * 10;
-        seagull.userData.nextDiveWait = 10.0 + rng() * 20.0;
+        seagull.userData.diveTimer = bData.diveTimer;
+        seagull.userData.nextDiveWait = bData.nextDiveWait;
 
         objectsGroup.add(seagull);
         group.userData.birds.push(seagull);
+      } else if (bData.type === 'hawk') {
+        const hawk = assembleHawk(bData.scale);
+        hawk.position.set(bData.x, bData.y, bData.z);
+        hawk.rotation.y = bData.rotY;
+
+        hawk.userData.type = 'hawk';
+        hawk.userData.speed = 0.4;
+        hawk.userData.circleSpeed = bData.circleSpeed;
+        hawk.userData.circleRadius = bData.circleRadius;
+        hawk.userData.circleCenter = new THREE.Vector3(
+          bData.circleCenter.x,
+          bData.circleCenter.y,
+          bData.circleCenter.z
+        );
+        hawk.userData.angle = bData.angle;
+        hawk.userData.flapPhase = bData.flapPhase;
+        hawk.userData.flapSpeed = bData.flapSpeed;
+        hawk.userData.flapDuration = bData.flapDuration;
+        hawk.userData.soarDuration = bData.soarDuration;
+        hawk.userData.isDiving = false;
+
+        objectsGroup.add(hawk);
+        group.userData.birds.push(hawk);
+      } else if (bData.type === 'goose') {
+        const goose = new THREE.Group();
+        const body = new THREE.Mesh(gooseBodyGeo, gooseBrownMat);
+        const neck = new THREE.Mesh(gooseNeckGeo, gooseBlackMat);
+        const head = new THREE.Mesh(gooseHeadGeo, gooseBlackMat);
+        const beak = new THREE.Mesh(gooseBeakGeo, gooseBlackMat);
+        const cheek = new THREE.Mesh(gooseCheekGeo, gooseWhiteMat);
+        const tailWhite = new THREE.Mesh(gooseWhiteTailGeo, gooseWhiteMat);
+        const tailBlack = new THREE.Mesh(gooseTailGeo, gooseBlackMat);
+        const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+        const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+        wingL.rotation.y = Math.PI;
+        goose.add(
+          body,
+          neck,
+          head,
+          beak,
+          cheek,
+          tailWhite,
+          tailBlack,
+          wingL,
+          wingR
+        );
+        goose.scale.set(3.5, 3.5, 3.5);
+        goose.userData.wings = [wingL, wingR];
+
+        goose.position.set(bData.x, bData.y, bData.z);
+        goose.rotation.y = bData.rotY;
+
+        goose.userData.type = 'goose';
+        goose.userData.speed = bData.speed;
+        goose.userData.flapPhase = bData.flapPhase;
+        goose.userData.flapSpeed = bData.flapSpeed;
+        goose.userData.flapDuration = bData.flapDuration;
+        goose.userData.soarDuration = bData.soarDuration;
+        goose.userData.isDiving = false;
+
+        objectsGroup.add(goose);
+        group.userData.birds.push(goose);
       }
-    } else {
-      // Spawn hawk
+    });
+  } else {
+    const isAlienChunk = Math.abs(worldOffsetX) > 25000;
+    if (!isCustom && !isAlienChunk && rng() < 0.2) {
+      const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+      const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+      let baseY = getElevation(baseX, baseZ) + 150 + rng() * 200;
+      if (baseY > 400) baseY = 400;
 
-      const hawk = assembleHawk(4.0);
-      hawk.position.set(baseX, baseY, baseZ);
-      hawk.rotation.y = baseRotationY;
+      const baseRotationY = rng() * Math.PI * 2;
 
-      hawk.userData.type = 'hawk';
-      hawk.userData.speed = 0.4;
-      hawk.userData.circleSpeed = 0.3 + rng() * 0.2;
-      hawk.userData.circleRadius = 150 + rng() * 100;
-      hawk.userData.circleCenter = new THREE.Vector3(baseX, baseY, baseZ);
-      hawk.userData.angle = rng() * Math.PI * 2;
-      hawk.userData.flapPhase = rng() * Math.PI * 2;
-      hawk.userData.flapSpeed = 8.0 + rng() * 4.0;
-      hawk.userData.flapDuration = 3.0 + rng() * 3.0;
-      hawk.userData.soarDuration = 4.0 + rng() * 4.0;
-      hawk.userData.isDiving = false;
+      const isSouth = worldOffsetZ > 0;
+      const heightAtCenter = getElevation(worldOffsetX, worldOffsetZ);
+      const isBeach =
+        heightAtCenter > WATER_LEVEL - 20 && heightAtCenter < WATER_LEVEL + 40;
 
-      objectsGroup.add(hawk);
-      group.userData.birds.push(hawk);
+      if (isSouth && isBeach && rng() < 0.3) {
+        // Spawn seagulls
+        const numSeagulls = 2 + Math.floor(rng() * 4); // 2 to 5
+        const flockCenterX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+        const flockCenterZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+        let flockBaseY =
+          getElevation(flockCenterX, flockCenterZ) + 40 + rng() * 60;
+
+        for (let i = 0; i < numSeagulls; i++) {
+          const seagull = assembleSeagull(2.5 + rng() * 1.0); // Slightly smaller scale than hawk
+          seagull.position.set(flockCenterX, flockBaseY, flockCenterZ);
+
+          seagull.userData.type = 'seagull';
+          seagull.userData.speed = 0.5; // Slightly faster
+          seagull.userData.circleSpeed = 0.4 + rng() * 0.2;
+          seagull.userData.circleRadius = 50 + rng() * 80;
+          seagull.userData.circleCenter = new THREE.Vector3(
+            flockCenterX,
+            flockBaseY + (rng() - 0.5) * 40,
+            flockCenterZ
+          );
+          seagull.userData.angle = rng() * Math.PI * 2;
+          seagull.userData.flapPhase = rng() * Math.PI * 2;
+          seagull.userData.flapSpeed = 10.0 + rng() * 5.0; // Faster flapping
+          seagull.userData.flapDuration = 2.0 + rng() * 2.0;
+          seagull.userData.soarDuration = 3.0 + rng() * 3.0;
+          seagull.userData.isDiving = false;
+          seagull.userData.diveTimer = rng() * 10;
+          seagull.userData.nextDiveWait = 10.0 + rng() * 20.0;
+
+          objectsGroup.add(seagull);
+          group.userData.birds.push(seagull);
+        }
+      } else {
+        // Spawn hawk
+
+        const hawk = assembleHawk(4.0);
+        hawk.position.set(baseX, baseY, baseZ);
+        hawk.rotation.y = baseRotationY;
+
+        hawk.userData.type = 'hawk';
+        hawk.userData.speed = 0.4;
+        hawk.userData.circleSpeed = 0.3 + rng() * 0.2;
+        hawk.userData.circleRadius = 150 + rng() * 100;
+        hawk.userData.circleCenter = new THREE.Vector3(baseX, baseY, baseZ);
+        hawk.userData.angle = rng() * Math.PI * 2;
+        hawk.userData.flapPhase = rng() * Math.PI * 2;
+        hawk.userData.flapSpeed = 8.0 + rng() * 4.0;
+        hawk.userData.flapDuration = 3.0 + rng() * 3.0;
+        hawk.userData.soarDuration = 4.0 + rng() * 4.0;
+        hawk.userData.isDiving = false;
+
+        objectsGroup.add(hawk);
+        group.userData.birds.push(hawk);
+      }
     }
-  }
 
-  if (!isCustom && !isAlienChunk && rng() < 0.04) {
-    const flockSize = 7 + Math.floor(rng() * 6); // 7 to 12 geese
-    const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
-    const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
-    let baseY = getElevation(baseX, baseZ) + 400 + rng() * 600;
-    if (baseY > 1200) baseY = 1200;
+    if (!isCustom && !isAlienChunk && rng() < 0.04) {
+      const flockSize = 7 + Math.floor(rng() * 6); // 7 to 12 geese
+      const baseX = worldOffsetX + (rng() - 0.5) * CHUNK_SIZE;
+      const baseZ = worldOffsetZ + (rng() - 0.5) * CHUNK_SIZE;
+      let baseY = getElevation(baseX, baseZ) + 400 + rng() * 600;
+      if (baseY > 1200) baseY = 1200;
 
-    const baseRotationY = rng() * Math.PI * 2;
-    const speed = 0.5 + rng() * 0.2;
+      const baseRotationY = rng() * Math.PI * 2;
+      const speed = 0.5 + rng() * 0.2;
 
-    for (let i = 0; i < flockSize; i++) {
-      const goose = new THREE.Group();
-      const body = new THREE.Mesh(gooseBodyGeo, gooseBrownMat);
-      const neck = new THREE.Mesh(gooseNeckGeo, gooseBlackMat);
-      const head = new THREE.Mesh(gooseHeadGeo, gooseBlackMat);
-      const beak = new THREE.Mesh(gooseBeakGeo, gooseBlackMat);
-      const cheek = new THREE.Mesh(gooseCheekGeo, gooseWhiteMat);
-      const tailWhite = new THREE.Mesh(gooseWhiteTailGeo, gooseWhiteMat);
-      const tailBlack = new THREE.Mesh(gooseTailGeo, gooseBlackMat);
-      const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
-      const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
-      wingL.rotation.y = Math.PI;
-      goose.add(
-        body,
-        neck,
-        head,
-        beak,
-        cheek,
-        tailWhite,
-        tailBlack,
-        wingL,
-        wingR
-      );
-      goose.scale.set(3.5, 3.5, 3.5);
-      goose.userData.wings = [wingL, wingR];
+      for (let i = 0; i < flockSize; i++) {
+        const goose = new THREE.Group();
+        const body = new THREE.Mesh(gooseBodyGeo, gooseBrownMat);
+        const neck = new THREE.Mesh(gooseNeckGeo, gooseBlackMat);
+        const head = new THREE.Mesh(gooseHeadGeo, gooseBlackMat);
+        const beak = new THREE.Mesh(gooseBeakGeo, gooseBlackMat);
+        const cheek = new THREE.Mesh(gooseCheekGeo, gooseWhiteMat);
+        const tailWhite = new THREE.Mesh(gooseWhiteTailGeo, gooseWhiteMat);
+        const tailBlack = new THREE.Mesh(gooseTailGeo, gooseBlackMat);
+        const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+        const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+        wingL.rotation.y = Math.PI;
+        goose.add(
+          body,
+          neck,
+          head,
+          beak,
+          cheek,
+          tailWhite,
+          tailBlack,
+          wingL,
+          wingR
+        );
+        goose.scale.set(3.5, 3.5, 3.5);
+        goose.userData.wings = [wingL, wingR];
 
-      let offsetX = 0;
-      let offsetZ = 0;
-      if (i > 0) {
-        const row = Math.floor((i + 1) / 2);
-        const side = i % 2 === 0 ? 1 : -1;
-        offsetX = side * row * 35;
-        offsetZ = row * 35;
+        let offsetX = 0;
+        let offsetZ = 0;
+        if (i > 0) {
+          const row = Math.floor((i + 1) / 2);
+          const side = i % 2 === 0 ? 1 : -1;
+          offsetX = side * row * 35;
+          offsetZ = row * 35;
+        }
+
+        const localPos = new THREE.Vector3(offsetX, 0, offsetZ);
+        localPos.applyAxisAngle(yAxis, baseRotationY);
+
+        goose.position.set(baseX + localPos.x, baseY, baseZ + localPos.z);
+        goose.rotation.y = baseRotationY;
+
+        goose.userData.type = 'goose';
+        goose.userData.speed = speed;
+        goose.userData.flapPhase = rng() * Math.PI * 2;
+        goose.userData.flapSpeed = 3.0 + rng() * 1.0;
+        goose.userData.flapDuration = 1000.0;
+        goose.userData.soarDuration = 0.0;
+
+        objectsGroup.add(goose);
+        group.userData.birds.push(goose);
       }
-
-      const localPos = new THREE.Vector3(offsetX, 0, offsetZ);
-      localPos.applyAxisAngle(yAxis, baseRotationY);
-
-      goose.position.set(baseX + localPos.x, baseY, baseZ + localPos.z);
-      goose.rotation.y = baseRotationY;
-
-      goose.userData.type = 'goose';
-      goose.userData.speed = speed;
-      goose.userData.flapPhase = rng() * Math.PI * 2;
-      goose.userData.flapSpeed = 3.0 + rng() * 1.0;
-      goose.userData.flapDuration = 1000.0;
-      goose.userData.soarDuration = 0.0;
-
-      objectsGroup.add(goose);
-      group.userData.birds.push(goose);
     }
   }
 
@@ -3619,50 +3824,74 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     }
   });
 
-  group.userData.counts = {
-    trees_pine: treePositions.length + snowTreePositions.length,
-    trees_decid:
-      deciduousTreePositions.length + tallDeciduousTreePositions.length,
-    trees_palm: palmTreePositions.length,
-    trees_dead: deadTreePositions.length,
-    trees_autumn:
-      autumnTree1Positions.length +
-      autumnTree2Positions.length +
-      autumnTree3Positions.length,
-    trees_cherry: cherryTreePositions.length,
-    trees_yellow_cortez: yellowCortezTreePositions.length,
-    trees_mushroom: mushroomTreePositions.length,
-    houses:
-      housePositions.length +
-      pagodaPositions.length +
-      barnPositions.length +
-      monasteryPositions.length +
-      castleRuinsPositions.length,
+  if (workerData && workerData.chunkProps && workerData.chunkProps.counts) {
+    group.userData.counts = {
+      ...workerData.chunkProps.counts,
+      houses:
+        housePositions.length +
+        pagodaPositions.length +
+        barnPositions.length +
+        monasteryPositions.length +
+        castleRuinsPositions.length,
+      lighthouses: lighthousePos ? 1 : 0,
+      castles: castleRuinsPositions.length,
+      windmills: windmillPositions.length,
+      campfires: campfirePositions.length,
+      boats: sailboatPositions.length,
+      pirateships: pirateShipPositions.length,
+      piers: pierPositions.length,
+      birds: group.userData.birds.length,
+      chimneys: chimneySmokePositions.length,
+    };
+  } else {
+    group.userData.counts = {
+      trees_pine: treePositions.length + snowTreePositions.length,
+      trees_decid:
+        deciduousTreePositions.length + tallDeciduousTreePositions.length,
+      trees_palm: palmTreePositions.length,
+      trees_dead: deadTreePositions.length,
+      trees_autumn:
+        autumnTree1Positions.length +
+        autumnTree2Positions.length +
+        autumnTree3Positions.length,
+      trees_cherry: cherryTreePositions.length,
+      trees_yellow_cortez: yellowCortezTreePositions.length,
+      trees_mushroom: mushroomTreePositions.length,
+      houses:
+        housePositions.length +
+        pagodaPositions.length +
+        barnPositions.length +
+        monasteryPositions.length +
+        castleRuinsPositions.length,
 
-    rocks:
-      rockPositions.length +
-      snowRockPositions.length +
-      desertRockPositions.length,
-    bushes: bushPositions.length,
-    snowmen: snowmanPositions.length,
-    cactus: cactusPositions.length,
-    lighthouses: lighthousePos ? 1 : 0,
-    castles: castleRuinsPositions.length,
-    windmills: windmillPositions.length,
-    campfires: campfirePositions.length,
-    boats: sailboatPositions.length,
-    pirateships: pirateShipPositions.length,
-    lily_pads: lilyPadPositions.length,
-    piers: pierPositions.length,
-    birds: group.userData.birds.length,
-    chimneys: chimneySmokePositions.length,
-  };
+      rocks:
+        rockPositions.length +
+        snowRockPositions.length +
+        desertRockPositions.length,
+      bushes: bushPositions.length,
+      snowmen: snowmanPositions.length,
+      cactus: cactusPositions.length,
+      lighthouses: lighthousePos ? 1 : 0,
+      castles: castleRuinsPositions.length,
+      windmills: windmillPositions.length,
+      campfires: campfirePositions.length,
+      boats: sailboatPositions.length,
+      pirateships: pirateShipPositions.length,
+      lily_pads: lilyPadPositions.length,
+      piers: pierPositions.length,
+      birds: group.userData.birds.length,
+      chimneys: chimneySmokePositions.length,
+    };
+  }
 
   if (sailboatPositions.length > 0 || pirateShipPositions.length > 0) {
     watercraftChunks.add(group);
   }
 
-  group.userData.instanceData = collector.data;
+  group.userData.instanceData =
+    workerData && workerData.instanceData
+      ? workerData.instanceData
+      : collector.data;
   scene.add(group);
   return group;
 }
