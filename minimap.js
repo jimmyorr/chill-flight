@@ -170,7 +170,7 @@
       document.body.appendChild(minimapContainer);
     }
 
-    console.log('🗺️ Minimap successfully loaded and initialized.');
+    log.info('🗺️ Minimap successfully loaded and initialized.');
 
     // Start game loop updater
     updateLoop();

@@ -37,8 +37,8 @@
       worldHeight: canvas.height * worldScale,
     };
 
-    console.log(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
-    console.log(
+    log.info(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
+    log.info(
       `World size: ${window.ChillFlightLogic.customMap.worldWidth.toFixed(0)}x${window.ChillFlightLogic.customMap.worldHeight.toFixed(0)} units (MAP_WORLD_SIZE: ${MAP_WORLD_SIZE})`
     );
 
@@ -161,7 +161,7 @@
   // Check for map parameter in URL
   const mapName = ChillFlightLogic.MAP_NAME;
   if (mapName) {
-    console.log(`Loading map from URL param: ${mapName}`);
+    log.info(`Loading map from URL param: ${mapName}`);
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {

@@ -16,7 +16,7 @@ function toggleAutopilot(forceState) {
   const msg = window.autopilotEnabled
     ? 'AUTOPILOT ENABLED'
     : 'AUTOPILOT DISABLED';
-  console.log(msg);
+  log.info(msg);
 
   const autoToggle = document.getElementById('mobile-auto-toggle');
   if (autoToggle) {
@@ -483,7 +483,7 @@ if (overlay) {
         setTimeout(() => {
           if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
             // Auto-skip
-            console.log('🎵 Music was paused last session. Auto-skipping.');
+            log.info('🎵 Music was paused last session. Auto-skipping.');
             dismissLoadingScreen(false);
           } else {
             // Start cross-fade: fade out progress, fade in button simultaneously

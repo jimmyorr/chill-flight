@@ -257,7 +257,7 @@ function updateSkyPalette(serverNow) {
     selectedPalette.seed = currentPaletteSeed;
     window.selectedPalette = selectedPalette;
 
-    console.log(
+    log.info(
       `Atmosphere Palette Updated (Cycle ${cycleNumber}, Seed ${currentPaletteSeed}): ${selectedPalette.name}`
     );
 

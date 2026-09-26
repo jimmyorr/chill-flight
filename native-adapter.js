@@ -1,7 +1,7 @@
 // native-adapter.js
 // "The Sidecar Rule": Enhances the core game for Native without touching core files.
 (function () {
-  console.log('Native Adapter initialized');
+  log.info('Native Adapter initialized');
 
   // 1. NATIVE PLATFORM ONLY
   function isNative() {
@@ -95,7 +95,7 @@
     }
 
     const preset = isLow ? 'low' : 'mid';
-    console.log(
+    log.info(
       `[Graphics Auto-Detect] ${context}. Cores: ${cores}, RAM: ${memory ? `~${memory}GB` : 'Unknown'}. Chose preset: ${preset}`
     );
     return preset;
@@ -105,7 +105,7 @@
   // Dynamically inject Google Analytics for web environments.
   // Native builds use the native Firebase Analytics bridge instead.
   if (!isNative()) {
-    console.log('Web environment detected. Initializing Google Analytics...');
+    log.info('Web environment detected. Initializing Google Analytics...');
     const script = document.createElement('script');
     script.async = true;
     script.src = 'https://www.googletagmanager.com/gtag/js?id=G-N6RGBLQCZ8';
@@ -119,9 +119,7 @@
     gtag('js', new Date());
     gtag('config', 'G-N6RGBLQCZ8');
   } else {
-    console.log(
-      'Native environment detected. Initializing Firebase Analytics...'
-    );
+    log.info('Native environment detected. Initializing Firebase Analytics...');
     // Expose a compatible window.gtag wrapper that forwards calls to native FirebaseAnalytics
     window.gtag = function (command, eventName, params) {
       if (command === 'event') {

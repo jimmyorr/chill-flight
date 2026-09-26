@@ -193,14 +193,14 @@ async function getCachedTrackUrl(url) {
         path: fileName,
       });
 
-      console.log(`Serving track from native cache: ${fileName}`);
+      log.info(`Serving track from native cache: ${fileName}`);
       return Capacitor.convertFileSrc(result.uri);
     } catch (e) {
       // 2. If it doesn't exist, download it natively
-      console.log(`Downloading new track to native cache: ${url}`);
+      log.info(`Downloading new track to native cache: ${url}`);
 
       if (!navigator.onLine) {
-        console.log('Offline and not cached: Falling back to bundled track');
+        log.info('Offline and not cached: Falling back to bundled track');
         purrpleCatIdx = 0;
         return 'assets/purrple-cat-birds-of-a-feather.mp3';
       }
@@ -241,7 +241,7 @@ async function getCachedTrackUrl(url) {
       });
 
       if (fileExists) {
-        console.log(`Serving track from Tauri cache: ${fileName}`);
+        log.info(`Serving track from Tauri cache: ${fileName}`);
         const fileData = await fs.readFile(fileName, {
           baseDir: BaseDirectory.Cache,
         });
@@ -252,10 +252,10 @@ async function getCachedTrackUrl(url) {
       }
     } catch (e) {
       // 2. If it doesn't exist, download it
-      console.log(`Downloading new track to Tauri cache: ${url}`);
+      log.info(`Downloading new track to Tauri cache: ${url}`);
 
       if (!navigator.onLine) {
-        console.log('Offline and not cached: Falling back to bundled track');
+        log.info('Offline and not cached: Falling back to bundled track');
         purrpleCatIdx = 0;
         return 'assets/purrple-cat-birds-of-a-feather.mp3';
       }
@@ -285,7 +285,7 @@ async function getCachedTrackUrl(url) {
   // iOS Safari (WKWebView) has a long-standing bug where AVPlayer fails
   // to play blob: URIs correctly. Standard browser HTTP caching is sufficient.
   if (!navigator.onLine) {
-    console.log('Offline: Falling back to bundled track');
+    log.info('Offline: Falling back to bundled track');
     purrpleCatIdx = 0;
     return 'assets/purrple-cat-birds-of-a-feather.mp3';
   }
@@ -427,7 +427,7 @@ async function updateAudioPlayer(enabled) {
       })
       .catch((e) => {
         isMusicInternalAction = false;
-        console.log('Audio play blocked:', e);
+        log.info('Audio play blocked:', e);
         // Safety net: resume on first interaction if blocked
         const resumeOnInteraction = () => {
           if (musicEnabled) {
@@ -435,13 +435,13 @@ async function updateAudioPlayer(enabled) {
             purrpleCatAudio
               .play()
               .then(() => {
-                console.log('Audio resumed on interaction');
+                log.info('Audio resumed on interaction');
                 isMusicInternalAction = false;
                 updateMediaMetadata();
               })
               .catch((e) => {
                 isMusicInternalAction = false;
-                console.log('Still blocked:', e);
+                log.info('Still blocked:', e);
               });
           }
           window.removeEventListener('mousedown', resumeOnInteraction);

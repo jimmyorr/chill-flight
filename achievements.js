@@ -340,7 +340,7 @@
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem('chill_flight_play_count');
       unlockedMap = {};
-      console.log('[Achievements] Reset successfully.');
+      log.info('[Achievements] Reset successfully.');
       updateButtonCounter();
     } catch (e) {
       console.error('[Achievements] Reset failed:', e);

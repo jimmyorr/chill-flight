@@ -1264,7 +1264,7 @@ function* generateChunk(chunkX, chunkZ) {
       z: 0,
       rotY: rng() * Math.PI * 2,
     };
-    console.log(
+    log.info(
       `[Lighthouse] Placed Montauk lighthouse at fixed position (0, ${lighthousePos.y}, 0)`
     );
   }

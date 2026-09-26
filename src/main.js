@@ -43,3 +43,11 @@ Sentry.init({
   tracesSampleRate: 0.1,
   maxBreadcrumbs: 30,
 });
+
+// Startup banner
+const appVersion =
+  (typeof window !== 'undefined' && window.__APP_VERSION__) || '0.0.0';
+const commitHash =
+  (typeof window !== 'undefined' && window.__COMMIT_HASH__) || 'unknown';
+const isDirty = typeof window !== 'undefined' && window.__IS_DIRTY__ ? '*' : '';
+console.log(`✈️ Chill Flight v${appVersion} (${commitHash}${isDirty})`);

@@ -253,13 +253,13 @@ function animate() {
     // 2. Alien Lands - East (X > 50000) for Xen, West (X < -50000) for Westworld
     if (planeGroup.position.x > 50000) {
       if (Achievements.unlock('xen')) {
-        console.log(
+        log.info(
           `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} East, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
         );
       }
     } else if (planeGroup.position.x < -50000) {
       if (Achievements.unlock('westworld')) {
-        console.log(
+        log.info(
           `[Alien lands entered] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} West, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
         );
       }
@@ -276,7 +276,7 @@ function animate() {
       planeGroup.position.y < _rockArchPos.y + 120
     ) {
       if (Achievements.unlock('limbo')) {
-        console.log(
+        log.info(
           `[Limbo unlocked] Position: X = ${planeGroup.position.x.toFixed(1)}, Z = ${planeGroup.position.z.toFixed(1)} (${(planeGroup.position.x / 5000).toFixed(2)} ${planeGroup.position.x >= 0 ? 'East' : 'West'}, ${(-planeGroup.position.z / 5000).toFixed(2)} ${planeGroup.position.z <= 0 ? 'North' : 'South'})`
         );
       }

@@ -107,7 +107,7 @@ function applyGraphicsPreset(preset) {
     if (sliderVal) sliderVal.textContent = propLod;
   }
 
-  console.log(
+  log.info(
     `Graphics preset applied: ${preset} (SEGMENTS=${segments}, DIST=${dist}, LOD=${propLod}, FPS=${fps})`
   );
 
@@ -326,7 +326,7 @@ window.initDebugUI = function () {
       if (typeof updateChunks === 'function') {
         updateChunks();
       }
-      console.log(`Island type changed to: ${val}`);
+      log.info(`Island type changed to: ${val}`);
     });
   }
 

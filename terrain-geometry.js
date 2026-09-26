@@ -2853,7 +2853,7 @@ window.initLighthouse = function () {
   persistentLighthouseBeam.visible = false;
   scene.add(persistentLighthouseBeam);
 
-  console.log('[Lighthouse] Persistent light and beam initialized.');
+  log.info('[Lighthouse] Persistent light and beam initialized.');
 };
 
 // --- VOLCANO ACTIVE ELEMENTS (pre-allocated, shared via ModelAssembler) ---

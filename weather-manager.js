@@ -197,7 +197,7 @@ function initWeather() {
       } else {
         updateUrlParams({}, ['weather']);
       }
-      console.log(`Weather changed to: ${weatherType}`);
+      log.info(`Weather changed to: ${weatherType}`);
     });
   }
 
@@ -304,7 +304,7 @@ function cycleWeather() {
   } else {
     updateUrlParams({}, ['weather']);
   }
-  console.log(`Weather cycled to: ${weatherType}`);
+  log.info(`Weather cycled to: ${weatherType}`);
 }
 window.cycleWeather = cycleWeather;
 
