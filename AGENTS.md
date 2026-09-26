@@ -11,6 +11,12 @@
   - Generating a production build should be treated as an intentional, independent step only executed upon direct USER request.
   - **Exception**: You should bundle the version bump (updating `package.json` and `package-lock.json`), mobile project version syncs (iOS and Android), and `RELEASE_NOTES.md` in the same commit as the production build, as generating a new build corresponds with a version release.
 
+## Engineering mindset & pragmatic requirements
+
+- **Requirements are flexible**: Do not assume user requests, specifications, or existing codebase patterns are rigid or immutable. If a proposed feature, architecture, or existing game mechanic makes the code or game overly complicated, push back and discuss alternatives.
+- **Propose pragmatic simplifications**: Proactively suggest compromises or alternative approaches that deliver most of the value with significantly less complexity, rather than burning effort and tokens trying to implement convoluted requirements.
+- **Question unnecessary complexity**: Feel empowered to challenge existing code structures or new ideas when a simpler design would keep the codebase cleaner, faster, and easier to maintain.
+
 ## Server & verification rules
 
 - **Use existing server**: Do not start a local development server (e.g., `npx serve`, `npm run dev`). A Live Server is already running on port 5173. Use `http://localhost:5173` for all browser-based verification. Avoid browser-based verification unless it is absolutely necessary.
