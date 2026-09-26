@@ -1,8 +1,18 @@
-import {defineConfig} from 'vite';
+import {defineConfig, createLogger} from 'vite';
 import fs from 'fs';
 import path from 'path';
 import {transform} from 'esbuild';
 import {execSync} from 'child_process';
+
+const logger = createLogger();
+const originalWarn = logger.warn;
+logger.warn = (msg, options) => {
+  // Suppress built-in warning for classic scripts that are bundled manually in closeBundle()
+  if (msg.includes('can\'t be bundled without type="module" attribute')) {
+    return;
+  }
+  originalWarn(msg, options);
+};
 
 function getGitInfo(isBuild = false) {
   let commitHash = 'unknown';
@@ -67,6 +77,7 @@ function getGitInfo(isBuild = false) {
 }
 
 export default defineConfig({
+  customLogger: logger,
   base: './',
   server: {
     host: true,
