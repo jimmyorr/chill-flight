@@ -89,32 +89,6 @@ const _cinematicLookTargetCurrent = new THREE.Vector3().copy(
 const _cinematicStableMatrix = new THREE.Matrix4();
 const _cinematicStableQuat = new THREE.Quaternion();
 
-const _domCache = new Map();
-function getCachedElement(id) {
-  let el = _domCache.get(id);
-  if (!el) {
-    el = typeof document !== 'undefined' ? document.getElementById(id) : null;
-    if (el) _domCache.set(id, el);
-  }
-  return el;
-}
-
-/**
- * Throttles DOM updates by only writing if the value has changed.
- * Accepts either an HTMLElement or an element ID string (cached automatically).
- */
-function updateDOM(elementOrId, newValue) {
-  const element =
-    typeof elementOrId === 'string'
-      ? getCachedElement(elementOrId)
-      : elementOrId;
-  if (!element) return;
-  const strValue = String(newValue); // Cast to string for accurate comparison
-  if (element.textContent !== strValue) {
-    element.textContent = strValue;
-  }
-}
-
 function updateInputPosition(clientX, clientY) {
   const pos = ChillFlightLogic.computeInputPosition(
     clientX,
@@ -279,7 +253,8 @@ const urlPreset =
     : null;
 
 const savedPreset = localStorage.getItem('chill_flight_graphics_preset');
-const initialPreset = urlPreset || savedPreset;
+var initialPreset = urlPreset || savedPreset;
+if (typeof window !== 'undefined') window.initialPreset = initialPreset;
 
 if (initialPreset) {
   const presetSelect = document.getElementById('graphics-preset-select');
@@ -348,7 +323,7 @@ var _auroraSessionMax = 0; // tracks highest aurora intensity seen this session
 // Optimization: Pre-allocate colors for sky gradients
 const _uncloudedSkyColor = new THREE.Color();
 const _uncloudedFogColor = new THREE.Color();
-const _daySky = new THREE.Color(
+var _daySky = new THREE.Color(
   typeof selectedPalette !== 'undefined' && selectedPalette.day !== undefined
     ? selectedPalette.day
     : 0x4ca1f0

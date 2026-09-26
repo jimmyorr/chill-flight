@@ -125,9 +125,7 @@ function applyCustomSkyColors(top, bottom, day) {
       typeof day === 'string' ? parseInt(day.replace('#', ''), 16) : day;
     if (!isNaN(dayHex)) {
       selectedPalette.day = dayHex;
-      if (typeof _daySky !== 'undefined') {
-        _daySky.setHex(dayHex);
-      } else if (typeof window._daySky !== 'undefined') {
+      if (typeof window !== 'undefined' && window._daySky) {
         window._daySky.setHex(dayHex);
       }
     }

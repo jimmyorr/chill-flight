@@ -193,3 +193,38 @@ function createMaterial(params) {
 // Variables shared between airplane.js and game.js that need early declaration to avoid TDZ errors in the production bundle
 let targetFlightSpeed = flightSpeedMultiplier;
 let verticalVelocity = 0;
+
+// DOM caching & utilities (declared early to prevent TDZ errors across bundled modules)
+var _domCache =
+  (typeof window !== 'undefined' && window._domCache) || new Map();
+if (typeof window !== 'undefined') window._domCache = _domCache;
+
+function getCachedElement(id) {
+  if (typeof _domCache === 'undefined' || !_domCache) {
+    return typeof document !== 'undefined' ? document.getElementById(id) : null;
+  }
+  let el = _domCache.get(id);
+  if (!el) {
+    el = typeof document !== 'undefined' ? document.getElementById(id) : null;
+    if (el) _domCache.set(id, el);
+  }
+  return el;
+}
+if (typeof window !== 'undefined') window.getCachedElement = getCachedElement;
+
+/**
+ * Throttles DOM updates by only writing if the value has changed.
+ * Accepts either an HTMLElement or an element ID string (cached automatically).
+ */
+function updateDOM(elementOrId, newValue) {
+  const element =
+    typeof elementOrId === 'string'
+      ? getCachedElement(elementOrId)
+      : elementOrId;
+  if (!element) return;
+  const strValue = String(newValue); // Cast to string for accurate comparison
+  if (element.textContent !== strValue) {
+    element.textContent = strValue;
+  }
+}
+if (typeof window !== 'undefined') window.updateDOM = updateDOM;

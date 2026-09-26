@@ -25,10 +25,16 @@ var snowParticles = null;
 var rainParticles = null;
 
 // Scale particles based on quality
+var _initPresetForWeather =
+  (typeof ChillFlightLogic !== 'undefined' &&
+    ChillFlightLogic.GRAPHICS_PRESET) ||
+  localStorage.getItem('chill_flight_graphics_preset');
 var _savedQualityForWeather = localStorage.getItem('chill_flight_quality');
 var _isLowPresetForWeather =
-  (typeof initialPreset !== 'undefined' && initialPreset === 'low') ||
-  (_savedQualityForWeather && parseInt(_savedQualityForWeather) <= 20);
+  _initPresetForWeather === 'low' ||
+  (!_initPresetForWeather &&
+    _savedQualityForWeather &&
+    parseInt(_savedQualityForWeather) <= 20);
 var WEATHER_PARTICLE_COUNT = _isLowPresetForWeather ? 1500 : 5000;
 var WEATHER_RANGE = 500;
 
