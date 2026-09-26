@@ -144,6 +144,19 @@ inputManager.onKeyRelease = (action, heldTime) => {
     manualPitch = 0;
   }
 };
+let mobileFocusIndex = -1;
+function updateMobileMenuFocus() {
+  const subMenu = document.getElementById('mobile-sub-menu');
+  if (!subMenu) return;
+  const items = Array.from(subMenu.querySelectorAll('.sub-btn'));
+  document
+    .querySelectorAll('#mobile-action-menu .tv-focused')
+    .forEach((el) => el.classList.remove('tv-focused'));
+  if (mobileFocusIndex >= 0 && mobileFocusIndex < items.length) {
+    items[mobileFocusIndex].classList.add('tv-focused');
+  }
+}
+
 inputManager.onMenuToggle = () => {
   const menuContainer = document.getElementById('mobile-action-menu');
   if (menuContainer) {

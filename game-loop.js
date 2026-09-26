@@ -297,10 +297,10 @@ function animate() {
   updateWeatherAndRendering(delta);
   // --- BENCHMARKING LOGIC ---
   updateBenchmarking(delta, frameStartTime);
-  updateDebugTelemetry(delta, now);
+  updateDebugTelemetry(delta, now, frameStartTime);
 }
 
-function updateDebugTelemetry(delta, now) {
+function updateDebugTelemetry(delta, now, frameStartTime) {
   const debugMenu = getCachedElement('debug-menu');
   // Update Debug Telemetry (at the very end of frame)
   if (debugMenu && debugMenu.style.display === 'block') {
@@ -835,9 +835,7 @@ function updatePhysicsAndControls(delta, nowTime) {
           window.propGroups[i].rotation.z += spin * delta;
       }
     } else {
-      const activeProp =
-        window.propGroup ||
-        (typeof propGroup !== 'undefined' ? propGroup : null);
+      const activeProp = window.propGroup;
       if (activeProp) activeProp.rotation.z += spin * delta;
     }
   }

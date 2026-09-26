@@ -14,7 +14,8 @@
     "android": "npx cap sync android && npx cap open android",
     "test:syntax": "for f in *.js; do node --check \"$f\" || exit 1; done",
     "test:terrain": "node scripts/test-terrain.js",
-    "test": "npm run test:syntax && npm run test:terrain",
+    "test:scripts": "node scripts/test-html-scripts.js",
+    "test": "npm run test:syntax && npm run test:terrain && npm run test:scripts",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{js,json,css,html,md}\" --ignore-path .prettierignore"
   },

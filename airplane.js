@@ -300,7 +300,7 @@ function setActivePlane(planeType, skipStorage = false) {
   }
 
   window.airplaneModel = newModel;
-  window.propGroup = newModel.propGroup || propGroup;
+  window.propGroup = newModel.propGroup || window.propGroup;
   window.propGroups =
     newModel.propGroups || (window.propGroup ? [window.propGroup] : []);
   planeGroup.add(newModel);

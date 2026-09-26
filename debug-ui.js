@@ -140,15 +140,11 @@ function applyGraphicsPreset(preset) {
 
   // Toggle overdraw optimizations (transparency)
   const isLow = segments <= 20;
-  if (typeof waterMaterial !== 'undefined' && typeof cloudMat !== 'undefined') {
+  if (typeof waterMaterial !== 'undefined') {
     waterMaterial.transparent = !isLow;
     waterMaterial.opacity = isLow ? 1.0 : 0.6;
     waterMaterial.depthWrite = isLow ? true : false;
     waterMaterial.needsUpdate = true;
-
-    cloudMat.transparent = !isLow;
-    cloudMat.opacity = isLow ? 1.0 : CLOUD_OPACITY;
-    cloudMat.needsUpdate = true;
   }
 
   const enableShadows = segments > 20;
