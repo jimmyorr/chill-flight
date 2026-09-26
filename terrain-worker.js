@@ -321,6 +321,7 @@ self.onmessage = function (e) {
   try {
     if (worldSeed !== undefined) {
       ChillFlightLogic.WORLD_SEED = worldSeed;
+      simplex.seed(worldSeed);
     }
     const _enableObjects = enableObjects !== false;
 

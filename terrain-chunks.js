@@ -226,8 +226,6 @@ globalInstancer.registerType('penguinFootR', penguinFootRGeo, penguinOrangeMat);
 globalInstancer.registerType('lilypad', lilyPadGeo, lilyPadMat);
 globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
 
-var _chunkHeightGrid = new Float32Array(65 * 65);
-
 var chunkGenerators = new Map();
 window.chunkGenerators = chunkGenerators;
 
@@ -384,16 +382,16 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
 
   const gridX1 = SEGMENTS + 1;
   const totalVerts = gridX1 * gridX1;
-  if (_chunkHeightGrid.length < totalVerts) {
-    _chunkHeightGrid = new Float32Array(totalVerts);
-  }
+
+  let localHeightGrid;
 
   // Pass 1: Compute height for all grid vertices once
   if (workerData && workerData.buffers && workerData.buffers.terrainPositions) {
     positions.set(workerData.buffers.terrainPositions);
-    _chunkHeightGrid.set(workerData.buffers.heightGrid);
+    localHeightGrid = workerData.buffers.heightGrid;
     geometry.attributes.position.needsUpdate = true;
   } else {
+    localHeightGrid = new Float32Array(totalVerts);
     for (let vertIdx = 0; vertIdx < totalVerts; vertIdx++) {
       if (vertIdx % 200 === 0 && checkYield()) yield;
       const i = vertIdx * 3;
@@ -403,7 +401,7 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
       const worldZ = worldOffsetZ + localZ;
 
       const height = getElevation(worldX, worldZ);
-      _chunkHeightGrid[vertIdx] = height;
+      localHeightGrid[vertIdx] = height;
       positions[i + 1] = height;
     }
   }
@@ -464,7 +462,7 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
       const isAlienLand = Math.abs(worldX) > 25000;
       const isEastAlien = isEast && isAlienLand;
 
-      const height = _chunkHeightGrid[vertIdx];
+      const height = localHeightGrid[vertIdx];
 
       // --- ORGANIC TEXTURING & SLOPE LOGIC ---
       // 1. Calculate local slope using finite differences directly from the elevation grid
@@ -474,24 +472,24 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
       let slopeX;
       if (ix > 0 && ix < SEGMENTS) {
         slopeX =
-          (_chunkHeightGrid[vertIdx + 1] - _chunkHeightGrid[vertIdx - 1]) *
+          (localHeightGrid[vertIdx + 1] - localHeightGrid[vertIdx - 1]) *
           invTwoGridSpacing;
       } else if (ix === 0) {
-        slopeX = (_chunkHeightGrid[vertIdx + 1] - height) * invGridSpacing;
+        slopeX = (localHeightGrid[vertIdx + 1] - height) * invGridSpacing;
       } else {
-        slopeX = (height - _chunkHeightGrid[vertIdx - 1]) * invGridSpacing;
+        slopeX = (height - localHeightGrid[vertIdx - 1]) * invGridSpacing;
       }
 
       let slopeZ;
       if (iy > 0 && iy < SEGMENTS) {
         slopeZ =
-          (_chunkHeightGrid[vertIdx + gridX1] -
-            _chunkHeightGrid[vertIdx - gridX1]) *
+          (localHeightGrid[vertIdx + gridX1] -
+            localHeightGrid[vertIdx - gridX1]) *
           invTwoGridSpacing;
       } else if (iy === 0) {
-        slopeZ = (_chunkHeightGrid[vertIdx + gridX1] - height) * invGridSpacing;
+        slopeZ = (localHeightGrid[vertIdx + gridX1] - height) * invGridSpacing;
       } else {
-        slopeZ = (height - _chunkHeightGrid[vertIdx - gridX1]) * invGridSpacing;
+        slopeZ = (height - localHeightGrid[vertIdx - gridX1]) * invGridSpacing;
       }
 
       const slope = Math.sqrt(slopeX * slopeX + slopeZ * slopeZ);

@@ -13,6 +13,14 @@ const SimplexNoise = function () {
     permMod12[i] = perm[i] % 12;
   }
   return {
+    seed: function (newSeed) {
+      _noiseRng = ChillFlightLogic.mulberry32(newSeed);
+      for (var i = 0; i < 256; i++) p[i] = Math.floor(_noiseRng() * 256);
+      for (i = 0; i < 512; i++) {
+        perm[i] = p[i & 255];
+        permMod12[i] = perm[i] % 12;
+      }
+    },
     noise2D: function (xin, yin) {
       var n0, n1, n2;
       var s = (xin + yin) * F2;
