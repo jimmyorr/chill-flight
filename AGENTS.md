@@ -55,3 +55,11 @@
 ## ESLint & refactoring rules
 
 - **Strict refactoring verification**: When refactoring code, extracting functions, or changing variable scope, you MUST run ESLint with the `no-undef` and `no-use-before-define` rules explicitly elevated to errors (e.g., `npx eslint <file> --rule 'no-undef: error' --rule 'no-use-before-define: error' --quiet`) to ensure no variables were broken. The default repository configuration treats these as warnings, meaning they can easily be missed in the output without the `--quiet` flag and explicit error elevation.
+
+## Logging & console rules
+
+- **Use the log utility**: Avoid raw `console.log` calls in runtime game code. Use the global `log` utility methods (`log.info`, `log.warn`, `log.error`) provided by `logger.js`.
+- **Gate diagnostic output**: Use `log.info` for operational milestones, subsystem initialization (e.g., landmark placement, minimap loading, weather transitions, audio caching), and debug events. These logs are automatically suppressed by default and only print when debug mode is active (`?debug=1`, `localStorage.getItem('debug') === 'true'`, or `window.DEBUG = true`).
+- **Preserve warnings and errors**: Use `log.warn` and `log.error` for genuine warnings, recoverable failures, or unexpected conditions. These always output to the console so Sentry and developers can catch issues.
+- **Single startup banner**: Only the main entry file (`src/main.js`) prints a single, unguarded startup banner displaying the game title, version, and commit hash. Do not add other unguarded console outputs on startup.
+- **Zero logging in hot paths**: Never place log statements (even `log.info`) inside frame animation loops, physics updates, chunk generation passes, or procedural elevation sampling.
