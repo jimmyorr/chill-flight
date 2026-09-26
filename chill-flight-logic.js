@@ -651,6 +651,8 @@
     // --- DOMAIN WARPING ---
     // Warp coordinates for terrain noise sampling — creates organic coastlines
     // and natural-looking terrain by distorting the noise grid.
+    const origX = x;
+    const origZ = z;
     const dwFactor = 1000;
     const dwX =
       cylNoise(x, (nx, ny) =>
@@ -1444,8 +1446,8 @@
     // --- VOLCANO INJECTION (Volcano at 1W, 1S) ---
     const vX = -5000;
     const vZ = 5000;
-    const dxV = x - vX;
-    const dzV = z - vZ;
+    const dxV = origX - vX;
+    const dzV = origZ - vZ;
     const distSqV = dxV * dxV + dzV * dzV;
     const vRadius = 1200; // Increased radius for check area
 
@@ -1455,8 +1457,8 @@
 
       // Add noise to the distance to make the shape irregular (domain warping)
       const warpNoise =
-        cylNoise(x, (nx, ny) =>
-          simplex.noise3D(nx * 0.0005, z * 0.0005, ny * 0.0005)
+        cylNoise(origX, (nx, ny) =>
+          simplex.noise3D(nx * 0.0005, origZ * 0.0005, ny * 0.0005)
         ) * 200;
       const warpedDistSq = Math.pow(distV + warpNoise, 2);
 
@@ -1478,6 +1480,11 @@
 
       // Crater Subtraction (Sharper Gaussian)
       const vCrater = 400 * Math.exp(-distSqV / (2 * 80 * 80));
+
+      // Flatten the base terrain near the peak so the crater isn't tilted sideways.
+      // This ensures the lava surface can sit level inside the rim.
+      const flattenFactor = Math.exp(-distSqV / (2 * 120 * 120));
+      n = _lerp(n, 0, flattenFactor);
 
       n += vHeight - vCrater;
 
