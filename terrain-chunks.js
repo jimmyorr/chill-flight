@@ -228,7 +228,52 @@ globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
 
 var _chunkHeightGrid = new Float32Array(65 * 65);
 
-function* generateChunk(chunkX, chunkZ) {
+var chunkGenerators = new Map();
+window.chunkGenerators = chunkGenerators;
+
+var workerChunkRequests = new Map();
+var workerChunkResults = new Map();
+
+function queueWorkerChunk(cx, cz, key) {
+  if (workerChunkRequests.has(key) || workerChunkResults.has(key)) return;
+
+  const elevParams = {
+    WATER_LEVEL,
+    MOUNTAIN_LEVEL,
+    MAP_WORLD_SIZE,
+    MAP_HEIGHT_SCALE,
+  };
+
+  const req = window.terrainWorkerManager
+    .requestChunk(cx, cz, {
+      segments: SEGMENTS,
+      chunkSize: CHUNK_SIZE,
+      elevParams,
+    })
+    .then((result) => {
+      workerChunkRequests.delete(key);
+      if (chunkQueueSet.has(key) || chunkGenerators.has(key)) {
+        workerChunkResults.set(key, result);
+      }
+    })
+    .catch((err) => {
+      workerChunkRequests.delete(key);
+      if (typeof log !== 'undefined' && log.warn) {
+        log.warn('[Worker] Terrain chunk worker error, falling back:', err);
+      }
+    });
+
+  workerChunkRequests.set(key, req);
+}
+
+const _origClearChunkQueue = window.clearChunkQueue;
+window.clearChunkQueue = function () {
+  if (typeof _origClearChunkQueue === 'function') _origClearChunkQueue();
+  workerChunkRequests.clear();
+  workerChunkResults.clear();
+};
+
+function* generateChunk(chunkX, chunkZ, workerData = null) {
   const checkYield = () => {
     if (
       window._chunkQueueStartTime &&
@@ -334,7 +379,6 @@ function* generateChunk(chunkX, chunkZ) {
   // Normalize density so higher SEGMENTS doesn't mean more trees/houses/etc
   const densityFactor = 40 / SEGMENTS;
   const densityScale = densityFactor * densityFactor;
-  let maxChunkHeight = WATER_LEVEL;
 
   const gridX1 = SEGMENTS + 1;
   const totalVerts = gridX1 * gridX1;
@@ -343,18 +387,23 @@ function* generateChunk(chunkX, chunkZ) {
   }
 
   // Pass 1: Compute height for all grid vertices once
-  for (let vertIdx = 0; vertIdx < totalVerts; vertIdx++) {
-    if (vertIdx % 200 === 0 && checkYield()) yield;
-    const i = vertIdx * 3;
-    const localX = positions[i];
-    const localZ = positions[i + 2];
-    const worldX = worldOffsetX + localX;
-    const worldZ = worldOffsetZ + localZ;
+  if (workerData && workerData.buffers && workerData.buffers.terrainPositions) {
+    positions.set(workerData.buffers.terrainPositions);
+    _chunkHeightGrid.set(workerData.buffers.heightGrid);
+    geometry.attributes.position.needsUpdate = true;
+  } else {
+    for (let vertIdx = 0; vertIdx < totalVerts; vertIdx++) {
+      if (vertIdx % 200 === 0 && checkYield()) yield;
+      const i = vertIdx * 3;
+      const localX = positions[i];
+      const localZ = positions[i + 2];
+      const worldX = worldOffsetX + localX;
+      const worldZ = worldOffsetZ + localZ;
 
-    const height = getElevation(worldX, worldZ);
-    _chunkHeightGrid[vertIdx] = height;
-    positions[i + 1] = height;
-    if (height > maxChunkHeight) maxChunkHeight = height;
+      const height = getElevation(worldX, worldZ);
+      _chunkHeightGrid[vertIdx] = height;
+      positions[i + 1] = height;
+    }
   }
 
   const gridSpacing = CHUNK_SIZE / SEGMENTS;
@@ -3632,6 +3681,13 @@ function updateChunks() {
       ) {
         missingChunks.push({cx, cz, key, distSq: x * x + z * z});
         chunkQueueSet.add(key);
+        if (
+          typeof window !== 'undefined' &&
+          window.terrainWorkerManager &&
+          window.terrainWorkerManager.isSupported
+        ) {
+          queueWorkerChunk(cx, cz, key);
+        }
       }
     }
   }
@@ -3651,6 +3707,15 @@ function updateChunks() {
       prunedQueue.push(item);
     } else {
       chunkQueueSet.delete(item.key);
+      workerChunkRequests.delete(item.key);
+      workerChunkResults.delete(item.key);
+      if (
+        typeof window !== 'undefined' &&
+        window.terrainWorkerManager &&
+        window.terrainWorkerManager.isSupported
+      ) {
+        window.terrainWorkerManager.cancelJob(item.cx, item.cz);
+      }
     }
   });
   chunkQueue = prunedQueue;
@@ -3753,6 +3818,8 @@ function updateChunks() {
       chunks.delete(key);
       watercraftChunks.delete(group);
       birdChunks.delete(group);
+      workerChunkRequests.delete(key);
+      workerChunkResults.delete(key);
       chunksEvicted = true;
       if (key === '4,2') {
         if (persistentLighthouseLight) persistentLighthouseLight.intensity = 0;
@@ -3765,9 +3832,6 @@ function updateChunks() {
     globalInstancer.requestRebuild();
   }
 }
-
-var chunkGenerators = new Map();
-window.chunkGenerators = chunkGenerators;
 
 window.processChunkQueue = function (timeBudget = 4) {
   if (chunkQueue.length === 0 && chunkGenerators.size === 0) return 1.0; // 100% progress when queue is empty
@@ -3798,11 +3862,22 @@ window.processChunkQueue = function (timeBudget = 4) {
     chunkGenerators.size < maxActiveGenerators &&
     performance.now() - window._chunkQueueStartTime < timeBudget
   ) {
-    const item = chunkQueue.pop();
+    // If any queued chunk has ready worker data, prioritize popping it
+    let itemIdx = -1;
+    for (let i = chunkQueue.length - 1; i >= 0; i--) {
+      if (workerChunkResults.has(chunkQueue[i].key)) {
+        itemIdx = i;
+        break;
+      }
+    }
+    const item =
+      itemIdx !== -1 ? chunkQueue.splice(itemIdx, 1)[0] : chunkQueue.pop();
     chunkQueueSet.delete(item.key);
 
     if (!chunks.has(item.key) && !chunkGenerators.has(item.key)) {
-      const gen = generateChunk(item.cx, item.cz);
+      const workerData = workerChunkResults.get(item.key) || null;
+      workerChunkResults.delete(item.key);
+      const gen = generateChunk(item.cx, item.cz, workerData);
       const result = gen.next();
       if (result.done) {
         chunks.set(item.key, result.value);

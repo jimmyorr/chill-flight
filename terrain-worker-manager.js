@@ -93,10 +93,16 @@ class TerrainWorkerManager {
         id: jobId,
         chunkX,
         chunkZ,
-        segments: options.segments || 64, // Default SEGMENTS
-        chunkSize: options.chunkSize || 600, // Default CHUNK_SIZE
+        segments: options.segments !== undefined ? options.segments : 40,
+        chunkSize: options.chunkSize !== undefined ? options.chunkSize : 1500,
+        elevParams: options.elevParams || {
+          WATER_LEVEL: 40,
+          MOUNTAIN_LEVEL: 180,
+          MAP_WORLD_SIZE: 10000,
+          MAP_HEIGHT_SCALE: 400,
+        },
         worldSeed: options.worldSeed || 1,
-        waterLevel: options.waterLevel || 0,
+        waterLevel: options.waterLevel !== undefined ? options.waterLevel : 40,
         theme: options.theme || 'default',
         options: {
           enableObjects: options.enableObjects !== false,
@@ -116,7 +122,14 @@ class TerrainWorkerManager {
     });
   }
 
-  // Cancel pending requests for chunks that are no longer needed
+  // Cancel pending requests for a specific chunk
+  cancelJob(chunkX, chunkZ) {
+    this.jobQueue = this.jobQueue.filter(
+      (job) => !(job.payload.chunkX === chunkX && job.payload.chunkZ === chunkZ)
+    );
+  }
+
+  // Cancel pending requests for chunks matching a predicate
   cancelRequests(predicate) {
     this.jobQueue = this.jobQueue.filter(
       (job) => !predicate(job.payload.chunkX, job.payload.chunkZ)
