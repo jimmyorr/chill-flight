@@ -374,7 +374,7 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
   const castleRuinsPositions = [];
   const rockArchPositions = [];
   const rockArchGrassPositions = [];
-  let hasWater = false;
+  let hasWater = !!(workerData && workerData.hasWater);
 
   // Normalize density so higher SEGMENTS doesn't mean more trees/houses/etc
   const densityFactor = 40 / SEGMENTS;
@@ -1495,43 +1495,50 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
       );
     }
     waterGeo.userData = {unique: true, poolType: 'water'};
-    const wPositions = waterGeo.attributes.position.array;
-    const wColors = waterGeo.attributes.color.array;
-    const wDepths = waterGeo.attributes.aWaterDepth.array;
-    let wColorIdx = 0;
-    const _tempWColorObj = new THREE.Color();
-    for (let i = 0; i < wPositions.length; i += 3) {
-      const worldX = worldOffsetX + wPositions[i];
-      const worldZ = worldOffsetZ + wPositions[i + 2];
-      const wIdx = i / 3;
 
-      wPositions[i + 1] = WATER_LEVEL;
+    if (workerData && workerData.buffers && workerData.buffers.waterPositions) {
+      waterGeo.attributes.position.array.set(workerData.buffers.waterPositions);
+      waterGeo.attributes.color.array.set(workerData.buffers.waterColors);
+      waterGeo.attributes.aWaterDepth.array.set(workerData.buffers.waterDepths);
+    } else {
+      const wPositions = waterGeo.attributes.position.array;
+      const wColors = waterGeo.attributes.color.array;
+      const wDepths = waterGeo.attributes.aWaterDepth.array;
+      let wColorIdx = 0;
+      const _tempWColorObj = new THREE.Color();
+      for (let i = 0; i < wPositions.length; i += 3) {
+        const worldX = worldOffsetX + wPositions[i];
+        const worldZ = worldOffsetZ + wPositions[i + 2];
+        const wIdx = i / 3;
 
-      const terrainHeight = getElevation(worldX, worldZ);
-      wDepths[wIdx] = Math.max(0.0, WATER_LEVEL - terrainHeight);
+        wPositions[i + 1] = WATER_LEVEL;
 
-      const tempNoise = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
-      const northInfluence = Math.max(0, -worldZ / 4500);
-      const southInfluence = Math.max(0, worldZ / 4500);
-      const snowRaw = Math.max(
-        0,
-        Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
-      );
-      const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
-      const desertRaw = Math.max(
-        0,
-        Math.min(1, (southInfluence + tempNoise * 0.05 - 0.7) * 1.5)
-      );
-      const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
+        const terrainHeight = getElevation(worldX, worldZ);
+        wDepths[wIdx] = Math.max(0.0, WATER_LEVEL - terrainHeight);
 
-      _tempWColorObj.copy(_colorWater);
-      if (snowFactor > 0) _tempWColorObj.lerp(_colorIcyWater, snowFactor);
-      if (desertFactor > 0)
-        _tempWColorObj.lerp(_colorDesertWater, desertFactor);
+        const tempNoise = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
+        const northInfluence = Math.max(0, -worldZ / 4500);
+        const southInfluence = Math.max(0, worldZ / 4500);
+        const snowRaw = Math.max(
+          0,
+          Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
+        );
+        const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
+        const desertRaw = Math.max(
+          0,
+          Math.min(1, (southInfluence + tempNoise * 0.05 - 0.7) * 1.5)
+        );
+        const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
 
-      wColors[wColorIdx++] = _tempWColorObj.r;
-      wColors[wColorIdx++] = _tempWColorObj.g;
-      wColors[wColorIdx++] = _tempWColorObj.b;
+        _tempWColorObj.copy(_colorWater);
+        if (snowFactor > 0) _tempWColorObj.lerp(_colorIcyWater, snowFactor);
+        if (desertFactor > 0)
+          _tempWColorObj.lerp(_colorDesertWater, desertFactor);
+
+        wColors[wColorIdx++] = _tempWColorObj.r;
+        wColors[wColorIdx++] = _tempWColorObj.g;
+        wColors[wColorIdx++] = _tempWColorObj.b;
+      }
     }
     waterGeo.attributes.position.needsUpdate = true;
     waterGeo.attributes.color.needsUpdate = true;
