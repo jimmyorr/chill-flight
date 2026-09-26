@@ -232,7 +232,7 @@ window.chunkGenerators = chunkGenerators;
 var workerChunkRequests = new Map();
 var workerChunkResults = new Map();
 
-function queueWorkerChunk(cx, cz, key) {
+function queueWorkerChunk(cx, cz, key, priority = 0) {
   if (workerChunkRequests.has(key) || workerChunkResults.has(key)) return;
 
   const elevParams = {
@@ -249,6 +249,7 @@ function queueWorkerChunk(cx, cz, key) {
       elevParams,
       worldSeed: ChillFlightLogic.WORLD_SEED,
       enableObjects: _enableObjects,
+      priority,
     })
     .then((result) => {
       workerChunkRequests.delete(key);
@@ -271,6 +272,13 @@ window.clearChunkQueue = function () {
   if (typeof _origClearChunkQueue === 'function') _origClearChunkQueue();
   workerChunkRequests.clear();
   workerChunkResults.clear();
+  if (
+    typeof window !== 'undefined' &&
+    window.terrainWorkerManager &&
+    window.terrainWorkerManager.isSupported
+  ) {
+    window.terrainWorkerManager.cancelRequests(() => true);
+  }
 };
 
 function* generateChunk(chunkX, chunkZ, workerData = null) {
@@ -3901,6 +3909,39 @@ function updateChunks() {
   const currentChunkZ = Math.round(target.position.z / CHUNK_SIZE);
   const renderDistance = RENDER_DISTANCE;
 
+  // Compute forward horizontal unit vector for directional priority
+  let fwdX = 0;
+  let fwdZ = -1;
+  if (target && target.quaternion) {
+    const fwdVec = new THREE.Vector3(0, 0, -1).applyQuaternion(
+      target.quaternion
+    );
+    const fwdLen = Math.hypot(fwdVec.x, fwdVec.z);
+    if (fwdLen > 0.001) {
+      fwdX = fwdVec.x / fwdLen;
+      fwdZ = fwdVec.z / fwdLen;
+    }
+  }
+
+  const computeChunkPriority = (cx, cz) => {
+    const dx = cx - currentChunkX;
+    const dz = cz - currentChunkZ;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 0.001) return 1000;
+    const dot = (dx * fwdX + dz * fwdZ) / dist; // -1 to 1
+    // Prioritize closer chunks, with forward chunks heavily favored
+    return -dist * 10 + dot * 25;
+  };
+
+  // Update dynamic priorities for workers
+  if (
+    typeof window !== 'undefined' &&
+    window.terrainWorkerManager &&
+    window.terrainWorkerManager.isSupported
+  ) {
+    window.terrainWorkerManager.updatePriorities(computeChunkPriority);
+  }
+
   const missingChunks = [];
 
   for (let x = -renderDistance; x <= renderDistance; x++) {
@@ -3913,20 +3954,28 @@ function updateChunks() {
         !chunkQueueSet.has(key) &&
         !chunkGenerators.has(key)
       ) {
-        missingChunks.push({cx, cz, key, distSq: x * x + z * z});
+        const priority = computeChunkPriority(cx, cz);
+        missingChunks.push({
+          cx,
+          cz,
+          key,
+          priority,
+          distSq: x * x + z * z,
+        });
         chunkQueueSet.add(key);
         if (
           typeof window !== 'undefined' &&
           window.terrainWorkerManager &&
           window.terrainWorkerManager.isSupported
         ) {
-          queueWorkerChunk(cx, cz, key);
+          queueWorkerChunk(cx, cz, key, priority);
         }
       }
     }
   }
 
-  missingChunks.sort((a, b) => b.distSq - a.distSq);
+  // Sort missing chunks ascending by priority so popping from the end yields the highest priority chunk
+  missingChunks.sort((a, b) => a.priority - b.priority);
   chunkQueue.push(...missingChunks);
 
   // Prune chunks from queue that are beyond renderDistance + 2 to prevent queue bloat
@@ -3938,6 +3987,7 @@ function updateChunks() {
     const dSq = dx * dx + dz * dz;
     if (dSq <= maxQueueDistSq) {
       item.distSq = dSq;
+      item.priority = computeChunkPriority(item.cx, item.cz);
       prunedQueue.push(item);
     } else {
       chunkQueueSet.delete(item.key);
@@ -3953,7 +4003,8 @@ function updateChunks() {
     }
   });
   chunkQueue = prunedQueue;
-  chunkQueue.sort((a, b) => b.distSq - a.distSq);
+  // Sort ascending by priority so popping from the end yields the highest priority chunk
+  chunkQueue.sort((a, b) => a.priority - b.priority);
 
   let chunksEvicted = false;
 
@@ -4054,6 +4105,13 @@ function updateChunks() {
       birdChunks.delete(group);
       workerChunkRequests.delete(key);
       workerChunkResults.delete(key);
+      if (
+        typeof window !== 'undefined' &&
+        window.terrainWorkerManager &&
+        window.terrainWorkerManager.isSupported
+      ) {
+        window.terrainWorkerManager.cancelJob(cx, cz);
+      }
       chunksEvicted = true;
       if (key === '4,2') {
         if (persistentLighthouseLight) persistentLighthouseLight.intensity = 0;

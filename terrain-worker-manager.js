@@ -46,10 +46,12 @@ class TerrainWorkerManager {
 
     const job = this.activeJobs.get(id);
     if (job) {
-      if (status === 'success') {
-        job.resolve(data);
-      } else {
-        job.reject(new Error(error || 'Worker job failed'));
+      if (!job.cancelled) {
+        if (status === 'success') {
+          job.resolve(data);
+        } else {
+          job.reject(new Error(error || 'Worker job failed'));
+        }
       }
       this.activeJobs.delete(id);
     }
@@ -61,8 +63,9 @@ class TerrainWorkerManager {
 
   _handleError(worker, err) {
     console.error('Terrain worker error:', err);
-    // Try to find the job associated with this worker (difficult without ID, but we can fail all or something if needed)
-    // For now, just recycle and let timeouts or next messages handle it.
+    // Recycle worker
+    this.idleWorkers.push(worker);
+    this._processQueue();
   }
 
   _processQueue() {
@@ -70,8 +73,11 @@ class TerrainWorkerManager {
       return;
     }
 
-    // Sort queue by priority? (Phase 5)
-    // For now, FIFO
+    // Sort queue by priority descending so highest priority chunk is processed first
+    if (this.jobQueue.length > 1) {
+      this.jobQueue.sort((a, b) => b.priority - a.priority);
+    }
+
     const job = this.jobQueue.shift();
     const worker = this.idleWorkers.pop();
 
@@ -111,10 +117,12 @@ class TerrainWorkerManager {
 
       const job = {
         id: jobId,
+        priority: options.priority !== undefined ? options.priority : 0,
         payload,
         transferables: options.transferables || [],
         resolve,
         reject,
+        cancelled: false,
       };
 
       this.jobQueue.push(job);
@@ -122,20 +130,44 @@ class TerrainWorkerManager {
     });
   }
 
-  // Cancel pending requests for a specific chunk
-  cancelJob(chunkX, chunkZ) {
-    this.jobQueue = this.jobQueue.filter(
-      (job) => !(job.payload.chunkX === chunkX && job.payload.chunkZ === chunkZ)
-    );
+  // Update priorities of all pending jobs in the queue
+  updatePriorities(scoringFn) {
+    for (let i = 0; i < this.jobQueue.length; i++) {
+      const job = this.jobQueue[i];
+      job.priority = scoringFn(job.payload.chunkX, job.payload.chunkZ);
+    }
   }
 
-  // Cancel pending requests for chunks matching a predicate
+  // Cancel pending or active requests for a specific chunk
+  cancelJob(chunkX, chunkZ) {
+    this.jobQueue = this.jobQueue.filter((job) => {
+      if (job.payload.chunkX === chunkX && job.payload.chunkZ === chunkZ) {
+        job.cancelled = true;
+        return false;
+      }
+      return true;
+    });
+    for (const job of this.activeJobs.values()) {
+      if (job.payload.chunkX === chunkX && job.payload.chunkZ === chunkZ) {
+        job.cancelled = true;
+      }
+    }
+  }
+
+  // Cancel pending or active requests matching a predicate
   cancelRequests(predicate) {
-    this.jobQueue = this.jobQueue.filter(
-      (job) => !predicate(job.payload.chunkX, job.payload.chunkZ)
-    );
-    // Note: Jobs already sent to workers cannot easily be cancelled in Phase 1,
-    // we just ignore their results later or implement abort signals in Phase 5.
+    this.jobQueue = this.jobQueue.filter((job) => {
+      if (predicate(job.payload.chunkX, job.payload.chunkZ)) {
+        job.cancelled = true;
+        return false;
+      }
+      return true;
+    });
+    for (const job of this.activeJobs.values()) {
+      if (predicate(job.payload.chunkX, job.payload.chunkZ)) {
+        job.cancelled = true;
+      }
+    }
   }
 }
 
