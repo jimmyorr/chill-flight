@@ -954,7 +954,7 @@
                 const mountainBase =
                   Math.min(1.0, shapeFactor * 2.2) * 220 * heightFactor;
 
-                let calderaHeight = 0;
+                let calderaHeight;
                 if (shapeFactor <= rimCenter) {
                   // Outer volcanic slopes: smooth power rise up to the rim crest
                   const flankNorm = shapeFactor / rimCenter;
@@ -1587,7 +1587,7 @@
           if (distToRoad < CANYON_FLOOR_WIDTH + CANYON_WALL_WIDTH) {
             // If the terrain is higher than the road, carve a canyon
             if (n > roadY) {
-              let carveFactor = 0;
+              let carveFactor;
               if (distToRoad <= CANYON_FLOOR_WIDTH) {
                 carveFactor = 1.0;
               } else {

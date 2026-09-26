@@ -3201,7 +3201,7 @@ window.ModelAssembler = {
             rot: [0, rotY, 0],
           },
         ];
-      case 'windmill':
+      case 'windmill': {
         const hubOffset = new THREE.Vector3(0, 0, 16.5).applyAxisAngle(
           yAxis,
           rotY
@@ -3243,7 +3243,8 @@ window.ModelAssembler = {
             scale: [1.5, 1.5, 1.5],
           },
         ];
-      case 'lighthouse':
+      }
+      case 'lighthouse': {
         const houseOffset = new THREE.Vector3(16, 0, 0).applyAxisAngle(
           yAxis,
           rotY
@@ -3316,6 +3317,7 @@ window.ModelAssembler = {
             rot: [0, rotY, 0],
           },
         ];
+      }
       case 'campfire':
         return [
           {

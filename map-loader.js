@@ -117,7 +117,9 @@
           targetFlightSpeed = 1.0; // Cruise speed
           flightSpeedMultiplier = 1.0;
         }
-      } catch (e) {}
+      } catch (e) {
+        /* ignore */
+      }
 
       updateChunks();
     } else {

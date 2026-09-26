@@ -8,7 +8,7 @@ const SimplexNoise = function () {
   for (var i = 0; i < 256; i++) p[i] = Math.floor(_noiseRng() * 256);
   var perm = new Uint8Array(512);
   var permMod12 = new Uint8Array(512);
-  for (var i = 0; i < 512; i++) {
+  for (i = 0; i < 512; i++) {
     perm[i] = p[i & 255];
     permMod12[i] = perm[i] % 12;
   }

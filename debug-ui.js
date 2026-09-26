@@ -32,10 +32,10 @@ function updateUrlParams(updates = {}, removals = []) {
 window.updateUrlParams = updateUrlParams;
 
 function applyGraphicsPreset(preset) {
-  let segments = 30;
-  let dist = 6;
-  let propLod = 4000;
-  let fps = 60;
+  let segments;
+  let dist;
+  let propLod;
+  let fps;
 
   switch (preset) {
     case 'ultra':
@@ -84,7 +84,9 @@ function applyGraphicsPreset(preset) {
       ) {
         updateUrlParams({preset}, ['graphics']);
       }
-    } catch (_) {}
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   // Set global variables
@@ -110,7 +112,7 @@ function applyGraphicsPreset(preset) {
   );
 
   // Update pixel ratio dynamically: baked resolution scale into quality levels
-  let pixelRatio = window.devicePixelRatio;
+  let pixelRatio;
   if (segments <= 20) {
     pixelRatio = 0.5;
   } else if (segments <= 40) {

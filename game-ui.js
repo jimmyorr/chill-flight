@@ -453,7 +453,7 @@ if (overlay) {
     if (msgEl) msgEl.textContent = messages[messageIndex];
 
     const loadInterval = setInterval(() => {
-      let progress = 0;
+      let progress;
       if (window.getChunkLoadingProgress) {
         progress = window.getChunkLoadingProgress();
       } else {

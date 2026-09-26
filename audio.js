@@ -180,7 +180,9 @@ async function getCachedTrackUrl(url) {
           path: '',
         });
         fileExists = dirResult.files.some((f) => (f.name || f) === fileName);
-      } catch (e) {}
+      } catch (e) {
+        /* ignore */
+      }
 
       if (!fileExists) {
         throw new Error('Cache miss (expected)');
@@ -205,7 +207,10 @@ async function getCachedTrackUrl(url) {
 
       try {
         const Filesystem = Capacitor.Plugins.Filesystem;
-        if (!Filesystem) throw new Error('Filesystem plugin not available');
+        if (!Filesystem)
+          throw new Error('Filesystem plugin not available', {
+            cause: e,
+          });
 
         const downloadResult = await Filesystem.downloadFile({
           url: url,

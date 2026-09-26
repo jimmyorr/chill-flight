@@ -491,9 +491,7 @@ for (let i = 0; i < starsCount; i++) {
   else starsSizes[i] = 6.0 + _starsRng() * 4.0;
 
   const colorType = _starsRng();
-  let rC = 1,
-    gC = 1,
-    bC = 1;
+  let rC, gC, bC;
   if (colorType < 0.6) {
     rC = 1;
     gC = 1;
