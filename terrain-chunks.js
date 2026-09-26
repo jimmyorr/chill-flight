@@ -23,6 +23,7 @@ class GlobalInstanceManager {
       );
       instMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
     }
+    instMesh.frustumCulled = false;
     instMesh.visible = _enableObjects;
     instMesh.count = 0;
     instMesh.receiveShadow = true;

@@ -43,6 +43,7 @@ function getInstancedMesh(geometry, material, count) {
   // Allocate with extra capacity to prevent frequent resizing
   const allocCount = Math.max(count, 16);
   const mesh = new THREE.InstancedMesh(geometry, material, allocCount);
+  mesh.frustumCulled = false;
   mesh.count = count;
   return mesh;
 }
