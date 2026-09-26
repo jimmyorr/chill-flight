@@ -18,7 +18,7 @@ function getGitInfo(isBuild = false) {
   let commitHash = 'unknown';
   try {
     commitHash = execSync('git rev-parse --short HEAD').toString().trim();
-  } catch (e) {
+  } catch {
     // fallback if git is unavailable
   }
 
@@ -61,7 +61,7 @@ function getGitInfo(isBuild = false) {
         });
       isDirty = dirtyFiles.length > 0;
     }
-  } catch (e) {
+  } catch {
     // fallback if git is unavailable
   }
 
@@ -69,7 +69,7 @@ function getGitInfo(isBuild = false) {
   try {
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
     version = pkg.version;
-  } catch (e) {
+  } catch {
     // fallback
   }
 

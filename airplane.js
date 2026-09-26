@@ -247,7 +247,7 @@ function setActivePlane(planeType, skipStorage = false) {
   if (!skipStorage) {
     try {
       localStorage.setItem('chill_flight_plane', planeType);
-    } catch (e) {
+    } catch {
       /* ignore */
     }
   }

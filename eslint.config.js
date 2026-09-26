@@ -57,7 +57,7 @@ for (const file of rootFiles) {
         }
       }
     }
-  } catch (e) {
+  } catch {
     // ignore parse errors
   }
 }

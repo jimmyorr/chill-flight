@@ -103,7 +103,7 @@
               }
             );
             startY = terrainHeight + 400.0;
-          } catch (e) {
+          } catch {
             startY = 445.5;
           }
         }
@@ -117,7 +117,7 @@
           targetFlightSpeed = 1.0; // Cruise speed
           flightSpeedMultiplier = 1.0;
         }
-      } catch (e) {
+      } catch {
         /* ignore */
       }
 

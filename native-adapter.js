@@ -73,7 +73,7 @@
             isLow = cores <= 4 || (memory && memory <= 4);
           }
         }
-      } catch (e) {
+      } catch {
         console.warn(
           '[Graphics Auto-Detect] Device plugin failed; falling back to hardware heuristics.'
         );

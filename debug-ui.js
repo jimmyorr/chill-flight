@@ -84,7 +84,7 @@ function applyGraphicsPreset(preset) {
       ) {
         updateUrlParams({preset}, ['graphics']);
       }
-    } catch (_) {
+    } catch {
       /* ignore */
     }
   }
@@ -458,7 +458,7 @@ window.initDebugUI = function () {
             }
           );
           startCamY = terrainHeight + 400.0;
-        } catch (e) {
+        } catch {
           startCamY = planeGroup.position.y;
         }
       }

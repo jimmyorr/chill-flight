@@ -583,7 +583,6 @@ function createPalmGeometry() {
 
   for (let j = 0; j < trunkSegments; j++) {
     const tBottom = j / trunkSegments;
-    const tTop = (j + 1) / trunkSegments;
 
     // Bottom flare is wider than the top of the previous segment
     const rBottom = 2.2 * (1.0 - tBottom * 0.45);
@@ -619,7 +618,6 @@ function createPalmGeometry() {
 
   // Fronds — V-creased leaves with jagged cutouts/notches along the edges
   const frondCount = 9;
-  const frondLength = 15;
   const leafGeos = [];
 
   for (let i = 0; i < frondCount; i++) {
@@ -1099,7 +1097,6 @@ icebergMainGeo.translate(0, 10, 0);
 var posMain = icebergMainGeo.attributes.position.array;
 for (let i = 0; i < posMain.length; i += 3) {
   const px = posMain[i];
-  const py = posMain[i + 1];
   const pz = posMain[i + 2];
   const angle = Math.atan2(pz, px);
   posMain[i] += Math.cos(angle * 3) * 2.0;
@@ -1113,7 +1110,6 @@ iceFloeMainGeo.translate(0, 2, 0);
 var posFloe = iceFloeMainGeo.attributes.position.array;
 for (let i = 0; i < posFloe.length; i += 3) {
   const px = posFloe[i];
-  const py = posFloe[i + 1];
   const pz = posFloe[i + 2];
   const angle = Math.atan2(pz, px);
   posFloe[i] += Math.cos(angle * 4) * 1.5;

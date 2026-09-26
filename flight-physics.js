@@ -65,7 +65,6 @@ function updateFlightPhysics(delta, nowTime) {
   // Altitude and Speed constants
   const controlBaseAlt = Math.max(0, planeGroup.position.y - 45.5);
   const controlAlt = Math.round(controlBaseAlt * 25);
-  const accelRate = 0.8 * delta;
 
   // Move vehicle
   const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;

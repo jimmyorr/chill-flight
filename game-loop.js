@@ -1428,7 +1428,6 @@ function updateEnvironmentLighting(delta, now) {
   }
 
   // --- RAINBOW ---
-  const isRaining = window._unfadedRainOpacity > 0.1;
   const isDaytime = sunY > 0;
 
   const rainbowMesh = skyGroup.getObjectByName('rainbow');
@@ -1727,7 +1726,6 @@ function updateEnvironmentLighting(delta, now) {
     const phaseX = _moonPhaseX.crossVectors(_upVector, moonDirNorm);
     if (phaseX.lengthSq() < 0.001) phaseX.set(1, 0, 0);
     phaseX.normalize();
-    const phaseY = _moonPhaseY.crossVectors(moonDirNorm, phaseX).normalize();
     // Sun orbits through the moon-origin axis to create full/new moon phases
     const phaseSunDir = _moonPhaseSunDir
       .copy(moonDirNorm)

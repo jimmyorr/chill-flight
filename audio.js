@@ -180,7 +180,7 @@ async function getCachedTrackUrl(url) {
           path: '',
         });
         fileExists = dirResult.files.some((f) => (f.name || f) === fileName);
-      } catch (e) {
+      } catch {
         /* ignore */
       }
 
@@ -250,7 +250,7 @@ async function getCachedTrackUrl(url) {
       } else {
         throw new Error('Cache miss');
       }
-    } catch (e) {
+    } catch {
       // 2. If it doesn't exist, download it
       log.info(`Downloading new track to Tauri cache: ${url}`);
 

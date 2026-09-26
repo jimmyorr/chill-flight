@@ -569,7 +569,7 @@
       return 'buffer';
     }
 
-    const {MAP_WORLD_SIZE = 5000, MAP_HEIGHT_SCALE = 1000} = constants;
+    const {MAP_WORLD_SIZE = 5000} = constants;
     const _lerp =
       lerp ||
       function (a, b, t) {

@@ -307,8 +307,6 @@ function* generateChunk(chunkX, chunkZ) {
   const windmillPositions = [];
   let lighthousePos = null;
   const isMontaukChunk = chunkX === 5 && chunkZ === 2;
-  let bestMontaukPos = null;
-  let fallbackMontaukPos = null;
   const pierPositions = [];
   const campfirePositions = [];
   const chimneySmokePositions = [];
@@ -443,9 +441,6 @@ function* generateChunk(chunkX, chunkZ) {
       Math.min(1, (southInfluence + noisePath * 0.05 - biomeNoise - 2.0) * 1.0)
     );
     const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
-
-    const temperature = noisePath - northInfluence * 1.5;
-    const isSnowBiome = snowFactor > 0.5;
 
     // East code beachfront
     const eastCoastFactor = Math.max(0, Math.min(1, (worldX + 2000) / 2000));
