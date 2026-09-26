@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.31
+
+- **Logging & diagnostics:** Added lightweight logger (`logger.js`) gating diagnostic logs behind `?debug=1`, a clean startup banner, and console guidelines.
+- **Tooling & quality:** Added HTML script reference validation test, dynamic global ESLint scope analysis, and resolved all lint warnings.
+- **Build system:** Suppressed classic script bundle warnings, adjusted chunk size limit, and streamlined metadata syncing.
+
 ## 0.9.29
 
 - **Engine:** Upgraded three.js from 0.128.0 to 0.186.1 with modernized lighting, color management, and WebGL renderer setups.
