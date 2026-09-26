@@ -1460,33 +1460,33 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
     if (isVolcanoChunk) {
       const craterBottom = getElevation(vX, vZ);
 
-      // Sample the edges of the lava disk (radius 280) to ensure the river didn't carve the side
-      const northEdge = getElevation(vX, vZ - 300);
-      const southEdge = getElevation(vX, vZ + 300);
-      const eastEdge = getElevation(vX + 300, vZ);
-      const westEdge = getElevation(vX - 300, vZ);
-      const minElevation = Math.min(
-        craterBottom,
-        northEdge,
-        southEdge,
-        eastEdge,
-        westEdge
-      );
+      // Sample the caldera basin perimeter (radius 60) to find the natural basin/breach floor.
+      // Placing the lava surface at this level prevents it from protruding through mountain flanks.
+      const LAVA_RADIUS = 60;
+      let minCalderaElev = craterBottom;
+      for (let a = 0; a < 16; a++) {
+        const ang = (a / 16) * Math.PI * 2;
+        const edgeElev = getElevation(
+          vX + Math.cos(ang) * LAVA_RADIUS,
+          vZ + Math.sin(ang) * LAVA_RADIUS
+        );
+        if (edgeElev < minCalderaElev) minCalderaElev = edgeElev;
+      }
 
       // If any part of the crater's footprint is extremely low, a river has carved through the volcano.
       // We shouldn't place hovering lava or spotlights in the middle of a river gorge.
-      if (minElevation > 500) {
-        // Lava disk
+      if (minCalderaElev > 500) {
+        // Lava disk - cylinder height is 15, so centering at minCalderaElev - 5 places
+        // the top surface right at the caldera basin floor without breaching slopes.
+        const lavaY = minCalderaElev - 5;
         const vElements = ModelAssembler.getStructure(
           'volcano_active_elements'
         );
         vElements.forEach((part) => {
           const mesh = new THREE.Mesh(part.geo, part.mat);
-          // Position relative to crater bottom. Yesterday's seed gave height ~1070.
-          // Hardcoded 890 was ~180 below crater bottom. We preserve that offset.
           mesh.position.set(
             vX + part.pos[0],
-            craterBottom - 180,
+            lavaY + part.pos[1],
             vZ + part.pos[2]
           );
           mesh.rotation.set(...part.rot);
@@ -1506,8 +1506,8 @@ function* generateChunk(chunkX, chunkZ, workerData = null) {
           0.5,
           1
         );
-        // Place spotlight slightly above crater bottom to avoid being buried
-        sLight.position.set(vX, craterBottom + 10, vZ);
+        // Place spotlight slightly above lava surface to avoid being buried
+        sLight.position.set(vX, lavaY + 10, vZ);
         const sTarget = new THREE.Object3D();
         sTarget.position.set(vX, 2000, vZ);
         group.add(sTarget);

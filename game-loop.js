@@ -507,28 +507,48 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
       const geos = renderer.info.memory.geometries;
       const texs = renderer.info.memory.textures;
 
-      const drawCallsEl = getCachedElement('debug-draw-calls');
-      if (drawCallsEl) {
-        updateDOM(drawCallsEl, calls);
-        drawCallsEl.style.color = getPerfColor(calls, 800, 1200);
-      }
+      window._telemetryCallsAccum = (window._telemetryCallsAccum || 0) + calls;
+      window._telemetryTrisAccum = (window._telemetryTrisAccum || 0) + tris;
+      window._telemetryRenderFrames = (window._telemetryRenderFrames || 0) + 1;
 
-      const trianglesEl = getCachedElement('debug-triangles');
-      if (trianglesEl) {
-        updateDOM(trianglesEl, tris);
-        trianglesEl.style.color = getPerfColor(tris, 2500000, 4000000);
-      }
+      if (
+        !window._lastRenderInfoUpdate ||
+        now - window._lastRenderInfoUpdate > 250
+      ) {
+        window._lastRenderInfoUpdate = now;
+        const avgCalls = Math.round(
+          window._telemetryCallsAccum / window._telemetryRenderFrames
+        );
+        const avgTris = Math.round(
+          window._telemetryTrisAccum / window._telemetryRenderFrames
+        );
+        window._telemetryCallsAccum = 0;
+        window._telemetryTrisAccum = 0;
+        window._telemetryRenderFrames = 0;
 
-      const geometriesEl = getCachedElement('debug-geometries');
-      if (geometriesEl) {
-        updateDOM(geometriesEl, geos);
-        geometriesEl.style.color = getPerfColor(geos, 400, 600);
-      }
+        const drawCallsEl = getCachedElement('debug-draw-calls');
+        if (drawCallsEl) {
+          updateDOM(drawCallsEl, avgCalls);
+          drawCallsEl.style.color = getPerfColor(avgCalls, 800, 1200);
+        }
 
-      const texturesEl = getCachedElement('debug-textures');
-      if (texturesEl) {
-        updateDOM(texturesEl, texs);
-        texturesEl.style.color = getPerfColor(texs, 15, 30);
+        const trianglesEl = getCachedElement('debug-triangles');
+        if (trianglesEl) {
+          updateDOM(trianglesEl, avgTris);
+          trianglesEl.style.color = getPerfColor(avgTris, 2500000, 4000000);
+        }
+
+        const geometriesEl = getCachedElement('debug-geometries');
+        if (geometriesEl) {
+          updateDOM(geometriesEl, geos);
+          geometriesEl.style.color = getPerfColor(geos, 400, 600);
+        }
+
+        const texturesEl = getCachedElement('debug-textures');
+        if (texturesEl) {
+          updateDOM(texturesEl, texs);
+          texturesEl.style.color = getPerfColor(texs, 15, 30);
+        }
       }
     }
 

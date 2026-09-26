@@ -6,12 +6,6 @@ if (typeof ChillFlightLogic === 'undefined') {
   importScripts('./chill-flight-logic.js', './noise.js');
 }
 
-function srgbToLinear(c) {
-  return c < 0.04045
-    ? c * 0.0773993808
-    : Math.pow(c * 0.9478672986 + 0.0521327014, 2.4);
-}
-
 function hue2rgb(p, q, t) {
   let tempT = t;
   if (tempT < 0) tempT += 1;
@@ -33,9 +27,9 @@ class Color {
     this.setHex(hex);
   }
   setHex(hex) {
-    this.r = srgbToLinear(((hex >> 16) & 255) / 255);
-    this.g = srgbToLinear(((hex >> 8) & 255) / 255);
-    this.b = srgbToLinear((hex & 255) / 255);
+    this.r = ((hex >> 16) & 255) / 255;
+    this.g = ((hex >> 8) & 255) / 255;
+    this.b = (hex & 255) / 255;
     return this;
   }
   copy(c) {

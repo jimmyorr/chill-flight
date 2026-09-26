@@ -2854,7 +2854,7 @@ window.initLighthouse = function () {
 };
 
 // --- VOLCANO ACTIVE ELEMENTS (pre-allocated, shared via ModelAssembler) ---
-var volcanoLavaGeo = new THREE.CylinderGeometry(280, 280, 40, 16);
+var volcanoLavaGeo = new THREE.CylinderGeometry(60, 60, 15, 16);
 var volcanoLavaMat = new THREE.MeshBasicMaterial({color: 0xff4500});
 
 // --- MODEL ASSEMBLER: SINGLE SOURCE OF TRUTH ---
@@ -3563,7 +3563,7 @@ window.ModelAssembler = {
           {
             geo: volcanoLavaGeo,
             mat: volcanoLavaMat,
-            pos: [0, 980, 0],
+            pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
         ];
