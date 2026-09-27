@@ -1,6 +1,6 @@
 // Game entry point for index.html. Modules imported here run before the
 // classic <script defer> tags in index.html.
-import './globals.js';
+import './sentry.js';
 import '../logger.js';
 import '../chill-flight-logic.js';
 import '../state.js';

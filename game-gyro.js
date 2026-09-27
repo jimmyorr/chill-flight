@@ -215,5 +215,3 @@ if (
     handleGyroData(event.alpha, event.beta, event.gamma);
   });
 }
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

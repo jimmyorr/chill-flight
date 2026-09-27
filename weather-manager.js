@@ -326,7 +326,6 @@ export function cycleWeather() {
   }
   log.info(`Weather cycled to: ${weatherType}`);
 }
-window.cycleWeather = cycleWeather;
 
 export function updateWeather(delta) {
   if (!snowParticles || !rainParticles) return;
@@ -540,18 +539,3 @@ export function updateWeather(delta) {
 
 // Initialize immediately
 initWeather();
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  updateWeather,
-});
-// Live bindings: reassigned here, read elsewhere.
-Object.defineProperties(window, {
-  manualCloudCover: {get: () => manualCloudCover, configurable: true},
-  manualCloudHeight: {get: () => manualCloudHeight, configurable: true},
-  manualCloudSpeed: {get: () => manualCloudSpeed, configurable: true},
-  showCloudsEnabled: {get: () => showCloudsEnabled, configurable: true},
-  weatherType: {get: () => weatherType, configurable: true},
-  snowParticles: {get: () => snowParticles, configurable: true},
-  rainParticles: {get: () => rainParticles, configurable: true},
-});

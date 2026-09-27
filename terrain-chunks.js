@@ -348,7 +348,6 @@ class GlobalInstanceManager {
 }
 
 export var globalInstancer = new GlobalInstanceManager();
-window.globalInstancer = globalInstancer;
 
 class ChunkDataCollector {
   constructor() {
@@ -4421,9 +4420,3 @@ export function toggleProceduralObjects(enabled) {
 }
 
 // Global expose
-window.toggleProceduralObjects = toggleProceduralObjects;
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  updateChunks,
-});

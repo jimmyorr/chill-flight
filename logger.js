@@ -45,6 +45,3 @@ export const log = {
     console.error(...args);
   },
 };
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-window.log = log;

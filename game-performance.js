@@ -255,7 +255,6 @@ class DynamicPerformanceMonitor {
 }
 
 export const performanceMonitor = new DynamicPerformanceMonitor();
-window.performanceMonitor = performanceMonitor;
 
 // Disable automatic shadow map updates; DynamicPerformanceMonitor controls the cadence
 if (typeof renderer !== 'undefined' && renderer) {
@@ -263,5 +262,3 @@ if (typeof renderer !== 'undefined' && renderer) {
 }
 
 // Start loop
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

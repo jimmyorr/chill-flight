@@ -1451,5 +1451,3 @@ import {Achievements} from './achievements.js';
     window.addEventListener('load', startInit);
   }
 })();
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

@@ -35,8 +35,6 @@ export const planeMat = createMaterial({
   color: state.planeColor,
   flatShading: true,
 });
-window.planeWhiteMat = planeWhiteMat;
-window.planeMat = planeMat;
 
 // Pontoons Group (created for classic plane water landing)
 export const pontoonGroup = new THREE.Group();
@@ -247,10 +245,6 @@ export let activePlaneType =
   ChillFlightLogic.START_PLANE ||
   localStorage.getItem('chill_flight_plane') ||
   'classic';
-// Live read-only bridge, defined before setActivePlane() runs below.
-Object.defineProperties(window, {
-  activePlaneType: {get: () => activePlaneType, configurable: true},
-});
 
 // The glider tops out lower than the powered planes.
 export function getMaxFlightSpeedMult() {
@@ -353,8 +347,6 @@ export function setActivePlane(planeType, skipStorage = false) {
 
 // Initialize active plane model
 setActivePlane(activePlaneType, true);
-window.createClassicAirplaneModel = createClassicAirplaneModel;
-window.setActivePlane = setActivePlane;
 
 // Better rotation order for airplanes
 planeGroup.rotation.order = 'YXZ';
@@ -438,22 +430,4 @@ planeGroup.traverse((child) => {
     child.castShadow = true;
     child.receiveShadow = false;
   }
-});
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-// (planeMat, planeWhiteMat, setActivePlane... are already set on window above,
-// before setActivePlane() first runs.)
-Object.assign(window, {
-  planeGroup,
-  pontoonGroup,
-  pontoonL,
-  pontoonR,
-  hingeLF,
-  hingeLB,
-  hingeRF,
-  hingeRB,
-  headlight,
-  headlightGlow,
-  HEADLIGHT_INTENSITY,
-  HEADLIGHT_GLOW_INTENSITY,
 });

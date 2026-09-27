@@ -278,6 +278,3 @@ export function updateFlightPhysics(delta, nowTime) {
     state.isDeployingPontoons = true;
   }
 }
-window.updateFlightPhysics = updateFlightPhysics;
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

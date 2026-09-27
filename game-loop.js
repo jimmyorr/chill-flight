@@ -2071,5 +2071,3 @@ function updateBenchmarking(delta, frameStartTime) {
     }
   }
 }
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

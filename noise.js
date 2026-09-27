@@ -207,7 +207,3 @@ export const SimplexNoise = function () {
 };
 export const simplex = SimplexNoise();
 ChillFlightLogic.setRoadNoise(simplex);
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-globalThis.SimplexNoise = SimplexNoise;
-globalThis.simplex = simplex;

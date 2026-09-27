@@ -1101,7 +1101,3 @@ export class InputManager {
     return this._steeringResult;
   }
 }
-
-window.InputManager = InputManager;
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

@@ -176,6 +176,3 @@ export class TerrainWorkerManager {
 }
 
 export const terrainWorkerManager = new TerrainWorkerManager();
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-window.terrainWorkerManager = terrainWorkerManager;

@@ -416,6 +416,3 @@ export function createGliderModel(opts = {}) {
 
   return root;
 }
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-window.createGliderModel = createGliderModel;

@@ -25,7 +25,6 @@ export function updatePauseMenuMusicInfo() {
 }
 
 // Make globally available
-window.updatePauseMenuMusicInfo = updatePauseMenuMusicInfo;
 
 // Register for automatic track change updates
 if (typeof window !== 'undefined') {
@@ -49,5 +48,3 @@ if (musicToggle) {
     }
   });
 }
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

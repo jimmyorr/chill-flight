@@ -399,10 +399,3 @@ export var updateVRPauseInteraction = function () {
 
 hooks.openVRPauseMenu = openVRPauseMenu;
 hooks.closeVRPauseMenu = closeVRPauseMenu;
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  openVRPauseMenu,
-  closeVRPauseMenu,
-  updateVRPauseInteraction,
-});

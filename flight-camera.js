@@ -973,6 +973,3 @@ export function updateFlightCamera(delta, nowTime) {
     state.moonZ * moonOrbitRadius
   );
 }
-window.updateFlightCamera = updateFlightCamera;
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

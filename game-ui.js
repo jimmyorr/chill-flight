@@ -95,7 +95,6 @@ export function toggleAutopilot(forceState) {
     }
   }
 }
-window.toggleAutopilot = toggleAutopilot;
 
 if (
   typeof ChillFlightLogic !== 'undefined' &&
@@ -637,10 +636,3 @@ export function showStartPlaneTooltip() {
 
 inputManager.onAutopilotToggle = () => toggleAutopilot();
 hooks.resetSteering = resetSteering;
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  hdgtSub,
-  resetSteering,
-  showStartPlaneTooltip,
-});

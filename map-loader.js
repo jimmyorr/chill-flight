@@ -182,5 +182,3 @@ import {state} from './state.js';
     img.src = `assets/${mapName}.png`;
   }
 })();
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

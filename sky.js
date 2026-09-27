@@ -616,29 +616,3 @@ if (ChillFlightLogic.DAY_COLOR) {
 
 // Frame timer for the game loop.
 export const clock = new THREE.Timer();
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  camera,
-  renderer,
-  hemiLight,
-  dirLight,
-  moonLight,
-  skyGroup,
-  skyUniforms,
-  sunUniforms,
-  moonUniforms,
-  sunMesh,
-  moonMesh,
-  starsMat,
-  BASE_DAY_SPEED,
-  applyCustomSkyColors,
-  nextSkyPalette,
-  updateSkyPalette,
-});
-// Live bindings: reassigned here, read elsewhere.
-Object.defineProperties(window, {
-  selectedPalette: {get: () => selectedPalette, configurable: true},
-  isCustomPalette: {get: () => isCustomPalette, configurable: true},
-  currentPaletteSeed: {get: () => currentPaletteSeed, configurable: true},
-});

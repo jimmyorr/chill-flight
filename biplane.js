@@ -508,6 +508,3 @@ export function createBiplaneModel(opts = {}) {
 
   return root;
 }
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-window.createBiplaneModel = createBiplaneModel;

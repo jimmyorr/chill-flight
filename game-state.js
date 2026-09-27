@@ -115,7 +115,6 @@ var suppressPauseClickUntil = 0;
 export function suppressPauseClick(durationMs = 500) {
   suppressPauseClickUntil = Date.now() + durationMs;
 }
-window.suppressPauseClick = suppressPauseClick;
 
 if (pauseOverlay) {
   pauseOverlay.addEventListener('click', (e) => {
@@ -136,9 +135,3 @@ if (cockpitUI) {
 // Pause key, and pausing from modules that load earlier (see hooks.js)
 inputManager.onPauseToggle = () => togglePause();
 hooks.togglePause = togglePause;
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  clearInputState,
-  togglePause,
-});

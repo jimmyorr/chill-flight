@@ -1,0 +1,9 @@
+// Error reporting. Import this first so it runs before any other module and
+// also reports errors thrown while they load.
+import * as Sentry from '@sentry/browser';
+
+Sentry.init({
+  dsn: 'https://7d9671463431e10775c66852b238ad8e@o4511337089400832.ingest.us.sentry.io/4511346247532544',
+  tracesSampleRate: 0.1,
+  maxBreadcrumbs: 30,
+});

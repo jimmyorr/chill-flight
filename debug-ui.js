@@ -261,7 +261,6 @@ export function syncChunkBorders() {
     }
   });
 }
-window.syncChunkBorders = syncChunkBorders;
 
 export function initDebugUI() {
   const graphicsPresetSelect = document.getElementById(
@@ -935,8 +934,3 @@ export function initDebugUI() {
 
   window.applyGraphicsPreset = applyGraphicsPreset;
 }
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  applyGraphicsPreset,
-});

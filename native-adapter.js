@@ -1,5 +1,6 @@
 // native-adapter.js
 // "The Sidecar Rule": Enhances the core game for Native without touching core files.
+import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 import {log} from './logger.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
@@ -125,8 +126,8 @@ export async function detectGraphicsPreset() {
     // Expose a compatible window.gtag wrapper that forwards calls to native FirebaseAnalytics
     window.gtag = function (command, eventName, params) {
       if (command === 'event') {
-        if (window.FirebaseAnalytics) {
-          window.FirebaseAnalytics.logEvent({
+        if (FirebaseAnalytics) {
+          FirebaseAnalytics.logEvent({
             name: eventName,
             params: params || {},
           }).catch((err) => {
@@ -138,8 +139,8 @@ export async function detectGraphicsPreset() {
 
     // Log app launch/init event
     setTimeout(() => {
-      if (window.FirebaseAnalytics) {
-        window.FirebaseAnalytics.logEvent({
+      if (FirebaseAnalytics) {
+        FirebaseAnalytics.logEvent({
           name: 'app_launch',
           params: {platform: Capacitor.getPlatform()},
         }).catch((err) => {
@@ -149,5 +150,3 @@ export async function detectGraphicsPreset() {
     }, 1000);
   }
 })();
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.

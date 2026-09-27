@@ -236,32 +236,3 @@ export function updateUrlParams(updates = {}, removals = []) {
     console.error('Failed to update URL parameters:', err);
   }
 }
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  CHUNK_SIZE,
-  WATER_LEVEL,
-  MOUNTAIN_LEVEL,
-  CLOUD_OPACITY,
-  LIGHTHOUSE_CHUNK_X,
-  LIGHTHOUSE_CHUNK_Z,
-  LIGHTHOUSE_CHUNK_KEY,
-  LIGHTHOUSE_LIGHT_INTENSITY,
-  LIGHTHOUSE_BEAM_OPACITY_MIN,
-  LIGHTHOUSE_BEAM_OPACITY_MAX,
-  MAP_WORLD_SIZE,
-  MAP_HEIGHT_SCALE,
-  BASE_FLIGHT_SPEED,
-  MAX_AIRPLANE_SPEED_KTS,
-  MAX_FLIGHT_SPEED_MULT,
-  TURN_SPEED,
-  ENABLE_PAGODAS,
-  ENABLE_BARNS,
-  ENABLE_MONASTERIES,
-  ENABLE_CASTLE_RUINS,
-  ENABLE_LIGHTHOUSES,
-  THEME,
-  createMaterial,
-  getCachedElement,
-  updateDOM,
-});

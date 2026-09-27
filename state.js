@@ -150,16 +150,3 @@ export const state = {
   // Controls settings (game.js)
   invertYAxis: false,
 };
-
-// Bridge for classic scripts that haven't been converted to ES modules yet:
-// each key becomes a window property backed by `state`, so a classic script's
-// `SEGMENTS = 20` updates state.SEGMENTS and modules see the change.
-for (const key of Object.keys(state)) {
-  Object.defineProperty(window, key, {
-    get: () => state[key],
-    set: (value) => {
-      state[key] = value;
-    },
-    configurable: true,
-  });
-}

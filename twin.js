@@ -651,6 +651,3 @@ export function createTwinModel(opts = {}) {
 
   return root;
 }
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-window.createTwinModel = createTwinModel;

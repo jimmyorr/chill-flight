@@ -244,22 +244,3 @@ export function applyThrottleDelta(delta) {
 state.verticalVelocity = 0; // units/sec, negative = falling
 export var keyPressStartTime = inputManager.state.keyPressStartTime;
 export var currentCinematicIndex = 0;
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  checkVRPresenting,
-  cameraDolly,
-  getCameraWorldPosition,
-  inputManager,
-  keys,
-  doubleTap,
-  tripleTap,
-  STEER_HOLD_THRESHOLD,
-  _lastChunkUpdatePos,
-  applyThrottleDelta,
-  keyPressStartTime,
-});
-// Live bindings: reassigned here, read elsewhere.
-Object.defineProperties(window, {
-  currentCinematicIndex: {get: () => currentCinematicIndex, configurable: true},
-});

@@ -499,16 +499,3 @@ getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).then((url) => {
     purrpleCatAudio.src = url;
   }
 });
-
-// Bridge for classic scripts that haven't been converted to ES modules yet.
-Object.assign(window, {
-  purrpleCatAudio,
-  getCurrentTrackName,
-  setMusicEnabled,
-  setMusicVolume,
-  updateAudioPlayer,
-});
-// Live bindings: reassigned here, read elsewhere.
-Object.defineProperties(window, {
-  musicEnabled: {get: () => musicEnabled, configurable: true},
-});
