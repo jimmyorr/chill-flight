@@ -1,11 +1,18 @@
 // --- GAME STATE & PAUSE LOGIC ---
-var isPaused = true;
-var justResumed = false; // one-frame guard to suppress any input that bled through from the pause menu
+import {
+  applyThrottleDelta,
+  checkVRPresenting,
+  inputManager,
+} from './game-input-bindings.js';
+import {setMusicVolume} from './audio.js';
+import {updatePauseMenuMusicInfo} from './game-audio-integration.js';
+import {state} from './state.js';
 
-function clearInputState() {
-  if (typeof mouseX !== 'undefined') mouseX = 0;
-  if (typeof mouseY !== 'undefined') mouseY = 0;
-  if (typeof mouseControlActive !== 'undefined') mouseControlActive = false;
+export function clearInputState() {
+  if (typeof state.mouseX !== 'undefined') state.mouseX = 0;
+  if (typeof state.mouseY !== 'undefined') state.mouseY = 0;
+  if (typeof state.mouseControlActive !== 'undefined')
+    state.mouseControlActive = false;
   if (typeof inputManager !== 'undefined') {
     inputManager.handleBlur();
   }
@@ -26,9 +33,9 @@ function clearInputState() {
 
 var pauseOverlay = document.getElementById('pause-overlay');
 
-function togglePause() {
-  isPaused = !isPaused;
-  if (isPaused) {
+export function togglePause() {
+  state.isPaused = !state.isPaused;
+  if (state.isPaused) {
     if (pauseOverlay) pauseOverlay.style.display = 'flex';
     clearInputState();
 
@@ -68,14 +75,14 @@ function togglePause() {
 
     if (typeof clock !== 'undefined' && clock.update) clock.update(); // clear accumulated time so plane doesn't skip
     clearInputState(); // wipe any input that bled through from the pause overlay
-    justResumed = true; // suppress the first animate frame's input application
+    state.justResumed = true; // suppress the first animate frame's input application
   }
 }
 
 window.addEventListener(
   'wheel',
   (e) => {
-    if (isPaused || (typeof isFreeCamera !== 'undefined' && isFreeCamera))
+    if (state.isPaused || (typeof isFreeCamera !== 'undefined' && isFreeCamera))
       return;
 
     // Use e.deltaY to scale the throttle change.
@@ -100,7 +107,7 @@ if (resumeBtn) {
 }
 
 var suppressPauseClickUntil = 0;
-function suppressPauseClick(durationMs = 500) {
+export function suppressPauseClick(durationMs = 500) {
   suppressPauseClickUntil = Date.now() + durationMs;
 }
 window.suppressPauseClick = suppressPauseClick;
@@ -120,3 +127,9 @@ if (cockpitUI) {
     togglePause();
   });
 }
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  clearInputState,
+  togglePause,
+});

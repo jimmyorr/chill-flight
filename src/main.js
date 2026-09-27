@@ -24,6 +24,8 @@ import '../weather-manager.js';
 import '../flight-physics.js';
 import '../flight-camera.js';
 import '../game-input-bindings.js';
+import '../game-state.js';
+import '../game-hud.js';
 
 // Startup banner
 const appVersion = window.__APP_VERSION__ || '0.0.0';

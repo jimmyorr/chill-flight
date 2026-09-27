@@ -71,6 +71,10 @@ export const state = {
   wasBarrelRolling: false,
   wasDoingFullBarrelRoll: false,
   wasDoingImmelmann: false,
+
+  // Pause state (game-state.js)
+  isPaused: true,
+  justResumed: false, // one-frame guard to suppress any input that bled through from the pause menu
 };
 
 // Bridge for classic scripts that haven't been converted to ES modules yet:
