@@ -4126,8 +4126,40 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     workerData && workerData.instanceData
       ? workerData.instanceData
       : collector.data;
+  enableChunkInstanceCulling(group, chunkX, chunkZ);
   scene.add(group);
   return group;
+}
+
+// Chunk props are pooled instanced meshes created with culling off (a reused
+// mesh's automatic bounds would be stale), so every chunk's props were drawn
+// every frame, in the main view and the shadow map, even when off-screen.
+// Give them a fixed sphere around the whole chunk instead, so three.js can
+// skip chunks outside the camera or shadow frustum. The sphere covers the
+// chunk's corners from sea level to the highest peaks (~1,600), plus drifting
+// boats and props at the edges. Some meshes sit under chunk-offset parents,
+// so the sphere is expressed in each mesh's own space.
+const CHUNK_CULL_CENTER_Y = 800;
+const CHUNK_CULL_RADIUS = 1700;
+const _toMeshSpace = new THREE.Matrix4();
+
+function enableChunkInstanceCulling(group, chunkX, chunkZ) {
+  const worldCenter = new THREE.Vector3(
+    chunkX * CHUNK_SIZE,
+    CHUNK_CULL_CENTER_Y,
+    chunkZ * CHUNK_SIZE
+  );
+  group.updateMatrixWorld(true);
+  group.traverse((object) => {
+    if (object.isInstancedMesh) {
+      _toMeshSpace.copy(object.matrixWorld).invert();
+      object.boundingSphere = new THREE.Sphere(
+        worldCenter.clone().applyMatrix4(_toMeshSpace),
+        CHUNK_CULL_RADIUS
+      );
+      object.frustumCulled = true;
+    }
+  });
 }
 
 export function updateChunks() {
