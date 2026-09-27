@@ -181,7 +181,96 @@ async function checkPage(browser, {path, fly}) {
     errors.push(`[${tag}] terrain workers never replied`);
   }
   console.log(`  terrain worker replies: ${state.workerMessages}`);
+  await exerciseControls(page, tag);
   await page.close();
+}
+
+// Drive the game through the keyboard and check its effects through the DOM
+// (HUD and debug panel), so this keeps working however the code is organized.
+async function exerciseControls(page, tag) {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const fail = (msg) => errors.push(`[${tag}] ${msg}`);
+  const readDebug = () =>
+    page.evaluate(() => {
+      const num = (id) => parseFloat(document.getElementById(id)?.textContent);
+      return {
+        x: num('debug-world-x'),
+        y: num('debug-world-y'),
+        z: num('debug-world-z'),
+        target: num('debug-target-speed'),
+        heading: num('debug-camera-heading'),
+        camX: num('debug-camera-x'),
+        camY: num('debug-camera-y'),
+        camZ: num('debug-camera-z'),
+      };
+    });
+  const hold = async (key, ms) => {
+    await page.keyboard.down(key);
+    await wait(ms);
+    await page.keyboard.up(key);
+  };
+  const shifted = async (key) => {
+    await page.keyboard.down('Shift');
+    await page.keyboard.press(key);
+    await page.keyboard.up('Shift');
+  };
+  const isPaused = () =>
+    page.evaluate(
+      () =>
+        getComputedStyle(document.getElementById('pause-overlay')).display !==
+        'none'
+    );
+
+  // Debug panel (Shift+D) exposes live flight values in the DOM.
+  await shifted('D');
+  await wait(500);
+  const a = await readDebug();
+  await wait(1500);
+  const b = await readDebug();
+  if (!(Math.hypot(b.x - a.x, b.z - a.z) > 1)) {
+    fail(`plane is not moving (${JSON.stringify(a)} -> ${JSON.stringify(b)})`);
+  }
+
+  await page.keyboard.down('Shift'); // Shift+Up: throttle up
+  await hold('ArrowUp', 1000);
+  await page.keyboard.up('Shift');
+  await wait(300);
+  const c = await readDebug();
+  if (!(c.target > b.target)) {
+    fail(`throttle up did not raise target speed (${b.target} -> ${c.target})`);
+  }
+
+  await hold('ArrowLeft', 1500); // bank left
+  await wait(1000);
+  const d = await readDebug();
+  if (d.heading === c.heading) fail(`steering did not change heading`);
+
+  await page.keyboard.press('c'); // camera mode
+  await wait(2500);
+  const e = await readDebug();
+  const camOffset = (s) => Math.hypot(s.camX - s.x, s.camY - s.y, s.camZ - s.z);
+  if (Math.abs(camOffset(e) - camOffset(d)) < 0.5) {
+    fail(`camera toggle did not move the camera relative to the plane`);
+  }
+
+  // Toggles without a simple DOM readout: these just need to not throw.
+  for (const key of ['g', 'v', 'l']) {
+    await page.keyboard.press(key);
+    await wait(700);
+  }
+  await shifted('S'); // shooting star
+  await shifted('U'); // rainbow
+  await wait(1500);
+
+  await page.keyboard.press('Escape');
+  await wait(500);
+  if (!(await isPaused())) fail('Escape did not pause the game');
+  await page
+    .click('#resume-btn')
+    .catch((err) => fail(`resume: ${err.message}`));
+  await wait(800);
+  if (await isPaused()) fail('resume button did not unpause the game');
+  console.log('  controls: move, throttle, steer, camera, toggles, pause ok');
 }
 
 const browser = await puppeteer.launch({
