@@ -254,17 +254,25 @@ async function exerciseControls(page, tag) {
     fail(`plane is not moving (${JSON.stringify(a)} -> ${JSON.stringify(b)})`);
   }
 
-  await page.keyboard.down('Shift'); // Shift+Up: throttle up
-  await hold('ArrowUp', 1000);
-  await page.keyboard.up('Shift');
-  const c = await readUntil((s) => s.target > b.target);
+  // Controls are ignored during the intro camera transition, which can run
+  // long on a busy machine, so give input a few attempts before failing.
+  let c = b;
+  for (let i = 0; i < 3 && !(c.target > b.target); i++) {
+    await page.keyboard.down('Shift'); // Shift+Up: throttle up
+    await hold('ArrowUp', 1000);
+    await page.keyboard.up('Shift');
+    c = await readUntil((s) => s.target > b.target, 2000);
+  }
   if (!(c.target > b.target)) {
     fail(`throttle up did not raise target speed (${b.target} -> ${c.target})`);
   }
 
-  await page.keyboard.down('ArrowLeft'); // bank left
-  const d = await readUntil((s) => s.heading !== c.heading, 5000);
-  await page.keyboard.up('ArrowLeft');
+  let d = c;
+  for (let i = 0; i < 3 && d.heading === c.heading; i++) {
+    await page.keyboard.down('ArrowLeft'); // bank left
+    d = await readUntil((s) => s.heading !== c.heading, 3000);
+    await page.keyboard.up('ArrowLeft');
+  }
   if (d.heading === c.heading) fail(`steering did not change heading`);
 
   await page.keyboard.press('c'); // camera mode
