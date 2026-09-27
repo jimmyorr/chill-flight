@@ -2,6 +2,7 @@
 // "The Sidecar Rule": Enhances the core game for Native without touching core files.
 import {log} from './logger.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 
 (function () {
   log.info('Native Adapter initialized');
@@ -29,9 +30,9 @@ import {state} from './state.js';
             if (
               typeof state.isPaused !== 'undefined' &&
               !state.isPaused &&
-              typeof togglePause === 'function'
+              hooks.togglePause
             ) {
-              togglePause();
+              hooks.togglePause();
             }
           }
         });

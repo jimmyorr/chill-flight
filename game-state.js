@@ -8,6 +8,7 @@ import {setMusicVolume} from './audio.js';
 import {updatePauseMenuMusicInfo} from './game-audio-integration.js';
 import {state} from './state.js';
 import {clock} from './sky.js';
+import {hooks} from './hooks.js';
 
 export function clearInputState() {
   if (typeof state.mouseX !== 'undefined') state.mouseX = 0;
@@ -50,24 +51,24 @@ export function togglePause() {
     if (
       typeof checkVRPresenting === 'function' &&
       checkVRPresenting() &&
-      typeof openVRPauseMenu === 'function'
+      hooks.openVRPauseMenu
     ) {
-      openVRPauseMenu();
+      hooks.openVRPauseMenu();
     }
   } else {
     if (pauseOverlay) pauseOverlay.style.display = 'none';
-    if (typeof closeVRPauseMenu === 'function') {
-      closeVRPauseMenu();
+    if (hooks.closeVRPauseMenu) {
+      hooks.closeVRPauseMenu();
     }
     // Also close achievements overlay if it was open
     const _achOverlay = document.getElementById('achievements-overlay');
     if (_achOverlay) _achOverlay.style.display = 'none';
     if (
       typeof window !== 'undefined' &&
-      window.FullscreenMap &&
-      window.FullscreenMap.isOpen()
+      hooks.fullscreenMap &&
+      hooks.fullscreenMap.isOpen()
     ) {
-      window.FullscreenMap.close();
+      hooks.fullscreenMap.close();
     }
 
     if (typeof setMusicVolume === 'function') {
@@ -131,6 +132,10 @@ if (cockpitUI) {
     togglePause();
   });
 }
+
+// Pause key, and pausing from modules that load earlier (see hooks.js)
+inputManager.onPauseToggle = () => togglePause();
+hooks.togglePause = togglePause;
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 Object.assign(window, {

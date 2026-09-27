@@ -1,5 +1,4 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {resetSteering} from './game-ui.js';
 import {inputManager} from './game-input-bindings.js';
 import {log} from './logger.js';
 import {
@@ -11,6 +10,8 @@ import {
 import {simplex} from './noise.js';
 import {planeGroup} from './airplane.js';
 import {suppressPauseClick} from './game-state.js';
+import {hooks} from './hooks.js';
+import {resetSteering} from './game-ui.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -1408,8 +1409,8 @@ import {suppressPauseClick} from './game-state.js';
     fsInitialized = true;
   }
 
-  // Global APIs
-  window.FullscreenMap = {
+  // APIs for modules that load earlier (see hooks.js)
+  hooks.fullscreenMap = {
     open: openFullscreenMap,
     close: closeFullscreenMap,
     toggle: function () {
@@ -1424,7 +1425,7 @@ import {suppressPauseClick} from './game-state.js';
     },
   };
 
-  window.Minimap = {
+  hooks.minimap = {
     toggle: toggleMinimap,
     isVisible: function () {
       return minimapVisible;

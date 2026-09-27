@@ -50,6 +50,7 @@ import {toggleProceduralObjects, updateChunks} from './terrain-chunks.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
+import {hooks} from './hooks.js';
 
 export function applyGraphicsPreset(preset) {
   let segments;
@@ -732,7 +733,7 @@ window.initDebugUI = function () {
       url.searchParams.delete('auto');
       url.searchParams.delete('autoPilot');
 
-      if (window.FullscreenMap && window.FullscreenMap.isOpen()) {
+      if (hooks.fullscreenMap && hooks.fullscreenMap.isOpen()) {
         url.searchParams.set('fullscreenmap', 'true');
       } else {
         url.searchParams.delete('fullscreenmap');
@@ -909,7 +910,7 @@ window.initDebugUI = function () {
         url.searchParams.delete('autoPilot');
       }
 
-      if (window.FullscreenMap && window.FullscreenMap.isOpen()) {
+      if (hooks.fullscreenMap && hooks.fullscreenMap.isOpen()) {
         url.searchParams.set('fullscreenmap', 'true');
       } else {
         url.searchParams.delete('fullscreenmap');

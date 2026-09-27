@@ -1,5 +1,6 @@
 import {renderer} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {hooks} from './hooks.js';
 
 export class InputManager {
   constructor() {
@@ -214,8 +215,8 @@ export class InputManager {
         achievementsOverlay.style.display = 'none';
         return;
       }
-      if (window.FullscreenMap && window.FullscreenMap.isOpen()) {
-        window.FullscreenMap.close();
+      if (hooks.fullscreenMap && hooks.fullscreenMap.isOpen()) {
+        hooks.fullscreenMap.close();
         return;
       }
       if (this.onPauseToggle) {

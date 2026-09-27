@@ -20,6 +20,7 @@ import {
 } from './audio.js';
 import {InputManager} from './input-manager.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 
 if (ChillFlightLogic.START_TOD !== null) {
   state.manualTimeOfDay = ChillFlightLogic.START_TOD;
@@ -71,9 +72,6 @@ inputManager.onCameraToggle = () => {
   if (typeof Achievements !== 'undefined') Achievements.unlock('directors_cut');
 };
 export const hdgtSub = document.getElementById('mobile-hdgt-sub');
-inputManager.onAutopilotToggle = () => {
-  if (typeof toggleAutopilot !== 'undefined') toggleAutopilot();
-};
 inputManager.onHeadlightToggle = () => {
   if (headlight.intensity === 0) {
     headlight.intensity = HEADLIGHT_INTENSITY;
@@ -95,16 +93,16 @@ inputManager.onDebugToggle = () => {
   debugMenu.style.display = isOpening ? 'block' : 'none';
   if (debugTelem) debugTelem.style.display = isOpening ? 'block' : 'none';
 
-  if (isOpening && typeof resetSteering === 'function') resetSteering();
+  if (isOpening) hooks.resetSteering?.();
 
   try {
     const url = new URL(window.location.href);
     if (isOpening) {
       url.searchParams.set('debug', 'true');
-      if (window.FullscreenMap && window.FullscreenMap.isOpen()) {
+      if (hooks.fullscreenMap && hooks.fullscreenMap.isOpen()) {
         url.searchParams.set('fullscreenmap', 'true');
       }
-      if (window.Minimap && window.Minimap.isVisible()) {
+      if (hooks.minimap && hooks.minimap.isVisible()) {
         url.searchParams.set('minimap', 'true');
       }
     } else {
@@ -113,11 +111,11 @@ inputManager.onDebugToggle = () => {
     window.history.replaceState(null, '', url.toString());
     if (
       isOpening &&
-      window.FullscreenMap &&
-      window.FullscreenMap.isOpen() &&
-      typeof window.FullscreenMap.syncUrlParams === 'function'
+      hooks.fullscreenMap &&
+      hooks.fullscreenMap.isOpen() &&
+      typeof hooks.fullscreenMap.syncUrlParams === 'function'
     ) {
-      window.FullscreenMap.syncUrlParams();
+      hooks.fullscreenMap.syncUrlParams();
     }
   } catch (err) {
     console.error('Failed to update URL parameters:', err);
@@ -132,9 +130,6 @@ inputManager.onShootingStarToggle = () => {
 };
 inputManager.onWeatherToggle = () => {
   if (typeof cycleWeather === 'function') cycleWeather();
-};
-inputManager.onPauseToggle = () => {
-  togglePause();
 };
 inputManager.onPlaneToggle = () => {
   if (typeof setActivePlane === 'function') {

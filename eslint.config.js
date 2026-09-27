@@ -16,6 +16,7 @@ const ESM_FILES = [
   'terrain-worker-manager.js',
   'terrain-worker.js',
   'state.js',
+  'hooks.js',
   'constants.js',
   'scene.js',
   'sky.js',

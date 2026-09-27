@@ -30,6 +30,7 @@ import {scene} from './scene.js';
 import {musicEnabled, setMusicEnabled} from './audio.js';
 import {state} from './state.js';
 import {updateUrlParams} from './constants.js';
+import {hooks} from './hooks.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -631,6 +632,9 @@ export function showStartPlaneTooltip() {
     console.error('[Achievements] Failed to track play count', e);
   }
 })();
+
+inputManager.onAutopilotToggle = () => toggleAutopilot();
+hooks.resetSteering = resetSteering;
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 Object.assign(window, {

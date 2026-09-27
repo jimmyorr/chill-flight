@@ -1,4 +1,6 @@
 // --- GAME HUD & ACHIEVEMENTS OVERLAY ---
+import {hooks} from './hooks.js';
+
 var achievementsOverlay = document.getElementById('achievements-overlay');
 var achievementsBtn = document.getElementById('achievements-btn');
 var achievementsCloseBtn = document.getElementById('achievements-close-btn');
@@ -48,8 +50,8 @@ if (achievementsCloseBtn) {
 
 if (pauseMapBtn) {
   pauseMapBtn.addEventListener('click', () => {
-    if (window.FullscreenMap) {
-      window.FullscreenMap.open();
+    if (hooks.fullscreenMap) {
+      hooks.fullscreenMap.open();
     }
   });
 }

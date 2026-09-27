@@ -11,6 +11,7 @@ import {cameraDolly, checkVRPresenting} from './game-input-bindings.js';
 import {scene} from './scene.js';
 import {clearInputState, togglePause} from './game-state.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 
 async function toggleVRSession() {
   if (typeof renderer === 'undefined' || !renderer || !renderer.xr) return;
@@ -395,6 +396,9 @@ export var updateVRPauseInteraction = function () {
     }
   }
 };
+
+hooks.openVRPauseMenu = openVRPauseMenu;
+hooks.closeVRPauseMenu = closeVRPauseMenu;
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 Object.assign(window, {
