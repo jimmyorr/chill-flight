@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "0.9.35";
-window.__COMMIT_HASH__ = "10f0c33";
+    <script>window.__APP_VERSION__ = "0.9.36";
+window.__COMMIT_HASH__ = "c521289";
 window.__IS_DIRTY__ = false;</script>
 
     <meta charset="UTF-8" />
@@ -22,12 +22,6 @@ window.__IS_DIRTY__ = false;</script>
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
     <link rel="manifest" href="manifest.json" />
     <link rel="apple-touch-icon" href="icon-192.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-      rel="stylesheet"
-    />
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
     <!-- sync-start:meta-description -->
     <meta
@@ -35,9 +29,8 @@ window.__IS_DIRTY__ = false;</script>
       content="A minimalist flight simulator set in a procedurally generated world that changes every single day."
     />
     <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-9IO6ZMfx.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/terrain-geometry-5C_JcIsf.js">
-    <link rel="stylesheet" crossorigin href="./assets/style-CdkKEhX_.css">
+    <script type="module" crossorigin src="./assets/main-KBXFovkj.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-TesQ3-a2.css">
   </head>
 
   <body>
@@ -962,8 +955,8 @@ window.__IS_DIRTY__ = false;</script>
                   justify-content: space-between;
                 "
               >
-                <span>Base fog:</span>
-                <span id="debug-base-fog-val">0.00015</span>
+                <span>Clear-sky fog:</span>
+                <span id="debug-base-fog-val">0.00005</span>
               </div>
               <input
                 type="range"
@@ -971,7 +964,7 @@ window.__IS_DIRTY__ = false;</script>
                 min="0"
                 max="0.0005"
                 step="0.000005"
-                value="0.00015"
+                value="0.00005"
                 style="width: 100%; cursor: pointer"
               />
               <div
