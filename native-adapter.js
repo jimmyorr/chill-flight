@@ -4,13 +4,67 @@ import {log} from './logger.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
 
+function isNative() {
+  return typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+}
+
+// Graphics auto-detection: defaults to 'low' or 'mid', allowing the user
+// to manually raise to 'high' or 'ultra' in settings if desired.
+export async function detectGraphicsPreset() {
+  const cores = navigator.hardwareConcurrency || 4;
+  const memory = navigator.deviceMemory;
+  const isIOSWeb = !isNative() && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  let isLow = false;
+  let context = isNative() ? 'Native' : 'Web';
+
+  if (isNative()) {
+    try {
+      if (Capacitor.Plugins && Capacitor.Plugins.Device) {
+        const info = await Capacitor.Plugins.Device.getInfo();
+        context = `Native ${info.platform || 'Device'}`;
+        if (info.platform === 'ios' && info.model) {
+          context += ` (${info.model})`;
+          isLow =
+            info.model.startsWith('iPhone9') || // iPhone 7/8/X
+            info.model.startsWith('iPhone10') || // iPhone 8/X
+            info.model.startsWith('iPhone11') || // iPhone XS/XR
+            info.model.startsWith('iPhone12') || // iPhone 11
+            (info.model.startsWith('iPad') && !info.model.includes('Pro'));
+        } else {
+          isLow = cores <= 4 || (memory && memory <= 4);
+        }
+      }
+    } catch {
+      console.warn(
+        '[Graphics Auto-Detect] Device plugin failed; falling back to hardware heuristics.'
+      );
+      isLow = cores <= 4 || (memory && memory <= 4);
+    }
+  } else if (isIOSWeb) {
+    // iOS Safari clamps hardwareConcurrency to 2 for privacy; default modern iOS web to mid
+    isLow = false;
+    context = 'iOS Web';
+  } else {
+    isLow = cores <= 4 || (memory && memory <= 4);
+    context =
+      window.matchMedia('(any-pointer: coarse)').matches ||
+      /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        ? 'Mobile Web'
+        : 'Desktop Web';
+  }
+
+  const preset = isLow ? 'low' : 'mid';
+  log.info(
+    `[Graphics Auto-Detect] ${context}. Cores: ${cores}, RAM: ${memory ? `~${memory}GB` : 'Unknown'}. Chose preset: ${preset}`
+  );
+  return preset;
+}
+
 (function () {
   log.info('Native Adapter initialized');
 
   // 1. NATIVE PLATFORM ONLY
-  function isNative() {
-    return typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
-  }
 
   if (isNative()) {
     // Hide Status Bar
@@ -47,62 +101,6 @@ import {hooks} from './hooks.js';
     } else {
       window.open(url, '_blank');
     }
-  };
-
-  // Graphics auto-detection: defaults to 'low' or 'mid', allowing the user
-  // to manually raise to 'high' or 'ultra' in settings if desired.
-  window.detectGraphicsPreset = async function () {
-    const cores = navigator.hardwareConcurrency || 4;
-    const memory = navigator.deviceMemory;
-    const isIOSWeb =
-      !isNative() && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    let isLow = false;
-    let context = isNative() ? 'Native' : 'Web';
-
-    if (isNative()) {
-      try {
-        if (Capacitor.Plugins && Capacitor.Plugins.Device) {
-          const info = await Capacitor.Plugins.Device.getInfo();
-          context = `Native ${info.platform || 'Device'}`;
-          if (info.platform === 'ios' && info.model) {
-            context += ` (${info.model})`;
-            isLow =
-              info.model.startsWith('iPhone9') || // iPhone 7/8/X
-              info.model.startsWith('iPhone10') || // iPhone 8/X
-              info.model.startsWith('iPhone11') || // iPhone XS/XR
-              info.model.startsWith('iPhone12') || // iPhone 11
-              (info.model.startsWith('iPad') && !info.model.includes('Pro'));
-          } else {
-            isLow = cores <= 4 || (memory && memory <= 4);
-          }
-        }
-      } catch {
-        console.warn(
-          '[Graphics Auto-Detect] Device plugin failed; falling back to hardware heuristics.'
-        );
-        isLow = cores <= 4 || (memory && memory <= 4);
-      }
-    } else if (isIOSWeb) {
-      // iOS Safari clamps hardwareConcurrency to 2 for privacy; default modern iOS web to mid
-      isLow = false;
-      context = 'iOS Web';
-    } else {
-      isLow = cores <= 4 || (memory && memory <= 4);
-      context =
-        window.matchMedia('(any-pointer: coarse)').matches ||
-        /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
-          navigator.userAgent
-        )
-          ? 'Mobile Web'
-          : 'Desktop Web';
-    }
-
-    const preset = isLow ? 'low' : 'mid';
-    log.info(
-      `[Graphics Auto-Detect] ${context}. Cores: ${cores}, RAM: ${memory ? `~${memory}GB` : 'Unknown'}. Chose preset: ${preset}`
-    );
-    return preset;
   };
 
   // 2. WEB ANALYTICS

@@ -316,6 +316,62 @@
     <!-- Model modules load via /src/debug-models.js -->
 
     <script type="module">
+      import * as THREE from 'three';
+      import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
+      import {ChillFlightLogic} from './chill-flight-logic.js';
+      import {createMaterial} from './constants.js';
+      import {state} from './state.js';
+      import {createBiplaneModel} from './biplane.js';
+      import {createGliderModel} from './glider.js';
+      import {createTwinModel} from './twin.js';
+      import {planeMat, planeWhiteMat} from './airplane.js';
+      import {
+        ModelAssembler,
+        animationUniforms,
+        bridgeDeckGeo,
+        bridgeDeckMat,
+        bridgeGirderGeo,
+        bridgeGirderMat,
+        bridgePierCapGeo,
+        bridgePierFootingGeo,
+        bridgePierShaftGeo,
+        bridgePilingMat,
+        bridgeRailGeo,
+        bushGeo,
+        cactusGeo,
+        cactusMat,
+        castleRuinsGeo,
+        castleRuinsMat,
+        createRockArchGeometries,
+        deadTreeGeo,
+        deadTreeMat,
+        deciduousGeos,
+        japaneseMapleGeos,
+        lilyPadGeo,
+        lilyPadMat,
+        mushroomGeos,
+        mushroomStalkMat,
+        palmGeos,
+        pierDeckGeo,
+        rockGeo,
+        rockMat,
+        snowmanBodyMat,
+        snowmanGeos,
+        snowmanNoseMat,
+        tallDeciduousGeos,
+        tentEntranceGeo,
+        tentEntranceMat,
+        tentGeo,
+        tentMat,
+        tentPalette,
+        tentPolesGeo,
+        treeLeavesGeo,
+        treeTrunkGeo,
+        treeTrunkMat,
+        waterUniforms,
+        woodMat,
+      } from './terrain-geometry.js';
+
       // Setup Viewer
       const container = document.getElementById('viewer');
       window.viewScene = new THREE.Scene();
@@ -336,7 +392,7 @@
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       container.appendChild(renderer.domElement);
 
-      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
 
       // Lights - Synchronized with game settings for consistent colors
@@ -419,8 +475,8 @@
         const previewGroup = new THREE.Group();
 
         // 1. Try assembling via shared ModelAssembler first
-        const structure = window.ModelAssembler
-          ? window.ModelAssembler.getStructure(type, 0, {
+        const structure = ModelAssembler
+          ? ModelAssembler.getStructure(type, 0, {
               bodyId: colorSeed,
               roofId: colorSeed,
             })
@@ -439,26 +495,23 @@
           // 2. Fallback for simple or unique models
           switch (type) {
             case 'airplane': {
-              const ap = airplaneModel.clone();
+              const ap = state.airplaneModel.clone();
 
-              if (
-                window.ChillFlightLogic &&
-                window.ChillFlightLogic.PLANE_COLORS
-              ) {
-                const colors = window.ChillFlightLogic.PLANE_COLORS;
+              if (ChillFlightLogic && ChillFlightLogic.PLANE_COLORS) {
+                const colors = ChillFlightLogic.PLANE_COLORS;
                 const newColor = colors[colorSeed % colors.length];
-                const newAccentMat = window.planeMat.clone();
+                const newAccentMat = planeMat.clone();
                 newAccentMat.color.setHex(newColor);
-                const newBodyMat = window.planeWhiteMat.clone();
+                const newBodyMat = planeWhiteMat.clone();
                 newBodyMat.color.setHex(
                   newColor === 0xe8c382 ? 0x1c3144 : 0xffffff
                 );
 
                 ap.traverse((child) => {
                   if (child.isMesh && child.material) {
-                    if (child.material === window.planeMat) {
+                    if (child.material === planeMat) {
                       child.material = newAccentMat;
-                    } else if (child.material === window.planeWhiteMat) {
+                    } else if (child.material === planeWhiteMat) {
                       child.material = newBodyMat;
                     }
                   }
@@ -472,13 +525,11 @@
 
             case 'biplane': {
               const colors =
-                window.ChillFlightLogic && window.ChillFlightLogic.PLANE_COLORS
-                  ? window.ChillFlightLogic.PLANE_COLORS
+                ChillFlightLogic && ChillFlightLogic.PLANE_COLORS
+                  ? ChillFlightLogic.PLANE_COLORS
                   : [0x4794db];
               const newColor = colors[colorSeed % colors.length];
-              const bp = window.createBiplaneModel
-                ? window.createBiplaneModel({planeColor: newColor})
-                : window.biplaneModel.clone();
+              const bp = createBiplaneModel({planeColor: newColor});
 
               bp.visible = true;
               previewGroup.add(bp);
@@ -488,13 +539,11 @@
             case 'motor_glider':
             case 'glider': {
               const colors =
-                window.ChillFlightLogic && window.ChillFlightLogic.PLANE_COLORS
-                  ? window.ChillFlightLogic.PLANE_COLORS
+                ChillFlightLogic && ChillFlightLogic.PLANE_COLORS
+                  ? ChillFlightLogic.PLANE_COLORS
                   : [0xe0564c];
               const newColor = colors[colorSeed % colors.length];
-              const gl = window.createGliderModel
-                ? window.createGliderModel({planeColor: newColor})
-                : window.gliderModel.clone();
+              const gl = createGliderModel({planeColor: newColor});
 
               gl.visible = true;
               previewGroup.add(gl);
@@ -505,13 +554,11 @@
             case 'twin-engine':
             case 'twin_engine': {
               const colors =
-                window.ChillFlightLogic && window.ChillFlightLogic.PLANE_COLORS
-                  ? window.ChillFlightLogic.PLANE_COLORS
+                ChillFlightLogic && ChillFlightLogic.PLANE_COLORS
+                  ? ChillFlightLogic.PLANE_COLORS
                   : [0xe0564c];
               const newColor = colors[colorSeed % colors.length];
-              const tw = window.createTwinModel
-                ? window.createTwinModel({planeColor: newColor})
-                : window.twinModel.clone();
+              const tw = createTwinModel({planeColor: newColor});
 
               tw.visible = true;
               previewGroup.add(tw);
@@ -669,11 +716,11 @@
               break;
             case 'bridge': {
               previewGroup.add(new THREE.Mesh(bridgeDeckGeo, bridgeDeckMat));
-              if (window.bridgeGirderGeo) {
+              if (bridgeGirderGeo) {
                 previewGroup.add(
                   new THREE.Mesh(
-                    window.bridgeGirderGeo,
-                    window.bridgeGirderMat || bridgePilingMat
+                    bridgeGirderGeo,
+                    bridgeGirderMat || bridgePilingMat
                   )
                 );
               }
@@ -685,18 +732,15 @@
                 previewGroup.add(rail);
               });
 
-              if (window.bridgePierCapGeo) {
-                const cap = new THREE.Mesh(
-                  window.bridgePierCapGeo,
-                  bridgePilingMat
-                );
+              if (bridgePierCapGeo) {
+                const cap = new THREE.Mesh(bridgePierCapGeo, bridgePilingMat);
                 cap.position.set(0, 0, 0);
                 previewGroup.add(cap);
               }
 
-              if (window.bridgePierShaftGeo) {
+              if (bridgePierShaftGeo) {
                 const shaft = new THREE.Mesh(
-                  window.bridgePierShaftGeo,
+                  bridgePierShaftGeo,
                   bridgePilingMat
                 );
                 shaft.position.set(0, -7.0, 0);
@@ -704,9 +748,9 @@
                 previewGroup.add(shaft);
               }
 
-              if (window.bridgePierFootingGeo) {
+              if (bridgePierFootingGeo) {
                 const footing = new THREE.Mesh(
-                  window.bridgePierFootingGeo,
+                  bridgePierFootingGeo,
                   bridgePilingMat
                 );
                 footing.position.set(0, -27.0 + 1.5, 0);
@@ -715,7 +759,7 @@
               break;
             }
             case 'tent': {
-              const palette = window.tentPalette || [tentMat];
+              const palette = tentPalette || [tentMat];
               const mat = palette[colorSeed % palette.length];
               previewGroup.add(new THREE.Mesh(tentGeo, mat));
               previewGroup.add(
@@ -822,8 +866,8 @@
       function animate() {
         requestAnimationFrame(animate);
         const time = performance.now() * 0.001;
-        window.animationUniforms.uTime.value = time;
-        window.waterUniforms.uTime.value = time;
+        animationUniforms.uTime.value = time;
+        waterUniforms.uTime.value = time;
 
         controls.update();
         renderer.render(viewScene, camera);

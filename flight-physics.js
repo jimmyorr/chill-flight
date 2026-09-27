@@ -5,6 +5,7 @@ import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {rainParticles} from './weather-manager.js';
 import {state} from './state.js';
 import {inputManager, keys} from './game-input-bindings.js';
+import {Achievements} from './achievements.js';
 
 export function updateFlightPhysics(delta, nowTime) {
   // --- FLIGHT PHYSICS & SPEED ---

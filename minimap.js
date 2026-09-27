@@ -12,6 +12,7 @@ import {planeGroup} from './airplane.js';
 import {suppressPauseClick} from './game-state.js';
 import {hooks} from './hooks.js';
 import {resetSteering} from './game-ui.js';
+import {Achievements} from './achievements.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay

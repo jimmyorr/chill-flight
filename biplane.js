@@ -511,5 +511,3 @@ export function createBiplaneModel(opts = {}) {
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 window.createBiplaneModel = createBiplaneModel;
-// Prebuilt default model, cloned by the model debug page.
-window.biplaneModel = createBiplaneModel();

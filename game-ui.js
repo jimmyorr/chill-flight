@@ -31,6 +31,8 @@ import {musicEnabled, setMusicEnabled} from './audio.js';
 import {state} from './state.js';
 import {updateUrlParams} from './constants.js';
 import {hooks} from './hooks.js';
+import {Achievements} from './achievements.js';
+import {getChunkLoadingProgress} from './terrain-chunks.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -487,8 +489,8 @@ if (overlay) {
 
     const loadInterval = setInterval(() => {
       let progress;
-      if (window.getChunkLoadingProgress) {
-        progress = window.getChunkLoadingProgress();
+      if (getChunkLoadingProgress) {
+        progress = getChunkLoadingProgress();
       } else {
         progress = 1.0; // Fallback
       }

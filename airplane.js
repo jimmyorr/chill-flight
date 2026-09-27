@@ -109,8 +109,8 @@ pontoonGroup.add(hingeRB);
 // Classic Cessna-style monoplane model builder
 export function createClassicAirplaneModel(opts = {}) {
   const model = new THREE.Group();
-  const activeWhiteMat = opts.planeWhiteMat || window.planeWhiteMat;
-  const activePlaneMat = opts.planeMat || window.planeMat;
+  const activeWhiteMat = opts.planeWhiteMat || planeWhiteMat;
+  const activePlaneMat = opts.planeMat || planeMat;
 
   // Fuselage (Main Body)
   const bodyGeo = new THREE.CylinderGeometry(0.7, 1.8, 14, 8);
@@ -291,8 +291,8 @@ export function setActivePlane(planeType, skipStorage = false) {
     newModel = createBiplaneModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
-      planeMat: window.planeMat,
-      planeWhiteMat: window.planeWhiteMat,
+      planeMat: planeMat,
+      planeWhiteMat: planeWhiteMat,
     });
   } else if (
     planeType === 'glider' &&
@@ -301,22 +301,22 @@ export function setActivePlane(planeType, skipStorage = false) {
     newModel = createGliderModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
-      planeMat: window.planeMat,
-      planeWhiteMat: window.planeWhiteMat,
+      planeMat: planeMat,
+      planeWhiteMat: planeWhiteMat,
     });
   } else if (planeType === 'twin' && typeof createTwinModel === 'function') {
     newModel = createTwinModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
-      planeMat: window.planeMat,
-      planeWhiteMat: window.planeWhiteMat,
+      planeMat: planeMat,
+      planeWhiteMat: planeWhiteMat,
     });
   } else {
     newModel = createClassicAirplaneModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
-      planeMat: window.planeMat,
-      planeWhiteMat: window.planeWhiteMat,
+      planeMat: planeMat,
+      planeWhiteMat: planeWhiteMat,
     });
   }
 

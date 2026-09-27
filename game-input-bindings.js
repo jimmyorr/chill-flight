@@ -21,6 +21,7 @@ import {
 import {InputManager} from './input-manager.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
+import {Achievements} from './achievements.js';
 
 if (ChillFlightLogic.START_TOD !== null) {
   state.manualTimeOfDay = ChillFlightLogic.START_TOD;

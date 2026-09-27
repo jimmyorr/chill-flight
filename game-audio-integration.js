@@ -1,4 +1,5 @@
 import {getCurrentTrackName, musicEnabled, setMusicEnabled} from './audio.js';
+import {hooks} from './hooks.js';
 
 export function updatePauseMenuMusicInfo() {
   const cpEl = document.getElementById('currently-playing');
@@ -28,7 +29,7 @@ window.updatePauseMenuMusicInfo = updatePauseMenuMusicInfo;
 
 // Register for automatic track change updates
 if (typeof window !== 'undefined') {
-  window.onTrackChange = (name) => {
+  hooks.onTrackChange = (name) => {
     updatePauseMenuMusicInfo();
   };
   // Initialize initial visibility based on startup state

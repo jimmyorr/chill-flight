@@ -7,6 +7,7 @@ export const hooks = {
   openVRPauseMenu: null, // vr-manager.js
   closeVRPauseMenu: null, // vr-manager.js
   resetSteering: null, // game-ui.js
+  onTrackChange: null, // game-audio-integration.js: (trackName) => void
   fullscreenMap: null, // minimap.js: {open, close, toggle, isOpen, syncUrlParams}
   minimap: null, // minimap.js: {toggle, isVisible}
 };

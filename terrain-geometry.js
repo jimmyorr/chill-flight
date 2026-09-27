@@ -90,13 +90,15 @@ export function releaseInstancedMesh(mesh) {
 
 export var chunkQueueSet = new Set();
 
-window.clearChunkQueue = function () {
+// The geometry side of clearing the queue; see clearChunkQueue() in
+// terrain-chunks.js, which also cancels pending worker jobs.
+export function resetChunkQueue() {
   state.chunkQueue = [];
   chunkQueueSet.clear();
-};
+}
 
 // GPU water uniform — shared globally so game.js animate() can update uTime
-window.waterUniforms = {
+export const waterUniforms = {
   uTime: {value: 0.0},
   uSpecularDir: {value: new THREE.Vector3(0, 1, 0)},
   uSunColor: {value: new THREE.Color(0xffffff)},
@@ -213,13 +215,13 @@ terrainMaterial.onBeforeCompile = (shader) => {
 // Inject GPU wave math into the water material's vertex shader.
 // This replaces the CPU-side per-vertex loop and computeVertexNormals().
 waterMaterial.onBeforeCompile = (shader) => {
-  shader.uniforms.uTime = window.waterUniforms.uTime;
+  shader.uniforms.uTime = waterUniforms.uTime;
   shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
   shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
 
   shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
-  shader.uniforms.uSpecularDir = window.waterUniforms.uSpecularDir;
-  shader.uniforms.uSunColor = window.waterUniforms.uSunColor;
+  shader.uniforms.uSpecularDir = waterUniforms.uSpecularDir;
+  shader.uniforms.uSunColor = waterUniforms.uSunColor;
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
 
@@ -1184,7 +1186,7 @@ export var penguinOrangeMat = createMaterial({
 
 // Waddling shader animation
 var penguinShaderInject = (shader) => {
-  shader.uniforms.uTime = window.animationUniforms.uTime;
+  shader.uniforms.uTime = animationUniforms.uTime;
   shader.vertexShader = shader.vertexShader.replace(
     '#include <common>',
     `#include <common>\nuniform float uTime;`
@@ -2172,7 +2174,7 @@ export var streetlightPoleMat = createMaterial({
   color: 0x222222,
   flatShading: true,
 });
-window.streetlightBulbMat = createMaterial({
+export const streetlightBulbMat = createMaterial({
   color: 0xffffff,
   emissive: 0xffeebb,
   emissiveIntensity: 2.0,
@@ -2194,14 +2196,14 @@ decalGradient.addColorStop(1, 'rgba(0, 0, 0, 0.0)');
 decalCtx.fillStyle = decalGradient;
 decalCtx.fillRect(0, 0, 128, 128);
 var decalTex = new THREE.CanvasTexture(decalCanvas);
-window.streetlightDecalMat = new THREE.MeshBasicMaterial({
+export const streetlightDecalMat = new THREE.MeshBasicMaterial({
   map: decalTex,
   transparent: true,
   opacity: 1.0,
   blending: THREE.AdditiveBlending,
   depthWrite: false,
 });
-window.streetlightDecalMat.onBeforeCompile = (shader) => {
+streetlightDecalMat.onBeforeCompile = (shader) => {
   if (terrainUniforms) {
     shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
     shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
@@ -2356,10 +2358,10 @@ window.smokeMat = smokeMat;
 window.whiteSmokeMat = whiteSmokeMat;
 
 // --- GPU ANIMATION SHADER INJECTIONS ---
-if (!window.animationUniforms) window.animationUniforms = {uTime: {value: 0}};
+export const animationUniforms = {uTime: {value: 0}};
 
 windmillBladesMat.onBeforeCompile = (shader) => {
-  shader.uniforms.uTime = window.animationUniforms.uTime;
+  shader.uniforms.uTime = animationUniforms.uTime;
   shader.vertexShader = shader.vertexShader.replace(
     '#include <common>',
     `#include <common>\nuniform float uTime;`
@@ -2378,7 +2380,7 @@ windmillBladesMat.onBeforeCompile = (shader) => {
 windmillBladesDepthMat.onBeforeCompile = windmillBladesMat.onBeforeCompile;
 
 fireMat.onBeforeCompile = (shader) => {
-  shader.uniforms.uTime = window.animationUniforms.uTime;
+  shader.uniforms.uTime = animationUniforms.uTime;
   shader.vertexShader = shader.vertexShader.replace(
     '#include <common>',
     `#include <common>\nuniform float uTime;`
@@ -2399,7 +2401,7 @@ fireMat.onBeforeCompile = (shader) => {
 };
 
 var smokeShaderInject = (shader, isChimney) => {
-  shader.uniforms.uTime = window.animationUniforms.uTime;
+  shader.uniforms.uTime = animationUniforms.uTime;
   shader.vertexShader = shader.vertexShader.replace(
     '#include <common>',
     `#include <common>\nuniform float uTime;\nvarying float vFade;`
@@ -2868,7 +2870,7 @@ export var lighthouseBeamMat = new THREE.MeshBasicMaterial({
 export var persistentLighthouseLight = null;
 export var persistentLighthouseBeam = null;
 
-window.initLighthouse = function () {
+export function initLighthouse() {
   if (persistentLighthouseLight) return; // Already initialized
 
   // Create spotlight
@@ -2892,7 +2894,7 @@ window.initLighthouse = function () {
   scene.add(persistentLighthouseBeam);
 
   log.info('[Lighthouse] Persistent light and beam initialized.');
-};
+}
 
 // --- VOLCANO ACTIVE ELEMENTS (pre-allocated, shared via ModelAssembler) ---
 var volcanoLavaGeo = new THREE.CylinderGeometry(60, 60, 15, 16);
@@ -2902,7 +2904,7 @@ var volcanoLavaMat = new THREE.MeshBasicMaterial({color: 0xff4500});
 // This object defines how complex multi-part models are constructed.
 // Both terrain.js (during world gen) and debug.html (during preview)
 // use this to ensure they stay in perfect sync.
-window.ModelAssembler = {
+export const ModelAssembler = {
   getStructure: function (id, rotY = 0, opts = {}) {
     switch (id) {
       case 'streetlight': {
@@ -2921,7 +2923,7 @@ window.ModelAssembler = {
           },
           {
             geo: streetlightBulbGeo,
-            mat: window.streetlightBulbMat,
+            mat: streetlightBulbMat,
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
@@ -3726,9 +3728,9 @@ var _elevCacheKeyZ = new Float32Array(_ELEV_CACHE_SIZE);
 var _elevCacheVal = new Float32Array(_ELEV_CACHE_SIZE);
 var _elevCacheValid = new Uint8Array(_ELEV_CACHE_SIZE);
 
-window.clearElevationCache = function () {
+export function clearElevationCache() {
   _elevCacheValid.fill(0);
-};
+}
 
 var _ELEV_PARAMS = {
   WATER_LEVEL,

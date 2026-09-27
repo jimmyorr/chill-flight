@@ -1,6 +1,7 @@
 // --- AUDIO (PURRPLE CAT) ---
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {log} from './logger.js';
+import {hooks} from './hooks.js';
 
 export let musicEnabled =
   localStorage.getItem('chill_flight_music_enabled') !== 'false';
@@ -333,7 +334,6 @@ export function getCurrentTrackName() {
 }
 
 // Global callback for UI updates
-window.onTrackChange = null;
 
 let isMusicInternalAction = false;
 let isPausedByVisibility = false;
@@ -345,8 +345,8 @@ function syncMusicUI(playing) {
     musicToggle.checked = playing;
   }
 
-  if (window.onTrackChange) {
-    window.onTrackChange(getCurrentTrackName());
+  if (hooks.onTrackChange) {
+    hooks.onTrackChange(getCurrentTrackName());
   }
 
   updateMediaMetadata();

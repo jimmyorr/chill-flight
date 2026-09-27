@@ -120,12 +120,20 @@ import {clearInputState} from './game-state.js';
 import {showStartPlaneTooltip, toggleAutopilot} from './game-ui.js';
 import {updateFlightPhysics} from './flight-physics.js';
 import {log} from './logger.js';
-import {chunks, getElevation, houseWindowMats} from './terrain-geometry.js';
+import {
+  chunks,
+  getElevation,
+  houseWindowMats,
+  streetlightBulbMat,
+  streetlightDecalMat,
+  waterUniforms,
+} from './terrain-geometry.js';
 import {updateFlightCamera} from './flight-camera.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
-import {globalInstancer} from './terrain-chunks.js';
+import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
 import {state} from './state.js';
+import {Achievements} from './achievements.js';
 
 let _currentOvercast;
 let _lastFpsAggUpdate;
@@ -194,7 +202,7 @@ function animate() {
   const chunkBudget = isBootLoadingScreen
     ? 33
     : performanceMonitor.getChunkBudget();
-  if (window.processChunkQueue) window.processChunkQueue(chunkBudget);
+  if (processChunkQueue) processChunkQueue(chunkBudget);
   if (globalInstancer) globalInstancer.rebuildAll();
   clock.update();
   let rawDelta = clock.getDelta();
@@ -973,14 +981,11 @@ function updateDayNightCycle(delta) {
   const slSunY = -Math.cos(state.timeOfDay);
   const slNightValue = Math.max(0, (-slSunY + 0.1) * 2);
 
-  if (typeof window.streetlightBulbMat !== 'undefined') {
-    window.streetlightBulbMat.emissiveIntensity = Math.min(
-      2.0,
-      slNightValue * 2.0
-    );
+  if (typeof streetlightBulbMat !== 'undefined') {
+    streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
   }
-  if (typeof window.streetlightDecalMat !== 'undefined') {
-    window.streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
+  if (typeof streetlightDecalMat !== 'undefined') {
+    streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
   }
 }
 
@@ -1842,23 +1847,23 @@ function updateEnvironmentLighting(delta, now) {
     }
   }
 
-  if (window.waterUniforms && window.waterUniforms.uSpecularDir) {
+  if (waterUniforms && waterUniforms.uSpecularDir) {
     // Smoothly fade in/out specular based on elevation to prevent abrupt pop at sunrise/sunset
     const sunFade = THREE.MathUtils.clamp(state.sunY * 5.0, 0, 1);
     const moonFade = THREE.MathUtils.clamp(-state.sunY * 5.0, 0, 1);
 
     if (sunFade > moonFade) {
-      window.waterUniforms.uSpecularDir.value.copy(_tempVec);
-      window.waterUniforms.uSunColor.value
+      waterUniforms.uSpecularDir.value.copy(_tempVec);
+      waterUniforms.uSunColor.value
         .copy(dirLight.color)
         .multiplyScalar(Math.max(0, 1.0 - overcast) * sunFade);
     } else {
       const moonDirNorm = _waterMoonDirNorm
         .set(state.moonX, state.moonY, state.moonZ)
         .normalize();
-      window.waterUniforms.uSpecularDir.value.copy(moonDirNorm);
+      waterUniforms.uSpecularDir.value.copy(moonDirNorm);
 
-      window.waterUniforms.uSunColor.value
+      waterUniforms.uSunColor.value
         .setHex(0xbad2ff)
         .multiplyScalar(
           Math.max(0, 1.0 - overcast) * phaseIntensity * 0.5 * moonFade

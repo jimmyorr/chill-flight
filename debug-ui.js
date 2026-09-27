@@ -27,6 +27,7 @@ import {
 } from './weather-manager.js';
 import {
   chunks,
+  clearElevationCache,
   getElevation,
   waterMaterial,
   watercraftChunks,
@@ -46,7 +47,11 @@ import {
 } from './airplane.js';
 import {_lastChunkUpdatePos} from './game-input-bindings.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {toggleProceduralObjects, updateChunks} from './terrain-chunks.js';
+import {
+  clearChunkQueue,
+  toggleProceduralObjects,
+  updateChunks,
+} from './terrain-chunks.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
@@ -214,8 +219,8 @@ export function applyGraphicsPreset(preset) {
       watercraftChunks.clear();
     }
   }
-  if (window.clearChunkQueue) window.clearChunkQueue();
-  if (window.clearElevationCache) window.clearElevationCache();
+  if (clearChunkQueue) clearChunkQueue();
+  if (clearElevationCache) clearElevationCache();
   if (typeof _lastChunkUpdatePos !== 'undefined') {
     _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
   }
@@ -258,7 +263,7 @@ export function syncChunkBorders() {
 }
 window.syncChunkBorders = syncChunkBorders;
 
-window.initDebugUI = function () {
+export function initDebugUI() {
   const graphicsPresetSelect = document.getElementById(
     'graphics-preset-select'
   );
@@ -338,8 +343,8 @@ window.initDebugUI = function () {
           watercraftChunks.clear();
         }
       }
-      if (window.clearChunkQueue) window.clearChunkQueue();
-      if (window.clearElevationCache) window.clearElevationCache();
+      if (clearChunkQueue) clearChunkQueue();
+      if (clearElevationCache) clearElevationCache();
       if (typeof _lastChunkUpdatePos !== 'undefined') {
         _lastChunkUpdatePos.set(Infinity, Infinity, Infinity);
       }
@@ -929,7 +934,7 @@ window.initDebugUI = function () {
   }
 
   window.applyGraphicsPreset = applyGraphicsPreset;
-};
+}
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 Object.assign(window, {

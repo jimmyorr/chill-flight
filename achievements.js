@@ -3,9 +3,7 @@
 // Loaded before game.js so Achievements.unlock() is available during gameplay.
 import {log} from './logger.js';
 
-(function () {
-  'use strict';
-
+export const Achievements = (function () {
   // --- ACHIEVEMENT REGISTRY ---
   // Each achievement has: id (snake_case key), title (display name), emoji, hint (shown after unlock)
   const ACHIEVEMENTS = [
@@ -357,8 +355,8 @@ import {log} from './logger.js';
     }
   }
 
-  // --- EXPOSE GLOBAL API ---
-  window.Achievements = {
+  // --- PUBLIC API ---
+  return {
     getAll,
     isUnlocked,
     getUnlockedMap,

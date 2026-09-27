@@ -20,9 +20,11 @@ import {
 } from './airplane.js';
 import {updateChunks} from './terrain-chunks.js';
 import {_lastChunkUpdatePos} from './game-input-bindings.js';
-import {applyGraphicsPreset} from './debug-ui.js';
+import {applyGraphicsPreset, initDebugUI} from './debug-ui.js';
 import {state} from './state.js';
 import {updateUrlParams} from './constants.js';
+import {detectGraphicsPreset} from './native-adapter.js';
+import {initLighthouse} from './terrain-geometry.js';
 
 typeof state.daySpeedMultiplier !== 'undefined' ? state.daySpeedMultiplier : 1;
 
@@ -230,8 +232,8 @@ if (initialPreset) {
   const presetSelect = document.getElementById('graphics-preset-select');
   if (presetSelect) presetSelect.value = initialPreset;
   applyGraphicsPreset(initialPreset);
-} else if (window.detectGraphicsPreset) {
-  window.detectGraphicsPreset().then((detected) => {
+} else if (detectGraphicsPreset) {
+  detectGraphicsPreset().then((detected) => {
     const presetSelect = document.getElementById('graphics-preset-select');
     if (presetSelect) presetSelect.value = detected;
     applyGraphicsPreset(detected);
@@ -256,8 +258,8 @@ if (typeof planeGroup !== 'undefined') {
   _lastChunkUpdatePos.copy(planeGroup.position);
 }
 
-if (typeof window.initLighthouse === 'function') {
-  window.initLighthouse();
+if (typeof initLighthouse === 'function') {
+  initLighthouse();
 }
 
 // Optimization: Pre-allocate reusable objects for the animate loop to prevent GC stutter
@@ -502,8 +504,8 @@ export var shootingStarEnd = new THREE.Vector3();
 export var btnUp = document.getElementById('mobile-spd-up');
 export var btnDown = document.getElementById('mobile-spd-down');
 
-if (typeof window.initDebugUI === 'function') {
-  window.initDebugUI();
+if (typeof initDebugUI === 'function') {
+  initDebugUI();
 }
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.

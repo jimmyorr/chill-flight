@@ -152,13 +152,16 @@
     </div>
 
     <!-- Scripts needed for generation -->
-    <!-- Modules and defer scripts run in document order after parsing. -->
-    <script type="module" src="logger.js"></script>
-    <script type="module" src="chill-flight-logic.js"></script>
-    <script type="module" src="noise.js"></script>
-    <script type="module" src="constants.js"></script>
-
     <script type="module">
+      import {ChillFlightLogic} from './chill-flight-logic.js';
+      import {SimplexNoise} from './noise.js';
+      import {
+        MAP_HEIGHT_SCALE,
+        MAP_WORLD_SIZE,
+        MOUNTAIN_LEVEL,
+        WATER_LEVEL,
+      } from './constants.js';
+
       // Set the default seed to the game's actual WORLD_SEED
       document.getElementById('input-seed').value = ChillFlightLogic.WORLD_SEED;
 

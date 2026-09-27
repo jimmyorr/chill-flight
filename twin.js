@@ -654,5 +654,3 @@ export function createTwinModel(opts = {}) {
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 window.createTwinModel = createTwinModel;
-// Prebuilt default model, cloned by the model debug page.
-window.twinModel = createTwinModel();

@@ -1,5 +1,6 @@
 // --- GAME HUD & ACHIEVEMENTS OVERLAY ---
 import {hooks} from './hooks.js';
+import {Achievements} from './achievements.js';
 
 var achievementsOverlay = document.getElementById('achievements-overlay');
 var achievementsBtn = document.getElementById('achievements-btn');
@@ -74,9 +75,9 @@ if (achievementsResetBtn) {
       resetConfirmTimeout = setTimeout(resetAchievementsResetBtn, 4000);
     } else {
       resetAchievementsResetBtn();
-      if (window.Achievements) {
-        window.Achievements.reset();
-        window.Achievements.renderAchievementsOverlay();
+      if (Achievements) {
+        Achievements.reset();
+        Achievements.renderAchievementsOverlay();
       }
     }
   });

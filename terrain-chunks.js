@@ -4,6 +4,7 @@ import {scene} from './scene.js';
 import {
   ALIEN_MUSHROOM_CAP_COLORS,
   BRIDGE_SEGMENT_LENGTH,
+  ModelAssembler,
   VOLCANO_X,
   VOLCANO_Z,
   _colorAlpineRockDark,
@@ -178,6 +179,7 @@ import {
   pirateShipReflectionGeo,
   reflectionMat,
   releaseInstancedMesh,
+  resetChunkQueue,
   rockArchGrassMat,
   rockGeo,
   rockMat,
@@ -193,7 +195,9 @@ import {
   strawHutRoofGeo,
   streetlightArmGeo,
   streetlightBulbGeo,
+  streetlightBulbMat,
   streetlightDecalGeo,
+  streetlightDecalMat,
   streetlightPoleGeo,
   streetlightPoleMat,
   tallDeciduousGeos,
@@ -508,9 +512,8 @@ function queueWorkerChunk(cx, cz, key, priority = 0) {
   workerChunkRequests.set(key, req);
 }
 
-const _origClearChunkQueue = window.clearChunkQueue;
-window.clearChunkQueue = function () {
-  if (typeof _origClearChunkQueue === 'function') _origClearChunkQueue();
+export function clearChunkQueue() {
+  resetChunkQueue();
   workerChunkRequests.clear();
   workerChunkResults.clear();
   if (
@@ -520,7 +523,7 @@ window.clearChunkQueue = function () {
   ) {
     terrainWorkerManager.cancelRequests(() => true);
   }
-};
+}
 
 function generateChunk(chunkX, chunkZ, workerData = null) {
   const collector = new ChunkDataCollector();
@@ -3204,12 +3207,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         );
         const slBulbInst = getInstancedMesh(
           streetlightBulbGeo,
-          window.streetlightBulbMat,
+          streetlightBulbMat,
           numStreetlights > 0 ? numStreetlights : 1
         );
         const slDecalInst = getInstancedMesh(
           streetlightDecalGeo,
-          window.streetlightDecalMat,
+          streetlightDecalMat,
           numStreetlights > 0 ? numStreetlights : 1
         );
         let slIndex = 0;
@@ -4332,7 +4335,7 @@ export function updateChunks() {
   }
 }
 
-window.processChunkQueue = function () {
+export function processChunkQueue() {
   if (state.chunkQueue.length === 0) return 1.0;
 
   let generatedThisFrame = 0;
@@ -4376,13 +4379,13 @@ window.processChunkQueue = function () {
   const totalChunks = chunks.size + state.chunkQueue.length;
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
-};
+}
 
-window.getChunkLoadingProgress = function () {
+export function getChunkLoadingProgress() {
   const totalChunks = chunks.size + state.chunkQueue.length;
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
-};
+}
 export function toggleProceduralObjects(enabled) {
   state._enableObjects = enabled;
   ChillFlightLogic.setShowObjects(enabled);

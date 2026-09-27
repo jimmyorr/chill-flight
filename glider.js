@@ -419,5 +419,3 @@ export function createGliderModel(opts = {}) {
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 window.createGliderModel = createGliderModel;
-// Prebuilt default model, cloned by the model debug page.
-window.gliderModel = createGliderModel();

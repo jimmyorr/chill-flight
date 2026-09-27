@@ -4,11 +4,13 @@ import {updateChunks} from './terrain-chunks.js';
 import {planeGroup} from './airplane.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
+  animationUniforms,
   birdChunks,
   chunks,
   fireMat,
   getElevation,
   smokeMat,
+  waterUniforms,
   watercraftChunks,
   whiteSmokeMat,
 } from './terrain-geometry.js';
@@ -66,6 +68,7 @@ import {
   _yAxis,
 } from './game.js';
 import {performanceMonitor} from './game-performance.js';
+import {Achievements} from './achievements.js';
 
 let _frameCount;
 
@@ -510,11 +513,10 @@ export function updateFlightCamera(delta, nowTime) {
     Math.cos(baseMoonElev + moonWobbleY);
 
   // Update water shader uniform — the GPU handles all wave displacement
-  window.waterUniforms.uTime.value = nowTime * 0.0015;
+  waterUniforms.uTime.value = nowTime * 0.0015;
 
   // Update global animation time for GPU-offloaded objects
-  if (!window.animationUniforms) window.animationUniforms = {uTime: {value: 0}};
-  window.animationUniforms.uTime.value = performance.now() * 0.001;
+  animationUniforms.uTime.value = performance.now() * 0.001;
 
   // Update global opacity materials outside of chunk loop
   if (typeof fireMat !== 'undefined') {

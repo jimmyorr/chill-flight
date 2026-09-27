@@ -1,7 +1,7 @@
 // map-loader.js
 import {MAP_HEIGHT_SCALE, MAP_WORLD_SIZE, WATER_LEVEL} from './constants.js';
 import {log} from './logger.js';
-import {chunks} from './terrain-geometry.js';
+import {chunks, clearElevationCache} from './terrain-geometry.js';
 import {updateChunks} from './terrain-chunks.js';
 import {scene} from './scene.js';
 import {planeGroup} from './airplane.js';
@@ -52,8 +52,8 @@ import {state} from './state.js';
     );
 
     // Clear elevation cache so memoized heights do not persist from procedural terrain
-    if (window.clearElevationCache) {
-      window.clearElevationCache();
+    if (clearElevationCache) {
+      clearElevationCache();
     }
 
     // Force terrain rebuild
