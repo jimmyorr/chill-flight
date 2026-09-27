@@ -10,8 +10,12 @@
  *  4. Strict west-only boundaries for highway canyon carving (X < 0)
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import {fileURLToPath} from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 console.log('Testing procedural terrain invariants...');
 
@@ -73,7 +77,9 @@ console.log(
 );
 
 // --- LOAD LOGIC & SIMPLEX NOISE FOR RUNTIME INVARIANTS ---
-const ChillFlightLogic = require('../chill-flight-logic.js');
+global.module = {exports: {}};
+eval(logicSrc);
+const ChillFlightLogic = global.module.exports;
 global.ChillFlightLogic = ChillFlightLogic;
 
 const noiseSrc = fs

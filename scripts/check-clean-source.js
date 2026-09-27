@@ -1,4 +1,4 @@
-const {execSync} = require('child_process');
+import {execSync} from 'child_process';
 
 // Parse CLI flags: --mode=all | --mode=source (default)
 const args = process.argv.slice(2);

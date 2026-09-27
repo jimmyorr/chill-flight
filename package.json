@@ -1,6 +1,7 @@
 {
   "name": "chill-flight",
   "version": "0.9.34",
+  "type": "module",
   "author": "Jimmy Orr",
   "license": "MIT",
   "scripts": {

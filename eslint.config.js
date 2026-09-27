@@ -1,8 +1,12 @@
-const globals = require('globals');
-const js = require('@eslint/js');
-const fs = require('fs');
-const path = require('path');
-const espree = require('espree');
+import globals from 'globals';
+import js from '@eslint/js';
+import fs from 'fs';
+import path from 'path';
+import * as espree from 'espree';
+import {fileURLToPath} from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Dynamically collect all top-level declared identifiers across project scripts
 const gameGlobals = {
@@ -62,7 +66,7 @@ for (const file of rootFiles) {
   }
 }
 
-module.exports = [
+export default [
   js.configs.recommended,
   {
     files: ['**/*.js'],
@@ -86,6 +90,7 @@ module.exports = [
   {
     files: ['scripts/**/*.js', 'eslint.config.js'],
     languageOptions: {
+      sourceType: 'module',
       globals: {
         ...globals.node,
       },

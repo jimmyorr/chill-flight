@@ -1,5 +1,10 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import {fileURLToPath} from 'url';
+import {execSync} from 'child_process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const readmePath = path.join(__dirname, '../README.md');
 const packageJsonPath = path.join(__dirname, '../package.json');
@@ -164,7 +169,6 @@ fs.writeFileSync(aboutPath, aboutContent, 'utf8');
 console.log('Successfully updated description in public/about.html');
 
 // Format the updated files using Prettier so they don't appear as unstaged changes later
-const {execSync} = require('child_process');
 console.log('Formatting synced files...');
 try {
   execSync('npx prettier --write package.json index.html public/about.html', {
