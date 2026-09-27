@@ -214,12 +214,24 @@ async function exerciseControls(page, tag) {
     await page.keyboard.press(key);
     await page.keyboard.up('Shift');
   };
-  const isPaused = () =>
-    page.evaluate(
-      () =>
-        getComputedStyle(document.getElementById('pause-overlay')).display !==
-        'none'
-    );
+  const isPaused = () => isVisible('#pause-overlay');
+  const isVisible = (sel) =>
+    page.evaluate((s) => {
+      const el = document.querySelector(s);
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return (
+        cs.display !== 'none' &&
+        cs.visibility !== 'hidden' &&
+        !el.classList.contains('hidden') &&
+        el.getClientRects().length > 0
+      );
+    }, sel);
+  const clickAndCheck = async (sel, target, expectVisible, what) => {
+    await page.click(sel).catch((err) => fail(`${what}: ${err.message}`));
+    await wait(800);
+    if ((await isVisible(target)) !== expectVisible) fail(`${what} failed`);
+  };
 
   // Debug panel (Shift+D) exposes live flight values in the DOM.
   await shifted('D');
@@ -262,15 +274,48 @@ async function exerciseControls(page, tag) {
   await shifted('U'); // rainbow
   await wait(1500);
 
+  const minimapBefore = await isVisible('#minimap-container');
+  await page.keyboard.press('m');
+  await wait(800);
+  if ((await isVisible('#minimap-container')) === minimapBefore) {
+    fail('m did not toggle the minimap');
+  }
+
   await page.keyboard.press('Escape');
   await wait(500);
   if (!(await isPaused())) fail('Escape did not pause the game');
+  await clickAndCheck(
+    '#achievements-btn',
+    '#achievements-overlay',
+    true,
+    'open achievements'
+  );
+  await clickAndCheck(
+    '#achievements-close-btn',
+    '#achievements-overlay',
+    false,
+    'close achievements'
+  );
+  await clickAndCheck(
+    '#pause-map-btn',
+    '#fullscreen-map-overlay',
+    true,
+    'open map from pause menu'
+  );
+  await clickAndCheck(
+    '#fullscreen-map-close-btn',
+    '#fullscreen-map-overlay',
+    false,
+    'close fullscreen map'
+  );
   await page
     .click('#resume-btn')
     .catch((err) => fail(`resume: ${err.message}`));
   await wait(800);
   if (await isPaused()) fail('resume button did not unpause the game');
-  console.log('  controls: move, throttle, steer, camera, toggles, pause ok');
+  console.log(
+    '  controls: move, throttle, steer, camera, toggles, minimap, pause menu ok'
+  );
 }
 
 const browser = await puppeteer.launch({
