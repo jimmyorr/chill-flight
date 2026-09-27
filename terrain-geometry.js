@@ -28,6 +28,29 @@ export var _waterGeometryPool = [];
 
 var _instancedMeshPool = new Map();
 
+// Shadow depth materials for instanced meshes. By default three.js renders
+// every shadow caster with one shared depth material, which then keeps
+// switching shader variants between instanced and regular meshes (and
+// instanced meshes with and without per-instance colors), re-deriving its
+// program ~30 times per frame. One material per variant keeps each stable.
+const _instancedDepthMat = new THREE.MeshDepthMaterial();
+const _instancedColorDepthMat = new THREE.MeshDepthMaterial();
+
+export function useInstancedDepthMaterial(mesh) {
+  let override;
+  Object.defineProperty(mesh, 'customDepthMaterial', {
+    get() {
+      if (override) return override;
+      return this.instanceColor ? _instancedColorDepthMat : _instancedDepthMat;
+    },
+    // A mesh can still set its own (e.g. the windmill blades).
+    set(material) {
+      override = material;
+    },
+    configurable: true,
+  });
+}
+
 export function getInstancedMesh(geometry, material, count) {
   const key =
     geometry.uuid +
@@ -55,6 +78,7 @@ export function getInstancedMesh(geometry, material, count) {
   // Allocate with extra capacity to prevent frequent resizing
   const allocCount = Math.max(count, 16);
   const mesh = new THREE.InstancedMesh(geometry, material, allocCount);
+  useInstancedDepthMaterial(mesh);
   mesh.frustumCulled = false;
   mesh.count = count;
   return mesh;
@@ -2807,6 +2831,11 @@ export var reflectionMat = new THREE.MeshBasicMaterial({
   transparent: true,
   opacity: 0.35,
   side: THREE.DoubleSide,
+  // Without this, three.js draws transparent double-sided meshes in two
+  // passes and flags the material changed before each, re-deriving its shader
+  // program on every draw (~100x per frame here). One flat color blends the
+  // same in any order, so a single pass looks identical.
+  forceSinglePass: true,
 });
 
 export var sailboatReflectionGeo = mergeGeometries([

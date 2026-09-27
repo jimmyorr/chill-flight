@@ -214,6 +214,7 @@ import {
   twoStoryBodyGeo,
   twoStoryChimneyGeo,
   twoStoryRoofGeo,
+  useInstancedDepthMaterial,
   waterMaterial,
   watercraftChunks,
   whiteSmokeMat,
@@ -263,6 +264,7 @@ class GlobalInstanceManager {
 
   registerType(type, geo, mat, maxInstances = 30000, useColor = false) {
     const instMesh = new THREE.InstancedMesh(geo, mat, maxInstances);
+    useInstancedDepthMaterial(instMesh);
     instMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     if (useColor) {
       instMesh.instanceColor = new THREE.InstancedBufferAttribute(
