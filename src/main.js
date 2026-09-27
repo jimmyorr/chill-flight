@@ -17,6 +17,9 @@ import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 
 // ES module game code. Runs before the classic <script defer> tags in index.html.
 import '../logger.js';
+import '../chill-flight-logic.js';
+import '../noise.js';
+import '../terrain-worker-manager.js';
 
 // Expose them globally so existing scripts can still find them
 window.THREE = {OrbitControls};

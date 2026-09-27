@@ -152,12 +152,13 @@
     </div>
 
     <!-- Scripts needed for generation -->
+    <!-- Modules and defer scripts run in document order after parsing. -->
     <script type="module" src="logger.js"></script>
-    <script src="chill-flight-logic.js"></script>
-    <script src="noise.js"></script>
-    <script src="constants.js"></script>
+    <script type="module" src="chill-flight-logic.js"></script>
+    <script type="module" src="noise.js"></script>
+    <script defer src="constants.js"></script>
 
-    <script>
+    <script type="module">
       // Set the default seed to the game's actual WORLD_SEED
       document.getElementById('input-seed').value = ChillFlightLogic.WORLD_SEED;
 

@@ -85,6 +85,9 @@ export default defineConfig({
   server: {
     host: true,
   },
+  worker: {
+    format: 'es',
+  },
   build: {
     outDir: 'docs',
     emptyOutDir: true,
@@ -183,25 +186,6 @@ export default defineConfig({
 
         await bundleHtml('index.html', 'game-bundle.js');
         await bundleHtml('debug-models.html', 'debug-models-bundle.js');
-
-        if (fs.existsSync('terrain-worker.js')) {
-          const workerCode =
-            // Same order as importScripts() in terrain-worker.js: noise.js
-            // needs ChillFlightLogic at load time.
-            fs.readFileSync('chill-flight-logic.js', 'utf-8') +
-            '\n;\n' +
-            fs.readFileSync('noise.js', 'utf-8') +
-            '\n;\n' +
-            fs.readFileSync('terrain-worker.js', 'utf-8');
-          const minifiedWorker = await transform(workerCode, {
-            minify: true,
-            target: 'es2020',
-          });
-          fs.writeFileSync(
-            path.join(outDir, 'terrain-worker.js'),
-            minifiedWorker.code
-          );
-        }
       },
     },
   ],

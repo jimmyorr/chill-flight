@@ -323,19 +323,11 @@
       window.MAP_WORLD_SIZE = 10000;
       window.MAP_HEIGHT_SCALE = 400;
       window.scene = new THREE.Scene(); // Mock scene for scripts to add to
-      window.ChillFlightLogic = {
-        SCALE: 1,
-        getPlaneColor: () => 0xe74c3c,
-        SHOW_CLOUDS: true,
-        SHOW_OBJECTS: true,
-        THEME: 'standard',
-      };
       window.simplex = {noise2D: () => 0}; // Mock noise
       window.animationUniforms = {uTime: {value: 0}};
       window.waterUniforms = {uTime: {value: 0}};
     </script>
 
-    <script defer src="chill-flight-logic.js"></script>
     <script defer src="constants.js"></script>
     <script defer src="airplane.js"></script>
     <script defer src="biplane.js"></script>

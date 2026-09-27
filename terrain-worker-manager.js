@@ -1,7 +1,7 @@
 // terrain-worker-manager.js
 // Phase 1: Worker Pool Manager
 
-class TerrainWorkerManager {
+export class TerrainWorkerManager {
   constructor(workerCount = null) {
     // Determine number of workers based on hardware, bounded between 1 and 4
     this.poolSize =
@@ -27,7 +27,11 @@ class TerrainWorkerManager {
   _initWorkers() {
     for (let i = 0; i < this.poolSize; i++) {
       try {
-        const worker = new Worker('./terrain-worker.js');
+        // Vite recognizes this pattern and bundles the worker in production.
+        const worker = new Worker(
+          new URL('./terrain-worker.js', import.meta.url),
+          {type: 'module'}
+        );
         worker.onmessage = this._handleMessage.bind(this, worker);
         worker.onerror = this._handleError.bind(this, worker);
         this.workers.push(worker);
@@ -171,7 +175,7 @@ class TerrainWorkerManager {
   }
 }
 
-// Export singleton instance if in browser
-if (typeof window !== 'undefined') {
-  window.terrainWorkerManager = new TerrainWorkerManager();
-}
+export const terrainWorkerManager = new TerrainWorkerManager();
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+window.terrainWorkerManager = terrainWorkerManager;

@@ -1,6 +1,13 @@
 // --- SIMPLEX NOISE IMPLEMENTATION ---
 // A compact, self-contained 2D simplex noise generator for procedural terrain
-const SimplexNoise = function () {
+import {ChillFlightLogic} from './chill-flight-logic.js';
+
+const grad3 = new Float32Array([
+  1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1, 0, 1, 0, 1, -1, 0, 1, 1, 0, -1, -1, 0,
+  -1, 0, 1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1,
+]);
+
+export const SimplexNoise = function () {
   var F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
   var G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
   var p = new Uint8Array(256);
@@ -198,8 +205,8 @@ const SimplexNoise = function () {
     },
   };
 };
-const grad3 = new Float32Array([
-  1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1, 0, 1, 0, 1, -1, 0, 1, 1, 0, -1, -1, 0,
-  -1, 0, 1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1,
-]);
-const simplex = SimplexNoise();
+export const simplex = SimplexNoise();
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+globalThis.SimplexNoise = SimplexNoise;
+globalThis.simplex = simplex;

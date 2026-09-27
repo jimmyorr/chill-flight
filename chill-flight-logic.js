@@ -1,6 +1,8 @@
 // --- CHILL FLIGHT LOGIC ---
 // Pure, side-effect-free functions extracted for testability.
-// Works in both Node.js (CommonJS) and the browser (exposes window.ChillFlightLogic).
+// ES module shared by the game, the terrain worker, and Node tests.
+
+export const ChillFlightLogic = {};
 
 (function (exports) {
   // --- WORLD SEED ---
@@ -2359,10 +2361,7 @@
   }
 
   exports.computeFlightRotation = computeFlightRotation;
-})(
-  typeof module !== 'undefined'
-    ? module.exports
-    : typeof window !== 'undefined'
-      ? (window.ChillFlightLogic = {})
-      : (self.ChillFlightLogic = {})
-);
+})(ChillFlightLogic);
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+globalThis.ChillFlightLogic = ChillFlightLogic;

@@ -1,10 +1,8 @@
-/* global importScripts, ChillFlightLogic, simplex */
 // terrain-worker.js
 // Procedural Terrain Web Worker (Phase 4: Elevation, Water, Terrain Colors & Props)
 
-if (typeof ChillFlightLogic === 'undefined') {
-  importScripts('./chill-flight-logic.js', './noise.js');
-}
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {simplex} from './noise.js';
 
 function hue2rgb(p, q, t) {
   let tempT = t;
@@ -122,8 +120,6 @@ const _colorWetSand = new Color(0xb09d6b);
 const _colorDesertSand = new Color(0xf4a460);
 const _colorDesertWetSand = new Color(0xc47e3c);
 const _colorWater = new Color(0x40c4ff);
-const _colorIcyWater = new Color(0x88ccff);
-const _colorDesertWater = new Color(0x00ced1);
 const _colorSandSnowTint = new Color(0x999999);
 const _colorUpperSandSnowTint = new Color(0xdddddd);
 const _colorForestSnowTint = new Color(0x8ba192);
@@ -139,7 +135,6 @@ const _colorAutumnForestTint = new Color(0x5d4037);
 const _colorAutumnPlainsTint = new Color(0x8d6e63);
 const _colorCherryForestTint = new Color(0xf8bbd0);
 const _colorCherryPlainsTint = new Color(0xfce4ec);
-const _colorBlack = new Color(0x000000);
 const _colorSandMottleHigh = new Color(0xd2b48c);
 const _colorSandMottleLow = new Color(0xdeb887);
 const _colorArizonaDark = new Color(0x8b0000);

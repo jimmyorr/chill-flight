@@ -9,7 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Root files already converted to ES modules (see src/main.js imports).
-const ESM_FILES = ['logger.js'];
+const ESM_FILES = [
+  'logger.js',
+  'chill-flight-logic.js',
+  'noise.js',
+  'terrain-worker-manager.js',
+  'terrain-worker.js',
+];
 
 // Dynamically collect all top-level declared identifiers across project scripts
 const gameGlobals = {
@@ -60,7 +66,8 @@ for (const file of rootFiles) {
         if (
           left.type === 'MemberExpression' &&
           left.object.type === 'Identifier' &&
-          left.object.name === 'window' &&
+          (left.object.name === 'window' ||
+            left.object.name === 'globalThis') &&
           left.property.type === 'Identifier'
         ) {
           gameGlobals[left.property.name] = 'writable';

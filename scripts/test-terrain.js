@@ -13,6 +13,8 @@
 import fs from 'fs';
 import path from 'path';
 import {fileURLToPath} from 'url';
+import {ChillFlightLogic} from '../chill-flight-logic.js';
+import {simplex} from '../noise.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,17 +78,6 @@ console.log(
   '  Passed: No intermediate early returns found in getElevation() pipeline'
 );
 
-// --- LOAD LOGIC & SIMPLEX NOISE FOR RUNTIME INVARIANTS ---
-global.module = {exports: {}};
-eval(logicSrc);
-const ChillFlightLogic = global.module.exports;
-global.ChillFlightLogic = ChillFlightLogic;
-
-const noiseSrc = fs
-  .readFileSync(path.join(__dirname, '..', 'noise.js'), 'utf8')
-  .replace('const simplex =', 'global.simplex =');
-eval(noiseSrc);
-
 const constants = {
   WATER_LEVEL: 40,
   MAP_WORLD_SIZE: 10000,
@@ -102,7 +93,7 @@ for (const testZ of testLats) {
     const elev = ChillFlightLogic.getElevation(
       testX,
       testZ,
-      global.simplex,
+      simplex,
       constants
     );
     if (elev < constants.WATER_LEVEL + 1.5) {
@@ -128,7 +119,7 @@ for (const testX of [55000, 65000, 75000]) {
     const elev = ChillFlightLogic.getElevation(
       testX,
       testZ,
-      global.simplex,
+      simplex,
       constants
     );
     if (elev > constants.WATER_LEVEL + 50) {
@@ -154,7 +145,7 @@ for (let testX = 0; testX <= 30000; testX += 5000) {
     const elevWithRoads = ChillFlightLogic.getElevation(
       testX,
       testZ,
-      global.simplex,
+      simplex,
       constants,
       null,
       {ignoreRoads: false}
@@ -162,7 +153,7 @@ for (let testX = 0; testX <= 30000; testX += 5000) {
     const elevNoRoads = ChillFlightLogic.getElevation(
       testX,
       testZ,
-      global.simplex,
+      simplex,
       constants,
       null,
       {ignoreRoads: true}
