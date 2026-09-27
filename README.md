@@ -143,7 +143,7 @@ Fog density follows the conditions; the thickest applicable condition wins:
 - **Rain and snow**: The thickest fog, closing in the horizon.
 - **After rain**: Mist lingers after precipitation stops and clears over about two minutes.
 
-The values live in `FOG` in `chill-flight-logic.js`. The debug menu's base fog slider overrides the clear-sky density.
+The values live in `FOG` in `chill-flight-logic.js`. The debug menu's clear-sky fog slider overrides the clear-sky density; the other conditions still thicken it from there.
 
 ### Atmospheric phenomena
 
