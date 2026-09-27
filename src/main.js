@@ -21,6 +21,8 @@ import '../achievements.js';
 import '../input-manager.js';
 import '../game-audio-integration.js';
 import '../weather-manager.js';
+import '../flight-physics.js';
+import '../flight-camera.js';
 
 // Startup banner
 const appVersion = window.__APP_VERSION__ || '0.0.0';

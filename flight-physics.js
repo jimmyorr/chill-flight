@@ -1,4 +1,11 @@
-function updateFlightPhysics(delta, nowTime) {
+import * as THREE from 'three';
+import {getElevation} from './terrain-geometry.js';
+import {planeGroup, pontoonGroup} from './airplane.js';
+import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
+import {rainParticles} from './weather-manager.js';
+import {state} from './state.js';
+
+export function updateFlightPhysics(delta, nowTime) {
   // --- FLIGHT PHYSICS & SPEED ---
   const terrainHeight = getElevation(
     planeGroup.position.x,
@@ -14,7 +21,7 @@ function updateFlightPhysics(delta, nowTime) {
 
   if (
     !isFreeCamera &&
-    (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0)
+    (state.flightSpeedMultiplier > 0 || Math.abs(state.targetFlightSpeed) > 0)
   ) {
     // Apply the yaw calculated by the flight model
     planeGroup.rotation.y = window._nextYaw;
@@ -33,10 +40,10 @@ function updateFlightPhysics(delta, nowTime) {
         planeGroup.position.y < minFlightHeight + softBuffer;
 
       if (!isAvoidingGround) {
-        flightSpeedMultiplier += gravityEffect * 0.7 * delta;
+        state.flightSpeedMultiplier += gravityEffect * 0.7 * delta;
       } else {
         // Dramatically reduced acceleration when skimming the ground/water
-        flightSpeedMultiplier += gravityEffect * 0.1 * delta;
+        state.flightSpeedMultiplier += gravityEffect * 0.1 * delta;
       }
     }
   }
@@ -45,21 +52,24 @@ function updateFlightPhysics(delta, nowTime) {
   // Automatically return to the target throttle speed.
   // We update this even at speed 0 so the vehicle can start moving again.
   if (
-    Math.abs(flightSpeedMultiplier) > 0.001 ||
-    Math.abs(targetFlightSpeed) > 0.001
+    Math.abs(state.flightSpeedMultiplier) > 0.001 ||
+    Math.abs(state.targetFlightSpeed) > 0.001
   ) {
     let recoveryRate = 0.6;
 
-    if (keys.Shift || flightSpeedMultiplier < targetFlightSpeed) {
+    if (keys.Shift || state.flightSpeedMultiplier < state.targetFlightSpeed) {
       recoveryRate = 10.0; // Snappy responsiveness for active control/acceleration
     }
-    flightSpeedMultiplier = THREE.MathUtils.lerp(
-      flightSpeedMultiplier,
-      targetFlightSpeed,
+    state.flightSpeedMultiplier = THREE.MathUtils.lerp(
+      state.flightSpeedMultiplier,
+      state.targetFlightSpeed,
       recoveryRate * delta
     );
 
-    flightSpeedMultiplier = Math.max(0, Math.min(10, flightSpeedMultiplier));
+    state.flightSpeedMultiplier = Math.max(
+      0,
+      Math.min(10, state.flightSpeedMultiplier)
+    );
   }
 
   // Altitude and Speed constants
@@ -67,20 +77,21 @@ function updateFlightPhysics(delta, nowTime) {
   const controlAlt = Math.round(controlBaseAlt * 25);
 
   // Move vehicle
-  const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
+  const currentKTS =
+    BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
   // Lower threshold for isFreefalling to eliminate the "stuck in mid-air" dead zone
   const isFreefalling =
     currentKTS < 50 && planeGroup.position.y > restingHeight + 2;
 
   // Apply forward movement
-  if (!isFreeCamera && flightSpeedMultiplier > 0) {
+  if (!isFreeCamera && state.flightSpeedMultiplier > 0) {
     planeGroup.translateZ(
-      -(BASE_FLIGHT_SPEED * flightSpeedMultiplier * delta * 60)
+      -(BASE_FLIGHT_SPEED * state.flightSpeedMultiplier * delta * 60)
     );
   }
 
-  if (flightSpeedMultiplier > 0 && !isFreefalling) {
-    verticalVelocity = 0; // Reset gravity accumulation while flying normally
+  if (state.flightSpeedMultiplier > 0 && !isFreefalling) {
+    state.verticalVelocity = 0; // Reset gravity accumulation while flying normally
 
     // Low speed stall/sink mechanics
     if (currentKTS < 100 && planeGroup.position.y > minFlightHeight) {
@@ -92,15 +103,21 @@ function updateFlightPhysics(delta, nowTime) {
   if (!isFreeCamera && isFreefalling) {
     // Freefall tumble & accelerating gravity
     const GRAVITY = 120; // units/sec² — feels weighty but not instant
-    verticalVelocity -= GRAVITY * delta;
+    state.verticalVelocity -= GRAVITY * delta;
 
     // Cap terminal velocity so it doesn't go impossibly fast
     const TERMINAL_VELOCITY = -600;
-    verticalVelocity = Math.max(verticalVelocity, TERMINAL_VELOCITY);
+    state.verticalVelocity = Math.max(
+      state.verticalVelocity,
+      TERMINAL_VELOCITY
+    );
 
-    planeGroup.position.y += verticalVelocity * delta;
+    planeGroup.position.y += state.verticalVelocity * delta;
 
-    const tumbleIntensity = Math.min(1.5, Math.abs(verticalVelocity) / 300);
+    const tumbleIntensity = Math.min(
+      1.5,
+      Math.abs(state.verticalVelocity) / 300
+    );
     planeGroup.rotation.x +=
       (Math.sin(nowTime * 0.002) + Math.cos(nowTime * 0.0011)) *
       0.8 *
@@ -118,7 +135,7 @@ function updateFlightPhysics(delta, nowTime) {
       delta;
   } else if (!isFreeCamera && planeGroup.position.y <= restingHeight + 0.1) {
     // Grounded — rest flat peacefully, kill vertical velocity
-    verticalVelocity = 0;
+    state.verticalVelocity = 0;
     targetPitch = 0;
     targetRoll = 0;
     while (planeGroup.rotation.x > Math.PI)
@@ -190,7 +207,7 @@ function updateFlightPhysics(delta, nowTime) {
     // Hard clamp at the actual minimum
     if (planeGroup.position.y < minFlightHeight) {
       planeGroup.position.y = minFlightHeight;
-      verticalVelocity = 0; // Kill accumulated gravity immediately on ground impact
+      state.verticalVelocity = 0; // Kill accumulated gravity immediately on ground impact
     }
   }
 
@@ -200,9 +217,9 @@ function updateFlightPhysics(delta, nowTime) {
     }
     if (!pontoonGroup.visible) {
       pontoonGroup.scale.setScalar(0);
-      pontoonDeploymentProgress = 0;
+      state.pontoonDeploymentProgress = 0;
       pontoonGroup.visible = true;
-      isDeployingPontoons = true;
+      state.isDeployingPontoons = true;
     }
     const isThrottlingUp =
       keys.Shift ||
@@ -211,10 +228,13 @@ function updateFlightPhysics(delta, nowTime) {
         inputManager.isThrottlingUp());
     if (!isThrottlingUp) {
       // Apply water drag: smoothly reduce targetFlightSpeed to 0
-      targetFlightSpeed = Math.max(0, targetFlightSpeed - delta * 0.5);
+      state.targetFlightSpeed = Math.max(
+        0,
+        state.targetFlightSpeed - delta * 0.5
+      );
     }
-    if (targetFlightSpeed === 0 && flightSpeedMultiplier < 0.05) {
-      flightSpeedMultiplier = 0; // Force full stop to prevent prop twitching
+    if (state.targetFlightSpeed === 0 && state.flightSpeedMultiplier < 0.05) {
+      state.flightSpeedMultiplier = 0; // Force full stop to prevent prop twitching
     }
     // When on water, force neutral pitch/roll to ensure a level rest on water
     targetPitch = THREE.MathUtils.lerp(targetPitch, 0, 0.05 * delta * 60);
@@ -226,8 +246,12 @@ function updateFlightPhysics(delta, nowTime) {
     planeGroup.position.y = maxFlightHeight;
   }
 
-  if (controlAlt >= 2000 && pontoonGroup.visible && !isRetractingPontoons) {
-    isRetractingPontoons = true;
+  if (
+    controlAlt >= 2000 &&
+    pontoonGroup.visible &&
+    !state.isRetractingPontoons
+  ) {
+    state.isRetractingPontoons = true;
   }
 
   const currentY = planeGroup.position.y;
@@ -236,9 +260,11 @@ function updateFlightPhysics(delta, nowTime) {
 
   if (isWater && controlAlt < 1500 && isDescending && !pontoonGroup.visible) {
     pontoonGroup.scale.setScalar(0);
-    pontoonDeploymentProgress = 0;
+    state.pontoonDeploymentProgress = 0;
     pontoonGroup.visible = true;
-    isDeployingPontoons = true;
+    state.isDeployingPontoons = true;
   }
 }
 window.updateFlightPhysics = updateFlightPhysics;
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.

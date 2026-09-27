@@ -31,6 +31,8 @@ const ESM_FILES = [
   'input-manager.js',
   'game-audio-integration.js',
   'weather-manager.js',
+  'flight-physics.js',
+  'flight-camera.js',
 ];
 
 const isGlobalObject = (node) =>

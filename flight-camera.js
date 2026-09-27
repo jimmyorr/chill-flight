@@ -1,4 +1,29 @@
-function updateFlightCamera(delta, nowTime) {
+import * as THREE from 'three';
+import {camera, moonMesh, sunMesh} from './sky.js';
+import {updateChunks} from './terrain-chunks.js';
+import {planeGroup} from './airplane.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {
+  birdChunks,
+  chunks,
+  fireMat,
+  getElevation,
+  smokeMat,
+  watercraftChunks,
+  whiteSmokeMat,
+} from './terrain-geometry.js';
+import {
+  BASE_FLIGHT_SPEED,
+  LIGHTHOUSE_BEAM_OPACITY_MAX,
+  LIGHTHOUSE_BEAM_OPACITY_MIN,
+  LIGHTHOUSE_LIGHT_INTENSITY,
+  WATER_LEVEL,
+  updateDOM,
+} from './constants.js';
+import {log} from './logger.js';
+import {state} from './state.js';
+
+export function updateFlightCamera(delta, nowTime) {
   // --- CAMERA UPDATES ---
 
   if (isFreeCamera) {
@@ -77,7 +102,7 @@ function updateFlightCamera(delta, nowTime) {
       typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
     const mobileCameraScale = isPortrait || isNative ? 1.35 : 1.0;
 
-    const speedFactor = (flightSpeedMultiplier - 0.5) / 9.5;
+    const speedFactor = (state.flightSpeedMultiplier - 0.5) / 9.5;
     const diveFactor = Math.max(0, -planeGroup.rotation.x / (Math.PI / 4)); // 1.0 at 45 degree dive
 
     const zOffset = THREE.MathUtils.lerp(
@@ -107,7 +132,9 @@ function updateFlightCamera(delta, nowTime) {
     const targetFov = Math.min(
       75,
       baseFov +
-        smoothedManeuverFactor * 15 * Math.min(1, flightSpeedMultiplier / 2)
+        smoothedManeuverFactor *
+          15 *
+          Math.min(1, state.flightSpeedMultiplier / 2)
     );
 
     camera.fov = THREE.MathUtils.lerp(
@@ -119,12 +146,15 @@ function updateFlightCamera(delta, nowTime) {
 
     // Pull back the camera during high-G maneuvers for extra scale
     const pullBack =
-      smoothedManeuverFactor * 20 * Math.min(1, flightSpeedMultiplier / 2);
+      smoothedManeuverFactor *
+      20 *
+      Math.min(1, state.flightSpeedMultiplier / 2);
     _cameraOffset.set(0, yOffset, zOffset + pullBack);
 
     // Add subtle camera vibration at high speeds/steep dives
-    if (flightSpeedMultiplier > 4.0 && diveFactor > 0.5) {
-      const shakeIntensity = (flightSpeedMultiplier - 4.0) * 0.05 * diveFactor;
+    if (state.flightSpeedMultiplier > 4.0 && diveFactor > 0.5) {
+      const shakeIntensity =
+        (state.flightSpeedMultiplier - 4.0) * 0.05 * diveFactor;
       _cameraOffset.x += (Math.random() - 0.5) * shakeIntensity;
       _cameraOffset.y += (Math.random() - 0.5) * shakeIntensity;
     }
@@ -389,7 +419,7 @@ function updateFlightCamera(delta, nowTime) {
   // 1. Realistic Sun Path
   const latitude = currentLatRad;
   const declination = 0.409; // Summer tilt
-  const hourAngle = timeOfDay + Math.PI;
+  const hourAngle = state.timeOfDay + Math.PI;
 
   sunY =
     Math.sin(latitude) * Math.sin(declination) +
@@ -635,7 +665,8 @@ function updateFlightCamera(delta, nowTime) {
     typeof watercraftChunks !== 'undefined' ? watercraftChunks : chunks;
 
   const isTimePaused =
-    typeof daySpeedMultiplier !== 'undefined' && daySpeedMultiplier === 0;
+    typeof state.daySpeedMultiplier !== 'undefined' &&
+    state.daySpeedMultiplier === 0;
 
   if (typeof window._frameCount === 'undefined') window._frameCount = 0;
   window._frameCount++;
@@ -850,7 +881,7 @@ function updateFlightCamera(delta, nowTime) {
   const hudTarget = isFreeCamera ? camera : planeGroup;
   const hudHeadingY = isFreeCamera ? camera.rotation.y : planeGroup.rotation.y;
 
-  const hours = (timeOfDay / (Math.PI * 2)) * 24;
+  const hours = (state.timeOfDay / (Math.PI * 2)) * 24;
   const hh = Math.floor(hours).toString().padStart(2, '0');
   const mm = Math.floor((hours % 1) * 60)
     .toString()
@@ -866,7 +897,7 @@ function updateFlightCamera(delta, nowTime) {
     Math.abs(lonVal).toFixed(3) + '\u00b0 ' + (lonVal >= 0 ? 'E' : 'W');
   const coordStr = `${latStr} ${lonStr}`;
   const altStr = `${Math.round(Math.max(0, hudTarget.position.y - 45.5) * 25)}`;
-  const spdStr = `${Math.round(BASE_FLIGHT_SPEED * flightSpeedMultiplier * 60)} KTS`;
+  const spdStr = `${Math.round(BASE_FLIGHT_SPEED * state.flightSpeedMultiplier * 60)} KTS`;
 
   updateDOM('cockpit-time', timeStr);
   updateDOM('cockpit-dir', dirStr);
@@ -886,3 +917,5 @@ function updateFlightCamera(delta, nowTime) {
   );
 }
 window.updateFlightCamera = updateFlightCamera;
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
