@@ -1,4 +1,246 @@
 // --- GLOBAL INSTANCING ARCHITECTURE ---
+import * as THREE from 'three';
+import {scene} from './scene.js';
+import {
+  ALIEN_MUSHROOM_CAP_COLORS,
+  BRIDGE_SEGMENT_LENGTH,
+  VOLCANO_X,
+  VOLCANO_Z,
+  _colorAlpineRockDark,
+  _colorAlpineRockLight,
+  _colorArizonaDark,
+  _colorAutumnForestTint,
+  _colorAutumnPlainsTint,
+  _colorBlack,
+  _colorCherryForestTint,
+  _colorCherryPlainsTint,
+  _colorCliffSouth,
+  _colorDesertMottle,
+  _colorDesertMountainRock,
+  _colorDesertSand,
+  _colorDesertWater,
+  _colorDesertWetSand,
+  _colorEasternCliff,
+  _colorEasternLowland,
+  _colorEasternPeak,
+  _colorEasternRock,
+  _colorEasternWater,
+  _colorForest,
+  _colorForestDark,
+  _colorForestDeep,
+  _colorForestDesertTint,
+  _colorForestLight,
+  _colorForestSnowTint,
+  _colorIce,
+  _colorIcyWater,
+  _colorMountainTint,
+  _colorPackIce,
+  _colorPlains,
+  _colorPlainsBright,
+  _colorPlainsDark,
+  _colorPlainsSnowTint,
+  _colorSand,
+  _colorSandMottleHigh,
+  _colorSandMottleLow,
+  _colorSandSnowTint,
+  _colorScree,
+  _colorSnow,
+  _colorUpperSandSnowTint,
+  _colorVolcanoBasaltHi,
+  _colorVolcanoBasaltLo,
+  _colorWater,
+  _colorWesternCliff,
+  _colorWesternLowland,
+  _colorWesternPeak,
+  _colorWesternRock,
+  _colorWesternWater,
+  _colorWetSand,
+  _terrainGeometryPool,
+  _waterGeometryPool,
+  assembleHawk,
+  assembleSeagull,
+  barnBodyGeo,
+  barnBodyMat,
+  barnDoorGeo,
+  barnRoofGeo,
+  barnRoofMat,
+  barnSiloBodyGeo,
+  barnSiloMat,
+  barnSiloRoofGeo,
+  barnSiloRoofMat,
+  barnTrimGeo,
+  barnWhiteMat,
+  birdChunks,
+  boatBoomGeo,
+  boatDeckGeo,
+  boatDeckMat,
+  boatHullGeo,
+  boatHullPalette,
+  boatMastGeo,
+  boatRimGeo,
+  boatRimMat,
+  boatSailGeo,
+  boatSailMat,
+  bridgeDeckGeo,
+  bridgeDeckMat,
+  bridgeGirderGeo,
+  bridgeGirderMat,
+  bridgePierCapGeo,
+  bridgePierFootingGeo,
+  bridgePierShaftGeo,
+  bridgePilingMat,
+  bridgeRailGeo,
+  bushBaseMat,
+  bushGeo,
+  cactusGeo,
+  cactusMat,
+  castleRuinsGeo,
+  castleRuinsMat,
+  chunkQueueSet,
+  chunks,
+  createRockArchGeometries,
+  deadTreeGeo,
+  deadTreeMat,
+  deciduousGeos,
+  desertRockMat,
+  fireCoreGeo,
+  fireLogGeo,
+  fireMat,
+  getBiome,
+  getElevation,
+  getInstancedMesh,
+  gooseBeakGeo,
+  gooseBlackMat,
+  gooseBodyGeo,
+  gooseBrownMat,
+  gooseCheekGeo,
+  gooseHeadGeo,
+  gooseNeckGeo,
+  gooseTailGeo,
+  gooseWhiteMat,
+  gooseWhiteTailGeo,
+  gooseWingGeo,
+  houseBodyGeo,
+  houseBodyPalette,
+  houseChimneyGeo,
+  houseChimneyMat,
+  houseDoorGeo,
+  houseDoorMat,
+  houseRoofGeo,
+  houseRoofPalette,
+  houseWindowGeo,
+  houseWindowMats,
+  iceFloeMainGeo,
+  icebergMainGeo,
+  icebergMat,
+  japaneseMapleGeos,
+  lighthouseBeamMat,
+  lilyPadGeo,
+  lilyPadMat,
+  monasteryBodyGeo,
+  monasteryBodyMat,
+  monasteryRoofGeo,
+  monasteryRoofMat,
+  mushroomGeos,
+  mushroomStalkMat,
+  pagodaBodyGeo,
+  pagodaBodyMat,
+  pagodaRoofGeo,
+  pagodaRoofMat,
+  palmGeos,
+  penguinBeakGeo,
+  penguinBellyGeo,
+  penguinBlackMat,
+  penguinBodyGeo,
+  penguinFootLGeo,
+  penguinFootRGeo,
+  penguinHeadGeo,
+  penguinOrangeMat,
+  penguinWhiteMat,
+  penguinWingLGeo,
+  penguinWingRGeo,
+  persistentLighthouseBeam,
+  persistentLighthouseLight,
+  pierDeckGeo,
+  pierPostGeo,
+  pirateDeckGeo,
+  pirateFlagGeo,
+  pirateFlagMat,
+  pirateHullGeo,
+  pirateHullMat,
+  pirateJollyRogerGeo,
+  pirateJollyRogerMat,
+  pirateMastGeo,
+  pirateRimGeo,
+  pirateRimMat,
+  pirateSailGeo,
+  pirateSailPalette,
+  pirateShipReflectionGeo,
+  reflectionMat,
+  releaseInstancedMesh,
+  rockArchGrassMat,
+  rockGeo,
+  rockMat,
+  sailboatReflectionGeo,
+  smokeGeo,
+  smokeMat,
+  snowRockMat,
+  snowmanBodyMat,
+  snowmanGeos,
+  snowmanNoseMat,
+  strawHutBodyGeo,
+  strawHutMat,
+  strawHutRoofGeo,
+  streetlightArmGeo,
+  streetlightBulbGeo,
+  streetlightDecalGeo,
+  streetlightPoleGeo,
+  streetlightPoleMat,
+  tallDeciduousGeos,
+  tentEntranceGeo,
+  tentEntranceMat,
+  tentGeo,
+  tentPalette,
+  tentPolesGeo,
+  terrainMaterial,
+  treeLeavesBaseMat,
+  treeLeavesGeo,
+  treeTrunkGeo,
+  treeTrunkMat,
+  twoStoryBodyGeo,
+  twoStoryChimneyGeo,
+  twoStoryRoofGeo,
+  waterMaterial,
+  watercraftChunks,
+  whiteSmokeMat,
+  windmillBaseGeo,
+  windmillBaseMat,
+  windmillBladesDepthMat,
+  windmillBladesGeo,
+  windmillBladesMat,
+  woodMat,
+  yAxis,
+} from './terrain-geometry.js';
+import {
+  CHUNK_SIZE,
+  ENABLE_BARNS,
+  ENABLE_CASTLE_RUINS,
+  ENABLE_LIGHTHOUSES,
+  ENABLE_MONASTERIES,
+  ENABLE_PAGODAS,
+  MAP_HEIGHT_SCALE,
+  MAP_WORLD_SIZE,
+  MOUNTAIN_LEVEL,
+  WATER_LEVEL,
+} from './constants.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {log} from './logger.js';
+import {simplex} from './noise.js';
+import {camera} from './sky.js';
+import {planeGroup} from './airplane.js';
+import {terrainWorkerManager} from './terrain-worker-manager.js';
+import {state} from './state.js';
+
 class GlobalInstanceManager {
   constructor() {
     this.types = new Map();
@@ -24,7 +266,7 @@ class GlobalInstanceManager {
       instMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
     }
     instMesh.frustumCulled = false;
-    instMesh.visible = _enableObjects;
+    instMesh.visible = state._enableObjects;
     instMesh.count = 0;
     instMesh.receiveShadow = true;
     instMesh.castShadow = true;
@@ -91,7 +333,7 @@ class GlobalInstanceManager {
           typeInfo.mesh.instanceColor.addUpdateRange(0, count * 3);
           typeInfo.mesh.instanceColor.needsUpdate = true;
         }
-        typeInfo.mesh.visible = _enableObjects;
+        typeInfo.mesh.visible = state._enableObjects;
       } else {
         typeInfo.mesh.visible = false;
       }
@@ -99,7 +341,7 @@ class GlobalInstanceManager {
   }
 }
 
-var globalInstancer = new GlobalInstanceManager();
+export var globalInstancer = new GlobalInstanceManager();
 window.globalInstancer = globalInstancer;
 
 class ChunkDataCollector {
@@ -239,13 +481,13 @@ function queueWorkerChunk(cx, cz, key, priority = 0) {
     MAP_HEIGHT_SCALE,
   };
 
-  const req = window.terrainWorkerManager
+  const req = terrainWorkerManager
     .requestChunk(cx, cz, {
-      segments: SEGMENTS,
+      segments: state.SEGMENTS,
       chunkSize: CHUNK_SIZE,
       elevParams,
       worldSeed: ChillFlightLogic.WORLD_SEED,
-      enableObjects: _enableObjects,
+      enableObjects: state._enableObjects,
       priority,
     })
     .then((result) => {
@@ -271,10 +513,10 @@ window.clearChunkQueue = function () {
   workerChunkResults.clear();
   if (
     typeof window !== 'undefined' &&
-    window.terrainWorkerManager &&
-    window.terrainWorkerManager.isSupported
+    terrainWorkerManager &&
+    terrainWorkerManager.isSupported
   ) {
-    window.terrainWorkerManager.cancelRequests(() => true);
+    terrainWorkerManager.cancelRequests(() => true);
   }
 };
 
@@ -297,7 +539,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   while (
     _terrainGeometryPool.length > 0 &&
     _terrainGeometryPool[_terrainGeometryPool.length - 1].parameters
-      .widthSegments !== SEGMENTS
+      .widthSegments !== state.SEGMENTS
   ) {
     _terrainGeometryPool.pop().dispose();
   }
@@ -307,8 +549,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     geometry = new THREE.PlaneGeometry(
       CHUNK_SIZE,
       CHUNK_SIZE,
-      SEGMENTS,
-      SEGMENTS
+      state.SEGMENTS,
+      state.SEGMENTS
     );
     geometry.rotateX(-Math.PI / 2);
     geometry.setAttribute(
@@ -372,10 +614,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   let hasWater = !!(workerData && workerData.hasWater);
 
   // Normalize density so higher SEGMENTS doesn't mean more trees/houses/etc
-  const densityFactor = 40 / SEGMENTS;
+  const densityFactor = 40 / state.SEGMENTS;
   const densityScale = densityFactor * densityFactor;
 
-  const gridX1 = SEGMENTS + 1;
+  const gridX1 = state.SEGMENTS + 1;
   const totalVerts = gridX1 * gridX1;
 
   let localHeightGrid;
@@ -441,7 +683,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       };
     }
   } else {
-    const gridSpacing = CHUNK_SIZE / SEGMENTS;
+    const gridSpacing = CHUNK_SIZE / state.SEGMENTS;
     const invGridSpacing = 1.0 / gridSpacing;
     const invTwoGridSpacing = 0.5 / gridSpacing;
 
@@ -463,7 +705,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       const iy = (vertIdx / gridX1) | 0;
 
       let slopeX;
-      if (ix > 0 && ix < SEGMENTS) {
+      if (ix > 0 && ix < state.SEGMENTS) {
         slopeX =
           (localHeightGrid[vertIdx + 1] - localHeightGrid[vertIdx - 1]) *
           invTwoGridSpacing;
@@ -474,7 +716,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       }
 
       let slopeZ;
-      if (iy > 0 && iy < SEGMENTS) {
+      if (iy > 0 && iy < state.SEGMENTS) {
         slopeZ =
           (localHeightGrid[vertIdx + gridX1] -
             localHeightGrid[vertIdx - gridX1]) *
@@ -573,7 +815,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         if (height <= sandMaxHeight) {
           if (height <= WATER_LEVEL) {
             hasWater = true;
-            if (_enableObjects) {
+            if (state._enableObjects) {
               if (rng() < 0.0001 * densityScale) {
                 // Pirate Ship spawn
                 if (
@@ -938,7 +1180,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         height <= MOUNTAIN_LEVEL + 50;
 
       if (
-        _enableObjects &&
+        state._enableObjects &&
         (isStandardLand || isCustomLand || isAlienVegetationLand) &&
         !isFrozen &&
         !isOnRoad
@@ -1370,7 +1612,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     const archTargetZ = archSeededRng() * 10000 - 5000;
     const archTargetChunkZ = Math.round(archTargetZ / CHUNK_SIZE);
 
-    if (chunkX === 2 && chunkZ === archTargetChunkZ && _enableObjects) {
+    if (chunkX === 2 && chunkZ === archTargetChunkZ && state._enableObjects) {
       if (
         rockArchPositions.length === 0 &&
         rockArchGrassPositions.length === 0
@@ -1513,7 +1755,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
   // 1.5 Generate Water Plane
   if (hasWater) {
-    const wSegments = Math.max(1, Math.floor(SEGMENTS / 4));
+    const wSegments = Math.max(1, Math.floor(state.SEGMENTS / 4));
     let waterGeo;
     while (
       _waterGeometryPool.length > 0 &&
@@ -1619,8 +1861,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   const maxPropLOD =
     window.manualPropLOD !== undefined
       ? window.manualPropLOD
-      : typeof PROP_LOD_DISTANCE !== 'undefined'
-        ? PROP_LOD_DISTANCE
+      : typeof state.PROP_LOD_DISTANCE !== 'undefined'
+        ? state.PROP_LOD_DISTANCE
         : 4200;
   const lodMultiplier =
     typeof window.performanceMonitor !== 'undefined' &&
@@ -1631,10 +1873,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   const lodDistance =
     (window.manualPropLOD !== undefined
       ? window.manualPropLOD
-      : Math.min(RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2, maxPropLOD)) *
-    lodMultiplier;
+      : Math.min(
+          state.RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
+          maxPropLOD
+        )) * lodMultiplier;
   objectsLOD.addLevel(emptyLODGroup, lodDistance);
-  objectsLOD.visible = _enableObjects;
+  objectsLOD.visible = state._enableObjects;
 
   group.add(objectsLOD);
   group.userData.objectsGroup = objectsLOD;
@@ -3308,7 +3552,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   let watercraftGroup = null;
   if (sailboatPositions.length > 0 || pirateShipPositions.length > 0) {
     watercraftGroup = new THREE.Group();
-    watercraftGroup.visible = _enableObjects;
+    watercraftGroup.visible = state._enableObjects;
     group.add(watercraftGroup);
     group.userData.watercraftGroup = watercraftGroup;
   }
@@ -3880,12 +4124,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   return group;
 }
 
-function updateChunks() {
+export function updateChunks() {
   const target =
     typeof window !== 'undefined' && window.isFreeCamera ? camera : planeGroup;
   const currentChunkX = Math.round(target.position.x / CHUNK_SIZE);
   const currentChunkZ = Math.round(target.position.z / CHUNK_SIZE);
-  const renderDistance = RENDER_DISTANCE;
+  const renderDistance = state.RENDER_DISTANCE;
 
   // Compute forward horizontal unit vector for directional priority
   let fwdX = 0;
@@ -3914,10 +4158,10 @@ function updateChunks() {
   // Update dynamic priorities for workers
   if (
     typeof window !== 'undefined' &&
-    window.terrainWorkerManager &&
-    window.terrainWorkerManager.isSupported
+    terrainWorkerManager &&
+    terrainWorkerManager.isSupported
   ) {
-    window.terrainWorkerManager.updatePriorities(computeChunkPriority);
+    terrainWorkerManager.updatePriorities(computeChunkPriority);
   }
 
   const missingChunks = [];
@@ -3939,8 +4183,8 @@ function updateChunks() {
         chunkQueueSet.add(key);
         if (
           typeof window !== 'undefined' &&
-          window.terrainWorkerManager &&
-          window.terrainWorkerManager.isSupported
+          terrainWorkerManager &&
+          terrainWorkerManager.isSupported
         ) {
           queueWorkerChunk(cx, cz, key, priority);
         }
@@ -3950,12 +4194,12 @@ function updateChunks() {
 
   // Sort missing chunks ascending by priority so popping from the end yields the highest priority chunk
   missingChunks.sort((a, b) => a.priority - b.priority);
-  chunkQueue.push(...missingChunks);
+  state.chunkQueue.push(...missingChunks);
 
   // Prune chunks from queue that are beyond renderDistance + 2 to prevent queue bloat
   const maxQueueDistSq = (renderDistance + 2) * (renderDistance + 2);
   const prunedQueue = [];
-  chunkQueue.forEach((item) => {
+  state.chunkQueue.forEach((item) => {
     const dx = item.cx - currentChunkX;
     const dz = item.cz - currentChunkZ;
     const dSq = dx * dx + dz * dz;
@@ -3969,16 +4213,16 @@ function updateChunks() {
       workerChunkResults.delete(item.key);
       if (
         typeof window !== 'undefined' &&
-        window.terrainWorkerManager &&
-        window.terrainWorkerManager.isSupported
+        terrainWorkerManager &&
+        terrainWorkerManager.isSupported
       ) {
-        window.terrainWorkerManager.cancelJob(item.cx, item.cz);
+        terrainWorkerManager.cancelJob(item.cx, item.cz);
       }
     }
   });
-  chunkQueue = prunedQueue;
+  state.chunkQueue = prunedQueue;
   // Sort ascending by priority so popping from the end yields the highest priority chunk
-  chunkQueue.sort((a, b) => a.priority - b.priority);
+  state.chunkQueue.sort((a, b) => a.priority - b.priority);
 
   let chunksEvicted = false;
 
@@ -4001,14 +4245,14 @@ function updateChunks() {
               if (
                 _terrainGeometryPool.length < 25 &&
                 child.geometry.parameters &&
-                child.geometry.parameters.widthSegments === SEGMENTS
+                child.geometry.parameters.widthSegments === state.SEGMENTS
               ) {
                 _terrainGeometryPool.push(child.geometry);
               } else {
                 child.geometry.dispose();
               }
             } else if (child.geometry.userData.poolType === 'water') {
-              const wSegments = Math.max(1, Math.floor(SEGMENTS / 4));
+              const wSegments = Math.max(1, Math.floor(state.SEGMENTS / 4));
               if (
                 _waterGeometryPool.length < 25 &&
                 child.geometry.parameters &&
@@ -4068,10 +4312,10 @@ function updateChunks() {
       workerChunkResults.delete(key);
       if (
         typeof window !== 'undefined' &&
-        window.terrainWorkerManager &&
-        window.terrainWorkerManager.isSupported
+        terrainWorkerManager &&
+        terrainWorkerManager.isSupported
       ) {
-        window.terrainWorkerManager.cancelJob(cx, cz);
+        terrainWorkerManager.cancelJob(cx, cz);
       }
       chunksEvicted = true;
       if (key === '4,2') {
@@ -4087,15 +4331,15 @@ function updateChunks() {
 }
 
 window.processChunkQueue = function () {
-  if (chunkQueue.length === 0) return 1.0;
+  if (state.chunkQueue.length === 0) return 1.0;
 
   let generatedThisFrame = 0;
   let fallbackGenerated = false;
 
-  while (chunkQueue.length > 0) {
+  while (state.chunkQueue.length > 0) {
     let itemIdx = -1;
-    for (let i = chunkQueue.length - 1; i >= 0; i--) {
-      if (workerChunkResults.has(chunkQueue[i].key)) {
+    for (let i = state.chunkQueue.length - 1; i >= 0; i--) {
+      if (workerChunkResults.has(state.chunkQueue[i].key)) {
         itemIdx = i;
         break;
       }
@@ -4106,7 +4350,9 @@ window.processChunkQueue = function () {
     }
 
     const item =
-      itemIdx !== -1 ? chunkQueue.splice(itemIdx, 1)[0] : chunkQueue.pop();
+      itemIdx !== -1
+        ? state.chunkQueue.splice(itemIdx, 1)[0]
+        : state.chunkQueue.pop();
     chunkQueueSet.delete(item.key);
 
     if (!chunks.has(item.key)) {
@@ -4125,18 +4371,18 @@ window.processChunkQueue = function () {
     globalInstancer.requestRebuild();
   }
 
-  const totalChunks = chunks.size + chunkQueue.length;
+  const totalChunks = chunks.size + state.chunkQueue.length;
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
 };
 
 window.getChunkLoadingProgress = function () {
-  const totalChunks = chunks.size + chunkQueue.length;
+  const totalChunks = chunks.size + state.chunkQueue.length;
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
 };
-function toggleProceduralObjects(enabled) {
-  _enableObjects = enabled;
+export function toggleProceduralObjects(enabled) {
+  state._enableObjects = enabled;
   ChillFlightLogic.setShowObjects(enabled);
   if (typeof window !== 'undefined' && window.localStorage) {
     window.localStorage.setItem('chill_flight_show_objects', enabled);
@@ -4174,3 +4420,8 @@ function toggleProceduralObjects(enabled) {
 
 // Global expose
 window.toggleProceduralObjects = toggleProceduralObjects;
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  updateChunks,
+});

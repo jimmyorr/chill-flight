@@ -1,22 +1,38 @@
 // --- PROCEDURAL TERRAIN & CHUNKS ---
-var yAxis = new THREE.Vector3(0, 1, 0);
-// Dependencies: THREE, simplex, CHUNK_SIZE, SEGMENTS, WATER_LEVEL, MOUNTAIN_LEVEL, scene
+// chunkQueue and _enableObjects live in state.js (terrain-chunks.js writes them).
+import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {
+  CHUNK_SIZE,
+  LIGHTHOUSE_BEAM_OPACITY_MAX,
+  MAP_HEIGHT_SCALE,
+  MAP_WORLD_SIZE,
+  MOUNTAIN_LEVEL,
+  WATER_LEVEL,
+  createMaterial,
+} from './constants.js';
+import {scene} from './scene.js';
+import {log} from './logger.js';
+import {simplex} from './noise.js';
+import {state} from './state.js';
 
-var chunks = new Map();
+export var yAxis = new THREE.Vector3(0, 1, 0);
+
+export var chunks = new Map();
 // Registry of active terrain chunks that contain animated watercraft (sailboats, pirate ships).
 // Allows animate() in game.js to skip iterating dozens of dry land chunks every frame.
-var watercraftChunks = new Set();
+export var watercraftChunks = new Set();
 window.watercraftChunks = watercraftChunks;
-var birdChunks = new Set();
+export var birdChunks = new Set();
 window.birdChunks = birdChunks;
-var _terrainGeometryPool = [];
-var _waterGeometryPool = [];
+export var _terrainGeometryPool = [];
+export var _waterGeometryPool = [];
 window._terrainGeometryPool = _terrainGeometryPool;
 window._waterGeometryPool = _waterGeometryPool;
 
 var _instancedMeshPool = new Map();
 
-function getInstancedMesh(geometry, material, count) {
+export function getInstancedMesh(geometry, material, count) {
   const key =
     geometry.uuid +
     '_' +
@@ -48,7 +64,7 @@ function getInstancedMesh(geometry, material, count) {
   return mesh;
 }
 
-function releaseInstancedMesh(mesh) {
+export function releaseInstancedMesh(mesh) {
   if (!mesh.geometry || !mesh.material) {
     if (mesh.dispose) mesh.dispose();
     return;
@@ -72,11 +88,10 @@ function releaseInstancedMesh(mesh) {
   }
 }
 
-var chunkQueue = [];
-var chunkQueueSet = new Set();
+export var chunkQueueSet = new Set();
 
 window.clearChunkQueue = function () {
-  chunkQueue = [];
+  state.chunkQueue = [];
   chunkQueueSet.clear();
 };
 
@@ -98,21 +113,18 @@ var _isLowQualityInitial =
     _legacyQualityForTerrain &&
     parseInt(_legacyQualityForTerrain) <= 20);
 
-var _enableObjects = ChillFlightLogic.SHOW_OBJECTS;
-// Flag removed to fix issue #25
-
 // Volcano center — single source of truth for all coloring and landmark placement
-var VOLCANO_X = -5000;
-var VOLCANO_Z = 5000;
+export var VOLCANO_X = -5000;
+export var VOLCANO_Z = 5000;
 
 // Materials for terrain
-var terrainMaterial = createMaterial({
+export var terrainMaterial = createMaterial({
   vertexColors: true,
   flatShading: true,
   roughness: 0.8,
 });
 
-var waterMaterial = createMaterial({
+export var waterMaterial = createMaterial({
   vertexColors: true,
   transparent: !_isLowQualityInitial,
   opacity: _isLowQualityInitial ? 1.0 : 0.85,
@@ -124,7 +136,7 @@ var waterMaterial = createMaterial({
 
 window.terrainUniforms = {
   uCameraPosXZ: {value: new THREE.Vector2(0, 0)},
-  uRenderRadius: {value: RENDER_DISTANCE * CHUNK_SIZE},
+  uRenderRadius: {value: state.RENDER_DISTANCE * CHUNK_SIZE},
   uSunDirection: {value: new THREE.Vector3(0, 1, 0)},
   uTopColor: {value: new THREE.Color()},
   uBottomColor: {value: new THREE.Color()},
@@ -388,7 +400,7 @@ waterMaterial.onBeforeCompile = (shader) => {
 };
 
 // Reusable tree geometries for forest instances
-var treeTrunkGeo = new THREE.CylinderGeometry(1.5, 2.5, 14, 6);
+export var treeTrunkGeo = new THREE.CylinderGeometry(1.5, 2.5, 14, 6);
 treeTrunkGeo.translate(0, 7, 0);
 
 function createPineGeometry() {
@@ -429,7 +441,7 @@ function createPineGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var treeLeavesGeo = createPineGeometry();
+export var treeLeavesGeo = createPineGeometry();
 
 function createDeciduousGeometry() {
   const trunk = new THREE.CylinderGeometry(1.2, 1.8, 12, 6);
@@ -467,7 +479,7 @@ function createDeciduousGeometry() {
   geom.setIndex(idx);
   return {trunk, leaves: geom};
 }
-var deciduousGeos = createDeciduousGeometry();
+export var deciduousGeos = createDeciduousGeometry();
 
 function createTallDeciduousGeometry() {
   const trunk = new THREE.CylinderGeometry(1.5, 2.2, 16, 6);
@@ -514,7 +526,7 @@ function createTallDeciduousGeometry() {
   geom.setIndex(idx);
   return {trunk, leaves: geom};
 }
-var tallDeciduousGeos = createTallDeciduousGeometry();
+export var tallDeciduousGeos = createTallDeciduousGeometry();
 
 function createJapaneseMapleGeometry() {
   const trunk = new THREE.CylinderGeometry(0.8, 1.4, 11, 6);
@@ -573,7 +585,7 @@ function createJapaneseMapleGeometry() {
   geom.setIndex(idx);
   return {trunk, leaves: geom};
 }
-var japaneseMapleGeos = createJapaneseMapleGeometry();
+export var japaneseMapleGeos = createJapaneseMapleGeometry();
 
 function createPalmGeometry() {
   // Stacked, flared trunk segments to create a bumpy, ridged bark texture
@@ -742,7 +754,7 @@ function createPalmGeometry() {
 
   return {trunk: trunkGeom, leaves: leafGeom};
 }
-var palmGeos = createPalmGeometry();
+export var palmGeos = createPalmGeometry();
 
 function createDeadTreeGeometry() {
   const trunk = new THREE.CylinderGeometry(0.5, 1.8, 14, 5);
@@ -774,19 +786,22 @@ function createDeadTreeGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var deadTreeGeo = createDeadTreeGeometry();
+export var deadTreeGeo = createDeadTreeGeometry();
 
-var treeTrunkMat = createMaterial({color: 0x5d4037, flatShading: true});
+export var treeTrunkMat = createMaterial({color: 0x5d4037, flatShading: true});
 // Leaf materials use WHITE as the base color so per-instance colors control the actual appearance
 // (Three.js multiplies instance color × material color, so white = identity / no tint)
-var treeLeavesBaseMat = createMaterial({color: 0xffffff, flatShading: true});
-var deadTreeMat = createMaterial({color: 0x8d6e63, flatShading: true});
+export var treeLeavesBaseMat = createMaterial({
+  color: 0xffffff,
+  flatShading: true,
+});
+export var deadTreeMat = createMaterial({color: 0x8d6e63, flatShading: true});
 
 // Rock geometries and materials
-var rockGeo = new THREE.DodecahedronGeometry(3, 0); // Base flat shaded rock
-var rockMat = createMaterial({color: 0x888888, flatShading: true});
-var snowRockMat = createMaterial({color: 0xdddddd, flatShading: true});
-var desertRockMat = createMaterial({color: 0xd2b48c, flatShading: true});
+export var rockGeo = new THREE.DodecahedronGeometry(3, 0); // Base flat shaded rock
+export var rockMat = createMaterial({color: 0x888888, flatShading: true});
+export var snowRockMat = createMaterial({color: 0xdddddd, flatShading: true});
+export var desertRockMat = createMaterial({color: 0xd2b48c, flatShading: true});
 
 // Cactus geometries and materials
 function createCactusGeometry() {
@@ -899,8 +914,8 @@ function createCactusGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var cactusGeo = createCactusGeometry();
-var cactusMat = createMaterial({color: 0x4caf50, flatShading: true});
+export var cactusGeo = createCactusGeometry();
+export var cactusMat = createMaterial({color: 0x4caf50, flatShading: true});
 
 // Mushroom geometry and materials
 function createMushroomGeometry() {
@@ -921,9 +936,12 @@ function createMushroomGeometry() {
 
   return {trunk: stalk, leaves: cap};
 }
-var mushroomGeos = createMushroomGeometry();
-var mushroomStalkMat = createMaterial({color: 0xdddddd, flatShading: true});
-var ALIEN_MUSHROOM_CAP_COLORS = [
+export var mushroomGeos = createMushroomGeometry();
+export var mushroomStalkMat = createMaterial({
+  color: 0xdddddd,
+  flatShading: true,
+});
+export var ALIEN_MUSHROOM_CAP_COLORS = [
   0x9c27b0, // Vibrant purple
   0xab47bc, // Magenta violet
   0x7b1fa2, // Deep purple
@@ -948,8 +966,8 @@ function createLilyPadGeometry() {
   );
   return padGeo;
 }
-var lilyPadGeo = createLilyPadGeometry();
-var lilyPadMat = createMaterial({color: 0x4caf50, flatShading: true});
+export var lilyPadGeo = createLilyPadGeometry();
+export var lilyPadMat = createMaterial({color: 0x4caf50, flatShading: true});
 
 // Bush geometry and material
 function createBushGeometry() {
@@ -1010,9 +1028,8 @@ function createBushGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var bushGeo = createBushGeometry();
-var bushMat = createMaterial({color: 0x558b2f, flatShading: true}); // Darker green
-var bushBaseMat = createMaterial({color: 0xffffff, flatShading: true}); // For instance coloring
+export var bushGeo = createBushGeometry();
+export var bushBaseMat = createMaterial({color: 0xffffff, flatShading: true}); // For instance coloring
 
 // Snowman geometries and materials
 function createSnowmanGeometry() {
@@ -1051,49 +1068,52 @@ function createSnowmanGeometry() {
 
   return {body: bodyGeom, nose: noseGeo};
 }
-var snowmanGeos = createSnowmanGeometry();
-var snowmanBodyMat = createMaterial({color: 0xffffff, flatShading: true});
-var snowmanNoseMat = createMaterial({color: 0xff8c00, flatShading: true});
-
-// Autumn & Cherry Blossom materials
-var autumnLeavesMat1 = createMaterial({color: 0xd35400, flatShading: true}); // Burnt Orange
-var autumnLeavesMat2 = createMaterial({color: 0xf39c12, flatShading: true}); // Orange
-var autumnLeavesMat3 = createMaterial({color: 0xc0392b, flatShading: true}); // Strong Red
-var cherryBlossomMat = createMaterial({color: 0xf8bbd0, flatShading: true}); // Pink
+export var snowmanGeos = createSnowmanGeometry();
+export var snowmanBodyMat = createMaterial({
+  color: 0xffffff,
+  flatShading: true,
+});
+export var snowmanNoseMat = createMaterial({
+  color: 0xff8c00,
+  flatShading: true,
+});
 
 // Reusable house geometries
-var houseBodyGeo = new THREE.BoxGeometry(10, 8, 10);
+export var houseBodyGeo = new THREE.BoxGeometry(10, 8, 10);
 houseBodyGeo.translate(0, 4, 0);
-var houseRoofGeo = new THREE.ConeGeometry(8.5, 6, 4);
+export var houseRoofGeo = new THREE.ConeGeometry(8.5, 6, 4);
 houseRoofGeo.rotateY(Math.PI / 4);
 houseRoofGeo.translate(0, 11, 0);
-var houseWindowGeo = new THREE.BoxGeometry(2, 2.5, 0.5);
+export var houseWindowGeo = new THREE.BoxGeometry(2, 2.5, 0.5);
 
-var houseDoorGeo = new THREE.BoxGeometry(2.5, 4.5, 0.5);
-var houseChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
+export var houseDoorGeo = new THREE.BoxGeometry(2.5, 4.5, 0.5);
+export var houseChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
 houseChimneyGeo.translate(0, 11, 0);
 
-var houseDoorMat = createMaterial({color: 0x5c4033, flatShading: true});
-var houseChimneyMat = createMaterial({color: 0x8b3a3a, flatShading: true});
+export var houseDoorMat = createMaterial({color: 0x5c4033, flatShading: true});
+export var houseChimneyMat = createMaterial({
+  color: 0x8b3a3a,
+  flatShading: true,
+});
 
 // Two story house geometries
-var twoStoryBodyGeo = new THREE.BoxGeometry(10, 14, 10);
+export var twoStoryBodyGeo = new THREE.BoxGeometry(10, 14, 10);
 twoStoryBodyGeo.translate(0, 7, 0);
-var twoStoryRoofGeo = new THREE.ConeGeometry(8.5, 7, 4);
+export var twoStoryRoofGeo = new THREE.ConeGeometry(8.5, 7, 4);
 twoStoryRoofGeo.rotateY(Math.PI / 4);
 twoStoryRoofGeo.translate(0, 17.5, 0);
-var twoStoryChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
+export var twoStoryChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
 twoStoryChimneyGeo.translate(0, 17.5, 0);
 
 // Straw hut geometries
-var strawHutBodyGeo = new THREE.CylinderGeometry(4, 4, 6, 8);
+export var strawHutBodyGeo = new THREE.CylinderGeometry(4, 4, 6, 8);
 strawHutBodyGeo.translate(0, 3, 0);
-var strawHutRoofGeo = new THREE.ConeGeometry(5.5, 5, 8);
+export var strawHutRoofGeo = new THREE.ConeGeometry(5.5, 5, 8);
 strawHutRoofGeo.translate(0, 8.5, 0);
-var strawHutMat = createMaterial({color: 0xe6c280, flatShading: true}); // Straw color
+export var strawHutMat = createMaterial({color: 0xe6c280, flatShading: true}); // Straw color
 
 // Iceberg & Ice floe geometries & materials
-var icebergMainGeo = new THREE.CylinderGeometry(8, 16, 20, 6, 2);
+export var icebergMainGeo = new THREE.CylinderGeometry(8, 16, 20, 6, 2);
 icebergMainGeo.translate(0, 10, 0);
 var posMain = icebergMainGeo.attributes.position.array;
 for (let i = 0; i < posMain.length; i += 3) {
@@ -1106,7 +1126,7 @@ for (let i = 0; i < posMain.length; i += 3) {
 }
 icebergMainGeo.computeVertexNormals();
 
-var iceFloeMainGeo = new THREE.CylinderGeometry(15, 18, 4, 7, 1);
+export var iceFloeMainGeo = new THREE.CylinderGeometry(15, 18, 4, 7, 1);
 iceFloeMainGeo.translate(0, 2, 0);
 var posFloe = iceFloeMainGeo.attributes.position.array;
 for (let i = 0; i < posFloe.length; i += 3) {
@@ -1119,7 +1139,7 @@ for (let i = 0; i < posFloe.length; i += 3) {
 }
 iceFloeMainGeo.computeVertexNormals();
 
-var icebergMat = createMaterial({
+export var icebergMat = createMaterial({
   color: 0xd0f0f5,
   emissive: 0x0a1c28,
   roughness: 0.15,
@@ -1128,38 +1148,47 @@ var icebergMat = createMaterial({
 });
 
 // Penguin geometries & materials
-var penguinBodyGeo = new THREE.CylinderGeometry(1.1, 1.3, 3.2, 6);
+export var penguinBodyGeo = new THREE.CylinderGeometry(1.1, 1.3, 3.2, 6);
 penguinBodyGeo.translate(0, 1.6, 0);
 
-var penguinBellyGeo = new THREE.BoxGeometry(1.4, 2.4, 0.3);
+export var penguinBellyGeo = new THREE.BoxGeometry(1.4, 2.4, 0.3);
 penguinBellyGeo.translate(0, 1.5, 1.2);
 
-var penguinHeadGeo = new THREE.SphereGeometry(1.0, 6, 6);
+export var penguinHeadGeo = new THREE.SphereGeometry(1.0, 6, 6);
 penguinHeadGeo.translate(0, 3.8, 0.2);
 
-var penguinBeakGeo = new THREE.ConeGeometry(0.3, 0.9, 4);
+export var penguinBeakGeo = new THREE.ConeGeometry(0.3, 0.9, 4);
 penguinBeakGeo.rotateX(Math.PI / 2);
 penguinBeakGeo.translate(0, 3.8, 1.5);
 
 var penguinWingGeo = new THREE.BoxGeometry(0.25, 2.0, 0.8);
-var penguinWingLGeo = penguinWingGeo.clone();
+export var penguinWingLGeo = penguinWingGeo.clone();
 penguinWingLGeo.rotateZ(-0.15);
 penguinWingLGeo.translate(-1.4, 1.8, 0.2);
 
-var penguinWingRGeo = penguinWingGeo.clone();
+export var penguinWingRGeo = penguinWingGeo.clone();
 penguinWingRGeo.rotateZ(0.15);
 penguinWingRGeo.translate(1.4, 1.8, 0.2);
 
 var penguinFootGeo = new THREE.BoxGeometry(0.7, 0.2, 1.3);
-var penguinFootLGeo = penguinFootGeo.clone();
+export var penguinFootLGeo = penguinFootGeo.clone();
 penguinFootLGeo.translate(-0.6, 0.1, 0.4);
 
-var penguinFootRGeo = penguinFootGeo.clone();
+export var penguinFootRGeo = penguinFootGeo.clone();
 penguinFootRGeo.translate(0.6, 0.1, 0.4);
 
-var penguinBlackMat = createMaterial({color: 0x222222, flatShading: true});
-var penguinWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
-var penguinOrangeMat = createMaterial({color: 0xffa500, flatShading: true});
+export var penguinBlackMat = createMaterial({
+  color: 0x222222,
+  flatShading: true,
+});
+export var penguinWhiteMat = createMaterial({
+  color: 0xffffff,
+  flatShading: true,
+});
+export var penguinOrangeMat = createMaterial({
+  color: 0xffa500,
+  flatShading: true,
+});
 
 // Waddling shader animation
 var penguinShaderInject = (shader) => {
@@ -1223,7 +1252,7 @@ penguinWhiteMat.onBeforeCompile = penguinShaderInject;
 penguinOrangeMat.onBeforeCompile = penguinShaderInject;
 
 // House color palettes
-var houseBodyPalette = [
+export var houseBodyPalette = [
   createMaterial({color: 0xf5e6c8, flatShading: true}), // Cream
   createMaterial({color: 0xd9b99b, flatShading: true}), // Sandy tan
   createMaterial({color: 0xb0c4a0, flatShading: true}), // Sage green
@@ -1231,7 +1260,7 @@ var houseBodyPalette = [
   createMaterial({color: 0xe8c8b0, flatShading: true}), // Terracotta peach
   createMaterial({color: 0xccbbcc, flatShading: true}), // Dusty mauve
 ];
-var houseRoofPalette = [
+export var houseRoofPalette = [
   createMaterial({color: 0x5d4037, flatShading: true}), // Dark brown
   createMaterial({color: 0x7b3f2a, flatShading: true}), // Brick red
   createMaterial({color: 0x546e7a, flatShading: true}), // Slate blue-grey
@@ -1239,7 +1268,7 @@ var houseRoofPalette = [
 ];
 
 // Window Materials (5 variations for staggered lighting)
-var houseWindowMats = [];
+export var houseWindowMats = [];
 for (let i = 0; i < 5; i++) {
   houseWindowMats.push(
     createMaterial({
@@ -1310,10 +1339,10 @@ function createPagodaRoofGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var pagodaBodyGeo = createPagodaBodyGeometry();
-var pagodaRoofGeo = createPagodaRoofGeometry();
-var pagodaBodyMat = createMaterial({color: 0x3e2723, flatShading: true}); // dark wood
-var pagodaRoofMat = createMaterial({color: 0x1b5e20, flatShading: true}); // deep green eaves
+export var pagodaBodyGeo = createPagodaBodyGeometry();
+export var pagodaRoofGeo = createPagodaRoofGeometry();
+export var pagodaBodyMat = createMaterial({color: 0x3e2723, flatShading: true}); // dark wood
+export var pagodaRoofMat = createMaterial({color: 0x1b5e20, flatShading: true}); // deep green eaves
 
 // --- BARN ---
 function createBarnRoofGeometry() {
@@ -1335,17 +1364,17 @@ function createBarnRoofGeometry() {
   geo.translate(0, 0, -15);
   return geo;
 }
-var barnBodyGeo = new THREE.BoxGeometry(18, 12, 28);
+export var barnBodyGeo = new THREE.BoxGeometry(18, 12, 28);
 barnBodyGeo.translate(0, 6, 0);
-var barnRoofGeo = createBarnRoofGeometry();
+export var barnRoofGeo = createBarnRoofGeometry();
 
 // Details
-var barnDoorGeo = new THREE.BoxGeometry(8, 9, 0.5);
-var barnTrimGeo = new THREE.BoxGeometry(0.5, 12.04, 0.6); // sqrt(8^2 + 9^2) = 12.04
+export var barnDoorGeo = new THREE.BoxGeometry(8, 9, 0.5);
+export var barnTrimGeo = new THREE.BoxGeometry(0.5, 12.04, 0.6); // sqrt(8^2 + 9^2) = 12.04
 
-var barnSiloBodyGeo = new THREE.CylinderGeometry(4, 4, 22, 12);
+export var barnSiloBodyGeo = new THREE.CylinderGeometry(4, 4, 22, 12);
 barnSiloBodyGeo.translate(0, 11, 0);
-var barnSiloRoofGeo = new THREE.SphereGeometry(
+export var barnSiloRoofGeo = new THREE.SphereGeometry(
   4,
   12,
   8,
@@ -1356,16 +1385,16 @@ var barnSiloRoofGeo = new THREE.SphereGeometry(
 );
 barnSiloRoofGeo.translate(0, 22, 0);
 
-var barnBodyMat = createMaterial({color: 0x9b1c1c, flatShading: true}); // classic barn red
-var barnRoofMat = createMaterial({color: 0x3e2723, flatShading: true}); // dark timber
-var barnWhiteMat = createMaterial({color: 0xeeeeee, flatShading: true});
-var barnSiloMat = createMaterial({
+export var barnBodyMat = createMaterial({color: 0x9b1c1c, flatShading: true}); // classic barn red
+export var barnRoofMat = createMaterial({color: 0x3e2723, flatShading: true}); // dark timber
+export var barnWhiteMat = createMaterial({color: 0xeeeeee, flatShading: true});
+export var barnSiloMat = createMaterial({
   color: 0xaaaaaa,
   metalness: 0.2,
   roughness: 0.6,
   flatShading: true,
 });
-var barnSiloRoofMat = createMaterial({
+export var barnSiloRoofMat = createMaterial({
   color: 0xc2c2c2,
   metalness: 0.3,
   roughness: 0.5,
@@ -1459,13 +1488,19 @@ function createMonasteryRoofGeometry() {
   return geom;
 }
 
-var monasteryBodyGeo = createMonasteryBodyGeometry();
-var monasteryRoofGeo = createMonasteryRoofGeometry();
-var monasteryBodyMat = createMaterial({color: 0x9e9e9e, flatShading: true}); // stone
-var monasteryRoofMat = createMaterial({color: 0x546e7a, flatShading: true}); // slate
+export var monasteryBodyGeo = createMonasteryBodyGeometry();
+export var monasteryRoofGeo = createMonasteryRoofGeometry();
+export var monasteryBodyMat = createMaterial({
+  color: 0x9e9e9e,
+  flatShading: true,
+}); // stone
+export var monasteryRoofMat = createMaterial({
+  color: 0x546e7a,
+  flatShading: true,
+}); // slate
 
 // --- CASTLE RUINS ---
-function createRockArchGeometries(rng) {
+export function createRockArchGeometries(rng) {
   const rockGeos = [];
   const grassGeos = [];
 
@@ -1574,7 +1609,7 @@ function createRockArchGeometries(rng) {
 if (typeof window !== 'undefined')
   window.createRockArchGeometries = createRockArchGeometries;
 
-var rockArchGrassMat = createMaterial({color: 0x7cb342});
+export var rockArchGrassMat = createMaterial({color: 0x7cb342});
 
 function createCastleRuinsGeometry() {
   const geometries = [];
@@ -1710,8 +1745,11 @@ function createCastleRuinsGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var castleRuinsGeo = createCastleRuinsGeometry();
-var castleRuinsMat = createMaterial({color: 0x78909c, flatShading: true}); // weathered stone
+export var castleRuinsGeo = createCastleRuinsGeometry();
+export var castleRuinsMat = createMaterial({
+  color: 0x78909c,
+  flatShading: true,
+}); // weathered stone
 
 // Bird geometry
 // Hawk geometries
@@ -1751,7 +1789,7 @@ var seagullGreyMat = createMaterial({color: 0xcccccc, flatShading: true});
 var seagullBlackMat = createMaterial({color: 0x333333, flatShading: true});
 var seagullBeakMat = createMaterial({color: 0xffd54f, flatShading: true});
 
-function assembleHawk(scale) {
+export function assembleHawk(scale) {
   const bird = new THREE.Group();
   const body = new THREE.Mesh(hawkBodyGeo, hawkBrownMat);
   const belly = new THREE.Mesh(hawkBellyGeo, hawkLightMat);
@@ -1767,7 +1805,7 @@ function assembleHawk(scale) {
   return bird;
 }
 
-function assembleSeagull(scale) {
+export function assembleSeagull(scale) {
   const bird = new THREE.Group();
   const body = new THREE.Mesh(seagullBodyGeo, seagullWhiteMat);
   const head = new THREE.Mesh(seagullHeadGeo, seagullWhiteMat);
@@ -1792,26 +1830,26 @@ function assembleSeagull(scale) {
 }
 
 // Canada Goose geometries
-var gooseBodyGeo = new THREE.BoxGeometry(1.2, 0.9, 3.5);
-var gooseNeckGeo = new THREE.CylinderGeometry(0.25, 0.35, 2.5, 6);
+export var gooseBodyGeo = new THREE.BoxGeometry(1.2, 0.9, 3.5);
+export var gooseNeckGeo = new THREE.CylinderGeometry(0.25, 0.35, 2.5, 6);
 gooseNeckGeo.rotateX(Math.PI / 2);
 gooseNeckGeo.translate(0, 0.5, -2.5);
-var gooseHeadGeo = new THREE.BoxGeometry(0.6, 0.6, 1.2);
+export var gooseHeadGeo = new THREE.BoxGeometry(0.6, 0.6, 1.2);
 gooseHeadGeo.translate(0, 0.5, -4.0);
-var gooseBeakGeo = new THREE.ConeGeometry(0.2, 0.8, 4);
+export var gooseBeakGeo = new THREE.ConeGeometry(0.2, 0.8, 4);
 gooseBeakGeo.rotateX(-Math.PI / 2);
 gooseBeakGeo.translate(0, 0.5, -4.8);
-var gooseCheekGeo = new THREE.BoxGeometry(0.65, 0.3, 0.5);
+export var gooseCheekGeo = new THREE.BoxGeometry(0.65, 0.3, 0.5);
 gooseCheekGeo.translate(0, 0.4, -4.0);
-var gooseTailGeo = new THREE.BoxGeometry(0.8, 0.4, 1.5);
+export var gooseTailGeo = new THREE.BoxGeometry(0.8, 0.4, 1.5);
 gooseTailGeo.translate(0, 0.2, 2.0);
-var gooseWhiteTailGeo = new THREE.BoxGeometry(1.0, 0.5, 1.0);
+export var gooseWhiteTailGeo = new THREE.BoxGeometry(1.0, 0.5, 1.0);
 gooseWhiteTailGeo.translate(0, -0.1, 1.5);
 
-var gooseBrownMat = createMaterial({color: 0x8b7355, flatShading: true});
-var gooseBlackMat = createMaterial({color: 0x222222, flatShading: true});
-var gooseWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
-var gooseWingGeo = new THREE.BoxGeometry(6, 0.1, 2);
+export var gooseBrownMat = createMaterial({color: 0x8b7355, flatShading: true});
+export var gooseBlackMat = createMaterial({color: 0x222222, flatShading: true});
+export var gooseWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
+export var gooseWingGeo = new THREE.BoxGeometry(6, 0.1, 2);
 gooseWingGeo.translate(3, 0, 0);
 
 // Windmill geometries
@@ -1923,19 +1961,19 @@ function createWindmillBladesGeometry() {
   return geom;
 }
 
-var windmillBaseGeo = createWindmillBaseGeometry();
-var windmillBladesGeo = createWindmillBladesGeometry();
-var windmillBaseMat = createMaterial({
+export var windmillBaseGeo = createWindmillBaseGeometry();
+export var windmillBladesGeo = createWindmillBladesGeometry();
+export var windmillBaseMat = createMaterial({
   vertexColors: true,
   flatShading: true,
   roughness: 0.9,
 });
-var windmillBladesMat = createMaterial({
+export var windmillBladesMat = createMaterial({
   color: 0x5c4033,
   flatShading: true,
   roughness: 0.9,
 });
-var windmillBladesDepthMat = new THREE.MeshDepthMaterial({
+export var windmillBladesDepthMat = new THREE.MeshDepthMaterial({
   depthPacking: THREE.RGBADepthPacking,
 });
 
@@ -2020,16 +2058,15 @@ function createPierDeckGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var pierDeckGeo = createPierDeckGeometry();
-var pierPostGeo = new THREE.CylinderGeometry(1, 1, 10, 6);
-var woodMat = createMaterial({color: 0x5d4037, flatShading: true});
+export var pierDeckGeo = createPierDeckGeometry();
+export var pierPostGeo = new THREE.CylinderGeometry(1, 1, 10, 6);
+export var woodMat = createMaterial({color: 0x5d4037, flatShading: true});
 
 // Bridge geometries (for West Coast Highway elevated viaducts)
-var BRIDGE_SEGMENT_LENGTH = 30; // Z-length of each road/bridge segment
-var BRIDGE_DECK_HEIGHT = 8;
+export var BRIDGE_SEGMENT_LENGTH = 30; // Z-length of each road/bridge segment
 
 // 1. Road deck: thin 1.5-unit slab (used for all road segments, keeping ground roads paper-thin)
-var bridgeDeckGeo = new THREE.BoxGeometry(
+export var bridgeDeckGeo = new THREE.BoxGeometry(
   ChillFlightLogic.ROAD_WIDTH * 2 + 4,
   1.5, // Deck thickness
   BRIDGE_SEGMENT_LENGTH
@@ -2055,10 +2092,14 @@ function createBridgeGirderGeometry() {
   geo.computeVertexNormals();
   return geo;
 }
-var bridgeGirderGeo = createBridgeGirderGeometry();
+export var bridgeGirderGeo = createBridgeGirderGeometry();
 
 // 3. Modern parapet railings for bridge spans
-var bridgeRailGeo = new THREE.BoxGeometry(1.2, 2.6, BRIDGE_SEGMENT_LENGTH);
+export var bridgeRailGeo = new THREE.BoxGeometry(
+  1.2,
+  2.6,
+  BRIDGE_SEGMENT_LENGTH
+);
 
 // 4. Hammerhead pier cap (sculpted concrete bracket supporting the deck)
 function createBridgePierCapGeometry() {
@@ -2083,7 +2124,7 @@ function createBridgePierCapGeometry() {
   geo.computeVertexNormals();
   return geo;
 }
-var bridgePierCapGeo = createBridgePierCapGeometry();
+export var bridgePierCapGeo = createBridgePierCapGeometry();
 
 // 5. Faceted octagonal pylon shaft (scalable Y)
 function createBridgePierShaftGeometry() {
@@ -2094,7 +2135,7 @@ function createBridgePierShaftGeometry() {
   geo.computeVertexNormals();
   return geo;
 }
-var bridgePierShaftGeo = createBridgePierShaftGeometry();
+export var bridgePierShaftGeo = createBridgePierShaftGeometry();
 
 // 6. Foundation caisson footing (anchors pier into terrain/water)
 function createBridgePierFootingGeometry() {
@@ -2103,7 +2144,7 @@ function createBridgePierFootingGeometry() {
   geo.computeVertexNormals();
   return geo;
 }
-var bridgePierFootingGeo = createBridgePierFootingGeometry();
+export var bridgePierFootingGeo = createBridgePierFootingGeometry();
 
 // Expose geometries for debug model viewer and global access
 if (typeof window !== 'undefined') {
@@ -2113,23 +2154,29 @@ if (typeof window !== 'undefined') {
   window.bridgePierFootingGeo = bridgePierFootingGeo;
 }
 
-var bridgeDeckMat = createMaterial({color: 0x4a4a4a, flatShading: true}); // Asphalt gray
-var bridgePilingMat = createMaterial({color: 0x626262, flatShading: true}); // Concrete gray
-var bridgeGirderMat = createMaterial({color: 0x555555, flatShading: true}); // Girder concrete gray
+export var bridgeDeckMat = createMaterial({color: 0x4a4a4a, flatShading: true}); // Asphalt gray
+export var bridgePilingMat = createMaterial({
+  color: 0x626262,
+  flatShading: true,
+}); // Concrete gray
+export var bridgeGirderMat = createMaterial({
+  color: 0x555555,
+  flatShading: true,
+}); // Girder concrete gray
 if (typeof window !== 'undefined') {
   window.bridgeGirderMat = bridgeGirderMat;
 }
 
 // Streetlight geometries
-var streetlightPoleGeo = new THREE.CylinderGeometry(0.5, 0.8, 25, 6);
+export var streetlightPoleGeo = new THREE.CylinderGeometry(0.5, 0.8, 25, 6);
 streetlightPoleGeo.translate(0, 12.5, 0); // Origin at base
-var streetlightArmGeo = new THREE.CylinderGeometry(0.3, 0.5, 18, 6);
+export var streetlightArmGeo = new THREE.CylinderGeometry(0.3, 0.5, 18, 6);
 streetlightArmGeo.rotateZ(Math.PI / 2);
 streetlightArmGeo.translate(8.5, 24, 0);
-var streetlightBulbGeo = new THREE.BoxGeometry(1.5, 0.5, 1);
+export var streetlightBulbGeo = new THREE.BoxGeometry(1.5, 0.5, 1);
 streetlightBulbGeo.translate(17, 23.8, 0);
 
-var streetlightPoleMat = createMaterial({
+export var streetlightPoleMat = createMaterial({
   color: 0x222222,
   flatShading: true,
 });
@@ -2141,7 +2188,7 @@ window.streetlightBulbMat = createMaterial({
 });
 
 // Streetlight Decal
-var streetlightDecalGeo = new THREE.PlaneGeometry(40, 40);
+export var streetlightDecalGeo = new THREE.PlaneGeometry(40, 40);
 streetlightDecalGeo.rotateX(-Math.PI / 2);
 var decalCanvas = document.createElement('canvas');
 decalCanvas.width = 128;
@@ -2211,7 +2258,7 @@ function createTentBodyGeometry() {
   geom.computeVertexNormals();
   return geom;
 }
-var tentGeo = createTentBodyGeometry();
+export var tentGeo = createTentBodyGeometry();
 
 function createTentEntranceGeometry() {
   const geom = new THREE.BoxGeometry(4, 4, 0.2);
@@ -2226,7 +2273,7 @@ function createTentEntranceGeometry() {
   geom.computeVertexNormals();
   return geom;
 }
-var tentEntranceGeo = createTentEntranceGeometry();
+export var tentEntranceGeo = createTentEntranceGeometry();
 
 function createTentPolesGeometry() {
   const poleLength = Math.sqrt(4 * 4 + 6 * 6); // ~7.211
@@ -2272,37 +2319,40 @@ function createTentPolesGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var tentPolesGeo = createTentPolesGeometry();
-var tentEntranceMat = createMaterial({color: 0x111111, flatShading: true});
+export var tentPolesGeo = createTentPolesGeometry();
+export var tentEntranceMat = createMaterial({
+  color: 0x111111,
+  flatShading: true,
+});
 // Tent color palettes
-var tentPalette = [
+export var tentPalette = [
   createMaterial({color: 0xd2b48c, flatShading: true}), // Tan color
   createMaterial({color: 0x485c3f, flatShading: true}), // Army green
   createMaterial({color: 0x1d3557, flatShading: true}), // Navy blue
 ];
-var tentMat = tentPalette[0];
+export var tentMat = tentPalette[0];
 window.tentPalette = tentPalette;
 
 // Campfire geometries
-var fireLogGeo = new THREE.CylinderGeometry(0.8, 0.8, 6, 6);
+export var fireLogGeo = new THREE.CylinderGeometry(0.8, 0.8, 6, 6);
 fireLogGeo.rotateZ(Math.PI / 2);
-var fireCoreGeo = new THREE.SphereGeometry(2, 8, 8);
-var fireMat = createMaterial({
+export var fireCoreGeo = new THREE.SphereGeometry(2, 8, 8);
+export var fireMat = createMaterial({
   color: 0xff4500,
   emissive: 0xff4500,
   emissiveIntensity: 2.0,
 });
 
 // Smoke geometry and material community
-var smokeGeo = new THREE.BoxGeometry(2, 2, 2);
-var smokeMat = createMaterial({
+export var smokeGeo = new THREE.BoxGeometry(2, 2, 2);
+export var smokeMat = createMaterial({
   color: 0x888888,
   transparent: true,
   opacity: 0.4,
   flatShading: true,
 });
 
-var whiteSmokeMat = createMaterial({
+export var whiteSmokeMat = createMaterial({
   color: 0xdddddd,
   transparent: true,
   opacity: 0.6,
@@ -2456,7 +2506,7 @@ function createBoatHullBaseGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var boatHullGeo = createBoatHullBaseGeometry();
+export var boatHullGeo = createBoatHullBaseGeometry();
 boatHullGeo.translate(0, 0.5, 0);
 
 function createBoatRimGeometry() {
@@ -2491,7 +2541,7 @@ function createBoatRimGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var boatRimGeo = createBoatRimGeometry();
+export var boatRimGeo = createBoatRimGeometry();
 boatRimGeo.translate(0, 1.7, 0);
 
 function createBoatDeckGeometry() {
@@ -2525,16 +2575,16 @@ function createBoatDeckGeometry() {
   geom.setIndex(idx);
   return geom;
 }
-var boatDeckGeo = createBoatDeckGeometry();
+export var boatDeckGeo = createBoatDeckGeometry();
 boatDeckGeo.translate(0, 1.91, 0); // slightly above the white rim (1.7 + 0.2)
 
-var boatMastGeo = new THREE.CylinderGeometry(0.15, 0.15, 12, 4);
+export var boatMastGeo = new THREE.CylinderGeometry(0.15, 0.15, 12, 4);
 boatMastGeo.translate(0, 6, -1);
-var boatBoomGeo = new THREE.CylinderGeometry(0.1, 0.1, 7, 4);
+export var boatBoomGeo = new THREE.CylinderGeometry(0.1, 0.1, 7, 4);
 boatBoomGeo.rotateX(Math.PI / 2);
 boatBoomGeo.translate(0, 2.5, 2.5);
 
-var boatSailGeo = new THREE.BufferGeometry();
+export var boatSailGeo = new THREE.BufferGeometry();
 var sailVertices = new Float32Array([0, 2.5, -0.9, 0, 11, -0.9, 0, 2.5, 5.5]);
 boatSailGeo.setAttribute(
   'position',
@@ -2542,15 +2592,14 @@ boatSailGeo.setAttribute(
 );
 boatSailGeo.computeVertexNormals();
 
-var boatHullPalette = [
+export var boatHullPalette = [
   createMaterial({color: 0xaa0000, flatShading: true}), // Dark Red
   createMaterial({color: 0x004400, flatShading: true}), // Dark Green
   createMaterial({color: 0x000055, flatShading: true}), // Dark Blue
 ];
-var boatHullMat = boatHullPalette[0];
-var boatRimMat = createMaterial({color: 0xffffff, flatShading: true});
-var boatDeckMat = createMaterial({color: 0xd2b48c, flatShading: true});
-var boatSailMat = createMaterial({
+export var boatRimMat = createMaterial({color: 0xffffff, flatShading: true});
+export var boatDeckMat = createMaterial({color: 0xd2b48c, flatShading: true});
+export var boatSailMat = createMaterial({
   color: 0xffffff,
   flatShading: true,
   side: THREE.DoubleSide,
@@ -2607,7 +2656,7 @@ function createPirateHullGeometry() {
   merged.computeVertexNormals();
   return merged;
 }
-var pirateHullGeo = createPirateHullGeometry();
+export var pirateHullGeo = createPirateHullGeometry();
 pirateHullGeo.translate(0, 1, 0); // lift above water
 
 function createPirateRimGeometry() {
@@ -2625,7 +2674,7 @@ function createPirateRimGeometry() {
 
   return mergeGeometries([main, prow, stern]);
 }
-var pirateRimGeo = createPirateRimGeometry();
+export var pirateRimGeo = createPirateRimGeometry();
 pirateRimGeo.translate(0, 3, 0);
 
 function createPirateDeckGeometry() {
@@ -2643,7 +2692,7 @@ function createPirateDeckGeometry() {
 
   return mergeGeometries([main, prow, stern]);
 }
-var pirateDeckGeo = createPirateDeckGeometry();
+export var pirateDeckGeo = createPirateDeckGeometry();
 pirateDeckGeo.translate(0, 3.2, 0);
 
 function createPirateMastGeometry() {
@@ -2680,7 +2729,7 @@ function createPirateMastGeometry() {
 
   return mergeGeometries([mainmast, foremast, mizzenmast, bowsprit, ...yards]);
 }
-var pirateMastGeo = createPirateMastGeometry();
+export var pirateMastGeo = createPirateMastGeometry();
 
 function createPirateSailGeometry() {
   const sails = [];
@@ -2719,9 +2768,9 @@ function createPirateSailGeometry() {
 
   return mergeGeometries(sails);
 }
-var pirateSailGeo = createPirateSailGeometry();
+export var pirateSailGeo = createPirateSailGeometry();
 
-var pirateFlagGeo = new THREE.PlaneGeometry(3, 2, 4, 2);
+export var pirateFlagGeo = new THREE.PlaneGeometry(3, 2, 4, 2);
 pirateFlagGeo.rotateY(Math.PI / 2); // align with Z axis
 pirateFlagGeo.translate(0, 25, 1.5); // attach to mast at Z=0
 var flagPos = pirateFlagGeo.attributes.position.array;
@@ -2740,7 +2789,7 @@ var bone2 = new THREE.BoxGeometry(0.2, 0.8, 0.15);
 bone2.rotateX(-Math.PI / 4);
 bone2.translate(0, 24.6, 1.5);
 
-var pirateJollyRogerGeo = mergeGeometries([skull, bone1, bone2]);
+export var pirateJollyRogerGeo = mergeGeometries([skull, bone1, bone2]);
 var jrPos = pirateJollyRogerGeo.attributes.position.array;
 for (let i = 0; i < jrPos.length; i += 3) {
   const z = jrPos[i + 2];
@@ -2748,34 +2797,34 @@ for (let i = 0; i < jrPos.length; i += 3) {
 }
 pirateJollyRogerGeo.computeVertexNormals();
 
-var pirateHullMat = createMaterial({color: 0x3d2314, flatShading: true}); // Dark brown wood
-var pirateRimMat = createMaterial({color: 0x8b0000, flatShading: true}); // Dark red trim
-var pirateFlagMat = createMaterial({
+export var pirateHullMat = createMaterial({color: 0x3d2314, flatShading: true}); // Dark brown wood
+export var pirateRimMat = createMaterial({color: 0x8b0000, flatShading: true}); // Dark red trim
+export var pirateFlagMat = createMaterial({
   color: 0x050505,
   flatShading: true,
   side: THREE.DoubleSide,
 }); // Pitch black flag
-var pirateJollyRogerMat = createMaterial({
+export var pirateJollyRogerMat = createMaterial({
   color: 0xeeeeee,
   flatShading: true,
 }); // White skull & bones
 
 // Sail color variants
-var pirateSailPalette = [
+export var pirateSailPalette = [
   createMaterial({color: 0x111111, flatShading: true, side: THREE.DoubleSide}), // Black
   createMaterial({color: 0xffffff, flatShading: true, side: THREE.DoubleSide}), // White
   createMaterial({color: 0xd2c4a7, flatShading: true, side: THREE.DoubleSide}), // Dirty canvas
   createMaterial({color: 0x660000, flatShading: true, side: THREE.DoubleSide}), // Dark red
 ];
 
-var reflectionMat = new THREE.MeshBasicMaterial({
+export var reflectionMat = new THREE.MeshBasicMaterial({
   color: 0x07151e,
   transparent: true,
   opacity: 0.35,
   side: THREE.DoubleSide,
 });
 
-var sailboatReflectionGeo = mergeGeometries([
+export var sailboatReflectionGeo = mergeGeometries([
   boatHullGeo,
   boatRimGeo,
   boatDeckGeo,
@@ -2784,7 +2833,7 @@ var sailboatReflectionGeo = mergeGeometries([
   boatSailGeo,
 ]);
 
-var pirateShipReflectionGeo = mergeGeometries([
+export var pirateShipReflectionGeo = mergeGeometries([
   pirateHullGeo,
   pirateRimGeo,
   pirateDeckGeo,
@@ -2815,7 +2864,7 @@ for (let i = 0; i < count; i++) {
 }
 lighthouseBeamGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-var lighthouseBeamMat = new THREE.MeshBasicMaterial({
+export var lighthouseBeamMat = new THREE.MeshBasicMaterial({
   vertexColors: true,
   transparent: true,
   opacity: LIGHTHOUSE_BEAM_OPACITY_MAX,
@@ -2824,8 +2873,8 @@ var lighthouseBeamMat = new THREE.MeshBasicMaterial({
   depthWrite: false,
 });
 
-var persistentLighthouseLight = null;
-var persistentLighthouseBeam = null;
+export var persistentLighthouseLight = null;
+export var persistentLighthouseBeam = null;
 
 window.initLighthouse = function () {
   if (persistentLighthouseLight) return; // Already initialized
@@ -3670,7 +3719,7 @@ window.ModelAssembler = {
   },
 };
 
-function getBiome(x, z) {
+export function getBiome(x, z) {
   return ChillFlightLogic.getBiome(x, z, simplex);
 }
 
@@ -3696,7 +3745,7 @@ var _ELEV_PARAMS = {
   MAP_HEIGHT_SCALE,
 };
 
-function getElevation(x, z) {
+export function getElevation(x, z) {
   // Quantize coordinates to 0.5 units for spatial memoization
   const ix = Math.round(x * 2);
   const iz = Math.round(z * 2);
@@ -3748,63 +3797,280 @@ function getElevation(x, z) {
 }
 
 // Optimization: Pre-allocate colors used in chunk generation loop to prevent GC stalling
-var _colorPlains = new THREE.Color(0x7cb342);
-var _colorForest = new THREE.Color(0x388e3c);
-var _colorSnow = new THREE.Color(0xfafafa); // Crisp alpine snow white
-var _colorPackIce = new THREE.Color(0xa2b4bc); // Slate pack ice shelf
-var _colorSand = new THREE.Color(0xe0e0a8);
-var _colorWetSand = new THREE.Color(0xb09d6b);
-var _colorDesertSand = new THREE.Color(0xf4a460);
-var _colorDesertWetSand = new THREE.Color(0xc47e3c);
-var _colorWater = new THREE.Color(0x40c4ff);
-var _colorIcyWater = new THREE.Color(0x88ccff);
-var _colorDesertWater = new THREE.Color(0x00ced1);
-var _colorFoam = new THREE.Color(0xeeeeee);
-var _colorSandSnowTint = new THREE.Color(0x999999);
-var _colorUpperSandSnowTint = new THREE.Color(0xdddddd);
-var _colorForestSnowTint = new THREE.Color(0x8ba192);
-var _colorForestDesertTint = new THREE.Color(0xa0522d);
-var _colorPlainsSnowTint = new THREE.Color(0xfafafa);
-var _colorMountainDesertTint = new THREE.Color(0xcd853f);
-var _colorMountainTint = new THREE.Color(0x7f8c8d);
-var _colorAlpineRockDark = new THREE.Color(0x424a54); // Deep slate granite cliff
-var _colorAlpineRockLight = new THREE.Color(0x9ba2a8); // High ridge granite
-var _colorScree = new THREE.Color(0x736960); // Earthy scree / talus gravel
-var _colorDesertMountainRock = new THREE.Color(0xc24b2b); // Red sandstone
-var _colorIce = new THREE.Color(0x6ca6a8); // Frosty cyan ice
-var _colorAutumnForestTint = new THREE.Color(0x5d4037);
-var _colorAutumnPlainsTint = new THREE.Color(0x8d6e63);
-var _colorCherryForestTint = new THREE.Color(0xf8bbd0);
-var _colorCherryPlainsTint = new THREE.Color(0xfce4ec);
+export var _colorPlains = new THREE.Color(0x7cb342);
+export var _colorForest = new THREE.Color(0x388e3c);
+export var _colorSnow = new THREE.Color(0xfafafa); // Crisp alpine snow white
+export var _colorPackIce = new THREE.Color(0xa2b4bc); // Slate pack ice shelf
+export var _colorSand = new THREE.Color(0xe0e0a8);
+export var _colorWetSand = new THREE.Color(0xb09d6b);
+export var _colorDesertSand = new THREE.Color(0xf4a460);
+export var _colorDesertWetSand = new THREE.Color(0xc47e3c);
+export var _colorWater = new THREE.Color(0x40c4ff);
+export var _colorIcyWater = new THREE.Color(0x88ccff);
+export var _colorDesertWater = new THREE.Color(0x00ced1);
+export var _colorSandSnowTint = new THREE.Color(0x999999);
+export var _colorUpperSandSnowTint = new THREE.Color(0xdddddd);
+export var _colorForestSnowTint = new THREE.Color(0x8ba192);
+export var _colorForestDesertTint = new THREE.Color(0xa0522d);
+export var _colorPlainsSnowTint = new THREE.Color(0xfafafa);
+export var _colorMountainTint = new THREE.Color(0x7f8c8d);
+export var _colorAlpineRockDark = new THREE.Color(0x424a54); // Deep slate granite cliff
+export var _colorAlpineRockLight = new THREE.Color(0x9ba2a8); // High ridge granite
+export var _colorScree = new THREE.Color(0x736960); // Earthy scree / talus gravel
+export var _colorDesertMountainRock = new THREE.Color(0xc24b2b); // Red sandstone
+export var _colorIce = new THREE.Color(0x6ca6a8); // Frosty cyan ice
+export var _colorAutumnForestTint = new THREE.Color(0x5d4037);
+export var _colorAutumnPlainsTint = new THREE.Color(0x8d6e63);
+export var _colorCherryForestTint = new THREE.Color(0xf8bbd0);
+export var _colorCherryPlainsTint = new THREE.Color(0xfce4ec);
 // Mottling & detail colors (promoted from hot loop to avoid per-vertex GC allocations)
-var _colorBlack = new THREE.Color(0x000000);
-var _colorSandMottleHigh = new THREE.Color(0xd2b48c);
-var _colorSandMottleLow = new THREE.Color(0xdeb887);
-var _colorArizonaDark = new THREE.Color(0x8b0000);
-var _colorDesertMottle = new THREE.Color(0xdaa520);
-var _colorForestDark = new THREE.Color(0x006400);
-var _colorForestDeep = new THREE.Color(0x004d00);
-var _colorForestLight = new THREE.Color(0x6b8e23);
-var _colorPlainsDark = new THREE.Color(0x556b2f);
-var _colorPlainsBright = new THREE.Color(0xbdb76b);
-var _colorCliffSouth = new THREE.Color(0x8b3a3a);
-var _colorVolcanoBasaltHi = new THREE.Color(0x5c5c5c);
-var _colorVolcanoBasaltLo = new THREE.Color(0x3a3a3a);
+export var _colorBlack = new THREE.Color(0x000000);
+export var _colorSandMottleHigh = new THREE.Color(0xd2b48c);
+export var _colorSandMottleLow = new THREE.Color(0xdeb887);
+export var _colorArizonaDark = new THREE.Color(0x8b0000);
+export var _colorDesertMottle = new THREE.Color(0xdaa520);
+export var _colorForestDark = new THREE.Color(0x006400);
+export var _colorForestDeep = new THREE.Color(0x004d00);
+export var _colorForestLight = new THREE.Color(0x6b8e23);
+export var _colorPlainsDark = new THREE.Color(0x556b2f);
+export var _colorPlainsBright = new THREE.Color(0xbdb76b);
+export var _colorCliffSouth = new THREE.Color(0x8b3a3a);
+export var _colorVolcanoBasaltHi = new THREE.Color(0x5c5c5c);
+export var _colorVolcanoBasaltLo = new THREE.Color(0x3a3a3a);
 // Eastern Alien Biome (Swirling, organic, neon)
-var _colorEasternLowland = new THREE.Color(0x1a4d3a); // Deep teal (bioluminescent jungle floor)
-var _colorEasternRock = new THREE.Color(0x1a0a2e); // Obsidian purple-black
-var _colorEasternPeak = new THREE.Color(0xc8f000); // Acid yellow-green peak
-var _colorEasternCliff = new THREE.Color(0x4b0082); // Deep indigo cliff face
-var _colorEasternWater = new THREE.Color(0x00ffe7); // Neon cyan water
+export var _colorEasternLowland = new THREE.Color(0x1a4d3a); // Deep teal (bioluminescent jungle floor)
+export var _colorEasternRock = new THREE.Color(0x1a0a2e); // Obsidian purple-black
+export var _colorEasternPeak = new THREE.Color(0xc8f000); // Acid yellow-green peak
+export var _colorEasternCliff = new THREE.Color(0x4b0082); // Deep indigo cliff face
+export var _colorEasternWater = new THREE.Color(0x00ffe7); // Neon cyan water
 
 // Western Alien Biome (Crystalline, geometric, fiery/magenta)
-var _colorWesternLowland = new THREE.Color(0x400020); // Deep maroon/magenta dust
-var _colorWesternRock = new THREE.Color(0x200000); // Dark crimson rock
-var _colorWesternPeak = new THREE.Color(0xffffff); // Blinding white crystal peak
-var _colorWesternCliff = new THREE.Color(0xff4500); // Glowing orange-red fiery faults
-var _colorWesternWater = new THREE.Color(0xff00ff); // Hot pink/magenta liquid
+export var _colorWesternLowland = new THREE.Color(0x400020); // Deep maroon/magenta dust
+export var _colorWesternRock = new THREE.Color(0x200000); // Dark crimson rock
+export var _colorWesternPeak = new THREE.Color(0xffffff); // Blinding white crystal peak
+export var _colorWesternCliff = new THREE.Color(0xff4500); // Glowing orange-red fiery faults
+export var _colorWesternWater = new THREE.Color(0xff00ff); // Hot pink/magenta liquid
 
-// East coast road
-var _colorRoad = new THREE.Color(0x3a3a3a); // Dark asphalt
-var _colorRoadCenterLine = new THREE.Color(0xccaa00); // Dashed yellow center line
-var _colorRoadShoulder = new THREE.Color(0x555555); // Lighter edge
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  yAxis,
+  chunks,
+  getInstancedMesh,
+  releaseInstancedMesh,
+  chunkQueueSet,
+  VOLCANO_X,
+  VOLCANO_Z,
+  terrainMaterial,
+  waterMaterial,
+  treeTrunkGeo,
+  treeLeavesGeo,
+  deciduousGeos,
+  tallDeciduousGeos,
+  japaneseMapleGeos,
+  palmGeos,
+  deadTreeGeo,
+  treeTrunkMat,
+  treeLeavesBaseMat,
+  deadTreeMat,
+  rockGeo,
+  rockMat,
+  snowRockMat,
+  desertRockMat,
+  cactusGeo,
+  cactusMat,
+  mushroomGeos,
+  mushroomStalkMat,
+  ALIEN_MUSHROOM_CAP_COLORS,
+  lilyPadGeo,
+  lilyPadMat,
+  bushGeo,
+  bushBaseMat,
+  snowmanGeos,
+  snowmanBodyMat,
+  snowmanNoseMat,
+  houseBodyGeo,
+  houseRoofGeo,
+  houseWindowGeo,
+  houseDoorGeo,
+  houseChimneyGeo,
+  houseDoorMat,
+  houseChimneyMat,
+  twoStoryBodyGeo,
+  twoStoryRoofGeo,
+  twoStoryChimneyGeo,
+  strawHutBodyGeo,
+  strawHutRoofGeo,
+  strawHutMat,
+  icebergMainGeo,
+  iceFloeMainGeo,
+  icebergMat,
+  penguinBodyGeo,
+  penguinBellyGeo,
+  penguinHeadGeo,
+  penguinBeakGeo,
+  penguinWingLGeo,
+  penguinWingRGeo,
+  penguinFootLGeo,
+  penguinFootRGeo,
+  penguinBlackMat,
+  penguinWhiteMat,
+  penguinOrangeMat,
+  houseBodyPalette,
+  houseRoofPalette,
+  houseWindowMats,
+  pagodaBodyGeo,
+  pagodaRoofGeo,
+  pagodaBodyMat,
+  pagodaRoofMat,
+  barnBodyGeo,
+  barnRoofGeo,
+  barnDoorGeo,
+  barnTrimGeo,
+  barnSiloBodyGeo,
+  barnSiloRoofGeo,
+  barnBodyMat,
+  barnRoofMat,
+  barnWhiteMat,
+  barnSiloMat,
+  barnSiloRoofMat,
+  monasteryBodyGeo,
+  monasteryRoofGeo,
+  monasteryBodyMat,
+  monasteryRoofMat,
+  createRockArchGeometries,
+  rockArchGrassMat,
+  castleRuinsGeo,
+  castleRuinsMat,
+  assembleHawk,
+  assembleSeagull,
+  gooseBodyGeo,
+  gooseNeckGeo,
+  gooseHeadGeo,
+  gooseBeakGeo,
+  gooseCheekGeo,
+  gooseTailGeo,
+  gooseWhiteTailGeo,
+  gooseBrownMat,
+  gooseBlackMat,
+  gooseWhiteMat,
+  gooseWingGeo,
+  windmillBaseGeo,
+  windmillBladesGeo,
+  windmillBaseMat,
+  windmillBladesMat,
+  windmillBladesDepthMat,
+  pierDeckGeo,
+  pierPostGeo,
+  woodMat,
+  BRIDGE_SEGMENT_LENGTH,
+  bridgeDeckGeo,
+  bridgeGirderGeo,
+  bridgeRailGeo,
+  bridgePierCapGeo,
+  bridgePierShaftGeo,
+  bridgePierFootingGeo,
+  bridgeDeckMat,
+  bridgePilingMat,
+  bridgeGirderMat,
+  streetlightPoleGeo,
+  streetlightArmGeo,
+  streetlightBulbGeo,
+  streetlightPoleMat,
+  streetlightDecalGeo,
+  tentGeo,
+  tentEntranceGeo,
+  tentPolesGeo,
+  tentEntranceMat,
+  tentMat,
+  fireLogGeo,
+  fireCoreGeo,
+  smokeGeo,
+  boatHullGeo,
+  boatRimGeo,
+  boatDeckGeo,
+  boatMastGeo,
+  boatBoomGeo,
+  boatSailGeo,
+  boatHullPalette,
+  boatRimMat,
+  boatDeckMat,
+  boatSailMat,
+  pirateHullGeo,
+  pirateRimGeo,
+  pirateDeckGeo,
+  pirateMastGeo,
+  pirateSailGeo,
+  pirateFlagGeo,
+  pirateJollyRogerGeo,
+  pirateHullMat,
+  pirateRimMat,
+  pirateFlagMat,
+  pirateJollyRogerMat,
+  pirateSailPalette,
+  reflectionMat,
+  sailboatReflectionGeo,
+  pirateShipReflectionGeo,
+  lighthouseBeamMat,
+  getBiome,
+  getElevation,
+  _colorPlains,
+  _colorForest,
+  _colorSnow,
+  _colorPackIce,
+  _colorSand,
+  _colorWetSand,
+  _colorDesertSand,
+  _colorDesertWetSand,
+  _colorWater,
+  _colorIcyWater,
+  _colorDesertWater,
+  _colorSandSnowTint,
+  _colorUpperSandSnowTint,
+  _colorForestSnowTint,
+  _colorForestDesertTint,
+  _colorPlainsSnowTint,
+  _colorMountainTint,
+  _colorAlpineRockDark,
+  _colorAlpineRockLight,
+  _colorScree,
+  _colorDesertMountainRock,
+  _colorIce,
+  _colorAutumnForestTint,
+  _colorAutumnPlainsTint,
+  _colorCherryForestTint,
+  _colorCherryPlainsTint,
+  _colorBlack,
+  _colorSandMottleHigh,
+  _colorSandMottleLow,
+  _colorArizonaDark,
+  _colorDesertMottle,
+  _colorForestDark,
+  _colorForestDeep,
+  _colorForestLight,
+  _colorPlainsDark,
+  _colorPlainsBright,
+  _colorCliffSouth,
+  _colorVolcanoBasaltHi,
+  _colorVolcanoBasaltLo,
+  _colorEasternLowland,
+  _colorEasternRock,
+  _colorEasternPeak,
+  _colorEasternCliff,
+  _colorEasternWater,
+  _colorWesternLowland,
+  _colorWesternRock,
+  _colorWesternPeak,
+  _colorWesternCliff,
+  _colorWesternWater,
+});
+// Live bindings: reassigned here, read elsewhere.
+Object.defineProperties(window, {
+  persistentLighthouseLight: {
+    get: () => persistentLighthouseLight,
+    configurable: true,
+  },
+  persistentLighthouseBeam: {
+    get: () => persistentLighthouseBeam,
+    configurable: true,
+  },
+});

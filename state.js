@@ -35,6 +35,10 @@ export const state = {
   isDeployingPontoons: false,
   isRetractingPontoons: false,
 
+  // Terrain chunk loading
+  chunkQueue: [],
+  _enableObjects: ChillFlightLogic.SHOW_OBJECTS, // procedural props toggle
+
   // Flight dynamics
   flightSpeedMultiplier: initialFlightSpeed,
   targetFlightSpeed: initialFlightSpeed,

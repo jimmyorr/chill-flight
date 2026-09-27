@@ -13,6 +13,8 @@ import '../biplane.js';
 import '../glider.js';
 import '../twin.js';
 import '../airplane.js';
+import '../terrain-geometry.js';
+import '../terrain-chunks.js';
 
 // Startup banner
 const appVersion = window.__APP_VERSION__ || '0.0.0';
