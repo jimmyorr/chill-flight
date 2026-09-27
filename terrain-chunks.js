@@ -248,6 +248,13 @@ import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
 
+// Trees are drawn world-wide from one instanced mesh per type, which is too
+// many to also draw into the shadow map (the sun's shadow volume only reaches
+// ~4,500 units from the plane, even at low sun). So the full meshes don't cast
+// shadows; a second, shadow-only copy per type holds just the chunks within
+// this radius of the plane (+1 chunk for flying between rebuilds).
+const TREE_SHADOW_CHUNK_RADIUS = 4;
+
 class GlobalInstanceManager {
   constructor() {
     this.types = new Map();
@@ -277,11 +284,31 @@ class GlobalInstanceManager {
     instMesh.visible = state._enableObjects;
     instMesh.count = 0;
     instMesh.receiveShadow = true;
-    instMesh.castShadow = true;
+    instMesh.castShadow = false;
     this.group.add(instMesh);
+
+    // Shadow-only copy with just the instances near the plane. three.js has no
+    // shadow-only flag (layers are tested against the main camera even for
+    // shadows), so it draws zero instances on screen: onBeforeRender only runs
+    // for the on-screen pass, not the shadow pass.
+    const shadowMesh = new THREE.InstancedMesh(geo, mat, maxInstances);
+    useInstancedDepthMaterial(shadowMesh);
+    shadowMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    shadowMesh.frustumCulled = false;
+    shadowMesh.count = 0;
+    shadowMesh.castShadow = true;
+    shadowMesh.onBeforeRender = () => {
+      shadowMesh.userData.shadowCount = shadowMesh.count;
+      shadowMesh.count = 0;
+    };
+    shadowMesh.onAfterRender = () => {
+      shadowMesh.count = shadowMesh.userData.shadowCount;
+    };
+    this.group.add(shadowMesh);
 
     this.types.set(type, {
       mesh: instMesh,
+      shadowMesh,
       useColor: useColor,
       maxInstances: maxInstances,
     });
@@ -294,11 +321,19 @@ class GlobalInstanceManager {
 
     for (const typeInfo of this.types.values()) {
       typeInfo.currentCount = 0;
+      typeInfo.shadowCount = 0;
     }
+    const planeChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
+    const planeChunkZ = Math.round(planeGroup.position.z / CHUNK_SIZE);
 
     chunks.forEach((chunk) => {
       const instanceData = chunk.userData.instanceData;
       if (!instanceData) return;
+      const castsShadows =
+        Math.max(
+          Math.abs(chunk.userData.chunkX - planeChunkX),
+          Math.abs(chunk.userData.chunkZ - planeChunkZ)
+        ) <= TREE_SHADOW_CHUNK_RADIUS;
 
       for (const type in instanceData) {
         const typeInfo = this.types.get(type);
@@ -323,6 +358,14 @@ class GlobalInstanceManager {
           );
         }
 
+        if (castsShadows) {
+          typeInfo.shadowMesh.instanceMatrix.array.set(
+            data.matrices.subarray(0, numToCopy * 16),
+            typeInfo.shadowCount * 16
+          );
+          typeInfo.shadowCount += numToCopy;
+        }
+
         typeInfo.currentCount = count + numToCopy;
       }
     });
@@ -345,6 +388,15 @@ class GlobalInstanceManager {
       } else {
         typeInfo.mesh.visible = false;
       }
+
+      const shadowMesh = typeInfo.shadowMesh;
+      shadowMesh.count = typeInfo.shadowCount;
+      if (typeInfo.shadowCount > 0) {
+        shadowMesh.instanceMatrix.clearUpdateRanges();
+        shadowMesh.instanceMatrix.addUpdateRange(0, typeInfo.shadowCount * 16);
+        shadowMesh.instanceMatrix.needsUpdate = true;
+      }
+      shadowMesh.visible = state._enableObjects && typeInfo.shadowCount > 0;
     }
   }
 }
