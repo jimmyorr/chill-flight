@@ -16,12 +16,13 @@
     "test:syntax": "for f in *.js; do node --check \"$f\" || exit 1; done",
     "test:terrain": "node scripts/test-terrain.js",
     "test:scripts": "node scripts/test-html-scripts.js",
-    "test": "npm run lint && npm run test:syntax && npm run test:terrain && npm run test:scripts && npm run test:globals",
+    "test": "npm run lint && npm run test:syntax && npm run test:terrain && npm run test:scripts && npm run test:globals && npm run test:imports",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write \"**/*.{js,json,css,html,md}\" --ignore-path .prettierignore",
     "test:browser": "node scripts/smoke-test.js",
     "test:build": "node scripts/smoke-test.js --build",
-    "test:globals": "node scripts/check-window-globals.js"
+    "test:globals": "node scripts/check-window-globals.js",
+    "test:imports": "node scripts/check-import-order.js"
   },
   "dependencies": {
     "@capacitor-firebase/analytics": "^8.2.0",
@@ -43,7 +44,6 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "^2.11.1",
-    "esbuild": "^0.28.0",
     "eslint": "^10.3.0",
     "espree": "^11.2.0",
     "globals": "^17.6.0",
