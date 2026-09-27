@@ -332,11 +332,26 @@ const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: true,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+  // Fail instead of hanging if a page stops responding (e.g. a stuck loop).
+  protocolTimeout: 60000,
 });
 
+const PAGE_TIMEOUT_MS = 120000;
 try {
   for (const p of PAGES) {
-    if (!(BUILD_MODE && p.devOnly)) await checkPage(browser, p);
+    if (BUILD_MODE && p.devOnly) continue;
+    let timer;
+    await Promise.race([
+      checkPage(browser, p),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`timed out after ${PAGE_TIMEOUT_MS}ms`)),
+          PAGE_TIMEOUT_MS
+        );
+      }),
+    ])
+      .catch((err) => errors.push(`[${p.path || 'index.html'}] ${err.message}`))
+      .finally(() => clearTimeout(timer));
   }
 } finally {
   await browser.close();
