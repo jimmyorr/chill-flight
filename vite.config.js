@@ -186,9 +186,11 @@ export default defineConfig({
 
         if (fs.existsSync('terrain-worker.js')) {
           const workerCode =
-            fs.readFileSync('noise.js', 'utf-8') +
-            '\n;\n' +
+            // Same order as importScripts() in terrain-worker.js: noise.js
+            // needs ChillFlightLogic at load time.
             fs.readFileSync('chill-flight-logic.js', 'utf-8') +
+            '\n;\n' +
+            fs.readFileSync('noise.js', 'utf-8') +
             '\n;\n' +
             fs.readFileSync('terrain-worker.js', 'utf-8');
           const minifiedWorker = await transform(workerCode, {
