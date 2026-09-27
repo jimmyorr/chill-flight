@@ -1,14 +1,32 @@
 // --- INPUT ---
+import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {camera, renderer} from './sky.js';
+import {
+  HEADLIGHT_GLOW_INTENSITY,
+  HEADLIGHT_INTENSITY,
+  activePlaneType,
+  headlight,
+  headlightGlow,
+  setActivePlane,
+} from './airplane.js';
+import {cycleWeather} from './weather-manager.js';
+import {
+  musicEnabled,
+  purrpleCatAudio,
+  setMusicEnabled,
+  updateAudioPlayer,
+} from './audio.js';
+import {InputManager} from './input-manager.js';
+import {getMaxFlightSpeedMult} from './constants.js';
+import {state} from './state.js';
+
 if (ChillFlightLogic.START_TOD !== null) {
   window.manualTimeOfDay = ChillFlightLogic.START_TOD;
 }
 
 // --- WEBXR / VR DOLLY & CAMERA RIG ---
-var dismissLoadingScreen; // Hoisted for early XR events
-var openVRPauseMenu;
-var closeVRPauseMenu;
-var updateVRPauseInteraction;
-function checkVRPresenting() {
+export function checkVRPresenting() {
   return !!(
     typeof renderer !== 'undefined' &&
     renderer &&
@@ -16,12 +34,12 @@ function checkVRPresenting() {
     renderer.xr.isPresenting
   );
 }
-var cameraDolly = new THREE.Group();
+export var cameraDolly = new THREE.Group();
 cameraDolly.name = 'cameraDolly';
 cameraDolly.isCamera = true; // Crucial: Three.js lookAt() points +Z for generic Objects/Groups, but -Z for Cameras
 var _worldCamPos = new THREE.Vector3();
 
-function getCameraWorldPosition(target = _worldCamPos) {
+export function getCameraWorldPosition(target = _worldCamPos) {
   if (camera && camera.parent) {
     return camera.getWorldPosition(target);
   }
@@ -31,23 +49,24 @@ function getCameraWorldPosition(target = _worldCamPos) {
   return target;
 }
 
-var inputManager = new window.InputManager();
-var keys = inputManager.state.keys;
-var doubleTap = inputManager.state.doubleTap;
-var tripleTap = inputManager.state.tripleTap;
-var STEER_HOLD_THRESHOLD = 100; // ms to wait before a tap becomes a hold for pitch/looping
+export var inputManager = new InputManager();
+export var keys = inputManager.state.keys;
+export var doubleTap = inputManager.state.doubleTap;
+export var tripleTap = inputManager.state.tripleTap;
+export var STEER_HOLD_THRESHOLD = 100; // ms to wait before a tap becomes a hold for pitch/looping
 
 inputManager.onCameraToggle = () => {
-  if (cameraMode === 'follow') cameraMode = 'first-person';
-  else if (cameraMode === 'first-person') cameraMode = 'birds-eye-close';
-  else if (cameraMode === 'birds-eye-close') cameraMode = 'birds-eye-far';
-  else if (cameraMode === 'birds-eye-far') {
-    cameraMode = 'cinematic';
-    cinematicTimer = 0;
+  if (state.cameraMode === 'follow') state.cameraMode = 'first-person';
+  else if (state.cameraMode === 'first-person')
+    state.cameraMode = 'birds-eye-close';
+  else if (state.cameraMode === 'birds-eye-close')
+    state.cameraMode = 'birds-eye-far';
+  else if (state.cameraMode === 'birds-eye-far') {
+    state.cameraMode = 'cinematic';
     currentCinematicIndex = 0;
   } else {
-    cameraMode = 'follow';
-    cameraTransitionProgress = 0;
+    state.cameraMode = 'follow';
+    state.cameraTransitionProgress = 0;
   }
   if (typeof Achievements !== 'undefined') Achievements.unlock('directors_cut');
 };
@@ -119,7 +138,7 @@ inputManager.onPauseToggle = () => {
 inputManager.onPlaneToggle = () => {
   if (typeof setActivePlane === 'function') {
     const types = ['classic', 'biplane', 'glider', 'twin'];
-    const currentIndex = types.indexOf(window.activePlaneType);
+    const currentIndex = types.indexOf(activePlaneType);
     const nextPlane = types[(currentIndex + 1) % types.length] || 'classic';
     setActivePlane(nextPlane);
   }
@@ -141,7 +160,7 @@ inputManager.onThrottleChange = (delta) => {
 };
 inputManager.onKeyRelease = (action, heldTime) => {
   if ((action === 'ArrowLeft' || action === 'ArrowRight') && heldTime < 200) {
-    manualPitch = 0;
+    state.manualPitch = 0;
   }
 };
 let mobileFocusIndex = -1;
@@ -176,80 +195,74 @@ inputManager.onTripleTap = (action) => {
   const isDownAction = action === 'ArrowDown' || action === downAction;
   if (
     isDownAction &&
-    !isDoingImmelmann &&
+    !state.isDoingImmelmann &&
     !isFreeCamera &&
-    flightSpeedMultiplier > 0
+    state.flightSpeedMultiplier > 0
   ) {
-    isDoingImmelmann = true;
-    immelmannProgress = 0;
+    state.isDoingImmelmann = true;
+    state.immelmannProgress = 0;
   }
 };
 
-var mouseX = 0;
-var mouseY = 0;
-var _lastChunkUpdatePos = new THREE.Vector3(Infinity, Infinity, Infinity);
-var mouseControlActive = false; // becomes true once the mouse moves; cleared by arrow-key presses
-var windowJustFocused = false; // absorbs the first mousemove after returning to the tab
+export var _lastChunkUpdatePos = new THREE.Vector3(
+  Infinity,
+  Infinity,
+  Infinity
+);
 
 // Control scheme state ('touch', 'joystick', or 'gyro')
-var currentControlScheme =
+state.currentControlScheme =
   localStorage.getItem('chill_flight_control_scheme') || 'joystick';
 
-// Joystick state
-var joystickActive = false;
-var joystickTouchId = null;
-var joystickStartX = 0;
-var joystickStartY = 0;
-var JOYSTICK_MAX_RADIUS = 50;
-var JOYSTICK_SENSITIVITY = 0.5;
-var steeringTouchId = null; // Track active touch for 'touch' mode
-
-var startPlaneTooltipShown =
+state.startPlaneTooltipShown =
   localStorage.getItem('chill_flight_stopped_tooltip_shown') === 'true';
-var dismissStartPlaneTooltipFunc = null;
-var stoppedStartTime = null;
-var targetPitch = 0;
-var targetRoll = 0;
-targetFlightSpeed = flightSpeedMultiplier; // Initialize based on current vehicle speed multiplier
+state.targetFlightSpeed = state.flightSpeedMultiplier; // Initialize based on current vehicle speed multiplier
 
 // Apply a throttle delta: snap to 0 near rest, and give a minimum kick
 // when starting from a standstill so small inputs (e.g. VR trigger taps)
 // actually get the plane moving. Shared by all throttle inputs so the
 // behavior can't drift between them.
-function applyThrottleDelta(delta) {
+export function applyThrottleDelta(delta) {
   const maxSpeed =
-    typeof window.getMaxFlightSpeedMult === 'function'
-      ? window.getMaxFlightSpeedMult()
+    typeof getMaxFlightSpeedMult === 'function'
+      ? getMaxFlightSpeedMult()
       : 3.3333333333333335;
   if (delta > 0) {
-    if (targetFlightSpeed === 0) {
-      targetFlightSpeed = Math.max(0.1, delta);
+    if (state.targetFlightSpeed === 0) {
+      state.targetFlightSpeed = Math.max(0.1, delta);
     } else {
-      targetFlightSpeed += delta;
+      state.targetFlightSpeed += delta;
     }
   } else if (delta < 0) {
-    targetFlightSpeed += delta;
-    if (targetFlightSpeed < 0.05) {
-      targetFlightSpeed = 0;
+    state.targetFlightSpeed += delta;
+    if (state.targetFlightSpeed < 0.05) {
+      state.targetFlightSpeed = 0;
     }
   }
-  targetFlightSpeed = Math.max(0, Math.min(maxSpeed, targetFlightSpeed));
+  state.targetFlightSpeed = Math.max(
+    0,
+    Math.min(maxSpeed, state.targetFlightSpeed)
+  );
 }
-var smoothedManeuverFactor = 0; // Ensures smooth cinematic transitions
-var manualPitch = 0;
-verticalVelocity = 0; // units/sec, negative = falling
-var keyPressStartTime = inputManager.state.keyPressStartTime;
-var cameraMode = 'follow'; // 'follow', 'first-person', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
-var cameraTransitionProgress = 0; // 0 = follow/cinematic, 1 = bird's eye
-var currentBirdEyeHeight = 2000;
-var cinematicTimer = 0;
-var currentCinematicIndex = 0;
-var _cinematicStableHeading = 0;
+state.verticalVelocity = 0; // units/sec, negative = falling
+export var keyPressStartTime = inputManager.state.keyPressStartTime;
+export var currentCinematicIndex = 0;
 
-var isDoingImmelmann = false;
-var immelmannProgress = 0;
-var wasLooping = false;
-var wasDoingFullLoop = false;
-var wasBarrelRolling = false;
-var wasDoingFullBarrelRoll = false;
-var wasDoingImmelmann = false;
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  checkVRPresenting,
+  cameraDolly,
+  getCameraWorldPosition,
+  inputManager,
+  keys,
+  doubleTap,
+  tripleTap,
+  STEER_HOLD_THRESHOLD,
+  _lastChunkUpdatePos,
+  applyThrottleDelta,
+  keyPressStartTime,
+});
+// Live bindings: reassigned here, read elsewhere.
+Object.defineProperties(window, {
+  currentCinematicIndex: {get: () => currentCinematicIndex, configurable: true},
+});

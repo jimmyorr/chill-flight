@@ -43,6 +43,34 @@ export const state = {
   flightSpeedMultiplier: initialFlightSpeed,
   targetFlightSpeed: initialFlightSpeed,
   verticalVelocity: 0,
+
+  // Input and flight controls (game-input-bindings.js)
+  dismissLoadingScreen: undefined, // Hoisted for early XR events
+  mouseX: 0,
+  mouseY: 0,
+  mouseControlActive: false, // becomes true once the mouse moves; cleared by arrow-key presses
+  windowJustFocused: false, // absorbs the first mousemove after returning to the tab
+  currentControlScheme: undefined, // set in game-input-bindings.js
+  joystickActive: false,
+  joystickTouchId: null,
+  startPlaneTooltipShown: undefined, // set in game-input-bindings.js
+  dismissStartPlaneTooltipFunc: null,
+  stoppedStartTime: null,
+  targetPitch: 0,
+  targetRoll: 0,
+  smoothedManeuverFactor: 0, // Ensures smooth cinematic transitions
+  manualPitch: 0,
+  cameraMode: 'follow', // 'follow', 'first-person', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
+  cameraTransitionProgress: 0, // 0 = follow/cinematic, 1 = bird's eye
+  currentBirdEyeHeight: 2000,
+  _cinematicStableHeading: 0,
+  isDoingImmelmann: false,
+  immelmannProgress: 0,
+  wasLooping: false,
+  wasDoingFullLoop: false,
+  wasBarrelRolling: false,
+  wasDoingFullBarrelRoll: false,
+  wasDoingImmelmann: false,
 };
 
 // Bridge for classic scripts that haven't been converted to ES modules yet:
