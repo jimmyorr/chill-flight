@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.34
+
+- **Web workers:** Offloaded terrain elevation, normals, and water meshes to background workers with directional priority scheduling and job cancellation.
+- **Environment:** Aligned highway canyon carving to unwarped coordinates to restore mountain pass valley cuts; fixed volcano crater tilt and lava alignment.
+- **Visuals:** Resolved chunk lighting seams by aligning worker color space with Three.js; fixed instanced mesh prop culling.
+
 ## 0.9.31
 
 - **Logging & diagnostics:** Added lightweight logger (`logger.js`) gating diagnostic logs behind `?debug=1`, a clean startup banner, and console guidelines.
