@@ -76,6 +76,9 @@ function getGitInfo(isBuild = false) {
   return {commitHash, isDirty, version};
 }
 
+// Resolved build output dir (docs/ by default, overridable via --outDir).
+let outDir = 'docs';
+
 export default defineConfig({
   customLogger: logger,
   base: './',
@@ -116,9 +119,10 @@ export default defineConfig({
       name: 'bundle-classic-scripts',
       apply: 'build', // Only run during the production build
       enforce: 'post',
+      configResolved(config) {
+        outDir = config.build.outDir;
+      },
       async closeBundle() {
-        const outDir = 'docs';
-
         const bundleHtml = async (htmlFileName, bundleName) => {
           const htmlPath = path.join(outDir, htmlFileName);
           if (!fs.existsSync(htmlPath)) return;
