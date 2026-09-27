@@ -2175,6 +2175,15 @@ export const ChillFlightLogic = {};
   const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
 
+  // Highways always follow the default world noise, even when getElevation()
+  // is given another noise instance (e.g. the map export page's custom seed).
+  // noise.js registers it via setRoadNoise() when it loads, since it can't be
+  // imported here without a cycle.
+  let roadNoise = null;
+  exports.setRoadNoise = (noise) => {
+    roadNoise = noise;
+  };
+
   function getRoadSweepOffset(z, n = 0) {
     // --- VOLCANO AVOIDANCE (CONTINUOUS DOMAIN WARPING) ---
     // The volcano is located exactly at X = -5000, Z = 5000.
@@ -2186,7 +2195,7 @@ export const ChillFlightLogic = {};
     // Offset Z significantly based on highway index 'n' to ensure each highway is totally unique
     const zNoise = z + n * 99999;
 
-    let baseSweep = simplex.noise2D(zNoise * 0.0001, 777);
+    let baseSweep = roadNoise.noise2D(zNoise * 0.0001, 777);
     let detailAmplitude = 500;
 
     // Only apply volcano avoidance to highway n = 0
@@ -2209,10 +2218,10 @@ export const ChillFlightLogic = {};
     const sweep = baseSweep * 2500;
 
     // Layer 2: Medium detail curves (wavelength ~3,000 units)
-    const detail = simplex.noise2D(zNoise * 0.0003, 888) * detailAmplitude;
+    const detail = roadNoise.noise2D(zNoise * 0.0003, 888) * detailAmplitude;
 
     // Layer 3: Small wobbles (wavelength ~1,000 units)
-    const wobble = simplex.noise2D(zNoise * 0.001, 999) * 100;
+    const wobble = roadNoise.noise2D(zNoise * 0.001, 999) * 100;
 
     return sweep + detail + wobble;
   }
