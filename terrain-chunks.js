@@ -2731,7 +2731,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           null,
           {ignoreRivers: true, ignoreRoads: true, forRoad: true}
         );
-        let rawY = minHeight + (naturalH - minHeight) * 0.85;
+        let rawY = minHeight + (naturalH - minHeight) * 0.35;
         rawY = Math.max(rawY, minHeight);
         rawY = Math.min(rawY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
 

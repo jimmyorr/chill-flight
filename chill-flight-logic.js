@@ -1554,15 +1554,15 @@
     // GEOGRAPHIC GUARD: Highways only exist on the West Coast (X < 0).
     // Never execute highway math for X >= 0 to prevent phantom road canyons in the ocean.
     // NEVER early-return from this block, as that would abort subsequent passes.
-    if (!options.ignoreRoads && x < 0) {
+    if (!options.ignoreRoads && origX < 0) {
       // Find the closest highway index mathematically
       const highwayIndex = Math.max(
         0,
-        Math.round((x - ROAD_BASE_X) / ROAD_SPACING)
+        Math.round((origX - ROAD_BASE_X) / ROAD_SPACING)
       );
-      const roadCenterX = getRoadCenterX(z, highwayIndex);
+      const roadCenterX = getRoadCenterX(origZ, highwayIndex);
       if (roadCenterX < 0) {
-        const distToRoad = Math.abs(x - roadCenterX);
+        const distToRoad = Math.abs(origX - roadCenterX);
 
         const CANYON_FLOOR_WIDTH = 50; // Flat area at the bottom for the road to sit in
 
@@ -1574,7 +1574,7 @@
           // We MUST ignore roads and rivers here to avoid recursion and hitting trenches
           const centerNaturalH = getElevation(
             roadCenterX,
-            z,
+            origZ,
             simplex,
             constants,
             _lerp,
@@ -1583,7 +1583,7 @@
 
           const MIN_ROAD_HEIGHT = WATER_LEVEL + 60;
           let roadY =
-            MIN_ROAD_HEIGHT + (centerNaturalH - MIN_ROAD_HEIGHT) * 0.85;
+            MIN_ROAD_HEIGHT + (centerNaturalH - MIN_ROAD_HEIGHT) * 0.35;
           roadY = Math.max(roadY, MIN_ROAD_HEIGHT);
           roadY = Math.min(roadY, MAX_HIGHWAY_HEIGHT);
 
