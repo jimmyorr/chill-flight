@@ -2,8 +2,11 @@
 // Dependencies: THREE, createMaterial (or fallback), ChillFlightLogic
 // Vintage sport & aerobatic biplane with dual staggered wings, N-struts,
 // cabane struts, open cockpit with windscreen, and streamlined wheel pants.
+import * as THREE from 'three';
+import {createMaterial} from './constants.js';
+import {state} from './state.js';
 
-function createBiplaneModel(opts = {}) {
+export function createBiplaneModel(opts = {}) {
   const root = new THREE.Group();
 
   const makeMat = (props) => {
@@ -16,8 +19,8 @@ function createBiplaneModel(opts = {}) {
   const planeColor =
     opts.planeColor !== undefined
       ? opts.planeColor
-      : typeof window.planeColor !== 'undefined'
-        ? window.planeColor
+      : typeof state.planeColor !== 'undefined'
+        ? state.planeColor
         : 0x4794db;
 
   const whiteColor = planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff;
@@ -514,12 +517,7 @@ function createBiplaneModel(opts = {}) {
   return root;
 }
 
-// Global exposure
-if (typeof window !== 'undefined') {
-  window.createBiplaneModel = createBiplaneModel;
-  window.biplaneModel = createBiplaneModel();
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {createBiplaneModel};
-}
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+window.createBiplaneModel = createBiplaneModel;
+// Prebuilt default model, cloned by the model debug page.
+window.biplaneModel = createBiplaneModel();

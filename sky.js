@@ -1,14 +1,19 @@
-// --- SCENE, CAMERA, RENDERER, LIGHTS, SKY ---
-// timeOfDay and daySpeedMultiplier live in state.js (other files write them).
+// --- CAMERA, RENDERER, LIGHTS, SKY ---
+// The scene itself lives in scene.js. timeOfDay and daySpeedMultiplier live
+// in state.js (other files write them).
 
-export const scene = new THREE.Scene();
-// Background will be handled by a Skysphere shader
-scene.fog = new THREE.FogExp2(0xa0d8ef, 0.00015);
+import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {log} from './logger.js';
+import {scene} from './scene.js';
+import skyVertexShader from './src/shaders/sky.vert.glsl?raw';
+import skyFragmentShader from './src/shaders/sky.frag.glsl?raw';
+import sunMoonVertShader from './src/shaders/sunMoon.vert.glsl?raw';
+import moonFragShader from './src/shaders/moon.frag.glsl?raw';
+import rainbowVertShader from './src/shaders/rainbow.vert.glsl?raw';
+import rainbowFragShader from './src/shaders/rainbow.frag.glsl?raw';
 
 // --- SKY SHADER MATERIAL ---
-const skyVertexShader = window.SKY_SHADERS.skyVert;
-
-const skyFragmentShader = window.SKY_SHADERS.skyFrag;
 
 // --- DYNAMIC ATMOSPHERE PALETTE GENERATOR ---
 // Replaces the static ATMOSPHERE_PALETTES array
@@ -398,9 +403,6 @@ const skySphereMesh = new THREE.Mesh(skySphereGeo, skyMat);
 skyGroup.add(skySphereMesh);
 
 // --- CELESTIAL SHADERS ---
-const sunMoonVertShader = window.SKY_SHADERS.sunMoonVert;
-
-const moonFragShader = window.SKY_SHADERS.moonFrag;
 
 export const sunUniforms = {
   uTime: {value: 0.0},
@@ -576,9 +578,6 @@ shootingStarMesh.frustumCulled = false; // Prevent it from being culled since we
 skyGroup.add(shootingStarMesh);
 
 // Rainbow
-const rainbowVertShader = window.SKY_SHADERS.rainbowVert;
-
-const rainbowFragShader = window.SKY_SHADERS.rainbowFrag;
 
 const rainbowUniforms = {
   uAlpha: {value: 0.0},
@@ -605,7 +604,6 @@ skyGroup.add(rainbowMesh);
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 Object.assign(window, {
-  scene,
   camera,
   renderer,
   hemiLight,

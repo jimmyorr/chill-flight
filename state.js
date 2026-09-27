@@ -4,6 +4,8 @@
 // modules import `state` and write `state.SEGMENTS = 20` directly.
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
+const storedColor = localStorage.getItem('chill_flight_color');
+
 const startSpeed = ChillFlightLogic.START_SPEED;
 const initialFlightSpeed =
   startSpeed !== null && !isNaN(startSpeed)
@@ -23,6 +25,15 @@ export const state = {
     ChillFlightLogic.START_TIME_SPEED !== null
       ? ChillFlightLogic.START_TIME_SPEED
       : 1,
+
+  // Airplane (game.js changes the color; physics/debug drive the pontoons)
+  planeColor:
+    storedColor !== null && !isNaN(parseInt(storedColor))
+      ? parseInt(storedColor)
+      : ChillFlightLogic.PLANE_COLORS[0],
+  pontoonDeploymentProgress: 0,
+  isDeployingPontoons: false,
+  isRetractingPontoons: false,
 
   // Flight dynamics
   flightSpeedMultiplier: initialFlightSpeed,

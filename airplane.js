@@ -1,16 +1,23 @@
 // --- AIRPLANE ---
-// Dependencies: THREE, scene
+// planeColor and the pontoon deployment flags live in state.js (other files
+// write them).
+import * as THREE from 'three';
+import {scene} from './scene.js';
+import {
+  MAP_HEIGHT_SCALE,
+  MAP_WORLD_SIZE,
+  WATER_LEVEL,
+  createMaterial,
+  getMaxFlightSpeedMult,
+} from './constants.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {createBiplaneModel} from './biplane.js';
+import {createGliderModel} from './glider.js';
+import {createTwinModel} from './twin.js';
+import {simplex} from './noise.js';
+import {state} from './state.js';
 
-/** @type {number} */
-let storedColor = localStorage.getItem('chill_flight_color');
-let planeColor =
-  storedColor !== null && !isNaN(parseInt(storedColor))
-    ? parseInt(storedColor)
-    : ChillFlightLogic.PLANE_COLORS[0];
-/** @type {boolean} */
-let hasSavedColor = localStorage.getItem('chill_flight_color') !== null;
-
-const planeGroup = new THREE.Group();
+export const planeGroup = new THREE.Group();
 planeGroup.rotation.y = 0;
 scene.add(planeGroup);
 
@@ -18,21 +25,20 @@ scene.add(planeGroup);
 // better rotation order for airplanes
 planeGroup.rotation.order = 'YXZ';
 
-const planeWhiteMat = createMaterial({
-  color: planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff,
+export const planeWhiteMat = createMaterial({
+  color: state.planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff,
   flatShading: true,
 });
-const planeMat = createMaterial({color: planeColor, flatShading: true});
+export const planeMat = createMaterial({
+  color: state.planeColor,
+  flatShading: true,
+});
 window.planeWhiteMat = planeWhiteMat;
 window.planeMat = planeMat;
-window.planeColor = planeColor;
 
 // Pontoons Group (created for classic plane water landing)
-const pontoonGroup = new THREE.Group();
+export const pontoonGroup = new THREE.Group();
 pontoonGroup.visible = false;
-let pontoonDeploymentProgress = 0;
-let isDeployingPontoons = false;
-let isRetractingPontoons = false;
 
 const pontoonMat = createMaterial({color: 0xcccccc, flatShading: true});
 const pontoonGeo = new THREE.CylinderGeometry(1.0, 1.0, 15, 8);
@@ -42,7 +48,7 @@ pontoonNoseGeo.rotateX(-Math.PI / 2); // Fix: point forward
 const pontoonNoseMeshL = new THREE.Mesh(pontoonNoseGeo, pontoonMat);
 pontoonNoseMeshL.position.set(0, 0, -9);
 
-const pontoonL = new THREE.Group();
+export const pontoonL = new THREE.Group();
 const pontoonBodyL = new THREE.Mesh(pontoonGeo, pontoonMat);
 pontoonBodyL.scale.set(1, 0.7, 1);
 pontoonNoseMeshL.scale.set(1, 0.7, 1);
@@ -65,7 +71,7 @@ pontoonL.add(strut2L);
 pontoonGroup.add(pontoonL);
 
 const pontoonNoseMeshR = pontoonNoseMeshL.clone();
-const pontoonR = new THREE.Group();
+export const pontoonR = new THREE.Group();
 const pontoonBodyR = new THREE.Mesh(pontoonGeo, pontoonMat);
 pontoonBodyR.scale.set(1, 0.7, 1);
 pontoonNoseMeshR.scale.set(1, 0.7, 1);
@@ -85,21 +91,21 @@ pontoonR.add(strut2R);
 
 pontoonGroup.add(pontoonR);
 
-const hingeLF = new THREE.Group();
+export const hingeLF = new THREE.Group();
 hingeLF.position.set(-5, 0, -3);
 pontoonGroup.add(hingeLF);
-const hingeLB = new THREE.Group();
+export const hingeLB = new THREE.Group();
 hingeLB.position.set(-5, 0, 3);
 pontoonGroup.add(hingeLB);
-const hingeRF = new THREE.Group();
+export const hingeRF = new THREE.Group();
 hingeRF.position.set(5, 0, -3);
 pontoonGroup.add(hingeRF);
-const hingeRB = new THREE.Group();
+export const hingeRB = new THREE.Group();
 hingeRB.position.set(5, 0, 3);
 pontoonGroup.add(hingeRB);
 
 // Classic Cessna-style monoplane model builder
-function createClassicAirplaneModel(opts = {}) {
+export function createClassicAirplaneModel(opts = {}) {
   const model = new THREE.Group();
   const activeWhiteMat = opts.planeWhiteMat || window.planeWhiteMat;
   const activePlaneMat = opts.planeMat || window.planeMat;
@@ -235,15 +241,18 @@ function createClassicAirplaneModel(opts = {}) {
 }
 
 // Active plane state and switching
-let activePlaneType =
+export let activePlaneType =
   ChillFlightLogic.START_PLANE ||
   localStorage.getItem('chill_flight_plane') ||
   'classic';
+// Live read-only bridge, defined before setActivePlane() runs below.
+Object.defineProperties(window, {
+  activePlaneType: {get: () => activePlaneType, configurable: true},
+});
 
-function setActivePlane(planeType, skipStorage = false) {
+export function setActivePlane(planeType, skipStorage = false) {
   if (!['classic', 'biplane', 'glider', 'twin'].includes(planeType)) return;
   activePlaneType = planeType;
-  window.activePlaneType = activePlaneType;
   if (!skipStorage) {
     try {
       localStorage.setItem('chill_flight_plane', planeType);
@@ -254,12 +263,12 @@ function setActivePlane(planeType, skipStorage = false) {
 
   // Smoothly ramp down speed if switching to a plane with a lower max speed
   if (
-    typeof targetFlightSpeed !== 'undefined' &&
-    typeof window.getMaxFlightSpeedMult === 'function'
+    typeof state.targetFlightSpeed !== 'undefined' &&
+    typeof getMaxFlightSpeedMult === 'function'
   ) {
-    targetFlightSpeed = Math.min(
-      targetFlightSpeed,
-      window.getMaxFlightSpeedMult()
+    state.targetFlightSpeed = Math.min(
+      state.targetFlightSpeed,
+      getMaxFlightSpeedMult()
     );
   }
 
@@ -272,7 +281,8 @@ function setActivePlane(planeType, skipStorage = false) {
   let newModel;
   if (planeType === 'biplane' && typeof createBiplaneModel === 'function') {
     newModel = createBiplaneModel({
-      planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
+      planeColor:
+        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
       planeMat: window.planeMat,
       planeWhiteMat: window.planeWhiteMat,
     });
@@ -281,19 +291,22 @@ function setActivePlane(planeType, skipStorage = false) {
     typeof createGliderModel === 'function'
   ) {
     newModel = createGliderModel({
-      planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
+      planeColor:
+        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
       planeMat: window.planeMat,
       planeWhiteMat: window.planeWhiteMat,
     });
   } else if (planeType === 'twin' && typeof createTwinModel === 'function') {
     newModel = createTwinModel({
-      planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
+      planeColor:
+        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
       planeMat: window.planeMat,
       planeWhiteMat: window.planeWhiteMat,
     });
   } else {
     newModel = createClassicAirplaneModel({
-      planeColor: typeof planeColor !== 'undefined' ? planeColor : 0xffffff,
+      planeColor:
+        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
       planeMat: window.planeMat,
       planeWhiteMat: window.planeWhiteMat,
     });
@@ -339,7 +352,7 @@ window.setActivePlane = setActivePlane;
 planeGroup.rotation.order = 'YXZ';
 
 // Headlight
-const headlight = new THREE.SpotLight(0xffd1a3, 0);
+export const headlight = new THREE.SpotLight(0xffd1a3, 0);
 headlight.position.set(0, 0, -10);
 
 const headlightTarget = new THREE.Object3D();
@@ -352,14 +365,14 @@ headlight.penumbra = 1.0;
 headlight.distance = 1500;
 headlight.decay = 2.0;
 
-const headlightGlow = new THREE.PointLight(0xffd1a3, 0, 50);
+export const headlightGlow = new THREE.PointLight(0xffd1a3, 0, 50);
 headlightGlow.position.set(0, 5, 0);
 // three.js r155+ uses physical light units (candela). These intensities are
 // converted from the legacy-tuned values to preserve the look: the spotlight
 // matched ~100 m ahead, the glow ~5 m out. r128 PointLight default decay was
 // 1, so keep that explicitly. Verify visually on a night flight.
-const HEADLIGHT_INTENSITY = 15000;
-const HEADLIGHT_GLOW_INTENSITY = 0.3;
+export const HEADLIGHT_INTENSITY = 15000;
+export const HEADLIGHT_GLOW_INTENSITY = 0.3;
 headlightGlow.decay = 1;
 planeGroup.add(headlightGlow);
 planeGroup.add(headlight);
@@ -417,4 +430,22 @@ planeGroup.traverse((child) => {
     child.castShadow = true;
     child.receiveShadow = false;
   }
+});
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+// (planeMat, planeWhiteMat, setActivePlane... are already set on window above,
+// before setActivePlane() first runs.)
+Object.assign(window, {
+  planeGroup,
+  pontoonGroup,
+  pontoonL,
+  pontoonR,
+  hingeLF,
+  hingeLB,
+  hingeRF,
+  hingeRB,
+  headlight,
+  headlightGlow,
+  HEADLIGHT_INTENSITY,
+  HEADLIGHT_GLOW_INTENSITY,
 });

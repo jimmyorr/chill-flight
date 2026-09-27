@@ -17,7 +17,12 @@ const ESM_FILES = [
   'terrain-worker.js',
   'state.js',
   'constants.js',
+  'scene.js',
   'sky.js',
+  'biplane.js',
+  'glider.js',
+  'twin.js',
+  'airplane.js',
 ];
 
 const isGlobalObject = (node) =>

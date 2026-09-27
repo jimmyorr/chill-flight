@@ -313,18 +313,7 @@
       </div>
     </div>
 
-    <!-- Mocks and Dependencies for game scripts -->
-    <script type="module">
-      window.scene = new THREE.Scene(); // Mock scene for scripts to add to
-      window.simplex = {noise2D: () => 0}; // Mock noise
-      window.animationUniforms = {uTime: {value: 0}};
-      window.waterUniforms = {uTime: {value: 0}};
-    </script>
-
-    <script defer src="airplane.js"></script>
-    <script defer src="biplane.js"></script>
-    <script defer src="glider.js"></script>
-    <script defer src="twin.js"></script>
+    <!-- Mocks and model modules load via /src/debug-models.js -->
     <script defer src="terrain-geometry.js"></script>
 
     <script type="module">

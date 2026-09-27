@@ -5,14 +5,6 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import * as Sentry from '@sentry/browser';
 import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 
-// Import shaders as raw strings via Vite
-import skyVert from './shaders/sky.vert.glsl?raw';
-import skyFrag from './shaders/sky.frag.glsl?raw';
-import sunMoonVert from './shaders/sunMoon.vert.glsl?raw';
-import moonFrag from './shaders/moon.frag.glsl?raw';
-import rainbowVert from './shaders/rainbow.vert.glsl?raw';
-import rainbowFrag from './shaders/rainbow.frag.glsl?raw';
-
 // Initialize Sentry before other modules load so their errors are reported
 Sentry.init({
   dsn: 'https://7d9671463431e10775c66852b238ad8e@o4511337089400832.ingest.us.sentry.io/4511346247532544',
@@ -30,11 +22,3 @@ for (const key in THREE) {
 }
 window.Sentry = Sentry;
 window.FirebaseAnalytics = FirebaseAnalytics;
-window.SKY_SHADERS = {
-  skyVert,
-  skyFrag,
-  sunMoonVert,
-  moonFrag,
-  rainbowVert,
-  rainbowFrag,
-};

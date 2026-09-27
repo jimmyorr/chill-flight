@@ -7,7 +7,12 @@ import '../state.js';
 import '../constants.js';
 import '../noise.js';
 import '../terrain-worker-manager.js';
+import '../scene.js';
 import '../sky.js';
+import '../biplane.js';
+import '../glider.js';
+import '../twin.js';
+import '../airplane.js';
 
 // Startup banner
 const appVersion = window.__APP_VERSION__ || '0.0.0';

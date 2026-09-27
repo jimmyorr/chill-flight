@@ -6,8 +6,11 @@
 // - High-aspect-ratio slender wings with upward dihedral and upturned accent winglets
 // - Iconic T-tail empennage with swept vertical fin, accent rudder, and top horizontal stabilizer
 // - Clean recessed monowheel undercarriage
+import * as THREE from 'three';
+import {createMaterial} from './constants.js';
+import {state} from './state.js';
 
-function createGliderModel(opts = {}) {
+export function createGliderModel(opts = {}) {
   const root = new THREE.Group();
 
   const makeMat = (props) => {
@@ -20,8 +23,8 @@ function createGliderModel(opts = {}) {
   const planeColor =
     opts.planeColor !== undefined
       ? opts.planeColor
-      : typeof window.planeColor !== 'undefined'
-        ? window.planeColor
+      : typeof state.planeColor !== 'undefined'
+        ? state.planeColor
         : 0xe0564c; // Coral-red default matching reference image
 
   const whiteColor = planeColor === 0xe8c382 ? 0x1c3144 : 0xf8fafc;
@@ -422,12 +425,7 @@ function createGliderModel(opts = {}) {
   return root;
 }
 
-// Global exposure
-if (typeof window !== 'undefined') {
-  window.createGliderModel = createGliderModel;
-  window.gliderModel = createGliderModel();
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {createGliderModel};
-}
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+window.createGliderModel = createGliderModel;
+// Prebuilt default model, cloned by the model debug page.
+window.gliderModel = createGliderModel();

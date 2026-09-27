@@ -5,3 +5,8 @@ import '../logger.js';
 import '../chill-flight-logic.js';
 import '../state.js';
 import '../constants.js';
+import './debug-models-mocks.js';
+import '../biplane.js';
+import '../glider.js';
+import '../twin.js';
+import '../airplane.js';

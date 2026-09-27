@@ -9,8 +9,11 @@
 // - Dual spinning 3-blade propellers with aerodynamic spinners
 // - Classic swept empennage with tall accent vertical fin and horizontal stabilizers (zero z-fighting)
 // - Sturdy tricycle landing gear with nose gear and dual nacelle main gear
+import * as THREE from 'three';
+import {createMaterial} from './constants.js';
+import {state} from './state.js';
 
-function createTwinModel(opts = {}) {
+export function createTwinModel(opts = {}) {
   const root = new THREE.Group();
 
   const makeMat = (props) => {
@@ -23,8 +26,8 @@ function createTwinModel(opts = {}) {
   const planeColor =
     opts.planeColor !== undefined
       ? opts.planeColor
-      : typeof window.planeColor !== 'undefined'
-        ? window.planeColor
+      : typeof state.planeColor !== 'undefined'
+        ? state.planeColor
         : 0xe0564c; // Coral-red default matching reference image
 
   const whiteColor = planeColor === 0xe8c382 ? 0x1c3144 : 0xf8fafc;
@@ -657,12 +660,7 @@ function createTwinModel(opts = {}) {
   return root;
 }
 
-// Global exposure
-if (typeof window !== 'undefined') {
-  window.createTwinModel = createTwinModel;
-  window.twinModel = createTwinModel();
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {createTwinModel};
-}
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+window.createTwinModel = createTwinModel;
+// Prebuilt default model, cloned by the model debug page.
+window.twinModel = createTwinModel();
