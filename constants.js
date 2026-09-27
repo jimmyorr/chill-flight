@@ -1,66 +1,55 @@
 // --- CONSTANTS ---
+// Settings that change at runtime (SEGMENTS, RENDER_DISTANCE, flight speed...)
+// live in state.js instead.
+import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+
 // Terrain parameters
-const CHUNK_SIZE = 1500;
-let SEGMENTS = 40;
-const WATER_LEVEL = 40;
-const MOUNTAIN_LEVEL = 180;
-let RENDER_DISTANCE = 2;
-const CLOUD_OPACITY = 0.55;
-let PROP_LOD_DISTANCE = 4200;
-window.PROP_LOD_DISTANCE = PROP_LOD_DISTANCE;
+export const CHUNK_SIZE = 1500;
+export const WATER_LEVEL = 40;
+export const MOUNTAIN_LEVEL = 180;
+export const CLOUD_OPACITY = 0.55;
 
 // Lighthouse parameters
-const LIGHTHOUSE_CHUNK_X = 5;
-const LIGHTHOUSE_CHUNK_Z = 2;
-const LIGHTHOUSE_CHUNK_KEY = `${LIGHTHOUSE_CHUNK_X},${LIGHTHOUSE_CHUNK_Z}`;
+export const LIGHTHOUSE_CHUNK_X = 5;
+export const LIGHTHOUSE_CHUNK_Z = 2;
+export const LIGHTHOUSE_CHUNK_KEY = `${LIGHTHOUSE_CHUNK_X},${LIGHTHOUSE_CHUNK_Z}`;
 // three.js r155+ uses physical light units (candela) for spotlights.
 // Converted from the legacy-tuned 3.5 to preserve illuminance at the ~600 m
 // beam target distance. Verify visually on a night flight.
-const LIGHTHOUSE_LIGHT_INTENSITY = 800000;
-const LIGHTHOUSE_BEAM_OPACITY_MIN = 0.08;
-const LIGHTHOUSE_BEAM_OPACITY_MAX = 0.25;
+export const LIGHTHOUSE_LIGHT_INTENSITY = 800000;
+export const LIGHTHOUSE_BEAM_OPACITY_MIN = 0.08;
+export const LIGHTHOUSE_BEAM_OPACITY_MAX = 0.25;
 
 // Custom Map Parameters
-const MAP_WORLD_SIZE = 10000 * ChillFlightLogic.SCALE;
-const MAP_HEIGHT_SCALE = 400;
+export const MAP_WORLD_SIZE = 10000 * ChillFlightLogic.SCALE;
+export const MAP_HEIGHT_SCALE = 400;
 
 // Flight parameters
-const BASE_FLIGHT_SPEED = 2.5;
-const MAX_AIRPLANE_SPEED_KTS = 500;
-const MAX_FLIGHT_SPEED_MULT = MAX_AIRPLANE_SPEED_KTS / (BASE_FLIGHT_SPEED * 60);
-window.MAX_AIRPLANE_SPEED_KTS = MAX_AIRPLANE_SPEED_KTS;
-window.MAX_FLIGHT_SPEED_MULT = MAX_FLIGHT_SPEED_MULT;
+export const BASE_FLIGHT_SPEED = 2.5;
+export const MAX_AIRPLANE_SPEED_KTS = 500;
+export const MAX_FLIGHT_SPEED_MULT =
+  MAX_AIRPLANE_SPEED_KTS / (BASE_FLIGHT_SPEED * 60);
 
-window.getMaxFlightSpeedMult = () => {
+export function getMaxFlightSpeedMult() {
   let speedKts = MAX_AIRPLANE_SPEED_KTS;
   if (window.activePlaneType === 'glider') {
     speedKts = 300;
   }
   return speedKts / (BASE_FLIGHT_SPEED * 60);
-};
-const TURN_SPEED = 0.03;
-let flightSpeedMultiplier = 1.0;
-if (
-  typeof ChillFlightLogic !== 'undefined' &&
-  ChillFlightLogic.START_SPEED !== null &&
-  !isNaN(ChillFlightLogic.START_SPEED)
-) {
-  flightSpeedMultiplier = Math.max(
-    0,
-    Math.min(10, ChillFlightLogic.START_SPEED)
-  );
 }
+export const TURN_SPEED = 0.03;
 
 // Feature Flags
-const ENABLE_PAGODAS = false;
-const ENABLE_BARNS = true;
-const ENABLE_MONASTERIES = true;
-const ENABLE_CASTLE_RUINS = true;
-const ENABLE_LIGHTHOUSES = false;
+export const ENABLE_PAGODAS = false;
+export const ENABLE_BARNS = true;
+export const ENABLE_MONASTERIES = true;
+export const ENABLE_CASTLE_RUINS = true;
+export const ENABLE_LIGHTHOUSES = false;
 
-const THEME = ChillFlightLogic.THEME;
+export const THEME = ChillFlightLogic.THEME;
 
-function createMaterial(params) {
+export function createMaterial(params) {
   // Make a copy of params to avoid mutating the original
   const newParams = {...params};
 
@@ -190,33 +179,23 @@ function createMaterial(params) {
   return mat;
 }
 
-// Variables shared between airplane.js and game.js that need early declaration to avoid TDZ errors in the production bundle
-let targetFlightSpeed = flightSpeedMultiplier;
-let verticalVelocity = 0;
+// DOM caching & utilities
+const _domCache = new Map();
 
-// DOM caching & utilities (declared early to prevent TDZ errors across bundled modules)
-var _domCache =
-  (typeof window !== 'undefined' && window._domCache) || new Map();
-if (typeof window !== 'undefined') window._domCache = _domCache;
-
-function getCachedElement(id) {
-  if (typeof _domCache === 'undefined' || !_domCache) {
-    return typeof document !== 'undefined' ? document.getElementById(id) : null;
-  }
+export function getCachedElement(id) {
   let el = _domCache.get(id);
   if (!el) {
-    el = typeof document !== 'undefined' ? document.getElementById(id) : null;
+    el = document.getElementById(id);
     if (el) _domCache.set(id, el);
   }
   return el;
 }
-if (typeof window !== 'undefined') window.getCachedElement = getCachedElement;
 
 /**
  * Throttles DOM updates by only writing if the value has changed.
  * Accepts either an HTMLElement or an element ID string (cached automatically).
  */
-function updateDOM(elementOrId, newValue) {
+export function updateDOM(elementOrId, newValue) {
   const element =
     typeof elementOrId === 'string'
       ? getCachedElement(elementOrId)
@@ -227,4 +206,33 @@ function updateDOM(elementOrId, newValue) {
     element.textContent = strValue;
   }
 }
-if (typeof window !== 'undefined') window.updateDOM = updateDOM;
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  CHUNK_SIZE,
+  WATER_LEVEL,
+  MOUNTAIN_LEVEL,
+  CLOUD_OPACITY,
+  LIGHTHOUSE_CHUNK_X,
+  LIGHTHOUSE_CHUNK_Z,
+  LIGHTHOUSE_CHUNK_KEY,
+  LIGHTHOUSE_LIGHT_INTENSITY,
+  LIGHTHOUSE_BEAM_OPACITY_MIN,
+  LIGHTHOUSE_BEAM_OPACITY_MAX,
+  MAP_WORLD_SIZE,
+  MAP_HEIGHT_SCALE,
+  BASE_FLIGHT_SPEED,
+  MAX_AIRPLANE_SPEED_KTS,
+  MAX_FLIGHT_SPEED_MULT,
+  getMaxFlightSpeedMult,
+  TURN_SPEED,
+  ENABLE_PAGODAS,
+  ENABLE_BARNS,
+  ENABLE_MONASTERIES,
+  ENABLE_CASTLE_RUINS,
+  ENABLE_LIGHTHOUSES,
+  THEME,
+  createMaterial,
+  getCachedElement,
+  updateDOM,
+});

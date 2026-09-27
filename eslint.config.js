@@ -15,7 +15,18 @@ const ESM_FILES = [
   'noise.js',
   'terrain-worker-manager.js',
   'terrain-worker.js',
+  'state.js',
+  'constants.js',
 ];
+
+const isGlobalObject = (node) =>
+  node.type === 'Identifier' &&
+  (node.name === 'window' || node.name === 'globalThis');
+
+const objectKeys = (obj) =>
+  obj.properties
+    .filter((p) => p.type === 'Property' && p.key.type === 'Identifier')
+    .map((p) => p.key.name);
 
 // Dynamically collect all top-level declared identifiers across project scripts
 const gameGlobals = {
@@ -46,6 +57,23 @@ for (const file of rootFiles) {
       sourceType: isModule ? 'module' : 'script',
     });
     for (const node of ast.body) {
+      // state.js: every key of `export const state = {...}` is bridged onto window.
+      if (
+        isModule &&
+        node.type === 'ExportNamedDeclaration' &&
+        node.declaration?.type === 'VariableDeclaration'
+      ) {
+        for (const decl of node.declaration.declarations) {
+          if (
+            decl.id.name === 'state' &&
+            decl.init?.type === 'ObjectExpression'
+          ) {
+            for (const key of objectKeys(decl.init)) {
+              gameGlobals[key] = 'writable';
+            }
+          }
+        }
+      }
       // Module top-level declarations are private; only window.xyz bridges count.
       if (isModule && node.type !== 'ExpressionStatement') continue;
       if (node.type === 'VariableDeclaration') {
@@ -65,12 +93,23 @@ for (const file of rootFiles) {
         const left = node.expression.left;
         if (
           left.type === 'MemberExpression' &&
-          left.object.type === 'Identifier' &&
-          (left.object.name === 'window' ||
-            left.object.name === 'globalThis') &&
+          isGlobalObject(left.object) &&
           left.property.type === 'Identifier'
         ) {
           gameGlobals[left.property.name] = 'writable';
+        }
+      } else if (
+        // Object.assign(window, {a, b}) bridges
+        node.type === 'ExpressionStatement' &&
+        node.expression.type === 'CallExpression' &&
+        node.expression.callee.type === 'MemberExpression' &&
+        node.expression.callee.object.name === 'Object' &&
+        node.expression.callee.property.name === 'assign' &&
+        isGlobalObject(node.expression.arguments[0] || {}) &&
+        node.expression.arguments[1]?.type === 'ObjectExpression'
+      ) {
+        for (const key of objectKeys(node.expression.arguments[1])) {
+          gameGlobals[key] = 'writable';
         }
       }
     }

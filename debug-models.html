@@ -315,20 +315,12 @@
 
     <!-- Mocks and Dependencies for game scripts -->
     <script type="module">
-      // Global constants expected by scripts
-      window.CHUNK_SIZE = 1500;
-      window.SEGMENTS = 40;
-      window.WATER_LEVEL = 40;
-      window.MOUNTAIN_LEVEL = 180;
-      window.MAP_WORLD_SIZE = 10000;
-      window.MAP_HEIGHT_SCALE = 400;
       window.scene = new THREE.Scene(); // Mock scene for scripts to add to
       window.simplex = {noise2D: () => 0}; // Mock noise
       window.animationUniforms = {uTime: {value: 0}};
       window.waterUniforms = {uTime: {value: 0}};
     </script>
 
-    <script defer src="constants.js"></script>
     <script defer src="airplane.js"></script>
     <script defer src="biplane.js"></script>
     <script defer src="glider.js"></script>

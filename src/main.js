@@ -18,6 +18,8 @@ import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 // ES module game code. Runs before the classic <script defer> tags in index.html.
 import '../logger.js';
 import '../chill-flight-logic.js';
+import '../state.js';
+import '../constants.js';
 import '../noise.js';
 import '../terrain-worker-manager.js';
 
