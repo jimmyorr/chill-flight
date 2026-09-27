@@ -4,7 +4,7 @@ import {scene} from './scene.js';
 import {log} from './logger.js';
 import {planeGroup} from './airplane.js';
 import {simplex} from './noise.js';
-import {CHUNK_SIZE} from './constants.js';
+import {CHUNK_SIZE, updateUrlParams} from './constants.js';
 import {camera, skyUniforms} from './sky.js';
 import {state} from './state.js';
 

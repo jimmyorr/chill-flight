@@ -7,6 +7,7 @@ import {
 import {setMusicVolume} from './audio.js';
 import {updatePauseMenuMusicInfo} from './game-audio-integration.js';
 import {state} from './state.js';
+import {clock} from './sky.js';
 
 export function clearInputState() {
   if (typeof state.mouseX !== 'undefined') state.mouseX = 0;
@@ -82,7 +83,10 @@ export function togglePause() {
 window.addEventListener(
   'wheel',
   (e) => {
-    if (state.isPaused || (typeof isFreeCamera !== 'undefined' && isFreeCamera))
+    if (
+      state.isPaused ||
+      (typeof state.isFreeCamera !== 'undefined' && state.isFreeCamera)
+    )
       return;
 
     // Use e.deltaY to scale the throttle change.

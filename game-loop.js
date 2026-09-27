@@ -9,9 +9,11 @@ import {
   keys,
   tripleTap,
 } from './game-input-bindings.js';
-import {isFreeCamera, syncChunkBorders} from './debug-ui.js';
+import {syncChunkBorders} from './debug-ui.js';
 import {
+  _daySky,
   camera,
+  clock,
   currentPaletteSeed,
   dirLight,
   hemiLight,
@@ -36,7 +38,6 @@ import {
   _currentLookTarget,
   _currentSunriseSky,
   _dayLightColor,
-  _daySky,
   _debugCamEuler,
   _deltaRing,
   _finalFogColor,
@@ -81,8 +82,6 @@ import {
   _warmHorizonColor,
   _waterMoonDirNorm,
   _worldUp,
-  clock,
-  invertYAxis,
   shootingStarEnd,
   shootingStarStart,
   targetPaletteBottom,
@@ -93,10 +92,11 @@ import {
   CHUNK_SIZE,
   TURN_SPEED,
   getCachedElement,
-  getMaxFlightSpeedMult,
+  terrainUniforms,
   updateDOM,
 } from './constants.js';
 import {
+  getMaxFlightSpeedMult,
   hingeLB,
   hingeLF,
   hingeRB,
@@ -143,7 +143,7 @@ var isAnimationLoopRunning = false;
 function animate() {
   // Sync InputManager state
   inputManager.state.isPaused = state.isPaused;
-  inputManager.state.isFreeCamera = isFreeCamera;
+  inputManager.state.isFreeCamera = state.isFreeCamera;
 
   const steering = inputManager.getSteering();
   if (state.currentControlScheme !== 'gyro') {
@@ -158,7 +158,7 @@ function animate() {
     }
   }
   // Handle freeCam
-  if (isFreeCamera) {
+  if (state.isFreeCamera) {
     state.freeCamDeltaX += inputManager.state.freeCam.deltaX;
     state.freeCamDeltaY += inputManager.state.freeCam.deltaY;
     inputManager.state.freeCam.deltaX = 0;
@@ -227,7 +227,7 @@ function animate() {
       !state.isIntroTransitionActive
     ) {
       // Intro orbit camera rendering
-      if (!isFreeCamera) {
+      if (!state.isFreeCamera) {
         const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
         const t = now * 0.00015;
         activeCamTarget.position.x = planeGroup.position.x + Math.sin(t) * 150;
@@ -305,7 +305,7 @@ function animate() {
   // Spin the propeller
   updatePhysicsAndControls(delta, nowTime);
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
-  if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+  if (typeof Achievements !== 'undefined' && !state.isFreeCamera) {
     // 1. Maneuver completions
     if (state.wasDoingFullLoop && !state.isDoingFullLoop) {
       Achievements.unlock('froot_loops');
@@ -353,7 +353,7 @@ function animate() {
   if (typeof updateFlightPhysics === 'function')
     updateFlightPhysics(delta, nowTime);
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
-  if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+  if (typeof Achievements !== 'undefined' && !state.isFreeCamera) {
     if (!state.previousPosition) {
       state.previousPosition = planeGroup.position.clone();
     } else {
@@ -531,7 +531,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     updateDOM('debug-weather-mode', _precipType);
 
     // Island archetype telemetry
-    const _activeIslandPos = isFreeCamera
+    const _activeIslandPos = state.isFreeCamera
       ? camera.position
       : planeGroup.position;
     const _islandArchetype =
@@ -730,7 +730,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
       activeWindmills = 0,
       activePagodas = 0;
 
-    const camPos = isFreeCamera ? camera.position : planeGroup.position;
+    const camPos = state.isFreeCamera ? camera.position : planeGroup.position;
     const maxPropLOD =
       state.manualPropLOD !== undefined
         ? state.manualPropLOD
@@ -986,7 +986,7 @@ function updateDayNightCycle(delta) {
 
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller
-  if (!isFreeCamera && Math.abs(state.flightSpeedMultiplier) > 0.001) {
+  if (!state.isFreeCamera && Math.abs(state.flightSpeedMultiplier) > 0.001) {
     const baseSpin = 15 * Math.abs(state.flightSpeedMultiplier);
     const spin = Math.max(4, Math.min(25, baseSpin));
     if (state.propGroups && Array.isArray(state.propGroups)) {
@@ -1001,7 +1001,7 @@ function updatePhysicsAndControls(delta, nowTime) {
 
   // Animate pontoons
   if (
-    !isFreeCamera &&
+    !state.isFreeCamera &&
     state.isDeployingPontoons &&
     !state.isRetractingPontoons &&
     state.pontoonDeploymentProgress < 1
@@ -1025,7 +1025,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     pontoonL.position.y = -0.5 - 4.0 * easeOut;
     pontoonR.position.y = -0.5 - 4.0 * easeOut;
   } else if (
-    !isFreeCamera &&
+    !state.isFreeCamera &&
     state.isRetractingPontoons &&
     state.pontoonDeploymentProgress > 0
   ) {
@@ -1057,36 +1057,46 @@ function updatePhysicsAndControls(delta, nowTime) {
   const maxPitch = Math.PI / 4;
   const maxRoll = Math.PI / 3;
   let effMouseX =
-    state.mouseControlActive && !isFreeCamera && Math.abs(state.mouseX) >= 0.15
+    state.mouseControlActive &&
+    !state.isFreeCamera &&
+    Math.abs(state.mouseX) >= 0.15
       ? state.mouseX
       : 0;
   let effMouseY =
-    state.mouseControlActive && !isFreeCamera && Math.abs(state.mouseY) >= 0.15
+    state.mouseControlActive &&
+    !state.isFreeCamera &&
+    Math.abs(state.mouseY) >= 0.15
       ? state.mouseY
       : 0;
 
   // Logical inputs based on Y-axis inversion
-  const isUp = (invertYAxis ? keys.ArrowDown : keys.ArrowUp) && !isFreeCamera;
-  const isDown = (invertYAxis ? keys.ArrowUp : keys.ArrowDown) && !isFreeCamera;
+  const isUp =
+    (state.invertYAxis ? keys.ArrowDown : keys.ArrowUp) && !state.isFreeCamera;
+  const isDown =
+    (state.invertYAxis ? keys.ArrowUp : keys.ArrowDown) && !state.isFreeCamera;
   const dtUp =
-    (invertYAxis ? doubleTap.ArrowDown : doubleTap.ArrowUp) && !isFreeCamera;
+    (state.invertYAxis ? doubleTap.ArrowDown : doubleTap.ArrowUp) &&
+    !state.isFreeCamera;
   const dtDown =
-    (invertYAxis ? doubleTap.ArrowUp : doubleTap.ArrowDown) && !isFreeCamera;
+    (state.invertYAxis ? doubleTap.ArrowUp : doubleTap.ArrowDown) &&
+    !state.isFreeCamera;
   const ttUp =
-    (invertYAxis ? tripleTap.ArrowDown : tripleTap.ArrowUp) && !isFreeCamera;
+    (state.invertYAxis ? tripleTap.ArrowDown : tripleTap.ArrowUp) &&
+    !state.isFreeCamera;
   const ttDown =
-    (invertYAxis ? tripleTap.ArrowUp : tripleTap.ArrowDown) && !isFreeCamera;
-  const startUp = invertYAxis
+    (state.invertYAxis ? tripleTap.ArrowUp : tripleTap.ArrowDown) &&
+    !state.isFreeCamera;
+  const startUp = state.invertYAxis
     ? keyPressStartTime.ArrowDown
     : keyPressStartTime.ArrowUp;
-  const startDown = invertYAxis
+  const startDown = state.invertYAxis
     ? keyPressStartTime.ArrowUp
     : keyPressStartTime.ArrowDown;
 
-  const isLeft = keys.ArrowLeft && !isFreeCamera;
-  const isRight = keys.ArrowRight && !isFreeCamera;
-  const dtLeft = doubleTap.ArrowLeft && !isFreeCamera;
-  const dtRight = doubleTap.ArrowRight && !isFreeCamera;
+  const isLeft = keys.ArrowLeft && !state.isFreeCamera;
+  const isRight = keys.ArrowRight && !state.isFreeCamera;
+  const dtLeft = doubleTap.ArrowLeft && !state.isFreeCamera;
+  const dtRight = doubleTap.ArrowRight && !state.isFreeCamera;
 
   // Auto-disable autopilot on manual steering input
   if (
@@ -1101,8 +1111,8 @@ function updatePhysicsAndControls(delta, nowTime) {
 
   // Shift+Up/Down: throttle control
   if (keys.Shift) {
-    const rawUp = keys.ArrowUp && !isFreeCamera;
-    const rawDown = keys.ArrowDown && !isFreeCamera;
+    const rawUp = keys.ArrowUp && !state.isFreeCamera;
+    const rawDown = keys.ArrowDown && !state.isFreeCamera;
     const startRawUp = keyPressStartTime.ArrowUp;
     const startRawDown = keyPressStartTime.ArrowDown;
 
@@ -1128,10 +1138,10 @@ function updatePhysicsAndControls(delta, nowTime) {
   }
 
   if (
-    !isFreeCamera &&
+    !state.isFreeCamera &&
     (state.flightSpeedMultiplier > 0 || Math.abs(state.targetFlightSpeed) > 0)
   ) {
-    let yMultiplier = invertYAxis ? -1 : 1;
+    let yMultiplier = state.invertYAxis ? -1 : 1;
     state.targetPitch = effMouseY * maxPitch * yMultiplier;
     state.targetRoll = -effMouseX * (maxRoll * 1.25);
 
@@ -1160,7 +1170,7 @@ function updatePhysicsAndControls(delta, nowTime) {
         state.targetPitch = ((-5 * Math.PI) / 180) * ramp;
       }
     }
-  } else if (!isFreeCamera) {
+  } else if (!state.isFreeCamera) {
     state.targetPitch = 0;
     state.targetRoll = 0;
   }
@@ -1175,7 +1185,7 @@ function updatePhysicsAndControls(delta, nowTime) {
   state.manualLoopSpeed = 2.5;
 
   if (
-    !isFreeCamera &&
+    !state.isFreeCamera &&
     state.autopilotEnabled &&
     state.flightSpeedMultiplier > 0
   ) {
@@ -1255,7 +1265,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     state.isLooping = false;
     state.isBarrelRolling = false;
     state.isClampedRoll = false;
-  } else if (!isFreeCamera && state.flightSpeedMultiplier > 0) {
+  } else if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
     if (state.isDoingImmelmann) {
       if (state.immelmannProgress < Math.PI) {
         // Stage 1: Half-loop (pull up)
@@ -1353,7 +1363,7 @@ function updatePhysicsAndControls(delta, nowTime) {
   }
 
   // Taxi steering: allow airplane to yaw when stopped or at very low speed
-  if (!isFreeCamera && state.flightSpeedMultiplier < 0.4) {
+  if (!state.isFreeCamera && state.flightSpeedMultiplier < 0.4) {
     if (isLeft && !keys.Shift) {
       planeGroup.rotation.y += 1.5 * delta;
     } else if (isRight && !keys.Shift) {
@@ -1363,7 +1373,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     }
   }
 
-  if (!isFreeCamera) {
+  if (!state.isFreeCamera) {
     const flightRot = ChillFlightLogic.computeFlightRotation({
       currentPitch: planeGroup.rotation.x,
       currentRoll: planeGroup.rotation.z,
@@ -1406,7 +1416,7 @@ function updateShadowSnapping(delta) {
 
   // Use planeGroup instead of camera by default to prevent high-speed camera shake
   // from causing erratic shadow snapping. If in free camera mode, use the camera.
-  const anchorPos = isFreeCamera ? camera.position : planeGroup.position;
+  const anchorPos = state.isFreeCamera ? camera.position : planeGroup.position;
 
   // Step 3: Project the anchor's position onto this rigid light-grid.
   const dotX = anchorPos.dot(_shadowRight);
@@ -1822,16 +1832,13 @@ function updateEnvironmentLighting(delta, now) {
   const _camWorld = getCameraWorldPosition();
   skyUniforms.uCameraPos.value.copy(_camWorld);
 
-  if (window.terrainUniforms) {
-    window.terrainUniforms.uCameraPosXZ.value.set(_camWorld.x, _camWorld.z);
-    window.terrainUniforms.uRenderRadius.value =
-      state.RENDER_DISTANCE * CHUNK_SIZE;
-    window.terrainUniforms.uSunDirection.value.copy(_tempVec);
+  if (terrainUniforms) {
+    terrainUniforms.uCameraPosXZ.value.set(_camWorld.x, _camWorld.z);
+    terrainUniforms.uRenderRadius.value = state.RENDER_DISTANCE * CHUNK_SIZE;
+    terrainUniforms.uSunDirection.value.copy(_tempVec);
     if (skyUniforms) {
-      window.terrainUniforms.uTopColor.value.copy(skyUniforms.topColor.value);
-      window.terrainUniforms.uBottomColor.value.copy(
-        skyUniforms.bottomColor.value
-      );
+      terrainUniforms.uTopColor.value.copy(skyUniforms.topColor.value);
+      terrainUniforms.uBottomColor.value.copy(skyUniforms.bottomColor.value);
     }
   }
 

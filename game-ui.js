@@ -1,16 +1,17 @@
 import {log} from './logger.js';
-import {isFreeCamera, updateUrlParams} from './debug-ui.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {clearInputState, togglePause} from './game-state.js';
 import {
   HEADLIGHT_GLOW_INTENSITY,
   HEADLIGHT_INTENSITY,
+  getMaxFlightSpeedMult,
   headlight,
   headlightGlow,
 } from './airplane.js';
 import {
   STEER_HOLD_THRESHOLD,
   doubleTap,
+  hdgtSub,
   inputManager,
   keyPressStartTime,
   keys,
@@ -23,13 +24,12 @@ import {
   _virtualLookTarget,
   btnDown,
   btnUp,
-  clock,
 } from './game.js';
-import {camera, renderer} from './sky.js';
+import {camera, clock, renderer} from './sky.js';
 import {scene} from './scene.js';
 import {musicEnabled, setMusicEnabled} from './audio.js';
-import {getMaxFlightSpeedMult} from './constants.js';
 import {state} from './state.js';
+import {updateUrlParams} from './constants.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -37,7 +37,6 @@ const menuTrigger = document.getElementById('mobile-menu-trigger');
 const pauseTrigger = document.getElementById('mobile-pause-trigger');
 const camToggle = document.getElementById('mobile-cam-toggle');
 
-export const hdgtSub = document.getElementById('mobile-hdgt-sub');
 const autoToggle = document.getElementById('mobile-auto-toggle');
 
 export function toggleAutopilot(forceState) {
@@ -98,7 +97,7 @@ window.toggleAutopilot = toggleAutopilot;
 if (
   typeof ChillFlightLogic !== 'undefined' &&
   ChillFlightLogic.START_AUTOPILOT &&
-  !isFreeCamera
+  !state.isFreeCamera
 ) {
   toggleAutopilot(true);
 }
@@ -376,7 +375,7 @@ if (overlay) {
       setTimeout(() => (overlay.style.display = 'none'), 1250);
 
       // Trigger cinematic camera transition
-      if (!isFreeCamera) {
+      if (!state.isFreeCamera) {
         state.isIntroTransitionActive = true;
         state.introTransitionStartTime = performance.now();
         _introCameraPosStart.copy(camera.position);

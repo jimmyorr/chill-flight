@@ -6,6 +6,7 @@ import {
   HEADLIGHT_GLOW_INTENSITY,
   HEADLIGHT_INTENSITY,
   activePlaneType,
+  getMaxFlightSpeedMult,
   headlight,
   headlightGlow,
   setActivePlane,
@@ -18,7 +19,6 @@ import {
   updateAudioPlayer,
 } from './audio.js';
 import {InputManager} from './input-manager.js';
-import {getMaxFlightSpeedMult} from './constants.js';
 import {state} from './state.js';
 
 if (ChillFlightLogic.START_TOD !== null) {
@@ -70,6 +70,7 @@ inputManager.onCameraToggle = () => {
   }
   if (typeof Achievements !== 'undefined') Achievements.unlock('directors_cut');
 };
+export const hdgtSub = document.getElementById('mobile-hdgt-sub');
 inputManager.onAutopilotToggle = () => {
   if (typeof toggleAutopilot !== 'undefined') toggleAutopilot();
 };
@@ -191,12 +192,12 @@ inputManager.onMenuToggle = () => {
   }
 };
 inputManager.onTripleTap = (action) => {
-  const downAction = invertYAxis ? 'ArrowUp' : 'ArrowDown';
+  const downAction = state.invertYAxis ? 'ArrowUp' : 'ArrowDown';
   const isDownAction = action === 'ArrowDown' || action === downAction;
   if (
     isDownAction &&
     !state.isDoingImmelmann &&
-    !isFreeCamera &&
+    !state.isFreeCamera &&
     state.flightSpeedMultiplier > 0
   ) {
     state.isDoingImmelmann = true;

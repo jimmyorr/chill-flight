@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
+  _daySky,
   applyCustomSkyColors,
   camera,
+  clock,
   currentPaletteSeed,
   isCustomPalette,
   nextSkyPalette,
@@ -18,8 +20,9 @@ import {
 } from './airplane.js';
 import {updateChunks} from './terrain-chunks.js';
 import {_lastChunkUpdatePos} from './game-input-bindings.js';
-import {applyGraphicsPreset, updateUrlParams} from './debug-ui.js';
+import {applyGraphicsPreset} from './debug-ui.js';
 import {state} from './state.js';
+import {updateUrlParams} from './constants.js';
 
 typeof state.daySpeedMultiplier !== 'undefined' ? state.daySpeedMultiplier : 1;
 
@@ -124,7 +127,6 @@ if (
 }
 
 // --- MAIN GAME LOOP ---
-export var clock = new THREE.Timer();
 // Performance optimization: Static Float32Array ring buffer with running sum for delta smoothing.
 // Eliminates per-frame array allocations (push/shift) and closure functions (.reduce()) in the main loop.
 export const DELTA_BUFFER_SIZE = 10;
@@ -187,17 +189,16 @@ if (colorOptionsInit && typeof state.planeColor !== 'undefined') {
   });
 }
 
-export var invertYAxis = false;
 const savedInvertY = localStorage.getItem('chill_flight_invert_y');
 if (savedInvertY !== null) {
-  invertYAxis = savedInvertY === 'true';
+  state.invertYAxis = savedInvertY === 'true';
 }
 const invertYInput = document.getElementById('invert-y-input');
 if (invertYInput) {
-  invertYInput.checked = invertYAxis;
+  invertYInput.checked = state.invertYAxis;
   invertYInput.addEventListener('change', (e) => {
-    invertYAxis = e.target.checked;
-    localStorage.setItem('chill_flight_invert_y', invertYAxis);
+    state.invertYAxis = e.target.checked;
+    localStorage.setItem('chill_flight_invert_y', state.invertYAxis);
   });
 }
 
@@ -285,18 +286,6 @@ export const _freeCamSide = new THREE.Vector3();
 // Optimization: Pre-allocate colors for sky gradients
 export const _uncloudedSkyColor = new THREE.Color();
 export const _uncloudedFogColor = new THREE.Color();
-export var _daySky = new THREE.Color(
-  typeof selectedPalette !== 'undefined' && selectedPalette.day !== undefined
-    ? selectedPalette.day
-    : 0x4ca1f0
-);
-if (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.DAY_COLOR) {
-  const dayHex = parseInt(ChillFlightLogic.DAY_COLOR.replace('#', ''), 16);
-  if (!isNaN(dayHex)) {
-    _daySky.setHex(dayHex);
-  }
-}
-window._daySky = _daySky;
 export const _sunriseSky = new THREE.Color();
 export const _goldenSky = new THREE.Color();
 export const _sunsetSky = new THREE.Color();
@@ -617,8 +606,4 @@ Object.assign(window, {
   shootingStarEnd,
   btnUp,
   btnDown,
-});
-// Live bindings: reassigned here, read elsewhere.
-Object.defineProperties(window, {
-  invertYAxis: {get: () => invertYAxis, configurable: true},
 });

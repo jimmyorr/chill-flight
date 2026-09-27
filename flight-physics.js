@@ -4,7 +4,6 @@ import {planeGroup, pontoonGroup} from './airplane.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {rainParticles} from './weather-manager.js';
 import {state} from './state.js';
-import {isFreeCamera} from './debug-ui.js';
 import {inputManager, keys} from './game-input-bindings.js';
 
 export function updateFlightPhysics(delta, nowTime) {
@@ -22,7 +21,7 @@ export function updateFlightPhysics(delta, nowTime) {
   let restingHeight = minFlightHeight + 2.0;
 
   if (
-    !isFreeCamera &&
+    !state.isFreeCamera &&
     (state.flightSpeedMultiplier > 0 || Math.abs(state.targetFlightSpeed) > 0)
   ) {
     // Apply the yaw calculated by the flight model
@@ -86,7 +85,7 @@ export function updateFlightPhysics(delta, nowTime) {
     currentKTS < 50 && planeGroup.position.y > restingHeight + 2;
 
   // Apply forward movement
-  if (!isFreeCamera && state.flightSpeedMultiplier > 0) {
+  if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
     planeGroup.translateZ(
       -(BASE_FLIGHT_SPEED * state.flightSpeedMultiplier * delta * 60)
     );
@@ -102,7 +101,7 @@ export function updateFlightPhysics(delta, nowTime) {
     }
   }
 
-  if (!isFreeCamera && isFreefalling) {
+  if (!state.isFreeCamera && isFreefalling) {
     // Freefall tumble & accelerating gravity
     const GRAVITY = 120; // units/sec² — feels weighty but not instant
     state.verticalVelocity -= GRAVITY * delta;
@@ -135,7 +134,10 @@ export function updateFlightPhysics(delta, nowTime) {
       0.5 *
       tumbleIntensity *
       delta;
-  } else if (!isFreeCamera && planeGroup.position.y <= restingHeight + 0.1) {
+  } else if (
+    !state.isFreeCamera &&
+    planeGroup.position.y <= restingHeight + 0.1
+  ) {
     // Grounded — rest flat peacefully, kill vertical velocity
     state.verticalVelocity = 0;
     state.targetPitch = 0;
@@ -214,7 +216,7 @@ export function updateFlightPhysics(delta, nowTime) {
   }
 
   if (isWater && planeGroup.position.y <= restingHeight + 0.1) {
-    if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+    if (typeof Achievements !== 'undefined' && !state.isFreeCamera) {
       Achievements.unlock('splash_down');
     }
     if (!pontoonGroup.visible) {

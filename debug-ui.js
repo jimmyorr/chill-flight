@@ -6,7 +6,7 @@ import {
   MAP_WORLD_SIZE,
   WATER_LEVEL,
   getCachedElement,
-  getMaxFlightSpeedMult,
+  updateUrlParams,
 } from './constants.js';
 import {log} from './logger.js';
 import {
@@ -34,6 +34,7 @@ import {
 import {scene} from './scene.js';
 import {
   activePlaneType,
+  getMaxFlightSpeedMult,
   hingeLB,
   hingeLF,
   hingeRB,
@@ -48,37 +49,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {toggleProceduralObjects, updateChunks} from './terrain-chunks.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
-
-export function updateUrlParams(updates = {}, removals = []) {
-  try {
-    const debugMenu =
-      typeof getCachedElement === 'function'
-        ? getCachedElement('debug-menu')
-        : document.getElementById('debug-menu');
-    const isDebugActive = debugMenu && debugMenu.style.display === 'block';
-
-    if (!isDebugActive) {
-      return;
-    }
-
-    const url = new URL(window.location.href);
-    if (!removals.includes('debug') && !url.searchParams.has('debug')) {
-      url.searchParams.set('debug', 'true');
-    }
-    removals.forEach((key) => url.searchParams.delete(key));
-    Object.entries(updates).forEach(([key, val]) => {
-      if (val === null || val === undefined) {
-        url.searchParams.delete(key);
-      } else {
-        url.searchParams.set(key, val);
-      }
-    });
-    window.history.replaceState(null, '', url.toString());
-  } catch (err) {
-    console.error('Failed to update URL parameters:', err);
-  }
-}
-window.updateUrlParams = updateUrlParams;
+import {performanceMonitor} from './game-performance.js';
 
 export function applyGraphicsPreset(preset) {
   let segments;
@@ -180,8 +151,8 @@ export function applyGraphicsPreset(preset) {
   }
 
   // Reset DRS multiplier when preset changes so we start fresh
-  if (window.performanceMonitor) {
-    window.performanceMonitor.pixelRatioMultiplier = 1.0;
+  if (performanceMonitor) {
+    performanceMonitor.pixelRatioMultiplier = 1.0;
   }
 
   // Toggle sky clouds dynamically: disable expensive fBm on low mode
@@ -250,7 +221,6 @@ export function applyGraphicsPreset(preset) {
 }
 
 var showChunkBorders = false;
-export var isFreeCamera = false;
 const _chunkBorderHelpers = new Map(); // key -> Box3Helper
 const _chunkBorderColor = new THREE.Color(0x00ffff);
 
@@ -435,8 +405,8 @@ window.initDebugUI = function () {
       state.manualPropLOD = parseFloat(e.target.value);
       if (propLodSliderVal)
         propLodSliderVal.textContent = Math.round(state.manualPropLOD);
-      if (window.performanceMonitor) {
-        window.performanceMonitor.applyEffectiveLOD();
+      if (performanceMonitor) {
+        performanceMonitor.applyEffectiveLOD();
       }
     });
     propLodSlider.addEventListener('change', (e) => {
@@ -446,13 +416,13 @@ window.initDebugUI = function () {
   }
 
   // Free Camera toggle
-  isFreeCamera =
+  state.isFreeCamera =
     typeof ChillFlightLogic !== 'undefined'
       ? ChillFlightLogic.START_FREE_CAM || false
       : false;
   const freeCamToggle = document.getElementById('debug-free-cam-toggle');
   if (freeCamToggle) {
-    if (isFreeCamera) {
+    if (state.isFreeCamera) {
       freeCamToggle.checked = true;
       camera.rotation.order = 'YXZ'; // Better for fly-cam
       camera.rotation.z = 0;
@@ -605,8 +575,8 @@ window.initDebugUI = function () {
     document
       .getElementById('debug-free-cam-toggle')
       .addEventListener('change', (e) => {
-        isFreeCamera = e.target.checked;
-        if (isFreeCamera) {
+        state.isFreeCamera = e.target.checked;
+        if (state.isFreeCamera) {
           updateUrlParams({freecam: 'true'}, ['freeCamera']);
           // Force camera up vector to vertical
           camera.up.set(0, 1, 0);
@@ -963,8 +933,4 @@ window.initDebugUI = function () {
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 Object.assign(window, {
   applyGraphicsPreset,
-});
-// Live bindings: reassigned here, read elsewhere.
-Object.defineProperties(window, {
-  isFreeCamera: {get: () => isFreeCamera, configurable: true},
 });

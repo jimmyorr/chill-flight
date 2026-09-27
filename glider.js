@@ -31,27 +31,19 @@ export function createGliderModel(opts = {}) {
 
   const accentMat =
     opts.planeMat ||
-    (opts.planeColor === undefined &&
-    typeof window !== 'undefined' &&
-    window.planeMat
-      ? window.planeMat
-      : makeMat({
-          color: planeColor,
-          flatShading: true,
-          roughness: 0.35,
-        }));
+    makeMat({
+      color: planeColor,
+      flatShading: true,
+      roughness: 0.35,
+    });
 
   const bodyMat =
     opts.planeWhiteMat ||
-    (opts.planeColor === undefined &&
-    typeof window !== 'undefined' &&
-    window.planeWhiteMat
-      ? window.planeWhiteMat
-      : makeMat({
-          color: whiteColor,
-          flatShading: true,
-          roughness: 0.35,
-        }));
+    makeMat({
+      color: whiteColor,
+      flatShading: true,
+      roughness: 0.35,
+    });
 
   // Dark tinted canopy glass matching reference image
   const canopyMat = makeMat({

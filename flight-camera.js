@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {camera, moonMesh, sunMesh} from './sky.js';
+import {camera, clock, moonMesh, sunMesh} from './sky.js';
 import {updateChunks} from './terrain-chunks.js';
 import {planeGroup} from './airplane.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -22,7 +22,6 @@ import {
 } from './constants.js';
 import {log} from './logger.js';
 import {state} from './state.js';
-import {isFreeCamera} from './debug-ui.js';
 import {
   _lastChunkUpdatePos,
   cameraDolly,
@@ -65,8 +64,6 @@ import {
   _virtualCameraPos,
   _virtualLookTarget,
   _yAxis,
-  clock,
-  invertYAxis,
 } from './game.js';
 import {performanceMonitor} from './game-performance.js';
 
@@ -75,7 +72,7 @@ let _frameCount;
 export function updateFlightCamera(delta, nowTime) {
   // --- CAMERA UPDATES ---
 
-  if (isFreeCamera) {
+  if (state.isFreeCamera) {
     // Free movement logic
     const moveSpeed = (keys.Shift ? 1000 : 250) * delta;
     const rotateSpeedDrag = 0.005;
@@ -83,7 +80,7 @@ export function updateFlightCamera(delta, nowTime) {
     // Rotation from Drag (respecting invertYAxis)
     camera.rotation.y += state.freeCamDeltaX * rotateSpeedDrag;
     camera.rotation.x +=
-      state.freeCamDeltaY * rotateSpeedDrag * (invertYAxis ? -1 : 1);
+      state.freeCamDeltaY * rotateSpeedDrag * (state.invertYAxis ? -1 : 1);
     camera.rotation.z = 0;
 
     state.freeCamDeltaX = 0;
@@ -641,7 +638,7 @@ export function updateFlightCamera(delta, nowTime) {
         if (
           data.type === 'goose' &&
           typeof Achievements !== 'undefined' &&
-          !isFreeCamera
+          !state.isFreeCamera
         ) {
           const distToPlaneSq = bird.position.distanceToSquared(
             planeGroup.position
@@ -674,7 +671,7 @@ export function updateFlightCamera(delta, nowTime) {
       }
 
       // Check for gatsby achievement (Lighthouse flyby)
-      if (typeof Achievements !== 'undefined' && !isFreeCamera) {
+      if (typeof Achievements !== 'undefined' && !state.isFreeCamera) {
         beam.getWorldPosition(_lighthouseBeamWorldPos);
         const distSq = planeGroup.position.distanceToSquared(
           _lighthouseBeamWorldPos
@@ -934,8 +931,10 @@ export function updateFlightCamera(delta, nowTime) {
   });
 
   // Update Cockpit HUD
-  const hudTarget = isFreeCamera ? camera : planeGroup;
-  const hudHeadingY = isFreeCamera ? camera.rotation.y : planeGroup.rotation.y;
+  const hudTarget = state.isFreeCamera ? camera : planeGroup;
+  const hudHeadingY = state.isFreeCamera
+    ? camera.rotation.y
+    : planeGroup.rotation.y;
 
   const hours = (state.timeOfDay / (Math.PI * 2)) * 24;
   const hh = Math.floor(hours).toString().padStart(2, '0');

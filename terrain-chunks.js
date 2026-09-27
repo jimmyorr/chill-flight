@@ -232,6 +232,7 @@ import {
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
   WATER_LEVEL,
+  updateUrlParams,
 } from './constants.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {log} from './logger.js';
@@ -240,6 +241,7 @@ import {camera} from './sky.js';
 import {planeGroup} from './airplane.js';
 import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {state} from './state.js';
+import {performanceMonitor} from './game-performance.js';
 
 class GlobalInstanceManager {
   constructor() {
@@ -1865,10 +1867,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         ? state.PROP_LOD_DISTANCE
         : 4200;
   const lodMultiplier =
-    typeof window.performanceMonitor !== 'undefined' &&
-    window.performanceMonitor &&
-    typeof window.performanceMonitor.lodMultiplier === 'number'
-      ? window.performanceMonitor.lodMultiplier
+    typeof performanceMonitor !== 'undefined' &&
+    performanceMonitor &&
+    typeof performanceMonitor.lodMultiplier === 'number'
+      ? performanceMonitor.lodMultiplier
       : 1.0;
   const lodDistance =
     (state.manualPropLOD !== undefined
@@ -4126,7 +4128,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
 export function updateChunks() {
   const target =
-    typeof window !== 'undefined' && window.isFreeCamera ? camera : planeGroup;
+    typeof window !== 'undefined' && state.isFreeCamera ? camera : planeGroup;
   const currentChunkX = Math.round(target.position.x / CHUNK_SIZE);
   const currentChunkZ = Math.round(target.position.z / CHUNK_SIZE);
   const renderDistance = state.RENDER_DISTANCE;
@@ -4406,14 +4408,11 @@ export function toggleProceduralObjects(enabled) {
   const toggle = document.getElementById('debug-objects-toggle');
   if (toggle) toggle.checked = enabled;
 
-  if (
-    typeof window !== 'undefined' &&
-    typeof window.updateUrlParams === 'function'
-  ) {
+  if (typeof window !== 'undefined' && typeof updateUrlParams === 'function') {
     if (!enabled) {
-      window.updateUrlParams({objects: 'none'});
+      updateUrlParams({objects: 'none'});
     } else {
-      window.updateUrlParams({}, ['objects']);
+      updateUrlParams({}, ['objects']);
     }
   }
 }

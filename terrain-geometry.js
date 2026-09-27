@@ -3,13 +3,13 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
-  CHUNK_SIZE,
   LIGHTHOUSE_BEAM_OPACITY_MAX,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
   WATER_LEVEL,
   createMaterial,
+  terrainUniforms,
 } from './constants.js';
 import {scene} from './scene.js';
 import {log} from './logger.js';
@@ -134,20 +134,12 @@ export var waterMaterial = createMaterial({
   depthWrite: false,
 });
 
-window.terrainUniforms = {
-  uCameraPosXZ: {value: new THREE.Vector2(0, 0)},
-  uRenderRadius: {value: state.RENDER_DISTANCE * CHUNK_SIZE},
-  uSunDirection: {value: new THREE.Vector3(0, 1, 0)},
-  uTopColor: {value: new THREE.Color()},
-  uBottomColor: {value: new THREE.Color()},
-};
-
 terrainMaterial.onBeforeCompile = (shader) => {
-  shader.uniforms.uCameraPosXZ = window.terrainUniforms.uCameraPosXZ;
-  shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
-  shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
-  shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
-  shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
+  shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
+  shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
+  shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
+  shader.uniforms.uTopColor = terrainUniforms.uTopColor;
+  shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
 
   shader.vertexShader =
     `
@@ -222,14 +214,14 @@ terrainMaterial.onBeforeCompile = (shader) => {
 // This replaces the CPU-side per-vertex loop and computeVertexNormals().
 waterMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uTime = window.waterUniforms.uTime;
-  shader.uniforms.uCameraPosXZ = window.terrainUniforms.uCameraPosXZ;
-  shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
+  shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
+  shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
 
-  shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
+  shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
   shader.uniforms.uSpecularDir = window.waterUniforms.uSpecularDir;
   shader.uniforms.uSunColor = window.waterUniforms.uSunColor;
-  shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
-  shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
+  shader.uniforms.uTopColor = terrainUniforms.uTopColor;
+  shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
 
   // Add time uniform declaration to the top of the vertex shader
   shader.vertexShader =
@@ -2210,9 +2202,9 @@ window.streetlightDecalMat = new THREE.MeshBasicMaterial({
   depthWrite: false,
 });
 window.streetlightDecalMat.onBeforeCompile = (shader) => {
-  if (window.terrainUniforms) {
-    shader.uniforms.uCameraPosXZ = window.terrainUniforms.uCameraPosXZ;
-    shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
+  if (terrainUniforms) {
+    shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
+    shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
   }
   shader.vertexShader =
     `

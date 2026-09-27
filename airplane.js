@@ -4,11 +4,13 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {
+  BASE_FLIGHT_SPEED,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
+  MAX_AIRPLANE_SPEED_KTS,
   WATER_LEVEL,
   createMaterial,
-  getMaxFlightSpeedMult,
+  updateUrlParams,
 } from './constants.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {createBiplaneModel} from './biplane.js';
@@ -249,6 +251,12 @@ export let activePlaneType =
 Object.defineProperties(window, {
   activePlaneType: {get: () => activePlaneType, configurable: true},
 });
+
+// The glider tops out lower than the powered planes.
+export function getMaxFlightSpeedMult() {
+  const speedKts = activePlaneType === 'glider' ? 300 : MAX_AIRPLANE_SPEED_KTS;
+  return speedKts / (BASE_FLIGHT_SPEED * 60);
+}
 
 export function setActivePlane(planeType, skipStorage = false) {
   if (!['classic', 'biplane', 'glider', 'twin'].includes(planeType)) return;

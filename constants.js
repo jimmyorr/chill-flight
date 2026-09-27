@@ -3,6 +3,7 @@
 // live in state.js instead.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {state} from './state.js';
 
 // Terrain parameters
 export const CHUNK_SIZE = 1500;
@@ -30,14 +31,6 @@ export const BASE_FLIGHT_SPEED = 2.5;
 export const MAX_AIRPLANE_SPEED_KTS = 500;
 export const MAX_FLIGHT_SPEED_MULT =
   MAX_AIRPLANE_SPEED_KTS / (BASE_FLIGHT_SPEED * 60);
-
-export function getMaxFlightSpeedMult() {
-  let speedKts = MAX_AIRPLANE_SPEED_KTS;
-  if (window.activePlaneType === 'glider') {
-    speedKts = 300;
-  }
-  return speedKts / (BASE_FLIGHT_SPEED * 60);
-}
 export const TURN_SPEED = 0.03;
 
 // Feature Flags
@@ -48,6 +41,16 @@ export const ENABLE_CASTLE_RUINS = true;
 export const ENABLE_LIGHTHOUSES = false;
 
 export const THEME = ChillFlightLogic.THEME;
+
+// Shared by every material's injected directional-fog shader code; the game
+// loop updates the values each frame.
+export const terrainUniforms = {
+  uCameraPosXZ: {value: new THREE.Vector2(0, 0)},
+  uRenderRadius: {value: state.RENDER_DISTANCE * CHUNK_SIZE},
+  uSunDirection: {value: new THREE.Vector3(0, 1, 0)},
+  uTopColor: {value: new THREE.Color()},
+  uBottomColor: {value: new THREE.Color()},
+};
 
 export function createMaterial(params) {
   // Make a copy of params to avoid mutating the original
@@ -93,13 +96,11 @@ export function createMaterial(params) {
 
   // Inject universal directional fog into all generated materials
   mat.onBeforeCompile = (shader) => {
-    if (window.terrainUniforms) {
-      shader.uniforms.uCameraPosXZ = window.terrainUniforms.uCameraPosXZ;
-      shader.uniforms.uRenderRadius = window.terrainUniforms.uRenderRadius;
-      shader.uniforms.uSunDirection = window.terrainUniforms.uSunDirection;
-      shader.uniforms.uTopColor = window.terrainUniforms.uTopColor;
-      shader.uniforms.uBottomColor = window.terrainUniforms.uBottomColor;
-    }
+    shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
+    shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
+    shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
+    shader.uniforms.uTopColor = terrainUniforms.uTopColor;
+    shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
 
     shader.vertexShader =
       `
@@ -207,6 +208,35 @@ export function updateDOM(elementOrId, newValue) {
   }
 }
 
+// Mirror debug settings into the URL (only while the debug menu is open) so
+// the current view can be shared.
+export function updateUrlParams(updates = {}, removals = []) {
+  try {
+    const debugMenu = getCachedElement('debug-menu');
+    const isDebugActive = debugMenu && debugMenu.style.display === 'block';
+
+    if (!isDebugActive) {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    if (!removals.includes('debug') && !url.searchParams.has('debug')) {
+      url.searchParams.set('debug', 'true');
+    }
+    removals.forEach((key) => url.searchParams.delete(key));
+    Object.entries(updates).forEach(([key, val]) => {
+      if (val === null || val === undefined) {
+        url.searchParams.delete(key);
+      } else {
+        url.searchParams.set(key, val);
+      }
+    });
+    window.history.replaceState(null, '', url.toString());
+  } catch (err) {
+    console.error('Failed to update URL parameters:', err);
+  }
+}
+
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 Object.assign(window, {
   CHUNK_SIZE,
@@ -224,7 +254,6 @@ Object.assign(window, {
   BASE_FLIGHT_SPEED,
   MAX_AIRPLANE_SPEED_KTS,
   MAX_FLIGHT_SPEED_MULT,
-  getMaxFlightSpeedMult,
   TURN_SPEED,
   ENABLE_PAGODAS,
   ENABLE_BARNS,

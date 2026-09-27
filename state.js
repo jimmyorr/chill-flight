@@ -143,6 +143,12 @@ export const state = {
   manualBaseFogDensity: undefined,
   manualPropLOD: undefined,
   manualTimeOfDay: undefined,
+
+  // Free camera (debug-ui.js)
+  isFreeCamera: false,
+
+  // Controls settings (game.js)
+  invertYAxis: false,
 };
 
 // Bridge for classic scripts that haven't been converted to ES modules yet:

@@ -107,6 +107,8 @@ function generateDynamicPalette(rng) {
 
 // Standard parameters are handled by ChillFlightLogic
 export let selectedPalette;
+// Daytime sky color; final value is set once the initial palette is chosen.
+export const _daySky = new THREE.Color(0x4ca1f0);
 let currentPaletteCycle = -1;
 export let isCustomPalette = false;
 export let currentPaletteSeed;
@@ -130,9 +132,7 @@ export function applyCustomSkyColors(top, bottom, day) {
       typeof day === 'string' ? parseInt(day.replace('#', ''), 16) : day;
     if (!isNaN(dayHex)) {
       selectedPalette.day = dayHex;
-      if (typeof window !== 'undefined' && window._daySky) {
-        window._daySky.setHex(dayHex);
-      }
+      _daySky.setHex(dayHex);
     }
   }
 
@@ -602,6 +602,20 @@ rainbowMesh.name = 'rainbow';
 rainbowMesh.visible = false;
 rainbowMesh.frustumCulled = false;
 skyGroup.add(rainbowMesh);
+
+// Daytime sky color: the palette's, overridable via URL param.
+_daySky.setHex(
+  selectedPalette.day !== undefined ? selectedPalette.day : 0x4ca1f0
+);
+if (ChillFlightLogic.DAY_COLOR) {
+  const dayHex = parseInt(ChillFlightLogic.DAY_COLOR.replace('#', ''), 16);
+  if (!isNaN(dayHex)) {
+    _daySky.setHex(dayHex);
+  }
+}
+
+// Frame timer for the game loop.
+export const clock = new THREE.Timer();
 
 // Bridge for classic scripts that haven't been converted to ES modules yet.
 Object.assign(window, {
