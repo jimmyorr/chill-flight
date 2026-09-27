@@ -1,5 +1,12 @@
 # Release notes
 
+## 0.9.35
+
+- **Performance:** Fixed production terrain workers crashing on startup, which forced all terrain generation onto the main thread.
+- **Architecture:** Migrated all game code to ES modules with explicit imports, shared state and no window globals.
+- **Tooling & quality:** Added headless browser smoke tests for dev and production builds, plus checks for undefined globals and import order.
+- **Diagnostics:** Sentry now reports errors thrown during startup.
+
 ## 0.9.34
 
 - **Web workers:** Offloaded terrain elevation, normals, and water meshes to background workers with directional priority scheduling and job cancellation.
