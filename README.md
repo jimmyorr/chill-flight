@@ -372,7 +372,36 @@ npm run dev
 Once started, open `http://localhost:5173` in your browser.
 
 > [!NOTE]
-> During development, classic script files (e.g., `game.js`, `airplane.js`) are served unbundled to maintain original file structure mappings, enabling effortless hot-reloading and exact console log line numbers.
+> During development, game modules (e.g., `game.js`, `airplane.js`) are served unbundled, so console log line numbers match the source files.
+
+### Code structure
+
+The game is made of ES modules in the repository root. `src/main.js` is the entry point for `index.html`: it imports every game module, in dependency order, and prints the startup banner. `src/debug-models.js` is a smaller entry point for the model debug page.
+
+- **Import what you use.** Modules share code only through `import`/`export`, never through `window` globals. A module may only import modules listed before it in `src/main.js`, which keeps the dependency graph free of cycles.
+- **Shared mutable values live in `state.js`.** ES modules can't reassign another module's exports, so values that more than one module writes (`state.timeOfDay`, `state.isPaused`, `state.cameraMode`, etc.) live on the single `state` object.
+- **Calls into later modules go through `hooks.js`.** When an earlier module must call a function from a module that loads after it (for example, pausing the game from the native app-lifecycle handler), the later module registers it on `hooks` when it loads, and callers use `hooks.togglePause?.()`.
+- **Terrain generation runs in a web worker.** `terrain-worker.js` is a module worker created by `terrain-worker-manager.js`; Vite bundles it automatically.
+
+### Testing
+
+```bash
+npm test
+```
+
+Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script reference checks, and a check that no code reads a `window` property that nothing assigns.
+
+```bash
+npm run test:browser
+```
+
+Loads the game, the model debug page and the map export page in headless Chrome against the running dev server (`npm run dev`). After pressing start, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply.
+
+```bash
+npm run test:build
+```
+
+Runs the same browser checks against a production build written to a temporary directory (never `docs/`).
 
 ### Model debug page
 
@@ -388,8 +417,8 @@ npm run build
 
 This builds the optimized code into the `docs/` folder (which is hosted directly on GitHub Pages):
 
-- Third-party dependencies (`three`, `@sentry/browser`) are compiled into a shared chunk.
-- Classic legacy scripts are concatenated, minified, and outputted into a single, high-performance `docs/game-bundle.js` script.
+- Game modules and third-party dependencies (`three`, `@sentry/browser`) are bundled and minified, with code shared by the game and the model debug page in a common chunk.
+- The terrain web worker is bundled into its own file.
 
 ### Previewing production build
 

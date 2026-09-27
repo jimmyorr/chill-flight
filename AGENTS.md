@@ -3,7 +3,7 @@
 - **Manual commits only**: Do not create git commits automatically. When a task or skill (including TDD or subagent workflows) reaches a commit point, you must stop, stage the changes, and ask for explicit permission before committing.
 - **No standing permission**: A previous approval to commit (e.g., "go ahead and commit") applies ONLY to the currently staged changes. It does NOT grant permission for any future commits.
 - **NEVER CHAIN COMMITS**: If you complete a follow-up task, you must ask for permission AGAIN before committing. Do not assume "go ahead and commit" means "commit everything I do from now on."
-- **Verification first**: Always run the complete verification sequence (`npm run format && npm test`) before asking to commit, but do not proceed to the `git commit` command yourself.
+- **Verification first**: Always run the complete verification sequence (`npm run format && npm test`) before asking to commit, but do not proceed to the `git commit` command yourself. For changes to runtime game code, also run `npm run test:browser` (headless Chrome against the running dev server), and `npm run test:build` when the change could affect the production build (Vite config, entry points, workers, module structure). Never report a change as working if these fail.
 - **Format before staging**: Always run the project's code formatter (`npm run format`) on modified files before verifying or staging changes. This ensures formatting remains consistent and prevents stylistic changes from being mixed into functional commits.
 - **Isolated production commits**: Keep updates to the production build (files under the `docs/` directory) completely isolated in their own commits, separate from dev source code changes.
   - **No automatic production builds**: Never generate a production build (`npm run build` or updating the `docs/` folder) unless the USER explicitly requests it.
@@ -19,7 +19,14 @@
 
 ## Server & verification rules
 
-- **Use existing server**: Do not start a local development server (e.g., `npx serve`, `npm run dev`). A Live Server is already running on port 5173. Use `http://localhost:5173` for all browser-based verification. Avoid browser-based verification unless it is absolutely necessary.
+- **Use existing server**: Do not start a local development server (e.g., `npx serve`, `npm run dev`). A Live Server is already running on port 5173. Use `http://localhost:5173` for all browser-based verification. Avoid manual browser-based verification unless it is absolutely necessary; the automated headless checks (`npm run test:browser`, `npm run test:build`) are expected and don't count as manual verification.
+
+## Module rules
+
+- **ES modules only**: All game code is ES modules. `src/main.js` imports every game module in load order. Share code through `import`/`export`; never add `window` globals for other modules to read (`npm run test:globals` fails on `window` reads that nothing assigns). Intentional `window` use is limited to runtime/third-party globals (Capacitor, Tauri, analytics, the version info Vite injects), `openExternalLink` (called from `onclick` attributes in `index.html`), and debug pages' own `onclick` handlers.
+- **Import order**: A module may only import modules listed before it in `src/main.js` (`npm run test:imports` enforces this). This keeps the module graph free of cycles, which would otherwise run a module before the modules it depends on. New modules go in `src/main.js` after everything they import.
+- **Shared mutable state**: Values written by more than one module live on the `state` object in `state.js` (`state.isPaused = true`). Values reassigned only by their own module can be `export let` (importers see updates but can't assign).
+- **Calling later modules**: If a module needs to call a function from a module that loads after it, the later module registers it on `hooks` in `hooks.js` at load, and callers use `hooks.name?.()`. Prefer moving code to the right module first; use hooks only for genuine late-bound callbacks.
 
 ## UI & typography rules
 
@@ -61,7 +68,7 @@
 ## ESLint & refactoring rules
 
 - **Zero lint warnings standard**: The codebase maintains a strict zero-warning policy enforced by `npm run lint` (`eslint . --max-warnings=0`). Never propose or stage commits that introduce ESLint warnings or errors. Always run `npm run lint` or `npm test` as part of your verification pass before asking for commit approval.
-- **Strict refactoring verification**: When refactoring code, extracting functions, or changing variable scope, you MUST run ESLint with the `no-undef` and `no-use-before-define` rules explicitly elevated to errors (e.g., `npx eslint <file> --rule 'no-undef: error' --rule 'no-use-before-define: error' --quiet`) to ensure no variables were broken. The default repository configuration treats these as warnings, meaning they can easily be missed in the output without the `--quiet` flag and explicit error elevation.
+- **Strict refactoring verification**: `npm run lint` enforces `no-undef` as an error, including inside `typeof` checks. When refactoring code, extracting functions, or changing variable scope, also run ESLint with `no-use-before-define` elevated to an error (e.g., `npx eslint <file> --rule 'no-use-before-define: error' --quiet`) and check any new hits, since the default configuration doesn't enable that rule.
 - **Code hygiene best practices**:
   - Use optional catch binding (`try { ... } catch { ... }`) when the error object is unused, rather than `catch (e)`.
   - Remove dead or leftover variables immediately during refactoring rather than leaving unused declarations.
