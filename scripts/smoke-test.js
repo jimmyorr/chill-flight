@@ -233,12 +233,23 @@ async function exerciseControls(page, tag) {
     if ((await isVisible(target)) !== expectVisible) fail(`${what} failed`);
   };
 
+  // Headless frame rates vary, so poll the debug readouts for a few seconds
+  // instead of reading them once after a fixed delay.
+  const readUntil = async (check, timeoutMs = 4000) => {
+    const end = Date.now() + timeoutMs;
+    let s = await readDebug();
+    while (!check(s) && Date.now() < end) {
+      await wait(250);
+      s = await readDebug();
+    }
+    return s;
+  };
+
   // Debug panel (Shift+D) exposes live flight values in the DOM.
   await shifted('D');
   await wait(500);
   const a = await readDebug();
-  await wait(1500);
-  const b = await readDebug();
+  const b = await readUntil((s) => Math.hypot(s.x - a.x, s.z - a.z) > 1);
   if (!(Math.hypot(b.x - a.x, b.z - a.z) > 1)) {
     fail(`plane is not moving (${JSON.stringify(a)} -> ${JSON.stringify(b)})`);
   }
@@ -246,15 +257,14 @@ async function exerciseControls(page, tag) {
   await page.keyboard.down('Shift'); // Shift+Up: throttle up
   await hold('ArrowUp', 1000);
   await page.keyboard.up('Shift');
-  await wait(300);
-  const c = await readDebug();
+  const c = await readUntil((s) => s.target > b.target);
   if (!(c.target > b.target)) {
     fail(`throttle up did not raise target speed (${b.target} -> ${c.target})`);
   }
 
-  await hold('ArrowLeft', 1500); // bank left
-  await wait(1000);
-  const d = await readDebug();
+  await page.keyboard.down('ArrowLeft'); // bank left
+  const d = await readUntil((s) => s.heading !== c.heading, 5000);
+  await page.keyboard.up('ArrowLeft');
   if (d.heading === c.heading) fail(`steering did not change heading`);
 
   await page.keyboard.press('c'); // camera mode
