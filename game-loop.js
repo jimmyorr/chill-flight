@@ -143,6 +143,8 @@ let _telemetryRenderFrames;
 let _lastRenderInfoUpdate;
 let _debugVirtualServerNow;
 let _cloudTime;
+// Lingering mist after rain or snow, 0..1 (drives fog density).
+let fogAfterRain = 0;
 let benchmarkComplete;
 let benchmarkStartTime;
 let benchmarkFrameTimes;
@@ -1777,21 +1779,26 @@ function updateEnvironmentLighting(delta, now) {
 
   scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
 
-  // If it's actively raining or snowing, the fog should be much thicker to obscure the horizon
-  let baseFogDensity = 0.00015;
-  if (state.manualBaseFogDensity !== undefined) {
-    baseFogDensity = state.manualBaseFogDensity;
+  // Fog density follows the conditions: clear skies, morning fog, clouds,
+  // precipitation, and mist lingering after rain (see computeFogDensity).
+  const baseFogDensity =
+    state.manualBaseFogDensity !== undefined
+      ? state.manualBaseFogDensity
+      : ChillFlightLogic.FOG.CLEAR;
+  if (precipIntensity > fogAfterRain) {
+    fogAfterRain = precipIntensity;
+  } else {
+    fogAfterRain *= Math.exp(
+      -delta / ChillFlightLogic.FOG.AFTER_RAIN_FADE_SECONDS
+    );
   }
-
-  const maxFogDensity = Math.max(
-    baseFogDensity,
-    precipIntensity > 0 ? 0.00025 : 0.0002
-  );
-  const targetFogDensity = THREE.MathUtils.lerp(
-    baseFogDensity,
-    maxFogDensity,
-    overcast
-  );
+  const targetFogDensity = ChillFlightLogic.computeFogDensity({
+    overcast,
+    precipIntensity,
+    hour: (state.timeOfDay / (Math.PI * 2)) * 24,
+    afterRain: fogAfterRain,
+    clearDensity: baseFogDensity,
+  });
   scene.fog.density = THREE.MathUtils.lerp(
     scene.fog.density,
     targetFogDensity,

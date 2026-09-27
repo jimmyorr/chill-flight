@@ -120,7 +120,7 @@ Overcast conditions occur when the procedural cloud noise exceeds a threshold (0
 - **Atmospheric effects**:
   - **Celestial visibility**: Stars and the Aurora Borealis become invisible. The Sun and Moon are dimmed.
   - **Lighting**: Sunlight and Moonlight intensity is reduced, shifting to ambient, diffuse lighting.
-  - **Fog**: Base fog density increases, reducing visibility.
+  - **Fog**: Fog thickens with cloud cover, reducing visibility (see [Fog](#fog)).
   - **Colors**: The sky and fog colors blend towards a dark, stormy gray.
 
 ### Storms and precipitation
@@ -132,6 +132,18 @@ Storms are triggered when the global cloud noise map reaches peak density (> 0.7
 - **Temperate and equator** (Latitude 2.0 South to 1.0 North / Z between 10000 and -5000): Full rain.
 - **Desert border** (Latitude 2.0 to 3.0 South / Z between 10000 and 15000): Light rain that quickly dries up as you move further south.
 - **Deep desert** (Latitude > 3.0 South / Z > 15000): Dry storms (the sky becomes overcast, but no rain falls).
+
+### Fog
+
+Fog density follows the conditions; the thickest applicable condition wins:
+
+- **Clear skies**: Light fog, so distant mountains stay crisp on sunny days.
+- **Morning fog**: Builds from 04:00, is thickest from about 05:30 to 07:30, and burns off by 10:00.
+- **Clouds**: Fog thickens as cloud cover increases.
+- **Rain and snow**: The thickest fog, closing in the horizon.
+- **After rain**: Mist lingers after precipitation stops and clears over about two minutes.
+
+The values live in `FOG` in `chill-flight-logic.js`. The debug menu's base fog slider overrides the clear-sky density.
 
 ### Atmospheric phenomena
 

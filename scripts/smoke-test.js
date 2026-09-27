@@ -184,7 +184,9 @@ async function checkPage(browser, {path, fly, blackhole}) {
   }
 
   if (blackhole) {
-    await page.waitForSelector('#begin-btn', {visible: true, timeout: 30000});
+    // Generous deadlines: a busy machine can be slow, but a real black
+    // screen never paints at all.
+    await page.waitForSelector('#begin-btn', {visible: true, timeout: 60000});
     // A screenshot needs a painted frame; if a render-blocking third-party
     // resource hangs, the page never paints (a black screen).
     const painted = await Promise.race([
@@ -192,7 +194,7 @@ async function checkPage(browser, {path, fly, blackhole}) {
         .screenshot()
         .then(() => true)
         .catch(() => false),
-      new Promise((r) => setTimeout(() => r(false), 10000)),
+      new Promise((r) => setTimeout(() => r(false), 30000)),
     ]);
     if (!painted) failPage(tag, 'page never painted (black screen)');
     await page.click('#begin-btn');

@@ -16,14 +16,15 @@
     "test:syntax": "for f in *.js; do node --check \"$f\" || exit 1; done",
     "test:terrain": "node scripts/test-terrain.js",
     "test:scripts": "node scripts/test-html-scripts.js",
-    "test": "npm run lint && npm run test:syntax && npm run test:terrain && npm run test:scripts && npm run test:globals && npm run test:imports && npm run test:network",
+    "test": "npm run lint && npm run test:syntax && npm run test:terrain && npm run test:scripts && npm run test:globals && npm run test:imports && npm run test:network && npm run test:fog",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write \"**/*.{js,json,css,html,md}\" --ignore-path .prettierignore",
     "test:browser": "node scripts/smoke-test.js",
     "test:build": "node scripts/smoke-test.js --build",
     "test:globals": "node scripts/check-window-globals.js",
     "test:imports": "node scripts/check-import-order.js",
-    "test:network": "node scripts/test-network.js"
+    "test:network": "node scripts/test-network.js",
+    "test:fog": "node scripts/test-fog.js"
   },
   "dependencies": {
     "@capacitor-firebase/analytics": "^8.2.0",

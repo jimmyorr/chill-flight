@@ -2370,4 +2370,59 @@ export const ChillFlightLogic = {};
   }
 
   exports.computeFlightRotation = computeFlightRotation;
+
+  // --- FOG DENSITY ---
+  // Exponential-squared fog density for the current conditions (issue #72).
+  // Each condition sets a floor and the thickest one wins, so e.g. an
+  // overcast morning isn't doubly foggy. Tuned from in-game screenshots:
+  // clear noon 0.00005, clear 07:00 0.00011, overcast (0.8) 0.00015, rain
+  // 0.0002.
+  const FOG = {
+    CLEAR: 0.00005, // clear sky, midday
+    MORNING_EXTRA: 0.00006, // morning fog added on top of CLEAR
+    OVERCAST: 0.000175, // full cloud cover
+    PRECIP: 0.0002, // full rain or snow
+    AFTER_RAIN: 0.00016, // mist right after precipitation stops
+    AFTER_RAIN_FADE_SECONDS: 40, // mist time constant (~gone after 2 min)
+    // Morning fog (hours, 0-24): builds from START to FULL, holds until
+    // BURN_OFF, and is gone by CLEAR_BY.
+    MORNING_START: 4,
+    MORNING_FULL: 5.5,
+    MORNING_BURN_OFF: 7.5,
+    MORNING_CLEAR_BY: 10,
+  };
+
+  function smoothstep01(edge0, edge1, x) {
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+  }
+
+  // 0..1: how much morning fog there is at `hour` (0-24).
+  function morningFogFactor(hour) {
+    const rise = smoothstep01(FOG.MORNING_START, FOG.MORNING_FULL, hour);
+    const burn = smoothstep01(FOG.MORNING_BURN_OFF, FOG.MORNING_CLEAR_BY, hour);
+    return rise * (1 - burn);
+  }
+
+  // conditions: {overcast 0..1, precipIntensity 0..1, hour 0-24,
+  // afterRain 0..1 (lingering mist, 1 = rain just stopped), clearDensity
+  // (optional override for FOG.CLEAR, e.g. from the debug fog slider)}
+  function computeFogDensity({
+    overcast = 0,
+    precipIntensity = 0,
+    hour = 12,
+    afterRain = 0,
+    clearDensity = FOG.CLEAR,
+  }) {
+    const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+    const morning = clearDensity + FOG.MORNING_EXTRA * morningFogFactor(hour);
+    const clouds = lerp(clearDensity, FOG.OVERCAST, overcast);
+    const precip = lerp(clearDensity, FOG.PRECIP, precipIntensity);
+    const mist = lerp(clearDensity, FOG.AFTER_RAIN, afterRain);
+    return Math.max(clearDensity, morning, clouds, precip, mist);
+  }
+
+  exports.FOG = FOG;
+  exports.morningFogFactor = morningFogFactor;
+  exports.computeFogDensity = computeFogDensity;
 })(ChillFlightLogic);
