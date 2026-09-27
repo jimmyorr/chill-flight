@@ -90,7 +90,9 @@ async function checkPage(browser, {path, fly}) {
   const url = new URL(path, BASE).href;
   const tag = path || 'index.html';
   const page = await browser.newPage();
-  await page.setViewport({width: 1280, height: 800});
+  // Smallish viewport (software WebGL is slow on a busy machine), but wider
+  // than 1024px so the game uses its desktop layout.
+  await page.setViewport({width: 1100, height: 700});
 
   // Keep test runs out of analytics; only first-party requests matter here.
   await page.setRequestInterception(true);

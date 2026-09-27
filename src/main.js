@@ -4,6 +4,7 @@ import './sentry.js';
 import '../logger.js';
 import '../chill-flight-logic.js';
 import '../state.js';
+import '../hooks.js';
 import '../constants.js';
 import '../noise.js';
 import '../terrain-worker-manager.js';
