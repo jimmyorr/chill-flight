@@ -18,7 +18,8 @@
     "test:scripts": "node scripts/test-html-scripts.js",
     "test": "npm run lint && npm run test:syntax && npm run test:terrain && npm run test:scripts",
     "lint": "eslint . --max-warnings=0",
-    "format": "prettier --write \"**/*.{js,json,css,html,md}\" --ignore-path .prettierignore"
+    "format": "prettier --write \"**/*.{js,json,css,html,md}\" --ignore-path .prettierignore",
+    "test:browser": "node scripts/smoke-test.js"
   },
   "dependencies": {
     "@capacitor-firebase/analytics": "^8.2.0",
@@ -44,6 +45,7 @@
     "eslint": "^10.3.0",
     "globals": "^17.6.0",
     "prettier": "^3.8.3",
+    "puppeteer-core": "^25.12.0",
     "vite": "^8.0.13"
   },
   "description": "A minimalist flight simulator set in a procedurally generated world that changes every single day.",
