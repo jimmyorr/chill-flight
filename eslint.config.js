@@ -8,6 +8,9 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Root files already converted to ES modules (see src/main.js imports).
+const ESM_FILES = ['logger.js'];
+
 // Dynamically collect all top-level declared identifiers across project scripts
 const gameGlobals = {
   ...globals.browser,
@@ -30,12 +33,15 @@ const rootFiles = fs
 
 for (const file of rootFiles) {
   const code = fs.readFileSync(path.join(__dirname, file), 'utf8');
+  const isModule = ESM_FILES.includes(file);
   try {
     const ast = espree.parse(code, {
       ecmaVersion: 'latest',
-      sourceType: 'script',
+      sourceType: isModule ? 'module' : 'script',
     });
     for (const node of ast.body) {
+      // Module top-level declarations are private; only window.xyz bridges count.
+      if (isModule && node.type !== 'ExpressionStatement') continue;
       if (node.type === 'VariableDeclaration') {
         for (const decl of node.declarations) {
           if (decl.id && decl.id.type === 'Identifier') {
@@ -79,6 +85,12 @@ export default [
       'no-unused-vars': ['warn', {vars: 'local', args: 'none'}],
       'no-undef': 'error',
       'no-redeclare': ['error', {builtinGlobals: false}],
+    },
+  },
+  {
+    files: ESM_FILES,
+    languageOptions: {
+      sourceType: 'module',
     },
   },
   {

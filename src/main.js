@@ -15,6 +15,9 @@ import rainbowFrag from './shaders/rainbow.frag.glsl?raw';
 
 import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 
+// ES module game code. Runs before the classic <script defer> tags in index.html.
+import '../logger.js';
+
 // Expose them globally so existing scripts can still find them
 window.THREE = {OrbitControls};
 for (const key in THREE) {

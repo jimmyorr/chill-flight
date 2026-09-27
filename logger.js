@@ -9,7 +9,7 @@
  * Warnings (log.warn) and errors (log.error) always output to the console.
  */
 
-function isDebugEnabled() {
+export function isDebugEnabled() {
   if (typeof window === 'undefined') return false;
   if (window.DEBUG) return true;
   try {
@@ -31,7 +31,7 @@ function isDebugEnabled() {
   return false;
 }
 
-const log = {
+export const log = {
   isDebug: isDebugEnabled,
   info: (...args) => {
     if (isDebugEnabled()) {
@@ -46,10 +46,5 @@ const log = {
   },
 };
 
-if (typeof window !== 'undefined') {
-  window.log = log;
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = log;
-}
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+window.log = log;
