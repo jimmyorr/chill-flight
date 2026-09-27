@@ -12,6 +12,7 @@ import sunMoonVertShader from './src/shaders/sunMoon.vert.glsl?raw';
 import moonFragShader from './src/shaders/moon.frag.glsl?raw';
 import rainbowVertShader from './src/shaders/rainbow.vert.glsl?raw';
 import rainbowFragShader from './src/shaders/rainbow.frag.glsl?raw';
+import {state} from './state.js';
 
 // --- SKY SHADER MATERIAL ---
 
@@ -148,7 +149,7 @@ export function applyCustomSkyColors(top, bottom, day) {
 export function nextSkyPalette() {
   if (currentPaletteSeed === undefined) {
     const CYCLE_DURATION_MS = 300000;
-    const serverNow = window._gameServerNow || Date.now();
+    const serverNow = state._gameServerNow || Date.now();
     const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
     currentPaletteSeed = ChillFlightLogic.WORLD_SEED + cycleNumber;
   }

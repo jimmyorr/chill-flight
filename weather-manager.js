@@ -8,6 +8,10 @@ import {CHUNK_SIZE} from './constants.js';
 import {camera, skyUniforms} from './sky.js';
 import {state} from './state.js';
 
+let lightningLight;
+let lightningFlashIntensity;
+let _wasRaining;
+
 export var manualCloudCover =
   typeof ChillFlightLogic !== 'undefined' &&
   ChillFlightLogic.START_CLOUD_COVER !== null &&
@@ -349,7 +353,7 @@ export function updateWeather(delta) {
 
     // Continuous snow above 0.9°N, but with occasional breaks (80% duty cycle)
     if (latVal > 0.9) {
-      const timeOffset = (window._gameServerNow || performance.now()) / 100000;
+      const timeOffset = (state._gameServerNow || performance.now()) / 100000;
       // Use a slow-moving noise wave based on time for global breaks
       const snowBreakNoise = (simplex.noise2D(timeOffset * 0.2, 999) + 1) / 2; // Value between 0 and 1
 
@@ -360,7 +364,7 @@ export function updateWeather(delta) {
     }
 
     // 1. Sync with the global overcast/cloud noise map
-    const timeOffset = (window._gameServerNow || performance.now()) / 100000;
+    const timeOffset = (state._gameServerNow || performance.now()) / 100000;
     const chunkSize = typeof CHUNK_SIZE !== 'undefined' ? CHUNK_SIZE : 2000;
 
     // This math perfectly matches the cloud generation in your animate() loop
@@ -401,7 +405,7 @@ export function updateWeather(delta) {
     }
 
     // Expose debug data
-    window._weatherDebug = {
+    state._weatherDebug = {
       stormNoise: stormNoise,
       latVal: latVal,
       zone:
@@ -418,23 +422,23 @@ export function updateWeather(delta) {
   }
 
   // Initialize lightning light if it doesn't exist
-  if (!window.lightningLight && typeof scene !== 'undefined') {
-    window.lightningLight = new THREE.DirectionalLight(0xe0e0ff, 0);
-    scene.add(window.lightningLight);
-    window.lightningFlashIntensity = 0;
+  if (!lightningLight && typeof scene !== 'undefined') {
+    lightningLight = new THREE.DirectionalLight(0xe0e0ff, 0);
+    scene.add(lightningLight);
+    lightningFlashIntensity = 0;
   }
 
   // Lightning logic
-  if (window.lightningFlashIntensity > 0) {
+  if (lightningFlashIntensity > 0) {
     // Rapidly decay the flash
-    window.lightningFlashIntensity = Math.max(
+    lightningFlashIntensity = Math.max(
       0,
-      window.lightningFlashIntensity - delta * 4.0
+      lightningFlashIntensity - delta * 4.0
     );
-    if (window.lightningLight) {
+    if (lightningLight) {
       // Randomly turn it off to create a flickering strobe effect
-      window.lightningLight.intensity =
-        Math.random() < 0.3 ? 0 : window.lightningFlashIntensity;
+      lightningLight.intensity =
+        Math.random() < 0.3 ? 0 : lightningFlashIntensity;
     }
   } else if (
     targetRainOpacity > 0.2 &&
@@ -444,20 +448,20 @@ export function updateWeather(delta) {
     const hours = (state.timeOfDay / (Math.PI * 2)) * 24;
     if (hours >= 18 || hours <= 6) {
       // Trigger a new lightning strike during heavy rain
-      window.lightningFlashIntensity = 1.5 + Math.random() * 1.0;
-      if (window.lightningLight) {
+      lightningFlashIntensity = 1.5 + Math.random() * 1.0;
+      if (lightningLight) {
         // Set a random overhead angle for the strike
-        window.lightningLight.position
+        lightningLight.position
           .set((Math.random() - 0.5) * 2, 1, (Math.random() - 0.5) * 2)
           .normalize();
-        window.lightningLight.color.setHSL(0.6, 0.2, 0.8 + Math.random() * 0.2); // Cool white/blue
+        lightningLight.color.setHSL(0.6, 0.2, 0.8 + Math.random() * 0.2); // Cool white/blue
       }
     }
   }
 
   // Store unfaded opacities to drive cloud density even when above clouds
-  window._unfadedSnowOpacity = targetSnowOpacity;
-  window._unfadedRainOpacity = targetRainOpacity;
+  state._unfadedSnowOpacity = targetSnowOpacity;
+  state._unfadedRainOpacity = targetRainOpacity;
 
   // Fade out precipitation when flying above the cloud layer
   const cloudCeiling =
@@ -501,9 +505,9 @@ export function updateWeather(delta) {
   const isRainClearing = targetRainOpacity === 0;
 
   if (isRainClearing && !state.wasRainClearing) {
-    if (window._wasRaining) {
+    if (_wasRaining) {
       state.forceRainbow = true;
-      window._wasRaining = false;
+      _wasRaining = false;
     }
   }
   state.wasRainClearing = isRainClearing;
@@ -511,7 +515,7 @@ export function updateWeather(delta) {
   // Track if we are currently in a rainstorm (even a light one)
   // Max rain opacity is 0.5. Anything above 0.05 counts as rain for a rainbow.
   if (rainParticles.material.opacity > 0.05) {
-    window._wasRaining = true;
+    _wasRaining = true;
   }
 
   if (!snowParticles.visible && !rainParticles.visible) return;

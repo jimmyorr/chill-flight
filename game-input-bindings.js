@@ -22,7 +22,7 @@ import {getMaxFlightSpeedMult} from './constants.js';
 import {state} from './state.js';
 
 if (ChillFlightLogic.START_TOD !== null) {
-  window.manualTimeOfDay = ChillFlightLogic.START_TOD;
+  state.manualTimeOfDay = ChillFlightLogic.START_TOD;
 }
 
 // --- WEBXR / VR DOLLY & CAMERA RIG ---

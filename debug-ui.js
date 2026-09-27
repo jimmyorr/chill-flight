@@ -151,7 +151,7 @@ export function applyGraphicsPreset(preset) {
   // Sync UI slider if not manually overridden
   const slider = document.getElementById('debug-prop-lod-slider');
   const sliderVal = document.getElementById('debug-prop-lod-slider-val');
-  if (slider && window.manualPropLOD === undefined) {
+  if (slider && state.manualPropLOD === undefined) {
     slider.value = propLod;
     if (sliderVal) sliderVal.textContent = propLod;
   }
@@ -173,7 +173,7 @@ export function applyGraphicsPreset(preset) {
   }
 
   // Store the preset's base pixel ratio so DRS can scale relative to it
-  window._basePixelRatio = pixelRatio;
+  state._basePixelRatio = pixelRatio;
 
   if (typeof renderer !== 'undefined' && renderer) {
     renderer.setPixelRatio(pixelRatio);
@@ -405,9 +405,9 @@ window.initDebugUI = function () {
   const baseFogVal = document.getElementById('debug-base-fog-val');
   if (fogSlider) {
     fogSlider.addEventListener('input', (e) => {
-      window.manualBaseFogDensity = parseFloat(e.target.value);
+      state.manualBaseFogDensity = parseFloat(e.target.value);
       if (baseFogVal)
-        baseFogVal.textContent = window.manualBaseFogDensity.toFixed(5);
+        baseFogVal.textContent = state.manualBaseFogDensity.toFixed(5);
     });
   }
 
@@ -426,22 +426,22 @@ window.initDebugUI = function () {
       !isNaN(ChillFlightLogic.START_PROP_LOD)
     ) {
       initLod = ChillFlightLogic.START_PROP_LOD;
-      window.manualPropLOD = initLod;
+      state.manualPropLOD = initLod;
     }
     propLodSlider.value = initLod;
     if (propLodSliderVal) propLodSliderVal.textContent = Math.round(initLod);
 
     propLodSlider.addEventListener('input', (e) => {
-      window.manualPropLOD = parseFloat(e.target.value);
+      state.manualPropLOD = parseFloat(e.target.value);
       if (propLodSliderVal)
-        propLodSliderVal.textContent = Math.round(window.manualPropLOD);
+        propLodSliderVal.textContent = Math.round(state.manualPropLOD);
       if (window.performanceMonitor) {
         window.performanceMonitor.applyEffectiveLOD();
       }
     });
     propLodSlider.addEventListener('change', (e) => {
-      window.manualPropLOD = parseFloat(e.target.value);
-      updateUrlParams({propLod: Math.round(window.manualPropLOD)}, ['lod']);
+      state.manualPropLOD = parseFloat(e.target.value);
+      updateUrlParams({propLod: Math.round(state.manualPropLOD)}, ['lod']);
     });
   }
 
@@ -663,8 +663,8 @@ window.initDebugUI = function () {
         Math.round(THREE.MathUtils.radToDeg(camEuler.x))
       );
       let currentTod;
-      if (window.manualTimeOfDay !== undefined) {
-        currentTod = window.manualTimeOfDay;
+      if (state.manualTimeOfDay !== undefined) {
+        currentTod = state.manualTimeOfDay;
       } else if (typeof state.timeOfDay !== 'undefined') {
         currentTod = state.timeOfDay / (Math.PI * 2);
       }
@@ -746,8 +746,8 @@ window.initDebugUI = function () {
         url.searchParams.delete('objects');
       }
 
-      if (window.manualPropLOD !== undefined) {
-        url.searchParams.set('propLod', Math.round(window.manualPropLOD));
+      if (state.manualPropLOD !== undefined) {
+        url.searchParams.set('propLod', Math.round(state.manualPropLOD));
         url.searchParams.delete('lod');
       }
 
@@ -836,8 +836,8 @@ window.initDebugUI = function () {
         );
       }
       let currentTod;
-      if (window.manualTimeOfDay !== undefined) {
-        currentTod = window.manualTimeOfDay;
+      if (state.manualTimeOfDay !== undefined) {
+        currentTod = state.manualTimeOfDay;
       } else if (typeof state.timeOfDay !== 'undefined') {
         currentTod = state.timeOfDay / (Math.PI * 2);
       }
@@ -919,8 +919,8 @@ window.initDebugUI = function () {
         url.searchParams.delete('objects');
       }
 
-      if (window.manualPropLOD !== undefined) {
-        url.searchParams.set('propLod', Math.round(window.manualPropLOD));
+      if (state.manualPropLOD !== undefined) {
+        url.searchParams.set('propLod', Math.round(state.manualPropLOD));
         url.searchParams.delete('lod');
       }
 
@@ -931,7 +931,7 @@ window.initDebugUI = function () {
         url.searchParams.delete('vehicle');
       }
 
-      if (window.autopilotEnabled) {
+      if (state.autopilotEnabled) {
         url.searchParams.set('autopilot', 'true');
       } else {
         url.searchParams.delete('autopilot');

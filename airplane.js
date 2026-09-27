@@ -273,8 +273,8 @@ export function setActivePlane(planeType, skipStorage = false) {
   }
 
   // Remove existing model from planeGroup
-  if (window.airplaneModel && planeGroup) {
-    planeGroup.remove(window.airplaneModel);
+  if (state.airplaneModel && planeGroup) {
+    planeGroup.remove(state.airplaneModel);
   }
 
   // Build new model
@@ -312,10 +312,10 @@ export function setActivePlane(planeType, skipStorage = false) {
     });
   }
 
-  window.airplaneModel = newModel;
-  window.propGroup = newModel.propGroup || window.propGroup;
-  window.propGroups =
-    newModel.propGroups || (window.propGroup ? [window.propGroup] : []);
+  state.airplaneModel = newModel;
+  state.propGroup = newModel.propGroup || state.propGroup;
+  state.propGroups =
+    newModel.propGroups || (state.propGroup ? [state.propGroup] : []);
   planeGroup.add(newModel);
 
   // Enable shadow casting

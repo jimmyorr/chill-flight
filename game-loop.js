@@ -127,6 +127,18 @@ import {simplex} from './noise.js';
 import {globalInstancer} from './terrain-chunks.js';
 import {state} from './state.js';
 
+let _currentOvercast;
+let _lastFpsAggUpdate;
+let _telemetryCallsAccum;
+let _telemetryTrisAccum;
+let _telemetryRenderFrames;
+let _lastRenderInfoUpdate;
+let _debugVirtualServerNow;
+let _cloudTime;
+let benchmarkComplete;
+let benchmarkStartTime;
+let benchmarkFrameTimes;
+
 var isAnimationLoopRunning = false;
 function animate() {
   // Sync InputManager state
@@ -478,11 +490,11 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     updateDOM('debug-camera-pitch', Math.round(camPitchDegrees));
 
     // Weather Telemetry
-    const oc = window._currentOvercast || 0;
+    const oc = _currentOvercast || 0;
     updateDOM('debug-overcast', oc.toFixed(2));
     updateDOM(
       'debug-storm-noise',
-      window._weatherDebug ? window._weatherDebug.stormNoise.toFixed(2) : '-'
+      state._weatherDebug ? state._weatherDebug.stormNoise.toFixed(2) : '-'
     );
     updateDOM(
       'debug-precip',
@@ -495,7 +507,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     );
     updateDOM(
       'debug-climate-zone',
-      window._weatherDebug ? window._weatherDebug.zone : '-'
+      state._weatherDebug ? state._weatherDebug.zone : '-'
     );
     updateDOM(
       'debug-snow-opacity',
@@ -587,8 +599,8 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     const avgFpsEl = getCachedElement('debug-avg-fps');
     const lowFpsEl = getCachedElement('debug-fps-low');
     if ((avgFpsEl || lowFpsEl) && performanceMonitor) {
-      if (!window._lastFpsAggUpdate || now - window._lastFpsAggUpdate > 250) {
-        window._lastFpsAggUpdate = now;
+      if (!_lastFpsAggUpdate || now - _lastFpsAggUpdate > 250) {
+        _lastFpsAggUpdate = now;
         const avgFps = performanceMonitor.getAvgFPS();
         const lowFps = performanceMonitor.get1PercentLowFPS();
         if (avgFpsEl) {
@@ -642,24 +654,21 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
       const geos = renderer.info.memory.geometries;
       const texs = renderer.info.memory.textures;
 
-      window._telemetryCallsAccum = (window._telemetryCallsAccum || 0) + calls;
-      window._telemetryTrisAccum = (window._telemetryTrisAccum || 0) + tris;
-      window._telemetryRenderFrames = (window._telemetryRenderFrames || 0) + 1;
+      _telemetryCallsAccum = (_telemetryCallsAccum || 0) + calls;
+      _telemetryTrisAccum = (_telemetryTrisAccum || 0) + tris;
+      _telemetryRenderFrames = (_telemetryRenderFrames || 0) + 1;
 
-      if (
-        !window._lastRenderInfoUpdate ||
-        now - window._lastRenderInfoUpdate > 250
-      ) {
-        window._lastRenderInfoUpdate = now;
+      if (!_lastRenderInfoUpdate || now - _lastRenderInfoUpdate > 250) {
+        _lastRenderInfoUpdate = now;
         const avgCalls = Math.round(
-          window._telemetryCallsAccum / window._telemetryRenderFrames
+          _telemetryCallsAccum / _telemetryRenderFrames
         );
         const avgTris = Math.round(
-          window._telemetryTrisAccum / window._telemetryRenderFrames
+          _telemetryTrisAccum / _telemetryRenderFrames
         );
-        window._telemetryCallsAccum = 0;
-        window._telemetryTrisAccum = 0;
-        window._telemetryRenderFrames = 0;
+        _telemetryCallsAccum = 0;
+        _telemetryTrisAccum = 0;
+        _telemetryRenderFrames = 0;
 
         const drawCallsEl = getCachedElement('debug-draw-calls');
         if (drawCallsEl) {
@@ -723,14 +732,14 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
 
     const camPos = isFreeCamera ? camera.position : planeGroup.position;
     const maxPropLOD =
-      window.manualPropLOD !== undefined
-        ? window.manualPropLOD
+      state.manualPropLOD !== undefined
+        ? state.manualPropLOD
         : typeof state.PROP_LOD_DISTANCE !== 'undefined'
           ? state.PROP_LOD_DISTANCE
           : 4200;
     const currentPropLOD =
-      window.manualPropLOD !== undefined
-        ? window.manualPropLOD
+      state.manualPropLOD !== undefined
+        ? state.manualPropLOD
         : Math.min(
             state.RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
             maxPropLOD
@@ -875,32 +884,29 @@ function updateDayNightCycle(delta) {
 
   const useVirtualClock =
     isDebugMode ||
-    window.manualTimeOfDay !== undefined ||
+    state.manualTimeOfDay !== undefined ||
     state.daySpeedMultiplier !== 1;
 
   if (useVirtualClock) {
     // In debug mode, we use a virtual clock that we increment ourselves,
     // allowing for speed multipliers while maintaining the same "warped" physics
     // as the server-synced clock.
-    if (window._debugVirtualServerNow === undefined) {
-      window._debugVirtualServerNow =
-        Date.now() + (window.serverTimeOffset || 0);
+    if (_debugVirtualServerNow === undefined) {
+      _debugVirtualServerNow = Date.now() + (window.serverTimeOffset || 0);
     } else {
-      window._debugVirtualServerNow += delta * 1000 * state.daySpeedMultiplier;
+      _debugVirtualServerNow += delta * 1000 * state.daySpeedMultiplier;
     }
-    state.passedServerNow = window._debugVirtualServerNow;
+    state.passedServerNow = _debugVirtualServerNow;
     state.secondsInCycle =
       (((state.passedServerNow % CYCLE_DURATION_MS) + CYCLE_DURATION_MS) %
         CYCLE_DURATION_MS) /
       1000;
 
     // Keep older debug virtual seconds for compat just in case
-    window._debugVirtualSeconds = state.secondsInCycle;
   } else {
     // In normal mode, we always sync to the absolute server time.
     // We reset the virtual clock so it picks up from current server time if re-enabled.
-    window._debugVirtualServerNow = undefined;
-    window._debugVirtualSeconds = undefined;
+    _debugVirtualServerNow = undefined;
 
     const serverNow = Date.now() + (window.serverTimeOffset || 0);
     state.passedServerNow = serverNow;
@@ -917,15 +923,15 @@ function updateDayNightCycle(delta) {
   );
   state.timeOfDay = state.currentWarpedProgress * Math.PI * 2;
 
-  if (window.manualTimeOfDay !== undefined) {
+  if (state.manualTimeOfDay !== undefined) {
     if (state.daySpeedMultiplier !== 0) {
-      window.manualTimeOfDay +=
+      state.manualTimeOfDay +=
         (delta * state.daySpeedMultiplier) / (CYCLE_DURATION_MS / 1000);
-      if (window.manualTimeOfDay > 1.0) window.manualTimeOfDay -= 1.0;
-      if (window.manualTimeOfDay < 0.0) window.manualTimeOfDay += 1.0;
+      if (state.manualTimeOfDay > 1.0) state.manualTimeOfDay -= 1.0;
+      if (state.manualTimeOfDay < 0.0) state.manualTimeOfDay += 1.0;
     }
-    state.timeOfDay = window.manualTimeOfDay * Math.PI * 2;
-    state.currentWarpedProgress = window.manualTimeOfDay;
+    state.timeOfDay = state.manualTimeOfDay * Math.PI * 2;
+    state.currentWarpedProgress = state.manualTimeOfDay;
   }
 
   // Update slider UI if not manual, or if manual but time is flowing, or on initial load
@@ -933,7 +939,7 @@ function updateDayNightCycle(delta) {
   const timeSliderVal = getCachedElement('debug-time-val');
   if (
     timeSlider &&
-    (window.manualTimeOfDay === undefined ||
+    (state.manualTimeOfDay === undefined ||
       state.daySpeedMultiplier !== 0 ||
       timeSlider.dataset.initialized !== 'true')
   ) {
@@ -949,7 +955,7 @@ function updateDayNightCycle(delta) {
     }
   }
 
-  window._gameServerNow = state.passedServerNow;
+  state._gameServerNow = state.passedServerNow;
 
   // Check and update the sky palette if it's a new cycle
   if (typeof updateSkyPalette === 'function') {
@@ -983,13 +989,12 @@ function updatePhysicsAndControls(delta, nowTime) {
   if (!isFreeCamera && Math.abs(state.flightSpeedMultiplier) > 0.001) {
     const baseSpin = 15 * Math.abs(state.flightSpeedMultiplier);
     const spin = Math.max(4, Math.min(25, baseSpin));
-    if (window.propGroups && Array.isArray(window.propGroups)) {
-      for (let i = 0; i < window.propGroups.length; i++) {
-        if (window.propGroups[i])
-          window.propGroups[i].rotation.z += spin * delta;
+    if (state.propGroups && Array.isArray(state.propGroups)) {
+      for (let i = 0; i < state.propGroups.length; i++) {
+        if (state.propGroups[i]) state.propGroups[i].rotation.z += spin * delta;
       }
     } else {
-      const activeProp = window.propGroup;
+      const activeProp = state.propGroup;
       if (activeProp) activeProp.rotation.z += spin * delta;
     }
   }
@@ -1085,7 +1090,7 @@ function updatePhysicsAndControls(delta, nowTime) {
 
   // Auto-disable autopilot on manual steering input
   if (
-    window.autopilotEnabled &&
+    state.autopilotEnabled &&
     !keys.Shift &&
     (isUp || isDown || isLeft || isRight)
   ) {
@@ -1171,7 +1176,7 @@ function updatePhysicsAndControls(delta, nowTime) {
 
   if (
     !isFreeCamera &&
-    window.autopilotEnabled &&
+    state.autopilotEnabled &&
     state.flightSpeedMultiplier > 0
   ) {
     state.isDoingImmelmann = false;
@@ -1452,18 +1457,18 @@ function updateEnvironmentLighting(delta, now) {
   let precipIntensity = 0;
   if (snowParticles && rainParticles) {
     const sInt =
-      (window._unfadedSnowOpacity !== undefined
-        ? window._unfadedSnowOpacity
+      (state._unfadedSnowOpacity !== undefined
+        ? state._unfadedSnowOpacity
         : snowParticles.material.opacity) / 0.8;
     const rInt =
-      (window._unfadedRainOpacity !== undefined
-        ? window._unfadedRainOpacity
+      (state._unfadedRainOpacity !== undefined
+        ? state._unfadedRainOpacity
         : rainParticles.material.opacity) / 0.5;
     precipIntensity = Math.max(sInt, rInt);
   }
 
   // 2. Check for procedural cloudy biomes
-  const weatherTimeOffset = (window._gameServerNow || now) / 100000;
+  const weatherTimeOffset = (state._gameServerNow || now) / 100000;
   let weatherNoise =
     (simplex.noise2D(
       (planeGroup.position.x / CHUNK_SIZE) * 0.1 + 500 + weatherTimeOffset,
@@ -1479,20 +1484,20 @@ function updateEnvironmentLighting(delta, now) {
 
   // 3. The world is overcast if there are thick clouds (we don't force overcast for snow/rain so we can have beautiful snowy sunsets)
   if (manualCloudCover !== null) {
-    window._currentOvercast = manualCloudCover;
+    _currentOvercast = manualCloudCover;
   } else {
-    window._currentOvercast = THREE.MathUtils.lerp(
-      window._currentOvercast || 0,
+    _currentOvercast = THREE.MathUtils.lerp(
+      _currentOvercast || 0,
       weatherNoise,
       0.01
     );
     const coverValElem = document.getElementById('debug-cloud-cover-val');
     const autoElem = document.getElementById('debug-cloud-auto-toggle');
     if (coverValElem && autoElem && autoElem.checked) {
-      coverValElem.textContent = `Auto (${window._currentOvercast.toFixed(2)})`;
+      coverValElem.textContent = `Auto (${_currentOvercast.toFixed(2)})`;
     }
   }
-  const overcast = window._currentOvercast;
+  const overcast = _currentOvercast;
 
   // --- APPLY LIGHTING & CELESTIAL BODIES ---
   // Stars disappear when overcast
@@ -1759,8 +1764,8 @@ function updateEnvironmentLighting(delta, now) {
 
   // If it's actively raining or snowing, the fog should be much thicker to obscure the horizon
   let baseFogDensity = 0.00015;
-  if (window.manualBaseFogDensity !== undefined) {
-    baseFogDensity = window.manualBaseFogDensity;
+  if (state.manualBaseFogDensity !== undefined) {
+    baseFogDensity = state.manualBaseFogDensity;
   }
 
   const maxFogDensity = Math.max(
@@ -1783,10 +1788,10 @@ function updateEnvironmentLighting(delta, now) {
   const baseFogVal = getCachedElement('debug-base-fog-val');
   const finalFogVal = getCachedElement('debug-final-fog-val');
 
-  if (fogSlider && window.manualBaseFogDensity === undefined) {
+  if (fogSlider && state.manualBaseFogDensity === undefined) {
     fogSlider.value = baseFogDensity;
   }
-  if (baseFogVal && window.manualBaseFogDensity === undefined) {
+  if (baseFogVal && state.manualBaseFogDensity === undefined) {
     baseFogVal.textContent = baseFogDensity.toFixed(5);
   }
   if (finalFogVal) {
@@ -1802,14 +1807,14 @@ function updateEnvironmentLighting(delta, now) {
   skyUniforms.sunDirection.value.copy(_tempVec);
   const cloudSpeed =
     typeof manualCloudSpeed === 'number' ? manualCloudSpeed : 1.0;
-  window._cloudTime =
-    (window._cloudTime || now * 0.001) +
+  _cloudTime =
+    (_cloudTime || now * 0.001) +
     delta *
       (typeof state.daySpeedMultiplier !== 'undefined'
         ? state.daySpeedMultiplier
         : 1) *
       cloudSpeed;
-  skyUniforms.uTime.value = window._cloudTime;
+  skyUniforms.uTime.value = _cloudTime;
   skyUniforms.uCloudDensity.value = overcast;
   if (skyUniforms.uCloudHeight) {
     skyUniforms.uCloudHeight.value = manualCloudHeight;
@@ -1932,8 +1937,8 @@ function updateEnvironmentLighting(delta, now) {
         const isSnowing =
           snowParticles &&
           rainParticles &&
-          (window._unfadedSnowOpacity || snowParticles.material.opacity) >
-            (window._unfadedRainOpacity || rainParticles.material.opacity);
+          (state._unfadedSnowOpacity || snowParticles.material.opacity) >
+            (state._unfadedRainOpacity || rainParticles.material.opacity);
 
         const overcastMuteFactor = isSnowing ? 0.3 : 0.6; // Snow only mutes by 30%, rain by 60%
         const actualDawnDusk =
@@ -1967,12 +1972,12 @@ function updateBenchmarking(delta, frameStartTime) {
   if (
     typeof ChillFlightLogic !== 'undefined' &&
     ChillFlightLogic.START_BENCHMARK !== null &&
-    !window.benchmarkComplete
+    !benchmarkComplete
   ) {
-    if (!window.benchmarkStartTime) {
-      window.benchmarkStartTime = performance.now();
-      window.benchmarkFrameTimes = [];
-      window.autopilotEnabled = true;
+    if (!benchmarkStartTime) {
+      benchmarkStartTime = performance.now();
+      benchmarkFrameTimes = [];
+      state.autopilotEnabled = true;
 
       const overlay = document.createElement('div');
       overlay.id = 'benchmark-overlay';
@@ -1990,12 +1995,12 @@ function updateBenchmarking(delta, frameStartTime) {
       overlay.innerText = 'BENCHMARKING...';
       document.body.appendChild(overlay);
     } else {
-      const elapsed = performance.now() - window.benchmarkStartTime;
+      const elapsed = performance.now() - benchmarkStartTime;
       const durationMs = ChillFlightLogic.START_BENCHMARK * 1000;
 
       // Record frame time
       const currentFrameTime = performance.now() - frameStartTime;
-      window.benchmarkFrameTimes.push(currentFrameTime);
+      benchmarkFrameTimes.push(currentFrameTime);
       if (currentFrameTime > 50) {
         console.warn(
           `[Spike] ${currentFrameTime.toFixed(1)}ms at t=${(elapsed / 1000).toFixed(1)}s`
@@ -2003,10 +2008,10 @@ function updateBenchmarking(delta, frameStartTime) {
       }
 
       if (elapsed >= durationMs) {
-        window.benchmarkComplete = true;
+        benchmarkComplete = true;
         state.isPaused = true;
 
-        const times = window.benchmarkFrameTimes;
+        const times = benchmarkFrameTimes;
         times.sort((a, b) => b - a); // Descending (worst to best)
 
         const sum = times.reduce((a, b) => a + b, 0);

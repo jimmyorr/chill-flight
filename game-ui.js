@@ -42,31 +42,31 @@ const autoToggle = document.getElementById('mobile-auto-toggle');
 
 export function toggleAutopilot(forceState) {
   if (forceState !== undefined) {
-    window.autopilotEnabled = !!forceState;
+    state.autopilotEnabled = !!forceState;
   } else {
-    window.autopilotEnabled = !window.autopilotEnabled;
+    state.autopilotEnabled = !state.autopilotEnabled;
   }
-  const msg = window.autopilotEnabled
+  const msg = state.autopilotEnabled
     ? 'AUTOPILOT ENABLED'
     : 'AUTOPILOT DISABLED';
   log.info(msg);
 
   const autoToggle = document.getElementById('mobile-auto-toggle');
   if (autoToggle) {
-    if (window.autopilotEnabled) {
+    if (state.autopilotEnabled) {
       autoToggle.classList.add('active');
     } else {
       autoToggle.classList.remove('active');
     }
   }
 
-  if (window.autopilotEnabled && typeof Achievements !== 'undefined') {
+  if (state.autopilotEnabled && typeof Achievements !== 'undefined') {
     Achievements.unlock('otto');
   }
 
   const flightStatusEl = document.getElementById('flight-status');
   if (flightStatusEl) {
-    if (window.autopilotEnabled) {
+    if (state.autopilotEnabled) {
       flightStatusEl.textContent = 'A U T O P I L O T';
       flightStatusEl.style.color = '#e74c3c';
     } else {
@@ -86,7 +86,7 @@ export function toggleAutopilot(forceState) {
   }
 
   if (typeof updateUrlParams === 'function') {
-    if (window.autopilotEnabled) {
+    if (state.autopilotEnabled) {
       updateUrlParams({autopilot: 'true'}, ['auto', 'autoPilot']);
     } else {
       updateUrlParams({}, ['autopilot', 'auto', 'autoPilot']);
@@ -319,10 +319,10 @@ if (typeof state.daySpeedMultiplier !== 'undefined') {
 const timeSlider = document.getElementById('debug-time-slider');
 const timeSliderVal = document.getElementById('debug-time-val');
 if (timeSlider) {
-  if (window.manualTimeOfDay !== undefined) {
-    timeSlider.value = window.manualTimeOfDay;
+  if (state.manualTimeOfDay !== undefined) {
+    timeSlider.value = state.manualTimeOfDay;
     if (timeSliderVal) {
-      const hours = window.manualTimeOfDay * 24;
+      const hours = state.manualTimeOfDay * 24;
       const hh = Math.floor(hours).toString().padStart(2, '0');
       const mm = Math.floor((hours % 1) * 60)
         .toString()
@@ -332,7 +332,7 @@ if (timeSlider) {
   }
 
   timeSlider.addEventListener('input', (e) => {
-    window.manualTimeOfDay = parseFloat(e.target.value);
+    state.manualTimeOfDay = parseFloat(e.target.value);
 
     // Automatically pause time so the user can observe the time they set
     speedBtns.forEach((b) => b.classList.remove('active'));
@@ -341,7 +341,7 @@ if (timeSlider) {
     state.daySpeedMultiplier = 0;
 
     if (timeSliderVal) {
-      const hours = window.manualTimeOfDay * 24;
+      const hours = state.manualTimeOfDay * 24;
       const hh = Math.floor(hours).toString().padStart(2, '0');
       const mm = Math.floor((hours % 1) * 60)
         .toString()
@@ -352,7 +352,7 @@ if (timeSlider) {
 
   timeSlider.addEventListener('change', () => {
     updateUrlParams({
-      tod: window.manualTimeOfDay.toFixed(4),
+      tod: state.manualTimeOfDay.toFixed(4),
       timeSpeed: 0,
     });
   });

@@ -165,28 +165,28 @@ export function updateFlightPhysics(delta, nowTime) {
       0.1 * delta * 60
     ); // Smooth landing
 
-    if (window.airplaneModel) {
+    if (state.airplaneModel) {
       if (isWater && planeGroup.position.y <= restingHeight + 0.1) {
         const bobTime = performance.now() * 0.001 * 1.2;
-        window.airplaneModel.position.y = Math.sin(bobTime) * 0.15;
-        window.airplaneModel.rotation.x = Math.cos(bobTime * 1.1) * 0.03;
-        window.airplaneModel.rotation.z = Math.sin(bobTime * 0.8) * 0.04;
+        state.airplaneModel.position.y = Math.sin(bobTime) * 0.15;
+        state.airplaneModel.rotation.x = Math.cos(bobTime * 1.1) * 0.03;
+        state.airplaneModel.rotation.z = Math.sin(bobTime * 0.8) * 0.04;
       } else {
-        window.airplaneModel.position.y = 0;
-        window.airplaneModel.rotation.x = 0;
-        window.airplaneModel.rotation.z = 0;
+        state.airplaneModel.position.y = 0;
+        state.airplaneModel.rotation.x = 0;
+        state.airplaneModel.rotation.z = 0;
       }
     }
-  } else if (window.airplaneModel) {
+  } else if (state.airplaneModel) {
     // In-flight turbulence bobbing (increases in rain/storms)
     const t = performance.now() * 0.001;
     const rainOpacity = rainParticles ? rainParticles.material.opacity : 0;
     const stormMult = 1.0 + rainOpacity * 4.0; // 1x calm → 3x heavy rain
-    window.airplaneModel.position.y =
+    state.airplaneModel.position.y =
       (Math.sin(t * 0.7) * 0.12 + Math.sin(t * 1.3) * 0.06) * stormMult;
-    window.airplaneModel.rotation.x =
+    state.airplaneModel.rotation.x =
       (Math.cos(t * 0.9) * 0.015 + Math.sin(t * 1.7) * 0.008) * stormMult;
-    window.airplaneModel.rotation.z =
+    state.airplaneModel.rotation.z =
       (Math.sin(t * 0.6) * 0.02 + Math.cos(t * 1.1) * 0.01) * stormMult;
   }
 

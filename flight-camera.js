@@ -70,6 +70,8 @@ import {
 } from './game.js';
 import {performanceMonitor} from './game-performance.js';
 
+let _frameCount;
+
 export function updateFlightCamera(delta, nowTime) {
   // --- CAMERA UPDATES ---
 
@@ -722,8 +724,8 @@ export function updateFlightCamera(delta, nowTime) {
     typeof state.daySpeedMultiplier !== 'undefined' &&
     state.daySpeedMultiplier === 0;
 
-  if (typeof window._frameCount === 'undefined') window._frameCount = 0;
-  window._frameCount++;
+  if (typeof _frameCount === 'undefined') _frameCount = 0;
+  _frameCount++;
 
   activeWatercraft.forEach((chunkGroup) => {
     if (isTimePaused && chunkGroup.userData.boatsInitialized) return;
@@ -739,7 +741,7 @@ export function updateFlightCamera(delta, nowTime) {
     if (distSq > 4000000) {
       const chunkHash =
         Math.abs(chunkGroup.userData.chunkX + chunkGroup.userData.chunkZ) || 0;
-      if ((window._frameCount + chunkHash) % 30 !== 0) {
+      if ((_frameCount + chunkHash) % 30 !== 0) {
         return;
       }
     }

@@ -187,8 +187,8 @@ class DynamicPerformanceMonitor {
       return; // Do not manipulate pixel ratio while WebXR manages stereo framebuffers
     }
     const baseRatio =
-      typeof window._basePixelRatio !== 'undefined'
-        ? window._basePixelRatio
+      typeof state._basePixelRatio !== 'undefined'
+        ? state._basePixelRatio
         : 1.0;
     const effectiveRatio = baseRatio * this.pixelRatioMultiplier;
     if (typeof renderer !== 'undefined' && renderer) {
@@ -198,8 +198,8 @@ class DynamicPerformanceMonitor {
 
   getEffectiveLOD() {
     const baseLOD =
-      window.manualPropLOD !== undefined
-        ? window.manualPropLOD
+      state.manualPropLOD !== undefined
+        ? state.manualPropLOD
         : typeof state.PROP_LOD_DISTANCE !== 'undefined'
           ? state.PROP_LOD_DISTANCE
           : 4200;

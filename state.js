@@ -129,6 +129,20 @@ export const state = {
   rainbowTimer: 0,
   rainbowIntensity: 0,
   wasRainClearing: true,
+
+  // Values previously stored directly on window
+  _basePixelRatio: undefined,
+  _gameServerNow: undefined,
+  _unfadedRainOpacity: undefined,
+  _unfadedSnowOpacity: undefined,
+  _weatherDebug: undefined,
+  airplaneModel: undefined,
+  propGroup: undefined,
+  propGroups: undefined,
+  autopilotEnabled: undefined,
+  manualBaseFogDensity: undefined,
+  manualPropLOD: undefined,
+  manualTimeOfDay: undefined,
 };
 
 // Bridge for classic scripts that haven't been converted to ES modules yet:

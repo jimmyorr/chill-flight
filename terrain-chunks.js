@@ -1859,8 +1859,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   // Cull small chunk-local props (houses, chimneys, doors, boats) beyond 4,200 units
   // while trees continue to render globally via GlobalInstanceManager without pop-in
   const maxPropLOD =
-    window.manualPropLOD !== undefined
-      ? window.manualPropLOD
+    state.manualPropLOD !== undefined
+      ? state.manualPropLOD
       : typeof state.PROP_LOD_DISTANCE !== 'undefined'
         ? state.PROP_LOD_DISTANCE
         : 4200;
@@ -1871,8 +1871,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       ? window.performanceMonitor.lodMultiplier
       : 1.0;
   const lodDistance =
-    (window.manualPropLOD !== undefined
-      ? window.manualPropLOD
+    (state.manualPropLOD !== undefined
+      ? state.manualPropLOD
       : Math.min(
           state.RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
           maxPropLOD
