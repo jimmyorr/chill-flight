@@ -40,3 +40,6 @@ ios/App/App/public/
 # !.agent/skills/
 # !.agent/rules/
 .superpowers/
+
+# --- Personal dev journal (not published) ---
+journal/
