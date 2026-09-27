@@ -32,13 +32,13 @@ export function updateFlightCamera(delta, nowTime) {
     const rotateSpeedDrag = 0.005;
 
     // Rotation from Drag (respecting invertYAxis)
-    camera.rotation.y += freeCamDeltaX * rotateSpeedDrag;
+    camera.rotation.y += state.freeCamDeltaX * rotateSpeedDrag;
     camera.rotation.x +=
-      freeCamDeltaY * rotateSpeedDrag * (invertYAxis ? -1 : 1);
+      state.freeCamDeltaY * rotateSpeedDrag * (invertYAxis ? -1 : 1);
     camera.rotation.z = 0;
 
-    freeCamDeltaX = 0;
-    freeCamDeltaY = 0;
+    state.freeCamDeltaX = 0;
+    state.freeCamDeltaY = 0;
 
     // Translation
     _freeCamFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -61,30 +61,33 @@ export function updateFlightCamera(delta, nowTime) {
     }
   } else {
     let targetProgress = 0;
-    if (cameraMode === 'first-person') targetProgress = 0.5;
-    else if (cameraMode === 'birds-eye-close' || cameraMode === 'birds-eye-far')
+    if (state.cameraMode === 'first-person') targetProgress = 0.5;
+    else if (
+      state.cameraMode === 'birds-eye-close' ||
+      state.cameraMode === 'birds-eye-far'
+    )
       targetProgress = 1.0;
 
     let speed = 0.25; // Slower transitions for all modes
 
-    if (cameraTransitionProgress < targetProgress) {
-      cameraTransitionProgress = Math.min(
+    if (state.cameraTransitionProgress < targetProgress) {
+      state.cameraTransitionProgress = Math.min(
         targetProgress,
-        cameraTransitionProgress + delta * speed
+        state.cameraTransitionProgress + delta * speed
       );
-    } else if (cameraTransitionProgress > targetProgress) {
-      cameraTransitionProgress = Math.max(
+    } else if (state.cameraTransitionProgress > targetProgress) {
+      state.cameraTransitionProgress = Math.max(
         targetProgress,
-        cameraTransitionProgress - delta * speed
+        state.cameraTransitionProgress - delta * speed
       );
     }
 
     // Smoothly transition between different bird's eye heights
     let targetBirdEyeHeight = 2000;
-    if (cameraMode === 'birds-eye-close') targetBirdEyeHeight = 500;
+    if (state.cameraMode === 'birds-eye-close') targetBirdEyeHeight = 500;
 
-    currentBirdEyeHeight = THREE.MathUtils.lerp(
-      currentBirdEyeHeight,
+    state.currentBirdEyeHeight = THREE.MathUtils.lerp(
+      state.currentBirdEyeHeight,
       targetBirdEyeHeight,
       1 - Math.pow(1 - 0.05, delta * 60)
     );
@@ -92,9 +95,9 @@ export function updateFlightCamera(delta, nowTime) {
     // Cubic ease-in for the "swoop up" drama: t^3
     // This makes it start slow and accelerate significantly towards the top-down view.
     const easedT =
-      cameraTransitionProgress *
-      cameraTransitionProgress *
-      cameraTransitionProgress;
+      state.cameraTransitionProgress *
+      state.cameraTransitionProgress *
+      state.cameraTransitionProgress;
 
     // Camera follow
     const isPortrait = window.innerHeight > window.innerWidth;
@@ -118,9 +121,9 @@ export function updateFlightCamera(delta, nowTime) {
 
     // FOV expands with speed AND dive/loop steepness, capped at 70 to avoid excessive distortion
     // We use a smoothed factor to prevent "jumping" when entering loops
-    const maneuverFactor = Math.max(diveFactor, isLooping ? 3.0 : 0);
-    smoothedManeuverFactor = THREE.MathUtils.lerp(
-      smoothedManeuverFactor,
+    const maneuverFactor = Math.max(diveFactor, state.isLooping ? 3.0 : 0);
+    state.smoothedManeuverFactor = THREE.MathUtils.lerp(
+      state.smoothedManeuverFactor,
       maneuverFactor,
       1 - Math.pow(1 - 0.05, delta * 60)
     );
@@ -132,7 +135,7 @@ export function updateFlightCamera(delta, nowTime) {
     const targetFov = Math.min(
       75,
       baseFov +
-        smoothedManeuverFactor *
+        state.smoothedManeuverFactor *
           15 *
           Math.min(1, state.flightSpeedMultiplier / 2)
     );
@@ -146,7 +149,7 @@ export function updateFlightCamera(delta, nowTime) {
 
     // Pull back the camera during high-G maneuvers for extra scale
     const pullBack =
-      smoothedManeuverFactor *
+      state.smoothedManeuverFactor *
       20 *
       Math.min(1, state.flightSpeedMultiplier / 2);
     _cameraOffset.set(0, yOffset, zOffset + pullBack);
@@ -163,7 +166,7 @@ export function updateFlightCamera(delta, nowTime) {
 
     // Smooth the plane's rotation to create camera inertia.
     // If doing acrobatic loops/rolls, snap it to avoid the camera getting lost.
-    if (isLooping || isBarrelRolling) {
+    if (state.isLooping || state.isBarrelRolling) {
       _cameraAnchorQuat.copy(planeGroup.quaternion);
     } else {
       _cameraAnchorQuat.slerp(
@@ -182,7 +185,7 @@ export function updateFlightCamera(delta, nowTime) {
     _lookOffset.set(0, 0, -20);
     _idealLookTarget_Follow.copy(_lookOffset).applyMatrix4(_cameraAnchorMatrix);
 
-    if (isLooping) {
+    if (state.isLooping) {
       _up_Follow.set(0, 1, 0).applyQuaternion(_cameraAnchorQuat);
     } else {
       _up_Follow.set(0, 1, 0);
@@ -200,7 +203,7 @@ export function updateFlightCamera(delta, nowTime) {
     // 2. Calculate Top-Down State
     _idealCameraPos_TopDown.set(
       planeGroup.position.x,
-      planeGroup.position.y + currentBirdEyeHeight,
+      planeGroup.position.y + state.currentBirdEyeHeight,
       planeGroup.position.z
     );
     _idealLookTarget_TopDown.copy(planeGroup.position);
@@ -208,7 +211,7 @@ export function updateFlightCamera(delta, nowTime) {
 
     // 3. Calculate Cinematic State
     const cinematicConfig = CINEMATIC_CONFIGS[currentCinematicIndex];
-    if (cameraMode === 'cinematic') {
+    if (state.cameraMode === 'cinematic') {
       // Smoothen the switches between cinematic offsets
       const hasOffsetJumped =
         _cinematicOffsetCurrent.distanceToSquared(cinematicConfig.offset) >
@@ -223,7 +226,8 @@ export function updateFlightCamera(delta, nowTime) {
 
       // Optimize: Only recalculate matrix if plane has moved or rotated, or if offset is still transitioning
       const rotationChanged =
-        Math.abs(_cinematicStableHeading - planeGroup.rotation.y) > 0.0001;
+        Math.abs(state._cinematicStableHeading - planeGroup.rotation.y) >
+        0.0001;
       // Check position change without expensive extra calculations
       const positionChanged =
         Math.abs(_cinematicStableMatrix.elements[12] - planeGroup.position.x) >
@@ -234,18 +238,21 @@ export function updateFlightCamera(delta, nowTime) {
           0.1;
 
       if (rotationChanged || positionChanged || hasOffsetJumped) {
-        _cinematicStableHeading = ChillFlightLogic.lerpAngle(
-          _cinematicStableHeading,
+        state._cinematicStableHeading = ChillFlightLogic.lerpAngle(
+          state._cinematicStableHeading,
           planeGroup.rotation.y,
           0.05 * delta * 60
         );
-        _cinematicStableQuat.setFromAxisAngle(_yAxis, _cinematicStableHeading);
+        _cinematicStableQuat.setFromAxisAngle(
+          _yAxis,
+          state._cinematicStableHeading
+        );
         _cinematicStableMatrix.makeRotationFromQuaternion(_cinematicStableQuat);
         _cinematicStableMatrix.setPosition(planeGroup.position);
       }
     } else {
       // Keep heading in sync while not in cinematic mode for smooth entry
-      _cinematicStableHeading = planeGroup.rotation.y;
+      state._cinematicStableHeading = planeGroup.rotation.y;
     }
 
     _idealCameraPos_Cinematic
@@ -262,7 +269,7 @@ export function updateFlightCamera(delta, nowTime) {
     const cinematicFov = cinematicConfig.fov;
 
     let targetBlendedFov;
-    if (cameraMode === 'cinematic') {
+    if (state.cameraMode === 'cinematic') {
       targetBlendedFov = THREE.MathUtils.lerp(followFov, cinematicFov, 1.0); // Simple snap for FOV in cinematic
     } else {
       targetBlendedFov = THREE.MathUtils.lerp(followFov, topDownFov, easedT);
@@ -276,12 +283,12 @@ export function updateFlightCamera(delta, nowTime) {
     camera.updateProjectionMatrix();
 
     // 5. Blend Positions & Targets
-    if (cameraMode === 'cinematic') {
+    if (state.cameraMode === 'cinematic') {
       _idealCameraPos.copy(_idealCameraPos_Cinematic);
       _idealLookTarget.copy(_idealLookTarget_Cinematic);
       _idealUp.set(0, 1, 0); // Always world-up for cinematic
     } else {
-      const p = cameraTransitionProgress;
+      const p = state.cameraTransitionProgress;
       if (p < 0.5) {
         const t = p / 0.5;
         const easedSegT = t * t * (3 - 2 * t); // smoothstep
@@ -325,7 +332,7 @@ export function updateFlightCamera(delta, nowTime) {
 
     // Apply smooth tracking to the results
     // We use smoothedDelta and a higher lerp factor for a more "locked-in" feel.
-    if (isIntroTransitionActive) {
+    if (state.isIntroTransitionActive) {
       // Update the virtual tracking camera (steady state lag)
       _virtualCameraPos.lerp(
         _idealCameraPos,
@@ -336,7 +343,7 @@ export function updateFlightCamera(delta, nowTime) {
         1 - Math.pow(1 - 0.25, delta * 60)
       );
 
-      const progress = (nowTime - introTransitionStartTime) / 1250;
+      const progress = (nowTime - state.introTransitionStartTime) / 1250;
       if (progress < 1) {
         // Ease In Out Cubic
         const easedProgress =
@@ -344,7 +351,7 @@ export function updateFlightCamera(delta, nowTime) {
             ? 4 * progress * progress * progress
             : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-        const activeCamTarget = isVRPresenting ? cameraDolly : camera;
+        const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
 
         // Interpolate visual camera between start and virtual tracking camera
         _currentLookTarget.lerpVectors(
@@ -358,14 +365,14 @@ export function updateFlightCamera(delta, nowTime) {
           easedProgress
         );
       } else {
-        isIntroTransitionActive = false;
-        const activeCamTarget = isVRPresenting ? cameraDolly : camera;
+        state.isIntroTransitionActive = false;
+        const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
         activeCamTarget.position.copy(_virtualCameraPos);
         _currentLookTarget.copy(_virtualLookTarget);
       }
     } else {
-      const activeCamTarget = isVRPresenting ? cameraDolly : camera;
-      if (isLooping) {
+      const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
+      if (state.isLooping) {
         // In acrobatic loops, lock camera position directly to avoid inertia lag causing lookAt inversion
         activeCamTarget.position.copy(_idealCameraPos);
         _currentLookTarget.copy(_idealLookTarget);
@@ -381,7 +388,7 @@ export function updateFlightCamera(delta, nowTime) {
       }
     }
 
-    const activeCamTarget = isVRPresenting ? cameraDolly : camera;
+    const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
 
     // Hard clamp to prevent dipping below terrain during fast movement
     const actualTerrainHeight = getElevation(
@@ -392,10 +399,10 @@ export function updateFlightCamera(delta, nowTime) {
       activeCamTarget.position.y = actualTerrainHeight + 1.0;
     }
 
-    if (isLooping) {
+    if (state.isLooping) {
       // During vertical loops, up vector must match the inverted plane to prevent gimbal lock at 90°
       activeCamTarget.up.copy(_idealUp);
-    } else if (!isVRPresenting) {
+    } else if (!state.isVRPresenting) {
       activeCamTarget.up
         .lerp(_idealUp, 1 - Math.pow(1 - 0.1, delta * 60))
         .normalize();
@@ -417,24 +424,24 @@ export function updateFlightCamera(delta, nowTime) {
   const moonOrbitRadius = 7500; // Moon is closer so it renders in front of sun during overlaps
 
   // 1. Realistic Sun Path
-  const latitude = currentLatRad;
+  const latitude = state.currentLatRad;
   const declination = 0.409; // Summer tilt
   const hourAngle = state.timeOfDay + Math.PI;
 
-  sunY =
+  state.sunY =
     Math.sin(latitude) * Math.sin(declination) +
     Math.cos(latitude) * Math.cos(declination) * Math.cos(hourAngle);
-  sunX = -Math.cos(declination) * Math.sin(hourAngle);
-  sunZ =
+  state.sunX = -Math.cos(declination) * Math.sin(hourAngle);
+  state.sunZ =
     Math.cos(latitude) * Math.sin(declination) -
     Math.sin(latitude) * Math.cos(declination) * Math.cos(hourAngle);
   // Spread dayFactor over a wider sun angle so sunrise/sunset lighting builds up gradually,
   // drawing out the visual transition rather than hitting full intensity right at 6:00 AM.
   // We must ensure the offset (-0.5) is deeper than dawnDuskFactor's fadeout (-0.4) to prevent abrupt clipping!
-  dayFactor = Math.max(0, Math.min(1, (sunY + 0.5) / 0.8)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0.3 (~7:15 AM)
+  state.dayFactor = Math.max(0, Math.min(1, (state.sunY + 0.5) / 0.8)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0.3 (~7:15 AM)
 
   // Feed dayFactor to the performance monitor for shadow night culling
-  performanceMonitor.updateDayFactor(dayFactor);
+  performanceMonitor.updateDayFactor(state.dayFactor);
 
   // 2. Fixed Moon Position (West-Southwest Sky near Horizon)
 
@@ -444,15 +451,15 @@ export function updateFlightCamera(delta, nowTime) {
   const baseMoonElev = 0.18;
 
   // Slow lunar wobble: drifts slightly over time so it feels alive
-  const moonWobbleSpeed = passedServerNow * 0.00005;
+  const moonWobbleSpeed = state.passedServerNow * 0.00005;
   const moonWobbleX = Math.sin(moonWobbleSpeed) * 0.03;
   const moonWobbleY = Math.cos(moonWobbleSpeed) * 0.015;
 
-  moonY = Math.sin(baseMoonElev + moonWobbleY);
-  moonX =
+  state.moonY = Math.sin(baseMoonElev + moonWobbleY);
+  state.moonX =
     Math.cos(baseMoonAngle + moonWobbleX) *
     Math.cos(baseMoonElev + moonWobbleY);
-  moonZ =
+  state.moonZ =
     Math.sin(baseMoonAngle + moonWobbleX) *
     Math.cos(baseMoonElev + moonWobbleY);
 
@@ -465,13 +472,13 @@ export function updateFlightCamera(delta, nowTime) {
 
   // Update global opacity materials outside of chunk loop
   if (typeof fireMat !== 'undefined') {
-    fireMat.emissiveIntensity = 2.0 * (1.0 - dayFactor * 0.8);
+    fireMat.emissiveIntensity = 2.0 * (1.0 - state.dayFactor * 0.8);
   }
   if (typeof smokeMat !== 'undefined') {
-    smokeMat.opacity = 0.4 * (1.0 - dayFactor * 0.5);
+    smokeMat.opacity = 0.4 * (1.0 - state.dayFactor * 0.5);
   }
   if (typeof whiteSmokeMat !== 'undefined') {
-    whiteSmokeMat.opacity = 0.6 - dayFactor * 0.3;
+    whiteSmokeMat.opacity = 0.6 - state.dayFactor * 0.3;
   }
 
   // Animate Birds
@@ -483,7 +490,7 @@ export function updateFlightCamera(delta, nowTime) {
 
     if (chunkGroup.userData.birds) {
       chunkGroup.userData.birds.forEach((bird) => {
-        bird.visible = dayFactor > 0.1;
+        bird.visible = state.dayFactor > 0.1;
         if (!bird.visible) return;
 
         const data = bird.userData;
@@ -606,7 +613,7 @@ export function updateFlightCamera(delta, nowTime) {
       beam.rotation.y += delta * 0.15; // Slower sweep
 
       // Fade on after sunset and fade off before sunrise using dayFactor
-      const fadeFactor = 1.0 - dayFactor;
+      const fadeFactor = 1.0 - state.dayFactor;
       beam.visible = fadeFactor > 0;
 
       if (beam.visible) {
@@ -889,8 +896,8 @@ export function updateFlightCamera(delta, nowTime) {
   const timeStr = `${hh}:${mm}`;
 
   const dirStr = ChillFlightLogic.computeHeadingDirection(hudHeadingY);
-  const latVal = -hudTarget.position.z / latScale;
-  const lonVal = hudTarget.position.x / latScale;
+  const latVal = -hudTarget.position.z / state.latScale;
+  const lonVal = hudTarget.position.x / state.latScale;
   const latStr =
     Math.abs(latVal).toFixed(3) + '\u00b0 ' + (latVal >= 0 ? 'N' : 'S');
   const lonStr =
@@ -906,14 +913,14 @@ export function updateFlightCamera(delta, nowTime) {
   updateDOM('cockpit-spd', spdStr);
 
   sunMesh.position.set(
-    sunX * sunOrbitRadius,
-    sunY * sunOrbitRadius,
-    sunZ * sunOrbitRadius
+    state.sunX * sunOrbitRadius,
+    state.sunY * sunOrbitRadius,
+    state.sunZ * sunOrbitRadius
   );
   moonMesh.position.set(
-    moonX * moonOrbitRadius,
-    moonY * moonOrbitRadius,
-    moonZ * moonOrbitRadius
+    state.moonX * moonOrbitRadius,
+    state.moonY * moonOrbitRadius,
+    state.moonZ * moonOrbitRadius
   );
 }
 window.updateFlightCamera = updateFlightCamera;

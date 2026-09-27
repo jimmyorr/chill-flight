@@ -123,11 +123,11 @@ inputManager.onDebugToggle = () => {
   }
 };
 inputManager.onRainbowToggle = () => {
-  if (rainbowTimer > 0) rainbowTimer = 0;
-  else forceRainbow = true;
+  if (state.rainbowTimer > 0) state.rainbowTimer = 0;
+  else state.forceRainbow = true;
 };
 inputManager.onShootingStarToggle = () => {
-  forceShootingStar = true;
+  state.forceShootingStar = true;
 };
 inputManager.onWeatherToggle = () => {
   if (typeof cycleWeather === 'function') cycleWeather();

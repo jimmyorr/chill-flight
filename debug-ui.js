@@ -143,9 +143,9 @@ export function applyGraphicsPreset(preset) {
   state.RENDER_DISTANCE = dist;
   state.PROP_LOD_DISTANCE = propLod;
   state.PROP_LOD_DISTANCE = propLod;
-  if (typeof maxFPS !== 'undefined') {
-    maxFPS = fps;
-    frameMinDelay = maxFPS > 0 ? 1000 / maxFPS : 0;
+  if (typeof state.maxFPS !== 'undefined') {
+    state.maxFPS = fps;
+    state.frameMinDelay = state.maxFPS > 0 ? 1000 / state.maxFPS : 0;
   }
 
   // Sync UI slider if not manually overridden

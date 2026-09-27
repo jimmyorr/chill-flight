@@ -16,9 +16,9 @@ export function clearInputState() {
   if (typeof inputManager !== 'undefined') {
     inputManager.handleBlur();
   }
-  if (typeof gyroBasePitch !== 'undefined') {
-    gyroBasePitch = null;
-    gyroBaseRoll = null;
+  if (typeof state.gyroBasePitch !== 'undefined') {
+    state.gyroBasePitch = null;
+    state.gyroBaseRoll = null;
   }
   const _joystickBase = document.getElementById('virtual-joystick-base');
   if (_joystickBase) {

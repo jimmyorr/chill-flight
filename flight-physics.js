@@ -136,8 +136,8 @@ export function updateFlightPhysics(delta, nowTime) {
   } else if (!isFreeCamera && planeGroup.position.y <= restingHeight + 0.1) {
     // Grounded — rest flat peacefully, kill vertical velocity
     state.verticalVelocity = 0;
-    targetPitch = 0;
-    targetRoll = 0;
+    state.targetPitch = 0;
+    state.targetRoll = 0;
     while (planeGroup.rotation.x > Math.PI)
       planeGroup.rotation.x -= 2 * Math.PI;
     while (planeGroup.rotation.x < -Math.PI)
@@ -237,8 +237,16 @@ export function updateFlightPhysics(delta, nowTime) {
       state.flightSpeedMultiplier = 0; // Force full stop to prevent prop twitching
     }
     // When on water, force neutral pitch/roll to ensure a level rest on water
-    targetPitch = THREE.MathUtils.lerp(targetPitch, 0, 0.05 * delta * 60);
-    targetRoll = THREE.MathUtils.lerp(targetRoll, 0, 0.05 * delta * 60);
+    state.targetPitch = THREE.MathUtils.lerp(
+      state.targetPitch,
+      0,
+      0.05 * delta * 60
+    );
+    state.targetRoll = THREE.MathUtils.lerp(
+      state.targetRoll,
+      0,
+      0.05 * delta * 60
+    );
   }
 
   const maxFlightHeight = 4045.5; // ~100,000 ft display altitude ((4045.5 - 45.5) * 25 = 100,000)
@@ -255,8 +263,8 @@ export function updateFlightPhysics(delta, nowTime) {
   }
 
   const currentY = planeGroup.position.y;
-  const isDescending = currentY < lastY;
-  lastY = currentY;
+  const isDescending = currentY < state.lastY;
+  state.lastY = currentY;
 
   if (isWater && controlAlt < 1500 && isDescending && !pontoonGroup.visible) {
     pontoonGroup.scale.setScalar(0);

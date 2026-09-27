@@ -1,6 +1,7 @@
 // native-adapter.js
 // "The Sidecar Rule": Enhances the core game for Native without touching core files.
 import {log} from './logger.js';
+import {state} from './state.js';
 
 (function () {
   log.info('Native Adapter initialized');
@@ -23,11 +24,11 @@ import {log} from './logger.js';
             new KeyboardEvent('keydown', {key: 'Backspace', keyCode: 8})
           );
         });
-        Capacitor.Plugins.App.addListener('appStateChange', (state) => {
-          if (!state.isActive) {
+        Capacitor.Plugins.App.addListener('appStateChange', (appState) => {
+          if (!appState.isActive) {
             if (
-              typeof isPaused !== 'undefined' &&
-              !isPaused &&
+              typeof state.isPaused !== 'undefined' &&
+              !state.isPaused &&
               typeof togglePause === 'function'
             ) {
               togglePause();

@@ -500,13 +500,13 @@ export function updateWeather(delta) {
   // Trigger when the target opacity hits 0 (weather is clearing), but only if it was recently raining heavily
   const isRainClearing = targetRainOpacity === 0;
 
-  if (isRainClearing && !wasRainClearing) {
+  if (isRainClearing && !state.wasRainClearing) {
     if (window._wasRaining) {
-      forceRainbow = true;
+      state.forceRainbow = true;
       window._wasRaining = false;
     }
   }
-  wasRainClearing = isRainClearing;
+  state.wasRainClearing = isRainClearing;
 
   // Track if we are currently in a rainstorm (even a light one)
   // Max rain opacity is 0.5. Anything above 0.05 counts as rain for a rainbow.
