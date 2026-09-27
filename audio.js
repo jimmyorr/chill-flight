@@ -2,6 +2,21 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {log} from './logger.js';
 import {hooks} from './hooks.js';
+import {TimeoutError, fetchWithTimeout, withTimeout} from './network.js';
+
+// Bundled with the app, so it plays with no network at all.
+const BUNDLED_TRACK = 'assets/purrple-cat-birds-of-a-feather.mp3';
+// Network deadlines: a track download (~3-5 MB) gets 30s overall; native
+// downloads also fail fast if they can't connect or stop receiving data.
+const DOWNLOAD_TIMEOUT_MS = 30000;
+const CONNECT_TIMEOUT_MS = 8000;
+const READ_TIMEOUT_MS = 10000;
+// A streamed track that can't start playing within this long is treated as
+// unreachable (navigator.onLine stays true on networks that drop packets).
+const STALL_TIMEOUT_MS = 10000;
+
+// In-flight track lookups/downloads by URL (see getCachedTrackUrl()).
+const pendingTrackUrls = new Map();
 
 export let musicEnabled =
   localStorage.getItem('chill_flight_music_enabled') !== 'false';
@@ -154,16 +169,33 @@ getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).catch((e) =>
   console.warn('Failed to pre-cache first track:', e)
 );
 
+// Concurrent requests for the same track share one lookup/download.
+function getCachedTrackUrl(url) {
+  if (!pendingTrackUrls.has(url)) {
+    pendingTrackUrls.set(
+      url,
+      resolveTrackUrl(url).finally(() => pendingTrackUrls.delete(url))
+    );
+  }
+  return pendingTrackUrls.get(url);
+}
+
+function fallBackToBundledTrack() {
+  purrpleCatIdx = 0;
+  return BUNDLED_TRACK;
+}
+
 /**
- * Resolves a remote URL to a local path or Blob URL.
- * Falls back to the remote URL on any error.
+ * Resolves a remote URL to a local path or Blob URL. Falls back to the
+ * bundled track when offline or when the network is too slow, and to
+ * streaming the remote URL on other download errors.
  */
-async function getCachedTrackUrl(url) {
+async function resolveTrackUrl(url) {
   const fileName = url.split('/').pop();
 
   // If it's the bundled track, just use the local asset directly to save bandwidth and storage
-  if (fileName === 'purrple-cat-birds-of-a-feather.mp3') {
-    return 'assets/purrple-cat-birds-of-a-feather.mp3';
+  if (fileName === BUNDLED_TRACK.split('/').pop()) {
+    return BUNDLED_TRACK;
   }
 
   // -- NATIVE MOBILE APP PATH (Capacitor) --
@@ -202,8 +234,7 @@ async function getCachedTrackUrl(url) {
 
       if (!navigator.onLine) {
         log.info('Offline and not cached: Falling back to bundled track');
-        purrpleCatIdx = 0;
-        return 'assets/purrple-cat-birds-of-a-feather.mp3';
+        return fallBackToBundledTrack();
       }
 
       try {
@@ -213,14 +244,26 @@ async function getCachedTrackUrl(url) {
             cause: e,
           });
 
-        const downloadResult = await Filesystem.downloadFile({
-          url: url,
-          path: fileName,
-          directory: 'CACHE',
-        });
+        // If the overall deadline passes, the native download may still finish
+        // in the background and be served from the cache next time.
+        const downloadResult = await withTimeout(
+          Filesystem.downloadFile({
+            url: url,
+            path: fileName,
+            directory: 'CACHE',
+            connectTimeout: CONNECT_TIMEOUT_MS,
+            readTimeout: READ_TIMEOUT_MS,
+          }),
+          DOWNLOAD_TIMEOUT_MS,
+          `Download of ${fileName}`
+        );
 
         return Capacitor.convertFileSrc(downloadResult.path);
       } catch (downloadErr) {
+        if (downloadErr instanceof TimeoutError) {
+          log.warn(`${downloadErr.message}; falling back to bundled track`);
+          return fallBackToBundledTrack();
+        }
         console.error(
           'Failed to download audio natively, streaming directly:',
           downloadErr
@@ -257,15 +300,15 @@ async function getCachedTrackUrl(url) {
 
       if (!navigator.onLine) {
         log.info('Offline and not cached: Falling back to bundled track');
-        purrpleCatIdx = 0;
-        return 'assets/purrple-cat-birds-of-a-feather.mp3';
+        return fallBackToBundledTrack();
       }
 
       try {
         const fs = window.__TAURI__.fs;
         const BaseDirectory = window.__TAURI__.fs.BaseDirectory;
 
-        const response = await fetch(url);
+        const response = await fetchWithTimeout(url, {}, DOWNLOAD_TIMEOUT_MS);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const arrayBuffer = await response.arrayBuffer();
         const fileData = new Uint8Array(arrayBuffer);
 
@@ -275,8 +318,7 @@ async function getCachedTrackUrl(url) {
         return URL.createObjectURL(blob);
       } catch (downloadErr) {
         console.error('Failed to download audio in Tauri:', downloadErr);
-        purrpleCatIdx = 0;
-        return 'assets/purrple-cat-birds-of-a-feather.mp3';
+        return fallBackToBundledTrack();
       }
     }
   }
@@ -287,9 +329,9 @@ async function getCachedTrackUrl(url) {
   // to play blob: URIs correctly. Standard browser HTTP caching is sufficient.
   if (!navigator.onLine) {
     log.info('Offline: Falling back to bundled track');
-    purrpleCatIdx = 0;
-    return 'assets/purrple-cat-birds-of-a-feather.mp3';
+    return fallBackToBundledTrack();
   }
+  // Streamed; see armStallGuard() for slow networks.
   return url;
 }
 
@@ -412,13 +454,76 @@ export function setMusicVolume(volume) {
   }
 }
 
+// --- STALLED STREAM FALLBACK ---
+// A remote track that hasn't buffered enough to play within STALL_TIMEOUT_MS
+// (or fails to load) is swapped for the bundled track.
+let stallTimer = null;
+// Whether playback has been requested (START, unpause, music toggle). The
+// fallback only resumes playing if it was.
+let playRequested = false;
+
+function isRemoteSrc(src) {
+  try {
+    return new URL(src, location.href).origin !== location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function switchToBundledTrack(reason) {
+  clearTimeout(stallTimer);
+  log.warn(`Music: ${reason}; switching to the bundled track`);
+  fallBackToBundledTrack();
+  // Swapping src fires 'pause'; flag it as ours so it isn't taken as the
+  // player turning music off (see the 'pause' listener).
+  isMusicInternalAction = true;
+  purrpleCatAudio.src = BUNDLED_TRACK;
+  purrpleCatAudio.load();
+  updateMediaMetadata();
+  if (hooks.onTrackChange) hooks.onTrackChange(getCurrentTrackName());
+  if (playRequested && musicEnabled) {
+    updateAudioPlayer(true);
+  } else {
+    setTimeout(() => {
+      isMusicInternalAction = false;
+    }, 100);
+  }
+}
+
+// Call right before play(): only a track we're trying to play can stall.
+function armStallGuard() {
+  clearTimeout(stallTimer);
+  if (
+    !isRemoteSrc(purrpleCatAudio.src) ||
+    purrpleCatAudio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA
+  ) {
+    return;
+  }
+  stallTimer = setTimeout(
+    () =>
+      switchToBundledTrack(
+        `track didn't start within ${STALL_TIMEOUT_MS / 1000}s`
+      ),
+    STALL_TIMEOUT_MS
+  );
+}
+
+purrpleCatAudio.addEventListener('canplay', () => clearTimeout(stallTimer));
+purrpleCatAudio.addEventListener('error', () => {
+  if (isRemoteSrc(purrpleCatAudio.src)) {
+    switchToBundledTrack('track failed to load');
+  }
+});
+
 export async function updateAudioPlayer(enabled) {
+  playRequested = enabled;
   if (enabled) {
     if (!purrpleCatAudio.src) {
       const url = purrpleCatTracks[purrpleCatIdx];
       purrpleCatAudio.src = await getCachedTrackUrl(url);
     }
     isMusicInternalAction = true;
+    armStallGuard();
     purrpleCatAudio
       .play()
       .then(() => {
@@ -427,11 +532,14 @@ export async function updateAudioPlayer(enabled) {
       })
       .catch((e) => {
         isMusicInternalAction = false;
+        // Blocked autoplay isn't a stalled network; re-arm when we retry.
+        clearTimeout(stallTimer);
         log.info('Audio play blocked:', e);
         // Safety net: resume on first interaction if blocked
         const resumeOnInteraction = () => {
           if (musicEnabled) {
             isMusicInternalAction = true;
+            armStallGuard();
             purrpleCatAudio
               .play()
               .then(() => {
@@ -453,6 +561,7 @@ export async function updateAudioPlayer(enabled) {
         window.addEventListener('touchstart', resumeOnInteraction);
       });
   } else {
+    clearTimeout(stallTimer);
     pauseMusicInternal();
   }
 }

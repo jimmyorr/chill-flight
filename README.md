@@ -381,6 +381,7 @@ The game is made of ES modules in the repository root. `src/main.js` is the entr
 - **Import what you use.** Modules share code only through `import`/`export`, never through `window` globals. A module may only import modules listed before it in `src/main.js`, which keeps the dependency graph free of cycles.
 - **Shared mutable values live in `state.js`.** ES modules can't reassign another module's exports, so values that more than one module writes (`state.timeOfDay`, `state.isPaused`, `state.cameraMode`, etc.) live on the single `state` object.
 - **Calls into later modules go through `hooks.js`.** When an earlier module must call a function from a module that loads after it (for example, pausing the game from the native app-lifecycle handler), the later module registers it on `hooks` when it loads, and callers use `hooks.togglePause?.()`.
+- **Network calls always have a deadline.** Use `fetchWithTimeout()` / `withTimeout()` from `network.js`. On a network that drops packets (e.g. a subway), `navigator.onLine` is still `true` and an unbounded request can hang for minutes; the game treats "too slow" like "offline" (e.g. music falls back to the bundled track).
 - **Terrain generation runs in a web worker.** `terrain-worker.js` is a module worker created by `terrain-worker-manager.js`; Vite bundles it automatically.
 
 ### Testing
@@ -389,13 +390,13 @@ The game is made of ES modules in the repository root. `src/main.js` is the entr
 npm test
 ```
 
-Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script reference checks, and a check that no code reads a `window` property that nothing assigns.
+Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script reference checks, a check that no code reads a `window` property that nothing assigns, the module import-order check, and tests for the network timeout helpers.
 
 ```bash
 npm run test:browser
 ```
 
-Loads the game, the model debug page and the map export page in headless Chrome against the running dev server (`npm run dev`). After pressing start, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply.
+Loads the game, the model debug page and the map export page in headless Chrome against the running dev server (`npm run dev`). After pressing start, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply. It also simulates a network that drops every packet to the music host and checks that music falls back to the bundled track.
 
 ```bash
 npm run test:build

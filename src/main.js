@@ -2,6 +2,7 @@
 // classic <script defer> tags in index.html.
 import './sentry.js';
 import '../logger.js';
+import '../network.js';
 import '../chill-flight-logic.js';
 import '../state.js';
 import '../hooks.js';

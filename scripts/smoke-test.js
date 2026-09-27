@@ -36,7 +36,14 @@ const PAGES = [
   {path: 'debug-models.html'},
   // Not a Vite build input, so it only exists on the dev server.
   {path: 'debug-export-map.html', devOnly: true},
+  // Music host drops every packet (e.g. a subway): music must fall back to
+  // the bundled track instead of silently never playing (issue #73).
+  {path: '?seed=1', blackholeMusic: true},
 ];
+
+// Where streamed music tracks come from, and the bundled fallback track.
+const MUSIC_HOST = 'r2.dev';
+const BUNDLED_TRACK = 'assets/purrple-cat-birds-of-a-feather.mp3';
 
 const origin = new URL(BASE).origin;
 const errors = [];
@@ -86,9 +93,11 @@ for (let attempt = 1; ; attempt++) {
   }
 }
 
-async function checkPage(browser, {path, fly}) {
+const failPage = (tag, msg) => errors.push(`[${tag}] ${msg}`);
+
+async function checkPage(browser, {path, fly, blackholeMusic}) {
   const url = new URL(path, BASE).href;
-  const tag = path || 'index.html';
+  const tag = blackholeMusic ? 'black-hole music' : path || 'index.html';
   const page = await browser.newPage();
   // Smallish viewport (software WebGL is slow on a busy machine), but wider
   // than 1024px so the game uses its desktop layout.
@@ -105,6 +114,8 @@ async function checkPage(browser, {path, fly}) {
       )
     ) {
       req.abort('blockedbyclient').catch(() => {});
+    } else if (blackholeMusic && u.includes(MUSIC_HOST)) {
+      // Never answer: the request hangs like on a packet-dropping network.
     } else {
       req.continue().catch(() => {});
     }
@@ -150,8 +161,41 @@ async function checkPage(browser, {path, fly}) {
     };
   });
 
+  if (blackholeMusic) {
+    // A returning player (first-time players always get the bundled track),
+    // with music on. ?seed=1 starts on a streamed track.
+    await page.evaluateOnNewDocument(() => {
+      localStorage.setItem('chill_flight_played_before', 'true');
+      localStorage.setItem('chill_flight_music_enabled', 'true');
+    });
+  }
+  const bundledRequested = new Promise((resolve) => {
+    page.on('request', (req) => {
+      if (req.url().includes(BUNDLED_TRACK)) resolve(true);
+    });
+  });
+
   console.log(`Loading ${url} ...`);
   await page.goto(url, {waitUntil: 'load', timeout: 30000});
+
+  if (blackholeMusic) {
+    await page.waitForSelector('#begin-btn', {visible: true, timeout: 30000});
+    await page.click('#begin-btn');
+    const fellBack = await Promise.race([
+      bundledRequested,
+      new Promise((r) => setTimeout(() => r(false), 25000)),
+    ]);
+    if (!fellBack) failPage(tag, 'music never fell back to the bundled track');
+    const musicSetting = await page.evaluate(() =>
+      localStorage.getItem('chill_flight_music_enabled')
+    );
+    if (musicSetting === 'false') {
+      failPage(tag, 'falling back turned the music setting off');
+    }
+    await page.close();
+    console.log(`  black-hole music: ${fellBack ? 'fell back ok' : 'FAILED'}`);
+    return;
+  }
 
   if (!fly) {
     await new Promise((r) => setTimeout(r, DEBUG_PAGE_MS));
@@ -190,6 +234,7 @@ async function checkPage(browser, {path, fly}) {
 // Drive the game through the keyboard and check its effects through the DOM
 // (HUD and debug panel), so this keeps working however the code is organized.
 async function exerciseControls(page, tag) {
+  const errorsBefore = errors.length;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const fail = (msg) => errors.push(`[${tag}] ${msg}`);
   const readDebug = () =>
@@ -277,11 +322,11 @@ async function exerciseControls(page, tag) {
   }
   if (d.heading === c.heading) fail(`steering did not change heading`);
 
-  await page.keyboard.press('c'); // camera mode
-  await wait(2500);
-  const e = await readDebug();
   const camOffset = (s) => Math.hypot(s.camX - s.x, s.camY - s.y, s.camZ - s.z);
-  if (Math.abs(camOffset(e) - camOffset(d)) < 0.5) {
+  const cameraMoved = (s) => Math.abs(camOffset(s) - camOffset(d)) >= 0.5;
+  await page.keyboard.press('c'); // camera mode
+  const e = await readUntil(cameraMoved, 5000);
+  if (!cameraMoved(e)) {
     fail(`camera toggle did not move the camera relative to the plane`);
   }
 
@@ -333,15 +378,22 @@ async function exerciseControls(page, tag) {
     .catch((err) => fail(`resume: ${err.message}`));
   await wait(800);
   if (await isPaused()) fail('resume button did not unpause the game');
-  console.log(
-    '  controls: move, throttle, steer, camera, toggles, minimap, pause menu ok'
-  );
+  if (errors.length === errorsBefore) {
+    console.log(
+      '  controls: move, throttle, steer, camera, toggles, minimap, pause menu ok'
+    );
+  }
 }
 
 const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: true,
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+  args: [
+    '--use-angle=swiftshader',
+    '--enable-unsafe-swiftshader',
+    // Let music start without a real user gesture.
+    '--autoplay-policy=no-user-gesture-required',
+  ],
   // Fail instead of hanging if a page stops responding (e.g. a stuck loop).
   protocolTimeout: 60000,
 });
