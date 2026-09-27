@@ -1,28 +1,28 @@
-var isVRPresenting = false;
-var latScale = 5000;
-var currentLatDeg = 0;
-var currentLatRad = 0;
+import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {
+  applyCustomSkyColors,
+  camera,
+  currentPaletteSeed,
+  isCustomPalette,
+  nextSkyPalette,
+  renderer,
+  selectedPalette,
+} from './sky.js';
+import {
+  activePlaneType,
+  planeGroup,
+  planeMat,
+  planeWhiteMat,
+  setActivePlane,
+} from './airplane.js';
+import {updateChunks} from './terrain-chunks.js';
+import {_lastChunkUpdatePos} from './game-input-bindings.js';
+import {applyGraphicsPreset, updateUrlParams} from './debug-ui.js';
+import {state} from './state.js';
 
-var sunX = 0,
-  sunY = 0,
-  sunZ = 0;
-var moonX = 0,
-  moonY = 0,
-  moonZ = 0;
-var dayFactor = 0;
+typeof state.daySpeedMultiplier !== 'undefined' ? state.daySpeedMultiplier : 1;
 
-var passedServerNow = 0;
-var secondsInCycle = 0;
-var currentWarpedProgress = 0;
-typeof daySpeedMultiplier !== 'undefined' ? daySpeedMultiplier : 1;
-
-var isBarrelRolling = false;
-var isDoingFullBarrelRoll = false;
-var isClampedRoll = false;
-var isLooping = false;
-var isDoingFullLoop = false;
-var manualRollSpeed = 4.0;
-var manualLoopSpeed = 2.5;
 // --- GAME LOOP, INPUT & CONTROLS ---
 // Dependencies: THREE, scene, camera, renderer, planeGroup, propGroup, skyGroup,
 //               sunMesh, moonMesh, dirLight, hemiLight, starsMat, timeOfDay, daySpeedMultiplier,
@@ -33,22 +33,17 @@ var manualLoopSpeed = 2.5;
 //               musicEnabled, setMusicEnabled
 
 // --- Distance Tracking ---
-var sessionDistanceTravelled = 0;
-var previousPosition = null;
-var lifetimeDistanceTravelled = parseFloat(
+state.lifetimeDistanceTravelled = parseFloat(
   localStorage.getItem('chill_flight_lifetime_distance') || '0'
 );
-var distanceSinceLastSave = 0;
 
 // Intro Cinematic Transition
-var isIntroTransitionActive = false;
-var introTransitionStartTime = 0;
-var _introCameraPosStart = new THREE.Vector3();
-var _introLookTargetStart = new THREE.Vector3();
-var _virtualCameraPos = new THREE.Vector3();
-var _virtualLookTarget = new THREE.Vector3();
+export var _introCameraPosStart = new THREE.Vector3();
+export var _introLookTargetStart = new THREE.Vector3();
+export var _virtualCameraPos = new THREE.Vector3();
+export var _virtualLookTarget = new THREE.Vector3();
 
-const CINEMATIC_CONFIGS = [
+export const CINEMATIC_CONFIGS = [
   {
     offset: new THREE.Vector3(40, 10, 40),
     lookOffset: new THREE.Vector3(0, 5, -10),
@@ -76,35 +71,17 @@ const CINEMATIC_CONFIGS = [
   }, // Wing-tip view
 ];
 
-const _idealCameraPos_Cinematic = new THREE.Vector3();
-const _idealLookTarget_Cinematic = new THREE.Vector3();
-const _up_Cinematic = new THREE.Vector3(0, 1, 0);
+export const _idealCameraPos_Cinematic = new THREE.Vector3();
+export const _idealLookTarget_Cinematic = new THREE.Vector3();
 
-const _cinematicOffsetCurrent = new THREE.Vector3().copy(
+export const _cinematicOffsetCurrent = new THREE.Vector3().copy(
   CINEMATIC_CONFIGS[0].offset
 );
-const _cinematicLookTargetCurrent = new THREE.Vector3().copy(
+export const _cinematicLookTargetCurrent = new THREE.Vector3().copy(
   CINEMATIC_CONFIGS[0].lookOffset
 );
-const _cinematicStableMatrix = new THREE.Matrix4();
-const _cinematicStableQuat = new THREE.Quaternion();
-
-function updateInputPosition(clientX, clientY) {
-  const pos = ChillFlightLogic.computeInputPosition(
-    clientX,
-    clientY,
-    window.innerWidth,
-    window.innerHeight
-  );
-  mouseX = pos.x;
-  mouseY = pos.y;
-}
-
-var isFreeCameraDragging = false;
-var freeCamDeltaX = 0;
-var freeCamDeltaY = 0;
-var lastFreeCamTouchX = 0;
-var lastFreeCamTouchY = 0;
+export const _cinematicStableMatrix = new THREE.Matrix4();
+export const _cinematicStableQuat = new THREE.Quaternion();
 
 function onWindowResize() {
   if (!camera || !renderer) return;
@@ -124,13 +101,11 @@ setTimeout(onWindowResize, 500);
 setTimeout(onWindowResize, 2000); // Final check for very slow loading environments
 
 // --- EXPLOSIONS ---
-var explosionParticles = null;
-var lastY = 250; // track for ascent/descent detection
 
 // --- WEBXR VR SESSION CONTROLS ---
-var vrBtn = document.getElementById('vr-btn');
-var splashVrBtn = document.getElementById('splash-vr-btn');
-var vrBtnLabel = document.getElementById('vr-btn-label');
+export var vrBtn = document.getElementById('vr-btn');
+export var splashVrBtn = document.getElementById('splash-vr-btn');
+export var vrBtnLabel = document.getElementById('vr-btn-label');
 
 if (
   typeof navigator !== 'undefined' &&
@@ -149,20 +124,17 @@ if (
 }
 
 // --- MAIN GAME LOOP ---
-var clock = new THREE.Timer();
+export var clock = new THREE.Timer();
 // Performance optimization: Static Float32Array ring buffer with running sum for delta smoothing.
 // Eliminates per-frame array allocations (push/shift) and closure functions (.reduce()) in the main loop.
-const DELTA_BUFFER_SIZE = 10;
-const _deltaRing = new Float32Array(DELTA_BUFFER_SIZE);
-var _deltaRingIndex = 0;
-var _deltaRingCount = 0;
-var _deltaRingSum = 0;
-var smoothedDelta = 1 / 60;
+export const DELTA_BUFFER_SIZE = 10;
+export const _deltaRing = new Float32Array(DELTA_BUFFER_SIZE);
+state.smoothedDelta = 1 / 60;
 
 // --- PERSISTENCE ---
 const planeSelectGroupInit = document.getElementById('plane-select-group');
 if (planeSelectGroupInit) {
-  const currentPlane = window.activePlaneType || 'classic';
+  const currentPlane = activePlaneType || 'classic';
   planeSelectGroupInit.querySelectorAll('.scheme-btn').forEach((btn) => {
     btn.classList.toggle(
       'active',
@@ -182,11 +154,12 @@ if (planeSelectGroupInit) {
 }
 
 const colorOptionsInit = document.getElementById('plane-color-options');
-if (colorOptionsInit && typeof planeColor !== 'undefined') {
+if (colorOptionsInit && typeof state.planeColor !== 'undefined') {
   colorOptionsInit.innerHTML = ''; // Clear fallback or existing content
   ChillFlightLogic.PLANE_COLORS.forEach((color) => {
     const sw = document.createElement('div');
-    sw.className = 'color-swatch' + (color === planeColor ? ' active' : '');
+    sw.className =
+      'color-swatch' + (color === state.planeColor ? ' active' : '');
     sw.setAttribute('data-color', color);
     // Ensure hex string is always 6 characters with leading zeros
     sw.style.backgroundColor = '#' + color.toString(16).padStart(6, '0');
@@ -196,26 +169,25 @@ if (colorOptionsInit && typeof planeColor !== 'undefined') {
   colorOptionsInit.addEventListener('click', (e) => {
     const target = e.target.closest('.color-swatch');
     if (target) {
-      planeColor = parseInt(target.getAttribute('data-color'));
-      window.planeColor = planeColor;
-      localStorage.setItem('chill_flight_color', planeColor.toString());
-      if (window.planeMat) window.planeMat.color.setHex(planeColor);
-      if (window.planeWhiteMat) {
-        window.planeWhiteMat.color.setHex(
-          planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff
+      state.planeColor = parseInt(target.getAttribute('data-color'));
+      localStorage.setItem('chill_flight_color', state.planeColor.toString());
+      if (planeMat) planeMat.color.setHex(state.planeColor);
+      if (planeWhiteMat) {
+        planeWhiteMat.color.setHex(
+          state.planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff
         );
       }
       colorOptionsInit.querySelectorAll('.color-swatch').forEach((sw) => {
         sw.classList.toggle(
           'active',
-          parseInt(sw.getAttribute('data-color')) === planeColor
+          parseInt(sw.getAttribute('data-color')) === state.planeColor
         );
       });
     }
   });
 }
 
-var invertYAxis = false;
+export var invertYAxis = false;
 const savedInvertY = localStorage.getItem('chill_flight_invert_y');
 if (savedInvertY !== null) {
   invertYAxis = savedInvertY === 'true';
@@ -229,20 +201,17 @@ if (invertYInput) {
   });
 }
 
-var gyroEnabled = currentControlScheme === 'gyro';
+state.gyroEnabled = state.currentControlScheme === 'gyro';
 
-var gyroSensitivity = 60.0; // Hardcoded to low sensitivity (60 degrees for max control response) as requested
+export var gyroSensitivity = 60.0; // Hardcoded to low sensitivity (60 degrees for max control response) as requested
 
-var gyroBasePitch = null;
-var gyroBaseRoll = null;
-
-var controlSchemeToggle = document.getElementById('control-scheme-toggle');
-var gyroSchemeBtn = document.getElementById('gyro-scheme-btn');
+export var controlSchemeToggle = document.getElementById(
+  'control-scheme-toggle'
+);
+export var gyroSchemeBtn = document.getElementById('gyro-scheme-btn');
 
 // --- PERFORMANCE SETTINGS ---
-var maxFPS = 60;
-var frameMinDelay = 1000 / 60;
-var lastFrameTime = 0;
+state.frameMinDelay = 1000 / 60;
 
 // Apply initial graphics preset
 const urlPreset =
@@ -253,24 +222,24 @@ const urlPreset =
     : null;
 
 const savedPreset = localStorage.getItem('chill_flight_graphics_preset');
-var initialPreset = urlPreset || savedPreset;
+export var initialPreset = urlPreset || savedPreset;
 if (typeof window !== 'undefined') window.initialPreset = initialPreset;
 
 if (initialPreset) {
   const presetSelect = document.getElementById('graphics-preset-select');
   if (presetSelect) presetSelect.value = initialPreset;
-  window.applyGraphicsPreset(initialPreset);
+  applyGraphicsPreset(initialPreset);
 } else if (window.detectGraphicsPreset) {
   window.detectGraphicsPreset().then((detected) => {
     const presetSelect = document.getElementById('graphics-preset-select');
     if (presetSelect) presetSelect.value = detected;
-    window.applyGraphicsPreset(detected);
+    applyGraphicsPreset(detected);
   });
 } else {
   const defaultPreset = 'mid';
   const presetSelect = document.getElementById('graphics-preset-select');
   if (presetSelect) presetSelect.value = defaultPreset;
-  window.applyGraphicsPreset(defaultPreset);
+  applyGraphicsPreset(defaultPreset);
 }
 
 // Setup timeOfDay before chunk gen
@@ -278,7 +247,7 @@ const serverNowFirst = Date.now() + (window.serverTimeOffset || 0);
 const secondsInCycleFirst = (serverNowFirst % 300000) / 1000;
 const currentWarpedProgressFirst =
   ChillFlightLogic.computeTimeOfDay(secondsInCycleFirst);
-window.timeOfDay = currentWarpedProgressFirst * Math.PI * 2;
+state.timeOfDay = currentWarpedProgressFirst * Math.PI * 2;
 
 // Initial chunk generation
 updateChunks();
@@ -290,40 +259,33 @@ if (typeof window.initLighthouse === 'function') {
   window.initLighthouse();
 }
 
-const fpsCounterEl = document.getElementById('debug-fps');
-
 // Optimization: Pre-allocate reusable objects for the animate loop to prevent GC stutter
-const _targetEuler = new THREE.Euler(0, 0, 0, 'XYZ');
-const _forward = new THREE.Vector3(0, 0, -1);
-const _cameraOffset = new THREE.Vector3(0, 0, 0);
-const _cameraAnchorQuat = new THREE.Quaternion();
-const _cameraAnchorMatrix = new THREE.Matrix4();
-var _idealCameraPos = new THREE.Vector3(0, 0, 0);
-const _lookOffset = new THREE.Vector3(0, 0, -20);
-const _idealLookTarget = new THREE.Vector3(0, 0, 0);
-var _currentLookTarget = new THREE.Vector3(0, 0, 0);
-const _idealUp = new THREE.Vector3(0, 1, 0);
-const _upVector = new THREE.Vector3(0, 1, 0);
-const _chunkDummy = new THREE.Object3D();
-const _yAxis = new THREE.Vector3(0, 1, 0);
-const _hubOffset = new THREE.Vector3(0, 0, 8.5);
-const _idealCameraPos_Follow = new THREE.Vector3();
-const _idealCameraPos_FirstPerson = new THREE.Vector3();
-const _idealCameraPos_TopDown = new THREE.Vector3();
-const _idealLookTarget_Follow = new THREE.Vector3();
-const _idealLookTarget_FirstPerson = new THREE.Vector3();
-const _idealLookTarget_TopDown = new THREE.Vector3();
-const _up_Follow = new THREE.Vector3();
-const _up_FirstPerson = new THREE.Vector3();
-const _up_TopDown = new THREE.Vector3();
-const _freeCamFwd = new THREE.Vector3();
-const _freeCamSide = new THREE.Vector3();
-var _auroraSessionMax = 0; // tracks highest aurora intensity seen this session
+export const _cameraOffset = new THREE.Vector3(0, 0, 0);
+export const _cameraAnchorQuat = new THREE.Quaternion();
+export const _cameraAnchorMatrix = new THREE.Matrix4();
+export var _idealCameraPos = new THREE.Vector3(0, 0, 0);
+export const _lookOffset = new THREE.Vector3(0, 0, -20);
+export const _idealLookTarget = new THREE.Vector3(0, 0, 0);
+export var _currentLookTarget = new THREE.Vector3(0, 0, 0);
+export const _idealUp = new THREE.Vector3(0, 1, 0);
+export const _upVector = new THREE.Vector3(0, 1, 0);
+export const _yAxis = new THREE.Vector3(0, 1, 0);
+export const _idealCameraPos_Follow = new THREE.Vector3();
+export const _idealCameraPos_FirstPerson = new THREE.Vector3();
+export const _idealCameraPos_TopDown = new THREE.Vector3();
+export const _idealLookTarget_Follow = new THREE.Vector3();
+export const _idealLookTarget_FirstPerson = new THREE.Vector3();
+export const _idealLookTarget_TopDown = new THREE.Vector3();
+export const _up_Follow = new THREE.Vector3();
+export const _up_FirstPerson = new THREE.Vector3();
+export const _up_TopDown = new THREE.Vector3();
+export const _freeCamFwd = new THREE.Vector3();
+export const _freeCamSide = new THREE.Vector3();
 
 // Optimization: Pre-allocate colors for sky gradients
-const _uncloudedSkyColor = new THREE.Color();
-const _uncloudedFogColor = new THREE.Color();
-var _daySky = new THREE.Color(
+export const _uncloudedSkyColor = new THREE.Color();
+export const _uncloudedFogColor = new THREE.Color();
+export var _daySky = new THREE.Color(
   typeof selectedPalette !== 'undefined' && selectedPalette.day !== undefined
     ? selectedPalette.day
     : 0x4ca1f0
@@ -335,10 +297,10 @@ if (typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.DAY_COLOR) {
   }
 }
 window._daySky = _daySky;
-const _sunriseSky = new THREE.Color();
-const _goldenSky = new THREE.Color();
-const _sunsetSky = new THREE.Color();
-const _goldenSunsetSky = new THREE.Color();
+export const _sunriseSky = new THREE.Color();
+export const _goldenSky = new THREE.Color();
+export const _sunsetSky = new THREE.Color();
+export const _goldenSunsetSky = new THREE.Color();
 
 function updateSkyBaseColors(palette) {
   if (palette && palette.day !== undefined) {
@@ -392,8 +354,8 @@ function updateSkyBaseColors(palette) {
 }
 updateSkyBaseColors(selectedPalette);
 
-var targetPaletteTop = new THREE.Color(selectedPalette.top);
-var targetPaletteBottom = new THREE.Color(selectedPalette.bottom);
+export var targetPaletteTop = new THREE.Color(selectedPalette.top);
+export var targetPaletteBottom = new THREE.Color(selectedPalette.bottom);
 
 const zenithPicker = document.getElementById('sky-zenith-picker');
 const dayPicker = document.getElementById('sky-day-picker');
@@ -444,8 +406,8 @@ if (zenithPicker && horizonPicker) {
 if (dayPicker) {
   dayPicker.addEventListener('input', () => {
     _daySky.set(dayPicker.value);
-    if (window.selectedPalette) {
-      window.selectedPalette.day = _daySky.getHex();
+    if (selectedPalette) {
+      selectedPalette.day = _daySky.getHex();
     }
   });
 }
@@ -453,11 +415,7 @@ if (dayPicker) {
 const nextPaletteBtn = document.getElementById('debug-next-palette-btn');
 if (nextPaletteBtn) {
   nextPaletteBtn.addEventListener('click', () => {
-    if (typeof nextSkyPalette === 'function') {
-      nextSkyPalette();
-    } else if (typeof window.nextSkyPalette === 'function') {
-      window.nextSkyPalette();
-    }
+    nextSkyPalette();
   });
 }
 
@@ -474,7 +432,7 @@ window.addEventListener('paletteChanged', (e) => {
   const curSeed =
     typeof currentPaletteSeed !== 'undefined'
       ? currentPaletteSeed
-      : window.currentPaletteSeed;
+      : currentPaletteSeed;
   if (!isCustomPalette && curSeed !== undefined) {
     updateUrlParams({palette: curSeed}, [
       'zenith',
@@ -485,89 +443,182 @@ window.addEventListener('paletteChanged', (e) => {
   }
 });
 
-const _twilightSky = new THREE.Color(0x2c3e50);
+export const _twilightSky = new THREE.Color(0x2c3e50);
 
-const _currentSunriseSky = new THREE.Color();
-const _currentGoldenSky = new THREE.Color();
-const _cloudyColor = new THREE.Color();
-const _finalSkyColor = new THREE.Color();
-const _finalFogColor = new THREE.Color();
-const _tempVec = new THREE.Vector3();
-const _weatherLerpBase = new THREE.Color(0x8899aa);
+export const _currentSunriseSky = new THREE.Color();
+export const _currentGoldenSky = new THREE.Color();
+export const _cloudyColor = new THREE.Color();
+export const _finalSkyColor = new THREE.Color();
+export const _finalFogColor = new THREE.Color();
+export const _tempVec = new THREE.Vector3();
 
 // Pre-allocated colors and vectors for updateTimeOfDay() hot path
-const _targetShadowPos = new THREE.Vector3();
-const _dayLightColor = new THREE.Color(0xfff0dd);
-const _sunriseLightColor = new THREE.Color(0xffd5a0);
-const _sunsetLightColor = new THREE.Color(0xffad60);
-const _stormColor = new THREE.Color(0x5a6b7c);
+export const _targetShadowPos = new THREE.Vector3();
+export const _dayLightColor = new THREE.Color(0xfff0dd);
+export const _sunriseLightColor = new THREE.Color(0xffd5a0);
+export const _sunsetLightColor = new THREE.Color(0xffad60);
+export const _stormColor = new THREE.Color(0x5a6b7c);
 
 // --- PRE-ALLOCATED SCRATCH OBJECTS FOR SHADOW TEXEL SNAPPING ---
 // These must live outside animate() to avoid GC pressure at 60fps.
-const _shadowSunDir = new THREE.Vector3();
-const _shadowRight = new THREE.Vector3();
-const _shadowUp = new THREE.Vector3();
-const _worldUp = new THREE.Vector3(0, 1, 0);
-const _boatDummy = new THREE.Object3D();
+export const _shadowSunDir = new THREE.Vector3();
+export const _shadowRight = new THREE.Vector3();
+export const _shadowUp = new THREE.Vector3();
+export const _worldUp = new THREE.Vector3(0, 1, 0);
+export const _boatDummy = new THREE.Object3D();
 // Deterministic hash hoisted out of per-frame boat loops to eliminate GC closure allocations
-function _boatHash(index, seed) {
+export function _boatHash(index, seed) {
   const val = Math.sin(index * 12.9898 + seed * 78.233) * 43758.5453;
   return val - Math.floor(val);
 }
 
 // --- PRE-ALLOCATED SCRATCH OBJECTS FOR ANIMATE() LOOP TO PREVENT GC CHURN ---
-const _immelmannForward = new THREE.Vector3();
-const _volcanoPos = new THREE.Vector3(-5000, 0, 5000);
-const _rockArchPos = new THREE.Vector3(
+export const _immelmannForward = new THREE.Vector3();
+export const _volcanoPos = new THREE.Vector3(-5000, 0, 5000);
+export const _rockArchPos = new THREE.Vector3(
   3000,
   0,
   typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED
     ? ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED)() * 10000 - 5000
     : 0
 );
-const _pirateSailCounts = [0, 0, 0, 0];
-const _lighthouseBeamWorldPos = new THREE.Vector3();
-const _shootingStarLookDir = new THREE.Vector3();
-const _shootingStarStreakDir = new THREE.Vector3();
-const _shootingStarHeadPos = new THREE.Vector3();
-const _shootingStarTailPos = new THREE.Vector3();
-const _rainbowSunDir = new THREE.Vector3();
-const _rainbowAntiSunDir = new THREE.Vector3();
-const _waterMoonDirNorm = new THREE.Vector3();
-const _sunNoonColor = new THREE.Color(0xfffceb);
-const _sunSunsetColor = new THREE.Color(0xffa542);
-const _moonVMoonDir = new THREE.Vector3();
-const _moonVZ = new THREE.Vector3();
-const _moonVX = new THREE.Vector3();
-const _moonVY = new THREE.Vector3();
-const _moonMRot = new THREE.Matrix4();
-const _moonRotMat = new THREE.Matrix3();
-const _moonDirNorm = new THREE.Vector3();
-const _moonPhaseX = new THREE.Vector3();
-const _moonPhaseY = new THREE.Vector3();
-const _moonPhaseSunDir = new THREE.Vector3();
-const _skyBottomCol = new THREE.Color();
-const _warmHorizonColor = new THREE.Color();
-const _debugCamEuler = new THREE.Euler();
+export const _pirateSailCounts = [0, 0, 0, 0];
+export const _lighthouseBeamWorldPos = new THREE.Vector3();
+export const _shootingStarLookDir = new THREE.Vector3();
+export const _shootingStarStreakDir = new THREE.Vector3();
+export const _shootingStarHeadPos = new THREE.Vector3();
+export const _shootingStarTailPos = new THREE.Vector3();
+export const _rainbowSunDir = new THREE.Vector3();
+export const _rainbowAntiSunDir = new THREE.Vector3();
+export const _waterMoonDirNorm = new THREE.Vector3();
+export const _sunNoonColor = new THREE.Color(0xfffceb);
+export const _sunSunsetColor = new THREE.Color(0xffa542);
+export const _moonVMoonDir = new THREE.Vector3();
+export const _moonVZ = new THREE.Vector3();
+export const _moonVX = new THREE.Vector3();
+export const _moonVY = new THREE.Vector3();
+export const _moonMRot = new THREE.Matrix4();
+export const _moonRotMat = new THREE.Matrix3();
+export const _moonDirNorm = new THREE.Vector3();
+export const _moonPhaseX = new THREE.Vector3();
+export const _moonPhaseSunDir = new THREE.Vector3();
+export const _skyBottomCol = new THREE.Color();
+export const _warmHorizonColor = new THREE.Color();
+export const _debugCamEuler = new THREE.Euler();
 
-var isShootingStarActive = false;
-var forceShootingStar = false;
-var shootingStarProgress = 0;
-var shootingStarStart = new THREE.Vector3();
-var shootingStarEnd = new THREE.Vector3();
-var shootingStarDuration = 1.0;
-
-var forceRainbow = false;
-var rainbowTimer = 0;
-var rainbowIntensity = 0;
-var wasRainClearing = true;
-
-var isAnimationLoopRunning = false;
+export var shootingStarStart = new THREE.Vector3();
+export var shootingStarEnd = new THREE.Vector3();
 
 // Mobile controls
-var btnUp = document.getElementById('mobile-spd-up');
-var btnDown = document.getElementById('mobile-spd-down');
+export var btnUp = document.getElementById('mobile-spd-up');
+export var btnDown = document.getElementById('mobile-spd-down');
 
 if (typeof window.initDebugUI === 'function') {
   window.initDebugUI();
 }
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  _introCameraPosStart,
+  _introLookTargetStart,
+  _virtualCameraPos,
+  _virtualLookTarget,
+  CINEMATIC_CONFIGS,
+  _idealCameraPos_Cinematic,
+  _idealLookTarget_Cinematic,
+  _cinematicOffsetCurrent,
+  _cinematicLookTargetCurrent,
+  _cinematicStableMatrix,
+  _cinematicStableQuat,
+  vrBtn,
+  splashVrBtn,
+  vrBtnLabel,
+  clock,
+  DELTA_BUFFER_SIZE,
+  _deltaRing,
+  gyroSensitivity,
+  controlSchemeToggle,
+  gyroSchemeBtn,
+  initialPreset,
+  _cameraOffset,
+  _cameraAnchorQuat,
+  _cameraAnchorMatrix,
+  _idealCameraPos,
+  _lookOffset,
+  _idealLookTarget,
+  _currentLookTarget,
+  _idealUp,
+  _upVector,
+  _yAxis,
+  _idealCameraPos_Follow,
+  _idealCameraPos_FirstPerson,
+  _idealCameraPos_TopDown,
+  _idealLookTarget_Follow,
+  _idealLookTarget_FirstPerson,
+  _idealLookTarget_TopDown,
+  _up_Follow,
+  _up_FirstPerson,
+  _up_TopDown,
+  _freeCamFwd,
+  _freeCamSide,
+  _uncloudedSkyColor,
+  _uncloudedFogColor,
+  _sunriseSky,
+  _goldenSky,
+  _sunsetSky,
+  _goldenSunsetSky,
+  targetPaletteTop,
+  targetPaletteBottom,
+  _twilightSky,
+  _currentSunriseSky,
+  _currentGoldenSky,
+  _cloudyColor,
+  _finalSkyColor,
+  _finalFogColor,
+  _tempVec,
+  _targetShadowPos,
+  _dayLightColor,
+  _sunriseLightColor,
+  _sunsetLightColor,
+  _stormColor,
+  _shadowSunDir,
+  _shadowRight,
+  _shadowUp,
+  _worldUp,
+  _boatDummy,
+  _boatHash,
+  _immelmannForward,
+  _volcanoPos,
+  _rockArchPos,
+  _pirateSailCounts,
+  _lighthouseBeamWorldPos,
+  _shootingStarLookDir,
+  _shootingStarStreakDir,
+  _shootingStarHeadPos,
+  _shootingStarTailPos,
+  _rainbowSunDir,
+  _rainbowAntiSunDir,
+  _waterMoonDirNorm,
+  _sunNoonColor,
+  _sunSunsetColor,
+  _moonVMoonDir,
+  _moonVZ,
+  _moonVX,
+  _moonVY,
+  _moonMRot,
+  _moonRotMat,
+  _moonDirNorm,
+  _moonPhaseX,
+  _moonPhaseSunDir,
+  _skyBottomCol,
+  _warmHorizonColor,
+  _debugCamEuler,
+  shootingStarStart,
+  shootingStarEnd,
+  btnUp,
+  btnDown,
+});
+// Live bindings: reassigned here, read elsewhere.
+Object.defineProperties(window, {
+  invertYAxis: {get: () => invertYAxis, configurable: true},
+});

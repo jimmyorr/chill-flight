@@ -75,6 +75,57 @@ export const state = {
   // Pause state (game-state.js)
   isPaused: true,
   justResumed: false, // one-frame guard to suppress any input that bled through from the pause menu
+
+  // Game session, flight, sky, and effects (game.js)
+  isVRPresenting: false,
+  latScale: 5000,
+  currentLatDeg: 0,
+  currentLatRad: 0,
+  sunX: 0,
+  sunY: 0,
+  sunZ: 0,
+  moonX: 0,
+  moonY: 0,
+  moonZ: 0,
+  dayFactor: 0,
+  passedServerNow: 0,
+  secondsInCycle: 0,
+  currentWarpedProgress: 0,
+  isBarrelRolling: false,
+  isDoingFullBarrelRoll: false,
+  isClampedRoll: false,
+  isLooping: false,
+  isDoingFullLoop: false,
+  manualRollSpeed: 4.0,
+  manualLoopSpeed: 2.5,
+  sessionDistanceTravelled: 0,
+  previousPosition: null,
+  lifetimeDistanceTravelled: undefined, // set in game.js
+  distanceSinceLastSave: 0,
+  isIntroTransitionActive: false,
+  introTransitionStartTime: 0,
+  freeCamDeltaX: 0,
+  freeCamDeltaY: 0,
+  lastY: 250, // track for ascent/descent detection
+  _deltaRingIndex: 0,
+  _deltaRingCount: 0,
+  _deltaRingSum: 0,
+  smoothedDelta: undefined, // set in game.js
+  gyroEnabled: undefined, // set in game.js
+  gyroBasePitch: null,
+  gyroBaseRoll: null,
+  maxFPS: 60,
+  frameMinDelay: undefined, // set in game.js
+  lastFrameTime: 0,
+  _auroraSessionMax: 0, // tracks highest aurora intensity seen this session
+  isShootingStarActive: false,
+  forceShootingStar: false,
+  shootingStarProgress: 0,
+  shootingStarDuration: 1.0,
+  forceRainbow: false,
+  rainbowTimer: 0,
+  rainbowIntensity: 0,
+  wasRainClearing: true,
 };
 
 // Bridge for classic scripts that haven't been converted to ES modules yet:
