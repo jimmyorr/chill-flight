@@ -36,6 +36,7 @@ const ESM_FILES = [
   'game-input-bindings.js',
   'game-state.js',
   'game-hud.js',
+  'debug-ui.js',
 ];
 
 const isGlobalObject = (node) =>

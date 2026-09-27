@@ -26,6 +26,7 @@ import '../flight-camera.js';
 import '../game-input-bindings.js';
 import '../game-state.js';
 import '../game-hud.js';
+import '../debug-ui.js';
 
 // Startup banner
 const appVersion = window.__APP_VERSION__ || '0.0.0';

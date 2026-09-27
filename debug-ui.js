@@ -1,6 +1,55 @@
 // --- DEBUG UI EXTRACTED FROM GAME.JS ---
+import * as THREE from 'three';
+import {
+  CHUNK_SIZE,
+  MAP_HEIGHT_SCALE,
+  MAP_WORLD_SIZE,
+  WATER_LEVEL,
+  getCachedElement,
+  getMaxFlightSpeedMult,
+} from './constants.js';
+import {log} from './logger.js';
+import {
+  camera,
+  currentPaletteSeed,
+  dirLight,
+  isCustomPalette,
+  renderer,
+  selectedPalette,
+  skyUniforms,
+} from './sky.js';
+import {
+  manualCloudCover,
+  manualCloudHeight,
+  manualCloudSpeed,
+  showCloudsEnabled,
+  weatherType,
+} from './weather-manager.js';
+import {
+  chunks,
+  getElevation,
+  waterMaterial,
+  watercraftChunks,
+} from './terrain-geometry.js';
+import {scene} from './scene.js';
+import {
+  activePlaneType,
+  hingeLB,
+  hingeLF,
+  hingeRB,
+  hingeRF,
+  planeGroup,
+  pontoonGroup,
+  pontoonL,
+  pontoonR,
+} from './airplane.js';
+import {_lastChunkUpdatePos} from './game-input-bindings.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {toggleProceduralObjects, updateChunks} from './terrain-chunks.js';
+import {simplex} from './noise.js';
+import {state} from './state.js';
 
-function updateUrlParams(updates = {}, removals = []) {
+export function updateUrlParams(updates = {}, removals = []) {
   try {
     const debugMenu =
       typeof getCachedElement === 'function'
@@ -31,7 +80,7 @@ function updateUrlParams(updates = {}, removals = []) {
 }
 window.updateUrlParams = updateUrlParams;
 
-function applyGraphicsPreset(preset) {
+export function applyGraphicsPreset(preset) {
   let segments;
   let dist;
   let propLod;
@@ -90,10 +139,10 @@ function applyGraphicsPreset(preset) {
   }
 
   // Set global variables
-  SEGMENTS = segments;
-  RENDER_DISTANCE = dist;
-  PROP_LOD_DISTANCE = propLod;
-  window.PROP_LOD_DISTANCE = propLod;
+  state.SEGMENTS = segments;
+  state.RENDER_DISTANCE = dist;
+  state.PROP_LOD_DISTANCE = propLod;
+  state.PROP_LOD_DISTANCE = propLod;
   if (typeof maxFPS !== 'undefined') {
     maxFPS = fps;
     frameMinDelay = maxFPS > 0 ? 1000 / maxFPS : 0;
@@ -136,8 +185,8 @@ function applyGraphicsPreset(preset) {
   }
 
   // Toggle sky clouds dynamically: disable expensive fBm on low mode
-  if (window.skyUniforms !== undefined) {
-    window.skyUniforms.uShowClouds.value = segments > 20 && showCloudsEnabled;
+  if (skyUniforms !== undefined) {
+    skyUniforms.uShowClouds.value = segments > 20 && showCloudsEnabled;
   }
 
   // Toggle overdraw optimizations (transparency)
@@ -201,11 +250,11 @@ function applyGraphicsPreset(preset) {
 }
 
 var showChunkBorders = false;
-var isFreeCamera = false;
+export var isFreeCamera = false;
 const _chunkBorderHelpers = new Map(); // key -> Box3Helper
 const _chunkBorderColor = new THREE.Color(0x00ffff);
 
-function syncChunkBorders() {
+export function syncChunkBorders() {
   if (!showChunkBorders) {
     if (_chunkBorderHelpers.size > 0) {
       _chunkBorderHelpers.forEach((helper) => scene.remove(helper));
@@ -335,8 +384,8 @@ window.initDebugUI = function () {
   if (objectsToggle) {
     objectsToggle.checked = ChillFlightLogic.SHOW_OBJECTS;
     objectsToggle.addEventListener('change', (e) => {
-      if (typeof window.toggleProceduralObjects === 'function') {
-        window.toggleProceduralObjects(e.target.checked);
+      if (typeof toggleProceduralObjects === 'function') {
+        toggleProceduralObjects(e.target.checked);
       }
     });
   }
@@ -368,7 +417,9 @@ window.initDebugUI = function () {
   if (propLodSlider) {
     // Initialize to current PROP_LOD_DISTANCE value or URL START_PROP_LOD
     let initLod =
-      typeof PROP_LOD_DISTANCE !== 'undefined' ? PROP_LOD_DISTANCE : 4200;
+      typeof state.PROP_LOD_DISTANCE !== 'undefined'
+        ? state.PROP_LOD_DISTANCE
+        : 4200;
     if (
       typeof ChillFlightLogic !== 'undefined' &&
       ChillFlightLogic.START_PROP_LOD !== null &&
@@ -399,7 +450,6 @@ window.initDebugUI = function () {
     typeof ChillFlightLogic !== 'undefined'
       ? ChillFlightLogic.START_FREE_CAM || false
       : false;
-  window.isFreeCamera = isFreeCamera;
   const freeCamToggle = document.getElementById('debug-free-cam-toggle');
   if (freeCamToggle) {
     if (isFreeCamera) {
@@ -506,10 +556,10 @@ window.initDebugUI = function () {
           0,
           Math.min(10, ChillFlightLogic.START_SPEED)
         );
-        flightSpeedMultiplier = initialSpeed;
-        targetFlightSpeed = Math.min(
-          typeof window.getMaxFlightSpeedMult === 'function'
-            ? window.getMaxFlightSpeedMult()
+        state.flightSpeedMultiplier = initialSpeed;
+        state.targetFlightSpeed = Math.min(
+          typeof getMaxFlightSpeedMult === 'function'
+            ? getMaxFlightSpeedMult()
             : 3.3333333333333335,
           initialSpeed
         );
@@ -527,12 +577,12 @@ window.initDebugUI = function () {
       if (planeGroup.position.y < spawnRestingHeight) {
         planeGroup.position.y = spawnRestingHeight;
       }
-      if (spawnIsWater && targetFlightSpeed === 0) {
+      if (spawnIsWater && state.targetFlightSpeed === 0) {
         if (typeof pontoonGroup !== 'undefined' && pontoonGroup) {
           pontoonGroup.visible = true;
-          pontoonDeploymentProgress = 1;
-          isDeployingPontoons = false;
-          isRetractingPontoons = false;
+          state.pontoonDeploymentProgress = 1;
+          state.isDeployingPontoons = false;
+          state.isRetractingPontoons = false;
           pontoonGroup.scale.setScalar(1);
           pontoonL.rotation.z = 0;
           pontoonR.rotation.z = 0;
@@ -556,7 +606,6 @@ window.initDebugUI = function () {
       .getElementById('debug-free-cam-toggle')
       .addEventListener('change', (e) => {
         isFreeCamera = e.target.checked;
-        window.isFreeCamera = isFreeCamera;
         if (isFreeCamera) {
           updateUrlParams({freecam: 'true'}, ['freeCamera']);
           // Force camera up vector to vertical
@@ -616,14 +665,14 @@ window.initDebugUI = function () {
       let currentTod;
       if (window.manualTimeOfDay !== undefined) {
         currentTod = window.manualTimeOfDay;
-      } else if (typeof timeOfDay !== 'undefined') {
-        currentTod = timeOfDay / (Math.PI * 2);
+      } else if (typeof state.timeOfDay !== 'undefined') {
+        currentTod = state.timeOfDay / (Math.PI * 2);
       }
       if (currentTod !== undefined) {
         url.searchParams.set('tod', currentTod.toFixed(4));
       }
-      if (typeof daySpeedMultiplier !== 'undefined') {
-        url.searchParams.set('timeSpeed', daySpeedMultiplier);
+      if (typeof state.daySpeedMultiplier !== 'undefined') {
+        url.searchParams.set('timeSpeed', state.daySpeedMultiplier);
       }
       if (typeof weatherType !== 'undefined') {
         if (weatherType !== 'auto') {
@@ -661,15 +710,15 @@ window.initDebugUI = function () {
       const isCustom =
         typeof isCustomPalette !== 'undefined'
           ? isCustomPalette
-          : window.isCustomPalette;
+          : isCustomPalette;
       const curPalette =
         typeof selectedPalette !== 'undefined'
           ? selectedPalette
-          : window.selectedPalette;
+          : selectedPalette;
       const curSeed =
         typeof currentPaletteSeed !== 'undefined'
           ? currentPaletteSeed
-          : window.currentPaletteSeed;
+          : currentPaletteSeed;
       if (isCustom && curPalette) {
         const topHex = curPalette.top.toString(16).padStart(6, '0');
         const bottomHex = curPalette.bottom.toString(16).padStart(6, '0');
@@ -702,8 +751,8 @@ window.initDebugUI = function () {
         url.searchParams.delete('lod');
       }
 
-      if (window.activePlaneType && window.activePlaneType !== 'classic') {
-        url.searchParams.set('plane', window.activePlaneType);
+      if (activePlaneType && activePlaneType !== 'classic') {
+        url.searchParams.set('plane', activePlaneType);
       } else {
         url.searchParams.delete('plane');
         url.searchParams.delete('vehicle');
@@ -780,20 +829,23 @@ window.initDebugUI = function () {
         'pitch',
         Math.round(THREE.MathUtils.radToDeg(planeEuler.x))
       );
-      if (typeof flightSpeedMultiplier !== 'undefined') {
-        url.searchParams.set('speed', Number(flightSpeedMultiplier.toFixed(2)));
+      if (typeof state.flightSpeedMultiplier !== 'undefined') {
+        url.searchParams.set(
+          'speed',
+          Number(state.flightSpeedMultiplier.toFixed(2))
+        );
       }
       let currentTod;
       if (window.manualTimeOfDay !== undefined) {
         currentTod = window.manualTimeOfDay;
-      } else if (typeof timeOfDay !== 'undefined') {
-        currentTod = timeOfDay / (Math.PI * 2);
+      } else if (typeof state.timeOfDay !== 'undefined') {
+        currentTod = state.timeOfDay / (Math.PI * 2);
       }
       if (currentTod !== undefined) {
         url.searchParams.set('tod', currentTod.toFixed(4));
       }
-      if (typeof daySpeedMultiplier !== 'undefined') {
-        url.searchParams.set('timeSpeed', daySpeedMultiplier);
+      if (typeof state.daySpeedMultiplier !== 'undefined') {
+        url.searchParams.set('timeSpeed', state.daySpeedMultiplier);
       }
       if (typeof weatherType !== 'undefined') {
         if (weatherType !== 'auto') {
@@ -831,15 +883,15 @@ window.initDebugUI = function () {
       const isCustom =
         typeof isCustomPalette !== 'undefined'
           ? isCustomPalette
-          : window.isCustomPalette;
+          : isCustomPalette;
       const curPalette =
         typeof selectedPalette !== 'undefined'
           ? selectedPalette
-          : window.selectedPalette;
+          : selectedPalette;
       const curSeed =
         typeof currentPaletteSeed !== 'undefined'
           ? currentPaletteSeed
-          : window.currentPaletteSeed;
+          : currentPaletteSeed;
       if (isCustom && curPalette) {
         const topHex = curPalette.top.toString(16).padStart(6, '0');
         const bottomHex = curPalette.bottom.toString(16).padStart(6, '0');
@@ -872,8 +924,8 @@ window.initDebugUI = function () {
         url.searchParams.delete('lod');
       }
 
-      if (window.activePlaneType && window.activePlaneType !== 'classic') {
-        url.searchParams.set('plane', window.activePlaneType);
+      if (activePlaneType && activePlaneType !== 'classic') {
+        url.searchParams.set('plane', activePlaneType);
       } else {
         url.searchParams.delete('plane');
         url.searchParams.delete('vehicle');
@@ -907,3 +959,12 @@ window.initDebugUI = function () {
 
   window.applyGraphicsPreset = applyGraphicsPreset;
 };
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  applyGraphicsPreset,
+});
+// Live bindings: reassigned here, read elsewhere.
+Object.defineProperties(window, {
+  isFreeCamera: {get: () => isFreeCamera, configurable: true},
+});
