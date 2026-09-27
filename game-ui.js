@@ -1,13 +1,46 @@
+import {log} from './logger.js';
+import {isFreeCamera, updateUrlParams} from './debug-ui.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {clearInputState, togglePause} from './game-state.js';
+import {
+  HEADLIGHT_GLOW_INTENSITY,
+  HEADLIGHT_INTENSITY,
+  headlight,
+  headlightGlow,
+} from './airplane.js';
+import {
+  STEER_HOLD_THRESHOLD,
+  doubleTap,
+  inputManager,
+  keyPressStartTime,
+  keys,
+} from './game-input-bindings.js';
+import {
+  _currentLookTarget,
+  _introCameraPosStart,
+  _introLookTargetStart,
+  _virtualCameraPos,
+  _virtualLookTarget,
+  btnDown,
+  btnUp,
+  clock,
+} from './game.js';
+import {camera, renderer} from './sky.js';
+import {scene} from './scene.js';
+import {musicEnabled, setMusicEnabled} from './audio.js';
+import {getMaxFlightSpeedMult} from './constants.js';
+import {state} from './state.js';
+
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
 const menuTrigger = document.getElementById('mobile-menu-trigger');
 const pauseTrigger = document.getElementById('mobile-pause-trigger');
 const camToggle = document.getElementById('mobile-cam-toggle');
 
-const hdgtSub = document.getElementById('mobile-hdgt-sub');
+export const hdgtSub = document.getElementById('mobile-hdgt-sub');
 const autoToggle = document.getElementById('mobile-auto-toggle');
 
-function toggleAutopilot(forceState) {
+export function toggleAutopilot(forceState) {
   if (forceState !== undefined) {
     window.autopilotEnabled = !!forceState;
   } else {
@@ -91,17 +124,17 @@ if (camToggle) {
   camToggle.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (cameraMode === 'follow') {
-      cameraMode = 'first-person';
-    } else if (cameraMode === 'first-person') {
-      cameraMode = 'birds-eye-close';
-    } else if (cameraMode === 'birds-eye-close') {
-      cameraMode = 'birds-eye-far';
-    } else if (cameraMode === 'birds-eye-far') {
-      cameraMode = 'cinematic';
+    if (state.cameraMode === 'follow') {
+      state.cameraMode = 'first-person';
+    } else if (state.cameraMode === 'first-person') {
+      state.cameraMode = 'birds-eye-close';
+    } else if (state.cameraMode === 'birds-eye-close') {
+      state.cameraMode = 'birds-eye-far';
+    } else if (state.cameraMode === 'birds-eye-far') {
+      state.cameraMode = 'cinematic';
     } else {
-      cameraMode = 'follow';
-      cameraTransitionProgress = 0; // Reset progress to avoid bounce
+      state.cameraMode = 'follow';
+      state.cameraTransitionProgress = 0; // Reset progress to avoid bounce
     }
     if (typeof Achievements !== 'undefined') {
       Achievements.unlock('directors_cut');
@@ -137,10 +170,10 @@ if (autoToggle) {
 }
 
 // --- INPUT SAFETY GUARD ---
-function resetSteering() {
-  mouseX = 0;
-  mouseY = 0;
-  mouseControlActive = false;
+export function resetSteering() {
+  state.mouseX = 0;
+  state.mouseY = 0;
+  state.mouseControlActive = false;
   if (typeof inputManager !== 'undefined' && inputManager.resetMouseSteering) {
     inputManager.resetMouseSteering();
   }
@@ -188,12 +221,12 @@ if (btnUp) {
       keyPressStartTime.ArrowUp > 0 &&
       nowTime - keyPressStartTime.ArrowUp < STEER_HOLD_THRESHOLD
     ) {
-      targetFlightSpeed += 0.1;
-      targetFlightSpeed = Math.min(
-        typeof window.getMaxFlightSpeedMult === 'function'
-          ? window.getMaxFlightSpeedMult()
+      state.targetFlightSpeed += 0.1;
+      state.targetFlightSpeed = Math.min(
+        typeof getMaxFlightSpeedMult === 'function'
+          ? getMaxFlightSpeedMult()
           : 3.3333333333333335,
-        targetFlightSpeed
+        state.targetFlightSpeed
       );
     }
     keys.Shift = false;
@@ -227,7 +260,7 @@ if (btnDown) {
       keyPressStartTime.ArrowDown > 0 &&
       nowTime - keyPressStartTime.ArrowDown < 250
     ) {
-      targetFlightSpeed = Math.max(0, targetFlightSpeed - 0.1);
+      state.targetFlightSpeed = Math.max(0, state.targetFlightSpeed - 0.1);
     }
     keys.Shift = false;
     keys.ArrowDown = false;
@@ -244,7 +277,7 @@ if (btnDown) {
 }
 
 window.addEventListener('blur', () => {
-  windowJustFocused = false;
+  state.windowJustFocused = false;
   clearInputState();
 });
 
@@ -255,7 +288,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('focus', () => {
-  windowJustFocused = true;
+  state.windowJustFocused = true;
   if (typeof clock !== 'undefined') {
     clock.update(); // This "consumes" the time passed while the tab was hidden
   }
@@ -267,14 +300,14 @@ speedBtns.forEach((btn) => {
   btn.addEventListener('click', (e) => {
     speedBtns.forEach((b) => b.classList.remove('active'));
     e.target.classList.add('active');
-    daySpeedMultiplier = parseFloat(e.target.getAttribute('data-speed'));
-    updateUrlParams({timeSpeed: daySpeedMultiplier});
+    state.daySpeedMultiplier = parseFloat(e.target.getAttribute('data-speed'));
+    updateUrlParams({timeSpeed: state.daySpeedMultiplier});
   });
 });
 
-if (typeof daySpeedMultiplier !== 'undefined') {
+if (typeof state.daySpeedMultiplier !== 'undefined') {
   speedBtns.forEach((b) => {
-    if (parseFloat(b.getAttribute('data-speed')) === daySpeedMultiplier) {
+    if (parseFloat(b.getAttribute('data-speed')) === state.daySpeedMultiplier) {
       b.classList.add('active');
     } else {
       b.classList.remove('active');
@@ -305,7 +338,7 @@ if (timeSlider) {
     speedBtns.forEach((b) => b.classList.remove('active'));
     const zeroBtn = document.querySelector('.speed-btn[data-speed="0"]');
     if (zeroBtn) zeroBtn.classList.add('active');
-    daySpeedMultiplier = 0;
+    state.daySpeedMultiplier = 0;
 
     if (timeSliderVal) {
       const hours = window.manualTimeOfDay * 24;
@@ -330,7 +363,7 @@ const overlay = document.getElementById('loading-overlay');
 if (overlay) {
   const beginBtn = document.getElementById('begin-btn');
 
-  dismissLoadingScreen = (instant = false) => {
+  state.dismissLoadingScreen = (instant = false) => {
     if (renderer && typeof renderer.compile === 'function') {
       renderer.compile(scene, camera);
     }
@@ -344,8 +377,8 @@ if (overlay) {
 
       // Trigger cinematic camera transition
       if (!isFreeCamera) {
-        isIntroTransitionActive = true;
-        introTransitionStartTime = performance.now();
+        state.isIntroTransitionActive = true;
+        state.introTransitionStartTime = performance.now();
         _introCameraPosStart.copy(camera.position);
         _introLookTargetStart.copy(_currentLookTarget);
         _virtualCameraPos.copy(camera.position);
@@ -354,8 +387,8 @@ if (overlay) {
     }
 
     // Unpause the game and clear the clock delta
-    isPaused = false;
-    justResumed = true;
+    state.isPaused = false;
+    state.justResumed = true;
     if (typeof clock !== 'undefined') clock.update();
 
     // Start music! (Will respect the musicEnabled state)
@@ -432,7 +465,7 @@ if (overlay) {
 
   if (beginBtn) {
     beginBtn.addEventListener('click', () => {
-      dismissLoadingScreen(false);
+      state.dismissLoadingScreen(false);
     });
   }
 
@@ -484,7 +517,7 @@ if (overlay) {
           if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
             // Auto-skip
             log.info('🎵 Music was paused last session. Auto-skipping.');
-            dismissLoadingScreen(false);
+            state.dismissLoadingScreen(false);
           } else {
             // Start cross-fade: fade out progress, fade in button simultaneously
             const interactiveArea = document.getElementById(
@@ -510,7 +543,7 @@ if (overlay) {
   } else {
     // Fallback if elements are missing
     if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
-      dismissLoadingScreen(true);
+      state.dismissLoadingScreen(true);
     } else if (btnContainer) {
       btnContainer.style.visibility = 'visible';
       btnContainer.style.opacity = '1';
@@ -518,9 +551,9 @@ if (overlay) {
   }
 }
 
-function showStartPlaneTooltip() {
-  if (startPlaneTooltipShown) return;
-  startPlaneTooltipShown = true;
+export function showStartPlaneTooltip() {
+  if (state.startPlaneTooltipShown) return;
+  state.startPlaneTooltipShown = true;
   localStorage.setItem('chill_flight_stopped_tooltip_shown', 'true');
 
   const tooltip = document.getElementById('start-plane-tooltip');
@@ -548,18 +581,18 @@ function showStartPlaneTooltip() {
     window.removeEventListener('keydown', handleKeyInteraction);
   };
 
-  dismissStartPlaneTooltipFunc = dismissStartPlaneTooltip;
+  state.dismissStartPlaneTooltipFunc = dismissStartPlaneTooltip;
 
   const handleDismiss = (e) => {
     e.preventDefault();
     e.stopPropagation();
     dismissStartPlaneTooltip();
-    dismissStartPlaneTooltipFunc = null;
+    state.dismissStartPlaneTooltipFunc = null;
   };
 
   const handleSpdUpInteraction = () => {
     dismissStartPlaneTooltip();
-    dismissStartPlaneTooltipFunc = null;
+    state.dismissStartPlaneTooltipFunc = null;
   };
 
   const handleKeyInteraction = (e) => {
@@ -573,7 +606,7 @@ function showStartPlaneTooltip() {
       key === 'w'
     ) {
       dismissStartPlaneTooltip();
-      dismissStartPlaneTooltipFunc = null;
+      state.dismissStartPlaneTooltipFunc = null;
     }
   };
 
@@ -599,3 +632,10 @@ function showStartPlaneTooltip() {
     console.error('[Achievements] Failed to track play count', e);
   }
 })();
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  hdgtSub,
+  resetSteering,
+  showStartPlaneTooltip,
+});

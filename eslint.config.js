@@ -38,6 +38,13 @@ const ESM_FILES = [
   'game-hud.js',
   'debug-ui.js',
   'game.js',
+  'game-performance.js',
+  'game-gyro.js',
+  'game-ui.js',
+  'vr-manager.js',
+  'game-loop.js',
+  'map-loader.js',
+  'minimap.js',
 ];
 
 const isGlobalObject = (node) =>

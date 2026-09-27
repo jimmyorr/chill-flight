@@ -1,4 +1,8 @@
 // --- DYNAMIC PERFORMANCE SCALING ---
+import {renderer} from './sky.js';
+import {chunks} from './terrain-geometry.js';
+import {state} from './state.js';
+
 class DynamicPerformanceMonitor {
   constructor() {
     this.windowSize = 30;
@@ -196,8 +200,8 @@ class DynamicPerformanceMonitor {
     const baseLOD =
       window.manualPropLOD !== undefined
         ? window.manualPropLOD
-        : typeof PROP_LOD_DISTANCE !== 'undefined'
-          ? PROP_LOD_DISTANCE
+        : typeof state.PROP_LOD_DISTANCE !== 'undefined'
+          ? state.PROP_LOD_DISTANCE
           : 4200;
     return baseLOD * this.lodMultiplier;
   }
@@ -231,8 +235,8 @@ class DynamicPerformanceMonitor {
     const newLOD = this.getEffectiveLOD();
     // Use the global chunks map from terrain.js if available
     const chunkMap =
-      typeof window.chunks !== 'undefined'
-        ? window.chunks
+      typeof chunks !== 'undefined'
+        ? chunks
         : typeof chunks !== 'undefined'
           ? chunks
           : null;
@@ -250,7 +254,7 @@ class DynamicPerformanceMonitor {
   }
 }
 
-const performanceMonitor = new DynamicPerformanceMonitor();
+export const performanceMonitor = new DynamicPerformanceMonitor();
 window.performanceMonitor = performanceMonitor;
 
 // Disable automatic shadow map updates; DynamicPerformanceMonitor controls the cadence
@@ -259,3 +263,5 @@ if (typeof renderer !== 'undefined' && renderer) {
 }
 
 // Start loop
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.

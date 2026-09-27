@@ -1,25 +1,154 @@
+import * as THREE from 'three';
+import {
+  STEER_HOLD_THRESHOLD,
+  cameraDolly,
+  doubleTap,
+  getCameraWorldPosition,
+  inputManager,
+  keyPressStartTime,
+  keys,
+  tripleTap,
+} from './game-input-bindings.js';
+import {isFreeCamera, syncChunkBorders} from './debug-ui.js';
+import {
+  camera,
+  currentPaletteSeed,
+  dirLight,
+  hemiLight,
+  isCustomPalette,
+  moonLight,
+  moonMesh,
+  moonUniforms,
+  renderer,
+  selectedPalette,
+  skyGroup,
+  skyUniforms,
+  starsMat,
+  sunMesh,
+  sunUniforms,
+  updateSkyPalette,
+} from './sky.js';
+import {performanceMonitor} from './game-performance.js';
+import {
+  DELTA_BUFFER_SIZE,
+  _cloudyColor,
+  _currentGoldenSky,
+  _currentLookTarget,
+  _currentSunriseSky,
+  _dayLightColor,
+  _daySky,
+  _debugCamEuler,
+  _deltaRing,
+  _finalFogColor,
+  _finalSkyColor,
+  _goldenSky,
+  _goldenSunsetSky,
+  _immelmannForward,
+  _moonDirNorm,
+  _moonMRot,
+  _moonPhaseSunDir,
+  _moonPhaseX,
+  _moonRotMat,
+  _moonVMoonDir,
+  _moonVX,
+  _moonVY,
+  _moonVZ,
+  _rainbowAntiSunDir,
+  _rainbowSunDir,
+  _rockArchPos,
+  _shadowRight,
+  _shadowSunDir,
+  _shadowUp,
+  _shootingStarHeadPos,
+  _shootingStarLookDir,
+  _shootingStarStreakDir,
+  _shootingStarTailPos,
+  _skyBottomCol,
+  _stormColor,
+  _sunNoonColor,
+  _sunSunsetColor,
+  _sunriseLightColor,
+  _sunriseSky,
+  _sunsetLightColor,
+  _sunsetSky,
+  _targetShadowPos,
+  _tempVec,
+  _twilightSky,
+  _uncloudedFogColor,
+  _uncloudedSkyColor,
+  _upVector,
+  _volcanoPos,
+  _warmHorizonColor,
+  _waterMoonDirNorm,
+  _worldUp,
+  clock,
+  invertYAxis,
+  shootingStarEnd,
+  shootingStarStart,
+  targetPaletteBottom,
+  targetPaletteTop,
+} from './game.js';
+import {
+  BASE_FLIGHT_SPEED,
+  CHUNK_SIZE,
+  TURN_SPEED,
+  getCachedElement,
+  getMaxFlightSpeedMult,
+  updateDOM,
+} from './constants.js';
+import {
+  hingeLB,
+  hingeLF,
+  hingeRB,
+  hingeRF,
+  planeGroup,
+  pontoonGroup,
+  pontoonL,
+  pontoonR,
+} from './airplane.js';
+import {
+  manualCloudCover,
+  manualCloudHeight,
+  manualCloudSpeed,
+  rainParticles,
+  snowParticles,
+  updateWeather,
+} from './weather-manager.js';
+import {updateVRPauseInteraction} from './vr-manager.js';
+import {scene} from './scene.js';
+import {clearInputState} from './game-state.js';
+import {showStartPlaneTooltip, toggleAutopilot} from './game-ui.js';
+import {updateFlightPhysics} from './flight-physics.js';
+import {log} from './logger.js';
+import {chunks, getElevation, houseWindowMats} from './terrain-geometry.js';
+import {updateFlightCamera} from './flight-camera.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {simplex} from './noise.js';
+import {globalInstancer} from './terrain-chunks.js';
+import {state} from './state.js';
+
 var isAnimationLoopRunning = false;
 function animate() {
   // Sync InputManager state
-  inputManager.state.isPaused = isPaused;
+  inputManager.state.isPaused = state.isPaused;
   inputManager.state.isFreeCamera = isFreeCamera;
 
   const steering = inputManager.getSteering();
-  if (currentControlScheme !== 'gyro') {
+  if (state.currentControlScheme !== 'gyro') {
     if (steering.active) {
-      mouseX = steering.x;
-      mouseY = steering.y;
-      mouseControlActive = true;
+      state.mouseX = steering.x;
+      state.mouseY = steering.y;
+      state.mouseControlActive = true;
     } else {
-      mouseX = 0;
-      mouseY = 0;
-      mouseControlActive = false;
+      state.mouseX = 0;
+      state.mouseY = 0;
+      state.mouseControlActive = false;
     }
   }
   // Handle freeCam
   if (isFreeCamera) {
-    freeCamDeltaX += inputManager.state.freeCam.deltaX;
-    freeCamDeltaY += inputManager.state.freeCam.deltaY;
+    state.freeCamDeltaX += inputManager.state.freeCam.deltaX;
+    state.freeCamDeltaY += inputManager.state.freeCam.deltaY;
     inputManager.state.freeCam.deltaX = 0;
     inputManager.state.freeCam.deltaY = 0;
   }
@@ -31,66 +160,63 @@ function animate() {
 
   // --- FPS CAPPING ---
   // In VR, the headset compositor manages native vsync (72/90/120Hz); bypass manual 60fps throttle
-  isVRPresenting =
+  state.isVRPresenting =
     typeof renderer !== 'undefined' &&
     renderer &&
     renderer.xr &&
     renderer.xr.isPresenting;
-  if (!isVRPresenting && maxFPS > 0) {
-    const timeSinceLastFrame = frameStartTime - lastFrameTime;
-    if (timeSinceLastFrame < frameMinDelay - 1) {
+  if (!state.isVRPresenting && state.maxFPS > 0) {
+    const timeSinceLastFrame = frameStartTime - state.lastFrameTime;
+    if (timeSinceLastFrame < state.frameMinDelay - 1) {
       // 1ms buffer for vsync jitter
       return;
     }
   }
-  lastFrameTime = frameStartTime;
+  state.lastFrameTime = frameStartTime;
 
   const now = performance.now();
   const nowTime = now;
   // If the loading screen is active, give chunk generation a massive time budget (e.g., 33ms)
   // so it finishes in a fraction of a second instead of being artifically throttled for 60fps.
-  const isBootLoadingScreen = isPaused && !isIntroTransitionActive;
+  const isBootLoadingScreen = state.isPaused && !state.isIntroTransitionActive;
   const chunkBudget = isBootLoadingScreen
     ? 33
     : performanceMonitor.getChunkBudget();
   if (window.processChunkQueue) window.processChunkQueue(chunkBudget);
-  if (window.globalInstancer) window.globalInstancer.rebuildAll();
+  if (globalInstancer) globalInstancer.rebuildAll();
   clock.update();
   let rawDelta = clock.getDelta();
   if (rawDelta > 0.1) rawDelta = 0.1; // Cap at 100ms to prevent logic blowouts
 
   // Apply delta smoothing (moving average) to eliminate jitter from OS/browser timing.
   // Uses an O(1) ring buffer running sum to prevent garbage collection pauses from array churn.
-  if (_deltaRingCount < DELTA_BUFFER_SIZE) {
-    _deltaRingSum += rawDelta;
-    _deltaRingCount++;
+  if (state._deltaRingCount < DELTA_BUFFER_SIZE) {
+    state._deltaRingSum += rawDelta;
+    state._deltaRingCount++;
   } else {
-    _deltaRingSum += rawDelta - _deltaRing[_deltaRingIndex];
+    state._deltaRingSum += rawDelta - _deltaRing[state._deltaRingIndex];
   }
-  _deltaRing[_deltaRingIndex] = rawDelta;
-  _deltaRingIndex = (_deltaRingIndex + 1) % DELTA_BUFFER_SIZE;
-  smoothedDelta = _deltaRingSum / _deltaRingCount;
+  _deltaRing[state._deltaRingIndex] = rawDelta;
+  state._deltaRingIndex = (state._deltaRingIndex + 1) % DELTA_BUFFER_SIZE;
+  state.smoothedDelta = state._deltaRingSum / state._deltaRingCount;
 
-  const delta = smoothedDelta; // Use smoothed delta for all game logic below
-  if (
-    window.performanceMonitor &&
-    typeof window.performanceMonitor.update === 'function'
-  ) {
-    window.performanceMonitor.update(rawDelta);
+  const delta = state.smoothedDelta; // Use smoothed delta for all game logic below
+  if (performanceMonitor && typeof performanceMonitor.update === 'function') {
+    performanceMonitor.update(rawDelta);
   }
 
   inputManager.pollGamepad(delta);
 
-  if (isPaused || window.isNamePromptOpen) {
+  if (state.isPaused || window.isNamePromptOpen) {
     const loadingOverlay = getCachedElement('loading-overlay');
     if (
       loadingOverlay &&
       loadingOverlay.style.display !== 'none' &&
-      !isIntroTransitionActive
+      !state.isIntroTransitionActive
     ) {
       // Intro orbit camera rendering
       if (!isFreeCamera) {
-        const activeCamTarget = isVRPresenting ? cameraDolly : camera;
+        const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
         const t = now * 0.00015;
         activeCamTarget.position.x = planeGroup.position.x + Math.sin(t) * 150;
         activeCamTarget.position.z = planeGroup.position.z + Math.cos(t) * 150;
@@ -110,7 +236,7 @@ function animate() {
     }
 
     // Always render during pause so VR headset doesn't drop frames.
-    if (isVRPresenting) {
+    if (state.isVRPresenting) {
       if (typeof updateVRPauseInteraction === 'function') {
         updateVRPauseInteraction();
       }
@@ -118,7 +244,7 @@ function animate() {
     } else if (
       loadingOverlay &&
       loadingOverlay.style.display !== 'none' &&
-      !isIntroTransitionActive
+      !state.isIntroTransitionActive
     ) {
       renderer.render(scene, camera);
     }
@@ -127,10 +253,10 @@ function animate() {
 
   // One-frame blanket suppression of all input after resuming from pause,
   // to catch any input that slipped through despite clearInputState().
-  if (justResumed) {
-    justResumed = false;
+  if (state.justResumed) {
+    state.justResumed = false;
     clearInputState();
-    if (isVRPresenting) renderer.render(scene, camera);
+    if (state.isVRPresenting) renderer.render(scene, camera);
     return;
   }
 
@@ -139,24 +265,27 @@ function animate() {
   const isOnboardingVisible =
     onboardingTooltip && onboardingTooltip.classList.contains('visible');
   if (
-    !startPlaneTooltipShown &&
+    !state.startPlaneTooltipShown &&
     !isOnboardingVisible &&
-    targetFlightSpeed === 0 &&
-    Math.abs(flightSpeedMultiplier) < 0.01
+    state.targetFlightSpeed === 0 &&
+    Math.abs(state.flightSpeedMultiplier) < 0.01
   ) {
-    if (stoppedStartTime === null) {
-      stoppedStartTime = now;
-    } else if (now - stoppedStartTime >= 5000) {
+    if (state.stoppedStartTime === null) {
+      state.stoppedStartTime = now;
+    } else if (now - state.stoppedStartTime >= 5000) {
       showStartPlaneTooltip();
     }
   } else {
-    stoppedStartTime = null;
+    state.stoppedStartTime = null;
   }
 
   // Dismiss start plane tooltip if we start moving
-  if (dismissStartPlaneTooltipFunc && Math.abs(targetFlightSpeed) > 0) {
-    dismissStartPlaneTooltipFunc();
-    dismissStartPlaneTooltipFunc = null;
+  if (
+    state.dismissStartPlaneTooltipFunc &&
+    Math.abs(state.targetFlightSpeed) > 0
+  ) {
+    state.dismissStartPlaneTooltipFunc();
+    state.dismissStartPlaneTooltipFunc = null;
   }
 
   // --- DAY/NIGHT CYCLE ---
@@ -166,13 +295,13 @@ function animate() {
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
   if (typeof Achievements !== 'undefined' && !isFreeCamera) {
     // 1. Maneuver completions
-    if (wasDoingFullLoop && !isDoingFullLoop) {
+    if (state.wasDoingFullLoop && !state.isDoingFullLoop) {
       Achievements.unlock('froot_loops');
     }
-    if (wasDoingFullBarrelRoll && !isDoingFullBarrelRoll) {
+    if (state.wasDoingFullBarrelRoll && !state.isDoingFullBarrelRoll) {
       Achievements.unlock('barrel_roll');
     }
-    if (wasDoingImmelmann && !isDoingImmelmann) {
+    if (state.wasDoingImmelmann && !state.isDoingImmelmann) {
       Achievements.unlock('u_turn');
     }
 
@@ -183,7 +312,8 @@ function animate() {
       Achievements.unlock('nose_dive');
     }
 
-    const currentKTS = BASE_FLIGHT_SPEED * Math.abs(flightSpeedMultiplier) * 60;
+    const currentKTS =
+      BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
 
     // 3. Mach 1
     if (currentKTS > 500) {
@@ -195,51 +325,53 @@ function animate() {
     const isFallingOutSky = currentKTS < 50;
 
     if (
-      targetFlightSpeed <= 0.05 &&
+      state.targetFlightSpeed <= 0.05 &&
       (planeGroup.rotation.x < -Math.PI / 6 || isFallingOutSky) &&
       planeGroup.position.y > 80
     ) {
       Achievements.unlock('free_falling');
     }
   }
-  wasLooping = isLooping;
-  wasDoingFullLoop = isDoingFullLoop;
-  wasBarrelRolling = isBarrelRolling;
-  wasDoingFullBarrelRoll = isDoingFullBarrelRoll;
-  wasDoingImmelmann = isDoingImmelmann;
+  state.wasLooping = state.isLooping;
+  state.wasDoingFullLoop = state.isDoingFullLoop;
+  state.wasBarrelRolling = state.isBarrelRolling;
+  state.wasDoingFullBarrelRoll = state.isDoingFullBarrelRoll;
+  state.wasDoingImmelmann = state.isDoingImmelmann;
 
   if (typeof updateFlightPhysics === 'function')
     updateFlightPhysics(delta, nowTime);
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
   if (typeof Achievements !== 'undefined' && !isFreeCamera) {
-    if (!previousPosition) {
-      previousPosition = planeGroup.position.clone();
+    if (!state.previousPosition) {
+      state.previousPosition = planeGroup.position.clone();
     } else {
-      const distSq = planeGroup.position.distanceToSquared(previousPosition);
+      const distSq = planeGroup.position.distanceToSquared(
+        state.previousPosition
+      );
       if (distSq > 0) {
         const dist = Math.sqrt(distSq);
-        sessionDistanceTravelled += dist;
-        distanceSinceLastSave += dist;
+        state.sessionDistanceTravelled += dist;
+        state.distanceSinceLastSave += dist;
       }
 
-      if (distanceSinceLastSave > 1000) {
-        lifetimeDistanceTravelled += distanceSinceLastSave;
+      if (state.distanceSinceLastSave > 1000) {
+        state.lifetimeDistanceTravelled += state.distanceSinceLastSave;
         localStorage.setItem(
           'chill_flight_lifetime_distance',
-          lifetimeDistanceTravelled.toString()
+          state.lifetimeDistanceTravelled.toString()
         );
 
         if (typeof Achievements !== 'undefined' && Achievements.updateStats) {
-          Achievements.updateStats(lifetimeDistanceTravelled);
+          Achievements.updateStats(state.lifetimeDistanceTravelled);
         }
-        distanceSinceLastSave = 0;
+        state.distanceSinceLastSave = 0;
       }
 
-      previousPosition.copy(planeGroup.position);
+      state.previousPosition.copy(planeGroup.position);
     }
 
     // ~30 seconds of cruising flight is roughly 4500-5000 units.
-    if (sessionDistanceTravelled > 5000) {
+    if (state.sessionDistanceTravelled > 5000) {
       Achievements.unlock('welcome');
     }
 
@@ -305,7 +437,9 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
   // Update Debug Telemetry (at the very end of frame)
   if (debugMenu && debugMenu.style.display === 'block') {
     const pullBackVal =
-      smoothedManeuverFactor * 20 * Math.min(1, flightSpeedMultiplier / 2); // Re-calculate or pass from earlier
+      state.smoothedManeuverFactor *
+      20 *
+      Math.min(1, state.flightSpeedMultiplier / 2); // Re-calculate or pass from earlier
     updateDOM('debug-fov', Math.round(camera.fov));
     updateDOM('debug-pullback', Math.round(pullBackVal));
     updateDOM(
@@ -315,22 +449,22 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     const isCustom =
       typeof isCustomPalette !== 'undefined'
         ? isCustomPalette
-        : window.isCustomPalette;
+        : isCustomPalette;
     const curSeed =
       typeof currentPaletteSeed !== 'undefined'
         ? currentPaletteSeed
-        : window.currentPaletteSeed;
+        : currentPaletteSeed;
     const paletteStr = isCustom
       ? 'Custom'
       : curSeed !== undefined
         ? `${selectedPalette.name} (#${curSeed})`
         : selectedPalette.name;
     updateDOM('debug-palette', paletteStr);
-    updateDOM('debug-speed-mult', flightSpeedMultiplier.toFixed(2));
-    updateDOM('debug-day-speed', daySpeedMultiplier.toFixed(1));
+    updateDOM('debug-speed-mult', state.flightSpeedMultiplier.toFixed(2));
+    updateDOM('debug-day-speed', state.daySpeedMultiplier.toFixed(1));
 
-    updateDOM('debug-target-speed', targetFlightSpeed.toFixed(2));
-    updateDOM('debug-maneuver', smoothedManeuverFactor.toFixed(2));
+    updateDOM('debug-target-speed', state.targetFlightSpeed.toFixed(2));
+    updateDOM('debug-maneuver', state.smoothedManeuverFactor.toFixed(2));
     updateDOM('debug-world-x', Math.round(planeGroup.position.x));
     updateDOM('debug-world-y', Math.round(planeGroup.position.y));
     updateDOM('debug-world-z', Math.round(planeGroup.position.z));
@@ -405,10 +539,9 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
 
     // Aurora telemetry
     const auroraVal =
-      window.skyUniforms !== undefined
-        ? window.skyUniforms.uAuroraIntensity.value
-        : 0;
-    if (auroraVal > _auroraSessionMax) _auroraSessionMax = auroraVal;
+      skyUniforms !== undefined ? skyUniforms.uAuroraIntensity.value : 0;
+    if (auroraVal > state._auroraSessionMax)
+      state._auroraSessionMax = auroraVal;
     const _auroraLabelFn = (v) =>
       v < 0.01 ? 'None' : v < 0.03 ? 'Faint' : v < 0.06 ? 'Moderate' : 'Active';
     updateDOM(
@@ -419,11 +552,13 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     // Rainbow telemetry
     updateDOM(
       'debug-rainbow',
-      rainbowIntensity > 0 ? (rainbowIntensity * 100).toFixed(0) + '%' : '-'
+      state.rainbowIntensity > 0
+        ? (state.rainbowIntensity * 100).toFixed(0) + '%'
+        : '-'
     );
     updateDOM(
       'debug-aurora-peak',
-      `${_auroraLabelFn(_auroraSessionMax)} (${_auroraSessionMax.toFixed(3)})`
+      `${_auroraLabelFn(state._auroraSessionMax)} (${state._auroraSessionMax.toFixed(3)})`
     );
     // Helper function for performance color coding
     function getPerfColor(val, warnThresh, critThresh) {
@@ -451,11 +586,11 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
 
     const avgFpsEl = getCachedElement('debug-avg-fps');
     const lowFpsEl = getCachedElement('debug-fps-low');
-    if ((avgFpsEl || lowFpsEl) && window.performanceMonitor) {
+    if ((avgFpsEl || lowFpsEl) && performanceMonitor) {
       if (!window._lastFpsAggUpdate || now - window._lastFpsAggUpdate > 250) {
         window._lastFpsAggUpdate = now;
-        const avgFps = window.performanceMonitor.getAvgFPS();
-        const lowFps = window.performanceMonitor.get1PercentLowFPS();
+        const avgFps = performanceMonitor.getAvgFPS();
+        const lowFps = performanceMonitor.get1PercentLowFPS();
         if (avgFpsEl) {
           updateDOM(avgFpsEl, avgFps);
           avgFpsEl.style.color = getPerfColor(60 - avgFps, 30, 40);
@@ -590,17 +725,19 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     const maxPropLOD =
       window.manualPropLOD !== undefined
         ? window.manualPropLOD
-        : typeof PROP_LOD_DISTANCE !== 'undefined'
-          ? PROP_LOD_DISTANCE
+        : typeof state.PROP_LOD_DISTANCE !== 'undefined'
+          ? state.PROP_LOD_DISTANCE
           : 4200;
     const currentPropLOD =
       window.manualPropLOD !== undefined
         ? window.manualPropLOD
-        : Math.min(RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2, maxPropLOD);
+        : Math.min(
+            state.RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
+            maxPropLOD
+          );
     const lodMultiplier =
-      window.performanceMonitor &&
-      typeof window.performanceMonitor.lodMultiplier === 'number'
-        ? window.performanceMonitor.lodMultiplier
+      performanceMonitor && typeof performanceMonitor.lodMultiplier === 'number'
+        ? performanceMonitor.lodMultiplier
         : 1.0;
     const effectivePropLOD = currentPropLOD * lodMultiplier;
     const lodDistSq = effectivePropLOD * effectivePropLOD;
@@ -660,24 +797,21 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     updateDOM('debug-prop-lod', Math.round(currentPropLOD));
     updateDOM('debug-prop-lod-final', Math.round(effectivePropLOD));
     updateDOM('debug-prop-lod-effective', Math.round(effectivePropLOD));
-    if (window.performanceMonitor) {
-      updateDOM(
-        'debug-lod-mult',
-        window.performanceMonitor.lodMultiplier.toFixed(2)
-      );
+    if (performanceMonitor) {
+      updateDOM('debug-lod-mult', performanceMonitor.lodMultiplier.toFixed(2));
       updateDOM(
         'debug-avg-ms',
-        window.performanceMonitor.getSmoothedFrameTime().toFixed(2)
+        performanceMonitor.getSmoothedFrameTime().toFixed(2)
       );
       updateDOM(
         'debug-drs-mult',
-        window.performanceMonitor.pixelRatioMultiplier.toFixed(2)
+        performanceMonitor.pixelRatioMultiplier.toFixed(2)
       );
-      const cadence = window.performanceMonitor.shadowCadence;
+      const cadence = performanceMonitor.shadowCadence;
       updateDOM('debug-shadow-cadence', cadence === 0 ? 'off' : `1/${cadence}`);
       updateDOM(
         'debug-chunk-budget',
-        window.performanceMonitor.getChunkBudget().toFixed(1)
+        performanceMonitor.getChunkBudget().toFixed(1)
       );
     }
     updateDOM('debug-lod-chunks', `${activeLODChunks}/${totalChunks}`);
@@ -742,7 +876,7 @@ function updateDayNightCycle(delta) {
   const useVirtualClock =
     isDebugMode ||
     window.manualTimeOfDay !== undefined ||
-    daySpeedMultiplier !== 1;
+    state.daySpeedMultiplier !== 1;
 
   if (useVirtualClock) {
     // In debug mode, we use a virtual clock that we increment ourselves,
@@ -752,16 +886,16 @@ function updateDayNightCycle(delta) {
       window._debugVirtualServerNow =
         Date.now() + (window.serverTimeOffset || 0);
     } else {
-      window._debugVirtualServerNow += delta * 1000 * daySpeedMultiplier;
+      window._debugVirtualServerNow += delta * 1000 * state.daySpeedMultiplier;
     }
-    passedServerNow = window._debugVirtualServerNow;
-    secondsInCycle =
-      (((passedServerNow % CYCLE_DURATION_MS) + CYCLE_DURATION_MS) %
+    state.passedServerNow = window._debugVirtualServerNow;
+    state.secondsInCycle =
+      (((state.passedServerNow % CYCLE_DURATION_MS) + CYCLE_DURATION_MS) %
         CYCLE_DURATION_MS) /
       1000;
 
     // Keep older debug virtual seconds for compat just in case
-    window._debugVirtualSeconds = secondsInCycle;
+    window._debugVirtualSeconds = state.secondsInCycle;
   } else {
     // In normal mode, we always sync to the absolute server time.
     // We reset the virtual clock so it picks up from current server time if re-enabled.
@@ -769,29 +903,29 @@ function updateDayNightCycle(delta) {
     window._debugVirtualSeconds = undefined;
 
     const serverNow = Date.now() + (window.serverTimeOffset || 0);
-    passedServerNow = serverNow;
-    secondsInCycle = (serverNow % CYCLE_DURATION_MS) / 1000;
+    state.passedServerNow = serverNow;
+    state.secondsInCycle = (serverNow % CYCLE_DURATION_MS) / 1000;
   }
 
-  latScale = 5000;
-  currentLatDeg = -planeGroup.position.z / latScale;
-  currentLatRad = (currentLatDeg * Math.PI) / 180;
+  state.latScale = 5000;
+  state.currentLatDeg = -planeGroup.position.z / state.latScale;
+  state.currentLatRad = (state.currentLatDeg * Math.PI) / 180;
 
-  currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(
-    secondsInCycle,
-    currentLatRad
+  state.currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(
+    state.secondsInCycle,
+    state.currentLatRad
   );
-  timeOfDay = currentWarpedProgress * Math.PI * 2;
+  state.timeOfDay = state.currentWarpedProgress * Math.PI * 2;
 
   if (window.manualTimeOfDay !== undefined) {
-    if (daySpeedMultiplier !== 0) {
+    if (state.daySpeedMultiplier !== 0) {
       window.manualTimeOfDay +=
-        (delta * daySpeedMultiplier) / (CYCLE_DURATION_MS / 1000);
+        (delta * state.daySpeedMultiplier) / (CYCLE_DURATION_MS / 1000);
       if (window.manualTimeOfDay > 1.0) window.manualTimeOfDay -= 1.0;
       if (window.manualTimeOfDay < 0.0) window.manualTimeOfDay += 1.0;
     }
-    timeOfDay = window.manualTimeOfDay * Math.PI * 2;
-    currentWarpedProgress = window.manualTimeOfDay;
+    state.timeOfDay = window.manualTimeOfDay * Math.PI * 2;
+    state.currentWarpedProgress = window.manualTimeOfDay;
   }
 
   // Update slider UI if not manual, or if manual but time is flowing, or on initial load
@@ -800,13 +934,13 @@ function updateDayNightCycle(delta) {
   if (
     timeSlider &&
     (window.manualTimeOfDay === undefined ||
-      daySpeedMultiplier !== 0 ||
+      state.daySpeedMultiplier !== 0 ||
       timeSlider.dataset.initialized !== 'true')
   ) {
     timeSlider.dataset.initialized = 'true';
-    timeSlider.value = currentWarpedProgress;
+    timeSlider.value = state.currentWarpedProgress;
     if (timeSliderVal) {
-      const hours = currentWarpedProgress * 24;
+      const hours = state.currentWarpedProgress * 24;
       const hh = Math.floor(hours).toString().padStart(2, '0');
       const mm = Math.floor((hours % 1) * 60)
         .toString()
@@ -815,22 +949,22 @@ function updateDayNightCycle(delta) {
     }
   }
 
-  window._gameServerNow = passedServerNow;
+  window._gameServerNow = state.passedServerNow;
 
   // Check and update the sky palette if it's a new cycle
   if (typeof updateSkyPalette === 'function') {
-    updateSkyPalette(passedServerNow);
+    updateSkyPalette(state.passedServerNow);
   }
   // Window glow
   houseWindowMats.forEach((mat, i) => {
     const offset = i * 0.05;
-    const localSunY = -Math.cos(timeOfDay - offset);
+    const localSunY = -Math.cos(state.timeOfDay - offset);
     const nightValue = Math.max(0, (-localSunY + 0.1) * 2);
     mat.emissiveIntensity = Math.min(2.0, nightValue);
   });
 
   // Calculate streetlight intensity based on time of day
-  const slSunY = -Math.cos(timeOfDay);
+  const slSunY = -Math.cos(state.timeOfDay);
   const slNightValue = Math.max(0, (-slSunY + 0.1) * 2);
 
   if (typeof window.streetlightBulbMat !== 'undefined') {
@@ -846,8 +980,8 @@ function updateDayNightCycle(delta) {
 
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller
-  if (!isFreeCamera && Math.abs(flightSpeedMultiplier) > 0.001) {
-    const baseSpin = 15 * Math.abs(flightSpeedMultiplier);
+  if (!isFreeCamera && Math.abs(state.flightSpeedMultiplier) > 0.001) {
+    const baseSpin = 15 * Math.abs(state.flightSpeedMultiplier);
     const spin = Math.max(4, Math.min(25, baseSpin));
     if (window.propGroups && Array.isArray(window.propGroups)) {
       for (let i = 0; i < window.propGroups.length; i++) {
@@ -863,13 +997,14 @@ function updatePhysicsAndControls(delta, nowTime) {
   // Animate pontoons
   if (
     !isFreeCamera &&
-    isDeployingPontoons &&
-    !isRetractingPontoons &&
-    pontoonDeploymentProgress < 1
+    state.isDeployingPontoons &&
+    !state.isRetractingPontoons &&
+    state.pontoonDeploymentProgress < 1
   ) {
-    pontoonDeploymentProgress += delta * 0.5;
-    if (pontoonDeploymentProgress > 1) pontoonDeploymentProgress = 1;
-    const t = pontoonDeploymentProgress;
+    state.pontoonDeploymentProgress += delta * 0.5;
+    if (state.pontoonDeploymentProgress > 1)
+      state.pontoonDeploymentProgress = 1;
+    const t = state.pontoonDeploymentProgress;
     const easeOut = 1 - Math.pow(1 - t, 3);
 
     pontoonGroup.scale.setScalar(easeOut);
@@ -886,17 +1021,17 @@ function updatePhysicsAndControls(delta, nowTime) {
     pontoonR.position.y = -0.5 - 4.0 * easeOut;
   } else if (
     !isFreeCamera &&
-    isRetractingPontoons &&
-    pontoonDeploymentProgress > 0
+    state.isRetractingPontoons &&
+    state.pontoonDeploymentProgress > 0
   ) {
-    pontoonDeploymentProgress -= delta * 0.4;
-    if (pontoonDeploymentProgress < 0) {
-      pontoonDeploymentProgress = 0;
-      isRetractingPontoons = false;
-      isDeployingPontoons = false;
+    state.pontoonDeploymentProgress -= delta * 0.4;
+    if (state.pontoonDeploymentProgress < 0) {
+      state.pontoonDeploymentProgress = 0;
+      state.isRetractingPontoons = false;
+      state.isDeployingPontoons = false;
       pontoonGroup.visible = false;
     }
-    const t = pontoonDeploymentProgress;
+    const t = state.pontoonDeploymentProgress;
     const easeOut = 1 - Math.pow(1 - t, 3);
 
     pontoonGroup.scale.setScalar(easeOut);
@@ -917,12 +1052,12 @@ function updatePhysicsAndControls(delta, nowTime) {
   const maxPitch = Math.PI / 4;
   const maxRoll = Math.PI / 3;
   let effMouseX =
-    mouseControlActive && !isFreeCamera && Math.abs(mouseX) >= 0.15
-      ? mouseX
+    state.mouseControlActive && !isFreeCamera && Math.abs(state.mouseX) >= 0.15
+      ? state.mouseX
       : 0;
   let effMouseY =
-    mouseControlActive && !isFreeCamera && Math.abs(mouseY) >= 0.15
-      ? mouseY
+    state.mouseControlActive && !isFreeCamera && Math.abs(state.mouseY) >= 0.15
+      ? state.mouseY
       : 0;
 
   // Logical inputs based on Y-axis inversion
@@ -970,78 +1105,84 @@ function updatePhysicsAndControls(delta, nowTime) {
       const heldTime = nowTime - startRawUp;
       const ramp = Math.min(1.0, heldTime / 2000);
       const throttleRate = (0.2 + ramp * 1.0) * delta;
-      targetFlightSpeed = Math.min(
-        typeof window.getMaxFlightSpeedMult === 'function'
-          ? window.getMaxFlightSpeedMult()
+      state.targetFlightSpeed = Math.min(
+        typeof getMaxFlightSpeedMult === 'function'
+          ? getMaxFlightSpeedMult()
           : 3.3333333333333335,
-        targetFlightSpeed + throttleRate
+        state.targetFlightSpeed + throttleRate
       );
     } else if (rawDown) {
       const heldTime = nowTime - startRawDown;
       const ramp = Math.min(1.0, heldTime / 2000);
       const throttleRate = (0.2 + ramp * 1.0) * delta;
-      targetFlightSpeed = Math.max(0, targetFlightSpeed - throttleRate);
+      state.targetFlightSpeed = Math.max(
+        0,
+        state.targetFlightSpeed - throttleRate
+      );
     }
   }
 
   if (
     !isFreeCamera &&
-    (flightSpeedMultiplier > 0 || Math.abs(targetFlightSpeed) > 0)
+    (state.flightSpeedMultiplier > 0 || Math.abs(state.targetFlightSpeed) > 0)
   ) {
     let yMultiplier = invertYAxis ? -1 : 1;
-    targetPitch = effMouseY * maxPitch * yMultiplier;
-    targetRoll = -effMouseX * (maxRoll * 1.25);
+    state.targetPitch = effMouseY * maxPitch * yMultiplier;
+    state.targetRoll = -effMouseX * (maxRoll * 1.25);
 
-    manualPitch = THREE.MathUtils.lerp(manualPitch, 0, 0.1 * delta * 60);
+    state.manualPitch = THREE.MathUtils.lerp(
+      state.manualPitch,
+      0,
+      0.1 * delta * 60
+    );
 
     if (keys.Shift) {
       // Throttle already handled above; no pitch changes while Shift is held
     } else if (isUp && !dtUp) {
       const heldTime = nowTime - startUp;
       if (heldTime > STEER_HOLD_THRESHOLD) {
-        targetPitch = (35 * Math.PI) / 180; // Full climb
+        state.targetPitch = (35 * Math.PI) / 180; // Full climb
       } else {
         const ramp = heldTime / STEER_HOLD_THRESHOLD;
-        targetPitch = ((5 * Math.PI) / 180) * ramp;
+        state.targetPitch = ((5 * Math.PI) / 180) * ramp;
       }
     } else if (isDown) {
       const heldTime = nowTime - startDown;
       if (heldTime > STEER_HOLD_THRESHOLD) {
-        targetPitch = (-45 * Math.PI) / 180; // Softened full dive
+        state.targetPitch = (-45 * Math.PI) / 180; // Softened full dive
       } else {
         const ramp = heldTime / STEER_HOLD_THRESHOLD;
-        targetPitch = ((-5 * Math.PI) / 180) * ramp;
+        state.targetPitch = ((-5 * Math.PI) / 180) * ramp;
       }
     }
   } else if (!isFreeCamera) {
-    targetPitch = 0;
-    targetRoll = 0;
+    state.targetPitch = 0;
+    state.targetRoll = 0;
   }
 
-  isBarrelRolling = false;
-  isDoingFullBarrelRoll = false;
-  isClampedRoll = false;
-  isLooping = false;
-  isDoingFullLoop = false;
+  state.isBarrelRolling = false;
+  state.isDoingFullBarrelRoll = false;
+  state.isClampedRoll = false;
+  state.isLooping = false;
+  state.isDoingFullLoop = false;
 
-  manualRollSpeed = 4.0;
-  manualLoopSpeed = 2.5;
+  state.manualRollSpeed = 4.0;
+  state.manualLoopSpeed = 2.5;
 
-  if (!isFreeCamera && window.autopilotEnabled && flightSpeedMultiplier > 0) {
-    isDoingImmelmann = false;
+  if (
+    !isFreeCamera &&
+    window.autopilotEnabled &&
+    state.flightSpeedMultiplier > 0
+  ) {
+    state.isDoingImmelmann = false;
     // 1. Maintain cruising speed (150 kts = 1.0 multiplier)
-    targetFlightSpeed = 1.0;
+    state.targetFlightSpeed = 1.0;
 
     // 2. Altitude Control
     const currentRiverZ =
-      typeof window.ChillFlightLogic !== 'undefined' &&
-      window.ChillFlightLogic.getRiverCenterZ
-        ? window.ChillFlightLogic.getRiverCenterZ(
-            planeGroup.position.x,
-            0,
-            simplex,
-            0
-          )
+      typeof ChillFlightLogic !== 'undefined' &&
+      ChillFlightLogic.getRiverCenterZ
+        ? ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, 0, simplex, 0)
         : 0;
 
     const distToRiver = Math.abs(currentRiverZ - planeGroup.position.z);
@@ -1055,7 +1196,7 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     const altError = Math.max(0, targetAltY - planeGroup.position.y);
     const maxAutoPitch = Math.PI / 6; // 30 degrees limit
-    targetPitch = THREE.MathUtils.clamp(
+    state.targetPitch = THREE.MathUtils.clamp(
       altError * 0.01,
       -maxAutoPitch,
       maxAutoPitch
@@ -1063,15 +1204,15 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     // 3. Direction Control -> Always face the sun along the equator river
     // 1 for East (Sunrise / Morning), -1 for West (Sunset / Afternoon)
-    const _sunX = Math.sin(timeOfDay);
+    const _sunX = Math.sin(state.timeOfDay);
     const lookDirX = _sunX >= 0 ? 1 : -1;
 
     // We look ahead a bit to calculate the river's local angle
     const lookAheadX = planeGroup.position.x + lookDirX * 300;
     const targetRiverZ =
-      typeof window.ChillFlightLogic !== 'undefined' &&
-      window.ChillFlightLogic.getRiverCenterZ
-        ? window.ChillFlightLogic.getRiverCenterZ(lookAheadX, 0, simplex, 0)
+      typeof ChillFlightLogic !== 'undefined' &&
+      ChillFlightLogic.getRiverCenterZ
+        ? ChillFlightLogic.getRiverCenterZ(lookAheadX, 0, simplex, 0)
         : 0;
 
     // Calculate the vector pointing down the river
@@ -1099,33 +1240,33 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     // Bank (roll) the plane to turn
     const maxAutoRoll = Math.PI / 4;
-    targetRoll = THREE.MathUtils.clamp(
+    state.targetRoll = THREE.MathUtils.clamp(
       yawError * 1.5,
       -maxAutoRoll,
       maxAutoRoll
     );
 
     // Cancel manual maneuvers
-    isLooping = false;
-    isBarrelRolling = false;
-    isClampedRoll = false;
-  } else if (!isFreeCamera && flightSpeedMultiplier > 0) {
-    if (isDoingImmelmann) {
-      if (immelmannProgress < Math.PI) {
+    state.isLooping = false;
+    state.isBarrelRolling = false;
+    state.isClampedRoll = false;
+  } else if (!isFreeCamera && state.flightSpeedMultiplier > 0) {
+    if (state.isDoingImmelmann) {
+      if (state.immelmannProgress < Math.PI) {
         // Stage 1: Half-loop (pull up)
-        const step = manualLoopSpeed * delta;
+        const step = state.manualLoopSpeed * delta;
         planeGroup.rotation.x += step;
-        immelmannProgress += step;
-        isLooping = true;
-      } else if (immelmannProgress < Math.PI * 2) {
+        state.immelmannProgress += step;
+        state.isLooping = true;
+      } else if (state.immelmannProgress < Math.PI * 2) {
         // Stage 2: Half-roll (roll upright)
-        const rollStep = manualRollSpeed * delta;
+        const rollStep = state.manualRollSpeed * delta;
         planeGroup.rotation.z += rollStep;
-        immelmannProgress += rollStep;
-        isLooping = true;
-        isBarrelRolling = true;
+        state.immelmannProgress += rollStep;
+        state.isLooping = true;
+        state.isBarrelRolling = true;
       } else {
-        isDoingImmelmann = false;
+        state.isDoingImmelmann = false;
         // Snap the Euler rotation to a clean upright heading
         const forward = _immelmannForward
           .set(0, 0, -1)
@@ -1141,9 +1282,9 @@ function updatePhysicsAndControls(delta, nowTime) {
         !keys.Shift
       ) {
         // Triple-tap up and hold: loop
-        planeGroup.rotation.x += manualLoopSpeed * delta;
-        isLooping = true;
-        isDoingFullLoop = true;
+        planeGroup.rotation.x += state.manualLoopSpeed * delta;
+        state.isLooping = true;
+        state.isDoingFullLoop = true;
       } else if (
         isUp &&
         dtUp &&
@@ -1157,15 +1298,15 @@ function updatePhysicsAndControls(delta, nowTime) {
           targetAscent,
           0.05 * delta * 60
         );
-        isLooping = true;
+        state.isLooping = true;
       } else if (
         (ttDown || tripleTap.ArrowDown) &&
         !keys.Shift &&
-        !isDoingImmelmann
+        !state.isDoingImmelmann
       ) {
         // Triple-tap down: Immelmann turn (automatic maneuver, no hold required)
-        isDoingImmelmann = true;
-        immelmannProgress = 0;
+        state.isDoingImmelmann = true;
+        state.immelmannProgress = 0;
         tripleTap.ArrowDown = false;
         tripleTap.ArrowUp = false;
       } else if (
@@ -1181,33 +1322,33 @@ function updatePhysicsAndControls(delta, nowTime) {
           targetDive,
           0.05 * delta * 60
         );
-        isLooping = true;
+        state.isLooping = true;
       }
     }
 
-    if (!isDoingImmelmann && isLeft) {
+    if (!state.isDoingImmelmann && isLeft) {
       if (!keys.Shift) {
         if (dtLeft) {
           // Double-tap: full barrel roll
-          planeGroup.rotation.z += manualRollSpeed * delta;
-          isBarrelRolling = true;
-          isDoingFullBarrelRoll = true;
+          planeGroup.rotation.z += state.manualRollSpeed * delta;
+          state.isBarrelRolling = true;
+          state.isDoingFullBarrelRoll = true;
         }
       }
-    } else if (!isDoingImmelmann && isRight) {
+    } else if (!state.isDoingImmelmann && isRight) {
       if (!keys.Shift) {
         if (dtRight) {
           // Double-tap: full barrel roll
-          planeGroup.rotation.z -= manualRollSpeed * delta;
-          isBarrelRolling = true;
-          isDoingFullBarrelRoll = true;
+          planeGroup.rotation.z -= state.manualRollSpeed * delta;
+          state.isBarrelRolling = true;
+          state.isDoingFullBarrelRoll = true;
         }
       }
     }
   }
 
   // Taxi steering: allow airplane to yaw when stopped or at very low speed
-  if (!isFreeCamera && flightSpeedMultiplier < 0.4) {
+  if (!isFreeCamera && state.flightSpeedMultiplier < 0.4) {
     if (isLeft && !keys.Shift) {
       planeGroup.rotation.y += 1.5 * delta;
     } else if (isRight && !keys.Shift) {
@@ -1222,12 +1363,12 @@ function updatePhysicsAndControls(delta, nowTime) {
       currentPitch: planeGroup.rotation.x,
       currentRoll: planeGroup.rotation.z,
       currentYaw: planeGroup.rotation.y, // We'll compute yaw here too, but apply it later based on speed
-      targetPitch: targetPitch + manualPitch,
-      targetRoll: targetRoll,
+      targetPitch: state.targetPitch + state.manualPitch,
+      targetRoll: state.targetRoll,
       turningRoll: planeGroup.rotation.z,
-      isBarrelRolling: isBarrelRolling,
-      isLooping: isLooping,
-      isClampedRoll: isClampedRoll,
+      isBarrelRolling: state.isBarrelRolling,
+      isLooping: state.isLooping,
+      isClampedRoll: state.isClampedRoll,
       turnSpeed: TURN_SPEED,
       delta: delta,
     });
@@ -1250,7 +1391,9 @@ function updateShadowSnapping(delta) {
   // This makes shadows smoothly stretch toward the horizon at sunset/sunrise
   // and then freeze. The dirLight intensity fades to 0 via dayFactor anyway,
   // so the frozen direction is invisible by the time it diverges from reality.
-  _shadowSunDir.set(sunX, Math.max(0.15, sunY), sunZ).normalize();
+  _shadowSunDir
+    .set(state.sunX, Math.max(0.15, state.sunY), state.sunZ)
+    .normalize();
 
   // Step 2: Build a rigid local coordinate system for the light.
   _shadowRight.crossVectors(_worldUp, _shadowSunDir).normalize();
@@ -1300,9 +1443,9 @@ function updateShadowSnapping(delta) {
 
 function updateEnvironmentLighting(delta, now) {
   // Smoothly interpolate sky shader palettes
-  if (window.skyUniforms !== undefined && !isCustomPalette) {
-    window.skyUniforms.topColor.value.lerp(targetPaletteTop, delta * 0.1);
-    window.skyUniforms.bottomColor.value.lerp(targetPaletteBottom, delta * 0.1);
+  if (skyUniforms !== undefined && !isCustomPalette) {
+    skyUniforms.topColor.value.lerp(targetPaletteTop, delta * 0.1);
+    skyUniforms.bottomColor.value.lerp(targetPaletteBottom, delta * 0.1);
   }
 
   // 1. Check if forced precipitation is currently visible on screen (or would be, if not above clouds)
@@ -1353,21 +1496,21 @@ function updateEnvironmentLighting(delta, now) {
 
   // --- APPLY LIGHTING & CELESTIAL BODIES ---
   // Stars disappear when overcast
-  let starFactor = Math.max(0, Math.min(1, (sunY + 0.2) / -0.3));
+  let starFactor = Math.max(0, Math.min(1, (state.sunY + 0.2) / -0.3));
   starsMat.opacity = starFactor * (1.0 - overcast);
 
   // --- SHOOTING STARS ---
   if (
     (starFactor > 0.5 && overcast < 0.5) ||
-    isShootingStarActive ||
-    forceShootingStar
+    state.isShootingStarActive ||
+    state.forceShootingStar
   ) {
-    if (!isShootingStarActive) {
-      if (forceShootingStar || Math.random() < delta / 30.0) {
-        forceShootingStar = false;
-        isShootingStarActive = true;
-        shootingStarProgress = 0;
-        shootingStarDuration = 0.8 + Math.random() * 0.4;
+    if (!state.isShootingStarActive) {
+      if (state.forceShootingStar || Math.random() < delta / 30.0) {
+        state.forceShootingStar = false;
+        state.isShootingStarActive = true;
+        state.shootingStarProgress = 0;
+        state.shootingStarDuration = 0.8 + Math.random() * 0.4;
 
         const lookDir = _shootingStarLookDir;
         camera.getWorldDirection(lookDir);
@@ -1399,20 +1542,23 @@ function updateEnvironmentLighting(delta, now) {
         if (starMesh) starMesh.visible = true;
       }
     } else {
-      shootingStarProgress += delta / shootingStarDuration;
+      state.shootingStarProgress += delta / state.shootingStarDuration;
       const starMesh = skyGroup.getObjectByName('shootingStar');
 
-      if (shootingStarProgress >= 1.0) {
-        isShootingStarActive = false;
+      if (state.shootingStarProgress >= 1.0) {
+        state.isShootingStarActive = false;
         if (starMesh) starMesh.visible = false;
       } else if (starMesh) {
         const headPos = _shootingStarHeadPos.lerpVectors(
           shootingStarStart,
           shootingStarEnd,
-          shootingStarProgress
+          state.shootingStarProgress
         );
         const tailLength = 0.15;
-        const tailProgress = Math.max(0, shootingStarProgress - tailLength);
+        const tailProgress = Math.max(
+          0,
+          state.shootingStarProgress - tailLength
+        );
         const tailPos = _shootingStarTailPos.lerpVectors(
           shootingStarStart,
           shootingStarEnd,
@@ -1432,7 +1578,7 @@ function updateEnvironmentLighting(delta, now) {
         positions[5] = tailPos.z;
         starMesh.geometry.attributes.position.needsUpdate = true;
 
-        const fadeOut = 1.0 - Math.pow(shootingStarProgress, 4);
+        const fadeOut = 1.0 - Math.pow(state.shootingStarProgress, 4);
         const alpha = Math.min(1.0, fadeOut) * (1.0 - overcast);
 
         const colors = starMesh.geometry.attributes.color.array;
@@ -1448,39 +1594,47 @@ function updateEnvironmentLighting(delta, now) {
   }
 
   // --- RAINBOW ---
-  const isDaytime = sunY > 0;
+  const isDaytime = state.sunY > 0;
 
   const rainbowMesh = skyGroup.getObjectByName('rainbow');
 
   const startRainbow = () => {
-    if (rainbowTimer <= 0 && rainbowMesh) {
+    if (state.rainbowTimer <= 0 && rainbowMesh) {
       // Lock position when spawned so it doesn't move across the sky
-      const sunDir = _rainbowSunDir.set(sunX, sunY, sunZ).normalize();
+      const sunDir = _rainbowSunDir
+        .set(state.sunX, state.sunY, state.sunZ)
+        .normalize();
       const antiSunDir = _rainbowAntiSunDir.copy(sunDir).negate();
       rainbowMesh.position.copy(antiSunDir).multiplyScalar(10000);
       rainbowMesh.lookAt(getCameraWorldPosition());
     }
-    rainbowTimer = 120.0;
+    state.rainbowTimer = 120.0;
   };
 
-  if (forceRainbow) {
-    forceRainbow = false;
+  if (state.forceRainbow) {
+    state.forceRainbow = false;
     startRainbow();
   }
 
   if (rainbowMesh) {
-    if (rainbowTimer > 0 && isDaytime) {
-      rainbowTimer -= delta;
-      rainbowIntensity = Math.min(1.0, rainbowIntensity + delta * 0.2);
+    if (state.rainbowTimer > 0 && isDaytime) {
+      state.rainbowTimer -= delta;
+      state.rainbowIntensity = Math.min(
+        1.0,
+        state.rainbowIntensity + delta * 0.2
+      );
       rainbowMesh.visible = true;
-      rainbowMesh.material.uniforms.uAlpha.value = rainbowIntensity;
+      rainbowMesh.material.uniforms.uAlpha.value = state.rainbowIntensity;
     } else {
-      rainbowTimer = 0;
-      rainbowIntensity = Math.max(0.0, rainbowIntensity - delta * 0.2);
-      if (rainbowIntensity <= 0) {
+      state.rainbowTimer = 0;
+      state.rainbowIntensity = Math.max(
+        0.0,
+        state.rainbowIntensity - delta * 0.2
+      );
+      if (state.rainbowIntensity <= 0) {
         rainbowMesh.visible = false;
       } else {
-        rainbowMesh.material.uniforms.uAlpha.value = rainbowIntensity;
+        rainbowMesh.material.uniforms.uAlpha.value = state.rainbowIntensity;
       }
     }
   }
@@ -1490,7 +1644,7 @@ function updateEnvironmentLighting(delta, now) {
   // latVal > 0.5 => player is north of ~0.5°N in our coordinate system.
   // The aurora ramps in from latVal 0.5 to 1.0 (fully visible at 1.0+).
   const auroraLatFactor = THREE.MathUtils.clamp(
-    (currentLatDeg - 0.5) / 0.5,
+    (state.currentLatDeg - 0.5) / 0.5,
     0,
     1
   );
@@ -1500,8 +1654,8 @@ function updateEnvironmentLighting(delta, now) {
   // naturally waxes and wanes — sometimes absent, sometimes a faint shimmer,
   // sometimes blazing. Two samples at different rates give organic variation.
   // Period ~20 min (primary) + ~7 min (secondary). Server-synced across players.
-  const _auroraT1 = passedServerNow / 1200000; // ~20-min primary cycle
-  const _auroraT2 = passedServerNow / 420000; // ~7-min secondary detail
+  const _auroraT1 = state.passedServerNow / 1200000; // ~20-min primary cycle
+  const _auroraT2 = state.passedServerNow / 420000; // ~7-min secondary detail
   const _auroraRaw =
     simplex.noise2D(_auroraT1, 0.37) * 0.7 +
     simplex.noise2D(_auroraT2, 1.91) * 0.3; // -1 to 1
@@ -1513,9 +1667,9 @@ function updateEnvironmentLighting(delta, now) {
     0.08,
     auroraLatFactor * auroraNightFactor * (1.0 - overcast) * auroraActivity
   );
-  if (window.skyUniforms !== undefined) {
-    window.skyUniforms.uAuroraIntensity.value = THREE.MathUtils.lerp(
-      window.skyUniforms.uAuroraIntensity.value,
+  if (skyUniforms !== undefined) {
+    skyUniforms.uAuroraIntensity.value = THREE.MathUtils.lerp(
+      skyUniforms.uAuroraIntensity.value,
       targetAuroraIntensity,
       1 - Math.pow(1 - 0.002, delta * 60)
     );
@@ -1530,7 +1684,7 @@ function updateEnvironmentLighting(delta, now) {
     sunMesh.material.opacity = 1.0 - overcast;
   }
   // Fade moon opacity: fully visible at night, subtle silhouette during day
-  const moonCycleFactor = THREE.MathUtils.lerp(1.0, 0.08, dayFactor);
+  const moonCycleFactor = THREE.MathUtils.lerp(1.0, 0.08, state.dayFactor);
   if (moonMesh && moonMesh.material) {
     if (!moonMesh.material.transparent) {
       moonMesh.material.transparent = true;
@@ -1539,36 +1693,36 @@ function updateEnvironmentLighting(delta, now) {
     moonMesh.material.opacity = moonCycleFactor * (1.0 - overcast);
   }
 
-  let baseHemi = THREE.MathUtils.lerp(0.3, 0.6, dayFactor);
+  let baseHemi = THREE.MathUtils.lerp(0.3, 0.6, state.dayFactor);
   hemiLight.intensity =
-    THREE.MathUtils.lerp(baseHemi, 0.7, overcast * dayFactor) * Math.PI;
+    THREE.MathUtils.lerp(baseHemi, 0.7, overcast * state.dayFactor) * Math.PI;
 
   dirLight.intensity =
-    THREE.MathUtils.lerp(0.8, 0.05, overcast) * dayFactor * Math.PI;
+    THREE.MathUtils.lerp(0.8, 0.05, overcast) * state.dayFactor * Math.PI;
 
   const PHASE_CYCLE_MS = 29.5 * 360000;
   const phaseAngle =
-    ((passedServerNow % PHASE_CYCLE_MS) / PHASE_CYCLE_MS) * Math.PI * 2;
+    ((state.passedServerNow % PHASE_CYCLE_MS) / PHASE_CYCLE_MS) * Math.PI * 2;
   const phaseIntensity = (-Math.cos(phaseAngle) + 1.0) / 2.0;
 
   // Moonlight shines when the sun is down, independent of moon's now-fixed elevation
-  let moonFactor = Math.max(0, Math.min(1, (-sunY - 0.25) / 0.25));
+  let moonFactor = Math.max(0, Math.min(1, (-state.sunY - 0.25) / 0.25));
   moonLight.intensity =
     moonFactor * 0.4 * (1.0 - overcast) * phaseIntensity * Math.PI;
 
   // --- APPLY SKY & FOG ---
   _uncloudedSkyColor.setHex(0x0a0c20);
-  if (window.skyUniforms !== undefined && window.skyUniforms.bottomColor) {
-    _uncloudedFogColor.copy(window.skyUniforms.bottomColor.value);
+  if (skyUniforms !== undefined && skyUniforms.bottomColor) {
+    _uncloudedFogColor.copy(skyUniforms.bottomColor.value);
   } else {
     _uncloudedFogColor.setHex(0x060815);
   }
 
-  if (dayFactor > 0.0) {
-    let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
+  if (state.dayFactor > 0.0) {
+    let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(state.sunY) * 2.5);
     dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
 
-    if (sunX > 0) {
+    if (state.sunX > 0) {
       _currentSunriseSky.copy(_sunriseSky);
       _currentGoldenSky.copy(_goldenSky);
     } else {
@@ -1576,26 +1730,27 @@ function updateEnvironmentLighting(delta, now) {
       _currentGoldenSky.copy(_goldenSunsetSky);
     }
 
-    _uncloudedSkyColor.lerp(_twilightSky, dayFactor * 0.4);
+    _uncloudedSkyColor.lerp(_twilightSky, state.dayFactor * 0.4);
 
     // Allow sunset colors in the main sky even when overcast (Issue #24)
     _uncloudedSkyColor.lerp(_currentSunriseSky, dawnDuskFactor);
 
-    if (sunY > -0.1 && sunY < 0.15) {
-      let goldT = 1.0 - Math.abs(sunY - 0.02) * 10;
+    if (state.sunY > -0.1 && state.sunY < 0.15) {
+      let goldT = 1.0 - Math.abs(state.sunY - 0.02) * 10;
       _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.6);
     }
 
-    _uncloudedSkyColor.lerp(_daySky, dayFactor * (1.0 - dawnDuskFactor));
+    _uncloudedSkyColor.lerp(_daySky, state.dayFactor * (1.0 - dawnDuskFactor));
 
     // Warm up the directional light during golden hour
-    const sunsetLightCol = sunX > 0 ? _sunriseLightColor : _sunsetLightColor;
+    const sunsetLightCol =
+      state.sunX > 0 ? _sunriseLightColor : _sunsetLightColor;
     dirLight.color.copy(_dayLightColor).lerp(sunsetLightCol, dawnDuskFactor);
   } else {
     dirLight.color.setHex(0xfff0dd);
   }
 
-  _cloudyColor.setHex(0x0a0c10).lerp(_stormColor, dayFactor);
+  _cloudyColor.setHex(0x0a0c10).lerp(_stormColor, state.dayFactor);
 
   _finalSkyColor.copy(_uncloudedSkyColor).lerp(_cloudyColor, overcast);
   _finalFogColor.copy(_uncloudedFogColor).lerp(_cloudyColor, overcast);
@@ -1640,44 +1795,45 @@ function updateEnvironmentLighting(delta, now) {
 
   // Update Sky Shader Colors
   if (!isCustomPalette) {
-    window.skyUniforms.topColor.value.copy(_finalSkyColor);
+    skyUniforms.topColor.value.copy(_finalSkyColor);
   }
 
-  _tempVec.set(sunX, sunY, sunZ).normalize();
-  window.skyUniforms.sunDirection.value.copy(_tempVec);
+  _tempVec.set(state.sunX, state.sunY, state.sunZ).normalize();
+  skyUniforms.sunDirection.value.copy(_tempVec);
   const cloudSpeed =
     typeof manualCloudSpeed === 'number' ? manualCloudSpeed : 1.0;
   window._cloudTime =
     (window._cloudTime || now * 0.001) +
     delta *
-      (typeof daySpeedMultiplier !== 'undefined' ? daySpeedMultiplier : 1) *
+      (typeof state.daySpeedMultiplier !== 'undefined'
+        ? state.daySpeedMultiplier
+        : 1) *
       cloudSpeed;
-  window.skyUniforms.uTime.value = window._cloudTime;
-  window.skyUniforms.uCloudDensity.value = overcast;
-  if (window.skyUniforms.uCloudHeight) {
-    window.skyUniforms.uCloudHeight.value = manualCloudHeight;
+  skyUniforms.uTime.value = window._cloudTime;
+  skyUniforms.uCloudDensity.value = overcast;
+  if (skyUniforms.uCloudHeight) {
+    skyUniforms.uCloudHeight.value = manualCloudHeight;
   }
   const _camWorld = getCameraWorldPosition();
-  window.skyUniforms.uCameraPos.value.copy(_camWorld);
+  skyUniforms.uCameraPos.value.copy(_camWorld);
 
   if (window.terrainUniforms) {
     window.terrainUniforms.uCameraPosXZ.value.set(_camWorld.x, _camWorld.z);
-    window.terrainUniforms.uRenderRadius.value = RENDER_DISTANCE * CHUNK_SIZE;
+    window.terrainUniforms.uRenderRadius.value =
+      state.RENDER_DISTANCE * CHUNK_SIZE;
     window.terrainUniforms.uSunDirection.value.copy(_tempVec);
-    if (window.skyUniforms) {
-      window.terrainUniforms.uTopColor.value.copy(
-        window.skyUniforms.topColor.value
-      );
+    if (skyUniforms) {
+      window.terrainUniforms.uTopColor.value.copy(skyUniforms.topColor.value);
       window.terrainUniforms.uBottomColor.value.copy(
-        window.skyUniforms.bottomColor.value
+        skyUniforms.bottomColor.value
       );
     }
   }
 
   if (window.waterUniforms && window.waterUniforms.uSpecularDir) {
     // Smoothly fade in/out specular based on elevation to prevent abrupt pop at sunrise/sunset
-    const sunFade = THREE.MathUtils.clamp(sunY * 5.0, 0, 1);
-    const moonFade = THREE.MathUtils.clamp(-sunY * 5.0, 0, 1);
+    const sunFade = THREE.MathUtils.clamp(state.sunY * 5.0, 0, 1);
+    const moonFade = THREE.MathUtils.clamp(-state.sunY * 5.0, 0, 1);
 
     if (sunFade > moonFade) {
       window.waterUniforms.uSpecularDir.value.copy(_tempVec);
@@ -1686,7 +1842,7 @@ function updateEnvironmentLighting(delta, now) {
         .multiplyScalar(Math.max(0, 1.0 - overcast) * sunFade);
     } else {
       const moonDirNorm = _waterMoonDirNorm
-        .set(moonX, moonY, moonZ)
+        .set(state.moonX, state.moonY, state.moonZ)
         .normalize();
       window.waterUniforms.uSpecularDir.value.copy(moonDirNorm);
 
@@ -1701,10 +1857,10 @@ function updateEnvironmentLighting(delta, now) {
   if (typeof sunUniforms !== 'undefined') {
     sunUniforms.uTime.value = now * 0.001;
     sunUniforms.overcast.value = overcast;
-    sunUniforms.dayFactor.value = dayFactor;
+    sunUniforms.dayFactor.value = state.dayFactor;
 
     // Dynamic Sun Sizing (Moon Illusion)
-    const sunElevation = Math.max(0.0, sunY);
+    const sunElevation = Math.max(0.0, state.sunY);
     const sunScale = 1.0 + Math.pow(1.0 - sunElevation, 3.0) * 1.5;
     sunMesh.scale.setScalar(sunScale);
 
@@ -1717,9 +1873,11 @@ function updateEnvironmentLighting(delta, now) {
   if (typeof moonUniforms !== 'undefined') {
     moonUniforms.uTime.value = now * 0.001;
     moonUniforms.overcast.value = overcast;
-    moonUniforms.dayFactor.value = dayFactor;
+    moonUniforms.dayFactor.value = state.dayFactor;
     moonUniforms.uCloudDensity.value = skyUniforms.uCloudDensity?.value ?? 0.5;
-    moonUniforms.uMoonSkyDir.value.set(moonX, moonY, moonZ).normalize();
+    moonUniforms.uMoonSkyDir.value
+      .set(state.moonX, state.moonY, state.moonZ)
+      .normalize();
     moonUniforms.uCameraPos.value.copy(getCameraWorldPosition());
 
     // Update moon direction local to its rotation for consistent phase lighting
@@ -1742,7 +1900,9 @@ function updateEnvironmentLighting(delta, now) {
     moonUniforms.uMoonRotMat.value.copy(moonRotMat);
     // Phase light direction — 29.5 game days per cycle
     // Ties the moon phase back to the game clock so it advances faster when time is sped up
-    const moonDirNorm = _moonDirNorm.set(moonX, moonY, moonZ).normalize();
+    const moonDirNorm = _moonDirNorm
+      .set(state.moonX, state.moonY, state.moonZ)
+      .normalize();
     const phaseX = _moonPhaseX.crossVectors(_upVector, moonDirNorm);
     if (phaseX.lengthSq() < 0.001) phaseX.set(1, 0, 0);
     phaseX.normalize();
@@ -1755,14 +1915,14 @@ function updateEnvironmentLighting(delta, now) {
     moonUniforms.uSunDirectionWorld.value.copy(phaseSunDir);
 
     // Dynamic Moon Sizing (Moon Illusion) — uniform scale only
-    const moonElevation = Math.max(0.0, moonY);
+    const moonElevation = Math.max(0.0, state.moonY);
     const moonScale = 1.0 + Math.pow(1.0 - moonElevation, 3.0) * 1.5;
     moonMesh.scale.setScalar(moonScale);
   }
 
   if (!isCustomPalette) {
-    if (dayFactor > 0.0) {
-      let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(sunY) * 2.5);
+    if (state.dayFactor > 0.0) {
+      let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(state.sunY) * 2.5);
       dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
 
       _skyBottomCol.copy(_finalSkyColor);
@@ -1781,10 +1941,10 @@ function updateEnvironmentLighting(delta, now) {
         _skyBottomCol.lerp(_warmHorizonColor, actualDawnDusk);
       }
 
-      window.skyUniforms.bottomColor.value.copy(_skyBottomCol);
+      skyUniforms.bottomColor.value.copy(_skyBottomCol);
     } else {
       _skyBottomCol.copy(_finalSkyColor).multiplyScalar(0.8);
-      window.skyUniforms.bottomColor.value.copy(_skyBottomCol);
+      skyUniforms.bottomColor.value.copy(_skyBottomCol);
     }
   }
 }
@@ -1844,7 +2004,7 @@ function updateBenchmarking(delta, frameStartTime) {
 
       if (elapsed >= durationMs) {
         window.benchmarkComplete = true;
-        isPaused = true;
+        state.isPaused = true;
 
         const times = window.benchmarkFrameTimes;
         times.sort((a, b) => b - a); // Descending (worst to best)
@@ -1894,3 +2054,5 @@ function updateBenchmarking(delta, frameStartTime) {
     }
   }
 }
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.

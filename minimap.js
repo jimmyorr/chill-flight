@@ -1,3 +1,13 @@
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {resetSteering} from './game-ui.js';
+import {inputManager} from './game-input-bindings.js';
+import {log} from './logger.js';
+import {MAP_HEIGHT_SCALE, MAP_WORLD_SIZE, WATER_LEVEL} from './constants.js';
+import {simplex} from './noise.js';
+import {updateUrlParams} from './debug-ui.js';
+import {planeGroup} from './airplane.js';
+import {suppressPauseClick} from './game-state.js';
+
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
 (function () {
@@ -1106,8 +1116,8 @@
 
   function closeFullscreenMap() {
     if (!fsVisible) return;
-    if (typeof window.suppressPauseClick === 'function') {
-      window.suppressPauseClick(500);
+    if (typeof suppressPauseClick === 'function') {
+      suppressPauseClick(500);
     }
     fsVisible = false;
     if (fsOverlay) {
@@ -1435,3 +1445,5 @@
     window.addEventListener('load', startInit);
   }
 })();
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.

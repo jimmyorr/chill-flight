@@ -1,3 +1,17 @@
+import * as THREE from 'three';
+import {camera, renderer} from './sky.js';
+import {
+  _currentLookTarget,
+  _idealCameraPos,
+  splashVrBtn,
+  vrBtn,
+  vrBtnLabel,
+} from './game.js';
+import {cameraDolly, checkVRPresenting} from './game-input-bindings.js';
+import {scene} from './scene.js';
+import {clearInputState, togglePause} from './game-state.js';
+import {state} from './state.js';
+
 async function toggleVRSession() {
   if (typeof renderer === 'undefined' || !renderer || !renderer.xr) return;
   const currentSession = renderer.xr.getSession();
@@ -66,11 +80,11 @@ if (typeof renderer !== 'undefined' && renderer && renderer.xr) {
     if (
       loadingEl &&
       loadingEl.style.display !== 'none' &&
-      typeof dismissLoadingScreen === 'function'
+      typeof state.dismissLoadingScreen === 'function'
     ) {
-      dismissLoadingScreen(true);
-    } else if (isPaused) {
-      isPaused = false;
+      state.dismissLoadingScreen(true);
+    } else if (state.isPaused) {
+      state.isPaused = false;
       const pauseOverlayEl = document.getElementById('pause-overlay');
       if (pauseOverlayEl) pauseOverlayEl.style.display = 'none';
       if (typeof clearInputState === 'function') clearInputState();
@@ -263,7 +277,7 @@ function initVRPauseMenu() {
     cameraDolly.add(xrController1);
 
     const onXRSelect = () => {
-      if (!isPaused || !checkVRPresenting()) return;
+      if (!state.isPaused || !checkVRPresenting()) return;
       if (vrHoveredButton === 0) {
         togglePause();
       } else if (vrHoveredButton === 1) {
@@ -278,7 +292,7 @@ function initVRPauseMenu() {
   drawVRPauseMenu(-1);
 }
 
-var openVRPauseMenu = function () {
+export var openVRPauseMenu = function () {
   if (!vrPauseMenu) initVRPauseMenu();
   if (!vrPauseMenu) return;
 
@@ -295,15 +309,16 @@ var openVRPauseMenu = function () {
   if (laser1) laser1.visible = true;
 };
 
-var closeVRPauseMenu = function () {
+export var closeVRPauseMenu = function () {
   if (!vrPauseMenu) return;
   vrPauseMenu.visible = false;
   if (laser0) laser0.visible = false;
   if (laser1) laser1.visible = false;
 };
 
-var updateVRPauseInteraction = function () {
-  if (!isPaused || !vrPauseMenu || !vrPauseMenu.visible || !vrPauseMesh) return;
+export var updateVRPauseInteraction = function () {
+  if (!state.isPaused || !vrPauseMenu || !vrPauseMenu.visible || !vrPauseMesh)
+    return;
 
   let hovered = -1;
   const controllers = [xrController0, xrController1].filter(Boolean);
@@ -380,3 +395,10 @@ var updateVRPauseInteraction = function () {
     }
   }
 };
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  openVRPauseMenu,
+  closeVRPauseMenu,
+  updateVRPauseInteraction,
+});

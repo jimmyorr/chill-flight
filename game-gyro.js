@@ -1,3 +1,8 @@
+import * as THREE from 'three';
+import {controlSchemeToggle, gyroSchemeBtn, gyroSensitivity} from './game.js';
+import {inputManager} from './game-input-bindings.js';
+import {state} from './state.js';
+
 function checkGyroSupport() {
   let supported = false;
   if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
@@ -29,7 +34,10 @@ checkGyroSupport();
 if (controlSchemeToggle) {
   const schemeBtns = controlSchemeToggle.querySelectorAll('.scheme-btn');
   schemeBtns.forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.scheme === currentControlScheme);
+    btn.classList.toggle(
+      'active',
+      btn.dataset.scheme === state.currentControlScheme
+    );
   });
 
   schemeBtns.forEach((btn) => {
@@ -57,14 +65,14 @@ if (controlSchemeToggle) {
         }
       }
 
-      currentControlScheme = scheme;
+      state.currentControlScheme = scheme;
       if (typeof inputManager !== 'undefined') {
         inputManager.state.controlScheme = scheme;
       }
-      gyroEnabled = scheme === 'gyro';
+      state.gyroEnabled = scheme === 'gyro';
       localStorage.setItem('chill_flight_control_scheme', scheme);
-      gyroBasePitch = null;
-      gyroBaseRoll = null;
+      state.gyroBasePitch = null;
+      state.gyroBaseRoll = null;
 
       // Update button active states
       schemeBtns.forEach((b) => {
@@ -77,11 +85,11 @@ if (controlSchemeToggle) {
       }
 
       // Reset steering state when switching
-      mouseX = 0;
-      mouseY = 0;
-      mouseControlActive = false;
-      joystickActive = false;
-      joystickTouchId = null;
+      state.mouseX = 0;
+      state.mouseY = 0;
+      state.mouseControlActive = false;
+      state.joystickActive = false;
+      state.joystickTouchId = null;
       const _jBase = document.getElementById('virtual-joystick-base');
       if (_jBase) {
         _jBase.classList.remove('joystick-visible');
@@ -119,7 +127,8 @@ var gyroBaseQuat = null;
 var gyroBaseGravity = null;
 const recalibrateBtn = document.getElementById('mobile-recalibrate-btn');
 if (recalibrateBtn) {
-  recalibrateBtn.style.display = currentControlScheme === 'gyro' ? '' : 'none';
+  recalibrateBtn.style.display =
+    state.currentControlScheme === 'gyro' ? '' : 'none';
   recalibrateBtn.addEventListener('click', (e) => {
     e.preventDefault();
     gyroBaseQuat = null;
@@ -142,7 +151,7 @@ const _gyroRelQuat = new THREE.Quaternion();
 const _gyroRelEuler = new THREE.Euler();
 
 function handleGyroData(alpha, beta, gamma) {
-  if (currentControlScheme !== 'gyro' || isPaused) return;
+  if (state.currentControlScheme !== 'gyro' || state.isPaused) return;
   if (beta === null || gamma === null) return;
 
   let orientation = 0;
@@ -188,9 +197,9 @@ function handleGyroData(alpha, beta, gamma) {
   if (targetY > 1) targetY = 1;
   if (targetY < -1) targetY = -1;
 
-  mouseX = targetX;
-  mouseY = targetY;
-  mouseControlActive = true;
+  state.mouseX = targetX;
+  state.mouseY = targetY;
+  state.mouseControlActive = true;
 }
 
 if (
@@ -206,3 +215,5 @@ if (
     handleGyroData(event.alpha, event.beta, event.gamma);
   });
 }
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.

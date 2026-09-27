@@ -28,6 +28,13 @@ import '../game-state.js';
 import '../game-hud.js';
 import '../debug-ui.js';
 import '../game.js';
+import '../game-performance.js';
+import '../game-gyro.js';
+import '../game-ui.js';
+import '../vr-manager.js';
+import '../game-loop.js';
+import '../map-loader.js';
+import '../minimap.js';
 
 // Startup banner
 const appVersion = window.__APP_VERSION__ || '0.0.0';

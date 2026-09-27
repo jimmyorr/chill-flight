@@ -1,4 +1,13 @@
 // map-loader.js
+import {MAP_HEIGHT_SCALE, MAP_WORLD_SIZE, WATER_LEVEL} from './constants.js';
+import {log} from './logger.js';
+import {chunks} from './terrain-geometry.js';
+import {updateChunks} from './terrain-chunks.js';
+import {scene} from './scene.js';
+import {planeGroup} from './airplane.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {simplex} from './noise.js';
+import {state} from './state.js';
 
 (function () {
   function processImage(img) {
@@ -29,7 +38,7 @@
     const worldScale =
       (typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000) / maxDim;
 
-    window.ChillFlightLogic.customMap = {
+    ChillFlightLogic.customMap = {
       data: floatData,
       width: canvas.width,
       height: canvas.height,
@@ -39,7 +48,7 @@
 
     log.info(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
     log.info(
-      `World size: ${window.ChillFlightLogic.customMap.worldWidth.toFixed(0)}x${window.ChillFlightLogic.customMap.worldHeight.toFixed(0)} units (MAP_WORLD_SIZE: ${MAP_WORLD_SIZE})`
+      `World size: ${ChillFlightLogic.customMap.worldWidth.toFixed(0)}x${ChillFlightLogic.customMap.worldHeight.toFixed(0)} units (MAP_WORLD_SIZE: ${MAP_WORLD_SIZE})`
     );
 
     // Clear elevation cache so memoized heights do not persist from procedural terrain
@@ -113,9 +122,9 @@
       }
 
       try {
-        if (typeof targetFlightSpeed !== 'undefined') {
-          targetFlightSpeed = 1.0; // Cruise speed
-          flightSpeedMultiplier = 1.0;
+        if (typeof state.targetFlightSpeed !== 'undefined') {
+          state.targetFlightSpeed = 1.0; // Cruise speed
+          state.flightSpeedMultiplier = 1.0;
         }
       } catch {
         /* ignore */
@@ -173,3 +182,5 @@
     img.src = `assets/${mapName}.png`;
   }
 })();
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
