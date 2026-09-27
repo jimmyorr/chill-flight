@@ -396,7 +396,7 @@ Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script refe
 npm run test:browser
 ```
 
-Loads the game, the model debug page and the map export page in headless Chrome against the running dev server (`npm run dev`). After pressing start, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply. It also simulates a network that drops every packet to the music host and checks that music falls back to the bundled track.
+Loads the game, the model debug page and the map export page in headless Chrome against the running dev server (`npm run dev`). After pressing start, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply. It also simulates a network where every third-party host drops every packet (e.g. a subway) and checks that the page still paints and starts, and that music falls back to the bundled track.
 
 ```bash
 npm run test:build

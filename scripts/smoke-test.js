@@ -36,13 +36,13 @@ const PAGES = [
   {path: 'debug-models.html'},
   // Not a Vite build input, so it only exists on the dev server.
   {path: 'debug-export-map.html', devOnly: true},
-  // Music host drops every packet (e.g. a subway): music must fall back to
-  // the bundled track instead of silently never playing (issue #73).
-  {path: '?seed=1', blackholeMusic: true},
+  // Every third-party host drops every packet (e.g. a subway): the game must
+  // still paint and start, and music must fall back to the bundled track
+  // (issue #73).
+  {path: '?seed=1', blackhole: true},
 ];
 
-// Where streamed music tracks come from, and the bundled fallback track.
-const MUSIC_HOST = 'r2.dev';
+// The bundled fallback music track.
 const BUNDLED_TRACK = 'assets/purrple-cat-birds-of-a-feather.mp3';
 
 const origin = new URL(BASE).origin;
@@ -95,9 +95,9 @@ for (let attempt = 1; ; attempt++) {
 
 const failPage = (tag, msg) => errors.push(`[${tag}] ${msg}`);
 
-async function checkPage(browser, {path, fly, blackholeMusic}) {
+async function checkPage(browser, {path, fly, blackhole}) {
   const url = new URL(path, BASE).href;
-  const tag = blackholeMusic ? 'black-hole music' : path || 'index.html';
+  const tag = blackhole ? 'black-hole network' : path || 'index.html';
   const page = await browser.newPage();
   // Smallish viewport (software WebGL is slow on a busy machine), but wider
   // than 1024px so the game uses its desktop layout.
@@ -114,7 +114,7 @@ async function checkPage(browser, {path, fly, blackholeMusic}) {
       )
     ) {
       req.abort('blockedbyclient').catch(() => {});
-    } else if (blackholeMusic && u.includes(MUSIC_HOST)) {
+    } else if (blackhole && !u.startsWith(origin)) {
       // Never answer: the request hangs like on a packet-dropping network.
     } else {
       req.continue().catch(() => {});
@@ -161,7 +161,7 @@ async function checkPage(browser, {path, fly, blackholeMusic}) {
     };
   });
 
-  if (blackholeMusic) {
+  if (blackhole) {
     // A returning player (first-time players always get the bundled track),
     // with music on. ?seed=1 starts on a streamed track.
     await page.evaluateOnNewDocument(() => {
@@ -176,10 +176,25 @@ async function checkPage(browser, {path, fly, blackholeMusic}) {
   });
 
   console.log(`Loading ${url} ...`);
-  await page.goto(url, {waitUntil: 'load', timeout: 30000});
+  if (blackhole) {
+    // 'load' may never fire while third-party requests hang; don't wait for it.
+    await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 30000});
+  } else {
+    await page.goto(url, {waitUntil: 'load', timeout: 30000});
+  }
 
-  if (blackholeMusic) {
+  if (blackhole) {
     await page.waitForSelector('#begin-btn', {visible: true, timeout: 30000});
+    // A screenshot needs a painted frame; if a render-blocking third-party
+    // resource hangs, the page never paints (a black screen).
+    const painted = await Promise.race([
+      page
+        .screenshot()
+        .then(() => true)
+        .catch(() => false),
+      new Promise((r) => setTimeout(() => r(false), 10000)),
+    ]);
+    if (!painted) failPage(tag, 'page never painted (black screen)');
     await page.click('#begin-btn');
     const fellBack = await Promise.race([
       bundledRequested,
@@ -193,7 +208,9 @@ async function checkPage(browser, {path, fly, blackholeMusic}) {
       failPage(tag, 'falling back turned the music setting off');
     }
     await page.close();
-    console.log(`  black-hole music: ${fellBack ? 'fell back ok' : 'FAILED'}`);
+    console.log(
+      `  black-hole network: painted ${painted ? 'ok' : 'NO'}, music ${fellBack ? 'fell back ok' : 'did NOT fall back'}`
+    );
     return;
   }
 

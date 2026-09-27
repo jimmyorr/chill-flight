@@ -1,6 +1,11 @@
 // Game entry point for index.html. Modules imported here run before the
 // classic <script defer> tags in index.html.
 import './sentry.js';
+// Bundled font: a render-blocking Google Fonts stylesheet kept the page from
+// ever painting on networks that drop packets (black screen, issue #73).
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
 import '../logger.js';
 import '../network.js';
 import '../chill-flight-logic.js';
