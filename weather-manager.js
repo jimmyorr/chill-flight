@@ -1,28 +1,38 @@
-var manualCloudCover =
+import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {scene} from './scene.js';
+import {log} from './logger.js';
+import {planeGroup} from './airplane.js';
+import {simplex} from './noise.js';
+import {CHUNK_SIZE} from './constants.js';
+import {camera, skyUniforms} from './sky.js';
+import {state} from './state.js';
+
+export var manualCloudCover =
   typeof ChillFlightLogic !== 'undefined' &&
   ChillFlightLogic.START_CLOUD_COVER !== null &&
   ChillFlightLogic.START_CLOUD_COVER !== undefined
     ? ChillFlightLogic.START_CLOUD_COVER
     : null;
-var manualCloudHeight =
+export var manualCloudHeight =
   typeof ChillFlightLogic !== 'undefined' &&
   typeof ChillFlightLogic.START_CLOUD_HEIGHT === 'number'
     ? ChillFlightLogic.START_CLOUD_HEIGHT
     : 3000.0;
-var manualCloudSpeed =
+export var manualCloudSpeed =
   typeof ChillFlightLogic !== 'undefined' &&
   typeof ChillFlightLogic.START_CLOUD_SPEED === 'number'
     ? ChillFlightLogic.START_CLOUD_SPEED
     : 1.0;
-var showCloudsEnabled =
+export var showCloudsEnabled =
   typeof ChillFlightLogic !== 'undefined' ? ChillFlightLogic.SHOW_CLOUDS : true;
 // --- WEATHER SYSTEM ---
-var weatherType =
+export var weatherType =
   typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.START_WEATHER
     ? ChillFlightLogic.START_WEATHER
     : 'auto'; // 'auto', 'none', 'snow', 'rain'
-var snowParticles = null;
-var rainParticles = null;
+export var snowParticles = null;
+export var rainParticles = null;
 
 // Scale particles based on quality
 var _initPresetForWeather =
@@ -213,10 +223,10 @@ function initWeather() {
     debugCloudsToggle.checked = showCloudsEnabled;
     debugCloudsToggle.addEventListener('change', (e) => {
       showCloudsEnabled = e.target.checked;
-      if (window.skyUniforms) {
-        window.skyUniforms.uShowClouds.value =
+      if (skyUniforms) {
+        skyUniforms.uShowClouds.value =
           showCloudsEnabled &&
-          (typeof SEGMENTS === 'undefined' || SEGMENTS > 20);
+          (typeof state.SEGMENTS === 'undefined' || state.SEGMENTS > 20);
       }
     });
   }
@@ -275,8 +285,8 @@ function initWeather() {
       manualCloudHeight = parseFloat(e.target.value);
       if (debugCloudHeightVal)
         debugCloudHeightVal.textContent = `${Math.round(manualCloudHeight)}m`;
-      if (window.skyUniforms && window.skyUniforms.uCloudHeight) {
-        window.skyUniforms.uCloudHeight.value = manualCloudHeight;
+      if (skyUniforms && skyUniforms.uCloudHeight) {
+        skyUniforms.uCloudHeight.value = manualCloudHeight;
       }
     });
   }
@@ -297,7 +307,7 @@ function initWeather() {
   }
 }
 
-function cycleWeather() {
+export function cycleWeather() {
   const modes = ['auto', 'none', 'rain', 'snow'];
   const nextIndex = (modes.indexOf(weatherType) + 1) % modes.length;
   weatherType = modes[nextIndex];
@@ -314,11 +324,11 @@ function cycleWeather() {
 }
 window.cycleWeather = cycleWeather;
 
-function updateWeather(delta) {
+export function updateWeather(delta) {
   if (!snowParticles || !rainParticles) return;
 
   // Optimization: Skip entire weather simulation and hide particles on Low graphics
-  if (SEGMENTS <= 20) {
+  if (state.SEGMENTS <= 20) {
     snowParticles.visible = false;
     rainParticles.visible = false;
     snowParticles.material.opacity = 0;
@@ -431,7 +441,7 @@ function updateWeather(delta) {
     Math.random() < targetRainOpacity * 0.0025
   ) {
     // Only allow lightning between 6pm and 6am
-    const hours = (timeOfDay / (Math.PI * 2)) * 24;
+    const hours = (state.timeOfDay / (Math.PI * 2)) * 24;
     if (hours >= 18 || hours <= 6) {
       // Trigger a new lightning strike during heavy rain
       window.lightningFlashIntensity = 1.5 + Math.random() * 1.0;
@@ -526,3 +536,18 @@ function updateWeather(delta) {
 
 // Initialize immediately
 initWeather();
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  updateWeather,
+});
+// Live bindings: reassigned here, read elsewhere.
+Object.defineProperties(window, {
+  manualCloudCover: {get: () => manualCloudCover, configurable: true},
+  manualCloudHeight: {get: () => manualCloudHeight, configurable: true},
+  manualCloudSpeed: {get: () => manualCloudSpeed, configurable: true},
+  showCloudsEnabled: {get: () => showCloudsEnabled, configurable: true},
+  weatherType: {get: () => weatherType, configurable: true},
+  snowParticles: {get: () => snowParticles, configurable: true},
+  rainParticles: {get: () => rainParticles, configurable: true},
+});

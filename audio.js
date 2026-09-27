@@ -1,9 +1,11 @@
 // --- AUDIO (PURRPLE CAT) ---
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {log} from './logger.js';
 
-let musicEnabled =
+export let musicEnabled =
   localStorage.getItem('chill_flight_music_enabled') !== 'false';
 
-let purrpleCatAudio = new Audio();
+export let purrpleCatAudio = new Audio();
 const purrpleCatTracks = [
   'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-birds-of-a-feather.mp3',
   'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-a-place-to-hide.mp3',
@@ -145,8 +147,6 @@ if (localStorage.getItem('chill_flight_played_before') !== 'true') {
   purrpleCatIdx = 0;
   localStorage.setItem('chill_flight_played_before', 'true');
 }
-
-const CACHE_NAME = 'chill-flight-music-v1';
 
 // Pre-cache the first track immediately to avoid breaking user-gesture chain later
 getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).catch((e) =>
@@ -321,7 +321,7 @@ purrpleCatAudio.addEventListener('ended', async () => {
   await nextTrack();
 });
 
-function getCurrentTrackName() {
+export function getCurrentTrackName() {
   const url = purrpleCatTracks[purrpleCatIdx];
   const fileName = url.split('/').pop().replace('.mp3', '');
   // Convert 'purrple-cat-birds-of-a-feather' to 'Birds Of A Feather'
@@ -400,19 +400,19 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-function setMusicEnabled(enabled) {
+export function setMusicEnabled(enabled) {
   musicEnabled = enabled;
   localStorage.setItem('chill_flight_music_enabled', enabled);
   updateAudioPlayer(enabled);
 }
 
-function setMusicVolume(volume) {
+export function setMusicVolume(volume) {
   if (purrpleCatAudio) {
     purrpleCatAudio.volume = volume;
   }
 }
 
-async function updateAudioPlayer(enabled) {
+export async function updateAudioPlayer(enabled) {
   if (enabled) {
     if (!purrpleCatAudio.src) {
       const url = purrpleCatTracks[purrpleCatIdx];
@@ -498,4 +498,17 @@ getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]).then((url) => {
   if (!purrpleCatAudio.src) {
     purrpleCatAudio.src = url;
   }
+});
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  purrpleCatAudio,
+  getCurrentTrackName,
+  setMusicEnabled,
+  setMusicVolume,
+  updateAudioPlayer,
+});
+// Live bindings: reassigned here, read elsewhere.
+Object.defineProperties(window, {
+  musicEnabled: {get: () => musicEnabled, configurable: true},
 });

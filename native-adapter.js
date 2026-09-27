@@ -1,5 +1,7 @@
 // native-adapter.js
 // "The Sidecar Rule": Enhances the core game for Native without touching core files.
+import {log} from './logger.js';
+
 (function () {
   log.info('Native Adapter initialized');
 
@@ -147,3 +149,5 @@
     }, 1000);
   }
 })();
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.

@@ -15,6 +15,12 @@ import '../twin.js';
 import '../airplane.js';
 import '../terrain-geometry.js';
 import '../terrain-chunks.js';
+import '../audio.js';
+import '../native-adapter.js';
+import '../achievements.js';
+import '../input-manager.js';
+import '../game-audio-integration.js';
+import '../weather-manager.js';
 
 // Startup banner
 const appVersion = window.__APP_VERSION__ || '0.0.0';

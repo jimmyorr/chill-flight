@@ -1,4 +1,7 @@
-class InputManager {
+import {renderer} from './sky.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+
+export class InputManager {
   constructor() {
     this.state = {
       keys: {
@@ -1099,3 +1102,5 @@ class InputManager {
 }
 
 window.InputManager = InputManager;
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.

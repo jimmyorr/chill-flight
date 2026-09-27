@@ -1,6 +1,7 @@
 // --- ACHIEVEMENTS SYSTEM ---
 // Data registry, localStorage persistence, unlock API, and in-game toast notifications.
 // Loaded before game.js so Achievements.unlock() is available during gameplay.
+import {log} from './logger.js';
 
 (function () {
   'use strict';
@@ -370,3 +371,5 @@
     updateStats,
   };
 })();
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.

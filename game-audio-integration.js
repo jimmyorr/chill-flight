@@ -1,4 +1,6 @@
-function updatePauseMenuMusicInfo() {
+import {getCurrentTrackName, musicEnabled, setMusicEnabled} from './audio.js';
+
+export function updatePauseMenuMusicInfo() {
   const cpEl = document.getElementById('currently-playing');
   const titleEl = document.getElementById('song-title-text');
   const attrEl = document.getElementById('music-attribution');
@@ -46,3 +48,5 @@ if (musicToggle) {
     }
   });
 }
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
