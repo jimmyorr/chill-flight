@@ -2,8 +2,12 @@
 // also reports errors thrown while they load.
 import * as Sentry from '@sentry/browser';
 
-Sentry.init({
-  dsn: 'https://7d9671463431e10775c66852b238ad8e@o4511337089400832.ingest.us.sentry.io/4511346247532544',
-  tracesSampleRate: 0.1,
-  maxBreadcrumbs: 30,
-});
+// Only initialize Sentry for production builds; errors during local
+// development stay local instead of polluting the Sentry project.
+if (import.meta.env.PROD) {
+  Sentry.init({
+    dsn: 'https://7d9671463431e10775c66852b238ad8e@o4511337089400832.ingest.us.sentry.io/4511346247532544',
+    tracesSampleRate: 0.1,
+    maxBreadcrumbs: 30,
+  });
+}
