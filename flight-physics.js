@@ -4,6 +4,8 @@ import {planeGroup, pontoonGroup} from './airplane.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {rainParticles} from './weather-manager.js';
 import {state} from './state.js';
+import {isFreeCamera} from './debug-ui.js';
+import {inputManager, keys} from './game-input-bindings.js';
 
 export function updateFlightPhysics(delta, nowTime) {
   // --- FLIGHT PHYSICS & SPEED ---
@@ -24,7 +26,7 @@ export function updateFlightPhysics(delta, nowTime) {
     (state.flightSpeedMultiplier > 0 || Math.abs(state.targetFlightSpeed) > 0)
   ) {
     // Apply the yaw calculated by the flight model
-    planeGroup.rotation.y = window._nextYaw;
+    planeGroup.rotation.y = state._nextYaw;
 
     // --- GRAVITY ACCELERATION/DECELERATION ---
     // Nose down = gain speed, Nose up = lose speed

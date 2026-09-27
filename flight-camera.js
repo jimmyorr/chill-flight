@@ -22,6 +22,53 @@ import {
 } from './constants.js';
 import {log} from './logger.js';
 import {state} from './state.js';
+import {isFreeCamera} from './debug-ui.js';
+import {
+  _lastChunkUpdatePos,
+  cameraDolly,
+  currentCinematicIndex,
+  keys,
+} from './game-input-bindings.js';
+import {
+  CINEMATIC_CONFIGS,
+  _boatDummy,
+  _boatHash,
+  _cameraAnchorMatrix,
+  _cameraAnchorQuat,
+  _cameraOffset,
+  _cinematicLookTargetCurrent,
+  _cinematicOffsetCurrent,
+  _cinematicStableMatrix,
+  _cinematicStableQuat,
+  _currentLookTarget,
+  _freeCamFwd,
+  _freeCamSide,
+  _idealCameraPos,
+  _idealCameraPos_Cinematic,
+  _idealCameraPos_FirstPerson,
+  _idealCameraPos_Follow,
+  _idealCameraPos_TopDown,
+  _idealLookTarget,
+  _idealLookTarget_Cinematic,
+  _idealLookTarget_FirstPerson,
+  _idealLookTarget_Follow,
+  _idealLookTarget_TopDown,
+  _idealUp,
+  _introCameraPosStart,
+  _introLookTargetStart,
+  _lighthouseBeamWorldPos,
+  _lookOffset,
+  _pirateSailCounts,
+  _up_FirstPerson,
+  _up_Follow,
+  _up_TopDown,
+  _virtualCameraPos,
+  _virtualLookTarget,
+  _yAxis,
+  clock,
+  invertYAxis,
+} from './game.js';
+import {performanceMonitor} from './game-performance.js';
 
 export function updateFlightCamera(delta, nowTime) {
   // --- CAMERA UPDATES ---

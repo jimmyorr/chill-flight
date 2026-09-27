@@ -1377,7 +1377,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     planeGroup.rotation.z = flightRot.roll;
 
     // Store calculated yaw to be applied later in the physics block
-    window._nextYaw = flightRot.yaw;
+    state._nextYaw = flightRot.yaw;
   }
 }
 

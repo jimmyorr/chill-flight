@@ -35,6 +35,9 @@ export const state = {
   isDeployingPontoons: false,
   isRetractingPontoons: false,
 
+  // Next frame's yaw, computed in game-loop.js and applied by flight-physics.js
+  _nextYaw: undefined,
+
   // Terrain chunk loading
   chunkQueue: [],
   _enableObjects: ChillFlightLogic.SHOW_OBJECTS, // procedural props toggle
