@@ -13,9 +13,10 @@ import path from 'path';
 const BUILD_MODE = process.argv.includes('--build');
 let BASE = process.env.SMOKE_URL || 'http://localhost:5173/';
 let staticServer = null;
+let outDir = null;
 
 if (BUILD_MODE) {
-  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chill-flight-build-'));
+  outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chill-flight-build-'));
   console.log(`Building to ${outDir} ...`);
   execSync(`npx vite build --outDir "${outDir}" --emptyOutDir`, {
     stdio: ['ignore', 'ignore', 'inherit'],
@@ -134,6 +135,19 @@ async function checkPage(browser, {path, fly}) {
     });
   });
 
+  // Count worker replies, so a silent fallback to main-thread terrain
+  // generation (workers crashing on load) fails the test.
+  await page.evaluateOnNewDocument(() => {
+    window.__smokeWorkerMessages = 0;
+    const NativeWorker = window.Worker;
+    window.Worker = class extends NativeWorker {
+      constructor(...args) {
+        super(...args);
+        this.addEventListener('message', () => window.__smokeWorkerMessages++);
+      }
+    };
+  });
+
   console.log(`Loading ${url} ...`);
   await page.goto(url, {waitUntil: 'load', timeout: 30000});
 
@@ -153,6 +167,7 @@ async function checkPage(browser, {path, fly}) {
   await new Promise((r) => setTimeout(r, FLIGHT_MS));
 
   const state = await page.evaluate(() => ({
+    workerMessages: window.__smokeWorkerMessages,
     canvas: !!document.querySelector('canvas'),
     paused:
       getComputedStyle(document.getElementById('pause-overlay')).display !==
@@ -162,6 +177,10 @@ async function checkPage(browser, {path, fly}) {
     errors.push(`[${tag}] no <canvas> found: renderer never started`);
   }
   if (state.paused) errors.push(`[${tag}] still paused after pressing START`);
+  if (!state.workerMessages) {
+    errors.push(`[${tag}] terrain workers never replied`);
+  }
+  console.log(`  terrain worker replies: ${state.workerMessages}`);
   await page.close();
 }
 
@@ -178,6 +197,7 @@ try {
 } finally {
   await browser.close();
   staticServer?.close();
+  if (outDir) fs.rmSync(outDir, {recursive: true, force: true});
 }
 
 if (errors.length) {
