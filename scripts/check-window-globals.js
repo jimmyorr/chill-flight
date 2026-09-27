@@ -37,7 +37,7 @@ const ALLOWED = new Set([
 ]);
 
 const sources = [];
-for (const dir of ['.', 'src']) {
+for (const dir of ['.', 'src', 'debug']) {
   for (const f of fs.readdirSync(path.join(rootDir, dir))) {
     const rel = path.join(dir, f);
     if (

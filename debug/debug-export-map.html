@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Debug | Export Heightmap</title>
-    <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
-    <link rel="apple-touch-icon" href="icon-192.png" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="stylesheet" href="/style.css" />
     <style>
       body {
         margin: 0;
@@ -153,14 +153,14 @@
 
     <!-- Scripts needed for generation -->
     <script type="module">
-      import {ChillFlightLogic} from './chill-flight-logic.js';
-      import {SimplexNoise} from './noise.js';
+      import {ChillFlightLogic} from '../chill-flight-logic.js';
+      import {SimplexNoise} from '../noise.js';
       import {
         MAP_HEIGHT_SCALE,
         MAP_WORLD_SIZE,
         MOUNTAIN_LEVEL,
         WATER_LEVEL,
-      } from './constants.js';
+      } from '../constants.js';
 
       // Set the default seed to the game's actual WORLD_SEED
       document.getElementById('input-seed').value = ChillFlightLogic.WORLD_SEED;

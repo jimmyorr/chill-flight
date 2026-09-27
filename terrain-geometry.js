@@ -2893,7 +2893,7 @@ var volcanoLavaMat = new THREE.MeshBasicMaterial({color: 0xff4500});
 
 // --- MODEL ASSEMBLER: SINGLE SOURCE OF TRUTH ---
 // This object defines how complex multi-part models are constructed.
-// Both terrain.js (during world gen) and debug.html (during preview)
+// Both terrain.js (during world gen) and debug/debug-models.html (during preview)
 // use this to ensure they stay in perfect sync.
 export const ModelAssembler = {
   getStructure: function (id, rotY = 0, opts = {}) {

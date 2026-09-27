@@ -35,11 +35,11 @@
 
 ## Geometry & model rules
 
-- **Debug page update**: When adding a new geometry or model to the game, always add it to the model debug page (`debug-models.html`) as well, so it can be previewed.
+- **Debug page update**: When adding a new geometry or model to the game, always add it to the model debug page (`debug/debug-models.html`) as well, so it can be previewed.
 
 ## Directory rules
 
-- **Do not touch the docs directory**: The `docs/` directory is strictly for compiled production builds generated automatically by Vite. Never edit, search, or read files inside the `docs/` directory. All development, changes, and queries must be executed against the root source files (like `game.js`, `airplane.js`, `style.css`, root `index.html`, root `debug.html`, etc.).
+- **Do not touch the docs directory**: The `docs/` directory is strictly for compiled production builds generated automatically by Vite. Never edit, search, or read files inside the `docs/` directory. All development, changes, and queries must be executed against the root source files (like `game.js`, `airplane.js`, `style.css`, root `index.html`, `debug/debug.html`, etc.).
 
 ## Location reporting rules
 

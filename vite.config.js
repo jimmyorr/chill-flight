@@ -79,8 +79,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: 'index.html',
-        debug: 'debug.html',
-        debugModels: 'debug-models.html',
+        // Debug pages (debug/) are dev-only and not part of the build.
       },
     },
   },

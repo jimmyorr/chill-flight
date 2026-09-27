@@ -33,9 +33,9 @@ const DEBUG_PAGE_MS = 3000;
 // The game gets a full flight; debug pages only need to load cleanly.
 const PAGES = [
   {path: '', fly: true},
-  {path: 'debug-models.html'},
-  // Not a Vite build input, so it only exists on the dev server.
-  {path: 'debug-export-map.html', devOnly: true},
+  // Debug pages are dev-only (not in the production build).
+  {path: 'debug/debug-models.html', devOnly: true},
+  {path: 'debug/debug-export-map.html', devOnly: true},
   // Every third-party host drops every packet (e.g. a subway): the game must
   // still paint and start, and music must fall back to the bundled track
   // (issue #73).

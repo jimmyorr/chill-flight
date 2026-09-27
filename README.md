@@ -376,7 +376,7 @@ Once started, open `http://localhost:5173` in your browser.
 
 ### Code structure
 
-The game is made of ES modules in the repository root. `src/main.js` is the entry point for `index.html`: it imports every game module, in dependency order, and prints the startup banner. `src/debug-models.js` is a smaller entry point for the model debug page.
+The game is made of ES modules in the repository root. `src/main.js` is the entry point for `index.html`: it imports every game module, in dependency order, and prints the startup banner. `src/debug-models.js` is a smaller entry point for the model debug page (`debug/debug-models.html`).
 
 - **Import what you use.** Modules share code only through `import`/`export`, never through `window` globals. A module may only import modules listed before it in `src/main.js`, which keeps the dependency graph free of cycles.
 - **Shared mutable values live in `state.js`.** ES modules can't reassign another module's exports, so values that more than one module writes (`state.timeOfDay`, `state.isPaused`, `state.cameraMode`, etc.) live on the single `state` object.
@@ -396,17 +396,17 @@ Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script refe
 npm run test:browser
 ```
 
-Loads the game, the model debug page and the map export page in headless Chrome against the running dev server (`npm run dev`). After pressing start, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply. It also simulates a network where every third-party host drops every packet (e.g. a subway) and checks that the page still paints and starts, and that music falls back to the bundled track.
+Loads the game and the debug pages in headless Chrome against the running dev server (`npm run dev`). After pressing start, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply. It also simulates a network where every third-party host drops every packet (e.g. a subway) and checks that the page still paints and starts, and that music falls back to the bundled track.
 
 ```bash
 npm run test:build
 ```
 
-Runs the same browser checks against a production build written to a temporary directory (never `docs/`).
+Runs the same game checks against a production build written to a temporary directory (never `docs/`).
 
 ### Model debug page
 
-A debug directory is available during development at `/debug.html` (e.g., `http://localhost:5173/debug.html`), which links to standalone viewers like the model viewer (`/debug-models.html`). These pages allow you to inspect and preview in-game geometries and structures in isolation, making it easy to tweak vertices, test materials, and verify rotations before adding them to the procedural world.
+Debug pages live in `debug/` and are available only during development (they aren't part of the production build). Start at `http://localhost:5173/debug/debug.html`, which links to standalone viewers like the model viewer (`/debug/debug-models.html`). These pages allow you to inspect and preview in-game geometries and structures in isolation, making it easy to tweak vertices, test materials, and verify rotations before adding them to the procedural world.
 
 ### Production build
 
@@ -418,7 +418,7 @@ npm run build
 
 This builds the optimized code into the `docs/` folder (which is hosted directly on GitHub Pages):
 
-- Game modules and third-party dependencies (`three`, `@sentry/browser`) are bundled and minified, with code shared by the game and the model debug page in a common chunk.
+- Game modules and third-party dependencies (`three`, `@sentry/browser`) are bundled and minified. The debug pages are dev-only and aren't included.
 - The terrain web worker is bundled into its own file.
 
 ### Previewing production build
