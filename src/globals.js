@@ -9,10 +9,7 @@ import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 import skyVert from './shaders/sky.vert.glsl?raw';
 import skyFrag from './shaders/sky.frag.glsl?raw';
 import sunMoonVert from './shaders/sunMoon.vert.glsl?raw';
-import sunFrag from './shaders/sun.frag.glsl?raw';
 import moonFrag from './shaders/moon.frag.glsl?raw';
-import sunGlowVert from './shaders/sunGlow.vert.glsl?raw';
-import sunGlowFrag from './shaders/sunGlow.frag.glsl?raw';
 import rainbowVert from './shaders/rainbow.vert.glsl?raw';
 import rainbowFrag from './shaders/rainbow.frag.glsl?raw';
 
@@ -37,10 +34,7 @@ window.SKY_SHADERS = {
   skyVert,
   skyFrag,
   sunMoonVert,
-  sunFrag,
   moonFrag,
-  sunGlowVert,
-  sunGlowFrag,
   rainbowVert,
   rainbowFrag,
 };

@@ -7,6 +7,7 @@ import '../state.js';
 import '../constants.js';
 import '../noise.js';
 import '../terrain-worker-manager.js';
+import '../sky.js';
 
 // Startup banner
 const appVersion = window.__APP_VERSION__ || '0.0.0';

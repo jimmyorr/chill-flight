@@ -16,6 +16,14 @@ export const state = {
   RENDER_DISTANCE: 2,
   PROP_LOD_DISTANCE: 4200,
 
+  // Day/night cycle (0..2PI: 0 = midnight, PI = noon). Starts at 05:30 to
+  // catch the heart of the sunrise transition.
+  timeOfDay: Math.PI * (5.5 / 12),
+  daySpeedMultiplier:
+    ChillFlightLogic.START_TIME_SPEED !== null
+      ? ChillFlightLogic.START_TIME_SPEED
+      : 1,
+
   // Flight dynamics
   flightSpeedMultiplier: initialFlightSpeed,
   targetFlightSpeed: initialFlightSpeed,

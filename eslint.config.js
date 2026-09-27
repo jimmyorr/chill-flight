@@ -17,6 +17,7 @@ const ESM_FILES = [
   'terrain-worker.js',
   'state.js',
   'constants.js',
+  'sky.js',
 ];
 
 const isGlobalObject = (node) =>
@@ -99,12 +100,14 @@ for (const file of rootFiles) {
           gameGlobals[left.property.name] = 'writable';
         }
       } else if (
-        // Object.assign(window, {a, b}) bridges
+        // Object.assign(window, {a, b}) / Object.defineProperties(window, {...}) bridges
         node.type === 'ExpressionStatement' &&
         node.expression.type === 'CallExpression' &&
         node.expression.callee.type === 'MemberExpression' &&
         node.expression.callee.object.name === 'Object' &&
-        node.expression.callee.property.name === 'assign' &&
+        ['assign', 'defineProperties'].includes(
+          node.expression.callee.property.name
+        ) &&
         isGlobalObject(node.expression.arguments[0] || {}) &&
         node.expression.arguments[1]?.type === 'ObjectExpression'
       ) {

@@ -1,7 +1,7 @@
 // --- SCENE, CAMERA, RENDERER, LIGHTS, SKY ---
-// Dependencies: THREE (CDN)
+// timeOfDay and daySpeedMultiplier live in state.js (other files write them).
 
-const scene = new THREE.Scene();
+export const scene = new THREE.Scene();
 // Background will be handled by a Skysphere shader
 scene.fog = new THREE.FogExp2(0xa0d8ef, 0.00015);
 
@@ -100,14 +100,13 @@ function generateDynamicPalette(rng) {
 }
 
 // Standard parameters are handled by ChillFlightLogic
-let selectedPalette;
+export let selectedPalette;
 let currentPaletteCycle = -1;
-let isCustomPalette = false;
-let currentPaletteSeed;
+export let isCustomPalette = false;
+export let currentPaletteSeed;
 
-function applyCustomSkyColors(top, bottom, day) {
+export function applyCustomSkyColors(top, bottom, day) {
   isCustomPalette = true;
-  window.isCustomPalette = true;
 
   // Convert hex string (from picker) or number to hex if needed
   const topHex =
@@ -130,7 +129,6 @@ function applyCustomSkyColors(top, bottom, day) {
       }
     }
   }
-  window.selectedPalette = selectedPalette;
 
   if (typeof skyUniforms !== 'undefined') {
     skyUniforms.topColor.value.setHex(selectedPalette.top);
@@ -142,7 +140,7 @@ function applyCustomSkyColors(top, bottom, day) {
   );
 }
 
-function nextSkyPalette() {
+export function nextSkyPalette() {
   if (currentPaletteSeed === undefined) {
     const CYCLE_DURATION_MS = 300000;
     const serverNow = window._gameServerNow || Date.now();
@@ -150,14 +148,11 @@ function nextSkyPalette() {
     currentPaletteSeed = ChillFlightLogic.WORLD_SEED + cycleNumber;
   }
   currentPaletteSeed++;
-  window.currentPaletteSeed = currentPaletteSeed;
   isCustomPalette = false;
-  window.isCustomPalette = false;
 
   const rng = ChillFlightLogic.mulberry32(currentPaletteSeed);
   selectedPalette = generateDynamicPalette(rng);
   selectedPalette.seed = currentPaletteSeed;
-  window.selectedPalette = selectedPalette;
 
   if (typeof skyUniforms !== 'undefined') {
     skyUniforms.topColor.value.setHex(selectedPalette.top);
@@ -168,10 +163,8 @@ function nextSkyPalette() {
     new CustomEvent('paletteChanged', {detail: selectedPalette})
   );
 }
-window.nextSkyPalette = nextSkyPalette;
-window.applyCustomSkyColors = applyCustomSkyColors;
 
-function updateSkyPalette(serverNow) {
+export function updateSkyPalette(serverNow) {
   if (isCustomPalette) return;
   // If the user has a manually chosen palette seed (via URL or next preset button), keep it locked
   if (currentPaletteSeed !== undefined && selectedPalette) return;
@@ -246,14 +239,10 @@ function updateSkyPalette(serverNow) {
       currentPaletteSeed = ChillFlightLogic.WORLD_SEED + cycleNumber;
     }
 
-    window.currentPaletteSeed = currentPaletteSeed;
-    window.isCustomPalette = false;
-
     // Generate the colors!
     const rng = ChillFlightLogic.mulberry32(currentPaletteSeed);
     selectedPalette = generateDynamicPalette(rng);
     selectedPalette.seed = currentPaletteSeed;
-    window.selectedPalette = selectedPalette;
 
     log.info(
       `Atmosphere Palette Updated (Cycle ${cycleNumber}, Seed ${currentPaletteSeed}): ${selectedPalette.name}`
@@ -271,7 +260,6 @@ function updateSkyPalette(serverNow) {
     );
   }
 }
-window.updateSkyPalette = updateSkyPalette;
 
 // --- NOISE TEXTURE GENERATOR ---
 const _noiseSize = 256;
@@ -292,7 +280,7 @@ skyNoiseTexture.magFilter = THREE.LinearFilter;
 skyNoiseTexture.needsUpdate = true;
 
 // Initial object creation with dummy values; updateSkyPalette will populate them
-const skyUniforms = {
+export const skyUniforms = {
   topColor: {value: new THREE.Color()},
   bottomColor: {value: new THREE.Color()},
   sunDirection: {value: new THREE.Vector3(0, 1, 0)},
@@ -314,7 +302,6 @@ const skyUniforms = {
   uNoiseTex: {value: skyNoiseTexture},
   uCameraPos: {value: new THREE.Vector3()},
 };
-window.skyUniforms = skyUniforms;
 
 // Initial calculation
 updateSkyPalette(Date.now() + (window.serverTimeOffset || 0));
@@ -330,7 +317,7 @@ const skyMat = new THREE.ShaderMaterial({
 
 scene.fog.color.set(selectedPalette.bottom);
 
-const camera = new THREE.PerspectiveCamera(
+export const camera = new THREE.PerspectiveCamera(
   60,
   window.innerWidth / window.innerHeight,
   1,
@@ -351,7 +338,7 @@ const _isLowQuality =
 // Update uniforms for initial load
 skyUniforms.uShowClouds.value = ChillFlightLogic.SHOW_CLOUDS && !_isLowQuality;
 
-const renderer = new THREE.WebGLRenderer({antialias: !_isLowQuality});
+export const renderer = new THREE.WebGLRenderer({antialias: !_isLowQuality});
 // This project was tuned against the three.js r128 rendering pipeline. r152+
 // enables color management and sRGB output by default; restore the legacy
 // behavior so the established art direction is preserved.
@@ -372,11 +359,15 @@ if (renderer.xr) {
 document.body.appendChild(renderer.domElement);
 
 // Lights
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6 * Math.PI);
+export const hemiLight = new THREE.HemisphereLight(
+  0xffffff,
+  0x444444,
+  0.6 * Math.PI
+);
 hemiLight.position.set(0, 500, 0);
 scene.add(hemiLight);
 
-const dirLight = new THREE.DirectionalLight(0xfff0dd, 0.8 * Math.PI);
+export const dirLight = new THREE.DirectionalLight(0xfff0dd, 0.8 * Math.PI);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
@@ -391,21 +382,14 @@ dirLight.shadow.normalBias = 2.0;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
-const moonLight = new THREE.DirectionalLight(0xbad2ff, 0.3 * Math.PI); // Cool moonlight
+export const moonLight = new THREE.DirectionalLight(0xbad2ff, 0.3 * Math.PI); // Cool moonlight
 scene.add(moonLight);
 
 // --- DAY / NIGHT CYCLE SETUP ---
-// timeOfDay goes from 0 to 2PI (0 = midnight, PI/2 = 6am, PI = noon, 3PI/2 = 6pm)
-let timeOfDay = Math.PI * (5.5 / 12); // Start at 05:30 to catch the heart of the sunrise transition
-const BASE_DAY_SPEED = 0.02;
-let daySpeedMultiplier =
-  typeof ChillFlightLogic !== 'undefined' &&
-  ChillFlightLogic.START_TIME_SPEED !== null
-    ? ChillFlightLogic.START_TIME_SPEED
-    : 1;
+export const BASE_DAY_SPEED = 0.02;
 
 // Sky Objects Group (follows player, hosts celestial bodies)
-const skyGroup = new THREE.Group();
+export const skyGroup = new THREE.Group();
 scene.add(skyGroup);
 
 // Skysphere (Backdrop)
@@ -416,11 +400,9 @@ skyGroup.add(skySphereMesh);
 // --- CELESTIAL SHADERS ---
 const sunMoonVertShader = window.SKY_SHADERS.sunMoonVert;
 
-const sunFragShader = window.SKY_SHADERS.sunFrag;
-
 const moonFragShader = window.SKY_SHADERS.moonFrag;
 
-const sunUniforms = {
+export const sunUniforms = {
   uTime: {value: 0.0},
   overcast: {value: 0.0},
   dayFactor: {value: 1.0},
@@ -428,7 +410,7 @@ const sunUniforms = {
   uNoiseTex: {value: skyNoiseTexture},
 };
 
-const moonUniforms = {
+export const moonUniforms = {
   uTime: {value: 0.0},
   overcast: {value: 0.0},
   dayFactor: {value: 1.0},
@@ -439,17 +421,11 @@ const moonUniforms = {
   uMoonSkyDir: {value: new THREE.Vector3(0, 0.2, -1)},
   uCameraPos: {value: new THREE.Vector3()},
 };
-window.sunUniforms = sunUniforms;
-window.moonUniforms = moonUniforms;
-
-const sunGlowVertShader = window.SKY_SHADERS.sunGlowVert;
-
-const sunGlowFragShader = window.SKY_SHADERS.sunGlowFrag;
 
 // Note: The physical sun mesh and glow plane geometries/materials have been removed
 // because the sky relies completely on the stunning volumetric shader bloom.
 // sunMesh is preserved as a dummy Group to maintain compatibility with animation references.
-const sunMesh = new THREE.Group();
+export const sunMesh = new THREE.Group();
 skyGroup.add(sunMesh);
 
 // Moon
@@ -461,7 +437,7 @@ const moonMat = new THREE.ShaderMaterial({
   transparent: true,
   fog: false,
 });
-const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+export const moonMesh = new THREE.Mesh(moonGeo, moonMat);
 skyGroup.add(moonMesh);
 
 // Stars
@@ -520,7 +496,7 @@ starsGeo.setAttribute('color', new THREE.BufferAttribute(starsColors, 3));
 starsGeo.setAttribute('size', new THREE.BufferAttribute(starsSizes, 1));
 starsGeo.setAttribute('phase', new THREE.BufferAttribute(starsPhases, 1));
 
-const starsMat = new THREE.ShaderMaterial({
+export const starsMat = new THREE.ShaderMaterial({
   uniforms: {
     uOpacity: {value: 1.0},
     uTime: skyUniforms.uTime,
@@ -626,3 +602,30 @@ rainbowMesh.name = 'rainbow';
 rainbowMesh.visible = false;
 rainbowMesh.frustumCulled = false;
 skyGroup.add(rainbowMesh);
+
+// Bridge for classic scripts that haven't been converted to ES modules yet.
+Object.assign(window, {
+  scene,
+  camera,
+  renderer,
+  hemiLight,
+  dirLight,
+  moonLight,
+  skyGroup,
+  skyUniforms,
+  sunUniforms,
+  moonUniforms,
+  sunMesh,
+  moonMesh,
+  starsMat,
+  BASE_DAY_SPEED,
+  applyCustomSkyColors,
+  nextSkyPalette,
+  updateSkyPalette,
+});
+// Live bindings: reassigned here, read elsewhere.
+Object.defineProperties(window, {
+  selectedPalette: {get: () => selectedPalette, configurable: true},
+  isCustomPalette: {get: () => isCustomPalette, configurable: true},
+  currentPaletteSeed: {get: () => currentPaletteSeed, configurable: true},
+});
