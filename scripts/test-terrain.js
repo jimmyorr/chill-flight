@@ -175,5 +175,24 @@ console.log(
   '  Passed: Highway canyon carving strictly confined to West Coast (X < 0)'
 );
 
+// --- 5. PROPS FOLLOW THE WORLD SEED ---
+// Terrain workers can't see the page URL, so they set ChillFlightLogic.WORLD_SEED
+// to the seed they're given; per-chunk prop placement must use that value.
+{
+  const originalSeed = ChillFlightLogic.WORLD_SEED;
+  ChillFlightLogic.WORLD_SEED = 111;
+  const a = ChillFlightLogic.chunkRng(3, 4)();
+  ChillFlightLogic.WORLD_SEED = 222;
+  const b = ChillFlightLogic.chunkRng(3, 4)();
+  ChillFlightLogic.WORLD_SEED = 111;
+  const c = ChillFlightLogic.chunkRng(3, 4)();
+  ChillFlightLogic.WORLD_SEED = originalSeed;
+  if (a === b || a !== c) {
+    console.error('FAIL: chunkRng does not follow ChillFlightLogic.WORLD_SEED');
+    process.exit(1);
+  }
+}
+console.log('  Passed: Chunk prop placement follows the world seed');
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

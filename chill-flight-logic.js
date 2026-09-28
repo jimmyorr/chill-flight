@@ -375,9 +375,12 @@ export const ChillFlightLogic = {};
   // Per-chunk seeded PRNG. Derives a unique seed from (WORLD_SEED, chunkX, chunkZ) so
   // each chunk's detail generation (trees, clouds, birds) is identical regardless of
   // which order chunks are loaded—critical for world consistency.
+  // Reads exports.WORLD_SEED, not the local constant: terrain workers can't
+  // see the page URL's ?seed=, so they set the seed they're given there.
   function chunkRng(chunkX, chunkZ) {
     const s =
-      (WORLD_SEED * 1000003) ^ (chunkX * 374761393 + chunkZ * 1234567891);
+      (exports.WORLD_SEED * 1000003) ^
+      (chunkX * 374761393 + chunkZ * 1234567891);
     return mulberry32(s);
   }
 
