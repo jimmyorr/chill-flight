@@ -59,24 +59,37 @@ vec3 skyColorAt(vec3 d, vec3 topCol, vec3 bottomCol, vec3 sunDir, float coreAmou
   // with height: warm and bright toward the sun, cooler away from it, with
   // the earth's shadow (a darker blue band) and the pink "belt of Venus"
   // just above it on the opposite side.
-  float dusk = (1.0 - smoothstep(0.02, 0.4, abs(sunDir.y))) * smoothstep(-0.3, -0.02, sunDir.y);
-  vec2 sunH = length(sunDir.xz) > 0.001 ? normalize(sunDir.xz) : vec2(1.0, 0.0);
-  vec2 dirH = length(d.xz) > 0.001 ? normalize(d.xz) : sunH;
-  float toward = dot(dirH, sunH) * 0.5 + 0.5; // 1 toward the sun, 0 away
-  // A slightly richer zenith at dusk keeps the sky overhead from going grey.
-  float topLum = dot(topCol, vec3(0.299, 0.587, 0.114));
-  topCol = clamp(mix(vec3(topLum), topCol, 1.0 + 0.5 * dusk), 0.0, 1.0);
-  vec3 warmSide = mix(bottomCol, vec3(1.0, 0.72, 0.42), 0.25) * 1.08;
-  vec3 coolSide = mix(topCol, bottomCol, 0.3);
-  vec3 horizonCol = mix(bottomCol, mix(coolSide, warmSide, smoothstep(0.1, 0.9, toward)), dusk);
-  // Warm colors climb higher on the sun's side; blue comes lower opposite.
-  float gradientPow = mix(0.6, mix(0.45, 1.0, toward), dusk);
-  vec3 col = h < 0.0 ? horizonCol : mix(horizonCol, topCol, pow(h, gradientPow));
-  float away = (1.0 - smoothstep(0.0, 0.35, toward)) * dusk;
-  float shadowBand = 1.0 - smoothstep(0.0, 0.07, max(h, 0.0));
-  float belt = smoothstep(0.04, 0.1, h) * (1.0 - smoothstep(0.12, 0.3, h));
-  col = mix(col, mix(topCol, horizonCol, 0.25) * 0.85, shadowBand * away * 0.6);
-  col = mix(col, mix(bottomCol, vec3(1.0, 0.75, 0.8), 0.3), belt * away * 0.5);
+  float dusk = (1.0 - smoothstep(0.02, 0.3, abs(sunDir.y))) * smoothstep(-0.3, -0.02, sunDir.y);
+  vec3 col;
+  // dusk depends only on the sun, so every pixel takes the same branch; the
+  // compass-dependent work is skipped for most of the day and night.
+  if (dusk <= 0.0) {
+    col = h < 0.0 ? bottomCol : mix(bottomCol, topCol, pow(h, 0.6));
+  } else {
+    vec2 sunH = length(sunDir.xz) > 0.001 ? normalize(sunDir.xz) : vec2(1.0, 0.0);
+    vec2 dirH = length(d.xz) > 0.001 ? normalize(d.xz) : sunH;
+    float toward = dot(dirH, sunH) * 0.5 + 0.5; // 1 toward the sun, 0 away
+    // A slightly richer zenith at dusk keeps the sky overhead from going grey.
+    float topLum = dot(topCol, vec3(0.299, 0.587, 0.114));
+    topCol = clamp(mix(vec3(topLum), topCol, 1.0 + 0.5 * dusk), 0.0, 1.0);
+    vec3 warmSide = mix(bottomCol, vec3(1.0, 0.72, 0.42), 0.25) * 1.08;
+    vec3 coolSide = mix(topCol, bottomCol, 0.3);
+    vec3 horizonCol = mix(bottomCol, mix(coolSide, warmSide, smoothstep(0.1, 0.9, toward)), dusk);
+    // Warm colors climb higher on the sun's side; blue comes lower opposite.
+    float gradientPow = mix(0.6, mix(0.45, 1.0, toward), dusk);
+    col = h < 0.0 ? horizonCol : mix(horizonCol, topCol, pow(h, gradientPow));
+    // The earth's shadow and the belt of Venus only appear with the sun right
+    // at the horizon (about 3 degrees above to 9 below), strongest just after
+    // sunset and just before sunrise.
+    float twilight = smoothstep(-0.16, -0.07, sunDir.y) * (1.0 - smoothstep(0.0, 0.055, sunDir.y));
+    float away = (1.0 - smoothstep(0.0, 0.35, toward)) * twilight;
+    vec3 shadowBlue = mix(clamp(mix(vec3(topLum), topCol, 1.6), 0.0, 1.0), vec3(0.3, 0.42, 0.66), 0.4) * 0.9;
+    float shadowBand = 1.0 - smoothstep(0.0, 0.05, max(h, 0.0));
+    float belt = smoothstep(0.03, 0.07, h) * (1.0 - smoothstep(0.09, 0.2, h));
+    vec3 beltPink = mix(vec3(1.0, 0.72, 0.78), bottomCol, 0.35);
+    col = mix(col, shadowBlue, shadowBand * away * 0.55);
+    col = mix(col, beltPink, belt * away * 0.45);
+  }
 
   float sunElev = sunDir.y;
   float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
