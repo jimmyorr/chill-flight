@@ -149,8 +149,8 @@ export function applyCustomSkyColors(top, bottom, day) {
 export function nextSkyPalette() {
   if (currentPaletteSeed === undefined) {
     const CYCLE_DURATION_MS = 300000;
-    const serverNow = state._gameServerNow || Date.now();
-    const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
+    const clockNow = state.worldClockNow || Date.now();
+    const cycleNumber = Math.floor(clockNow / CYCLE_DURATION_MS);
     currentPaletteSeed = ChillFlightLogic.WORLD_SEED + cycleNumber;
   }
   currentPaletteSeed++;
@@ -170,13 +170,13 @@ export function nextSkyPalette() {
   );
 }
 
-export function updateSkyPalette(serverNow) {
+export function updateSkyPalette(clockNow) {
   if (isCustomPalette) return;
   // If the user has a manually chosen palette seed (via URL or next preset button), keep it locked
   if (currentPaletteSeed !== undefined && selectedPalette) return;
 
   const CYCLE_DURATION_MS = 300000;
-  const cycleNumber = Math.floor(serverNow / CYCLE_DURATION_MS);
+  const cycleNumber = Math.floor(clockNow / CYCLE_DURATION_MS);
 
   if (cycleNumber !== currentPaletteCycle) {
     const isFirstLoad = currentPaletteCycle === -1;
@@ -310,7 +310,7 @@ export const skyUniforms = {
 };
 
 // Initial calculation
-updateSkyPalette(Date.now() + (window.serverTimeOffset || 0));
+updateSkyPalette(Date.now());
 
 const skyMat = new THREE.ShaderMaterial({
   vertexShader: skyVertexShader,

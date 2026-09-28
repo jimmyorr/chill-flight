@@ -31,9 +31,6 @@ const ALLOWED = new Set([
   'Capacitor', // native (Capacitor) runtime
   'DEBUG', // set by hand in devtools to enable log.info
   'orientation', // legacy iOS screen orientation API (not in `globals`)
-  // Leftover hooks from the removed multiplayer feature; never assigned.
-  'serverTimeOffset',
-  'isNamePromptOpen',
 ]);
 
 const sources = [];

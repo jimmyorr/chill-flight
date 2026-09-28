@@ -245,8 +245,7 @@ if (initialPreset) {
 }
 
 // Setup timeOfDay before chunk gen
-const serverNowFirst = Date.now() + (window.serverTimeOffset || 0);
-const secondsInCycleFirst = (serverNowFirst % 300000) / 1000;
+const secondsInCycleFirst = (Date.now() % 300000) / 1000;
 const currentWarpedProgressFirst =
   ChillFlightLogic.computeTimeOfDay(secondsInCycleFirst);
 state.timeOfDay = currentWarpedProgressFirst * Math.PI * 2;

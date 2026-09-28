@@ -91,7 +91,7 @@ export const state = {
   moonY: 0,
   moonZ: 0,
   dayFactor: 0,
-  passedServerNow: 0,
+  worldClockNow: 0, // ms; the wall clock, or the debug virtual clock
   secondsInCycle: 0,
   currentWarpedProgress: 0,
   isBarrelRolling: false,
@@ -132,7 +132,6 @@ export const state = {
 
   // Values previously stored directly on window
   _basePixelRatio: undefined,
-  _gameServerNow: undefined,
   _unfadedRainOpacity: undefined,
   _unfadedSnowOpacity: undefined,
   _weatherDebug: undefined,

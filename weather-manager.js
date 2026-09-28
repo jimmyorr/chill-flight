@@ -352,7 +352,7 @@ export function updateWeather(delta) {
 
     // Continuous snow above 0.9°N, but with occasional breaks (80% duty cycle)
     if (latVal > 0.9) {
-      const timeOffset = (state._gameServerNow || performance.now()) / 100000;
+      const timeOffset = (state.worldClockNow || performance.now()) / 100000;
       // Use a slow-moving noise wave based on time for global breaks
       const snowBreakNoise = (simplex.noise2D(timeOffset * 0.2, 999) + 1) / 2; // Value between 0 and 1
 
@@ -363,7 +363,7 @@ export function updateWeather(delta) {
     }
 
     // 1. Sync with the global overcast/cloud noise map
-    const timeOffset = (state._gameServerNow || performance.now()) / 100000;
+    const timeOffset = (state.worldClockNow || performance.now()) / 100000;
     const chunkSize = typeof CHUNK_SIZE !== 'undefined' ? CHUNK_SIZE : 2000;
 
     // This math perfectly matches the cloud generation in your animate() loop

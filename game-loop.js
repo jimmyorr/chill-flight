@@ -141,7 +141,7 @@ let _telemetryCallsAccum;
 let _telemetryTrisAccum;
 let _telemetryRenderFrames;
 let _lastRenderInfoUpdate;
-let _debugVirtualServerNow;
+let _debugVirtualClockNow;
 let _cloudTime;
 // Lingering mist after rain or snow, 0..1 (drives fog density).
 let fogAfterRain = 0;
@@ -229,7 +229,7 @@ function animate() {
 
   inputManager.pollGamepad(delta);
 
-  if (state.isPaused || window.isNamePromptOpen) {
+  if (state.isPaused) {
     const loadingOverlay = getCachedElement('loading-overlay');
     if (
       loadingOverlay &&
@@ -900,27 +900,27 @@ function updateDayNightCycle(delta) {
   if (useVirtualClock) {
     // In debug mode, we use a virtual clock that we increment ourselves,
     // allowing for speed multipliers while maintaining the same "warped" physics
-    // as the server-synced clock.
-    if (_debugVirtualServerNow === undefined) {
-      _debugVirtualServerNow = Date.now() + (window.serverTimeOffset || 0);
+    // as the wall clock.
+    if (_debugVirtualClockNow === undefined) {
+      _debugVirtualClockNow = Date.now();
     } else {
-      _debugVirtualServerNow += delta * 1000 * state.daySpeedMultiplier;
+      _debugVirtualClockNow += delta * 1000 * state.daySpeedMultiplier;
     }
-    state.passedServerNow = _debugVirtualServerNow;
+    state.worldClockNow = _debugVirtualClockNow;
     state.secondsInCycle =
-      (((state.passedServerNow % CYCLE_DURATION_MS) + CYCLE_DURATION_MS) %
+      (((state.worldClockNow % CYCLE_DURATION_MS) + CYCLE_DURATION_MS) %
         CYCLE_DURATION_MS) /
       1000;
 
     // Keep older debug virtual seconds for compat just in case
   } else {
-    // In normal mode, we always sync to the absolute server time.
-    // We reset the virtual clock so it picks up from current server time if re-enabled.
-    _debugVirtualServerNow = undefined;
+    // In normal mode, time follows the wall clock, so every player sees the
+    // same time of day. Reset the virtual clock so it picks up from the wall
+    // clock if re-enabled.
+    _debugVirtualClockNow = undefined;
 
-    const serverNow = Date.now() + (window.serverTimeOffset || 0);
-    state.passedServerNow = serverNow;
-    state.secondsInCycle = (serverNow % CYCLE_DURATION_MS) / 1000;
+    state.worldClockNow = Date.now();
+    state.secondsInCycle = (state.worldClockNow % CYCLE_DURATION_MS) / 1000;
   }
 
   state.latScale = 5000;
@@ -965,11 +965,9 @@ function updateDayNightCycle(delta) {
     }
   }
 
-  state._gameServerNow = state.passedServerNow;
-
   // Check and update the sky palette if it's a new cycle
   if (typeof updateSkyPalette === 'function') {
-    updateSkyPalette(state.passedServerNow);
+    updateSkyPalette(state.worldClockNow);
   }
   // Window glow
   houseWindowMats.forEach((mat, i) => {
@@ -1501,7 +1499,7 @@ function updateEnvironmentLighting(delta, now) {
   }
 
   // 2. Check for procedural cloudy biomes
-  const weatherTimeOffset = (state._gameServerNow || now) / 100000;
+  const weatherTimeOffset = (state.worldClockNow || now) / 100000;
   let weatherNoise =
     (simplex.noise2D(
       (planeGroup.position.x / CHUNK_SIZE) * 0.1 + 500 + weatherTimeOffset,
@@ -1688,12 +1686,12 @@ function updateEnvironmentLighting(delta, now) {
   );
   const auroraNightFactor = starFactor; // reuse: 0 at day, 1 at deep night
 
-  // Geomagnetic activity: slow simplex noise on server time so the aurora
+  // Geomagnetic activity: slow simplex noise on the world clock so the aurora
   // naturally waxes and wanes — sometimes absent, sometimes a faint shimmer,
   // sometimes blazing. Two samples at different rates give organic variation.
-  // Period ~20 min (primary) + ~7 min (secondary). Server-synced across players.
-  const _auroraT1 = state.passedServerNow / 1200000; // ~20-min primary cycle
-  const _auroraT2 = state.passedServerNow / 420000; // ~7-min secondary detail
+  // Period ~20 min (primary) + ~7 min (secondary). The same for every player.
+  const _auroraT1 = state.worldClockNow / 1200000; // ~20-min primary cycle
+  const _auroraT2 = state.worldClockNow / 420000; // ~7-min secondary detail
   const _auroraRaw =
     simplex.noise2D(_auroraT1, 0.37) * 0.7 +
     simplex.noise2D(_auroraT2, 1.91) * 0.3; // -1 to 1
@@ -1740,7 +1738,7 @@ function updateEnvironmentLighting(delta, now) {
 
   const PHASE_CYCLE_MS = 29.5 * 360000;
   const phaseAngle =
-    ((state.passedServerNow % PHASE_CYCLE_MS) / PHASE_CYCLE_MS) * Math.PI * 2;
+    ((state.worldClockNow % PHASE_CYCLE_MS) / PHASE_CYCLE_MS) * Math.PI * 2;
   const phaseIntensity = (-Math.cos(phaseAngle) + 1.0) / 2.0;
 
   // Moonlight shines when the sun is down, independent of moon's now-fixed elevation

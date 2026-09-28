@@ -500,7 +500,7 @@ export function updateFlightCamera(delta, nowTime) {
   const baseMoonElev = 0.18;
 
   // Slow lunar wobble: drifts slightly over time so it feels alive
-  const moonWobbleSpeed = state.passedServerNow * 0.00005;
+  const moonWobbleSpeed = state.worldClockNow * 0.00005;
   const moonWobbleX = Math.sin(moonWobbleSpeed) * 0.03;
   const moonWobbleY = Math.cos(moonWobbleSpeed) * 0.015;
 
