@@ -95,8 +95,16 @@ for (let attempt = 1; ; attempt++) {
 
 const failPage = (tag, msg) => errors.push(`[${tag}] ${msg}`);
 
+// The world seed defaults to today's date; pin it so every run sees the same
+// world (pages that set their own seed keep it).
+const TEST_SEED = '20260101';
+
 async function checkPage(browser, {path, fly, blackhole}) {
-  const url = new URL(path, BASE).href;
+  const pageUrl = new URL(path, BASE);
+  if (!pageUrl.searchParams.has('seed')) {
+    pageUrl.searchParams.set('seed', TEST_SEED);
+  }
+  const url = pageUrl.href;
   const tag = blackhole ? 'black-hole network' : path || 'index.html';
   const page = await browser.newPage();
   // Smallish viewport (software WebGL is slow on a busy machine), but wider
