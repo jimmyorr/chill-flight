@@ -396,8 +396,11 @@ export function generateChunkData({
         waterPositions[wPosIdx + 2] = localZ;
 
         const terrainHeight = getElevation(worldX, worldZ, elevParams);
+        // Negative on land (bounded), so depth interpolated across a
+        // shoreline triangle reaches 0 right at the visible waterline; the
+        // water shader's foam and shallows rely on that.
         waterDepths[wIdx] = Math.max(
-          0.0,
+          -30.0,
           elevParams.WATER_LEVEL - terrainHeight
         );
 

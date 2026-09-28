@@ -268,6 +268,26 @@ waterMaterial.onBeforeCompile = (shader) => {
         uniform float uTime;
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
+
+        // Swell: three waves in different directions with wavelengths that
+        // don't line up, so the surface doesn't read as regular stripes.
+        // Returns (height, dh/dx, dh/dz), scaled by a slow large-scale
+        // variation so different stretches of water differ.
+        vec3 swell(vec2 p, float t) {
+          float amp = 0.8 + sin(p.x * 0.0002) * cos(p.y * 0.00025) * 0.4;
+          vec3 h = vec3(0.0);
+          // direction (normalized), wavenumber, speed, amplitude
+          vec2 d1 = vec2(0.944, 0.33);  float k1 = 0.018; float a1 = 0.8;
+          vec2 d2 = vec2(-0.371, 0.928); float k2 = 0.013; float a2 = 0.6;
+          vec2 d3 = vec2(0.664, -0.747); float k3 = 0.031; float a3 = 0.35;
+          float p1 = dot(p, d1) * k1 + t;
+          float p2 = dot(p, d2) * k2 + t * 0.8;
+          float p3 = dot(p, d3) * k3 + t * 1.3;
+          h.x = a1 * sin(p1) + a2 * sin(p2) + a3 * sin(p3);
+          vec2 grad = a1 * k1 * cos(p1) * d1 + a2 * k2 * cos(p2) * d2 + a3 * k3 * cos(p3) * d3;
+          h.yz = grad;
+          return h * amp;
+        }
     ` + shader.vertexShader;
 
   // Inject analytical normal calculation (replaces computeVertexNormals)
@@ -277,15 +297,9 @@ waterMaterial.onBeforeCompile = (shader) => {
         // Get world position for seamless tiling across chunks
         vec4 worldPosN = modelMatrix * vec4(position, 1.0);
 
-        float macroWaveN = sin(worldPosN.x * 0.0002) * cos(worldPosN.z * 0.00025);
-        float waveAmpN = 0.8 + macroWaveN * 0.4;
-
-        // Analytical derivatives of the wave functions for correct lighting
-        float dx = waveAmpN * 0.02 * cos(uTime + worldPosN.x * 0.02);
-        float dz = -waveAmpN * 0.015 * sin(uTime * 0.8 + worldPosN.z * 0.015);
-
-        // Perpendicular vector for light reflection
-        vec3 objectNormal = normalize(vec3(-dx, 1.0, -dz));
+        // Analytical normal from the swell's slope, for correct lighting
+        vec3 swellN = swell(worldPosN.xz, uTime);
+        vec3 objectNormal = normalize(vec3(-swellN.y, 1.0, -swellN.z));
         vSmoothNormal = normalize(mat3(modelMatrix) * objectNormal);
         `
   );
@@ -298,14 +312,7 @@ waterMaterial.onBeforeCompile = (shader) => {
         vec3 transformed = vec3(position);
         vec4 worldPosV = modelMatrix * vec4(position, 1.0);
 
-        float macroWave = sin(worldPosV.x * 0.0002) * cos(worldPosV.z * 0.00025);
-        float waveAmp = 0.8 + macroWave * 0.4;
-
-        // Wave math running in parallel on the GPU
-        float wave1 = sin(uTime + worldPosV.x * 0.02) * waveAmp;
-        float wave2 = cos(uTime * 0.8 + worldPosV.z * 0.015) * waveAmp;
-
-        transformed.y += wave1 + wave2;
+        transformed.y += swell(worldPosV.xz, uTime).x;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
         `
@@ -362,14 +369,17 @@ waterMaterial.onBeforeCompile = (shader) => {
         gl_FragColor.rgb = mix(gl_FragColor.rgb, waterLit * vec3(0.55, 1.05, 0.9), shallow * 0.6);
         gl_FragColor.a = mix(gl_FragColor.a, 1.0, deep * 0.9);
 
+
         // Add macro-scale spatial variation to break up monotony across different water bodies
         float macro = sin(vWorldPosition.x * 0.0002) * cos(vWorldPosition.z * 0.00025);
-        float rippleScale = 0.1 + macro * 0.05; // 0.05 to 0.15
-        float timeScale = 1.5 + macro * 0.5; // 1.0 to 2.0
+        // Constant ripple frequency: varying it across space bunches the
+        // ripple phases into visible bands. Only their strength varies.
+        const float rippleScale = 0.1;
+        const float timeScale = 1.5;
         float perturbStrength = 0.05 + macro * 0.03; // 0.02 to 0.08
 
         // Distance fade for high-frequency normal perturbations to reduce aliasing
-        float nearFade = smoothstep(1500.0, 0.0, vDistanceXZ);
+        float nearFade = 1.0 - smoothstep(0.0, 1500.0, vDistanceXZ);
 
         // Organic high-frequency ripples for shimmering specular
         vec2 pos = vWorldPosition.xz * rippleScale;
@@ -382,13 +392,20 @@ waterMaterial.onBeforeCompile = (shader) => {
         float dz = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.6
                  + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * 0.8
                  + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * -0.4;
-        vec3 rippleNormal = vec3(dx, 0.0, dz) * perturbStrength * nearFade;
+        // Fade ripples where a pixel covers too much of a ripple (~60 units
+        // long) to draw it cleanly; otherwise they alias into stripes.
+        float footprint = length(fwidth(vWorldPosition.xz));
+        float rippleAA = 1.0 - smoothstep(3.0, 12.0, footprint);
+        vec3 rippleNormal = vec3(dx, 0.0, dz) * perturbStrength * nearFade * rippleAA;
         vec3 n = normalize(vSmoothNormal + rippleNormal);
 
         // Sky reflection (Fresnel): looking down you see the water's color;
         // toward the horizon it mirrors the sky, so the sea takes on the
         // sunset's colors.
-        vec3 reflDir = reflect(-viewDir, n);
+        // The large vertex waves have a regular period; tilting the reflection
+        // by their full slope shows up as stripes, so they count for less here.
+        vec3 reflNormal = normalize(mix(vec3(0.0, 1.0, 0.0), vSmoothNormal, 0.35) + rippleNormal * 0.5);
+        vec3 reflDir = reflect(-viewDir, reflNormal);
         reflDir.y = abs(reflDir.y);
         float cosTheta = max(dot(viewDir, n), 0.0);
         float skyFresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
@@ -408,7 +425,7 @@ waterMaterial.onBeforeCompile = (shader) => {
 
         // Glints: finer, faster ripples break the path into bright sparkles
         // near the camera (faded out before they'd alias).
-        float glintFade = smoothstep(2500.0, 200.0, vDistanceXZ);
+        float glintFade = 1.0 - smoothstep(200.0, 2500.0, vDistanceXZ);
         vec2 gp = vWorldPosition.xz * 0.45;
         float gt = uTime * 2.3;
         vec3 glintNormal = normalize(n + vec3(
@@ -425,6 +442,26 @@ waterMaterial.onBeforeCompile = (shader) => {
         float lowSun = 1.0 - smoothstep(0.04, 0.35, uSpecularDir.y);
         vec3 glitterColor = uSunColor * mix(vec3(1.0), vec3(1.0, 0.72, 0.38), lowSun);
         gl_FragColor.rgb += glitterColor * min(glitter, 3.0);
+
+        // Shore foam: a white band in the shallowest water that pulses toward
+        // the shore, lit like the water so it dims at night. Applied last:
+        // foam sits on the surface and doesn't reflect the sky.
+        float lightLevel = clamp(dot(waterLit, vec3(0.333)) / max(dot(vColor.rgb, vec3(0.333)), 0.05), 0.0, 1.2);
+        float foamNoise = sin(vWorldPosition.x * 0.09 + vWorldPosition.z * 0.07) * 0.5
+                        + sin(vWorldPosition.x * -0.05 + vWorldPosition.z * 0.11 + uTime * 0.7) * 0.5;
+        // Distance to shore from depth and how fast depth changes across the
+        // surface, so foam hugs every shoreline at the same width whether the
+        // bottom drops steeply (islands) or gently (lakes).
+        float depthSlope = length(vec2(dFdx(vWaterDepth), dFdy(vWaterDepth)))
+                         / max(length(vec2(length(dFdx(vWorldPosition.xz)), length(dFdy(vWorldPosition.xz)))), 0.001);
+        float shoreDist = max(vWaterDepth, 0.0) / max(depthSlope, 0.02);
+        // Rings of foam that move toward the shore (phase rises with distance).
+        float foamRings = smoothstep(0.35, 0.8, 0.5 + 0.5 * sin(uTime * 1.3 + shoreDist * 0.3 + foamNoise * 1.5));
+        float foamEdge = 1.0 - smoothstep(3.0, 8.0, shoreDist); // solid at the waterline
+        float foam = (1.0 - smoothstep(12.0, 28.0, shoreDist)) * smoothstep(0.0, 0.05, vWaterDepth)
+                   * max(foamRings * 0.8, foamEdge);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.95, 0.97, 1.0) * lightLevel, foam * 0.9);
+        gl_FragColor.a = max(gl_FragColor.a, foam * 0.9);
         `
   );
 

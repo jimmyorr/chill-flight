@@ -95,7 +95,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
   - **Seas:** The water transforms into a bright glowing liquid that bleeds smoothly onto the alien shorelines.
 
 > [!NOTE]
-> **Water surface:** Water mirrors the sky with a Fresnel reflection (looking down you see the water, toward the horizon you see the sky's colors), and the sun lays a glitter path across it from the horizon toward the viewer, golden at low sun, with sparkles up close. Open water (about 10 units deep) is opaque deep blue; shallows around islands and shores turn turquoise.
+> **Water surface:** Water mirrors the sky with a Fresnel reflection (looking down you see the water, toward the horizon you see the sky's colors), and the sun lays a glitter path across it from the horizon toward the viewer, golden at low sun, with sparkles up close. Open water (about 10 units deep) is opaque deep blue; shallows around islands and shores turn turquoise. A band of foam lines every shore at the same width (its distance to shore is estimated from how quickly the depth changes), with rings that roll toward the beach. The swell is three waves in different directions, so the surface doesn't read as regular stripes.
 
 > **Dynamic Coastlines:** Across all biomes, wherever the procedural water intersects with the land, the water's color dynamically blends into a white foam (#EEEEEE) to simulate natural shorelines and river banks.
 
