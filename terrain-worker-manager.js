@@ -1,94 +1,155 @@
 // terrain-worker-manager.js
-// Phase 1: Worker Pool Manager
+// Pool of terrain workers that generate chunk data off the main thread.
+import {log} from './logger.js';
+
+// A chunk takes tens of milliseconds; a worker that hasn't answered in this
+// long is treated as dead (e.g. its script never finished loading on a bad
+// network) and replaced, and the job is rejected so the caller can fall back.
+const JOB_TIMEOUT_MS = 10000;
+
+// Vite recognizes this pattern and bundles the worker in production.
+const createTerrainWorker = () =>
+  new Worker(new URL('./terrain-worker.js', import.meta.url), {
+    type: 'module',
+  });
 
 export class TerrainWorkerManager {
-  constructor(workerCount = null) {
+  // Tests pass a fake createWorker and a short jobTimeoutMs.
+  constructor(
+    workerCount = null,
+    {createWorker = createTerrainWorker, jobTimeoutMs = JOB_TIMEOUT_MS} = {}
+  ) {
+    this.createWorker = createWorker;
+    this.jobTimeoutMs = jobTimeoutMs;
     // Determine number of workers based on hardware, bounded between 1 and 4
     this.poolSize =
       workerCount ||
       Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.workers = [];
     this.idleWorkers = [];
+    this.busyWorkers = new Map(); // worker -> job
     this.jobQueue = [];
     this.activeJobs = new Map();
     this.nextJobId = 0;
+    // Until some worker has answered, repeated failures mean workers can't
+    // run here at all (rather than one worker having died).
+    this.hasReplied = false;
+    this.failedWorkers = 0;
     this.isSupported =
-      typeof window !== 'undefined' && window.Worker !== undefined;
+      createWorker !== createTerrainWorker ||
+      (typeof window !== 'undefined' && window.Worker !== undefined);
 
     if (this.isSupported) {
-      this._initWorkers();
+      for (let i = 0; i < this.poolSize && this.isSupported; i++) {
+        this._spawnWorker();
+      }
     } else {
-      console.warn(
+      log.warn(
         'Web Workers are not supported in this environment. Terrain generation will fall back to main thread.'
       );
     }
   }
 
-  _initWorkers() {
-    for (let i = 0; i < this.poolSize; i++) {
-      try {
-        // Vite recognizes this pattern and bundles the worker in production.
-        const worker = new Worker(
-          new URL('./terrain-worker.js', import.meta.url),
-          {type: 'module'}
-        );
-        worker.onmessage = this._handleMessage.bind(this, worker);
-        worker.onerror = this._handleError.bind(this, worker);
-        this.workers.push(worker);
-        this.idleWorkers.push(worker);
-      } catch (err) {
-        console.error('Failed to initialize terrain worker:', err);
-        this.isSupported = false;
-        break;
-      }
+  _spawnWorker() {
+    try {
+      const worker = this.createWorker();
+      worker.onmessage = this._handleMessage.bind(this, worker);
+      worker.onerror = this._handleError.bind(this, worker);
+      this.workers.push(worker);
+      this.idleWorkers.push(worker);
+    } catch (err) {
+      log.error('Failed to initialize terrain worker:', err);
+      this._disable();
     }
   }
 
   _handleMessage(worker, e) {
-    const data = e.data;
-    const {id, status, error} = data;
-
+    const {id, status, error} = e.data;
     const job = this.activeJobs.get(id);
+    this.hasReplied = true;
     if (job) {
+      this._releaseWorker(worker, job);
       if (!job.cancelled) {
         if (status === 'success') {
-          job.resolve(data);
+          job.resolve(e.data);
         } else {
           job.reject(new Error(error || 'Worker job failed'));
         }
       }
-      this.activeJobs.delete(id);
     }
-
-    // Recycle worker
-    this.idleWorkers.push(worker);
     this._processQueue();
   }
 
   _handleError(worker, err) {
-    console.error('Terrain worker error:', err);
-    // Recycle worker
-    this.idleWorkers.push(worker);
+    log.error('Terrain worker error:', err.message || err);
+    this._failWorker(worker, new Error('Terrain worker error'));
+  }
+
+  // Rejects the worker's current job, then replaces the worker (or gives up
+  // on workers entirely if none has ever answered).
+  _failWorker(worker, reason) {
+    const job = this.busyWorkers.get(worker);
+    if (job) {
+      this._releaseWorker(worker, job);
+      if (!job.cancelled) job.reject(reason);
+    }
+    worker.terminate();
+    this.workers = this.workers.filter((w) => w !== worker);
+    this.idleWorkers = this.idleWorkers.filter((w) => w !== worker);
+    this.failedWorkers++;
+    if (!this.hasReplied && this.failedWorkers >= this.poolSize) {
+      log.warn('Terrain workers never responded; generating on main thread.');
+      this._disable();
+      return;
+    }
+    this._spawnWorker();
     this._processQueue();
   }
 
+  _releaseWorker(worker, job) {
+    clearTimeout(job.timer);
+    this.activeJobs.delete(job.id);
+    this.busyWorkers.delete(worker);
+    if (this.workers.includes(worker) && !this.idleWorkers.includes(worker)) {
+      this.idleWorkers.push(worker);
+    }
+  }
+
+  // Stops using workers: rejects every pending job so callers fall back.
+  _disable() {
+    this.isSupported = false;
+    const reason = new Error('Terrain workers unavailable');
+    const jobs = [...this.jobQueue, ...this.activeJobs.values()];
+    this.jobQueue = [];
+    this.activeJobs.clear();
+    this.busyWorkers.clear();
+    this.workers.forEach((w) => w.terminate());
+    this.workers = [];
+    this.idleWorkers = [];
+    for (const job of jobs) {
+      clearTimeout(job.timer);
+      if (!job.cancelled) job.reject(reason);
+    }
+  }
+
   _processQueue() {
-    if (this.jobQueue.length === 0 || this.idleWorkers.length === 0) {
-      return;
+    while (this.jobQueue.length > 0 && this.idleWorkers.length > 0) {
+      // Highest priority chunk first
+      if (this.jobQueue.length > 1) {
+        this.jobQueue.sort((a, b) => b.priority - a.priority);
+      }
+
+      const job = this.jobQueue.shift();
+      const worker = this.idleWorkers.pop();
+
+      this.activeJobs.set(job.id, job);
+      this.busyWorkers.set(worker, job);
+      job.timer = setTimeout(() => {
+        log.warn('Terrain worker timed out; replacing it.');
+        this._failWorker(worker, new Error('Terrain worker timed out'));
+      }, this.jobTimeoutMs);
+      worker.postMessage(job.payload, job.transferables);
     }
-
-    // Sort queue by priority descending so highest priority chunk is processed first
-    if (this.jobQueue.length > 1) {
-      this.jobQueue.sort((a, b) => b.priority - a.priority);
-    }
-
-    const job = this.jobQueue.shift();
-    const worker = this.idleWorkers.pop();
-
-    this.activeJobs.set(job.id, job);
-
-    // Send job to worker
-    worker.postMessage(job.payload, job.transferables);
   }
 
   requestChunk(chunkX, chunkZ, options = {}) {
@@ -127,6 +188,7 @@ export class TerrainWorkerManager {
         resolve,
         reject,
         cancelled: false,
+        timer: null,
       };
 
       this.jobQueue.push(job);
@@ -144,18 +206,7 @@ export class TerrainWorkerManager {
 
   // Cancel pending or active requests for a specific chunk
   cancelJob(chunkX, chunkZ) {
-    this.jobQueue = this.jobQueue.filter((job) => {
-      if (job.payload.chunkX === chunkX && job.payload.chunkZ === chunkZ) {
-        job.cancelled = true;
-        return false;
-      }
-      return true;
-    });
-    for (const job of this.activeJobs.values()) {
-      if (job.payload.chunkX === chunkX && job.payload.chunkZ === chunkZ) {
-        job.cancelled = true;
-      }
-    }
+    this.cancelRequests((x, z) => x === chunkX && z === chunkZ);
   }
 
   // Cancel pending or active requests matching a predicate
