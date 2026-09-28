@@ -1747,7 +1747,7 @@ function updateEnvironmentLighting(delta, now) {
 
     if (state.sunY > -0.1 && state.sunY < 0.15) {
       let goldT = 1.0 - Math.abs(state.sunY - 0.02) * 10;
-      _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.6);
+      _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.35);
     }
 
     _uncloudedSkyColor.lerp(_daySky, state.dayFactor * (1.0 - dawnDuskFactor));

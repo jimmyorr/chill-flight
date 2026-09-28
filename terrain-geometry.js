@@ -7,6 +7,7 @@ import {
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
+  SKY_COLOR_GLSL,
   WATER_LEVEL,
   createMaterial,
   terrainUniforms,
@@ -190,7 +191,9 @@ terrainMaterial.onBeforeCompile = (shader) => {
     uniform vec3 uBottomColor;
     uniform vec3 uSnowExposure;
     varying vec3 vWorldPosition;
-  ` + shader.fragmentShader;
+  ` +
+    SKY_COLOR_GLSL +
+    shader.fragmentShader;
 
   // Near-white terrain (snow, ice) is dimmed in bright light so its shading
   // stays visible instead of clipping to flat white (#74).
@@ -207,25 +210,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
      #ifdef USE_FOG
        vec3 viewDirFog = normalize(vWorldPosition - cameraPosition);
        vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
-       float hFog = skyDir.y;
-       float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
-       float sunFade = smoothstep(-0.25, 0.0, uSunDirection.y);
-       float g = pow(baseSunInt * sunFade, 2.0);
-       vec3 effBottom = uBottomColor;
-       vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
-       if (hFog < 0.0) fogSkyColor = effBottom;
-       
-       float sunElev = uSunDirection.y;
-       float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
-       vec3 wideGlow = uBottomColor * pow(baseSunInt, 6.0) * 0.6 * (1.0 - max(hFog, 0.0));
-       vec3 ambientSunGlow = wideGlow * sunFade;
-       float haloFade = smoothstep(-0.03, 0.06, sunElev);
-       vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunInt, 24.0) * 0.8 * haloFade;
-       vec3 coreColor = mix(vec3(1.0, 0.65, 0.25), vec3(1.0, 0.95, 0.8), horizonExtinction);
-       float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunElev);
-       vec3 hotCore = coreColor * pow(baseSunInt, 512.0) * coreStrength;
-       vec3 totalGlow = (ambientSunGlow + warmHalo + hotCore) * smoothstep(-0.12, 0.04, hFog);
-       fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
+       vec3 fogSkyColor = skyColorAt(skyDir, uTopColor, uBottomColor, uSunDirection, 1.0);
        
        #ifdef FOG_EXP2
            float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
@@ -331,22 +316,9 @@ waterMaterial.onBeforeCompile = (shader) => {
         varying vec3 vSmoothNormal;
         uniform float uRenderRadius;
         varying float vDistanceXZ;
-
-        // The sky's color in a direction: the palette gradient plus the sun's
-        // glow and halo, matching the directional fog. Reflected by the water.
-        vec3 waterSkyColor(vec3 dir) {
-          vec3 d = normalize(dir + vec3(0.0, 33.0 / 10000.0, 0.0));
-          float h = max(d.y, 0.0);
-          float sunInt = max(0.0, dot(d, uSunDirection));
-          float sunElev = uSunDirection.y;
-          vec3 col = mix(uBottomColor, uTopColor, pow(h, 0.6));
-          vec3 wideGlow = uBottomColor * pow(sunInt, 6.0) * 0.6 * (1.0 - h)
-            * smoothstep(-0.25, 0.0, sunElev);
-          vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(sunInt, 24.0) * 0.8
-            * smoothstep(-0.03, 0.06, sunElev);
-          return col + (wideGlow + warmHalo) * (vec3(1.0) - col);
-        }
-    ` + shader.fragmentShader;
+    ` +
+    SKY_COLOR_GLSL +
+    shader.fragmentShader;
 
   // Inject sky reflection and the sun's glitter path
   shader.fragmentShader = shader.fragmentShader.replace(
@@ -409,7 +381,7 @@ waterMaterial.onBeforeCompile = (shader) => {
         reflDir.y = abs(reflDir.y);
         float cosTheta = max(dot(viewDir, n), 0.0);
         float skyFresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, waterSkyColor(reflDir), skyFresnel * 0.85);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, skyColorAt(reflDir, uTopColor, uBottomColor, uSunDirection, 0.0), skyFresnel * 0.85);
         gl_FragColor.a = max(gl_FragColor.a, skyFresnel * depthOpacity);
 
         // Sun glitter path. Waves tilt small facets of the surface in every
@@ -471,25 +443,7 @@ waterMaterial.onBeforeCompile = (shader) => {
      #ifdef USE_FOG
        vec3 viewDirFog = normalize(vWorldPosition - cameraPosition);
        vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
-       float hFog = skyDir.y;
-       float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
-       float sunFade = smoothstep(-0.25, 0.0, uSunDirection.y);
-       float g = pow(baseSunInt * sunFade, 2.0);
-       vec3 effBottom = uBottomColor;
-       vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
-       if (hFog < 0.0) fogSkyColor = effBottom;
-       
-       float sunElev = uSunDirection.y;
-       float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
-       vec3 wideGlow = uBottomColor * pow(baseSunInt, 6.0) * 0.6 * (1.0 - max(hFog, 0.0));
-       vec3 ambientSunGlow = wideGlow * sunFade;
-       float haloFade = smoothstep(-0.03, 0.06, sunElev);
-       vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunInt, 24.0) * 0.8 * haloFade;
-       vec3 coreColor = mix(vec3(1.0, 0.65, 0.25), vec3(1.0, 0.95, 0.8), horizonExtinction);
-       float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunElev);
-       vec3 hotCore = coreColor * pow(baseSunInt, 512.0) * coreStrength;
-       vec3 totalGlow = (ambientSunGlow + warmHalo + hotCore) * smoothstep(-0.12, 0.04, hFog);
-       fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
+       vec3 fogSkyColor = skyColorAt(skyDir, uTopColor, uBottomColor, uSunDirection, 1.0);
        
        #ifdef FOG_EXP2
            float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );

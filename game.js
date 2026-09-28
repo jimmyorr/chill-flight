@@ -293,20 +293,16 @@ function updateSkyBaseColors(palette) {
   const top = new THREE.Color(palette.top);
   const bottom = new THREE.Color(palette.bottom);
 
-  // Sunrise: 80% horizon, 20% zenith -> 60% horizon, 40% zenith
-  _sunriseSky.copy(bottom).lerp(top, 0.4);
+  // Sunrise/sunset zenith: the palette's zenith color. Mixing in the warm
+  // horizon color (complementary to the blue zenith) turns it grey, so the
+  // warm colors stay at the horizon (see skyColorAt in constants.js).
+  _sunriseSky.copy(top);
+  _sunsetSky.copy(top);
 
-  // Golden morning: horizon + white highlight -> also blend 20% zenith
-  _goldenSky.copy(bottom).lerp(new THREE.Color(0xffffff), 0.1).lerp(top, 0.2);
-
-  // Sunset: Pure horizon -> 50% horizon, 50% zenith
-  _sunsetSky.copy(bottom).lerp(top, 0.5);
-
-  // Golden sunset: horizon + black shadow -> also blend 30% zenith
-  _goldenSunsetSky
-    .copy(bottom)
-    .lerp(new THREE.Color(0x000000), 0.2)
-    .lerp(top, 0.3);
+  // Golden hour adds a little warmth overhead: a touch brighter in the
+  // morning, a touch darker in the evening.
+  _goldenSky.copy(top).lerp(bottom, 0.25).lerp(new THREE.Color(0xffffff), 0.05);
+  _goldenSunsetSky.copy(top).lerp(bottom, 0.25).multiplyScalar(0.9);
 
   // Update Splash Screen Background
   const overlay = document.getElementById('loading-overlay');

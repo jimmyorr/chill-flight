@@ -55,52 +55,11 @@
         float sunFade = smoothstep(-0.25, 0.0, sunDirection.y);
         float sunIntensity = baseSunIntensity * sunFade;
         
-        // Base atmospheric scattering glow
-        float glow = pow(sunIntensity, glowPower);
-        
         // Horizon base color matches bottomColor 360 degrees around the player,
-        // guaranteeing 100% seamless blending with Three.js scene.fog.color (which is bottomColor).
-        // Extra sunset warmth towards the sun is provided naturally by the directional bloom below.
+        // blending seamlessly with the directional fog, which uses the same
+        // skyColorAt() (constants.js, prepended to this shader by sky.js).
         vec3 effectiveBottom = bottomColor;
-        
-        // Base vertical gradient
-        vec3 col = mix(effectiveBottom, topColor, max(pow(max(h, 0.0), exponent), 0.0));
-        
-        // Lower hemisphere continues the base color
-        if (h < 0.0) {
-            col = effectiveBottom;
-        }
-        
-        // --- STUNNING SUN BLOOM ---
-        // Atmospheric extinction: as the sun nears the horizon, dense atmosphere
-        // shifts the sun core from midday bright-white to rich sunset gold, and softens the harsh core.
-        float sunElev = sunDirection.y;
-        float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
-
-        // 1. Wide atmospheric scattering: Fades in early with sunFade to warmly illuminate
-        //    the horizon during twilight before the sun itself emerges.
-        vec3 wideGlow = bottomColor * pow(baseSunIntensity, 6.0) * 0.6 * (1.0 - max(h, 0.0));
-        vec3 ambientSunGlow = wideGlow * sunFade;
-
-        // 2. Direct sun disc (warm halo + hot core):
-        //    - Warm halo emerges smoothly as sun reaches horizon
-        float haloFade = smoothstep(-0.03, 0.06, sunElev);
-        vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunIntensity, 24.0) * 0.8 * haloFade;
-
-        //    - Hot core shifts from golden-amber at the horizon to brilliant white higher up,
-        //      softening its blinding intensity near the horizon so it doesn't glare unnaturally.
-        vec3 coreColor = mix(vec3(1.0, 0.65, 0.25), vec3(1.0, 0.95, 0.8), horizonExtinction);
-        float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunElev);
-        vec3 hotCore = coreColor * pow(baseSunIntensity, 512.0) * coreStrength;
-
-        // Combined sun bloom
-        vec3 totalGlow = ambientSunGlow + warmHalo + hotCore;
-
-        // Soft horizon ground-fade: smooth 9-degree gradient below the horizon so there is NEVER
-        // a sharp cut or shelf across the sun.
-        totalGlow *= smoothstep(-0.12, 0.04, h);
-
-        col = col + totalGlow * (vec3(1.0) - col);
+        vec3 col = skyColorAt(dir, topColor, bottomColor, sunDirection, 1.0);
         
         // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---
         float cloudHeight = uCloudHeight > 0.0 ? uCloudHeight : 3000.0;

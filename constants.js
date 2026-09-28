@@ -44,6 +44,57 @@ export const THEME = ChillFlightLogic.THEME;
 
 // Shared by every material's injected directional-fog shader code; the game
 // loop updates the values each frame.
+// GLSL: the sky's color looking in direction d (normalized): the palette's
+// horizon-to-zenith gradient plus the sun's glow, halo and (scaled by
+// coreAmount) hot core. The sky dome, the directional fog and water
+// reflections all use this, so distant terrain fades into exactly the sky
+// behind it and the water mirrors the same sky.
+export const SKY_COLOR_GLSL = `
+vec3 skyColorAt(vec3 d, vec3 topCol, vec3 bottomCol, vec3 sunDir, float coreAmount) {
+  float h = d.y;
+  float baseSunInt = max(0.0, dot(d, sunDir));
+  float sunFade = smoothstep(-0.25, 0.0, sunDir.y);
+
+  // Around sunrise and sunset the sky varies around the compass, not just
+  // with height: warm and bright toward the sun, cooler away from it, with
+  // the earth's shadow (a darker blue band) and the pink "belt of Venus"
+  // just above it on the opposite side.
+  float dusk = (1.0 - smoothstep(0.02, 0.4, abs(sunDir.y))) * smoothstep(-0.3, -0.02, sunDir.y);
+  vec2 sunH = length(sunDir.xz) > 0.001 ? normalize(sunDir.xz) : vec2(1.0, 0.0);
+  vec2 dirH = length(d.xz) > 0.001 ? normalize(d.xz) : sunH;
+  float toward = dot(dirH, sunH) * 0.5 + 0.5; // 1 toward the sun, 0 away
+  // A slightly richer zenith at dusk keeps the sky overhead from going grey.
+  float topLum = dot(topCol, vec3(0.299, 0.587, 0.114));
+  topCol = clamp(mix(vec3(topLum), topCol, 1.0 + 0.5 * dusk), 0.0, 1.0);
+  vec3 warmSide = mix(bottomCol, vec3(1.0, 0.72, 0.42), 0.25) * 1.08;
+  vec3 coolSide = mix(topCol, bottomCol, 0.3);
+  vec3 horizonCol = mix(bottomCol, mix(coolSide, warmSide, smoothstep(0.1, 0.9, toward)), dusk);
+  // Warm colors climb higher on the sun's side; blue comes lower opposite.
+  float gradientPow = mix(0.6, mix(0.45, 1.0, toward), dusk);
+  vec3 col = h < 0.0 ? horizonCol : mix(horizonCol, topCol, pow(h, gradientPow));
+  float away = (1.0 - smoothstep(0.0, 0.35, toward)) * dusk;
+  float shadowBand = 1.0 - smoothstep(0.0, 0.07, max(h, 0.0));
+  float belt = smoothstep(0.04, 0.1, h) * (1.0 - smoothstep(0.12, 0.3, h));
+  col = mix(col, mix(topCol, horizonCol, 0.25) * 0.85, shadowBand * away * 0.6);
+  col = mix(col, mix(bottomCol, vec3(1.0, 0.75, 0.8), 0.3), belt * away * 0.5);
+
+  float sunElev = sunDir.y;
+  float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
+  // Wide atmospheric scattering warms the horizon during twilight
+  vec3 ambientSunGlow = bottomCol * pow(baseSunInt, 6.0) * 0.6 * (1.0 - max(h, 0.0)) * sunFade;
+  // Warm halo around the sun disc
+  vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunInt, 24.0) * 0.8
+    * smoothstep(-0.03, 0.06, sunElev);
+  // Hot core: golden-amber at the horizon, brilliant white higher up
+  vec3 coreColor = mix(vec3(1.0, 0.65, 0.25), vec3(1.0, 0.95, 0.8), horizonExtinction);
+  float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunElev);
+  vec3 hotCore = coreColor * pow(baseSunInt, 512.0) * coreStrength * coreAmount;
+  // Soft fade below the horizon so there's never a sharp cut across the sun
+  vec3 totalGlow = (ambientSunGlow + warmHalo + hotCore) * smoothstep(-0.12, 0.04, h);
+  return col + totalGlow * (vec3(1.0) - col);
+}
+`;
+
 export const terrainUniforms = {
   uCameraPosXZ: {value: new THREE.Vector2(0, 0)},
   uRenderRadius: {value: state.RENDER_DISTANCE * CHUNK_SIZE},
@@ -135,32 +186,16 @@ export function createMaterial(params) {
       uniform float uRenderRadius;
       varying float vDistanceXZ;
       varying vec3 vWorldPosition;
-    ` + shader.fragmentShader;
+    ` +
+      SKY_COLOR_GLSL +
+      shader.fragmentShader;
 
     shader.fragmentShader = shader.fragmentShader.replace(
       `#include <fog_fragment>`,
       `#ifdef USE_FOG
          vec3 viewDirFog = normalize(vWorldPosition - cameraPosition);
          vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
-         float hFog = skyDir.y;
-         float baseSunInt = max(0.0, dot(skyDir, uSunDirection));
-         float sunFade = smoothstep(-0.25, 0.0, uSunDirection.y);
-         float g = pow(baseSunInt * sunFade, 2.0);
-         vec3 effBottom = uBottomColor;
-         vec3 fogSkyColor = mix(effBottom, uTopColor, max(pow(max(hFog, 0.0), 0.6), 0.0));
-         if (hFog < 0.0) fogSkyColor = effBottom;
-         
-         float sunElev = uSunDirection.y;
-         float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
-         vec3 wideGlow = uBottomColor * pow(baseSunInt, 6.0) * 0.6 * (1.0 - max(hFog, 0.0));
-         vec3 ambientSunGlow = wideGlow * sunFade;
-         float haloFade = smoothstep(-0.03, 0.06, sunElev);
-         vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunInt, 24.0) * 0.8 * haloFade;
-         vec3 coreColor = mix(vec3(1.0, 0.65, 0.25), vec3(1.0, 0.95, 0.8), horizonExtinction);
-         float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunElev);
-         vec3 hotCore = coreColor * pow(baseSunInt, 512.0) * coreStrength;
-         vec3 totalGlow = (ambientSunGlow + warmHalo + hotCore) * smoothstep(-0.12, 0.04, hFog);
-         fogSkyColor = fogSkyColor + totalGlow * (vec3(1.0) - fogSkyColor);
+         vec3 fogSkyColor = skyColorAt(skyDir, uTopColor, uBottomColor, uSunDirection, 1.0);
          
          #ifdef FOG_EXP2
              float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
