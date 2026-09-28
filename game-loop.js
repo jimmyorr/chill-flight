@@ -1403,6 +1403,10 @@ function updatePhysicsAndControls(delta, nowTime) {
   }
 }
 
+const SHADOW_LOOK_AHEAD = 1400;
+const _shadowAnchor = new THREE.Vector3();
+const _shadowForward = new THREE.Vector3();
+
 function updateShadowSnapping(delta) {
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   // Eliminates "shadow swimming" and depth-band "creeping" by locking the
@@ -1423,7 +1427,17 @@ function updateShadowSnapping(delta) {
 
   // Use planeGroup instead of camera by default to prevent high-speed camera shake
   // from causing erratic shadow snapping. If in free camera mode, use the camera.
-  const anchorPos = state.isFreeCamera ? camera.position : planeGroup.position;
+  // Center the shadow box ahead of the anchor (along the camera's heading),
+  // since almost nothing behind the plane is on screen. This pushes the
+  // shadow edge from ~2 km ahead to ~3.5 km at the same map resolution.
+  const anchorPos = _shadowAnchor.copy(
+    state.isFreeCamera ? camera.position : planeGroup.position
+  );
+  camera.getWorldDirection(_shadowForward);
+  _shadowForward.y = 0;
+  if (_shadowForward.lengthSq() > 1e-6) {
+    anchorPos.addScaledVector(_shadowForward.normalize(), SHADOW_LOOK_AHEAD);
+  }
 
   // Step 3: Project the anchor's position onto this rigid light-grid.
   const dotX = anchorPos.dot(_shadowRight);

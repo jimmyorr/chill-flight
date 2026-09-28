@@ -388,6 +388,26 @@ dirLight.shadow.normalBias = 2.0;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
+// Fade directional shadows out near the edge of the shadow map, so shadows
+// grow in gradually as terrain enters it instead of popping into existence.
+// Patches three.js's directional getShadow() (point light shadows untouched).
+{
+  const chunk = THREE.ShaderChunk.shadowmap_pars_fragment;
+  const split = chunk.indexOf('float getPointShadow');
+  const head = split < 0 ? chunk : chunk.slice(0, split);
+  const tail = split < 0 ? '' : chunk.slice(split);
+  const faded = head.replaceAll(
+    'return mix( 1.0, shadow, shadowIntensity );',
+    `vec2 shadowEdge = abs( shadowCoord.xy * 2.0 - 1.0 );
+			float shadowFade = 1.0 - smoothstep( 0.8, 1.0, max( shadowEdge.x, shadowEdge.y ) );
+			return mix( 1.0, shadow, shadowIntensity * shadowFade );`
+  );
+  if (faded === head) {
+    log.warn('Shadow edge fade not applied: three.js shadow shader changed');
+  }
+  THREE.ShaderChunk.shadowmap_pars_fragment = faded + tail;
+}
+
 export const moonLight = new THREE.DirectionalLight(0xbad2ff, 0.3 * Math.PI); // Cool moonlight
 scene.add(moonLight);
 
