@@ -248,12 +248,50 @@ import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
 
-// Trees are drawn world-wide from one instanced mesh per type, which is too
-// many to also draw into the shadow map (the sun's shadow volume only reaches
-// ~4,500 units from the plane, even at low sun). So the full meshes don't cast
-// shadows; a second, shadow-only copy per type holds just the chunks within
-// this radius of the plane (+1 chunk for flying between rebuilds).
+// Trees and other world-wide props are instanced per type, in tiles of
+// TREE_TILE_CHUNKS x TREE_TILE_CHUNKS chunks so three.js can skip tiles outside
+// the view (one mesh per type for the whole world can't be culled). Bigger
+// tiles mean fewer draw calls but coarser culling.
+const TREE_TILE_CHUNKS = 4;
+const TREE_TILE_SIZE = TREE_TILE_CHUNKS * CHUNK_SIZE;
+// A chunk joins the tile containing its center, so a tile's instances reach
+// half a chunk past its edges. The sphere (centered at y = 800) covers those
+// corners from sea level to the highest peaks (~1,600), plus a margin.
+const TREE_TILE_CULL_RADIUS =
+  Math.hypot(((TREE_TILE_SIZE + CHUNK_SIZE) / 2) * Math.SQRT2, 800) + 200;
+
+// The tiles don't cast shadows: that would draw every tree within draw
+// distance (~10 km) into the shadow map, though the sun's shadow volume only
+// reaches ~4,500 units from the plane, even at low sun. Instead a shadow-only
+// mesh per type holds just the chunks within this radius of the plane (+1
+// chunk for flying between rebuilds).
 const TREE_SHADOW_CHUNK_RADIUS = 4;
+
+function createTreeInstancedMesh(geo, mat, capacity, useColor) {
+  const mesh = new THREE.InstancedMesh(geo, mat, capacity);
+  useInstancedDepthMaterial(mesh);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  if (useColor) {
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(capacity * 3),
+      3
+    );
+    mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  }
+  mesh.count = 0;
+  return mesh;
+}
+
+function markInstancesUpdated(mesh, useColor) {
+  mesh.instanceMatrix.clearUpdateRanges();
+  mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+  mesh.instanceMatrix.needsUpdate = true;
+  if (useColor) {
+    mesh.instanceColor.clearUpdateRanges();
+    mesh.instanceColor.addUpdateRange(0, mesh.count * 3);
+    mesh.instanceColor.needsUpdate = true;
+  }
+}
 
 class GlobalInstanceManager {
   constructor() {
@@ -262,7 +300,6 @@ class GlobalInstanceManager {
     this.group.name = 'GlobalInstances';
     scene.add(this.group);
     this._dirty = true;
-    this.counts = new Map();
   }
 
   requestRebuild() {
@@ -270,32 +307,12 @@ class GlobalInstanceManager {
   }
 
   registerType(type, geo, mat, maxInstances = 30000, useColor = false) {
-    const instMesh = new THREE.InstancedMesh(geo, mat, maxInstances);
-    useInstancedDepthMaterial(instMesh);
-    instMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    if (useColor) {
-      instMesh.instanceColor = new THREE.InstancedBufferAttribute(
-        new Float32Array(maxInstances * 3),
-        3
-      );
-      instMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
-    }
-    instMesh.frustumCulled = false;
-    instMesh.visible = state._enableObjects;
-    instMesh.count = 0;
-    instMesh.receiveShadow = true;
-    instMesh.castShadow = false;
-    this.group.add(instMesh);
-
-    // Shadow-only copy with just the instances near the plane. three.js has no
+    // Shadow-only mesh with just the instances near the plane. three.js has no
     // shadow-only flag (layers are tested against the main camera even for
     // shadows), so it draws zero instances on screen: onBeforeRender only runs
     // for the on-screen pass, not the shadow pass.
-    const shadowMesh = new THREE.InstancedMesh(geo, mat, maxInstances);
-    useInstancedDepthMaterial(shadowMesh);
-    shadowMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    const shadowMesh = createTreeInstancedMesh(geo, mat, maxInstances, false);
     shadowMesh.frustumCulled = false;
-    shadowMesh.count = 0;
     shadowMesh.castShadow = true;
     shadowMesh.onBeforeRender = () => {
       shadowMesh.userData.shadowCount = shadowMesh.count;
@@ -307,96 +324,140 @@ class GlobalInstanceManager {
     this.group.add(shadowMesh);
 
     this.types.set(type, {
-      mesh: instMesh,
+      geo,
+      mat,
+      useColor,
+      maxInstances,
       shadowMesh,
-      useColor: useColor,
-      maxInstances: maxInstances,
+      tiles: new Map(), // tile key -> on-screen InstancedMesh
     });
-    this.counts.set(type, 0);
+  }
+
+  // Tile mesh for `type` with room for `count` instances, reused if possible.
+  _tileMesh(typeInfo, tileKey, tileX, tileZ, count) {
+    let mesh = typeInfo.tiles.get(tileKey);
+    if (!mesh || mesh.instanceMatrix.count < count) {
+      if (mesh) this.group.remove(mesh);
+      // Round capacity up so tiles don't reallocate for every few trees.
+      const capacity = Math.max(64, 2 ** Math.ceil(Math.log2(count)));
+      mesh = createTreeInstancedMesh(
+        typeInfo.geo,
+        typeInfo.mat,
+        capacity,
+        typeInfo.useColor
+      );
+      mesh.receiveShadow = true;
+      mesh.castShadow = false;
+      mesh.boundingSphere = new THREE.Sphere(
+        new THREE.Vector3(
+          (tileX + 0.5) * TREE_TILE_SIZE,
+          800,
+          (tileZ + 0.5) * TREE_TILE_SIZE
+        ),
+        TREE_TILE_CULL_RADIUS
+      );
+      typeInfo.tiles.set(tileKey, mesh);
+      this.group.add(mesh);
+    }
+    return mesh;
   }
 
   rebuildAll() {
     if (!this._dirty) return;
     this._dirty = false;
 
-    for (const typeInfo of this.types.values()) {
-      typeInfo.currentCount = 0;
-      typeInfo.shadowCount = 0;
-    }
     const planeChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
     const planeChunkZ = Math.round(planeGroup.position.z / CHUNK_SIZE);
 
+    // 1. Group each type's instance data by tile.
+    const byType = new Map(); // type -> Map(tileKey -> {tileX, tileZ, parts, count})
+    const shadowParts = new Map(); // type -> [data]
     chunks.forEach((chunk) => {
       const instanceData = chunk.userData.instanceData;
       if (!instanceData) return;
+      const {chunkX, chunkZ} = chunk.userData;
+      // Tiles are aligned so chunk centers (chunkX * CHUNK_SIZE) fall inside.
+      const tileX = Math.floor((chunkX * CHUNK_SIZE) / TREE_TILE_SIZE);
+      const tileZ = Math.floor((chunkZ * CHUNK_SIZE) / TREE_TILE_SIZE);
+      const tileKey = tileX + ',' + tileZ;
       const castsShadows =
         Math.max(
-          Math.abs(chunk.userData.chunkX - planeChunkX),
-          Math.abs(chunk.userData.chunkZ - planeChunkZ)
+          Math.abs(chunkX - planeChunkX),
+          Math.abs(chunkZ - planeChunkZ)
         ) <= TREE_SHADOW_CHUNK_RADIUS;
 
       for (const type in instanceData) {
-        const typeInfo = this.types.get(type);
-        if (!typeInfo) continue;
-
+        if (!this.types.has(type)) continue;
         const data = instanceData[type];
-        const count = typeInfo.currentCount;
-        const maxInstances = typeInfo.maxInstances;
-        const numToCopy = Math.min(data.count, maxInstances - count);
-        if (numToCopy <= 0) continue;
-
-        const mesh = typeInfo.mesh;
-        mesh.instanceMatrix.array.set(
-          data.matrices.subarray(0, numToCopy * 16),
-          count * 16
-        );
-
-        if (typeInfo.useColor) {
-          mesh.instanceColor.array.set(
-            data.colors.subarray(0, numToCopy * 3),
-            count * 3
-          );
+        if (!data.count) continue;
+        if (!byType.has(type)) byType.set(type, new Map());
+        const tiles = byType.get(type);
+        if (!tiles.has(tileKey)) {
+          tiles.set(tileKey, {tileX, tileZ, parts: [], count: 0});
         }
-
+        const tile = tiles.get(tileKey);
+        tile.parts.push(data);
+        tile.count += data.count;
         if (castsShadows) {
-          typeInfo.shadowMesh.instanceMatrix.array.set(
-            data.matrices.subarray(0, numToCopy * 16),
-            typeInfo.shadowCount * 16
-          );
-          typeInfo.shadowCount += numToCopy;
+          if (!shadowParts.has(type)) shadowParts.set(type, []);
+          shadowParts.get(type).push(data);
         }
-
-        typeInfo.currentCount = count + numToCopy;
       }
     });
 
-    for (const typeInfo of this.types.values()) {
-      const count = typeInfo.currentCount;
-      typeInfo.mesh.count = count;
-      if (count > 0) {
-        if (typeInfo.mesh.instanceMatrix) {
-          typeInfo.mesh.instanceMatrix.clearUpdateRanges();
-          typeInfo.mesh.instanceMatrix.addUpdateRange(0, count * 16);
-          typeInfo.mesh.instanceMatrix.needsUpdate = true;
+    // 2. Fill each type's tile meshes and its shadow-only mesh.
+    for (const [type, typeInfo] of this.types) {
+      const tiles = byType.get(type) || new Map();
+
+      for (const [tileKey, mesh] of typeInfo.tiles) {
+        if (!tiles.has(tileKey)) {
+          this.group.remove(mesh);
+          mesh.dispose();
+          typeInfo.tiles.delete(tileKey);
         }
-        if (typeInfo.useColor && typeInfo.mesh.instanceColor) {
-          typeInfo.mesh.instanceColor.clearUpdateRanges();
-          typeInfo.mesh.instanceColor.addUpdateRange(0, count * 3);
-          typeInfo.mesh.instanceColor.needsUpdate = true;
+      }
+
+      for (const [tileKey, tile] of tiles) {
+        const mesh = this._tileMesh(
+          typeInfo,
+          tileKey,
+          tile.tileX,
+          tile.tileZ,
+          tile.count
+        );
+        let n = 0;
+        for (const data of tile.parts) {
+          mesh.instanceMatrix.array.set(
+            data.matrices.subarray(0, data.count * 16),
+            n * 16
+          );
+          if (typeInfo.useColor) {
+            mesh.instanceColor.array.set(
+              data.colors.subarray(0, data.count * 3),
+              n * 3
+            );
+          }
+          n += data.count;
         }
-        typeInfo.mesh.visible = state._enableObjects;
-      } else {
-        typeInfo.mesh.visible = false;
+        mesh.count = n;
+        markInstancesUpdated(mesh, typeInfo.useColor);
+        mesh.visible = state._enableObjects;
       }
 
       const shadowMesh = typeInfo.shadowMesh;
-      shadowMesh.count = typeInfo.shadowCount;
-      if (typeInfo.shadowCount > 0) {
-        shadowMesh.instanceMatrix.clearUpdateRanges();
-        shadowMesh.instanceMatrix.addUpdateRange(0, typeInfo.shadowCount * 16);
-        shadowMesh.instanceMatrix.needsUpdate = true;
+      let n = 0;
+      for (const data of shadowParts.get(type) || []) {
+        const numToCopy = Math.min(data.count, typeInfo.maxInstances - n);
+        if (numToCopy <= 0) break;
+        shadowMesh.instanceMatrix.array.set(
+          data.matrices.subarray(0, numToCopy * 16),
+          n * 16
+        );
+        n += numToCopy;
       }
-      shadowMesh.visible = state._enableObjects && typeInfo.shadowCount > 0;
+      shadowMesh.count = n;
+      if (n > 0) markInstancesUpdated(shadowMesh, false);
+      shadowMesh.visible = state._enableObjects && n > 0;
     }
   }
 }
