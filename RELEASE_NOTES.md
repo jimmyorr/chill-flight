@@ -1,5 +1,12 @@
 # Release notes
 
+## 0.9.38
+
+- **Water:** Reflects the sky, with a golden sun glitter path, deep blue to turquoise shallows, shore foam and smooth shorelines.
+- **Sky:** Sunset colors vary around the compass, with the earth's shadow at twilight; sunset clouds glow gold and pink.
+- **Performance:** Terrain chunks build from worker results within the frame budget; stuck workers time out.
+- **Fixes:** Props follow the chosen world seed; distant islands stay visible longer.
+
 ## 0.9.37
 
 - **Performance:** Improved tree rendering and shadow costs with tiled culling, near-plane shadow casting, and simpler distant trees.
