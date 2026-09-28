@@ -1860,8 +1860,9 @@ function updateEnvironmentLighting(delta, now) {
   }
 
   if (waterUniforms && waterUniforms.uSpecularDir) {
-    // Smoothly fade in/out specular based on elevation to prevent abrupt pop at sunrise/sunset
-    const sunFade = THREE.MathUtils.clamp(state.sunY * 5.0, 0, 1);
+    // Fade the sun's glitter path in/out as the sun crosses the horizon
+    // (full strength from just above it: sunsets are when it matters most).
+    const sunFade = THREE.MathUtils.clamp((state.sunY + 0.01) * 25.0, 0, 1);
     const moonFade = THREE.MathUtils.clamp(-state.sunY * 5.0, 0, 1);
 
     if (sunFade > moonFade) {

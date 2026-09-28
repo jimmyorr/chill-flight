@@ -150,7 +150,9 @@ export var waterMaterial = createMaterial({
   transparent: !_isLowQualityInitial,
   opacity: _isLowQualityInitial ? 1.0 : 0.85,
   metalness: 0.1,
-  roughness: 0.05,
+  // Rough enough that three.js's own sun highlight doesn't draw a hard
+  // streak; the water shader adds its own sun glitter path.
+  roughness: 0.7,
   flatShading: true,
   depthWrite: false,
 });
@@ -322,61 +324,107 @@ waterMaterial.onBeforeCompile = (shader) => {
         varying vec3 vSmoothNormal;
         uniform float uRenderRadius;
         varying float vDistanceXZ;
+
+        // The sky's color in a direction: the palette gradient plus the sun's
+        // glow and halo, matching the directional fog. Reflected by the water.
+        vec3 waterSkyColor(vec3 dir) {
+          vec3 d = normalize(dir + vec3(0.0, 33.0 / 10000.0, 0.0));
+          float h = max(d.y, 0.0);
+          float sunInt = max(0.0, dot(d, uSunDirection));
+          float sunElev = uSunDirection.y;
+          vec3 col = mix(uBottomColor, uTopColor, pow(h, 0.6));
+          vec3 wideGlow = uBottomColor * pow(sunInt, 6.0) * 0.6 * (1.0 - h)
+            * smoothstep(-0.25, 0.0, sunElev);
+          vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(sunInt, 24.0) * 0.8
+            * smoothstep(-0.03, 0.06, sunElev);
+          return col + (wideGlow + warmHalo) * (vec3(1.0) - col);
+        }
     ` + shader.fragmentShader;
 
-  // Inject custom specular
+  // Inject sky reflection and the sun's glitter path
   shader.fragmentShader = shader.fragmentShader.replace(
     `#include <dithering_fragment>`,
     `
         #include <dithering_fragment>
 
         vec3 viewDir = normalize(cameraPosition - vWorldPosition);
-        vec3 sunReflNormal = normalize(vSmoothNormal);
-        
+
         // Fade opacity near shore based on water depth
         float depthOpacity = smoothstep(0.0, 4.0, vWaterDepth);
         gl_FragColor.a *= depthOpacity;
-        
+
+        // Deep water (open ocean is ~10 units deep) is opaque and deeper blue;
+        // the shallows stay clear turquoise.
+        float deep = smoothstep(2.0, 9.0, vWaterDepth);
+        float shallow = smoothstep(0.3, 1.5, vWaterDepth) * (1.0 - deep);
+        vec3 waterLit = gl_FragColor.rgb;
+        gl_FragColor.rgb = mix(waterLit, waterLit * vec3(0.24, 0.46, 0.82), deep * 0.7);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, waterLit * vec3(0.55, 1.05, 0.9), shallow * 0.6);
+        gl_FragColor.a = mix(gl_FragColor.a, 1.0, deep * 0.9);
+
         // Add macro-scale spatial variation to break up monotony across different water bodies
         float macro = sin(vWorldPosition.x * 0.0002) * cos(vWorldPosition.z * 0.00025);
         float rippleScale = 0.1 + macro * 0.05; // 0.05 to 0.15
         float timeScale = 1.5 + macro * 0.5; // 1.0 to 2.0
         float perturbStrength = 0.05 + macro * 0.03; // 0.02 to 0.08
-        
+
         // Distance fade for high-frequency normal perturbations to reduce aliasing
-        float distanceFade = smoothstep(1500.0, 0.0, vDistanceXZ);
-        perturbStrength *= distanceFade;
-        
+        float nearFade = smoothstep(1500.0, 0.0, vDistanceXZ);
+
         // Organic high-frequency ripples for shimmering specular
-        vec2 pos = vWorldPosition.xz * rippleScale; // Scale of ripples
+        vec2 pos = vWorldPosition.xz * rippleScale;
         float t = uTime * timeScale;
-        
+
         // 3 non-axis-aligned waves to break the grid interference pattern
         float dx = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.8
                  + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * -0.6
                  + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * 0.9;
-                 
         float dz = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.6
                  + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * 0.8
                  + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * -0.4;
-        
-        vec3 rippleNormal = vec3(dx * perturbStrength, 0.0, dz * perturbStrength); // Perturbation strength
-        
-        sunReflNormal = normalize(sunReflNormal + rippleNormal);
+        vec3 rippleNormal = vec3(dx, 0.0, dz) * perturbStrength * nearFade;
+        vec3 n = normalize(vSmoothNormal + rippleNormal);
 
+        // Sky reflection (Fresnel): looking down you see the water's color;
+        // toward the horizon it mirrors the sky, so the sea takes on the
+        // sunset's colors.
+        vec3 reflDir = reflect(-viewDir, n);
+        reflDir.y = abs(reflDir.y);
+        float cosTheta = max(dot(viewDir, n), 0.0);
+        float skyFresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, waterSkyColor(reflDir), skyFresnel * 0.85);
+        gl_FragColor.a = max(gl_FragColor.a, skyFresnel * depthOpacity);
+
+        // Sun glitter path. Waves tilt small facets of the surface in every
+        // direction; the path is where some of them are tilted just right to
+        // reflect the sun at the camera. A Beckmann slope distribution gives
+        // that fraction, producing the tall path from the horizon toward the
+        // viewer (a single highlight lobe collapses into a thin line).
         vec3 halfVector = normalize(uSpecularDir + viewDir);
-        float dotNormalHalf = max(dot(sunReflNormal, halfVector), 0.0);
-        
-        // Specular intensity
-        float specularIntensity = pow(dotNormalHalf, 200.0); // Softer, broader organic glints
-        float fresnel = 1.0 - max(dot(viewDir, sunReflNormal), 0.0);
-        fresnel = pow(fresnel, 3.0);
-        
-        // Tone down spec during overcast/night
-        float lightIntensity = max(0.1, length(uSunColor));
-        specularIntensity *= lightIntensity;
-        
-        gl_FragColor.rgb += uSunColor * specularIntensity * (0.3 + fresnel * 0.7);
+        float cosT = clamp(dot(halfVector, n), 0.001, 1.0);
+        float cosT2 = cosT * cosT;
+        const float slopeVar = 0.035; // mean squared wave slope
+        float beckmann = exp(-(1.0 - cosT2) / (cosT2 * slopeVar)) / (slopeVar * cosT2 * cosT2);
+
+        // Glints: finer, faster ripples break the path into bright sparkles
+        // near the camera (faded out before they'd alias).
+        float glintFade = smoothstep(2500.0, 200.0, vDistanceXZ);
+        vec2 gp = vWorldPosition.xz * 0.45;
+        float gt = uTime * 2.3;
+        vec3 glintNormal = normalize(n + vec3(
+          sin(dot(gp, vec2(0.7, 0.7)) + gt) + sin(dot(gp, vec2(-0.9, 0.3)) + gt * 1.7),
+          0.0,
+          sin(dot(gp, vec2(0.2, -0.95)) + gt * 1.3) + sin(dot(gp, vec2(0.6, -0.5)) + gt * 0.9)
+        ) * 0.06);
+        float glint = pow(max(dot(glintNormal, halfVector), 0.0), 900.0);
+        float sparkle = mix(1.0, 0.35 + glint * 8.0, glintFade);
+
+        float pathFresnel = 0.02 + 0.98 * pow(1.0 - max(dot(viewDir, halfVector), 0.0), 5.0);
+        float glitter = beckmann * pathFresnel * sparkle * 0.02;
+        // Low sun: the path glows gold rather than white.
+        float lowSun = 1.0 - smoothstep(0.04, 0.35, uSpecularDir.y);
+        vec3 glitterColor = uSunColor * mix(vec3(1.0), vec3(1.0, 0.72, 0.38), lowSun);
+        gl_FragColor.rgb += glitterColor * min(glitter, 3.0);
         `
   );
 
