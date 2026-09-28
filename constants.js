@@ -171,7 +171,7 @@ export function createMaterial(params) {
          float finalFogFactor = fogFactor;
          if (uRenderRadius > 0.0) {
              float distRatio = vDistanceXZ / uRenderRadius;
-             float xzFogFactor = smoothstep(0.75, 0.95, distRatio);
+             float xzFogFactor = smoothstep(0.9, 0.99, distRatio);
              finalFogFactor = max(fogFactor, xzFogFactor);
          }
          

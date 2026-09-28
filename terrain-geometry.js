@@ -234,7 +234,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
        #endif
        
        float distRatio = vDistanceXZ / uRenderRadius;
-       float xzFogFactor = smoothstep(0.75, 0.95, distRatio);
+       float xzFogFactor = smoothstep(0.9, 0.99, distRatio);
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
        
@@ -461,7 +461,7 @@ waterMaterial.onBeforeCompile = (shader) => {
        #endif
        
        float distRatio = vDistanceXZ / uRenderRadius;
-       float xzFogFactor = smoothstep(0.75, 0.95, distRatio);
+       float xzFogFactor = smoothstep(0.9, 0.99, distRatio);
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
        
@@ -2302,7 +2302,7 @@ streetlightDecalMat.onBeforeCompile = (shader) => {
     `#include <fog_fragment>
      if (uRenderRadius > 0.0) {
        float distRatio = vDistanceXZ / uRenderRadius;
-       gl_FragColor.a *= (1.0 - smoothstep(0.75, 0.95, distRatio));
+       gl_FragColor.a *= (1.0 - smoothstep(0.9, 0.99, distRatio));
      }`
   );
 };
