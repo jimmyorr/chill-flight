@@ -39,6 +39,7 @@ function makeFactory(behaviors, rest = 'ok') {
       jobs: 0,
       postMessage(payload) {
         this.jobs++;
+        this.lastPayload = payload;
         if (behavior === 'ok') {
           setTimeout(() =>
             this.onmessage({data: {id: payload.id, status: 'success'}})
@@ -144,6 +145,17 @@ const settle = (promise) =>
   check(
     'requests after disabling are rejected immediately',
     (await settle(m.requestChunk(9, 9))).startsWith('rejected')
+  );
+}
+
+// 5. The worker reads enableObjects from the top level of the message.
+{
+  const {factory, made} = makeFactory(['ok']);
+  const m = new TerrainWorkerManager(1, {createWorker: factory});
+  await m.requestChunk(0, 0, {enableObjects: false});
+  check(
+    'the procedural objects setting reaches the worker',
+    made[0].lastPayload.enableObjects === false
   );
 }
 

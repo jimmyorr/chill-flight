@@ -173,11 +173,7 @@ export class TerrainWorkerManager {
           MAP_HEIGHT_SCALE: 400,
         },
         worldSeed: options.worldSeed || 1,
-        waterLevel: options.waterLevel !== undefined ? options.waterLevel : 40,
-        theme: options.theme || 'default',
-        options: {
-          enableObjects: options.enableObjects !== false,
-        },
+        enableObjects: options.enableObjects !== false,
       };
 
       const job = {
