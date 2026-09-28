@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.37
+
+- **Performance:** Improved tree rendering and shadow costs with tiled culling, near-plane shadow casting, and simpler distant trees.
+- **Visuals:** Faded shadows in ahead of the plane and kept snow and ice shading visible in bright daylight.
+- **Diagnostics:** Limited Sentry initialization to production builds.
+
 ## 0.9.35
 
 - **Performance:** Fixed production terrain workers crashing on startup, which forced all terrain generation onto the main thread.
