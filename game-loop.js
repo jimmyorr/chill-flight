@@ -182,11 +182,7 @@ function animate() {
 
   // --- FPS CAPPING ---
   // In VR, the headset compositor manages native vsync (72/90/120Hz); bypass manual 60fps throttle
-  state.isVRPresenting =
-    typeof renderer !== 'undefined' &&
-    renderer &&
-    renderer.xr &&
-    renderer.xr.isPresenting;
+  state.isVRPresenting = renderer && renderer.xr && renderer.xr.isPresenting;
   if (!state.isVRPresenting && state.maxFPS > 0) {
     const timeSinceLastFrame = frameStartTime - state.lastFrameTime;
     if (timeSinceLastFrame < state.frameMinDelay - 1) {
@@ -248,9 +244,7 @@ function animate() {
         activeCamTarget.lookAt(_currentLookTarget);
       }
 
-      if (typeof sunUniforms !== 'undefined') {
-        sunUniforms.uTime.value = now * 0.001;
-      }
+      sunUniforms.uTime.value = now * 0.001;
 
       updateWeather(delta);
       // During loading screen, always update shadows (simple scene, minimal cost)
@@ -315,7 +309,7 @@ function animate() {
   // Spin the propeller
   updatePhysicsAndControls(delta, nowTime);
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
-  if (typeof Achievements !== 'undefined' && !state.isFreeCamera) {
+  if (!state.isFreeCamera) {
     // 1. Maneuver completions
     if (state.wasDoingFullLoop && !state.isDoingFullLoop) {
       Achievements.unlock('froot_loops');
@@ -360,10 +354,9 @@ function animate() {
   state.wasDoingFullBarrelRoll = state.isDoingFullBarrelRoll;
   state.wasDoingImmelmann = state.isDoingImmelmann;
 
-  if (typeof updateFlightPhysics === 'function')
-    updateFlightPhysics(delta, nowTime);
+  updateFlightPhysics(delta, nowTime);
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
-  if (typeof Achievements !== 'undefined' && !state.isFreeCamera) {
+  if (!state.isFreeCamera) {
     if (!state.previousPosition) {
       state.previousPosition = planeGroup.position.clone();
     } else {
@@ -383,7 +376,7 @@ function animate() {
           state.lifetimeDistanceTravelled.toString()
         );
 
-        if (typeof Achievements !== 'undefined' && Achievements.updateStats) {
+        if (Achievements.updateStats) {
           Achievements.updateStats(state.lifetimeDistanceTravelled);
         }
         state.distanceSinceLastSave = 0;
@@ -420,7 +413,7 @@ function animate() {
     }
 
     // 3. Rock Arch (Limbo) - Arch center is X = 3000, Z = _rockArchPos.z
-    if (_rockArchPos.y === 0 && typeof getElevation === 'function') {
+    if (_rockArchPos.y === 0) {
       _rockArchPos.y = Math.max(40, getElevation(3000, _rockArchPos.z)) + 80;
     }
     const distToRockArchSq =
@@ -441,8 +434,7 @@ function animate() {
   // This prevents the camera from "jittering" or lagging one frame behind.
   planeGroup.updateMatrixWorld();
 
-  if (typeof updateFlightCamera === 'function')
-    updateFlightCamera(delta, nowTime);
+  updateFlightCamera(delta, nowTime);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping(delta);
   // Smoothly interpolate sky shader palettes
@@ -468,10 +460,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
       'debug-pitch',
       Math.round((planeGroup.rotation.x * 180) / Math.PI)
     );
-    const isCustom =
-      typeof isCustomPalette !== 'undefined'
-        ? isCustomPalette
-        : isCustomPalette;
+    const isCustom = isCustomPalette;
     const curSeed =
       typeof currentPaletteSeed !== 'undefined'
         ? currentPaletteSeed
@@ -549,7 +538,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
         ? ChillFlightLogic.getIslandArchetype(
             _activeIslandPos.x,
             _activeIslandPos.z,
-            typeof simplex !== 'undefined' ? simplex : null
+            simplex
           )
         : '-';
     const _islandDisplay =
@@ -866,11 +855,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
 
 function startAnimationLoop() {
   if (isAnimationLoopRunning) return;
-  if (
-    typeof renderer !== 'undefined' &&
-    renderer &&
-    typeof renderer.setAnimationLoop === 'function'
-  ) {
+  if (renderer && typeof renderer.setAnimationLoop === 'function') {
     isAnimationLoopRunning = true;
     renderer.setAnimationLoop(animate);
   } else {
@@ -966,9 +951,9 @@ function updateDayNightCycle(delta) {
   }
 
   // Check and update the sky palette if it's a new cycle
-  if (typeof updateSkyPalette === 'function') {
-    updateSkyPalette(state.worldClockNow);
-  }
+
+  updateSkyPalette(state.worldClockNow);
+
   // Window glow
   houseWindowMats.forEach((mat, i) => {
     const offset = i * 0.05;
@@ -981,12 +966,9 @@ function updateDayNightCycle(delta) {
   const slSunY = -Math.cos(state.timeOfDay);
   const slNightValue = Math.max(0, (-slSunY + 0.1) * 2);
 
-  if (typeof streetlightBulbMat !== 'undefined') {
-    streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
-  }
-  if (typeof streetlightDecalMat !== 'undefined') {
-    streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
-  }
+  streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
+
+  streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
 }
 
 function updatePhysicsAndControls(delta, nowTime) {
@@ -1109,9 +1091,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     !keys.Shift &&
     (isUp || isDown || isLeft || isRight)
   ) {
-    if (typeof toggleAutopilot === 'function') {
-      toggleAutopilot();
-    }
+    toggleAutopilot();
   }
 
   // Shift+Up/Down: throttle control
@@ -1126,9 +1106,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       const ramp = Math.min(1.0, heldTime / 2000);
       const throttleRate = (0.2 + ramp * 1.0) * delta;
       state.targetFlightSpeed = Math.min(
-        typeof getMaxFlightSpeedMult === 'function'
-          ? getMaxFlightSpeedMult()
-          : 3.3333333333333335,
+        getMaxFlightSpeedMult(),
         state.targetFlightSpeed + throttleRate
       );
     } else if (rawDown) {
@@ -1199,11 +1177,9 @@ function updatePhysicsAndControls(delta, nowTime) {
     state.targetFlightSpeed = 1.0;
 
     // 2. Altitude Control
-    const currentRiverZ =
-      typeof ChillFlightLogic !== 'undefined' &&
-      ChillFlightLogic.getRiverCenterZ
-        ? ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, 0, simplex, 0)
-        : 0;
+    const currentRiverZ = ChillFlightLogic.getRiverCenterZ
+      ? ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, 0, simplex, 0)
+      : 0;
 
     const distToRiver = Math.abs(currentRiverZ - planeGroup.position.z);
     let targetAltY = 145.5; // 2500 altitude
@@ -1229,11 +1205,9 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     // We look ahead a bit to calculate the river's local angle
     const lookAheadX = planeGroup.position.x + lookDirX * 300;
-    const targetRiverZ =
-      typeof ChillFlightLogic !== 'undefined' &&
-      ChillFlightLogic.getRiverCenterZ
-        ? ChillFlightLogic.getRiverCenterZ(lookAheadX, 0, simplex, 0)
-        : 0;
+    const targetRiverZ = ChillFlightLogic.getRiverCenterZ
+      ? ChillFlightLogic.getRiverCenterZ(lookAheadX, 0, simplex, 0)
+      : 0;
 
     // Calculate the vector pointing down the river
     const dx = lookAheadX - planeGroup.position.x;
@@ -1909,71 +1883,68 @@ function updateEnvironmentLighting(delta, now) {
     }
   }
 
-  if (typeof sunUniforms !== 'undefined') {
-    sunUniforms.uTime.value = now * 0.001;
-    sunUniforms.overcast.value = overcast;
-    sunUniforms.dayFactor.value = state.dayFactor;
+  sunUniforms.uTime.value = now * 0.001;
+  sunUniforms.overcast.value = overcast;
+  sunUniforms.dayFactor.value = state.dayFactor;
 
-    // Dynamic Sun Sizing (Moon Illusion)
-    const sunElevation = Math.max(0.0, state.sunY);
-    const sunScale = 1.0 + Math.pow(1.0 - sunElevation, 3.0) * 1.5;
-    sunMesh.scale.setScalar(sunScale);
+  // Dynamic Sun Sizing (Moon Illusion)
+  const sunElevation = Math.max(0.0, state.sunY);
+  const sunScale = 1.0 + Math.pow(1.0 - sunElevation, 3.0) * 1.5;
+  sunMesh.scale.setScalar(sunScale);
 
-    // Dynamic Sun Color (Golden Hour)
-    const colorFactor = 1.0 - Math.pow(1.0 - sunElevation, 3.0);
-    sunUniforms.uSunColor.value
-      .copy(_sunSunsetColor)
-      .lerp(_sunNoonColor, colorFactor);
-  }
-  if (typeof moonUniforms !== 'undefined') {
-    moonUniforms.uTime.value = now * 0.001;
-    moonUniforms.overcast.value = overcast;
-    moonUniforms.dayFactor.value = state.dayFactor;
-    moonUniforms.uCloudDensity.value = skyUniforms.uCloudDensity?.value ?? 0.5;
-    moonUniforms.uMoonSkyDir.value
-      .set(state.moonX, state.moonY, state.moonZ)
-      .normalize();
-    moonUniforms.uCameraPos.value.copy(getCameraWorldPosition());
+  // Dynamic Sun Color (Golden Hour)
+  const colorFactor = 1.0 - Math.pow(1.0 - sunElevation, 3.0);
+  sunUniforms.uSunColor.value
+    .copy(_sunSunsetColor)
+    .lerp(_sunNoonColor, colorFactor);
 
-    // Update moon direction local to its rotation for consistent phase lighting
+  moonUniforms.uTime.value = now * 0.001;
+  moonUniforms.overcast.value = overcast;
+  moonUniforms.dayFactor.value = state.dayFactor;
+  moonUniforms.uCloudDensity.value = skyUniforms.uCloudDensity?.value ?? 0.5;
+  moonUniforms.uMoonSkyDir.value
+    .set(state.moonX, state.moonY, state.moonZ)
+    .normalize();
+  moonUniforms.uCameraPos.value.copy(getCameraWorldPosition());
 
-    // Build a CAMERA-INDEPENDENT billboard basis so the phase never rotates
-    // Z always points from moon toward Earth (camera), X is world-horizontal,
-    // Y is approximately world-up on the moon face.
-    const vMoonDir = _moonVMoonDir.copy(moonMesh.position).normalize();
-    const vZ = _moonVZ.copy(vMoonDir).negate();
-    const vX = _moonVX.crossVectors(_upVector, vZ);
-    if (vX.lengthSq() < 0.0001) vX.set(1, 0, 0); // fallback if moon is at zenith
-    vX.normalize();
-    const vY = _moonVY.crossVectors(vZ, vX).normalize();
+  // Update moon direction local to its rotation for consistent phase lighting
 
-    const mRot = _moonMRot.makeBasis(vX, vY, vZ);
-    moonMesh.quaternion.setFromRotationMatrix(mRot);
+  // Build a CAMERA-INDEPENDENT billboard basis so the phase never rotates
+  // Z always points from moon toward Earth (camera), X is world-horizontal,
+  // Y is approximately world-up on the moon face.
+  const vMoonDir = _moonVMoonDir.copy(moonMesh.position).normalize();
+  const vZ = _moonVZ.copy(vMoonDir).negate();
+  const vX = _moonVX.crossVectors(_upVector, vZ);
+  if (vX.lengthSq() < 0.0001) vX.set(1, 0, 0); // fallback if moon is at zenith
+  vX.normalize();
+  const vY = _moonVY.crossVectors(vZ, vX).normalize();
 
-    // Pass the rotation matrix so the shader can recover world normals
-    const moonRotMat = _moonRotMat.setFromMatrix4(mRot);
-    moonUniforms.uMoonRotMat.value.copy(moonRotMat);
-    // Phase light direction — 29.5 game days per cycle
-    // Ties the moon phase back to the game clock so it advances faster when time is sped up
-    const moonDirNorm = _moonDirNorm
-      .set(state.moonX, state.moonY, state.moonZ)
-      .normalize();
-    const phaseX = _moonPhaseX.crossVectors(_upVector, moonDirNorm);
-    if (phaseX.lengthSq() < 0.001) phaseX.set(1, 0, 0);
-    phaseX.normalize();
-    // Sun orbits through the moon-origin axis to create full/new moon phases
-    const phaseSunDir = _moonPhaseSunDir
-      .copy(moonDirNorm)
-      .multiplyScalar(Math.cos(phaseAngle))
-      .addScaledVector(phaseX, Math.sin(phaseAngle))
-      .normalize();
-    moonUniforms.uSunDirectionWorld.value.copy(phaseSunDir);
+  const mRot = _moonMRot.makeBasis(vX, vY, vZ);
+  moonMesh.quaternion.setFromRotationMatrix(mRot);
 
-    // Dynamic Moon Sizing (Moon Illusion) — uniform scale only
-    const moonElevation = Math.max(0.0, state.moonY);
-    const moonScale = 1.0 + Math.pow(1.0 - moonElevation, 3.0) * 1.5;
-    moonMesh.scale.setScalar(moonScale);
-  }
+  // Pass the rotation matrix so the shader can recover world normals
+  const moonRotMat = _moonRotMat.setFromMatrix4(mRot);
+  moonUniforms.uMoonRotMat.value.copy(moonRotMat);
+  // Phase light direction — 29.5 game days per cycle
+  // Ties the moon phase back to the game clock so it advances faster when time is sped up
+  const moonDirNorm = _moonDirNorm
+    .set(state.moonX, state.moonY, state.moonZ)
+    .normalize();
+  const phaseX = _moonPhaseX.crossVectors(_upVector, moonDirNorm);
+  if (phaseX.lengthSq() < 0.001) phaseX.set(1, 0, 0);
+  phaseX.normalize();
+  // Sun orbits through the moon-origin axis to create full/new moon phases
+  const phaseSunDir = _moonPhaseSunDir
+    .copy(moonDirNorm)
+    .multiplyScalar(Math.cos(phaseAngle))
+    .addScaledVector(phaseX, Math.sin(phaseAngle))
+    .normalize();
+  moonUniforms.uSunDirectionWorld.value.copy(phaseSunDir);
+
+  // Dynamic Moon Sizing (Moon Illusion) — uniform scale only
+  const moonElevation = Math.max(0.0, state.moonY);
+  const moonScale = 1.0 + Math.pow(1.0 - moonElevation, 3.0) * 1.5;
+  moonMesh.scale.setScalar(moonScale);
 
   if (!isCustomPalette) {
     if (state.dayFactor > 0.0) {
@@ -2019,11 +1990,7 @@ function updateWeatherAndRendering(delta) {
 
 function updateBenchmarking(delta, frameStartTime) {
   // --- BENCHMARKING LOGIC ---
-  if (
-    typeof ChillFlightLogic !== 'undefined' &&
-    ChillFlightLogic.START_BENCHMARK !== null &&
-    !benchmarkComplete
-  ) {
+  if (ChillFlightLogic.START_BENCHMARK !== null && !benchmarkComplete) {
     if (!benchmarkStartTime) {
       benchmarkStartTime = performance.now();
       benchmarkFrameTimes = [];

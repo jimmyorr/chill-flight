@@ -66,9 +66,9 @@ if (controlSchemeToggle) {
       }
 
       state.currentControlScheme = scheme;
-      if (typeof inputManager !== 'undefined') {
-        inputManager.state.controlScheme = scheme;
-      }
+
+      inputManager.state.controlScheme = scheme;
+
       state.gyroEnabled = scheme === 'gyro';
       localStorage.setItem('chill_flight_control_scheme', scheme);
       state.gyroBasePitch = null;

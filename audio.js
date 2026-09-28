@@ -153,10 +153,9 @@ const purrpleCatTracks = [
   'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-yesteryear.mp3',
 ];
 // Sync the starting track with the world seed for a deterministic radio experience
-let purrpleCatIdx =
-  typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED
-    ? Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length
-    : 0;
+let purrpleCatIdx = ChillFlightLogic.WORLD_SEED
+  ? Math.abs(ChillFlightLogic.WORLD_SEED) % purrpleCatTracks.length
+  : 0;
 
 // Use the bundled track the first time the user ever plays the game
 if (localStorage.getItem('chill_flight_played_before') !== 'true') {

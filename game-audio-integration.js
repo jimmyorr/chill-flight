@@ -5,10 +5,7 @@ export function updatePauseMenuMusicInfo() {
   const cpEl = document.getElementById('currently-playing');
   const titleEl = document.getElementById('song-title-text');
   const attrEl = document.getElementById('music-attribution');
-  const showMusicInfo =
-    typeof musicEnabled !== 'undefined' &&
-    musicEnabled &&
-    typeof getCurrentTrackName === 'function';
+  const showMusicInfo = musicEnabled;
 
   if (cpEl && titleEl) {
     if (showMusicInfo) {
@@ -39,12 +36,9 @@ if (typeof window !== 'undefined') {
 const musicToggle = document.getElementById('music-toggle-input');
 if (musicToggle) {
   // Initial sync
-  musicToggle.checked =
-    typeof musicEnabled !== 'undefined' ? musicEnabled : true;
+  musicToggle.checked = musicEnabled;
 
   musicToggle.addEventListener('change', (e) => {
-    if (typeof setMusicEnabled === 'function') {
-      setMusicEnabled(e.target.checked);
-    }
+    setMusicEnabled(e.target.checked);
   });
 }

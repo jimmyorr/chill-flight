@@ -62,7 +62,7 @@ export function toggleAutopilot(forceState) {
     }
   }
 
-  if (state.autopilotEnabled && typeof Achievements !== 'undefined') {
+  if (state.autopilotEnabled) {
     Achievements.unlock('otto');
   }
 
@@ -87,20 +87,14 @@ export function toggleAutopilot(forceState) {
     }, 2000);
   }
 
-  if (typeof updateUrlParams === 'function') {
-    if (state.autopilotEnabled) {
-      updateUrlParams({autopilot: 'true'}, ['auto', 'autoPilot']);
-    } else {
-      updateUrlParams({}, ['autopilot', 'auto', 'autoPilot']);
-    }
+  if (state.autopilotEnabled) {
+    updateUrlParams({autopilot: 'true'}, ['auto', 'autoPilot']);
+  } else {
+    updateUrlParams({}, ['autopilot', 'auto', 'autoPilot']);
   }
 }
 
-if (
-  typeof ChillFlightLogic !== 'undefined' &&
-  ChillFlightLogic.START_AUTOPILOT &&
-  !state.isFreeCamera
-) {
+if (ChillFlightLogic.START_AUTOPILOT && !state.isFreeCamera) {
   toggleAutopilot(true);
 }
 
@@ -137,9 +131,8 @@ if (camToggle) {
       state.cameraMode = 'follow';
       state.cameraTransitionProgress = 0; // Reset progress to avoid bounce
     }
-    if (typeof Achievements !== 'undefined') {
-      Achievements.unlock('directors_cut');
-    }
+
+    Achievements.unlock('directors_cut');
   });
 }
 
@@ -151,9 +144,8 @@ if (hdgtSub) {
       headlight.intensity = HEADLIGHT_INTENSITY;
       headlightGlow.intensity = HEADLIGHT_GLOW_INTENSITY;
       hdgtSub.classList.add('active');
-      if (typeof Achievements !== 'undefined') {
-        Achievements.unlock('night_vision');
-      }
+
+      Achievements.unlock('night_vision');
     } else {
       headlight.intensity = 0;
       headlightGlow.intensity = 0;
@@ -175,7 +167,7 @@ export function resetSteering() {
   state.mouseX = 0;
   state.mouseY = 0;
   state.mouseControlActive = false;
-  if (typeof inputManager !== 'undefined' && inputManager.resetMouseSteering) {
+  if (inputManager.resetMouseSteering) {
     inputManager.resetMouseSteering();
   }
 }
@@ -224,9 +216,7 @@ if (btnUp) {
     ) {
       state.targetFlightSpeed += 0.1;
       state.targetFlightSpeed = Math.min(
-        typeof getMaxFlightSpeedMult === 'function'
-          ? getMaxFlightSpeedMult()
-          : 3.3333333333333335,
+        getMaxFlightSpeedMult(),
         state.targetFlightSpeed
       );
     }
@@ -290,9 +280,8 @@ document.addEventListener('visibilitychange', () => {
 
 window.addEventListener('focus', () => {
   state.windowJustFocused = true;
-  if (typeof clock !== 'undefined') {
-    clock.update(); // This "consumes" the time passed while the tab was hidden
-  }
+
+  clock.update(); // This "consumes" the time passed while the tab was hidden
 });
 
 // Debug menu speed buttons
@@ -390,12 +379,11 @@ if (overlay) {
     // Unpause the game and clear the clock delta
     state.isPaused = false;
     state.justResumed = true;
-    if (typeof clock !== 'undefined') clock.update();
+    clock.update();
 
     // Start music! (Will respect the musicEnabled state)
-    if (typeof setMusicEnabled === 'function') {
-      setMusicEnabled(musicEnabled);
-    }
+
+    setMusicEnabled(musicEnabled);
 
     // Initialize onboarding
     initOnboarding(instant ? 0 : 4000);
@@ -515,7 +503,7 @@ if (overlay) {
 
         // Wait a tiny bit so the progress bar visually reaches 100%
         setTimeout(() => {
-          if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
+          if (!musicEnabled) {
             // Auto-skip
             log.info('🎵 Music was paused last session. Auto-skipping.');
             state.dismissLoadingScreen(false);
@@ -543,7 +531,7 @@ if (overlay) {
     }, 50);
   } else {
     // Fallback if elements are missing
-    if (typeof musicEnabled !== 'undefined' && !musicEnabled) {
+    if (!musicEnabled) {
       state.dismissLoadingScreen(true);
     } else if (btnContainer) {
       btnContainer.style.visibility = 'visible';
@@ -626,7 +614,7 @@ export function showStartPlaneTooltip() {
     let count = parseInt(localStorage.getItem(playCountKey) || '0', 10);
     count++;
     localStorage.setItem(playCountKey, count.toString());
-    if (count >= 10 && typeof Achievements !== 'undefined') {
+    if (count >= 10) {
       Achievements.unlock('frequent_flyer');
     }
   } catch (e) {

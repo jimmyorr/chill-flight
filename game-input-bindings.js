@@ -29,12 +29,7 @@ if (ChillFlightLogic.START_TOD !== null) {
 
 // --- WEBXR / VR DOLLY & CAMERA RIG ---
 export function checkVRPresenting() {
-  return !!(
-    typeof renderer !== 'undefined' &&
-    renderer &&
-    renderer.xr &&
-    renderer.xr.isPresenting
-  );
+  return !!(renderer && renderer.xr && renderer.xr.isPresenting);
 }
 export var cameraDolly = new THREE.Group();
 cameraDolly.name = 'cameraDolly';
@@ -70,7 +65,7 @@ inputManager.onCameraToggle = () => {
     state.cameraMode = 'follow';
     state.cameraTransitionProgress = 0;
   }
-  if (typeof Achievements !== 'undefined') Achievements.unlock('directors_cut');
+  Achievements.unlock('directors_cut');
 };
 export const hdgtSub = document.getElementById('mobile-hdgt-sub');
 inputManager.onHeadlightToggle = () => {
@@ -78,8 +73,7 @@ inputManager.onHeadlightToggle = () => {
     headlight.intensity = HEADLIGHT_INTENSITY;
     headlightGlow.intensity = HEADLIGHT_GLOW_INTENSITY;
     if (hdgtSub) hdgtSub.classList.add('active');
-    if (typeof Achievements !== 'undefined')
-      Achievements.unlock('night_vision');
+    Achievements.unlock('night_vision');
   } else {
     headlight.intensity = 0;
     headlightGlow.intensity = 0;
@@ -130,26 +124,19 @@ inputManager.onShootingStarToggle = () => {
   state.forceShootingStar = true;
 };
 inputManager.onWeatherToggle = () => {
-  if (typeof cycleWeather === 'function') cycleWeather();
+  cycleWeather();
 };
 inputManager.onPlaneToggle = () => {
-  if (typeof setActivePlane === 'function') {
-    const types = ['classic', 'biplane', 'glider', 'twin'];
-    const currentIndex = types.indexOf(activePlaneType);
-    const nextPlane = types[(currentIndex + 1) % types.length] || 'classic';
-    setActivePlane(nextPlane);
-  }
+  const types = ['classic', 'biplane', 'glider', 'twin'];
+  const currentIndex = types.indexOf(activePlaneType);
+  const nextPlane = types[(currentIndex + 1) % types.length] || 'classic';
+  setActivePlane(nextPlane);
 };
 inputManager.onMusicToggle = () => {
-  if (
-    typeof musicEnabled !== 'undefined' &&
-    typeof purrpleCatAudio !== 'undefined'
-  ) {
-    if (musicEnabled && purrpleCatAudio.paused) {
-      updateAudioPlayer(true);
-    } else if (typeof setMusicEnabled === 'function') {
-      setMusicEnabled(!musicEnabled);
-    }
+  if (musicEnabled && purrpleCatAudio.paused) {
+    updateAudioPlayer(true);
+  } else {
+    setMusicEnabled(!musicEnabled);
   }
 };
 inputManager.onThrottleChange = (delta) => {
@@ -220,10 +207,7 @@ state.targetFlightSpeed = state.flightSpeedMultiplier; // Initialize based on cu
 // actually get the plane moving. Shared by all throttle inputs so the
 // behavior can't drift between them.
 export function applyThrottleDelta(delta) {
-  const maxSpeed =
-    typeof getMaxFlightSpeedMult === 'function'
-      ? getMaxFlightSpeedMult()
-      : 3.3333333333333335;
+  const maxSpeed = getMaxFlightSpeedMult();
   if (delta > 0) {
     if (state.targetFlightSpeed === 0) {
       state.targetFlightSpeed = Math.max(0.1, delta);

@@ -152,7 +152,7 @@ export function applyGraphicsPreset(preset) {
   // Store the preset's base pixel ratio so DRS can scale relative to it
   state._basePixelRatio = pixelRatio;
 
-  if (typeof renderer !== 'undefined' && renderer) {
+  if (renderer) {
     renderer.setPixelRatio(pixelRatio);
   }
 
@@ -168,62 +168,55 @@ export function applyGraphicsPreset(preset) {
 
   // Toggle overdraw optimizations (transparency)
   const isLow = segments <= 20;
-  if (typeof waterMaterial !== 'undefined') {
-    waterMaterial.transparent = !isLow;
-    waterMaterial.opacity = isLow ? 1.0 : 0.6;
-    waterMaterial.depthWrite = isLow ? true : false;
-    waterMaterial.needsUpdate = true;
-  }
+
+  waterMaterial.transparent = !isLow;
+  waterMaterial.opacity = isLow ? 1.0 : 0.6;
+  waterMaterial.depthWrite = isLow ? true : false;
+  waterMaterial.needsUpdate = true;
 
   const enableShadows = segments > 20;
-  if (
-    typeof dirLight !== 'undefined' &&
-    dirLight.castShadow !== enableShadows
-  ) {
+  if (dirLight.castShadow !== enableShadows) {
     dirLight.castShadow = enableShadows;
-    if (typeof scene !== 'undefined') {
-      scene.traverse((child) => {
-        if (child.isMesh || child.isInstancedMesh) {
-          child.castShadow = enableShadows;
-          // Keep receiveShadow=false on the player plane to prevent
-          // self-shadowing strobe artifacts at low sun angles
-          if (!planeGroup || !planeGroup.getObjectById(child.id)) {
-            child.receiveShadow = enableShadows;
-          }
-          if (child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach((m) => (m.needsUpdate = true));
-            } else {
-              child.material.needsUpdate = true;
-            }
+
+    scene.traverse((child) => {
+      if (child.isMesh || child.isInstancedMesh) {
+        child.castShadow = enableShadows;
+        // Keep receiveShadow=false on the player plane to prevent
+        // self-shadowing strobe artifacts at low sun angles
+        if (!planeGroup || !planeGroup.getObjectById(child.id)) {
+          child.receiveShadow = enableShadows;
+        }
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach((m) => (m.needsUpdate = true));
+          } else {
+            child.material.needsUpdate = true;
           }
         }
-      });
-    }
+      }
+    });
   }
 
   // Clear all existing chunks to force regeneration
-  if (typeof chunks !== 'undefined') {
-    chunks.forEach((group, key) => {
-      group.traverse((child) => {
-        if (child.isMesh || child.isInstancedMesh) {
-          if (child.geometry && child.geometry.userData.unique) {
-            child.geometry.dispose();
-          }
+
+  chunks.forEach((group, key) => {
+    group.traverse((child) => {
+      if (child.isMesh || child.isInstancedMesh) {
+        if (child.geometry && child.geometry.userData.unique) {
+          child.geometry.dispose();
         }
-      });
-      if (typeof scene !== 'undefined') scene.remove(group);
+      }
     });
-    chunks.clear();
-    if (typeof watercraftChunks !== 'undefined') {
-      watercraftChunks.clear();
-    }
-  }
+    scene.remove(group);
+  });
+  chunks.clear();
+
+  watercraftChunks.clear();
+
   if (clearChunkQueue) clearChunkQueue();
   if (clearElevationCache) clearElevationCache();
-  if (typeof _lastChunkUpdatePos !== 'undefined') {
-    _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
-  }
+
+  _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
 }
 
 var showChunkBorders = false;
@@ -238,7 +231,7 @@ export function syncChunkBorders() {
     }
     return;
   }
-  const cs = typeof CHUNK_SIZE !== 'undefined' ? CHUNK_SIZE : 1500;
+  const cs = CHUNK_SIZE;
   const halfH = 800;
   chunks.forEach((group, key) => {
     if (!_chunkBorderHelpers.has(key)) {
@@ -326,30 +319,28 @@ export function initDebugUI() {
         updateUrlParams({}, ['islandType', 'island']);
       }
       // Rebuild terrain chunks so change takes effect immediately
-      if (typeof chunks !== 'undefined') {
-        chunks.forEach((group) => {
-          group.traverse((child) => {
-            if (child.isMesh || child.isInstancedMesh) {
-              if (child.geometry && child.geometry.userData.unique) {
-                child.geometry.dispose();
-              }
+
+      chunks.forEach((group) => {
+        group.traverse((child) => {
+          if (child.isMesh || child.isInstancedMesh) {
+            if (child.geometry && child.geometry.userData.unique) {
+              child.geometry.dispose();
             }
-          });
-          if (typeof scene !== 'undefined') scene.remove(group);
+          }
         });
-        chunks.clear();
-        if (typeof watercraftChunks !== 'undefined') {
-          watercraftChunks.clear();
-        }
-      }
+        scene.remove(group);
+      });
+      chunks.clear();
+
+      watercraftChunks.clear();
+
       if (clearChunkQueue) clearChunkQueue();
       if (clearElevationCache) clearElevationCache();
-      if (typeof _lastChunkUpdatePos !== 'undefined') {
-        _lastChunkUpdatePos.set(Infinity, Infinity, Infinity);
-      }
-      if (typeof updateChunks === 'function') {
-        updateChunks();
-      }
+
+      _lastChunkUpdatePos.set(Infinity, Infinity, Infinity);
+
+      updateChunks();
+
       log.info(`Island type changed to: ${val}`);
     });
   }
@@ -359,9 +350,7 @@ export function initDebugUI() {
   if (objectsToggle) {
     objectsToggle.checked = ChillFlightLogic.SHOW_OBJECTS;
     objectsToggle.addEventListener('change', (e) => {
-      if (typeof toggleProceduralObjects === 'function') {
-        toggleProceduralObjects(e.target.checked);
-      }
+      toggleProceduralObjects(e.target.checked);
     });
   }
 
@@ -396,7 +385,6 @@ export function initDebugUI() {
         ? state.PROP_LOD_DISTANCE
         : 4200;
     if (
-      typeof ChillFlightLogic !== 'undefined' &&
       ChillFlightLogic.START_PROP_LOD !== null &&
       !isNaN(ChillFlightLogic.START_PROP_LOD)
     ) {
@@ -421,10 +409,7 @@ export function initDebugUI() {
   }
 
   // Free Camera toggle
-  state.isFreeCamera =
-    typeof ChillFlightLogic !== 'undefined'
-      ? ChillFlightLogic.START_FREE_CAM || false
-      : false;
+  state.isFreeCamera = ChillFlightLogic.START_FREE_CAM || false;
   const freeCamToggle = document.getElementById('debug-free-cam-toggle');
   if (freeCamToggle) {
     if (state.isFreeCamera) {
@@ -472,14 +457,9 @@ export function initDebugUI() {
             startCamZ,
             simplex,
             {
-              WATER_LEVEL:
-                typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40,
-              MAP_WORLD_SIZE:
-                typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000,
-              MAP_HEIGHT_SCALE:
-                typeof MAP_HEIGHT_SCALE !== 'undefined'
-                  ? MAP_HEIGHT_SCALE
-                  : 400,
+              WATER_LEVEL,
+              MAP_WORLD_SIZE,
+              MAP_HEIGHT_SCALE,
             }
           );
           startCamY = terrainHeight + 400.0;
@@ -533,9 +513,7 @@ export function initDebugUI() {
         );
         state.flightSpeedMultiplier = initialSpeed;
         state.targetFlightSpeed = Math.min(
-          typeof getMaxFlightSpeedMult === 'function'
-            ? getMaxFlightSpeedMult()
-            : 3.3333333333333335,
+          getMaxFlightSpeedMult(),
           initialSpeed
         );
       }
@@ -553,7 +531,7 @@ export function initDebugUI() {
         planeGroup.position.y = spawnRestingHeight;
       }
       if (spawnIsWater && state.targetFlightSpeed === 0) {
-        if (typeof pontoonGroup !== 'undefined' && pontoonGroup) {
+        if (pontoonGroup) {
           pontoonGroup.visible = true;
           state.pontoonDeploymentProgress = 1;
           state.isDeployingPontoons = false;
@@ -609,10 +587,7 @@ export function initDebugUI() {
       url.searchParams.set('freecam', 'true');
       url.searchParams.delete('freeCamera');
       url.searchParams.set('debug', 'true');
-      if (
-        typeof ChillFlightLogic !== 'undefined' &&
-        ChillFlightLogic.WORLD_SEED
-      ) {
+      if (ChillFlightLogic.WORLD_SEED) {
         url.searchParams.set('seed', ChillFlightLogic.WORLD_SEED);
       }
       url.searchParams.delete('lat');
@@ -649,12 +624,11 @@ export function initDebugUI() {
       if (typeof state.daySpeedMultiplier !== 'undefined') {
         url.searchParams.set('timeSpeed', state.daySpeedMultiplier);
       }
-      if (typeof weatherType !== 'undefined') {
-        if (weatherType !== 'auto') {
-          url.searchParams.set('weather', weatherType);
-        } else {
-          url.searchParams.delete('weather');
-        }
+
+      if (weatherType !== 'auto') {
+        url.searchParams.set('weather', weatherType);
+      } else {
+        url.searchParams.delete('weather');
       }
 
       url.searchParams.delete('clouds');
@@ -682,10 +656,7 @@ export function initDebugUI() {
       } else {
         url.searchParams.delete('cloudSpeed');
       }
-      const isCustom =
-        typeof isCustomPalette !== 'undefined'
-          ? isCustomPalette
-          : isCustomPalette;
+      const isCustom = isCustomPalette;
       const curPalette =
         typeof selectedPalette !== 'undefined'
           ? selectedPalette
@@ -712,9 +683,7 @@ export function initDebugUI() {
 
       const showObjs = objectsToggle
         ? objectsToggle.checked
-        : typeof ChillFlightLogic !== 'undefined'
-          ? ChillFlightLogic.SHOW_OBJECTS
-          : true;
+        : ChillFlightLogic.SHOW_OBJECTS;
       if (!showObjs) {
         url.searchParams.set('objects', 'none');
       } else {
@@ -762,10 +731,7 @@ export function initDebugUI() {
       url.searchParams.delete('freecam'); // ensure freecam is disabled to spawn at plane
       url.searchParams.delete('freeCamera');
 
-      const debugMenu =
-        typeof getCachedElement === 'function'
-          ? getCachedElement('debug-menu')
-          : document.getElementById('debug-menu');
+      const debugMenu = getCachedElement('debug-menu');
       const isDebugOpen =
         (debugMenu && debugMenu.style.display === 'block') ||
         url.searchParams.get('debug') === 'true' ||
@@ -777,10 +743,7 @@ export function initDebugUI() {
         url.searchParams.delete('debug');
       }
 
-      if (
-        typeof ChillFlightLogic !== 'undefined' &&
-        ChillFlightLogic.WORLD_SEED
-      ) {
+      if (ChillFlightLogic.WORLD_SEED) {
         url.searchParams.set('seed', ChillFlightLogic.WORLD_SEED);
       }
       url.searchParams.delete('lat');
@@ -822,12 +785,11 @@ export function initDebugUI() {
       if (typeof state.daySpeedMultiplier !== 'undefined') {
         url.searchParams.set('timeSpeed', state.daySpeedMultiplier);
       }
-      if (typeof weatherType !== 'undefined') {
-        if (weatherType !== 'auto') {
-          url.searchParams.set('weather', weatherType);
-        } else {
-          url.searchParams.delete('weather');
-        }
+
+      if (weatherType !== 'auto') {
+        url.searchParams.set('weather', weatherType);
+      } else {
+        url.searchParams.delete('weather');
       }
 
       url.searchParams.delete('clouds');
@@ -855,10 +817,7 @@ export function initDebugUI() {
       } else {
         url.searchParams.delete('cloudSpeed');
       }
-      const isCustom =
-        typeof isCustomPalette !== 'undefined'
-          ? isCustomPalette
-          : isCustomPalette;
+      const isCustom = isCustomPalette;
       const curPalette =
         typeof selectedPalette !== 'undefined'
           ? selectedPalette
@@ -885,9 +844,7 @@ export function initDebugUI() {
 
       const showObjs = objectsToggle
         ? objectsToggle.checked
-        : typeof ChillFlightLogic !== 'undefined'
-          ? ChillFlightLogic.SHOW_OBJECTS
-          : true;
+        : ChillFlightLogic.SHOW_OBJECTS;
       if (!showObjs) {
         url.searchParams.set('objects', 'none');
       } else {

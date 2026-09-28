@@ -35,8 +35,7 @@ import {state} from './state.js';
 
     // Update the logic engine
     const maxDim = Math.max(canvas.width, canvas.height);
-    const worldScale =
-      (typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000) / maxDim;
+    const worldScale = MAP_WORLD_SIZE / maxDim;
 
     ChillFlightLogic.customMap = {
       data: floatData,
@@ -57,83 +56,71 @@ import {state} from './state.js';
     }
 
     // Force terrain rebuild
-    if (typeof chunks !== 'undefined' && typeof updateChunks === 'function') {
-      // Dispose all previous procedural chunks manually
-      chunks.forEach((group, key) => {
-        group.traverse((child) => {
-          if (child.isMesh || child.isInstancedMesh) {
-            if (child.geometry && child.geometry.userData.unique) {
-              child.geometry.dispose();
-            }
+
+    // Dispose all previous procedural chunks manually
+    chunks.forEach((group, key) => {
+      group.traverse((child) => {
+        if (child.isMesh || child.isInstancedMesh) {
+          if (child.geometry && child.geometry.userData.unique) {
+            child.geometry.dispose();
           }
-        });
-        if (typeof scene !== 'undefined') {
-          scene.remove(group);
         }
       });
-      chunks.clear();
 
-      // Reset plane position and state
-      if (typeof planeGroup !== 'undefined') {
-        let startX = 0;
-        let startZ = 0;
-        let startY = 445.5;
+      scene.remove(group);
+    });
+    chunks.clear();
 
-        const urlLatVal = ChillFlightLogic.parsedLat;
-        const urlLonVal = ChillFlightLogic.parsedLon;
-        const urlAltVal = ChillFlightLogic.parsedAlt;
+    // Reset plane position and state
 
-        if (urlLatVal !== null && urlLatVal !== undefined) {
-          startZ = -urlLatVal * 5000;
-        }
-        if (urlLonVal !== null && urlLonVal !== undefined) {
-          startX = urlLonVal * 5000;
-        }
+    let startX = 0;
+    let startZ = 0;
+    let startY = 445.5;
 
-        if (urlAltVal !== null && urlAltVal !== undefined) {
-          startY = urlAltVal / 25 + 45.5;
-        } else if (urlLatVal !== null || urlLonVal !== null) {
-          try {
-            const terrainHeight = ChillFlightLogic.getElevation(
-              startX,
-              startZ,
-              simplex,
-              {
-                WATER_LEVEL:
-                  typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40,
-                MAP_WORLD_SIZE:
-                  typeof MAP_WORLD_SIZE !== 'undefined'
-                    ? MAP_WORLD_SIZE
-                    : 10000,
-                MAP_HEIGHT_SCALE:
-                  typeof MAP_HEIGHT_SCALE !== 'undefined'
-                    ? MAP_HEIGHT_SCALE
-                    : 400,
-              }
-            );
-            startY = terrainHeight + 400.0;
-          } catch {
-            startY = 445.5;
-          }
-        }
+    const urlLatVal = ChillFlightLogic.parsedLat;
+    const urlLonVal = ChillFlightLogic.parsedLon;
+    const urlAltVal = ChillFlightLogic.parsedAlt;
 
-        planeGroup.position.set(startX, startY, startZ);
-        planeGroup.rotation.set(0, 0, 0);
-      }
-
-      try {
-        if (typeof state.targetFlightSpeed !== 'undefined') {
-          state.targetFlightSpeed = 1.0; // Cruise speed
-          state.flightSpeedMultiplier = 1.0;
-        }
-      } catch {
-        /* ignore */
-      }
-
-      updateChunks();
-    } else {
-      console.warn('chunks or updateChunks is not available yet.');
+    if (urlLatVal !== null && urlLatVal !== undefined) {
+      startZ = -urlLatVal * 5000;
     }
+    if (urlLonVal !== null && urlLonVal !== undefined) {
+      startX = urlLonVal * 5000;
+    }
+
+    if (urlAltVal !== null && urlAltVal !== undefined) {
+      startY = urlAltVal / 25 + 45.5;
+    } else if (urlLatVal !== null || urlLonVal !== null) {
+      try {
+        const terrainHeight = ChillFlightLogic.getElevation(
+          startX,
+          startZ,
+          simplex,
+          {
+            WATER_LEVEL,
+            MAP_WORLD_SIZE,
+            MAP_HEIGHT_SCALE,
+          }
+        );
+        startY = terrainHeight + 400.0;
+      } catch {
+        startY = 445.5;
+      }
+    }
+
+    planeGroup.position.set(startX, startY, startZ);
+    planeGroup.rotation.set(0, 0, 0);
+
+    try {
+      if (typeof state.targetFlightSpeed !== 'undefined') {
+        state.targetFlightSpeed = 1.0; // Cruise speed
+        state.flightSpeedMultiplier = 1.0;
+      }
+    } catch {
+      /* ignore */
+    }
+
+    updateChunks();
   }
 
   window.addEventListener('dragover', (e) => {

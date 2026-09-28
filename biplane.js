@@ -1,5 +1,5 @@
 // --- BIPLANE MODEL ---
-// Dependencies: THREE, createMaterial (or fallback), ChillFlightLogic
+// Dependencies: THREE, createMaterial, ChillFlightLogic
 // Vintage sport & aerobatic biplane with dual staggered wings, N-struts,
 // cabane struts, open cockpit with windscreen, and streamlined wheel pants.
 import * as THREE from 'three';
@@ -9,12 +9,7 @@ import {state} from './state.js';
 export function createBiplaneModel(opts = {}) {
   const root = new THREE.Group();
 
-  const makeMat = (props) => {
-    if (typeof createMaterial === 'function') {
-      return createMaterial(props);
-    }
-    return new THREE.MeshStandardMaterial(props);
-  };
+  const makeMat = (props) => createMaterial(props);
 
   const planeColor =
     opts.planeColor !== undefined

@@ -341,8 +341,7 @@ export const ChillFlightLogic = {};
     const forced =
       typeof exports !== 'undefined' && exports.FORCE_ISLAND_TYPE
         ? exports.FORCE_ISLAND_TYPE
-        : typeof ChillFlightLogic !== 'undefined' &&
-            ChillFlightLogic.FORCE_ISLAND_TYPE
+        : ChillFlightLogic.FORCE_ISLAND_TYPE
           ? ChillFlightLogic.FORCE_ISLAND_TYPE
           : FORCE_ISLAND_TYPE;
     if (forced && forced !== 'auto') {

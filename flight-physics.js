@@ -217,7 +217,7 @@ export function updateFlightPhysics(delta, nowTime) {
   }
 
   if (isWater && planeGroup.position.y <= restingHeight + 0.1) {
-    if (typeof Achievements !== 'undefined' && !state.isFreeCamera) {
+    if (!state.isFreeCamera) {
       Achievements.unlock('splash_down');
     }
     if (!pontoonGroup.visible) {
@@ -228,9 +228,7 @@ export function updateFlightPhysics(delta, nowTime) {
     }
     const isThrottlingUp =
       keys.Shift ||
-      (typeof inputManager !== 'undefined' &&
-        inputManager.isThrottlingUp &&
-        inputManager.isThrottlingUp());
+      (inputManager.isThrottlingUp && inputManager.isThrottlingUp());
     if (!isThrottlingUp) {
       // Apply water drag: smoothly reduce targetFlightSpeed to 0
       state.targetFlightSpeed = Math.max(

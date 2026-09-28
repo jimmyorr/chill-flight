@@ -14,7 +14,7 @@ import {state} from './state.js';
 import {hooks} from './hooks.js';
 
 async function toggleVRSession() {
-  if (typeof renderer === 'undefined' || !renderer || !renderer.xr) return;
+  if (!renderer || !renderer.xr) return;
   const currentSession = renderer.xr.getSession();
   if (!currentSession) {
     try {
@@ -41,7 +41,7 @@ if (splashVrBtn) {
   splashVrBtn.addEventListener('click', toggleVRSession);
 }
 
-if (typeof renderer !== 'undefined' && renderer && renderer.xr) {
+if (renderer && renderer.xr) {
   renderer.xr.addEventListener('sessionstart', () => {
     // Attach camera to cameraDolly so headset pose is layered on top of flight positioning
     cameraDolly.position.copy(camera.position);
@@ -88,7 +88,7 @@ if (typeof renderer !== 'undefined' && renderer && renderer.xr) {
       state.isPaused = false;
       const pauseOverlayEl = document.getElementById('pause-overlay');
       if (pauseOverlayEl) pauseOverlayEl.style.display = 'none';
-      if (typeof clearInputState === 'function') clearInputState();
+      clearInputState();
     }
   });
 
@@ -264,7 +264,7 @@ function initVRPauseMenu() {
   vrPauseMenu.visible = false;
   cameraDolly.add(vrPauseMenu);
 
-  if (typeof renderer !== 'undefined' && renderer && renderer.xr) {
+  if (renderer && renderer.xr) {
     xrController0 = renderer.xr.getController(0);
     xrController1 = renderer.xr.getController(1);
 

@@ -13,9 +13,9 @@ var resetConfirmTimeout = null;
 function openAchievementsOverlay() {
   if (!achievementsOverlay) return;
   // Render the grid and update progress text
-  if (typeof Achievements !== 'undefined') {
-    Achievements.renderAchievementsOverlay();
-  }
+
+  Achievements.renderAchievementsOverlay();
+
   achievementsOverlay.style.display = 'flex';
 }
 

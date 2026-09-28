@@ -178,12 +178,7 @@ class DynamicPerformanceMonitor {
    * Apply DRS by adjusting the renderer's pixel ratio relative to the base.
    */
   applyDRS() {
-    if (
-      typeof renderer !== 'undefined' &&
-      renderer &&
-      renderer.xr &&
-      renderer.xr.isPresenting
-    ) {
+    if (renderer && renderer.xr && renderer.xr.isPresenting) {
       return; // Do not manipulate pixel ratio while WebXR manages stereo framebuffers
     }
     const baseRatio =
@@ -191,7 +186,7 @@ class DynamicPerformanceMonitor {
         ? state._basePixelRatio
         : 1.0;
     const effectiveRatio = baseRatio * this.pixelRatioMultiplier;
-    if (typeof renderer !== 'undefined' && renderer) {
+    if (renderer) {
       renderer.setPixelRatio(effectiveRatio);
     }
   }
@@ -233,13 +228,8 @@ class DynamicPerformanceMonitor {
 
   applyEffectiveLOD() {
     const newLOD = this.getEffectiveLOD();
-    // Use the global chunks map from terrain.js if available
-    const chunkMap =
-      typeof chunks !== 'undefined'
-        ? chunks
-        : typeof chunks !== 'undefined'
-          ? chunks
-          : null;
+    // Apply to every loaded chunk (the chunks map from terrain-geometry.js)
+    const chunkMap = chunks;
     if (chunkMap) {
       chunkMap.forEach((chunk) => {
         if (
@@ -257,7 +247,7 @@ class DynamicPerformanceMonitor {
 export const performanceMonitor = new DynamicPerformanceMonitor();
 
 // Disable automatic shadow map updates; DynamicPerformanceMonitor controls the cadence
-if (typeof renderer !== 'undefined' && renderer) {
+if (renderer) {
   renderer.shadowMap.autoUpdate = false;
 }
 

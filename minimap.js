@@ -1,5 +1,4 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {inputManager} from './game-input-bindings.js';
 import {log} from './logger.js';
 import {
   MAP_HEIGHT_SCALE,
@@ -58,11 +57,10 @@ import {Achievements} from './achievements.js';
     {
       name: 'Rock Arch',
       x: 3000,
-      z:
-        typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED
-          ? ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED)() * 10000 -
-            5000
-          : 0,
+      z: ChillFlightLogic.WORLD_SEED
+        ? ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED)() * 10000 -
+          5000
+        : 0,
       color: '#2ecc71', // lush emerald green
       symbol: '∩',
     },
@@ -116,14 +114,7 @@ import {Achievements} from './achievements.js';
     minimapContainer.style.display = 'none'; // Hidden by default!
 
     const handleMinimapEnter = () => {
-      if (typeof resetSteering === 'function') {
-        resetSteering();
-      } else if (
-        typeof inputManager !== 'undefined' &&
-        inputManager.resetMouseSteering
-      ) {
-        inputManager.resetMouseSteering();
-      }
+      resetSteering();
     };
     minimapContainer.addEventListener('mouseenter', handleMinimapEnter);
     minimapContainer.addEventListener('touchstart', handleMinimapEnter, {
@@ -192,10 +183,7 @@ import {Achievements} from './achievements.js';
     updateLoop();
 
     // Check if minimap should start enabled from URL parameter
-    if (
-      typeof ChillFlightLogic !== 'undefined' &&
-      ChillFlightLogic.START_MINIMAP
-    ) {
+    if (ChillFlightLogic.START_MINIMAP) {
       toggleMinimap(true);
     }
   }
@@ -207,16 +195,14 @@ import {Achievements} from './achievements.js';
 
   function drawBackgroundHeightmap(px, pz) {
     // Re-read constants if they exist in environment
-    if (typeof WATER_LEVEL !== 'undefined') constants.WATER_LEVEL = WATER_LEVEL;
-    if (typeof MAP_WORLD_SIZE !== 'undefined')
-      constants.MAP_WORLD_SIZE = MAP_WORLD_SIZE;
-    if (typeof MAP_HEIGHT_SCALE !== 'undefined')
-      constants.MAP_HEIGHT_SCALE = MAP_HEIGHT_SCALE;
+    constants.WATER_LEVEL = WATER_LEVEL;
+    constants.MAP_WORLD_SIZE = MAP_WORLD_SIZE;
+    constants.MAP_HEIGHT_SCALE = MAP_HEIGHT_SCALE;
 
     const imgData = bgCtx.createImageData(gridSize, gridSize);
     const data = imgData.data;
 
-    const simplexInstance = typeof simplex !== 'undefined' ? simplex : null;
+    const simplexInstance = simplex;
     if (!simplexInstance) return;
 
     for (let gz = 0; gz < gridSize; gz++) {
@@ -279,12 +265,10 @@ import {Achievements} from './achievements.js';
       }
     }
 
-    if (typeof updateUrlParams === 'function') {
-      if (minimapVisible) {
-        updateUrlParams({minimap: 'true'}, ['miniMap', 'mapOverlay']);
-      } else {
-        updateUrlParams({}, ['minimap', 'miniMap', 'mapOverlay']);
-      }
+    if (minimapVisible) {
+      updateUrlParams({minimap: 'true'}, ['miniMap', 'mapOverlay']);
+    } else {
+      updateUrlParams({}, ['minimap', 'miniMap', 'mapOverlay']);
     }
   }
 
@@ -335,7 +319,7 @@ import {Achievements} from './achievements.js';
     if (!minimapVisible) return;
 
     // Safety check: is game running and player spawned?
-    if (typeof planeGroup === 'undefined' || !planeGroup) return;
+    if (!planeGroup) return;
 
     const px = planeGroup.position.x;
     const pz = planeGroup.position.z;
@@ -462,14 +446,12 @@ import {Achievements} from './achievements.js';
   const FS_MAX_RADIUS = 35000;
 
   const hasCustomMapCenter =
-    typeof ChillFlightLogic !== 'undefined' &&
-    (ChillFlightLogic.START_MAP_X !== null ||
-      ChillFlightLogic.START_MAP_Z !== null ||
-      ChillFlightLogic.parsedMapLat !== null ||
-      ChillFlightLogic.parsedMapLon !== null);
+    ChillFlightLogic.START_MAP_X !== null ||
+    ChillFlightLogic.START_MAP_Z !== null ||
+    ChillFlightLogic.parsedMapLat !== null ||
+    ChillFlightLogic.parsedMapLon !== null;
 
   const hasCustomMapZoom =
-    typeof ChillFlightLogic !== 'undefined' &&
     ChillFlightLogic.START_MAP_ZOOM !== null &&
     !isNaN(ChillFlightLogic.START_MAP_ZOOM) &&
     ChillFlightLogic.START_MAP_ZOOM > 0;
@@ -517,7 +499,6 @@ import {Achievements} from './achievements.js';
 
   function updateFsMapUrlParams(immediate = false) {
     if (!fsVisible) return;
-    if (typeof updateUrlParams !== 'function') return;
 
     const performUpdate = () => {
       if (!fsVisible) return;
@@ -623,13 +604,11 @@ import {Achievements} from './achievements.js';
 
   function generateFsBgCanvas() {
     if (!fsCanvas) return;
-    if (typeof WATER_LEVEL !== 'undefined') constants.WATER_LEVEL = WATER_LEVEL;
-    if (typeof MAP_WORLD_SIZE !== 'undefined')
-      constants.MAP_WORLD_SIZE = MAP_WORLD_SIZE;
-    if (typeof MAP_HEIGHT_SCALE !== 'undefined')
-      constants.MAP_HEIGHT_SCALE = MAP_HEIGHT_SCALE;
+    constants.WATER_LEVEL = WATER_LEVEL;
+    constants.MAP_WORLD_SIZE = MAP_WORLD_SIZE;
+    constants.MAP_HEIGHT_SCALE = MAP_HEIGHT_SCALE;
 
-    const simplexInstance = typeof simplex !== 'undefined' ? simplex : null;
+    const simplexInstance = simplex;
     if (!simplexInstance) return;
 
     const w = window.innerWidth;
@@ -960,7 +939,7 @@ import {Achievements} from './achievements.js';
     });
 
     // 4. Player Plane Indicator
-    if (typeof planeGroup !== 'undefined' && planeGroup) {
+    if (planeGroup) {
       const px = planeGroup.position.x;
       const pz = planeGroup.position.z;
       const rotY = planeGroup.rotation.y;
@@ -1072,11 +1051,7 @@ import {Achievements} from './achievements.js';
 
   function fsAnimationLoop() {
     if (!fsVisible) return;
-    if (
-      !fsHasCenteredOnPlane &&
-      typeof planeGroup !== 'undefined' &&
-      planeGroup
-    ) {
+    if (!fsHasCenteredOnPlane && planeGroup) {
       fsViewCenterX = planeGroup.position.x;
       fsViewCenterZ = planeGroup.position.z;
       fsHasCenteredOnPlane = true;
@@ -1096,7 +1071,7 @@ import {Achievements} from './achievements.js';
       fsOverlay.style.display = 'block';
     }
     if (!hasCustomMapCenter) {
-      if (typeof planeGroup !== 'undefined' && planeGroup) {
+      if (planeGroup) {
         fsViewCenterX = planeGroup.position.x;
         fsViewCenterZ = planeGroup.position.z;
         fsHasCenteredOnPlane = true;
@@ -1115,16 +1090,14 @@ import {Achievements} from './achievements.js';
 
     updateFsMapUrlParams(true);
 
-    if (typeof Achievements !== 'undefined') {
-      Achievements.unlock('cartographer');
-    }
+    Achievements.unlock('cartographer');
   }
 
   function closeFullscreenMap() {
     if (!fsVisible) return;
-    if (typeof suppressPauseClick === 'function') {
-      suppressPauseClick(500);
-    }
+
+    suppressPauseClick(500);
+
     fsVisible = false;
     if (fsOverlay) {
       fsOverlay.style.display = 'none';
@@ -1141,29 +1114,27 @@ import {Achievements} from './achievements.js';
     isDragging = false;
     prevPinchDist = null;
 
-    if (typeof updateUrlParams === 'function') {
-      updateUrlParams({}, [
-        'fullscreenmap',
-        'fullscreenMap',
-        'worldmap',
-        'worldMap',
-        'fullscreen-map',
-        'world-map',
-        'mapLat',
-        'maplat',
-        'mapLon',
-        'maplon',
-        'mapLong',
-        'maplong',
-        'mapX',
-        'mapx',
-        'mapZ',
-        'mapz',
-        'mapZoom',
-        'mapzoom',
-        'zoom',
-      ]);
-    }
+    updateUrlParams({}, [
+      'fullscreenmap',
+      'fullscreenMap',
+      'worldmap',
+      'worldMap',
+      'fullscreen-map',
+      'world-map',
+      'mapLat',
+      'maplat',
+      'mapLon',
+      'maplon',
+      'mapLong',
+      'maplong',
+      'mapX',
+      'mapx',
+      'mapZ',
+      'mapz',
+      'mapZoom',
+      'mapzoom',
+      'zoom',
+    ]);
   }
 
   let fsInitialized = false;
@@ -1210,7 +1181,7 @@ import {Achievements} from './achievements.js';
 
     const recenterBtn = document.getElementById('fullscreen-map-recenter-btn');
     attachButtonAction(recenterBtn, () => {
-      if (typeof planeGroup !== 'undefined' && planeGroup) {
+      if (planeGroup) {
         fsViewCenterX = planeGroup.position.x;
         fsViewCenterZ = planeGroup.position.z;
         updateCoordsDisplay();
@@ -1437,10 +1408,7 @@ import {Achievements} from './achievements.js';
   function startInit() {
     initMinimap();
     initFullscreenMap();
-    if (
-      typeof ChillFlightLogic !== 'undefined' &&
-      ChillFlightLogic.START_FULLSCREEN_MAP
-    ) {
+    if (ChillFlightLogic.START_FULLSCREEN_MAP) {
       openFullscreenMap();
     }
   }

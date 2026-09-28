@@ -1,5 +1,5 @@
 // --- TWIN ENGINE TRANSPORT MODEL ("TWIN") ---
-// Dependencies: THREE, createMaterial (or fallback), ChillFlightLogic
+// Dependencies: THREE, createMaterial, ChillFlightLogic
 // Classic low-wing twin radial engine transport (DC-3 style) featuring:
 // - Seamless lofted low-poly transport fuselage (perfect alignment from nose to tail)
 // - Distinctive faceted cockpit windshield and passenger cabin windows
@@ -16,12 +16,7 @@ import {state} from './state.js';
 export function createTwinModel(opts = {}) {
   const root = new THREE.Group();
 
-  const makeMat = (props) => {
-    if (typeof createMaterial === 'function') {
-      return createMaterial(props);
-    }
-    return new THREE.MeshStandardMaterial(props);
-  };
+  const makeMat = (props) => createMaterial(props);
 
   const planeColor =
     opts.planeColor !== undefined

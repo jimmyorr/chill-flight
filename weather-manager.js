@@ -13,35 +13,29 @@ let lightningFlashIntensity;
 let _wasRaining;
 
 export var manualCloudCover =
-  typeof ChillFlightLogic !== 'undefined' &&
   ChillFlightLogic.START_CLOUD_COVER !== null &&
   ChillFlightLogic.START_CLOUD_COVER !== undefined
     ? ChillFlightLogic.START_CLOUD_COVER
     : null;
 export var manualCloudHeight =
-  typeof ChillFlightLogic !== 'undefined' &&
   typeof ChillFlightLogic.START_CLOUD_HEIGHT === 'number'
     ? ChillFlightLogic.START_CLOUD_HEIGHT
     : 3000.0;
 export var manualCloudSpeed =
-  typeof ChillFlightLogic !== 'undefined' &&
   typeof ChillFlightLogic.START_CLOUD_SPEED === 'number'
     ? ChillFlightLogic.START_CLOUD_SPEED
     : 1.0;
-export var showCloudsEnabled =
-  typeof ChillFlightLogic !== 'undefined' ? ChillFlightLogic.SHOW_CLOUDS : true;
+export var showCloudsEnabled = ChillFlightLogic.SHOW_CLOUDS;
 // --- WEATHER SYSTEM ---
-export var weatherType =
-  typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.START_WEATHER
-    ? ChillFlightLogic.START_WEATHER
-    : 'auto'; // 'auto', 'none', 'snow', 'rain'
+export var weatherType = ChillFlightLogic.START_WEATHER
+  ? ChillFlightLogic.START_WEATHER
+  : 'auto'; // 'auto', 'none', 'snow', 'rain'
 export var snowParticles = null;
 export var rainParticles = null;
 
 // Scale particles based on quality
 var _initPresetForWeather =
-  (typeof ChillFlightLogic !== 'undefined' &&
-    ChillFlightLogic.GRAPHICS_PRESET) ||
+  ChillFlightLogic.GRAPHICS_PRESET ||
   localStorage.getItem('chill_flight_graphics_preset');
 var _savedQualityForWeather = localStorage.getItem('chill_flight_quality');
 var _isLowPresetForWeather =
@@ -364,7 +358,7 @@ export function updateWeather(delta) {
 
     // 1. Sync with the global overcast/cloud noise map
     const timeOffset = (state.worldClockNow || performance.now()) / 100000;
-    const chunkSize = typeof CHUNK_SIZE !== 'undefined' ? CHUNK_SIZE : 2000;
+    const chunkSize = CHUNK_SIZE;
 
     // This math perfectly matches the cloud generation in your animate() loop
     let stormNoise =
@@ -421,7 +415,7 @@ export function updateWeather(delta) {
   }
 
   // Initialize lightning light if it doesn't exist
-  if (!lightningLight && typeof scene !== 'undefined') {
+  if (!lightningLight) {
     lightningLight = new THREE.DirectionalLight(0xe0e0ff, 0);
     scene.add(lightningLight);
     lightningFlashIntensity = 0;

@@ -1,5 +1,5 @@
 // --- GLIDER / SAILPLANE MODEL ---
-// Dependencies: THREE, createMaterial (or fallback), ChillFlightLogic
+// Dependencies: THREE, createMaterial, ChillFlightLogic
 // High-performance modern glider / sailplane matching the reference design:
 // - Aerodynamic composite fuselage with sleek accent nose cap
 // - Dark tinted panoramic bubble canopy with side accent chine stripe
@@ -13,12 +13,7 @@ import {state} from './state.js';
 export function createGliderModel(opts = {}) {
   const root = new THREE.Group();
 
-  const makeMat = (props) => {
-    if (typeof createMaterial === 'function') {
-      return createMaterial(props);
-    }
-    return new THREE.MeshStandardMaterial(props);
-  };
+  const makeMat = (props) => createMaterial(props);
 
   const planeColor =
     opts.planeColor !== undefined

@@ -125,8 +125,7 @@ export const waterUniforms = {
 };
 
 var _initPresetForTerrain =
-  (typeof ChillFlightLogic !== 'undefined' &&
-    ChillFlightLogic.GRAPHICS_PRESET) ||
+  ChillFlightLogic.GRAPHICS_PRESET ||
   localStorage.getItem('chill_flight_graphics_preset');
 var _legacyQualityForTerrain = localStorage.getItem('chill_flight_quality');
 var _isLowQualityInitial =

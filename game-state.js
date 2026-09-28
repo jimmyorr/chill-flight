@@ -15,9 +15,9 @@ export function clearInputState() {
   if (typeof state.mouseY !== 'undefined') state.mouseY = 0;
   if (typeof state.mouseControlActive !== 'undefined')
     state.mouseControlActive = false;
-  if (typeof inputManager !== 'undefined') {
-    inputManager.handleBlur();
-  }
+
+  inputManager.handleBlur();
+
   if (typeof state.gyroBasePitch !== 'undefined') {
     state.gyroBasePitch = null;
     state.gyroBaseRoll = null;
@@ -41,18 +41,11 @@ export function togglePause() {
     if (pauseOverlay) pauseOverlay.style.display = 'flex';
     clearInputState();
 
-    if (typeof setMusicVolume === 'function') {
-      setMusicVolume(0.15);
-    }
+    setMusicVolume(0.15);
 
-    if (typeof updatePauseMenuMusicInfo === 'function')
-      updatePauseMenuMusicInfo();
+    updatePauseMenuMusicInfo();
 
-    if (
-      typeof checkVRPresenting === 'function' &&
-      checkVRPresenting() &&
-      hooks.openVRPauseMenu
-    ) {
+    if (checkVRPresenting() && hooks.openVRPauseMenu) {
       hooks.openVRPauseMenu();
     }
   } else {
@@ -71,11 +64,9 @@ export function togglePause() {
       hooks.fullscreenMap.close();
     }
 
-    if (typeof setMusicVolume === 'function') {
-      setMusicVolume(1.0);
-    }
+    setMusicVolume(1.0);
 
-    if (typeof clock !== 'undefined' && clock.update) clock.update(); // clear accumulated time so plane doesn't skip
+    if (clock.update) clock.update(); // clear accumulated time so plane doesn't skip
     clearInputState(); // wipe any input that bled through from the pause overlay
     state.justResumed = true; // suppress the first animate frame's input application
   }
@@ -97,9 +88,7 @@ window.addEventListener(
     // e.deltaY < 0 -> scrolling up -> throttle up
     const throttleDelta = -e.deltaY * 0.005;
 
-    if (typeof applyThrottleDelta === 'function') {
-      applyThrottleDelta(throttleDelta);
-    }
+    applyThrottleDelta(throttleDelta);
   },
   {passive: true}
 );

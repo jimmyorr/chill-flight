@@ -264,10 +264,7 @@ export function setActivePlane(planeType, skipStorage = false) {
   }
 
   // Smoothly ramp down speed if switching to a plane with a lower max speed
-  if (
-    typeof state.targetFlightSpeed !== 'undefined' &&
-    typeof getMaxFlightSpeedMult === 'function'
-  ) {
+  if (typeof state.targetFlightSpeed !== 'undefined') {
     state.targetFlightSpeed = Math.min(
       state.targetFlightSpeed,
       getMaxFlightSpeedMult()
@@ -281,24 +278,21 @@ export function setActivePlane(planeType, skipStorage = false) {
 
   // Build new model
   let newModel;
-  if (planeType === 'biplane' && typeof createBiplaneModel === 'function') {
+  if (planeType === 'biplane') {
     newModel = createBiplaneModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
       planeMat: planeMat,
       planeWhiteMat: planeWhiteMat,
     });
-  } else if (
-    planeType === 'glider' &&
-    typeof createGliderModel === 'function'
-  ) {
+  } else if (planeType === 'glider') {
     newModel = createGliderModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
       planeMat: planeMat,
       planeWhiteMat: planeWhiteMat,
     });
-  } else if (planeType === 'twin' && typeof createTwinModel === 'function') {
+  } else if (planeType === 'twin') {
     newModel = createTwinModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
@@ -339,10 +333,8 @@ export function setActivePlane(planeType, skipStorage = false) {
     });
   }
 
-  // Update URL parameters if helper available
-  if (typeof updateUrlParams === 'function') {
-    updateUrlParams({plane: planeType}, ['plane', 'vehicle']);
-  }
+  // Update URL parameters
+  updateUrlParams({plane: planeType}, ['plane', 'vehicle']);
 }
 
 // Initialize active plane model
@@ -404,11 +396,9 @@ if (urlAltVal !== null && urlAltVal !== undefined) {
       startZ,
       simplex,
       {
-        WATER_LEVEL: typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40,
-        MAP_WORLD_SIZE:
-          typeof MAP_WORLD_SIZE !== 'undefined' ? MAP_WORLD_SIZE : 10000,
-        MAP_HEIGHT_SCALE:
-          typeof MAP_HEIGHT_SCALE !== 'undefined' ? MAP_HEIGHT_SCALE : 400,
+        WATER_LEVEL,
+        MAP_WORLD_SIZE,
+        MAP_HEIGHT_SCALE,
       }
     );
     startY = terrainHeight + 400.0;

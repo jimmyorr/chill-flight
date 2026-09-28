@@ -149,9 +149,8 @@ if (planeSelectGroupInit) {
     const btn = e.target.closest('.scheme-btn');
     if (btn) {
       const planeType = btn.getAttribute('data-plane');
-      if (typeof setActivePlane === 'function') {
-        setActivePlane(planeType);
-      }
+
+      setActivePlane(planeType);
     }
   });
 }
@@ -217,7 +216,6 @@ state.frameMinDelay = 1000 / 60;
 
 // Apply initial graphics preset
 const urlPreset =
-  typeof ChillFlightLogic !== 'undefined' &&
   ChillFlightLogic.GRAPHICS_PRESET &&
   ['low', 'mid', 'high', 'ultra'].includes(ChillFlightLogic.GRAPHICS_PRESET)
     ? ChillFlightLogic.GRAPHICS_PRESET
@@ -252,13 +250,10 @@ state.timeOfDay = currentWarpedProgressFirst * Math.PI * 2;
 
 // Initial chunk generation
 updateChunks();
-if (typeof planeGroup !== 'undefined') {
-  _lastChunkUpdatePos.copy(planeGroup.position);
-}
 
-if (typeof initLighthouse === 'function') {
-  initLighthouse();
-}
+_lastChunkUpdatePos.copy(planeGroup.position);
+
+initLighthouse();
 
 // Optimization: Pre-allocate reusable objects for the animate loop to prevent GC stutter
 export const _cameraOffset = new THREE.Vector3(0, 0, 0);
@@ -467,7 +462,7 @@ export const _volcanoPos = new THREE.Vector3(-5000, 0, 5000);
 export const _rockArchPos = new THREE.Vector3(
   3000,
   0,
-  typeof ChillFlightLogic !== 'undefined' && ChillFlightLogic.WORLD_SEED
+  ChillFlightLogic.WORLD_SEED
     ? ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED)() * 10000 - 5000
     : 0
 );
@@ -502,6 +497,4 @@ export var shootingStarEnd = new THREE.Vector3();
 export var btnUp = document.getElementById('mobile-spd-up');
 export var btnDown = document.getElementById('mobile-spd-down');
 
-if (typeof initDebugUI === 'function') {
-  initDebugUI();
-}
+initDebugUI();

@@ -447,12 +447,7 @@ export class InputManager {
     if (this.state.isPaused) return;
 
     // In VR, flight steering is controlled by VR motion controllers/gamepad, not mouse
-    if (
-      typeof renderer !== 'undefined' &&
-      renderer &&
-      renderer.xr &&
-      renderer.xr.isPresenting
-    ) {
+    if (renderer && renderer.xr && renderer.xr.isPresenting) {
       if (this.state.mouse.controlActive) {
         this.resetMouseSteering();
       }
@@ -501,10 +496,7 @@ export class InputManager {
       this.state.gamepad.steeringActive = false;
 
       // Compute normalized mouse position with deadzone logic
-      if (
-        typeof ChillFlightLogic !== 'undefined' &&
-        ChillFlightLogic.computeInputPosition
-      ) {
+      if (ChillFlightLogic.computeInputPosition) {
         const pos = ChillFlightLogic.computeInputPosition(
           e.clientX,
           e.clientY,
@@ -632,10 +624,7 @@ export class InputManager {
     } else {
       // Touch mode (absolute screen position)
       this.state.touch.steeringId = touch.identifier;
-      if (
-        typeof ChillFlightLogic !== 'undefined' &&
-        ChillFlightLogic.computeInputPosition
-      ) {
+      if (ChillFlightLogic.computeInputPosition) {
         const pos = ChillFlightLogic.computeInputPosition(
           touch.clientX,
           touch.clientY,
@@ -727,10 +716,7 @@ export class InputManager {
         }
       }
       if (steeringTouch) {
-        if (
-          typeof ChillFlightLogic !== 'undefined' &&
-          ChillFlightLogic.computeInputPosition
-        ) {
+        if (ChillFlightLogic.computeInputPosition) {
           const pos = ChillFlightLogic.computeInputPosition(
             steeringTouch.clientX,
             steeringTouch.clientY,
@@ -828,11 +814,7 @@ export class InputManager {
     // In WebXR, separate controllers exist for left and right hands
     let leftGp = null;
     let rightGp = null;
-    const isVR =
-      typeof renderer !== 'undefined' &&
-      renderer &&
-      renderer.xr &&
-      renderer.xr.isPresenting;
+    const isVR = renderer && renderer.xr && renderer.xr.isPresenting;
 
     if (isVR) {
       const session = renderer.xr.getSession();

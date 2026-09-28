@@ -519,18 +519,15 @@ export function updateFlightCamera(delta, nowTime) {
   animationUniforms.uTime.value = performance.now() * 0.001;
 
   // Update global opacity materials outside of chunk loop
-  if (typeof fireMat !== 'undefined') {
-    fireMat.emissiveIntensity = 2.0 * (1.0 - state.dayFactor * 0.8);
-  }
-  if (typeof smokeMat !== 'undefined') {
-    smokeMat.opacity = 0.4 * (1.0 - state.dayFactor * 0.5);
-  }
-  if (typeof whiteSmokeMat !== 'undefined') {
-    whiteSmokeMat.opacity = 0.6 - state.dayFactor * 0.3;
-  }
+
+  fireMat.emissiveIntensity = 2.0 * (1.0 - state.dayFactor * 0.8);
+
+  smokeMat.opacity = 0.4 * (1.0 - state.dayFactor * 0.5);
+
+  whiteSmokeMat.opacity = 0.6 - state.dayFactor * 0.3;
 
   // Animate Birds
-  const activeBirds = typeof birdChunks !== 'undefined' ? birdChunks : chunks;
+  const activeBirds = birdChunks;
   activeBirds.forEach((chunkGroup) => {
     // Optimization: Distance culling (6000 units)
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
@@ -637,11 +634,7 @@ export function updateFlightCamera(delta, nowTime) {
         }
 
         // Collide check (goose trigger)
-        if (
-          data.type === 'goose' &&
-          typeof Achievements !== 'undefined' &&
-          !state.isFreeCamera
-        ) {
+        if (data.type === 'goose' && !state.isFreeCamera) {
           const distToPlaneSq = bird.position.distanceToSquared(
             planeGroup.position
           );
@@ -654,7 +647,7 @@ export function updateFlightCamera(delta, nowTime) {
   });
 
   // Animate Lighthouse Beam directly if active chunk is present
-  if (typeof chunks !== 'undefined' && chunks.has('5,2')) {
+  if (chunks.has('5,2')) {
     const chunkGroup = chunks.get('5,2');
     if (chunkGroup && chunkGroup.userData.lighthouseBeam) {
       const beam = chunkGroup.userData.lighthouseBeam;
@@ -673,7 +666,7 @@ export function updateFlightCamera(delta, nowTime) {
       }
 
       // Check for gatsby achievement (Lighthouse flyby)
-      if (typeof Achievements !== 'undefined' && !state.isFreeCamera) {
+      if (!state.isFreeCamera) {
         beam.getWorldPosition(_lighthouseBeamWorldPos);
         const distSq = planeGroup.position.distanceToSquared(
           _lighthouseBeamWorldPos
@@ -716,8 +709,7 @@ export function updateFlightCamera(delta, nowTime) {
   // 2. Beyond 1,500 units, boats stagger GPU buffer attribute updates to once
   //    every 30 frames to drastically reduce PCIe bus traffic while preventing visual snapping.
   // 3. When time speed is paused (daySpeedMultiplier === 0), freeze updates once initialized.
-  const activeWatercraft =
-    typeof watercraftChunks !== 'undefined' ? watercraftChunks : chunks;
+  const activeWatercraft = watercraftChunks;
 
   const isTimePaused =
     typeof state.daySpeedMultiplier !== 'undefined' &&

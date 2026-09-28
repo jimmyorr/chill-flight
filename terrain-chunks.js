@@ -892,9 +892,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         ? state.PROP_LOD_DISTANCE
         : 4200;
   const lodMultiplier =
-    typeof performanceMonitor !== 'undefined' &&
-    performanceMonitor &&
-    typeof performanceMonitor.lodMultiplier === 'number'
+    performanceMonitor && typeof performanceMonitor.lodMultiplier === 'number'
       ? performanceMonitor.lodMultiplier
       : 1.0;
   const lodDistance =
@@ -1651,8 +1649,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       // Ensure we have access to the constants
       const constants = {
         WATER_LEVEL,
-        MOUNTAIN_LEVEL:
-          typeof MOUNTAIN_LEVEL !== 'undefined' ? MOUNTAIN_LEVEL : 180,
+        MOUNTAIN_LEVEL,
       };
 
       const margin = 900;
@@ -2879,7 +2876,7 @@ export function updateChunks() {
     }
   });
 
-  if (chunksEvicted && typeof globalInstancer !== 'undefined') {
+  if (chunksEvicted) {
     globalInstancer.requestRebuild();
   }
 }
@@ -2956,15 +2953,13 @@ export function toggleProceduralObjects(enabled) {
     }
   });
 
-  if (typeof globalInstancer !== 'undefined') {
-    globalInstancer.requestRebuild();
-  }
+  globalInstancer.requestRebuild();
 
   // Update debug menu UI if it exists
   const toggle = document.getElementById('debug-objects-toggle');
   if (toggle) toggle.checked = enabled;
 
-  if (typeof window !== 'undefined' && typeof updateUrlParams === 'function') {
+  if (typeof window !== 'undefined') {
     if (!enabled) {
       updateUrlParams({objects: 'none'});
     } else {

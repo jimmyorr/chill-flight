@@ -136,10 +136,8 @@ export function applyCustomSkyColors(top, bottom, day) {
     }
   }
 
-  if (typeof skyUniforms !== 'undefined') {
-    skyUniforms.topColor.value.setHex(selectedPalette.top);
-    skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
-  }
+  skyUniforms.topColor.value.setHex(selectedPalette.top);
+  skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
 
   window.dispatchEvent(
     new CustomEvent('paletteChanged', {detail: selectedPalette})
@@ -160,10 +158,8 @@ export function nextSkyPalette() {
   selectedPalette = generateDynamicPalette(rng);
   selectedPalette.seed = currentPaletteSeed;
 
-  if (typeof skyUniforms !== 'undefined') {
-    skyUniforms.topColor.value.setHex(selectedPalette.top);
-    skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
-  }
+  skyUniforms.topColor.value.setHex(selectedPalette.top);
+  skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
 
   window.dispatchEvent(
     new CustomEvent('paletteChanged', {detail: selectedPalette})
@@ -183,10 +179,7 @@ export function updateSkyPalette(clockNow) {
     currentPaletteCycle = cycleNumber;
 
     if (isFirstLoad) {
-      if (
-        typeof ChillFlightLogic !== 'undefined' &&
-        ChillFlightLogic.PALETTE_INDEX !== null
-      ) {
+      if (ChillFlightLogic.PALETTE_INDEX !== null) {
         const rawPalette = String(ChillFlightLogic.PALETTE_INDEX).trim();
         if (rawPalette.includes(',')) {
           const parts = rawPalette.split(',');
@@ -196,10 +189,7 @@ export function updateSkyPalette(clockNow) {
           if (parts[2]) {
             const parsed = parseInt(parts[2].replace('#', ''), 16);
             if (!isNaN(parsed)) dayHex = parsed;
-          } else if (
-            typeof ChillFlightLogic !== 'undefined' &&
-            ChillFlightLogic.DAY_COLOR
-          ) {
+          } else if (ChillFlightLogic.DAY_COLOR) {
             const parsed = parseInt(
               ChillFlightLogic.DAY_COLOR.replace('#', ''),
               16
@@ -214,7 +204,6 @@ export function updateSkyPalette(clockNow) {
           currentPaletteSeed = parseInt(rawPalette, 10);
         }
       } else if (
-        typeof ChillFlightLogic !== 'undefined' &&
         ChillFlightLogic.ZENITH_COLOR &&
         ChillFlightLogic.HORIZON_COLOR
       ) {
@@ -255,10 +244,9 @@ export function updateSkyPalette(clockNow) {
     );
 
     // If uniforms already exist, update them
-    if (typeof skyUniforms !== 'undefined') {
-      skyUniforms.topColor.value.setHex(selectedPalette.top);
-      skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
-    }
+
+    skyUniforms.topColor.value.setHex(selectedPalette.top);
+    skyUniforms.bottomColor.value.setHex(selectedPalette.bottom);
 
     // Dispatch an event so game.js can recalculate derived gradient colors
     window.dispatchEvent(
@@ -297,11 +285,9 @@ export const skyUniforms = {
   uTime: {value: 0.0},
   uCloudDensity: {value: 0.5},
   uCloudHeight: {
-    value:
-      typeof ChillFlightLogic !== 'undefined' &&
-      ChillFlightLogic.START_CLOUD_HEIGHT
-        ? ChillFlightLogic.START_CLOUD_HEIGHT
-        : 3000.0,
+    value: ChillFlightLogic.START_CLOUD_HEIGHT
+      ? ChillFlightLogic.START_CLOUD_HEIGHT
+      : 3000.0,
   },
   uShowClouds: {value: true},
   uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
@@ -333,8 +319,7 @@ export const camera = new THREE.PerspectiveCamera(
 // Antialiasing is expensive; disable it on the 'Low' preset (SEGMENTS <= 20) to prioritize performance.
 // Since AA belongs to the WebGL context, this won't change until the next page load.
 const _initPreset =
-  (typeof ChillFlightLogic !== 'undefined' &&
-    ChillFlightLogic.GRAPHICS_PRESET) ||
+  ChillFlightLogic.GRAPHICS_PRESET ||
   localStorage.getItem('chill_flight_graphics_preset');
 const _legacyQuality = localStorage.getItem('chill_flight_quality');
 const _isLowQuality =
