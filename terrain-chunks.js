@@ -267,6 +267,22 @@ const TREE_TILE_CULL_RADIUS =
 // chunk for flying between rebuilds).
 const TREE_SHADOW_CHUNK_RADIUS = 4;
 
+// Beyond this many chunks (~4.5 km) from the plane, types with a far version
+// (see setFarGeometry below) swap to it: a 5-unit bush or a tree canopy is a
+// pixel or two across at that range, so the full models only cost triangles.
+const TREE_LOD_CHUNK_RADIUS = 3;
+
+// A simple shape (spanning -1..1) scaled and moved to fill `geo`'s bounds.
+function fitToBounds(shape, geo) {
+  geo.computeBoundingBox();
+  const box = geo.boundingBox;
+  const center = box.getCenter(new THREE.Vector3());
+  const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+  shape.scale(half.x, half.y, half.z);
+  shape.translate(center.x, center.y, center.z);
+  return shape;
+}
+
 function createTreeInstancedMesh(geo, mat, capacity, useColor) {
   const mesh = new THREE.InstancedMesh(geo, mat, capacity);
   useInstancedDepthMaterial(mesh);
@@ -325,23 +341,38 @@ class GlobalInstanceManager {
 
     this.types.set(type, {
       geo,
+      farGeo: geo, // see setFarGeometry
       mat,
       useColor,
       maxInstances,
       shadowMesh,
-      tiles: new Map(), // tile key -> on-screen InstancedMesh
+      tiles: new Map(), // tile key (+ '|far') -> on-screen InstancedMesh
     });
   }
 
+  // Geometry for this type beyond TREE_LOD_CHUNK_RADIUS, or null to not draw
+  // it that far away.
+  setFarGeometry(type, farGeo) {
+    this.types.get(type).farGeo = farGeo;
+    this.requestRebuild();
+  }
+
+  // Geometry this type casts shadows with. The shadow map stores 4,096 units
+  // in 2,048 texels (2 units each), so a small prop's detail can't show in its
+  // shadow; a simple shape casts nearly the same one for far fewer triangles.
+  setShadowGeometry(type, shadowGeo) {
+    this.types.get(type).shadowMesh.geometry = shadowGeo;
+  }
+
   // Tile mesh for `type` with room for `count` instances, reused if possible.
-  _tileMesh(typeInfo, tileKey, tileX, tileZ, count) {
+  _tileMesh(typeInfo, tileKey, tileX, tileZ, count, geo) {
     let mesh = typeInfo.tiles.get(tileKey);
     if (!mesh || mesh.instanceMatrix.count < count) {
       if (mesh) this.group.remove(mesh);
       // Round capacity up so tiles don't reallocate for every few trees.
       const capacity = Math.max(64, 2 ** Math.ceil(Math.log2(count)));
       mesh = createTreeInstancedMesh(
-        typeInfo.geo,
+        geo,
         typeInfo.mat,
         capacity,
         typeInfo.useColor
@@ -380,28 +411,39 @@ class GlobalInstanceManager {
       const tileX = Math.floor((chunkX * CHUNK_SIZE) / TREE_TILE_SIZE);
       const tileZ = Math.floor((chunkZ * CHUNK_SIZE) / TREE_TILE_SIZE);
       const tileKey = tileX + ',' + tileZ;
-      const castsShadows =
-        Math.max(
-          Math.abs(chunkX - planeChunkX),
-          Math.abs(chunkZ - planeChunkZ)
-        ) <= TREE_SHADOW_CHUNK_RADIUS;
+      const chunkDistance = Math.max(
+        Math.abs(chunkX - planeChunkX),
+        Math.abs(chunkZ - planeChunkZ)
+      );
+      const castsShadows = chunkDistance <= TREE_SHADOW_CHUNK_RADIUS;
+      const isFar = chunkDistance > TREE_LOD_CHUNK_RADIUS;
 
       for (const type in instanceData) {
-        if (!this.types.has(type)) continue;
+        const typeInfo = this.types.get(type);
+        if (!typeInfo) continue;
         const data = instanceData[type];
         if (!data.count) continue;
-        if (!byType.has(type)) byType.set(type, new Map());
-        const tiles = byType.get(type);
-        if (!tiles.has(tileKey)) {
-          tiles.set(tileKey, {tileX, tileZ, parts: [], count: 0});
-        }
-        const tile = tiles.get(tileKey);
-        tile.parts.push(data);
-        tile.count += data.count;
         if (castsShadows) {
           if (!shadowParts.has(type)) shadowParts.set(type, []);
           shadowParts.get(type).push(data);
         }
+        const useFar = isFar && typeInfo.farGeo !== typeInfo.geo;
+        if (useFar && typeInfo.farGeo === null) continue; // not drawn far away
+        const meshKey = useFar ? tileKey + '|far' : tileKey;
+        if (!byType.has(type)) byType.set(type, new Map());
+        const tiles = byType.get(type);
+        if (!tiles.has(meshKey)) {
+          tiles.set(meshKey, {
+            tileX,
+            tileZ,
+            geo: useFar ? typeInfo.farGeo : typeInfo.geo,
+            parts: [],
+            count: 0,
+          });
+        }
+        const tile = tiles.get(meshKey);
+        tile.parts.push(data);
+        tile.count += data.count;
       }
     });
 
@@ -423,7 +465,8 @@ class GlobalInstanceManager {
           tileKey,
           tile.tileX,
           tile.tileZ,
-          tile.count
+          tile.count,
+          tile.geo
         );
         let n = 0;
         for (const data of tile.parts) {
@@ -587,6 +630,50 @@ globalInstancer.registerType('penguinFootL', penguinFootLGeo, penguinOrangeMat);
 globalInstancer.registerType('penguinFootR', penguinFootRGeo, penguinOrangeMat);
 globalInstancer.registerType('lilypad', lilyPadGeo, lilyPadMat);
 globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
+
+// Distant versions (beyond TREE_LOD_CHUNK_RADIUS). The costliest models get a
+// simple shape fitted to their bounds (same material and instance colors);
+// props too small to see that far away aren't drawn. Pines, rocks and other
+// cheap models stay as they are.
+const farCanopy = (geo) =>
+  fitToBounds(new THREE.IcosahedronGeometry(1, 0), geo); // 20 triangles
+globalInstancer.setFarGeometry('decidLeaves', farCanopy(deciduousGeos.leaves));
+globalInstancer.setFarGeometry(
+  'tallDecidLeaves',
+  farCanopy(tallDeciduousGeos.leaves)
+);
+globalInstancer.setFarGeometry('palmLeaves', farCanopy(palmGeos.leaves));
+globalInstancer.setFarGeometry(
+  'japaneseMapleLeaves',
+  farCanopy(japaneseMapleGeos.leaves)
+);
+globalInstancer.setFarGeometry(
+  'palmTrunk',
+  fitToBounds(new THREE.CylinderGeometry(0.6, 1, 2, 6, 1, true), palmGeos.trunk)
+);
+globalInstancer.setFarGeometry(
+  'cactus',
+  fitToBounds(new THREE.BoxGeometry(2, 2, 2), cactusGeo)
+);
+globalInstancer.setFarGeometry('bush', null);
+globalInstancer.setFarGeometry('snowmanBody', null);
+globalInstancer.setFarGeometry('snowmanNose', null);
+
+// Rounded canopies and bushes cast shadows with the same fitted shapes. Palm
+// fronds keep their full model: their star-shaped shadow is distinctive.
+globalInstancer.setShadowGeometry('bush', farCanopy(bushGeo));
+globalInstancer.setShadowGeometry(
+  'decidLeaves',
+  globalInstancer.types.get('decidLeaves').farGeo
+);
+globalInstancer.setShadowGeometry(
+  'tallDecidLeaves',
+  globalInstancer.types.get('tallDecidLeaves').farGeo
+);
+globalInstancer.setShadowGeometry(
+  'japaneseMapleLeaves',
+  globalInstancer.types.get('japaneseMapleLeaves').farGeo
+);
 
 var workerChunkRequests = new Map();
 var workerChunkResults = new Map();
