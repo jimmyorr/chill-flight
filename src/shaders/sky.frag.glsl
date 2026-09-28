@@ -45,6 +45,24 @@
         return value;
     }
 
+    // Sunrise/sunset cloud lighting. Clouds toward the sun glow gold,
+    // clouds opposite it catch pink light, and their shaded sides take the
+    // cool blue-violet of the sky. Returns how strongly dusk applies (0-1).
+    float duskCloudLight(vec3 dir, vec2 sunDir2D, float stormDimming,
+                         inout vec3 brightEdgeColor, inout vec3 shadowColor) {
+        float dusk = (1.0 - smoothstep(0.05, 0.3, sunDirection.y))
+                   * smoothstep(-0.2, 0.0, sunDirection.y);
+        vec2 dirH = length(dir.xz) > 0.001 ? normalize(dir.xz) : sunDir2D;
+        float toward = dot(dirH, sunDir2D) * 0.5 + 0.5;
+        vec3 goldLit = mix(bottomColor, vec3(1.0, 0.78, 0.38), 0.3) * 2.1;
+        vec3 pinkLit = mix(bottomColor, vec3(1.0, 0.62, 0.74), 0.45) * 1.85;
+        vec3 duskLit = mix(pinkLit, goldLit, smoothstep(0.25, 0.9, toward));
+        brightEdgeColor = mix(brightEdgeColor, duskLit, dusk * mix(1.0, stormDimming, 0.5) * 0.95);
+        vec3 duskShadow = mix(topColor, vec3(0.42, 0.38, 0.58), 0.35) * 0.95;
+        shadowColor = mix(shadowColor, duskShadow, dusk * 0.6);
+        return dusk;
+    }
+
     void main() {
         vec3 dir = normalize(vDirection + vec3(0.0, offset, 0.0));
         float h = dir.y;
@@ -85,9 +103,8 @@
             vec3 shadowColor = mix(baseShadow, ambientTint * 1.1, 0.25);
             vec3 brightEdgeColor = mix(baseBright, bottomColor * 1.8, sunProximity * 0.75);
             
-            // Dramatic sunset/sunrise cloud under-lighting
-            float sunsetGlow = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
-            brightEdgeColor = mix(brightEdgeColor, bottomColor * 2.2, sunsetGlow * stormDimming * 0.8);
+            // Sunrise/sunset lighting (gold toward the sun, pink away, cool shadows)
+            duskCloudLight(dir, sunDir2D, stormDimming, brightEdgeColor, shadowColor);
             
             // Widen the density range for clearer skies and thicker storms
             float densityOffset = (uCloudDensity - 0.5) * 0.6;
@@ -194,9 +211,9 @@
                 vec3 shadowColor = mix(baseShadow, ambientTint * 1.1, 0.25);
                 vec3 brightEdgeColor = mix(baseBright, bottomColor * 1.8, sunProximity * 0.75);
                 
-                // Dramatic sunset/sunrise horizon cloud under-lighting
-                float sunsetGlowHorizon = smoothstep(0.2, -0.05, sunDirection.y) * smoothstep(-0.2, 0.0, sunDirection.y);
-                brightEdgeColor = mix(brightEdgeColor, bottomColor * 2.2, sunsetGlowHorizon * stormDimming * 0.8);
+                // Sunrise/sunset lighting (gold toward the sun, pink away, cool shadows)
+                vec2 sunDirH = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
+                duskCloudLight(dir, sunDirH, stormDimming, brightEdgeColor, shadowColor);
                 
                 // Dynamic volumetric shadowing based on true sun position
                 vec3 tangentU = normalize(vec3(dir.z, 0.0, -dir.x));
