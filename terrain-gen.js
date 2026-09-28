@@ -280,28 +280,13 @@ class InstanceCollector {
 }
 
 function getElevation(x, z, elevParams) {
-  let n = ChillFlightLogic.getElevation(
+  return ChillFlightLogic.getElevation(
     x,
     z,
     simplex,
     elevParams,
     (a, b, t) => a + (b - a) * t
   );
-
-  // Add Montauk lighthouse island at chunk 5,2 (world 7500, 3000)
-  const dx = x - 7500;
-  const dz = z - 3000;
-  const distSq = dx * dx + dz * dz;
-  const islandRadius = 400;
-  if (distSq < islandRadius * islandRadius) {
-    const dist = Math.sqrt(distSq);
-    const factor = 1.0 - dist / islandRadius;
-    const sFactor = factor * factor * (3 - 2 * factor);
-    const noise = simplex.noise2D(x * 0.002, z * 0.002) * 0.5 + 0.5;
-    const irregularFactor = sFactor * (0.7 + noise * 0.3);
-    n = Math.max(n, elevParams.WATER_LEVEL + 20 * irregularFactor);
-  }
-  return n;
 }
 
 // Returns {result, transferables}: the chunk's buffers, instance data and

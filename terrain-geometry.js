@@ -3778,31 +3778,13 @@ export function getElevation(x, z) {
     return _elevCacheVal[slot];
   }
 
-  let n = ChillFlightLogic.getElevation(
+  const n = ChillFlightLogic.getElevation(
     x,
     z,
     simplex,
     _ELEV_PARAMS,
     THREE.MathUtils.lerp
   );
-
-  // Add a large island for the Montauk lighthouse at chunk 5,2 (world 7500, 3000)
-  const dx = x - 7500;
-  const dz = z - 3000;
-  const distSq = dx * dx + dz * dz;
-  const islandRadius = 400; // Big island
-  if (distSq < islandRadius * islandRadius) {
-    const dist = Math.sqrt(distSq);
-    const factor = 1.0 - dist / islandRadius;
-    const sFactor = factor * factor * (3 - 2 * factor); // Smoothstep
-
-    // Add noise to make it irregular
-    const noise = simplex.noise2D(x * 0.002, z * 0.002) * 0.5 + 0.5; // [0, 1]
-    const irregularFactor = sFactor * (0.7 + noise * 0.3);
-
-    // Raise terrain to at least WATER_LEVEL + 20 in the center
-    n = Math.max(n, WATER_LEVEL + 20 * irregularFactor);
-  }
 
   _elevCacheKeyX[slot] = qx;
   _elevCacheKeyZ[slot] = qz;

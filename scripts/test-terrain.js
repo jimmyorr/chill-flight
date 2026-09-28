@@ -175,7 +175,21 @@ console.log(
   '  Passed: Highway canyon carving strictly confined to West Coast (X < 0)'
 );
 
-// --- 5. PROPS FOLLOW THE WORLD SEED ---
+// --- 5. MONTAUK LIGHTHOUSE ISLAND ---
+// The island (world 7500, 3000) is part of the shared getElevation(), so the
+// rendered terrain, physics and minimap all agree it rises above the water.
+{
+  const center = ChillFlightLogic.getElevation(7500, 3000, simplex, constants);
+  if (center <= constants.WATER_LEVEL + 5) {
+    console.error(
+      `FAIL: Montauk island is missing (height ${center.toFixed(1)} at X=7500, Z=3000)`
+    );
+    process.exit(1);
+  }
+}
+console.log('  Passed: Montauk lighthouse island rises above the water');
+
+// --- 6. PROPS FOLLOW THE WORLD SEED ---
 // Terrain workers can't see the page URL, so they set ChillFlightLogic.WORLD_SEED
 // to the seed they're given; per-chunk prop placement must use that value.
 {

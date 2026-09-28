@@ -2086,6 +2086,21 @@ export const ChillFlightLogic = {};
 
     // Shoreline steepening removed
 
+    // Montauk lighthouse island at chunk 5,2 (world 7500, 3000): raise the
+    // terrain to at least WATER_LEVEL + 20 in the center, with an irregular edge.
+    // Uses the unwarped coordinates (x and z are domain-warped above).
+    const islandDx = origX - 7500;
+    const islandDz = origZ - 3000;
+    const islandDistSq = islandDx * islandDx + islandDz * islandDz;
+    const islandRadius = 400;
+    if (islandDistSq < islandRadius * islandRadius) {
+      const factor = 1.0 - Math.sqrt(islandDistSq) / islandRadius;
+      const sFactor = factor * factor * (3 - 2 * factor); // Smoothstep
+      const noise = simplex.noise2D(origX * 0.002, origZ * 0.002) * 0.5 + 0.5; // [0, 1]
+      const irregularFactor = sFactor * (0.7 + noise * 0.3);
+      n = Math.max(n, WATER_LEVEL + 20 * irregularFactor);
+    }
+
     return n;
   }
 
