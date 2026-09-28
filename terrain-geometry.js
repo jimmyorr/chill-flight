@@ -966,15 +966,6 @@ export var mushroomStalkMat = createMaterial({
   color: 0xdddddd,
   flatShading: true,
 });
-export var ALIEN_MUSHROOM_CAP_COLORS = [
-  0x9c27b0, // Vibrant purple
-  0xab47bc, // Magenta violet
-  0x7b1fa2, // Deep purple
-  0xba68c8, // Orchid
-  0x8e24aa, // Dark violet
-  0x00bcd4, // Luminescent cyan
-  0x26a69a, // Bioluminescent teal
-];
 
 // Lily pad geometry and material
 function createLilyPadGeometry() {
@@ -3820,58 +3811,3 @@ export function getElevation(x, z) {
 
   return n;
 }
-
-// Optimization: Pre-allocate colors used in chunk generation loop to prevent GC stalling
-export var _colorPlains = new THREE.Color(0x7cb342);
-export var _colorForest = new THREE.Color(0x388e3c);
-export var _colorSnow = new THREE.Color(0xfafafa); // Crisp alpine snow white
-export var _colorPackIce = new THREE.Color(0xa2b4bc); // Slate pack ice shelf
-export var _colorSand = new THREE.Color(0xe0e0a8);
-export var _colorWetSand = new THREE.Color(0xb09d6b);
-export var _colorDesertSand = new THREE.Color(0xf4a460);
-export var _colorDesertWetSand = new THREE.Color(0xc47e3c);
-export var _colorWater = new THREE.Color(0x40c4ff);
-export var _colorIcyWater = new THREE.Color(0x88ccff);
-export var _colorDesertWater = new THREE.Color(0x00ced1);
-export var _colorSandSnowTint = new THREE.Color(0x999999);
-export var _colorUpperSandSnowTint = new THREE.Color(0xdddddd);
-export var _colorForestSnowTint = new THREE.Color(0x8ba192);
-export var _colorForestDesertTint = new THREE.Color(0xa0522d);
-export var _colorPlainsSnowTint = new THREE.Color(0xfafafa);
-export var _colorMountainTint = new THREE.Color(0x7f8c8d);
-export var _colorAlpineRockDark = new THREE.Color(0x424a54); // Deep slate granite cliff
-export var _colorAlpineRockLight = new THREE.Color(0x9ba2a8); // High ridge granite
-export var _colorScree = new THREE.Color(0x736960); // Earthy scree / talus gravel
-export var _colorDesertMountainRock = new THREE.Color(0xc24b2b); // Red sandstone
-export var _colorIce = new THREE.Color(0x6ca6a8); // Frosty cyan ice
-export var _colorAutumnForestTint = new THREE.Color(0x5d4037);
-export var _colorAutumnPlainsTint = new THREE.Color(0x8d6e63);
-export var _colorCherryForestTint = new THREE.Color(0xf8bbd0);
-export var _colorCherryPlainsTint = new THREE.Color(0xfce4ec);
-// Mottling & detail colors (promoted from hot loop to avoid per-vertex GC allocations)
-export var _colorBlack = new THREE.Color(0x000000);
-export var _colorSandMottleHigh = new THREE.Color(0xd2b48c);
-export var _colorSandMottleLow = new THREE.Color(0xdeb887);
-export var _colorArizonaDark = new THREE.Color(0x8b0000);
-export var _colorDesertMottle = new THREE.Color(0xdaa520);
-export var _colorForestDark = new THREE.Color(0x006400);
-export var _colorForestDeep = new THREE.Color(0x004d00);
-export var _colorForestLight = new THREE.Color(0x6b8e23);
-export var _colorPlainsDark = new THREE.Color(0x556b2f);
-export var _colorPlainsBright = new THREE.Color(0xbdb76b);
-export var _colorCliffSouth = new THREE.Color(0x8b3a3a);
-export var _colorVolcanoBasaltHi = new THREE.Color(0x5c5c5c);
-export var _colorVolcanoBasaltLo = new THREE.Color(0x3a3a3a);
-// Eastern Alien Biome (Swirling, organic, neon)
-export var _colorEasternLowland = new THREE.Color(0x1a4d3a); // Deep teal (bioluminescent jungle floor)
-export var _colorEasternRock = new THREE.Color(0x1a0a2e); // Obsidian purple-black
-export var _colorEasternPeak = new THREE.Color(0xc8f000); // Acid yellow-green peak
-export var _colorEasternCliff = new THREE.Color(0x4b0082); // Deep indigo cliff face
-export var _colorEasternWater = new THREE.Color(0x00ffe7); // Neon cyan water
-
-// Western Alien Biome (Crystalline, geometric, fiery/magenta)
-export var _colorWesternLowland = new THREE.Color(0x400020); // Deep maroon/magenta dust
-export var _colorWesternRock = new THREE.Color(0x200000); // Dark crimson rock
-export var _colorWesternPeak = new THREE.Color(0xffffff); // Blinding white crystal peak
-export var _colorWesternCliff = new THREE.Color(0xff4500); // Glowing orange-red fiery faults
-export var _colorWesternWater = new THREE.Color(0xff00ff); // Hot pink/magenta liquid
