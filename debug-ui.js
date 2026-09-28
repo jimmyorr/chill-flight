@@ -580,313 +580,177 @@ export function initDebugUI() {
       });
   }
 
+  // Builds a URL that reopens the game at the camera's (free camera) or the
+  // plane's current position, with the current debug settings.
+  const buildDebugUrl = (forCamera) => {
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+    const target = forCamera ? camera : planeGroup;
+
+    if (forCamera) {
+      params.set('freecam', 'true');
+      params.delete('freeCamera');
+      params.set('debug', 'true');
+    } else {
+      params.delete('freecam'); // spawn at the plane
+      params.delete('freeCamera');
+      const debugMenu = getCachedElement('debug-menu');
+      const isDebugOpen =
+        (debugMenu && debugMenu.style.display === 'block') ||
+        params.get('debug') === 'true' ||
+        params.get('debug') === '1' ||
+        params.get('debug') === '';
+      if (isDebugOpen) {
+        params.set('debug', 'true');
+      } else {
+        params.delete('debug');
+      }
+    }
+
+    if (ChillFlightLogic.WORLD_SEED) {
+      params.set('seed', ChillFlightLogic.WORLD_SEED);
+    }
+    params.delete('lat');
+    params.delete('long');
+    params.delete('lon');
+    params.delete('alt');
+    params.delete('benchmark');
+    if (forCamera) params.delete('speed');
+
+    params.set('x', Math.round(target.position.x));
+    params.set('y', Math.round(target.position.y));
+    params.set('z', Math.round(target.position.z));
+    const euler = new THREE.Euler().setFromQuaternion(target.quaternion, 'YXZ');
+    params.set('heading', Math.round(THREE.MathUtils.radToDeg(euler.y)));
+    params.set('pitch', Math.round(THREE.MathUtils.radToDeg(euler.x)));
+    if (!forCamera && typeof state.flightSpeedMultiplier !== 'undefined') {
+      params.set('speed', Number(state.flightSpeedMultiplier.toFixed(2)));
+    }
+
+    let currentTod;
+    if (state.manualTimeOfDay !== undefined) {
+      currentTod = state.manualTimeOfDay;
+    } else if (typeof state.timeOfDay !== 'undefined') {
+      currentTod = state.timeOfDay / (Math.PI * 2);
+    }
+    if (currentTod !== undefined) {
+      params.set('tod', currentTod.toFixed(4));
+    }
+    if (typeof state.daySpeedMultiplier !== 'undefined') {
+      params.set('timeSpeed', state.daySpeedMultiplier);
+    }
+
+    if (weatherType !== 'auto') {
+      params.set('weather', weatherType);
+    } else {
+      params.delete('weather');
+    }
+
+    params.delete('clouds');
+    params.delete('cloudCover');
+    params.delete('overcast');
+    if (!showCloudsEnabled) {
+      params.set('cloud', 'none');
+    } else if (manualCloudCover !== null) {
+      params.set('clouds', Number(manualCloudCover.toFixed(2)));
+      params.delete('cloud');
+    } else {
+      params.delete('cloud');
+    }
+
+    if (Math.round(manualCloudHeight) !== 3000) {
+      params.set('cloudHeight', Math.round(manualCloudHeight));
+    } else {
+      params.delete('cloudHeight');
+      params.delete('cloudAlt');
+      params.delete('cloudCeiling');
+    }
+
+    if (Number(manualCloudSpeed.toFixed(1)) !== 1.0) {
+      params.set('cloudSpeed', Number(manualCloudSpeed.toFixed(1)));
+    } else {
+      params.delete('cloudSpeed');
+    }
+
+    if (isCustomPalette && selectedPalette) {
+      const topHex = selectedPalette.top.toString(16).padStart(6, '0');
+      const bottomHex = selectedPalette.bottom.toString(16).padStart(6, '0');
+      params.set('palette', `${topHex},${bottomHex}`);
+    } else if (currentPaletteSeed !== undefined) {
+      params.set('palette', currentPaletteSeed);
+    }
+
+    const activePreset = graphicsPresetSelect
+      ? graphicsPresetSelect.value
+      : localStorage.getItem('chill_flight_graphics_preset');
+    params.delete('graphics');
+    if (activePreset) {
+      params.set('preset', activePreset);
+    }
+
+    const showObjs = objectsToggle
+      ? objectsToggle.checked
+      : ChillFlightLogic.SHOW_OBJECTS;
+    if (!showObjs) {
+      params.set('objects', 'none');
+    } else {
+      params.delete('objects');
+    }
+
+    if (state.manualPropLOD !== undefined) {
+      params.set('propLod', Math.round(state.manualPropLOD));
+      params.delete('lod');
+    }
+
+    if (activePlaneType && activePlaneType !== 'classic') {
+      params.set('plane', activePlaneType);
+    } else {
+      params.delete('plane');
+      params.delete('vehicle');
+    }
+
+    // Autopilot only carries over when spawning at the plane.
+    if (!forCamera && state.autopilotEnabled) {
+      params.set('autopilot', 'true');
+    } else {
+      params.delete('autopilot');
+      params.delete('auto');
+      params.delete('autoPilot');
+    }
+
+    if (hooks.fullscreenMap && hooks.fullscreenMap.isOpen()) {
+      params.set('fullscreenmap', 'true');
+    } else {
+      params.delete('fullscreenmap');
+    }
+    return url.toString();
+  };
+
+  // Copies text and briefly shows "Copied!" on the button.
+  const copyWithFeedback = (btn, text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      const originalText = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.style.color = '#4caf50';
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.color = 'white';
+      }, 2000);
+    });
+  };
+
   const copyCamUrlBtn = document.getElementById('debug-copy-cam-url');
   if (copyCamUrlBtn) {
-    copyCamUrlBtn.addEventListener('click', () => {
-      const url = new URL(window.location.href);
-      url.searchParams.set('freecam', 'true');
-      url.searchParams.delete('freeCamera');
-      url.searchParams.set('debug', 'true');
-      if (ChillFlightLogic.WORLD_SEED) {
-        url.searchParams.set('seed', ChillFlightLogic.WORLD_SEED);
-      }
-      url.searchParams.delete('lat');
-      url.searchParams.delete('long');
-      url.searchParams.delete('lon');
-      url.searchParams.delete('alt');
-      url.searchParams.delete('benchmark');
-      url.searchParams.delete('speed');
-
-      url.searchParams.set('x', Math.round(camera.position.x));
-      url.searchParams.set('y', Math.round(camera.position.y));
-      url.searchParams.set('z', Math.round(camera.position.z));
-      const camEuler = new THREE.Euler().setFromQuaternion(
-        camera.quaternion,
-        'YXZ'
-      );
-      url.searchParams.set(
-        'heading',
-        Math.round(THREE.MathUtils.radToDeg(camEuler.y))
-      );
-      url.searchParams.set(
-        'pitch',
-        Math.round(THREE.MathUtils.radToDeg(camEuler.x))
-      );
-      let currentTod;
-      if (state.manualTimeOfDay !== undefined) {
-        currentTod = state.manualTimeOfDay;
-      } else if (typeof state.timeOfDay !== 'undefined') {
-        currentTod = state.timeOfDay / (Math.PI * 2);
-      }
-      if (currentTod !== undefined) {
-        url.searchParams.set('tod', currentTod.toFixed(4));
-      }
-      if (typeof state.daySpeedMultiplier !== 'undefined') {
-        url.searchParams.set('timeSpeed', state.daySpeedMultiplier);
-      }
-
-      if (weatherType !== 'auto') {
-        url.searchParams.set('weather', weatherType);
-      } else {
-        url.searchParams.delete('weather');
-      }
-
-      url.searchParams.delete('clouds');
-      url.searchParams.delete('cloudCover');
-      url.searchParams.delete('overcast');
-      if (!showCloudsEnabled) {
-        url.searchParams.set('cloud', 'none');
-      } else if (manualCloudCover !== null) {
-        url.searchParams.set('clouds', Number(manualCloudCover.toFixed(2)));
-        url.searchParams.delete('cloud');
-      } else {
-        url.searchParams.delete('cloud');
-      }
-
-      if (Math.round(manualCloudHeight) !== 3000) {
-        url.searchParams.set('cloudHeight', Math.round(manualCloudHeight));
-      } else {
-        url.searchParams.delete('cloudHeight');
-        url.searchParams.delete('cloudAlt');
-        url.searchParams.delete('cloudCeiling');
-      }
-
-      if (Number(manualCloudSpeed.toFixed(1)) !== 1.0) {
-        url.searchParams.set('cloudSpeed', Number(manualCloudSpeed.toFixed(1)));
-      } else {
-        url.searchParams.delete('cloudSpeed');
-      }
-      const isCustom = isCustomPalette;
-      const curPalette =
-        typeof selectedPalette !== 'undefined'
-          ? selectedPalette
-          : selectedPalette;
-      const curSeed =
-        typeof currentPaletteSeed !== 'undefined'
-          ? currentPaletteSeed
-          : currentPaletteSeed;
-      if (isCustom && curPalette) {
-        const topHex = curPalette.top.toString(16).padStart(6, '0');
-        const bottomHex = curPalette.bottom.toString(16).padStart(6, '0');
-        url.searchParams.set('palette', `${topHex},${bottomHex}`);
-      } else if (curSeed !== undefined) {
-        url.searchParams.set('palette', curSeed);
-      }
-
-      const activePreset = graphicsPresetSelect
-        ? graphicsPresetSelect.value
-        : localStorage.getItem('chill_flight_graphics_preset');
-      url.searchParams.delete('graphics');
-      if (activePreset) {
-        url.searchParams.set('preset', activePreset);
-      }
-
-      const showObjs = objectsToggle
-        ? objectsToggle.checked
-        : ChillFlightLogic.SHOW_OBJECTS;
-      if (!showObjs) {
-        url.searchParams.set('objects', 'none');
-      } else {
-        url.searchParams.delete('objects');
-      }
-
-      if (state.manualPropLOD !== undefined) {
-        url.searchParams.set('propLod', Math.round(state.manualPropLOD));
-        url.searchParams.delete('lod');
-      }
-
-      if (activePlaneType && activePlaneType !== 'classic') {
-        url.searchParams.set('plane', activePlaneType);
-      } else {
-        url.searchParams.delete('plane');
-        url.searchParams.delete('vehicle');
-      }
-
-      url.searchParams.delete('autopilot');
-      url.searchParams.delete('auto');
-      url.searchParams.delete('autoPilot');
-
-      if (hooks.fullscreenMap && hooks.fullscreenMap.isOpen()) {
-        url.searchParams.set('fullscreenmap', 'true');
-      } else {
-        url.searchParams.delete('fullscreenmap');
-      }
-
-      navigator.clipboard.writeText(url.toString()).then(() => {
-        const originalText = copyCamUrlBtn.textContent;
-        copyCamUrlBtn.textContent = 'Copied!';
-        copyCamUrlBtn.style.color = '#4caf50';
-        setTimeout(() => {
-          copyCamUrlBtn.textContent = originalText;
-          copyCamUrlBtn.style.color = 'white';
-        }, 2000);
-      });
-    });
+    copyCamUrlBtn.addEventListener('click', () =>
+      copyWithFeedback(copyCamUrlBtn, buildDebugUrl(true))
+    );
   }
 
   const copyPlaneUrlBtn = document.getElementById('debug-copy-plane-url');
   if (copyPlaneUrlBtn) {
-    copyPlaneUrlBtn.addEventListener('click', () => {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('freecam'); // ensure freecam is disabled to spawn at plane
-      url.searchParams.delete('freeCamera');
-
-      const debugMenu = getCachedElement('debug-menu');
-      const isDebugOpen =
-        (debugMenu && debugMenu.style.display === 'block') ||
-        url.searchParams.get('debug') === 'true' ||
-        url.searchParams.get('debug') === '1' ||
-        url.searchParams.get('debug') === '';
-      if (isDebugOpen) {
-        url.searchParams.set('debug', 'true');
-      } else {
-        url.searchParams.delete('debug');
-      }
-
-      if (ChillFlightLogic.WORLD_SEED) {
-        url.searchParams.set('seed', ChillFlightLogic.WORLD_SEED);
-      }
-      url.searchParams.delete('lat');
-      url.searchParams.delete('long');
-      url.searchParams.delete('lon');
-      url.searchParams.delete('alt');
-      url.searchParams.delete('benchmark');
-
-      url.searchParams.set('x', Math.round(planeGroup.position.x));
-      url.searchParams.set('y', Math.round(planeGroup.position.y));
-      url.searchParams.set('z', Math.round(planeGroup.position.z));
-      const planeEuler = new THREE.Euler().setFromQuaternion(
-        planeGroup.quaternion,
-        'YXZ'
-      );
-      url.searchParams.set(
-        'heading',
-        Math.round(THREE.MathUtils.radToDeg(planeEuler.y))
-      );
-      url.searchParams.set(
-        'pitch',
-        Math.round(THREE.MathUtils.radToDeg(planeEuler.x))
-      );
-      if (typeof state.flightSpeedMultiplier !== 'undefined') {
-        url.searchParams.set(
-          'speed',
-          Number(state.flightSpeedMultiplier.toFixed(2))
-        );
-      }
-      let currentTod;
-      if (state.manualTimeOfDay !== undefined) {
-        currentTod = state.manualTimeOfDay;
-      } else if (typeof state.timeOfDay !== 'undefined') {
-        currentTod = state.timeOfDay / (Math.PI * 2);
-      }
-      if (currentTod !== undefined) {
-        url.searchParams.set('tod', currentTod.toFixed(4));
-      }
-      if (typeof state.daySpeedMultiplier !== 'undefined') {
-        url.searchParams.set('timeSpeed', state.daySpeedMultiplier);
-      }
-
-      if (weatherType !== 'auto') {
-        url.searchParams.set('weather', weatherType);
-      } else {
-        url.searchParams.delete('weather');
-      }
-
-      url.searchParams.delete('clouds');
-      url.searchParams.delete('cloudCover');
-      url.searchParams.delete('overcast');
-      if (!showCloudsEnabled) {
-        url.searchParams.set('cloud', 'none');
-      } else if (manualCloudCover !== null) {
-        url.searchParams.set('clouds', Number(manualCloudCover.toFixed(2)));
-        url.searchParams.delete('cloud');
-      } else {
-        url.searchParams.delete('cloud');
-      }
-
-      if (Math.round(manualCloudHeight) !== 3000) {
-        url.searchParams.set('cloudHeight', Math.round(manualCloudHeight));
-      } else {
-        url.searchParams.delete('cloudHeight');
-        url.searchParams.delete('cloudAlt');
-        url.searchParams.delete('cloudCeiling');
-      }
-
-      if (Number(manualCloudSpeed.toFixed(1)) !== 1.0) {
-        url.searchParams.set('cloudSpeed', Number(manualCloudSpeed.toFixed(1)));
-      } else {
-        url.searchParams.delete('cloudSpeed');
-      }
-      const isCustom = isCustomPalette;
-      const curPalette =
-        typeof selectedPalette !== 'undefined'
-          ? selectedPalette
-          : selectedPalette;
-      const curSeed =
-        typeof currentPaletteSeed !== 'undefined'
-          ? currentPaletteSeed
-          : currentPaletteSeed;
-      if (isCustom && curPalette) {
-        const topHex = curPalette.top.toString(16).padStart(6, '0');
-        const bottomHex = curPalette.bottom.toString(16).padStart(6, '0');
-        url.searchParams.set('palette', `${topHex},${bottomHex}`);
-      } else if (curSeed !== undefined) {
-        url.searchParams.set('palette', curSeed);
-      }
-
-      const activePreset = graphicsPresetSelect
-        ? graphicsPresetSelect.value
-        : localStorage.getItem('chill_flight_graphics_preset');
-      url.searchParams.delete('graphics');
-      if (activePreset) {
-        url.searchParams.set('preset', activePreset);
-      }
-
-      const showObjs = objectsToggle
-        ? objectsToggle.checked
-        : ChillFlightLogic.SHOW_OBJECTS;
-      if (!showObjs) {
-        url.searchParams.set('objects', 'none');
-      } else {
-        url.searchParams.delete('objects');
-      }
-
-      if (state.manualPropLOD !== undefined) {
-        url.searchParams.set('propLod', Math.round(state.manualPropLOD));
-        url.searchParams.delete('lod');
-      }
-
-      if (activePlaneType && activePlaneType !== 'classic') {
-        url.searchParams.set('plane', activePlaneType);
-      } else {
-        url.searchParams.delete('plane');
-        url.searchParams.delete('vehicle');
-      }
-
-      if (state.autopilotEnabled) {
-        url.searchParams.set('autopilot', 'true');
-      } else {
-        url.searchParams.delete('autopilot');
-        url.searchParams.delete('auto');
-        url.searchParams.delete('autoPilot');
-      }
-
-      if (hooks.fullscreenMap && hooks.fullscreenMap.isOpen()) {
-        url.searchParams.set('fullscreenmap', 'true');
-      } else {
-        url.searchParams.delete('fullscreenmap');
-      }
-
-      navigator.clipboard.writeText(url.toString()).then(() => {
-        const originalText = copyPlaneUrlBtn.textContent;
-        copyPlaneUrlBtn.textContent = 'Copied!';
-        copyPlaneUrlBtn.style.color = '#4caf50';
-        setTimeout(() => {
-          copyPlaneUrlBtn.textContent = originalText;
-          copyPlaneUrlBtn.style.color = 'white';
-        }, 2000);
-      });
-    });
+    copyPlaneUrlBtn.addEventListener('click', () =>
+      copyWithFeedback(copyPlaneUrlBtn, buildDebugUrl(false))
+    );
   }
 
   window.applyGraphicsPreset = applyGraphicsPreset;
