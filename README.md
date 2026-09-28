@@ -60,7 +60,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 ### 2. The frozen north
 
 - **Location:** Latitude 1.5+ North (Z < -7500). The deep frozen ocean starts around 4.0 North (Z < -20000).
-- **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192). Beyond 4.0 North, the ocean completely freezes over into a solid, jagged pack ice shelf (#A2B4BC) that rises out of the water.
+- **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192). Beyond 4.0 North, the ocean completely freezes over into a solid, jagged pack ice shelf (#A2B4BC) that rises out of the water. In bright midday sun, snow and ice are dimmed slightly and shifted cool (`uSnowExposure`) so their shading stays visible instead of washing out to flat white.
 - **Weather:** Frequent falling snow (~80% of the time) with occasional global breaks.
 - **Key Features:**
   - **Mountain Range:** The "Northern Snowy Range" is located at approximately 2.0 North latitude (Z = -10000) and extends west from 1.0 West longitude (X = -5000). It features sharp, ridged peaks reaching altitudes up to 1600 units.

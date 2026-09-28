@@ -162,6 +162,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
+  shader.uniforms.uSnowExposure = terrainUniforms.uSnowExposure;
 
   shader.vertexShader =
     `
@@ -186,8 +187,18 @@ terrainMaterial.onBeforeCompile = (shader) => {
     uniform vec3 uSunDirection;
     uniform vec3 uTopColor;
     uniform vec3 uBottomColor;
+    uniform vec3 uSnowExposure;
     varying vec3 vWorldPosition;
   ` + shader.fragmentShader;
+
+  // Near-white terrain (snow, ice) is dimmed in bright light so its shading
+  // stays visible instead of clipping to flat white (#74).
+  shader.fragmentShader = shader.fragmentShader.replace(
+    `#include <color_fragment>`,
+    `#include <color_fragment>
+     float snowWhiteness = smoothstep(0.55, 0.85, min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b)));
+     diffuseColor.rgb *= mix(vec3(1.0), uSnowExposure, snowWhiteness);`
+  );
 
   shader.fragmentShader = shader.fragmentShader.replace(
     `#include <fog_fragment>`,

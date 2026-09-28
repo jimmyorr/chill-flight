@@ -1403,6 +1403,8 @@ function updatePhysicsAndControls(delta, nowTime) {
   }
 }
 
+const SNOW_MAX_BRIGHTNESS = 0.95;
+const SNOW_COOL_TINT = new THREE.Vector3(0.94, 0.99, 1.07);
 const SHADOW_LOOK_AHEAD = 1400;
 const _shadowAnchor = new THREE.Vector3();
 const _shadowForward = new THREE.Vector3();
@@ -1862,6 +1864,23 @@ function updateEnvironmentLighting(delta, now) {
     terrainUniforms.uCameraPosXZ.value.set(_camWorld.x, _camWorld.z);
     terrainUniforms.uRenderRadius.value = state.RENDER_DISTANCE * CHUNK_SIZE;
     terrainUniforms.uSunDirection.value.copy(_tempVec);
+    // Brightest light on flat ground (hemisphere + sun); scale snow so it
+    // tops out just under white instead of clipping, shifting it slightly
+    // cool as it dims so it doesn't read beige under the warm sun.
+    const flatGroundLight =
+      (hemiLight.intensity + dirLight.intensity * Math.max(0, _tempVec.y)) /
+      Math.PI;
+    const snowExposure = Math.min(
+      1,
+      SNOW_MAX_BRIGHTNESS / Math.max(flatGroundLight, 1e-3)
+    );
+    const coolShift = Math.min(1, (1 - snowExposure) / 0.3);
+    terrainUniforms.uSnowExposure.value
+      .copy(SNOW_COOL_TINT)
+      .subScalar(1)
+      .multiplyScalar(coolShift)
+      .addScalar(1)
+      .multiplyScalar(snowExposure);
     if (skyUniforms) {
       terrainUniforms.uTopColor.value.copy(skyUniforms.topColor.value);
       terrainUniforms.uBottomColor.value.copy(skyUniforms.bottomColor.value);
