@@ -289,6 +289,67 @@ function getElevation(x, z, elevParams) {
   );
 }
 
+// Water depth averaged over about +-4 grid cells (~200 units on the mid
+// preset), for the water's color and transparency: they blend gradually
+// from the beach to open water instead of following the steep true depth.
+// Samples a few cells past the chunk edge so neighboring chunks match.
+const SOFT_DEPTH_PAD = 4;
+function softenedWaterDepth(
+  heightGrid,
+  gridX1,
+  step,
+  halfSize,
+  worldOffsetX,
+  worldOffsetZ,
+  elevParams
+) {
+  const P = SOFT_DEPTH_PAD;
+  const W = gridX1 + 2 * P;
+  let a = new Float32Array(W * W);
+  let b = new Float32Array(W * W);
+  for (let iz = 0; iz < W; iz++) {
+    for (let ix = 0; ix < W; ix++) {
+      const gx = ix - P;
+      const gz = iz - P;
+      const inside = gx >= 0 && gx < gridX1 && gz >= 0 && gz < gridX1;
+      const h = inside
+        ? heightGrid[gz * gridX1 + gx]
+        : getElevation(
+            worldOffsetX - halfSize + gx * step,
+            worldOffsetZ - halfSize + gz * step,
+            elevParams
+          );
+      a[iz * W + ix] = Math.max(-10, Math.min(10, elevParams.WATER_LEVEL - h));
+    }
+  }
+  // Two box-blur passes of radius 2 in each direction (a tent of radius 4).
+  const R = 2;
+  const clampI = (i) => (i < 0 ? 0 : i >= W ? W - 1 : i);
+  for (let pass = 0; pass < 2; pass++) {
+    for (let iz = 0; iz < W; iz++) {
+      for (let ix = 0; ix < W; ix++) {
+        let sum = 0;
+        for (let k = -R; k <= R; k++) sum += a[iz * W + clampI(ix + k)];
+        b[iz * W + ix] = sum / (2 * R + 1);
+      }
+    }
+    for (let iz = 0; iz < W; iz++) {
+      for (let ix = 0; ix < W; ix++) {
+        let sum = 0;
+        for (let k = -R; k <= R; k++) sum += b[clampI(iz + k) * W + ix];
+        a[iz * W + ix] = sum / (2 * R + 1);
+      }
+    }
+  }
+  const out = new Float32Array(gridX1 * gridX1);
+  for (let gz = 0; gz < gridX1; gz++) {
+    for (let gx = 0; gx < gridX1; gx++) {
+      out[gz * gridX1 + gx] = a[(gz + P) * W + gx + P];
+    }
+  }
+  return out;
+}
+
 // Returns {result, transferables}: the chunk's buffers, instance data and
 // prop placements, plus the buffers to transfer when posting from a worker.
 export function generateChunkData({
@@ -358,7 +419,7 @@ export function generateChunkData({
 
   let waterPositions = null;
   let waterColors = null;
-  let waterDepths = null;
+  let softWaterDepth = null;
   const transferables = [
     positions.buffer,
     heightGrid.buffer,
@@ -374,7 +435,6 @@ export function generateChunkData({
 
     waterPositions = new Float32Array(wTotalVerts * 3);
     waterColors = new Float32Array(wTotalVerts * 3);
-    waterDepths = new Float32Array(wTotalVerts);
 
     const colorWater = new Color(0x40c4ff);
     const colorIcyWater = new Color(0x88ccff);
@@ -382,7 +442,6 @@ export function generateChunkData({
     const tempColor = new Color();
 
     let wPosIdx = 0;
-    let wIdx = 0;
 
     for (let iz = 0; iz < wGridX1; iz++) {
       const localZ = -wHalfSize + iz * wStep;
@@ -394,15 +453,6 @@ export function generateChunkData({
         waterPositions[wPosIdx] = localX;
         waterPositions[wPosIdx + 1] = elevParams.WATER_LEVEL;
         waterPositions[wPosIdx + 2] = localZ;
-
-        const terrainHeight = getElevation(worldX, worldZ, elevParams);
-        // Negative on land (bounded), so depth interpolated across a
-        // shoreline triangle reaches 0 right at the visible waterline; the
-        // water shader's foam and shallows rely on that.
-        waterDepths[wIdx] = Math.max(
-          -30.0,
-          elevParams.WATER_LEVEL - terrainHeight
-        );
 
         const tempNoise = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
         const northInfluence = Math.max(0, -worldZ / 4500);
@@ -427,14 +477,22 @@ export function generateChunkData({
         waterColors[wPosIdx + 2] = tempColor.b;
 
         wPosIdx += 3;
-        wIdx++;
       }
     }
 
+    softWaterDepth = softenedWaterDepth(
+      heightGrid,
+      gridX1,
+      step,
+      halfSize,
+      worldOffsetX,
+      worldOffsetZ,
+      elevParams
+    );
     transferables.push(
       waterPositions.buffer,
       waterColors.buffer,
-      waterDepths.buffer
+      softWaterDepth.buffer
     );
   }
 
@@ -2000,7 +2058,7 @@ export function generateChunkData({
         terrainColors: terrainColors,
         waterPositions,
         waterColors,
-        waterDepths,
+        softWaterDepth,
       },
       instanceData,
       chunkProps,

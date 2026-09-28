@@ -205,6 +205,11 @@ export function applyGraphicsPreset(preset) {
         if (child.geometry && child.geometry.userData.unique) {
           child.geometry.dispose();
         }
+        // Water depth texture (see attachWaterDepthTexture in terrain-chunks.js)
+        if (child.userData.depthTex) {
+          child.userData.depthTex.dispose();
+          child.material.dispose();
+        }
       }
     });
     scene.remove(group);
@@ -325,6 +330,11 @@ export function initDebugUI() {
           if (child.isMesh || child.isInstancedMesh) {
             if (child.geometry && child.geometry.userData.unique) {
               child.geometry.dispose();
+            }
+            // Water depth texture (see attachWaterDepthTexture in terrain-chunks.js)
+            if (child.userData.depthTex) {
+              child.userData.depthTex.dispose();
+              child.material.dispose();
             }
           }
         });

@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
+  CHUNK_SIZE,
   LIGHTHOUSE_BEAM_OPACITY_MAX,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
@@ -121,6 +122,9 @@ export function resetChunkQueue() {
 // GPU water uniform — shared globally so game.js animate() can update uTime
 export const waterUniforms = {
   uTime: {value: 0.0},
+  // Defaults only; each water chunk's material has its own (terrain-chunks.js)
+  uDepthTex: {value: null},
+  uDepthGridSize: {value: 31},
   uSpecularDir: {value: new THREE.Vector3(0, 1, 0)},
   uSunColor: {value: new THREE.Color(0xffffff)},
 };
@@ -231,8 +235,14 @@ terrainMaterial.onBeforeCompile = (shader) => {
 
 // Inject GPU wave math into the water material's vertex shader.
 // This replaces the CPU-side per-vertex loop and computeVertexNormals().
-waterMaterial.onBeforeCompile = (shader) => {
+waterMaterial.userData.isWater = true;
+// A regular function: `this` is the material being compiled. Each water chunk
+// has its own clone carrying its depth texture (see attachWaterDepthTexture).
+waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uTime = waterUniforms.uTime;
+  const depth = this.userData.depthUniforms || waterUniforms;
+  shader.uniforms.uDepthTex = depth.uDepthTex;
+  shader.uniforms.uDepthGridSize = depth.uDepthGridSize;
   shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
   shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
 
@@ -245,8 +255,9 @@ waterMaterial.onBeforeCompile = (shader) => {
   // Add time uniform declaration to the top of the vertex shader
   shader.vertexShader =
     `
-        attribute float aWaterDepth;
-        varying float vWaterDepth;
+        uniform float uDepthGridSize;
+        uniform sampler2D uDepthTex;
+        varying vec2 vDepthUV;
         uniform vec2 uCameraPosXZ;
         uniform float uRenderRadius;
         varying float vDistanceXZ;
@@ -282,8 +293,15 @@ waterMaterial.onBeforeCompile = (shader) => {
         // Get world position for seamless tiling across chunks
         vec4 worldPosN = modelMatrix * vec4(position, 1.0);
 
+        // Texel centers of the chunk's height grid (vertices span the chunk)
+        vec2 gridT = position.xz / ${CHUNK_SIZE.toFixed(1)} + 0.5;
+        vDepthUV = (gridT * (uDepthGridSize - 1.0) + 0.5) / uDepthGridSize;
+        // Calm the swell in shallow water, so it doesn't rise above low-lying
+        // land in thin slivers along the shore.
+        float swellCalm = smoothstep(1.0, 6.0, texture2D(uDepthTex, vDepthUV).g * 40.0 - 30.0);
+
         // Analytical normal from the swell's slope, for correct lighting
-        vec3 swellN = swell(worldPosN.xz, uTime);
+        vec3 swellN = swell(worldPosN.xz, uTime) * swellCalm;
         vec3 objectNormal = normalize(vec3(-swellN.y, 1.0, -swellN.z));
         vSmoothNormal = normalize(mat3(modelMatrix) * objectNormal);
         `
@@ -293,11 +311,10 @@ waterMaterial.onBeforeCompile = (shader) => {
   shader.vertexShader = shader.vertexShader.replace(
     `#include <begin_vertex>`,
     `
-        vWaterDepth = aWaterDepth;
         vec3 transformed = vec3(position);
         vec4 worldPosV = modelMatrix * vec4(position, 1.0);
 
-        transformed.y += swell(worldPosV.xz, uTime).x;
+        transformed.y += swell(worldPosV.xz, uTime).x * swellCalm;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
         `
@@ -305,7 +322,8 @@ waterMaterial.onBeforeCompile = (shader) => {
 
   shader.fragmentShader =
     `
-        varying float vWaterDepth;
+        varying vec2 vDepthUV;
+        uniform sampler2D uDepthTex;
         uniform float uTime;
         uniform vec3 uSunDirection;
         uniform vec3 uSpecularDir;
@@ -327,15 +345,24 @@ waterMaterial.onBeforeCompile = (shader) => {
         #include <dithering_fragment>
 
         vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+        // Depth below the surface, per pixel from the terrain height grid:
+        // exact (foam) and softened over ~200 units (color, transparency).
+        vec2 depthSample = texture2D(uDepthTex, vDepthUV).rg * 40.0 - 30.0;
+        float vWaterDepth = depthSample.x;
+        float softDepth = depthSample.y;
 
         // Fade opacity near shore based on water depth
-        float depthOpacity = smoothstep(0.0, 4.0, vWaterDepth);
+        float depthOpacity = smoothstep(0.0, 4.0, softDepth);
         gl_FragColor.a *= depthOpacity;
+        // Keep water visibly tinted right up to the true waterline (where
+        // the foam is), so the shallows don't vanish and leave the foam line
+        // floating on what looks like dry sand.
+        gl_FragColor.a = max(gl_FragColor.a, smoothstep(0.05, 1.2, vWaterDepth) * 0.45);
 
         // Deep water (open ocean is ~10 units deep) is opaque and deeper blue;
         // the shallows stay clear turquoise.
-        float deep = smoothstep(2.0, 9.0, vWaterDepth);
-        float shallow = smoothstep(0.3, 1.5, vWaterDepth) * (1.0 - deep);
+        float deep = smoothstep(2.0, 9.0, softDepth);
+        float shallow = smoothstep(0.3, 1.5, softDepth) * (1.0 - deep);
         vec3 waterLit = gl_FragColor.rgb;
         gl_FragColor.rgb = mix(waterLit, waterLit * vec3(0.24, 0.46, 0.82), deep * 0.7);
         gl_FragColor.rgb = mix(gl_FragColor.rgb, waterLit * vec3(0.55, 1.05, 0.9), shallow * 0.6);
@@ -434,6 +461,11 @@ waterMaterial.onBeforeCompile = (shader) => {
                    * max(foamRings * 0.8, foamEdge);
         gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.95, 0.97, 1.0) * lightLevel, foam * 0.9);
         gl_FragColor.a = max(gl_FragColor.a, foam * 0.9);
+
+        // Where the terrain is right at the surface, the swell pokes the water
+        // just above the ground in thin slivers; fade them out so they don't
+        // draw lines along the water-level contour across the land.
+        gl_FragColor.a *= smoothstep(0.05, 0.6, vWaterDepth);
         `
   );
 

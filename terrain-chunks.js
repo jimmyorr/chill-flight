@@ -582,6 +582,80 @@ var workerChunkResults = new Map();
 // Chunks whose worker job failed; these are built on the main thread instead.
 var workerChunkFailed = new Set();
 
+// The water's depth below the surface, sampled per pixel from the chunk's
+// terrain height grid (the water mesh itself is much coarser), so shallows,
+// the deep-water edge and foam follow the shore smoothly instead of the
+// water triangles. 8 bits: depth -30..10 mapped to 0..255.
+const WATER_DEPTH_MIN = -30;
+const _waterMaterialPool = [];
+const WATER_DEPTH_RANGE = 40;
+
+function attachWaterDepthTexture(waterMesh, heightGrid, softDepth) {
+  const n = state.SEGMENTS + 1;
+  const encode = (depth) =>
+    Math.max(
+      0,
+      Math.min(
+        255,
+        Math.round(((depth - WATER_DEPTH_MIN) / WATER_DEPTH_RANGE) * 255)
+      )
+    );
+  // R: exact depth (foam at the waterline). G: softened depth (color and
+  // transparency, blending gradually from the beach to open water).
+  const bytes = new Uint8Array(n * n * 2);
+  for (let i = 0; i < n * n; i++) {
+    bytes[i * 2] = encode(WATER_LEVEL - heightGrid[i]);
+    bytes[i * 2 + 1] = encode(softDepth[i]);
+  }
+  const tex = new THREE.DataTexture(bytes, n, n, THREE.RGFormat);
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  tex.unpackAlignment = 1; // rows are 2n bytes, not padded to 4
+  tex.needsUpdate = true;
+  // One shared material can't hold a different texture per draw, so each
+  // water chunk gets its own material. Clones share the compiled shader, but
+  // setting up a new material still costs a few ms of main-thread work, so
+  // materials from unloaded chunks are reused.
+  let mat = _waterMaterialPool.pop();
+  while (
+    mat &&
+    (mat.transparent !== waterMaterial.transparent ||
+      mat.opacity !== waterMaterial.opacity ||
+      mat.depthWrite !== waterMaterial.depthWrite)
+  ) {
+    mat.dispose(); // made under a different graphics preset
+    mat = _waterMaterialPool.pop();
+  }
+  if (!mat) {
+    mat = waterMaterial.clone();
+    mat.onBeforeCompile = waterMaterial.onBeforeCompile;
+    mat.userData.isWater = true;
+    mat.userData.depthUniforms = {
+      uDepthTex: {value: null},
+      uDepthGridSize: {value: n},
+    };
+  }
+  mat.userData.depthUniforms.uDepthTex.value = tex;
+  mat.userData.depthUniforms.uDepthGridSize.value = n;
+  waterMesh.material = mat;
+  waterMesh.userData.depthTex = tex;
+}
+
+export function disposeWaterDepthTexture(waterMesh) {
+  if (waterMesh && waterMesh.userData.depthTex) {
+    waterMesh.userData.depthTex.dispose();
+    waterMesh.userData.depthTex = null;
+    if (waterMesh.material !== waterMaterial) {
+      if (_waterMaterialPool.length < 64) {
+        _waterMaterialPool.push(waterMesh.material);
+      } else {
+        waterMesh.material.dispose();
+      }
+      waterMesh.material = waterMaterial;
+    }
+  }
+}
+
 // Inputs to generateChunkData(), identical for workers and the main thread.
 function chunkGenParams(chunkX, chunkZ) {
   return {
@@ -848,27 +922,23 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           3
         )
       );
-      waterGeo.setAttribute(
-        'aWaterDepth',
-        new THREE.BufferAttribute(
-          new Float32Array(waterGeo.attributes.position.count),
-          1
-        )
-      );
     }
     waterGeo.userData = {unique: true, poolType: 'water'};
 
     waterGeo.attributes.position.array.set(workerData.buffers.waterPositions);
     waterGeo.attributes.color.array.set(workerData.buffers.waterColors);
-    waterGeo.attributes.aWaterDepth.array.set(workerData.buffers.waterDepths);
 
     waterGeo.attributes.position.needsUpdate = true;
     waterGeo.attributes.color.needsUpdate = true;
-    waterGeo.attributes.aWaterDepth.needsUpdate = true;
     waterGeo.computeBoundingBox();
     waterGeo.computeBoundingSphere();
     const waterMesh = new THREE.Mesh(waterGeo, waterMaterial);
     waterMesh.position.set(worldOffsetX, 0, worldOffsetZ);
+    attachWaterDepthTexture(
+      waterMesh,
+      workerData.buffers.heightGrid,
+      workerData.buffers.softWaterDepth
+    );
     group.add(waterMesh);
     group.userData.water = waterMesh; // accessible for animation!
   }
@@ -2596,7 +2666,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
   group.traverse((child) => {
     if (child.isMesh || child.isInstancedMesh) {
-      if (child.material === waterMaterial) {
+      if (child.material.userData.isWater) {
         child.receiveShadow = true;
       } else if (
         child.material !== smokeMat &&
@@ -2831,6 +2901,7 @@ export function updateChunks() {
       group.userData.instanceData = null;
       group.userData.objectsGroup = null;
       group.userData.watercraftGroup = null;
+      disposeWaterDepthTexture(group.userData.water);
       group.userData.water = null;
       group.userData.sailboatPositions = null;
       group.userData.boatHulls = null;
