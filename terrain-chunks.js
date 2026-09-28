@@ -677,6 +677,8 @@ globalInstancer.setShadowGeometry(
 
 var workerChunkRequests = new Map();
 var workerChunkResults = new Map();
+// Chunks whose worker job failed; these are built on the main thread instead.
+var workerChunkFailed = new Set();
 
 function queueWorkerChunk(cx, cz, key, priority = 0) {
   if (workerChunkRequests.has(key) || workerChunkResults.has(key)) return;
@@ -705,9 +707,8 @@ function queueWorkerChunk(cx, cz, key, priority = 0) {
     })
     .catch((err) => {
       workerChunkRequests.delete(key);
-      if (typeof log !== 'undefined' && log.warn) {
-        log.warn('[Worker] Terrain chunk worker error, falling back:', err);
-      }
+      if (chunkQueueSet.has(key)) workerChunkFailed.add(key);
+      log.warn('[Worker] Terrain chunk worker error, falling back:', err);
     });
 
   workerChunkRequests.set(key, req);
@@ -717,6 +718,7 @@ export function clearChunkQueue() {
   resetChunkQueue();
   workerChunkRequests.clear();
   workerChunkResults.clear();
+  workerChunkFailed.clear();
   if (
     typeof window !== 'undefined' &&
     terrainWorkerManager &&
@@ -4568,50 +4570,54 @@ export function updateChunks() {
   }
 }
 
-export function processChunkQueue() {
+// A queued chunk is ready to build once its worker result has arrived. It is
+// built on the main thread (much slower) only when workers are unavailable or
+// its worker job failed.
+function isChunkReady(key) {
+  return (
+    workerChunkResults.has(key) ||
+    workerChunkFailed.has(key) ||
+    !terrainWorkerManager.isSupported
+  );
+}
+
+// Builds ready chunks, highest priority first, until budgetMs is used up
+// (always at least one per frame, so loading never stalls).
+export function processChunkQueue(budgetMs = 4) {
   if (state.chunkQueue.length === 0) return 1.0;
 
+  const start = performance.now();
   let generatedThisFrame = 0;
-  let fallbackGenerated = false;
 
   while (state.chunkQueue.length > 0) {
     let itemIdx = -1;
     for (let i = state.chunkQueue.length - 1; i >= 0; i--) {
-      if (workerChunkResults.has(state.chunkQueue[i].key)) {
+      if (isChunkReady(state.chunkQueue[i].key)) {
         itemIdx = i;
         break;
       }
     }
+    if (itemIdx === -1) break;
 
-    if (itemIdx === -1 && fallbackGenerated) {
-      break;
-    }
-
-    const item =
-      itemIdx !== -1
-        ? state.chunkQueue.splice(itemIdx, 1)[0]
-        : state.chunkQueue.pop();
+    const item = state.chunkQueue.splice(itemIdx, 1)[0];
     chunkQueueSet.delete(item.key);
+    const workerData = workerChunkResults.get(item.key) || null;
+    workerChunkResults.delete(item.key);
+    workerChunkFailed.delete(item.key);
 
     if (!chunks.has(item.key)) {
-      const workerData = workerChunkResults.get(item.key) || null;
-      workerChunkResults.delete(item.key);
-
-      const chunkGroup = generateChunk(item.cx, item.cz, workerData);
-      chunks.set(item.key, chunkGroup);
+      chunks.set(item.key, generateChunk(item.cx, item.cz, workerData));
       generatedThisFrame++;
-
-      if (!workerData) fallbackGenerated = true;
     }
+
+    if (performance.now() - start >= budgetMs) break;
   }
 
-  if (generatedThisFrame > 0 && typeof globalInstancer !== 'undefined') {
+  if (generatedThisFrame > 0) {
     globalInstancer.requestRebuild();
   }
 
-  const totalChunks = chunks.size + state.chunkQueue.length;
-  if (totalChunks === 0) return 1.0;
-  return chunks.size / totalChunks;
+  return getChunkLoadingProgress();
 }
 
 export function getChunkLoadingProgress() {
