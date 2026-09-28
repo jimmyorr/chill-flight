@@ -19,6 +19,11 @@ import {simplex} from '../noise.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// The world seed defaults to today's date, and on some days the terrain near
+// a sampled line is naturally low. Pin the seed so results don't vary by day;
+// the regressions checked here (tears, trenches) show up with any seed.
+simplex.seed(20260101);
+
 console.log('Testing procedural terrain invariants...');
 
 // --- 1. STATIC CODE ANALYSIS: NO INTERMEDIATE EARLY RETURNS ---
