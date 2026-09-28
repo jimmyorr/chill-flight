@@ -338,12 +338,12 @@ waterMaterial.onBeforeCompile = function (shader) {
     SKY_COLOR_GLSL +
     shader.fragmentShader;
 
-  // Inject sky reflection and the sun's glitter path
+  // Inject sky reflection, depth color, the sun's glitter path and foam.
+  // Runs before the fog (the fog_fragment marker is kept for the fog
+  // injection below), so distant water fades into the haze like the land.
   shader.fragmentShader = shader.fragmentShader.replace(
-    `#include <dithering_fragment>`,
+    `#include <fog_fragment>`,
     `
-        #include <dithering_fragment>
-
         vec3 viewDir = normalize(cameraPosition - vWorldPosition);
         // Depth below the surface, per pixel from the terrain height grid:
         // exact (foam) and softened over ~200 units (color, transparency).
@@ -466,6 +466,8 @@ waterMaterial.onBeforeCompile = function (shader) {
         // just above the ground in thin slivers; fade them out so they don't
         // draw lines along the water-level contour across the land.
         gl_FragColor.a *= smoothstep(0.05, 0.6, vWaterDepth);
+
+        #include <fog_fragment>
         `
   );
 
