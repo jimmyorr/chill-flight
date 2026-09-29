@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
   CHUNK_SIZE,
+  CLOUD_GLSL,
   LIGHTHOUSE_BEAM_OPACITY_MAX,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
@@ -14,6 +15,7 @@ import {
   terrainUniforms,
 } from './constants.js';
 import {scene} from './scene.js';
+import {skyUniforms} from './sky.js';
 import {log} from './logger.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
@@ -242,6 +244,12 @@ waterMaterial.userData.isWater = true;
 // has its own clone carrying its depth texture (see attachWaterDepthTexture).
 waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uTime = waterUniforms.uTime;
+  // The sky's cloud layers, reflected on the water
+  shader.uniforms.uNoiseTex = skyUniforms.uNoiseTex;
+  shader.uniforms.uSkyTime = skyUniforms.uTime;
+  shader.uniforms.uCloudDensity = skyUniforms.uCloudDensity;
+  shader.uniforms.uCloudHeight = skyUniforms.uCloudHeight;
+  shader.uniforms.uShowClouds = skyUniforms.uShowClouds;
   const depth = this.userData.depthUniforms || waterUniforms;
   shader.uniforms.uDepthTex = depth.uDepthTex;
   shader.uniforms.uDepthGridSize = depth.uDepthGridSize;
@@ -338,8 +346,13 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform float uRenderRadius;
         uniform float uNearEdgeFade;
         varying float vDistanceXZ;
+        uniform float uSkyTime;
+        uniform float uCloudDensity;
+        uniform float uCloudHeight;
+        uniform bool uShowClouds;
     ` +
     SKY_COLOR_GLSL +
+    CLOUD_GLSL +
     shader.fragmentShader;
 
   // Inject sky reflection, depth color, the sun's glitter path and foam.
@@ -412,7 +425,14 @@ waterMaterial.onBeforeCompile = function (shader) {
         reflDir.y = abs(reflDir.y);
         float cosTheta = max(dot(viewDir, n), 0.0);
         float skyFresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, skyColorAt(reflDir, uTopColor, uBottomColor, uSunDirection, 0.0), skyFresnel * 0.85);
+        vec3 reflected = skyColorAt(reflDir, uTopColor, uBottomColor, uSunDirection, 0.0);
+        // Only where the reflection is strong enough to show clouds
+        if (uShowClouds && skyFresnel > 0.08) {
+          vec4 reflClouds = cloudsAlong(vWorldPosition, reflDir, uCloudHeight, uCloudDensity, uSkyTime,
+                                        uSunDirection, uTopColor, uBottomColor);
+          reflected = mix(reflected, reflClouds.rgb, reflClouds.a);
+        }
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, reflected, skyFresnel * 0.85);
         gl_FragColor.a = max(gl_FragColor.a, skyFresnel * depthOpacity);
 
         // Sun glitter path. Waves tilt small facets of the surface in every

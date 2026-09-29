@@ -108,6 +108,100 @@ vec3 skyColorAt(vec3 d, vec3 topCol, vec3 bottomCol, vec3 sunDir, float coreAmou
 }
 `;
 
+// GLSL: the cloud layers' noise and lighting, shared by the sky dome and the
+// water's reflection of it, so reflected clouds line up with and match the
+// real ones. Declares uNoiseTex (the sky's noise texture).
+export const CLOUD_GLSL = `
+uniform sampler2D uNoiseTex;
+
+float noise(vec2 st) {
+  vec2 i = floor(st);
+  vec2 f = fract(st);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return texture2D(uNoiseTex, (i + u + 0.5) / 256.0).r;
+}
+
+float fbm(vec2 st) {
+  float value = 0.0;
+  float amplitude = 0.5;
+  for (int i = 0; i < 4; i++) {
+    value += amplitude * noise(st);
+    st *= 2.0;
+    amplitude *= 0.5;
+  }
+  return value;
+}
+
+float fbmMacro(vec2 st) {
+  float value = 0.0;
+  float amplitude = 0.65;
+  for (int i = 0; i < 2; i++) {
+    value += amplitude * noise(st);
+    st *= 2.0;
+    amplitude *= 0.5;
+  }
+  return value;
+}
+
+// Cloud lighting through the day. At sunrise and sunset clouds toward the sun
+// glow gold, clouds opposite it catch pink light, and their shaded sides take
+// the sky's cool blue-violet. Just after sunset (the afterglow) the sun still
+// lights them from below, ember red toward the sunset and pink opposite.
+// Then they dim to a moonlit grey-blue for the night.
+float duskCloudLight(vec3 dir, vec2 sunDir2D, float stormDimming, vec3 sunDir,
+                     vec3 topCol, vec3 bottomCol,
+                     inout vec3 brightEdgeColor, inout vec3 shadowColor) {
+  float dusk = (1.0 - smoothstep(0.05, 0.3, sunDir.y)) * smoothstep(-0.2, 0.0, sunDir.y);
+  vec2 dirH = length(dir.xz) > 0.001 ? normalize(dir.xz) : sunDir2D;
+  float toward = dot(dirH, sunDir2D) * 0.5 + 0.5;
+  vec3 goldLit = mix(bottomCol, vec3(1.0, 0.78, 0.38), 0.3) * 2.1;
+  vec3 pinkLit = mix(bottomCol, vec3(1.0, 0.62, 0.74), 0.45) * 1.85;
+  vec3 duskLit = mix(pinkLit, goldLit, smoothstep(0.25, 0.9, toward));
+  brightEdgeColor = mix(brightEdgeColor, duskLit, dusk * mix(1.0, stormDimming, 0.5) * 0.95);
+  vec3 duskShadow = mix(topCol, vec3(0.42, 0.38, 0.58), 0.35) * 0.95;
+  shadowColor = mix(shadowColor, duskShadow, dusk * 0.6);
+
+  float afterglow = (1.0 - smoothstep(-0.03, 0.02, sunDir.y)) * smoothstep(-0.16, -0.06, sunDir.y);
+  vec3 emberLit = mix(vec3(0.95, 0.52, 0.62), vec3(1.0, 0.45, 0.28), smoothstep(0.25, 0.9, toward));
+  emberLit = mix(emberLit, bottomCol, 0.25) * 1.8;
+  brightEdgeColor = mix(brightEdgeColor, emberLit, afterglow * 0.8);
+  shadowColor = mix(shadowColor, vec3(0.3, 0.26, 0.44), afterglow * 0.5);
+
+  // Night: once the afterglow has faded, clouds are only moonlit.
+  float daylight = smoothstep(-0.22, -0.1, sunDir.y);
+  brightEdgeColor = mix(vec3(0.2, 0.22, 0.28), brightEdgeColor, daylight);
+  shadowColor = mix(vec3(0.07, 0.08, 0.12), shadowColor, daylight);
+  return dusk;
+}
+
+// Clouds seen from p along dir (for reflections): the same two layers the sky
+// draws, at the same world positions, with simpler shading (no per-puff
+// lighting) and coarser noise (ripples blur a reflection anyway).
+// Returns (color, alpha).
+vec4 cloudsAlong(vec3 p, vec3 dir, float cloudHeight, float density, float time,
+                 vec3 sunDir, vec3 topCol, vec3 bottomCol) {
+  float dist = cloudHeight - p.y;
+  if (dir.y <= 0.001 || dist <= 0.0) return vec4(0.0);
+  vec2 cloudUV = (p.xz + dir.xz * (dist / dir.y)) / cloudHeight;
+  float densityOffset = (density - 0.5) * 0.6;
+  float horizonFade = smoothstep(0.0, 0.15, dir.y);
+  vec2 uvHigh = (cloudUV + vec2(time * 0.015, time * 0.0075)) * 3.5;
+  vec2 uvLow = (cloudUV + vec2(time * 0.03, time * 0.015)) * 2.0;
+  float aHigh = smoothstep(0.45 - densityOffset, 0.8 - densityOffset, fbmMacro(uvHigh)) * horizonFade * 0.7;
+  float aLow = smoothstep(0.4 - densityOffset, 0.75 - densityOffset, fbmMacro(uvLow)) * horizonFade * 0.9;
+  float alpha = 1.0 - (1.0 - aHigh) * (1.0 - aLow);
+  if (alpha <= 0.0) return vec4(0.0);
+
+  float stormDimming = 1.0 - density * 0.6;
+  vec3 bright = mix(vec3(0.95, 0.96, 0.98), vec3(0.72, 0.75, 0.8), density * 0.6);
+  vec3 shadow = mix(vec3(0.55, 0.58, 0.64), vec3(0.42, 0.45, 0.5), density * 0.5);
+  shadow = mix(shadow, mix(bottomCol, topCol, 0.35) * 1.1, 0.25);
+  vec2 sunDir2D = length(sunDir.xz) > 0.001 ? normalize(sunDir.xz) : vec2(1.0, 0.0);
+  duskCloudLight(dir, sunDir2D, stormDimming, sunDir, topCol, bottomCol, bright, shadow);
+  return vec4(mix(shadow, bright, 0.65), alpha);
+}
+`;
+
 export const terrainUniforms = {
   uCameraPosXZ: {value: new THREE.Vector2(0, 0)},
   uRenderRadius: {value: state.RENDER_DISTANCE * CHUNK_SIZE},

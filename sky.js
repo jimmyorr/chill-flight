@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {log} from './logger.js';
-import {SKY_COLOR_GLSL} from './constants.js';
+import {CLOUD_GLSL, SKY_COLOR_GLSL} from './constants.js';
 import {scene} from './scene.js';
 import skyVertexShader from './src/shaders/sky.vert.glsl?raw';
 import skyFragmentShader from './src/shaders/sky.frag.glsl?raw';
@@ -301,7 +301,7 @@ updateSkyPalette(Date.now());
 
 const skyMat = new THREE.ShaderMaterial({
   vertexShader: skyVertexShader,
-  fragmentShader: SKY_COLOR_GLSL + skyFragmentShader,
+  fragmentShader: SKY_COLOR_GLSL + CLOUD_GLSL + skyFragmentShader,
   uniforms: skyUniforms,
   side: THREE.BackSide,
   depthWrite: false, // Don't block stars/celestials
