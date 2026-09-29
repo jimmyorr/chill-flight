@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.9.39
+
+- **Horizon:** Distant mountains and coastlines now show out to 27 km.
+- **Sky:** Clouds glow after sunset, reflect in the water, and dim at night.
+- **North:** Snow comes in gradually, with snow-capped peaks before the snow country; the first ranges north and south always appear.
+- **Performance:** Cheaper fog on terrain and water, and fewer draw calls for village props.
+- **Fixes:** Forcing an island type works again; no line where the distant terrain begins.
+
 ## 0.9.38
 
 - **Water:** Reflects the sky, with a golden sun glitter path, deep blue to turquoise shallows, shore foam and smooth shorelines.
