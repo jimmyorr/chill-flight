@@ -348,6 +348,9 @@ if (timeSlider) {
   });
 }
 
+// ?ui=0: nothing on screen but the game view (see .ui-hidden in style.css).
+if (!ChillFlightLogic.SHOW_UI) document.body.classList.add('ui-hidden');
+
 // --- DISMISS LOADING SCREEN ---
 const overlay = document.getElementById('loading-overlay');
 if (overlay) {
@@ -390,8 +393,11 @@ if (overlay) {
   };
 
   const initOnboarding = (delay = 4000) => {
-    // If the user has already been onboarded, do nothing
-    if (localStorage.getItem('chill_flight_onboarded') === 'true') {
+    // If the user has already been onboarded (or ?tips=0), do nothing
+    if (
+      !ChillFlightLogic.SHOW_TIPS ||
+      localStorage.getItem('chill_flight_onboarded') === 'true'
+    ) {
       return;
     }
 
@@ -503,7 +509,10 @@ if (overlay) {
 
         // Wait a tiny bit so the progress bar visually reaches 100%
         setTimeout(() => {
-          if (!musicEnabled) {
+          if (ChillFlightLogic.START_NOW) {
+            // ?start=1: straight into the flight, no intro
+            state.dismissLoadingScreen(true);
+          } else if (!musicEnabled) {
             // Auto-skip
             log.info('🎵 Music was paused last session. Auto-skipping.');
             state.dismissLoadingScreen(false);
@@ -531,7 +540,7 @@ if (overlay) {
     }, 50);
   } else {
     // Fallback if elements are missing
-    if (!musicEnabled) {
+    if (!musicEnabled || ChillFlightLogic.START_NOW) {
       state.dismissLoadingScreen(true);
     } else if (btnContainer) {
       btnContainer.style.visibility = 'visible';
@@ -541,7 +550,7 @@ if (overlay) {
 }
 
 export function showStartPlaneTooltip() {
-  if (state.startPlaneTooltipShown) return;
+  if (state.startPlaneTooltipShown || !ChillFlightLogic.SHOW_TIPS) return;
   state.startPlaneTooltipShown = true;
   localStorage.setItem('chill_flight_stopped_tooltip_shown', 'true');
 

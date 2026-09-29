@@ -373,6 +373,10 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`mapZoom`** (or **`zoom`**): Fullscreen map zoom level, expressed either as a zoom multiplier relative to default 1.0 (e.g., `1.3`, `2.0`, `0.5`) or as an exact world radius in units (e.g., `5000`). When debug mode (`?debug`) is active, panning or zooming the map automatically updates these URL parameters to create reproducible, shareable map links.
 - **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera or airplane (takes precedence over lat/long, useful for exact freecam sharing).
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).
+- **`start`**: Set to `1` to skip the title screen and start flying as soon as the game loads.
+- **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus, debug panels and tips), for clean screenshots and recordings. The keyboard controls still work.
+- **`music`**: Set to `0` or `1` to turn music off or on for this visit, without changing the saved setting.
+- **`tips`**: Set to `0` to skip the first-time tips ("Explore controls", "Start the plane") for this visit.
 
 ## Development
 
@@ -430,6 +434,23 @@ npm run test:build
 ```
 
 Runs the same game checks against a production build written to a temporary directory (never `docs/`).
+
+### Screenshots and render benchmarks
+
+With the dev server running, these open the game in headless Chrome with `start=1&ui=0&music=0` (see [URL parameters](#url-parameters)), wait until the terrain around the camera has loaded, and then work from there.
+
+```bash
+node scripts/shot.js out.jpg "x=0&y=413&z=0&heading=45&pitch=-4&tod=0.61"
+node scripts/shot.js out.jpg "<view 1>" "<view 2>"   # out-1.jpg, out-2.jpg
+```
+
+Saves a screenshot of each view (the query takes the game's URL parameters; the free camera and a frozen time of day are the defaults). It prints any page errors and exits with an error if there were some, so it also catches shader compile errors. `SIZE=1600x900`, `SCALE=1` and `SETTLE_MS=4000` set the window size, pixel density and extra wait.
+
+```bash
+npm run bench [-- label]
+```
+
+Times full frames of four fixed views (grassland, sunset over the sea, mountains, forest) at the mid preset's resolution on a 1440x900 Retina screen, and prints the median milliseconds per frame, the part spent in JavaScript, draw calls and triangles. `VIEWS=land,sunset` picks views and `PRESET` the graphics preset. The numbers drift by about half a millisecond over minutes, so to compare two versions, alternate runs of each.
 
 ### Model debug page
 

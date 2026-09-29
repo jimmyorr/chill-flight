@@ -1892,3 +1892,13 @@ input[type='number'].customization-input {
     display: none;
   }
 }
+
+/* ?ui=0: nothing on screen but the game view, for clean screenshots and
+   recordings. visibility (not display) keeps layout and scripts unaffected;
+   the renderer's canvas is the body's direct child. */
+body.ui-hidden * {
+  visibility: hidden !important;
+}
+body.ui-hidden > canvas {
+  visibility: visible !important;
+}

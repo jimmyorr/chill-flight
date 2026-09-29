@@ -25,7 +25,8 @@
     "test:imports": "node scripts/check-import-order.js",
     "test:network": "node scripts/test-network.js",
     "test:fog": "node scripts/test-fog.js",
-    "test:workers": "node scripts/test-worker-manager.js"
+    "test:workers": "node scripts/test-worker-manager.js",
+    "bench": "node scripts/bench-render.js"
   },
   "dependencies": {
     "@capacitor-firebase/analytics": "^8.2.0",

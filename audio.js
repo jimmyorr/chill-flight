@@ -18,8 +18,12 @@ const STALL_TIMEOUT_MS = 10000;
 // In-flight track lookups/downloads by URL (see getCachedTrackUrl()).
 const pendingTrackUrls = new Map();
 
+// ?music=0/1 overrides the saved setting for this visit (and changes made
+// during it aren't saved).
 export let musicEnabled =
-  localStorage.getItem('chill_flight_music_enabled') !== 'false';
+  ChillFlightLogic.MUSIC_PARAM !== null
+    ? ChillFlightLogic.MUSIC_PARAM
+    : localStorage.getItem('chill_flight_music_enabled') !== 'false';
 
 export let purrpleCatAudio = new Audio();
 const purrpleCatTracks = [
@@ -443,7 +447,9 @@ document.addEventListener('visibilitychange', () => {
 
 export function setMusicEnabled(enabled) {
   musicEnabled = enabled;
-  localStorage.setItem('chill_flight_music_enabled', enabled);
+  if (ChillFlightLogic.MUSIC_PARAM === null) {
+    localStorage.setItem('chill_flight_music_enabled', enabled);
+  }
   updateAudioPlayer(enabled);
 }
 

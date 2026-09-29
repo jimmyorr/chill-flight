@@ -154,6 +154,20 @@ export const ChillFlightLogic = {};
   const START_FREE_CAM =
     getParam('freecam', 'false') === 'true' ||
     getParam('freeCamera', 'false') === 'true';
+  // On/off switches: "0", "false" or "off" is off; anything else (including
+  // a bare ?name) is on; null when the parameter isn't there.
+  const getSwitchParam = (name) => {
+    const v = getParam(name, null);
+    if (v === null) return null;
+    return !['0', 'false', 'off'].includes(v.trim().toLowerCase());
+  };
+  // Mostly for scripted screenshots and benchmarks (see README): ?start=1
+  // skips the title screen, ?ui=0 hides all interface, ?music=0/1 sets music
+  // for this visit only, and ?tips=0 skips the first-time tips.
+  const START_NOW = getSwitchParam('start') === true;
+  const SHOW_UI = getSwitchParam('ui') !== false;
+  const MUSIC_PARAM = getSwitchParam('music');
+  const SHOW_TIPS = getSwitchParam('tips') !== false && SHOW_UI;
   const _debugParam = getParam('debug', null);
   const START_DEBUG =
     _debugParam === '' ||
@@ -2347,6 +2361,10 @@ export const ChillFlightLogic = {};
   exports.ZENITH_COLOR = ZENITH_COLOR;
   exports.HORIZON_COLOR = HORIZON_COLOR;
   exports.DAY_COLOR = DAY_COLOR;
+  exports.START_NOW = START_NOW;
+  exports.SHOW_UI = SHOW_UI;
+  exports.MUSIC_PARAM = MUSIC_PARAM;
+  exports.SHOW_TIPS = SHOW_TIPS;
   exports.START_ISLAND_TYPE = START_ISLAND_TYPE;
   exports.FORCE_ISLAND_TYPE = START_ISLAND_TYPE;
   exports.getIslandArchetype = getIslandArchetype;
