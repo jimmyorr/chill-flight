@@ -92,6 +92,7 @@ import {
   CHUNK_SIZE,
   TURN_SPEED,
   getCachedElement,
+  moonlightUniforms,
   terrainUniforms,
   updateDOM,
 } from './constants.js';
@@ -127,6 +128,7 @@ import {
   streetlightBulbMat,
   streetlightDecalMat,
   waterUniforms,
+  windUniforms,
 } from './terrain-geometry.js';
 import {updateFlightCamera} from './flight-camera.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -1878,12 +1880,27 @@ function updateEnvironmentLighting(delta, now) {
         .normalize();
       waterUniforms.uSpecularDir.value.copy(moonDirNorm);
 
+      // Silver, and visible even for a thin crescent
       waterUniforms.uSunColor.value
         .setHex(0xbad2ff)
         .multiplyScalar(
-          Math.max(0, 1.0 - overcast) * phaseIntensity * 0.5 * moonFade
+          Math.max(0, 1.0 - overcast) *
+            (0.3 + 0.7 * phaseIntensity) *
+            0.8 *
+            moonFade
         );
     }
+    waterUniforms.uGlitterWarm.value = sunFade > moonFade ? 1 : 0;
+
+    // Wind in the trees: a breeze, gustier as the weather turns
+    windUniforms.uWindStrength.value = 0.7 + overcast * 0.9;
+
+    // Moonlight on the clouds and the halo around the moon
+    moonlightUniforms.uMoonDir.value
+      .set(state.moonX, state.moonY, state.moonZ)
+      .normalize();
+    moonlightUniforms.uMoonBright.value =
+      moonFade * (0.3 + 0.7 * phaseIntensity) * (1.0 - 0.6 * overcast);
   }
 
   sunUniforms.uTime.value = now * 0.001;

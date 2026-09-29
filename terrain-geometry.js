@@ -5,6 +5,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
   CHUNK_SIZE,
   CLOUD_GLSL,
+  moonlightUniforms,
   LIGHTHOUSE_BEAM_OPACITY_MAX,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
@@ -132,6 +133,8 @@ export const waterUniforms = {
   uDepthGridSize: {value: 31},
   uSpecularDir: {value: new THREE.Vector3(0, 1, 0)},
   uSunColor: {value: new THREE.Color(0xffffff)},
+  // 1 when the glitter path is the sun's (gold when it's low), 0 for the moon's
+  uGlitterWarm: {value: 1},
 };
 
 var _initPresetForTerrain =
@@ -261,6 +264,9 @@ waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uCloudDensity = skyUniforms.uCloudDensity;
   shader.uniforms.uCloudHeight = skyUniforms.uCloudHeight;
   shader.uniforms.uShowClouds = skyUniforms.uShowClouds;
+  shader.uniforms.uMoonDir = moonlightUniforms.uMoonDir;
+  shader.uniforms.uMoonBright = moonlightUniforms.uMoonBright;
+  shader.uniforms.uGlitterWarm = waterUniforms.uGlitterWarm;
   const depth = this.userData.depthUniforms || waterUniforms;
   shader.uniforms.uDepthTex = depth.uDepthTex;
   shader.uniforms.uDepthGridSize = depth.uDepthGridSize;
@@ -359,6 +365,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform vec3 uSunDirection;
         uniform vec3 uSpecularDir;
         uniform vec3 uSunColor;
+        uniform float uGlitterWarm;
         uniform vec3 uTopColor;
         uniform vec3 uBottomColor;
         varying vec3 vWorldPosition;
@@ -484,7 +491,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         float pathFresnel = 0.02 + 0.98 * pow(1.0 - max(dot(viewDir, halfVector), 0.0), 5.0);
         float glitter = beckmann * pathFresnel * sparkle * 0.02;
         // Low sun: the path glows gold rather than white.
-        float lowSun = 1.0 - smoothstep(0.04, 0.35, uSpecularDir.y);
+        float lowSun = (1.0 - smoothstep(0.04, 0.35, uSpecularDir.y)) * uGlitterWarm;
         vec3 glitterColor = uSunColor * mix(vec3(1.0), vec3(1.0, 0.72, 0.38), lowSun);
         gl_FragColor.rgb += glitterColor * min(glitter, 3.0);
 
@@ -2508,6 +2515,52 @@ export var whiteSmokeMat = createMaterial({
 
 // --- GPU ANIMATION SHADER INJECTIONS ---
 export const animationUniforms = {uTime: {value: 0}};
+
+// Trees sway in the wind: canopies lean downwind in slow, uneven gusts, more
+// in overcast weather (uWindStrength, set by the game loop). The sway grows
+// with height above the trunk top, so trunks stay put, and each tree has its
+// own phase. The wind blows one way across the world: the offset is turned
+// into each instance's rotated, scaled space. Shadows don't sway.
+export const windUniforms = {uWindStrength: {value: 1}};
+const WIND_DIR_GLSL = 'normalize(vec3(0.8, 0.0, 0.5))';
+
+function addWindSway(material, {bendStart, bendPerUnit}) {
+  const base = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    base(shader, renderer);
+    shader.uniforms.uTime = animationUniforms.uTime;
+    shader.uniforms.uWindStrength = windUniforms.uWindStrength;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+       uniform float uTime;
+       uniform float uWindStrength;`
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+       #ifdef USE_INSTANCING
+         mat3 treeBasis = mat3(instanceMatrix);
+         vec2 treePos = instanceMatrix[3].xz;
+       #else
+         mat3 treeBasis = mat3(1.0);
+         vec2 treePos = vec2(0.0);
+       #endif
+       float swayPhase = dot(treePos, vec2(0.013, 0.017));
+       float gust = 0.55 + 0.45 * sin(uTime * 0.31 + treePos.x * 0.0021 + treePos.y * 0.0013);
+       float sway = (0.6 + sin(uTime * 1.25 + swayPhase) + 0.3 * sin(uTime * 2.7 + swayPhase * 1.7))
+                  * gust * uWindStrength;
+       float bend = max(transformed.y - ${bendStart.toFixed(1)}, 0.0) * ${bendPerUnit.toFixed(4)};
+       // World-space offset, in this instance's space (rotation and uniform scale).
+       vec3 swayWorld = ${WIND_DIR_GLSL} * sway * bend;
+       transformed += transpose(treeBasis) * swayWorld / max(dot(treeBasis[0], treeBasis[0]), 1e-4);`
+    );
+  };
+  material.customProgramCacheKey = () => 'windSway';
+}
+
+// Canopies start ~4 units up (pines lower, but their trunks are short).
+addWindSway(treeLeavesBaseMat, {bendStart: 4, bendPerUnit: 0.08});
 
 windmillBladesMat.onBeforeCompile = (shader) => {
   shader.uniforms.uTime = animationUniforms.uTime;

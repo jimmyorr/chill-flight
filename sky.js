@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {log} from './logger.js';
-import {CLOUD_GLSL, SKY_COLOR_GLSL} from './constants.js';
+import {CLOUD_GLSL, SKY_COLOR_GLSL, moonlightUniforms} from './constants.js';
 import {scene} from './scene.js';
 import skyVertexShader from './src/shaders/sky.vert.glsl?raw';
 import skyFragmentShader from './src/shaders/sky.frag.glsl?raw';
@@ -294,6 +294,8 @@ export const skyUniforms = {
   uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
   uNoiseTex: {value: skyNoiseTexture},
   uCameraPos: {value: new THREE.Vector3()},
+  uMoonDir: moonlightUniforms.uMoonDir,
+  uMoonBright: moonlightUniforms.uMoonBright,
 };
 
 // Initial calculation

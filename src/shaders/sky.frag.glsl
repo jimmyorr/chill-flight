@@ -29,6 +29,11 @@
         // skyColorAt() (constants.js, prepended to this shader by sky.js).
         vec3 effectiveBottom = bottomColor;
         vec3 col = skyColorAt(dir, topColor, bottomColor, sunDirection, 1.0);
+
+        // Moonlit nights: a soft halo around the moon, fading into the sky.
+        float moonAlign = max(dot(dir, uMoonDir), 0.0);
+        col += vec3(0.5, 0.58, 0.75) * uMoonBright
+             * (pow(moonAlign, 60.0) * 0.3 + pow(moonAlign, 8.0) * 0.06);
         
         // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---
         float cloudHeight = uCloudHeight > 0.0 ? uCloudHeight : 3000.0;

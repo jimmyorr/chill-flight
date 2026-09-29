@@ -171,11 +171,21 @@ vec3 farSeaColor(vec3 viewDirW, vec3 topCol, vec3 bottomCol, vec3 sunDir) {
 }
 `;
 
+// The moon's direction and how strongly it lights the night (0 by day,
+// rising with the phase), set each frame by the game loop. Shared by the
+// sky, the clouds (and their reflections) and the water's glitter path.
+export const moonlightUniforms = {
+  uMoonDir: {value: new THREE.Vector3(0, 0.2, -1).normalize()},
+  uMoonBright: {value: 0},
+};
+
 // GLSL: the cloud layers' noise and lighting, shared by the sky dome and the
 // water's reflection of it, so reflected clouds line up with and match the
-// real ones. Declares uNoiseTex (the sky's noise texture).
+// real ones. Declares uNoiseTex (the sky's noise texture) and moonlightUniforms.
 export const CLOUD_GLSL = `
 uniform sampler2D uNoiseTex;
+uniform vec3 uMoonDir;
+uniform float uMoonBright;
 
 float noise(vec2 st) {
   vec2 i = floor(st);
@@ -230,9 +240,13 @@ float duskCloudLight(vec3 dir, vec2 sunDir2D, float stormDimming, vec3 sunDir,
   brightEdgeColor = mix(brightEdgeColor, emberLit, afterglow * 0.8);
   shadowColor = mix(shadowColor, vec3(0.3, 0.26, 0.44), afterglow * 0.5);
 
-  // Night: once the afterglow has faded, clouds are only moonlit.
+  // Night: once the afterglow has faded, clouds are only moonlit, silver
+  // near the moon and a dim grey-blue elsewhere.
   float daylight = smoothstep(-0.22, -0.1, sunDir.y);
-  brightEdgeColor = mix(vec3(0.2, 0.22, 0.28), brightEdgeColor, daylight);
+  float nearMoon = pow(max(dot(dir, uMoonDir), 0.0), 6.0);
+  vec3 moonlit = mix(vec3(0.2, 0.22, 0.28), vec3(0.6, 0.66, 0.78),
+                     uMoonBright * (0.25 + 0.75 * nearMoon));
+  brightEdgeColor = mix(moonlit, brightEdgeColor, daylight);
   shadowColor = mix(vec3(0.07, 0.08, 0.12), shadowColor, daylight);
   return dusk;
 }
