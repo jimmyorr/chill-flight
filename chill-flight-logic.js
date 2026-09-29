@@ -1535,6 +1535,40 @@ export const ChillFlightLogic = {};
       }
     }
 
+    // --- VALLEY LAKES (the lake district, west) ---
+    // Floods the valley floors of the temperate west, so lakes take the shape
+    // of the valleys: long lakes fingering between the hills and ranges, like
+    // the English Lake District. Land up to a flood level goes under water
+    // and the bank above it eases down to a gentle shore. The flood level
+    // varies slowly, so there are lake-filled districts and dry ones. Runs
+    // after the mountains and volcano (so the valleys are final) and before
+    // the rivers and highway, which still carve their way through.
+    if (origX < -3500 && origX > -48000) {
+      const westIn = Math.min(1, (-origX - 3500) / 4000);
+      const westOut = Math.min(1, (origX + 48000) / 6000);
+      const absZ = Math.abs(origZ);
+      const band = 1 - Math.min(1, Math.max(0, (absZ - 9000) / 4000));
+      const district = cylNoise(origX, (nx, ny) =>
+        simplex.noise3D(
+          nx * 0.00008 + 4100,
+          origZ * 0.00008 + 4100,
+          ny * 0.00008 + 4100
+        )
+      );
+      const strength = Math.min(1, Math.max(0, (district + 0.15) / 0.5));
+      const floodRise = 150 * westIn * westOut * band * strength;
+      if (floodRise > 1) {
+        const floodLevel = WATER_LEVEL + floodRise;
+        const bank = 60;
+        if (n < floodLevel) {
+          n = WATER_LEVEL - (floodLevel - n) * 0.6;
+        } else if (n < floodLevel + bank) {
+          const t = (n - floodLevel) / bank;
+          n = WATER_LEVEL + (n - WATER_LEVEL) * t * t * (3 - 2 * t);
+        }
+      }
+    }
+
     // --- RIVER CARVING LOGIC ---
     // Runs after all additive terrain passes (mountains, volcano) so it always wins.
     if (!options.ignoreRivers) {

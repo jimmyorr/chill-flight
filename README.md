@@ -39,14 +39,14 @@ In-game radio features tracks by Purrple Cat (Used with permission/attribution).
 
 The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts.
 
-| Biome             | Direction     | Latitude/Longitude          | Primary Characteristics                                                                                  |
-| :---------------- | :------------ | :-------------------------- | :------------------------------------------------------------------------------------------------------- |
-| **Temperate**     | Central       | Around (0, 0) (Center)      | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).            |
-| **Snowy**         | North         | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and frequent snow (~80% duty cycle).     |
-| **Desert**        | South         | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                            |
-| **Archipelago**   | East          | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000). |
-| **Lake District** | West          | Negative X (West Longitude) | Broad rolling hills, and vast inland lakes beyond X=-3000 (0.6 West).                                    |
-| **Alien Zone**    | Far East/West | Beyond 10.0 East/West       | Warped, jagged alien topography with glowing neon seas and surreal colors.                               |
+| Biome             | Direction     | Latitude/Longitude          | Primary Characteristics                                                                                                       |
+| :---------------- | :------------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
+| **Temperate**     | Central       | Around (0, 0) (Center)      | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).                                 |
+| **Snowy**         | North         | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and frequent snow (~80% duty cycle).                          |
+| **Desert**        | South         | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                                                 |
+| **Archipelago**   | East          | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000).                      |
+| **Lake District** | West          | Negative X (West Longitude) | Long lakes filling the valleys between hills and ranges, west of 0.7 West (X < -3500), within about 2 degrees of the equator. |
+| **Alien Zone**    | Far East/West | Beyond 10.0 East/West       | Warped, jagged alien topography with glowing neon seas and surreal colors.                                                    |
 
 ### 1. Temperate central (the heartland)
 
@@ -57,6 +57,12 @@ The world is organized around a central coordinate system (0,0) where latitude (
   - **Trees in the wind:** Tree canopies sway gently in slow, uneven gusts, more in overcast weather, all leaning the same way downwind (`addWindSway` in `terrain-geometry.js`).
   - **Vegetation:** Oak-like deciduous trees and bushes.
   - **Water:** Standard sky-blue water (#40C4FF) often featuring lily pads and piers.
+
+### Lake district (the west)
+
+- **Location:** West of 0.7 West (X < -3500), fading in over 0.8 degrees, between about 1.8 North and 1.8 South (Z between -9000 and 9000, fading out by 2.6 degrees).
+- **Landscape:** The valley floors are flooded, so lakes take the shape of the valleys: long lakes fingering between the hills and ranges, with the land around them easing down to gentle shores. How high the water reaches varies slowly across the region, so there are lake-filled districts and drier ones, different for each world seed. Rivers and the west coast highway run through (`VALLEY LAKES` in `getElevation`, `chill-flight-logic.js`).
+- **Islands:** Some larger lakes have wooded islands, which rise at most to the height of the land around the lake.
 
 ### 2. The frozen north
 
