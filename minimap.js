@@ -66,6 +66,57 @@ import {Achievements} from './achievements.js';
     },
   ];
 
+  // Region colors over the height colors, for land: the snowy north, the
+  // red-rock south and the alien lands beyond 10 degrees East and West. Uses
+  // the terrain's own noise and thresholds (snowFactorAt in
+  // chill-flight-logic.js, the desert and extreme-zone blends in
+  // terrain-gen.js), so the map matches the ground. Returns _tint.
+  const _tint = [0, 0, 0];
+  function tintForRegion(r, g, b, wx, wz, elev) {
+    const noisePath = simplex.noise2D(wx * 0.0001, wz * 0.0001);
+    const biomeNoise = simplex.noise2D(wx * 0.0005, wz * 0.0005) * 0.1;
+
+    const snow = ChillFlightLogic.snowFactorAt(
+      wz,
+      noisePath * 0.05 + biomeNoise
+    );
+    if (snow > 0) {
+      const k = snow * 0.8;
+      r += (238 - r) * k;
+      g += (242 - g) * k;
+      b += (246 - b) * k;
+    }
+
+    const desertRaw = Math.max(
+      0,
+      Math.min(1, Math.max(0, wz / 5000) + noisePath * 0.05 - biomeNoise - 2.0)
+    );
+    const desert = desertRaw * desertRaw * (3 - 2 * desertRaw);
+    if (desert > 0) {
+      // Sand on the flats, red rock up high
+      const rock = Math.max(0, Math.min(1, (elev - 150) / 250));
+      const k = desert * 0.75;
+      r += (226 - 50 * rock - r) * k;
+      g += (168 - 76 * rock - g) * k;
+      b += (110 - 48 * rock - b) * k;
+    }
+
+    const alienRaw = Math.max(0, Math.min(1, (Math.abs(wx) - 50000) / 15000));
+    if (alienRaw > 0) {
+      const alien = alienRaw * alienRaw * (3 - 2 * alienRaw);
+      const k = alien * 0.6;
+      const east = wx > 0;
+      r += ((east ? 70 : 200) - r) * k;
+      g += ((east ? 200 : 90) - g) * k;
+      b += ((east ? 210 : 190) - b) * k;
+    }
+
+    _tint[0] = r;
+    _tint[1] = g;
+    _tint[2] = b;
+    return _tint;
+  }
+
   // Sentence case for UI labels per rules
   function getColorForHeight(h, wz = 0) {
     if (h <= 40) {
@@ -236,6 +287,10 @@ import {Achievements} from './achievements.js';
           r = parseInt(colorStr.substring(1, 3), 16);
           g = parseInt(colorStr.substring(3, 5), 16);
           b = parseInt(colorStr.substring(5, 7), 16);
+        }
+
+        if (h > 40 && !(wz < -20000 && h <= 72)) {
+          [r, g, b] = tintForRegion(r, g, b, wx, wz, h);
         }
 
         const idx = (gz * gridSize + gx) * 4;
@@ -731,6 +786,11 @@ import {Achievements} from './achievements.js';
           r = Math.round(92 + t * 148);
           g = Math.round(85 + t * 158);
           b = Math.round(74 + t * 171);
+        }
+
+        if (elev > 40 && !(wz < -20000 && elev <= 72)) {
+          const wx = minX + (gx / (gridW - 1)) * worldW;
+          [r, g, b] = tintForRegion(r, g, b, wx, wz, elev);
         }
 
         if (shade !== 0) {
