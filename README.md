@@ -450,7 +450,7 @@ Saves a screenshot of each view (the query takes the game's URL parameters; the 
 npm run bench [-- label]
 ```
 
-Times full frames of four fixed views (grassland, sunset over the sea, mountains, forest) at the mid preset's resolution on a 1440x900 Retina screen, and prints the median milliseconds per frame, the part spent in JavaScript, draw calls and triangles. `VIEWS=land,sunset` picks views and `PRESET` the graphics preset. The numbers drift by about half a millisecond over minutes, so to compare two versions, alternate runs of each.
+Times full frames of four fixed views (grassland, sunset over the sea, mountains, forest) at the mid preset's resolution on a 1440x900 Retina screen, and prints the median GPU time per frame (from WebGL timer queries, the most precise number), the wall time per frame, the part spent in JavaScript, draw calls and triangles. `VIEWS=land,sunset` picks views and `PRESET` the graphics preset. The numbers drift by about half a millisecond over minutes, so to compare two versions, alternate runs of each.
 
 ### Model debug page
 

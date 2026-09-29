@@ -1,10 +1,12 @@
-// Render cost on fixed views: the median time for a full frame (shadow map
-// updated every frame, like the game at full speed), forced to finish with a
-// 1-pixel readback, at pixel ratio 1.5 in a 1440x900 window (the mid and high
-// presets on a MacBook Air). An empty scene costs ~3 ms of this (clear,
-// multisample resolve, readback), so compare differences, not ratios.
-// Measure on a quiet machine, and alternate runs of the versions you compare
-// (their results drift by ~0.5 ms over minutes).
+// Render cost on fixed views, at pixel ratio 1.5 in a 1440x900 window (the
+// mid and high presets on a MacBook Air), with the shadow map updated every
+// frame like the game at full speed:
+//   gpu: median GPU time per frame (timer queries), the most precise number
+//   ms:  median wall time per frame, forced to finish with a 1-pixel readback
+//        (an empty scene costs ~3 ms of this: clear, resolve, readback)
+//   cpu: median time in renderer.render() (JavaScript and GL calls)
+// Measure on a quiet machine (other GPU work skews it), and alternate runs of
+// the versions you compare: results drift by ~0.5 ms over minutes.
 // Usage: npm run bench [-- label]   env: VIEWS=land,sunset  PRESET=mid
 import {launch, openGame} from './dev-browser.js';
 
@@ -56,7 +58,28 @@ for (const name of names) {
         total.push(t2 - t0);
       }
     }
+    // GPU time: timer queries around frames paced by requestAnimationFrame.
+    const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+    let gpu = null;
+    if (ext) {
+      const queries = [];
+      for (let i = 0; i < 80; i++) {
+        renderer.shadowMap.needsUpdate = true;
+        const q = gl.createQuery();
+        gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
+        renderer.render(scene, camera);
+        gl.endQuery(ext.TIME_ELAPSED_EXT);
+        if (i >= 10) queries.push(q);
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      await new Promise((r) => setTimeout(r, 300));
+      const times = queries
+        .filter((q) => gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE))
+        .map((q) => gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6);
+      if (times.length) gpu = +median(times).toFixed(2);
+    }
     return {
+      gpu,
       ms: +median(total).toFixed(2),
       cpu: +median(cpu).toFixed(2),
       calls: renderer.info.render.calls,
