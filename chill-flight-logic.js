@@ -1573,6 +1573,11 @@ export const ChillFlightLogic = {};
     // Runs after all additive terrain passes (mountains, volcano) so it always wins.
     if (!options.ignoreRivers) {
       let maxRiverFactor = 0;
+      let maxTributaryFactor = 0;
+      // Estuaries: rivers widen over the last 6 km before the east coast
+      // (1.0 West to 0.2 East), up to 4.5x at the mouth.
+      const estuary = Math.min(1, Math.max(0, (origX + 5000) / 6000));
+      const estuaryWiden = estuary * estuary * (3 - 2 * estuary);
 
       // Check adjacent latitudes to find any nearby rivers (since they meander up to 5000 units)
       for (let l = currentLat - 1; l <= currentLat + 1; l++) {
@@ -1601,6 +1606,49 @@ export const ChillFlightLogic = {};
             riverWidth = 100 + widthVariation * 100; // Min 100, max 200
             riverBankWidth = 60 + widthVariation * 40;
           }
+          riverWidth *= 1 + 3.5 * estuaryWiden;
+          riverBankWidth *= 1 + 1.5 * estuaryWiden;
+
+          // Tributaries: side streams joining the river from the north or
+          // south at irregular spots (up to one per 7 km of river), running
+          // 2.5 to 5 km, meandering and narrowing toward their source. Only
+          // inland: near the sea they would braid the estuary.
+          if (estuary < 0.3) {
+            const tribSpacing = 7000;
+            const k0 = Math.round(x / tribSpacing);
+            const k1 = x > k0 * tribSpacing ? k0 + 1 : k0 - 1;
+            for (const k of [k0, k1]) {
+              const presence = simplex.noise2D(k * 0.731 + l * 17.3, 911.1);
+              if (Math.abs(presence) < 0.15) continue; // some spots have none
+              const side = presence > 0 ? 1 : -1;
+              const baseX =
+                k * tribSpacing +
+                simplex.noise2D(k * 0.577 + l * 7.9, 222.2) * 2000;
+              const length =
+                2500 + (simplex.noise2D(k * 0.419 + l * 3.3, 333.3) + 1) * 1250;
+              const along =
+                (z - exports.getRiverCenterZ(baseX, z, simplex, l)) * side;
+              if (along < 0 || along > length) continue;
+              const t = along / length;
+              const centerX =
+                baseX +
+                simplex.noise2D(along * 0.0006 + k * 5.1, l * 9.7 + 444) *
+                  450 *
+                  Math.min(1, along / 400);
+              const tribWidth = _lerp(riverWidth * 0.45, 18, t);
+              const tribBank = _lerp(riverBankWidth * 0.6, 30, t);
+              const d = Math.abs(x - centerX);
+              let f = 0;
+              if (d <= tribWidth) {
+                f = 1;
+              } else if (d < tribWidth + tribBank) {
+                const u = (d - tribWidth) / tribBank;
+                f = 1 - u * u * (3 - 2 * u);
+              }
+              f *= Math.min(1, (1 - t) / 0.15); // taper out at the source
+              if (f > maxTributaryFactor) maxTributaryFactor = f;
+            }
+          }
 
           let riverFactor = 0;
           if (distToRiver <= riverWidth) {
@@ -1617,6 +1665,10 @@ export const ChillFlightLogic = {};
           }
         }
       }
+
+      // Tributaries stop at the foot of mountains rather than cutting canyons.
+      maxTributaryFactor *= 1 - Math.min(1, Math.max(0, (n - 250) / 200));
+      maxRiverFactor = Math.max(maxRiverFactor, maxTributaryFactor);
 
       if (maxRiverFactor > 0 && n > WATER_LEVEL - 5) {
         // Carve down to well below wave troughs (WATER_LEVEL - 5), but never raise existing seabed
