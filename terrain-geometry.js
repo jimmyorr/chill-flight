@@ -716,7 +716,9 @@ function createJapaneseMapleGeometry() {
 }
 export var japaneseMapleGeos = createJapaneseMapleGeometry();
 
-function createPalmGeometry() {
+// simple: fronds without their notches (3 segments instead of 7), for the
+// shadow map, where they keep their star-shaped silhouette.
+function createPalmGeometry(simple = false) {
   // Stacked, flared trunk segments to create a bumpy, ridged bark texture
   const trunkSegments = 6;
   const segHeight = 3.5;
@@ -765,16 +767,23 @@ function createPalmGeometry() {
   for (let i = 0; i < frondCount; i++) {
     // Steps defining X along length and leaf width (w)
     // Duplicate X values create sharp, stylized cutouts (notches)
-    const steps = [
-      {x: 0, w: 0.4},
-      {x: 3.5, w: 2.8},
-      {x: 3.5, w: 0.8}, // Notch 1
-      {x: 7.5, w: 3.2},
-      {x: 7.5, w: 1.0}, // Notch 2
-      {x: 11.5, w: 2.4},
-      {x: 11.5, w: 0.6}, // Notch 3
-      {x: 15, w: 0.0},
-    ];
+    const steps = simple
+      ? [
+          {x: 0, w: 0.4},
+          {x: 5, w: 2.6},
+          {x: 10, w: 2.4},
+          {x: 15, w: 0.0},
+        ]
+      : [
+          {x: 0, w: 0.4},
+          {x: 3.5, w: 2.8},
+          {x: 3.5, w: 0.8}, // Notch 1
+          {x: 7.5, w: 3.2},
+          {x: 7.5, w: 1.0}, // Notch 2
+          {x: 11.5, w: 2.4},
+          {x: 11.5, w: 0.6}, // Notch 3
+          {x: 15, w: 0.0},
+        ];
 
     const bendFactor = 0.045 + (i % 3) * 0.012; // Varying droop
     const verts = [];
@@ -884,6 +893,7 @@ function createPalmGeometry() {
   return {trunk: trunkGeom, leaves: leafGeom};
 }
 export var palmGeos = createPalmGeometry();
+export var palmSimpleLeavesGeo = createPalmGeometry(true).leaves;
 
 function createDeadTreeGeometry() {
   const trunk = new THREE.CylinderGeometry(0.5, 1.8, 14, 5);

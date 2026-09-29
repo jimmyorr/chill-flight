@@ -98,6 +98,7 @@ import {
   pagodaRoofGeo,
   pagodaRoofMat,
   palmGeos,
+  palmSimpleLeavesGeo,
   penguinBeakGeo,
   penguinBellyGeo,
   penguinBlackMat,
@@ -563,8 +564,10 @@ globalInstancer.setFarGeometry('snowmanBody', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
 
 // Rounded canopies and bushes cast shadows with the same fitted shapes. Palm
-// fronds keep their full model: their star-shaped shadow is distinctive.
+// fronds cast with a version without their notches (216 triangles instead of
+// 504), which keeps their distinctive star-shaped shadow.
 globalInstancer.setShadowGeometry('bush', farCanopy(bushGeo));
+globalInstancer.setShadowGeometry('palmLeaves', palmSimpleLeavesGeo);
 globalInstancer.setShadowGeometry(
   'decidLeaves',
   globalInstancer.types.get('decidLeaves').farGeo
@@ -2712,7 +2715,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   }
 
   group.userData.instanceData = workerData.instanceData;
-  enableChunkInstanceCulling(group, chunkX, chunkZ);
+  enableChunkInstanceCulling(group);
   scene.add(group);
   return group;
 }
@@ -2720,29 +2723,19 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 // Chunk props are pooled instanced meshes created with culling off (a reused
 // mesh's automatic bounds would be stale), so every chunk's props were drawn
 // every frame, in the main view and the shadow map, even when off-screen.
-// Give them a fixed sphere around the whole chunk instead, so three.js can
-// skip chunks outside the camera or shadow frustum. The sphere covers the
-// chunk's corners from sea level to the highest peaks (~1,600), plus drifting
-// boats and props at the edges. Some meshes sit under chunk-offset parents,
-// so the sphere is expressed in each mesh's own space.
-const CHUNK_CULL_CENTER_Y = 800;
-const CHUNK_CULL_RADIUS = 1700;
-const _toMeshSpace = new THREE.Matrix4();
+// Once a chunk is built, give each mesh a sphere around its own instances
+// (houses, boats and piers usually fill a small part of the chunk, and a
+// whole-chunk sphere let half of these draws through), padded for what
+// moves after the build: boats drift up to ~30 units and chimney and
+// campfire smoke rises ~150 in the vertex shader.
+const CHUNK_INSTANCE_CULL_MARGIN = 160;
 
-function enableChunkInstanceCulling(group, chunkX, chunkZ) {
-  const worldCenter = new THREE.Vector3(
-    chunkX * CHUNK_SIZE,
-    CHUNK_CULL_CENTER_Y,
-    chunkZ * CHUNK_SIZE
-  );
-  group.updateMatrixWorld(true);
+function enableChunkInstanceCulling(group) {
   group.traverse((object) => {
     if (object.isInstancedMesh) {
-      _toMeshSpace.copy(object.matrixWorld).invert();
-      object.boundingSphere = new THREE.Sphere(
-        worldCenter.clone().applyMatrix4(_toMeshSpace),
-        CHUNK_CULL_RADIUS
-      );
+      object.boundingSphere = null; // recomputed from this chunk's instances
+      object.computeBoundingSphere();
+      object.boundingSphere.radius += CHUNK_INSTANCE_CULL_MARGIN;
       object.frustumCulled = true;
     }
   });
