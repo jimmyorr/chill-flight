@@ -666,6 +666,7 @@ function chunkGenParams(chunkX, chunkZ) {
     chunkSize: CHUNK_SIZE,
     elevParams: {WATER_LEVEL, MOUNTAIN_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE},
     worldSeed: ChillFlightLogic.WORLD_SEED,
+    forceIslandType: ChillFlightLogic.FORCE_ISLAND_TYPE,
     enableObjects: state._enableObjects,
   };
 }

@@ -159,5 +159,16 @@ const settle = (promise) =>
   );
 }
 
+// 6. Workers can't see the page URL, so a forced island type travels with the job.
+{
+  const {factory, made} = makeFactory(['ok']);
+  const m = new TerrainWorkerManager(1, {createWorker: factory});
+  await m.requestChunk(0, 0, {forceIslandType: 'karst'});
+  check(
+    'the forced island type reaches the worker',
+    made[0].lastPayload.forceIslandType === 'karst'
+  );
+}
+
 if (failed) process.exit(1);
 console.log('All terrain worker manager tests passed.');

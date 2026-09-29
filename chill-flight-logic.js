@@ -317,11 +317,7 @@ export const ChillFlightLogic = {};
   let START_ISLAND_TYPE = 'auto';
   if (_islandTypeParam !== null && _islandTypeParam !== '') {
     const norm = _islandTypeParam.trim().toLowerCase();
-    if (
-      ['auto', 'temperate', 'subtropical', 'arid', 'alien', 'winter'].includes(
-        norm
-      )
-    ) {
+    if (['auto', 'karst', 'caldera', 'atoll'].includes(norm)) {
       START_ISLAND_TYPE = norm;
     }
   }
@@ -335,15 +331,10 @@ export const ChillFlightLogic = {};
       START_PLANE = normPlane;
     }
   }
-  let FORCE_ISLAND_TYPE = START_ISLAND_TYPE;
-
+  // Reads exports.FORCE_ISLAND_TYPE, which the debug UI changes at runtime and
+  // terrain workers set from each job (they can't see the page URL).
   function getIslandArchetype(x, z, simplexInstance) {
-    const forced =
-      typeof exports !== 'undefined' && exports.FORCE_ISLAND_TYPE
-        ? exports.FORCE_ISLAND_TYPE
-        : ChillFlightLogic.FORCE_ISLAND_TYPE
-          ? ChillFlightLogic.FORCE_ISLAND_TYPE
-          : FORCE_ISLAND_TYPE;
+    const forced = exports.FORCE_ISLAND_TYPE;
     if (forced && forced !== 'auto') {
       return forced;
     }
@@ -2326,7 +2317,7 @@ export const ChillFlightLogic = {};
   exports.HORIZON_COLOR = HORIZON_COLOR;
   exports.DAY_COLOR = DAY_COLOR;
   exports.START_ISLAND_TYPE = START_ISLAND_TYPE;
-  exports.FORCE_ISLAND_TYPE = FORCE_ISLAND_TYPE;
+  exports.FORCE_ISLAND_TYPE = START_ISLAND_TYPE;
   exports.getIslandArchetype = getIslandArchetype;
   exports.START_PLANE = START_PLANE;
   exports.PLANE_TYPES = PLANE_TYPES;

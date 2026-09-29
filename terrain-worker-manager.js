@@ -173,6 +173,7 @@ export class TerrainWorkerManager {
           MAP_HEIGHT_SCALE: 400,
         },
         worldSeed: options.worldSeed || 1,
+        forceIslandType: options.forceIslandType,
         enableObjects: options.enableObjects !== false,
       };
 

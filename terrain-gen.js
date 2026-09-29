@@ -359,11 +359,17 @@ export function generateChunkData({
   segments,
   elevParams,
   worldSeed,
+  forceIslandType,
   enableObjects,
 }) {
   if (worldSeed !== undefined) {
     ChillFlightLogic.WORLD_SEED = worldSeed;
     simplex.seed(worldSeed);
+  }
+  // Workers have their own copy of the logic module, so the debug UI's (or
+  // URL's) forced island type has to travel with each job.
+  if (forceIslandType !== undefined) {
+    ChillFlightLogic.FORCE_ISLAND_TYPE = forceIslandType;
   }
   const _enableObjects = enableObjects !== false;
 

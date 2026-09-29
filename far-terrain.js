@@ -197,6 +197,7 @@ function requestCell(i, j) {
         MAP_HEIGHT_SCALE,
       },
       worldSeed: ChillFlightLogic.WORLD_SEED,
+      forceIslandType: ChillFlightLogic.FORCE_ISLAND_TYPE,
       enableObjects: false,
     })
     .then((result) => {
