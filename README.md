@@ -63,7 +63,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 - **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192). Beyond 4.0 North, the ocean completely freezes over into a solid, jagged pack ice shelf (#A2B4BC) that rises out of the water. In bright midday sun, snow and ice are dimmed slightly and shifted cool (`uSnowExposure`) so their shading stays visible instead of washing out to flat white.
 - **Weather:** Frequent falling snow (~80% of the time) with occasional global breaks.
 - **Key Features:**
-  - **Mountain Range:** The "Northern Snowy Range" is located at approximately 2.0 North latitude (Z = -10000) and extends west from 1.0 West longitude (X = -5000). It features sharp, ridged peaks reaching altitudes up to 1600 units.
+  - **Mountain ranges:** The first range north always rises around 1.0 North (Z = -5000), south of the snow, so it's green with snow-capped peaks; ranges further north vary by world seed and are snowbound. Ranges start at 0.5 West (X = -2500) and reach full height by 1.5 West (X = -7500), with sharp, ridged peaks up to 1600 units.
   - **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
   - **Water:** Icy, pale blue water (#88CCFF) that transitions into solid, textured cyan ice (#6CA6A8) shelves and floating icebergs in the deep north.
 
@@ -72,7 +72,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 - **Location:** Latitude 1.5+ South (Z > 7500).
 - **Landscape:** Reddish-orange sand (#F4A460) and deep red canyon rock (#C24B2B).
 - **Key Features:**
-  - **Mountain Range:** The "Southern Arizona Range" is located at approximately 2.0 South latitude (Z = 10000) and extends west from 1.0 West longitude (X = -5000). It features broad mesas and rugged red-rock peaks.
+  - **Mountain ranges:** The first range south always rises around 1.0 South (Z = 5000), still green. Ranges further south vary by world seed; in the desert (beyond about 2.3 South, Z = 11500) they become broad mesas and rugged red-rock peaks.
   - **Vegetation:** Cactuses and skeletal "dead" trees.
   - **Water:** Deep turquoise tropical-style water (#00CED1).
 

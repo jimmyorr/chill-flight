@@ -580,6 +580,9 @@ export const ChillFlightLogic = {};
     // Unified grid where 1 lat = 5000 units.
     function getProceduralTerrainType(latIndex, terrainFrequency = 0.8) {
       if (latIndex === 0) return 'major_river'; // Equator override
+      // The first ranges north and south (1 North, 1 South) are always there,
+      // so every flight meets mountains early (#76). Later ones vary by seed.
+      if (latIndex === 1 || latIndex === -1) return 'mountain';
       // Use a non-zero Y coordinate so we don't sample along an axis (which can be 0)
       // Multiply by 1.5 to stretch the Simplex noise output closer to the [-1.0, 1.0] range
       const tNoise = simplex.noise2D(latIndex * terrainFrequency, 1234.5) * 1.5;

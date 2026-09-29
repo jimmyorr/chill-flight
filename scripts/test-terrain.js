@@ -226,5 +226,36 @@ console.log('  Passed: Chunk prop placement follows the world seed');
 }
 console.log('  Passed: Snow cover rises gradually to the north');
 
+// --- 8. FIRST MOUNTAIN RANGES ARE ALWAYS THERE (#76) ---
+// Whatever the seed, a range rises around 1 North (Z = -5000) and 1 South
+// (Z = 5000), west of 1.5 West (X = -7500) where ranges are at full height.
+{
+  const peak = (zCenter) => {
+    let max = -Infinity;
+    for (let x = -12000; x <= -8000; x += 500) {
+      for (let z = zCenter - 3000; z <= zCenter + 3000; z += 100) {
+        max = Math.max(
+          max,
+          ChillFlightLogic.getElevation(x, z, simplex, constants)
+        );
+      }
+    }
+    return max;
+  };
+  for (const seed of [1, 42, 20260101, 20260928, 99999]) {
+    simplex.seed(seed);
+    const north = peak(-5000);
+    const south = peak(5000);
+    if (north < 800 || south < 800) {
+      console.error(
+        `FAIL: seed ${seed} has no early mountain range (peaks: 1N ${north.toFixed(0)}, 1S ${south.toFixed(0)})`
+      );
+      process.exit(1);
+    }
+  }
+  simplex.seed(20260101);
+}
+console.log('  Passed: The first mountain ranges north and south always rise');
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);
