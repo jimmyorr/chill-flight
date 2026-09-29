@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.9.40
+
+- **Night:** A silver moon path on the water, moonlit clouds and a halo around the moon; the plane's headlight lights the ground from flight altitude again.
+- **Nature:** Trees sway in the wind.
+- **Terrain:** A real lake district in the west, rivers that widen into estuaries with tributaries, clean snow and sand, and no more stray grey needles.
+
 ## 0.9.39
 
 - **Horizon:** Distant mountains and coastlines now show out to 27 km.
