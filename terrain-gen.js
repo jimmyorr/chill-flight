@@ -748,11 +748,13 @@ export function generateChunkData({
       const isDesertMountain = desertFactor > 0.35;
       const canHaveSnow = !isDesertMountain;
 
-      // The snowline comes down gradually heading north: only peaks are
-      // capped at first, then the snow creeps down to the valleys.
+      // The snowline comes down gradually heading north: from 1,150 near the
+      // equator to 750 by 1 North (so the first northern range has
+      // snow-capped peaks), then with the snow cover down to the valleys.
+      const alpine = Math.max(0, Math.min(1, (-worldZ / 5000 - 0.3) / 0.7));
       const baseSnowline = isDesertMountain
         ? 2400
-        : 1150 + (WATER_LEVEL + 10 - 1150) * snowFactor;
+        : 1150 - 400 * alpine + (WATER_LEVEL + 10 - 750) * snowFactor;
       const snowline = baseSnowline + organicNoise * 180;
 
       const cliffThreshold = 0.78 + 0.06 * snowFactor;
