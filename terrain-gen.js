@@ -126,8 +126,11 @@ const _colorWater = new Color(0x40c4ff);
 const _colorSandSnowTint = new Color(0x999999);
 const _colorUpperSandSnowTint = new Color(0xdddddd);
 const _colorForestSnowTint = new Color(0x8ba192);
-const _colorForestDesertTint = new Color(0xa0522d);
 const _colorPlainsSnowTint = new Color(0xfafafa);
+const _colorForestFloorSnow = new Color(0xd6dee2); // snow, a little shaded
+const _colorForestFloorSand = new Color(0xdc9a60); // sand, a little shaded
+const _colorSnowShade = new Color(0xc8d4e0); // cool drift shadow
+const _colorSandShade = new Color(0xd08850); // warm hollow
 const _colorMountainTint = new Color(0x7f8c8d);
 const _colorAlpineRockDark = new Color(0x424a54);
 const _colorAlpineRockLight = new Color(0x9ba2a8);
@@ -822,25 +825,31 @@ export function generateChunkData({
         }
       }
     } else {
+      // Grass mottling first, so snow and sand cover it (applied after, its
+      // dark greens showed through as camouflage-like blotches); then only a
+      // gentle shade on snow and sand. Forest ground is slightly shaded snow
+      // or sand rather than grey-green or sienna patches.
       if (isForest) {
         _tempColorObj.copy(_colorForest);
-        if (snowFactor > 0)
-          _tempColorObj.lerp(_colorForestSnowTint, snowFactor);
-        if (desertFactor > 0)
-          _tempColorObj.lerp(_colorForestDesertTint, desertFactor);
-
         _tempColorObj.lerp(_colorForestDeep, mottle * 0.4);
         if (mottle < 0.3) _tempColorObj.lerp(_colorForestLight, 0.2);
+        if (snowFactor > 0)
+          _tempColorObj.lerp(_colorForestFloorSnow, snowFactor);
+        if (desertFactor > 0)
+          _tempColorObj.lerp(_colorForestFloorSand, desertFactor);
       } else {
         _tempColorObj.copy(_colorPlains);
+        _tempColorObj.lerp(_colorPlainsDark, mottle * 0.4);
+        if (mottle > 0.8) _tempColorObj.lerp(_colorPlainsBright, 0.3);
         if (snowFactor > 0)
           _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
         if (desertFactor > 0)
           _tempColorObj.lerp(_colorDesertSand, desertFactor);
-
-        _tempColorObj.lerp(_colorPlainsDark, mottle * 0.4);
-        if (mottle > 0.8) _tempColorObj.lerp(_colorPlainsBright, 0.3);
       }
+      if (snowFactor > 0)
+        _tempColorObj.lerp(_colorSnowShade, mottle * 0.3 * snowFactor);
+      if (desertFactor > 0)
+        _tempColorObj.lerp(_colorSandShade, mottle * 0.25 * desertFactor);
     }
 
     // Extreme zone color blend
