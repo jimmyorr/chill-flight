@@ -16,6 +16,8 @@ import {
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
   FAR_SEA_GLSL,
+  FOG_SKY_FRAGMENT_GLSL,
+  FOG_SKY_VERTEX_GLSL,
   SKY_COLOR_GLSL,
   WATER_LEVEL,
   terrainUniforms,
@@ -54,9 +56,15 @@ farMaterial.onBeforeCompile = (shader) => {
     `
     uniform vec2 uCameraPosXZ;
     uniform float uRenderRadius;
+    uniform vec3 uSunDirection;
+    uniform vec3 uTopColor;
+    uniform vec3 uBottomColor;
     varying float vDistanceXZ;
     varying vec3 vFarWorldPos;
-  ` + shader.vertexShader;
+  ` +
+    SKY_COLOR_GLSL +
+    FOG_SKY_VERTEX_GLSL +
+    shader.vertexShader;
   // Inside the draw distance the near chunks cover the ring: sink it well
   // below the ground there (rather than discarding pixels, which would turn
   // off early depth rejection for the whole ring).
@@ -71,7 +79,10 @@ farMaterial.onBeforeCompile = (shader) => {
     `#include <worldpos_vertex>`,
     `#include <worldpos_vertex>
      vFarWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
-     vDistanceXZ = length(vFarWorldPos.xz - uCameraPosXZ);`
+     vDistanceXZ = length(vFarWorldPos.xz - uCameraPosXZ);
+     #ifdef USE_FOG
+       fogSkyVertex(vFarWorldPos);
+     #endif`
   );
 
   shader.fragmentShader =
@@ -87,6 +98,7 @@ farMaterial.onBeforeCompile = (shader) => {
   ` +
     SKY_COLOR_GLSL +
     FAR_SEA_GLSL +
+    FOG_SKY_FRAGMENT_GLSL +
     shader.fragmentShader;
 
   shader.fragmentShader = shader.fragmentShader.replace(
@@ -100,8 +112,7 @@ farMaterial.onBeforeCompile = (shader) => {
      gl_FragColor.rgb = mix(gl_FragColor.rgb, seaColor, isWater);
 
      #ifdef USE_FOG
-       vec3 skyDir = normalize(-viewDirW + vec3(0.0, 33.0 / 10000.0, 0.0));
-       vec3 fogSkyColor = skyColorAt(skyDir, uTopColor, uBottomColor, uSunDirection, 1.0);
+       vec3 fogSkyColor = fogSkyColorAt(vFarWorldPos);
        #ifdef FOG_EXP2
          float fogFactor = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
        #else

@@ -50,10 +50,12 @@ export const THEME = ChillFlightLogic.THEME;
 // reflections all use this, so distant terrain fades into exactly the sky
 // behind it and the water mirrors the same sky.
 export const SKY_COLOR_GLSL = `
-vec3 skyColorAt(vec3 d, vec3 topCol, vec3 bottomCol, vec3 sunDir, float coreAmount) {
+// The sky's color along d is built from three parts, so that fog can compute
+// the smooth ones per vertex and only the sun's narrow hot core per pixel
+// (see FOG_SKY_VERTEX_GLSL): skyColorAt(d) = combineSky(skyBaseAt(d), skyGlowAt(d),
+// sunCoreAt(d) * coreAmount).
+vec3 skyBaseAt(vec3 d, vec3 topCol, vec3 bottomCol, vec3 sunDir) {
   float h = d.y;
-  float baseSunInt = max(0.0, dot(d, sunDir));
-  float sunFade = smoothstep(-0.25, 0.0, sunDir.y);
 
   // Around sunrise and sunset the sky varies around the compass, not just
   // with height: warm and bright toward the sun, cooler away from it, with
@@ -90,21 +92,69 @@ vec3 skyColorAt(vec3 d, vec3 topCol, vec3 bottomCol, vec3 sunDir, float coreAmou
     col = mix(col, shadowBlue, shadowBand * away * 0.55);
     col = mix(col, beltPink, belt * away * 0.45);
   }
+  return col;
+}
 
-  float sunElev = sunDir.y;
-  float horizonExtinction = smoothstep(-0.01, 0.12, sunElev);
-  // Wide atmospheric scattering warms the horizon during twilight
-  vec3 ambientSunGlow = bottomCol * pow(baseSunInt, 6.0) * 0.6 * (1.0 - max(h, 0.0)) * sunFade;
-  // Warm halo around the sun disc
+// Soft fade below the horizon so there's never a sharp cut across the sun
+float sunGlowFade(vec3 d) {
+  return smoothstep(-0.12, 0.04, d.y);
+}
+
+// The wide glow around the sun: scattering that warms the horizon during
+// twilight, and a warm halo around the disc.
+vec3 skyGlowAt(vec3 d, vec3 bottomCol, vec3 sunDir) {
+  float baseSunInt = max(0.0, dot(d, sunDir));
+  float sunFade = smoothstep(-0.25, 0.0, sunDir.y);
+  vec3 ambientSunGlow = bottomCol * pow(baseSunInt, 6.0) * 0.6 * (1.0 - max(d.y, 0.0)) * sunFade;
   vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunInt, 24.0) * 0.8
-    * smoothstep(-0.03, 0.06, sunElev);
-  // Hot core: golden-amber at the horizon, brilliant white higher up
+    * smoothstep(-0.03, 0.06, sunDir.y);
+  return (ambientSunGlow + warmHalo) * sunGlowFade(d);
+}
+
+// Hot core: golden-amber at the horizon, brilliant white higher up
+vec3 sunCoreAt(vec3 d, vec3 sunDir) {
+  float horizonExtinction = smoothstep(-0.01, 0.12, sunDir.y);
   vec3 coreColor = mix(vec3(1.0, 0.65, 0.25), vec3(1.0, 0.95, 0.8), horizonExtinction);
-  float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunElev);
-  vec3 hotCore = coreColor * pow(baseSunInt, 512.0) * coreStrength * coreAmount;
-  // Soft fade below the horizon so there's never a sharp cut across the sun
-  vec3 totalGlow = (ambientSunGlow + warmHalo + hotCore) * smoothstep(-0.12, 0.04, h);
-  return col + totalGlow * (vec3(1.0) - col);
+  float coreStrength = mix(0.8, 2.5, horizonExtinction) * smoothstep(-0.01, 0.05, sunDir.y);
+  return coreColor * pow(max(0.0, dot(d, sunDir)), 512.0) * coreStrength * sunGlowFade(d);
+}
+
+vec3 combineSky(vec3 base, vec3 glow, vec3 core) {
+  return base + (glow + core) * (vec3(1.0) - base);
+}
+
+vec3 skyColorAt(vec3 d, vec3 topCol, vec3 bottomCol, vec3 sunDir, float coreAmount) {
+  return combineSky(skyBaseAt(d, topCol, bottomCol, sunDir),
+                    skyGlowAt(d, bottomCol, sunDir),
+                    sunCoreAt(d, sunDir) * coreAmount);
+}
+`;
+
+// GLSL for fog toward the sky color, split between the stages: the smooth
+// parts of the sky color vary slowly across a surface, so large surfaces
+// (terrain, water, the distant ring) compute them per vertex, and only the
+// sun's narrow core per pixel. Needs SKY_COLOR_GLSL and uniforms uTopColor,
+// uBottomColor, uSunDirection in both stages.
+// Vertex: call fogSkyVertex(worldPosition) once the world position is known.
+export const FOG_SKY_VERTEX_GLSL = `
+varying vec3 vFogSkyBase;
+varying vec3 vFogSkyGlow;
+vec3 fogSkyDir(vec3 worldPos) {
+  return normalize(normalize(worldPos - cameraPosition) + vec3(0.0, 33.0 / 10000.0, 0.0));
+}
+void fogSkyVertex(vec3 worldPos) {
+  vec3 d = fogSkyDir(worldPos);
+  vFogSkyBase = skyBaseAt(d, uTopColor, uBottomColor, uSunDirection);
+  vFogSkyGlow = skyGlowAt(d, uBottomColor, uSunDirection);
+}
+`;
+// Fragment: fogSkyColorAt(worldPosition) is the sky color the fog fades to.
+export const FOG_SKY_FRAGMENT_GLSL = `
+varying vec3 vFogSkyBase;
+varying vec3 vFogSkyGlow;
+vec3 fogSkyColorAt(vec3 worldPos) {
+  vec3 d = normalize(normalize(worldPos - cameraPosition) + vec3(0.0, 33.0 / 10000.0, 0.0));
+  return combineSky(vFogSkyBase, vFogSkyGlow, sunCoreAt(d, uSunDirection));
 }
 `;
 

@@ -10,6 +10,8 @@ import {
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
   FAR_SEA_GLSL,
+  FOG_SKY_FRAGMENT_GLSL,
+  FOG_SKY_VERTEX_GLSL,
   SKY_COLOR_GLSL,
   WATER_LEVEL,
   createMaterial,
@@ -178,16 +180,25 @@ terrainMaterial.onBeforeCompile = (shader) => {
     `
     uniform vec2 uCameraPosXZ;
     uniform float uRenderRadius;
+    uniform vec3 uSunDirection;
+    uniform vec3 uTopColor;
+    uniform vec3 uBottomColor;
     varying float vDistanceXZ;
     varying vec3 vWorldPosition;
-  ` + shader.vertexShader;
+  ` +
+    SKY_COLOR_GLSL +
+    FOG_SKY_VERTEX_GLSL +
+    shader.vertexShader;
 
   shader.vertexShader = shader.vertexShader.replace(
     `#include <worldpos_vertex>`,
     `#include <worldpos_vertex>
      vec4 customWorldPosition = modelMatrix * vec4( transformed, 1.0 );
      vDistanceXZ = length(customWorldPosition.xz - uCameraPosXZ);
-     vWorldPosition = customWorldPosition.xyz;`
+     vWorldPosition = customWorldPosition.xyz;
+     #ifdef USE_FOG
+       fogSkyVertex(vWorldPosition);
+     #endif`
   );
 
   shader.fragmentShader =
@@ -202,6 +213,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
     varying vec3 vWorldPosition;
   ` +
     SKY_COLOR_GLSL +
+    FOG_SKY_FRAGMENT_GLSL +
     shader.fragmentShader;
 
   // Near-white terrain (snow, ice) is dimmed in bright light so its shading
@@ -217,9 +229,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
     `#include <fog_fragment>`,
     `
      #ifdef USE_FOG
-       vec3 viewDirFog = normalize(vWorldPosition - cameraPosition);
-       vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
-       vec3 fogSkyColor = skyColorAt(skyDir, uTopColor, uBottomColor, uSunDirection, 1.0);
+       vec3 fogSkyColor = fogSkyColorAt(vWorldPosition);
        
        #ifdef FOG_EXP2
            float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
@@ -274,6 +284,9 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform float uRenderRadius;
         varying float vDistanceXZ;
         uniform float uTime;
+        uniform vec3 uSunDirection;
+        uniform vec3 uTopColor;
+        uniform vec3 uBottomColor;
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
 
@@ -296,7 +309,10 @@ waterMaterial.onBeforeCompile = function (shader) {
           h.yz = grad;
           return h * amp;
         }
-    ` + shader.vertexShader;
+    ` +
+    SKY_COLOR_GLSL +
+    FOG_SKY_VERTEX_GLSL +
+    shader.vertexShader;
 
   // Inject analytical normal calculation (replaces computeVertexNormals)
   shader.vertexShader = shader.vertexShader.replace(
@@ -329,6 +345,9 @@ waterMaterial.onBeforeCompile = function (shader) {
         transformed.y += swell(worldPosV.xz, uTime).x * swellCalm;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
+        #ifdef USE_FOG
+          fogSkyVertex(vWorldPosition);
+        #endif
         `
   );
 
@@ -354,6 +373,7 @@ waterMaterial.onBeforeCompile = function (shader) {
     ` +
     SKY_COLOR_GLSL +
     FAR_SEA_GLSL +
+    FOG_SKY_FRAGMENT_GLSL +
     CLOUD_GLSL +
     shader.fragmentShader;
 
@@ -507,9 +527,7 @@ waterMaterial.onBeforeCompile = function (shader) {
     `#include <fog_fragment>`,
     `
      #ifdef USE_FOG
-       vec3 viewDirFog = normalize(vWorldPosition - cameraPosition);
-       vec3 skyDir = normalize(viewDirFog + vec3(0.0, 33.0 / 10000.0, 0.0));
-       vec3 fogSkyColor = skyColorAt(skyDir, uTopColor, uBottomColor, uSunDirection, 1.0);
+       vec3 fogSkyColor = fogSkyColorAt(vWorldPosition);
        
        #ifdef FOG_EXP2
            float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
