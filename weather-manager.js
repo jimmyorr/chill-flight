@@ -344,14 +344,21 @@ export function updateWeather(delta) {
   } else if (weatherType === 'auto') {
     const latVal = -planeGroup.position.z / 5000;
 
-    // Continuous snow above 0.9°N, but with occasional breaks (80% duty cycle)
-    if (latVal > 0.9) {
+    // Snowfall follows the snow cover (see snowFactorAt): light snow from
+    // where it starts, with occasional breaks (80% duty cycle).
+    const snowStart = ChillFlightLogic.SNOW_START_LAT;
+    const snowSpan = ChillFlightLogic.SNOW_FULL_LAT - snowStart;
+    if (latVal > snowStart - 0.1) {
       const timeOffset = (state.worldClockNow || performance.now()) / 100000;
       // Use a slow-moving noise wave based on time for global breaks
       const snowBreakNoise = (simplex.noise2D(timeOffset * 0.2, 999) + 1) / 2; // Value between 0 and 1
 
       if (snowBreakNoise > 0.2) {
-        const permanentSnow = THREE.MathUtils.clamp((latVal - 1.0) / 1.0, 0, 1);
+        const permanentSnow = THREE.MathUtils.clamp(
+          (latVal - snowStart) / snowSpan,
+          0,
+          1
+        );
         targetSnowOpacity = Math.max(targetSnowOpacity, permanentSnow * 0.15);
       }
     }
@@ -375,12 +382,12 @@ export function updateWeather(delta) {
       const stormIntensity = (stormNoise - 0.82) / 0.18;
 
       // 2. Distribute the storm intensity based on latitude
-      if (latVal > 2.0) {
+      if (latVal > snowStart + snowSpan) {
         // North: Storm intensifies the already-falling snow
         targetSnowOpacity = Math.max(targetSnowOpacity, stormIntensity * 0.4);
-      } else if (latVal > 1.0) {
-        // Transition Zone (1.0 to 2.0): Sleet (Mix of Rain and Snow)
-        const snowRatio = (latVal - 1.0) / 1.0; // 0.0 at 1.0, 1.0 at 2.0
+      } else if (latVal > snowStart) {
+        // Where the snow cover starts: sleet (a mix of rain and snow)
+        const snowRatio = (latVal - snowStart) / snowSpan;
         targetSnowOpacity = Math.max(
           targetSnowOpacity,
           stormIntensity * 0.4 * snowRatio

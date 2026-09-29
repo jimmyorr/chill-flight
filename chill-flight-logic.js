@@ -490,6 +490,30 @@ export const ChillFlightLogic = {};
     return fn(nx, ny);
   }
 
+  // --- SNOW COVER ---
+  // How snowy the north is, 0 to 1: none south of SNOW_START_LAT, full north
+  // of SNOW_FULL_LAT, rising smoothly between (degrees north, 5000 units
+  // each). Ground, water ice, trees and snowfall all use this, so they agree
+  // where the snow starts. noiseShift (from snowNoiseShift) wobbles the edge.
+  const SNOW_START_LAT = 1.5;
+  const SNOW_FULL_LAT = 2.5;
+  function snowFactorAt(z, noiseShift) {
+    const lat = -z / 5000 + noiseShift;
+    const t = Math.max(
+      0,
+      Math.min(1, (lat - SNOW_START_LAT) / (SNOW_FULL_LAT - SNOW_START_LAT))
+    );
+    return t * t * (3 - 2 * t);
+  }
+  // The terrain generator computes these two noise values anyway and passes
+  // their sum straight to snowFactorAt; this is for everything else.
+  function snowNoiseShift(x, z, simplex) {
+    return (
+      simplex.noise2D(x * 0.0001, z * 0.0001) * 0.05 +
+      simplex.noise2D(x * 0.0005, z * 0.0005) * 0.1
+    );
+  }
+
   // --- BIOME ---
   // Returns a biome value in [-1, 1] for a given world (x, z) position.
   // Requires a simplex noise object with a noise2D(x, y) method.
@@ -2261,6 +2285,10 @@ export const ChillFlightLogic = {};
   }
 
   exports.getBiome = getBiome;
+  exports.SNOW_START_LAT = SNOW_START_LAT;
+  exports.SNOW_FULL_LAT = SNOW_FULL_LAT;
+  exports.snowFactorAt = snowFactorAt;
+  exports.snowNoiseShift = snowNoiseShift;
   exports.MAP_WIDTH = MAP_WIDTH;
   exports.getElevation = getElevation;
   exports.getRiverCenterZ = getRiverCenterZ;

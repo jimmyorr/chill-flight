@@ -208,5 +208,23 @@ console.log('  Passed: Montauk lighthouse island rises above the water');
 }
 console.log('  Passed: Chunk prop placement follows the world seed');
 
+// --- 7. SNOW COVER RISES GRADUALLY TO THE NORTH ---
+// No snow at the first mountain range (1 degree North), full snow by 2.5
+// North, and never a jump in between (a hard edge reads as a white wall).
+{
+  const f = (lat) => ChillFlightLogic.snowFactorAt(-lat * 5000, 0);
+  let maxStep = 0;
+  for (let lat = 0; lat < 3; lat += 0.01) {
+    maxStep = Math.max(maxStep, f(lat + 0.01) - f(lat));
+  }
+  if (f(1.0) !== 0 || f(2.6) !== 1 || maxStep > 0.02) {
+    console.error(
+      `FAIL: snow cover ramp (1N ${f(1.0)}, 2.6N ${f(2.6)}, max step ${maxStep.toFixed(3)})`
+    );
+    process.exit(1);
+  }
+}
+console.log('  Passed: Snow cover rises gradually to the north');
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

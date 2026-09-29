@@ -461,13 +461,11 @@ export function generateChunkData({
         waterPositions[wPosIdx + 2] = localZ;
 
         const tempNoise = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
-        const northInfluence = Math.max(0, -worldZ / 4500);
         const southInfluence = Math.max(0, worldZ / 4500);
-        const snowRaw = Math.max(
-          0,
-          Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
+        const snowFactor = ChillFlightLogic.snowFactorAt(
+          worldZ,
+          ChillFlightLogic.snowNoiseShift(worldX, worldZ, simplex)
         );
-        const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
         const desertRaw = Math.max(
           0,
           Math.min(1, (southInfluence + tempNoise * 0.05 - 0.7) * 1.5)
@@ -612,15 +610,13 @@ export function generateChunkData({
     const extremeBlend =
       extremeZoneFactor * extremeZoneFactor * (3 - 2 * extremeZoneFactor);
 
-    const northInfluence = Math.max(0, -worldZ / 5000);
     const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
     const biomeNoise = simplex.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
 
-    const snowRaw = Math.max(
-      0,
-      Math.min(1, (northInfluence + noisePath * 0.05 + biomeNoise - 1.0) * 1.5)
+    const snowFactor = ChillFlightLogic.snowFactorAt(
+      worldZ,
+      noisePath * 0.05 + biomeNoise
     );
-    const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
     const southInfluence = Math.max(0, worldZ / 5000);
     const desertRaw = Math.max(
@@ -743,10 +739,7 @@ export function generateChunkData({
         if (mottle < 0.4)
           _tempColorObj.lerp(_colorSandMottleLow, (0.4 - mottle) * 0.5);
       }
-    } else if (
-      height > MOUNTAIN_LEVEL ||
-      (snowFactor > 0.5 && height > MOUNTAIN_LEVEL - 50)
-    ) {
+    } else if (height > MOUNTAIN_LEVEL - 50 * snowFactor) {
       const sierraSnowNoise1 = simplex.noise2D(worldX * 0.003, worldZ * 0.003);
       const sierraSnowNoise2 =
         simplex.noise2D(worldX * 0.012, worldZ * 0.012) * 0.5;
@@ -755,17 +748,14 @@ export function generateChunkData({
       const isDesertMountain = desertFactor > 0.35;
       const canHaveSnow = !isDesertMountain;
 
-      let baseSnowline;
-      if (snowFactor > 0.3) {
-        baseSnowline = Math.max(WATER_LEVEL + 10, 300 - snowFactor * 400);
-      } else if (isDesertMountain) {
-        baseSnowline = 2400;
-      } else {
-        baseSnowline = 1150;
-      }
+      // The snowline comes down gradually heading north: only peaks are
+      // capped at first, then the snow creeps down to the valleys.
+      const baseSnowline = isDesertMountain
+        ? 2400
+        : 1150 + (WATER_LEVEL + 10 - 1150) * snowFactor;
       const snowline = baseSnowline + organicNoise * 180;
 
-      const cliffThreshold = snowFactor > 0.3 ? 0.84 : 0.78;
+      const cliffThreshold = 0.78 + 0.06 * snowFactor;
       const isSheerCliff = slopeFactor > cliffThreshold;
       const canHoldSnow =
         canHaveSnow && (!isSheerCliff || height > snowline + 300);
@@ -815,8 +805,6 @@ export function generateChunkData({
           if (height > WATER_LEVEL + 5)
             _tempColorObj.lerp(_colorSandMottleHigh, 0.3);
           _tempColorObj.lerp(_colorDesertMottle, mottle * 0.2);
-        } else if (snowFactor > 0.4) {
-          _tempColorObj.copy(_colorForestSnowTint);
         } else {
           _tempColorObj.copy(_colorForest);
           _tempColorObj.lerp(_colorForestDark, mottle * 0.3);
@@ -824,6 +812,11 @@ export function generateChunkData({
             const rockBlend = (height - 400) / 150;
             _tempColorObj.lerp(_colorMountainTint, rockBlend * 0.5);
           }
+          if (snowFactor > 0)
+            _tempColorObj.lerp(
+              _colorForestSnowTint,
+              Math.min(1, snowFactor * 2)
+            );
         }
       }
     } else {
@@ -1435,15 +1428,10 @@ export function generateChunkData({
     positionsList.forEach((pos) => {
       const worldZ = worldOffsetZ + pos.z;
       const northInfluence = Math.max(0, -worldZ / 4000);
-      const tempNoise = simplex.noise2D(
-        (worldOffsetX + pos.x) * 0.0001,
-        worldZ * 0.0001
+      const snowFactor = ChillFlightLogic.snowFactorAt(
+        worldZ,
+        ChillFlightLogic.snowNoiseShift(worldOffsetX + pos.x, worldZ, simplex)
       );
-      const snowRaw = Math.max(
-        0,
-        Math.min(1, (northInfluence + tempNoise * 0.05 - 0.7) * 1.5)
-      );
-      const snowFactor = snowRaw * snowRaw * (3 - 2 * snowRaw);
 
       const baseScale = 0.6 + Math.min(0.6, northInfluence * 0.5);
       const scale =

@@ -59,7 +59,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 
 ### 2. The frozen north
 
-- **Location:** Latitude 1.5+ North (Z < -7500). The deep frozen ocean starts around 4.0 North (Z < -20000).
+- **Location:** Snow starts around Latitude 1.5 North (Z = -7500) and deepens gradually to full cover by 2.5 North (Z = -12500). Over the same span the snowline on mountains comes down from the peaks to the valleys, so ranges south of it are green with snow-capped peaks. Ground, water ice, trees and snowfall all use one snow cover function (`snowFactorAt` in `chill-flight-logic.js`). The deep frozen ocean starts around 4.0 North (Z < -20000).
 - **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192). Beyond 4.0 North, the ocean completely freezes over into a solid, jagged pack ice shelf (#A2B4BC) that rises out of the water. In bright midday sun, snow and ice are dimmed slightly and shifted cool (`uSnowExposure`) so their shading stays visible instead of washing out to flat white.
 - **Weather:** Frequent falling snow (~80% of the time) with occasional global breaks.
 - **Key Features:**
@@ -129,9 +129,9 @@ Overcast conditions occur when the procedural cloud noise exceeds a threshold (0
 
 Storms are triggered when the global cloud noise map reaches peak density (> 0.75). The type of precipitation depends on your latitude (Z coordinate):
 
-- **The deep north** (Latitude > 2.0 North / Z < -10000): Storms intensify the already frequent snowfall.
-- **The transition zone** (Latitude 1.0 to 2.0 North / Z between -5000 and -10000): Sleet (a mix of rain and snow).
-- **Temperate and equator** (Latitude 2.0 South to 1.0 North / Z between 10000 and -5000): Full rain.
+- **The deep north** (Latitude > 2.5 North / Z < -12500): Storms intensify the already frequent snowfall.
+- **The transition zone** (Latitude 1.5 to 2.5 North / Z between -7500 and -12500): Sleet (a mix of rain and snow).
+- **Temperate and equator** (Latitude 2.0 South to 1.5 North / Z between 10000 and -7500): Full rain.
 - **Desert border** (Latitude 2.0 to 3.0 South / Z between 10000 and 15000): Light rain that quickly dries up as you move further south.
 - **Deep desert** (Latitude > 3.0 South / Z > 15000): Dry storms (the sky becomes overcast, but no rain falls).
 
@@ -154,7 +154,7 @@ The values live in `FOG` in `chill-flight-logic.js`. The debug menu's clear-sky 
 
 ### Permanent weather
 
-- **Snowy biome**: Above Latitude 2.0 North, snow falls roughly 80% of the time, regardless of the storm noise map, with occasional brief breaks.
+- **Snowy biome**: From Latitude 1.5 North, and heavier further north, snow falls roughly 80% of the time, regardless of the storm noise map, with occasional brief breaks.
 
 ### Debug menu weather entries
 
