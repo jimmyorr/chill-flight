@@ -108,6 +108,19 @@ vec3 skyColorAt(vec3 d, vec3 topCol, vec3 bottomCol, vec3 sunDir, float coreAmou
 }
 `;
 
+// GLSL: the open sea as the distant terrain ring draws it, a deep blue that
+// mirrors the sky toward the horizon. The near water blends into this just
+// inside the draw distance, so there's no seam where the ring takes over.
+// Needs SKY_COLOR_GLSL. viewDirW points from the surface to the camera.
+export const FAR_SEA_GLSL = `
+vec3 farSeaColor(vec3 viewDirW, vec3 topCol, vec3 bottomCol, vec3 sunDir) {
+  vec3 reflDir = reflect(-viewDirW, vec3(0.0, 1.0, 0.0));
+  reflDir.y = abs(reflDir.y);
+  float fresnel = 0.04 + 0.96 * pow(1.0 - max(viewDirW.y, 0.0), 5.0);
+  return mix(vec3(0.08, 0.22, 0.4), skyColorAt(reflDir, topCol, bottomCol, sunDir, 0.0), fresnel * 0.85);
+}
+`;
+
 // GLSL: the cloud layers' noise and lighting, shared by the sky dome and the
 // water's reflection of it, so reflected clouds line up with and match the
 // real ones. Declares uNoiseTex (the sky's noise texture).

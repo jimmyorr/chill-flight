@@ -15,6 +15,7 @@ import {
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
+  FAR_SEA_GLSL,
   SKY_COLOR_GLSL,
   WATER_LEVEL,
   terrainUniforms,
@@ -85,6 +86,7 @@ farMaterial.onBeforeCompile = (shader) => {
     varying vec3 vFarWorldPos;
   ` +
     SKY_COLOR_GLSL +
+    FAR_SEA_GLSL +
     shader.fragmentShader;
 
   shader.fragmentShader = shader.fragmentShader.replace(
@@ -94,10 +96,7 @@ farMaterial.onBeforeCompile = (shader) => {
      // Land at the water line is sea: a deep blue that mirrors the sky,
      // mostly sky this far out (grazing view).
      float isWater = 1.0 - smoothstep(uFarWaterY + 0.1, uFarWaterY + 2.0, vFarWorldPos.y);
-     vec3 reflDir = reflect(-viewDirW, vec3(0.0, 1.0, 0.0));
-     reflDir.y = abs(reflDir.y);
-     float fresnel = 0.04 + 0.96 * pow(1.0 - max(viewDirW.y, 0.0), 5.0);
-     vec3 seaColor = mix(vec3(0.08, 0.22, 0.4), skyColorAt(reflDir, uTopColor, uBottomColor, uSunDirection, 0.0), fresnel * 0.85);
+     vec3 seaColor = farSeaColor(viewDirW, uTopColor, uBottomColor, uSunDirection);
      gl_FragColor.rgb = mix(gl_FragColor.rgb, seaColor, isWater);
 
      #ifdef USE_FOG
@@ -109,8 +108,9 @@ farMaterial.onBeforeCompile = (shader) => {
          float fogFactor = smoothstep(fogNear, fogFar, vFogDepth);
        #endif
        float edgeFade = smoothstep(0.8, 1.0, vDistanceXZ / uFarRadius);
-       // Aerial perspective: distant ranges read as soft, hazy layers.
-       float haze = mix(0.3, 0.8, smoothstep(uRenderRadius, uFarRadius, vDistanceXZ));
+       // Aerial perspective: distant ranges read as soft, hazy layers. Starts
+       // from none at the draw distance, to match the near terrain there.
+       float haze = 0.8 * smoothstep(uRenderRadius, uFarRadius, vDistanceXZ);
        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, max(max(fogFactor, haze), edgeFade));
      #endif`
   );

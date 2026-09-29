@@ -9,6 +9,7 @@ import {
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
+  FAR_SEA_GLSL,
   SKY_COLOR_GLSL,
   WATER_LEVEL,
   createMaterial,
@@ -352,6 +353,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform bool uShowClouds;
     ` +
     SKY_COLOR_GLSL +
+    FAR_SEA_GLSL +
     CLOUD_GLSL +
     shader.fragmentShader;
 
@@ -490,6 +492,12 @@ waterMaterial.onBeforeCompile = function (shader) {
         // just above the ground in thin slivers; fade them out so they don't
         // draw lines along the water-level contour across the land.
         gl_FragColor.a *= smoothstep(0.05, 0.6, vWaterDepth);
+
+        // Approaching the draw distance, blend into the distant ring's sea so
+        // there's no line where it takes over.
+        float farSeaBlend = smoothstep(uRenderRadius * 0.8, uRenderRadius * 0.97, vDistanceXZ) * (1.0 - uNearEdgeFade);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, farSeaColor(viewDir, uTopColor, uBottomColor, uSunDirection), farSeaBlend);
+        gl_FragColor.a = mix(gl_FragColor.a, 1.0, farSeaBlend * smoothstep(0.05, 0.6, vWaterDepth));
 
         #include <fog_fragment>
         `
