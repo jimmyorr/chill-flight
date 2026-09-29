@@ -354,16 +354,21 @@ headlight.target = headlightTarget;
 
 headlight.angle = Math.PI / 4;
 headlight.penumbra = 1.0;
-headlight.distance = 1500;
-headlight.decay = 2.0;
+// No inverse-square falloff (decay 0): with it, the pool of light on the
+// ground was ~1% as bright at cruise altitude (400+ units away) as at 40
+// units, and vanished unless flying at ground level (#78). Instead it fades
+// out smoothly near `distance`, as the light did before three.js's physical
+// light units, so it lights the ground from typical flight altitudes.
+headlight.distance = 2500;
+headlight.decay = 0;
 
 export const headlightGlow = new THREE.PointLight(0xffd1a3, 0, 50);
 headlightGlow.position.set(0, 5, 0);
-// three.js r155+ uses physical light units (candela). These intensities are
-// converted from the legacy-tuned values to preserve the look: the spotlight
-// matched ~100 m ahead, the glow ~5 m out. r128 PointLight default decay was
-// 1, so keep that explicitly. Verify visually on a night flight.
-export const HEADLIGHT_INTENSITY = 15000;
+// three.js r155+ uses physical light units (candela). The glow's intensity is
+// converted from the legacy-tuned value (~5 m out); r128 PointLight default
+// decay was 1, so keep that explicitly. The spotlight's (with decay 0 above)
+// was tuned on night flights at 120 to 900 units up.
+export const HEADLIGHT_INTENSITY = 6;
 export const HEADLIGHT_GLOW_INTENSITY = 0.3;
 headlightGlow.decay = 1;
 planeGroup.add(headlightGlow);
