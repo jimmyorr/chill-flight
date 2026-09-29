@@ -1236,8 +1236,13 @@ export const ChillFlightLogic = {};
                   )
                 );
                 if (islandNoise > 0.5) {
-                  // Pull the terrain up to form an island
-                  const islandHeight = (islandNoise - 0.5) * 4000;
+                  // Pull the terrain up to form an island, back to at most the
+                  // land around the lake: uncapped, these rose up to 2,000
+                  // units as thin grey needles all over the west.
+                  const islandHeight = Math.min(
+                    (islandNoise - 0.5) * 4000,
+                    carveAmount
+                  );
                   carveAmount -= islandHeight;
                 }
               }
