@@ -168,6 +168,7 @@ export function applyGraphicsPreset(preset) {
 
   // Toggle overdraw optimizations (transparency)
   const isLow = segments <= 20;
+  state.farTerrainEnabled = !isLow;
 
   waterMaterial.transparent = !isLow;
   waterMaterial.opacity = isLow ? 1.0 : 0.6;

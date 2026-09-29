@@ -24,6 +24,7 @@ import '../airplane.js';
 import '../terrain-geometry.js';
 import '../game-performance.js';
 import '../terrain-chunks.js';
+import '../far-terrain.js';
 import '../audio.js';
 import '../native-adapter.js';
 import '../achievements.js';

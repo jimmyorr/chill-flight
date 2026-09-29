@@ -114,6 +114,9 @@ export const terrainUniforms = {
   uSunDirection: {value: new THREE.Vector3(0, 1, 0)},
   uTopColor: {value: new THREE.Color()},
   uBottomColor: {value: new THREE.Color()},
+  // 1: terrain and water fade to the sky near the draw distance. 0 when the
+  // distant terrain ring (far-terrain.js) continues the land beyond it.
+  uNearEdgeFade: {value: 1},
   // Dims near-white terrain (snow, ice) so full daylight doesn't clip it to
   // flat white; 1 when the light is weak enough (see game-loop.js).
   uSnowExposure: {value: new THREE.Vector3(1, 1, 1)},

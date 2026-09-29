@@ -16,6 +16,7 @@ export const state = {
   // Graphics settings (graphics presets in debug-ui.js change these)
   SEGMENTS: 40,
   RENDER_DISTANCE: 2,
+  farTerrainEnabled: true, // distant terrain ring (far-terrain.js); off on low
   PROP_LOD_DISTANCE: 4200,
 
   // Day/night cycle (0..2PI: 0 = midnight, PI = noon). Starts at 05:30 to

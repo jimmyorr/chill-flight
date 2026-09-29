@@ -165,6 +165,7 @@ export var waterMaterial = createMaterial({
 terrainMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
   shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
+  shader.uniforms.uNearEdgeFade = terrainUniforms.uNearEdgeFade;
   shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
@@ -189,6 +190,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
   shader.fragmentShader =
     `
     uniform float uRenderRadius;
+    uniform float uNearEdgeFade;
     varying float vDistanceXZ;
     uniform vec3 uSunDirection;
     uniform vec3 uTopColor;
@@ -223,7 +225,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
        #endif
        
        float distRatio = vDistanceXZ / uRenderRadius;
-       float xzFogFactor = smoothstep(0.9, 0.99, distRatio);
+       float xzFogFactor = smoothstep(0.9, 0.99, distRatio) * uNearEdgeFade;
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
        
@@ -245,6 +247,7 @@ waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uDepthGridSize = depth.uDepthGridSize;
   shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
   shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
+  shader.uniforms.uNearEdgeFade = terrainUniforms.uNearEdgeFade;
 
   shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
   shader.uniforms.uSpecularDir = waterUniforms.uSpecularDir;
@@ -333,6 +336,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
         uniform float uRenderRadius;
+        uniform float uNearEdgeFade;
         varying float vDistanceXZ;
     ` +
     SKY_COLOR_GLSL +
@@ -486,7 +490,7 @@ waterMaterial.onBeforeCompile = function (shader) {
        #endif
        
        float distRatio = vDistanceXZ / uRenderRadius;
-       float xzFogFactor = smoothstep(0.9, 0.99, distRatio);
+       float xzFogFactor = smoothstep(0.9, 0.99, distRatio) * uNearEdgeFade;
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
        

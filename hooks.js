@@ -10,4 +10,5 @@ export const hooks = {
   onTrackChange: null, // game-audio-integration.js: (trackName) => void
   fullscreenMap: null, // minimap.js: {open, close, toggle, isOpen, syncUrlParams}
   minimap: null, // minimap.js: {toggle, isVisible}
+  clearFarTerrain: null, // far-terrain.js: drops the distant terrain ring
 };

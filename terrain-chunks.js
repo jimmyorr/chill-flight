@@ -190,6 +190,7 @@ import {camera} from './sky.js';
 import {planeGroup} from './airplane.js';
 import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {generateChunkData} from './terrain-gen.js';
+import {hooks} from './hooks.js';
 import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
 
@@ -701,6 +702,7 @@ export function clearChunkQueue() {
   ) {
     terrainWorkerManager.cancelRequests(() => true);
   }
+  hooks.clearFarTerrain?.();
 }
 
 // Builds a chunk's meshes from generateChunkData() output: a worker's result,

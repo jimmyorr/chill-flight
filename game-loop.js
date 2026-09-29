@@ -132,6 +132,7 @@ import {updateFlightCamera} from './flight-camera.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
+import {updateFarTerrain} from './far-terrain.js';
 import {state} from './state.js';
 import {Achievements} from './achievements.js';
 
@@ -201,6 +202,7 @@ function animate() {
     ? 33
     : performanceMonitor.getChunkBudget();
   if (processChunkQueue) processChunkQueue(chunkBudget);
+  updateFarTerrain(planeGroup.position);
   if (globalInstancer) globalInstancer.rebuildAll();
   clock.update();
   let rawDelta = clock.getDelta();

@@ -178,6 +178,10 @@ export class TerrainWorkerManager {
 
       const job = {
         id: jobId,
+        // 'near' for regular chunks; 'far' for the distant terrain ring,
+        // whose jobs keep their own priority and aren't cancelled with near
+        // chunks that share their coordinates.
+        kind: options.kind || 'near',
         priority: options.priority !== undefined ? options.priority : 0,
         payload,
         transferables: options.transferables || [],
@@ -192,32 +196,33 @@ export class TerrainWorkerManager {
     });
   }
 
-  // Update priorities of all pending jobs in the queue
+  // Update priorities of pending near-chunk jobs
   updatePriorities(scoringFn) {
     for (let i = 0; i < this.jobQueue.length; i++) {
       const job = this.jobQueue[i];
+      if (job.kind !== 'near') continue;
       job.priority = scoringFn(job.payload.chunkX, job.payload.chunkZ);
     }
   }
 
   // Cancel pending or active requests for a specific chunk
-  cancelJob(chunkX, chunkZ) {
-    this.cancelRequests((x, z) => x === chunkX && z === chunkZ);
+  cancelJob(chunkX, chunkZ, kind = 'near') {
+    this.cancelRequests((x, z) => x === chunkX && z === chunkZ, kind);
   }
 
-  // Cancel pending or active requests matching a predicate
-  cancelRequests(predicate) {
+  // Cancel pending or active requests of one kind matching a predicate
+  cancelRequests(predicate, kind = 'near') {
+    const matches = (job) =>
+      job.kind === kind && predicate(job.payload.chunkX, job.payload.chunkZ);
     this.jobQueue = this.jobQueue.filter((job) => {
-      if (predicate(job.payload.chunkX, job.payload.chunkZ)) {
+      if (matches(job)) {
         job.cancelled = true;
         return false;
       }
       return true;
     });
     for (const job of this.activeJobs.values()) {
-      if (predicate(job.payload.chunkX, job.payload.chunkZ)) {
-        job.cancelled = true;
-      }
+      if (matches(job)) job.cancelled = true;
     }
   }
 }
