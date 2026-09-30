@@ -1,5 +1,11 @@
 # Release notes
 
+## [0.9.42](https://v0-9-42.chill-flight.pages.dev)
+
+- **Optimization:** Pruned Inter font imports to Latin-only subsets, removing 36 unused font files.
+- **Assets:** Offloaded custom heightmaps to Cloudflare R2 on-demand storage, saving 4.6 MB in bundle size.
+- **Deployment:** Integrated Cloudflare Pages preview deployments and git tagging into the release workflow.
+
 ## [0.9.41](https://v0-9-41.chill-flight.pages.dev)
 
 - **Visuals:** The headlight shines ahead of the plane, distant terrain fades smoothly into the horizon, and the world map and minimap label the snowy north, red-rock south and alien lands.
