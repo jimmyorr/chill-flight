@@ -168,9 +168,13 @@ import {state} from './state.js';
     img.onload = () => {
       processImage(img);
     };
+    const mapSrc =
+      mapName.startsWith('http://') || mapName.startsWith('https://')
+        ? mapName
+        : `https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/maps/${mapName}.png`;
     img.onerror = () => {
-      console.error(`Failed to load map: assets/${mapName}.png`);
+      console.error(`Failed to load map: ${mapSrc}`);
     };
-    img.src = `assets/${mapName}.png`;
+    img.src = mapSrc;
   }
 })();
