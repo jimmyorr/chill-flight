@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.9.41
+
+- **Visuals:** The headlight shines ahead of the plane, distant terrain fades smoothly into the horizon, and the world map and minimap label the snowy north, red-rock south and alien lands.
+
 ## 0.9.40
 
 - **Night:** A silver moon path on the water, moonlit clouds and a halo around the moon; the plane's headlight lights the ground from flight altitude again.
