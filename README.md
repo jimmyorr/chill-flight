@@ -535,6 +535,16 @@ To sync the latest web assets with the Android project and open Android Studio:
 npm run android
 ```
 
+#### Build signed Android release bundle
+
+To sync web assets, compile, sign, and export a release Android App Bundle (`.aab`) ready for Google Play:
+
+```bash
+npm run android:build
+```
+
+Signing credentials can be placed in `android/keystore.properties` (see `android/keystore.properties.example` for details). The generated bundle is output to `android/app/release/app-release.aab`.
+
 ### Desktop app development (Tauri)
 
 This project uses **Tauri** to build lightweight, native desktop apps for macOS, Windows, and Linux.

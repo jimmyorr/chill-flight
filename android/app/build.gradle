@@ -16,6 +16,12 @@ def getAppVersionCode() {
     return major * 10000 + minor * 100 + patch
 }
 
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.cowneck.chillflight"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -32,10 +38,38 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                def storeFilePath = keystoreProperties['storeFile'] ?: System.getenv('ANDROID_KEYSTORE_PATH')
+                if (storeFilePath) {
+                    if (storeFilePath.startsWith('~/')) {
+                        storeFilePath = "${System.getProperty('user.home')}/${storeFilePath.substring(2)}"
+                    }
+                    storeFile file(storeFilePath)
+                }
+                storePassword keystoreProperties['storePassword'] ?: System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias keystoreProperties['keyAlias'] ?: System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword keystoreProperties['keyPassword'] ?: keystoreProperties['storePassword'] ?: System.getenv('ANDROID_KEY_PASSWORD') ?: System.getenv('ANDROID_KEYSTORE_PASSWORD')
+            } else if (System.getenv('ANDROID_KEYSTORE_PASSWORD')) {
+                def envPath = System.getenv('ANDROID_KEYSTORE_PATH') ?: "${System.getProperty('user.home')}/chill-flight-2.jks"
+                if (envPath.startsWith('~/')) {
+                    envPath = "${System.getProperty('user.home')}/${envPath.substring(2)}"
+                }
+                storeFile file(envPath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: 'key0'
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD') ?: System.getenv('ANDROID_KEYSTORE_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (signingConfigs.release.storeFile) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "ios": "npx cap sync ios && npx cap open ios",
     "android": "npx cap sync android && npx cap open android",
+    "android:build": "node scripts/build-android.js",
     "test:syntax": "for f in *.js; do node --check \"$f\" || exit 1; done",
     "test:terrain": "node scripts/test-terrain.js",
     "test:scripts": "node scripts/test-html-scripts.js",
