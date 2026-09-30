@@ -38,6 +38,8 @@
 - **Tooling & quality:** Added headless browser smoke tests for dev and production builds, plus checks for undefined globals and import order.
 - **Diagnostics:** Sentry now reports errors thrown during startup.
 
+_First release developed with Claude (ES module migration)._
+
 ## [0.9.34](https://v0-9-34.chill-flight.pages.dev)
 
 - **Web workers:** Offloaded terrain elevation, normals, and water meshes to background workers with directional priority scheduling and job cancellation.
