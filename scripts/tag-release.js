@@ -57,3 +57,34 @@ try {
   console.error(`Failed to create git tag ${tagName}:`, error.message);
   process.exit(1);
 }
+
+// Optional Cloudflare Pages deployment
+const safeName = tagName.replace(/\./g, '-');
+const docsPath = path.join(__dirname, '../docs');
+if (fs.existsSync(docsPath)) {
+  try {
+    console.log(`\nDeploying ${tagName} to Cloudflare Pages...`);
+    execSync(
+      `npx -y wrangler pages deploy docs --project-name=chill-flight --branch="${safeName}" --commit-dirty=true`,
+      {stdio: 'inherit'}
+    );
+    if (targetCommit === 'HEAD') {
+      execSync(
+        `npx -y wrangler pages deploy docs --project-name=chill-flight --branch=main --commit-dirty=true`,
+        {stdio: 'inherit'}
+      );
+    }
+    console.log(`✨ Cloudflare Pages deployed successfully:`);
+    console.log(`   - Production: https://chill-flight.pages.dev`);
+    console.log(
+      `   - Version alias: https://${safeName}.chill-flight.pages.dev`
+    );
+  } catch (error) {
+    console.warn(
+      `\n⚠️  Cloudflare Pages deployment skipped or failed: ${error.message}`
+    );
+    console.warn(
+      `   You can deploy manually later with: npx wrangler pages deploy docs --project-name=chill-flight --branch=${safeName}`
+    );
+  }
+}
