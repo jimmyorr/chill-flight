@@ -66,6 +66,17 @@ function getGitInfo(isBuild = false) {
 
 export default defineConfig({
   base: './',
+  resolve: {
+    alias: {
+      // @capacitor-firebase/analytics lists firebase as an optional peer dep.
+      // The web build uses Google Tag Manager directly, so we stub this out
+      // to avoid requiring the full Firebase SDK as a web dependency.
+      'firebase/analytics': new URL(
+        './src/stubs/firebase-analytics.js',
+        import.meta.url
+      ).pathname,
+    },
+  },
   server: {
     host: true,
   },
