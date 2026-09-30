@@ -53,7 +53,8 @@
   3. **Generate release notes**: Review the git commit history since the previous version bump and write concise release notes directly to the top of `RELEASE_NOTES.md`.
   4. **Format & verify**: Run `npm run format` and `npm run test:syntax`.
   5. **Stage release bundle**: Stage the release files (`package.json`, `package-lock.json`, mobile project files, `RELEASE_NOTES.md`, and `docs/`).
-  6. **Ask for commit approval**: Propose the release commit message (e.g., `Release vX.Y.Z`) and wait for explicit user permission before committing.
+  6. **Ask for commit approval**: Propose the release commit message (e.g., `Release vX.Y.Z`) and specify that the commit will be tagged with the version number (e.g., `vX.Y.Z`), waiting for explicit user permission before committing.
+  7. **Commit and tag upon approval**: Once explicit permission is given, commit the staged release bundle (`git commit -m "Release vX.Y.Z"`), create an annotated git tag matching the version (`git tag -a vX.Y.Z -m "Release vX.Y.Z"` or `npm run release:tag`), and remind the user to push with tags (`git push origin main --tags` or `git push origin vX.Y.Z`).
 - **Stand-alone release notes request**: If the user specifically asks only to update or generate release notes (e.g., "generate release notes"), review commit history since the last bump, append the entry to the top of `RELEASE_NOTES.md`, format, stage, and ask for permission to commit.
 - **Length limit**: Each version entry in `RELEASE_NOTES.md` MUST be kept concise and explicitly limited to a maximum of **500 characters** per entry.
 - **Formatting**: Use sentence case for bullet points and headers. Group changes into bolded categories (e.g., `* **Controls:** Added ...`).

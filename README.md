@@ -496,6 +496,7 @@ The application's version number is managed using a single-source-of-truth syste
 To release a new production version:
 
 - **Release builds (`npm run release`)**: Running this command automatically bumps the patch version of the application (e.g., `0.8.7` -> `0.8.8`), builds the optimized frontend assets, and packages them inside `docs/` in a single step!
+- **Commit and tag (`npm run release:tag`)**: After compiling and generating release notes in `RELEASE_NOTES.md`, the release bundle is committed as `Release vX.Y.Z` and tagged with the version number using `npm run release:tag` (or `git tag -a vX.Y.Z -m "Release vX.Y.Z"`). Push tags to the remote repository using `git push origin --tags`.
 
 For local development compiles, standard compilation is done via `npm run build`, which compiles the assets **without** modifying any version numbers.
 
