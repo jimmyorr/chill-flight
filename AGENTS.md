@@ -50,14 +50,14 @@
 - **End-to-end release workflow**: Whenever the user asks to prepare, cut, create, or publish a release (using any phrasing such as "cut a release", "release", "make a release", "let's release", "bump version and release", etc.), execute the full end-to-end release process in one cohesive turn:
   1. **Ensure clean source state**: Verify that any prior source code changes (e.g., `game.js`, `style.css`) have already been committed so the working tree has no uncommitted source changes.
   2. **Run release command**: Execute `npm run release` synchronously (which bumps the patch version, runs `scripts/sync-version.js` for mobile project versioning, and builds production assets into `docs/`).
-  3. **Generate release notes**: Review the git commit history since the previous version bump and write concise release notes directly to the top of `RELEASE_NOTES.md`.
+  3. **Generate release notes**: Review the git commit history since the previous version bump and write concise release notes directly to the top of `RELEASE_NOTES.md`, formatting the header as a link to the version's preview URL (e.g., `## [X.Y.Z](https://vX-Y-Z.chill-flight.pages.dev)`).
   4. **Format & verify**: Run `npm run format` and `npm run test:syntax`.
   5. **Stage release bundle**: Stage the release files (`package.json`, `package-lock.json`, mobile project files, `RELEASE_NOTES.md`, and `docs/`).
   6. **Ask for commit approval**: Propose the release commit message (e.g., `Release vX.Y.Z`) and specify that the commit will be tagged with the version number (e.g., `vX.Y.Z`), waiting for explicit user permission before committing.
   7. **Commit, tag, and deploy upon approval**: Once explicit permission is given, commit the staged release bundle (`git commit -m "Release vX.Y.Z"`), run `npm run release:tag` (which creates the annotated tag and deploys the release to Cloudflare Pages, falling back with a warning if Wrangler is unavailable), and remind the user to push with tags (`git push origin main --tags` or `git push origin vX.Y.Z`).
 - **Stand-alone release notes request**: If the user specifically asks only to update or generate release notes (e.g., "generate release notes"), review commit history since the last bump, append the entry to the top of `RELEASE_NOTES.md`, format, stage, and ask for permission to commit.
 - **Length limit**: Each version entry in `RELEASE_NOTES.md` MUST be kept concise and explicitly limited to a maximum of **500 characters** per entry.
-- **Formatting**: Use sentence case for bullet points and headers. Group changes into bolded categories (e.g., `* **Controls:** Added ...`).
+- **Formatting**: Use sentence case for bullet points and headers. Link version headers to their Cloudflare Pages URL (e.g. `## [X.Y.Z](https://vX-Y-Z.chill-flight.pages.dev)`). Group changes into bolded categories (e.g., `* **Controls:** Added ...`).
 
 ## Documentation rules
 
