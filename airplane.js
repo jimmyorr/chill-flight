@@ -348,18 +348,20 @@ export const headlight = new THREE.SpotLight(0xffd1a3, 0);
 headlight.position.set(0, 0, -10);
 
 const headlightTarget = new THREE.Object3D();
-headlightTarget.position.set(0, -20, -100);
+// Aimed ~7 degrees below the nose with a 30-degree cone, so the pool of light
+// sits ahead of the plane rather than below it.
+headlightTarget.position.set(0, -12, -100);
 planeGroup.add(headlightTarget);
 headlight.target = headlightTarget;
 
-headlight.angle = Math.PI / 4;
-headlight.penumbra = 1.0;
+headlight.angle = Math.PI / 6;
+headlight.penumbra = 0.8;
 // No inverse-square falloff (decay 0): with it, the pool of light on the
 // ground was ~1% as bright at cruise altitude (400+ units away) as at 40
 // units, and vanished unless flying at ground level (#78). Instead it fades
 // out smoothly near `distance`, as the light did before three.js's physical
 // light units, so it lights the ground from typical flight altitudes.
-headlight.distance = 2500;
+headlight.distance = 3500;
 headlight.decay = 0;
 
 export const headlightGlow = new THREE.PointLight(0xffd1a3, 0, 50);
