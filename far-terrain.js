@@ -42,6 +42,13 @@ const farUniforms = {
 // the cheaper shader matters for a mesh this large.
 const farMaterial = new THREE.MeshLambertMaterial({
   vertexColors: true,
+  // Pushed back in depth: where the ring overlaps the near chunks (between
+  // the draw distance and the edge of the chunk grid) its coarse grid can
+  // sit above the detailed terrain on peaks, and the two fought over which
+  // is in front, flickering as the camera moved. The near terrain now wins.
+  polygonOffset: true,
+  polygonOffsetFactor: 4,
+  polygonOffsetUnits: 16,
 });
 farMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
@@ -134,6 +141,7 @@ let lastCellZ = null;
 let lastRadius = null;
 let wantedCount = 0;
 let wantedCells = []; // [i, j] pairs the ring should have, nearest first
+let edgeFadeTarget = 1; // uNearEdgeFade's target (see updateFarTerrain)
 
 function isActive() {
   return (
@@ -186,6 +194,7 @@ export function clearFarTerrain() {
   lastCellZ = null;
   wantedCount = 0;
   wantedCells = [];
+  edgeFadeTarget = 1;
   terrainUniforms.uNearEdgeFade.value = 1;
 }
 hooks.clearFarTerrain = clearFarTerrain;
@@ -289,9 +298,14 @@ export function updateFarTerrain(position) {
   }
 
   // Let the near terrain run to its edge (instead of fading into the sky)
-  // once most of the ring is there to continue it.
+  // once most of the ring is there to continue it. With hysteresis: entering
+  // a new cell leaves its new row loading for a moment, and switching the
+  // fade back on then made the horizon water and island edges change color
+  // briefly on every cell crossing. And eased, never switched instantly.
   let ready = 0;
   for (const cell of cells.values()) if (cell.mesh) ready++;
-  terrainUniforms.uNearEdgeFade.value =
-    wantedCount > 0 && ready >= wantedCount * 0.9 ? 0 : 1;
+  if (wantedCount > 0 && ready >= wantedCount * 0.9) edgeFadeTarget = 0;
+  else if (wantedCount === 0 || ready < wantedCount * 0.5) edgeFadeTarget = 1;
+  const fade = terrainUniforms.uNearEdgeFade;
+  fade.value += Math.max(-0.05, Math.min(0.05, edgeFadeTarget - fade.value));
 }
