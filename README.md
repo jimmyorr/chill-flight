@@ -527,6 +527,16 @@ To sync the latest web assets with the iOS project and open Xcode:
 npm run ios
 ```
 
+#### Build and upload iOS app
+
+To sync web assets, compile, archive, export a signed `.ipa`, and upload directly to App Store Connect / TestFlight:
+
+```bash
+npm run ios:build
+```
+
+App Store Connect API credentials can be placed in `ios/appstore.properties` (see `ios/appstore.properties.example` for details). If credentials are not configured, the script exports the signed `.ipa` and opens the archive in Xcode Organizer for manual one-click distribution.
+
 #### Sync and run Android app
 
 To sync the latest web assets with the Android project and open Android Studio:

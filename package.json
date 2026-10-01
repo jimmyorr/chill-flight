@@ -13,6 +13,7 @@
     "release:tag": "node scripts/tag-release.js",
     "preview": "vite preview",
     "ios": "npx cap sync ios && npx cap open ios",
+    "ios:build": "node scripts/build-ios.js",
     "android": "npx cap sync android && npx cap open android",
     "android:build": "node scripts/build-android.js",
     "test:syntax": "for f in *.js; do node --check \"$f\" || exit 1; done",

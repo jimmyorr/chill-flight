@@ -1,0 +1,11 @@
+# App Store Connect API configuration for CLI TestFlight / App Store uploads
+# Copy this file to ios/appstore.properties (which is git-ignored) and fill in your values.
+
+# The Key ID (10 alphanumeric characters from App Store Connect > Users and Access > Integrations)
+apiKey=XXXXXXXXXX
+
+# The Issuer ID (UUID from the top of the App Store Connect Keys page)
+apiIssuer=00000000-0000-0000-0000-000000000000
+
+# Full path to your downloaded .p8 private key file
+p8Path=/Users/jimmyorr/AuthKey_XXXXXXXXXX.p8
