@@ -14,14 +14,12 @@ Chill Flight
 
 <!-- Max 4,000 characters -->
 
-A minimalist flight simulator set in a procedurally generated world that changes every single day.
+A minimalist flight simulator set in an endless, ever-changing world.
 
-Drift through endless skies to relaxing lofi beats as you take flight and discover new horizons featuring:
+Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather,
+day-night cycles, and biomes that shift with each journey.
 
-- Dynamic weather
-- Day-night cycles
-- Diverse biomes
-- Music by Purrple Cat
+Music by Purrple Cat.
 
 Have a chill flight.
 
@@ -29,7 +27,7 @@ Have a chill flight.
 
 <!-- Max 100 characters -->
 
-flight,simulator,chill,lofi,relaxing,procedural,flying,airplanes
+flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient
 
 ## Music
 
