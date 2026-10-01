@@ -154,6 +154,20 @@ function resolveServiceAccountPath() {
   const defaultAndroid = path.join(androidDir, 'play-service-account.json');
   if (fs.existsSync(defaultAndroid)) return defaultAndroid;
 
+  const privateKeysDir = path.join(os.homedir(), '.private_keys');
+  if (fs.existsSync(privateKeysDir)) {
+    const pkFiles = fs.readdirSync(privateKeysDir);
+    for (const file of pkFiles) {
+      if (
+        (file.startsWith('chill-flight-') ||
+          file.startsWith('play-service-account')) &&
+        file.endsWith('.json')
+      ) {
+        return path.join(privateKeysDir, file);
+      }
+    }
+  }
+
   const files = fs.readdirSync(androidDir);
   for (const file of files) {
     if (

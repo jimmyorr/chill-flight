@@ -150,6 +150,15 @@ function loadAppStoreConfig() {
   // Expand ~ if present in path
   if (config.p8Path.startsWith('~/')) {
     config.p8Path = path.join(os.homedir(), config.p8Path.slice(2));
+  } else if (!config.p8Path && config.apiKey) {
+    const candidate = path.join(
+      os.homedir(),
+      '.private_keys',
+      `AuthKey_${config.apiKey}.p8`
+    );
+    if (fs.existsSync(candidate)) {
+      config.p8Path = candidate;
+    }
   }
 
   return config;

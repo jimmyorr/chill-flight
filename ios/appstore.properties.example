@@ -7,5 +7,5 @@ apiKey=XXXXXXXXXX
 # The Issuer ID (UUID from the top of the App Store Connect Keys page)
 apiIssuer=00000000-0000-0000-0000-000000000000
 
-# Full path to your downloaded .p8 private key file
-p8Path=/Users/jimmyorr/AuthKey_XXXXXXXXXX.p8
+# Full path to your downloaded .p8 private key file (defaults to ~/.private_keys/AuthKey_<apiKey>.p8)
+p8Path=~/.private_keys/AuthKey_XXXXXXXXXX.p8
