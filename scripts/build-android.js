@@ -204,9 +204,30 @@ function createGoogleJwt(serviceAccount) {
   return `${signatureInput}.${signature}`;
 }
 
+function getLatestReleaseNotes(appVersion) {
+  const notesPath = path.join(rootDir, 'RELEASE_NOTES.md');
+  if (!fs.existsSync(notesPath)) return null;
+  const content = fs.readFileSync(notesPath, 'utf8');
+  const escapedVersion = appVersion.replace(/\./g, '\\.');
+  const regex = new RegExp(
+    `##\\s+\\[?${escapedVersion}\\]?[^\\n]*\\n([\\s\\S]*?)(?=\\n##|$)`
+  );
+  const match = content.match(regex);
+  if (match && match[1]) {
+    let notes = match[1].trim();
+    if (notes.length > 500) {
+      notes = notes.slice(0, 497) + '...';
+    }
+    return notes;
+  }
+  return null;
+}
+
 async function uploadToGooglePlay(saPath) {
   const track =
-    keystoreConfig.playTrack || process.env.GOOGLE_PLAY_TRACK || 'internal';
+    keystoreConfig.playTrack ||
+    process.env.GOOGLE_PLAY_TRACK ||
+    'alpha';
 
   console.log(`\n🚀 Uploading AAB to Google Play Console (track: ${track})...`);
   const serviceAccount = JSON.parse(fs.readFileSync(saPath, 'utf8'));
@@ -258,27 +279,52 @@ async function uploadToGooglePlay(saPath) {
       body: aabBuffer,
     }
   );
+
+  let targetVersionCode = buildCode;
   if (!uploadRes.ok) {
     const errText = await uploadRes.text();
-    throw new Error(`Failed to upload AAB (${uploadRes.status}): ${errText}`);
+    if (errText.includes('already been used')) {
+      console.log(
+        `ℹ️  versionCode ${buildCode} is already uploaded in Google Play library. Promoting to track "${track}"...`
+      );
+    } else {
+      throw new Error(`Failed to upload AAB (${uploadRes.status}): ${errText}`);
+    }
+  } else {
+    const uploadData = await uploadRes.json();
+    targetVersionCode = uploadData.versionCode;
+    console.log(`✨ Uploaded bundle with versionCode: ${targetVersionCode}`);
   }
-  const {versionCode} = await uploadRes.json();
-  console.log(`✨ Uploaded bundle with versionCode: ${versionCode}`);
 
-  // 4. Assign to track
-  console.log(`📋 Assigning versionCode ${versionCode} to track "${track}"...`);
+  // 4. Assign to track with release notes
+  console.log(
+    `📋 Assigning versionCode ${targetVersionCode} to track "${track}"...`
+  );
+  const releaseObj = {
+    name: version,
+    versionCodes: [targetVersionCode.toString()],
+    status: 'completed',
+  };
+
+  const releaseNotesText = getLatestReleaseNotes(version);
+  if (releaseNotesText) {
+    console.log('📝 Attaching release notes from RELEASE_NOTES.md:');
+    console.log(releaseNotesText);
+    releaseObj.releaseNotes = [
+      {
+        language: 'en-US',
+        text: releaseNotesText,
+      },
+    ];
+  }
+
   const trackRes = await fetch(
     `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/edits/${editId}/tracks/${track}`,
     {
       method: 'PUT',
       headers: {...authHeaders, 'Content-Type': 'application/json'},
       body: JSON.stringify({
-        releases: [
-          {
-            versionCodes: [versionCode.toString()],
-            status: 'completed',
-          },
-        ],
+        releases: [releaseObj],
       }),
     }
   );
@@ -287,12 +333,22 @@ async function uploadToGooglePlay(saPath) {
     throw new Error(`Failed to update track (${trackRes.status}): ${errText}`);
   }
 
-  // 5. Commit edit
+  // 5. Commit edit with retry
   console.log('💾 Committing release edit...');
-  const commitRes = await fetch(
-    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/edits/${editId}:commit`,
-    {method: 'POST', headers: authHeaders}
-  );
+  let commitRes;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    commitRes = await fetch(
+      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/edits/${editId}:commit`,
+      {method: 'POST', headers: authHeaders}
+    );
+    if (commitRes.ok) break;
+    if (attempt < 3 && [500, 502, 503, 504].includes(commitRes.status)) {
+      console.log(
+        `⚠️  Google API returned ${commitRes.status}. Retrying in 2 seconds (attempt ${attempt}/3)...`
+      );
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
   if (!commitRes.ok) {
     const errText = await commitRes.text();
     throw new Error(`Failed to commit edit (${commitRes.status}): ${errText}`);
