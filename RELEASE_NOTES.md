@@ -1,5 +1,11 @@
 # Release notes
 
+## [0.9.43](https://v0-9-43.chill-flight.pages.dev)
+
+- **Deployment:** Unified web, Android, and iOS releases into a single workflow.
+- **Android:** Automated signed AAB generation and publication to Google Play Closed testing.
+- **iOS:** Automated Xcode archiving, signed IPA export, and direct delivery to TestFlight.
+
 ## [0.9.42](https://v0-9-42.chill-flight.pages.dev)
 
 - **Optimization:** Pruned Inter font imports to Latin-only subsets, removing 36 unused font files.
