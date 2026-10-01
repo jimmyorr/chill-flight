@@ -225,9 +225,7 @@ function getLatestReleaseNotes(appVersion) {
 
 async function uploadToGooglePlay(saPath) {
   const track =
-    keystoreConfig.playTrack ||
-    process.env.GOOGLE_PLAY_TRACK ||
-    'alpha';
+    keystoreConfig.playTrack || process.env.GOOGLE_PLAY_TRACK || 'alpha';
 
   console.log(`\n🚀 Uploading AAB to Google Play Console (track: ${track})...`);
   const serviceAccount = JSON.parse(fs.readFileSync(saPath, 'utf8'));
