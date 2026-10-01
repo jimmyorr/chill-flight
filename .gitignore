@@ -17,6 +17,10 @@ android/app/build/
 android/.gradle/
 android/local.properties
 android/keystore.properties
+android/play-service-account*.json
+play-service-account*.json
+android/chill-flight-*.json
+chill-flight-*.json
 *.jks
 *.keystore
 android/captmp/

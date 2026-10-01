@@ -545,15 +545,15 @@ To sync the latest web assets with the Android project and open Android Studio:
 npm run android
 ```
 
-#### Build signed Android release bundle
+#### Build and publish Android release bundle
 
-To sync web assets, compile, sign, and export a release Android App Bundle (`.aab`) ready for Google Play:
+To sync web assets, compile, sign with your keystore, and export a release Android App Bundle (`.aab`):
 
 ```bash
 npm run android:build
 ```
 
-Signing credentials can be placed in `android/keystore.properties` (see `android/keystore.properties.example` for details). The generated bundle is output to `android/app/release/app-release.aab`.
+Signing credentials and optional Google Play API credentials can be placed in `android/keystore.properties` (see `android/keystore.properties.example` for details). When a Google Play service account JSON key is provided (at `android/play-service-account.json` or referenced in properties), the script automatically publishes the bundle directly to Google Play Console. If not configured, the signed bundle is exported to `android/app/release/app-release.aab` for manual upload.
 
 ### Desktop app development (Tauri)
 
