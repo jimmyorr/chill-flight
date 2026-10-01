@@ -16,8 +16,7 @@ Chill Flight
 
 A minimalist flight simulator set in an endless, ever-changing world.
 
-Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather,
-day-night cycles, and biomes that shift with each journey.
+Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey.
 
 Music by Purrple Cat.
 
