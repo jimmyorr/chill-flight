@@ -188,7 +188,7 @@ console.log('----------------------------------------------------------------');
 console.log(`Version:    ${version}`);
 console.log(`Build:      ${buildCode}`);
 console.log(
-  `Direct URL: https://appstoreconnect.apple.com/apps/6744883464/appstore/ios`
+  `Direct URL: https://appstoreconnect.apple.com/apps/6779847377/distribution/ios/version/deliverable`
 );
 console.log('\nWhat\'s new in this version (copy-paste for "What\'s New"):');
 console.log('```text');
