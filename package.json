@@ -59,7 +59,7 @@
     "puppeteer-core": "^25.12.0",
     "vite": "^8.0.13"
   },
-  "description": "A minimalist flight simulator set in a procedurally generated world that changes every single day.",
+  "description": "A minimalist flight simulator set in an endless, ever-changing world.",
   "keywords": [
     "flight",
     "simulator",
@@ -67,7 +67,7 @@
     "lofi",
     "relaxing",
     "procedural",
-    "flying",
-    "airplanes"
+    "exploration",
+    "ambient"
   ]
 }
