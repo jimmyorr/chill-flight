@@ -131,7 +131,7 @@ Overcast conditions occur when the procedural cloud noise exceeds a threshold (0
 
 ### Storms and precipitation
 
-Storms are triggered when the global cloud noise map reaches peak density (> 0.75). The type of precipitation depends on your latitude (Z coordinate):
+Storms are triggered when the global cloud noise map reaches peak density (> 0.82). The type of precipitation depends on your latitude (Z coordinate):
 
 - **The deep north** (Latitude > 2.5 North / Z < -12500): Storms intensify the already frequent snowfall.
 - **The transition zone** (Latitude 1.5 to 2.5 North / Z between -7500 and -12500): Sleet (a mix of rain and snow).
@@ -212,7 +212,7 @@ The world is populated with dynamic, procedural wildlife that adds life to the e
 
 ## Controls
 
-Multiple control methods are supported: keyboard, mouse or trackpad, gamepad, and TV remote.
+Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad.
 
 ### Keyboard & mouse controls
 
@@ -293,7 +293,7 @@ _Note: Full visual effects include real-time shadows, transparent water and clou
 
 ### Dynamic performance scaling
 
-In addition to static presets, the game includes a runtime `DynamicPerformanceMonitor` that continuously tracks a 120-frame rolling average frame time and smoothly adjusts multiple graphics subsystems in tandem.
+In addition to static presets, the game includes a runtime `DynamicPerformanceMonitor` that continuously tracks a 30-frame rolling average frame time and smoothly adjusts multiple graphics subsystems in tandem.
 
 Rather than choosing between reducing prop detail or lowering resolution, **LOD scaling and dynamic resolution scaling (DRS) operate simultaneously**. Because web performance can be constrained either by CPU draw calls / vertex transformation or by GPU fragment fill rate, adjusting both parameters across synchronized tiers ensures frame recovery regardless of whether the bottleneck is CPU- or GPU-bound.
 
@@ -469,7 +469,7 @@ To optimize, minify, and bundle the entire codebase for deployment:
 npm run build
 ```
 
-This builds the optimized code into the `docs/` folder (which is hosted directly on GitHub Pages):
+This builds the optimized code into the `docs/` folder (which is deployed to Cloudflare Pages):
 
 - Game modules and third-party dependencies (`three`, `@sentry/browser`) are bundled and minified. The debug pages are dev-only and aren't included.
 - The terrain web worker is bundled into its own file.
