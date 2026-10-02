@@ -1180,12 +1180,10 @@ export function generateChunkData({
             desertFactor < 0.3 &&
             snowFactor < 0.3
           ) {
-            windmillPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
+            // Windmills all face into the wind (see WINDMILL_ROT_Y), but this
+            // roll stays so the rolls after it, and the world, don't shift.
+            rng();
+            windmillPositions.push({x: localX, y: height, z: localZ});
           } else if (
             ENABLE_LIGHTHOUSES &&
             !(chunkX === 5 && chunkZ === 2) &&

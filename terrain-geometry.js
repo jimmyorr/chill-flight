@@ -2522,7 +2522,12 @@ export const animationUniforms = {uTime: {value: 0}};
 // own phase. The wind blows one way across the world: the offset is turned
 // into each instance's rotated, scaled space. Shadows don't sway.
 export const windUniforms = {uWindStrength: {value: 1}};
-const WIND_DIR_GLSL = 'normalize(vec3(0.8, 0.0, 0.5))';
+// The direction the wind blows toward, on the XZ plane (not normalized).
+const WIND_DIR_X = 0.8;
+const WIND_DIR_Z = 0.5;
+const WIND_DIR_GLSL = `normalize(vec3(${WIND_DIR_X.toFixed(1)}, 0.0, ${WIND_DIR_Z.toFixed(1)}))`;
+// Windmills all turn their sails (+Z in model space) into the wind.
+export const WINDMILL_ROT_Y = Math.atan2(-WIND_DIR_X, -WIND_DIR_Z);
 
 function addWindSway(material, {bendStart, bendPerUnit}) {
   const base = material.onBeforeCompile;

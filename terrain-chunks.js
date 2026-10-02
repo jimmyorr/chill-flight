@@ -165,6 +165,7 @@ import {
   twoStoryChimneyGeo,
   twoStoryRoofGeo,
   useInstancedDepthMaterial,
+  WINDMILL_ROT_Y,
   waterMaterial,
   watercraftChunks,
   whiteSmokeMat,
@@ -1573,7 +1574,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     bladesInst.customDepthMaterial = windmillBladesDepthMat;
 
     windmillPositions.forEach((pos, index) => {
-      const structure = ModelAssembler.getStructure('windmill', pos.rotY);
+      const structure = ModelAssembler.getStructure('windmill', WINDMILL_ROT_Y);
       structure.forEach((part, pIdx) => {
         dummy.position.set(
           pos.x + part.pos[0],
