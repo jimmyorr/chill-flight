@@ -27,6 +27,8 @@ jobs:
         run: npm ci
 
       - name: Build preview
+        env:
+          VITE_PREVIEW: 'true'
         run: npx vite build --outDir dist --minify false --sourcemap
 
       - name: Deploy to Cloudflare Pages

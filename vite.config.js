@@ -1,8 +1,9 @@
 import {defineConfig} from 'vite';
 import fs from 'fs';
+import process from 'node:process';
 import {execSync} from 'child_process';
 
-function getGitInfo(isBuild = false) {
+function getGitInfo(isBuild = false, isPreview = false) {
   let commitHash = 'unknown';
   try {
     commitHash = execSync('git rev-parse --short HEAD').toString().trim();
@@ -57,6 +58,14 @@ function getGitInfo(isBuild = false) {
   try {
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
     version = pkg.version;
+    if (isPreview) {
+      const parts = version.split('.').map(Number);
+      if (parts.length === 3 && !parts.some(isNaN)) {
+        version = `${parts[0]}.${parts[1]}.${parts[2] + 1}-preview`;
+      } else {
+        version = `${version}-preview`;
+      }
+    }
   } catch {
     // fallback
   }
@@ -101,7 +110,8 @@ export default defineConfig({
         order: 'pre',
         handler(html, ctx) {
           const isBuild = !ctx.server;
-          const {commitHash, isDirty, version} = getGitInfo(isBuild);
+          const isPreview = process.env.VITE_PREVIEW === 'true';
+          const {commitHash, isDirty, version} = getGitInfo(isBuild, isPreview);
           return [
             {
               tag: 'script',
