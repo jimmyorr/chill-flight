@@ -389,8 +389,8 @@ function animate() {
       state.previousPosition.copy(planeGroup.position);
     }
 
-    // ~30 seconds of cruising flight is roughly 4500-5000 units.
-    if (state.sessionDistanceTravelled > 5000) {
+    // ~2 minutes of cruising flight is roughly 18000-20000 units.
+    if (state.sessionDistanceTravelled > 20000) {
       Achievements.unlock('welcome');
     }
 
