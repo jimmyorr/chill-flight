@@ -227,7 +227,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **M**: Toggle minimap overlay (or close fullscreen map if open).
 - **L**: Toggle headlight.
 - **V**: Cycle active aircraft (switch between Classic monoplane, vintage Biplane, Glider, and Twin engine transport).
-- **Shift + A**: Toggle autopilot (automatically levels out and maintains heading/altitude). Manual steering input will auto-disable autopilot.
+- **Shift + A**: Toggle autopilot (automatically levels out and maintains heading/altitude). Steering with the arrow keys, the touch joystick, drag-steer or a gamepad stick turns it off (mouse and tilt steering don't, since they're always steering).
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
 - **Fullscreen world map**: Open via the 🗺️ Map button in the pause menu. Drag with mouse to pan, scroll wheel or `+` / `−` keys to zoom, and click 🎯 to center on plane. The map and the minimap color the land by height (hillshaded) and by region: the snowy north, the sandy and red-rock south, and the alien lands (cyan in the east, magenta in the west), using the same noise and thresholds as the terrain (`tintForRegion` in `minimap.js`).
 

@@ -1085,11 +1085,17 @@ function updatePhysicsAndControls(delta, nowTime) {
   const dtLeft = doubleTap.ArrowLeft && !state.isFreeCamera;
   const dtRight = doubleTap.ArrowRight && !state.isFreeCamera;
 
-  // Auto-disable autopilot on manual steering input
+  // Auto-disable autopilot on manual steering input: arrow keys, or the touch
+  // joystick, drag-steer or a gamepad stick pushed past the deadzone. Gyro
+  // tilt and the desktop mouse are always "steering", so they don't count.
+  const isDeliberateSteer =
+    state.currentControlScheme !== 'gyro' &&
+    inputManager.isDeliberateSteering() &&
+    (effMouseX !== 0 || effMouseY !== 0);
   if (
     state.autopilotEnabled &&
     !keys.Shift &&
-    (isUp || isDown || isLeft || isRight)
+    (isUp || isDown || isLeft || isRight || isDeliberateSteer)
   ) {
     toggleAutopilot();
   }

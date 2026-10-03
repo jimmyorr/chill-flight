@@ -1028,6 +1028,19 @@ export class InputManager {
   }
 
   /**
+   * Whether the current steering comes from a deliberate input: the touch
+   * joystick, touch drag-steer or a gamepad stick. The desktop mouse steers
+   * just by sitting off-center, so it doesn't count (keys are checked apart).
+   */
+  isDeliberateSteering() {
+    return (
+      this.state.gamepad.steeringActive ||
+      this.state.joystick.active ||
+      this.state.touch.steeringId !== null
+    );
+  }
+
+  /**
    * Returns a unified steering vector {x, y, active} where x and y are between -1.0 and 1.0.
    * Resolves priority between Gamepad > Touch/Joystick/Mouse > Keyboard.
    */
