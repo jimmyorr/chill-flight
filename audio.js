@@ -450,6 +450,9 @@ export function setMusicEnabled(enabled) {
   if (ChillFlightLogic.MUSIC_PARAM === null) {
     localStorage.setItem('chill_flight_music_enabled', enabled);
   }
+  // Starting with music off never plays (so never fires 'pause'): sync the
+  // settings checkbox and pause menu here rather than waiting on the player.
+  syncMusicUI(enabled);
   updateAudioPlayer(enabled);
 }
 

@@ -32,6 +32,8 @@ flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient
 
 In-game radio features tracks by Purrple Cat (Used with permission/attribution).
 
+To start without music (say, on a train), tap the speaker button under Start on the title screen. The choice is saved: later visits skip the title screen and start silently. Music can be turned back on in settings.
+
 ## Biomes
 
 The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts.

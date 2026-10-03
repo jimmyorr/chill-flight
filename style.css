@@ -859,6 +859,58 @@ input[type='number'].customization-input {
   transition: all 0.3s ease;
 }
 
+/* Title screen music toggle: sets whether START begins with music. Turning it
+   off dims the music credit. */
+#splash-music-toggle {
+  margin-top: 22px;
+  width: 36px;
+  height: 36px;
+  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+#splash-music-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#splash-music-toggle[aria-pressed='false'] {
+  color: rgba(255, 255, 255, 0.45);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+#splash-music-toggle[aria-pressed='true'] .music-off-icon,
+#splash-music-toggle[aria-pressed='false'] .music-on-icon {
+  display: none;
+}
+
+#loading-music-attribution {
+  transition: opacity 0.3s ease;
+}
+
+#loading-music-attribution.dimmed {
+  opacity: 0.4;
+}
+
+#loading-music-attribution.dimmed a {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
 @keyframes pulse {
   0% {
     transform: scale(1);

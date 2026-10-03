@@ -355,6 +355,9 @@ if (!ChillFlightLogic.SHOW_UI) document.body.classList.add('ui-hidden');
 const overlay = document.getElementById('loading-overlay');
 if (overlay) {
   const beginBtn = document.getElementById('begin-btn');
+  // Whether START begins with music. The title screen's music toggle changes
+  // it; nothing plays or is saved until the game starts.
+  let startWithMusic = musicEnabled;
 
   state.dismissLoadingScreen = (instant = false) => {
     if (renderer && typeof renderer.compile === 'function') {
@@ -384,9 +387,8 @@ if (overlay) {
     state.justResumed = true;
     clock.update();
 
-    // Start music! (Will respect the musicEnabled state)
-
-    setMusicEnabled(musicEnabled);
+    // Start music (or not, per the title screen's music toggle)
+    setMusicEnabled(startWithMusic);
   };
 
   const progressContainer = document.getElementById(
@@ -398,6 +400,17 @@ if (overlay) {
 
   if (loadingAttrEl) {
     loadingAttrEl.style.display = musicEnabled ? 'block' : 'none';
+  }
+
+  const musicToggle = document.getElementById('splash-music-toggle');
+  if (musicToggle) {
+    musicToggle.addEventListener('click', () => {
+      startWithMusic = !startWithMusic;
+      musicToggle.setAttribute('aria-pressed', String(startWithMusic));
+      if (loadingAttrEl) {
+        loadingAttrEl.classList.toggle('dimmed', !startWithMusic);
+      }
+    });
   }
 
   if (beginBtn) {
