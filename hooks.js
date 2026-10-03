@@ -11,4 +11,5 @@ export const hooks = {
   fullscreenMap: null, // minimap.js: {open, close, toggle, isOpen, syncUrlParams}
   minimap: null, // minimap.js: {toggle, isVisible}
   clearFarTerrain: null, // far-terrain.js: drops the distant terrain ring
+  onResume: null, // zen.js: called by game-state.js when the game unpauses
 };

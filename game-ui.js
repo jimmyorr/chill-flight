@@ -505,7 +505,13 @@ if (overlay) {
 }
 
 export function showStartPlaneTooltip() {
-  if (state.startPlaneTooltipShown || !ChillFlightLogic.SHOW_TIPS) return;
+  if (
+    state.startPlaneTooltipShown ||
+    !ChillFlightLogic.SHOW_TIPS ||
+    document.body.classList.contains('zen')
+  ) {
+    return;
+  }
   state.startPlaneTooltipShown = true;
   localStorage.setItem('chill_flight_stopped_tooltip_shown', 'true');
 

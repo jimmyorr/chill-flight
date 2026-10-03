@@ -40,6 +40,7 @@ import '../flight-physics.js';
 import '../flight-camera.js';
 import '../game-gyro.js';
 import '../game-ui.js';
+import '../zen.js';
 import '../vr-manager.js';
 import '../game-loop.js';
 import '../map-loader.js';

@@ -69,6 +69,7 @@ export function togglePause() {
     if (clock.update) clock.update(); // clear accumulated time so plane doesn't skip
     clearInputState(); // wipe any input that bled through from the pause overlay
     state.justResumed = true; // suppress the first animate frame's input application
+    hooks.onResume?.();
   }
 }
 

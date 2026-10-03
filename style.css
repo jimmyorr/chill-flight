@@ -1945,6 +1945,48 @@ input[type='number'].customization-input {
   }
 }
 
+/* Zen (zen.js): hides the HUD and buttons but not the menus (pause,
+   achievements, map) or the touch joystick. visibility, like ?ui=0 below, so
+   layout and scripts are unaffected. */
+body.zen
+  :is(
+    #ui-layer,
+    #cockpit-ui,
+    #mobile-controls,
+    #achievement-toast-container,
+    #debug-menu,
+    #debug-telemetry
+  ),
+body.zen
+  :is(
+    #ui-layer,
+    #cockpit-ui,
+    #mobile-controls,
+    #achievement-toast-container,
+    #debug-menu,
+    #debug-telemetry
+  )
+  * {
+  visibility: hidden !important;
+}
+
+/* The zen tip has nothing to point at, so it sits centered, with centered
+   text and no arrow. */
+#zen-tooltip,
+#zen-tooltip.visible,
+#zen-tooltip.hidden {
+  position: fixed;
+  top: 50%;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+#zen-tooltip::after {
+  display: none;
+}
+
 /* ?ui=0: nothing on screen but the game view, for clean screenshots and
    recordings. visibility (not display) keeps layout and scripts unaffected;
    the renderer's canvas is the body's direct child. */

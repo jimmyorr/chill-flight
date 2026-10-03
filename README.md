@@ -229,6 +229,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **V**: Cycle active aircraft (switch between Classic monoplane, vintage Biplane, Glider, and Twin engine transport).
 - **Shift + A**: Toggle autopilot (automatically levels out and maintains heading/altitude). Steering with the arrow keys, the touch joystick, drag-steer or a gamepad stick turns it off (mouse and tilt steering don't, since they're always steering).
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
+- **Z**: Toggle zen (hides the HUD and buttons for an unobstructed view; also a checkbox in the pause menu).
 - **Fullscreen world map**: Open via the 🗺️ Map button in the pause menu. Drag with mouse to pan, scroll wheel or `+` / `−` keys to zoom, and click 🎯 to center on plane. The map and the minimap color the land by height (hillshaded) and by region: the snowy north, the sandy and red-rock south, and the alien lands (cyan in the east, magenta in the west), using the same noise and thresholds as the terrain (`tintForRegion` in `minimap.js`).
 
 #### Special maneuvers
@@ -266,6 +267,7 @@ When playing on a touch device, specialized UI and controls become available:
 - **Control schemes:** A dedicated control scheme selector allows you to choose between virtual joystick, device tilt (gyroscope), or directional button steering.
 - **Throttle:** A dedicated slider interface on the right side controls engine speed.
 - **Fullscreen world map:** Tap the 🗺️ Map button in the pause menu to open the full screen map. Press and hold / drag to pan across the world, pinch with two fingers to zoom in and out, double-tap to zoom in, and tap 🎯 to re-center on your plane.
+- **Zen:** Tick **Zen** in the pause menu to hide the HUD and buttons (the joystick still appears while you steer). Double-tap the center of the screen to bring the controls back. The setting is saved between visits.
 
 ### WebXR & VR headset support
 

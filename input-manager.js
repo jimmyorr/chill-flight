@@ -121,6 +121,9 @@ export class InputManager {
     this.onWeatherToggle = null;
     this.onPauseToggle = null;
     this.onMusicToggle = null;
+    this.onZenToggle = null;
+    this.onCenterDoubleTap = null;
+    this._lastCenterTap = 0;
     this.onThrottleChange = null; // function(deltaThrottle)
     this.onKeyRelease = null; // function(action, heldTime)
     this.onMenuToggle = null;
@@ -284,6 +287,9 @@ export class InputManager {
     if (key === 'g') {
       if (this.onWeatherToggle) this.onWeatherToggle();
       return;
+    }
+    if (key === 'z' && !e.metaKey && !e.ctrlKey) {
+      if (this.onZenToggle) this.onZenToggle();
     }
     if (key === 'p') {
       if (this.onMusicToggle) this.onMusicToggle();
@@ -529,6 +535,7 @@ export class InputManager {
       target.closest('#mobile-controls') ||
       target.closest('#mobile-action-menu') ||
       target.closest('#minimap-container') ||
+      target.closest('#zen-tooltip') ||
       target.closest('.color-swatch');
 
     if (isUI) return;
@@ -580,6 +587,12 @@ export class InputManager {
         this._tapCount[action] = 0;
         if (this.onTripleTap) this.onTripleTap(act);
       }
+    } else if (now - this._lastCenterTap < this.DOUBLE_TAP_MS) {
+      // The center has no maneuver, so a double tap there is free (zen exit)
+      this._lastCenterTap = 0;
+      if (this.onCenterDoubleTap) this.onCenterDoubleTap();
+    } else {
+      this._lastCenterTap = now;
     }
 
     if (this.state.controlScheme === 'gyro') {

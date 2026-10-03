@@ -97,6 +97,19 @@
                 >Music</label
               >
             </div>
+            <div class="customization-row horizontal" style="height: 38px">
+              <input
+                type="checkbox"
+                id="zen-toggle-input"
+                class="customization-checkbox"
+              />
+              <label
+                for="zen-toggle-input"
+                class="customization-label"
+                style="margin-bottom: 0; cursor: pointer"
+                >Zen</label
+              >
+            </div>
           </div>
         </div>
 
@@ -417,6 +430,13 @@
     </div>
 
     <!-- Virtual Joystick (Outside transform parent for correct position: fixed rendering) -->
+    <!-- Zen one-time tip (zen.js) -->
+    <div id="zen-tooltip" class="onboarding-tooltip hidden">
+      <h3 class="tooltip-title">Zen</h3>
+      <p class="tooltip-text" id="zen-tooltip-text"></p>
+      <button id="zen-dismiss-btn" class="tooltip-btn">Got it</button>
+    </div>
+
     <div id="virtual-joystick-base" class="joystick-hidden">
       <div id="virtual-joystick-stick"></div>
     </div>
