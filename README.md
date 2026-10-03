@@ -381,7 +381,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`start`**: Set to `1` to skip the title screen and start flying as soon as the game loads.
 - **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus, debug panels and tips), for clean screenshots and recordings. The keyboard controls still work.
 - **`music`**: Set to `0` or `1` to turn music off or on for this visit, without changing the saved setting.
-- **`tips`**: Set to `0` to skip the first-time tips ("Explore controls", "Start the plane") for this visit.
+- **`tips`**: Set to `0` to skip the first-time "Start the plane" tip for this visit.
 
 ## Development
 

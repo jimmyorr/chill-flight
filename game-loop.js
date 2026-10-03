@@ -281,12 +281,8 @@ function animate() {
   }
 
   // Trigger start plane tooltip if plane is stopped for the first time after a 5 second delay
-  const onboardingTooltip = getCachedElement('onboarding-tooltip');
-  const isOnboardingVisible =
-    onboardingTooltip && onboardingTooltip.classList.contains('visible');
   if (
     !state.startPlaneTooltipShown &&
-    !isOnboardingVisible &&
     state.targetFlightSpeed === 0 &&
     Math.abs(state.flightSpeedMultiplier) < 0.01
   ) {
