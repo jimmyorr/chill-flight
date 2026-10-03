@@ -48,7 +48,6 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.3.4",
     "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "^2.11.1",
@@ -69,5 +68,8 @@
     "procedural",
     "exploration",
     "ambient"
-  ]
+  ],
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.5"
+  }
 }
