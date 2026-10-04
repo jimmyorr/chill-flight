@@ -37,7 +37,10 @@ function makeFactory(behaviors, rest = 'ok') {
       behavior,
       terminated: false,
       jobs: 0,
+      messages: [],
       postMessage(payload) {
+        this.messages.push(payload);
+        if (payload.type === 'customMap') return; // not a job
         this.jobs++;
         this.lastPayload = payload;
         if (behavior === 'ok') {
@@ -167,6 +170,31 @@ const settle = (promise) =>
   check(
     'the forced island type reaches the worker',
     made[0].lastPayload.forceIslandType === 'karst'
+  );
+}
+
+// 7. Workers have their own ChillFlightLogic, so a custom map is sent to each,
+// including a replacement for a worker that died.
+{
+  const {factory, made} = makeFactory(['dead', 'ok']);
+  const m = new TerrainWorkerManager(2, {
+    createWorker: factory,
+    jobTimeoutMs: 50,
+  });
+  const customMap = {data: new Float32Array(4), width: 2, height: 2};
+  m.setCustomMap(customMap);
+  const isMap = (msg) =>
+    msg.type === 'customMap' && msg.customMap === customMap;
+  check(
+    'a custom map reaches every worker',
+    made.every((w) => w.messages.some(isMap))
+  );
+  // The dead worker (taken first) times out and is replaced
+  await Promise.all([0, 1].map((i) => settle(m.requestChunk(i, 0))));
+  const replacement = made[2];
+  check(
+    'a replacement worker gets the custom map before any job',
+    replacement !== undefined && isMap(replacement.messages[0])
   );
 }
 

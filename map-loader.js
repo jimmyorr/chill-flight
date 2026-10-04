@@ -2,7 +2,8 @@
 import {MAP_HEIGHT_SCALE, MAP_WORLD_SIZE, WATER_LEVEL} from './constants.js';
 import {log} from './logger.js';
 import {chunks, clearElevationCache} from './terrain-geometry.js';
-import {updateChunks} from './terrain-chunks.js';
+import {clearChunkQueue, updateChunks} from './terrain-chunks.js';
+import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {scene} from './scene.js';
 import {planeGroup} from './airplane.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -44,6 +45,11 @@ import {state} from './state.js';
       worldWidth: canvas.width * worldScale,
       worldHeight: canvas.height * worldScale,
     };
+
+    // Terrain workers generate from their own copy (Issue #79). Requests
+    // already sent were procedural, so drop them.
+    terrainWorkerManager.setCustomMap(ChillFlightLogic.customMap);
+    clearChunkQueue();
 
     log.info(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
     log.info(

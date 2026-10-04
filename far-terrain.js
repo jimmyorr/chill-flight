@@ -143,6 +143,8 @@ let wantedCount = 0;
 let wantedCells = []; // [i, j] pairs the ring should have, nearest first
 let edgeFadeTarget = 1; // uNearEdgeFade's target (see updateFarTerrain)
 
+// Off for custom maps: everything beyond a map's edge is open sea, and the
+// ring's water there draws as a dark band on the horizon.
 function isActive() {
   return (
     state.farTerrainEnabled &&

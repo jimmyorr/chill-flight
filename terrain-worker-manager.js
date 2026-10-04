@@ -35,6 +35,8 @@ export class TerrainWorkerManager {
     // run here at all (rather than one worker having died).
     this.hasReplied = false;
     this.failedWorkers = 0;
+    // The custom heightmap the workers generate from (see setCustomMap)
+    this.customMap = null;
     this.isSupported =
       createWorker !== createTerrainWorker ||
       (typeof window !== 'undefined' && window.Worker !== undefined);
@@ -55,6 +57,9 @@ export class TerrainWorkerManager {
       const worker = this.createWorker();
       worker.onmessage = this._handleMessage.bind(this, worker);
       worker.onerror = this._handleError.bind(this, worker);
+      if (this.customMap) {
+        worker.postMessage({type: 'customMap', customMap: this.customMap});
+      }
       this.workers.push(worker);
       this.idleWorkers.push(worker);
     } catch (err) {
@@ -149,6 +154,16 @@ export class TerrainWorkerManager {
         this._failWorker(worker, new Error('Terrain worker timed out'));
       }, this.jobTimeoutMs);
       worker.postMessage(job.payload, job.transferables);
+    }
+  }
+
+  // Workers have their own copy of ChillFlightLogic, so a custom heightmap
+  // loaded on the main thread is sent to each (and to replacements). Chunks
+  // requested after this call use it; cancel earlier requests.
+  setCustomMap(customMap) {
+    this.customMap = customMap;
+    for (const worker of this.workers) {
+      worker.postMessage({type: 'customMap', customMap});
     }
   }
 
