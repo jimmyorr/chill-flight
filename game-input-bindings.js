@@ -80,6 +80,12 @@ inputManager.onHeadlightToggle = () => {
     if (hdgtSub) hdgtSub.classList.remove('active');
   }
 };
+// ?headlight=1 starts with it on
+if (ChillFlightLogic.START_HEADLIGHT) {
+  headlight.intensity = HEADLIGHT_INTENSITY;
+  headlightGlow.intensity = HEADLIGHT_GLOW_INTENSITY;
+  if (hdgtSub) hdgtSub.classList.add('active');
+}
 inputManager.onDebugToggle = () => {
   const debugMenu = document.getElementById('debug-menu');
   const debugTelem = document.getElementById('debug-telemetry');
@@ -227,4 +233,7 @@ export function applyThrottleDelta(delta) {
 }
 state.verticalVelocity = 0; // units/sec, negative = falling
 export var keyPressStartTime = inputManager.state.keyPressStartTime;
-export var currentCinematicIndex = 0;
+// ?angle= picks a preset; a ?camOffset= view is added first (game.js)
+export var currentCinematicIndex = ChillFlightLogic.START_CAM_OFFSET
+  ? 0
+  : ChillFlightLogic.START_CAM_ANGLE || 0;

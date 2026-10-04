@@ -145,7 +145,6 @@ let _telemetryTrisAccum;
 let _telemetryRenderFrames;
 let _lastRenderInfoUpdate;
 let _debugVirtualClockNow;
-let _cloudTime;
 // Lingering mist after rain or snow, 0..1 (drives fog density).
 let fogAfterRain = 0;
 let benchmarkComplete;
@@ -880,14 +879,15 @@ function updateDayNightCycle(delta) {
   const useVirtualClock =
     isDebugMode ||
     state.manualTimeOfDay !== undefined ||
-    state.daySpeedMultiplier !== 1;
+    state.daySpeedMultiplier !== 1 ||
+    ChillFlightLogic.START_CLOCK !== null;
 
   if (useVirtualClock) {
     // In debug mode, we use a virtual clock that we increment ourselves,
     // allowing for speed multipliers while maintaining the same "warped" physics
     // as the wall clock.
     if (_debugVirtualClockNow === undefined) {
-      _debugVirtualClockNow = Date.now();
+      _debugVirtualClockNow = ChillFlightLogic.START_CLOCK ?? Date.now();
     } else {
       _debugVirtualClockNow += delta * 1000 * state.daySpeedMultiplier;
     }
@@ -1823,14 +1823,14 @@ function updateEnvironmentLighting(delta, now) {
   skyUniforms.sunDirection.value.copy(_tempVec);
   const cloudSpeed =
     typeof manualCloudSpeed === 'number' ? manualCloudSpeed : 1.0;
-  _cloudTime =
-    (_cloudTime || now * 0.001) +
+  state.cloudTime =
+    (state.cloudTime ?? now * 0.001) +
     delta *
       (typeof state.daySpeedMultiplier !== 'undefined'
         ? state.daySpeedMultiplier
         : 1) *
       cloudSpeed;
-  skyUniforms.uTime.value = _cloudTime;
+  skyUniforms.uTime.value = state.cloudTime;
   skyUniforms.uCloudDensity.value = overcast;
   if (skyUniforms.uCloudHeight) {
     skyUniforms.uCloudHeight.value = manualCloudHeight;

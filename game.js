@@ -18,7 +18,10 @@ import {
   setActivePlane,
 } from './airplane.js';
 import {updateChunks} from './terrain-chunks.js';
-import {_lastChunkUpdatePos} from './game-input-bindings.js';
+import {
+  _lastChunkUpdatePos,
+  currentCinematicIndex,
+} from './game-input-bindings.js';
 import {applyGraphicsPreset, initDebugUI} from './debug-ui.js';
 import {state} from './state.js';
 import {updateUrlParams} from './constants.js';
@@ -75,14 +78,28 @@ export const CINEMATIC_CONFIGS = [
   }, // Wing-tip view
 ];
 
+// ?camOffset= (with optional camLook and fov) is a custom cinematic view, first
+// so it's the one the cinematic mode starts on.
+if (ChillFlightLogic.START_CAM_OFFSET) {
+  CINEMATIC_CONFIGS.unshift({
+    offset: new THREE.Vector3(...ChillFlightLogic.START_CAM_OFFSET),
+    lookOffset: new THREE.Vector3(
+      ...(ChillFlightLogic.START_CAM_LOOK || [0, 0, 0])
+    ),
+    fov: ChillFlightLogic.START_FOV ?? 65,
+  });
+}
+const startCinematicConfig =
+  CINEMATIC_CONFIGS[currentCinematicIndex] || CINEMATIC_CONFIGS[0];
+
 export const _idealCameraPos_Cinematic = new THREE.Vector3();
 export const _idealLookTarget_Cinematic = new THREE.Vector3();
 
 export const _cinematicOffsetCurrent = new THREE.Vector3().copy(
-  CINEMATIC_CONFIGS[0].offset
+  startCinematicConfig.offset
 );
 export const _cinematicLookTargetCurrent = new THREE.Vector3().copy(
-  CINEMATIC_CONFIGS[0].lookOffset
+  startCinematicConfig.lookOffset
 );
 export const _cinematicStableMatrix = new THREE.Matrix4();
 export const _cinematicStableQuat = new THREE.Quaternion();

@@ -288,6 +288,50 @@ export const ChillFlightLogic = {};
   const START_SPEED =
     _speedParam !== null && _speedParam !== '' ? parseFloat(_speedParam) : null;
 
+  // --- Shot parameters (camera, lights and clocks), for reproducible views:
+  // the debug menu's "copy URL" buttons write them (see README).
+  const parseNumberParam = (name) => {
+    const v = getParam(name, null);
+    if (v === null || v === '') return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
+  // "x,y,z" -> [x, y, z], or null
+  const parseVec3Param = (name) => {
+    const v = getParam(name, null);
+    if (v === null) return null;
+    const parts = v.split(',').map((p) => parseFloat(p));
+    return parts.length === 3 && parts.every((n) => !isNaN(n)) ? parts : null;
+  };
+  const CAMERA_MODES = [
+    'follow',
+    'first-person',
+    'birds-eye-close',
+    'birds-eye-far',
+    'cinematic',
+  ];
+  const _cameraParam = (getParam('camera', '') || '').trim().toLowerCase();
+  // A chase offset relative to the plane (right, up, behind) is a custom
+  // cinematic view; camLook is the point it looks at, also relative.
+  const START_CAM_OFFSET = parseVec3Param('camOffset');
+  const START_CAM_LOOK = parseVec3Param('camLook');
+  const START_CAMERA = START_CAM_OFFSET
+    ? 'cinematic'
+    : CAMERA_MODES.includes(_cameraParam)
+      ? _cameraParam
+      : null;
+  // Which of the cinematic mode's preset angles (game.js CINEMATIC_CONFIGS)
+  const _angleParam = parseNumberParam('angle');
+  const START_CAM_ANGLE =
+    _angleParam !== null && _angleParam >= 0 ? Math.floor(_angleParam) : null;
+  const START_FOV = parseNumberParam('fov');
+  const START_HEADLIGHT = getSwitchParam('headlight');
+  // The world clock (ms since 1970) sets the moon phase, aurora, procedural
+  // weather and the day's sky palette; cloudTime (seconds) is how far the
+  // clouds have drifted. With timeSpeed=0 both stay put.
+  const START_CLOCK = parseNumberParam('clock');
+  const START_CLOUD_TIME = parseNumberParam('cloudTime');
+
   const _todParam = getParam('tod', null);
   const START_TOD =
     _todParam !== null && _todParam !== '' ? parseFloat(_todParam) : null;
@@ -410,6 +454,28 @@ export const ChillFlightLogic = {};
     const index = Math.abs(hash) % PLANE_COLORS.length;
     return PLANE_COLORS[index];
   }
+
+  // ?livery= an index (0-7) or name, for this visit only (not saved)
+  const LIVERY_NAMES = [
+    'coral',
+    'teal',
+    'sage',
+    'purple',
+    'slate',
+    'sand',
+    'rose',
+    'black',
+  ];
+  const _liveryParam = (getParam('livery', '') || '').trim().toLowerCase();
+  const _liveryIndex = /^\d+$/.test(_liveryParam)
+    ? parseInt(_liveryParam, 10)
+    : LIVERY_NAMES.indexOf(_liveryParam);
+  const START_LIVERY =
+    _liveryParam !== '' &&
+    _liveryIndex >= 0 &&
+    _liveryIndex < PLANE_COLORS.length
+      ? PLANE_COLORS[_liveryIndex]
+      : null;
 
   // --- DAY / NIGHT WARP ---
   // Maps raw cycle progress (unwarped_p) [0,1) to a warped time-of-day (warped_p) [0,1).
@@ -2232,6 +2298,7 @@ export const ChillFlightLogic = {};
   exports.mulberry32 = mulberry32;
   exports.chunkRng = chunkRng;
   exports.PLANE_COLORS = PLANE_COLORS;
+  exports.LIVERY_NAMES = LIVERY_NAMES;
   exports.getPlaneColor = getPlaneColor;
   exports.computeTimeOfDay = computeTimeOfDay;
   exports.computeInputPosition = computeInputPosition;
@@ -2460,6 +2527,15 @@ export const ChillFlightLogic = {};
   exports.FORCE_ISLAND_TYPE = START_ISLAND_TYPE;
   exports.getIslandArchetype = getIslandArchetype;
   exports.START_PLANE = START_PLANE;
+  exports.START_CAMERA = START_CAMERA;
+  exports.START_CAM_OFFSET = START_CAM_OFFSET;
+  exports.START_CAM_LOOK = START_CAM_LOOK;
+  exports.START_CAM_ANGLE = START_CAM_ANGLE;
+  exports.START_FOV = START_FOV;
+  exports.START_HEADLIGHT = START_HEADLIGHT;
+  exports.START_CLOCK = START_CLOCK;
+  exports.START_CLOUD_TIME = START_CLOUD_TIME;
+  exports.START_LIVERY = START_LIVERY;
   exports.PLANE_TYPES = PLANE_TYPES;
   // --- FLIGHT AERODYNAMICS ---
   // Calculates the updated pitch, roll, and yaw for the airplane.

@@ -22,6 +22,8 @@ export const state = {
   // Day/night cycle (0..2PI: 0 = midnight, PI = noon). Starts at 05:30 to
   // catch the heart of the sunrise transition.
   timeOfDay: Math.PI * (5.5 / 12),
+  // How far the clouds have drifted, in seconds (game-loop.js); ?cloudTime=
+  cloudTime: ChillFlightLogic.START_CLOUD_TIME,
   daySpeedMultiplier:
     ChillFlightLogic.START_TIME_SPEED !== null
       ? ChillFlightLogic.START_TIME_SPEED
@@ -29,9 +31,11 @@ export const state = {
 
   // Airplane (game.js changes the color; physics/debug drive the pontoons)
   planeColor:
-    storedColor !== null && !isNaN(parseInt(storedColor))
-      ? parseInt(storedColor)
-      : ChillFlightLogic.PLANE_COLORS[0],
+    ChillFlightLogic.START_LIVERY !== null
+      ? ChillFlightLogic.START_LIVERY
+      : storedColor !== null && !isNaN(parseInt(storedColor))
+        ? parseInt(storedColor)
+        : ChillFlightLogic.PLANE_COLORS[0],
   pontoonDeploymentProgress: 0,
   isDeployingPontoons: false,
   isRetractingPontoons: false,
@@ -64,10 +68,15 @@ export const state = {
   targetRoll: 0,
   smoothedManeuverFactor: 0, // Ensures smooth cinematic transitions
   manualPitch: 0,
-  cameraMode: 'follow', // 'follow', 'first-person', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
-  cameraTransitionProgress: 0, // 0 = follow/cinematic, 1 = bird's eye
-  currentBirdEyeHeight: 2000,
-  _cinematicStableHeading: 0,
+  // A ?camera= mode starts in place rather than easing in from follow.
+  cameraMode: ChillFlightLogic.START_CAMERA || 'follow', // 'follow', 'first-person', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
+  cameraTransitionProgress:
+    {'first-person': 0.5, 'birds-eye-close': 1, 'birds-eye-far': 1}[
+      ChillFlightLogic.START_CAMERA
+    ] || 0, // 0 = follow/cinematic, 1 = bird's eye
+  currentBirdEyeHeight:
+    ChillFlightLogic.START_CAMERA === 'birds-eye-close' ? 500 : 2000,
+  _cinematicStableHeading: null, // set to the plane's heading on first use
   isDoingImmelmann: false,
   immelmannProgress: 0,
   wasLooping: false,

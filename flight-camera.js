@@ -259,7 +259,11 @@ export function updateFlightCamera(delta, nowTime) {
     _up_TopDown.set(0, 0, -1); // North is UP
 
     // 3. Calculate Cinematic State
-    const cinematicConfig = CINEMATIC_CONFIGS[currentCinematicIndex];
+    const cinematicConfig =
+      CINEMATIC_CONFIGS[currentCinematicIndex] || CINEMATIC_CONFIGS[0];
+    if (state._cinematicStableHeading === null) {
+      state._cinematicStableHeading = planeGroup.rotation.y;
+    }
     if (state.cameraMode === 'cinematic') {
       // Smoothen the switches between cinematic offsets
       const hasOffsetJumped =

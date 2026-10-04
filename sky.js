@@ -257,10 +257,13 @@ export function updateSkyPalette(clockNow) {
 }
 
 // --- NOISE TEXTURE GENERATOR ---
+// Seeded from the world seed, so a URL (seed, cloudTime, ...) gives the same
+// clouds on every load.
 const _noiseSize = 256;
 const _noiseData = new Uint8Array(_noiseSize * _noiseSize);
+const _noiseRng = ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED);
 for (let i = 0; i < _noiseData.length; i++) {
-  _noiseData[i] = Math.floor(Math.random() * 256);
+  _noiseData[i] = Math.floor(_noiseRng() * 256);
 }
 const skyNoiseTexture = new THREE.DataTexture(
   _noiseData,

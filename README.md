@@ -201,7 +201,7 @@ The plane's color is deterministically chosen based on a hash of the player's un
 - Deep Rose
 - Charcoal Black
 
-You can force a specific livery using the `?palette=<index>` URL parameter (0-7).
+You can pick a livery for one visit with the `?livery=` URL parameter: an index (0-7) or a name (`coral`, `teal`, `sage`, `purple`, `slate`, `sand`, `rose`, `black`).
 
 ## Wildlife
 
@@ -351,12 +351,15 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`pitch`**: Starting pitch angle in degrees.
 - **`speed`**: Starting flight speed multiplier (e.g., `1.0`, `2.0`, `0`).
 - **`plane`** or **`vehicle`**: Initial aircraft model (`classic` for the standard monoplane, `biplane` for the vintage biplane, `glider`, or `twin`).
+- **`livery`**: Plane color for this visit (not saved): an index (0-7) or a name (`coral`, `teal`, `sage`, `purple`, `slate`, `sand`, `rose`, `black`).
 - **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
 
 ### Environment and time
 
 - **`tod`**: Time of day (value between `0.0` and `1.0`, where 0 is midnight and 0.5 is solar noon).
 - **`timeSpeed`**: Speed multiplier for the day/night cycle (set to `0` to lock the time of day).
+- **`clock`**: The world clock, in milliseconds since 1970. It sets what follows the real date and time: the moon phase, the aurora, procedural weather and the day's sky palette. With `timeSpeed=0` it stays put.
+- **`cloudTime`**: How far the clouds have drifted, in seconds. Together with `seed` (the cloud pattern), `clock` and `timeSpeed=0`, a URL gives the same sky on every load.
 - **`seed`**: Integer world seed for procedural terrain generation.
 - **`theme`**: The visual theme to load (e.g., `standard`).
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
@@ -370,8 +373,12 @@ The game supports various URL query parameters for deep linking to specific loca
 
 ### Camera and system
 
+- **`camera`**: Start in a camera mode: `follow` (default), `first-person`, `birds-eye-close`, `birds-eye-far` or `cinematic`. The **C** key cycles them.
+- **`angle`**: With `camera=cinematic`, which of its preset angles (0-4: side-on, low from the front, front quarter, high above, wing tip).
+- **`camOffset`**: A custom chase camera, `x,y,z` relative to the plane's heading (x to the right, y up, z behind; negative z is ahead, looking back). It follows the plane, so it works for stills and moving shots. **`camLook`** (`x,y,z`, same frame, default the plane) is the point it looks at and **`fov`** its field of view (default 65).
+- **`headlight`**: Set to `1` to start with the headlight on.
 - **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros). Inherits starting location from `lat`, `long`/`lon`, and `alt`, or from `x`, `y`, and `z`.
-- **`debug`**: Set to `true` (or include `?debug` or `?debug=1`) to start with the debug menu and telemetry overlay visible and enable diagnostic console logging.
+- **`debug`**: Set to `true` (or include `?debug` or `?debug=1`) to start with the debug menu and telemetry overlay visible and enable diagnostic console logging. The debug menu's copy URL buttons (at the plane, or at the free camera) write every parameter of the current view, including the camera, livery, headlight, clouds, `clock` and `cloudTime`, so a link reproduces the picture.
 - **`benchmark`**: Duration in seconds (e.g., `?benchmark=30`) to run an automated flight benchmark measuring mean FPS, 1% low, 0.1% low, and maximum frame spike.
 - **`preset`** or **`graphics`**: Override the graphics preset (`low`, `mid`, `high`, `ultra`).
 - **`autopilot`** or **`auto`**: Set to `true` (or include `?autopilot`) to engage autopilot immediately upon startup.

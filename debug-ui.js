@@ -36,6 +36,7 @@ import {scene} from './scene.js';
 import {
   activePlaneType,
   getMaxFlightSpeedMult,
+  headlight,
   hingeLB,
   hingeLF,
   hingeRB,
@@ -45,7 +46,10 @@ import {
   pontoonL,
   pontoonR,
 } from './airplane.js';
-import {_lastChunkUpdatePos} from './game-input-bindings.js';
+import {
+  _lastChunkUpdatePos,
+  currentCinematicIndex,
+} from './game-input-bindings.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
   clearChunkQueue,
@@ -733,6 +737,58 @@ export function initDebugUI() {
       params.set('fullscreenmap', 'true');
     } else {
       params.delete('fullscreenmap');
+    }
+
+    // --- The rest of the shot: livery, camera, lights, clocks, islands ---
+    const liveryIndex = ChillFlightLogic.PLANE_COLORS.indexOf(state.planeColor);
+    if (liveryIndex >= 0) {
+      params.set('livery', ChillFlightLogic.LIVERY_NAMES[liveryIndex]);
+    }
+
+    // A custom ?camOffset= view is the first cinematic config (game.js); keep
+    // its parameters while it's the one showing.
+    const isCustomCinematic =
+      state.cameraMode === 'cinematic' &&
+      ChillFlightLogic.START_CAM_OFFSET &&
+      currentCinematicIndex === 0;
+    if (!isCustomCinematic) {
+      params.delete('camOffset');
+      params.delete('camLook');
+      params.delete('fov');
+    }
+    params.delete('angle');
+    if (forCamera || state.cameraMode === 'follow') {
+      params.delete('camera');
+    } else if (!isCustomCinematic) {
+      params.set('camera', state.cameraMode);
+      if (state.cameraMode === 'cinematic' && currentCinematicIndex > 0) {
+        params.set('angle', currentCinematicIndex);
+      }
+    }
+
+    if (headlight.intensity > 0) {
+      params.set('headlight', '1');
+    } else {
+      params.delete('headlight');
+    }
+
+    // The world clock and cloud drift, so the moon, aurora, weather, sky
+    // palette and clouds come out the same
+    if (state.worldClockNow) {
+      params.set('clock', Math.round(state.worldClockNow));
+    }
+    if (typeof state.cloudTime === 'number') {
+      params.set('cloudTime', Number(state.cloudTime.toFixed(2)));
+    }
+
+    params.delete('island');
+    if (
+      ChillFlightLogic.FORCE_ISLAND_TYPE &&
+      ChillFlightLogic.FORCE_ISLAND_TYPE !== 'auto'
+    ) {
+      params.set('islandType', ChillFlightLogic.FORCE_ISLAND_TYPE);
+    } else {
+      params.delete('islandType');
     }
     return url.toString();
   };
