@@ -423,6 +423,74 @@ export function initDebugUI() {
     });
   }
 
+  // Places the plane from the URL: x/y/z (lat/long/alt are applied in
+  // airplane.js), heading, pitch, roll and speed, kept above ground or water.
+  const placePlaneFromUrl = () => {
+    if (ChillFlightLogic.START_X !== null)
+      planeGroup.position.x = ChillFlightLogic.START_X;
+    if (ChillFlightLogic.START_Y !== null)
+      planeGroup.position.y = ChillFlightLogic.START_Y;
+    if (ChillFlightLogic.START_Z !== null)
+      planeGroup.position.z = ChillFlightLogic.START_Z;
+
+    // Set rotation order to YXZ for proper flight controls
+    planeGroup.rotation.order = 'YXZ';
+
+    if (ChillFlightLogic.START_HEADING !== null)
+      planeGroup.rotation.y = THREE.MathUtils.degToRad(
+        ChillFlightLogic.START_HEADING
+      );
+    if (ChillFlightLogic.START_PITCH !== null)
+      planeGroup.rotation.x = THREE.MathUtils.degToRad(
+        ChillFlightLogic.START_PITCH
+      );
+    if (ChillFlightLogic.START_ROLL !== null)
+      planeGroup.rotation.z = THREE.MathUtils.degToRad(
+        ChillFlightLogic.START_ROLL
+      );
+    if (
+      ChillFlightLogic.START_SPEED !== null &&
+      !isNaN(ChillFlightLogic.START_SPEED)
+    ) {
+      const initialSpeed = Math.max(
+        0,
+        Math.min(10, ChillFlightLogic.START_SPEED)
+      );
+      state.flightSpeedMultiplier = initialSpeed;
+      state.targetFlightSpeed = Math.min(getMaxFlightSpeedMult(), initialSpeed);
+    }
+
+    // Ensure spawn altitude does not submerge the plane below the resting surface
+    const spawnElev = getElevation(
+      planeGroup.position.x,
+      planeGroup.position.z
+    );
+    const spawnIsWater = spawnElev <= WATER_LEVEL + 0.1;
+    const spawnRestingHeight = spawnIsWater
+      ? WATER_LEVEL + 4.8
+      : spawnElev + 12.0;
+    if (planeGroup.position.y < spawnRestingHeight) {
+      planeGroup.position.y = spawnRestingHeight;
+    }
+    if (spawnIsWater && state.targetFlightSpeed === 0) {
+      if (pontoonGroup) {
+        pontoonGroup.visible = true;
+        state.pontoonDeploymentProgress = 1;
+        state.isDeployingPontoons = false;
+        state.isRetractingPontoons = false;
+        pontoonGroup.scale.setScalar(1);
+        pontoonL.rotation.z = 0;
+        pontoonR.rotation.z = 0;
+        hingeLF.rotation.z = 0;
+        hingeLB.rotation.z = 0;
+        hingeRF.rotation.z = 0;
+        hingeRB.rotation.z = 0;
+        pontoonL.position.y = -4.5;
+        pontoonR.position.y = -4.5;
+      }
+    }
+  };
+
   // Free Camera toggle
   state.isFreeCamera = ChillFlightLogic.START_FREE_CAM || false;
   const freeCamToggle = document.getElementById('debug-free-cam-toggle');
@@ -483,15 +551,28 @@ export function initDebugUI() {
         }
       }
 
+      // camX/camY/camZ/camHeading/camPitch: the plane goes where x/y/z,
+      // heading, pitch and roll say, and the camera where these do (anything
+      // left out starts at the plane).
+      const separateCamera = ChillFlightLogic.HAS_CAM_PLACEMENT;
+      if (separateCamera) {
+        placePlaneFromUrl();
+        startCamX = ChillFlightLogic.START_CAM_X ?? planeGroup.position.x;
+        startCamY = ChillFlightLogic.START_CAM_Y ?? planeGroup.position.y;
+        startCamZ = ChillFlightLogic.START_CAM_Z ?? planeGroup.position.z;
+      }
+      const camHeading = separateCamera
+        ? ChillFlightLogic.START_CAM_HEADING
+        : ChillFlightLogic.START_HEADING;
+      const camPitch = separateCamera
+        ? ChillFlightLogic.START_CAM_PITCH
+        : ChillFlightLogic.START_PITCH;
+
       camera.position.set(startCamX, startCamY, startCamZ);
-      if (ChillFlightLogic.START_HEADING !== null)
-        camera.rotation.y = THREE.MathUtils.degToRad(
-          ChillFlightLogic.START_HEADING
-        );
-      if (ChillFlightLogic.START_PITCH !== null)
-        camera.rotation.x = THREE.MathUtils.degToRad(
-          ChillFlightLogic.START_PITCH
-        );
+      if (camHeading !== null)
+        camera.rotation.y = THREE.MathUtils.degToRad(camHeading);
+      if (camPitch !== null)
+        camera.rotation.x = THREE.MathUtils.degToRad(camPitch);
 
       // Show the debug menu/telemetry so isDebugMode evaluates to true and freecam doesn't auto-reset
       const debugMenu = document.getElementById('debug-menu');
@@ -499,69 +580,7 @@ export function initDebugUI() {
       if (debugMenu) debugMenu.style.display = 'block';
       if (debugTelem) debugTelem.style.display = 'block';
     } else {
-      // Not free camera: spawn the plane at the requested coordinates
-      if (ChillFlightLogic.START_X !== null)
-        planeGroup.position.x = ChillFlightLogic.START_X;
-      if (ChillFlightLogic.START_Y !== null)
-        planeGroup.position.y = ChillFlightLogic.START_Y;
-      if (ChillFlightLogic.START_Z !== null)
-        planeGroup.position.z = ChillFlightLogic.START_Z;
-
-      // Set rotation order to YXZ for proper flight controls
-      planeGroup.rotation.order = 'YXZ';
-
-      if (ChillFlightLogic.START_HEADING !== null)
-        planeGroup.rotation.y = THREE.MathUtils.degToRad(
-          ChillFlightLogic.START_HEADING
-        );
-      if (ChillFlightLogic.START_PITCH !== null)
-        planeGroup.rotation.x = THREE.MathUtils.degToRad(
-          ChillFlightLogic.START_PITCH
-        );
-      if (
-        ChillFlightLogic.START_SPEED !== null &&
-        !isNaN(ChillFlightLogic.START_SPEED)
-      ) {
-        const initialSpeed = Math.max(
-          0,
-          Math.min(10, ChillFlightLogic.START_SPEED)
-        );
-        state.flightSpeedMultiplier = initialSpeed;
-        state.targetFlightSpeed = Math.min(
-          getMaxFlightSpeedMult(),
-          initialSpeed
-        );
-      }
-
-      // Ensure spawn altitude does not submerge the plane below the resting surface
-      const spawnElev = getElevation(
-        planeGroup.position.x,
-        planeGroup.position.z
-      );
-      const spawnIsWater = spawnElev <= WATER_LEVEL + 0.1;
-      const spawnRestingHeight = spawnIsWater
-        ? WATER_LEVEL + 4.8
-        : spawnElev + 12.0;
-      if (planeGroup.position.y < spawnRestingHeight) {
-        planeGroup.position.y = spawnRestingHeight;
-      }
-      if (spawnIsWater && state.targetFlightSpeed === 0) {
-        if (pontoonGroup) {
-          pontoonGroup.visible = true;
-          state.pontoonDeploymentProgress = 1;
-          state.isDeployingPontoons = false;
-          state.isRetractingPontoons = false;
-          pontoonGroup.scale.setScalar(1);
-          pontoonL.rotation.z = 0;
-          pontoonR.rotation.z = 0;
-          hingeLF.rotation.z = 0;
-          hingeLB.rotation.z = 0;
-          hingeRF.rotation.z = 0;
-          hingeRB.rotation.z = 0;
-          pontoonL.position.y = -4.5;
-          pontoonR.position.y = -4.5;
-        }
-      }
+      placePlaneFromUrl();
     }
 
     if (ChillFlightLogic.START_DEBUG) {
@@ -600,7 +619,6 @@ export function initDebugUI() {
   const buildDebugUrl = (forCamera) => {
     const url = new URL(window.location.href);
     const params = url.searchParams;
-    const target = forCamera ? camera : planeGroup;
 
     if (forCamera) {
       params.set('freecam', 'true');
@@ -632,12 +650,34 @@ export function initDebugUI() {
     params.delete('benchmark');
     if (forCamera) params.delete('speed');
 
-    params.set('x', Math.round(target.position.x));
-    params.set('y', Math.round(target.position.y));
-    params.set('z', Math.round(target.position.z));
-    const euler = new THREE.Euler().setFromQuaternion(target.quaternion, 'YXZ');
-    params.set('heading', Math.round(THREE.MathUtils.radToDeg(euler.y)));
-    params.set('pitch', Math.round(THREE.MathUtils.radToDeg(euler.x)));
+    // The plane's pose; with the free camera, the camera's too, separately
+    const deg = (rad) => Math.round(THREE.MathUtils.radToDeg(rad));
+    const planeEuler = new THREE.Euler().setFromQuaternion(
+      planeGroup.quaternion,
+      'YXZ'
+    );
+    params.set('x', Math.round(planeGroup.position.x));
+    params.set('y', Math.round(planeGroup.position.y));
+    params.set('z', Math.round(planeGroup.position.z));
+    params.set('heading', deg(planeEuler.y));
+    params.set('pitch', deg(planeEuler.x));
+    const camParams = ['camX', 'camY', 'camZ', 'camHeading', 'camPitch'];
+    if (forCamera) {
+      // The plane holds still under the free camera, so its bank holds too
+      params.set('roll', deg(planeEuler.z));
+      const camEuler = new THREE.Euler().setFromQuaternion(
+        camera.quaternion,
+        'YXZ'
+      );
+      params.set('camX', Math.round(camera.position.x));
+      params.set('camY', Math.round(camera.position.y));
+      params.set('camZ', Math.round(camera.position.z));
+      params.set('camHeading', deg(camEuler.y));
+      params.set('camPitch', deg(camEuler.x));
+    } else {
+      params.delete('roll');
+      camParams.forEach((name) => params.delete(name));
+    }
     if (!forCamera && typeof state.flightSpeedMultiplier !== 'undefined') {
       params.set('speed', Number(state.flightSpeedMultiplier.toFixed(2)));
     }

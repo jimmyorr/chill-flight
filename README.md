@@ -349,6 +349,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`alt`**: Starting altitude.
 - **`heading`**: Starting compass heading in degrees (0 = North).
 - **`pitch`**: Starting pitch angle in degrees.
+- **`roll`**: Starting bank angle in degrees (positive banks left, negative right). It holds while the free camera freezes the plane; in flight the flight model takes over.
 - **`speed`**: Starting flight speed multiplier (e.g., `1.0`, `2.0`, `0`).
 - **`plane`** or **`vehicle`**: Initial aircraft model (`classic` for the standard monoplane, `biplane` for the vintage biplane, `glider`, or `twin`).
 - **`livery`**: Plane color for this visit (not saved): an index (0-7) or a name (`coral`, `teal`, `sage`, `purple`, `slate`, `sand`, `rose`, `black`).
@@ -377,7 +378,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`angle`**: With `camera=cinematic`, which of its preset angles (0-4: side-on, low from the front, front quarter, high above, wing tip).
 - **`camOffset`**: A custom chase camera, `x,y,z` relative to the plane's heading (x to the right, y up, z behind; negative z is ahead, looking back). It follows the plane, so it works for stills and moving shots. **`camLook`** (`x,y,z`, same frame, default the plane) is the point it looks at and **`fov`** its field of view (default 65).
 - **`headlight`**: Set to `1` to start with the headlight on.
-- **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros). Inherits starting location from `lat`, `long`/`lon`, and `alt`, or from `x`, `y`, and `z`.
+- **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros). The plane holds still. Inherits starting location from `lat`, `long`/`lon`, and `alt`, or from `x`, `y`, and `z`.
+- **`camX`, `camY`, `camZ`, `camHeading`, `camPitch`**: With `freecam`, place the free camera separately from the plane: the camera goes here and the plane where `x`/`y`/`z` (or `lat`/`long`/`alt`), `heading`, `pitch` and `roll` say, e.g. a plane frozen mid-bank in the rock arch, filmed from the beach. Any left out start at the plane. Without them, `x`/`y`/`z`, `heading` and `pitch` place the free camera.
 - **`debug`**: Set to `true` (or include `?debug` or `?debug=1`) to start with the debug menu and telemetry overlay visible and enable diagnostic console logging. The debug menu's copy URL buttons (at the plane, or at the free camera) write every parameter of the current view, including the camera, livery, headlight, clouds, `clock` and `cloudTime`, so a link reproduces the picture.
 - **`benchmark`**: Duration in seconds (e.g., `?benchmark=30`) to run an automated flight benchmark measuring mean FPS, 1% low, 0.1% low, and maximum frame spike.
 - **`preset`** or **`graphics`**: Override the graphics preset (`low`, `mid`, `high`, `ultra`).
@@ -388,7 +390,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`mapLon`** or **`mapLong`**: Longitude coordinate that the fullscreen map is centered on (e.g., `3.3E`, `0.5W`, `3.3`).
 - **`mapX`**, **`mapZ`**: Exact world coordinates for the fullscreen map center (takes precedence over `mapLat`/`mapLon`).
 - **`mapZoom`** (or **`zoom`**): Fullscreen map zoom level, expressed either as a zoom multiplier relative to default 1.0 (e.g., `1.3`, `2.0`, `0.5`) or as an exact world radius in units (e.g., `5000`). When debug mode (`?debug`) is active, panning or zooming the map automatically updates these URL parameters to create reproducible, shareable map links.
-- **`x`, `y`, `z`**: Starting exact XYZ coordinates for the camera or airplane (takes precedence over lat/long, useful for exact freecam sharing).
+- **`x`, `y`, `z`**: Starting exact XYZ coordinates for the airplane, or for the free camera when no `camX`/`camY`/`camZ` are given (takes precedence over lat/long).
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).
 - **`start`**: Set to `1` to skip the title screen and start flying as soon as the game loads.
 - **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus, debug panels and tips), for clean screenshots and recordings. The keyboard controls still work.

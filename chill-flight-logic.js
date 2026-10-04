@@ -326,6 +326,24 @@ export const ChillFlightLogic = {};
     _angleParam !== null && _angleParam >= 0 ? Math.floor(_angleParam) : null;
   const START_FOV = parseNumberParam('fov');
   const START_HEADLIGHT = getSwitchParam('headlight');
+  // The plane's bank, in degrees (holds while the free camera freezes the
+  // plane; in flight the flight model takes over)
+  const START_ROLL = parseNumberParam('roll');
+  // With the free camera, camX/camY/camZ/camHeading/camPitch place the camera
+  // and x/y/z/heading/pitch/roll the plane. Without them x/y/z/heading/pitch
+  // place the free camera, as before.
+  const START_CAM_X = parseNumberParam('camX');
+  const START_CAM_Y = parseNumberParam('camY');
+  const START_CAM_Z = parseNumberParam('camZ');
+  const START_CAM_HEADING = parseNumberParam('camHeading');
+  const START_CAM_PITCH = parseNumberParam('camPitch');
+  const HAS_CAM_PLACEMENT = [
+    START_CAM_X,
+    START_CAM_Y,
+    START_CAM_Z,
+    START_CAM_HEADING,
+    START_CAM_PITCH,
+  ].some((v) => v !== null);
   // The world clock (ms since 1970) sets the moon phase, aurora, procedural
   // weather and the day's sky palette; cloudTime (seconds) is how far the
   // clouds have drifted. With timeSpeed=0 both stay put.
@@ -2533,6 +2551,13 @@ export const ChillFlightLogic = {};
   exports.START_CAM_ANGLE = START_CAM_ANGLE;
   exports.START_FOV = START_FOV;
   exports.START_HEADLIGHT = START_HEADLIGHT;
+  exports.START_ROLL = START_ROLL;
+  exports.START_CAM_X = START_CAM_X;
+  exports.START_CAM_Y = START_CAM_Y;
+  exports.START_CAM_Z = START_CAM_Z;
+  exports.START_CAM_HEADING = START_CAM_HEADING;
+  exports.START_CAM_PITCH = START_CAM_PITCH;
+  exports.HAS_CAM_PLACEMENT = HAS_CAM_PLACEMENT;
   exports.START_CLOCK = START_CLOCK;
   exports.START_CLOUD_TIME = START_CLOUD_TIME;
   exports.START_LIVERY = START_LIVERY;
