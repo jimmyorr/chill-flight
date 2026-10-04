@@ -315,6 +315,12 @@ select.customization-input {
   visibility: visible;
 }
 
+/* Many controls inside have `transition: all`, which would also fade their
+   visibility and leave the old tab showing through for ~0.25s. */
+.pause-panel:not(.active) * {
+  transition: none;
+}
+
 /* The plane buttons span the panel */
 .pause-panel .customization-row {
   align-items: stretch;
