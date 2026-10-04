@@ -110,7 +110,12 @@
                 vec2 q;
                 float detail = smoothstep(0.05, 0.3, abs(h));
                 float nLow = cumulusShape(uvLow, detail, q);
-                float alphaLow = smoothstep(0.42 - densityOffset, 0.56 - densityOffset, nLow)
+                // Crisp edges far away; softer up close, where a crisp edge
+                // looks like a paper cutout
+                float closeness = 1.0 - smoothstep(1200.0, 4000.0, t);
+                float edgeStart = 0.42 - densityOffset;
+                float edgeWidth = mix(0.16, 0.32, closeness);
+                float alphaLow = smoothstep(edgeStart, edgeStart + edgeWidth, nLow)
                                * horizonFade * uCloudTypes.x;
                 
                 if (alphaLow > 0.0) {
@@ -123,6 +128,10 @@
                     
                     float lightFactorLow = mix(0.35, 1.0, litEdgeLow) * mix(1.0, 0.8, thickness);
                     lightFactorLow = mix(0.5, lightFactorLow, contrastFactor);
+                    // Thin edges let light through, so they're bright rather
+                    // than shadowed (no dark outline against the sky)
+                    float thinEdge = 1.0 - smoothstep(edgeStart, edgeStart + edgeWidth * 1.5, nLow);
+                    lightFactorLow = mix(lightFactorLow, 1.0, thinEdge * 0.75);
                     
                     vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, lightFactorLow);
                     cloudColorLow += bottomColor * sunRim * litEdgeLow * 2.0;

@@ -334,7 +334,7 @@ vec4 cloudsAlong(vec3 p, vec3 dir, float cloudHeight, float density, float time,
                 * horizonFade * 0.55 * uCloudTypes.y * cirrusViewFade(dir);
   float aMackerel = smoothstep(0.55, 0.68, mackerelShape((cloudUV + CLOUD_WIND * time * 0.02) * 2.5))
                   * smoothstep(0.08, 0.35, dir.y) * 0.75 * uCloudTypes.z;
-  float aCumulus = smoothstep(0.42 - densityOffset, 0.56 - densityOffset,
+  float aCumulus = smoothstep(0.42 - densityOffset, 0.58 - densityOffset,
                               cumulusShape((cloudUV + CLOUD_WIND * time * 0.034) * 2.0, 0.0, q))
                  * horizonFade * 0.92 * uCloudTypes.x;
   float alpha = 1.0 - (1.0 - aCirrus) * (1.0 - aMackerel) * (1.0 - aCumulus);
