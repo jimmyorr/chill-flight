@@ -139,6 +139,8 @@ import {state} from './state.js';
 import {Achievements} from './achievements.js';
 
 let _currentOvercast;
+// How slowly the sky follows the weather map's cloud cover (seconds)
+const CLOUD_EASE_SECONDS = 12;
 let _lastFpsAggUpdate;
 let _telemetryCallsAccum;
 let _telemetryTrisAccum;
@@ -1487,25 +1489,24 @@ function updateEnvironmentLighting(delta, now) {
     ) +
       1) /
     2;
-  const weatherThreshold = 0.7;
-  weatherNoise =
-    weatherNoise < weatherThreshold
-      ? 0
-      : (weatherNoise - weatherThreshold) / (1 - weatherThreshold);
+  // Cloud cover from the noise: clear below about 0.65, building smoothly
+  // (no hard edge where clouds start) to overcast at 1.0
+  weatherNoise = THREE.MathUtils.smoothstep(weatherNoise, 0.65, 1.0);
 
   // 3. The world is overcast if there are thick clouds (we don't force overcast for snow/rain so we can have beautiful snowy sunsets)
   if (manualCloudCover !== null) {
     _currentOvercast = manualCloudCover;
   } else {
-    // Starts at the weather here (not clear skies), then eases at the same
-    // rate whatever the frame rate
+    // Starts at the weather here (not clear skies), then eases toward it
+    // slowly, so clouds build and clear gradually (#80): a time constant of
+    // CLOUD_EASE_SECONDS, whatever the frame rate
     _currentOvercast =
       _currentOvercast === undefined
         ? weatherNoise
         : THREE.MathUtils.lerp(
             _currentOvercast,
             weatherNoise,
-            1 - Math.pow(1 - 0.01, delta * 60)
+            1 - Math.exp(-delta / CLOUD_EASE_SECONDS)
           );
     const coverValElem = document.getElementById('debug-cloud-cover-val');
     const autoElem = document.getElementById('debug-cloud-auto-toggle');

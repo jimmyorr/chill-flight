@@ -123,7 +123,7 @@ Weather is dynamic and procedural, tied to a global noise map and the player's l
 
 ### Overcast skies
 
-Overcast conditions occur when the procedural cloud noise exceeds a threshold (0.7) or during active precipitation.
+Overcast conditions occur when the procedural cloud noise is high (cover builds smoothly from about 0.65 to full at 1.0) or during active precipitation. The sky follows the cover gradually, with a time constant of about 12 seconds (`CLOUD_EASE_SECONDS` in `game-loop.js`), so clouds build and clear over half a minute or so rather than snapping.
 
 - **Atmospheric effects**:
   - **Celestial visibility**: Stars and the Aurora Borealis become invisible. The Sun and Moon are dimmed.
