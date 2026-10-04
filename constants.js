@@ -216,29 +216,46 @@ float fbmMacro(vec2 st) {
   return value;
 }
 
-// Cloud lighting through the day. At sunrise and sunset clouds toward the sun
-// glow gold, clouds opposite it catch pink light, and their shaded sides take
-// the sky's cool blue-violet. Just after sunset (the afterglow) the sun still
-// lights them from below, ember red toward the sunset and pink opposite.
-// Then they dim to a moonlit grey-blue for the night.
+// Cloud lighting through the day. As the sun gets low it lights the clouds
+// from below: gold in the golden hour, fiery orange as it reaches the
+// horizon, then crimson and magenta in the afterglow once it has set, while
+// the clouds' shaded bodies darken to plum and slate so the lit undersides
+// stand out. Toward the sun is hottest and brightest; opposite it the clouds
+// catch pink. Then they dim to a moonlit grey-blue for the night. The colors
+// stay below 1.0 per channel: there is no tone mapping, so brighter values
+// would clip to pale cream.
 float duskCloudLight(vec3 dir, vec2 sunDir2D, float stormDimming, vec3 sunDir,
                      vec3 topCol, vec3 bottomCol,
                      inout vec3 brightEdgeColor, inout vec3 shadowColor) {
-  float dusk = (1.0 - smoothstep(0.05, 0.3, sunDir.y)) * smoothstep(-0.2, 0.0, sunDir.y);
+  float sy = sunDir.y;
+  float dusk = (1.0 - smoothstep(0.05, 0.3, sy)) * smoothstep(-0.2, 0.0, sy);
   vec2 dirH = length(dir.xz) > 0.001 ? normalize(dir.xz) : sunDir2D;
   float toward = dot(dirH, sunDir2D) * 0.5 + 0.5;
-  vec3 goldLit = mix(bottomCol, vec3(1.0, 0.78, 0.38), 0.3) * 2.1;
-  vec3 pinkLit = mix(bottomCol, vec3(1.0, 0.62, 0.74), 0.45) * 1.85;
-  vec3 duskLit = mix(pinkLit, goldLit, smoothstep(0.25, 0.9, toward));
-  brightEdgeColor = mix(brightEdgeColor, duskLit, dusk * mix(1.0, stormDimming, 0.5) * 0.95);
-  vec3 duskShadow = mix(topCol, vec3(0.42, 0.38, 0.58), 0.35) * 0.95;
-  shadowColor = mix(shadowColor, duskShadow, dusk * 0.6);
+  float sunward = smoothstep(0.2, 0.95, toward);
+  // 0 in the golden hour, 1 with the sun on the horizon
+  float low = 1.0 - smoothstep(0.0, 0.2, sy);
+  // Storms mute the color but keep some of it
+  float vivid = mix(1.0, stormDimming, 0.6);
 
-  float afterglow = (1.0 - smoothstep(-0.03, 0.02, sunDir.y)) * smoothstep(-0.16, -0.06, sunDir.y);
-  vec3 emberLit = mix(vec3(0.95, 0.52, 0.62), vec3(1.0, 0.45, 0.28), smoothstep(0.25, 0.9, toward));
-  emberLit = mix(emberLit, bottomCol, 0.25) * 1.8;
-  brightEdgeColor = mix(brightEdgeColor, emberLit, afterglow * 0.8);
-  shadowColor = mix(shadowColor, vec3(0.3, 0.26, 0.44), afterglow * 0.5);
+  vec3 hot = mix(vec3(1.0, 0.82, 0.5), vec3(1.0, 0.6, 0.3), low);
+  vec3 far = mix(vec3(1.0, 0.76, 0.7), vec3(0.97, 0.62, 0.68), low);
+  vec3 duskLit = mix(far, hot, sunward);
+  // A touch of the day's palette so sunsets differ from day to day
+  duskLit = mix(duskLit, min(bottomCol * 1.15, vec3(1.0)), 0.18);
+  duskLit *= mix(0.92, 1.0, sunward);
+  brightEdgeColor = mix(brightEdgeColor, duskLit, dusk * vivid);
+  // Backlit cloud bodies toward the sun go dusky plum; away, slate violet
+  vec3 duskShadow = mix(vec3(0.6, 0.52, 0.66), vec3(0.62, 0.45, 0.48), sunward);
+  duskShadow = mix(duskShadow, topCol, 0.2);
+  shadowColor = mix(shadowColor, duskShadow, dusk * mix(0.45, 0.7, low));
+
+  // After sunset the sun lights only their undersides, from below the
+  // horizon: crimson toward it, magenta opposite, fading as it sinks
+  float afterglow = (1.0 - smoothstep(-0.03, 0.02, sy)) * smoothstep(-0.16, -0.05, sy);
+  vec3 emberLit = mix(vec3(0.86, 0.46, 0.6), vec3(1.0, 0.42, 0.26), sunward);
+  emberLit *= mix(0.75, 1.0, smoothstep(-0.12, -0.02, sy));
+  brightEdgeColor = mix(brightEdgeColor, emberLit, afterglow * mix(0.8, 0.95, sunward) * vivid);
+  shadowColor = mix(shadowColor, vec3(0.4, 0.3, 0.44), afterglow * 0.6);
 
   // Night: once the afterglow has faded, clouds are only moonlit, silver
   // near the moon and a dim grey-blue elsewhere.
