@@ -871,6 +871,20 @@ if (document.readyState === 'complete') {
   window.addEventListener('load', startAnimationLoop);
 }
 
+// How much sooner cloud cover builds over the snow (in weather noise), so
+// its light snow falls from cloud (see weather-manager.js)
+const SNOW_CLOUD_HEADSTART = 0.15;
+// 0 south of where the snow cover starts (storms bring rain), 1 where it is
+// full (storms bring snow), sleet in between
+function snowZone() {
+  return THREE.MathUtils.clamp(
+    (state.currentLatDeg - ChillFlightLogic.SNOW_START_LAT) /
+      (ChillFlightLogic.SNOW_FULL_LAT - ChillFlightLogic.SNOW_START_LAT),
+    0,
+    1
+  );
+}
+
 // One in-game day; it starts at midnight
 const DAY_CYCLE_MS = 360000;
 // How slowly the cloud mix follows a new day's mood (seconds)
@@ -1550,8 +1564,13 @@ function updateEnvironmentLighting(delta, now) {
       1) /
     2;
   // Cloud cover from the noise: clear below about 0.65, building smoothly
-  // (no hard edge where clouds start) to overcast at 1.0
-  weatherNoise = THREE.MathUtils.smoothstep(weatherNoise, 0.65, 1.0);
+  // (no hard edge where clouds start) to overcast at 1.0. Over the snow it
+  // starts building sooner, so the light snow there falls from cloud
+  weatherNoise = THREE.MathUtils.smoothstep(
+    weatherNoise,
+    0.65 - SNOW_CLOUD_HEADSTART * snowZone(),
+    1.0
+  );
 
   // 3. The world is overcast if there are thick clouds (we don't force overcast for snow/rain so we can have beautiful snowy sunsets)
   if (manualCloudCover !== null) {
@@ -1907,12 +1926,7 @@ function updateEnvironmentLighting(delta, now) {
   updateCloudMood(delta, overcast);
   // Storms bring snow from where the snow cover starts (sleet in between),
   // and their clouds are a lighter grey there
-  skyUniforms.uSnowDeck.value = THREE.MathUtils.clamp(
-    (state.currentLatDeg - ChillFlightLogic.SNOW_START_LAT) /
-      (ChillFlightLogic.SNOW_FULL_LAT - ChillFlightLogic.SNOW_START_LAT),
-    0,
-    1
-  );
+  skyUniforms.uSnowDeck.value = snowZone();
   if (skyUniforms.uCloudHeight) {
     skyUniforms.uCloudHeight.value = manualCloudHeight;
   }

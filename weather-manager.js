@@ -344,25 +344,6 @@ export function updateWeather(delta) {
   } else if (weatherType === 'auto') {
     const latVal = -planeGroup.position.z / 5000;
 
-    // Snowfall follows the snow cover (see snowFactorAt): light snow from
-    // where it starts, with occasional breaks (80% duty cycle).
-    const snowStart = ChillFlightLogic.SNOW_START_LAT;
-    const snowSpan = ChillFlightLogic.SNOW_FULL_LAT - snowStart;
-    if (latVal > snowStart - 0.1) {
-      const timeOffset = (state.worldClockNow || performance.now()) / 100000;
-      // Use a slow-moving noise wave based on time for global breaks
-      const snowBreakNoise = (simplex.noise2D(timeOffset * 0.2, 999) + 1) / 2; // Value between 0 and 1
-
-      if (snowBreakNoise > 0.2) {
-        const permanentSnow = THREE.MathUtils.clamp(
-          (latVal - snowStart) / snowSpan,
-          0,
-          1
-        );
-        targetSnowOpacity = Math.max(targetSnowOpacity, permanentSnow * 0.15);
-      }
-    }
-
     // 1. Sync with the global overcast/cloud noise map
     const timeOffset = (state.worldClockNow || performance.now()) / 100000;
     const chunkSize = CHUNK_SIZE;
@@ -375,6 +356,30 @@ export function updateWeather(delta) {
       ) +
         1) /
       2;
+
+    // Snowfall follows the snow cover (see snowFactorAt): light snow from
+    // where it starts, with occasional breaks (80% duty cycle). It needs some
+    // cloud overhead (clouds build sooner over the snow; see
+    // SNOW_CLOUD_HEADSTART in game-loop.js), so it never snows from a clear sky.
+    const snowStart = ChillFlightLogic.SNOW_START_LAT;
+    const snowSpan = ChillFlightLogic.SNOW_FULL_LAT - snowStart;
+    if (latVal > snowStart - 0.1) {
+      // Use a slow-moving noise wave based on time for global breaks
+      const snowBreakNoise = (simplex.noise2D(timeOffset * 0.2, 999) + 1) / 2; // Value between 0 and 1
+
+      if (snowBreakNoise > 0.2) {
+        const permanentSnow = THREE.MathUtils.clamp(
+          (latVal - snowStart) / snowSpan,
+          0,
+          1
+        );
+        const underCloud = THREE.MathUtils.smoothstep(stormNoise, 0.55, 0.68);
+        targetSnowOpacity = Math.max(
+          targetSnowOpacity,
+          permanentSnow * 0.15 * underCloud
+        );
+      }
+    }
 
     // Only trigger precipitation where the clouds are very thick (> 0.82)
     if (stormNoise > 0.82) {

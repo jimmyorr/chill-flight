@@ -38,14 +38,14 @@ To start without music (say, on a train), tap the speaker button under Start on 
 
 The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts.
 
-| Biome             | Direction     | Latitude/Longitude          | Primary Characteristics                                                                                                       |
-| :---------------- | :------------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-| **Temperate**     | Central       | Around (0, 0) (Center)      | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).                                 |
-| **Snowy**         | North         | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and frequent snow (~80% duty cycle).                          |
-| **Desert**        | South         | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                                                 |
-| **Archipelago**   | East          | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000).                      |
-| **Lake District** | West          | Negative X (West Longitude) | Long lakes filling the valleys between hills and ranges, west of 0.7 West (X < -3500), within about 2 degrees of the equator. |
-| **Alien Zone**    | Far East/West | Beyond 10.0 East/West       | Warped, jagged alien topography with glowing neon seas and surreal colors.                                                    |
+| Biome             | Direction     | Latitude/Longitude          | Primary Characteristics                                                                                                             |
+| :---------------- | :------------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+| **Temperate**     | Central       | Around (0, 0) (Center)      | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).                                       |
+| **Snowy**         | North         | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and light snow whenever cloud is overhead (never from a clear sky). |
+| **Desert**        | South         | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                                                       |
+| **Archipelago**   | East          | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000).                            |
+| **Lake District** | West          | Negative X (West Longitude) | Long lakes filling the valleys between hills and ranges, west of 0.7 West (X < -3500), within about 2 degrees of the equator.       |
+| **Alien Zone**    | Far East/West | Beyond 10.0 East/West       | Warped, jagged alien topography with glowing neon seas and surreal colors.                                                          |
 
 ### 1. Temperate central (the heartland)
 
@@ -67,7 +67,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 
 - **Location:** Snow starts around Latitude 1.5 North (Z = -7500) and deepens gradually to full cover by 2.5 North (Z = -12500). The snowline on mountains comes down gradually from 1,150 units near the equator to 750 by 1.0 North, so the first northern range is green and rocky with snow-capped peaks, and then with the snow cover down to the valleys. Ground, water ice, trees and snowfall all use one snow cover function (`snowFactorAt` in `chill-flight-logic.js`). The deep frozen ocean starts around 4.0 North (Z < -20000).
 - **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192). Beyond 4.0 North, the ocean completely freezes over into a solid, jagged pack ice shelf (#A2B4BC) that rises out of the water. In bright midday sun, snow and ice are dimmed slightly and shifted cool (`uSnowExposure`) so their shading stays visible instead of washing out to flat white.
-- **Weather:** Frequent falling snow (~80% of the time) with occasional global breaks.
+- **Weather:** Light snow whenever there's cloud overhead, with occasional global breaks. Cloud builds sooner over the snow, so snowy weather is common, but it never snows from a clear sky.
 - **Key Features:**
   - **Mountain ranges:** The first range north always rises around 1.0 North (Z = -5000), south of the snow, so it's green with snow-capped peaks; ranges further north vary by world seed and are snowbound. Ranges start at 0.5 West (X = -2500) and reach full height by 1.5 West (X = -7500), with sharp, ridged peaks up to 1600 units.
   - **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
@@ -123,7 +123,7 @@ Weather is dynamic and procedural, tied to a global noise map and the player's l
 
 ### Overcast skies
 
-Overcast conditions occur when the procedural cloud noise is high (cover builds smoothly from about 0.65 to full at 1.0) or during active precipitation. The sky follows the cover gradually, with a time constant of about 12 seconds (`CLOUD_EASE_SECONDS` in `game-loop.js`), so clouds build and clear over half a minute or so rather than snapping. Rain and snow fall only where the cover is thick (the same weather noise above about 0.82), and there the overcast overrides the day's cloud mood, so the sky above is always full of cloud. As the cover thickens toward a storm, the clouds darken from white to a grey deck: rain clouds slightly darker than the overcast sky in their gaps, snow clouds (where storms bring snow, sleet in between) a lighter grey (`stormDeckShade` in `constants.js`); at sunrise and sunset the deck still takes the low sun's color, a little muted.
+Overcast conditions occur when the procedural cloud noise is high (cover builds smoothly from about 0.65 to full at 1.0, or from about 0.5 over the snow) or during active precipitation. The sky follows the cover gradually, with a time constant of about 12 seconds (`CLOUD_EASE_SECONDS` in `game-loop.js`), so clouds build and clear over half a minute or so rather than snapping. Rain and snow fall only where the cover is thick (the same weather noise above about 0.82), and there the overcast overrides the day's cloud mood, so the sky above is always full of cloud. As the cover thickens toward a storm, the clouds darken from white to a grey deck: rain clouds slightly darker than the overcast sky in their gaps, snow clouds (where storms bring snow, sleet in between) a lighter grey (`stormDeckShade` in `constants.js`); at sunrise and sunset the deck still takes the low sun's color, a little muted.
 
 - **Atmospheric effects**:
   - **Celestial visibility**: Stars and the Aurora Borealis become invisible. The Sun and Moon are dimmed.
@@ -160,7 +160,7 @@ The values live in `FOG` in `chill-flight-logic.js`. The debug menu's clear-sky 
 
 ### Permanent weather
 
-- **Snowy biome**: From Latitude 1.5 North, and heavier further north, snow falls roughly 80% of the time, regardless of the storm noise map, with occasional brief breaks.
+- **Snowy biome**: From Latitude 1.5 North, and heavier further north, light snow falls wherever some cloud cover is overhead (the weather noise above about 0.55), with occasional brief breaks (about 20% of the time). Cloud cover builds sooner over the snow (from about 0.5 instead of 0.65; `SNOW_CLOUD_HEADSTART` in `game-loop.js`), so it is common, but it never snows from a clear sky.
 
 ### Debug menu weather entries
 
