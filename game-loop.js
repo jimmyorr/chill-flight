@@ -1497,11 +1497,16 @@ function updateEnvironmentLighting(delta, now) {
   if (manualCloudCover !== null) {
     _currentOvercast = manualCloudCover;
   } else {
-    _currentOvercast = THREE.MathUtils.lerp(
-      _currentOvercast || 0,
-      weatherNoise,
-      0.01
-    );
+    // Starts at the weather here (not clear skies), then eases at the same
+    // rate whatever the frame rate
+    _currentOvercast =
+      _currentOvercast === undefined
+        ? weatherNoise
+        : THREE.MathUtils.lerp(
+            _currentOvercast,
+            weatherNoise,
+            1 - Math.pow(1 - 0.01, delta * 60)
+          );
     const coverValElem = document.getElementById('debug-cloud-cover-val');
     const autoElem = document.getElementById('debug-cloud-auto-toggle');
     if (coverValElem && autoElem && autoElem.checked) {

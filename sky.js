@@ -148,7 +148,8 @@ export function applyCustomSkyColors(top, bottom, day) {
 export function nextSkyPalette() {
   if (currentPaletteSeed === undefined) {
     const CYCLE_DURATION_MS = 300000;
-    const clockNow = state.worldClockNow || Date.now();
+    const clockNow =
+      state.worldClockNow || ChillFlightLogic.START_CLOCK || Date.now();
     const cycleNumber = Math.floor(clockNow / CYCLE_DURATION_MS);
     currentPaletteSeed = ChillFlightLogic.WORLD_SEED + cycleNumber;
   }
@@ -301,8 +302,9 @@ export const skyUniforms = {
   uMoonBright: moonlightUniforms.uMoonBright,
 };
 
-// Initial calculation
-updateSkyPalette(Date.now());
+// Initial calculation: the palette follows the world clock (?clock= when
+// given), then stays for the visit
+updateSkyPalette(ChillFlightLogic.START_CLOCK ?? Date.now());
 
 const skyMat = new THREE.ShaderMaterial({
   vertexShader: skyVertexShader,
