@@ -9,7 +9,8 @@ export function updatePauseMenuMusicInfo() {
 
   if (cpEl && titleEl) {
     if (showMusicInfo) {
-      cpEl.style.visibility = 'visible';
+      // '' rather than 'visible', so it stays hidden with its pause menu tab
+      cpEl.style.visibility = '';
       titleEl.textContent = getCurrentTrackName();
     } else {
       cpEl.style.visibility = 'hidden';
@@ -17,7 +18,7 @@ export function updatePauseMenuMusicInfo() {
   }
 
   if (attrEl) {
-    attrEl.style.visibility = showMusicInfo ? 'visible' : 'hidden';
+    attrEl.style.visibility = showMusicInfo ? '' : 'hidden';
   }
 }
 

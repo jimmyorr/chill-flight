@@ -21,11 +21,14 @@ function checkGyroSupport() {
     gyroSchemeBtn.style.display = '';
   }
 
-  // Show the entire control scheme toggle on touch devices
+  // Show the entire control scheme toggle on touch devices, in place of the
+  // pause menu's key reference
   if (supported || 'ontouchstart' in window || navigator.maxTouchPoints > 0) {
     if (controlSchemeToggle) {
       controlSchemeToggle.style.display = '';
     }
+    const keyReference = document.querySelector('.pause-keys');
+    if (keyReference) keyReference.style.display = 'none';
   }
 }
 checkGyroSupport();

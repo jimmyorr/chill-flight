@@ -348,6 +348,21 @@ if (timeSlider) {
   });
 }
 
+// --- PAUSE MENU TABS (Flight / Settings) ---
+const pauseTabs = document.querySelectorAll('.pause-tab');
+const pausePanels = document.querySelectorAll('.pause-panel');
+pauseTabs.forEach((tab) => {
+  tab.addEventListener('click', () => {
+    pauseTabs.forEach((t) => {
+      t.classList.toggle('active', t === tab);
+      t.setAttribute('aria-selected', String(t === tab));
+    });
+    pausePanels.forEach((panel) =>
+      panel.classList.toggle('active', panel.dataset.panel === tab.dataset.tab)
+    );
+  });
+});
+
 // ?ui=0: nothing on screen but the game view (see .ui-hidden in style.css).
 if (!ChillFlightLogic.SHOW_UI) document.body.classList.add('ui-hidden');
 

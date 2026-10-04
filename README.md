@@ -229,7 +229,8 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **V**: Cycle active aircraft (switch between Classic monoplane, vintage Biplane, Glider, and Twin engine transport).
 - **Shift + A**: Toggle autopilot (automatically levels out and maintains heading/altitude). Steering with the arrow keys, the touch joystick, drag-steer or a gamepad stick turns it off (mouse and tilt steering don't, since they're always steering).
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
-- **Z**: Toggle zen (hides the HUD and buttons for an unobstructed view; also a checkbox in the pause menu).
+- **Z**: Toggle zen (hides the HUD and buttons for an unobstructed view; also a switch on the pause menu's Flight tab).
+- **Pause menu**: The **Flight** tab has the plane, livery, Music and Zen; **Settings** has graphics, invert y axis and, with a keyboard, a short key reference.
 - **Fullscreen world map**: Open via the 🗺️ Map button in the pause menu. Drag with mouse to pan, scroll wheel or `+` / `−` keys to zoom, and click 🎯 to center on plane. The map and the minimap color the land by height (hillshaded) and by region: the snowy north, the sandy and red-rock south, and the alien lands (cyan in the east, magenta in the west), using the same noise and thresholds as the terrain (`tintForRegion` in `minimap.js`).
 
 #### Special maneuvers
@@ -264,10 +265,10 @@ Full gamepad support mapped to standard flight controls.
 When playing on a touch device, specialized UI and controls become available:
 
 - **Virtual joystick:** A premium, floating virtual joystick appears on screen for smooth, thumb-based flight control.
-- **Control schemes:** A dedicated control scheme selector allows you to choose between virtual joystick, device tilt (gyroscope), or directional button steering.
+- **Control schemes:** The Controls setting on the pause menu's Settings tab lets you choose between virtual joystick, device tilt (gyroscope), or directional button steering.
 - **Throttle:** A dedicated slider interface on the right side controls engine speed.
 - **Fullscreen world map:** Tap the 🗺️ Map button in the pause menu to open the full screen map. Press and hold / drag to pan across the world, pinch with two fingers to zoom in and out, double-tap to zoom in, and tap 🎯 to re-center on your plane.
-- **Zen:** Tick **Zen** in the pause menu to hide the HUD and buttons (the joystick still appears while you steer). Double-tap the center of the screen to bring the controls back. The setting is saved between visits.
+- **Zen:** Turn on **Zen** on the pause menu's Flight tab to hide the HUD and buttons (the joystick still appears while you steer). Double-tap the center of the screen to bring the controls back. The setting is saved between visits.
 
 ### WebXR & VR headset support
 
@@ -284,7 +285,7 @@ Chill Flight supports immersive virtual reality on devices such as the Meta Ques
 The game features automatic graphics preset detection that evaluates your device's hardware capabilities upon loading and seamlessly scales visual fidelity to ensure a smooth frame rate.
 
 - **Presets (low / mid / high / ultra):** These presets automatically adjust render resolution, shadow maps, draw distances, and mesh densities. Mid and up also draw the distant terrain ring (see below); low fades the land into the sky at the draw distance instead.
-- **Manual override:** You can manually override the auto-detected graphics preset via the pause menu settings.
+- **Manual override:** You can manually override the auto-detected graphics preset on the pause menu's Settings tab.
 
 | Preset    | Chunk radius | Active chunk grid          | Draw distance | Mesh density (`SEGMENTS`) | Triangles per chunk | Resolution scale          | Visual effects  |
 | :-------- | :----------- | :------------------------- | :------------ | :------------------------ | :------------------ | :------------------------ | :-------------- |

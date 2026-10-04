@@ -33,101 +33,130 @@
     <div id="ui-layer"></div>
     <div id="pause-overlay">
       <div class="customization-box">
-        <div class="customization-row">
-          <span class="customization-label">Plane</span>
-          <div class="scheme-btn-group" id="plane-select-group">
-            <button class="scheme-btn active" data-plane="classic">
-              Classic
-            </button>
-            <button class="scheme-btn" data-plane="biplane">Biplane</button>
-            <button class="scheme-btn" data-plane="glider">Glider</button>
-            <button class="scheme-btn" data-plane="twin">Twin</button>
-          </div>
-        </div>
-        <div class="customization-row">
-          <span class="customization-label">Livery</span>
-          <!-- NES Hardware Palette Colors -->
-          <div id="plane-color-options" class="color-picker-container">
-            <!-- Swatches are generated dynamically in game.js from ChillFlightLogic.PLANE_COLORS -->
-          </div>
-        </div>
-        <div class="customization-split">
-          <div class="customization-row">
-            <span class="customization-label">Graphics</span>
-            <select id="graphics-preset-select" class="customization-input">
-              <option value="low">Low</option>
-              <option value="mid" selected>Mid</option>
-              <option value="high">High</option>
-              <option value="ultra">Ultra</option>
-            </select>
-          </div>
-          <div
-            style="
-              flex: 1 1 0;
-              display: flex;
-              flex-direction: column;
-              gap: 8px;
-              justify-content: center;
-              min-width: 0;
-            "
+        <div class="pause-tabs" role="tablist">
+          <button
+            class="pause-tab active"
+            data-tab="flight"
+            role="tab"
+            aria-selected="true"
           >
-            <div class="customization-row horizontal" style="height: 38px">
-              <input
-                type="checkbox"
-                id="invert-y-input"
-                class="customization-checkbox"
-              />
-              <label
-                for="invert-y-input"
-                class="customization-label"
-                style="margin-bottom: 0; cursor: pointer"
-                >Invert y axis</label
-              >
+            Flight
+          </button>
+          <button
+            class="pause-tab"
+            data-tab="settings"
+            role="tab"
+            aria-selected="false"
+          >
+            Settings
+          </button>
+        </div>
+
+        <!-- Both panels share one grid cell, so the box is as tall as the
+             taller one and switching tabs doesn't change its height. -->
+        <div class="pause-panels">
+          <div class="pause-panel active" data-panel="flight" role="tabpanel">
+            <div class="customization-row">
+              <span class="customization-label">Plane</span>
+              <div class="scheme-btn-group" id="plane-select-group">
+                <button class="scheme-btn active" data-plane="classic">
+                  Classic
+                </button>
+                <button class="scheme-btn" data-plane="biplane">Biplane</button>
+                <button class="scheme-btn" data-plane="glider">Glider</button>
+                <button class="scheme-btn" data-plane="twin">Twin</button>
+              </div>
             </div>
-            <div class="customization-row horizontal" style="height: 38px">
+            <!-- NES Hardware Palette Colors -->
+            <div id="plane-color-options" class="color-picker-container">
+              <!-- Swatches are generated dynamically in game.js from ChillFlightLogic.PLANE_COLORS -->
+            </div>
+            <label class="pause-row" for="music-toggle-input">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Music</span>
+                <span
+                  id="currently-playing"
+                  class="pause-row-sub"
+                  style="visibility: hidden"
+                >
+                  Now playing: <span id="song-title-text"></span>
+                </span>
+              </span>
               <input
                 type="checkbox"
                 id="music-toggle-input"
-                class="customization-checkbox"
+                class="pause-switch"
               />
-              <label
-                for="music-toggle-input"
-                class="customization-label"
-                style="margin-bottom: 0; cursor: pointer"
-                >Music</label
-              >
-            </div>
-            <div class="customization-row horizontal" style="height: 38px">
+            </label>
+            <label class="pause-row" for="zen-toggle-input">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Zen</span>
+                <span class="pause-row-sub">Hide the HUD and buttons</span>
+              </span>
               <input
                 type="checkbox"
                 id="zen-toggle-input"
-                class="customization-checkbox"
+                class="pause-switch"
               />
-              <label
-                for="zen-toggle-input"
-                class="customization-label"
-                style="margin-bottom: 0; cursor: pointer"
-                >Zen</label
-              >
-            </div>
+            </label>
           </div>
-        </div>
 
-        <div id="control-scheme-toggle" style="display: none">
-          <span class="customization-label">Controls</span>
-          <div class="scheme-btn-group">
-            <button class="scheme-btn" data-scheme="touch">Touch</button>
-            <button class="scheme-btn active" data-scheme="joystick">
-              Joystick
-            </button>
-            <button
-              class="scheme-btn"
-              data-scheme="gyro"
-              id="gyro-scheme-btn"
-              style="display: none"
-            >
-              Gyro
-            </button>
+          <div class="pause-panel" data-panel="settings" role="tabpanel">
+            <div class="pause-row">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Graphics</span>
+                <span class="pause-row-sub">Picked for your device</span>
+              </span>
+              <select id="graphics-preset-select" class="customization-input">
+                <option value="low">Low</option>
+                <option value="mid" selected>Mid</option>
+                <option value="high">High</option>
+                <option value="ultra">Ultra</option>
+              </select>
+            </div>
+            <!-- Shown on touch devices (game-gyro.js) -->
+            <div id="control-scheme-toggle" style="display: none">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Controls</span>
+                <span class="pause-row-sub">How you steer on touch</span>
+              </span>
+              <div class="scheme-btn-group">
+                <button class="scheme-btn" data-scheme="touch">Touch</button>
+                <button class="scheme-btn active" data-scheme="joystick">
+                  Joystick
+                </button>
+                <button
+                  class="scheme-btn"
+                  data-scheme="gyro"
+                  id="gyro-scheme-btn"
+                  style="display: none"
+                >
+                  Gyro
+                </button>
+              </div>
+            </div>
+            <label class="pause-row" for="invert-y-input">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Invert y axis</span>
+                <span class="pause-row-sub"
+                  >Push up to dive, like a flight stick</span
+                >
+              </span>
+              <input type="checkbox" id="invert-y-input" class="pause-switch" />
+            </label>
+            <!-- Key reference; hidden on touch devices (game-gyro.js) -->
+            <div class="pause-keys">
+              <span><kbd>↑↓←→</kbd>Steer</span>
+              <span><kbd>Shift ↑↓</kbd>Throttle</span>
+              <span><kbd>C</kbd>Camera</span>
+              <span><kbd>Shift A</kbd>Autopilot</span>
+              <span><kbd>M</kbd>Minimap</span>
+              <span><kbd>L</kbd>Headlight</span>
+              <span><kbd>V</kbd>Plane</span>
+              <span><kbd>P</kbd>Music</span>
+              <span><kbd>G</kbd>Weather</span>
+              <span><kbd>Z</kbd>Zen</span>
+            </div>
           </div>
         </div>
 
@@ -161,44 +190,24 @@
           </div>
         </div>
 
+        <div
+          id="music-attribution"
+          class="pause-credit"
+          style="visibility: hidden"
+        >
+          Music by
+          <a
+            href="#"
+            onclick="
+              window.openExternalLink('https://purrplecat.com');
+              return false;
+            "
+            >Purrple Cat</a
+          >
+        </div>
         <div class="pause-footer">
           Chill Flight &bull; <span class="version-tag"></span>
         </div>
-      </div>
-
-      <div
-        id="currently-playing"
-        class="pause-metadata"
-        style="
-          margin-top: 20px;
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.5);
-          visibility: hidden;
-        "
-      >
-        Currently playing:
-        <span id="song-title-text" style="color: #3498db"></span>
-      </div>
-      <div
-        id="music-attribution"
-        class="pause-metadata"
-        style="
-          margin-top: 5px;
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.5);
-          visibility: hidden;
-        "
-      >
-        Music by
-        <a
-          href="#"
-          onclick="
-            window.openExternalLink('https://purrplecat.com');
-            return false;
-          "
-          style="color: #3498db; text-decoration: none"
-          >Purrple Cat</a
-        >
       </div>
     </div>
 
