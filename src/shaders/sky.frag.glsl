@@ -35,7 +35,7 @@
         col += vec3(0.5, 0.58, 0.75) * uMoonBright
              * (pow(moonAlign, 60.0) * 0.3 + pow(moonAlign, 8.0) * 0.06);
         
-        // --- VOLUMETRIC PROCEDURAL CLOUDS (DUAL LAYER PARALLAX) ---
+        // --- PROCEDURAL CLOUDS: cirrus, mackerel sky and cumulus layers ---
         float cloudHeight = uCloudHeight > 0.0 ? uCloudHeight : 3000.0;
         float distToPlane = cloudHeight - uCameraPos.y;
         
@@ -68,52 +68,66 @@
             
             // Contrast softening at high density: multiple scattering in thick overcast softens sharp shadow boundaries
             float contrastFactor = mix(1.0, 0.65, uCloudDensity);
+            float sunRim = pow(sunIntensity, 16.0) * stormDimming;
 
-            // -- Layer 1: High Altitude (Cirrus/Altocumulus) --
-            // Moves slower, larger scale, slightly more sparse
-            vec2 driftHigh = vec2(uTime * 0.015, uTime * 0.0075);
-            vec2 uvHigh = (cloudUV + driftHigh) * 3.5;
-            float nHigh = fbm(uvHigh);
-            float alphaHigh = smoothstep(0.45 - densityOffset, 0.8 - densityOffset, nHigh) * horizonFade;
-            
-            if (alphaHigh > 0.0) {
-                // Macro-slope avoids high-frequency noise aliasing and striped ripple artifacts
-                float nHighMacro = fbmMacro(uvHigh);
-                float nHighMacro_offset = fbmMacro(uvHigh + sunDir2D * 0.12);
-                float slopeHigh = nHighMacro - nHighMacro_offset;
-                float litEdgeHigh = smoothstep(-0.15, 0.25, slopeHigh);
-                
-                float lightFactorHigh = mix(0.4, 1.0, litEdgeHigh);
-                lightFactorHigh = mix(0.5, lightFactorHigh, contrastFactor);
-                
-                vec3 cloudColorHigh = mix(shadowColor, brightEdgeColor, lightFactorHigh);
-                float sunRimHigh = pow(sunIntensity, 16.0) * litEdgeHigh * stormDimming;
-                cloudColorHigh += bottomColor * sunRimHigh * 1.5;
-                // Mix high altitude layer first
-                col = mix(col, cloudColorHigh, alphaHigh * 0.7);
+            // -- Layer 1: Cirrus streaks (highest, slowest) --
+            // High clouds see the sun a little longer, so they keep their
+            // sunset color after the lower ones have gone dark
+            if (uCloudTypes.y > 0.0) {
+                vec2 uvCirrus = (cloudUV + CLOUD_WIND * uTime * 0.012) * 2.0;
+                float alphaCirrus = smoothstep(0.3, 0.55, cirrusShape(uvCirrus)) * horizonFade * uCloudTypes.y
+                                  * cirrusViewFade(dir);
+                if (alphaCirrus > 0.0) {
+                    vec3 cirrusSun = normalize(sunDirection + vec3(0.0, 0.05, 0.0));
+                    vec3 cirrusBright = mix(baseBright, bottomColor * 1.8, sunProximity * 0.75);
+                    vec3 cirrusShadow = mix(baseShadow, ambientTint * 1.1, 0.25);
+                    duskCloudLight(dir, sunDir2D, stormDimming, cirrusSun, topColor, bottomColor, cirrusBright, cirrusShadow);
+                    // Thin and bright: mostly lit, with a soft rim toward the sun
+                    vec3 cirrusColor = mix(cirrusShadow, cirrusBright, 0.8) + bottomColor * sunRim * 1.2;
+                    col = mix(col, cirrusColor, alphaCirrus * 0.6);
+                }
             }
 
-            // -- Layer 2: Low Altitude (Cumulus) --
-            // Moves faster, normal scale
-            vec2 driftLow = vec2(uTime * 0.03, uTime * 0.015);
-            vec2 uvLow = (cloudUV + driftLow) * 2.0;
-            float nLow = fbm(uvLow);
-            float alphaLow = smoothstep(0.4 - densityOffset, 0.75 - densityOffset, nLow) * horizonFade;
-            
-            if (alphaLow > 0.0) {
-                float nLowMacro = fbmMacro(uvLow);
-                float nLowMacro_offset = fbmMacro(uvLow + sunDir2D * 0.15);
-                float slopeLow = nLowMacro - nLowMacro_offset;
-                float litEdgeLow = smoothstep(-0.15, 0.25, slopeLow);
+            // -- Layer 2: Mackerel sky (rows of small puffs) --
+            if (uCloudTypes.z > 0.0) {
+                vec2 uvMackerel = (cloudUV + CLOUD_WIND * uTime * 0.02) * 2.5;
+                // Fine rows shimmer near the horizon, so they fade out sooner
+                float alphaMackerel = smoothstep(0.55, 0.68, mackerelShape(uvMackerel))
+                                    * smoothstep(0.08, 0.35, abs(h)) * uCloudTypes.z;
+                if (alphaMackerel > 0.0) {
+                    float edge = smoothstep(0.55, 0.75, mackerelShape(uvMackerel + sunDir2D * 0.02));
+                    vec3 mackerelColor = mix(shadowColor, brightEdgeColor, mix(0.55, 1.0, 1.0 - edge));
+                    mackerelColor += bottomColor * sunRim * 1.5;
+                    col = mix(col, mackerelColor, alphaMackerel * 0.8);
+                }
+            }
+
+            // -- Layer 3: Puffy cumulus (lowest, fastest) --
+            // Warped noise curls the edges into billows; fine detail breaks
+            // them up up close and fades with distance so it doesn't shimmer
+            if (uCloudTypes.x > 0.0) {
+                vec2 uvLow = (cloudUV + CLOUD_WIND * uTime * 0.034) * 2.0;
+                vec2 q;
+                float detail = smoothstep(0.05, 0.3, abs(h));
+                float nLow = cumulusShape(uvLow, detail, q);
+                float alphaLow = smoothstep(0.42 - densityOffset, 0.56 - densityOffset, nLow)
+                               * horizonFade * uCloudTypes.x;
                 
-                float lightFactorLow = mix(0.35, 1.0, litEdgeLow);
-                lightFactorLow = mix(0.5, lightFactorLow, contrastFactor);
-                
-                vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, lightFactorLow);
-                float sunRimLow = pow(sunIntensity, 16.0) * litEdgeLow * stormDimming;
-                cloudColorLow += bottomColor * sunRimLow * 2.0;
-                // Mix low altitude layer on top
-                col = mix(col, cloudColorLow, alphaLow * 0.9);
+                if (alphaLow > 0.0) {
+                    float nLowMacro = fbmMacro(q);
+                    float nLowMacro_offset = fbmMacro(q + sunDir2D * 0.15);
+                    float slopeLow = nLowMacro - nLowMacro_offset;
+                    float litEdgeLow = smoothstep(-0.15, 0.25, slopeLow);
+                    // Thick cores are darker than the thin edges
+                    float thickness = smoothstep(0.5, 0.8, nLow);
+                    
+                    float lightFactorLow = mix(0.35, 1.0, litEdgeLow) * mix(1.0, 0.8, thickness);
+                    lightFactorLow = mix(0.5, lightFactorLow, contrastFactor);
+                    
+                    vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, lightFactorLow);
+                    cloudColorLow += bottomColor * sunRim * litEdgeLow * 2.0;
+                    col = mix(col, cloudColorLow, alphaLow * 0.92);
+                }
             }
         }
 

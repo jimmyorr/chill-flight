@@ -186,6 +186,9 @@ export const CLOUD_GLSL = `
 uniform sampler2D uNoiseTex;
 uniform vec3 uMoonDir;
 uniform float uMoonBright;
+// How much of each cloud type the sky has: x puffy cumulus, y cirrus streaks,
+// z mackerel sky (rows of small puffs)
+uniform vec3 uCloudTypes;
 
 float noise(vec2 st) {
   vec2 i = floor(st);
@@ -214,6 +217,53 @@ float fbmMacro(vec2 st) {
     amplitude *= 0.5;
   }
   return value;
+}
+
+// The cloud layers drift with the wind along this direction
+const vec2 CLOUD_WIND = vec2(0.894, 0.447);
+
+// Cloud plane coordinates turned to the wind: x along it, y across
+vec2 windAligned(vec2 uv) {
+  return vec2(dot(uv, CLOUD_WIND), dot(uv, vec2(-CLOUD_WIND.y, CLOUD_WIND.x)));
+}
+
+// Puffy cumulus: fbm with its coordinates warped by a coarser noise, so the
+// edges curl into billows, and (with detail > 0) finer noise breaking up the
+// edges. Returns the density; q is the warped position, for lighting.
+float cumulusShape(vec2 uv, float detail, out vec2 q) {
+  vec2 w = vec2(fbmMacro(uv * 0.6 + vec2(3.1, 7.7)),
+                fbmMacro(uv * 0.6 + vec2(8.3, 1.9))) - 0.48;
+  q = uv + w * 0.9;
+  float n = fbm(q);
+  if (detail > 0.0) n += (noise(q * 9.0) - 0.5) * 0.12 * detail;
+  return n;
+}
+
+// Cirrus: wispy streaks stretched along the wind, in patches
+float cirrusShape(vec2 uv) {
+  vec2 a = windAligned(uv);
+  a.y += (fbmMacro(a * vec2(0.3, 0.7) + 2.7) - 0.48) * 1.2;
+  float streaks = fbm(a * vec2(0.6, 2.8));
+  float patches = smoothstep(0.38, 0.62, fbmMacro(uv * 0.45 + 9.1));
+  return streaks * patches;
+}
+
+// Seen along the wind, cirrus streaks converge in perspective into broad
+// fans of grey sheets, so they fade out in those directions
+float cirrusViewFade(vec3 dir) {
+  vec2 dirH = length(dir.xz) > 0.001 ? normalize(dir.xz) : CLOUD_WIND;
+  float along = abs(dot(dirH, CLOUD_WIND));
+  return 1.0 - smoothstep(0.55, 0.95, along) * 0.85;
+}
+
+// Mackerel sky: rows of small puffs across the wind, in patches
+float mackerelShape(vec2 uv) {
+  vec2 a = windAligned(uv);
+  float warp = noise(uv * 1.1 + 5.1);
+  float rows = sin(a.y * 11.0 + warp * 5.0) * 0.5 + 0.5;
+  float puffs = noise(uv * 7.0 + warp * 2.0);
+  float patches = smoothstep(0.5, 0.68, fbmMacro(uv * 0.5 + 4.3));
+  return (puffs * 0.55 + rows * 0.45) * patches;
 }
 
 // Cloud lighting through the day. As the sun gets low it lights the clouds
@@ -268,9 +318,9 @@ float duskCloudLight(vec3 dir, vec2 sunDir2D, float stormDimming, vec3 sunDir,
   return dusk;
 }
 
-// Clouds seen from p along dir (for reflections): the same two layers the sky
+// Clouds seen from p along dir (for reflections): the same layers the sky
 // draws, at the same world positions, with simpler shading (no per-puff
-// lighting) and coarser noise (ripples blur a reflection anyway).
+// lighting) and no fine detail (ripples blur a reflection anyway).
 // Returns (color, alpha).
 vec4 cloudsAlong(vec3 p, vec3 dir, float cloudHeight, float density, float time,
                  vec3 sunDir, vec3 topCol, vec3 bottomCol) {
@@ -279,11 +329,15 @@ vec4 cloudsAlong(vec3 p, vec3 dir, float cloudHeight, float density, float time,
   vec2 cloudUV = (p.xz + dir.xz * (dist / dir.y)) / cloudHeight;
   float densityOffset = (density - 0.5) * 0.6;
   float horizonFade = smoothstep(0.0, 0.15, dir.y);
-  vec2 uvHigh = (cloudUV + vec2(time * 0.015, time * 0.0075)) * 3.5;
-  vec2 uvLow = (cloudUV + vec2(time * 0.03, time * 0.015)) * 2.0;
-  float aHigh = smoothstep(0.45 - densityOffset, 0.8 - densityOffset, fbmMacro(uvHigh)) * horizonFade * 0.7;
-  float aLow = smoothstep(0.4 - densityOffset, 0.75 - densityOffset, fbmMacro(uvLow)) * horizonFade * 0.9;
-  float alpha = 1.0 - (1.0 - aHigh) * (1.0 - aLow);
+  vec2 q;
+  float aCirrus = smoothstep(0.3, 0.55, cirrusShape((cloudUV + CLOUD_WIND * time * 0.012) * 2.0))
+                * horizonFade * 0.55 * uCloudTypes.y * cirrusViewFade(dir);
+  float aMackerel = smoothstep(0.55, 0.68, mackerelShape((cloudUV + CLOUD_WIND * time * 0.02) * 2.5))
+                  * smoothstep(0.08, 0.35, dir.y) * 0.75 * uCloudTypes.z;
+  float aCumulus = smoothstep(0.42 - densityOffset, 0.56 - densityOffset,
+                              cumulusShape((cloudUV + CLOUD_WIND * time * 0.034) * 2.0, 0.0, q))
+                 * horizonFade * 0.92 * uCloudTypes.x;
+  float alpha = 1.0 - (1.0 - aCirrus) * (1.0 - aMackerel) * (1.0 - aCumulus);
   if (alpha <= 0.0) return vec4(0.0);
 
   float stormDimming = 1.0 - density * 0.6;

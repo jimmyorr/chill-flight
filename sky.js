@@ -295,6 +295,8 @@ export const skyUniforms = {
       : 3000.0,
   },
   uShowClouds: {value: true},
+  // Cloud types: x puffy cumulus, y cirrus streaks, z mackerel sky
+  uCloudTypes: {value: new THREE.Vector3(1, 0.35, 0.6)},
   uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
   uNoiseTex: {value: skyNoiseTexture},
   uCameraPos: {value: new THREE.Vector3()},
