@@ -5,6 +5,9 @@
 // Pages open with ?start=1&ui=0&music=0 unless the query says otherwise: no
 // Begin button, no HUD, panels or tips over the view, and no music downloads.
 import puppeteer from 'puppeteer-core';
+import fs from 'fs';
+import http from 'http';
+import path from 'path';
 
 export const BASE = process.env.GAME_URL || 'http://localhost:5173/';
 const CHROME =
@@ -16,7 +19,11 @@ export function launch() {
     executablePath: CHROME,
     headless: true,
     protocolTimeout: 900000,
-    args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'],
+    // The GPU through Metal on macOS; software WebGL (slow) elsewhere
+    args:
+      process.platform === 'darwin'
+        ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']
+        : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   });
 }
 
@@ -78,4 +85,34 @@ export async function openGame(
   }
   await new Promise((r) => setTimeout(r, settleMs));
   return page;
+}
+
+// Minimal static file server for a production build in a temp dir (never
+// docs/); resolves to the listening server (port: server.address().port).
+export function serveDir(dir) {
+  const types = {
+    '.html': 'text/html',
+    '.js': 'text/javascript',
+    '.css': 'text/css',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.webp': 'image/webp',
+    '.mp3': 'audio/mpeg',
+    '.ogg': 'audio/ogg',
+    '.wasm': 'application/wasm',
+  };
+  const server = http.createServer((req, res) => {
+    let file = path.join(dir, decodeURIComponent(req.url.split('?')[0]));
+    if (file.endsWith('/')) file = path.join(file, 'index.html');
+    if (!file.startsWith(dir) || !fs.existsSync(file)) {
+      res.writeHead(404).end();
+      return;
+    }
+    const type = types[path.extname(file)] || 'application/octet-stream';
+    res.writeHead(200, {'Content-Type': type});
+    fs.createReadStream(file).pipe(res);
+  });
+  return new Promise((resolve) => server.listen(0, () => resolve(server)));
 }

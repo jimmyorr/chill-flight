@@ -185,8 +185,8 @@ These areas are layered on top of the primary biomes using noise-based "patches"
 - **Estuaries and tributaries:** Rivers widen over the last 6 km before the east coast (1.0 West to 0.2 East) into broad estuaries, up to 4.5 times as wide at the mouth. Inland, side streams join them from the north or south at irregular, seed-chosen spots (up to one per 7 km of river), running 2.5 to 5 km, meandering and narrowing toward their source, and stopping at the foot of mountains. All water sits at sea level, so there are no waterfalls.
 - **West coast highway:** A continuous, wide geometric highway (60 units wide) that snakes North-South along the west coast (around 1.5 West / X=-7500). When crossing water or plunging into valleys, it seamlessly transforms into an elevated viaduct featuring an aerodynamic trapezoidal box girder, concrete parapets, sculpted hammerhead pier caps, and faceted pylons with foundation caissons spaced every 120 units. It maintains a strict 60-unit minimum clearance above water level, providing generous, wide bays to fly underneath.
 - **Volcano:** Located at approximately `1.0 South, 1.0 West` (X=-5000, Z=5000). This is a massive, procedural volcano featuring a wide base, ridged slopes, a caldera crater, and active visual elements like lava and smoke. The surrounding terrain is textured with dark basalt rock.
-- **Montauk lighthouse:** Located at approximately `0.6 South, 1.2 East` (X=6000, Z=3000). This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
-- **Rock Arch:** Located on the coast directly East of spawn at approximately `0.0 Latitude, 0.6 East` (X=3000, Z=0). A massive stone archway covered in grass, serving as a gateway to the islands.
+- **Montauk lighthouse:** Located at approximately `0.6 South, 1.5 East` (X=7500, Z=3000), on a round sandy island. This is a specific, guaranteed lighthouse landmark placed on the coast south-east of the spawn area, serving as a navigation point.
+- **Rock Arch:** Located on the coast East of spawn at `0.6 East` (X=3000); its latitude depends on the world seed, between 1.0 North and 1.0 South (Z between -5000 and 5000; Z=-2441, 0.5 North, for seed 20260101). A massive stone archway, bare rock or covered in grass, standing in the water, serving as a gateway to the islands.
 
 ## Liveries
 
@@ -470,6 +470,19 @@ npm run bench [-- label]
 ```
 
 Times full frames of four fixed views (grassland, sunset over the sea, mountains, forest) at the mid preset's resolution on a 1440x900 Retina screen, and prints the median GPU time per frame (from WebGL timer queries, the most precise number), the wall time per frame, the part spent in JavaScript, draw calls and triangles. `VIEWS=land,sunset` picks views and `PRESET` the graphics preset. The numbers drift by about half a millisecond over minutes, so to compare two versions, alternate runs of each.
+
+### Promotional screenshots and video
+
+```bash
+node scripts/promo.js sheet [shot ...]            # small renders and a contact sheet, for scouting angles
+node scripts/promo.js stills [shot ...]           # each shot for each still target
+node scripts/promo.js video <target> [shot ...]   # the clips, then the edited video
+node scripts/promo.js urls [shot ...]             # a dev server link to each shot, to adjust it
+```
+
+Renders the shots in `scripts/promo-shots.js`, each a set of [URL parameters](#url-parameters), so the chosen views live in source control. To change one, open its link from `urls` (the dev server, with the debug menu), adjust the view, copy it with the debug menu's copy URL button and paste the whole link as the shot's `query`; then re-run `stills` or `video`. A shot can add `portrait` parameters for portrait targets, such as another camera position. `TARGETS` there sets the outputs: App Store screenshots for iPhone (1320x2868) and iPad (2064x2752), the website (1920x1080) and social sharing (1200x630), and the videos: App Store previews for iPhone (886x1920) and iPad (1200x1600), which end on the title, and a 1920x1080 trailer for the website, YouTube and Google Play, which ends with the web address. Phone and tablet targets emulate a touch device, so shots with `ui=1` show the touch controls. The video is the clips (shots with `seconds`, in list order) after a title card, joined by crossfades, with the bundled Purrple Cat track faded in and out (`MUSIC=file`, or `none` for silence).
+
+It builds the game into a temporary directory (never `docs/`), or uses `GAME_URL` (e.g. the dev server), and keeps the renders out of analytics. Output goes to `promo/` (`OUT=dir`, ignored by git). Every shot runs on a virtual clock: the page's `requestAnimationFrame`, `performance.now` and `Date.now` are replaced and the script steps the frames. While the scene loads and settles, frames pass almost no time, so a flying plane holds its starting position however slowly the frames render; then `PREROLL` seconds (1.5) play so the chase camera settles, and the still or clip starts. Clips advance exactly 1/30 s per frame. Options: `SHEET` (the target the contact sheet shrinks, default `web`), `STILLS` (comma-separated still targets), `SETTLE_MS` (the wait before a still or a clip, default 30000) and `FPS` (30). Needs `ffmpeg`.
 
 ### Model debug page
 

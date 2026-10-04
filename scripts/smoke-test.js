@@ -4,9 +4,9 @@
 //   npm run test:browser  - against the dev server (`npm run dev` on port 5173)
 //   npm run test:build    - builds to a temp dir (not docs/) and tests that
 import puppeteer from 'puppeteer-core';
+import {serveDir} from './dev-browser.js';
 import {execSync} from 'child_process';
 import fs from 'fs';
-import http from 'http';
 import os from 'os';
 import path from 'path';
 
@@ -47,35 +47,6 @@ const BUNDLED_TRACK = 'assets/purrple-cat-birds-of-a-feather.mp3';
 
 const origin = new URL(BASE).origin;
 const errors = [];
-
-// Minimal static file server for the built output; lives only for this test.
-function serveDir(dir) {
-  const types = {
-    '.html': 'text/html',
-    '.js': 'text/javascript',
-    '.css': 'text/css',
-    '.json': 'application/json',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.svg': 'image/svg+xml',
-    '.webp': 'image/webp',
-    '.mp3': 'audio/mpeg',
-    '.ogg': 'audio/ogg',
-    '.wasm': 'application/wasm',
-  };
-  const server = http.createServer((req, res) => {
-    let file = path.join(dir, decodeURIComponent(req.url.split('?')[0]));
-    if (file.endsWith('/')) file = path.join(file, 'index.html');
-    if (!file.startsWith(dir) || !fs.existsSync(file)) {
-      res.writeHead(404).end();
-      return;
-    }
-    const type = types[path.extname(file)] || 'application/octet-stream';
-    res.writeHead(200, {'Content-Type': type});
-    fs.createReadStream(file).pipe(res);
-  });
-  return new Promise((resolve) => server.listen(0, () => resolve(server)));
-}
 
 // Retry briefly: Vite restarts the dev server whenever vite.config.js changes.
 for (let attempt = 1; ; attempt++) {
