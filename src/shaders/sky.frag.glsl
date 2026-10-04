@@ -92,10 +92,10 @@
             if (uCloudTypes.z > 0.0) {
                 vec2 uvMackerel = (cloudUV + CLOUD_WIND * uTime * 0.02) * 2.5;
                 // Fine rows shimmer near the horizon, so they fade out sooner
-                float alphaMackerel = smoothstep(0.55, 0.68, mackerelShape(uvMackerel))
+                float alphaMackerel = smoothstep(0.46, 0.6, mackerelShape(uvMackerel))
                                     * smoothstep(0.08, 0.35, abs(h)) * uCloudTypes.z;
                 if (alphaMackerel > 0.0) {
-                    float edge = smoothstep(0.55, 0.75, mackerelShape(uvMackerel + sunDir2D * 0.02));
+                    float edge = smoothstep(0.46, 0.68, mackerelShape(uvMackerel + sunDir2D * 0.02));
                     vec3 mackerelColor = mix(shadowColor, brightEdgeColor, mix(0.55, 1.0, 1.0 - edge));
                     mackerelColor += bottomColor * sunRim * 1.5;
                     col = mix(col, mackerelColor, alphaMackerel * 0.8);
@@ -113,7 +113,7 @@
                 // Crisp edges far away; softer up close, where a crisp edge
                 // looks like a paper cutout
                 float closeness = 1.0 - smoothstep(1200.0, 4000.0, t);
-                float edgeStart = 0.42 - densityOffset;
+                float edgeStart = 0.42 - densityOffset - uCloudCover;
                 float edgeWidth = mix(0.16, 0.32, closeness);
                 float alphaLow = smoothstep(edgeStart, edgeStart + edgeWidth, nLow)
                                * horizonFade * uCloudTypes.x;

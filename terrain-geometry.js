@@ -265,6 +265,7 @@ waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uCloudHeight = skyUniforms.uCloudHeight;
   shader.uniforms.uShowClouds = skyUniforms.uShowClouds;
   shader.uniforms.uCloudTypes = skyUniforms.uCloudTypes;
+  shader.uniforms.uCloudCover = skyUniforms.uCloudCover;
   shader.uniforms.uMoonDir = moonlightUniforms.uMoonDir;
   shader.uniforms.uMoonBright = moonlightUniforms.uMoonBright;
   shader.uniforms.uGlitterWarm = waterUniforms.uGlitterWarm;

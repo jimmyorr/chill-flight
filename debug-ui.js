@@ -813,7 +813,7 @@ export function initDebugUI() {
     }
 
     // The world clock and cloud drift, so the moon, aurora, weather, sky
-    // palette and clouds come out the same
+    // palette, cloud mood and clouds come out the same
     if (state.worldClockNow) {
       params.set('clock', Math.round(state.worldClockNow));
     }

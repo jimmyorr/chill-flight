@@ -189,6 +189,8 @@ uniform float uMoonBright;
 // How much of each cloud type the sky has: x puffy cumulus, y cirrus streaks,
 // z mackerel sky (rows of small puffs)
 uniform vec3 uCloudTypes;
+// The day's extra cumulus cover on top of the weather's (negative for less)
+uniform float uCloudCover;
 
 float noise(vec2 st) {
   vec2 i = floor(st);
@@ -262,7 +264,9 @@ float mackerelShape(vec2 uv) {
   float warp = noise(uv * 1.1 + 5.1);
   float rows = sin(a.y * 11.0 + warp * 5.0) * 0.5 + 0.5;
   float puffs = noise(uv * 7.0 + warp * 2.0);
-  float patches = smoothstep(0.5, 0.68, fbmMacro(uv * 0.5 + 4.3));
+  // More mackerel means bigger patches, not just thicker ones
+  float patchEdge = 0.58 - 0.2 * uCloudTypes.z;
+  float patches = smoothstep(patchEdge, patchEdge + 0.14, fbmMacro(uv * 0.5 + 4.3));
   return (puffs * 0.55 + rows * 0.45) * patches;
 }
 
@@ -332,9 +336,9 @@ vec4 cloudsAlong(vec3 p, vec3 dir, float cloudHeight, float density, float time,
   vec2 q;
   float aCirrus = smoothstep(0.3, 0.55, cirrusShape((cloudUV + CLOUD_WIND * time * 0.012) * 2.0))
                 * horizonFade * 0.55 * uCloudTypes.y * cirrusViewFade(dir);
-  float aMackerel = smoothstep(0.55, 0.68, mackerelShape((cloudUV + CLOUD_WIND * time * 0.02) * 2.5))
+  float aMackerel = smoothstep(0.46, 0.6, mackerelShape((cloudUV + CLOUD_WIND * time * 0.02) * 2.5))
                   * smoothstep(0.08, 0.35, dir.y) * 0.75 * uCloudTypes.z;
-  float aCumulus = smoothstep(0.42 - densityOffset, 0.58 - densityOffset,
+  float aCumulus = smoothstep(0.42 - densityOffset - uCloudCover, 0.58 - densityOffset - uCloudCover,
                               cumulusShape((cloudUV + CLOUD_WIND * time * 0.034) * 2.0, 0.0, q))
                  * horizonFade * 0.92 * uCloudTypes.x;
   float alpha = 1.0 - (1.0 - aCirrus) * (1.0 - aMackerel) * (1.0 - aCumulus);

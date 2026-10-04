@@ -871,12 +871,62 @@ if (document.readyState === 'complete') {
   window.addEventListener('load', startAnimationLoop);
 }
 
+// One in-game day; it starts at midnight
+const DAY_CYCLE_MS = 360000;
+// How slowly the cloud mix follows a new day's mood (seconds)
+const CLOUD_MOOD_EASE_SECONDS = 20;
+let _cloudMoodDay = null;
+let _cloudMood = null;
+const _cloudTypesTarget = new THREE.Vector3();
+
+// Eases the sky's cloud types (skyUniforms.uCloudTypes) toward the day's
+// mood (ChillFlightLogic.cloudMoodForDay), with that day's extra mackerel and
+// cirrus around sunrise and sunset.
+function updateCloudMood(delta) {
+  const day = Math.floor(state.worldClockNow / DAY_CYCLE_MS);
+  const first = _cloudMood === null;
+  if (day !== _cloudMoodDay) {
+    _cloudMoodDay = day;
+    _cloudMood = ChillFlightLogic.cloudMoodForDay(
+      ChillFlightLogic.WORLD_SEED,
+      day,
+      ChillFlightLogic.START_CLOUD_MOOD
+    );
+    const moodLabel = getCachedElement('debug-cloud-mood');
+    if (moodLabel) {
+      moodLabel.textContent =
+        _cloudMood.name + (_cloudMood.duskBoost > 0 ? ', dusk build-up' : '');
+    }
+  }
+  // 1 with the sun on the horizon, at sunrise and sunset
+  const dusk = 1 - THREE.MathUtils.smoothstep(Math.abs(state.sunY), 0, 0.35);
+  const boost = _cloudMood.duskBoost * dusk;
+  const target = _cloudTypesTarget.set(
+    _cloudMood.cumulus,
+    Math.min(0.8, _cloudMood.cirrus + boost * 0.5),
+    Math.min(1, _cloudMood.mackerel + boost)
+  );
+  const types = skyUniforms.uCloudTypes.value;
+  if (first) {
+    types.copy(target);
+    skyUniforms.uCloudCover.value = _cloudMood.cover;
+  } else {
+    const ease = 1 - Math.exp(-delta / CLOUD_MOOD_EASE_SECONDS);
+    types.lerp(target, ease);
+    skyUniforms.uCloudCover.value = THREE.MathUtils.lerp(
+      skyUniforms.uCloudCover.value,
+      _cloudMood.cover,
+      ease
+    );
+  }
+}
+
 function updateDayNightCycle(delta) {
   // --- DAY/NIGHT CYCLE ---
   const debugMenu = getCachedElement('debug-menu');
   const isDebugMode = debugMenu && debugMenu.style.display === 'block';
 
-  const CYCLE_DURATION_MS = 360000;
+  const CYCLE_DURATION_MS = DAY_CYCLE_MS;
 
   const useVirtualClock =
     isDebugMode ||
@@ -1846,6 +1896,7 @@ function updateEnvironmentLighting(delta, now) {
       cloudSpeed;
   skyUniforms.uTime.value = state.cloudTime;
   skyUniforms.uCloudDensity.value = overcast;
+  updateCloudMood(delta);
   if (skyUniforms.uCloudHeight) {
     skyUniforms.uCloudHeight.value = manualCloudHeight;
   }

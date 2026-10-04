@@ -349,6 +349,8 @@ export const ChillFlightLogic = {};
   // clouds have drifted. With timeSpeed=0 both stay put.
   const START_CLOCK = parseNumberParam('clock');
   const START_CLOUD_TIME = parseNumberParam('cloudTime');
+  // Forces the day's cloud mood (see cloudMoodForDay)
+  const START_CLOUD_MOOD = getParam('cloudMood', null) || null;
 
   const _todParam = getParam('tod', null);
   const START_TOD =
@@ -435,6 +437,48 @@ export const ChillFlightLogic = {};
       var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
       t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // --- CLOUD MOODS ---
+  // Each in-game day picks a mix of the sky's cloud types (puffy cumulus,
+  // cirrus streaks, mackerel sky), seeded by the world seed and the day, so a
+  // given clock always shows the same sky. On some days the mackerel and
+  // cirrus build up around sunrise and sunset (duskBoost), giving the low
+  // sun more cloud to light. The weather still sets overcast on top.
+  const CLOUD_MOODS = [
+    // [name, weight, cumulus, cirrus, mackerel, cover]: amounts as [min, max]
+    // ranges; cover is extra cumulus cover on top of the weather's
+    ['fair', 0.25, [0.9, 1.0], [0.0, 0.15], [0.0, 0.1], 0],
+    ['mixed', 0.25, [0.8, 1.0], [0.3, 0.5], [0.15, 0.35], 0.03],
+    ['mackerel', 0.15, [0.3, 0.5], [0.1, 0.3], [0.8, 1.0], -0.05],
+    ['high', 0.15, [0.15, 0.35], [0.5, 0.7], [0.0, 0.2], -0.12],
+    ['busy', 0.2, [0.9, 1.0], [0.35, 0.55], [0.5, 0.7], 0.12],
+  ];
+  const CLOUD_MOOD_NAMES = CLOUD_MOODS.map((m) => m[0]);
+
+  function cloudMoodForDay(worldSeed, day, forcedName = null) {
+    const rng = mulberry32((worldSeed * 7919 + day * 104729 + 31337) | 0);
+    let mood = CLOUD_MOODS.find((m) => m[0] === forcedName);
+    let pick = rng();
+    if (!mood) {
+      mood = CLOUD_MOODS[CLOUD_MOODS.length - 1];
+      for (const m of CLOUD_MOODS) {
+        if (pick < m[1]) {
+          mood = m;
+          break;
+        }
+        pick -= m[1];
+      }
+    }
+    const inRange = ([min, max]) => min + (max - min) * rng();
+    return {
+      name: mood[0],
+      cumulus: inRange(mood[2]),
+      cirrus: inRange(mood[3]),
+      mackerel: inRange(mood[4]),
+      cover: mood[5],
+      duskBoost: rng() < 0.6 ? 0.35 + 0.25 * rng() : 0,
     };
   }
 
@@ -2560,6 +2604,9 @@ export const ChillFlightLogic = {};
   exports.HAS_CAM_PLACEMENT = HAS_CAM_PLACEMENT;
   exports.START_CLOCK = START_CLOCK;
   exports.START_CLOUD_TIME = START_CLOUD_TIME;
+  exports.START_CLOUD_MOOD = START_CLOUD_MOOD;
+  exports.CLOUD_MOOD_NAMES = CLOUD_MOOD_NAMES;
+  exports.cloudMoodForDay = cloudMoodForDay;
   exports.START_LIVERY = START_LIVERY;
   exports.PLANE_TYPES = PLANE_TYPES;
   // --- FLIGHT AERODYNAMICS ---
