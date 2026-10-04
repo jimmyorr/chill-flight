@@ -492,9 +492,12 @@ export function updateFlightCamera(delta, nowTime) {
   // drawing out the visual transition rather than hitting full intensity right at 6:00 AM.
   // We must ensure the offset (-0.5) is deeper than dawnDuskFactor's fadeout (-0.4) to prevent abrupt clipping!
   state.dayFactor = Math.max(0, Math.min(1, (state.sunY + 0.5) / 0.8)); // 0.0 at SunY=-0.5 (4 AM), 1.0 at SunY=0.3 (~7:15 AM)
+  // The direct sunlight (and its shadows) only while the sun is at the
+  // horizon or above it, unlike the sky glow dayFactor builds up before dawn
+  state.sunLightFactor = THREE.MathUtils.smoothstep(state.sunY, -0.02, 0.08);
 
-  // Feed dayFactor to the performance monitor for shadow night culling
-  performanceMonitor.updateDayFactor(state.dayFactor);
+  // Shadows are culled while the sun is down
+  performanceMonitor.updateSunLight(state.sunLightFactor);
 
   // 2. Fixed Moon Position (West-Southwest Sky near Horizon)
 

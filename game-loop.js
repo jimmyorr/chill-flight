@@ -1386,6 +1386,8 @@ function updatePhysicsAndControls(delta, nowTime) {
 const SNOW_MAX_BRIGHTNESS = 0.95;
 const SNOW_COOL_TINT = new THREE.Vector3(0.94, 0.99, 1.07);
 const SHADOW_LOOK_AHEAD = 1400;
+// How much of the hidden sun's light the sky light takes over in twilight
+const TWILIGHT_SKY_SHARE = 0.6;
 const _shadowAnchor = new THREE.Vector3();
 const _shadowForward = new THREE.Vector3();
 
@@ -1397,7 +1399,7 @@ function updateShadowSnapping(delta) {
   // Step 1: Compute the sun direction (Forward vector)
   // Clamp sunY to a small positive value so the shadow direction never flips.
   // This makes shadows smoothly stretch toward the horizon at sunset/sunrise
-  // and then freeze. The dirLight intensity fades to 0 via dayFactor anyway,
+  // and then freeze. The dirLight intensity fades to 0 via sunLightFactor anyway,
   // so the frozen direction is invisible by the time it diverges from reality.
   _shadowSunDir
     .set(state.sunX, Math.max(0.15, state.sunY), state.sunZ)
@@ -1715,12 +1717,18 @@ function updateEnvironmentLighting(delta, now) {
     moonMesh.material.opacity = moonCycleFactor * (1.0 - overcast);
   }
 
+  // The sun's share of the light before sunrise (and after sunset) goes to
+  // the sky light instead, so twilight keeps its brightness without the sun
+  // casting shadows from below the horizon (Issue #87)
+  const sunLight = THREE.MathUtils.lerp(0.8, 0.05, overcast) * state.dayFactor;
+  const twilightLight = sunLight * (1 - state.sunLightFactor);
   let baseHemi = THREE.MathUtils.lerp(0.3, 0.6, state.dayFactor);
   hemiLight.intensity =
-    THREE.MathUtils.lerp(baseHemi, 0.7, overcast * state.dayFactor) * Math.PI;
+    (THREE.MathUtils.lerp(baseHemi, 0.7, overcast * state.dayFactor) +
+      twilightLight * TWILIGHT_SKY_SHARE) *
+    Math.PI;
 
-  dirLight.intensity =
-    THREE.MathUtils.lerp(0.8, 0.05, overcast) * state.dayFactor * Math.PI;
+  dirLight.intensity = sunLight * state.sunLightFactor * Math.PI;
 
   const PHASE_CYCLE_MS = 29.5 * 360000;
   const phaseAngle =

@@ -29,7 +29,7 @@ class DynamicPerformanceMonitor {
     // Shadow throttling state
     this.shadowCadence = 1; // 1 = every frame, 2 = every other, 4 = every 4th, 0 = off
     this._frameCount = 0;
-    this._nightCulling = false; // True when dayFactor < 0.05
+    this._nightCulling = false; // True while the sun is down (sunLightFactor < 0.05)
 
     // Chunk budget state
     this._chunkBudgetMs = 4.0; // Default 4ms per frame
@@ -146,11 +146,11 @@ class DynamicPerformanceMonitor {
   }
 
   /**
-   * Update night culling state. Call each frame with the current dayFactor.
-   * When dayFactor < 0.05, shadows are entirely skipped (no shadow pass at all).
+   * Update night culling state. Call each frame with the current sunLightFactor.
+   * When it is < 0.05, shadows are entirely skipped (no shadow pass at all).
    */
-  updateDayFactor(dayFactor) {
-    this._nightCulling = dayFactor < 0.05;
+  updateSunLight(sunLightFactor) {
+    this._nightCulling = sunLightFactor < 0.05;
     // If we just entered night, immediately disable shadows without waiting for cooldown
     if (this._nightCulling && this.shadowCadence !== 0) {
       this.shadowCadence = 0;

@@ -321,7 +321,7 @@ Adjustments occur across four frame-time thresholds with a 30-frame hysteresis c
   - _Boot override:_ During the initial startup loading screen (`isPaused && !isIntroTransitionActive`), the chunk budget is temporarily boosted to 33.0 ms per frame so the initial world geometry generates almost instantaneously.
 - **Shadow throttling and night culling:**
   - _Dynamic throttling:_ Directional sun shadow map rendering scales down from every frame (cadence 1) to every 2nd, 3rd, or 4th frame under load, amortizing shadow pass render costs.
-  - _Night culling:_ When the sun dips below the horizon (`dayFactor < 0.05`), shadows are completely disabled (`shadowCadence = 0`, `renderer.shadowMap.needsUpdate = false`), saving the entire shadow pass when shadows are visually imperceptible.
+  - _Night culling:_ The sun casts light and shadows only while it is at or above the horizon (`sunLightFactor`; before sunrise and after sunset its light goes to the sky light instead). Once it is down (`sunLightFactor < 0.05`), shadows are completely disabled (`shadowCadence = 0`, `renderer.shadowMap.needsUpdate = false`), saving the entire shadow pass when shadows are visually imperceptible.
   - _Preset disable:_ Shadows are also completely disabled when using the Low graphics preset.
 - **Telemetry overlay:** In debug mode (`?debug`), the debug panel displays real-time telemetry including average frame time (`Avg ms`), DRS multiplier (`DRS mult`), shadow cadence (`Shadow cad`), active chunk budget (`Chunk budget`), and loaded prop chunk counts.
 

@@ -101,6 +101,7 @@ export const state = {
   moonY: 0,
   moonZ: 0,
   dayFactor: 0,
+  sunLightFactor: 0, // The direct sun: 0 below the horizon, 1 once it's up
   worldClockNow: 0, // ms; the wall clock, or the debug virtual clock
   secondsInCycle: 0,
   currentWarpedProgress: 0,
