@@ -881,8 +881,10 @@ const _cloudTypesTarget = new THREE.Vector3();
 
 // Eases the sky's cloud types (skyUniforms.uCloudTypes) toward the day's
 // mood (ChillFlightLogic.cloudMoodForDay), with that day's extra mackerel and
-// cirrus around sunrise and sunset.
-function updateCloudMood(delta) {
+// cirrus around sunrise and sunset. As the weather turns overcast (where
+// rain and snow fall), it takes over from the mood: full cumulus, no less
+// cover than the weather's, and the high clouds hidden behind the deck.
+function updateCloudMood(delta, overcast) {
   const day = Math.floor(state.worldClockNow / DAY_CYCLE_MS);
   const first = _cloudMood === null;
   if (day !== _cloudMoodDay) {
@@ -901,21 +903,27 @@ function updateCloudMood(delta) {
   // 1 with the sun on the horizon, at sunrise and sunset
   const dusk = 1 - THREE.MathUtils.smoothstep(Math.abs(state.sunY), 0, 0.35);
   const boost = _cloudMood.duskBoost * dusk;
+  const storm = THREE.MathUtils.smoothstep(overcast, 0.3, 0.6);
   const target = _cloudTypesTarget.set(
-    _cloudMood.cumulus,
-    Math.min(0.8, _cloudMood.cirrus + boost * 0.5),
-    Math.min(1, _cloudMood.mackerel + boost)
+    THREE.MathUtils.lerp(_cloudMood.cumulus, 1, storm),
+    Math.min(0.8, _cloudMood.cirrus + boost * 0.5) * (1 - storm * 0.8),
+    Math.min(1, _cloudMood.mackerel + boost) * (1 - storm * 0.6)
+  );
+  const cover = THREE.MathUtils.lerp(
+    _cloudMood.cover,
+    Math.max(0, _cloudMood.cover),
+    storm
   );
   const types = skyUniforms.uCloudTypes.value;
   if (first) {
     types.copy(target);
-    skyUniforms.uCloudCover.value = _cloudMood.cover;
+    skyUniforms.uCloudCover.value = cover;
   } else {
     const ease = 1 - Math.exp(-delta / CLOUD_MOOD_EASE_SECONDS);
     types.lerp(target, ease);
     skyUniforms.uCloudCover.value = THREE.MathUtils.lerp(
       skyUniforms.uCloudCover.value,
-      _cloudMood.cover,
+      cover,
       ease
     );
   }
@@ -1896,7 +1904,7 @@ function updateEnvironmentLighting(delta, now) {
       cloudSpeed;
   skyUniforms.uTime.value = state.cloudTime;
   skyUniforms.uCloudDensity.value = overcast;
-  updateCloudMood(delta);
+  updateCloudMood(delta, overcast);
   if (skyUniforms.uCloudHeight) {
     skyUniforms.uCloudHeight.value = manualCloudHeight;
   }
