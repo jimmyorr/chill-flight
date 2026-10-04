@@ -53,6 +53,9 @@
             // and shadows stay soft (0.42-0.55) instead of collapsing into harsh, pitch-black mud
             vec3 baseBright = mix(vec3(0.95, 0.96, 0.98), vec3(0.72, 0.75, 0.80), uCloudDensity * 0.6);
             vec3 baseShadow = mix(vec3(0.55, 0.58, 0.64), vec3(0.42, 0.45, 0.50), uCloudDensity * 0.5);
+            // A storm deck is darker than the overcast sky in its gaps
+            float storm = stormDeck(uCloudDensity);
+            stormDeckShade(storm, baseBright, baseShadow);
             
             // Shadows are softly tinted by the ambient sky and horizon light rather than dropping to pure darkness
             vec3 ambientTint = mix(effectiveBottom, topColor, 0.35);
@@ -131,7 +134,7 @@
                     // Thin edges let light through, so they're bright rather
                     // than shadowed (no dark outline against the sky)
                     float thinEdge = 1.0 - smoothstep(edgeStart, edgeStart + edgeWidth * 1.5, nLow);
-                    lightFactorLow = mix(lightFactorLow, 1.0, thinEdge * 0.75);
+                    lightFactorLow = mix(lightFactorLow, 1.0, thinEdge * 0.75 * (1.0 - storm * 0.7));
                     
                     vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, lightFactorLow);
                     cloudColorLow += bottomColor * sunRim * litEdgeLow * 2.0;
@@ -185,6 +188,8 @@
                 
                 vec3 baseBright = mix(vec3(0.95, 0.96, 0.98), vec3(0.72, 0.75, 0.80), uCloudDensity * 0.6);
                 vec3 baseShadow = mix(vec3(0.55, 0.58, 0.64), vec3(0.42, 0.45, 0.50), uCloudDensity * 0.5);
+                float stormHorizon = stormDeck(uCloudDensity);
+                stormDeckShade(stormHorizon, baseBright, baseShadow);
                 
                 vec3 ambientTint = mix(effectiveBottom, topColor, 0.35);
                 vec3 shadowColor = mix(baseShadow, ambientTint * 1.1, 0.25);

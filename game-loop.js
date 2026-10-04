@@ -1905,6 +1905,14 @@ function updateEnvironmentLighting(delta, now) {
   skyUniforms.uTime.value = state.cloudTime;
   skyUniforms.uCloudDensity.value = overcast;
   updateCloudMood(delta, overcast);
+  // Storms bring snow from where the snow cover starts (sleet in between),
+  // and their clouds are a lighter grey there
+  skyUniforms.uSnowDeck.value = THREE.MathUtils.clamp(
+    (state.currentLatDeg - ChillFlightLogic.SNOW_START_LAT) /
+      (ChillFlightLogic.SNOW_FULL_LAT - ChillFlightLogic.SNOW_START_LAT),
+    0,
+    1
+  );
   if (skyUniforms.uCloudHeight) {
     skyUniforms.uCloudHeight.value = manualCloudHeight;
   }

@@ -191,6 +191,8 @@ uniform float uMoonBright;
 uniform vec3 uCloudTypes;
 // The day's extra cumulus cover on top of the weather's (negative for less)
 uniform float uCloudCover;
+// 0 where storms bring rain, 1 where they bring snow (sleet between)
+uniform float uSnowDeck;
 
 float noise(vec2 st) {
   vec2 i = floor(st);
@@ -219,6 +221,17 @@ float fbmMacro(vec2 st) {
     amplitude *= 0.5;
   }
   return value;
+}
+
+// Thick cover is a storm deck: its clouds go grey instead of staying white,
+// dark rain clouds a little darker than the overcast sky in their gaps, snow
+// clouds a lighter grey. Returns how much (0 in fair weather, 1 in a storm).
+float stormDeck(float density) {
+  return smoothstep(0.45, 0.85, density);
+}
+void stormDeckShade(float storm, inout vec3 bright, inout vec3 shadow) {
+  bright *= mix(1.0, mix(0.55, 0.8, uSnowDeck), storm);
+  shadow *= mix(1.0, mix(0.62, 0.82, uSnowDeck), storm);
 }
 
 // The cloud layers drift with the wind along this direction
@@ -347,6 +360,7 @@ vec4 cloudsAlong(vec3 p, vec3 dir, float cloudHeight, float density, float time,
   float stormDimming = 1.0 - density * 0.6;
   vec3 bright = mix(vec3(0.95, 0.96, 0.98), vec3(0.72, 0.75, 0.8), density * 0.6);
   vec3 shadow = mix(vec3(0.55, 0.58, 0.64), vec3(0.42, 0.45, 0.5), density * 0.5);
+  stormDeckShade(stormDeck(density), bright, shadow);
   shadow = mix(shadow, mix(bottomCol, topCol, 0.35) * 1.1, 0.25);
   vec2 sunDir2D = length(sunDir.xz) > 0.001 ? normalize(sunDir.xz) : vec2(1.0, 0.0);
   duskCloudLight(dir, sunDir2D, stormDimming, sunDir, topCol, bottomCol, bright, shadow);

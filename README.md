@@ -123,7 +123,7 @@ Weather is dynamic and procedural, tied to a global noise map and the player's l
 
 ### Overcast skies
 
-Overcast conditions occur when the procedural cloud noise is high (cover builds smoothly from about 0.65 to full at 1.0) or during active precipitation. The sky follows the cover gradually, with a time constant of about 12 seconds (`CLOUD_EASE_SECONDS` in `game-loop.js`), so clouds build and clear over half a minute or so rather than snapping. Rain and snow fall only where the cover is thick (the same weather noise above about 0.82), and there the overcast overrides the day's cloud mood, so the sky above is always full of cloud.
+Overcast conditions occur when the procedural cloud noise is high (cover builds smoothly from about 0.65 to full at 1.0) or during active precipitation. The sky follows the cover gradually, with a time constant of about 12 seconds (`CLOUD_EASE_SECONDS` in `game-loop.js`), so clouds build and clear over half a minute or so rather than snapping. Rain and snow fall only where the cover is thick (the same weather noise above about 0.82), and there the overcast overrides the day's cloud mood, so the sky above is always full of cloud. As the cover thickens toward a storm, the clouds darken from white to a grey deck: rain clouds slightly darker than the overcast sky in their gaps, snow clouds (where storms bring snow, sleet in between) a lighter grey (`stormDeckShade` in `constants.js`); at sunrise and sunset the deck still takes the low sun's color, a little muted.
 
 - **Atmospheric effects**:
   - **Celestial visibility**: Stars and the Aurora Borealis become invisible. The Sun and Moon are dimmed.
