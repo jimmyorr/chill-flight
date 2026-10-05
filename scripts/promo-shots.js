@@ -13,10 +13,13 @@ export const COMMON =
   'start=1&ui=0&music=0&tips=0&seed=20260101&preset=ultra&timeSpeed=0' +
   '&clock=1790000000000&cloudTime=500&fps=0';
 
-const TITLE = {title: 'CHILL FLIGHT', subtitle: 'An endless, relaxing flight'};
+// Title and end cards: the name, with lines of smaller text under it
+const TITLE = {title: 'CHILL FLIGHT'};
+const SIGN_OFF = {title: 'CHILL FLIGHT', lines: ['Have a chill flight']};
 
 // Output targets: CSS size, pixel density (scale), touch device (mobile, for
-// the game's touch layout) and, for videos, title and end cards. App Store
+// the game's touch layout) and, for videos, an optional title card before
+// the clips and end card after them. App Store
 // sizes: iPhone 6.9" screenshots and previews, iPad 13" screenshots and
 // previews (portrait).
 export const TARGETS = {
@@ -24,14 +27,16 @@ export const TARGETS = {
   ipad: {width: 1032, height: 1376, scale: 2, mobile: true}, // 2064x2752
   web: {width: 1920, height: 1080},
   social: {width: 1200, height: 630},
-  // App Store previews: 15-30 s, in-app footage, no web address
+  // App Store previews: 15-30 s, in-app footage, no web address. They open
+  // straight on gameplay (they autoplay muted in search results, and the
+  // app's name and icon are already beside them)
   'iphone-preview': {
     width: 443,
     height: 960,
     scale: 2, // 886x1920
     mobile: true,
     video: true,
-    cards: [{...TITLE, seconds: 2.5}],
+    endCard: {...SIGN_OFF, seconds: 2.5},
   },
   'ipad-preview': {
     width: 900,
@@ -39,17 +44,19 @@ export const TARGETS = {
     scale: 4 / 3, // 1200x1600
     mobile: true,
     video: true,
-    cards: [{...TITLE, seconds: 2.5}],
+    endCard: {...SIGN_OFF, seconds: 2.5},
   },
   // The website, YouTube and Google Play
   trailer: {
     width: 1920,
     height: 1080,
     video: true,
-    cards: [
-      {...TITLE, seconds: 2.5},
-      {title: 'CHILL FLIGHT', subtitle: 'chill-flight.cowneck.com', seconds: 3},
-    ],
+    titleCard: {...TITLE, seconds: 2.5},
+    endCard: {
+      ...SIGN_OFF,
+      lines: [...SIGN_OFF.lines, 'chill-flight.cowneck.com'],
+      seconds: 3.5,
+    },
   },
 };
 

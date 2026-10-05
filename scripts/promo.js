@@ -355,8 +355,9 @@ function ffmpeg(args) {
 }
 
 // A title or end card: centered text on the title screen's dark gradient, in
-// the game's Inter, scaled to the frame's shorter side
-function cardHtml({title, subtitle}) {
+// the game's Inter, scaled to the frame's shorter side: the name, then a
+// tagline and any smaller lines under it
+function cardHtml({title, lines = []}) {
   const font = (weight) =>
     'file://' +
     path.join(
@@ -374,7 +375,17 @@ function cardHtml({title, subtitle}) {
       margin-right: -0.6em; text-align: center; }
     p { margin: 0; font-weight: 500; font-size: 2.8vmin; letter-spacing: 0.25em;
       color: rgba(255, 255, 255, 0.6); text-align: center; }
-  </style><h1>${title}</h1>${subtitle ? `<p>${subtitle}</p>` : ''}`;
+    /* The first line is the tagline; any after it (a web address) are smaller */
+    p:first-of-type { font-weight: 300; font-size: 4vmin; letter-spacing: 0.12em;
+      color: rgba(255, 255, 255, 0.9); }
+    /* Portrait: the spaced-out title would overflow the width, and the lines
+       would be too small to read on a phone */
+    @media (orientation: portrait) {
+      h1 { font-size: 6vmin; }
+      p { font-size: 3.6vmin; }
+      p:first-of-type { font-size: 5.5vmin; }
+    }
+  </style><h1>${title}</h1>${lines.map((line) => `<p>${line}</p>`).join('')}`;
 }
 
 async function renderCard(browser, card, target, file) {
@@ -489,7 +500,7 @@ try {
       fs.rmSync(png);
       return {mp4, seconds: card.seconds};
     };
-    const [titleCard, endCard] = target.cards || [];
+    const {titleCard, endCard} = target;
     if (titleCard) parts.push(await addCard(titleCard, 0));
 
     for (const name of selected) {
