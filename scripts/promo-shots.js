@@ -56,10 +56,13 @@ export const TARGETS = {
 // `query`: the shot's parameters; `portrait` / `landscape`: extra ones for
 // those targets (e.g. another camera position). `seconds`: a video clip of
 // that length (in list order). `still: false` leaves it out of the stills.
+// Shots from straight behind the plane use the game's own chase camera with
+// the interface on (ui=1), as players see it. The others each have their own
+// angle, so the set shows the planes from all around.
 export const SHOTS = {
   // --- Stills: a frozen plane at the landmarks (free camera) ---
   // The rock arch (X = 3000, Z = -2441: 0.6 East, 0.5 North), from the water
-  // to its east, the plane flying out toward the camera
+  // to its east, the plane flying out toward the camera (head-on)
   arch: {
     query:
       'freecam=true&x=3120&y=88&z=-2441&heading=-90&pitch=2&roll=10' +
@@ -67,7 +70,7 @@ export const SHOTS = {
       '&tod=0.36&livery=coral&cloudMood=fair',
     portrait: 'x=3330&y=85&camX=3480&camY=60&camPitch=12',
   },
-  // The lighthouse (X = 7500, Z = 3000: 1.5 East, 0.6 South) at dusk
+  // The lighthouse (X = 7500, Z = 3000: 1.5 East, 0.6 South) at dusk, side-on
   lighthouse: {
     query:
       'freecam=true&x=7812&y=60&z=3345&heading=-40&roll=10' +
@@ -75,30 +78,26 @@ export const SHOTS = {
       '&tod=0.785&headlight=1&livery=teal&cloudMood=mackerel',
     portrait: 'x=7807&y=60&z=3320',
   },
+
+  // --- Flying: stills, and the video's clips in order (sunrise to night) ---
   // Over the volcano (X = -5000, Z = 5000: 1.0 West, 1.0 South) at sunset
   volcano: {
     query:
-      'freecam=true&x=-3050&y=2486&z=3050&heading=135&pitch=-6&roll=-12' +
-      '&camX=-3000&camY=2500&camZ=3000&camHeading=135&camPitch=-12' +
-      '&tod=0.745&livery=rose&cloudMood=busy',
+      'x=-3050&y=2486&z=3050&heading=135&tod=0.745&livery=rose&ui=1' +
+      '&cloudMood=busy',
   },
   // Under the west coast highway where it crosses water (X = -6337,
   // Z = 1770: 1.3 West, 0.35 South)
   highway: {
     query:
-      'freecam=true&x=-6560&y=72&z=1818&heading=-92&roll=8' +
-      '&camX=-6650&camY=66&camZ=1810&camHeading=-95&camPitch=5' +
-      '&tod=0.4&livery=slate&cloudMood=mixed',
+      'x=-6560&y=72&z=1818&heading=-92&tod=0.4&livery=slate&ui=1' +
+      '&cloudMood=mixed',
   },
-
-  // --- Chase shots of a flying plane: stills, and the video's clips in
-  // order (sunrise to night) ---
   'sunrise-lakes': {
     query:
-      'lat=0.1S&long=1.3W&heading=-80&tod=0.265&livery=coral&camOffset=0,8,40' +
+      'lat=0.1S&long=1.3W&heading=-80&tod=0.265&livery=coral&ui=1' +
       '&cloudMood=busy',
     seconds: 4,
-    portrait: 'camOffset=0,6,30',
   },
   'arch-flythrough': {
     // East to west through the arch in early light, from behind and below
@@ -107,14 +106,15 @@ export const SHOTS = {
       '&camOffset=-6,-2,36&camLook=0,6,-40&cloudMood=fair',
     seconds: 4,
     still: false,
+    portrait: 'x=3800&camOffset=-3,0,62&camLook=0,8,-60',
   },
   'islands-sunset': {
-    // South-west over the islands, into the sunset
+    // North-west over the islands, side-on against the sunset
     query:
-      'lat=0.2S&long=2.4E&heading=135&tod=0.745&plane=twin&livery=teal' +
-      '&camOffset=-20,10,44&cloudMood=busy',
+      'lat=0.2S&long=2.4E&heading=45&tod=0.745&plane=twin&livery=teal' +
+      '&camOffset=60,2,5&cloudMood=busy',
     seconds: 4,
-    portrait: 'camOffset=-16,10,64',
+    portrait: 'camOffset=110,2,5',
   },
   'hud-islands': {
     // The game as players see it: the interface on, on a touch device
@@ -124,17 +124,17 @@ export const SHOTS = {
     seconds: 4,
   },
   'snow-biplane': {
+    // From high above, over the snowy forest
     query:
       'lat=3.0N&long=0.3W&heading=200&tod=0.42&plane=biplane&livery=coral' +
-      '&camOffset=-22,6,34&cloudMood=high',
+      '&camOffset=0,60,25&camLook=0,0,-10&cloudMood=high',
     seconds: 4,
-    portrait: 'camOffset=-10,6,42',
   },
   'volcano-sunset': {
-    // Toward the volcano's caldera at sunset, from behind
+    // Toward the volcano's caldera at sunset
     query:
-      'x=-3300&y=2420&z=3300&heading=135&speed=1&tod=0.745&livery=rose' +
-      '&camOffset=0,10,40&cloudMood=mackerel',
+      'x=-3300&y=2420&z=3300&heading=135&speed=1&tod=0.745&livery=rose&ui=1' +
+      '&cloudMood=mackerel',
     seconds: 4,
     still: false,
   },
@@ -145,39 +145,41 @@ export const SHOTS = {
       '&livery=teal&camOffset=-70,10,40&cloudMood=mixed',
     seconds: 4,
     still: false,
+    portrait: 'x=7830&camOffset=-35,12,-85',
   },
   'night-sea': {
     query:
-      'lat=0.1N&long=1.2E&heading=-90&tod=0.93&headlight=1&livery=slate' +
-      '&camOffset=12,6,36&cloudMood=mixed',
+      'lat=0.1N&long=1.2E&heading=-90&tod=0.93&headlight=1&livery=slate&ui=1' +
+      '&cloudMood=mixed',
     seconds: 4,
-    portrait: 'camOffset=3,6,54',
   },
 
   // --- More stills ---
   'islands-sunrise': {
-    // East over the islands, toward the sunrise
+    // West over the islands, from low ahead, the sunrise behind the plane
     query:
-      'lat=0.2S&long=2.4E&heading=-90&tod=0.27&plane=twin&livery=teal' +
-      '&camOffset=20,10,44&cloudMood=mackerel',
-    portrait: 'camOffset=16,10,64',
+      'lat=0.2S&long=2.4E&heading=90&tod=0.27&plane=twin&livery=teal' +
+      '&camOffset=-25,-4,-45&camLook=0,3,0&cloudMood=mackerel',
+    portrait: 'camOffset=-28,-5,-75',
   },
   islands: {
+    // Wide and high over the islands, the plane heading out across them
     query:
       'lat=0.2S&long=2.4E&heading=60&tod=0.5&plane=twin&livery=teal' +
-      '&camOffset=-26,14,46&cloudMood=fair',
-    portrait: 'camOffset=-18,14,66',
+      '&camOffset=-60,45,90&camLook=0,0,-80&cloudMood=fair',
+    portrait: 'camOffset=-30,45,100&camLook=0,0,-20',
   },
   desert: {
+    // From high ahead, over the dunes
     query:
       'lat=2.7S&long=0.4W&heading=110&tod=0.6&plane=glider&livery=sand' +
-      '&camOffset=18,10,42&cloudMood=high',
-    portrait: 'camOffset=8,10,52',
+      '&camOffset=-35,15,-45&camLook=0,0,0&cloudMood=high',
   },
   alien: {
+    // From below, the plane over the alien peaks
     query:
-      'lat=0.2N&long=12E&heading=-90&tod=0.55&livery=purple&camOffset=20,8,40' +
-      '&cloudMood=busy',
-    portrait: 'camOffset=8,8,52',
+      'lat=0.2N&long=12E&heading=-90&tod=0.55&livery=purple' +
+      '&camOffset=12,-10,22&camLook=0,2,-10&cloudMood=busy',
+    portrait: 'camOffset=4,-10,60&camLook=0,2,-5',
   },
 };
