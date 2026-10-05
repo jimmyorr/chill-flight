@@ -17,8 +17,8 @@
 // a production build written to a temp dir (never docs/); GAME_URL (e.g.
 // http://localhost:5173/) uses the dev server instead. Output goes to promo/
 // (OUT=dir). Options (env): SHEET (a target for the contact sheet, shrunk;
-// default web), SETTLE_MS (wait before a still or a clip; default 30000, for
-// software WebGL), FPS (30), MUSIC (an audio file for the video; default the
+// default web), SETTLE_MS (extra wait after the game loads, before a still or
+// a clip; default 1000), FPS (30), MUSIC (an audio file for the video; default the
 // bundled Purrple Cat track, `none` for silence). Needs ffmpeg.
 //
 // Every shot runs on a virtual clock: the page's requestAnimationFrame,
@@ -52,7 +52,7 @@ if (mode === 'video' && !videoTarget?.video) {
   process.exit(1);
 }
 const OUT = path.resolve(process.env.OUT || path.join(ROOT, 'promo'));
-const SETTLE_MS = Number(process.env.SETTLE_MS || 30000);
+const SETTLE_MS = Number(process.env.SETTLE_MS || 1000);
 const FPS = Number(process.env.FPS || 30);
 const PREROLL = Number(process.env.PREROLL || 1.5);
 const MUSIC =

@@ -391,6 +391,10 @@ export const ChillFlightLogic = {};
       ? _presetParam.toLowerCase()
       : null;
 
+  // Frame rate cap; 0 lifts it (null: the preset's)
+  const _fpsParam = parseFloat(getParam('fps', ''));
+  const MAX_FPS = _fpsParam >= 0 ? _fpsParam : null;
+
   const _islandTypeParam = getParam('islandType', getParam('island', null));
   let START_ISLAND_TYPE = 'auto';
   if (_islandTypeParam !== null && _islandTypeParam !== '') {
@@ -2578,6 +2582,7 @@ export const ChillFlightLogic = {};
   exports.START_MAP_ZOOM = START_MAP_ZOOM;
   exports.START_BENCHMARK = START_BENCHMARK;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
+  exports.MAX_FPS = MAX_FPS;
   exports.ZENITH_COLOR = ZENITH_COLOR;
   exports.HORIZON_COLOR = HORIZON_COLOR;
   exports.DAY_COLOR = DAY_COLOR;

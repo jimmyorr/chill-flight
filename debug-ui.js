@@ -125,7 +125,7 @@ export function applyGraphicsPreset(preset) {
   state.PROP_LOD_DISTANCE = propLod;
   state.PROP_LOD_DISTANCE = propLod;
   if (typeof state.maxFPS !== 'undefined') {
-    state.maxFPS = fps;
+    state.maxFPS = ChillFlightLogic.MAX_FPS ?? fps;
     state.frameMinDelay = state.maxFPS > 0 ? 1000 / state.maxFPS : 0;
   }
 
