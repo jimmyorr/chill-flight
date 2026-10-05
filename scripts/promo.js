@@ -275,20 +275,27 @@ try {
     for (const name of selected) {
       const page = await openShot(browser, SHOTS[name], target);
       const file = path.join(OUT, `sheet-${name}.jpg`);
+      // Labelled here rather than by ffmpeg, whose drawtext filter isn't in
+      // Homebrew's ffmpeg
+      await page.evaluate((text) => {
+        const label = document.createElement('div');
+        label.textContent = text;
+        label.style.cssText =
+          'position:fixed;left:8px;bottom:8px;z-index:2147483647;' +
+          'padding:2px 6px;font:500 14px Inter,sans-serif;color:#fff;' +
+          'background:rgba(0,0,0,0.5);' +
+          // Over ui=0's hiding of everything but the canvas
+          'visibility:visible !important';
+        document.body.append(label);
+      }, name);
       await page.screenshot({path: file, type: 'jpeg', quality: 85});
       reportErrors(name, page);
       await page.close();
       files.push(file);
       console.log(file);
     }
-    // Labelled tiles, two across for landscape and four for portrait
+    // Tiles two across for landscape and four for portrait
     const cols = Math.min(target.height > target.width ? 4 : 2, files.length);
-    const labelled = files
-      .map(
-        (f, i) =>
-          `[${i}]drawtext=text='${selected[i]}':x=8:y=h-24:fontsize=16:fontcolor=white:box=1:boxcolor=black@0.5[l${i}]`
-      )
-      .join(';');
     const layout = files
       .map(
         (_, i) =>
@@ -298,10 +305,12 @@ try {
     const sheet = path.join(OUT, 'sheet.jpg');
     ffmpeg([
       ...files.flatMap((f) => ['-i', f]),
-      '-filter_complex',
-      files.length > 1
-        ? `${labelled};${files.map((_, i) => `[l${i}]`).join('')}xstack=inputs=${files.length}:layout=${layout}:fill=black`
-        : labelled.replace(/\[l0\]$/, ''),
+      ...(files.length > 1
+        ? [
+            '-filter_complex',
+            `xstack=inputs=${files.length}:layout=${layout}:fill=black`,
+          ]
+        : []),
       ...['-frames:v', '1', sheet],
     ]);
     console.log(sheet);
