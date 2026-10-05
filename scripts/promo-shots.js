@@ -122,7 +122,6 @@ export const SHOTS = {
       'lat=0.2S&long=2.4E&heading=60&tod=0.5&plane=twin&livery=teal&ui=1' +
       '&cloudMood=fair',
     seconds: 4,
-    still: false,
   },
   'snow-biplane': {
     query:
