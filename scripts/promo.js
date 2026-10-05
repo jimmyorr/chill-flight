@@ -12,6 +12,9 @@
 //                                                    video (e.g. iphone-preview)
 //   node scripts/promo.js urls [shot ...]            a link to each shot on the
 //                                                    dev server, to adjust it
+//   node scripts/promo.js view                       rewrites promo/index.html,
+//                                                    a page for browsing the
+//                                                    stills (stills does too)
 //
 // Targets (sizes, device, cards) are in promo-shots.js. By default it renders
 // a production build written to a temp dir (never docs/); GAME_URL (e.g.
@@ -37,10 +40,10 @@ import {COMMON, SHOTS, TARGETS} from './promo-shots.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE =
-  'Usage: node scripts/promo.js sheet|stills|urls [shot ...]\n' +
+  'Usage: node scripts/promo.js sheet|stills|urls|view [shot ...]\n' +
   '       node scripts/promo.js video <target> [shot ...]';
 const [mode, ...args] = process.argv.slice(2);
-if (!['sheet', 'stills', 'video', 'urls'].includes(mode)) {
+if (!['sheet', 'stills', 'video', 'urls', 'view'].includes(mode)) {
   console.error(USAGE);
   process.exit(1);
 }
@@ -106,6 +109,134 @@ if (mode === 'urls') {
 }
 
 fs.mkdirSync(OUT, {recursive: true});
+
+// A page for browsing the stills in OUT, by device or by shot
+function writeViewer() {
+  const devices = Object.keys(TARGETS).filter((t) => !TARGETS[t].video);
+  const stills = [];
+  for (const shot of Object.keys(SHOTS)) {
+    for (const device of devices) {
+      const file = `${shot}-${device}.jpg`;
+      if (fs.existsSync(path.join(OUT, file)))
+        stills.push({shot, device, file});
+    }
+  }
+  const sizes = Object.fromEntries(
+    devices.map((d) => {
+      const t = TARGETS[d];
+      const scale = t.scale || 1;
+      return [
+        d,
+        `${Math.round(t.width * scale)}x${Math.round(t.height * scale)}`,
+      ];
+    })
+  );
+  const data = JSON.stringify({stills, devices, sizes});
+  const file = path.join(OUT, 'index.html');
+  fs.writeFileSync(
+    file,
+    `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chill Flight promo stills</title>
+<style>
+  :root { color-scheme: dark; --bg: #0f0f1a; --panel: #1a1a2e; --text: #e8e8f0;
+    --muted: #8a8aa0; --accent: #ffd34d; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.4 -apple-system, system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 1; background: var(--panel);
+    padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px;
+    align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+  h1 { margin: 0; font-size: 16px; font-weight: 600; }
+  .group { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: inherit; color: var(--text); background: #2a2a44;
+    border: 1px solid #3a3a5a; border-radius: 999px; padding: 4px 12px;
+    cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--accent); color: #111;
+    border-color: var(--accent); }
+  .divider { width: 1px; align-self: stretch; background: #3a3a5a; }
+  main { padding: 16px; display: flex; flex-wrap: wrap; gap: 16px;
+    align-items: flex-start; }
+  figure { margin: 0; }
+  figure a { display: block; }
+  figure img { display: block; width: auto; height: auto; max-height: var(--h);
+    max-width: calc(100vw - 32px); border-radius: 6px; background: #000; }
+  figcaption { color: var(--muted); padding-top: 4px; }
+  .empty { color: var(--muted); }
+</style></head>
+<body>
+<header>
+  <h1>Promo stills</h1>
+  <div class="group" id="modes"></div>
+  <div class="divider"></div>
+  <div class="group" id="picks"></div>
+</header>
+<main id="grid"></main>
+<script>
+const {stills, devices, sizes} = ${data};
+const shots = [...new Set(stills.map((s) => s.shot))];
+const state = {mode: 'device', pick: devices[0]};
+try {
+  const [mode, pick] = decodeURIComponent(location.hash.slice(1)).split('/');
+  if (mode === 'device' || mode === 'shot') Object.assign(state, {mode, pick});
+} catch {}
+function button(label, pressed, onClick) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.setAttribute('aria-pressed', pressed);
+  b.onclick = onClick;
+  return b;
+}
+function render() {
+  const options = state.mode === 'device' ? devices : shots;
+  if (!options.includes(state.pick)) state.pick = options[0];
+  history.replaceState(null, '', '#' + state.mode + '/' + state.pick);
+  const modes = document.getElementById('modes');
+  modes.replaceChildren(
+    button('By device', state.mode === 'device', () => { state.mode = 'device'; render(); }),
+    button('By shot', state.mode === 'shot', () => { state.mode = 'shot'; render(); })
+  );
+  document.getElementById('picks').replaceChildren(
+    ...options.map((o) => button(o, o === state.pick, () => { state.pick = o; render(); }))
+  );
+  const grid = document.getElementById('grid');
+  const shown = stills.filter((s) => s[state.mode] === state.pick);
+  // Portrait devices get taller tiles; in one shot's row every device gets the same height
+  const height = (d) => state.mode === 'shot' ? '360px'
+    : ['iphone', 'ipad'].includes(d) ? '520px' : '300px';
+  grid.replaceChildren(...shown.map((s) => {
+    const fig = document.createElement('figure');
+    fig.style.setProperty('--h', height(s.device));
+    const a = document.createElement('a');
+    a.href = s.file;
+    a.target = '_blank';
+    const img = document.createElement('img');
+    img.src = s.file;
+    img.alt = s.shot + ' on ' + s.device;
+    img.loading = 'lazy';
+    a.append(img);
+    const cap = document.createElement('figcaption');
+    cap.textContent = (state.mode === 'device' ? s.shot : s.device) + ' · ' + sizes[s.device];
+    fig.append(a, cap);
+    return fig;
+  }));
+  if (!shown.length) {
+    grid.innerHTML = '<p class="empty">No stills yet. Run node scripts/promo.js stills.</p>';
+  }
+}
+render();
+</script>
+</body></html>
+`
+  );
+  return file;
+}
+
+if (mode === 'view') {
+  console.log(writeViewer());
+  process.exit(0);
+}
 
 // --- The game: a build in a temp dir, or GAME_URL ---
 let base = process.env.GAME_URL;
@@ -334,6 +465,7 @@ try {
         console.log(file);
       }
     }
+    console.log(writeViewer());
   }
 
   if (mode === 'video') {
