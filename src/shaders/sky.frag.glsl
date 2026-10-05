@@ -93,7 +93,7 @@
 
             // -- Layer 2: Mackerel sky (rows of small puffs) --
             if (uCloudTypes.z > 0.0) {
-                vec2 uvMackerel = (cloudUV + CLOUD_WIND * uTime * 0.02) * 2.5;
+                vec2 uvMackerel = (cloudUV + CLOUD_WIND * uTime * 0.02) * 4.5;
                 // Fine rows shimmer near the horizon, so they fade out sooner
                 float alphaMackerel = smoothstep(0.46, 0.6, mackerelShape(uvMackerel))
                                     * smoothstep(0.08, 0.35, abs(h)) * uCloudTypes.z;

@@ -271,16 +271,19 @@ float cirrusViewFade(vec3 dir) {
   return 1.0 - smoothstep(0.55, 0.95, along) * 0.85;
 }
 
-// Mackerel sky: rows of small puffs across the wind, in patches
+// Mackerel sky: rows of small puffs across the wind, in patches. The puffs
+// only show along the rows' crests (rather than being added to them), so up
+// close, where a row is wide on screen, it still breaks into puffs instead
+// of a smooth stripe.
 float mackerelShape(vec2 uv) {
   vec2 a = windAligned(uv);
   float warp = noise(uv * 1.1 + 5.1);
-  float rows = sin(a.y * 11.0 + warp * 5.0) * 0.5 + 0.5;
-  float puffs = noise(uv * 7.0 + warp * 2.0);
+  float rows = smoothstep(0.35, 0.9, sin(a.y * 11.0 + warp * 5.0) * 0.5 + 0.5);
+  float puffs = noise(uv * 9.0 + warp * 2.0);
   // More mackerel means bigger patches, not just thicker ones
   float patchEdge = 0.58 - 0.2 * uCloudTypes.z;
   float patches = smoothstep(patchEdge, patchEdge + 0.14, fbmMacro(uv * 0.5 + 4.3));
-  return (puffs * 0.55 + rows * 0.45) * patches;
+  return rows * smoothstep(0.3, 0.65, puffs) * patches;
 }
 
 // Cloud lighting through the day. As the sun gets low it lights the clouds
@@ -349,7 +352,7 @@ vec4 cloudsAlong(vec3 p, vec3 dir, float cloudHeight, float density, float time,
   vec2 q;
   float aCirrus = smoothstep(0.3, 0.55, cirrusShape((cloudUV + CLOUD_WIND * time * 0.012) * 2.0))
                 * horizonFade * 0.55 * uCloudTypes.y * cirrusViewFade(dir);
-  float aMackerel = smoothstep(0.46, 0.6, mackerelShape((cloudUV + CLOUD_WIND * time * 0.02) * 2.5))
+  float aMackerel = smoothstep(0.46, 0.6, mackerelShape((cloudUV + CLOUD_WIND * time * 0.02) * 4.5))
                   * smoothstep(0.08, 0.35, dir.y) * 0.75 * uCloudTypes.z;
   float aCumulus = smoothstep(0.42 - densityOffset - uCloudCover, 0.58 - densityOffset - uCloudCover,
                               cumulusShape((cloudUV + CLOUD_WIND * time * 0.034) * 2.0, 0.0, q))
