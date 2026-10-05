@@ -14,7 +14,10 @@
 //                                                    dev server, to adjust it
 //   node scripts/promo.js view                       rewrites promo/index.html,
 //                                                    a page for browsing the
-//                                                    stills (stills does too)
+//                                                    stills (stills does too),
+//                                                    and opens it
+//
+// Each mode is also an npm script: npm run promo:stills [-- shot ...]
 //
 // Targets (sizes, device, cards) are in promo-shots.js. By default it renders
 // a production build written to a temp dir (never docs/); GAME_URL (e.g.
@@ -234,7 +237,9 @@ render();
 }
 
 if (mode === 'view') {
-  console.log(writeViewer());
+  const page = writeViewer();
+  console.log(page);
+  if (process.platform === 'darwin') execFileSync('open', [page]);
   process.exit(0);
 }
 

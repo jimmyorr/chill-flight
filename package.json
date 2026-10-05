@@ -30,7 +30,12 @@
     "test:fog": "node scripts/test-fog.js",
     "test:workers": "node scripts/test-worker-manager.js",
     "test:clouds": "node scripts/test-cloud-moods.js",
-    "bench": "node scripts/bench-render.js"
+    "bench": "node scripts/bench-render.js",
+    "promo:sheet": "node scripts/promo.js sheet",
+    "promo:stills": "node scripts/promo.js stills",
+    "promo:video": "node scripts/promo.js video",
+    "promo:urls": "node scripts/promo.js urls",
+    "promo:view": "node scripts/promo.js view"
   },
   "dependencies": {
     "@capacitor-firebase/analytics": "^8.2.0",
