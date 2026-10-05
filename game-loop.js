@@ -529,6 +529,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
             ? 'rain'
             : 'none';
     updateDOM('debug-weather-mode', _precipType);
+    updateDOM('debug-cloud-mood', _cloudMood ? _cloudMood.name : '-');
 
     // Island archetype telemetry
     const _activeIslandPos = state.isFreeCamera

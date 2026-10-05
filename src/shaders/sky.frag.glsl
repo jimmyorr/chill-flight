@@ -94,14 +94,20 @@
             // -- Layer 2: Mackerel sky (rows of small puffs) --
             if (uCloudTypes.z > 0.0) {
                 vec2 uvMackerel = (cloudUV + CLOUD_WIND * uTime * 0.02) * 4.5;
-                // Fine rows shimmer near the horizon, so they fade out sooner
-                float alphaMackerel = smoothstep(0.46, 0.6, mackerelShape(uvMackerel))
+                // Fine rows shimmer near the horizon, so they fade out sooner.
+                // A wide edge band: thin puffs are see-through at their edges
+                float shapeMackerel = mackerelShape(uvMackerel);
+                float alphaMackerel = smoothstep(0.2, 0.6, shapeMackerel)
                                     * smoothstep(0.08, 0.35, abs(h)) * uCloudTypes.z;
                 if (alphaMackerel > 0.0) {
-                    float edge = smoothstep(0.46, 0.68, mackerelShape(uvMackerel + sunDir2D * 0.02));
-                    vec3 mackerelColor = mix(shadowColor, brightEdgeColor, mix(0.55, 1.0, 1.0 - edge));
+                    // Thick centers are shaded from below; the sunward side
+                    // and thin edges are lit
+                    float thickness = smoothstep(0.35, 0.8, shapeMackerel);
+                    float edge = smoothstep(0.2, 0.7, mackerelShape(uvMackerel + sunDir2D * 0.02));
+                    float lit = mix(1.0, 0.55, max(thickness * 0.7, edge * 0.5));
+                    vec3 mackerelColor = mix(shadowColor, brightEdgeColor, lit);
                     mackerelColor += bottomColor * sunRim * 1.5;
-                    col = mix(col, mackerelColor, alphaMackerel * 0.8);
+                    col = mix(col, mackerelColor, alphaMackerel * 0.85);
                 }
             }
 
