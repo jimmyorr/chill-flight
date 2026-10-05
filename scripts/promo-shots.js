@@ -112,9 +112,9 @@ export const SHOTS = {
     // North-west over the islands, side-on against the sunset
     query:
       'lat=0.2S&long=2.4E&heading=45&tod=0.745&plane=twin&livery=teal' +
-      '&camOffset=60,2,5&cloudMood=busy',
+      '&camOffset=60,-8,5&cloudMood=busy',
     seconds: 4,
-    portrait: 'camOffset=110,2,5',
+    portrait: 'camOffset=85,-12,5',
   },
   'hud-islands': {
     // The game as players see it: the interface on, on a touch device
@@ -163,11 +163,11 @@ export const SHOTS = {
     portrait: 'camOffset=-28,-5,-75',
   },
   islands: {
-    // Wide and high over the islands, the plane heading out across them
+    // Past a hilly island (X = 14500, Z = 6000: 2.9 East, 1.2 South), from
+    // high on its far side
     query:
-      'lat=0.2S&long=2.4E&heading=60&tod=0.5&plane=twin&livery=teal' +
-      '&camOffset=-60,45,90&camLook=0,0,-80&cloudMood=fair',
-    portrait: 'camOffset=-30,45,100&camLook=0,0,-20',
+      'x=15600&y=220&z=6000&heading=0&tod=0.5&plane=twin&livery=teal' +
+      '&camOffset=90,40,10&camLook=0,25,0&cloudMood=fair',
   },
   desert: {
     // From high ahead, over the dunes
