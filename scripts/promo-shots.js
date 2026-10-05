@@ -73,7 +73,7 @@ export const SHOTS = {
       'freecam=true&x=7812&y=60&z=3345&heading=-40&roll=10' +
       '&camX=7900&camY=45&camZ=3380&camHeading=50&camPitch=6' +
       '&tod=0.785&headlight=1&livery=teal&cloudMood=mackerel',
-    portrait: 'x=7856&y=70&z=3324',
+    portrait: 'x=7807&y=60&z=3320',
   },
   // Over the volcano (X = -5000, Z = 5000: 1.0 West, 1.0 South) at sunset
   volcano: {
@@ -114,6 +114,7 @@ export const SHOTS = {
       'lat=0.2S&long=2.4E&heading=135&tod=0.745&plane=twin&livery=teal' +
       '&camOffset=-20,10,44&cloudMood=busy',
     seconds: 4,
+    portrait: 'camOffset=-16,10,64',
   },
   'hud-islands': {
     // The game as players see it: the interface on, on a touch device
@@ -151,6 +152,7 @@ export const SHOTS = {
       'lat=0.1N&long=1.2E&heading=-90&tod=0.93&headlight=1&livery=slate' +
       '&camOffset=12,6,36&cloudMood=mixed',
     seconds: 4,
+    portrait: 'camOffset=3,6,54',
   },
 
   // --- More stills ---
@@ -159,11 +161,13 @@ export const SHOTS = {
     query:
       'lat=0.2S&long=2.4E&heading=-90&tod=0.27&plane=twin&livery=teal' +
       '&camOffset=20,10,44&cloudMood=mackerel',
+    portrait: 'camOffset=16,10,64',
   },
   islands: {
     query:
       'lat=0.2S&long=2.4E&heading=60&tod=0.5&plane=twin&livery=teal' +
       '&camOffset=-26,14,46&cloudMood=fair',
+    portrait: 'camOffset=-18,14,66',
   },
   desert: {
     query:
@@ -175,5 +179,6 @@ export const SHOTS = {
     query:
       'lat=0.2N&long=12E&heading=-90&tod=0.55&livery=purple&camOffset=20,8,40' +
       '&cloudMood=busy',
+    portrait: 'camOffset=8,8,52',
   },
 };
