@@ -22,15 +22,18 @@ const SIGN_OFF = {title: 'CHILL FLIGHT', lines: ['Music by Purrple Cat']};
 // YouTube thumbnail (with the app icon and name over it), and the App Store's
 // product page header and search results asset (no text: the store shows the
 // icon and name beside them; keep the subject near the center, as the edges
-// can be cropped). `query` adds parameters to the shot's.
+// can be cropped). `query` adds parameters to the shot's; `png` saves a PNG
+// (RGB, no alpha) instead of a JPEG.
 export const ARTWORK = {
   thumbnail: {shot: 'islands-sunset', width: 1280, height: 720, logo: true},
-  // 3840x1646
+  // 3840x1646. App Store Connect takes the header only as a PNG (it calls a
+  // JPEG's dimensions invalid), though it takes the search results as a JPEG
   'appstore-header': {
     shot: 'islands-sunset',
     width: 1920,
     height: 823,
     scale: 2,
+    png: true,
   },
   // 3840x2560
   'appstore-search': {

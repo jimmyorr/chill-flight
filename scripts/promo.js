@@ -511,8 +511,16 @@ try {
         : base;
       const page = await openShot(browser, shot, art);
       if (art.logo) await addLogo(page);
-      const file = path.join(OUT, `${name}.jpg`);
-      await page.screenshot({path: file, type: 'jpeg', quality: 92});
+      const file = path.join(OUT, `${name}.${art.png ? 'png' : 'jpg'}`);
+      if (art.png) {
+        // Browser PNGs carry an alpha channel; the App Store wants plain RGB
+        const rgba = file.replace(/\.png$/, '-rgba.png');
+        await page.screenshot({path: rgba, type: 'png'});
+        ffmpeg(['-i', rgba, '-pix_fmt', 'rgb24', file]);
+        fs.rmSync(rgba);
+      } else {
+        await page.screenshot({path: file, type: 'jpeg', quality: 92});
+      }
       reportErrors(name, page);
       await page.close();
       console.log(file);
