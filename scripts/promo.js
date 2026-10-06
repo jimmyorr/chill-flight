@@ -336,7 +336,7 @@ async function openShot(browser, shot, target) {
   // Then full size and real time, so the chase camera and the plane's motion
   // settle (and the renderer and shadows catch up with the new size)
   await page.setViewport(viewport(1));
-  for (let i = 0; i < Math.round(PREROLL * FPS); i++) {
+  for (let i = 0; i < Math.round((shot.preroll ?? PREROLL) * FPS); i++) {
     await step(page, 1000 / FPS);
   }
   page.close = async () => context.close();
@@ -354,41 +354,49 @@ function ffmpeg(args) {
   execFileSync('ffmpeg', ['-v', 'error', '-y', ...args], {stdio: 'inherit'});
 }
 
-// A title or end card: centered text on the title screen's dark gradient, in
-// the game's Inter, scaled to the frame's shorter side: the name, then a
-// tagline and any smaller lines under it
-function cardHtml({title, lines = []}) {
+// A title or end card: the app icon over the name, then an optional tagline
+// and any smaller lines (a credit, a web address), in the game's Inter, sized to the frame's
+// shorter side. The background is a frame of the next or previous clip,
+// blurred and darkened, so the video fades into the card rather than cutting
+// to a flat one.
+function cardHtml({title, tagline, lines = []}, background) {
+  const file = (rel) => 'file://' + path.join(ROOT, rel);
   const font = (weight) =>
-    'file://' +
-    path.join(
-      ROOT,
+    file(
       `node_modules/@fontsource/inter/files/inter-latin-${weight}-normal.woff2`
     );
   return `<!doctype html><meta charset="utf-8"><style>
     @font-face { font-family: Inter; font-weight: 300; src: url(${font(300)}); }
     @font-face { font-family: Inter; font-weight: 500; src: url(${font(500)}); }
-    html, body { margin: 0; height: 100%; }
+    html, body { margin: 0; height: 100%; overflow: hidden; }
     body { display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 2.5vmin; font-family: Inter, sans-serif;
-      color: #fff; background: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%); }
-    h1 { margin: 0; font-weight: 300; font-size: 7vmin; letter-spacing: 0.6em;
-      margin-right: -0.6em; text-align: center; }
-    p { margin: 0; font-weight: 500; font-size: 2.8vmin; letter-spacing: 0.25em;
-      color: rgba(255, 255, 255, 0.6); text-align: center; }
-    /* The first line is the tagline; any after it (a web address) are smaller */
-    p:first-of-type { font-weight: 300; font-size: 4vmin; letter-spacing: 0.12em;
-      color: rgba(255, 255, 255, 0.9); }
-    /* Portrait: the spaced-out title would overflow the width, and the lines
-       would be too small to read on a phone */
-    @media (orientation: portrait) {
-      h1 { font-size: 6vmin; }
+      justify-content: center; font-family: Inter, sans-serif; color: #fff;
+      text-align: center; background: #0f0f1a; }
+    body::before { content: ''; position: fixed; inset: -8%; z-index: -1;
+      background: url(${background}) center / cover;
+      filter: blur(5vmin) brightness(0.45) saturate(1.2); }
+    img { width: 30vmin; height: 30vmin; border-radius: 22.5%;
+      box-shadow: 0 2vmin 6vmin rgba(0, 0, 0, 0.5); }
+    h1 { margin: 6vmin -0.35em 0 0; font-weight: 500; font-size: 6vmin;
+      letter-spacing: 0.35em; }
+    p { margin: 2.5vmin 0 0; font-weight: 300; font-size: 4.6vmin;
+      letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.8); }
+    p.small { margin-top: 3vmin; font-weight: 500; font-size: 3.4vmin;
+      letter-spacing: 0.15em; color: rgba(255, 255, 255, 0.6); }
+    h1 + p.small { margin-top: 4vmin; }
+    /* Landscape has room to spare across, so the lockup is a little smaller */
+    @media (orientation: landscape) {
+      img { width: 22vmin; height: 22vmin; }
+      h1 { margin-top: 4.5vmin; font-size: 5vmin; }
       p { font-size: 3.6vmin; }
-      p:first-of-type { font-size: 5.5vmin; }
+      p.small { font-size: 2.6vmin; }
     }
-  </style><h1>${title}</h1>${lines.map((line) => `<p>${line}</p>`).join('')}`;
+  </style><img src="${file('public/icon-512.png')}" alt=""><h1>${title}</h1>${
+    tagline ? `<p>${tagline}</p>` : ''
+  }${lines.map((line) => `<p class="small">${line}</p>`).join('')}`;
 }
 
-async function renderCard(browser, card, target, file) {
+async function renderCard(browser, card, background, target, file) {
   const page = await browser.newPage();
   await page.setViewport({
     width: target.width,
@@ -396,7 +404,7 @@ async function renderCard(browser, card, target, file) {
     deviceScaleFactor: target.scale || 1,
   });
   const html = path.join(OUT, 'card.html');
-  fs.writeFileSync(html, cardHtml(card));
+  fs.writeFileSync(html, cardHtml(card, 'file://' + background));
   await page.goto('file://' + html, {waitUntil: 'load'});
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({path: file});
@@ -488,11 +496,15 @@ try {
     const target = videoTarget;
     const pixelW = Math.round(target.width * (target.scale || 1));
     const pixelH = Math.round(target.height * (target.scale || 1));
-    const parts = [];
-    const addCard = async (card, i) => {
+    const clips = [];
+    // The first clip's first frame and the last clip's last frame, as the
+    // title and end cards' backgrounds
+    const firstFrame = path.join(OUT, `${videoTargetName}-first-frame.jpg`);
+    const lastFrame = path.join(OUT, `${videoTargetName}-last-frame.jpg`);
+    const addCard = async (card, i, background) => {
       const png = path.join(OUT, `${videoTargetName}-card-${i}.png`);
       const mp4 = png.replace(/\.png$/, '.mp4');
-      await renderCard(browser, card, target, png);
+      await renderCard(browser, card, background, target, png);
       ffmpeg([
         ...['-loop', '1', '-framerate', String(FPS), '-i', png],
         ...['-t', String(card.seconds), ...H264, mp4],
@@ -500,9 +512,6 @@ try {
       fs.rmSync(png);
       return {mp4, seconds: card.seconds};
     };
-    const {titleCard, endCard} = target;
-    if (titleCard) parts.push(await addCard(titleCard, 0));
-
     for (const name of selected) {
       const shot = SHOTS[name];
       if (!shot.seconds) continue;
@@ -511,10 +520,12 @@ try {
       fs.mkdirSync(frameDir, {recursive: true});
       const page = await openShot(browser, shot, target);
       const frames = Math.round(shot.seconds * FPS);
+      const frameFile = (i) =>
+        path.join(frameDir, `${String(i).padStart(5, '0')}.jpg`);
       for (let i = 0; i < frames; i++) {
         await step(page, 1000 / FPS);
         await page.screenshot({
-          path: path.join(frameDir, `${String(i).padStart(5, '0')}.jpg`),
+          path: frameFile(i),
           type: 'jpeg',
           quality: 95,
         });
@@ -522,16 +533,25 @@ try {
       }
       reportErrors(name, page);
       await page.close();
+      if (!clips.length) fs.copyFileSync(frameFile(0), firstFrame);
+      fs.copyFileSync(frameFile(frames - 1), lastFrame);
       const mp4 = path.join(OUT, `${videoTargetName}-clip-${name}.mp4`);
       ffmpeg([
         ...['-framerate', String(FPS), '-i', path.join(frameDir, '%05d.jpg')],
         ...['-vf', `scale=${pixelW}:${pixelH}`, ...H264, mp4],
       ]);
       fs.rmSync(frameDir, {recursive: true, force: true});
-      parts.push({mp4, seconds: shot.seconds});
+      clips.push({mp4, seconds: shot.seconds});
       console.log(mp4);
     }
-    if (endCard) parts.push(await addCard(endCard, 1));
+    const {titleCard, endCard} = target;
+    const parts = [
+      ...(titleCard ? [await addCard(titleCard, 0, firstFrame)] : []),
+      ...clips,
+      ...(endCard ? [await addCard(endCard, 1, lastFrame)] : []),
+    ];
+    fs.rmSync(firstFrame, {force: true});
+    fs.rmSync(lastFrame, {force: true});
 
     // Edit: the parts joined by short crossfades, with music faded in and out
     const FADE = 0.6;
