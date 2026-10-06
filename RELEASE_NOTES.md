@@ -1,5 +1,12 @@
 # Release notes
 
+## [0.9.44](https://v0-9-44.chill-flight.pages.dev)
+
+- **Sky:** New cloud types (billowy cumulus, cirrus streaks and mackerel sky), a different cloud mood each day and dramatic sunrise and sunset lighting.
+- **Weather:** Storms darken to a grey deck, and snow only falls under cloud.
+- **Interface:** Zen mode hides the HUD, the pause menu has Flight and Settings tabs, and the title screen has a music toggle.
+- **Fixes:** Geese no longer vanish mid-sky, and windmills face into the wind.
+
 ## [0.9.43](https://v0-9-43.chill-flight.pages.dev)
 
 - **Deployment:** Unified web, Android, and iOS releases into a single workflow.
