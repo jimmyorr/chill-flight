@@ -166,6 +166,9 @@ export const ChillFlightLogic = {};
   // for this visit only, and ?tips=0 skips the first-time tips.
   const START_NOW = getSwitchParam('start') === true;
   const SHOW_UI = getSwitchParam('ui') !== false;
+  // ?adaptive=0: hold the preset's full quality instead of lowering detail and
+  // resolution when frames run slow (for renders, whose frames are stepped)
+  const ADAPTIVE_QUALITY = getSwitchParam('adaptive') !== false;
   const MUSIC_PARAM = getSwitchParam('music');
   const SHOW_TIPS = getSwitchParam('tips') !== false && SHOW_UI;
   const _debugParam = getParam('debug', null);
@@ -2581,6 +2584,7 @@ export const ChillFlightLogic = {};
   exports.START_MAP_Z = START_MAP_Z;
   exports.START_MAP_ZOOM = START_MAP_ZOOM;
   exports.START_BENCHMARK = START_BENCHMARK;
+  exports.ADAPTIVE_QUALITY = ADAPTIVE_QUALITY;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.MAX_FPS = MAX_FPS;
   exports.ZENITH_COLOR = ZENITH_COLOR;

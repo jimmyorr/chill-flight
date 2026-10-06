@@ -2,6 +2,7 @@
 import {renderer} from './sky.js';
 import {chunks} from './terrain-geometry.js';
 import {state} from './state.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
 
 class DynamicPerformanceMonitor {
   constructor() {
@@ -26,8 +27,10 @@ class DynamicPerformanceMonitor {
     this.pixelRatioMultiplier = 1.0;
     this._minPixelRatioMult = 0.8; // Floor: never drop below 80% of base resolution
 
-    // Shadow throttling state
-    this.shadowCadence = 1; // 1 = every frame, 2 = every other, 4 = every 4th, 0 = off
+    // Shadows update every frame while the sun is up (0 = off at night). They
+    // aren't throttled under load: the plane's shadow visibly steps along
+    // when the map is only redrawn every few frames
+    this.shadowCadence = 1;
     this._frameCount = 0;
     this._nightCulling = false; // True while the sun is down (sunLightFactor < 0.05)
 
@@ -52,6 +55,7 @@ class DynamicPerformanceMonitor {
       this.cooldownFrames--;
       return;
     }
+    if (!ChillFlightLogic.ADAPTIVE_QUALITY) return;
 
     if (this.ringCount >= this.windowSize) {
       const avgFrameTime = this.ringSum / this.ringCount;
@@ -108,24 +112,6 @@ class DynamicPerformanceMonitor {
         }
       }
 
-      // --- Shadow cadence scaling ---
-      let newCadence = this.shadowCadence;
-      if (this._nightCulling) {
-        newCadence = 0;
-      } else if (avgFrameTime > this.severelyOverloaded) {
-        newCadence = 4;
-      } else if (avgFrameTime > this.moderatelyOverloaded) {
-        newCadence = 3;
-      } else if (avgFrameTime > this.slightlyOverloaded) {
-        newCadence = 2;
-      } else if (avgFrameTime <= this.targetFrameTime * 1.05) {
-        newCadence = 1;
-      }
-      if (newCadence !== this.shadowCadence) {
-        this.shadowCadence = newCadence;
-        changed = true;
-      }
-
       // --- Chunk budget scaling ---
       if (avgFrameTime > this.severelyOverloaded) {
         this._chunkBudgetMs = 1.0;
@@ -151,10 +137,7 @@ class DynamicPerformanceMonitor {
    */
   updateSunLight(sunLightFactor) {
     this._nightCulling = sunLightFactor < 0.05;
-    // If we just entered night, immediately disable shadows without waiting for cooldown
-    if (this._nightCulling && this.shadowCadence !== 0) {
-      this.shadowCadence = 0;
-    }
+    this.shadowCadence = this._nightCulling ? 0 : 1;
   }
 
   /**

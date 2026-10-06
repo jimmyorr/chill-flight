@@ -306,12 +306,14 @@ Rather than choosing between reducing prop detail or lowering resolution, **LOD 
 
 Adjustments occur across four frame-time thresholds with a 30-frame hysteresis cooldown between adjustments:
 
-| Load state            | Frame time threshold | Effective FPS | LOD multiplier           | DRS resolution multiplier | Shadow update cadence | Terrain chunk budget |
-| :-------------------- | :------------------- | :------------ | :----------------------- | :------------------------ | :-------------------- | :------------------- |
-| **Normal / recovery** | ≤ 17.50 ms           | ≥ 57 FPS      | Recovers +0.1 (max 1.0×) | Recovers +0.05 (max 1.0×) | Every frame (1/1)     | 4.0 ms / frame       |
-| **Slight overload**   | > 20.00 ms           | < 50 FPS      | −0.1 step (floor 0.6×)   | Unchanged (1.0×)          | Every 2nd frame (1/2) | 3.0 ms / frame       |
-| **Moderate overload** | > 25.00 ms           | < 40 FPS      | −0.1 step (floor 0.4×)   | −0.05 step (floor 0.8×)   | Every 3rd frame (1/3) | 2.0 ms / frame       |
-| **Severe overload**   | > 33.33 ms           | < 30 FPS      | −0.2 step (floor 0.2×)   | −0.10 step (floor 0.8×)   | Every 4th frame (1/4) | 1.0 ms / frame       |
+| Load state            | Frame time threshold | Effective FPS | LOD multiplier           | DRS resolution multiplier | Terrain chunk budget |
+| :-------------------- | :------------------- | :------------ | :----------------------- | :------------------------ | :------------------- |
+| **Normal / recovery** | ≤ 17.50 ms           | ≥ 57 FPS      | Recovers +0.1 (max 1.0×) | Recovers +0.05 (max 1.0×) | 4.0 ms / frame       |
+| **Slight overload**   | > 20.00 ms           | < 50 FPS      | −0.1 step (floor 0.6×)   | Unchanged (1.0×)          | 3.0 ms / frame       |
+| **Moderate overload** | > 25.00 ms           | < 40 FPS      | −0.1 step (floor 0.4×)   | −0.05 step (floor 0.8×)   | 2.0 ms / frame       |
+| **Severe overload**   | > 33.33 ms           | < 30 FPS      | −0.2 step (floor 0.2×)   | −0.10 step (floor 0.8×)   | 1.0 ms / frame       |
+
+With `?adaptive=0` none of this happens: the preset's full quality holds however slow the frames. The promo renders use it, since their frames are stepped at a fixed 1/30 s, which would otherwise read as a slow game.
 
 #### Subsystem behaviors
 
@@ -319,8 +321,8 @@ Adjustments occur across four frame-time thresholds with a 30-frame hysteresis c
 - **LOD distance scaling:** Multiplies the prop visibility distance (base 4,200 units) down to a floor of 20% (840 units). Distant houses, chimneys, and piers are culled, significantly reducing vertex counts and draw calls.
 - **Adaptive chunk budget:** Terrain workers compute each chunk's heights, colors, and prop placements; the main thread then builds the chunk's meshes from that result within an adaptive per-frame time allowance (`processChunkQueue` in `terrain-chunks.js`). Under normal conditions, chunk building runs up to 4.0 ms per frame, dropping to 1.0 ms under severe load to eliminate stutter during flight. A chunk is generated entirely on the main thread only if workers are unavailable or its worker job failed.
   - _Boot override:_ During the initial startup loading screen (`isPaused && !isIntroTransitionActive`), the chunk budget is temporarily boosted to 33.0 ms per frame so the initial world geometry generates almost instantaneously.
-- **Shadow throttling and night culling:**
-  - _Dynamic throttling:_ Directional sun shadow map rendering scales down from every frame (cadence 1) to every 2nd, 3rd, or 4th frame under load, amortizing shadow pass render costs.
+- **Shadows and night culling:**
+  - _Every frame:_ The sun's shadow map is redrawn every frame, even under load. Redrawing it only every few frames made the plane's shadow visibly step along behind the plane.
   - _Night culling:_ The sun casts light and shadows only while it is at or above the horizon (`sunLightFactor`; before sunrise and after sunset its light goes to the sky light instead). Once it is down (`sunLightFactor < 0.05`), shadows are completely disabled (`shadowCadence = 0`, `renderer.shadowMap.needsUpdate = false`), saving the entire shadow pass when shadows are visually imperceptible.
   - _Preset disable:_ Shadows are also completely disabled when using the Low graphics preset.
 - **Telemetry overlay:** In debug mode (`?debug`), the debug panel displays real-time telemetry including average frame time (`Avg ms`), DRS multiplier (`DRS mult`), shadow cadence (`Shadow cad`), active chunk budget (`Chunk budget`), and loaded prop chunk counts.
@@ -382,6 +384,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`freecam`** or **`freeCamera`**: Set to `true` to start immediately in the free camera mode (bypassing cinematic intros). The plane holds still. Inherits starting location from `lat`, `long`/`lon`, and `alt`, or from `x`, `y`, and `z`.
 - **`camX`, `camY`, `camZ`, `camHeading`, `camPitch`**: With `freecam`, place the free camera separately from the plane: the camera goes here and the plane where `x`/`y`/`z` (or `lat`/`long`/`alt`), `heading`, `pitch` and `roll` say, e.g. a plane frozen mid-bank in the rock arch, filmed from the beach. Any left out start at the plane. Without them, `x`/`y`/`z`, `heading` and `pitch` place the free camera.
 - **`debug`**: Set to `true` (or include `?debug` or `?debug=1`) to start with the debug menu and telemetry overlay visible and enable diagnostic console logging. The debug menu's copy URL buttons (at the plane, or at the free camera) write every parameter of the current view, including the camera, livery, headlight, clouds, `clock` and `cloudTime`, so a link reproduces the picture.
+- **`adaptive`**: Set to `0` to keep the graphics preset's full quality instead of lowering detail and resolution when the frame rate drops (see [Dynamic performance scaling](#dynamic-performance-scaling)). Used for promo renders.
 - **`benchmark`**: Duration in seconds (e.g., `?benchmark=30`) to run an automated flight benchmark measuring mean FPS, 1% low, 0.1% low, and maximum frame spike.
 - **`preset`** or **`graphics`**: Override the graphics preset (`low`, `mid`, `high`, `ultra`).
 - **`fps`**: Cap the frame rate (default `60`); `0` lifts the cap. The promo script uses `0`, since it steps frames on its own clock.
