@@ -18,8 +18,28 @@ export const COMMON =
 const TITLE = {title: 'CHILL FLIGHT'};
 const SIGN_OFF = {title: 'CHILL FLIGHT', lines: ['Music by Purrple Cat']};
 
-// The YouTube thumbnail (1280x720): a shot with the app icon and name over it
-export const THUMBNAIL = {shot: 'islands-sunset', width: 1280, height: 720};
+// Single images for other placements, each a shot at its own size: the
+// YouTube thumbnail (with the app icon and name over it), and the App Store's
+// product page header and search results asset (no text: the store shows the
+// icon and name beside them; keep the subject near the center, as the edges
+// can be cropped). `query` adds parameters to the shot's.
+export const ARTWORK = {
+  thumbnail: {shot: 'islands-sunset', width: 1280, height: 720, logo: true},
+  // 3840x1646
+  'appstore-header': {
+    shot: 'islands-sunset',
+    width: 1920,
+    height: 823,
+    scale: 2,
+  },
+  // 3840x2560
+  'appstore-search': {
+    shot: 'sunrise-lakes',
+    width: 1920,
+    height: 1280,
+    scale: 2,
+  },
+};
 
 // Output targets: CSS size, pixel density (scale), touch device (mobile, for
 // the game's touch layout) and, for videos, an optional title card before

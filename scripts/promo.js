@@ -12,8 +12,10 @@
 //                                                    video (e.g. iphone-preview)
 //   node scripts/promo.js urls [shot ...]            a link to each shot on the
 //                                                    dev server, to adjust it
-//   node scripts/promo.js thumbnail                  the YouTube thumbnail
-//                                                    (THUMBNAIL in promo-shots.js)
+//   node scripts/promo.js artwork [name ...]         single images: the YouTube
+//                                                    thumbnail and App Store
+//                                                    header and search results
+//                                                    asset (ARTWORK)
 //   node scripts/promo.js view                       rewrites promo/index.html,
 //                                                    a page for browsing the
 //                                                    stills (stills does too),
@@ -41,14 +43,15 @@ import os from 'os';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import {launch, serveDir} from './dev-browser.js';
-import {COMMON, SHOTS, TARGETS, THUMBNAIL} from './promo-shots.js';
+import {ARTWORK, COMMON, SHOTS, TARGETS} from './promo-shots.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE =
-  'Usage: node scripts/promo.js sheet|stills|thumbnail|urls|view [shot ...]\n' +
+  'Usage: node scripts/promo.js sheet|stills|urls|view [shot ...]\n' +
+  '       node scripts/promo.js artwork [name ...]\n' +
   '       node scripts/promo.js video <target> [shot ...]';
 const [mode, ...args] = process.argv.slice(2);
-if (!['sheet', 'stills', 'thumbnail', 'video', 'urls', 'view'].includes(mode)) {
+if (!['sheet', 'stills', 'artwork', 'video', 'urls', 'view'].includes(mode)) {
   console.error(USAGE);
   process.exit(1);
 }
@@ -69,10 +72,12 @@ const MUSIC =
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failed = false;
 
-const selected = args.length ? args : Object.keys(SHOTS);
+// Shots, or for artwork the ARTWORK names
+const choices = mode === 'artwork' ? ARTWORK : SHOTS;
+const selected = args.length ? args : Object.keys(choices);
 for (const name of selected) {
-  if (!SHOTS[name]) {
-    console.error(`Unknown shot "${name}". Shots: ${Object.keys(SHOTS)}`);
+  if (!choices[name]) {
+    console.error(`Unknown name "${name}". Choices: ${Object.keys(choices)}`);
     process.exit(1);
   }
 }
@@ -414,6 +419,30 @@ async function renderCard(browser, card, background, target, file) {
   fs.rmSync(html);
 }
 
+// The app icon and name in the lower left, sized to the frame's width (and
+// shown over ui=0, which hides everything but the game view)
+async function addLogo(page) {
+  await page.evaluate(() => {
+    const logo = document.createElement('div');
+    logo.style.cssText =
+      'position:fixed;left:5vw;bottom:6vw;z-index:2147483647;display:flex;' +
+      'align-items:center;gap:2.5vw;visibility:visible !important';
+    const icon = document.createElement('img');
+    icon.src = new URL('icon-512.png', location.href).href;
+    icon.style.cssText =
+      'width:12vw;height:12vw;border-radius:22.5%;' +
+      'box-shadow:0 1vw 3vw rgba(0,0,0,0.5);visibility:visible !important';
+    const name = document.createElement('span');
+    name.textContent = 'CHILL FLIGHT';
+    name.style.cssText =
+      'font:500 5.4vw Inter,sans-serif;letter-spacing:0.3em;color:#fff;' +
+      'text-shadow:0 0.4vw 2vw rgba(0,0,0,0.6);visibility:visible !important';
+    logo.append(icon, name);
+    document.body.append(logo);
+    return icon.decode();
+  });
+}
+
 const H264 = ['-c:v', 'libx264', '-crf', '18', '-pix_fmt', 'yuv420p'];
 
 const browser = await launch();
@@ -473,34 +502,21 @@ try {
     console.log(sheet);
   }
 
-  if (mode === 'thumbnail') {
-    const page = await openShot(browser, SHOTS[THUMBNAIL.shot], THUMBNAIL);
-    // The app icon and name in the lower left, sized to the frame's width (and
-    // shown over ui=0, which hides everything but the game view)
-    await page.evaluate(() => {
-      const logo = document.createElement('div');
-      logo.style.cssText =
-        'position:fixed;left:5vw;bottom:6vw;z-index:2147483647;display:flex;' +
-        'align-items:center;gap:2.5vw;visibility:visible !important';
-      const icon = document.createElement('img');
-      icon.src = new URL('icon-512.png', location.href).href;
-      icon.style.cssText =
-        'width:12vw;height:12vw;border-radius:22.5%;' +
-        'box-shadow:0 1vw 3vw rgba(0,0,0,0.5);visibility:visible !important';
-      const name = document.createElement('span');
-      name.textContent = 'CHILL FLIGHT';
-      name.style.cssText =
-        'font:500 5.4vw Inter,sans-serif;letter-spacing:0.3em;color:#fff;' +
-        'text-shadow:0 0.4vw 2vw rgba(0,0,0,0.6);visibility:visible !important';
-      logo.append(icon, name);
-      document.body.append(logo);
-      return icon.decode();
-    });
-    const file = path.join(OUT, 'thumbnail.jpg');
-    await page.screenshot({path: file, type: 'jpeg', quality: 92});
-    reportErrors(THUMBNAIL.shot, page);
-    await page.close();
-    console.log(file);
+  if (mode === 'artwork') {
+    for (const name of selected) {
+      const art = ARTWORK[name];
+      const base = SHOTS[art.shot];
+      const shot = art.query
+        ? {...base, query: `${base.query}&${art.query}`}
+        : base;
+      const page = await openShot(browser, shot, art);
+      if (art.logo) await addLogo(page);
+      const file = path.join(OUT, `${name}.jpg`);
+      await page.screenshot({path: file, type: 'jpeg', quality: 92});
+      reportErrors(name, page);
+      await page.close();
+      console.log(file);
+    }
   }
 
   if (mode === 'stills') {

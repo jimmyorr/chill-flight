@@ -35,7 +35,7 @@
     "promo:stills": "node scripts/promo.js stills",
     "promo:video": "node scripts/promo.js video",
     "promo:urls": "node scripts/promo.js urls",
-    "promo:thumbnail": "node scripts/promo.js thumbnail",
+    "promo:artwork": "node scripts/promo.js artwork",
     "promo:view": "node scripts/promo.js view"
   },
   "dependencies": {
