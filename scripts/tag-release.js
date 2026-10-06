@@ -150,7 +150,15 @@ try {
     );
     const match = notesContent.match(regex);
     if (match) {
-      releaseNotes = match[1].trim();
+      // App Store Connect's "What's New" is plain text, so drop the Markdown
+      // (bold, italics, code and links, keeping the text); the "- " bullets
+      // read fine as they are
+      releaseNotes = match[1]
+        .trim()
+        .replace(/\*\*(.+?)\*\*/g, '$1')
+        .replace(/(^|[^\w*])([*_])(\S(?:.*?\S)?)\2(?=[^\w*]|$)/gm, '$1$3')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
     }
   }
 } catch {
