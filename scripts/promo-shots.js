@@ -18,6 +18,9 @@ export const COMMON =
 const TITLE = {title: 'CHILL FLIGHT'};
 const SIGN_OFF = {title: 'CHILL FLIGHT', lines: ['Music by Purrple Cat']};
 
+// The YouTube thumbnail (1280x720): a shot with the app icon and name over it
+export const THUMBNAIL = {shot: 'islands-sunset', width: 1280, height: 720};
+
 // Output targets: CSS size, pixel density (scale), touch device (mobile, for
 // the game's touch layout) and, for videos, an optional title card before
 // the clips and end card after them. App Store

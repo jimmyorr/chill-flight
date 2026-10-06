@@ -479,6 +479,7 @@ Times full frames of four fixed views (grassland, sunset over the sea, mountains
 npm run promo:sheet [-- shot ...]     # small renders and a contact sheet, for scouting angles
 npm run promo:stills [-- shot ...]    # each shot for each still target
 npm run promo:view                    # open promo/index.html, a page for browsing the stills
+npm run promo:thumbnail               # promo/thumbnail.jpg, the 1280x720 YouTube thumbnail
 npm run promo:video -- <target>       # the clips, then the edited video
 npm run promo:urls [-- shot ...]      # a dev server link to each shot, to adjust it
 ```
