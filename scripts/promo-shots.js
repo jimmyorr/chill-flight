@@ -46,11 +46,14 @@ export const ARTWORK = {
 
 // Output targets: CSS size, pixel density (scale), touch device (mobile, for
 // the game's touch layout) and, for videos, an optional title card before
-// the clips and end card after them. App Store
-// sizes: iPhone 6.9" screenshots and previews, iPad 13" screenshots and
-// previews (portrait).
+// the clips and end card after them. App Store sizes: iPhone 6.9" and 6.3"
+// screenshots, iPhone previews (one size for both), and iPad 13" screenshots
+// and previews (portrait).
 export const TARGETS = {
   iphone: {width: 440, height: 956, scale: 3, mobile: true}, // 1320x2868
+  // iPhone with Dynamic Island, medium display (6.3"): the size App Store
+  // Connect requires; it doesn't take the larger iPhone's screenshots
+  'iphone-medium': {width: 402, height: 874, scale: 3, mobile: true}, // 1206x2622
   ipad: {width: 1032, height: 1376, scale: 2, mobile: true}, // 2064x2752
   web: {width: 1920, height: 1080},
   social: {width: 1200, height: 630},
