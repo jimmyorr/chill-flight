@@ -31,6 +31,11 @@ export var chunks = new Map();
 // Allows animate() in game.js to skip iterating dozens of dry land chunks every frame.
 export var watercraftChunks = new Set();
 export var birdChunks = new Set();
+// Geese that have outlived their chunk: a flock flies far from where it
+// spawned, so when its chunk unloads it moves here and keeps flying until
+// it's too far away to see (terrain-chunks.js, flight-camera.js)
+export var strayBirds = new THREE.Group();
+strayBirds.userData.birds = [];
 export var _terrainGeometryPool = [];
 export var _waterGeometryPool = [];
 

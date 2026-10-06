@@ -207,7 +207,7 @@ You can pick a livery for one visit with the `?livery=` URL parameter: an index 
 
 The world is populated with dynamic, procedural wildlife that adds life to the environment:
 
-- **Geese:** Flocks of Canada geese fly in V-formations across the sky. They sleep and disappear at night, resuming their flight in the morning.
+- **Geese:** Flocks of Canada geese fly in V-formations across the sky. They sleep and disappear at night, resuming their flight in the morning. A flock stays in view wherever it flies, even far from where it set off (and after that area of the world unloads), until it's too far away to see.
 - **Hawks:** Solitary hawks glide on thermal currents, dynamically transitioning between flapping and soaring.
 - **Seagulls:** Flocks of gulls circle over coastal regions and beaches.
 - **Penguins:** Animated waddling penguins inhabit the icy terrain and floating icebergs of the deep north.

@@ -10,6 +10,7 @@ import {
   fireMat,
   getElevation,
   smokeMat,
+  strayBirds,
   waterUniforms,
   watercraftChunks,
   whiteSmokeMat,
@@ -536,12 +537,17 @@ export function updateFlightCamera(delta, nowTime) {
   // Animate Birds
   const activeBirds = birdChunks;
   activeBirds.forEach((chunkGroup) => {
-    // Optimization: Distance culling (6000 units)
+    // Optimization: Distance culling (6000 units) for the hawks and seagulls
+    // circling a distant chunk. Geese always animate: a flock flies far from
+    // its chunk (or has outlived it, in strayBirds) and can still be in view
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
-    if (checkPos.distanceToSquared(camera.position) > 36000000) return;
+    const chunkIsFar =
+      chunkGroup !== strayBirds &&
+      checkPos.distanceToSquared(camera.position) > 36000000;
 
     if (chunkGroup.userData.birds) {
       chunkGroup.userData.birds.forEach((bird) => {
+        if (chunkIsFar && bird.userData.type !== 'goose') return;
         bird.visible = state.dayFactor > 0.1;
         if (!bird.visible) return;
 
@@ -652,6 +658,17 @@ export function updateFlightCamera(delta, nowTime) {
       });
     }
   });
+
+  // Stray geese (their chunk has unloaded) go once they're 15000 units away,
+  // where a goose is under a pixel (chunks unload nearer, at about 9000 units
+  // on ultra, where a flock still shows as a V of dots)
+  const strays = strayBirds.userData.birds;
+  for (let i = strays.length - 1; i >= 0; i--) {
+    if (strays[i].position.distanceToSquared(camera.position) > 225000000) {
+      strayBirds.remove(strays[i]);
+      strays.splice(i, 1);
+    }
+  }
 
   // Animate Lighthouse Beam directly if active chunk is present
   if (chunks.has('5,2')) {

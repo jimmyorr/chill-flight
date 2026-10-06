@@ -22,6 +22,7 @@ import {
   barnTrimGeo,
   barnWhiteMat,
   birdChunks,
+  strayBirds,
   boatBoomGeo,
   boatDeckGeo,
   boatDeckMat,
@@ -195,6 +196,10 @@ import {generateChunkData} from './terrain-gen.js';
 import {hooks} from './hooks.js';
 import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
+
+// Geese whose chunk has unloaded fly on in the scene, animated with the rest
+scene.add(strayBirds);
+birdChunks.add(strayBirds);
 
 // Trees and other world-wide props are instanced per type, in tiles of
 // TREE_TILE_CHUNKS x TREE_TILE_CHUNKS chunks so three.js can skip tiles outside
@@ -2576,6 +2581,16 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
   // 4. Generate Birds
   group.userData.birds = [];
+  // This chunk's own geese may still be flying as strays from when it last
+  // unloaded; they're replaced by its new flock
+  const chunkKey = `${chunkX},${chunkZ}`;
+  const strays = strayBirds.userData.birds;
+  for (let i = strays.length - 1; i >= 0; i--) {
+    if (strays[i].userData.sourceKey === chunkKey) {
+      strayBirds.remove(strays[i]);
+      strays.splice(i, 1);
+    }
+  }
 
   workerData.chunkProps.birds.forEach((bData) => {
     if (bData.type === 'seagull') {
@@ -2662,7 +2677,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       goose.userData.soarDuration = bData.soarDuration;
       goose.userData.isDiving = false;
 
-      objectsGroup.add(goose);
+      // Not with the chunk's props: those hide past the prop draw distance
+      // from the chunk, and a flock flies far from where it spawned
+      group.add(goose);
       group.userData.birds.push(goose);
     }
   });
@@ -2851,6 +2868,16 @@ export function updateChunks() {
       Math.abs(cx - currentChunkX) > renderDistance + 1 ||
       Math.abs(cz - currentChunkZ) > renderDistance + 1
     ) {
+      // Its geese fly on as strays rather than vanishing mid-sky
+      if (group.userData.birds) {
+        for (const bird of group.userData.birds) {
+          if (bird.userData.type !== 'goose') continue;
+          bird.userData.sourceKey = key;
+          strayBirds.attach(bird);
+          strayBirds.userData.birds.push(bird);
+        }
+      }
+
       // Collect instanced meshes and pool/dispose unique geometries in a single traversal
       const instancedMeshesToRelease = [];
       group.traverse((child) => {
