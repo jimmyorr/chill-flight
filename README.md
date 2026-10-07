@@ -212,6 +212,10 @@ The world is populated with dynamic, procedural wildlife that adds life to the e
 - **Seagulls:** Flocks of gulls circle over coastal regions and beaches.
 - **Penguins:** Animated waddling penguins inhabit the icy terrain and floating icebergs of the deep north.
 
+## Other planes
+
+A few other planes share the sky, so now and then you spot someone else up there (`traffic.js`, with the flight math in `traffic-logic.js`). Up to three are around at a time: each appears 4.5 to 6 km away, small in the haze, on a course across your part of the sky, and is gone once it's 8 km off; a new one turns up every 15 to 45 seconds. They fly the game's four planes in random liveries, wander in gentle banked turns at their own cruising height, climb ahead of hills and turn away from mountains, and never dip below 40 units over the ground. At night they show navigation lights: red on the left wingtip, green on the right and a white strobe on the tail. Fly within 250 units of one for 3 seconds to earn the Wingman achievement. The **Other planes** switch on the pause menu's Settings tab turns them off (saved), and `?traffic=0` or `=1` sets them for one visit.
+
 ## Controls
 
 Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad.
@@ -230,7 +234,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **Shift + A**: Toggle autopilot (automatically levels out and maintains heading/altitude). Steering with the arrow keys, the touch joystick, drag-steer or a gamepad stick turns it off (mouse and tilt steering don't, since they're always steering).
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
 - **Z**: Toggle zen (hides the HUD and buttons for an unobstructed view; also a switch on the pause menu's Flight tab).
-- **Pause menu**: The **Flight** tab has the plane, livery, Music and Zen; **Settings** has graphics, invert y axis and, with a keyboard, a short key reference.
+- **Pause menu**: The **Flight** tab has the plane, livery, Music and Zen; **Settings** has graphics, invert y axis, other planes and, with a keyboard, a short key reference.
 - **Fullscreen world map**: Open via the 🗺️ Map button in the pause menu. Drag with mouse to pan, scroll wheel or `+` / `−` keys to zoom, and click 🎯 to center on plane. The map and the minimap color the land by height (hillshaded) and by region: the snowy north, the sandy and red-rock south, and the alien lands (cyan in the east, magenta in the west), using the same noise and thresholds as the terrain (`tintForRegion` in `minimap.js`).
 
 #### Special maneuvers
@@ -400,6 +404,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`start`**: Set to `1` to skip the title screen and start flying as soon as the game loads.
 - **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus, debug panels and tips), for clean screenshots and recordings. The keyboard controls still work.
 - **`music`**: Set to `0` or `1` to turn music off or on for this visit, without changing the saved setting.
+- **`traffic`**: Set to `0` or `1` to turn the other planes off or on for this visit, without changing the saved setting. The promo renders use `0`, so their shots are the same every time.
 - **`tips`**: Set to `0` to skip the first-time "Start the plane" tip for this visit.
 
 ## Development

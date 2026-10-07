@@ -131,6 +131,7 @@ import {
   windUniforms,
 } from './terrain-geometry.js';
 import {updateFlightCamera} from './flight-camera.js';
+import {trafficCount, updateTraffic} from './traffic.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
@@ -436,6 +437,7 @@ function animate() {
   planeGroup.updateMatrixWorld();
 
   updateFlightCamera(delta, nowTime);
+  updateTraffic(delta);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping(delta);
   // Smoothly interpolate sky shader palettes
@@ -852,6 +854,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     updateDOM('debug-piers', formatCount(activePiers, totalPiers));
     updateDOM('debug-birds', totalBirds);
     updateDOM('debug-pagodas', formatCount(activePagodas, totalPagodas));
+    updateDOM('debug-traffic', String(trafficCount()));
   }
 }
 

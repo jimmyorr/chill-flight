@@ -38,6 +38,8 @@ import '../debug-ui.js';
 import '../game.js';
 import '../flight-physics.js';
 import '../flight-camera.js';
+import '../traffic-logic.js';
+import '../traffic.js';
 import '../game-gyro.js';
 import '../game-ui.js';
 import '../zen.js';

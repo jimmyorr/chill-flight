@@ -169,6 +169,8 @@ export const ChillFlightLogic = {};
   // ?adaptive=0: hold the preset's full quality instead of lowering detail and
   // resolution when frames run slow (for renders, whose frames are stepped)
   const ADAPTIVE_QUALITY = getSwitchParam('adaptive') !== false;
+  // ?traffic=0/1: other planes off or on for this visit (traffic.js)
+  const TRAFFIC_PARAM = getSwitchParam('traffic');
   const MUSIC_PARAM = getSwitchParam('music');
   const SHOW_TIPS = getSwitchParam('tips') !== false && SHOW_UI;
   const _debugParam = getParam('debug', null);
@@ -2585,6 +2587,7 @@ export const ChillFlightLogic = {};
   exports.START_MAP_ZOOM = START_MAP_ZOOM;
   exports.START_BENCHMARK = START_BENCHMARK;
   exports.ADAPTIVE_QUALITY = ADAPTIVE_QUALITY;
+  exports.TRAFFIC_PARAM = TRAFFIC_PARAM;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.MAX_FPS = MAX_FPS;
   exports.ZENITH_COLOR = ZENITH_COLOR;

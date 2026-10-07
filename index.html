@@ -144,6 +144,17 @@
               </span>
               <input type="checkbox" id="invert-y-input" class="pause-switch" />
             </label>
+            <label class="pause-row" for="traffic-toggle-input">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Other planes</span>
+                <span class="pause-row-sub">A few planes flying around</span>
+              </span>
+              <input
+                type="checkbox"
+                id="traffic-toggle-input"
+                class="pause-switch"
+              />
+            </label>
             <!-- Key reference; hidden on touch devices (game-gyro.js) -->
             <div class="pause-keys">
               <span><kbd>↑↓←→</kbd>Steer</span>
@@ -1324,6 +1335,7 @@
           <div>Castles: <span id="debug-castles">0</span></div>
           <div>Pagodas: <span id="debug-pagodas">0</span></div>
           <div>Windmills: <span id="debug-windmills">0</span></div>
+          <div>Other planes: <span id="debug-traffic">0</span></div>
           <div style="display: none">
             Lighthouses: <span id="debug-lighthouses">0</span>
           </div>

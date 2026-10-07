@@ -131,6 +131,12 @@ export const Achievements = (function () {
       emoji: '🪿',
       hint: 'Startle a goose',
     },
+    {
+      id: 'wingman',
+      title: 'Wingman',
+      emoji: '🛩️',
+      hint: 'Fly alongside another plane',
+    },
   ];
 
   const STORAGE_KEY = 'chill_flight_achievements';

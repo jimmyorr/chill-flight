@@ -11,7 +11,7 @@
 // set shows off the different skies.
 export const COMMON =
   'start=1&ui=0&music=0&tips=0&seed=20260101&preset=ultra&timeSpeed=0' +
-  '&clock=1790000000000&cloudTime=500&fps=0&adaptive=0';
+  '&clock=1790000000000&cloudTime=500&fps=0&adaptive=0&traffic=0';
 
 // Title and end cards: the app icon and name, an optional tagline, and lines
 // of smaller text (the music credit, the web address)

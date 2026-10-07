@@ -104,7 +104,8 @@ export const hingeRB = new THREE.Group();
 hingeRB.position.set(5, 0, 3);
 pontoonGroup.add(hingeRB);
 
-// Classic Cessna-style monoplane model builder
+// Classic Cessna-style monoplane model builder. The player's plane carries the
+// shared pontoons; pass pontoons: false for another plane (traffic.js)
 export function createClassicAirplaneModel(opts = {}) {
   const model = new THREE.Group();
   const activeWhiteMat = opts.planeWhiteMat || planeWhiteMat;
@@ -234,8 +235,10 @@ export function createClassicAirplaneModel(opts = {}) {
   model.propGroup = propGroup;
 
   // Add pontoons
-  model.add(pontoonGroup);
-  model.pontoonGroup = pontoonGroup;
+  if (opts.pontoons !== false) {
+    model.add(pontoonGroup);
+    model.pontoonGroup = pontoonGroup;
+  }
 
   return model;
 }
