@@ -138,6 +138,8 @@ const _colorScree = new Color(0x736960);
 const _colorDesertMountainRock = new Color(0xc24b2b);
 const _colorIce = new Color(0x6ca6a8);
 const _colorAutumnForestTint = new Color(0x5d4037);
+// Ground under the woods, darkened like a canopy seen from above
+const _colorForestFloor = new Color(0x1f4a24);
 const _colorAutumnPlainsTint = new Color(0x8d6e63);
 const _colorCherryForestTint = new Color(0xf8bbd0);
 const _colorCherryPlainsTint = new Color(0xfce4ec);
@@ -510,6 +512,28 @@ export function generateChunkData({
 
   const gridSpacing = chunkSize / segments;
   const invGridSpacing = 1.0 / gridSpacing;
+  // Ground height at a chunk-local point between vertices, bilinear over the
+  // height grid (trees are nudged off the vertices so they don't line up)
+  const heightAtLocal = (lx, lz) => {
+    const fx = Math.min(
+      segments,
+      Math.max(0, (lx + halfSize) * invGridSpacing)
+    );
+    const fz = Math.min(
+      segments,
+      Math.max(0, (lz + halfSize) * invGridSpacing)
+    );
+    const ix0 = Math.min(segments - 1, fx | 0);
+    const iz0 = Math.min(segments - 1, fz | 0);
+    const tx = fx - ix0;
+    const tz = fz - iz0;
+    const i00 = iz0 * gridX1 + ix0;
+    const h0 = heightGrid[i00] + (heightGrid[i00 + 1] - heightGrid[i00]) * tx;
+    const h1 =
+      heightGrid[i00 + gridX1] +
+      (heightGrid[i00 + gridX1 + 1] - heightGrid[i00 + gridX1]) * tx;
+    return h0 + (h1 - h0) * tz;
+  };
   const invTwoGridSpacing = 0.5 / gridSpacing;
 
   // Prop candidate arrays
@@ -631,8 +655,8 @@ export function generateChunkData({
     const eastCoastFactor = Math.max(0, Math.min(1, (worldX + 2000) / 2000));
     const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 10;
 
-    const isForest =
-      simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005) > 0.2;
+    const forestNoise = simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005);
+    const isForest = forestNoise > 0.2;
     const autumnNoise = simplex.noise2D(
       worldX * 0.0003 + 500,
       worldZ * 0.0003 + 500
@@ -923,6 +947,30 @@ export function generateChunkData({
       height > sandMaxHeight &&
       height <= MOUNTAIN_LEVEL + (snowFactor > 0.5 ? -50 : 0);
 
+    // The woods' ground darkens with how thick they are, so a forest reads
+    // as canopy from the air, not just as trees standing on grass
+    const woodsShade = isForest
+      ? Math.min(1, (forestNoise - 0.2) / 0.25) *
+        Math.max(
+          0,
+          Math.min(
+            1,
+            0.5 +
+              0.7 * simplex.noise2D(worldX * 0.007 + 37, worldZ * 0.007 - 11)
+          )
+        )
+      : 0;
+    if (
+      isStandardLand &&
+      !isAlienLand &&
+      snowFactor < 0.4 &&
+      !isFrozen &&
+      desertFactor < 0.5 &&
+      woodsShade > 0
+    ) {
+      _tempColorObj.lerp(_colorForestFloor, woodsShade * 0.6);
+    }
+
     if (isStandardLand && snowFactor < 0.2 && !isFrozen) {
       if (autumnNoise > 0.35) {
         const factor = Math.min(1, (autumnNoise - 0.35) / 0.1);
@@ -951,8 +999,93 @@ export function generateChunkData({
       !isFrozen &&
       !isOnRoad
     ) {
+      // Trees: woods with dense cores that thin toward their edges, in clumps
+      // and clearings, and lone trees out in the open near them. Steep slopes
+      // carry few; low ground near water carries more. A dense core has
+      // several trees per grid point (treeChance above 1), so woods can be
+      // thicker than the terrain grid.
+      const treeRoll = rng();
+      let treeChance = 0;
+      let treeCount = 0;
+      if (!isAlienLand) {
+        const woods = isForest ? Math.min(1, (forestNoise - 0.2) / 0.25) : 0;
+        const clump = Math.max(
+          0,
+          0.5 + 0.7 * simplex.noise2D(worldX * 0.007 + 37, worldZ * 0.007 - 11)
+        );
+        const openGround = isForest
+          ? 0
+          : Math.max(0, Math.min(1, (forestNoise + 0.3) / 0.5));
+        const steep = Math.max(0, Math.min(1, (slopeFactor - 0.3) / 0.4));
+        const lowland =
+          1 - Math.max(0, Math.min(1, (height - WATER_LEVEL - 3) / 60));
+        treeChance =
+          (isForest
+            ? (0.02 + 1.2 * woods * woods * woods) * clump
+            : 0.012 * openGround) *
+          (1 - 0.85 * steep) *
+          (1 + 0.5 * lowland) *
+          0.34 * // about as many trees overall as the old even scatter
+          (desertFactor > 0.5 ? 0.33 : 1) *
+          densityScale;
+        treeCount =
+          Math.floor(treeChance) + (treeRoll < treeChance % 1 ? 1 : 0);
+        for (let t = 0; t < treeCount; t++) {
+          // Off the vertex grid, and bigger deep in the woods than at the edge
+          const jx = localX + (rng() - 0.5) * gridSpacing * 0.9;
+          const jz = localZ + (rng() - 0.5) * gridSpacing * 0.9;
+          const treeSpot = {
+            x: jx,
+            y: heightAtLocal(jx, jz),
+            z: jz,
+            size: isForest ? 0.85 + 0.35 * woods : 0.9 + rng() * 0.3,
+          };
+          const isIsland =
+            worldX > 3000 &&
+            ChillFlightLogic.getBiome(worldX, worldZ, simplex) < -0.1;
+          const isSouthOf1N = worldZ > -5000;
+
+          if (distToVolcano < 3000 && rng() < 0.7) {
+            yellowCortezTreePositions.push(treeSpot);
+          } else if (isIsland && isSouthOf1N) {
+            palmTreePositions.push(treeSpot);
+          } else if (
+            snowFactor > 0.4 ||
+            (height > MOUNTAIN_LEVEL - 100 && desertFactor < 0.3)
+          ) {
+            snowTreePositions.push(treeSpot);
+          } else if (desertFactor > 0.6) {
+            deadTreePositions.push(treeSpot);
+          } else if (
+            eastCoastFactor > 0.7 &&
+            height < WATER_LEVEL + 40 &&
+            !isIsland
+          ) {
+            palmTreePositions.push(treeSpot);
+          } else {
+            if (cherryNoise > 0.65) {
+              if (rng() < 0.35) {
+                japaneseMapleTreePositions.push(treeSpot);
+              } else {
+                cherryTreePositions.push(treeSpot);
+              }
+            } else if (autumnNoise > 0.45) {
+              const variety = rng();
+              if (variety < 0.12) japaneseMapleTreePositions.push(treeSpot);
+              else if (variety < 0.41) autumnTree1Positions.push(treeSpot);
+              else if (variety < 0.7) autumnTree2Positions.push(treeSpot);
+              else autumnTree3Positions.push(treeSpot);
+            } else {
+              if (rng() < 0.25) {
+                tallDeciduousTreePositions.push(treeSpot);
+              } else {
+                deciduousTreePositions.push(treeSpot);
+              }
+            }
+          }
+        }
+      }
       if (isForest) {
-        const treeRoll = rng();
         if (isAlienLand) {
           if (isEast) {
             if (treeRoll < 0.032 * densityScale) {
@@ -979,81 +1112,16 @@ export function generateChunkData({
             }
           }
         } else if (
-          treeRoll <
-          (desertFactor > 0.5 ? 0.05 : 0.15) * densityScale
-        ) {
-          const isIsland =
-            worldX > 3000 &&
-            ChillFlightLogic.getBiome(worldX, worldZ, simplex) < -0.1;
-          const isSouthOf1N = worldZ > -5000;
-
-          if (distToVolcano < 3000 && rng() < 0.7) {
-            yellowCortezTreePositions.push({x: localX, y: height, z: localZ});
-          } else if (isIsland && isSouthOf1N) {
-            palmTreePositions.push({x: localX, y: height, z: localZ});
-          } else if (
-            snowFactor > 0.4 ||
-            (height > MOUNTAIN_LEVEL - 100 && desertFactor < 0.3)
-          ) {
-            snowTreePositions.push({x: localX, y: height, z: localZ});
-          } else if (desertFactor > 0.6) {
-            deadTreePositions.push({x: localX, y: height, z: localZ});
-          } else if (
-            eastCoastFactor > 0.7 &&
-            height < WATER_LEVEL + 40 &&
-            !isIsland
-          ) {
-            palmTreePositions.push({x: localX, y: height, z: localZ});
-          } else {
-            if (cherryNoise > 0.65) {
-              if (rng() < 0.35) {
-                japaneseMapleTreePositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                });
-              } else {
-                cherryTreePositions.push({x: localX, y: height, z: localZ});
-              }
-            } else if (autumnNoise > 0.45) {
-              const variety = rng();
-              if (variety < 0.12)
-                japaneseMapleTreePositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                });
-              else if (variety < 0.41)
-                autumnTree1Positions.push({x: localX, y: height, z: localZ});
-              else if (variety < 0.7)
-                autumnTree2Positions.push({x: localX, y: height, z: localZ});
-              else autumnTree3Positions.push({x: localX, y: height, z: localZ});
-            } else {
-              if (rng() < 0.25) {
-                tallDeciduousTreePositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                });
-              } else {
-                deciduousTreePositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                });
-              }
-            }
-          }
-        } else if (
-          treeRoll <
-          (desertFactor > 0.5 ? 0.0505 : 0.151) * densityScale
+          treeCount === 0 &&
+          treeRoll < (treeChance % 1) + 0.001 * densityScale
         ) {
           const offX = (rng() - 0.5) * 15;
           const offZ = (rng() - 0.5) * 15;
           const h = getElevation(worldX + offX, worldZ + offZ, elevParams);
           campfirePositions.push({x: localX + offX, y: h, z: localZ + offZ});
         }
-      } else {
+      } else if (treeCount === 0) {
+        // Open ground (unless a lone tree took this spot)
         if (isEastAlien) {
           if (rng() < 0.007 * densityScale) {
             const scaleRoll = rng();
@@ -1444,9 +1512,9 @@ export function generateChunkData({
 
       const baseScale = 0.6 + Math.min(0.6, northInfluence * 0.5);
       const scale =
-        pos.scale !== undefined
+        (pos.scale !== undefined
           ? pos.scale
-          : baseScale + rng() * (0.4 + rng() * 0.5);
+          : baseScale + rng() * (0.4 + rng() * 0.5)) * (pos.size || 1);
 
       composeMatrix(
         _matBuffer,

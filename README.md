@@ -174,6 +174,10 @@ The telemetry overlay provides real-time values for the weather system:
 - **Rain α**: The visual opacity of the rain particle system (maxes out at 0.5).
 - **Fog**: The current density of the scene fog.
 
+## Woods
+
+Trees grow in woods rather than an even scatter (`terrain-gen.js`). A forest's density rises from thin edges to dense cores, where a spot can hold several trees, and a larger clump pattern breaks woods into groves and clearings; lone trees stand out in the open near them. Steep slopes carry few trees and low ground near water up to half again as many, trees deep in the woods grow bigger than those at the edges, and each is nudged off the terrain grid (its height re-sampled) so they don't line up. The ground under thick woods is darkened, like canopy seen from above. Overall there are about as many trees as before.
+
 ## Landmarks
 
 These areas are layered on top of the primary biomes using noise-based "patches":
