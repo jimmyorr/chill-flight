@@ -29,6 +29,19 @@ const MAX_BANK = 0.35; // radians
 
 export const TRAFFIC_TYPES = ['classic', 'biplane', 'twin', 'glider'];
 
+// Pacing, so the player can find a plane and follow it around: within
+// PACE_RADIUS of the player a plane flies at the player's speed, a little
+// slower when it's ahead of them (up to PACE_OFFSET slower, so they catch
+// up) or faster when it's behind, matching exactly within PACE_CLOSE. It
+// eases there over a couple of seconds, and back to its own cruising speed
+// once the player is gone. Never below MIN_SPEED, where planes sink.
+export const PACE_RADIUS = 800;
+export const PACE_CLOSE = 150;
+export const PACE_OFFSET = 40;
+export const MIN_SPEED = 100;
+export const MAX_SPEED = 220;
+const PACE_EASE = 0.6; // per second
+
 // Cruising speed range per type, in units per second, which the HUD shows as
 // knots (the player starts at 150). All above 100: below that the player's
 // plane sinks (flight-physics.js), so a slower plane holding its height would
@@ -96,6 +109,7 @@ export function spawnTrafficPlane(
     pitch: 0,
     bank: 0,
     speed,
+    cruiseSpeed: speed,
     cruiseAlt,
     type,
     livery: Math.floor(rng() * liveryCount),
@@ -113,9 +127,28 @@ function groundAhead(p, heading, dist, elevationAt) {
   return elevationAt(p.x + f.x * dist, p.z + f.z * dist);
 }
 
-// Advances a plane by dt seconds, in place.
-export function stepTrafficPlane(p, dt, elevationAt) {
+// The speed a plane eases toward: its cruising speed, or paced to the
+// player's when they're near. player is {x, y, z, speed}, or null.
+export function targetSpeed(p, player) {
+  if (!player) return p.cruiseSpeed;
+  const dx = p.x - player.x;
+  const dy = p.y - player.y;
+  const dz = p.z - player.z;
+  const dist = Math.hypot(dx, dy, dz);
+  if (dist > PACE_RADIUS) return p.cruiseSpeed;
+  // Ahead of the player along the plane's own course: slow down; behind:
+  // speed up
+  const fwd = forwardOf(p.heading);
+  const ahead = dx * fwd.x + dz * fwd.z > 0 ? -1 : 1;
+  const gap = clamp((dist - PACE_CLOSE) / (PACE_RADIUS - PACE_CLOSE), 0, 1);
+  return clamp(player.speed + ahead * PACE_OFFSET * gap, MIN_SPEED, MAX_SPEED);
+}
+
+// Advances a plane by dt seconds, in place. player ({x, y, z, speed}, or
+// null) is for pacing.
+export function stepTrafficPlane(p, dt, elevationAt, player = null) {
   p.age += dt;
+  p.speed += (targetSpeed(p, player) - p.speed) * Math.min(1, dt * PACE_EASE);
 
   let ground = elevationAt(p.x, p.z);
   for (const dist of LOOK_AHEAD) {

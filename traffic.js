@@ -238,9 +238,18 @@ export function updateTraffic(delta) {
   const now = performance.now() / 1000;
   navMats.strobe.opacity = now % 1.2 < 0.08 ? night : 0;
 
+  // Planes pace the player's plane (not the free camera)
+  const player = state.isFreeCamera
+    ? null
+    : {
+        x: center.x,
+        y: center.y,
+        z: center.z,
+        speed: Math.hypot(velocity.x, velocity.z),
+      };
   for (let i = planes.length - 1; i >= 0; i--) {
     const p = planes[i];
-    stepTrafficPlane(p, delta, getElevation);
+    stepTrafficPlane(p, delta, getElevation, player);
     if (isTrafficPlaneGone(p, center.x, center.z)) {
       disposePlane(p.group);
       planes.splice(i, 1);

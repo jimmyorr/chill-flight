@@ -12,12 +12,16 @@ import {
   DESPAWN_DISTANCE,
   GROUND_CLEARANCE,
   MIN_CLEARANCE,
+  MIN_SPEED,
+  PACE_CLOSE,
+  PACE_RADIUS,
   SPAWN_DISTANCE_MAX,
   SPAWN_DISTANCE_MIN,
   forwardOf,
   isTrafficPlaneGone,
   spawnTrafficPlane,
   stepTrafficPlane,
+  targetSpeed,
 } from '../traffic-logic.js';
 
 console.log('Testing air traffic...');
@@ -151,6 +155,70 @@ for (let i = 0; i < 60 * 60; i++) {
 }
 check('planes wander in gentle turns', turned > 0.005 && turned < 0.1);
 check('they bank into their turns', sameSign);
+
+// Pacing: a plane flying north (heading 0, toward -z) at 120
+const paced = spawnTrafficPlane(mulberry32(7), 0, 0, flat, 8);
+Object.assign(paced, {x: 0, y: 500, z: 0, heading: 0, cruiseSpeed: 120});
+const at = (dz, speed) => ({x: 0, y: 500, z: dz, speed});
+check(
+  'a plane keeps its own speed when the player is far',
+  targetSpeed(paced, at(PACE_RADIUS + 100, 180)) === 120 &&
+    targetSpeed(paced, null) === 120
+);
+const aheadSpeed = targetSpeed(paced, at(500, 180)); // player 500 behind
+check(
+  'a plane ahead of the player slows a little, so they catch up',
+  aheadSpeed < 180 && aheadSpeed >= 140,
+  `target ${aheadSpeed}`
+);
+const behindSpeed = targetSpeed(paced, at(-500, 180)); // player 500 ahead
+check(
+  'a plane behind the player speeds up a little',
+  behindSpeed > 180 && behindSpeed <= 220,
+  `target ${behindSpeed}`
+);
+check(
+  'close in, a plane matches the player exactly',
+  targetSpeed(paced, at(PACE_CLOSE - 10, 165)) === 165
+);
+check(
+  'a paced plane never flies below the speed where planes sink',
+  targetSpeed(paced, at(100, 60)) === MIN_SPEED
+);
+
+// Following one around: the player, at 150, steers straight for a wandering
+// plane from 1500 behind it, and should end up close and stay there
+const lead = spawnTrafficPlane(mulberry32(8), 0, 0, flat, 8);
+Object.assign(lead, {
+  x: 0,
+  y: 500,
+  z: -1500,
+  heading: 0,
+  turnAmount: 1,
+  speed: 120,
+  cruiseSpeed: 120,
+});
+const me = {x: 0, y: 500, z: 0, speed: 150};
+let closeFor = 0;
+let maxLateGap = 0;
+for (let t = 0; t < 120; t += 1 / 30) {
+  stepTrafficPlane(lead, 1 / 30, flat, me);
+  const dx = lead.x - me.x;
+  const dz = lead.z - me.z;
+  const d = Math.hypot(dx, dz);
+  if (d > 1) {
+    me.x += (dx / d) * Math.min(me.speed / 30, Math.max(0, d - 100));
+    me.z += (dz / d) * Math.min(me.speed / 30, Math.max(0, d - 100));
+  }
+  const gap = Math.hypot(lead.x - me.x, lead.z - me.z);
+  if (gap < 250) closeFor += 1 / 30;
+  if (t > 90) maxLateGap = Math.max(maxLateGap, gap);
+}
+check(
+  'a player following a plane catches up and can stay alongside',
+  closeFor > 30 && maxLateGap < 300,
+  `close for ${closeFor.toFixed(0)} s, widest gap in the last 30 s ${maxLateGap.toFixed(0)}`
+);
 
 // Removal
 const r = spawnTrafficPlane(mulberry32(5), 0, 0, flat, 8);
