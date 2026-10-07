@@ -16,6 +16,7 @@ import '../noise.js';
 import '../terrain-gen.js';
 import '../terrain-worker-manager.js';
 import '../scene.js';
+import '../sky-uniforms.js';
 import '../sky.js';
 import '../biplane.js';
 import '../glider.js';

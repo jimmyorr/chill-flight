@@ -19,7 +19,7 @@ import {
   terrainUniforms,
 } from './constants.js';
 import {scene} from './scene.js';
-import {skyUniforms} from './sky.js';
+import {skyUniforms} from './sky-uniforms.js';
 import {log} from './logger.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
