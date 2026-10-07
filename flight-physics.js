@@ -29,17 +29,25 @@ let groundTiltRoll = 0;
 // How slowly the model levels out after leaving the ground (seconds)
 const TILT_LEVEL_SECONDS = 0.5;
 
-// Slow flight: how fast the plane sinks (units per second, 25 ft each). None
-// at 100 knots and up, easing in to 15 at 50 knots and on to 40 at a stop,
-// with no edge anywhere, so landing is a matter of slowing down gently.
+// Slow flight: how fast the plane sinks (units per second, 25 ft each), none
+// at 100 knots and up, easing in to 15 at 50 knots, so landing is a matter of
+// slowing down gently
 const smoothstep = THREE.MathUtils.smoothstep;
 function sinkRateAt(kts) {
-  return (
-    15 * (1 - smoothstep(kts, 50, 100)) + 25 * (1 - smoothstep(kts, 0, 50))
-  );
+  return 15 * (1 - smoothstep(kts, 50, 100));
 }
 // How quickly the sink follows a change of speed (seconds)
 const SINK_EASE_SECONDS = 1.0;
+// Slower still, the plane falls out of the sky and tumbles: gravity takes
+// over, blending in from 55 down to 35 knots (fallAmount) instead of
+// switching on at one speed
+const FALL_START_KTS = 55;
+const FALL_FULL_KTS = 35;
+const GRAVITY = 120; // units/sec²: weighty but not instant
+const TERMINAL_VELOCITY = -600;
+// How quickly the fall comes on, and fades when powering out of it (seconds)
+const FALL_EASE_SECONDS = 0.6;
+let fallAmount = 0;
 // How far the nose dips in slow flight, a stall you can see (radians)
 const STALL_NOSE_DIP = -0.18;
 let stallNose = 0;
@@ -60,7 +68,7 @@ function wheelRestHeight(wheelDepth) {
   );
 }
 
-export function updateFlightPhysics(delta) {
+export function updateFlightPhysics(delta, nowTime) {
   // --- FLIGHT PHYSICS & SPEED ---
   const terrainHeight = getElevation(
     planeGroup.position.x,
@@ -114,12 +122,11 @@ export function updateFlightPhysics(delta) {
       const isAvoidingGround =
         planeGroup.position.y < minFlightHeight + softBuffer;
 
-      if (!isAvoidingGround) {
-        state.flightSpeedMultiplier += gravityEffect * 0.7 * delta;
-      } else {
-        // Dramatically reduced acceleration when skimming the ground/water
-        state.flightSpeedMultiplier += gravityEffect * 0.1 * delta;
-      }
+      // Dramatically reduced acceleration when skimming the ground/water,
+      // and none while falling: a nose the tumble tipped down would win back
+      // speed and pop the plane out of the fall, lurching forward
+      const diveGain = (isAvoidingGround ? 0.1 : 0.7) * (1 - fallAmount);
+      state.flightSpeedMultiplier += gravityEffect * diveGain * delta;
     }
   }
 
@@ -173,28 +180,64 @@ export function updateFlightPhysics(delta) {
   // Slow flight sinks, more the slower it goes (sinkRateAt), down to the
   // resting height (on the water, the wheels or the cushion over land), not
   // the minimum below it, which the ground avoidance would only push it back
-  // up from. The sink eases in and out, so throttle changes never jerk it.
+  // up from. Slower still it falls (fallAmount): gravity accelerates it and
+  // it tumbles. Its fall carries over when it powers out, fading as the sink
+  // takes back over, so neither the throttle nor the speed ever jerks it.
   const airborne =
     !state.isFreeCamera &&
     planeGroup.position.y > restingHeight &&
     !followingGround;
+  fallAmount = THREE.MathUtils.lerp(
+    fallAmount,
+    airborne ? 1 - smoothstep(currentKTS, FALL_FULL_KTS, FALL_START_KTS) : 0,
+    1 - Math.exp(-delta / FALL_EASE_SECONDS)
+  );
   if (airborne) {
+    state.verticalVelocity -= GRAVITY * fallAmount * delta;
     state.verticalVelocity = THREE.MathUtils.lerp(
       state.verticalVelocity,
       -sinkRateAt(currentKTS),
-      1 - Math.exp(-delta / SINK_EASE_SECONDS)
+      (1 - fallAmount) * (1 - Math.exp(-delta / SINK_EASE_SECONDS))
+    );
+    state.verticalVelocity = Math.max(
+      state.verticalVelocity,
+      TERMINAL_VELOCITY
     );
     planeGroup.position.y = Math.max(
       restingHeight,
       planeGroup.position.y + state.verticalVelocity * delta
     );
+
+    // Tumble, harder the faster it falls
+    const tumble =
+      Math.min(1.5, Math.abs(state.verticalVelocity) / 300) * fallAmount;
+    if (tumble > 0) {
+      planeGroup.rotation.x +=
+        (Math.sin(nowTime * 0.002) + Math.cos(nowTime * 0.0011)) *
+        0.8 *
+        tumble *
+        delta;
+      planeGroup.rotation.z +=
+        (Math.cos(nowTime * 0.0025) + Math.sin(nowTime * 0.0017)) *
+        0.8 *
+        tumble *
+        delta;
+      planeGroup.rotation.y +=
+        (Math.sin(nowTime * 0.0015) + Math.cos(nowTime * 0.0009)) *
+        0.5 *
+        tumble *
+        delta;
+    }
   } else {
     state.verticalVelocity = 0;
   }
-  // The nose dips as the plane gets slow, a visible stall
+  // The nose dips as the plane gets slow, a visible stall (the tumble takes
+  // over once it falls)
   stallNose = THREE.MathUtils.lerp(
     stallNose,
-    airborne ? STALL_NOSE_DIP * (1 - smoothstep(currentKTS, 30, 70)) : 0,
+    airborne
+      ? STALL_NOSE_DIP * (1 - smoothstep(currentKTS, 30, 70)) * (1 - fallAmount)
+      : 0,
     1 - Math.exp(-delta / SINK_EASE_SECONDS)
   );
 

@@ -329,7 +329,7 @@ function animate() {
     }
 
     // 4. Free falling plummet (engine cut/idle, steep pitch down or stalling,
-    // high altitude): under 50 knots the plane sinks fast (flight-physics.js)
+    // high altitude): under 50 knots the plane falls (flight-physics.js)
     const isFallingOutSky = currentKTS < 50;
 
     if (
@@ -346,7 +346,7 @@ function animate() {
   state.wasDoingFullBarrelRoll = state.isDoingFullBarrelRoll;
   state.wasDoingImmelmann = state.isDoingImmelmann;
 
-  updateFlightPhysics(delta);
+  updateFlightPhysics(delta, nowTime);
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
   if (!state.isFreeCamera) {
     if (!state.previousPosition) {
