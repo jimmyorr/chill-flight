@@ -21,6 +21,20 @@ let isRolling = false;
 // the surface drag lowers it on its own
 let throttleOpenedOnSurface = false;
 let lastTargetSpeed = 0;
+// The model's tilt to the slope under its wheels (pitch, roll), kept apart
+// from the water bob and the in-flight turbulence so it eases back to level
+// after takeoff instead of snapping
+let groundTiltPitch = 0;
+let groundTiltRoll = 0;
+// How slowly the model levels out after leaving the ground (seconds)
+const TILT_LEVEL_SECONDS = 0.5;
+
+// Eases the ground tilt back toward level, the same whatever the frame rate
+function levelGroundTilt(delta) {
+  const ease = 1 - Math.exp(-delta / TILT_LEVEL_SECONDS);
+  groundTiltPitch = THREE.MathUtils.lerp(groundTiltPitch, 0, ease);
+  groundTiltRoll = THREE.MathUtils.lerp(groundTiltRoll, 0, ease);
+}
 
 // The plane's height resting on its wheels on _ground: on a slope the wheels
 // are wheelDepth from the ground at right angles to it, further straight up
@@ -235,9 +249,12 @@ export function updateFlightPhysics(delta, nowTime) {
     if (state.airplaneModel) {
       if (isWater && planeGroup.position.y <= restingHeight + 0.1) {
         const bobTime = performance.now() * 0.001 * 1.2;
+        levelGroundTilt(delta);
         state.airplaneModel.position.y = Math.sin(bobTime) * 0.15;
-        state.airplaneModel.rotation.x = Math.cos(bobTime * 1.1) * 0.03;
-        state.airplaneModel.rotation.z = Math.sin(bobTime * 0.8) * 0.04;
+        state.airplaneModel.rotation.x =
+          Math.cos(bobTime * 1.1) * 0.03 + groundTiltPitch;
+        state.airplaneModel.rotation.z =
+          Math.sin(bobTime * 0.8) * 0.04 + groundTiltRoll;
       } else if (onLandableGround) {
         // Tilt the model to the slope under its wheels
         const yaw = planeGroup.rotation.y;
@@ -248,21 +265,22 @@ export function updateFlightPhysics(delta, nowTime) {
           Math.cos(yaw) * _ground.slopeX - Math.sin(yaw) * _ground.slopeZ
         );
         const ease = 1 - Math.pow(1 - 0.2, delta * 60);
-        state.airplaneModel.position.y = 0;
-        state.airplaneModel.rotation.x = THREE.MathUtils.lerp(
-          state.airplaneModel.rotation.x,
+        groundTiltPitch = THREE.MathUtils.lerp(
+          groundTiltPitch,
           groundPitch,
           ease
         );
-        state.airplaneModel.rotation.z = THREE.MathUtils.lerp(
-          state.airplaneModel.rotation.z,
-          groundRoll,
-          ease
-        );
-      } else {
+        groundTiltRoll = THREE.MathUtils.lerp(groundTiltRoll, groundRoll, ease);
         state.airplaneModel.position.y = 0;
-        state.airplaneModel.rotation.x = 0;
-        state.airplaneModel.rotation.z = 0;
+        state.airplaneModel.rotation.x = groundTiltPitch;
+        state.airplaneModel.rotation.z = groundTiltRoll;
+      } else {
+        // Over ground too steep to roll on (just lifted off a slope the
+        // wheels could stay on, but not touch down on): level out gently
+        levelGroundTilt(delta);
+        state.airplaneModel.position.y = 0;
+        state.airplaneModel.rotation.x = groundTiltPitch;
+        state.airplaneModel.rotation.z = groundTiltRoll;
       }
     }
   } else if (state.airplaneModel) {
@@ -272,18 +290,14 @@ export function updateFlightPhysics(delta, nowTime) {
     const stormMult = 1.0 + rainOpacity * 4.0; // 1x calm → 3x heavy rain
     state.airplaneModel.position.y =
       (Math.sin(t * 0.7) * 0.12 + Math.sin(t * 1.3) * 0.06) * stormMult;
-    // Eased, so a model tilted to the ground levels out after takeoff
-    const ease = 1 - Math.pow(1 - 0.1, delta * 60);
-    state.airplaneModel.rotation.x = THREE.MathUtils.lerp(
-      state.airplaneModel.rotation.x,
-      (Math.cos(t * 0.9) * 0.015 + Math.sin(t * 1.7) * 0.008) * stormMult,
-      ease
-    );
-    state.airplaneModel.rotation.z = THREE.MathUtils.lerp(
-      state.airplaneModel.rotation.z,
-      (Math.sin(t * 0.6) * 0.02 + Math.cos(t * 1.1) * 0.01) * stormMult,
-      ease
-    );
+    // On top of the ground tilt, which levels out gently after takeoff
+    levelGroundTilt(delta);
+    state.airplaneModel.rotation.x =
+      (Math.cos(t * 0.9) * 0.015 + Math.sin(t * 1.7) * 0.008) * stormMult +
+      groundTiltPitch;
+    state.airplaneModel.rotation.z =
+      (Math.sin(t * 0.6) * 0.02 + Math.cos(t * 1.1) * 0.01) * stormMult +
+      groundTiltRoll;
   }
 
   // Speed controls

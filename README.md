@@ -227,7 +227,7 @@ A few other planes share the sky, so now and then you spot someone else up there
 Every plane can land on water, and the planes with wheels (biplane, glider and twin engine) can land on land too; the classic is a floatplane. Fly low and slow, under about 100 knots, and the plane settles gently (`flight-physics.js`). On touching down the throttle eases back to idle, so the plane slows to a stop on its own; open the throttle again and it stays open for the takeoff run, then pull up to lift off.
 
 - **Landing gear:** The classic's pontoons and the twin's wheels come down within 1,500 ft of the water or ground when you're descending or slow, and fold away above 2,000 ft. The biplane's and glider's wheels are fixed.
-- **Where to land:** Wheels touch down on ground gentler than 15°, and once rolling stay down on slopes up to 30°, so a bumpy meadow doesn't bounce you; on steeper ground the plane keeps its usual height above the terrain. The wheels follow the ground as drawn, and the plane tilts to the slope it's parked on.
+- **Where to land:** Wheels touch down on ground gentler than 15°, and once rolling stay down on slopes up to 30°, so a bumpy meadow doesn't bounce you; on steeper ground the plane keeps its usual height above the terrain. The wheels follow the ground as drawn, and the plane tilts to the slope it's parked on, then levels out gently over about half a second after takeoff (`TILT_LEVEL_SECONDS` in `flight-physics.js`).
 
 ## Controls
 
