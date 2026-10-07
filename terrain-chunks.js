@@ -220,10 +220,11 @@ const TREE_TILE_CULL_RADIUS =
 // chunk for flying between rebuilds).
 const TREE_SHADOW_CHUNK_RADIUS = 4;
 
-// Beyond this many chunks (~4.5 km) from the plane, types with a far version
+// Beyond this many chunks (~3 km) from the plane, types with a far version
 // (see setFarGeometry below) swap to it: a 5-unit bush or a tree canopy is a
-// pixel or two across at that range, so the full models only cost triangles.
-const TREE_LOD_CHUNK_RADIUS = 3;
+// few pixels across at that range, so the full models only cost triangles.
+// (Woods are dense enough that 3 chunks out cost ~350k more triangles.)
+const TREE_LOD_CHUNK_RADIUS = 2;
 
 // A simple shape (spanning -1..1) scaled and moved to fill `geo`'s bounds.
 function fitToBounds(shape, geo) {

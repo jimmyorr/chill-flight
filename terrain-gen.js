@@ -1025,7 +1025,9 @@ export function generateChunkData({
             : 0.012 * openGround) *
           (1 - 0.85 * steep) *
           (1 + 0.5 * lowland) *
-          0.34 * // about as many trees overall as the old even scatter
+          // About three times the trees of the old even scatter (1.3 times on
+          // the low preset, for slower devices)
+          (segments <= 20 ? 0.45 : 1.02) *
           (desertFactor > 0.5 ? 0.33 : 1) *
           densityScale;
         treeCount =
