@@ -8,7 +8,8 @@
 // - Twin wing-mounted radial engine nacelles with accent cowlings
 // - Dual spinning 3-blade propellers with aerodynamic spinners
 // - Classic swept empennage with tall accent vertical fin and horizontal stabilizers (zero z-fighting)
-// - Sturdy tricycle landing gear with nose gear and dual nacelle main gear
+// - Sturdy tricycle landing gear with nose gear and dual nacelle main gear,
+//   retractable (setGearExtension)
 import * as THREE from 'three';
 import {createMaterial} from './constants.js';
 import {state} from './state.js';
@@ -367,6 +368,10 @@ export function createTwinModel(opts = {}) {
   const nacelleY = -0.62;
   const nacelleZ = -1.6;
   const propGroups = [];
+  // Landing gear legs, folded by setGearExtension. Each hangs from its pivot
+  // and folds by userData.foldAngle about x: the main wheels forward into the
+  // nacelles, the nose wheel back into the fuselage.
+  const gearGroups = [];
 
   const createEngineNacelle = (isRight) => {
     const nacelleGroup = new THREE.Group();
@@ -467,7 +472,9 @@ export function createTwinModel(opts = {}) {
     // ------------------------------------------
     const mainGearGroup = new THREE.Group();
     mainGearGroup.position.set(0, -0.7, 0.2);
+    mainGearGroup.userData.foldAngle = Math.PI / 2;
     nacelleGroup.add(mainGearGroup);
+    gearGroups.push(mainGearGroup);
 
     // Twin oleo struts
     const strutGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.6, 6);
@@ -521,7 +528,10 @@ export function createTwinModel(opts = {}) {
   // ==========================================
   const noseGearGroup = new THREE.Group();
   noseGearGroup.position.set(0, -0.9, -7.8);
+  noseGearGroup.userData.foldAngle = -Math.PI / 2;
   root.add(noseGearGroup);
+  gearGroups.push(noseGearGroup);
+  root.gearGroups = gearGroups;
 
   const noseStrutGeo = new THREE.CylinderGeometry(0.09, 0.08, 1.5, 6);
   const noseStrut = new THREE.Mesh(noseStrutGeo, metalMat);
@@ -645,4 +655,13 @@ export function createTwinModel(opts = {}) {
   });
 
   return root;
+}
+
+// Lowers or raises a twin's landing gear: 1 is down, 0 is up (folded away and
+// hidden, so no tire pokes through the nacelle).
+export function setGearExtension(model, extension) {
+  for (const gear of model.gearGroups) {
+    gear.rotation.x = gear.userData.foldAngle * (1 - extension);
+    gear.visible = extension > 0;
+  }
 }

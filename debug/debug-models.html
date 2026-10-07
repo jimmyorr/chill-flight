@@ -309,6 +309,21 @@
           >
             Cycle colors
           </button>
+          <button
+            id="gear-toggle"
+            class="model-btn"
+            onclick="toggleGear()"
+            style="
+              display: none;
+              margin-top: 8px;
+              margin-bottom: 0;
+              text-align: center;
+              border-color: var(--accent-color);
+              pointer-events: auto;
+            "
+          >
+            Gear up
+          </button>
         </div>
       </div>
     </div>
@@ -322,7 +337,7 @@
       import {createMaterial} from '../constants.js';
       import {createBiplaneModel} from '../biplane.js';
       import {createGliderModel} from '../glider.js';
-      import {createTwinModel} from '../twin.js';
+      import {createTwinModel, setGearExtension} from '../twin.js';
       import {
         createClassicAirplaneModel,
         planeMat,
@@ -422,6 +437,15 @@
         }
       }
 
+      // Twin only: preview the landing gear folded away (kept across color cycles)
+      window.gearUp = false;
+      function toggleGear() {
+        window.gearUp = !window.gearUp;
+        if (window.currentModelType) {
+          viewModel(window.currentModelType, null, window.currentColorSeed);
+        }
+      }
+
       function cycleColors() {
         window.currentColorSeed++;
         if (window.currentModelType) {
@@ -455,6 +479,10 @@
         document.getElementById('color-options').style.display = supportsColors
           ? 'block'
           : 'none';
+        const gearToggle = document.getElementById('gear-toggle');
+        const isTwin = ['twin', 'twin-engine', 'twin_engine'].includes(type);
+        gearToggle.style.display = isTwin ? 'block' : 'none';
+        gearToggle.textContent = window.gearUp ? 'Gear down' : 'Gear up';
 
         // Update UI
         document.querySelectorAll('.model-btn').forEach((btn) => {
@@ -564,6 +592,7 @@
                   : [0xe0564c];
               const newColor = colors[colorSeed % colors.length];
               const tw = createTwinModel({planeColor: newColor});
+              setGearExtension(tw, window.gearUp ? 0 : 1);
 
               tw.visible = true;
               previewGroup.add(tw);
@@ -907,6 +936,7 @@
       // Expose globally
       window.viewModel = viewModel;
       window.cycleColors = cycleColors;
+      window.toggleGear = toggleGear;
     </script>
   </body>
 </html>

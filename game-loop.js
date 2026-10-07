@@ -107,6 +107,7 @@ import {
   pontoonL,
   pontoonR,
 } from './airplane.js';
+import {setGearExtension} from './twin.js';
 import {
   manualCloudCover,
   manualCloudHeight,
@@ -1116,6 +1117,13 @@ function updatePhysicsAndControls(delta, nowTime) {
     hingeRB.rotation.z = rightRotAngle;
     pontoonL.position.y = -0.5 - 4.0 * easeOut;
     pontoonR.position.y = -0.5 - 4.0 * easeOut;
+  }
+
+  // The twin's wheels fold with the pontoons' progress, every frame so a
+  // twin starting or switched to in flight has its gear up (#97)
+  if (state.airplaneModel?.gearGroups) {
+    const t = state.pontoonDeploymentProgress;
+    setGearExtension(state.airplaneModel, 1 - Math.pow(1 - t, 3));
   }
 
   // Plane rotation control
