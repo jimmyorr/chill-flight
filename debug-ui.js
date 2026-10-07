@@ -37,14 +37,7 @@ import {
   activePlaneType,
   getMaxFlightSpeedMult,
   headlight,
-  hingeLB,
-  hingeLF,
-  hingeRB,
-  hingeRF,
   planeGroup,
-  pontoonGroup,
-  pontoonL,
-  pontoonR,
 } from './airplane.js';
 import {
   _lastChunkUpdatePos,
@@ -472,22 +465,10 @@ export function initDebugUI() {
     if (planeGroup.position.y < spawnRestingHeight) {
       planeGroup.position.y = spawnRestingHeight;
     }
+    // Starting stopped on the water: floats already down
     if (spawnIsWater && state.targetFlightSpeed === 0) {
-      if (pontoonGroup) {
-        pontoonGroup.visible = true;
-        state.pontoonDeploymentProgress = 1;
-        state.isDeployingPontoons = false;
-        state.isRetractingPontoons = false;
-        pontoonGroup.scale.setScalar(1);
-        pontoonL.rotation.z = 0;
-        pontoonR.rotation.z = 0;
-        hingeLF.rotation.z = 0;
-        hingeLB.rotation.z = 0;
-        hingeRF.rotation.z = 0;
-        hingeRB.rotation.z = 0;
-        pontoonL.position.y = -4.5;
-        pontoonR.position.y = -4.5;
-      }
+      state.gearWanted = true;
+      state.gearExtension = 1;
     }
   };
 

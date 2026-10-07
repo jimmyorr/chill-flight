@@ -96,18 +96,7 @@ import {
   terrainUniforms,
   updateDOM,
 } from './constants.js';
-import {
-  getMaxFlightSpeedMult,
-  hingeLB,
-  hingeLF,
-  hingeRB,
-  hingeRF,
-  planeGroup,
-  pontoonGroup,
-  pontoonL,
-  pontoonR,
-} from './airplane.js';
-import {setGearExtension} from './twin.js';
+import {getMaxFlightSpeedMult, planeGroup, poseGear} from './airplane.js';
 import {
   manualCloudCover,
   manualCloudHeight,
@@ -1065,66 +1054,14 @@ function updatePhysicsAndControls(delta, nowTime) {
     }
   }
 
-  // Animate pontoons
-  if (
-    !state.isFreeCamera &&
-    state.isDeployingPontoons &&
-    !state.isRetractingPontoons &&
-    state.pontoonDeploymentProgress < 1
-  ) {
-    state.pontoonDeploymentProgress += delta * 0.5;
-    if (state.pontoonDeploymentProgress > 1)
-      state.pontoonDeploymentProgress = 1;
-    const t = state.pontoonDeploymentProgress;
-    const easeOut = 1 - Math.pow(1 - t, 3);
-
-    pontoonGroup.scale.setScalar(easeOut);
-
-    const leftRotAngle = (Math.PI / 2) * (1 - easeOut);
-    pontoonL.rotation.z = leftRotAngle;
-    hingeLF.rotation.z = leftRotAngle;
-    hingeLB.rotation.z = leftRotAngle;
-    const rightRotAngle = -(Math.PI / 2) * (1 - easeOut);
-    pontoonR.rotation.z = rightRotAngle;
-    hingeRF.rotation.z = rightRotAngle;
-    hingeRB.rotation.z = rightRotAngle;
-    pontoonL.position.y = -0.5 - 4.0 * easeOut;
-    pontoonR.position.y = -0.5 - 4.0 * easeOut;
-  } else if (
-    !state.isFreeCamera &&
-    state.isRetractingPontoons &&
-    state.pontoonDeploymentProgress > 0
-  ) {
-    state.pontoonDeploymentProgress -= delta * 0.4;
-    if (state.pontoonDeploymentProgress < 0) {
-      state.pontoonDeploymentProgress = 0;
-      state.isRetractingPontoons = false;
-      state.isDeployingPontoons = false;
-      pontoonGroup.visible = false;
-    }
-    const t = state.pontoonDeploymentProgress;
-    const easeOut = 1 - Math.pow(1 - t, 3);
-
-    pontoonGroup.scale.setScalar(easeOut);
-
-    const leftRotAngle = (Math.PI / 2) * (1 - easeOut);
-    pontoonL.rotation.z = leftRotAngle;
-    hingeLF.rotation.z = leftRotAngle;
-    hingeLB.rotation.z = leftRotAngle;
-    const rightRotAngle = -(Math.PI / 2) * (1 - easeOut);
-    pontoonR.rotation.z = rightRotAngle;
-    hingeRF.rotation.z = rightRotAngle;
-    hingeRB.rotation.z = rightRotAngle;
-    pontoonL.position.y = -0.5 - 4.0 * easeOut;
-    pontoonR.position.y = -0.5 - 4.0 * easeOut;
+  // Landing gear eases down or up (flight-physics.js decides which); posed
+  // every frame, so a plane switched to in flight has its gear right too
+  if (!state.isFreeCamera) {
+    state.gearExtension = state.gearWanted
+      ? Math.min(1, state.gearExtension + delta * 0.5)
+      : Math.max(0, state.gearExtension - delta * 0.4);
   }
-
-  // The twin's wheels fold with the pontoons' progress, every frame so a
-  // twin starting or switched to in flight has its gear up (#97)
-  if (state.airplaneModel?.gearGroups) {
-    const t = state.pontoonDeploymentProgress;
-    setGearExtension(state.airplaneModel, 1 - Math.pow(1 - t, 3));
-  }
+  poseGear(state.gearExtension);
 
   // Plane rotation control
   const maxPitch = Math.PI / 4;

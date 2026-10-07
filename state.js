@@ -36,9 +36,11 @@ export const state = {
       : storedColor !== null && !isNaN(parseInt(storedColor))
         ? parseInt(storedColor)
         : ChillFlightLogic.PLANE_COLORS[0],
-  pontoonDeploymentProgress: 0,
-  isDeployingPontoons: false,
-  isRetractingPontoons: false,
+  // Landing gear (the classic's pontoons, the twin's wheels): whether it
+  // should be down (set in flight-physics.js), and how far down it is, 0 to 1
+  // (eased toward that in game-loop.js; poseGear in airplane.js)
+  gearWanted: false,
+  gearExtension: 0,
 
   // Next frame's yaw, computed in game-loop.js and applied by flight-physics.js
   _nextYaw: undefined,

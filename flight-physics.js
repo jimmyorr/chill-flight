@@ -1,11 +1,35 @@
 import * as THREE from 'three';
-import {getElevation} from './terrain-geometry.js';
-import {planeGroup, pontoonGroup} from './airplane.js';
+import {getElevation, sampleGround} from './terrain-geometry.js';
+import {planeGroup} from './airplane.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {rainParticles} from './weather-manager.js';
 import {state} from './state.js';
-import {inputManager, keys} from './game-input-bindings.js';
+import {keys} from './game-input-bindings.js';
 import {Achievements} from './achievements.js';
+
+// Wheeled planes touch down on ground gentler than 15° (rise per unit) and,
+// once rolling, stay down on ground up to 30°: the land is hilly at the scale
+// of the terrain's triangles, and one threshold would bounce a rolling plane
+// on and off the ground
+const TOUCHDOWN_SLOPE = Math.tan((15 * Math.PI) / 180);
+const ROLLING_SLOPE = Math.tan((30 * Math.PI) / 180);
+const _ground = {height: 0, slopeX: 0, slopeZ: 0};
+let isRolling = false;
+// Whether the throttle has been opened since settling on the water or the
+// ground (see the surface drag below), and its setting last frame: every
+// throttle input (keys, gamepad, the on-screen buttons) raises it, and only
+// the surface drag lowers it on its own
+let throttleOpenedOnSurface = false;
+let lastTargetSpeed = 0;
+
+// The plane's height resting on its wheels on _ground: on a slope the wheels
+// are wheelDepth from the ground at right angles to it, further straight up
+function wheelRestHeight(wheelDepth) {
+  return (
+    _ground.height +
+    wheelDepth * Math.sqrt(1 + _ground.slopeX ** 2 + _ground.slopeZ ** 2)
+  );
+}
 
 export function updateFlightPhysics(delta, nowTime) {
   // --- FLIGHT PHYSICS & SPEED ---
@@ -20,6 +44,26 @@ export function updateFlightPhysics(delta, nowTime) {
   // rather than terrainHeight (the seabed below the water).
   let minFlightHeight = isWater ? WATER_LEVEL + 2.8 : terrainHeight + 10.0;
   let restingHeight = minFlightHeight + 2.0;
+
+  // Wheeled planes (not the classic, a floatplane) with their gear down can
+  // come down onto gentle ground and roll on their wheels, on the ground as
+  // drawn (sampleGround). Elsewhere, and with the gear up, the cushion above
+  // stays, so there's no landing on a mountainside.
+  const wheelDepth = state.airplaneModel?.wheelDepth;
+  const gearDown =
+    wheelDepth !== undefined &&
+    (!state.airplaneModel.gearGroups || state.gearExtension >= 1);
+  let onLandableGround = false;
+  if (!isWater && gearDown) {
+    sampleGround(planeGroup.position.x, planeGroup.position.z, _ground);
+    onLandableGround =
+      Math.hypot(_ground.slopeX, _ground.slopeZ) <
+      (isRolling ? ROLLING_SLOPE : TOUCHDOWN_SLOPE);
+    if (onLandableGround) {
+      restingHeight = wheelRestHeight(wheelDepth);
+      minFlightHeight = restingHeight - 2.0;
+    }
+  }
 
   if (
     !state.isFreeCamera &&
@@ -68,15 +112,19 @@ export function updateFlightPhysics(delta, nowTime) {
       recoveryRate * delta
     );
 
+    // Easing never quite arrives, so settle once close (a plane stopping on
+    // the water or the ground stops, rather than creeping and its prop
+    // twitching)
+    if (
+      Math.abs(state.flightSpeedMultiplier - state.targetFlightSpeed) < 0.01
+    ) {
+      state.flightSpeedMultiplier = state.targetFlightSpeed;
+    }
     state.flightSpeedMultiplier = Math.max(
       0,
       Math.min(10, state.flightSpeedMultiplier)
     );
   }
-
-  // Altitude and Speed constants
-  const controlBaseAlt = Math.max(0, planeGroup.position.y - 45.5);
-  const controlAlt = Math.round(controlBaseAlt * 25);
 
   // Move vehicle
   const currentKTS =
@@ -84,6 +132,10 @@ export function updateFlightPhysics(delta, nowTime) {
   // Lower threshold for isFreefalling to eliminate the "stuck in mid-air" dead zone
   const isFreefalling =
     currentKTS < 50 && planeGroup.position.y > restingHeight + 2;
+  // Rolling on the wheels sticks to the ground (downhill too) unless the nose
+  // is raised to take off
+  const followingGround =
+    isRolling && onLandableGround && planeGroup.rotation.x < 0.05;
 
   // Apply forward movement
   if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
@@ -95,8 +147,10 @@ export function updateFlightPhysics(delta, nowTime) {
   if (state.flightSpeedMultiplier > 0 && !isFreefalling) {
     state.verticalVelocity = 0; // Reset gravity accumulation while flying normally
 
-    // Low speed stall/sink mechanics
-    if (currentKTS < 100 && planeGroup.position.y > minFlightHeight) {
+    // Low speed stall/sink mechanics. It sinks to the resting height (on the
+    // water, the wheels or the cushion over land), not the minimum below it,
+    // which the ground avoidance would only push it back up from.
+    if (currentKTS < 100 && planeGroup.position.y > restingHeight) {
       const stallFactor = Math.max(0, (100 - Math.max(50, currentKTS)) / 50);
       planeGroup.position.y -= 15 * stallFactor * delta;
     }
@@ -137,9 +191,11 @@ export function updateFlightPhysics(delta, nowTime) {
       delta;
   } else if (
     !state.isFreeCamera &&
-    planeGroup.position.y <= restingHeight + 0.1
+    (planeGroup.position.y <= restingHeight + 0.1 || followingGround)
   ) {
-    // Grounded — rest flat peacefully, kill vertical velocity
+    // Grounded — rest flat peacefully, kill vertical velocity. On land the
+    // plane stays level (so the flight model and controls work as on water)
+    // and only the model tilts to the slope, below.
     state.verticalVelocity = 0;
     state.targetPitch = 0;
     state.targetRoll = 0;
@@ -162,11 +218,19 @@ export function updateFlightPhysics(delta, nowTime) {
       0,
       0.1 * delta * 60
     );
-    planeGroup.position.y = THREE.MathUtils.lerp(
-      planeGroup.position.y,
-      restingHeight,
-      0.1 * delta * 60
-    ); // Smooth landing
+    if (followingGround) {
+      // Rolling on the wheels follows the ground exactly, where the plane is
+      // now (it has moved since the top of the frame)
+      sampleGround(planeGroup.position.x, planeGroup.position.z, _ground);
+      planeGroup.position.y = wheelRestHeight(wheelDepth);
+    } else {
+      // Smooth landing
+      planeGroup.position.y = THREE.MathUtils.lerp(
+        planeGroup.position.y,
+        restingHeight,
+        0.1 * delta * 60
+      );
+    }
 
     if (state.airplaneModel) {
       if (isWater && planeGroup.position.y <= restingHeight + 0.1) {
@@ -174,6 +238,27 @@ export function updateFlightPhysics(delta, nowTime) {
         state.airplaneModel.position.y = Math.sin(bobTime) * 0.15;
         state.airplaneModel.rotation.x = Math.cos(bobTime * 1.1) * 0.03;
         state.airplaneModel.rotation.z = Math.sin(bobTime * 0.8) * 0.04;
+      } else if (onLandableGround) {
+        // Tilt the model to the slope under its wheels
+        const yaw = planeGroup.rotation.y;
+        const groundPitch = Math.atan(
+          -Math.sin(yaw) * _ground.slopeX - Math.cos(yaw) * _ground.slopeZ
+        );
+        const groundRoll = Math.atan(
+          Math.cos(yaw) * _ground.slopeX - Math.sin(yaw) * _ground.slopeZ
+        );
+        const ease = 1 - Math.pow(1 - 0.2, delta * 60);
+        state.airplaneModel.position.y = 0;
+        state.airplaneModel.rotation.x = THREE.MathUtils.lerp(
+          state.airplaneModel.rotation.x,
+          groundPitch,
+          ease
+        );
+        state.airplaneModel.rotation.z = THREE.MathUtils.lerp(
+          state.airplaneModel.rotation.z,
+          groundRoll,
+          ease
+        );
       } else {
         state.airplaneModel.position.y = 0;
         state.airplaneModel.rotation.x = 0;
@@ -187,10 +272,18 @@ export function updateFlightPhysics(delta, nowTime) {
     const stormMult = 1.0 + rainOpacity * 4.0; // 1x calm → 3x heavy rain
     state.airplaneModel.position.y =
       (Math.sin(t * 0.7) * 0.12 + Math.sin(t * 1.3) * 0.06) * stormMult;
-    state.airplaneModel.rotation.x =
-      (Math.cos(t * 0.9) * 0.015 + Math.sin(t * 1.7) * 0.008) * stormMult;
-    state.airplaneModel.rotation.z =
-      (Math.sin(t * 0.6) * 0.02 + Math.cos(t * 1.1) * 0.01) * stormMult;
+    // Eased, so a model tilted to the ground levels out after takeoff
+    const ease = 1 - Math.pow(1 - 0.1, delta * 60);
+    state.airplaneModel.rotation.x = THREE.MathUtils.lerp(
+      state.airplaneModel.rotation.x,
+      (Math.cos(t * 0.9) * 0.015 + Math.sin(t * 1.7) * 0.008) * stormMult,
+      ease
+    );
+    state.airplaneModel.rotation.z = THREE.MathUtils.lerp(
+      state.airplaneModel.rotation.z,
+      (Math.sin(t * 0.6) * 0.02 + Math.cos(t * 1.1) * 0.01) * stormMult,
+      ease
+    );
   }
 
   // Speed controls
@@ -216,63 +309,65 @@ export function updateFlightPhysics(delta, nowTime) {
     }
   }
 
-  if (isWater && planeGroup.position.y <= restingHeight + 0.1) {
-    if (!state.isFreeCamera) {
+  if (
+    (isWater || onLandableGround) &&
+    planeGroup.position.y <= restingHeight + 0.1
+  ) {
+    if (isWater && !state.isFreeCamera) {
       Achievements.unlock('splash_down');
     }
-    if (!pontoonGroup.visible) {
-      pontoonGroup.scale.setScalar(0);
-      state.pontoonDeploymentProgress = 0;
-      pontoonGroup.visible = true;
-      state.isDeployingPontoons = true;
+    if (isWater) state.gearWanted = true;
+    // Water (or rolling) drag: after touching down the throttle eases back
+    // to idle, so the plane slows to a gentle stop. Once it's opened again
+    // on the surface, it stays open for the takeoff run.
+    if (state.targetFlightSpeed > lastTargetSpeed + 1e-6) {
+      throttleOpenedOnSurface = true;
     }
-    const isThrottlingUp =
-      keys.Shift ||
-      (inputManager.isThrottlingUp && inputManager.isThrottlingUp());
-    if (!isThrottlingUp) {
-      // Apply water drag: smoothly reduce targetFlightSpeed to 0
+    if (!throttleOpenedOnSurface) {
       state.targetFlightSpeed = Math.max(
         0,
         state.targetFlightSpeed - delta * 0.5
       );
     }
-    if (state.targetFlightSpeed === 0 && state.flightSpeedMultiplier < 0.05) {
-      state.flightSpeedMultiplier = 0; // Force full stop to prevent prop twitching
-    }
-    // When on water, force neutral pitch/roll to ensure a level rest on water
-    state.targetPitch = THREE.MathUtils.lerp(
-      state.targetPitch,
-      0,
-      0.05 * delta * 60
-    );
-    state.targetRoll = THREE.MathUtils.lerp(
-      state.targetRoll,
-      0,
-      0.05 * delta * 60
-    );
+  } else {
+    throttleOpenedOnSurface = false;
   }
+  lastTargetSpeed = state.targetFlightSpeed;
 
   const maxFlightHeight = 4045.5; // ~100,000 ft display altitude ((4045.5 - 45.5) * 25 = 100,000)
   if (planeGroup.position.y > maxFlightHeight) {
     planeGroup.position.y = maxFlightHeight;
   }
 
-  if (
-    controlAlt >= 2000 &&
-    pontoonGroup.visible &&
-    !state.isRetractingPontoons
-  ) {
-    state.isRetractingPontoons = true;
+  // On the wheels this frame (on the ground under where the plane is now):
+  // the next frame allows steeper ground
+  isRolling = false;
+  if (onLandableGround) {
+    sampleGround(planeGroup.position.x, planeGroup.position.z, _ground);
+    isRolling = planeGroup.position.y <= wheelRestHeight(wheelDepth) + 0.5;
   }
+
+  // Pontoons and retractable wheels come down approaching water (and, for
+  // wheels, any ground) and go up climbing away, by height above the surface
+  const surfaceAlt = Math.round(
+    Math.max(
+      0,
+      planeGroup.position.y - (isWater ? WATER_LEVEL : terrainHeight)
+    ) * 25
+  );
+  if (surfaceAlt >= 2000) state.gearWanted = false;
 
   const currentY = planeGroup.position.y;
   const isDescending = currentY < state.lastY;
   state.lastY = currentY;
 
-  if (isWater && controlAlt < 1500 && isDescending && !pontoonGroup.visible) {
-    pontoonGroup.scale.setScalar(0);
-    state.pontoonDeploymentProgress = 0;
-    pontoonGroup.visible = true;
-    state.isDeployingPontoons = true;
+  // Low and coming down, or low and slow (an approach can hold its height
+  // over rising ground)
+  if (
+    (isWater || wheelDepth !== undefined) &&
+    surfaceAlt < 1500 &&
+    (isDescending || currentKTS < 100)
+  ) {
+    state.gearWanted = true;
   }
 }

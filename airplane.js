@@ -15,7 +15,7 @@ import {
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {createBiplaneModel} from './biplane.js';
 import {createGliderModel} from './glider.js';
-import {createTwinModel} from './twin.js';
+import {createTwinModel, setGearExtension} from './twin.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
 
@@ -250,6 +250,27 @@ export let activePlaneType =
   'classic';
 
 // The glider tops out lower than the powered planes.
+// Poses the landing gear for how far down it is (state.gearExtension, 0 up to
+// 1 down): the classic's pontoons swing down on their hinges and grow, and
+// the twin's wheels unfold
+export function poseGear(extension) {
+  const ease = 1 - Math.pow(1 - extension, 3);
+  pontoonGroup.visible = extension > 0;
+  pontoonGroup.scale.setScalar(ease);
+  const fold = (Math.PI / 2) * (1 - ease);
+  pontoonL.rotation.z = fold;
+  hingeLF.rotation.z = fold;
+  hingeLB.rotation.z = fold;
+  pontoonR.rotation.z = -fold;
+  hingeRF.rotation.z = -fold;
+  hingeRB.rotation.z = -fold;
+  pontoonL.position.y = -0.5 - 4.0 * ease;
+  pontoonR.position.y = -0.5 - 4.0 * ease;
+  if (state.airplaneModel?.gearGroups) {
+    setGearExtension(state.airplaneModel, ease);
+  }
+}
+
 export function getMaxFlightSpeedMult() {
   const speedKts = activePlaneType === 'glider' ? 300 : MAX_AIRPLANE_SPEED_KTS;
   return speedKts / (BASE_FLIGHT_SPEED * 60);
@@ -309,6 +330,13 @@ export function setActivePlane(planeType, skipStorage = false) {
       planeMat: planeMat,
       planeWhiteMat: planeWhiteMat,
     });
+  }
+
+  // How far the wheels reach below the plane's center, for landing on land
+  // (flight-physics.js). The classic is a floatplane: it lands only on water.
+  if (planeType !== 'classic') {
+    newModel.updateMatrixWorld(true);
+    newModel.wheelDepth = -new THREE.Box3().setFromObject(newModel).min.y;
   }
 
   state.airplaneModel = newModel;

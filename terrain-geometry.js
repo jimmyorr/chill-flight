@@ -3991,3 +3991,38 @@ export function getElevation(x, z) {
 
   return n;
 }
+
+// The ground as drawn, rather than the elevation noise it's built from: the
+// terrain mesh is a PlaneGeometry grid of getElevation samples (CHUNK_SIZE /
+// state.SEGMENTS apart) split into triangles along the same diagonal, and
+// between samples the noise can be several units off the flat triangles. For
+// planes landing on their wheels (flight-physics.js). Fills out.height and
+// out.slopeX / out.slopeZ (rise per unit along x and z).
+export function sampleGround(x, z, out) {
+  const step = CHUNK_SIZE / state.SEGMENTS;
+  const half = CHUNK_SIZE / 2;
+  const gx = (x + half) / step;
+  const gz = (z + half) / step;
+  const ix = Math.floor(gx);
+  const iz = Math.floor(gz);
+  const u = gx - ix;
+  const v = gz - iz;
+  const x0 = ix * step - half;
+  const z0 = iz * step - half;
+  // Corners: a (x0, z0), b (x0, z1), c (x1, z1), d (x1, z0); triangles abd
+  // and bcd, split along b-d
+  const a = getElevation(x0, z0);
+  const b = getElevation(x0, z0 + step);
+  const c = getElevation(x0 + step, z0 + step);
+  const d = getElevation(x0 + step, z0);
+  if (u + v <= 1) {
+    out.height = a + (d - a) * u + (b - a) * v;
+    out.slopeX = (d - a) / step;
+    out.slopeZ = (b - a) / step;
+  } else {
+    out.height = c + (b - c) * (1 - u) + (d - c) * (1 - v);
+    out.slopeX = (c - b) / step;
+    out.slopeZ = (c - d) / step;
+  }
+  return out;
+}

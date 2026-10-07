@@ -222,6 +222,13 @@ The world is populated with dynamic, procedural wildlife that adds life to the e
 
 A few other planes share the sky, so now and then you spot someone else up there (`traffic.js`, with the flight math in `traffic-logic.js`). Up to three are around at a time: each appears 4.5 to 6 km away, small in the haze, on a course across your part of the sky, and is gone once it's 8 km off; a new one turns up every 15 to 45 seconds. They fly the game's four planes in random liveries, wander in gentle banked turns at their own cruising height, climb ahead of hills and turn away from mountains, and never dip below 40 units over the ground. At night they show navigation lights: red on the left wingtip, green on the right and a white strobe on the tail. They pace you, so you can find one and follow it around: within 800 units a plane flies at your speed, a little slower while it's ahead of you (so you catch up) or faster while it's behind, matching you exactly within 150 units, and it eases back to its own cruising speed (105 to 170 knots) once you leave. It never drops below 100 knots, where planes sink. Fly within 250 units of one for 3 seconds to earn the Wingman achievement. The **Other planes** switch on the pause menu's Settings tab turns them off (saved), and `?traffic=0` or `=1` sets them for one visit.
 
+## Landing
+
+Every plane can land on water, and the planes with wheels (biplane, glider and twin engine) can land on land too; the classic is a floatplane. Fly low and slow, under about 100 knots, and the plane settles gently (`flight-physics.js`). On touching down the throttle eases back to idle, so the plane slows to a stop on its own; open the throttle again and it stays open for the takeoff run, then pull up to lift off.
+
+- **Landing gear:** The classic's pontoons and the twin's wheels come down within 1,500 ft of the water or ground when you're descending or slow, and fold away above 2,000 ft. The biplane's and glider's wheels are fixed.
+- **Where to land:** Wheels touch down on ground gentler than 15°, and once rolling stay down on slopes up to 30°, so a bumpy meadow doesn't bounce you; on steeper ground the plane keeps its usual height above the terrain. The wheels follow the ground as drawn, and the plane tilts to the slope it's parked on.
+
 ## Controls
 
 Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad.
