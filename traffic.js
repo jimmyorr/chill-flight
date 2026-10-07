@@ -128,6 +128,7 @@ function addNavLight(group, mat, x, y, z) {
   sprite.scale.set(NAV_LIGHT_SIZE, NAV_LIGHT_SIZE, 1);
   sprite.position.set(x, y, z);
   group.add(sprite);
+  return sprite;
 }
 
 const _box = new THREE.Box3();
@@ -152,7 +153,17 @@ function buildPlane(p) {
   _box.setFromObject(model);
   addNavLight(group, navMats.red, _box.min.x, _box.max.y - 1, 0);
   addNavLight(group, navMats.green, _box.max.x, _box.max.y - 1, 0);
-  addNavLight(group, navMats.strobe, 0, _box.max.y, _box.max.z);
+  // Each plane's strobe flashes on its own rhythm, not in step with the
+  // others
+  group.userData.strobe = addNavLight(
+    group,
+    navMats.strobe,
+    0,
+    _box.max.y,
+    _box.max.z
+  );
+  group.userData.strobePeriod = 1 + Math.random() * 0.4;
+  group.userData.strobePhase = Math.random() * 2;
 
   group.userData.props = model.propGroups || [model.propGroup];
   scene.add(group);
@@ -232,11 +243,10 @@ export function updateTraffic(delta) {
       SPAWN_DELAY_MIN + Math.random() * (SPAWN_DELAY_MAX - SPAWN_DELAY_MIN);
   }
 
-  // Lights show as the day fades; the strobe flashes briefly every 1.2 s
+  // Lights show as the day fades; strobes flash briefly every 1-1.4 s
   const night = 1 - THREE.MathUtils.smoothstep(state.dayFactor, 0.3, 0.8);
-  navMats.red.opacity = navMats.green.opacity = night;
+  navMats.red.opacity = navMats.green.opacity = navMats.strobe.opacity = night;
   const now = performance.now() / 1000;
-  navMats.strobe.opacity = now % 1.2 < 0.08 ? night : 0;
 
   // Planes pace the player's plane (not the free camera)
   const player = state.isFreeCamera
@@ -263,6 +273,8 @@ export function updateTraffic(delta) {
       if (p.nearTime > WINGMAN_SECONDS) Achievements.unlock('wingman');
     }
     const g = p.group;
+    g.userData.strobe.visible =
+      (now + g.userData.strobePhase) % g.userData.strobePeriod < 0.08;
     g.position.set(p.x, p.y, p.z);
     g.rotation.set(p.pitch, p.heading, p.bank);
     const spin = p.speed * delta * 0.15;
