@@ -1246,6 +1246,7 @@ function updatePhysicsAndControls(delta, nowTime) {
   state.isDoingFullBarrelRoll = false;
   state.isClampedRoll = false;
   state.isLooping = false;
+  state.isSteepPitch = false;
   state.isDoingFullLoop = false;
 
   state.manualRollSpeed = 4.0;
@@ -1326,6 +1327,7 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     // Cancel manual maneuvers
     state.isLooping = false;
+    state.isSteepPitch = false;
     state.isBarrelRolling = false;
     state.isClampedRoll = false;
   } else if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
@@ -1376,7 +1378,7 @@ function updatePhysicsAndControls(delta, nowTime) {
           targetAscent,
           0.05 * delta * 60
         );
-        state.isLooping = true;
+        state.isSteepPitch = true;
       } else if (
         (ttDown || tripleTap.ArrowDown) &&
         !keys.Shift &&
@@ -1400,7 +1402,7 @@ function updatePhysicsAndControls(delta, nowTime) {
           targetDive,
           0.05 * delta * 60
         );
-        state.isLooping = true;
+        state.isSteepPitch = true;
       }
     }
 
@@ -1445,7 +1447,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       targetRoll: state.targetRoll,
       turningRoll: planeGroup.rotation.z,
       isBarrelRolling: state.isBarrelRolling,
-      isLooping: state.isLooping,
+      isLooping: state.isLooping || state.isSteepPitch,
       isClampedRoll: state.isClampedRoll,
       turnSpeed: TURN_SPEED,
       delta: delta,

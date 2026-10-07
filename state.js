@@ -109,6 +109,9 @@ export const state = {
   isDoingFullBarrelRoll: false,
   isClampedRoll: false,
   isLooping: false,
+  // Steep climb or dive (double-tap and hold): holds its pitch like a loop,
+  // but the camera follows as in normal flight
+  isSteepPitch: false,
   isDoingFullLoop: false,
   manualRollSpeed: 4.0,
   manualLoopSpeed: 2.5,

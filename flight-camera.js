@@ -171,7 +171,12 @@ export function updateFlightCamera(delta, nowTime) {
 
     // FOV expands with speed AND dive/loop steepness, capped at 70 to avoid excessive distortion
     // We use a smoothed factor to prevent "jumping" when entering loops
-    const maneuverFactor = Math.max(diveFactor, state.isLooping ? 3.0 : 0);
+    // Steep climbs and dives widen it too, but leave the camera's follow alone:
+    // locking it to the plane like a loop rolls the view by the whole bank (#98)
+    const maneuverFactor = Math.max(
+      diveFactor,
+      state.isLooping || state.isSteepPitch ? 3.0 : 0
+    );
     state.smoothedManeuverFactor = THREE.MathUtils.lerp(
       state.smoothedManeuverFactor,
       maneuverFactor,
