@@ -429,7 +429,7 @@ function animate() {
   updateFlightCamera(delta, nowTime);
   updateTraffic(delta);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
-  updateShadowSnapping(delta);
+  updateShadowSnapping();
   // Smoothly interpolate sky shader palettes
   updateEnvironmentLighting(delta, now);
   // Update the particle positions
@@ -1409,12 +1409,16 @@ function updatePhysicsAndControls(delta, nowTime) {
 const SNOW_MAX_BRIGHTNESS = 0.95;
 const SNOW_COOL_TINT = new THREE.Vector3(0.94, 0.99, 1.07);
 const SHADOW_LOOK_AHEAD = 1400;
+// The shadows follow the sun in steps of half a degree (about every half
+// second of a normal day)
+const SHADOW_DIR_STEP_COS = Math.cos((0.5 * Math.PI) / 180);
+const _shadowSunGoal = new THREE.Vector3();
 // How much of the hidden sun's light the sky light takes over in twilight
 const TWILIGHT_SKY_SHARE = 0.6;
 const _shadowAnchor = new THREE.Vector3();
 const _shadowForward = new THREE.Vector3();
 
-function updateShadowSnapping(delta) {
+function updateShadowSnapping() {
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   // Eliminates "shadow swimming" and depth-band "creeping" by locking the
   // shadow camera in all 3 dimensions to a rigid, sun-aligned grid.
@@ -1424,9 +1428,19 @@ function updateShadowSnapping(delta) {
   // This makes shadows smoothly stretch toward the horizon at sunset/sunrise
   // and then freeze. The dirLight intensity fades to 0 via sunLightFactor anyway,
   // so the frozen direction is invisible by the time it diverges from reality.
-  _shadowSunDir
+  // The shadows turn with the sun in small steps (SHADOW_DIR_STEP) rather
+  // than every frame: each turn redraws every shadow edge a fraction of a
+  // texel over, which done every frame makes thin shadows (the plane's wings)
+  // shimmer. A step moves a shadow by a negligible amount.
+  _shadowSunGoal
     .set(state.sunX, Math.max(0.15, state.sunY), state.sunZ)
     .normalize();
+  if (
+    _shadowSunDir.lengthSq() === 0 ||
+    _shadowSunDir.dot(_shadowSunGoal) < SHADOW_DIR_STEP_COS
+  ) {
+    _shadowSunDir.copy(_shadowSunGoal);
+  }
 
   // Step 2: Build a rigid local coordinate system for the light.
   _shadowRight.crossVectors(_worldUp, _shadowSunDir).normalize();
@@ -1463,17 +1477,16 @@ function updateShadowSnapping(delta) {
   const dy = snappedY - dotY;
   const dz = snappedZ - dotZ;
 
-  // Step 6: Apply the snapped offsets to a target vector, then smoothly lerp the light
-  // This "softens" the snapping jumps so they aren't perceivable as jitter.
+  // Step 6: Move the light straight to the snapped position. A whole-texel
+  // step leaves every shadow exactly where it was; easing toward it (as this
+  // used to) drew the map at in-between offsets for a few frames after each
+  // step, which made shadow edges crawl.
   _targetShadowPos.copy(anchorPos);
   _targetShadowPos.addScaledVector(_shadowRight, dx);
   _targetShadowPos.addScaledVector(_shadowUp, dy);
   _targetShadowPos.addScaledVector(_shadowSunDir, dz); // Apply depth snap
 
-  dirLight.target.position.lerp(
-    _targetShadowPos,
-    1 - Math.pow(1 - 0.1, delta * 60)
-  );
+  dirLight.target.position.copy(_targetShadowPos);
 
   // Position the light exactly 4000 units behind the target (must be larger than frustum radius)
   dirLight.position
