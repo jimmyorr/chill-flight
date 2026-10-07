@@ -25,7 +25,15 @@ export let musicEnabled =
     ? ChillFlightLogic.MUSIC_PARAM
     : localStorage.getItem('chill_flight_music_enabled') !== 'false';
 
+// Music plays at half volume (-6 dB): the tracks are mastered at streaming
+// loudness (about -14 LUFS), which at full volume is louder than music
+// usually sits in a game. iOS ignores audio.volume, so there it stays full.
+export const MUSIC_VOLUME = 0.5;
+// Ducked while paused, relative to MUSIC_VOLUME
+export const MUSIC_PAUSED_VOLUME = MUSIC_VOLUME * 0.15;
+
 export let purrpleCatAudio = new Audio();
+purrpleCatAudio.volume = MUSIC_VOLUME;
 const purrpleCatTracks = [
   'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-birds-of-a-feather.mp3',
   'https://pub-7309646d23c349d2894c38aad1291bf8.r2.dev/music/purrplecat/purrple-cat-a-place-to-hide.mp3',

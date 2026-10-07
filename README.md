@@ -32,6 +32,8 @@ flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient
 
 In-game radio features tracks by Purrple Cat (Used with permission/attribution).
 
+Music plays at half volume, about where background music usually sits in a game (the tracks are mastered at streaming loudness), and drops lower while paused (`MUSIC_VOLUME` in `audio.js`). iOS ignores web audio volume, so on iPhone and iPad it plays at full volume.
+
 To start without music (say, on a train), tap the speaker button under Start on the title screen. The choice is saved: later visits skip the title screen and start silently. Music can be turned back on in settings.
 
 ## Biomes

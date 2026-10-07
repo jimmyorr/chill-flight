@@ -4,7 +4,7 @@ import {
   checkVRPresenting,
   inputManager,
 } from './game-input-bindings.js';
-import {setMusicVolume} from './audio.js';
+import {MUSIC_PAUSED_VOLUME, MUSIC_VOLUME, setMusicVolume} from './audio.js';
 import {updatePauseMenuMusicInfo} from './game-audio-integration.js';
 import {state} from './state.js';
 import {clock} from './sky.js';
@@ -41,7 +41,7 @@ export function togglePause() {
     if (pauseOverlay) pauseOverlay.style.display = 'flex';
     clearInputState();
 
-    setMusicVolume(0.15);
+    setMusicVolume(MUSIC_PAUSED_VOLUME);
 
     updatePauseMenuMusicInfo();
 
@@ -64,7 +64,7 @@ export function togglePause() {
       hooks.fullscreenMap.close();
     }
 
-    setMusicVolume(1.0);
+    setMusicVolume(MUSIC_VOLUME);
 
     if (clock.update) clock.update(); // clear accumulated time so plane doesn't skip
     clearInputState(); // wipe any input that bled through from the pause overlay
