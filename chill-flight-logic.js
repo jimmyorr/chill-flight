@@ -656,6 +656,42 @@ export const ChillFlightLogic = {};
     );
     return t * t * (3 - 2 * t);
   }
+  // Fall color as you head north, like driving from Long Island up to the
+  // Adirondacks in October. fallTurnAt is how far the broadleaf trees have
+  // turned, 0 to 1: none south of FALL_START_LAT, all by FALL_FULL_LAT.
+  // fallBareAt is how many have dropped their leaves: none south of
+  // FALL_BARE_LAT, all by SNOW_START_LAT, where the snow takes over. Higher
+  // ground turns a little earlier, and a slow wobble keeps the front from
+  // being a straight line.
+  const FALL_START_LAT = 0.2;
+  const FALL_FULL_LAT = 1.0;
+  const FALL_BARE_LAT = 1.3;
+  function fallLat(x, z, height, simplex) {
+    return (
+      -z / 5000 +
+      simplex.noise2D(x * 0.00015 + 300, z * 0.00015 - 300) * 0.12 +
+      (Math.max(0, height - 40) / 150) * 0.15
+    );
+  }
+  function smoothRamp(v, from, to) {
+    const t = Math.max(0, Math.min(1, (v - from) / (to - from)));
+    return t * t * (3 - 2 * t);
+  }
+  function fallTurnAt(x, z, height, simplex) {
+    return smoothRamp(
+      fallLat(x, z, height, simplex),
+      FALL_START_LAT,
+      FALL_FULL_LAT
+    );
+  }
+  function fallBareAt(x, z, height, simplex) {
+    return smoothRamp(
+      fallLat(x, z, height, simplex),
+      FALL_BARE_LAT,
+      SNOW_START_LAT
+    );
+  }
+
   // The terrain generator computes these two noise values anyway and passes
   // their sum straight to snowFactorAt; this is for everything else.
   function snowNoiseShift(x, z, simplex) {
@@ -2533,6 +2569,11 @@ export const ChillFlightLogic = {};
   exports.getBiome = getBiome;
   exports.SNOW_START_LAT = SNOW_START_LAT;
   exports.SNOW_FULL_LAT = SNOW_FULL_LAT;
+  exports.FALL_START_LAT = FALL_START_LAT;
+  exports.FALL_FULL_LAT = FALL_FULL_LAT;
+  exports.FALL_BARE_LAT = FALL_BARE_LAT;
+  exports.fallTurnAt = fallTurnAt;
+  exports.fallBareAt = fallBareAt;
   exports.snowFactorAt = snowFactorAt;
   exports.snowNoiseShift = snowNoiseShift;
   exports.MAP_WIDTH = MAP_WIDTH;

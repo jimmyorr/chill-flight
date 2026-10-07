@@ -33,6 +33,10 @@ class Color {
     this.b = (hex & 255) / 255;
     return this;
   }
+  getHex() {
+    const byte = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
+    return (byte(this.r) << 16) | (byte(this.g) << 8) | byte(this.b);
+  }
   copy(c) {
     this.r = c.r;
     this.g = c.g;
@@ -138,6 +142,14 @@ const _colorScree = new Color(0x736960);
 const _colorDesertMountainRock = new Color(0xc24b2b);
 const _colorIce = new Color(0x6ca6a8);
 const _colorAutumnForestTint = new Color(0x5d4037);
+// Fall leaf colors (see the broadleaf trees in generateChunkData)
+const _colorFallGreen = new Color(0x1b5e20);
+const _colorFallTurning = new Color(0x9e9d24);
+const _colorFallRed = new Color(0xc0392b);
+const _colorFallOrange = new Color(0xd35400);
+const _colorFallYellow = new Color(0xf1c40f);
+const _colorFallRusset = new Color(0x8d4a24);
+const _fallColor = new Color();
 // Ground under the woods, darkened like a canopy seen from above
 const _colorForestFloor = new Color(0x1f4a24);
 const _colorAutumnPlainsTint = new Color(0x8d6e63);
@@ -657,10 +669,6 @@ export function generateChunkData({
 
     const forestNoise = simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005);
     const isForest = forestNoise > 0.2;
-    const autumnNoise = simplex.noise2D(
-      worldX * 0.0003 + 500,
-      worldZ * 0.0003 + 500
-    );
     const cherryNoise = simplex.noise2D(
       worldX * 0.0005 + 1000,
       worldZ * 0.0005 + 1000
@@ -972,14 +980,25 @@ export function generateChunkData({
     }
 
     if (isStandardLand && snowFactor < 0.2 && !isFrozen) {
-      if (autumnNoise > 0.35) {
-        const factor = Math.min(1, (autumnNoise - 0.35) / 0.1);
-        const tint = isForest ? _colorAutumnForestTint : _colorAutumnPlainsTint;
-        _tempColorObj.lerp(tint, factor * (isForest ? 0.65 : 0.45));
-      } else if (cherryNoise > 0.55) {
+      if (cherryNoise > 0.55) {
         const factor = Math.min(1, (cherryNoise - 0.55) / 0.1);
         const tint = isForest ? _colorCherryForestTint : _colorCherryPlainsTint;
         _tempColorObj.lerp(tint, factor * (isForest ? 0.45 : 0.3));
+      } else if (!isAlienLand && desertFactor < 0.5) {
+        // Fallen leaves: the ground turns russet with the trees as you head
+        // north (ChillFlightLogic.fallTurnAt)
+        const fall = ChillFlightLogic.fallTurnAt(
+          worldX,
+          worldZ,
+          height,
+          simplex
+        );
+        if (fall > 0) {
+          const tint = isForest
+            ? _colorAutumnForestTint
+            : _colorAutumnPlainsTint;
+          _tempColorObj.lerp(tint, fall * (isForest ? 0.4 : 0.15));
+        }
       }
     }
 
@@ -1053,7 +1072,14 @@ export function generateChunkData({
             palmTreePositions.push(treeSpot);
           } else if (
             snowFactor > 0.4 ||
-            (height > MOUNTAIN_LEVEL - 100 && desertFactor < 0.3)
+            // Mixed woods: valleys mostly broadleaf, conifers taking over
+            // up the hillsides (most of the woods near MOUNTAIN_LEVEL)
+            (desertFactor < 0.3 &&
+              rng() <
+                Math.min(
+                  0.85,
+                  Math.max(0, (height - (MOUNTAIN_LEVEL - 130)) / 140)
+                ))
           ) {
             snowTreePositions.push(treeSpot);
           } else if (desertFactor > 0.6) {
@@ -1071,14 +1097,59 @@ export function generateChunkData({
               } else {
                 cherryTreePositions.push(treeSpot);
               }
-            } else if (autumnNoise > 0.45) {
-              const variety = rng();
-              if (variety < 0.12) japaneseMapleTreePositions.push(treeSpot);
-              else if (variety < 0.41) autumnTree1Positions.push(treeSpot);
-              else if (variety < 0.7) autumnTree2Positions.push(treeSpot);
-              else autumnTree3Positions.push(treeSpot);
             } else {
-              if (rng() < 0.25) {
+              // Broadleaf trees turn as you head north, each at its own
+              // point (some early, some late), into maple red, orange,
+              // birch yellow or oak russet; toward the snow they drop their
+              // leaves (ChillFlightLogic.fallTurnAt / fallBareAt)
+              const fall = ChillFlightLogic.fallTurnAt(
+                worldX,
+                worldZ,
+                height,
+                simplex
+              );
+              const bare = ChillFlightLogic.fallBareAt(
+                worldX,
+                worldZ,
+                height,
+                simplex
+              );
+              const turned = Math.max(
+                0,
+                Math.min(1, (fall - rng() * 0.85) * 4)
+              );
+              if (rng() < bare) {
+                deadTreePositions.push(treeSpot);
+              } else if (turned > 0) {
+                const kind = rng();
+                const list =
+                  kind < 0.3
+                    ? autumnTree3Positions // red
+                    : kind < 0.6
+                      ? autumnTree1Positions // orange
+                      : kind < 0.85
+                        ? autumnTree2Positions // yellow
+                        : autumnTree1Positions; // russet
+                const full =
+                  kind < 0.3
+                    ? _colorFallRed
+                    : kind < 0.6
+                      ? _colorFallOrange
+                      : kind < 0.85
+                        ? _colorFallYellow
+                        : _colorFallRusset;
+                // Green, through yellow-green, to its fall color
+                _fallColor.copy(_colorFallGreen);
+                if (turned < 0.5) {
+                  _fallColor.lerp(_colorFallTurning, turned * 2);
+                } else {
+                  _fallColor
+                    .copy(_colorFallTurning)
+                    .lerp(full, (turned - 0.5) * 2);
+                }
+                treeSpot.color = _fallColor.getHex();
+                list.push(treeSpot);
+              } else if (rng() < 0.25) {
                 tallDeciduousTreePositions.push(treeSpot);
               } else {
                 deciduousTreePositions.push(treeSpot);
