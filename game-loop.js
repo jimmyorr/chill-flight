@@ -145,7 +145,57 @@ let benchmarkStartTime;
 let benchmarkFrameTimes;
 
 var isAnimationLoopRunning = false;
+let hasCrashed = false;
+
 function animate() {
+  if (hasCrashed) return;
+  try {
+    performFrame();
+  } catch (err) {
+    if (hasCrashed) return;
+    hasCrashed = true;
+    log.error('Game crashed in animation loop:', err);
+    if (renderer && typeof renderer.setAnimationLoop === 'function') {
+      renderer.setAnimationLoop(null);
+    }
+    const crashDiv = document.createElement('div');
+    crashDiv.id = 'crash-screen';
+    crashDiv.style.cssText =
+      'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(100,0,0,0.85);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999999;font-family:monospace;padding:20px;box-sizing:border-box;text-align:center;';
+
+    const h1 = document.createElement('h1');
+    h1.style.cssText = 'font-size:2em;margin-bottom:0.5em;';
+    h1.textContent = 'Game Crashed';
+
+    const p = document.createElement('p');
+    p.style.cssText = 'margin-bottom:1em;font-size:1.2em;';
+    p.textContent = 'A fatal error occurred in the game loop.';
+
+    const preContainer = document.createElement('div');
+    preContainer.style.cssText =
+      'background:rgba(0,0,0,0.6);padding:15px;border-radius:8px;max-width:800px;width:100%;overflow-x:auto;text-align:left;';
+
+    const pre = document.createElement('pre');
+    pre.style.cssText = 'margin:0;white-space:pre-wrap;word-break:break-all;';
+    pre.textContent = err && err.stack ? err.stack : err;
+    preContainer.appendChild(pre);
+
+    const btn = document.createElement('button');
+    btn.style.cssText =
+      'margin-top:20px;padding:10px 20px;font-size:1.2em;cursor:pointer;background:#fff;color:#900;border:none;border-radius:5px;font-weight:bold;';
+    btn.textContent = 'Reload Game';
+    btn.onclick = () => location.reload();
+
+    crashDiv.appendChild(h1);
+    crashDiv.appendChild(p);
+    crashDiv.appendChild(preContainer);
+    crashDiv.appendChild(btn);
+
+    document.body.appendChild(crashDiv);
+  }
+}
+
+function performFrame() {
   // Sync InputManager state
   inputManager.state.isPaused = state.isPaused;
   inputManager.state.isFreeCamera = state.isFreeCamera;
