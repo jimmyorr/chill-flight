@@ -1914,6 +1914,24 @@ export var castleRuinsMat = createMaterial({
   flatShading: true,
 }); // weathered stone
 
+function taperWingGeometry(geo, startX, endX, taperFactor, sweepFactor = 0) {
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const fraction = Math.max(0, Math.min(1, (x - startX) / (endX - startX)));
+    const z = pos.getZ(i);
+    // Taper the wing width (Z) and add sweep back (translating Z by fraction * sweepFactor)
+    // We adjust Z based on its sign to taper towards the center line
+    const sign = Math.sign(z) || 1;
+    const absZ = Math.abs(z);
+    const newAbsZ = absZ * (1 - fraction * taperFactor);
+    // Sweep back: pushing the whole section back along Z
+    // Assuming +Z is backward (tail direction). We add to Z directly.
+    pos.setZ(i, newAbsZ * sign + fraction * sweepFactor);
+  }
+  geo.computeVertexNormals();
+}
+
 // Bird geometry
 // Hawk geometries
 var hawkBodyGeo = new THREE.BoxGeometry(1.2, 0.8, 3.5);
@@ -1928,6 +1946,7 @@ var hawkTailGeo = new THREE.BoxGeometry(1.4, 0.2, 1.5);
 hawkTailGeo.translate(0, 0, 2.2);
 var hawkWingGeo = new THREE.BoxGeometry(5, 0.1, 2.5);
 hawkWingGeo.translate(2.5, 0, 0);
+taperWingGeometry(hawkWingGeo, 0, 5, 0.5, 0.8);
 
 var hawkBrownMat = createMaterial({color: 0x4a2e15, flatShading: true});
 var hawkLightMat = createMaterial({color: 0xd2b48c, flatShading: true}); // Tan belly
@@ -1944,8 +1963,10 @@ var seagullTailGeo = new THREE.BoxGeometry(1.2, 0.2, 1.2);
 seagullTailGeo.translate(0, 0, 1.8);
 var seagullWingGeo = new THREE.BoxGeometry(4.5, 0.1, 1.8);
 seagullWingGeo.translate(2.25, 0, 0);
+taperWingGeometry(seagullWingGeo, 0, 4.75, 0.5, 0.6);
 var seagullWingTipGeo = new THREE.BoxGeometry(1.5, 0.11, 1.6);
 seagullWingTipGeo.translate(4.0, 0, 0);
+taperWingGeometry(seagullWingTipGeo, 0, 4.75, 0.5, 0.6);
 
 var seagullWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
 var seagullGreyMat = createMaterial({color: 0xcccccc, flatShading: true});
@@ -2014,6 +2035,7 @@ export var gooseBlackMat = createMaterial({color: 0x222222, flatShading: true});
 export var gooseWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
 export var gooseWingGeo = new THREE.BoxGeometry(6, 0.1, 2);
 gooseWingGeo.translate(3, 0, 0);
+taperWingGeometry(gooseWingGeo, 0, 6, 0.6, 1.0);
 
 // Windmill geometries
 function createWindmillBaseGeometry() {
