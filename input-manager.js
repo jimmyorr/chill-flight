@@ -102,8 +102,7 @@ export class InputManager {
     this._windowJustFocused = false;
 
     // Mobile gesture tracking (for on-screen swipe/double-tap zones)
-    this._activeGestureTouchId = null;
-    this._activeGestureAction = null;
+    this._activeGestures = {}; // Maps touch.identifier -> action
     this._lastFreeCamTouchX = 0;
     this._lastFreeCamTouchY = 0;
 
@@ -421,8 +420,7 @@ export class InputManager {
     this.state.joystick.active = false;
     this.state.joystick.touchId = null;
     this.state.touch.steeringId = null;
-    this._activeGestureTouchId = null;
-    this._activeGestureAction = null;
+    this._activeGestures = {};
   }
 
   handleFocus() {
@@ -575,15 +573,13 @@ export class InputManager {
         this.state.doubleTap[action] = true;
         this.state.keys[action] = true;
         this.state.keyPressStartTime[action] = now;
-        this._activeGestureTouchId = touch.identifier;
-        this._activeGestureAction = action;
+        this._activeGestures[touch.identifier] = action;
       } else if (this._tapCount[action] >= 3) {
         const act = y < 0.33 ? 'ArrowUp' : action;
         this.state.tripleTap[act] = true;
         this.state.keys[act] = true;
         this.state.keyPressStartTime[act] = now;
-        this._activeGestureTouchId = touch.identifier;
-        this._activeGestureAction = act;
+        this._activeGestures[touch.identifier] = act;
         this._tapCount[action] = 0;
         if (this.onTripleTap) this.onTripleTap(act);
       }
@@ -617,7 +613,7 @@ export class InputManager {
         }
       }
 
-      if (this._activeGestureTouchId !== null) {
+      if (Object.keys(this._activeGestures).length > 0) {
         // Suppress steering and hide joystick if gesture is active
         this.state.mouse.controlActive = false;
         this.state.mouse.x = 0;
@@ -649,7 +645,7 @@ export class InputManager {
       }
       this.state.mouse.controlActive = true;
 
-      if (this._activeGestureTouchId !== null) {
+      if (Object.keys(this._activeGestures).length > 0) {
         this.state.mouse.controlActive = false;
         this.state.mouse.x = 0;
         this.state.mouse.y = 0;
@@ -722,7 +718,7 @@ export class InputManager {
       for (let i = 0; i < e.changedTouches.length; i++) {
         if (
           e.changedTouches[i].identifier === this.state.touch.steeringId &&
-          e.changedTouches[i].identifier !== this._activeGestureTouchId
+          !this._activeGestures[e.changedTouches[i].identifier]
         ) {
           steeringTouch = e.changedTouches[i];
           break;
@@ -785,19 +781,14 @@ export class InputManager {
     }
 
     // Gesture cleanup
-    if (this._activeGestureTouchId !== null) {
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i];
-        if (touch.identifier === this._activeGestureTouchId) {
-          if (this._activeGestureAction) {
-            this.state.doubleTap[this._activeGestureAction] = false;
-            this.state.tripleTap[this._activeGestureAction] = false;
-            this.state.keys[this._activeGestureAction] = false;
-          }
-          this._activeGestureTouchId = null;
-          this._activeGestureAction = null;
-          break;
-        }
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const action = this._activeGestures[touch.identifier];
+      if (action) {
+        this.state.doubleTap[action] = false;
+        this.state.tripleTap[action] = false;
+        this.state.keys[action] = false;
+        delete this._activeGestures[touch.identifier];
       }
     }
 
