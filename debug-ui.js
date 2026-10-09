@@ -601,6 +601,9 @@ export function initDebugUI() {
     const url = new URL(window.location.href);
     const params = url.searchParams;
 
+    params.set('start', '1');
+    params.set('music', '0');
+
     if (forCamera) {
       params.set('freecam', 'true');
       params.delete('freeCamera');
