@@ -46,6 +46,9 @@ import {launch, serveDir} from './dev-browser.js';
 import {ARTWORK, COMMON, SHOTS, TARGETS} from './promo-shots.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const {version: VERSION} = JSON.parse(
+  fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')
+);
 const USAGE =
   'Usage: node scripts/promo.js sheet|stills|urls|view [shot ...]\n' +
   '       node scripts/promo.js artwork [name ...]\n' +
@@ -365,8 +368,9 @@ function ffmpeg(args) {
 // and any smaller lines (a credit, a web address), in the game's Inter, sized to the frame's
 // shorter side. The background is a frame of the next or previous clip,
 // blurred and darkened, so the video fades into the card rather than cutting
-// to a flat one.
-function cardHtml({title, tagline, lines = []}, background) {
+// to a flat one. `version` adds the game's version (package.json) small in
+// the lower right corner.
+function cardHtml({title, tagline, lines = [], version}, background) {
   const file = (rel) => 'file://' + path.join(ROOT, rel);
   const font = (weight) =>
     file(
@@ -391,6 +395,9 @@ function cardHtml({title, tagline, lines = []}, background) {
     p.small { margin-top: 3vmin; font-weight: 500; font-size: 3.4vmin;
       letter-spacing: 0.15em; color: rgba(255, 255, 255, 0.6); }
     h1 + p.small { margin-top: 4vmin; }
+    .version { position: fixed; right: 4vmin; bottom: 3.5vmin;
+      font-weight: 300; font-size: 2.4vmin; letter-spacing: 0.06em;
+      color: rgba(255, 255, 255, 0.45); }
     /* Landscape has room to spare across, so the lockup is a little smaller */
     @media (orientation: landscape) {
       img { width: 22vmin; height: 22vmin; }
@@ -400,7 +407,9 @@ function cardHtml({title, tagline, lines = []}, background) {
     }
   </style><img src="${file('public/icon-512.png')}" alt=""><h1>${title}</h1>${
     tagline ? `<p>${tagline}</p>` : ''
-  }${lines.map((line) => `<p class="small">${line}</p>`).join('')}`;
+  }${lines.map((line) => `<p class="small">${line}</p>`).join('')}${
+    version ? `<div class="version">v${VERSION}</div>` : ''
+  }`;
 }
 
 async function renderCard(browser, card, background, target, file) {

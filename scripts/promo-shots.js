@@ -14,7 +14,8 @@ export const COMMON =
   '&clock=1790000000000&cloudTime=500&fps=0&adaptive=0&traffic=0';
 
 // Title and end cards: the app icon and name, an optional tagline, and lines
-// of smaller text (the music credit, the web address)
+// of smaller text (the music credit, the web address); `version` adds the
+// game's version in the lower right
 const TITLE = {title: 'CHILL FLIGHT'};
 const SIGN_OFF = {title: 'CHILL FLIGHT', lines: ['Music by Purrple Cat']};
 
@@ -85,6 +86,7 @@ export const TARGETS = {
     endCard: {
       ...SIGN_OFF,
       lines: [...SIGN_OFF.lines, 'chill-flight.cowneck.com'],
+      version: true,
       seconds: 3.5,
     },
   },
