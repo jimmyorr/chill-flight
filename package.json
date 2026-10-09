@@ -33,6 +33,7 @@
     "test:traffic": "node scripts/test-traffic.js",
     "test:fall": "node scripts/test-fall.js",
     "bench": "node scripts/bench-render.js",
+    "promo": "npm run promo:stills && npm run promo:artwork && npm run promo:video -- iphone-preview && npm run promo:video -- ipad-preview && npm run promo:video -- trailer",
     "promo:sheet": "node scripts/promo.js sheet",
     "promo:stills": "node scripts/promo.js stills",
     "promo:video": "node scripts/promo.js video",
