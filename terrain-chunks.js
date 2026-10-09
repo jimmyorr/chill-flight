@@ -2097,11 +2097,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
               const slParts = [
                 {geo: streetlightPoleGeo, rot: [0, slYaw, 0], pos: [0, 0, 0]},
                 {geo: streetlightArmGeo, rot: [0, slYaw, 0], pos: [0, 0, 0]},
-                {
-                  geo: streetlightBulbGeo,
-                  rot: [0, slYaw, 0],
-                  pos: [17 * Math.cos(slYaw), 23.8, -17 * Math.sin(slYaw)],
-                },
+                {geo: streetlightBulbGeo, rot: [0, slYaw, 0], pos: [0, 0, 0]},
               ];
 
               slParts.forEach((part, pIdx) => {
