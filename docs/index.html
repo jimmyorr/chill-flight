@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "0.9.44";
-window.__COMMIT_HASH__ = "8205a1a";
+    <script>window.__APP_VERSION__ = "0.9.45";
+window.__COMMIT_HASH__ = "cfa2e9c";
 window.__IS_DIRTY__ = false;</script>
 
     <meta charset="UTF-8" />
@@ -29,8 +29,8 @@ window.__IS_DIRTY__ = false;</script>
       content="A minimalist flight simulator set in an endless, ever-changing world."
     />
     <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-Cm67KlyP.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-Bw32tUGk.css">
+    <script type="module" crossorigin src="./assets/main-DaiWVrDp.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-C0qWL15q.css">
   </head>
 
   <body>
@@ -148,6 +148,17 @@ window.__IS_DIRTY__ = false;</script>
               </span>
               <input type="checkbox" id="invert-y-input" class="pause-switch" />
             </label>
+            <label class="pause-row" for="traffic-toggle-input">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Other planes</span>
+                <span class="pause-row-sub">A few planes flying around</span>
+              </span>
+              <input
+                type="checkbox"
+                id="traffic-toggle-input"
+                class="pause-switch"
+              />
+            </label>
             <!-- Key reference; hidden on touch devices (game-gyro.js) -->
             <div class="pause-keys">
               <span><kbd>↑↓←→</kbd>Steer</span>
@@ -210,7 +221,20 @@ window.__IS_DIRTY__ = false;</script>
           >
         </div>
         <div class="pause-footer">
-          Chill Flight &bull; <span class="version-tag"></span>
+          Chill Flight &bull; <span class="version-tag"></span
+          ><span id="about-app-store-container">
+            &bull;
+            <a
+              href="#"
+              onclick="
+                window.openExternalLink(
+                  'https://apps.apple.com/us/app/chill-flight/id6779847377'
+                );
+                return false;
+              "
+              >Get the App</a
+            ></span
+          >
         </div>
       </div>
     </div>
@@ -1328,6 +1352,7 @@ window.__IS_DIRTY__ = false;</script>
           <div>Castles: <span id="debug-castles">0</span></div>
           <div>Pagodas: <span id="debug-pagodas">0</span></div>
           <div>Windmills: <span id="debug-windmills">0</span></div>
+          <div>Other planes: <span id="debug-traffic">0</span></div>
           <div style="display: none">
             Lighthouses: <span id="debug-lighthouses">0</span>
           </div>

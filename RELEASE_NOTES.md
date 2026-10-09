@@ -1,5 +1,12 @@
 # Release notes
 
+## [0.9.45](https://v0-9-45.chill-flight.pages.dev)
+
+- **Air Traffic:** Other planes now fly around the world and can pace you.
+- **Flight:** Smoother slow flight, gentler takeoffs, and wheeled planes can land on land.
+- **Environment:** Fall colors deepen in the north, denser forests, and improved shadows.
+- **Platform & Fixes:** Added App Store link to web, fixed multi-touch, upgraded to Sentry v11, and migrated iOS to SceneDelegate.
+
 ## [0.9.44](https://v0-9-44.chill-flight.pages.dev)
 
 - **Sky:** New cloud types (billowy cumulus, cirrus streaks and mackerel sky), a different cloud mood each day and dramatic sunrise and sunset lighting.
