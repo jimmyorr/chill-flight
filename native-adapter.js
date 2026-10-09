@@ -72,6 +72,13 @@ export async function detectGraphicsPreset() {
     if (Capacitor.Plugins && Capacitor.Plugins.StatusBar) {
       Capacitor.Plugins.StatusBar.hide().catch(() => {});
     }
+    // Hide App Store link on native
+    const appStoreContainer = document.getElementById(
+      'about-app-store-container'
+    );
+    if (appStoreContainer) {
+      appStoreContainer.style.display = 'none';
+    }
     // Handle Hardware Back Button and App State
     document.addEventListener('deviceready', () => {
       if (Capacitor.Plugins.App) {

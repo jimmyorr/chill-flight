@@ -1244,6 +1244,12 @@ input[type='number'].customization-input {
   text-transform: none;
 }
 
+.pause-footer a {
+  pointer-events: auto;
+  color: #3498db;
+  text-decoration: none;
+}
+
 /* Minimap CSS overlay styled with glassmorphism to look premium */
 #minimap-container {
   position: absolute;
