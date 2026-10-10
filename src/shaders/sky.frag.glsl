@@ -11,6 +11,9 @@
     uniform bool uShowClouds;
     uniform float uAuroraIntensity;
     uniform vec3 uCameraPos;
+    #ifdef ANIME_TOWERS
+    uniform float uCloudDay;
+    #endif
     varying vec3 vWorldPosition;
     varying vec3 vDirection;
 
@@ -294,8 +297,8 @@
             // outline (shading each puff separately would notch the inside)
             float bestToward;
             float best = towerDistance(uNoiseTex, dir, uCloudTypes.x, uCloudCover,
-                                       lightDir * 0.7, bestToward);
-            float towerAlpha = towerAlphaAt(best, h);
+                                       uCloudDay, uTime, lightDir * 0.7, bestToward);
+            float towerAlpha = towerAlphaAt(best, h, uCloudDensity);
             if (towerAlpha > 0.0) {
                 float stormDimming = 1.0 - uCloudDensity * 0.6;
                 float sunProximity = pow(sunIntensity, 3.0) * stormDimming;

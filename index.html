@@ -773,6 +773,56 @@
                 value="0.5"
                 style="width: 100%; cursor: pointer"
               />
+              <!-- Cloud mood and day (weather-manager.js); options filled
+                   from the mood table -->
+              <div
+                style="
+                  font-size: 11px;
+                  margin-top: 4px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  gap: 6px;
+                "
+              >
+                <span>Cloud mood:</span>
+                <select
+                  id="debug-cloud-mood-select"
+                  class="customization-input"
+                  style="padding: 1px 4px; font-size: 11px"
+                >
+                  <option value="auto" selected>Day's own</option>
+                </select>
+              </div>
+              <div
+                style="
+                  font-size: 11px;
+                  margin-top: 3px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <span>Cloud day:</span>
+                <span style="display: flex; gap: 4px">
+                  <button
+                    id="debug-cloud-day-prev"
+                    class="customization-input"
+                    title="Previous day's clouds"
+                    style="padding: 0 8px; font-size: 11px; cursor: pointer"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    id="debug-cloud-day-next"
+                    class="customization-input"
+                    title="Next day's clouds"
+                    style="padding: 0 8px; font-size: 11px; cursor: pointer"
+                  >
+                    ▶
+                  </button>
+                </span>
+              </div>
               <div
                 style="
                   font-size: 10px;
@@ -781,7 +831,7 @@
                   margin-top: 3px;
                 "
               >
-                Cloud mood: <span id="debug-cloud-mood">None</span>
+                Now: <span id="debug-cloud-mood">None</span>
               </div>
             </div>
 
@@ -1242,7 +1292,7 @@
           <div>Zone: <span id="debug-climate-zone">-</span></div>
           <div>Fog: <span id="debug-fog-density">0</span></div>
           <div>Type: <span id="debug-weather-mode">-</span></div>
-          <div>Clouds: <span id="debug-cloud-mood">-</span></div>
+          <div>Clouds: <span id="debug-weather-cloud-mood">-</span></div>
           <div style="grid-column: span 2">
             Island: <span id="debug-island-type">-</span>
           </div>

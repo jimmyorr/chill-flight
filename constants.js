@@ -49,7 +49,9 @@ export const THEME = ChillFlightLogic.THEME;
 // horizon in some directions. The horizon is split into 48 slices (a whole
 // number, so there's no seam where the angle wraps); each slice in a tower
 // region holds a big base puff, a smaller one on top, one bulging to the
-// side and a column below. Empty without the anime clouds.
+// side and a column below. Each in-game day has its own skyline, which
+// drifts slowly around the horizon with the cloud clock. Empty without the
+// anime clouds.
 export const TOWER_GLSL = ART_CLOUDS
   ? `
 #define ANIME_TOWERS
@@ -58,6 +60,9 @@ export const TOWER_GLSL = ART_CLOUDS
 #define TOWER_SCALE 1.1
 const float TOWER_SLICES = 48.0;
 const float TOWER_SLICE_W = 6.2831853 / TOWER_SLICES; // a slice's width in h units
+// How fast the skyline drifts around the horizon (slices per second of
+// cloud time): about 7.5 degrees in three minutes
+const float TOWER_DRIFT = 0.006;
 
 float towerMacro(sampler2D noiseTex, vec2 st) {
   float value = 0.0;
@@ -76,31 +81,36 @@ float towerMacro(sampler2D noiseTex, vec2 st) {
 // Signed distance (in slices; negative inside) from the direction dir to
 // the towers' outline, and in distToward the same at a point a step
 // \`toward\` away (for lighting). 1e9 where there are no towers nearby.
-// cumulus and cover are the sky's cumulus amount and cloud cover.
+// cumulus and cover are the sky's cumulus amount and cloud cover, day the
+// in-game day (kept small, see uCloudDay) and time the cloud clock.
 float towerDistance(sampler2D noiseTex, vec3 dir, float cumulus, float cover,
-                    vec2 toward, out float distToward) {
+                    float day, float time, vec2 toward, out float distToward) {
   distToward = 1e9;
   float h = dir.y;
   // (No tower reaches above about 1.9 base-puff radii, 0.3 * TOWER_SCALE)
   if (cumulus <= 0.0 || h < -0.12 || h > 0.3 * TOWER_SCALE) return 1e9;
-  float x = (atan(dir.x, dir.z) / 6.2831853 + 0.5) * TOWER_SLICES;
+  float x = (atan(dir.x, dir.z) / 6.2831853 + 0.5) * TOWER_SLICES + time * TOWER_DRIFT;
+  // Each day reads the tower field from a different place
+  vec2 dayShift = vec2(day * 7.31, day * 3.17);
   float y = h / TOWER_SLICE_W;
   float towerStart = TOWER_THRESHOLD - cumulus * 0.06 - cover;
   // The tower field changes slowly around the compass, so well below its
   // threshold here, there are no towers within the slices tested below
-  vec2 azHere = normalize(dir.xz + vec2(1e-5));
-  if (towerMacro(noiseTex, azHere * 2.2 + vec2(11.0, 3.0)) <= towerStart - 0.12) return 1e9;
+  float xa = (x + 0.5) / TOWER_SLICES * 6.2831853 - 3.14159265;
+  if (towerMacro(noiseTex, vec2(sin(xa), cos(xa)) * 2.2 + vec2(11.0, 3.0) + dayShift)
+      <= towerStart - 0.12) return 1e9;
   float best = 1e9;
   for (int k = -2; k <= 2; k++) {
     float c = mod(floor(x) + float(k), TOWER_SLICES);
     float ca = (c + 0.5) / TOWER_SLICES * 6.2831853 - 3.14159265;
     vec2 caz = vec2(sin(ca), cos(ca));
     float amt = smoothstep(towerStart, towerStart + 0.14,
-                           towerMacro(noiseTex, caz * 2.2 + vec2(11.0, 3.0)));
+                           towerMacro(noiseTex, caz * 2.2 + vec2(11.0, 3.0) + dayShift));
     if (amt <= 0.0) continue;
-    float r1 = fract(sin(c * 12.9898) * 43758.5453);
-    float r2 = fract(sin(c * 78.233) * 43758.5453);
-    float r3 = fract(sin(c * 37.719) * 43758.5453);
+    float cd = c + mod(day, 61.0) * TOWER_SLICES;
+    float r1 = fract(sin(cd * 12.9898) * 43758.5453);
+    float r2 = fract(sin(cd * 78.233) * 43758.5453);
+    float r3 = fract(sin(cd * 37.719) * 43758.5453);
     // Puff sizes vary a lot from slice to slice
     amt *= mix(0.55, 1.0, r2);
     float cx = floor(x) + float(k) + 0.5 + (r1 - 0.5) * 0.7;
@@ -132,10 +142,12 @@ float towerDistance(sampler2D noiseTex, vec3 dir, float cumulus, float cover,
   return best;
 }
 
-// How opaque the towers are in direction dir (bases dissolve into the
-// horizon haze)
-float towerAlphaAt(float dist, float h) {
-  return (1.0 - smoothstep(-0.03, 0.0, dist)) * smoothstep(-0.12, 0.04, h);
+// How opaque the towers are at a distance dist from their outline, at
+// height h: bases dissolve into the horizon haze, and the towers fade out as
+// the sky turns overcast (they'd be hidden behind the deck)
+float towerAlphaAt(float dist, float h, float overcast) {
+  return (1.0 - smoothstep(-0.03, 0.0, dist)) * smoothstep(-0.12, 0.04, h)
+       * (1.0 - smoothstep(0.35, 0.65, overcast));
 }
 `
   : '';

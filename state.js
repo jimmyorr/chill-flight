@@ -18,6 +18,11 @@ export const state = {
   RENDER_DISTANCE: 2,
   farTerrainEnabled: true, // distant terrain ring (far-terrain.js); off on low
   graphicsPreset: 'mid', // the applied preset's name (debug-ui.js)
+  // Debug menu cloud controls (weather-manager.js; read by updateCloudMood
+  // in game-loop.js): a mood name forcing the day's cloud mood (null: the
+  // day's own), and days to step the cloud day forward or back
+  cloudMoodOverride: ChillFlightLogic.START_CLOUD_MOOD,
+  cloudDayOffset: 0,
   PROP_LOD_DISTANCE: 4200,
 
   // Day/night cycle (0..2PI: 0 = midnight, PI = noon). Starts at 05:30 to

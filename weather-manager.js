@@ -271,6 +271,34 @@ function initWeather() {
     });
   }
 
+  // Cloud mood: force one of the moods, or step the cloud day to preview
+  // other days' moods (and, in the anime style, their horizon towers)
+  const debugCloudMoodSelect = document.getElementById(
+    'debug-cloud-mood-select'
+  );
+  if (debugCloudMoodSelect) {
+    for (const name of ChillFlightLogic.CLOUD_MOOD_NAMES) {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name[0].toUpperCase() + name.slice(1);
+      debugCloudMoodSelect.append(option);
+    }
+    debugCloudMoodSelect.value = state.cloudMoodOverride ?? 'auto';
+    debugCloudMoodSelect.addEventListener('change', (e) => {
+      const mood = e.target.value === 'auto' ? null : e.target.value;
+      state.cloudMoodOverride = mood;
+      updateUrlParams({cloudMood: mood});
+    });
+  }
+  for (const [id, step] of [
+    ['debug-cloud-day-prev', -1],
+    ['debug-cloud-day-next', 1],
+  ]) {
+    document.getElementById(id)?.addEventListener('click', () => {
+      state.cloudDayOffset += step;
+    });
+  }
+
   const debugCloudHeightSlider = document.getElementById(
     'debug-cloud-height-slider'
   );

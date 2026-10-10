@@ -12,6 +12,8 @@
     uniform float uCloudCover;
     uniform bool uShowClouds;
     uniform float offset;
+    uniform float uCloudDay;
+    uniform float uSkyTime;
     #endif
     varying vec2 vUv;
     varying vec3 vNormal;
@@ -135,8 +137,8 @@
             vec3 skyDir = normalize(viewDirWorld * 25000.0 + vec3(0.0, offset, 0.0));
             float unusedToward;
             float towerDist = towerDistance(uNoiseTex, skyDir, uCloudTypes.x, uCloudCover,
-                                            vec2(0.0), unusedToward);
-            cloudCover = max(cloudCover, towerAlphaAt(towerDist, skyDir.y) * 0.96);
+                                            uCloudDay, uSkyTime, vec2(0.0), unusedToward);
+            cloudCover = max(cloudCover, towerAlphaAt(towerDist, skyDir.y, uCloudDensity) * 0.96);
         }
         #endif
 

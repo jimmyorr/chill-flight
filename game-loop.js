@@ -572,7 +572,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
             ? 'rain'
             : 'none';
     updateDOM('debug-weather-mode', _precipType);
-    updateDOM('debug-cloud-mood', _cloudMood ? _cloudMood.name : '-');
+    updateDOM('debug-weather-cloud-mood', _cloudMood ? _cloudMood.name : '-');
 
     // Island archetype telemetry
     const _activeIslandPos = state.isFreeCamera
@@ -935,6 +935,7 @@ const DAY_CYCLE_MS = 360000;
 // How slowly the cloud mix follows a new day's mood (seconds)
 const CLOUD_MOOD_EASE_SECONDS = 20;
 let _cloudMoodDay = null;
+let _cloudMoodForced = null;
 let _cloudMood = null;
 const _cloudTypesTarget = new THREE.Vector3();
 
@@ -944,19 +945,29 @@ const _cloudTypesTarget = new THREE.Vector3();
 // rain and snow fall), it takes over from the mood: full cumulus, no less
 // cover than the weather's, and the high clouds hidden behind the deck.
 function updateCloudMood(delta, overcast) {
-  const day = Math.floor(state.worldClockNow / DAY_CYCLE_MS);
+  const day =
+    Math.floor(state.worldClockNow / DAY_CYCLE_MS) + state.cloudDayOffset;
+  const forced = state.cloudMoodOverride;
   const first = _cloudMood === null;
-  if (day !== _cloudMoodDay) {
+  if (day !== _cloudMoodDay || forced !== _cloudMoodForced) {
     _cloudMoodDay = day;
+    _cloudMoodForced = forced;
     _cloudMood = ChillFlightLogic.cloudMoodForDay(
       ChillFlightLogic.WORLD_SEED,
       day,
-      ChillFlightLogic.START_CLOUD_MOOD
+      forced
     );
+    // The anime style's horizon towers lay out a new skyline each day; the
+    // shader gets the day kept small so its noise math stays precise
+    skyUniforms.uCloudDay.value = ((day % 997) + 997) % 997;
     const moodLabel = getCachedElement('debug-cloud-mood');
     if (moodLabel) {
       moodLabel.textContent =
-        _cloudMood.name + (_cloudMood.duskBoost > 0 ? ', dusk build-up' : '');
+        _cloudMood.name +
+        (_cloudMood.duskBoost > 0 ? ', dusk build-up' : '') +
+        (state.cloudDayOffset
+          ? ` (day ${state.cloudDayOffset > 0 ? '+' : ''}${state.cloudDayOffset})`
+          : '');
     }
   }
   // 1 with the sun on the horizon, at sunrise and sunset
