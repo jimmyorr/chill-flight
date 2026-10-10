@@ -542,6 +542,24 @@ waterMaterial.onBeforeCompile = function (shader) {
         vec3 glitterColor = uSunColor * mix(vec3(1.0), vec3(1.0, 0.72, 0.38), lowSun);
         gl_FragColor.rgb += glitterColor * min(glitter, 3.0);
 
+        #ifdef ANIME_WATER
+        // Painted wave strokes: short light dashes along the crests of the
+        // main swell, broken up by noise and drifting with the waves, faded
+        // out before they'd shimmer in the distance
+        {
+          vec2 swellDir = vec2(0.944, 0.33);
+          vec2 crestDir = vec2(-0.33, 0.944);
+          vec2 wp = vWorldPosition.xz;
+          float phase = dot(wp, swellDir) * 0.018 + uTime;
+          float strokeFade = 1.0 - smoothstep(600.0, 2800.0, vDistanceXZ);
+          vec2 sp = vec2(dot(wp, crestDir) / 22.0, dot(wp, swellDir) / 3.0 - uTime * 0.15);
+          float crest = smoothstep(0.35, 0.9, sin(phase));
+          float lightStroke = smoothstep(0.66, 0.71, noise(sp)) * crest * strokeFade;
+          float strokeLight = clamp(dot(waterLit, vec3(0.333)) / max(dot(vColor.rgb, vec3(0.333)), 0.05), 0.0, 1.2);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.9, 0.95, 1.0) * strokeLight, lightStroke * 0.45);
+        }
+        #endif
+
         // Shore foam: a white band in the shallowest water that pulses toward
         // the shore, lit like the water so it dims at night. Applied last:
         // foam sits on the surface and doesn't reflect the sky.
@@ -598,6 +616,11 @@ waterMaterial.onBeforeCompile = function (shader) {
      #endif
     `
   );
+
+  // Anime style: painted wave strokes
+  if (ART_STYLE === 'anime') {
+    shader.fragmentShader = '#define ANIME_WATER\n' + shader.fragmentShader;
+  }
 };
 
 // Reusable tree geometries for forest instances

@@ -9,8 +9,10 @@
 // - and lays a watercolor-paper grain over the frame.
 // The classic style (and VR) renders straight to the screen as before.
 import * as THREE from 'three';
+import {FXAAShader} from 'three/addons/shaders/FXAAShader.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_STYLE} from './art-style.js';
+import {terrainUniforms} from './constants.js';
 import {renderer} from './sky.js';
 import {state} from './state.js';
 
@@ -19,6 +21,11 @@ const outlines = ChillFlightLogic.urlParams.get('outline') !== '0';
 
 let target = null;
 let quad = null;
+// Smoothing jagged edges (FXAA) needs the finished frame, so with it the
+// pass renders to this target first. High and ultra only: it costs ~1.4 ms a
+// frame on an M1 MacBook Air at mid.
+let inkTarget = null;
+let fxaaQuad = null;
 const quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const size = new THREE.Vector2();
 
@@ -33,7 +40,11 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uPixelRatio: {value: 1},
     uOutline: {value: outlines},
     uKuwahara: {value: false},
+    uHorizonColor: terrainUniforms.uBottomColor,
   },
+  // How far toward the horizon's color distant land fades (aerial
+  // perspective)
+  defines: {HAZE_STRENGTH: '0.35'},
   vertexShader: /* glsl */ `
     varying vec2 vUv;
     void main() {
@@ -51,6 +62,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uniform float uPixelRatio;
     uniform bool uOutline;
     uniform bool uKuwahara;
+    uniform vec3 uHorizonColor;
     varying vec2 vUv;
 
     float hash12(vec2 p) {
@@ -132,6 +144,13 @@ const outlineMaterial = new THREE.ShaderMaterial({
       edge *= (1.0 - fog) * (1.0 - fog);
       vec3 ink = color * vec3(0.32, 0.27, 0.36);
       if (uOutline) color = mix(color, ink, edge);
+      // Aerial perspective: distant land fades into soft layers of the
+      // horizon's color, nudged toward lavender (not the sky itself, whose
+      // depth is the far plane)
+      if (c > 1.0 / (uFar * 0.99)) {
+        vec3 haze = mix(uHorizonColor, vec3(0.78, 0.8, 0.95) * dot(uHorizonColor, vec3(0.333)) * 1.1, 0.3);
+        color = mix(color, haze, smoothstep(1200.0, 11000.0, dist) * HAZE_STRENGTH);
+      }
       // Watercolor paper: broad blotches, a finer tooth and fibers
       float paper = vnoise(p * 0.012) * 0.5 + vnoise(p * 0.08) * 0.3 + vnoise(p * 0.7) * 0.2;
       color *= mix(vec3(0.93, 0.92, 0.95), vec3(1.03, 1.02, 1.0), paper);
@@ -155,6 +174,23 @@ function ensureTarget() {
     quad.frustumCulled = false;
   } else if (target.width !== size.x || target.height !== size.y) {
     target.setSize(size.x, size.y);
+    if (inkTarget) inkTarget.setSize(size.x, size.y);
+  }
+}
+
+function ensureFxaa() {
+  if (!inkTarget) {
+    inkTarget = new THREE.WebGLRenderTarget(size.x, size.y);
+    fxaaQuad = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      new THREE.ShaderMaterial({
+        ...FXAAShader,
+        uniforms: THREE.UniformsUtils.clone(FXAAShader.uniforms),
+        depthTest: false,
+        depthWrite: false,
+      })
+    );
+    fxaaQuad.frustumCulled = false;
   }
 }
 
@@ -181,5 +217,18 @@ export function renderFrame(scene, camera) {
   u.uFogDensity.value = scene.fog ? scene.fog.density || 0 : 0;
   u.uNear.value = camera.near;
   u.uFar.value = camera.far;
+  const fxaa =
+    state.graphicsPreset === 'high' || state.graphicsPreset === 'ultra';
+  if (!fxaa) {
+    renderer.render(quad, quadCamera);
+    return;
+  }
+  ensureFxaa();
+  renderer.setRenderTarget(inkTarget);
   renderer.render(quad, quadCamera);
+  renderer.setRenderTarget(null);
+  const f = fxaaQuad.material.uniforms;
+  f.tDiffuse.value = inkTarget.texture;
+  f.resolution.value.set(1 / size.x, 1 / size.y);
+  renderer.render(fxaaQuad, quadCamera);
 }

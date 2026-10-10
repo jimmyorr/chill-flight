@@ -187,6 +187,9 @@ export const moonlightUniforms = {
 // bigger, rounder clouds with crisp edges and two tones.
 export const CLOUD_GLSL =
   (ART_CLOUDS ? '#define ANIME_SKY\n' : '') +
+  // Towering horizon clouds: how often they rise (field threshold) and
+  // how big their puffs are
+  '#define TOWER_THRESHOLD 0.64\n#define TOWER_SCALE 1.1\n' +
   `
 uniform sampler2D uNoiseTex;
 uniform vec3 uMoonDir;
