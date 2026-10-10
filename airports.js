@@ -112,10 +112,89 @@ function createRunway() {
   return group;
 }
 
+// --- RUNWAY LIGHTS ---
+// Glowing points along the runway edges (warm white) and across its ends
+// (green at the landing end, red at the far end),
+// faded in at night with the streetlights (updateAirportLights). Points
+// don't write depth, so the anime outline pass leaves them alone.
+function glowTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, 'rgba(255,255,255,0.8)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(canvas);
+}
+const _glow = typeof document !== 'undefined' ? glowTexture() : null;
+const lightMats = [0xffe2a8, 0x6dff8a, 0xff5a4a].map(
+  (color) =>
+    new THREE.PointsMaterial({
+      color,
+      map: _glow,
+      size: 7,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+);
+
+function points(positions, material) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const p = new THREE.Points(geo, material);
+  p.visible = false;
+  return p;
+}
+
+function createRunwayLights() {
+  const halfL = ChillFlightLogic.RUNWAY_LENGTH / 2;
+  const halfW = ChillFlightLogic.RUNWAY_WIDTH / 2 + 1.5;
+  const y = 1.2;
+  const edge = [];
+  for (let u = -halfL; u <= halfL; u += 40) {
+    edge.push(u, y, -halfW, u, y, halfW);
+  }
+  const green = [];
+  const red = [];
+  // Green where planes land (the -X end), red where the runway ends (+X):
+  // back to back at each end, they'd blend into yellow from a distance
+  for (let v = -halfW; v <= halfW; v += 5) {
+    green.push(-halfL - 2, y, v);
+    red.push(halfL + 2, y, v);
+  }
+  const group = new THREE.Group();
+  group.add(points(edge, lightMats[0]));
+  group.add(points(green, lightMats[1]));
+  group.add(points(red, lightMats[2]));
+  return group;
+}
+
+const _lightGroups = [];
+
+// Fades the runway lights with the night (0 by day, 1 and up at night: the
+// streetlights' value, game-loop.js)
+export function updateAirportLights(night) {
+  const opacity = Math.min(1, night);
+  for (const m of lightMats) m.opacity = opacity;
+  const on = opacity > 0.01;
+  for (const g of _lightGroups) {
+    for (const p of g.children) p.visible = on;
+  }
+}
+
 function createAirport(a) {
   const group = new THREE.Group();
   group.name = a.name;
   group.add(createRunway());
+  const lights = createRunwayLights();
+  _lightGroups.push(lights);
+  group.add(lights);
   const tower = createControlTower();
   tower.position.set(-55, 0, 92);
   group.add(tower);

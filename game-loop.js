@@ -125,6 +125,7 @@ import {updateFlightCamera} from './flight-camera.js';
 import {trafficCount, updateTraffic} from './traffic.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_CLOUDS} from './art-style.js';
+import {updateAirportLights} from './airports.js';
 import {updateTowerSlices} from './sky-uniforms.js';
 import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
@@ -1101,6 +1102,7 @@ function updateDayNightCycle(delta) {
   streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
 
   streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
+  updateAirportLights(slNightValue);
 }
 
 function updatePhysicsAndControls(delta, nowTime) {
