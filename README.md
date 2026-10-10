@@ -247,7 +247,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **Shift + A**: Toggle autopilot (automatically levels out and maintains heading/altitude). Steering with the arrow keys, the touch joystick, drag-steer or a gamepad stick turns it off (mouse and tilt steering don't, since they're always steering).
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
 - **Z**: Toggle zen (hides the HUD and buttons for an unobstructed view; also a switch on the pause menu's Flight tab).
-- **Pause menu**: The **Flight** tab has the plane, livery, Music and Zen; **Settings** has graphics, invert y axis, other planes and, with a keyboard, a short key reference.
+- **Pause menu**: The **Flight** tab has the plane, livery, Music and Zen; **Settings** has graphics, art style (classic or anime; changing it restarts the game), invert y axis and other planes.
 - **Fullscreen world map**: Open via the 🗺️ Map button in the pause menu. Drag with mouse to pan, scroll wheel or `+` / `−` keys to zoom, and click 🎯 to center on plane. The map and the minimap color the land by height (hillshaded) and by region: the snowy north, the sandy and red-rock south, and the alien lands (cyan in the east, magenta in the west), using the same noise and thresholds as the terrain (`tintForRegion` in `minimap.js`).
 
 #### Special maneuvers
@@ -383,7 +383,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`cloudMood`**: Force the day's cloud mood instead of the one `seed` and `clock` pick: `fair`, `mixed`, `mackerel`, `high` or `busy` (see the clouds description above).
 - **`seed`**: Integer world seed for procedural terrain generation.
 - **`theme`**: The visual theme to load (e.g., `standard`).
-- **`style`**: Set to `anime` for the work-in-progress anime art style: smooth shading, stepped light with lavender shadows, no near-black colors, a gentle color grade, ink outlines, two-tone clouds, a soft brushstroke filter (not on the low preset) and a watercolor-paper grain (`art-style.js`, `outline-pass.js`). Off in VR.
+- **`style`**: `anime` or `classic`, overriding the art style chosen in Settings. The anime style (work in progress) has smooth shading, stepped light with lavender shadows, no near-black colors, a gentle color grade, ink outlines, two-tone clouds, a soft brushstroke filter (not on the low preset) and a watercolor-paper grain (`art-style.js`, `outline-pass.js`). Off in VR.
 - **`outline`**: With `style=anime`, set to `0` to turn off the ink outlines.
 - **`cloudStyle`**: With `style=anime`, set to `classic` to keep the classic clouds instead of the anime ones (bigger, rounder, crisp-edged and two-toned).
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).

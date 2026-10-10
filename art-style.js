@@ -7,8 +7,42 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
-export const ART_STYLE =
-  ChillFlightLogic.urlParams.get('style') === 'anime' ? 'anime' : 'classic';
+const STORAGE_KEY = 'chill_flight_art_style';
+
+// The Settings choice, unless ?style= overrides it
+function loadStyle() {
+  const param = ChillFlightLogic.urlParams.get('style');
+  if (param) return param === 'anime' ? 'anime' : 'classic';
+  try {
+    return localStorage.getItem(STORAGE_KEY) === 'anime' ? 'anime' : 'classic';
+  } catch {
+    return 'classic';
+  }
+}
+
+export const ART_STYLE = loadStyle();
+
+// Settings' art style select. The style is applied as the game loads, so a
+// change saves the choice and reloads (dropping ?style=, which would
+// override it).
+const select = document.getElementById('art-style-select');
+if (select) {
+  select.value = ART_STYLE;
+  select.addEventListener('change', () => {
+    let saved = true;
+    try {
+      localStorage.setItem(STORAGE_KEY, select.value);
+    } catch {
+      saved = false;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('style');
+    // Without storage, carry the choice in the URL instead
+    if (!saved && select.value === 'anime')
+      url.searchParams.set('style', 'anime');
+    window.location.assign(url.toString());
+  });
+}
 
 // Smooth shading for materials that would otherwise be flat-shaded
 export const ART_SMOOTH = ART_STYLE === 'anime';

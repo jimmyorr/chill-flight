@@ -114,6 +114,17 @@
                 <option value="ultra">Ultra</option>
               </select>
             </div>
+            <div class="pause-row">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Art style</span>
+                <span class="pause-row-sub">Restarts the game</span>
+              </span>
+              <!-- art-style.js -->
+              <select id="art-style-select" class="customization-input">
+                <option value="classic" selected>Classic</option>
+                <option value="anime">Anime</option>
+              </select>
+            </div>
             <!-- Shown on touch devices (game-gyro.js) -->
             <div id="control-scheme-toggle" style="display: none">
               <span class="pause-row-text">
@@ -155,19 +166,6 @@
                 class="pause-switch"
               />
             </label>
-            <!-- Key reference; hidden on touch devices (game-gyro.js) -->
-            <div class="pause-keys">
-              <span><kbd>↑↓←→</kbd>Steer</span>
-              <span><kbd>Shift ↑↓</kbd>Throttle</span>
-              <span><kbd>C</kbd>Camera</span>
-              <span><kbd>Shift A</kbd>Autopilot</span>
-              <span><kbd>M</kbd>Minimap</span>
-              <span><kbd>L</kbd>Headlight</span>
-              <span><kbd>V</kbd>Plane</span>
-              <span><kbd>P</kbd>Music</span>
-              <span><kbd>G</kbd>Weather</span>
-              <span><kbd>Z</kbd>Zen</span>
-            </div>
           </div>
         </div>
 
