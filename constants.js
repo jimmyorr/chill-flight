@@ -646,6 +646,17 @@ export function createMaterial(params) {
     );
   };
 
+  // The anime style's outline pass inks breaks in the depth buffer, so
+  // mostly see-through things (smoke, glass) stay out of it; otherwise they
+  // get ink outlines
+  if (
+    ART_STYLE === 'anime' &&
+    newParams.transparent &&
+    (newParams.opacity ?? 1) < 0.7
+  ) {
+    mat.depthWrite = false;
+  }
+
   // three.js reuses a compiled shader for materials whose onBeforeCompile
   // source matches, and every material here shares this one, so foliage
   // needs its own key (still including the source, which wrappers like the

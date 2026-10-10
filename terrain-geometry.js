@@ -3165,6 +3165,9 @@ export var reflectionMat = new THREE.MeshBasicMaterial({
   // program on every draw (~100x per frame here). One flat color blends the
   // same in any order, so a single pass looks identical.
   forceSinglePass: true,
+  // The anime style's outline pass inks depth breaks; a see-through
+  // reflection shouldn't draw them
+  depthWrite: ART_STYLE !== 'anime',
 });
 
 export var sailboatReflectionGeo = mergeGeometries([
