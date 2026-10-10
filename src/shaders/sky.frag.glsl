@@ -78,8 +78,15 @@
             // sunset color after the lower ones have gone dark
             if (uCloudTypes.y > 0.0) {
                 vec2 uvCirrus = (cloudUV + CLOUD_WIND * uTime * 0.012) * 2.0;
+#ifdef ANIME_SKY
+                vec2 animeCirrus = animeCirrusShape(uvCirrus);
+                // Paint, not haze: even a light cirrus day draws solid strokes
+                float alphaCirrus = animeCirrus.x * horizonFade * smoothstep(0.0, 0.35, uCloudTypes.y)
+                                  * cirrusViewFade(dir);
+#else
                 float alphaCirrus = smoothstep(0.3, 0.55, cirrusShape(uvCirrus)) * horizonFade * uCloudTypes.y
                                   * cirrusViewFade(dir);
+#endif
                 if (alphaCirrus > 0.0) {
                     vec3 cirrusSun = normalize(sunDirection + vec3(0.0, 0.05, 0.0));
                     vec3 cirrusBright = mix(baseBright, bottomColor * 1.8, sunProximity * 0.75);
@@ -87,7 +94,15 @@
                     duskCloudLight(dir, sunDir2D, stormDimming, cirrusSun, topColor, bottomColor, cirrusBright, cirrusShadow);
                     // Thin and bright: mostly lit, with a soft rim toward the sun
                     vec3 cirrusColor = mix(cirrusShadow, cirrusBright, 0.8) + bottomColor * sunRim * 1.2;
-                    col = mix(col, cirrusColor, alphaCirrus * 0.6);
+#ifdef ANIME_SKY
+                    // Opaque, like paint, with a lavender lower edge
+                    float cirrusOpacity = 0.95;
+                    float lowerEdge = smoothstep(0.55, 0.62, animeCirrus.y);
+                    cirrusColor = mix(cirrusColor, cirrusShadow * vec3(0.94, 0.88, 1.1), lowerEdge * 0.7);
+#else
+                    float cirrusOpacity = 0.6;
+#endif
+                    col = mix(col, cirrusColor, alphaCirrus * cirrusOpacity);
                 }
             }
 

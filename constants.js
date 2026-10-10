@@ -363,6 +363,32 @@ float cirrusShape(vec2 uv) {
   return streaks * patches;
 }
 
+#ifdef ANIME_SKY
+// Anime cirrus: broad, crisp brush strokes. Rows across the wind (curved by
+// the same flow as the classic streaks), each broken into strokes that taper
+// at both ends. Returns (coverage, position across the stroke: 0 top, 1
+// bottom).
+#define CIRRUS_ROWS 0.9
+#define CIRRUS_WIDTH 0.3
+vec2 animeCirrusShape(vec2 uv) {
+  vec2 a = windAligned(uv);
+  a.y += (fbmMacro(a * vec2(0.3, 0.7) + 2.7) - 0.48) * 1.2;
+  float rows = a.y * CIRRUS_ROWS + (fbmMacro(a * vec2(0.4, 0.9) + 5.3) - 0.5) * 1.4;
+  float row = floor(rows);
+  float across = fract(rows);
+  // Each row's strokes start and stop along the wind; the stroke is widest
+  // in the middle of its length
+  float len = noise(vec2(a.x * 0.55 + row * 3.7, row * 7.31));
+  float body = smoothstep(0.42, 0.72, len);
+  float halfWidth = CIRRUS_WIDTH * body;
+  float d = abs(across - 0.5);
+  float aa = max(fwidth(rows) * 1.5, 0.01);
+  float cover = 1.0 - smoothstep(halfWidth - aa, halfWidth + aa, d);
+  float patches = smoothstep(0.38, 0.62, fbmMacro(uv * 0.45 + 9.1));
+  return vec2(cover * patches, across);
+}
+#endif
+
 // Seen along the wind, cirrus streaks converge in perspective into broad
 // fans of grey sheets, so they fade out in those directions
 float cirrusViewFade(vec3 dir) {
