@@ -396,12 +396,10 @@ export const moonUniforms = {
   uMoonSkyDir: {value: new THREE.Vector3(0, 0.2, -1)},
   uCameraPos: {value: new THREE.Vector3()},
   // For hiding behind the anime style's horizon towers (TOWER_GLSL)
-  uCloudTypes: skyUniforms.uCloudTypes,
-  uCloudCover: skyUniforms.uCloudCover,
   uShowClouds: skyUniforms.uShowClouds,
   offset: skyUniforms.offset,
-  uCloudDay: skyUniforms.uCloudDay,
   uSkyTime: skyUniforms.uTime,
+  uTowers: skyUniforms.uTowers,
 };
 
 // Note: The physical sun mesh and glow plane geometries/materials have been removed

@@ -52,66 +52,48 @@ export const THEME = ChillFlightLogic.THEME;
 // side and a column below. Each in-game day has its own skyline, which
 // drifts slowly around the horizon with the cloud clock. Empty without the
 // anime clouds.
+// The towers' layout (updateTowerSlices in sky-uniforms.js): how often
+// they rise (the tower field's threshold), and the number of slices
+export const TOWER_THRESHOLD = 0.64;
+export const TOWER_SLICES = 48;
 export const TOWER_GLSL = ART_CLOUDS
   ? `
 #define ANIME_TOWERS
-// How often towers rise (field threshold) and how big their puffs are
-#define TOWER_THRESHOLD 0.64
+// How big the towers' puffs are
 #define TOWER_SCALE 1.1
 const float TOWER_SLICES = 48.0;
 const float TOWER_SLICE_W = 6.2831853 / TOWER_SLICES; // a slice's width in h units
 // How fast the skyline drifts around the horizon (slices per second of
 // cloud time): about 7.5 degrees in three minutes
 const float TOWER_DRIFT = 0.006;
-
-float towerMacro(sampler2D noiseTex, vec2 st) {
-  float value = 0.0;
-  float amplitude = 0.65;
-  for (int i = 0; i < 2; i++) {
-    vec2 i2 = floor(st);
-    vec2 f = fract(st);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    value += amplitude * texture2D(noiseTex, (i2 + u + 0.5) / 256.0).r;
-    st *= 2.0;
-    amplitude *= 0.5;
-  }
-  return value;
-}
+// Each slice's tower, computed on the CPU each frame (updateTowerSlices in
+// sky-uniforms.js): x its size (0: no tower), yzw random numbers that place
+// and shape its puffs
+uniform vec4 uTowers[48];
 
 // Signed distance (in slices; negative inside) from the direction dir to
 // the towers' outline, and in distToward the same at a point a step
 // \`toward\` away (for lighting). 1e9 where there are no towers nearby.
-// cumulus and cover are the sky's cumulus amount and cloud cover, day the
-// in-game day (kept small, see uCloudDay) and time the cloud clock.
-float towerDistance(sampler2D noiseTex, vec3 dir, float cumulus, float cover,
-                    float day, float time, vec2 toward, out float distToward) {
+// time is the cloud clock.
+float towerDistance(vec3 dir, float time, vec2 toward, out float distToward) {
   distToward = 1e9;
   float h = dir.y;
   // (No tower reaches above about 1.9 base-puff radii, 0.3 * TOWER_SCALE)
-  if (cumulus <= 0.0 || h < -0.12 || h > 0.3 * TOWER_SCALE) return 1e9;
+  if (h < -0.12 || h > 0.3 * TOWER_SCALE) return 1e9;
   float x = (atan(dir.x, dir.z) / 6.2831853 + 0.5) * TOWER_SLICES + time * TOWER_DRIFT;
-  // Each day reads the tower field from a different place
-  vec2 dayShift = vec2(day * 7.31, day * 3.17);
-  float y = h / TOWER_SLICE_W;
-  float towerStart = TOWER_THRESHOLD - cumulus * 0.06 - cover;
   float best = 1e9;
   // A puff reaches up to about 2.5 slices from its own slice's center (its
   // radius, the side bulge and the center's jitter), so three slices either
   // side covers every puff that can reach here; fewer cut puffs off along a
   // vertical line
   for (int k = -3; k <= 3; k++) {
-    float c = mod(floor(x) + float(k), TOWER_SLICES);
-    float ca = (c + 0.5) / TOWER_SLICES * 6.2831853 - 3.14159265;
-    vec2 caz = vec2(sin(ca), cos(ca));
-    float amt = smoothstep(towerStart, towerStart + 0.14,
-                           towerMacro(noiseTex, caz * 2.2 + vec2(11.0, 3.0) + dayShift));
+    int c = int(mod(floor(x) + float(k), TOWER_SLICES));
+    vec4 t = uTowers[c];
+    float amt = t.x;
     if (amt <= 0.0) continue;
-    float cd = c + mod(day, 61.0) * TOWER_SLICES;
-    float r1 = fract(sin(cd * 12.9898) * 43758.5453);
-    float r2 = fract(sin(cd * 78.233) * 43758.5453);
-    float r3 = fract(sin(cd * 37.719) * 43758.5453);
-    // Puff sizes vary a lot from slice to slice
-    amt *= mix(0.55, 1.0, r2);
+    float r1 = t.y;
+    float r2 = t.z;
+    float r3 = t.w;
     float cx = floor(x) + float(k) + 0.5 + (r1 - 0.5) * 0.7;
     float dx = x - cx;
     float rad1 = (0.55 + 0.6 * r2) * amt * TOWER_SCALE;
@@ -126,12 +108,12 @@ float towerDistance(sampler2D noiseTex, vec3 dir, float cumulus, float cover,
     float cx3 = (r1 < 0.5 ? -0.75 : 0.75) * rad1;
     float cy3 = cy1 + rad1 * 0.45;
     best = min(best, min(min(min(
-        length(vec2(dx, y - cy1)) - rad1,
-        length(vec2(dx - cx2, y - cy2)) - rad2),
-        length(vec2(dx - cx3, y - cy3)) - rad3),
-        max(abs(dx) - rad1 * 0.92, y - cy1)));
+        length(vec2(dx, h / TOWER_SLICE_W - cy1)) - rad1,
+        length(vec2(dx - cx2, h / TOWER_SLICE_W - cy2)) - rad2),
+        length(vec2(dx - cx3, h / TOWER_SLICE_W - cy3)) - rad3),
+        max(abs(dx) - rad1 * 0.92, h / TOWER_SLICE_W - cy1)));
     float tx = dx + toward.x;
-    float ty = y + toward.y;
+    float ty = h / TOWER_SLICE_W + toward.y;
     distToward = min(distToward, min(min(min(
         length(vec2(tx, ty - cy1)) - rad1,
         length(vec2(tx - cx2, ty - cy2)) - rad2),

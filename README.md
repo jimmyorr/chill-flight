@@ -335,7 +335,7 @@ Differences by preset and mode:
 | Brushstroke (Kuwahara) filter    | No                         | Yes | Yes          | No  |
 | FXAA edge smoothing              | No                         | No  | Yes          | No  |
 
-Cost: on an M1 MacBook Air at the mid preset, the anime style takes about 12.9 ms of GPU time per frame against 9.3 ms for classic (+39%, over `npm run bench`'s four views), still inside a 60 fps frame. The biggest parts are the brushstroke filter (about 1.5 ms) and the horizon towers (about 1 ms, up to 3.5 ms when they fill the horizon). The offscreen target isn't multisampled: antialiasing it cost about 3 ms. `QUERY=style=anime npm run bench` times the anime style.
+Cost: on an M1 MacBook Air at the mid preset, the anime style takes about 12.9 ms of GPU time per frame against 9.3 ms for classic (+39%, over `npm run bench`'s four views), still inside a 60 fps frame. The biggest parts are the brushstroke filter (about 1.5 ms) and the horizon towers (about 1–2 ms when they fill the horizon; their layout is worked out once a frame on the CPU, `updateTowerSlices()` in `sky-uniforms.js`, rather than per pixel). The offscreen target isn't multisampled: antialiasing it cost about 3 ms. `QUERY=style=anime npm run bench` times the anime style.
 
 How it's built:
 

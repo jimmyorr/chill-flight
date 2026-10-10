@@ -124,6 +124,8 @@ import {
 import {updateFlightCamera} from './flight-camera.js';
 import {trafficCount, updateTraffic} from './traffic.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {ART_CLOUDS} from './art-style.js';
+import {updateTowerSlices} from './sky-uniforms.js';
 import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
 import {updateFarTerrain} from './far-terrain.js';
@@ -1950,6 +1952,7 @@ function updateEnvironmentLighting(delta, now) {
   skyUniforms.uTime.value = state.cloudTime;
   skyUniforms.uCloudDensity.value = overcast;
   updateCloudMood(delta, overcast);
+  if (ART_CLOUDS) updateTowerSlices();
   // Storms bring snow from where the snow cover starts (sleet in between),
   // and their clouds are a lighter grey there
   skyUniforms.uSnowDeck.value = snowZone();
