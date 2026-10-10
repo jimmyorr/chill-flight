@@ -1219,8 +1219,34 @@ export function generateChunkData({
             });
           }
         } else {
+          // Houses gather in villages and hamlets (a slow noise field, so a
+          // village is a few hundred units across), with only a few lone
+          // farmhouses between them, and only on fairly flat ground
+          const villageNoise = simplex.noise2D(
+            worldX * 0.0011 + 71.3,
+            worldZ * 0.0011 - 29.7
+          );
+          const village = Math.max(0, Math.min(1, (villageNoise - 0.45) / 0.3));
+          const flat =
+            1 - Math.max(0, Math.min(1, (slopeFactor - 0.12) / 0.12));
           const houseThreshold =
-            (desertFactor > 0.5 ? 0.002 : 0.005) * densityScale;
+            ((desertFactor > 0.5 ? 0.0008 : 0.0015) +
+              (desertFactor > 0.5 ? 0.05 : 0.12) * village * village) *
+            flat *
+            densityScale;
+          // A village's houses share an orientation, like houses along its
+          // streets (turned by a quarter, or a little off, now and then)
+          const villageAngle =
+            (simplex.noise2D(worldX * 0.0004 - 13.1, worldZ * 0.0004 + 5.9) +
+              1) *
+            Math.PI;
+          const houseRotY = () =>
+            village > 0
+              ? villageAngle +
+                (rng() < 0.3 ? Math.PI / 2 : 0) +
+                (rng() < 0.5 ? Math.PI : 0) +
+                (rng() - 0.5) * 0.25
+              : rng() * Math.PI * 2;
           const barnThreshold = houseThreshold + 0.002 * densityScale;
           const monasteryThreshold = houseThreshold + 0.0023 * densityScale;
           const castleThreshold = houseThreshold + 0.0024 * densityScale;
@@ -1234,36 +1260,42 @@ export function generateChunkData({
             const isBeyond5DegNorth = worldZ < -25000;
             const isBeyond1DegNorth = worldZ < -5000;
 
-            if (!isAlienLand && !isBeyond5DegNorth) {
-              if (isIsland && !isBeyond1DegNorth) {
-                strawHutPositions.push({
-                  x: localX,
-                  y: height,
-                  z: localZ,
-                  rotY: rng() * Math.PI * 2,
-                });
-              } else if (!isIsland) {
+            if (
+              !isAlienLand &&
+              !isBeyond5DegNorth &&
+              (!isIsland || !isBeyond1DegNorth)
+            ) {
+              // In a village, a house has neighbors in a row beside it, along
+              // the village's orientation, so houses line streets rather than
+              // sitting a whole grid cell apart
+              const rotY = houseRotY();
+              const neighbors =
+                village > 0.35 ? Math.floor(rng() * (1 + 2.5 * village)) : 0;
+              const rowX = Math.cos(villageAngle);
+              const rowZ = -Math.sin(villageAngle);
+              for (let k = 0; k <= neighbors; k++) {
+                const along = k * (16 + rng() * 6);
+                const across = (rng() - 0.5) * 4;
+                const hx = localX + rowX * along - rowZ * across;
+                const hz = localZ + rowZ * along + rowX * across;
+                const hy = k === 0 ? height : heightAtLocal(hx, hz);
+                const houseRot = k === 0 ? rotY : houseRotY();
+                if (isIsland) {
+                  strawHutPositions.push({x: hx, y: hy, z: hz, rotY: houseRot});
+                  continue;
+                }
                 if (rng() > 0.85) {
                   twoStoryHousePositions.push({
-                    x: localX,
-                    y: height,
-                    z: localZ,
-                    rotY: rng() * Math.PI * 2,
+                    x: hx,
+                    y: hy,
+                    z: hz,
+                    rotY: houseRot,
                   });
                 } else {
-                  housePositions.push({
-                    x: localX,
-                    y: height,
-                    z: localZ,
-                    rotY: rng() * Math.PI * 2,
-                  });
+                  housePositions.push({x: hx, y: hy, z: hz, rotY: houseRot});
                 }
                 if (snowFactor > 0.3) {
-                  chimneySmokePositions.push({
-                    x: localX,
-                    y: height + 10,
-                    z: localZ,
-                  });
+                  chimneySmokePositions.push({x: hx, y: hy + 10, z: hz});
                 }
               }
             }
