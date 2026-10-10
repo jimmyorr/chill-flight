@@ -3,6 +3,7 @@
 // live in state.js instead.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {ART_SMOOTH} from './art-style.js';
 import {state} from './state.js';
 
 // Terrain parameters
@@ -393,6 +394,7 @@ export const terrainUniforms = {
 export function createMaterial(params) {
   // Make a copy of params to avoid mutating the original
   const newParams = {...params};
+  if (ART_SMOOTH) newParams.flatShading = false;
 
   let mat;
   switch (THEME) {

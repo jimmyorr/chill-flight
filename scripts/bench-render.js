@@ -7,7 +7,7 @@
 //   cpu: median time in renderer.render() (JavaScript and GL calls)
 // Measure on a quiet machine (other GPU work skews it), and alternate runs of
 // the versions you compare: results drift by ~0.5 ms over minutes.
-// Usage: npm run bench [-- label]   env: VIEWS=land,sunset  PRESET=mid
+// Usage: npm run bench [-- label]   env: VIEWS=land,sunset  PRESET=mid  QUERY=a=1&b=2
 import {launch, openGame} from './dev-browser.js';
 
 const label = process.argv[2] || 'bench';
@@ -31,13 +31,14 @@ const results = {};
 for (const name of names) {
   const page = await openGame(
     browser,
-    `freecam=true&seed=20260928&timeSpeed=0&weather=none&preset=${preset}&${VIEWS[name]}`,
+    `freecam=true&seed=20260928&timeSpeed=0&weather=none&preset=${preset}&${VIEWS[name]}${process.env.QUERY ? `&${process.env.QUERY}` : ''}`,
     {width: 1440, height: 900, scale: 2}
   );
   results[name] = await page.evaluate(async () => {
     const {state} = await window.gameModule('state.js');
     const {scene} = await window.gameModule('scene.js');
     const {renderer, camera} = await window.gameModule('sky.js');
+    const {renderFrame} = await window.gameModule('outline-pass.js');
     state.isPaused = true;
     await new Promise((r) => setTimeout(r, 300));
     renderer.setPixelRatio(1.5);
@@ -49,7 +50,7 @@ for (const name of names) {
     for (let i = 0; i < 170; i++) {
       renderer.shadowMap.needsUpdate = true;
       const t0 = performance.now();
-      renderer.render(scene, camera);
+      renderFrame(scene, camera);
       const t1 = performance.now();
       gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
       const t2 = performance.now();
@@ -67,7 +68,7 @@ for (const name of names) {
         renderer.shadowMap.needsUpdate = true;
         const q = gl.createQuery();
         gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
-        renderer.render(scene, camera);
+        renderFrame(scene, camera);
         gl.endQuery(ext.TIME_ELAPSED_EXT);
         if (i >= 10) queries.push(q);
         await new Promise((r) => requestAnimationFrame(r));

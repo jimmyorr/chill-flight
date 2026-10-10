@@ -383,6 +383,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`cloudMood`**: Force the day's cloud mood instead of the one `seed` and `clock` pick: `fair`, `mixed`, `mackerel`, `high` or `busy` (see the clouds description above).
 - **`seed`**: Integer world seed for procedural terrain generation.
 - **`theme`**: The visual theme to load (e.g., `standard`).
+- **`style`**: Set to `anime` for the work-in-progress anime art style: smooth shading, stepped light with lavender shadows, a gentle color grade and ink outlines (`art-style.js`, `outline-pass.js`). Off in VR.
+- **`outline`**: With `style=anime`, set to `0` to turn off the ink outlines.
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
 - **`cloud`** (or **`clouds`**, **`cloudCover`**, **`overcast`**): Cloud cover density or mode (options: `auto` for procedural weather noise, `none` or `false` to disable clouds, `clear` for 0.0, `scattered` for 0.3, `broken` for 0.6, `overcast` for 1.0, or any float between `0.0` and `1.0`).
 - **`cloudHeight`** (or **`cloudAlt`**): Altitude in meters/units for the procedural cloud deck (default `3000`).
@@ -492,7 +494,7 @@ Saves a screenshot of each view (the query takes the game's URL parameters; the 
 npm run bench [-- label]
 ```
 
-Times full frames of four fixed views (grassland, sunset over the sea, mountains, forest) at the mid preset's resolution on a 1440x900 Retina screen, and prints the median GPU time per frame (from WebGL timer queries, the most precise number), the wall time per frame, the part spent in JavaScript, draw calls and triangles. `VIEWS=land,sunset` picks views and `PRESET` the graphics preset. The numbers drift by about half a millisecond over minutes, so to compare two versions, alternate runs of each.
+Times full frames of four fixed views (grassland, sunset over the sea, mountains, forest) at the mid preset's resolution on a 1440x900 Retina screen, and prints the median GPU time per frame (from WebGL timer queries, the most precise number), the wall time per frame, the part spent in JavaScript, draw calls and triangles. `VIEWS=land,sunset` picks views, `PRESET` the graphics preset and `QUERY` adds URL parameters (e.g. `QUERY=style=anime`). The numbers drift by about half a millisecond over minutes, so to compare two versions, alternate runs of each.
 
 ### Promotional screenshots and video
 

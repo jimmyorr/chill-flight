@@ -30,6 +30,7 @@ import {
   sunUniforms,
   updateSkyPalette,
 } from './sky.js';
+import {renderFrame} from './outline-pass.js';
 import {performanceMonitor} from './game-performance.js';
 import {
   DELTA_BUFFER_SIZE,
@@ -2116,7 +2117,7 @@ function updateWeatherAndRendering(delta) {
   // and disables them entirely at night when dirLight intensity is effectively zero.
   renderer.shadowMap.needsUpdate = performanceMonitor.shouldUpdateShadows();
 
-  renderer.render(scene, camera);
+  renderFrame(scene, camera);
 }
 
 function updateBenchmarking(delta, frameStartTime) {
