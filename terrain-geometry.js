@@ -270,6 +270,29 @@ terrainMaterial.onBeforeCompile = (shader) => {
       }
       void main() {`
     );
+    // Rock planes: the facets' own directions shade bare rock on top of the
+    // smooth stepped lighting, continuously, so ridges and gullies read in
+    // sun and in shade alike (smooth shading alone made mountains blobs);
+    // sunlit rock a touch warm, shaded rock a touch cool
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <lights_fragment_end>',
+      `#include <lights_fragment_end>
+      {
+        vec3 faceN = normalize(cross(dFdx(vWorldPosition), dFdy(vWorldPosition)));
+        if (faceN.y < 0.0) faceN = -faceN;
+        // Bare rock only: steep, and neither vegetation (green-dominant)
+        // nor snow (near-white)
+        vec3 albedo = diffuseColor.rgb;
+        float green = smoothstep(0.02, 0.1, albedo.g - max(albedo.r, albedo.b));
+        float white = smoothstep(0.55, 0.8, min(albedo.r, min(albedo.g, albedo.b)));
+        float rock = (1.0 - smoothstep(0.72, 0.86, faceN.y)) * (1.0 - green) * (1.0 - white);
+        float sunFace = dot(faceN, uSunDirection);
+        float lit = 0.72 + 0.4 * smoothstep(-0.3, 0.7, sunFace);
+        float sky = 0.7 + 0.45 * smoothstep(-0.2, 0.8, faceN.y * 0.6 + sunFace * 0.4);
+        reflectedLight.directDiffuse *= mix(vec3(1.0), vec3(1.1, 1.02, 0.88) * lit, rock);
+        reflectedLight.indirectDiffuse *= mix(vec3(1.0), vec3(0.92, 0.94, 1.1) * sky, rock);
+      }`
+    );
   }
 
   shader.fragmentShader = shader.fragmentShader.replace(
