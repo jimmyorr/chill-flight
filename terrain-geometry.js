@@ -694,6 +694,54 @@ function createPineGeometry() {
 }
 export var treeLeavesGeo = createPineGeometry();
 
+// Anime style canopy: a core plus smaller lumps spread over a dome, like the
+// cloud-shaped trees in Ghibli backgrounds. Each lump keeps its own smooth
+// normals, so it catches light and shadow on its own. center and radii (x, y,
+// z) describe the dome; lumps of about lumpR sit on its surface, more toward
+// the top.
+function createLumpCanopy(center, radii, count, lumpR) {
+  const parts = [];
+  const core = new THREE.SphereGeometry(1, 7, 5);
+  core.scale(radii.x * 0.78, radii.y * 0.78, radii.z * 0.78);
+  core.translate(center.x, center.y, center.z);
+  parts.push(core);
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < count; i++) {
+    // Spread over most of the dome (golden spiral), down its sides so the
+    // canopy hangs low around the trunk
+    const t = (i + 0.5) / count;
+    const y = 1 - t * 1.7;
+    const ring = Math.sqrt(Math.max(0, 1 - y * y));
+    const a = i * golden;
+    // Lumps vary a little in size, bigger near the crown
+    const r = lumpR * (0.85 + 0.3 * ((i * 0.618) % 1)) * (1.1 - t * 0.25);
+    const lump = new THREE.SphereGeometry(r, 6, 4);
+    lump.translate(
+      center.x + Math.cos(a) * ring * radii.x * 0.82,
+      center.y + y * radii.y * 0.82,
+      center.z + Math.sin(a) * ring * radii.z * 0.82
+    );
+    parts.push(lump);
+  }
+  const pos = [],
+    norm = [],
+    idx = [];
+  let offset = 0;
+  for (const g of parts) {
+    pos.push(...g.attributes.position.array);
+    norm.push(...g.attributes.normal.array);
+    for (let i = 0; i < g.index.array.length; i++)
+      idx.push(g.index.array[i] + offset);
+    offset += g.attributes.position.count;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+const _lumpTrees = ART_STYLE === 'anime';
+
 function createDeciduousGeometry() {
   const trunk = new THREE.CylinderGeometry(1.2, 1.8, 12, 6);
   trunk.translate(0, 6, 0);
@@ -709,6 +757,18 @@ function createDeciduousGeometry() {
   leaf4.translate(-1, 12, 3.5);
   const leaf5 = new THREE.SphereGeometry(3.5, 7, 5); // Top crown
   leaf5.translate(0.5, 17, -0.5);
+
+  if (_lumpTrees) {
+    return {
+      trunk,
+      leaves: createLumpCanopy(
+        new THREE.Vector3(0, 12.5, 0),
+        new THREE.Vector3(7, 6.2, 7),
+        8,
+        3.4
+      ),
+    };
+  }
 
   const geometries = [leaf1, leaf2, leaf3, leaf4, leaf5];
   const pos = [],
@@ -756,6 +816,18 @@ function createTallDeciduousGeometry() {
   const leaf5 = new THREE.SphereGeometry(4, 7, 5); // Side cluster 2
   leaf5.scale(1, 1.1, 1);
   leaf5.translate(-3.5, 19, -2);
+
+  if (_lumpTrees) {
+    return {
+      trunk,
+      leaves: createLumpCanopy(
+        new THREE.Vector3(0, 19, 0),
+        new THREE.Vector3(5.2, 10.5, 5.2),
+        8,
+        3.3
+      ),
+    };
+  }
 
   const geometries = [leaf1, leaf2, leaf3, leaf4, leaf5];
   const pos = [],
