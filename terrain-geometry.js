@@ -2,6 +2,7 @@
 // chunkQueue and _enableObjects live in state.js (terrain-chunks.js writes them).
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {ART_STYLE} from './art-style.js';
 import {
   CHUNK_SIZE,
   CLOUD_GLSL,
@@ -230,8 +231,46 @@ terrainMaterial.onBeforeCompile = (shader) => {
     `#include <color_fragment>`,
     `#include <color_fragment>
      float snowWhiteness = smoothstep(0.55, 0.85, min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b)));
-     diffuseColor.rgb *= mix(vec3(1.0), uSnowExposure, snowWhiteness);`
+     diffuseColor.rgb *= mix(vec3(1.0), uSnowExposure, snowWhiteness);
+     #ifdef ANIME_TERRAIN
+       animeTerrainColor(diffuseColor.rgb);
+     #endif`
   );
+
+  // Anime style: painterly variation in the greens
+  if (ART_STYLE === 'anime') {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      'void main() {',
+      `#define ANIME_TERRAIN
+      float animeHash(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+      float animeNoise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(animeHash(i), animeHash(i + vec2(1.0, 0.0)), f.x),
+                   mix(animeHash(i + vec2(0.0, 1.0)), animeHash(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      // Greens drift between warm yellow-green and cool blue-green in broad
+      // washes, with smaller lighter and darker patches like uneven paint.
+      // Only vegetation (green-dominant colors) changes, and the variation
+      // fades out with distance before the distant terrain ring.
+      void animeTerrainColor(inout vec3 c) {
+        vec2 wp = vWorldPosition.xz;
+        float fade = 1.0 - smoothstep(3000.0, 7000.0, vDistanceXZ);
+        float green = smoothstep(0.02, 0.1, c.g - max(c.r, c.b)) * fade;
+        float wash = animeNoise(wp / 900.0) * 0.65 + animeNoise(wp / 330.0 + 7.3) * 0.35;
+        vec3 warm = c * vec3(1.2, 1.1, 0.68);
+        vec3 cool = c * vec3(0.8, 0.97, 1.15);
+        c = mix(c, mix(cool, warm, smoothstep(0.25, 0.75, wash)), green * 0.85);
+        c *= mix(1.0, mix(0.88, 1.1, animeNoise(wp / 180.0 + 31.7)), green);
+      }
+      void main() {`
+    );
+  }
 
   shader.fragmentShader = shader.fragmentShader.replace(
     `#include <fog_fragment>`,
