@@ -568,13 +568,17 @@ waterMaterial.onBeforeCompile = function (shader) {
         #ifdef ANIME_WATER
         // Painted wave strokes: short light dashes along the crests of the
         // main swell, broken up by noise and drifting with the waves, faded
-        // out before they'd shimmer in the distance
+        // out before they'd shimmer in the distance. Open sea only: the
+        // strokes fade in with depth (the open ocean is ~10 units deep;
+        // rivers, ponds and most of a lake are shallower), so calm inland
+        // water stays calm.
         {
           vec2 swellDir = vec2(0.944, 0.33);
           vec2 crestDir = vec2(-0.33, 0.944);
           vec2 wp = vWorldPosition.xz;
           float phase = dot(wp, swellDir) * 0.018 + uTime;
-          float strokeFade = 1.0 - smoothstep(600.0, 2800.0, vDistanceXZ);
+          float strokeFade = (1.0 - smoothstep(600.0, 2800.0, vDistanceXZ))
+                           * smoothstep(8.0, 9.5, softDepth);
           vec2 sp = vec2(dot(wp, crestDir) / 22.0, dot(wp, swellDir) / 3.0 - uTime * 0.15);
           float crest = smoothstep(0.35, 0.9, sin(phase));
           float lightStroke = smoothstep(0.66, 0.71, noise(sp)) * crest * strokeFade;
