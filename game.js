@@ -136,7 +136,15 @@ if (
   navigator.xr
     .isSessionSupported('immersive-vr')
     .then((supported) => {
-      if (supported) {
+      // Phones report immersive VR too (Android Chrome's Cardboard-style
+      // phone VR), which this game doesn't support well; only offer VR in
+      // headset browsers, whose user agents also say Android
+      const ua = navigator.userAgent || '';
+      const isHeadset = /OculusBrowser|Quest|Pico|Wolvic|VR/i.test(ua);
+      const isPhone =
+        navigator.userAgentData?.mobile === true ||
+        /Android|iPhone|iPad|Mobi/i.test(ua);
+      if (supported && (isHeadset || !isPhone)) {
         if (vrBtn) vrBtn.style.display = '';
         if (splashVrBtn) splashVrBtn.style.display = '';
       }
