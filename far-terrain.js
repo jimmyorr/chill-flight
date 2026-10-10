@@ -27,7 +27,7 @@ import {scene} from './scene.js';
 
 const FAR_CELL = 9000; // world units per far cell
 const FAR_SEGMENTS = 27; // ~333-unit grid spacing
-const FAR_RADIUS = 27000; // fully faded into the sky by here
+export const FAR_RADIUS = 27000; // fully faded into the sky by here
 const FAR_SINK = 12; // lowered so near terrain always draws over it
 const CELL_RANGE = Math.ceil(FAR_RADIUS / FAR_CELL); // cells each way
 

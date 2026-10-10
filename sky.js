@@ -400,6 +400,7 @@ export const moonUniforms = {
   offset: skyUniforms.offset,
   uSkyTime: skyUniforms.uTime,
   uTowerProfile: skyUniforms.uTowerProfile,
+  uTowerHorizon: skyUniforms.uTowerHorizon,
 };
 
 // Note: The physical sun mesh and glow plane geometries/materials have been removed

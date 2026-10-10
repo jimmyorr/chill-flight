@@ -74,6 +74,11 @@ const float TOWER_DRIFT = 0.006;
 // underside of a puff bulging out to the side) and a its slope
 uniform sampler2D uTowerProfile;
 const float TOWER_PROFILE_PER_SLICE = 64.0;
+// The towers stand on the visible horizon, the far edge of the land and
+// sea, which drops below eye level as the camera climbs. Measured from eye
+// level instead, their straight-sided columns showed below the horizon from
+// high up, like tombstones.
+uniform float uTowerHorizon;
 
 // Signed distance (in slices; negative inside, roughly) from the direction
 // dir to the towers' outline, measured at a point \`offset\` (in slices)
@@ -83,7 +88,7 @@ const float TOWER_PROFILE_PER_SLICE = 64.0;
 // (Testing every puff shape per pixel instead cost the sky shader 10-13 ms
 // a frame on a busy horizon, M1 MacBook Air, mid.)
 float towerDistance(vec3 dir, float time, vec2 offset) {
-  float h = dir.y;
+  float h = dir.y - uTowerHorizon;
   // (No tower reaches above about 1.9 base-puff radii, 0.3 * TOWER_SCALE)
   if (h < -0.12 || h > 0.3 * TOWER_SCALE) return 1e9;
   float x = (atan(dir.x, dir.z) / 6.2831853 + 0.5) * TOWER_SLICES + time * TOWER_DRIFT
@@ -100,7 +105,8 @@ float towerDistance(vec3 dir, float time, vec2 offset) {
 // height h: bases dissolve into the horizon haze, and the towers fade out as
 // the sky turns overcast (they'd be hidden behind the deck)
 float towerAlphaAt(float dist, float h, float overcast) {
-  return (1.0 - smoothstep(-0.03, 0.0, dist)) * smoothstep(-0.12, 0.04, h)
+  h -= uTowerHorizon;
+  return (1.0 - smoothstep(-0.03, 0.0, dist)) * smoothstep(-0.01, 0.06, h)
        * (1.0 - smoothstep(0.35, 0.65, overcast));
 }
 `

@@ -129,7 +129,7 @@ import {updateAirportLights} from './airports.js';
 import {updateTowerSlices} from './sky-uniforms.js';
 import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
-import {updateFarTerrain} from './far-terrain.js';
+import {FAR_RADIUS, updateFarTerrain} from './far-terrain.js';
 import {state} from './state.js';
 import {Achievements} from './achievements.js';
 
@@ -1972,6 +1972,11 @@ function updateEnvironmentLighting(delta, now) {
   }
   const _camWorld = getCameraWorldPosition();
   skyUniforms.uCameraPos.value.copy(_camWorld);
+  // The anime towers stand on the far edge of the land and sea
+  if (ART_CLOUDS) {
+    const above = Math.max(0, _camWorld.y);
+    skyUniforms.uTowerHorizon.value = -above / Math.hypot(above, FAR_RADIUS);
+  }
 
   if (terrainUniforms) {
     terrainUniforms.uCameraPosXZ.value.set(_camWorld.x, _camWorld.z);

@@ -52,6 +52,9 @@ export const skyUniforms = {
   uCloudDay: {value: 0},
   // The towers' skyline: top and slope around the horizon (updateTowerSlices)
   uTowerProfile: {value: null},
+  // The height (dir.y) of the horizon the towers stand on: below eye level
+  // when flying high (set in game-loop.js)
+  uTowerHorizon: {value: 0},
   // Where storms bring snow rather than rain (set in game-loop.js)
   uSnowDeck: {value: 0},
   uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
