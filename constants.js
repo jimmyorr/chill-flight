@@ -175,7 +175,12 @@ float sunGlowFade(vec3 d) {
 vec3 skyGlowAt(vec3 d, vec3 bottomCol, vec3 sunDir) {
   float baseSunInt = max(0.0, dot(d, sunDir));
   float sunFade = smoothstep(-0.25, 0.0, sunDir.y);
-  vec3 ambientSunGlow = bottomCol * pow(baseSunInt, 6.0) * 0.6 * (1.0 - max(d.y, 0.0)) * sunFade;
+  // In golden light (the sun about 3 to 33 degrees up) the glow turns gold
+  // and spreads wider, while the rest of the sky stays blue
+  float golden = smoothstep(0.55, 0.15, sunDir.y) * smoothstep(-0.05, 0.05, sunDir.y);
+  vec3 glowCol = mix(bottomCol, vec3(1.0, 0.78, 0.45), golden * 0.8);
+  vec3 ambientSunGlow = glowCol * pow(baseSunInt, mix(6.0, 3.0, golden)) * mix(0.6, 0.8, golden)
+    * (1.0 - max(d.y, 0.0)) * sunFade;
   vec3 warmHalo = vec3(1.0, 0.6, 0.15) * pow(baseSunInt, 24.0) * 0.8
     * smoothstep(-0.03, 0.06, sunDir.y);
   return (ambientSunGlow + warmHalo) * sunGlowFade(d);

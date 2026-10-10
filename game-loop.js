@@ -1572,6 +1572,26 @@ function updateShadowSnapping() {
   skyGroup.position.copy(getCameraWorldPosition());
 }
 
+// The sky light's warm tint in golden light
+const _goldenSkyLight = new THREE.Color(0xffc98a);
+const _hslA = {h: 0, s: 0, l: 0};
+const _hslB = {h: 0, s: 0, l: 0};
+// Blends color c toward target, keeping the saturation the two colors have
+// between them. A plain RGB blend from the day's blue to a sunset orange
+// passes through grey, which turned the whole sky a pale grey in golden light.
+function lerpKeepSaturation(c, target, t) {
+  c.getHSL(_hslA);
+  target.getHSL(_hslB);
+  const s = _hslA.s + (_hslB.s - _hslA.s) * t;
+  c.lerp(target, t).getHSL(_hslA);
+  return c.setHSL(_hslA.h, s, _hslA.l);
+}
+// How warm the sky is: full with the sun on the horizon, none from 24
+// degrees up (or down)
+function skyWarmth(sunY) {
+  return Math.max(0, Math.pow(1.0 - Math.min(1, Math.abs(sunY) * 2.5), 1.5));
+}
+
 function updateEnvironmentLighting(delta, now) {
   // Smoothly interpolate sky shader palettes
   if (skyUniforms !== undefined && !isCustomPalette) {
@@ -1865,8 +1885,7 @@ function updateEnvironmentLighting(delta, now) {
   }
 
   if (state.dayFactor > 0.0) {
-    let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(state.sunY) * 2.5);
-    dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
+    const dawnDuskFactor = skyWarmth(state.sunY);
 
     if (state.sunX > 0) {
       _currentSunriseSky.copy(_sunriseSky);
@@ -1879,21 +1898,29 @@ function updateEnvironmentLighting(delta, now) {
     _uncloudedSkyColor.lerp(_twilightSky, state.dayFactor * 0.4);
 
     // Allow sunset colors in the main sky even when overcast (Issue #24)
-    _uncloudedSkyColor.lerp(_currentSunriseSky, dawnDuskFactor);
+    lerpKeepSaturation(_uncloudedSkyColor, _currentSunriseSky, dawnDuskFactor);
 
     if (state.sunY > -0.1 && state.sunY < 0.15) {
       let goldT = 1.0 - Math.abs(state.sunY - 0.02) * 10;
       _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.35);
     }
 
-    _uncloudedSkyColor.lerp(_daySky, state.dayFactor * (1.0 - dawnDuskFactor));
+    lerpKeepSaturation(
+      _uncloudedSkyColor,
+      _daySky,
+      state.dayFactor * (1.0 - dawnDuskFactor)
+    );
 
-    // Warm up the directional light during golden hour
+    // Warm up the sunlight in golden light, from about 33 degrees up (higher
+    // than the sky's warmth starts), and tint the sky light with it
     const sunsetLightCol =
       state.sunX > 0 ? _sunriseLightColor : _sunsetLightColor;
-    dirLight.color.copy(_dayLightColor).lerp(sunsetLightCol, dawnDuskFactor);
+    const lightWarmth = Math.max(0, 1.0 - Math.abs(state.sunY) * 1.8);
+    dirLight.color.copy(_dayLightColor).lerp(sunsetLightCol, lightWarmth);
+    hemiLight.color.setHex(0xffffff).lerp(_goldenSkyLight, lightWarmth * 0.5);
   } else {
     dirLight.color.setHex(0xfff0dd);
+    hemiLight.color.setHex(0xffffff);
   }
 
   _cloudyColor.setHex(0x0a0c10).lerp(_stormColor, state.dayFactor);
@@ -2110,8 +2137,7 @@ function updateEnvironmentLighting(delta, now) {
 
   if (!isCustomPalette) {
     if (state.dayFactor > 0.0) {
-      let dawnDuskFactor = 1.0 - Math.min(1, Math.abs(state.sunY) * 2.5);
-      dawnDuskFactor = Math.max(0, Math.pow(dawnDuskFactor, 1.5));
+      const dawnDuskFactor = skyWarmth(state.sunY);
 
       _skyBottomCol.copy(_finalSkyColor);
       if (dawnDuskFactor > 0.0) {
@@ -2126,7 +2152,7 @@ function updateEnvironmentLighting(delta, now) {
         const overcastMuteFactor = isSnowing ? 0.3 : 0.6; // Snow only mutes by 30%, rain by 60%
         const actualDawnDusk =
           dawnDuskFactor * 0.8 * (1.0 - overcast * overcastMuteFactor);
-        _skyBottomCol.lerp(_warmHorizonColor, actualDawnDusk);
+        lerpKeepSaturation(_skyBottomCol, _warmHorizonColor, actualDawnDusk);
       }
 
       skyUniforms.bottomColor.value.copy(_skyBottomCol);
