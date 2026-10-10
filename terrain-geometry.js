@@ -1346,9 +1346,16 @@ export var snowmanNoseMat = createMaterial({
 // Reusable house geometries
 export var houseBodyGeo = new THREE.BoxGeometry(10, 8, 10);
 houseBodyGeo.translate(0, 4, 0);
-export var houseRoofGeo = new THREE.ConeGeometry(8.5, 6, 4);
-houseRoofGeo.rotateY(Math.PI / 4);
-houseRoofGeo.translate(0, 11, 0);
+// Gabled roofs (createGableRoof, also used for the monastery): the ridge
+// runs across the front (the door's side, +Z), with eaves overhanging the
+// 10 x 10 walls on every side
+function createHouseRoof(height, baseY) {
+  const roof = createGableRoof(10, 10, height, 1.1);
+  roof.rotateY(Math.PI / 2);
+  roof.translate(0, baseY, 0);
+  return roof;
+}
+export var houseRoofGeo = createHouseRoof(7, 8);
 export var houseWindowGeo = new THREE.BoxGeometry(2, 2.5, 0.5);
 
 export var houseDoorGeo = new THREE.BoxGeometry(2.5, 4.5, 0.5);
@@ -1364,9 +1371,7 @@ export var houseChimneyMat = createMaterial({
 // Two story house geometries
 export var twoStoryBodyGeo = new THREE.BoxGeometry(10, 14, 10);
 twoStoryBodyGeo.translate(0, 7, 0);
-export var twoStoryRoofGeo = new THREE.ConeGeometry(8.5, 7, 4);
-twoStoryRoofGeo.rotateY(Math.PI / 4);
-twoStoryRoofGeo.translate(0, 17.5, 0);
+export var twoStoryRoofGeo = createHouseRoof(8, 14);
 export var twoStoryChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
 twoStoryChimneyGeo.translate(0, 17.5, 0);
 
