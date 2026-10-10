@@ -132,8 +132,7 @@
         if (uShowClouds) {
             vec3 viewDirWorld = normalize((vec4(-vViewPosition, 0.0) * viewMatrix).xyz);
             vec3 skyDir = normalize(viewDirWorld * 25000.0 + vec3(0.0, offset, 0.0));
-            float unusedToward;
-            float towerDist = towerDistance(skyDir, uSkyTime, vec2(0.0), unusedToward);
+            float towerDist = towerDistance(skyDir, uSkyTime, vec2(0.0));
             cloudCover = max(cloudCover, towerAlphaAt(towerDist, skyDir.y, uCloudDensity) * 0.96);
         }
         #endif

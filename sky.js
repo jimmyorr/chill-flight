@@ -399,7 +399,7 @@ export const moonUniforms = {
   uShowClouds: skyUniforms.uShowClouds,
   offset: skyUniforms.offset,
   uSkyTime: skyUniforms.uTime,
-  uTowers: skyUniforms.uTowers,
+  uTowerProfile: skyUniforms.uTowerProfile,
 };
 
 // Note: The physical sun mesh and glow plane geometries/materials have been removed

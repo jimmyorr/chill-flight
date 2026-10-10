@@ -66,61 +66,34 @@ const float TOWER_SLICE_W = 6.2831853 / TOWER_SLICES; // a slice's width in h un
 // How fast the skyline drifts around the horizon (slices per second of
 // cloud time): about 7.5 degrees in three minutes
 const float TOWER_DRIFT = 0.006;
-// Each slice's tower, computed on the CPU each frame (updateTowerSlices in
-// sky-uniforms.js): x its size (0: no tower), yzw random numbers that place
-// and shape its puffs
-uniform vec4 uTowers[48];
+// The towers' outline around the horizon, worked out on the CPU each frame
+// (updateTowerSlices in sky-uniforms.js), TOWER_PROFILE_PER_SLICE samples a
+// slice: r the top of the towers (in slices above the horizon; very low
+// where there are none) and g its slope, b their bottom (very low over a
+// tower's column, which reaches down to the horizon; above it, the
+// underside of a puff bulging out to the side) and a its slope
+uniform sampler2D uTowerProfile;
+const float TOWER_PROFILE_PER_SLICE = 64.0;
 
-// Signed distance (in slices; negative inside) from the direction dir to
-// the towers' outline, and in distToward the same at a point a step
-// \`toward\` away (for lighting). 1e9 where there are no towers nearby.
-// time is the cloud clock.
-float towerDistance(vec3 dir, float time, vec2 toward, out float distToward) {
-  distToward = 1e9;
+// Signed distance (in slices; negative inside, roughly) from the direction
+// dir to the towers' outline, measured at a point \`offset\` (in slices)
+// away. time is the cloud clock. A tower fills the span between its bottom
+// and top, so this is the height outside that span, scaled by the edge's
+// slope into a distance.
+// (Testing every puff shape per pixel instead cost the sky shader 10-13 ms
+// a frame on a busy horizon, M1 MacBook Air, mid.)
+float towerDistance(vec3 dir, float time, vec2 offset) {
   float h = dir.y;
   // (No tower reaches above about 1.9 base-puff radii, 0.3 * TOWER_SCALE)
   if (h < -0.12 || h > 0.3 * TOWER_SCALE) return 1e9;
-  float x = (atan(dir.x, dir.z) / 6.2831853 + 0.5) * TOWER_SLICES + time * TOWER_DRIFT;
-  float best = 1e9;
-  // A puff reaches up to about 2.5 slices from its own slice's center (its
-  // radius, the side bulge and the center's jitter), so three slices either
-  // side covers every puff that can reach here; fewer cut puffs off along a
-  // vertical line
-  for (int k = -3; k <= 3; k++) {
-    int c = int(mod(floor(x) + float(k), TOWER_SLICES));
-    vec4 t = uTowers[c];
-    float amt = t.x;
-    if (amt <= 0.0) continue;
-    float r1 = t.y;
-    float r2 = t.z;
-    float r3 = t.w;
-    float cx = floor(x) + float(k) + 0.5 + (r1 - 0.5) * 0.7;
-    float dx = x - cx;
-    float rad1 = (0.55 + 0.6 * r2) * amt * TOWER_SCALE;
-    // The base puff is widest near the horizon, so little of the
-    // straight-sided column below it shows
-    float cy1 = rad1 * 0.15;
-    float rad2 = rad1 * (0.5 + 0.3 * r3);
-    float cy2 = cy1 + rad1 * 0.9;
-    float cx2 = (r3 - 0.5) * rad1 * 0.6;
-    // A third puff bulging out to one side
-    float rad3 = rad1 * 0.55;
-    float cx3 = (r1 < 0.5 ? -0.75 : 0.75) * rad1;
-    float cy3 = cy1 + rad1 * 0.45;
-    best = min(best, min(min(min(
-        length(vec2(dx, h / TOWER_SLICE_W - cy1)) - rad1,
-        length(vec2(dx - cx2, h / TOWER_SLICE_W - cy2)) - rad2),
-        length(vec2(dx - cx3, h / TOWER_SLICE_W - cy3)) - rad3),
-        max(abs(dx) - rad1 * 0.92, h / TOWER_SLICE_W - cy1)));
-    float tx = dx + toward.x;
-    float ty = h / TOWER_SLICE_W + toward.y;
-    distToward = min(distToward, min(min(min(
-        length(vec2(tx, ty - cy1)) - rad1,
-        length(vec2(tx - cx2, ty - cy2)) - rad2),
-        length(vec2(tx - cx3, ty - cy3)) - rad3),
-        max(abs(tx) - rad1 * 0.92, ty - cy1)));
-  }
-  return best;
+  float x = (atan(dir.x, dir.z) / 6.2831853 + 0.5) * TOWER_SLICES + time * TOWER_DRIFT
+          + offset.x;
+  float y = h / TOWER_SLICE_W + offset.y;
+  // Texel centers sit at half-sample offsets
+  float u = (x + 0.5 / TOWER_PROFILE_PER_SLICE) / TOWER_SLICES;
+  vec4 profile = texture2D(uTowerProfile, vec2(u, 0.5));
+  return max((y - profile.r) / sqrt(1.0 + profile.g * profile.g),
+             (profile.b - y) / sqrt(1.0 + profile.a * profile.a));
 }
 
 // How opaque the towers are at a distance dist from their outline, at

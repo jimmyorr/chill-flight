@@ -307,10 +307,10 @@
             // A point is lit when a step toward the light leaves the cloud: a
             // bright band along the tops and sunward sides of the whole
             // outline (shading each puff separately would notch the inside)
-            float bestToward;
-            float best = towerDistance(dir, uTime, lightDir * 0.7, bestToward);
+            float best = towerDistance(dir, uTime, vec2(0.0));
             float towerAlpha = towerAlphaAt(best, h, uCloudDensity);
             if (towerAlpha > 0.0) {
+                float bestToward = towerDistance(dir, uTime, lightDir * 0.7);
                 float stormDimming = 1.0 - uCloudDensity * 0.6;
                 float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
                 vec3 baseBright = mix(vec3(0.95, 0.96, 0.98), vec3(0.72, 0.75, 0.80), uCloudDensity * 0.6);
