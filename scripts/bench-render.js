@@ -18,8 +18,9 @@ const VIEWS = {
   sunset: 'x=30000&y=420&z=3000&heading=-90&pitch=-3&tod=0.735&clouds=0.45',
   // Mountains toward the first northern range
   mtn: 'x=-2000&y=600&z=-2500&heading=20&pitch=-3&tod=0.5&clouds=0.3',
-  // Low over forest and farms, looking south
-  forest: 'x=-6000&y=250&z=4000&heading=160&pitch=-6&tod=0.45&clouds=0.3',
+  // Low over a forest, looking south (the old spot, X -6000 Z 4000, ended up
+  // inside the volcano's slopes)
+  forest: 'x=-3000&y=330&z=-6000&heading=160&pitch=-8&tod=0.45&clouds=0.3',
 };
 const names = process.env.VIEWS
   ? process.env.VIEWS.split(',')
