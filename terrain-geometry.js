@@ -654,41 +654,55 @@ waterMaterial.onBeforeCompile = function (shader) {
 export var treeTrunkGeo = new THREE.CylinderGeometry(1.5, 2.5, 14, 6);
 treeTrunkGeo.translate(0, 7, 0);
 
-function createPineGeometry() {
-  // 4 overlapping conical tiers — each sinks into the one below so no gaps show.
-  // Widest at the bottom, narrowest at the top, giving a classic conifer silhouette.
-  const segs = 6;
-  const c1 = new THREE.ConeGeometry(10, 12, segs);
-  c1.translate(0, 14, 0); // base of bottom tier sits at y=8
-  const c2 = new THREE.ConeGeometry(8, 11, segs);
-  c2.translate(0, 19, 0); // overlaps ~3 units into c1
-  const c3 = new THREE.ConeGeometry(6, 10, segs);
-  c3.translate(0, 24, 0); // overlaps ~3 units into c2
-  const c4 = new THREE.ConeGeometry(3.5, 8, segs);
-  c4.translate(0, 28.5, 0); // top spire
+// Pine tier: a cone whose skirt alternates drooping branch tips
+// and notches pulled in and up between them, so each tier reads as a brushy
+// fringe rather than a smooth cone
+function createPineTier(radius, height, segs, y) {
+  const cone = new THREE.ConeGeometry(radius, height, segs);
+  const pos = cone.attributes.position;
+  const step = (Math.PI * 2) / segs;
+  for (let i = 0; i < pos.count; i++) {
+    const vy = pos.getY(i);
+    const vx = pos.getX(i);
+    const vz = pos.getZ(i);
+    if (vy > -height / 2 + 1e-4 || vx * vx + vz * vz < 1e-6) continue;
+    const k = Math.round(Math.atan2(vz, vx) / step);
+    if (Math.abs(k) % 2 === 1) {
+      pos.setXYZ(i, vx * 0.62, vy + height * 0.22, vz * 0.62);
+    } else {
+      pos.setXYZ(i, vx * 1.15, vy - height * 0.12, vz * 1.15);
+    }
+  }
+  cone.computeVertexNormals();
+  cone.translate(0, y, 0);
+  return cone;
+}
 
-  const geometries = [c1, c2, c3, c4];
+function createPineGeometry() {
+  // 4 tiers whose skirts end in drooping branch tips (createPineTier), each
+  // sinking into the one below so no gaps show; widest at the bottom
+  const segs = 8;
+  const tiers = [
+    [10.5, 12, 14],
+    [8.2, 11, 19],
+    [6, 10, 24],
+    [3.6, 8, 28.5],
+  ];
+  const parts = tiers.map(([r, h, y]) => createPineTier(r, h, segs, y));
   const pos = [],
     norm = [],
-    uvs = [],
     idx = [];
   let offset = 0;
-
-  for (const g of geometries) {
+  for (const g of parts) {
     pos.push(...g.attributes.position.array);
     norm.push(...g.attributes.normal.array);
-    if (g.attributes.uv) uvs.push(...g.attributes.uv.array);
-    for (let i = 0; i < g.index.array.length; i++) {
+    for (let i = 0; i < g.index.array.length; i++)
       idx.push(g.index.array[i] + offset);
-    }
     offset += g.attributes.position.count;
   }
-
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  if (uvs.length > 0)
-    geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geom.setIndex(idx);
   return geom;
 }
