@@ -113,6 +113,7 @@ export function applyGraphicsPreset(preset) {
   }
 
   // Set global variables
+  state.graphicsPreset = preset;
   state.SEGMENTS = segments;
   state.RENDER_DISTANCE = dist;
   state.PROP_LOD_DISTANCE = propLod;
