@@ -1108,13 +1108,18 @@ function updatePhysicsAndControls(delta, nowTime) {
   if (!state.isFreeCamera && Math.abs(state.flightSpeedMultiplier) > 0.001) {
     const baseSpin = 15 * Math.abs(state.flightSpeedMultiplier);
     const spin = Math.max(4, Math.min(25, baseSpin));
+    // A prop's spinScale (props with fewer blades spin faster), capped at
+    // 40 rad/s: beyond about 90 degrees a frame (at 30 fps), a 2-blade prop
+    // looks like it's turning backwards
+    const spinProp = (prop) => {
+      if (!prop) return;
+      const scale = prop.userData.spinScale ?? 1;
+      prop.rotation.z += Math.min(40, spin * scale) * delta;
+    };
     if (state.propGroups && Array.isArray(state.propGroups)) {
-      for (let i = 0; i < state.propGroups.length; i++) {
-        if (state.propGroups[i]) state.propGroups[i].rotation.z += spin * delta;
-      }
+      state.propGroups.forEach(spinProp);
     } else {
-      const activeProp = state.propGroup;
-      if (activeProp) activeProp.rotation.z += spin * delta;
+      spinProp(state.propGroup);
     }
   }
 

@@ -95,6 +95,9 @@ export function createBiplaneModel(opts = {}) {
   propGroup.position.set(0, -0.1, -10.3);
   root.add(propGroup);
   root.propGroup = propGroup;
+  // Spins twice as fast as the classic plane's 4-blade prop, so its two
+  // blades sweep past as often (the game loop reads this)
+  propGroup.userData.spinScale = 2;
 
   const bladeGeo = new THREE.BoxGeometry(8.6, 0.7, 0.12);
   const blade1 = new THREE.Mesh(bladeGeo, darkMat);
