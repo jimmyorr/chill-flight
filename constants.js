@@ -94,13 +94,12 @@ float towerDistance(sampler2D noiseTex, vec3 dir, float cumulus, float cover,
   vec2 dayShift = vec2(day * 7.31, day * 3.17);
   float y = h / TOWER_SLICE_W;
   float towerStart = TOWER_THRESHOLD - cumulus * 0.06 - cover;
-  // The tower field changes slowly around the compass, so well below its
-  // threshold here, there are no towers within the slices tested below
-  float xa = (x + 0.5) / TOWER_SLICES * 6.2831853 - 3.14159265;
-  if (towerMacro(noiseTex, vec2(sin(xa), cos(xa)) * 2.2 + vec2(11.0, 3.0) + dayShift)
-      <= towerStart - 0.12) return 1e9;
   float best = 1e9;
-  for (int k = -2; k <= 2; k++) {
+  // A puff reaches up to about 2.5 slices from its own slice's center (its
+  // radius, the side bulge and the center's jitter), so three slices either
+  // side covers every puff that can reach here; fewer cut puffs off along a
+  // vertical line
+  for (int k = -3; k <= 3; k++) {
     float c = mod(floor(x) + float(k), TOWER_SLICES);
     float ca = (c + 0.5) / TOWER_SLICES * 6.2831853 - 3.14159265;
     vec2 caz = vec2(sin(ca), cos(ca));
