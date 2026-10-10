@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {log} from './logger.js';
+import {ART_STYLE} from './art-style.js';
 import {CLOUD_GLSL, SKY_COLOR_GLSL} from './constants.js';
 import {scene} from './scene.js';
 import skyVertexShader from './src/shaders/sky.vert.glsl?raw';
@@ -409,9 +410,15 @@ const moonMat = new THREE.ShaderMaterial({
   fragmentShader: moonFragShader,
   uniforms: moonUniforms,
   transparent: true,
+  // In the anime style the outline pass inks breaks in the depth buffer, so
+  // a moon written there gets an ink ring even when it's nearly invisible by
+  // day. It stays out of the depth buffer and is drawn after the other see-
+  // through sky objects (the stars), so none of them show through it.
+  depthWrite: ART_STYLE !== 'anime',
   fog: false,
 });
 export const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+if (ART_STYLE === 'anime') moonMesh.renderOrder = 1;
 skyGroup.add(moonMesh);
 
 // Stars
