@@ -2816,7 +2816,10 @@ var smokeShaderInject = (shader, isChimney) => {
   shader.fragmentShader = `varying float vFade;\n` + shader.fragmentShader;
   shader.fragmentShader = shader.fragmentShader.replace(
     '#include <color_fragment>',
-    `#include <color_fragment>\ndiffuseColor.a *= vFade;`
+    // Puffs fade out right by the camera: flying or looking through one
+    // would otherwise fill the screen with a flat see-through box
+    `#include <color_fragment>
+    diffuseColor.a *= vFade * smoothstep(6.0, 30.0, length(vViewPosition));`
   );
 };
 
