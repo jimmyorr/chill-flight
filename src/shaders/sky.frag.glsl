@@ -97,17 +97,35 @@
                 // Fine rows shimmer near the horizon, so they fade out sooner.
                 // A wide edge band: thin puffs are see-through at their edges
                 float shapeMackerel = mackerelShape(uvMackerel);
+#ifdef ANIME_SKY
+                // Crisp puffs, with the edge softening as the rows shrink with
+                // distance (fwidth: how much the shape changes per pixel)
+                float aaMackerel = max(0.04, fwidth(shapeMackerel));
+                float alphaMackerel = smoothstep(0.42 - aaMackerel, 0.42 + aaMackerel, shapeMackerel)
+                                    * smoothstep(0.08, 0.35, abs(h)) * uCloudTypes.z;
+#else
                 float alphaMackerel = smoothstep(0.2, 0.6, shapeMackerel)
                                     * smoothstep(0.08, 0.35, abs(h)) * uCloudTypes.z;
+#endif
                 if (alphaMackerel > 0.0) {
                     // Thick centers are shaded from below; the sunward side
                     // and thin edges are lit
                     float thickness = smoothstep(0.35, 0.8, shapeMackerel);
                     float edge = smoothstep(0.2, 0.7, mackerelShape(uvMackerel + sunDir2D * 0.02));
                     float lit = mix(1.0, 0.55, max(thickness * 0.7, edge * 0.5));
+#ifdef ANIME_SKY
+                    // Two tones: lit, with a lavender rim on the side away
+                    // from the sun (shading by thickness reads as rings)
+                    float awayMackerel = mackerelShape(uvMackerel - sunDir2D * 0.03);
+                    lit = mix(0.35, 1.0, smoothstep(0.3, 0.42, awayMackerel));
+                    vec3 mackerelColor = mix(shadowColor * vec3(0.94, 0.88, 1.1), brightEdgeColor, lit);
+                    float mackerelOpacity = 0.95;
+#else
                     vec3 mackerelColor = mix(shadowColor, brightEdgeColor, lit);
+                    float mackerelOpacity = 0.85;
+#endif
                     mackerelColor += bottomColor * sunRim * 1.5;
-                    col = mix(col, mackerelColor, alphaMackerel * 0.85);
+                    col = mix(col, mackerelColor, alphaMackerel * mackerelOpacity);
                 }
             }
 
