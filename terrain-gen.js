@@ -1278,6 +1278,14 @@ export function generateChunkData({
               // Each house's own proportions: one-story houses are sometimes
               // long farmhouses, two-story ones sometimes narrow townhouses,
               // and all vary a little (sx widens along the ridge, sy raises)
+              // Regional styles: stone and slate in the snowy north, adobe
+              // with flat roofs in the arid south
+              const houseStyle =
+                desertFactor > 0.5
+                  ? 'adobe'
+                  : snowFactor > 0.25 || worldZ < -8000
+                    ? 'stone'
+                    : 'plain';
               let rowEnd = 0;
               for (let k = 0; k <= neighbors; k++) {
                 const twoStory = !isIsland && rng() > 0.85;
@@ -1310,8 +1318,9 @@ export function generateChunkData({
                   rotY: houseRot,
                   sx,
                   sy,
+                  style: houseStyle,
                 });
-                if (snowFactor > 0.3) {
+                if (snowFactor > 0.3 && houseStyle !== 'adobe') {
                   chimneySmokePositions.push({x: hx, y: hy + 10, z: hz});
                 }
               }
@@ -2032,22 +2041,32 @@ export function generateChunkData({
     });
   }
 
+  // Wall and roof colors (indices into houseBodyPalette and
+  // houseRoofPalette) from the house's regional style
+  const pickHouseColors = (pos) => {
+    const body = rng();
+    const roof = rng();
+    if (pos.style === 'stone') {
+      pos.bodyId = 6 + Math.floor(body * 3);
+      pos.roofId = 4 + Math.floor(roof * 2);
+    } else if (pos.style === 'adobe') {
+      pos.bodyId = 9 + Math.floor(body * 3);
+      pos.roofId = 6;
+    } else {
+      pos.bodyId = Math.floor(body * 6);
+      pos.roofId = Math.floor(roof * 4);
+    }
+  };
   // Populate attributes for chunk local props in identical deterministic sequence
   if (housePositions.length > 0) {
-    housePositions.forEach((pos) => {
-      pos.bodyId = Math.floor(rng() * 6);
-      pos.roofId = Math.floor(rng() * 4);
-    });
+    housePositions.forEach(pickHouseColors);
     housePositions.forEach((pos) => {
       pos.poolId = Math.floor(rng() * 5);
     });
   }
 
   if (twoStoryHousePositions.length > 0) {
-    twoStoryHousePositions.forEach((pos) => {
-      pos.bodyId = Math.floor(rng() * 6);
-      pos.roofId = Math.floor(rng() * 4);
-    });
+    twoStoryHousePositions.forEach(pickHouseColors);
     twoStoryHousePositions.forEach((pos) => {
       pos.poolId = Math.floor(rng() * 5);
     });

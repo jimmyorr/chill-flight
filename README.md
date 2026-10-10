@@ -54,7 +54,7 @@ The world is organized around a central coordinate system (0,0) where latitude (
 - **Location:** The area surrounding the equator (Z=0, 0.0 Latitude) and prime meridian (X=0, 0.0 Longitude).
 - **Landscape:** A mix of rolling plains (#7CB342) and dense deciduous forests (#388E3C).
 - **Key Features:**
-  - **Structures:** Most common area for houses, barns, windmills, and monasteries. Houses have steep gabled roofs with overhanging eaves and vary in proportion (long farmhouses, narrow townhouses), and gather in villages and hamlets on flat ground, in short rows that share their village's orientation, with only a few lone farmhouses between them (`terrain-gen.js`). Barns, windmills, monasteries and castle ruins also need fairly flat ground.
+  - **Structures:** Most common area for houses, barns, windmills, and monasteries. Houses have steep gabled roofs with overhanging eaves and vary in proportion (long farmhouses, narrow townhouses), and gather in villages and hamlets on flat ground, in short rows that share their village's orientation, with only a few lone farmhouses between them (`terrain-gen.js`). Barns, windmills, monasteries and castle ruins also need fairly flat ground. Houses take regional styles: grey stone with slate roofs in the snowy north, and ochre adobe with flat roofs and no chimneys in the arid south.
   - **Trees in the wind:** Tree canopies sway gently in slow, uneven gusts, more in overcast weather, all leaning the same way downwind (`addWindSway` in `terrain-geometry.js`).
   - **Vegetation:** Oak-like deciduous trees and bushes.
   - **Water:** Standard sky-blue water (#40C4FF) often featuring lily pads and piers.

@@ -652,6 +652,9 @@ function attachWaterDepthTexture(waterMesh, heightGrid, softDepth) {
   waterMesh.userData.depthTex = tex;
 }
 
+// How far an adobe house's flat roof is squashed from the gable
+const FLAT_ROOF = 0.12;
+
 export function disposeWaterDepthTexture(waterMesh) {
   if (waterMesh && waterMesh.userData.depthTex) {
     waterMesh.userData.depthTex.dispose();
@@ -1128,6 +1131,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       const {key} = houseCombo[index];
       const ci = comboIndices[key];
       bodyInsts[key].setMatrixAt(ci, dummy.matrix);
+      if (pos.style === 'adobe') {
+        // Adobe: the gable squashed into a flat slab on top of the walls
+        // (its base, 8 up, stays put)
+        dummy.scale.set(sx, sy * FLAT_ROOF, 1);
+        dummy.position.y = pos.y + 8 * sy * (1 - FLAT_ROOF);
+        dummy.updateMatrix();
+      }
       roofInsts[key].setMatrixAt(ci, dummy.matrix);
       comboIndices[key]++;
       dummy.scale.set(1, 1, 1);
@@ -1159,8 +1169,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         pos.z + chimneyOffset.z
       );
       dummy.rotation.set(0, pos.rotY, 0);
+      // Adobe houses have no chimney
+      if (pos.style === 'adobe') dummy.scale.set(0, 0, 0);
       dummy.updateMatrix();
       chimneyInst.setMatrixAt(index, dummy.matrix);
+      dummy.scale.set(1, 1, 1);
 
       const winF1Offset = new THREE.Vector3(
         -3.0 * sx,
@@ -1304,6 +1317,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       const {key} = houseCombo[index];
       const ci = comboIndices[key];
       bodyInsts[key].setMatrixAt(ci, dummy.matrix);
+      if (pos.style === 'adobe') {
+        // Adobe: the gable squashed into a flat slab on top of the walls
+        // (its base, 14 up, stays put)
+        dummy.scale.set(sx, sy * FLAT_ROOF, 1);
+        dummy.position.y = pos.y + 14 * sy * (1 - FLAT_ROOF);
+        dummy.updateMatrix();
+      }
       roofInsts[key].setMatrixAt(ci, dummy.matrix);
       comboIndices[key]++;
       dummy.scale.set(1, 1, 1);
@@ -1335,8 +1355,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         pos.z + chimneyOffset.z
       );
       dummy.rotation.set(0, pos.rotY, 0);
+      // Adobe houses have no chimney
+      if (pos.style === 'adobe') dummy.scale.set(0, 0, 0);
       dummy.updateMatrix();
       chimneyInst.setMatrixAt(index, dummy.matrix);
+      dummy.scale.set(1, 1, 1);
 
       const offsets = [
         new THREE.Vector3(-3.0 * sx, 4 * sy, 5.1).applyAxisAngle(

@@ -1529,12 +1529,25 @@ export var houseBodyPalette = [
   createMaterial({color: 0xc8d8e8, flatShading: true}), // Pale blue
   createMaterial({color: 0xe8c8b0, flatShading: true}), // Terracotta peach
   createMaterial({color: 0xccbbcc, flatShading: true}), // Dusty mauve
+  // Stone, for the snowy north (6-8)
+  createMaterial({color: 0x9e9a92, flatShading: true}), // Grey stone
+  createMaterial({color: 0xb5ab9c, flatShading: true}), // Warm stone
+  createMaterial({color: 0x86827b, flatShading: true}), // Dark stone
+  // Adobe, for the arid south (9-11)
+  createMaterial({color: 0xd9a066, flatShading: true}), // Ochre
+  createMaterial({color: 0xe3b98a, flatShading: true}), // Sand
+  createMaterial({color: 0xc98b5a, flatShading: true}), // Burnt clay
 ];
 export var houseRoofPalette = [
   createMaterial({color: 0x5d4037, flatShading: true}), // Dark brown
   createMaterial({color: 0x7b3f2a, flatShading: true}), // Brick red
   createMaterial({color: 0x546e7a, flatShading: true}), // Slate blue-grey
   createMaterial({color: 0x4a4a3a, flatShading: true}), // Charcoal
+  // Slate, for stone houses (4-5)
+  createMaterial({color: 0x3f4a55, flatShading: true}), // Dark slate
+  createMaterial({color: 0x56606b, flatShading: true}), // Blue slate
+  // Adobe's flat roof (6)
+  createMaterial({color: 0xc4956a, flatShading: true}), // Clay
 ];
 
 // Window Materials (5 variations for staggered lighting)
