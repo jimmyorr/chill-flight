@@ -708,7 +708,7 @@ function createPineGeometry() {
 }
 export var treeLeavesGeo = createPineGeometry();
 
-// Anime style canopy: a core plus smaller lumps spread over a dome, like the
+// Broadleaf canopy: a core plus smaller lumps spread over a dome, like the
 // cloud-shaped trees in Ghibli backgrounds. Each lump keeps its own smooth
 // normals, so it catches light and shadow on its own. center and radii (x, y,
 // z) describe the dome; lumps of about lumpR sit on its surface, more toward
@@ -754,55 +754,20 @@ function createLumpCanopy(center, radii, count, lumpR) {
   geom.setIndex(idx);
   return geom;
 }
-const _lumpTrees = ART_STYLE === 'anime';
 
 function createDeciduousGeometry() {
   const trunk = new THREE.CylinderGeometry(1.2, 1.8, 12, 6);
   trunk.translate(0, 6, 0);
 
-  // 5 overlapping spheres form a full, round canopy
-  const leaf1 = new THREE.SphereGeometry(6, 7, 5); // Main center mass
-  leaf1.translate(0, 14, 0);
-  const leaf2 = new THREE.SphereGeometry(4.5, 7, 5); // Lower-right cluster
-  leaf2.translate(3.5, 11, 2.5);
-  const leaf3 = new THREE.SphereGeometry(4.5, 7, 5); // Lower-left cluster
-  leaf3.translate(-3.5, 11, -2.5);
-  const leaf4 = new THREE.SphereGeometry(4, 7, 5); // Back fill
-  leaf4.translate(-1, 12, 3.5);
-  const leaf5 = new THREE.SphereGeometry(3.5, 7, 5); // Top crown
-  leaf5.translate(0.5, 17, -0.5);
-
-  if (_lumpTrees) {
-    return {
-      trunk,
-      leaves: createLumpCanopy(
-        new THREE.Vector3(0, 12.5, 0),
-        new THREE.Vector3(7, 6.2, 7),
-        8,
-        3.4
-      ),
-    };
-  }
-
-  const geometries = [leaf1, leaf2, leaf3, leaf4, leaf5];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
-    offset += g.attributes.position.count;
-  }
-
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return {trunk, leaves: geom};
+  return {
+    trunk,
+    leaves: createLumpCanopy(
+      new THREE.Vector3(0, 12.5, 0),
+      new THREE.Vector3(7, 6.2, 7),
+      8,
+      3.4
+    ),
+  };
 }
 export var deciduousGeos = createDeciduousGeometry();
 
@@ -810,58 +775,15 @@ function createTallDeciduousGeometry() {
   const trunk = new THREE.CylinderGeometry(1.5, 2.2, 16, 6);
   trunk.translate(0, 8, 0);
 
-  // Tall canopy, vase/oval shape
-  const leaf1 = new THREE.SphereGeometry(6, 7, 5); // Main lower mass
-  leaf1.scale(1, 1.2, 1);
-  leaf1.translate(0, 16, 0);
-
-  const leaf2 = new THREE.SphereGeometry(5.5, 7, 5); // Mid mass
-  leaf2.scale(1, 1.3, 1);
-  leaf2.translate(0, 22, 0);
-
-  const leaf3 = new THREE.SphereGeometry(4.5, 7, 5); // Top crown
-  leaf3.scale(1, 1.2, 1);
-  leaf3.translate(0, 28, 0);
-
-  const leaf4 = new THREE.SphereGeometry(4, 7, 5); // Side cluster 1
-  leaf4.scale(1, 1.1, 1);
-  leaf4.translate(3.5, 18, 2);
-
-  const leaf5 = new THREE.SphereGeometry(4, 7, 5); // Side cluster 2
-  leaf5.scale(1, 1.1, 1);
-  leaf5.translate(-3.5, 19, -2);
-
-  if (_lumpTrees) {
-    return {
-      trunk,
-      leaves: createLumpCanopy(
-        new THREE.Vector3(0, 19, 0),
-        new THREE.Vector3(5.2, 10.5, 5.2),
-        8,
-        3.3
-      ),
-    };
-  }
-
-  const geometries = [leaf1, leaf2, leaf3, leaf4, leaf5];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
-    offset += g.attributes.position.count;
-  }
-
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return {trunk, leaves: geom};
+  return {
+    trunk,
+    leaves: createLumpCanopy(
+      new THREE.Vector3(0, 19, 0),
+      new THREE.Vector3(5.2, 10.5, 5.2),
+      8,
+      3.3
+    ),
+  };
 }
 export var tallDeciduousGeos = createTallDeciduousGeometry();
 
