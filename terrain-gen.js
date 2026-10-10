@@ -1219,6 +1219,8 @@ export function generateChunkData({
             });
           }
         } else {
+          // (Every building here needs fairly flat ground: houses through
+          // \`flat\`, the rest through their slopeFactor limits below.)
           // Houses gather in villages and hamlets (a slow noise field, so a
           // village is a few hundred units across), with only a few lone
           // farmhouses between them, and only on fairly flat ground
@@ -1273,8 +1275,25 @@ export function generateChunkData({
                 village > 0.35 ? Math.floor(rng() * (1 + 2.5 * village)) : 0;
               const rowX = Math.cos(villageAngle);
               const rowZ = -Math.sin(villageAngle);
+              // Each house's own proportions: one-story houses are sometimes
+              // long farmhouses, two-story ones sometimes narrow townhouses,
+              // and all vary a little (sx widens along the ridge, sy raises)
+              let rowEnd = 0;
               for (let k = 0; k <= neighbors; k++) {
-                const along = k * (16 + rng() * 6);
+                const twoStory = !isIsland && rng() > 0.85;
+                const sx = twoStory
+                  ? rng() < 0.4
+                    ? 0.68 + rng() * 0.1
+                    : 0.92 + rng() * 0.15
+                  : rng() < 0.3
+                    ? 1.5 + rng() * 0.3
+                    : 0.9 + rng() * 0.2;
+                const sy = 0.92 + rng() * 0.18;
+                // Spaced along the row by their widths (a house is up to 6 *
+                // sx from its center along the row), with a small gap
+                const half = 6.5 * sx;
+                const along = k === 0 ? 0 : rowEnd + half + 3 + rng() * 5;
+                rowEnd = along + half;
                 const across = (rng() - 0.5) * 4;
                 const hx = localX + rowX * along - rowZ * across;
                 const hz = localZ + rowZ * along + rowX * across;
@@ -1284,16 +1303,14 @@ export function generateChunkData({
                   strawHutPositions.push({x: hx, y: hy, z: hz, rotY: houseRot});
                   continue;
                 }
-                if (rng() > 0.85) {
-                  twoStoryHousePositions.push({
-                    x: hx,
-                    y: hy,
-                    z: hz,
-                    rotY: houseRot,
-                  });
-                } else {
-                  housePositions.push({x: hx, y: hy, z: hz, rotY: houseRot});
-                }
+                (twoStory ? twoStoryHousePositions : housePositions).push({
+                  x: hx,
+                  y: hy,
+                  z: hz,
+                  rotY: houseRot,
+                  sx,
+                  sy,
+                });
                 if (snowFactor > 0.3) {
                   chimneySmokePositions.push({x: hx, y: hy + 10, z: hz});
                 }
@@ -1304,6 +1321,7 @@ export function generateChunkData({
             ENABLE_BARNS &&
             worldX < -5000 &&
             plainsRoll < barnThreshold &&
+            slopeFactor < 0.2 &&
             snowFactor < 0.4 &&
             desertFactor < 0.3 &&
             height > WATER_LEVEL + 15 &&
@@ -1319,6 +1337,7 @@ export function generateChunkData({
             !isAlienLand &&
             ENABLE_MONASTERIES &&
             plainsRoll < monasteryThreshold &&
+            slopeFactor < 0.2 &&
             snowFactor < 0.2 &&
             desertFactor < 0.2 &&
             height > WATER_LEVEL + 50 &&
@@ -1334,6 +1353,7 @@ export function generateChunkData({
             !isAlienLand &&
             ENABLE_CASTLE_RUINS &&
             plainsRoll < castleThreshold &&
+            slopeFactor < 0.3 &&
             snowFactor < 0.5 &&
             desertFactor < 0.3 &&
             height > WATER_LEVEL + 40 &&
@@ -1348,6 +1368,7 @@ export function generateChunkData({
           } else if (
             !isAlienLand &&
             plainsRoll < windmillThreshold &&
+            slopeFactor < 0.2 &&
             height > WATER_LEVEL + 5 &&
             height < MOUNTAIN_LEVEL - 100 &&
             desertFactor < 0.3 &&

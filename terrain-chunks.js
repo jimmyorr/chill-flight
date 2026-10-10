@@ -1116,9 +1116,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     const poolIndices = [0, 0, 0, 0, 0];
 
     housePositions.forEach((pos, index) => {
+      // The house's own proportions (sx along the ridge, sy up); its door,
+      // windows and chimney move with the walls but keep their size
+      const sx = pos.sx ?? 1;
+      const sy = pos.sy ?? 1;
       dummy.position.set(pos.x, pos.y, pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(1, 1, 1);
+      dummy.scale.set(sx, sy, 1);
       dummy.updateMatrix();
 
       const {key} = houseCombo[index];
@@ -1126,6 +1130,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       bodyInsts[key].setMatrixAt(ci, dummy.matrix);
       roofInsts[key].setMatrixAt(ci, dummy.matrix);
       comboIndices[key]++;
+      dummy.scale.set(1, 1, 1);
 
       const poolId = houseToPool[index];
       const pIdx = poolIndices[poolId];
@@ -1143,10 +1148,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       dummy.updateMatrix();
       doorInst.setMatrixAt(index, dummy.matrix);
 
-      const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
+      const chimneyOffset = new THREE.Vector3(
+        2.5 * sx,
+        11 * (sy - 1),
+        -2.5
+      ).applyAxisAngle(yAxis, pos.rotY);
       dummy.position.set(
         pos.x + chimneyOffset.x,
         pos.y + chimneyOffset.y,
@@ -1156,15 +1162,17 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       dummy.updateMatrix();
       chimneyInst.setMatrixAt(index, dummy.matrix);
 
-      const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
+      const winF1Offset = new THREE.Vector3(
+        -3.0 * sx,
+        4 * sy,
+        5.1
+      ).applyAxisAngle(yAxis, pos.rotY);
+      const winF2Offset = new THREE.Vector3(
+        3.0 * sx,
+        4 * sy,
+        5.1
+      ).applyAxisAngle(yAxis, pos.rotY);
+      const winBOffset = new THREE.Vector3(0, 4 * sy, -5.1).applyAxisAngle(
         yAxis,
         pos.rotY
       );
@@ -1284,9 +1292,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     const poolIndices = [0, 0, 0, 0, 0];
 
     twoStoryHousePositions.forEach((pos, index) => {
+      // The house's own proportions (sx along the ridge, sy up); its door,
+      // windows and chimney move with the walls but keep their size
+      const sx = pos.sx ?? 1;
+      const sy = pos.sy ?? 1;
       dummy.position.set(pos.x, pos.y, pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(1, 1, 1);
+      dummy.scale.set(sx, sy, 1);
       dummy.updateMatrix();
 
       const {key} = houseCombo[index];
@@ -1294,6 +1306,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       bodyInsts[key].setMatrixAt(ci, dummy.matrix);
       roofInsts[key].setMatrixAt(ci, dummy.matrix);
       comboIndices[key]++;
+      dummy.scale.set(1, 1, 1);
 
       const poolId = houseToPool[index];
       const pIdx = poolIndices[poolId];
@@ -1311,10 +1324,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       dummy.updateMatrix();
       doorInst.setMatrixAt(index, dummy.matrix);
 
-      const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
+      const chimneyOffset = new THREE.Vector3(
+        2.5 * sx,
+        17.5 * (sy - 1),
+        -2.5
+      ).applyAxisAngle(yAxis, pos.rotY);
       dummy.position.set(
         pos.x + chimneyOffset.x,
         pos.y + chimneyOffset.y,
@@ -1325,14 +1339,32 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       chimneyInst.setMatrixAt(index, dummy.matrix);
 
       const offsets = [
-        new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(yAxis, pos.rotY),
-        new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(yAxis, pos.rotY),
-        new THREE.Vector3(0, 4, -5.1).applyAxisAngle(yAxis, pos.rotY),
-        new THREE.Vector3(0, 10, 5.1).applyAxisAngle(yAxis, pos.rotY),
-        new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(yAxis, pos.rotY),
-        new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(yAxis, pos.rotY),
-        new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(yAxis, pos.rotY),
-        new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(yAxis, pos.rotY),
+        new THREE.Vector3(-3.0 * sx, 4 * sy, 5.1).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        ),
+        new THREE.Vector3(3.0 * sx, 4 * sy, 5.1).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        ),
+        new THREE.Vector3(0, 4 * sy, -5.1).applyAxisAngle(yAxis, pos.rotY),
+        new THREE.Vector3(0, 10 * sy, 5.1).applyAxisAngle(yAxis, pos.rotY),
+        new THREE.Vector3(-3.0 * sx, 10 * sy, 5.1).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        ),
+        new THREE.Vector3(3.0 * sx, 10 * sy, 5.1).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        ),
+        new THREE.Vector3(-3.0 * sx, 10 * sy, -5.1).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        ),
+        new THREE.Vector3(3.0 * sx, 10 * sy, -5.1).applyAxisAngle(
+          yAxis,
+          pos.rotY
+        ),
       ];
 
       offsets.forEach((offset, i) => {
