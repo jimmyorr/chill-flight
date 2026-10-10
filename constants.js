@@ -3,7 +3,7 @@
 // live in state.js instead.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {ART_CLOUDS, ART_SMOOTH} from './art-style.js';
+import {ART_CLOUDS, ART_SMOOTH, ART_STYLE} from './art-style.js';
 import {state} from './state.js';
 
 // Terrain parameters
@@ -404,6 +404,9 @@ export function createMaterial(params) {
   // Make a copy of params to avoid mutating the original
   const newParams = {...params};
   if (ART_SMOOTH) newParams.flatShading = false;
+  // foliage: in the anime style, leaves get clumps of light and shadow
+  const foliage = newParams.foliage && ART_STYLE === 'anime';
+  delete newParams.foliage;
 
   let mat;
   switch (THEME) {
@@ -485,6 +488,50 @@ export function createMaterial(params) {
       SKY_COLOR_GLSL +
       shader.fragmentShader;
 
+    if (foliage) {
+      // A 3D noise splits each canopy into lit clumps with lavender gaps.
+      // It's anchored to each tree (its unswayed shape, offset per tree), so
+      // it moves with the leaves in the wind and differs from tree to tree.
+      shader.vertexShader = shader.vertexShader.replace(
+        'void main() {',
+        `varying vec3 vFoliagePos;
+        void main() {`
+      );
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        vFoliagePos = position;
+        #ifdef USE_INSTANCING
+          vFoliagePos += instanceMatrix[3].xyz * 0.37;
+        #endif`
+      );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'void main() {',
+        `varying vec3 vFoliagePos;
+        void main() {`
+      );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        {
+          vec3 fp = vFoliagePos / 3.0;
+          vec3 fi = floor(fp);
+          vec3 ff = fract(fp);
+          ff = ff * ff * (3.0 - 2.0 * ff);
+          float n = 0.0;
+          for (int k = 0; k < 8; k++) {
+            vec3 o = vec3(float(k & 1), float((k >> 1) & 1), float((k >> 2) & 1));
+            vec3 h = fract((fi + o) * vec3(0.1031, 0.1030, 0.0973));
+            h += dot(h, h.yxz + 33.33);
+            float r = fract((h.x + h.y) * h.z);
+            vec3 w = mix(1.0 - ff, ff, o);
+            n += r * w.x * w.y * w.z;
+          }
+          diffuseColor.rgb *= mix(vec3(0.66, 0.66, 0.82), vec3(1.08), smoothstep(0.3, 0.7, n));
+        }`
+      );
+    }
+
     shader.fragmentShader = shader.fragmentShader.replace(
       `#include <fog_fragment>`,
       `#ifdef USE_FOG
@@ -509,6 +556,15 @@ export function createMaterial(params) {
        #endif`
     );
   };
+
+  // three.js reuses a compiled shader for materials whose onBeforeCompile
+  // source matches, and every material here shares this one, so foliage
+  // needs its own key (still including the source, which wrappers like the
+  // wind sway change)
+  if (foliage) {
+    mat.customProgramCacheKey = () =>
+      'foliage' + mat.onBeforeCompile.toString();
+  }
 
   return mat;
 }

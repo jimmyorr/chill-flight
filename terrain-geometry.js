@@ -1005,6 +1005,7 @@ export var treeTrunkMat = createMaterial({color: 0x5d4037, flatShading: true});
 export var treeLeavesBaseMat = createMaterial({
   color: 0xffffff,
   flatShading: true,
+  foliage: true,
 });
 export var deadTreeMat = createMaterial({color: 0x8d6e63, flatShading: true});
 
@@ -1231,7 +1232,11 @@ function createBushGeometry() {
   return geom;
 }
 export var bushGeo = createBushGeometry();
-export var bushBaseMat = createMaterial({color: 0xffffff, flatShading: true}); // For instance coloring
+export var bushBaseMat = createMaterial({
+  color: 0xffffff,
+  flatShading: true,
+  foliage: true,
+}); // For instance coloring
 
 // Snowman geometries and materials
 function createSnowmanGeometry() {

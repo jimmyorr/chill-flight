@@ -383,7 +383,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`cloudMood`**: Force the day's cloud mood instead of the one `seed` and `clock` pick: `fair`, `mixed`, `mackerel`, `high` or `busy` (see the clouds description above).
 - **`seed`**: Integer world seed for procedural terrain generation.
 - **`theme`**: The visual theme to load (e.g., `standard`).
-- **`style`**: `anime` or `classic`, overriding the art style chosen in Settings. The anime style (work in progress) has smooth shading, stepped light with lavender shadows, no near-black colors, painterly warm and cool washes in the greens, a gentle color grade, ink outlines, two-tone clouds, a soft brushstroke filter (not on the low preset) and a watercolor-paper grain (`art-style.js`, `outline-pass.js`). Off in VR.
+- **`style`**: `anime` or `classic`, overriding the art style chosen in Settings. The anime style (work in progress) has smooth shading, stepped light with lavender shadows, no near-black colors, painterly warm and cool washes in the greens, leafy clumps with lavender gaps in tree canopies and bushes, a gentle color grade, ink outlines, two-tone clouds, a soft brushstroke filter (not on the low preset) and a watercolor-paper grain (`art-style.js`, `outline-pass.js`). Off in VR.
 - **`outline`**: With `style=anime`, set to `0` to turn off the ink outlines.
 - **`cloudStyle`**: With `style=anime`, set to `classic` to keep the classic clouds instead of the anime ones (bigger, rounder, crisp-edged and two-toned).
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
