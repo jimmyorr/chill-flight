@@ -1046,8 +1046,7 @@ function updateDayNightCycle(delta) {
   state.currentLatRad = (state.currentLatDeg * Math.PI) / 180;
 
   state.currentWarpedProgress = ChillFlightLogic.computeTimeOfDay(
-    state.secondsInCycle,
-    state.currentLatRad
+    state.secondsInCycle
   );
   state.timeOfDay = state.currentWarpedProgress * Math.PI * 2;
 

@@ -549,59 +549,51 @@ export const ChillFlightLogic = {};
       : null;
 
   // --- DAY / NIGHT WARP ---
-  // Maps raw cycle progress (unwarped_p) [0,1) to a warped time-of-day (warped_p) [0,1).
-  // This causes the sun to linger during sunrise/sunset and rush through the night.
-  //
-  // Knot table format: [unwarped_p, warped_p]
-  // Time acceleration/deceleration is determined by the mathematical slope (dw / dp):
-  //   slope > 1.0 → sun moves FASTER than real-time (e.g., night passes quickly)
-  //   slope < 1.0 → sun moves SLOWER than real-time (e.g., lingers during golden hour)
-  //
-  // Visual horizon crossing occurs at warped_p 0.25 (6:00 AM) and 0.75 (6:00 PM).
-  // We configure the "horizon zones" to have a gentle slope (0.50x) so the sunset
-  // is fully enjoyed before the speedup occurs.
-  //
-  // How the 6-minute (360s) cycle breaks down in real-time:
-  //   - Sunset Lingering Horizon (4:00pm - 8:30pm): Lasts exactly 120s (2 minutes).
-  //   - Ultra-fast Night (8:30pm - 3:30am): Sprints through the night in exactly 30s.
-  //   - Sunrise Lingering Horizon (3:30am - 8:00am): Lasts exactly 120s (2 minutes).
-  //   - Daylight (8:00am - 4:00pm): Sails through midday in exactly 90s.
-  //
-  function computeTimeOfDay(secondsInCycle, latInRadians = 0.71) {
+  // Maps raw cycle progress [0,1) to a warped time of day [0,1) (0 midnight,
+  // 0.5 noon), so the 6-minute (360 s) day spends its time where the sky is
+  // most beautiful. The day is split into phases by sun height (sunY, the sine
+  // of its elevation; see flight-camera.js), each given a share of real time:
+  //   night            sunY < -0.5        23 s each side of midnight
+  //   twilight glow    -0.5 to -0.1       40 s at dawn, 40 s at dusk
+  //   peak color       -0.1 to 0.1        45 s each (gold and pink sky,
+  //                                       belt of Venus, cloud afterglow)
+  //   golden light     0.1 to 0.4         25 s each
+  //   full day         above 0.4          95 s
+  // Within a phase the sun moves at a constant speed. Linear segments avoid
+  // the phantom pauses an S-curve has at its knots. The phase edges are
+  // computed for the equator (where sunrise is at 6:00) and shift by a few
+  // minutes of clock time across the map's latitudes.
+  const DAY_PHASE_SECONDS = [22.5, 40, 45, 25, 95];
+  const DAY_PHASE_SUN_Y = [-0.5, -0.1, 0.1, 0.4];
+  const SUN_DECLINATION = 0.409; // flight-camera.js
+  const DAY_WARP_KNOTS = (() => {
+    // The time of day (0-0.5, morning) at which the sun reaches height y
+    const timeAtSunY = (y) =>
+      Math.acos(-y / Math.cos(SUN_DECLINATION)) / (2 * Math.PI);
+    const knots = [[0, 0]];
+    let seconds = 0;
+    DAY_PHASE_SUN_Y.forEach((y, i) => {
+      seconds += DAY_PHASE_SECONDS[i];
+      knots.push([seconds / 360, timeAtSunY(y)]);
+    });
+    knots.push([0.5, 0.5]);
+    // The afternoon mirrors the morning
+    for (let i = knots.length - 2; i >= 0; i--) {
+      knots.push([1 - knots[i][0], 1 - knots[i][1]]);
+    }
+    return knots;
+  })();
+
+  function computeTimeOfDay(secondsInCycle) {
     const CYCLE_DURATION_S = 360;
     const p = (secondsInCycle % CYCLE_DURATION_S) / CYCLE_DURATION_S;
-
-    // [unwarped_p, warped_p] — edit warped_p to tune feel.
-    // warped_p maps strictly to a 24-hour clock (e.g., 0.5 = 12:00 PM, 0.7 = 4:48 PM)
-    const knots = [
-      // midnight
-      [0.0, 0.0],
-      // end of night        →  3:30 AM  (Slope 3.50x)  [Lasts 15.0s]
-      [0.0417, 0.1458],
-      // horizon zone ends   →  8:00 AM  (Slope 0.56x)  [Lasts 120.0s]
-      [0.375, 0.3333],
-      // solar noon          → 12:00 PM  (Slope 1.33x)  [Lasts 45.0s]
-      [0.5, 0.5],
-      // horizon zone starts →  4:00 PM  (Slope 1.33x)  [Lasts 45.0s]
-      [0.625, 0.6667],
-      // night begins        →  8:30 PM  (Slope 0.56x)  [Lasts 120.0s]
-      [0.9583, 0.8542],
-      // midnight            → 12:00 AM  (Slope 3.50x)  [Lasts 15.0s]
-      [1.0, 1.0],
-    ];
-
-    for (let i = 0; i < knots.length - 1; i++) {
-      const [p0, w0] = knots[i];
-      const [p1, w1] = knots[i + 1];
+    for (let i = 0; i < DAY_WARP_KNOTS.length - 1; i++) {
+      const [p0, w0] = DAY_WARP_KNOTS[i];
+      const [p1, w1] = DAY_WARP_KNOTS[i + 1];
       if (p >= p0 && p <= p1) {
-        const t = (p - p0) / (p1 - p0);
-        // Linear interpolation: constant velocity within each segment.
-        // Avoids the S-curve double-zero-velocity at knot boundaries
-        // that caused phantom pauses (e.g. at 14:30 and 00:00).
-        return w0 + t * (w1 - w0);
+        return w0 + ((p - p0) / (p1 - p0)) * (w1 - w0);
       }
     }
-
     return p; // fallback (should never reach here)
   }
 
