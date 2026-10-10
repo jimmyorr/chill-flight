@@ -13,6 +13,12 @@ export const ART_STYLE =
 // Smooth shading for materials that would otherwise be flat-shaded
 export const ART_SMOOTH = ART_STYLE === 'anime';
 
+// Anime clouds (bigger, rounder, crisp-edged and two-toned; constants.js and
+// sky.frag.glsl), unless ?cloudStyle=classic keeps the classic clouds
+export const ART_CLOUDS =
+  ART_STYLE === 'anime' &&
+  ChillFlightLogic.urlParams.get('cloudStyle') !== 'classic';
+
 function patch(chunkName, from, to) {
   const chunk = THREE.ShaderChunk[chunkName];
   if (!chunk.includes(from)) {

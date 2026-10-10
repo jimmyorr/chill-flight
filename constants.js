@@ -3,7 +3,7 @@
 // live in state.js instead.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {ART_SMOOTH} from './art-style.js';
+import {ART_CLOUDS, ART_SMOOTH} from './art-style.js';
 import {state} from './state.js';
 
 // Terrain parameters
@@ -183,7 +183,11 @@ export const moonlightUniforms = {
 // GLSL: the cloud layers' noise and lighting, shared by the sky dome and the
 // water's reflection of it, so reflected clouds line up with and match the
 // real ones. Declares uNoiseTex (the sky's noise texture) and moonlightUniforms.
-export const CLOUD_GLSL = `
+// ANIME_SKY (anime art style) switches the sky and its water reflections to
+// bigger, rounder clouds with crisp edges and two tones.
+export const CLOUD_GLSL =
+  (ART_CLOUDS ? '#define ANIME_SKY\n' : '') +
+  `
 uniform sampler2D uNoiseTex;
 uniform vec3 uMoonDir;
 uniform float uMoonBright;
@@ -247,6 +251,11 @@ vec2 windAligned(vec2 uv) {
 // edges curl into billows, and (with detail > 0) finer noise breaking up the
 // edges. Returns the density; q is the warped position, for lighting.
 float cumulusShape(vec2 uv, float detail, out vec2 q) {
+#ifdef ANIME_SKY
+  // Bigger, rounder billows without fine ragged detail
+  uv *= 0.6;
+  detail = 0.0;
+#endif
   vec2 w = vec2(fbmMacro(uv * 0.6 + vec2(3.1, 7.7)),
                 fbmMacro(uv * 0.6 + vec2(8.3, 1.9))) - 0.48;
   q = uv + w * 0.9;

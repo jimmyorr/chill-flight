@@ -124,6 +124,10 @@
                 float closeness = 1.0 - smoothstep(1200.0, 4000.0, t);
                 float edgeStart = 0.42 - densityOffset - uCloudCover;
                 float edgeWidth = mix(0.16, 0.32, closeness);
+#ifdef ANIME_SKY
+                // Crisp, cut-paper edges
+                edgeWidth *= 0.5;
+#endif
                 float alphaLow = smoothstep(edgeStart, edgeStart + edgeWidth, nLow)
                                * horizonFade * uCloudTypes.x;
                 
@@ -142,7 +146,13 @@
                     float thinEdge = 1.0 - smoothstep(edgeStart, edgeStart + edgeWidth * 1.5, nLow);
                     lightFactorLow = mix(lightFactorLow, 1.0, thinEdge * 0.75 * (1.0 - storm * 0.7));
                     
+#ifdef ANIME_SKY
+                    // Two tones: lit and a lavender shade
+                    lightFactorLow = mix(0.35, 1.0, smoothstep(0.5, 0.65, lightFactorLow));
+                    vec3 cloudColorLow = mix(shadowColor * vec3(0.94, 0.88, 1.1), brightEdgeColor, lightFactorLow);
+#else
                     vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, lightFactorLow);
+#endif
                     cloudColorLow += bottomColor * sunRim * litEdgeLow * 2.0;
                     col = mix(col, cloudColorLow, alphaLow * 0.92);
                 }
@@ -186,7 +196,13 @@
             // Elevation-based threshold: 
             // Thick and solid near the horizon (h=0), becoming sparse and puffy at the top
             float shapeThreshold = 0.30 - densityOffset + max(0.0, h) * 1.5;
-            float alphaHorizon = smoothstep(shapeThreshold, shapeThreshold + 0.25, nHorizon) * vFade;
+#ifdef ANIME_SKY
+            // Crisp, cut-paper edges
+            float horizonEdge = 0.07;
+#else
+            float horizonEdge = 0.25;
+#endif
+            float alphaHorizon = smoothstep(shapeThreshold, shapeThreshold + horizonEdge, nHorizon) * vFade;
             
             if (alphaHorizon > 0.0) {
                 float stormDimming = 1.0 - uCloudDensity * 0.6;
@@ -228,7 +244,13 @@
                 float lightFactorHorizon = mix(0.4, 1.0, litEdgeHorizon);
                 lightFactorHorizon = mix(0.5, lightFactorHorizon, mix(1.0, 0.65, uCloudDensity));
                 
+#ifdef ANIME_SKY
+                // Two tones: lit and a lavender shade
+                lightFactorHorizon = mix(0.3, 1.0, smoothstep(0.55, 0.62, lightFactorHorizon));
+                vec3 cloudColorHorizon = mix(shadowColor * vec3(0.94, 0.88, 1.1), brightEdgeColor, lightFactorHorizon);
+#else
                 vec3 cloudColorHorizon = mix(shadowColor, brightEdgeColor, lightFactorHorizon);
+#endif
                 
                 float sunRimHorizon = pow(sunIntensity, 16.0) * litEdgeHorizon * stormDimming;
                 cloudColorHorizon += bottomColor * sunRimHorizon * 2.0;

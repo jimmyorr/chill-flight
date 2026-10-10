@@ -383,8 +383,9 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`cloudMood`**: Force the day's cloud mood instead of the one `seed` and `clock` pick: `fair`, `mixed`, `mackerel`, `high` or `busy` (see the clouds description above).
 - **`seed`**: Integer world seed for procedural terrain generation.
 - **`theme`**: The visual theme to load (e.g., `standard`).
-- **`style`**: Set to `anime` for the work-in-progress anime art style: smooth shading, stepped light with lavender shadows, a gentle color grade and ink outlines (`art-style.js`, `outline-pass.js`). Off in VR.
+- **`style`**: Set to `anime` for the work-in-progress anime art style: smooth shading, stepped light with lavender shadows, no near-black colors, a gentle color grade, ink outlines and two-tone clouds (`art-style.js`, `outline-pass.js`). Off in VR.
 - **`outline`**: With `style=anime`, set to `0` to turn off the ink outlines.
+- **`cloudStyle`**: With `style=anime`, set to `classic` to keep the classic clouds instead of the anime ones (bigger, rounder, crisp-edged and two-toned).
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
 - **`cloud`** (or **`clouds`**, **`cloudCover`**, **`overcast`**): Cloud cover density or mode (options: `auto` for procedural weather noise, `none` or `false` to disable clouds, `clear` for 0.0, `scattered` for 0.3, `broken` for 0.6, `overcast` for 1.0, or any float between `0.0` and `1.0`).
 - **`cloudHeight`** (or **`cloudAlt`**): Altitude in meters/units for the procedural cloud deck (default `3000`).
