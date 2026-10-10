@@ -313,6 +313,37 @@ The game features automatic graphics preset detection that evaluates your device
 
 _Note: Full visual effects include real-time shadows, transparent water and clouds, and procedural sky clouds. The low preset disables these to minimize overdraw and maximize frame rate on lower-end devices._
 
+### Art style
+
+Besides the classic look, the game has an anime style inspired by Studio Ghibli backgrounds: painterly light and color, ink outlines, soft brushwork and big puffy clouds. Choose it on the pause menu's Settings tab (**Art style**: classic or anime). The choice is saved on the device, and changing it restarts the game, since the style is set up as the game loads. The `style` URL parameter (`anime` or `classic`) overrides the saved choice. The classic look is the default and doesn't change at all with the anime style off.
+
+What the anime style changes:
+
+- **Light and color** (`art-style.js`): smooth shading instead of flat facets; sun and moon light in three soft steps, like cel shading with soft edges; lavender shadows instead of grey; slightly warmer light and fewer plastic highlights; no near-black colors; a gentle color grade.
+- **Land and trees** (`terrain-geometry.js`, `constants.js`): grass and other vegetation drift between warm yellow-green and cool blue-green in broad washes, with smaller lighter and darker patches like uneven paint (fading out before the distant terrain ring). Tree canopies and bushes break into leafy clumps with lavender gaps, anchored to each tree so they sway with the leaves.
+- **Sky** (`CLOUD_GLSL`, `TOWER_GLSL` in `constants.js`; `src/shaders/sky.frag.glsl`): cumulus are bigger and rounder, with crisp edges and two tones (lit and a lavender shade); the mackerel sky's puffs become crisp "sheep clouds" with a lavender rim away from the sun; and on cumulus days, towering clouds of stacked round puffs rise from the horizon, with bright rims on their tops and sunward sides and bases that dissolve into the haze. The moon hides behind them. Water reflects the anime cumulus (not the towers). `cloudStyle=classic` keeps the classic clouds (and no towers) with the rest of the anime style.
+- **Water**: light painted strokes ride the wave crests and drift with the swell, faded out in the distance. The depth gradient from turquoise shallows to deep blue is the same as classic.
+- **Screen effects** (`outline-pass.js`): the scene renders into an offscreen target with a depth texture, then one full-screen pass adds, in order: a Kuwahara brushstroke filter that softens detail into daubs of paint; ink outlines where depth breaks (silhouettes and ridges against what's behind them), thinning with distance and fading with the fog (`outline=0` turns them off); an aerial-perspective haze that fades distant land into soft layers of the horizon's color; and a watercolor-paper grain. On high and ultra, an FXAA pass then smooths jagged edges.
+
+Differences by preset and mode:
+
+|                                  | Low                        | Mid | High / Ultra | VR  |
+| :------------------------------- | :------------------------- | :-- | :----------- | :-- |
+| Light, color, land, trees, water | Yes                        | Yes | Yes          | Yes |
+| Anime clouds and horizon towers  | No (low has no sky clouds) | Yes | Yes          | Yes |
+| Ink outlines, haze, paper grain  | Yes                        | Yes | Yes          | No  |
+| Brushstroke (Kuwahara) filter    | No                         | Yes | Yes          | No  |
+| FXAA edge smoothing              | No                         | No  | Yes          | No  |
+
+Cost: on an M1 MacBook Air at the mid preset, the anime style takes about 12.9 ms of GPU time per frame against 9.3 ms for classic (+39%, over `npm run bench`'s four views), still inside a 60 fps frame. The biggest parts are the brushstroke filter (about 1.5 ms) and the horizon towers (about 1 ms, up to 3.5 ms when they fill the horizon). The offscreen target isn't multisampled: antialiasing it cost about 3 ms. `QUERY=style=anime npm run bench` times the anime style.
+
+How it's built:
+
+- **`art-style.js`** reads the choice (`ART_STYLE`, `ART_CLOUDS`) and, for the anime style, patches three.js's shared lighting shader chunks once at load, so every lit material picks up the light and color changes without per-material code. It also wires the Settings select.
+- **`createMaterial()`** (`constants.js`) turns off flat shading for the anime style; materials created with `foliage: true` get the leafy clumps (with their own shader cache key, since every `createMaterial()` hook shares one source text).
+- **`ANIME_SKY`** (prepended to `CLOUD_GLSL`) and **`ANIME_TOWERS`** (`TOWER_GLSL`, shared by the sky and the moon so both agree where the towers are) switch the sky shaders; **`ANIME_TERRAIN`** and **`ANIME_WATER`** are added to the terrain and water shaders.
+- **`renderFrame()`** (`outline-pass.js`) replaces the game loop's `renderer.render()`; it renders straight to the screen for the classic style and in VR.
+
 ### Dynamic performance scaling
 
 In addition to static presets, the game includes a runtime `DynamicPerformanceMonitor` that continuously tracks a 30-frame rolling average frame time and smoothly adjusts multiple graphics subsystems in tandem.
@@ -383,9 +414,9 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`cloudMood`**: Force the day's cloud mood instead of the one `seed` and `clock` pick: `fair`, `mixed`, `mackerel`, `high` or `busy` (see the clouds description above).
 - **`seed`**: Integer world seed for procedural terrain generation.
 - **`theme`**: The visual theme to load (e.g., `standard`).
-- **`style`**: `anime` or `classic`, overriding the art style chosen in Settings. The anime style (work in progress) has smooth shading, stepped light with lavender shadows, no near-black colors, painterly warm and cool washes in the greens, leafy clumps with lavender gaps in tree canopies and bushes, painted wave strokes on the water, a gentle color grade, ink outlines, distant land fading into soft layers of haze, two-tone clouds, towering puffy cumulus along the horizon, a soft brushstroke filter (not on the low preset), a watercolor-paper grain and, on the high and ultra presets, smoothed jagged edges (FXAA) (`art-style.js`, `outline-pass.js`). Off in VR.
-- **`outline`**: With `style=anime`, set to `0` to turn off the ink outlines.
-- **`cloudStyle`**: With `style=anime`, set to `classic` to keep the classic clouds instead of the anime ones (bigger, rounder, crisp-edged and two-toned).
+- **`style`**: `anime` or `classic`, overriding the art style chosen in Settings (see [Art style](#art-style)).
+- **`outline`**: With the anime style, set to `0` to turn off the ink outlines.
+- **`cloudStyle`**: With the anime style, set to `classic` to keep the classic clouds (and no horizon towers) instead of the anime ones.
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
 - **`cloud`** (or **`clouds`**, **`cloudCover`**, **`overcast`**): Cloud cover density or mode (options: `auto` for procedural weather noise, `none` or `false` to disable clouds, `clear` for 0.0, `scattered` for 0.3, `broken` for 0.6, `overcast` for 1.0, or any float between `0.0` and `1.0`).
 - **`cloudHeight`** (or **`cloudAlt`**): Altitude in meters/units for the procedural cloud deck (default `3000`).
