@@ -8,6 +8,7 @@
  *  2. Continuous frozen north pack ice shelf (no vertical open-water tears)
  *  3. Continuous eastern alien biome (no periodic road-trench slices)
  *  4. Strict west-only boundaries for highway canyon carving (X < 0)
+ *  5. Flat, dry airfields on any seed
  */
 
 import fs from 'fs';
@@ -256,6 +257,42 @@ console.log('  Passed: Snow cover rises gradually to the north');
   simplex.seed(20260101);
 }
 console.log('  Passed: The first mountain ranges north and south always rise');
+
+// --- AIRPORTS: FLAT RUNWAYS ON ANY SEED ---
+// The ground under each runway is flat at the field height, above the water,
+// whatever the land around it is like.
+{
+  const water = constants.WATER_LEVEL;
+  for (const seed of [1, 42, 20260101, 20260928, 99999]) {
+    simplex.seed(seed);
+    for (const a of ChillFlightLogic.AIRPORTS) {
+      let min = Infinity;
+      let max = -Infinity;
+      for (let u = -400; u <= 400; u += 40) {
+        for (let v = -60; v <= 110; v += 17) {
+          const c = Math.cos(a.angle);
+          const sn = Math.sin(a.angle);
+          const h = ChillFlightLogic.getElevation(
+            a.x + u * c - v * sn,
+            a.z + u * sn + v * c,
+            simplex,
+            constants
+          );
+          min = Math.min(min, h);
+          max = Math.max(max, h);
+        }
+      }
+      if (max - min > 0.5 || min < water + 10) {
+        console.error(
+          `FAIL: seed ${seed}, ${a.name} isn't flat and dry (ground ${min.toFixed(1)} to ${max.toFixed(1)})`
+        );
+        process.exit(1);
+      }
+    }
+  }
+  simplex.seed(20260101);
+}
+console.log('  Passed: Every airport is flat and above the water on any seed');
 
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

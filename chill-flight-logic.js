@@ -760,6 +760,72 @@ export const ChillFlightLogic = {};
   // --- ELEVATION ---
   // Returns the terrain height (always >= WATER_LEVEL) for a given world (x, z) position.
   // Requires a simplex noise object and a constants object { WATER_LEVEL, MOUNTAIN_LEVEL }.
+  // --- AIRPORTS ---
+  // A few fixed airfields, rare landmarks like the volcano and the
+  // lighthouse (marked on the map). Each is a runway along \`angle\`
+  // (radians from +X toward +Z) with the tower and hangar to its +v side.
+  const AIRPORTS = [
+    {name: 'Meadow Field', x: 1500, z: 2400, angle: 0},
+    {name: 'Mesa Field', x: -4800, z: 16200, angle: Math.PI / 4},
+    {name: 'Pinewood Field', x: -4000, z: -17200, angle: 0},
+    {name: 'Lagoon Field', x: 5000, z: 4800, angle: (3 * Math.PI) / 4},
+  ];
+  const RUNWAY_LENGTH = 800;
+  const RUNWAY_WIDTH = 40;
+  // The flat field around the runway (half sizes along and across it)
+  const AIRFIELD_HALF_LENGTH = 470;
+  const AIRFIELD_HALF_WIDTH = 120;
+  const AIRPORT_FALLOFF = 380;
+
+  // How far (x, z) is outside an airport's flat field (0 inside), and its
+  // position in the airport's frame: u along the runway, v across it
+  function airportLocal(a, x, z) {
+    const dx = x - a.x;
+    const dz = z - a.z;
+    const c = Math.cos(a.angle);
+    const sn = Math.sin(a.angle);
+    return {u: dx * c + dz * sn, v: -dx * sn + dz * c};
+  }
+  function airportDistance(a, x, z) {
+    if (Math.abs(x - a.x) > 1200 || Math.abs(z - a.z) > 1200) return 1e9;
+    const {u, v} = airportLocal(a, x, z);
+    const du = Math.max(0, Math.abs(u) - AIRFIELD_HALF_LENGTH);
+    const dv = Math.max(0, Math.abs(v) - AIRFIELD_HALF_WIDTH);
+    return Math.sqrt(du * du + dv * dv);
+  }
+  // The airfield's height: the natural ground at its center, kept above the
+  // water and below the high hills. Cached per noise, keyed by a sample of
+  // it (reseeding changes the same noise object). null while it's being
+  // worked out: getElevation calls itself (the highway's centerline), and
+  // those calls skip the airports instead of recursing.
+  const _airportHeights = new WeakMap();
+  function airportFieldHeight(i, simplex, constants, lerp) {
+    const signature = simplex.noise2D(0.123, 0.456);
+    let cache = _airportHeights.get(simplex);
+    if (!cache || cache.signature !== signature) {
+      cache = {signature, heights: []};
+      _airportHeights.set(simplex, cache);
+    }
+    const heights = cache.heights;
+    if (heights[i] === undefined) {
+      heights[i] = null;
+      const a = AIRPORTS[i];
+      const natural = getElevation(a.x, a.z, simplex, constants, lerp, {
+        ignoreAirports: true,
+      });
+      const water = constants.WATER_LEVEL || 40;
+      heights[i] = Math.min(220, Math.max(water + 15, natural));
+    }
+    return heights[i];
+  }
+  // Whether (x, z) is on an airfield, plus margin: props stay off it
+  function isOnAirport(x, z, margin = 0) {
+    for (let i = 0; i < AIRPORTS.length; i++) {
+      if (airportDistance(AIRPORTS[i], x, z) <= margin) return true;
+    }
+    return false;
+  }
+
   function getElevation(x, z, simplex, constants, lerp, options = {}) {
     const WATER_LEVEL = constants.WATER_LEVEL || 40;
 
@@ -2396,6 +2462,23 @@ export const ChillFlightLogic = {};
       n = Math.max(n, WATER_LEVEL + 20 * irregularFactor);
     }
 
+    // Airports: the ground inside each airfield is flat at its field height,
+    // easing into the surrounding land over AIRPORT_FALLOFF (an island
+    // where the field is over water, a plateau where it cuts into hills).
+    // Last, so no other pass undoes it.
+    if (!options.ignoreAirports) {
+      for (let i = 0; i < AIRPORTS.length; i++) {
+        const dist = airportDistance(AIRPORTS[i], origX, origZ);
+        if (dist < AIRPORT_FALLOFF) {
+          const h = airportFieldHeight(i, simplex, constants, _lerp);
+          if (h !== null) {
+            const t = 1 - dist / AIRPORT_FALLOFF;
+            n = _lerp(n, h, t * t * (3 - 2 * t));
+          }
+        }
+      }
+    }
+
     return n;
   }
 
@@ -2580,6 +2663,11 @@ export const ChillFlightLogic = {};
   exports.getElevation = getElevation;
   exports.getRiverCenterZ = getRiverCenterZ;
   exports.getRoadCenterX = getRoadCenterX;
+  exports.AIRPORTS = AIRPORTS;
+  exports.RUNWAY_LENGTH = RUNWAY_LENGTH;
+  exports.RUNWAY_WIDTH = RUNWAY_WIDTH;
+  exports.airportLocal = airportLocal;
+  exports.isOnAirport = isOnAirport;
   exports.getRoadFactor = getRoadFactor;
   exports.ROAD_BASE_X = ROAD_BASE_X;
   exports.ROAD_SPACING = ROAD_SPACING;

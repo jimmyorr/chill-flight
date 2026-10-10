@@ -233,6 +233,15 @@
       <button class="model-btn" onclick="viewModel('rock_arch_grass', event)">
         Rock arch (Grass)
       </button>
+      <button class="model-btn" onclick="viewModel('control_tower', event)">
+        Control tower
+      </button>
+      <button class="model-btn" onclick="viewModel('hangar', event)">
+        Hangar
+      </button>
+      <button class="model-btn" onclick="viewModel('windsock', event)">
+        Windsock
+      </button>
       <button class="model-btn" onclick="viewModel('lighthouse', event)">
         Lighthouse
       </button>
@@ -336,6 +345,11 @@
       import {ChillFlightLogic} from '../chill-flight-logic.js';
       import {createMaterial} from '../constants.js';
       import {createBiplaneModel} from '../biplane.js';
+      import {
+        createControlTower,
+        createHangar,
+        createWindsock,
+      } from '../airports.js';
       import {createGliderModel} from '../glider.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
       import {
@@ -555,6 +569,16 @@
               previewGroup.add(ap);
               break;
             }
+
+            case 'control_tower':
+              previewGroup.add(createControlTower());
+              break;
+            case 'hangar':
+              previewGroup.add(createHangar());
+              break;
+            case 'windsock':
+              previewGroup.add(createWindsock());
+              break;
 
             case 'biplane': {
               const colors =

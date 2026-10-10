@@ -64,6 +64,14 @@ import {Achievements} from './achievements.js';
       color: '#2ecc71', // lush emerald green
       symbol: '∩',
     },
+    // The airports (chill-flight-logic.js)
+    ...ChillFlightLogic.AIRPORTS.map((a) => ({
+      name: a.name,
+      x: a.x,
+      z: a.z,
+      color: '#f1c40f', // runway-light amber
+      symbol: '✈',
+    })),
   ];
 
   // Region colors over the height colors, for land: the snowy north, the

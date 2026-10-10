@@ -1005,7 +1005,10 @@ export function generateChunkData({
     const distToVolcano = Math.sqrt(
       (worldX - VOLCANO_X) ** 2 + (worldZ - VOLCANO_Z) ** 2
     );
-    const isOnRoad = ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0;
+    // Props stay off the road surface and the airfields (with a margin)
+    const isOnRoad =
+      ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0 ||
+      ChillFlightLogic.isOnAirport(worldX, worldZ, 40);
     const isAlienVegetationLand =
       isAlienLand &&
       height > WATER_LEVEL + 2.0 &&
