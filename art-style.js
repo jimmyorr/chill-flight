@@ -2,8 +2,8 @@
 // Opt-in anime / painterly look (?style=anime). Patches three.js's shared
 // lighting shader chunks once at load, so every lit material picks it up:
 // smooth shading, sun and moon light in three soft steps, lavender (not grey)
-// shadows, no near-black colors, fewer plastic highlights and a gentle color
-// grade. The classic look is untouched.
+// shadows, no near-black or blown-out white colors, fewer plastic highlights
+// and a gentle color grade. The classic look is untouched.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
@@ -91,6 +91,10 @@ if (ART_STYLE === 'anime') {
   THREE.ShaderChunk.color_fragment += `
     diffuseColor.rgb += 0.15 * vec3(0.9, 0.9, 1.1)
       * (1.0 - diffuseColor.rgb) * (1.0 - diffuseColor.rgb);
+    // Near-white surfaces start a little darker, so they keep their shading
+    // in full sun instead of saturating to flat white (white paint at noon)
+    diffuseColor.rgb *= mix(1.0, 0.75, smoothstep(0.75, 0.95,
+      min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b))));
   `;
   patch(
     'opaque_fragment',
