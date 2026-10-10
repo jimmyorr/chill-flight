@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {log} from './logger.js';
 import {ART_STYLE} from './art-style.js';
-import {CLOUD_GLSL, SKY_COLOR_GLSL} from './constants.js';
+import {CLOUD_GLSL, SKY_COLOR_GLSL, TOWER_GLSL} from './constants.js';
 import {scene} from './scene.js';
 import skyVertexShader from './src/shaders/sky.vert.glsl?raw';
 import skyFragmentShader from './src/shaders/sky.frag.glsl?raw';
@@ -267,7 +267,7 @@ updateSkyPalette(ChillFlightLogic.START_CLOCK ?? Date.now());
 
 const skyMat = new THREE.ShaderMaterial({
   vertexShader: skyVertexShader,
-  fragmentShader: SKY_COLOR_GLSL + CLOUD_GLSL + skyFragmentShader,
+  fragmentShader: SKY_COLOR_GLSL + CLOUD_GLSL + TOWER_GLSL + skyFragmentShader,
   uniforms: skyUniforms,
   side: THREE.BackSide,
   depthWrite: false, // Don't block stars/celestials
@@ -395,6 +395,11 @@ export const moonUniforms = {
   uCloudDensity: {value: 0.5},
   uMoonSkyDir: {value: new THREE.Vector3(0, 0.2, -1)},
   uCameraPos: {value: new THREE.Vector3()},
+  // For hiding behind the anime style's horizon towers (TOWER_GLSL)
+  uCloudTypes: skyUniforms.uCloudTypes,
+  uCloudCover: skyUniforms.uCloudCover,
+  uShowClouds: skyUniforms.uShowClouds,
+  offset: skyUniforms.offset,
 };
 
 // Note: The physical sun mesh and glow plane geometries/materials have been removed
@@ -407,7 +412,7 @@ skyGroup.add(sunMesh);
 const moonGeo = new THREE.SphereGeometry(120, 32, 32);
 const moonMat = new THREE.ShaderMaterial({
   vertexShader: sunMoonVertShader,
-  fragmentShader: moonFragShader,
+  fragmentShader: TOWER_GLSL + moonFragShader,
   uniforms: moonUniforms,
   transparent: true,
   // In the anime style the outline pass inks breaks in the depth buffer, so

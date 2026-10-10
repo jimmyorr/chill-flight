@@ -278,27 +278,12 @@
             }
         }
 
-#ifdef ANIME_SKY
-        // --- TOWERING CUMULUS (anime style) ---
-        // Tall clouds built from stacked round puffs, rising from the horizon
-        // in some directions, like the backdrops of a Ghibli sky: lavender
-        // bodies with bright rims along their tops and sunward sides, and
-        // bases that dissolve into the horizon haze. The horizon is split
-        // into 48 slices (a whole number, so there's no seam where the angle
-        // wraps); each slice in a tower region holds a big base puff, a
-        // smaller one on top, one bulging to the side and a column below.
-        // (No tower reaches above about 1.9 base-puff radii, 0.3 * TOWER_SCALE)
-        if (uShowClouds && uCloudTypes.x > 0.0 && h > -0.12 && h < 0.3 * TOWER_SCALE) {
-            const float SLICES = 48.0;
-            const float SLICE_W = 6.2831853 / SLICES; // a slice's width in h units
-            float x = (atan(dir.x, dir.z) / 6.2831853 + 0.5) * SLICES;
-            float y = h / SLICE_W;
-            float towerStart = TOWER_THRESHOLD - uCloudTypes.x * 0.06 - uCloudCover;
-            // The tower field changes slowly around the compass, so well
-            // below its threshold here, there are no towers within the
-            // slices tested below either
+#ifdef ANIME_TOWERS
+        // --- TOWERING CUMULUS (anime style; shapes in TOWER_GLSL) ---
+        // Lavender bodies with bright rims along their tops and sunward
+        // sides, like the backdrops of a Ghibli sky
+        if (uShowClouds) {
             vec2 azHere = normalize(dir.xz + vec2(1e-5));
-            if (fbmMacro(azHere * 2.2 + vec2(11.0, 3.0)) > towerStart - 0.12) {
             vec2 sunAz = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
             // The light's direction across the sky here: up, tipped toward
             // whichever side the sun is on
@@ -307,51 +292,10 @@
             // A point is lit when a step toward the light leaves the cloud: a
             // bright band along the tops and sunward sides of the whole
             // outline (shading each puff separately would notch the inside)
-            vec2 toward = lightDir * 0.7;
-            float best = 1e9;        // signed distance to the cloud's edge (in slices)
-            float bestToward = 1e9;  // ...at the point a step toward the light
-            for (int k = -2; k <= 2; k++) {
-                float c = mod(floor(x) + float(k), SLICES);
-                float ca = (c + 0.5) / SLICES * 6.2831853 - 3.14159265;
-                vec2 caz = vec2(sin(ca), cos(ca));
-                float amt = smoothstep(towerStart, towerStart + 0.14,
-                                       fbmMacro(caz * 2.2 + vec2(11.0, 3.0)));
-                if (amt <= 0.0) continue;
-                float r1 = fract(sin(c * 12.9898) * 43758.5453);
-                float r2 = fract(sin(c * 78.233) * 43758.5453);
-                float r3 = fract(sin(c * 37.719) * 43758.5453);
-                // Puff sizes vary a lot from slice to slice
-                amt *= mix(0.55, 1.0, r2);
-                // Distance in slices, wrapped around the circle
-                float cx = floor(x) + float(k) + 0.5 + (r1 - 0.5) * 0.7;
-                float dx = x - cx;
-                float rad1 = (0.55 + 0.6 * r2) * amt * TOWER_SCALE;
-                // The base puff is widest near the horizon, so little of the
-                // straight-sided column below it shows
-                float cy1 = rad1 * 0.15;
-                float rad2 = rad1 * (0.5 + 0.3 * r3);
-                float cy2 = cy1 + rad1 * 0.9;
-                float cx2 = (r3 - 0.5) * rad1 * 0.6;
-                // A third puff bulging out to one side
-                float rad3 = rad1 * 0.55;
-                float cx3 = (r1 < 0.5 ? -0.75 : 0.75) * rad1;
-                float cy3 = cy1 + rad1 * 0.45;
-                // Two puffs and the column below the base one
-                best = min(best, min(min(min(
-                    length(vec2(dx, y - cy1)) - rad1,
-                    length(vec2(dx - cx2, y - cy2)) - rad2),
-                    length(vec2(dx - cx3, y - cy3)) - rad3),
-                    max(abs(dx) - rad1 * 0.92, y - cy1)));
-                float tx = dx + toward.x;
-                float ty = y + toward.y;
-                bestToward = min(bestToward, min(min(min(
-                    length(vec2(tx, ty - cy1)) - rad1,
-                    length(vec2(tx - cx2, ty - cy2)) - rad2),
-                    length(vec2(tx - cx3, ty - cy3)) - rad3),
-                    max(abs(tx) - rad1 * 0.92, ty - cy1)));
-            }
-            // Bases dissolve into the horizon haze
-            float towerAlpha = (1.0 - smoothstep(-0.03, 0.0, best)) * smoothstep(-0.12, 0.04, h);
+            float bestToward;
+            float best = towerDistance(uNoiseTex, dir, uCloudTypes.x, uCloudCover,
+                                       lightDir * 0.7, bestToward);
+            float towerAlpha = towerAlphaAt(best, h);
             if (towerAlpha > 0.0) {
                 float stormDimming = 1.0 - uCloudDensity * 0.6;
                 float sunProximity = pow(sunIntensity, 3.0) * stormDimming;
@@ -366,7 +310,6 @@
                 vec3 towerColor = mix(shadowColor * vec3(0.94, 0.88, 1.1), brightEdgeColor, mix(0.6, 1.0, lit));
                 towerColor += bottomColor * pow(sunIntensity, 16.0) * stormDimming * lit * 1.5;
                 col = mix(col, towerColor, towerAlpha * 0.96);
-            }
             }
         }
 #endif

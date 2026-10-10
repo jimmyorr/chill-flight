@@ -7,6 +7,12 @@
     uniform float uCloudDensity;
     uniform vec3 uMoonSkyDir;
     uniform vec3 uCameraPos;
+    #ifdef ANIME_TOWERS
+    uniform vec3 uCloudTypes;
+    uniform float uCloudCover;
+    uniform bool uShowClouds;
+    uniform float offset;
+    #endif
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vViewPosition;
@@ -120,6 +126,19 @@
 
         // Cloud occlusion — moon fades behind clouds
         float cloudCover = getCloudCoverage();
+        #ifdef ANIME_TOWERS
+        // ...and behind the anime style's towering horizon clouds, pixel by
+        // pixel, in the sky dome's own direction for this pixel (the dome is
+        // 25000 units across, lifted by offset at the horizon)
+        if (uShowClouds) {
+            vec3 viewDirWorld = normalize((vec4(-vViewPosition, 0.0) * viewMatrix).xyz);
+            vec3 skyDir = normalize(viewDirWorld * 25000.0 + vec3(0.0, offset, 0.0));
+            float unusedToward;
+            float towerDist = towerDistance(uNoiseTex, skyDir, uCloudTypes.x, uCloudCover,
+                                            vec2(0.0), unusedToward);
+            cloudCover = max(cloudCover, towerAlphaAt(towerDist, skyDir.y) * 0.96);
+        }
+        #endif
 
         // Fade moon opacity: fully visible at night, subtle silhouette during day
         float dayFade = mix(1.0, 0.08, dayFactor);

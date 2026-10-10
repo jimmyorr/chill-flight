@@ -43,6 +43,103 @@ export const ENABLE_LIGHTHOUSES = false;
 
 export const THEME = ChillFlightLogic.THEME;
 
+// GLSL: the anime style's towering horizon clouds, shared by the sky (which
+// draws them) and the moon (which hides behind them), so both agree on
+// where they are. Tall clouds built from stacked round puffs rise from the
+// horizon in some directions. The horizon is split into 48 slices (a whole
+// number, so there's no seam where the angle wraps); each slice in a tower
+// region holds a big base puff, a smaller one on top, one bulging to the
+// side and a column below. Empty without the anime clouds.
+export const TOWER_GLSL = ART_CLOUDS
+  ? `
+#define ANIME_TOWERS
+// How often towers rise (field threshold) and how big their puffs are
+#define TOWER_THRESHOLD 0.64
+#define TOWER_SCALE 1.1
+const float TOWER_SLICES = 48.0;
+const float TOWER_SLICE_W = 6.2831853 / TOWER_SLICES; // a slice's width in h units
+
+float towerMacro(sampler2D noiseTex, vec2 st) {
+  float value = 0.0;
+  float amplitude = 0.65;
+  for (int i = 0; i < 2; i++) {
+    vec2 i2 = floor(st);
+    vec2 f = fract(st);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    value += amplitude * texture2D(noiseTex, (i2 + u + 0.5) / 256.0).r;
+    st *= 2.0;
+    amplitude *= 0.5;
+  }
+  return value;
+}
+
+// Signed distance (in slices; negative inside) from the direction dir to
+// the towers' outline, and in distToward the same at a point a step
+// \`toward\` away (for lighting). 1e9 where there are no towers nearby.
+// cumulus and cover are the sky's cumulus amount and cloud cover.
+float towerDistance(sampler2D noiseTex, vec3 dir, float cumulus, float cover,
+                    vec2 toward, out float distToward) {
+  distToward = 1e9;
+  float h = dir.y;
+  // (No tower reaches above about 1.9 base-puff radii, 0.3 * TOWER_SCALE)
+  if (cumulus <= 0.0 || h < -0.12 || h > 0.3 * TOWER_SCALE) return 1e9;
+  float x = (atan(dir.x, dir.z) / 6.2831853 + 0.5) * TOWER_SLICES;
+  float y = h / TOWER_SLICE_W;
+  float towerStart = TOWER_THRESHOLD - cumulus * 0.06 - cover;
+  // The tower field changes slowly around the compass, so well below its
+  // threshold here, there are no towers within the slices tested below
+  vec2 azHere = normalize(dir.xz + vec2(1e-5));
+  if (towerMacro(noiseTex, azHere * 2.2 + vec2(11.0, 3.0)) <= towerStart - 0.12) return 1e9;
+  float best = 1e9;
+  for (int k = -2; k <= 2; k++) {
+    float c = mod(floor(x) + float(k), TOWER_SLICES);
+    float ca = (c + 0.5) / TOWER_SLICES * 6.2831853 - 3.14159265;
+    vec2 caz = vec2(sin(ca), cos(ca));
+    float amt = smoothstep(towerStart, towerStart + 0.14,
+                           towerMacro(noiseTex, caz * 2.2 + vec2(11.0, 3.0)));
+    if (amt <= 0.0) continue;
+    float r1 = fract(sin(c * 12.9898) * 43758.5453);
+    float r2 = fract(sin(c * 78.233) * 43758.5453);
+    float r3 = fract(sin(c * 37.719) * 43758.5453);
+    // Puff sizes vary a lot from slice to slice
+    amt *= mix(0.55, 1.0, r2);
+    float cx = floor(x) + float(k) + 0.5 + (r1 - 0.5) * 0.7;
+    float dx = x - cx;
+    float rad1 = (0.55 + 0.6 * r2) * amt * TOWER_SCALE;
+    // The base puff is widest near the horizon, so little of the
+    // straight-sided column below it shows
+    float cy1 = rad1 * 0.15;
+    float rad2 = rad1 * (0.5 + 0.3 * r3);
+    float cy2 = cy1 + rad1 * 0.9;
+    float cx2 = (r3 - 0.5) * rad1 * 0.6;
+    // A third puff bulging out to one side
+    float rad3 = rad1 * 0.55;
+    float cx3 = (r1 < 0.5 ? -0.75 : 0.75) * rad1;
+    float cy3 = cy1 + rad1 * 0.45;
+    best = min(best, min(min(min(
+        length(vec2(dx, y - cy1)) - rad1,
+        length(vec2(dx - cx2, y - cy2)) - rad2),
+        length(vec2(dx - cx3, y - cy3)) - rad3),
+        max(abs(dx) - rad1 * 0.92, y - cy1)));
+    float tx = dx + toward.x;
+    float ty = y + toward.y;
+    distToward = min(distToward, min(min(min(
+        length(vec2(tx, ty - cy1)) - rad1,
+        length(vec2(tx - cx2, ty - cy2)) - rad2),
+        length(vec2(tx - cx3, ty - cy3)) - rad3),
+        max(abs(tx) - rad1 * 0.92, ty - cy1)));
+  }
+  return best;
+}
+
+// How opaque the towers are in direction dir (bases dissolve into the
+// horizon haze)
+float towerAlphaAt(float dist, float h) {
+  return (1.0 - smoothstep(-0.03, 0.0, dist)) * smoothstep(-0.12, 0.04, h);
+}
+`
+  : '';
+
 // Shared by every material's injected directional-fog shader code; the game
 // loop updates the values each frame.
 // GLSL: the sky's color looking in direction d (normalized): the palette's
@@ -187,9 +284,6 @@ export const moonlightUniforms = {
 // bigger, rounder clouds with crisp edges and two tones.
 export const CLOUD_GLSL =
   (ART_CLOUDS ? '#define ANIME_SKY\n' : '') +
-  // Towering horizon clouds: how often they rise (field threshold) and
-  // how big their puffs are
-  '#define TOWER_THRESHOLD 0.64\n#define TOWER_SCALE 1.1\n' +
   `
 uniform sampler2D uNoiseTex;
 uniform vec3 uMoonDir;
