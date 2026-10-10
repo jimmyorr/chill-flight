@@ -1473,9 +1473,7 @@ function updatePhysicsAndControls(delta, nowTime) {
 const SNOW_MAX_BRIGHTNESS = 0.95;
 const SNOW_COOL_TINT = new THREE.Vector3(0.94, 0.99, 1.07);
 const SHADOW_LOOK_AHEAD = 1400;
-// The shadows follow the sun in steps of half a degree (about every half
-// second of a normal day)
-const SHADOW_DIR_STEP_COS = Math.cos((0.5 * Math.PI) / 180);
+// The shadows follow the sun in steps (see updateShadowSnapping)
 const _shadowSunGoal = new THREE.Vector3();
 // How much of the hidden sun's light the sky light takes over in twilight
 const TWILIGHT_SKY_SHARE = 0.6;
@@ -1492,16 +1490,23 @@ function updateShadowSnapping() {
   // This makes shadows smoothly stretch toward the horizon at sunset/sunrise
   // and then freeze. The dirLight intensity fades to 0 via sunLightFactor anyway,
   // so the frozen direction is invisible by the time it diverges from reality.
-  // The shadows turn with the sun in small steps (SHADOW_DIR_STEP) rather
-  // than every frame: each turn redraws every shadow edge a fraction of a
-  // texel over, which done every frame makes thin shadows (the plane's wings)
+  // The shadows turn with the sun in small steps rather than every frame:
+  // each turn redraws every shadow edge a fraction of a texel over, which
+  // done every frame makes thin shadows (the plane's wings)
   // shimmer. A step moves a shadow by a negligible amount.
   _shadowSunGoal
     .set(state.sunX, Math.max(0.15, state.sunY), state.sunZ)
     .normalize();
+  // A shadow's tip moves by its height times the step over sin^2 of the
+  // sun's elevation, so low sun stretches shadows the most: the steps shrink
+  // with sin^2, from half a degree with the sun 45 degrees or more up (about
+  // every half second of a normal day) to a tenth near the horizon
+  const sin2 = _shadowSunGoal.y * _shadowSunGoal.y;
+  const stepDeg = THREE.MathUtils.clamp(sin2, 0.1, 0.5);
+  const stepCos = Math.cos((stepDeg * Math.PI) / 180);
   if (
     _shadowSunDir.lengthSq() === 0 ||
-    _shadowSunDir.dot(_shadowSunGoal) < SHADOW_DIR_STEP_COS
+    _shadowSunDir.dot(_shadowSunGoal) < stepCos
   ) {
     _shadowSunDir.copy(_shadowSunGoal);
   }
