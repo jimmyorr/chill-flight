@@ -91,10 +91,11 @@ const constants = {
 };
 
 // --- 2. INVARIANT TEST: FROZEN NORTH CONTINUITY ---
-// Past the continent's north coast (at most about 7N) and the open water
-// along it, the sea should be frozen pack ice shelf (elev >= 42). No point
-// should drop into underwater ocean (elev <= 40).
-const testLats = [-45000, -50000, -60000]; // 9.0N, 10.0N, 12.0N
+// Past the continent's north coast (at most about 8N), the open water along
+// it (up to about 2 degrees) and the floes beyond (2.5 more), the sea should
+// be frozen pack ice shelf (elev >= 42). No point should drop into
+// underwater ocean (elev <= 40).
+const testLats = [-70000, -80000]; // 14.0N, 16.0N
 for (const testZ of testLats) {
   for (let testX = 5000; testX <= 45000; testX += 1000) {
     const elev = ChillFlightLogic.getElevation(

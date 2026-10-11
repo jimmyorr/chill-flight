@@ -1430,9 +1430,30 @@ export const ChillFlightLogic = {};
     return h;
   }
 
-  // In the north the sea freezes this far out from the coast, leaving open
-  // water along the shore
-  const ICE_LEAD = 3000;
+  // Whether the northern sea at (x, z), coastPast units out from the coast,
+  // is frozen. Open water runs along the shore in a lane that wanders from
+  // nothing (ice frozen to the shore, in among the islands) to about 9000
+  // units (open bays), with a ragged edge. Past it lies a band of floes that
+  // grow larger and closer together over ICE_FLOE_BAND units, until they
+  // join into solid pack.
+  const ICE_FLOE_BAND = 12500;
+  function seaIceAt(x, z, coastPast, simplex) {
+    const lane = Math.max(
+      0,
+      Math.min(
+        9000,
+        3500 + simplex.noise2D(x * 0.00006 + 17, z * 0.00006 - 5) * 7000
+      )
+    );
+    const ragged = simplex.noise2D(x * 0.0007 + 3, z * 0.0007 + 9) * 1200;
+    const into = (coastPast - lane - ragged) / ICE_FLOE_BAND;
+    if (into <= 0) return false;
+    if (into >= 1) return true;
+    const floe =
+      simplex.noise2D(x * 0.0011 + 41, z * 0.0011 - 23) * 0.6 +
+      simplex.noise2D(x * 0.003 - 7, z * 0.003 + 11) * 0.4;
+    return floe > 0.9 - into * 1.9;
+  }
 
   // --- THE FALLS (landmark, north of spawn) ---
   // A table mountain standing in a lake, its sheer walls about 380 units
@@ -2772,9 +2793,14 @@ export const ChillFlightLogic = {};
         simplex.noise3D(nx * 0.0002, z * 0.0002, ny * 0.0002)
       ) *
         2000;
-    // Only the sea past the north coast freezes, not the land's lakes.
-    // Highways see it as sea (forRoad), so they end at the coast.
-    if (!options.forRoad && z < freezeBoundaryZ && coastPast > ICE_LEAD) {
+    // Only the sea past the north coast freezes (seaIceAt), not the land's
+    // lakes. Highways see it as sea (forRoad), so they end at the coast.
+    if (
+      !options.forRoad &&
+      z < freezeBoundaryZ &&
+      coastPast > 0 &&
+      seaIceAt(origX, origZ, coastPast, simplex)
+    ) {
       const freezeFactor = Math.min(1, (freezeBoundaryZ - z) / 3000);
       if (freezeFactor > 0) {
         // Create an ice shelf that is strictly above water (WATER_LEVEL + 3 to WATER_LEVEL + 7)
