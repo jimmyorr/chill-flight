@@ -557,13 +557,13 @@ export const ChillFlightLogic = {};
   //   twilight glow    -0.5 to -0.1       40 s at dawn, 40 s at dusk
   //   peak color       -0.1 to 0.1        45 s each (gold and pink sky,
   //                                       belt of Venus, cloud afterglow)
-  //   golden light     0.1 to 0.4         25 s each
-  //   full day         above 0.4          95 s
+  //   golden light     0.1 to 0.4         40 s each
+  //   full day         above 0.4          65 s
   // Within a phase the sun moves at a constant speed. Linear segments avoid
   // the phantom pauses an S-curve has at its knots. The phase edges are
   // computed for the equator (where sunrise is at 6:00) and shift by a few
   // minutes of clock time across the map's latitudes.
-  const DAY_PHASE_SECONDS = [22.5, 40, 45, 25, 95];
+  const DAY_PHASE_SECONDS = [22.5, 40, 45, 40, 65];
   const DAY_PHASE_SUN_Y = [-0.5, -0.1, 0.1, 0.4];
   const SUN_DECLINATION = 0.409; // flight-camera.js
   const DAY_WARP_KNOTS = (() => {
