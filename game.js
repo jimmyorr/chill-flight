@@ -162,7 +162,7 @@ state.smoothedDelta = 1 / 60;
 // --- PERSISTENCE ---
 const planeSelectGroupInit = document.getElementById('plane-select-group');
 if (planeSelectGroupInit) {
-  const currentPlane = activePlaneType || 'classic';
+  const currentPlane = activePlaneType || 'seaplane';
   planeSelectGroupInit.querySelectorAll('.scheme-btn').forEach((btn) => {
     btn.classList.toggle(
       'active',

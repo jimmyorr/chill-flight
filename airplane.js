@@ -36,7 +36,7 @@ export const planeMat = createMaterial({
   flatShading: true,
 });
 
-// Pontoons Group (created for classic plane water landing)
+// Pontoons Group (created for the seaplane's water landing)
 export const pontoonGroup = new THREE.Group();
 pontoonGroup.visible = false;
 
@@ -104,9 +104,9 @@ export const hingeRB = new THREE.Group();
 hingeRB.position.set(5, 0, 3);
 pontoonGroup.add(hingeRB);
 
-// Classic Cessna-style monoplane model builder. The player's plane carries the
+// The seaplane: a Cessna-style monoplane on floats. Model builder. The player's plane carries the
 // shared pontoons; pass pontoons: false for another plane (traffic.js)
-export function createClassicAirplaneModel(opts = {}) {
+export function createSeaplaneModel(opts = {}) {
   const model = new THREE.Group();
   const activeWhiteMat = opts.planeWhiteMat || planeWhiteMat;
   const activePlaneMat = opts.planeMat || planeMat;
@@ -246,12 +246,14 @@ export function createClassicAirplaneModel(opts = {}) {
 // Active plane state and switching
 export let activePlaneType =
   ChillFlightLogic.START_PLANE ||
-  localStorage.getItem('chill_flight_plane') ||
-  'classic';
+  ChillFlightLogic.normalizePlaneType(
+    localStorage.getItem('chill_flight_plane')
+  ) ||
+  'seaplane';
 
 // The glider tops out lower than the powered planes.
 // Poses the landing gear for how far down it is (state.gearExtension, 0 up to
-// 1 down): the classic's pontoons swing down on their hinges and grow, and
+// 1 down): the seaplane's pontoons swing down on their hinges and grow, and
 // the twin's wheels unfold
 export function poseGear(extension) {
   const ease = 1 - Math.pow(1 - extension, 3);
@@ -277,7 +279,7 @@ export function getMaxFlightSpeedMult() {
 }
 
 export function setActivePlane(planeType, skipStorage = false) {
-  if (!['classic', 'biplane', 'glider', 'twin'].includes(planeType)) return;
+  if (!ChillFlightLogic.PLANE_TYPES.includes(planeType)) return;
   activePlaneType = planeType;
   if (!skipStorage) {
     try {
@@ -324,7 +326,7 @@ export function setActivePlane(planeType, skipStorage = false) {
       planeWhiteMat: planeWhiteMat,
     });
   } else {
-    newModel = createClassicAirplaneModel({
+    newModel = createSeaplaneModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
       planeMat: planeMat,
@@ -333,8 +335,8 @@ export function setActivePlane(planeType, skipStorage = false) {
   }
 
   // How far the wheels reach below the plane's center, for landing on land
-  // (flight-physics.js). The classic is a floatplane: it lands only on water.
-  if (planeType !== 'classic') {
+  // (flight-physics.js). The seaplane lands only on water.
+  if (planeType !== 'seaplane') {
     newModel.updateMatrixWorld(true);
     newModel.wheelDepth = -new THREE.Box3().setFromObject(newModel).min.y;
   }

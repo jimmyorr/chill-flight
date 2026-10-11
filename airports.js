@@ -192,7 +192,7 @@ export function updateAirportLights(night) {
 // --- PARKED PLANES ---
 // One to three planes parked side by side on the apron, noses toward the
 // runway, each airport its own (from the world seed): biplanes and twins.
-// (The classic flies without its pontoons, so it has no landing gear.)
+// (The seaplane flies without its pontoons, so it has no landing gear.)
 const PARKED_TYPES = ['biplane', 'twin'];
 const APRON_TOP = 0.5;
 const _box = new THREE.Box3();

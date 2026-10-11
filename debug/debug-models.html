@@ -155,7 +155,7 @@
 
       <div class="category-title">Vehicles</div>
       <button class="model-btn" onclick="viewModel('airplane', event)">
-        Airplane
+        Seaplane
       </button>
       <button class="model-btn" onclick="viewModel('biplane', event)">
         Biplane
@@ -357,7 +357,7 @@
       import {createGliderModel} from '../glider.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
       import {
-        createClassicAirplaneModel,
+        createSeaplaneModel,
         planeMat,
         planeWhiteMat,
       } from '../airplane.js';
@@ -544,9 +544,9 @@
           // 2. Fallback for simple or unique models
           switch (type) {
             case 'airplane': {
-              // Always the classic: state.airplaneModel is whichever plane
+              // Always the seaplane: state.airplaneModel is whichever plane
               // the game last built (the saved choice)
-              const ap = createClassicAirplaneModel();
+              const ap = createSeaplaneModel();
 
               if (ChillFlightLogic && ChillFlightLogic.PLANE_COLORS) {
                 const colors = ChillFlightLogic.PLANE_COLORS;

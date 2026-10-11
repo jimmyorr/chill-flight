@@ -27,7 +27,7 @@ const AVOID_TURN_RATE = 0.15; // rad/s
 const MAX_TURN_RATE = 0.08;
 const MAX_BANK = 0.35; // radians
 
-export const TRAFFIC_TYPES = ['classic', 'biplane', 'twin', 'glider'];
+export const TRAFFIC_TYPES = ['seaplane', 'biplane', 'twin', 'glider'];
 
 // Pacing, so the player can find a plane and follow it around: within
 // PACE_RADIUS of the player a plane flies at the player's speed, a little
@@ -47,7 +47,7 @@ const PACE_EASE = 0.6; // per second
 // plane sinks (flight-physics.js), so a slower plane holding its height would
 // look wrong.
 const SPEEDS = {
-  classic: [120, 150],
+  seaplane: [120, 150],
   biplane: [105, 125],
   twin: [140, 170],
   glider: [105, 120],

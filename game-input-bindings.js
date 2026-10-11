@@ -133,9 +133,9 @@ inputManager.onWeatherToggle = () => {
   cycleWeather();
 };
 inputManager.onPlaneToggle = () => {
-  const types = ['classic', 'biplane', 'glider', 'twin'];
+  const types = ChillFlightLogic.PLANE_TYPES;
   const currentIndex = types.indexOf(activePlaneType);
-  const nextPlane = types[(currentIndex + 1) % types.length] || 'classic';
+  const nextPlane = types[(currentIndex + 1) % types.length] || 'seaplane';
   setActivePlane(nextPlane);
 };
 inputManager.onMusicToggle = () => {

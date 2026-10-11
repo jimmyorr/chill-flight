@@ -82,7 +82,7 @@ export function updateFlightPhysics(delta, nowTime) {
   let minFlightHeight = isWater ? WATER_LEVEL + 2.8 : terrainHeight + 10.0;
   let restingHeight = minFlightHeight + 2.0;
 
-  // Wheeled planes (not the classic, a floatplane) with their gear down can
+  // Wheeled planes (not the seaplane) with their gear down can
   // come down onto gentle ground and roll on their wheels, on the ground as
   // drawn (sampleGround). Elsewhere, and with the gear up, the cushion above
   // stays, so there's no landing on a mountainside.

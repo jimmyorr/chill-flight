@@ -7,11 +7,11 @@ import {createMaterial} from './constants.js';
 import {createBiplaneModel} from './biplane.js';
 import {createGliderModel} from './glider.js';
 import {createTwinModel} from './twin.js';
-import {createClassicAirplaneModel} from './airplane.js';
+import {createSeaplaneModel} from './airplane.js';
 
-// The classic flies without the player's pontoons, so it has no landing gear
+// The seaplane flies without the player's pontoons, so it has no landing gear
 export const PLANE_BUILDERS = {
-  classic: (opts) => createClassicAirplaneModel({...opts, pontoons: false}),
+  seaplane: (opts) => createSeaplaneModel({...opts, pontoons: false}),
   biplane: createBiplaneModel,
   twin: createTwinModel,
   glider: createGliderModel,

@@ -409,15 +409,18 @@ export const ChillFlightLogic = {};
     }
   }
 
-  const PLANE_TYPES = ['classic', 'biplane', 'glider', 'twin'];
-  const _planeParam = getParam('plane', getParam('vehicle', null));
-  let START_PLANE = null;
-  if (_planeParam !== null && _planeParam !== '') {
-    const normPlane = _planeParam.trim().toLowerCase();
-    if (PLANE_TYPES.includes(normPlane)) {
-      START_PLANE = normPlane;
-    }
+  const PLANE_TYPES = ['seaplane', 'biplane', 'glider', 'twin'];
+  // A plane type from a URL or saved setting, or null if it isn't one.
+  // "classic" was the seaplane's old name, so old links and saves still work.
+  function normalizePlaneType(type) {
+    if (!type) return null;
+    const norm = String(type).trim().toLowerCase();
+    if (norm === 'classic') return 'seaplane';
+    return PLANE_TYPES.includes(norm) ? norm : null;
   }
+  const START_PLANE = normalizePlaneType(
+    getParam('plane', getParam('vehicle', null))
+  );
   // Reads exports.FORCE_ISLAND_TYPE, which the debug UI changes at runtime and
   // terrain workers set from each job (they can't see the page URL).
   function getIslandArchetype(x, z, simplexInstance) {
@@ -2659,6 +2662,8 @@ export const ChillFlightLogic = {};
   // --- EXPORTS ---
   exports.customMap = null;
   exports.WORLD_SEED = WORLD_SEED;
+  exports.PLANE_TYPES = PLANE_TYPES;
+  exports.normalizePlaneType = normalizePlaneType;
   exports.mulberry32 = mulberry32;
   exports.FALLS_X = FALLS_X;
   exports.FALLS_Z = FALLS_Z;
