@@ -2094,9 +2094,9 @@ export const ChillFlightLogic = {};
     // NEVER early-return from this block, as that would abort subsequent passes.
     if (!options.ignoreRoads && origX < 0) {
       // Find the closest highway index mathematically
-      const highwayIndex = Math.max(
-        0,
-        Math.round((origX - ROAD_BASE_X) / ROAD_SPACING)
+      const highwayIndex = Math.min(
+        ROAD_LAST,
+        Math.max(0, Math.round((origX - ROAD_BASE_X) / ROAD_SPACING))
       );
       const roadCenterX = getRoadCenterX(origZ, highwayIndex);
       if (roadCenterX < 0) {
@@ -2753,6 +2753,13 @@ export const ChillFlightLogic = {};
   // The road winds along the west coast using layered simplex noise.
   const ROAD_BASE_X = -5000; // Base X position (center of 0.5W and 1.5W)
   const ROAD_SPACING = -10000; // 2 degrees West
+  // The westmost highway (n = 7, 15W). Past it the west coast breaks up into
+  // archipelago and open ocean, where a highway would be a bridge to nowhere.
+  const ROAD_LAST = 7;
+  // Highways run only where land is this close along them, both north and
+  // south, so they bridge lakes and inlets but end at an open-sea coast
+  // (terrain-chunks.js)
+  const ROAD_LAND_REACH = 6000;
   const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
 
@@ -2818,6 +2825,7 @@ export const ChillFlightLogic = {};
     // The road is at ROAD_BASE_X + n * ROAD_SPACING + sweep.
     // We can estimate `n` by ignoring the sweep first (which is max +/- 3000).
     const n = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
+    if (n < 0 || n > ROAD_LAST) return 0.0;
 
     // Now get the exact center X of the closest highway
     const centerX = getRoadCenterX(z, n);
@@ -2856,6 +2864,8 @@ export const ChillFlightLogic = {};
   exports.getRoadFactor = getRoadFactor;
   exports.ROAD_BASE_X = ROAD_BASE_X;
   exports.ROAD_SPACING = ROAD_SPACING;
+  exports.ROAD_LAST = ROAD_LAST;
+  exports.ROAD_LAND_REACH = ROAD_LAND_REACH;
   exports.ROAD_WIDTH = ROAD_WIDTH;
   exports.ROAD_SHOULDER = ROAD_SHOULDER;
   exports.MAX_HIGHWAY_HEIGHT = MAX_HIGHWAY_HEIGHT;

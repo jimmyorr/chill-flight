@@ -1785,7 +1785,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   if (!isCustom) {
     const halfChunk = CHUNK_SIZE / 2;
     const activeRoads = [];
-    for (let n = -20; n <= 20; n++) {
+    for (let n = 0; n <= ChillFlightLogic.ROAD_LAST; n++) {
       const baseX =
         ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
       if (
@@ -1809,6 +1809,42 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       const margin = 900;
       const rawSamples = [];
       const minHeight = WATER_LEVEL + 60;
+
+      // Is there land along the road at each point of a coarse grid (fixed
+      // in world Z, so neighbouring chunks agree)? The road runs only where
+      // there's land within ROAD_LAND_REACH both north and south.
+      const reach = ChillFlightLogic.ROAD_LAND_REACH;
+      const LAND_STEP = 500;
+      const landK0 = Math.floor(
+        (worldOffsetZ - halfChunk - margin - reach) / LAND_STEP
+      );
+      const landK1 = Math.ceil(
+        (worldOffsetZ + halfChunk + margin + reach) / LAND_STEP
+      );
+      const isLand = new Uint8Array(landK1 - landK0 + 1);
+      for (let k = landK0; k <= landK1; k++) {
+        const z = k * LAND_STEP;
+        const h = ChillFlightLogic.getElevation(
+          ChillFlightLogic.getRoadCenterX(z, n),
+          z,
+          simplex,
+          constants,
+          null,
+          {ignoreRivers: true, ignoreRoads: true, forRoad: true}
+        );
+        isLand[k - landK0] = h > WATER_LEVEL ? 1 : 0;
+      }
+      const landWithin = (from, to) => {
+        const k1 = Math.min(landK1, Math.floor(to / LAND_STEP));
+        for (
+          let k = Math.max(landK0, Math.ceil(from / LAND_STEP));
+          k <= k1;
+          k++
+        ) {
+          if (isLand[k - landK0]) return true;
+        }
+        return false;
+      };
 
       for (
         let sampleZ = -halfChunk - margin;
@@ -1836,6 +1872,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         rawSamples.push({
           sampleZ,
           wz,
+          onRoute:
+            landWithin(wz - reach, wz + LAND_STEP) &&
+            landWithin(wz - LAND_STEP, wz + reach),
           roadX,
           localRoadX: roadX - worldOffsetX,
           rawY,
@@ -1895,6 +1934,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           // Only keep segments whose center falls inside this chunk
           if (curr.sampleZ < -halfChunk || curr.sampleZ >= halfChunk) continue;
           if (Math.abs(curr.localRoadX) > halfChunk + 50) continue;
+          if (!curr.onRoute || !next.onRoute) continue;
 
           const needsPilings = finalY[i] - curr.actualTerrainH > 10;
 
