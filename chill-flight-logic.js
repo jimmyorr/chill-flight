@@ -1031,6 +1031,90 @@ export const ChillFlightLogic = {};
     return [fx * strength, fz * strength];
   }
 
+  // --- THE CONTINENT'S OUTLINE ---
+  // The land ends in sea north, south and west (the east already ends past
+  // the eastern land, 15-20 East). Each coast is a latitude or longitude, in
+  // degrees, that wanders with the other coordinate: hand-placed bays and
+  // capes plus a little noise. The north coast sits further north in the
+  // west, with a bay at 7 West and a cape at 6 East; the south coast has a
+  // gulf at 8 West beside a long peninsula at 13.5 West (to 10 South).
+  const bump = (v, centre, width) => Math.exp(-(((v - centre) / width) ** 2));
+  function coastWander(v, k, simplex) {
+    return (
+      simplex.noise2D(v * 0.22 + k * 50, k * 13.1) * 0.7 +
+      simplex.noise2D(v * 0.7 + k * 70, k * 3.7) * 0.3
+    );
+  }
+  function northCoastLat(lon, simplex) {
+    return (
+      5.0 -
+      lon * 0.07 +
+      bump(lon, 6, 2) * 2.0 -
+      bump(lon, -7, 1.6) * 1.4 +
+      coastWander(lon, 1, simplex) * 0.5
+    );
+  }
+  function southCoastLat(lon, simplex) {
+    return (
+      6.5 +
+      lon * 0.06 -
+      bump(lon, -8, 2.2) * 2.8 +
+      bump(lon, -13.5, 1.4) * 4.0 +
+      bump(lon, 3, 2.5) * 1.8 +
+      coastWander(lon, 2, simplex) * 0.5
+    );
+  }
+  function westCoastLon(lat, simplex) {
+    return (
+      16.5 -
+      bump(lat, 1.5, 1.5) * 2.5 +
+      bump(lat, -6, 2) * 1.5 +
+      coastWander(lat, 3, simplex) * 0.6
+    );
+  }
+  // How far past the coast (x, z) lies, seaward, in units (negative inland).
+  // A smooth max of the distance past each coast, so the corners where two
+  // coasts meet are rounded, roughened so the shore isn't a smooth curve.
+  const CONTINENT_CORNER = 2500;
+  function continentPast(x, z, simplex) {
+    const lon = x / 5000;
+    const lat = -z / 5000;
+    const dN = (lat - northCoastLat(lon, simplex)) * 5000;
+    const dS = (-lat - southCoastLat(lon, simplex)) * 5000;
+    const dW = (-lon - westCoastLon(lat, simplex)) * 5000;
+    const m = Math.max(dN, dS, dW);
+    const k = CONTINENT_CORNER;
+    const past =
+      m +
+      k *
+        Math.log(
+          Math.exp((dN - m) / k) +
+            Math.exp((dS - m) / k) +
+            Math.exp((dW - m) / k)
+        );
+    return (
+      past +
+      simplex.noise2D(x * 0.00035, z * 0.00035) * 1400 +
+      simplex.noise2D(x * 0.0012, z * 0.0012) * 450
+    );
+  }
+  // How far past the coast (x, z) lies, as continentPast, but -Infinity
+  // far inland (within 2 degrees of the equator, east of 12 West), where no
+  // coast reaches, to skip the work
+  function continentPastFar(x, z, simplex) {
+    if (Math.abs(z) < 10000 && x > -60000) return -Infinity;
+    return continentPast(x, z, simplex);
+  }
+  // How much a point that far past the coast is sea, 0 to 1: the land eases
+  // down over 5000 units across the coast
+  function continentSea(past) {
+    const t = Math.max(0, Math.min(1, (past + 2500) / 5000));
+    return t * t * (3 - 2 * t);
+  }
+  // In the north the sea freezes this far out from the coast, leaving open
+  // water along the shore
+  const ICE_LEAD = 3000;
+
   // --- THE FALLS (landmark, north of spawn) ---
   // A table mountain standing in a lake, its sheer walls about 380 units
   // tall. A stream runs south down a winding valley across the top, from a
@@ -2533,6 +2617,13 @@ export const ChillFlightLogic = {};
       n = WATER_LEVEL - 10;
     }
 
+    // --- THE CONTINENT'S COASTS ---
+    // Past the outline the land sinks under the sea (before the ice shelf,
+    // which freezes that sea in the north)
+    const coastPast = continentPastFar(origX, origZ, simplex);
+    const sea = continentSea(coastPast);
+    if (sea > 0) n = _lerp(n, Math.min(n, WATER_LEVEL - 10), sea);
+
     // --- FROZEN NORTH ICE SHELF ---
     let isIceShelf = false;
     // Start freezing around 4°N (Z=-20000), fully frozen ~5000 units later
@@ -2542,7 +2633,9 @@ export const ChillFlightLogic = {};
         simplex.noise3D(nx * 0.0002, z * 0.0002, ny * 0.0002)
       ) *
         2000;
-    if (z < freezeBoundaryZ) {
+    // Only the sea past the north coast freezes, not the land's lakes.
+    // Highways see it as sea (forRoad), so they end at the coast.
+    if (!options.forRoad && z < freezeBoundaryZ && coastPast > ICE_LEAD) {
       const freezeFactor = Math.min(1, (freezeBoundaryZ - z) / 3000);
       if (freezeFactor > 0) {
         // Create an ice shelf that is strictly above water (WATER_LEVEL + 3 to WATER_LEVEL + 7)

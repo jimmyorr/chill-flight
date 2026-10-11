@@ -40,6 +40,15 @@ To start without music (say, on a train), tap the speaker button under Start on 
 
 The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts.
 
+The land is a continent with sea on every side (`continentPastFar` in `chill-flight-logic.js`):
+
+- **North coast:** Around 5.0 North (Z = -25000), further north in the west (about 6.5 North at 20 West). A bay cuts in at 7 West (X = -35000), and a cape juts north at 6 East (X = 30000).
+- **South coast:** Around 6.5 South (Z = 32500). A gulf reaches up to about 3.5 South at 8 West (X = -40000, Z = 17500), beside a long peninsula running south-west to about 10 South at 13.5 West (X = -67500, Z = 50000).
+- **West coast:** Around 16.5 West (X = -82500), pulled in to about 14 West near 1.5 North.
+- **East:** The eastern alien land ends at its own coast, 15 to 20 East, as before.
+
+Each coast wanders a little with the world seed, and the corners where two coasts meet are rounded. Past the outline the land sinks under the sea over about 5000 units.
+
 | Biome             | Direction     | Latitude/Longitude          | Primary Characteristics                                                                                                             |
 | :---------------- | :------------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
 | **Temperate**     | Central       | Around (0, 0) (Center)      | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).                                       |
@@ -67,8 +76,8 @@ The world is organized around a central coordinate system (0,0) where latitude (
 
 ### 2. The frozen north
 
-- **Location:** Snow starts around Latitude 1.5 North (Z = -7500) and deepens gradually to full cover by 2.5 North (Z = -12500). The snowline on mountains comes down gradually from 1,150 units near the equator to 750 by 1.0 North, so the first northern range is green and rocky with snow-capped peaks, and then with the snow cover down to the valleys. Ground, water ice, trees and snowfall all use one snow cover function (`snowFactorAt` in `chill-flight-logic.js`). The deep frozen ocean starts around 4.0 North (Z < -20000).
-- **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192). Beyond 4.0 North, the ocean completely freezes over into a solid, jagged pack ice shelf (#A2B4BC) that rises out of the water. In bright midday sun, snow and ice are dimmed slightly and shifted cool (`uSnowExposure`) so their shading stays visible instead of washing out to flat white.
+- **Location:** Snow starts around Latitude 1.5 North (Z = -7500) and deepens gradually to full cover by 2.5 North (Z = -12500). The snowline on mountains comes down gradually from 1,150 units near the equator to 750 by 1.0 North, so the first northern range is green and rocky with snow-capped peaks, and then with the snow cover down to the valleys. Ground, water ice, trees and snowfall all use one snow cover function (`snowFactorAt` in `chill-flight-logic.js`). The sea past the north coast is frozen from around 4.0 North (Z < -20000), leaving a lane of open water about 3000 units wide along the shore.
+- **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192). Past the north coast and the open water along it, the ocean freezes over into a solid, jagged pack ice shelf (#A2B4BC) that rises out of the water. Lakes on the land stay open. In bright midday sun, snow and ice are dimmed slightly and shifted cool (`uSnowExposure`) so their shading stays visible instead of washing out to flat white.
 - **Weather:** Light snow whenever there's cloud overhead, with occasional global breaks. Cloud builds sooner over the snow, so snowy weather is common, but it never snows from a clear sky.
 - **Key Features:**
   - **Mountain ranges:** The first range north always rises around 1.0 North (Z = -5000), south of the snow, so it's green with snow-capped peaks; ranges further north vary by world seed and are snowbound. Ranges start at 0.5 West (X = -2500) and reach full height by 1.5 West (X = -7500), with sharp, ridged peaks up to 1600 units.

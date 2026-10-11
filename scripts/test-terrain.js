@@ -5,7 +5,7 @@
  * Automated regression test suite for procedural terrain generation.
  * Enforces critical world continuity invariants:
  *  1. No intermediate early returns in getElevation() procedural pipeline
- *  2. Continuous frozen north pack ice shelf (no vertical open-water tears)
+ *  2. Continuous frozen north pack ice shelf past the north coast (no vertical open-water tears)
  *  3. Continuous eastern alien biome (no periodic road-trench slices)
  *  4. Strict west-only boundaries for highway canyon carving (X < 0)
  *  5. Flat, dry airfields on any seed
@@ -91,9 +91,10 @@ const constants = {
 };
 
 // --- 2. INVARIANT TEST: FROZEN NORTH CONTINUITY ---
-// Beyond 4.0N/5.0N (Z <= -25000), the ocean should be frozen pack ice shelf (elev >= 42).
-// No point should drop into underwater ocean (elev <= 40).
-const testLats = [-25000, -35000, -50000]; // 5.0N, 7.0N, 10.0N
+// Past the continent's north coast (at most about 7N) and the open water
+// along it, the sea should be frozen pack ice shelf (elev >= 42). No point
+// should drop into underwater ocean (elev <= 40).
+const testLats = [-45000, -50000, -60000]; // 9.0N, 10.0N, 12.0N
 for (const testZ of testLats) {
   for (let testX = 5000; testX <= 45000; testX += 1000) {
     const elev = ChillFlightLogic.getElevation(
@@ -115,6 +116,23 @@ for (const testZ of testLats) {
 console.log(
   '  Passed: Frozen north pack ice shelf is continuous across all longitudes'
 );
+
+// --- 2b. INVARIANT TEST: THE CONTINENT ENDS IN SEA ---
+// Well past the south coast (at most about 10S, on the peninsula) and the
+// west coast (at most about 17W), there's only sea.
+const pastCoasts = [];
+for (let x = -100000; x <= 100000; x += 5000) pastCoasts.push([x, 70000]); // 14S
+for (let z = -15000; z <= 60000; z += 5000) pastCoasts.push([-110000, z]); // 22W
+for (const [testX, testZ] of pastCoasts) {
+  const elev = ChillFlightLogic.getElevation(testX, testZ, simplex, constants);
+  if (elev > constants.WATER_LEVEL) {
+    console.error(
+      `FAIL: Land past the continent's coast at X=${testX}, Z=${testZ} (elev=${elev.toFixed(1)})`
+    );
+    process.exit(1);
+  }
+}
+console.log('  Passed: The continent ends in sea to the south and west');
 
 // --- 3. INVARIANT TEST: EASTERN ALIEN BIOME CONTINUITY ---
 // Beyond 10.0E (X >= 55000), the eastern alien biome should have terrain.
