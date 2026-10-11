@@ -720,6 +720,7 @@ export function generateChunkData({
   elevParams,
   worldSeed,
   forceIslandType,
+  forceContinent,
   enableObjects,
 }) {
   if (worldSeed !== undefined) {
@@ -730,6 +731,10 @@ export function generateChunkData({
   // URL's) forced island type has to travel with each job.
   if (forceIslandType !== undefined) {
     ChillFlightLogic.FORCE_ISLAND_TYPE = forceIslandType;
+  }
+  // Likewise a forced continent outline (?continent=)
+  if (forceContinent !== undefined) {
+    ChillFlightLogic.CONTINENT = forceContinent;
   }
   const _enableObjects = enableObjects !== false;
 

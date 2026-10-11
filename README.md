@@ -40,14 +40,15 @@ To start without music (say, on a train), tap the speaker button under Start on 
 
 The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts.
 
-The land is a continent with sea on every side (`continentPastFar` in `chill-flight-logic.js`):
+The land is a continent with sea on every side (`continentPastFar` in `chill-flight-logic.js`). Its outline is one of three hand-made shapes (`CONTINENTS`), which the world seed picks between, so each day's world may have a different one (about a third each); the `continent` URL parameter forces one. Every shape keeps the land around spawn, the falls, the volcano and the airports, so the differences are in the far north, south and west, and on the eastern land:
 
-- **North coast:** Around 5.0 North (Z = -25000), further north in the west (about 6.5 North at 20 West). A bay cuts in at 7 West (X = -35000), and a cape juts north at 6 East (X = 30000).
-- **South coast:** Around 6.5 South (Z = 32500). A gulf reaches up to about 3.5 South at 8 West (X = -40000, Z = 17500), beside a long peninsula running south-west to about 10 South at 13.5 West (X = -67500, Z = 50000).
-- **West coast:** Around 16.5 West (X = -82500), pulled in to about 14 West near 1.5 North.
-- **East:** The eastern alien land ends at its own coast, 15 to 20 East, as before.
+- **Shaped:** The north coast runs around 5.0 North (Z = -25000), further north in the west, with a bay at 7 West (X = -35000) and a cape at 6 East (X = 30000). The south coast runs around 6.5 South (Z = 32500): a gulf reaches up to about 3.5 South at 8 West (X = -40000, Z = 17500), beside a long peninsula running south-west to about 10 South at 13.5 West (X = -67500, Z = 50000). The west coast runs around 16.5 West (X = -82500).
+- **Great bight:** A huge bay in the south from 16 West to 3 West (X = -80000 to -15000) reaches up to about 4 South, leaving the south-west as a long tail. The north-west is pulled in, and the north coast rises toward the east.
+- **Arms:** A long arm reaches west along the equator to about 20 West (X = -100000), and another runs south-east from the desert to about 11 South at 4 East (X = 20000, Z = 55000).
 
-Each coast wanders a little with the world seed, and the corners where two coasts meet are rounded. Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`, shared with the eastern land's coast): coves and spits, broad bights and headlands, fjords cutting inland, island chains breaking off, and barrier islands with lagoons behind them. Past it lies open sea. The coast only cuts into the land, never raises it, so where the outline crosses the island sea, the sea stays open. The western alien land runs right out to the west coast. On the south coast, drowned land becomes a warm, shallow sandy shelf instead of deep sea, out to about 5000 units past the outline: turquoise water 2 to 4.5 units deep, reefs just under the surface and low sand cays (`southShelfFloor`).
+The eastern land rises out of the island sea along a wandering line around 10 East (X = 50000), with bays and capes, and ends at its own coast around 17 to 18 East (X = 85000 to 90000).
+
+Each coast wanders a little with the world seed, and the corners where two coasts meet are rounded. Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`): coves and spits, broad bights and headlands, fjords cutting inland, island chains breaking off, and barrier islands with lagoons behind them. Past it lies open sea. The coast only cuts into the land, never raises it, so where the outline crosses the island sea, the sea stays open; the one exception is a bump marked `fill` (the south-east arm), which builds land out to the outline. The western alien land runs right out to the west coast. On the south coast, drowned land becomes a warm, shallow sandy shelf instead of deep sea, out to about 5000 units past the outline: turquoise water 2 to 4.5 units deep, reefs just under the surface and low sand cays (`southShelfFloor`).
 
 | Biome             | Direction     | Latitude/Longitude          | Primary Characteristics                                                                                                             |
 | :---------------- | :------------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
@@ -428,6 +429,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`cloudTime`**: How far the clouds have drifted, in seconds. Together with `seed` (the cloud pattern), `clock` and `timeSpeed=0`, a URL gives the same sky on every load.
 - **`cloudMood`**: Force the day's cloud mood instead of the one `seed` and `clock` pick: `fair`, `mixed`, `mackerel`, `high` or `busy` (see the clouds description above).
 - **`seed`**: Integer world seed for procedural terrain generation.
+- **`continent`**: Force the continent's outline instead of letting the seed pick it: `shaped`, `bight` or `arms`.
 - **`theme`**: The visual theme to load (e.g., `standard`).
 - **`style`**: `anime`, or `lowpoly` for the low-poly look (`low-poly` and `classic` also work), overriding the art style chosen in Settings (see [Art style](#art-style)).
 - **`outline`**: With the anime style, set to `0` to turn off the ink outlines.
@@ -569,7 +571,7 @@ npm run promo:stills
 
 Debug pages live in `debug/` and are available only during development (they aren't part of the production build). Start at `http://localhost:5173/debug/debug.html`, which links to standalone viewers like the model viewer (`/debug/debug-models.html`). These pages allow you to inspect and preview in-game geometries and structures in isolation, making it easy to tweak vertices, test materials, and verify rotations before adding them to the procedural world.
 
-The map export page (`/debug/debug-export-map.html`) renders any area of the world, picked by centre lat/long and size in degrees, in the in-game map's colours or as a grayscale heightmap, and downloads it as a PNG. **Whole world** renders everything out to the open ocean (44° by 24°) in a couple of seconds. URL parameters prefill the form: `seed`, `lat`, `long`, `w`, `h` (degrees), `upp` (units per pixel), `mode=gray`, `grid=0`, and `run=1` to render on load.
+The map export page (`/debug/debug-export-map.html`) renders any area of the world, picked by centre lat/long and size in degrees, in the in-game map's colours or as a grayscale heightmap, and downloads it as a PNG. **Whole world** renders everything out to the open ocean (44° by 24°) in a couple of seconds. URL parameters prefill the form: `seed`, `continent`, `lat`, `long`, `w`, `h` (degrees), `upp` (units per pixel), `mode=gray`, `grid=0`, and `run=1` to render on load.
 
 ### Production build
 

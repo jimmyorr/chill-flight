@@ -145,6 +145,13 @@
         <input type="number" id="input-seed" />
       </div>
 
+      <div class="input-group">
+        <label>Continent</label>
+        <select id="input-continent">
+          <option value="">Chosen by the seed</option>
+        </select>
+      </div>
+
       <div class="input-row">
         <div class="input-group">
           <label>Centre lat (°N)</label>
@@ -199,7 +206,7 @@
     <script type="module">
       import {ChillFlightLogic} from '../chill-flight-logic.js';
 
-      // URL params prefill the form (seed, lat, long, w, h, upp, mode,
+      // URL params prefill the form (seed, continent, lat, long, w, h, upp, mode,
       // grid=0) and run=1 renders straight away
       const params = new URLSearchParams(location.search);
       const field = (id, key) => {
@@ -208,6 +215,11 @@
         return el;
       };
       const seedEl = field('input-seed', 'seed');
+      const continentEl = document.getElementById('input-continent');
+      for (const name of ChillFlightLogic.CONTINENT_NAMES) {
+        continentEl.add(new Option(name, name));
+      }
+      field('input-continent', 'continent');
       if (!seedEl.value) seedEl.value = ChillFlightLogic.WORLD_SEED;
       const latEl = field('input-lat', 'lat');
       const longEl = field('input-long', 'long');
@@ -362,6 +374,7 @@
           worker.postMessage({
             id,
             seed,
+            continent: continentEl.value || null,
             x0,
             z0,
             upp,

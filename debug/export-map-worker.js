@@ -17,7 +17,9 @@ let simplex = null;
 let simplexSeed = null;
 
 self.onmessage = function (e) {
-  const {id, seed, x0, z0, upp, width, rowStart, rowEnd, mode} = e.data;
+  const {id, seed, continent, x0, z0, upp, width, rowStart, rowEnd, mode} =
+    e.data;
+  ChillFlightLogic.CONTINENT = continent;
   if (seed !== simplexSeed) {
     ChillFlightLogic.WORLD_SEED = seed;
     simplex = SimplexNoise();

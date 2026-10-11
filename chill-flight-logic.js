@@ -1037,17 +1037,7 @@ export const ChillFlightLogic = {};
   // Returns the ground height at (x, z) across a coast, where t runs from 0
   // (the land's edge of the coast) to 1 (open sea). `o` holds noise offsets,
   // so each coast differs, and macroAmp how far the broad shape moves the
-  // shore. The east coast (15-20 East) and the continent's outline use it.
-  const COAST_EAST = {
-    warpX: 99,
-    warpZ: -33,
-    macro: 55,
-    fjord: 222,
-    region: 444,
-    island: 222,
-    barrier: 444,
-    rough: 11,
-  };
+  // shore. Every coast of the continent's outline uses it.
   const COAST_OUTLINE = {
     warpX: 88,
     warpZ: -44,
@@ -1170,12 +1160,173 @@ export const ChillFlightLogic = {};
   }
 
   // --- THE CONTINENT'S OUTLINE ---
-  // The land ends in sea north, south and west (the east already ends past
-  // the eastern land, 15-20 East). Each coast is a latitude or longitude, in
-  // degrees, that wanders with the other coordinate: hand-placed bays and
-  // capes plus a little noise. The north coast sits further north in the
-  // west, with a bay at 7 West and a cape at 6 East; the south coast has a
-  // gulf at 8 West beside a long peninsula at 13.5 West (to 10 South).
+  // The land ends in sea on every side. Each coast is a latitude (north,
+  // south) or longitude (west, east), in degrees, that runs along the other
+  // coordinate: base + slope * v, plus hand-placed bumps (bays and capes,
+  // gulfs and peninsulas: [centre, width, degrees], negative pulling the
+  // coast in; a fourth entry 'fill' builds land out to the bump where there
+  // was sea, otherwise coasts only cut into land), plus a little noise
+  // (wander, in degrees). eastLand is where
+  // the eastern land rises out of the island sea, the same way. The world
+  // seed picks one of these outlines (or ?continent=<name>).
+  const CONTINENTS = [
+    {
+      // Further north in the west, with a bay at 7 West and a cape at 6 East;
+      // a gulf at 8 West beside a long peninsula at 13.5 West (to 10 South).
+      name: 'shaped',
+      north: {
+        base: 5.0,
+        slope: -0.07,
+        wander: 0.5,
+        bumps: [
+          [6, 2, 2.0],
+          [-7, 1.6, -1.4],
+        ],
+      },
+      south: {
+        base: 6.5,
+        slope: 0.06,
+        wander: 0.5,
+        bumps: [
+          [-8, 2.2, -2.8],
+          [-13.5, 1.4, 4.0],
+          [3, 2.5, 1.8],
+        ],
+      },
+      west: {
+        base: 16.5,
+        slope: 0,
+        wander: 0.6,
+        bumps: [
+          [1.5, 1.5, -2.5],
+          [-6, 2, 1.5],
+        ],
+      },
+      east: {
+        base: 17.5,
+        slope: 0,
+        wander: 0.6,
+        bumps: [
+          [-2, 2, 1.5],
+          [4, 1.5, -1.5],
+        ],
+      },
+      eastLand: {
+        base: 10.3,
+        slope: 0,
+        wander: 0.8,
+        bumps: [
+          [1.5, 1.8, -1.6],
+          [-4.5, 1.5, 1.4],
+        ],
+      },
+    },
+    {
+      // A great southern bay from 16 to 3 West, leaving the south-west as a
+      // long tail; the north-west is pulled in and the north rises eastward.
+      name: 'bight',
+      north: {
+        base: 5.2,
+        slope: 0.05,
+        wander: 0.5,
+        bumps: [[-15, 2.5, -1.2]],
+      },
+      south: {
+        base: 7.0,
+        slope: 0.04,
+        wander: 0.5,
+        bumps: [
+          [-9.5, 3.5, -3.0],
+          [-17, 1.5, 2.5],
+          [-1, 1.5, 1.2],
+        ],
+      },
+      west: {
+        base: 17,
+        slope: 0,
+        wander: 0.6,
+        bumps: [[3, 2, -3.0]],
+      },
+      east: {
+        base: 18,
+        slope: 0,
+        wander: 0.6,
+        bumps: [[-6, 2, -2.0]],
+      },
+      eastLand: {
+        base: 9.8,
+        slope: 0,
+        wander: 0.8,
+        bumps: [
+          [3, 2, 1.5],
+          [-3, 2, -1.0],
+        ],
+      },
+    },
+    {
+      // A long arm reaching west along the equator to about 20 West, and
+      // another reaching south-east from the desert, to about 11 South at 4 East.
+      name: 'arms',
+      north: {
+        base: 5.3,
+        slope: -0.04,
+        wander: 0.5,
+        bumps: [[8, 3, 1.0]],
+      },
+      south: {
+        base: 6.2,
+        slope: 0.05,
+        wander: 0.5,
+        bumps: [
+          [-12, 2.5, -1.5],
+          [2, 1.2, 2.5, 'fill'],
+          [4, 1.2, 4.5, 'fill'],
+        ],
+      },
+      west: {
+        base: 14.0,
+        slope: 0,
+        wander: 0.6,
+        bumps: [[0, 1.8, 6.5]],
+      },
+      east: {
+        base: 17,
+        slope: 0,
+        wander: 0.6,
+        bumps: [[2, 2.5, 1.5]],
+      },
+      eastLand: {
+        base: 10.5,
+        slope: 0,
+        wander: 0.8,
+        bumps: [[-2, 2, -1.8]],
+      },
+    },
+  ];
+  // The eastern land rises out of the island sea over this many units
+  const EAST_LAND_RISE = 6000;
+  let continent = CONTINENTS[0];
+  // ?continent=<name> forces an outline; otherwise the world seed picks one.
+  // Workers can't see the URL, so it travels with each chunk job.
+  exports.CONTINENT = getParam('continent', null);
+  let continentSeed = null;
+  let continentForced = null;
+  // Sets `continent` for the current seed (and forced name), when they change
+  function pickContinent() {
+    if (
+      continentSeed === exports.WORLD_SEED &&
+      continentForced === exports.CONTINENT
+    ) {
+      return;
+    }
+    continentSeed = exports.WORLD_SEED;
+    continentForced = exports.CONTINENT;
+    const forced = CONTINENTS.find((c) => c.name === continentForced);
+    const pick = Math.floor(
+      mulberry32(continentSeed ^ 0x51ed27)() * CONTINENTS.length
+    );
+    continent = forced || CONTINENTS[pick];
+  }
   const bump = (v, centre, width) => Math.exp(-(((v - centre) / width) ** 2));
   function coastWander(v, k, simplex) {
     return (
@@ -1183,36 +1334,33 @@ export const ChillFlightLogic = {};
       simplex.noise2D(v * 0.7 + k * 70, k * 3.7) * 0.3
     );
   }
-  function northCoastLat(lon, simplex) {
-    return (
-      5.0 -
-      lon * 0.07 +
-      bump(lon, 6, 2) * 2.0 -
-      bump(lon, -7, 1.6) * 1.4 +
-      coastWander(lon, 1, simplex) * 0.5
-    );
+  // Where a coast lies (degrees) at v along it; k picks its noise
+  // How far (degrees) the last coastLine point's 'fill' bumps push it out
+  let lineFill = 0;
+  function coastLine(line, v, k, simplex) {
+    let at = line.base + line.slope * v;
+    lineFill = 0;
+    for (const [centre, width, size, fill] of line.bumps) {
+      const b = bump(v, centre, width) * size;
+      at += b;
+      if (fill) lineFill += b;
+    }
+    return at + coastWander(v, k, simplex) * line.wander;
   }
-  function southCoastLat(lon, simplex) {
-    return (
-      6.5 +
-      lon * 0.06 -
-      bump(lon, -8, 2.2) * 2.8 +
-      bump(lon, -13.5, 1.4) * 4.0 +
-      bump(lon, 3, 2.5) * 1.8 +
-      coastWander(lon, 2, simplex) * 0.5
-    );
-  }
-  function westCoastLon(lat, simplex) {
-    return (
-      16.5 -
-      bump(lat, 1.5, 1.5) * 2.5 +
-      bump(lat, -6, 2) * 1.5 +
-      coastWander(lat, 3, simplex) * 0.6
-    );
+  // How much a point d units past a coast (negative inland) lies in the
+  // land its fill bumps add, pushing it out fill degrees: 0 to 1, from just
+  // inside where the coast would be without them
+  function fillAt(d, fill) {
+    if (fill <= 0) return 0;
+    const t = Math.max(0, Math.min(1, (d + fill * 5000 + 3000) / 3000));
+    return t * t * (3 - 2 * t);
   }
   // How much the coast nearest the last point continentPast measured is the
   // south coast, 0 to 1 (rounded corners blend it with the others)
   let coastSouthness = 0;
+  // ... and how much it lies in a 'fill' bump, where the coast builds land
+  // out to the outline instead of only cutting into what's there
+  let coastFill = 0;
   // How far past the coast (x, z) lies, seaward, in units (negative inland).
   // A smooth max of the distance past each coast, so the corners where two
   // coasts meet are rounded, roughened so the shore isn't a smooth curve.
@@ -1220,16 +1368,24 @@ export const ChillFlightLogic = {};
   function continentPast(x, z, simplex) {
     const lon = x / 5000;
     const lat = -z / 5000;
-    const dN = (lat - northCoastLat(lon, simplex)) * 5000;
-    const dS = (-lat - southCoastLat(lon, simplex)) * 5000;
-    const dW = (-lon - westCoastLon(lat, simplex)) * 5000;
-    const m = Math.max(dN, dS, dW);
+    const dN = (lat - coastLine(continent.north, lon, 1, simplex)) * 5000;
+    const fN = fillAt(dN, lineFill);
+    const dS = (-lat - coastLine(continent.south, lon, 2, simplex)) * 5000;
+    const fS = fillAt(dS, lineFill);
+    const dW = (-lon - coastLine(continent.west, lat, 3, simplex)) * 5000;
+    const fW = fillAt(dW, lineFill);
+    const dE = (lon - coastLine(continent.east, lat, 4, simplex)) * 5000;
+    const fE = fillAt(dE, lineFill);
+    const m = Math.max(dN, dS, dW, dE);
     const k = CONTINENT_CORNER;
     const eN = Math.exp((dN - m) / k);
     const eS = Math.exp((dS - m) / k);
     const eW = Math.exp((dW - m) / k);
-    const past = m + k * Math.log(eN + eS + eW);
-    coastSouthness = eS / (eN + eS + eW);
+    const eE = Math.exp((dE - m) / k);
+    const past = m + k * Math.log(eN + eS + eW + eE);
+    const sum = eN + eS + eW + eE;
+    coastSouthness = eS / sum;
+    coastFill = (eN * fN + eS * fS + eW * fW + eE * fE) / sum;
     return (
       past +
       simplex.noise2D(x * 0.00035, z * 0.00035) * 1400 +
@@ -1242,10 +1398,11 @@ export const ChillFlightLogic = {};
   const COAST_BLEND = 2500;
   // How far past the coast (x, z) lies, as continentPast, but -Infinity
   // where no coast reaches (within 1 degree of the equator, between 10 West
-  // and 20 East), to skip the work near spawn
+  // and 11 East), to skip the work near spawn
   function continentPastFar(x, z, simplex) {
-    if (Math.abs(z) < 5000 && x > -50000 && x < 100000) {
+    if (Math.abs(z) < 5000 && x > -50000 && x < 55000) {
       coastSouthness = 0;
+      coastFill = 0;
       return -Infinity;
     }
     return continentPast(x, z, simplex);
@@ -1433,6 +1590,8 @@ export const ChillFlightLogic = {};
     // massive world-scale tears and horizontal/vertical striping artifacts.
     // Always skip feature blocks using conditional checks instead of returning early.
     // =========================================================================
+
+    pickContinent();
 
     // --- DOMAIN WARPING ---
     // Warp coordinates for terrain noise sampling — creates organic coastlines
@@ -2391,16 +2550,17 @@ export const ChillFlightLogic = {};
       }
     }
 
-    // --- EASTERN ALIEN BIOME (Beyond 10 degrees East to 15 degrees East) ---
-    // Swirling domain-warped ridges, organic shorelines, and alien sea basins
+    // --- EASTERN ALIEN BIOME (the eastern land, from about 10 East) ---
+    // Swirling domain-warped ridges, organic shorelines, and alien sea
+    // basins. It rises out of the island sea along the outline's eastLand
+    // line (which wanders, with bays and capes), out to the outline's east
+    // coast.
     const extremeEdge = 50000;
-    if (x > extremeEdge && x < 75000) {
-      const extremeFactor = Math.min(1.0, (x - extremeEdge) / 3000);
-      let ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
-
-      // Fade out alien biome towards the new coastline at 15.0E
-      const fadeOut = Math.min(1.0, Math.max(0, (75000 - x) / 10000)); // 0 at 75000, 1 at 65000
-      ef *= fadeOut;
+    const eastEdge =
+      coastLine(continent.eastLand, -z / 5000, 5, simplex) * 5000;
+    if (x > eastEdge) {
+      const extremeFactor = Math.min(1.0, (x - eastEdge) / EAST_LAND_RISE);
+      const ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
 
       const warpStrength = Math.max(0.3, ef) * 3000;
       const wx1 =
@@ -2494,31 +2654,6 @@ export const ChillFlightLogic = {};
 
       if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
     }
-    // --- EASTERN PROCEDURAL COASTLINE & OPEN OCEAN (15.0E - 20.0E) ---
-    else if (x >= 75000) {
-      const coastFactor = Math.min(1.0, (x - 75000) / 25000); // 0 at 75000, 1 at 100000
-      const blendFactor = Math.min(1.0, (x - 75000) / 2500); // Smooth transition from mainland over 2500 units
-
-      let coastHeight = coastDetail(
-        x,
-        z,
-        coastFactor,
-        COAST_EAST,
-        simplex,
-        WATER_LEVEL
-      );
-
-      // Open Ocean clamping
-      if (coastFactor >= 1.0) {
-        const deepFactor = Math.min(1.0, (x - 100000) / 10000);
-        coastHeight = _lerp(coastHeight, 30.0, deepFactor);
-      }
-
-      // Blend seamlessly with the preceding procedural terrain (n)
-      n = _lerp(n, coastHeight, blendFactor);
-
-      if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
-    }
     // --- WESTERN ALIEN BIOME (Beyond 10 degrees West, to the west coast) ---
     // Massive geometric stepped plateaus, jagged crystal spires, and deep
     // fractured chasms, running out to the continent's west coast
@@ -2584,7 +2719,7 @@ export const ChillFlightLogic = {};
     // deep sea (before the ice shelf, which freezes that sea in the north)
     const coastPast = continentPastFar(origX, origZ, simplex);
     const coastIn = coastPast + COAST_BAND / 2 + COAST_BLEND;
-    if (coastIn > 0) {
+    if (coastIn > 0 || coastFill > 0) {
       const t = Math.min(1, (coastPast + COAST_BAND / 2) / COAST_BAND);
       let coastHeight = coastDetail(
         origX,
@@ -2598,10 +2733,18 @@ export const ChillFlightLogic = {};
       // Open sea past the coast
       const deep = Math.min(1, (coastPast - COAST_BAND / 2) / 10000);
       if (deep > 0) coastHeight = _lerp(coastHeight, WATER_LEVEL - 10, deep);
-      const b = Math.min(1, coastIn / COAST_BLEND);
+      const b = Math.max(0, Math.min(1, coastIn / COAST_BLEND));
       // The coast only cuts into the land, never raises any: where the
       // outline crosses open sea (the island sea), it stays sea
       let coastTarget = Math.min(n, coastHeight);
+      // ... except in a 'fill' bump, which builds land out to the outline
+      if (coastFill > 0) {
+        coastTarget = _lerp(
+          coastTarget,
+          Math.max(coastTarget, coastHeight),
+          coastFill
+        );
+      }
       // Drowned land on the south coast becomes a shallow shelf
       if (coastSouthness > 0 && n > WATER_LEVEL - 4) {
         const out = (coastPast - SOUTH_SHELF) / 2500;
@@ -2615,7 +2758,8 @@ export const ChillFlightLogic = {};
           );
         }
       }
-      n = _lerp(n, coastTarget, b * b * (3 - 2 * b));
+      const blend = Math.max(b * b * (3 - 2 * b), coastFill);
+      n = _lerp(n, coastTarget, blend);
       if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
     }
 
@@ -2938,6 +3082,7 @@ export const ChillFlightLogic = {};
   exports.fallTurnAt = fallTurnAt;
   exports.fallBareAt = fallBareAt;
   exports.snowFactorAt = snowFactorAt;
+  exports.CONTINENT_NAMES = CONTINENTS.map((c) => c.name);
   exports.snowNoiseShift = snowNoiseShift;
   exports.MAP_WIDTH = MAP_WIDTH;
   exports.getElevation = getElevation;

@@ -117,22 +117,57 @@ console.log(
   '  Passed: Frozen north pack ice shelf is continuous across all longitudes'
 );
 
-// --- 2b. INVARIANT TEST: THE CONTINENT ENDS IN SEA ---
-// Well past the south coast (at most about 10S, on the peninsula) and the
-// west coast (at most about 17W), there's only sea.
+// --- 2b. INVARIANT TEST: EVERY CONTINENT ENDS IN SEA ---
+// For each outline the seed can pick: well past the south coast (at most
+// about 11S, on a peninsula or arm), the west coast (at most about 20W) and
+// the eastern land's east coast (at most about 20E), there's only sea, and
+// the landmarks and airports stay on land.
 const pastCoasts = [];
 for (let x = -100000; x <= 100000; x += 5000) pastCoasts.push([x, 70000]); // 14S
-for (let z = -15000; z <= 60000; z += 5000) pastCoasts.push([-110000, z]); // 22W
-for (const [testX, testZ] of pastCoasts) {
-  const elev = ChillFlightLogic.getElevation(testX, testZ, simplex, constants);
-  if (elev > constants.WATER_LEVEL) {
-    console.error(
-      `FAIL: Land past the continent's coast at X=${testX}, Z=${testZ} (elev=${elev.toFixed(1)})`
+for (let z = -15000; z <= 60000; z += 5000) {
+  pastCoasts.push([-110000, z]); // 22W
+  pastCoasts.push([115000, z]); // 23E
+}
+const onLand = [
+  ['the falls', ChillFlightLogic.FALLS_X, ChillFlightLogic.FALLS_Z],
+  ['the volcano', -5000, 5000],
+  ...ChillFlightLogic.AIRPORTS.map((a) => [a.name, a.x, a.z]),
+];
+for (const name of ChillFlightLogic.CONTINENT_NAMES) {
+  ChillFlightLogic.CONTINENT = name;
+  for (const [testX, testZ] of pastCoasts) {
+    const elev = ChillFlightLogic.getElevation(
+      testX,
+      testZ,
+      simplex,
+      constants
     );
-    process.exit(1);
+    if (elev > constants.WATER_LEVEL) {
+      console.error(
+        `FAIL: ${name}: land past the continent's coast at X=${testX}, Z=${testZ} (elev=${elev.toFixed(1)})`
+      );
+      process.exit(1);
+    }
+  }
+  for (const [what, testX, testZ] of onLand) {
+    const elev = ChillFlightLogic.getElevation(
+      testX,
+      testZ,
+      simplex,
+      constants
+    );
+    if (elev <= constants.WATER_LEVEL) {
+      console.error(
+        `FAIL: ${name}: ${what} is under water at X=${testX}, Z=${testZ} (elev=${elev.toFixed(1)})`
+      );
+      process.exit(1);
+    }
   }
 }
-console.log('  Passed: The continent ends in sea to the south and west');
+ChillFlightLogic.CONTINENT = null;
+console.log(
+  `  Passed: Every continent (${ChillFlightLogic.CONTINENT_NAMES.join(', ')}) ends in sea, with the landmarks on land`
+);
 
 // --- 3. INVARIANT TEST: EASTERN ALIEN BIOME CONTINUITY ---
 // Beyond 10.0E (X >= 55000), the eastern alien biome should have terrain.
