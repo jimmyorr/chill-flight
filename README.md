@@ -47,7 +47,7 @@ The land is a continent with sea on every side (`continentPastFar` in `chill-fli
 - **West coast:** Around 16.5 West (X = -82500), pulled in to about 14 West near 1.5 North.
 - **East:** The eastern alien land ends at its own coast, 15 to 20 East, as before.
 
-Each coast wanders a little with the world seed, and the corners where two coasts meet are rounded. Past the outline the land sinks under the sea over about 5000 units.
+Each coast wanders a little with the world seed, and the corners where two coasts meet are rounded. Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`, shared with the eastern land's coast): coves and spits, broad bights and headlands, fjords cutting inland, island chains breaking off, and barrier islands with lagoons behind them. Past it lies open sea. The coast only cuts into the land, never raises it, so where the outline crosses the island sea, the sea stays open. The western alien land runs right out to the west coast.
 
 | Biome             | Direction     | Latitude/Longitude          | Primary Characteristics                                                                                                             |
 | :---------------- | :------------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
@@ -263,7 +263,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
 - **Z**: Toggle zen (hides the HUD and buttons for an unobstructed view; also a switch on the pause menu's Flight tab).
 - **Pause menu**: The **Flight** tab has the plane, livery, Music and Zen; **Settings** has graphics, art style (low poly or anime; changing it restarts the game), invert y axis and other planes.
-- **Fullscreen world map**: Open via the 🗺️ Map button in the pause menu. Drag with mouse to pan, scroll wheel or `+` / `−` keys to zoom, and click 🎯 to center on plane. The map and the minimap color the land by height (hillshaded) and by region: the snowy north, the sandy and red-rock south, and the alien lands (cyan in the east, magenta in the west), using the same noise and thresholds as the terrain (`tintForRegion` in `minimap.js`).
+- **Fullscreen world map**: Open via the 🗺️ Map button in the pause menu. Drag with mouse to pan, scroll wheel or `+` / `−` keys to zoom, and click 🎯 to center on plane. The map and the minimap color the land by height (hillshaded) and by region: the snowy north, the sandy and red-rock south, and the alien lands (cyan in the east, magenta in the west), using the same noise and thresholds as the terrain (`map-palette.js`).
 
 #### Special maneuvers
 
