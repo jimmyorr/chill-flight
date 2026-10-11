@@ -447,8 +447,9 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
     heightGrid[z * gridX1 + x],
     -halfSize + z * step,
   ]);
-  // Wide enough for the fall's full width either side of its course
-  const pad = Math.ceil(20 / step) + 1;
+  // Wide enough for the fall's full width either side of its course, and for
+  // it to stand out from a gully (MAX_OUT in waterfalls.js)
+  const pad = Math.ceil(70 / step) + 1;
   const xs = best.map((p) => p[0]);
   const zs = best.map((p) => p[1]);
   const x0 = Math.max(0, Math.min(...xs) - pad);

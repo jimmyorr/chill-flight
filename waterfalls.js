@@ -141,56 +141,105 @@ function groundAt(ground, x, z) {
     : c + (b - c) * (1 - tx) + (d - c) * (1 - tz);
 }
 
-// Steps across the fall, so it can bend over a slope that also leans sideways
+// Steps across the fall
 const ACROSS = 16;
 // How high the fall lies above the ground
 const LIFT = 3;
+// The furthest the fall stands out from the rock, and over how many rows
+// either side that is smoothed (rows are about 4 units apart)
+const MAX_OUT = 50;
+const SMOOTH = 6;
 
 // The waterfall down `course` (local [x, y, z] points, top to bottom, in the
-// chunk's frame), lying on `ground` (the patch of height grid around it;
-// without it, the fall follows the course's heights), as a group to add to
-// the chunk
+// chunk's frame) over `ground` (the patch of height grid around it; without
+// it, the fall follows the course's heights), as a group to add to the chunk.
+// Each row across the fall is level, at the height of the ground under its
+// middle; where the rock either side stands higher (a gully), the row moves
+// out, downhill, until it clears it, so the water hangs in front of the
+// gully like a curtain instead of lining it.
 export function createWaterfall({course: points, ground}) {
   const group = new THREE.Group();
   const curve = new THREE.CatmullRomCurve3(
     points.map(([x, y, z]) => new THREE.Vector3(x, y, z))
   );
+  const groundOr = (x, z, fallback) =>
+    (ground ? groundAt(ground, x, z) : null) ?? fallback;
   // About every 4 units along the ground, so it follows every fold
   const samples = Math.max(10, Math.ceil(curve.getLength() / 4));
+  const rows = [];
+  const tangent = new THREE.Vector3();
+  let out = new THREE.Vector3(0, 0, 1);
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const p = curve.getPoint(t);
+    curve.getTangent(t, tangent);
+    // Downhill and across, both level
+    if (tangent.x * tangent.x + tangent.z * tangent.z > 1e-6) {
+      out = new THREE.Vector3(tangent.x, 0, tangent.z).normalize();
+    }
+    const side = new THREE.Vector3(-out.z, 0, out.x);
+    const half = THREE.MathUtils.lerp(9, 17, t);
+    const y = Math.max(groundOr(p.x, p.z, p.y) + LIFT, WATER_LEVEL + 0.5);
+    // How far out the row has to move to clear the rock either side
+    let need = 0;
+    for (; need < MAX_OUT; need += 2) {
+      let clear = true;
+      for (let k = 0; k <= ACROSS && clear; k++) {
+        const s = (k / ACROSS - 0.5) * 2 * half;
+        const g = groundOr(
+          p.x + side.x * s + out.x * need,
+          p.z + side.z * s + out.z * need,
+          -Infinity
+        );
+        clear = g + LIFT <= y + 1;
+      }
+      if (clear) break;
+    }
+    rows.push({p, out, side, half, y, need});
+  }
+  // Smooth how far out, never less than a row needs: the largest need
+  // nearby, then averaged
+  const most = rows.map((_, i) => {
+    let m = 0;
+    for (
+      let j = Math.max(0, i - SMOOTH);
+      j <= Math.min(samples, i + SMOOTH);
+      j++
+    ) {
+      m = Math.max(m, rows[j].need);
+    }
+    return m;
+  });
   const positions = [];
   const uvs = [];
   const indices = [];
-  const p = new THREE.Vector3();
   const prev = new THREE.Vector3();
-  const tangent = new THREE.Vector3();
+  const mid = new THREE.Vector3();
   let along = 0;
-  for (let i = 0; i <= samples; i++) {
-    const t = i / samples;
-    curve.getPoint(t, p);
-    curve.getTangent(t, tangent);
-    // Across the fall, level
-    const side = new THREE.Vector3(-tangent.z, 0, tangent.x);
-    if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
-    side.normalize();
-    const half = THREE.MathUtils.lerp(9, 17, t);
-    let mid = p.y;
-    for (let k = 0; k <= ACROSS; k++) {
-      const u = k / ACROSS;
-      const x = p.x + side.x * (u - 0.5) * 2 * half;
-      const z = p.z + side.z * (u - 0.5) * 2 * half;
-      const g = ground ? groundAt(ground, x, z) : null;
-      const y = Math.max((g ?? p.y) + LIFT, WATER_LEVEL + 0.5);
-      if (k === ACROSS / 2) mid = y;
-      positions.push(x, y, z);
-      uvs.push(u, 0);
+  rows.forEach(({p, out: o, side, half, y}, i) => {
+    let sum = 0;
+    let n = 0;
+    for (
+      let j = Math.max(0, i - SMOOTH);
+      j <= Math.min(samples, i + SMOOTH);
+      j++
+    ) {
+      sum += most[j];
+      n++;
     }
-    // Distance down the fall, measured on the ground, for the streaks
-    p.y = mid;
-    if (i > 0) along += p.distanceTo(prev);
-    prev.copy(p);
+    const d = sum / n;
+    mid.set(p.x + o.x * d, y, p.z + o.z * d);
     for (let k = 0; k <= ACROSS; k++) {
-      uvs[(i * (ACROSS + 1) + k) * 2 + 1] = along;
+      const s = (k / ACROSS - 0.5) * 2 * half;
+      const x = mid.x + side.x * s;
+      const z = mid.z + side.z * s;
+      // Never under the rock, wherever the smoothing left it
+      positions.push(x, Math.max(y, groundOr(x, z, -Infinity) + LIFT), z);
     }
+    // Distance down the fall, for the streaks
+    if (i > 0) along += mid.distanceTo(prev);
+    prev.copy(mid);
+    for (let k = 0; k <= ACROSS; k++) uvs.push(k / ACROSS, along);
     if (i > 0) {
       const r0 = (i - 1) * (ACROSS + 1);
       const r1 = i * (ACROSS + 1);
@@ -205,7 +254,9 @@ export function createWaterfall({course: points, ground}) {
         );
       }
     }
-  }
+  });
+  // Where it lands, for the mist and foam
+  const [bx, bz] = [prev.x, prev.z];
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
@@ -224,11 +275,10 @@ export function createWaterfall({course: points, ground}) {
     const a = (i / 4) * Math.PI * 2 + points.length;
     const size = mistSize * (0.7 + (0.3 * ((i * 37) % 10)) / 10);
     puff.scale.set(size, size * 0.8, 1);
-    const [mx, , mz] = points[points.length - 1];
     puff.position.set(
-      mx + Math.cos(a) * mistSize * 0.25,
+      bx + Math.cos(a) * mistSize * 0.25,
       WATER_LEVEL + size * 0.3,
-      mz + Math.sin(a) * mistSize * 0.25
+      bz + Math.sin(a) * mistSize * 0.25
     );
     group.add(puff);
   }
@@ -237,7 +287,6 @@ export function createWaterfall({course: points, ground}) {
   foamGeo.rotateX(-Math.PI / 2);
   foamGeo.userData.unique = true;
   const foam = new THREE.Mesh(foamGeo, foamMat);
-  const [bx, , bz] = points[points.length - 1];
   foam.position.set(bx, WATER_LEVEL + 0.6, bz);
   foam.renderOrder = 2;
   group.add(foam);
