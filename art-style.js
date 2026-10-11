@@ -3,13 +3,15 @@
 // lighting shader chunks once at load, so every lit material picks it up:
 // smooth shading, sun and moon light in three soft steps, lavender (not grey)
 // shadows, no near-black or blown-out white colors, fewer plastic highlights
-// and a gentle color grade. The classic look is untouched.
+// and a gentle color grade. The low-poly look (called "classic" in code) is
+// untouched.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
 const STORAGE_KEY = 'chill_flight_art_style';
 
-// The Settings choice, unless ?style= overrides it
+// The Settings choice, unless ?style= overrides it: anime, or lowpoly (also
+// low-poly or classic) for the low-poly look
 function loadStyle() {
   const param = ChillFlightLogic.urlParams.get('style');
   if (param) return param === 'anime' ? 'anime' : 'classic';
