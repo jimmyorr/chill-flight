@@ -1210,6 +1210,9 @@ export const ChillFlightLogic = {};
       coastWander(lat, 3, simplex) * 0.6
     );
   }
+  // How much the coast nearest the last point continentPast measured is the
+  // south coast, 0 to 1 (rounded corners blend it with the others)
+  let coastSouthness = 0;
   // How far past the coast (x, z) lies, seaward, in units (negative inland).
   // A smooth max of the distance past each coast, so the corners where two
   // coasts meet are rounded, roughened so the shore isn't a smooth curve.
@@ -1222,14 +1225,11 @@ export const ChillFlightLogic = {};
     const dW = (-lon - westCoastLon(lat, simplex)) * 5000;
     const m = Math.max(dN, dS, dW);
     const k = CONTINENT_CORNER;
-    const past =
-      m +
-      k *
-        Math.log(
-          Math.exp((dN - m) / k) +
-            Math.exp((dS - m) / k) +
-            Math.exp((dW - m) / k)
-        );
+    const eN = Math.exp((dN - m) / k);
+    const eS = Math.exp((dS - m) / k);
+    const eW = Math.exp((dW - m) / k);
+    const past = m + k * Math.log(eN + eS + eW);
+    coastSouthness = eS / (eN + eS + eW);
     return (
       past +
       simplex.noise2D(x * 0.00035, z * 0.00035) * 1400 +
@@ -1244,9 +1244,29 @@ export const ChillFlightLogic = {};
   // where no coast reaches (within 1 degree of the equator, between 10 West
   // and 20 East), to skip the work near spawn
   function continentPastFar(x, z, simplex) {
-    if (Math.abs(z) < 5000 && x > -50000 && x < 100000) return -Infinity;
+    if (Math.abs(z) < 5000 && x > -50000 && x < 100000) {
+      coastSouthness = 0;
+      return -Infinity;
+    }
     return continentPast(x, z, simplex);
   }
+  // The warm south coast: where it drowns land, the sea floor is a shallow
+  // sandy shelf (turquoise water) instead of deep, out to about this far past
+  // the outline, with reefs just under the surface and low sand cays
+  const SOUTH_SHELF = 5000;
+  function southShelfFloor(x, z, simplex, waterLevel) {
+    // Sandy floor 2 to 4.5 units down, rippled
+    let h =
+      waterLevel - 3.2 + simplex.noise2D(x * 0.0007 + 31, z * 0.0007) * 1.3;
+    // Reefs: ridged lines just under the surface
+    const reef = 1 - Math.abs(simplex.noise2D(x * 0.0011 - 7, z * 0.0011 + 5));
+    if (reef > 0.8) h = Math.max(h, waterLevel - 1.6 + (reef - 0.8) * 4);
+    // Sand cays, a few units high
+    const cay = simplex.noise2D(x * 0.0008 + 91, z * 0.0008 - 17);
+    if (cay > 0.72) h = Math.max(h, waterLevel - 1 + (cay - 0.72) * 30);
+    return h;
+  }
+
   // In the north the sea freezes this far out from the coast, leaving open
   // water along the shore
   const ICE_LEAD = 3000;
@@ -2581,7 +2601,21 @@ export const ChillFlightLogic = {};
       const b = Math.min(1, coastIn / COAST_BLEND);
       // The coast only cuts into the land, never raises any: where the
       // outline crosses open sea (the island sea), it stays sea
-      n = _lerp(n, Math.min(n, coastHeight), b * b * (3 - 2 * b));
+      let coastTarget = Math.min(n, coastHeight);
+      // Drowned land on the south coast becomes a shallow shelf
+      if (coastSouthness > 0 && n > WATER_LEVEL - 4) {
+        const out = (coastPast - SOUTH_SHELF) / 2500;
+        const shelf = coastSouthness * Math.max(0, Math.min(1, 1 - out));
+        if (shelf > 0) {
+          const floor = southShelfFloor(origX, origZ, simplex, WATER_LEVEL);
+          coastTarget = _lerp(
+            coastTarget,
+            Math.max(coastTarget, Math.min(n, floor)),
+            shelf * shelf * (3 - 2 * shelf)
+          );
+        }
+      }
+      n = _lerp(n, coastTarget, b * b * (3 - 2 * b));
       if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
     }
 
