@@ -6,7 +6,9 @@
 //   (silhouettes, ridges against what's behind). Breaks are found in
 //   1/depth, which is linear across any plane in screen space, so slopes
 //   seen at a grazing angle don't draw lines; ?outline=0 turns them off,
-// - and lays a watercolor-paper grain over the frame.
+// - and fades distant land into the horizon's color (?haze=0 turns it
+//   off). ?brush=0 turns off the Kuwahara filter, and ?fxaa=1 or ?fxaa=0
+//   turns edge smoothing on or off whatever the preset, for comparing.
 // The classic style (and VR) renders straight to the screen as before.
 import * as THREE from 'three';
 import {FXAAShader} from 'three/addons/shaders/FXAAShader.js';
@@ -17,7 +19,10 @@ import {renderer} from './sky.js';
 import {state} from './state.js';
 
 const enabled = ART_STYLE === 'anime';
-const outlines = ChillFlightLogic.urlParams.get('outline') !== '0';
+const params = ChillFlightLogic.urlParams;
+const outlines = params.get('outline') !== '0';
+const brush = params.get('brush') !== '0';
+const fxaaParam = params.get('fxaa');
 
 let target = null;
 let quad = null;
@@ -40,6 +45,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uPixelRatio: {value: 1},
     uOutline: {value: outlines},
     uKuwahara: {value: false},
+    uHaze: {value: params.get('haze') !== '0'},
     uHorizonColor: terrainUniforms.uBottomColor,
   },
   // How far toward the horizon's color distant land fades (aerial
@@ -62,21 +68,9 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uniform float uPixelRatio;
     uniform bool uOutline;
     uniform bool uKuwahara;
+    uniform bool uHaze;
     uniform vec3 uHorizonColor;
     varying vec2 vUv;
-
-    float hash12(vec2 p) {
-      vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-      p3 += dot(p3, p3.yzx + 33.33);
-      return fract((p3.x + p3.y) * p3.z);
-    }
-    float vnoise(vec2 p) {
-      vec2 i = floor(p);
-      vec2 f = fract(p);
-      f = f * f * (3.0 - 2.0 * f);
-      return mix(mix(hash12(i), hash12(i + vec2(1.0, 0.0)), f.x),
-                 mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), f.x), f.y);
-    }
 
     // Kuwahara: the mean of whichever of the four quadrants around the pixel
     // varies least, which flattens detail into daubs but keeps edges
@@ -147,13 +141,10 @@ const outlineMaterial = new THREE.ShaderMaterial({
       // Aerial perspective: distant land fades into soft layers of the
       // horizon's color, nudged toward lavender (not the sky itself, whose
       // depth is the far plane)
-      if (c > 1.0 / (uFar * 0.99)) {
+      if (uHaze && c > 1.0 / (uFar * 0.99)) {
         vec3 haze = mix(uHorizonColor, vec3(0.78, 0.8, 0.95) * dot(uHorizonColor, vec3(0.333)) * 1.1, 0.3);
         color = mix(color, haze, smoothstep(1200.0, 11000.0, dist) * HAZE_STRENGTH);
       }
-      // Watercolor paper: broad blotches, a finer tooth and fibers
-      float paper = vnoise(p * 0.012) * 0.5 + vnoise(p * 0.08) * 0.3 + vnoise(p * 0.7) * 0.2;
-      color *= mix(vec3(0.93, 0.92, 0.95), vec3(1.03, 1.02, 1.0), paper);
       gl_FragColor = vec4(color, 1.0);
     }
   `,
@@ -213,12 +204,13 @@ export function renderFrame(scene, camera) {
   u.uPixelRatio.value = px;
   // The brushstroke filter costs ~1.5 ms a frame on an M1 MacBook Air at mid;
   // the low preset (for slow devices) skips it
-  u.uKuwahara.value = state.graphicsPreset !== 'low';
+  u.uKuwahara.value = brush && state.graphicsPreset !== 'low';
   u.uFogDensity.value = scene.fog ? scene.fog.density || 0 : 0;
   u.uNear.value = camera.near;
   u.uFar.value = camera.far;
-  const fxaa =
-    state.graphicsPreset === 'high' || state.graphicsPreset === 'ultra';
+  const fxaa = fxaaParam
+    ? fxaaParam !== '0'
+    : state.graphicsPreset === 'high' || state.graphicsPreset === 'ultra';
   if (!fxaa) {
     renderer.render(quad, quadCamera);
     return;

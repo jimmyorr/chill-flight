@@ -329,7 +329,7 @@ What the anime style changes:
 - **Land and trees** (`terrain-geometry.js`, `constants.js`): grass and other vegetation drift between warm yellow-green and cool blue-green in broad washes, with smaller lighter and darker patches like uneven paint (fading out before the distant terrain ring). Bare rock (steep ground that isn't grass or snow) is shaded by its facets on top of the smooth lighting, so mountains keep their ridges and gullies in sun and shade. Tree canopies and bushes break into leafy clumps with lavender gaps, anchored to each tree so they sway with the leaves.
 - **Sky** (`CLOUD_GLSL`, `TOWER_GLSL` in `constants.js`; `src/shaders/sky.frag.glsl`): cumulus are bigger and rounder, with crisp edges and two tones (lit and a lavender shade); the mackerel sky's puffs become crisp "sheep clouds" with a lavender rim away from the sun; cirrus becomes broad, crisp brush strokes with lavender lower edges; and on cumulus days, towering clouds of stacked round puffs rise from the horizon, with bright rims on their tops and sunward sides and bases that dissolve into the haze. They stand on the visible horizon (the far edge of the land and sea, `uTowerHorizon`), which drops below eye level as you climb, so from high up they still rise from the haze rather than showing their straight-sided bases. Each day has its own skyline of towers, which drifts slowly around the horizon with the wind and fades away as the sky turns overcast. The moon hides behind them. Water reflects the anime cumulus (not the towers). `cloudStyle=classic` keeps the classic clouds (and no towers) with the rest of the anime style.
 - **Water**: on the open sea, light painted strokes ride the wave crests and drift with the swell, faded out in the distance; rivers, ponds and lakes stay calm. The depth gradient from turquoise shallows to deep blue is the same as classic.
-- **Screen effects** (`outline-pass.js`): the scene renders into an offscreen target with a depth texture, then one full-screen pass adds, in order: a Kuwahara brushstroke filter that softens detail into daubs of paint; ink outlines where depth breaks (silhouettes and ridges against what's behind them), thinning with distance and fading with the fog (`outline=0` turns them off); an aerial-perspective haze that fades distant land into soft layers of the horizon's color; and a watercolor-paper grain. On high and ultra, an FXAA pass then smooths jagged edges.
+- **Screen effects** (`outline-pass.js`): the scene renders into an offscreen target with a depth texture, then one full-screen pass adds, in order: a Kuwahara brushstroke filter that softens detail into daubs of paint; ink outlines where depth breaks (silhouettes and ridges against what's behind them), thinning with distance and fading with the fog (`outline=0` turns them off); and an aerial-perspective haze that fades distant land into soft layers of the horizon's color (`haze=0` turns it off). On high and ultra, an FXAA pass then smooths jagged edges. `brush=0` turns off the brushstroke filter, and `fxaa=1` or `fxaa=0` turns edge smoothing on or off at any preset, for comparing.
 
 Differences by preset and mode:
 
@@ -337,7 +337,7 @@ Differences by preset and mode:
 | :------------------------------- | :------------------------- | :-- | :----------- | :-- |
 | Light, color, land, trees, water | Yes                        | Yes | Yes          | Yes |
 | Anime clouds and horizon towers  | No (low has no sky clouds) | Yes | Yes          | Yes |
-| Ink outlines, haze, paper grain  | Yes                        | Yes | Yes          | No  |
+| Ink outlines and haze            | Yes                        | Yes | Yes          | No  |
 | Brushstroke (Kuwahara) filter    | No                         | Yes | Yes          | No  |
 | FXAA edge smoothing              | No                         | No  | Yes          | No  |
 
@@ -422,6 +422,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`theme`**: The visual theme to load (e.g., `standard`).
 - **`style`**: `anime` or `classic`, overriding the art style chosen in Settings (see [Art style](#art-style)).
 - **`outline`**: With the anime style, set to `0` to turn off the ink outlines.
+- **`brush`**, **`haze`**: With the anime style, set to `0` to turn off the brushstroke (Kuwahara) filter or the aerial-perspective haze, for comparing.
+- **`fxaa`**: With the anime style, `1` or `0` turns FXAA edge smoothing on or off whatever the graphics preset (by default it's on for high and ultra only).
 - **`cloudStyle`**: With the anime style, set to `classic` to keep the classic clouds (and no horizon towers) instead of the anime ones.
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
 - **`cloud`** (or **`clouds`**, **`cloudCover`**, **`overcast`**): Cloud cover density or mode (options: `auto` for procedural weather noise, `none` or `false` to disable clouds, `clear` for 0.0, `scattered` for 0.3, `broken` for 0.6, `overcast` for 1.0, or any float between `0.0` and `1.0`).
