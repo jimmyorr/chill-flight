@@ -14,6 +14,15 @@ import {resetSteering} from './game-ui.js';
 import {Achievements} from './achievements.js';
 import {mapColor} from './map-palette.js';
 import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
+import {updateChunks} from './terrain-chunks.js';
+import {cameraDolly} from './game-input-bindings.js';
+import {camera} from './sky.js';
+import {
+  _currentLookTarget,
+  _virtualCameraPos,
+  _virtualLookTarget,
+} from './game.js';
+import {state} from './state.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -800,6 +809,31 @@ import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
       }
     });
 
+    // 3.5 The picked spot ("Fly here")
+    if (warpPin) {
+      const wx = (warpPin.x - vMinX) / worldUnitsPerPixel;
+      const wz = (warpPin.z - vMinZ) / worldUnitsPerPixel;
+      fsCtx.save();
+      fsCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      fsCtx.shadowBlur = 6;
+      fsCtx.strokeStyle = '#ffd700';
+      fsCtx.lineWidth = 2.5;
+      fsCtx.beginPath();
+      fsCtx.arc(wx, wz, 11, 0, Math.PI * 2);
+      fsCtx.stroke();
+      fsCtx.beginPath();
+      fsCtx.moveTo(wx - 17, wz);
+      fsCtx.lineTo(wx - 5, wz);
+      fsCtx.moveTo(wx + 5, wz);
+      fsCtx.lineTo(wx + 17, wz);
+      fsCtx.moveTo(wx, wz - 17);
+      fsCtx.lineTo(wx, wz - 5);
+      fsCtx.moveTo(wx, wz + 5);
+      fsCtx.lineTo(wx, wz + 17);
+      fsCtx.stroke();
+      fsCtx.restore();
+    }
+
     // 4. Player Plane Indicator
     if (planeGroup) {
       const px = planeGroup.position.x;
@@ -953,12 +987,66 @@ import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
     Achievements.unlock('cartographer');
   }
 
+  // --- WARP ("Fly here") ---
+  // Tap a spot on the map to pin it, then "Fly here" moves the plane there,
+  // 400 units above the ground, keeping its heading and speed.
+  let warpPin = null;
+  const TAP_SLOP = 6; // pixels a tap may move and still count as a tap
+  const TAP_TIME = 400; // ms
+  let tapStart = null;
+
+  function setWarpPin(pin) {
+    warpPin = pin;
+    const panel = document.getElementById('fullscreen-map-warp');
+    if (panel) panel.hidden = !pin;
+    const coords = document.getElementById('fullscreen-map-warp-coords');
+    if (coords && pin) coords.textContent = formatLatLon(pin.x, pin.z);
+    renderFullscreenMap();
+  }
+
+  function warpTo(x, z) {
+    let ground = WATER_LEVEL;
+    try {
+      ground = Math.max(
+        WATER_LEVEL,
+        ChillFlightLogic.getElevation(x, z, simplex, constants)
+      );
+    } catch {
+      /* keep the water level */
+    }
+    const dx = x - planeGroup.position.x;
+    const dy = ground + 400 - planeGroup.position.y;
+    const dz = z - planeGroup.position.z;
+    planeGroup.position.set(x, ground + 400, z);
+    // Move the camera and its tracking targets with the plane, so it doesn't
+    // sweep across the world to catch up
+    const activeCam = state.isVRPresenting ? cameraDolly : camera;
+    for (const v of [
+      activeCam.position,
+      _currentLookTarget,
+      _virtualCameraPos,
+      _virtualLookTarget,
+    ]) {
+      v.x += dx;
+      v.y += dy;
+      v.z += dz;
+    }
+    // The jump isn't distance flown
+    if (state.previousPosition)
+      state.previousPosition.copy(planeGroup.position);
+    updateChunks();
+    log.info(
+      `[Warp] To X = ${x.toFixed(0)}, Z = ${z.toFixed(0)} (${formatLatLon(x, z)})`
+    );
+  }
+
   function closeFullscreenMap() {
     if (!fsVisible) return;
 
     suppressPauseClick(500);
 
     fsVisible = false;
+    setWarpPin(null);
     if (fsOverlay) {
       fsOverlay.style.display = 'none';
     }
@@ -1037,6 +1125,20 @@ import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
       closeFullscreenMap();
     });
 
+    attachButtonAction(
+      document.getElementById('fullscreen-map-warp-btn'),
+      () => {
+        if (!warpPin) return;
+        const {x, z} = warpPin;
+        warpTo(x, z);
+        closeFullscreenMap();
+      }
+    );
+    attachButtonAction(
+      document.getElementById('fullscreen-map-warp-cancel'),
+      () => setWarpPin(null)
+    );
+
     const recenterBtn = document.getElementById('fullscreen-map-recenter-btn');
     attachButtonAction(recenterBtn, () => {
       if (planeGroup) {
@@ -1076,6 +1178,10 @@ import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
         }
       }
       fsCanvas.classList.add('dragging');
+      tapStart =
+        activePointers.size === 1
+          ? {x: e.clientX, y: e.clientY, t: performance.now()}
+          : null;
 
       if (activePointers.size === 1) {
         isDragging = true;
@@ -1162,6 +1268,25 @@ import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
         isDragging = false;
         prevPinchDist = null;
         fsCanvas.classList.remove('dragging');
+        // A tap (not a drag) pins that spot
+        if (
+          tapStart &&
+          Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) <
+            TAP_SLOP &&
+          performance.now() - tapStart.t < TAP_TIME
+        ) {
+          const minDim = Math.min(window.innerWidth, window.innerHeight);
+          const unitsPerPixel = (fsViewRadius * 2) / minDim;
+          setWarpPin({
+            x:
+              fsViewCenterX +
+              (e.clientX - window.innerWidth / 2) * unitsPerPixel,
+            z:
+              fsViewCenterZ +
+              (e.clientY - window.innerHeight / 2) * unitsPerPixel,
+          });
+        }
+        tapStart = null;
         renderFullscreenMap();
         updateFsMapUrlParams(true);
       }

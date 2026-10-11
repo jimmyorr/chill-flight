@@ -298,7 +298,27 @@
         </button>
       </div>
       <div class="fullscreen-map-hint">
-        <span>Pinch or scroll to zoom &bull; Drag to pan</span>
+        <span
+          >Pinch or scroll to zoom &bull; Drag to pan &bull; Tap to pick a
+          spot</span
+        >
+      </div>
+      <div id="fullscreen-map-warp" class="fullscreen-map-warp" hidden>
+        <span
+          id="fullscreen-map-warp-coords"
+          class="fullscreen-map-warp-coords"
+        ></span>
+        <button id="fullscreen-map-warp-btn" class="fullscreen-map-warp-btn">
+          Fly here
+        </button>
+        <button
+          id="fullscreen-map-warp-cancel"
+          class="fullscreen-map-warp-cancel"
+          title="Clear the pin"
+          aria-label="Clear the pin"
+        >
+          ✕
+        </button>
       </div>
     </div>
 
