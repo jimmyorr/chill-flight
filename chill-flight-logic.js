@@ -1455,6 +1455,171 @@ export const ChillFlightLogic = {};
     return floe > 0.9 - into * 1.9;
   }
 
+  // --- THE CANYON (landmark, south-east of spawn) ---
+  // A Grand Canyon: a deep, meandering gorge cut into a raised desert
+  // plateau, its walls stepped in tiers of cliffs and benches, buttes
+  // standing inside it and side canyons scalloping its rims, with a river at
+  // the bottom that opens into the island sea. It runs south from about 1.2
+  // East, 2.3 South and turns east to its mouth near 2.8 East, 5.4 South:
+  // land in every continent outline, clear of the airports and highways.
+  // Points are [lon, lat] in degrees.
+  const CANYON_PATH = [
+    [1.0, -2.3],
+    [1.4, -3.4],
+    [1.0, -4.4],
+    [1.6, -5.1],
+    [2.6, -5.4],
+    // The river runs on out to open water, past the plateau's end
+    [3.8, -5.6],
+  ];
+  // Where along the path the plateau ends (the rest is the river's mouth)
+  const CANYON_PLATEAU_END = 4;
+  const CANYON_PLATEAU = 300; // Rim height
+  const CANYON_TIERS = 5; // Cliff-and-bench steps from river to rim
+  const _canyonPts = CANYON_PATH.map(([lon, lat]) => [lon * 5000, -lat * 5000]);
+  const _canyonLen = [0];
+  for (let i = 1; i < _canyonPts.length; i++) {
+    _canyonLen.push(
+      _canyonLen[i - 1] +
+        Math.hypot(
+          _canyonPts[i][0] - _canyonPts[i - 1][0],
+          _canyonPts[i][1] - _canyonPts[i - 1][1]
+        )
+    );
+  }
+  const CANYON_LENGTH = _canyonLen[CANYON_PLATEAU_END];
+  const CANYON_RIVER_END = _canyonLen[_canyonLen.length - 1];
+  // Its bounding box, padded by the plateau's reach, to skip the work
+  // everywhere else
+  const CANYON_REACH = 6000;
+  const _canyonBox = [
+    Math.min(..._canyonPts.map((p) => p[0])) - CANYON_REACH,
+    Math.max(..._canyonPts.map((p) => p[0])) + CANYON_REACH,
+    Math.min(..._canyonPts.map((p) => p[1])) - CANYON_REACH,
+    Math.max(..._canyonPts.map((p) => p[1])) + CANYON_REACH,
+  ];
+  // How strongly (x, z) is part of the canyon's landform, 0 to 1 (for its
+  // rock colours), and its ground height there. Returns null outside it.
+  const _canyonOut = {weight: 0, height: 0};
+  function canyonAt(x, z, simplex, waterLevel) {
+    if (
+      x < _canyonBox[0] ||
+      x > _canyonBox[1] ||
+      z < _canyonBox[2] ||
+      z > _canyonBox[3]
+    ) {
+      return null;
+    }
+    // Meanders: the course bends back and forth around the path
+    const qx = x + simplex.noise2D(x * 0.00035 + 61, z * 0.00035) * 900;
+    const qz = z + simplex.noise2D(x * 0.00035 - 61, z * 0.00035 + 4) * 900;
+    // Nearest point on the path: distance across, and how far along
+    let d = Infinity;
+    let along = 0;
+    for (let i = 1; i < _canyonPts.length; i++) {
+      const [ax, az] = _canyonPts[i - 1];
+      const [bx, bz] = _canyonPts[i];
+      const sx = bx - ax;
+      const sz = bz - az;
+      const len2 = sx * sx + sz * sz;
+      const t = Math.max(
+        0,
+        Math.min(1, ((qx - ax) * sx + (qz - az) * sz) / len2)
+      );
+      const dist = Math.hypot(qx - ax - sx * t, qz - az - sz * t);
+      if (dist < d) {
+        d = dist;
+        along = _canyonLen[i - 1] + t * Math.sqrt(len2);
+      }
+    }
+    // Half width at the rim, scalloped by side canyons
+    const halfWidth =
+      1500 +
+      simplex.noise2D(along * 0.0005 + 13, 2.5) * 450 +
+      Math.abs(simplex.noise2D(x * 0.0011 - 33, z * 0.0011 + 8)) * 650;
+    // The plateau: solid around the canyon, then easing back into the
+    // desert over what land is already there (landWeight), so it doesn't
+    // fill in the coast's inlets and islands
+    const plateauReach = halfWidth + 1200;
+    const pw = Math.max(0, Math.min(1, 1 - (d - plateauReach) / 2000));
+    // ... and lowering toward the mouth, where it meets the sea
+    const mouth = Math.max(0, Math.min(1, (CANYON_LENGTH - along) / 5000));
+    const core = d < plateauReach ? 1 : 0;
+    const weight = pw * pw * (3 - 2 * pw) * mouth;
+    // Past the plateau's end only the river's channel remains
+    const channel = Math.max(0, 1 - d / 320);
+    if (weight <= 0 && channel <= 0) return null;
+    const rim =
+      waterLevel +
+      (CANYON_PLATEAU - waterLevel) * (0.35 + 0.65 * mouth) +
+      simplex.noise2D(x * 0.0004 + 9, z * 0.0004 - 9) * 25;
+    // The gorge, shallow at its head and full depth further down
+    const head = Math.max(0, Math.min(1, along / 4000));
+    let h = rim;
+    // How much (x, z) is inside the gorge (for its rock colours), easing out
+    // just past the rim
+    const gorgeIn =
+      Math.max(0, Math.min(1, (halfWidth + 150 - d) / 300)) * head;
+    if (d < halfWidth) {
+      const river = waterLevel - 4;
+      // Inner gorge: the river, then a narrow floor
+      const inner = 260;
+      let gorge;
+      if (d < inner) {
+        const f = d / inner;
+        gorge = river + (waterLevel + 14 - river) * f * f;
+      } else {
+        // Tiers of cliffs and benches up to the rim; noise wobbles the tier
+        // lines so the cliffs aren't neat contours
+        const u = Math.max(
+          0,
+          Math.min(
+            1,
+            (d - inner) / (halfWidth - inner) +
+              simplex.noise2D(x * 0.0018 + 5, z * 0.0018 - 5) * 0.06
+          )
+        );
+        const tier = Math.min(CANYON_TIERS - 1, Math.floor(u * CANYON_TIERS));
+        const f = u * CANYON_TIERS - tier;
+        const cliff = Math.min(1, f / 0.35);
+        const step = (tier + cliff * cliff * (3 - 2 * cliff)) / CANYON_TIERS;
+        gorge = waterLevel + 14 + (rim - waterLevel - 14) * step;
+        // Buttes: flat-topped towers left standing inside the canyon
+        const butte = simplex.noise2D(x * 0.0013 + 77, z * 0.0013 - 31);
+        if (butte > 0.55 && d > inner + 200) {
+          const top = rim - 30 - (1 - u) * 60;
+          const b = Math.min(1, (butte - 0.55) / 0.08);
+          gorge = Math.max(gorge, gorge + (top - gorge) * b);
+        }
+      }
+      h = rim + (gorge - rim) * head;
+    }
+    // The river's channel, down to the sea past the plateau's end
+    if (along > CANYON_LENGTH - 2500 && along < CANYON_RIVER_END) {
+      const ch = waterLevel - 4 + (d / 320) ** 2 * 20;
+      if (weight <= 0) {
+        h = ch;
+      } else {
+        h = Math.min(h, ch);
+      }
+    }
+    _canyonOut.weight = Math.max(
+      weight,
+      channel * (along > CANYON_LENGTH - 2500 ? 1 : 0)
+    );
+    _canyonOut.core = core;
+    _canyonOut.gorge = gorgeIn * mouth;
+    _canyonOut.height = h;
+    return _canyonOut;
+  }
+  // How much (x, z) is inside the canyon's gorge, 0 to 1 (its rock colours)
+  function canyonRockAt(x, z, simplex) {
+    const c = canyonAt(x, z, simplex, 40);
+    return c ? c.gorge : 0;
+  }
+  // The height of each tier of the gorge's walls, river to rim
+  const CANYON_TIER_HEIGHT = (CANYON_PLATEAU - 40 - 14) / CANYON_TIERS;
+
   // --- THE FALLS (landmark, north of spawn) ---
   // A table mountain standing in a lake, its sheer walls about 380 units
   // tall. A stream runs south down a winding valley across the top, from a
@@ -2784,6 +2949,19 @@ export const ChillFlightLogic = {};
       if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
     }
 
+    // --- THE CANYON ---
+    // After the coasts, so it stands the same in every continent outline
+    const canyon = canyonAt(origX, origZ, simplex, WATER_LEVEL);
+    if (canyon) {
+      // Outside its core, the plateau only builds on land, and the river's
+      // channel only cuts
+      const land = Math.max(0, Math.min(1, (n - WATER_LEVEL) / 15));
+      const w = canyon.core ? canyon.weight : canyon.weight * land;
+      const target =
+        canyon.height < n ? canyon.height : _lerp(n, canyon.height, w);
+      n = canyon.height < n ? _lerp(n, target, canyon.weight) : target;
+    }
+
     // --- FROZEN NORTH ICE SHELF ---
     let isIceShelf = false;
     // Start freezing around 4°N (Z=-20000), fully frozen ~5000 units later
@@ -2924,6 +3102,9 @@ export const ChillFlightLogic = {};
   exports.normalizePlaneType = normalizePlaneType;
   exports.mulberry32 = mulberry32;
   exports.FALLS_X = FALLS_X;
+  exports.CANYON_PATH = CANYON_PATH;
+  exports.canyonRockAt = canyonRockAt;
+  exports.CANYON_TIER_HEIGHT = CANYON_TIER_HEIGHT;
   exports.FALLS_Z = FALLS_Z;
   exports.FALLS_LIP_Z = FALLS_LIP_Z;
   exports.FALLS_POND = FALLS_POND;

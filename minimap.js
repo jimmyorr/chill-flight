@@ -76,6 +76,14 @@ import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
       color: '#7fd8f0', // falling-water blue
       symbol: '≋',
     },
+    {
+      // Halfway down the canyon (chill-flight-logic.js)
+      name: 'Canyon',
+      x: ChillFlightLogic.CANYON_PATH[2][0] * 5000,
+      z: -ChillFlightLogic.CANYON_PATH[2][1] * 5000,
+      color: '#d2693c', // canyon-rock rust
+      symbol: '⩔',
+    },
     // The airports (chill-flight-logic.js)
     ...ChillFlightLogic.AIRPORTS.map((a) => ({
       name: a.name,

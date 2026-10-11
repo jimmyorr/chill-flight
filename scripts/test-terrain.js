@@ -166,6 +166,34 @@ for (const name of ChillFlightLogic.CONTINENT_NAMES) {
   }
 }
 ChillFlightLogic.CONTINENT = null;
+
+// --- 2c. THE CANYON ---
+// In every outline its rim stands well above the sea and its river, at the
+// bottom, is water, so the gorge is really cut.
+for (const name of ChillFlightLogic.CONTINENT_NAMES) {
+  ChillFlightLogic.CONTINENT = name;
+  for (const [lon, lat] of ChillFlightLogic.CANYON_PATH.slice(1, 4)) {
+    const x = lon * 5000;
+    const z = -lat * 5000;
+    let rim = -Infinity;
+    let floor = Infinity;
+    for (let dx = -3500; dx <= 3500; dx += 50) {
+      const h = ChillFlightLogic.getElevation(x + dx, z, simplex, constants);
+      rim = Math.max(rim, h);
+      floor = Math.min(floor, h);
+    }
+    if (rim < 250 || floor > constants.WATER_LEVEL) {
+      console.error(
+        `FAIL: ${name}: the canyon at ${lon}E ${-lat}S has rim ${rim.toFixed(0)}, floor ${floor.toFixed(0)}`
+      );
+      process.exit(1);
+    }
+  }
+}
+ChillFlightLogic.CONTINENT = null;
+console.log(
+  '  Passed: The canyon is cut, with a river at the bottom, in every continent'
+);
 console.log(
   `  Passed: Every continent (${ChillFlightLogic.CONTINENT_NAMES.join(', ')}) ends in sea, with the landmarks on land`
 );

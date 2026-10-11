@@ -159,6 +159,15 @@ const _colorSandMottleHigh = new Color(0xd2b48c);
 const _colorSandMottleLow = new Color(0xdeb887);
 const _colorArizonaDark = new Color(0x8b0000);
 const _colorDesertMottle = new Color(0xdaa520);
+// The canyon's sandstone layers, one per tier of its walls, bottom to top
+const _canyonBands = [
+  new Color(0xb5532e), // rust
+  new Color(0xe3b48a), // cream
+  new Color(0xc9683b), // orange
+  new Color(0x8f3b26), // deep red
+  new Color(0xd99a64), // tan
+  new Color(0xa84a2c), // red
+];
 const _colorForestDark = new Color(0x006400);
 const _colorForestDeep = new Color(0x004d00);
 const _colorForestLight = new Color(0x6b8e23);
@@ -1908,6 +1917,22 @@ export function generateChunkData({
     }
 
     _tempColorObj.multiplyScalar(1.0 + grain);
+
+    // The canyon's rock: each tier of its walls is its own layer of
+    // sandstone (rust, cream, orange, deep red, tan), so the gorge steps down
+    // in bands of colour like the Grand Canyon's strata
+    const canyonRock = ChillFlightLogic.canyonRockAt(worldX, worldZ, simplex);
+    if (canyonRock > 0 && height > WATER_LEVEL + 4) {
+      const tier = Math.floor(
+        (height - WATER_LEVEL - 14) / ChillFlightLogic.CANYON_TIER_HEIGHT
+      );
+      const band =
+        _canyonBands[
+          ((tier % _canyonBands.length) + _canyonBands.length) %
+            _canyonBands.length
+        ];
+      _tempColorObj.lerp(band, canyonRock * 0.85);
+    }
 
     // Volcano texturing
     if (distToVolcano < 2000) {
