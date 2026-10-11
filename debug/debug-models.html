@@ -586,13 +586,15 @@
             case 'waterfall': {
               // A sample course down a steep slope into water (at y = 40,
               // the game's water level), lowered to the preview's ground
-              const fall = createWaterfall([
-                [0, 110, -30],
-                [0, 85, -22],
-                [0, 60, -12],
-                [0, 42, -2],
-                [0, 37, 6],
-              ]);
+              const fall = createWaterfall({
+                course: [
+                  [0, 110, -30],
+                  [0, 85, -22],
+                  [0, 60, -12],
+                  [0, 42, -2],
+                  [0, 37, 6],
+                ],
+              });
               fall.position.y = -40;
               previewGroup.add(fall);
               break;

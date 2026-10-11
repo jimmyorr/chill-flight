@@ -374,7 +374,8 @@ function softenedWaterDepth(
 // point at least WATERFALL_MIN_DROP above the water, follows the steepest
 // way down the chunk's height grid to the water, and keeps the steepest,
 // tallest such fall in the chunk. Returns its course (local x, y, z points,
-// top to bottom) or null. Its own random numbers, so the chunk's other props
+// top to bottom) and the patch of height grid around it, so the fall can lie
+// on the terrain as drawn; or null. Its own random numbers, so the chunk's other props
 // don't move.
 const WATERFALL_MIN_DROP = 45;
 const WATERFALL_CHANCE = 0.15;
@@ -441,11 +442,38 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
     }
   }
   if (!best) return null;
-  return best.map(([x, z]) => [
+  const course = best.map(([x, z]) => [
     -halfSize + x * step,
     heightGrid[z * gridX1 + x],
     -halfSize + z * step,
   ]);
+  // Wide enough for the fall's full width either side of its course
+  const pad = Math.ceil(20 / step) + 1;
+  const xs = best.map((p) => p[0]);
+  const zs = best.map((p) => p[1]);
+  const x0 = Math.max(0, Math.min(...xs) - pad);
+  const z0 = Math.max(0, Math.min(...zs) - pad);
+  const x1 = Math.min(gridX1 - 1, Math.max(...xs) + pad);
+  const z1 = Math.min(gridX1 - 1, Math.max(...zs) + pad);
+  const cols = x1 - x0 + 1;
+  const rows = z1 - z0 + 1;
+  const heights = new Float32Array(cols * rows);
+  for (let z = 0; z < rows; z++) {
+    for (let x = 0; x < cols; x++) {
+      heights[z * cols + x] = heightGrid[(z0 + z) * gridX1 + x0 + x];
+    }
+  }
+  return {
+    course,
+    ground: {
+      x: -halfSize + x0 * step,
+      z: -halfSize + z0 * step,
+      step,
+      cols,
+      rows,
+      heights,
+    },
+  };
 }
 
 export function generateChunkData({

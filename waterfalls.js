@@ -116,14 +116,47 @@ const mistMat = new THREE.SpriteMaterial({
   fog: true,
 });
 
-// The waterfall along `points` (local [x, y, z], top to bottom, in the
-// chunk's frame), as a group to add to the chunk
-export function createWaterfall(points) {
+// The terrain's height at local (x, z) as drawn: the triangles of the
+// chunk's terrain mesh (a PlaneGeometry, split along each cell's
+// (x, z + 1) to (x + 1, z) diagonal) over the patch of height grid the worker
+// sent. Null outside the patch.
+function groundAt(ground, x, z) {
+  const fx = (x - ground.x) / ground.step;
+  const fz = (z - ground.z) / ground.step;
+  const ix = Math.floor(fx);
+  const iz = Math.floor(fz);
+  if (ix < 0 || iz < 0 || ix >= ground.cols - 1 || iz >= ground.rows - 1) {
+    return null;
+  }
+  const tx = fx - ix;
+  const tz = fz - iz;
+  const h = ground.heights;
+  const i = iz * ground.cols + ix;
+  const a = h[i];
+  const b = h[i + ground.cols];
+  const c = h[i + ground.cols + 1];
+  const d = h[i + 1];
+  return tx + tz <= 1
+    ? a + (d - a) * tx + (b - a) * tz
+    : c + (b - c) * (1 - tx) + (d - c) * (1 - tz);
+}
+
+// Steps across the fall, so it can bend over a slope that also leans sideways
+const ACROSS = 16;
+// How high the fall lies above the ground
+const LIFT = 3;
+
+// The waterfall down `course` (local [x, y, z] points, top to bottom, in the
+// chunk's frame), lying on `ground` (the patch of height grid around it;
+// without it, the fall follows the course's heights), as a group to add to
+// the chunk
+export function createWaterfall({course: points, ground}) {
   const group = new THREE.Group();
   const curve = new THREE.CatmullRomCurve3(
     points.map(([x, y, z]) => new THREE.Vector3(x, y, z))
   );
-  const samples = Math.max(10, points.length * 5);
+  // About every 4 units along the ground, so it follows every fold
+  const samples = Math.max(10, Math.ceil(curve.getLength() / 4));
   const positions = [];
   const uvs = [];
   const indices = [];
@@ -134,28 +167,43 @@ export function createWaterfall(points) {
   for (let i = 0; i <= samples; i++) {
     const t = i / samples;
     curve.getPoint(t, p);
-    if (i > 0) along += p.distanceTo(prev);
-    prev.copy(p);
     curve.getTangent(t, tangent);
     // Across the fall, level
     const side = new THREE.Vector3(-tangent.z, 0, tangent.x);
     if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
     side.normalize();
     const half = THREE.MathUtils.lerp(9, 17, t);
-    // A little above the slope, so the ground doesn't poke through
-    const y = Math.max(p.y + 4, WATER_LEVEL + 0.5);
-    positions.push(
-      p.x - side.x * half,
-      y,
-      p.z - side.z * half,
-      p.x + side.x * half,
-      y,
-      p.z + side.z * half
-    );
-    uvs.push(0, along, 1, along);
+    let mid = p.y;
+    for (let k = 0; k <= ACROSS; k++) {
+      const u = k / ACROSS;
+      const x = p.x + side.x * (u - 0.5) * 2 * half;
+      const z = p.z + side.z * (u - 0.5) * 2 * half;
+      const g = ground ? groundAt(ground, x, z) : null;
+      const y = Math.max((g ?? p.y) + LIFT, WATER_LEVEL + 0.5);
+      if (k === ACROSS / 2) mid = y;
+      positions.push(x, y, z);
+      uvs.push(u, 0);
+    }
+    // Distance down the fall, measured on the ground, for the streaks
+    p.y = mid;
+    if (i > 0) along += p.distanceTo(prev);
+    prev.copy(p);
+    for (let k = 0; k <= ACROSS; k++) {
+      uvs[(i * (ACROSS + 1) + k) * 2 + 1] = along;
+    }
     if (i > 0) {
-      const a = (i - 1) * 2;
-      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      const r0 = (i - 1) * (ACROSS + 1);
+      const r1 = i * (ACROSS + 1);
+      for (let k = 0; k < ACROSS; k++) {
+        indices.push(
+          r0 + k,
+          r0 + k + 1,
+          r1 + k,
+          r0 + k + 1,
+          r1 + k + 1,
+          r1 + k
+        );
+      }
     }
   }
   const geo = new THREE.BufferGeometry();
