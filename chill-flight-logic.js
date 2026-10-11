@@ -1028,6 +1028,73 @@ export const ChillFlightLogic = {};
     return [fx * strength, fz * strength];
   }
 
+  // --- THE FALLS (landmark, north of spawn) ---
+  // A table mountain standing in a lake, its sheer walls about 380 units
+  // tall. A stream runs south down a winding valley across the top, from a
+  // pond in a hollow, and falls off the south wall (facing spawn) into the
+  // lake. terrain-gen.js draws the fall, stream and pond at these points.
+  // fallsAt returns [height, weight] for a point in unwarped world
+  // coordinates; weight 0 leaves the terrain as it was.
+  const FALLS_X = 0;
+  const FALLS_Z = -4750;
+  const FALLS_RADIUS = 420; // to the top of the walls
+  const FALLS_LIP = 420; // height of the valley floor where it falls off
+  const FALLS_POND = 260; // how far north of the lip the pond is
+  const FALLS_POND_RADIUS = 60;
+  // How far east of the lip the valley floor is, s units north of the lip:
+  // an S-bend, back in line at the lip and at the pond
+  function fallsValleyX(s) {
+    return 40 * Math.sin((Math.PI * Math.min(s, FALLS_POND)) / 130);
+  }
+  function fallsAt(x, z, simplex, waterLevel) {
+    const dx = x - FALLS_X;
+    const dz = z - FALLS_Z;
+    const dist = Math.hypot(dx, dz);
+    if (dist >= FALLS_RADIUS * 1.8) return [0, 0];
+    // Wobble the outline, except on the south side where the fall is
+    const ang = Math.atan2(dz, dx);
+    const south = Math.max(0, Math.sin(ang));
+    const keep = 1 - south * south * south * south;
+    const wobble =
+      simplex.noise2D(Math.cos(ang) * 0.6 + 31, Math.sin(ang) * 0.6 + 31) *
+      0.12 *
+      keep;
+    // Buttresses and gullies down the walls, but not beside the fall
+    const flutes =
+      simplex.noise2D(Math.cos(ang) * 14 + 57, Math.sin(ang) * 14 + 57) *
+      0.06 *
+      (1 - south * Math.exp(-(dx * dx) / (2 * 50 * 50)));
+    const d = dist / (FALLS_RADIUS * (1 + wobble + flutes));
+    // The top: the valley floor climbs gently north from the lip, levelling
+    // off around the pond, and the ground rises gently away from it on
+    // either side
+    const s = FALLS_RADIUS - dz; // distance north of the lip
+    const across = dx - fallsValleyX(s);
+    let top = FALLS_LIP + 0.1 * Math.min(s, 180);
+    top += 0.01 * Math.min(160, Math.max(0, s - 180));
+    top += 0.1 * Math.max(0, s - 340) + 0.04 * Math.abs(across);
+    // Low rolls away from the valley
+    const valley = Math.exp(-(across * across) / (2 * 90 * 90));
+    top +=
+      10 *
+      (simplex.noise2D(x * 0.006 + 13, z * 0.006 + 13) * 0.5 + 0.5) *
+      (1 - valley);
+    // The pond's hollow
+    const fromPond = Math.hypot(across, s - FALLS_POND) / FALLS_POND_RADIUS;
+    if (fromPond < 1) top -= 4 * (1 - fromPond * fromPond);
+    // The walls: sheer from the top down to near the water, then a short
+    // apron of rock into the lake, which eases back into the land around
+    const base = waterLevel + 30;
+    const floor = waterLevel - 15;
+    let h;
+    if (d < 1) h = top;
+    else if (d < 1.06) h = top + (base - top) * ((d - 1) / 0.06);
+    else if (d < 1.2) h = base + (floor - base) * ((d - 1.06) / 0.14);
+    else h = floor;
+    const t = Math.min(1, Math.max(0, (1.8 - d) / 0.45));
+    return [h, t * t * (3 - 2 * t)];
+  }
+
   function getElevation(x, z, simplex, constants, lerp, options = {}) {
     const WATER_LEVEL = constants.WATER_LEVEL || 40;
 
@@ -2553,6 +2620,11 @@ export const ChillFlightLogic = {};
       n = Math.max(n, WATER_LEVEL + 20 * irregularFactor);
     }
 
+    // The falls: after the rivers and the island passes, so nothing cuts
+    // into the table mountain
+    const [fallsH, fallsW] = fallsAt(origX, origZ, simplex, WATER_LEVEL);
+    if (fallsW > 0) n = _lerp(n, fallsH, fallsW);
+
     // Airports: the ground inside each airfield is flat at its field height,
     // easing into the surrounding land over AIRPORT_FALLOFF (an island
     // where the field is over water, a plateau where it cuts into hills).
@@ -2577,6 +2649,11 @@ export const ChillFlightLogic = {};
   exports.customMap = null;
   exports.WORLD_SEED = WORLD_SEED;
   exports.mulberry32 = mulberry32;
+  exports.FALLS_X = FALLS_X;
+  exports.FALLS_Z = FALLS_Z;
+  exports.FALLS_LIP_Z = FALLS_Z + FALLS_RADIUS;
+  exports.FALLS_POND = FALLS_POND;
+  exports.fallsValleyX = fallsValleyX;
   exports.chunkRng = chunkRng;
   exports.PLANE_COLORS = PLANE_COLORS;
   exports.LIVERY_NAMES = LIVERY_NAMES;

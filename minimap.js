@@ -64,6 +64,13 @@ import {Achievements} from './achievements.js';
       color: '#2ecc71', // lush emerald green
       symbol: '∩',
     },
+    {
+      name: 'Falls',
+      x: ChillFlightLogic.FALLS_X,
+      z: ChillFlightLogic.FALLS_Z,
+      color: '#7fd8f0', // falling-water blue
+      symbol: '≋',
+    },
     // The airports (chill-flight-logic.js)
     ...ChillFlightLogic.AIRPORTS.map((a) => ({
       name: a.name,

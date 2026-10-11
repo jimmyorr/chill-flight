@@ -451,11 +451,61 @@ function traceStream(heightGrid, gridX1, step, x0, z0) {
   return upstream;
 }
 
+// The falls landmark's lip (a grid cell on the top, just inside the wall),
+// stream (grid cells from the lip up its valley to the pond) and the curve
+// of the valley (local x, z from the pond to the lip), when it's in chunk
+// (chunkX, chunkZ); otherwise null
+function fallsCells(chunkX, chunkZ, chunkSize, step) {
+  const L = ChillFlightLogic;
+  if (
+    chunkX !== Math.round(L.FALLS_X / chunkSize) ||
+    chunkZ !== Math.round(L.FALLS_Z / chunkSize)
+  ) {
+    return null;
+  }
+  const x0 = L.FALLS_X - chunkX * chunkSize + chunkSize / 2;
+  const z0 = L.FALLS_LIP_Z - chunkZ * chunkSize + chunkSize / 2;
+  const lip = [Math.round(x0 / step), Math.floor(z0 / step)];
+  const stream = [lip];
+  for (let s = step; s < L.FALLS_POND + step; s += step / 2) {
+    const along = Math.min(s, L.FALLS_POND);
+    const cell = [
+      Math.round((x0 + L.fallsValleyX(along)) / step),
+      Math.round((z0 - along) / step),
+    ];
+    const last = stream[stream.length - 1];
+    if (cell[0] !== last[0] || cell[1] !== last[1]) stream.push(cell);
+  }
+  let run = 0;
+  for (let i = 1; i < stream.length; i++) {
+    run += Math.hypot(
+      stream[i][0] - stream[i - 1][0],
+      stream[i][1] - stream[i - 1][1]
+    );
+  }
+  stream.run = run * step;
+  // The stream as drawn follows the valley itself, smoother than the cells
+  const curve = [];
+  for (let along = L.FALLS_POND; along >= 0; along -= 10) {
+    curve.push([
+      x0 + L.fallsValleyX(along) - chunkSize / 2,
+      z0 - along - chunkSize / 2,
+    ]);
+  }
+  return {lip, stream, curve};
+}
+
 // Whether chunk (chunkX, chunkZ) may have a waterfall: its own random number
 // is higher than the four chunks beside it, so falls are never side by side
 // (a long cliff coast would otherwise line up several) and only about one
-// chunk in five looks for one
-function waterfallChunk(chunkX, chunkZ) {
+// chunk in five looks for one. The falls landmark's chunk always looks, and
+// the four beside it never do.
+function waterfallChunk(chunkX, chunkZ, chunkSize) {
+  const fx = Math.round(ChillFlightLogic.FALLS_X / chunkSize);
+  const fz = Math.round(ChillFlightLogic.FALLS_Z / chunkSize);
+  const fromFalls = Math.abs(chunkX - fx) + Math.abs(chunkZ - fz);
+  if (fromFalls === 0) return true;
+  if (fromFalls === 1) return false;
   const lot = (x, z) =>
     ChillFlightLogic.mulberry32(
       (ChillFlightLogic.WORLD_SEED ^ (x * 73856093) ^ (z * 19349663)) + 4242
@@ -469,7 +519,10 @@ function waterfallChunk(chunkX, chunkZ) {
   );
 }
 
-function findWaterfall(heightGrid, gridX1, step, halfSize, water) {
+// The falls landmark passes `fixed`, its lip and stream (see fallsCells):
+// only that lip is tried, with that stream, and it skips the bar (the
+// landmark is built to pass it).
+function findWaterfall(heightGrid, gridX1, step, halfSize, water, fixed) {
   const heightOf = ([x, z]) => heightGrid[z * gridX1 + x];
   let best = null;
   let bestStream = null;
@@ -477,6 +530,7 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water) {
   // Stay a few cells inside the chunk, so the path's neighbors exist
   for (let iz = 2; iz < gridX1 - 2; iz++) {
     for (let ix = 2; ix < gridX1 - 2; ix++) {
+      if (fixed && (ix !== fixed.lip[0] || iz !== fixed.lip[1])) continue;
       const top = heightGrid[iz * gridX1 + ix];
       if (top - water < WATERFALL_MIN_DROP) continue;
       // Downhill, steepest neighbor each step, until the water
@@ -525,7 +579,8 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water) {
       if (!reached) continue;
       // The stream feeding it; where it runs down steep rock, that's part
       // of the fall, so the stream only lies on gentle ground
-      const stream = traceStream(heightGrid, gridX1, step, ix, iz);
+      const stream =
+        fixed?.stream ?? traceStream(heightGrid, gridX1, step, ix, iz);
       let k = 0;
       let steepRun = 0;
       while (k + 1 < stream.length) {
@@ -539,15 +594,20 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water) {
         k++;
       }
       const gentleRun = stream.run - steepRun;
-      if (gentleRun < WATERFALL_MIN_STREAM) continue;
       const height = heightOf(stream[k]) - water;
       // Gentle all the way to its source, not steep again further up
       const climb = heightOf(stream[stream.length - 1]) - (height + water);
-      if (climb / gentleRun > WATERFALL_STREAM_STEEP) continue;
       length += steepRun;
-      // Tall and sheer, not a slide down a slope
-      if (height < WATERFALL_MIN_HEIGHT) continue;
-      if (height / length < WATERFALL_MIN_SHEER) continue;
+      if (
+        !fixed &&
+        (gentleRun < WATERFALL_MIN_STREAM ||
+          climb / gentleRun > WATERFALL_STREAM_STEEP ||
+          // Tall and sheer, not a slide down a slope
+          height < WATERFALL_MIN_HEIGHT ||
+          height / length < WATERFALL_MIN_SHEER)
+      ) {
+        continue;
+      }
       // Into open water
       const [bx, bz] = path[path.length - 1];
       const reach = Math.round(WATERFALL_POOL / step);
@@ -563,7 +623,7 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water) {
           if (heightGrid[z * gridX1 + x] < water) wet++;
         }
       }
-      if (wet < all * WATERFALL_MIN_OPEN) continue;
+      if (!fixed && wet < all * WATERFALL_MIN_OPEN) continue;
       const score = (height / length) * height;
       if (score > bestScore) {
         bestScore = score;
@@ -582,7 +642,15 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water) {
     -halfSize + z * step,
   ];
   const course = best.map(toLocal);
-  const stream = bestStream.reverse().map(toLocal);
+  const nearest = (v) =>
+    Math.min(gridX1 - 1, Math.max(0, Math.round((v + halfSize) / step)));
+  const stream = fixed
+    ? fixed.curve.map(([x, z]) => [
+        x,
+        heightGrid[nearest(z) * gridX1 + nearest(x)],
+        z,
+      ])
+    : bestStream.reverse().map(toLocal);
   best.push(...bestStream);
   // Wide enough for the fall's full width either side of its course, for it
   // to stand out from a gully (MAX_OUT in waterfalls.js), and for a pond at
@@ -2478,13 +2546,14 @@ export function generateChunkData({
   }
 
   const waterfall =
-    _enableObjects && hasWater && waterfallChunk(chunkX, chunkZ)
+    _enableObjects && hasWater && waterfallChunk(chunkX, chunkZ, chunkSize)
       ? findWaterfall(
           heightGrid,
           gridX1,
           step,
           halfSize,
-          elevParams.WATER_LEVEL
+          elevParams.WATER_LEVEL,
+          fallsCells(chunkX, chunkZ, chunkSize, step)
         )
       : null;
 
