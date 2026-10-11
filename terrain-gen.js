@@ -374,11 +374,75 @@ function softenedWaterDepth(
 // point at least WATERFALL_MIN_DROP above the water, follows the steepest
 // way down the chunk's height grid to the water, and keeps the steepest,
 // tallest such fall in the chunk. Returns its course (local x, y, z points,
-// top to bottom) and the patch of height grid around it, so the fall can lie
-// on the terrain as drawn; or null. Its own random numbers, so the chunk's other props
+// top to bottom), the stream feeding it (source to lip) and the patch of
+// height grid around both, so they can lie on the terrain as drawn; or null. Its own random numbers, so the chunk's other props
 // don't move.
 const WATERFALL_MIN_DROP = 45;
 const WATERFALL_CHANCE = 0.15;
+// How far the stream above a fall runs, at most
+const WATERFALL_STREAM_LENGTH = 300;
+// How far a stream has to run into a fall, at least
+const WATERFALL_MIN_STREAM = 100;
+// The stream feeding grid cell (x0, z0), as grid cells from there up to its
+// source: each step to the higher neighbor that drains into it (whose own
+// steepest way down leads here), the steepest of those, so it keeps to the
+// valley floor; until nothing drains in or it has run far enough. Its
+// length (in units) is upstream.run.
+function traceStream(heightGrid, gridX1, step, x0, z0) {
+  const drainsTo = (x, z) => {
+    const h = heightGrid[z * gridX1 + x];
+    let best = -1;
+    let steepest = 0;
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dz) continue;
+        const slope =
+          (h - heightGrid[(z + dz) * gridX1 + x + dx]) / Math.hypot(dx, dz);
+        if (slope > steepest) {
+          steepest = slope;
+          best = (z + dz) * gridX1 + x + dx;
+        }
+      }
+    }
+    return best;
+  };
+  const upstream = [[x0, z0]];
+  let sx = x0;
+  let sz = z0;
+  let run = 0;
+  while (run < WATERFALL_STREAM_LENGTH) {
+    const h = heightGrid[sz * gridX1 + sx];
+    const here = sz * gridX1 + sx;
+    let nx = -1;
+    let nz = -1;
+    let nd = 0;
+    let steepest = 0;
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dz) continue;
+        const x = sx + dx;
+        const z = sz + dz;
+        if (x < 1 || z < 1 || x >= gridX1 - 1 || z >= gridX1 - 1) continue;
+        const d = Math.hypot(dx, dz);
+        const slope = (heightGrid[z * gridX1 + x] - h) / d;
+        if (slope > steepest && drainsTo(x, z) === here) {
+          steepest = slope;
+          nx = x;
+          nz = z;
+          nd = d;
+        }
+      }
+    }
+    if (nx < 0) break;
+    sx = nx;
+    sz = nz;
+    run += nd * step;
+    upstream.push([sx, sz]);
+  }
+  upstream.run = run;
+  return upstream;
+}
+
 function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
   if (rng() >= WATERFALL_CHANCE) return null;
   let best = null;
@@ -434,6 +498,12 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
       }
       // Steep (at least as much down as across) and into water
       if (!reached || length > drop) continue;
+      // Fed by a stream, as where a valley meets a drop
+      if (
+        traceStream(heightGrid, gridX1, step, ix, iz).run < WATERFALL_MIN_STREAM
+      ) {
+        continue;
+      }
       const score = (drop / length) * drop;
       if (score > bestScore) {
         bestScore = score;
@@ -442,13 +512,24 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
     }
   }
   if (!best) return null;
-  const course = best.map(([x, z]) => [
+  const toLocal = ([x, z]) => [
     -halfSize + x * step,
     heightGrid[z * gridX1 + x],
     -halfSize + z * step,
-  ]);
-  // Wide enough for the fall's full width either side of its course, and for
-  // it to stand out from a gully (MAX_OUT in waterfalls.js)
+  ];
+  const course = best.map(toLocal);
+  const upstream = traceStream(
+    heightGrid,
+    gridX1,
+    step,
+    best[0][0],
+    best[0][1]
+  );
+  const stream = upstream.reverse().map(toLocal);
+  best.push(...upstream);
+  // Wide enough for the fall's full width either side of its course, for it
+  // to stand out from a gully (MAX_OUT in waterfalls.js), and for a pond at
+  // the stream's source (POND_RADIUS)
   const pad = Math.ceil(70 / step) + 1;
   const xs = best.map((p) => p[0]);
   const zs = best.map((p) => p[1]);
@@ -466,6 +547,7 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
   }
   return {
     course,
+    stream,
     ground: {
       x: -halfSize + x0 * step,
       z: -halfSize + z0 * step,

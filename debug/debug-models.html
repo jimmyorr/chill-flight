@@ -584,16 +584,36 @@
               previewGroup.add(createWindsock());
               break;
             case 'waterfall': {
-              // A sample course down a steep slope into water (at y = 40,
-              // the game's water level), lowered to the preview's ground
+              // A sample: a stream across a flat top from a pond, then a
+              // fall down a steep slope into water (at y = 40, the game's
+              // water level), lowered to the preview's ground. The ground
+              // patch stands in for the terrain worker's height grid.
+              const groundHeight = (z) =>
+                z <= -30 ? 110 : Math.max(30, 110 - (z + 30) * 2.2);
+              const cols = 17;
+              const rows = 21;
+              const heights = new Float32Array(cols * rows);
+              for (let r = 0; r < rows; r++) {
+                heights.fill(
+                  groundHeight(-160 + r * 10),
+                  r * cols,
+                  (r + 1) * cols
+                );
+              }
               const fall = createWaterfall({
                 course: [
                   [0, 110, -30],
-                  [0, 85, -22],
-                  [0, 60, -12],
-                  [0, 42, -2],
+                  [0, 85, -19],
+                  [0, 60, -8],
+                  [0, 42, 0],
                   [0, 37, 6],
                 ],
+                stream: [
+                  [0, 110, -110],
+                  [0, 110, -70],
+                  [0, 110, -30],
+                ],
+                ground: {x: -80, z: -160, step: 10, cols, rows, heights},
               });
               fall.position.y = -40;
               previewGroup.add(fall);

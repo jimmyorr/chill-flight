@@ -27,11 +27,12 @@ const NOISE_GLSL = `
 // A see-through water material whose color and opacity come from `pattern`
 // (GLSL that sets float shade and float alpha from vec2 vFallUv and uTime),
 // on top of the game's usual lighting and fog
-function fallMaterial(pattern) {
+// (falling water by default: white, and bright even on the shaded side of a
+// cliff)
+function fallMaterial(pattern, color = 0xe8f6fc, emissive = 0x5d7380) {
   const mat = createMaterial({
-    color: 0xe8f6fc,
-    // Falling water is bright even on the shaded side of a cliff
-    emissive: 0x5d7380,
+    color,
+    emissive,
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
@@ -63,6 +64,9 @@ function fallMaterial(pattern) {
         }`
       );
   };
+  // three.js shares one compiled program between materials whose
+  // onBeforeCompile reads the same, as all of these do, so tell them apart
+  mat.customProgramCacheKey = () => pattern;
   return mat;
 }
 
@@ -92,6 +96,39 @@ const foamMat = fallMaterial(`
   shade = mix(0.9, 1.08, foam);
   alpha = (1.0 - smoothstep(0.35, 1.0, r)) * smoothstep(0.35, 0.65, foam + 0.3 * (1.0 - r));
 `);
+
+// The stream feeding the fall: u across, v downstream in world units.
+// Flecks drift downstream; it fades in at its source and at its edges.
+const streamMat = fallMaterial(
+  `
+  float u = vFallUv.x;
+  float v = vFallUv.y;
+  float fleck = fallNoise(vec2(u * 5.0, v * 0.09 - uTime * 0.9)) * 0.6
+              + fallNoise(vec2(u * 9.0 + 5.0, v * 0.16 - uTime * 1.3)) * 0.4;
+  float edge = smoothstep(0.0, 0.12, u) * (1.0 - smoothstep(0.88, 1.0, u));
+  // Lighter in the shallows along the banks, with white flecks
+  shade = mix(1.0, 1.35, 1.0 - smoothstep(0.1, 0.3, min(u, 1.0 - u)));
+  shade = mix(shade, 2.2, smoothstep(0.62, 0.85, fleck));
+  alpha = edge * smoothstep(0.0, 15.0, v) * 0.95;
+`,
+  0x2a86d0,
+  0x000000
+);
+
+// The pond at the stream's source: uv runs from its middle (0.5, 0.5) to its
+// edge (length 0.5); slow ripples, and it fades out at the edge
+const pondMat = fallMaterial(
+  `
+  vec2 c = vFallUv - 0.5;
+  float r = length(c) * 2.0;
+  float ripple = fallNoise(c * 9.0 + vec2(uTime * 0.15, -uTime * 0.1));
+  // Deep blue in the middle, lighter in the shallows toward the shore
+  shade = mix(0.9, 1.05, ripple) * mix(1.0, 1.45, smoothstep(0.55, 0.92, r));
+  alpha = (1.0 - smoothstep(0.92, 1.0, r)) * 0.95;
+`,
+  0x2a86d0,
+  0x000000
+);
 
 // The mist: a soft round puff, white and see-through
 function mistTexture() {
@@ -150,6 +187,128 @@ const LIFT = 3;
 const MAX_OUT = 50;
 const SMOOTH = 6;
 
+// How high the stream lies above the ground, its steps across, and how wide
+// it is at its source and where it meets the fall
+const STREAM_LIFT = 1.5;
+const STREAM_ACROSS = 8;
+const STREAM_HALF = [4, 9];
+// How far a pond can reach from the stream's source, and how wide on average
+// it has to be to be worth drawing
+const POND_RADIUS = 40;
+const POND_MIN_RADIUS = 12;
+
+// The stream along `points` (local [x, y, z], source to lip), lying on the
+// ground, as a mesh
+function createStream(points, ground) {
+  const curve = new THREE.CatmullRomCurve3(
+    points.map(([x, y, z]) => new THREE.Vector3(x, y, z))
+  );
+  const samples = Math.max(4, Math.ceil(curve.getLength() / 4));
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+  const p = new THREE.Vector3();
+  const tangent = new THREE.Vector3();
+  let along = 0;
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const before = p.clone();
+    curve.getPoint(t, p);
+    if (i > 0) along += p.distanceTo(before);
+    curve.getTangent(t, tangent);
+    const side = new THREE.Vector3(-tangent.z, 0, tangent.x);
+    if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
+    side.normalize();
+    const half = THREE.MathUtils.lerp(STREAM_HALF[0], STREAM_HALF[1], t);
+    for (let k = 0; k <= STREAM_ACROSS; k++) {
+      const u = k / STREAM_ACROSS;
+      const x = p.x + side.x * (u - 0.5) * 2 * half;
+      const z = p.z + side.z * (u - 0.5) * 2 * half;
+      const g = groundAt(ground, x, z) ?? p.y;
+      positions.push(x, g + STREAM_LIFT, z);
+      uvs.push(u, along);
+    }
+    if (i > 0) {
+      const r0 = (i - 1) * (STREAM_ACROSS + 1);
+      const r1 = i * (STREAM_ACROSS + 1);
+      for (let k = 0; k < STREAM_ACROSS; k++) {
+        indices.push(
+          r0 + k,
+          r0 + k + 1,
+          r1 + k,
+          r0 + k + 1,
+          r1 + k + 1,
+          r1 + k
+        );
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  geo.userData.unique = true;
+  const mesh = new THREE.Mesh(geo, streamMat);
+  mesh.renderOrder = 2;
+  return mesh;
+}
+
+// A pond at the stream's source (local x, z), a little above the ground
+// there: out from the source in each direction until the ground rises above
+// it (its shore, where the terrain hides the rest) or drops away (where it
+// stops, so it doesn't hang over a slope). Null where there's no room for
+// one, as on a slope or a peak.
+function createPond(x0, z0, ground) {
+  const g0 = groundAt(ground, x0, z0);
+  if (g0 === null) return null;
+  const level = g0 + 1.2;
+  const ANGLES = 32;
+  const radii = [];
+  for (let a = 0; a < ANGLES; a++) {
+    const ang = (a / ANGLES) * Math.PI * 2;
+    let r = 0;
+    for (let s = 2; s <= POND_RADIUS; s += 2) {
+      const g = groundAt(
+        ground,
+        x0 + Math.cos(ang) * s,
+        z0 + Math.sin(ang) * s
+      );
+      if (g === null || g < level - 2.5) break;
+      r = s;
+      // Tuck the edge under the shore
+      if (g > level) {
+        r = s + 3;
+        break;
+      }
+    }
+    radii.push(r);
+  }
+  if (radii.reduce((t, r) => t + r, 0) / ANGLES < POND_MIN_RADIUS) return null;
+  const positions = [x0, level, z0];
+  const uvs = [0.5, 0.5];
+  const indices = [];
+  for (let a = 0; a < ANGLES; a++) {
+    const ang = (a / ANGLES) * Math.PI * 2;
+    positions.push(
+      x0 + Math.cos(ang) * radii[a],
+      level,
+      z0 + Math.sin(ang) * radii[a]
+    );
+    uvs.push(0.5 + Math.cos(ang) * 0.5, 0.5 + Math.sin(ang) * 0.5);
+    indices.push(0, 1 + ((a + 1) % ANGLES), 1 + a);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  geo.userData.unique = true;
+  const mesh = new THREE.Mesh(geo, pondMat);
+  mesh.renderOrder = 2;
+  return mesh;
+}
+
 // The waterfall down `course` (local [x, y, z] points, top to bottom, in the
 // chunk's frame) over `ground` (the patch of height grid around it; without
 // it, the fall follows the course's heights), as a group to add to the chunk.
@@ -157,7 +316,7 @@ const SMOOTH = 6;
 // middle; where the rock either side stands higher (a gully), the row moves
 // out, downhill, until it clears it, so the water hangs in front of the
 // gully like a curtain instead of lining it.
-export function createWaterfall({course: points, ground}) {
+export function createWaterfall({course: points, stream, ground}) {
   const group = new THREE.Group();
   const curve = new THREE.CatmullRomCurve3(
     points.map(([x, y, z]) => new THREE.Vector3(x, y, z))
@@ -290,5 +449,12 @@ export function createWaterfall({course: points, ground}) {
   foam.position.set(bx, WATER_LEVEL + 0.6, bz);
   foam.renderOrder = 2;
   group.add(foam);
+
+  // The stream feeding it, and a pond at its source where there's room
+  if (stream && stream.length > 1 && ground) {
+    group.add(createStream(stream, ground));
+    const pond = createPond(stream[0][0], stream[0][2], ground);
+    if (pond) group.add(pond);
+  }
   return group;
 }
