@@ -8,7 +8,7 @@ import {
 } from './constants.js';
 import {simplex} from './noise.js';
 import {planeGroup} from './airplane.js';
-import {suppressPauseClick} from './game-state.js';
+import {suppressPauseClick, togglePause} from './game-state.js';
 import {hooks} from './hooks.js';
 import {resetSteering} from './game-ui.js';
 import {Achievements} from './achievements.js';
@@ -267,7 +267,7 @@ import {state} from './state.js';
     }
 
     if (fsVisible) {
-      if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') {
+      if (e.key === 'Escape' || (e.key === 'm' && !e.shiftKey)) {
         e.preventDefault();
         e.stopPropagation();
         closeFullscreenMap();
@@ -289,8 +289,11 @@ import {state} from './state.js';
       }
     }
 
-    if (e.key === 'm' || e.key === 'M') {
+    // M opens the full map (closing it above); Shift+M toggles the minimap
+    if (e.key === 'M' || (e.key === 'm' && e.shiftKey)) {
       toggleMinimap();
+    } else if (e.key === 'm' && !fsVisible) {
+      openFullscreenMap({fromFlight: !state.isPaused});
     }
   });
 
@@ -958,8 +961,15 @@ import {state} from './state.js';
     fsAnimFrameId = requestAnimationFrame(fsAnimationLoop);
   }
 
-  function openFullscreenMap() {
+  // Whether the map was opened mid-flight (M), which pauses the game while
+  // it's open; closing it then resumes, rather than going back to the pause
+  // menu it was opened from otherwise
+  let fsOpenedFromFlight = false;
+
+  function openFullscreenMap({fromFlight = false} = {}) {
     if (fsVisible) return;
+    fsOpenedFromFlight = fromFlight;
+    if (fromFlight && !state.isPaused) togglePause();
     initFullscreenMap();
     fsVisible = true;
     if (fsOverlay) {
@@ -991,7 +1001,10 @@ import {state} from './state.js';
   // Tap a spot on the map to pin it, then "Fly here" moves the plane there,
   // 400 units above the ground, keeping its heading and speed.
   let warpPin = null;
-  const TAP_SLOP = 6; // pixels a tap may move and still count as a tap
+  // How far (pixels) a tap may move and still count as one: fingers wobble
+  // more than a mouse
+  const TAP_SLOP_MOUSE = 6;
+  const TAP_SLOP_TOUCH = 14;
   const TAP_TIME = 400; // ms
   let tapStart = null;
 
@@ -1047,6 +1060,10 @@ import {state} from './state.js';
 
     fsVisible = false;
     setWarpPin(null);
+    // Back to flight if that's where the map was opened from
+    const resume = fsOpenedFromFlight && state.isPaused;
+    fsOpenedFromFlight = false;
+    if (resume) togglePause();
     if (fsOverlay) {
       fsOverlay.style.display = 'none';
     }
@@ -1132,6 +1149,8 @@ import {state} from './state.js';
         const {x, z} = warpPin;
         warpTo(x, z);
         closeFullscreenMap();
+        // Straight into flight at the new spot
+        if (state.isPaused) togglePause();
       }
     );
     attachButtonAction(
@@ -1180,7 +1199,12 @@ import {state} from './state.js';
       fsCanvas.classList.add('dragging');
       tapStart =
         activePointers.size === 1
-          ? {x: e.clientX, y: e.clientY, t: performance.now()}
+          ? {
+              x: e.clientX,
+              y: e.clientY,
+              t: performance.now(),
+              slop: e.pointerType === 'mouse' ? TAP_SLOP_MOUSE : TAP_SLOP_TOUCH,
+            }
           : null;
 
       if (activePointers.size === 1) {
@@ -1272,7 +1296,7 @@ import {state} from './state.js';
         if (
           tapStart &&
           Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) <
-            TAP_SLOP &&
+            tapStart.slop &&
           performance.now() - tapStart.t < TAP_TIME
         ) {
           const minDim = Math.min(window.innerWidth, window.innerHeight);

@@ -338,11 +338,25 @@ async function exerciseControls(page, tag) {
   await wait(1500);
 
   const minimapBefore = await isVisible('#minimap-container');
-  await page.keyboard.press('m');
+  await shifted('M');
   await wait(800);
   if ((await isVisible('#minimap-container')) === minimapBefore) {
-    fail('m did not toggle the minimap');
+    fail('Shift+M did not toggle the minimap');
   }
+
+  // M opens the full map mid-flight (pausing), and closes it back to flight
+  await page.keyboard.press('m');
+  await wait(800);
+  if (!(await isVisible('#fullscreen-map-overlay'))) {
+    fail('m did not open the fullscreen map');
+  }
+  if (!(await isPaused())) fail('the map opened mid-flight did not pause');
+  await page.keyboard.press('m');
+  await wait(800);
+  if (await isVisible('#fullscreen-map-overlay')) {
+    fail('m did not close the fullscreen map');
+  }
+  if (await isPaused()) fail('closing the map did not return to flight');
 
   await page.keyboard.press('Escape');
   await wait(500);

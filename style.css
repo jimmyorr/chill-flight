@@ -2053,7 +2053,8 @@ input[type='number'].customization-input {
   color: #1a1a1a;
   border: none;
   border-radius: 10px;
-  padding: 10px 16px;
+  min-height: 44px;
+  padding: 0 18px;
   font:
     600 14px Inter,
     -apple-system,
@@ -2067,8 +2068,8 @@ input[type='number'].customization-input {
 }
 
 .fullscreen-map-warp-cancel {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   background: transparent;
   border: none;
   border-radius: 10px;
@@ -2080,6 +2081,17 @@ input[type='number'].customization-input {
 
 .fullscreen-map-warp-cancel:hover {
   background: rgba(255, 255, 255, 0.15);
+}
+
+/* Narrow screens: keep the panel clear of the zoom buttons at the right */
+@media (max-width: 600px) {
+  .fullscreen-map-warp {
+    left: max(12px, env(safe-area-inset-left));
+    right: calc(max(20px, env(safe-area-inset-right)) + 56px);
+    transform: none;
+    justify-content: space-between;
+    bottom: max(28px, env(safe-area-inset-bottom));
+  }
 }
 
 .fullscreen-map-hint {
