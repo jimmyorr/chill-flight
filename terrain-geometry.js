@@ -365,6 +365,10 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform vec3 uBottomColor;
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
+        // Which way a river runs here, scaled by how much it's in the
+        // channel (getRiverFlow; zero on the sea and lakes)
+        attribute vec2 flow;
+        varying vec2 vFlow;
 
         // Swell: three waves in different directions with wavelengths that
         // don't line up, so the surface doesn't read as regular stripes.
@@ -421,6 +425,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         transformed.y += swell(worldPosV.xz, uTime).x * swellCalm;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
+        vFlow = flow;
         #ifdef USE_FOG
           fogSkyVertex(vWorldPosition);
         #endif
@@ -430,6 +435,7 @@ waterMaterial.onBeforeCompile = function (shader) {
   shader.fragmentShader =
     `
         varying vec2 vDepthUV;
+        varying vec2 vFlow;
         uniform sampler2D uDepthTex;
         uniform float uTime;
         uniform vec3 uSunDirection;
@@ -452,6 +458,28 @@ waterMaterial.onBeforeCompile = function (shader) {
     FAR_SEA_GLSL +
     FOG_SKY_FRAGMENT_GLSL +
     CLOUD_GLSL +
+    `
+        // Glints: finer, faster ripples that break the sun's path into
+        // bright sparkles near the camera
+        float waterGlint(vec2 p, float gt, vec3 n, vec3 halfVector) {
+          vec2 gp = p * 0.45;
+          vec3 glintNormal = normalize(n + vec3(
+            sin(dot(gp, vec2(0.7, 0.7)) + gt) + sin(dot(gp, vec2(-0.9, 0.3)) + gt * 1.7),
+            0.0,
+            sin(dot(gp, vec2(0.2, -0.95)) + gt * 1.3) + sin(dot(gp, vec2(0.6, -0.5)) + gt * 0.9)
+          ) * 0.06);
+          return pow(max(dot(glintNormal, halfVector), 0.0), 900.0);
+        }
+        // Flecks of foam on a river, drawn out into short streaks along the
+        // current (dir) by sampling the noise a few times upstream
+        float flowFlecks(vec2 p, vec2 dir) {
+          float s = 0.0;
+          for (int i = 0; i < 6; i++) {
+            s += noise((p - dir * float(i) * 1.6) * 0.22);
+          }
+          return smoothstep(0.68, 0.8, s / 6.0);
+        }
+    ` +
     shader.fragmentShader;
 
   // Inject sky reflection, depth color, the sun's glitter path and foam.
@@ -548,14 +576,26 @@ waterMaterial.onBeforeCompile = function (shader) {
         // Glints: finer, faster ripples break the path into bright sparkles
         // near the camera (faded out before they'd alias).
         float glintFade = 1.0 - smoothstep(200.0, 2500.0, vDistanceXZ);
-        vec2 gp = vWorldPosition.xz * 0.45;
         float gt = uTime * 2.3;
-        vec3 glintNormal = normalize(n + vec3(
-          sin(dot(gp, vec2(0.7, 0.7)) + gt) + sin(dot(gp, vec2(-0.9, 0.3)) + gt * 1.7),
-          0.0,
-          sin(dot(gp, vec2(0.2, -0.95)) + gt * 1.3) + sin(dot(gp, vec2(0.6, -0.5)) + gt * 0.9)
-        ) * 0.06);
-        float glint = pow(max(dot(glintNormal, halfVector), 0.0), 900.0);
+        // On a river the glints drift downstream with the current (see
+        // flowLayers below)
+        float flowAmt = length(vFlow);
+        float glint;
+        vec2 flowOff0 = vec2(0.0), flowOff1 = vec2(0.0);
+        float flowW0 = 1.0;
+        if (flowAmt > 0.02) {
+          // A flow map: two copies of a pattern, each sliding downstream for
+          // a while and then jumping back, cross-faded so neither jump shows
+          // (sliding forever would smear the pattern where the river bends)
+          float ph = fract(uTime * 0.12);
+          flowOff0 = vFlow * ph * 45.0;
+          flowOff1 = vFlow * fract(ph + 0.5) * 45.0 + vec2(37.0, 91.0);
+          flowW0 = 1.0 - abs(1.0 - 2.0 * ph);
+          glint = mix(waterGlint(vWorldPosition.xz - flowOff1, gt, n, halfVector),
+                      waterGlint(vWorldPosition.xz - flowOff0, gt, n, halfVector), flowW0);
+        } else {
+          glint = waterGlint(vWorldPosition.xz, gt, n, halfVector);
+        }
         float sparkle = mix(1.0, 0.35 + glint * 8.0, glintFade);
 
         float pathFresnel = 0.02 + 0.98 * pow(1.0 - max(dot(viewDir, halfVector), 0.0), 5.0);
@@ -564,6 +604,17 @@ waterMaterial.onBeforeCompile = function (shader) {
         float lowSun = (1.0 - smoothstep(0.04, 0.35, uSpecularDir.y)) * uGlitterWarm;
         vec3 glitterColor = uSunColor * mix(vec3(1.0), vec3(1.0, 0.72, 0.38), lowSun);
         gl_FragColor.rgb += glitterColor * min(glitter, 3.0);
+
+        // River current: flecks of foam drifting downstream, faded out
+        // before they'd shimmer in the distance
+        if (flowAmt > 0.02) {
+          vec2 dir = vFlow / flowAmt;
+          float flecks = mix(flowFlecks(vWorldPosition.xz - flowOff1, dir),
+                             flowFlecks(vWorldPosition.xz - flowOff0, dir), flowW0);
+          float fleckFade = (1.0 - smoothstep(250.0, 1600.0, vDistanceXZ)) * smoothstep(0.02, 0.5, flowAmt);
+          float fleckLight = clamp(dot(waterLit, vec3(0.333)) / max(dot(vColor.rgb, vec3(0.333)), 0.05), 0.0, 1.2);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.92, 0.96, 1.0) * fleckLight, flecks * fleckFade * 0.4);
+        }
 
         #ifdef ANIME_WATER
         // Painted wave strokes: short light dashes along the crests of the

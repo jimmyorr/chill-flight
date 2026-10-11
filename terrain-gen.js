@@ -442,6 +442,7 @@ export function generateChunkData({
 
   let waterPositions = null;
   let waterColors = null;
+  let waterFlow = null;
   let softWaterDepth = null;
   const transferables = [
     positions.buffer,
@@ -458,6 +459,9 @@ export function generateChunkData({
 
     waterPositions = new Float32Array(wTotalVerts * 3);
     waterColors = new Float32Array(wTotalVerts * 3);
+    // Which way the rivers run at each vertex (getRiverFlow), for the water
+    // shader's current
+    waterFlow = new Float32Array(wTotalVerts * 2);
 
     const colorWater = new Color(0x40c4ff);
     const colorIcyWater = new Color(0x88ccff);
@@ -497,6 +501,12 @@ export function generateChunkData({
         waterColors[wPosIdx + 1] = tempColor.g;
         waterColors[wPosIdx + 2] = tempColor.b;
 
+        const flow = ChillFlightLogic.getRiverFlow(worldX, worldZ, simplex);
+        if (flow) {
+          waterFlow[(wPosIdx / 3) * 2] = flow[0];
+          waterFlow[(wPosIdx / 3) * 2 + 1] = flow[1];
+        }
+
         wPosIdx += 3;
       }
     }
@@ -513,6 +523,7 @@ export function generateChunkData({
     transferables.push(
       waterPositions.buffer,
       waterColors.buffer,
+      waterFlow.buffer,
       softWaterDepth.buffer
     );
   }
@@ -2277,6 +2288,7 @@ export function generateChunkData({
         terrainColors: terrainColors,
         waterPositions,
         waterColors,
+        waterFlow,
         softWaterDepth,
       },
       instanceData,

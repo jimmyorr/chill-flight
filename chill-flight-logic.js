@@ -818,23 +818,221 @@ export const ChillFlightLogic = {};
     return false;
   }
 
+  // --- DOMAIN WARPING ---
+  // getElevation samples the land at warped coordinates, which makes
+  // coastlines and rivers organic. Each returns the offset to add to x or z
+  // (both from the unwarped x and z).
+  function domainWarpX(x, z, simplex) {
+    return (
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0002, z * 0.0002, ny * 0.0002)
+      ) * 1000
+    );
+  }
+  function domainWarpZ(x, z, simplex) {
+    return (
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0002, z * 0.0002 + 123.4, ny * 0.0002)
+      ) * 1000
+    );
+  }
+
+  // --- PROCEDURAL TERRAIN TYPE ---
+  // What runs along latitude band latIndex (1 lat = 5000 units): a
+  // mountain range, a major or minor river, or nothing (buffer)
+  function proceduralTerrainType(latIndex, simplex, terrainFrequency = 0.8) {
+    if (latIndex === 0) return 'major_river'; // Equator override
+    // The first ranges north and south (1 North, 1 South) are always there,
+    // so every flight meets mountains early (#76). Later ones vary by seed.
+    if (latIndex === 1 || latIndex === -1) return 'mountain';
+    // Use a non-zero Y coordinate so we don't sample along an axis (which can be 0)
+    // Multiply by 1.5 to stretch the Simplex noise output closer to the [-1.0, 1.0] range
+    const tNoise = simplex.noise2D(latIndex * terrainFrequency, 1234.5) * 1.5;
+    if (tNoise > 0.4) return 'mountain';
+    if (tNoise < -0.4) return 'minor_river';
+    return 'buffer';
+  }
+
+  // --- RIVER CHANNELS ---
+  // How strongly the rivers and their tributaries carve the land at warped
+  // (x, z) (origX: unwarped): river and tributary, 0 to 1 (1 in the channel,
+  // easing out across the banks). `offset` gives the strongest channel's
+  // signed distance across it at any warped point, and `downstream` which
+  // way its water runs (see getRiverFlow). Shared by getElevation's carving
+  // and the flow.
+  function riverChannelAt(x, z, origX, simplex, terrainFrequency = 0.8) {
+    const latScale = 5000;
+    const currentLat = Math.round(z / latScale);
+    const _lerp = (a, b, t) => a + (b - a) * t;
+    const getProceduralTerrainType = (latIndex, freq) =>
+      proceduralTerrainType(latIndex, simplex, freq);
+    let maxRiverFactor = 0;
+    let maxTributaryFactor = 0;
+    // The strongest river and tributary, for getRiverFlow
+    let riverChannel = null;
+    let tribChannel = null;
+    // Estuaries: rivers widen over the last 6 km before the east coast
+    // (1.0 West to 0.2 East), up to 4.5x at the mouth.
+    const estuary = Math.min(1, Math.max(0, (origX + 5000) / 6000));
+    const estuaryWiden = estuary * estuary * (3 - 2 * estuary);
+
+    // Check adjacent latitudes to find any nearby rivers (since they meander up to 5000 units)
+    for (let l = currentLat - 1; l <= currentLat + 1; l++) {
+      const type = getProceduralTerrainType(l, terrainFrequency);
+      if (type === 'major_river' || type === 'minor_river') {
+        const riverCenterZ = exports.getRiverCenterZ
+          ? exports.getRiverCenterZ(x, z, simplex, l)
+          : l * latScale; // Fallback
+
+        const distToRiver = Math.abs(z - riverCenterZ);
+
+        let riverWidth, riverBankWidth;
+        if (type === 'major_river') {
+          const widthNoise = cylNoise(x, (nx, ny) =>
+            simplex.noise3D(nx * 0.0005, 200, ny * 0.0005)
+          );
+          const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
+          riverWidth = 120 + widthVariation * 180; // Min 120, max 300
+          riverBankWidth = 100 + widthVariation * 100;
+        } else {
+          // Smaller rivers
+          const widthNoise = cylNoise(x, (nx, ny) =>
+            simplex.noise3D(nx * 0.0008, l * 10.0, ny * 0.0008)
+          );
+          const widthVariation = (widthNoise + 1) * 0.5;
+          riverWidth = 100 + widthVariation * 100; // Min 100, max 200
+          riverBankWidth = 60 + widthVariation * 40;
+        }
+        riverWidth *= 1 + 3.5 * estuaryWiden;
+        riverBankWidth *= 1 + 1.5 * estuaryWiden;
+
+        // Tributaries: side streams joining the river from the north or
+        // south at irregular spots (up to one per 7 km of river), running
+        // 2.5 to 5 km, meandering and narrowing toward their source. Only
+        // inland: near the sea they would braid the estuary.
+        if (estuary < 0.3) {
+          const tribSpacing = 7000;
+          const k0 = Math.round(x / tribSpacing);
+          const k1 = x > k0 * tribSpacing ? k0 + 1 : k0 - 1;
+          for (const k of [k0, k1]) {
+            const presence = simplex.noise2D(k * 0.731 + l * 17.3, 911.1);
+            if (Math.abs(presence) < 0.15) continue; // some spots have none
+            const side = presence > 0 ? 1 : -1;
+            const baseX =
+              k * tribSpacing +
+              simplex.noise2D(k * 0.577 + l * 7.9, 222.2) * 2000;
+            const length =
+              2500 + (simplex.noise2D(k * 0.419 + l * 3.3, 333.3) + 1) * 1250;
+            const along =
+              (z - exports.getRiverCenterZ(baseX, z, simplex, l)) * side;
+            if (along < 0 || along > length) continue;
+            const t = along / length;
+            const centerX =
+              baseX +
+              simplex.noise2D(along * 0.0006 + k * 5.1, l * 9.7 + 444) *
+                450 *
+                Math.min(1, along / 400);
+            const tribWidth = _lerp(riverWidth * 0.45, 18, t);
+            const tribBank = _lerp(riverBankWidth * 0.6, 30, t);
+            const d = Math.abs(x - centerX);
+            let f = 0;
+            if (d <= tribWidth) {
+              f = 1;
+            } else if (d < tribWidth + tribBank) {
+              const u = (d - tribWidth) / tribBank;
+              f = 1 - u * u * (3 - 2 * u);
+            }
+            f *= Math.min(1, (1 - t) / 0.15); // taper out at the source
+            if (f > maxTributaryFactor) {
+              maxTributaryFactor = f;
+              tribChannel = {l, k, side, baseX};
+            }
+          }
+        }
+
+        let riverFactor = 0;
+        if (distToRiver <= riverWidth) {
+          riverFactor = 1.0;
+        } else if (distToRiver < riverWidth + riverBankWidth) {
+          // Smooth transition zone
+          const t = (distToRiver - riverWidth) / riverBankWidth;
+          // Smoothstep curve for natural banks
+          riverFactor = 1.0 - t * t * (3 - 2 * t);
+        }
+
+        if (riverFactor > maxRiverFactor) {
+          maxRiverFactor = riverFactor;
+          riverChannel = {l};
+        }
+      }
+    }
+
+    return {
+      river: maxRiverFactor,
+      tributary: maxTributaryFactor,
+      riverChannel,
+      tribChannel,
+      estuary: estuaryWiden,
+    };
+  }
+
+  // A channel's signed distance across it at warped (x, z): north/south of a
+  // river's centerline, east/west of a tributary's
+  function channelOffset(channel, x, z, simplex) {
+    const {l} = channel;
+    if (channel.k === undefined) {
+      return z - getRiverCenterZ(x, z, simplex, l);
+    }
+    const {k, side, baseX} = channel;
+    const along = (z - getRiverCenterZ(baseX, z, simplex, l)) * side;
+    const centerX =
+      baseX +
+      simplex.noise2D(along * 0.0006 + k * 5.1, l * 9.7 + 444) *
+        450 *
+        Math.min(1, along / 400);
+    return x - centerX;
+  }
+
+  // --- RIVER FLOW ---
+  // Which way the water runs at (x, z), scaled by how much it's in a
+  // channel: [x, z] up to unit length, or null off the rivers. Rivers run
+  // east to the sea (slowing through the estuaries), tributaries toward the
+  // river they join. The direction follows the channel through the domain
+  // warp: along the lines of equal distance across it.
+  function getRiverFlow(x, z, simplex) {
+    const warped = (px, pz) => [
+      px + domainWarpX(px, pz, simplex),
+      pz + domainWarpZ(px, pz, simplex),
+    ];
+    const [wx, wz] = warped(x, z);
+    const c = riverChannelAt(wx, wz, x, simplex);
+    const trib = c.tributary > c.river;
+    let strength = trib ? c.tributary : c.river * (1 - 0.6 * c.estuary);
+    if (strength <= 0) return null;
+    const channel = trib ? c.tribChannel : c.riverChannel;
+    const offsetAt = (px, pz) =>
+      channelOffset(channel, ...warped(px, pz), simplex);
+    const e = 2;
+    const o = offsetAt(x, z);
+    const gx = (offsetAt(x + e, z) - o) / e;
+    const gz = (offsetAt(x, z + e) - o) / e;
+    const len = Math.hypot(gx, gz);
+    if (len < 1e-6) return null;
+    let fx = -gz / len;
+    let fz = gx / len;
+    // Rivers run east; tributaries back toward their river
+    if (trib ? fz * channel.side > 0 : fx < 0) {
+      fx = -fx;
+      fz = -fz;
+    }
+    return [fx * strength, fz * strength];
+  }
+
   function getElevation(x, z, simplex, constants, lerp, options = {}) {
     const WATER_LEVEL = constants.WATER_LEVEL || 40;
 
-    // --- PROCEDURAL TERRAIN HELPER ---
-    // Unified grid where 1 lat = 5000 units.
-    function getProceduralTerrainType(latIndex, terrainFrequency = 0.8) {
-      if (latIndex === 0) return 'major_river'; // Equator override
-      // The first ranges north and south (1 North, 1 South) are always there,
-      // so every flight meets mountains early (#76). Later ones vary by seed.
-      if (latIndex === 1 || latIndex === -1) return 'mountain';
-      // Use a non-zero Y coordinate so we don't sample along an axis (which can be 0)
-      // Multiply by 1.5 to stretch the Simplex noise output closer to the [-1.0, 1.0] range
-      const tNoise = simplex.noise2D(latIndex * terrainFrequency, 1234.5) * 1.5;
-      if (tNoise > 0.4) return 'mountain';
-      if (tNoise < -0.4) return 'minor_river';
-      return 'buffer';
-    }
+    const getProceduralTerrainType = (latIndex, terrainFrequency) =>
+      proceduralTerrainType(latIndex, simplex, terrainFrequency);
 
     const {MAP_WORLD_SIZE = 5000} = constants;
     const _lerp =
@@ -920,17 +1118,8 @@ export const ChillFlightLogic = {};
     // and natural-looking terrain by distorting the noise grid.
     const origX = x;
     const origZ = z;
-    const dwFactor = 1000;
-    const dwX =
-      cylNoise(x, (nx, ny) =>
-        simplex.noise3D(nx * 0.0002, z * 0.0002, ny * 0.0002)
-      ) * dwFactor;
-    const dwZ =
-      cylNoise(x, (nx, ny) =>
-        simplex.noise3D(nx * 0.0002, z * 0.0002 + 123.4, ny * 0.0002)
-      ) * dwFactor;
-    x += dwX;
-    z += dwZ;
+    x += domainWarpX(x, z, simplex);
+    z += domainWarpZ(origX, z, simplex);
 
     const biome = getBiome(x, z, simplex);
 
@@ -1803,99 +1992,9 @@ export const ChillFlightLogic = {};
     // --- RIVER CARVING LOGIC ---
     // Runs after all additive terrain passes (mountains, volcano) so it always wins.
     if (!options.ignoreRivers) {
-      let maxRiverFactor = 0;
-      let maxTributaryFactor = 0;
-      // Estuaries: rivers widen over the last 6 km before the east coast
-      // (1.0 West to 0.2 East), up to 4.5x at the mouth.
-      const estuary = Math.min(1, Math.max(0, (origX + 5000) / 6000));
-      const estuaryWiden = estuary * estuary * (3 - 2 * estuary);
-
-      // Check adjacent latitudes to find any nearby rivers (since they meander up to 5000 units)
-      for (let l = currentLat - 1; l <= currentLat + 1; l++) {
-        const type = getProceduralTerrainType(l, terrainFrequency);
-        if (type === 'major_river' || type === 'minor_river') {
-          const riverCenterZ = exports.getRiverCenterZ
-            ? exports.getRiverCenterZ(x, z, simplex, l)
-            : l * latScale; // Fallback
-
-          const distToRiver = Math.abs(z - riverCenterZ);
-
-          let riverWidth, riverBankWidth;
-          if (type === 'major_river') {
-            const widthNoise = cylNoise(x, (nx, ny) =>
-              simplex.noise3D(nx * 0.0005, 200, ny * 0.0005)
-            );
-            const widthVariation = (widthNoise + 1) * 0.5; // Map from [-1, 1] to [0, 1]
-            riverWidth = 120 + widthVariation * 180; // Min 120, max 300
-            riverBankWidth = 100 + widthVariation * 100;
-          } else {
-            // Smaller rivers
-            const widthNoise = cylNoise(x, (nx, ny) =>
-              simplex.noise3D(nx * 0.0008, l * 10.0, ny * 0.0008)
-            );
-            const widthVariation = (widthNoise + 1) * 0.5;
-            riverWidth = 100 + widthVariation * 100; // Min 100, max 200
-            riverBankWidth = 60 + widthVariation * 40;
-          }
-          riverWidth *= 1 + 3.5 * estuaryWiden;
-          riverBankWidth *= 1 + 1.5 * estuaryWiden;
-
-          // Tributaries: side streams joining the river from the north or
-          // south at irregular spots (up to one per 7 km of river), running
-          // 2.5 to 5 km, meandering and narrowing toward their source. Only
-          // inland: near the sea they would braid the estuary.
-          if (estuary < 0.3) {
-            const tribSpacing = 7000;
-            const k0 = Math.round(x / tribSpacing);
-            const k1 = x > k0 * tribSpacing ? k0 + 1 : k0 - 1;
-            for (const k of [k0, k1]) {
-              const presence = simplex.noise2D(k * 0.731 + l * 17.3, 911.1);
-              if (Math.abs(presence) < 0.15) continue; // some spots have none
-              const side = presence > 0 ? 1 : -1;
-              const baseX =
-                k * tribSpacing +
-                simplex.noise2D(k * 0.577 + l * 7.9, 222.2) * 2000;
-              const length =
-                2500 + (simplex.noise2D(k * 0.419 + l * 3.3, 333.3) + 1) * 1250;
-              const along =
-                (z - exports.getRiverCenterZ(baseX, z, simplex, l)) * side;
-              if (along < 0 || along > length) continue;
-              const t = along / length;
-              const centerX =
-                baseX +
-                simplex.noise2D(along * 0.0006 + k * 5.1, l * 9.7 + 444) *
-                  450 *
-                  Math.min(1, along / 400);
-              const tribWidth = _lerp(riverWidth * 0.45, 18, t);
-              const tribBank = _lerp(riverBankWidth * 0.6, 30, t);
-              const d = Math.abs(x - centerX);
-              let f = 0;
-              if (d <= tribWidth) {
-                f = 1;
-              } else if (d < tribWidth + tribBank) {
-                const u = (d - tribWidth) / tribBank;
-                f = 1 - u * u * (3 - 2 * u);
-              }
-              f *= Math.min(1, (1 - t) / 0.15); // taper out at the source
-              if (f > maxTributaryFactor) maxTributaryFactor = f;
-            }
-          }
-
-          let riverFactor = 0;
-          if (distToRiver <= riverWidth) {
-            riverFactor = 1.0;
-          } else if (distToRiver < riverWidth + riverBankWidth) {
-            // Smooth transition zone
-            const t = (distToRiver - riverWidth) / riverBankWidth;
-            // Smoothstep curve for natural banks
-            riverFactor = 1.0 - t * t * (3 - 2 * t);
-          }
-
-          if (riverFactor > maxRiverFactor) {
-            maxRiverFactor = riverFactor;
-          }
-        }
-      }
+      const channel = riverChannelAt(x, z, origX, simplex, terrainFrequency);
+      let maxRiverFactor = channel.river;
+      let maxTributaryFactor = channel.tributary;
 
       // Tributaries stop at the foot of mountains rather than cutting canyons.
       maxTributaryFactor *= 1 - Math.min(1, Math.max(0, (n - 250) / 200));
@@ -2654,6 +2753,7 @@ export const ChillFlightLogic = {};
   exports.MAP_WIDTH = MAP_WIDTH;
   exports.getElevation = getElevation;
   exports.getRiverCenterZ = getRiverCenterZ;
+  exports.getRiverFlow = getRiverFlow;
   exports.getRoadCenterX = getRoadCenterX;
   exports.AIRPORTS = AIRPORTS;
   exports.RUNWAY_LENGTH = RUNWAY_LENGTH;

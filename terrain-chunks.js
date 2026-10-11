@@ -938,11 +938,20 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           3
         )
       );
+      waterGeo.setAttribute(
+        'flow',
+        new THREE.BufferAttribute(
+          new Float32Array(waterGeo.attributes.position.count * 2),
+          2
+        )
+      );
     }
     waterGeo.userData = {unique: true, poolType: 'water'};
 
     waterGeo.attributes.position.array.set(workerData.buffers.waterPositions);
     waterGeo.attributes.color.array.set(workerData.buffers.waterColors);
+    waterGeo.attributes.flow.array.set(workerData.buffers.waterFlow);
+    waterGeo.attributes.flow.needsUpdate = true;
 
     waterGeo.attributes.position.needsUpdate = true;
     waterGeo.attributes.color.needsUpdate = true;
