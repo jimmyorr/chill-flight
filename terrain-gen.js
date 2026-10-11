@@ -370,19 +370,27 @@ function softenedWaterDepth(
 // Returns {result, transferables}: the chunk's buffers, instance data and
 // prop placements, plus the buffers to transfer when posting from a worker.
 // --- WATERFALLS ---
-// Now and then a waterfall where the land drops steeply into water: from a
-// point at least WATERFALL_MIN_DROP above the water, follows the steepest
-// way down the chunk's height grid to the water, and keeps the steepest,
-// tallest such fall in the chunk. Returns its course (local x, y, z points,
-// top to bottom), the stream feeding it (source to lip) and the patch of
-// height grid around both, so they can lie on the terrain as drawn; or null. Its own random numbers, so the chunk's other props
-// don't move.
+// Now and then a waterfall where a stream meets a tall, sheer drop into open
+// water. Few places pass, on purpose: a few great falls rather than many
+// awkward ones. Returns the fall's course (local x, y, z points, top to
+// bottom), the stream feeding it (source to lip) and the patch of height grid
+// around both, so they can lie on the terrain as drawn; or null. Its own
+// random numbers, so the chunk's other props don't move.
+// Where to start looking: points this far above the water
 const WATERFALL_MIN_DROP = 45;
-const WATERFALL_CHANCE = 0.15;
+// How tall a fall has to be, and how sheer (down per unit across), at least
+const WATERFALL_MIN_HEIGHT = 150;
+const WATERFALL_MIN_SHEER = 1.5;
+// How much of the ground within WATERFALL_POOL units of where it lands has to
+// be water, so it lands in open water rather than a narrow inlet
+const WATERFALL_POOL = 150;
+const WATERFALL_MIN_OPEN = 0.3;
 // How far the stream above a fall runs, at most
 const WATERFALL_STREAM_LENGTH = 300;
-// How far a stream has to run into a fall, at least
+// How far a stream has to run into a fall, at least, on gentle ground
 const WATERFALL_MIN_STREAM = 100;
+// A stream steeper than this (up per unit across) is part of the fall
+const WATERFALL_STREAM_STEEP = 0.6;
 // The stream feeding grid cell (x0, z0), as grid cells from there up to its
 // source: each step to the higher neighbor that drains into it (whose own
 // steepest way down leads here), the steepest of those, so it keeps to the
@@ -443,16 +451,34 @@ function traceStream(heightGrid, gridX1, step, x0, z0) {
   return upstream;
 }
 
-function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
-  if (rng() >= WATERFALL_CHANCE) return null;
+// Whether chunk (chunkX, chunkZ) may have a waterfall: its own random number
+// is higher than the four chunks beside it, so falls are never side by side
+// (a long cliff coast would otherwise line up several) and only about one
+// chunk in five looks for one
+function waterfallChunk(chunkX, chunkZ) {
+  const lot = (x, z) =>
+    ChillFlightLogic.mulberry32(
+      (ChillFlightLogic.WORLD_SEED ^ (x * 73856093) ^ (z * 19349663)) + 4242
+    )();
+  const mine = lot(chunkX, chunkZ);
+  return (
+    lot(chunkX - 1, chunkZ) < mine &&
+    lot(chunkX + 1, chunkZ) < mine &&
+    lot(chunkX, chunkZ - 1) < mine &&
+    lot(chunkX, chunkZ + 1) < mine
+  );
+}
+
+function findWaterfall(heightGrid, gridX1, step, halfSize, water) {
+  const heightOf = ([x, z]) => heightGrid[z * gridX1 + x];
   let best = null;
+  let bestStream = null;
   let bestScore = 0;
   // Stay a few cells inside the chunk, so the path's neighbors exist
   for (let iz = 2; iz < gridX1 - 2; iz++) {
     for (let ix = 2; ix < gridX1 - 2; ix++) {
       const top = heightGrid[iz * gridX1 + ix];
-      const drop = top - water;
-      if (drop < WATERFALL_MIN_DROP) continue;
+      if (top - water < WATERFALL_MIN_DROP) continue;
       // Downhill, steepest neighbor each step, until the water
       const path = [[ix, iz]];
       let cx = ix;
@@ -496,18 +522,56 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
           break;
         }
       }
-      // Steep (at least as much down as across) and into water
-      if (!reached || length > drop) continue;
-      // Fed by a stream, as where a valley meets a drop
-      if (
-        traceStream(heightGrid, gridX1, step, ix, iz).run < WATERFALL_MIN_STREAM
-      ) {
-        continue;
+      if (!reached) continue;
+      // The stream feeding it; where it runs down steep rock, that's part
+      // of the fall, so the stream only lies on gentle ground
+      const stream = traceStream(heightGrid, gridX1, step, ix, iz);
+      let k = 0;
+      let steepRun = 0;
+      while (k + 1 < stream.length) {
+        const across = Math.hypot(
+          stream[k + 1][0] - stream[k][0],
+          stream[k + 1][1] - stream[k][1]
+        );
+        const up = heightOf(stream[k + 1]) - heightOf(stream[k]);
+        if (up / (across * step) < WATERFALL_STREAM_STEEP) break;
+        steepRun += across * step;
+        k++;
       }
-      const score = (drop / length) * drop;
+      const gentleRun = stream.run - steepRun;
+      if (gentleRun < WATERFALL_MIN_STREAM) continue;
+      const height = heightOf(stream[k]) - water;
+      // Gentle all the way to its source, not steep again further up
+      const climb = heightOf(stream[stream.length - 1]) - (height + water);
+      if (climb / gentleRun > WATERFALL_STREAM_STEEP) continue;
+      length += steepRun;
+      // Tall and sheer, not a slide down a slope
+      if (height < WATERFALL_MIN_HEIGHT) continue;
+      if (height / length < WATERFALL_MIN_SHEER) continue;
+      // Into open water
+      const [bx, bz] = path[path.length - 1];
+      const reach = Math.round(WATERFALL_POOL / step);
+      let wet = 0;
+      let all = 0;
+      for (let dz = -reach; dz <= reach; dz++) {
+        for (let dx = -reach; dx <= reach; dx++) {
+          const x = bx + dx;
+          const z = bz + dz;
+          if (dx * dx + dz * dz > reach * reach) continue;
+          if (x < 0 || z < 0 || x >= gridX1 || z >= gridX1) continue;
+          all++;
+          if (heightGrid[z * gridX1 + x] < water) wet++;
+        }
+      }
+      if (wet < all * WATERFALL_MIN_OPEN) continue;
+      const score = (height / length) * height;
       if (score > bestScore) {
         bestScore = score;
-        best = path;
+        best = stream
+          .slice(1, k + 1)
+          .reverse()
+          .concat(path);
+        bestStream = stream.slice(k);
       }
     }
   }
@@ -518,19 +582,12 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
     -halfSize + z * step,
   ];
   const course = best.map(toLocal);
-  const upstream = traceStream(
-    heightGrid,
-    gridX1,
-    step,
-    best[0][0],
-    best[0][1]
-  );
-  const stream = upstream.reverse().map(toLocal);
-  best.push(...upstream);
+  const stream = bestStream.reverse().map(toLocal);
+  best.push(...bestStream);
   // Wide enough for the fall's full width either side of its course, for it
   // to stand out from a gully (MAX_OUT in waterfalls.js), and for a pond at
   // the stream's source (POND_RADIUS)
-  const pad = Math.ceil(70 / step) + 1;
+  const pad = Math.ceil(90 / step) + 1;
   const xs = best.map((p) => p[0]);
   const zs = best.map((p) => p[1]);
   const x0 = Math.max(0, Math.min(...xs) - pad);
@@ -2421,19 +2478,13 @@ export function generateChunkData({
   }
 
   const waterfall =
-    _enableObjects && hasWater
+    _enableObjects && hasWater && waterfallChunk(chunkX, chunkZ)
       ? findWaterfall(
           heightGrid,
           gridX1,
           step,
           halfSize,
-          elevParams.WATER_LEVEL,
-          ChillFlightLogic.mulberry32(
-            (ChillFlightLogic.WORLD_SEED ^
-              (chunkX * 73856093) ^
-              (chunkZ * 19349663)) +
-              4242
-          )
+          elevParams.WATER_LEVEL
         )
       : null;
 

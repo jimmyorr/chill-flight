@@ -194,8 +194,10 @@ const STREAM_ACROSS = 8;
 const STREAM_HALF = [4, 9];
 // How far a pond can reach from the stream's source, and how wide on average
 // it has to be to be worth drawing
-const POND_RADIUS = 40;
-const POND_MIN_RADIUS = 12;
+const POND_RADIUS = 70;
+const POND_MIN_RADIUS = 15;
+// How far its water stands above the ground at the source, filling the hollow
+const POND_DEPTH = 4;
 
 // The stream along `points` (local [x, y, z], source to lip), lying on the
 // ground, as a mesh
@@ -262,7 +264,7 @@ function createStream(points, ground) {
 function createPond(x0, z0, ground) {
   const g0 = groundAt(ground, x0, z0);
   if (g0 === null) return null;
-  const level = g0 + 1.2;
+  const level = g0 + POND_DEPTH;
   const ANGLES = 32;
   const radii = [];
   for (let a = 0; a < ANGLES; a++) {
@@ -274,7 +276,7 @@ function createPond(x0, z0, ground) {
         x0 + Math.cos(ang) * s,
         z0 + Math.sin(ang) * s
       );
-      if (g === null || g < level - 2.5) break;
+      if (g === null || g < level - POND_DEPTH - 2) break;
       r = s;
       // Tuck the edge under the shore
       if (g > level) {
@@ -283,6 +285,16 @@ function createPond(x0, z0, ground) {
       }
     }
     radii.push(r);
+  }
+  // Round it off: no direction reaching much further than those around it,
+  // so it doesn't run out in long spikes along the valley
+  for (let pass = 0; pass < 2; pass++) {
+    const was = radii.slice();
+    for (let a = 0; a < ANGLES; a++) {
+      let sum = 0;
+      for (let j = -4; j <= 4; j++) sum += was[(a + j + ANGLES) % ANGLES];
+      radii[a] = Math.min(was[a], sum / 9);
+    }
   }
   if (radii.reduce((t, r) => t + r, 0) / ANGLES < POND_MIN_RADIUS) return null;
   const positions = [x0, level, z0];
