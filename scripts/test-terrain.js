@@ -119,11 +119,11 @@ console.log(
 
 // --- 2b. INVARIANT TEST: EVERY CONTINENT ENDS IN SEA ---
 // For each outline the seed can pick: well past the south coast (at most
-// about 11S, on a peninsula or arm), the west coast (at most about 20W) and
-// the eastern land's east coast (at most about 20E), there's only sea, and
-// the landmarks and airports stay on land.
+// about 14S, on Boot's toe), the west coast (at most about 20W) and the
+// eastern land's east coast (at most about 20E), there's only sea, and the
+// landmarks and airports stay on land.
 const pastCoasts = [];
-for (let x = -100000; x <= 100000; x += 5000) pastCoasts.push([x, 70000]); // 14S
+for (let x = -100000; x <= 100000; x += 5000) pastCoasts.push([x, 80000]); // 16S
 for (let z = -15000; z <= 60000; z += 5000) {
   pastCoasts.push([-110000, z]); // 22W
   pastCoasts.push([115000, z]); // 23E
