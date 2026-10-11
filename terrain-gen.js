@@ -484,15 +484,40 @@ function fallsCells(chunkX, chunkZ, chunkSize, step) {
     );
   }
   stream.run = run * step;
-  // The stream as drawn follows the valley itself, smoother than the cells
+  // The stream as drawn follows the valley itself, smoother than the cells,
+  // to the lip's cell: the terrain as drawn slopes from there to the next
+  // cell, down the wall, so any further and it would run down the rock
   const curve = [];
-  for (let along = L.FALLS_POND; along >= 0; along -= 10) {
+  const last = z0 - lip[1] * step;
+  for (let along = L.FALLS_POND; along > last; along -= 10) {
     curve.push([
       x0 + L.fallsValleyX(along) - chunkSize / 2,
       z0 - along - chunkSize / 2,
     ]);
   }
-  return {lip, stream, curve};
+  curve.push([
+    x0 + L.fallsValleyX(last) - chunkSize / 2,
+    z0 - last - chunkSize / 2,
+  ]);
+  return {lip, stream, curve, edge: z0 - chunkSize / 2};
+}
+
+// How far out from the lip the landmark's fall lands, leaping clear of the
+// rock so there's room to fly behind it
+const FALLS_LEAP = 150;
+// The landmark's fall: from the end of its valley (curve, from fallsCells)
+// at height top, over the edge (local z) and down to the water, out south
+// (the way its bay faces) as it falls, like water thrown off a ledge (out
+// with the square root of the drop)
+function leapCourse(curve, edge, top, water) {
+  const [x0, z0] = curve[curve.length - 1];
+  // Starting a little back over the stream, where the fall fades in
+  const course = [[x0, top, z0 - 12]];
+  for (let i = 0; i <= 16; i++) {
+    const f = i / 16;
+    course.push([x0, top - (top - water) * f * f, edge + FALLS_LEAP * f]);
+  }
+  return course;
 }
 
 // Whether chunk (chunkX, chunkZ) may have a waterfall: its own random number
@@ -641,7 +666,9 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, fixed) {
     heightGrid[z * gridX1 + x],
     -halfSize + z * step,
   ];
-  const course = best.map(toLocal);
+  const course = fixed
+    ? leapCourse(fixed.curve, fixed.edge, heightOf(best[0]), water)
+    : best.map(toLocal);
   const nearest = (v) =>
     Math.min(gridX1 - 1, Math.max(0, Math.round((v + halfSize) / step)));
   const stream = fixed
@@ -673,6 +700,7 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, fixed) {
   return {
     course,
     stream,
+    leap: !!fixed,
     ground: {
       x: -halfSize + x0 * step,
       z: -halfSize + z0 * step,

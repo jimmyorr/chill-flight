@@ -1031,20 +1031,26 @@ export const ChillFlightLogic = {};
   // --- THE FALLS (landmark, north of spawn) ---
   // A table mountain standing in a lake, its sheer walls about 380 units
   // tall. A stream runs south down a winding valley across the top, from a
-  // pond in a hollow, and falls off the south wall (facing spawn) into the
-  // lake. terrain-gen.js draws the fall, stream and pond at these points.
+  // pond in a hollow, and falls from the back of a round bay cut into the
+  // south wall (facing spawn) into the lake, with room to fly between the
+  // falling water and the rock. terrain-gen.js draws the fall, stream and pond at these points.
   // fallsAt returns [height, weight] for a point in unwarped world
   // coordinates; weight 0 leaves the terrain as it was.
   const FALLS_X = 0;
   const FALLS_Z = -4750;
   const FALLS_RADIUS = 420; // to the top of the walls
   const FALLS_LIP = 420; // height of the valley floor where it falls off
+  const FALLS_BAY = 200; // the bay's radius
+  const FALLS_BAY_DEPTH = 170; // how far it cuts into the wall
+  const FALLS_LIP_Z = FALLS_Z + FALLS_RADIUS - FALLS_BAY_DEPTH;
   const FALLS_POND = 260; // how far north of the lip the pond is
   const FALLS_POND_RADIUS = 60;
   // How far east of the lip the valley floor is, s units north of the lip:
-  // an S-bend, back in line at the lip and at the pond
+  // an S-bend, back in line at the lip and at the pond, and running straight
+  // out to the lip
   function fallsValleyX(s) {
-    return 40 * Math.sin((Math.PI * Math.min(s, FALLS_POND)) / 130);
+    const bend = Math.sin((Math.PI * Math.min(s, FALLS_POND)) / 130);
+    return 40 * bend * Math.min(1, s / 60);
   }
   function fallsAt(x, z, simplex, waterLevel) {
     const dx = x - FALLS_X;
@@ -1068,7 +1074,7 @@ export const ChillFlightLogic = {};
     // The top: the valley floor climbs gently north from the lip, levelling
     // off around the pond, and the ground rises gently away from it on
     // either side
-    const s = FALLS_RADIUS - dz; // distance north of the lip
+    const s = FALLS_LIP_Z - z; // distance north of the lip
     const across = dx - fallsValleyX(s);
     let top = FALLS_LIP + 0.1 * Math.min(s, 180);
     top += 0.01 * Math.min(160, Math.max(0, s - 180));
@@ -1082,14 +1088,19 @@ export const ChillFlightLogic = {};
     // The pond's hollow
     const fromPond = Math.hypot(across, s - FALLS_POND) / FALLS_POND_RADIUS;
     if (fromPond < 1) top -= 4 * (1 - fromPond * fromPond);
+    // How far out from the walls, around the outside and into the bay
+    const out = Math.max(
+      (d - 1) * FALLS_RADIUS,
+      FALLS_BAY - Math.hypot(dx, z - (FALLS_LIP_Z + FALLS_BAY))
+    );
     // The walls: sheer from the top down to near the water, then a short
     // apron of rock into the lake, which eases back into the land around
     const base = waterLevel + 30;
     const floor = waterLevel - 15;
     let h;
-    if (d < 1) h = top;
-    else if (d < 1.06) h = top + (base - top) * ((d - 1) / 0.06);
-    else if (d < 1.2) h = base + (floor - base) * ((d - 1.06) / 0.14);
+    if (out < 0) h = top;
+    else if (out < 25) h = top + (base - top) * (out / 25);
+    else if (out < 85) h = base + (floor - base) * ((out - 25) / 60);
     else h = floor;
     const t = Math.min(1, Math.max(0, (1.8 - d) / 0.45));
     return [h, t * t * (3 - 2 * t)];
@@ -2651,7 +2662,7 @@ export const ChillFlightLogic = {};
   exports.mulberry32 = mulberry32;
   exports.FALLS_X = FALLS_X;
   exports.FALLS_Z = FALLS_Z;
-  exports.FALLS_LIP_Z = FALLS_Z + FALLS_RADIUS;
+  exports.FALLS_LIP_Z = FALLS_LIP_Z;
   exports.FALLS_POND = FALLS_POND;
   exports.fallsValleyX = fallsValleyX;
   exports.chunkRng = chunkRng;

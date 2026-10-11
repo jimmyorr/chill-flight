@@ -186,6 +186,10 @@ const LIFT = 3;
 // either side that is smoothed (rows are about 4 units apart)
 const MAX_OUT = 50;
 const SMOOTH = 6;
+// Half the width of a leaping fall (the falls landmark's), top and bottom
+const LEAP_HALF = [20, 45];
+// How far the middle of a fall bows out, for its half width
+const BOW = 0.5;
 
 // How high the stream lies above the ground, its steps across, and how wide
 // it is at its source and where it meets the fall
@@ -328,7 +332,7 @@ function createPond(x0, z0, ground) {
 // middle; where the rock either side stands higher (a gully), the row moves
 // out, downhill, until it clears it, so the water hangs in front of the
 // gully like a curtain instead of lining it.
-export function createWaterfall({course: points, stream, ground}) {
+export function createWaterfall({course: points, stream, ground, leap}) {
   const group = new THREE.Group();
   const curve = new THREE.CatmullRomCurve3(
     points.map(([x, y, z]) => new THREE.Vector3(x, y, z))
@@ -349,11 +353,19 @@ export function createWaterfall({course: points, stream, ground}) {
       out = new THREE.Vector3(tangent.x, 0, tangent.z).normalize();
     }
     const side = new THREE.Vector3(-out.z, 0, out.x);
-    const half = THREE.MathUtils.lerp(9, 17, t);
-    const y = Math.max(groundOr(p.x, p.z, p.y) + LIFT, WATER_LEVEL + 0.5);
+    const half = leap
+      ? THREE.MathUtils.lerp(...LEAP_HALF, t)
+      : THREE.MathUtils.lerp(9, 17, t);
+    // A leaping fall keeps to its course, through the air
+    const y = Math.max(
+      leap
+        ? Math.max(p.y, groundOr(p.x, p.z, -Infinity) + LIFT)
+        : groundOr(p.x, p.z, p.y) + LIFT,
+      WATER_LEVEL + 0.5
+    );
     // How far out the row has to move to clear the rock either side
     let need = 0;
-    for (; need < MAX_OUT; need += 2) {
+    for (; !leap && need < MAX_OUT; need += 2) {
       let clear = true;
       for (let k = 0; k <= ACROSS && clear; k++) {
         const s = (k / ACROSS - 0.5) * 2 * half;
@@ -401,9 +413,14 @@ export function createWaterfall({course: points, stream, ground}) {
     const d = sum / n;
     mid.set(p.x + o.x * d, y, p.z + o.z * d);
     for (let k = 0; k <= ACROSS; k++) {
-      const s = (k / ACROSS - 0.5) * 2 * half;
-      const x = mid.x + side.x * s;
-      const z = mid.z + side.z * s;
+      const u = (k / ACROSS - 0.5) * 2;
+      const s = u * half;
+      // Bowed out in the middle, so it has some depth seen edge on, easing
+      // in from the lip so the top still meets the stream
+      const bow =
+        BOW * half * (1 - u * u) * THREE.MathUtils.smoothstep(along, 0, 30);
+      const x = mid.x + side.x * s + o.x * bow;
+      const z = mid.z + side.z * s + o.z * bow;
       // Never under the rock, wherever the smoothing left it
       positions.push(x, Math.max(y, groundOr(x, z, -Infinity) + LIFT), z);
     }
@@ -438,23 +455,30 @@ export function createWaterfall({course: points, stream, ground}) {
   fall.renderOrder = 2;
   group.add(fall);
 
-  // Mist rising where it lands: soft puffs, bigger for a taller fall
+  // Mist rising where it lands: soft puffs, bigger for a taller fall, and
+  // spread across the whole of a wide fall's foot
   const drop = points[0][1] - WATER_LEVEL;
-  const mistSize = THREE.MathUtils.clamp(drop * 0.3, 30, 90);
+  const footHalf = rows[rows.length - 1].half;
+  const mistSize = Math.max(
+    THREE.MathUtils.clamp(drop * 0.3, 30, 90),
+    footHalf * 2.4
+  );
+  const spread = Math.max(mistSize * 0.25, footHalf);
   for (let i = 0; i < 4; i++) {
     const puff = new THREE.Sprite(mistMat);
     const a = (i / 4) * Math.PI * 2 + points.length;
     const size = mistSize * (0.7 + (0.3 * ((i * 37) % 10)) / 10);
     puff.scale.set(size, size * 0.8, 1);
     puff.position.set(
-      bx + Math.cos(a) * mistSize * 0.25,
+      bx + Math.cos(a) * spread,
       WATER_LEVEL + size * 0.3,
-      bz + Math.sin(a) * mistSize * 0.25
+      bz + Math.sin(a) * spread
     );
     group.add(puff);
   }
 
-  const foamGeo = new THREE.CircleGeometry(24, 32);
+  // Churning foam, a little wider than the fall's foot
+  const foamGeo = new THREE.CircleGeometry(Math.max(24, footHalf * 1.4), 32);
   foamGeo.rotateX(-Math.PI / 2);
   foamGeo.userData.unique = true;
   const foam = new THREE.Mesh(foamGeo, foamMat);
