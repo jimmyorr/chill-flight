@@ -687,12 +687,61 @@ export const ChillFlightLogic = {};
     );
   }
 
-  // The terrain generator computes these two noise values anyway and passes
-  // their sum straight to snowFactorAt; this is for everything else.
+  // --- REGION EDGES ---
+  // Where the snow, the desert, the main continent's east coast and the
+  // alien lands begin wanders in long, lazy curves (about a degree either
+  // way, k picking the noise), so no region follows a line of latitude or
+  // longitude.
+  function regionWobble(x, z, simplex, k) {
+    return (
+      simplex.noise2D(x * 0.00004 + k * 31, z * 0.00004 - k * 17) * 0.75 +
+      simplex.noise2D(x * 0.0001 - k * 13, z * 0.0001 + k * 7) * 0.25
+    );
+  }
+  // The snow line and the desert's edge hold still near spawn's longitudes
+  // (so the falls stay clear of the snow), wandering from 2.5 degrees
+  // either side of 1 West
+  function climateFade(x) {
+    const t = Math.max(0, Math.min(1, (Math.abs(x + 5000) - 12500) / 10000));
+    return t * t * (3 - 2 * t);
+  }
+  // How far (degrees) the snow line is pushed south at (x, z)
+  function snowWobble(x, z, simplex) {
+    return regionWobble(x, z, simplex, 1) * 0.9 * climateFade(x);
+  }
+  // How far (degrees) the desert is pushed north at (x, z)
+  function desertShift(x, z, simplex) {
+    return regionWobble(x, z, simplex, 2) * 0.9 * climateFade(x);
+  }
+  // How far (units) the main continent's east coast (around 0 longitude) is
+  // pushed east at latitude z; it holds still in the heartland
+  function eastCoastShift(z, simplex) {
+    return regionWobble(0, z, simplex, 3) * 6000 * heartlandFade(0, z);
+  }
+  // Where the western alien land begins: a longitude (units, negative)
+  // around 10 West that wanders with latitude
+  function westAlienEdge(z, simplex) {
+    return -(10 + regionWobble(-50000, z, simplex, 4) * 1.4) * 5000;
+  }
+  // How alien (x, z) is, 0 to 1: rising over 15000 units past where the
+  // eastern land (eastLandLon) or the western alien land begins
+  function alienAt(x, z, simplex) {
+    const past =
+      x > 0
+        ? x - eastLandLon(-z / 5000, simplex) * 5000
+        : westAlienEdge(z, simplex) - x;
+    const t = Math.max(0, Math.min(1, past / 15000));
+    return t * t * (3 - 2 * t);
+  }
+
+  // The terrain generator computes the first two noise values anyway and
+  // passes their sum, plus snowWobble, straight to snowFactorAt; this is for
+  // everything else.
   function snowNoiseShift(x, z, simplex) {
     return (
       simplex.noise2D(x * 0.0001, z * 0.0001) * 0.05 +
-      simplex.noise2D(x * 0.0005, z * 0.0005) * 0.1
+      simplex.noise2D(x * 0.0005, z * 0.0005) * 0.1 +
+      snowWobble(x, z, simplex)
     );
   }
 
@@ -710,13 +759,17 @@ export const ChillFlightLogic = {};
       ) * 0.5;
     const mapScale = 10000;
     let biomeBase = 0;
+    // The east coast wanders with latitude (see eastCoastShift); everything
+    // east-west below measures from it
+    const westX = x;
+    x -= eastCoastShift(z, simplex);
 
     if (x > 0) biomeBase -= Math.min(1, x / mapScale);
 
     if (z > 0) {
       let mtnInf = Math.min(1, z / mapScale);
       if (x < 0) {
-        const westDamp = Math.max(0, Math.min(1, 1 + x / 5000));
+        const westDamp = Math.max(0, Math.min(1, 1 + westX / 5000));
         mtnInf *= westDamp;
       } else if (x > 0) {
         // South-East transition zone starts much further south (Z > 8000)
@@ -2508,7 +2561,6 @@ export const ChillFlightLogic = {};
     // basins. It rises out of the island sea along the outline's eastLand
     // line (which wanders, with bays and capes), out to the outline's east
     // coast.
-    const extremeEdge = 50000;
     const eastEdge = eastLandLon(-z / 5000, simplex) * 5000;
     if (x > eastEdge) {
       const extremeFactor = Math.min(1.0, (x - eastEdge) / EAST_LAND_RISE);
@@ -2606,11 +2658,15 @@ export const ChillFlightLogic = {};
 
       if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
     }
-    // --- WESTERN ALIEN BIOME (Beyond 10 degrees West, to the west coast) ---
+    // --- WESTERN ALIEN BIOME (from about 10 West, to the west coast) ---
     // Massive geometric stepped plateaus, jagged crystal spires, and deep
-    // fractured chasms, running out to the continent's west coast
-    else if (x < -extremeEdge) {
-      const extremeFactor = Math.min(1.0, (-x - extremeEdge) / 15000);
+    // fractured chasms, from a wandering edge (westAlienEdge) out to the
+    // continent's west coast
+    else if (x < westAlienEdge(z, simplex)) {
+      const extremeFactor = Math.min(
+        1.0,
+        (westAlienEdge(z, simplex) - x) / 15000
+      );
       const ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
 
       // 1. Stepped Plateaus (Terracing)
@@ -3028,6 +3084,9 @@ export const ChillFlightLogic = {};
   exports.snowFactorAt = snowFactorAt;
   exports.CONTINENT_NAMES = CONTINENTS.map((c) => c.name);
   exports.snowNoiseShift = snowNoiseShift;
+  exports.snowWobble = snowWobble;
+  exports.desertShift = desertShift;
+  exports.alienAt = alienAt;
   exports.MAP_WIDTH = MAP_WIDTH;
   exports.getElevation = getElevation;
   exports.getRiverCenterZ = getRiverCenterZ;

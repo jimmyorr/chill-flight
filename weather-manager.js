@@ -370,7 +370,14 @@ export function updateWeather(delta) {
   } else if (weatherType === 'rain') {
     targetRainOpacity = 0.5;
   } else if (weatherType === 'auto') {
-    const latVal = -planeGroup.position.z / 5000;
+    // Latitude as the climate sees it: the snow line wanders (snowWobble)
+    const latVal =
+      -planeGroup.position.z / 5000 +
+      ChillFlightLogic.snowWobble(
+        planeGroup.position.x,
+        planeGroup.position.z,
+        simplex
+      );
 
     // 1. Sync with the global overcast/cloud noise map
     const timeOffset = (state.worldClockNow || performance.now()) / 100000;

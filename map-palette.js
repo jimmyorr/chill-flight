@@ -13,16 +13,19 @@ function isPackIce(elev, wz) {
 }
 
 // Region colours over the height colours, for land: the snowy north, the
-// red-rock south and the alien lands beyond 10 degrees East and West. Uses
-// the terrain's own noise and thresholds (snowFactorAt in
-// chill-flight-logic.js, the desert and extreme-zone blends in
-// terrain-gen.js), so the map matches the ground.
+// red-rock south and the alien lands from about 10 degrees East and West.
+// Uses the terrain's own noise and region edges (snowFactorAt, snowWobble,
+// desertShift and alienAt in chill-flight-logic.js), so the map matches the
+// ground.
 function tintForRegion(out, wx, wz, elev, simplex) {
   let [r, g, b] = out;
   const noisePath = simplex.noise2D(wx * 0.0001, wz * 0.0001);
   const biomeNoise = simplex.noise2D(wx * 0.0005, wz * 0.0005) * 0.1;
 
-  const snow = ChillFlightLogic.snowFactorAt(wz, noisePath * 0.05 + biomeNoise);
+  const snow = ChillFlightLogic.snowFactorAt(
+    wz,
+    noisePath * 0.05 + biomeNoise + ChillFlightLogic.snowWobble(wx, wz, simplex)
+  );
   if (snow > 0) {
     const k = snow * 0.8;
     r += (238 - r) * k;
@@ -32,7 +35,14 @@ function tintForRegion(out, wx, wz, elev, simplex) {
 
   const desertRaw = Math.max(
     0,
-    Math.min(1, Math.max(0, wz / 5000) + noisePath * 0.05 - biomeNoise - 2.0)
+    Math.min(
+      1,
+      Math.max(0, wz / 5000) +
+        ChillFlightLogic.desertShift(wx, wz, simplex) +
+        noisePath * 0.05 -
+        biomeNoise -
+        2.0
+    )
   );
   const desert = desertRaw * desertRaw * (3 - 2 * desertRaw);
   if (desert > 0) {
@@ -44,9 +54,8 @@ function tintForRegion(out, wx, wz, elev, simplex) {
     b += (110 - 48 * rock - b) * k;
   }
 
-  const alienRaw = Math.max(0, Math.min(1, (Math.abs(wx) - 50000) / 15000));
-  if (alienRaw > 0) {
-    const alien = alienRaw * alienRaw * (3 - 2 * alienRaw);
+  const alien = ChillFlightLogic.alienAt(wx, wz, simplex);
+  if (alien > 0) {
     const k = alien * 0.6;
     const east = wx > 0;
     r += ((east ? 70 : 200) - r) * k;

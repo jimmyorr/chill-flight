@@ -830,7 +830,9 @@ export function generateChunkData({
         waterPositions[wPosIdx + 2] = localZ;
 
         const tempNoise = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
-        const southInfluence = Math.max(0, worldZ / 4500);
+        const southInfluence =
+          Math.max(0, worldZ / 4500) +
+          ChillFlightLogic.desertShift(worldX, worldZ, simplex);
         const snowFactor = ChillFlightLogic.snowFactorAt(
           worldZ,
           ChillFlightLogic.snowNoiseShift(worldX, worldZ, simplex)
@@ -999,24 +1001,22 @@ export function generateChunkData({
 
     const grain = simplex.noise2D(worldX * 0.2, worldZ * 0.2) * 0.05;
 
-    const extremeEdgeWorld = 50000;
-    const absWorldX = Math.abs(worldX);
-    const extremeZoneFactor = Math.max(
-      0,
-      Math.min(1, (absWorldX - extremeEdgeWorld) / 15000)
-    );
-    const extremeBlend =
-      extremeZoneFactor * extremeZoneFactor * (3 - 2 * extremeZoneFactor);
+    // How alien the colours are, past the wandering edges of the alien lands
+    const extremeBlend = ChillFlightLogic.alienAt(worldX, worldZ, simplex);
 
     const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
     const biomeNoise = simplex.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
 
     const snowFactor = ChillFlightLogic.snowFactorAt(
       worldZ,
-      noisePath * 0.05 + biomeNoise
+      noisePath * 0.05 +
+        biomeNoise +
+        ChillFlightLogic.snowWobble(worldX, worldZ, simplex)
     );
 
-    const southInfluence = Math.max(0, worldZ / 5000);
+    const southInfluence =
+      Math.max(0, worldZ / 5000) +
+      ChillFlightLogic.desertShift(worldX, worldZ, simplex);
     const desertRaw = Math.max(
       0,
       Math.min(1, (southInfluence + noisePath * 0.05 - biomeNoise - 2.0) * 1.0)

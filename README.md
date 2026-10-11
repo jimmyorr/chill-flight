@@ -48,7 +48,7 @@ The land is a continent with sea on every side (`continentPast` in `chill-flight
 - **Lobes:** Two big lobes on a diagonal, a high north-west and a low south-east, joined at the waist.
 - **Boot:** A long leg runs south-east from the west, ending in a toe and a heel at about 12 to 14 South, with a deep gulf inside it.
 
-Every outline also keeps the island sea (`ISLAND_SEA`), and none touches the heartland: within 2.5 degrees of 1 West, 0 (X = -5000, Z = 0), which takes in spawn, the falls, the volcano and Meadow and Lagoon Fields, no coast shapes the land, and coasts fade in out to 4 degrees. The eastern land rises out of the island sea along a wandering line around 10 East (X = 50000), with a cape at 1.5 North and a bay at 4.5 South.
+Every outline also keeps the island sea (`ISLAND_SEA`), and none touches the heartland: within 2.5 degrees of 1 West, 0 (X = -5000, Z = 0), which takes in spawn, the falls, the volcano and Meadow and Lagoon Fields, no coast shapes the land, and coasts fade in out to 4 degrees. The eastern land rises out of the island sea along a wandering line around 10 East (X = 50000), with a cape at 1.5 North and a bay at 4.5 South. The main continent's own east coast, around 0 longitude, wanders up to about 1.2 degrees east or west with latitude outside the heartland (`eastCoastShift`), so it doesn't run straight down a meridian.
 
 Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`): coves and spits, broad bights and headlands, fjords cutting inland, island chains breaking off, and barrier islands with lagoons behind them. How broken the coast is varies along it, from smooth shores to stretches thick with fjords and islands. Past it lies open sea. The coast only cuts into the land, never raises it, so where the outline crosses the island sea, the sea stays open. The western alien land runs right out to the west coast. On the south coast, drowned land becomes a warm, shallow sandy shelf instead of deep sea, out to about 5000 units past the outline: turquoise water 2 to 4.5 units deep, reefs just under the surface and low sand cays (`southShelfFloor`).
 
@@ -59,7 +59,7 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
 | **Desert**        | South         | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                                                       |
 | **Archipelago**   | East          | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000).                            |
 | **Lake District** | West          | Negative X (West Longitude) | Long lakes filling the valleys between hills and ranges, west of 0.7 West (X < -3500), within about 2 degrees of the equator.       |
-| **Alien Zone**    | Far East/West | Beyond 10.0 East/West       | Warped, jagged alien topography with glowing neon seas and surreal colors.                                                          |
+| **Alien Zone**    | Far East/West | From about 10.0 East/West   | Warped, jagged alien topography with glowing neon seas and surreal colors.                                                          |
 
 ### 1. Temperate central (the heartland)
 
@@ -79,7 +79,7 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
 
 ### 2. The frozen north
 
-- **Location:** Snow starts around Latitude 1.5 North (Z = -7500) and deepens gradually to full cover by 2.5 North (Z = -12500). The snowline on mountains comes down gradually from 1,150 units near the equator to 750 by 1.0 North, so the first northern range is green and rocky with snow-capped peaks, and then with the snow cover down to the valleys. Ground, water ice, trees and snowfall all use one snow cover function (`snowFactorAt` in `chill-flight-logic.js`). The sea past the north coast is frozen from around 4.0 North (Z < -20000), leaving a lane of open water about 3000 units wide along the shore.
+- **Location:** Snow starts around Latitude 1.5 North (Z = -7500) and deepens gradually to full cover by 2.5 North (Z = -12500). Away from spawn's longitudes (more than 2.5 degrees either side of 1 West), the snow line wanders up to about a degree north or south in long curves (`snowWobble`), so it doesn't follow a line of latitude; near spawn it holds still, keeping the falls clear of the snow. The snowline on mountains comes down gradually from 1,150 units near the equator to 750 by 1.0 North, so the first northern range is green and rocky with snow-capped peaks, and then with the snow cover down to the valleys. Ground, water ice, trees and snowfall all use one snow cover function (`snowFactorAt` in `chill-flight-logic.js`). The sea past the north coast is frozen from around 4.0 North (Z < -20000), leaving a lane of open water about 3000 units wide along the shore.
 - **Landscape:** Permanent snow cover (#FFFFFF) even at lower altitudes. White-tinted forests (#8BA192). Past the north coast and the open water along it, the ocean freezes over into a solid, jagged pack ice shelf (#A2B4BC) that rises out of the water. Lakes on the land stay open. In bright midday sun, snow and ice are dimmed slightly and shifted cool (`uSnowExposure`) so their shading stays visible instead of washing out to flat white.
 - **Weather:** Light snow whenever there's cloud overhead, with occasional global breaks. Cloud builds sooner over the snow, so snowy weather is common, but it never snows from a clear sky.
 - **Key Features:**
@@ -89,7 +89,7 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
 
 ### 3. The arid south (Arizona style)
 
-- **Location:** Latitude 1.5+ South (Z > 7500).
+- **Location:** Latitude 1.5+ South (Z > 7500). Like the snow line, the desert's edge wanders up to about a degree north or south away from spawn's longitudes (`desertShift`).
 - **Landscape:** Reddish-orange sand (#F4A460) and deep red canyon rock (#C24B2B).
 - **Key Features:**
   - **Mountain ranges:** The first range south always rises around 1.0 South (Z = 5000), still green. Ranges further south vary by world seed; in the desert (beyond about 2.3 South, Z = 11500) they become broad mesas and rugged red-rock peaks.
@@ -107,7 +107,7 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
 
 ### 5. The alien territory (the extremes)
 
-- **Location:** The far extremes of the map, beyond 10.0 East (X > 50000) or 10.0 West (X < -50000).
+- **Location:** The far extremes of the map, from about 10.0 East (X > 50000) or 10.0 West (X < -50000). Neither edge is straight: the eastern land rises out of the island sea along a wandering line with a cape and a bay (`eastLandLon`), and the western alien land begins along a line that wanders up to about 1.4 degrees either way (`westAlienEdge`); the alien colours follow the same edges (`alienAt`).
 - **Landscape:** Highly distorted, jagged crystalline peaks and surreal terrain generation.
 - **Key Features:**
   - **Terrain Warping:** The far East features swirling, domain-warped ridges and basins, while the far West features massive geometric stepped plateaus and deep chasms.
