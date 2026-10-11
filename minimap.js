@@ -12,6 +12,7 @@ import {suppressPauseClick} from './game-state.js';
 import {hooks} from './hooks.js';
 import {resetSteering} from './game-ui.js';
 import {Achievements} from './achievements.js';
+import {mapColor, mapShade} from './map-palette.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -38,6 +39,9 @@ import {Achievements} from './achievements.js';
     MAP_WORLD_SIZE: 10000,
     MAP_HEIGHT_SCALE: 400,
   };
+
+  // Scratch [r, g, b] for mapColor
+  const _color = [0, 0, 0];
 
   const LANDMARKS = [
     {
@@ -80,92 +84,6 @@ import {Achievements} from './achievements.js';
       symbol: '✈',
     })),
   ];
-
-  // Region colors over the height colors, for land: the snowy north, the
-  // red-rock south and the alien lands beyond 10 degrees East and West. Uses
-  // the terrain's own noise and thresholds (snowFactorAt in
-  // chill-flight-logic.js, the desert and extreme-zone blends in
-  // terrain-gen.js), so the map matches the ground. Returns _tint.
-  const _tint = [0, 0, 0];
-  function tintForRegion(r, g, b, wx, wz, elev) {
-    const noisePath = simplex.noise2D(wx * 0.0001, wz * 0.0001);
-    const biomeNoise = simplex.noise2D(wx * 0.0005, wz * 0.0005) * 0.1;
-
-    const snow = ChillFlightLogic.snowFactorAt(
-      wz,
-      noisePath * 0.05 + biomeNoise
-    );
-    if (snow > 0) {
-      const k = snow * 0.8;
-      r += (238 - r) * k;
-      g += (242 - g) * k;
-      b += (246 - b) * k;
-    }
-
-    const desertRaw = Math.max(
-      0,
-      Math.min(1, Math.max(0, wz / 5000) + noisePath * 0.05 - biomeNoise - 2.0)
-    );
-    const desert = desertRaw * desertRaw * (3 - 2 * desertRaw);
-    if (desert > 0) {
-      // Sand on the flats, red rock up high
-      const rock = Math.max(0, Math.min(1, (elev - 150) / 250));
-      const k = desert * 0.75;
-      r += (226 - 50 * rock - r) * k;
-      g += (168 - 76 * rock - g) * k;
-      b += (110 - 48 * rock - b) * k;
-    }
-
-    const alienRaw = Math.max(0, Math.min(1, (Math.abs(wx) - 50000) / 15000));
-    if (alienRaw > 0) {
-      const alien = alienRaw * alienRaw * (3 - 2 * alienRaw);
-      const k = alien * 0.6;
-      const east = wx > 0;
-      r += ((east ? 70 : 200) - r) * k;
-      g += ((east ? 200 : 90) - g) * k;
-      b += ((east ? 210 : 190) - b) * k;
-    }
-
-    _tint[0] = r;
-    _tint[1] = g;
-    _tint[2] = b;
-    return _tint;
-  }
-
-  // Sentence case for UI labels per rules
-  function getColorForHeight(h, wz = 0) {
-    if (h <= 40) {
-      return '#203c70'; // rich deep water blue
-    } else if (wz < -20000 && h <= 72) {
-      return '#d2dfeb'; // frozen north pack ice shelf
-    } else if (h <= 44) {
-      return '#dfccad'; // soft warm sand beach
-    } else if (h <= 120) {
-      const t = (h - 44) / 76;
-      const r = Math.round(223 - t * (223 - 90));
-      const g = Math.round(204 - t * (204 - 138));
-      const b = Math.round(173 - t * (173 - 96));
-      return `rgb(${r},${g},${b})`; // smooth gradient sand to green land
-    } else if (h <= 250) {
-      const t = (h - 120) / 130;
-      const r = Math.round(90 + t * (139 - 90));
-      const g = Math.round(138 - t * (138 - 128));
-      const b = Math.round(96 + t * (101 - 96));
-      return `rgb(${r},${g},${b})`; // green land to highlands olive
-    } else if (h <= 500) {
-      const t = (h - 250) / 250;
-      const r = Math.round(139 - t * (139 - 92));
-      const g = Math.round(128 - t * (128 - 85));
-      const b = Math.round(101 - t * (101 - 74));
-      return `rgb(${r},${g},${b})`; // olive to rocky gray-brown
-    } else {
-      const t = Math.min(1.0, (h - 500) / 300);
-      const r = Math.round(92 + t * (240 - 92));
-      const g = Math.round(85 + t * (243 - 85));
-      const b = Math.round(74 + t * (245 - 74));
-      return `rgb(${r},${g},${b})`; // rocky to snow peak white
-    }
-  }
 
   function initMinimap() {
     // Create background canvas for offscreen heightmap caching
@@ -284,29 +202,7 @@ import {Achievements} from './achievements.js';
           h = 40;
         }
 
-        // Convert height to color string
-        const colorStr = getColorForHeight(h, wz);
-
-        // Parse color string (either rgb or hex)
-        let r = 0,
-          g = 0,
-          b = 0;
-        if (colorStr.startsWith('rgb')) {
-          const parts = colorStr.match(/\d+/g);
-          if (parts) {
-            r = parseInt(parts[0]);
-            g = parseInt(parts[1]);
-            b = parseInt(parts[2]);
-          }
-        } else if (colorStr.startsWith('#')) {
-          r = parseInt(colorStr.substring(1, 3), 16);
-          g = parseInt(colorStr.substring(3, 5), 16);
-          b = parseInt(colorStr.substring(5, 7), 16);
-        }
-
-        if (h > 40 && !(wz < -20000 && h <= 72)) {
-          [r, g, b] = tintForRegion(r, g, b, wx, wz, h);
-        }
+        const [r, g, b] = mapColor(h, wx, wz, simplexInstance, _color);
 
         const idx = (gz * gridSize + gx) * 4;
         data[idx] = r;
@@ -744,80 +640,19 @@ import {Achievements} from './achievements.js';
     for (let gz = 0; gz < gridH; gz++) {
       const wz = minZ + (gz / (gridH - 1)) * worldH;
       const rowOffset = gz * gridW;
-      const prevRow = (gz - 1) * gridW;
-      const nextRow = (gz + 1) * gridW;
 
       for (let gx = 0; gx < gridW; gx++) {
         const idx = rowOffset + gx;
         const elev = fsElevBuffer[idx];
 
-        // Northwest directional hillshade for land above water (gives mountains and hills crisp 3D definition)
-        let shade = 0;
-        if (elev > 40 && gx > 0 && gx < gridW - 1 && gz > 0 && gz < gridH - 1) {
-          const dz = fsElevBuffer[nextRow + gx] - fsElevBuffer[prevRow + gx];
-          const dx = fsElevBuffer[idx + 1] - fsElevBuffer[idx - 1];
-          shade = (-dx - dz) * 0.45;
-          if (shade < -32) shade = -32;
-          else if (shade > 32) shade = 32;
-        }
-
-        // PALETTE SYNC RULE: Whenever adding elevation passes or regional biomes to
-        // ChillFlightLogic.getElevation(), ensure corresponding coordinate/altitude color mapping
-        // is added here and in getColorForHeight() (e.g. frozen north pack ice vs beach sand).
-        let r, g, b;
-        if (elev <= 40) {
-          // Bathymetry depth variation for crisp, clean coastlines
-          const depth = Math.min(1.0, (40 - elev) / 12);
-          r = Math.round(34 - depth * 12);
-          g = Math.round(66 - depth * 22);
-          b = Math.round(120 - depth * 32);
-        } else if (wz < -20000 && elev <= 72) {
-          // Frozen north pack ice shelf (slate-blue to crisp snow white)
-          const t = Math.min(1.0, (elev - 40) / 32);
-          r = Math.round(180 + t * 65);
-          g = Math.round(196 + t * 52);
-          b = Math.round(212 + t * 40);
-        } else if (elev <= 44) {
-          r = 223;
-          g = 204;
-          b = 173; // Sand beach
-        } else if (elev <= 120) {
-          const t = (elev - 44) / 76;
-          r = Math.round(223 - t * 133);
-          g = Math.round(204 - t * 66);
-          b = Math.round(173 - t * 77);
-        } else if (elev <= 250) {
-          const t = (elev - 120) / 130;
-          r = Math.round(90 + t * 49);
-          g = Math.round(138 - t * 10);
-          b = Math.round(96 + t * 5);
-        } else if (elev <= 500) {
-          const t = (elev - 250) / 250;
-          r = Math.round(139 - t * 47);
-          g = Math.round(128 - t * 43);
-          b = Math.round(101 - t * 27);
-        } else {
-          const t = Math.min(1.0, (elev - 500) / 300);
-          r = Math.round(92 + t * 148);
-          g = Math.round(85 + t * 158);
-          b = Math.round(74 + t * 171);
-        }
-
-        if (elev > 40 && !(wz < -20000 && elev <= 72)) {
-          const wx = minX + (gx / (gridW - 1)) * worldW;
-          [r, g, b] = tintForRegion(r, g, b, wx, wz, elev);
-        }
-
+        // Northwest hillshade gives mountains and hills crisp 3D definition
+        const shade = mapShade(fsElevBuffer, idx, gridW, gridH);
+        const wx = minX + (gx / (gridW - 1)) * worldW;
+        let [r, g, b] = mapColor(elev, wx, wz, simplexInstance, _color);
         if (shade !== 0) {
-          r += shade;
-          g += shade;
-          b += shade;
-          if (r < 0) r = 0;
-          else if (r > 255) r = 255;
-          if (g < 0) g = 0;
-          else if (g > 255) g = 255;
-          if (b < 0) b = 0;
-          else if (b > 255) b = 255;
+          r = Math.max(0, Math.min(255, r + shade));
+          g = Math.max(0, Math.min(255, g + shade));
+          b = Math.max(0, Math.min(255, b + shade));
         }
 
         const pIdx = idx * 4;

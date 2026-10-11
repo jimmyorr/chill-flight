@@ -3,103 +3,108 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Debug | Export Heightmap</title>
+    <title>Debug | Export map</title>
     <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="stylesheet" href="/style.css" />
     <style>
       body {
         margin: 0;
-        padding: 0;
+        padding: 20px;
         min-height: 100vh;
+        box-sizing: border-box;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
+        flex-wrap: wrap;
+        gap: 20px;
+        align-items: flex-start;
         font-family: 'Courier New', Courier, monospace;
         color: white;
-        background: linear-gradient(-45deg, #1a1a2e, #051f15, #1a0526, #0f172a);
-        background-size: 400% 400%;
-        animation: gradientBG 15s ease infinite;
-      }
-
-      @keyframes gradientBG {
-        0% {
-          background-position: 0% 50%;
-        }
-        50% {
-          background-position: 100% 50%;
-        }
-        100% {
-          background-position: 0% 50%;
-        }
+        background: #0f172a;
       }
 
       .debug-menu-box {
         background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
-        padding: 40px;
-        text-align: center;
+        padding: 24px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        max-width: 400px;
-        width: 100%;
+        width: 320px;
+        box-sizing: border-box;
       }
 
       h1 {
-        margin-top: 0;
-        margin-bottom: 20px;
+        margin: 0 0 16px;
         font-weight: 300;
-        letter-spacing: 4px;
-        font-size: 24px;
+        letter-spacing: 2px;
+        font-size: 22px;
+      }
+
+      .input-row {
+        display: flex;
+        gap: 10px;
       }
 
       .input-group {
-        margin-bottom: 15px;
-        text-align: left;
+        margin-bottom: 12px;
+        flex: 1;
       }
 
       .input-group label {
         display: block;
-        margin-bottom: 5px;
-        font-size: 14px;
-        letter-spacing: 1px;
+        margin-bottom: 4px;
+        font-size: 13px;
         color: #ccc;
       }
 
-      .input-group input {
+      .input-group input,
+      .input-group select {
         width: 100%;
-        padding: 10px;
+        padding: 8px;
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.3);
         border-radius: 6px;
         color: white;
-        font-family: 'Courier New', Courier, monospace;
+        font-family: inherit;
         box-sizing: border-box;
+      }
+
+      .input-group select option {
+        background: #0f172a;
+      }
+
+      .check {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 13px;
+        color: #ccc;
+        margin-bottom: 12px;
       }
 
       .debug-btn {
         display: block;
         width: 100%;
-        margin-top: 20px;
-        margin-bottom: 15px;
+        margin-top: 10px;
         color: white;
         text-decoration: none;
+        text-align: center;
         background: rgba(56, 189, 248, 0.2);
         border: 1px solid rgba(56, 189, 248, 0.5);
         border-radius: 6px;
-        padding: 15px 20px;
-        font-size: 16px;
-        letter-spacing: 2px;
-        transition: all 0.2s;
+        padding: 10px 16px;
+        font-family: inherit;
+        font-size: 14px;
         box-sizing: border-box;
         cursor: pointer;
       }
 
       .debug-btn:hover {
         background: rgba(56, 189, 248, 0.4);
-        transform: scale(1.05);
+      }
+
+      .debug-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
       }
 
       .return-btn {
@@ -107,241 +112,269 @@
         border: 1px solid rgba(255, 255, 255, 0.3);
       }
 
-      .return-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
+      #status {
+        margin-top: 12px;
+        font-size: 13px;
+        color: #38bdf8;
+        min-height: 18px;
       }
 
-      #status {
-        margin-top: 15px;
-        font-size: 14px;
-        color: #38bdf8;
-        min-height: 20px;
+      #preview {
+        flex: 1;
+        min-width: 0;
+        overflow: auto;
+        max-height: calc(100vh - 40px);
+      }
+
+      #preview canvas {
+        display: block;
+        image-rendering: pixelated;
+      }
+
+      #preview canvas.fit {
+        max-width: 100%;
       }
     </style>
   </head>
   <body>
     <div class="debug-menu-box">
-      <h1>EXPORT HEIGHTMAP</h1>
+      <h1>Export map</h1>
 
       <div class="input-group">
-        <label>Seed (Number)</label>
-        <input type="number" id="input-seed" value="123456" />
+        <label>Seed</label>
+        <input type="number" id="input-seed" />
+      </div>
+
+      <div class="input-row">
+        <div class="input-group">
+          <label>Centre lat (°N)</label>
+          <input type="number" id="input-lat" value="0" step="0.5" />
+        </div>
+        <div class="input-group">
+          <label>Centre long (°E)</label>
+          <input type="number" id="input-long" value="0" step="0.5" />
+        </div>
+      </div>
+
+      <div class="input-row">
+        <div class="input-group">
+          <label>Width (°)</label>
+          <input type="number" id="input-width" value="12" min="0.1" />
+        </div>
+        <div class="input-group">
+          <label>Height (°)</label>
+          <input type="number" id="input-height" value="12" min="0.1" />
+        </div>
       </div>
 
       <div class="input-group">
-        <label>Width in Chunks (1 chunk = 1500 units)</label>
-        <input type="number" id="input-width" value="20" />
+        <label>Units per pixel (1° = 5000 units)</label>
+        <input type="number" id="input-scale" value="50" min="1" />
       </div>
 
       <div class="input-group">
-        <label>Height in Chunks</label>
-        <input type="number" id="input-height" value="20" />
+        <label>Style</label>
+        <select id="input-mode">
+          <option value="color">Map colours</option>
+          <option value="gray">Grayscale heightmap</option>
+        </select>
       </div>
 
-      <div class="input-group">
-        <label>Units per Pixel (Scale)</label>
-        <input type="number" id="input-scale" value="10" />
-      </div>
+      <label class="check"
+        ><input type="checkbox" id="input-grid" checked /> Lat/long grid</label
+      >
 
-      <button class="debug-btn" id="btn-export">GENERATE & DOWNLOAD</button>
+      <button class="debug-btn" id="btn-world">Whole world</button>
+      <button class="debug-btn" id="btn-render">Render</button>
+      <button class="debug-btn" id="btn-download" disabled>Download PNG</button>
       <div id="status"></div>
 
-      <a href="debug.html" class="debug-btn return-btn" style="margin-top: 30px"
-        >BACK</a
+      <a href="debug.html" class="debug-btn return-btn" style="margin-top: 24px"
+        >Back</a
       >
     </div>
 
-    <!-- Scripts needed for generation -->
+    <div id="preview"></div>
+
     <script type="module">
       import {ChillFlightLogic} from '../chill-flight-logic.js';
-      import {SimplexNoise} from '../noise.js';
-      import {
-        MAP_HEIGHT_SCALE,
-        MAP_WORLD_SIZE,
-        MOUNTAIN_LEVEL,
-        WATER_LEVEL,
-      } from '../constants.js';
 
-      // Set the default seed to the game's actual WORLD_SEED
-      document.getElementById('input-seed').value = ChillFlightLogic.WORLD_SEED;
+      // URL params prefill the form (seed, lat, long, w, h, upp, mode,
+      // grid=0) and run=1 renders straight away
+      const params = new URLSearchParams(location.search);
+      const field = (id, key) => {
+        const el = document.getElementById(id);
+        if (params.has(key)) el.value = params.get(key);
+        return el;
+      };
+      const seedEl = field('input-seed', 'seed');
+      if (!seedEl.value) seedEl.value = ChillFlightLogic.WORLD_SEED;
+      const latEl = field('input-lat', 'lat');
+      const longEl = field('input-long', 'long');
+      const widthEl = field('input-width', 'w');
+      const heightEl = field('input-height', 'h');
+      const scaleEl = field('input-scale', 'upp');
+      const modeEl = field('input-mode', 'mode');
+      const gridEl = document.getElementById('input-grid');
+      if (params.get('grid') === '0') gridEl.checked = false;
+      const statusEl = document.getElementById('status');
+      const renderBtn = document.getElementById('btn-render');
+      const downloadBtn = document.getElementById('btn-download');
+      const preview = document.getElementById('preview');
 
-      document.getElementById('btn-export').addEventListener('click', () => {
-        const seed =
-          parseInt(document.getElementById('input-seed').value) ||
-          ChillFlightLogic.WORLD_SEED;
-        const chunkWidth =
-          parseInt(document.getElementById('input-width').value) || 20;
-        const chunkHeight =
-          parseInt(document.getElementById('input-height').value) || 20;
-        const scale =
-          parseFloat(document.getElementById('input-scale').value) || 10;
-        const statusEl = document.getElementById('status');
+      const DEG = 5000; // units per degree
+      const BAND = 32; // rows per worker job
+      const MAX_PIXELS = 64e6;
+      const workerCount = Math.max(
+        1,
+        Math.min(8, (navigator.hardwareConcurrency || 4) - 1)
+      );
+      const workers = Array.from(
+        {length: workerCount},
+        () =>
+          new Worker(new URL('./export-map-worker.js', import.meta.url), {
+            type: 'module',
+          })
+      );
 
-        statusEl.innerText = 'Generating... 0%';
+      let canvas = null;
+      let fileName = '';
+      let renderId = 0;
 
-        // Use setTimeout to allow the UI to update before heavy processing
-        setTimeout(() => {
-          // Re-seed logic
-          ChillFlightLogic.WORLD_SEED = seed;
-          const customSimplex = SimplexNoise(); // Will use the updated seed
-
-          // Calculate dimensions
-          const CHUNK_SIZE = 1500; // From constants.js
-          const totalWidthUnits = chunkWidth * CHUNK_SIZE;
-          const totalHeightUnits = chunkHeight * CHUNK_SIZE;
-
-          const pixelWidth = Math.floor(totalWidthUnits / scale);
-          const pixelHeight = Math.floor(totalHeightUnits / scale);
-
-          // Create offscreen canvas
-          const canvas = document.createElement('canvas');
-          canvas.width = pixelWidth;
-          canvas.height = pixelHeight;
-          const ctx = canvas.getContext('2d');
-          const imgData = ctx.createImageData(pixelWidth, pixelHeight);
-          const data = imgData.data;
-
-          const startX = -(totalWidthUnits / 2);
-          const startZ = -(totalHeightUnits / 2);
-
-          const MAP_HEIGHT_SCALE_VAL =
-            typeof MAP_HEIGHT_SCALE !== 'undefined' ? MAP_HEIGHT_SCALE : 400;
-          const WATER_LEVEL_VAL =
-            typeof WATER_LEVEL !== 'undefined' ? WATER_LEVEL : 40;
-
-          let py = 0;
-
-          function generateChunk() {
-            const rowsPerFrame = 50; // Process 50 rows per frame to balance speed and UI updates
-            const maxPy = Math.min(py + rowsPerFrame, pixelHeight);
-
-            for (; py < maxPy; py++) {
-              for (let px = 0; px < pixelWidth; px++) {
-                const worldX = startX + px * scale;
-                const worldZ = startZ + py * scale;
-
-                const h = ChillFlightLogic.getElevation(
-                  worldX,
-                  worldZ,
-                  customSimplex,
-                  {
-                    WATER_LEVEL: WATER_LEVEL_VAL,
-                    MOUNTAIN_LEVEL:
-                      typeof MOUNTAIN_LEVEL !== 'undefined'
-                        ? MOUNTAIN_LEVEL
-                        : 180,
-                    MAP_HEIGHT_SCALE: MAP_HEIGHT_SCALE_VAL,
-                    MAP_WORLD_SIZE:
-                      typeof MAP_WORLD_SIZE !== 'undefined'
-                        ? MAP_WORLD_SIZE
-                        : 10000,
-                  },
-                  null
-                );
-
-                let normalized = Math.floor(((h + 100) / 800) * 255);
-                if (normalized < 0) normalized = 0;
-                if (normalized > 255) normalized = 255;
-
-                const idx = (py * pixelWidth + px) * 4;
-                data[idx] = normalized;
-                data[idx + 1] = normalized;
-                data[idx + 2] = normalized;
-                data[idx + 3] = 255;
-              }
-            }
-
-            if (py < pixelHeight) {
-              const percent = Math.floor((py / pixelHeight) * 100);
-              statusEl.innerText = `Generating... ${percent}%`;
-              // Use setTimeout so the DOM has a chance to render the new text
-              setTimeout(generateChunk, 0);
-            } else {
-              ctx.putImageData(imgData, 0, 0);
-
-              // Draw a red X at the lighthouse location (X=7500, Z=3000)
-              const lx = (7500 - startX) / scale;
-              const lz = (3000 - startZ) / scale;
-              ctx.strokeStyle = 'red';
-              ctx.lineWidth = Math.max(2, 20 / scale);
-              ctx.beginPath();
-              ctx.moveTo(lx - 5, lz - 5);
-              ctx.lineTo(lx + 5, lz + 5);
-              ctx.moveTo(lx + 5, lz - 5);
-              ctx.lineTo(lx - 5, lz + 5);
-              ctx.stroke();
-
-              // Draw Lat/Long grid
-              ctx.lineWidth = 1;
-              ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-              ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-              ctx.font = '14px Courier New';
-
-              const LAT_SCALE = 5000; // 1 degree = 5000 units
-
-              // Draw longitude lines (vertical)
-              const startXDeg = Math.floor(startX / LAT_SCALE);
-              const endXDeg = Math.ceil((startX + totalWidthUnits) / LAT_SCALE);
-              for (let xd = startXDeg; xd <= endXDeg; xd++) {
-                const worldX = xd * LAT_SCALE;
-                const canvasX = (worldX - startX) / scale;
-                ctx.beginPath();
-                ctx.moveTo(canvasX, 0);
-                ctx.lineTo(canvasX, pixelHeight);
-                ctx.stroke();
-              }
-
-              // Draw latitude lines (horizontal)
-              const startZDeg = Math.floor(startZ / LAT_SCALE);
-              const endZDeg = Math.ceil(
-                (startZ + totalHeightUnits) / LAT_SCALE
-              );
-              for (let zd = startZDeg; zd <= endZDeg; zd++) {
-                const worldZ = zd * LAT_SCALE;
-                const canvasY = (worldZ - startZ) / scale;
-                ctx.beginPath();
-                ctx.moveTo(0, canvasY);
-                ctx.lineTo(pixelWidth, canvasY);
-                ctx.stroke();
-              }
-
-              // Label every intersection
-              for (let xd = startXDeg; xd <= endXDeg; xd++) {
-                for (let zd = startZDeg; zd <= endZDeg; zd++) {
-                  const worldX = xd * LAT_SCALE;
-                  const canvasX = (worldX - startX) / scale;
-                  const worldZ = zd * LAT_SCALE;
-                  const canvasY = (worldZ - startZ) / scale;
-
-                  const labelX =
-                    xd === 0 ? '0°' : xd > 0 ? `${xd}° E` : `${-xd}° W`;
-                  const labelZ =
-                    zd === 0 ? '0°' : zd > 0 ? `${zd}° S` : `${-zd}° N`;
-
-                  ctx.fillText(
-                    `${labelZ}, ${labelX}`,
-                    canvasX + 4,
-                    canvasY - 4
-                  );
-                }
-              }
-
-              // Download
-              const dataURL = canvas.toDataURL('image/png');
-              const link = document.createElement('a');
-              link.href = dataURL;
-              link.download = `heightmap-${seed}-${chunkWidth}x${chunkHeight}.png`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-
-              statusEl.innerText = `Downloaded ${pixelWidth}x${pixelHeight} map successfully.`;
-            }
-          }
-
-          generateChunk();
-        }, 50);
+      // Everything out to the open ocean east and west (past 20°), and well
+      // past the ice and desert north and south
+      document.getElementById('btn-world').addEventListener('click', () => {
+        latEl.value = 0;
+        longEl.value = 0;
+        widthEl.value = 44;
+        heightEl.value = 24;
+        scaleEl.value = 150;
+        render();
       });
+      renderBtn.addEventListener('click', render);
+      downloadBtn.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = fileName;
+        link.click();
+      });
+
+      function degLabel(d, pos, neg) {
+        const v = Math.round(d * 100) / 100;
+        return v === 0 ? '0°' : `${Math.abs(v)}° ${v > 0 ? pos : neg}`;
+      }
+
+      // Lines every 1, 2, 5 or 10 degrees, so there are about ten across
+      function gridStep(spanDeg) {
+        return [0.5, 1, 2, 5, 10].find((s) => spanDeg / s <= 12) || 20;
+      }
+
+      function drawGrid(ctx, x0, z0, upp, w, h) {
+        const fontPx = Math.max(11, Math.round(Math.min(w, h) / 70));
+        ctx.lineWidth = Math.max(1, fontPx / 12);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.font = `${fontPx}px Courier New`;
+        const step = gridStep(Math.max(w, h) * (upp / DEG));
+        // Longitude lines, labelled along the top
+        const xStart = Math.ceil(x0 / DEG / step) * step;
+        for (let d = xStart; d * DEG <= x0 + w * upp; d += step) {
+          const cx = (d * DEG - x0) / upp;
+          ctx.beginPath();
+          ctx.moveTo(cx, 0);
+          ctx.lineTo(cx, h);
+          ctx.stroke();
+          ctx.fillText(degLabel(d, 'E', 'W'), cx + 4, fontPx + 2);
+        }
+        // Latitude lines (north is negative Z), labelled down the left
+        const zStart = Math.ceil(z0 / DEG / step) * step;
+        for (let d = zStart; d * DEG <= z0 + h * upp; d += step) {
+          const cy = (d * DEG - z0) / upp;
+          ctx.beginPath();
+          ctx.moveTo(0, cy);
+          ctx.lineTo(w, cy);
+          ctx.stroke();
+          ctx.fillText(degLabel(-d, 'N', 'S'), 4, cy - 4);
+        }
+      }
+
+      function render() {
+        const seed = parseInt(seedEl.value) || ChillFlightLogic.WORLD_SEED;
+        const lat = parseFloat(latEl.value) || 0;
+        const long = parseFloat(longEl.value) || 0;
+        const wDeg = parseFloat(widthEl.value) || 12;
+        const hDeg = parseFloat(heightEl.value) || 12;
+        const upp = parseFloat(scaleEl.value) || 50;
+        const mode = modeEl.value;
+        const grid = gridEl.checked;
+
+        const w = Math.round((wDeg * DEG) / upp);
+        const h = Math.round((hDeg * DEG) / upp);
+        if (w * h > MAX_PIXELS) {
+          statusEl.innerText = `${w}x${h} is too big: raise units per pixel or shrink the area.`;
+          return;
+        }
+        const x0 = long * DEG - (w * upp) / 2;
+        const z0 = -lat * DEG - (h * upp) / 2;
+
+        const id = ++renderId;
+        canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.className = 'fit';
+        canvas.title = 'Click to toggle full size';
+        canvas.addEventListener('click', () => canvas.classList.toggle('fit'));
+        const ctx = canvas.getContext('2d');
+        preview.replaceChildren(canvas);
+        downloadBtn.disabled = true;
+        fileName = `map-${seed}-${lat}N-${long}E-${wDeg}x${hDeg}deg-${upp}upp-${mode}.png`;
+
+        const jobs = [];
+        for (let r = 0; r < h; r += BAND) jobs.push([r, Math.min(h, r + BAND)]);
+        const total = jobs.length;
+        let done = 0;
+        const started = performance.now();
+        statusEl.innerText = `Rendering ${w}x${h} on ${workerCount} workers...`;
+
+        const next = (worker) => {
+          const job = jobs.shift();
+          if (!job) return;
+          worker.onmessage = (e) => {
+            if (e.data.id !== renderId) return;
+            const {rowStart, rowEnd, pixels} = e.data;
+            ctx.putImageData(
+              new ImageData(pixels, w, rowEnd - rowStart),
+              0,
+              rowStart
+            );
+            done++;
+            if (done < total) {
+              statusEl.innerText = `Rendering ${w}x${h}... ${Math.floor((done / total) * 100)}%`;
+              next(worker);
+              return;
+            }
+            if (grid) drawGrid(ctx, x0, z0, upp, w, h);
+            const secs = ((performance.now() - started) / 1000).toFixed(1);
+            statusEl.innerText = `${w}x${h} in ${secs}s.`;
+            downloadBtn.disabled = false;
+            document.body.dataset.rendered = String(id);
+          };
+          worker.postMessage({
+            id,
+            seed,
+            x0,
+            z0,
+            upp,
+            width: w,
+            rowStart: job[0],
+            rowEnd: job[1],
+            mode,
+          });
+        };
+        workers.forEach(next);
+      }
+
+      if (params.get('run') === '1') render();
     </script>
   </body>
 </html>

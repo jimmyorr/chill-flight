@@ -14,6 +14,7 @@ import '../state.js';
 import '../hooks.js';
 import '../constants.js';
 import '../noise.js';
+import '../map-palette.js';
 import '../terrain-gen.js';
 import '../terrain-worker-manager.js';
 import '../scene.js';
