@@ -308,8 +308,14 @@
           id="fullscreen-map-warp-coords"
           class="fullscreen-map-warp-coords"
         ></span>
+        <button
+          id="fullscreen-map-waypoint-btn"
+          class="fullscreen-map-warp-btn secondary"
+        >
+          Set waypoint
+        </button>
         <button id="fullscreen-map-warp-btn" class="fullscreen-map-warp-btn">
-          Fly here
+          Warp here
         </button>
         <button
           id="fullscreen-map-warp-cancel"
@@ -427,6 +433,12 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Points the way to the map's waypoint (waypoint.js) -->
+    <div id="waypoint-indicator" hidden aria-hidden="true">
+      <div class="waypoint-mark"></div>
+      <div id="waypoint-time" class="waypoint-time"></div>
     </div>
 
     <div id="cockpit-ui">
@@ -597,6 +609,26 @@
             "
           >
             GYRO<br />RESET
+          </button>
+          <button class="sub-btn" id="mobile-map-btn" title="Map" tabindex="-1">
+            <svg
+              viewBox="0 0 24 24"
+              style="
+                width: 24px;
+                height: 24px;
+                fill: none;
+                stroke: currentColor;
+                stroke-width: 2;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+              "
+            >
+              <polygon
+                points="1 6 8 3 16 6 23 3 23 18 16 21 8 18 1 21 1 6"
+              ></polygon>
+              <line x1="8" y1="3" x2="8" y2="18"></line>
+              <line x1="16" y1="6" x2="16" y2="21"></line>
+            </svg>
           </button>
         </div>
         <button

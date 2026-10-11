@@ -39,6 +39,7 @@ const menuContainer = document.getElementById('mobile-action-menu');
 const menuTrigger = document.getElementById('mobile-menu-trigger');
 const pauseTrigger = document.getElementById('mobile-pause-trigger');
 const camToggle = document.getElementById('mobile-cam-toggle');
+const mapBtn = document.getElementById('mobile-map-btn');
 
 const autoToggle = document.getElementById('mobile-auto-toggle');
 
@@ -112,6 +113,16 @@ if (pauseTrigger) {
     e.stopPropagation();
     togglePause();
     menuContainer.classList.remove('expanded');
+  });
+}
+
+if (mapBtn) {
+  mapBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    menuContainer.classList.remove('expanded');
+    // Like M: pauses while open, then straight back to flying
+    hooks.fullscreenMap?.open({fromFlight: !state.isPaused});
   });
 }
 

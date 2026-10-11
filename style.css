@@ -2021,7 +2021,7 @@ input[type='number'].customization-input {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* The pin's "Fly here" panel (minimap.js), above the hint */
+/* The pin's "Warp here" / "Set waypoint" panel (minimap.js), above the hint */
 .fullscreen-map-warp {
   position: absolute;
   bottom: calc(max(24px, env(safe-area-inset-bottom)) + 40px);
@@ -2067,6 +2067,20 @@ input[type='number'].customization-input {
   background: #ffe34d;
 }
 
+.fullscreen-map-warp-btn.secondary {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.fullscreen-map-warp-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.fullscreen-map-warp [hidden] {
+  display: none;
+}
+
 .fullscreen-map-warp-cancel {
   width: 44px;
   height: 44px;
@@ -2091,6 +2105,17 @@ input[type='number'].customization-input {
     transform: none;
     justify-content: space-between;
     bottom: max(28px, env(safe-area-inset-bottom));
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  /* The coordinates take their own line above the buttons */
+  .fullscreen-map-warp-coords {
+    flex-basis: 100%;
+    text-align: center;
+  }
+  .fullscreen-map-warp-btn {
+    flex: 1;
+    padding: 0 10px;
   }
 }
 
@@ -2119,6 +2144,53 @@ input[type='number'].customization-input {
   }
 }
 
+/* The waypoint marker (waypoint.js): a small gold diamond over the spot,
+   or a chevron at the screen's edge pointing the way, with the distance.
+   Placed by a translate on the container; --waypoint-angle turns the chevron. */
+#waypoint-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 140;
+  pointer-events: none;
+  will-change: transform;
+}
+
+#waypoint-indicator[hidden] {
+  display: none;
+}
+
+.waypoint-mark {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid rgba(255, 215, 0, 0.85);
+  transform: rotate(45deg);
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6));
+}
+
+#waypoint-indicator.offscreen .waypoint-mark {
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  transform: rotate(var(--waypoint-angle, 0rad)) rotate(45deg);
+}
+
+.waypoint-time {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  transform: translateX(-50%);
+  font:
+    600 10px Inter,
+    -apple-system,
+    sans-serif;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
 /* Zen (zen.js): hides the HUD and buttons but not the menus (pause,
    achievements, map) or the touch joystick. visibility, like ?ui=0 below, so
    layout and scripts are unaffected. */
@@ -2126,6 +2198,7 @@ body.zen
   :is(
     #ui-layer,
     #cockpit-ui,
+    #waypoint-indicator,
     #mobile-controls,
     #achievement-toast-container,
     #debug-menu,
@@ -2135,6 +2208,7 @@ body.zen
   :is(
     #ui-layer,
     #cockpit-ui,
+    #waypoint-indicator,
     #mobile-controls,
     #achievement-toast-container,
     #debug-menu,

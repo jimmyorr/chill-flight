@@ -358,6 +358,40 @@ async function exerciseControls(page, tag) {
   }
   if (await isPaused()) fail('closing the map did not return to flight');
 
+  // Pick a spot on the map and set it as the waypoint: back to flight, with
+  // the marker showing the way; then clear it from the map
+  await page.keyboard.press('m');
+  await wait(800);
+  const vp = page.viewport() || {width: 1280, height: 720};
+  await page.mouse.click(vp.width / 2 + 200, vp.height / 2 - 120);
+  await wait(300);
+  await page
+    .click('#fullscreen-map-waypoint-btn')
+    .catch((err) => fail(`set waypoint: ${err.message}`));
+  await wait(800);
+  if (await isVisible('#fullscreen-map-overlay')) {
+    fail('Set waypoint did not close the map');
+  }
+  if (await isPaused()) fail('Set waypoint did not return to flight');
+  // Placed on the next frame, which can be slow under software WebGL
+  let markerShown = false;
+  for (let i = 0; i < 12 && !markerShown; i++) {
+    markerShown = await isVisible('#waypoint-indicator');
+    if (!markerShown) await wait(250);
+  }
+  if (!markerShown) fail('the waypoint marker did not appear');
+  await page.keyboard.press('m');
+  await wait(800);
+  await page
+    .click('#fullscreen-map-waypoint-btn')
+    .catch((err) => fail(`clear waypoint: ${err.message}`));
+  await wait(300);
+  await page.keyboard.press('m');
+  await wait(800);
+  if (await isVisible('#waypoint-indicator')) {
+    fail('Clear waypoint did not remove the marker');
+  }
+
   await page.keyboard.press('Escape');
   await wait(500);
   if (!(await isPaused())) fail('Escape did not pause the game');

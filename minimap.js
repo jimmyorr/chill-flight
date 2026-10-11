@@ -23,6 +23,7 @@ import {
   _virtualLookTarget,
 } from './game.js';
 import {state} from './state.js';
+import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -384,6 +385,31 @@ import {state} from './state.js';
         ctx.restore();
       }
     });
+
+    // The waypoint, held at the edge when it's further than the view
+    const waypoint = getWaypoint();
+    if (waypoint) {
+      const dx = waypoint.x - px;
+      const dz = waypoint.z - pz;
+      const k = Math.min(
+        1,
+        (viewRadius * 0.92) / Math.max(Math.abs(dx), Math.abs(dz))
+      );
+      const cx = 90 + ((dx * k) / viewRadius) * 90;
+      const cy = 90 + ((dz * k) / viewRadius) * 90;
+      ctx.save();
+      ctx.shadowColor = 'black';
+      ctx.shadowBlur = 4;
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 6);
+      ctx.lineTo(cx + 5, cy);
+      ctx.lineTo(cx, cy + 6);
+      ctx.lineTo(cx - 5, cy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
 
     // Draw local player indicator in the center
     const canvasAngle = -rotY - Math.PI / 2;
@@ -812,7 +838,29 @@ import {state} from './state.js';
       }
     });
 
-    // 3.5 The picked spot ("Fly here")
+    // 3.4 The waypoint: a gold diamond
+    const waypoint = getWaypoint();
+    if (waypoint) {
+      const wx = (waypoint.x - vMinX) / worldUnitsPerPixel;
+      const wz = (waypoint.z - vMinZ) / worldUnitsPerPixel;
+      fsCtx.save();
+      fsCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      fsCtx.shadowBlur = 6;
+      fsCtx.fillStyle = '#ffd700';
+      fsCtx.strokeStyle = '#1a1a1a';
+      fsCtx.lineWidth = 1.5;
+      fsCtx.beginPath();
+      fsCtx.moveTo(wx, wz - 10);
+      fsCtx.lineTo(wx + 8, wz);
+      fsCtx.lineTo(wx, wz + 10);
+      fsCtx.lineTo(wx - 8, wz);
+      fsCtx.closePath();
+      fsCtx.fill();
+      fsCtx.stroke();
+      fsCtx.restore();
+    }
+
+    // 3.5 The picked spot (warp or waypoint)
     if (warpPin) {
       const wx = (warpPin.x - vMinX) / worldUnitsPerPixel;
       const wz = (warpPin.z - vMinZ) / worldUnitsPerPixel;
@@ -987,6 +1035,7 @@ import {state} from './state.js';
       fsHasCenteredOnPlane = true;
     }
     updateCoordsDisplay();
+    updateWarpPanel();
     resizeFsCanvas();
     renderFullscreenMap();
     if (fsAnimFrameId) cancelAnimationFrame(fsAnimFrameId);
@@ -997,9 +1046,11 @@ import {state} from './state.js';
     Achievements.unlock('cartographer');
   }
 
-  // --- WARP ("Fly here") ---
-  // Tap a spot on the map to pin it, then "Fly here" moves the plane there,
-  // 400 units above the ground, keeping its heading and speed.
+  // --- WARP AND WAYPOINT ---
+  // Tap a spot on the map to pin it, then "Warp here" moves the plane there,
+  // 400 units above the ground, keeping its heading and speed, or "Set
+  // waypoint" marks it to fly to (waypoint.js). With no pin, the panel offers
+  // to clear the waypoint.
   let warpPin = null;
   // How far (pixels) a tap may move and still count as one: fingers wobble
   // more than a mouse
@@ -1010,23 +1061,47 @@ import {state} from './state.js';
 
   function setWarpPin(pin) {
     warpPin = pin;
-    const panel = document.getElementById('fullscreen-map-warp');
-    if (panel) panel.hidden = !pin;
-    const coords = document.getElementById('fullscreen-map-warp-coords');
-    if (coords && pin) coords.textContent = formatLatLon(pin.x, pin.z);
+    updateWarpPanel();
     renderFullscreenMap();
   }
 
-  function warpTo(x, z) {
-    let ground = WATER_LEVEL;
+  function updateWarpPanel() {
+    const waypoint = getWaypoint();
+    const spot = warpPin || waypoint;
+    const panel = document.getElementById('fullscreen-map-warp');
+    if (panel) panel.hidden = !spot;
+    if (!spot) return;
+    const coords = document.getElementById('fullscreen-map-warp-coords');
+    if (coords) {
+      coords.textContent =
+        (warpPin ? '' : 'Waypoint ') + formatLatLon(spot.x, spot.z);
+    }
+    const waypointBtn = document.getElementById('fullscreen-map-waypoint-btn');
+    if (waypointBtn) {
+      waypointBtn.textContent = warpPin ? 'Set waypoint' : 'Clear waypoint';
+    }
+    for (const id of [
+      'fullscreen-map-warp-btn',
+      'fullscreen-map-warp-cancel',
+    ]) {
+      const btn = document.getElementById(id);
+      if (btn) btn.hidden = !warpPin;
+    }
+  }
+
+  function groundAt(x, z) {
     try {
-      ground = Math.max(
+      return Math.max(
         WATER_LEVEL,
         ChillFlightLogic.getElevation(x, z, simplex, constants)
       );
     } catch {
-      /* keep the water level */
+      return WATER_LEVEL;
     }
+  }
+
+  function warpTo(x, z) {
+    const ground = groundAt(x, z);
     const dx = x - planeGroup.position.x;
     const dy = ground + 400 - planeGroup.position.y;
     const dz = z - planeGroup.position.z;
@@ -1150,6 +1225,22 @@ import {state} from './state.js';
         warpTo(x, z);
         closeFullscreenMap();
         // Straight into flight at the new spot
+        if (state.isPaused) togglePause();
+      }
+    );
+    attachButtonAction(
+      document.getElementById('fullscreen-map-waypoint-btn'),
+      () => {
+        if (!warpPin) {
+          clearWaypoint();
+          updateWarpPanel();
+          renderFullscreenMap();
+          return;
+        }
+        const {x, z} = warpPin;
+        setWaypoint(x, groundAt(x, z), z);
+        closeFullscreenMap();
+        // Back to flight to head there
         if (state.isPaused) togglePause();
       }
     );

@@ -55,6 +55,7 @@ import '../vr-manager.js';
 import '../game-loop.js';
 import '../map-loader.js';
 import '../map-tiles.js';
+import '../waypoint.js';
 import '../minimap.js';
 
 // Startup banner
