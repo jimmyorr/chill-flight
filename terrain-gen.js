@@ -369,6 +369,85 @@ function softenedWaterDepth(
 
 // Returns {result, transferables}: the chunk's buffers, instance data and
 // prop placements, plus the buffers to transfer when posting from a worker.
+// --- WATERFALLS ---
+// Now and then a waterfall where the land drops steeply into water: from a
+// point at least WATERFALL_MIN_DROP above the water, follows the steepest
+// way down the chunk's height grid to the water, and keeps the steepest,
+// tallest such fall in the chunk. Returns its course (local x, y, z points,
+// top to bottom) or null. Its own random numbers, so the chunk's other props
+// don't move.
+const WATERFALL_MIN_DROP = 45;
+const WATERFALL_CHANCE = 0.15;
+function findWaterfall(heightGrid, gridX1, step, halfSize, water, rng) {
+  if (rng() >= WATERFALL_CHANCE) return null;
+  let best = null;
+  let bestScore = 0;
+  // Stay a few cells inside the chunk, so the path's neighbors exist
+  for (let iz = 2; iz < gridX1 - 2; iz++) {
+    for (let ix = 2; ix < gridX1 - 2; ix++) {
+      const top = heightGrid[iz * gridX1 + ix];
+      const drop = top - water;
+      if (drop < WATERFALL_MIN_DROP) continue;
+      // Downhill, steepest neighbor each step, until the water
+      const path = [[ix, iz]];
+      let cx = ix;
+      let cz = iz;
+      let h = top;
+      let length = 0;
+      let reached = false;
+      for (let s = 0; s < 12; s++) {
+        let nx = -1;
+        let nz = -1;
+        let nh = h;
+        let nd = 0;
+        let steepest = 0;
+        for (let dz = -1; dz <= 1; dz++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dz) continue;
+            const x = cx + dx;
+            const z = cz + dz;
+            if (x < 1 || z < 1 || x >= gridX1 - 1 || z >= gridX1 - 1) continue;
+            const d = Math.hypot(dx, dz);
+            const hh = heightGrid[z * gridX1 + x];
+            // The biggest drop per unit across
+            const slope = (h - hh) / d;
+            if (slope > steepest) {
+              steepest = slope;
+              nx = x;
+              nz = z;
+              nh = hh;
+              nd = d;
+            }
+          }
+        }
+        if (nx < 0) break;
+        cx = nx;
+        cz = nz;
+        h = nh;
+        length += nd * step;
+        path.push([cx, cz]);
+        if (h < water - 1) {
+          reached = true;
+          break;
+        }
+      }
+      // Steep (at least as much down as across) and into water
+      if (!reached || length > drop) continue;
+      const score = (drop / length) * drop;
+      if (score > bestScore) {
+        bestScore = score;
+        best = path;
+      }
+    }
+  }
+  if (!best) return null;
+  return best.map(([x, z]) => [
+    -halfSize + x * step,
+    heightGrid[z * gridX1 + x],
+    -halfSize + z * step,
+  ]);
+}
+
 export function generateChunkData({
   chunkX,
   chunkZ,
@@ -2230,7 +2309,25 @@ export function generateChunkData({
     transferables.push(d.colors.buffer);
   }
 
+  const waterfall =
+    _enableObjects && hasWater
+      ? findWaterfall(
+          heightGrid,
+          gridX1,
+          step,
+          halfSize,
+          elevParams.WATER_LEVEL,
+          ChillFlightLogic.mulberry32(
+            (ChillFlightLogic.WORLD_SEED ^
+              (chunkX * 73856093) ^
+              (chunkZ * 19349663)) +
+              4242
+          )
+        )
+      : null;
+
   const chunkProps = {
+    waterfall,
     housePositions,
     twoStoryHousePositions,
     strawHutPositions,

@@ -242,6 +242,9 @@
       <button class="model-btn" onclick="viewModel('windsock', event)">
         Windsock
       </button>
+      <button class="model-btn" onclick="viewModel('waterfall', event)">
+        Waterfall
+      </button>
       <button class="model-btn" onclick="viewModel('lighthouse', event)">
         Lighthouse
       </button>
@@ -350,6 +353,7 @@
         createHangar,
         createWindsock,
       } from '../airports.js';
+      import {createWaterfall} from '../waterfalls.js';
       import {createGliderModel} from '../glider.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
       import {
@@ -579,6 +583,20 @@
             case 'windsock':
               previewGroup.add(createWindsock());
               break;
+            case 'waterfall': {
+              // A sample course down a steep slope into water (at y = 40,
+              // the game's water level), lowered to the preview's ground
+              const fall = createWaterfall([
+                [0, 110, -30],
+                [0, 85, -22],
+                [0, 60, -12],
+                [0, 42, -2],
+                [0, 37, 6],
+              ]);
+              fall.position.y = -40;
+              previewGroup.add(fall);
+              break;
+            }
 
             case 'biplane': {
               const colors =

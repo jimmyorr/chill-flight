@@ -1,5 +1,6 @@
 // --- GLOBAL INSTANCING ARCHITECTURE ---
 import * as THREE from 'three';
+import {createWaterfall} from './waterfalls.js';
 import {scene} from './scene.js';
 import {
   BRIDGE_SEGMENT_LENGTH,
@@ -818,6 +819,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   if (cp.chimneySmokePositions)
     chimneySmokePositions.push(...cp.chimneySmokePositions);
   if (cp.lighthousePos) lighthousePos = cp.lighthousePos;
+
+  if (cp.waterfall) {
+    const waterfall = createWaterfall(cp.waterfall);
+    waterfall.position.set(worldOffsetX, 0, worldOffsetZ);
+    group.add(waterfall);
+  }
 
   if (rockArchPositions.length > 0 || rockArchGrassPositions.length > 0) {
     const archPos = rockArchPositions[0] || rockArchGrassPositions[0];
