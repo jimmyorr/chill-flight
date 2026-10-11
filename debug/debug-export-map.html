@@ -244,7 +244,7 @@
       const workers = Array.from(
         {length: workerCount},
         () =>
-          new Worker(new URL('./export-map-worker.js', import.meta.url), {
+          new Worker(new URL('../map-worker.js', import.meta.url), {
             type: 'module',
           })
       );

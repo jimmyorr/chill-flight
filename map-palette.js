@@ -117,14 +117,18 @@ export function mapColor(elev, wx, wz, simplex, out = [0, 0, 0]) {
   return out;
 }
 
-// Northwest hillshade for land at idx in a gridW-wide height grid: a
-// brightness offset (-32 to 32), 0 on water and the grid's edge
-export function mapShade(heights, idx, gridW, gridH) {
+// Northwest hillshade for land at idx in a gridW-wide height grid whose
+// samples are `spacing` world units apart: a brightness offset (-32 to 32)
+// from the slope, so it looks the same at every zoom; 0 on water and the
+// grid's edge
+const SHADE_PER_SLOPE = 57;
+export function mapShade(heights, idx, gridW, gridH, spacing) {
   const gx = idx % gridW;
   const gz = (idx - gx) / gridW;
   if (heights[idx] <= 40 || gx === 0 || gz === 0) return 0;
   if (gx === gridW - 1 || gz === gridH - 1) return 0;
   const dz = heights[idx + gridW] - heights[idx - gridW];
   const dx = heights[idx + 1] - heights[idx - 1];
-  return Math.max(-32, Math.min(32, (-dx - dz) * 0.45));
+  const slope = (-dx - dz) / (2 * spacing);
+  return Math.max(-32, Math.min(32, slope * SHADE_PER_SLOPE));
 }

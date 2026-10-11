@@ -15,6 +15,7 @@ import '../hooks.js';
 import '../constants.js';
 import '../noise.js';
 import '../map-palette.js';
+import '../map-render.js';
 import '../terrain-gen.js';
 import '../terrain-worker-manager.js';
 import '../scene.js';
@@ -53,6 +54,7 @@ import '../zen.js';
 import '../vr-manager.js';
 import '../game-loop.js';
 import '../map-loader.js';
+import '../map-tiles.js';
 import '../minimap.js';
 
 // Startup banner

@@ -37,7 +37,8 @@ const rootModules = fs.readdirSync(rootDir).filter(
     f.endsWith('.js') &&
     !f.startsWith('eslint') &&
     f !== 'vite.config.js' &&
-    f !== 'terrain-worker.js' // worker entry point, loaded separately
+    f !== 'terrain-worker.js' && // worker entry points, loaded separately
+    f !== 'map-worker.js'
 );
 
 const problems = [];

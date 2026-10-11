@@ -12,7 +12,8 @@ import {suppressPauseClick} from './game-state.js';
 import {hooks} from './hooks.js';
 import {resetSteering} from './game-ui.js';
 import {Achievements} from './achievements.js';
-import {mapColor, mapShade} from './map-palette.js';
+import {mapColor} from './map-palette.js';
+import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -258,7 +259,6 @@ import {mapColor, mapShade} from './map-palette.js';
       if (e.key === '+' || e.key === '=') {
         fsViewRadius = Math.max(FS_MIN_RADIUS, fsViewRadius / 1.25);
         updateCoordsDisplay();
-        generateFsBgCanvas();
         renderFullscreenMap();
         updateFsMapUrlParams(true);
         return;
@@ -266,7 +266,6 @@ import {mapColor, mapShade} from './map-palette.js';
       if (e.key === '-' || e.key === '_') {
         fsViewRadius = Math.min(FS_MAX_RADIUS, fsViewRadius * 1.25);
         updateCoordsDisplay();
-        generateFsBgCanvas();
         renderFullscreenMap();
         updateFsMapUrlParams(true);
         return;
@@ -401,15 +400,13 @@ import {mapColor, mapShade} from './map-palette.js';
   let fsCtx = null;
   let fsCoordsEl = null;
 
-  let fsBgCanvas = null;
-  let fsBgCtx = null;
-
   let fsVisible = false;
   let fsViewCenterX = 0;
   let fsViewCenterZ = 0;
   let fsViewRadius = 7500;
   const FS_MIN_RADIUS = 1000;
-  const FS_MAX_RADIUS = 35000;
+  // Out to the whole world (the continent and the seas around it)
+  const FS_MAX_RADIUS = 75000;
 
   const hasCustomMapCenter =
     ChillFlightLogic.START_MAP_X !== null ||
@@ -454,13 +451,7 @@ import {mapColor, mapShade} from './map-palette.js';
     }
   }
 
-  let fsCachedMinX = 0;
-  let fsCachedMinZ = 0;
-  let fsCachedWorldW = 0;
-  let fsCachedWorldH = 0;
-
   let fsAnimFrameId = null;
-  let fsRedrawTimer = null;
   let fsUrlUpdateTimer = null;
 
   function updateFsMapUrlParams(immediate = false) {
@@ -565,121 +556,87 @@ import {mapColor, mapShade} from './map-palette.js';
     }
   }
 
-  let fsElevBuffer = null;
-  let lastBgGenTime = 0;
+  const mapTiles = new MapTiles();
+  // How many levels coarser than the sharp one can stand in for a tile
+  // that isn't drawn yet
+  const FALLBACK_LEVELS = 4;
 
-  function generateFsBgCanvas() {
-    if (!fsCanvas) return;
-    constants.WATER_LEVEL = WATER_LEVEL;
-    constants.MAP_WORLD_SIZE = MAP_WORLD_SIZE;
-    constants.MAP_HEIGHT_SCALE = MAP_HEIGHT_SCALE;
-
-    const simplexInstance = simplex;
-    if (!simplexInstance) return;
-
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const aspect = w / h;
-
-    // Adaptive high-resolution grid based on zoom level (denser buffer at close zoom for ultra-crisp detail)
-    const isCloseZoom = fsViewRadius < 3500;
-    const paddingMult = isCloseZoom ? 1.2 : 1.4;
-
-    let gridH = isCloseZoom ? 380 : 300;
-    let gridW = Math.round(gridH * aspect);
-    if (aspect < 1) {
-      gridW = isCloseZoom ? 320 : 260;
-      gridH = Math.round(gridW / aspect);
-    }
-    gridW = Math.min(760, Math.max(200, gridW));
-    gridH = Math.min(500, Math.max(200, gridH));
-
-    if (!fsBgCanvas) {
-      fsBgCanvas = document.createElement('canvas');
-      fsBgCtx = fsBgCanvas.getContext('2d');
-    }
-    if (fsBgCanvas.width !== gridW || fsBgCanvas.height !== gridH) {
-      fsBgCanvas.width = gridW;
-      fsBgCanvas.height = gridH;
-    }
-
-    const minDim = Math.min(w, h);
-    const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
-    const worldW = w * worldUnitsPerPixel * paddingMult;
-    const worldH = h * worldUnitsPerPixel * paddingMult;
-
-    const minX = fsViewCenterX - worldW / 2;
-    const minZ = fsViewCenterZ - worldH / 2;
-
-    const totalPoints = gridW * gridH;
-    if (!fsElevBuffer || fsElevBuffer.length !== totalPoints) {
-      fsElevBuffer = new Float32Array(totalPoints);
-    }
-
-    for (let gz = 0; gz < gridH; gz++) {
-      const wz = minZ + (gz / (gridH - 1)) * worldH;
-      const rowOffset = gz * gridW;
-      for (let gx = 0; gx < gridW; gx++) {
-        const wx = minX + (gx / (gridW - 1)) * worldW;
-        try {
-          fsElevBuffer[rowOffset + gx] = ChillFlightLogic.getElevation(
-            wx,
-            wz,
-            simplexInstance,
-            constants
-          );
-        } catch {
-          fsElevBuffer[rowOffset + gx] = 40;
+  // Draws the map from cached tiles: each tile of the sharp level for this
+  // zoom if it's drawn, else the matching piece of the nearest coarser tile
+  // that is, so the view fills at once and sharpens as tiles arrive. Asks
+  // for what's missing: a quick coarse level first, then the sharp tiles
+  // from the middle out.
+  function drawMapTiles(vMinX, vMinZ, unitsPerPixel, screenW, screenH) {
+    const level = MapTiles.levelFor(unitsPerPixel);
+    const tileWorld = TILE_PX * MapTiles.upp(level);
+    const centerX = vMinX + (screenW * unitsPerPixel) / 2;
+    const centerZ = vMinZ + (screenH * unitsPerPixel) / 2;
+    const coarse = Math.min(MAX_LEVEL, level + 2);
+    const wanted = [];
+    const coarseWanted = new Map();
+    fsCtx.imageSmoothingEnabled = true;
+    fsCtx.imageSmoothingQuality = 'low';
+    const tx0 = Math.floor(vMinX / tileWorld);
+    const tz0 = Math.floor(vMinZ / tileWorld);
+    const tx1 = Math.floor((vMinX + screenW * unitsPerPixel) / tileWorld);
+    const tz1 = Math.floor((vMinZ + screenH * unitsPerPixel) / tileWorld);
+    for (let tz = tz0; tz <= tz1; tz++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        // Whole screen pixels, each tile meeting the next, so no seams
+        const x = Math.floor((tx * tileWorld - vMinX) / unitsPerPixel);
+        const y = Math.floor((tz * tileWorld - vMinZ) / unitsPerPixel);
+        const w =
+          Math.floor(((tx + 1) * tileWorld - vMinX) / unitsPerPixel) - x;
+        const h =
+          Math.floor(((tz + 1) * tileWorld - vMinZ) / unitsPerPixel) - y;
+        const tile = mapTiles.get(level, tx, tz);
+        if (tile) {
+          fsCtx.drawImage(tile, x, y, w, h);
+          continue;
+        }
+        const top = Math.min(MAX_LEVEL, level + FALLBACK_LEVELS);
+        for (let up = level + 1; up <= top; up++) {
+          const k = 2 ** (up - level);
+          const atx = Math.floor(tx / k);
+          const atz = Math.floor(tz / k);
+          const parent = mapTiles.get(up, atx, atz);
+          if (parent) {
+            const sub = TILE_PX / k;
+            fsCtx.drawImage(
+              parent,
+              (tx - atx * k) * sub,
+              (tz - atz * k) * sub,
+              sub,
+              sub,
+              x,
+              y,
+              w,
+              h
+            );
+            break;
+          }
+        }
+        const d = Math.hypot(
+          (tx + 0.5) * tileWorld - centerX,
+          (tz + 0.5) * tileWorld - centerZ
+        );
+        wanted.push([d, level, tx, tz]);
+        const k = 2 ** (coarse - level);
+        const ck = `${Math.floor(tx / k)}:${Math.floor(tz / k)}`;
+        if (coarse > level && !coarseWanted.has(ck)) {
+          coarseWanted.set(ck, [
+            coarse,
+            Math.floor(tx / k),
+            Math.floor(tz / k),
+          ]);
         }
       }
     }
-
-    const imgData = fsBgCtx.createImageData(gridW, gridH);
-    const data = imgData.data;
-
-    for (let gz = 0; gz < gridH; gz++) {
-      const wz = minZ + (gz / (gridH - 1)) * worldH;
-      const rowOffset = gz * gridW;
-
-      for (let gx = 0; gx < gridW; gx++) {
-        const idx = rowOffset + gx;
-        const elev = fsElevBuffer[idx];
-
-        // Northwest hillshade gives mountains and hills crisp 3D definition
-        const shade = mapShade(fsElevBuffer, idx, gridW, gridH);
-        const wx = minX + (gx / (gridW - 1)) * worldW;
-        let [r, g, b] = mapColor(elev, wx, wz, simplexInstance, _color);
-        if (shade !== 0) {
-          r = Math.max(0, Math.min(255, r + shade));
-          g = Math.max(0, Math.min(255, g + shade));
-          b = Math.max(0, Math.min(255, b + shade));
-        }
-
-        const pIdx = idx * 4;
-        data[pIdx] = r;
-        data[pIdx + 1] = g;
-        data[pIdx + 2] = b;
-        data[pIdx + 3] = 255;
-      }
-    }
-
-    fsBgCtx.putImageData(imgData, 0, 0);
-
-    fsCachedMinX = minX;
-    fsCachedMinZ = minZ;
-    fsCachedWorldW = worldW;
-    fsCachedWorldH = worldH;
-    lastBgGenTime = Date.now();
-  }
-
-  function scheduleFsBgRedraw(delay = 80) {
-    if (fsRedrawTimer) clearTimeout(fsRedrawTimer);
-    fsRedrawTimer = setTimeout(() => {
-      if (fsVisible) {
-        generateFsBgCanvas();
-        renderFullscreenMap();
-      }
-    }, delay);
+    wanted.sort((a, b) => a[0] - b[0]);
+    mapTiles.want([
+      ...coarseWanted.values(),
+      ...wanted.map(([, lvl, tx, tz]) => [lvl, tx, tz]),
+    ]);
   }
 
   function renderFullscreenMap() {
@@ -702,23 +659,10 @@ import {mapColor, mapShade} from './map-palette.js';
     fsCtx.fillStyle = '#090e17';
     fsCtx.fillRect(0, 0, screenW, screenH);
 
-    // 1. Draw cached heightmap background transformed to current view
-    if (fsBgCanvas && fsCachedWorldW > 0) {
-      const srcScreenX = (fsCachedMinX - vMinX) / worldUnitsPerPixel;
-      const srcScreenY = (fsCachedMinZ - vMinZ) / worldUnitsPerPixel;
-      const srcScreenW = fsCachedWorldW / worldUnitsPerPixel;
-      const srcScreenH = fsCachedWorldH / worldUnitsPerPixel;
-
-      fsCtx.imageSmoothingEnabled = true;
-      fsCtx.imageSmoothingQuality = 'high';
-      fsCtx.drawImage(
-        fsBgCanvas,
-        srcScreenX,
-        srcScreenY,
-        srcScreenW,
-        srcScreenH
-      );
-    }
+    // 1. The map itself, from cached tiles (map-tiles.js): coarser levels
+    // first, then the sharp level over them, so the view fills in at once
+    // and sharpens as tiles arrive
+    drawMapTiles(vMinX, vMinZ, worldUnitsPerPixel, screenW, screenH);
 
     // 2. Coordinate Grid Lines & Lat/Long Labels with Dynamic Step Scaling
     const LAT_SCALE = 5000;
@@ -966,7 +910,6 @@ import {mapColor, mapShade} from './map-palette.js';
       fsViewCenterZ = planeGroup.position.z;
       fsHasCenteredOnPlane = true;
       updateCoordsDisplay();
-      generateFsBgCanvas();
       updateFsMapUrlParams(true);
     }
     renderFullscreenMap();
@@ -993,7 +936,6 @@ import {mapColor, mapShade} from './map-palette.js';
     }
     updateCoordsDisplay();
     resizeFsCanvas();
-    generateFsBgCanvas();
     renderFullscreenMap();
     if (fsAnimFrameId) cancelAnimationFrame(fsAnimFrameId);
     fsAnimFrameId = requestAnimationFrame(fsAnimationLoop);
@@ -1056,8 +998,6 @@ import {mapColor, mapShade} from './map-palette.js';
     if (!fsOverlay || !fsCanvas) return;
 
     fsCtx = fsCanvas.getContext('2d');
-    fsBgCanvas = document.createElement('canvas');
-    fsBgCtx = fsBgCanvas.getContext('2d');
 
     const attachButtonAction = (btn, action) => {
       if (!btn) return;
@@ -1095,7 +1035,6 @@ import {mapColor, mapShade} from './map-palette.js';
         fsViewCenterX = planeGroup.position.x;
         fsViewCenterZ = planeGroup.position.z;
         updateCoordsDisplay();
-        generateFsBgCanvas();
         renderFullscreenMap();
         updateFsMapUrlParams(true);
       }
@@ -1105,7 +1044,6 @@ import {mapColor, mapShade} from './map-palette.js';
     attachButtonAction(zoomInBtn, () => {
       fsViewRadius = Math.max(FS_MIN_RADIUS, fsViewRadius / 1.3);
       updateCoordsDisplay();
-      generateFsBgCanvas();
       renderFullscreenMap();
       updateFsMapUrlParams(true);
     });
@@ -1114,7 +1052,6 @@ import {mapColor, mapShade} from './map-palette.js';
     attachButtonAction(zoomOutBtn, () => {
       fsViewRadius = Math.min(FS_MAX_RADIUS, fsViewRadius * 1.3);
       updateCoordsDisplay();
-      generateFsBgCanvas();
       renderFullscreenMap();
       updateFsMapUrlParams(true);
     });
@@ -1153,8 +1090,6 @@ import {mapColor, mapShade} from './map-palette.js';
       const screenH = window.innerHeight;
       const minDim = Math.min(screenW, screenH);
       const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
-      const visibleWorldW = screenW * worldUnitsPerPixel;
-      const visibleWorldH = screenH * worldUnitsPerPixel;
 
       if (activePointers.size === 1 && isDragging) {
         const dx = e.clientX - prevPanX;
@@ -1167,18 +1102,6 @@ import {mapColor, mapShade} from './map-palette.js';
 
         updateCoordsDisplay();
 
-        const cacheCenterWorldX = fsCachedMinX + fsCachedWorldW / 2;
-        const cacheCenterWorldZ = fsCachedMinZ + fsCachedWorldH / 2;
-        if (
-          Math.abs(fsViewCenterX - cacheCenterWorldX) > visibleWorldW * 0.25 ||
-          Math.abs(fsViewCenterZ - cacheCenterWorldZ) > visibleWorldH * 0.25
-        ) {
-          if (Date.now() - lastBgGenTime > 250) {
-            generateFsBgCanvas();
-          }
-        }
-
-        scheduleFsBgRedraw(80);
         renderFullscreenMap();
         updateFsMapUrlParams(false);
       } else if (activePointers.size >= 2) {
@@ -1205,7 +1128,6 @@ import {mapColor, mapShade} from './map-palette.js';
         fsViewCenterZ -= dy * worldUnitsPerPixel;
 
         updateCoordsDisplay();
-        scheduleFsBgRedraw(80);
         renderFullscreenMap();
         updateFsMapUrlParams(false);
       }
@@ -1232,7 +1154,6 @@ import {mapColor, mapShade} from './map-palette.js';
         isDragging = false;
         prevPinchDist = null;
         fsCanvas.classList.remove('dragging');
-        generateFsBgCanvas();
         renderFullscreenMap();
         updateFsMapUrlParams(true);
       }
@@ -1253,7 +1174,6 @@ import {mapColor, mapShade} from './map-palette.js';
           Math.min(FS_MAX_RADIUS, fsViewRadius * factor)
         );
         updateCoordsDisplay();
-        scheduleFsBgRedraw(80);
         renderFullscreenMap();
         updateFsMapUrlParams(false);
       },
@@ -1275,7 +1195,6 @@ import {mapColor, mapShade} from './map-palette.js';
 
       fsViewRadius = Math.max(FS_MIN_RADIUS, fsViewRadius / 1.5);
       updateCoordsDisplay();
-      generateFsBgCanvas();
       renderFullscreenMap();
       updateFsMapUrlParams(true);
     });
@@ -1283,7 +1202,6 @@ import {mapColor, mapShade} from './map-palette.js';
     window.addEventListener('resize', () => {
       if (fsVisible) {
         resizeFsCanvas();
-        generateFsBgCanvas();
         renderFullscreenMap();
       }
     });
