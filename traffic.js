@@ -10,13 +10,10 @@ import * as THREE from 'three';
 import {Achievements} from './achievements.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
-import {createMaterial} from './constants.js';
 import {scene} from './scene.js';
 import {camera} from './sky.js';
-import {createBiplaneModel} from './biplane.js';
-import {createGliderModel} from './glider.js';
-import {createTwinModel} from './twin.js';
-import {createClassicAirplaneModel, planeGroup} from './airplane.js';
+import {planeGroup} from './airplane.js';
+import {buildPlaneModel, isLiveryMaterial} from './plane-models.js';
 import {getElevation} from './terrain-geometry.js';
 import {
   isTrafficPlaneGone,
@@ -56,31 +53,6 @@ const lastCenter = new THREE.Vector3();
 const velocity = new THREE.Vector3();
 let hasLastCenter = false;
 const MAX_TRACKED_SPEED = 400; // units/s; faster is a teleport, not flight
-
-// --- Models ---
-const BUILDERS = {
-  classic: (opts) => createClassicAirplaneModel({...opts, pontoons: false}),
-  biplane: createBiplaneModel,
-  twin: createTwinModel,
-  glider: createGliderModel,
-};
-
-// One pair of materials per livery, shared by every plane wearing it (the
-// light trim is dark on sand, as on the player's plane)
-const liveryMats = new Map();
-function materialsFor(livery) {
-  if (!liveryMats.has(livery)) {
-    const color = ChillFlightLogic.PLANE_COLORS[livery];
-    liveryMats.set(livery, {
-      planeMat: createMaterial({color, flatShading: true}),
-      planeWhiteMat: createMaterial({
-        color: color === 0xe8c382 ? 0x1c3144 : 0xffffff,
-        flatShading: true,
-      }),
-    });
-  }
-  return liveryMats.get(livery);
-}
 
 // Navigation lights: red on the left wingtip, green on the right and a white
 // strobe on the tail. Sprites of a fixed size on screen, so a plane far off
@@ -137,17 +109,7 @@ const _planePos = new THREE.Vector3();
 function buildPlane(p) {
   const group = new THREE.Group();
   group.rotation.order = 'YXZ'; // as the player's plane
-  const mats = materialsFor(p.livery);
-  const model = BUILDERS[p.type]({
-    planeColor: ChillFlightLogic.PLANE_COLORS[p.livery],
-    ...mats,
-  });
-  model.traverse((child) => {
-    if (child.isMesh) {
-      child.castShadow = true;
-      child.receiveShadow = false;
-    }
-  });
+  const model = buildPlaneModel(p.type, p.livery);
   group.add(model);
 
   _box.setFromObject(model);
@@ -172,13 +134,14 @@ function buildPlane(p) {
 
 function disposePlane(group) {
   scene.remove(group);
-  const shared = new Set([
-    ...[...liveryMats.values()].flatMap((m) => [m.planeMat, m.planeWhiteMat]),
-    ...Object.values(navMats),
-  ]);
+  const shared = new Set(Object.values(navMats));
   group.traverse((child) => {
     if (child.geometry) child.geometry.dispose();
-    if (child.material && !shared.has(child.material)) {
+    if (
+      child.material &&
+      !shared.has(child.material) &&
+      !isLiveryMaterial(child.material)
+    ) {
       child.material.dispose();
     }
   });

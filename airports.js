@@ -10,6 +10,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {createMaterial} from './constants.js';
 import {scene} from './scene.js';
 import {getElevation} from './terrain-geometry.js';
+import {buildPlaneModel} from './plane-models.js';
 
 const asphaltMat = createMaterial({color: 0x4f5155, flatShading: true});
 const concreteMat = createMaterial({color: 0x9a9890, flatShading: true});
@@ -188,7 +189,39 @@ export function updateAirportLights(night) {
   }
 }
 
-function createAirport(a) {
+// --- PARKED PLANES ---
+// One to three planes parked side by side on the apron, noses toward the
+// runway, each airport its own (from the world seed): biplanes and twins.
+// (The classic flies without its pontoons, so it has no landing gear.)
+const PARKED_TYPES = ['biplane', 'twin'];
+const APRON_TOP = 0.5;
+const _box = new THREE.Box3();
+
+function createParkedPlanes(index) {
+  const rng = ChillFlightLogic.mulberry32(
+    ChillFlightLogic.WORLD_SEED * 31 + index * 7919 + 17
+  );
+  const group = new THREE.Group();
+  const count = 1 + Math.floor(rng() * 3);
+  // Left to right from the middle of the apron, clear of the tower, with a
+  // gap between wingtips
+  let x = -42;
+  for (let i = 0; i < count; i++) {
+    const type = PARKED_TYPES[Math.floor(rng() * PARKED_TYPES.length)];
+    const livery = Math.floor(rng() * ChillFlightLogic.PLANE_COLORS.length);
+    const plane = buildPlaneModel(type, livery);
+    // A little off square, as parked by hand
+    plane.rotation.y = (rng() - 0.5) * 0.4;
+    _box.setFromObject(plane);
+    const span = _box.max.x - _box.min.x;
+    plane.position.set(x + span / 2, APRON_TOP - _box.min.y, 48);
+    x += span + 4 + rng() * 6;
+    group.add(plane);
+  }
+  return group;
+}
+
+function createAirport(a, index) {
   const group = new THREE.Group();
   group.name = a.name;
   group.add(createRunway());
@@ -202,6 +235,7 @@ function createAirport(a) {
   hangar.position.set(45, 0, 98);
   hangar.rotation.y = Math.PI;
   group.add(hangar);
+  group.add(createParkedPlanes(index));
   const sock = createWindsock();
   sock.position.set(-ChillFlightLogic.RUNWAY_LENGTH / 2 + 60, 0, -34);
   group.add(sock);
@@ -213,5 +247,5 @@ function createAirport(a) {
 }
 
 if (ChillFlightLogic.SHOW_OBJECTS !== false) {
-  for (const a of ChillFlightLogic.AIRPORTS) scene.add(createAirport(a));
+  ChillFlightLogic.AIRPORTS.forEach((a, i) => scene.add(createAirport(a, i)));
 }
