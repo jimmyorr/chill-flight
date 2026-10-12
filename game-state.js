@@ -118,6 +118,9 @@ if (pauseOverlay) {
 var cockpitUI = document.getElementById('cockpit-ui');
 if (cockpitUI) {
   cockpitUI.addEventListener('click', () => {
+    // On phones the HUD sits under the map's ✕, so the click a tap sends
+    // after closing the map would land here and pause again
+    if (Date.now() < suppressPauseClickUntil) return;
     togglePause();
   });
 }

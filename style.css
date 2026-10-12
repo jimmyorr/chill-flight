@@ -2077,6 +2077,8 @@ input[type='number'].customization-input {
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* hidden overrides the panel's own display: flex */
+.fullscreen-map-warp[hidden],
 .fullscreen-map-warp [hidden] {
   display: none;
 }

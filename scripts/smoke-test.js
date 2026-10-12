@@ -373,22 +373,28 @@ async function exerciseControls(page, tag) {
     fail('Set waypoint did not close the map');
   }
   if (await isPaused()) fail('Set waypoint did not return to flight');
-  // Placed on the next frame, which can be slow under software WebGL
-  let markerShown = false;
-  for (let i = 0; i < 12 && !markerShown; i++) {
-    markerShown = await isVisible('#waypoint-indicator');
-    if (!markerShown) await wait(250);
-  }
-  if (!markerShown) fail('the waypoint marker did not appear');
+  // The marker updates on the next frame, which can be slow under software
+  // WebGL, so give it a few seconds
+  const markerIs = async (shown) => {
+    for (let i = 0; i < 12; i++) {
+      if ((await isVisible('#waypoint-indicator')) === shown) return true;
+      await wait(250);
+    }
+    return false;
+  };
+  if (!(await markerIs(true))) fail('the waypoint marker did not appear');
   await page.keyboard.press('m');
   await wait(800);
   await page
     .click('#fullscreen-map-waypoint-btn')
     .catch((err) => fail(`clear waypoint: ${err.message}`));
   await wait(300);
+  if (await isVisible('#fullscreen-map-warp')) {
+    fail('Clear waypoint left its panel on the map');
+  }
   await page.keyboard.press('m');
   await wait(800);
-  if (await isVisible('#waypoint-indicator')) {
+  if (!(await markerIs(false))) {
     fail('Clear waypoint did not remove the marker');
   }
 
