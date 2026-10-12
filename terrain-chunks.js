@@ -1797,6 +1797,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       }
     }
 
+    const roadSegments = [];
     activeRoads.forEach((n) => {
       const bridgePositions = [];
       const sampleStep = BRIDGE_SEGMENT_LENGTH;
@@ -1952,6 +1953,19 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             },
           });
         }
+      }
+
+      // The deck's centre line in world coordinates, for landing on the
+      // road (sampleRoad)
+      for (const pos of bridgePositions) {
+        roadSegments.push({
+          x0: pos.x + worldOffsetX,
+          z0: pos.z + worldOffsetZ,
+          y0: pos.y,
+          x1: pos.nextPos.x + worldOffsetX,
+          z1: pos.nextPos.z + worldOffsetZ,
+          y1: pos.nextPos.y,
+        });
       }
 
       if (bridgePositions.length > 0) {
@@ -2287,6 +2301,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         }
       }
     }); // End activeRoads.forEach
+    if (roadSegments.length > 0) group.userData.roadSegments = roadSegments;
   }
 
   // 2.96 Generate Campfires
@@ -2847,6 +2862,50 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   return group;
 }
 
+// The highway deck under (x, z), if there is one: fills out.height (the top
+// of the deck) and out.slopeX / out.slopeZ (rise per unit along x and z, as
+// sampleGround does) and returns true. The deck sits a few units above the
+// terrain (and well above it on bridges), so planes land on this rather than
+// the ground beneath it (flight-physics.js).
+const ROAD_DECK_HALF_WIDTH = ChillFlightLogic.ROAD_WIDTH + 2; // bridgeDeckGeo
+const ROAD_DECK_HALF_THICKNESS = 0.75;
+export function sampleRoad(x, z, out) {
+  const cx = Math.round(x / CHUNK_SIZE);
+  const cz = Math.round(z / CHUNK_SIZE);
+  let found = false;
+  // Segments can reach a little past their own chunk, so check its neighbours
+  for (let i = cx - 1; i <= cx + 1; i++) {
+    for (let j = cz - 1; j <= cz + 1; j++) {
+      const segments = chunks.get(`${i},${j}`)?.userData.roadSegments;
+      if (!segments) continue;
+      for (const seg of segments) {
+        const dx = seg.x1 - seg.x0;
+        const dz = seg.z1 - seg.z0;
+        const lengthSq = dx * dx + dz * dz;
+        const t = ((x - seg.x0) * dx + (z - seg.z0) * dz) / lengthSq;
+        if (t < 0 || t > 1) continue;
+        const length = Math.sqrt(lengthSq);
+        const across = Math.abs((x - seg.x0) * dz - (z - seg.z0) * dx) / length;
+        if (across > ROAD_DECK_HALF_WIDTH) continue;
+        // The deck is pitched to the segment, so its top is a little further
+        // above the centre line straight up
+        const grade = (seg.y1 - seg.y0) / length;
+        const height =
+          seg.y0 +
+          (seg.y1 - seg.y0) * t +
+          ROAD_DECK_HALF_THICKNESS * Math.sqrt(1 + grade * grade);
+        // Where segments meet, stand on the higher one
+        if (found && height <= out.height) continue;
+        out.height = height;
+        out.slopeX = (grade * dx) / length;
+        out.slopeZ = (grade * dz) / length;
+        found = true;
+      }
+    }
+  }
+  return found;
+}
+
 // Chunk props are pooled instanced meshes created with culling off (a reused
 // mesh's automatic bounds would be stale), so every chunk's props were drawn
 // every frame, in the main view and the shadow map, even when off-screen.
@@ -3058,6 +3117,7 @@ export function updateChunks() {
       group.userData.birds = null;
       group.userData.counts = null;
       group.userData.rockArch = null;
+      group.userData.roadSegments = null;
 
       scene.remove(group);
       chunks.delete(key);

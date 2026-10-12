@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {getElevation, sampleGround} from './terrain-geometry.js';
+import {sampleRoad} from './terrain-chunks.js';
 import {planeGroup} from './airplane.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {rainParticles} from './weather-manager.js';
@@ -14,7 +15,14 @@ import {Achievements} from './achievements.js';
 const TOUCHDOWN_SLOPE = Math.tan((15 * Math.PI) / 180);
 const ROLLING_SLOPE = Math.tan((30 * Math.PI) / 180);
 const _ground = {height: 0, slopeX: 0, slopeZ: 0};
+const _road = {height: 0, slopeX: 0, slopeZ: 0};
 let isRolling = false;
+// Whether the plane is over the highway this frame, at or above its deck
+// (flying under a bridge goes on by): the deck is then the ground, for
+// landing and for keeping clear of it
+let onRoad = false;
+// How far below the deck the plane can be and still count as on it
+const ROAD_CATCH_DEPTH = 2.0;
 // Whether the throttle has been opened since settling on the water or the
 // ground (see the surface drag below), and its setting last frame: every
 // throttle input (keys, gamepad, the on-screen buttons) raises it, and only
@@ -59,6 +67,12 @@ function levelGroundTilt(delta) {
   groundTiltRoll = THREE.MathUtils.lerp(groundTiltRoll, 0, ease);
 }
 
+// Fills _ground with the surface under (x, z): the road deck while on the
+// road, otherwise the ground as drawn
+function sampleSurface(x, z) {
+  if (!onRoad || !sampleRoad(x, z, _ground)) sampleGround(x, z, _ground);
+}
+
 // The plane's height resting on its wheels on _ground: on a slope the wheels
 // are wheelDepth from the ground at right angles to it, further straight up
 function wheelRestHeight(wheelDepth) {
@@ -70,11 +84,19 @@ function wheelRestHeight(wheelDepth) {
 
 export function updateFlightPhysics(delta, nowTime) {
   // --- FLIGHT PHYSICS & SPEED ---
-  const terrainHeight = getElevation(
+  let terrainHeight = getElevation(
     planeGroup.position.x,
     planeGroup.position.z
   );
   let isWater = terrainHeight <= WATER_LEVEL + 0.1;
+  onRoad =
+    sampleRoad(planeGroup.position.x, planeGroup.position.z, _road) &&
+    planeGroup.position.y >= _road.height - ROAD_CATCH_DEPTH;
+  if (onRoad) {
+    // On bridges too, over water or a valley
+    terrainHeight = _road.height;
+    isWater = false;
+  }
 
   // Ground avoidance heights:
   // Over water, avoidance and resting heights are anchored to WATER_LEVEL (surface)
@@ -84,7 +106,7 @@ export function updateFlightPhysics(delta, nowTime) {
 
   // Wheeled planes (not the seaplane) with their gear down can
   // come down onto gentle ground and roll on their wheels, on the ground as
-  // drawn (sampleGround). Elsewhere, and with the gear up, the cushion above
+  // drawn (sampleGround), or on the highway deck. Elsewhere, and with the gear up, the cushion above
   // stays, so there's no landing on a mountainside.
   const wheelDepth = state.airplaneModel?.wheelDepth;
   const gearDown =
@@ -92,7 +114,7 @@ export function updateFlightPhysics(delta, nowTime) {
     (!state.airplaneModel.gearGroups || state.gearExtension >= 1);
   let onLandableGround = false;
   if (!isWater && gearDown) {
-    sampleGround(planeGroup.position.x, planeGroup.position.z, _ground);
+    sampleSurface(planeGroup.position.x, planeGroup.position.z);
     onLandableGround =
       Math.hypot(_ground.slopeX, _ground.slopeZ) <
       (isRolling ? ROLLING_SLOPE : TOUCHDOWN_SLOPE);
@@ -273,7 +295,7 @@ export function updateFlightPhysics(delta, nowTime) {
     if (followingGround) {
       // Rolling on the wheels follows the ground exactly, where the plane is
       // now (it has moved since the top of the frame)
-      sampleGround(planeGroup.position.x, planeGroup.position.z, _ground);
+      sampleSurface(planeGroup.position.x, planeGroup.position.z);
       planeGroup.position.y = wheelRestHeight(wheelDepth);
     } else {
       // Smooth landing
@@ -396,7 +418,7 @@ export function updateFlightPhysics(delta, nowTime) {
   // the next frame allows steeper ground
   isRolling = false;
   if (onLandableGround) {
-    sampleGround(planeGroup.position.x, planeGroup.position.z, _ground);
+    sampleSurface(planeGroup.position.x, planeGroup.position.z);
     isRolling = planeGroup.position.y <= wheelRestHeight(wheelDepth) + 0.5;
   }
 
