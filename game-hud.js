@@ -1,11 +1,9 @@
 // --- GAME HUD & ACHIEVEMENTS OVERLAY ---
-import {hooks} from './hooks.js';
 import {Achievements} from './achievements.js';
 
 var achievementsOverlay = document.getElementById('achievements-overlay');
 var achievementsBtn = document.getElementById('achievements-btn');
 var achievementsCloseBtn = document.getElementById('achievements-close-btn');
-var pauseMapBtn = document.getElementById('pause-map-btn');
 var achievementsResetBtn = document.getElementById('achievements-reset-btn');
 
 var resetConfirmTimeout = null;
@@ -46,14 +44,6 @@ if (achievementsBtn) {
 if (achievementsCloseBtn) {
   achievementsCloseBtn.addEventListener('click', () => {
     closeAchievementsOverlay();
-  });
-}
-
-if (pauseMapBtn) {
-  pauseMapBtn.addEventListener('click', () => {
-    if (hooks.fullscreenMap) {
-      hooks.fullscreenMap.open();
-    }
   });
 }
 

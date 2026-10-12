@@ -130,8 +130,7 @@ if (mapBtn) {
     e.preventDefault();
     e.stopPropagation();
     menuContainer.classList.remove('expanded');
-    // Like M: pauses while open, then straight back to flying
-    hooks.fullscreenMap?.open({fromFlight: !state.isPaused});
+    hooks.fullscreenMap?.open();
   });
 }
 

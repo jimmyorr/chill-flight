@@ -245,7 +245,7 @@ import {LANDMARKS} from './landmarks.js';
     if (e.key === 'M' || (e.key === 'm' && e.shiftKey)) {
       toggleMinimap();
     } else if (e.key === 'm' && !fsVisible) {
-      openFullscreenMap({fromFlight: !state.isPaused});
+      openFullscreenMap();
     }
   });
 
@@ -960,15 +960,11 @@ import {LANDMARKS} from './landmarks.js';
     fsAnimFrameId = requestAnimationFrame(fsAnimationLoop);
   }
 
-  // Whether the map was opened mid-flight (M), which pauses the game while
-  // it's open; closing it then resumes, rather than going back to the pause
-  // menu it was opened from otherwise
-  let fsOpenedFromFlight = false;
-
-  function openFullscreenMap({fromFlight = false} = {}) {
+  // The game pauses while the map is open, and closing it goes back to
+  // flying
+  function openFullscreenMap() {
     if (fsVisible) return;
-    fsOpenedFromFlight = fromFlight;
-    if (fromFlight && !state.isPaused) togglePause();
+    if (!state.isPaused) togglePause();
     initFullscreenMap();
     fsVisible = true;
     if (fsOverlay) {
@@ -1086,10 +1082,7 @@ import {LANDMARKS} from './landmarks.js';
 
     fsVisible = false;
     setWarpPin(null);
-    // Back to flight if that's where the map was opened from
-    const resume = fsOpenedFromFlight && state.isPaused;
-    fsOpenedFromFlight = false;
-    if (resume) togglePause();
+    if (state.isPaused) togglePause();
     if (fsOverlay) {
       fsOverlay.style.display = 'none';
     }
@@ -1163,13 +1156,9 @@ import {LANDMARKS} from './landmarks.js';
       btn.addEventListener('click', handleAction);
     };
 
-    // Back to flying, wherever the map was opened from
     attachButtonAction(
       document.getElementById('fullscreen-map-resume-btn'),
-      () => {
-        closeFullscreenMap();
-        if (state.isPaused) togglePause();
-      }
+      closeFullscreenMap
     );
 
     attachButtonAction(
@@ -1178,9 +1167,8 @@ import {LANDMARKS} from './landmarks.js';
         if (!warpPin) return;
         const {x, z} = warpPin;
         warpTo(x, z);
-        closeFullscreenMap();
         // Straight into flight at the new spot
-        if (state.isPaused) togglePause();
+        closeFullscreenMap();
       }
     );
     attachButtonAction(
@@ -1194,9 +1182,8 @@ import {LANDMARKS} from './landmarks.js';
         }
         const {x, z} = warpPin;
         setWaypoint(x, groundAt(x, z), z);
-        closeFullscreenMap();
         // Back to flight to head there
-        if (state.isPaused) togglePause();
+        closeFullscreenMap();
       }
     );
     attachButtonAction(

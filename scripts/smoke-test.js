@@ -413,26 +413,24 @@ async function exerciseControls(page, tag) {
     false,
     'close achievements'
   );
-  await clickAndCheck(
-    '#pause-map-btn',
-    '#fullscreen-map-overlay',
-    true,
-    'open map from pause menu'
-  );
-  // Escape goes back to the pause menu it was opened from
-  await page.keyboard.press('Escape');
+  await page
+    .click('#resume-btn')
+    .catch((err) => fail(`resume: ${err.message}`));
   await wait(800);
-  if (await isVisible('#fullscreen-map-overlay')) {
-    fail('Escape did not close the fullscreen map');
-  }
-  if (!(await isPaused())) fail('closing the map left the pause menu');
-  // The map's Resume goes straight back to flying
+  if (await isPaused()) fail('resume button did not unpause the game');
+
+  // The quick menu opens the map (pausing), and its Resume goes back to flying
+  await page
+    .click('#mobile-menu-trigger')
+    .catch((err) => fail(`quick menu: ${err.message}`));
+  await wait(500);
   await clickAndCheck(
-    '#pause-map-btn',
+    '#mobile-map-btn',
     '#fullscreen-map-overlay',
     true,
-    'reopen map from pause menu'
+    'open map from the quick menu'
   );
+  if (!(await isPaused())) fail('the map did not pause the game');
   await clickAndCheck(
     '#fullscreen-map-resume-btn',
     '#fullscreen-map-overlay',
