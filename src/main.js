@@ -54,6 +54,8 @@ import '../waypoint.js';
 import '../autopilot.js';
 import '../game-ui.js';
 import '../zen.js';
+import '../coffee-logic.js';
+import '../coffee-run.js';
 import '../vr-manager.js';
 import '../game-loop.js';
 import '../map-loader.js';

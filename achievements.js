@@ -255,7 +255,7 @@ export const Achievements = (function () {
 
     const label = document.createElement('div');
     label.className = 'achievement-toast-label';
-    label.textContent = 'ACHIEVEMENT UNLOCKED';
+    label.textContent = detail.label || 'ACHIEVEMENT UNLOCKED';
 
     const title = document.createElement('div');
     title.className = 'achievement-toast-title';
@@ -363,6 +363,8 @@ export const Achievements = (function () {
 
   // --- PUBLIC API ---
   return {
+    // A toast that isn't an achievement: {emoji, label, title}
+    toast: showToast,
     getAll,
     isUnlocked,
     getUnlockedMap,

@@ -99,6 +99,20 @@
                 class="pause-switch"
               />
             </label>
+            <!-- coffee-run.js -->
+            <label class="pause-row" for="coffee-toggle-input">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Coffee run</span>
+                <span class="pause-row-sub"
+                  >Fly beans for Ray's roastery (needs wheels)</span
+                >
+              </span>
+              <input
+                type="checkbox"
+                id="coffee-toggle-input"
+                class="pause-switch"
+              />
+            </label>
           </div>
 
           <div class="pause-panel" data-panel="settings" role="tabpanel">
@@ -410,6 +424,16 @@
       </div>
     </div>
 
+    <!-- Ray talks here during the coffee run (coffee-run.js): tap for more -->
+    <div id="coffee-dialog" hidden>
+      <canvas id="coffee-portrait" width="32" height="32"></canvas>
+      <div class="coffee-dialog-body">
+        <div class="coffee-dialog-name">Ray</div>
+        <div id="coffee-dialog-text" class="coffee-dialog-text"></div>
+      </div>
+      <div class="coffee-dialog-next" aria-hidden="true">▼</div>
+    </div>
+
     <!-- Points the way to the map's waypoint (waypoint.js) -->
     <div id="waypoint-indicator" hidden aria-hidden="true">
       <div class="waypoint-mark"></div>
@@ -463,6 +487,16 @@
             "
             >C H I L L - F L I G H T</span
           >
+        </div>
+        <!-- The coffee run's deliveries and hold (coffee-run.js) -->
+        <div id="coffee-hud" class="cockpit-module" hidden>
+          <span class="cockpit-label">☕</span>
+          <span
+            class="cockpit-value"
+            id="coffee-hud-count"
+            title="Bags delivered"
+          ></span>
+          <span class="coffee-hud-cargo" id="coffee-hud-cargo"></span>
         </div>
       </div>
     </div>
