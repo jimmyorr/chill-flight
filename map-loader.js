@@ -1,5 +1,10 @@
 // map-loader.js
-import {MAP_HEIGHT_SCALE, MAP_WORLD_SIZE, WATER_LEVEL} from './constants.js';
+import {
+  MAP_HEIGHT_SCALE,
+  MAP_WORLD_SIZE,
+  UNITS_TO_M,
+  WATER_LEVEL,
+} from './constants.js';
 import {log} from './logger.js';
 import {chunks, clearElevationCache} from './terrain-geometry.js';
 import {clearChunkQueue, updateChunks} from './terrain-chunks.js';
@@ -100,7 +105,7 @@ import {state} from './state.js';
     }
 
     if (urlAltVal !== null && urlAltVal !== undefined) {
-      startY = urlAltVal / 25 + 45.5;
+      startY = urlAltVal / UNITS_TO_M + 45.5;
     } else if (urlLatVal !== null || urlLonVal !== null) {
       try {
         const terrainHeight = ChillFlightLogic.getElevation(

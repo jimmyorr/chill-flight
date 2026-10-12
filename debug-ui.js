@@ -4,6 +4,7 @@ import {
   CHUNK_SIZE,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
+  UNITS_TO_M,
   WATER_LEVEL,
   getCachedElement,
   updateUrlParams,
@@ -511,7 +512,7 @@ export function initDebugUI() {
         ChillFlightLogic.parsedAlt !== null &&
         ChillFlightLogic.parsedAlt !== undefined
       ) {
-        startCamY = ChillFlightLogic.parsedAlt / 25 + 45.5;
+        startCamY = ChillFlightLogic.parsedAlt / UNITS_TO_M + 45.5;
       } else if (
         ChillFlightLogic.parsedLon !== null ||
         ChillFlightLogic.parsedLat !== null

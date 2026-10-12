@@ -1780,7 +1780,6 @@ export const ChillFlightLogic = {};
       const normalizedHeight = _lerp(r1, r2, dy) / 255.0;
       // --- ALTITUDE-BASED MAPPING ---
       // Map 0-255 luminance to a world Y range of 38.0 -> 125.5.
-      // In-game altitude 2000ft is approximately 125.5 world units.
       // Starting at 38.0 ensures that luminance 0 is slightly underwater (WATER_LEVEL=40).
       return 38.0 + normalizedHeight * 87.5;
     }

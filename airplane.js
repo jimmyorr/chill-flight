@@ -8,6 +8,7 @@ import {
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
   MAX_AIRPLANE_SPEED_KTS,
+  UNITS_TO_M,
   WATER_LEVEL,
   createMaterial,
   updateUrlParams,
@@ -427,7 +428,7 @@ if (urlLonVal !== null && urlLonVal !== undefined) {
 }
 
 if (urlAltVal !== null && urlAltVal !== undefined) {
-  startY = urlAltVal / 25 + 45.5;
+  startY = urlAltVal / UNITS_TO_M + 45.5;
 } else if (urlLatVal !== null || urlLonVal !== null) {
   // If starting position was specified, calculate terrain elevation at startX, startZ
   // to ensure player starts at a safe altitude above the ground (e.g. 400 units above terrain)

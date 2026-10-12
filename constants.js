@@ -29,6 +29,9 @@ export const MAP_HEIGHT_SCALE = 400;
 
 // Flight parameters
 export const BASE_FLIGHT_SPEED = 2.5;
+// World units to meters, on the speed readout's scale (a unit per second
+// reads as a knot): distances and altitude are shown on it
+export const UNITS_TO_M = 0.5144;
 export const MAX_AIRPLANE_SPEED_KTS = 500;
 export const MAX_FLIGHT_SPEED_MULT =
   MAX_AIRPLANE_SPEED_KTS / (BASE_FLIGHT_SPEED * 60);

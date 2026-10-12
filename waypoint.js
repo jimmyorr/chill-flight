@@ -11,14 +11,11 @@ import {camera} from './sky.js';
 import {state} from './state.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation} from './terrain-geometry.js';
-import {WATER_LEVEL} from './constants.js';
+import {UNITS_TO_M, WATER_LEVEL} from './constants.js';
 
 const STORAGE_KEY = 'chill_flight_waypoint';
 // Within this many units (horizontally) counts as there
 const ARRIVE_DIST = 300;
-// World units to meters, on the speed readout's scale (a unit per second
-// reads as a knot)
-const UNITS_TO_M = 0.5144;
 // Keep the edge marker this far (px) inside the screen, and clear of the HUD
 const EDGE_MARGIN = 36;
 const TOP_MARGIN = 96;

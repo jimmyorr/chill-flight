@@ -15,8 +15,9 @@ import {clearWaypoint, getWaypoint, setTourStop} from './waypoint.js';
 import {log} from './logger.js';
 import {state} from './state.js';
 
-// Height to keep over the ground ahead (units; 25 ft each), and the lowest
-// it cruises (y, about 7,000 ft), so it flies high over low country too
+// Height to keep over the ground ahead (units, about 80 m), and the lowest
+// it cruises (y, about 150 m on the altitude readout), so it flies high over
+// low country too
 const CLEARANCE = 160;
 const CRUISE_FLOOR = 330;
 // Look this far ahead for high ground (units), every SCAN_STEP, closer

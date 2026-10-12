@@ -20,6 +20,7 @@ import {
   LIGHTHOUSE_BEAM_OPACITY_MAX,
   LIGHTHOUSE_BEAM_OPACITY_MIN,
   LIGHTHOUSE_LIGHT_INTENSITY,
+  UNITS_TO_M,
   WATER_LEVEL,
   updateDOM,
 } from './constants.js';
@@ -974,7 +975,7 @@ export function updateFlightCamera(delta, nowTime) {
   const lonStr =
     Math.abs(lonVal).toFixed(3) + '\u00b0 ' + (lonVal >= 0 ? 'E' : 'W');
   const coordStr = `${latStr} ${lonStr}`;
-  const altStr = `${Math.round(Math.max(0, hudTarget.position.y - 45.5) * 25)}`;
+  const altStr = `${Math.round(Math.max(0, hudTarget.position.y - 45.5) * UNITS_TO_M)} M`;
   const spdStr = `${Math.round(BASE_FLIGHT_SPEED * state.flightSpeedMultiplier * 60)} KTS`;
 
   updateDOM('cockpit-time', timeStr);

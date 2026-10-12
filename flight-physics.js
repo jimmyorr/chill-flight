@@ -37,7 +37,7 @@ let groundTiltRoll = 0;
 // How slowly the model levels out after leaving the ground (seconds)
 const TILT_LEVEL_SECONDS = 0.5;
 
-// Slow flight: how fast the plane sinks (units per second, 25 ft each), none
+// Slow flight: how fast the plane sinks (units per second), none
 // at 100 knots and up, easing in to 15 at 50 knots, so landing is a matter of
 // slowing down gently
 const smoothstep = THREE.MathUtils.smoothstep;
@@ -416,7 +416,7 @@ export function updateFlightPhysics(delta, nowTime) {
   }
   lastTargetSpeed = state.targetFlightSpeed;
 
-  const maxFlightHeight = 4045.5; // ~100,000 ft display altitude ((4045.5 - 45.5) * 25 = 100,000)
+  const maxFlightHeight = 4045.5; // About 2,060 m on the altitude readout
   if (planeGroup.position.y > maxFlightHeight) {
     planeGroup.position.y = maxFlightHeight;
   }
@@ -431,13 +431,10 @@ export function updateFlightPhysics(delta, nowTime) {
 
   // Pontoons and retractable wheels come down approaching water (and, for
   // wheels, any ground) and go up climbing away, by height above the surface
-  const surfaceAlt = Math.round(
-    Math.max(
-      0,
-      planeGroup.position.y - (isWater ? WATER_LEVEL : terrainHeight)
-    ) * 25
-  );
-  if (surfaceAlt >= 2000) state.gearWanted = false;
+  // (units: down within 60, about 30 m, and up past 80)
+  const surfaceAlt =
+    planeGroup.position.y - (isWater ? WATER_LEVEL : terrainHeight);
+  if (surfaceAlt >= 80) state.gearWanted = false;
 
   const currentY = planeGroup.position.y;
   const isDescending = currentY < state.lastY;
@@ -447,7 +444,7 @@ export function updateFlightPhysics(delta, nowTime) {
   // over rising ground)
   if (
     (isWater || wheelDepth !== undefined) &&
-    surfaceAlt < 1500 &&
+    surfaceAlt < 60 &&
     (isDescending || currentKTS < 100)
   ) {
     state.gearWanted = true;
