@@ -8,7 +8,7 @@
 import {log} from './logger.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
-import {activePlaneType, planeGroup, setActivePlane} from './airplane.js';
+import {planeGroup} from './airplane.js';
 import {getElevation} from './terrain-geometry.js';
 import {Achievements} from './achievements.js';
 import {isOnWheels} from './flight-physics.js';
@@ -35,6 +35,9 @@ const checkbox = document.getElementById('coffee-toggle-input');
 const hud = document.getElementById('coffee-hud');
 const hudCount = document.getElementById('coffee-hud-count');
 const hudCargo = document.getElementById('coffee-hud-cargo');
+const hudAuto = document.getElementById('coffee-hud-auto');
+// The cockpit's CHILL-FLIGHT / AUTOPILOT line, which the coffee row replaces
+const statusPanel = document.getElementById('cockpit-status-panel');
 const dialog = document.getElementById('coffee-dialog');
 const portrait = document.getElementById('coffee-portrait');
 const dialogText = document.getElementById('coffee-dialog-text');
@@ -217,6 +220,7 @@ function pointToDestination() {
 function updateHud() {
   if (!hud) return;
   hud.hidden = !enabled || !run;
+  if (statusPanel) statusPanel.style.display = hud.hidden ? 'flex' : 'none';
   if (hud.hidden) return;
   hudCount.textContent = `${run.delivered} delivered`;
   const cargo = cargoLabel(run);
@@ -225,11 +229,9 @@ function updateHud() {
     : `Empty → ${destination(run)}`;
 }
 
-function setEnabled(on, picked = false) {
+function setEnabled(on) {
   enabled = on;
   if (checkbox) checkbox.checked = on;
-  // Turned on in the seaplane, which can't land on a runway: the biplane
-  if (on && picked && activePlaneType === 'seaplane') setActivePlane('biplane');
   if (on && !run) {
     const start = startRun();
     run = start.run;
@@ -243,7 +245,7 @@ function setEnabled(on, picked = false) {
 }
 
 if (checkbox) {
-  checkbox.addEventListener('change', () => setEnabled(checkbox.checked, true));
+  checkbox.addEventListener('change', () => setEnabled(checkbox.checked));
 }
 drawFace(false);
 // ?coffee=reset starts over from Ray's welcome (for testing his lines);
@@ -251,7 +253,7 @@ drawFace(false);
 const param = ChillFlightLogic.urlParams?.get('coffee');
 if (param === 'reset') {
   run = null;
-  setEnabled(true, true);
+  setEnabled(true);
 } else if (param === '1' || param === '0') {
   setEnabled(param === '1');
 } else {
@@ -277,6 +279,10 @@ function airportAt(x, z) {
 function update() {
   requestAnimationFrame(update);
   if (!enabled || !run || !planeGroup || state.isPaused) return;
+  // The row stands in for the AUTOPILOT line too
+  if (hudAuto && hudAuto.hidden === state.autopilotEnabled) {
+    hudAuto.hidden = !state.autopilotEnabled;
+  }
   const kts = BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
   if (!isOnWheels() || kts > STOPPED_KTS) {
     stoppedAt = null;

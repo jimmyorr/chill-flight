@@ -103,9 +103,7 @@
             <label class="pause-row" for="coffee-toggle-input">
               <span class="pause-row-text">
                 <span class="pause-row-title">Coffee run</span>
-                <span class="pause-row-sub"
-                  >Fly beans for Ray's roastery (needs wheels)</span
-                >
+                <span class="pause-row-sub">Fly beans for Ray's roastery</span>
               </span>
               <input
                 type="checkbox"
@@ -488,7 +486,8 @@
             >C H I L L - F L I G H T</span
           >
         </div>
-        <!-- The coffee run's deliveries and hold (coffee-run.js) -->
+        <!-- The coffee run's deliveries and hold, in place of the line above
+             (coffee-run.js) -->
         <div id="coffee-hud" class="cockpit-module" hidden>
           <span class="cockpit-label">☕</span>
           <span
@@ -497,6 +496,7 @@
             title="Bags delivered"
           ></span>
           <span class="coffee-hud-cargo" id="coffee-hud-cargo"></span>
+          <span class="coffee-hud-auto" id="coffee-hud-auto" hidden>AUTO</span>
         </div>
       </div>
     </div>

@@ -2154,8 +2154,8 @@ input[type='number'].customization-input {
   white-space: nowrap;
 }
 
-/* Coffee run (coffee-run.js): the deliveries and hold, a row under the cockpit
-   readout */
+/* Coffee run (coffee-run.js): the deliveries and hold, in place of the
+   cockpit readout's CHILL-FLIGHT line */
 #coffee-hud {
   grid-column: span 3;
   justify-content: center;
@@ -2173,6 +2173,15 @@ input[type='number'].customization-input {
 }
 #coffee-hud .cockpit-value {
   min-width: 0;
+}
+.coffee-hud-auto {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #e74c3c;
+}
+.coffee-hud-auto[hidden] {
+  display: none;
 }
 .coffee-hud-cargo {
   font-size: 12px;

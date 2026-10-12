@@ -110,14 +110,15 @@ export function updateFlightPhysics(delta, nowTime) {
   let minFlightHeight = isWater ? WATER_LEVEL + 2.8 : terrainHeight + 10.0;
   let restingHeight = minFlightHeight + 2.0;
 
-  // Wheeled planes (not the seaplane) with their gear down can
-  // come down onto gentle ground and roll on their wheels, on the ground as
+  // Planes with their gear down (wheels, or the seaplane's pontoons) can
+  // come down onto gentle ground and roll on it, on the ground as
   // drawn (sampleGround), or on the highway deck. Elsewhere, and with the gear up, the cushion above
   // stays, so there's no landing on a mountainside.
   const wheelDepth = state.airplaneModel?.wheelDepth;
+  const retracts =
+    state.airplaneModel?.gearGroups || state.airplaneModel?.pontoonGroup;
   const gearDown =
-    wheelDepth !== undefined &&
-    (!state.airplaneModel.gearGroups || state.gearExtension >= 1);
+    wheelDepth !== undefined && (!retracts || state.gearExtension >= 1);
   let onLandableGround = false;
   if (!isWater && gearDown) {
     sampleSurface(planeGroup.position.x, planeGroup.position.z);

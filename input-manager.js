@@ -534,6 +534,7 @@ export class InputManager {
       target.closest('#mobile-action-menu') ||
       target.closest('#minimap-container') ||
       target.closest('#zen-tooltip') ||
+      target.closest('#coffee-dialog') ||
       target.closest('.color-swatch');
 
     if (isUI) return;

@@ -335,11 +335,12 @@ export function setActivePlane(planeType, skipStorage = false) {
   }
 
   // How far the wheels reach below the plane's center, for landing on land
-  // (flight-physics.js). The seaplane lands only on water.
-  if (planeType !== 'seaplane') {
-    newModel.updateMatrixWorld(true);
-    newModel.wheelDepth = -new THREE.Box3().setFromObject(newModel).min.y;
-  }
+  // (flight-physics.js). The seaplane sets down on its pontoons, measured
+  // with them all the way down.
+  if (planeType === 'seaplane') poseGear(1);
+  newModel.updateMatrixWorld(true);
+  newModel.wheelDepth = -new THREE.Box3().setFromObject(newModel).min.y;
+  if (planeType === 'seaplane') poseGear(state.gearExtension);
 
   state.airplaneModel = newModel;
   state.propGroup = newModel.propGroup || state.propGroup;
