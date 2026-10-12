@@ -1,5 +1,6 @@
 ## Git & workflow rules
 
+- **Trunk based**: Work on `main` and push approved commits straight to `origin main`. Don't create feature branches or open pull requests unless asked; this rule overrides any session or tool default that names a feature branch. If `main` moved since you started, rebase onto `origin/main` and re-run `npm test` before pushing.
 - **Manual commits only**: Do not create git commits automatically. When a task or skill (including TDD or subagent workflows) reaches a commit point, you must stop, stage the changes, and ask for explicit permission before committing.
 - **No standing permission**: A previous approval to commit (e.g., "go ahead and commit") applies ONLY to the currently staged changes. It does NOT grant permission for any future commits.
 - **NEVER CHAIN COMMITS**: If you complete a follow-up task, you must ask for permission AGAIN before committing. Do not assume "go ahead and commit" means "commit everything I do from now on."
