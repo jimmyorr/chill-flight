@@ -15,21 +15,37 @@ import {clearWaypoint, getWaypoint, setTourStop} from './waypoint.js';
 import {log} from './logger.js';
 import {state} from './state.js';
 
-// Height to keep over the ground ahead (units; 25 ft each)
-const CLEARANCE = 90;
+// Height to keep over the ground ahead (units; 25 ft each), and the lowest
+// it cruises (y, about 7,000 ft), so it flies high over low country too
+const CLEARANCE = 160;
+const CRUISE_FLOOR = 330;
 // Look this far ahead for high ground (units), every SCAN_STEP, closer
-// together over the first NEAR_AHEAD so a sharp ridge isn't missed
-const LOOK_AHEAD = 4500;
-const SCAN_STEP = 250;
-const NEAR_AHEAD = 1000;
-const NEAR_STEP = 100;
+// together over the first NEAR_AHEAD so a sharp ridge isn't missed, and
+// over the first NEAR_AHEAD also SIDE_OFFSET either side of the track, so a
+// turn doesn't find a hill late (not further out, or it climbs over every
+// peak it merely passes beside)
+const LOOK_AHEAD = 9000;
+const SCAN_STEP = 300;
+const NEAR_AHEAD = 1500;
+const NEAR_STEP = 150;
+const SIDE_OFFSET = 250;
+// While turning onto the course, how far along the current heading to look
+const TURN_LOOK_AHEAD = 2500;
 // Climb no steeper than this toward high ground ahead (rise per unit
-// flown, about 14 degrees), which leaves the 30 degree limit as margin
-const CLIMB_SLOPE = 0.25;
+// flown, about 7 degrees): gentle, and started early thanks to LOOK_AHEAD
+const CLIMB_SLOPE = 0.12;
 // Rescan the ground this often (s): sampling the terrain isn't free
 const SCAN_INTERVAL = 0.25;
-// Come back down no faster than this (units/s) once past high ground
-const DESCENT_RATE = 15;
+// Once past high ground, stay up until the held height is this much more
+// than needed (units), then come down no faster than DESCENT_RATE (units/s,
+// a gentle 7 degrees at cruise), so it doesn't dip into every valley
+const DESCENT_MARGIN = 100;
+const DESCENT_RATE = 18;
+// Pitch toward the held height: so much per unit of height to go, less so
+// much per unit/s already climbing or sinking, so it eases on rather than
+// overshooting and bobbing
+const PITCH_PER_UNIT = 0.006;
+const PITCH_DAMPING = 0.012;
 const MAX_CLIMB = Math.PI / 6;
 const MAX_DESCENT = Math.PI / 25;
 const MAX_ROLL = Math.PI / 4;
@@ -39,12 +55,14 @@ const ORBIT_RADIUS = 700;
 const CRUISE_SPEED = 1.0;
 const ORBIT_SPEED = 0.8;
 // Height over the highest ground around the circle
-const ORBIT_CLEARANCE = 60;
+const ORBIT_CLEARANCE = 120;
 const ORBIT_SAMPLES = 12;
 // The world repeats every MAP_WIDTH units east to west
 const MAP_WIDTH = ChillFlightLogic.MAP_WIDTH;
 
 let heldAlt = null; // The height being flown to (y), eased down, not up
+let lastY = null; // For the vertical speed
+let verticalSpeed = 0;
 let scanTimer = 0;
 let orbit = null; // The circle being flown (startOrbit)
 let tourStop = null; // {name, x, y, z}
@@ -68,18 +86,27 @@ function headingTo(x, z, tx, tz) {
 
 // The height needed now to clear the ground along a heading, at the climb
 // slope: a peak far ahead needs less height now than one close by
-function heightAlong(heading) {
+function heightAlong(heading, range = LOOK_AHEAD) {
   const x = planeGroup.position.x;
   const z = planeGroup.position.z;
   const fx = -Math.sin(heading);
   const fz = -Math.cos(heading);
-  let needed = -Infinity;
-  for (
-    let d = 0;
-    d <= LOOK_AHEAD;
-    d += d < NEAR_AHEAD ? NEAR_STEP : SCAN_STEP
-  ) {
-    const h = groundAt(x + fx * d, z + fz * d) + CLEARANCE - d * CLIMB_SLOPE;
+  // Across the track (to the right)
+  const sx = -fz;
+  const sz = fx;
+  let needed = CRUISE_FLOOR;
+  for (let d = 0; d <= range; d += d < NEAR_AHEAD ? NEAR_STEP : SCAN_STEP) {
+    const cx = x + fx * d;
+    const cz = z + fz * d;
+    const ground =
+      d <= NEAR_AHEAD
+        ? Math.max(
+            groundAt(cx, cz),
+            groundAt(cx + sx * SIDE_OFFSET, cz + sz * SIDE_OFFSET),
+            groundAt(cx - sx * SIDE_OFFSET, cz - sz * SIDE_OFFSET)
+          )
+        : groundAt(cx, cz);
+    const h = ground + CLEARANCE - d * CLIMB_SLOPE;
     if (h > needed) needed = h;
   }
   return needed;
@@ -225,18 +252,33 @@ export function updateAutopilot(delta) {
     if (orbit) {
       needed = orbit.alt;
     } else {
-      needed = heightAlong(planeGroup.rotation.y);
-      // Turning toward the target: clear what's that way too
+      // Far ahead along the course to the target, where it's going; along
+      // the current heading only as far as it flies before turning onto
+      // that course (a glance down a heading mid-turn would otherwise climb
+      // over the volcano across the bay)
+      needed = heightAlong(heading);
       if (Math.abs(wrapAngle(heading - planeGroup.rotation.y)) > 0.2) {
-        needed = Math.max(needed, heightAlong(heading));
+        needed = Math.max(
+          needed,
+          heightAlong(planeGroup.rotation.y, TURN_LOOK_AHEAD)
+        );
       }
     }
-    // Climb at once; come down gradually
+    // Climb as needed; come down only once well clear, and gradually
     if (heldAlt === null || needed > heldAlt) heldAlt = needed;
-    else heldAlt = Math.max(needed, heldAlt - DESCENT_RATE * SCAN_INTERVAL);
+    else if (heldAlt - needed > DESCENT_MARGIN) {
+      heldAlt -= DESCENT_RATE * SCAN_INTERVAL;
+    }
   }
+  const y = planeGroup.position.y;
+  if (lastY !== null && delta > 0) {
+    // Smoothed, so a frame's jitter doesn't twitch the pitch
+    const k = 1 - Math.exp(-delta * 4);
+    verticalSpeed += ((y - lastY) / delta - verticalSpeed) * k;
+  }
+  lastY = y;
   state.targetPitch = THREE.MathUtils.clamp(
-    (heldAlt - planeGroup.position.y) * 0.015,
+    (heldAlt - y) * PITCH_PER_UNIT - verticalSpeed * PITCH_DAMPING,
     -MAX_DESCENT,
     MAX_CLIMB
   );
@@ -251,6 +293,8 @@ export function updateAutopilot(delta) {
 // Forget the route when the autopilot is turned off
 export function resetAutopilot() {
   heldAlt = null;
+  lastY = null;
+  verticalSpeed = 0;
   orbit = null;
   tourStop = null;
   setTourStop(null);
