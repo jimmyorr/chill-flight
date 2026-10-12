@@ -221,6 +221,17 @@ export const ChillFlightLogic = {};
   );
   const parsedMapLon = parseCoordinate(_mapLonParam, false);
 
+  // ?waypoint=<lat>,<long> sets a waypoint (waypoint.js), e.g. 4S,1E
+  const _waypointParam = getParam('waypoint', null);
+  const waypointParts = _waypointParam ? _waypointParam.split(',') : [];
+  const parsedWaypoint =
+    waypointParts.length === 2
+      ? [
+          parseCoordinate(waypointParts[0], true),
+          parseCoordinate(waypointParts[1], false),
+        ]
+      : null;
+
   const _mapXParam = getParam('mapX', getParam('mapx', null));
   const START_MAP_X =
     _mapXParam !== null && _mapXParam !== '' ? parseFloat(_mapXParam) : null;
@@ -3349,6 +3360,11 @@ export const ChillFlightLogic = {};
   exports.START_FULLSCREEN_MAP = START_FULLSCREEN_MAP;
   exports.parsedMapLat = parsedMapLat;
   exports.parsedMapLon = parsedMapLon;
+  // [lat, long] in degrees from ?waypoint=, or null
+  exports.WAYPOINT =
+    parsedWaypoint && parsedWaypoint.every(Number.isFinite)
+      ? parsedWaypoint
+      : null;
   exports.START_MAP_X = START_MAP_X;
   exports.START_MAP_Z = START_MAP_Z;
   exports.START_MAP_ZOOM = START_MAP_ZOOM;

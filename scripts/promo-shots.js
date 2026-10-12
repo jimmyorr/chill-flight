@@ -141,17 +141,15 @@ export const SHOTS = {
       '&cloudMood=busy',
     seconds: 4,
   },
-  'arch-pass': {
-    // North up the channel past the rock arch in early light, from behind
-    // and below, with open water ahead (flying west through the arch heads
-    // straight into a hill). High, and starting far enough back that a
-    // pirate ship in the channel stays small in the distance
+  'falls-pass': {
+    // South away from the falls (X = 0, Z = -4500: 0.9 North) in morning
+    // light, from ahead and above, the fall pouring from its bay behind the
+    // plane
     query:
-      'x=3540&y=95&z=-1450&heading=20&speed=1&tod=0.285&livery=coral' +
-      '&camOffset=-6,-2,36&camLook=0,6,-40&cloudMood=fair',
+      'x=40&y=330&z=-4280&heading=180&speed=1&tod=0.33&livery=coral' +
+      '&camOffset=12,75,-140&camLook=0,30,40&cloudMood=fair',
     seconds: 4,
-    still: false,
-    portrait: 'camOffset=-3,0,62&camLook=0,8,-60',
+    portrait: 'camOffset=8,26,-180',
   },
   'snow-biplane': {
     // From high above, over the snowy forest, in falling snow
@@ -166,16 +164,14 @@ export const SHOTS = {
     query:
       'x=10000&y=380&z=6900&heading=90&tod=0.5&plane=twin&livery=teal&ui=1' +
       '&cloudMood=fair',
-    seconds: 4,
   },
-  'volcano-rain': {
-    // Toward the volcano in afternoon rain; the haze also hides the coarse
-    // distant terrain
+  'canyon-run': {
+    // South down the canyon (X = 6300, Z = 15600: 1.3 East, 3.1 South) at
+    // midday, from above and behind, looking down into the gorge
     query:
-      'x=-2600&y=2500&z=2600&heading=135&speed=1&tod=0.62&livery=rose&ui=1' +
-      '&weather=rain',
+      'x=6300&y=440&z=15600&heading=180&speed=1&tod=0.5&plane=twin' +
+      '&livery=sand&camOffset=0,40,75&camLook=0,-60,-200&cloudMood=high',
     seconds: 4,
-    still: false,
   },
   'islands-sunset': {
     // North-west over the islands, side-on against the sunset
@@ -195,6 +191,15 @@ export const SHOTS = {
     still: false,
     portrait: 'x=8080&camOffset=-35,12,-85',
   },
+  'airport-dusk': {
+    // The game as players see it, the interface on: low along Meadow
+    // Field's runway (X = 1500, Z = 2400: 0.3 East, 0.5 South) at dusk, the
+    // runway lights on, past the parked planes
+    query:
+      'x=800&y=115&z=2400&heading=-90&speed=1&tod=0.8&headlight=1' +
+      '&livery=slate&ui=1&cloudMood=mackerel',
+    seconds: 4,
+  },
   aurora: {
     // North under the aurora, from low behind looking up at it (it needs
     // night, a clear sky, high northern latitudes and an active clock), after
@@ -209,6 +214,13 @@ export const SHOTS = {
   },
 
   // --- More stills ---
+  map: {
+    // The whole-world map with a waypoint set on the canyon, over the
+    // islands at midday
+    query:
+      'lat=0.2S&long=2.4E&heading=180&tod=0.5&ui=1&fullscreenmap=1' +
+      '&mapLat=3S&mapLong=-3&mapZoom=60000&waypoint=4S,1E&cloudMood=fair',
+  },
   'islands-sunrise': {
     // West over the islands, from low ahead, the sunrise behind the plane
     query:

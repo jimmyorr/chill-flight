@@ -26,7 +26,8 @@
 // Targets (sizes, device, cards) are in promo-shots.js. By default it renders
 // a production build written to a temp dir (never docs/); GAME_URL (e.g.
 // http://localhost:5173/) uses the dev server instead. Output goes to promo/
-// (OUT=dir). Options (env): SHEET (a target for the contact sheet, shrunk;
+// (OUT=dir). STYLE=anime renders in the anime art style, into promo/anime/
+// (the default, lowpoly, is the low-poly look). Options (env): SHEET (a target for the contact sheet, shrunk;
 // default web), SETTLE_MS (extra wait after the game loads, before a still or
 // a clip; default 1000), FPS (30), MUSIC (an audio file for the video; default the
 // bundled Purrple Cat track, `none` for silence). Needs ffmpeg.
@@ -65,7 +66,13 @@ if (mode === 'video' && !videoTarget?.video) {
   console.error(`${USAGE}\nVideo targets: ${videoTargets.join(', ')}`);
   process.exit(1);
 }
-const OUT = path.resolve(process.env.OUT || path.join(ROOT, 'promo'));
+// STYLE=anime renders everything in the anime art style, into promo/anime/
+// unless OUT says otherwise; the default is the low-poly look, into promo/
+const STYLE = process.env.STYLE || 'lowpoly';
+const OUT = path.resolve(
+  process.env.OUT ||
+    path.join(ROOT, 'promo', ...(STYLE === 'lowpoly' ? [] : [STYLE]))
+);
 const SETTLE_MS = Number(process.env.SETTLE_MS || 1000);
 const FPS = Number(process.env.FPS || 30);
 const PREROLL = Number(process.env.PREROLL || 1.5);
@@ -89,6 +96,7 @@ for (const name of selected) {
 // its portrait ones on a portrait target (e.g. another camera position)
 function shotUrl(shot, target, gameBase) {
   const params = new URLSearchParams(COMMON);
+  params.set('style', STYLE);
   const portrait = target.height > target.width;
   const queries = [shot.query, portrait ? shot.portrait : shot.landscape];
   for (const query of queries) {

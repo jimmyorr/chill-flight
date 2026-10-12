@@ -9,6 +9,9 @@ import {log} from './logger.js';
 import {planeGroup} from './airplane.js';
 import {camera} from './sky.js';
 import {state} from './state.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {getElevation} from './terrain-geometry.js';
+import {WATER_LEVEL} from './constants.js';
 
 const STORAGE_KEY = 'chill_flight_waypoint';
 // Within this many units (horizontally) counts as there
@@ -34,6 +37,13 @@ try {
   }
 } catch {
   /* none saved */
+}
+// ?waypoint=<lat>,<long> sets one for this visit (not saved)
+if (ChillFlightLogic.WAYPOINT) {
+  const [lat, lon] = ChillFlightLogic.WAYPOINT;
+  const x = lon * 5000;
+  const z = -lat * 5000;
+  waypoint = {x, y: Math.max(WATER_LEVEL, getElevation(x, z)), z};
 }
 
 function save() {

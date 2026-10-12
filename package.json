@@ -69,7 +69,7 @@
     "puppeteer-core": "^25.12.0",
     "vite": "^8.0.13"
   },
-  "description": "A minimalist flight simulator set in an endless, ever-changing world.",
+  "description": "A minimalist flight simulator set in a vast, ever-changing world.",
   "keywords": [
     "flight",
     "simulator",
