@@ -224,8 +224,9 @@ export function updateAutopilot(delta) {
     Math.hypot(target.x - x, target.z - z) < ORBIT_RADIUS
   ) {
     startOrbit(target, !!waypoint);
-    if (waypoint) clearWaypoint();
-    else visited.add(tourStop.name);
+    if (waypoint) {
+      if (!waypoint.stay) clearWaypoint();
+    } else visited.add(tourStop.name);
   }
   if (orbit && !orbit.loiter && Math.abs(orbit.swept) >= Math.PI * 2) {
     orbit = null;

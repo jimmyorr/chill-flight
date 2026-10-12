@@ -1,8 +1,9 @@
 // --- WAYPOINT ---
 // A spot picked on the map (minimap.js, "Set waypoint") to fly to. A small
 // marker sits over it on screen, or at the screen's edge pointing the way
-// when it's out of view, with the distance left. Cleared
-// on arrival or from the map. Saved between visits. With no waypoint, the
+// when it's out of view, with the distance left. Cleared on arrival or from
+// the map, except one set to stay (a coffee run errand's, which lasts until
+// you land there). Saved between visits. With no waypoint, the
 // marker shows the autopilot's next tour stop instead (autopilot.js).
 import * as THREE from 'three';
 import {log} from './logger.js';
@@ -20,7 +21,9 @@ const ARRIVE_DIST = 300;
 const EDGE_MARGIN = 36;
 const TOP_MARGIN = 96;
 
-let waypoint = null; // {x, y, z}: y is the ground (or water) height there
+// {x, y, z, stay}: y is the ground (or water) height there; stay keeps it
+// on arrival
+let waypoint = null;
 let tourStop = null; // The same, for the autopilot's tour: not saved
 
 try {
@@ -52,8 +55,8 @@ export function getWaypoint() {
   return waypoint;
 }
 
-export function setWaypoint(x, y, z) {
-  waypoint = {x, y, z};
+export function setWaypoint(x, y, z, stay = false) {
+  waypoint = {x, y, z, stay};
   save();
   log.info(`[Waypoint] Set at X = ${x.toFixed(0)}, Z = ${z.toFixed(0)}`);
 }
@@ -94,7 +97,7 @@ function update() {
     target.z - planeGroup.position.z
   );
   if (dist < ARRIVE_DIST) {
-    if (waypoint) clearWaypoint();
+    if (waypoint && !waypoint.stay) clearWaypoint();
     el.hidden = true;
     return;
   }

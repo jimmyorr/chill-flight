@@ -2254,6 +2254,29 @@ input[type='number'].customization-input {
   font-size: 15px;
   line-height: 1.4;
 }
+.coffee-dialog-choices {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.coffee-dialog-choices[hidden],
+#coffee-dialog.asking .coffee-dialog-next {
+  display: none;
+}
+.coffee-dialog-choices button {
+  padding: 8px 14px;
+  border: 1px solid #e8c48a;
+  border-radius: 6px;
+  background: rgba(232, 196, 138, 0.12);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.coffee-dialog-choices button:hover {
+  background: rgba(232, 196, 138, 0.28);
+}
 .coffee-dialog-next {
   position: absolute;
   right: 12px;

@@ -99,18 +99,6 @@
                 class="pause-switch"
               />
             </label>
-            <!-- coffee-run.js -->
-            <label class="pause-row" for="coffee-toggle-input">
-              <span class="pause-row-text">
-                <span class="pause-row-title">Coffee run</span>
-                <span class="pause-row-sub">Fly beans for Ray's roastery</span>
-              </span>
-              <input
-                type="checkbox"
-                id="coffee-toggle-input"
-                class="pause-switch"
-              />
-            </label>
           </div>
 
           <div class="pause-panel" data-panel="settings" role="tabpanel">
@@ -422,12 +410,17 @@
       </div>
     </div>
 
-    <!-- Ray talks here during the coffee run (coffee-run.js): tap for more -->
+    <!-- Ray talks here when you land at his field (coffee-run.js): tap for
+         more -->
     <div id="coffee-dialog" hidden>
       <canvas id="coffee-portrait" width="32" height="32"></canvas>
       <div class="coffee-dialog-body">
-        <div class="coffee-dialog-name">Ray</div>
+        <div id="coffee-dialog-name" class="coffee-dialog-name">Ray</div>
         <div id="coffee-dialog-text" class="coffee-dialog-text"></div>
+        <div id="coffee-dialog-choices" class="coffee-dialog-choices" hidden>
+          <button data-choice="yes">Sure thing</button>
+          <button data-choice="no">Not right now</button>
+        </div>
       </div>
       <div class="coffee-dialog-next" aria-hidden="true">▼</div>
     </div>

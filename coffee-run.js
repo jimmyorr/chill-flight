@@ -1,10 +1,13 @@
 // --- COFFEE RUN ---
-// An opt-in errand loop for Ray's roastery (coffee-logic.js has the rules):
-// the Coffee run switch in the pause menu turns it on, the waypoint points to
-// the next field, and landing there (rolling on the runway, slowed to a
-// stop) picks up beans, has Ray roast them, or delivers them. Ray talks in a dialog
-// box along the bottom of the screen with a pixel-art face. The run is saved
-// between visits.
+// Ray's roastery errands (coffee-logic.js has the rules). Land at Meadow
+// Field and Ray offers an errand, which you take or turn down; on an errand,
+// the waypoint points to the next field, and landing there (rolling on the
+// runway, slowed to a stop) picks up beans, has Ray roast them, or delivers
+// them. The errand's waypoint stays until you land there. Clearing it on the
+// map cancels the errand (minimap.js calls cancelErrand); another waypoint is
+// a detour, and once it's reached or cleared the errand's comes back. Ray
+// talks in a dialog box along the bottom of the screen with a pixel-art face.
+// The run is saved between visits.
 import {log} from './logger.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
@@ -12,17 +15,20 @@ import {planeGroup} from './airplane.js';
 import {getElevation} from './terrain-geometry.js';
 import {Achievements} from './achievements.js';
 import {isOnWheels} from './flight-physics.js';
-import {setWaypoint} from './waypoint.js';
+import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 import {BASE_FLIGHT_SPEED} from './constants.js';
 import {
+  PEOPLE,
+  accept,
+  cancel,
   cargoLabel,
+  decline,
   destination,
   land,
-  startRun,
+  newRun,
   validRun,
 } from './coffee-logic.js';
 
-const ENABLED_KEY = 'chill_flight_coffee';
 const RUN_KEY = 'chill_flight_coffee_run';
 // Slower than this (knots) on the wheels counts as stopped
 const STOPPED_KTS = 20;
@@ -31,7 +37,6 @@ const TYPE_RATE = 35;
 // Ray's mouth closes and opens again every this many seconds as he talks
 const MOUTH_SECONDS = 0.18;
 
-const checkbox = document.getElementById('coffee-toggle-input');
 const hud = document.getElementById('coffee-hud');
 const hudCount = document.getElementById('coffee-hud-count');
 const hudCargo = document.getElementById('coffee-hud-cargo');
@@ -40,24 +45,27 @@ const hudAuto = document.getElementById('coffee-hud-auto');
 const statusPanel = document.getElementById('cockpit-status-panel');
 const dialog = document.getElementById('coffee-dialog');
 const portrait = document.getElementById('coffee-portrait');
+const dialogName = document.getElementById('coffee-dialog-name');
 const dialogText = document.getElementById('coffee-dialog-text');
+const choices = document.getElementById('coffee-dialog-choices');
 
-let enabled = false;
-let run = null;
+let run = newRun();
 // The field the plane last stopped at, so one stop counts once
 let stoppedAt = null;
 
 try {
-  enabled = localStorage.getItem(ENABLED_KEY) === 'true';
-  run = validRun(JSON.parse(localStorage.getItem(RUN_KEY)));
+  // ?coffee=reset starts over, as if Ray had never met you (for testing his
+  // lines)
+  if (ChillFlightLogic.urlParams?.get('coffee') !== 'reset') {
+    run = validRun(JSON.parse(localStorage.getItem(RUN_KEY))) || run;
+  }
 } catch {
   /* nothing saved */
 }
 
 function save() {
   try {
-    localStorage.setItem(ENABLED_KEY, String(enabled));
-    if (run) localStorage.setItem(RUN_KEY, JSON.stringify(run));
+    localStorage.setItem(RUN_KEY, JSON.stringify(run));
   } catch {
     /* storage unavailable: it lasts this visit */
   }
@@ -144,20 +152,28 @@ function drawFace(mouthClosed) {
 }
 
 // --- DIALOG ---
-// Ray's lines one at a time, typed out. A tap, click or Enter shows the
-// whole line, then the next one, then closes it.
+// Lines one at a time, typed out. A tap, click or Enter shows the whole line,
+// then the next one, then closes it. A question waits on its last line for
+// Sure thing (Enter or Y) or Not right now (N).
 let lines = [];
 let lineIndex = 0;
 let typing = null;
+let onAnswer = null;
 
 function stopTyping() {
   if (typing) clearInterval(typing);
   typing = null;
   drawFace(false);
+  if (onAnswer && lineIndex === lines.length - 1) {
+    choices.hidden = false;
+    dialog.classList.add('asking');
+  }
 }
 
 function showLine() {
   stopTyping();
+  choices.hidden = true;
+  dialog.classList.remove('asking');
   const line = lines[lineIndex];
   const started = performance.now();
   dialogText.textContent = '';
@@ -170,15 +186,19 @@ function showLine() {
   }, 1000 / TYPE_RATE);
 }
 
-function openDialog(newLines) {
+// answer(yes) is called when a question is answered
+function openDialog(name, newLines, answer = null) {
   if (!dialog || !newLines?.length) return;
+  dialogName.textContent = name;
   lines = newLines;
   lineIndex = 0;
+  onAnswer = answer;
   dialog.hidden = false;
   showLine();
 }
 
 function closeDialog() {
+  onAnswer = null;
   stopTyping();
   if (dialog) dialog.hidden = true;
   lines = [];
@@ -191,20 +211,38 @@ function advanceDialog() {
     dialogText.textContent = lines[lineIndex];
     return;
   }
+  // The question waits for an answer
+  if (onAnswer && lineIndex === lines.length - 1) return;
   lineIndex++;
   if (lineIndex < lines.length) showLine();
   else closeDialog();
+}
+
+function answer(yes) {
+  const respond = onAnswer;
+  if (!respond || !choices || choices.hidden) return;
+  onAnswer = null;
+  respond(yes);
 }
 
 if (dialog) {
   dialog.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    advanceDialog();
+    const choice = e.target.closest('[data-choice]');
+    if (choice) answer(choice.dataset.choice === 'yes');
+    else advanceDialog();
   });
 }
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !state.isPaused && lines.length) advanceDialog();
+  if (state.isPaused || !lines.length) return;
+  const key = e.key.toLowerCase();
+  if (onAnswer && choices && !choices.hidden) {
+    if (key === 'enter' || key === 'y') answer(true);
+    else if (key === 'n') answer(false);
+  } else if (key === 'enter') {
+    advanceDialog();
+  }
 });
 
 // --- HUD AND WAYPOINT ---
@@ -214,51 +252,48 @@ function airportByName(name) {
 
 function pointToDestination() {
   const a = airportByName(destination(run));
-  if (a) setWaypoint(a.x, getElevation(a.x, a.z), a.z);
+  if (a) setWaypoint(a.x, getElevation(a.x, a.z), a.z, true);
 }
 
+// Whether the waypoint is the errand's (not a detour)
+function onErrandWaypoint() {
+  const w = getWaypoint();
+  const a = airportByName(destination(run));
+  return !!(w && a && w.x === a.x && w.z === a.z);
+}
+
+// The row shows only on an errand
 function updateHud() {
   if (!hud) return;
-  hud.hidden = !enabled || !run;
+  const field = destination(run);
+  hud.hidden = !field;
   if (statusPanel) statusPanel.style.display = hud.hidden ? 'flex' : 'none';
   if (hud.hidden) return;
   hudCount.textContent = `${run.delivered} delivered`;
-  const cargo = cargoLabel(run);
-  hudCargo.textContent = cargo
-    ? `${cargo} → ${destination(run)}`
-    : `Empty → ${destination(run)}`;
+  hudCargo.textContent = `${cargoLabel(run) || 'Empty'} → ${field}`;
 }
 
-function setEnabled(on) {
-  enabled = on;
-  if (checkbox) checkbox.checked = on;
-  if (on && !run) {
-    const start = startRun();
-    run = start.run;
-    openDialog(start.dialog);
-    log.info(`[Coffee run] Started: ${run.farm} to ${run.buyer}`);
-  }
-  if (on) pointToDestination();
-  else closeDialog();
+function setRun(next) {
+  run = next;
   save();
   updateHud();
 }
 
-if (checkbox) {
-  checkbox.addEventListener('change', () => setEnabled(checkbox.checked));
+// Clearing the errand's waypoint on the map drops the errand (minimap.js
+// calls this just before clearing it). Clearing a detour doesn't.
+export function cancelErrand() {
+  if (!onErrandWaypoint()) return;
+  setRun(cancel(run));
+  Achievements.toast({
+    emoji: '☕',
+    label: 'ERRAND DROPPED',
+    title: 'No worries',
+  });
+  log.info('[Coffee run] Errand cancelled');
 }
+
 drawFace(false);
-// ?coffee=reset starts over from Ray's welcome (for testing his lines);
-// ?coffee=1 or 0 turns it on or off
-const param = ChillFlightLogic.urlParams?.get('coffee');
-if (param === 'reset') {
-  run = null;
-  setEnabled(true);
-} else if (param === '1' || param === '0') {
-  setEnabled(param === '1');
-} else {
-  setEnabled(enabled);
-}
+updateHud();
 
 // --- LANDING ---
 // The airport whose flat field (x, z) is on, if any
@@ -276,13 +311,39 @@ function airportAt(x, z) {
   return nearest;
 }
 
+function landedAt(a) {
+  const person = PEOPLE[a.name];
+  const result = land(run, a.name);
+  if (result.run === run) return;
+  const errandWaypoint = onErrandWaypoint();
+  setRun(result.run);
+  if (destination(run)) pointToDestination();
+  // Delivered: the errand's waypoint is done
+  else if (errandWaypoint) clearWaypoint();
+  if (result.toast) Achievements.toast({emoji: '☕', ...result.toast});
+  if (result.offer) {
+    openDialog(person, result.dialog, (yes) => {
+      const reply = yes ? accept(run) : decline(run);
+      setRun(reply.run);
+      if (yes) pointToDestination();
+      openDialog(person, reply.dialog);
+      log.info(`[Coffee run] Errand ${yes ? 'taken' : 'turned down'}`);
+    });
+  } else if (result.dialog) {
+    openDialog(person, result.dialog);
+  }
+  log.info(`[Coffee run] Landed at ${a.name}, next: ${destination(run)}`);
+}
+
 function update() {
   requestAnimationFrame(update);
-  if (!enabled || !run || !planeGroup || state.isPaused) return;
+  if (!planeGroup || state.isPaused) return;
   // The row stands in for the AUTOPILOT line too
   if (hudAuto && hudAuto.hidden === state.autopilotEnabled) {
     hudAuto.hidden = !state.autopilotEnabled;
   }
+  // A detour's waypoint was reached or cleared: back to the errand
+  if (destination(run) && !getWaypoint()) pointToDestination();
   const kts = BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
   if (!isOnWheels() || kts > STOPPED_KTS) {
     stoppedAt = null;
@@ -291,15 +352,7 @@ function update() {
   const a = airportAt(planeGroup.position.x, planeGroup.position.z);
   if (!a || a === stoppedAt) return;
   stoppedAt = a;
-  const result = land(run, a.name);
-  if (result.run === run) return;
-  run = result.run;
-  save();
-  updateHud();
-  pointToDestination();
-  if (result.toast) Achievements.toast({emoji: '☕', ...result.toast});
-  if (result.dialog) openDialog(result.dialog);
-  log.info(`[Coffee run] Landed at ${a.name}, next: ${destination(run)}`);
+  landedAt(a);
 }
 
 requestAnimationFrame(update);
