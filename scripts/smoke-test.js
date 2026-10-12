@@ -419,17 +419,27 @@ async function exerciseControls(page, tag) {
     true,
     'open map from pause menu'
   );
+  // Escape goes back to the pause menu it was opened from
+  await page.keyboard.press('Escape');
+  await wait(800);
+  if (await isVisible('#fullscreen-map-overlay')) {
+    fail('Escape did not close the fullscreen map');
+  }
+  if (!(await isPaused())) fail('closing the map left the pause menu');
+  // The map's Resume goes straight back to flying
   await clickAndCheck(
-    '#fullscreen-map-close-btn',
+    '#pause-map-btn',
+    '#fullscreen-map-overlay',
+    true,
+    'reopen map from pause menu'
+  );
+  await clickAndCheck(
+    '#fullscreen-map-resume-btn',
     '#fullscreen-map-overlay',
     false,
-    'close fullscreen map'
+    'resume from the map'
   );
-  await page
-    .click('#resume-btn')
-    .catch((err) => fail(`resume: ${err.message}`));
-  await wait(800);
-  if (await isPaused()) fail('resume button did not unpause the game');
+  if (await isPaused()) fail("the map's Resume did not unpause the game");
   if (errors.length === errorsBefore) {
     console.log(
       '  controls: move, throttle, steer, camera, toggles, minimap, pause menu ok'

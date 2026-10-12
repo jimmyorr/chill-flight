@@ -259,44 +259,27 @@
             >0.0° N, 0.0° E</span
           >
         </div>
-        <div class="fullscreen-map-actions">
-          <button
-            id="fullscreen-map-recenter-btn"
-            class="fullscreen-map-header-btn"
-            title="Center on plane"
-            aria-label="Center on plane"
-          >
-            🎯
-          </button>
-          <button
-            id="fullscreen-map-close-btn"
-            class="fullscreen-map-close-btn"
-            title="Close map"
-            aria-label="Close map"
-          >
-            ✕
-          </button>
-        </div>
       </div>
-      <div class="fullscreen-map-zoom-controls">
-        <button
-          id="fullscreen-map-zoom-in"
-          class="fullscreen-map-zoom-btn"
-          title="Zoom in"
-          aria-label="Zoom in"
-        >
-          +
-        </button>
-        <div class="fullscreen-map-zoom-divider"></div>
-        <button
-          id="fullscreen-map-zoom-out"
-          class="fullscreen-map-zoom-btn"
-          title="Zoom out"
-          aria-label="Zoom out"
-        >
-          −
-        </button>
-      </div>
+      <!-- Google Maps style: center on the plane at the bottom right, and a
+           thumb-reach bar back to flying (minimap.js) -->
+      <button
+        id="fullscreen-map-recenter-btn"
+        class="fullscreen-map-recenter-btn"
+        title="Center on plane"
+        aria-label="Center on plane"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="7" />
+          <circle cx="12" cy="12" r="2.5" class="fill" />
+          <path d="M12 1v4M12 19v4M1 12h4M19 12h4" />
+        </svg>
+      </button>
+      <button
+        id="fullscreen-map-resume-btn"
+        class="btn fullscreen-map-resume-btn"
+      >
+        R E S U M E
+      </button>
       <div class="fullscreen-map-hint">
         <span
           >Pinch or scroll to zoom &bull; Drag to pan &bull; Tap to pick a

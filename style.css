@@ -1910,123 +1910,86 @@ input[type='number'].customization-input {
   letter-spacing: 0.5px;
 }
 
-.fullscreen-map-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.fullscreen-map-header-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border-radius: 8px;
-  width: 34px;
-  height: 34px;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  outline: none;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.fullscreen-map-header-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.fullscreen-map-header-btn:active {
-  transform: scale(0.95);
-}
-
-.fullscreen-map-close-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.85);
-  border-radius: 8px;
-  width: 34px;
-  height: 34px;
-  font-size: 16px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  outline: none;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.fullscreen-map-close-btn:hover {
-  background: rgba(231, 76, 60, 0.3);
-  border-color: rgba(231, 76, 60, 0.6);
-  color: #ff6b6b;
-}
-
-.fullscreen-map-close-btn:active {
-  transform: scale(0.95);
-}
-
-.fullscreen-map-zoom-controls {
+/* Center on plane: bottom right above the resume bar, its right edge
+   lined up with the bar's */
+.fullscreen-map-recenter-btn {
   position: absolute;
-  bottom: max(28px, env(safe-area-inset-bottom));
-  right: max(20px, env(safe-area-inset-right));
-  background: rgba(15, 20, 32, 0.78);
+  right: calc(50% - min(45%, 250px));
+  bottom: 104px;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: rgba(15, 20, 32, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  z-index: 20;
-  overflow: hidden;
-  pointer-events: auto;
-}
-
-.fullscreen-map-zoom-btn {
-  width: 44px;
-  height: 44px;
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-size: 22px;
-  font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s ease;
+  z-index: 20;
   outline: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.fullscreen-map-zoom-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+.fullscreen-map-recenter-btn svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
-.fullscreen-map-zoom-btn:active {
-  background: rgba(255, 255, 255, 0.25);
+.fullscreen-map-recenter-btn svg .fill {
+  fill: currentColor;
+  stroke: none;
 }
 
-.fullscreen-map-zoom-divider {
-  width: 100%;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.1);
+.fullscreen-map-recenter-btn:active {
+  transform: scale(0.95);
 }
 
-/* The pin's "Warp here" / "Set waypoint" panel (minimap.js), above the hint */
-.fullscreen-map-warp {
+/* Back to flying: where the flight controls sit (#mobile-controls), so
+   it's in thumb reach on phones */
+.fullscreen-map-resume-btn {
   position: absolute;
-  bottom: calc(max(24px, env(safe-area-inset-bottom)) + 40px);
+  bottom: 30px;
   left: 50%;
   transform: translateX(-50%);
+  width: 90%;
+  max-width: 500px;
+  height: 56px;
+  margin: 0;
+  background: rgba(15, 20, 32, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fullscreen-map-resume-btn:hover {
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.fullscreen-map-resume-btn:active {
+  transform: translateX(-50%) scale(0.98);
+}
+
+/* The pin's "Warp here" / "Set waypoint" panel (minimap.js), above the resume bar */
+.fullscreen-map-warp {
+  position: absolute;
+  bottom: 104px;
+  /* From the resume bar's left edge to the center-on-plane button */
+  left: calc(50% - min(45%, 250px));
+  right: calc(50% - min(45%, 250px) + 62px);
+  justify-content: space-between;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2077,6 +2040,12 @@ input[type='number'].customization-input {
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* The hint makes way for the pin panel */
+#fullscreen-map-overlay:has(#fullscreen-map-warp:not([hidden]))
+  .fullscreen-map-hint {
+  display: none;
+}
+
 /* hidden overrides the panel's own display: flex */
 .fullscreen-map-warp[hidden],
 .fullscreen-map-warp [hidden] {
@@ -2099,14 +2068,9 @@ input[type='number'].customization-input {
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* Narrow screens: keep the panel clear of the zoom buttons at the right */
+/* Narrow screens: the coordinates get their own line */
 @media (max-width: 600px) {
   .fullscreen-map-warp {
-    left: max(12px, env(safe-area-inset-left));
-    right: calc(max(20px, env(safe-area-inset-right)) + 56px);
-    transform: none;
-    justify-content: space-between;
-    bottom: max(28px, env(safe-area-inset-bottom));
     flex-wrap: wrap;
     gap: 8px;
   }
@@ -2123,7 +2087,7 @@ input[type='number'].customization-input {
 
 .fullscreen-map-hint {
   position: absolute;
-  bottom: max(24px, env(safe-area-inset-bottom));
+  bottom: 112px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.55);

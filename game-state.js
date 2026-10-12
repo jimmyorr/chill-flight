@@ -105,6 +105,9 @@ var suppressPauseClickUntil = 0;
 export function suppressPauseClick(durationMs = 500) {
   suppressPauseClickUntil = Date.now() + durationMs;
 }
+export function isPauseClickSuppressed() {
+  return Date.now() < suppressPauseClickUntil;
+}
 
 if (pauseOverlay) {
   pauseOverlay.addEventListener('click', (e) => {

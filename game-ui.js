@@ -1,6 +1,10 @@
 import {log} from './logger.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {clearInputState, togglePause} from './game-state.js';
+import {
+  clearInputState,
+  isPauseClickSuppressed,
+  togglePause,
+} from './game-state.js';
 import {
   HEADLIGHT_GLOW_INTENSITY,
   HEADLIGHT_INTENSITY,
@@ -105,6 +109,9 @@ if (menuTrigger && menuContainer) {
   menuTrigger.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    // The map's close button sits over this one: don't let the click its tap
+    // sends after closing the map open the menu
+    if (isPauseClickSuppressed()) return;
     menuContainer.classList.toggle('expanded');
   });
 }

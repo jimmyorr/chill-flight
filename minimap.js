@@ -1163,10 +1163,14 @@ import {LANDMARKS} from './landmarks.js';
       btn.addEventListener('click', handleAction);
     };
 
-    const closeBtn = document.getElementById('fullscreen-map-close-btn');
-    attachButtonAction(closeBtn, () => {
-      closeFullscreenMap();
-    });
+    // Back to flying, wherever the map was opened from
+    attachButtonAction(
+      document.getElementById('fullscreen-map-resume-btn'),
+      () => {
+        closeFullscreenMap();
+        if (state.isPaused) togglePause();
+      }
+    );
 
     attachButtonAction(
       document.getElementById('fullscreen-map-warp-btn'),
@@ -1209,22 +1213,6 @@ import {LANDMARKS} from './landmarks.js';
         renderFullscreenMap();
         updateFsMapUrlParams(true);
       }
-    });
-
-    const zoomInBtn = document.getElementById('fullscreen-map-zoom-in');
-    attachButtonAction(zoomInBtn, () => {
-      fsViewRadius = Math.max(FS_MIN_RADIUS, fsViewRadius / 1.3);
-      updateCoordsDisplay();
-      renderFullscreenMap();
-      updateFsMapUrlParams(true);
-    });
-
-    const zoomOutBtn = document.getElementById('fullscreen-map-zoom-out');
-    attachButtonAction(zoomOutBtn, () => {
-      fsViewRadius = Math.min(FS_MAX_RADIUS, fsViewRadius * 1.3);
-      updateCoordsDisplay();
-      renderFullscreenMap();
-      updateFsMapUrlParams(true);
     });
 
     // Pointer events for mobile pinch-zoom and drag-to-pan
