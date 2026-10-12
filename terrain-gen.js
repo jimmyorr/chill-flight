@@ -315,6 +315,11 @@ function getElevation(x, z, elevParams) {
   );
 }
 
+// Pirate ships only sail water at least this deep, at their spot and 300
+// units around it, so they stay off the south coast's shallow shelf (2 to
+// 4.5 units deep, see southShelfFloor) and other shallows.
+const PIRATE_SHIP_MIN_DEPTH = 6;
+
 // Water depth averaged over about +-4 grid cells (~200 units on the mid
 // preset), for the water's color and transparency: they blend gradually
 // from the beach to open water instead of following the steep true depth.
@@ -1048,16 +1053,17 @@ export function generateChunkData({
         hasWater = true;
         if (_enableObjects) {
           if (rng() < 0.0001 * densityScale) {
-            if (height <= WATER_LEVEL + 0.1 && snowFactor < 0.2) {
+            const shipFloor = WATER_LEVEL - PIRATE_SHIP_MIN_DEPTH;
+            if (height <= shipFloor && snowFactor < 0.2) {
               const eN = getElevation(worldX, worldZ - 300, elevParams);
               const eS = getElevation(worldX, worldZ + 300, elevParams);
               const eE = getElevation(worldX + 300, worldZ, elevParams);
               const eW = getElevation(worldX - 300, worldZ, elevParams);
               if (
-                eN <= WATER_LEVEL + 0.1 &&
-                eS <= WATER_LEVEL + 0.1 &&
-                eE <= WATER_LEVEL + 0.1 &&
-                eW <= WATER_LEVEL + 0.1
+                eN <= shipFloor &&
+                eS <= shipFloor &&
+                eE <= shipFloor &&
+                eW <= shipFloor
               ) {
                 pirateShipPositions.push({
                   x: localX,
@@ -2000,7 +2006,7 @@ export function generateChunkData({
         const wX = worldOffsetX + px;
         const wZ = worldOffsetZ + pz;
         const h = getElevation(wX, wZ, elevParams);
-        if (h <= WATER_LEVEL + 1.1) {
+        if (h <= WATER_LEVEL - PIRATE_SHIP_MIN_DEPTH) {
           pirateShipPositions.push({
             x: px,
             y: WATER_LEVEL,
