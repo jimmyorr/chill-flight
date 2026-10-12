@@ -110,6 +110,7 @@ import {updateVRPauseInteraction} from './vr-manager.js';
 import {scene} from './scene.js';
 import {clearInputState} from './game-state.js';
 import {showStartPlaneTooltip, toggleAutopilot} from './game-ui.js';
+import {updateAutopilot} from './autopilot.js';
 import {updateFlightPhysics} from './flight-physics.js';
 import {log} from './logger.js';
 import {
@@ -1272,79 +1273,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     state.autopilotEnabled &&
     state.flightSpeedMultiplier > 0
   ) {
-    state.isDoingImmelmann = false;
-    // 1. Maintain cruising speed (150 kts = 1.0 multiplier)
-    state.targetFlightSpeed = 1.0;
-
-    // 2. Altitude Control
-    const currentRiverZ = ChillFlightLogic.getRiverCenterZ
-      ? ChillFlightLogic.getRiverCenterZ(planeGroup.position.x, 0, simplex, 0)
-      : 0;
-
-    const distToRiver = Math.abs(currentRiverZ - planeGroup.position.z);
-    let targetAltY = 145.5; // 2500 altitude
-    if (distToRiver > 1500) {
-      targetAltY = 445.5; // 10000 altitude
-    } else if (distToRiver > 500) {
-      const t = (distToRiver - 500) / 1000;
-      targetAltY = 145.5 + t * (445.5 - 145.5);
-    }
-
-    const altError = Math.max(0, targetAltY - planeGroup.position.y);
-    const maxAutoPitch = Math.PI / 6; // 30 degrees limit
-    state.targetPitch = THREE.MathUtils.clamp(
-      altError * 0.01,
-      -maxAutoPitch,
-      maxAutoPitch
-    );
-
-    // 3. Direction Control -> Always face the sun along the equator river
-    // 1 for East (Sunrise / Morning), -1 for West (Sunset / Afternoon)
-    const _sunX = Math.sin(state.timeOfDay);
-    const lookDirX = _sunX >= 0 ? 1 : -1;
-
-    // We look ahead a bit to calculate the river's local angle
-    const lookAheadX = planeGroup.position.x + lookDirX * 300;
-    const targetRiverZ = ChillFlightLogic.getRiverCenterZ
-      ? ChillFlightLogic.getRiverCenterZ(lookAheadX, 0, simplex, 0)
-      : 0;
-
-    // Calculate the vector pointing down the river
-    const dx = lookAheadX - planeGroup.position.x;
-    const dz = targetRiverZ - currentRiverZ;
-
-    // In this coordinate system, looking down -Z is rotation.y = 0.
-    const riverAngle = Math.atan2(-dx, -dz);
-
-    // Offset to steer back towards the center of the river.
-    const zError = currentRiverZ - planeGroup.position.z;
-    // If flying East (+X), we need the opposite correction sign to steer correctly towards the river.
-    const correctionSign = lookDirX < 0 ? 1 : -1;
-    const correctionAngle = THREE.MathUtils.clamp(
-      zError * 0.003 * correctionSign,
-      -Math.PI / 4,
-      Math.PI / 4
-    );
-
-    const targetYaw = riverAngle + correctionAngle;
-
-    let yawError = targetYaw - planeGroup.rotation.y;
-    while (yawError > Math.PI) yawError -= Math.PI * 2;
-    while (yawError < -Math.PI) yawError += Math.PI * 2;
-
-    // Bank (roll) the plane to turn
-    const maxAutoRoll = Math.PI / 4;
-    state.targetRoll = THREE.MathUtils.clamp(
-      yawError * 1.5,
-      -maxAutoRoll,
-      maxAutoRoll
-    );
-
-    // Cancel manual maneuvers
-    state.isLooping = false;
-    state.isSteepPitch = false;
-    state.isBarrelRolling = false;
-    state.isClampedRoll = false;
+    updateAutopilot(delta);
   } else if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
     if (state.isDoingImmelmann) {
       if (state.immelmannProgress < Math.PI) {

@@ -33,6 +33,7 @@ import {updateUrlParams} from './constants.js';
 import {hooks} from './hooks.js';
 import {Achievements} from './achievements.js';
 import {getChunkLoadingProgress} from './terrain-chunks.js';
+import {resetAutopilot} from './autopilot.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -49,6 +50,7 @@ export function toggleAutopilot(forceState) {
   } else {
     state.autopilotEnabled = !state.autopilotEnabled;
   }
+  if (!state.autopilotEnabled) resetAutopilot();
   const msg = state.autopilotEnabled
     ? 'AUTOPILOT ENABLED'
     : 'AUTOPILOT DISABLED';

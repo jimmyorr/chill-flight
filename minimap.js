@@ -24,6 +24,7 @@ import {
 } from './game.js';
 import {state} from './state.js';
 import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
+import {LANDMARKS} from './landmarks.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -53,56 +54,6 @@ import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 
   // Scratch [r, g, b] for mapColor
   const _color = [0, 0, 0];
-
-  const LANDMARKS = [
-    {
-      name: 'Volcano',
-      x: -5000,
-      z: 5000,
-      color: '#e74c3c', // vibrant red-orange
-      symbol: '▲',
-    },
-    {
-      name: 'Lighthouse',
-      x: 6000,
-      z: 3000,
-      color: '#3498db', // vibrant blue beacon
-      symbol: '☤',
-    },
-    {
-      name: 'Rock Arch',
-      x: 3000,
-      z: ChillFlightLogic.WORLD_SEED
-        ? ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED)() * 10000 -
-          5000
-        : 0,
-      color: '#2ecc71', // lush emerald green
-      symbol: '∩',
-    },
-    {
-      name: 'Falls',
-      x: ChillFlightLogic.FALLS_X,
-      z: ChillFlightLogic.FALLS_Z,
-      color: '#7fd8f0', // falling-water blue
-      symbol: '≋',
-    },
-    {
-      // Halfway down the canyon (chill-flight-logic.js)
-      name: 'Canyon',
-      x: ChillFlightLogic.CANYON_PATH[2][0] * 5000,
-      z: -ChillFlightLogic.CANYON_PATH[2][1] * 5000,
-      color: '#d2693c', // canyon-rock rust
-      symbol: '⩔',
-    },
-    // The airports (chill-flight-logic.js)
-    ...ChillFlightLogic.AIRPORTS.map((a) => ({
-      name: a.name,
-      x: a.x,
-      z: a.z,
-      color: '#f1c40f', // runway-light amber
-      symbol: '✈',
-    })),
-  ];
 
   function initMinimap() {
     // Create background canvas for offscreen heightmap caching

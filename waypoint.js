@@ -2,7 +2,8 @@
 // A spot picked on the map (minimap.js, "Set waypoint") to fly to. A small
 // marker sits over it on screen, or at the screen's edge pointing the way
 // when it's out of view, with the minutes left at the current speed. Cleared
-// on arrival or from the map. Saved between visits.
+// on arrival or from the map. Saved between visits. With no waypoint, the
+// marker shows the autopilot's next tour stop instead (autopilot.js).
 import * as THREE from 'three';
 import {log} from './logger.js';
 import {planeGroup} from './airplane.js';
@@ -24,6 +25,7 @@ const EDGE_MARGIN = 36;
 const TOP_MARGIN = 96;
 
 let waypoint = null; // {x, y, z}: y is the ground (or water) height there
+let tourStop = null; // The same, for the autopilot's tour: not saved
 
 try {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -56,6 +58,10 @@ export function setWaypoint(x, y, z) {
 export function clearWaypoint() {
   waypoint = null;
   save();
+}
+
+export function setTourStop(spot) {
+  tourStop = spot;
 }
 
 const el = document.getElementById('waypoint-indicator');
@@ -97,17 +103,18 @@ function update() {
   requestAnimationFrame(update);
   if (!el) return;
   if (planeGroup) trackSpeed();
-  if (!waypoint || !planeGroup || state.isVRPresenting) {
+  const target = waypoint || tourStop;
+  if (!target || !planeGroup || state.isVRPresenting) {
     el.hidden = true;
     return;
   }
 
   const dist = Math.hypot(
-    waypoint.x - planeGroup.position.x,
-    waypoint.z - planeGroup.position.z
+    target.x - planeGroup.position.x,
+    target.z - planeGroup.position.z
   );
   if (dist < ARRIVE_DIST) {
-    clearWaypoint();
+    if (waypoint) clearWaypoint();
     el.hidden = true;
     return;
   }
@@ -115,9 +122,7 @@ function update() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   // Where it is relative to the camera (looking down -Z)
-  _v.set(waypoint.x, waypoint.y, waypoint.z).applyMatrix4(
-    camera.matrixWorldInverse
-  );
+  _v.set(target.x, target.y, target.z).applyMatrix4(camera.matrixWorldInverse);
   const vx = _v.x;
   const vy = _v.y;
   const inFront = _v.z < 0;
