@@ -1,7 +1,7 @@
 // --- WAYPOINT ---
 // A spot picked on the map (minimap.js, "Set waypoint") to fly to. A small
 // marker sits over it on screen, or at the screen's edge pointing the way
-// when it's out of view, with the minutes left at the current speed. Cleared
+// when it's out of view, with the distance left. Cleared
 // on arrival or from the map. Saved between visits. With no waypoint, the
 // marker shows the autopilot's next tour stop instead (autopilot.js).
 import * as THREE from 'three';
@@ -16,13 +16,9 @@ import {WATER_LEVEL} from './constants.js';
 const STORAGE_KEY = 'chill_flight_waypoint';
 // Within this many units (horizontally) counts as there
 const ARRIVE_DIST = 300;
-// Ground speed (units/s) is smoothed over about this long (s), so throttle
-// taps and turns don't make the time flicker
-const SPEED_SMOOTHING = 3;
-// Slower than this (units/s), there's no time to show
-const MIN_SPEED = 2;
-// A move further than this in one frame is a warp, not flying
-const JUMP_DIST = 1000;
+// World units to meters, on the speed readout's scale (a unit per second
+// reads as a knot)
+const UNITS_TO_M = 0.5144;
 // Keep the edge marker this far (px) inside the screen, and clear of the HUD
 const EDGE_MARGIN = 36;
 const TOP_MARGIN = 96;
@@ -75,44 +71,21 @@ export function setTourStop(spot) {
 }
 
 const el = document.getElementById('waypoint-indicator');
-const timeEl = document.getElementById('waypoint-time');
+const distEl = document.getElementById('waypoint-distance');
 const _v = new THREE.Vector3();
-let lastTimeText = null;
-let speed = 0;
-let lastX = null;
-let lastZ = null;
-let lastT = 0;
+let lastDistText = null;
 
-// Minutes left, rounded up: "<1m", "4m", "1h 20m"
-function formatTime(seconds) {
-  if (seconds < 60) return '<1m';
-  const minutes = Math.ceil(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-}
-
-// Smoothed ground speed, from how far the plane moves between frames
-function trackSpeed() {
-  const now = performance.now();
-  const x = planeGroup.position.x;
-  const z = planeGroup.position.z;
-  const dt = (now - lastT) / 1000;
-  if (lastX !== null && !state.isPaused && dt > 0 && dt < 1) {
-    const moved = Math.hypot(x - lastX, z - lastZ);
-    if (moved < JUMP_DIST) {
-      const k = 1 - Math.exp(-dt / SPEED_SMOOTHING);
-      speed += (moved / dt - speed) * k;
-    }
-  }
-  lastX = x;
-  lastZ = z;
-  lastT = now;
+// "850 m" (in 50 m steps) under a kilometer, "2.4 km" under 10, then "34 km"
+function formatDistance(units) {
+  const m = units * UNITS_TO_M;
+  if (m < 1000) return `${Math.max(50, Math.round(m / 50) * 50)} m`;
+  if (m < 10000) return `${(m / 1000).toFixed(1)} km`;
+  return `${Math.round(m / 1000)} km`;
 }
 
 function update() {
   requestAnimationFrame(update);
   if (!el) return;
-  if (planeGroup) trackSpeed();
   const target = waypoint || tourStop;
   if (!target || !planeGroup || state.isVRPresenting) {
     el.hidden = true;
@@ -177,10 +150,10 @@ function update() {
   el.classList.toggle('offscreen', !onScreen);
   el.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
   el.style.setProperty('--waypoint-angle', `${angle.toFixed(3)}rad`);
-  const timeText = speed > MIN_SPEED ? formatTime(dist / speed) : '';
-  if (timeText !== lastTimeText) {
-    lastTimeText = timeText;
-    if (timeEl) timeEl.textContent = timeText;
+  const distText = formatDistance(dist);
+  if (distText !== lastDistText) {
+    lastDistText = distText;
+    if (distEl) distEl.textContent = distText;
   }
 }
 

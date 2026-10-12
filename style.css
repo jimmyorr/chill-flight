@@ -2139,7 +2139,7 @@ input[type='number'].customization-input {
   transform: rotate(var(--waypoint-angle, 0rad)) rotate(45deg);
 }
 
-.waypoint-time {
+.waypoint-distance {
   position: absolute;
   top: 10px;
   left: 0;
