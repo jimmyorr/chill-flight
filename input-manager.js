@@ -467,6 +467,7 @@ export class InputManager {
     if (
       e.target.closest('#loading-overlay') ||
       e.target.closest('#cockpit-ui') ||
+      e.target.closest('#coffee-dialog') ||
       e.target.closest('#debug-menu') ||
       e.target.closest('#debug-telemetry') ||
       e.target.closest('.title') ||
@@ -670,6 +671,7 @@ export class InputManager {
       target.closest('#mobile-controls') ||
       target.closest('#mobile-action-menu') ||
       target.closest('#minimap-container') ||
+      target.closest('#coffee-dialog') ||
       target.closest('.color-swatch');
 
     if (!isUI && !this.state.isPaused) {
