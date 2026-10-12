@@ -1105,9 +1105,8 @@ function updateDayNightCycle(delta) {
   updateAirportLights(slNightValue);
 }
 
-// Barrel roll (double-tap left or right): the roll rate eases in over
-// BARREL_ROLL_EASE_IN seconds, and once started the roll always finishes in
-// its own direction, however soon the key is let go (hold for more rolls)
+// Barrel roll (double-tap left or right and hold): the roll rate eases in
+// over BARREL_ROLL_EASE_IN seconds and the roll lasts as long as the hold
 const BARREL_ROLL_EASE_IN = 0.25;
 // The roll in progress: 1 rolling left, -1 right, 0 none; and its rate (rad/s)
 let barrelRollDir = 0;
@@ -1363,22 +1362,9 @@ function updatePhysicsAndControls(delta, nowTime) {
       if (isLeft && dtLeft) rollHeld = 1;
       else if (isRight && dtRight) rollHeld = -1;
     }
-    if (rollHeld !== barrelRollDir && rollHeld !== 0) {
+    if (rollHeld !== barrelRollDir) {
       barrelRollDir = rollHeld;
       barrelRollRate = 0;
-    }
-    if (barrelRollDir !== 0 && rollHeld === 0) {
-      // Let go: roll on until the flight model's easing toward the target
-      // bank would turn as fast as the roll, and hand over to it there, so
-      // the roll finishes without a jolt
-      const ahead = THREE.MathUtils.euclideanModulo(
-        barrelRollDir * (state.targetRoll - planeGroup.rotation.z),
-        2 * Math.PI
-      );
-      if (ahead <= barrelRollRate / (TURN_SPEED * 60)) {
-        barrelRollDir = 0;
-        barrelRollRate = 0;
-      }
     }
     if (barrelRollDir !== 0) {
       barrelRollRate = Math.min(
