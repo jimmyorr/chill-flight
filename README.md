@@ -276,7 +276,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **Triple-tap arrow up and hold**: Perform a continuous loop.
 - **Double-tap arrow down and hold**: Perform a steep dive.
 - **Triple-tap arrow down**: Perform an Immelmann turn (loop followed by a half-roll).
-- **Double-tap arrow left / right and hold**: Perform a barrel roll.
+- **Double-tap arrow left / right**: Perform a barrel roll. It eases in, takes about two seconds, and always finishes once started; keep holding for more rolls.
 
 #### Free camera mode (if active)
 

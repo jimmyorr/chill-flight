@@ -121,7 +121,7 @@ export const state = {
   // but the camera follows as in normal flight
   isSteepPitch: false,
   isDoingFullLoop: false,
-  manualRollSpeed: 4.0,
+  manualRollSpeed: 2.8,
   manualLoopSpeed: 2.5,
   sessionDistanceTravelled: 0,
   previousPosition: null,

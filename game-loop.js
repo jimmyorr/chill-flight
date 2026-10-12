@@ -1105,6 +1105,14 @@ function updateDayNightCycle(delta) {
   updateAirportLights(slNightValue);
 }
 
+// Barrel roll (double-tap left or right): the roll rate eases in over
+// BARREL_ROLL_EASE_IN seconds, and once started the roll always finishes in
+// its own direction, however soon the key is let go (hold for more rolls)
+const BARREL_ROLL_EASE_IN = 0.25;
+// The roll in progress: 1 rolling left, -1 right, 0 none; and its rate (rad/s)
+let barrelRollDir = 0;
+let barrelRollRate = 0;
+
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller
   if (!state.isFreeCamera && Math.abs(state.flightSpeedMultiplier) > 0.001) {
@@ -1265,7 +1273,7 @@ function updatePhysicsAndControls(delta, nowTime) {
   state.isSteepPitch = false;
   state.isDoingFullLoop = false;
 
-  state.manualRollSpeed = 4.0;
+  state.manualRollSpeed = 2.8;
   state.manualLoopSpeed = 2.5;
 
   if (
@@ -1350,25 +1358,40 @@ function updatePhysicsAndControls(delta, nowTime) {
       }
     }
 
-    if (!state.isDoingImmelmann && isLeft) {
-      if (!keys.Shift) {
-        if (dtLeft) {
-          // Double-tap: full barrel roll
-          planeGroup.rotation.z += state.manualRollSpeed * delta;
-          state.isBarrelRolling = true;
-          state.isDoingFullBarrelRoll = true;
-        }
-      }
-    } else if (!state.isDoingImmelmann && isRight) {
-      if (!keys.Shift) {
-        if (dtRight) {
-          // Double-tap: full barrel roll
-          planeGroup.rotation.z -= state.manualRollSpeed * delta;
-          state.isBarrelRolling = true;
-          state.isDoingFullBarrelRoll = true;
-        }
+    let rollHeld = 0;
+    if (!state.isDoingImmelmann && !keys.Shift) {
+      if (isLeft && dtLeft) rollHeld = 1;
+      else if (isRight && dtRight) rollHeld = -1;
+    }
+    if (rollHeld !== barrelRollDir && rollHeld !== 0) {
+      barrelRollDir = rollHeld;
+      barrelRollRate = 0;
+    }
+    if (barrelRollDir !== 0 && rollHeld === 0) {
+      // Let go: roll on until the flight model's easing toward the target
+      // bank would turn as fast as the roll, and hand over to it there, so
+      // the roll finishes without a jolt
+      const ahead = THREE.MathUtils.euclideanModulo(
+        barrelRollDir * (state.targetRoll - planeGroup.rotation.z),
+        2 * Math.PI
+      );
+      if (ahead <= barrelRollRate / (TURN_SPEED * 60)) {
+        barrelRollDir = 0;
+        barrelRollRate = 0;
       }
     }
+    if (barrelRollDir !== 0) {
+      barrelRollRate = Math.min(
+        state.manualRollSpeed,
+        barrelRollRate + (state.manualRollSpeed * delta) / BARREL_ROLL_EASE_IN
+      );
+      planeGroup.rotation.z += barrelRollDir * barrelRollRate * delta;
+      state.isBarrelRolling = true;
+      state.isDoingFullBarrelRoll = true;
+    }
+  } else {
+    barrelRollDir = 0;
+    barrelRollRate = 0;
   }
 
   // Taxi steering: allow airplane to yaw when stopped or at very low speed
