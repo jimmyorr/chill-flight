@@ -31,7 +31,7 @@ const ERRAND_LINES = [
   ],
   [
     '{cafe} at {buyer} keeps asking for {bean}.',
-    'Pick up a crate at {farm} and I can roast them for you.',
+    "Pick up a crate at {farm} and I'll roast them.",
   ],
 ];
 const ROAST_LINES = [
@@ -54,10 +54,15 @@ const RETURN_LINES = [
   ['Another happy cafe. You make a good courier, bud.'],
 ];
 
+// When the run starts, wherever you are: come and meet him
 const INTRO_LINES = [
   "Hey buddy, it's Ray! Thanks for helping out at the roastery.",
-  "I roast at Meadow Field. You fly the beans, I'll do the rest.",
-  'Land and roll to a stop on the runway to pick up or drop off. Bring a plane with wheels!',
+  "Come find me at Meadow Field and I'll show you the ropes.",
+];
+// Landing at the roastery the first time, before the first errand
+const WELCOME_LINES = [
+  'Welcome to the roastery!',
+  'I roast, you fly. Land and roll to a stop on the runway to pick up or drop off.',
 ];
 
 function pick(list, rng) {
@@ -90,13 +95,11 @@ function newErrand(run, rng) {
   return {...run, step: 'buy', farm, buyer, cargo: null};
 }
 
-// A new run, with Ray's welcome and the first errand
+// A new run: Ray says hi and asks you to come to the roastery, where he has
+// the first errand
 export function startRun(rng = Math.random) {
-  const run = newErrand({delivered: 0}, rng);
-  return {
-    run,
-    dialog: [...INTRO_LINES, ...fill(pick(ERRAND_LINES, rng), run)],
-  };
+  const run = {...newErrand({delivered: 0, met: false}, rng), step: 'return'};
+  return {run, dialog: INTRO_LINES};
 }
 
 // Where the plane should fly next
@@ -145,14 +148,14 @@ export function land(run, field, rng = Math.random) {
     };
   }
 
-  // Home with an empty hold: Ray has the next errand
-  const next = newErrand(run, rng);
+  // Home with an empty hold: Ray has the next errand (and the first time,
+  // a welcome instead of asking how the last one went)
+  const next = newErrand({...run, met: true}, rng);
+  const greeting =
+    run.met === false ? WELCOME_LINES : fill(pick(RETURN_LINES, rng), run);
   return {
     run: next,
-    dialog: [
-      ...fill(pick(RETURN_LINES, rng), run),
-      ...fill(pick(ERRAND_LINES, rng), next),
-    ],
+    dialog: [...greeting, ...fill(pick(ERRAND_LINES, rng), next)],
     toast: null,
   };
 }

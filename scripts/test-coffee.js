@@ -2,8 +2,8 @@
 /**
  * scripts/test-coffee.js
  *
- * Checks the coffee run's errands (coffee-logic.js): a run starts with an
- * errand, only landing at the destination moves it on, a full loop (farm,
+ * Checks the coffee run's errands (coffee-logic.js): a run starts by sending
+ * you to Ray, only landing at the destination moves it on, a full loop (farm,
  * roastery, cafe, roastery) counts one delivery, and saved runs are checked
  * before they're used.
  */
@@ -49,7 +49,8 @@ for (let seed = 1; seed <= 50; seed++) {
   let run = start.run;
   const ok =
     run.delivered === 0 &&
-    run.step === 'buy' &&
+    run.step === 'return' &&
+    destination(run) === ROASTERY &&
     run.farm in FARMS &&
     run.buyer in CAFES &&
     run.buyer !== run.farm &&
@@ -60,9 +61,12 @@ for (let seed = 1; seed <= 50; seed++) {
     continue;
   }
 
-  // Five loops: landing anywhere else changes nothing, and the destination
-  // moves the run on
+  // Meeting Ray, then five loops: landing anywhere else changes nothing, and
+  // the destination moves the run on
   let loopsOk = true;
+  const met = land(run, ROASTERY, r);
+  if (met.run.step !== 'buy' || !met.dialog?.length) loopsOk = false;
+  run = met.run;
   for (let loop = 0; loop < 5 && loopsOk; loop++) {
     for (let step = 0; step < 4 && loopsOk; step++) {
       const target = destination(run);
@@ -86,7 +90,11 @@ for (let seed = 1; seed <= 50; seed++) {
     badLoops.push(seed);
   }
 }
-check('a new run has an errand', !badStarts.length, `seeds ${badStarts}`);
+check(
+  'a new run sends you to the roastery first',
+  !badStarts.length,
+  `seeds ${badStarts}`
+);
 check(
   'five loops count five deliveries, moved on only at the destination',
   !badLoops.length,

@@ -8,7 +8,7 @@
 import {log} from './logger.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
-import {planeGroup} from './airplane.js';
+import {activePlaneType, planeGroup, setActivePlane} from './airplane.js';
 import {getElevation} from './terrain-geometry.js';
 import {Achievements} from './achievements.js';
 import {isOnWheels} from './flight-physics.js';
@@ -27,7 +27,9 @@ const RUN_KEY = 'chill_flight_coffee_run';
 // Slower than this (knots) on the wheels counts as stopped
 const STOPPED_KTS = 20;
 // Characters typed per second in the dialog
-const TYPE_RATE = 45;
+const TYPE_RATE = 35;
+// Ray's mouth closes and opens again every this many seconds as he talks
+const MOUTH_SECONDS = 0.18;
 
 const checkbox = document.getElementById('coffee-toggle-input');
 const hud = document.getElementById('coffee-hud');
@@ -157,13 +159,10 @@ function showLine() {
   const started = performance.now();
   dialogText.textContent = '';
   typing = setInterval(() => {
-    const shown = Math.min(
-      line.length,
-      Math.floor(((performance.now() - started) / 1000) * TYPE_RATE)
-    );
+    const elapsed = (performance.now() - started) / 1000;
+    const shown = Math.min(line.length, Math.floor(elapsed * TYPE_RATE));
     dialogText.textContent = line.slice(0, shown);
-    // The mouth opens and closes every couple of letters
-    drawFace(shown % 4 < 2 && line[shown - 1] !== ' ');
+    drawFace(Math.floor(elapsed / MOUTH_SECONDS) % 2 === 1);
     if (shown >= line.length) stopTyping();
   }, 1000 / TYPE_RATE);
 }
@@ -226,9 +225,11 @@ function updateHud() {
     : `Empty → ${destination(run)}`;
 }
 
-function setEnabled(on) {
+function setEnabled(on, picked = false) {
   enabled = on;
   if (checkbox) checkbox.checked = on;
+  // Turned on in the seaplane, which can't land on a runway: the biplane
+  if (on && picked && activePlaneType === 'seaplane') setActivePlane('biplane');
   if (on && !run) {
     const start = startRun();
     run = start.run;
@@ -242,10 +243,20 @@ function setEnabled(on) {
 }
 
 if (checkbox) {
-  checkbox.addEventListener('change', () => setEnabled(checkbox.checked));
+  checkbox.addEventListener('change', () => setEnabled(checkbox.checked, true));
 }
 drawFace(false);
-setEnabled(enabled);
+// ?coffee=reset starts over from Ray's welcome (for testing his lines);
+// ?coffee=1 or 0 turns it on or off
+const param = ChillFlightLogic.urlParams?.get('coffee');
+if (param === 'reset') {
+  run = null;
+  setEnabled(true, true);
+} else if (param === '1' || param === '0') {
+  setEnabled(param === '1');
+} else {
+  setEnabled(enabled);
+}
 
 // --- LANDING ---
 // The airport whose flat field (x, z) is on, if any
