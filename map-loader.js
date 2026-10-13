@@ -125,7 +125,7 @@ import {state} from './state.js';
     }
 
     planeGroup.position.set(startX, startY, startZ);
-    planeGroup.rotation.set(0, 0, 0);
+    planeGroup.rotation.set(0, ChillFlightLogic.spawnYaw(), 0);
 
     try {
       if (typeof state.targetFlightSpeed !== 'undefined') {

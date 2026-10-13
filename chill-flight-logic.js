@@ -1645,6 +1645,16 @@ export const ChillFlightLogic = {};
   // coordinates; weight 0 leaves the terrain as it was.
   const FALLS_X = 0;
   const FALLS_Z = -4750;
+  // The plane starts at spawn turned this far (radians) north-west, so the
+  // Falls pass about 1200 units off the right wing instead of dead ahead
+  // (unless the URL sets a position; heading still sets the turn)
+  const SPAWN_YAW = (15 * Math.PI) / 180;
+  function spawnYaw() {
+    const placed = [parsedLat, parsedLon, START_X, START_Z].some(
+      (v) => v !== null && v !== undefined
+    );
+    return placed ? 0 : SPAWN_YAW;
+  }
   const FALLS_RADIUS = 420; // to the top of the walls
   const FALLS_LIP = 420; // height of the valley floor where it falls off
   const FALLS_BAY = 200; // the bay's radius
@@ -3116,6 +3126,8 @@ export const ChillFlightLogic = {};
   exports.normalizePlaneType = normalizePlaneType;
   exports.mulberry32 = mulberry32;
   exports.FALLS_X = FALLS_X;
+  exports.SPAWN_YAW = SPAWN_YAW;
+  exports.spawnYaw = spawnYaw;
   exports.CANYON_PATH = CANYON_PATH;
   exports.canyonRockAt = canyonRockAt;
   exports.CANYON_TIER_HEIGHT = CANYON_TIER_HEIGHT;

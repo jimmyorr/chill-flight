@@ -21,7 +21,8 @@ import {simplex} from './noise.js';
 import {state} from './state.js';
 
 export const planeGroup = new THREE.Group();
-planeGroup.rotation.y = 0;
+// Turned so the Falls aren't dead ahead (spawnYaw)
+planeGroup.rotation.y = ChillFlightLogic.spawnYaw();
 scene.add(planeGroup);
 
 // Fuselage
