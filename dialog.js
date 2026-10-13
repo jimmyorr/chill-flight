@@ -5,40 +5,16 @@
 // whole line, then the next one, then closes it. A question waits on its
 // last line for Sure thing (Enter or Y) or Not right now (N).
 import {state} from './state.js';
+import {MOUTH_SECONDS, drawFace} from './faces.js';
 
 // Characters typed per second
 const TYPE_RATE = 35;
-// The mouth closes and opens again every this many seconds while talking
-const MOUTH_SECONDS = 0.18;
 
 const dialog = document.getElementById('npc-dialog');
 const portrait = document.getElementById('npc-portrait');
 const dialogName = document.getElementById('npc-dialog-name');
 const dialogText = document.getElementById('npc-dialog-text');
 const choices = document.getElementById('npc-dialog-choices');
-
-// Draws face on canvas (sized to the face). hidden draws it as a plain
-// silhouette, for someone you haven't met.
-export function drawFace(
-  canvas,
-  face,
-  {mouthClosed = false, hidden = false} = {}
-) {
-  const ctx = canvas?.getContext('2d');
-  if (!ctx || !face) return;
-  const size = face.rows.length;
-  if (canvas.width !== size) canvas.width = canvas.height = size;
-  ctx.clearRect(0, 0, size, size);
-  face.rows.forEach((row, y) => {
-    const line = (mouthClosed && face.mouthClosed?.[y]) || row;
-    for (let x = 0; x < size; x++) {
-      const color = face.palette[line[x]];
-      if (!color) continue;
-      ctx.fillStyle = hidden ? 'rgba(255, 255, 255, 0.18)' : color;
-      ctx.fillRect(x, y, 1, 1);
-    }
-  });
-}
 
 let face = null;
 let lines = [];

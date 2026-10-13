@@ -593,7 +593,7 @@ npm run promo:stills
 
 ### Model debug page
 
-Debug pages live in `debug/` and are available only during development (they aren't part of the production build). Start at `http://localhost:5173/debug/debug.html`, which links to standalone viewers like the model viewer (`/debug/debug-models.html`). These pages allow you to inspect and preview in-game geometries and structures in isolation, making it easy to tweak vertices, test materials, and verify rotations before adding them to the procedural world.
+Debug pages live in `debug/` and are available only during development (they aren't part of the production build). Start at `http://localhost:5173/debug/debug.html`, which links to standalone viewers like the model viewer (`/debug/debug-models.html`) and the face viewer (`/debug/debug-faces.html`, every face in `faces.js` still or talking, as a silhouette, and who wears it; `#ray` links to one). These pages allow you to inspect and preview in-game geometries and structures in isolation, making it easy to tweak vertices, test materials, and verify rotations before adding them to the procedural world.
 
 The map export page (`/debug/debug-export-map.html`) renders any area of the world, picked by centre lat/long and size in degrees, in the in-game map's colours or as a grayscale heightmap, and downloads it as a PNG. **Whole world** renders everything out to the open ocean (44° by 24°) in a couple of seconds. URL parameters prefill the form: `seed`, `continent`, `lat`, `long`, `w`, `h` (degrees), `upp` (units per pixel), `mode=gray`, `grid=0`, and `run=1` to render on load.
 

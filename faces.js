@@ -3,7 +3,11 @@
 // a square grid of characters, one per pixel ('.' is clear), with a palette
 // giving each character's color, and optionally the rows that change while
 // they talk (mouthClosed: row number to row, shown every other beat).
-// No DOM, so scripts can check people.js in Node.
+// No DOM at load, so scripts can check people.js in Node; drawFace draws
+// one on a canvas (the dialog, the People screen, debug/debug-faces.html).
+
+// While talking, the mouth closes and opens again every this many seconds
+export const MOUTH_SECONDS = 0.18;
 
 // Ray, drawn after the real Ray: a cap on backwards, long wavy hair, a
 // beard and a big grin.
@@ -100,3 +104,26 @@ export const SOMEONE = {
     t: '#4f7a8c', // shirt
   },
 };
+
+// Draws face on canvas (sized to the face). hidden draws it as a plain
+// silhouette, for someone you haven't met.
+export function drawFace(
+  canvas,
+  face,
+  {mouthClosed = false, hidden = false} = {}
+) {
+  const ctx = canvas?.getContext('2d');
+  if (!ctx || !face) return;
+  const size = face.rows.length;
+  if (canvas.width !== size) canvas.width = canvas.height = size;
+  ctx.clearRect(0, 0, size, size);
+  face.rows.forEach((row, y) => {
+    const line = (mouthClosed && face.mouthClosed?.[y]) || row;
+    for (let x = 0; x < size; x++) {
+      const color = face.palette[line[x]];
+      if (!color) continue;
+      ctx.fillStyle = hidden ? 'rgba(255, 255, 255, 0.18)' : color;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  });
+}

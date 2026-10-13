@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug | Faces</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+    <style>
+      :root {
+        --bg-color: #0f172a;
+        --card-bg: #1e293b;
+        --accent-color: #38bdf8;
+        --text-color: #f1f5f9;
+        --muted: #94a3b8;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: var(--bg-color);
+        color: var(--text-color);
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 20px;
+      }
+      .sub {
+        margin: 0 0 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 24px;
+        font-size: 14px;
+      }
+      .controls label {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        cursor: pointer;
+      }
+      #faces {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+      .face-card {
+        background: var(--card-bg);
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        scroll-margin-top: 24px;
+      }
+      .face-card:target {
+        border-color: var(--accent-color);
+      }
+      .face-card h2 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .face-card h2 a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .face-card .meta {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .sizes {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+      }
+      /* Like the dialog's portrait: whole screen pixels per face pixel */
+      canvas {
+        image-rendering: pixelated;
+        background: #f2d9a6;
+        border: 2px solid #2b1d16;
+        border-radius: 6px;
+      }
+      body.dark canvas {
+        background: #18120e;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Faces</h1>
+    <p class="sub">
+      Every face in <code>faces.js</code>, at the dialog's size (96 px) and
+      larger, and who wears it in <code>people.js</code>. Link to one with
+      #name.
+    </p>
+    <div class="controls">
+      <label><input type="checkbox" id="talking" checked /> Talking</label>
+      <label
+        ><input type="checkbox" id="closed" /> Mouth closed (when not
+        talking)</label
+      >
+      <label
+        ><input type="checkbox" id="hidden" /> Not met yet (silhouette)</label
+      >
+      <label><input type="checkbox" id="dark" /> Dark background</label>
+    </div>
+    <div id="faces"></div>
+
+    <script type="module">
+      import * as faces from '/faces.js';
+      import {PEOPLE} from '/people.js';
+
+      const {MOUTH_SECONDS, drawFace} = faces;
+      const list = Object.entries(faces).filter(
+        ([, v]) => v && typeof v === 'object' && Array.isArray(v.rows)
+      );
+      const talking = document.getElementById('talking');
+      const closed = document.getElementById('closed');
+      const hidden = document.getElementById('hidden');
+      const dark = document.getElementById('dark');
+      const container = document.getElementById('faces');
+
+      const cards = list.map(([name, face]) => {
+        const id = name.toLowerCase();
+        const card = document.createElement('div');
+        card.className = 'face-card';
+        card.id = id;
+        const size = face.rows.length;
+        const who = PEOPLE.filter((p) => p.face === face).map((p) => p.name);
+        const talks = face.mouthClosed ? 'talks' : "doesn't talk yet";
+        card.innerHTML = `
+          <h2><a href="#${id}">${name}</a></h2>
+          <div class="meta">${size} × ${size} px · ${talks} · ${
+            who.length ? `worn by ${who.join(', ')}` : 'worn by nobody yet'
+          }</div>
+          <div class="sizes"></div>`;
+        const canvases = [96, 192, 288].map((px) => {
+          const c = document.createElement('canvas');
+          c.style.width = c.style.height = `${px}px`;
+          card.querySelector('.sizes').append(c);
+          return c;
+        });
+        container.append(card);
+        return {face, canvases};
+      });
+
+      // Cards are added after load, so jump to #name by hand
+      if (location.hash) {
+        document.getElementById(location.hash.slice(1))?.scrollIntoView();
+      }
+
+      function draw(now) {
+        requestAnimationFrame(draw);
+        const beat = Math.floor(now / 1000 / MOUTH_SECONDS) % 2 === 1;
+        const mouthClosed = talking.checked ? beat : closed.checked;
+        for (const {face, canvases} of cards) {
+          for (const c of canvases) {
+            drawFace(c, face, {mouthClosed, hidden: hidden.checked});
+          }
+        }
+      }
+      requestAnimationFrame(draw);
+
+      dark.addEventListener('change', () =>
+        document.body.classList.toggle('dark', dark.checked)
+      );
+      closed.disabled = talking.checked;
+      talking.addEventListener('change', () => {
+        closed.disabled = talking.checked;
+      });
+    </script>
+  </body>
+</html>

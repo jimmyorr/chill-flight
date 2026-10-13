@@ -6,7 +6,7 @@
 import {PEOPLE} from './people.js';
 import {doneFor} from './jobs-logic.js';
 import {progress} from './jobs.js';
-import {drawFace} from './dialog.js';
+import {drawFace} from './faces.js';
 import {hooks} from './hooks.js';
 
 const overlay = document.getElementById('people-overlay');
