@@ -420,7 +420,7 @@ export const ChillFlightLogic = {};
     }
   }
 
-  const PLANE_TYPES = ['seaplane', 'biplane', 'glider', 'twin'];
+  const PLANE_TYPES = ['biplane', 'seaplane', 'glider', 'twin'];
   // A plane type from a URL or saved setting, or null if it isn't one.
   // "classic" was the seaplane's old name, so old links and saves still work.
   function normalizePlaneType(type) {

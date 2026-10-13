@@ -250,7 +250,7 @@ export let activePlaneType =
   ChillFlightLogic.normalizePlaneType(
     localStorage.getItem('chill_flight_plane')
   ) ||
-  'seaplane';
+  'biplane';
 
 // The glider tops out lower than the powered planes.
 // Poses the landing gear for how far down it is (state.gearExtension, 0 up to

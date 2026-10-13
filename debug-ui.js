@@ -743,7 +743,7 @@ export function initDebugUI() {
       params.delete('lod');
     }
 
-    if (activePlaneType && activePlaneType !== 'seaplane') {
+    if (activePlaneType && activePlaneType !== 'biplane') {
       params.set('plane', activePlaneType);
     } else {
       params.delete('plane');

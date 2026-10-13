@@ -276,7 +276,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **M**: Open or close the fullscreen map. The game pauses while it's open, and closing it (M, Escape or the **Resume** bar along the bottom) goes straight back to flying.
 - **Shift+M**: Toggle the minimap overlay.
 - **L**: Toggle headlight.
-- **V**: Cycle active aircraft (switch between the seaplane, the vintage biplane, the glider and the twin-engine transport).
+- **V**: Cycle active aircraft (switch between the vintage biplane, the seaplane, the glider and the twin-engine transport).
 - **Shift + A**: Toggle autopilot. It flies to your waypoint and circles it once there (slowing to 120 kts), until you set another. With no waypoint it tours the landmarks: it flies to the nearest one it hasn't visited (the waypoint marker shows the way and the distance left), circles it once and moves on to the next. It cruises at least about 150 m up and keeps about 80 m over the highest ground along its course, looking 9,000 units ahead (and a little to either side close in) so it climbs early and gently (about 7 degrees) rather than late and steeply. Past high ground it holds its height until it's well clear, then comes down gently, so it rides over hilly country instead of bobbing over every rise, and it damps its pitch with its vertical speed so it eases onto a new height. It circles a waypoint or landmark 120 units over the highest ground around it (`autopilot.js`). Steering with the arrow keys, the touch joystick, drag-steer or a gamepad stick turns it off (mouse and tilt steering don't, since they're always steering).
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
 - **Z**: Toggle zen (hides the HUD and buttons for an unobstructed view; also a switch on the pause menu's Flight tab).
@@ -434,7 +434,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`pitch`**: Starting pitch angle in degrees.
 - **`roll`**: Starting bank angle in degrees (positive banks left, negative right). It holds while the free camera freezes the plane; in flight the flight model takes over.
 - **`speed`**: Starting flight speed multiplier (e.g., `1.0`, `2.0`, `0`).
-- **`plane`** or **`vehicle`**: Initial aircraft model (`seaplane`, the default, a monoplane on floats; `biplane` for the vintage biplane; `glider`; or `twin`). `classic`, the seaplane's old name, still works.
+- **`plane`** or **`vehicle`**: Initial aircraft model (`biplane`, the default, the vintage biplane; `seaplane`, a monoplane on floats; `glider`; or `twin`). `classic`, the seaplane's old name, still works.
 - **`livery`**: Plane color for this visit (not saved): an index (0-7) or a name (`coral`, `teal`, `sage`, `purple`, `slate`, `sand`, `rose`, `black`).
 - **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
 
