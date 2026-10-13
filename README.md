@@ -85,6 +85,7 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
 - **Weather:** Light snow whenever there's cloud overhead, with occasional global breaks. Cloud builds sooner over the snow, so snowy weather is common, but it never snows from a clear sky.
 - **Key Features:**
   - **Mountain ranges:** The first range north always rises around 1.0 North (Z = -5000), south of the snow, so it's green with snow-capped peaks; ranges further north vary by world seed and are snowbound. Ranges start at 0.5 West (X = -2500) and reach full height by 1.5 West (X = -7500), with sharp, ridged peaks up to 1600 units.
+  - **The far north:** From about 3 North the low ground isn't all snow. The wind scours small patches of grey-green tundra, and tors (steep, lumpy knobs of dark rock 45 to 115 units high) break through in scattered districts, kept clear of the highway (`torAt` in `chill-flight-logic.js`); steep banks show bare rock too. North of about 4.4 North the land's lakes and rivers freeze over into a flat sheet of blue-white ice, with smooth, ragged edges where it meets open water; highway bridges still cross them.
   - **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
   - **Water:** Icy, pale blue water (#88CCFF) that transitions into solid, textured cyan ice (#6CA6A8) shelves and floating icebergs in the deep north.
 

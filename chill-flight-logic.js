@@ -1856,6 +1856,8 @@ export const ChillFlightLogic = {};
   // cover most of the desert. Height above the ground, 0 to about 44.
   // Salt pans sit this far above the water
   const SALT_PAN_RISE = 0.8;
+  // And the frozen lakes of the far north
+  const LAKE_ICE_RISE = 0.6;
   const DUNE_WIND = 0.35;
   const DUNE_SPACING = 400;
   // How much of a dune field the last duneAt call was in, 0 to 1
@@ -1930,9 +1932,45 @@ export const ChillFlightLogic = {};
     return true;
   }
 
-  // 0 on and beside the highway, rising to 1 by 400 units out, so dunes and
-  // mesas don't bury it
-  function desertRoadClear(x, z) {
+  // Tors in the far north: steep, lumpy rock knobs 45 to 115 units high and
+  // 70 to 190 across, one in most 900-unit cells of the districts that
+  // have them. Height above the ground.
+  const TOR_CELL = 900;
+  function torAt(x, z, simplex) {
+    const district = smoothRamp(
+      simplex.noise2D(x * 0.0004 - 55, z * 0.0004 + 12),
+      -0.1,
+      0.3
+    );
+    if (district <= 0) return 0;
+    const ci = Math.floor(x / TOR_CELL);
+    const cj = Math.floor(z / TOR_CELL);
+    if (mesaHash(ci, cj, 11) > 0.7) return 0;
+    const cx = (ci + 0.25 + 0.5 * mesaHash(ci, cj, 12)) * TOR_CELL;
+    const cz = (cj + 0.25 + 0.5 * mesaHash(ci, cj, 13)) * TOR_CELL;
+    const dx = x - cx;
+    const dz = z - cz;
+    const size = mesaHash(ci, cj, 14);
+    const radius = 70 + 120 * size;
+    if (dx * dx + dz * dz > radius * radius * 1.7) return 0;
+    const ang = Math.atan2(dz, dx);
+    const r =
+      radius *
+      (1 +
+        0.25 *
+          simplex.noise2D(
+            Math.cos(ang) * 1.2 + ci * 3.7,
+            Math.sin(ang) * 1.2 + cj * 2.9
+          ));
+    const d = Math.sqrt(dx * dx + dz * dz) / r;
+    const body = 1 - smoothRamp(d, 0.5, 1);
+    const lumps = 0.8 + 0.2 * simplex.noise2D(x * 0.02 + ci, z * 0.02 + cj);
+    return (45 + 70 * size) * body * lumps * district;
+  }
+
+  // 0 on and beside the highway, rising to 1 by 400 units out, so dunes,
+  // mesas and tors don't bury it
+  function roadClear(x, z) {
     const i = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
     if (i < 0 || i > ROAD_LAST) return 1;
     return smoothRamp(Math.abs(x - getRoadCenterX(z, i)), 150, 400);
@@ -3136,7 +3174,7 @@ export const ChillFlightLogic = {};
     // coastal terrain would otherwise replace them across the south), kept
     // off the rivers by the height gates and off the highway.
     if (desert > 0) {
-      const road = desertRoadClear(origX, origZ);
+      const road = roadClear(origX, origZ);
       const flats =
         Math.max(0, Math.min(1, (n - WATER_LEVEL - 2) / 10)) *
         Math.max(0, Math.min(1, (220 - n) / 80)) *
@@ -3159,6 +3197,20 @@ export const ChillFlightLogic = {};
       ) {
         n += _mesa.skirt * _mesa.skirtHeight * road;
         n = Math.max(n, _lerp(n, _mesa.top, _mesa.wall * road));
+      }
+    }
+
+    // --- THE FAR NORTH'S OUTCROPS ---
+    // From about 3 North, tors (steep rock knobs) break through the snow of
+    // the low ground, in scattered districts (torAt; terrain-gen.js bares
+    // their rock). After the coasts, like the desert's dunes, and kept off
+    // the highway.
+    const farNorth = smoothRamp(-origZ / 5000, 3, 4);
+    if (farNorth > 0 && n > WATER_LEVEL + 3 && n < 260) {
+      const tor = torAt(origX, origZ, simplex);
+      if (tor > 0) {
+        const land = Math.min(1, (n - WATER_LEVEL - 3) / 12);
+        n += tor * farNorth * land * roadClear(origX, origZ);
       }
     }
 
@@ -3281,6 +3333,24 @@ export const ChillFlightLogic = {};
       const noise = simplex.noise2D(origX * 0.002, origZ * 0.002) * 0.5 + 0.5; // [0, 1]
       const irregularFactor = sFactor * (0.7 + noise * 0.3);
       n = Math.max(n, WATER_LEVEL + 20 * irregularFactor);
+    }
+
+    // Frozen lakes and rivers: north of about 4.4 North (wandering a little),
+    // the land's lakes and rivers freeze over, a flat sheet of ice just
+    // above the water (terrain-gen.js colours it as ice). Toward open water
+    // the ice slopes down under it, so the edge is a smooth, ragged line
+    // rather than a step on the terrain grid. Highways still see the water,
+    // so their bridges stay.
+    if (!options.forRoad && n < WATER_LEVEL + LAKE_ICE_RISE) {
+      const lat =
+        -origZ / 5000 +
+        regionWobble(origX, origZ, simplex, 5) * 0.3 +
+        simplex.noise2D(origX * 0.0008 - 21, origZ * 0.0008 + 44) * 0.12;
+      const inland =
+        (simplex.noise2D(origX * 0.002 + 5, origZ * 0.002) - 0.2) * 800 -
+        coastPast;
+      const ice = smoothRamp(lat, 4.4, 4.45) * smoothRamp(inland, 0, 250);
+      if (ice > 0) n = _lerp(n, WATER_LEVEL + LAKE_ICE_RISE, ice);
     }
 
     // The falls: after the rivers and the island passes, so nothing cuts
@@ -3509,6 +3579,7 @@ export const ChillFlightLogic = {};
   exports.snowWobble = snowWobble;
   exports.desertShift = desertShift;
   exports.SALT_PAN_RISE = SALT_PAN_RISE;
+  exports.LAKE_ICE_RISE = LAKE_ICE_RISE;
   exports.alienAt = alienAt;
   exports.MAP_WIDTH = MAP_WIDTH;
   exports.getElevation = getElevation;

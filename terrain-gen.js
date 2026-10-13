@@ -141,6 +141,11 @@ const _colorAlpineRockLight = new Color(0x9ba2a8);
 const _colorScree = new Color(0x736960);
 const _colorAlpineMeadow = new Color(0x9aa95c);
 const _colorSaltPan = new Color(0xf2ede1);
+const _colorTundra = new Color(0x7f8a72);
+const _colorLakeIce = new Color(0xb9dbe8);
+const _colorLakeIceDark = new Color(0x86b2c4);
+const _colorTundraDark = new Color(0x667060);
+const _colorFrostRock = new Color(0x45474a);
 const _colorSaltPanStain = new Color(0xd6c9ad);
 const _colorDesertMountainRock = new Color(0xc24b2b);
 const _colorIce = new Color(0x6ca6a8);
@@ -1185,6 +1190,7 @@ export function generateChunkData({
     // Color assignment & feature spawning. Lowland is the grass and woods
     // below the mountains' colors (up to the tree line).
     let isLowland = false;
+    let isLakeIce = false;
     if (height <= sandMaxHeight) {
       if (height <= WATER_LEVEL) {
         hasWater = true;
@@ -1270,6 +1276,14 @@ export function generateChunkData({
         // A salt pan (a dried desert lake): white crust, cracked and stained
         _tempColorObj.copy(_colorSaltPan);
         _tempColorObj.lerp(_colorSaltPanStain, mottle * 0.6);
+      } else if (
+        worldZ < -19000 &&
+        Math.abs(height - WATER_LEVEL - ChillFlightLogic.LAKE_ICE_RISE) < 0.02
+      ) {
+        // A frozen lake or river in the far north: blue-white ice
+        isLakeIce = true;
+        _tempColorObj.copy(_colorLakeIce);
+        _tempColorObj.lerp(_colorLakeIceDark, mottle * 0.5);
       } else if (height <= WATER_LEVEL + 1.2) {
         const wetFactor = 1.0 - (height - WATER_LEVEL) / 1.2;
         _tempColorObj.copy(_colorSand);
@@ -1460,7 +1474,7 @@ export function generateChunkData({
     let isFrozen = false;
     const freezeBoundaryZ =
       -20000 + simplex.noise2D(worldX * 0.0002, worldZ * 0.0002) * 2000;
-    if (worldZ < freezeBoundaryZ) {
+    if (worldZ < freezeBoundaryZ && !isLakeIce) {
       const freezeFactor = Math.max(
         0,
         Math.min(1, (freezeBoundaryZ - worldZ) / 5000)
@@ -1496,6 +1510,36 @@ export function generateChunkData({
           _tempColorObj.lerp(_colorIce, freezeFactor * iceBlend);
         }
       }
+    }
+
+    // The far north's low ground isn't all snow: from about 3 North the wind
+    // scours small patches of grey-green tundra, and bares the dark rock of
+    // the tors and steep banks. Above the sea ice's height, so the frozen sea
+    // stays white; the hills and mountains keep their snow.
+    const farNorth = Math.max(0, Math.min(1, (-worldZ / 5000 - 3) / 1));
+    if (farNorth > 0 && !isAlienLand && height > WATER_LEVEL + 20) {
+      const above = Math.min(1, (height - WATER_LEVEL - 20) / 15);
+      const low = 1 - Math.max(0, Math.min(1, (height - 250) / 100));
+      const scour =
+        simplex.noise2D(worldX * 0.003 + 404, worldZ * 0.003 - 77) +
+        0.4 * simplex.noise2D(worldX * 0.011 - 9, worldZ * 0.011 + 31);
+      const tundra =
+        Math.max(0, Math.min(1, (scour - 0.45) / 0.25)) *
+        above *
+        low *
+        farNorth;
+      if (tundra > 0) {
+        _tempColorObj.lerp(
+          mottle > 0.5 ? _colorTundraDark : _colorTundra,
+          tundra * 0.6
+        );
+      }
+      const bare =
+        Math.max(0, Math.min(1, (slopeFactor - 0.15) / 0.15)) *
+        above *
+        low *
+        farNorth;
+      if (bare > 0) _tempColorObj.lerp(_colorFrostRock, bare * 0.95);
     }
 
     const isStandardLand = height > sandMaxHeight && height <= treeLine;
