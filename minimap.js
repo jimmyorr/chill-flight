@@ -24,7 +24,7 @@ import {
 } from './game.js';
 import {state} from './state.js';
 import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
-import {LANDMARKS, nearestLandmark} from './landmarks.js';
+import {LANDMARKS, arrivalAt, nearestLandmark} from './landmarks.js';
 import {cancelJob, progress} from './jobs.js';
 import {PEOPLE} from './people.js';
 
@@ -999,7 +999,9 @@ import {PEOPLE} from './people.js';
   // Tap a spot on the map to pin it, then "Warp here" moves the plane there,
   // 400 units above the ground, keeping its heading and speed, or "Set
   // waypoint" marks it to fly to (waypoint.js). A tap near a landmark or
-  // airport picks that place, by name (and for an airport, who's there).
+  // airport picks that place, by name (and for an airport, who's there), and
+  // warping there arrives in view of it: lined up on final approach to an
+  // airport, or back from a landmark, facing it (arrivalAt in landmarks.js).
   // With no pin, the panel offers to clear the waypoint.
   let warpPin = null; // {x, z, name}
   // How far (pixels) a tap may move and still count as one: fingers wobble
@@ -1080,14 +1082,23 @@ import {PEOPLE} from './people.js';
     }
   }
 
-  function warpTo(x, z) {
-    const ground = groundAt(x, z);
-    const dx = x - planeGroup.position.x;
-    const dy = ground + 400 - planeGroup.position.y;
-    const dz = z - planeGroup.position.z;
-    planeGroup.position.set(x, ground + 400, z);
-    // Move the camera and its tracking targets with the plane, so it doesn't
-    // sweep across the world to catch up
+  function warpTo(place) {
+    const from = planeGroup.position.clone();
+    const {x, y, z, yaw, speed} = arrivalAt(place, from.x, from.z, groundAt);
+    const turn = yaw === undefined ? 0 : yaw - planeGroup.rotation.y;
+    planeGroup.position.set(x, y, z);
+    if (yaw !== undefined) {
+      planeGroup.rotation.set(0, yaw, 0);
+      state._nextYaw = yaw;
+    }
+    if (speed !== undefined) {
+      state.flightSpeedMultiplier = speed;
+      state.targetFlightSpeed = speed;
+    }
+    // Move the camera and its tracking targets with the plane (turning with
+    // it), so it doesn't sweep across the world to catch up
+    const cos = Math.cos(turn);
+    const sin = Math.sin(turn);
     const activeCam = state.isVRPresenting ? cameraDolly : camera;
     for (const v of [
       activeCam.position,
@@ -1095,16 +1106,18 @@ import {PEOPLE} from './people.js';
       _virtualCameraPos,
       _virtualLookTarget,
     ]) {
-      v.x += dx;
-      v.y += dy;
-      v.z += dz;
+      const ox = v.x - from.x;
+      const oz = v.z - from.z;
+      v.x = x + ox * cos + oz * sin;
+      v.y += y - from.y;
+      v.z = z - ox * sin + oz * cos;
     }
     // The jump isn't distance flown
     if (state.previousPosition)
       state.previousPosition.copy(planeGroup.position);
     updateChunks();
     log.info(
-      `[Warp] To X = ${x.toFixed(0)}, Z = ${z.toFixed(0)} (${formatLatLon(x, z)})`
+      `[Warp] To ${place.name ? `${place.name}, ` : ''}X = ${x.toFixed(0)}, Z = ${z.toFixed(0)} (${formatLatLon(x, z)})`
     );
   }
 
@@ -1198,8 +1211,7 @@ import {PEOPLE} from './people.js';
       document.getElementById('fullscreen-map-warp-btn'),
       () => {
         if (!warpPin) return;
-        const {x, z} = warpPin;
-        warpTo(x, z);
+        warpTo(warpPin);
         // Straight into flight at the new spot
         closeFullscreenMap();
       }

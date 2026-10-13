@@ -360,7 +360,7 @@ async function exerciseControls(page, tag) {
   if (await isPaused()) fail('closing the map did not return to flight');
 
   // A tap a few pixels from an airport's pin picks the airport: the panel
-  // names it and who's there, and its waypoint carries the name
+  // names it and who's there
   const vp = page.viewport() || {width: 1280, height: 720};
   await page.keyboard.press('m');
   await wait(800);
@@ -392,11 +392,25 @@ async function exerciseControls(page, tag) {
   if (!/ here$/.test(picked.people || '')) {
     fail(`Meadow Field's panel didn't say who's there ("${picked.people}")`);
   }
+  // Warping there arrives on final approach: lined up with Meadow's runway
+  // (which runs east), slowed to 90 knots
   await page
-    .click('#fullscreen-map-warp-cancel')
-    .catch((err) => fail(`clear the pin: ${err.message}`));
-  await page.keyboard.press('m');
-  await wait(800);
+    .click('#fullscreen-map-warp-btn')
+    .catch((err) => fail(`warp to Meadow Field: ${err.message}`));
+  let readout = {};
+  for (let i = 0; i < 12; i++) {
+    await wait(250);
+    readout = await page.evaluate(() => ({
+      heading: document.getElementById('cockpit-dir')?.textContent,
+      speed: document.getElementById('cockpit-spd')?.textContent,
+    }));
+    if (readout.heading === 'E' && readout.speed === '90 KTS') break;
+  }
+  if (readout.heading !== 'E' || readout.speed !== '90 KTS') {
+    fail(
+      `warping to Meadow Field didn't line up for landing (${readout.heading}, ${readout.speed})`
+    );
+  }
 
   // Pick a spot on the map and set it as the waypoint: back to flight, with
   // the marker showing the way; then clear it from the map
