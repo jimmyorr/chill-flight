@@ -486,7 +486,7 @@ function performFrame() {
   planeGroup.updateMatrixWorld();
 
   updateFlightCamera(delta, nowTime);
-  updateThrottle();
+  updateThrottle(nowTime);
   updateTraffic(delta);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping();

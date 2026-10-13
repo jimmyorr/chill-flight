@@ -251,15 +251,46 @@ if (throttleEl) {
   throttleEl.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
+// The knob warns of slow flight: red where the plane falls out of the sky,
+// amber where it sinks. Left alone for a while, the throttle fades back.
+const THROTTLE_RED_BELOW_KTS = 50;
+const THROTTLE_AMBER_BELOW_KTS = 100;
+const THROTTLE_IDLE_MS = 4000;
+
 let lastThrottleTarget = -1;
 let lastThrottleMax = -1;
-export function updateThrottle() {
+let lastThrottleZone = '';
+let throttleActiveAt = 0;
+let throttleIdle = false;
+
+function wakeThrottle(now) {
+  throttleActiveAt = now;
+  if (throttleIdle) {
+    throttleIdle = false;
+    throttleEl.classList.remove('idle');
+  }
+}
+
+if (throttleEl) {
+  throttleEl.addEventListener('pointerdown', () =>
+    wakeThrottle(performance.now())
+  );
+}
+
+export function updateThrottle(now) {
   if (!throttleEl) return;
   const max = getMaxFlightSpeedMult();
   const target = state.targetFlightSpeed;
-  if (target === lastThrottleTarget && max === lastThrottleMax) return;
+  if (target === lastThrottleTarget && max === lastThrottleMax) {
+    if (!throttleIdle && now - throttleActiveAt > THROTTLE_IDLE_MS) {
+      throttleIdle = true;
+      throttleEl.classList.add('idle');
+    }
+    return;
+  }
   lastThrottleTarget = target;
   lastThrottleMax = max;
+  wakeThrottle(now);
   const ktsPerMult = BASE_FLIGHT_SPEED * 60;
   const kts = Math.round(target * ktsPerMult);
   throttleEl.style.setProperty('--thr', Math.min(1, target / max).toFixed(4));
@@ -270,6 +301,17 @@ export function updateThrottle() {
   throttleEl.setAttribute('aria-valuemax', Math.round(max * ktsPerMult));
   throttleEl.setAttribute('aria-valuenow', kts);
   updateDOM(throttleKts, kts);
+  const zone =
+    kts < THROTTLE_RED_BELOW_KTS
+      ? 'red'
+      : kts < THROTTLE_AMBER_BELOW_KTS
+        ? 'amber'
+        : '';
+  if (zone !== lastThrottleZone) {
+    if (lastThrottleZone) throttleEl.classList.remove(lastThrottleZone);
+    if (zone) throttleEl.classList.add(zone);
+    lastThrottleZone = zone;
+  }
 }
 
 window.addEventListener('blur', () => {
