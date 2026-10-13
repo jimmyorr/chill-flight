@@ -892,7 +892,10 @@ export const ChillFlightLogic = {};
   // --- DOMAIN WARPING ---
   // getElevation samples the land at warped coordinates, which makes
   // coastlines and rivers organic. Each returns the offset to add to x or z
-  // (both from the unwarped x and z).
+  // (both from the unwarped x and z). The fine layers (hills, crags, the
+  // mountains' spurs, the coast's islets) take only DETAIL_WARP of it: the
+  // full warp stretches them into streaks and fingerprint whorls.
+  const DETAIL_WARP = 0.25;
   function domainWarpX(x, z, simplex) {
     return (
       cylNoise(x, (nx, ny) =>
@@ -1139,6 +1142,9 @@ export const ChillFlightLogic = {};
         )
       ) *
         dwScale;
+    // The islets and roughness take only part of the warp (DETAIL_WARP)
+    const fx = x + (qx - x) * DETAIL_WARP;
+    const fz = z + (qz - z) * DETAIL_WARP;
 
     // How broken this stretch of coast is: slow noise turns the fjords and
     // island chains down to smooth shores in places (0.15 to 1)
@@ -1189,10 +1195,10 @@ export const ChillFlightLogic = {};
       )
     );
     if (islandRegion > 0.3) {
-      const islandNoise = cylNoise(qx, (nx, ny) =>
+      const islandNoise = cylNoise(fx, (nx, ny) =>
         simplex.noise3D(
           nx * 0.0015 + o.island,
-          qz * 0.0015 + o.island,
+          fz * 0.0015 + o.island,
           ny * 0.0015 + o.island
         )
       );
@@ -1227,10 +1233,10 @@ export const ChillFlightLogic = {};
     // Surface roughness
     if (h > waterLevel - 5) {
       h +=
-        cylNoise(qx, (nx, ny) =>
+        cylNoise(fx, (nx, ny) =>
           simplex.noise3D(
             nx * 0.004 + o.rough,
-            qz * 0.004 + o.rough,
+            fz * 0.004 + o.rough,
             ny * 0.004 + o.rough
           )
         ) * 30;
@@ -2069,6 +2075,9 @@ export const ChillFlightLogic = {};
     const origZ = z;
     x += domainWarpX(x, z, simplex);
     z += domainWarpZ(origX, z, simplex);
+    // Where the fine noise layers sample (see DETAIL_WARP)
+    const dx = origX + (x - origX) * DETAIL_WARP;
+    const dz = origZ + (z - origZ) * DETAIL_WARP;
 
     const biome = getBiome(x, z, simplex);
 
@@ -2133,8 +2142,8 @@ export const ChillFlightLogic = {};
     }
 
     let n =
-      cylNoise(x, (nx, ny) =>
-        simplex.noise3D(nx * 0.001, z * 0.001, ny * 0.001)
+      cylNoise(dx, (nx, ny) =>
+        simplex.noise3D(nx * 0.001, dz * 0.001, ny * 0.001)
       ) *
       heightScale *
       oceanDamping;
@@ -2144,21 +2153,23 @@ export const ChillFlightLogic = {};
       let ridge =
         1.0 -
         Math.abs(
-          cylNoise(x, (nx, ny) =>
-            simplex.noise3D(nx * 0.0008, z * 0.0008, ny * 0.0008)
+          cylNoise(dx, (nx, ny) =>
+            simplex.noise3D(nx * 0.0008, dz * 0.0008, ny * 0.0008)
           )
         );
       n += (ridge * 220 - 100) * t * (1 - westFactor);
     }
 
     n +=
-      cylNoise(x, (nx, ny) =>
-        simplex.noise3D(nx * 0.003, z * 0.003, ny * 0.003)
+      cylNoise(dx, (nx, ny) =>
+        simplex.noise3D(nx * 0.003, dz * 0.003, ny * 0.003)
       ) *
       roughness *
       oceanDamping;
     n +=
-      cylNoise(x, (nx, ny) => simplex.noise3D(nx * 0.01, z * 0.01, ny * 0.01)) *
+      cylNoise(dx, (nx, ny) =>
+        simplex.noise3D(nx * 0.01, dz * 0.01, ny * 0.01)
+      ) *
       rockiness *
       oceanDamping;
 
@@ -2688,7 +2699,7 @@ export const ChillFlightLogic = {};
         // 1. Broad base "mass" with lateral branching spurs and cirque bowls
         const side = dz >= 0 ? 1 : -1;
         // Angled spur coordinate branches out at ~37 degrees from the central spine
-        const spurCoord = x * 0.8 + side * dist * 0.6;
+        const spurCoord = dx * 0.8 + side * dist * 0.6;
         const spurFreq = 0.0009;
         const spurRidge =
           1.0 -
@@ -2743,18 +2754,18 @@ export const ChillFlightLogic = {};
             const foothillEnvelope =
               foothillT * foothillT * (3 - 2 * foothillT);
             const foothillNoise =
-              cylNoise(x, (nx, ny) =>
+              cylNoise(dx, (nx, ny) =>
                 simplex.noise3D(
                   nx * 0.0008 + rangeLat * 31.2,
-                  z * 0.0008 + rangeLat * 54.1,
+                  dz * 0.0008 + rangeLat * 54.1,
                   ny * 0.0008 + rangeLat * 31.2
                 )
               ) *
                 0.65 +
-              cylNoise(x, (nx, ny) =>
+              cylNoise(dx, (nx, ny) =>
                 simplex.noise3D(
                   nx * 0.0018 + 73.1,
-                  z * 0.0018 + 89.2,
+                  dz * 0.0018 + 89.2,
                   ny * 0.0018 + 73.1
                 )
               ) *
@@ -2777,7 +2788,7 @@ export const ChillFlightLogic = {};
                   z * 0.0004,
                   ny * 0.0004 + rangeLat * 12.3
                 )
-              ) * 350;
+              ) * 120;
             const warpZ =
               cylNoise(x, (nx, ny) =>
                 simplex.noise3D(
@@ -2785,9 +2796,9 @@ export const ChillFlightLogic = {};
                   z * 0.0004 + rangeLat * 34.5,
                   ny * 0.0004
                 )
-              ) * 350;
-            const qx = x + warpX;
-            const qz = z + warpZ;
+              ) * 120;
+            const qx = dx + warpX;
+            const qz = dz + warpZ;
 
             // 3-octave ridged multifractal: broad massifs -> arêtes -> crags
             let r1 =
