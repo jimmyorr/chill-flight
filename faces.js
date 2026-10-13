@@ -76,6 +76,64 @@ export const FACES = {
       T: '#57616c', // henley placket
     },
   },
+  // Drawn after the real Doug: hair swept up from a side part, a long
+  // clean-shaven face with a square jaw, a smile and a navy and white raglan
+  Doug: {
+    rows: [
+      '................................',
+      '.............kkkkkk.............',
+      '............khhhhhhk............',
+      '............kHHHHHHhk...........',
+      '...........khhhhHHhHhk..........',
+      '..........khHhhhhhHhhhk.........',
+      '.........khDhhhhhhhHhhhk........',
+      '........khhDhhhhhhhhHhhk........',
+      '........khhDhhhhhhhhhHhk........',
+      '........khhssssssshhhhhk........',
+      '........khhsssssssssshhk........',
+      '.........ksvvvvssvvvvsk.........',
+      '........kdssssssssssssdk........',
+      '........kdssEesssseEssdk........',
+      '........kdsssssdssssssdk........',
+      '........kdsssssdssssssdk........',
+      '.........kssssddddssssk.........',
+      '.........kssssssssssssk.........',
+      '.........kssdssssssdssk.........',
+      '.........kdsswwwwwwssdk.........',
+      '..........kdssmmmmssdk..........',
+      '...........kddddddddk...........',
+      '............kddddddk............',
+      '..........kkksssssskkk..........',
+      '........kkNnnssssssnnNkk........',
+      '......kkNNtttnnnnnntttNNkk......',
+      '....kkNNNttttttttttttttNNNkk....',
+      '..kkNNNNttttttttttttttttNNNNkk..',
+      'kkNNNNNttttttttttttttttttNNNNNkk',
+      'NNNNNNttttttttttttttttttttNNNNNN',
+      'NNNNNttttttttttttttttttttttNNNNN',
+      'NNNNttttttttttttttttttttttttNNNN',
+    ],
+    mouthClosed: {
+      19: '.........kdssmmmmmmssdk.........',
+      20: '..........kdssssssssdk..........',
+    },
+    palette: {
+      k: '#2a1c14', // outline
+      h: '#8a6a48', // hair
+      H: '#a88a64', // hair highlight
+      D: '#5e4430', // hair shadow and the part
+      v: '#6e5038', // brows
+      s: '#ecbc9e', // skin
+      d: '#cc9a7c', // nose, ears and shadow
+      E: '#4e6a80', // eyes
+      e: '#2a2a30', // pupils
+      w: '#f8f4ec', // teeth
+      m: '#6a2e24', // mouth
+      n: '#232f4e', // collar
+      N: '#2c3a5e', // sleeves
+      t: '#f0eeea', // shirt
+    },
+  },
 };
 
 // Problems with FACES, for scripts/test-jobs.js: everyone in names has a

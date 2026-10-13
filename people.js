@@ -95,4 +95,65 @@ export const PEOPLE = [
       },
     ],
   },
+  {
+    name: 'Doug',
+    airport: 'Mesa Field',
+    intro: [
+      "Hey, I'm Doug! Best cheese fries in the desert, right here at Mesa.",
+      'Land and roll to a stop on a runway to pick up or drop off. Easy.',
+    ],
+    hello: [
+      ['Hey! Got time for a quick dish?'],
+      ['You missed karaoke night. I did three songs.'],
+      ["There's my favorite pilot! Fries?"],
+    ],
+    accept: [
+      ["You're a lifesaver."],
+      ["Awesome. I'll keep the fryer hot."],
+      ["Perfect. I'll be here, warming up the mic."],
+    ],
+    decline: [
+      ['No worries! Come by for karaoke sometime.'],
+      ["All good. The fries aren't going anywhere."],
+    ],
+    jobs: [
+      {
+        id: 'cheese',
+        kind: 'round trip',
+        to: ['Meadow Field', 'Pinewood Field', 'Sagebrush Field'],
+        cargo: 'Cheese',
+        offer: [
+          [
+            "Quick dish: I'm out of cheese.",
+            'Could you grab a wheel from {to}?',
+          ],
+          [
+            'Cheese fries without cheese are just fries.',
+            '{to} has a wheel for me. Want to fly over and get it?',
+          ],
+        ],
+        thanks: [
+          ["Now that's a lot of cheese. Thanks!"],
+          ["Back in business! Next basket's on me."],
+        ],
+      },
+      {
+        id: 'cheese-fries',
+        kind: 'one way',
+        to: ['Meadow Field', 'Lagoon Field', 'Dune Field', 'Coral Field'],
+        cargo: 'Cheese fries',
+        offer: [
+          [
+            'Big order for {to}.',
+            "Can you fly these cheese fries over while they're hot?",
+          ],
+          ['One quick dish, to go, for {to}.', 'Take it over for me?'],
+        ],
+        thanks: [
+          ["They loved them! That's {done} for me now."],
+          ['Delivered hot? I could sing about it. I might, later.'],
+        ],
+      },
+    ],
+  },
 ];

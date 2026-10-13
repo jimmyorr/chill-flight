@@ -251,7 +251,7 @@ Every plane can land on water and on land: the biplane, glider and twin engine o
 
 ## People and jobs
 
-People wait at the airports with jobs for you, always there but never in the way: land at an airport with nothing on and someone there says hi and offers one of their jobs, which you can take (**Sure thing**) or turn down (**Not right now**; they'll ask again next time). For now that's Ray, a friend who roasts coffee at **Meadow Field** (X=1500, Z=2400; 0.5 South, 0.3 East), with two jobs: fetching green beans from a farm (a round trip) and flying roasted bags to a cafe (one way).
+People wait at the airports with jobs for you, always there but never in the way: land at an airport with nothing on and someone there says hi and offers one of their jobs, which you can take (**Sure thing**) or turn down (**Not right now**; they'll ask again next time).
 
 - **Round trip or one way:** a round trip sends you to an airport to pick something up and back to whoever asked; a one-way job ends when you drop off where it sends you. They thank you when it's done.
 - **Landing counts:** land on the destination's runway and slow below 20 knots on your wheels (or the seaplane's pontoons); landing anywhere else changes nothing.
