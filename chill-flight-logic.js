@@ -2066,13 +2066,20 @@ export const ChillFlightLogic = {};
       const finalFade = biomeFade * suppressionFactor;
 
       if (finalFade > 0) {
-        const islandRegion = cylNoise(x, (nx, ny) =>
-          simplex.noise3D(
-            nx * 0.0001 + 500,
-            z * 0.0001 + 500,
-            ny * 0.0001 + 500
-          )
-        );
+        const regionAt = (o) =>
+          cylNoise(x, (nx, ny) =>
+            simplex.noise3D(nx * 0.0001 + o, z * 0.0001 + o, ny * 0.0001 + o)
+          );
+        let islandRegion = regionAt(500);
+        // Mid-sea (about 2.5 to 9.5 East) a second, independent field of
+        // clusters fills the gaps, so the crossing to the alien land isn't
+        // long empty water on some seeds
+        const midSea =
+          Math.max(0, Math.min(1, (x - 12500) / 5000)) *
+          Math.max(0, Math.min(1, (47500 - x) / 5000));
+        if (midSea > 0) {
+          islandRegion = Math.max(islandRegion, regionAt(900) * midSea);
+        }
         // 0.1 keeps plenty of open ocean, but increases cluster frequency
         if (islandRegion > 0.1) {
           // Domain warping to create organic, jagged coastlines instead of round blobs
@@ -2101,8 +2108,14 @@ export const ChillFlightLogic = {};
           if (islandShape > -0.2) {
             const eastIntensity = Math.min(1, (x - 3000) / 7000);
             const shapeFactor = Math.max(0, islandShape + 0.2);
-            const heightFactor =
+            const baseFactor =
               shapeFactor * (islandRegion - 0.1) * eastIntensity * finalFade;
+            // Mid-sea, the faintest rises are lifted out of the water too
+            // (up to 0.15), without making the tall islands any taller
+            const heightFactor = Math.min(
+              baseFactor * (1 + 2 * midSea),
+              Math.max(baseFactor, 0.15)
+            );
 
             // Islands are steep
             if (heightFactor > 0) {
