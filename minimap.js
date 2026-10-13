@@ -24,8 +24,9 @@ import {
 } from './game.js';
 import {state} from './state.js';
 import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
-import {LANDMARKS} from './landmarks.js';
-import {cancelJob} from './jobs.js';
+import {LANDMARKS, nearestLandmark} from './landmarks.js';
+import {cancelJob, progress} from './jobs.js';
+import {PEOPLE} from './people.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -997,15 +998,36 @@ import {cancelJob} from './jobs.js';
   // --- WARP AND WAYPOINT ---
   // Tap a spot on the map to pin it, then "Warp here" moves the plane there,
   // 400 units above the ground, keeping its heading and speed, or "Set
-  // waypoint" marks it to fly to (waypoint.js). With no pin, the panel offers
-  // to clear the waypoint.
-  let warpPin = null;
+  // waypoint" marks it to fly to (waypoint.js). A tap near a landmark or
+  // airport picks that place, by name (and for an airport, who's there).
+  // With no pin, the panel offers to clear the waypoint.
+  let warpPin = null; // {x, z, name}
   // How far (pixels) a tap may move and still count as one: fingers wobble
   // more than a mouse
   const TAP_SLOP_MOUSE = 6;
   const TAP_SLOP_TOUCH = 14;
   const TAP_TIME = 400; // ms
+  // How close (pixels) to a place's pin a tap picks the place
+  const SNAP_MOUSE = 14;
+  const SNAP_TOUCH = 24;
   let tapStart = null;
+
+  // "Doug is here", "Ray and someone new are here": who's at the airport
+  // called name, by name once you've met them (as on the People screen)
+  function whoIsHere(name) {
+    const here = PEOPLE.filter((p) => p.airport === name);
+    const names = here.filter((p) => progress.met[p.name]).map((p) => p.name);
+    const unmet = here.length - names.length;
+    if (unmet === 1) names.push('someone new');
+    else if (unmet > 1) names.push(`${unmet} people you haven't met`);
+    if (!names.length) return '';
+    const list =
+      names.length === 1
+        ? names[0]
+        : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+    const verb = here.length === 1 ? 'is' : 'are';
+    return `${list[0].toUpperCase()}${list.slice(1)} ${verb} here`;
+  }
 
   function setWarpPin(pin) {
     warpPin = pin;
@@ -1019,10 +1041,20 @@ import {cancelJob} from './jobs.js';
     const panel = document.getElementById('fullscreen-map-warp');
     if (panel) panel.hidden = !spot;
     if (!spot) return;
+    const name = document.getElementById('fullscreen-map-warp-name');
+    if (name) {
+      name.hidden = !spot.name;
+      name.textContent = spot.name || '';
+    }
     const coords = document.getElementById('fullscreen-map-warp-coords');
     if (coords) {
       coords.textContent =
         (warpPin ? '' : 'Waypoint ') + formatLatLon(spot.x, spot.z);
+    }
+    const people = document.getElementById('fullscreen-map-warp-people');
+    if (people) {
+      people.textContent = spot.name ? whoIsHere(spot.name) : '';
+      people.hidden = !people.textContent;
     }
     const waypointBtn = document.getElementById('fullscreen-map-waypoint-btn');
     if (waypointBtn) {
@@ -1183,8 +1215,8 @@ import {cancelJob} from './jobs.js';
           renderFullscreenMap();
           return;
         }
-        const {x, z} = warpPin;
-        setWaypoint(x, groundAt(x, z), z);
+        const {x, z, name} = warpPin;
+        setWaypoint(x, groundAt(x, z), z, {name});
         // Back to flight to head there
         closeFullscreenMap();
       }
@@ -1224,6 +1256,7 @@ import {cancelJob} from './jobs.js';
               y: e.clientY,
               t: performance.now(),
               slop: e.pointerType === 'mouse' ? TAP_SLOP_MOUSE : TAP_SLOP_TOUCH,
+              snap: e.pointerType === 'mouse' ? SNAP_MOUSE : SNAP_TOUCH,
             }
           : null;
 
@@ -1321,14 +1354,15 @@ import {cancelJob} from './jobs.js';
         ) {
           const minDim = Math.min(window.innerWidth, window.innerHeight);
           const unitsPerPixel = (fsViewRadius * 2) / minDim;
-          setWarpPin({
-            x:
-              fsViewCenterX +
-              (e.clientX - window.innerWidth / 2) * unitsPerPixel,
-            z:
-              fsViewCenterZ +
-              (e.clientY - window.innerHeight / 2) * unitsPerPixel,
-          });
+          const x =
+            fsViewCenterX + (e.clientX - window.innerWidth / 2) * unitsPerPixel;
+          const z =
+            fsViewCenterZ +
+            (e.clientY - window.innerHeight / 2) * unitsPerPixel;
+          const place = nearestLandmark(x, z, tapStart.snap * unitsPerPixel);
+          setWarpPin(
+            place ? {x: place.x, z: place.z, name: place.name} : {x, z}
+          );
         }
         tapStart = null;
         renderFullscreenMap();

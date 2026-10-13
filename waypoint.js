@@ -1,7 +1,8 @@
 // --- WAYPOINT ---
 // A spot picked on the map (minimap.js, "Set waypoint") to fly to. A small
 // marker sits over it on screen, or at the screen's edge pointing the way
-// when it's out of view, with the distance left. Cleared on arrival or from
+// when it's out of view, with the distance left (and the place's name, for
+// a landmark or airport). Cleared on arrival or from
 // the map, except one set to stay (a job's, which lasts until you land
 // there). Saved between visits. With no waypoint, the
 // marker shows the autopilot's next tour stop instead (autopilot.js).
@@ -21,8 +22,8 @@ const ARRIVE_DIST = 300;
 const EDGE_MARGIN = 36;
 const TOP_MARGIN = 96;
 
-// {x, y, z, stay}: y is the ground (or water) height there; stay keeps it
-// on arrival
+// {x, y, z, stay, name}: y is the ground (or water) height there; stay
+// keeps it on arrival; name is the place's, if it's a landmark or airport
 let waypoint = null;
 let tourStop = null; // The same, for the autopilot's tour: not saved
 
@@ -55,10 +56,12 @@ export function getWaypoint() {
   return waypoint;
 }
 
-export function setWaypoint(x, y, z, stay = false) {
-  waypoint = {x, y, z, stay};
+export function setWaypoint(x, y, z, {stay = false, name = null} = {}) {
+  waypoint = {x, y, z, stay, name};
   save();
-  log.info(`[Waypoint] Set at X = ${x.toFixed(0)}, Z = ${z.toFixed(0)}`);
+  log.info(
+    `[Waypoint] Set at ${name ? `${name}, ` : ''}X = ${x.toFixed(0)}, Z = ${z.toFixed(0)}`
+  );
 }
 
 export function clearWaypoint() {
@@ -150,7 +153,9 @@ function update() {
   el.classList.toggle('offscreen', !onScreen);
   el.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
   el.style.setProperty('--waypoint-angle', `${angle.toFixed(3)}rad`);
-  const distText = formatDistance(dist);
+  const distText = target.name
+    ? `${target.name} · ${formatDistance(dist)}`
+    : formatDistance(dist);
   if (distText !== lastDistText) {
     lastDistText = distText;
     if (distEl) distEl.textContent = distText;

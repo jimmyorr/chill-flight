@@ -2019,10 +2019,29 @@ input[type='number'].customization-input {
   white-space: nowrap;
 }
 
+/* The place's name, its coordinates and who's there, one per line */
+.fullscreen-map-warp-place {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fullscreen-map-warp-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
 .fullscreen-map-warp-coords {
   font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.8);
+}
+
+.fullscreen-map-warp-people {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .fullscreen-map-warp-btn {
@@ -2088,9 +2107,10 @@ input[type='number'].customization-input {
     flex-wrap: wrap;
     gap: 8px;
   }
-  /* The coordinates take their own line above the buttons */
-  .fullscreen-map-warp-coords {
+  /* The place takes its own lines above the buttons */
+  .fullscreen-map-warp-place {
     flex-basis: 100%;
+    align-items: center;
     text-align: center;
   }
   .fullscreen-map-warp-btn {

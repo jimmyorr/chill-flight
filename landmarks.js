@@ -1,6 +1,7 @@
 // --- LANDMARKS ---
 // The named places shown on the minimap and the map (minimap.js), and the
-// stops on the autopilot's sightseeing tour (autopilot.js).
+// stops on the autopilot's sightseeing tour (autopilot.js). A tap on the map
+// near one picks it (nearestLandmark).
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
 export const LANDMARKS = [
@@ -53,3 +54,17 @@ export const LANDMARKS = [
     symbol: '✈',
   })),
 ];
+
+// The landmark nearest (x, z) within maxDist (world units), or null
+export function nearestLandmark(x, z, maxDist) {
+  let best = null;
+  let bestDist = maxDist;
+  for (const lm of LANDMARKS) {
+    const dist = Math.hypot(lm.x - x, lm.z - z);
+    if (dist <= bestDist) {
+      best = lm;
+      bestDist = dist;
+    }
+  }
+  return best;
+}

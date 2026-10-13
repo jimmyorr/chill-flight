@@ -78,7 +78,9 @@ function airportByName(name) {
 
 function pointToDestination() {
   const a = airportByName(destination(progress));
-  if (a) setWaypoint(a.x, getElevation(a.x, a.z), a.z, true);
+  if (a) {
+    setWaypoint(a.x, getElevation(a.x, a.z), a.z, {stay: true, name: a.name});
+  }
 }
 
 // Whether the waypoint is the job's (not a detour)

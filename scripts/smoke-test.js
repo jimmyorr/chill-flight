@@ -9,6 +9,7 @@ import {execSync} from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import {ChillFlightLogic} from '../chill-flight-logic.js';
 
 const BUILD_MODE = process.argv.includes('--build');
 let BASE = process.env.SMOKE_URL || 'http://localhost:5173/';
@@ -358,11 +359,49 @@ async function exerciseControls(page, tag) {
   }
   if (await isPaused()) fail('closing the map did not return to flight');
 
+  // A tap a few pixels from an airport's pin picks the airport: the panel
+  // names it and who's there, and its waypoint carries the name
+  const vp = page.viewport() || {width: 1280, height: 720};
+  await page.keyboard.press('m');
+  await wait(800);
+  const meadow = ChillFlightLogic.AIRPORTS.find(
+    (a) => a.name === 'Meadow Field'
+  );
+  const view = await page.evaluate(() => {
+    const q = new URLSearchParams(location.search);
+    const coord = (v) => (parseFloat(v) || 0) * (/[SW]$/.test(v) ? -1 : 1);
+    return {
+      x: coord(q.get('mapLon') || '0') * 5000,
+      z: -coord(q.get('mapLat') || '0') * 5000,
+      radius: 7500 / parseFloat(q.get('mapZoom') || '1'),
+    };
+  });
+  const unitsPerPixel = (view.radius * 2) / Math.min(vp.width, vp.height);
+  await page.mouse.click(
+    vp.width / 2 + (meadow.x - view.x) / unitsPerPixel + 6,
+    vp.height / 2 + (meadow.z - view.z) / unitsPerPixel + 4
+  );
+  await wait(300);
+  const picked = await page.evaluate(() => ({
+    name: document.getElementById('fullscreen-map-warp-name')?.textContent,
+    people: document.getElementById('fullscreen-map-warp-people')?.textContent,
+  }));
+  if (picked.name !== 'Meadow Field') {
+    fail(`a tap by Meadow Field picked "${picked.name}"`);
+  }
+  if (!/ here$/.test(picked.people || '')) {
+    fail(`Meadow Field's panel didn't say who's there ("${picked.people}")`);
+  }
+  await page
+    .click('#fullscreen-map-warp-cancel')
+    .catch((err) => fail(`clear the pin: ${err.message}`));
+  await page.keyboard.press('m');
+  await wait(800);
+
   // Pick a spot on the map and set it as the waypoint: back to flight, with
   // the marker showing the way; then clear it from the map
   await page.keyboard.press('m');
   await wait(800);
-  const vp = page.viewport() || {width: 1280, height: 720};
   await page.mouse.click(vp.width / 2 + 200, vp.height / 2 - 120);
   await wait(300);
   await page
