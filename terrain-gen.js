@@ -140,6 +140,8 @@ const _colorAlpineRockDark = new Color(0x424a54);
 const _colorAlpineRockLight = new Color(0x9ba2a8);
 const _colorScree = new Color(0x736960);
 const _colorAlpineMeadow = new Color(0x9aa95c);
+const _colorSaltPan = new Color(0xf2ede1);
+const _colorSaltPanStain = new Color(0xd6c9ad);
 const _colorDesertMountainRock = new Color(0xc24b2b);
 const _colorIce = new Color(0x6ca6a8);
 const _colorAutumnForestTint = new Color(0x5d4037);
@@ -1261,6 +1263,13 @@ export function generateChunkData({
         if (snowFactor > 0) _tempColorObj.lerp(_colorSandSnowTint, snowFactor);
         if (desertFactor > 0)
           _tempColorObj.lerp(_colorDesertSand, desertFactor);
+      } else if (
+        desertFactor > 0.3 &&
+        Math.abs(height - WATER_LEVEL - ChillFlightLogic.SALT_PAN_RISE) < 0.02
+      ) {
+        // A salt pan (a dried desert lake): white crust, cracked and stained
+        _tempColorObj.copy(_colorSaltPan);
+        _tempColorObj.lerp(_colorSaltPanStain, mottle * 0.6);
       } else if (height <= WATER_LEVEL + 1.2) {
         const wetFactor = 1.0 - (height - WATER_LEVEL) / 1.2;
         _tempColorObj.copy(_colorSand);

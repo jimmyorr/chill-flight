@@ -1844,6 +1844,100 @@ export const ChillFlightLogic = {};
     return [h, t * t * (3 - 2 * t)];
   }
 
+  // --- THE DESERT LOWLAND ---
+  // How deep in the desert (x, z) is, 0 to 1: from about 2.2 South (where
+  // the sand has taken over) to full by 3.2 South, following the desert's
+  // wandering edge (desertShift)
+  function desertLowlandAt(x, z, simplex) {
+    return smoothRamp(z / 5000 + desertShift(x, z, simplex), 2.2, 3.2);
+  }
+  // Dunes: long ridges across the prevailing wind (from the west-south-west),
+  // with a gentle windward slope and a steep lee face, in dune fields that
+  // cover most of the desert. Height above the ground, 0 to about 44.
+  // Salt pans sit this far above the water
+  const SALT_PAN_RISE = 0.8;
+  const DUNE_WIND = 0.35;
+  const DUNE_SPACING = 400;
+  // How much of a dune field the last duneAt call was in, 0 to 1
+  let _duneField = 0;
+  function duneAt(x, z, simplex) {
+    const field = smoothRamp(
+      simplex.noise2D(x * 0.00025 + 610, z * 0.00025 - 240),
+      -0.35,
+      0.05
+    );
+    _duneField = field;
+    if (field <= 0) return 0;
+    const cos = Math.cos(DUNE_WIND);
+    const sin = Math.sin(DUNE_WIND);
+    const u = x * cos + z * sin;
+    const v = -x * sin + z * cos;
+    // Crests wander, split and rejoin along their length
+    const phase =
+      u / DUNE_SPACING + simplex.noise2D(v * 0.0007 + 7.7, u * 0.0002) * 0.6;
+    const p = phase - Math.floor(phase);
+    const s = p < 0.7 ? p / 0.7 : (1 - p) / 0.3;
+    const amp = 30 + 14 * simplex.noise2D(x * 0.001 - 33, z * 0.001 + 91);
+    return s * s * (3 - 2 * s) * amp * field;
+  }
+  // Mesas and buttes standing alone out on the flats: one in most 2.5 km
+  // cells, with a flat top at a fixed height, sheer walls with a wobbly
+  // outline and a talus skirt, some with a smaller butte on top. Not near
+  // the airfields or the canyon. mesaAt fills _mesa (wall and skirt 0 to 1,
+  // top and skirt height in units) and returns whether there's one here.
+  const MESA_CELL = 2500;
+  const _mesa = {wall: 0, skirt: 0, top: 0, skirtHeight: 0};
+  function mesaHash(a, b, c) {
+    let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ c;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  function mesaAt(x, z, simplex) {
+    const ci = Math.floor(x / MESA_CELL);
+    const cj = Math.floor(z / MESA_CELL);
+    if (mesaHash(ci, cj, 1) > 0.65) return false;
+    const cx = (ci + 0.3 + 0.4 * mesaHash(ci, cj, 2)) * MESA_CELL;
+    const cz = (cj + 0.3 + 0.4 * mesaHash(ci, cj, 3)) * MESA_CELL;
+    const dx = x - cx;
+    const dz = z - cz;
+    const radius = 160 + 340 * mesaHash(ci, cj, 4);
+    if (dx * dx + dz * dz > radius * radius * 2.6) return false;
+    if (isOnAirport(cx, cz, 2500)) return false;
+    if (
+      cx > _canyonBox[0] &&
+      cx < _canyonBox[1] &&
+      cz > _canyonBox[2] &&
+      cz < _canyonBox[3]
+    ) {
+      return false;
+    }
+    const ang = Math.atan2(dz, dx);
+    const r =
+      radius *
+      (1 +
+        0.16 *
+          simplex.noise2D(
+            Math.cos(ang) * 0.8 + ci * 7.1,
+            Math.sin(ang) * 0.8 + cj * 5.3
+          ));
+    const d = Math.sqrt(dx * dx + dz * dz) / r;
+    const height = 80 + 140 * mesaHash(ci, cj, 5);
+    const cap = mesaHash(ci, cj, 6) < 0.4 ? 1 - smoothRamp(d, 0.4, 0.5) : 0;
+    _mesa.wall = 1 - smoothRamp(d, 0.88, 1);
+    _mesa.skirt = 1 - smoothRamp(d, 0.9, 1.5);
+    _mesa.top = 110 + height + cap * height * 0.4;
+    _mesa.skirtHeight = height * 0.18;
+    return true;
+  }
+
+  // 0 on and beside the highway, rising to 1 by 400 units out, so dunes and
+  // mesas don't bury it
+  function desertRoadClear(x, z) {
+    const i = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
+    if (i < 0 || i > ROAD_LAST) return 1;
+    return smoothRamp(Math.abs(x - getRoadCenterX(z, i)), 150, 400);
+  }
+
   function getElevation(x, z, simplex, constants, lerp, options = {}) {
     const WATER_LEVEL = constants.WATER_LEVEL || 40;
 
@@ -2819,6 +2913,20 @@ export const ChillFlightLogic = {};
       }
     }
 
+    // --- THE DESERT'S SALT PANS ---
+    // The desert's inland lakes dry to salt pans (just above the water, dead
+    // flat; terrain-gen.js colours them). Away from the sea (biome) the lake
+    // floors rise to the pan, so where a lake reaches toward the coast it
+    // keeps water at its seaward end, with a smooth shore between. Before
+    // the rivers and highway, which still cut through.
+    const desert = desertLowlandAt(origX, origZ, simplex);
+    if (desert > 0.4) {
+      const dry = smoothRamp(biome, -0.08, 0.06) * smoothRamp(desert, 0.4, 0.8);
+      if (dry > 0 && n < WATER_LEVEL + SALT_PAN_RISE) {
+        n = _lerp(n, WATER_LEVEL + SALT_PAN_RISE, dry);
+      }
+    }
+
     // --- RIVER CARVING LOGIC ---
     // Runs after all additive terrain passes (mountains, volcano) so it always wins.
     if (!options.ignoreRivers) {
@@ -3021,6 +3129,37 @@ export const ChillFlightLogic = {};
       const fade = heartlandFade(origX, origZ);
       n = _lerp(n, coastTarget, b * b * (3 - 2 * b) * fade);
       if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
+    }
+
+    // --- THE DESERT LOWLAND ---
+    // Dune fields and lone mesas on the desert flats. After the coasts (whose
+    // coastal terrain would otherwise replace them across the south), kept
+    // off the rivers by the height gates and off the highway.
+    if (desert > 0) {
+      const road = desertRoadClear(origX, origZ);
+      const flats =
+        Math.max(0, Math.min(1, (n - WATER_LEVEL - 2) / 10)) *
+        Math.max(0, Math.min(1, (220 - n) / 80)) *
+        road;
+      if (flats > 0) {
+        // Dune fields: the hills under them flatten out into a sand sea
+        const dunes = duneAt(origX, origZ, simplex);
+        if (dunes > 0 && n > WATER_LEVEL + 8) {
+          const sea = _duneField * flats * desert;
+          n = WATER_LEVEL + 8 + (n - WATER_LEVEL - 8) * (1 - 0.6 * sea);
+        }
+        n += dunes * flats * desert;
+      }
+      if (
+        desert > 0.5 &&
+        road > 0 &&
+        n > WATER_LEVEL - 5 &&
+        n < 260 &&
+        mesaAt(origX, origZ, simplex)
+      ) {
+        n += _mesa.skirt * _mesa.skirtHeight * road;
+        n = Math.max(n, _lerp(n, _mesa.top, _mesa.wall * road));
+      }
     }
 
     // --- THE CANYON ---
@@ -3369,6 +3508,7 @@ export const ChillFlightLogic = {};
   exports.snowNoiseShift = snowNoiseShift;
   exports.snowWobble = snowWobble;
   exports.desertShift = desertShift;
+  exports.SALT_PAN_RISE = SALT_PAN_RISE;
   exports.alienAt = alienAt;
   exports.MAP_WIDTH = MAP_WIDTH;
   exports.getElevation = getElevation;

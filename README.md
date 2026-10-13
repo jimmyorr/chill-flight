@@ -94,6 +94,7 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
 - **Landscape:** Reddish-orange sand (#F4A460) and deep red canyon rock (#C24B2B).
 - **Key Features:**
   - **Mountain ranges:** The first range south always rises around 1.0 South (Z = 5000), still green. Ranges further south vary by world seed; in the desert (beyond about 2.3 South, Z = 11500) they become broad mesas and rugged red-rock peaks.
+  - **Desert lowland:** From about 2.2 South the low ground between the ranges is shaped by the desert (`desertLowlandAt` in `chill-flight-logic.js`). Dune fields cover most of it: long ridges up to about 44 units high and 400 apart, lying across a wind from the west-south-west, with gentle windward slopes and steep lee faces, and the hills beneath them flatten into a sand sea (`duneAt`). Lone mesas and buttes stand out on the flats, one in most 2.5 km cells: flat tops 190 to 330 units up with sheer walls over a talus skirt, some with a smaller butte on top, kept clear of the airfields, the canyon and the highway (`mesaAt`). Inland lakes dry to white salt pans just above the water; a lake reaching toward the coast keeps water at its seaward end.
   - **Vegetation:** Cactuses and skeletal "dead" trees.
   - **The canyon:** A Grand Canyon cuts the desert south of spawn's longitudes, at about 1 East (see Landmarks).
   - **Water:** Deep turquoise tropical-style water (#00CED1). The south coast is warm and shallow: a sandy turquoise shelf with reefs and sand cays (see Biomes above).
