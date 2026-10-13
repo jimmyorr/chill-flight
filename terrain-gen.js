@@ -139,6 +139,7 @@ const _colorMountainTint = new Color(0x7f8c8d);
 const _colorAlpineRockDark = new Color(0x424a54);
 const _colorAlpineRockLight = new Color(0x9ba2a8);
 const _colorScree = new Color(0x736960);
+const _colorAlpineMeadow = new Color(0x9aa95c);
 const _colorDesertMountainRock = new Color(0xc24b2b);
 const _colorIce = new Color(0x6ca6a8);
 const _colorAutumnForestTint = new Color(0x5d4037);
@@ -206,6 +207,11 @@ const ENABLE_LIGHTHOUSES = false;
 // How alien (ChillFlightLogic.alienAt) the land must be for alien props
 const ALIEN_PROPS_AT = 0.3;
 
+// Above the tree line: alpine meadow for this many meters, then bare rock
+const ALPINE_MEADOW_BAND = 150;
+// Over this many meters below the tree line, the woods thin and shrink
+const TREE_LINE_FADE = 150;
+
 const ALIEN_CRYSTAL_COLORS = [0xff4fd8, 0xff7a3d, 0xffb8ec, 0xc04dff, 0xff2e7e];
 
 const ALIEN_MUSHROOM_CAP_COLORS = [
@@ -255,6 +261,87 @@ function rotateY(x, z, angle) {
     x: x * cos + z * sin,
     z: -x * sin + z * cos,
   };
+}
+
+// The way a village's streets (and its fields) run, slowly varying
+function villageAngleAt(x, z, simplex) {
+  return (simplex.noise2D(x * 0.0004 - 13.1, z * 0.0004 + 5.9) + 1) * Math.PI;
+}
+
+// Farm fields around villages. The land is split into blocks about 1,200 m
+// across (with wobbly edges), and each block is a parcel of strip fields
+// turned to its village's orientation, so neighboring parcels meet at an
+// angle, like a real patchwork. fieldAt fills _field with the point's place
+// in its parcel: u along the strips' short side, v along their length, and
+// the crop (an index into FIELD_CROP_COLORS, or -1 for plain pasture).
+const FARM_BLOCK = 1500;
+const FIELD_WIDTH = 220;
+const FIELD_LENGTH = 480;
+const FIELD_CROP_COLORS = [
+  new Color(0xe3c255), // wheat
+  new Color(0xc2cc5c), // barley
+  new Color(0xa8d04a), // young crop
+  new Color(0x4f8a2e), // potatoes, beans
+  new Color(0x8a6242), // plowed
+];
+const _field = {u: 0, v: 0, angle: 0, cx: 0, cz: 0, bx: 0, bz: 0, crop: -1};
+function fieldHash(a, b, c) {
+  let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ c;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function fieldAt(x, z, simplex) {
+  const wx = x + simplex.noise2D(x * 0.0015 + 3.3, z * 0.0015 - 8.1) * 150;
+  const wz = z + simplex.noise2D(x * 0.0015 - 6.7, z * 0.0015 + 2.9) * 150;
+  const bx = Math.floor(wx / FARM_BLOCK);
+  const bz = Math.floor(wz / FARM_BLOCK);
+  _field.bx = bx;
+  _field.bz = bz;
+  _field.cx = (bx + 0.5) * FARM_BLOCK;
+  _field.cz = (bz + 0.5) * FARM_BLOCK;
+  _field.angle = villageAngleAt(_field.cx, _field.cz, simplex);
+  const cos = Math.cos(_field.angle);
+  const sin = Math.sin(_field.angle);
+  const dx = x - _field.cx;
+  const dz = z - _field.cz;
+  _field.u = dx * cos - dz * sin;
+  _field.v = dx * sin + dz * cos;
+  const i = Math.floor(_field.u / FIELD_WIDTH);
+  // Each strip's fields are staggered, so their ends don't line up
+  const j = Math.floor(
+    _field.v / FIELD_LENGTH + fieldHash(bx, bz, i * 7919 + 11)
+  );
+  const roll = fieldHash(bx * 31 + i, bz * 17 + j, 5);
+  _field.crop =
+    roll < 0.2
+      ? -1
+      : Math.floor(((roll - 0.2) / 0.8) * FIELD_CROP_COLORS.length);
+  return _field;
+}
+
+// The nearest hedgerow to (x, z) in its field parcel, as a world point, or
+// null if it's more than `reach` away. Hedges run along most of the strips'
+// long sides and some of their ends.
+function hedgeNear(x, z, simplex, reach) {
+  const f = fieldAt(x, z, simplex);
+  const {bx, bz} = f;
+  let {u, v} = f;
+  const iEdge = Math.round(u / FIELD_WIDTH);
+  const i = Math.floor(u / FIELD_WIDTH);
+  const stagger = fieldHash(bx, bz, i * 7919 + 11);
+  const jEdge = Math.round(v / FIELD_LENGTH + stagger);
+  const du = Math.abs(u - iEdge * FIELD_WIDTH);
+  const dv = Math.abs(v - (jEdge - stagger) * FIELD_LENGTH);
+  if (du <= dv && du < reach && fieldHash(bx, bz, iEdge * 13 + 3) < 0.7) {
+    u = iEdge * FIELD_WIDTH;
+  } else if (dv < reach && fieldHash(bx * 7 + i, bz, jEdge * 29 + 1) < 0.4) {
+    v = (jEdge - stagger) * FIELD_LENGTH;
+  } else {
+    return null;
+  }
+  const cos = Math.cos(f.angle);
+  const sin = Math.sin(f.angle);
+  return {x: f.cx + cos * u + sin * v, z: f.cz - sin * u + cos * v};
 }
 
 class InstanceCollector {
@@ -1048,14 +1135,54 @@ export function generateChunkData({
     const eastCoastFactor = Math.max(0, Math.min(1, (worldX + 2000) / 2000));
     const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 10;
 
+    // The tree line: about 600 m in the south, 400 m by 1 North, and down
+    // toward the valleys with the snow, wobbling so it isn't a contour line.
+    // Woods thin and shrink over the last 150 m below it; above it there's a
+    // band of alpine meadow, then scree and rock.
+    const alpine = Math.max(0, Math.min(1, (-worldZ / 5000 - 0.3) / 0.7));
+    const treeLine =
+      600 -
+      200 * alpine -
+      270 * snowFactor +
+      simplex.noise2D(worldX * 0.003 + 51, worldZ * 0.003 - 17) * 60;
+    const rockLine = treeLine + ALPINE_MEADOW_BAND;
+
     const forestNoise = simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005);
-    const isForest = forestNoise > 0.2;
+    // Villages (a slow noise field, so a village is a few hundred meters
+    // across), and the farmland around them (fieldAt) on gentle ground below
+    // the upland woods. The
+    // farmland is cleared of the woods, apart from the odd thick patch left as
+    // woodlots between the fields.
+    const villageNoise = simplex.noise2D(
+      worldX * 0.0011 + 71.3,
+      worldZ * 0.0011 - 29.7
+    );
+    let farm = 0;
+    if (
+      !isAlienLand &&
+      height > sandMaxHeight &&
+      height < treeLine - TREE_LINE_FADE &&
+      desertFactor < 0.3 &&
+      snowFactor < 0.3
+    ) {
+      farm =
+        Math.max(0, Math.min(1, (villageNoise + 0.05) / 0.2)) *
+        (1 - Math.max(0, Math.min(1, (slopeFactor - 0.25) / 0.2))) *
+        (1 - desertFactor / 0.3) *
+        (1 - snowFactor / 0.3) *
+        Math.min(1, (treeLine - TREE_LINE_FADE - height) / 60);
+    }
+    const isForest = forestNoise > 0.2 + 0.6 * farm;
+    if (isForest) farm = 0;
+    if (farm > 0) fieldAt(worldX, worldZ, simplex);
     const cherryNoise = simplex.noise2D(
       worldX * 0.0005 + 1000,
       worldZ * 0.0005 + 1000
     );
 
-    // Color assignment & feature spawning
+    // Color assignment & feature spawning. Lowland is the grass and woods
+    // below the mountains' colors (up to the tree line).
+    let isLowland = false;
     if (height <= sandMaxHeight) {
       if (height <= WATER_LEVEL) {
         hasWater = true;
@@ -1156,7 +1283,12 @@ export function generateChunkData({
         if (mottle < 0.4)
           _tempColorObj.lerp(_colorSandMottleLow, (0.4 - mottle) * 0.5);
       }
-    } else if (height > MOUNTAIN_LEVEL - 50 * snowFactor) {
+    } else if (
+      height >
+      (desertFactor > 0.35
+        ? MOUNTAIN_LEVEL - 50 * snowFactor
+        : Math.max(MOUNTAIN_LEVEL - 50 * snowFactor, treeLine - 40))
+    ) {
       const sierraSnowNoise1 = simplex.noise2D(worldX * 0.003, worldZ * 0.003);
       const sierraSnowNoise2 =
         simplex.noise2D(worldX * 0.012, worldZ * 0.012) * 0.5;
@@ -1168,7 +1300,6 @@ export function generateChunkData({
       // The snowline comes down gradually heading north: from 1,150 near the
       // equator to 750 by 1 North (so the first northern range has
       // snow-capped peaks), then with the snow cover down to the valleys.
-      const alpine = Math.max(0, Math.min(1, (-worldZ / 5000 - 0.3) / 0.7));
       const baseSnowline = isDesertMountain
         ? 2400
         : 1150 - 400 * alpine + (WATER_LEVEL + 10 - 750) * snowFactor;
@@ -1188,7 +1319,7 @@ export function generateChunkData({
             : _colorMountainTint;
           _tempColorObj.lerp(rockBase, 1.0 - snowT);
         }
-      } else if (height > 550 || isSheerCliff) {
+      } else if (height > (isDesertMountain ? 550 : rockLine) || isSheerCliff) {
         if (isDesertMountain) {
           _tempColorObj.copy(_colorDesertMountainRock);
           if (desertFactor > 0.5) _tempColorObj.lerp(_colorDesertSand, 0.35);
@@ -1214,7 +1345,11 @@ export function generateChunkData({
             _tempColorObj.lerp(_colorAlpineRockDark, cliffDarken * 0.5);
           }
 
-          if (height < 700 && slopeFactor > 0.25 && slopeFactor < 0.55) {
+          if (
+            height < rockLine + 150 &&
+            slopeFactor > 0.25 &&
+            slopeFactor < 0.55
+          ) {
             _tempColorObj.lerp(_colorScree, 0.35);
           }
         }
@@ -1225,12 +1360,19 @@ export function generateChunkData({
             _tempColorObj.lerp(_colorSandMottleHigh, 0.3);
           _tempColorObj.lerp(_colorDesertMottle, mottle * 0.2);
         } else {
+          // The last of the woods, then alpine meadow going to scree
           _tempColorObj.copy(_colorForest);
           _tempColorObj.lerp(_colorForestDark, mottle * 0.3);
-          if (height > 400) {
-            const rockBlend = (height - 400) / 150;
-            _tempColorObj.lerp(_colorMountainTint, rockBlend * 0.5);
-          }
+          const meadow = Math.max(
+            0,
+            Math.min(1, (height - treeLine + 40) / 80)
+          );
+          _tempColorObj.lerp(_colorAlpineMeadow, meadow);
+          const scree = Math.max(
+            0,
+            Math.min(1, (height - treeLine - 50) / (ALPINE_MEADOW_BAND - 50))
+          );
+          _tempColorObj.lerp(_colorScree, scree * 0.6);
           if (snowFactor > 0)
             _tempColorObj.lerp(
               _colorForestSnowTint,
@@ -1239,6 +1381,7 @@ export function generateChunkData({
         }
       }
     } else {
+      isLowland = true;
       // Grass mottling first, so snow and sand cover it (applied after, its
       // dark greens showed through as camouflage-like blotches); then only a
       // gentle shade on snow and sand. Forest ground is slightly shaded snow
@@ -1255,6 +1398,14 @@ export function generateChunkData({
         _tempColorObj.copy(_colorPlains);
         _tempColorObj.lerp(_colorPlainsDark, mottle * 0.4);
         if (mottle > 0.8) _tempColorObj.lerp(_colorPlainsBright, 0.3);
+        // Hillsides deepen toward the mountains' green
+        if (height > MOUNTAIN_LEVEL)
+          _tempColorObj.lerp(
+            _colorForest,
+            Math.min(0.4, (height - MOUNTAIN_LEVEL) / 750)
+          );
+        if (farm > 0 && _field.crop >= 0)
+          _tempColorObj.lerp(FIELD_CROP_COLORS[_field.crop], farm * 0.95);
         if (snowFactor > 0)
           _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
         if (desertFactor > 0)
@@ -1338,9 +1489,7 @@ export function generateChunkData({
       }
     }
 
-    const isStandardLand =
-      height > sandMaxHeight &&
-      height <= MOUNTAIN_LEVEL + (snowFactor > 0.5 ? -50 : 0);
+    const isStandardLand = height > sandMaxHeight && height <= treeLine;
 
     // The woods' ground darkens with how thick they are, so a forest reads
     // as canopy from the air, not just as trees standing on grass
@@ -1442,16 +1591,30 @@ export function generateChunkData({
         const steep = Math.max(0, Math.min(1, (slopeFactor - 0.3) / 0.4));
         const lowland =
           1 - Math.max(0, Math.min(1, (height - WATER_LEVEL - 3) / 60));
+        // Thinning toward the tree line (over less where it comes down
+        // near the water, in the snowy north)
+        const treeFade = Math.max(
+          0,
+          Math.min(
+            1,
+            (treeLine - height) /
+              Math.max(
+                10,
+                Math.min(TREE_LINE_FADE, treeLine - WATER_LEVEL - 20)
+              )
+          )
+        );
         treeChance =
           (isForest
             ? (0.02 + 1.2 * woods * woods * woods) * clump
-            : 0.012 * openGround) *
+            : 0.012 * openGround * (1 - farm)) *
           (1 - 0.85 * steep) *
           (1 + 0.5 * lowland) *
           // About three times the trees of the old even scatter (1.3 times on
           // the low preset, for slower devices)
           (segments <= 20 ? 0.45 : 1.02) *
           (desertFactor > 0.5 ? 0.33 : 1) *
+          treeFade *
           densityScale;
         treeCount =
           Math.floor(treeChance) + (treeRoll < treeChance % 1 ? 1 : 0);
@@ -1463,7 +1626,10 @@ export function generateChunkData({
             x: jx,
             y: heightAtLocal(jx, jz),
             z: jz,
-            size: isForest ? 0.85 + 0.35 * woods : 0.9 + rng() * 0.3,
+            // Stunted toward the tree line
+            size:
+              (isForest ? 0.85 + 0.35 * woods : 0.9 + rng() * 0.3) *
+              (0.5 + 0.5 * treeFade),
           };
           const isIsland =
             worldX > 3000 &&
@@ -1477,13 +1643,15 @@ export function generateChunkData({
           } else if (
             snowFactor > 0.4 ||
             // Mixed woods: valleys mostly broadleaf, conifers taking over
-            // up the hillsides (most of the woods near MOUNTAIN_LEVEL)
+            // up the hillsides (most of the woods above MOUNTAIN_LEVEL), and
+            // only conifers near the tree line
             (desertFactor < 0.3 &&
-              rng() <
-                Math.min(
-                  0.85,
-                  Math.max(0, (height - (MOUNTAIN_LEVEL - 130)) / 140)
-                ))
+              (treeFade < 0.6 ||
+                rng() <
+                  Math.min(
+                    0.85,
+                    Math.max(0, (height - (MOUNTAIN_LEVEL - 130)) / 140)
+                  )))
           ) {
             snowTreePositions.push(treeSpot);
           } else if (desertFactor > 0.6) {
@@ -1562,6 +1730,31 @@ export function generateChunkData({
           }
         }
       }
+      // Hedgerows between the fields (fieldAt): bushes, and now and then a
+      // tree, lined up along the field edges
+      if (farm > 0.3 && rng() < 0.35 * farm * densityScale) {
+        const hedge = hedgeNear(
+          worldX + (rng() - 0.5) * gridSpacing,
+          worldZ + (rng() - 0.5) * gridSpacing,
+          simplex,
+          30
+        );
+        if (hedge) {
+          const spot = {
+            x: hedge.x - worldOffsetX,
+            y: getElevation(hedge.x, hedge.z, elevParams),
+            z: hedge.z - worldOffsetZ,
+          };
+          if (spot.y > sandMaxHeight + 1) {
+            if (rng() < 0.75) {
+              spot.rotY = rng() * Math.PI * 2;
+              bushPositions.push(spot);
+            } else {
+              deciduousTreePositions.push(spot);
+            }
+          }
+        }
+      }
       if (isForest) {
         if (isAlienLand) {
           if (isEast) {
@@ -1633,10 +1826,6 @@ export function generateChunkData({
           // Houses gather in villages and hamlets (a slow noise field, so a
           // village is a few hundred units across), with only a few lone
           // farmhouses between them, and only on fairly flat ground
-          const villageNoise = simplex.noise2D(
-            worldX * 0.0011 + 71.3,
-            worldZ * 0.0011 - 29.7
-          );
           const village = Math.max(0, Math.min(1, (villageNoise - 0.45) / 0.3));
           const flat =
             1 - Math.max(0, Math.min(1, (slopeFactor - 0.12) / 0.12));
@@ -1647,10 +1836,7 @@ export function generateChunkData({
             densityScale;
           // A village's houses share an orientation, like houses along its
           // streets (turned by a quarter, or a little off, now and then)
-          const villageAngle =
-            (simplex.noise2D(worldX * 0.0004 - 13.1, worldZ * 0.0004 + 5.9) +
-              1) *
-            Math.PI;
+          const villageAngle = villageAngleAt(worldX, worldZ, simplex);
           const houseRotY = () =>
             village > 0
               ? villageAngle +
@@ -1941,7 +2127,7 @@ export function generateChunkData({
 
     // Final detail pass (slope darkening & grain)
     if (
-      height <= MOUNTAIN_LEVEL &&
+      (height <= MOUNTAIN_LEVEL || isLowland) &&
       slopeFactor > 0.45 &&
       height > WATER_LEVEL + 5
     ) {
@@ -1950,7 +2136,7 @@ export function generateChunkData({
       const rockColor = isSouthBiome ? _colorCliffSouth : _colorMountainTint;
       _tempColorObj.lerp(rockColor, cliffBlend);
       _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.15);
-    } else if (height <= MOUNTAIN_LEVEL && slopeFactor > 0.1) {
+    } else if ((height <= MOUNTAIN_LEVEL || isLowland) && slopeFactor > 0.1) {
       _tempColorObj.multiplyScalar(1.0 - slopeFactor * 0.3);
     }
 
