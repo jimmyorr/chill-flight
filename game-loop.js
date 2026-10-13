@@ -109,7 +109,11 @@ import {
 import {updateVRPauseInteraction} from './vr-manager.js';
 import {scene} from './scene.js';
 import {clearInputState} from './game-state.js';
-import {showStartPlaneTooltip, toggleAutopilot} from './game-ui.js';
+import {
+  showStartPlaneTooltip,
+  toggleAutopilot,
+  updateThrottle,
+} from './game-ui.js';
 import {updateAutopilot} from './autopilot.js';
 import {updateFlightPhysics} from './flight-physics.js';
 import {log} from './logger.js';
@@ -482,6 +486,7 @@ function performFrame() {
   planeGroup.updateMatrixWorld();
 
   updateFlightCamera(delta, nowTime);
+  updateThrottle();
   updateTraffic(delta);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping();

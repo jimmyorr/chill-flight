@@ -740,6 +740,126 @@ input[type='number'].customization-input {
   width: 100%;
 }
 
+/* The throttle (game-ui.js): drag the knob to set the target speed.
+   --thr is the target as a fraction of the plane's top speed, --stall the
+   speed the plane starts to sink below. */
+#throttle-container {
+  grid-column: span 2;
+}
+
+#throttle {
+  --thr: 0;
+  --stall: 0.11;
+  --knob-w: 68px;
+  --pad: 6px;
+  position: relative;
+  width: 100%;
+  height: 60px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  cursor: ew-resize;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  outline: none;
+}
+
+#throttle .throttle-stall {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(
+    var(--pad) + var(--knob-w) / 2 + var(--stall) *
+      (100% - var(--knob-w) - 2 * var(--pad))
+  );
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 120, 80, 0.28) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+#throttle .throttle-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(
+    var(--pad) + var(--knob-w) / 2 + var(--thr) *
+      (100% - var(--knob-w) - 2 * var(--pad))
+  );
+  background: linear-gradient(
+    90deg,
+    rgba(255, 215, 0, 0),
+    rgba(255, 215, 0, 0.16)
+  );
+}
+
+#throttle .throttle-ticks {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 6px;
+  height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.35) 0 1px,
+    transparent 1px 10%
+  );
+}
+
+#throttle .throttle-max {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font:
+    700 10px 'Inter',
+    sans-serif;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+#throttle .throttle-knob {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: calc(var(--pad) + var(--thr) * (100% - var(--knob-w) - 2 * var(--pad)));
+  width: var(--knob-w);
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: rgba(28, 24, 36, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  color: #ffd700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', monospace;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
+#throttle .throttle-knob b {
+  font-size: 17px;
+}
+
+#throttle .throttle-knob small {
+  font-size: 9px;
+  letter-spacing: 1px;
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 /* The Sub-Menu Animation */
 .menu-items {
   position: absolute;

@@ -25,7 +25,7 @@ let onRoad = false;
 const ROAD_CATCH_DEPTH = 2.0;
 // Whether the throttle has been opened since settling on the water or the
 // ground (see the surface drag below), and its setting last frame: every
-// throttle input (keys, gamepad, the on-screen buttons) raises it, and only
+// throttle input (keys, gamepad, the throttle slider) raises it, and only
 // the surface drag lowers it on its own
 let throttleOpenedOnSurface = false;
 let lastTargetSpeed = 0;
@@ -44,12 +44,18 @@ const smoothstep = THREE.MathUtils.smoothstep;
 function sinkRateAt(kts) {
   return 15 * (1 - smoothstep(kts, 50, 100));
 }
+// How fast the plane speeds up and slows down toward the throttle's target
+// (knots per second), and how close it gets before easing in (per second:
+// at 2 the last 25 knots of a climb to speed ease in)
+const THROTTLE_ACCEL_KTS = 50;
+const THROTTLE_DECEL_KTS = 30;
+const THROTTLE_EASE = 2;
 // How quickly the sink follows a change of speed (seconds)
 const SINK_EASE_SECONDS = 1.0;
 // Slower still, the plane falls out of the sky and tumbles: gravity takes
 // over, blending in from 55 down to 35 knots (fallAmount) instead of
 // switching on at one speed
-const FALL_START_KTS = 55;
+export const FALL_START_KTS = 55;
 const FALL_FULL_KTS = 35;
 const GRAVITY = 120; // units/sec²: weighty but not instant
 const TERMINAL_VELOCITY = -600;
@@ -160,22 +166,22 @@ export function updateFlightPhysics(delta, nowTime) {
   }
 
   // --- SPEED RECOVERY (DRAG & THROTTLE) ---
-  // Automatically return to the target throttle speed.
-  // We update this even at speed 0 so the vehicle can start moving again.
+  // Head for the throttle's target speed at a steady rate, like an engine
+  // spooling up (or drag slowing the plane), easing in over the last few
+  // knots. The throttle slider can jump the target in one go, so the rate
+  // here is what the player feels. We update this even at speed 0 so the
+  // vehicle can start moving again.
   if (
     Math.abs(state.flightSpeedMultiplier) > 0.001 ||
     Math.abs(state.targetFlightSpeed) > 0.001
   ) {
-    let recoveryRate = 0.6;
-
-    if (keys.Shift || state.flightSpeedMultiplier < state.targetFlightSpeed) {
-      recoveryRate = 10.0; // Snappy responsiveness for active control/acceleration
-    }
-    state.flightSpeedMultiplier = THREE.MathUtils.lerp(
-      state.flightSpeedMultiplier,
-      state.targetFlightSpeed,
-      recoveryRate * delta
-    );
+    const ktsPerMult = BASE_FLIGHT_SPEED * 60;
+    const diff = state.targetFlightSpeed - state.flightSpeedMultiplier;
+    const maxRate =
+      (diff > 0 ? THROTTLE_ACCEL_KTS : THROTTLE_DECEL_KTS) / ktsPerMult;
+    const step = Math.min(Math.abs(diff) * THROTTLE_EASE, maxRate) * delta;
+    state.flightSpeedMultiplier +=
+      Math.sign(diff) * Math.min(step, Math.abs(diff));
 
     // Easing never quite arrives, so settle once close (a plane stopping on
     // the water or the ground stops, rather than creeping and its prop

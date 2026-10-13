@@ -12,28 +12,20 @@ import {
   headlight,
   headlightGlow,
 } from './airplane.js';
-import {
-  STEER_HOLD_THRESHOLD,
-  doubleTap,
-  hdgtSub,
-  inputManager,
-  keyPressStartTime,
-  keys,
-} from './game-input-bindings.js';
+import {hdgtSub, inputManager} from './game-input-bindings.js';
 import {
   _currentLookTarget,
   _introCameraPosStart,
   _introLookTargetStart,
   _virtualCameraPos,
   _virtualLookTarget,
-  btnDown,
-  btnUp,
 } from './game.js';
 import {camera, clock, renderer} from './sky.js';
 import {scene} from './scene.js';
 import {musicEnabled, setMusicEnabled} from './audio.js';
 import {state} from './state.js';
-import {updateUrlParams} from './constants.js';
+import {BASE_FLIGHT_SPEED, updateDOM, updateUrlParams} from './constants.js';
+import {FALL_START_KTS} from './flight-physics.js';
 import {hooks} from './hooks.js';
 import {Achievements} from './achievements.js';
 import {getChunkLoadingProgress} from './terrain-chunks.js';
@@ -193,7 +185,7 @@ export function resetSteering() {
 
 document
   .querySelectorAll(
-    '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
+    '.mobile-btn, #throttle, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
   )
   .forEach((btn) => {
     btn.addEventListener('mouseenter', resetSteering);
@@ -209,81 +201,75 @@ document
 document.addEventListener('mouseover', (e) => {
   if (
     e.target.closest(
-      '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
+      '.mobile-btn, #throttle, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
     )
   ) {
     resetSteering();
   }
 });
 
-if (btnUp) {
-  const down = (e) => {
-    if (e.cancelable) e.preventDefault();
-    e.stopPropagation();
-    resetSteering();
-    keys.Shift = true;
-    keys.ArrowUp = true;
-    keyPressStartTime.ArrowUp = performance.now();
-  };
-  const up = (e) => {
-    if (e.cancelable) e.preventDefault();
-    e.stopPropagation();
-    const nowTime = performance.now();
-    if (
-      keyPressStartTime.ArrowUp > 0 &&
-      nowTime - keyPressStartTime.ArrowUp < STEER_HOLD_THRESHOLD
-    ) {
-      state.targetFlightSpeed += 0.1;
-      state.targetFlightSpeed = Math.min(
-        getMaxFlightSpeedMult(),
-        state.targetFlightSpeed
-      );
-    }
-    keys.Shift = false;
-    keys.ArrowUp = false;
-    keyPressStartTime.ArrowUp = 0;
-    doubleTap.ArrowUp = false;
-  };
-  btnUp.addEventListener('pointerdown', down);
-  btnUp.addEventListener('pointerup', up);
-  btnUp.addEventListener('pointercancel', up);
-  btnUp.addEventListener('pointerleave', up);
-  btnUp.addEventListener('touchstart', down);
-  btnUp.addEventListener('touchend', up);
-  btnUp.addEventListener('contextmenu', (e) => e.preventDefault());
+/* --- THROTTLE --- */
+// Dragging anywhere on the throttle sets the target speed from where the
+// finger is; keys, gamepad and the scroll wheel move the knob through
+// updateThrottle(), which reads the same target each frame.
+const throttleEl = document.getElementById('throttle');
+const throttleKts = document.getElementById('throttle-kts');
+
+function setThrottleFromPointer(e) {
+  const rect = throttleEl.getBoundingClientRect();
+  const style = getComputedStyle(throttleEl);
+  const knobW = parseFloat(style.getPropertyValue('--knob-w')) || 68;
+  const pad = parseFloat(style.getPropertyValue('--pad')) || 6;
+  const span = rect.width - knobW - 2 * pad;
+  if (span <= 0) return;
+  const frac = Math.min(
+    1,
+    Math.max(0, (e.clientX - rect.left - pad - knobW / 2) / span)
+  );
+  const target = frac * getMaxFlightSpeedMult();
+  // Snap to a stop near rest, like the other throttle inputs
+  state.targetFlightSpeed = target < 0.05 ? 0 : target;
 }
-if (btnDown) {
-  const down = (e) => {
+
+if (throttleEl) {
+  throttleEl.addEventListener('pointerdown', (e) => {
     if (e.cancelable) e.preventDefault();
     e.stopPropagation();
     resetSteering();
-    keys.Shift = true;
-    keys.ArrowDown = true;
-    keys.ArrowUp = false;
-    keyPressStartTime.ArrowDown = performance.now();
-  };
-  const up = (e) => {
-    if (e.cancelable) e.preventDefault();
+    throttleEl.setPointerCapture(e.pointerId);
+    setThrottleFromPointer(e);
+  });
+  throttleEl.addEventListener('pointermove', (e) => {
+    if (!throttleEl.hasPointerCapture(e.pointerId)) return;
     e.stopPropagation();
-    const nowTime = performance.now();
-    if (
-      keyPressStartTime.ArrowDown > 0 &&
-      nowTime - keyPressStartTime.ArrowDown < 250
-    ) {
-      state.targetFlightSpeed = Math.max(0, state.targetFlightSpeed - 0.1);
-    }
-    keys.Shift = false;
-    keys.ArrowDown = false;
-    keyPressStartTime.ArrowDown = 0;
-    doubleTap.ArrowDown = false;
-  };
-  btnDown.addEventListener('pointerdown', down);
-  btnDown.addEventListener('pointerup', up);
-  btnDown.addEventListener('pointercancel', up);
-  btnDown.addEventListener('pointerleave', up);
-  btnDown.addEventListener('touchstart', down);
-  btnDown.addEventListener('touchend', up);
-  btnDown.addEventListener('contextmenu', (e) => e.preventDefault());
+    setThrottleFromPointer(e);
+  });
+  // Keep touches on the throttle from steering the plane
+  throttleEl.addEventListener('touchstart', (e) => e.stopPropagation(), {
+    passive: true,
+  });
+  throttleEl.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+let lastThrottleTarget = -1;
+let lastThrottleMax = -1;
+export function updateThrottle() {
+  if (!throttleEl) return;
+  const max = getMaxFlightSpeedMult();
+  const target = state.targetFlightSpeed;
+  if (target === lastThrottleTarget && max === lastThrottleMax) return;
+  lastThrottleTarget = target;
+  lastThrottleMax = max;
+  const ktsPerMult = BASE_FLIGHT_SPEED * 60;
+  const kts = Math.round(target * ktsPerMult);
+  throttleEl.style.setProperty('--thr', Math.min(1, target / max).toFixed(4));
+  throttleEl.style.setProperty(
+    '--stall',
+    (FALL_START_KTS / (max * ktsPerMult)).toFixed(4)
+  );
+  throttleEl.setAttribute('aria-valuemax', Math.round(max * ktsPerMult));
+  throttleEl.setAttribute('aria-valuenow', kts);
+  updateDOM(throttleKts, kts);
 }
 
 window.addEventListener('blur', () => {
@@ -551,26 +537,25 @@ export function showStartPlaneTooltip() {
 
   const tooltip = document.getElementById('start-plane-tooltip');
   const dismissBtn = document.getElementById('start-plane-dismiss-btn');
-  const spdUpBtn = document.getElementById('mobile-spd-up');
 
-  if (!tooltip || !spdUpBtn) return;
+  if (!tooltip || !throttleEl) return;
 
-  // Show onboarding tooltip and apply pulsating glow to + trigger
+  // Show onboarding tooltip and apply pulsating glow to the throttle
   tooltip.classList.remove('hidden');
   tooltip.classList.add('visible');
-  spdUpBtn.classList.add('onboarding-glow');
+  throttleEl.classList.add('onboarding-glow');
 
   const dismissStartPlaneTooltip = () => {
     tooltip.classList.remove('visible');
     tooltip.classList.add('hidden');
-    spdUpBtn.classList.remove('onboarding-glow');
+    throttleEl.classList.remove('onboarding-glow');
 
     // Clean up listeners
     if (dismissBtn) {
       dismissBtn.removeEventListener('click', handleDismiss);
     }
-    spdUpBtn.removeEventListener('pointerdown', handleSpdUpInteraction);
-    spdUpBtn.removeEventListener('touchstart', handleSpdUpInteraction);
+    throttleEl.removeEventListener('pointerdown', handleSpdUpInteraction);
+    throttleEl.removeEventListener('touchstart', handleSpdUpInteraction);
     window.removeEventListener('keydown', handleKeyInteraction);
   };
 
@@ -606,8 +591,8 @@ export function showStartPlaneTooltip() {
   if (dismissBtn) {
     dismissBtn.addEventListener('click', handleDismiss);
   }
-  spdUpBtn.addEventListener('pointerdown', handleSpdUpInteraction);
-  spdUpBtn.addEventListener('touchstart', handleSpdUpInteraction);
+  throttleEl.addEventListener('pointerdown', handleSpdUpInteraction);
+  throttleEl.addEventListener('touchstart', handleSpdUpInteraction);
   window.addEventListener('keydown', handleKeyInteraction);
 }
 

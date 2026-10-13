@@ -514,8 +514,4 @@ export const _debugCamEuler = new THREE.Euler();
 export var shootingStarStart = new THREE.Vector3();
 export var shootingStarEnd = new THREE.Vector3();
 
-// Mobile controls
-export var btnUp = document.getElementById('mobile-spd-up');
-export var btnDown = document.getElementById('mobile-spd-down');
-
 initDebugUI();
