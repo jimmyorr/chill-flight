@@ -39,13 +39,13 @@ export const PEOPLE = [
       'I roast, you fly. Land and roll to a stop on a runway to pick up or drop off.',
     ],
     hello: [
-      ['Hey, bud! Good to see you.'],
+      ['Hey, buddy! Good to see you.'],
       ['Buddy! Pull up a chair.'],
       ["Look who's here! Coffee?"],
     ],
     accept: [
-      ['Thanks, bud!'],
-      ["You're the best, buddy."],
+      ['Thanks, buddy!'],
+      ["You're the best."],
       ["Great! I'll be here."],
     ],
     decline: [
@@ -60,7 +60,7 @@ export const PEOPLE = [
         cargo: 'Green beans',
         offer: [
           [
-            "Bud, we're almost out of beans.",
+            "Buddy, we're almost out of beans.",
             'Could you grab a crate from {to}?',
           ],
           [
@@ -69,7 +69,7 @@ export const PEOPLE = [
           ],
         ],
         thanks: [
-          ['Oh, these smell great, bud.', "I'll get them in the roaster."],
+          ['Oh, these smell great.', "I'll get them in the roaster."],
           ['Nice crate! A medium roast, I think.'],
         ],
       },
@@ -89,7 +89,7 @@ export const PEOPLE = [
           ['The cafe at {to} is running low.', 'Take them a few bags?'],
         ],
         thanks: [
-          ['They loved it, bud! Thanks.'],
+          ['They loved it! Thanks.'],
           ["Another happy cafe. That's {done} for me, buddy!"],
         ],
       },
