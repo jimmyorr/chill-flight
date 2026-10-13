@@ -6,7 +6,7 @@
 import {PEOPLE} from './people.js';
 import {doneFor} from './jobs-logic.js';
 import {progress} from './jobs.js';
-import {drawFace} from './faces.js';
+import {FACES, drawFace} from './faces.js';
 import {hooks} from './hooks.js';
 
 const overlay = document.getElementById('people-overlay');
@@ -31,7 +31,7 @@ function card(person) {
   el.className = `achievement-card ${met ? 'unlocked' : 'locked'}`;
   const face = document.createElement('canvas');
   face.className = 'person-card-face';
-  drawFace(face, person.face, {hidden: !met});
+  drawFace(face, FACES[person.name], {hidden: !met});
   const title = document.createElement('div');
   title.className = 'achievement-card-title';
   title.textContent = met ? person.name : '???';

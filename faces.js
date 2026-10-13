@@ -1,111 +1,115 @@
 // --- FACES ---
-// The pixel-art faces people talk with (people.js, dialog.js). A face is
-// a square grid of characters, one per pixel ('.' is clear), with a palette
-// giving each character's color, and optionally the rows that change while
+// Everyone's pixel-art face (people.js), by their name. A face is
+// FACE_SIZE rows of FACE_SIZE characters, one per pixel ('.' is clear), with
+// a palette giving each character's color, and the rows that change while
 // they talk (mouthClosed: row number to row, shown every other beat).
-// No DOM at load, so scripts can check people.js in Node; drawFace draws
-// one on a canvas (the dialog, the People screen, debug/debug-faces.html).
+// No DOM at load, so scripts can check faces in Node; drawFace draws one on
+// a canvas (the dialog, the People screen, debug/debug-faces.html).
+
+// Faces are this many pixels square
+export const FACE_SIZE = 32;
 
 // While talking, the mouth closes and opens again every this many seconds
 export const MOUTH_SECONDS = 0.18;
 
-// Ray, drawn after the real Ray: a cap on backwards, long wavy hair, a
-// beard and a big grin.
-export const RAY = {
-  rows: [
-    '................................',
-    '...............kk...............',
-    '............kkkCCkkk............',
-    '..........kkcccccccckk..........',
-    '.........kchhhhhhhcccck.........',
-    '........kcchhhhhhhccccck........',
-    '.......kcccchhhhhccccccck.......',
-    '.......kcccccccccccccccck.......',
-    '.......kCCCCCrrggrrCCCCCk.......',
-    '.......kCCCCCCrrrrCCCCCCk.......',
-    '.......krrrlllllsssssrrrk.......',
-    '.......krrlvvvvllvvvvsrrk.......',
-    '......krrrlllllllsssssrrrk......',
-    '......krrrleellllsseesrrrk......',
-    '.....krrrrsdellddssessrrrrk.....',
-    '.....krrrssssssddssssssrrrk.....',
-    '.....krdrsssssddddsssssrdrk.....',
-    '.....krdrssssssddssssssrdrk.....',
-    '......krrbssbbbbbbbbssbrrk......',
-    '.....kkrrbbbbbbbbbbbbbbrrk......',
-    '....krrrrbbbbwwwwwwbbBbrrk......',
-    '...krrrrrrbbbmmmmmmbbbrrrrk.....',
-    '...krrrrrrbbbbbmmbbbbbrrrrrk....',
-    '...krrrrrrrbbbbbbbbbbrrrrrrrk...',
-    '....krrrrrrrbbbbbbbbrrrrrrrrk...',
-    '.....kkrrrtrrbbbbbbrrtttrrrk....',
-    '....kkttrtttttnnnntttttttrtk....',
-    '...kttttttttttnnnnttttttttttk...',
-    '..ktttttttttttnnnntttttttttttk..',
-    '..kttttttttttttnnttttttttttttk..',
-    '..ktttttttttttttTttttttttttttk..',
-    '.ktttttttttttttnntttttttttttttk.',
-  ],
-  mouthClosed: {
-    20: '....krrrrbbbbmmmmmmbbBbrrk......',
-    21: '...krrrrrrbbbbbbbbbbbbrrrrk.....',
-    22: '...krrrrrrbbbbbbbbbbbbrrrrrk....',
-  },
-  palette: {
-    k: '#2a1c14', // outline
-    c: '#969276', // cap
-    C: '#76725a', // cap band
-    h: '#b0ac92', // cap highlight
-    g: '#aaaaa0', // cap buckle
-    r: '#3b2418', // hair
-    v: '#342218', // brows
-    s: '#e2b28e', // skin
-    l: '#f0ccaa', // skin highlight
-    d: '#c08e6a', // nose and shadow
-    e: '#2a1a10', // eyes
-    b: '#3a2a20', // beard
-    B: '#6e6054', // grey in the beard
-    w: '#f4efe6', // teeth
-    m: '#6a2e24', // mouth
-    n: '#eeeeea', // undershirt and buttons
-    t: '#6f7a86', // henley
-    T: '#57616c', // henley placket
-  },
-};
-
-// Anyone without a face of their own yet: a plain, friendly one
-export const SOMEONE = {
-  rows: [
-    '................',
-    '.....kkkkkk.....',
-    '....khhhhhhk....',
-    '...khhhhhhhhk...',
-    '...khsssssshk...',
-    '...kssssssssk...',
-    '...kseesseesk...',
-    '...kssssssssk...',
-    '...ksssddsssk...',
-    '...kssmmmmssk...',
-    '....kssssssk....',
-    '.....kssssk.....',
-    '...kkttssttkk...',
-    '..kttttttttttk..',
-    '.kttttttttttttk.',
-    '.kttttttttttttk.',
-  ],
-  mouthClosed: {9: '...kssssssssk...'},
-  palette: {
-    k: '#2a1c14', // outline
-    h: '#5a3c28', // hair
-    s: '#e2b28e', // skin
-    d: '#c08e6a', // nose
-    e: '#2a1a10', // eyes
-    m: '#6a2e24', // mouth
-    t: '#4f7a8c', // shirt
+export const FACES = {
+  // Drawn after the real Ray: a cap on backwards, long wavy hair, a beard
+  // and a big grin
+  Ray: {
+    rows: [
+      '................................',
+      '...............kk...............',
+      '............kkkCCkkk............',
+      '..........kkcccccccckk..........',
+      '.........kchhhhhhhcccck.........',
+      '........kcchhhhhhhccccck........',
+      '.......kcccchhhhhccccccck.......',
+      '.......kcccccccccccccccck.......',
+      '.......kCCCCCrrggrrCCCCCk.......',
+      '.......kCCCCCCrrrrCCCCCCk.......',
+      '.......krrrlllllsssssrrrk.......',
+      '.......krrlvvvvllvvvvsrrk.......',
+      '......krrrlllllllsssssrrrk......',
+      '......krrrleellllsseesrrrk......',
+      '.....krrrrsdellddssessrrrrk.....',
+      '.....krrrssssssddssssssrrrk.....',
+      '.....krdrsssssddddsssssrdrk.....',
+      '.....krdrssssssddssssssrdrk.....',
+      '......krrbssbbbbbbbbssbrrk......',
+      '.....kkrrbbbbbbbbbbbbbbrrk......',
+      '....krrrrbbbbwwwwwwbbBbrrk......',
+      '...krrrrrrbbbmmmmmmbbbrrrrk.....',
+      '...krrrrrrbbbbbmmbbbbbrrrrrk....',
+      '...krrrrrrrbbbbbbbbbbrrrrrrrk...',
+      '....krrrrrrrbbbbbbbbrrrrrrrrk...',
+      '.....kkrrrtrrbbbbbbrrtttrrrk....',
+      '....kkttrtttttnnnntttttttrtk....',
+      '...kttttttttttnnnnttttttttttk...',
+      '..ktttttttttttnnnntttttttttttk..',
+      '..kttttttttttttnnttttttttttttk..',
+      '..ktttttttttttttTttttttttttttk..',
+      '.ktttttttttttttnntttttttttttttk.',
+    ],
+    mouthClosed: {
+      20: '....krrrrbbbbmmmmmmbbBbrrk......',
+      21: '...krrrrrrbbbbbbbbbbbbrrrrk.....',
+      22: '...krrrrrrbbbbbbbbbbbbrrrrrk....',
+    },
+    palette: {
+      k: '#2a1c14', // outline
+      c: '#969276', // cap
+      C: '#76725a', // cap band
+      h: '#b0ac92', // cap highlight
+      g: '#aaaaa0', // cap buckle
+      r: '#3b2418', // hair
+      v: '#342218', // brows
+      s: '#e2b28e', // skin
+      l: '#f0ccaa', // skin highlight
+      d: '#c08e6a', // nose and shadow
+      e: '#2a1a10', // eyes
+      b: '#3a2a20', // beard
+      B: '#6e6054', // grey in the beard
+      w: '#f4efe6', // teeth
+      m: '#6a2e24', // mouth
+      n: '#eeeeea', // undershirt and buttons
+      t: '#6f7a86', // henley
+      T: '#57616c', // henley placket
+    },
   },
 };
 
-// Draws face on canvas (sized to the face). hidden draws it as a plain
+// Problems with FACES, for scripts/test-jobs.js: everyone in names has a
+// face, every face belongs to someone, and each is FACE_SIZE square and talks
+export function checkFaces(names) {
+  const problems = [];
+  for (const name of names) {
+    if (!FACES[name]) problems.push(`${name}: no face`);
+  }
+  for (const [name, face] of Object.entries(FACES)) {
+    if (!names.includes(name))
+      problems.push(`${name}'s face: nobody by that name`);
+    const rows = [...face.rows, ...Object.values(face.mouthClosed || {})];
+    if (
+      face.rows.length !== FACE_SIZE ||
+      rows.some((r) => r.length !== FACE_SIZE)
+    ) {
+      problems.push(`${name}'s face: not ${FACE_SIZE} × ${FACE_SIZE}`);
+    }
+    if (!Object.keys(face.mouthClosed || {}).length) {
+      problems.push(`${name}'s face: no mouthClosed rows`);
+    }
+    for (const r of rows) {
+      for (const c of r) {
+        if (c !== '.' && !face.palette[c]) {
+          problems.push(`${name}'s face: no color for ${c}`);
+        }
+      }
+    }
+  }
+  return [...new Set(problems)];
+}
+
+// Draws face on canvas (FACE_SIZE square). hidden draws it as a plain
 // silhouette, for someone you haven't met.
 export function drawFace(
   canvas,
@@ -114,7 +118,7 @@ export function drawFace(
 ) {
   const ctx = canvas?.getContext('2d');
   if (!ctx || !face) return;
-  const size = face.rows.length;
+  const size = FACE_SIZE;
   if (canvas.width !== size) canvas.width = canvas.height = size;
   ctx.clearRect(0, 0, size, size);
   face.rows.forEach((row, y) => {

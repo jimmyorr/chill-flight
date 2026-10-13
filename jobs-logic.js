@@ -235,9 +235,6 @@ export function checkPeople(people, airports) {
     if (!airports.includes(p.airport)) {
       problems.push(`${who}: unknown airport ${p.airport}`);
     }
-    if (!p.face?.rows?.length || !p.face.palette) {
-      problems.push(`${who}: no face`);
-    }
     for (const what of ['intro', 'hello', 'accept', 'decline']) {
       checkLines(who, what, p[what], true);
     }

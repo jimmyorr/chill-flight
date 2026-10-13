@@ -8,7 +8,6 @@
 //   name      Shown over their words and on the People screen (unique).
 //   airport   Where they are: an airport's name (AIRPORTS in
 //             chill-flight-logic.js). Several people can share one.
-//   face      Their pixel face (faces.js); SOMEONE until they have one.
 //   intro     What they say the first time you meet.
 //   hello     What they say when you drop by after that.
 //   accept    When you take a job. decline: when you say not right now.
@@ -28,13 +27,13 @@
 // lists is a choice, one picked at random each time. {to} becomes the
 // airport the job sends you to, {name} the person's name and {done} how
 // many jobs you've done for them ("3 jobs").
-import {RAY} from './faces.js';
+//
+// Everyone needs a face in faces.js, under their name.
 
 export const PEOPLE = [
   {
     name: 'Ray',
     airport: 'Meadow Field',
-    face: RAY,
     intro: [
       "Hey buddy, it's Ray! Welcome to the roastery.",
       'I roast, you fly. Land and roll to a stop on a runway to pick up or drop off.',

@@ -79,11 +79,6 @@
         color: var(--muted);
         font-size: 12px;
       }
-      .sizes {
-        display: flex;
-        gap: 12px;
-        align-items: flex-end;
-      }
       /* Like the dialog's portrait: whole screen pixels per face pixel */
       canvas {
         image-rendering: pixelated;
@@ -99,11 +94,18 @@
   <body>
     <h1>Faces</h1>
     <p class="sub">
-      Every face in <code>faces.js</code>, at the dialog's size (96 px) and
-      larger, and who wears it in <code>people.js</code>. Link to one with
-      #name.
+      Everyone's face in <code>faces.js</code>, with their airport from
+      <code>people.js</code>. Link to one with #name.
     </p>
     <div class="controls">
+      <label
+        >Size
+        <select id="size">
+          <option value="96">96 px (dialog)</option>
+          <option value="192" selected>192 px</option>
+          <option value="288">288 px</option>
+        </select></label
+      >
       <label><input type="checkbox" id="talking" checked /> Talking</label>
       <label
         ><input type="checkbox" id="closed" /> Mouth closed (when not
@@ -117,42 +119,38 @@
     <div id="faces"></div>
 
     <script type="module">
-      import * as faces from '/faces.js';
+      import {FACES, MOUTH_SECONDS, drawFace} from '/faces.js';
       import {PEOPLE} from '/people.js';
 
-      const {MOUTH_SECONDS, drawFace} = faces;
-      const list = Object.entries(faces).filter(
-        ([, v]) => v && typeof v === 'object' && Array.isArray(v.rows)
-      );
       const talking = document.getElementById('talking');
       const closed = document.getElementById('closed');
       const hidden = document.getElementById('hidden');
       const dark = document.getElementById('dark');
+      const size = document.getElementById('size');
       const container = document.getElementById('faces');
 
-      const cards = list.map(([name, face]) => {
+      const cards = Object.entries(FACES).map(([name, face]) => {
         const id = name.toLowerCase();
         const card = document.createElement('div');
         card.className = 'face-card';
         card.id = id;
-        const size = face.rows.length;
-        const who = PEOPLE.filter((p) => p.face === face).map((p) => p.name);
-        const talks = face.mouthClosed ? 'talks' : "doesn't talk yet";
+        const airport = PEOPLE.find((p) => p.name === name)?.airport;
         card.innerHTML = `
           <h2><a href="#${id}">${name}</a></h2>
-          <div class="meta">${size} × ${size} px · ${talks} · ${
-            who.length ? `worn by ${who.join(', ')}` : 'worn by nobody yet'
-          }</div>
-          <div class="sizes"></div>`;
-        const canvases = [96, 192, 288].map((px) => {
-          const c = document.createElement('canvas');
-          c.style.width = c.style.height = `${px}px`;
-          card.querySelector('.sizes').append(c);
-          return c;
-        });
+          <div class="meta">${airport || 'Not in people.js yet'}</div>`;
+        const canvas = document.createElement('canvas');
+        card.append(canvas);
         container.append(card);
-        return {face, canvases};
+        return {face, canvas};
       });
+
+      function resize() {
+        for (const {canvas} of cards) {
+          canvas.style.width = canvas.style.height = `${size.value}px`;
+        }
+      }
+      resize();
+      size.addEventListener('change', resize);
 
       // Cards are added after load, so jump to #name by hand
       if (location.hash) {
@@ -163,10 +161,8 @@
         requestAnimationFrame(draw);
         const beat = Math.floor(now / 1000 / MOUTH_SECONDS) % 2 === 1;
         const mouthClosed = talking.checked ? beat : closed.checked;
-        for (const {face, canvases} of cards) {
-          for (const c of canvases) {
-            drawFace(c, face, {mouthClosed, hidden: hidden.checked});
-          }
+        for (const {face, canvas} of cards) {
+          drawFace(canvas, face, {mouthClosed, hidden: hidden.checked});
         }
       }
       requestAnimationFrame(draw);

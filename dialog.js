@@ -5,7 +5,7 @@
 // whole line, then the next one, then closes it. A question waits on its
 // last line for Sure thing (Enter or Y) or Not right now (N).
 import {state} from './state.js';
-import {MOUTH_SECONDS, drawFace} from './faces.js';
+import {FACES, MOUTH_SECONDS, drawFace} from './faces.js';
 
 // Characters typed per second
 const TYPE_RATE = 35;
@@ -50,12 +50,12 @@ function showLine() {
   }, 1000 / TYPE_RATE);
 }
 
-// person ({name, face}) says newLines. With answer, the last line is a
+// person ({name}) says newLines. With answer, the last line is a
 // question, and answer(yes) is called with the reply.
 export function openDialog(person, newLines, answer = null) {
   if (!dialog || !newLines?.length) return;
   dialogName.textContent = person.name;
-  face = person.face;
+  face = FACES[person.name];
   lines = newLines;
   lineIndex = 0;
   onAnswer = answer;

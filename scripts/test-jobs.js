@@ -3,8 +3,9 @@
  * scripts/test-jobs.js
  *
  * Checks people.js (every person and job is filled in and points at real
- * airports) and the job rules (jobs-logic.js): someone offers a job when you
- * land at their airport with nothing on, turning it down leaves nothing on,
+ * airports, and everyone has a talking face of their own in faces.js) and
+ * the job rules (jobs-logic.js): someone offers a job when you land at their
+ * airport with nothing on, turning it down leaves nothing on,
  * a round trip goes there and back, a one-way job ends where it sends you,
  * only the destination moves a job on, the person you've helped least asks
  * first, dropping a job cancels it, and saved progress is checked before
@@ -12,7 +13,7 @@
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PEOPLE} from '../people.js';
-import {SOMEONE} from '../faces.js';
+import {checkFaces} from '../faces.js';
 import {
   accept,
   cancel,
@@ -53,6 +54,12 @@ const unfilled = (dialog) => dialog?.some((line) => line.includes('{'));
 
 const problems = checkPeople(PEOPLE, AIRPORTS);
 check('people.js is all filled in', !problems.length, problems.join('; '));
+const faceProblems = checkFaces(PEOPLE.map((p) => p.name));
+check(
+  'everyone has one face of their own',
+  !faceProblems.length,
+  faceProblems.join('; ')
+);
 
 // Two made-up people sharing an airport, for the rules
 const line = ['Hi.'];
@@ -60,7 +67,6 @@ const TEST_PEOPLE = [
   {
     name: 'Ann',
     airport: 'Meadow Field',
-    face: SOMEONE,
     intro: ['Hi, I am {name}.'],
     hello: line,
     accept: line,
@@ -79,7 +85,6 @@ const TEST_PEOPLE = [
   {
     name: 'Bo',
     airport: 'Meadow Field',
-    face: SOMEONE,
     intro: line,
     hello: line,
     accept: line,
