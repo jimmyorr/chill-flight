@@ -3,9 +3,9 @@
 // else up there (issue #86). Each appears far off in the haze, wanders across
 // the player's part of the sky and is removed once it's well past
 // (traffic-logic.js has the flight math). They fly the game's own models in
-// random liveries, and show navigation lights at night. The "Other planes"
-// switch in the pause menu's Settings tab turns them off (saved), and
-// ?traffic=0/1 sets them for one visit.
+// random liveries, and show navigation lights at night. Zen mode hides them
+// (zen.js calls setTrafficEnabled), and ?traffic=0/1 sets them for one visit,
+// overriding zen.
 import * as THREE from 'three';
 import {Achievements} from './achievements.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -21,7 +21,6 @@ import {
   stepTrafficPlane,
 } from './traffic-logic.js';
 
-const STORAGE_KEY = 'chill_flight_traffic';
 const MAX_PLANES = 3;
 // Seconds before the next plane appears, so they come and go rather than
 // arriving in a crowd
@@ -32,20 +31,7 @@ const FIRST_SPAWN_DELAY = 5;
 const WINGMAN_DISTANCE = 250;
 const WINGMAN_SECONDS = 3;
 
-const checkbox = document.getElementById('traffic-toggle-input');
-
-function loadEnabled() {
-  if (ChillFlightLogic.TRAFFIC_PARAM !== null) {
-    return ChillFlightLogic.TRAFFIC_PARAM;
-  }
-  try {
-    return localStorage.getItem(STORAGE_KEY) !== 'false';
-  } catch {
-    return true;
-  }
-}
-
-let enabled = loadEnabled();
+let enabled = ChillFlightLogic.TRAFFIC_PARAM ?? true;
 const planes = [];
 let spawnTimer = FIRST_SPAWN_DELAY;
 // The player's velocity, so new planes aim for where they'll be
@@ -152,25 +138,11 @@ function removeAll() {
   planes.length = 0;
 }
 
-export function setTrafficEnabled(on, save = true) {
+export function setTrafficEnabled(on) {
+  if (ChillFlightLogic.TRAFFIC_PARAM !== null || on === enabled) return;
   enabled = on;
-  if (checkbox) checkbox.checked = on;
-  if (save) {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(on));
-    } catch {
-      /* ignore */
-    }
-  }
   if (!on) removeAll();
   spawnTimer = FIRST_SPAWN_DELAY;
-}
-
-if (checkbox) {
-  checkbox.checked = enabled;
-  checkbox.addEventListener('change', (e) =>
-    setTrafficEnabled(e.target.checked)
-  );
 }
 
 // How many other planes are flying now (for the debug panel)

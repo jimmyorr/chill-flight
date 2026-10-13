@@ -1,13 +1,14 @@
 // --- ZEN ---
 // Hides the HUD and buttons for an unobstructed view (the `zen` class on the
-// body; see style.css). Toggled by the Zen checkbox in the pause menu or Z,
-// and turned off by double-tapping the center of the screen. Saved between
-// visits. The first time it's on during flight, a tip explains how to get the
+// body; see style.css), and the other planes (traffic.js). Toggled by the Zen
+// checkbox in the pause menu or Z, and turned off by double-tapping the center
+// of the screen. Saved between visits. The first time it's on during flight, a tip explains how to get the
 // controls back.
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {inputManager} from './game-input-bindings.js';
 import {hooks} from './hooks.js';
 import {state} from './state.js';
+import {setTrafficEnabled} from './traffic.js';
 
 const STORAGE_KEY = 'chill_flight_zen';
 const TIP_SHOWN_KEY = 'chill_flight_zen_tooltip_shown';
@@ -51,6 +52,7 @@ function setZen(enabled) {
   zenEnabled = enabled;
   localStorage.setItem(STORAGE_KEY, String(enabled));
   document.body.classList.toggle('zen', enabled);
+  setTrafficEnabled(!enabled);
   if (checkbox) checkbox.checked = enabled;
   if (enabled) maybeShowTip();
   else hideTip();
