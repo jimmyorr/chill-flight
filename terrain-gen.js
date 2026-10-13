@@ -202,6 +202,9 @@ const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = true;
 const ENABLE_LIGHTHOUSES = false;
 
+// How alien (ChillFlightLogic.alienAt) the land must be for alien props
+const ALIEN_PROPS_AT = 0.3;
+
 const ALIEN_MUSHROOM_CAP_COLORS = [
   0x9c27b0, 0xab47bc, 0x7b1fa2, 0xba68c8, 0x8e24aa, 0x00bcd4, 0x26a69a,
 ];
@@ -976,7 +979,11 @@ export function generateChunkData({
     const worldX = worldOffsetX + localX;
     const worldZ = worldOffsetZ + localZ;
     const isEast = worldX > 0;
-    const isAlienLand = Math.abs(worldX) > 25000;
+    // How alien the colours are, past the wandering edges of the alien lands.
+    // Props turn alien (mushrooms, no houses or ordinary trees) partway in,
+    // where the alien terrain and colours have taken hold.
+    const extremeBlend = ChillFlightLogic.alienAt(worldX, worldZ, simplex);
+    const isAlienLand = extremeBlend > ALIEN_PROPS_AT;
     const isEastAlien = isEast && isAlienLand;
 
     const height = heightGrid[vertI];
@@ -1014,9 +1021,6 @@ export function generateChunkData({
     const mottle = (mottle1 + mottle2 + 0.5) * 0.5;
 
     const grain = simplex.noise2D(worldX * 0.2, worldZ * 0.2) * 0.05;
-
-    // How alien the colours are, past the wandering edges of the alien lands
-    const extremeBlend = ChillFlightLogic.alienAt(worldX, worldZ, simplex);
 
     const noisePath = simplex.noise2D(worldX * 0.0001, worldZ * 0.0001);
     const biomeNoise = simplex.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
@@ -2502,7 +2506,9 @@ export function generateChunkData({
   }
 
   const birds = [];
-  const isAlienChunk = Math.abs(worldOffsetX) > 25000;
+  const isAlienChunk =
+    ChillFlightLogic.alienAt(worldOffsetX, worldOffsetZ, simplex) >
+    ALIEN_PROPS_AT;
   if (!isAlienChunk && rng() < 0.2) {
     const baseX = worldOffsetX + (rng() - 0.5) * chunkSize;
     const baseZ = worldOffsetZ + (rng() - 0.5) * chunkSize;

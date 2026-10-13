@@ -112,6 +112,7 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
 - **Landscape:** Highly distorted, jagged crystalline peaks and surreal terrain generation.
 - **Key Features:**
   - **Terrain Warping:** The far East features swirling, domain-warped ridges and basins, while the far West features massive geometric stepped plateaus and deep chasms.
+  - **Props:** Ordinary trees, buildings and birds give way to alien ones (giant mushrooms in the East, nothing in the West) a little way in, where the alien terrain and colours have taken hold (`alienAt` above 0.3).
   - **Colors:** Normal biomes are completely overtaken by vibrant, neon hues (cyan in the East, magenta in the West) that wash over the landscape.
   - **Seas:** The water transforms into a bright glowing liquid that bleeds smoothly onto the alien shorelines.
 
