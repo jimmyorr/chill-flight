@@ -196,6 +196,9 @@
       <button class="model-btn" onclick="viewModel('mushroom', event)">
         Mushroom
       </button>
+      <button class="model-btn" onclick="viewModel('crystal', event)">
+        Crystal cluster
+      </button>
       <button class="model-btn" onclick="viewModel('rock', event)">Rock</button>
       <button class="model-btn" onclick="viewModel('lily_pad', event)">
         Lily pad
@@ -387,6 +390,8 @@
         lilyPadMat,
         mushroomGeos,
         mushroomStalkMat,
+        crystalClusterGeo,
+        crystalMat,
         palmGeos,
         pierDeckGeo,
         rockGeo,
@@ -493,6 +498,7 @@
           'twin',
           'twin-engine',
           'mushroom',
+          'crystal',
         ].includes(type);
         document.getElementById('color-options').style.display = supportsColors
           ? 'block'
@@ -772,6 +778,21 @@
                 stalk.position.x = xOffset;
                 cap.position.x = xOffset;
                 previewGroup.add(stalk, cap);
+              });
+              break;
+            }
+            case 'crystal': {
+              const palette = [
+                0xff4fd8, 0xff7a3d, 0xffb8ec, 0xc04dff, 0xff2e7e,
+              ];
+              [-30, 0, 30].forEach((xOffset, i) => {
+                const mat = crystalMat.clone();
+                mat.color.setHex(palette[(colorSeed + i) % palette.length]);
+                const cluster = new THREE.Mesh(crystalClusterGeo, mat);
+                const scale = [0.8, 1.4, 2.2][i];
+                cluster.scale.set(scale, scale, scale);
+                cluster.position.x = xOffset;
+                previewGroup.add(cluster);
               });
               break;
             }

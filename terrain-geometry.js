@@ -3038,6 +3038,41 @@ function mergeGeometries(geos) {
   return geom;
 }
 
+// Crystal cluster (western alien land): six-sided prisms with pointed tips,
+// a tall one in the middle and shorter ones leaning out around it
+function createCrystalClusterGeometry() {
+  const crystals = [
+    // [height, radius, lean (radians), direction (radians), offset]
+    [20, 2.2, 0, 0, 0],
+    [13, 1.6, 0.45, 0.3, 2.2],
+    [10, 1.4, 0.55, 2.2, 2.0],
+    [15, 1.8, 0.35, 4.1, 2.4],
+    [7, 1.1, 0.7, 5.3, 2.6],
+  ];
+  const parts = [];
+  for (const [h, r, lean, dir, off] of crystals) {
+    const prism = new THREE.CylinderGeometry(r, r * 1.15, h, 6);
+    prism.translate(0, h / 2, 0);
+    const tip = new THREE.ConeGeometry(r, r * 2.4, 6);
+    tip.translate(0, h + r * 1.2, 0);
+    for (const g of [prism, tip]) {
+      g.rotateZ(-lean);
+      g.rotateY(dir);
+      g.translate(Math.cos(dir) * off, 0, -Math.sin(dir) * off);
+      parts.push(g);
+    }
+  }
+  return mergeGeometries(parts);
+}
+export var crystalClusterGeo = createCrystalClusterGeometry();
+// White, so each cluster's instance colour shows; a faint glow keeps the
+// shaded sides from going dark
+export var crystalMat = createMaterial({
+  color: 0xffffff,
+  emissive: 0x2a0a24,
+  flatShading: true,
+});
+
 function createPirateHullGeometry() {
   const main = new THREE.BoxGeometry(6, 4, 16);
   const prow = new THREE.BoxGeometry(6, 4, 6);

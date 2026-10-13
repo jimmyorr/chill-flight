@@ -112,8 +112,8 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
 - **Landscape:** Highly distorted, jagged crystalline peaks and surreal terrain generation.
 - **Key Features:**
   - **Terrain Warping:** The far East is a basalt honeycomb: hexagonal columns about 1000 units across, flat-topped and sheer-sided, each its own height (taller toward the middle of the land), with ravines between them that flood into channels on low ground. Whole columns are land or sea, so its swirling, domain-warped islands have stepped, hexagonal coasts (`basaltAt` in `chill-flight-logic.js`). The far West features massive geometric stepped plateaus, crystal spires and deep chasms.
-  - **Props:** Ordinary trees, buildings and birds give way to alien ones (giant mushrooms in the East, nothing in the West) a little way in, where the alien terrain and colours have taken hold (`alienAt` above 0.3).
-  - **Colors:** Normal biomes are completely overtaken by vibrant, neon hues (cyan in the East, magenta in the West) that wash over the landscape.
+  - **Props:** Ordinary trees, buildings and birds give way to alien ones (giant mushrooms in the East, clusters of glowing crystals in pink, orange and violet in the West) a little way in, where the alien terrain and colours have taken hold (`alienAt` above 0.3).
+  - **Colors:** Normal biomes are completely overtaken by vibrant, neon hues (cyan in the East, magenta in the West) that wash over the landscape. In the West the colours take over twice as fast as the terrain changes and cover the snow and grass completely, with pale pink crystal spires, so the spires never stand on green fields or read as snowy peaks.
   - **Seas:** The water transforms into a bright glowing liquid that bleeds smoothly onto the alien shorelines.
 
 > [!NOTE]

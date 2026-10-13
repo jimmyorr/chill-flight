@@ -95,6 +95,8 @@ import {
   monasteryRoofMat,
   mushroomGeos,
   mushroomStalkMat,
+  crystalClusterGeo,
+  crystalMat,
   pagodaBodyGeo,
   pagodaBodyMat,
   pagodaRoofGeo,
@@ -520,6 +522,13 @@ globalInstancer.registerType(
   'mushroomCap',
   mushroomGeos.leaves,
   treeLeavesBaseMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
+  'crystal',
+  crystalClusterGeo,
+  crystalMat,
   30000,
   true
 );

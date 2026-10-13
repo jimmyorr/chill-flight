@@ -183,7 +183,8 @@ const _colorEasternCliff = new Color(0x4b0082);
 const _colorEasternWater = new Color(0x00ffe7);
 const _colorWesternLowland = new Color(0x400020);
 const _colorWesternRock = new Color(0x200000);
-const _colorWesternPeak = new Color(0xffffff);
+// Pale pink crystal, so the spires don't read as snow
+const _colorWesternPeak = new Color(0xffb8ec);
 const _colorWesternCliff = new Color(0xff4500);
 const _colorWesternWater = new Color(0xff00ff);
 const _snowColor = new Color(0xe0f7fa);
@@ -204,6 +205,8 @@ const ENABLE_LIGHTHOUSES = false;
 
 // How alien (ChillFlightLogic.alienAt) the land must be for alien props
 const ALIEN_PROPS_AT = 0.3;
+
+const ALIEN_CRYSTAL_COLORS = [0xff4fd8, 0xff7a3d, 0xffb8ec, 0xc04dff, 0xff2e7e];
 
 const ALIEN_MUSHROOM_CAP_COLORS = [
   0x9c27b0, 0xab47bc, 0x7b1fa2, 0xba68c8, 0x8e24aa, 0x00bcd4, 0x26a69a,
@@ -934,6 +937,7 @@ export function generateChunkData({
   const deadTreePositions = [];
   const snowTreePositions = [];
   const mushroomTreePositions = [];
+  const crystalPositions = [];
   const autumnTree1Positions = [];
   const autumnTree2Positions = [];
   const autumnTree3Positions = [];
@@ -1271,19 +1275,24 @@ export function generateChunkData({
       const colorLowland = isEast ? _colorEasternLowland : _colorWesternLowland;
 
       const baseLandColor = slopeFactor > 0.4 ? colorRock : colorLowland;
+      // In the west the colours take over twice as fast as the terrain
+      // (spires, terraces, chasms) and cover the snow and grass completely,
+      // so the spires never stand on green fields or read as grey snow
+      const blend = isEast ? extremeBlend : Math.min(1, extremeBlend * 2);
+      const cover = isEast ? 0.75 : 1;
 
       if (height <= WATER_LEVEL) {
-        _tempColorObj.lerp(colorWater, extremeBlend * 0.85);
+        _tempColorObj.lerp(colorWater, blend * 0.85);
       } else if (height < WATER_LEVEL + 4) {
         const bleed = 1.0 - (height - WATER_LEVEL) / 4.0;
         const shoreColor = baseLandColor.clone().lerp(colorWater, bleed);
-        _tempColorObj.lerp(shoreColor, extremeBlend * 0.85);
+        _tempColorObj.lerp(shoreColor, blend * 0.85);
       } else if (height > MOUNTAIN_LEVEL) {
         const peakFrac = Math.min(1, (height - MOUNTAIN_LEVEL) / 400);
-        _tempColorObj.lerp(colorCliff, extremeBlend * 0.7);
-        _tempColorObj.lerp(colorPeak, extremeBlend * peakFrac * 0.9);
+        _tempColorObj.lerp(colorCliff, blend * (isEast ? 0.7 : 1));
+        _tempColorObj.lerp(colorPeak, blend * peakFrac * 0.9);
       } else {
-        _tempColorObj.lerp(baseLandColor, extremeBlend * 0.75);
+        _tempColorObj.lerp(baseLandColor, blend * cover);
       }
     }
 
@@ -1405,6 +1414,20 @@ export function generateChunkData({
       // several trees per grid point (treeChance above 1), so woods can be
       // thicker than the terrain grid.
       const treeRoll = rng();
+      // A crystal cluster here (western alien land), mostly small, a few huge
+      const pushCrystal = () => {
+        const roll = rng();
+        crystalPositions.push({
+          x: localX,
+          y: height - 1,
+          z: localZ,
+          scale: roll < 0.6 ? 0.8 + rng() * 0.8 : 2 + rng() * 3,
+          color:
+            ALIEN_CRYSTAL_COLORS[
+              Math.floor(rng() * ALIEN_CRYSTAL_COLORS.length)
+            ],
+        });
+      };
       let treeChance = 0;
       let treeCount = 0;
       if (!isAlienLand) {
@@ -1564,6 +1587,8 @@ export function generateChunkData({
                 color: capColor,
               });
             }
+          } else if (treeRoll < 0.012 * densityScale) {
+            pushCrystal();
           }
         } else if (
           treeCount === 0 &&
@@ -1599,6 +1624,9 @@ export function generateChunkData({
               color: capColor,
             });
           }
+        } else if (isAlienLand) {
+          // The western alien land: crystal clusters, nothing else
+          if (rng() < 0.004 * densityScale) pushCrystal();
         } else {
           // (Every building here needs fairly flat ground: houses through
           // \`flat\`, the rest through their slopeFactor limits below.)
@@ -2085,7 +2113,11 @@ export function generateChunkData({
         );
 
         _treeTempColor.copy(_treeBaseColor);
-        if (snowFactor > 0 && leavesKey !== 'mushroomCap') {
+        if (
+          snowFactor > 0 &&
+          leavesKey !== 'mushroomCap' &&
+          leavesKey !== 'crystal'
+        ) {
           _treeTempColor.lerp(_snowColor, snowFactor);
         }
         collector.add(leavesKey, _matBuffer, _treeTempColor);
@@ -2154,6 +2186,7 @@ export function generateChunkData({
     'mushroomCap',
     0x9c27b0
   );
+  renderTreesToCollector(crystalPositions, null, 'crystal', 0xff4fd8);
   renderTreesToCollector(
     japaneseMapleTreePositions,
     'japaneseMapleTrunk',
@@ -2661,6 +2694,7 @@ export function generateChunkData({
       trees_cherry: cherryTreePositions.length,
       trees_yellow_cortez: yellowCortezTreePositions.length,
       trees_mushroom: mushroomTreePositions.length,
+      crystals: crystalPositions.length,
       trees_japanese_maple: japaneseMapleTreePositions.length,
       rocks:
         rockPositions.length +
