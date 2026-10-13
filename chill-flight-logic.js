@@ -1320,6 +1320,127 @@ export const ChillFlightLogic = {};
   }
   // The eastern land rises out of the island sea over this many units
   const EAST_LAND_RISE = 6000;
+
+  // --- BASALT HONEYCOMB (the eastern alien land) ---
+  // How much land the eastern land has at (x, z), from swirling,
+  // domain-warped noise: above 0.05 is land (the higher, the taller the
+  // columns), below is sea.
+  function eastLandBase(x, z, simplex) {
+    const eastEdge = eastLandLon(-z / 5000, simplex) * 5000;
+    const t = Math.max(0, Math.min(1, (x - eastEdge) / EAST_LAND_RISE));
+    const warpStrength = Math.max(0.3, t * t * (3 - 2 * t)) * 3000;
+    const warp = (ox, oz, f, wx = 0, wz = 0) =>
+      cylNoise(x + wx, (nx, ny) =>
+        simplex.noise3D(nx * f + ox, (z + wz) * f + oz, ny * f + ox)
+      );
+    const wx1 = warp(0, 77.3, 0.0002) * warpStrength;
+    const wz1 = warp(33.1, 0, 0.0002) * warpStrength;
+    const wx2 = warp(0, 11.5, 0.00015, wx1, wz1) * warpStrength * 0.5;
+    const wz2 = warp(55.2, 0, 0.00015, wx1, wz1) * warpStrength * 0.5;
+    const xw = x + wx1 + wx2;
+    const zw = z + wz1 + wz2;
+    return cylNoise(xw, (nx, ny) =>
+      simplex.noise3D(nx * 0.0003, zw * 0.0003, ny * 0.0003)
+    );
+  }
+  // Columns sit on a hexagonal grid this far apart, nudged off it a little
+  const BASALT_CELL = 1000;
+  const BASALT_ROW = (BASALT_CELL * Math.sqrt(3)) / 2;
+  // A hash of a column (0 to 1), different for each world seed (salt)
+  function basaltHash(col, row, salt) {
+    let h =
+      Math.imul(col, 374761393) ^
+      Math.imul(row, 668265263) ^
+      Math.imul(salt, 2246822519);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
+  // Each column's land base and top height, per noise instance (world seed)
+  const basaltCache = new WeakMap();
+  function basaltColumn(col, row, salt, simplex) {
+    let cache = basaltCache.get(simplex);
+    if (!cache || cache.size > 20000) {
+      cache = new Map();
+      basaltCache.set(simplex, cache);
+    }
+    const key = col * 100003 + row;
+    let cell = cache.get(key);
+    if (!cell) {
+      const jx = (basaltHash(col, row, salt) - 0.5) * BASALT_CELL * 0.3;
+      const jz = (basaltHash(row, col, salt + 1) - 0.5) * BASALT_CELL * 0.3;
+      const cx = (col + (row & 1) * 0.5) * BASALT_CELL + jx;
+      const cz = row * BASALT_ROW + jz;
+      const base = eastLandBase(cx, cz, simplex);
+      const eastEdge = eastLandLon(-cz / 5000, simplex) * 5000;
+      const rise = Math.min(1, Math.max(0, (cx - eastEdge) / EAST_LAND_RISE));
+      // Land columns: taller toward the middle of the land, and each its
+      // own height, so neighbors step up and down; tops lean a little
+      let top = 0;
+      if (base > 0.05) {
+        const inland = Math.min(1, (base - 0.05) * 4);
+        const tall = 220 + 340 * rise;
+        top =
+          30 +
+          (0.25 + 0.75 * inland) *
+            (0.2 + 0.8 * basaltHash(col + 7, row - 3, salt)) *
+            tall;
+      }
+      cell = {
+        cx,
+        cz,
+        top,
+        tiltX: (basaltHash(col - 5, row + 9, salt) - 0.5) * 0.12,
+        tiltZ: (basaltHash(col + 11, row + 2, salt) - 0.5) * 0.12,
+      };
+      cache.set(key, cell);
+    }
+    return cell;
+  }
+  // The honeycomb at (x, z): the column it's on (h1 is its top there, 0 for
+  // sea) and the ground height h, which drops into a
+  // ravine near the column's edge. A ravine's floor is set by the lower of
+  // the two columns either side, so low ground floods into channels and the
+  // coast falls straight into the sea.
+  const RAVINE_FLOOR = 35;
+  const RAVINE_TOP = 90;
+  function basaltAt(x, z, simplex, waterLevel) {
+    const salt = Math.floor((simplex.noise2D(12.34, 56.78) + 1) * 1e6);
+    const row0 = Math.round(z / BASALT_ROW);
+    let c1 = null;
+    let c2 = null;
+    let d1 = Infinity;
+    let d2 = Infinity;
+    for (let row = row0 - 1; row <= row0 + 1; row++) {
+      const col0 = Math.round(x / BASALT_CELL - (row & 1) * 0.5);
+      for (let col = col0 - 1; col <= col0 + 1; col++) {
+        const c = basaltColumn(col, row, salt, simplex);
+        const d = (x - c.cx) ** 2 + (z - c.cz) ** 2;
+        if (d < d1) {
+          d2 = d1;
+          c2 = c1;
+          d1 = d;
+          c1 = c;
+        } else if (d < d2) {
+          d2 = d;
+          c2 = c;
+        }
+      }
+    }
+    // Distance to the edge shared with the next nearest column
+    const gap = Math.hypot(c2.cx - c1.cx, c2.cz - c1.cz);
+    const edge = (d2 - d1) / (2 * gap);
+    const tilt = (c) => (x - c.cx) * c.tiltX + (z - c.cz) * c.tiltZ;
+    const h1 = c1.top > 0 ? waterLevel + c1.top + tilt(c1) : 0;
+    const h2 = c2.top > 0 ? waterLevel + c2.top + tilt(c2) : 0;
+    const floor = Math.max(waterLevel - 10, Math.min(h1, h2) * 0.45);
+    const t = Math.max(
+      0,
+      Math.min(1, (edge - RAVINE_FLOOR) / (RAVINE_TOP - RAVINE_FLOOR))
+    );
+    const h = h1 > 0 ? floor + (h1 - floor) * t * t * (3 - 2 * t) : 0;
+    return {h, h1};
+  }
   let continent = CONTINENTS[0];
   // ?continent=<name> forces an outline; otherwise the world seed picks one.
   // Workers can't see the URL, so it travels with each chunk job.
@@ -2767,104 +2888,20 @@ export const ChillFlightLogic = {};
     }
 
     // --- EASTERN ALIEN BIOME (the eastern land, from about 10 East) ---
-    // Swirling domain-warped ridges, organic shorelines, and alien sea
-    // basins. It rises out of the island sea along the outline's eastLand
-    // line (which wanders, with bays and capes), out to the outline's east
-    // coast.
+    // Basalt honeycomb columns on swirling, domain-warped islands. It rises
+    // out of the island sea along the outline's eastLand line (which
+    // wanders, with bays and capes), out to the outline's east coast.
     const eastEdge = eastLandLon(-z / 5000, simplex) * 5000;
     if (x > eastEdge) {
       const extremeFactor = Math.min(1.0, (x - eastEdge) / EAST_LAND_RISE);
       const ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
 
-      const warpStrength = Math.max(0.3, ef) * 3000;
-      const wx1 =
-        cylNoise(x, (nx, ny) =>
-          simplex.noise3D(nx * 0.0002, z * 0.0002 + 77.3, ny * 0.0002)
-        ) * warpStrength;
-      const wz1 =
-        cylNoise(x, (nx, ny) =>
-          simplex.noise3D(nx * 0.0002 + 33.1, z * 0.0002, ny * 0.0002 + 33.1)
-        ) * warpStrength;
-      const wx2 =
-        cylNoise(x, (nx, ny) =>
-          simplex.noise3D(
-            (nx + wx1) * 0.00015,
-            (z + wz1) * 0.00015 + 11.5,
-            (ny + wx1) * 0.00015
-          )
-        ) *
-        warpStrength *
-        0.5;
-      const wz2 =
-        cylNoise(x, (nx, ny) =>
-          simplex.noise3D(
-            (nx + wx1) * 0.00015 + 55.2,
-            (z + wz1) * 0.00015,
-            (ny + wx1) * 0.00015 + 55.2
-          )
-        ) *
-        warpStrength *
-        0.5;
-      // Medium-frequency organic coastal warp to break up grid alignment
-      const wx3 =
-        cylNoise(x, (nx, ny) =>
-          simplex.noise3D(
-            (nx + wx1) * 0.0008,
-            (z + wz1) * 0.0008 + 91.2,
-            (ny + wx1) * 0.0008
-          )
-        ) * 500;
-      const wz3 =
-        cylNoise(x, (nx, ny) =>
-          simplex.noise3D(
-            (nx + wx1) * 0.0008 + 41.8,
-            (z + wz1) * 0.0008,
-            (ny + wx1) * 0.0008 + 41.8
-          )
-        ) * 500;
-      const xw = x + wx1 + wx2 + wx3;
-      const zw = z + wz1 + wz2 + wz3;
-
-      const broadBase = cylNoise(xw, (nx, ny) =>
-        simplex.noise3D(nx * 0.0003, zw * 0.0003, ny * 0.0003)
-      );
-
-      if (broadBase > 0.05) {
-        const shapeFactor = Math.min(1.0, (broadBase - 0.05) * 4.0);
-        const ridge1 =
-          1.0 -
-          Math.abs(
-            cylNoise(xw, (nx, ny) =>
-              simplex.noise3D(nx * 0.0006, zw * 0.0006, ny * 0.0006)
-            )
-          );
-        const ridge2 =
-          1.0 -
-          Math.abs(
-            cylNoise(xw, (nx, ny) =>
-              simplex.noise3D(nx * 0.0012, zw * 0.0012, ny * 0.0012)
-            )
-          );
-        const ridgeVal = ridge1 * 0.6 + ridge2 * 0.25 + broadBase * 0.15;
-        // Surface roughness at 0.003 frequency to give organic low-poly detail
-        const roughness =
-          cylNoise(xw, (nx, ny) =>
-            simplex.noise3D(nx * 0.003, zw * 0.003, ny * 0.003)
-          ) *
-          40 *
-          shapeFactor;
-        const heightScale = _lerp(260, 600, ef);
-        n += (ridgeVal * heightScale + roughness + 25) * shapeFactor * ef;
-      } else {
-        const basinDepth = Math.min(1, -broadBase * 2.5);
-        const basinSmooth = basinDepth * basinDepth * (3 - 2 * basinDepth);
-        if (n > WATER_LEVEL - 10) {
-          n = Math.max(
-            WATER_LEVEL - 10,
-            n + (WATER_LEVEL - 10 - n) * basinSmooth * ef
-          );
-        }
-      }
+      // Basalt honeycomb: the land is hexagonal columns of different
+      // heights, flat-topped, with sheer sides and ravines between them
+      // (basaltAt). Whole columns are land or sea, so the swirling coasts
+      // (eastLandBase) are stepped out of hexagons.
+      const c = basaltAt(x, z, simplex, WATER_LEVEL);
+      n = _lerp(n, c.h1 > 0 ? c.h : WATER_LEVEL - 10, ef);
 
       if (n < WATER_LEVEL - 10) n = WATER_LEVEL - 10;
     }

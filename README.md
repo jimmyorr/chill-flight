@@ -111,7 +111,7 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
 - **Location:** The far extremes of the map, from about 10.0 East (X > 50000) or 10.0 West (X < -50000). Neither edge is straight: the eastern land rises out of the island sea along a wandering line with a cape and a bay (`eastLandLon`), and the western alien land begins along a line that wanders up to about 1.4 degrees either way (`westAlienEdge`); the alien colours follow the same edges (`alienAt`).
 - **Landscape:** Highly distorted, jagged crystalline peaks and surreal terrain generation.
 - **Key Features:**
-  - **Terrain Warping:** The far East features swirling, domain-warped ridges and basins, while the far West features massive geometric stepped plateaus and deep chasms.
+  - **Terrain Warping:** The far East is a basalt honeycomb: hexagonal columns about 1000 units across, flat-topped and sheer-sided, each its own height (taller toward the middle of the land), with ravines between them that flood into channels on low ground. Whole columns are land or sea, so its swirling, domain-warped islands have stepped, hexagonal coasts (`basaltAt` in `chill-flight-logic.js`). The far West features massive geometric stepped plateaus, crystal spires and deep chasms.
   - **Props:** Ordinary trees, buildings and birds give way to alien ones (giant mushrooms in the East, nothing in the West) a little way in, where the alien terrain and colours have taken hold (`alienAt` above 0.3).
   - **Colors:** Normal biomes are completely overtaken by vibrant, neon hues (cyan in the East, magenta in the West) that wash over the landscape.
   - **Seas:** The water transforms into a bright glowing liquid that bleeds smoothly onto the alien shorelines.
