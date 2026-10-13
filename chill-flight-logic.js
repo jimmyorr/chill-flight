@@ -828,6 +828,10 @@ export const ChillFlightLogic = {};
     {name: 'Mesa Field', x: -4800, z: 16200, angle: Math.PI / 4},
     {name: 'Pinewood Field', x: -4000, z: -17200, angle: 0},
     {name: 'Lagoon Field', x: 5000, z: 4800, angle: (3 * Math.PI) / 4},
+    {name: 'Dune Field', x: 10000, z: 25000, angle: Math.PI / 2},
+    {name: 'Sagebrush Field', x: -25000, z: 10000, angle: -Math.PI / 4},
+    {name: 'Frost Field', x: -22500, z: -20000, angle: 0},
+    {name: 'Coral Field', x: 17500, z: 15000, angle: Math.PI / 4},
   ];
   const RUNWAY_LENGTH = 800;
   const RUNWAY_WIDTH = 40;
