@@ -204,18 +204,14 @@ export class InputManager {
       return;
     }
 
-    // 2. Escape toggles pause (or closes achievements/map overlay if open)
+    // 2. Escape toggles pause (or closes the achievements, people or map overlay if open)
     if (e.key === 'Escape') {
-      const achievementsOverlay = document.getElementById(
-        'achievements-overlay'
-      );
-      if (
-        achievementsOverlay &&
-        achievementsOverlay.style.display === 'flex' &&
-        this.state.isPaused
-      ) {
-        achievementsOverlay.style.display = 'none';
-        return;
+      for (const id of ['achievements-overlay', 'people-overlay']) {
+        const overlay = document.getElementById(id);
+        if (overlay?.style.display === 'flex' && this.state.isPaused) {
+          overlay.style.display = 'none';
+          return;
+        }
       }
       if (hooks.fullscreenMap && hooks.fullscreenMap.isOpen()) {
         hooks.fullscreenMap.close();
@@ -467,13 +463,14 @@ export class InputManager {
     if (
       e.target.closest('#loading-overlay') ||
       e.target.closest('#cockpit-ui') ||
-      e.target.closest('#coffee-dialog') ||
+      e.target.closest('#npc-dialog') ||
       e.target.closest('#debug-menu') ||
       e.target.closest('#debug-telemetry') ||
       e.target.closest('.title') ||
       e.target.closest('#mobile-controls') ||
       e.target.closest('#pause-overlay') ||
       e.target.closest('#achievements-overlay') ||
+      e.target.closest('#people-overlay') ||
       e.target.closest('#fullscreen-map-overlay') ||
       e.target.closest('#mobile-action-menu') ||
       e.target.closest('#minimap-container') ||
@@ -526,6 +523,7 @@ export class InputManager {
       target.closest('#cockpit-ui') ||
       target.closest('#pause-overlay') ||
       target.closest('#achievements-overlay') ||
+      target.closest('#people-overlay') ||
       target.closest('#fullscreen-map-overlay') ||
       target.closest('#loading-overlay') ||
       target.closest('#debug-menu') ||
@@ -535,7 +533,7 @@ export class InputManager {
       target.closest('#mobile-action-menu') ||
       target.closest('#minimap-container') ||
       target.closest('#zen-tooltip') ||
-      target.closest('#coffee-dialog') ||
+      target.closest('#npc-dialog') ||
       target.closest('.color-swatch');
 
     if (isUI) return;
@@ -663,6 +661,7 @@ export class InputManager {
       target.closest('#cockpit-ui') ||
       target.closest('#pause-overlay') ||
       target.closest('#achievements-overlay') ||
+      target.closest('#people-overlay') ||
       target.closest('#fullscreen-map-overlay') ||
       target.closest('#loading-overlay') ||
       target.closest('#debug-menu') ||
@@ -671,7 +670,7 @@ export class InputManager {
       target.closest('#mobile-controls') ||
       target.closest('#mobile-action-menu') ||
       target.closest('#minimap-container') ||
-      target.closest('#coffee-dialog') ||
+      target.closest('#npc-dialog') ||
       target.closest('.color-swatch');
 
     if (!isUI && !this.state.isPaused) {

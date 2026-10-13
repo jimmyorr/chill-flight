@@ -2,8 +2,8 @@
 // A spot picked on the map (minimap.js, "Set waypoint") to fly to. A small
 // marker sits over it on screen, or at the screen's edge pointing the way
 // when it's out of view, with the distance left. Cleared on arrival or from
-// the map, except one set to stay (a coffee run errand's, which lasts until
-// you land there). Saved between visits. With no waypoint, the
+// the map, except one set to stay (a job's, which lasts until you land
+// there). Saved between visits. With no waypoint, the
 // marker shows the autopilot's next tour stop instead (autopilot.js).
 import * as THREE from 'three';
 import {log} from './logger.js';

@@ -25,7 +25,7 @@ import {
 import {state} from './state.js';
 import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 import {LANDMARKS} from './landmarks.js';
-import {cancelErrand} from './coffee-run.js';
+import {cancelJob} from './jobs.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -1176,8 +1176,8 @@ import {cancelErrand} from './coffee-run.js';
       document.getElementById('fullscreen-map-waypoint-btn'),
       () => {
         if (!warpPin) {
-          // Clearing an errand's waypoint drops the errand
-          cancelErrand();
+          // Clearing a job's waypoint drops the job
+          cancelJob();
           clearWaypoint();
           updateWarpPanel();
           renderFullscreenMap();

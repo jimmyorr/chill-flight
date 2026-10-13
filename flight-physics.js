@@ -82,8 +82,8 @@ function wheelRestHeight(wheelDepth) {
   );
 }
 
-// Whether the plane is rolling on its wheels on the ground (the coffee run
-// counts a landing by it)
+// Whether the plane is rolling on its wheels on the ground (jobs.js counts
+// a landing by it)
 export function isOnWheels() {
   return isRolling;
 }

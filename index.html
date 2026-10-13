@@ -171,6 +171,14 @@
               🏆 <span id="achievements-counter"></span>
             </button>
             <button
+              id="people-btn"
+              class="pause-icon-btn"
+              title="People"
+              aria-label="People"
+            >
+              👥 <span id="people-counter"></span>
+            </button>
+            <button
               id="vr-btn"
               class="pause-icon-btn"
               title="VR"
@@ -230,6 +238,20 @@
         <button id="achievements-reset-btn" class="achievements-reset-btn">
           R E S E T
         </button>
+      </div>
+    </div>
+
+    <!-- Who you've met and the jobs you've done for them (people-screen.js) -->
+    <div id="people-overlay">
+      <div class="achievements-content">
+        <div class="achievements-header">
+          <span class="achievements-title">People</span>
+          <button id="people-close-btn" class="achievements-close-btn">
+            ✕
+          </button>
+        </div>
+        <div id="people-progress" class="achievements-progress"></div>
+        <div id="people-grid"></div>
       </div>
     </div>
 
@@ -401,19 +423,19 @@
       </div>
     </div>
 
-    <!-- Ray talks here when you land at his field (coffee-run.js): tap for
-         more -->
-    <div id="coffee-dialog" hidden>
-      <canvas id="coffee-portrait" width="32" height="32"></canvas>
-      <div class="coffee-dialog-body">
-        <div id="coffee-dialog-name" class="coffee-dialog-name">Ray</div>
-        <div id="coffee-dialog-text" class="coffee-dialog-text"></div>
-        <div id="coffee-dialog-choices" class="coffee-dialog-choices" hidden>
+    <!-- Whoever's at the airport talks here when you land (dialog.js): tap
+         for more -->
+    <div id="npc-dialog" hidden>
+      <canvas id="npc-portrait" width="32" height="32"></canvas>
+      <div class="npc-dialog-body">
+        <div id="npc-dialog-name" class="npc-dialog-name"></div>
+        <div id="npc-dialog-text" class="npc-dialog-text"></div>
+        <div id="npc-dialog-choices" class="npc-dialog-choices" hidden>
           <button data-choice="yes">Sure thing</button>
           <button data-choice="no">Not right now</button>
         </div>
       </div>
-      <div class="coffee-dialog-next" aria-hidden="true">▼</div>
+      <div class="npc-dialog-next" aria-hidden="true">▼</div>
     </div>
 
     <!-- Points the way to the map's waypoint (waypoint.js) -->
@@ -470,17 +492,12 @@
             >C H I L L - F L I G H T</span
           >
         </div>
-        <!-- The coffee run's deliveries and hold, in place of the line above
-             (coffee-run.js) -->
-        <div id="coffee-hud" class="cockpit-module" hidden>
-          <span class="cockpit-label">☕</span>
-          <span
-            class="cockpit-value"
-            id="coffee-hud-count"
-            title="Bags delivered"
-          ></span>
-          <span class="coffee-hud-cargo" id="coffee-hud-cargo"></span>
-          <span class="coffee-hud-auto" id="coffee-hud-auto" hidden>AUTO</span>
+        <!-- The job you're on, in place of the line above (jobs.js) -->
+        <div id="job-hud" class="cockpit-module" hidden>
+          <span class="cockpit-label">📦</span>
+          <span class="cockpit-value" id="job-hud-person"></span>
+          <span class="job-hud-cargo" id="job-hud-cargo"></span>
+          <span class="job-hud-auto" id="job-hud-auto" hidden>AUTO</span>
         </div>
       </div>
     </div>

@@ -413,6 +413,13 @@ async function exerciseControls(page, tag) {
     false,
     'close achievements'
   );
+  await clickAndCheck('#people-btn', '#people-overlay', true, 'open people');
+  await clickAndCheck(
+    '#people-close-btn',
+    '#people-overlay',
+    false,
+    'close people'
+  );
   await page
     .click('#resume-btn')
     .catch((err) => fail(`resume: ${err.message}`));

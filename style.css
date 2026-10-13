@@ -1563,7 +1563,8 @@ input[type='number'].customization-input {
    ACHIEVEMENTS OVERLAY
    ============================================================ */
 
-#achievements-overlay {
+#achievements-overlay,
+#people-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -1647,11 +1648,26 @@ input[type='number'].customization-input {
   font-family: monospace;
 }
 
-#achievements-grid {
+#achievements-grid,
+#people-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   width: 100%;
+}
+
+/* People cards (people-screen.js): an achievement card with a face */
+.person-card-face {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  background: #f2d9a6;
+  border: 2px solid #2b1d16;
+  border-radius: 6px;
+}
+.achievement-card.locked .person-card-face {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 /* ============================================================
@@ -1818,7 +1834,8 @@ input[type='number'].customization-input {
 
 /* Responsive: 3 columns on wider screens */
 @media (min-width: 600px) {
-  #achievements-grid {
+  #achievements-grid,
+  #people-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 
@@ -2154,9 +2171,9 @@ input[type='number'].customization-input {
   white-space: nowrap;
 }
 
-/* Coffee run (coffee-run.js): the deliveries and hold, in place of the
-   cockpit readout's CHILL-FLIGHT line */
-#coffee-hud {
+/* The job you're on (jobs.js), in place of the cockpit readout's
+   CHILL-FLIGHT line */
+#job-hud {
   grid-column: span 3;
   justify-content: center;
   align-items: center;
@@ -2165,25 +2182,25 @@ input[type='number'].customization-input {
   margin-top: 4px;
   min-width: 0;
 }
-#coffee-hud[hidden] {
+#job-hud[hidden] {
   display: none;
 }
-#coffee-hud .cockpit-label {
+#job-hud .cockpit-label {
   width: auto;
 }
-#coffee-hud .cockpit-value {
+#job-hud .cockpit-value {
   min-width: 0;
 }
-.coffee-hud-auto {
+.job-hud-auto {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
   color: #e74c3c;
 }
-.coffee-hud-auto[hidden] {
+.job-hud-auto[hidden] {
   display: none;
 }
-.coffee-hud-cargo {
+.job-hud-cargo {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.85);
   white-space: nowrap;
@@ -2192,9 +2209,9 @@ input[type='number'].customization-input {
   min-width: 0;
 }
 
-/* Ray's dialog box: a pixel-art face and his words, above the throttle
-   buttons. Tapping it shows more. */
-#coffee-dialog {
+/* The dialog box (dialog.js): a pixel-art face and their words, above the
+   throttle buttons. Tapping it shows more. */
+#npc-dialog {
   position: fixed;
   left: 50%;
   bottom: calc(110px + env(safe-area-inset-bottom, 0px));
@@ -2219,11 +2236,11 @@ input[type='number'].customization-input {
   user-select: none;
   -webkit-user-select: none;
 }
-#coffee-dialog[hidden] {
+#npc-dialog[hidden] {
   display: none;
 }
 /* A whole number of screen pixels per face pixel keeps them square */
-#coffee-portrait {
+#npc-portrait {
   width: 96px;
   height: 96px;
   flex-shrink: 0;
@@ -2233,37 +2250,37 @@ input[type='number'].customization-input {
   border-radius: 6px;
 }
 @media (max-width: 480px) {
-  #coffee-portrait {
+  #npc-portrait {
     width: 64px;
     height: 64px;
   }
 }
-.coffee-dialog-body {
+.npc-dialog-body {
   flex: 1;
   min-width: 0;
 }
-.coffee-dialog-name {
+.npc-dialog-name {
   margin-bottom: 4px;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 1px;
   color: #e8c48a;
 }
-.coffee-dialog-text {
+.npc-dialog-text {
   min-height: 2.8em;
   font-size: 15px;
   line-height: 1.4;
 }
-.coffee-dialog-choices {
+.npc-dialog-choices {
   display: flex;
   gap: 10px;
   margin-top: 10px;
 }
-.coffee-dialog-choices[hidden],
-#coffee-dialog.asking .coffee-dialog-next {
+.npc-dialog-choices[hidden],
+#npc-dialog.asking .npc-dialog-next {
   display: none;
 }
-.coffee-dialog-choices button {
+.npc-dialog-choices button {
   padding: 8px 14px;
   border: 1px solid #e8c48a;
   border-radius: 6px;
@@ -2274,18 +2291,18 @@ input[type='number'].customization-input {
   font-weight: 600;
   cursor: pointer;
 }
-.coffee-dialog-choices button:hover {
+.npc-dialog-choices button:hover {
   background: rgba(232, 196, 138, 0.28);
 }
-.coffee-dialog-next {
+.npc-dialog-next {
   position: absolute;
   right: 12px;
   bottom: 6px;
   font-size: 10px;
   color: #e8c48a;
-  animation: coffee-next-bob 1s ease-in-out infinite;
+  animation: npc-next-bob 1s ease-in-out infinite;
 }
-@keyframes coffee-next-bob {
+@keyframes npc-next-bob {
   50% {
     transform: translateY(3px);
   }

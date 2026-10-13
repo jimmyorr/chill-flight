@@ -193,7 +193,7 @@ export function resetSteering() {
 
 document
   .querySelectorAll(
-    '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #coffee-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
+    '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
   )
   .forEach((btn) => {
     btn.addEventListener('mouseenter', resetSteering);
@@ -209,7 +209,7 @@ document
 document.addEventListener('mouseover', (e) => {
   if (
     e.target.closest(
-      '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #coffee-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
+      '.mobile-btn, .sub-btn, #debug-menu, #debug-telemetry, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
     )
   ) {
     resetSteering();

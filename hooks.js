@@ -12,4 +12,5 @@ export const hooks = {
   minimap: null, // minimap.js: {toggle, isVisible}
   clearFarTerrain: null, // far-terrain.js: drops the distant terrain ring
   onResume: null, // zen.js: called by game-state.js when the game unpauses
+  onJobProgress: null, // people-screen.js: called by jobs.js when progress changes
 };
