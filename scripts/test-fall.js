@@ -23,6 +23,9 @@ function check(name, ok, detail = '') {
   }
 }
 
+// The world seed defaults to today's date; pin it so every run sees the same
+// world.
+ChillFlightLogic.WORLD_SEED = 20260101;
 simplex.seed(20260101);
 const {fallTurnAt, fallBareAt, FALL_FULL_LAT, SNOW_START_LAT} =
   ChillFlightLogic;

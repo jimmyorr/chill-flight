@@ -20,10 +20,14 @@ import {simplex} from '../noise.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// The world seed defaults to today's date, and on some days the terrain near
-// a sampled line is naturally low. Pin the seed so results don't vary by day;
-// the regressions checked here (tears, trenches) show up with any seed.
-simplex.seed(20260101);
+// The world seed defaults to today's date, which picks the noise and the
+// continent's outline. Pin both so results don't vary by day; the regressions
+// checked here (tears, trenches) show up with any seed.
+function useSeed(seed) {
+  ChillFlightLogic.WORLD_SEED = seed;
+  simplex.seed(seed);
+}
+useSeed(20260101);
 
 console.log('Testing procedural terrain invariants...');
 
@@ -91,29 +95,35 @@ const constants = {
 };
 
 // --- 2. INVARIANT TEST: FROZEN NORTH CONTINUITY ---
-// Past the continent's north coast (at most about 8N), the open water along
-// it (up to about 2 degrees) and the floes beyond (2.5 more), the sea should
-// be frozen pack ice shelf (elev >= 42). No point should drop into
-// underwater ocean (elev <= 40).
-const testLats = [-70000, -80000]; // 14.0N, 16.0N
-for (const testZ of testLats) {
-  for (let testX = 5000; testX <= 45000; testX += 1000) {
-    const elev = ChillFlightLogic.getElevation(
-      testX,
-      testZ,
-      simplex,
-      constants
-    );
-    if (elev < constants.WATER_LEVEL + 1.5) {
-      console.error(
-        `FAIL: Frozen North has open-water tear at X=${testX}, Z=${testZ} (elev=${elev.toFixed(
-          1
-        )} < ${constants.WATER_LEVEL + 1.5})`
+// Past the continent's north coast, the open water along it (up to about 2
+// degrees) and the floes beyond (2.5 more), the sea should be frozen pack ice
+// shelf (elev >= 42). No point should drop into underwater ocean (elev <= 40).
+// The leaning outline's cape pushes the coast far enough north that leads open
+// up to about 15.5N, so check further out, on every outline (each seed picks
+// one).
+const testLats = [-85000, -90000]; // 17.0N, 18.0N
+for (const name of ChillFlightLogic.CONTINENT_NAMES) {
+  ChillFlightLogic.CONTINENT = name;
+  for (const testZ of testLats) {
+    for (let testX = 5000; testX <= 45000; testX += 1000) {
+      const elev = ChillFlightLogic.getElevation(
+        testX,
+        testZ,
+        simplex,
+        constants
       );
-      process.exit(1);
+      if (elev < constants.WATER_LEVEL + 1.5) {
+        console.error(
+          `FAIL: Frozen North has open-water tear on the ${name} outline at X=${testX}, Z=${testZ} (elev=${elev.toFixed(
+            1
+          )} < ${constants.WATER_LEVEL + 1.5})`
+        );
+        process.exit(1);
+      }
     }
   }
 }
+ChillFlightLogic.CONTINENT = null;
 console.log(
   '  Passed: Frozen north pack ice shelf is continuous across all longitudes'
 );
@@ -326,7 +336,7 @@ console.log('  Passed: Snow cover rises gradually to the north');
     return max;
   };
   for (const seed of [1, 42, 20260101, 20260928, 99999]) {
-    simplex.seed(seed);
+    useSeed(seed);
     const north = peak(-5000);
     const south = peak(5000);
     if (north < 800 || south < 800) {
@@ -336,7 +346,7 @@ console.log('  Passed: Snow cover rises gradually to the north');
       process.exit(1);
     }
   }
-  simplex.seed(20260101);
+  useSeed(20260101);
 }
 console.log('  Passed: The first mountain ranges north and south always rise');
 
@@ -346,7 +356,7 @@ console.log('  Passed: The first mountain ranges north and south always rise');
 {
   const water = constants.WATER_LEVEL;
   for (const seed of [1, 42, 20260101, 20260928, 99999]) {
-    simplex.seed(seed);
+    useSeed(seed);
     for (const a of ChillFlightLogic.AIRPORTS) {
       let min = Infinity;
       let max = -Infinity;
@@ -372,7 +382,7 @@ console.log('  Passed: The first mountain ranges north and south always rise');
       }
     }
   }
-  simplex.seed(20260101);
+  useSeed(20260101);
 }
 console.log('  Passed: Every airport is flat and above the water on any seed');
 

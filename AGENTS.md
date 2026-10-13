@@ -21,6 +21,7 @@
 ## Server & verification rules
 
 - **Use existing server**: Do not start a local development server (e.g., `npx serve`, `npm run dev`). A Live Server is already running on port 5173. Use `http://localhost:5173` for all browser-based verification. Avoid manual browser-based verification unless it is absolutely necessary; the automated headless checks (`npm run test:browser`, `npm run test:build`) are expected and don't count as manual verification.
+- **Deterministic tests**: Tests must pass or fail the same way every run. The world seed defaults to today's date, so every test pins it (`ChillFlightLogic.WORLD_SEED` and `simplex.seed()` in Node scripts, `?seed=` in browser tests), and any randomness a test uses is seeded.
 - **Empirical Visual Debugging**: When investigating visual, physics, or rendering bugs, do not rely purely on static code analysis. Proactively write temporary headless Chrome (`puppeteer-core`) scripts in your `scratch/` directory to load the local dev server and capture screenshots or DOM state to verify issues empirically. Always append `&start=1&music=0` to your testing URLs to automatically bypass the splash screen and bypass audio autoplay policies.
 
 ## Module rules
