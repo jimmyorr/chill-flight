@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.0.0](https://v1-0-0.chill-flight.pages.dev)
+
+- **Island residents:** Meet 5 characters across 8 airfields who offer delivery and travel jobs, with talking pixel-art portraits and a progress tracker.
+- **Navigation & flight:** In-game map with tap-to-set waypoints, autopilot circling, airport approach warping, and a smooth throttle slider.
+- **World generation:** River currents flowing into cliff waterfalls, deep canyons, alien biomes, and a painted anime art style toggle.
+
 ## [0.9.45](https://v0-9-45.chill-flight.pages.dev)
 
 - **Air Traffic:** Other planes now fly around the world and can pace you.
