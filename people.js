@@ -50,7 +50,8 @@ export const PEOPLE = [
     ],
     decline: [
       ['No worries, bud. Come by anytime.'],
-      ["All good. I'll be here, buddy."],
+      ["All good. I'll be here, bud."],
+      ["No rush, the kettle's always on."],
     ],
     jobs: [
       {
@@ -60,16 +61,21 @@ export const PEOPLE = [
         cargo: 'Green beans',
         offer: [
           [
-            "Buddy, we're almost out of beans.",
+            "Don't panic, but we're almost out of beans.",
             'Could you grab a crate from {to}?',
           ],
           [
-            'I have a hankering to roast something new.',
+            'Time to roast a new batch.',
             '{to} should have a crate ready. Want to fly over and get it?',
+          ],
+          [
+            'Running low on green beans.',
+            'Could you fly out to {to} for a crate?',
           ],
         ],
         thanks: [
-          ['Oh, these smell great.', "I'll get them in the roaster."],
+          ['Fresh crop! These are going right into the roaster.'],
+          ["Nice looking beans! Let's get the roaster warmed up."],
           ['Nice crate! A medium roast, I think.'],
         ],
       },
@@ -86,10 +92,18 @@ export const PEOPLE = [
         cargo: 'Roasted coffee',
         offer: [
           ['Fresh batch, still warm.', 'Could you fly these bags to {to}?'],
-          ['The cafe at {to} is running low.', 'Take them a few bags?'],
+          [
+            'The cafe at {to} is running low.',
+            'Mind flying a fresh batch over?',
+          ],
+          [
+            'Got a fresh roast boxed and ready for {to}.',
+            'Could you drop these off for them?',
+          ],
         ],
         thanks: [
-          ['They loved it! Thanks.'],
+          ["They're already brewing the first pot! Thanks."],
+          ['They loved the roast! Thanks.'],
           ["Another happy cafe. That's {done} for me, buddy!"],
         ],
       },
@@ -100,7 +114,7 @@ export const PEOPLE = [
     airport: 'Mesa Field',
     intro: [
       "Hey, I'm Doug! Best cheese fries in the desert, right here at Mesa.",
-      'Land and roll to a stop on a runway to pick up or drop off. Easy.',
+      'Just land and roll to a stop on the runway to pick up or drop off orders. Easy as pie.',
     ],
     hello: [
       ['Hey! Got time for a quick dish?'],
@@ -115,6 +129,7 @@ export const PEOPLE = [
     decline: [
       ['No worries! Come by for karaoke sometime.'],
       ["All good. The fries aren't going anywhere."],
+      ["Take your time! The fryer's always hot."],
     ],
     jobs: [
       {
@@ -124,17 +139,22 @@ export const PEOPLE = [
         cargo: 'Cheese',
         offer: [
           [
-            "Quick dish: I'm out of cheese.",
+            "Crisis at the fryer: I'm out of cheese.",
             'Could you grab a wheel from {to}?',
           ],
           [
             'Cheese fries without cheese are just fries.',
             '{to} has a wheel for me. Want to fly over and get it?',
           ],
+          [
+            'Emergency: we are officially out of cheese.',
+            'Think you could fetch a wheel from {to}?',
+          ],
         ],
         thanks: [
           ["Now that's a lot of cheese. Thanks!"],
           ["Back in business! Next basket's on me."],
+          ['Saved the day! The cheese sauce is back in action.'],
         ],
       },
       {
@@ -147,11 +167,16 @@ export const PEOPLE = [
             'Big order for {to}.',
             "Can you fly these cheese fries over while they're hot?",
           ],
-          ['One quick dish, to go, for {to}.', 'Take it over for me?'],
+          ['Fresh order to go for {to}.', 'Can you fly it over for me?'],
+          [
+            'Hot delivery headed to {to}.',
+            'Mind flying these over before they cool off?',
+          ],
         ],
         thanks: [
           ["They loved them! That's {done} for me now."],
           ['Delivered hot? I could sing about it. I might, later.'],
+          ['Five stars from {to}! Best fries in the skies.'],
         ],
       },
     ],
