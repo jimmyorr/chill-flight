@@ -344,4 +344,77 @@ export const PEOPLE = [
       },
     ],
   },
+  {
+    name: 'Tim',
+    airport: 'Lagoon Field',
+    intro: [
+      "Hey! I'm Tim. If I'm not in the cockpit, I'm out on the green.",
+      "I'm always looking for a ride to the next course. Land and roll to a stop on a runway to pick up or drop off.",
+    ],
+    hello: [
+      ['Hey! Ready to hit the links?'],
+      ['Perfect timing. I was just working on my swing.'],
+      ['Look who landed! Got room for one more and a golf bag?'],
+    ],
+    accept: [
+      ['Awesome! Let me grab my clubs.'],
+      ["You're a legend! Wheels up."],
+      ["Sweet! Let's get out there before my tee time."],
+    ],
+    decline: [
+      ["No worries! I'll work on my putting here for a bit."],
+      ['All good! Catch you next time around.'],
+      ["Take your time! The course isn't going anywhere."],
+    ],
+    jobs: [
+      {
+        id: 'golf-trip',
+        kind: 'one way',
+        to: [
+          'Meadow Field',
+          'Mesa Field',
+          'Pinewood Field',
+          'Dune Field',
+          'Sagebrush Field',
+          'Frost Field',
+          'Coral Field',
+        ],
+        cargo: 'Golf clubs',
+        offer: [
+          [
+            'Got a tee time booked at {to}.',
+            'Could you give me and my clubs a one-way lift?',
+          ],
+          [
+            'The greens at {to} are supposed to be pristine.',
+            'Mind flying me over for a round?',
+          ],
+          [
+            'Trying to play every fairway across the map!',
+            'Want to fly me out to {to}?',
+          ],
+          [
+            "There's a fun scramble tournament happening at {to}.",
+            'Think you could fly me over with my golf bag?',
+          ],
+          [
+            'Heard the wind at {to} makes for an amazing challenge.',
+            'Can I hitch a ride over to play 18 holes?',
+          ],
+          [
+            'I need a new course to conquer.',
+            'Could you drop me off at {to} for some golf?',
+          ],
+        ],
+        thanks: [
+          ['Made it right before my tee time! Thanks for the ride, pilot!'],
+          ["Smooth landing! That's {done} for me now."],
+          ['Time to hit the fairways. Thanks for the lift!'],
+          ["Perfect, I'll have time to warm up. You're the best."],
+          ["Great flight! Now let's see if my slice behaves. Thanks!"],
+          ["Another course checked off the bucket list! That's {done} for me."],
+        ],
+      },
+    ],
+  },
 ];

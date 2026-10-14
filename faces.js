@@ -265,6 +265,68 @@ export const FACES = {
       C: '#c0c8d0', // strap buckle
     },
   },
+  // Drawn after the real Tim: short dark textured hair with faded sides,
+  // warm smiling eyes, radiant open grin with deep cheek dimples, and a bright pink hoodie
+  Tim: {
+    rows: [
+      '................................',
+      '.............kkkkkk.............',
+      '...........kkrrrrrrkk...........',
+      '..........krHHHrrHHHrk..........',
+      '.........krHHHHrrHHHHrk.........',
+      '........krrHHHrrrrHHHrrk........',
+      '........krrrrrrrrrrrrrrk........',
+      '........khhsssssssssshhk........',
+      '........khhssllllllsshhk........',
+      '........khhsssllllssshhk........',
+      '........khhsssssssssshhk........',
+      '.........kvvvvssssvvvvk.........',
+      '........kdsdddssssdddsdk........',
+      '........ksdsEesssseEsdsk........',
+      '........kdsdsssdssssdsdk........',
+      '........ksdssssdlssssdsk........',
+      '........kddsssdlldsssddk........',
+      '.........kkppssssssppkk.........',
+      '..........kdsssllsssdk..........',
+      '..........kdMwwwwwwMdk..........',
+      '...........kddmmmmddk...........',
+      '............kkdssdkk............',
+      '.............kdssdk.............',
+      '............kdssssdk............',
+      '..........kkksssssskkk..........',
+      '........kkttuuBBBBuuttkk........',
+      '......kkttTTTwttttwTTTttkk......',
+      '....kktttTTTtwttttwtTTTtttkk....',
+      '..kktttttttttwttttwtttttttttkk..',
+      'kkttttttttttttttttttttttttttttkk',
+      'tttttttttttttttttttttttttttttttt',
+      'tttttttttttttttttttttttttttttttt',
+    ],
+    mouthClosed: {
+      19: '..........kddMMMMMMddk..........',
+      20: '...........kddssssddk...........',
+    },
+    palette: {
+      k: '#1a1410', // outline
+      r: '#221812', // hair base
+      h: '#3a281e', // hair fade
+      H: '#583e30', // hair highlight
+      s: '#ebc29e', // skin
+      l: '#f8dac0', // skin highlight
+      d: '#c49472', // skin shadow and jaw contour
+      p: '#dc8472', // cheek flush
+      v: '#281a14', // brows
+      e: '#18100c', // pupils
+      E: '#422a1c', // eyes
+      w: '#f8f4ec', // teeth and drawstrings
+      m: '#6a221c', // mouth
+      M: '#b6544e', // lips
+      t: '#e25c88', // hoodie
+      T: '#f078a0', // hoodie highlight
+      u: '#be3864', // hood fold
+      B: '#222026', // inner tee collar
+    },
+  },
 };
 
 // Problems with FACES, for scripts/test-jobs.js: everyone in names has a

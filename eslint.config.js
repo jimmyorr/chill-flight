@@ -46,6 +46,7 @@ export default [
       'src-tauri/',
       'ios/',
       'android/',
+      'scratch/',
     ],
   },
 ];
