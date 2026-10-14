@@ -119,7 +119,7 @@ export const PEOPLE = [
     hello: [
       ['Hey! Got time for a quick dish?'],
       ['You missed karaoke night. I did three songs.'],
-      ["There's my favorite pilot! Fries?"],
+      ["Look who's back! Fries?"],
     ],
     accept: [
       ["You're a lifesaver."],
@@ -189,17 +189,17 @@ export const PEOPLE = [
       "Ray's got the coffee, I've got the moonwater. Land and roll to a stop on a runway to pick up or drop off.",
     ],
     hello: [
-      ['Hi! Your aura looks bright today.'],
+      ['Hi! Your aura is glowing bright.'],
       ["Good to see you! Moonwater's fresh if you're thirsty."],
       ['Look who landed! Come sit and stay a while.'],
     ],
     accept: [
-      ['Thank you! Safe flight through the skies.'],
+      ['Thank you! Have a peaceful flight.'],
       ["You're a gem. May the tailwinds be gentle."],
-      ["Wonderful! I'll keep the jars safe until you get back."],
+      ['Wonderful! May the moon light your way.'],
     ],
     decline: [
-      ['No worries at all! Fly peaceful today.'],
+      ['No worries at all! Enjoy the skies.'],
       ["Take your time. The moon isn't going anywhere."],
       ['All good! Pop by whenever you pass through.'],
     ],
@@ -225,7 +225,7 @@ export const PEOPLE = [
         ],
         thanks: [
           ['These are sparkling clean. Time to set them under the stars.'],
-          ['Perfect timing! The moon is just rising.'],
+          ['These are lovely! The moon will cherish them.'],
           ['Thank you so much! Ray says hello, by the way.'],
         ],
       },
@@ -257,8 +257,8 @@ export const PEOPLE = [
         ],
         thanks: [
           ['They said they could feel the good energy already. Thanks!'],
-          ["Delivered under clear skies! That's {done} for me now."],
-          ['Another happy customer. Thanks for the lift, pilot!'],
+          ["Delivered with good energy! That's {done} for me now."],
+          ['Another happy soul. Thanks for the lift, friend!'],
         ],
       },
     ],
@@ -348,13 +348,13 @@ export const PEOPLE = [
     name: 'Tim',
     airport: 'Lagoon Field',
     intro: [
-      "Hey! I'm Tim. If I'm not in the cockpit, I'm out on the green.",
-      "I'm always looking for a ride to the next course. Land and roll to a stop on a runway to pick up or drop off.",
+      "Hey, I'm Tim! Welcome to Lagoon Field.",
+      "If I'm not working, I'm out on the green. Land and roll to a stop on a runway to pick up or drop off.",
     ],
     hello: [
       ['Hey! Ready to hit the links?'],
-      ['Perfect timing. I was just working on my swing.'],
-      ['Look who landed! Got room for one more and a golf bag?'],
+      ["Back already? I've got my swing warmed up."],
+      ['Hey, good to see you! Got room for me and my clubs?'],
     ],
     accept: [
       ['Awesome! Let me grab my clubs.'],
@@ -395,7 +395,7 @@ export const PEOPLE = [
           ],
           [
             "There's a fun scramble tournament happening at {to}.",
-            'Think you could fly me over with my golf bag?',
+            'Think you could fly me over with my clubs?',
           ],
           [
             'Heard the wind at {to} makes for an amazing challenge.',
@@ -403,14 +403,14 @@ export const PEOPLE = [
           ],
           [
             'I need a new course to conquer.',
-            'Could you drop me off at {to} for some golf?',
+            'Could you drop me and my clubs off at {to}?',
           ],
         ],
         thanks: [
-          ['Made it right before my tee time! Thanks for the ride, pilot!'],
-          ["Smooth landing! That's {done} for me now."],
+          ['Made it right before my tee time! Thanks for the ride!'],
+          ["Nice flight! That's {done} for me now."],
           ['Time to hit the fairways. Thanks for the lift!'],
-          ["Perfect, I'll have time to warm up. You're the best."],
+          ["Perfect, I'll have time to warm up. Thanks a million!"],
           ["Great flight! Now let's see if my slice behaves. Thanks!"],
           ["Another course checked off the bucket list! That's {done} for me."],
         ],
