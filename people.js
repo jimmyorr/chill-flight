@@ -181,4 +181,86 @@ export const PEOPLE = [
       },
     ],
   },
+  {
+    name: 'Bonnie',
+    airport: 'Meadow Field',
+    intro: [
+      "Hi there, I'm Bonnie! Welcome to Meadow Field.",
+      "Ray's got the coffee, I've got the moonwater. Land and roll to a stop on a runway to pick up or drop off.",
+    ],
+    hello: [
+      ['Hi! Your aura looks bright today.'],
+      ["Good to see you! Moonwater's fresh if you're thirsty."],
+      ['Look who landed! Come sit and stay a while.'],
+    ],
+    accept: [
+      ['Thank you! Safe flight through the skies.'],
+      ["You're a gem. May the tailwinds be gentle."],
+      ["Wonderful! I'll keep the jars safe until you get back."],
+    ],
+    decline: [
+      ['No worries at all! Fly peaceful today.'],
+      ["Take your time. The moon isn't going anywhere."],
+      ['All good! Pop by whenever you pass through.'],
+    ],
+    jobs: [
+      {
+        id: 'glass-jars',
+        kind: 'round trip',
+        to: ['Lagoon Field', 'Mesa Field', 'Pinewood Field', 'Sagebrush Field'],
+        cargo: 'Glass jars',
+        offer: [
+          [
+            "The full moon is coming soon and I'm out of jars.",
+            'Could you grab a crate of glass bottles from {to}?',
+          ],
+          [
+            'I need more mason jars to catch the moonlight.',
+            '{to} has a box ready. Want to fly over and get it?',
+          ],
+          [
+            'A new lunar cycle is starting!',
+            'Could you bring back a batch of glass jars from {to}?',
+          ],
+        ],
+        thanks: [
+          ['These are sparkling clean. Time to set them under the stars.'],
+          ['Perfect timing! The moon is just rising.'],
+          ['Thank you so much! Ray says hello, by the way.'],
+        ],
+      },
+      {
+        id: 'moonwater',
+        kind: 'one way',
+        to: [
+          'Pinewood Field',
+          'Lagoon Field',
+          'Mesa Field',
+          'Frost Field',
+          'Coral Field',
+          'Dune Field',
+        ],
+        cargo: 'Moonwater',
+        offer: [
+          [
+            'Freshly charged under the full moon.',
+            'Could you fly a case of moonwater out to {to}?',
+          ],
+          [
+            'Someone at {to} requested a bottle for their garden.',
+            'Could you take it over?',
+          ],
+          [
+            'Charged with pure moonlight and good intentions.',
+            'Mind delivering this batch to {to}?',
+          ],
+        ],
+        thanks: [
+          ['They said they could feel the good energy already. Thanks!'],
+          ["Delivered under clear skies! That's {done} for me now."],
+          ['Another happy customer. Thanks for the lift, pilot!'],
+        ],
+      },
+    ],
+  },
 ];

@@ -184,7 +184,7 @@ check(
   `seeds ${badJobs}`
 );
 
-// Ray's own jobs play through too
+// Meadow Field's jobs play through too (Ray and Bonnie share the field)
 {
   const r = rng(7);
   let p = newProgress();
@@ -197,7 +197,10 @@ check(
     }
     if (!p.job) done++;
   }
-  check("Ray's jobs play through", done === 6 && doneFor(p, 'Ray') === 6);
+  check(
+    "Meadow Field's jobs play through",
+    done === 6 && doneFor(p, 'Ray') === 3 && doneFor(p, 'Bonnie') === 3
+  );
 }
 
 const r = rng(3);

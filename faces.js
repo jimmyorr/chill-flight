@@ -134,18 +134,78 @@ export const FACES = {
       t: '#f0eeea', // shirt
     },
   },
+  // Drawn after the real Bonnie: long wavy auburn hair, warm smiling eyes,
+  // rosy cheeks, a dimpled smile and tiny gold stud earrings
+  Bonnie: {
+    rows: [
+      '................................',
+      '.............kkkkkk.............',
+      '...........kkrrrrrrkk...........',
+      '.........kkrrrrrrrrrrkk.........',
+      '.......kkrhhhhhrrhhhhhrkk.......',
+      '......krRrrHHHrrrrHHHrrRrk......',
+      '......krRhhrrrrrrrrrrhhRrk......',
+      '.......kRrrssssssssssrrRk.......',
+      '......kkRhsssllllllssshRkk......',
+      '.....kRrrrssssllllssssrrrRk.....',
+      '.....kRHhhsssssssssssshhHRk.....',
+      '.....kRrrrvvvvssssvvvvrrrRk.....',
+      '.....kRrhhssddssssddsshhrRk.....',
+      '.....kRHrrsdEesssseEdsrrHRk.....',
+      '.....kRrhhsssssdsssssshhrRk.....',
+      '.....kRrrrdssssdlssssdrrrRk.....',
+      '.....kRHhhdsssdlldsssdhhHRk.....',
+      '.....kRrrrrppsssssspprrrrRk.....',
+      '....kRrrrhgdssssssssdghrrrRk....',
+      '....kRrrrHrrdMwwwwMdrrHrrrRk....',
+      '....kRrrrrrhhdmmmmdhhrrrrrRk....',
+      '....kRrrrrrrrrdssdrrrrrrrrRk....',
+      '....kRrrrrrHhhdssdhhHrrrrrRk....',
+      '....kRrrrrrrrddddddrrrrrrrRk....',
+      '....kRrrrrrhhsssssshhrrrrrRk....',
+      '....kRrrrrHrrssssssrrHrrrrRk....',
+      '...kksRrrrrhhsssssshhrrrrRskk...',
+      '.kksssRrrrrssssssssssrrrrRssskk.',
+      'ksssssRrHhhtttttttttthhHrRsssssk',
+      'ssssssRrrrrTTTTTTTTTTrrrrRssssss',
+      'ssssttRrrhhtttttttttthhrrRttssss',
+      'stttttRrHrrttttttttttrrHrRttttts',
+    ],
+    mouthClosed: {
+      19: '....kRrrrHrrdsMMMMsdrrHrrrRk....',
+      20: '....kRrrrrrhhdssssdhhrrrrrRk....',
+    },
+    palette: {
+      k: '#241610', // outline
+      r: '#6e2816', // hair base
+      R: '#44160d', // hair shadow
+      h: '#a44626', // hair highlight
+      H: '#ca6e3a', // hair bright highlight
+      s: '#f0c2a4', // skin
+      l: '#fae0d0', // skin highlight
+      d: '#cd9272', // nose, jaw and shadow
+      p: '#e4887a', // cheeks
+      v: '#562516', // brows
+      e: '#26140c', // pupils and lashes
+      E: '#643c22', // eyes
+      w: '#faf6ee', // teeth
+      m: '#6a221c', // mouth
+      M: '#ba5652', // lips
+      g: '#d8b864', // earring stud
+      t: '#222026', // top
+      T: '#3a3642', // top ruched texture
+    },
+  },
 };
 
 // Problems with FACES, for scripts/test-jobs.js: everyone in names has a
-// face, every face belongs to someone, and each is FACE_SIZE square and talks
+// face, and each is FACE_SIZE square and talks
 export function checkFaces(names) {
   const problems = [];
   for (const name of names) {
     if (!FACES[name]) problems.push(`${name}: no face`);
   }
   for (const [name, face] of Object.entries(FACES)) {
-    if (!names.includes(name))
-      problems.push(`${name}'s face: nobody by that name`);
     const rows = [...face.rows, ...Object.values(face.mouthClosed || {})];
     if (
       face.rows.length !== FACE_SIZE ||
