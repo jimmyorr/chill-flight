@@ -196,6 +196,75 @@ export const FACES = {
       T: '#3a3642', // top ruched texture
     },
   },
+  // Drawn after the real Esther: light brown hair, warm amber cat-eye glasses,
+  // glowing cheeks, a radiant smile and a colorful swirl tie-dye shirt
+  Esther: {
+    rows: [
+      '................................',
+      '.............kkkkkk.............',
+      '...........kkrrrrrrkk...........',
+      '..........krrrrrrrrrrk..........',
+      '........kkrrhhhrrhhhrrkk........',
+      '.......kRrrhhhhrrhhhhrrRk.......',
+      '.......kRhhHHHrrrrHHHhhRk.......',
+      '.......kRrrssssssssssrrRk.......',
+      '......kkRhsssllllllssshRkk......',
+      '.....kRrrrssssllllssssrrrRk.....',
+      '.....kRHhhbvvvssssvvvbhhHRk.....',
+      '.....kRrrrbbBbbbbbbBbbrrrRk.....',
+      '.....kRrhhbsalsbbslasbhhrRk.....',
+      '.....kRHrdbsEesssseEsbdrHRk.....',
+      '.....kRrhhsbBbssssbBbshhrRk.....',
+      '.....kRrrrdssssdlssssdrrrRk.....',
+      '.....kRHhhdspsdlldspsdhhHRk.....',
+      '.....kRrrrrpppssssppprrrrRk.....',
+      '....kRrrrhhdssssssssdhhrrrRk....',
+      '....kRrrrHrdMwwwwwwMdrHrrrRk....',
+      '....kRrrrrrhhdmmmmdhhrrrrrRk....',
+      '....kRrrrrrrrrdssdrrrrrrrrRk....',
+      '....kRrrrrrHhhdssdhhHrrrrrRk....',
+      '....kRrrrrrrrdssssdrrrrrrrRk....',
+      '....kRrrrrrhhbbbbbbhhrrrrrRk....',
+      '....kRrrrrHrruuyyjjrrHrrrrRk....',
+      '...kkuRrrrrhhzuyyjxhhrrrrRykk...',
+      '.kkzzxRrrrruuyyyjjcccrrrrRyjjkk.',
+      'kuzzxxRrHhhuzxjjxcCczhhHrRjjjxxk',
+      'uuzzxxRrrrruzzxxccczzrrrrRjjxxzz',
+      'uuzzxxRrrhhuuzzccczuuhhrrRjxxxzz',
+      'uuuzzxRrHrryuucccuuuurrHrRjxxzzz',
+    ],
+    mouthClosed: {
+      19: '....kRrrrHrrdMMMMMMdrrHrrrRk....',
+      20: '....kRrrrrrhhdssssdhhrrrrrRk....',
+    },
+    palette: {
+      k: '#221810', // outline
+      r: '#724e32', // hair base
+      R: '#482e1c', // hair shadow
+      h: '#9c6c44', // hair highlight
+      H: '#be8c58', // hair bright highlight
+      s: '#f0c8ab', // skin
+      l: '#fae2ce', // skin highlight
+      d: '#cb9574', // nose, jaw and shadow
+      p: '#e48a7e', // cheeks
+      v: '#5a3a24', // brows
+      b: '#8a522e', // glasses frame
+      B: '#ba7a48', // glasses highlight
+      a: '#edf2f6', // glasses reflection
+      e: '#241a14', // pupils and lashes
+      E: '#526c62', // eyes
+      w: '#faf6ee', // teeth
+      m: '#6a221c', // mouth
+      M: '#ba5c54', // lips
+      y: '#f4d048', // tie-dye yellow
+      j: '#e45c78', // tie-dye pink
+      x: '#7a4c92', // tie-dye purple
+      z: '#38a6be', // tie-dye turquoise
+      u: '#5eb04e', // tie-dye green
+      c: '#2e4458', // bag strap
+      C: '#c0c8d0', // strap buckle
+    },
+  },
 };
 
 // Problems with FACES, for scripts/test-jobs.js: everyone in names has a

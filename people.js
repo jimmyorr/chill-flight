@@ -263,4 +263,85 @@ export const PEOPLE = [
       },
     ],
   },
+  {
+    name: 'Esther',
+    airport: 'Mesa Field',
+    intro: [
+      "Hi, I'm Esther! I study proteins, and I bake cookies when the experiments run long.",
+      'Land and roll to a stop on a runway to pick up or drop off. Easy, right?',
+    ],
+    hello: [
+      ['Hey, you! The cookies are warm.'],
+      ['Oh hi! Was I humming again? Doug says I do that.'],
+      ['Perfect timing. My protein is folding and the cookies are done.'],
+    ],
+    accept: [
+      ["Thanks, friend. You're the best!"],
+      ["Groovy. I'll be here, probably singing."],
+      ['Oh, you rock. Fly safe out there.'],
+    ],
+    decline: [
+      ['No stress at all. Come hang out anytime.'],
+      ["That's cool. The cookies will keep."],
+      ["All good. I've got a protein to stare at anyway."],
+    ],
+    jobs: [
+      {
+        id: 'lab-supplies',
+        kind: 'round trip',
+        to: ['Meadow Field', 'Pinewood Field', 'Frost Field', 'Coral Field'],
+        cargo: 'Lab supplies',
+        offer: [
+          [
+            'I ran out of reagents mid-experiment. Oops.',
+            'Could you grab a box from {to}?',
+          ],
+          [
+            "I'm out of buffer, and proteins get cranky without it.",
+            'Could you pick up a bottle from {to}?',
+          ],
+          [
+            '{to} has a box of lab supplies with my name on it.',
+            'Want to fly over and bring it back?',
+          ],
+        ],
+        thanks: [
+          ["Perfect, that's exactly what I needed. Science thanks you!"],
+          ["You're a lifesaver. Now the proteins can get back to work."],
+          ['Ooh, this is the good stuff. Time to science!'],
+        ],
+      },
+      {
+        id: 'cookies',
+        kind: 'one way',
+        to: [
+          'Meadow Field',
+          'Lagoon Field',
+          'Dune Field',
+          'Coral Field',
+          'Sagebrush Field',
+        ],
+        cargo: 'Cookies',
+        offer: [
+          [
+            'Fresh batch of cookies, still warm.',
+            'Could you fly them over to {to}?',
+          ],
+          [
+            'Baking is just chemistry you can eat.',
+            'Could you take a tin of cookies to {to}?',
+          ],
+          [
+            'Someone at {to} could use a cookie break.',
+            'Mind delivering a tin for me?',
+          ],
+        ],
+        thanks: [
+          ["They loved the cookies! That's {done} for me."],
+          ["Cookies delivered, everyone's happy. Love that."],
+          ['Another tin delivered, another happy friend. Thanks!'],
+        ],
+      },
+    ],
+  },
 ];
