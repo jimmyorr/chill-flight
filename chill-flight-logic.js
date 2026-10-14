@@ -889,6 +889,26 @@ export const ChillFlightLogic = {};
     return false;
   }
 
+  // --- LANDFORMS ---
+  // How much (x, z) is open plain and how much plateau, each 0 to 1, from
+  // one slow field: low values are plains, high ones plateaus (with a
+  // steep, wandering edge, the escarpment)
+  const PLAINS_FLOOR = 85;
+  const PLATEAU_RISE = 170;
+  function landformAt(x, z, simplex) {
+    const f = cylNoise(x, (nx, ny) =>
+      simplex.noise3D(nx * 0.00006 + 311, z * 0.00006 - 207, ny * 0.00006 + 311)
+    );
+    const edge =
+      cylNoise(x, (nx, ny) =>
+        simplex.noise3D(nx * 0.0008 - 51, z * 0.0008 + 19, ny * 0.0008 - 51)
+      ) * 0.04;
+    return {
+      plains: smoothRamp(-f, 0.18, 0.38),
+      plateau: smoothRamp(f + edge, 0.3, 0.315),
+    };
+  }
+
   // --- DOMAIN WARPING ---
   // getElevation samples the land at warped coordinates, which makes
   // coastlines and rivers organic. Each returns the offset to add to x or z
@@ -2188,6 +2208,26 @@ export const ChillFlightLogic = {};
     }
 
     n += offset;
+
+    // --- LANDFORMS ---
+    // A slow field (tens of km across) gives the land broad character
+    // between the mountains: open plains, where the hills settle into
+    // gentle lowland, and plateaus, raised tablelands behind escarpments.
+    // Elsewhere it stays the rolling hills. Land only (not the sea).
+    const landform = landformAt(x, z, simplex);
+    const onLand = smoothRamp(biome, -0.1, 0.05);
+    if (onLand > 0 && (landform.plains > 0 || landform.plateau > 0)) {
+      const plains = landform.plains * onLand;
+      const plateau = landform.plateau * onLand;
+      let shaped = offset + (n - offset) * (1 - 0.75 * plains);
+      shaped += plains * Math.max(0, PLAINS_FLOOR - offset);
+      shaped = _lerp(
+        shaped,
+        offset + PLATEAU_RISE + (shaped - offset) * 0.2,
+        plateau
+      );
+      n = shaped;
+    }
 
     // --- LARGE ISLANDS LOGIC (East) ---
     if (x > 3000) {
