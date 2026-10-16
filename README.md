@@ -258,19 +258,11 @@ Every plane can land on water and on land: the biplane, glider and twin engine o
 
 People wait at the airports with jobs for you, always there but never in the way: land at an airport with nothing on and someone there says hi and offers one of their jobs, which you can take (**Sure thing**) or turn down (**Not right now**; they'll ask again next time).
 
-<p align="center">
-  <img src="./assets/faces/ray.svg" alt="Ray" width="60" height="60"> &nbsp;
-  <img src="./assets/faces/doug.svg" alt="Doug" width="60" height="60"> &nbsp;
-  <img src="./assets/faces/bonnie.svg" alt="Bonnie" width="60" height="60"> &nbsp;
-  <img src="./assets/faces/esther.svg" alt="Esther" width="60" height="60"> &nbsp;
-  <img src="./assets/faces/tim.svg" alt="Tim" width="60" height="60">
-</p>
-
-- **Ray** (Meadow Field) — Coffee artisan
-- **Doug** (Mesa Field) — Cheese fries & karaoke
-- **Bonnie** (Meadow Field) — Moonwater enthusiast
-- **Esther** (Mesa Field) — Protein scientist
-- **Tim** (Lagoon Field) — Optimist golfer
+|              Ray               |               Doug               |                Bonnie                |                Esther                |              Tim               |
+| :----------------------------: | :------------------------------: | :----------------------------------: | :----------------------------------: | :----------------------------: |
+| ![Ray](./assets/faces/ray.svg) | ![Doug](./assets/faces/doug.svg) | ![Bonnie](./assets/faces/bonnie.svg) | ![Esther](./assets/faces/esther.svg) | ![Tim](./assets/faces/tim.svg) |
+|        **Meadow Field**        |          **Mesa Field**          |           **Meadow Field**           |            **Mesa Field**            |        **Lagoon Field**        |
+|         Coffee artisan         |      Cheese fries & karaoke      |         Moonwater enthusiast         |          Protein scientist           |        Optimist golfer         |
 
 - **Round trip or one way:** a round trip sends you to an airport to pick something up and back to whoever asked; a one-way job ends when you drop off where it sends you. They thank you when it's done.
 - **Landing counts:** land on the destination's runway and slow below 20 knots on your wheels (or the seaplane's pontoons); landing anywhere else changes nothing.

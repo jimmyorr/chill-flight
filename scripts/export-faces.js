@@ -20,7 +20,7 @@ const FACES_DIR = path.join(__dirname, '../assets/faces');
 
 export function faceToSvg(
   face,
-  {background = '#f2d9a6', rx = 2, size = 80} = {}
+  {background = '#f2d9a6', rx = 2, size = 96} = {}
 ) {
   const rects = [];
   if (background) {
