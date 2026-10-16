@@ -36,7 +36,7 @@
         line-height: 1.5;
       }
       .container {
-        max-width: 960px;
+        max-width: 860px;
         margin: 0 auto;
       }
       a {
@@ -47,26 +47,25 @@
         text-decoration: underline;
       }
 
-      /* Navigation header */
+      /* Top navigation */
       .top-nav {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        margin-bottom: 24px;
+        margin-bottom: 20px;
         padding-bottom: 16px;
         border-bottom: 1px solid var(--card-border);
       }
       .nav-group {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
       }
       .nav-btn {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
         padding: 6px 12px;
         background: var(--card-bg);
         border: 1px solid var(--card-border);
@@ -83,7 +82,7 @@
         text-decoration: none;
       }
       .nav-btn:disabled {
-        opacity: 0.4;
+        opacity: 0.35;
         cursor: not-allowed;
       }
       select {
@@ -100,77 +99,33 @@
         border-color: var(--accent-color);
       }
 
-      /* Hero profile card */
-      .profile-card {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 12px;
-        padding: 24px;
+      /* Person header info */
+      .person-header {
         margin-bottom: 24px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 24px;
-        align-items: center;
       }
-      .portrait-box {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-      }
-      canvas.face-canvas {
-        image-rendering: pixelated;
-        background: var(--dialog-portrait-bg);
-        border: 2px solid #2b1d16;
-        border-radius: 8px;
-        width: 128px;
-        height: 128px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      }
-      body.dark canvas.face-canvas {
-        background: #18120e;
-      }
-      .profile-info {
-        flex: 1;
-        min-width: 260px;
-      }
-      .profile-info h1 {
+      .person-header h1 {
         margin: 0 0 6px;
-        font-size: 28px;
+        font-size: 26px;
         font-weight: 700;
       }
-      .pill-row {
+      .person-meta {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        margin: 10px 0 16px;
+        align-items: center;
+        font-size: 13px;
+        color: var(--muted);
       }
       .pill {
         display: inline-flex;
         align-items: center;
-        padding: 4px 10px;
-        border-radius: 999px;
+        padding: 2px 8px;
+        border-radius: 6px;
         font-size: 12px;
-        font-weight: 600;
-        background: #0f172a;
+        font-weight: 500;
+        background: var(--card-bg);
         border: 1px solid var(--card-border);
         color: var(--accent-color);
-      }
-      .pill.muted {
-        color: var(--muted);
-      }
-      .face-controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 14px;
-        font-size: 13px;
-        color: var(--muted);
-      }
-      .face-controls label {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
       }
 
       /* Interactive in-game dialog preview */
@@ -178,12 +133,12 @@
         background: #090e17;
         border: 1px solid var(--card-border);
         border-radius: 12px;
-        padding: 24px;
+        padding: 20px;
         margin-bottom: 32px;
       }
       .section-heading {
         margin: 0 0 4px;
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 600;
       }
       .section-sub {
@@ -196,7 +151,7 @@
       .dialog-container {
         display: flex;
         justify-content: center;
-        padding: 12px 0 16px;
+        padding: 8px 0 12px;
       }
       #npc-dialog-preview {
         width: 100%;
@@ -214,6 +169,7 @@
         cursor: pointer;
         position: relative;
         min-height: 128px;
+        user-select: none;
       }
       #preview-portrait {
         width: 96px;
@@ -244,6 +200,10 @@
         display: flex;
         gap: 10px;
         margin-top: 10px;
+      }
+      .dialog-npc-choices[hidden],
+      .dialog-next-indicator[hidden] {
+        display: none !important;
       }
       .dialog-npc-choices button {
         padding: 6px 12px;
@@ -278,7 +238,7 @@
         }
       }
 
-      /* Custom dialogue test bar */
+      /* Preview controls */
       .preview-controls {
         display: flex;
         flex-wrap: wrap;
@@ -288,20 +248,20 @@
       }
       .preview-controls input[type='text'] {
         flex: 1;
-        min-width: 220px;
+        min-width: 200px;
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         border-radius: 6px;
         padding: 8px 12px;
         color: var(--text-color);
-        font-size: 14px;
+        font-size: 13px;
         outline: none;
       }
       .preview-controls input[type='text']:focus {
         border-color: var(--accent-color);
       }
       .action-btn {
-        padding: 8px 14px;
+        padding: 7px 13px;
         background: #334155;
         border: 1px solid var(--card-border);
         border-radius: 6px;
@@ -327,11 +287,11 @@
 
       /* Dialog archive cards */
       .dialog-section {
-        margin-bottom: 32px;
+        margin-bottom: 28px;
       }
       .dialog-section h2 {
         margin: 0 0 6px;
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 600;
         border-bottom: 1px solid var(--card-border);
         padding-bottom: 8px;
@@ -339,17 +299,17 @@
       .dialog-grid {
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        margin-top: 14px;
+        gap: 10px;
+        margin-top: 12px;
       }
       .dialog-card {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         border-radius: 8px;
-        padding: 16px;
+        padding: 14px 16px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 8px;
         transition: border-color 0.15s ease;
       }
       .dialog-card:hover {
@@ -363,9 +323,8 @@
       }
       .dialog-card-tag {
         font-size: 12px;
-        font-weight: 600;
+        font-weight: 500;
         color: var(--muted);
-        text-transform: lowercase;
       }
       .dialog-lines-list {
         display: flex;
@@ -385,7 +344,7 @@
       .placeholder-pill {
         display: inline-block;
         padding: 1px 6px;
-        background: rgba(56, 189, 248, 0.2);
+        background: rgba(56, 189, 248, 0.16);
         color: var(--accent-color);
         border-radius: 4px;
         font-family: monospace;
@@ -397,8 +356,8 @@
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 20px;
+        padding: 18px;
+        margin-bottom: 18px;
       }
       .job-header {
         display: flex;
@@ -406,13 +365,13 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
         border-bottom: 1px solid var(--card-border);
       }
       .job-title {
         margin: 0;
-        font-size: 17px;
+        font-size: 16px;
         font-weight: 600;
       }
       .job-meta-row {
@@ -421,7 +380,7 @@
         gap: 8px;
         font-size: 13px;
         color: var(--muted);
-        margin-bottom: 16px;
+        margin-bottom: 14px;
       }
       .play-btn {
         display: inline-flex;
@@ -476,54 +435,23 @@
             Next →
           </button>
         </div>
-        <div class="nav-group">
-          <label style="font-size: 13px; cursor: pointer">
-            <input type="checkbox" id="dark-bg-toggle" /> Dark background
-          </label>
-        </div>
       </nav>
 
-      <section class="profile-card">
-        <div class="portrait-box">
-          <canvas id="profile-canvas" class="face-canvas"></canvas>
-          <div class="face-controls">
-            <label
-              ><input type="checkbox" id="talking-checkbox" checked />
-              Talking</label
-            >
-            <label
-              ><input type="checkbox" id="closed-checkbox" /> Mouth
-              closed</label
-            >
-            <label
-              ><input type="checkbox" id="hidden-checkbox" /> Silhouette</label
-            >
-          </div>
+      <header class="person-header">
+        <h1 id="person-name">Person</h1>
+        <div class="person-meta">
+          <span id="pill-airport" class="pill">Airport</span>
+          <span id="pill-jobs" class="pill">0 jobs</span>
+          <span id="pill-dialog-count">0 dialogue variants</span>
         </div>
-        <div class="profile-info">
-          <h1 id="person-name">Person</h1>
-          <div class="pill-row">
-            <span id="pill-airport" class="pill">Airport</span>
-            <span id="pill-jobs" class="pill">0 jobs</span>
-            <span id="pill-dialog-count" class="pill muted"
-              >0 dialogue lines</span
-            >
-          </div>
-          <p
-            id="person-summary"
-            style="margin: 0; color: var(--muted); font-size: 14px"
-          >
-            Inspect and test all dialogue options and job offers.
-          </p>
-        </div>
-      </section>
+      </header>
 
       <!-- Interactive in-game dialog preview -->
       <section class="preview-section">
         <h2 class="section-heading">Interactive dialog preview</h2>
         <p class="section-sub">
-          Test dialog with authentic in-game typewriter pacing and animated
-          portrait. Click the box or press Enter to advance.
+          Click any line below to test it in the dialog box, or type custom
+          text. Click the dialog box or press Enter to advance.
         </p>
 
         <div class="dialog-container">
@@ -532,18 +460,18 @@
             role="region"
             aria-label="Dialog preview"
           >
-            <canvas id="preview-portrait"></canvas>
+            <canvas id="preview-portrait" width="32" height="32"></canvas>
             <div class="dialog-body">
               <div id="preview-name" class="dialog-npc-name">Name</div>
               <div id="preview-text" class="dialog-npc-text">
-                Select a line to play...
+                Click any line below to test it...
               </div>
               <div id="preview-choices" class="dialog-npc-choices" hidden>
                 <button type="button" data-choice="yes">Sure thing</button>
                 <button type="button" data-choice="no">Not right now</button>
               </div>
             </div>
-            <div id="preview-next" class="dialog-next-indicator">
+            <div id="preview-next" class="dialog-next-indicator" hidden>
               ▼ Click to advance
             </div>
           </div>
@@ -574,7 +502,7 @@
       import {FACES, MOUTH_SECONDS, drawFace} from '/faces.js';
       import {PEOPLE} from '/people.js';
 
-      // Typewriter pacing: 35 characters per second
+      // Typewriter pacing: 35 characters per second (matches dialog.js)
       const TYPE_RATE = 35;
 
       // URL parameters
@@ -590,11 +518,6 @@
       const prevPersonBtn = document.getElementById('prev-person');
       const nextPersonBtn = document.getElementById('next-person');
       const backLink = document.getElementById('back-link');
-      const darkToggle = document.getElementById('dark-bg-toggle');
-      const profileCanvas = document.getElementById('profile-canvas');
-      const talkingCheckbox = document.getElementById('talking-checkbox');
-      const closedCheckbox = document.getElementById('closed-checkbox');
-      const hiddenCheckbox = document.getElementById('hidden-checkbox');
       const personNameEl = document.getElementById('person-name');
       const pillAirport = document.getElementById('pill-airport');
       const pillJobs = document.getElementById('pill-jobs');
@@ -613,7 +536,7 @@
       const customInput = document.getElementById('custom-input');
       const testCustomBtn = document.getElementById('test-custom-btn');
 
-      // State
+      // List of all characters
       const allNames = Array.from(
         new Set([...Object.keys(FACES), ...PEOPLE.map((p) => p.name)])
       );
@@ -635,51 +558,42 @@
       let onAnswerCallback = null;
       let lastPlayedSequence = null;
 
-      // Dark background toggle
-      darkToggle.addEventListener('change', () => {
-        document.body.classList.toggle('dark', darkToggle.checked);
-      });
-
-      // Mouth closed disabled when talking is checked
-      closedCheckbox.disabled = talkingCheckbox.checked;
-      talkingCheckbox.addEventListener('change', () => {
-        closedCheckbox.disabled = talkingCheckbox.checked;
-      });
-
-      // Dialog player helpers
       function stopTyping() {
         if (typingInterval) clearInterval(typingInterval);
         typingInterval = null;
         drawFace(previewPortrait, activeFace);
-        const isLastLine = activeLineIndex >= activeLines.length - 1;
+
+        const isLastLine = activeLineIndex === activeLines.length - 1;
         if (onAnswerCallback && isLastLine) {
           previewChoices.hidden = false;
           previewNext.hidden = true;
-        } else if (isLastLine) {
-          previewNext.textContent = '✓ Done';
+        } else if (activeLineIndex < activeLines.length - 1) {
+          previewChoices.hidden = true;
+          previewNext.textContent = '▼ Click to advance';
           previewNext.hidden = false;
         } else {
-          previewNext.textContent = '▼ Next';
+          previewChoices.hidden = true;
+          previewNext.textContent = '✓ Done';
           previewNext.hidden = false;
         }
       }
 
       function showLine() {
-        stopTyping();
+        if (typingInterval) clearInterval(typingInterval);
+        typingInterval = null;
         previewChoices.hidden = true;
+        previewNext.hidden = true;
+
         const line = activeLines[activeLineIndex] || '';
         const started = performance.now();
         previewText.textContent = '';
-        previewNext.hidden = true;
 
         typingInterval = setInterval(() => {
           const elapsed = (performance.now() - started) / 1000;
           const shown = Math.min(line.length, Math.floor(elapsed * TYPE_RATE));
           previewText.textContent = line.slice(0, shown);
-          drawFace(previewPortrait, activeFace, {
-            mouthClosed: Math.floor(elapsed / MOUTH_SECONDS) % 2 === 1,
-            hidden: hiddenCheckbox.checked,
-          });
+          const mouthClosed = Math.floor(elapsed / MOUTH_SECONDS) % 2 === 1;
+          drawFace(previewPortrait, activeFace, {mouthClosed});
           if (shown >= line.length) {
             stopTyping();
           }
@@ -696,21 +610,40 @@
         showLine();
       }
 
+      function resetDialogPlayer() {
+        if (typingInterval) clearInterval(typingInterval);
+        typingInterval = null;
+        activeLines = [];
+        activeLineIndex = 0;
+        onAnswerCallback = null;
+        previewChoices.hidden = true;
+        previewNext.hidden = true;
+        previewText.textContent = 'Click any line below to test it...';
+        drawFace(previewPortrait, activeFace);
+      }
+
       function advanceDialog() {
         if (!activeLines.length) return;
+
+        // If currently typing out, finish this line immediately
         if (typingInterval) {
           stopTyping();
           previewText.textContent = activeLines[activeLineIndex];
           return;
         }
+
+        // If on the question line, wait for Yes/No answer
         if (onAnswerCallback && activeLineIndex === activeLines.length - 1) {
           return;
         }
+
+        // Advance to next line
         activeLineIndex++;
         if (activeLineIndex < activeLines.length) {
           showLine();
         } else {
-          previewNext.textContent = '✓ Done';
+          // Finished entire sequence
+          resetDialogPlayer();
         }
       }
 
@@ -723,7 +656,7 @@
         }
       }
 
-      // Dialog interactions
+      // Dialog box click handler
       dialogBox.addEventListener('click', (e) => {
         const choiceBtn = e.target.closest('[data-choice]');
         if (choiceBtn) {
@@ -740,20 +673,12 @@
             lastPlayedSequence.hasQuestion,
             lastPlayedSequence.onAnswer
           );
-        } else if (activePerson?.intro) {
+        } else if (activePerson?.intro?.length) {
           playDialogSequence(activePerson.intro);
         }
       });
 
-      stopBtn.addEventListener('click', () => {
-        stopTyping();
-        activeLines = [];
-        activeLineIndex = 0;
-        onAnswerCallback = null;
-        previewChoices.hidden = true;
-        previewNext.hidden = true;
-        previewText.textContent = '(Stopped)';
-      });
+      stopBtn.addEventListener('click', resetDialogPlayer);
 
       testCustomBtn.addEventListener('click', () => {
         const text = customInput.value.trim();
@@ -783,8 +708,11 @@
             advanceDialog();
           }
         } else if (onAnswerCallback && !previewChoices.hidden) {
-          if (e.key.toLowerCase() === 'y') answerDialog(true);
-          else if (e.key.toLowerCase() === 'n') answerDialog(false);
+          if (e.key.toLowerCase() === 'y' || e.key.toLowerCase() === 'enter') {
+            answerDialog(true);
+          } else if (e.key.toLowerCase() === 'n') {
+            answerDialog(false);
+          }
         }
       });
 
@@ -812,7 +740,7 @@
           .replace(/\{name\}/g, currentName);
       }
 
-      // Render the person view
+      // Render person view
       function loadPerson(name) {
         if (!allNames.includes(name)) {
           name = allNames[0] || 'Ray';
@@ -848,22 +776,15 @@
             totalVariants +=
               (job.offer?.length || 0) + (job.thanks?.length || 0);
           }
-          pillDialogCount.textContent = `💬 ${totalVariants} dialogue variants`;
+          pillDialogCount.textContent = `• ${totalVariants} dialogue lines`;
         } else {
           pillAirport.textContent = '📍 Not in people.js';
           pillJobs.textContent = '📦 0 jobs';
-          pillDialogCount.textContent = '💬 0 dialogue variants';
+          pillDialogCount.textContent = '• 0 dialogue lines';
         }
 
         renderDialogArchive();
-
-        // Automatically load initial intro line into dialog box
-        if (activePerson?.intro?.length) {
-          playDialogSequence(activePerson.intro);
-        } else {
-          previewText.textContent = `Hello, I'm ${name}!`;
-          drawFace(previewPortrait, activeFace);
-        }
+        resetDialogPlayer();
       }
 
       function renderDialogArchive() {
@@ -884,7 +805,7 @@
         if (activePerson.intro?.length) {
           html += `
             <section class="dialog-section">
-              <h2>First encounter (Intro)</h2>
+              <h2>First encounter (intro)</h2>
               <div class="dialog-grid">
                 <div class="dialog-card">
                   <div class="dialog-card-header">
@@ -912,8 +833,8 @@
         if (activePerson.hello?.length) {
           html += `
             <section class="dialog-section">
-              <h2>Greetings (Hello)</h2>
-              <p class="section-sub">Spoken when you stop by on subsequent visits (one chosen at random).</p>
+              <h2>Greetings (hello)</h2>
+              <p class="section-sub">Spoken on subsequent visits (one chosen at random).</p>
               <div class="dialog-grid">
                 ${activePerson.hello
                   .map(
@@ -921,7 +842,7 @@
                   <div class="dialog-card">
                     <div class="dialog-card-header">
                       <span class="dialog-card-tag">Variant ${idx + 1} of ${activePerson.hello.length}</span>
-                      <button type="button" class="play-btn" data-play="hello" data-index="${idx}">▶ Play variant</button>
+                      <button type="button" class="play-btn" data-play="hello" data-index="${idx}">▶ Play</button>
                     </div>
                     <div class="dialog-lines-list">
                       ${choice.map((l) => `<div class="dialog-line-bubble">${formatPreview(l)}</div>`).join('')}
@@ -948,7 +869,7 @@
                   <div class="dialog-card">
                     <div class="dialog-card-header">
                       <span class="dialog-card-tag">Variant ${idx + 1} of ${activePerson.accept.length}</span>
-                      <button type="button" class="play-btn" data-play="accept" data-index="${idx}">▶ Play variant</button>
+                      <button type="button" class="play-btn" data-play="accept" data-index="${idx}">▶ Play</button>
                     </div>
                     <div class="dialog-lines-list">
                       ${choice.map((l) => `<div class="dialog-line-bubble">${formatPreview(l)}</div>`).join('')}
@@ -975,7 +896,7 @@
                   <div class="dialog-card">
                     <div class="dialog-card-header">
                       <span class="dialog-card-tag">Variant ${idx + 1} of ${activePerson.decline.length}</span>
-                      <button type="button" class="play-btn" data-play="decline" data-index="${idx}">▶ Play variant</button>
+                      <button type="button" class="play-btn" data-play="decline" data-index="${idx}">▶ Play</button>
                     </div>
                     <div class="dialog-lines-list">
                       ${choice.map((l) => `<div class="dialog-line-bubble">${formatPreview(l)}</div>`).join('')}
@@ -1005,7 +926,7 @@
               <div class="job-card">
                 <div class="job-header">
                   <h3 class="job-title">Job: <code>${job.id}</code></h3>
-                  <div class="pill-row" style="margin: 0;">
+                  <div class="person-meta" style="margin: 0;">
                     <span class="pill">${job.kind}</span>
                     <span class="pill">Cargo: ${job.cargo}</span>
                   </div>
@@ -1014,8 +935,8 @@
                   <span>Destinations (${job.to.length}): <strong>${destList}</strong></span>
                 </div>
 
-                <h4 style="margin: 16px 0 8px; font-size: 15px;">Offer dialogues</h4>
-                <div class="dialog-grid" style="margin-bottom: 20px;">
+                <h4 style="margin: 14px 0 8px; font-size: 14px; font-weight: 600;">Offer dialogues</h4>
+                <div class="dialog-grid" style="margin-bottom: 18px;">
                   ${job.offer
                     .map(
                       (offerChoice, offerIdx) => `
@@ -1044,7 +965,7 @@
                     .join('')}
                 </div>
 
-                <h4 style="margin: 16px 0 8px; font-size: 15px;">Completion dialogues (Thanks)</h4>
+                <h4 style="margin: 14px 0 8px; font-size: 14px; font-weight: 600;">Completion dialogues (thanks)</h4>
                 <div class="dialog-grid">
                   ${job.thanks
                     .map(
@@ -1123,6 +1044,9 @@
           const resolvedLines = thanks.map((l) => resolveLine(l));
           playDialogSequence(resolvedLines);
         }
+
+        // Scroll dialog box into view smoothly if needed
+        dialogBox.scrollIntoView({behavior: 'smooth', block: 'nearest'});
       });
 
       // Navigation events
@@ -1152,23 +1076,6 @@
         const name = params.get('person') || params.get('name') || allNames[0];
         loadPerson(name);
       });
-
-      // Portrait animation loop
-      function drawPortraits(now) {
-        requestAnimationFrame(drawPortraits);
-        const beat = Math.floor(now / 1000 / MOUTH_SECONDS) % 2 === 1;
-        const mouthClosed = talkingCheckbox.checked
-          ? beat
-          : closedCheckbox.checked;
-
-        if (activeFace) {
-          drawFace(profileCanvas, activeFace, {
-            mouthClosed,
-            hidden: hiddenCheckbox.checked,
-          });
-        }
-      }
-      requestAnimationFrame(drawPortraits);
 
       // Initial load
       loadPerson(currentName);
