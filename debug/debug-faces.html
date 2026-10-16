@@ -63,21 +63,51 @@
         flex-direction: column;
         gap: 10px;
         scroll-margin-top: 24px;
+        text-decoration: none;
+        color: inherit;
+        transition:
+          transform 0.15s ease,
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
+        cursor: pointer;
+      }
+      .face-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--accent-color);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
       }
       .face-card:target {
         border-color: var(--accent-color);
+      }
+      .face-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
       }
       .face-card h2 {
         margin: 0;
         font-size: 15px;
       }
-      .face-card h2 a {
-        color: inherit;
-        text-decoration: none;
-      }
       .face-card .meta {
         color: var(--muted);
         font-size: 12px;
+      }
+      .face-card .badge {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(56, 189, 248, 0.12);
+        color: var(--accent-color);
+        font-weight: 500;
+      }
+      .face-card .view-dialog {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--accent-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
       }
       /* Like the dialog's portrait: whole screen pixels per face pixel */
       canvas {
@@ -95,9 +125,24 @@
     <h1>Faces</h1>
     <p class="sub">
       Everyone's face in <code>faces.js</code>, with their airport from
-      <code>people.js</code>. Link to one with #name.
+      <code>people.js</code>. Tap a person to view all their dialog. Link to one
+      with #name.
     </p>
     <div class="controls">
+      <input
+        type="search"
+        id="search"
+        placeholder="Filter people..."
+        aria-label="Filter people"
+        style="
+          padding: 6px 10px;
+          background: var(--card-bg);
+          border: 1px solid #334155;
+          border-radius: 6px;
+          color: var(--text-color);
+          font-size: 13px;
+        "
+      />
       <label
         >Size
         <select id="size">
@@ -122,26 +167,60 @@
       import {FACES, MOUTH_SECONDS, drawFace} from '/faces.js';
       import {PEOPLE} from '/people.js';
 
+      // Redirect if person is in query params
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetPerson = urlParams.get('person') || urlParams.get('name');
+      if (targetPerson) {
+        window.location.replace(
+          `debug-person.html?person=${encodeURIComponent(targetPerson)}`
+        );
+      }
+
       const talking = document.getElementById('talking');
       const closed = document.getElementById('closed');
       const hidden = document.getElementById('hidden');
       const dark = document.getElementById('dark');
       const size = document.getElementById('size');
+      const search = document.getElementById('search');
       const container = document.getElementById('faces');
 
       const cards = Object.entries(FACES).map(([name, face]) => {
         const id = name.toLowerCase();
-        const card = document.createElement('div');
+        const card = document.createElement('a');
         card.className = 'face-card';
         card.id = id;
-        const airport = PEOPLE.find((p) => p.name === name)?.airport;
+        card.href = `debug-person.html?person=${encodeURIComponent(name)}`;
+        const person = PEOPLE.find((p) => p.name === name);
+        const airport = person?.airport;
+        const jobCount = person?.jobs?.length || 0;
+        const jobText = jobCount === 1 ? '1 job' : `${jobCount} jobs`;
+
         card.innerHTML = `
-          <h2><a href="#${id}">${name}</a></h2>
+          <div class="face-card-header">
+            <h2>${name}</h2>
+            <span class="badge">${jobText}</span>
+          </div>
           <div class="meta">${airport || 'Not in people.js yet'}</div>`;
         const canvas = document.createElement('canvas');
         card.append(canvas);
+        const viewLink = document.createElement('div');
+        viewLink.className = 'view-dialog';
+        viewLink.innerHTML = '<span>View dialog</span><span>→</span>';
+        card.append(viewLink);
         container.append(card);
-        return {face, canvas};
+        return {name, airport: airport || '', face, canvas, card};
+      });
+
+      // Filter handling
+      search.addEventListener('input', () => {
+        const query = search.value.trim().toLowerCase();
+        for (const {name, airport, card} of cards) {
+          const match =
+            !query ||
+            name.toLowerCase().includes(query) ||
+            airport.toLowerCase().includes(query);
+          card.style.display = match ? 'flex' : 'none';
+        }
       });
 
       function resize() {

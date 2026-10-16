@@ -36,6 +36,8 @@ const PAGES = [
   {path: '', fly: true},
   // Debug pages are dev-only (not in the production build).
   {path: 'debug/debug-models.html', devOnly: true},
+  {path: 'debug/debug-faces.html', devOnly: true},
+  {path: 'debug/debug-person.html', devOnly: true},
   {path: 'debug/debug-export-map.html', devOnly: true},
   // Every third-party host drops every packet (e.g. a subway): the game must
   // still paint and start, and music must fall back to the bundled track

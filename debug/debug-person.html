@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug | Person dialog</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+    <style>
+      :root {
+        --bg-color: #0f172a;
+        --card-bg: #1e293b;
+        --card-border: #334155;
+        --accent-color: #38bdf8;
+        --accent-hover: #0284c7;
+        --text-color: #f1f5f9;
+        --muted: #94a3b8;
+        --dialog-bg: rgba(24, 18, 14, 0.96);
+        --dialog-border: #e8c48a;
+        --dialog-portrait-bg: #f2d9a6;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: var(--bg-color);
+        color: var(--text-color);
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        line-height: 1.5;
+      }
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+      }
+      a {
+        color: var(--accent-color);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+
+      /* Navigation header */
+      .top-nav {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      .nav-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        color: var(--text-color);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .nav-btn:hover:not(:disabled) {
+        background: #334155;
+        border-color: var(--accent-color);
+        text-decoration: none;
+      }
+      .nav-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      select {
+        background: var(--card-bg);
+        color: var(--text-color);
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 14px;
+        cursor: pointer;
+        outline: none;
+      }
+      select:focus {
+        border-color: var(--accent-color);
+      }
+
+      /* Hero profile card */
+      .profile-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        align-items: center;
+      }
+      .portrait-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      canvas.face-canvas {
+        image-rendering: pixelated;
+        background: var(--dialog-portrait-bg);
+        border: 2px solid #2b1d16;
+        border-radius: 8px;
+        width: 128px;
+        height: 128px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      body.dark canvas.face-canvas {
+        background: #18120e;
+      }
+      .profile-info {
+        flex: 1;
+        min-width: 260px;
+      }
+      .profile-info h1 {
+        margin: 0 0 6px;
+        font-size: 28px;
+        font-weight: 700;
+      }
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0 16px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #0f172a;
+        border: 1px solid var(--card-border);
+        color: var(--accent-color);
+      }
+      .pill.muted {
+        color: var(--muted);
+      }
+      .face-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .face-controls label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+      }
+
+      /* Interactive in-game dialog preview */
+      .preview-section {
+        background: #090e17;
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 32px;
+      }
+      .section-heading {
+        margin: 0 0 4px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .section-sub {
+        margin: 0 0 16px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* Authentic in-game dialog box replica */
+      .dialog-container {
+        display: flex;
+        justify-content: center;
+        padding: 12px 0 16px;
+      }
+      #npc-dialog-preview {
+        width: 100%;
+        max-width: 560px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 14px 16px 18px;
+        background: var(--dialog-bg);
+        border: 2px solid var(--dialog-border);
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        color: #fff;
+        cursor: pointer;
+        position: relative;
+        min-height: 128px;
+      }
+      #preview-portrait {
+        width: 96px;
+        height: 96px;
+        flex-shrink: 0;
+        image-rendering: pixelated;
+        background: var(--dialog-portrait-bg);
+        border: 2px solid #2b1d16;
+        border-radius: 6px;
+      }
+      .dialog-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .dialog-npc-name {
+        margin-bottom: 4px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: var(--dialog-border);
+      }
+      .dialog-npc-text {
+        min-height: 2.8em;
+        font-size: 15px;
+        line-height: 1.4;
+      }
+      .dialog-npc-choices {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .dialog-npc-choices button {
+        padding: 6px 12px;
+        border: 1px solid var(--dialog-border);
+        border-radius: 6px;
+        background: rgba(232, 196, 138, 0.15);
+        color: #fff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .dialog-npc-choices button:hover {
+        background: rgba(232, 196, 138, 0.35);
+      }
+      .dialog-next-indicator {
+        position: absolute;
+        right: 14px;
+        bottom: 8px;
+        font-size: 10px;
+        color: var(--dialog-border);
+        animation: next-bob 1s ease-in-out infinite;
+      }
+      @keyframes next-bob {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(3px);
+        }
+      }
+
+      /* Custom dialogue test bar */
+      .preview-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 16px;
+      }
+      .preview-controls input[type='text'] {
+        flex: 1;
+        min-width: 220px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        padding: 8px 12px;
+        color: var(--text-color);
+        font-size: 14px;
+        outline: none;
+      }
+      .preview-controls input[type='text']:focus {
+        border-color: var(--accent-color);
+      }
+      .action-btn {
+        padding: 8px 14px;
+        background: #334155;
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        color: var(--text-color);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .action-btn:hover {
+        background: #475569;
+        border-color: var(--accent-color);
+      }
+      .action-btn.primary {
+        background: var(--accent-color);
+        color: #0f172a;
+        font-weight: 600;
+        border-color: var(--accent-color);
+      }
+      .action-btn.primary:hover {
+        background: var(--accent-hover);
+      }
+
+      /* Dialog archive cards */
+      .dialog-section {
+        margin-bottom: 32px;
+      }
+      .dialog-section h2 {
+        margin: 0 0 6px;
+        font-size: 20px;
+        font-weight: 600;
+        border-bottom: 1px solid var(--card-border);
+        padding-bottom: 8px;
+      }
+      .dialog-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .dialog-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        transition: border-color 0.15s ease;
+      }
+      .dialog-card:hover {
+        border-color: #475569;
+      }
+      .dialog-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .dialog-card-tag {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: lowercase;
+      }
+      .dialog-lines-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .dialog-line-bubble {
+        background: #0f172a;
+        border-left: 3px solid var(--accent-color);
+        padding: 8px 12px;
+        border-radius: 0 6px 6px 0;
+        font-size: 14px;
+      }
+      .dialog-line-bubble.question {
+        border-left-color: #f59e0b;
+      }
+      .placeholder-pill {
+        display: inline-block;
+        padding: 1px 6px;
+        background: rgba(56, 189, 248, 0.2);
+        color: var(--accent-color);
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+      }
+
+      /* Jobs styling */
+      .job-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .job-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      .job-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 600;
+      }
+      .job-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 16px;
+      }
+      .play-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        background: #0f172a;
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        color: var(--text-color);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .play-btn:hover {
+        background: #334155;
+        border-color: var(--accent-color);
+        color: var(--accent-color);
+      }
+      .empty-state {
+        padding: 32px;
+        text-align: center;
+        color: var(--muted);
+        background: var(--card-bg);
+        border: 1px dashed var(--card-border);
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="top-nav">
+        <div class="nav-group">
+          <a href="debug-faces.html" id="back-link" class="nav-btn"
+            >← All faces</a
+          >
+          <button
+            type="button"
+            id="prev-person"
+            class="nav-btn"
+            title="Previous person (Left arrow)"
+          >
+            ← Prev
+          </button>
+          <select id="person-select" aria-label="Select person"></select>
+          <button
+            type="button"
+            id="next-person"
+            class="nav-btn"
+            title="Next person (Right arrow)"
+          >
+            Next →
+          </button>
+        </div>
+        <div class="nav-group">
+          <label style="font-size: 13px; cursor: pointer">
+            <input type="checkbox" id="dark-bg-toggle" /> Dark background
+          </label>
+        </div>
+      </nav>
+
+      <section class="profile-card">
+        <div class="portrait-box">
+          <canvas id="profile-canvas" class="face-canvas"></canvas>
+          <div class="face-controls">
+            <label
+              ><input type="checkbox" id="talking-checkbox" checked />
+              Talking</label
+            >
+            <label
+              ><input type="checkbox" id="closed-checkbox" /> Mouth
+              closed</label
+            >
+            <label
+              ><input type="checkbox" id="hidden-checkbox" /> Silhouette</label
+            >
+          </div>
+        </div>
+        <div class="profile-info">
+          <h1 id="person-name">Person</h1>
+          <div class="pill-row">
+            <span id="pill-airport" class="pill">Airport</span>
+            <span id="pill-jobs" class="pill">0 jobs</span>
+            <span id="pill-dialog-count" class="pill muted"
+              >0 dialogue lines</span
+            >
+          </div>
+          <p
+            id="person-summary"
+            style="margin: 0; color: var(--muted); font-size: 14px"
+          >
+            Inspect and test all dialogue options and job offers.
+          </p>
+        </div>
+      </section>
+
+      <!-- Interactive in-game dialog preview -->
+      <section class="preview-section">
+        <h2 class="section-heading">Interactive dialog preview</h2>
+        <p class="section-sub">
+          Test dialog with authentic in-game typewriter pacing and animated
+          portrait. Click the box or press Enter to advance.
+        </p>
+
+        <div class="dialog-container">
+          <div
+            id="npc-dialog-preview"
+            role="region"
+            aria-label="Dialog preview"
+          >
+            <canvas id="preview-portrait"></canvas>
+            <div class="dialog-body">
+              <div id="preview-name" class="dialog-npc-name">Name</div>
+              <div id="preview-text" class="dialog-npc-text">
+                Select a line to play...
+              </div>
+              <div id="preview-choices" class="dialog-npc-choices" hidden>
+                <button type="button" data-choice="yes">Sure thing</button>
+                <button type="button" data-choice="no">Not right now</button>
+              </div>
+            </div>
+            <div id="preview-next" class="dialog-next-indicator">
+              ▼ Click to advance
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-controls">
+          <button type="button" id="replay-btn" class="action-btn">
+            Replay
+          </button>
+          <button type="button" id="stop-btn" class="action-btn">Stop</button>
+          <input
+            type="text"
+            id="custom-input"
+            placeholder="Type custom dialog to test with this character..."
+            aria-label="Custom dialog text"
+          />
+          <button type="button" id="test-custom-btn" class="action-btn primary">
+            Test line
+          </button>
+        </div>
+      </section>
+
+      <!-- Dialog archives -->
+      <div id="dialog-content"></div>
+    </div>
+
+    <script type="module">
+      import {FACES, MOUTH_SECONDS, drawFace} from '/faces.js';
+      import {PEOPLE} from '/people.js';
+
+      // Typewriter pacing: 35 characters per second
+      const TYPE_RATE = 35;
+
+      // URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      let currentName =
+        urlParams.get('person') ||
+        urlParams.get('name') ||
+        Object.keys(FACES)[0] ||
+        'Ray';
+
+      // Elements
+      const personSelect = document.getElementById('person-select');
+      const prevPersonBtn = document.getElementById('prev-person');
+      const nextPersonBtn = document.getElementById('next-person');
+      const backLink = document.getElementById('back-link');
+      const darkToggle = document.getElementById('dark-bg-toggle');
+      const profileCanvas = document.getElementById('profile-canvas');
+      const talkingCheckbox = document.getElementById('talking-checkbox');
+      const closedCheckbox = document.getElementById('closed-checkbox');
+      const hiddenCheckbox = document.getElementById('hidden-checkbox');
+      const personNameEl = document.getElementById('person-name');
+      const pillAirport = document.getElementById('pill-airport');
+      const pillJobs = document.getElementById('pill-jobs');
+      const pillDialogCount = document.getElementById('pill-dialog-count');
+      const dialogContent = document.getElementById('dialog-content');
+
+      // Dialog preview elements
+      const dialogBox = document.getElementById('npc-dialog-preview');
+      const previewPortrait = document.getElementById('preview-portrait');
+      const previewName = document.getElementById('preview-name');
+      const previewText = document.getElementById('preview-text');
+      const previewChoices = document.getElementById('preview-choices');
+      const previewNext = document.getElementById('preview-next');
+      const replayBtn = document.getElementById('replay-btn');
+      const stopBtn = document.getElementById('stop-btn');
+      const customInput = document.getElementById('custom-input');
+      const testCustomBtn = document.getElementById('test-custom-btn');
+
+      // State
+      const allNames = Array.from(
+        new Set([...Object.keys(FACES), ...PEOPLE.map((p) => p.name)])
+      );
+
+      // Populate person selector
+      personSelect.innerHTML = allNames
+        .map((name) => {
+          const airport = PEOPLE.find((p) => p.name === name)?.airport;
+          const label = airport ? `${name} (${airport})` : name;
+          return `<option value="${name}">${label}</option>`;
+        })
+        .join('');
+
+      let activePerson = null;
+      let activeFace = null;
+      let activeLines = [];
+      let activeLineIndex = 0;
+      let typingInterval = null;
+      let onAnswerCallback = null;
+      let lastPlayedSequence = null;
+
+      // Dark background toggle
+      darkToggle.addEventListener('change', () => {
+        document.body.classList.toggle('dark', darkToggle.checked);
+      });
+
+      // Mouth closed disabled when talking is checked
+      closedCheckbox.disabled = talkingCheckbox.checked;
+      talkingCheckbox.addEventListener('change', () => {
+        closedCheckbox.disabled = talkingCheckbox.checked;
+      });
+
+      // Dialog player helpers
+      function stopTyping() {
+        if (typingInterval) clearInterval(typingInterval);
+        typingInterval = null;
+        drawFace(previewPortrait, activeFace);
+        const isLastLine = activeLineIndex >= activeLines.length - 1;
+        if (onAnswerCallback && isLastLine) {
+          previewChoices.hidden = false;
+          previewNext.hidden = true;
+        } else if (isLastLine) {
+          previewNext.textContent = '✓ Done';
+          previewNext.hidden = false;
+        } else {
+          previewNext.textContent = '▼ Next';
+          previewNext.hidden = false;
+        }
+      }
+
+      function showLine() {
+        stopTyping();
+        previewChoices.hidden = true;
+        const line = activeLines[activeLineIndex] || '';
+        const started = performance.now();
+        previewText.textContent = '';
+        previewNext.hidden = true;
+
+        typingInterval = setInterval(() => {
+          const elapsed = (performance.now() - started) / 1000;
+          const shown = Math.min(line.length, Math.floor(elapsed * TYPE_RATE));
+          previewText.textContent = line.slice(0, shown);
+          drawFace(previewPortrait, activeFace, {
+            mouthClosed: Math.floor(elapsed / MOUTH_SECONDS) % 2 === 1,
+            hidden: hiddenCheckbox.checked,
+          });
+          if (shown >= line.length) {
+            stopTyping();
+          }
+        }, 1000 / TYPE_RATE);
+      }
+
+      function playDialogSequence(lines, hasQuestion = false, onAnswer = null) {
+        if (!lines || !lines.length) return;
+        lastPlayedSequence = {lines, hasQuestion, onAnswer};
+        activeLines = lines;
+        activeLineIndex = 0;
+        onAnswerCallback = hasQuestion ? onAnswer : null;
+        previewName.textContent = currentName;
+        showLine();
+      }
+
+      function advanceDialog() {
+        if (!activeLines.length) return;
+        if (typingInterval) {
+          stopTyping();
+          previewText.textContent = activeLines[activeLineIndex];
+          return;
+        }
+        if (onAnswerCallback && activeLineIndex === activeLines.length - 1) {
+          return;
+        }
+        activeLineIndex++;
+        if (activeLineIndex < activeLines.length) {
+          showLine();
+        } else {
+          previewNext.textContent = '✓ Done';
+        }
+      }
+
+      function answerDialog(choiceYes) {
+        const cb = onAnswerCallback;
+        onAnswerCallback = null;
+        previewChoices.hidden = true;
+        if (cb) {
+          cb(choiceYes);
+        }
+      }
+
+      // Dialog interactions
+      dialogBox.addEventListener('click', (e) => {
+        const choiceBtn = e.target.closest('[data-choice]');
+        if (choiceBtn) {
+          answerDialog(choiceBtn.dataset.choice === 'yes');
+        } else {
+          advanceDialog();
+        }
+      });
+
+      replayBtn.addEventListener('click', () => {
+        if (lastPlayedSequence) {
+          playDialogSequence(
+            lastPlayedSequence.lines,
+            lastPlayedSequence.hasQuestion,
+            lastPlayedSequence.onAnswer
+          );
+        } else if (activePerson?.intro) {
+          playDialogSequence(activePerson.intro);
+        }
+      });
+
+      stopBtn.addEventListener('click', () => {
+        stopTyping();
+        activeLines = [];
+        activeLineIndex = 0;
+        onAnswerCallback = null;
+        previewChoices.hidden = true;
+        previewNext.hidden = true;
+        previewText.textContent = '(Stopped)';
+      });
+
+      testCustomBtn.addEventListener('click', () => {
+        const text = customInput.value.trim();
+        if (text) {
+          playDialogSequence([text]);
+        }
+      });
+
+      customInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          testCustomBtn.click();
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
+          return;
+        }
+        if (e.key === 'ArrowLeft') {
+          prevPersonBtn.click();
+        } else if (e.key === 'ArrowRight') {
+          nextPersonBtn.click();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          if (activeLines.length) {
+            e.preventDefault();
+            advanceDialog();
+          }
+        } else if (onAnswerCallback && !previewChoices.hidden) {
+          if (e.key.toLowerCase() === 'y') answerDialog(true);
+          else if (e.key.toLowerCase() === 'n') answerDialog(false);
+        }
+      });
+
+      // Format template words helper
+      function formatPreview(text, sampleAirport = 'Lagoon Field') {
+        return text
+          .replace(
+            /\{to\}/g,
+            `<span class="placeholder-pill" title="Destination airport">{to: ${sampleAirport}}</span>`
+          )
+          .replace(
+            /\{done\}/g,
+            '<span class="placeholder-pill" title="Completed jobs">{done: 3 jobs}</span>'
+          )
+          .replace(
+            /\{name\}/g,
+            `<span class="placeholder-pill" title="Person name">{name: ${currentName}}</span>`
+          );
+      }
+
+      function resolveLine(text, sampleAirport = 'Lagoon Field') {
+        return text
+          .replace(/\{to\}/g, sampleAirport)
+          .replace(/\{done\}/g, '3 jobs')
+          .replace(/\{name\}/g, currentName);
+      }
+
+      // Render the person view
+      function loadPerson(name) {
+        if (!allNames.includes(name)) {
+          name = allNames[0] || 'Ray';
+        }
+        currentName = name;
+        document.title = `Debug | ${name} dialog`;
+        personSelect.value = name;
+        backLink.href = `debug-faces.html#${name.toLowerCase()}`;
+
+        const index = allNames.indexOf(name);
+        prevPersonBtn.disabled = index <= 0;
+        nextPersonBtn.disabled = index >= allNames.length - 1;
+
+        activePerson = PEOPLE.find((p) => p.name === name) || null;
+        activeFace = FACES[name] || null;
+
+        personNameEl.textContent = name;
+        previewName.textContent = name;
+
+        if (activePerson) {
+          pillAirport.textContent = `📍 ${activePerson.airport}`;
+          const jobCount = activePerson.jobs?.length || 0;
+          pillJobs.textContent = `📦 ${jobCount} ${jobCount === 1 ? 'job' : 'jobs'}`;
+
+          // Calculate total dialogue variants
+          let totalVariants = 0;
+          if (activePerson.intro) totalVariants += activePerson.intro.length;
+          if (activePerson.hello) totalVariants += activePerson.hello.length;
+          if (activePerson.accept) totalVariants += activePerson.accept.length;
+          if (activePerson.decline)
+            totalVariants += activePerson.decline.length;
+          for (const job of activePerson.jobs || []) {
+            totalVariants +=
+              (job.offer?.length || 0) + (job.thanks?.length || 0);
+          }
+          pillDialogCount.textContent = `💬 ${totalVariants} dialogue variants`;
+        } else {
+          pillAirport.textContent = '📍 Not in people.js';
+          pillJobs.textContent = '📦 0 jobs';
+          pillDialogCount.textContent = '💬 0 dialogue variants';
+        }
+
+        renderDialogArchive();
+
+        // Automatically load initial intro line into dialog box
+        if (activePerson?.intro?.length) {
+          playDialogSequence(activePerson.intro);
+        } else {
+          previewText.textContent = `Hello, I'm ${name}!`;
+          drawFace(previewPortrait, activeFace);
+        }
+      }
+
+      function renderDialogArchive() {
+        if (!activePerson) {
+          dialogContent.innerHTML = `
+            <div class="empty-state">
+              <h3>No dialogue defined</h3>
+              <p>This character is in <code>faces.js</code>, but has no entry in <code>people.js</code> yet.</p>
+              <p>You can use the custom dialog previewer above to test lines with their face.</p>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+
+        // 1. Intro
+        if (activePerson.intro?.length) {
+          html += `
+            <section class="dialog-section">
+              <h2>First encounter (Intro)</h2>
+              <div class="dialog-grid">
+                <div class="dialog-card">
+                  <div class="dialog-card-header">
+                    <span class="dialog-card-tag">Spoken sequentially on first landing</span>
+                    <button type="button" class="play-btn" data-play="intro">▶ Play intro</button>
+                  </div>
+                  <div class="dialog-lines-list">
+                    ${activePerson.intro
+                      .map(
+                        (line, idx) => `
+                      <div class="dialog-line-bubble">
+                        <strong>Line ${idx + 1}:</strong> ${formatPreview(line)}
+                      </div>
+                    `
+                      )
+                      .join('')}
+                  </div>
+                </div>
+              </div>
+            </section>
+          `;
+        }
+
+        // 2. Hello / Greetings
+        if (activePerson.hello?.length) {
+          html += `
+            <section class="dialog-section">
+              <h2>Greetings (Hello)</h2>
+              <p class="section-sub">Spoken when you stop by on subsequent visits (one chosen at random).</p>
+              <div class="dialog-grid">
+                ${activePerson.hello
+                  .map(
+                    (choice, idx) => `
+                  <div class="dialog-card">
+                    <div class="dialog-card-header">
+                      <span class="dialog-card-tag">Variant ${idx + 1} of ${activePerson.hello.length}</span>
+                      <button type="button" class="play-btn" data-play="hello" data-index="${idx}">▶ Play variant</button>
+                    </div>
+                    <div class="dialog-lines-list">
+                      ${choice.map((l) => `<div class="dialog-line-bubble">${formatPreview(l)}</div>`).join('')}
+                    </div>
+                  </div>
+                `
+                  )
+                  .join('')}
+              </div>
+            </section>
+          `;
+        }
+
+        // 3. Job accepted
+        if (activePerson.accept?.length) {
+          html += `
+            <section class="dialog-section">
+              <h2>Job accepted</h2>
+              <p class="section-sub">Spoken when you accept one of their job offers.</p>
+              <div class="dialog-grid">
+                ${activePerson.accept
+                  .map(
+                    (choice, idx) => `
+                  <div class="dialog-card">
+                    <div class="dialog-card-header">
+                      <span class="dialog-card-tag">Variant ${idx + 1} of ${activePerson.accept.length}</span>
+                      <button type="button" class="play-btn" data-play="accept" data-index="${idx}">▶ Play variant</button>
+                    </div>
+                    <div class="dialog-lines-list">
+                      ${choice.map((l) => `<div class="dialog-line-bubble">${formatPreview(l)}</div>`).join('')}
+                    </div>
+                  </div>
+                `
+                  )
+                  .join('')}
+              </div>
+            </section>
+          `;
+        }
+
+        // 4. Job declined
+        if (activePerson.decline?.length) {
+          html += `
+            <section class="dialog-section">
+              <h2>Job declined</h2>
+              <p class="section-sub">Spoken when you decline or postpone an offer.</p>
+              <div class="dialog-grid">
+                ${activePerson.decline
+                  .map(
+                    (choice, idx) => `
+                  <div class="dialog-card">
+                    <div class="dialog-card-header">
+                      <span class="dialog-card-tag">Variant ${idx + 1} of ${activePerson.decline.length}</span>
+                      <button type="button" class="play-btn" data-play="decline" data-index="${idx}">▶ Play variant</button>
+                    </div>
+                    <div class="dialog-lines-list">
+                      ${choice.map((l) => `<div class="dialog-line-bubble">${formatPreview(l)}</div>`).join('')}
+                    </div>
+                  </div>
+                `
+                  )
+                  .join('')}
+              </div>
+            </section>
+          `;
+        }
+
+        // 5. Jobs
+        if (activePerson.jobs?.length) {
+          html += `
+            <section class="dialog-section">
+              <h2>Jobs & tasks</h2>
+              <p class="section-sub">Missions offered at ${activePerson.airport}.</p>
+          `;
+
+          for (const [jobIdx, job] of activePerson.jobs.entries()) {
+            const destList = job.to.join(', ');
+            const sampleDest = job.to[0] || 'Airport';
+
+            html += `
+              <div class="job-card">
+                <div class="job-header">
+                  <h3 class="job-title">Job: <code>${job.id}</code></h3>
+                  <div class="pill-row" style="margin: 0;">
+                    <span class="pill">${job.kind}</span>
+                    <span class="pill">Cargo: ${job.cargo}</span>
+                  </div>
+                </div>
+                <div class="job-meta-row">
+                  <span>Destinations (${job.to.length}): <strong>${destList}</strong></span>
+                </div>
+
+                <h4 style="margin: 16px 0 8px; font-size: 15px;">Offer dialogues</h4>
+                <div class="dialog-grid" style="margin-bottom: 20px;">
+                  ${job.offer
+                    .map(
+                      (offerChoice, offerIdx) => `
+                    <div class="dialog-card">
+                      <div class="dialog-card-header">
+                        <span class="dialog-card-tag">Offer variant ${offerIdx + 1} of ${job.offer.length}</span>
+                        <button type="button" class="play-btn" data-play="job-offer" data-job="${jobIdx}" data-index="${offerIdx}">
+                          ▶ Play offer
+                        </button>
+                      </div>
+                      <div class="dialog-lines-list">
+                        ${offerChoice
+                          .map((line, lIdx) => {
+                            const isQuestion = lIdx === offerChoice.length - 1;
+                            return `
+                            <div class="dialog-line-bubble ${isQuestion ? 'question' : ''}">
+                              ${isQuestion ? '<strong>Question:</strong> ' : ''}${formatPreview(line, sampleDest)}
+                            </div>
+                          `;
+                          })
+                          .join('')}
+                      </div>
+                    </div>
+                  `
+                    )
+                    .join('')}
+                </div>
+
+                <h4 style="margin: 16px 0 8px; font-size: 15px;">Completion dialogues (Thanks)</h4>
+                <div class="dialog-grid">
+                  ${job.thanks
+                    .map(
+                      (thanksChoice, thanksIdx) => `
+                    <div class="dialog-card">
+                      <div class="dialog-card-header">
+                        <span class="dialog-card-tag">Thanks variant ${thanksIdx + 1} of ${job.thanks.length}</span>
+                        <button type="button" class="play-btn" data-play="job-thanks" data-job="${jobIdx}" data-index="${thanksIdx}">
+                          ▶ Play thanks
+                        </button>
+                      </div>
+                      <div class="dialog-lines-list">
+                        ${thanksChoice
+                          .map(
+                            (line) => `
+                          <div class="dialog-line-bubble">${formatPreview(line)}</div>
+                        `
+                          )
+                          .join('')}
+                      </div>
+                    </div>
+                  `
+                    )
+                    .join('')}
+                </div>
+              </div>
+            `;
+          }
+          html += '</section>';
+        }
+
+        dialogContent.innerHTML = html;
+      }
+
+      // Event delegation for Play buttons
+      dialogContent.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-play]');
+        if (!btn || !activePerson) return;
+        const playType = btn.dataset.play;
+        const index = parseInt(btn.dataset.index, 10);
+
+        if (playType === 'intro') {
+          playDialogSequence(activePerson.intro);
+        } else if (playType === 'hello') {
+          playDialogSequence(activePerson.hello[index]);
+        } else if (playType === 'accept') {
+          playDialogSequence(activePerson.accept[index]);
+        } else if (playType === 'decline') {
+          playDialogSequence(activePerson.decline[index]);
+        } else if (playType === 'job-offer') {
+          const jobIdx = parseInt(btn.dataset.job, 10);
+          const job = activePerson.jobs[jobIdx];
+          const offer = job.offer[index];
+          const sampleAirport = job.to[0] || 'Airport';
+          const resolvedLines = offer.map((l) => resolveLine(l, sampleAirport));
+
+          playDialogSequence(resolvedLines, true, (accepted) => {
+            if (accepted && activePerson.accept?.length) {
+              const randAccept =
+                activePerson.accept[
+                  Math.floor(Math.random() * activePerson.accept.length)
+                ];
+              playDialogSequence(randAccept);
+            } else if (!accepted && activePerson.decline?.length) {
+              const randDecline =
+                activePerson.decline[
+                  Math.floor(Math.random() * activePerson.decline.length)
+                ];
+              playDialogSequence(randDecline);
+            }
+          });
+        } else if (playType === 'job-thanks') {
+          const jobIdx = parseInt(btn.dataset.job, 10);
+          const job = activePerson.jobs[jobIdx];
+          const thanks = job.thanks[index];
+          const resolvedLines = thanks.map((l) => resolveLine(l));
+          playDialogSequence(resolvedLines);
+        }
+      });
+
+      // Navigation events
+      function navigateToPerson(name) {
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('person', name);
+        window.history.pushState(null, '', newUrl);
+        loadPerson(name);
+      }
+
+      personSelect.addEventListener('change', () => {
+        navigateToPerson(personSelect.value);
+      });
+
+      prevPersonBtn.addEventListener('click', () => {
+        const idx = allNames.indexOf(currentName);
+        if (idx > 0) navigateToPerson(allNames[idx - 1]);
+      });
+
+      nextPersonBtn.addEventListener('click', () => {
+        const idx = allNames.indexOf(currentName);
+        if (idx < allNames.length - 1) navigateToPerson(allNames[idx + 1]);
+      });
+
+      window.addEventListener('popstate', () => {
+        const params = new URLSearchParams(window.location.search);
+        const name = params.get('person') || params.get('name') || allNames[0];
+        loadPerson(name);
+      });
+
+      // Portrait animation loop
+      function drawPortraits(now) {
+        requestAnimationFrame(drawPortraits);
+        const beat = Math.floor(now / 1000 / MOUTH_SECONDS) % 2 === 1;
+        const mouthClosed = talkingCheckbox.checked
+          ? beat
+          : closedCheckbox.checked;
+
+        if (activeFace) {
+          drawFace(profileCanvas, activeFace, {
+            mouthClosed,
+            hidden: hiddenCheckbox.checked,
+          });
+        }
+      }
+      requestAnimationFrame(drawPortraits);
+
+      // Initial load
+      loadPerson(currentName);
+    </script>
+  </body>
+</html>
