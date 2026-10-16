@@ -1117,6 +1117,25 @@ const BARREL_ROLL_EASE_IN = 0.25;
 let barrelRollDir = 0;
 let barrelRollRate = 0;
 
+// Pitch maneuvers: climb and dive ease in and out as a gradual transition,
+// heading toward the target pitch at a steady rate and easing in near the
+// target angle, rather than snapping abruptly (the same way speed changes
+// ease in). Steep climb/dive (double-tap and hold) ramps the pitch rate up
+// and down to 60° climb or -70° dive, matching the barrel roll.
+const PITCH_EASE_IN = 0.25;
+const STEEP_PITCH_EASE_IN = 0.3;
+const CLIMB_ANGLE = (35 * Math.PI) / 180;
+const DIVE_ANGLE = -(45 * Math.PI) / 180;
+const STEEP_CLIMB_ANGLE = (60 * Math.PI) / 180;
+const STEEP_DIVE_ANGLE = -(70 * Math.PI) / 180;
+const PITCH_SPEED = 1.0; // rad/s (~57 deg/s)
+const STEEP_PITCH_SPEED = 1.6; // rad/s (~92 deg/s)
+const PITCH_EASE_OUT = 2.5;
+
+let manualPitchRate = 0;
+let manualPitchActive = false;
+let lastPitchMode = 0; // 1 normal climb, -1 normal dive, 2 steep climb, -2 steep dive, 0 none
+
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller
   if (!state.isFreeCamera && Math.abs(state.flightSpeedMultiplier) > 0.001) {
@@ -1182,9 +1201,6 @@ function updatePhysicsAndControls(delta, nowTime) {
   const startUp = state.invertYAxis
     ? keyPressStartTime.ArrowDown
     : keyPressStartTime.ArrowUp;
-  const startDown = state.invertYAxis
-    ? keyPressStartTime.ArrowUp
-    : keyPressStartTime.ArrowDown;
 
   const isLeft = keys.ArrowLeft && !state.isFreeCamera;
   const isRight = keys.ArrowRight && !state.isFreeCamera;
@@ -1248,22 +1264,10 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     if (keys.Shift) {
       // Throttle already handled above; no pitch changes while Shift is held
-    } else if (isUp && !dtUp) {
-      const heldTime = nowTime - startUp;
-      if (heldTime > STEER_HOLD_THRESHOLD) {
-        state.targetPitch = (35 * Math.PI) / 180; // Full climb
-      } else {
-        const ramp = heldTime / STEER_HOLD_THRESHOLD;
-        state.targetPitch = ((5 * Math.PI) / 180) * ramp;
-      }
+    } else if (isUp) {
+      state.targetPitch = dtUp ? STEEP_CLIMB_ANGLE : CLIMB_ANGLE;
     } else if (isDown) {
-      const heldTime = nowTime - startDown;
-      if (heldTime > STEER_HOLD_THRESHOLD) {
-        state.targetPitch = (-45 * Math.PI) / 180; // Softened full dive
-      } else {
-        const ramp = heldTime / STEER_HOLD_THRESHOLD;
-        state.targetPitch = ((-5 * Math.PI) / 180) * ramp;
-      }
+      state.targetPitch = dtDown ? STEEP_DIVE_ANGLE : DIVE_ANGLE;
     }
   } else if (!state.isFreeCamera) {
     state.targetPitch = 0;
@@ -1286,6 +1290,9 @@ function updatePhysicsAndControls(delta, nowTime) {
     state.flightSpeedMultiplier > 0
   ) {
     updateAutopilot(delta);
+    manualPitchRate = 0;
+    manualPitchActive = false;
+    lastPitchMode = 0;
   } else if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
     if (state.isDoingImmelmann) {
       if (state.immelmannProgress < Math.PI) {
@@ -1321,20 +1328,9 @@ function updatePhysicsAndControls(delta, nowTime) {
         planeGroup.rotation.x += state.manualLoopSpeed * delta;
         state.isLooping = true;
         state.isDoingFullLoop = true;
-      } else if (
-        isUp &&
-        dtUp &&
-        nowTime - startUp > STEER_HOLD_THRESHOLD &&
-        !keys.Shift
-      ) {
-        // Double-tap up and hold: steep ascent
-        const targetAscent = (Math.PI * 60) / 180; // 60 degrees
-        planeGroup.rotation.x = THREE.MathUtils.lerp(
-          planeGroup.rotation.x,
-          targetAscent,
-          0.05 * delta * 60
-        );
-        state.isSteepPitch = true;
+        manualPitchRate = 0;
+        manualPitchActive = false;
+        lastPitchMode = 0;
       } else if (
         (ttDown || tripleTap.ArrowDown) &&
         !keys.Shift &&
@@ -1345,20 +1341,75 @@ function updatePhysicsAndControls(delta, nowTime) {
         state.immelmannProgress = 0;
         tripleTap.ArrowDown = false;
         tripleTap.ArrowUp = false;
-      } else if (
-        isDown &&
-        dtDown &&
-        nowTime - startDown > STEER_HOLD_THRESHOLD &&
-        !keys.Shift
-      ) {
-        // Double-tap down and hold: steep dive
-        const targetDive = -(Math.PI * 70) / 180; // 70 degrees
-        planeGroup.rotation.x = THREE.MathUtils.lerp(
-          planeGroup.rotation.x,
-          targetDive,
-          0.05 * delta * 60
-        );
-        state.isSteepPitch = true;
+        manualPitchRate = 0;
+        manualPitchActive = false;
+        lastPitchMode = 0;
+      } else {
+        // Pitch maneuvers: climb, dive, steep climb, and steep dive
+        let pitchMode = 0;
+        if (!keys.Shift) {
+          if (isUp) {
+            pitchMode = dtUp ? 2 : 1;
+          } else if (isDown) {
+            pitchMode = dtDown ? -2 : -1;
+          }
+        }
+
+        if (pitchMode !== lastPitchMode && pitchMode !== 0) {
+          manualPitchRate = 0;
+          manualPitchActive = true;
+        }
+        if (pitchMode === 0 && lastPitchMode !== 0 && manualPitchActive) {
+          manualPitchRate = 0;
+        }
+        lastPitchMode = pitchMode;
+
+        if (manualPitchActive) {
+          let targetAngle;
+          let maxSpeed;
+          if (pitchMode === 2) {
+            targetAngle = STEEP_CLIMB_ANGLE;
+            maxSpeed = STEEP_PITCH_SPEED;
+          } else if (pitchMode === 1) {
+            targetAngle = CLIMB_ANGLE;
+            maxSpeed = PITCH_SPEED;
+          } else if (pitchMode === -1) {
+            targetAngle = DIVE_ANGLE;
+            maxSpeed = PITCH_SPEED;
+          } else if (pitchMode === -2) {
+            targetAngle = STEEP_DIVE_ANGLE;
+            maxSpeed = STEEP_PITCH_SPEED;
+          } else {
+            // Returning to level flight (or mouse pitch target)
+            targetAngle = state.targetPitch;
+            maxSpeed = state.isSteepPitch ? STEEP_PITCH_SPEED : PITCH_SPEED;
+          }
+
+          const diff = targetAngle - planeGroup.rotation.x;
+          if (pitchMode === 0 && Math.abs(diff) <= 0.02) {
+            // Leveled out: cleanly hand over to normal flight model
+            planeGroup.rotation.x = targetAngle;
+            manualPitchActive = false;
+            manualPitchRate = 0;
+            state.isSteepPitch = false;
+          } else {
+            const dir = Math.sign(diff);
+            const easeIn =
+              Math.abs(pitchMode) === 2 || state.isSteepPitch
+                ? STEEP_PITCH_EASE_IN
+                : PITCH_EASE_IN;
+            manualPitchRate = Math.min(
+              maxSpeed,
+              manualPitchRate + (maxSpeed * delta) / easeIn
+            );
+            const limitRate = Math.abs(diff) * PITCH_EASE_OUT;
+            const effRate = Math.min(manualPitchRate, limitRate);
+            planeGroup.rotation.x += dir * effRate * delta;
+            state.isSteepPitch =
+              Math.abs(pitchMode) === 2 ||
+              (pitchMode === 0 && state.isSteepPitch);
+          }
+        }
       }
     }
 
@@ -1383,6 +1434,9 @@ function updatePhysicsAndControls(delta, nowTime) {
   } else {
     barrelRollDir = 0;
     barrelRollRate = 0;
+    manualPitchRate = 0;
+    manualPitchActive = false;
+    lastPitchMode = 0;
   }
 
   // Taxi steering: allow airplane to yaw when stopped or at very low speed
@@ -1405,7 +1459,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       targetRoll: state.targetRoll,
       turningRoll: planeGroup.rotation.z,
       isBarrelRolling: state.isBarrelRolling,
-      isLooping: state.isLooping || state.isSteepPitch,
+      isLooping: state.isLooping || state.isSteepPitch || manualPitchActive,
       isClampedRoll: state.isClampedRoll,
       turnSpeed: TURN_SPEED,
       delta: delta,
