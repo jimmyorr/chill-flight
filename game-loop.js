@@ -1339,43 +1339,48 @@ function updatePhysicsAndControls(delta, nowTime) {
         state.immelmannEntryYaw = planeGroup.rotation.y;
       }
 
-      if (state.immelmannProgress < Math.PI) {
-        // Stage 1: Half-loop (pull up)
-        const climbRate = 2.4;
-        const step = climbRate * delta;
-        state.immelmannProgress += step;
-        const t = Math.min(1.0, state.immelmannProgress / Math.PI);
-        planeGroup.rotation.x = THREE.MathUtils.lerp(
-          state.immelmannEntryPitch,
-          Math.PI,
-          t
-        );
-        planeGroup.rotation.z = 0;
-        planeGroup.rotation.y = state.immelmannEntryYaw;
-        state._nextYaw = state.immelmannEntryYaw;
-        state.isLooping = true;
-      } else if (state.immelmannProgress < Math.PI * 2) {
-        // Stage 2: Half-roll (roll upright at apex altitude)
+      const IMMELMANN_DURATION = 2.4;
+      state.immelmannProgress += delta;
+      const u = Math.min(1.0, state.immelmannProgress / IMMELMANN_DURATION);
+
+      // Pitch pulls up smoothly to PI (inverted level) using a smoothstep curve
+      const pitchT = THREE.MathUtils.smoothstep(u, 0, 0.88);
+      planeGroup.rotation.x = THREE.MathUtils.lerp(
+        state.immelmannEntryPitch,
+        Math.PI,
+        pitchT
+      );
+
+      // Barrel roll starts as the aircraft crests past vertical (u >= 0.35) and rolls upright
+      const rollT = THREE.MathUtils.smoothstep(u, 0.35, 0.95);
+      planeGroup.rotation.z = rollT * Math.PI;
+
+      // Realistic aerodynamic speed float over the apex
+      const speedDip = Math.sin(pitchT * Math.PI) * 0.18;
+      state.flightSpeedMultiplier = Math.max(
+        0.7,
+        state.targetFlightSpeed * (1 - speedDip)
+      );
+
+      // Settle smoothly onto the crest altitude as forward pitch levels off
+      if (u >= 0.82) {
         if (state.immelmannApexY === null) {
           state.immelmannApexY = planeGroup.position.y;
         }
-        planeGroup.position.y = state.immelmannApexY;
-        state.verticalVelocity = 0;
-
-        const rollRate = 3.2;
-        const rollStep = rollRate * delta;
-        state.immelmannProgress += rollStep;
-        const rollT = Math.min(
-          1.0,
-          (state.immelmannProgress - Math.PI) / Math.PI
+        planeGroup.position.y = THREE.MathUtils.lerp(
+          planeGroup.position.y,
+          state.immelmannApexY,
+          0.15
         );
-        planeGroup.rotation.z = rollT * Math.PI;
-        planeGroup.rotation.x = Math.PI;
-        planeGroup.rotation.y = state.immelmannEntryYaw;
-        state._nextYaw = state.immelmannEntryYaw;
-        state.isLooping = true;
-        state.isBarrelRolling = true;
-      } else {
+      }
+
+      planeGroup.rotation.y = state.immelmannEntryYaw;
+      state._nextYaw = state.immelmannEntryYaw;
+      state.isLooping = true;
+      state.isBarrelRolling = u >= 0.35;
+      state.verticalVelocity = 0;
+
+      if (u >= 1.0) {
         state.isDoingImmelmann = false;
         state.isLooping = false;
         state.isBarrelRolling = false;
