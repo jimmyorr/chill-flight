@@ -3746,6 +3746,7 @@ export const ChillFlightLogic = {};
     isClampedRoll,
     turnSpeed,
     delta,
+    yawMultiplier = 1.0,
   }) {
     let newPitch = currentPitch;
     let newRoll = currentRoll;
@@ -3782,7 +3783,7 @@ export const ChillFlightLogic = {};
     safeTurningRoll = Math.max(-Math.PI, Math.min(Math.PI, safeTurningRoll));
 
     const turnFactor = 0.025;
-    newYaw += safeTurningRoll * turnFactor * delta * 60;
+    newYaw += safeTurningRoll * turnFactor * yawMultiplier * delta * 60;
 
     return {pitch: newPitch, roll: newRoll, yaw: newYaw};
   }

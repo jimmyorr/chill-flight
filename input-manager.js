@@ -340,7 +340,9 @@ export class InputManager {
 
           if (this._tapCount[action] === 2) {
             this.state.doubleTap[action] = true;
+            this.state.tripleTap[action] = false;
           } else if (this._tapCount[action] >= 3) {
+            this.state.doubleTap[action] = false;
             this.state.tripleTap[action] = true;
             this._tapCount[action] = 0;
             if (this.onTripleTap) this.onTripleTap(action);
@@ -571,17 +573,18 @@ export class InputManager {
 
       if (this._tapCount[action] === 2) {
         this.state.doubleTap[action] = true;
+        this.state.tripleTap[action] = false;
         this.state.keys[action] = true;
         this.state.keyPressStartTime[action] = now;
         this._activeGestures[touch.identifier] = action;
       } else if (this._tapCount[action] >= 3) {
-        const act = y < 0.33 ? 'ArrowUp' : action;
-        this.state.tripleTap[act] = true;
-        this.state.keys[act] = true;
-        this.state.keyPressStartTime[act] = now;
-        this._activeGestures[touch.identifier] = act;
+        this.state.doubleTap[action] = false;
+        this.state.tripleTap[action] = true;
+        this.state.keys[action] = true;
+        this.state.keyPressStartTime[action] = now;
+        this._activeGestures[touch.identifier] = action;
         this._tapCount[action] = 0;
-        if (this.onTripleTap) this.onTripleTap(act);
+        if (this.onTripleTap) this.onTripleTap(action);
       }
     } else if (now - this._lastCenterTap < this.DOUBLE_TAP_MS) {
       // The center has no maneuver, so a double tap there is free (zen exit)
@@ -987,8 +990,21 @@ export class InputManager {
         this.state.keys[map.key] = true;
         const now = performance.now();
         if (now - (this._lastArrowTap[map.key] || 0) < this.DOUBLE_TAP_MS) {
-          this.state.doubleTap[map.key] = true;
+          this._tapCount[map.key] = (this._tapCount[map.key] || 0) + 1;
+        } else {
+          this._tapCount[map.key] = 1;
         }
+
+        if (this._tapCount[map.key] === 2) {
+          this.state.doubleTap[map.key] = true;
+          this.state.tripleTap[map.key] = false;
+        } else if (this._tapCount[map.key] >= 3) {
+          this.state.doubleTap[map.key] = false;
+          this.state.tripleTap[map.key] = true;
+          this._tapCount[map.key] = 0;
+          if (this.onTripleTap) this.onTripleTap(map.key);
+        }
+
         this._lastArrowTap[map.key] = now;
         this.state.keyPressStartTime[map.key] = now;
 
@@ -998,6 +1014,7 @@ export class InputManager {
       } else if (!isPressed && wasPressed) {
         this.state.keys[map.key] = false;
         this.state.doubleTap[map.key] = false;
+        this.state.tripleTap[map.key] = false;
       }
     });
 

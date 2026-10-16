@@ -1110,12 +1110,16 @@ function updateDayNightCycle(delta) {
   updateAirportLights(slNightValue);
 }
 
-// Barrel roll (double-tap left or right and hold): the roll rate eases in
+// Barrel roll (triple-tap left or right and hold): the roll rate eases in
 // over BARREL_ROLL_EASE_IN seconds and the roll lasts as long as the hold
 const BARREL_ROLL_EASE_IN = 0.25;
 // The roll in progress: 1 rolling left, -1 right, 0 none; and its rate (rad/s)
 let barrelRollDir = 0;
 let barrelRollRate = 0;
+
+// Sharp turn (double-tap left or right and hold): steep bank with amplified turn rate
+const SHARP_TURN_BANK_ANGLE = (78 * Math.PI) / 180;
+const SHARP_TURN_YAW_MULT = 1.85;
 
 // Pitch maneuvers: climb and dive ease in and out as a gradual transition,
 // heading toward the target pitch at a steady rate and easing in near the
@@ -1135,6 +1139,7 @@ const PITCH_EASE_OUT = 2.5;
 let manualPitchRate = 0;
 let manualPitchActive = false;
 let lastPitchMode = 0; // 1 normal climb, -1 normal dive, 2 steep climb, -2 steep dive, 0 none
+let isRecoveringFromSharpTurn = false;
 
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller
@@ -1206,6 +1211,8 @@ function updatePhysicsAndControls(delta, nowTime) {
   const isRight = keys.ArrowRight && !state.isFreeCamera;
   const dtLeft = doubleTap.ArrowLeft && !state.isFreeCamera;
   const dtRight = doubleTap.ArrowRight && !state.isFreeCamera;
+  const ttLeft = tripleTap.ArrowLeft && !state.isFreeCamera;
+  const ttRight = tripleTap.ArrowRight && !state.isFreeCamera;
 
   // Auto-disable autopilot on manual steering input: arrow keys, or the touch
   // joystick, drag-steer or a gamepad stick pushed past the deadzone. Gyro
@@ -1269,9 +1276,34 @@ function updatePhysicsAndControls(delta, nowTime) {
     } else if (isDown) {
       state.targetPitch = dtDown ? STEEP_DIVE_ANGLE : DIVE_ANGLE;
     }
+
+    const isSharpTurnLeft = isLeft && dtLeft && !keys.Shift;
+    const isSharpTurnRight = isRight && dtRight && !keys.Shift;
+    if (isSharpTurnLeft) {
+      state.targetRoll = SHARP_TURN_BANK_ANGLE;
+      state.isSharpTurn = true;
+    } else if (isSharpTurnRight) {
+      state.targetRoll = -SHARP_TURN_BANK_ANGLE;
+      state.isSharpTurn = true;
+    } else {
+      state.isSharpTurn = false;
+    }
+
+    if (state.isSharpTurn) {
+      isRecoveringFromSharpTurn = true;
+      // Elevator back-pressure to maintain altitude during steep 78° bank
+      const backPressure = 0.12 * Math.sin(Math.abs(planeGroup.rotation.z));
+      state.targetPitch += backPressure;
+    } else if (isRecoveringFromSharpTurn) {
+      if (Math.abs(planeGroup.rotation.z) <= 0.03) {
+        isRecoveringFromSharpTurn = false;
+      }
+    }
   } else if (!state.isFreeCamera) {
     state.targetPitch = 0;
     state.targetRoll = 0;
+    state.isSharpTurn = false;
+    isRecoveringFromSharpTurn = false;
   }
 
   state.isBarrelRolling = false;
@@ -1295,27 +1327,70 @@ function updatePhysicsAndControls(delta, nowTime) {
     lastPitchMode = 0;
   } else if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
     if (state.isDoingImmelmann) {
+      if (state.immelmannApexY === null && state.immelmannProgress === 0) {
+        let p = planeGroup.rotation.x % (Math.PI * 2);
+        if (p > Math.PI) p -= Math.PI * 2;
+        if (p < -Math.PI) p += Math.PI * 2;
+        state.immelmannEntryPitch = THREE.MathUtils.clamp(
+          p,
+          -Math.PI / 4,
+          Math.PI / 4
+        );
+        state.immelmannEntryYaw = planeGroup.rotation.y;
+      }
+
       if (state.immelmannProgress < Math.PI) {
         // Stage 1: Half-loop (pull up)
-        const step = state.manualLoopSpeed * delta;
-        planeGroup.rotation.x += step;
+        const climbRate = 2.4;
+        const step = climbRate * delta;
         state.immelmannProgress += step;
+        const t = Math.min(1.0, state.immelmannProgress / Math.PI);
+        planeGroup.rotation.x = THREE.MathUtils.lerp(
+          state.immelmannEntryPitch,
+          Math.PI,
+          t
+        );
+        planeGroup.rotation.z = 0;
+        planeGroup.rotation.y = state.immelmannEntryYaw;
+        state._nextYaw = state.immelmannEntryYaw;
         state.isLooping = true;
       } else if (state.immelmannProgress < Math.PI * 2) {
-        // Stage 2: Half-roll (roll upright)
-        const rollStep = state.manualRollSpeed * delta;
-        planeGroup.rotation.z += rollStep;
+        // Stage 2: Half-roll (roll upright at apex altitude)
+        if (state.immelmannApexY === null) {
+          state.immelmannApexY = planeGroup.position.y;
+        }
+        planeGroup.position.y = state.immelmannApexY;
+        state.verticalVelocity = 0;
+
+        const rollRate = 3.2;
+        const rollStep = rollRate * delta;
         state.immelmannProgress += rollStep;
+        const rollT = Math.min(
+          1.0,
+          (state.immelmannProgress - Math.PI) / Math.PI
+        );
+        planeGroup.rotation.z = rollT * Math.PI;
+        planeGroup.rotation.x = Math.PI;
+        planeGroup.rotation.y = state.immelmannEntryYaw;
+        state._nextYaw = state.immelmannEntryYaw;
         state.isLooping = true;
         state.isBarrelRolling = true;
       } else {
         state.isDoingImmelmann = false;
-        // Snap the Euler rotation to a clean upright heading
+        state.isLooping = false;
+        state.isBarrelRolling = false;
         const forward = _immelmannForward
           .set(0, 0, -1)
           .applyEuler(planeGroup.rotation);
         const newYaw = Math.atan2(-forward.x, -forward.z);
         planeGroup.rotation.set(0, newYaw, 0, 'YXZ');
+        state._nextYaw = newYaw;
+        if (state.immelmannApexY !== null) {
+          planeGroup.position.y = state.immelmannApexY;
+        }
+        state.verticalVelocity = 0;
+        state.immelmannApexY = null;
+        state.immelmannProgress = 0;
       }
     } else {
       if (
@@ -1325,7 +1400,29 @@ function updatePhysicsAndControls(delta, nowTime) {
         !keys.Shift
       ) {
         // Triple-tap up and hold: loop
-        planeGroup.rotation.x += state.manualLoopSpeed * delta;
+        if (!state.wasLooping) {
+          state.loopProgress = 0;
+          state.loopEntryY = planeGroup.position.y;
+        }
+        const currentTheta = state.loopProgress % (Math.PI * 2);
+        // Modulate loop pitch rate: buoyant/floaty near apex (theta ~ PI), crisp at pull-up and pull-out
+        // omega(theta) = 2.2 + 0.35 * cos(theta)
+        const dynamicPitchRate = 2.2 + 0.35 * Math.cos(currentTheta);
+        const loopStep = dynamicPitchRate * delta;
+        planeGroup.rotation.x += loopStep;
+        state.loopProgress += loopStep;
+
+        // Altitude closure: pull-out smoothly aligns back to loopEntryY
+        if (currentTheta > 1.6 * Math.PI) {
+          const pulloutProgress =
+            (currentTheta - 1.6 * Math.PI) / (0.4 * Math.PI);
+          planeGroup.position.y = THREE.MathUtils.lerp(
+            planeGroup.position.y,
+            state.loopEntryY,
+            pulloutProgress * 0.45
+          );
+        }
+
         state.isLooping = true;
         state.isDoingFullLoop = true;
         manualPitchRate = 0;
@@ -1339,6 +1436,7 @@ function updatePhysicsAndControls(delta, nowTime) {
         // Triple-tap down: Immelmann turn (automatic maneuver, no hold required)
         state.isDoingImmelmann = true;
         state.immelmannProgress = 0;
+        state.immelmannApexY = null;
         tripleTap.ArrowDown = false;
         tripleTap.ArrowUp = false;
         manualPitchRate = 0;
@@ -1355,7 +1453,10 @@ function updatePhysicsAndControls(delta, nowTime) {
           }
         }
 
-        if (pitchMode !== lastPitchMode && pitchMode !== 0) {
+        if (state.wasLooping && !state.isLooping) {
+          manualPitchRate = 0;
+          manualPitchActive = true;
+        } else if (pitchMode !== lastPitchMode && pitchMode !== 0) {
           manualPitchRate = 0;
           manualPitchActive = true;
         }
@@ -1385,7 +1486,10 @@ function updatePhysicsAndControls(delta, nowTime) {
             maxSpeed = state.isSteepPitch ? STEEP_PITCH_SPEED : PITCH_SPEED;
           }
 
-          const diff = targetAngle - planeGroup.rotation.x;
+          let diff = targetAngle - planeGroup.rotation.x;
+          while (diff > Math.PI) diff -= 2 * Math.PI;
+          while (diff < -Math.PI) diff += 2 * Math.PI;
+
           if (pitchMode === 0 && Math.abs(diff) <= 0.02) {
             // Leveled out: cleanly hand over to normal flight model
             planeGroup.rotation.x = targetAngle;
@@ -1415,8 +1519,8 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     let rollHeld = 0;
     if (!state.isDoingImmelmann && !keys.Shift) {
-      if (isLeft && dtLeft) rollHeld = 1;
-      else if (isRight && dtRight) rollHeld = -1;
+      if (isLeft && ttLeft) rollHeld = 1;
+      else if (isRight && ttRight) rollHeld = -1;
     }
     if (rollHeld !== barrelRollDir) {
       barrelRollDir = rollHeld;
@@ -1451,6 +1555,9 @@ function updatePhysicsAndControls(delta, nowTime) {
   }
 
   if (!state.isFreeCamera) {
+    const effTurnSpeed =
+      state.isSharpTurn || isRecoveringFromSharpTurn ? 0.065 : TURN_SPEED;
+
     const flightRot = ChillFlightLogic.computeFlightRotation({
       currentPitch: planeGroup.rotation.x,
       currentRoll: planeGroup.rotation.z,
@@ -1461,8 +1568,9 @@ function updatePhysicsAndControls(delta, nowTime) {
       isBarrelRolling: state.isBarrelRolling,
       isLooping: state.isLooping || state.isSteepPitch || manualPitchActive,
       isClampedRoll: state.isClampedRoll,
-      turnSpeed: TURN_SPEED,
+      turnSpeed: effTurnSpeed,
       delta: delta,
+      yawMultiplier: state.isSharpTurn ? SHARP_TURN_YAW_MULT : 1.0,
     });
 
     planeGroup.rotation.x = flightRot.pitch;

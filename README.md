@@ -300,10 +300,11 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 #### Special maneuvers
 
 - **Double-tap arrow up and hold**: Perform a steep climb. It ramps up smoothly to a 60° climb and eases back to level flight on release.
-- **Triple-tap arrow up and hold**: Perform a continuous loop.
+- **Triple-tap arrow up and hold**: Perform a continuous loop with aerodynamically tuned pitch rate and altitude closure.
 - **Double-tap arrow down and hold**: Perform a steep dive. It ramps down smoothly to a 70° dive and eases back to level flight on release.
-- **Triple-tap arrow down**: Perform an Immelmann turn (loop followed by a half-roll).
-- **Double-tap arrow left / right and hold**: Perform a barrel roll. It eases in and rolls as long as you hold, about two seconds a roll.
+- **Triple-tap arrow down**: Perform an Immelmann turn (climbing half-loop followed by a half-roll into reverse heading).
+- **Double-tap arrow left / right and hold**: Perform a sharp turn (steep 78° bank with accelerated turn rate and elevator back-pressure).
+- **Triple-tap arrow left / right and hold**: Perform a barrel roll. It eases in and rolls as long as you hold, about two seconds a roll.
 
 #### Free camera mode (if active)
 
@@ -318,7 +319,7 @@ Full gamepad support mapped to standard flight controls.
 - **Left analog stick**: Control pitch (up/down) and roll (left/right).
 - **Right trigger (RT)**: Accelerate.
 - **Left trigger (LT)**: Decelerate.
-- **Left bumper (LB) / right bumper (RB)**: Control roll. Double-tap to trigger a barrel roll.
+- **Left bumper (LB) / right bumper (RB)**: Control roll. Double-tap to trigger a sharp turn, or triple-tap to trigger a barrel roll.
 - **D-pad**: Mapped to arrow keys for menu navigation and alternative flight control.
 - **Button A**: Select / enter.
 - **Start / menu button**: Toggle pause menu.

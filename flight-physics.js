@@ -227,7 +227,8 @@ export function updateFlightPhysics(delta, nowTime) {
     airborne ? 1 - smoothstep(currentKTS, FALL_FULL_KTS, FALL_START_KTS) : 0,
     1 - Math.exp(-delta / FALL_EASE_SECONDS)
   );
-  if (airborne) {
+  const isAerobatic = state.isLooping || state.isDoingImmelmann;
+  if (airborne && !isAerobatic) {
     state.verticalVelocity -= GRAVITY * fallAmount * delta;
     state.verticalVelocity = THREE.MathUtils.lerp(
       state.verticalVelocity,
