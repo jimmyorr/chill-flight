@@ -159,6 +159,7 @@ export class InputManager {
       passive: false,
     });
     window.addEventListener('touchend', this.handleTouchEnd.bind(this));
+    window.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
   }
 
   resetMouseSteering() {
@@ -522,21 +523,22 @@ export class InputManager {
 
     const target = e.target;
     const isUI =
-      target.closest('#cockpit-ui') ||
-      target.closest('#pause-overlay') ||
-      target.closest('#achievements-overlay') ||
-      target.closest('#people-overlay') ||
-      target.closest('#fullscreen-map-overlay') ||
-      target.closest('#loading-overlay') ||
-      target.closest('#debug-menu') ||
-      target.closest('#debug-telemetry') ||
-      target.closest('.title') ||
-      target.closest('#mobile-controls') ||
-      target.closest('#mobile-action-menu') ||
-      target.closest('#minimap-container') ||
-      target.closest('#zen-tooltip') ||
-      target.closest('#npc-dialog') ||
-      target.closest('.color-swatch');
+      target.closest &&
+      (target.closest('#cockpit-ui') ||
+        target.closest('#pause-overlay') ||
+        target.closest('#achievements-overlay') ||
+        target.closest('#people-overlay') ||
+        target.closest('#fullscreen-map-overlay') ||
+        target.closest('#loading-overlay') ||
+        target.closest('#debug-menu') ||
+        target.closest('#debug-telemetry') ||
+        target.closest('.title') ||
+        target.closest('#mobile-controls') ||
+        target.closest('#mobile-action-menu') ||
+        target.closest('#minimap-container') ||
+        target.closest('#zen-tooltip') ||
+        target.closest('#npc-dialog') ||
+        target.closest('.color-swatch'));
 
     if (isUI) return;
     if (e.cancelable) e.preventDefault();
@@ -615,24 +617,6 @@ export class InputManager {
           joystickBase.classList.add('joystick-visible');
         }
       }
-
-      if (Object.keys(this._activeGestures).length > 0) {
-        // Suppress steering and hide joystick if gesture is active
-        this.state.mouse.controlActive = false;
-        this.state.mouse.x = 0;
-        this.state.mouse.y = 0;
-        this.state.joystick.active = false;
-        this.state.joystick.touchId = null;
-        const joystickBase = document.getElementById('virtual-joystick-base');
-        if (joystickBase) {
-          joystickBase.classList.remove('joystick-visible');
-          joystickBase.classList.add('joystick-hidden');
-        }
-        const stick = document.getElementById('virtual-joystick-stick');
-        if (stick) {
-          stick.style.transform = 'translate(-50%, -50%)';
-        }
-      }
     } else {
       // Touch mode (absolute screen position)
       this.state.touch.steeringId = touch.identifier;
@@ -661,20 +645,21 @@ export class InputManager {
 
     const target = e.target;
     const isUI =
-      target.closest('#cockpit-ui') ||
-      target.closest('#pause-overlay') ||
-      target.closest('#achievements-overlay') ||
-      target.closest('#people-overlay') ||
-      target.closest('#fullscreen-map-overlay') ||
-      target.closest('#loading-overlay') ||
-      target.closest('#debug-menu') ||
-      target.closest('#debug-telemetry') ||
-      target.closest('.title') ||
-      target.closest('#mobile-controls') ||
-      target.closest('#mobile-action-menu') ||
-      target.closest('#minimap-container') ||
-      target.closest('#npc-dialog') ||
-      target.closest('.color-swatch');
+      target.closest &&
+      (target.closest('#cockpit-ui') ||
+        target.closest('#pause-overlay') ||
+        target.closest('#achievements-overlay') ||
+        target.closest('#people-overlay') ||
+        target.closest('#fullscreen-map-overlay') ||
+        target.closest('#loading-overlay') ||
+        target.closest('#debug-menu') ||
+        target.closest('#debug-telemetry') ||
+        target.closest('.title') ||
+        target.closest('#mobile-controls') ||
+        target.closest('#mobile-action-menu') ||
+        target.closest('#minimap-container') ||
+        target.closest('#npc-dialog') ||
+        target.closest('.color-swatch'));
 
     if (!isUI && !this.state.isPaused) {
       e.preventDefault();

@@ -1272,18 +1272,22 @@ function updatePhysicsAndControls(delta, nowTime) {
     if (keys.Shift) {
       // Throttle already handled above; no pitch changes while Shift is held
     } else if (isUp) {
-      state.targetPitch = dtUp ? STEEP_CLIMB_ANGLE : CLIMB_ANGLE;
+      state.targetPitch =
+        (dtUp ? STEEP_CLIMB_ANGLE : CLIMB_ANGLE) +
+        effMouseY * (maxPitch * 0.4) * yMultiplier;
     } else if (isDown) {
-      state.targetPitch = dtDown ? STEEP_DIVE_ANGLE : DIVE_ANGLE;
+      state.targetPitch =
+        (dtDown ? STEEP_DIVE_ANGLE : DIVE_ANGLE) +
+        effMouseY * (maxPitch * 0.4) * yMultiplier;
     }
 
     const isSharpTurnLeft = isLeft && dtLeft && !keys.Shift;
     const isSharpTurnRight = isRight && dtRight && !keys.Shift;
     if (isSharpTurnLeft) {
-      state.targetRoll = SHARP_TURN_BANK_ANGLE;
+      state.targetRoll = SHARP_TURN_BANK_ANGLE - effMouseX * (maxRoll * 0.35);
       state.isSharpTurn = true;
     } else if (isSharpTurnRight) {
-      state.targetRoll = -SHARP_TURN_BANK_ANGLE;
+      state.targetRoll = -SHARP_TURN_BANK_ANGLE - effMouseX * (maxRoll * 0.35);
       state.isSharpTurn = true;
     } else {
       state.isSharpTurn = false;
@@ -1473,17 +1477,19 @@ function updatePhysicsAndControls(delta, nowTime) {
         if (manualPitchActive) {
           let targetAngle;
           let maxSpeed;
+          const pitchModulation =
+            effMouseY * (maxPitch * 0.4) * (state.invertYAxis ? -1 : 1);
           if (pitchMode === 2) {
-            targetAngle = STEEP_CLIMB_ANGLE;
+            targetAngle = STEEP_CLIMB_ANGLE + pitchModulation;
             maxSpeed = STEEP_PITCH_SPEED;
           } else if (pitchMode === 1) {
-            targetAngle = CLIMB_ANGLE;
+            targetAngle = CLIMB_ANGLE + pitchModulation;
             maxSpeed = PITCH_SPEED;
           } else if (pitchMode === -1) {
-            targetAngle = DIVE_ANGLE;
+            targetAngle = DIVE_ANGLE + pitchModulation;
             maxSpeed = PITCH_SPEED;
           } else if (pitchMode === -2) {
-            targetAngle = STEEP_DIVE_ANGLE;
+            targetAngle = STEEP_DIVE_ANGLE + pitchModulation;
             maxSpeed = STEEP_PITCH_SPEED;
           } else {
             // Returning to level flight (or mouse pitch target)
@@ -1576,6 +1582,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       turnSpeed: effTurnSpeed,
       delta: delta,
       yawMultiplier: state.isSharpTurn ? SHARP_TURN_YAW_MULT : 1.0,
+      manualYaw: state.isBarrelRolling ? -effMouseX : 0,
     });
 
     planeGroup.rotation.x = flightRot.pitch;
