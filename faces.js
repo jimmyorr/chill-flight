@@ -10,7 +10,7 @@
 export const FACE_SIZE = 32;
 
 // While talking, the mouth closes and opens again every this many seconds
-export const MOUTH_SECONDS = 0.18;
+export const MOUTH_SECONDS = 0.14;
 
 export const FACES = {
   // Drawn after the real Ray: a cap on backwards, long wavy hair, a beard
@@ -27,17 +27,17 @@ export const FACES = {
       '.......kcccccccccccccccck.......',
       '.......kCCCCCrrggrrCCCCCk.......',
       '.......kCCCCCCrrrrCCCCCCk.......',
-      '.......krrrlllllsssssrrrk.......',
-      '.......krrlvvvvllvvvvsrrk.......',
-      '......krrrlllllllsssssrrrk......',
-      '......krrrleellllsseesrrrk......',
-      '.....krrrrsdellddssessrrrrk.....',
+      '.......krrrssllllllssrrrk.......',
+      '.......krrsvvvvllvvvvsrrk.......',
+      '......krrrssllllllllssrrrk......',
+      '......krrrsEessllsseEsrrrk......',
+      '.....krrrrsddllddllddsrrrrk.....',
       '.....krrrssssssddssssssrrrk.....',
       '.....krdrsssssddddsssssrdrk.....',
       '.....krdrssssssddssssssrdrk.....',
       '......krrbssbbbbbbbbssbrrk......',
       '.....kkrrbbbbbbbbbbbbbbrrk......',
-      '....krrrrbbbbwwwwwwbbBbrrk......',
+      '....krrrrbbbbwwwwwwbbbbrrk......',
       '...krrrrrrbbbmmmmmmbbbrrrrk.....',
       '...krrrrrrbbbbbmmbbbbbrrrrrk....',
       '...krrrrrrrbbbbbbbbbbrrrrrrrk...',
@@ -51,12 +51,12 @@ export const FACES = {
       '.ktttttttttttttnntttttttttttttk.',
     ],
     mouthClosed: {
-      20: '....krrrrbbbbmmmmmmbbBbrrk......',
+      20: '....krrrrbbbbmmmmmmbbbbrrk......',
       21: '...krrrrrrbbbbbbbbbbbbrrrrk.....',
       22: '...krrrrrrbbbbbbbbbbbbrrrrrk....',
     },
     palette: {
-      k: '#2a1c14', // outline
+      k: '#36201a', // outline
       c: '#969276', // cap
       C: '#76725a', // cap band
       h: '#b0ac92', // cap highlight
@@ -65,8 +65,9 @@ export const FACES = {
       v: '#342218', // brows
       s: '#e2b28e', // skin
       l: '#f0ccaa', // skin highlight
-      d: '#c08e6a', // nose and shadow
+      d: '#c88a68', // nose and shadow
       e: '#2a1a10', // eyes
+      E: '#5a3824', // eyes highlight / iris
       b: '#3a2a20', // beard
       B: '#6e6054', // grey in the beard
       w: '#f4efe6', // teeth
@@ -89,15 +90,15 @@ export const FACES = {
       '.........khDhhhhhhhHhhhk........',
       '........khhDhhhhhhhhHhhk........',
       '........khhDhhhhhhhhhHhk........',
-      '........khhssssssshhhhhk........',
-      '........khhsssssssssshhk........',
-      '.........ksvvvvssvvvvsk.........',
-      '........kdssssssssssssdk........',
-      '........kdssEesssseEssdk........',
-      '........kdsssssdssssssdk........',
-      '........kdsssssdssssssdk........',
-      '.........kssssddddssssk.........',
-      '.........kssssssssssssk.........',
+      '........khhssslllshhhhhk........',
+      '........khhssllllllsshhk........',
+      '.........ksvvvvllvvvvsk.........',
+      '........kdssllllllllssdk........',
+      '........kdswEesssseEwsdk........',
+      '........kdssssslssssssdk........',
+      '........kdssssslssssssdk........',
+      '.........kppssddddssppk.........',
+      '.........kppssssssssppk.........',
       '.........kssdssssssdssk.........',
       '.........kdsswwwwwwssdk.........',
       '..........kdssmmmmssdk..........',
@@ -114,21 +115,24 @@ export const FACES = {
       'NNNNttttttttttttttttttttttttNNNN',
     ],
     mouthClosed: {
-      19: '.........kdssmmmmmmssdk.........',
+      19: '.........kdssMMMMMMssdk.........',
       20: '..........kdssssssssdk..........',
     },
     palette: {
-      k: '#2a1c14', // outline
+      k: '#36201a', // outline
       h: '#8a6a48', // hair
       H: '#a88a64', // hair highlight
       D: '#5e4430', // hair shadow and the part
       v: '#6e5038', // brows
       s: '#ecbc9e', // skin
-      d: '#cc9a7c', // nose, ears and shadow
+      l: '#f8d8be', // skin highlight
+      d: '#d4957a', // nose, ears and shadow
+      p: '#e09884', // cheeks
       E: '#4e6a80', // eyes
       e: '#2a2a30', // pupils
       w: '#f8f4ec', // teeth
       m: '#6a2e24', // mouth
+      M: '#b86858', // lips
       n: '#232f4e', // collar
       N: '#2c3a5e', // sleeves
       t: '#f0eeea', // shirt
@@ -151,9 +155,9 @@ export const FACES = {
       '.....kRHhhsssssssssssshhHRk.....',
       '.....kRrrrvvvvssssvvvvrrrRk.....',
       '.....kRrhhssddssssddsshhrRk.....',
-      '.....kRHrrsdEesssseEdsrrHRk.....',
-      '.....kRrhhsssssdsssssshhrRk.....',
-      '.....kRrrrdssssdlssssdrrrRk.....',
+      '.....kRHrrswEesssseEwsrrHRk.....',
+      '.....kRrhhssssslsssssshhrRk.....',
+      '.....kRrrrdssssllssssdrrrRk.....',
       '.....kRHhhdsssdlldsssdhhHRk.....',
       '.....kRrrrrppsssssspprrrrRk.....',
       '....kRrrrhgdssssssssdghrrrRk....',
@@ -172,11 +176,12 @@ export const FACES = {
       'stttttRrHrrttttttttttrrHrRttttts',
     ],
     mouthClosed: {
-      19: '....kRrrrHrrdsMMMMsdrrHrrrRk....',
+      18: '....kRrrrhgdsdssssdsdghrrrRk....',
+      19: '....kRrrrHrrdMMMMMMdrrHrrrRk....',
       20: '....kRrrrrrhhdssssdhhrrrrrRk....',
     },
     palette: {
-      k: '#241610', // outline
+      k: '#36201a', // outline
       r: '#6e2816', // hair base
       R: '#44160d', // hair shadow
       h: '#a44626', // hair highlight
@@ -191,7 +196,7 @@ export const FACES = {
       w: '#faf6ee', // teeth
       m: '#6a221c', // mouth
       M: '#ba5652', // lips
-      g: '#d8b864', // earring stud
+      g: '#ffe070', // earring stud
       t: '#222026', // top
       T: '#3a3642', // top ruched texture
     },
@@ -213,9 +218,9 @@ export const FACES = {
       '.....kRHhhbvvvssssvvvbhhHRk.....',
       '.....kRrrrbbBbbbbbbBbbrrrRk.....',
       '.....kRrhhbsalsbbslasbhhrRk.....',
-      '.....kRHrdbsEesssseEsbdrHRk.....',
+      '.....kRHrdbwEesssseEwbdrHRk.....',
       '.....kRrhhsbBbssssbBbshhrRk.....',
-      '.....kRrrrdssssdlssssdrrrRk.....',
+      '.....kRrrrdssssllssssdrrrRk.....',
       '.....kRHhhdspsdlldspsdhhHRk.....',
       '.....kRrrrrpppssssppprrrrRk.....',
       '....kRrrrhhdssssssssdhhrrrRk....',
@@ -224,7 +229,7 @@ export const FACES = {
       '....kRrrrrrrrrdssdrrrrrrrrRk....',
       '....kRrrrrrHhhdssdhhHrrrrrRk....',
       '....kRrrrrrrrdssssdrrrrrrrRk....',
-      '....kRrrrrrhhbbbbbbhhrrrrrRk....',
+      '....kRrrrrrhhddddddhhrrrrrRk....',
       '....kRrrrrHrruuyyjjrrHrrrrRk....',
       '...kkuRrrrrhhzuyyjxhhrrrrRykk...',
       '.kkzzxRrrrruuyyyjjcccrrrrRyjjkk.',
@@ -238,7 +243,7 @@ export const FACES = {
       20: '....kRrrrrrhhdssssdhhrrrrrRk....',
     },
     palette: {
-      k: '#221810', // outline
+      k: '#36201a', // outline
       r: '#724e32', // hair base
       R: '#482e1c', // hair shadow
       h: '#9c6c44', // hair highlight
@@ -248,8 +253,8 @@ export const FACES = {
       d: '#cb9574', // nose, jaw and shadow
       p: '#e48a7e', // cheeks
       v: '#5a3a24', // brows
-      b: '#8a522e', // glasses frame
-      B: '#ba7a48', // glasses highlight
+      b: '#a85824', // glasses frame
+      B: '#e08e3c', // glasses highlight
       a: '#edf2f6', // glasses reflection
       e: '#241a14', // pupils and lashes
       E: '#526c62', // eyes
@@ -281,12 +286,12 @@ export const FACES = {
       '........khhsssllllssshhk........',
       '........khhsssssssssshhk........',
       '.........kvvvvssssvvvvk.........',
-      '........kdsdddssssdddsdk........',
-      '........ksdsEesssseEsdsk........',
-      '........kdsdsssdssssdsdk........',
-      '........ksdssssdlssssdsk........',
+      '........kdssddssssddssdk........',
+      '........kdswEesssseEwsdk........',
+      '........kdssssslssssssdk........',
+      '........kdsssssdlsssssdk........',
       '........kddsssdlldsssddk........',
-      '.........kkppssssssppkk.........',
+      '........kddppssssssppddk........',
       '..........kdsssllsssdk..........',
       '..........kdMwwwwwwMdk..........',
       '...........kddmmmmddk...........',
@@ -307,13 +312,13 @@ export const FACES = {
       20: '...........kddssssddk...........',
     },
     palette: {
-      k: '#1a1410', // outline
+      k: '#36201a', // outline
       r: '#221812', // hair base
       h: '#3a281e', // hair fade
       H: '#583e30', // hair highlight
       s: '#ebc29e', // skin
       l: '#f8dac0', // skin highlight
-      d: '#c49472', // skin shadow and jaw contour
+      d: '#cc8e6e', // skin shadow and jaw contour
       p: '#dc8472', // cheek flush
       v: '#281a14', // brows
       e: '#18100c', // pupils

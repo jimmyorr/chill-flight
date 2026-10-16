@@ -35,23 +35,25 @@ export const PEOPLE = [
     name: 'Ray',
     airport: 'Meadow Field',
     intro: [
-      "Hey buddy, it's Ray! Welcome to the roastery.",
-      'I roast, you fly. Land and roll to a stop on a runway to pick up or drop off.',
+      "Hey buddy, it's Ray! If my hands are shaking, it's just excitement. And four espressos.",
+      'I roast, you fly. Just land and roll to a stop on any runway to pick up or drop off!',
     ],
     hello: [
-      ['Hey, buddy! Good to see you.'],
-      ['Buddy! Pull up a chair.'],
-      ["Look who's here! Coffee?"],
+      ["Hey, buddy! I saved you a cup. It's strong enough to de-ice a wing."],
+      ['Buddy! Pull up a chair. Tell me about the clouds!'],
+      ["Look who's here! Want a pour-over? I timed it with a stopwatch!"],
     ],
     accept: [
-      ['Thanks, buddy!'],
-      ["You're the best."],
-      ["Great! I'll be here."],
+      ["You're a legend, buddy! May your tailwinds smell like hazelnut."],
+      ["Awesome, buddy! You're the best."],
+      ["Great! I'll be here, keeping the roaster humming."],
     ],
     decline: [
-      ['No worries, bud. Come by anytime.'],
-      ["All good. I'll be here, bud."],
-      ["No rush, the kettle's always on."],
+      [
+        "No rush, bud! I'll just be here, staring lovingly at the espresso machine.",
+      ],
+      ['No worries, bud. Come by anytime!'],
+      ["All good, buddy. The kettle's always on."],
     ],
     jobs: [
       {
@@ -61,22 +63,24 @@ export const PEOPLE = [
         cargo: 'Green beans',
         offer: [
           [
-            "Don't panic, but we're almost out of beans.",
-            'Could you grab a crate from {to}?',
+            "Code Brown, buddy—we're down to our last twelve coffee beans!",
+            'Could you zip over to {to} and rescue a crate of green beans?',
           ],
           [
-            'Time to roast a new batch.',
-            '{to} should have a crate ready. Want to fly over and get it?',
+            "I've got the roaster pre-heated to perfection and zero beans to put in it.",
+            '{to} has a crate waiting. Want to go snag it for me?',
           ],
           [
-            'Running low on green beans.',
-            'Could you fly out to {to} for a crate?',
+            'Bonnie says my aura is "jittery," which means I need to roast a new batch.',
+            'Could you fly out to {to} and grab a crate of green beans?',
           ],
         ],
         thanks: [
-          ['Fresh crop! These are going right into the roaster.'],
-          ["Nice looking beans! Let's get the roaster warmed up."],
-          ['Nice crate! A medium roast, I think.'],
+          [
+            'Oh, look at the sheen on these beans! Into the roaster you go, little buddies!',
+          ],
+          ["Fresh crop! Stand back, it's about to smell incredible in here."],
+          ["You saved the morning! I'm naming this roast after your landing."],
         ],
       },
       {
@@ -91,20 +95,25 @@ export const PEOPLE = [
         ],
         cargo: 'Roasted coffee',
         offer: [
-          ['Fresh batch, still warm.', 'Could you fly these bags to {to}?'],
           [
-            'The cafe at {to} is running low.',
-            'Mind flying a fresh batch over?',
+            'Fresh batch, still warm! Your cockpit is going to smell like heaven.',
+            'Could you fly these bags over to {to}?',
           ],
           [
-            'Got a fresh roast boxed and ready for {to}.',
-            'Could you drop these off for them?',
+            'The folks at {to} are yawning so loud I can hear them from here.',
+            'Mind flying a fresh batch of roast over to wake them up?',
+          ],
+          [
+            'Got an emergency dark roast boxed and ready for {to}.',
+            'Could you drop these off for them before they fall asleep?',
           ],
         ],
         thanks: [
-          ["They're already brewing the first pot! Thanks."],
-          ['They loved the roast! Thanks.'],
-          ["Another happy cafe. That's {done} for me, buddy!"],
+          [
+            "They're already brewing pot number one! Morale at {to} is up 400%.",
+          ],
+          ["Another happy, wide-awake airport! That's {done} for me, buddy!"],
+          ["They loved the roast! You're an honorary barista now, buddy."],
         ],
       },
     ],
@@ -117,19 +126,19 @@ export const PEOPLE = [
       'Just land and roll to a stop on the runway to pick up or drop off orders. Easy as pie.',
     ],
     hello: [
-      ['Hey! Got time for a quick dish?'],
-      ['You missed karaoke night. I did three songs.'],
-      ["Look who's back! Fries?"],
+      ['You missed karaoke night! I hit a high note that scared a cactus.'],
+      ["Look who's back! Careful, the fryer is bubbling with pure joy."],
+      ['Hey! Pull up! Want your fries regular-cheesy or irresponsible-cheesy?'],
     ],
     accept: [
-      ["You're a lifesaver."],
-      ["Awesome. I'll keep the fryer hot."],
-      ["Perfect. I'll be here, warming up the mic."],
+      ["Awesome! I'll be here practicing my power ballads into a spatula."],
+      ["You're a lifesaver! Keep the skies cheesy."],
+      ["Sweet! I'll keep the fryer humming."],
     ],
     decline: [
+      ["All good! More time for me to snack on the 'test fries.'"],
       ['No worries! Come by for karaoke sometime.'],
-      ["All good. The fries aren't going anywhere."],
-      ["Take your time! The fryer's always hot."],
+      ["Take your time! The cheddar isn't going anywhere."],
     ],
     jobs: [
       {
@@ -139,22 +148,26 @@ export const PEOPLE = [
         cargo: 'Cheese',
         offer: [
           [
-            "Crisis at the fryer: I'm out of cheese.",
-            'Could you grab a wheel from {to}?',
+            'Sound the alarm: we have a Category 5 Cheese Shortage.',
+            'Could you grab an emergency wheel from {to}?',
           ],
           [
-            'Cheese fries without cheese are just fries.',
-            '{to} has a wheel for me. Want to fly over and get it?',
+            'Cheese fries without cheese are just...fries.',
+            '{to} has a giant cheddar wheel for me. Want to fly over and get it?',
           ],
           [
-            'Emergency: we are officially out of cheese.',
-            'Think you could fetch a wheel from {to}?',
+            'I got carried away with a triple-cheese order and used my last block!',
+            'Think you could fetch a fresh wheel from {to}?',
           ],
         ],
         thanks: [
-          ["Now that's a lot of cheese. Thanks!"],
-          ["Back in business! Next basket's on me."],
-          ['Saved the day! The cheese sauce is back in action.'],
+          [
+            "Now THAT is a majestic wheel of cheese. Next basket's on the house!",
+          ],
+          ['Order up! You just saved the desert from dry potatoes.'],
+          [
+            'Saved the day! The cheese sauce is back in action and sounding glorious.',
+          ],
         ],
       },
       {
@@ -164,19 +177,26 @@ export const PEOPLE = [
         cargo: 'Cheese fries',
         offer: [
           [
-            'Big order for {to}.',
-            "Can you fly these cheese fries over while they're hot?",
+            'VIP order for {to}—extra crispy, maximum melt.',
+            'Can you fly these over while the cheese still has that epic pull?',
           ],
-          ['Fresh order to go for {to}.', 'Can you fly it over for me?'],
           [
-            'Hot delivery headed to {to}.',
-            'Mind flying these over before they cool off?',
+            'Hot delivery headed to {to}! Try not to eat them mid-loop.',
+            'Mind flying this basket over before they cool off?',
+          ],
+          [
+            'Fresh order to go for {to}!',
+            'Could you fly it over while the fries are at peak crunch?',
           ],
         ],
         thanks: [
+          [
+            "Delivered piping hot! I'm dedicating my next karaoke encore to you.",
+          ],
+          [
+            'Five stars from {to}! Not a single fry survived more than thirty seconds.',
+          ],
           ["They loved them! That's {done} for me now."],
-          ['Delivered hot? I could sing about it. I might, later.'],
-          ['Five stars from {to}! Best fries in the skies.'],
         ],
       },
     ],
@@ -189,17 +209,19 @@ export const PEOPLE = [
       "Ray's got the coffee, I've got the moonwater. Land and roll to a stop on a runway to pick up or drop off.",
     ],
     hello: [
-      ['Hi! Your aura is glowing bright.'],
-      ["Good to see you! Moonwater's fresh if you're thirsty."],
-      ['Look who landed! Come sit and stay a while.'],
+      ["Hi! Oh, your airplane's aura is sparkling today!"],
+      ['Good to see you! The moonwater is crisp and the vibes are immaculate.'],
+      [
+        "Look who floated in! Mercury isn't even in retrograde—it's a great day to fly!",
+      ],
     ],
     accept: [
-      ['Thank you! Have a peaceful flight.'],
-      ["You're a gem. May the tailwinds be gentle."],
+      ["You're a star! Literally, in a past life, I'm pretty sure."],
+      ['Thank you! May the tailwinds be gentle and harmonious.'],
       ['Wonderful! May the moon light your way.'],
     ],
     decline: [
-      ['No worries at all! Enjoy the skies.'],
+      ['No worries at all! Follow the breeze wherever it takes you.'],
       ["Take your time. The moon isn't going anywhere."],
       ['All good! Pop by whenever you pass through.'],
     ],
@@ -211,12 +233,12 @@ export const PEOPLE = [
         cargo: 'Glass jars',
         offer: [
           [
-            "The full moon is coming soon and I'm out of jars.",
+            "Tonight's moonbeams are going to be prime vintage, and I'm out of jars!",
             'Could you grab a crate of glass bottles from {to}?',
           ],
           [
-            'I need more mason jars to catch the moonlight.',
-            '{to} has a box ready. Want to fly over and get it?',
+            'Ray accidentally used my last mason jar for iced cold brew.',
+            '{to} has a fresh box of jars ready. Want to fly over and get it?',
           ],
           [
             'A new lunar cycle is starting!',
@@ -224,8 +246,12 @@ export const PEOPLE = [
           ],
         ],
         thanks: [
-          ['These are sparkling clean. Time to set them under the stars.'],
-          ['These are lovely! The moon will cherish them.'],
+          [
+            "Ooh, listen to them clink—that's an A-sharp! The moon is going to love these.",
+          ],
+          [
+            'Sparkling clean! Time to set them out and let the stars do their thing.',
+          ],
           ['Thank you so much! Ray says hello, by the way.'],
         ],
       },
@@ -243,12 +269,12 @@ export const PEOPLE = [
         cargo: 'Moonwater',
         offer: [
           [
-            'Freshly charged under the full moon.',
+            'Freshly charged under a waxing gibbous! Zero calories, 100% cosmic.',
             'Could you fly a case of moonwater out to {to}?',
           ],
           [
-            'Someone at {to} requested a bottle for their garden.',
-            'Could you take it over?',
+            'Someone at {to} has a fern that needs a little spiritual pep talk.',
+            'Could you take this bottle of moonwater over for their garden?',
           ],
           [
             'Charged with pure moonlight and good intentions.',
@@ -256,8 +282,10 @@ export const PEOPLE = [
           ],
         ],
         thanks: [
-          ['They said they could feel the good energy already. Thanks!'],
-          ["Delivered with good energy! That's {done} for me now."],
+          [
+            "They said the fern perked right up! That's {done} for me now, friend!",
+          ],
+          ["Delivered with pure starlight! You're a natural-born sky wizard."],
           ['Another happy soul. Thanks for the lift, friend!'],
         ],
       },
@@ -271,17 +299,19 @@ export const PEOPLE = [
       'Land and roll to a stop on a runway to pick up or drop off. Easy, right?',
     ],
     hello: [
-      ['Hey, you! The cookies are warm.'],
-      ['Oh hi! Was I humming again? Doug says I do that.'],
-      ['Perfect timing. My protein is folding and the cookies are done.'],
+      ['Hey, you! Grab a cookie—peer-reviewed for maximum chewiness!'],
+      ['Oh hi! Doug and I were just harmonizing by the centrifuge.'],
+      [
+        'Perfect timing! My proteins are behaving and the chocolate chips are melty.',
+      ],
     ],
     accept: [
+      ["Groovy! You're my favorite co-author on this adventure."],
       ["Thanks, friend. You're the best!"],
-      ["Groovy. I'll be here, probably singing."],
       ['Oh, you rock. Fly safe out there.'],
     ],
     decline: [
-      ['No stress at all. Come hang out anytime.'],
+      ["No stress! I've got a very dramatic amino acid to supervise anyway."],
       ["That's cool. The cookies will keep."],
       ["All good. I've got a protein to stare at anyway."],
     ],
@@ -293,22 +323,26 @@ export const PEOPLE = [
         cargo: 'Lab supplies',
         offer: [
           [
-            'I ran out of reagents mid-experiment. Oops.',
-            'Could you grab a box from {to}?',
-          ],
-          [
-            "I'm out of buffer, and proteins get cranky without it.",
+            "I'm out of buffer solution, and proteins get super cranky without it.",
             'Could you pick up a bottle from {to}?',
           ],
           [
-            '{to} has a box of lab supplies with my name on it.',
-            'Want to fly over and bring it back?',
+            'My experiment is going so well I used up all my pipettes! Classic.',
+            '{to} has a box of lab supplies with my name on it. Want to bring it back?',
+          ],
+          [
+            'I ran out of reagents mid-experiment. Oops.',
+            'Could you grab a box from {to}?',
           ],
         ],
         thanks: [
+          [
+            "Ooh, fresh reagents! Stand back, I'm about to do some high-fructose science!",
+          ],
+          [
+            "You're a lifesaver! The proteins are folding like tiny origami champions.",
+          ],
           ["Perfect, that's exactly what I needed. Science thanks you!"],
-          ["You're a lifesaver. Now the proteins can get back to work."],
-          ['Ooh, this is the good stuff. Time to science!'],
         ],
       },
       {
@@ -324,12 +358,12 @@ export const PEOPLE = [
         cargo: 'Cookies',
         offer: [
           [
-            'Fresh batch of cookies, still warm.',
-            'Could you fly them over to {to}?',
+            'Baking is just delicious chemistry! Careful, the chocolate is still molten.',
+            'Could you take a tin of cookies over to {to}?',
           ],
           [
-            'Baking is just chemistry you can eat.',
-            'Could you take a tin of cookies to {to}?',
+            'My data shows that {to} is experiencing a critical snickerdoodle deficit.',
+            'Mind delivering a warm tin for me?',
           ],
           [
             'Someone at {to} could use a cookie break.',
@@ -337,8 +371,10 @@ export const PEOPLE = [
           ],
         ],
         thanks: [
-          ["They loved the cookies! That's {done} for me."],
-          ["Cookies delivered, everyone's happy. Love that."],
+          [
+            "Hypothesis confirmed: everyone at {to} loves warm cookies! That's {done} for me.",
+          ],
+          ['Tin delivered, serotonin levels at maximum. Science wins again!'],
           ['Another tin delivered, another happy friend. Thanks!'],
         ],
       },
@@ -352,17 +388,21 @@ export const PEOPLE = [
       "If I'm not working, I'm out on the green. Land and roll to a stop on a runway to pick up or drop off.",
     ],
     hello: [
-      ['Hey! Ready to hit the links?'],
-      ["Back already? I've got my swing warmed up."],
-      ['Hey, good to see you! Got room for me and my clubs?'],
+      [
+        'Hey! Check out this practice swing—only divoted the lawn a little bit!',
+      ],
+      [
+        'Good to see you! My 9-iron is polished and my optimism is dangerously high.',
+      ],
+      ['Back already? Hop in, the fairways are calling our names!'],
     ],
     accept: [
+      ["You're a legend! Fore! ...Wait, do pilots yell 'Fore'?"],
       ['Awesome! Let me grab my clubs.'],
-      ["You're a legend! Wheels up."],
       ["Sweet! Let's get out there before my tee time."],
     ],
     decline: [
-      ["No worries! I'll work on my putting here for a bit."],
+      ["No worries! I'll stay here and negotiate with the putting green."],
       ['All good! Catch you next time around.'],
       ["Take your time! The course isn't going anywhere."],
     ],
@@ -382,6 +422,14 @@ export const PEOPLE = [
         cargo: 'Golf clubs',
         offer: [
           [
+            'Heard the wind at {to} adds thirty yards to your drive—or puts it in a lake.',
+            'Can I hitch a ride over to play 18 holes?',
+          ],
+          [
+            'I promised myself I would birdie every par-3 on the map!',
+            'Could you drop me and my clubs off at {to}?',
+          ],
+          [
             'Got a tee time booked at {to}.',
             'Could you give me and my clubs a one-way lift?',
           ],
@@ -390,16 +438,8 @@ export const PEOPLE = [
             'Mind flying me over for a round?',
           ],
           [
-            'Trying to play every fairway across the map!',
-            'Want to fly me out to {to}?',
-          ],
-          [
             "There's a fun scramble tournament happening at {to}.",
             'Think you could fly me over with my clubs?',
-          ],
-          [
-            'Heard the wind at {to} makes for an amazing challenge.',
-            'Can I hitch a ride over to play 18 holes?',
           ],
           [
             'I need a new course to conquer.',
@@ -407,8 +447,12 @@ export const PEOPLE = [
           ],
         ],
         thanks: [
-          ['Made it right before my tee time! Thanks for the ride!'],
-          ["Nice flight! That's {done} for me now."],
+          [
+            'Buttery smooth landing! Way straighter than my tee shots. Thanks a million!',
+          ],
+          [
+            "Made it with time to hit the driving range! You're a tour-level pilot!",
+          ],
           ['Time to hit the fairways. Thanks for the lift!'],
           ["Perfect, I'll have time to warm up. Thanks a million!"],
           ["Great flight! Now let's see if my slice behaves. Thanks!"],
