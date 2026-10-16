@@ -1944,7 +1944,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
           // Only keep segments whose center falls inside this chunk
           if (curr.sampleZ < -halfChunk || curr.sampleZ >= halfChunk) continue;
-          if (Math.abs(curr.localRoadX) > halfChunk + 50) continue;
+          if (curr.localRoadX < -halfChunk || curr.localRoadX >= halfChunk)
+            continue;
           if (!curr.onRoute || !next.onRoute) continue;
 
           const needsPilings = finalY[i] - curr.actualTerrainH > 10;
@@ -2078,18 +2079,18 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         let pierIndex = 0;
 
         // Streetlights
-        let slFrequency = 2; // Normal: every other segment
+        let slFrequency = 4; // Normal: every 4th segment (120 units)
         const absZ = Math.abs(worldOffsetZ);
 
         // Stop completely (abs(Z) > 50000, 10.0° North/South)
         if (absZ > 50000) {
           slFrequency = 0;
-          // Sparse further out (abs(Z) > 25000, 5.0° North/South)
+          // Sparse frontier (abs(Z) > 25000, 5.0° North/South)
         } else if (absZ > 25000) {
-          slFrequency = 8;
-          // Somewhat sparse further out (abs(Z) > 15000, 3.0° North/South)
+          slFrequency = 16;
+          // Outer highway (abs(Z) > 15000, 3.0° North/South)
         } else if (absZ > 15000) {
-          slFrequency = 4;
+          slFrequency = 8;
         }
 
         // Calculate exact number of streetlights based on global segment alignment
