@@ -35,6 +35,7 @@ import '../terrain-chunks.js';
 import '../far-terrain.js';
 import '../airports.js';
 import '../audio.js';
+import '../sfx.js';
 import '../native-adapter.js';
 import '../achievements.js';
 import '../input-manager.js';

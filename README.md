@@ -36,6 +36,13 @@ Music plays at half volume, about where background music usually sits in a game 
 
 To start without music (say, on a train), tap the speaker button under Start on the title screen. The choice is saved: later visits skip the title screen and start silently. Music can be turned back on in settings.
 
+## Sound effects
+
+Procedural sound effects generated in real time with the Web Audio API provide ambient immersion without adding download weight.
+
+- **Engine:** Synthesizes a warm piston propeller tone (sub-octave rumble, dual oscillators, and blade chop modulation) dynamically pitched to airspeed, throttle, and RPM. Twin-engine aircraft feature dual asynchronous props with acoustic beat frequencies; the glider replaces motor sounds with a soothing wind rush across the wings.
+- **Controls:** Sound effects can be toggled in the pause menu settings or temporarily via the `?sfx=0` / `?sfx=1` URL parameter. Sound effects automatically mute when paused.
+
 ## Biomes
 
 The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts.
@@ -504,6 +511,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`start`**: Set to `1` to skip the title screen and start flying as soon as the game loads.
 - **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus, debug panels and tips), for clean screenshots and recordings. The keyboard controls still work.
 - **`music`**: Set to `0` or `1` to turn music off or on for this visit, without changing the saved setting.
+- **`sfx`**: Set to `0` or `1` to turn sound effects off or on for this visit, without changing the saved setting.
 - **`traffic`**: Set to `0` or `1` to turn the other planes off or on for this visit, whether or not zen is on. The promo renders use `0`, so their shots are the same every time.
 - **`tips`**: Set to `0` to skip the first-time "Start the plane" tip for this visit.
 

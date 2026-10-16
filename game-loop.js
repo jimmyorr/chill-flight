@@ -136,6 +136,7 @@ import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
 import {FAR_RADIUS, updateFarTerrain} from './far-terrain.js';
 import {state} from './state.js';
+import {updateSfx} from './sfx.js';
 import {Achievements} from './achievements.js';
 
 let _currentOvercast;
@@ -279,6 +280,7 @@ function performFrame() {
   }
 
   inputManager.pollGamepad(delta);
+  updateSfx(delta);
 
   if (state.isPaused) {
     const loadingOverlay = getCachedElement('loading-overlay');

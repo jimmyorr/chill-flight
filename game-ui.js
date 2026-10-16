@@ -23,6 +23,7 @@ import {
 import {camera, clock, renderer} from './sky.js';
 import {scene} from './scene.js';
 import {musicEnabled, setMusicEnabled} from './audio.js';
+import {initAudioContext} from './sfx.js';
 import {state} from './state.js';
 import {BASE_FLIGHT_SPEED, updateDOM, updateUrlParams} from './constants.js';
 import {FALL_START_KTS} from './flight-physics.js';
@@ -451,6 +452,9 @@ if (overlay) {
 
     // Start music (or not, per the title screen's music toggle)
     setMusicEnabled(startWithMusic);
+
+    // Initialize sound effects audio graph on first user start
+    initAudioContext();
   };
 
   const progressContainer = document.getElementById(

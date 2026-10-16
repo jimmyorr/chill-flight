@@ -172,6 +172,7 @@ export const ChillFlightLogic = {};
   // ?traffic=0/1: other planes off or on for this visit (traffic.js)
   const TRAFFIC_PARAM = getSwitchParam('traffic');
   const MUSIC_PARAM = getSwitchParam('music');
+  const SFX_PARAM = getSwitchParam('sfx');
   const SHOW_TIPS = getSwitchParam('tips') !== false && SHOW_UI;
   const _debugParam = getParam('debug', null);
   const START_DEBUG =
@@ -3706,6 +3707,7 @@ export const ChillFlightLogic = {};
   exports.START_NOW = START_NOW;
   exports.SHOW_UI = SHOW_UI;
   exports.MUSIC_PARAM = MUSIC_PARAM;
+  exports.SFX_PARAM = SFX_PARAM;
   exports.SHOW_TIPS = SHOW_TIPS;
   exports.START_ISLAND_TYPE = START_ISLAND_TYPE;
   exports.FORCE_ISLAND_TYPE = START_ISLAND_TYPE;

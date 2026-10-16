@@ -1,4 +1,5 @@
 import {getCurrentTrackName, musicEnabled, setMusicEnabled} from './audio.js';
+import {sfxEnabled, setSfxEnabled} from './sfx.js';
 import {hooks} from './hooks.js';
 
 export function updatePauseMenuMusicInfo() {
@@ -41,5 +42,16 @@ if (musicToggle) {
 
   musicToggle.addEventListener('change', (e) => {
     setMusicEnabled(e.target.checked);
+  });
+}
+
+// Sound effects toggle in settings
+const sfxToggle = document.getElementById('sfx-toggle-input');
+if (sfxToggle) {
+  // Initial sync
+  sfxToggle.checked = sfxEnabled;
+
+  sfxToggle.addEventListener('change', (e) => {
+    setSfxEnabled(e.target.checked);
   });
 }
