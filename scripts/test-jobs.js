@@ -14,6 +14,7 @@
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PEOPLE} from '../people.js';
 import {checkFaces} from '../faces.js';
+import {checkFacesSvg} from './export-faces.js';
 import {
   accept,
   cancel,
@@ -59,6 +60,12 @@ check(
   'everyone has one face of their own',
   !faceProblems.length,
   faceProblems.join('; ')
+);
+const svgProblems = checkFacesSvg();
+check(
+  'face SVGs in assets/faces/ match faces.js',
+  !svgProblems.length,
+  svgProblems.join('; ')
 );
 
 // Two made-up people sharing an airport, for the rules

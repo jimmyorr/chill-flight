@@ -258,6 +258,20 @@ Every plane can land on water and on land: the biplane, glider and twin engine o
 
 People wait at the airports with jobs for you, always there but never in the way: land at an airport with nothing on and someone there says hi and offers one of their jobs, which you can take (**Sure thing**) or turn down (**Not right now**; they'll ask again next time).
 
+<p align="center">
+  <img src="./assets/faces/ray.svg" alt="Ray" width="60" height="60"> &nbsp;
+  <img src="./assets/faces/doug.svg" alt="Doug" width="60" height="60"> &nbsp;
+  <img src="./assets/faces/bonnie.svg" alt="Bonnie" width="60" height="60"> &nbsp;
+  <img src="./assets/faces/esther.svg" alt="Esther" width="60" height="60"> &nbsp;
+  <img src="./assets/faces/tim.svg" alt="Tim" width="60" height="60">
+</p>
+
+- **Ray** (Meadow Field) — Coffee artisan
+- **Doug** (Mesa Field) — Cheese fries & karaoke
+- **Bonnie** (Meadow Field) — Moonwater enthusiast
+- **Esther** (Mesa Field) — Protein scientist
+- **Tim** (Lagoon Field) — Optimist golfer
+
 - **Round trip or one way:** a round trip sends you to an airport to pick something up and back to whoever asked; a one-way job ends when you drop off where it sends you. They thank you when it's done.
 - **Landing counts:** land on the destination's runway and slow below 20 knots on your wheels (or the seaplane's pontoons); landing anywhere else changes nothing.
 - **Waypoint:** points to the next airport each time, so you can fly there yourself or hand it to the autopilot (which circles the field; the landing is yours). It stays until you land there, and clearing it on the map drops the job. Setting another waypoint is a detour: the job stays on, and once the detour is reached or cleared the waypoint points back to the job's airport.
@@ -267,7 +281,7 @@ People wait at the airports with jobs for you, always there but never in the way
 - **People screen:** the 👥 button on the pause menu (next to 🏆) shows everyone with their face, airport and the jobs you've done for them. People you haven't met yet are a silhouette and "???", with just their airport.
 - **No money yet:** jobs just count. Money can come later, once there's something to buy.
 
-Progress is saved between visits. The people, their lines and their jobs are in `people.js` (the format is described at its top) and their faces in `faces.js`, one each under their name; the rules are in `jobs-logic.js` (tested by `scripts/test-jobs.js`, which also checks `people.js` is filled in and points at real airports, and everyone has a face of their own); the dialog box is `dialog.js`, the HUD and landing check `jobs.js`, and the People screen `people-screen.js`.
+Progress is saved between visits. The people, their lines and their jobs are in `people.js` (the format is described at its top) and their faces in `faces.js`, one each under their name; their SVGs are exported to `assets/faces/` with `npm run export:faces`; the rules are in `jobs-logic.js` (tested by `scripts/test-jobs.js`, which also checks `people.js` is filled in and points at real airports, everyone has a face of their own, and the SVGs in `assets/faces/` match `faces.js`); the dialog box is `dialog.js`, the HUD and landing check `jobs.js`, and the People screen `people-screen.js`.
 
 ## Controls
 
