@@ -351,6 +351,123 @@ function hedgeNear(x, z, simplex, reach) {
   return {x: f.cx + cos * u + sin * v, z: f.cz - sin * u + cos * v};
 }
 
+// Villages along the highways: now and then a stretch of road is lined on
+// both sides with houses facing it, with a second row behind them toward the
+// middle, like a village grown along its main street. Each road is split into
+// stretches ROAD_VILLAGE_SLOT long, and about half of them hold a village.
+const ROAD_VILLAGE_SLOT = 6000;
+const ROAD_VILLAGE_CHANCE = 0.5;
+// Front doors this far from the road's center line (the paved road and its
+// shoulder reach 40), and the back row this much further out
+const ROAD_VILLAGE_FRONT = 55;
+const ROAD_VILLAGE_BACK = 28;
+
+// Road n's village in stretch `slot`, or null: its center (in Z), half its
+// length, and its own seed
+function roadVillage(n, slot) {
+  const seed = ChillFlightLogic.WORLD_SEED | 0;
+  if (fieldHash(n * 101 + seed, slot, 4243) >= ROAD_VILLAGE_CHANCE) return null;
+  const half = 180 + fieldHash(n + seed, slot, 977) * 220;
+  const room = ROAD_VILLAGE_SLOT / 2 - half - 200;
+  return {
+    n,
+    z:
+      (slot + 0.5) * ROAD_VILLAGE_SLOT +
+      (fieldHash(n, slot + seed, 31) - 0.5) * 2 * room,
+    half,
+    seed: Math.floor(fieldHash(seed, n * 7 + 3, slot) * 4294967296),
+  };
+}
+
+// A road village's houses, in world coordinates. They depend only on the
+// village, so neighboring chunks agree on them; each chunk keeps the ones on
+// its own ground (and only where that ground suits a house).
+function roadVillageHouses(v) {
+  const rand = ChillFlightLogic.mulberry32(v.seed);
+  const houses = [];
+  for (const side of [-1, 1]) {
+    for (let row = 0; row < 2; row++) {
+      // The back row only fills in toward the village's middle
+      const reach = row === 0 ? v.half : v.half * 0.6;
+      let s = -reach + rand() * 10;
+      while (s < reach) {
+        const twoStory = rand() < 0.35;
+        const sx = twoStory
+          ? rand() < 0.5
+            ? 0.68 + rand() * 0.1
+            : 0.92 + rand() * 0.15
+          : rand() < 0.25
+            ? 1.5 + rand() * 0.3
+            : 0.9 + rand() * 0.2;
+        const sy = 0.92 + rand() * 0.18;
+        const halfW = 6.5 * sx;
+        s += halfW;
+        // Gaps here and there, more toward the village's ends, so it thins
+        // out into the countryside rather than stopping at a line
+        const edge = Math.max(0, Math.abs(s) / reach - 0.6) * 1.6;
+        const keep = rand() > (row === 0 ? 0.08 : 0.3) + edge;
+        const jitter = rand();
+        // Mostly square to the road, sometimes a little off, and now and
+        // then turned side-on, so the rows don't look like a wall
+        const turn = (rand() - 0.5) * 0.2 + (rand() < 0.15 ? Math.PI / 2 : 0);
+        if (keep && s < reach) {
+          const z = v.z + s;
+          const rx = ChillFlightLogic.getRoadCenterX(z, v.n);
+          const dxdz =
+            (ChillFlightLogic.getRoadCenterX(z + 5, v.n) -
+              ChillFlightLogic.getRoadCenterX(z - 5, v.n)) /
+            10;
+          const len = Math.hypot(1, dxdz);
+          // The road's normal, pointing east
+          const nx = 1 / len;
+          const nz = -dxdz / len;
+          const off = ROAD_VILLAGE_FRONT + row * ROAD_VILLAGE_BACK + jitter * 9;
+          houses.push({
+            x: rx + nx * off * side,
+            z: z + nz * off * side,
+            // Front door (+Z) toward the road, ridge along it
+            rotY: Math.atan2(-nx * side, -nz * side) + turn,
+            tx: dxdz / len,
+            tz: 1 / len,
+            halfW,
+            sx,
+            sy,
+            twoStory,
+            smoke: jitter < 0.4,
+          });
+        }
+        // A wider gap now and then, like a lane between the houses
+        s += halfW + 3 + rand() * 5 + (rand() < 0.1 ? 25 + rand() * 15 : 0);
+      }
+    }
+  }
+  return houses;
+}
+
+// The houses of every road village that could reach the chunk centered on
+// (cx, cz)
+function roadVillageHousesNear(cx, cz, chunkSize) {
+  const reach = chunkSize / 2 + 100;
+  const out = [];
+  const slot0 = Math.floor((cz - reach - 500) / ROAD_VILLAGE_SLOT);
+  const slot1 = Math.floor((cz + reach + 500) / ROAD_VILLAGE_SLOT);
+  for (let n = 0; n <= ChillFlightLogic.ROAD_LAST; n++) {
+    for (let slot = slot0; slot <= slot1; slot++) {
+      const v = roadVillage(n, slot);
+      if (!v || Math.abs(v.z - cz) > reach + v.half) continue;
+      const rx = ChillFlightLogic.getRoadCenterX(v.z, n);
+      // Roads only run on the western land
+      if (rx >= 0 || Math.abs(rx - cx) > reach + 400) continue;
+      for (const h of roadVillageHouses(v)) {
+        if (Math.abs(h.x - cx) < reach && Math.abs(h.z - cz) < reach) {
+          out.push(h);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 class InstanceCollector {
   constructor() {
     this.data = {};
@@ -861,6 +978,9 @@ export function generateChunkData({
 
   const positions = new Float32Array(totalVerts * 3);
   const heightGrid = new Float32Array(totalVerts);
+  // Which kind of house suits each vertex's ground (for the road villages):
+  // 0 none, 1 plain, 2 stone, 3 stone with chimney smoke, 4 adobe
+  const houseStyleGrid = new Uint8Array(totalVerts);
   const terrainColors = new Float32Array(totalVerts * 3);
 
   let maxChunkHeight = (elevParams && elevParams.WATER_LEVEL) || 40;
@@ -1543,6 +1663,16 @@ export function generateChunkData({
     }
 
     const isStandardLand = height > sandMaxHeight && height <= treeLine;
+    houseStyleGrid[vertI] =
+      !isStandardLand || isFrozen || isAlienLand || worldZ < -25000
+        ? 0
+        : desertFactor > 0.5
+          ? 4
+          : snowFactor > 0.3
+            ? 3
+            : snowFactor > 0.25 || worldZ < -8000
+              ? 2
+              : 1;
 
     // The woods' ground darkens with how thick they are, so a forest reads
     // as canopy from the air, not just as trees standing on grass
@@ -2223,6 +2353,129 @@ export function generateChunkData({
     terrainColors[colorIdx++] = _tempColorObj.r;
     terrainColors[colorIdx++] = _tempColorObj.g;
     terrainColors[colorIdx++] = _tempColorObj.b;
+  }
+
+  // Road villages (see roadVillageHouses): each house on this chunk's
+  // ground, if that ground is dry, flat and fit for a house, with the woods
+  // and other props cleared from around it
+  if (_enableObjects) {
+    const villageHouses = roadVillageHousesNear(
+      worldOffsetX,
+      worldOffsetZ,
+      chunkSize
+    );
+    if (villageHouses.length > 0) {
+      const clearings = [];
+      for (const h of villageHouses) {
+        const lx = h.x - worldOffsetX;
+        const lz = h.z - worldOffsetZ;
+        clearings.push({x: lx, z: lz, r: h.halfW + 8});
+        if (
+          lx < -halfSize ||
+          lx >= halfSize ||
+          lz < -halfSize ||
+          lz >= halfSize
+        )
+          continue;
+        const style =
+          houseStyleGrid[
+            Math.round((lz + halfSize) / step) * gridX1 +
+              Math.round((lx + halfSize) / step)
+          ];
+        if (style === 0) continue;
+        // The footprint's corners (along the road by halfW, across by 6)
+        let lo = Infinity;
+        let hi = -Infinity;
+        for (const [a, b] of [
+          [-1, -1],
+          [-1, 1],
+          [1, -1],
+          [1, 1],
+          [0, 0],
+        ]) {
+          const ax = h.tx * h.halfW * a + h.tz * 6 * b;
+          const az = h.tz * h.halfW * a - h.tx * 6 * b;
+          const y = heightAtLocal(lx + ax, lz + az);
+          lo = Math.min(lo, y);
+          hi = Math.max(hi, y);
+        }
+        if (
+          hi - lo > 3.5 ||
+          lo < WATER_LEVEL + 3 ||
+          ChillFlightLogic.isOnAirport(h.x, h.z, 40)
+        ) {
+          continue;
+        }
+        const houseStyle =
+          style === 4 ? 'adobe' : style === 1 ? 'plain' : 'stone';
+        (h.twoStory ? twoStoryHousePositions : housePositions).push({
+          x: lx,
+          y: lo,
+          z: lz,
+          rotY: h.rotY,
+          sx: h.sx,
+          sy: h.sy,
+          style: houseStyle,
+          roadVillage: true,
+        });
+        // Smoke from some of the chimneys in the snow
+        if (style === 3 && h.smoke) {
+          chimneySmokePositions.push({
+            x: lx,
+            y: lo + 10,
+            z: lz,
+            roadVillage: true,
+          });
+        }
+      }
+      // Clear the trees and other props (other houses too) out of the
+      // houses' way
+      const clear = (arr) => {
+        let kept = 0;
+        for (const p of arr) {
+          let blocked = false;
+          if (!p.roadVillage) {
+            for (const c of clearings) {
+              const dx = p.x - c.x;
+              const dz = p.z - c.z;
+              if (dx * dx + dz * dz < c.r * c.r) {
+                blocked = true;
+                break;
+              }
+            }
+          }
+          if (!blocked) arr[kept++] = p;
+        }
+        arr.length = kept;
+      };
+      [
+        treePositions,
+        deciduousTreePositions,
+        tallDeciduousTreePositions,
+        palmTreePositions,
+        deadTreePositions,
+        snowTreePositions,
+        autumnTree1Positions,
+        autumnTree2Positions,
+        autumnTree3Positions,
+        cherryTreePositions,
+        yellowCortezTreePositions,
+        japaneseMapleTreePositions,
+        bushPositions,
+        housePositions,
+        twoStoryHousePositions,
+        chimneySmokePositions,
+        rockPositions,
+        snowRockPositions,
+        desertRockPositions,
+        cactusPositions,
+        snowmanPositions,
+        windmillPositions,
+        barnPositions,
+        monasteryPositions,
+        castleRuinsPositions,
+      ].forEach(clear);
+    }
   }
 
   // Montauk chunk lighthouse
