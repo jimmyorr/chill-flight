@@ -507,7 +507,7 @@ export const FACES = {
   },
   // Drawn after the real Lauren: long straight dark hair from a middle
   // part, blue eyes, a wide smile and a lavender yoke sweater. For tennis:
-  // a white polo and cap
+  // a white polo and visor
   Lauren: {
     background: '#dcd8f4',
     rows: [
@@ -579,15 +579,15 @@ export const FACES = {
       tennis: {
         background: '#dcd8f4',
         rows: [
-          '............kkkkkkk.............',
-          '..........kkqqqccqqkk...........',
-          '.........kqqqqqqqqqQQk..........',
-          '........kqqqqqqqqqQqQQk.........',
-          '.......kqqqqqqqqqqqqQQQk........',
-          '......kqqqqqqqqqqqqqQQQQk.......',
-          '......kqqqqqqqqqqqqqQQQQk.......',
+          '..............kkk...............',
+          '...........kkkrrrkkk............',
+          '..........krrhrrrhrrk...........',
+          '.........krrrhrrrhrrrk..........',
+          '........khrrrhrrrHrrrhk.........',
+          '.......krhrRrHrRrhrRrhrk........',
+          '......kRrHrRrhrrrrrRrhrRk.......',
           '......kcccccccccccccccccck......',
-          '......kRVVVVVVVVVVVVVVVVk.......',
+          '.....kkVVVVVVVVVVVVVVVVVVkk.....',
           '......kRrhUUUUUUUUUUUUrRk.......',
           '......kRrHsvvvssssvvvsrRk.......',
           '......kRrhssssssssssssrRk.......',

@@ -463,4 +463,190 @@ export const PEOPLE = [
       },
     ],
   },
+  {
+    name: 'Erin',
+    airport: 'Sagebrush Field',
+    intro: [
+      "Hi, I'm Erin! Welcome to Sagebrush Field. I play tennis and I knit, so my hands are always holding something pointy or something bouncy.",
+      'Land and roll to a stop on a runway to pick up or drop off. Love-love!',
+    ],
+    hello: [
+      ['Hey, you! I just aced a tumbleweed. It did not return the serve.'],
+      [
+        "Welcome back! I'm knitting a little cozy for my racquet. It has a pom-pom.",
+      ],
+      [
+        "Oh good, you're here! I just tried to serve a ball of yarn. It unraveled mid-air.",
+      ],
+    ],
+    accept: [
+      ["Yes! You're my favorite doubles partner."],
+      ["Thank you! I'll be here, warming up my serve and my needles."],
+      ['Game, set, match! Fly safe out there.'],
+    ],
+    decline: [
+      ['No problem! I have about forty rows to knit anyway.'],
+      ["Totally fine. I'll go practice my backhand on the hangar door."],
+      ["No worries! I'll be here, rallying with the wind."],
+    ],
+    jobs: [
+      {
+        id: 'tennis-balls',
+        kind: 'round trip',
+        outfit: 'tennis',
+        to: [
+          'Meadow Field',
+          'Lagoon Field',
+          'Pinewood Field',
+          'Dune Field',
+          'Frost Field',
+        ],
+        cargo: 'Tennis balls',
+        offer: [
+          [
+            'Disaster! A coyote ran off with my last can of tennis balls.',
+            '{to} has a fresh can for me. Could you go get it, before he starts a league?',
+          ],
+          [
+            "I've been hitting the same ball for a week and it's starting to get dizzy.",
+            'Could you fly to {to} and bring me a new can?',
+          ],
+          [
+            'My serve is so strong, half my tennis balls landed in the next county.',
+            'Mind grabbing a can from {to}?',
+          ],
+        ],
+        thanks: [
+          ['Fuzzy and fresh! Listen to that pop. Beautiful.'],
+          ["You're a legend! I'm dedicating my next ace to you."],
+          [
+            "Fresh, fuzzy and bouncy! They practically serve themselves. That's {done} for me!",
+          ],
+        ],
+      },
+      {
+        id: 'knit-hats',
+        kind: 'one way',
+        to: [
+          'Frost Field',
+          'Pinewood Field',
+          'Meadow Field',
+          'Mesa Field',
+          'Dune Field',
+        ],
+        cargo: 'Knitted hats',
+        offer: [
+          [
+            'I knit twelve hats in one sitting. They all have pom-poms. They are all enormous.',
+            'Could you take a bundle over to {to}?',
+          ],
+          [
+            "I'm told that people at {to} have cold ears and no sense of style.",
+            'Could you fly them a box of hats for me?',
+          ],
+          [
+            'These hats are extra warm and extra fluffy.',
+            'Could you drop a batch off at {to}?',
+          ],
+        ],
+        thanks: [
+          ['Pom-poms everywhere! {to} has never looked so fluffy.'],
+          [
+            'They are wearing them already! Even the ones that were meant for scarves.',
+          ],
+          ['Cozy heads all around. That makes {done} for me!'],
+        ],
+      },
+    ],
+  },
+  {
+    name: 'Lauren',
+    airport: 'Sagebrush Field',
+    intro: [
+      "Hi, I'm Lauren! I knit, I volley, and I talk to my yarn. It listens better than people.",
+      'Land and roll to a stop on a runway to pick up or drop off. Easy peasy.',
+    ],
+    hello: [
+      ['Oh hi! I knit a scarf so long it has its own zip code.'],
+      ["Look who flew in! I'm on row 4,000. Or maybe 400. I lost count."],
+      [
+        "Hi hi! Sit down, I'll finish this row. Eventually. Possibly next week.",
+      ],
+    ],
+    accept: [
+      ["You're the best! I'll hold the fort and the knitting needles."],
+      ['Thank you! Soft landings and warm socks to you.'],
+      ["Yay! I'll be here, making things that nobody asked for."],
+    ],
+    decline: [
+      ["That's okay! I have eleven projects to start anyway."],
+      ["No worries. I'll just tangle myself in yarn for a while."],
+      ['All good! The yarn and I will be right here.'],
+    ],
+    jobs: [
+      {
+        id: 'yarn',
+        kind: 'round trip',
+        to: [
+          'Lagoon Field',
+          'Mesa Field',
+          'Dune Field',
+          'Coral Field',
+          'Pinewood Field',
+        ],
+        cargo: 'Yarn',
+        offer: [
+          [
+            'I have run out of yarn, which has never happened, and I will never speak of it again.',
+            '{to} has a basket for me. Could you bring it back?',
+          ],
+          [
+            "I'm halfway through a sweater for a very large llama.",
+            'Could you fly to {to} and bring back more yarn?',
+          ],
+          [
+            'A sheep at {to} just got a fresh haircut and has wool to spare.',
+            'Could you go pick it up?',
+          ],
+        ],
+        thanks: [
+          ['Squishy! So much squish! Thank you, thank you, thank you.'],
+          ['The llama will be so warm. Possibly too warm. Worth it!'],
+          ["Now I can finish the sleeve. That's {done} for me!"],
+        ],
+      },
+      {
+        id: 'racquets',
+        kind: 'one way',
+        outfit: 'tennis',
+        to: [
+          'Meadow Field',
+          'Lagoon Field',
+          'Mesa Field',
+          'Frost Field',
+          'Coral Field',
+        ],
+        cargo: 'Tennis racquets',
+        offer: [
+          [
+            'Someone at {to} has been playing tennis with a frying pan.',
+            'Could you fly them some real racquets?',
+          ],
+          [
+            'Erin made me promise to spread the sport.',
+            'Could you take this bag of racquets to {to}?',
+          ],
+          [
+            "I'm wearing my tennis visor, so this is official business.",
+            'Could you drop these racquets off at {to}?',
+          ],
+        ],
+        thanks: [
+          ["They're already swinging at everything! Even the clouds."],
+          ["Tennis has spread to {to}! That's {done} for me. Thank you!"],
+          ['Perfect landing! The racquets thank you. So do I!'],
+        ],
+      },
+    ],
+  },
 ];
