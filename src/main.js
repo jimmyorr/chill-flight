@@ -23,6 +23,7 @@ import '../scene.js';
 import '../sky-uniforms.js';
 import '../sky.js';
 import '../outline-pass.js';
+import '../lens-flare.js';
 import '../biplane.js';
 import '../glider.js';
 import '../twin.js';

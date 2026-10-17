@@ -370,6 +370,8 @@ The game features automatic graphics preset detection that evaluates your device
 
 _Note: Full visual effects include real-time shadows, transparent water and clouds, and procedural sky clouds. The low preset disables these to minimize overdraw and maximize frame rate on lower-end devices._
 
+Looking toward the sun on mid and up (both art styles) adds a subtle lens flare: a faint warm halo and a few pale ghosts mirrored through the middle of the screen (`lens-flare.js`). Terrain, planes and clouds in front of the sun hide it, and it fades as the sun sets and toward the screen's edges. It is off on low and in VR. The `flare` URL parameter scales it (`flare=2` is twice as strong) or turns it off (`flare=0`).
+
 ### Art style
 
 Besides its low-poly look (the default), the game has an anime style inspired by Studio Ghibli backgrounds: painterly light and color, ink outlines, soft brushwork and big puffy clouds. Choose it on the pause menu's Settings tab (**Art style**: low poly or anime). The choice is saved on the device, and changing it restarts the game, since the style is set up as the game loads. The `style` URL parameter (`anime`, or `lowpoly` for the low-poly look) overrides the saved choice. The low-poly look doesn't change at all with the anime style off. In code and saved settings the low-poly look is called `classic`, and `style=classic` works too.
@@ -481,6 +483,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`cloud`** (or **`clouds`**, **`cloudCover`**, **`overcast`**): Cloud cover density or mode (options: `auto` for procedural weather noise, `none` or `false` to disable clouds, `clear` for 0.0, `scattered` for 0.3, `broken` for 0.6, `overcast` for 1.0, or any float between `0.0` and `1.0`).
 - **`cloudHeight`** (or **`cloudAlt`**): Altitude in meters/units for the procedural cloud deck (default `3000`).
 - **`cloudSpeed`**: Speed multiplier for cloud drift animation (default `1.0`, set to `0` to freeze cloud movement).
+- **`flare`**: Lens flare strength when looking toward the sun (default `1`; `0` turns it off, `2` doubles it).
 - **`weather`**: Force weather conditions (options: `auto`, `none` or `clear`, `snow`, `rain`).
 - **`palette`**: Force a specific sky palette preset seed (e.g., `42`) or custom zenith,horizon[,day] hex colors (e.g., `1a2b3c,ff7e67` or `1a2b3c,ff7e67,4ca1f0`).
 - **`zenith`**, **`horizon`**, & **`day`** (or **`dayBlue`**): Force custom sky zenith, horizon, and day blue hex colors (e.g., `zenith=1a2b3c&horizon=ff7e67&day=4ca1f0` or `day=4ca1f0`).
