@@ -617,6 +617,14 @@ export function updateSfx() {
 }
 
 /**
+ * The sound effects bus (master gain) other sound modules connect to, or
+ * null before the audio graph exists.
+ */
+export function getSfxBus() {
+  return masterGain;
+}
+
+/**
  * Returns the active AudioContext instance (or null if not initialized).
  */
 export function getAudioContext() {

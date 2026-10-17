@@ -6,6 +6,7 @@
 // last line for Sure thing (Enter or Y) or Not right now (N).
 import {state} from './state.js';
 import {FACES, MOUTH_SECONDS, drawFace} from './faces.js';
+import {playDialogBlip} from './sfx-events.js';
 
 // Characters typed per second
 const TYPE_RATE = 35;
@@ -17,6 +18,7 @@ const dialogText = document.getElementById('npc-dialog-text');
 const choices = document.getElementById('npc-dialog-choices');
 
 let face = null;
+let voice = '';
 let lines = [];
 let lineIndex = 0;
 let typing = null;
@@ -39,10 +41,16 @@ function showLine() {
   const line = lines[lineIndex];
   const started = performance.now();
   dialogText.textContent = '';
+  let blipped = 0;
   typing = setInterval(() => {
     const elapsed = (performance.now() - started) / 1000;
     const shown = Math.min(line.length, Math.floor(elapsed * TYPE_RATE));
     dialogText.textContent = line.slice(0, shown);
+    // A blip every other letter as it types (not for spaces)
+    if (shown - blipped >= 2 && line[shown - 1] !== ' ') {
+      blipped = shown;
+      playDialogBlip(voice);
+    }
     drawFace(portrait, face, {
       mouthClosed: Math.floor(elapsed / MOUTH_SECONDS) % 2 === 1,
     });
@@ -56,6 +64,7 @@ export function openDialog(person, newLines, answer = null) {
   if (!dialog || !newLines?.length) return;
   dialogName.textContent = person.name;
   face = FACES[person.name];
+  voice = person.name;
   lines = newLines;
   lineIndex = 0;
   onAnswer = answer;

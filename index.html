@@ -93,7 +93,9 @@
             <label class="pause-row" for="sfx-toggle-input">
               <span class="pause-row-text">
                 <span class="pause-row-title">Sound effects</span>
-                <span class="pause-row-sub">Engine, wind, and nature</span>
+                <span class="pause-row-sub"
+                  >Engine, wind, water, and nature</span
+                >
               </span>
               <input
                 type="checkbox"
@@ -1256,6 +1258,15 @@
                 style="width: 13px; height: 13px; cursor: pointer"
               />
             </label>
+          </div>
+
+          <!-- Sound effects: each event sound on/off, with a play button
+               (filled in by debug-ui.js from SFX_EVENTS in sfx-events.js) -->
+          <div class="debug-section">
+            <div style="font-size: 11px; margin-bottom: 3px">
+              Sound effects:
+            </div>
+            <div id="debug-sfx-events"></div>
           </div>
 
           <!-- Copy URLs -->

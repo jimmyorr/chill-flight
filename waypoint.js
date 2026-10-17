@@ -14,6 +14,7 @@ import {state} from './state.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation} from './terrain-geometry.js';
 import {UNITS_TO_M, WATER_LEVEL} from './constants.js';
+import {playChime} from './sfx-events.js';
 
 const STORAGE_KEY = 'chill_flight_waypoint';
 // Within this many units (horizontally) counts as there
@@ -100,7 +101,10 @@ function update() {
     target.z - planeGroup.position.z
   );
   if (dist < ARRIVE_DIST) {
-    if (waypoint && !waypoint.stay) clearWaypoint();
+    if (waypoint && !waypoint.stay) {
+      clearWaypoint();
+      playChime();
+    }
     el.hidden = true;
     return;
   }

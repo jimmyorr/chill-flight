@@ -699,6 +699,20 @@
         </div>
       </div>
 
+      <!-- Game event sounds (sfx-events.js) -->
+      <div class="card" id="card-events">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Game event sounds</h2>
+            <div class="card-subtitle">
+              Play the one-shots, preview the loops, and switch each sound on or
+              off in the game (saved, same as the debug menu)
+            </div>
+          </div>
+        </div>
+        <div id="event-rows"></div>
+      </div>
+
       <!-- Sound Lab Sandbox Card -->
       <div class="card" id="card-lab">
         <div class="card-header">
@@ -821,6 +835,15 @@
         createBreezeBuffer,
       } from '/sfx.js';
       import {state} from '/state.js';
+      import {
+        SFX_EVENTS,
+        SFX_EVENT_PLAYERS,
+        SFX_LOOP_KEYS,
+        isSfxEventEnabled,
+        setSfxEventEnabled,
+        setSfxLoopPreview,
+        updateSfxEvents,
+      } from '/sfx-events.js';
 
       // Elements
       const btnStopAll = document.getElementById('btn-stop-all');
@@ -1470,12 +1493,56 @@
           });
       });
 
+      // --- GAME EVENT SOUNDS ---
+      const eventRows = document.getElementById('event-rows');
+      for (const {key, label} of SFX_EVENTS) {
+        const row = document.createElement('div');
+        row.className = 'control-row';
+        row.style.cssText =
+          'display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+        const name = document.createElement('span');
+        name.className = 'control-label';
+        name.style.flex = '1';
+        name.textContent = label;
+        row.appendChild(name);
+        const isLoop = SFX_LOOP_KEYS.includes(key);
+        const btn = document.createElement('button');
+        btn.className = 'action-btn secondary';
+        btn.textContent = isLoop ? 'Preview' : 'Play';
+        let previewing = false;
+        btn.addEventListener('click', () => {
+          ensureAudio();
+          if (!isLoop) {
+            SFX_EVENT_PLAYERS[key]();
+            return;
+          }
+          previewing = !previewing;
+          setSfxLoopPreview(key, previewing);
+          btn.textContent = previewing ? 'Stop' : 'Preview';
+          btn.classList.toggle('toggle-active', previewing);
+        });
+        row.appendChild(btn);
+        const onLabel = document.createElement('label');
+        onLabel.style.cssText = 'display:flex;align-items:center;gap:6px';
+        const toggle = document.createElement('input');
+        toggle.type = 'checkbox';
+        toggle.id = `event-${key}-on`;
+        toggle.checked = isSfxEventEnabled(key);
+        toggle.addEventListener('change', (e) =>
+          setSfxEventEnabled(key, e.target.checked)
+        );
+        onLabel.append(toggle, 'In game');
+        row.appendChild(onLabel);
+        eventRows.appendChild(row);
+      }
+
       // Frame loop for engine telemetry and audio visualizer
       const visCtx = visCanvas.getContext('2d');
       const timeData = new Uint8Array(128);
 
       function loop() {
         requestAnimationFrame(loop);
+        if (audioCtx) updateSfxEvents(1 / 60, 0);
 
         // Update in-engine synthesis if auditioning
         if (isEngineAuditioning && audioCtx) {

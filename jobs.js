@@ -17,6 +17,7 @@ import {isOnWheels} from './flight-physics.js';
 import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 import {BASE_FLIGHT_SPEED} from './constants.js';
 import {openDialog} from './dialog.js';
+import {playChime} from './sfx-events.js';
 import {hooks} from './hooks.js';
 import {
   accept,
@@ -137,7 +138,10 @@ function airportAt(x, z) {
 
 function landedAt(a) {
   const result = land(progress, a.name);
-  if (result.toast) Achievements.toast({emoji: '📦', ...result.toast});
+  if (result.toast) {
+    Achievements.toast({emoji: '📦', ...result.toast});
+    playChime();
+  }
   if (result.offer) {
     const {offer, person} = result;
     openDialog(person, result.dialog, (yes) => {
