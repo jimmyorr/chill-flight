@@ -1,11 +1,18 @@
 // --- DIALOG ---
 // People talk in a box along the bottom of the screen (jobs.js opens it):
 // their pixel face (faces.js), their name and their words, one line at a
-// time, typed out while their mouth moves. A tap, click or Enter shows the
-// whole line, then the next one, then closes it. A question waits on its
-// last line for Sure thing (Enter or Y) or Not right now (N).
+// time, typed out while their mouth moves. They blink now and then. A tap,
+// click or Enter shows the whole line, then the next one, then closes it.
+// A question waits on its last line for Sure thing (Enter or Y) or Not
+// right now (N).
 import {state} from './state.js';
-import {FACES, MOUTH_SECONDS, drawFace} from './faces.js';
+import {
+  FACES,
+  MOUTH_SECONDS,
+  BLINK_SECONDS,
+  BLINK_SHUT_SECONDS,
+  drawFace,
+} from './faces.js';
 import {playDialogBlip} from './sfx-events.js';
 
 // Characters typed per second
@@ -23,11 +30,27 @@ let lines = [];
 let lineIndex = 0;
 let typing = null;
 let onAnswer = null;
+let mouthClosed = false;
+let eyesClosed = false;
+let blinking = null;
+
+function drawPortrait() {
+  drawFace(portrait, face, {mouthClosed, eyesClosed});
+}
+
+// Shuts their eyes for a moment every BLINK_SECONDS while the box is open
+function blink() {
+  const shut = (performance.now() / 1000) % BLINK_SECONDS < BLINK_SHUT_SECONDS;
+  if (shut === eyesClosed) return;
+  eyesClosed = shut;
+  drawPortrait();
+}
 
 function stopTyping() {
   if (typing) clearInterval(typing);
   typing = null;
-  drawFace(portrait, face);
+  mouthClosed = false;
+  drawPortrait();
   if (onAnswer && lineIndex === lines.length - 1) {
     choices.hidden = false;
     dialog.classList.add('asking');
@@ -51,9 +74,8 @@ function showLine() {
       blipped = shown;
       playDialogBlip(voice);
     }
-    drawFace(portrait, face, {
-      mouthClosed: Math.floor(elapsed / MOUTH_SECONDS) % 2 === 1,
-    });
+    mouthClosed = Math.floor(elapsed / MOUTH_SECONDS) % 2 === 1;
+    drawPortrait();
     if (shown >= line.length) stopTyping();
   }, 1000 / TYPE_RATE);
 }
@@ -69,11 +91,15 @@ export function openDialog(person, newLines, answer = null) {
   lineIndex = 0;
   onAnswer = answer;
   dialog.hidden = false;
+  if (!blinking) blinking = setInterval(blink, 50);
   showLine();
 }
 
 function closeDialog() {
   onAnswer = null;
+  clearInterval(blinking);
+  blinking = null;
+  eyesClosed = false;
   stopTyping();
   if (dialog) dialog.hidden = true;
   lines = [];

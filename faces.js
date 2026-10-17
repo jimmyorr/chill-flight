@@ -1,8 +1,9 @@
 // --- FACES ---
 // Everyone's pixel-art face (people.js), by their name. A face is
 // FACE_SIZE rows of FACE_SIZE characters, one per pixel ('.' is clear), with
-// a palette giving each character's color, and the rows that change while
-// they talk (mouthClosed: row number to row, shown every other beat).
+// a palette giving each character's color, the rows that change while
+// they talk (mouthClosed: row number to row, shown every other beat), the
+// rows that change when they blink (eyesClosed) and the color behind them.
 // No DOM at load, so scripts can check faces in Node; drawFace draws one on
 // a canvas (the dialog, the People screen, debug/debug-faces.html).
 
@@ -12,10 +13,15 @@ export const FACE_SIZE = 32;
 // While talking, the mouth closes and opens again every this many seconds
 export const MOUTH_SECONDS = 0.14;
 
+// They blink every this many seconds, with their eyes shut this long
+export const BLINK_SECONDS = 3.5;
+export const BLINK_SHUT_SECONDS = 0.14;
+
 export const FACES = {
   // Drawn after the real Ray: a cap on backwards, long wavy hair, a beard
   // and a big grin
   Ray: {
+    background: '#ead0a8',
     rows: [
       '................................',
       '...............kk...............',
@@ -55,6 +61,9 @@ export const FACES = {
       21: '...krrrrrrbbbbbbbbbbbbrrrrk.....',
       22: '...krrrrrrbbbbbbbbbbbbrrrrrk....',
     },
+    eyesClosed: {
+      13: '......krrrsssssllsssssrrrk......',
+    },
     palette: {
       k: '#36201a', // outline
       c: '#969276', // cap
@@ -69,7 +78,6 @@ export const FACES = {
       e: '#2a1a10', // eyes
       E: '#5a3824', // eyes highlight / iris
       b: '#3a2a20', // beard
-      B: '#6e6054', // grey in the beard
       w: '#f4efe6', // teeth
       m: '#6a2e24', // mouth
       n: '#eeeeea', // undershirt and buttons
@@ -77,9 +85,10 @@ export const FACES = {
       T: '#57616c', // henley placket
     },
   },
-  // Drawn after the real Doug: hair swept up from a side part, a long
-  // clean-shaven face with a square jaw, a smile and a navy and white raglan
+  // Drawn after the real Doug: hair swept up from a side part, a long face
+  // with a square jaw and light stubble, a smile and a navy and white raglan
   Doug: {
+    background: '#bfd5e8',
     rows: [
       '................................',
       '.............kkkkkk.............',
@@ -93,17 +102,17 @@ export const FACES = {
       '........khhssslllshhhhhk........',
       '........khhssllllllsshhk........',
       '.........ksvvvvllvvvvsk.........',
-      '........kdssllllllllssdk........',
-      '........kdswEesssseEwsdk........',
+      '........kdssEsllllsEssdk........',
+      '........kdswewsssswewsdk........',
       '........kdssssslssssssdk........',
       '........kdssssslssssssdk........',
       '.........kppssddddssppk.........',
       '.........kppssssssssppk.........',
       '.........kssdssssssdssk.........',
       '.........kdsswwwwwwssdk.........',
-      '..........kdssmmmmssdk..........',
-      '...........kddddddddk...........',
-      '............kddddddk............',
+      '..........kdSSmmmmSSdk..........',
+      '...........kSSSSSSSSk...........',
+      '............kSSSSSSk............',
       '..........kkksssssskkk..........',
       '........kkNnnssssssnnNkk........',
       '......kkNNtttnnnnnntttNNkk......',
@@ -116,7 +125,11 @@ export const FACES = {
     ],
     mouthClosed: {
       19: '.........kdssMMMMMMssdk.........',
-      20: '..........kdssssssssdk..........',
+      20: '..........kdSSssssSSdk..........',
+    },
+    eyesClosed: {
+      12: '........kdssllllllllssdk........',
+      13: '........kdseeesssseeesdk........',
     },
     palette: {
       k: '#36201a', // outline
@@ -128,7 +141,7 @@ export const FACES = {
       l: '#f8d8be', // skin highlight
       d: '#d4957a', // nose, ears and shadow
       p: '#e09884', // cheeks
-      E: '#4e6a80', // eyes
+      E: '#4e6a80', // iris
       e: '#2a2a30', // pupils
       w: '#f8f4ec', // teeth
       m: '#6a2e24', // mouth
@@ -136,49 +149,55 @@ export const FACES = {
       n: '#232f4e', // collar
       N: '#2c3a5e', // sleeves
       t: '#f0eeea', // shirt
+      S: '#c49a80', // stubble
     },
   },
   // Drawn after the real Bonnie: long wavy auburn hair, warm smiling eyes,
-  // rosy cheeks, a dimpled smile and tiny gold stud earrings
+  // rosy cheeks, cream drop earrings and a navy top with white dots
   Bonnie: {
+    background: '#d6e6c4',
     rows: [
       '................................',
       '.............kkkkkk.............',
       '...........kkrrrrrrkk...........',
       '.........kkrrrrrrrrrrkk.........',
-      '.......kkrhhhhhrrhhhhhrkk.......',
-      '......krRrrHHHrrrrHHHrrRrk......',
-      '......krRhhrrrrrrrrrrhhRrk......',
-      '.......kRrrssssssssssrrRk.......',
-      '......kkRhsssllllllssshRkk......',
-      '.....kRrrrssssllllssssrrrRk.....',
-      '.....kRHhhsssssssssssshhHRk.....',
-      '.....kRrrrvvvvssssvvvvrrrRk.....',
-      '.....kRrhhssddssssddsshhrRk.....',
-      '.....kRHrrswEesssseEwsrrHRk.....',
-      '.....kRrhhssssslsssssshhrRk.....',
-      '.....kRrrrdssssllssssdrrrRk.....',
-      '.....kRHhhdsssdlldsssdhhHRk.....',
-      '.....kRrrrrppsssssspprrrrRk.....',
-      '....kRrrrhgdssssssssdghrrrRk....',
-      '....kRrrrHrrdMwwwwMdrrHrrrRk....',
-      '....kRrrrrrhhdmmmmdhhrrrrrRk....',
-      '....kRrrrrrrrrdssdrrrrrrrrRk....',
-      '....kRrrrrrHhhdssdhhHrrrrrRk....',
-      '....kRrrrrrrrddddddrrrrrrrRk....',
-      '....kRrrrrrhhsssssshhrrrrrRk....',
-      '....kRrrrrHrrssssssrrHrrrrRk....',
-      '...kksRrrrrhhsssssshhrrrrRskk...',
-      '.kksssRrrrrssssssssssrrrrRssskk.',
-      'ksssssRrHhhtttttttttthhHrRsssssk',
-      'ssssssRrrrrTTTTTTTTTTrrrrRssssss',
-      'ssssttRrrhhtttttttttthhrrRttssss',
-      'stttttRrHrrttttttttttrrHrRttttts',
+      '.......kkrHrRhrRhrRrhrRkk.......',
+      '......krRrhrrhrrHrRrhrrRrk......',
+      '......krRrrRrrRrhrRrrhrRRk......',
+      '.......kRhrhhrrhhrrhhHhRk.......',
+      '......kkRhrhhrrhhllssshRkk......',
+      '.....kRRhrhrssllllsssshrRRk.....',
+      '.....kRrhrsssssssssssshrrRk.....',
+      '.....kRrhrvvvvssssvvvvrRrRk.....',
+      '.....kRrhrseeesssseeesrRhRk.....',
+      '.....kRrHhswEwsssswEwsRrhRk.....',
+      '.....kRRrhssssslssssssRrhRk.....',
+      '.....kRRRrdssssllssssdRrhRk.....',
+      '.....kRrRrdsssdlldsssdRrhRk.....',
+      '.....kRrRrhppsssssspprRRrRk.....',
+      '....kRhrRrgdssssssssdgrRRrRk....',
+      '....kRhrRHGRdMwwwwMdrGrrRrRk....',
+      '....kRhRrhrrhdmmmmdRrrHrRrRk....',
+      '....kRrRrrRrhrdssdrrRrhrRrRk....',
+      '....kRrrhrRrhrdssdhrRrhrRhRk....',
+      '....kRRrhrRrHddddddrRrhRrhRk....',
+      '....kRRrhrRRrssssssrRrrRrrRk....',
+      '....kRRrhrrRrssssssrrhrrHrRk....',
+      '...kksRrrHrrRssssssRrhRrhRskk...',
+      '.kksssRRrrhttssssssttrRrhRssskk.',
+      'ksssssRRRrhtttsssstttrRrhRsssssk',
+      'ssssssRrRrhntttsstnttrRrrRssssss',
+      'ssssttRrRrhttttntttttrrRrRttssss',
+      'sttttnRrRrrtnttttttnthrRRRntttts',
     ],
     mouthClosed: {
-      18: '....kRrrrhgdsdssssdsdghrrrRk....',
-      19: '....kRrrrHrrdMMMMMMdrrHrrrRk....',
-      20: '....kRrrrrrhhdssssdhhrrrrrRk....',
+      18: '....kRhrRrgdsdssssdsdgrRRrRk....',
+      19: '....kRhrRHGRdMMMMMMdrGrrRrRk....',
+      20: '....kRhRrhrrhdssssdRrrHrRrRk....',
+    },
+    eyesClosed: {
+      12: '.....kRrhrssssssssssssrRhRk.....',
+      13: '.....kRrHhseeesssseeesRrhRk.....',
     },
     palette: {
       k: '#36201a', // outline
@@ -196,100 +215,105 @@ export const FACES = {
       w: '#faf6ee', // teeth
       m: '#6a221c', // mouth
       M: '#ba5652', // lips
-      g: '#ffe070', // earring stud
-      t: '#222026', // top
-      T: '#3a3642', // top ruched texture
+      g: '#f0e6d2', // drop earring
+      t: '#1f2440', // navy top
+      G: '#c8b8a0', // earring shadow
+      n: '#e8e6f0', // white dots
     },
   },
-  // Drawn after the real Esther: light brown hair, warm amber cat-eye glasses,
-  // glowing cheeks, a radiant smile and a colorful swirl tie-dye shirt
+  // Drawn after the real Esther: light brown hair tucked back behind her
+  // ears, thin dark glasses, a warm smile and a tie-dye shirt with a collar
   Esther: {
+    background: '#e4d4ee',
     rows: [
       '................................',
-      '.............kkkkkk.............',
-      '...........kkrrrrrrkk...........',
-      '..........krrrrrrrrrrk..........',
-      '........kkrrhhhrrhhhrrkk........',
-      '.......kRrrhhhhrrhhhhrrRk.......',
-      '.......kRhhHHHrrrrHHHhhRk.......',
-      '.......kRrrssssssssssrrRk.......',
-      '......kkRhsssllllllssshRkk......',
-      '.....kRrrrssssllllssssrrrRk.....',
-      '.....kRHhhbvvvssssvvvbhhHRk.....',
-      '.....kRrrrbbBbbbbbbBbbrrrRk.....',
-      '.....kRrhhbsalsbbslasbhhrRk.....',
-      '.....kRHrdbwEesssseEwbdrHRk.....',
-      '.....kRrhhsbBbssssbBbshhrRk.....',
-      '.....kRrrrdssssllssssdrrrRk.....',
-      '.....kRHhhdspsdlldspsdhhHRk.....',
-      '.....kRrrrrpppssssppprrrrRk.....',
-      '....kRrrrhhdssssssssdhhrrrRk....',
-      '....kRrrrHrdMwwwwwwMdrHrrrRk....',
-      '....kRrrrrrhhdmmmmdhhrrrrrRk....',
-      '....kRrrrrrrrrdssdrrrrrrrrRk....',
-      '....kRrrrrrHhhdssdhhHrrrrrRk....',
-      '....kRrrrrrrrdssssdrrrrrrrRk....',
-      '....kRrrrrrhhddddddhhrrrrrRk....',
-      '....kRrrrrHrruuyyjjrrHrrrrRk....',
-      '...kkuRrrrrhhzuyyjxhhrrrrRykk...',
-      '.kkzzxRrrrruuyyyjjcccrrrrRyjjkk.',
-      'kuzzxxRrHhhuzxjjxcCczhhHrRjjjxxk',
-      'uuzzxxRrrrruzzxxccczzrrrrRjjxxzz',
-      'uuzzxxRrrhhuuzzccczuuhhrrRjxxxzz',
-      'uuuzzxRrHrryuucccuuuurrHrRjxxzzz',
+      '...........kkkkkkkkk............',
+      '..........krRrhrrhrrk...........',
+      '.........khrrrhrrHRrhk..........',
+      '........krhrrhrrHrrrhrk.........',
+      '.......krrHrrhrrhrrrHrrk........',
+      '.......krrrRrrrrhrrrrhrk........',
+      '......krrhRsRRRRhrrrrhhrk.......',
+      '......krrRssslllRRRrrrHrk.......',
+      '......krRssssssssssRrRhrRk......',
+      '......krRssvvvssssvvvsRrrk......',
+      '......krRsbbbbbssbbbbbrrrk......',
+      '......krbbbaEsbbbbsEabbbhk......',
+      '......kRssbwewbssbwewbksRk......',
+      '......kRsssbbbssssbbbsksRk......',
+      '......krdsssssslsssssskdhk......',
+      '......krRssppssddssppskrHk......',
+      '......krrkdsssssssssdkkrrk......',
+      '.......kkkdssMwwwwMsdk.kk.......',
+      '..........kdssMmmMsdk...........',
+      '...........kdsssssdk............',
+      '............kddddddk............',
+      '............kdssssdk............',
+      '...........kkdssssdkk...........',
+      '........kkkucsssssscjkkk........',
+      '.....kkkyuuuccssssccjxzukkk.....',
+      '...kkuuuuuuuuccccccjjxzzuyykk...',
+      '.kkyuzzxzzuuuuuuuyyjxzzzzuyjxkk.',
+      'kyyyuzxjxxzuuzzzzuyjxzzzzzujxzzk',
+      'uuuuzxxjjxxxxxxzzuyyjxxzzuujxxzz',
+      'uzzxxxxxjjjjjjxzuuyyyjxzuyyjjxxz',
+      'uxxjjxxxjyuuuyxzuyyyyyxzyyjjjjxz',
     ],
     mouthClosed: {
-      19: '....kRrrrHrrdMMMMMMdrrHrrrRk....',
-      20: '....kRrrrrrhhdssssdhhrrrrrRk....',
+      18: '.......kkkdssdMMMMdsdk.kk.......',
+      19: '..........kdsssssssdk...........',
+    },
+    eyesClosed: {
+      12: '......krbbbsssbbbbsssbbbhk......',
+      13: '......kRssbeeebssbeeebksRk......',
     },
     palette: {
-      k: '#36201a', // outline
-      r: '#724e32', // hair base
-      R: '#482e1c', // hair shadow
-      h: '#9c6c44', // hair highlight
-      H: '#be8c58', // hair bright highlight
-      s: '#f0c8ab', // skin
-      l: '#fae2ce', // skin highlight
-      d: '#cb9574', // nose, jaw and shadow
-      p: '#e48a7e', // cheeks
-      v: '#5a3a24', // brows
-      b: '#a85824', // glasses frame
-      B: '#e08e3c', // glasses highlight
-      a: '#edf2f6', // glasses reflection
-      e: '#241a14', // pupils and lashes
-      E: '#526c62', // eyes
-      w: '#faf6ee', // teeth
-      m: '#6a221c', // mouth
-      M: '#ba5c54', // lips
+      k: '#3a2418', // outline
+      r: '#9a7350', // hair base
+      R: '#6e4e34', // hair shadow
+      h: '#b48a5e', // hair highlight
+      H: '#d2ac78', // hair bright highlight
+      s: '#f2caad', // skin
+      l: '#fbe4d2', // skin highlight
+      d: '#d39c7c', // nose, jaw and shadow
+      p: '#eb9a8c', // cheeks
+      v: '#7a5838', // brows
+      b: '#4e403a', // glasses
+      c: '#5e3c80', // collar
+      a: '#f4f8fa', // glasses reflection
+      e: '#2a1e18', // pupils and lashes
+      E: '#6a8070', // eyes
+      w: '#fcf8f2', // teeth and whites of the eyes
+      m: '#7a2c26', // mouth
+      M: '#c66a62', // lips
       y: '#f4d048', // tie-dye yellow
       j: '#e45c78', // tie-dye pink
-      x: '#7a4c92', // tie-dye purple
+      x: '#8a5aa6', // tie-dye purple
       z: '#38a6be', // tie-dye turquoise
       u: '#5eb04e', // tie-dye green
-      c: '#2e4458', // bag strap
-      C: '#c0c8d0', // strap buckle
     },
   },
   // Drawn after the real Tim: short dark textured hair with faded sides,
-  // warm smiling eyes, radiant open grin with deep cheek dimples, and a bright pink hoodie
+  // warm smiling eyes, an open grin and a bright pink hoodie
   Tim: {
+    background: '#c4e4dc',
     rows: [
       '................................',
       '.............kkkkkk.............',
-      '...........kkrrrrrrkk...........',
-      '..........krHHHrrHHHrk..........',
-      '.........krHHHHrrHHHHrk.........',
-      '........krrHHHrrrrHHHrrk........',
+      '...........kkrHHrrHkk...........',
+      '..........kHrHHrHHrHHk..........',
+      '.........krHHrHHHrHHrHk.........',
+      '........krrrHrrHHrrHrrrk........',
       '........krrrrrrrrrrrrrrk........',
       '........khhsssssssssshhk........',
       '........khhssllllllsshhk........',
       '........khhsssllllssshhk........',
       '........khhsssssssssshhk........',
       '.........kvvvvssssvvvvk.........',
-      '........kdssddssssddssdk........',
-      '........kdswEesssseEwsdk........',
+      '........kdseeesssseeesdk........',
+      '........kdswEwsssswEwsdk........',
       '........kdssssslssssssdk........',
-      '........kdsssssdlsssssdk........',
+      '........kdssssslssssssdk........',
       '........kddsssdlldsssddk........',
       '........kddppssssssppddk........',
       '..........kdsssllsssdk..........',
@@ -311,6 +335,10 @@ export const FACES = {
       19: '..........kddMMMMMMddk..........',
       20: '...........kddssssddk...........',
     },
+    eyesClosed: {
+      12: '........kdssssssssssssdk........',
+      13: '........kdseeesssseeesdk........',
+    },
     palette: {
       k: '#36201a', // outline
       r: '#221812', // hair base
@@ -323,7 +351,7 @@ export const FACES = {
       v: '#281a14', // brows
       e: '#18100c', // pupils
       E: '#422a1c', // eyes
-      w: '#f8f4ec', // teeth and drawstrings
+      w: '#f8f4ec', // teeth, whites of the eyes and drawstrings
       m: '#6a221c', // mouth
       M: '#b6544e', // lips
       t: '#e25c88', // hoodie
@@ -335,14 +363,18 @@ export const FACES = {
 };
 
 // Problems with FACES, for scripts/test-jobs.js: everyone in names has a
-// face, and each is FACE_SIZE square and talks
+// face, and each is FACE_SIZE square, talks and blinks
 export function checkFaces(names) {
   const problems = [];
   for (const name of names) {
     if (!FACES[name]) problems.push(`${name}: no face`);
   }
   for (const [name, face] of Object.entries(FACES)) {
-    const rows = [...face.rows, ...Object.values(face.mouthClosed || {})];
+    const rows = [
+      ...face.rows,
+      ...Object.values(face.mouthClosed || {}),
+      ...Object.values(face.eyesClosed || {}),
+    ];
     if (
       face.rows.length !== FACE_SIZE ||
       rows.some((r) => r.length !== FACE_SIZE)
@@ -351,6 +383,9 @@ export function checkFaces(names) {
     }
     if (!Object.keys(face.mouthClosed || {}).length) {
       problems.push(`${name}'s face: no mouthClosed rows`);
+    }
+    if (!Object.keys(face.eyesClosed || {}).length) {
+      problems.push(`${name}'s face: no eyesClosed rows`);
     }
     for (const r of rows) {
       for (const c of r) {
@@ -363,20 +398,27 @@ export function checkFaces(names) {
   return [...new Set(problems)];
 }
 
-// Draws face on canvas (FACE_SIZE square). hidden draws it as a plain
-// silhouette, for someone you haven't met.
+// Draws face on canvas (FACE_SIZE square) over its background. hidden
+// draws it as a plain silhouette, for someone you haven't met.
 export function drawFace(
   canvas,
   face,
-  {mouthClosed = false, hidden = false} = {}
+  {mouthClosed = false, eyesClosed = false, hidden = false} = {}
 ) {
   const ctx = canvas?.getContext('2d');
   if (!ctx || !face) return;
   const size = FACE_SIZE;
   if (canvas.width !== size) canvas.width = canvas.height = size;
   ctx.clearRect(0, 0, size, size);
+  if (!hidden && face.background) {
+    ctx.fillStyle = face.background;
+    ctx.fillRect(0, 0, size, size);
+  }
   face.rows.forEach((row, y) => {
-    const line = (mouthClosed && face.mouthClosed?.[y]) || row;
+    const line =
+      (eyesClosed && face.eyesClosed?.[y]) ||
+      (mouthClosed && face.mouthClosed?.[y]) ||
+      row;
     for (let x = 0; x < size; x++) {
       const color = face.palette[line[x]];
       if (!color) continue;
