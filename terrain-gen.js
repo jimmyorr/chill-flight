@@ -1727,7 +1727,8 @@ export function generateChunkData({
     // Props stay off the road surface and the airfields (with a margin)
     const isOnRoad =
       ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0 ||
-      ChillFlightLogic.isOnAirport(worldX, worldZ, 40);
+      ChillFlightLogic.isOnAirport(worldX, worldZ, 40) ||
+      ChillFlightLogic.isOnAccessRoad(worldX, worldZ, 30, simplex, elevParams);
     const isAlienVegetationLand =
       isAlienLand &&
       height > WATER_LEVEL + 2.0 &&
@@ -2402,7 +2403,8 @@ export function generateChunkData({
         if (
           hi - lo > 3.5 ||
           lo < WATER_LEVEL + 3 ||
-          ChillFlightLogic.isOnAirport(h.x, h.z, 40)
+          ChillFlightLogic.isOnAirport(h.x, h.z, 40) ||
+          ChillFlightLogic.isOnAccessRoad(h.x, h.z, 30, simplex, elevParams)
         ) {
           continue;
         }

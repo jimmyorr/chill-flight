@@ -386,5 +386,62 @@ console.log('  Passed: The first mountain ranges north and south always rise');
 }
 console.log('  Passed: Every airport is flat and above the water on any seed');
 
+// --- AIRPORTS: HIGHWAYS PASS BESIDE, ACCESS ROADS REACH THEM (#114) ---
+// A highway never crosses an airfield (it used to, and its deck was a bump
+// on the runway), and each built access road's deck stays above its ground
+// and meets the highway at the highway's own height.
+{
+  const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+  for (const seed of [20260101, 20261006, 20261022, 7]) {
+    useSeed(seed);
+    ChillFlightLogic.ACCESS_ROADS.forEach((r, i) => {
+      const a = ChillFlightLogic.AIRPORTS[r.index];
+      for (let z = a.z - 2000; z <= a.z + 2000; z += 10) {
+        const x = ChillFlightLogic.getRoadCenterX(z, r.n);
+        if (ChillFlightLogic.isOnAirport(x, z, 380 + 30)) {
+          console.error(`FAIL: seed ${seed}, a highway crosses ${a.name}`);
+          process.exit(1);
+        }
+      }
+      const ends = ChillFlightLogic.accessRoadEnds(i, simplex, constants);
+      if (!ends.built) return;
+      for (let x = r.minX; x <= r.maxX; x += 5) {
+        const deck = ChillFlightLogic.accessRoadDeck(r, ends, x);
+        const ground = ChillFlightLogic.getElevation(
+          x,
+          r.z,
+          simplex,
+          constants
+        );
+        if (deck - ground < 0.3 || deck - ground > 3) {
+          console.error(
+            `FAIL: seed ${seed}, ${a.name}'s access road is ${(deck - ground).toFixed(2)} above the ground at x = ${x.toFixed(0)}`
+          );
+          process.exit(1);
+        }
+      }
+      const natural = ChillFlightLogic.getElevation(
+        r.x1,
+        r.z,
+        simplex,
+        constants,
+        null,
+        {ignoreRivers: true, ignoreRoads: true, forRoad: true}
+      );
+      const highway = ChillFlightLogic.highwayHeight(natural, 40);
+      if (Math.abs(highway - ends.highway) > 0.01) {
+        console.error(
+          `FAIL: seed ${seed}, ${a.name}'s access road meets the highway at ${ends.highway.toFixed(1)}, not ${highway.toFixed(1)}`
+        );
+        process.exit(1);
+      }
+    });
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: Highways pass beside the airfields, and access roads reach them'
+);
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

@@ -7,8 +7,9 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {createMaterial} from './constants.js';
+import {createMaterial, WATER_LEVEL, MOUNTAIN_LEVEL} from './constants.js';
 import {scene} from './scene.js';
+import {simplex} from './noise.js';
 import {getElevation} from './terrain-geometry.js';
 import {buildPlaneModel} from './plane-models.js';
 
@@ -265,6 +266,114 @@ function createParkedPlanes(index) {
   return mergeByMaterial(group);
 }
 
+// --- ACCESS ROAD ---
+// The road from the apron's end to the highway (ACCESS_ROADS), along world
+// x, with skirts down its sides where it ramps up onto the highway and a
+// dashed centre line. Built in world space, then moved into the frame of
+// the airport at (a.x, fieldY, a.z).
+const ACCESS_ROAD_STEP = 10;
+const ACCESS_ROAD_SKIRT = 3;
+const DASH_LENGTH = 10;
+const DASH_GAP = 14;
+
+function addQuad(out, a, b, c, d) {
+  out.push(...a, ...b, ...c, ...b, ...d, ...c);
+}
+
+function createAccessRoad(road, a, fieldY) {
+  const index = ChillFlightLogic.ACCESS_ROADS.indexOf(road);
+  const ends = ChillFlightLogic.accessRoadEnds(index, simplex, {
+    WATER_LEVEL,
+    MOUNTAIN_LEVEL,
+  });
+  if (!ends?.built) return null;
+  const dir = Math.sign(road.x1 - road.x0);
+  const w = ChillFlightLogic.ACCESS_ROAD_WIDTH;
+  // From a little under the apron to the highway's edge
+  const xa = road.x0 - dir * 12;
+  const xb = road.x1 - dir * (ChillFlightLogic.ROAD_WIDTH + 1);
+  const x0 = Math.min(xa, xb);
+  const x1 = Math.max(xa, xb);
+  const steps = Math.ceil((x1 - x0) / ACCESS_ROAD_STEP);
+  const xs = [];
+  for (let i = 0; i <= steps; i++) xs.push(x0 + ((x1 - x0) * i) / steps);
+  const top = (x) => ChillFlightLogic.accessRoadDeck(road, ends, x);
+
+  const z = road.z;
+  const pave = [];
+  for (let i = 0; i < steps; i++) {
+    const xL = xs[i];
+    const xR = xs[i + 1];
+    const yL = top(xL);
+    const yR = top(xR);
+    addQuad(
+      pave,
+      [xL, yL, z - w],
+      [xL, yL, z + w],
+      [xR, yR, z - w],
+      [xR, yR, z + w]
+    );
+    const bL = yL - ACCESS_ROAD_SKIRT;
+    const bR = yR - ACCESS_ROAD_SKIRT;
+    addQuad(
+      pave,
+      [xL, yL, z - w],
+      [xR, yR, z - w],
+      [xL, bL, z - w],
+      [xR, bR, z - w]
+    );
+    addQuad(
+      pave,
+      [xL, yL, z + w],
+      [xL, bL, z + w],
+      [xR, yR, z + w],
+      [xR, bR, z + w]
+    );
+  }
+  // Centre line dashes, fixed from the apron end
+  const dashes = [];
+  for (
+    let d = 20;
+    d + DASH_LENGTH < Math.abs(xb - xa) - 20;
+    d += DASH_LENGTH + DASH_GAP
+  ) {
+    const xL = Math.min(xa + dir * d, xa + dir * (d + DASH_LENGTH));
+    const xR = xL + DASH_LENGTH;
+    const yL = top(xL) + 0.06;
+    const yR = top(xR) + 0.06;
+    addQuad(
+      dashes,
+      [xL, yL, z - 0.5],
+      [xL, yL, z + 0.5],
+      [xR, yR, z - 0.5],
+      [xR, yR, z + 0.5]
+    );
+  }
+
+  // Into the airport's frame: rotated by +angle about y, since the airport
+  // is rotated by -angle
+  const toLocal = new THREE.Matrix4()
+    .makeRotationY(a.angle)
+    .multiply(new THREE.Matrix4().makeTranslation(-a.x, -fieldY, -a.z));
+  const group = new THREE.Group();
+  for (const [positions, material] of [
+    [pave, asphaltMat],
+    [dashes, markingMat],
+  ]) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(positions, 3)
+    );
+    geo.applyMatrix4(toLocal);
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, material);
+    m.receiveShadow = true;
+    group.add(m);
+  }
+  return group;
+}
+
 // Beyond this the parked planes and windsock are a few pixels across, so
 // only the runway and buildings draw
 const AIRPORT_DETAIL_DISTANCE = 4000;
@@ -299,7 +408,11 @@ function createAirport(a, index) {
   airport.addLevel(group, 0);
   airport.addLevel(new THREE.Group(), AIRPORT_DRAW_DISTANCE);
   // The terrain is flat at the field height here (see getElevation)
-  airport.position.set(a.x, getElevation(a.x, a.z), a.z);
+  const fieldY = getElevation(a.x, a.z);
+  const road = ChillFlightLogic.ACCESS_ROADS.find((r) => r.index === index);
+  const accessRoad = road && createAccessRoad(road, a, fieldY);
+  if (accessRoad) group.add(accessRoad);
+  airport.position.set(a.x, fieldY, a.z);
   // Local X along the runway: (cos angle, sin angle) in world x, z
   airport.rotation.y = -a.angle;
   return airport;

@@ -824,14 +824,23 @@ export const ChillFlightLogic = {};
   // A few fixed airfields, rare landmarks like the volcano and the
   // lighthouse (marked on the map). Each is a runway along \`angle\`
   // (radians from +X toward +Z) with the tower and hangar to its +v side.
+  // `access` (-1 west, 1 east) gives it a road to the nearest highway
+  // (ACCESS_ROADS), on a side where the road leaves the apron away from the
+  // runway. The eastern airports have no highway to reach.
   const AIRPORTS = [
     {name: 'Meadow Field', x: 1500, z: 2400, angle: 0},
-    {name: 'Mesa Field', x: -4800, z: 16200, angle: Math.PI / 4},
-    {name: 'Pinewood Field', x: -4000, z: -17200, angle: 0},
+    {name: 'Mesa Field', x: -4800, z: 16200, angle: Math.PI / 4, access: -1},
+    {name: 'Pinewood Field', x: -4000, z: -17200, angle: 0, access: -1},
     {name: 'Lagoon Field', x: 5000, z: 4800, angle: (3 * Math.PI) / 4},
     {name: 'Dune Field', x: 10000, z: 25000, angle: Math.PI / 2},
-    {name: 'Sagebrush Field', x: -25000, z: 10000, angle: -Math.PI / 4},
-    {name: 'Frost Field', x: -22500, z: -20000, angle: 0},
+    {
+      name: 'Sagebrush Field',
+      x: -25000,
+      z: 10000,
+      angle: -Math.PI / 4,
+      access: 1,
+    },
+    {name: 'Frost Field', x: -22500, z: -20000, angle: 0, access: -1},
     {name: 'Coral Field', x: 17500, z: 15000, angle: Math.PI / 4},
   ];
   const RUNWAY_LENGTH = 800;
@@ -3066,11 +3075,7 @@ export const ChillFlightLogic = {};
             {ignoreRivers: true, ignoreRoads: true, forRoad: true}
           );
 
-          const MIN_ROAD_HEIGHT = WATER_LEVEL + 60;
-          let roadY =
-            MIN_ROAD_HEIGHT + (centerNaturalH - MIN_ROAD_HEIGHT) * 0.35;
-          roadY = Math.max(roadY, MIN_ROAD_HEIGHT);
-          roadY = Math.min(roadY, MAX_HIGHWAY_HEIGHT);
+          const roadY = highwayHeight(centerNaturalH, WATER_LEVEL);
 
           // Dynamically scale wall width based on depth of the cut to maintain a smooth slope
           const canyonDepth = Math.max(0, centerNaturalH - roadY);
@@ -3415,6 +3420,25 @@ export const ChillFlightLogic = {};
     // where the field is over water, a plateau where it cuts into hills).
     // Last, so no other pass undoes it.
     if (!options.ignoreAirports) {
+      // First their access roads, at their own height across the falloff
+      // and on to the highway, in a cutting or on an embankment with sides
+      // as wide as it is deep. Not for the highway's own samples (forRoad):
+      // its height where the road meets it is where the road ends up.
+      if (!options.forRoad) {
+        for (let i = 0; i < ACCESS_ROADS.length; i++) {
+          const r = ACCESS_ROADS[i];
+          const dist = accessRoadDistance(r, origX, origZ);
+          if (dist < ACCESS_ROAD_CORE + ACCESS_ROAD_MAX_WALL) {
+            const ends = accessRoadEnds(i, simplex, constants, _lerp);
+            if (ends && ends.built) {
+              const wall = accessRoadWall(r, ends, origX);
+              const k =
+                1 - smoothRamp(dist, ACCESS_ROAD_CORE, ACCESS_ROAD_CORE + wall);
+              if (k > 0) n = _lerp(n, accessRoadGround(r, ends, origX), k);
+            }
+          }
+        }
+      }
       for (let i = 0; i < AIRPORTS.length; i++) {
         const dist = airportDistance(AIRPORTS[i], origX, origZ);
         if (dist < AIRPORT_FALLOFF) {
@@ -3591,7 +3615,192 @@ export const ChillFlightLogic = {};
   }
 
   function getRoadCenterX(z, n = 0) {
-    return ROAD_BASE_X + n * ROAD_SPACING + getRoadSweepOffset(z, n);
+    const x = ROAD_BASE_X + n * ROAD_SPACING + getRoadSweepOffset(z, n);
+    // Past an airport's access road, the highway runs straight north-south
+    // through the road's end, bending back to its own course further out
+    for (let i = 0; i < ACCESS_ROADS.length; i++) {
+      const r = ACCESS_ROADS[i];
+      if (r.n !== n) continue;
+      const dz = Math.abs(z - r.z);
+      if (dz < ACCESS_ROAD_STRAIGHT + ACCESS_ROAD_BEND) {
+        const t = smoothRamp(
+          dz,
+          ACCESS_ROAD_STRAIGHT,
+          ACCESS_ROAD_STRAIGHT + ACCESS_ROAD_BEND
+        );
+        return r.x1 + (x - r.x1) * t;
+      }
+    }
+    return x;
+  }
+
+  // The highway deck's height over ground of natural height naturalH: a
+  // gentler version of the land, kept above the water and below the peaks
+  // (where it cuts a trench)
+  function highwayHeight(naturalH, waterLevel) {
+    const low = waterLevel + 60;
+    const y = low + (naturalH - low) * 0.35;
+    return Math.min(MAX_HIGHWAY_HEIGHT, Math.max(low, y));
+  }
+
+  // --- AIRPORT ACCESS ROADS ---
+  // From the end of the apron (airports.js), straight along x to the
+  // nearest highway, which runs straight past its end (getRoadCenterX) clear
+  // of the airfield. The road is flat at the field height across the field,
+  // then climbs or falls evenly to the highway's height, the ground cut and
+  // filled to it (getElevation).
+  const ACCESS_ROAD_WIDTH = 8; // Half-width of the paved road
+  const ACCESS_ROAD_CORE = 60; // The ground is at the road's height out to here
+  // Then eases back to the land over 200, plus 1.5 per unit of cut or fill
+  const ACCESS_ROAD_MAX_WALL = 1000;
+  // How far it climbs or falls to the highway, past the airfield's falloff
+  // (which keeps the highway this far clear of it, too)
+  const ACCESS_ROAD_GRADE = 600;
+  // The highway is straight this far north and south of the road, and bends
+  // back to its course over the next ACCESS_ROAD_BEND
+  const ACCESS_ROAD_STRAIGHT = 1000;
+  const ACCESS_ROAD_BEND = 7000;
+  // Where the road starts: the apron's end and middle, in the airport frame
+  const APRON_END_U = 85;
+  const APRON_MID_V = 48;
+  const ACCESS_ROADS = [];
+  AIRPORTS.forEach((a, index) => {
+    if (!a.access) return;
+    const c = Math.cos(a.angle);
+    const s = Math.sin(a.angle);
+    const u = APRON_END_U * (a.access * c < 0 ? -1 : 1);
+    const x0 = a.x + u * c - APRON_MID_V * s;
+    const z = a.z + u * s + APRON_MID_V * c;
+    // Where the road leaves the flat field, and its falloff (where the road
+    // starts to climb or fall to the highway: the falloff only eases the
+    // ground toward the field height, so a road falling away from the field
+    // would end up under it)
+    let xEdge = x0;
+    while (airportDistance(a, xEdge, z) === 0) xEdge += a.access;
+    let xGrade = xEdge;
+    while (airportDistance(a, xGrade, z) < AIRPORT_FALLOFF) {
+      xGrade += a.access;
+    }
+    const x1 = xGrade + a.access * ACCESS_ROAD_GRADE;
+    ACCESS_ROADS.push({
+      index,
+      n: Math.min(
+        ROAD_LAST,
+        Math.max(0, Math.round((x1 - ROAD_BASE_X) / ROAD_SPACING))
+      ),
+      z,
+      x0,
+      x1,
+      xEdge,
+      xGrade,
+      minX: Math.min(x0, x1),
+      maxX: Math.max(x0, x1),
+    });
+  });
+
+  // How far (x, z) is from an access road's centre line
+  function accessRoadDistance(r, x, z) {
+    const dz = Math.abs(z - r.z);
+    if (dz >= ACCESS_ROAD_CORE + ACCESS_ROAD_MAX_WALL) return Infinity;
+    const dx = x < r.minX ? r.minX - x : x > r.maxX ? x - r.maxX : 0;
+    return Math.sqrt(dx * dx + dz * dz);
+  }
+
+  // Whether (x, z) is on a built access road, plus margin: props stay off it
+  function isOnAccessRoad(x, z, margin, simplex, constants) {
+    for (let i = 0; i < ACCESS_ROADS.length; i++) {
+      const dist = accessRoadDistance(ACCESS_ROADS[i], x, z);
+      if (
+        dist <= ACCESS_ROAD_WIDTH + margin &&
+        accessRoadEnds(i, simplex, constants)?.built
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // An access road's heights at each end: the airfield's, and the highway
+  // deck's where it meets the road; whether it's built (not where it would
+  // cross open water: an island airfield keeps to itself); and how deep it
+  // cuts into or stands over the land, every ACCESS_ROAD_SAMPLE along it.
+  // Cached like airportFieldHeight, and null while being worked out.
+  const ACCESS_ROAD_SAMPLE = 20;
+  const _accessRoadEnds = new WeakMap();
+  function accessRoadEnds(i, simplex, constants, lerp) {
+    const signature = simplex.noise2D(0.123, 0.456);
+    let cache = _accessRoadEnds.get(simplex);
+    if (!cache || cache.signature !== signature) {
+      cache = {signature, ends: []};
+      _accessRoadEnds.set(simplex, cache);
+    }
+    const ends = cache.ends;
+    if (ends[i] === undefined) {
+      ends[i] = null;
+      const r = ACCESS_ROADS[i];
+      const field = airportFieldHeight(r.index, simplex, constants, lerp);
+      if (field === null) {
+        ends[i] = undefined;
+        return null;
+      }
+      const natural = getElevation(r.x1, r.z, simplex, constants, lerp, {
+        ignoreRivers: true,
+        ignoreRoads: true,
+        forRoad: true,
+      });
+      const water = constants.WATER_LEVEL || 40;
+      const e = {field, highway: highwayHeight(natural, water), built: true};
+      const count = Math.ceil((r.maxX - r.minX) / ACCESS_ROAD_SAMPLE) + 1;
+      e.depth = new Float32Array(count);
+      for (let k = 0; k < count; k++) {
+        const x = r.minX + k * ACCESS_ROAD_SAMPLE;
+        const land = getElevation(x, r.z, simplex, constants, lerp, {
+          ignoreRivers: true,
+          ignoreRoads: true,
+          forRoad: true,
+        });
+        const outside = (x - r.xEdge) * Math.sign(r.x1 - r.x0) > 0;
+        if (outside && land < water + 1) e.built = false;
+        e.depth[k] = Math.abs(land - accessRoadGround(r, e, x));
+      }
+      ends[i] = e;
+    }
+    return ends[i];
+  }
+
+  // How wide an access road's cutting or embankment sides are at x
+  function accessRoadWall(r, ends, x) {
+    const k = Math.round((x - r.minX) / ACCESS_ROAD_SAMPLE);
+    const depth = ends.depth[Math.max(0, Math.min(ends.depth.length - 1, k))];
+    return Math.min(ACCESS_ROAD_MAX_WALL, 200 + depth * 1.5);
+  }
+
+  // The access road's line at x: the field height across the field and its
+  // falloff, then an even grade to the highway's height at its edge
+  function accessRoadLine(r, ends, x) {
+    const edge = r.x1 - Math.sign(r.x1 - r.x0) * (ROAD_WIDTH + 2);
+    const t = Math.max(0, Math.min(1, (x - r.xGrade) / (edge - r.xGrade)));
+    return ends.field + (ends.highway - ends.field) * t;
+  }
+
+  // The ground under it: past the field, it sinks 1.5 below the line over
+  // 60 units, so the terrain mesh (straight between its vertices, up to 75
+  // apart) stays under the deck where the grade bends, and the highway
+  // isn't lifted where it crosses (as on its own trench floor)
+  function accessRoadGround(r, ends, x) {
+    const past = (x - r.xEdge) * Math.sign(r.x1 - r.x0);
+    return accessRoadLine(r, ends, x) - 1.5 * smoothRamp(past, 0, 60);
+  }
+
+  // The top of its deck: just above the line, rising a little more over
+  // its last 60 units to meet the top of the highway's deck at its edge
+  function accessRoadDeck(r, ends, x) {
+    const beforeHighway = Math.abs(r.x1 - x) - ROAD_WIDTH - 2;
+    return (
+      accessRoadLine(r, ends, x) +
+      0.75 -
+      0.35 * smoothRamp(beforeHighway, 0, 60)
+    );
   }
 
   // Returns a [0, 1] factor indicating how much a point is on the road.
@@ -3644,13 +3853,18 @@ export const ChillFlightLogic = {};
   exports.airportLocal = airportLocal;
   exports.isOnAirport = isOnAirport;
   exports.getRoadFactor = getRoadFactor;
+  exports.highwayHeight = highwayHeight;
+  exports.ACCESS_ROADS = ACCESS_ROADS;
+  exports.ACCESS_ROAD_WIDTH = ACCESS_ROAD_WIDTH;
+  exports.isOnAccessRoad = isOnAccessRoad;
+  exports.accessRoadEnds = accessRoadEnds;
+  exports.accessRoadDeck = accessRoadDeck;
   exports.ROAD_BASE_X = ROAD_BASE_X;
   exports.ROAD_SPACING = ROAD_SPACING;
   exports.ROAD_LAST = ROAD_LAST;
   exports.ROAD_LAND_REACH = ROAD_LAND_REACH;
   exports.ROAD_WIDTH = ROAD_WIDTH;
   exports.ROAD_SHOULDER = ROAD_SHOULDER;
-  exports.MAX_HIGHWAY_HEIGHT = MAX_HIGHWAY_HEIGHT;
   exports.lerpAngle = lerpAngle;
 
   // Export centralized URL parameters

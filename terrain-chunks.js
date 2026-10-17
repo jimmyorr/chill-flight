@@ -1874,9 +1874,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           null,
           {ignoreRivers: true, ignoreRoads: true, forRoad: true}
         );
-        let rawY = minHeight + (naturalH - minHeight) * 0.35;
-        rawY = Math.max(rawY, minHeight);
-        rawY = Math.min(rawY, ChillFlightLogic.MAX_HIGHWAY_HEIGHT);
+        const rawY = ChillFlightLogic.highwayHeight(naturalH, WATER_LEVEL);
 
         const actualTerrainH = getElevation(roadX, wz);
 
@@ -2872,9 +2870,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   return group;
 }
 
-// The highway deck under (x, z), if there is one: fills out.height (the top
-// of the deck) and out.slopeX / out.slopeZ (rise per unit along x and z, as
-// sampleGround does) and returns true. The deck sits a few units above the
+// The highway deck (or an airport's access road) under (x, z), if there is
+// one: fills out.height (the top of the deck) and out.slopeX / out.slopeZ
+// (rise per unit along x and z, as sampleGround does) and returns true. The deck sits a few units above the
 // terrain (and well above it on bridges), so planes land on this rather than
 // the ground beneath it (flight-physics.js).
 const ROAD_DECK_HALF_WIDTH = ChillFlightLogic.ROAD_WIDTH + 2; // bridgeDeckGeo
@@ -2912,6 +2910,27 @@ export function sampleRoad(x, z, out) {
         found = true;
       }
     }
+  }
+  // And the airports' access roads, which run straight along x
+  const roads = ChillFlightLogic.ACCESS_ROADS;
+  for (let i = 0; i < roads.length; i++) {
+    const r = roads[i];
+    if (Math.abs(z - r.z) > ChillFlightLogic.ACCESS_ROAD_WIDTH + 1) continue;
+    if (x < r.minX || x > r.maxX) continue;
+    const ends = ChillFlightLogic.accessRoadEnds(i, simplex, {
+      WATER_LEVEL,
+      MOUNTAIN_LEVEL,
+    });
+    if (!ends?.built) continue;
+    const height = ChillFlightLogic.accessRoadDeck(r, ends, x);
+    if (found && height <= out.height) continue;
+    out.height = height;
+    out.slopeX =
+      (ChillFlightLogic.accessRoadDeck(r, ends, x + 1) -
+        ChillFlightLogic.accessRoadDeck(r, ends, x - 1)) /
+      2;
+    out.slopeZ = 0;
+    found = true;
   }
   return found;
 }
