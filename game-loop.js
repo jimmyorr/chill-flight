@@ -1139,6 +1139,8 @@ const CLIMB_ANGLE = (35 * Math.PI) / 180;
 const DIVE_ANGLE = -(45 * Math.PI) / 180;
 const STEEP_CLIMB_ANGLE = (60 * Math.PI) / 180;
 const STEEP_DIVE_ANGLE = -(70 * Math.PI) / 180;
+const MAX_DIVE_ANGLE = -(75 * Math.PI) / 180;
+const MAX_CLIMB_ANGLE = (75 * Math.PI) / 180;
 const PITCH_SPEED = 1.0; // rad/s (~57 deg/s)
 const STEEP_PITCH_SPEED = 1.6; // rad/s (~92 deg/s)
 const PITCH_EASE_OUT = 2.5;
@@ -1276,16 +1278,25 @@ function updatePhysicsAndControls(delta, nowTime) {
       0.1 * delta * 60
     );
 
+    const hasAnalogPitch =
+      inputManager.state.mouse.controlActive ||
+      inputManager.state.gamepad.steeringActive;
+    const effAnalogY = hasAnalogPitch ? effMouseY : 0;
+
     if (keys.Shift) {
       // Throttle already handled above; no pitch changes while Shift is held
     } else if (isUp) {
-      state.targetPitch =
+      state.targetPitch = Math.min(
+        MAX_CLIMB_ANGLE,
         (dtUp ? STEEP_CLIMB_ANGLE : CLIMB_ANGLE) +
-        effMouseY * (maxPitch * 0.4) * yMultiplier;
+          effAnalogY * (maxPitch * 0.4) * yMultiplier
+      );
     } else if (isDown) {
-      state.targetPitch =
+      state.targetPitch = Math.max(
+        MAX_DIVE_ANGLE,
         (dtDown ? STEEP_DIVE_ANGLE : DIVE_ANGLE) +
-        effMouseY * (maxPitch * 0.4) * yMultiplier;
+          effAnalogY * (maxPitch * 0.4) * yMultiplier
+      );
     }
 
     const isSharpTurnLeft = isLeft && dtLeft && !keys.Shift;
@@ -1484,8 +1495,12 @@ function updatePhysicsAndControls(delta, nowTime) {
         if (manualPitchActive) {
           let targetAngle;
           let maxSpeed;
+          const hasAnalogPitch =
+            inputManager.state.mouse.controlActive ||
+            inputManager.state.gamepad.steeringActive;
+          const effAnalogY = hasAnalogPitch ? effMouseY : 0;
           const pitchModulation =
-            effMouseY * (maxPitch * 0.4) * (state.invertYAxis ? -1 : 1);
+            effAnalogY * (maxPitch * 0.4) * (state.invertYAxis ? -1 : 1);
           if (pitchMode === 2) {
             targetAngle = STEEP_CLIMB_ANGLE + pitchModulation;
             maxSpeed = STEEP_PITCH_SPEED;
@@ -1503,6 +1518,10 @@ function updatePhysicsAndControls(delta, nowTime) {
             targetAngle = state.targetPitch;
             maxSpeed = state.isSteepPitch ? STEEP_PITCH_SPEED : PITCH_SPEED;
           }
+          targetAngle = Math.min(
+            MAX_CLIMB_ANGLE,
+            Math.max(MAX_DIVE_ANGLE, targetAngle)
+          );
 
           let diff = targetAngle - planeGroup.rotation.x;
           while (diff > Math.PI) diff -= 2 * Math.PI;
@@ -1527,6 +1546,10 @@ function updatePhysicsAndControls(delta, nowTime) {
             const limitRate = Math.abs(diff) * PITCH_EASE_OUT;
             const effRate = Math.min(manualPitchRate, limitRate);
             planeGroup.rotation.x += dir * effRate * delta;
+            planeGroup.rotation.x = Math.max(
+              MAX_DIVE_ANGLE,
+              Math.min(MAX_CLIMB_ANGLE, planeGroup.rotation.x)
+            );
             state.isSteepPitch =
               Math.abs(pitchMode) === 2 ||
               (pitchMode === 0 && state.isSteepPitch);
@@ -1593,6 +1616,12 @@ function updatePhysicsAndControls(delta, nowTime) {
     });
 
     planeGroup.rotation.x = flightRot.pitch;
+    if (!state.isLooping && !state.isDoingImmelmann) {
+      planeGroup.rotation.x = Math.max(
+        MAX_DIVE_ANGLE,
+        Math.min(MAX_CLIMB_ANGLE, planeGroup.rotation.x)
+      );
+    }
     planeGroup.rotation.z = flightRot.roll;
 
     // Store calculated yaw to be applied later in the physics block

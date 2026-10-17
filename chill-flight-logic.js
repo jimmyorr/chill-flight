@@ -3733,6 +3733,11 @@ export const ChillFlightLogic = {};
   exports.cloudMoodForDay = cloudMoodForDay;
   exports.START_LIVERY = START_LIVERY;
   exports.PLANE_TYPES = PLANE_TYPES;
+  const MAX_DIVE_ANGLE = -(75 * Math.PI) / 180;
+  const MAX_CLIMB_ANGLE = (75 * Math.PI) / 180;
+  exports.MAX_DIVE_ANGLE = MAX_DIVE_ANGLE;
+  exports.MAX_CLIMB_ANGLE = MAX_CLIMB_ANGLE;
+
   // --- FLIGHT AERODYNAMICS ---
   // Calculates the updated pitch, roll, and yaw for the airplane.
   // Uses frame-rate independent exponential smoothing.
@@ -3750,6 +3755,8 @@ export const ChillFlightLogic = {};
     delta,
     yawMultiplier = 1.0,
     manualYaw = 0,
+    minPitch = MAX_DIVE_ANGLE,
+    maxPitch = MAX_CLIMB_ANGLE,
   }) {
     let newPitch = currentPitch;
     let newRoll = currentRoll;
@@ -3770,6 +3777,8 @@ export const ChillFlightLogic = {};
     if (!isLooping) {
       newPitch = wrapAngle(newPitch, targetPitch);
       newPitch = newPitch + (targetPitch - newPitch) * smoothingFactor;
+      if (minPitch !== undefined) newPitch = Math.max(minPitch, newPitch);
+      if (maxPitch !== undefined) newPitch = Math.min(maxPitch, newPitch);
     }
 
     if (!isBarrelRolling) {
