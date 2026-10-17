@@ -197,6 +197,50 @@ const PARKED_TYPES = ['biplane', 'twin'];
 const APRON_TOP = 0.5;
 const _box = new THREE.Box3();
 
+// Swaps the second and third corners of each triangle (non-indexed geometry)
+function reverseWinding(geo) {
+  for (const attr of Object.values(geo.attributes)) {
+    const {array, itemSize} = attr;
+    for (let i = 0; i < attr.count; i += 3) {
+      for (let k = 0; k < itemSize; k++) {
+        const a = (i + 1) * itemSize + k;
+        const b = (i + 2) * itemSize + k;
+        const t = array[a];
+        array[a] = array[b];
+        array[b] = t;
+      }
+    }
+  }
+}
+
+// Parked planes never move, so each airport's are baked into one mesh per
+// material: a plane is 50 to 70 meshes, each its own draw call (twice, with
+// shadows). `group` has no parent, so world matrices are relative to it.
+function mergeByMaterial(group) {
+  group.updateMatrixWorld(true);
+  const byMaterial = new Map();
+  group.traverseVisible((object) => {
+    if (!object.isMesh) return;
+    const geo = object.geometry.index
+      ? object.geometry.toNonIndexed()
+      : object.geometry.clone();
+    geo.applyMatrix4(object.matrixWorld);
+    // A mirrored part draws with its winding flipped; baked in, it needs its
+    // triangles turned back around
+    if (object.matrixWorld.determinant() < 0) reverseWinding(geo);
+    if (!byMaterial.has(object.material)) byMaterial.set(object.material, []);
+    byMaterial.get(object.material).push(geo);
+  });
+  const merged = new THREE.Group();
+  for (const [material, geos] of byMaterial) {
+    const m = new THREE.Mesh(mergeGeometries(geos), material);
+    m.castShadow = true;
+    merged.add(m);
+    for (const geo of geos) geo.dispose();
+  }
+  return merged;
+}
+
 function createParkedPlanes(index) {
   const rng = ChillFlightLogic.mulberry32(
     ChillFlightLogic.WORLD_SEED * 31 + index * 7919 + 17
@@ -218,12 +262,18 @@ function createParkedPlanes(index) {
     x += span + 4 + rng() * 6;
     group.add(plane);
   }
-  return group;
+  return mergeByMaterial(group);
 }
+
+// Beyond this the parked planes and windsock are a few pixels across, so
+// only the runway and buildings draw
+const AIRPORT_DETAIL_DISTANCE = 4000;
+// And beyond this, nothing: past the near terrain (6 to 12 km by preset),
+// an airport only costs draw calls behind haze
+const AIRPORT_DRAW_DISTANCE = 12000;
 
 function createAirport(a, index) {
   const group = new THREE.Group();
-  group.name = a.name;
   group.add(createRunway());
   const lights = createRunwayLights();
   _lightGroups.push(lights);
@@ -235,15 +285,24 @@ function createAirport(a, index) {
   hangar.position.set(45, 0, 98);
   hangar.rotation.y = Math.PI;
   group.add(hangar);
-  group.add(createParkedPlanes(index));
+  const details = new THREE.Group();
+  details.add(createParkedPlanes(index));
   const sock = createWindsock();
   sock.position.set(-ChillFlightLogic.RUNWAY_LENGTH / 2 + 60, 0, -34);
-  group.add(sock);
+  details.add(sock);
+  const detailLOD = new THREE.LOD();
+  detailLOD.addLevel(details, 0);
+  detailLOD.addLevel(new THREE.Group(), AIRPORT_DETAIL_DISTANCE);
+  group.add(detailLOD);
+  const airport = new THREE.LOD();
+  airport.name = a.name;
+  airport.addLevel(group, 0);
+  airport.addLevel(new THREE.Group(), AIRPORT_DRAW_DISTANCE);
   // The terrain is flat at the field height here (see getElevation)
-  group.position.set(a.x, getElevation(a.x, a.z), a.z);
+  airport.position.set(a.x, getElevation(a.x, a.z), a.z);
   // Local X along the runway: (cos angle, sin angle) in world x, z
-  group.rotation.y = -a.angle;
-  return group;
+  airport.rotation.y = -a.angle;
+  return airport;
 }
 
 if (ChillFlightLogic.SHOW_OBJECTS !== false) {
