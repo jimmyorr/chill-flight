@@ -47,6 +47,8 @@ export const state = {
   // (eased toward that in game-loop.js; poseGear in airplane.js)
   gearWanted: false,
   gearExtension: 0,
+  isOnWater: false,
+  isOnGround: false,
 
   // Next frame's yaw, computed in game-loop.js and applied by flight-physics.js
   _nextYaw: undefined,

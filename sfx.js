@@ -14,6 +14,22 @@ export let sfxEnabled =
 
 // Master SFX volume relative to music (which plays at 0.5)
 export const SFX_VOLUME = 0.45;
+export let masterVolume = 0.45;
+
+export function setSfxVolume(vol) {
+  masterVolume = THREE.MathUtils.clamp(vol, 0, 1);
+  if (audioCtx && masterGain) {
+    const targetGain = sfxEnabled && !state.isPaused ? masterVolume : 0;
+    masterGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
+  }
+}
+
+// Optional override for debug auditioning
+export let planeTypeOverride = null;
+
+export function setPlaneTypeOverride(type) {
+  planeTypeOverride = type;
+}
 
 let audioCtx = null;
 let masterGain = null;
@@ -28,6 +44,11 @@ let lfoGain = null;
 let windGain = null;
 let windFilter = null;
 let windSource = null;
+let cricketGain = null;
+let cricketSource = null;
+let breezeGain = null;
+let breezeFilter = null;
+let breezeSource = null;
 let isInitialized = false;
 
 /**
@@ -51,6 +72,187 @@ function createNoiseBuffer(context) {
 }
 
 /**
+ * Generates a peaceful stereo looping buffer of crickets chirping
+ * in the meadow at night and dusk.
+ */
+function createCricketBuffer(context) {
+  const duration = 5;
+  const sampleRate = context.sampleRate;
+  const totalSamples = sampleRate * duration;
+  const buffer = context.createBuffer(2, totalSamples, sampleRate);
+  const left = buffer.getChannelData(0);
+  const right = buffer.getChannelData(1);
+
+  const crickets = [
+    {
+      freq: 4650,
+      gain: 0.35,
+      pan: -0.5,
+      times: [0.4, 1.7, 3.1, 4.3],
+      pulses: 4,
+      len: 0.016,
+      gap: 0.026,
+    },
+    {
+      freq: 5050,
+      gain: 0.28,
+      pan: 0.6,
+      times: [0.9, 2.3, 3.8],
+      pulses: 3,
+      len: 0.014,
+      gap: 0.024,
+    },
+    {
+      freq: 4850,
+      gain: 0.22,
+      pan: 0.2,
+      times: [1.3, 2.8, 4.8],
+      pulses: 3,
+      len: 0.013,
+      gap: 0.025,
+    },
+  ];
+
+  for (const c of crickets) {
+    const leftGain = c.gain * (1 - c.pan) * 0.5;
+    const rightGain = c.gain * (1 + c.pan) * 0.5;
+    for (const st of c.times) {
+      for (let p = 0; p < c.pulses; p++) {
+        const pStart = st + p * c.gap;
+        const startSample = Math.floor(pStart * sampleRate);
+        const pulseSamples = Math.floor(c.len * sampleRate);
+        for (let i = 0; i < pulseSamples; i++) {
+          const idx = (startSample + i) % totalSamples;
+          const t = i / sampleRate;
+          const env = Math.sin((i / pulseSamples) * Math.PI);
+          const carrier = Math.sin(2 * Math.PI * c.freq * t);
+          left[idx] += carrier * env * leftGain;
+          right[idx] += carrier * env * rightGain;
+        }
+      }
+    }
+  }
+
+  // Seamless crossfade loop
+  const fadeLen = 4096;
+  for (let i = 0; i < fadeLen; i++) {
+    const alpha = i / fadeLen;
+    const endIdx = totalSamples - fadeLen + i;
+    left[i] = left[i] * alpha + left[endIdx] * (1 - alpha);
+    right[i] = right[i] * alpha + right[endIdx] * (1 - alpha);
+  }
+
+  return buffer;
+}
+
+/**
+ * Generates a peaceful stereo looping buffer of soft meadow breeze
+ * when parked on land during the day.
+ */
+function createBreezeBuffer(context) {
+  const duration = 5;
+  const sampleRate = context.sampleRate;
+  const totalSamples = sampleRate * duration;
+  const buffer = context.createBuffer(2, totalSamples, sampleRate);
+  const left = buffer.getChannelData(0);
+  const right = buffer.getChannelData(1);
+
+  // Deterministic seeded pseudo-random noise generator with zero DC offset
+  let seedL = 48271;
+  let seedR = 982451;
+  const nextL = () => {
+    seedL = (seedL * 16807) % 2147483647;
+    return seedL / 1073741824 - 1;
+  };
+  const nextR = () => {
+    seedR = (seedR * 16807) % 2147483647;
+    return seedR / 1073741824 - 1;
+  };
+
+  let bz0L = 0;
+  let bz1L = 0;
+  let bz2L = 0;
+  let bz0R = 0;
+  let bz1R = 0;
+  let bz2R = 0;
+  let r0L = 0;
+  let r1L = 0;
+  let r0R = 0;
+  let r1R = 0;
+
+  for (let i = 0; i < totalSamples; i++) {
+    const t = i / sampleRate;
+    const wL1 = nextL();
+    const wR1 = nextR();
+    const wL2 = nextL();
+    const wR2 = nextR();
+
+    // Warm pink noise for wind body
+    bz0L = 0.995 * bz0L + wL1 * 0.05;
+    bz1L = 0.95 * bz1L + wL1 * 0.1;
+    bz2L = 0.85 * bz2L + wL1 * 0.2;
+    bz0R = 0.995 * bz0R + wR1 * 0.05;
+    bz1R = 0.95 * bz1R + wR1 * 0.1;
+    bz2R = 0.85 * bz2R + wR1 * 0.2;
+
+    const lowNoiseL = (bz0L + bz1L + bz2L) * 0.5;
+    const lowNoiseR = (bz0R + bz1R + bz2R) * 0.5;
+
+    const swellL =
+      0.5 +
+      0.35 * Math.sin((2 * Math.PI * t) / 5.2) +
+      0.15 * Math.sin((2 * Math.PI * t) / 2.7);
+    const swellR =
+      0.5 +
+      0.35 * Math.sin((2 * Math.PI * t) / 5.6 + 0.9) +
+      0.15 * Math.sin((2 * Math.PI * t) / 3.1);
+
+    // Subtle meadow grass / foliage rustle
+    r0L = 0.8 * r0L + wL2 * 0.2;
+    r1L = 0.6 * r1L + (wL2 - r0L) * 0.2;
+    r0R = 0.8 * r0R + wR2 * 0.2;
+    r1R = 0.6 * r1R + (wR2 - r0R) * 0.2;
+
+    const rustleL =
+      r1L *
+      Math.pow(
+        Math.max(
+          0,
+          0.3 +
+            0.4 * Math.sin((2 * Math.PI * t) / 5.2 + 0.4) +
+            0.3 * Math.sin((2 * Math.PI * t) / 1.4)
+        ),
+        1.5
+      );
+    const rustleR =
+      r1R *
+      Math.pow(
+        Math.max(
+          0,
+          0.3 +
+            0.4 * Math.sin((2 * Math.PI * t) / 5.6 + 1.2) +
+            0.3 * Math.sin((2 * Math.PI * t) / 1.6)
+        ),
+        1.5
+      );
+
+    left[i] = lowNoiseL * swellL * 0.75 + rustleL * 0.25;
+    right[i] = lowNoiseR * swellR * 0.75 + rustleR * 0.25;
+  }
+
+  // Seamless crossfade loop
+  const fadeLen = 4096;
+  for (let i = 0; i < fadeLen; i++) {
+    const alpha = i / fadeLen;
+    const endIdx = totalSamples - fadeLen + i;
+    left[i] = left[i] * alpha + left[endIdx] * (1 - alpha);
+    right[i] = right[i] * alpha + right[endIdx] * (1 - alpha);
+  }
+
+  return buffer;
+}
+
+/**
  * Initializes the Web Audio graph for sound effects.
  * Safe to call repeatedly; initializes only once.
  */
@@ -66,7 +268,7 @@ export function initAudioContext() {
     // Master SFX Bus
     masterGain = audioCtx.createGain();
     masterGain.gain.setValueAtTime(
-      sfxEnabled && !state.isPaused ? SFX_VOLUME : 0,
+      sfxEnabled && !state.isPaused ? masterVolume : 0,
       audioCtx.currentTime
     );
     masterGain.connect(audioCtx.destination);
@@ -88,6 +290,36 @@ export function initAudioContext() {
     windFilter.connect(windGain);
     windGain.connect(masterGain);
     windSource.start(0);
+
+    // --- Stopped land crickets ambiance (night/dusk) ---
+    cricketSource = audioCtx.createBufferSource();
+    cricketSource.buffer = createCricketBuffer(audioCtx);
+    cricketSource.loop = true;
+
+    cricketGain = audioCtx.createGain();
+    cricketGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+    cricketSource.connect(cricketGain);
+    cricketGain.connect(masterGain);
+    cricketSource.start(0);
+
+    // --- Stopped land meadow breeze ambiance (daytime) ---
+    breezeSource = audioCtx.createBufferSource();
+    breezeSource.buffer = createBreezeBuffer(audioCtx);
+    breezeSource.loop = true;
+
+    breezeFilter = audioCtx.createBiquadFilter();
+    breezeFilter.type = 'lowpass';
+    breezeFilter.frequency.setValueAtTime(360, audioCtx.currentTime);
+    breezeFilter.Q.setValueAtTime(0.7, audioCtx.currentTime);
+
+    breezeGain = audioCtx.createGain();
+    breezeGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+    breezeSource.connect(breezeFilter);
+    breezeFilter.connect(breezeGain);
+    breezeGain.connect(masterGain);
+    breezeSource.start(0);
 
     // --- Engine synthesis ---
     // Primary oscillator (sawtooth for rich harmonic body)
@@ -184,7 +416,7 @@ export function setSfxEnabled(enabled) {
   }
 
   if (audioCtx && masterGain) {
-    const targetGain = enabled && !state.isPaused ? SFX_VOLUME : 0;
+    const targetGain = enabled && !state.isPaused ? masterVolume : 0;
     masterGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
   }
 }
@@ -195,7 +427,7 @@ export function setSfxEnabled(enabled) {
 export function updateSfx(delta) {
   if (!isInitialized || !audioCtx) return;
 
-  const targetMasterGain = sfxEnabled && !state.isPaused ? SFX_VOLUME : 0;
+  const targetMasterGain = sfxEnabled && !state.isPaused ? masterVolume : 0;
   masterGain.gain.setTargetAtTime(targetMasterGain, audioCtx.currentTime, 0.08);
 
   if (!sfxEnabled || state.isPaused) return;
@@ -203,8 +435,31 @@ export function updateSfx(delta) {
   const speed = Math.max(0, state.flightSpeedMultiplier || 0);
   const targetSpeed = Math.max(0, state.targetFlightSpeed || 0);
   const throttleFactor = THREE.MathUtils.clamp(targetSpeed / 2.5, 0, 1);
-  const planeType = activePlaneType;
-  const isStopped = speed < 0.02 && targetSpeed === 0;
+  const planeType = planeTypeOverride || activePlaneType;
+  const isStopped = speed < 0.05 && targetSpeed === 0;
+
+  // Stopped ambient soundscapes (crickets at night/dusk or gentle meadow breeze during day when parked on land)
+  let targetCricketGain = 0;
+  let targetBreezeGain = 0;
+
+  if (isStopped && state.isOnGround) {
+    // Transition from crickets (night/dusk) to meadow breeze (day) based on dayFactor
+    // dayFactor: 0 = night, 1 = day
+    const nightFactor = THREE.MathUtils.clamp(
+      (0.55 - state.dayFactor) / 0.35,
+      0,
+      1
+    );
+    targetCricketGain = 0.12 * nightFactor;
+    targetBreezeGain = 0.1 * (1 - nightFactor * 0.7);
+  }
+
+  cricketGain.gain.setTargetAtTime(
+    targetCricketGain,
+    audioCtx.currentTime,
+    0.4
+  );
+  breezeGain.gain.setTargetAtTime(targetBreezeGain, audioCtx.currentTime, 0.4);
 
   if (planeType === 'glider') {
     // Gliders have no engine; only graceful wind rush scaling with airspeed
@@ -222,7 +477,7 @@ export function updateSfx(delta) {
 
   if (isStopped) {
     // Engine idles at low murmur when plane is parked
-    engineGain.gain.setTargetAtTime(0.02, audioCtx.currentTime, 0.1);
+    engineGain.gain.setTargetAtTime(0.015, audioCtx.currentTime, 0.1);
     windGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
     osc1.frequency.setTargetAtTime(36, audioCtx.currentTime, 0.1);
     osc2.frequency.setTargetAtTime(37.5, audioCtx.currentTime, 0.1);
@@ -291,3 +546,37 @@ export function updateSfx(delta) {
     );
   }
 }
+
+/**
+ * Returns the active AudioContext instance (or null if not initialized).
+ */
+export function getAudioContext() {
+  return audioCtx;
+}
+
+/**
+ * Returns references to internal audio nodes for diagnostics and debug tools.
+ */
+export function getSfxNodes() {
+  return {
+    masterGain,
+    engineGain,
+    engineFilter,
+    osc1,
+    osc2,
+    oscSub,
+    oscSubGain,
+    lfo,
+    lfoGain,
+    windGain,
+    windFilter,
+    windSource,
+    cricketGain,
+    cricketSource,
+    breezeGain,
+    breezeFilter,
+    breezeSource,
+  };
+}
+
+export {createNoiseBuffer, createCricketBuffer, createBreezeBuffer};

@@ -39,6 +39,7 @@ const PAGES = [
   {path: 'debug/debug-faces.html', devOnly: true},
   {path: 'debug/debug-person.html', devOnly: true},
   {path: 'debug/debug-export-map.html', devOnly: true},
+  {path: 'debug/debug-sound.html', devOnly: true},
   // Every third-party host drops every packet (e.g. a subway): the game must
   // still paint and start, and music must fall back to the bundled track
   // (issue #73).

@@ -281,6 +281,9 @@ export function updateFlightPhysics(delta, nowTime) {
     !state.isFreeCamera &&
     (planeGroup.position.y <= restingHeight + 0.1 || followingGround)
   ) {
+    state.isOnWater = isWater && planeGroup.position.y <= restingHeight + 0.1;
+    state.isOnGround = !state.isOnWater;
+
     // Grounded — rest flat peacefully, kill vertical velocity. On land the
     // plane stays level (so the flight model and controls work as on water)
     // and only the model tilts to the slope, below.
@@ -357,21 +360,25 @@ export function updateFlightPhysics(delta, nowTime) {
         state.airplaneModel.rotation.z = groundTiltRoll;
       }
     }
-  } else if (state.airplaneModel) {
-    // In-flight turbulence bobbing (increases in rain/storms)
-    const t = performance.now() * 0.001;
-    const rainOpacity = rainParticles ? rainParticles.material.opacity : 0;
-    const stormMult = 1.0 + rainOpacity * 4.0; // 1x calm → 3x heavy rain
-    state.airplaneModel.position.y =
-      (Math.sin(t * 0.7) * 0.12 + Math.sin(t * 1.3) * 0.06) * stormMult;
-    // On top of the ground tilt, which levels out gently after takeoff
-    levelGroundTilt(delta);
-    state.airplaneModel.rotation.x =
-      (Math.cos(t * 0.9) * 0.015 + Math.sin(t * 1.7) * 0.008) * stormMult +
-      groundTiltPitch;
-    state.airplaneModel.rotation.z =
-      (Math.sin(t * 0.6) * 0.02 + Math.cos(t * 1.1) * 0.01) * stormMult +
-      groundTiltRoll;
+  } else {
+    state.isOnWater = false;
+    state.isOnGround = false;
+    if (state.airplaneModel) {
+      // In-flight turbulence bobbing (increases in rain/storms)
+      const t = performance.now() * 0.001;
+      const rainOpacity = rainParticles ? rainParticles.material.opacity : 0;
+      const stormMult = 1.0 + rainOpacity * 4.0; // 1x calm → 3x heavy rain
+      state.airplaneModel.position.y =
+        (Math.sin(t * 0.7) * 0.12 + Math.sin(t * 1.3) * 0.06) * stormMult;
+      // On top of the ground tilt, which levels out gently after takeoff
+      levelGroundTilt(delta);
+      state.airplaneModel.rotation.x =
+        (Math.cos(t * 0.9) * 0.015 + Math.sin(t * 1.7) * 0.008) * stormMult +
+        groundTiltPitch;
+      state.airplaneModel.rotation.z =
+        (Math.sin(t * 0.6) * 0.02 + Math.cos(t * 1.1) * 0.01) * stormMult +
+        groundTiltRoll;
+    }
   }
   if (state.airplaneModel) state.airplaneModel.rotation.x += stallNose;
 
