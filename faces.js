@@ -4,6 +4,10 @@
 // a palette giving each character's color, the rows that change while
 // they talk (mouthClosed: row number to row, shown every other beat), the
 // rows that change when they blink (eyesClosed) and the color behind them.
+// A face can also have outfits: more complete faces of the same person in
+// other clothes, by name ({tennis: {...}}). A job in people.js can name one
+// for them to wear while they talk about it; everywhere else shows the face
+// itself.
 // No DOM at load, so scripts can check faces in Node; drawFace draws one on
 // a canvas (the dialog, the People screen, debug/debug-faces.html).
 
@@ -360,7 +364,294 @@ export const FACES = {
       B: '#222026', // inner tee collar
     },
   },
+  // Drawn after the real Erin: big dark curls from a middle part, brown
+  // eyes, a wide smile and a speckled pink knit top. For tennis: a white
+  // polo and a pink visor
+  Erin: {
+    background: '#f6dbe6',
+    rows: [
+      '.........kk.kkrHhkk.kk..........',
+      '........khrkhrrhrrhkrhk.........',
+      '.......kRrrRrrRrrRrrRrrk........',
+      '......krHhrHhrHhrHhrHhrHk.......',
+      '......krhrrhrrhrrhrrhrrhk.......',
+      '....kkrRrrRrrRrrRrrRrrRrrkk.....',
+      '...khrHhrHhsssssssssrHhrHhrk....',
+      '...krrhrrhssssssssssshrrhrrk....',
+      '...krRrrRrrssllllllssrrRrrRk....',
+      '...krHhrHhrsssssssssshrHhrHk....',
+      '...krhrrhrsvvvssssvvvsrhrrhk....',
+      '...kRrrRrrssssssssssssRrrRrk....',
+      '..kHhrHhdsseEesssseEeshdHhrHk...',
+      '..khrrhrssswewsssswewsrshrrhk...',
+      '..krrRrrssssssssssssssrsrrRrk...',
+      '..khrHhrdsssssslssssssrdhrHhk...',
+      '...krhrrgssppssddssppsrgrrhk....',
+      '....krrRrrdsssssssssdrRrrRk.....',
+      '....krHhrHdssMwwwwMsdHhrHhk.....',
+      '....krhrrhrdssMmmMsdrhrrhrk.....',
+      '....kRrrRrrRdsssssdrRrrRrrk.....',
+      '.....khrHhrHhddddddrHhrHhk......',
+      '......kkkkrhrdssssdrhkkkk.......',
+      '.........kRrrdssssdRrk..........',
+      '........kkktcssssssctkkk........',
+      '.....kkkttTtccssssccTtttkkk.....',
+      '...kktttTttttccccccttttTtttkk...',
+      '.kkttTTttttfttttFttttTttttTtfkk.',
+      'ktttTTtftTttttTtttFTttttftTttTtk',
+      'tFTftTtTttttTttttTttFtTtttTTtttt',
+      'TttFtTttttTttttTftttTtFttTTtttTt',
+      'tttTtTttTtttfTttttTttttTFtTtTftt',
+    ],
+    mouthClosed: {
+      18: '....krHhrHdssdMMMMdsdHhrHhk.....',
+      19: '....krhrrhrdsssssssdrhrrhrk.....',
+    },
+    eyesClosed: {
+      12: '..kHhrHhdssssssssssssshdHhrHk...',
+      13: '..khrrhrssseeesssseeesrshrrhk...',
+    },
+    palette: {
+      k: '#3a2418', // outline
+      s: '#efc4a4', // skin
+      l: '#f9dcc6', // skin highlight
+      d: '#d29878', // nose, jaw and shadow
+      p: '#e8968a', // cheeks
+      v: '#3a2418', // brows
+      e: '#24160e', // pupils and lashes
+      w: '#fcf8f2', // teeth and whites of the eyes
+      m: '#7a2c26', // mouth
+      M: '#c4625c', // lips
+      g: '#f4f0e8', // earring studs
+      r: '#2c1a12', // hair base
+      R: '#1a0e0a', // hair shadow
+      h: '#4a2e20', // hair highlight
+      H: '#6e4a34', // hair bright highlight
+      E: '#5a3a26', // eyes
+      t: '#e47ac0', // pink knit
+      T: '#d062aa', // knit texture
+      f: '#f8e070', // yellow flecks
+      F: '#7ad0e0', // blue flecks
+      c: '#c8509a', // collar
+    },
+    outfits: {
+      tennis: {
+        background: '#f6dbe6',
+        rows: [
+          '.........kk.kkrHhkk.kk..........',
+          '........khrkhrrhrrhkrhk.........',
+          '.......kRrrRrrRrrRrrRrrk........',
+          '......krHhrHhrHhrHhrHhrHk.......',
+          '......krhrrhrrhrrhrrhrrhk.......',
+          '....kkrRccccccccccccccccrkk.....',
+          '...khrHhVVVVVVVVVVVVVVVVHhrk....',
+          '...krrhrrVVVVVVVVVVVVVVrhrrk....',
+          '...krRrrRrUUUUUUUUUUUUrRrrRk....',
+          '...krHhrHhrsssssssssshrHhrHk....',
+          '...krhrrhrsvvvssssvvvsrhrrhk....',
+          '...kRrrRrrssssssssssssRrrRrk....',
+          '..kHhrHhdsseEesssseEeshdHhrHk...',
+          '..khrrhrssswewsssswewsrshrrhk...',
+          '..krrRrrssssssssssssssrsrrRrk...',
+          '..khrHhrdsssssslssssssrdhrHhk...',
+          '...krhrrgssppssddssppsrgrrhk....',
+          '....krrRrrdsssssssssdrRrrRk.....',
+          '....krHhrHdssMwwwwMsdHhrHhk.....',
+          '....krhrrhrdssMmmMsdrhrrhrk.....',
+          '....kRrrRrrRdsssssdrRrrRrrk.....',
+          '.....khrHhrHhddddddrHhrHhk......',
+          '......kkkkrhrdssssdrhkkkk.......',
+          '.........kRrrdssssdRrk..........',
+          '........kkkqccssssccqkkk........',
+          '.....kkkqqqqccssssccqqqqkkk.....',
+          '...kkqqqqqqqqqqQqqqqqqqqqqqkk...',
+          '.kkQQQQqqqqqqqqQcqqqqqqqqQQQQkk.',
+          'kQQQQQQqqqqqqqqQqqqqqqqqqQQQQQQk',
+          'QQQQQQQqqqqqqqqQcqqqqqqqqQQQQQQQ',
+          'QQQQQQQqqqqqqqqqqqqqqqqqqQQQQQQQ',
+          'ccccccQqqqqqqqqqqqqqqqqqqQcccccc',
+        ],
+        mouthClosed: {
+          18: '....krHhrHdssdMMMMdsdHhrHhk.....',
+          19: '....krhrrhrdsssssssdrhrrhrk.....',
+        },
+        eyesClosed: {
+          12: '..kHhrHhdssssssssssssshdHhrHk...',
+          13: '..khrrhrssseeesssseeesrshrrhk...',
+        },
+        palette: {
+          k: '#3a2418', // outline
+          s: '#efc4a4', // skin
+          l: '#f9dcc6', // skin highlight
+          d: '#d29878', // nose, jaw and shadow
+          p: '#e8968a', // cheeks
+          v: '#3a2418', // brows
+          e: '#24160e', // pupils and lashes
+          w: '#fcf8f2', // teeth and whites of the eyes
+          m: '#7a2c26', // mouth
+          M: '#c4625c', // lips
+          g: '#f4f0e8', // earring studs
+          q: '#f6f4f0', // white polo
+          Q: '#d8d6de', // polo shadow
+          V: '#f6f4f0', // visor brim
+          U: '#d8a88a', // brim shade on the forehead
+          r: '#2c1a12', // hair base
+          R: '#1a0e0a', // hair shadow
+          h: '#4a2e20', // hair highlight
+          H: '#6e4a34', // hair bright highlight
+          E: '#5a3a26', // eyes
+          c: '#e47ac0', // trim
+        },
+      },
+    },
+  },
+  // Drawn after the real Lauren: long straight dark hair from a middle
+  // part, blue eyes, a wide smile and a lavender yoke sweater. For tennis:
+  // a white polo and cap
+  Lauren: {
+    background: '#dcd8f4',
+    rows: [
+      '..............kkk...............',
+      '...........kkkrrrkkk............',
+      '..........krrhrrrhrrk...........',
+      '.........krrrhrrrhrrrk..........',
+      '........khrrrhrrrHrrrhk.........',
+      '.......krhrRrHrRrhrRrhrk........',
+      '......kRrHrRrhssssrRrhrRk.......',
+      '......kRrhrRssssssssrHrRk.......',
+      '......kRrhrssllllllsshrRk.......',
+      '......kRrhssssssssssssrRk.......',
+      '......kRrHsvvvssssvvvsrRk.......',
+      '......kRrhssssssssssssrRk.......',
+      '......kRdsseEesssseEesrdrk......',
+      '......kRssswewsssswewsrsrk......',
+      '......kRssssssssssssssRsrk......',
+      '.....krRdsssssslssssssRdrhk.....',
+      '.....krRgssppssddssppsRgrhk.....',
+      '.....krRrRdsssssssssdkrRrhk.....',
+      '....khrRrRdssMwwwwMsdkrRrHrk....',
+      '....kHrRrhkdssMmmMsdkkrRrhrk....',
+      '....khrRrhkkdsssssdk.krRrhrk....',
+      '...krhrRrhk.kddddddk.krRrhrRk...',
+      '...krhrRrHk.kdssssdk.krRrHrRk...',
+      '...krHrRrhkkkdssssdkkkrRrhrRk...',
+      '...krhrRrhktcssssssctkrRrhrRk...',
+      '...krhrRttotccssssccottBrhrRk...',
+      '...krttTBtottcccccctotTBtttRk...',
+      '.kktttttBtttotttttotttTttttttkk.',
+      'kttttttttBTtttototttBBtttttttttk',
+      'TtTtTtTtTtTBBTTtTBBTTtTtTtTtTtTt',
+      'TtTtTtTtTtTtTtBBTtTtTtTtTtTtTtTt',
+      'TtTtTtTtTtTtTtTtTtTtTtTtTtTtTtTt',
+    ],
+    mouthClosed: {
+      18: '....khrRrRdssdMMMMdsdkrRrHrk....',
+      19: '....kHrRrhkdsssssssdkkrRrhrk....',
+    },
+    eyesClosed: {
+      12: '......kRdsssssssssssssrdrk......',
+      13: '......kRssseeesssseeesrsrk......',
+    },
+    palette: {
+      k: '#3a2418', // outline
+      s: '#efc4a4', // skin
+      l: '#f9dcc6', // skin highlight
+      d: '#d29878', // nose, jaw and shadow
+      p: '#e8968a', // cheeks
+      v: '#3a2418', // brows
+      e: '#24160e', // pupils and lashes
+      w: '#fcf8f2', // teeth and whites of the eyes
+      m: '#7a2c26', // mouth
+      M: '#c4625c', // lips
+      g: '#f4f0e8', // earring studs
+      r: '#3a2218', // hair base
+      R: '#24140e', // hair shadow
+      h: '#56362a', // hair highlight
+      H: '#76503a', // hair bright highlight
+      E: '#5a7ea8', // eyes
+      t: '#a898e0', // lavender knit
+      T: '#9484cc', // knit ribs
+      o: '#e6defa', // eyelets
+      B: '#8a78c4', // bobble band
+      c: '#7c6ab8', // collar
+    },
+    outfits: {
+      tennis: {
+        background: '#dcd8f4',
+        rows: [
+          '............kkkkkkk.............',
+          '..........kkqqqccqqkk...........',
+          '.........kqqqqqqqqqQQk..........',
+          '........kqqqqqqqqqQqQQk.........',
+          '.......kqqqqqqqqqqqqQQQk........',
+          '......kqqqqqqqqqqqqqQQQQk.......',
+          '......kqqqqqqqqqqqqqQQQQk.......',
+          '......kcccccccccccccccccck......',
+          '......kRVVVVVVVVVVVVVVVVk.......',
+          '......kRrhUUUUUUUUUUUUrRk.......',
+          '......kRrHsvvvssssvvvsrRk.......',
+          '......kRrhssssssssssssrRk.......',
+          '......kRdsseEesssseEesrdrk......',
+          '......kRssswewsssswewsrsrk......',
+          '......kRssssssssssssssRsrk......',
+          '.....krRdsssssslssssssRdrhk.....',
+          '.....krRgssppssddssppsRgrhk.....',
+          '.....krRrRdsssssssssdkrRrhk.....',
+          '....khrRrRdssMwwwwMsdkrRrHrk....',
+          '....kHrRrhkdssMmmMsdkkrRrhrk....',
+          '....khrRrhkkdsssssdk.krRrhrk....',
+          '...krhrRrhk.kddddddk.krRrhrRk...',
+          '...krhrRrHk.kdssssdk.krRrHrRk...',
+          '...krHrRrhkkkdssssdkkkrRrhrRk...',
+          '...krhrRrhkqccssssccqkrRrhrRk...',
+          '...krhrRqqqqccssssccqqqqrhrRk...',
+          '...krqqqqqqqqqqQqqqqqqqqqqqRk...',
+          '.kkQQQQqqqqqqqqQcqqqqqqqqQQQQkk.',
+          'kQQQQQQqqqqqqqqQqqqqqqqqqQQQQQQk',
+          'QQQQQQQqqqqqqqqQcqqqqqqqqQQQQQQQ',
+          'QQQQQQQqqqqqqqqqqqqqqqqqqQQQQQQQ',
+          'ccccccQqqqqqqqqqqqqqqqqqqQcccccc',
+        ],
+        mouthClosed: {
+          18: '....khrRrRdssdMMMMdsdkrRrHrk....',
+          19: '....kHrRrhkdsssssssdkkrRrhrk....',
+        },
+        eyesClosed: {
+          12: '......kRdsssssssssssssrdrk......',
+          13: '......kRssseeesssseeesrsrk......',
+        },
+        palette: {
+          k: '#3a2418', // outline
+          s: '#efc4a4', // skin
+          l: '#f9dcc6', // skin highlight
+          d: '#d29878', // nose, jaw and shadow
+          p: '#e8968a', // cheeks
+          v: '#3a2418', // brows
+          e: '#24160e', // pupils and lashes
+          w: '#fcf8f2', // teeth and whites of the eyes
+          m: '#7a2c26', // mouth
+          M: '#c4625c', // lips
+          g: '#f4f0e8', // earring studs
+          q: '#f6f4f0', // white polo
+          Q: '#d8d6de', // polo shadow
+          V: '#f6f4f0', // visor brim
+          U: '#d8a88a', // brim shade on the forehead
+          r: '#3a2218', // hair base
+          R: '#24140e', // hair shadow
+          h: '#56362a', // hair highlight
+          H: '#76503a', // hair bright highlight
+          E: '#5a7ea8', // eyes
+          c: '#8a78c4', // trim
+        },
+      },
+    },
+  },
 };
+
+// face in its outfit named outfit, or the face itself without one
+export function outfitOf(face, outfit) {
+  return face?.outfits?.[outfit] || face || null;
+}
 
 // Problems with FACES, for scripts/test-jobs.js: everyone in names has a
 // face, and each is FACE_SIZE square, talks and blinks
@@ -369,7 +660,14 @@ export function checkFaces(names) {
   for (const name of names) {
     if (!FACES[name]) problems.push(`${name}: no face`);
   }
-  for (const [name, face] of Object.entries(FACES)) {
+  const all = Object.entries(FACES).flatMap(([name, face]) => [
+    [name, face],
+    ...Object.entries(face.outfits || {}).map(([outfit, f]) => [
+      `${name} (${outfit})`,
+      f,
+    ]),
+  ]);
+  for (const [name, face] of all) {
     const rows = [
       ...face.rows,
       ...Object.values(face.mouthClosed || {}),

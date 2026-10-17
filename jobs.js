@@ -16,7 +16,7 @@ import {Achievements} from './achievements.js';
 import {isOnWheels} from './flight-physics.js';
 import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 import {BASE_FLIGHT_SPEED} from './constants.js';
-import {openDialog} from './dialog.js';
+import {openDialog, changeOutfit} from './dialog.js';
 import {playChime} from './sfx-events.js';
 import {hooks} from './hooks.js';
 import {
@@ -138,6 +138,7 @@ function airportAt(x, z) {
 
 function landedAt(a) {
   const result = land(progress, a.name);
+  if (result.person) changeOutfit(result.person.name, result.outfit);
   if (result.toast) {
     Achievements.toast({emoji: '📦', ...result.toast});
     playChime();

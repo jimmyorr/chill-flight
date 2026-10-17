@@ -13,7 +13,7 @@
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PEOPLE} from '../people.js';
-import {checkFaces} from '../faces.js';
+import {FACES, checkFaces, outfitOf} from '../faces.js';
 import {checkFacesSvg} from './export-faces.js';
 import {
   accept,
@@ -61,6 +61,22 @@ check(
   !faceProblems.length,
   faceProblems.join('; ')
 );
+const badOutfits = PEOPLE.flatMap((p) =>
+  p.jobs
+    .filter((j) => j.outfit && !FACES[p.name]?.outfits?.[j.outfit])
+    .map((j) => `${p.name}'s ${j.id}: no ${j.outfit} outfit`)
+);
+check(
+  "every job's outfit is in faces.js",
+  !badOutfits.length,
+  badOutfits.join('; ')
+);
+check(
+  'an outfit, or the usual face without one',
+  outfitOf(FACES.Erin, 'tennis') === FACES.Erin.outfits.tennis &&
+    outfitOf(FACES.Erin, null) === FACES.Erin &&
+    outfitOf(FACES.Ray, 'tennis') === FACES.Ray
+);
 const svgProblems = checkFacesSvg();
 check(
   'face SVGs in assets/faces/ match faces.js',
@@ -104,6 +120,7 @@ const TEST_PEOPLE = [
         cargo: 'Pie',
         offer: ['Take this pie to {to}?'],
         thanks: ['They loved it.'],
+        outfit: 'apron',
       },
     ],
   },
@@ -125,6 +142,25 @@ check(
     AIRPORTS
   ).length >= 3
 );
+
+// Bo wears an apron for the pie job: offering it and thanking you, not
+// at the pickup
+{
+  const bo = {...newProgress(), done: {Ann: 1}};
+  const offered = land(bo, 'Meadow Field', () => 0, TEST_PEOPLE);
+  const taken = accept(bo, offered.offer, () => 0, TEST_PEOPLE).progress;
+  const thanked = land(taken, 'Pinewood Field', () => 0, TEST_PEOPLE);
+  const fetchOffer = land(newProgress(), 'Meadow Field', () => 0, TEST_PEOPLE);
+  check(
+    "a job's outfit is worn for it",
+    offered.person?.name === 'Bo' &&
+      offered.outfit === 'apron' &&
+      thanked.outfit === 'apron' &&
+      fetchOffer.person?.name === 'Ann' &&
+      fetchOffer.outfit === null,
+    JSON.stringify([offered.outfit, thanked.outfit, fetchOffer.outfit])
+  );
+}
 
 const badOffers = [];
 const badJobs = [];

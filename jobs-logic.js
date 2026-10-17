@@ -84,10 +84,17 @@ function asker(progress, field, people, rng) {
 
 // Landed and stopped at the airport named field. Returns the progress after
 // it, who's talking (person, or null), what they say (dialog, or null), a
-// job they offer (offer: answer it with accept or decline) and a note for a
-// toast (or null).
+// job they offer (offer: answer it with accept or decline), the outfit they
+// wear for that job (or null) and a note for a toast (or null).
 export function land(progress, field, rng = Math.random, people = PEOPLE) {
-  const none = {progress, person: null, dialog: null, offer: null, toast: null};
+  const none = {
+    progress,
+    person: null,
+    dialog: null,
+    offer: null,
+    outfit: null,
+    toast: null,
+  };
 
   // No job on: someone here offers one
   if (!progress.job) {
@@ -108,6 +115,7 @@ export function land(progress, field, rng = Math.random, people = PEOPLE) {
         ...say(person, job.offer, progress, to, rng),
       ],
       offer: {person: person.name, id: job.id, to},
+      outfit: job.outfit || null,
       toast: null,
     };
   }
@@ -124,6 +132,7 @@ export function land(progress, field, rng = Math.random, people = PEOPLE) {
       person: null,
       dialog: null,
       offer: null,
+      outfit: null,
       toast: {label: 'PICKED UP', title: spec.cargo || `For ${person.name}`},
     };
   }
@@ -139,6 +148,7 @@ export function land(progress, field, rng = Math.random, people = PEOPLE) {
     person,
     dialog: say(person, spec.thanks, next, job.to, rng),
     offer: null,
+    outfit: spec.outfit || null,
     toast: {label: 'JOB DONE', title: `For ${person.name}`},
   };
 }

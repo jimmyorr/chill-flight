@@ -12,6 +12,7 @@ import {
   BLINK_SECONDS,
   BLINK_SHUT_SECONDS,
   drawFace,
+  outfitOf,
 } from './faces.js';
 import {playDialogBlip} from './sfx-events.js';
 
@@ -33,6 +34,8 @@ let onAnswer = null;
 let mouthClosed = false;
 let eyesClosed = false;
 let blinking = null;
+// What each person is wearing, by name (changeOutfit)
+const wearing = {};
 
 function drawPortrait() {
   drawFace(portrait, face, {mouthClosed, eyesClosed});
@@ -80,12 +83,18 @@ function showLine() {
   }, 1000 / TYPE_RATE);
 }
 
+// name puts on their outfit named outfit, or their usual face with none
+// (jobs.js calls this on landing, with the job they're talking about)
+export function changeOutfit(name, outfit) {
+  wearing[name] = outfitOf(FACES[name], outfit);
+}
+
 // person ({name}) says newLines. With answer, the last line is a
 // question, and answer(yes) is called with the reply.
 export function openDialog(person, newLines, answer = null) {
   if (!dialog || !newLines?.length) return;
   dialogName.textContent = person.name;
-  face = FACES[person.name];
+  face = wearing[person.name] || FACES[person.name];
   voice = person.name;
   lines = newLines;
   lineIndex = 0;

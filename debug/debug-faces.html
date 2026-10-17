@@ -125,8 +125,8 @@
     <h1>Faces</h1>
     <p class="sub">
       Everyone's face in <code>faces.js</code>, with their airport from
-      <code>people.js</code>. Tap a person to view all their dialog. Link to one
-      with #name.
+      <code>people.js</code>, and each of their outfits. Tap a person to view
+      all their dialog. Link to one with #name.
     </p>
     <div class="controls">
       <input
@@ -164,7 +164,13 @@
     <div id="faces"></div>
 
     <script type="module">
-      import {FACES, MOUTH_SECONDS, drawFace} from '/faces.js';
+      import {
+        FACES,
+        MOUTH_SECONDS,
+        BLINK_SECONDS,
+        BLINK_SHUT_SECONDS,
+        drawFace,
+      } from '/faces.js';
       import {PEOPLE} from '/people.js';
 
       // Redirect if person is in query params
@@ -184,11 +190,20 @@
       const search = document.getElementById('search');
       const container = document.getElementById('faces');
 
-      const cards = Object.entries(FACES).map(([name, face]) => {
-        const id = name.toLowerCase();
+      // A card for each face and each of its outfits
+      const all = Object.entries(FACES).flatMap(([name, face]) => [
+        {name, face, i: 0, outfit: 'usual'},
+        ...Object.entries(face.outfits || {}).map(([outfit, f]) => ({
+          name,
+          face: f,
+          i: 1,
+          outfit,
+        })),
+      ]);
+      const cards = all.map(({name, face, i, outfit}) => {
         const card = document.createElement('a');
         card.className = 'face-card';
-        card.id = id;
+        if (!i) card.id = name.toLowerCase();
         card.href = `debug-person.html?person=${encodeURIComponent(name)}`;
         const person = PEOPLE.find((p) => p.name === name);
         const airport = person?.airport;
@@ -197,7 +212,7 @@
 
         card.innerHTML = `
           <div class="face-card-header">
-            <h2>${name}</h2>
+            <h2>${name}${FACES[name].outfits ? ` · ${outfit}` : ''}</h2>
             <span class="badge">${jobText}</span>
           </div>
           <div class="meta">${airport || 'Not in people.js yet'}</div>`;
@@ -240,8 +255,13 @@
         requestAnimationFrame(draw);
         const beat = Math.floor(now / 1000 / MOUTH_SECONDS) % 2 === 1;
         const mouthClosed = talking.checked ? beat : closed.checked;
+        const eyesClosed = (now / 1000) % BLINK_SECONDS < BLINK_SHUT_SECONDS;
         for (const {face, canvas} of cards) {
-          drawFace(canvas, face, {mouthClosed, hidden: hidden.checked});
+          drawFace(canvas, face, {
+            mouthClosed,
+            eyesClosed,
+            hidden: hidden.checked,
+          });
         }
       }
       requestAnimationFrame(draw);

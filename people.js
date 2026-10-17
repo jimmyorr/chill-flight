@@ -22,6 +22,8 @@
 //             trip, the whole way for one way.
 //   offer     How they ask (the last line is the question).
 //   thanks    What they say when it's done.
+//   outfit    Optional: which of their outfits in faces.js they wear while
+//             offering it and thanking you (otherwise their usual face).
 //
 // Lines: a list of lines is said in order, one box at a time; a list of
 // lists is a choice, one picked at random each time. {to} becomes the
