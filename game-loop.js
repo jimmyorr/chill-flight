@@ -280,7 +280,7 @@ function performFrame() {
   }
 
   inputManager.pollGamepad(delta);
-  updateSfx(delta);
+  updateSfx();
 
   if (state.isPaused) {
     const loadingOverlay = getCachedElement('loading-overlay');

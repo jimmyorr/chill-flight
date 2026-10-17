@@ -34,15 +34,15 @@ In-game radio features tracks by Purrple Cat (Used with permission/attribution).
 
 Music plays at half volume, about where background music usually sits in a game (the tracks are mastered at streaming loudness), and drops lower while paused (`MUSIC_VOLUME` in `audio.js`). iOS ignores web audio volume, so on iPhone and iPad it plays at full volume.
 
-To start without music (say, on a train), tap the speaker button under Start on the title screen. The choice is saved: later visits skip the title screen and start silently. Music can be turned back on in settings.
+To start without sound (say, on a train), tap the speaker button under Start on the title screen. It turns off both music and sound effects, and the choice is saved: later visits skip the title screen and start silently. Either can be turned back on in settings.
 
 ## Sound effects
 
 Procedural sound effects generated in real time with the Web Audio API provide ambient immersion without adding download weight.
 
-- **Engine:** Synthesizes a warm piston propeller tone (sub-octave rumble, dual oscillators, and blade chop modulation) dynamically pitched to airspeed, throttle, and RPM. Twin-engine aircraft feature dual asynchronous props with acoustic beat frequencies; the glider replaces motor sounds with a soothing wind rush across the wings.
+- **Engine:** Synthesizes a warm piston propeller tone (sub-octave rumble, dual oscillators, an upper-mid rasp that carries on phone speakers, and propeller chop) pitched and getting louder with airspeed and throttle. Twin-engine aircraft feature dual asynchronous props with acoustic beat frequencies; the glider replaces motor sounds with a soothing wind rush across the wings.
 - **Ambiance:** When parked on land, tranquil environmental soundscapes fade in: meadow crickets at dusk and night, or a soft countryside breeze during the day.
-- **Controls:** Sound effects can be toggled in the pause menu settings or temporarily via the `?sfx=0` / `?sfx=1` URL parameter. Sound effects automatically mute when paused.
+- **Controls:** Sound effects can be toggled in the pause menu settings or temporarily via the `?sfx=0` / `?sfx=1` URL parameter. Sound effects automatically mute when paused and stop entirely while the game is in the background. With no saved choice they follow the music setting.
 
 ## Biomes
 

@@ -6,11 +6,26 @@ import {activePlaneType} from './airplane.js';
 import {log} from './logger.js';
 
 // ?sfx=0/1 overrides the saved setting for this visit (and changes made
-// during it aren't saved).
+// during it aren't saved). With no saved setting, sound effects follow the
+// music setting, so players who chose to start silently stay silent.
+function savedSfxEnabled() {
+  try {
+    const saved = localStorage.getItem('chill_flight_sfx_enabled');
+    if (saved !== null) return saved !== 'false';
+    return localStorage.getItem('chill_flight_music_enabled') !== 'false';
+  } catch {
+    return true;
+  }
+}
 export let sfxEnabled =
   ChillFlightLogic.SFX_PARAM !== null
     ? ChillFlightLogic.SFX_PARAM
-    : localStorage.getItem('chill_flight_sfx_enabled') !== 'false';
+    : savedSfxEnabled();
+
+// Top of the speed range in flightSpeedMultiplier units (500 kts)
+const MAX_SPEED_MULT = 500 / 150;
+// Depth of the propeller chop (amplitude wobble from the LFO)
+const CHOP_DEPTH = 0.3;
 
 // Master SFX volume relative to music (which plays at 0.5)
 export const SFX_VOLUME = 0.45;
@@ -35,6 +50,9 @@ let audioCtx = null;
 let masterGain = null;
 let engineGain = null;
 let engineFilter = null;
+let raspFilter = null;
+let raspGain = null;
+let chopGain = null;
 let osc1 = null;
 let osc2 = null;
 let oscSub = null;
@@ -53,20 +71,32 @@ let isInitialized = false;
 
 /**
  * Generates a smooth, looping pink/brown noise buffer for wind rush.
+ * Six seconds long so the loop isn't heard as a cycle, and the noise past
+ * the end is faded into the start so the loop point has no click.
  */
 function createNoiseBuffer(context) {
-  const bufferSize = context.sampleRate * 2;
+  const bufferSize = context.sampleRate * 6;
+  const fadeLen = Math.floor(context.sampleRate * 0.25);
   const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
   const output = buffer.getChannelData(0);
+  const tail = new Float32Array(fadeLen);
   let b0 = 0;
   let b1 = 0;
   let b2 = 0;
-  for (let i = 0; i < bufferSize; i++) {
+  for (let i = 0; i < bufferSize + fadeLen; i++) {
     const white = Math.random() * 2 - 1;
     b0 = 0.99 * b0 + white * 0.05;
     b1 = 0.95 * b1 + white * 0.1;
     b2 = 0.85 * b2 + white * 0.2;
-    output[i] = (b0 + b1 + b2) * 0.6;
+    const v = (b0 + b1 + b2) * 0.6;
+    if (i < bufferSize) output[i] = v;
+    else tail[i - bufferSize] = v;
+  }
+  // The sample after the last one is tail[0], so blend the start from the
+  // tail (continuing the end) into the original start.
+  for (let i = 0; i < fadeLen; i++) {
+    const alpha = i / fadeLen;
+    output[i] = output[i] * alpha + tail[i] * (1 - alpha);
   }
   return buffer;
 }
@@ -252,6 +282,25 @@ function createBreezeBuffer(context) {
   return buffer;
 }
 
+let suspendTimer = null;
+
+/**
+ * Runs the audio context only while sound effects are on and the page is
+ * visible. Suspending stops the oscillators entirely, which saves battery.
+ */
+function syncContextState() {
+  if (!audioCtx) return;
+  clearTimeout(suspendTimer);
+  const shouldRun = sfxEnabled && document.visibilityState !== 'hidden';
+  if (shouldRun) {
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  } else if (audioCtx.state === 'running') {
+    // Hidden: stop at once. Turned off: let the master fade out first.
+    const delay = document.visibilityState === 'hidden' ? 0 : 300;
+    suspendTimer = setTimeout(() => audioCtx.suspend().catch(() => {}), delay);
+  }
+}
+
 /**
  * Initializes the Web Audio graph for sound effects.
  * Safe to call repeatedly; initializes only once.
@@ -347,22 +396,39 @@ export function initAudioContext() {
     engineFilter.frequency.setValueAtTime(180, audioCtx.currentTime);
     engineFilter.Q.setValueAtTime(1.5, audioCtx.currentTime);
 
+    // Upper-mid "rasp" from the sawtooth's harmonics, so the engine still
+    // carries on phone and laptop speakers that can't play the low body
+    raspFilter = audioCtx.createBiquadFilter();
+    raspFilter.type = 'bandpass';
+    raspFilter.frequency.setValueAtTime(400, audioCtx.currentTime);
+    raspFilter.Q.setValueAtTime(0.9, audioCtx.currentTime);
+    raspGain = audioCtx.createGain();
+    raspGain.gain.setValueAtTime(2, audioCtx.currentTime);
+
     engineGain = audioCtx.createGain();
     engineGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-    // Propeller blade chop modulation via LFO
+    // Propeller blade chop: the LFO wobbles chopGain around 1
+    chopGain = audioCtx.createGain();
+    chopGain.gain.setValueAtTime(1, audioCtx.currentTime);
+
     lfo = audioCtx.createOscillator();
     lfo.type = 'sine';
     lfo.frequency.setValueAtTime(9, audioCtx.currentTime);
 
     lfoGain = audioCtx.createGain();
-    lfoGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    lfoGain.gain.setValueAtTime(CHOP_DEPTH, audioCtx.currentTime);
     lfo.connect(lfoGain);
+    lfoGain.connect(chopGain.gain);
 
     osc1.connect(engineFilter);
     osc2.connect(engineFilter);
     oscSubGain.connect(engineFilter);
-    engineFilter.connect(engineGain);
+    osc1.connect(raspFilter);
+    raspFilter.connect(raspGain);
+    engineFilter.connect(chopGain);
+    raspGain.connect(chopGain);
+    chopGain.connect(engineGain);
     engineGain.connect(masterGain);
 
     osc1.start(0);
@@ -377,15 +443,15 @@ export function initAudioContext() {
     return null;
   }
 
-  // Resume suspended AudioContext on user interaction
-  const unlockAudio = () => {
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(() => {});
-    }
-  };
+  // Resume suspended AudioContext on user interaction (autoplay policy)
+  const unlockAudio = () => syncContextState();
   window.addEventListener('pointerdown', unlockAudio, {passive: true});
   window.addEventListener('keydown', unlockAudio, {passive: true});
   window.addEventListener('touchstart', unlockAudio, {passive: true});
+  // Gains only change from the frame loop, which stops in hidden tabs and
+  // backgrounded apps, so suspend the whole context there instead.
+  document.addEventListener('visibilitychange', syncContextState);
+  syncContextState();
 
   return audioCtx;
 }
@@ -419,12 +485,13 @@ export function setSfxEnabled(enabled) {
     const targetGain = enabled && !state.isPaused ? masterVolume : 0;
     masterGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
   }
+  syncContextState();
 }
 
 /**
  * Updates SFX synthesis parameters every frame based on plane speed and type.
  */
-export function updateSfx(delta) {
+export function updateSfx() {
   if (!isInitialized || !audioCtx) return;
 
   const targetMasterGain = sfxEnabled && !state.isPaused ? masterVolume : 0;
@@ -437,6 +504,9 @@ export function updateSfx(delta) {
   const throttleFactor = THREE.MathUtils.clamp(targetSpeed / 2.5, 0, 1);
   const planeType = planeTypeOverride || activePlaneType;
   const isStopped = speed < 0.05 && targetSpeed === 0;
+  const speedFrac = THREE.MathUtils.clamp(speed / MAX_SPEED_MULT, 0, 1);
+  // Engine loudness keeps rising up to top speed instead of flattening out
+  const engineLoudness = 0.05 + 0.19 * Math.sqrt(speedFrac);
 
   // Stopped ambient soundscapes (crickets at night/dusk or gentle meadow breeze during day when parked on land)
   let targetCricketGain = 0;
@@ -450,8 +520,8 @@ export function updateSfx(delta) {
       0,
       1
     );
-    targetCricketGain = 0.12 * nightFactor;
-    targetBreezeGain = 0.1 * (1 - nightFactor * 0.7);
+    targetCricketGain = 0.45 * nightFactor;
+    targetBreezeGain = 0.4 * (1 - nightFactor * 0.7);
   }
 
   cricketGain.gain.setTargetAtTime(
@@ -465,7 +535,10 @@ export function updateSfx(delta) {
     // Gliders have no engine; only graceful wind rush scaling with airspeed
     engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
 
-    const gliderWind = THREE.MathUtils.clamp(speed * 0.22, 0, 0.35);
+    // As loud as a powered plane's engine, rising across the whole range
+    const gliderWind =
+      (0.18 + 0.7 * Math.sqrt(speedFrac)) *
+      THREE.MathUtils.clamp(speed / 0.3, 0, 1);
     windGain.gain.setTargetAtTime(gliderWind, audioCtx.currentTime, 0.05);
     windFilter.frequency.setTargetAtTime(
       320 + speed * 280,
@@ -477,12 +550,14 @@ export function updateSfx(delta) {
 
   if (isStopped) {
     // Engine idles at low murmur when plane is parked
-    engineGain.gain.setTargetAtTime(0.015, audioCtx.currentTime, 0.1);
+    engineGain.gain.setTargetAtTime(0.03, audioCtx.currentTime, 0.1);
     windGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
     osc1.frequency.setTargetAtTime(36, audioCtx.currentTime, 0.1);
     osc2.frequency.setTargetAtTime(37.5, audioCtx.currentTime, 0.1);
     oscSub.frequency.setTargetAtTime(18, audioCtx.currentTime, 0.1);
     engineFilter.frequency.setTargetAtTime(130, audioCtx.currentTime, 0.1);
+    raspFilter.frequency.setTargetAtTime(260, audioCtx.currentTime, 0.1);
+    lfo.frequency.setTargetAtTime(5, audioCtx.currentTime, 0.1);
     return;
   }
 
@@ -497,10 +572,9 @@ export function updateSfx(delta) {
     const cutoff = 150 + speed * 160 + throttleFactor * 60;
     engineFilter.frequency.setTargetAtTime(cutoff, audioCtx.currentTime, 0.05);
 
-    const targetEngineGain =
-      0.04 + THREE.MathUtils.clamp(speed * 0.14, 0, 0.16);
+    raspFilter.frequency.setTargetAtTime(f * 6, audioCtx.currentTime, 0.05);
     engineGain.gain.setTargetAtTime(
-      targetEngineGain,
+      engineLoudness * 1.05,
       audioCtx.currentTime,
       0.05
     );
@@ -529,13 +603,8 @@ export function updateSfx(delta) {
     const cutoff = (isBiplane ? 150 : 165) + speed * 180 + throttleFactor * 70;
     engineFilter.frequency.setTargetAtTime(cutoff, audioCtx.currentTime, 0.05);
 
-    const targetEngineGain =
-      0.04 + THREE.MathUtils.clamp(speed * 0.13, 0, 0.15);
-    engineGain.gain.setTargetAtTime(
-      targetEngineGain,
-      audioCtx.currentTime,
-      0.05
-    );
+    raspFilter.frequency.setTargetAtTime(f * 6, audioCtx.currentTime, 0.05);
+    engineGain.gain.setTargetAtTime(engineLoudness, audioCtx.currentTime, 0.05);
 
     // Subtle wind rush
     windGain.gain.setTargetAtTime(speed * 0.05, audioCtx.currentTime, 0.05);
@@ -562,6 +631,9 @@ export function getSfxNodes() {
     masterGain,
     engineGain,
     engineFilter,
+    raspFilter,
+    raspGain,
+    chopGain,
     osc1,
     osc2,
     oscSub,

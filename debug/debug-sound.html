@@ -1010,7 +1010,8 @@
               '/assets/purrple-cat-birds-of-a-feather.mp3'
             );
             musicAudio.loop = true;
-            musicAudio.volume = 0.35;
+            // Same level as in the game (MUSIC_VOLUME in audio.js)
+            musicAudio.volume = 0.5;
           }
           musicAudio
             .play()

@@ -23,7 +23,7 @@ import {
 import {camera, clock, renderer} from './sky.js';
 import {scene} from './scene.js';
 import {musicEnabled, setMusicEnabled} from './audio.js';
-import {initAudioContext} from './sfx.js';
+import {initAudioContext, setSfxEnabled} from './sfx.js';
 import {state} from './state.js';
 import {BASE_FLIGHT_SPEED, updateDOM, updateUrlParams} from './constants.js';
 import {FALL_START_KTS} from './flight-physics.js';
@@ -421,6 +421,9 @@ if (overlay) {
   // Whether START begins with music. The title screen's music toggle changes
   // it; nothing plays or is saved until the game starts.
   let startWithMusic = musicEnabled;
+  // Whether the player turned sound off with that toggle (not ?music=0),
+  // which silences sound effects too
+  let mutedOnTitle = false;
 
   state.dismissLoadingScreen = (instant = false) => {
     if (renderer && typeof renderer.compile === 'function') {
@@ -450,8 +453,9 @@ if (overlay) {
     state.justResumed = true;
     clock.update();
 
-    // Start music (or not, per the title screen's music toggle)
+    // Start music (or not, per the title screen's sound toggle)
     setMusicEnabled(startWithMusic);
+    if (mutedOnTitle) setSfxEnabled(false);
 
     // Initialize sound effects audio graph on first user start
     initAudioContext();
@@ -472,6 +476,7 @@ if (overlay) {
   if (musicToggle) {
     musicToggle.addEventListener('click', () => {
       startWithMusic = !startWithMusic;
+      mutedOnTitle = !startWithMusic;
       musicToggle.setAttribute('aria-pressed', String(startWithMusic));
       if (loadingAttrEl) {
         loadingAttrEl.classList.toggle('dimmed', !startWithMusic);
