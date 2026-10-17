@@ -89,5 +89,131 @@ export function renderMapRows({
       pixels[out + 3] = 255;
     }
   }
+  if (mode !== 'gray' && !ChillFlightLogic.customMap) {
+    drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd);
+  }
   return pixels;
+}
+
+// --- ROADS ---
+// The highways and the airports' access roads, painted over the land as
+// dark lines at least a pixel and a half wide, so they still show (fainter)
+// zoomed out. A highway runs only where there's land within
+// ROAD_LAND_REACH along it both north and south (as terrain-chunks.js
+// builds it), checked on the same 500-unit grid and cached per seed.
+const ROAD_COLOR = [64, 64, 68];
+const LAND_STEP = 500;
+const _landCache = new Map();
+let _landCacheSeed = null;
+
+function highwayLandAt(n, k, simplex) {
+  const key = n * 1e6 + k;
+  let land = _landCache.get(key);
+  if (land === undefined) {
+    const z = k * LAND_STEP;
+    land =
+      ChillFlightLogic.getElevation(
+        ChillFlightLogic.getRoadCenterX(z, n),
+        z,
+        simplex,
+        CONSTANTS,
+        null,
+        {ignoreRivers: true, ignoreRoads: true, forRoad: true}
+      ) > CONSTANTS.WATER_LEVEL;
+    _landCache.set(key, land);
+  }
+  return land;
+}
+
+function highwayRunsAt(n, z, simplex) {
+  const reach = ChillFlightLogic.ROAD_LAND_REACH;
+  const landWithin = (from, to) => {
+    for (
+      let k = Math.ceil(from / LAND_STEP);
+      k <= Math.floor(to / LAND_STEP);
+      k++
+    ) {
+      if (highwayLandAt(n, k, simplex)) return true;
+    }
+    return false;
+  };
+  return (
+    landWithin(z - reach, z + LAND_STEP) && landWithin(z - LAND_STEP, z + reach)
+  );
+}
+
+// Blends the road colour into pixels from x = left to right (world units)
+// on one row
+function paintSpan(pixels, row, width, x0, upp, left, right, alpha) {
+  const c0 = Math.max(0, Math.floor((left - x0) / upp));
+  const c1 = Math.min(width - 1, Math.floor((right - x0) / upp));
+  for (let c = c0; c <= c1; c++) {
+    // Partial coverage at the span's ends, for smooth edges
+    const px0 = x0 + c * upp;
+    const cover = Math.max(
+      0,
+      Math.min(1, (Math.min(right, px0 + upp) - Math.max(left, px0)) / upp)
+    );
+    const a = alpha * cover;
+    const out = (row * width + c) * 4;
+    for (let i = 0; i < 3; i++) {
+      pixels[out + i] += (ROAD_COLOR[i] - pixels[out + i]) * a;
+    }
+  }
+}
+
+function drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd) {
+  if (_landCacheSeed !== ChillFlightLogic.WORLD_SEED) {
+    _landCache.clear();
+    _landCacheSeed = ChillFlightLogic.WORLD_SEED;
+  }
+  // At least a pixel and a half wide, fading as it gets thinner than that
+  const minHalf = upp * 0.75;
+  const x1 = x0 + width * upp;
+  const roadHalf = ChillFlightLogic.ROAD_WIDTH + 2;
+  const highwayAlpha = Math.min(1, (roadHalf / minHalf) ** 0.5 + 0.35);
+  const accessHalf = ChillFlightLogic.ACCESS_ROAD_WIDTH;
+  const accessAlpha = Math.min(1, (accessHalf / minHalf) ** 0.5 + 0.2);
+  for (let r = rowStart; r < rowEnd; r++) {
+    const row = r - rowStart;
+    const zTop = z0 + r * upp;
+    const zMid = zTop + upp / 2;
+    for (let n = 0; n <= ChillFlightLogic.ROAD_LAST; n++) {
+      // Highways keep within about 5000 units of their base line
+      const base =
+        ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
+      if (base + 6000 < x0 || base - 6000 > x1) continue;
+      // The road's centre across the row, top to bottom, so steep bends
+      // stay joined up
+      const a = ChillFlightLogic.getRoadCenterX(zTop, n);
+      const b = ChillFlightLogic.getRoadCenterX(zTop + upp, n);
+      if (Math.max(a, b) >= 0) continue;
+      if (Math.max(a, b) + roadHalf < x0 || Math.min(a, b) - roadHalf > x1) {
+        continue;
+      }
+      if (!highwayRunsAt(n, zMid, simplex)) continue;
+      const slope = (b - a) / upp;
+      const half = Math.max(minHalf, roadHalf * Math.sqrt(1 + slope * slope));
+      paintSpan(
+        pixels,
+        row,
+        width,
+        x0,
+        upp,
+        Math.min(a, b) - half,
+        Math.max(a, b) + half,
+        highwayAlpha
+      );
+    }
+    ChillFlightLogic.ACCESS_ROADS.forEach((road, i) => {
+      // The row the road runs along (or, zoomed in, every row it covers)
+      const half = Math.max(minHalf, accessHalf);
+      if (road.z + half < zTop || road.z - half >= zTop + upp) return;
+      if (road.maxX < x0 || road.minX > x1) return;
+      if (!ChillFlightLogic.accessRoadEnds(i, simplex, CONSTANTS)?.built) {
+        return;
+      }
+      paintSpan(pixels, row, width, x0, upp, road.minX, road.maxX, accessAlpha);
+    });
+  }
 }
