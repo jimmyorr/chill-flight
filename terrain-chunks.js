@@ -134,6 +134,11 @@ import {
   reflectionMat,
   releaseInstancedMesh,
   resetChunkQueue,
+  roadCentreDashGeo,
+  roadCentreLinesGeo,
+  roadLaneLinesGeo,
+  roadWhiteMat,
+  roadYellowMat,
   rockArchGrassMat,
   rockGeo,
   rockMat,
@@ -2091,6 +2096,22 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           slFrequency = 8;
         }
 
+        // Lane markings thin out with the streetlights: full markings in
+        // the heartland, a dashed centre line further out, none on the
+        // frontier
+        const markings =
+          slFrequency === 0
+            ? []
+            : slFrequency > 4
+              ? [[roadCentreDashGeo, roadYellowMat]]
+              : [
+                  [roadLaneLinesGeo, roadWhiteMat],
+                  [roadCentreLinesGeo, roadYellowMat],
+                ];
+        const markingInsts = markings.map(([geo, mat]) =>
+          getInstancedMesh(geo, mat, bridgePositions.length)
+        );
+
         // Calculate exact number of streetlights based on global segment alignment
         let numStreetlights = 0;
         if (slFrequency > 0) {
@@ -2145,6 +2166,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
           dummy.updateMatrix();
           deckInst.setMatrixAt(index, dummy.matrix);
+          for (const m of markingInsts) m.setMatrixAt(index, dummy.matrix);
 
           // Extract just the yaw from the deck's rotation for pilings
           const euler = new THREE.Euler().setFromQuaternion(
@@ -2277,6 +2299,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
         deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
         group.add(deckInst);
+        for (const m of markingInsts) {
+          m.position.set(worldOffsetX, 0, worldOffsetZ);
+          m.castShadow = false;
+          group.add(m);
+        }
 
         if (numGirderSegments > 0) {
           girderInst.position.set(worldOffsetX, 0, worldOffsetZ);

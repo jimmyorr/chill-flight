@@ -245,6 +245,9 @@
       <button class="model-btn" onclick="viewModel('windsock', event)">
         Windsock
       </button>
+      <button class="model-btn" onclick="viewModel('airport_sign', event)">
+        Airport sign
+      </button>
       <button class="model-btn" onclick="viewModel('waterfall', event)">
         Waterfall
       </button>
@@ -352,6 +355,7 @@
       import {createMaterial} from '../constants.js';
       import {createBiplaneModel} from '../biplane.js';
       import {
+        createAirportSign,
         createControlTower,
         createHangar,
         createWindsock,
@@ -588,6 +592,9 @@
               break;
             case 'windsock':
               previewGroup.add(createWindsock());
+              break;
+            case 'airport_sign':
+              previewGroup.add(createAirportSign('Mesa Field', 1));
               break;
             case 'waterfall': {
               // A sample: a stream across a flat top from a pond, then a

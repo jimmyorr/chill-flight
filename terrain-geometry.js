@@ -2428,6 +2428,42 @@ export var bridgeDeckGeo = new THREE.BoxGeometry(
   BRIDGE_SEGMENT_LENGTH
 );
 
+// Lane markings, laid just above the deck's top and stretched with it.
+// Heartland highways get white edge lines, dashed lane lines (two lanes
+// each way) and a double yellow centre line; further out, only a dashed
+// yellow centre line (terrain-chunks.js picks by latitude).
+function roadStripes(stripes) {
+  return mergeGeometries(
+    stripes.map(([x, width, length]) => {
+      const g = new THREE.PlaneGeometry(width, length);
+      g.rotateX(-Math.PI / 2);
+      g.translate(x, 0.8, 0);
+      return g;
+    })
+  );
+}
+const LANE_LINE_X = ChillFlightLogic.ROAD_WIDTH / 2;
+const EDGE_LINE_X = ChillFlightLogic.ROAD_WIDTH - 1.5;
+export var roadLaneLinesGeo = roadStripes([
+  [-EDGE_LINE_X, 0.7, BRIDGE_SEGMENT_LENGTH],
+  [EDGE_LINE_X, 0.7, BRIDGE_SEGMENT_LENGTH],
+  [-LANE_LINE_X, 0.5, 12],
+  [LANE_LINE_X, 0.5, 12],
+]);
+export var roadCentreLinesGeo = roadStripes([
+  [-0.6, 0.45, BRIDGE_SEGMENT_LENGTH],
+  [0.6, 0.45, BRIDGE_SEGMENT_LENGTH],
+]);
+export var roadCentreDashGeo = roadStripes([[0, 0.5, 12]]);
+const markingParams = {
+  flatShading: true,
+  polygonOffset: true,
+  polygonOffsetFactor: -2,
+  polygonOffsetUnits: -2,
+};
+export var roadWhiteMat = createMaterial({color: 0xf2f0e6, ...markingParams});
+export var roadYellowMat = createMaterial({color: 0xe8c24a, ...markingParams});
+
 // 2. Box girder: trapezoidal underside attached ONLY under elevated bridge spans
 function createBridgeGirderGeometry() {
   const shape = new THREE.Shape();

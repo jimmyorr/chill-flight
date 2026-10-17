@@ -266,12 +266,95 @@ function createParkedPlanes(index) {
   return mergeByMaterial(group);
 }
 
+// --- AIRPORT SIGN ---
+// A green highway sign with the airport's name and an arrow toward its
+// access road (arrow -1 left, 1 right), on two posts, its face toward +Z.
+// The posts reach well below 0 so the sign stands on uneven ground.
+const SIGN_WIDTH = 28;
+const SIGN_HEIGHT = 8;
+const SIGN_CLEARANCE = 7;
+const signGreenMat = createMaterial({color: 0x1f6b45, flatShading: true});
+const signPostMat = createMaterial({color: 0x8a9096, flatShading: true});
+
+function signTexture(name, arrow) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 576;
+  canvas.height = 160;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1f6b45';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#f2f0e6';
+  ctx.lineWidth = 7;
+  ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+  ctx.fillStyle = '#f2f0e6';
+  ctx.textBaseline = 'middle';
+  // The arrow on the side it points to, the name beside it, as large as fits
+  const arrowW = 70;
+  let fontSize = 80;
+  let textW;
+  do {
+    ctx.font = `bold ${fontSize}px Inter, Helvetica, Arial, sans-serif`;
+    textW = ctx.measureText(name).width;
+    fontSize -= 4;
+  } while (arrowW + 24 + textW > canvas.width - 70 && fontSize > 32);
+  const total = arrowW + 24 + textW;
+  const left = (canvas.width - total) / 2;
+  const arrowX = arrow > 0 ? left + textW + 24 : left;
+  ctx.fillText(name, arrow > 0 ? left : left + arrowW + 24, 82);
+  const y = 80;
+  const tip = arrow > 0 ? arrowX + arrowW : arrowX;
+  const tail = arrow > 0 ? arrowX : arrowX + arrowW;
+  const head = arrow > 0 ? tip - 30 : tip + 30;
+  ctx.fillRect(Math.min(tail, head), y - 7, Math.abs(head - tail), 14);
+  ctx.beginPath();
+  ctx.moveTo(tip, y);
+  ctx.lineTo(head, y - 26);
+  ctx.lineTo(head, y + 26);
+  ctx.closePath();
+  ctx.fill();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.anisotropy = 4;
+  return texture;
+}
+
+export function createAirportSign(name, arrow) {
+  const group = new THREE.Group();
+  const face = createMaterial({map: signTexture(name, arrow)});
+  // Box faces: +x, -x, +y, -y, +z (the front), -z
+  const panel = new THREE.Mesh(
+    new THREE.BoxGeometry(SIGN_WIDTH, SIGN_HEIGHT, 0.5),
+    [signGreenMat, signGreenMat, signGreenMat, signGreenMat, face, signGreenMat]
+  );
+  panel.position.y = SIGN_CLEARANCE + SIGN_HEIGHT / 2;
+  panel.castShadow = true;
+  group.add(panel);
+  const postHeight = SIGN_CLEARANCE + SIGN_HEIGHT + 8;
+  group.add(
+    mesh(
+      [-1, 1].map((side) =>
+        box(
+          0.5,
+          postHeight,
+          0.5,
+          side * (SIGN_WIDTH / 2 - 2),
+          postHeight / 2 - 8,
+          -0.6
+        )
+      ),
+      signPostMat
+    )
+  );
+  return group;
+}
+
 // --- ACCESS ROAD ---
 // The road from the apron's end to the highway (ACCESS_ROADS), along world
 // x, with skirts down its sides where it ramps up onto the highway and a
 // dashed centre line. Built in world space, then moved into the frame of
 // the airport at (a.x, fieldY, a.z).
 const ACCESS_ROAD_STEP = 10;
+// How far before the turn the highway's signs stand
+const SIGN_LEAD = 250;
 const ACCESS_ROAD_SKIRT = 3;
 const DASH_LENGTH = 10;
 const DASH_GAP = 14;
@@ -356,6 +439,22 @@ function createAccessRoad(road, a, fieldY) {
     .makeRotationY(a.angle)
     .multiply(new THREE.Matrix4().makeTranslation(-a.x, -fieldY, -a.z));
   const group = new THREE.Group();
+
+  // A sign on the highway's shoulder each way, before the turn: traffic
+  // heading north (-z) has +x on its right, heading south -x
+  const signs = new THREE.Group();
+  const toAirport = Math.sign(road.x0 - road.x1);
+  for (const heading of [-1, 1]) {
+    const right = -heading;
+    const x = road.x1 + right * (ChillFlightLogic.ROAD_WIDTH + 8);
+    const sz = road.z - heading * SIGN_LEAD;
+    const sign = createAirportSign(a.name, toAirport * right);
+    sign.position.set(x, getElevation(x, sz), sz);
+    sign.rotation.y = heading < 0 ? 0 : Math.PI;
+    signs.add(sign);
+  }
+  signs.applyMatrix4(toLocal);
+  group.add(signs);
   for (const [positions, material] of [
     [pave, asphaltMat],
     [dashes, markingMat],
