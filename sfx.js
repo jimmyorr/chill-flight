@@ -94,44 +94,50 @@ function createNoiseBuffer(context) {
 }
 
 /**
- * Generates a peaceful stereo looping buffer of crickets chirping
- * in the meadow at night and dusk.
+ * Generates a peaceful, sleepy stereo looping buffer of tree crickets
+ * chirping softly in the meadow at night and dusk.
  */
-function createCricketBuffer(context) {
-  const duration = 5;
+function createCricketBuffer(
+  context,
+  {pitchA = 2520, pitchB = 2740, rate = 1} = {}
+) {
+  const duration = 9;
   const sampleRate = context.sampleRate;
   const totalSamples = sampleRate * duration;
   const buffer = context.createBuffer(2, totalSamples, sampleRate);
   const left = buffer.getChannelData(0);
   const right = buffer.getChannelData(1);
 
+  const rateScale = 1 / Math.max(0.4, rate);
+  // Warm, mellow snowy-tree-cricket pitches (~2.4-2.7 kHz) with sparse,
+  // unhurried calls and plenty of quiet evening air in between
   const crickets = [
     {
-      freq: 4650,
-      gain: 0.35,
-      pan: -0.5,
-      times: [0.4, 1.7, 3.1, 4.3],
+      freq: pitchA,
+      gain: 0.16,
+      pan: -0.45,
+      times: [0.7, 4.1, 7.3],
       pulses: 4,
-      len: 0.016,
-      gap: 0.026,
+      len: 0.028 * rateScale,
+      gap: 0.048 * rateScale,
     },
     {
-      freq: 5050,
-      gain: 0.28,
-      pan: 0.6,
-      times: [0.9, 2.3, 3.8],
+      freq: pitchB,
+      gain: 0.12,
+      pan: 0.5,
+      times: [2.2, 5.8],
       pulses: 3,
-      len: 0.014,
-      gap: 0.024,
+      len: 0.026 * rateScale,
+      gap: 0.046 * rateScale,
     },
     {
-      freq: 4850,
-      gain: 0.22,
-      pan: 0.2,
-      times: [1.3, 2.8, 4.8],
+      freq: pitchA * 0.94,
+      gain: 0.08,
+      pan: 0.15,
+      times: [3.3, 8.1],
       pulses: 3,
-      len: 0.013,
-      gap: 0.025,
+      len: 0.03 * rateScale,
+      gap: 0.052 * rateScale,
     },
   ];
 
@@ -140,14 +146,21 @@ function createCricketBuffer(context) {
     const rightGain = c.gain * (1 + c.pan) * 0.5;
     for (const st of c.times) {
       for (let p = 0; p < c.pulses; p++) {
+        // Gentle phrase swell across the syllables so chirps ease in and trail off
+        const phraseFrac = c.pulses > 1 ? p / (c.pulses - 1) : 0.5;
+        const phraseEnv = 0.55 + 0.45 * Math.sin(phraseFrac * Math.PI);
+        // Subtle natural pitch settle across the phrase
+        const pulseFreq = c.freq * (1 - 0.012 * phraseFrac);
         const pStart = st + p * c.gap;
         const startSample = Math.floor(pStart * sampleRate);
         const pulseSamples = Math.floor(c.len * sampleRate);
         for (let i = 0; i < pulseSamples; i++) {
           const idx = (startSample + i) % totalSamples;
           const t = i / sampleRate;
-          const env = Math.sin((i / pulseSamples) * Math.PI);
-          const carrier = Math.sin(2 * Math.PI * c.freq * t);
+          // Raised-cosine (Hann) syllable envelope for soft, click-free edges
+          const env =
+            0.5 * (1 - Math.cos((2 * Math.PI * i) / pulseSamples)) * phraseEnv;
+          const carrier = Math.sin(2 * Math.PI * pulseFreq * t);
           left[idx] += carrier * env * leftGain;
           right[idx] += carrier * env * rightGain;
         }
@@ -572,14 +585,14 @@ export function updateSfx() {
       0,
       1
     );
-    targetCricketGain = 0.45 * nightFactor;
+    targetCricketGain = 0.28 * nightFactor;
     targetBreezeGain = 0.4 * (1 - nightFactor * 0.7);
   }
 
   cricketGain.gain.setTargetAtTime(
     targetCricketGain,
     audioCtx.currentTime,
-    0.4
+    0.8
   );
   breezeGain.gain.setTargetAtTime(targetBreezeGain, audioCtx.currentTime, 0.4);
 

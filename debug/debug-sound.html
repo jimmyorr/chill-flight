@@ -543,30 +543,30 @@
         <div class="control-row">
           <div class="control-label">
             <span>Cricket A pitch</span>
-            <span class="control-value" id="cricket-pitch-val">4650 Hz</span>
+            <span class="control-value" id="cricket-pitch-val">2520 Hz</span>
           </div>
           <input
             type="range"
             id="cricket-pitch"
-            min="3500"
-            max="5800"
-            step="50"
-            value="4650"
+            min="1800"
+            max="4800"
+            step="40"
+            value="2520"
           />
         </div>
 
         <div class="control-row">
           <div class="control-label">
             <span>Cricket B pitch</span>
-            <span class="control-value" id="cricket-pitch-b-val">5050 Hz</span>
+            <span class="control-value" id="cricket-pitch-b-val">2740 Hz</span>
           </div>
           <input
             type="range"
             id="cricket-pitch-b"
-            min="4000"
-            max="6200"
-            step="50"
-            value="5050"
+            min="2000"
+            max="5200"
+            step="40"
+            value="2740"
           />
         </div>
 
@@ -1230,7 +1230,11 @@
           standaloneCricketSource.disconnect();
         }
         standaloneCricketSource = audioCtx.createBufferSource();
-        standaloneCricketSource.buffer = createCricketBuffer(audioCtx);
+        standaloneCricketSource.buffer = createCricketBuffer(audioCtx, {
+          pitchA: parseFloat(cricketPitch.value),
+          pitchB: parseFloat(cricketPitchB.value),
+          rate: parseFloat(cricketRate.value),
+        });
         standaloneCricketSource.loop = true;
         standaloneCricketSource.connect(standaloneCricketGain);
         standaloneCricketSource.start(0);
@@ -1398,8 +1402,8 @@
         },
         crickets: {
           cricketVol: 0.2,
-          cricketPitch: 4650,
-          cricketPitchB: 5050,
+          cricketPitch: 2520,
+          cricketPitchB: 2740,
         },
         cruise: {
           planeType: 'twin',
