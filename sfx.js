@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
 import {activePlaneType} from './airplane.js';
+import {musicEnabled} from './audio.js';
 import {log} from './logger.js';
 
 // ?sfx=0/1 overrides the saved setting for this visit (and changes made
@@ -26,6 +27,9 @@ export let sfxEnabled =
 const MAX_SPEED_MULT = 500 / 150;
 // Depth of the propeller chop (amplitude wobble from the LFO)
 const CHOP_DEPTH = 0.3;
+// Engine level while music is on (0.25 = -12 dB): the engine's steady drone
+// fights the music at full level, so it sits well underneath it instead
+const ENGINE_MUSIC_DUCK = 0.25;
 
 // Master SFX volume relative to music (which plays at 0.5)
 export const SFX_VOLUME = 0.45;
@@ -571,7 +575,8 @@ export function updateSfx() {
   const isStopped = speed < 0.05 && targetSpeed === 0;
   const speedFrac = THREE.MathUtils.clamp(speed / MAX_SPEED_MULT, 0, 1);
   // Engine loudness keeps rising up to top speed instead of flattening out
-  const engineLoudness = 0.05 + 0.19 * Math.sqrt(speedFrac);
+  const engineDuck = musicEnabled ? ENGINE_MUSIC_DUCK : 1;
+  const engineLoudness = (0.05 + 0.19 * Math.sqrt(speedFrac)) * engineDuck;
 
   // Stopped ambient soundscapes (crickets at night/dusk or gentle meadow breeze during day when parked on land)
   let targetCricketGain = 0;
@@ -615,7 +620,11 @@ export function updateSfx() {
 
   if (isStopped) {
     // Engine idles at low murmur when plane is parked
-    engineGain.gain.setTargetAtTime(0.03, audioCtx.currentTime, 0.1);
+    engineGain.gain.setTargetAtTime(
+      0.03 * engineDuck,
+      audioCtx.currentTime,
+      0.1
+    );
     windGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
     osc1.frequency.setTargetAtTime(36, audioCtx.currentTime, 0.1);
     osc2.frequency.setTargetAtTime(37.5, audioCtx.currentTime, 0.1);
