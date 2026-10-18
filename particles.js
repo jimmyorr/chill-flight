@@ -189,6 +189,8 @@ const PONTOON_STERN = 7.5;
 const WAKE_MIN_SPEED = 0.08;
 // How far apart the wake's foam is laid (units)
 const WAKE_SPACING = 1.5;
+// How far apart the rolling dust is laid (units)
+const DUST_SPACING = 1.5;
 
 const WHITE = new THREE.Color(1, 1, 1);
 const FOAM = new THREE.Color(0.93, 0.97, 1.0);
@@ -207,6 +209,10 @@ let fallRate = 0;
 // Where each wake line was last laid down to
 const lastStern = [new THREE.Vector3(), new THREE.Vector3()];
 let settleTime = 0;
+let dustTravel = 0;
+let dustCheckTimer = 0;
+let groundDust = null;
+const _rollDust = new THREE.Color();
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -230,14 +236,17 @@ function planeVelocity(out) {
   return out.set(-Math.sin(h) * speed, 0, -Math.cos(h) * speed);
 }
 
-// Whether (x, z) is paved: a runway or the highway
+// Whether (x, z) is paved: a runway, an apron or a road
 function isPaved(x, z) {
   if (sampleRoad(x, z, _road)) return true;
   const L = ChillFlightLogic;
   return L.AIRPORTS.some((a) => {
     const {u, v} = L.airportLocal(a, x, z);
+    const half = L.RUNWAY_WIDTH / 2;
+    // The runway, and the apron beside it (airports.js createRunway)
     return (
-      Math.abs(u) <= L.RUNWAY_LENGTH / 2 && Math.abs(v) <= L.RUNWAY_WIDTH / 2
+      (Math.abs(u) <= L.RUNWAY_LENGTH / 2 && Math.abs(v) <= half) ||
+      (Math.abs(u) <= 85 && v >= half && v <= half + 51)
     );
   });
 }
@@ -379,6 +388,88 @@ function touchdownPuff(strength) {
   }
 }
 
+// The colour of the dust under the plane (null when paved), looked up a
+// few times a second while rolling
+function groundDustColor() {
+  dustCheckTimer -= 1;
+  if (dustCheckTimer > 0) return groundDust;
+  dustCheckTimer = 10;
+  const {x, z} = planeGroup.position;
+  if (isPaved(x, z)) {
+    groundDust = null;
+  } else {
+    groundDust = sampleGroundColor(x, z, _rollDust)
+      ? _rollDust.lerp(DUST_LIGHTEN, 0.65)
+      : DUST_LIGHTEN;
+  }
+  return groundDust;
+}
+
+// Rolling on dirt or grass: a low trail of dust off the wheels, laid every
+// DUST_SPACING units travelled, and the propeller's wash blowing dust back
+// along the ground while the throttle is open at low speed
+function rollingDust(delta, speed) {
+  const color = groundDustColor();
+  if (!color) return;
+  const half = GEAR_HALF_TRACK[activePlaneType] ?? 2;
+  const sides = half > 0 ? [-1, 1] : [0];
+  const groundY =
+    planeGroup.position.y - (state.airplaneModel?.wheelDepth ?? 3);
+  const fast = THREE.MathUtils.clamp(speed / 0.6, 0, 1);
+  const h = planeGroup.rotation.y;
+
+  // Laid back along the path covered this frame, so the trail stays
+  // unbroken at any frame rate
+  dustTravel += speed * BASE_FLIGHT_SPEED * 60 * delta;
+  const count = Math.min(12, Math.floor(dustTravel / DUST_SPACING));
+  dustTravel -= count * DUST_SPACING;
+  for (let k = 0; k < count; k++) {
+    for (const side of sides) {
+      planePoint(
+        side * half + rand(-0.5, 0.5),
+        k * DUST_SPACING + rand(0, 1.5),
+        groundY + 0.5,
+        _p
+      );
+      spawn(
+        _p,
+        {x: rand(-1.5, 1.5), y: rand(0.5, 2), z: rand(-1.5, 1.5)},
+        1,
+        rand(1.5, 2.5),
+        rand(2, 3),
+        rand(4, 6) * (0.7 + 0.6 * fast),
+        color,
+        0.25 + 0.25 * fast
+      );
+    }
+  }
+
+  // Prop wash: strongest with the throttle open and the plane still slow
+  if (activePlaneType === 'glider') return;
+  const throttle = THREE.MathUtils.clamp(state.targetFlightSpeed || 0, 0, 1);
+  const wash = throttle * (1 - fast);
+  if (Math.random() > wash * delta * 30) return;
+  const props = activePlaneType === 'twin' ? [-1, 1] : [0];
+  for (const side of props) {
+    planePoint(side * half + rand(-1.5, 1.5), rand(1, 4), groundY + 0.4, _p);
+    const back = rand(12, 22) * throttle;
+    spawn(
+      _p,
+      {
+        x: Math.sin(h) * back + rand(-3, 3),
+        y: rand(0.5, 2),
+        z: Math.cos(h) * back + rand(-3, 3),
+      },
+      0.5,
+      rand(1, 1.6),
+      rand(0.8, 1.4),
+      rand(3.5, 6),
+      color,
+      0.35 * wash + 0.1
+    );
+  }
+}
+
 /** Per frame: spawns the plane's effects and moves the pool's clock. */
 export function updateParticles(delta) {
   if (state.isPaused || delta <= 0) return;
@@ -411,6 +502,7 @@ export function updateParticles(delta) {
     if (onWater && lastWater === false) splash(impact);
     if (wheels && lastWheels === false && !onWater) touchdownPuff(impact);
     if (onWater && speed > WAKE_MIN_SPEED) wake(delta, speed);
+    if (wheels && !onWater) rollingDust(delta, speed);
   }
   if (!onWater) for (const last of lastStern) last.valid = false;
   lastWater = onWater;
