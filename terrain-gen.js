@@ -943,6 +943,52 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, fixed) {
   };
 }
 
+// Heights at `positions` (chunk-local x, z) as the distant terrain ring draws
+// them: sampled on its grid (`cell` world units per cell, `segments` squares
+// each, lined up on cell edges) and interpolated across the same two
+// triangles per square as its PlaneGeometry.
+function coarseGridHeights(
+  positions,
+  worldOffsetX,
+  worldOffsetZ,
+  halfSize,
+  {cell, segments},
+  elevParams
+) {
+  const step = cell / segments;
+  const origin = -cell / 2;
+  const nx0 = Math.floor((worldOffsetX - halfSize - origin) / step);
+  const nz0 = Math.floor((worldOffsetZ - halfSize - origin) / step);
+  const n = Math.ceil((2 * halfSize) / step) + 2;
+  const grid = new Float32Array(n * n);
+  for (let gz = 0; gz < n; gz++) {
+    const wz = origin + (nz0 + gz) * step;
+    for (let gx = 0; gx < n; gx++) {
+      const wx = origin + (nx0 + gx) * step;
+      grid[gz * n + gx] = getElevation(wx, wz, elevParams);
+    }
+  }
+  const out = new Float32Array(positions.length / 3);
+  for (let i = 0; i < out.length; i++) {
+    const u = (worldOffsetX + positions[i * 3] - origin) / step - nx0;
+    const v = (worldOffsetZ + positions[i * 3 + 2] - origin) / step - nz0;
+    const gx = Math.min(n - 2, Math.max(0, Math.floor(u)));
+    const gz = Math.min(n - 2, Math.max(0, Math.floor(v)));
+    const fu = u - gx;
+    const fv = v - gz;
+    const h00 = grid[gz * n + gx];
+    const h10 = grid[gz * n + gx + 1];
+    const h01 = grid[(gz + 1) * n + gx];
+    const h11 = grid[(gz + 1) * n + gx + 1];
+    // PlaneGeometry splits each square along the (0,1)-(1,0) diagonal
+    out[i] =
+      fu + fv <= 1
+        ? h00 + fu * (h10 - h00) + fv * (h01 - h00)
+        : h11 + (1 - fu) * (h01 - h11) + (1 - fv) * (h10 - h11);
+  }
+  return out;
+}
+
 export function generateChunkData({
   chunkX,
   chunkZ,
@@ -953,6 +999,7 @@ export function generateChunkData({
   forceIslandType,
   forceContinent,
   enableObjects,
+  morphGrid,
 }) {
   if (worldSeed !== undefined) {
     ChillFlightLogic.WORLD_SEED = worldSeed;
@@ -1008,6 +1055,20 @@ export function generateChunkData({
     }
   }
 
+  // Each vertex's height on the distant terrain ring's coarser grid, which
+  // the terrain shader morphs toward near the draw distance so the ring takes
+  // over without a visible jump in shape (#81).
+  const morphHeights = morphGrid
+    ? coarseGridHeights(
+        positions,
+        worldOffsetX,
+        worldOffsetZ,
+        halfSize,
+        morphGrid,
+        elevParams
+      )
+    : null;
+
   // Water plane computation
   let hasWater = false;
   for (let i = 0; i < totalVerts; i++) {
@@ -1031,6 +1092,7 @@ export function generateChunkData({
     heightGrid.buffer,
     terrainColors.buffer,
   ];
+  if (morphHeights) transferables.push(morphHeights.buffer);
 
   if (hasWater) {
     const wSegments = Math.max(1, Math.floor(segments / 4));
@@ -3212,6 +3274,7 @@ export function generateChunkData({
         terrainPositions: positions,
         heightGrid: heightGrid,
         terrainColors: terrainColors,
+        morphHeights,
         waterPositions,
         waterColors,
         waterFlow,

@@ -188,6 +188,8 @@ import {
 } from './terrain-geometry.js';
 import {
   CHUNK_SIZE,
+  FAR_CELL,
+  FAR_SEGMENTS,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
@@ -697,6 +699,7 @@ function chunkGenParams(chunkX, chunkZ) {
     forceIslandType: ChillFlightLogic.FORCE_ISLAND_TYPE,
     forceContinent: ChillFlightLogic.CONTINENT,
     enableObjects: state._enableObjects,
+    morphGrid: {cell: FAR_CELL, segments: FAR_SEGMENTS},
   };
 }
 
@@ -780,6 +783,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         3
       )
     );
+    geometry.setAttribute(
+      'morphY',
+      new THREE.BufferAttribute(
+        new Float32Array(geometry.attributes.position.count),
+        1
+      )
+    );
   }
   geometry.userData = {unique: true, poolType: 'terrain'};
 
@@ -812,6 +822,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   geometry.attributes.position.needsUpdate = true;
 
   colors.set(workerData.buffers.terrainColors);
+  const morphY = geometry.attributes.morphY;
+  morphY.array.set(workerData.buffers.morphHeights);
+  morphY.needsUpdate = true;
   const cp = workerData.chunkProps;
   if (cp.housePositions) housePositions.push(...cp.housePositions);
   if (cp.twoStoryHousePositions)

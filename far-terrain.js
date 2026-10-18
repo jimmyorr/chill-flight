@@ -12,6 +12,8 @@ import {state} from './state.js';
 import {hooks} from './hooks.js';
 import {
   CHUNK_SIZE,
+  FAR_CELL,
+  FAR_SEGMENTS,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
@@ -25,8 +27,6 @@ import {
 import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {scene} from './scene.js';
 
-const FAR_CELL = 9000; // world units per far cell
-const FAR_SEGMENTS = 27; // ~333-unit grid spacing
 export const FAR_RADIUS = 27000; // fully faded into the sky by here
 const FAR_SINK = 12; // lowered so near terrain always draws over it
 const CELL_RANGE = Math.ceil(FAR_RADIUS / FAR_CELL); // cells each way

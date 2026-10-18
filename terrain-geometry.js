@@ -192,12 +192,27 @@ terrainMaterial.onBeforeCompile = (shader) => {
     uniform vec3 uSunDirection;
     uniform vec3 uTopColor;
     uniform vec3 uBottomColor;
+    uniform float uNearEdgeFade;
+    attribute float morphY;
     varying float vDistanceXZ;
     varying vec3 vWorldPosition;
   ` +
     SKY_COLOR_GLSL +
     FOG_SKY_VERTEX_GLSL +
     shader.vertexShader;
+
+  // Toward the draw distance, ease the ground onto the distant terrain
+  // ring's coarser shape (morphY, see terrain-gen.js), so where the ring
+  // takes over nothing jumps, and flying closer grows the detail in
+  // gradually instead of popping it in a chunk at a time (#81). Only while
+  // the ring is there to continue the land (uNearEdgeFade 0).
+  shader.vertexShader = shader.vertexShader.replace(
+    `#include <begin_vertex>`,
+    `#include <begin_vertex>
+     float morphDist = length((modelMatrix * vec4(transformed, 1.0)).xz - uCameraPosXZ);
+     float morph = smoothstep(uRenderRadius * 0.55, uRenderRadius * 0.9, morphDist) * (1.0 - uNearEdgeFade);
+     transformed.y = mix(transformed.y, morphY, morph);`
+  );
 
   shader.vertexShader = shader.vertexShader.replace(
     `#include <worldpos_vertex>`,

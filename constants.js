@@ -10,6 +10,11 @@ import {state} from './state.js';
 export const CHUNK_SIZE = 1500;
 export const WATER_LEVEL = 40;
 export const MOUNTAIN_LEVEL = 180;
+// The distant terrain ring's grid (far-terrain.js): world units per far cell
+// and grid squares per cell (~167-unit spacing). Near chunks morph toward
+// this grid's heights before they meet the ring (terrain-gen.js).
+export const FAR_CELL = 9000;
+export const FAR_SEGMENTS = 54;
 export const CLOUD_OPACITY = 0.55;
 
 // Lighthouse parameters

@@ -190,6 +190,7 @@ export class TerrainWorkerManager {
         worldSeed: options.worldSeed || 1,
         forceIslandType: options.forceIslandType,
         enableObjects: options.enableObjects !== false,
+        morphGrid: options.morphGrid,
       };
 
       const job = {
