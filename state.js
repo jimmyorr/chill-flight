@@ -97,7 +97,6 @@ export const state = {
   wasBarrelRolling: false,
   wasDoingFullBarrelRoll: false,
   wasDoingImmelmann: false,
-  isSharpTurn: false,
   loopProgress: 0,
   loopEntryY: null,
 

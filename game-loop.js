@@ -1116,9 +1116,19 @@ const BARREL_ROLL_EASE_IN = 0.25;
 let barrelRollDir = 0;
 let barrelRollRate = 0;
 
-// Sharp turn (double-tap left or right and hold): steep bank with amplified turn rate
+// Sharp turn (double-tap left or right and hold): steeper bank and faster
+// turn rate. It blends in over SHARP_TURN_EASE_IN seconds and back out over
+// SHARP_TURN_EASE_OUT on release (smoothstep), so bank, turn rate and
+// back-pressure all ramp rather than switching on and off
 const SHARP_TURN_BANK_ANGLE = (78 * Math.PI) / 180;
-const SHARP_TURN_YAW_MULT = 1.85;
+const SHARP_TURN_YAW_MULT = 1.5;
+const SHARP_TURN_ROLL_SPEED = 0.045; // roll smoothing at full blend (TURN_SPEED otherwise)
+const SHARP_TURN_EASE_IN = 0.8;
+const SHARP_TURN_EASE_OUT = 0.6;
+// Blend progress 0..1 and the direction of the turn: 1 left, -1 right
+let sharpTurnRamp = 0;
+let sharpTurnDir = 0;
+let sharpTurnAmount = 0; // smoothstep of the ramp: 0 none to 1 full
 
 // Pitch maneuvers: climb and dive ease in and out as a gradual transition,
 // heading toward the target pitch at a steady rate and easing in near the
@@ -1140,7 +1150,6 @@ const PITCH_EASE_OUT = 2.5;
 let manualPitchRate = 0;
 let manualPitchActive = false;
 let lastPitchMode = 0; // 1 normal climb, -1 normal dive, 2 steep climb, -2 steep dive, 0 none
-let isRecoveringFromSharpTurn = false;
 
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller
@@ -1291,33 +1300,39 @@ function updatePhysicsAndControls(delta, nowTime) {
       );
     }
 
-    const isSharpTurnLeft = isLeft && dtLeft && !keys.Shift;
-    const isSharpTurnRight = isRight && dtRight && !keys.Shift;
-    if (isSharpTurnLeft) {
-      state.targetRoll = SHARP_TURN_BANK_ANGLE - effMouseX * (maxRoll * 0.35);
-      state.isSharpTurn = true;
-    } else if (isSharpTurnRight) {
-      state.targetRoll = -SHARP_TURN_BANK_ANGLE - effMouseX * (maxRoll * 0.35);
-      state.isSharpTurn = true;
-    } else {
-      state.isSharpTurn = false;
+    let sharpHeld = 0;
+    if (!keys.Shift) {
+      if (isLeft && dtLeft) sharpHeld = 1;
+      else if (isRight && dtRight) sharpHeld = -1;
     }
+    if (sharpHeld) sharpTurnDir = sharpHeld;
+    sharpTurnRamp = THREE.MathUtils.clamp(
+      sharpTurnRamp +
+        (sharpHeld ? delta / SHARP_TURN_EASE_IN : -delta / SHARP_TURN_EASE_OUT),
+      0,
+      1
+    );
+    sharpTurnAmount = THREE.MathUtils.smoothstep(sharpTurnRamp, 0, 1);
 
-    if (state.isSharpTurn) {
-      isRecoveringFromSharpTurn = true;
-      // Elevator back-pressure to maintain altitude during steep 78° bank
-      const backPressure = 0.12 * Math.sin(Math.abs(planeGroup.rotation.z));
-      state.targetPitch += backPressure;
-    } else if (isRecoveringFromSharpTurn) {
-      if (Math.abs(planeGroup.rotation.z) <= 0.03) {
-        isRecoveringFromSharpTurn = false;
-      }
+    if (sharpTurnAmount > 0) {
+      // Analog sticks can trim the bank; keys and touch zones hold it steady
+      const effAnalogX = hasAnalogPitch ? effMouseX : 0;
+      const sharpRoll =
+        sharpTurnDir * SHARP_TURN_BANK_ANGLE - effAnalogX * (maxRoll * 0.15);
+      state.targetRoll = THREE.MathUtils.lerp(
+        state.targetRoll,
+        sharpRoll,
+        sharpTurnAmount
+      );
+      // Elevator back-pressure to hold altitude in the steep bank
+      state.targetPitch +=
+        0.12 * sharpTurnAmount * Math.sin(Math.abs(planeGroup.rotation.z));
     }
   } else if (!state.isFreeCamera) {
     state.targetPitch = 0;
     state.targetRoll = 0;
-    state.isSharpTurn = false;
-    isRecoveringFromSharpTurn = false;
+    sharpTurnRamp = 0;
+    sharpTurnAmount = 0;
   }
 
   state.isBarrelRolling = false;
@@ -1435,10 +1450,12 @@ function updatePhysicsAndControls(delta, nowTime) {
         if (currentTheta > 1.6 * Math.PI) {
           const pulloutProgress =
             (currentTheta - 1.6 * Math.PI) / (0.4 * Math.PI);
+          // Per-frame pull tuned at 60 fps, scaled to the actual frame time
+          const pull = 1 - Math.pow(1 - pulloutProgress * 0.45, delta * 60);
           planeGroup.position.y = THREE.MathUtils.lerp(
             planeGroup.position.y,
             state.loopEntryY,
-            pulloutProgress * 0.45
+            pull
           );
         }
 
@@ -1588,8 +1605,11 @@ function updatePhysicsAndControls(delta, nowTime) {
   }
 
   if (!state.isFreeCamera) {
-    const effTurnSpeed =
-      state.isSharpTurn || isRecoveringFromSharpTurn ? 0.065 : TURN_SPEED;
+    const effTurnSpeed = THREE.MathUtils.lerp(
+      TURN_SPEED,
+      SHARP_TURN_ROLL_SPEED,
+      sharpTurnAmount
+    );
 
     const flightRot = ChillFlightLogic.computeFlightRotation({
       currentPitch: planeGroup.rotation.x,
@@ -1603,7 +1623,11 @@ function updatePhysicsAndControls(delta, nowTime) {
       isClampedRoll: state.isClampedRoll,
       turnSpeed: effTurnSpeed,
       delta: delta,
-      yawMultiplier: state.isSharpTurn ? SHARP_TURN_YAW_MULT : 1.0,
+      yawMultiplier: THREE.MathUtils.lerp(
+        1.0,
+        SHARP_TURN_YAW_MULT,
+        sharpTurnAmount
+      ),
       manualYaw: state.isBarrelRolling ? -effMouseX : 0,
     });
 
