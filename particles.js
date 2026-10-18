@@ -21,7 +21,7 @@ import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
-const POOL_SIZE = 1536;
+const POOL_SIZE = 2048;
 // How quickly a particle's own speed dies away (per second)
 const DRAG = 1.6;
 
@@ -101,7 +101,8 @@ const material = new THREE.ShaderMaterial({
       vUv = uv;
       vColor = vec4(
         aColor.rgb,
-        aColor.a * smoothstep(0.0, 0.06, age) * pow(1.0 - age, 1.5)
+        aColor.a * smoothstep(0.0, 0.06 * min(aLife.y, 4.0), t) *
+          pow(1.0 - age, 1.5)
       );
     }
   `,
@@ -201,7 +202,7 @@ const SKIM_HEIGHT = 14;
 // Where the airshow smoke comes out, behind the plane's centre (units), and
 // how long it hangs in the sky (seconds)
 const SMOKE_TAIL = 7;
-const SMOKE_LIFE = 7;
+const SMOKE_LIFE = 18;
 
 const WHITE = new THREE.Color(1, 1, 1);
 const FOAM = new THREE.Color(0.93, 0.97, 1.0);
@@ -558,7 +559,8 @@ function smokeTrail(speed) {
     smokeLast.valid = true;
     return;
   }
-  // Close enough that young puffs overlap; ~60 a second at cruise
+  // Close enough that young puffs overlap; ~60 a second at cruise, so a
+  // full trail is ~1,000 of the pool
   const spacing = Math.max(2.5, (speed * BASE_FLIGHT_SPEED * 60) / 60);
   const steps = Math.floor(smokeLast.distanceTo(tail) / spacing);
   for (let k = 1; k <= steps; k++) {
@@ -568,10 +570,10 @@ function smokeTrail(speed) {
       {x: rand(-2, 2), y: rand(-1, 1), z: rand(-2, 2)},
       0.4,
       rand(SMOKE_LIFE * 0.8, SMOKE_LIFE),
-      rand(4, 5),
-      rand(14, 20),
+      rand(6, 7),
+      rand(22, 30),
       SMOKE,
-      0.65
+      0.8
     );
   }
   if (steps > 0) smokeLast.copy(tail);
