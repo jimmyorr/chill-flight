@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
-import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
+import {BASE_FLIGHT_SPEED, UNITS_TO_M, WATER_LEVEL} from './constants.js';
 import {
   WATER_SWELL_GLSL,
   getElevation,
@@ -198,7 +198,7 @@ const WAKE_SPACING = 1.5;
 const DUST_SPACING = 1.5;
 // Skimming spray starts this far above the water (units, from the bottom of
 // the plane)
-const SKIM_HEIGHT = 14;
+const SKIM_HEIGHT = 20 / UNITS_TO_M; // 20 m on the altimeter
 // Where the airshow smoke comes out, behind the plane's centre (units), and
 // how long it hangs in the sky (seconds)
 const SMOKE_TAIL = 7;
@@ -498,7 +498,8 @@ function skim(delta, speed) {
   }
   const fast = THREE.MathUtils.clamp(speed / 1.2, 0, 1);
   const close = 1 - THREE.MathUtils.clamp(height / SKIM_HEIGHT, 0, 1);
-  const strength = close * close * (0.3 + 0.7 * fast);
+  // Square root so the spray is still clear well up toward SKIM_HEIGHT
+  const strength = Math.sqrt(close) * (0.3 + 0.7 * fast);
   const h = planeGroup.rotation.y;
   const fwd = planeVelocity(_v);
 
@@ -519,7 +520,8 @@ function skim(delta, speed) {
       rand(3, 4),
       rand(9, 13),
       FOAM,
-      0.6 * strength,
+      // The foam line only shows down low
+      0.6 * close * close * strength,
       true
     );
   }
