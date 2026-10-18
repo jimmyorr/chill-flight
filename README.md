@@ -317,9 +317,9 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 #### Special maneuvers
 
 - **Double-tap arrow up and hold**: Perform a steep climb. It ramps up smoothly to a 60° climb and eases back to level flight on release.
-- **Triple-tap arrow up and hold**: Perform a continuous loop with aerodynamically tuned pitch rate and altitude closure.
+- **Triple-tap arrow up and hold**: Perform a loop. The pitch rate eases in from the climb, floats over the top and eases out onto level flight, and the speed dips over the top so the loop comes round to the height it started at. Once started, a loop always comes round to level; still holding as it nears level goes round again.
 - **Double-tap arrow down and hold**: Perform a steep dive. It ramps down smoothly to a 70° dive and eases back to level flight on release.
-- **Triple-tap arrow down**: Perform an Immelmann turn (climbing half-loop followed by a half-roll into reverse heading).
+- **Triple-tap arrow down**: Perform an Immelmann turn (climbing half-loop followed by a half-roll into reverse heading). It carries on from the plane's pitch and pitch rate, rolls out any bank early in the pull-up, and can't start on the ground or mid-loop.
 - **Double-tap arrow left / right and hold**: Perform a sharp turn (steep 78° bank with accelerated turn rate and elevator back-pressure).
 - **Triple-tap arrow left / right and hold**: Perform a barrel roll. It eases in and rolls as long as you hold, about two seconds a roll.
 

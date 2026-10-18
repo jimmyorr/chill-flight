@@ -74,6 +74,21 @@ import {Achievements} from './achievements.js';
 
 let _frameCount;
 
+// How locked the follow camera is to the plane in aerobatics, 0 to 1. Rolls
+// and loops lock its turn to the plane's (lagging behind would swing the
+// view or flip it past vertical), and loops its position and up too. Each
+// eases in and out with a time constant of AEROBATIC_LOCK_SECONDS, so
+// starting or finishing a maneuver doesn't jump the view.
+const AEROBATIC_LOCK_SECONDS = 0.25;
+let anchorLock = 0;
+let loopLock = 0;
+
+function easeLock(lock, locked, ease) {
+  const target = locked ? 1 : 0;
+  const next = lock + (target - lock) * ease;
+  return Math.abs(target - next) < 0.001 ? target : next;
+}
+
 export function updateFlightCamera(delta, nowTime) {
   // --- CAMERA UPDATES ---
 
@@ -220,16 +235,19 @@ export function updateFlightCamera(delta, nowTime) {
 
     // 1. Calculate Follow State
 
-    // Smooth the plane's rotation to create camera inertia.
-    // If doing acrobatic loops/rolls, snap it to avoid the camera getting lost.
-    if (state.isLooping || state.isBarrelRolling) {
-      _cameraAnchorQuat.copy(planeGroup.quaternion);
-    } else {
-      _cameraAnchorQuat.slerp(
-        planeGroup.quaternion,
-        1 - Math.pow(1 - 0.15, delta * 60)
-      );
-    }
+    // Smooth the plane's rotation to create camera inertia, locked to it in
+    // acrobatic loops and rolls so the camera doesn't get lost
+    const lockEase = 1 - Math.exp(-delta / AEROBATIC_LOCK_SECONDS);
+    anchorLock = easeLock(
+      anchorLock,
+      state.isLooping || state.isBarrelRolling,
+      lockEase
+    );
+    loopLock = easeLock(loopLock, state.isLooping, lockEase);
+    _cameraAnchorQuat.slerp(
+      planeGroup.quaternion,
+      THREE.MathUtils.lerp(1 - Math.pow(1 - 0.15, delta * 60), 1, anchorLock)
+    );
 
     _cameraAnchorMatrix.makeRotationFromQuaternion(_cameraAnchorQuat);
     _cameraAnchorMatrix.setPosition(planeGroup.position);
@@ -241,11 +259,15 @@ export function updateFlightCamera(delta, nowTime) {
     _lookOffset.set(0, 0, -20);
     _idealLookTarget_Follow.copy(_lookOffset).applyMatrix4(_cameraAnchorMatrix);
 
-    if (state.isLooping) {
-      _up_Follow.set(0, 1, 0).applyQuaternion(_cameraAnchorQuat);
-    } else {
-      _up_Follow.set(0, 1, 0);
-    }
+    // World up, or the plane's up in a loop (so the view doesn't flip as
+    // the nose passes vertical)
+    _up_Follow
+      .set(0, 1, 0)
+      .applyQuaternion(_cameraAnchorQuat)
+      .multiplyScalar(loopLock);
+    _up_Follow.y += 1 - loopLock;
+    if (_up_Follow.lengthSq() < 1e-6) _up_Follow.set(0, 1, 0);
+    _up_Follow.normalize();
 
     // 1.5 Calculate First Person State
     _idealCameraPos_FirstPerson
@@ -432,20 +454,14 @@ export function updateFlightCamera(delta, nowTime) {
       }
     } else {
       const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
-      if (state.isLooping) {
-        // In acrobatic loops, lock camera position directly to avoid inertia lag causing lookAt inversion
-        activeCamTarget.position.copy(_idealCameraPos);
-        _currentLookTarget.copy(_idealLookTarget);
-      } else {
-        activeCamTarget.position.lerp(
-          _idealCameraPos,
-          1 - Math.pow(1 - 0.25, delta * 60)
-        );
-        _currentLookTarget.lerp(
-          _idealLookTarget,
-          1 - Math.pow(1 - 0.25, delta * 60)
-        );
-      }
+      // In loops the position locks on, as inertia lag could flip lookAt
+      const follow = THREE.MathUtils.lerp(
+        1 - Math.pow(1 - 0.25, delta * 60),
+        1,
+        loopLock
+      );
+      activeCamTarget.position.lerp(_idealCameraPos, follow);
+      _currentLookTarget.lerp(_idealLookTarget, follow);
     }
 
     const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
@@ -459,15 +475,16 @@ export function updateFlightCamera(delta, nowTime) {
       activeCamTarget.position.y = actualTerrainHeight + 1.0;
     }
 
-    if (state.isLooping) {
-      // During vertical loops, up vector must match the inverted plane to prevent gimbal lock at 90°
-      activeCamTarget.up.copy(_idealUp);
-    } else if (!state.isVRPresenting) {
-      activeCamTarget.up
-        .lerp(_idealUp, 1 - Math.pow(1 - 0.1, delta * 60))
-        .normalize();
-    } else {
+    if (state.isVRPresenting && loopLock === 0) {
       activeCamTarget.up.set(0, 1, 0); // Keep world up stable in VR during normal flight
+    } else {
+      // During vertical loops, up vector must match the inverted plane to prevent gimbal lock at 90°
+      activeCamTarget.up
+        .lerp(
+          _idealUp,
+          THREE.MathUtils.lerp(1 - Math.pow(1 - 0.1, delta * 60), 1, loopLock)
+        )
+        .normalize();
     }
 
     activeCamTarget.lookAt(_currentLookTarget);

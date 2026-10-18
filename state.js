@@ -89,16 +89,11 @@ export const state = {
   _cinematicStableHeading: null, // set to the plane's heading on first use
   isDoingImmelmann: false,
   immelmannProgress: 0,
-  immelmannApexY: null,
-  immelmannEntryYaw: 0,
-  immelmannEntryPitch: 0,
   wasLooping: false,
   wasDoingFullLoop: false,
   wasBarrelRolling: false,
   wasDoingFullBarrelRoll: false,
   wasDoingImmelmann: false,
-  loopProgress: 0,
-  loopEntryY: null,
 
   // Pause state (game-state.js)
   isPaused: true,
@@ -129,7 +124,6 @@ export const state = {
   isSteepPitch: false,
   isDoingFullLoop: false,
   manualRollSpeed: 2.8,
-  manualLoopSpeed: 2.5,
   sessionDistanceTravelled: 0,
   previousPosition: null,
   lifetimeDistanceTravelled: undefined, // set in game.js

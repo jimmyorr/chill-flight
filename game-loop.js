@@ -1140,9 +1140,40 @@ const PITCH_SPEED = 1.0; // rad/s (~57 deg/s)
 const STEEP_PITCH_SPEED = 1.6; // rad/s (~92 deg/s)
 const PITCH_EASE_OUT = 2.5;
 
-let manualPitchRate = 0;
+let manualPitchVel = 0; // rad/s, signed (positive pitches up)
 let manualPitchActive = false;
 let lastPitchMode = 0; // 1 normal climb, -1 normal dive, 2 steep climb, -2 steep dive, 0 none
+
+// Loop (triple-tap up and hold): the pitch rate eases in from the climb,
+// floats over the top and eases out onto level flight. Once started a loop
+// always comes round to level (letting go halfway would leave the plane
+// upside down, flying backward); still holding as it nears level goes round
+// again. The pitch rate is LOOP_RATE + LOOP_RATE_SWING * cos(pitch).
+const LOOP_RATE = 2.2; // rad/s
+const LOOP_RATE_SWING = 0.35;
+const LOOP_ACCEL = 5; // rad/s^2 easing in
+const LOOP_DECEL = 5; // rad/s^2 easing out onto level
+// Speed lost over the top, coming back on the way down, so the loop comes
+// round to the height it started at (diving alone would speed it up)
+const LOOP_SPEED_DIP = 0.15;
+let loopActive = false;
+let loopPitchRate = 0;
+let loopSpeed = 0; // speed going in
+let loopFinishing = false; // easing out to finish
+let loopChained = false; // going round again
+
+// Immelmann (triple-tap down): a half loop to inverted level over the first
+// IMMELMANN_PITCH_END of the maneuver, then a half roll upright
+const IMMELMANN_DURATION = 2.4;
+const IMMELMANN_PITCH_END = 0.88;
+const IMMELMANN_SPEED_DIP = 0.18; // speed lost over the top
+// The plane's pitch, pitch rate, roll, heading and speed going in
+const immelmann = {pitch: 0, pitchRate: 0, roll: 0, yaw: 0, speed: 0};
+
+// An angle wrapped to -PI..PI
+function wrapAngle(a) {
+  return a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
+}
 
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller
@@ -1202,9 +1233,6 @@ function updatePhysicsAndControls(delta, nowTime) {
     !state.isFreeCamera;
   const ttUp =
     (state.invertYAxis ? tripleTap.ArrowDown : tripleTap.ArrowUp) &&
-    !state.isFreeCamera;
-  const ttDown =
-    (state.invertYAxis ? tripleTap.ArrowUp : tripleTap.ArrowDown) &&
     !state.isFreeCamera;
   const startUp = state.invertYAxis
     ? keyPressStartTime.ArrowDown
@@ -1336,7 +1364,6 @@ function updatePhysicsAndControls(delta, nowTime) {
   state.isDoingFullLoop = false;
 
   state.manualRollSpeed = 2.8;
-  state.manualLoopSpeed = 2.5;
 
   if (
     !state.isFreeCamera &&
@@ -1344,63 +1371,56 @@ function updatePhysicsAndControls(delta, nowTime) {
     state.flightSpeedMultiplier > 0
   ) {
     updateAutopilot(delta);
-    manualPitchRate = 0;
+    manualPitchVel = 0;
     manualPitchActive = false;
     lastPitchMode = 0;
+    loopActive = false;
   } else if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
     if (state.isDoingImmelmann) {
-      if (state.immelmannApexY === null && state.immelmannProgress === 0) {
-        let p = planeGroup.rotation.x % (Math.PI * 2);
-        if (p > Math.PI) p -= Math.PI * 2;
-        if (p < -Math.PI) p += Math.PI * 2;
-        state.immelmannEntryPitch = THREE.MathUtils.clamp(
-          p,
-          -Math.PI / 4,
-          Math.PI / 4
-        );
-        state.immelmannEntryYaw = planeGroup.rotation.y;
+      if (state.immelmannProgress === 0) {
+        loopActive = false;
+        immelmann.pitch = wrapAngle(planeGroup.rotation.x);
+        immelmann.pitchRate = manualPitchActive ? manualPitchVel : 0;
+        immelmann.roll = wrapAngle(planeGroup.rotation.z);
+        immelmann.yaw = planeGroup.rotation.y;
+        immelmann.speed = state.flightSpeedMultiplier;
       }
 
-      const IMMELMANN_DURATION = 2.4;
       state.immelmannProgress += delta;
       const u = Math.min(1.0, state.immelmannProgress / IMMELMANN_DURATION);
 
-      // Pitch pulls up smoothly to PI (inverted level) using a smoothstep curve
-      const pitchT = THREE.MathUtils.smoothstep(u, 0, 0.88);
-      planeGroup.rotation.x = THREE.MathUtils.lerp(
-        state.immelmannEntryPitch,
-        Math.PI,
-        pitchT
-      );
+      // Half loop up to inverted level: a Hermite curve from the entry pitch
+      // and pitch rate (so a climb or dive carries straight into it) to PI,
+      // arriving with no pitch rate
+      const s = Math.min(1, u / IMMELMANN_PITCH_END);
+      const pitchSeconds = IMMELMANN_DURATION * IMMELMANN_PITCH_END;
+      const s2 = s * s;
+      const s3 = s2 * s;
+      planeGroup.rotation.x =
+        (2 * s3 - 3 * s2 + 1) * immelmann.pitch +
+        (s3 - 2 * s2 + s) * immelmann.pitchRate * pitchSeconds +
+        (3 * s2 - 2 * s3) * Math.PI;
 
-      // Barrel roll starts as the aircraft crests past vertical (u >= 0.35) and rolls upright
-      const rollT = THREE.MathUtils.smoothstep(u, 0.35, 0.95);
-      planeGroup.rotation.z = rollT * Math.PI;
+      // Any bank at entry rolls out early in the pull-up; the half roll
+      // upright starts as the aircraft crests past vertical
+      planeGroup.rotation.z =
+        immelmann.roll * (1 - THREE.MathUtils.smoothstep(u, 0, 0.3)) +
+        Math.PI * THREE.MathUtils.smoothstep(u, 0.35, 0.95);
 
       // Realistic aerodynamic speed float over the apex
-      const speedDip = Math.sin(pitchT * Math.PI) * 0.18;
-      state.flightSpeedMultiplier = Math.max(
-        0.7,
-        state.targetFlightSpeed * (1 - speedDip)
-      );
+      const speedDip = Math.sin(THREE.MathUtils.smoothstep(s, 0, 1) * Math.PI);
+      state.flightSpeedMultiplier =
+        immelmann.speed * (1 - speedDip * IMMELMANN_SPEED_DIP);
 
-      // Settle smoothly onto the crest altitude as forward pitch levels off
-      if (u >= 0.82) {
-        if (state.immelmannApexY === null) {
-          state.immelmannApexY = planeGroup.position.y;
-        }
-        planeGroup.position.y = THREE.MathUtils.lerp(
-          planeGroup.position.y,
-          state.immelmannApexY,
-          0.15
-        );
-      }
-
-      planeGroup.rotation.y = state.immelmannEntryYaw;
-      state._nextYaw = state.immelmannEntryYaw;
+      planeGroup.rotation.y = immelmann.yaw;
+      state._nextYaw = immelmann.yaw;
       state.isLooping = true;
-      state.isBarrelRolling = u >= 0.35;
+      // Roll is set directly here, and must not turn the plane
+      state.isBarrelRolling = true;
       state.verticalVelocity = 0;
+      manualPitchVel = 0;
+      manualPitchActive = false;
+      lastPitchMode = 0;
 
       if (u >= 1.0) {
         state.isDoingImmelmann = false;
@@ -1412,65 +1432,60 @@ function updatePhysicsAndControls(delta, nowTime) {
         const newYaw = Math.atan2(-forward.x, -forward.z);
         planeGroup.rotation.set(0, newYaw, 0, 'YXZ');
         state._nextYaw = newYaw;
-        if (state.immelmannApexY !== null) {
-          planeGroup.position.y = state.immelmannApexY;
-        }
-        state.verticalVelocity = 0;
-        state.immelmannApexY = null;
         state.immelmannProgress = 0;
       }
     } else {
-      if (
-        isUp &&
-        ttUp &&
-        nowTime - startUp > STEER_HOLD_THRESHOLD &&
-        !keys.Shift
-      ) {
-        // Triple-tap up and hold: loop
-        if (!state.wasLooping) {
-          state.loopProgress = 0;
-          state.loopEntryY = planeGroup.position.y;
-        }
-        const currentTheta = state.loopProgress % (Math.PI * 2);
-        // Modulate loop pitch rate: buoyant/floaty near apex (theta ~ PI), crisp at pull-up and pull-out
-        // omega(theta) = 2.2 + 0.35 * cos(theta)
-        const dynamicPitchRate = 2.2 + 0.35 * Math.cos(currentTheta);
-        const loopStep = dynamicPitchRate * delta;
-        planeGroup.rotation.x += loopStep;
-        state.loopProgress += loopStep;
+      const loopHeld =
+        isUp && ttUp && nowTime - startUp > STEER_HOLD_THRESHOLD && !keys.Shift;
+      if (loopHeld && !loopActive) {
+        // Triple-tap up and hold: start a loop, carrying on from the climb
+        loopActive = true;
+        loopFinishing = false;
+        loopChained = false;
+        loopPitchRate = manualPitchActive ? Math.max(0, manualPitchVel) : 0;
+        loopSpeed = state.flightSpeedMultiplier;
+        planeGroup.rotation.x = wrapAngle(planeGroup.rotation.x);
+      }
 
-        // Altitude closure: pull-out smoothly aligns back to loopEntryY
-        if (currentTheta > 1.6 * Math.PI) {
-          const pulloutProgress =
-            (currentTheta - 1.6 * Math.PI) / (0.4 * Math.PI);
-          // Per-frame pull tuned at 60 fps, scaled to the actual frame time
-          const pull = 1 - Math.pow(1 - pulloutProgress * 0.45, delta * 60);
-          planeGroup.position.y = THREE.MathUtils.lerp(
-            planeGroup.position.y,
-            state.loopEntryY,
-            pull
-          );
+      if (loopActive) {
+        let x = planeGroup.rotation.x;
+        // Floaty over the top, crisp at the pull-up and pull-out
+        const wantRate = LOOP_RATE + LOOP_RATE_SWING * Math.cos(x);
+        loopPitchRate += THREE.MathUtils.clamp(
+          wantRate - loopPitchRate,
+          -LOOP_ACCEL * delta,
+          LOOP_ACCEL * delta
+        );
+        // Where easing out would have to start to stop level, decide once
+        // per loop: still holding goes round again, otherwise it finishes
+        const stopRate = Math.sqrt(
+          2 * LOOP_DECEL * Math.max(0, Math.PI * 2 - x)
+        );
+        if (!loopFinishing && !loopChained && stopRate <= loopPitchRate) {
+          if (loopHeld) loopChained = true;
+          else loopFinishing = true;
         }
+        if (loopFinishing) loopPitchRate = Math.min(loopPitchRate, stopRate);
+        x += loopPitchRate * delta;
 
-        state.isLooping = true;
-        state.isDoingFullLoop = true;
-        manualPitchRate = 0;
-        manualPitchActive = false;
-        lastPitchMode = 0;
-      } else if (
-        (ttDown || tripleTap.ArrowDown) &&
-        !keys.Shift &&
-        !state.isDoingImmelmann
-      ) {
-        // Triple-tap down: Immelmann turn (automatic maneuver, no hold required)
-        state.isDoingImmelmann = true;
-        state.immelmannProgress = 0;
-        state.immelmannApexY = null;
-        tripleTap.ArrowDown = false;
-        tripleTap.ArrowUp = false;
-        manualPitchRate = 0;
-        manualPitchActive = false;
-        lastPitchMode = 0;
+        if (x >= Math.PI * 2 - (loopFinishing ? 0.002 : 0)) {
+          x -= Math.PI * 2;
+          loopChained = false;
+          if (loopFinishing) {
+            // Level again: hand the last of the pitch rate to the normal
+            // pitch controls, which ease it onto the target pitch
+            loopActive = false;
+            manualPitchVel = loopPitchRate;
+            manualPitchActive = true;
+            lastPitchMode = 0;
+          }
+        }
+        planeGroup.rotation.x = x;
+        state.flightSpeedMultiplier =
+          loopSpeed * (1 - (LOOP_SPEED_DIP * (1 - Math.cos(x))) / 2);
+
+        state.isLooping = loopActive;
+        state.isDoingFullLoop = loopActive;
       } else {
         // Pitch maneuvers: climb, dive, steep climb, and steep dive
         let pitchMode = 0;
@@ -1482,15 +1497,9 @@ function updatePhysicsAndControls(delta, nowTime) {
           }
         }
 
-        if (state.wasLooping && !state.isLooping) {
-          manualPitchRate = 0;
+        if (pitchMode !== lastPitchMode && pitchMode !== 0) {
+          if (!manualPitchActive) manualPitchVel = 0;
           manualPitchActive = true;
-        } else if (pitchMode !== lastPitchMode && pitchMode !== 0) {
-          manualPitchRate = 0;
-          manualPitchActive = true;
-        }
-        if (pitchMode === 0 && lastPitchMode !== 0 && manualPitchActive) {
-          manualPitchRate = 0;
         }
         lastPitchMode = pitchMode;
 
@@ -1525,33 +1534,41 @@ function updatePhysicsAndControls(delta, nowTime) {
             Math.max(MAX_DIVE_ANGLE, targetAngle)
           );
 
-          let diff = targetAngle - planeGroup.rotation.x;
-          while (diff > Math.PI) diff -= 2 * Math.PI;
-          while (diff < -Math.PI) diff += 2 * Math.PI;
+          const diff = wrapAngle(targetAngle - planeGroup.rotation.x);
 
-          if (pitchMode === 0 && Math.abs(diff) <= 0.02) {
+          if (
+            pitchMode === 0 &&
+            Math.abs(diff) <= 0.02 &&
+            Math.abs(manualPitchVel) < 0.2
+          ) {
             // Leveled out: cleanly hand over to normal flight model
             planeGroup.rotation.x = targetAngle;
             manualPitchActive = false;
-            manualPitchRate = 0;
+            manualPitchVel = 0;
             state.isSteepPitch = false;
           } else {
-            const dir = Math.sign(diff);
+            // The pitch rate heads for the rate that eases onto the target
+            // at a steady acceleration, so switching between climb, dive
+            // and level (each tap of a double or triple tap) never jerks
             const easeIn =
               Math.abs(pitchMode) === 2 || state.isSteepPitch
                 ? STEEP_PITCH_EASE_IN
                 : PITCH_EASE_IN;
-            manualPitchRate = Math.min(
-              maxSpeed,
-              manualPitchRate + (maxSpeed * delta) / easeIn
+            const wantVel =
+              Math.sign(diff) *
+              Math.min(maxSpeed, Math.abs(diff) * PITCH_EASE_OUT);
+            const maxStep = (maxSpeed * delta) / easeIn;
+            manualPitchVel += THREE.MathUtils.clamp(
+              wantVel - manualPitchVel,
+              -maxStep,
+              maxStep
             );
-            const limitRate = Math.abs(diff) * PITCH_EASE_OUT;
-            const effRate = Math.min(manualPitchRate, limitRate);
-            planeGroup.rotation.x += dir * effRate * delta;
+            const pitched = planeGroup.rotation.x + manualPitchVel * delta;
             planeGroup.rotation.x = Math.max(
               MAX_DIVE_ANGLE,
-              Math.min(MAX_CLIMB_ANGLE, planeGroup.rotation.x)
+              Math.min(MAX_CLIMB_ANGLE, pitched)
             );
+            if (planeGroup.rotation.x !== pitched) manualPitchVel = 0;
             state.isSteepPitch =
               Math.abs(pitchMode) === 2 ||
               (pitchMode === 0 && state.isSteepPitch);
@@ -1581,9 +1598,10 @@ function updatePhysicsAndControls(delta, nowTime) {
   } else {
     barrelRollDir = 0;
     barrelRollRate = 0;
-    manualPitchRate = 0;
+    manualPitchVel = 0;
     manualPitchActive = false;
     lastPitchMode = 0;
+    loopActive = false;
   }
 
   // Taxi steering: allow airplane to yaw when stopped or at very low speed

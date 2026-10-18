@@ -181,11 +181,14 @@ inputManager.onMenuToggle = () => {
   }
 };
 inputManager.onTripleTap = (action) => {
+  // Not mid-loop, and not on the ground (it would launch the plane)
   const downAction = state.invertYAxis ? 'ArrowUp' : 'ArrowDown';
-  const isDownAction = action === 'ArrowDown' || action === downAction;
   if (
-    isDownAction &&
+    action === downAction &&
     !state.isDoingImmelmann &&
+    !state.isLooping &&
+    !state.isOnGround &&
+    !state.isOnWater &&
     !state.isFreeCamera &&
     state.flightSpeedMultiplier > 0
   ) {
