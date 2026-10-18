@@ -1287,6 +1287,32 @@ input[type='number'].customization-input {
   box-shadow: 0 0 8px rgba(255, 215, 0, 0.15);
 }
 
+/* The chosen plane's handling: a label and a bar per stat (--v, 0 to 1) */
+.plane-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 8px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.plane-stat-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.plane-stat-bar i {
+  display: block;
+  height: 100%;
+  width: calc(var(--v, 0) * 100%);
+  background: rgba(255, 215, 0, 0.6);
+  transition: width 0.3s ease;
+}
+
 /* Virtual Joystick */
 #virtual-joystick-base {
   position: fixed;

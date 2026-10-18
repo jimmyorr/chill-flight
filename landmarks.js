@@ -71,7 +71,8 @@ export function nearestLandmark(x, z, maxDist) {
 }
 
 // Warping to an airport arrives on final approach: this far (units) short of
-// the runway, this high above the field, at this speed (multiplier, 90 kts)
+// the runway, this high above the field, at this speed (multiplier, 90 kts
+// for the seaplane; minimap.js scales it for the others)
 export const APPROACH_DISTANCE = 2500;
 export const APPROACH_HEIGHT = 120;
 export const APPROACH_SPEED = 0.6;

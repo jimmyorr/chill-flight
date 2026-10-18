@@ -10,7 +10,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {LANDMARKS} from './landmarks.js';
 import {getElevation} from './terrain-geometry.js';
-import {planeGroup} from './airplane.js';
+import {planeGroup, planeHandling} from './airplane.js';
 import {clearWaypoint, getWaypoint, setTourStop} from './waypoint.js';
 import {log} from './logger.js';
 import {state} from './state.js';
@@ -197,9 +197,11 @@ function flyOrbit() {
   );
   const heading = out + orbit.dir * (Math.PI / 2 + correction);
   // The bank that turns at the circle's rate (the flight model yaws 1.5
-  // radians per second for each radian of roll)
+  // radians per second for each radian of roll, scaled by the plane's
+  // agility; the orbit is slow enough to turn at full rate)
   const speed = BASE_FLIGHT_SPEED * state.flightSpeedMultiplier * 60;
-  const bank = (orbit.dir * speed) / ORBIT_RADIUS / 1.5;
+  const bank =
+    (orbit.dir * speed) / ORBIT_RADIUS / (1.5 * planeHandling().agility);
   steerTo(heading, bank);
 }
 

@@ -11,6 +11,7 @@ import {
   getMaxFlightSpeedMult,
   headlight,
   headlightGlow,
+  planeHandling,
 } from './airplane.js';
 import {hdgtSub, inputManager} from './game-input-bindings.js';
 import {
@@ -26,7 +27,6 @@ import {musicEnabled, setMusicEnabled} from './audio.js';
 import {initAudioContext, setSfxEnabled} from './sfx.js';
 import {state} from './state.js';
 import {BASE_FLIGHT_SPEED, updateDOM, updateUrlParams} from './constants.js';
-import {FALL_START_KTS} from './flight-physics.js';
 import {hooks} from './hooks.js';
 import {Achievements} from './achievements.js';
 import {getChunkLoadingProgress} from './terrain-chunks.js';
@@ -267,10 +267,9 @@ if (throttleEl) {
   throttleEl.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
-// The knob warns of slow flight: red where the plane falls out of the sky,
-// amber where it sinks. Left alone for a while, the throttle fades back.
-const THROTTLE_RED_BELOW_KTS = 50;
-const THROTTLE_AMBER_BELOW_KTS = 100;
+// The knob warns of slow flight: red where the plane falls out of the sky
+// (from 5 knots under its stall speed), amber where it sinks (under its level
+// speed). Left alone for a while, the throttle fades back.
 const THROTTLE_IDLE_MS = 4000;
 
 let lastThrottleTarget = -1;
@@ -309,20 +308,16 @@ export function updateThrottle(now) {
   wakeThrottle(now);
   const ktsPerMult = BASE_FLIGHT_SPEED * 60;
   const kts = Math.round(target * ktsPerMult);
+  const {stallKts, levelKts} = planeHandling();
   throttleEl.style.setProperty('--thr', Math.min(1, target / max).toFixed(4));
   throttleEl.style.setProperty(
     '--stall',
-    (FALL_START_KTS / (max * ktsPerMult)).toFixed(4)
+    (stallKts / (max * ktsPerMult)).toFixed(4)
   );
   throttleEl.setAttribute('aria-valuemax', Math.round(max * ktsPerMult));
   throttleEl.setAttribute('aria-valuenow', kts);
   updateDOM(throttleKts, kts);
-  const zone =
-    kts < THROTTLE_RED_BELOW_KTS
-      ? 'red'
-      : kts < THROTTLE_AMBER_BELOW_KTS
-        ? 'amber'
-        : '';
+  const zone = kts < stallKts - 5 ? 'red' : kts < levelKts ? 'amber' : '';
   if (zone !== lastThrottleZone) {
     if (lastThrottleZone) throttleEl.classList.remove(lastThrottleZone);
     if (zone) throttleEl.classList.add(zone);

@@ -98,7 +98,12 @@ import {
   terrainUniforms,
   updateDOM,
 } from './constants.js';
-import {getMaxFlightSpeedMult, planeGroup, poseGear} from './airplane.js';
+import {
+  getMaxFlightSpeedMult,
+  planeGroup,
+  planeHandling,
+  poseGear,
+} from './airplane.js';
 import {
   manualCloudCover,
   manualCloudHeight,
@@ -395,8 +400,9 @@ function performFrame() {
     }
 
     // 4. Free falling plummet (engine cut/idle, steep pitch down or stalling,
-    // high altitude): under 50 knots the plane falls (flight-physics.js)
-    const isFallingOutSky = currentKTS < 50;
+    // high altitude): under its stall speed the plane falls
+    // (flight-physics.js)
+    const isFallingOutSky = currentKTS < planeHandling().stallKts - 5;
 
     if (
       state.targetFlightSpeed <= 0.05 &&
@@ -1138,6 +1144,13 @@ const MAX_DIVE_ANGLE = -(75 * Math.PI) / 180;
 const MAX_CLIMB_ANGLE = (75 * Math.PI) / 180;
 const PITCH_SPEED = 1.0; // rad/s (~57 deg/s)
 const STEEP_PITCH_SPEED = 1.6; // rad/s (~92 deg/s)
+
+// Speed-dependent turn rate: for the same bank the plane turns more slowly
+// when fast, from full rate at TURN_FADE_FROM_KTS easing to TURN_FAST_SCALE
+// of it at TURN_FADE_TO_KTS and up, so a fast plane carves wide arcs
+const TURN_FADE_FROM_KTS = 150;
+const TURN_FADE_TO_KTS = 450;
+const TURN_FAST_SCALE = 0.7;
 const PITCH_EASE_OUT = 2.5;
 
 let manualPitchVel = 0; // rad/s, signed (positive pitches up)
@@ -1365,7 +1378,7 @@ function updatePhysicsAndControls(delta, nowTime) {
   state.isSteepPitch = false;
   state.isDoingFullLoop = false;
 
-  state.manualRollSpeed = 2.8;
+  state.manualRollSpeed = planeHandling().rollRate;
 
   if (
     !state.isFreeCamera &&
@@ -1618,11 +1631,20 @@ function updatePhysicsAndControls(delta, nowTime) {
   }
 
   if (!state.isFreeCamera) {
-    const effTurnSpeed = THREE.MathUtils.lerp(
-      TURN_SPEED,
-      SHARP_TURN_ROLL_SPEED,
-      sharpTurnAmount
-    );
+    // The plane's agility scales how quickly it rolls and pitches toward the
+    // controls and how sharply it turns (PLANE_HANDLING in constants.js)
+    const {agility} = planeHandling();
+    const effTurnSpeed =
+      THREE.MathUtils.lerp(TURN_SPEED, SHARP_TURN_ROLL_SPEED, sharpTurnAmount) *
+      agility;
+    const kts = BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
+    const turnRate =
+      agility *
+      THREE.MathUtils.lerp(
+        1,
+        TURN_FAST_SCALE,
+        THREE.MathUtils.smoothstep(kts, TURN_FADE_FROM_KTS, TURN_FADE_TO_KTS)
+      );
 
     const flightRot = ChillFlightLogic.computeFlightRotation({
       currentPitch: planeGroup.rotation.x,
@@ -1636,11 +1658,9 @@ function updatePhysicsAndControls(delta, nowTime) {
       isClampedRoll: state.isClampedRoll,
       turnSpeed: effTurnSpeed,
       delta: delta,
-      yawMultiplier: THREE.MathUtils.lerp(
-        1.0,
-        SHARP_TURN_YAW_MULT,
-        sharpTurnAmount
-      ),
+      yawMultiplier:
+        THREE.MathUtils.lerp(1.0, SHARP_TURN_YAW_MULT, sharpTurnAmount) *
+        turnRate,
       manualYaw: state.isBarrelRolling ? -effMouseX : 0,
     });
 

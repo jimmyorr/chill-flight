@@ -37,10 +37,62 @@ export const BASE_FLIGHT_SPEED = 2.5;
 // World units to meters, on the speed readout's scale (a unit per second
 // reads as a knot): distances and altitude are shown on it
 export const UNITS_TO_M = 0.5144;
-export const MAX_AIRPLANE_SPEED_KTS = 500;
-export const MAX_FLIGHT_SPEED_MULT =
-  MAX_AIRPLANE_SPEED_KTS / (BASE_FLIGHT_SPEED * 60);
 export const TURN_SPEED = 0.03;
+
+// Each plane's speed and handling, kept close enough that every plane still
+// flies gently (README, "Planes"):
+// - topKts: the throttle's top speed (knots)
+// - stallKts: below this it starts to fall out of the sky, fully 20 knots
+//   lower; levelKts: at and above this it holds its height, sinking more the
+//   slower it flies below it
+// - accelKts, decelKts: how fast the throttle speeds it up and slows it down
+//   (knots per second)
+// - diveGain: how much speed a dive wins back
+// - agility: how quickly it rolls and pitches toward the controls and how
+//   sharply it turns for a given bank (1 for the seaplane)
+// - rollRate: its barrel roll rate (radians per second)
+export const PLANE_HANDLING = {
+  biplane: {
+    topKts: 280,
+    stallKts: 40,
+    levelKts: 80,
+    accelKts: 40,
+    decelKts: 30,
+    diveGain: 0.7,
+    agility: 1.3,
+    rollRate: 3.7,
+  },
+  seaplane: {
+    topKts: 380,
+    stallKts: 55,
+    levelKts: 100,
+    accelKts: 50,
+    decelKts: 30,
+    diveGain: 0.7,
+    agility: 1,
+    rollRate: 2.8,
+  },
+  twin: {
+    topKts: 500,
+    stallKts: 65,
+    levelKts: 115,
+    accelKts: 60,
+    decelKts: 20,
+    diveGain: 0.7,
+    agility: 0.75,
+    rollRate: 2.25,
+  },
+  glider: {
+    topKts: 300,
+    stallKts: 30,
+    levelKts: 60,
+    accelKts: 30,
+    decelKts: 20,
+    diveGain: 0.9,
+    agility: 0.9,
+    rollRate: 2.6,
+  },
+};
 
 // Feature Flags
 export const ENABLE_PAGODAS = false;

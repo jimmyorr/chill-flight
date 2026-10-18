@@ -7,7 +7,7 @@ import {
   updateUrlParams,
 } from './constants.js';
 import {simplex} from './noise.js';
-import {planeGroup} from './airplane.js';
+import {planeGroup, planeHandling} from './airplane.js';
 import {suppressPauseClick, togglePause} from './game-state.js';
 import {hooks} from './hooks.js';
 import {resetSteering} from './game-ui.js';
@@ -1092,8 +1092,11 @@ import {PEOPLE} from './people.js';
       state._nextYaw = yaw;
     }
     if (speed !== undefined) {
-      state.flightSpeedMultiplier = speed;
-      state.targetFlightSpeed = speed;
+      // The approach speed suits the seaplane; others fly it in proportion
+      // to the speed they hold their height at
+      const approach = (speed * planeHandling().levelKts) / 100;
+      state.flightSpeedMultiplier = approach;
+      state.targetFlightSpeed = approach;
     }
     // Move the camera and its tracking targets with the plane (turning with
     // it), so it doesn't sweep across the world to catch up

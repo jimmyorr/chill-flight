@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
-import {activePlaneType, planeGroup} from './airplane.js';
+import {activePlaneType, planeGroup, planeHandling} from './airplane.js';
 import {createNoiseBuffer, getAudioContext, getSfxBus} from './sfx.js';
 
 export const SFX_EVENTS = [
@@ -61,8 +61,6 @@ const FALLS_TOP = 600;
 // Fully loud within this distance, silent beyond FALLS_FAR (units)
 const FALLS_NEAR = 250;
 const FALLS_FAR = 3000;
-// Below this speed in the air the plane falls (FALL_START_KTS = 55)
-const FALL_SPEED_MULT = 55 / 150;
 
 let ctx = null;
 let bus = null;
@@ -381,11 +379,12 @@ export function updateSfxEvents(delta, rain = 0) {
   setLoop(loops.water.swellDepth.gain, waterOn ? lap * 0.7 : 0, 0.2);
   setLoop(loops.water.filter.frequency, 450 + waterRoll * 1600);
 
-  // Falling: wind rushing past as the plane drops out of the sky
+  // Falling: wind rushing past as the plane drops out of the sky, below its
+  // stall speed (the speed multiplier is in 150-knot steps)
   const airborne = !onGround && !onWater && !state.isFreeCamera;
   const falling = preview.fall
     ? 0.8
-    : airborne && speed < FALL_SPEED_MULT
+    : airborne && speed * 150 < planeHandling().stallKts
       ? THREE.MathUtils.clamp(fallRate / 120, 0, 1)
       : 0;
   setLoop(

@@ -7,7 +7,7 @@ import {
   BASE_FLIGHT_SPEED,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
-  MAX_AIRPLANE_SPEED_KTS,
+  PLANE_HANDLING,
   UNITS_TO_M,
   WATER_LEVEL,
   createMaterial,
@@ -264,7 +264,6 @@ export let activePlaneType =
   ) ||
   'biplane';
 
-// The glider tops out lower than the powered planes.
 // Poses the landing gear for how far down it is (state.gearExtension, 0 up to
 // 1 down): the seaplane's pontoons swing down on their hinges and grow, and
 // the twin's wheels unfold
@@ -286,9 +285,32 @@ export function poseGear(extension) {
   }
 }
 
+// The active plane's speed and handling (PLANE_HANDLING in constants.js)
+export function planeHandling() {
+  return PLANE_HANDLING[activePlaneType];
+}
+
 export function getMaxFlightSpeedMult() {
-  const speedKts = activePlaneType === 'glider' ? 300 : MAX_AIRPLANE_SPEED_KTS;
-  return speedKts / (BASE_FLIGHT_SPEED * 60);
+  return planeHandling().topKts / (BASE_FLIGHT_SPEED * 60);
+}
+
+// The pause menu's bars for the active plane's handling, each a fraction of
+// the best plane's: top speed, agility, and float (a low stall speed)
+function updatePlaneStats() {
+  const stats = document.getElementById('plane-stats');
+  if (!stats) return;
+  const all = Object.values(PLANE_HANDLING);
+  const h = planeHandling();
+  const values = {
+    speed: h.topKts / Math.max(...all.map((p) => p.topKts)),
+    agility: h.agility / Math.max(...all.map((p) => p.agility)),
+    float: Math.min(...all.map((p) => p.stallKts)) / h.stallKts,
+  };
+  for (const [stat, value] of Object.entries(values)) {
+    stats
+      .querySelector(`[data-stat="${stat}"]`)
+      ?.style.setProperty('--v', value.toFixed(3));
+  }
 }
 
 export function setActivePlane(planeType, skipStorage = false) {
@@ -379,6 +401,7 @@ export function setActivePlane(planeType, skipStorage = false) {
       );
     });
   }
+  updatePlaneStats();
 
   // Update URL parameters
   updateUrlParams({plane: planeType}, ['plane', 'vehicle']);

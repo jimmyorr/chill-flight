@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {getElevation, sampleGround} from './terrain-geometry.js';
 import {sampleRoad} from './terrain-chunks.js';
-import {planeGroup} from './airplane.js';
+import {planeGroup, planeHandling} from './airplane.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {precipitation} from './weather-manager.js';
 import {state} from './state.js';
@@ -37,26 +37,25 @@ let groundTiltRoll = 0;
 // How slowly the model levels out after leaving the ground (seconds)
 const TILT_LEVEL_SECONDS = 0.5;
 
-// Slow flight: how fast the plane sinks (units per second), none
-// at 100 knots and up, easing in to 15 at 50 knots, so landing is a matter of
+// Each plane's stall and level speeds, throttle rates, dive gain and the
+// rest come from PLANE_HANDLING in constants.js (planeHandling()).
+// Slow flight: how fast the plane sinks (units per second), none at the
+// plane's level speed and up, easing in to 15 at 5 knots under its stall
+// speed (50 and 100 knots for the seaplane), so landing is a matter of
 // slowing down gently
 const smoothstep = THREE.MathUtils.smoothstep;
-function sinkRateAt(kts) {
-  return 15 * (1 - smoothstep(kts, 50, 100));
+function sinkRateAt(kts, handling) {
+  return 15 * (1 - smoothstep(kts, handling.stallKts - 5, handling.levelKts));
 }
-// How fast the plane speeds up and slows down toward the throttle's target
-// (knots per second), and how close it gets before easing in (per second:
-// at 2 the last 25 knots of a climb to speed ease in)
-const THROTTLE_ACCEL_KTS = 50;
-const THROTTLE_DECEL_KTS = 30;
+// How close the plane gets to the throttle's target before easing in (per
+// second: at 2 the last 25 knots of a climb to speed ease in)
 const THROTTLE_EASE = 2;
 // How quickly the sink follows a change of speed (seconds)
 const SINK_EASE_SECONDS = 1.0;
 // Slower still, the plane falls out of the sky and tumbles: gravity takes
-// over, blending in from 55 down to 35 knots (fallAmount) instead of
-// switching on at one speed
-export const FALL_START_KTS = 55;
-const FALL_FULL_KTS = 35;
+// over, blending in from its stall speed down to FALL_BLEND_KTS below it
+// (fallAmount) instead of switching on at one speed
+const FALL_BLEND_KTS = 20;
 const GRAVITY = 120; // units/sec²: weighty but not instant
 const TERMINAL_VELOCITY = -600;
 // How quickly the fall comes on, and fades when powering out of it (seconds)
@@ -95,6 +94,7 @@ export function isOnWheels() {
 }
 
 export function updateFlightPhysics(delta, nowTime) {
+  const handling = planeHandling();
   // --- FLIGHT PHYSICS & SPEED ---
   let terrainHeight = getElevation(
     planeGroup.position.x,
@@ -160,7 +160,8 @@ export function updateFlightPhysics(delta, nowTime) {
       // Dramatically reduced acceleration when skimming the ground/water,
       // and none while falling: a nose the tumble tipped down would win back
       // speed and pop the plane out of the fall, lurching forward
-      const diveGain = (isAvoidingGround ? 0.1 : 0.7) * (1 - fallAmount);
+      const diveGain =
+        (isAvoidingGround ? 0.1 : handling.diveGain) * (1 - fallAmount);
       state.flightSpeedMultiplier += gravityEffect * diveGain * delta;
     }
   }
@@ -178,7 +179,7 @@ export function updateFlightPhysics(delta, nowTime) {
     const ktsPerMult = BASE_FLIGHT_SPEED * 60;
     const diff = state.targetFlightSpeed - state.flightSpeedMultiplier;
     const maxRate =
-      (diff > 0 ? THROTTLE_ACCEL_KTS : THROTTLE_DECEL_KTS) / ktsPerMult;
+      (diff > 0 ? handling.accelKts : handling.decelKts) / ktsPerMult;
     const step = Math.min(Math.abs(diff) * THROTTLE_EASE, maxRate) * delta;
     state.flightSpeedMultiplier +=
       Math.sign(diff) * Math.min(step, Math.abs(diff));
@@ -224,7 +225,14 @@ export function updateFlightPhysics(delta, nowTime) {
     !followingGround;
   fallAmount = THREE.MathUtils.lerp(
     fallAmount,
-    airborne ? 1 - smoothstep(currentKTS, FALL_FULL_KTS, FALL_START_KTS) : 0,
+    airborne
+      ? 1 -
+          smoothstep(
+            currentKTS,
+            handling.stallKts - FALL_BLEND_KTS,
+            handling.stallKts
+          )
+      : 0,
     1 - Math.exp(-delta / FALL_EASE_SECONDS)
   );
   const isAerobatic = state.isLooping || state.isDoingImmelmann;
@@ -232,7 +240,7 @@ export function updateFlightPhysics(delta, nowTime) {
     state.verticalVelocity -= GRAVITY * fallAmount * delta;
     state.verticalVelocity = THREE.MathUtils.lerp(
       state.verticalVelocity,
-      -sinkRateAt(currentKTS),
+      -sinkRateAt(currentKTS, handling),
       (1 - fallAmount) * (1 - Math.exp(-delta / SINK_EASE_SECONDS))
     );
     state.verticalVelocity = Math.max(
@@ -272,7 +280,14 @@ export function updateFlightPhysics(delta, nowTime) {
   stallNose = THREE.MathUtils.lerp(
     stallNose,
     airborne
-      ? STALL_NOSE_DIP * (1 - smoothstep(currentKTS, 30, 70)) * (1 - fallAmount)
+      ? STALL_NOSE_DIP *
+          (1 -
+            smoothstep(
+              currentKTS,
+              handling.stallKts - 25,
+              handling.levelKts - 30
+            )) *
+          (1 - fallAmount)
       : 0,
     1 - Math.exp(-delta / SINK_EASE_SECONDS)
   );
