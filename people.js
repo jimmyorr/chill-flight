@@ -637,7 +637,7 @@ export const PEOPLE = [
             'Could you take this bag of racquets to {to}?',
           ],
           [
-            "I'm wearing my tennis visor, so this is official business.",
+            "I'm wearing my tennis headband, so this is official business.",
             'Could you drop these racquets off at {to}?',
           ],
         ],

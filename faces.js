@@ -365,10 +365,10 @@ export const FACES = {
     },
   },
   // Drawn after the real Erin: big dark curls from a middle part, brown
-  // eyes, a wide smile and a speckled pink knit top. For tennis: a white
-  // polo and a pink visor
+  // eyes, a wide smile and a speckled purple knit top (purple is her
+  // colour). For tennis: a white polo and visor with purple trim
   Erin: {
-    background: '#f6dbe6',
+    background: '#dcd8f4',
     rows: [
       '.........kk.kkrHhkk.kk..........',
       '........khrkhrrhrrhkrhk.........',
@@ -428,15 +428,15 @@ export const FACES = {
       h: '#4a2e20', // hair highlight
       H: '#6e4a34', // hair bright highlight
       E: '#5a3a26', // eyes
-      t: '#e47ac0', // pink knit
-      T: '#d062aa', // knit texture
+      t: '#a898e0', // purple knit
+      T: '#9484cc', // knit texture
       f: '#f8e070', // yellow flecks
       F: '#7ad0e0', // blue flecks
-      c: '#c8509a', // collar
+      c: '#7c6ab8', // collar
     },
     outfits: {
       tennis: {
-        background: '#f6dbe6',
+        background: '#dcd8f4',
         rows: [
           '.........kk.kkrHhkk.kk..........',
           '........khrkhrrhrrhkrhk.........',
@@ -500,16 +500,17 @@ export const FACES = {
           h: '#4a2e20', // hair highlight
           H: '#6e4a34', // hair bright highlight
           E: '#5a3a26', // eyes
-          c: '#e47ac0', // trim
+          c: '#8a78c4', // trim
         },
       },
     },
   },
   // Drawn after the real Lauren: long straight dark hair from a middle
-  // part, blue eyes, a wide smile and a lavender yoke sweater. For tennis:
-  // a white polo and visor
+  // part, blue eyes, a wide smile and a pink yoke sweater (pink is her
+  // colour). For tennis: a white polo and a white terry headband with a
+  // pink stripe
   Lauren: {
-    background: '#dcd8f4',
+    background: '#f6dbe6',
     rows: [
       '..............kkk...............',
       '...........kkkrrrkkk............',
@@ -569,15 +570,15 @@ export const FACES = {
       h: '#56362a', // hair highlight
       H: '#76503a', // hair bright highlight
       E: '#5a7ea8', // eyes
-      t: '#a898e0', // lavender knit
-      T: '#9484cc', // knit ribs
-      o: '#e6defa', // eyelets
-      B: '#8a78c4', // bobble band
-      c: '#7c6ab8', // collar
+      t: '#e47ac0', // pink knit
+      T: '#d062aa', // knit ribs
+      o: '#fae0ee', // eyelets
+      B: '#c8509a', // bobble band
+      c: '#b8448c', // collar
     },
     outfits: {
       tennis: {
-        background: '#dcd8f4',
+        background: '#f6dbe6',
         rows: [
           '..............kkk...............',
           '...........kkkrrrkkk............',
@@ -585,10 +586,10 @@ export const FACES = {
           '.........krrrhrrrhrrrk..........',
           '........khrrrhrrrHrrrhk.........',
           '.......krhrRrHrRrhrRrhrk........',
-          '......kRrHrRrhrrrrrRrhrRk.......',
-          '......kcccccccccccccccccck......',
-          '.....kkVVVVVVVVVVVVVVVVVVkk.....',
-          '......kRrhUUUUUUUUUUUUrRk.......',
+          '......kRrVVVVVVVVVVVVVrRk.......',
+          '......kRrcccccccccccccrRk.......',
+          '......kRrVVVVVVVVVVVVVrRk.......',
+          '......kRrhssssssssssssrRk.......',
           '......kRrHsvvvssssvvvsrRk.......',
           '......kRrhssssssssssssrRk.......',
           '......kRdsseEesssseEesrdrk......',
@@ -634,14 +635,13 @@ export const FACES = {
           g: '#f4f0e8', // earring studs
           q: '#f6f4f0', // white polo
           Q: '#d8d6de', // polo shadow
-          V: '#f6f4f0', // visor brim
-          U: '#d8a88a', // brim shade on the forehead
+          V: '#f6f4f0', // terry headband
           r: '#3a2218', // hair base
           R: '#24140e', // hair shadow
           h: '#56362a', // hair highlight
           H: '#76503a', // hair bright highlight
           E: '#5a7ea8', // eyes
-          c: '#8a78c4', // trim
+          c: '#e47ac0', // trim
         },
       },
     },
