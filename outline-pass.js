@@ -100,7 +100,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
       float bestVar = 1e9;
       for (int q = 0; q < 4; q++) {
         vec3 mean = sum[q] / n;
-        vec3 v = sum2[q] / n - mean * mean;
+        vec3 v = max(sum2[q] / n - mean * mean, vec3(0.0));
         float variance = v.r + v.g + v.b;
         if (variance < bestVar) {
           bestVar = variance;

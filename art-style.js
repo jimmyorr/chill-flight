@@ -13,7 +13,7 @@ const STORAGE_KEY = 'chill_flight_art_style';
 // The Settings choice, unless ?style= overrides it: anime, or lowpoly (also
 // low-poly or classic) for the low-poly look
 function loadStyle() {
-  const param = ChillFlightLogic.urlParams.get('style');
+  const param = ChillFlightLogic.urlParams?.get('style');
   if (param) return param === 'anime' ? 'anime' : 'classic';
   try {
     return localStorage.getItem(STORAGE_KEY) === 'anime' ? 'anime' : 'classic';

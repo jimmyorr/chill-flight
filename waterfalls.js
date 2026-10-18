@@ -5,10 +5,8 @@
 // toward the bottom, and a ring of churning foam where it lands. Both are
 // see-through and don't write depth, so the anime outlines leave them alone.
 import * as THREE from 'three';
-import {createMaterial} from './constants.js';
+import {WATER_LEVEL, createMaterial} from './constants.js';
 import {waterUniforms} from './terrain-geometry.js';
-
-const WATER_LEVEL = 40;
 
 // Value noise for the streaks and foam
 const NOISE_GLSL = `
@@ -29,7 +27,12 @@ const NOISE_GLSL = `
 // on top of the game's usual lighting and fog
 // (falling water by default: white, and bright even on the shaded side of a
 // cliff)
-function fallMaterial(pattern, color = 0xe8f6fc, emissive = 0x5d7380) {
+function fallMaterial(
+  pattern,
+  color = 0xe8f6fc,
+  emissive = 0x5d7380,
+  billboard = false
+) {
   const mat = createMaterial({
     color,
     emissive,
@@ -41,9 +44,24 @@ function fallMaterial(pattern, color = 0xe8f6fc, emissive = 0x5d7380) {
   mat.onBeforeCompile = (shader, renderer) => {
     base(shader, renderer);
     shader.uniforms.uTime = waterUniforms.uTime;
-    shader.vertexShader = shader.vertexShader
-      .replace('void main() {', 'varying vec2 vFallUv;\nvoid main() {')
-      .replace('#include <uv_vertex>', '#include <uv_vertex>\nvFallUv = uv;');
+    if (billboard) {
+      shader.vertexShader = shader.vertexShader
+        .replace('void main() {', 'varying vec2 vFallUv;\nvoid main() {')
+        .replace('#include <uv_vertex>', '#include <uv_vertex>\nvFallUv = uv;')
+        .replace(
+          '#include <project_vertex>',
+          `vec3 worldCenter = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+          vWorldPosition = worldCenter;
+          vec4 mvPosition = viewMatrix * vec4(worldCenter, 1.0);
+          vec2 bbScale = vec2(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz));
+          mvPosition.xy += position.xy * bbScale;
+          gl_Position = projectionMatrix * mvPosition;`
+        );
+    } else {
+      shader.vertexShader = shader.vertexShader
+        .replace('void main() {', 'varying vec2 vFallUv;\nvoid main() {')
+        .replace('#include <uv_vertex>', '#include <uv_vertex>\nvFallUv = uv;');
+    }
     shader.fragmentShader = shader.fragmentShader
       .replace(
         'void main() {',
@@ -66,7 +84,7 @@ function fallMaterial(pattern, color = 0xe8f6fc, emissive = 0x5d7380) {
   };
   // three.js shares one compiled program between materials whose
   // onBeforeCompile reads the same, as all of these do, so tell them apart
-  mat.customProgramCacheKey = () => pattern;
+  mat.customProgramCacheKey = () => pattern + (billboard ? '_bb' : '');
   return mat;
 }
 
@@ -85,16 +103,28 @@ const fallMat = fallMaterial(`
   alpha = edge * smoothstep(0.0, 10.0, v) * mix(0.72, 1.0, streak);
 `);
 
-// The foam where it lands: rings of churned water spreading outward and
-// thinning at the edge (uv centered on the landing point)
+// The foam where it lands: radiating ripples and churning boil spreading outward
+// and thinning gracefully at the edges (uv centered on the landing point)
 const foamMat = fallMaterial(`
   vec2 c = vFallUv - 0.5;
   float r = length(c) * 2.0;
   float a = atan(c.y, c.x);
-  float foam = fallNoise(vec2(a * 5.0, r * 6.0 - uTime * 0.9))
-             * 0.6 + fallNoise(vec2(a * 11.0 + 7.0, r * 11.0 - uTime * 1.4)) * 0.4;
-  shade = mix(0.9, 1.08, foam);
-  alpha = (1.0 - smoothstep(0.35, 1.0, r)) * smoothstep(0.35, 0.65, foam + 0.3 * (1.0 - r));
+
+  // Concentric radiating ripples expanding outward from the splash impact
+  float ripples = sin(r * 15.0 - uTime * 3.0) * 0.5 + 0.5;
+
+  // Turbulent swirling churn
+  float n1 = fallNoise(vec2(a * 4.0, r * 5.0 - uTime * 1.0));
+  float n2 = fallNoise(vec2(a * 9.0 + 5.0, r * 9.0 - uTime * 1.6));
+  float churn = n1 * 0.6 + n2 * 0.4;
+
+  // Foam pattern combining impact boil, turbulent foam streaks, and expanding ripples
+  float boil = smoothstep(0.4, 0.05, r);
+  float streaks = smoothstep(0.32, 0.62, churn + ripples * 0.22);
+  float edgeFade = 1.0 - smoothstep(0.35, 0.98, r);
+
+  shade = mix(0.92, 1.12, churn);
+  alpha = edgeFade * (boil * 0.72 + streaks * 0.62) * 0.82;
 `);
 
 // The stream feeding the fall: u across, v downstream in world units.
@@ -130,28 +160,33 @@ const pondMat = fallMaterial(
   0x000000
 );
 
-// The mist: a soft round puff, white and see-through
-function mistTexture() {
-  const size = 64;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  g.addColorStop(0, 'rgba(255,255,255,0.75)');
-  g.addColorStop(0.5, 'rgba(255,255,255,0.35)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-  return new THREE.CanvasTexture(canvas);
-}
-const mistMat = new THREE.SpriteMaterial({
-  map: typeof document !== 'undefined' ? mistTexture() : null,
-  color: 0xf4fbff,
-  transparent: true,
-  opacity: 0.55,
-  depthWrite: false,
-  fog: true,
-});
+// The mist: soft procedural billowing spray that drifts and dissolves seamlessly
+const mistGeo = new THREE.PlaneGeometry(1, 1);
+
+const mistMat = fallMaterial(
+  `
+  vec2 c = vFallUv - 0.5;
+  float r = length(c) * 2.0;
+  if (r >= 1.0) discard;
+
+  // Soft quadratic falloff to exactly zero at the outer circumference
+  float soft = 1.0 - r * r;
+
+  // Two octaves of swirling animated billow noise rising upward
+  float n1 = fallNoise(vec2(vFallUv.x * 3.5, vFallUv.y * 2.0 - uTime * 0.85));
+  float n2 = fallNoise(vec2(vFallUv.x * 7.5 + 3.1, vFallUv.y * 4.5 - uTime * 1.45));
+  float noise = n1 * 0.65 + n2 * 0.35;
+
+  // Billowy cloud contours with soft feathering
+  float billow = smoothstep(0.2, 0.72, noise + 0.25 * (1.0 - r));
+
+  shade = mix(0.94, 1.14, noise);
+  alpha = soft * soft * billow * 0.55;
+`,
+  0xf0f8ff,
+  0x22303a,
+  true
+);
 
 // The terrain's height at local (x, z) as drawn: the triangles of the
 // chunk's terrain mesh (a PlaneGeometry, split along each cell's
@@ -463,17 +498,28 @@ export function createWaterfall({course: points, stream, ground, leap}) {
     THREE.MathUtils.clamp(drop * 0.3, 30, 90),
     footHalf * 2.4
   );
-  const spread = Math.max(mistSize * 0.25, footHalf);
+  // Mist rising where it lands: soft 3D billowy plumes that churn and billow upward
+  const spread = Math.max(mistSize * 0.22, footHalf * 0.8);
+
+  // Central rising spray plume
+  const coreMist = new THREE.Mesh(mistGeo, mistMat);
+  coreMist.scale.set(mistSize * 0.85, mistSize * 0.85, 1);
+  coreMist.position.set(bx, WATER_LEVEL + mistSize * 0.35, bz);
+  coreMist.renderOrder = 2;
+  group.add(coreMist);
+
+  // Surrounding asymmetrical billow puffs
   for (let i = 0; i < 4; i++) {
-    const puff = new THREE.Sprite(mistMat);
+    const puff = new THREE.Mesh(mistGeo, mistMat);
     const a = (i / 4) * Math.PI * 2 + points.length;
-    const size = mistSize * (0.7 + (0.3 * ((i * 37) % 10)) / 10);
-    puff.scale.set(size, size * 0.8, 1);
+    const r = mistSize * (0.6 + (0.25 * ((i * 37) % 10)) / 10);
+    puff.scale.set(r, r, 1);
     puff.position.set(
       bx + Math.cos(a) * spread,
-      WATER_LEVEL + size * 0.3,
+      WATER_LEVEL + r * 0.35,
       bz + Math.sin(a) * spread
     );
+    puff.renderOrder = 2;
     group.add(puff);
   }
 
@@ -482,7 +528,7 @@ export function createWaterfall({course: points, stream, ground, leap}) {
   foamGeo.rotateX(-Math.PI / 2);
   foamGeo.userData.unique = true;
   const foam = new THREE.Mesh(foamGeo, foamMat);
-  foam.position.set(bx, WATER_LEVEL + 0.6, bz);
+  foam.position.set(bx, WATER_LEVEL + 0.3, bz);
   foam.renderOrder = 2;
   group.add(foam);
 

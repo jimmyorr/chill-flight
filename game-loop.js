@@ -31,6 +31,7 @@ import {
   updateSkyPalette,
 } from './sky.js';
 import {renderFrame} from './outline-pass.js';
+import {updatePlaneShadow} from './plane-shadow.js';
 import {performanceMonitor} from './game-performance.js';
 import {
   DELTA_BUFFER_SIZE,
@@ -2320,6 +2321,7 @@ function updateWeatherAndRendering(delta) {
   // and disables them entirely at night when dirLight intensity is effectively zero.
   renderer.shadowMap.needsUpdate = performanceMonitor.shouldUpdateShadows();
 
+  updatePlaneShadow();
   renderFrame(scene, camera);
 }
 

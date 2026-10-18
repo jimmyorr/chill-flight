@@ -30,6 +30,7 @@ import '../twin.js';
 import '../airplane.js';
 import '../plane-models.js';
 import '../terrain-geometry.js';
+import '../plane-shadow.js';
 import '../waterfalls.js';
 import '../game-performance.js';
 import '../terrain-chunks.js';
