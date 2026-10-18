@@ -150,11 +150,11 @@ To ensure every day looks unique while maintaining cinematic quality, the sky co
 
 ## Weather
 
-Weather is dynamic and procedural, tied to a global noise map and the player's latitude.
+Weather is dynamic and procedural, tied to three noise maps that drift over the world and to the player's latitude: small, quick cloud patches, slower storm systems, and a big, slow field for the snow country's light snow (`weatherAt` and `WEATHER` in `chill-flight-logic.js`).
 
 ### Overcast skies
 
-Overcast conditions occur when the procedural cloud noise is high (cover builds smoothly from about 0.65 to full at 1.0, or from about 0.5 over the snow) or during active precipitation. The sky follows the cover gradually, with a time constant of about 12 seconds (`CLOUD_EASE_SECONDS` in `game-loop.js`), so clouds build and clear over half a minute or so rather than snapping. Rain and snow fall only where the cover is thick (the same weather noise above about 0.82), and there the overcast overrides the day's cloud mood, so the sky above is always full of cloud. As the cover thickens toward a storm, the clouds darken from white to a grey deck: rain clouds slightly darker than the overcast sky in their gaps, snow clouds (where storms bring snow, sleet in between) a lighter grey (`stormDeckShade` in `constants.js`); at sunrise and sunset the deck still takes the low sun's color, a little muted.
+Overcast conditions occur when the cloud patch noise is high (cover builds smoothly from about 0.65 to full at 1.0, or from about 0.5 over the snow), or as a storm system approaches: its overcast builds ahead of the rain. The sky follows the cover gradually, with a time constant of about 12 seconds (`CLOUD_EASE_SECONDS` in `game-loop.js`), so clouds build and clear over half a minute or so rather than snapping. Rain and snow fall only under thick cover, and there the overcast overrides the day's cloud mood, so the sky above is always full of cloud. As the cover thickens toward a storm, the clouds darken from white to a grey deck: rain clouds slightly darker than the overcast sky in their gaps, snow clouds (where storms bring snow, sleet in between) a lighter grey (`stormDeckShade` in `constants.js`); at sunrise and sunset the deck still takes the low sun's color, a little muted.
 
 - **Atmospheric effects**:
   - **Celestial visibility**: Stars and the Aurora Borealis become invisible. The Sun and Moon are dimmed.
@@ -164,12 +164,12 @@ Overcast conditions occur when the procedural cloud noise is high (cover builds 
 
 ### Storms and precipitation
 
-Storms are triggered when the global cloud noise map reaches peak density (> 0.82). The type of precipitation depends on your latitude (Z coordinate):
+Storms come from the storm noise, whose systems (about 10 km across) drift slowly, so a storm is something you fly into rather than a flicker. The sky clouds over first (storm noise from about 0.78), then a drizzle starts (0.8) and builds to a downpour (0.92) over 10 to 15 seconds at cruise. At 150 kts it rains 3 or 4 times an hour for about a minute each (nine in ten are over within 2 minutes), about 6% of the time; parked, a storm takes about 2 minutes to pass over. Thick overcast covers the heartland about 12% of the time, against 6% for the cloud patches alone. Rain eases in and out over about 6 seconds on top of that, snow over about 8 (`RAIN_EASE_SECONDS` and `SNOW_EASE_SECONDS` in `weather-manager.js`). Light rain and snow are fewer drops, not just fainter ones: the drop count and their opacity each follow the square root of the amount, so a drizzle is sparse but visible. `npm run test:weather` flies a plane through hours of weather and checks these numbers. The type of precipitation depends on your latitude (Z coordinate):
 
 - **The deep north** (Latitude > 2.5 North / Z < -12500): Storms intensify the already frequent snowfall.
 - **The transition zone** (Latitude 1.5 to 2.5 North / Z between -7500 and -12500): Sleet (a mix of rain and snow).
 - **Temperate and equator** (Latitude 2.0 South to 1.5 North / Z between 10000 and -7500): Full rain.
-- **Desert border** (Latitude 2.0 to 3.0 South / Z between 10000 and 15000): Light rain that quickly dries up as you move further south.
+- **Desert border** (Latitude 2.0 to 3.0 South / Z between 10000 and 15000, following the desert's wandering edge): Light rain that quickly dries up as you move further south.
 - **Deep desert** (Latitude > 3.0 South / Z > 15000): Dry storms (the sky becomes overcast, but no rain falls).
 
 ### Fog
@@ -191,16 +191,16 @@ The values live in `FOG` in `chill-flight-logic.js`. The debug menu's clear-sky 
 
 ### Permanent weather
 
-- **Snowy biome**: From Latitude 1.5 North, and heavier further north, light snow falls wherever some cloud cover is overhead (the weather noise above about 0.55), with occasional brief breaks (about 20% of the time). Cloud cover builds sooner over the snow (from about 0.5 instead of 0.65; `SNOW_CLOUD_HEADSTART` in `game-loop.js`), so it is common, but it never snows from a clear sky.
+- **Snowy biome**: Light snow follows its own big, slow noise field (falling where it is above about 0.52) and brings its own cloud, so it snows about 40% of the time in the snow country, in spells of a few minutes, but never from a clear sky. It starts where the snow cover starts (Latitude 1.5 North, Z = -7500), reaches its usual amount where the cover is full (2.5 North, Z = -12500), and keeps getting a little heavier to 4 North (Z = -20000). Cloud patches also build sooner over the snow (from about 0.5 instead of 0.65; `SNOW_CLOUD_HEADSTART` in `WEATHER`).
 
 ### Debug menu weather entries
 
 The telemetry overlay provides real-time values for the weather system:
 
 - **Overcast**: The current interpolated overcast value (0.0 to 1.0), determining cloud density and atmospheric effects.
-- **Storm**: The raw noise value used to determine storm triggers. Values above 0.75 trigger precipitation.
-- **Precip**: The calculated precipitation intensity (0.0 to 1.0), based on the maximum of normalized snow or rain opacity.
-- **Zone**: The current climate zone based on latitude (Snow, Sleet, Rain, Dry Edge, Desert).
+- **Storm**: The storm noise here. Overcast builds from about 0.78 and rain or snow from 0.8 (the snow country's light snow has its own field).
+- **Precip**: How hard it is raining or snowing around the camera (0.0 to 1.0 of full rain or full snow, whichever is more).
+- **Zone**: The current climate zone based on latitude (Snow, Sleet, Rain, Dry edge, Desert).
 - **Snow α**: The visual opacity of the snow particle system (maxes out at 0.8).
 - **Rain α**: The visual opacity of the rain particle system (maxes out at 0.5).
 - **Fog**: The current density of the scene fog.

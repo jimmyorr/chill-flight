@@ -4,7 +4,7 @@ import {scene} from './scene.js';
 import {log} from './logger.js';
 import {planeGroup} from './airplane.js';
 import {simplex} from './noise.js';
-import {CHUNK_SIZE, updateUrlParams} from './constants.js';
+import {updateUrlParams} from './constants.js';
 import {camera, skyUniforms} from './sky.js';
 import {state} from './state.js';
 
@@ -45,6 +45,25 @@ var _isLowPresetForWeather =
     parseInt(_savedQualityForWeather) <= 20);
 var WEATHER_PARTICLE_COUNT = _isLowPresetForWeather ? 1500 : 5000;
 var WEATHER_RANGE = 500;
+// Particle opacity at full rain and full snow (the rain and snow modes)
+const RAIN_FULL = 0.5;
+const SNOW_FULL = 0.8;
+const RAIN_EASE_SECONDS = 6;
+const SNOW_EASE_SECONDS = 8;
+// Eased precipitation, in particle opacity
+let _rainLevel = 0;
+let _snowLevel = 0;
+// What is falling around the camera, 0 to 1 of full rain and full snow
+// (after fading out above the clouds), for sound, turbulence and the HUD
+export const precipitation = {rain: 0, snow: 0};
+
+function showParticles(points, amount, fullOpacity) {
+  const k = Math.sqrt(Math.min(1, amount));
+  points.material.opacity = fullOpacity * k;
+  points.geometry.setDrawRange(0, Math.ceil(WEATHER_PARTICLE_COUNT * k));
+  // Hide when completely transparent to save the draw
+  points.visible = amount >= 0.002;
+}
 
 // Optimization: Weather particle GPU simulation uniforms.
 // Rather than updating 5,000 particle positions (15,000 floats) on the CPU and streaming
@@ -358,6 +377,8 @@ export function updateWeather(delta) {
     rainParticles.visible = false;
     snowParticles.material.opacity = 0;
     rainParticles.material.opacity = 0;
+    precipitation.rain = 0;
+    precipitation.snow = 0;
     return;
   }
 
@@ -366,100 +387,42 @@ export function updateWeather(delta) {
 
   // Determine target opacities based on active mode
   if (weatherType === 'snow') {
-    targetSnowOpacity = 0.8;
+    targetSnowOpacity = SNOW_FULL;
   } else if (weatherType === 'rain') {
-    targetRainOpacity = 0.5;
+    targetRainOpacity = RAIN_FULL;
   } else if (weatherType === 'auto') {
-    // Latitude as the climate sees it: the snow line wanders (snowWobble)
-    const latVal =
-      -planeGroup.position.z / 5000 +
-      ChillFlightLogic.snowWobble(
-        planeGroup.position.x,
-        planeGroup.position.z,
-        simplex
-      );
-
-    // 1. Sync with the global overcast/cloud noise map
-    const timeOffset = (state.worldClockNow || performance.now()) / 100000;
-    const chunkSize = CHUNK_SIZE;
-
-    // This math perfectly matches the cloud generation in your animate() loop
-    let stormNoise =
-      (simplex.noise2D(
-        (planeGroup.position.x / chunkSize) * 0.1 + 500 + timeOffset,
-        (planeGroup.position.z / chunkSize) * 0.1 + timeOffset
-      ) +
-        1) /
-      2;
-
-    // Snowfall follows the snow cover (see snowFactorAt): light snow from
-    // where it starts, with occasional breaks (80% duty cycle). It needs some
-    // cloud overhead (clouds build sooner over the snow; see
-    // SNOW_CLOUD_HEADSTART in game-loop.js), so it never snows from a clear sky.
-    const snowStart = ChillFlightLogic.SNOW_START_LAT;
-    const snowSpan = ChillFlightLogic.SNOW_FULL_LAT - snowStart;
-    if (latVal > snowStart - 0.1) {
-      // Use a slow-moving noise wave based on time for global breaks
-      const snowBreakNoise = (simplex.noise2D(timeOffset * 0.2, 999) + 1) / 2; // Value between 0 and 1
-
-      if (snowBreakNoise > 0.2) {
-        const permanentSnow = THREE.MathUtils.clamp(
-          (latVal - snowStart) / snowSpan,
-          0,
-          1
-        );
-        const underCloud = THREE.MathUtils.smoothstep(stormNoise, 0.55, 0.68);
-        targetSnowOpacity = Math.max(
-          targetSnowOpacity,
-          permanentSnow * 0.15 * underCloud
-        );
-      }
-    }
-
-    // Only trigger precipitation where the clouds are very thick (> 0.82)
-    if (stormNoise > 0.82) {
-      // Normalize storm intensity from 0.0 (just started) to 1.0 (heavy storm)
-      const stormIntensity = (stormNoise - 0.82) / 0.18;
-
-      // 2. Distribute the storm intensity based on latitude
-      if (latVal > snowStart + snowSpan) {
-        // North: Storm intensifies the already-falling snow
-        targetSnowOpacity = Math.max(targetSnowOpacity, stormIntensity * 0.4);
-      } else if (latVal > snowStart) {
-        // Where the snow cover starts: sleet (a mix of rain and snow)
-        const snowRatio = (latVal - snowStart) / snowSpan;
-        targetSnowOpacity = Math.max(
-          targetSnowOpacity,
-          stormIntensity * 0.4 * snowRatio
-        );
-        targetRainOpacity = stormIntensity * 0.5 * (1.0 - snowRatio);
-      } else if (latVal > -2.0) {
-        // Temperate/Equator: Full Rain
-        targetRainOpacity = stormIntensity * 0.5;
-      } else if (latVal > -3.0) {
-        // Desert Border (-2.0 to -3.0): Rain dries up quickly
-        const fadeOut = 1.0 - (Math.abs(latVal) - 2.0) / 1.0;
-        targetRainOpacity = stormIntensity * 0.5 * Math.max(0, fadeOut);
-      }
-      // If latVal <= -3.0 (Deep Desert), targets remain 0 (Dry Storm)
-    }
+    const weather = ChillFlightLogic.weatherAt(
+      planeGroup.position.x,
+      planeGroup.position.z,
+      state.worldClockNow || performance.now(),
+      simplex
+    );
+    targetSnowOpacity = weather.snow;
+    targetRainOpacity = weather.rain;
 
     // Expose debug data
     state._weatherDebug = {
-      stormNoise: stormNoise,
-      latVal: latVal,
-      zone:
-        latVal > 2.0
-          ? 'Snow'
-          : latVal > 1.0
-            ? 'Sleet'
-            : latVal > -2.0
-              ? 'Rain'
-              : latVal > -3.0
-                ? 'Dry Edge'
-                : 'Desert',
+      stormNoise: weather.stormNoise,
+      latVal: weather.lat,
+      zone: weather.zone,
     };
   }
+
+  // Ease toward the targets: rain builds and clears over about
+  // RAIN_EASE_SECONDS, snow a little more gently
+  _rainLevel = THREE.MathUtils.lerp(
+    _rainLevel,
+    targetRainOpacity,
+    1 - Math.exp(-delta / RAIN_EASE_SECONDS)
+  );
+  _snowLevel = THREE.MathUtils.lerp(
+    _snowLevel,
+    targetSnowOpacity,
+    1 - Math.exp(-delta / SNOW_EASE_SECONDS)
+  );
+  // Clamp very small values to 0 to enable clean reset detection next time
+  if (_rainLevel < 0.001) _rainLevel = 0;
+  if (_snowLevel < 0.001) _snowLevel = 0;
 
   // Initialize lightning light if it doesn't exist
   if (!lightningLight) {
@@ -480,10 +443,7 @@ export function updateWeather(delta) {
       lightningLight.intensity =
         Math.random() < 0.3 ? 0 : lightningFlashIntensity;
     }
-  } else if (
-    targetRainOpacity > 0.2 &&
-    Math.random() < targetRainOpacity * 0.0025
-  ) {
+  } else if (_rainLevel > 0.2 && Math.random() < _rainLevel * 0.0025) {
     // Only allow lightning between 6pm and 6am
     const hours = (state.timeOfDay / (Math.PI * 2)) * 24;
     if (hours >= 18 || hours <= 6) {
@@ -500,10 +460,12 @@ export function updateWeather(delta) {
   }
 
   // Store unfaded opacities to drive cloud density even when above clouds
-  state._unfadedSnowOpacity = targetSnowOpacity;
-  state._unfadedRainOpacity = targetRainOpacity;
+  state._unfadedSnowOpacity = _snowLevel;
+  state._unfadedRainOpacity = _rainLevel;
 
   // Fade out precipitation when flying above the cloud layer
+  let rainShown = _rainLevel / RAIN_FULL;
+  let snowShown = _snowLevel / SNOW_FULL;
   const cloudCeiling =
     typeof manualCloudHeight === 'number' ? manualCloudHeight : 3000.0;
   const fadeStart = cloudCeiling - 100.0; // Start fading 100 units below the clouds
@@ -512,33 +474,17 @@ export function updateWeather(delta) {
       0,
       1.0 - (camera.position.y - fadeStart) / 100.0
     );
-    targetRainOpacity *= fadeFactor;
-    targetSnowOpacity *= fadeFactor;
+    rainShown *= fadeFactor;
+    snowShown *= fadeFactor;
   }
+  precipitation.rain = rainShown;
+  precipitation.snow = snowShown;
 
-  // Smoothly transition the materials
-  snowParticles.material.opacity = THREE.MathUtils.lerp(
-    snowParticles.material.opacity,
-    targetSnowOpacity,
-    1 - Math.exp(-0.5 * delta)
-  );
-  rainParticles.material.opacity = THREE.MathUtils.lerp(
-    rainParticles.material.opacity,
-    targetRainOpacity,
-    1 - Math.exp(-0.75 * delta)
-  );
-
-  // Clamp very small values to 0 to enable clean reset detection next time
-  if (snowParticles.material.opacity < 0.001) {
-    snowParticles.material.opacity = 0;
-  }
-  if (rainParticles.material.opacity < 0.001) {
-    rainParticles.material.opacity = 0;
-  }
-
-  // Toggle visibility to save CPU when completely transparent
-  snowParticles.visible = snowParticles.material.opacity >= 0.01;
-  rainParticles.visible = rainParticles.material.opacity >= 0.01;
+  // Light precipitation is fewer drops, not just fainter ones: the drop
+  // count and the opacity each follow the square root of the amount, so a
+  // drizzle or the first flakes are sparse but visible
+  showParticles(rainParticles, rainShown, RAIN_FULL);
+  showParticles(snowParticles, snowShown, SNOW_FULL);
 
   // Natural rainbow trigger
   // Trigger when the target opacity hits 0 (weather is clearing), but only if it was recently raining heavily
@@ -553,8 +499,8 @@ export function updateWeather(delta) {
   state.wasRainClearing = isRainClearing;
 
   // Track if we are currently in a rainstorm (even a light one)
-  // Max rain opacity is 0.5. Anything above 0.05 counts as rain for a rainbow.
-  if (rainParticles.material.opacity > 0.05) {
+  // Anything above a tenth of full rain counts as rain for a rainbow.
+  if (precipitation.rain > 0.1) {
     _wasRaining = true;
   }
 
@@ -567,8 +513,8 @@ export function updateWeather(delta) {
 
   if (snowParticles.visible) {
     snowParticles.position.copy(camPos);
-    // Snow speed varies subtly: base speed is 0.8x, speeding up to 1.0x during heavy storms
-    const snowSpeed = 0.8 + (snowParticles.material.opacity / 0.4) * 0.2;
+    // Snow speed varies subtly: base speed is 0.8x, speeding up to 1.0x in heavy snow
+    const snowSpeed = 0.8 + Math.min(1, snowShown / 0.5) * 0.2;
     weatherUniforms.snowTime.value += delta * snowSpeed;
   }
 

@@ -102,6 +102,7 @@ import {
   manualCloudCover,
   manualCloudHeight,
   manualCloudSpeed,
+  precipitation,
   rainParticles,
   snowParticles,
   updateWeather,
@@ -282,10 +283,7 @@ function performFrame() {
 
   inputManager.pollGamepad(delta);
   updateSfx();
-  updateSfxEvents(
-    delta,
-    rainParticles ? rainParticles.material.opacity / 0.5 : 0
-  );
+  updateSfxEvents(delta, precipitation.rain);
 
   if (state.isPaused) {
     const loadingOverlay = getCachedElement('loading-overlay');
@@ -557,12 +555,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     );
     updateDOM(
       'debug-precip',
-      snowParticles && rainParticles
-        ? Math.max(
-            snowParticles.material.opacity / 0.8,
-            rainParticles.material.opacity / 0.5
-          ).toFixed(2)
-        : '-'
+      Math.max(precipitation.snow, precipitation.rain).toFixed(2)
     );
     updateDOM(
       'debug-climate-zone',
@@ -924,9 +917,6 @@ if (document.readyState === 'complete') {
   window.addEventListener('load', startAnimationLoop);
 }
 
-// How much sooner cloud cover builds over the snow (in weather noise), so
-// its light snow falls from cloud (see weather-manager.js)
-const SNOW_CLOUD_HEADSTART = 0.15;
 // 0 south of where the snow cover starts (storms bring rain), 1 where it is
 // full (storms bring snow), sleet in between
 function snowZone() {
@@ -1768,37 +1758,23 @@ function updateEnvironmentLighting(delta, now) {
     skyUniforms.bottomColor.value.lerp(targetPaletteBottom, delta * 0.1);
   }
 
-  // 1. Check if forced precipitation is currently visible on screen (or would be, if not above clouds)
+  // 1. Precipitation around the plane, even above the clouds
   let precipIntensity = 0;
-  if (snowParticles && rainParticles) {
-    const sInt =
-      (state._unfadedSnowOpacity !== undefined
-        ? state._unfadedSnowOpacity
-        : snowParticles.material.opacity) / 0.8;
-    const rInt =
-      (state._unfadedRainOpacity !== undefined
-        ? state._unfadedRainOpacity
-        : rainParticles.material.opacity) / 0.5;
-    precipIntensity = Math.max(sInt, rInt);
+  if (state._unfadedRainOpacity !== undefined) {
+    precipIntensity = Math.max(
+      state._unfadedSnowOpacity / 0.8,
+      state._unfadedRainOpacity / 0.5
+    );
   }
 
-  // 2. Check for procedural cloudy biomes
-  const weatherTimeOffset = (state.worldClockNow || now) / 100000;
-  let weatherNoise =
-    (simplex.noise2D(
-      (planeGroup.position.x / CHUNK_SIZE) * 0.1 + 500 + weatherTimeOffset,
-      (planeGroup.position.z / CHUNK_SIZE) * 0.1 + weatherTimeOffset
-    ) +
-      1) /
-    2;
-  // Cloud cover from the noise: clear below about 0.65, building smoothly
-  // (no hard edge where clouds start) to overcast at 1.0. Over the snow it
-  // starts building sooner, so the light snow there falls from cloud
-  weatherNoise = THREE.MathUtils.smoothstep(
-    weatherNoise,
-    0.65 - SNOW_CLOUD_HEADSTART * snowZone(),
-    1.0
-  );
+  // 2. Cloud cover here: the cloud patches and the storms' overcast (see
+  // weatherAt in chill-flight-logic.js)
+  const weatherNoise = ChillFlightLogic.weatherAt(
+    planeGroup.position.x,
+    planeGroup.position.z,
+    state.worldClockNow || now,
+    simplex
+  ).cloud;
 
   // 3. The world is overcast if there are thick clouds (we don't force overcast for snow/rain so we can have beautiful snowy sunsets)
   if (manualCloudCover !== null) {

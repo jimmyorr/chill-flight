@@ -4176,4 +4176,111 @@ export const ChillFlightLogic = {};
   exports.FOG = FOG;
   exports.morningFogFactor = morningFogFactor;
   exports.computeFogDensity = computeFogDensity;
+
+  // --- WEATHER ---
+  // Clouds and precipitation at (x, z) at world clock time clockMs. Three
+  // noise fields drift over the world. The cloud field is small and quick:
+  // patches of cloud come and go every minute or two. The storm field is
+  // bigger and slower, so a storm is a system you fly into: the sky clouds
+  // over first, rain builds from a drizzle, lasts about a minute (rarely
+  // over two), and eases off (3 or 4 storms an hour at cruise, raining
+  // about 6% of the time and thickly overcast about 12%, against 6% for the
+  // cloud patches alone; see scripts/test-weather.js). In the north the
+  // storms bring snow, and the snow field, bigger and slower still, brings
+  // the light, frequent snow that makes the snow country peaceful to fly
+  // in, in spells of a few minutes. Amounts are particle opacities (rain up
+  // to RAIN_FULL, snow up to SNOW_STORM); weather-manager.js eases toward
+  // them.
+  const WEATHER = {
+    CLOUD_SCALE: 15000, // units per noise unit (about 4 km patches)
+    CLOUD_DRIFT_MS: 100000, // world clock ms per noise unit of drift
+    STORM_SCALE: 35000, // units per noise unit (systems about 10 km wide)
+    STORM_DRIFT_MS: 500000,
+    // The snow country's light snow follows a bigger, slower field, so its
+    // spells last a few minutes
+    SNOW_SCALE: 60000,
+    SNOW_DRIFT_MS: 900000,
+    // Storm noise (0 to 1) where each thing starts and is full
+    STORM_CLOUD: [0.78, 0.85], // overcast, ahead of the rain
+    STORM_PRECIP: [0.8, 0.92], // drizzle to downpour
+    LIGHT_SNOW: [0.52, 0.64], // in the snow field (0 to 1)
+    LIGHT_SNOW_CLOUD: [0.47, 0.6],
+    SNOW_CLOUD_HEADSTART: 0.15, // cloud patches build sooner over the snow
+    RAIN_FULL: 0.5,
+    SNOW_STORM: 0.45,
+    LIGHT_SNOW_EDGE: 0.15, // light snow where the snow cover is full
+    LIGHT_SNOW_DEEP: 0.25, // and 1.5 degrees farther north
+  };
+
+  function weatherAt(x, z, clockMs, simplex) {
+    // Latitude as the climate sees it: the snow line wanders (snowWobble)
+    const lat = -z / 5000 + snowWobble(x, z, simplex);
+    const cloudT = clockMs / WEATHER.CLOUD_DRIFT_MS;
+    const cloudNoise =
+      (simplex.noise2D(
+        x / WEATHER.CLOUD_SCALE + 500 + cloudT,
+        z / WEATHER.CLOUD_SCALE + cloudT
+      ) +
+        1) /
+      2;
+    const stormT = clockMs / WEATHER.STORM_DRIFT_MS;
+    const stormNoise =
+      (simplex.noise2D(
+        x / WEATHER.STORM_SCALE - 300 + stormT,
+        z / WEATHER.STORM_SCALE + 700 - stormT * 0.6
+      ) +
+        1) /
+      2;
+    const snowT = clockMs / WEATHER.SNOW_DRIFT_MS;
+    const snowNoise =
+      (simplex.noise2D(
+        x / WEATHER.SNOW_SCALE + 900 - snowT * 0.7,
+        z / WEATHER.SNOW_SCALE - 400 + snowT
+      ) +
+        1) /
+      2;
+    const ramp = (v, [from, to]) => smoothRamp(v, from, to);
+    const snowZone = smoothRamp(lat, SNOW_START_LAT, SNOW_FULL_LAT);
+    const storm = ramp(stormNoise, WEATHER.STORM_PRECIP);
+
+    // Cloud cover: the cloud patches (clear below about 0.65), the storms'
+    // overcast, and over the snow the light snow's cloud (reaching a little
+    // south of the snow, so the first flakes fall from cloud too)
+    const snowCloudZone = smoothRamp(
+      lat,
+      SNOW_START_LAT - 0.3,
+      SNOW_START_LAT + 0.2
+    );
+    const cloud = Math.max(
+      smoothRamp(cloudNoise, 0.65 - WEATHER.SNOW_CLOUD_HEADSTART * snowZone, 1),
+      ramp(stormNoise, WEATHER.STORM_CLOUD),
+      0.75 * snowCloudZone * ramp(snowNoise, WEATHER.LIGHT_SNOW_CLOUD)
+    );
+
+    // Light snow from where the snow cover starts, heavier farther north
+    const lightSnow =
+      ramp(snowNoise, WEATHER.LIGHT_SNOW) *
+      (snowZone * WEATHER.LIGHT_SNOW_EDGE +
+        smoothRamp(lat, SNOW_FULL_LAT, SNOW_FULL_LAT + 1.5) *
+          (WEATHER.LIGHT_SNOW_DEEP - WEATHER.LIGHT_SNOW_EDGE));
+    // Storms bring rain in the south, snow in the north, and sleet between;
+    // the rain dries up toward the desert
+    const dry = smoothRamp(z / 5000 + desertShift(x, z, simplex), 2.0, 3.0);
+    const rain = storm * WEATHER.RAIN_FULL * (1 - snowZone) * (1 - dry);
+    const snow = Math.max(lightSnow, storm * WEATHER.SNOW_STORM * snowZone);
+    const zone =
+      snowZone >= 1
+        ? 'Snow'
+        : snowZone > 0
+          ? 'Sleet'
+          : dry >= 1
+            ? 'Desert'
+            : dry > 0
+              ? 'Dry edge'
+              : 'Rain';
+    return {cloud, rain, snow, cloudNoise, stormNoise, lat, zone};
+  }
+
+  exports.WEATHER = WEATHER;
+  exports.weatherAt = weatherAt;
 })(ChillFlightLogic);

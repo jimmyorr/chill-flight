@@ -3,7 +3,7 @@ import {getElevation, sampleGround} from './terrain-geometry.js';
 import {sampleRoad} from './terrain-chunks.js';
 import {planeGroup} from './airplane.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
-import {rainParticles} from './weather-manager.js';
+import {precipitation} from './weather-manager.js';
 import {state} from './state.js';
 import {keys} from './game-input-bindings.js';
 import {Achievements} from './achievements.js';
@@ -366,8 +366,7 @@ export function updateFlightPhysics(delta, nowTime) {
     if (state.airplaneModel) {
       // In-flight turbulence bobbing (increases in rain/storms)
       const t = performance.now() * 0.001;
-      const rainOpacity = rainParticles ? rainParticles.material.opacity : 0;
-      const stormMult = 1.0 + rainOpacity * 4.0; // 1x calm → 3x heavy rain
+      const stormMult = 1.0 + precipitation.rain * 2.0; // 1x calm → 3x heavy rain
       state.airplaneModel.position.y =
         (Math.sin(t * 0.7) * 0.12 + Math.sin(t * 1.3) * 0.06) * stormMult;
       // On top of the ground tilt, which levels out gently after takeoff
