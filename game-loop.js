@@ -129,6 +129,7 @@ import {
 } from './terrain-geometry.js';
 import {updateFlightCamera} from './flight-camera.js';
 import {trafficCount, updateTraffic} from './traffic.js';
+import {updateParticles} from './particles.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_CLOUDS} from './art-style.js';
 import {updateAirportLights} from './airports.js';
@@ -493,6 +494,7 @@ function performFrame() {
   updateFlightCamera(delta, nowTime);
   updateThrottle(nowTime);
   updateTraffic(delta);
+  updateParticles(delta);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping();
   // Smoothly interpolate sky shader palettes

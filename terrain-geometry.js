@@ -333,6 +333,30 @@ terrainMaterial.onBeforeCompile = (shader) => {
   );
 };
 
+// The water's swell (GLSL), shared with the foam in particles.js so it
+// rides the same waves
+export const WATER_SWELL_GLSL = `
+  // Swell: three waves in different directions with wavelengths that
+  // don't line up, so the surface doesn't read as regular stripes.
+  // Returns (height, dh/dx, dh/dz), scaled by a slow large-scale
+  // variation so different stretches of water differ.
+  vec3 swell(vec2 p, float t) {
+    float amp = 0.8 + sin(p.x * 0.0002) * cos(p.y * 0.00025) * 0.4;
+    vec3 h = vec3(0.0);
+    // direction (normalized), wavenumber, speed, amplitude
+    vec2 d1 = vec2(0.944, 0.33);  float k1 = 0.018; float a1 = 0.8;
+    vec2 d2 = vec2(-0.371, 0.928); float k2 = 0.013; float a2 = 0.6;
+    vec2 d3 = vec2(0.664, -0.747); float k3 = 0.031; float a3 = 0.35;
+    float p1 = dot(p, d1) * k1 + t;
+    float p2 = dot(p, d2) * k2 + t * 0.8;
+    float p3 = dot(p, d3) * k3 + t * 1.3;
+    h.x = a1 * sin(p1) + a2 * sin(p2) + a3 * sin(p3);
+    vec2 grad = a1 * k1 * cos(p1) * d1 + a2 * k2 * cos(p2) * d2 + a3 * k3 * cos(p3) * d3;
+    h.yz = grad;
+    return h * amp;
+  }
+`;
+
 // Inject GPU wave math into the water material's vertex shader.
 // This replaces the CPU-side per-vertex loop and computeVertexNormals().
 waterMaterial.userData.isWater = true;
@@ -385,25 +409,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         attribute vec2 flow;
         varying vec2 vFlow;
 
-        // Swell: three waves in different directions with wavelengths that
-        // don't line up, so the surface doesn't read as regular stripes.
-        // Returns (height, dh/dx, dh/dz), scaled by a slow large-scale
-        // variation so different stretches of water differ.
-        vec3 swell(vec2 p, float t) {
-          float amp = 0.8 + sin(p.x * 0.0002) * cos(p.y * 0.00025) * 0.4;
-          vec3 h = vec3(0.0);
-          // direction (normalized), wavenumber, speed, amplitude
-          vec2 d1 = vec2(0.944, 0.33);  float k1 = 0.018; float a1 = 0.8;
-          vec2 d2 = vec2(-0.371, 0.928); float k2 = 0.013; float a2 = 0.6;
-          vec2 d3 = vec2(0.664, -0.747); float k3 = 0.031; float a3 = 0.35;
-          float p1 = dot(p, d1) * k1 + t;
-          float p2 = dot(p, d2) * k2 + t * 0.8;
-          float p3 = dot(p, d3) * k3 + t * 1.3;
-          h.x = a1 * sin(p1) + a2 * sin(p2) + a3 * sin(p3);
-          vec2 grad = a1 * k1 * cos(p1) * d1 + a2 * k2 * cos(p2) * d2 + a3 * k3 * cos(p3) * d3;
-          h.yz = grad;
-          return h * amp;
-        }
+        ${WATER_SWELL_GLSL}
     ` +
     SKY_COLOR_GLSL +
     FOG_SKY_VERTEX_GLSL +

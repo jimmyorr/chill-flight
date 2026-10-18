@@ -821,6 +821,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   geometry.attributes.position.needsUpdate = true;
 
   colors.set(workerData.buffers.terrainColors);
+  // For sampleGroundColor (the touchdown dust)
+  group.userData.terrainColors = colors;
+  group.userData.terrainSegments = state.SEGMENTS;
   const morphY = geometry.attributes.morphY;
   morphY.array.set(workerData.buffers.morphHeights);
   morphY.needsUpdate = true;
@@ -2912,6 +2915,27 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 // the ground beneath it (flight-physics.js).
 const ROAD_DECK_HALF_WIDTH = ChillFlightLogic.ROAD_WIDTH + 2; // bridgeDeckGeo
 const ROAD_DECK_HALF_THICKNESS = 0.75;
+// The terrain's colour at the grid point nearest (x, z), into out (a
+// THREE.Color). False where no chunk is loaded.
+export function sampleGroundColor(x, z, out) {
+  const cx = Math.round(x / CHUNK_SIZE);
+  const cz = Math.round(z / CHUNK_SIZE);
+  const data = chunks.get(`${cx},${cz}`)?.userData;
+  if (!data?.terrainColors) return false;
+  const segments = data.terrainSegments;
+  const step = CHUNK_SIZE / segments;
+  const grid = (v, c) =>
+    THREE.MathUtils.clamp(
+      Math.round((v - c * CHUNK_SIZE + CHUNK_SIZE / 2) / step),
+      0,
+      segments
+    );
+  const i = (grid(z, cz) * (segments + 1) + grid(x, cx)) * 3;
+  const colors = data.terrainColors;
+  out.setRGB(colors[i], colors[i + 1], colors[i + 2]);
+  return true;
+}
+
 export function sampleRoad(x, z, out) {
   const cx = Math.round(x / CHUNK_SIZE);
   const cz = Math.round(z / CHUNK_SIZE);

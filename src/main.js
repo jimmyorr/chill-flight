@@ -50,6 +50,7 @@ import '../debug-ui.js';
 import '../game.js';
 import '../flight-physics.js';
 import '../flight-camera.js';
+import '../particles.js';
 import '../traffic-logic.js';
 import '../traffic.js';
 import '../game-gyro.js';
