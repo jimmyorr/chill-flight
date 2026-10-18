@@ -276,7 +276,7 @@ A few other planes share the sky, so now and then you spot someone else up there
 
 ## Buggy
 
-Pick the buggy in the pause menu (or press **V** until it comes up) to drive instead of fly (`buggy.js`, model in `buggy-model.js`). Switching to it in the air sets it down on the ground below, rolling on at up to its top speed of 120 knots; switching back to a plane leaves the plane on its wheels where the buggy was. It drives on the ground, the highways and their bridges, and floats slowly across water.
+The buggy is unfinished, so it's hidden unless the URL has `?buggy=1`. Then pick it in the pause menu (or press **V** until it comes up) to drive instead of fly (`buggy.js`, model in `buggy-model.js`). Switching to it in the air sets it down on the ground below, rolling on at up to its top speed of 120 knots; switching back to a plane leaves the plane on its wheels where the buggy was. It drives on the ground, the highways and their bridges, and floats slowly across water.
 
 - **Arrow up / W**: gas. **Arrow down / S**: brake, then reverse once stopped. With a mouse or gamepad stick, forward and back work the same.
 - **Arrow left / right**: steer. The front wheels turn sharply at low speed, and less the faster you go, as far as the tyres can grip.
@@ -339,7 +339,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **Shift+M**: Toggle the minimap overlay.
 - **L**: Toggle headlight.
 - **X**: Toggle airshow smoke, a white trail from the tail that hangs in the sky for about 18 seconds, long enough to fly a lazy circle back through it (also the smoke button in the quick menu on touch devices).
-- **V**: Cycle active vehicle (switch between the vintage biplane, the seaplane, the glider, the twin-engine transport and the buggy).
+- **V**: Cycle active vehicle (switch between the vintage biplane, the seaplane, the glider, the twin-engine transport and, with `?buggy=1`, the buggy).
 - **Shift + A**: Toggle autopilot. It flies to your waypoint and circles it once there (slowing to 120 kts), until you set another. With no waypoint it tours the landmarks: it flies to the nearest one it hasn't visited (the waypoint marker shows the way and the distance left), circles it once and moves on to the next. It cruises at least about 150 m up and keeps about 80 m over the highest ground along its course, looking 9,000 units ahead (and a little to either side close in) so it climbs early and gently (about 7 degrees) rather than late and steeply. Past high ground it holds its height until it's well clear, then comes down gently, so it rides over hilly country instead of bobbing over every rise, and it damps its pitch with its vertical speed so it eases onto a new height. It circles a waypoint or landmark 120 units over the highest ground around it (`autopilot.js`). Steering with the arrow keys, the touch joystick, drag-steer or a gamepad stick turns it off (mouse and tilt steering don't, since they're always steering).
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
 - **Z**: Toggle zen (hides the HUD, buttons and other planes for an unobstructed view; also a switch on the pause menu's Flight tab).
@@ -501,7 +501,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`pitch`**: Starting pitch angle in degrees.
 - **`roll`**: Starting bank angle in degrees (positive banks left, negative right). It holds while the free camera freezes the plane; in flight the flight model takes over.
 - **`speed`**: Starting flight speed multiplier (e.g., `1.0`, `2.0`, `0`).
-- **`plane`** or **`vehicle`**: Initial aircraft model (`biplane`, the default, the vintage biplane; `seaplane`, a monoplane on floats; `glider`; `twin`; or `buggy`, to drive). `classic`, the seaplane's old name, still works.
+- **`plane`** or **`vehicle`**: Initial aircraft model (`biplane`, the default, the vintage biplane; `seaplane`, a monoplane on floats; `glider`; `twin`; or `buggy`, to drive, which needs `buggy=1` too). `classic`, the seaplane's old name, still works.
+- **`buggy`**: `1` offers the unfinished buggy in the pause menu, on **V** and in `plane`.
 - **`livery`**: Plane color for this visit (not saved): an index (0-7) or a name (`coral`, `teal`, `sage`, `purple`, `slate`, `sand`, `rose`, `black`).
 - **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
 

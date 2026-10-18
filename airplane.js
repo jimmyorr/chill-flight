@@ -420,6 +420,12 @@ export function setActivePlane(planeType, skipStorage = false) {
   updateUrlParams({plane: planeType}, ['plane', 'vehicle']);
 }
 
+// Vehicles left out of PLANE_TYPES (the buggy, without ?buggy=1) get no
+// button in the pause menu
+document.querySelectorAll('#plane-select-group .scheme-btn').forEach((btn) => {
+  if (!ChillFlightLogic.PLANE_TYPES.includes(btn.dataset.plane)) btn.remove();
+});
+
 // Initialize active plane model
 setActivePlane(activePlaneType, true);
 
