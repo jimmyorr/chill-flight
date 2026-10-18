@@ -1826,30 +1826,18 @@ export const ChillFlightLogic = {};
     const bend = Math.sin((Math.PI * Math.min(s, FALLS_POND)) / 130);
     return 40 * bend * Math.min(1, s / 60);
   }
-  function fallsAt(x, z, simplex, waterLevel) {
+  // The crags on the top: rock outcrops standing up to about 40 units out
+  // of the grass, kept clear of the stream's valley and the pond. Sets
+  // _fallsTop (see fallsSiteAt).
+  const _fallsTop = {crag: 0, valley: 0};
+  const FALLS_CRAG = 42; // a crag's height
+  function fallsTopShape(x, z, simplex) {
     const dx = x - FALLS_X;
-    const dz = z - FALLS_Z;
-    const dist = Math.hypot(dx, dz);
-    if (dist >= FALLS_RADIUS * 1.8) return [0, 0];
-    // Wobble the outline, except on the south side where the fall is
-    const ang = Math.atan2(dz, dx);
-    const south = Math.max(0, Math.sin(ang));
-    const keep = 1 - south * south * south * south;
-    const wobble =
-      simplex.noise2D(Math.cos(ang) * 0.6 + 31, Math.sin(ang) * 0.6 + 31) *
-      0.12 *
-      keep;
-    // Buttresses and gullies down the walls, but not beside the fall
-    const flutes =
-      simplex.noise2D(Math.cos(ang) * 14 + 57, Math.sin(ang) * 14 + 57) *
-      0.06 *
-      (1 - south * Math.exp(-(dx * dx) / (2 * 50 * 50)));
-    const d = dist / (FALLS_RADIUS * (1 + wobble + flutes));
+    const s = FALLS_LIP_Z - z; // distance north of the lip
+    const across = dx - fallsValleyX(s);
     // The top: the valley floor climbs gently north from the lip, levelling
     // off around the pond, and the ground rises gently away from it on
     // either side
-    const s = FALLS_LIP_Z - z; // distance north of the lip
-    const across = dx - fallsValleyX(s);
     let top = FALLS_LIP + 0.1 * Math.min(s, 180);
     top += 0.01 * Math.min(160, Math.max(0, s - 180));
     top += 0.1 * Math.max(0, s - 340) + 0.04 * Math.abs(across);
@@ -1862,22 +1850,137 @@ export const ChillFlightLogic = {};
     // The pond's hollow
     const fromPond = Math.hypot(across, s - FALLS_POND) / FALLS_POND_RADIUS;
     if (fromPond < 1) top -= 4 * (1 - fromPond * fromPond);
-    // How far out from the walls, around the outside and into the bay
-    const out = Math.max(
+    // Crags: steep-sided knobs where the noise is high, taller where a
+    // second, slower noise says so
+    const clear =
+      smoothRamp(Math.abs(across), 80, 140) * smoothRamp(fromPond, 1.5, 2.5);
+    const knob = simplex.noise2D(x * 0.0055 + 211, z * 0.0055 - 87);
+    const crag =
+      smoothRamp(knob, 0.15, 0.4) *
+      clear *
+      (0.6 + 0.4 * simplex.noise2D(x * 0.002 - 5, z * 0.002 + 9));
+    _fallsTop.crag = crag;
+    _fallsTop.valley = valley;
+    return top + FALLS_CRAG * crag;
+  }
+  // How far out from the mountain's walls (x, z) is (negative on the top),
+  // around the outside and into the bay, and how much of a shelf the wall
+  // has there (0 to 1, see fallsAt)
+  let _fallsShelf = 0;
+  function fallsOut(x, z, simplex) {
+    const dx = x - FALLS_X;
+    const dz = z - FALLS_Z;
+    const dist = Math.hypot(dx, dz);
+    // Wobble the outline, except on the south side where the fall is: a
+    // few broad lobes and a finer wobble
+    const ang = Math.atan2(dz, dx);
+    const south = Math.max(0, Math.sin(ang));
+    const keep = 1 - south * south * south * south;
+    const wobble =
+      (simplex.noise2D(Math.cos(ang) * 0.6 + 31, Math.sin(ang) * 0.6 + 31) *
+        0.12 +
+        simplex.noise2D(Math.cos(ang) * 2.2 + 43, Math.sin(ang) * 2.2 + 43) *
+          0.07) *
+      keep;
+    // Buttresses and gullies down the walls, but not beside the fall
+    const flutes =
+      simplex.noise2D(Math.cos(ang) * 14 + 57, Math.sin(ang) * 14 + 57) *
+      0.09 *
+      (1 - south * Math.exp(-(dx * dx) / (2 * 50 * 50)));
+    const d = dist / (FALLS_RADIUS * (1 + wobble + flutes));
+    // A shelf partway down the walls along about half the outline, never
+    // on the south side by the fall and its bay
+    _fallsShelf =
+      smoothRamp(
+        simplex.noise2D(Math.cos(ang) * 1.1 + 71, Math.sin(ang) * 1.1 + 71),
+        -0.1,
+        0.25
+      ) *
+      (1 - south * south);
+    return Math.max(
       (d - 1) * FALLS_RADIUS,
       FALLS_BAY - Math.hypot(dx, z - (FALLS_LIP_Z + FALLS_BAY))
     );
+  }
+  function fallsAt(x, z, simplex, waterLevel) {
+    const dist = Math.hypot(x - FALLS_X, z - FALLS_Z);
+    if (dist >= FALLS_RADIUS * 1.8) return [0, 0];
+    const top = fallsTopShape(x, z, simplex);
+    const out = fallsOut(x, z, simplex);
+    const shelf = _fallsShelf;
     // The walls: sheer from the top down to near the water, then a short
-    // apron of rock into the lake, which eases back into the land around
+    // apron of rock into the lake, which eases back into the land around.
+    // Where the wall has a shelf, it steps out partway down onto a ledge
+    // (up to 100 units wide, tipping a little outward) and drops again.
     const base = waterLevel + 30;
     const floor = waterLevel - 15;
+    const ledge = base + (top - FALLS_CRAG * _fallsTop.crag - base) * 0.45;
+    const wide = 100 * shelf;
     let h;
     if (out < 0) h = top;
-    else if (out < 25) h = top + (base - top) * (out / 25);
-    else if (out < 85) h = base + (floor - base) * ((out - 25) / 60);
+    else if (out < 12) h = top + (ledge - top) * (out / 12);
+    else if (out < 12 + wide) h = ledge - 12 * ((out - 12) / 100);
+    else if (out < 30 + wide)
+      h =
+        ledge -
+        12 * shelf +
+        (base - ledge + 12 * shelf) * ((out - 12 - wide) / 18);
+    else if (out < 90 + wide)
+      h = base + (floor - base) * ((out - 30 - wide) / 60);
     else h = floor;
-    const t = Math.min(1, Math.max(0, (1.8 - d) / 0.45));
+    const t = Math.min(1, Math.max(0, (1.8 - dist / FALLS_RADIUS) / 0.45));
     return [h, t * t * (3 - 2 * t)];
+  }
+  // For terrain-gen.js's colours and props, near the mountain (unwarped
+  // world coordinates): how far out from the walls (x, z) is (negative on
+  // the top), and on the top, how much crag is there (0 to 1) and how
+  // close the stream's valley is (1 on the stream); null away from the
+  // mountain
+  const _fallsSite = {out: 0, crag: 0, valley: 0};
+  function fallsSiteAt(x, z, simplex) {
+    if (Math.hypot(x - FALLS_X, z - FALLS_Z) > FALLS_RADIUS * 1.6) return null;
+    _fallsSite.out = fallsOut(x, z, simplex);
+    fallsTopShape(x, z, simplex);
+    const onTop = _fallsSite.out < 0;
+    _fallsSite.crag = onTop ? _fallsTop.crag : 0;
+    _fallsSite.valley = onTop ? _fallsTop.valley : 0;
+    return _fallsSite;
+  }
+  // The spur: a ridge running west-north-west from the mountain's shoulder
+  // toward where the first northern range begins, so the mountain reads as
+  // the end of a line of hills rather than a block dropped on the plain. It
+  // leaves the wall about halfway up, dips to a saddle and rises again
+  // before fading into the land, staying well below the plane's height at
+  // spawn (it crosses the plane's path about 1300 units west of the
+  // mountain). Its height at (x, z), unwarped; taken as a floor under the
+  // land (0 away from it).
+  const FALLS_SPUR_ANGLE = (12 * Math.PI) / 180; // north of west
+  const FALLS_SPUR_LENGTH = 2800;
+  function fallsSpurAt(x, z, simplex) {
+    const dx = x - FALLS_X;
+    const dz = z - FALLS_Z;
+    const ca = Math.cos(FALLS_SPUR_ANGLE);
+    const sa = Math.sin(FALLS_SPUR_ANGLE);
+    const u = -dx * ca - dz * sa;
+    if (u < 0 || u > FALLS_SPUR_LENGTH) return 0;
+    // Across the spur, from a crest line that wanders once clear of the wall
+    const v =
+      dx * sa -
+      dz * ca -
+      160 *
+        simplex.noise2D(u * 0.0011 + 301, 17) *
+        smoothRamp(u, FALLS_RADIUS, FALLS_RADIUS + 600);
+    if (Math.abs(v) > 600) return 0;
+    let crest =
+      150 +
+      130 * Math.exp(-((u - FALLS_RADIUS) ** 2) / (2 * 300 * 300)) +
+      70 * smoothRamp(u, 1500, 2300) +
+      40 * simplex.noise2D(u * 0.004 + 77, 3);
+    crest *= 1 - smoothRamp(u, FALLS_SPUR_LENGTH - 600, FALLS_SPUR_LENGTH);
+    // Rounded along the top, then sides of about 30 degrees, steeper and
+    // shallower in turn
+    const slope = 0.6 + 0.2 * simplex.noise2D(u * 0.003 - 41, v * 0.003);
+    return crest + 20 - slope * Math.hypot(v, 35);
   }
 
   // --- THE DESERT LOWLAND ---
@@ -3414,6 +3517,7 @@ export const ChillFlightLogic = {};
     // into the table mountain
     const [fallsH, fallsW] = fallsAt(origX, origZ, simplex, WATER_LEVEL);
     if (fallsW > 0) n = _lerp(n, fallsH, fallsW);
+    n = Math.max(n, fallsSpurAt(origX, origZ, simplex));
 
     // Airports: the ground inside each airfield is flat at its field height,
     // easing into the surrounding land over AIRPORT_FALLOFF (an island
@@ -3470,6 +3574,7 @@ export const ChillFlightLogic = {};
   exports.FALLS_LIP_Z = FALLS_LIP_Z;
   exports.FALLS_POND = FALLS_POND;
   exports.fallsValleyX = fallsValleyX;
+  exports.fallsSiteAt = fallsSiteAt;
   exports.chunkRng = chunkRng;
   exports.PLANE_COLORS = PLANE_COLORS;
   exports.LIVERY_NAMES = LIVERY_NAMES;

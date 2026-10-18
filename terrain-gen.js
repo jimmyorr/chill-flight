@@ -1791,6 +1791,10 @@ export function generateChunkData({
       ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0 ||
       ChillFlightLogic.isOnAirport(worldX, worldZ, 40) ||
       ChillFlightLogic.isOnAccessRoad(worldX, worldZ, 30, simplex, elevParams);
+    // The falls landmark: no props on its walls (they'd hang off the rock),
+    // apart from its shelf's ledge
+    const falls = ChillFlightLogic.fallsSiteAt(worldX, worldZ, simplex);
+    const onFallsWall = falls !== null && falls.out > -15 && slopeFactor > 0.35;
     const isAlienVegetationLand =
       isAlienLand &&
       height > WATER_LEVEL + 2.0 &&
@@ -1801,7 +1805,8 @@ export function generateChunkData({
       _enableObjects &&
       (isStandardLand || isAlienVegetationLand) &&
       !isFrozen &&
-      !isOnRoad
+      !isOnRoad &&
+      !onFallsWall
     ) {
       // Trees: woods with dense cores that thin toward their edges, in clumps
       // and clearings, and lone trees out in the open near them. Steep slopes
@@ -2371,6 +2376,40 @@ export function generateChunkData({
       }
     }
 
+    // The falls landmark's top, above the tree line: boulders among its
+    // crags, a few stunted pines out of the wind, and bushes along the stream
+    if (_enableObjects && falls !== null && falls.out < -20) {
+      const roll = rng();
+      if (roll < (0.06 + 0.5 * falls.crag) * densityScale) {
+        rockPositions.push({x: localX, y: height, z: localZ});
+      } else if (
+        falls.crag < 0.2 &&
+        falls.valley < 0.5 &&
+        roll < 0.6 &&
+        rng() < 0.3 * densityScale
+      ) {
+        const jx = localX + (rng() - 0.5) * gridSpacing * 0.8;
+        const jz = localZ + (rng() - 0.5) * gridSpacing * 0.8;
+        snowTreePositions.push({
+          x: jx,
+          y: heightAtLocal(jx, jz),
+          z: jz,
+          size: 0.5 + rng() * 0.3,
+        });
+      } else if (
+        falls.valley > 0.25 &&
+        falls.valley < 0.85 &&
+        rng() < 0.3 * densityScale
+      ) {
+        bushPositions.push({
+          x: localX,
+          y: height,
+          z: localZ,
+          rotY: rng() * Math.PI * 2,
+        });
+      }
+    }
+
     // Final detail pass (slope darkening & grain)
     if (
       (height <= MOUNTAIN_LEVEL || isLowland) &&
@@ -2402,6 +2441,14 @@ export function generateChunkData({
             _canyonBands.length
         ];
       _tempColorObj.lerp(band, canyonRock * 0.85);
+    }
+
+    // The falls landmark's crags are bare rock
+    if (falls !== null && falls.crag > 0) {
+      _tempColorObj.lerp(
+        mottle > 0.5 ? _colorMountainTint : _colorAlpineRockDark,
+        Math.min(1, falls.crag * 2) * 0.9
+      );
     }
 
     // Volcano texturing
