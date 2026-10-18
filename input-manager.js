@@ -280,6 +280,10 @@ export class InputManager {
       if (this.onDebugToggle) this.onDebugToggle();
       return;
     }
+    if (key === 'x' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (this.onSmokeToggle) this.onSmokeToggle();
+      return;
+    }
     if (key === 'g') {
       if (this.onWeatherToggle) this.onWeatherToggle();
       return;

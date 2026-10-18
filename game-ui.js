@@ -31,6 +31,7 @@ import {hooks} from './hooks.js';
 import {Achievements} from './achievements.js';
 import {getChunkLoadingProgress} from './terrain-chunks.js';
 import {resetAutopilot} from './autopilot.js';
+import {toggleSmoke} from './particles.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -163,6 +164,20 @@ if (hdgtSub) {
       headlightGlow.intensity = 0;
       hdgtSub.classList.remove('active');
     }
+  });
+}
+
+// Airshow smoke: X, or the smoke button in the quick menu
+const smokeToggle = document.getElementById('mobile-smoke-toggle');
+function toggleSmokeTrail() {
+  smokeToggle?.classList.toggle('active', toggleSmoke());
+}
+inputManager.onSmokeToggle = toggleSmokeTrail;
+if (smokeToggle) {
+  smokeToggle.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleSmokeTrail();
   });
 }
 

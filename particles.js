@@ -11,13 +11,17 @@ import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
-import {WATER_SWELL_GLSL, waterUniforms} from './terrain-geometry.js';
+import {
+  WATER_SWELL_GLSL,
+  getElevation,
+  waterUniforms,
+} from './terrain-geometry.js';
 import {sampleGroundColor, sampleRoad} from './terrain-chunks.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
-const POOL_SIZE = 768;
+const POOL_SIZE = 1536;
 // How quickly a particle's own speed dies away (per second)
 const DRAG = 1.6;
 
@@ -191,10 +195,18 @@ const WAKE_MIN_SPEED = 0.08;
 const WAKE_SPACING = 1.5;
 // How far apart the rolling dust is laid (units)
 const DUST_SPACING = 1.5;
+// Skimming spray starts this far above the water (units, from the bottom of
+// the plane)
+const SKIM_HEIGHT = 14;
+// Where the airshow smoke comes out, behind the plane's centre (units), and
+// how long it hangs in the sky (seconds)
+const SMOKE_TAIL = 7;
+const SMOKE_LIFE = 7;
 
 const WHITE = new THREE.Color(1, 1, 1);
 const FOAM = new THREE.Color(0.93, 0.97, 1.0);
 const TIRE_SMOKE = new THREE.Color(0.86, 0.86, 0.84);
+const SMOKE = new THREE.Color(0.97, 0.97, 0.97);
 const DUST_LIGHTEN = new THREE.Color(0.85, 0.8, 0.7);
 const _dust = new THREE.Color();
 const _road = {height: 0, slopeX: 0, slopeZ: 0};
@@ -213,6 +225,9 @@ let dustTravel = 0;
 let dustCheckTimer = 0;
 let groundDust = null;
 const _rollDust = new THREE.Color();
+const skimLast = new THREE.Vector3();
+const smokeLast = new THREE.Vector3();
+let smokeOn = false;
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -470,6 +485,105 @@ function rollingDust(delta, speed) {
   }
 }
 
+// Skimming: flying just over the water (not on it), the propeller's wash
+// and the wingtip vortices kick up a rooster tail of spray behind the
+// plane and leave a faint line of foam, both fading out by SKIM_HEIGHT
+function skim(delta, speed) {
+  const {x, y, z} = planeGroup.position;
+  const height = y - WATER_LEVEL - (state.airplaneModel?.wheelDepth ?? 4);
+  if (height > SKIM_HEIGHT || getElevation(x, z) > WATER_LEVEL + 0.1) {
+    skimLast.valid = false;
+    return;
+  }
+  const fast = THREE.MathUtils.clamp(speed / 1.2, 0, 1);
+  const close = 1 - THREE.MathUtils.clamp(height / SKIM_HEIGHT, 0, 1);
+  const strength = close * close * (0.3 + 0.7 * fast);
+  const h = planeGroup.rotation.y;
+  const fwd = planeVelocity(_v);
+
+  // Foam laid along the path, like the wake
+  const here = planePoint(0, 2, WATER_LEVEL, _p);
+  if (!skimLast.valid || skimLast.distanceTo(here) > WAKE_SPACING * 20) {
+    skimLast.copy(here);
+    skimLast.valid = true;
+  }
+  const steps = Math.floor(skimLast.distanceTo(here) / WAKE_SPACING);
+  for (let k = 1; k <= steps; k++) {
+    _q.lerpVectors(skimLast, here, k / steps);
+    spawn(
+      _q,
+      {x: rand(-2, 2), y: 0, z: rand(-2, 2)},
+      0,
+      rand(2.5, 3.5),
+      rand(3, 4),
+      rand(9, 13),
+      FOAM,
+      0.6 * strength,
+      true
+    );
+  }
+  if (steps > 0) skimLast.copy(here);
+
+  // The rooster tail: spray thrown up and back, carried along a little
+  // with the plane
+  const count = Math.floor(strength * delta * 90 + Math.random());
+  for (let i = 0; i < count; i++) {
+    planePoint(rand(-3, 3), rand(2, 8), WATER_LEVEL + 0.3, _p);
+    const out = rand(-6, 6);
+    spawn(
+      _p,
+      {
+        x: fwd.x * 0.3 + Math.cos(h) * out,
+        y: rand(10, 22) * (0.5 + 0.5 * strength),
+        z: fwd.z * 0.3 - Math.sin(h) * out,
+      },
+      -45,
+      rand(0.9, 1.5),
+      rand(1.5, 2.5),
+      rand(4, 7),
+      WHITE,
+      rand(0.5, 0.8) * (0.4 + 0.6 * strength)
+    );
+  }
+}
+
+// Airshow smoke from the tail, laid along the flight path so it stays
+// unbroken at any speed and frame rate; it hangs in the sky, spreading and
+// drifting up a little, and fades over SMOKE_LIFE seconds
+function smokeTrail(speed) {
+  const tail = _p.set(0, 0, SMOKE_TAIL);
+  planeGroup.localToWorld(tail);
+  if (!smokeLast.valid || smokeLast.distanceTo(tail) > 200) {
+    smokeLast.copy(tail);
+    smokeLast.valid = true;
+    return;
+  }
+  // Close enough that young puffs overlap; ~60 a second at cruise
+  const spacing = Math.max(2.5, (speed * BASE_FLIGHT_SPEED * 60) / 60);
+  const steps = Math.floor(smokeLast.distanceTo(tail) / spacing);
+  for (let k = 1; k <= steps; k++) {
+    _q.lerpVectors(smokeLast, tail, k / steps);
+    spawn(
+      _q,
+      {x: rand(-2, 2), y: rand(-1, 1), z: rand(-2, 2)},
+      0.4,
+      rand(SMOKE_LIFE * 0.8, SMOKE_LIFE),
+      rand(4, 5),
+      rand(14, 20),
+      SMOKE,
+      0.65
+    );
+  }
+  if (steps > 0) smokeLast.copy(tail);
+}
+
+/** Turns the airshow smoke on or off; returns whether it's now on. */
+export function toggleSmoke() {
+  smokeOn = !smokeOn;
+  smokeLast.valid = false;
+  return smokeOn;
+}
+
 /** Per frame: spawns the plane's effects and moves the pool's clock. */
 export function updateParticles(delta) {
   if (state.isPaused || delta <= 0) return;
@@ -503,6 +617,9 @@ export function updateParticles(delta) {
     if (wheels && lastWheels === false && !onWater) touchdownPuff(impact);
     if (onWater && speed > WAKE_MIN_SPEED) wake(delta, speed);
     if (wheels && !onWater) rollingDust(delta, speed);
+    if (!wheels && !onWater) skim(delta, speed);
+    else skimLast.valid = false;
+    if (smokeOn) smokeTrail(speed);
   }
   if (!onWater) for (const last of lastStern) last.valid = false;
   lastWater = onWater;
