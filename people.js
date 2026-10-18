@@ -464,6 +464,128 @@ export const PEOPLE = [
     ],
   },
   {
+    name: 'Marielle',
+    airport: 'Lagoon Field',
+    intro: [
+      "Hi, I'm Marielle! Welcome to Lagoon Field. I read, I drink tea, and I usually do both at once.",
+      'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.',
+    ],
+    hello: [
+      ["Hi! I'm two chapters from the end and I can't put it down."],
+      ['Welcome back! The kettle just boiled. Perfect timing.'],
+      [
+        'Oh good, you came! I have a stack of books and nowhere near enough shelf.',
+      ],
+    ],
+    accept: [
+      ["Thank you! I'll save you a cup of tea for when you're back."],
+      ["You're a lifesaver. I'll be right here with my book."],
+      ['Wonderful! Fly safe, and mind the pages.'],
+    ],
+    decline: [
+      ["No problem! I'll make another pot of tea."],
+      ["That's fine. I'll read one more chapter. Okay, maybe three."],
+      ['All good! The books will wait for you.'],
+    ],
+    jobs: [
+      {
+        id: 'library-pickup',
+        kind: 'round trip',
+        to: [
+          'Meadow Field',
+          'Mesa Field',
+          'Pinewood Field',
+          'Sagebrush Field',
+          'Coral Field',
+        ],
+        cargo: 'Library books',
+        offer: [
+          [
+            'The library at {to} just called. The books I put on hold are in!',
+            'Could you go pick them up for me?',
+          ],
+          [
+            "I finished the first book in a series and I need the second one right now. {to}'s library has it.",
+            'Would you fly over and get it?',
+          ],
+          [
+            'I ordered a few books through the library at {to}.',
+            'Could you fly over and bring them back to me?',
+          ],
+        ],
+        thanks: [
+          ['They came! I know what I am doing for the rest of the day.'],
+          ['Thank you! Nobody will see me until I finish this one.'],
+          [
+            "Fresh books and a hot cup of tea. That's {done} for me. Thank you!",
+          ],
+        ],
+      },
+      {
+        id: 'library-return',
+        kind: 'one way',
+        to: [
+          'Meadow Field',
+          'Pinewood Field',
+          'Dune Field',
+          'Frost Field',
+          'Sagebrush Field',
+        ],
+        cargo: 'Library books',
+        offer: [
+          [
+            'These books are due back at the library at {to} tomorrow.',
+            'Could you return them for me?',
+          ],
+          [
+            'I borrowed these from the library at {to} and I finished them all.',
+            'Would you fly them back?',
+          ],
+          [
+            "I don't want to pay another late fee. I've paid enough of them to buy the library a new shelf.",
+            'Could you take these back to {to}?',
+          ],
+        ],
+        thanks: [
+          ['Returned on time! The librarian will be so proud of me.'],
+          ['No late fees this time! Thank you!'],
+          ["All returned, so now I can borrow more. That's {done} for me!"],
+        ],
+      },
+      {
+        id: 'lend-book',
+        kind: 'one way',
+        to: [
+          'Mesa Field',
+          'Dune Field',
+          'Frost Field',
+          'Coral Field',
+          'Sagebrush Field',
+        ],
+        cargo: 'A good book',
+        offer: [
+          [
+            "I just finished the best book, and my friend at {to} has to read it next. I can't talk about it with anyone until she does.",
+            'Could you fly it over to her?',
+          ],
+          [
+            'My friend at {to} asked what to read next. I picked this one, and I packed a box of tea to go with it.',
+            'Could you take them to her?',
+          ],
+          [
+            'I promised to lend this book to a friend at {to}.',
+            'Would you deliver it for me?',
+          ],
+        ],
+        thanks: [
+          ["She's already started it! Now we can talk about it."],
+          ['Thank you! I hope she likes it as much as I did.'],
+          ["Book delivered. That's {done} for me. Thank you!"],
+        ],
+      },
+    ],
+  },
+  {
     name: 'Erin',
     airport: 'Sagebrush Field',
     intro: [

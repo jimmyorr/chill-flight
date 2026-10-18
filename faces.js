@@ -646,6 +646,74 @@ export const FACES = {
       },
     },
   },
+  // Drawn after the real Marielle: straight dark brown hair from a middle
+  // part, brown eyes, a big smile and a light denim jacket over a white
+  // shirt
+  Marielle: {
+    background: '#cfe6e2',
+    rows: [
+      '..............kkk...............',
+      '...........kkkrrrkkk............',
+      '..........krrhrrrhrrk...........',
+      '.........krrrhrrrhrrrk..........',
+      '........khrrrhrrrHrrrhk.........',
+      '.......krhrRrHrRrhrRrhrk........',
+      '......kRrHrRrhssssrRrhrRk.......',
+      '......kRrhrRssssssssrHrRk.......',
+      '......kRrhrssllllllsshrRk.......',
+      '......kRrhssssssssssssrRk.......',
+      '......kRrHsvvvssssvvvsrRk.......',
+      '......kRrhssssssssssssrRk.......',
+      '......kRRsseEesssseEesrrrk......',
+      '......kRRsswewsssswewsrrrk......',
+      '......kRRsssssssssssssRrrk......',
+      '.....krRdsssssslssssssRdrhk.....',
+      '.....krRRssppssddssppsRrrhk.....',
+      '.....krRrRdsssssssssdkrRrhk.....',
+      '....khrRrRdssMwwwwMsdkrRrHrk....',
+      '....kHrRrhkdssMmmMsdkkrRrhrk....',
+      '....khrRrhkkdsssssdk.krRrhrk....',
+      '...krhrRrhk.kddddddk.krRrhrRk...',
+      '...krhrRrHk.kdssssdk.krRrHrRk...',
+      '...krHrRrhkkkdssssdkkkrRrhrRk...',
+      '...krhrRrhkjjssssssjjkrRrhrRk...',
+      '...krhrRjjjjjqssssqjjjjjrhrRk...',
+      '...krjjjjjjjjJssssJjjjjjjjjRk...',
+      '.kkjJjjjjjjjJssssssJjjjjjjjJjkk.',
+      'kjjjJjjjjjjjJqqqqqqJjjjjjjjJjjjk',
+      'jjjjJjjjjjjJqqqqqqqqJjjjjjjJjjjj',
+      'jjjjJjjjjjjJqqqqqqqqJjjjjjjJjjjj',
+      'jjjjJjjjjjJqqqqqqqqqqJjjjjjJjjjj',
+    ],
+    mouthClosed: {
+      18: '....khrRrRdssdMMMMdsdkrRrHrk....',
+      19: '....kHrRrhkdsssssssdkkrRrhrk....',
+    },
+    eyesClosed: {
+      12: '......kRRsssssssssssssrrrk......',
+      13: '......kRRsseeesssseeesrrrk......',
+    },
+    palette: {
+      k: '#3a2418', // outline
+      s: '#efc4a4', // skin
+      l: '#f9dcc6', // skin highlight
+      d: '#d29878', // nose, jaw and shadow
+      p: '#e8968a', // cheeks
+      v: '#2c1a12', // brows
+      e: '#24160e', // pupils and lashes
+      w: '#fcf8f2', // teeth and whites of the eyes
+      m: '#7a2c26', // mouth
+      M: '#c4625c', // lips
+      r: '#3a2418', // hair base
+      R: '#22130c', // hair shadow
+      h: '#563628', // hair highlight
+      H: '#74503a', // hair bright highlight
+      E: '#5a3a26', // eyes
+      j: '#8eaed0', // denim jacket
+      J: '#6a8cb2', // jacket seams
+      q: '#f6f4ee', // white shirt
+    },
+  },
 };
 
 // face in its outfit named outfit, or the face itself without one
