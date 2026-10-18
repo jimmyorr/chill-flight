@@ -505,7 +505,7 @@ export const FACES = {
       },
     },
   },
-  // Drawn after the real Lauren: long straight dark hair from a middle
+  // Drawn after the real Lauren: long straight chestnut hair from a middle
   // part, blue eyes, a wide smile and a pink yoke sweater (pink is her
   // colour). For tennis: a white polo and a white terry headband with a
   // pink stripe
@@ -565,10 +565,10 @@ export const FACES = {
       m: '#7a2c26', // mouth
       M: '#c4625c', // lips
       g: '#f4f0e8', // earring studs
-      r: '#3a2218', // hair base
-      R: '#24140e', // hair shadow
-      h: '#56362a', // hair highlight
-      H: '#76503a', // hair bright highlight
+      r: '#5a3420', // hair base
+      R: '#3a2014', // hair shadow
+      h: '#7c4c2e', // hair highlight
+      H: '#a06a44', // hair bright highlight
       E: '#5a7ea8', // eyes
       t: '#e47ac0', // pink knit
       T: '#d062aa', // knit ribs
@@ -636,10 +636,10 @@ export const FACES = {
           q: '#f6f4f0', // white polo
           Q: '#d8d6de', // polo shadow
           V: '#f6f4f0', // terry headband
-          r: '#3a2218', // hair base
-          R: '#24140e', // hair shadow
-          h: '#56362a', // hair highlight
-          H: '#76503a', // hair bright highlight
+          r: '#5a3420', // hair base
+          R: '#3a2014', // hair shadow
+          h: '#7c4c2e', // hair highlight
+          H: '#a06a44', // hair bright highlight
           E: '#5a7ea8', // eyes
           c: '#e47ac0', // trim
         },
@@ -656,9 +656,9 @@ export const FACES = {
       '...........kkkrrrkkk............',
       '..........krrhrrrhrrk...........',
       '.........krrrhrrrhrrrk..........',
-      '........khrrrhrrrHrrrhk.........',
-      '.......krhrRrHrRrhrRrhrk........',
-      '......kRrHrRrhssssrRrhrRk.......',
+      '........khbbbbrrrHbbbbk.........',
+      '.......krhbLLbbbbbbLLbrk........',
+      '......kRrHrbbhssssrbbhrRk.......',
       '......kRrhrRssssssssrHrRk.......',
       '......kRrhrssllllllsshrRk.......',
       '......kRrhssssssssssssrRk.......',
@@ -673,12 +673,12 @@ export const FACES = {
       '....khrRrRdssMwwwwMsdkrRrHrk....',
       '....kHrRrhkdssMmmMsdkkrRrhrk....',
       '....khrRrhkkdsssssdk.krRrhrk....',
-      '...krhrRrhk.kddddddk.krRrhrRk...',
-      '...krhrRrHk.kdssssdk.krRrHrRk...',
-      '...krHrRrhkkkdssssdkkkrRrhrRk...',
-      '...krhrRrhkjjssssssjjkrRrhrRk...',
-      '...krhrRjjjjjqssssqjjjjjrhrRk...',
-      '...krjjjjjjjjJssssJjjjjjjjjRk...',
+      '...khrRrhrk.kddddddk.krhrRrhk...',
+      '...kkkkkkkk.kdssssdk.kkkkkkkk...',
+      '...........kkdssssdkk...........',
+      '......kkkkkjjssssssjjkkkkk......',
+      '.....kjjjjjjjqssssqjjjjjjjk.....',
+      '...kkjjjjjjjjJssssJjjjjjjjjkk...',
       '.kkjJjjjjjjjJssssssJjjjjjjjJjkk.',
       'kjjjJjjjjjjjJqqqqqqJjjjjjjjJjjjk',
       'jjjjJjjjjjjJqqqqqqqqJjjjjjjJjjjj',
@@ -712,6 +712,8 @@ export const FACES = {
       j: '#8eaed0', // denim jacket
       J: '#6a8cb2', // jacket seams
       q: '#f6f4ee', // white shirt
+      b: '#9a3c2a', // glasses frames
+      L: '#cfe6f0', // glasses lenses
     },
   },
 };
