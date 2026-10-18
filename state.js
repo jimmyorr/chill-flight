@@ -119,6 +119,8 @@ export const state = {
   isDoingFullBarrelRoll: false,
   isClampedRoll: false,
   isLooping: false,
+  // How far into a sharp turn (0-1), for the wingtip vapour (particles.js)
+  sharpTurnAmount: 0,
   // Steep climb or dive (double-tap and hold): holds its pitch like a loop,
   // but the camera follows as in normal flight
   isSteepPitch: false,

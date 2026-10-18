@@ -523,6 +523,9 @@ export function createWaterfall({course: points, stream, ground, leap}) {
     group.add(puff);
   }
 
+  // For the drifting mist (particles.js)
+  group.userData.foot = {x: bx, z: bz, half: footHalf, size: mistSize};
+
   // Churning foam, a little wider than the fall's foot
   const foamGeo = new THREE.CircleGeometry(Math.max(24, footHalf * 1.4), 32);
   foamGeo.rotateX(-Math.PI / 2);

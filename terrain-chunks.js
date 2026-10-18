@@ -470,6 +470,11 @@ class GlobalInstanceManager {
 
 export var globalInstancer = new GlobalInstanceManager();
 
+// Where loaded waterfalls land (world units), by chunk group, and the top of
+// the volcano's lava once built: for their particles (particles.js)
+export const waterfallFeet = new Map();
+export const volcanoCrater = {y: null};
+
 // Register Tree types
 globalInstancer.registerType('pineTrunk', treeTrunkGeo, treeTrunkMat);
 globalInstancer.registerType(
@@ -854,6 +859,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     const waterfall = createWaterfall(cp.waterfall);
     waterfall.position.set(worldOffsetX, 0, worldOffsetZ);
     group.add(waterfall);
+    const foot = waterfall.userData.foot;
+    waterfallFeet.set(group, {
+      ...foot,
+      x: worldOffsetX + foot.x,
+      z: worldOffsetZ + foot.z,
+    });
   }
 
   if (rockArchPositions.length > 0 || rockArchGrassPositions.length > 0) {
@@ -905,6 +916,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         // Lava disk - cylinder height is 15, so centering at minCalderaElev - 5 places
         // the top surface right at the caldera basin floor without breaching slopes.
         const lavaY = minCalderaElev - 5;
+        volcanoCrater.y = minCalderaElev;
         const vElements = ModelAssembler.getStructure(
           'volcano_active_elements'
         );
@@ -3210,6 +3222,7 @@ export function updateChunks() {
       scene.remove(group);
       chunks.delete(key);
       watercraftChunks.delete(group);
+      waterfallFeet.delete(group);
       birdChunks.delete(group);
       workerChunkRequests.delete(key);
       workerChunkResults.delete(key);

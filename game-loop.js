@@ -1334,6 +1334,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       1
     );
     sharpTurnAmount = THREE.MathUtils.smoothstep(sharpTurnRamp, 0, 1);
+    state.sharpTurnAmount = sharpTurnAmount;
 
     if (sharpTurnAmount > 0) {
       // Analog sticks can trim the bank; keys and touch zones hold it steady
@@ -1354,6 +1355,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     state.targetRoll = 0;
     sharpTurnRamp = 0;
     sharpTurnAmount = 0;
+    state.sharpTurnAmount = 0;
   }
 
   state.isBarrelRolling = false;

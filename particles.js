@@ -12,11 +12,19 @@ import {scene} from './scene.js';
 import {state} from './state.js';
 import {BASE_FLIGHT_SPEED, UNITS_TO_M, WATER_LEVEL} from './constants.js';
 import {
+  VOLCANO_X,
+  VOLCANO_Z,
   WATER_SWELL_GLSL,
   getElevation,
   waterUniforms,
+  watercraftChunks,
 } from './terrain-geometry.js';
-import {sampleGroundColor, sampleRoad} from './terrain-chunks.js';
+import {
+  sampleGroundColor,
+  sampleRoad,
+  volcanoCrater,
+  waterfallFeet,
+} from './terrain-chunks.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -74,6 +82,7 @@ const material = new THREE.ShaderMaterial({
     uniform float uWaterTime;
     varying vec2 vUv;
     varying vec4 vColor;
+    varying float vGlow;
     ${WATER_SWELL_GLSL}
     void main() {
       float t = uTime - aLife.x;
@@ -82,6 +91,7 @@ const material = new THREE.ShaderMaterial({
         // Dead or not born: off screen
         gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
         vColor = vec4(0.0);
+        vGlow = 0.0;
         return;
       }
       vec3 p = aStart + aVel.xyz * (1.0 - exp(-uDrag * t)) / uDrag;
@@ -99,9 +109,11 @@ const material = new THREE.ShaderMaterial({
         gl_Position = projectionMatrix * mv;
       }
       vUv = uv;
+      // Negative alpha: glows, unaffected by the light
+      vGlow = aColor.a < 0.0 ? 1.0 : 0.0;
       vColor = vec4(
         aColor.rgb,
-        aColor.a * smoothstep(0.0, 0.06 * min(aLife.y, 4.0), t) *
+        abs(aColor.a) * smoothstep(0.0, 0.06 * min(aLife.y, 4.0), t) *
           pow(1.0 - age, 1.5)
       );
     }
@@ -110,11 +122,13 @@ const material = new THREE.ShaderMaterial({
     uniform vec3 uLight;
     varying vec2 vUv;
     varying vec4 vColor;
+    varying float vGlow;
     void main() {
       float d = length(vUv - 0.5) * 2.0;
       float soft = 1.0 - d * d;
       if (soft <= 0.0) discard;
-      gl_FragColor = vec4(vColor.rgb * uLight, vColor.a * soft * soft);
+      vec3 light = mix(uLight, vec3(1.0), vGlow);
+      gl_FragColor = vec4(vColor.rgb * light, vColor.a * soft * soft);
     }
   `,
 });
@@ -134,9 +148,21 @@ let allDeadAt = 0;
 
 /**
  * Spawns one particle. p: {x, y, z}, v: {x, y, z}; gravity in units/s²
- * (negative falls); sizes in units; flat lays it on the water.
+ * (negative falls); sizes in units; flat lays it on the water; glow keeps
+ * it bright at night.
  */
-function spawn(p, v, gravity, life, size0, size1, color, alpha, flat = false) {
+function spawn(
+  p,
+  v,
+  gravity,
+  life,
+  size0,
+  size1,
+  color,
+  alpha,
+  flat = false,
+  glow = false
+) {
   const i = cursor;
   cursor = (cursor + 1) % POOL_SIZE;
   if (spawnedCount === 0) spawnedFrom = i;
@@ -161,7 +187,7 @@ function spawn(p, v, gravity, life, size0, size1, color, alpha, flat = false) {
   c[j] = color.r;
   c[j + 1] = color.g;
   c[j + 2] = color.b;
-  c[j + 3] = alpha;
+  c[j + 3] = glow ? -alpha : alpha;
   allDeadAt = Math.max(allDeadAt, uniforms.uTime.value + life);
 }
 
@@ -203,9 +229,50 @@ const SKIM_HEIGHT = 20 / UNITS_TO_M; // 20 m on the altimeter
 // how long it hangs in the sky (seconds)
 const SMOKE_TAIL = 7;
 const SMOKE_LIFE = 18;
+// Each plane's right wingtip (units, from its centre), for the vapour
+const WINGTIPS = {
+  biplane: [14.5, 2.9, -3],
+  seaplane: [16, 2.8, -2.5],
+  glider: [15.8, 2.3, 0],
+  twin: [16.3, -0.2, 1],
+};
+const VAPOUR_SPACING = 1.5;
+// Where the engines' exhausts are (units, from the plane's centre)
+const EXHAUSTS = {
+  biplane: [
+    [-1.6, -0.6, -8.5],
+    [1.6, -0.6, -8.5],
+  ],
+  seaplane: [
+    [-1.6, -0.8, -9.5],
+    [1.6, -0.8, -9.5],
+  ],
+  twin: [
+    [-5.8, -0.6, -1.5],
+    [5.8, -0.6, -1.5],
+  ],
+  glider: [],
+};
+
+// --- THE WORLD'S EFFECTS ---
+// Boats, waterfalls and the volcano only spawn this near the plane (units)
+const WORLD_RANGE = 3000;
+const VOLCANO_RANGE = 7000;
+// How far a boat moves between bits of its wake (units, sailboat size)
+const BOAT_WAKE_SPACING = 3;
+// Mist puffs a second at each waterfall
+const MIST_RATE = 10;
+// Embers and ash puffs a second from the volcano
+const EMBER_RATE = 14;
+const ASH_RATE = 2;
+// How far the lava is below the crater's rim (units)
+const CRATER_DEPTH = 450;
 
 const WHITE = new THREE.Color(1, 1, 1);
 const FOAM = new THREE.Color(0.93, 0.97, 1.0);
+const EXHAUST = new THREE.Color(0.45, 0.45, 0.45);
+const EMBER = new THREE.Color(1.0, 0.45, 0.12);
+const ASH = new THREE.Color(0.55, 0.53, 0.52);
 const TIRE_SMOKE = new THREE.Color(0.86, 0.86, 0.84);
 const SMOKE = new THREE.Color(0.97, 0.97, 0.97);
 const DUST_LIGHTEN = new THREE.Color(0.85, 0.8, 0.7);
@@ -229,6 +296,9 @@ const _rollDust = new THREE.Color();
 const skimLast = new THREE.Vector3();
 const smokeLast = new THREE.Vector3();
 let smokeOn = false;
+let vapour = 0;
+const vapourLast = [new THREE.Vector3(), new THREE.Vector3()];
+let lastTarget = null;
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -581,6 +651,204 @@ function smokeTrail(speed) {
   if (steps > 0) smokeLast.copy(tail);
 }
 
+// Wingtip vapour: thin white streaks off the wingtips while pulling hard
+// (loops, Immelmanns and sharp turns), fading in and out with the pull
+function wingtipVapour(delta, speed) {
+  const pull =
+    state.isLooping || state.isDoingImmelmann ? 1 : state.sharpTurnAmount;
+  const target = pull * THREE.MathUtils.clamp(speed / 0.8, 0, 1);
+  vapour += (target - vapour) * Math.min(1, delta * 3);
+  if (vapour < 0.05) {
+    for (const last of vapourLast) last.valid = false;
+    return;
+  }
+  const [x, y, z] = WINGTIPS[activePlaneType] ?? WINGTIPS.seaplane;
+  [-1, 1].forEach((side, i) => {
+    const tip = planeGroup.localToWorld(_p.set(side * x, y, z));
+    const last = vapourLast[i];
+    if (!last.valid || last.distanceTo(tip) > 200) {
+      last.copy(tip);
+      last.valid = true;
+      return;
+    }
+    const steps = Math.floor(last.distanceTo(tip) / VAPOUR_SPACING);
+    for (let k = 1; k <= steps; k++) {
+      _q.lerpVectors(last, tip, k / steps);
+      spawn(
+        _q,
+        {x: rand(-0.5, 0.5), y: rand(-0.5, 0.5), z: rand(-0.5, 0.5)},
+        0,
+        rand(0.6, 0.9),
+        1.6,
+        rand(2.5, 3.5),
+        WHITE,
+        0.4 * vapour
+      );
+    }
+    if (steps > 0) last.copy(tip);
+  });
+}
+
+// A cough of grey smoke from the exhausts as the engine starts
+function engineStartPuff() {
+  for (const [x, y, z] of EXHAUSTS[activePlaneType] ?? []) {
+    for (let i = 0; i < 10; i++) {
+      planeGroup.localToWorld(_p.set(x, y, z));
+      _v.set(Math.sign(x) * rand(2, 6), rand(0, 3), rand(4, 12));
+      _v.transformDirection(planeGroup.matrixWorld).multiplyScalar(rand(4, 9));
+      spawn(
+        _p,
+        _v,
+        1.5,
+        rand(1.6, 2.6),
+        rand(2, 3),
+        rand(6, 9),
+        EXHAUST,
+        rand(0.35, 0.55)
+      );
+    }
+  }
+}
+
+function nearPlane(x, z, range) {
+  const dx = x - planeGroup.position.x;
+  const dz = z - planeGroup.position.z;
+  return dx * dx + dz * dz < range * range;
+}
+
+// Foam spreading in a V behind the boats as they drift and patrol, laid as
+// they move (flight-camera.js works out where they are)
+function boatWake(boats, scale) {
+  if (!boats) return;
+  for (const b of boats) {
+    if (b.worldX === undefined) continue;
+    if (b.wakeX === undefined) {
+      b.wakeX = b.worldX;
+      b.wakeZ = b.worldZ;
+      continue;
+    }
+    const dx = b.worldX - b.wakeX;
+    const dz = b.worldZ - b.wakeZ;
+    const d = Math.hypot(dx, dz);
+    if (d < BOAT_WAKE_SPACING * scale) continue;
+    b.wakeX = b.worldX;
+    b.wakeZ = b.worldZ;
+    // A jump (far boats only move every few frames)
+    if (d > 50 * scale) continue;
+    const fx = dx / d;
+    const fz = dz / d;
+    for (const side of [-1, 1]) {
+      // From the corners of the stern, spreading out
+      _p.set(
+        b.worldX - (fx * 7 + fz * side * 2.5) * scale,
+        WATER_LEVEL,
+        b.worldZ - (fz * 7 - fx * side * 2.5) * scale
+      );
+      const out = rand(4, 7) * scale;
+      spawn(
+        _p,
+        {x: -fz * side * out, y: 0, z: fx * side * out},
+        0,
+        rand(7, 10),
+        rand(2.5, 3.5) * scale,
+        rand(9, 13) * scale,
+        FOAM,
+        0.5,
+        true
+      );
+    }
+  }
+}
+
+// Every boat near the plane
+function boatWakes() {
+  for (const chunk of watercraftChunks) {
+    const wp = chunk.userData.worldPosition;
+    if (!wp || !nearPlane(wp.x, wp.z, WORLD_RANGE)) continue;
+    boatWake(chunk.userData.sailboatPositions, 1);
+    boatWake(chunk.userData.pirateShipPositions, 1.4);
+  }
+}
+
+// Mist rolling out and up from where each waterfall lands
+function waterfallMist(delta) {
+  for (const foot of waterfallFeet.values()) {
+    if (!nearPlane(foot.x, foot.z, WORLD_RANGE)) continue;
+    const count = Math.floor(delta * MIST_RATE + Math.random());
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.random() * foot.half;
+      _p.set(
+        foot.x + Math.cos(a) * r,
+        WATER_LEVEL + 2,
+        foot.z + Math.sin(a) * r
+      );
+      const out = rand(15, 30);
+      spawn(
+        _p,
+        {x: Math.cos(a) * out, y: rand(15, 30), z: Math.sin(a) * out},
+        3,
+        rand(5, 7),
+        foot.size * 0.2,
+        foot.size * rand(0.7, 0.9),
+        WHITE,
+        0.5
+      );
+    }
+  }
+}
+
+// Glowing embers rising out of the volcano's crater, and puffs of ash
+// drifting off the top
+function volcanoEffects(delta) {
+  if (volcanoCrater.y === null) return;
+  if (!nearPlane(VOLCANO_X, VOLCANO_Z, VOLCANO_RANGE)) return;
+  const lava = volcanoCrater.y;
+  let count = Math.floor(delta * EMBER_RATE + Math.random());
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = rand(0, 100);
+    _p.set(
+      VOLCANO_X + Math.cos(a) * r,
+      lava + rand(CRATER_DEPTH * 0.4, CRATER_DEPTH),
+      VOLCANO_Z + Math.sin(a) * r
+    );
+    const out = rand(5, 20);
+    spawn(
+      _p,
+      {x: Math.cos(a) * out, y: rand(30, 60), z: Math.sin(a) * out},
+      25,
+      rand(5, 8),
+      rand(16, 24),
+      rand(5, 8),
+      EMBER,
+      0.95,
+      false,
+      true
+    );
+  }
+  count = Math.floor(delta * ASH_RATE + Math.random());
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = rand(0, 100);
+    _p.set(
+      VOLCANO_X + Math.cos(a) * r,
+      lava + CRATER_DEPTH,
+      VOLCANO_Z + Math.sin(a) * r
+    );
+    spawn(
+      _p,
+      {x: rand(10, 20), y: rand(15, 25), z: rand(-5, 5)},
+      2,
+      rand(14, 20),
+      rand(60, 90),
+      rand(250, 350),
+      ASH,
+      0.4
+    );
+  }
+}
+
 /** Turns the airshow smoke on or off; returns whether it's now on. */
 export function toggleSmoke() {
   smokeOn = !smokeOn;
@@ -624,7 +892,15 @@ export function updateParticles(delta) {
     if (!wheels && !onWater) skim(delta, speed);
     else skimLast.valid = false;
     if (smokeOn) smokeTrail(speed);
+    if (!wheels && !onWater) wingtipVapour(delta, speed);
+    else vapour = 0;
+    const target = state.targetFlightSpeed || 0;
+    if (lastTarget === 0 && target > 0 && speed < 0.05) engineStartPuff();
+    lastTarget = target;
   }
+  boatWakes();
+  waterfallMist(delta);
+  volcanoEffects(delta);
   if (!onWater) for (const last of lastStern) last.valid = false;
   lastWater = onWater;
   lastWheels = wheels;

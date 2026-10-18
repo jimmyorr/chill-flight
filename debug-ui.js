@@ -49,6 +49,7 @@ import {
   clearChunkQueue,
   toggleProceduralObjects,
   updateChunks,
+  waterfallFeet,
 } from './terrain-chunks.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
@@ -223,6 +224,7 @@ export function applyGraphicsPreset(preset) {
   chunks.clear();
 
   watercraftChunks.clear();
+  waterfallFeet.clear();
 
   if (clearChunkQueue) clearChunkQueue();
   if (clearElevationCache) clearElevationCache();
@@ -388,6 +390,7 @@ export function initDebugUI() {
       chunks.clear();
 
       watercraftChunks.clear();
+      waterfallFeet.clear();
 
       if (clearChunkQueue) clearChunkQueue();
       if (clearElevationCache) clearElevationCache();

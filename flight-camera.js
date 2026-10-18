@@ -828,6 +828,10 @@ export function updateFlightCamera(delta, nowTime) {
           yawOffset += tangentYaw;
         }
 
+        // Where it is now, for its wake (particles.js)
+        pos.worldX = checkPos.x + pos.x + dx;
+        pos.worldZ = checkPos.z + pos.z + dz;
+
         // Bobbing & Wave dynamics (Roll/Pitch)
         const bobTime = clock.getElapsed() * 1.2 + driftPhase;
         const dy = Math.sin(bobTime) * 0.15;
@@ -915,6 +919,8 @@ export function updateFlightCamera(delta, nowTime) {
         const dz = Math.sin(t) * patrolRadius;
 
         const tangentYaw = Math.atan2(-Math.sin(t), Math.cos(t));
+        pos.worldX = checkPos.x + pos.x + dx;
+        pos.worldZ = checkPos.z + pos.z + dz;
 
         // Bobbing & Wave dynamics (Roll/Pitch)
         const bobTime = clock.getElapsed() * 0.8 + patrolPhase;
