@@ -439,19 +439,26 @@ function playMusicInternal() {
   updateAudioPlayer(musicEnabled);
 }
 
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') {
+export function handleMusicVisibility(hidden) {
+  if (hidden) {
     if (musicEnabled && !purrpleCatAudio.paused) {
       isPausedByVisibility = true;
       pauseMusicInternal();
     }
-  } else {
-    if (isPausedByVisibility) {
-      isPausedByVisibility = false;
-      playMusicInternal();
-    }
+  } else if (
+    isPausedByVisibility &&
+    (typeof document === 'undefined' || document.visibilityState !== 'hidden')
+  ) {
+    isPausedByVisibility = false;
+    playMusicInternal();
   }
+}
+
+document.addEventListener('visibilitychange', () => {
+  handleMusicVisibility(document.visibilityState === 'hidden');
 });
+window.addEventListener('pagehide', () => handleMusicVisibility(true));
+window.addEventListener('pageshow', () => handleMusicVisibility(false));
 
 export function setMusicEnabled(enabled) {
   musicEnabled = enabled;

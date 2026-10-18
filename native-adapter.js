@@ -4,6 +4,8 @@ import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 import {log} from './logger.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
+import {handleMusicVisibility} from './audio.js';
+import {setSfxBackgrounded} from './sfx.js';
 
 function isNative() {
   return typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
@@ -88,6 +90,8 @@ export async function detectGraphicsPreset() {
           );
         });
         Capacitor.Plugins.App.addListener('appStateChange', (appState) => {
+          setSfxBackgrounded(!appState.isActive);
+          handleMusicVisibility(!appState.isActive);
           if (!appState.isActive) {
             if (
               typeof state.isPaused !== 'undefined' &&

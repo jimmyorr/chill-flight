@@ -31,14 +31,6 @@ const CHOP_DEPTH = 0.3;
 export const SFX_VOLUME = 0.45;
 export let masterVolume = 0.45;
 
-export function setSfxVolume(vol) {
-  masterVolume = THREE.MathUtils.clamp(vol, 0, 1);
-  if (audioCtx && masterGain) {
-    const targetGain = sfxEnabled && !state.isPaused ? masterVolume : 0;
-    masterGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
-  }
-}
-
 // Optional override for debug auditioning
 export let planeTypeOverride = null;
 
@@ -283,22 +275,72 @@ function createBreezeBuffer(context) {
 }
 
 let suspendTimer = null;
+let wasActive = false;
+let isBackgrounded = false;
+
+function isSfxActive() {
+  return (
+    sfxEnabled &&
+    !state.isPaused &&
+    !isBackgrounded &&
+    (typeof document === 'undefined' || document.visibilityState !== 'hidden')
+  );
+}
 
 /**
- * Runs the audio context only while sound effects are on and the page is
- * visible. Suspending stops the oscillators entirely, which saves battery.
+ * Runs the audio context only while sound effects are on, the game is
+ * unpaused, and the app/page is in the foreground. Ramps masterGain to zero
+ * on the audio thread before suspending so oscillators never cut mid-waveform.
  */
-function syncContextState() {
-  if (!audioCtx) return;
+export function syncSfxState() {
+  if (!audioCtx || !masterGain) return;
   clearTimeout(suspendTimer);
-  const shouldRun = sfxEnabled && document.visibilityState !== 'hidden';
-  if (shouldRun) {
-    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-  } else if (audioCtx.state === 'running') {
-    // Hidden: stop at once. Turned off: let the master fade out first.
-    const delay = document.visibilityState === 'hidden' ? 0 : 300;
-    suspendTimer = setTimeout(() => audioCtx.suspend().catch(() => {}), delay);
+  suspendTimer = null;
+  const active = isSfxActive();
+  const now = audioCtx.currentTime;
+
+  if (active) {
+    if (!wasActive) {
+      wasActive = true;
+      masterGain.gain.cancelScheduledValues(now);
+      masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+      masterGain.gain.setTargetAtTime(masterVolume, now, 0.05);
+    }
+    if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
+      audioCtx.resume().catch(() => {});
+    }
+  } else {
+    if (wasActive) {
+      wasActive = false;
+      masterGain.gain.cancelScheduledValues(now);
+      masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+      masterGain.gain.linearRampToValueAtTime(0, now + 0.015);
+    }
+    if (audioCtx.state === 'running') {
+      suspendTimer = setTimeout(() => {
+        suspendTimer = null;
+        if (audioCtx && !isSfxActive() && audioCtx.state === 'running') {
+          audioCtx.suspend().catch(() => {});
+        }
+      }, 25);
+    }
   }
+}
+
+export function setSfxBackgrounded(backgrounded) {
+  isBackgrounded = !!backgrounded;
+  syncSfxState();
+}
+
+export function setSfxVolume(vol) {
+  masterVolume = THREE.MathUtils.clamp(vol, 0, 1);
+  if (audioCtx && masterGain && isSfxActive() && audioCtx.state === 'running') {
+    const now = audioCtx.currentTime;
+    masterGain.gain.cancelScheduledValues(now);
+    masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+    masterGain.gain.setTargetAtTime(masterVolume, now, 0.05);
+  }
+  syncSfxState();
 }
 
 /**
@@ -306,7 +348,10 @@ function syncContextState() {
  * Safe to call repeatedly; initializes only once.
  */
 export function initAudioContext() {
-  if (isInitialized || typeof window === 'undefined') return audioCtx;
+  if (isInitialized || typeof window === 'undefined') {
+    syncSfxState();
+    return audioCtx;
+  }
 
   const AudioContextClass = window.AudioContext;
   if (!AudioContextClass) return null;
@@ -315,9 +360,11 @@ export function initAudioContext() {
     audioCtx = new AudioContextClass();
 
     // Master SFX Bus
+    const active = isSfxActive();
+    wasActive = active;
     masterGain = audioCtx.createGain();
     masterGain.gain.setValueAtTime(
-      sfxEnabled && !state.isPaused ? masterVolume : 0,
+      active ? masterVolume : 0,
       audioCtx.currentTime
     );
     masterGain.connect(audioCtx.destination);
@@ -443,15 +490,23 @@ export function initAudioContext() {
     return null;
   }
 
+  audioCtx.addEventListener('statechange', () => {
+    if (audioCtx && audioCtx.state === 'running' && !isSfxActive()) {
+      syncSfxState();
+    }
+  });
+
   // Resume suspended AudioContext on user interaction (autoplay policy)
-  const unlockAudio = () => syncContextState();
+  const unlockAudio = () => syncSfxState();
   window.addEventListener('pointerdown', unlockAudio, {passive: true});
   window.addEventListener('keydown', unlockAudio, {passive: true});
   window.addEventListener('touchstart', unlockAudio, {passive: true});
   // Gains only change from the frame loop, which stops in hidden tabs and
-  // backgrounded apps, so suspend the whole context there instead.
-  document.addEventListener('visibilitychange', syncContextState);
-  syncContextState();
+  // backgrounded apps, so ramp down and suspend the context there instead.
+  document.addEventListener('visibilitychange', syncSfxState);
+  window.addEventListener('pagehide', () => setSfxBackgrounded(true));
+  window.addEventListener('pageshow', () => setSfxBackgrounded(false));
+  syncSfxState();
 
   return audioCtx;
 }
@@ -481,11 +536,7 @@ export function setSfxEnabled(enabled) {
     initAudioContext();
   }
 
-  if (audioCtx && masterGain) {
-    const targetGain = enabled && !state.isPaused ? masterVolume : 0;
-    masterGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
-  }
-  syncContextState();
+  syncSfxState();
 }
 
 /**
@@ -494,10 +545,11 @@ export function setSfxEnabled(enabled) {
 export function updateSfx() {
   if (!isInitialized || !audioCtx) return;
 
-  const targetMasterGain = sfxEnabled && !state.isPaused ? masterVolume : 0;
-  masterGain.gain.setTargetAtTime(targetMasterGain, audioCtx.currentTime, 0.08);
-
-  if (!sfxEnabled || state.isPaused) return;
+  const active = isSfxActive();
+  if (active !== wasActive) {
+    syncSfxState();
+  }
+  if (!active) return;
 
   const speed = Math.max(0, state.flightSpeedMultiplier || 0);
   const targetSpeed = Math.max(0, state.targetFlightSpeed || 0);

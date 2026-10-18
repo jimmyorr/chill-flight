@@ -5,6 +5,7 @@ import {
   inputManager,
 } from './game-input-bindings.js';
 import {MUSIC_PAUSED_VOLUME, MUSIC_VOLUME, setMusicVolume} from './audio.js';
+import {syncSfxState} from './sfx.js';
 import {updatePauseMenuMusicInfo} from './game-audio-integration.js';
 import {state} from './state.js';
 import {clock} from './sky.js';
@@ -37,6 +38,7 @@ var pauseOverlay = document.getElementById('pause-overlay');
 
 export function togglePause() {
   state.isPaused = !state.isPaused;
+  syncSfxState();
   if (state.isPaused) {
     if (pauseOverlay) pauseOverlay.style.display = 'flex';
     clearInputState();
