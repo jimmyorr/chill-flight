@@ -804,12 +804,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
             state.RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
             maxPropLOD
           );
-    const lodMultiplier =
-      performanceMonitor && typeof performanceMonitor.lodMultiplier === 'number'
-        ? performanceMonitor.lodMultiplier
-        : 1.0;
-    const effectivePropLOD = currentPropLOD * lodMultiplier;
-    const lodDistSq = effectivePropLOD * effectivePropLOD;
+    const lodDistSq = currentPropLOD * currentPropLOD;
 
     const objectsVisible = ChillFlightLogic.SHOW_OBJECTS;
     chunks.forEach((cg) => {
@@ -864,10 +859,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
 
     updateDOM('debug-prop-lod-base', Math.round(currentPropLOD));
     updateDOM('debug-prop-lod', Math.round(currentPropLOD));
-    updateDOM('debug-prop-lod-final', Math.round(effectivePropLOD));
-    updateDOM('debug-prop-lod-effective', Math.round(effectivePropLOD));
     if (performanceMonitor) {
-      updateDOM('debug-lod-mult', performanceMonitor.lodMultiplier.toFixed(2));
       updateDOM(
         'debug-avg-ms',
         performanceMonitor.getSmoothedFrameTime().toFixed(2)

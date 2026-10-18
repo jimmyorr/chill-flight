@@ -205,7 +205,6 @@ import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {generateChunkData} from './terrain-gen.js';
 import {hooks} from './hooks.js';
 import {state} from './state.js';
-import {performanceMonitor} from './game-performance.js';
 
 // Geese whose chunk has unloaded fly on in the scene, animated with the rest
 scene.add(strayBirds);
@@ -1021,17 +1020,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       : typeof state.PROP_LOD_DISTANCE !== 'undefined'
         ? state.PROP_LOD_DISTANCE
         : 4200;
-  const lodMultiplier =
-    performanceMonitor && typeof performanceMonitor.lodMultiplier === 'number'
-      ? performanceMonitor.lodMultiplier
-      : 1.0;
   const lodDistance =
-    (state.manualPropLOD !== undefined
+    state.manualPropLOD !== undefined
       ? state.manualPropLOD
       : Math.min(
           state.RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
           maxPropLOD
-        )) * lodMultiplier;
+        );
   objectsLOD.addLevel(emptyLODGroup, lodDistance);
   objectsLOD.visible = state._enableObjects;
 

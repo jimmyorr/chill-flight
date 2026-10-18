@@ -18,8 +18,8 @@ class DynamicPerformanceMonitor {
     this.moderatelyOverloaded = 25; // 40 FPS
     this.severelyOverloaded = 33.33; // 30 FPS
 
-    // LOD state
-    this.lodMultiplier = 1.0;
+    // Prop distances (houses, barns, boats) aren't scaled under load:
+    // pulling them in made houses visibly pop in close by (#81)
     this.cooldownFrames = 0;
     this.cooldownMax = 30; // Wait 30 frames between adjustments
 
@@ -61,31 +61,8 @@ class DynamicPerformanceMonitor {
       const avgFrameTime = this.ringSum / this.ringCount;
       let changed = false;
 
-      // --- LOD scaling ---
-      if (avgFrameTime > this.severelyOverloaded) {
-        if (this.lodMultiplier > 0.2) {
-          this.lodMultiplier = Math.max(0.2, this.lodMultiplier - 0.2);
-          changed = true;
-        }
-      } else if (avgFrameTime > this.moderatelyOverloaded) {
-        if (this.lodMultiplier > 0.4) {
-          this.lodMultiplier = Math.max(0.4, this.lodMultiplier - 0.1);
-          changed = true;
-        }
-      } else if (avgFrameTime > this.slightlyOverloaded) {
-        if (this.lodMultiplier > 0.6) {
-          this.lodMultiplier = Math.max(0.6, this.lodMultiplier - 0.1);
-          changed = true;
-        }
-      } else if (avgFrameTime <= this.targetFrameTime * 1.05) {
-        if (this.lodMultiplier < 1.0) {
-          this.lodMultiplier = Math.min(1.0, this.lodMultiplier + 0.1);
-          changed = true;
-        }
-      }
-
       // --- Dynamic resolution scaling (DRS) ---
-      // Reserve DRS for moderate/severe load (< 40 FPS); let LOD and shadows handle slight dips.
+      // Reserve DRS for moderate/severe load (< 40 FPS); the chunk budget handles slight dips.
       if (avgFrameTime > this.severelyOverloaded) {
         if (this.pixelRatioMultiplier > this._minPixelRatioMult) {
           this.pixelRatioMultiplier = Math.max(
@@ -124,7 +101,6 @@ class DynamicPerformanceMonitor {
       }
 
       if (changed) {
-        this.applyEffectiveLOD();
         this.applyDRS();
         this.cooldownFrames = this.cooldownMax;
       }
@@ -181,7 +157,7 @@ class DynamicPerformanceMonitor {
         : typeof state.PROP_LOD_DISTANCE !== 'undefined'
           ? state.PROP_LOD_DISTANCE
           : 4200;
-    return baseLOD * this.lodMultiplier;
+    return baseLOD;
   }
 
   getSmoothedFrameTime() {
