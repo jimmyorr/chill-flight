@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {camera, clock, moonMesh, sunMesh} from './sky.js';
 import {updateChunks} from './terrain-chunks.js';
-import {planeGroup} from './airplane.js';
+import {getMaxFlightSpeedMult, planeGroup} from './airplane.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
   animationUniforms,
@@ -174,7 +174,15 @@ export function updateFlightCamera(delta, nowTime) {
     const followScale =
       mobileCameraScale * (state.airplaneModel?.cameraScale ?? 1);
 
-    const speedFactor = (state.flightSpeedMultiplier - 0.5) / 9.5;
+    // The buggy's whole speed range widens the view and pulls the camera
+    // back, so its top speed feels fast
+    const speedFactor = state.airplaneModel?.cameraScale
+      ? THREE.MathUtils.clamp(
+          state.flightSpeedMultiplier / getMaxFlightSpeedMult(),
+          0,
+          1
+        )
+      : (state.flightSpeedMultiplier - 0.5) / 9.5;
     const diveFactor = Math.max(0, -planeGroup.rotation.x / (Math.PI / 4)); // 1.0 at 45 degree dive
 
     const zOffset = THREE.MathUtils.lerp(

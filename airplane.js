@@ -389,6 +389,8 @@ export function setActivePlane(planeType, skipStorage = false) {
   if (planeType === 'seaplane') poseGear(state.gearExtension);
 
   state.airplaneModel = newModel;
+  // Shows the buggy's touch pedals (style.css)
+  document.body.classList.toggle('vehicle-buggy', planeType === 'buggy');
   state.propGroup = newModel.propGroup || state.propGroup;
   state.propGroups =
     newModel.propGroups || (state.propGroup ? [state.propGroup] : []);

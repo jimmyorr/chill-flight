@@ -2961,10 +2961,14 @@ export function sampleRoad(x, z, out) {
         const dx = seg.x1 - seg.x0;
         const dz = seg.z1 - seg.z0;
         const lengthSq = dx * dx + dz * dz;
-        const t = ((x - seg.x0) * dx + (z - seg.z0) * dz) / lengthSq;
-        if (t < 0 || t > 1) continue;
+        // Past a segment's ends counts within the deck's half width of
+        // them, so the outside of a bend between two segments has no gap
         const length = Math.sqrt(lengthSq);
-        const across = Math.abs((x - seg.x0) * dz - (z - seg.z0) * dx) / length;
+        const along = ((x - seg.x0) * dx + (z - seg.z0) * dz) / lengthSq;
+        const pad = ROAD_DECK_HALF_WIDTH / length;
+        if (along < -pad || along > 1 + pad) continue;
+        const t = Math.min(1, Math.max(0, along));
+        const across = Math.hypot(x - (seg.x0 + dx * t), z - (seg.z0 + dz * t));
         if (across > ROAD_DECK_HALF_WIDTH) continue;
         // The deck is pitched to the segment, so its top is a little further
         // above the centre line straight up

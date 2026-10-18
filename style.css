@@ -740,6 +740,62 @@ input[type='number'].customization-input {
   width: 100%;
 }
 
+/* The buggy's pedals on touch screens (buggy.js), bottom right above the
+   flight controls: the stick only steers, Gas and Brake are held down and
+   Drift is the handbrake. */
+#buggy-pedals {
+  display: none;
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(110px + env(safe-area-inset-bottom));
+  z-index: 200;
+  gap: 10px;
+  align-items: flex-end;
+  touch-action: none;
+}
+
+@media (any-pointer: coarse) {
+  body.vehicle-buggy #buggy-pedals {
+    display: flex;
+  }
+}
+
+.buggy-pedal {
+  width: 76px;
+  height: 76px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  color: white;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  outline: none;
+}
+
+.buggy-pedal.gas {
+  height: 110px;
+  border-color: rgba(255, 215, 0, 0.5);
+  color: #ffd700;
+}
+
+.buggy-pedal.pressed {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(0.95);
+}
+
+.buggy-pedal.gas.pressed {
+  border-color: #ffd700;
+}
+
 /* The throttle (game-ui.js): drag the knob to set the target speed.
    --thr is the target as a fraction of the plane's top speed, --stall the
    speed the plane starts to sink below. */

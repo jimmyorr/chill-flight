@@ -276,14 +276,17 @@ A few other planes share the sky, so now and then you spot someone else up there
 
 ## Buggy
 
-Pick the buggy in the pause menu (or press **V** until it comes up) to drive instead of fly (`buggy.js`, model in `buggy-model.js`). Switching to it in the air sets it down on the ground below, rolling on at up to its top speed of 75 knots; switching back to a plane leaves the plane on its wheels where the buggy was. It drives on the ground, the highways and their bridges, and floats slowly across water.
+Pick the buggy in the pause menu (or press **V** until it comes up) to drive instead of fly (`buggy.js`, model in `buggy-model.js`). Switching to it in the air sets it down on the ground below, rolling on at up to its top speed of 120 knots; switching back to a plane leaves the plane on its wheels where the buggy was. It drives on the ground, the highways and their bridges, and floats slowly across water.
 
-- **Arrow up / W** (or the stick forward): gas. **Arrow down / S** (or the stick back): brake, then reverse once stopped.
-- **Arrow left / right** (or the stick): steer. The front wheels turn sharply at low speed, and less the faster you go, as far as the tyres can grip; on dirt the back slides out a little in fast turns, less on the road.
+- **Arrow up / W**: gas. **Arrow down / S**: brake, then reverse once stopped. With a mouse or gamepad stick, forward and back work the same.
+- **Arrow left / right**: steer. The front wheels turn sharply at low speed, and less the faster you go, as far as the tyres can grip.
+- **Space**: handbrake. Held in a turn, the back steps out into a drift: it slows the buggy, swings it round much faster than the tyres would, and lets go as you release it. Flooring the gas in a fast turn on dirt slides the back out too (a power slide). Sliding throws up tyre smoke on the road and dust on dirt.
+- **Touch screens**: the stick only steers, and **Gas**, **Brake** and **Drift** pedals appear at the bottom right, held down while pressed.
 - **Throttle slider**: cruise control. With no pedal pressed the buggy holds the speed it's set to; braking sets it back to zero.
 - Downhill speeds it up and uphill slows it; ground steeper than about 50° is a wall. Crests and the edges of steep ground throw it into the air, and the springs soak up the landing.
+- Roads: it climbs onto a road from beside it when the road is up to about 2 m above the ground, and the sides of higher embankments stop it like a wall; it drives under bridges higher than about 6 m. Edges with a big drop act as guard rails.
 - Stop at an airport and that airport's people come over, as when landing.
-- The follow camera sits closer behind it, and the first-person view is from the driver's seat.
+- The follow camera sits closer behind it, widening and pulling back as it speeds up, and the first-person view is from the driver's seat.
 
 ## Landing
 

@@ -541,7 +541,7 @@ function rollingDust(delta, speed) {
   }
 
   // Prop wash: strongest with the throttle open and the plane still slow
-  if (activePlaneType === 'glider') return;
+  if (activePlaneType === 'glider' || activePlaneType === 'buggy') return;
   const throttle = THREE.MathUtils.clamp(state.targetFlightSpeed || 0, 0, 1);
   const wash = throttle * (1 - fast);
   if (Math.random() > wash * delta * 30) return;
@@ -562,6 +562,41 @@ function rollingDust(delta, speed) {
       rand(3.5, 6),
       color,
       0.35 * wash + 0.1
+    );
+  }
+}
+
+// The buggy sliding (state.buggySlide, from buggy.js): smoke off the rear
+// tyres on paving, a thick plume of dust on dirt, thrown out behind
+function slideSmoke(delta) {
+  const slide = state.buggySlide || 0;
+  if (slide < 0.15) return;
+  const color = groundDustColor() || TIRE_SMOKE;
+  const groundY =
+    planeGroup.position.y - (state.airplaneModel?.wheelDepth ?? 0);
+  const fwd = planeVelocity(_v);
+  const count = Math.floor(slide * delta * 70 + Math.random());
+  for (let i = 0; i < count; i++) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    planePoint(
+      side * 2.65 + rand(-0.4, 0.4),
+      rand(2.5, 3.5),
+      groundY + 0.6,
+      _p
+    );
+    spawn(
+      _p,
+      {
+        x: fwd.x * 0.15 + rand(-2, 2),
+        y: rand(1, 3),
+        z: fwd.z * 0.15 + rand(-2, 2),
+      },
+      1,
+      rand(1.4, 2.4),
+      rand(1.5, 2.5),
+      rand(6, 10) * (0.6 + 0.4 * slide),
+      color,
+      rand(0.3, 0.5) * slide
     );
   }
 }
@@ -899,6 +934,7 @@ export function updateParticles(delta) {
     if (wheels && lastWheels === false && !onWater) touchdownPuff(impact);
     if (onWater && speed > WAKE_MIN_SPEED) wake(delta, speed);
     if (wheels && !onWater) rollingDust(delta, speed);
+    if (activePlaneType === 'buggy' && !onWater) slideSmoke(delta);
     if (!wheels && !onWater) skim(delta, speed);
     else skimLast.valid = false;
     if (smokeOn) smokeTrail(speed);

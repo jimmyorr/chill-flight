@@ -15,6 +15,8 @@ export class InputManager {
         Minus: false,
         Q: false,
         E: false,
+        // The buggy's handbrake (buggy.js)
+        Space: false,
       },
       doubleTap: {
         ArrowUp: false,
@@ -362,6 +364,11 @@ export class InputManager {
     if (e.key === '-' || e.key === '_') this.state.keys.Minus = true;
     if (key === 'q') this.state.keys.Q = true;
     if (key === 'e') this.state.keys.E = true;
+    if (e.key === ' ' && !this.state.isPaused) {
+      // Not a click on whichever button has focus
+      e.preventDefault();
+      this.state.keys.Space = true;
+    }
   }
 
   handleKeyUp(e) {
@@ -406,6 +413,7 @@ export class InputManager {
     if (e.key === '-' || e.key === '_') this.state.keys.Minus = false;
     if (key === 'q') this.state.keys.Q = false;
     if (key === 'e') this.state.keys.E = false;
+    if (e.key === ' ') this.state.keys.Space = false;
   }
 
   handleBlur() {
@@ -438,7 +446,7 @@ export class InputManager {
         !e.target.closest('#debug-menu') &&
         !e.target.closest('#debug-telemetry') &&
         !e.target.closest('.title') &&
-        !e.target.closest('#mobile-controls') &&
+        !e.target.closest('#mobile-controls, #buggy-pedals') &&
         !e.target.closest('#minimap-container')
       ) {
         this.state.freeCam.dragging = true;
@@ -474,7 +482,7 @@ export class InputManager {
       e.target.closest('#debug-menu') ||
       e.target.closest('#debug-telemetry') ||
       e.target.closest('.title') ||
-      e.target.closest('#mobile-controls') ||
+      e.target.closest('#mobile-controls, #buggy-pedals') ||
       e.target.closest('#pause-overlay') ||
       e.target.closest('#achievements-overlay') ||
       e.target.closest('#people-overlay') ||
@@ -537,7 +545,7 @@ export class InputManager {
         target.closest('#debug-menu') ||
         target.closest('#debug-telemetry') ||
         target.closest('.title') ||
-        target.closest('#mobile-controls') ||
+        target.closest('#mobile-controls, #buggy-pedals') ||
         target.closest('#mobile-action-menu') ||
         target.closest('#minimap-container') ||
         target.closest('#zen-tooltip') ||
@@ -659,7 +667,7 @@ export class InputManager {
         target.closest('#debug-menu') ||
         target.closest('#debug-telemetry') ||
         target.closest('.title') ||
-        target.closest('#mobile-controls') ||
+        target.closest('#mobile-controls, #buggy-pedals') ||
         target.closest('#mobile-action-menu') ||
         target.closest('#minimap-container') ||
         target.closest('#npc-dialog') ||
