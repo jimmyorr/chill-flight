@@ -793,6 +793,10 @@ input[type='number'].customization-input {
   );
 }
 
+#throttle.no-stall .throttle-stall {
+  display: none;
+}
+
 #throttle .throttle-fill {
   position: absolute;
   left: 0;

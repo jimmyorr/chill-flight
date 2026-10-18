@@ -8,6 +8,7 @@ import {
 import {
   HEADLIGHT_GLOW_INTENSITY,
   HEADLIGHT_INTENSITY,
+  activePlaneType,
   getMaxFlightSpeedMult,
   headlight,
   headlightGlow,
@@ -310,6 +311,9 @@ export function updateThrottle(now) {
   const kts = Math.round(target * ktsPerMult);
   const {stallKts, levelKts} = planeHandling();
   throttleEl.style.setProperty('--thr', Math.min(1, target / max).toFixed(4));
+  // The buggy can't stall: no stall mark or warning colours for it
+  const stalls = activePlaneType !== 'buggy';
+  throttleEl.classList.toggle('no-stall', !stalls);
   throttleEl.style.setProperty(
     '--stall',
     (stallKts / (max * ktsPerMult)).toFixed(4)
@@ -317,7 +321,13 @@ export function updateThrottle(now) {
   throttleEl.setAttribute('aria-valuemax', Math.round(max * ktsPerMult));
   throttleEl.setAttribute('aria-valuenow', kts);
   updateDOM(throttleKts, kts);
-  const zone = kts < stallKts - 5 ? 'red' : kts < levelKts ? 'amber' : '';
+  const zone = !stalls
+    ? ''
+    : kts < stallKts - 5
+      ? 'red'
+      : kts < levelKts
+        ? 'amber'
+        : '';
   if (zone !== lastThrottleZone) {
     if (lastThrottleZone) throttleEl.classList.remove(lastThrottleZone);
     if (zone) throttleEl.classList.add(zone);

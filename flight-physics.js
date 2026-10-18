@@ -93,6 +93,12 @@ export function isOnWheels() {
   return isRolling;
 }
 
+// The buggy (buggy.js) drives in place of this file's physics, and says
+// when its wheels are down
+export function setOnWheels(onWheels) {
+  isRolling = onWheels;
+}
+
 export function updateFlightPhysics(delta, nowTime) {
   const handling = planeHandling();
   // --- FLIGHT PHYSICS & SPEED ---

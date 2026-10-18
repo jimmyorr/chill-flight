@@ -99,6 +99,7 @@ import {
   updateDOM,
 } from './constants.js';
 import {
+  activePlaneType,
   getMaxFlightSpeedMult,
   planeGroup,
   planeHandling,
@@ -123,6 +124,7 @@ import {
 } from './game-ui.js';
 import {updateAutopilot} from './autopilot.js';
 import {updateFlightPhysics} from './flight-physics.js';
+import {updateBuggy} from './buggy.js';
 import {log} from './logger.js';
 import {
   chunks,
@@ -369,10 +371,12 @@ function performFrame() {
 
   // --- DAY/NIGHT CYCLE ---
   updateDayNightCycle(delta);
-  // Spin the propeller
-  updatePhysicsAndControls(delta, nowTime);
+  // The buggy drives in place of the flight model and physics
+  const driving = activePlaneType === 'buggy';
+  if (driving) updateBuggy(delta);
+  else updatePhysicsAndControls(delta, nowTime);
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
-  if (!state.isFreeCamera) {
+  if (!state.isFreeCamera && !driving) {
     // 1. Maneuver completions
     if (state.wasDoingFullLoop && !state.isDoingFullLoop) {
       Achievements.unlock('froot_loops');
@@ -418,7 +422,7 @@ function performFrame() {
   state.wasDoingFullBarrelRoll = state.isDoingFullBarrelRoll;
   state.wasDoingImmelmann = state.isDoingImmelmann;
 
-  updateFlightPhysics(delta, nowTime);
+  if (!driving) updateFlightPhysics(delta, nowTime);
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
   if (!state.isFreeCamera) {
     if (!state.previousPosition) {

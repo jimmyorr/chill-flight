@@ -5,6 +5,7 @@ import {state} from './state.js';
 import {activePlaneType} from './airplane.js';
 import {musicEnabled} from './audio.js';
 import {log} from './logger.js';
+import {PLANE_HANDLING} from './constants.js';
 
 // ?sfx=0/1 overrides the saved setting for this visit (and changes made
 // during it aren't saved). With no saved setting, sound effects follow the
@@ -25,6 +26,7 @@ export let sfxEnabled =
 
 // Top of the speed range in flightSpeedMultiplier units (500 kts)
 const MAX_SPEED_MULT = 500 / 150;
+const BUGGY_TOP_SPEED_MULT = PLANE_HANDLING.buggy.topKts / 150;
 // Depth of the propeller chop (amplitude wobble from the LFO)
 const CHOP_DEPTH = 0.3;
 // Engine level while music is on (0.25 = -12 dB): the engine's steady drone
@@ -660,6 +662,27 @@ export function updateSfx() {
       audioCtx.currentTime,
       0.05
     );
+  } else if (planeType === 'buggy') {
+    // A lumpy little car engine, revving up across the buggy's own speed
+    // range rather than a plane's
+    const revs = THREE.MathUtils.clamp(speed / BUGGY_TOP_SPEED_MULT, 0, 1);
+    const f = 34 + revs * 42;
+    osc1.frequency.setTargetAtTime(f, audioCtx.currentTime, 0.05);
+    osc2.frequency.setTargetAtTime(f * 2, audioCtx.currentTime, 0.05);
+    oscSub.frequency.setTargetAtTime(f * 0.5, audioCtx.currentTime, 0.05);
+    lfo.frequency.setTargetAtTime(10 + revs * 10, audioCtx.currentTime, 0.05);
+    engineFilter.frequency.setTargetAtTime(
+      180 + revs * 300,
+      audioCtx.currentTime,
+      0.05
+    );
+    raspFilter.frequency.setTargetAtTime(f * 6, audioCtx.currentTime, 0.05);
+    engineGain.gain.setTargetAtTime(
+      (0.07 + 0.15 * Math.sqrt(revs)) * engineDuck,
+      audioCtx.currentTime,
+      0.05
+    );
+    windGain.gain.setTargetAtTime(speed * 0.03, audioCtx.currentTime, 0.05);
   } else {
     // Single-engine prop plane (seaplane or biplane)
     const isBiplane = planeType === 'biplane';

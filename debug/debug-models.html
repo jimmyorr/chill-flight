@@ -166,6 +166,9 @@
       <button class="model-btn" onclick="viewModel('twin', event)">
         Twin engine
       </button>
+      <button class="model-btn" onclick="viewModel('buggy', event)">
+        Buggy
+      </button>
 
       <div class="category-title">Nature</div>
       <button class="model-btn" onclick="viewModel('pine', event)">
@@ -363,6 +366,7 @@
       import {createWaterfall} from '../waterfalls.js';
       import {createGliderModel} from '../glider.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
+      import {createBuggyModel} from '../buggy-model.js';
       import {
         createSeaplaneModel,
         planeMat,
@@ -501,6 +505,7 @@
           'glider',
           'twin',
           'twin-engine',
+          'buggy',
           'mushroom',
           'crystal',
         ].includes(type);
@@ -673,6 +678,16 @@
 
               tw.visible = true;
               previewGroup.add(tw);
+              break;
+            }
+
+            case 'buggy': {
+              const colors =
+                ChillFlightLogic && ChillFlightLogic.PLANE_COLORS
+                  ? ChillFlightLogic.PLANE_COLORS
+                  : [0xe0564c];
+              const newColor = colors[colorSeed % colors.length];
+              previewGroup.add(createBuggyModel({planeColor: newColor}));
               break;
             }
 

@@ -213,7 +213,13 @@ function uploadSpawned() {
 // --- THE PLANE'S EFFECTS ---
 
 // How far apart the left and right wheels or pontoons are (half, units)
-const GEAR_HALF_TRACK = {seaplane: 5, twin: 5.8, biplane: 1.8, glider: 0};
+const GEAR_HALF_TRACK = {
+  seaplane: 5,
+  twin: 5.8,
+  biplane: 1.8,
+  glider: 0,
+  buggy: 2.6,
+};
 // Where the pontoons end behind the plane's centre (units)
 const PONTOON_STERN = 7.5;
 // Below this speed on the water there's no spray or wake (speed multiplier)
@@ -252,6 +258,10 @@ const EXHAUSTS = {
     [5.8, -0.6, -1.5],
   ],
   glider: [],
+  buggy: [
+    [-0.6, 2.9, 4.1],
+    [0.6, 2.9, 4.1],
+  ],
 };
 
 // --- THE WORLD'S EFFECTS ---

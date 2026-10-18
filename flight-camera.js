@@ -170,18 +170,21 @@ export function updateFlightCamera(delta, nowTime) {
     const isNative =
       typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
     const mobileCameraScale = isPortrait || isNative ? 1.35 : 1.0;
+    // Closer behind something small (the buggy)
+    const followScale =
+      mobileCameraScale * (state.airplaneModel?.cameraScale ?? 1);
 
     const speedFactor = (state.flightSpeedMultiplier - 0.5) / 9.5;
     const diveFactor = Math.max(0, -planeGroup.rotation.x / (Math.PI / 4)); // 1.0 at 45 degree dive
 
     const zOffset = THREE.MathUtils.lerp(
-      40 * mobileCameraScale,
-      60 * mobileCameraScale,
+      40 * followScale,
+      60 * followScale,
       speedFactor
     );
     const yOffset = THREE.MathUtils.lerp(
-      12 * mobileCameraScale,
-      20 * mobileCameraScale,
+      12 * followScale,
+      20 * followScale,
       speedFactor
     );
 
@@ -270,13 +273,25 @@ export function updateFlightCamera(delta, nowTime) {
     _up_Follow.normalize();
 
     // 1.5 Calculate First Person State
-    _idealCameraPos_FirstPerson
-      .set(0, 1.0, -50)
-      .applyMatrix4(planeGroup.matrixWorld);
-    _idealLookTarget_FirstPerson
-      .set(0, 1.0, -70)
-      .applyMatrix4(planeGroup.matrixWorld);
-    _up_FirstPerson.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
+    // From the driver's seat where the vehicle has one (the buggy, tilting
+    // with it over the ground), otherwise out ahead of the nose
+    const eye = state.airplaneModel?.firstPersonEye;
+    if (eye) {
+      const seat = state.airplaneModel.matrixWorld;
+      _idealCameraPos_FirstPerson.copy(eye).applyMatrix4(seat);
+      _idealLookTarget_FirstPerson
+        .set(eye.x, eye.y - 1.5, eye.z - 30)
+        .applyMatrix4(seat);
+      _up_FirstPerson.set(0, 1, 0).transformDirection(seat);
+    } else {
+      _idealCameraPos_FirstPerson
+        .set(0, 1.0, -50)
+        .applyMatrix4(planeGroup.matrixWorld);
+      _idealLookTarget_FirstPerson
+        .set(0, 1.0, -70)
+        .applyMatrix4(planeGroup.matrixWorld);
+      _up_FirstPerson.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
+    }
 
     // 2. Calculate Top-Down State
     _idealCameraPos_TopDown.set(

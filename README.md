@@ -274,6 +274,17 @@ Agility scales how quickly a plane rolls and pitches toward the controls and how
 
 A few other planes share the sky, so now and then you spot someone else up there (`traffic.js`, with the flight math in `traffic-logic.js`). Up to three are around at a time: each appears 4.5 to 6 km away, small in the haze, on a course across your part of the sky, and is gone once it's 8 km off; a new one turns up every 15 to 45 seconds. They fly the game's four planes in random liveries, wander in gentle banked turns at their own cruising height, climb ahead of hills and turn away from mountains, and never dip below 40 units over the ground. At night they show navigation lights: red on the left wingtip, green on the right and a white strobe on the tail. They pace you, so you can find one and follow it around: within 800 units a plane flies at your speed, a little slower while it's ahead of you (so you catch up) or faster while it's behind, matching you exactly within 150 units, and it eases back to its own cruising speed (105 to 170 knots) once you leave. It never drops below 100 knots, where planes sink. Fly within 250 units of one for 3 seconds to earn the Wingman achievement. Zen mode hides them, and `?traffic=0` or `=1` sets them for one visit (overriding zen).
 
+## Buggy
+
+Pick the buggy in the pause menu (or press **V** until it comes up) to drive instead of fly (`buggy.js`, model in `buggy-model.js`). Switching to it in the air sets it down on the ground below, rolling on at up to its top speed of 75 knots; switching back to a plane leaves the plane on its wheels where the buggy was. It drives on the ground, the highways and their bridges, and floats slowly across water.
+
+- **Arrow up / W** (or the stick forward): gas. **Arrow down / S** (or the stick back): brake, then reverse once stopped.
+- **Arrow left / right** (or the stick): steer. The front wheels turn sharply at low speed, and less the faster you go, as far as the tyres can grip; on dirt the back slides out a little in fast turns, less on the road.
+- **Throttle slider**: cruise control. With no pedal pressed the buggy holds the speed it's set to; braking sets it back to zero.
+- Downhill speeds it up and uphill slows it; ground steeper than about 50° is a wall. Crests and the edges of steep ground throw it into the air, and the springs soak up the landing.
+- Stop at an airport and that airport's people come over, as when landing.
+- The follow camera sits closer behind it, and the first-person view is from the driver's seat.
+
 ## Landing
 
 Every plane can land on water and on land: the biplane, glider and twin engine on their wheels, and the seaplane on its pontoons, which slide along gentle ground and runways like skids. Fly low and slow, under the plane's level speed (100 knots in the seaplane; see [Planes](#planes)), and the plane settles gently (`flight-physics.js`): the slower you fly the faster it sinks, from none at 100 knots to about 8 m/s at 50 knots in the seaplane (`sinkRateAt`), easing in and out over about a second as the speed changes. Below about 70 knots the nose dips a little, so you can see the plane is slow; around 60 to 75 knots is a comfortable approach in the seaplane (lower in the biplane and glider, higher in the twin). Slower still, the plane falls out of the sky: from its stall speed (55 knots in the seaplane) down to 20 knots below it gravity blends in, accelerating it toward the ground as it tumbles, harder the faster it falls. A nose the tumble tips down doesn't win back speed, so it stays in the fall until you open the throttle; then the fall fades over about a second as it powers out, like pulling out of a dive. On touching down the throttle eases back to idle, so the plane slows to a stop on its own; open the throttle again and it stays open for the takeoff run, then pull up to lift off.
@@ -325,7 +336,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **Shift+M**: Toggle the minimap overlay.
 - **L**: Toggle headlight.
 - **X**: Toggle airshow smoke, a white trail from the tail that hangs in the sky for about 18 seconds, long enough to fly a lazy circle back through it (also the smoke button in the quick menu on touch devices).
-- **V**: Cycle active aircraft (switch between the vintage biplane, the seaplane, the glider and the twin-engine transport).
+- **V**: Cycle active vehicle (switch between the vintage biplane, the seaplane, the glider, the twin-engine transport and the buggy).
 - **Shift + A**: Toggle autopilot. It flies to your waypoint and circles it once there (slowing to 120 kts), until you set another. With no waypoint it tours the landmarks: it flies to the nearest one it hasn't visited (the waypoint marker shows the way and the distance left), circles it once and moves on to the next. It cruises at least about 150 m up and keeps about 80 m over the highest ground along its course, looking 9,000 units ahead (and a little to either side close in) so it climbs early and gently (about 7 degrees) rather than late and steeply. Past high ground it holds its height until it's well clear, then comes down gently, so it rides over hilly country instead of bobbing over every rise, and it damps its pitch with its vertical speed so it eases onto a new height. It circles a waypoint or landmark 120 units over the highest ground around it (`autopilot.js`). Steering with the arrow keys, the touch joystick, drag-steer or a gamepad stick turns it off (mouse and tilt steering don't, since they're always steering).
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
 - **Z**: Toggle zen (hides the HUD, buttons and other planes for an unobstructed view; also a switch on the pause menu's Flight tab).
@@ -487,7 +498,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`pitch`**: Starting pitch angle in degrees.
 - **`roll`**: Starting bank angle in degrees (positive banks left, negative right). It holds while the free camera freezes the plane; in flight the flight model takes over.
 - **`speed`**: Starting flight speed multiplier (e.g., `1.0`, `2.0`, `0`).
-- **`plane`** or **`vehicle`**: Initial aircraft model (`biplane`, the default, the vintage biplane; `seaplane`, a monoplane on floats; `glider`; or `twin`). `classic`, the seaplane's old name, still works.
+- **`plane`** or **`vehicle`**: Initial aircraft model (`biplane`, the default, the vintage biplane; `seaplane`, a monoplane on floats; `glider`; `twin`; or `buggy`, to drive). `classic`, the seaplane's old name, still works.
 - **`livery`**: Plane color for this visit (not saved): an index (0-7) or a name (`coral`, `teal`, `sage`, `purple`, `slate`, `sand`, `rose`, `black`).
 - **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
 

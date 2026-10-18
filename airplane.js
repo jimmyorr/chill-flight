@@ -17,6 +17,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {createBiplaneModel} from './biplane.js';
 import {createGliderModel} from './glider.js';
 import {createTwinModel, setGearExtension} from './twin.js';
+import {createBuggyModel} from './buggy-model.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
 
@@ -299,7 +300,10 @@ export function getMaxFlightSpeedMult() {
 function updatePlaneStats() {
   const stats = document.getElementById('plane-stats');
   if (!stats) return;
-  const all = Object.values(PLANE_HANDLING);
+  // The buggy doesn't fly: no bars for it, and it isn't in the comparison
+  stats.hidden = activePlaneType === 'buggy';
+  if (stats.hidden) return;
+  const all = Object.values(PLANE_HANDLING).filter((p) => p.stallKts > 0);
   const h = planeHandling();
   const values = {
     speed: h.topKts / Math.max(...all.map((p) => p.topKts)),
@@ -348,6 +352,13 @@ export function setActivePlane(planeType, skipStorage = false) {
     });
   } else if (planeType === 'glider') {
     newModel = createGliderModel({
+      planeColor:
+        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
+      planeMat: planeMat,
+      planeWhiteMat: planeWhiteMat,
+    });
+  } else if (planeType === 'buggy') {
+    newModel = createBuggyModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
       planeMat: planeMat,
