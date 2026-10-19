@@ -742,6 +742,12 @@ export function clearChunkQueue() {
   hooks.clearFarTerrain?.();
 }
 
+// Where a highway bridge span ends, found by walking along the road from one
+// of its samples, keyed by seed, road, walk direction and sample z; spans can
+// be kilometres long, so neighbouring chunks share the walk
+const abutmentCache = new Map();
+const MAX_SPAN_SAMPLES = 400;
+
 // Builds a chunk's meshes from generateChunkData() output: a worker's result,
 // or (when workers are unavailable) data generated here on the main thread.
 function generateChunk(chunkX, chunkZ, workerData = null) {
@@ -1885,6 +1891,25 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         return false;
       };
 
+      // The road's planned height and the terrain under it at world z
+      const sampleRoadHeight = (
+        wz,
+        roadX = ChillFlightLogic.getRoadCenterX(wz, n)
+      ) => {
+        const naturalH = ChillFlightLogic.getElevation(
+          roadX,
+          wz,
+          simplex,
+          constants,
+          null,
+          {ignoreRivers: true, ignoreRoads: true, forRoad: true}
+        );
+        return {
+          rawY: ChillFlightLogic.highwayHeight(naturalH, WATER_LEVEL),
+          actualTerrainH: getElevation(roadX, wz),
+        };
+      };
+
       for (
         let sampleZ = -halfChunk - margin;
         sampleZ <= halfChunk + margin;
@@ -1894,17 +1919,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         const roadX = ChillFlightLogic.getRoadCenterX(wz, n);
         if (roadX >= 0) continue;
 
-        const naturalH = ChillFlightLogic.getElevation(
-          roadX,
-          wz,
-          simplex,
-          constants,
-          null,
-          {ignoreRivers: true, ignoreRoads: true, forRoad: true}
-        );
-        const rawY = ChillFlightLogic.highwayHeight(naturalH, WATER_LEVEL);
-
-        const actualTerrainH = getElevation(roadX, wz);
+        const {rawY, actualTerrainH} = sampleRoadHeight(wz, roadX);
 
         rawSamples.push({
           sampleZ,
@@ -1919,7 +1934,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         });
       }
 
-      if (rawSamples.length > 0) {
+      // Off-route stretches draw nothing, so skip grading their spans
+      if (rawSamples.some((sample) => sample.onRoute)) {
         // 1. Identify elevated bridge spans over water / deep canyons
         const isBridgeSegment = new Uint8Array(rawSamples.length);
         for (let i = 0; i < rawSamples.length; i++) {
@@ -1936,6 +1952,31 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           );
         }
 
+        // Steps from world z (a bridge sample) along the road until the
+        // span ends; returns how many more bridge samples there were and the
+        // height of the ground sample past them
+        const findAbutment = (wz, step) => {
+          const key = (z) => `${ChillFlightLogic.WORLD_SEED}:${n}:${step}:${z}`;
+          const cached = abutmentCache.get(key(wz));
+          if (cached) return {extra: (cached.z - wz) / step - 1, y: cached.y};
+          let extra = 0;
+          let y = 0;
+          for (; extra < MAX_SPAN_SAMPLES; extra++) {
+            const {rawY, actualTerrainH} = sampleRoadHeight(
+              wz + (extra + 1) * step
+            );
+            y = Math.max(rawY, actualTerrainH + 1.0);
+            if (rawY - actualTerrainH <= 10) break;
+          }
+          // Every bridge sample walked over leads to the same abutment, so
+          // the next chunk along this span finds it without walking
+          if (abutmentCache.size > 50000) abutmentCache.clear();
+          const end = {z: wz + (extra + 1) * step, y};
+          for (let k = 0; k <= extra; k++)
+            abutmentCache.set(key(wz + k * step), end);
+          return {extra, y};
+        };
+
         // 2. Linearly grade elevated bridge spans between entry and exit abutments to remove jagged elevation changes
         let runStart = -1;
         for (let i = 0; i <= rawSamples.length; i++) {
@@ -1944,15 +1985,28 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             runStart = i;
           } else if (!isElevated && runStart !== -1) {
             const runEnd = i - 1;
-            const yStart =
-              runStart > 0 ? finalY[runStart - 1] : finalY[runStart];
-            const yEnd =
-              runEnd < rawSamples.length - 1
-                ? finalY[runEnd + 1]
-                : finalY[runEnd];
-            const spanLen = runEnd - runStart + 2;
+            // A span that runs past the sampled window is followed out to
+            // its real abutment, so every chunk grades it the same way and
+            // the deck lines up at chunk edges.
+            let before = 0;
+            let after = 0;
+            let yStart = finalY[runStart - 1];
+            let yEnd = finalY[runEnd + 1];
+            if (runStart === 0) {
+              ({extra: before, y: yStart} = findAbutment(
+                rawSamples[0].wz,
+                -sampleStep
+              ));
+            }
+            if (runEnd === rawSamples.length - 1) {
+              ({extra: after, y: yEnd} = findAbutment(
+                rawSamples[runEnd].wz,
+                sampleStep
+              ));
+            }
+            const spanLen = runEnd - runStart + 2 + before + after;
             for (let k = runStart; k <= runEnd; k++) {
-              const t = (k - runStart + 1) / spanLen;
+              const t = (k - runStart + 1 + before) / spanLen;
               finalY[k] = Math.max(minHeight, yStart + (yEnd - yStart) * t);
               finalY[k] = Math.max(
                 finalY[k],
