@@ -234,6 +234,10 @@ export function playSplash(strength = 0.6, force = false) {
   tone(t, {freq: 90, freqEnd: 50, gain: 0.5 * s, attack: 0.01, decay: 0.35});
 }
 
+// Whether the landing gear plays its motor whir, as well as the clunk when it
+// locks
+const GEAR_WHIR = false;
+
 // down: gear extending (true) or retracting (false)
 export function playGear(down = true, force = false) {
   if ((!force && !isSfxEventEnabled('gear')) || !ready()) return;
@@ -241,25 +245,28 @@ export function playGear(down = true, force = false) {
   // As long as the gear takes to move (game-loop.js eases it at 0.5/s down
   // and 0.4/s up)
   const run = down ? 2 : 2.5;
-  // Electric motor whir, rising as it runs
-  const osc = ctx.createOscillator();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(down ? 110 : 130, t);
-  osc.frequency.linearRampToValueAtTime(down ? 150 : 175, t + run);
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'bandpass';
-  filter.frequency.value = 900;
-  filter.Q.value = 2;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.2, t + 0.12);
-  g.gain.setValueAtTime(0.2, t + run - 0.15);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + run);
-  osc.connect(filter);
-  filter.connect(g);
-  g.connect(bus);
-  osc.start(t);
-  osc.stop(t + run + 0.05);
+  // Electric motor whir, rising as it runs (muted for now: it sounded like an
+  // engine; the code is kept)
+  if (GEAR_WHIR) {
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(down ? 110 : 130, t);
+    osc.frequency.linearRampToValueAtTime(down ? 150 : 175, t + run);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 900;
+    filter.Q.value = 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.2, t + 0.12);
+    g.gain.setValueAtTime(0.2, t + run - 0.15);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + run);
+    osc.connect(filter);
+    filter.connect(g);
+    g.connect(bus);
+    osc.start(t);
+    osc.stop(t + run + 0.05);
+  }
   // Clunk as it locks
   tone(t + run, {
     freq: 140,
