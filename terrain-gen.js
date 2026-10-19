@@ -1050,6 +1050,26 @@ function getElevation(x, z, elevParams) {
 // units around it, so they stay off the south coast's shallow shelf (2 to
 // 4.5 units deep, see southShelfFloor) and other shallows.
 const PIRATE_SHIP_MIN_DEPTH = 6;
+// Boats stay within this far (units, ~4 km) of land, so the open ocean
+// past the coasts and islands is empty
+const BOAT_MAX_OFFSHORE = 8000;
+// Whether there's land within BOAT_MAX_OFFSHORE of (x, z): rings of samples
+// 1000 units apart, nearest first, so islets aren't missed
+function landNear(x, z, elevParams) {
+  for (let r = 1000; r <= BOAT_MAX_OFFSHORE; r += 1000) {
+    const n = Math.ceil((2 * Math.PI * r) / 1000);
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2;
+      const h = getElevation(
+        x + Math.cos(a) * r,
+        z + Math.sin(a) * r,
+        elevParams
+      );
+      if (h > elevParams.WATER_LEVEL) return true;
+    }
+  }
+  return false;
+}
 
 // Water depth averaged over about +-4 grid cells (~200 units on the mid
 // preset), for the water's color and transparency: they blend gradually
@@ -3898,10 +3918,17 @@ export function generateChunkData({
         )
       : null;
 
-  const notWestAlien = (p) =>
-    worldOffsetX > 0 ||
-    ChillFlightLogic.alienAt(worldOffsetX + p.x, worldOffsetZ + p.z, simplex) <=
-      ALIEN_PROPS_AT;
+  // Boats sail near land, and not off the western alien land's coasts
+  // (left out here, after every roll, so the rest of the chunk stays as it
+  // was)
+  const boatHere = (p) =>
+    (worldOffsetX > 0 ||
+      ChillFlightLogic.alienAt(
+        worldOffsetX + p.x,
+        worldOffsetZ + p.z,
+        simplex
+      ) <= ALIEN_PROPS_AT) &&
+    landNear(worldOffsetX + p.x, worldOffsetZ + p.z, elevParams);
   const chunkProps = {
     waterfall,
     housePositions,
@@ -3912,10 +3939,8 @@ export function generateChunkData({
     monasteryPositions,
     castleRuinsPositions,
     windmillPositions,
-    // No boats off the western alien land's coasts (left out here, after
-    // every roll, so the rest of the chunk stays as it was)
-    sailboatPositions: sailboatPositions.filter(notWestAlien),
-    pirateShipPositions: pirateShipPositions.filter(notWestAlien),
+    sailboatPositions: sailboatPositions.filter(boatHere),
+    pirateShipPositions: pirateShipPositions.filter(boatHere),
     rockArchPositions,
     rockArchGrassPositions,
     pierPositions,
