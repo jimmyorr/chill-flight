@@ -3,8 +3,9 @@
 // A twin-tailed fighter jet in the spirit of the F/A-18 Hornet (its own
 // design, not a copy): a slim fuselage with a leading-edge strake and an
 // underslung air intake on each side, a bubble canopy, swept wings, canted
-// twin tails, flat stabilators, two exhaust nozzles and fixed wheels. The nose
-// points along -z.
+// twin tails, flat stabilators, two exhaust nozzles and retractable wheels
+// (root.gearGroups, folded by setGearExtension in twin.js). The nose points
+// along -z.
 import * as THREE from 'three';
 import {createMaterial} from './constants.js';
 import {state} from './state.js';
@@ -109,6 +110,7 @@ export function createJetModel(opts = {}) {
   );
   canopy.scale.set(0.85, 0.6, 2.4);
 
+  const gearGroups = [];
   for (const side of [1, -1]) {
     // Leading-edge strake: a flat shelf running from the nose to the wing root
     add(
@@ -187,26 +189,41 @@ export function createJetModel(opts = {}) {
     nozzleGeo.rotateX(Math.PI / 2);
     add(nozzleGeo, darkMat, side * 0.6, -0.1, 13.6);
 
-    // Main gear: a small wheel on a short leg under each wing
-    add(
+    // Main gear: a small wheel on a leg hanging from under each wing, folding
+    // back into the wing root
+    const mainGear = new THREE.Group();
+    mainGear.position.set(side * 2.2, -0.4, 3.5);
+    mainGear.userData.foldAngle = -Math.PI / 2;
+    root.add(mainGear);
+    gearGroups.push(mainGear);
+    const mainWheel = new THREE.Mesh(
       new THREE.CylinderGeometry(0.55, 0.55, 0.4, 12).rotateZ(Math.PI / 2),
-      darkMat,
-      side * 2.2,
-      -2.6,
-      3.5
+      darkMat
     );
-    add(new THREE.BoxGeometry(0.3, 1.5, 0.3), darkMat, side * 2.2, -1.9, 3.5);
+    mainWheel.position.y = -2.2;
+    mainGear.add(mainWheel);
+    const mainLeg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2, 0.3), darkMat);
+    mainLeg.position.y = -1;
+    mainGear.add(mainLeg);
   }
 
-  // Nose gear, under the fuselage ahead of the intakes
-  add(
+  // Nose gear, under the fuselage ahead of the intakes, folding forward into
+  // the nose
+  const noseGear = new THREE.Group();
+  noseGear.position.set(0, -1.3, -10);
+  noseGear.userData.foldAngle = Math.PI / 2;
+  root.add(noseGear);
+  gearGroups.push(noseGear);
+  const noseWheel = new THREE.Mesh(
     new THREE.CylinderGeometry(0.4, 0.4, 0.3, 10).rotateZ(Math.PI / 2),
-    darkMat,
-    0,
-    -2.2,
-    -10
+    darkMat
   );
-  add(new THREE.BoxGeometry(0.2, 0.9, 0.2), darkMat, 0, -1.8, -10);
+  noseWheel.position.y = -0.9;
+  noseGear.add(noseWheel);
+  const noseLeg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.9, 0.2), darkMat);
+  noseLeg.position.y = -0.5;
+  noseGear.add(noseLeg);
+  root.gearGroups = gearGroups;
 
   return root;
 }

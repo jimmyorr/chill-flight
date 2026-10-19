@@ -267,7 +267,7 @@ export let activePlaneType =
 
 // Poses the landing gear for how far down it is (state.gearExtension, 0 up to
 // 1 down): the seaplane's pontoons swing down on their hinges and grow, and
-// the twin's wheels unfold
+// the twin's and jet's wheels unfold
 export function poseGear(extension) {
   const ease = 1 - Math.pow(1 - extension, 3);
   pontoonGroup.visible = extension > 0;

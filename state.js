@@ -42,9 +42,9 @@ export const state = {
       : storedColor !== null && !isNaN(parseInt(storedColor))
         ? parseInt(storedColor)
         : ChillFlightLogic.PLANE_COLORS[0],
-  // Landing gear (the seaplane's pontoons, the twin's wheels): whether it
-  // should be down (set in flight-physics.js), and how far down it is, 0 to 1
-  // (eased toward that in game-loop.js; poseGear in airplane.js)
+  // Landing gear (the seaplane's pontoons, the twin's and jet's wheels):
+  // whether it should be down (set in flight-physics.js), and how far down it
+  // is, 0 to 1 (eased toward that in game-loop.js; poseGear in airplane.js)
   gearWanted: false,
   gearExtension: 0,
   isOnWater: false,

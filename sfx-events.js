@@ -466,9 +466,8 @@ export function updateSfxEvents(delta, rain = 0) {
       lastTouchdown = now;
       playSplash(impact);
     }
-    // Only the seaplane's pontoons and the twin's wheels move
-    const movingGear =
-      activePlaneType === 'seaplane' || activePlaneType === 'twin';
+    // Only the seaplane's pontoons and the twin's and jet's wheels move
+    const movingGear = ['seaplane', 'twin', 'jet'].includes(activePlaneType);
     if (lastGear !== null && state.gearWanted !== lastGear && movingGear) {
       playGear(state.gearWanted);
     }

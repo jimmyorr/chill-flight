@@ -657,7 +657,7 @@ export function createTwinModel(opts = {}) {
   return root;
 }
 
-// Lowers or raises a twin's landing gear: 1 is down, 0 is up (folded away and
+// Lowers or raises a twin's (or jet's) landing gear: 1 is down, 0 is up (folded away and
 // hidden, so no tire pokes through the nacelle).
 export function setGearExtension(model, extension) {
   for (const gear of model.gearGroups) {
