@@ -86,15 +86,19 @@ async function checkPage(browser, {path, fly, blackhole}) {
   // than 1024px so the game uses its desktop layout.
   await page.setViewport({width: 1100, height: 700});
 
-  // Keep test runs out of analytics; only first-party requests matter here.
+  // Keep test runs out of analytics and the music host; only first-party
+  // requests matter here. The music host is blocked so the test doesn't
+  // depend on reaching it: audio.js starts loading a remote track on any page
+  // that imports it, and a failed load would count as a console error.
   await page.setRequestInterception(true);
   page.on('request', (req) => {
     const u = req.url();
     if (
       !u.startsWith(origin) &&
-      /google-analytics|analytics\.google|googletagmanager|firebaseinstallations|firebaselogging/.test(
+      (/google-analytics|analytics\.google|googletagmanager|firebaseinstallations|firebaselogging/.test(
         u
-      )
+      ) ||
+        (!blackhole && /r2\.dev/.test(u)))
     ) {
       req.abort('blockedbyclient').catch(() => {});
     } else if (blackhole && !u.startsWith(origin)) {
