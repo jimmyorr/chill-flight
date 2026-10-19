@@ -72,6 +72,11 @@ const YAW_EASE_SECONDS = 0.08;
 // more than this much vertical speed in a frame, it flies on instead of
 // sticking to it
 const LAUNCH_SPEED = 7;
+// How the height the springs follow eases toward the ground under the wheels
+// (seconds): it rises quickly so the wheels never sink in, and falls more
+// slowly so small steps in the ground don't jolt the springs
+const RIDE_RISE_SECONDS = 0.06;
+const RIDE_FALL_SECONDS = 0.6;
 // and leaves it at no more than this speed upward (a hop of about 4 m)
 const MAX_LAUNCH_SPEED = 25;
 // Ground steeper than this (rise per unit) is a wall it bumps against
@@ -121,6 +126,8 @@ let yaw = 0;
 let yawRate = 0;
 let steer = 0;
 let airborne = false;
+// The eased ground height the springs follow, or null while airborne
+let ride = null;
 let drift = 0;
 // The body on its springs, and the chassis's tilt
 let bounce = 0;
@@ -458,20 +465,29 @@ export function updateBuggy(delta) {
     kick(Math.min(2, (surface.height - pos.y) * 0.4));
     velY = 0;
     pos.y = surface.height;
+    ride = null;
   } else if (!airborne) {
-    // Stick to the ground, unless it drops away faster than the buggy can
-    // follow: then fly on (off a crest, or the end of a ramp)
-    const groundVelY = (surface.height - pos.y) / dt;
-    if (velY - groundVelY > LAUNCH_SPEED && !onWater) {
+    // The springs follow the ground eased (RIDE_RISE_SECONDS, RIDE_FALL_SECONDS),
+    // so a small step down in the road is eased into rather than launching the
+    // buggy. It stays on the wheels unless the eased ground drops away faster
+    // than it can follow: then it flies on (off a crest, or the end of a ramp)
+    if (ride === null) ride = pos.y;
+    const prevRide = ride;
+    const seconds =
+      surface.height > ride ? RIDE_RISE_SECONDS : RIDE_FALL_SECONDS;
+    ride += (surface.height - ride) * (1 - Math.exp(-dt / seconds));
+    const rideVelY = (ride - prevRide) / dt;
+    if (velY - rideVelY > LAUNCH_SPEED && !onWater) {
       airborne = true;
+      ride = null;
       // The springs soak up some of a steep ramp's kick
       velY = Math.min(velY, MAX_LAUNCH_SPEED) - GRAVITY * dt;
       pos.y += velY * dt;
     } else {
-      // Bumps (the ground's slope changing under the wheels) jolt the springs
-      kick((groundVelY - velY) * 0.06);
-      velY = THREE.MathUtils.clamp(groundVelY, -200, 200);
-      pos.y = surface.height;
+      // Bumps jolt the springs far less now that they follow the eased ground
+      kick((rideVelY - velY) * 0.06);
+      velY = THREE.MathUtils.clamp(rideVelY, -200, 200);
+      pos.y = ride;
     }
   } else {
     velY = Math.max(-400, velY - GRAVITY * dt);
@@ -487,6 +503,7 @@ export function updateBuggy(delta) {
       velZ *= scrub;
       velY = groundVelY;
       pos.y = surface.height;
+      ride = null;
       airborne = false;
     }
   }

@@ -36,6 +36,15 @@ let groundTiltPitch = 0;
 let groundTiltRoll = 0;
 // How slowly the model levels out after leaving the ground (seconds)
 const TILT_LEVEL_SECONDS = 0.5;
+// The ride height on the wheels, following the ground under them: it rises
+// quickly so the wheels never sink into a bump, and falls more slowly so a dip
+// is eased into rather than dropped into (seconds). It can sit this far above
+// the ground under it (units) and still count as rolling
+const RIDE_RISE_SECONDS = 0.06;
+const RIDE_FALL_SECONDS = 0.3;
+const RIDE_LAG = 3;
+// The smoothed ride height while rolling, or null when not rolling
+let rideHeight = null;
 
 // Each plane's stall and level speeds, throttle rates, dive gain and the
 // rest come from PLANE_HANDLING in constants.js (planeHandling()).
@@ -334,8 +343,17 @@ export function updateFlightPhysics(delta, nowTime) {
       // Rolling on the wheels follows the ground exactly, where the plane is
       // now (it has moved since the top of the frame)
       sampleSurface(planeGroup.position.x, planeGroup.position.z);
-      planeGroup.position.y = wheelRestHeight(wheelDepth);
+      const target = wheelRestHeight(wheelDepth);
+      const seconds =
+        target > rideHeight ? RIDE_RISE_SECONDS : RIDE_FALL_SECONDS;
+      rideHeight =
+        rideHeight === null
+          ? target
+          : rideHeight +
+            (target - rideHeight) * (1 - Math.exp(-delta / seconds));
+      planeGroup.position.y = rideHeight;
     } else {
+      rideHeight = null;
       // Smooth landing
       planeGroup.position.y = THREE.MathUtils.lerp(
         planeGroup.position.y,
@@ -460,7 +478,8 @@ export function updateFlightPhysics(delta, nowTime) {
   isRolling = false;
   if (onLandableGround) {
     sampleSurface(planeGroup.position.x, planeGroup.position.z);
-    isRolling = planeGroup.position.y <= wheelRestHeight(wheelDepth) + 0.5;
+    isRolling =
+      planeGroup.position.y <= wheelRestHeight(wheelDepth) + 0.5 + RIDE_LAG;
   }
 
   // Pontoons and retractable wheels come down approaching water (and, for
