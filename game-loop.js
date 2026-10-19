@@ -1161,11 +1161,11 @@ let manualPitchVel = 0; // rad/s, signed (positive pitches up)
 let manualPitchActive = false;
 let lastPitchMode = 0; // 1 normal climb, -1 normal dive, 2 steep climb, -2 steep dive, 0 none
 
-// Loop (triple-tap up and hold): the pitch rate eases in from the climb,
-// floats over the top and eases out onto level flight. Once started a loop
-// always comes round to level (letting go halfway would leave the plane
-// upside down, flying backward); still holding as it nears level goes round
-// again. The pitch rate is LOOP_RATE + LOOP_RATE_SWING * cos(pitch).
+// Loop (triple-tap up and hold): the pitch rate eases in from the climb and
+// floats over the top, going round for as long as up is held. Letting go
+// settles the plane onto the nearest level attitude the short way (see the
+// settle below), easing to a stop; pitch input takes over at once. The pitch
+// rate is LOOP_RATE + LOOP_RATE_SWING * cos(pitch).
 const LOOP_RATE = 2.2; // rad/s
 const LOOP_RATE_SWING = 0.35;
 const LOOP_ACCEL = 5; // rad/s^2 easing in
@@ -1176,8 +1176,7 @@ const LOOP_SPEED_DIP = 0.15;
 let loopActive = false;
 let loopPitchRate = 0;
 let loopSpeed = 0; // speed going in
-let loopFinishing = false; // easing out to finish
-let loopChained = false; // going round again
+let loopRecovering = false; // settling onto level after letting go
 
 // Immelmann (triple-tap down): a half loop to inverted level over the first
 // IMMELMANN_PITCH_END of the maneuver, then a half roll upright
@@ -1394,10 +1393,12 @@ function updatePhysicsAndControls(delta, nowTime) {
     manualPitchActive = false;
     lastPitchMode = 0;
     loopActive = false;
+    loopRecovering = false;
   } else if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
     if (state.isDoingImmelmann) {
       if (state.immelmannProgress === 0) {
         loopActive = false;
+        loopRecovering = false;
         immelmann.pitch = wrapAngle(planeGroup.rotation.x);
         immelmann.pitchRate = manualPitchActive ? manualPitchVel : 0;
         immelmann.roll = wrapAngle(planeGroup.rotation.z);
@@ -1457,45 +1458,73 @@ function updatePhysicsAndControls(delta, nowTime) {
       const loopHeld =
         isUp && ttUp && nowTime - startUp > STEER_HOLD_THRESHOLD && !keys.Shift;
       if (loopHeld && !loopActive) {
-        // Triple-tap up and hold: start a loop, carrying on from the climb
+        // Triple-tap up and hold: start a loop, carrying on from the climb, or
+        // from a settle still under way
+        if (!loopRecovering) {
+          loopPitchRate = manualPitchActive ? Math.max(0, manualPitchVel) : 0;
+          loopSpeed = state.flightSpeedMultiplier;
+          planeGroup.rotation.x = wrapAngle(planeGroup.rotation.x);
+        }
         loopActive = true;
-        loopFinishing = false;
-        loopChained = false;
-        loopPitchRate = manualPitchActive ? Math.max(0, manualPitchVel) : 0;
-        loopSpeed = state.flightSpeedMultiplier;
-        planeGroup.rotation.x = wrapAngle(planeGroup.rotation.x);
+        loopRecovering = false;
       }
 
-      if (loopActive) {
+      if (loopActive || loopRecovering) {
+        const turn = Math.PI * 2;
         let x = planeGroup.rotation.x;
-        // Floaty over the top, crisp at the pull-up and pull-out
-        const wantRate = LOOP_RATE + LOOP_RATE_SWING * Math.cos(x);
-        loopPitchRate += THREE.MathUtils.clamp(
-          wantRate - loopPitchRate,
-          -LOOP_ACCEL * delta,
-          LOOP_ACCEL * delta
-        );
-        // Where easing out would have to start to stop level, decide once
-        // per loop: still holding goes round again, otherwise it finishes
-        const stopRate = Math.sqrt(
-          2 * LOOP_DECEL * Math.max(0, Math.PI * 2 - x)
-        );
-        if (!loopFinishing && !loopChained && stopRate <= loopPitchRate) {
-          if (loopHeld) loopChained = true;
-          else loopFinishing = true;
-        }
-        if (loopFinishing) loopPitchRate = Math.min(loopPitchRate, stopRate);
-        x += loopPitchRate * delta;
-
-        if (x >= Math.PI * 2 - (loopFinishing ? 0.002 : 0)) {
-          x -= Math.PI * 2;
-          loopChained = false;
-          if (loopFinishing) {
-            // Level again: hand the last of the pitch rate to the normal
-            // pitch controls, which ease it onto the target pitch
+        if (loopActive) {
+          // Floaty over the top, crisp at the pull-up and pull-out
+          const wantRate = LOOP_RATE + LOOP_RATE_SWING * Math.cos(x);
+          loopPitchRate += THREE.MathUtils.clamp(
+            wantRate - loopPitchRate,
+            -LOOP_ACCEL * delta,
+            LOOP_ACCEL * delta
+          );
+          x += loopPitchRate * delta;
+          if (x >= turn) x -= turn;
+          // Letting go starts the settle onto the nearest level attitude
+          if (!loopHeld) {
             loopActive = false;
-            manualPitchVel = loopPitchRate;
-            manualPitchActive = true;
+            loopRecovering = true;
+          }
+        } else if (
+          !keys.Shift &&
+          (isUp || isDown) &&
+          Math.abs(wrapAngle(x)) <= MAX_CLIMB_ANGLE
+        ) {
+          // Pitch input takes over at once, from the settle's current rate,
+          // once the plane is within the normal pitch range (no snap)
+          loopRecovering = false;
+          manualPitchVel = loopPitchRate;
+          manualPitchActive = true;
+          lastPitchMode = 0;
+        } else {
+          // Settle: the nearest multiple of a turn is level. Exactly inverted,
+          // keep the way the loop was going
+          let target = Math.round(x / turn) * turn;
+          if (Math.abs(x - target) > Math.PI - 0.01) {
+            target =
+              (loopPitchRate >= 0
+                ? Math.ceil(x / turn)
+                : Math.floor(x / turn)) * turn;
+          }
+          // Brake so the rate reaches zero as the plane reaches level
+          const d = target - x;
+          const brake = Math.sign(d) * Math.sqrt(2 * LOOP_DECEL * Math.abs(d));
+          const wantRate = THREE.MathUtils.clamp(brake, -LOOP_RATE, LOOP_RATE);
+          loopPitchRate += THREE.MathUtils.clamp(
+            wantRate - loopPitchRate,
+            -LOOP_ACCEL * delta,
+            LOOP_ACCEL * delta
+          );
+          x += loopPitchRate * delta;
+          if (Math.abs(target - x) < 0.003 && Math.abs(loopPitchRate) < 0.05) {
+            // Level: hand over to the normal pitch controls, now at rest
+            x = ((target % turn) + turn) % turn;
+            loopRecovering = false;
+            loopPitchRate = 0;
+            manualPitchVel = 0;
+            manualPitchActive = false;
             lastPitchMode = 0;
           }
         }
@@ -1503,7 +1532,7 @@ function updatePhysicsAndControls(delta, nowTime) {
         state.flightSpeedMultiplier =
           loopSpeed * (1 - (LOOP_SPEED_DIP * (1 - Math.cos(x))) / 2);
 
-        state.isLooping = loopActive;
+        state.isLooping = loopActive || loopRecovering;
         state.isDoingFullLoop = loopActive;
       } else {
         // Pitch maneuvers: climb, dive, steep climb, and steep dive
@@ -1621,6 +1650,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     manualPitchActive = false;
     lastPitchMode = 0;
     loopActive = false;
+    loopRecovering = false;
   }
 
   // Taxi steering: allow airplane to yaw when stopped or at very low speed
