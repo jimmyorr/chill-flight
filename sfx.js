@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
 import {activePlaneType} from './airplane.js';
-import {musicEnabled} from './audio.js';
+import {UNLOCK_EVENTS, musicEnabled} from './audio.js';
 import {log} from './logger.js';
 import {PLANE_HANDLING} from './constants.js';
 
@@ -522,11 +522,13 @@ export function initAudioContext() {
     }
   });
 
-  // Resume suspended AudioContext on user interaction (autoplay policy)
+  // Resume suspended AudioContext on user interaction (autoplay policy).
+  // Browsers only count some events as a gesture: a touch counts when it
+  // ends (pointerup/touchend), not when it starts, so listen for both ends.
   const unlockAudio = () => syncSfxState();
-  window.addEventListener('pointerdown', unlockAudio, {passive: true});
-  window.addEventListener('keydown', unlockAudio, {passive: true});
-  window.addEventListener('touchstart', unlockAudio, {passive: true});
+  for (const type of UNLOCK_EVENTS) {
+    window.addEventListener(type, unlockAudio, {passive: true});
+  }
   // Gains only change from the frame loop, which stops in hidden tabs and
   // backgrounded apps, so ramp down and suspend the context there instead.
   document.addEventListener('visibilitychange', syncSfxState);

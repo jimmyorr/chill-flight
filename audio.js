@@ -32,6 +32,15 @@ export const MUSIC_VOLUME = 0.5;
 // Ducked while paused, relative to MUSIC_VOLUME
 export const MUSIC_PAUSED_VOLUME = MUSIC_VOLUME * 0.15;
 
+// Events that count as a user gesture for starting audio. A touch counts
+// when it ends, not when it starts (touchstart never unlocks audio).
+export const UNLOCK_EVENTS = [
+  'pointerdown',
+  'pointerup',
+  'touchend',
+  'keydown',
+];
+
 export let purrpleCatAudio = new Audio();
 purrpleCatAudio.volume = MUSIC_VOLUME;
 const purrpleCatTracks = [
@@ -405,22 +414,25 @@ function syncMusicUI(playing) {
   updateMediaMetadata();
 }
 
+// Plays and pauses the game didn't ask for come from the system (headphones
+// unplugged, a phone call, the app going to the background). They change
+// music for this visit only: saving them would start the next visit silent.
 purrpleCatAudio.addEventListener('play', () => {
-  if (!isMusicInternalAction) {
-    if (!musicEnabled) {
-      musicEnabled = true;
-      localStorage.setItem('chill_flight_music_enabled', 'true');
-    }
-  }
+  if (!isMusicInternalAction) musicEnabled = true;
   syncMusicUI(true);
 });
 
 purrpleCatAudio.addEventListener('pause', () => {
-  if (!isMusicInternalAction && !purrpleCatAudio.ended) {
-    if (musicEnabled) {
-      musicEnabled = false;
-      localStorage.setItem('chill_flight_music_enabled', 'false');
+  if (!isMusicInternalAction && !purrpleCatAudio.ended && musicEnabled) {
+    if (
+      typeof document !== 'undefined' &&
+      document.visibilityState === 'hidden'
+    ) {
+      // Paused by the system as the page hid: resume when it shows again
+      isPausedByVisibility = true;
+      return;
     }
+    musicEnabled = false;
   }
   syncMusicUI(false);
 });
@@ -460,9 +472,9 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => handleMusicVisibility(true));
 window.addEventListener('pageshow', () => handleMusicVisibility(false));
 
-export function setMusicEnabled(enabled) {
+export function setMusicEnabled(enabled, {save = true} = {}) {
   musicEnabled = enabled;
-  if (ChillFlightLogic.MUSIC_PARAM === null) {
+  if (save && ChillFlightLogic.MUSIC_PARAM === null) {
     localStorage.setItem('chill_flight_music_enabled', enabled);
   }
   // Starting with music off never plays (so never fires 'pause'): sync the
@@ -538,12 +550,57 @@ purrpleCatAudio.addEventListener('error', () => {
   }
 });
 
+// Safety net for blocked autoplay: retry on each gesture until music plays
+// or is turned off. One try isn't enough, since an event may not count as a
+// gesture (or the game started without any tap, e.g. with music off).
+let resumeArmed = false;
+function armResumeOnInteraction() {
+  if (resumeArmed) return;
+  resumeArmed = true;
+  const disarm = () => {
+    resumeArmed = false;
+    for (const type of UNLOCK_EVENTS) {
+      window.removeEventListener(type, resumeOnInteraction);
+    }
+  };
+  const resumeOnInteraction = () => {
+    if (!musicEnabled || !purrpleCatAudio.paused) {
+      disarm();
+      return;
+    }
+    isMusicInternalAction = true;
+    armStallGuard();
+    purrpleCatAudio
+      .play()
+      .then(() => {
+        log.info('Audio resumed on interaction');
+        isMusicInternalAction = false;
+        disarm();
+        updateMediaMetadata();
+      })
+      .catch((e) => {
+        isMusicInternalAction = false;
+        clearTimeout(stallTimer);
+        log.info('Still blocked:', e);
+      });
+  };
+  for (const type of UNLOCK_EVENTS) {
+    window.addEventListener(type, resumeOnInteraction, {passive: true});
+  }
+}
+
 export async function updateAudioPlayer(enabled) {
   playRequested = enabled;
   if (enabled) {
     if (!purrpleCatAudio.src) {
-      const url = purrpleCatTracks[purrpleCatIdx];
-      purrpleCatAudio.src = await getCachedTrackUrl(url);
+      // The first track is still being looked up (in the apps, a new track
+      // downloads before it plays, which can take up to DOWNLOAD_TIMEOUT_MS).
+      // Play the bundled track now rather than start in silence or wait past
+      // the tap that allows playback; the download finishes for next time.
+      purrpleCatAudio.src = pendingTrackUrls.size
+        ? fallBackToBundledTrack()
+        : await getCachedTrackUrl(purrpleCatTracks[purrpleCatIdx]);
+      if (hooks.onTrackChange) hooks.onTrackChange(getCurrentTrackName());
     }
     isMusicInternalAction = true;
     armStallGuard();
@@ -558,30 +615,7 @@ export async function updateAudioPlayer(enabled) {
         // Blocked autoplay isn't a stalled network; re-arm when we retry.
         clearTimeout(stallTimer);
         log.info('Audio play blocked:', e);
-        // Safety net: resume on first interaction if blocked
-        const resumeOnInteraction = () => {
-          if (musicEnabled) {
-            isMusicInternalAction = true;
-            armStallGuard();
-            purrpleCatAudio
-              .play()
-              .then(() => {
-                log.info('Audio resumed on interaction');
-                isMusicInternalAction = false;
-                updateMediaMetadata();
-              })
-              .catch((e) => {
-                isMusicInternalAction = false;
-                log.info('Still blocked:', e);
-              });
-          }
-          window.removeEventListener('mousedown', resumeOnInteraction);
-          window.removeEventListener('keydown', resumeOnInteraction);
-          window.removeEventListener('touchstart', resumeOnInteraction);
-        };
-        window.addEventListener('mousedown', resumeOnInteraction);
-        window.addEventListener('keydown', resumeOnInteraction);
-        window.addEventListener('touchstart', resumeOnInteraction);
+        armResumeOnInteraction();
       });
   } else {
     clearTimeout(stallTimer);
@@ -607,11 +641,13 @@ function updateMediaMetadata() {
 }
 
 if ('mediaSession' in navigator) {
+  // Media keys and headphone buttons (which also pause when headphones
+  // disconnect) only last for this visit, like system pauses above
   navigator.mediaSession.setActionHandler('play', () => {
-    setMusicEnabled(true);
+    setMusicEnabled(true, {save: false});
   });
   navigator.mediaSession.setActionHandler('pause', () => {
-    setMusicEnabled(false);
+    setMusicEnabled(false, {save: false});
   });
   navigator.mediaSession.setActionHandler('previoustrack', () => {
     previousTrack();
