@@ -32,8 +32,8 @@ const CHOP_DEPTH = 0.3;
 // Engine level while music is on (0.25 = -12 dB): the engine's steady drone
 // fights the music at full level, so it sits well underneath it instead
 const ENGINE_MUSIC_DUCK = 0.25;
-// Overall engine level (0.5 = -6 dB) for every plane and the buggy, music or not
-const ENGINE_LEVEL = 0.5;
+// Overall engine level (0.35 = -9 dB) for every plane and the buggy, music or not
+const ENGINE_LEVEL = 0.35;
 
 // Master SFX volume relative to music (which plays at 0.5)
 export const SFX_VOLUME = 0.45;
