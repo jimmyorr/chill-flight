@@ -3976,6 +3976,7 @@ export const ChillFlightLogic = {};
     const x1 = xGrade + a.access * ACCESS_ROAD_GRADE;
     ACCESS_ROADS.push({
       index,
+      crossCountry: !!a.crossCountry,
       n: a.crossCountry
         ? ROAD_EW
         : Math.min(
@@ -4019,7 +4020,8 @@ export const ChillFlightLogic = {};
 
   // An access road's heights at each end: the airfield's, and the highway
   // deck's where it meets the road; whether it's built (not where it would
-  // cross open water: an island airfield keeps to itself); and how deep it
+  // cross open water: an island airfield keeps to itself, except Meadow
+  // Field, the cross-country highway's end); and how deep it
   // cuts into or stands over the land, every ACCESS_ROAD_SAMPLE along it.
   // Cached like airportFieldHeight, and null while being worked out.
   const ACCESS_ROAD_SAMPLE = 20;
@@ -4057,7 +4059,9 @@ export const ChillFlightLogic = {};
           forRoad: true,
         });
         const outside = (x - r.xEdge) * Math.sign(r.x1 - r.x0) > 0;
-        if (outside && land < water + 1) e.built = false;
+        // Meadow Field's road is the cross-country highway's end, so it's
+        // always built, on a causeway where it crosses water
+        if (outside && land < water + 1 && !r.crossCountry) e.built = false;
         e.depth[k] = Math.abs(land - accessRoadGround(r, e, x));
       }
       ends[i] = e;
