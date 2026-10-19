@@ -238,7 +238,7 @@ export const SHOTS = {
   desert: {
     // From high ahead, over the dunes
     query:
-      'lat=2.7S&long=0.4W&heading=110&tod=0.6&plane=glider&livery=sand' +
+      'lat=2.7S&long=0.4W&heading=110&tod=0.6&plane=biplane&livery=sand' +
       '&camOffset=-35,15,-45&camLook=0,0,0&cloudMood=high',
   },
   alien: {

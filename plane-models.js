@@ -5,7 +5,6 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {createMaterial} from './constants.js';
 import {createBiplaneModel} from './biplane.js';
-import {createGliderModel} from './glider.js';
 import {createTwinModel} from './twin.js';
 import {createSeaplaneModel} from './airplane.js';
 
@@ -14,7 +13,6 @@ export const PLANE_BUILDERS = {
   seaplane: (opts) => createSeaplaneModel({...opts, pontoons: false}),
   biplane: createBiplaneModel,
   twin: createTwinModel,
-  glider: createGliderModel,
 };
 
 // One pair of materials per livery, shared by every plane wearing it (the

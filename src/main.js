@@ -25,7 +25,6 @@ import '../sky.js';
 import '../outline-pass.js';
 import '../lens-flare.js';
 import '../biplane.js';
-import '../glider.js';
 import '../twin.js';
 import '../buggy-model.js';
 import '../airplane.js';

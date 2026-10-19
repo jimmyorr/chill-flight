@@ -186,7 +186,7 @@ export function createTwinModel(opts = {}) {
 
   // ==========================================
   // 2. COCKPIT WINDSHIELD & CANOPY
-  // Integrated streamlined canopy blister inspired by the glider's clean geometry
+  // Integrated streamlined canopy blister
   // Nestled into the fuselage brow with zero jagged edges, backwards tilt, or clipping
   // ==========================================
   const canopyGeo = new THREE.SphereGeometry(1.0, 24, 18);

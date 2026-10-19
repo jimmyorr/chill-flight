@@ -160,9 +160,6 @@
       <button class="model-btn" onclick="viewModel('biplane', event)">
         Biplane
       </button>
-      <button class="model-btn" onclick="viewModel('glider', event)">
-        Glider
-      </button>
       <button class="model-btn" onclick="viewModel('twin', event)">
         Twin engine
       </button>
@@ -364,7 +361,6 @@
         createWindsock,
       } from '../airports.js';
       import {createWaterfall} from '../waterfalls.js';
-      import {createGliderModel} from '../glider.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
       import {createBuggyModel} from '../buggy-model.js';
       import {
@@ -502,7 +498,6 @@
           'pirateship',
           'airplane',
           'biplane',
-          'glider',
           'twin',
           'twin-engine',
           'buggy',
@@ -648,20 +643,6 @@
 
               bp.visible = true;
               previewGroup.add(bp);
-              break;
-            }
-
-            case 'motor_glider':
-            case 'glider': {
-              const colors =
-                ChillFlightLogic && ChillFlightLogic.PLANE_COLORS
-                  ? ChillFlightLogic.PLANE_COLORS
-                  : [0xe0564c];
-              const newColor = colors[colorSeed % colors.length];
-              const gl = createGliderModel({planeColor: newColor});
-
-              gl.visible = true;
-              previewGroup.add(gl);
               break;
             }
 
@@ -969,25 +950,15 @@
 
         const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);
         const distanceMultiplier =
-          type === 'motor_glider' || type === 'glider'
-            ? 0.75
-            : type === 'twin' ||
-                type === 'twin-engine' ||
-                type === 'twin_engine'
-              ? 1.15
-              : 1.5;
+          type === 'twin' || type === 'twin-engine' || type === 'twin_engine'
+            ? 1.15
+            : 1.5;
         const distance = maxDimension * distanceMultiplier;
 
         if (!isColorCycle) {
           controls.reset();
           controls.target.copy(finalCenter);
-          if (type === 'motor_glider' || type === 'glider') {
-            camera.position.set(
-              distance * 0.9,
-              distance * 0.62,
-              -distance * 0.75
-            );
-          } else if (
+          if (
             type === 'twin' ||
             type === 'twin-engine' ||
             type === 'twin_engine'

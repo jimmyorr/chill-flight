@@ -605,23 +605,6 @@ export function updateSfx() {
   );
   breezeGain.gain.setTargetAtTime(targetBreezeGain, audioCtx.currentTime, 0.4);
 
-  if (planeType === 'glider') {
-    // Gliders have no engine; only graceful wind rush scaling with airspeed
-    engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
-
-    // As loud as a powered plane's engine, rising across the whole range
-    const gliderWind =
-      (0.18 + 0.7 * Math.sqrt(speedFrac)) *
-      THREE.MathUtils.clamp(speed / 0.3, 0, 1);
-    windGain.gain.setTargetAtTime(gliderWind, audioCtx.currentTime, 0.05);
-    windFilter.frequency.setTargetAtTime(
-      320 + speed * 280,
-      audioCtx.currentTime,
-      0.05
-    );
-    return;
-  }
-
   if (isStopped) {
     // Engine idles at low murmur when plane is parked
     engineGain.gain.setTargetAtTime(

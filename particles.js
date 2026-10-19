@@ -217,7 +217,6 @@ const GEAR_HALF_TRACK = {
   seaplane: 5,
   twin: 5.8,
   biplane: 1.8,
-  glider: 0,
   buggy: 2.6,
 };
 // Where the pontoons end behind the plane's centre (units)
@@ -239,7 +238,6 @@ const SMOKE_LIFE = 18;
 const WINGTIPS = {
   biplane: [14.5, 2.9, -3],
   seaplane: [16, 2.8, -2.5],
-  glider: [15.8, 2.3, 0],
   twin: [16.3, -0.2, 1],
 };
 const VAPOUR_SPACING = 1.5;
@@ -257,7 +255,6 @@ const EXHAUSTS = {
     [-5.8, -0.6, -1.5],
     [5.8, -0.6, -1.5],
   ],
-  glider: [],
   buggy: [
     [-0.6, 2.9, 4.1],
     [0.6, 2.9, 4.1],
@@ -541,7 +538,7 @@ function rollingDust(delta, speed) {
   }
 
   // Prop wash: strongest with the throttle open and the plane still slow
-  if (activePlaneType === 'glider' || activePlaneType === 'buggy') return;
+  if (activePlaneType === 'buggy') return;
   const throttle = THREE.MathUtils.clamp(state.targetFlightSpeed || 0, 0, 1);
   const wash = throttle * (1 - fast);
   if (Math.random() > wash * delta * 30) return;

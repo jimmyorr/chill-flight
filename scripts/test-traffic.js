@@ -79,7 +79,7 @@ check(
 );
 check(
   'every type and livery comes up',
-  new Set(spawned.map((p) => p.type)).size === 4 &&
+  new Set(spawned.map((p) => p.type)).size === 3 &&
     new Set(spawned.map((p) => p.livery)).size === 8
 );
 check(

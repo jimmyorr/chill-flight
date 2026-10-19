@@ -618,7 +618,6 @@
             <option value="seaplane" selected>Seaplane (single prop)</option>
             <option value="biplane">Biplane (vintage thrum)</option>
             <option value="twin">Twin engine (acoustic detune beats)</option>
-            <option value="glider">Glider (pure wind rush)</option>
           </select>
         </div>
 
@@ -811,9 +810,6 @@
         </button>
         <button class="action-btn secondary" data-preset="cruise">
           Twin cruise
-        </button>
-        <button class="action-btn secondary" data-preset="glider">
-          Glider glide
         </button>
         <button id="copy-json-btn" class="action-btn">Copy config JSON</button>
       </div>
@@ -1409,11 +1405,6 @@
           planeType: 'twin',
           speed: 2.0,
           throttle: 0.65,
-        },
-        glider: {
-          planeType: 'glider',
-          speed: 1.5,
-          throttle: 0.0,
         },
       };
 

@@ -422,7 +422,7 @@ export const ChillFlightLogic = {};
   }
 
   // The buggy is unfinished, so it's only offered with ?buggy=1
-  const PLANE_TYPES = ['biplane', 'seaplane', 'glider', 'twin'];
+  const PLANE_TYPES = ['biplane', 'seaplane', 'twin'];
   if (getParam('buggy', '0') === '1') PLANE_TYPES.push('buggy');
   // A plane type from a URL or saved setting, or null if it isn't one.
   // "classic" was the seaplane's old name, so old links and saves still work.

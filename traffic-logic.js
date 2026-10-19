@@ -27,7 +27,7 @@ const AVOID_TURN_RATE = 0.15; // rad/s
 const MAX_TURN_RATE = 0.08;
 const MAX_BANK = 0.35; // radians
 
-export const TRAFFIC_TYPES = ['seaplane', 'biplane', 'twin', 'glider'];
+export const TRAFFIC_TYPES = ['seaplane', 'biplane', 'twin'];
 
 // Pacing, so the player can find a plane and follow it around: within
 // PACE_RADIUS of the player a plane flies at the player's speed, a little
@@ -50,7 +50,6 @@ const SPEEDS = {
   seaplane: [120, 150],
   biplane: [105, 125],
   twin: [140, 170],
-  glider: [105, 120],
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
