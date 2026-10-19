@@ -35,6 +35,10 @@ const ENGINE_MUSIC_DUCK = 0.25;
 // Overall engine level for every plane and the buggy, music or not. Muted for
 // now (the engine code is kept): set it back to restore the engine sounds
 const ENGINE_LEVEL = 0;
+// Wind rush level (0.5 = -6 dB). With the engine muted the wind is heard on
+// its own, so it sits lower, and its pitch rises only gently with speed so
+// it stays a soft rush instead of a hiss
+const WIND_LEVEL = 0.5;
 
 // Master SFX volume relative to music (which plays at 0.5)
 export const SFX_VOLUME = 0.45;
@@ -647,9 +651,13 @@ export function updateSfx() {
     );
 
     // Subtle wind rush
-    windGain.gain.setTargetAtTime(speed * 0.06, audioCtx.currentTime, 0.05);
+    windGain.gain.setTargetAtTime(
+      speed * 0.06 * WIND_LEVEL,
+      audioCtx.currentTime,
+      0.05
+    );
     windFilter.frequency.setTargetAtTime(
-      380 + speed * 220,
+      380 + speed * 110,
       audioCtx.currentTime,
       0.05
     );
@@ -673,7 +681,11 @@ export function updateSfx() {
       audioCtx.currentTime,
       0.05
     );
-    windGain.gain.setTargetAtTime(speed * 0.03, audioCtx.currentTime, 0.05);
+    windGain.gain.setTargetAtTime(
+      speed * 0.03 * WIND_LEVEL,
+      audioCtx.currentTime,
+      0.05
+    );
   } else if (planeType === 'jet') {
     // The jet is silent for now: its engine sound is muted, and the wind rush
     // below still plays
@@ -681,9 +693,13 @@ export function updateSfx() {
     lfo.frequency.setTargetAtTime(0.5, audioCtx.currentTime, 0.05);
 
     // Air rushing past the intakes and canopy
-    windGain.gain.setTargetAtTime(speed * 0.05, audioCtx.currentTime, 0.05);
+    windGain.gain.setTargetAtTime(
+      speed * 0.05 * WIND_LEVEL,
+      audioCtx.currentTime,
+      0.05
+    );
     windFilter.frequency.setTargetAtTime(
-      380 + speed * 240,
+      380 + speed * 120,
       audioCtx.currentTime,
       0.05
     );
@@ -708,9 +724,13 @@ export function updateSfx() {
     engineGain.gain.setTargetAtTime(engineLoudness, audioCtx.currentTime, 0.05);
 
     // Subtle wind rush
-    windGain.gain.setTargetAtTime(speed * 0.05, audioCtx.currentTime, 0.05);
+    windGain.gain.setTargetAtTime(
+      speed * 0.05 * WIND_LEVEL,
+      audioCtx.currentTime,
+      0.05
+    );
     windFilter.frequency.setTargetAtTime(
-      380 + speed * 200,
+      380 + speed * 100,
       audioCtx.currentTime,
       0.05
     );
