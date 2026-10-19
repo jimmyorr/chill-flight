@@ -55,12 +55,6 @@ import {simplex} from './noise.js';
 import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
 import {hooks} from './hooks.js';
-import {
-  SFX_EVENTS,
-  SFX_EVENT_PLAYERS,
-  isSfxEventEnabled,
-  setSfxEventEnabled,
-} from './sfx-events.js';
 
 export function applyGraphicsPreset(preset) {
   let segments;
@@ -268,46 +262,7 @@ export function syncChunkBorders() {
   });
 }
 
-// A row per event sound: a switch, and a play button for one-shots
-function buildSfxEventToggles() {
-  const list = document.getElementById('debug-sfx-events');
-  if (!list) return;
-  for (const {key, label} of SFX_EVENTS) {
-    const row = document.createElement('label');
-    row.style.cssText =
-      'display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:3px';
-    const text = document.createElement('div');
-    text.style.cssText = 'font-size:11px;flex:1';
-    text.textContent = label;
-    row.appendChild(text);
-    const play = SFX_EVENT_PLAYERS[key];
-    if (play) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = 'Play';
-      btn.style.cssText =
-        'background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:0 5px;border-radius:3px;font-size:10px;cursor:pointer';
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        play();
-      });
-      row.appendChild(btn);
-    }
-    const toggle = document.createElement('input');
-    toggle.type = 'checkbox';
-    toggle.id = `debug-sfx-${key}`;
-    toggle.checked = isSfxEventEnabled(key);
-    toggle.style.cssText = 'width:13px;height:13px;cursor:pointer';
-    toggle.addEventListener('change', (e) =>
-      setSfxEventEnabled(key, e.target.checked)
-    );
-    row.appendChild(toggle);
-    list.appendChild(row);
-  }
-}
-
 export function initDebugUI() {
-  buildSfxEventToggles();
   const graphicsPresetSelect = document.getElementById(
     'graphics-preset-select'
   );

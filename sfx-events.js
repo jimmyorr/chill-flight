@@ -2,11 +2,14 @@
 // Procedural sounds layered on the sound effects bus in sfx.js: one-shots
 // for touchdowns, splashes, landing gear, dialog, chimes and thunder, and
 // loops for taxiing, water, falling, rain and the falls. Each one can be
-// switched off on its own from the debug menu or the sound lab
-// (debug/debug-sound.html), and the switches are saved.
+// switched off on its own in the sound lab (debug/debug-sound.html), and the
+// switches are saved.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {WATER_LEVEL} from './constants.js';
 import {state} from './state.js';
+import {camera} from './sky.js';
+import {waterfallFeet} from './terrain-chunks.js';
 import {activePlaneType, planeGroup, planeHandling} from './airplane.js';
 import {createNoiseBuffer, getAudioContext, getSfxBus} from './sfx.js';
 
@@ -54,11 +57,15 @@ export function setSfxEventEnabled(key, on) {
   }
 }
 
-// Where the falls' roar comes from: the lip of the big falls. Height above
-// FALLS_TOP counts toward the distance too.
-const FALLS_X = ChillFlightLogic.FALLS_X;
-const FALLS_Z = ChillFlightLogic.FALLS_LIP_Z;
-const FALLS_TOP = 600;
+// The falls' roar and spray come from the loaded waterfall nearest the plane,
+// placed where it lands (waterfallFeet). Height above its top counts toward
+// the distance too. Only the sound lab's preview falls back to the big falls
+// when no waterfall is loaded.
+const FALLS_PREVIEW = {
+  x: ChillFlightLogic.FALLS_X,
+  z: ChillFlightLogic.FALLS_LIP_Z,
+  top: 600,
+};
 // Fully loud within this distance, silent beyond FALLS_FAR (units)
 const FALLS_NEAR = 250;
 const FALLS_FAR = 3000;
@@ -74,9 +81,12 @@ let lastTouchdown = 0;
 let lastY = null;
 let fallRate = 0;
 let startedAt = 0;
+// Places the falls' sound in the scene; loops below route through it
+let fallsPanner = null;
+const listenerForward = new THREE.Vector3();
 
 /** A looping noise source through one filter into its own gain. */
-function makeLoop(type, freq, q) {
+function makeLoop(type, freq, q, out = bus) {
   const src = ctx.createBufferSource();
   src.buffer = noise;
   src.loop = true;
@@ -88,7 +98,7 @@ function makeLoop(type, freq, q) {
   gain.gain.value = 0;
   src.connect(filter);
   filter.connect(gain);
-  gain.connect(bus);
+  gain.connect(out);
   // Start each loop at a different point so they don't line up
   src.start(0, Math.random() * noise.duration);
   return {filter, gain};
@@ -96,13 +106,19 @@ function makeLoop(type, freq, q) {
 
 function build() {
   noise = createNoiseBuffer(ctx);
+  fallsPanner = ctx.createPanner();
+  fallsPanner.panningModel = 'equalpower';
+  // Loudness comes from the falls' own curve, so the panner only places the sound
+  fallsPanner.distanceModel = 'inverse';
+  fallsPanner.refDistance = 1e6;
+  fallsPanner.connect(bus);
   loops = {
     taxi: makeLoop('lowpass', 200, 0.7),
     water: makeLoop('bandpass', 500, 0.6),
     fall: makeLoop('bandpass', 700, 1.2),
     rain: makeLoop('highpass', 1800, 0.5),
-    roar: makeLoop('lowpass', 420, 0.7),
-    spray: makeLoop('bandpass', 2400, 0.8),
+    roar: makeLoop('lowpass', 420, 0.7, fallsPanner),
+    spray: makeLoop('bandpass', 2400, 0.8, fallsPanner),
   };
   // Slow swell on the water, like small waves against the floats
   const swell = ctx.createOscillator();
@@ -355,6 +371,59 @@ export function setSfxLoopPreview(key, on) {
   preview[key] = on;
 }
 
+// Distance from the plane to a fall: its foot on the ground, and height above
+// its top
+function fallDistance(foot, pos) {
+  return Math.hypot(
+    pos.x - foot.x,
+    pos.z - foot.z,
+    Math.max(0, pos.y - foot.top)
+  );
+}
+
+// The loaded waterfall nearest the plane (or the preview's big falls when none
+// is loaded and the sound lab is auditioning it)
+function nearestFall(pos) {
+  let foot = null;
+  let dist = Infinity;
+  for (const f of waterfallFeet.values()) {
+    const d = fallDistance(f, pos);
+    if (d < dist) {
+      dist = d;
+      foot = f;
+    }
+  }
+  if (!foot && preview.waterfall) {
+    foot = FALLS_PREVIEW;
+    dist = fallDistance(foot, pos);
+  }
+  return foot ? {foot, dist} : null;
+}
+
+// Glide the falls' sound to the waterfall's foot, where it lands
+function placeFalls(foot) {
+  const now = ctx.currentTime;
+  fallsPanner.positionX.setTargetAtTime(foot.x, now, 0.03);
+  fallsPanner.positionY.setTargetAtTime(WATER_LEVEL, now, 0.03);
+  fallsPanner.positionZ.setTargetAtTime(foot.z, now, 0.03);
+}
+
+// The listener is the camera, so what's on screen is what you hear
+function placeListener() {
+  const l = ctx.listener;
+  const p = camera.position;
+  l.positionX.value = p.x;
+  l.positionY.value = p.y;
+  l.positionZ.value = p.z;
+  camera.getWorldDirection(listenerForward);
+  l.forwardX.value = listenerForward.x;
+  l.forwardY.value = listenerForward.y;
+  l.forwardZ.value = listenerForward.z;
+  l.upX.value = camera.up.x;
+  l.upY.value = camera.up.y;
+  l.upZ.value = camera.up.z;
+}
+
 // --- PER FRAME ---
 // rain: 0..1 how hard it's raining. Detects touchdowns, splashes and gear
 // changes from state, and sets the loops' levels.
@@ -443,19 +512,18 @@ export function updateSfxEvents(delta, rain = 0) {
   );
 
   // The falls: roar carries far, spray only up close
-  const pos = planeGroup.position;
-  const dist = Math.hypot(
-    pos.x - FALLS_X,
-    pos.z - FALLS_Z,
-    Math.max(0, pos.y - FALLS_TOP)
-  );
+  const fall = nearestFall(planeGroup.position);
+  if (fall) placeFalls(fall.foot);
+  placeListener();
   const near = preview.waterfall
     ? 0.85
-    : THREE.MathUtils.clamp(
-        1 - (dist - FALLS_NEAR) / (FALLS_FAR - FALLS_NEAR),
-        0,
-        1
-      );
+    : fall
+      ? THREE.MathUtils.clamp(
+          1 - (fall.dist - FALLS_NEAR) / (FALLS_FAR - FALLS_NEAR),
+          0,
+          1
+        )
+      : 0;
   const fallsOn = isSfxEventEnabled('waterfall') || preview.waterfall;
   setLoop(loops.roar.gain.gain, fallsOn ? 0.7 * near * near : 0, 0.3);
   setLoop(loops.spray.gain.gain, fallsOn ? 0.35 * Math.pow(near, 4) : 0, 0.3);
