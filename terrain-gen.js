@@ -368,7 +368,8 @@ const ROAD_VILLAGE_CHANCE = 0.5;
 const ROAD_VILLAGE_FRONT = 55;
 const ROAD_VILLAGE_BACK = 28;
 
-// Road n's village in stretch `slot`, or null: its center (in Z), half its
+// Road n's village in stretch `slot`, or null: its center (`along` the road:
+// z for the north-south roads, x for the cross-country one), half its
 // length, and its own seed
 function roadVillage(n, slot) {
   const seed = ChillFlightLogic.WORLD_SEED | 0;
@@ -377,12 +378,21 @@ function roadVillage(n, slot) {
   const room = ROAD_VILLAGE_SLOT / 2 - half - 200;
   return {
     n,
-    z:
+    along:
       (slot + 0.5) * ROAD_VILLAGE_SLOT +
       (fieldHash(n, slot + seed, 31) - 0.5) * 2 * room,
     half,
     seed: Math.floor(fieldHash(seed, n * 7 + 3, slot) * 4294967296),
   };
+}
+
+// Where road n's centre is at `along`
+function roadVillagePoint(n, along) {
+  return ChillFlightLogic.roadPoint(
+    n,
+    along,
+    ChillFlightLogic.roadCenter(n, along)
+  );
 }
 
 // A road village's houses, in world coordinates. They depend only on the
@@ -417,24 +427,25 @@ function roadVillageHouses(v) {
         // then turned side-on, so the rows don't look like a wall
         const turn = (rand() - 0.5) * 0.2 + (rand() < 0.15 ? Math.PI / 2 : 0);
         if (keep && s < reach) {
-          const z = v.z + s;
-          const rx = ChillFlightLogic.getRoadCenterX(z, v.n);
-          const dxdz =
-            (ChillFlightLogic.getRoadCenterX(z + 5, v.n) -
-              ChillFlightLogic.getRoadCenterX(z - 5, v.n)) /
-            10;
-          const len = Math.hypot(1, dxdz);
-          // The road's normal, pointing east
-          const nx = 1 / len;
-          const nz = -dxdz / len;
+          const along = v.along + s;
+          const p = roadVillagePoint(v.n, along);
+          const a = roadVillagePoint(v.n, along - 5);
+          const b = roadVillagePoint(v.n, along + 5);
+          const len = Math.hypot(b.x - a.x, b.z - a.z);
+          // The road's direction, and its normal (east of a north-south
+          // road, north of the cross-country one)
+          const tx = (b.x - a.x) / len;
+          const tz = (b.z - a.z) / len;
+          const nx = tz;
+          const nz = -tx;
           const off = ROAD_VILLAGE_FRONT + row * ROAD_VILLAGE_BACK + jitter * 9;
           houses.push({
-            x: rx + nx * off * side,
-            z: z + nz * off * side,
+            x: p.x + nx * off * side,
+            z: p.z + nz * off * side,
             // Front door (+Z) toward the road, ridge along it
             rotY: Math.atan2(-nx * side, -nz * side) + turn,
-            tx: dxdz / len,
-            tz: 1 / len,
+            tx,
+            tz,
             halfW,
             sx,
             sy,
@@ -718,17 +729,32 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
   // Road villages give way to the towns
   const inTown = (h) =>
     towns.some((t) => Math.hypot(h.x - t.x, h.z - t.z) < t.radius + 150);
-  const slot0 = Math.floor((cz - reach - 500) / ROAD_VILLAGE_SLOT);
-  const slot1 = Math.floor((cz + reach + 500) / ROAD_VILLAGE_SLOT);
-  for (let n = 0; n <= ChillFlightLogic.ROAD_LAST; n++) {
+  for (let n = 0; n <= ChillFlightLogic.ROAD_EW; n++) {
+    const crossCountry = n === ChillFlightLogic.ROAD_EW;
+    // The chunk's centre along the road and across it
+    const ca = crossCountry ? cx : cz;
+    const cc = crossCountry ? cz : cx;
+    const slot0 = Math.floor((ca - reach - 500) / ROAD_VILLAGE_SLOT);
+    const slot1 = Math.floor((ca + reach + 500) / ROAD_VILLAGE_SLOT);
     for (let slot = slot0; slot <= slot1; slot++) {
       const v = roadVillage(n, slot);
-      if (!v || Math.abs(v.z - cz) > reach + v.half) continue;
-      const rx = ChillFlightLogic.getRoadCenterX(v.z, n);
-      // Roads only run on the western land
-      if (rx >= 0 || Math.abs(rx - cx) > reach + 400) continue;
+      if (!v || Math.abs(v.along - ca) > reach + v.half) continue;
+      const across = ChillFlightLogic.roadCenter(n, v.along);
+      if (Math.abs(across - cc) > reach + 400) continue;
+      if (crossCountry) {
+        // Within the road's ends, and clear of its run in to Meadow Field
+        if (
+          v.along - v.half < ChillFlightLogic.ROAD_EW_WEST ||
+          v.along + v.half > ChillFlightLogic.ROAD_EW_EAST - 1500
+        ) {
+          continue;
+        }
+      } else if (across >= 0) {
+        // The north-south roads only run on the western land
+        continue;
+      }
       // Nor where the highway is left out (out at sea)
-      if (!ChillFlightLogic.highwayRunsAt(n, v.z, simplex, elevParams)) {
+      if (!ChillFlightLogic.highwayRunsAt(n, v.along, simplex, elevParams)) {
         continue;
       }
       for (const h of roadVillageHouses(v)) {
