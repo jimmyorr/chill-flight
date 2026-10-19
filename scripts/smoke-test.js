@@ -404,8 +404,11 @@ async function exerciseControls(page, tag) {
   await page
     .click('#fullscreen-map-warp-btn')
     .catch((err) => fail(`warp to Meadow Field: ${err.message}`));
+  // The readout only updates on a frame, and arriving in a new part of the
+  // world builds its terrain, which can stall frames for a few seconds on a
+  // busy machine, so allow a generous deadline
   let readout = {};
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 48; i++) {
     await wait(250);
     readout = await page.evaluate(() => ({
       heading: document.getElementById('cockpit-dir')?.textContent,
