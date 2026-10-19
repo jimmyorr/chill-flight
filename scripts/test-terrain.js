@@ -443,5 +443,30 @@ console.log(
   '  Passed: Highways pass beside the airfields, and access roads reach them'
 );
 
+// --- HIGHWAYS: NO STRANDED STRETCHES OUT AT SEA ---
+// Seed 20261019's highway 0 ran into the sea at 6.3 S, then a piece of it
+// floated over open water further south (a 9 km gap is too long to bridge,
+// but each end of it was within reach of land) and another sat alone on an
+// islet. Both are left out now; the highway still runs on the mainland.
+{
+  useSeed(20261019);
+  const runs = (z) =>
+    ChillFlightLogic.highwayRunsAt(0, z, simplex, {
+      WATER_LEVEL: 40,
+      MOUNTAIN_LEVEL: 180,
+    });
+  const stranded = [34500, 35500, 36500, 40250].filter(runs);
+  if (stranded.length || !runs(25000)) {
+    console.error(
+      stranded.length
+        ? `FAIL: seed 20261019, highway 0 runs out at sea at z = ${stranded.join(', ')}`
+        : 'FAIL: seed 20261019, highway 0 no longer runs on the mainland at z = 25000'
+    );
+    process.exit(1);
+  }
+  useSeed(20260101);
+}
+console.log('  Passed: Highways leave out stretches stranded at sea');
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

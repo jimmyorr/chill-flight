@@ -446,7 +446,7 @@ function roadVillageHouses(v) {
 
 // The houses of every road village that could reach the chunk centered on
 // (cx, cz)
-function roadVillageHousesNear(cx, cz, chunkSize) {
+function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
   const reach = chunkSize / 2 + 100;
   const out = [];
   const slot0 = Math.floor((cz - reach - 500) / ROAD_VILLAGE_SLOT);
@@ -458,6 +458,10 @@ function roadVillageHousesNear(cx, cz, chunkSize) {
       const rx = ChillFlightLogic.getRoadCenterX(v.z, n);
       // Roads only run on the western land
       if (rx >= 0 || Math.abs(rx - cx) > reach + 400) continue;
+      // Nor where the highway is left out (out at sea)
+      if (!ChillFlightLogic.highwayRunsAt(n, v.z, simplex, elevParams)) {
+        continue;
+      }
       for (const h of roadVillageHouses(v)) {
         if (Math.abs(h.x - cx) < reach && Math.abs(h.z - cz) < reach) {
           out.push(h);
@@ -2472,7 +2476,8 @@ export function generateChunkData({
     const villageHouses = roadVillageHousesNear(
       worldOffsetX,
       worldOffsetZ,
-      chunkSize
+      chunkSize,
+      elevParams
     );
     if (villageHouses.length > 0) {
       const clearings = [];

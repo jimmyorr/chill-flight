@@ -3663,10 +3663,12 @@ export const ChillFlightLogic = {};
   // The westmost highway (n = 7, 15W). Past it the west coast breaks up into
   // archipelago and open ocean, where a highway would be a bridge to nowhere.
   const ROAD_LAST = 7;
-  // Highways run only where land is this close along them, both north and
-  // south, so they bridge lakes and inlets but end at an open-sea coast
-  // (terrain-chunks.js)
-  const ROAD_LAND_REACH = 6000;
+  // Highways bridge water up to this long between land along them, so they
+  // cross lakes and inlets but end at an open-sea coast (highwayRunsAt)
+  const ROAD_MAX_BRIDGE = 6000;
+  // and skip stretches with less land than this, so a few islets out at sea
+  // don't get a road of their own
+  const ROAD_MIN_LAND = 3000;
   const ROAD_WIDTH = 30; // Half-width of the paved road surface
   const ROAD_SHOULDER = 10; // Width of the shoulder/blend zone on each side
 
@@ -3739,6 +3741,89 @@ export const ChillFlightLogic = {};
       }
     }
     return x;
+  }
+
+  // --- WHERE THE HIGHWAYS RUN ---
+  // Land or water along highway n on a 500-unit grid fixed in world z, so
+  // every chunk and map tile agrees; cached per seed
+  const ROUTE_STEP = 500;
+  const routeLand = new Map();
+  const routeOn = new Map();
+  let routeSeed = null;
+
+  function routeLandAt(n, k, simplex, constants) {
+    const key = n * 1e7 + k;
+    let land = routeLand.get(key);
+    if (land === undefined) {
+      const z = k * ROUTE_STEP;
+      land =
+        getElevation(getRoadCenterX(z, n), z, simplex, constants, null, {
+          ignoreRivers: true,
+          ignoreRoads: true,
+          forRoad: true,
+        }) > constants.WATER_LEVEL;
+      routeLand.set(key, land);
+    }
+    return land;
+  }
+
+  // Is grid point k on highway n's route: on land, or on a bridge of at most
+  // ROAD_MAX_BRIDGE between land, with at least ROAD_MIN_LAND of land along
+  // the stretch it belongs to?
+  function routeOnAt(n, k, simplex, constants) {
+    const key = n * 1e7 + k;
+    let on = routeOn.get(key);
+    if (on !== undefined) return on;
+    const land = (j) => routeLandAt(n, j, simplex, constants);
+    const maxWater = ROAD_MAX_BRIDGE / ROUTE_STEP;
+    const minLand = ROAD_MIN_LAND / ROUTE_STEP;
+    // Water samples between land north and south, counting k itself
+    let water = 0;
+    if (!land(k)) {
+      water = 1;
+      for (const dir of [-1, 1]) {
+        let j = k + dir;
+        while (!land(j) && water <= maxWater) {
+          water++;
+          j += dir;
+        }
+      }
+    }
+    on = water <= maxWater;
+    if (on) {
+      // Count land out along the stretch both ways, as far as it's bridged
+      let count = land(k) ? 1 : 0;
+      for (const dir of [-1, 1]) {
+        let run = 0;
+        for (let j = k + dir; count < minLand && run <= maxWater; j += dir) {
+          if (land(j)) {
+            count++;
+            run = 0;
+          } else {
+            run++;
+          }
+        }
+      }
+      on = count >= minLand;
+    }
+    if (routeOn.size > 200000) routeOn.clear();
+    routeOn.set(key, on);
+    return on;
+  }
+
+  // Does highway n run at world z? Out to the grid point past the last on
+  // the route, so it ends just past the shore.
+  function highwayRunsAt(n, z, simplex, constants) {
+    if (routeSeed !== exports.WORLD_SEED || routeLand.size > 200000) {
+      routeLand.clear();
+      routeOn.clear();
+      routeSeed = exports.WORLD_SEED;
+    }
+    const k = Math.floor(z / ROUTE_STEP);
+    return (
+      routeOnAt(n, k, simplex, constants) ||
+      routeOnAt(n, k + 1, simplex, constants)
+    );
   }
 
   // The highway deck's height over ground of natural height naturalH: a
@@ -3969,7 +4054,7 @@ export const ChillFlightLogic = {};
   exports.ROAD_BASE_X = ROAD_BASE_X;
   exports.ROAD_SPACING = ROAD_SPACING;
   exports.ROAD_LAST = ROAD_LAST;
-  exports.ROAD_LAND_REACH = ROAD_LAND_REACH;
+  exports.highwayRunsAt = highwayRunsAt;
   exports.ROAD_WIDTH = ROAD_WIDTH;
   exports.ROAD_SHOULDER = ROAD_SHOULDER;
   exports.lerpAngle = lerpAngle;
