@@ -1,9 +1,9 @@
 // --- EVENT & ENVIRONMENT SOUND EFFECTS ---
 // Procedural sounds layered on the sound effects bus in sfx.js: one-shots
-// for touchdowns, splashes, landing gear, dialog and chimes, and loops for
-// taxiing, water, falling, rain and the falls. Each one can be switched off
-// on its own from the debug menu or the sound lab (debug/debug-sound.html),
-// and the switches are saved.
+// for touchdowns, splashes, landing gear, dialog, chimes and thunder, and
+// loops for taxiing, water, falling, rain and the falls. Each one can be
+// switched off on its own from the debug menu or the sound lab
+// (debug/debug-sound.html), and the switches are saved.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
@@ -21,6 +21,7 @@ export const SFX_EVENTS = [
   {key: 'waterfall', label: 'Waterfall'},
   {key: 'dialog', label: 'Dialog blips'},
   {key: 'chime', label: 'Job and waypoint chime'},
+  {key: 'thunder', label: 'Thunder'},
 ];
 
 const STORAGE_KEY = 'chill_flight_sfx_events';
@@ -292,6 +293,44 @@ export function playChime(force = false) {
   }
 }
 
+// Thunder after a lightning flash. distance is 0..1 (overhead to far off):
+// farther strikes arrive later, quieter and duller, with less crack.
+export function playThunder(distance = 0.5, force = false) {
+  if ((!force && !isSfxEventEnabled('thunder')) || !ready()) return;
+  const d = THREE.MathUtils.clamp(distance, 0, 1);
+  // Sound takes about 3 s per km; keep the wait short enough to tie it to
+  // the flash
+  const t = ctx.currentTime + 0.15 + d * 2.5;
+  const loud = 1 - d * 0.6;
+  // The crack of a near strike
+  if (d < 0.6) {
+    noiseBurst(t, {
+      type: 'bandpass',
+      freq: 2600,
+      freqEnd: 700,
+      q: 0.5,
+      gain: 0.9 * (1 - d / 0.6),
+      attack: 0.004,
+      decay: 0.35,
+    });
+  }
+  // Rolling rumble: a few overlapping low swells that die away
+  const dull = 1 - d * 0.5;
+  let at = t + 0.05;
+  for (let i = 0; i < 4; i++) {
+    noiseBurst(at, {
+      type: 'lowpass',
+      freq: (420 - i * 60) * dull,
+      freqEnd: 90,
+      q: 0.8,
+      gain: loud * (0.9 - i * 0.15) * (0.8 + Math.random() * 0.4),
+      attack: 0.08 + Math.random() * 0.12,
+      decay: 1.4 + i * 0.5 + Math.random() * 0.6,
+    });
+    at += 0.3 + Math.random() * 0.5;
+  }
+}
+
 // Audition each one-shot from the debug menu and sound lab, even when it's
 // switched off
 export const SFX_EVENT_PLAYERS = {
@@ -304,6 +343,7 @@ export const SFX_EVENT_PLAYERS = {
     }
   },
   chime: () => playChime(true),
+  thunder: () => playThunder(0.3, true),
 };
 
 // Loops forced on for auditioning in the sound lab, whatever the plane is

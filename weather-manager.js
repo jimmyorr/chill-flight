@@ -7,6 +7,7 @@ import {simplex} from './noise.js';
 import {updateUrlParams} from './constants.js';
 import {camera, skyUniforms} from './sky.js';
 import {state} from './state.js';
+import {playThunder} from './sfx-events.js';
 
 let lightningLight;
 let lightningFlashIntensity;
@@ -456,6 +457,7 @@ export function updateWeather(delta) {
           .normalize();
         lightningLight.color.setHSL(0.6, 0.2, 0.8 + Math.random() * 0.2); // Cool white/blue
       }
+      playThunder(Math.random());
     }
   }
 
