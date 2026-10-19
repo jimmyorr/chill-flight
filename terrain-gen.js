@@ -448,15 +448,21 @@ function roadVillageHouses(v) {
 // Market towns where the cross-country highway crosses a north-south one:
 // blocks of houses on a street grid lined up with the north-south road,
 // thickest and tallest in the middle and thinning out into the country
-// around it. Only these crossings get one (highway n's).
-const TOWN_ROADS = [0];
+// around it. Every crossing gets one: the first (nearest the airfields) is
+// the biggest, reaching TOWN_RADIUS from the crossing, and the rest are
+// smaller, down to TOWN_RADIUS_MIN.
+const TOWN_ROADS = Array.from(
+  {length: ChillFlightLogic.ROAD_LAST + 1},
+  (_, n) => n
+);
 const TOWN_RADIUS = 650;
+const TOWN_RADIUS_MIN = 380;
 // Streets run across the grid's v every TOWN_BLOCK; each block holds two
 // rows of houses back to back, facing the streets either side
 const TOWN_BLOCK = 80;
 // Cross streets run along v every TOWN_CROSS (give or take), and streets
 // stop where the town has thinned to the odd house (TOWN_STREET_END of
-// TOWN_RADIUS from the middle)
+// the town's radius from the middle)
 const TOWN_CROSS = 150;
 const TOWN_STREET_END = 0.85;
 // Houses keep this far from a highway's centre line (its deck and shoulder
@@ -500,6 +506,12 @@ function townAt(n, elevParams) {
       seed: Math.floor(
         fieldHash(ChillFlightLogic.WORLD_SEED | 0, n, 8101) * 4294967296
       ),
+      radius:
+        n === 0
+          ? TOWN_RADIUS
+          : TOWN_RADIUS_MIN +
+            fieldHash(ChillFlightLogic.WORLD_SEED | 0, n, 8102) *
+              (TOWN_RADIUS - 60 - TOWN_RADIUS_MIN),
     };
   }
   if (_townCache.size > 64) _townCache.clear();
@@ -538,23 +550,23 @@ function townHouses(t) {
   // Where the cross streets run, in u
   const crossU = [];
   for (
-    let u = -TOWN_RADIUS + rand() * TOWN_CROSS * 0.5;
-    u < TOWN_RADIUS;
+    let u = -t.radius + rand() * TOWN_CROSS * 0.5;
+    u < t.radius;
     u += TOWN_CROSS * (0.8 + rand() * 0.4)
   ) {
     crossU.push(u);
   }
   const onCrossStreet = (u, halfW) =>
     crossU.some((c) => Math.abs(u - c) < halfW + TOWN_STREET_HALF_WIDTH + 3);
-  const rows = Math.ceil(TOWN_RADIUS / TOWN_BLOCK);
+  const rows = Math.ceil(t.radius / TOWN_BLOCK);
   for (let row = -rows; row <= rows; row++) {
     // Two rows of lots per block: one facing the street at the block's
     // north edge, one the street at its south edge
     for (const facing of [-1, 1]) {
       const v = row * TOWN_BLOCK + facing * (TOWN_BLOCK / 2 - 16);
-      let u = -TOWN_RADIUS + rand() * 10;
-      while (u < TOWN_RADIUS) {
-        const r = Math.hypot(u, v) / TOWN_RADIUS;
+      let u = -t.radius + rand() * 10;
+      while (u < t.radius) {
+        const r = Math.hypot(u, v) / t.radius;
         // Bigger, taller houses toward the middle
         const middle = 1 - Math.min(1, r * 1.4);
         const twoStory = rand() < 0.3 + 0.6 * middle;
@@ -605,7 +617,7 @@ function townHouses(t) {
   // the town's edge. Cross streets join them, from the first street that
   // reaches them to the last. Both stop short of the highways' decks.
   const streets = [];
-  const end = TOWN_RADIUS * TOWN_STREET_END;
+  const end = t.radius * TOWN_STREET_END;
   const addStreet = (ua, va, ub, vb) => {
     const len = Math.hypot(ub - ua, vb - va);
     const pieces = Math.max(1, Math.round(len / TOWN_STREET_STEP));
@@ -661,8 +673,8 @@ function townStreetsNear(cx, cz, chunkSize, elevParams) {
     const t = townAt(n, elevParams);
     if (
       !t ||
-      Math.abs(t.x - cx) > half + TOWN_RADIUS ||
-      Math.abs(t.z - cz) > half + TOWN_RADIUS
+      Math.abs(t.x - cx) > half + t.radius ||
+      Math.abs(t.z - cz) > half + t.radius
     ) {
       continue;
     }
@@ -686,8 +698,8 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
     if (!t) continue;
     towns.push(t);
     if (
-      Math.abs(t.x - cx) > reach + TOWN_RADIUS ||
-      Math.abs(t.z - cz) > reach + TOWN_RADIUS
+      Math.abs(t.x - cx) > reach + t.radius ||
+      Math.abs(t.z - cz) > reach + t.radius
     ) {
       continue;
     }
@@ -699,7 +711,7 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
   }
   // Road villages give way to the towns
   const inTown = (h) =>
-    towns.some((t) => Math.hypot(h.x - t.x, h.z - t.z) < TOWN_RADIUS + 150);
+    towns.some((t) => Math.hypot(h.x - t.x, h.z - t.z) < t.radius + 150);
   const slot0 = Math.floor((cz - reach - 500) / ROAD_VILLAGE_SLOT);
   const slot1 = Math.floor((cz + reach + 500) / ROAD_VILLAGE_SLOT);
   for (let n = 0; n <= ChillFlightLogic.ROAD_LAST; n++) {
@@ -815,8 +827,9 @@ export const HOUSE_ROOF_COLORS = [
 const _houseBodyColors = HOUSE_BODY_COLORS.map((hex) => new Color(hex));
 const _houseRoofColors = HOUSE_ROOF_COLORS.map((hex) => new Color(hex));
 // Window pools: houses are split among this many window materials, which
-// light up a little apart at dusk (see game-loop.js)
-export const HOUSE_WINDOW_POOLS = 5;
+// keep their own hours: lights on at dusk, off at bedtime (windowGlow in
+// game-loop.js)
+export const HOUSE_WINDOW_POOLS = 8;
 
 // How far an adobe house's flat roof is squashed from the gable
 const FLAT_ROOF = 0.12;
@@ -909,7 +922,14 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
 // just enough that the ground doesn't poke through. The box is sheared, not
 // rotated: its sides stay vertical
 const STREET_SAMPLES = [-1, 0, 1];
-function collectTownStreets(collector, streets, offsetX, offsetZ, heightAt) {
+function collectTownStreets(
+  collector,
+  streets,
+  offsetX,
+  offsetZ,
+  heightAt,
+  waterLevel
+) {
   const hw = TOWN_STREET_HALF_WIDTH;
   const ground = new Float32Array(9);
   for (const st of streets) {
@@ -939,6 +959,16 @@ function collectTownStreets(collector, streets, offsetX, offsetZ, heightAt) {
     const across =
       (ground[2] + ground[5] + ground[8] - ground[0] - ground[3] - ground[6]) /
       (6 * hw);
+    // Not into water, up steep ground or across an airfield, where the
+    // houses either side are left out too
+    if (
+      Math.min(...ground) < waterLevel + 2 ||
+      Math.abs(along) > 0.2 ||
+      Math.abs(across) > 0.2 ||
+      ChillFlightLogic.isOnAirport(st.x0 + dx / 2, st.z0 + dz / 2, 40)
+    ) {
+      continue;
+    }
     let lift = 0;
     for (let i = 0; i < 3; i++) {
       for (let j = 0; j < 3; j++) {
@@ -2948,8 +2978,16 @@ export function generateChunkData({
   // ground, if that ground is dry, flat and fit for a house, with the woods
   // and other props cleared from around it
   // Pieces of town street on this chunk ({x0, z0, x1, z1}, world)
+  // Only where houses could stand (not in the alien lands, say)
   const townStreets = _enableObjects
-    ? townStreetsNear(worldOffsetX, worldOffsetZ, chunkSize, elevParams)
+    ? townStreetsNear(worldOffsetX, worldOffsetZ, chunkSize, elevParams).filter(
+        (st) =>
+          houseStyleGrid[
+            Math.round(((st.z0 + st.z1) / 2 - worldOffsetZ + halfSize) / step) *
+              gridX1 +
+              Math.round(((st.x0 + st.x1) / 2 - worldOffsetX + halfSize) / step)
+          ] !== 0
+      )
     : [];
   if (_enableObjects) {
     const villageHouses = roadVillageHousesNear(
@@ -3601,7 +3639,8 @@ export function generateChunkData({
     townStreets,
     worldOffsetX,
     worldOffsetZ,
-    meshHeightAtLocal
+    meshHeightAtLocal,
+    WATER_LEVEL
   );
   collectHouses(
     collector,

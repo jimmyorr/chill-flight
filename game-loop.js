@@ -1010,6 +1010,37 @@ function updateCloudMood(delta, overcast) {
   }
 }
 
+// How bright window pool i (of n) glows at this hour (0 to 24) and darkness
+// (0 in daylight, 2 deep in the night). Each pool lights up at its own
+// darkness, goes to bed between 21:30 and 00:30, and gets up between 05:00
+// and 06:45 (its lights then on until daylight); the last pool to go to bed
+// stays up all night. The three orders are shuffled so early lighters aren't
+// always early sleepers.
+const WINDOW_SWITCH_HOURS = 0.1;
+function windowGlow(i, n, hour, darkness) {
+  const lightOrder = i / n;
+  const bedOrder = ((i * 3) % n) / n;
+  const wakeOrder = ((i * 5) % n) / n;
+  const threshold = 0.05 + lightOrder * 0.7;
+  const lit = Math.min(1, Math.max(0, (darkness - threshold) / 0.12));
+  let awake = 1;
+  if (bedOrder < (n - 1) / n) {
+    // Hours since bedtime, wrapping past midnight
+    const bed = 21.5 + bedOrder * 4;
+    const wake = 5 + wakeOrder * 2;
+    const sinceBed = (hour - bed + 24) % 24;
+    const sleepLength = (wake - bed + 24) % 24;
+    if (sinceBed < sleepLength) {
+      const ramp = WINDOW_SWITCH_HOURS;
+      awake = Math.max(
+        0,
+        1 - Math.min(sinceBed, sleepLength - sinceBed) / ramp
+      );
+    }
+  }
+  return 2 * lit * awake;
+}
+
 function updateDayNightCycle(delta) {
   // --- DAY/NIGHT CYCLE ---
   const debugMenu = getCachedElement('debug-menu');
@@ -1094,12 +1125,18 @@ function updateDayNightCycle(delta) {
 
   updateSkyPalette(state.worldClockNow);
 
-  // Window glow
+  // Window glow: each pool of houses has its own habits, so lights come on
+  // a group at a time as it gets dark, go out a group at a time at bedtime,
+  // and come back on for early risers before dawn
+  const hour = (state.timeOfDay / (Math.PI * 2)) * 24;
+  const darkness = Math.max(0, (Math.cos(state.timeOfDay) + 0.1) * 2);
   houseWindowMats.forEach((mat, i) => {
-    const offset = i * 0.05;
-    const localSunY = -Math.cos(state.timeOfDay - offset);
-    const nightValue = Math.max(0, (-localSunY + 0.1) * 2);
-    mat.emissiveIntensity = Math.min(2.0, nightValue);
+    mat.emissiveIntensity = windowGlow(
+      i,
+      houseWindowMats.length,
+      hour,
+      darkness
+    );
   });
 
   // Calculate streetlight intensity based on time of day
