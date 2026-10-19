@@ -2,6 +2,7 @@
 // The game's plane models as other planes wear them, in any livery: the
 // traffic flying around (traffic.js) and the planes parked at the airports
 // (airports.js).
+import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {createMaterial} from './constants.js';
 import {createBiplaneModel} from './biplane.js';
@@ -57,4 +58,33 @@ export function isLiveryMaterial(material) {
     if (m.planeMat === material || m.planeWhiteMat === material) return true;
   }
   return false;
+}
+
+const _tipBox = new THREE.Box3();
+const _v = new THREE.Vector3();
+
+// The middle of each wingtip's outer end, [left, right], in the model's
+// parent's space: the vertices within a unit of the plane's widest point,
+// averaged. Traffic hangs its navigation lights there.
+export function wingtipPoints(model) {
+  model.updateMatrixWorld(true);
+  _tipBox.setFromObject(model);
+  const tips = [
+    {x: _tipBox.min.x, sum: new THREE.Vector3(), n: 0},
+    {x: _tipBox.max.x, sum: new THREE.Vector3(), n: 0},
+  ];
+  model.traverse((child) => {
+    const pos = child.isMesh && child.geometry.attributes.position;
+    if (!pos) return;
+    for (let i = 0; i < pos.count; i++) {
+      _v.fromBufferAttribute(pos, i).applyMatrix4(child.matrixWorld);
+      for (const tip of tips) {
+        if (Math.abs(_v.x - tip.x) < 1) {
+          tip.sum.add(_v);
+          tip.n++;
+        }
+      }
+    }
+  });
+  return tips.map((tip) => tip.sum.divideScalar(tip.n).setX(tip.x));
 }

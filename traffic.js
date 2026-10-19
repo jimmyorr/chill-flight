@@ -13,7 +13,11 @@ import {state} from './state.js';
 import {scene} from './scene.js';
 import {camera} from './sky.js';
 import {planeGroup} from './airplane.js';
-import {buildPlaneModel, isLiveryMaterial} from './plane-models.js';
+import {
+  buildPlaneModel,
+  isLiveryMaterial,
+  wingtipPoints,
+} from './plane-models.js';
 import {getElevation} from './terrain-geometry.js';
 import {
   isTrafficPlaneGone,
@@ -98,9 +102,10 @@ function buildPlane(p) {
   const model = buildPlaneModel(p.type, p.livery);
   group.add(model);
 
+  const [left, right] = wingtipPoints(model);
+  addNavLight(group, navMats.red, left.x, left.y, left.z);
+  addNavLight(group, navMats.green, right.x, right.y, right.z);
   _box.setFromObject(model);
-  addNavLight(group, navMats.red, _box.min.x, _box.max.y - 1, 0);
-  addNavLight(group, navMats.green, _box.max.x, _box.max.y - 1, 0);
   // Each plane's strobe flashes on its own rhythm, not in step with the
   // others
   group.userData.strobe = addNavLight(
