@@ -2,6 +2,11 @@
 // chunkQueue and _enableObjects live in state.js (terrain-chunks.js writes them).
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {
+  HOUSE_BODY_COLORS,
+  HOUSE_ROOF_COLORS,
+  HOUSE_WINDOW_POOLS,
+} from './terrain-gen.js';
 import {ART_STYLE} from './art-style.js';
 import {
   CHUNK_SIZE,
@@ -1593,38 +1598,19 @@ penguinBlackMat.onBeforeCompile = penguinShaderInject;
 penguinWhiteMat.onBeforeCompile = penguinShaderInject;
 penguinOrangeMat.onBeforeCompile = penguinShaderInject;
 
-// House color palettes
-export var houseBodyPalette = [
-  createMaterial({color: 0xf5e6c8, flatShading: true}), // Cream
-  createMaterial({color: 0xd9b99b, flatShading: true}), // Sandy tan
-  createMaterial({color: 0xb0c4a0, flatShading: true}), // Sage green
-  createMaterial({color: 0xc8d8e8, flatShading: true}), // Pale blue
-  createMaterial({color: 0xe8c8b0, flatShading: true}), // Terracotta peach
-  createMaterial({color: 0xccbbcc, flatShading: true}), // Dusty mauve
-  // Stone, for the snowy north (6-8)
-  createMaterial({color: 0x9e9a92, flatShading: true}), // Grey stone
-  createMaterial({color: 0xb5ab9c, flatShading: true}), // Warm stone
-  createMaterial({color: 0x86827b, flatShading: true}), // Dark stone
-  // Adobe, for the arid south (9-11)
-  createMaterial({color: 0xd9a066, flatShading: true}), // Ochre
-  createMaterial({color: 0xe3b98a, flatShading: true}), // Sand
-  createMaterial({color: 0xc98b5a, flatShading: true}), // Burnt clay
-];
-export var houseRoofPalette = [
-  createMaterial({color: 0x5d4037, flatShading: true}), // Dark brown
-  createMaterial({color: 0x7b3f2a, flatShading: true}), // Brick red
-  createMaterial({color: 0x546e7a, flatShading: true}), // Slate blue-grey
-  createMaterial({color: 0x4a4a3a, flatShading: true}), // Charcoal
-  // Slate, for stone houses (4-5)
-  createMaterial({color: 0x3f4a55, flatShading: true}), // Dark slate
-  createMaterial({color: 0x56606b, flatShading: true}), // Blue slate
-  // Adobe's flat roof (6)
-  createMaterial({color: 0xc4956a, flatShading: true}), // Clay
-];
+// House color palettes, for the model debug page; the game tints one white
+// material per house instead (houseTintMat)
+export var houseBodyPalette = HOUSE_BODY_COLORS.map((color) =>
+  createMaterial({color, flatShading: true})
+);
+export var houseRoofPalette = HOUSE_ROOF_COLORS.map((color) =>
+  createMaterial({color, flatShading: true})
+);
+export var houseTintMat = createMaterial({color: 0xffffff, flatShading: true});
 
-// Window Materials (5 variations for staggered lighting)
+// Window Materials (variations for staggered lighting)
 export var houseWindowMats = [];
-for (let i = 0; i < 5; i++) {
+for (let i = 0; i < HOUSE_WINDOW_POOLS; i++) {
   houseWindowMats.push(
     createMaterial({
       color: 0x4a6a8a, // Soft glassy blue instead of black

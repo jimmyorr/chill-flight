@@ -526,6 +526,129 @@ class InstanceCollector {
   }
 }
 
+// House wall and roof colors, indexed by a house's bodyId and roofId. Houses
+// are drawn by GlobalInstanceManager (terrain-chunks.js) in one white
+// material tinted per instance; terrain-geometry.js builds the palettes the
+// model debug page uses from these too.
+export const HOUSE_BODY_COLORS = [
+  0xf5e6c8, // Cream
+  0xd9b99b, // Sandy tan
+  0xb0c4a0, // Sage green
+  0xc8d8e8, // Pale blue
+  0xe8c8b0, // Terracotta peach
+  0xccbbcc, // Dusty mauve
+  // Stone, for the snowy north (6-8)
+  0x9e9a92, // Grey stone
+  0xb5ab9c, // Warm stone
+  0x86827b, // Dark stone
+  // Adobe, for the arid south (9-11)
+  0xd9a066, // Ochre
+  0xe3b98a, // Sand
+  0xc98b5a, // Burnt clay
+];
+export const HOUSE_ROOF_COLORS = [
+  0x5d4037, // Dark brown
+  0x7b3f2a, // Brick red
+  0x546e7a, // Slate blue-grey
+  0x4a4a3a, // Charcoal
+  // Slate, for stone houses (4-5)
+  0x3f4a55, // Dark slate
+  0x56606b, // Blue slate
+  // Adobe's flat roof (6)
+  0xc4956a, // Clay
+];
+const _houseBodyColors = HOUSE_BODY_COLORS.map((hex) => new Color(hex));
+const _houseRoofColors = HOUSE_ROOF_COLORS.map((hex) => new Color(hex));
+// Window pools: houses are split among this many window materials, which
+// light up a little apart at dusk (see game-loop.js)
+export const HOUSE_WINDOW_POOLS = 5;
+
+// How far an adobe house's flat roof is squashed from the gable
+const FLAT_ROOF = 0.12;
+
+// Window spots on a house's walls (x along the ridge and y scale with the
+// house; z is the wall)
+const ONE_STORY_WINDOWS = [
+  [-3, 4, 5.1],
+  [3, 4, 5.1],
+  [0, 4, -5.1],
+];
+const TWO_STORY_WINDOWS = [
+  ...ONE_STORY_WINDOWS,
+  [0, 10, 5.1],
+  [-3, 10, 5.1],
+  [3, 10, 5.1],
+  [-3, 10, -5.1],
+  [3, 10, -5.1],
+];
+
+// Adds the walls, roof, door, chimney and windows of each house to the
+// collector, in world coordinates. Two-story houses have their own body, roof
+// and chimney types; the door and windows are shared.
+function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
+  const prefix = twoStory ? 'twoStory' : 'house';
+  // Where the gable's base sits, and the chimney's height above the walls'
+  // default height
+  const eaves = twoStory ? 14 : 8;
+  const chimneyRise = twoStory ? 17.5 : 11;
+  const windows = twoStory ? TWO_STORY_WINDOWS : ONE_STORY_WINDOWS;
+  for (const pos of houses) {
+    // The house's own proportions (sx along the ridge, sy up); its door,
+    // windows and chimney move with the walls but keep their size
+    const sx = pos.sx ?? 1;
+    const sy = pos.sy ?? 1;
+    const x = offsetX + pos.x;
+    const z = offsetZ + pos.z;
+    const cos = Math.cos(pos.rotY);
+    const sin = Math.sin(pos.rotY);
+    // A point on the house (lx along the ridge, ly up, lz toward the front)
+    const part = (type, lx, ly, lz) => {
+      composeMatrix(
+        _matBuffer,
+        0,
+        x + lx * cos + lz * sin,
+        pos.y + ly,
+        z - lx * sin + lz * cos,
+        1,
+        1,
+        1,
+        0,
+        pos.rotY,
+        0
+      );
+      collector.add(type, _matBuffer);
+    };
+
+    composeMatrix(_matBuffer, 0, x, pos.y, z, sx, sy, 1, 0, pos.rotY, 0);
+    collector.add(prefix + 'Body', _matBuffer, _houseBodyColors[pos.bodyId]);
+    // Adobe: the gable squashed into a flat slab on top of the walls (its
+    // base stays put), and no chimney
+    const adobe = pos.style === 'adobe';
+    if (!adobe)
+      part(prefix + 'Chimney', 2.5 * sx, chimneyRise * (sy - 1), -2.5);
+    const roofScale = adobe ? FLAT_ROOF : 1;
+    composeMatrix(
+      _matBuffer,
+      0,
+      x,
+      pos.y + eaves * sy * (1 - roofScale),
+      z,
+      sx,
+      sy * roofScale,
+      1,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.add(prefix + 'Roof', _matBuffer, _houseRoofColors[pos.roofId]);
+
+    part('houseDoor', 0, 2.25, 5.1);
+    for (const [wx, wy, wz] of windows) {
+      part('houseWindow' + pos.poolId, wx * sx, wy * sy, wz);
+    }
+  }
+}
+
 function getElevation(x, z, elevParams) {
   return ChillFlightLogic.getElevation(
     x,
@@ -3099,16 +3222,24 @@ export function generateChunkData({
   if (housePositions.length > 0) {
     housePositions.forEach(pickHouseColors);
     housePositions.forEach((pos) => {
-      pos.poolId = Math.floor(rng() * 5);
+      pos.poolId = Math.floor(rng() * HOUSE_WINDOW_POOLS);
     });
   }
 
   if (twoStoryHousePositions.length > 0) {
     twoStoryHousePositions.forEach(pickHouseColors);
     twoStoryHousePositions.forEach((pos) => {
-      pos.poolId = Math.floor(rng() * 5);
+      pos.poolId = Math.floor(rng() * HOUSE_WINDOW_POOLS);
     });
   }
+  collectHouses(collector, housePositions, false, worldOffsetX, worldOffsetZ);
+  collectHouses(
+    collector,
+    twoStoryHousePositions,
+    true,
+    worldOffsetX,
+    worldOffsetZ
+  );
 
   if (strawHutPositions.length > 0) {
     strawHutPositions.forEach((pos) => {

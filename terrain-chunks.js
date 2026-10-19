@@ -73,13 +73,12 @@ import {
   gooseWhiteTailGeo,
   gooseWingGeo,
   houseBodyGeo,
-  houseBodyPalette,
   houseChimneyGeo,
   houseChimneyMat,
   houseDoorGeo,
   houseDoorMat,
   houseRoofGeo,
-  houseRoofPalette,
+  houseTintMat,
   houseWindowGeo,
   houseWindowMats,
   iceFloeMainGeo,
@@ -285,22 +284,32 @@ class GlobalInstanceManager {
     this._dirty = true;
   }
 
-  registerType(type, geo, mat, maxInstances = 30000, useColor = false) {
+  registerType(
+    type,
+    geo,
+    mat,
+    maxInstances = 30000,
+    useColor = false,
+    castsShadow = true
+  ) {
     // Shadow-only mesh with just the instances near the plane. three.js has no
     // shadow-only flag (layers are tested against the main camera even for
     // shadows), so it draws zero instances on screen: onBeforeRender only runs
     // for the on-screen pass, not the shadow pass.
-    const shadowMesh = createTreeInstancedMesh(geo, mat, maxInstances, false);
-    shadowMesh.frustumCulled = false;
-    shadowMesh.castShadow = true;
-    shadowMesh.onBeforeRender = () => {
-      shadowMesh.userData.shadowCount = shadowMesh.count;
-      shadowMesh.count = 0;
-    };
-    shadowMesh.onAfterRender = () => {
-      shadowMesh.count = shadowMesh.userData.shadowCount;
-    };
-    this.group.add(shadowMesh);
+    let shadowMesh = null;
+    if (castsShadow) {
+      shadowMesh = createTreeInstancedMesh(geo, mat, maxInstances, false);
+      shadowMesh.frustumCulled = false;
+      shadowMesh.castShadow = true;
+      shadowMesh.onBeforeRender = () => {
+        shadowMesh.userData.shadowCount = shadowMesh.count;
+        shadowMesh.count = 0;
+      };
+      shadowMesh.onAfterRender = () => {
+        shadowMesh.count = shadowMesh.userData.shadowCount;
+      };
+      this.group.add(shadowMesh);
+    }
 
     this.types.set(type, {
       geo,
@@ -386,7 +395,7 @@ class GlobalInstanceManager {
         if (!typeInfo) continue;
         const data = instanceData[type];
         if (!data.count) continue;
-        if (castsShadows) {
+        if (castsShadows && typeInfo.shadowMesh) {
           if (!shadowParts.has(type)) shadowParts.set(type, []);
           shadowParts.get(type).push(data);
         }
@@ -451,6 +460,7 @@ class GlobalInstanceManager {
       }
 
       const shadowMesh = typeInfo.shadowMesh;
+      if (!shadowMesh) continue;
       let n = 0;
       for (const data of shadowParts.get(type) || []) {
         const numToCopy = Math.min(data.count, typeInfo.maxInstances - n);
@@ -563,6 +573,62 @@ globalInstancer.registerType('penguinFootR', penguinFootRGeo, penguinOrangeMat);
 globalInstancer.registerType('lilypad', lilyPadGeo, lilyPadMat);
 globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
 
+// Houses: walls and roofs in one white material tinted per house, so a
+// village costs the same few draw calls as one house. Doors and windows are
+// too thin to cast a visible shadow.
+globalInstancer.registerType(
+  'houseBody',
+  houseBodyGeo,
+  houseTintMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
+  'houseRoof',
+  houseRoofGeo,
+  houseTintMat,
+  30000,
+  true
+);
+globalInstancer.registerType('houseChimney', houseChimneyGeo, houseChimneyMat);
+globalInstancer.registerType(
+  'twoStoryBody',
+  twoStoryBodyGeo,
+  houseTintMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
+  'twoStoryRoof',
+  twoStoryRoofGeo,
+  houseTintMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
+  'twoStoryChimney',
+  twoStoryChimneyGeo,
+  houseChimneyMat
+);
+globalInstancer.registerType(
+  'houseDoor',
+  houseDoorGeo,
+  houseDoorMat,
+  30000,
+  false,
+  false
+);
+houseWindowMats.forEach((mat, i) => {
+  globalInstancer.registerType(
+    'houseWindow' + i,
+    houseWindowGeo,
+    mat,
+    30000,
+    false,
+    false
+  );
+});
+
 // Distant versions (beyond TREE_LOD_CHUNK_RADIUS). The costliest models get a
 // simple shape fitted to their bounds (same material and instance colors);
 // props too small to see that far away aren't drawn. Pines, rocks and other
@@ -590,6 +656,11 @@ globalInstancer.setFarGeometry(
 globalInstancer.setFarGeometry('bush', null);
 globalInstancer.setFarGeometry('snowmanBody', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
+// Doors and chimneys aren't drawn far away; windows are, so villages still
+// twinkle on the horizon at night
+globalInstancer.setFarGeometry('houseDoor', null);
+globalInstancer.setFarGeometry('houseChimney', null);
+globalInstancer.setFarGeometry('twoStoryChimney', null);
 
 // Rounded canopies and bushes cast shadows with the same fitted shapes. Palm
 // fronds cast with a version without their notches (216 triangles instead of
@@ -672,9 +743,6 @@ function attachWaterDepthTexture(waterMesh, heightGrid, softDepth) {
   waterMesh.material = mat;
   waterMesh.userData.depthTex = tex;
 }
-
-// How far an adobe house's flat roof is squashed from the gable
-const FLAT_ROOF = 0.12;
 
 export function disposeWaterDepthTexture(waterMesh) {
   if (waterMesh && waterMesh.userData.depthTex) {
@@ -1090,378 +1158,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
       group.add(rockMesh);
       group.add(grassMesh);
-    });
-  }
-
-  // 2.5 Generate Houses
-  if (housePositions.length > 0) {
-    const numBodyColors = houseBodyPalette.length;
-    const numRoofColors = houseRoofPalette.length;
-
-    // Count houses per (body, roof) combo
-    const comboCounts = {};
-    const houseCombo = [];
-    housePositions.forEach((pos, idx) => {
-      const bodyId =
-        pos.bodyId !== undefined
-          ? pos.bodyId % numBodyColors
-          : Math.floor(rng() * numBodyColors);
-      const roofId =
-        pos.roofId !== undefined
-          ? pos.roofId % numRoofColors
-          : Math.floor(rng() * numRoofColors);
-      const key = `${bodyId}_${roofId}`;
-      houseCombo[idx] = {bodyId, roofId, key};
-      comboCounts[key] = (comboCounts[key] || 0) + 1;
-    });
-
-    // Build one InstancedMesh pair per combo that actually appears
-    const bodyInsts = {};
-    const roofInsts = {};
-    const comboIndices = {};
-    for (const key of Object.keys(comboCounts)) {
-      const [bodyId, roofId] = key.split('_').map(Number);
-      bodyInsts[key] = getInstancedMesh(
-        houseBodyGeo,
-        houseBodyPalette[bodyId],
-        comboCounts[key]
-      );
-      roofInsts[key] = getInstancedMesh(
-        houseRoofGeo,
-        houseRoofPalette[roofId],
-        comboCounts[key]
-      );
-      bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
-      roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(bodyInsts[key]);
-      objectsGroup.add(roofInsts[key]);
-      comboIndices[key] = 0;
-    }
-
-    const windowPools = [];
-    const poolCounts = [0, 0, 0, 0, 0];
-    const houseToPool = [];
-
-    housePositions.forEach((pos, idx) => {
-      const poolId =
-        pos.poolId !== undefined ? pos.poolId % 5 : Math.floor(rng() * 5);
-      houseToPool[idx] = poolId;
-      poolCounts[poolId]++;
-    });
-
-    for (let i = 0; i < 5; i++) {
-      if (poolCounts[i] > 0) {
-        windowPools[i] = getInstancedMesh(
-          houseWindowGeo,
-          houseWindowMats[i],
-          poolCounts[i] * 3
-        );
-        windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
-        objectsGroup.add(windowPools[i]);
-      }
-    }
-
-    const doorInst = getInstancedMesh(
-      houseDoorGeo,
-      houseDoorMat,
-      housePositions.length
-    );
-    const chimneyInst = getInstancedMesh(
-      houseChimneyGeo,
-      houseChimneyMat,
-      housePositions.length
-    );
-    doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(doorInst);
-    objectsGroup.add(chimneyInst);
-
-    const poolIndices = [0, 0, 0, 0, 0];
-
-    housePositions.forEach((pos, index) => {
-      // The house's own proportions (sx along the ridge, sy up); its door,
-      // windows and chimney move with the walls but keep their size
-      const sx = pos.sx ?? 1;
-      const sy = pos.sy ?? 1;
-      dummy.position.set(pos.x, pos.y, pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(sx, sy, 1);
-      dummy.updateMatrix();
-
-      const {key} = houseCombo[index];
-      const ci = comboIndices[key];
-      bodyInsts[key].setMatrixAt(ci, dummy.matrix);
-      if (pos.style === 'adobe') {
-        // Adobe: the gable squashed into a flat slab on top of the walls
-        // (its base, 8 up, stays put)
-        dummy.scale.set(sx, sy * FLAT_ROOF, 1);
-        dummy.position.y = pos.y + 8 * sy * (1 - FLAT_ROOF);
-        dummy.updateMatrix();
-      }
-      roofInsts[key].setMatrixAt(ci, dummy.matrix);
-      comboIndices[key]++;
-      dummy.scale.set(1, 1, 1);
-
-      const poolId = houseToPool[index];
-      const pIdx = poolIndices[poolId];
-
-      const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      dummy.position.set(
-        pos.x + doorOffset.x,
-        pos.y + doorOffset.y,
-        pos.z + doorOffset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.updateMatrix();
-      doorInst.setMatrixAt(index, dummy.matrix);
-
-      const chimneyOffset = new THREE.Vector3(
-        2.5 * sx,
-        11 * (sy - 1),
-        -2.5
-      ).applyAxisAngle(yAxis, pos.rotY);
-      dummy.position.set(
-        pos.x + chimneyOffset.x,
-        pos.y + chimneyOffset.y,
-        pos.z + chimneyOffset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      // Adobe houses have no chimney
-      if (pos.style === 'adobe') dummy.scale.set(0, 0, 0);
-      dummy.updateMatrix();
-      chimneyInst.setMatrixAt(index, dummy.matrix);
-      dummy.scale.set(1, 1, 1);
-
-      const winF1Offset = new THREE.Vector3(
-        -3.0 * sx,
-        4 * sy,
-        5.1
-      ).applyAxisAngle(yAxis, pos.rotY);
-      const winF2Offset = new THREE.Vector3(
-        3.0 * sx,
-        4 * sy,
-        5.1
-      ).applyAxisAngle(yAxis, pos.rotY);
-      const winBOffset = new THREE.Vector3(0, 4 * sy, -5.1).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-
-      dummy.position.set(
-        pos.x + winF1Offset.x,
-        pos.y + winF1Offset.y,
-        pos.z + winF1Offset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.updateMatrix();
-      windowPools[poolId].setMatrixAt(pIdx * 3, dummy.matrix);
-
-      dummy.position.set(
-        pos.x + winF2Offset.x,
-        pos.y + winF2Offset.y,
-        pos.z + winF2Offset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.updateMatrix();
-      windowPools[poolId].setMatrixAt(pIdx * 3 + 1, dummy.matrix);
-
-      dummy.position.set(
-        pos.x + winBOffset.x,
-        pos.y + winBOffset.y,
-        pos.z + winBOffset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.updateMatrix();
-      windowPools[poolId].setMatrixAt(pIdx * 3 + 2, dummy.matrix);
-
-      poolIndices[poolId]++;
-    });
-  }
-
-  // 2.52 Generate Two Story Houses
-  if (twoStoryHousePositions.length > 0) {
-    const numBodyColors = houseBodyPalette.length;
-    const numRoofColors = houseRoofPalette.length;
-
-    const comboCounts = {};
-    const houseCombo = [];
-    twoStoryHousePositions.forEach((pos, idx) => {
-      const bodyId =
-        (pos.bodyId !== undefined
-          ? pos.bodyId
-          : Math.floor(rng() * numBodyColors)) % numBodyColors;
-      const roofId =
-        (pos.roofId !== undefined
-          ? pos.roofId
-          : Math.floor(rng() * numRoofColors)) % numRoofColors;
-      const key = `${bodyId}_${roofId}`;
-      houseCombo[idx] = {bodyId, roofId, key};
-      comboCounts[key] = (comboCounts[key] || 0) + 1;
-    });
-
-    const bodyInsts = {};
-    const roofInsts = {};
-    const comboIndices = {};
-    for (const key of Object.keys(comboCounts)) {
-      const [bodyId, roofId] = key.split('_').map(Number);
-      bodyInsts[key] = getInstancedMesh(
-        twoStoryBodyGeo,
-        houseBodyPalette[bodyId],
-        comboCounts[key]
-      );
-      roofInsts[key] = getInstancedMesh(
-        twoStoryRoofGeo,
-        houseRoofPalette[roofId],
-        comboCounts[key]
-      );
-      bodyInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
-      roofInsts[key].position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(bodyInsts[key]);
-      objectsGroup.add(roofInsts[key]);
-      comboIndices[key] = 0;
-    }
-
-    const windowPools = [];
-    const poolCounts = [0, 0, 0, 0, 0];
-    const houseToPool = [];
-
-    twoStoryHousePositions.forEach((pos, idx) => {
-      const poolId =
-        (pos.poolId !== undefined ? pos.poolId : Math.floor(rng() * 5)) % 5;
-      houseToPool[idx] = poolId;
-      poolCounts[poolId]++;
-    });
-
-    for (let i = 0; i < 5; i++) {
-      if (poolCounts[i] > 0) {
-        windowPools[i] = getInstancedMesh(
-          houseWindowGeo,
-          houseWindowMats[i],
-          poolCounts[i] * 8
-        );
-        windowPools[i].position.set(worldOffsetX, 0, worldOffsetZ);
-        objectsGroup.add(windowPools[i]);
-      }
-    }
-
-    const doorInst = getInstancedMesh(
-      houseDoorGeo,
-      houseDoorMat,
-      twoStoryHousePositions.length
-    );
-    const chimneyInst = getInstancedMesh(
-      twoStoryChimneyGeo,
-      houseChimneyMat,
-      twoStoryHousePositions.length
-    );
-    doorInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    chimneyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(doorInst);
-    objectsGroup.add(chimneyInst);
-
-    const poolIndices = [0, 0, 0, 0, 0];
-
-    twoStoryHousePositions.forEach((pos, index) => {
-      // The house's own proportions (sx along the ridge, sy up); its door,
-      // windows and chimney move with the walls but keep their size
-      const sx = pos.sx ?? 1;
-      const sy = pos.sy ?? 1;
-      dummy.position.set(pos.x, pos.y, pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(sx, sy, 1);
-      dummy.updateMatrix();
-
-      const {key} = houseCombo[index];
-      const ci = comboIndices[key];
-      bodyInsts[key].setMatrixAt(ci, dummy.matrix);
-      if (pos.style === 'adobe') {
-        // Adobe: the gable squashed into a flat slab on top of the walls
-        // (its base, 14 up, stays put)
-        dummy.scale.set(sx, sy * FLAT_ROOF, 1);
-        dummy.position.y = pos.y + 14 * sy * (1 - FLAT_ROOF);
-        dummy.updateMatrix();
-      }
-      roofInsts[key].setMatrixAt(ci, dummy.matrix);
-      comboIndices[key]++;
-      dummy.scale.set(1, 1, 1);
-
-      const poolId = houseToPool[index];
-      const pIdx = poolIndices[poolId];
-
-      const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      dummy.position.set(
-        pos.x + doorOffset.x,
-        pos.y + doorOffset.y,
-        pos.z + doorOffset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.updateMatrix();
-      doorInst.setMatrixAt(index, dummy.matrix);
-
-      const chimneyOffset = new THREE.Vector3(
-        2.5 * sx,
-        17.5 * (sy - 1),
-        -2.5
-      ).applyAxisAngle(yAxis, pos.rotY);
-      dummy.position.set(
-        pos.x + chimneyOffset.x,
-        pos.y + chimneyOffset.y,
-        pos.z + chimneyOffset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      // Adobe houses have no chimney
-      if (pos.style === 'adobe') dummy.scale.set(0, 0, 0);
-      dummy.updateMatrix();
-      chimneyInst.setMatrixAt(index, dummy.matrix);
-      dummy.scale.set(1, 1, 1);
-
-      const offsets = [
-        new THREE.Vector3(-3.0 * sx, 4 * sy, 5.1).applyAxisAngle(
-          yAxis,
-          pos.rotY
-        ),
-        new THREE.Vector3(3.0 * sx, 4 * sy, 5.1).applyAxisAngle(
-          yAxis,
-          pos.rotY
-        ),
-        new THREE.Vector3(0, 4 * sy, -5.1).applyAxisAngle(yAxis, pos.rotY),
-        new THREE.Vector3(0, 10 * sy, 5.1).applyAxisAngle(yAxis, pos.rotY),
-        new THREE.Vector3(-3.0 * sx, 10 * sy, 5.1).applyAxisAngle(
-          yAxis,
-          pos.rotY
-        ),
-        new THREE.Vector3(3.0 * sx, 10 * sy, 5.1).applyAxisAngle(
-          yAxis,
-          pos.rotY
-        ),
-        new THREE.Vector3(-3.0 * sx, 10 * sy, -5.1).applyAxisAngle(
-          yAxis,
-          pos.rotY
-        ),
-        new THREE.Vector3(3.0 * sx, 10 * sy, -5.1).applyAxisAngle(
-          yAxis,
-          pos.rotY
-        ),
-      ];
-
-      offsets.forEach((offset, i) => {
-        dummy.position.set(
-          pos.x + offset.x,
-          pos.y + offset.y,
-          pos.z + offset.z
-        );
-        dummy.rotation.set(0, pos.rotY, 0);
-        dummy.updateMatrix();
-        windowPools[poolId].setMatrixAt(pIdx * 8 + i, dummy.matrix);
-      });
-
-      poolIndices[poolId]++;
     });
   }
 
@@ -2893,10 +2589,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       } else if (
         child.material !== smokeMat &&
         child.material !== lighthouseBeamMat &&
-        child.material !== houseDoorMat &&
-        !houseWindowMats.includes(child.material) &&
-        child.geometry !== houseDoorGeo &&
-        child.geometry !== houseWindowGeo &&
         child.geometry !== streetlightDecalGeo
       ) {
         child.castShadow = true;
