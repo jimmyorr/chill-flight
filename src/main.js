@@ -26,6 +26,7 @@ import '../outline-pass.js';
 import '../lens-flare.js';
 import '../biplane.js';
 import '../twin.js';
+import '../jet.js';
 import '../buggy-model.js';
 import '../airplane.js';
 import '../plane-models.js';

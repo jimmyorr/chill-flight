@@ -16,6 +16,7 @@ import {
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {createBiplaneModel} from './biplane.js';
 import {createTwinModel, setGearExtension} from './twin.js';
+import {createJetModel} from './jet.js';
 import {createBuggyModel} from './buggy-model.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
@@ -344,6 +345,13 @@ export function setActivePlane(planeType, skipStorage = false) {
   let newModel;
   if (planeType === 'biplane') {
     newModel = createBiplaneModel({
+      planeColor:
+        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
+      planeMat: planeMat,
+      planeWhiteMat: planeWhiteMat,
+    });
+  } else if (planeType === 'jet') {
+    newModel = createJetModel({
       planeColor:
         typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
       planeMat: planeMat,

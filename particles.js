@@ -216,6 +216,7 @@ function uploadSpawned() {
 const GEAR_HALF_TRACK = {
   seaplane: 5,
   twin: 5.8,
+  jet: 2.4,
   biplane: 1.8,
   buggy: 2.6,
 };
@@ -239,6 +240,7 @@ const WINGTIPS = {
   biplane: [14.5, 2.9, -3],
   seaplane: [16, 2.8, -2.5],
   twin: [16.3, -0.2, 1],
+  jet: [11, 0.8, 4],
 };
 const VAPOUR_SPACING = 1.5;
 // Where the engines' exhausts are (units, from the plane's centre)
@@ -254,6 +256,10 @@ const EXHAUSTS = {
   twin: [
     [-5.8, -0.6, -1.5],
     [5.8, -0.6, -1.5],
+  ],
+  jet: [
+    [-1.1, -0.2, 14.2],
+    [1.1, -0.2, 14.2],
   ],
   buggy: [
     [-0.6, 2.9, 4.1],
@@ -538,7 +544,7 @@ function rollingDust(delta, speed) {
   }
 
   // Prop wash: strongest with the throttle open and the plane still slow
-  if (activePlaneType === 'buggy') return;
+  if (activePlaneType === 'buggy' || activePlaneType === 'jet') return;
   const throttle = THREE.MathUtils.clamp(state.targetFlightSpeed || 0, 0, 1);
   const wash = throttle * (1 - fast);
   if (Math.random() > wash * delta * 30) return;

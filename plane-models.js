@@ -6,6 +6,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {createMaterial} from './constants.js';
 import {createBiplaneModel} from './biplane.js';
 import {createTwinModel} from './twin.js';
+import {createJetModel} from './jet.js';
 import {createSeaplaneModel} from './airplane.js';
 
 // The seaplane flies without the player's pontoons, so it has no landing gear
@@ -13,6 +14,7 @@ export const PLANE_BUILDERS = {
   seaplane: (opts) => createSeaplaneModel({...opts, pontoons: false}),
   biplane: createBiplaneModel,
   twin: createTwinModel,
+  jet: createJetModel,
 };
 
 // One pair of materials per livery, shared by every plane wearing it (the

@@ -160,6 +160,7 @@
       <button class="model-btn" onclick="viewModel('biplane', event)">
         Biplane
       </button>
+      <button class="model-btn" onclick="viewModel('jet', event)">Jet</button>
       <button class="model-btn" onclick="viewModel('twin', event)">
         Twin engine
       </button>
@@ -354,6 +355,7 @@
       import {ChillFlightLogic} from '../chill-flight-logic.js';
       import {createMaterial} from '../constants.js';
       import {createBiplaneModel} from '../biplane.js';
+      import {createJetModel} from '../jet.js';
       import {
         createAirportSign,
         createControlTower,
@@ -500,6 +502,7 @@
           'biplane',
           'twin',
           'twin-engine',
+          'jet',
           'buggy',
           'mushroom',
           'crystal',
@@ -643,6 +646,19 @@
 
               bp.visible = true;
               previewGroup.add(bp);
+              break;
+            }
+
+            case 'jet': {
+              const colors =
+                ChillFlightLogic && ChillFlightLogic.PLANE_COLORS
+                  ? ChillFlightLogic.PLANE_COLORS
+                  : [0x4794db];
+              const newColor = colors[colorSeed % colors.length];
+              const jet = createJetModel({planeColor: newColor});
+
+              jet.visible = true;
+              previewGroup.add(jet);
               break;
             }
 

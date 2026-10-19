@@ -580,6 +580,11 @@ export function updateSfx() {
   const speedFrac = THREE.MathUtils.clamp(speed / MAX_SPEED_MULT, 0, 1);
   // Engine loudness keeps rising up to top speed instead of flattening out
   const engineDuck = (musicEnabled ? ENGINE_MUSIC_DUCK : 1) * ENGINE_LEVEL;
+  raspGain.gain.setTargetAtTime(
+    planeType === 'jet' ? 0 : 2,
+    audioCtx.currentTime,
+    0.05
+  );
   const engineLoudness = (0.05 + 0.19 * Math.sqrt(speedFrac)) * engineDuck;
 
   // Stopped ambient soundscapes (crickets at night/dusk or gentle meadow breeze during day when parked on land)
@@ -606,9 +611,9 @@ export function updateSfx() {
   breezeGain.gain.setTargetAtTime(targetBreezeGain, audioCtx.currentTime, 0.4);
 
   if (isStopped) {
-    // Engine idles at low murmur when plane is parked
+    // Engine idles at low murmur when plane is parked (the jet is silent)
     engineGain.gain.setTargetAtTime(
-      0.03 * engineDuck,
+      planeType === 'jet' ? 0 : 0.03 * engineDuck,
       audioCtx.currentTime,
       0.1
     );
@@ -668,6 +673,19 @@ export function updateSfx() {
       0.05
     );
     windGain.gain.setTargetAtTime(speed * 0.03, audioCtx.currentTime, 0.05);
+  } else if (planeType === 'jet') {
+    // The jet is silent for now: its engine sound is muted, and the wind rush
+    // below still plays
+    engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+    lfo.frequency.setTargetAtTime(0.5, audioCtx.currentTime, 0.05);
+
+    // Air rushing past the intakes and canopy
+    windGain.gain.setTargetAtTime(speed * 0.05, audioCtx.currentTime, 0.05);
+    windFilter.frequency.setTargetAtTime(
+      380 + speed * 240,
+      audioCtx.currentTime,
+      0.05
+    );
   } else {
     // Single-engine prop plane (seaplane or biplane)
     const isBiplane = planeType === 'biplane';

@@ -82,6 +82,16 @@ export const PLANE_HANDLING = {
     agility: 0.75,
     rollRate: 2.25,
   },
+  jet: {
+    topKts: 800,
+    stallKts: 75,
+    levelKts: 130,
+    accelKts: 70,
+    decelKts: 25,
+    diveGain: 0.8,
+    agility: 1,
+    rollRate: 3,
+  },
   // The buggy (buggy.js) drives rather than flies: only its top speed
   // forward is used, and it never stalls
   buggy: {
