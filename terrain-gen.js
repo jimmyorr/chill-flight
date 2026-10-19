@@ -212,7 +212,7 @@ const ENABLE_CASTLE_RUINS = true;
 const ENABLE_LIGHTHOUSES = false;
 
 // How alien (ChillFlightLogic.alienAt) the land must be for alien props
-const ALIEN_PROPS_AT = 0.3;
+export const ALIEN_PROPS_AT = 0.3;
 
 // Above the tree line: alpine meadow for this many meters, then bare rock
 const ALPINE_MEADOW_BAND = 150;
@@ -3898,6 +3898,10 @@ export function generateChunkData({
         )
       : null;
 
+  const notWestAlien = (p) =>
+    worldOffsetX > 0 ||
+    ChillFlightLogic.alienAt(worldOffsetX + p.x, worldOffsetZ + p.z, simplex) <=
+      ALIEN_PROPS_AT;
   const chunkProps = {
     waterfall,
     housePositions,
@@ -3908,8 +3912,10 @@ export function generateChunkData({
     monasteryPositions,
     castleRuinsPositions,
     windmillPositions,
-    sailboatPositions,
-    pirateShipPositions,
+    // No boats off the western alien land's coasts (left out here, after
+    // every roll, so the rest of the chunk stays as it was)
+    sailboatPositions: sailboatPositions.filter(notWestAlien),
+    pirateShipPositions: pirateShipPositions.filter(notWestAlien),
     rockArchPositions,
     rockArchGrassPositions,
     pierPositions,

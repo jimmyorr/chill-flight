@@ -202,7 +202,7 @@ import {simplex} from './noise.js';
 import {camera} from './sky.js';
 import {planeGroup} from './airplane.js';
 import {terrainWorkerManager} from './terrain-worker-manager.js';
-import {generateChunkData} from './terrain-gen.js';
+import {ALIEN_PROPS_AT, generateChunkData} from './terrain-gen.js';
 import {hooks} from './hooks.js';
 import {state} from './state.js';
 
@@ -1894,6 +1894,14 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           // Outer highway (abs(Z) > 15000, 3.0° North/South)
         } else if (absZ > 15000) {
           slFrequency = 8;
+        }
+        // The western alien land is wild country: past where its houses
+        // stop, the road runs bare, with no streetlights or lane markings
+        if (
+          ChillFlightLogic.alienAt(worldOffsetX, worldOffsetZ, simplex) >
+          ALIEN_PROPS_AT
+        ) {
+          slFrequency = 0;
         }
 
         // Lane markings thin out with the streetlights: full markings in
