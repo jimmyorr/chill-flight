@@ -351,6 +351,12 @@ function hedgeNear(x, z, simplex, reach) {
   return {x: f.cx + cos * u + sin * v, z: f.cz - sin * u + cos * v};
 }
 
+// How far beyond a road's paved edge trees (most spread about 15),
+// buildings and smaller props stand (keepOffRoads in generateChunkData)
+const ROAD_TREE_CLEAR = 18;
+const ROAD_BUILDING_CLEAR = 15;
+const ROAD_PROP_CLEAR = 8;
+
 // Villages along the highways: now and then a stretch of road is lined on
 // both sides with houses facing it, with a second row behind them toward the
 // middle, like a village grown along its main street. Each road is split into
@@ -3116,6 +3122,64 @@ export function generateChunkData({
         castleRuinsPositions,
       ].forEach(clear);
     }
+  }
+
+  // Keep the props clear of the roads, where they ended up. The check above
+  // only looks at the grid point, by its distance along x (or z), which
+  // lets them onto the road where it runs at an angle; and trees are set off
+  // the grid, and hedgerows follow the fields. Done here, after the grid
+  // pass, so the rest of the chunk comes out as before.
+  if (_enableObjects) {
+    const keepOffRoads = (arr, margin) => {
+      let kept = 0;
+      for (const p of arr) {
+        const x = worldOffsetX + p.x;
+        const z = worldOffsetZ + p.z;
+        if (
+          p.roadVillage ||
+          (ChillFlightLogic.highwayDistance(x, z) >=
+            ChillFlightLogic.ROAD_WIDTH + margin &&
+            !ChillFlightLogic.isOnAccessRoad(x, z, margin, simplex, elevParams))
+        ) {
+          arr[kept++] = p;
+        }
+      }
+      arr.length = kept;
+    };
+    [
+      treePositions,
+      deciduousTreePositions,
+      tallDeciduousTreePositions,
+      palmTreePositions,
+      deadTreePositions,
+      snowTreePositions,
+      autumnTree1Positions,
+      autumnTree2Positions,
+      autumnTree3Positions,
+      cherryTreePositions,
+      yellowCortezTreePositions,
+      japaneseMapleTreePositions,
+      mushroomTreePositions,
+      crystalPositions,
+    ].forEach((arr) => keepOffRoads(arr, ROAD_TREE_CLEAR));
+    [
+      bushPositions,
+      rockPositions,
+      snowRockPositions,
+      desertRockPositions,
+      cactusPositions,
+      snowmanPositions,
+      campfirePositions,
+    ].forEach((arr) => keepOffRoads(arr, ROAD_PROP_CLEAR));
+    // A house's chimney smoke sits on the same spot, so goes with it
+    [
+      housePositions,
+      twoStoryHousePositions,
+      chimneySmokePositions,
+      strawHutPositions,
+      barnPositions,
+      windmillPositions,
+    ].forEach((arr) => keepOffRoads(arr, ROAD_BUILDING_CLEAR));
   }
 
   // Montauk chunk lighthouse

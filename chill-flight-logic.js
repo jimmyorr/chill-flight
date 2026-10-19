@@ -4080,6 +4080,32 @@ export const ChillFlightLogic = {};
     );
   }
 
+  // Distance from (x, z) to the nearest highway's centre line, measured
+  // square to the road (getRoadFactor measures straight along x or z, which
+  // reads too far wherever the road runs at an angle), capped at 150: plenty
+  // for keeping things off the road. The roads turn up to about 70° off
+  // their axis (a slope of 2.5), so 400 along the axis is always past that.
+  function highwayDistance(x, z) {
+    let dist = 150;
+    const n = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
+    // The neighbouring highways too: one can swing past the halfway line
+    for (let m = n - 1; m <= n + 1; m++) {
+      if (m < 0 || m > ROAD_LAST) continue;
+      const off = Math.abs(x - getRoadCenterX(z, m));
+      if (off >= 400) continue;
+      const slope = (getRoadCenterX(z + 2, m) - getRoadCenterX(z - 2, m)) / 4;
+      dist = Math.min(dist, off / Math.hypot(1, slope));
+    }
+    if (x > ROAD_EW_WEST && x < ROAD_EW_EAST) {
+      const off = Math.abs(z - getRoadCenterZ(x));
+      if (off < 400) {
+        const slope = (getRoadCenterZ(x + 2) - getRoadCenterZ(x - 2)) / 4;
+        dist = Math.min(dist, off / Math.hypot(1, slope));
+      }
+    }
+    return dist;
+  }
+
   // Returns a [0, 1] factor indicating how much a point is on the road.
   // 1.0 = fully on road, 0.0 = outside road + shoulder.
   function getRoadFactor(x, z) {
@@ -4139,6 +4165,7 @@ export const ChillFlightLogic = {};
   exports.airportLocal = airportLocal;
   exports.isOnAirport = isOnAirport;
   exports.getRoadFactor = getRoadFactor;
+  exports.highwayDistance = highwayDistance;
   exports.highwayHeight = highwayHeight;
   exports.ACCESS_ROADS = ACCESS_ROADS;
   exports.ACCESS_ROAD_WIDTH = ACCESS_ROAD_WIDTH;

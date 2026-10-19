@@ -16,6 +16,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
+import {generateChunkData} from '../terrain-gen.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -467,6 +468,82 @@ console.log(
   useSeed(20260101);
 }
 console.log('  Passed: Highways leave out stretches stranded at sea');
+
+// --- PROPS KEEP OFF THE HIGHWAYS ---
+// highwayDistance measures square to the road: compare it with the nearest
+// point of the centre lines, sampled finely. Then trees and rocks along
+// highway 0 and the cross-country one all stand clear of the paved road.
+// (They used to be kept off by distance along x alone, which let them onto
+// the road wherever it ran at an angle, near 1.2 N 1.2 W on seed 20261019.)
+{
+  useSeed(20261019);
+  const L = ChillFlightLogic;
+  const rng = L.mulberry32(5);
+  for (let i = 0; i < 200; i++) {
+    const z = (rng() - 0.5) * 40000;
+    const n = Math.floor(rng() * 3);
+    const x = L.getRoadCenterX(z, n) + (rng() - 0.5) * 200;
+    let brute = Infinity;
+    for (let zz = z - 300; zz <= z + 300; zz += 0.5) {
+      brute = Math.min(brute, Math.hypot(x - L.getRoadCenterX(zz, n), z - zz));
+    }
+    for (let xx = x - 300; xx <= x + 300; xx += 0.5) {
+      brute = Math.min(brute, Math.hypot(xx - x, z - L.getRoadCenterZ(xx)));
+    }
+    const d = L.highwayDistance(x, z);
+    if (brute < 120 && Math.abs(d - brute) > 3) {
+      console.error(
+        `FAIL: highwayDistance at X ${x.toFixed(0)}, Z ${z.toFixed(0)} is ${d.toFixed(1)}, the road is ${brute.toFixed(1)} away`
+      );
+      process.exit(1);
+    }
+  }
+  const chunks = [];
+  for (let cz = -6; cz <= 2; cz++) {
+    chunks.push([Math.round(L.getRoadCenterX(cz * 1500, 0) / 1500), cz]);
+  }
+  for (let cx = -8; cx <= -4; cx++) {
+    chunks.push([cx, Math.round(L.getRoadCenterZ(cx * 1500) / 1500)]);
+  }
+  let checked = 0;
+  for (const [chunkX, chunkZ] of chunks) {
+    const {result} = generateChunkData({
+      chunkX,
+      chunkZ,
+      chunkSize: 1500,
+      segments: 40,
+      elevParams: {
+        WATER_LEVEL: 40,
+        MOUNTAIN_LEVEL: 180,
+        MAP_WORLD_SIZE: 10000,
+        MAP_HEIGHT_SCALE: 400,
+      },
+      worldSeed: 20261019,
+      enableObjects: true,
+    });
+    for (const type in result.instanceData) {
+      if (!/Leaves|rock|Rock|bush|cactus/.test(type)) continue;
+      const d = result.instanceData[type];
+      for (let i = 0; i < d.count; i++) {
+        const x = d.matrices[i * 16 + 12];
+        const z = d.matrices[i * 16 + 14];
+        if (L.highwayDistance(x, z) < L.ROAD_WIDTH + 5) {
+          console.error(
+            `FAIL: ${type} on a highway at X ${x.toFixed(0)}, Z ${z.toFixed(0)}`
+          );
+          process.exit(1);
+        }
+        checked++;
+      }
+    }
+  }
+  if (checked < 1000) {
+    console.error(`FAIL: only ${checked} props near the highways to check`);
+    process.exit(1);
+  }
+  useSeed(20260101);
+}
+console.log('  Passed: Trees and rocks stand clear of the highways');
 
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);
