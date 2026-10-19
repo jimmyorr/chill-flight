@@ -811,10 +811,33 @@ export function clearChunkQueue() {
 }
 
 // Where a highway bridge span ends, found by walking along the road from one
-// of its samples, keyed by seed, road, walk direction and sample z; spans can
+// of its samples, keyed by seed, road, walk direction and sample position
+// along the road; spans can
 // be kilometres long, so neighbouring chunks share the walk
 const abutmentCache = new Map();
 const MAX_SPAN_SAMPLES = 400;
+
+// Within this of a north-south highway's centre line, the cross-country
+// highway (which crosses it) dips just under its deck, so the two don't
+// fight where they overlap: its half width, a little for crossing at an
+// angle, and a couple of segments
+const JUNCTION_REACH = ChillFlightLogic.ROAD_WIDTH + 2 + 60;
+const JUNCTION_DIP = 0.5;
+
+// Is world (x, z) at a crossing with a north-south highway that runs there?
+function atJunction(x, z) {
+  const n = Math.round(
+    (x - ChillFlightLogic.ROAD_BASE_X) / ChillFlightLogic.ROAD_SPACING
+  );
+  if (n < 0 || n > ChillFlightLogic.ROAD_LAST) return false;
+  return (
+    Math.abs(x - ChillFlightLogic.getRoadCenterX(z, n)) < JUNCTION_REACH &&
+    ChillFlightLogic.highwayRunsAt(n, z, simplex, {
+      WATER_LEVEL,
+      MOUNTAIN_LEVEL,
+    })
+  );
+}
 
 // Builds a chunk's meshes from generateChunkData() output: a worker's result,
 // or (when workers are unavailable) data generated here on the main thread.
@@ -1521,7 +1544,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   }
 
   // 2.955 Generate West Coast Highway
-  // Spawn continuous geometric road segments that elevate into bridges over water/valleys
+  // Spawn continuous geometric road segments that elevate into bridges over water/valleys.
+  // The north-south highways run along z; the cross-country one (ROAD_EW)
+  // along x, so below `along` is the coordinate a road runs along and
+  // `across` the other (ChillFlightLogic.roadCenter).
   if (!isCustom) {
     const halfChunk = CHUNK_SIZE / 2;
     const activeRoads = [];
@@ -1535,9 +1561,20 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         activeRoads.push(n);
       }
     }
+    if (
+      Math.abs(ChillFlightLogic.ROAD_EW_BASE_Z - worldOffsetZ) <
+        4000 + halfChunk &&
+      worldOffsetX + halfChunk > ChillFlightLogic.ROAD_EW_WEST &&
+      worldOffsetX - halfChunk < ChillFlightLogic.ROAD_EW_EAST
+    ) {
+      activeRoads.push(ChillFlightLogic.ROAD_EW);
+    }
 
     const roadSegments = [];
     activeRoads.forEach((n) => {
+      const crossCountry = n === ChillFlightLogic.ROAD_EW;
+      const alongOffset = crossCountry ? worldOffsetX : worldOffsetZ;
+      const acrossOffset = crossCountry ? worldOffsetZ : worldOffsetX;
       const bridgePositions = [];
       const sampleStep = BRIDGE_SEGMENT_LENGTH;
 
@@ -1551,14 +1588,16 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       const rawSamples = [];
       const minHeight = WATER_LEVEL + 60;
 
-      // The road's planned height and the terrain under it at world z
+      // The road's planned height and the terrain under it at world
+      // `along` wa (its centre `across` at roadC)
       const sampleRoadHeight = (
-        wz,
-        roadX = ChillFlightLogic.getRoadCenterX(wz, n)
+        wa,
+        roadC = ChillFlightLogic.roadCenter(n, wa)
       ) => {
+        const {x, z} = ChillFlightLogic.roadPoint(n, wa, roadC);
         const naturalH = ChillFlightLogic.getElevation(
-          roadX,
-          wz,
+          x,
+          z,
           simplex,
           constants,
           null,
@@ -1566,29 +1605,29 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         );
         return {
           rawY: ChillFlightLogic.highwayHeight(naturalH, WATER_LEVEL),
-          actualTerrainH: getElevation(roadX, wz),
+          actualTerrainH: getElevation(x, z),
         };
       };
 
       for (
-        let sampleZ = -halfChunk - margin;
-        sampleZ <= halfChunk + margin;
-        sampleZ += sampleStep
+        let sampleA = -halfChunk - margin;
+        sampleA <= halfChunk + margin;
+        sampleA += sampleStep
       ) {
-        const wz = worldOffsetZ + sampleZ + sampleStep / 2;
-        const roadX = ChillFlightLogic.getRoadCenterX(wz, n);
-        if (roadX >= 0) continue;
+        const wa = alongOffset + sampleA + sampleStep / 2;
+        const roadC = ChillFlightLogic.roadCenter(n, wa);
+        if (!crossCountry && roadC >= 0) continue;
 
-        const {rawY, actualTerrainH} = sampleRoadHeight(wz, roadX);
+        const {rawY, actualTerrainH} = sampleRoadHeight(wa, roadC);
 
         rawSamples.push({
-          sampleZ,
-          wz,
-          onRoute: ChillFlightLogic.highwayRunsAt(n, wz, simplex, constants),
-          roadX,
-          localRoadX: roadX - worldOffsetX,
+          sampleA,
+          wa,
+          onRoute: ChillFlightLogic.highwayRunsAt(n, wa, simplex, constants),
+          localC: roadC - acrossOffset,
           rawY,
           actualTerrainH,
+          junction: crossCountry && atJunction(wa, roadC),
         });
       }
 
@@ -1613,15 +1652,15 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         // Steps from world z (a bridge sample) along the road until the
         // span ends; returns how many more bridge samples there were and the
         // height of the ground sample past them
-        const findAbutment = (wz, step) => {
-          const key = (z) => `${ChillFlightLogic.WORLD_SEED}:${n}:${step}:${z}`;
-          const cached = abutmentCache.get(key(wz));
-          if (cached) return {extra: (cached.z - wz) / step - 1, y: cached.y};
+        const findAbutment = (wa, step) => {
+          const key = (a) => `${ChillFlightLogic.WORLD_SEED}:${n}:${step}:${a}`;
+          const cached = abutmentCache.get(key(wa));
+          if (cached) return {extra: (cached.a - wa) / step - 1, y: cached.y};
           let extra = 0;
           let y = 0;
           for (; extra < MAX_SPAN_SAMPLES; extra++) {
             const {rawY, actualTerrainH} = sampleRoadHeight(
-              wz + (extra + 1) * step
+              wa + (extra + 1) * step
             );
             y = Math.max(rawY, actualTerrainH + 1.0);
             if (rawY - actualTerrainH <= 10) break;
@@ -1629,9 +1668,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           // Every bridge sample walked over leads to the same abutment, so
           // the next chunk along this span finds it without walking
           if (abutmentCache.size > 50000) abutmentCache.clear();
-          const end = {z: wz + (extra + 1) * step, y};
+          const end = {a: wa + (extra + 1) * step, y};
           for (let k = 0; k <= extra; k++)
-            abutmentCache.set(key(wz + k * step), end);
+            abutmentCache.set(key(wa + k * step), end);
           return {extra, y};
         };
 
@@ -1652,13 +1691,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             let yEnd = finalY[runEnd + 1];
             if (runStart === 0) {
               ({extra: before, y: yStart} = findAbutment(
-                rawSamples[0].wz,
+                rawSamples[0].wa,
                 -sampleStep
               ));
             }
             if (runEnd === rawSamples.length - 1) {
               ({extra: after, y: yEnd} = findAbutment(
-                rawSamples[runEnd].wz,
+                rawSamples[runEnd].wa,
                 sampleStep
               ));
             }
@@ -1675,29 +1714,36 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           }
         }
 
+        // Under the deck of a north-south highway it crosses (atJunction)
+        for (let i = 0; i < rawSamples.length; i++) {
+          if (rawSamples[i].junction) finalY[i] -= JUNCTION_DIP;
+        }
+
         // 3. Assemble bridgePositions for this chunk
         for (let i = 0; i < rawSamples.length - 1; i++) {
           const curr = rawSamples[i];
           const next = rawSamples[i + 1];
 
           // Only keep segments whose center falls inside this chunk
-          if (curr.sampleZ < -halfChunk || curr.sampleZ >= halfChunk) continue;
-          if (curr.localRoadX < -halfChunk || curr.localRoadX >= halfChunk)
-            continue;
+          if (curr.sampleA < -halfChunk || curr.sampleA >= halfChunk) continue;
+          if (curr.localC < -halfChunk || curr.localC >= halfChunk) continue;
           if (!curr.onRoute || !next.onRoute) continue;
 
           const needsPilings = finalY[i] - curr.actualTerrainH > 10;
 
+          const a0 = curr.sampleA + sampleStep / 2;
+          const a1 = curr.sampleA + sampleStep * 1.5;
           bridgePositions.push({
-            x: curr.localRoadX,
+            x: crossCountry ? a0 : curr.localC,
             y: finalY[i],
-            z: curr.sampleZ + sampleStep / 2,
+            z: crossCountry ? curr.localC : a0,
             needsPilings: needsPilings,
             terrainH: curr.actualTerrainH,
+            junction: curr.junction || next.junction,
             nextPos: {
-              x: next.localRoadX,
+              x: crossCountry ? a1 : next.localC,
               y: finalY[i + 1],
-              z: curr.sampleZ + sampleStep * 1.5,
+              z: crossCountry ? next.localC : a1,
             },
           });
         }
@@ -1716,6 +1762,16 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         });
       }
 
+      // A segment's place along the road, counted from world 0, for piers
+      // and streetlights at a steady cadence across chunks
+      const segmentIndex = (pos) =>
+        Math.round(
+          (alongOffset +
+            (crossCountry ? pos.x + pos.nextPos.x : pos.z + pos.nextPos.z) /
+              2) /
+            BRIDGE_SEGMENT_LENGTH
+        );
+
       if (bridgePositions.length > 0) {
         // 1. Determine which segments need girders, railings, and piers
         let numGirderSegments = 0;
@@ -1727,11 +1783,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             numGirderSegments++;
             numRailSegments++;
 
-            const midZ = (pos.z + pos.nextPos.z) / 2;
-            const globalZ = worldOffsetZ + midZ;
-            const globalSegmentIndex = Math.round(
-              globalZ / BRIDGE_SEGMENT_LENGTH
-            );
+            const globalSegmentIndex = segmentIndex(pos);
             // Place major piers every 4 segments (120 units)
             pos.hasPier = Math.abs(globalSegmentIndex) % 4 === 0;
           } else {
@@ -1818,7 +1870,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
         // Streetlights
         let slFrequency = 4; // Normal: every 4th segment (120 units)
-        const absZ = Math.abs(worldOffsetZ);
+        // By distance north or south of the equator, or east or west of
+        // the meridian for the cross-country highway
+        const absZ = Math.abs(crossCountry ? worldOffsetX : worldOffsetZ);
 
         // Stop completely (abs(Z) > 50000, 10.0° North/South)
         if (absZ > 50000) {
@@ -1851,12 +1905,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         let numStreetlights = 0;
         if (slFrequency > 0) {
           bridgePositions.forEach((pos) => {
-            const midZ = (pos.z + pos.nextPos.z) / 2;
-            const globalZ = worldOffsetZ + midZ;
-            const globalSegmentIndex = Math.round(
-              globalZ / BRIDGE_SEGMENT_LENGTH
-            );
-            if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
+            if (
+              !pos.junction &&
+              Math.abs(segmentIndex(pos)) % slFrequency === 0
+            ) {
               numStreetlights++;
             }
           });
@@ -1961,11 +2013,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           }
 
           // Streetlights
-          if (slFrequency > 0 && slIndex < numStreetlights) {
-            const globalZ = worldOffsetZ + midVec.z;
-            const globalSegmentIndex = Math.round(
-              globalZ / BRIDGE_SEGMENT_LENGTH
-            );
+          if (slFrequency > 0 && slIndex < numStreetlights && !pos.junction) {
+            const globalSegmentIndex = segmentIndex(pos);
 
             if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
               const isLeftSide =

@@ -130,6 +130,35 @@ function drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd) {
   const highwayAlpha = Math.min(1, (roadHalf / minHalf) ** 0.5 + 0.35);
   const accessHalf = ChillFlightLogic.ACCESS_ROAD_WIDTH;
   const accessAlpha = Math.min(1, (accessHalf / minHalf) ** 0.5 + 0.2);
+  // The cross-country highway runs along x, so it's drawn down the columns:
+  // its centre z at each column's left edge, and whether it runs there
+  const ew = ChillFlightLogic.ROAD_EW;
+  let ewZ = null;
+  let ewRuns = null;
+  if (
+    x1 > ChillFlightLogic.ROAD_EW_WEST &&
+    x0 < ChillFlightLogic.ROAD_EW_EAST &&
+    Math.abs(
+      z0 + ((rowStart + rowEnd) / 2) * upp - ChillFlightLogic.ROAD_EW_BASE_Z
+    ) <
+      ((rowEnd - rowStart) / 2) * upp + 5000
+  ) {
+    ewZ = new Float32Array(width + 1);
+    ewRuns = new Uint8Array(width);
+    for (let c = 0; c <= width; c++) {
+      ewZ[c] = ChillFlightLogic.getRoadCenterZ(x0 + c * upp);
+    }
+    for (let c = 0; c < width; c++) {
+      ewRuns[c] = ChillFlightLogic.highwayRunsAt(
+        ew,
+        x0 + (c + 0.5) * upp,
+        simplex,
+        CONSTANTS
+      )
+        ? 1
+        : 0;
+    }
+  }
   for (let r = rowStart; r < rowEnd; r++) {
     const row = r - rowStart;
     const zTop = z0 + r * upp;
@@ -162,6 +191,24 @@ function drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd) {
         Math.max(a, b) + half,
         highwayAlpha
       );
+    }
+    if (ewZ) {
+      for (let c = 0; c < width; c++) {
+        if (!ewRuns[c]) continue;
+        const a = ewZ[c];
+        const b = ewZ[c + 1];
+        const slope = (b - a) / upp;
+        const half = Math.max(minHalf, roadHalf * Math.sqrt(1 + slope * slope));
+        // How much of this pixel's height the road covers
+        const top = Math.max(zTop, Math.min(a, b) - half);
+        const bottom = Math.min(zTop + upp, Math.max(a, b) + half);
+        if (bottom <= top) continue;
+        const alpha = (highwayAlpha * (bottom - top)) / upp;
+        const out = (row * width + c) * 4;
+        for (let i = 0; i < 3; i++) {
+          pixels[out + i] += (ROAD_COLOR[i] - pixels[out + i]) * alpha;
+        }
+      }
     }
     ChillFlightLogic.ACCESS_ROADS.forEach((road, i) => {
       // The row the road runs along (or, zoomed in, every row it covers)

@@ -2112,9 +2112,65 @@ export const ChillFlightLogic = {};
   // 0 on and beside the highway, rising to 1 by 400 units out, so dunes,
   // mesas and tors don't bury it
   function roadClear(x, z) {
+    let clear = 1;
     const i = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
-    if (i < 0 || i > ROAD_LAST) return 1;
-    return smoothRamp(Math.abs(x - getRoadCenterX(z, i)), 150, 400);
+    if (i >= 0 && i <= ROAD_LAST) {
+      clear = smoothRamp(Math.abs(x - getRoadCenterX(z, i)), 150, 400);
+    }
+    if (x > ROAD_EW_WEST && x < ROAD_EW_EAST) {
+      clear = Math.min(
+        clear,
+        smoothRamp(Math.abs(z - getRoadCenterZ(x)), 150, 400)
+      );
+    }
+    return clear;
+  }
+
+  // Height h at a point `across` from road n's line at `along` (see
+  // roadPoint), cut down into a trench where the land rises above the road
+  function carveRoadTrench(h, n, along, across, simplex, constants, lerp) {
+    const WATER_LEVEL = constants.WATER_LEVEL || 40;
+    const center = roadCenter(n, along);
+    const distToRoad = Math.abs(across - center);
+
+    const CANYON_FLOOR_WIDTH = 50; // Flat area at the bottom for the road to sit in
+
+    // Conservative check to avoid computing center elevation for far away points
+    const MAX_POSSIBLE_WALL_WIDTH = 3500;
+    if (distToRoad >= CANYON_FLOOR_WIDTH + MAX_POSSIBLE_WALL_WIDTH) return h;
+
+    // Find the intended natural height of the road center
+    // We MUST ignore roads and rivers here to avoid recursion and hitting trenches
+    roadPoint(n, along, center, _roadXZ);
+    const centerNaturalH = getElevation(
+      _roadXZ.x,
+      _roadXZ.z,
+      simplex,
+      constants,
+      lerp,
+      {ignoreRivers: true, ignoreRoads: true, forRoad: true}
+    );
+
+    const roadY = highwayHeight(centerNaturalH, WATER_LEVEL);
+
+    // Dynamically scale wall width based on depth of the cut to maintain a smooth slope
+    const canyonDepth = Math.max(0, centerNaturalH - roadY);
+    const CANYON_WALL_WIDTH = 250 + canyonDepth * 1.5;
+
+    // If the terrain is higher than the road, carve a canyon
+    if (distToRoad >= CANYON_FLOOR_WIDTH + CANYON_WALL_WIDTH || h <= roadY) {
+      return h;
+    }
+    let carveFactor;
+    if (distToRoad <= CANYON_FLOOR_WIDTH) {
+      carveFactor = 1.0;
+    } else {
+      // Smoothly slope the canyon walls up to the natural terrain
+      const t = (distToRoad - CANYON_FLOOR_WIDTH) / CANYON_WALL_WIDTH;
+      carveFactor = 1.0 - t * t * (3 - 2 * t);
+    }
+    // roadY - 2.5 avoids clipping and z-fighting with the road deck
+    return carveFactor > 0 ? lerp(h, roadY - 2.5, carveFactor) : h;
   }
 
   function getElevation(x, z, simplex, constants, lerp, options = {}) {
@@ -3150,61 +3206,38 @@ export const ChillFlightLogic = {};
     }
 
     // --- HIGHWAY TRENCH CARVING LOGIC ---
-    // GEOGRAPHIC GUARD: Highways only exist on the West Coast (X < 0).
-    // Never execute highway math for X >= 0 to prevent phantom road canyons in the ocean.
-    // NEVER early-return from this block, as that would abort subsequent passes.
-    if (!options.ignoreRoads && origX < 0) {
-      // Find the closest highway index mathematically
-      const highwayIndex = Math.min(
-        ROAD_LAST,
-        Math.max(0, Math.round((origX - ROAD_BASE_X) / ROAD_SPACING))
-      );
-      const roadCenterX = getRoadCenterX(origZ, highwayIndex);
-      if (roadCenterX < 0) {
-        const distToRoad = Math.abs(origX - roadCenterX);
-
-        const CANYON_FLOOR_WIDTH = 50; // Flat area at the bottom for the road to sit in
-
-        // Conservative check to avoid computing center elevation for far away points
-        const MAX_POSSIBLE_WALL_WIDTH = 3500;
-
-        if (distToRoad < CANYON_FLOOR_WIDTH + MAX_POSSIBLE_WALL_WIDTH) {
-          // Find the intended natural height of the road center
-          // We MUST ignore roads and rivers here to avoid recursion and hitting trenches
-          const centerNaturalH = getElevation(
-            roadCenterX,
+    // GEOGRAPHIC GUARD: the north-south highways only exist on the West
+    // Coast (X < 0), and the cross-country one only between ROAD_EW_WEST and
+    // ROAD_EW_EAST, so no phantom road canyons are carved elsewhere.
+    if (!options.ignoreRoads) {
+      if (origX < 0) {
+        // The closest north-south highway, found mathematically
+        const highwayIndex = Math.min(
+          ROAD_LAST,
+          Math.max(0, Math.round((origX - ROAD_BASE_X) / ROAD_SPACING))
+        );
+        if (getRoadCenterX(origZ, highwayIndex) < 0) {
+          n = carveRoadTrench(
+            n,
+            highwayIndex,
             origZ,
+            origX,
             simplex,
             constants,
-            _lerp,
-            {ignoreRivers: true, ignoreRoads: true, forRoad: true}
+            _lerp
           );
-
-          const roadY = highwayHeight(centerNaturalH, WATER_LEVEL);
-
-          // Dynamically scale wall width based on depth of the cut to maintain a smooth slope
-          const canyonDepth = Math.max(0, centerNaturalH - roadY);
-          const CANYON_WALL_WIDTH = 250 + canyonDepth * 1.5;
-
-          if (distToRoad < CANYON_FLOOR_WIDTH + CANYON_WALL_WIDTH) {
-            // If the terrain is higher than the road, carve a canyon
-            if (n > roadY) {
-              let carveFactor;
-              if (distToRoad <= CANYON_FLOOR_WIDTH) {
-                carveFactor = 1.0;
-              } else {
-                // Smoothly slope the canyon walls up to the natural terrain
-                const t = (distToRoad - CANYON_FLOOR_WIDTH) / CANYON_WALL_WIDTH;
-                carveFactor = 1.0 - t * t * (3 - 2 * t);
-              }
-
-              if (carveFactor > 0) {
-                // roadY - 2.5 avoids clipping and z-fighting with the road deck
-                n = _lerp(n, roadY - 2.5, carveFactor);
-              }
-            }
-          }
         }
+      }
+      if (origX > ROAD_EW_WEST && origX < ROAD_EW_EAST) {
+        n = carveRoadTrench(
+          n,
+          ROAD_EW,
+          origX,
+          origZ,
+          simplex,
+          constants,
+          _lerp
+        );
       }
     }
 
@@ -3743,8 +3776,58 @@ export const ChillFlightLogic = {};
     return x;
   }
 
+  // --- THE CROSS-COUNTRY HIGHWAY ---
+  // Highway ROAD_EW runs east-west across the continent, crossing all the
+  // north-south ones: the same winding course as theirs with x and z
+  // swapped, about ROAD_EW_BASE_Z (0.3° S), between ROAD_EW_WEST and
+  // ROAD_EW_EAST (where it runs inside that is up to highwayRunsAt)
+  const ROAD_EW = ROAD_LAST + 1;
+  const ROAD_EW_BASE_Z = 1500;
+  const ROAD_EW_WEST = ROAD_BASE_X + ROAD_LAST * ROAD_SPACING - 5000;
+  const ROAD_EW_EAST = 8000;
+
+  // Places the road keeps clear of: the volcano (X -5000, Z 5000) and the
+  // airports near its line. Within 2,500 units (in x) of one, the road keeps
+  // at least `clear` north or south of it (whichever side its line is on),
+  // easing in from 7,000 units out rather than turning sharply.
+  const ROAD_EW_OBSTACLES = [
+    {x: -5000, z: 5000, clear: 2700},
+    ...AIRPORTS.filter((a) => Math.abs(a.z - ROAD_EW_BASE_Z) < 6000).map(
+      (a) => ({x: a.x, z: a.z, clear: 1300})
+    ),
+  ];
+
+  function getRoadCenterZ(x) {
+    let z = ROAD_EW_BASE_Z + getRoadSweepOffset(x, ROAD_EW);
+    for (const o of ROAD_EW_OBSTACLES) {
+      const near = 1 - smoothRamp(Math.abs(x - o.x), 2500, 7000);
+      if (near === 0) continue;
+      // How far past the limit, smoothed so the bend has no corner
+      const side = o.z > ROAD_EW_BASE_Z ? 1 : -1;
+      const over = (z - o.z) * side + o.clear;
+      const excess = 0.5 * (over + Math.sqrt(over * over + 500 * 500));
+      z -= excess * near * side;
+    }
+    return z;
+  }
+
+  // A highway's line, for code that handles them all alike: `along` is the
+  // coordinate it runs along (z for the north-south ones, x for ROAD_EW) and
+  // roadCenter gives the other one, `across`, at its centre
+  function roadCenter(n, along) {
+    return n === ROAD_EW ? getRoadCenterZ(along) : getRoadCenterX(along, n);
+  }
+
+  // The world point (out.x, out.z) at `along`, `across` on road n
+  function roadPoint(n, along, across, out = {}) {
+    out.x = n === ROAD_EW ? along : across;
+    out.z = n === ROAD_EW ? across : along;
+    return out;
+  }
+  const _roadXZ = {x: 0, z: 0};
+
   // --- WHERE THE HIGHWAYS RUN ---
-  // Land or water along highway n on a 500-unit grid fixed in world z, so
+  // Land or water along highway n on a 500-unit grid fixed in its `along`, so
   // every chunk and map tile agrees; cached per seed
   const ROUTE_STEP = 500;
   const routeLand = new Map();
@@ -3755,9 +3838,11 @@ export const ChillFlightLogic = {};
     const key = n * 1e7 + k;
     let land = routeLand.get(key);
     if (land === undefined) {
-      const z = k * ROUTE_STEP;
+      const along = k * ROUTE_STEP;
+      const p = roadPoint(n, along, roadCenter(n, along));
       land =
-        getElevation(getRoadCenterX(z, n), z, simplex, constants, null, {
+        (n !== ROAD_EW || (along > ROAD_EW_WEST && along < ROAD_EW_EAST)) &&
+        getElevation(p.x, p.z, simplex, constants, null, {
           ignoreRivers: true,
           ignoreRoads: true,
           forRoad: true,
@@ -3811,15 +3896,15 @@ export const ChillFlightLogic = {};
     return on;
   }
 
-  // Does highway n run at world z? Out to the grid point past the last on
-  // the route, so it ends just past the shore.
-  function highwayRunsAt(n, z, simplex, constants) {
+  // Does highway n run at `along` (see roadCenter)? Out to the grid point
+  // past the last on the route, so it ends just past the shore.
+  function highwayRunsAt(n, along, simplex, constants) {
     if (routeSeed !== exports.WORLD_SEED || routeLand.size > 200000) {
       routeLand.clear();
       routeOn.clear();
       routeSeed = exports.WORLD_SEED;
     }
-    const k = Math.floor(z / ROUTE_STEP);
+    const k = Math.floor(along / ROUTE_STEP);
     return (
       routeOnAt(n, k, simplex, constants) ||
       routeOnAt(n, k + 1, simplex, constants)
@@ -4002,11 +4087,13 @@ export const ChillFlightLogic = {};
     // The road is at ROAD_BASE_X + n * ROAD_SPACING + sweep.
     // We can estimate `n` by ignoring the sweep first (which is max +/- 3000).
     const n = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
-    if (n < 0 || n > ROAD_LAST) return 0.0;
-
+    let dist = Infinity;
     // Now get the exact center X of the closest highway
-    const centerX = getRoadCenterX(z, n);
-    const dist = Math.abs(x - centerX);
+    if (n >= 0 && n <= ROAD_LAST) dist = Math.abs(x - getRoadCenterX(z, n));
+    // And the cross-country one
+    if (x > ROAD_EW_WEST && x < ROAD_EW_EAST) {
+      dist = Math.min(dist, Math.abs(z - getRoadCenterZ(x)));
+    }
 
     if (dist <= ROAD_WIDTH) {
       return 1.0;
@@ -4039,6 +4126,13 @@ export const ChillFlightLogic = {};
   exports.getRiverCenterZ = getRiverCenterZ;
   exports.getRiverFlow = getRiverFlow;
   exports.getRoadCenterX = getRoadCenterX;
+  exports.getRoadCenterZ = getRoadCenterZ;
+  exports.roadCenter = roadCenter;
+  exports.roadPoint = roadPoint;
+  exports.ROAD_EW = ROAD_EW;
+  exports.ROAD_EW_BASE_Z = ROAD_EW_BASE_Z;
+  exports.ROAD_EW_WEST = ROAD_EW_WEST;
+  exports.ROAD_EW_EAST = ROAD_EW_EAST;
   exports.AIRPORTS = AIRPORTS;
   exports.RUNWAY_LENGTH = RUNWAY_LENGTH;
   exports.RUNWAY_WIDTH = RUNWAY_WIDTH;
