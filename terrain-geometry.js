@@ -2554,6 +2554,8 @@ if (typeof window !== 'undefined') {
 }
 
 export var bridgeDeckMat = createMaterial({color: 0x4a4a4a, flatShading: true}); // Asphalt gray
+// A town street's slab of asphalt (a unit box, scaled to each piece)
+export var townStreetGeo = new THREE.BoxGeometry(1, 1, 1);
 export var bridgePilingMat = createMaterial({
   color: 0x626262,
   flatShading: true,

@@ -36,6 +36,7 @@ import {
   boatSailMat,
   bridgeDeckGeo,
   bridgeDeckMat,
+  townStreetGeo,
   bridgeGirderGeo,
   bridgeGirderMat,
   bridgePierCapGeo,
@@ -656,6 +657,16 @@ globalInstancer.setFarGeometry(
 globalInstancer.setFarGeometry('bush', null);
 globalInstancer.setFarGeometry('snowmanBody', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
+// Town streets: flat, so they cast no shadow
+globalInstancer.registerType(
+  'townStreet',
+  townStreetGeo,
+  bridgeDeckMat,
+  30000,
+  false,
+  false
+);
+
 // Doors and chimneys aren't drawn far away; windows are, so villages still
 // twinkle on the horizon at night
 globalInstancer.setFarGeometry('houseDoor', null);
