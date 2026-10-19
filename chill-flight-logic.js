@@ -828,9 +828,17 @@ export const ChillFlightLogic = {};
   // (radians from +X toward +Z) with the tower and hangar to its +v side.
   // `access` (-1 west, 1 east) gives it a road to the nearest highway
   // (ACCESS_ROADS), on a side where the road leaves the apron away from the
-  // runway. The eastern airports have no highway to reach.
+  // runway. Meadow Field's road is the cross-country highway's east end
+  // (`crossCountry`); the other eastern airports have no highway to reach.
   const AIRPORTS = [
-    {name: 'Meadow Field', x: 1500, z: 2400, angle: 0},
+    {
+      name: 'Meadow Field',
+      x: 1500,
+      z: 2400,
+      angle: 0,
+      access: -1,
+      crossCountry: true,
+    },
     {name: 'Mesa Field', x: -4800, z: 16200, angle: Math.PI / 4, access: -1},
     {name: 'Pinewood Field', x: -4000, z: -17200, angle: 0, access: -1},
     {name: 'Lagoon Field', x: 5000, z: 4800, angle: (3 * Math.PI) / 4},
@@ -3780,11 +3788,11 @@ export const ChillFlightLogic = {};
   // Highway ROAD_EW runs east-west across the continent, crossing all the
   // north-south ones: the same winding course as theirs with x and z
   // swapped, about ROAD_EW_BASE_Z (0.3° S), between ROAD_EW_WEST and
-  // ROAD_EW_EAST (where it runs inside that is up to highwayRunsAt)
+  // ROAD_EW_EAST, where it meets Meadow Field's access road (where it runs
+  // inside that is up to highwayRunsAt)
   const ROAD_EW = ROAD_LAST + 1;
   const ROAD_EW_BASE_Z = 1500;
   const ROAD_EW_WEST = ROAD_BASE_X + ROAD_LAST * ROAD_SPACING - 5000;
-  const ROAD_EW_EAST = 8000;
 
   // Places the road keeps clear of: the volcano (X -5000, Z 5000) and the
   // airports near its line. Within 2,500 units (in x) of one, the road keeps
@@ -3792,9 +3800,9 @@ export const ChillFlightLogic = {};
   // easing in from 7,000 units out rather than turning sharply.
   const ROAD_EW_OBSTACLES = [
     {x: -5000, z: 5000, clear: 2700},
-    ...AIRPORTS.filter((a) => Math.abs(a.z - ROAD_EW_BASE_Z) < 6000).map(
-      (a) => ({x: a.x, z: a.z, clear: 1300})
-    ),
+    ...AIRPORTS.filter(
+      (a) => !a.crossCountry && Math.abs(a.z - ROAD_EW_BASE_Z) < 6000
+    ).map((a) => ({x: a.x, z: a.z, clear: 1300})),
   ];
 
   function getRoadCenterZ(x) {
@@ -3808,7 +3816,14 @@ export const ChillFlightLogic = {};
       const excess = 0.5 * (over + Math.sqrt(over * over + 500 * 500));
       z -= excess * near * side;
     }
-    return z;
+    // Toward its east end it runs straight into Meadow Field's access road,
+    // the way the north-south ones run past theirs
+    const t = smoothRamp(
+      ROAD_EW_EAST - x,
+      ACCESS_ROAD_STRAIGHT,
+      ACCESS_ROAD_STRAIGHT + ACCESS_ROAD_BEND
+    );
+    return MEADOW_ROAD.z + (z - MEADOW_ROAD.z) * t;
   }
 
   // A highway's line, for code that handles them all alike: `along` is the
@@ -3961,10 +3976,12 @@ export const ChillFlightLogic = {};
     const x1 = xGrade + a.access * ACCESS_ROAD_GRADE;
     ACCESS_ROADS.push({
       index,
-      n: Math.min(
-        ROAD_LAST,
-        Math.max(0, Math.round((x1 - ROAD_BASE_X) / ROAD_SPACING))
-      ),
+      n: a.crossCountry
+        ? ROAD_EW
+        : Math.min(
+            ROAD_LAST,
+            Math.max(0, Math.round((x1 - ROAD_BASE_X) / ROAD_SPACING))
+          ),
       z,
       x0,
       x1,
@@ -3974,6 +3991,9 @@ export const ChillFlightLogic = {};
       maxX: Math.max(x0, x1),
     });
   });
+
+  const MEADOW_ROAD = ACCESS_ROADS.find((r) => r.n === ROAD_EW);
+  const ROAD_EW_EAST = MEADOW_ROAD.x1;
 
   // How far (x, z) is from an access road's centre line
   function accessRoadDistance(r, x, z) {
