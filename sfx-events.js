@@ -316,6 +316,9 @@ export function playChime(force = false) {
   }
 }
 
+// How loud thunder is (1.6 = +4 dB), so it stands out over the rain
+const THUNDER_LEVEL = 1.6;
+
 // Thunder after a lightning flash. distance is 0..1 (overhead to far off):
 // farther strikes arrive later, quieter and duller, with less crack.
 export function playThunder(distance = 0.5, force = false) {
@@ -332,7 +335,7 @@ export function playThunder(distance = 0.5, force = false) {
       freq: 2600,
       freqEnd: 700,
       q: 0.5,
-      gain: 0.9 * (1 - d / 0.6),
+      gain: 0.9 * (1 - d / 0.6) * THUNDER_LEVEL,
       attack: 0.004,
       decay: 0.35,
     });
@@ -346,7 +349,8 @@ export function playThunder(distance = 0.5, force = false) {
       freq: (420 - i * 60) * dull,
       freqEnd: 90,
       q: 0.8,
-      gain: loud * (0.9 - i * 0.15) * (0.8 + Math.random() * 0.4),
+      gain:
+        loud * (0.9 - i * 0.15) * (0.8 + Math.random() * 0.4) * THUNDER_LEVEL,
       attack: 0.08 + Math.random() * 0.12,
       decay: 1.4 + i * 0.5 + Math.random() * 0.6,
     });
