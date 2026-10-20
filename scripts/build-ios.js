@@ -106,7 +106,15 @@ const exportCmd = [
   '-allowProvisioningUpdates',
 ].join(' ');
 
-execSync(exportCmd, {cwd: appDir, stdio: 'inherit', env});
+try {
+  execSync(exportCmd, {cwd: appDir, stdio: 'inherit', env});
+} catch (err) {
+  console.error('\n❌ Export failed.');
+  console.error(
+    'Tip: Ensure an "Apple Distribution" certificate with a private key is in your Keychain (Xcode -> Settings -> Accounts -> Manage Certificates -> + Apple Distribution).'
+  );
+  throw err;
+}
 
 if (!fs.existsSync(ipaPath)) {
   console.error(
