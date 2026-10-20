@@ -68,6 +68,8 @@ import '../jobs-logic.js';
 import '../dialog.js';
 import '../jobs.js';
 import '../people-screen.js';
+import '../multiplayer-logic.js';
+import '../multiplayer.js';
 import '../vr-manager.js';
 import '../game-loop.js';
 import '../map-loader.js';

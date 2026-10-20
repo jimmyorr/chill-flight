@@ -1,5 +1,5 @@
 // --- PEOPLE SCREEN ---
-// The People screen (the 👥 button on the pause menu, by Achievements): a
+// The People screen (the 📇 button on the pause menu, by Achievements): a
 // card for everyone in people.js with their face, where they are and how
 // many jobs you've done for them. Someone you haven't met yet is a
 // silhouette and "???", with just their airport.

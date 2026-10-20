@@ -1,0 +1,439 @@
+#!/usr/bin/env node
+/**
+ * scripts/test-multiplayer.js
+ *
+ * Checks flying together without a network: the relay's rules
+ * (relay/src/rules.js: who may join, which pages may connect, what's passed
+ * on) and the game's side (multiplayer-logic.js): room codes and links,
+ * position updates, and smoothing other planes between updates, including
+ * late, bunched-up and lost updates, a clock that's minutes off, a jet in a
+ * tight turn, a loop and a warp.
+ */
+import * as THREE from 'three';
+import * as rules from '../relay/src/rules.js';
+import {
+  CLOSE,
+  MAX_PLAYERS,
+  PeerTrack,
+  RENDER_DELAY_MS,
+  ROOM_CODE_ALPHABET,
+  ROOM_CODE_LENGTH,
+  SEND_INTERVAL_MS,
+  inviteUrl,
+  makeRoomCode,
+  packState,
+  parseRoomCode,
+  roomSocketUrl,
+  unpackState,
+} from '../multiplayer-logic.js';
+
+console.log('Testing flying together...');
+
+let failed = false;
+function check(name, ok, detail = '') {
+  if (ok) {
+    console.log(`  Passed: ${name}`);
+  } else {
+    failed = true;
+    console.log(`FAIL: ${name} ${detail}`);
+  }
+}
+
+// Seeded so failures reproduce
+function mulberry32(seed) {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// --- The game and the relay agree ---
+check(
+  'Game and relay use the same room codes and close codes',
+  ROOM_CODE_ALPHABET === rules.ROOM_CODE_ALPHABET &&
+    ROOM_CODE_LENGTH === rules.ROOM_CODE_LENGTH &&
+    MAX_PLAYERS === rules.MAX_PLAYERS &&
+    JSON.stringify(CLOSE) === JSON.stringify(rules.CLOSE)
+);
+
+// --- Room codes ---
+{
+  const rng = mulberry32(1);
+  const codes = Array.from({length: 2000}, () => makeRoomCode(rng));
+  check(
+    'Room codes are valid',
+    codes.every((c) => rules.isRoomCode(c) && parseRoomCode(c) === c)
+  );
+  check('Room codes vary', new Set(codes).size > 1990);
+  check(
+    'Typed codes are tidied up',
+    parseRoomCode(' ab 7k ') === 'AB7K' && parseRoomCode('ab-7k') === 'AB7K'
+  );
+  check(
+    'Look-alikes and wrong lengths are refused',
+    parseRoomCode('AB0K') === null &&
+      parseRoomCode('ABIK') === null &&
+      parseRoomCode('ABC') === null &&
+      parseRoomCode('ABCDE') === null &&
+      !rules.isRoomCode('abcd')
+  );
+}
+
+// --- Links ---
+{
+  const link = new URL(
+    inviteUrl('https://chill-flight.cowneck.com/?plane=jet#x', 'AB7K', 20261020)
+  );
+  check(
+    'Invite link carries the room and the world, nothing else',
+    link.origin === 'https://chill-flight.cowneck.com' &&
+      link.searchParams.get('room') === 'AB7K' &&
+      link.searchParams.get('seed') === '20261020' &&
+      !link.searchParams.has('plane') &&
+      link.hash === ''
+  );
+  const ws = new URL(
+    roomSocketUrl('wss://relay.example/', 'AB7K', {
+      mode: 'create',
+      seed: 5,
+      name: 'Erin',
+    })
+  );
+  check(
+    'Relay address names the room, mode, seed and host',
+    ws.pathname === '/room/AB7K' &&
+      ws.searchParams.get('mode') === 'create' &&
+      ws.searchParams.get('seed') === '5' &&
+      ws.searchParams.get('name') === 'Erin'
+  );
+}
+
+// --- Which pages may connect ---
+{
+  const allowed =
+    'https://chill-flight.cowneck.com,https://*.chill-flight.pages.dev,capacitor://localhost,tauri://localhost';
+  const ok = (o) => rules.isAllowedOrigin(o, allowed);
+  check(
+    'The site, its previews, the apps and local testing may connect',
+    ok('https://chill-flight.cowneck.com') &&
+      ok('https://v1-1-2.chill-flight.pages.dev') &&
+      ok('capacitor://localhost') &&
+      ok('tauri://localhost') &&
+      ok('http://localhost:5173') &&
+      ok('http://127.0.0.1:8787')
+  );
+  check(
+    'Other pages may not',
+    !ok('https://evil.example') &&
+      !ok('https://chill-flight.cowneck.com.evil.example') &&
+      !ok('https://chill-flight.pages.dev.evil.example') &&
+      !ok('http://chill-flight.cowneck.com') &&
+      !ok(null) &&
+      !ok('not a url')
+  );
+}
+
+// --- Who may join ---
+{
+  const now = 1e12;
+  const info = {seed: 7, host: 'Erin', emptySince: null};
+  const a = (o) => rules.admit({now, seed: '7', host: 'Erin', ...o});
+  const created = a({mode: 'create', players: 0, info: null});
+  check(
+    'Creating a new room keeps its world and host',
+    created.ok && created.info.seed === 7 && created.info.host === 'Erin'
+  );
+  check(
+    'Creating a room that is in use is refused',
+    a({mode: 'create', players: 1, info}).code === rules.CLOSE.taken
+  );
+  check(
+    'Joining a room with people in it works',
+    a({mode: 'join', players: 2, info}).ok
+  );
+  check(
+    'Joining a room that never existed is refused',
+    a({mode: 'join', players: 0, info: null}).code === rules.CLOSE.notFound
+  );
+  check(
+    'The fifth player is refused',
+    a({mode: 'join', players: 4, info}).code === rules.CLOSE.full
+  );
+  const empty = {...info, emptySince: now - 60 * 1000};
+  const stale = {...info, emptySince: now - rules.EMPTY_ROOM_MS - 1};
+  check(
+    'An empty room can be come back to for a while, then it has ended',
+    a({mode: 'join', players: 0, info: empty}).ok &&
+      a({mode: 'join', players: 0, info: stale}).code ===
+        rules.CLOSE.notFound &&
+      a({mode: 'create', players: 0, info: stale}).ok
+  );
+  const rejoined = a({mode: 'rejoin', players: 0, info: stale, seed: '9'});
+  check(
+    'Coming back after a dropped connection starts the room again',
+    rejoined.ok && rejoined.info.seed === 9
+  );
+  check(
+    'Coming back to a live room keeps its world',
+    a({mode: 'rejoin', players: 1, info, seed: '9'}).info.seed === 7
+  );
+  check(
+    'A bad seed or mode is refused',
+    a({mode: 'create', players: 0, info: null, seed: 'x'}).code ===
+      rules.CLOSE.badRequest &&
+      a({mode: 'spy', players: 1, info}).code === rules.CLOSE.badRequest
+  );
+  const rng = mulberry32(2);
+  const ids = [];
+  for (let i = 0; i < 4; i++) ids.push(rules.newPlayerId(ids, rng));
+  check('Player ids are unique in a room', new Set(ids).size === 4);
+}
+
+// --- What's passed on ---
+{
+  const out = JSON.parse(rules.relayed('{"t":"s","f":"fake","v":1}', 'abc'));
+  check(
+    'Messages are passed on tagged with their real sender',
+    out.t === 's' && out.f === 'abc' && out.v === 1
+  );
+  check(
+    'Junk and oversized messages are dropped',
+    rules.relayed('nope', 'a') === null &&
+      rules.relayed('[1,2]', 'a') === null &&
+      rules.relayed('null', 'a') === null &&
+      rules.relayed(
+        JSON.stringify({t: 'x', pad: 'x'.repeat(rules.MAX_MESSAGE_BYTES)}),
+        'a'
+      ) === null
+  );
+  check(
+    'Names are trimmed to 16 characters',
+    rules.cleanName('  A very long pilot name\n') === 'A very long pilo'
+  );
+}
+
+// --- Position updates ---
+{
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3, 1, -0.5));
+  const msg = packState(1234.5, {x: 1.234567, y: 2, z: -3}, q, 1.23456, 3);
+  // Through the relay, which tags it with who sent it
+  const text = rules.relayed(JSON.stringify(msg), 'abc');
+  check('A position update is small', text.length < 140, `${text.length}`);
+  const s = unpackState(JSON.parse(text));
+  check(
+    'A position update survives the trip',
+    s &&
+      s.pos.distanceTo(new THREE.Vector3(1.234567, 2, -3)) < 0.01 &&
+      s.quat.angleTo(q) < 0.001 &&
+      Math.abs(s.speed - 1.23456) < 0.001 &&
+      s.flags === 3
+  );
+  check(
+    'Broken updates are ignored',
+    unpackState({t: 's', ts: 1, p: [1, 2], q: [0, 0, 0, 1], v: 1}) === null &&
+      unpackState({t: 's', ts: 1, p: [1, 2, 3], q: [0, 0, 0, 0], v: 1}) ===
+        null &&
+      unpackState({t: 's', ts: 1, p: [1, NaN, 3], q: [0, 0, 0, 1], v: 1}) ===
+        null &&
+      unpackState({t: 'hello'}) === null
+  );
+}
+
+// --- Smoothing ---
+
+// A flight path: position and orientation at time t (seconds)
+function circle(speed, radius) {
+  return (t) => {
+    const a = (speed / radius) * t;
+    const pos = new THREE.Vector3(
+      Math.cos(a) * radius,
+      500,
+      Math.sin(a) * radius
+    );
+    const heading = -a; // facing along the circle
+    const quat = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(0, heading, 0.6, 'YXZ')
+    );
+    return {pos, quat};
+  };
+}
+
+// Sends `path` five times a second from a clock `skew` ms off this one,
+// delivering each update after `delay(i)` ms (or dropping it when that's
+// null), and samples the track every frame. Returns the worst position and
+// angle error against the true path RENDER_DELAY_MS ago, and the biggest
+// jump between frames beyond the plane's own motion.
+function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
+  const track = new PeerTrack();
+  const sends = [];
+  for (let i = 0; i * SEND_INTERVAL_MS <= seconds * 1000; i++) {
+    const t = i * SEND_INTERVAL_MS;
+    const d = delay(i);
+    if (d === null) continue;
+    const {pos, quat} = path(t / 1000);
+    sends.push({
+      at: t + d,
+      msg: JSON.parse(JSON.stringify(packState(t + skew, pos, quat, 2, 0))),
+    });
+  }
+  sends.sort((a, b) => a.at - b.at);
+  let next = 0;
+  let worstPos = 0;
+  let worstAngle = 0;
+  let worstJump = 0;
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const prev = new THREE.Vector3();
+  let prevTrue = null;
+  // Skip the first two seconds while the clock offset settles
+  for (let now = 0; now <= seconds * 1000; now += 1000 / 60) {
+    while (next < sends.length && sends[next].at <= now) {
+      track.push(unpackState(sends[next].msg), now);
+      next++;
+    }
+    if (!track.ready) continue;
+    track.sample(now, pos, quat);
+    const shownAt = (now - track.offset - RENDER_DELAY_MS - skew) / 1000;
+    const truth = path(shownAt);
+    if (now > 2000 && shownAt < seconds - 0.5) {
+      worstPos = Math.max(worstPos, pos.distanceTo(truth.pos));
+      worstAngle = Math.max(worstAngle, quat.angleTo(truth.quat));
+      if (prevTrue) {
+        const own = truth.pos.distanceTo(prevTrue);
+        worstJump = Math.max(worstJump, pos.distanceTo(prev) - own);
+      }
+    }
+    prev.copy(pos);
+    prevTrue = truth.pos.clone();
+  }
+  return {worstPos, worstAngle, worstJump, track};
+}
+
+{
+  // The biplane at a gentle 100 kts (~100 units/s) in a wide turn
+  const r = fly(circle(100, 2000));
+  check(
+    'A gentle turn is drawn on its path',
+    r.worstPos < 0.5 && r.worstAngle < 0.01,
+    `${r.worstPos.toFixed(2)} units, ${r.worstAngle.toFixed(4)} rad`
+  );
+
+  // The jet at 800 kts in a tight turn: 160 units between updates
+  const jet = fly(circle(800, 1500));
+  check(
+    'A jet in a tight turn stays on the curve (not cutting corners)',
+    jet.worstPos < 2,
+    `${jet.worstPos.toFixed(2)} units`
+  );
+
+  // A clock minutes off doesn't matter
+  const skewed = fly(circle(100, 2000), {skew: -3 * 60 * 1000});
+  check(
+    "A friend's clock being minutes off doesn't matter",
+    skewed.worstPos < 0.5,
+    `${skewed.worstPos.toFixed(2)} units`
+  );
+
+  // Updates arriving 40-250 ms late, out of order and bunched up
+  const rng = mulberry32(3);
+  const jittery = fly(circle(300, 2000), {delay: () => 40 + rng() * 210});
+  check(
+    'Late and bunched-up updates still give a smooth path',
+    jittery.worstPos < 1 && jittery.worstJump < 1,
+    `${jittery.worstPos.toFixed(2)} off, ${jittery.worstJump.toFixed(2)} jump`
+  );
+
+  // One in five updates lost
+  const lossy = fly(circle(300, 2000), {
+    delay: (i) => (i % 5 === 3 ? null : 60),
+  });
+  check(
+    'Lost updates leave no gap',
+    lossy.worstPos < 2 && lossy.worstJump < 1,
+    `${lossy.worstPos.toFixed(2)} off, ${lossy.worstJump.toFixed(2)} jump`
+  );
+
+  // A loop: pitch all the way round (angles would flip at the top)
+  const loop = (t) => {
+    const a = t * 0.8;
+    const quat = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(1, 0, 0),
+      a
+    );
+    const pos = new THREE.Vector3(
+      0,
+      500 + Math.sin(a) * 250,
+      -Math.cos(a) * 250
+    );
+    return {pos, quat};
+  };
+  const looped = fly(loop);
+  check(
+    'A loop turns the plane the short way round all the way',
+    looped.worstAngle < 0.01,
+    `${looped.worstAngle.toFixed(4)} rad`
+  );
+}
+
+{
+  // Stops sending: carries on briefly, then waits where it was heading
+  const track = new PeerTrack();
+  const path = (t) => ({
+    pos: new THREE.Vector3(t * 100, 500, 0),
+    quat: new THREE.Quaternion(),
+  });
+  let now = 0;
+  for (let i = 0; i <= 10; i++) {
+    now = i * SEND_INTERVAL_MS + 50;
+    const {pos, quat} = path(i * 0.2);
+    track.push(
+      unpackState(packState(i * SEND_INTERVAL_MS, pos, quat, 1, 0)),
+      now
+    );
+  }
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  track.sample(now + 600, pos, quat);
+  const a = pos.x;
+  track.sample(now + 5000, pos, quat);
+  const b = pos.x;
+  track.sample(now + 9000, pos, quat);
+  check(
+    'A plane that stops sending carries on a moment, then waits',
+    a > 200 && b > a && b <= 200 + 100 * 1.01 && pos.x === b,
+    `${a.toFixed(1)} ${b.toFixed(1)} ${pos.x.toFixed(1)}`
+  );
+
+  // A warp: the plane jumps there instead of streaking across the map
+  const warp = new PeerTrack();
+  for (let i = 0; i < 6; i++) {
+    const x = i < 3 ? i * 20 : 50000 + i * 20;
+    warp.push(
+      unpackState(
+        packState(
+          i * SEND_INTERVAL_MS,
+          {x, y: 500, z: 0},
+          new THREE.Quaternion(),
+          1,
+          0
+        )
+      ),
+      i * SEND_INTERVAL_MS + 50
+    );
+  }
+  let streaked = false;
+  for (let now2 = 0; now2 < 3000; now2 += 16) {
+    warp.sample(now2, pos, quat);
+    if (pos.x > 100 && pos.x < 49000) streaked = true;
+  }
+  check('A warp jumps instead of streaking across the map', !streaked);
+}
+
+if (failed) {
+  console.error('Flying together tests failed.');
+  process.exit(1);
+}
+console.log('All flying together tests passed.');

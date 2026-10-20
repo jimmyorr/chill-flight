@@ -29,6 +29,13 @@ export default [
     },
   },
   {
+    // The relay runs on Cloudflare Workers
+    files: ['relay/**/*.js'],
+    languageOptions: {
+      globals: {...globals.serviceworker, WebSocketPair: 'readonly'},
+    },
+  },
+  {
     files: ['scripts/**/*.js', 'eslint.config.js'],
     languageOptions: {
       sourceType: 'module',
@@ -47,6 +54,7 @@ export default [
       'ios/',
       'android/',
       'scratch/',
+      '**/.wrangler/',
     ],
   },
 ];

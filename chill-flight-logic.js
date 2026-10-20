@@ -171,6 +171,10 @@ export const ChillFlightLogic = {};
   const ADAPTIVE_QUALITY = getSwitchParam('adaptive') !== false;
   // ?traffic=0/1: other planes off or on for this visit (traffic.js)
   const TRAFFIC_PARAM = getSwitchParam('traffic');
+  // Flying together (multiplayer.js): ?room= a room code to join (an invite
+  // link), ?relay= a relay to use instead of the game's own (local testing)
+  const ROOM_PARAM = getParam('room', null);
+  const RELAY_PARAM = getParam('relay', null);
   const MUSIC_PARAM = getSwitchParam('music');
   const SFX_PARAM = getSwitchParam('sfx');
   const SHOW_TIPS = getSwitchParam('tips') !== false && SHOW_UI;
@@ -4303,6 +4307,8 @@ export const ChillFlightLogic = {};
   exports.START_BENCHMARK = START_BENCHMARK;
   exports.ADAPTIVE_QUALITY = ADAPTIVE_QUALITY;
   exports.TRAFFIC_PARAM = TRAFFIC_PARAM;
+  exports.ROOM_PARAM = ROOM_PARAM;
+  exports.RELAY_PARAM = RELAY_PARAM;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.MAX_FPS = MAX_FPS;
   exports.ZENITH_COLOR = ZENITH_COLOR;

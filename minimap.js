@@ -1083,8 +1083,24 @@ import {PEOPLE} from './people.js';
   }
 
   function warpTo(place) {
-    const from = planeGroup.position.clone();
+    const from = planeGroup.position;
     const {x, y, z, yaw, speed} = arrivalAt(place, from.x, from.z, groundAt);
+    // The approach speed suits the seaplane; others fly it in proportion to
+    // the speed they hold their height at
+    const approach =
+      speed === undefined
+        ? undefined
+        : (speed * planeHandling().levelKts) / 100;
+    movePlane(x, y, z, yaw, approach);
+    log.info(
+      `[Warp] To ${place.name ? `${place.name}, ` : ''}X = ${x.toFixed(0)}, Z = ${z.toFixed(0)} (${formatLatLon(x, z)})`
+    );
+  }
+
+  // Moves the plane to x, y, z, facing `yaw` and flying at `speed` (a speed
+  // multiplier) when given; also flying to a friend (multiplayer.js)
+  function movePlane(x, y, z, yaw, speed) {
+    const from = planeGroup.position.clone();
     const turn = yaw === undefined ? 0 : yaw - planeGroup.rotation.y;
     planeGroup.position.set(x, y, z);
     if (yaw !== undefined) {
@@ -1092,11 +1108,8 @@ import {PEOPLE} from './people.js';
       state._nextYaw = yaw;
     }
     if (speed !== undefined) {
-      // The approach speed suits the seaplane; others fly it in proportion
-      // to the speed they hold their height at
-      const approach = (speed * planeHandling().levelKts) / 100;
-      state.flightSpeedMultiplier = approach;
-      state.targetFlightSpeed = approach;
+      state.flightSpeedMultiplier = speed;
+      state.targetFlightSpeed = speed;
     }
     // Move the camera and its tracking targets with the plane (turning with
     // it), so it doesn't sweep across the world to catch up
@@ -1119,10 +1132,8 @@ import {PEOPLE} from './people.js';
     if (state.previousPosition)
       state.previousPosition.copy(planeGroup.position);
     updateChunks();
-    log.info(
-      `[Warp] To ${place.name ? `${place.name}, ` : ''}X = ${x.toFixed(0)}, Z = ${z.toFixed(0)} (${formatLatLon(x, z)})`
-    );
   }
+  hooks.movePlane = movePlane;
 
   function closeFullscreenMap() {
     if (!fsVisible) return;

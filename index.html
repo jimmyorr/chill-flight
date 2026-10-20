@@ -211,7 +211,16 @@
               title="People"
               aria-label="People"
             >
-              👥 <span id="people-counter"></span>
+              📇 <span id="people-counter"></span>
+            </button>
+            <button
+              id="fly-together-btn"
+              class="pause-icon-btn"
+              title="Fly together"
+              aria-label="Fly together"
+              hidden
+            >
+              👥 <span id="fly-together-counter"></span>
             </button>
             <button
               id="vr-btn"
@@ -287,6 +296,51 @@
         </div>
         <div id="people-progress" class="achievements-progress"></div>
         <div id="people-grid"></div>
+      </div>
+    </div>
+
+    <!-- Flying with friends: invite, join with a code, who's here (multiplayer.js) -->
+    <div id="fly-overlay">
+      <div class="achievements-content">
+        <div class="achievements-header">
+          <span class="achievements-title">Fly together</span>
+          <button id="fly-close-btn" class="achievements-close-btn">✕</button>
+        </div>
+        <label class="fly-field">
+          <span>Your name</span>
+          <input
+            id="fly-name"
+            maxlength="16"
+            autocomplete="nickname"
+            placeholder="Pilot"
+            spellcheck="false"
+          />
+        </label>
+        <div id="fly-solo" class="fly-section">
+          <button id="fly-invite-btn" class="fly-btn">Invite friends</button>
+          <div class="fly-or">or join a friend's flight</div>
+          <div class="fly-join-row">
+            <input
+              id="fly-code"
+              maxlength="5"
+              placeholder="Code"
+              autocapitalize="characters"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="fly-join-btn" class="fly-btn">Join</button>
+          </div>
+        </div>
+        <div id="fly-room" class="fly-section" hidden>
+          <div class="fly-or">Room code</div>
+          <div id="fly-room-code" class="fly-room-code"></div>
+          <button id="fly-share-btn" class="fly-btn">Share link</button>
+          <div id="fly-players" class="fly-players"></div>
+          <button id="fly-leave-btn" class="fly-btn fly-btn-quiet">
+            Leave
+          </button>
+        </div>
+        <div id="fly-status" class="fly-status"></div>
       </div>
     </div>
 

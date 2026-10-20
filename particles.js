@@ -29,7 +29,8 @@ import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
-const POOL_SIZE = 2048;
+// Room for four planes' smoke trails at once (~1,000 each) and the rest
+const POOL_SIZE = 4096;
 // How quickly a particle's own speed dies away (per second)
 const DRAG = 1.6;
 
@@ -668,23 +669,25 @@ function skim(delta, speed) {
   }
 }
 
-// Airshow smoke from the tail, laid along the flight path so it stays
+// Airshow smoke from the tail of `plane` (the player's, or a friend's when
+// flying together), laid along the flight path from `last` so it stays
 // unbroken at any speed and frame rate; it hangs in the sky, spreading and
-// drifting up a little, and fades over SMOKE_LIFE seconds
-function smokeTrail(speed) {
+// drifting up a little, and fades over SMOKE_LIFE seconds. `spread` lays
+// the puffs further apart.
+function smokeTrail(plane, last, speed, color, spread = 1) {
   const tail = _p.set(0, 0, SMOKE_TAIL);
-  planeGroup.localToWorld(tail);
-  if (!smokeLast.valid || smokeLast.distanceTo(tail) > 200) {
-    smokeLast.copy(tail);
-    smokeLast.valid = true;
+  plane.localToWorld(tail);
+  if (!last.valid || last.distanceTo(tail) > 200) {
+    last.copy(tail);
+    last.valid = true;
     return;
   }
   // Close enough that young puffs overlap; ~60 a second at cruise, so a
   // full trail is ~1,000 of the pool
-  const spacing = Math.max(2.5, (speed * BASE_FLIGHT_SPEED * 60) / 60);
-  const steps = Math.floor(smokeLast.distanceTo(tail) / spacing);
+  const spacing = Math.max(2.5, (speed * BASE_FLIGHT_SPEED * 60) / 60) * spread;
+  const steps = Math.floor(last.distanceTo(tail) / spacing);
   for (let k = 1; k <= steps; k++) {
-    _q.lerpVectors(smokeLast, tail, k / steps);
+    _q.lerpVectors(last, tail, k / steps);
     spawn(
       _q,
       {x: rand(-2, 2), y: rand(-1, 1), z: rand(-2, 2)},
@@ -692,11 +695,42 @@ function smokeTrail(speed) {
       rand(SMOKE_LIFE * 0.8, SMOKE_LIFE),
       rand(6, 7),
       rand(22, 30),
-      SMOKE,
+      color,
       0.8
     );
   }
-  if (steps > 0) smokeLast.copy(tail);
+  if (steps > 0) last.copy(tail);
+}
+
+// Flying together tints everyone's smoke with their livery, half and half
+// with white so it stays soft (setSmokeTint)
+const smokeTint = new THREE.Color();
+let tinted = false;
+
+/** The smoke colour for a livery (hex), or white when `livery` is null. */
+export function smokeColor(livery, out = new THREE.Color()) {
+  if (livery === null) return out.copy(SMOKE);
+  return out.set(livery).lerp(WHITE, 0.5);
+}
+
+/** Tints the player's smoke with a livery (hex), or back to white (null). */
+export function setSmokeTint(livery) {
+  tinted = livery !== null;
+  smokeColor(livery, smokeTint);
+}
+
+/** Whether the player's airshow smoke is on. */
+export function isSmokeOn() {
+  return smokeOn;
+}
+
+/**
+ * A friend's smoke for this frame, from their plane (an Object3D) since
+ * `last` (a Vector3 kept per plane; set last.valid = false to start afresh).
+ */
+export function trailSmoke(plane, last, speed, color) {
+  if (state.isPaused) return;
+  smokeTrail(plane, last, speed, color, 1.5);
 }
 
 // Wingtip vapour: thin white streaks off the wingtips while pulling hard
@@ -940,7 +974,9 @@ export function updateParticles(delta) {
     if (activePlaneType === 'buggy' && !onWater) slideSmoke(delta);
     if (!wheels && !onWater) skim(delta, speed);
     else skimLast.valid = false;
-    if (smokeOn) smokeTrail(speed);
+    if (smokeOn) {
+      smokeTrail(planeGroup, smokeLast, speed, tinted ? smokeTint : SMOKE);
+    }
     if (!wheels && !onWater) wingtipVapour(delta, speed);
     else vapour = 0;
     const target = state.targetFlightSpeed || 0;

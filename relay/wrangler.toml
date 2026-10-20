@@ -1,0 +1,20 @@
+# The relay for flying together (see README.md here). Deployed on its own,
+# separately from the game: `npx -y wrangler deploy` in this folder.
+name = "chill-flight-relay"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Pages that may connect (rules.js isAllowedOrigin; localhost always may).
+# Web: the site, its Pages previews and GitHub Pages. Apps: Capacitor on iOS
+# and Android, Tauri on Mac/Linux and Windows.
+ALLOWED_ORIGINS = "https://chill-flight.cowneck.com,https://chill-flight.pages.dev,https://*.chill-flight.pages.dev,https://jimmyorr.github.io,capacitor://localhost,https://localhost,tauri://localhost,http://tauri.localhost,https://tauri.localhost"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
+
+# SQLite-backed, which the free Workers plan includes
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]

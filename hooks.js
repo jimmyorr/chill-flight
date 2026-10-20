@@ -13,4 +13,5 @@ export const hooks = {
   clearFarTerrain: null, // far-terrain.js: drops the distant terrain ring
   onResume: null, // zen.js: called by game-state.js when the game unpauses
   onJobProgress: null, // people-screen.js: called by jobs.js when progress changes
+  movePlane: null, // minimap.js: (x, y, z, yaw?, speed?) moves the plane there
 };
