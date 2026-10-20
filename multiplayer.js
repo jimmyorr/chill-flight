@@ -70,7 +70,7 @@ import {
 
 // The relay (relay/README.md); empty hides flying together. ?relay= uses
 // another one, e.g. ws://localhost:8787 for a local `wrangler dev`.
-const DEFAULT_RELAY = '';
+const DEFAULT_RELAY = 'wss://chill-flight-relay.jimmyorr.workers.dev';
 const RELAY = ChillFlightLogic.RELAY_PARAM || DEFAULT_RELAY;
 // Invite links from the apps point at the website
 const WEB_URL = 'https://chill-flight.cowneck.com/';
