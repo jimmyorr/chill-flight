@@ -14,17 +14,25 @@ import * as rules from '../relay/src/rules.js';
 import {
   CLOSE,
   MAX_PLAYERS,
+  NO_TAG,
   PeerTrack,
   RENDER_DELAY_MS,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
   SEND_INTERVAL_MS,
+  TAG_RADIUS,
+  WAGGLE_MS,
   inviteUrl,
+  isNewerTag,
   makeRoomCode,
+  nextIt,
   packState,
   parseRoomCode,
+  readTag,
   roomSocketUrl,
+  tagTarget,
   unpackState,
+  waggleRoll,
 } from '../multiplayer-logic.js';
 
 console.log('Testing flying together...');
@@ -430,6 +438,68 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
     if (pos.x > 100 && pos.x < 49000) streaked = true;
   }
   check('A warp jumps instead of streaking across the map', !streaked);
+}
+
+// --- Waggle and tag ---
+{
+  let widest = 0;
+  for (let ms = 0; ms < WAGGLE_MS; ms += 10) {
+    widest = Math.max(widest, Math.abs(waggleRoll(ms)));
+  }
+  check(
+    'A waggle rocks the wings and settles',
+    widest > 0.3 &&
+      widest < 0.6 &&
+      waggleRoll(-100) === 0 &&
+      waggleRoll(WAGGLE_MS) === 0 &&
+      Math.abs(waggleRoll(5)) < 0.05,
+    widest.toFixed(3)
+  );
+
+  check(
+    'A tag message is read, and junk is not',
+    readTag({it: 'abc', n: 2, by: 'x'})?.it === 'abc' &&
+      readTag({it: null, n: 3})?.by === '' &&
+      readTag({it: 5, n: 1}) === null &&
+      readTag({it: 'a', n: -1}) === null &&
+      readTag({it: 'a', n: 1.5}) === null &&
+      readTag(undefined) === null
+  );
+
+  const a = {it: 'b', n: 1, by: 'a'};
+  const b = {it: 'a', n: 1, by: 'b'};
+  check(
+    'Newer tags win, and two at once settle the same everywhere',
+    isNewerTag(a, NO_TAG) &&
+      isNewerTag({it: null, n: 2, by: 'z'}, a) &&
+      !isNewerTag(NO_TAG, a) &&
+      isNewerTag(a, b) &&
+      !isNewerTag(b, a) &&
+      !isNewerTag(a, a)
+  );
+  check(
+    'A reassigned "it" (after someone leaves) gives way to a real tag',
+    isNewerTag({it: 'c', n: 4, by: 'c'}, {it: 'a', n: 4, by: '~'})
+  );
+  check(
+    'The next "it" is the same on every screen',
+    nextIt(['k2p', '0az', 'm11']) === '0az' &&
+      nextIt(new Set(['m11', '0az'])) === '0az' &&
+      nextIt([]) === null
+  );
+
+  const me = new THREE.Vector3(0, 500, 0);
+  const near = TAG_RADIUS - 1;
+  check(
+    'Tagging picks the nearest friend in reach',
+    tagTarget(me, [
+      {id: 'far', pos: new THREE.Vector3(TAG_RADIUS + 5, 500, 0)},
+      {id: 'near', pos: new THREE.Vector3(0, 500 + near, 0)},
+      {id: 'nearer', pos: new THREE.Vector3(near / 2, 500, 0)},
+    ]) === 'nearer' &&
+      tagTarget(me, [{id: 'x', pos: new THREE.Vector3(0, 0, 0)}]) === null &&
+      tagTarget(me, []) === null
+  );
 }
 
 if (failed) {

@@ -1007,6 +1007,10 @@ input[type='number'].customization-input {
   outline: none;
 }
 
+.sub-btn[hidden] {
+  display: none;
+}
+
 .sub-btn:focus {
   outline: none;
 }
@@ -2595,6 +2599,99 @@ input[type='number'].customization-input {
   white-space: nowrap;
 }
 
+/* Friends flying with you (multiplayer.js): a dot in their livery colour
+   with their name and distance, over their plane when it's far off and at
+   the screen's edge (a chevron pointing the way) when it's out of view.
+   Placed like the waypoint marker; --friend-angle turns the chevron. */
+#friend-markers {
+  position: fixed;
+  inset: 0;
+  z-index: 139;
+  pointer-events: none;
+}
+
+.friend-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+.friend-marker[hidden] {
+  display: none;
+}
+
+.friend-mark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid var(--friend-color, #fff);
+  border-radius: 50%;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7));
+}
+
+.friend-marker.offscreen .friend-mark {
+  border-radius: 0;
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  transform: rotate(var(--friend-angle, 0rad)) rotate(45deg);
+}
+
+.friend-text {
+  position: absolute;
+  top: 9px;
+  left: 0;
+  transform: translateX(var(--friend-shift, -50%));
+  font:
+    600 10px Inter,
+    -apple-system,
+    sans-serif;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+.friend-it {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #e8505b;
+  color: #fff;
+  text-shadow: none;
+}
+
+/* Who's it, in a game of tag (multiplayer.js) */
+#tag-chip {
+  position: fixed;
+  top: calc(max(20px, env(safe-area-inset-top)) + 84px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 141;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(10, 10, 15, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  font:
+    600 12px Inter,
+    -apple-system,
+    sans-serif;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#tag-chip.mine {
+  background: rgba(232, 80, 91, 0.85);
+}
+
+#tag-chip[hidden] {
+  display: none;
+}
+
 /* The job you're on (jobs.js), in place of the cockpit readout's
    CHILL-FLIGHT line */
 #job-hud {
@@ -2740,6 +2837,8 @@ body.zen
     #ui-layer,
     #cockpit-ui,
     #waypoint-indicator,
+    #friend-markers,
+    #tag-chip,
     #mobile-controls,
     #achievement-toast-container,
     #debug-menu,
@@ -2750,6 +2849,8 @@ body.zen
     #ui-layer,
     #cockpit-ui,
     #waypoint-indicator,
+    #friend-markers,
+    #tag-chip,
     #mobile-controls,
     #achievement-toast-container,
     #debug-menu,

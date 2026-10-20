@@ -229,3 +229,72 @@ export class PeerTrack {
     return s.speed;
   }
 }
+
+// --- WING WAGGLE ---
+
+// A wave to the others: the wings rock side to side a few times (H, or the
+// wave button in the quick menu while in a room)
+export const WAGGLE_MS = 1800;
+const WAGGLE_PERIOD_MS = 600;
+const WAGGLE_ROLL = 0.45; // radians at its widest
+
+/** The waggle's roll (radians) `ms` after it started; 0 once it's over. */
+export function waggleRoll(ms) {
+  if (!(ms >= 0) || ms >= WAGGLE_MS) return 0;
+  const swell = Math.sin((Math.PI * ms) / WAGGLE_MS);
+  return WAGGLE_ROLL * swell * Math.sin((2 * Math.PI * ms) / WAGGLE_PERIOD_MS);
+}
+
+// --- TAG ---
+// One player is "it" and chases the others; flying within TAG_RADIUS of one
+// makes them it. Whoever is it decides the tag, on what their own screen
+// shows, so nobody argues over lag. Each change counts up `n`; a message
+// with a lower count is old news, and two at once (two players starting a
+// game) are settled by the sender's id, the same way on every screen.
+//   {t: 'tag', it, n, by}   it: who's it (null: game over); by: who sent it
+
+// 60 m (1 unit is 0.5144 m)
+export const TAG_RADIUS = 117;
+// After a tag, the new "it" waits this long before they can tag (ms), so
+// the one who tagged them can get away
+export const TAG_GRACE_MS = 4000;
+
+export const NO_TAG = Object.freeze({it: null, n: 0, by: ''});
+
+/** A tag message tidied up, or null if it isn't one. */
+export function readTag(msg) {
+  if (!msg || !Number.isInteger(msg.n) || msg.n < 0) return null;
+  if (msg.it !== null && typeof msg.it !== 'string') return null;
+  return {it: msg.it, n: msg.n, by: typeof msg.by === 'string' ? msg.by : ''};
+}
+
+/** Whether tag state `next` replaces `cur`. */
+export function isNewerTag(next, cur) {
+  if (next.n !== cur.n) return next.n > cur.n;
+  return next.by !== cur.by && next.by < cur.by;
+}
+
+/**
+ * Who's it after `left` leaves while being it: the lowest id still here
+ * (every screen picks the same one).
+ */
+export function nextIt(ids) {
+  return [...ids].sort()[0] ?? null;
+}
+
+/**
+ * The nearest player in reach of whoever is it, or null. `others` are
+ * [{id, pos}], with `pos` as drawn on the tagger's screen.
+ */
+export function tagTarget(itPos, others, radius = TAG_RADIUS) {
+  let best = null;
+  let bestDist = radius;
+  for (const o of others) {
+    const d = itPos.distanceTo(o.pos);
+    if (d < bestDist) {
+      best = o.id;
+      bestDist = d;
+    }
+  }
+  return best;
+}

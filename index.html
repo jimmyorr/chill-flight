@@ -336,6 +336,7 @@
           <div id="fly-room-code" class="fly-room-code"></div>
           <button id="fly-share-btn" class="fly-btn">Share link</button>
           <div id="fly-players" class="fly-players"></div>
+          <button id="fly-tag-btn" class="fly-btn" hidden>Play tag</button>
           <button id="fly-leave-btn" class="fly-btn fly-btn-quiet">
             Leave
           </button>
@@ -539,6 +540,12 @@
       <div class="npc-dialog-next" aria-hidden="true">▼</div>
     </div>
 
+    <!-- Friends flying with you: names and distances, at the screen's edge
+         when they're out of view; and who's it in a game of tag
+         (multiplayer.js) -->
+    <div id="friend-markers" aria-hidden="true"></div>
+    <div id="tag-chip" hidden></div>
+
     <!-- Points the way to the map's waypoint (waypoint.js) -->
     <div id="waypoint-indicator" hidden aria-hidden="true">
       <div class="waypoint-mark"></div>
@@ -685,6 +692,15 @@
               <line x1="9" y1="18" x2="15" y2="18"></line>
               <line x1="10" y1="22" x2="14" y2="22"></line>
             </svg>
+          </button>
+          <button
+            class="sub-btn"
+            id="mobile-wave-btn"
+            title="Waggle wings"
+            tabindex="-1"
+            hidden
+          >
+            👋
           </button>
           <button
             class="sub-btn"

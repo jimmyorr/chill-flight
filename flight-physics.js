@@ -415,7 +415,8 @@ export function updateFlightPhysics(delta, nowTime) {
         groundTiltPitch;
       state.airplaneModel.rotation.z =
         (Math.sin(t * 0.6) * 0.02 + Math.cos(t * 1.1) * 0.01) * stormMult +
-        groundTiltRoll;
+        groundTiltRoll +
+        state.waggleRoll;
     }
   }
   if (state.airplaneModel) state.airplaneModel.rotation.x += stallNose;

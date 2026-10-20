@@ -47,6 +47,9 @@ export const state = {
   // is, 0 to 1 (eased toward that in game-loop.js; poseGear in airplane.js)
   gearWanted: false,
   gearExtension: 0,
+  // Wing waggle roll (radians) on top of the flying wobble: a wave to
+  // friends flying with you (multiplayer.js)
+  waggleRoll: 0,
   isOnWater: false,
   isOnGround: false,
   // How hard the buggy is sliding, 0-1 (buggy.js; tyre smoke in particles.js)

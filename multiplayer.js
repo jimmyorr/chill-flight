@@ -3,14 +3,20 @@
 // room and shares a link (or a 4-character code, for the apps), and friends
 // who open it fly the same world and see each other's planes, names and
 // smoke. Everyone's smoke takes their livery's colour while in a room.
+// Friends out of view show at the screen's edge and on the maps; H (or the
+// quick menu's 👋) waggles your wings at them; and the panel starts a game
+// of tag.
 //
 // A small relay passes messages between the players in a room
 // (relay/README.md); it knows nothing about the game. Each player sends
 // where they are five times a second, and draws everyone else a moment
 // behind, smoothed between updates (multiplayer-logic.js). If the relay
 // can't be reached, the game carries on solo. Messages:
-//   {t: 'hello', name, plane, livery}  who you are; on joining and on change
+//   {t: 'hello', name, plane, livery, tag}  who you are; on joining and on
+//                                            change (tag: the game so far)
 //   {t: 's', ts, p, q, v, fl}          where you are (packState)
+//   {t: 'waggle'}                      a wave
+//   {t: 'tag', it, n}                  who's it (multiplayer-logic.js)
 // and from the relay: welcome, joined, left (relay/src/index.js).
 import * as THREE from 'three';
 import {log} from './logger.js';
@@ -22,6 +28,8 @@ import {BASE_FLIGHT_SPEED} from './constants.js';
 import {scene} from './scene.js';
 import {camera} from './sky.js';
 import {setGearExtension} from './twin.js';
+import {inputManager} from './game-input-bindings.js';
+import {formatDistance, screenPlacement} from './waypoint.js';
 import {
   activePlaneType,
   getMaxFlightSpeedMult,
@@ -39,16 +47,25 @@ import {
   CLOSE,
   FLAGS,
   MAX_PLAYERS,
+  NO_TAG,
   PAUSED_SEND_INTERVAL_MS,
   PeerTrack,
+  RENDER_DELAY_MS,
   SEND_INTERVAL_MS,
+  TAG_GRACE_MS,
+  WAGGLE_MS,
   cleanName,
   inviteUrl,
+  isNewerTag,
   makeRoomCode,
+  nextIt,
   packState,
   parseRoomCode,
+  readTag,
   roomSocketUrl,
+  tagTarget,
   unpackState,
+  waggleRoll,
 } from './multiplayer-logic.js';
 
 // The relay (relay/README.md); empty hides flying together. ?relay= uses
@@ -83,6 +100,10 @@ const roomSection = document.getElementById('fly-room');
 const roomCodeText = document.getElementById('fly-room-code');
 const playersList = document.getElementById('fly-players');
 const statusText = document.getElementById('fly-status');
+const tagBtn = document.getElementById('fly-tag-btn');
+const tagChip = document.getElementById('tag-chip');
+const markersEl = document.getElementById('friend-markers');
+const waveBtn = document.getElementById('mobile-wave-btn');
 
 let socket = null;
 // {code, id, seed, host} while in a room
@@ -99,6 +120,11 @@ let arriveOnJoin = false;
 let sendTimer = null;
 let lastSendAt = 0;
 let sentProfile = '';
+// When your own last waggle started (performance.now())
+let waggleAt = -Infinity;
+// The game of tag ({it, n, by}), and when its "it" became it
+let tag = NO_TAG;
+let tagSince = 0;
 
 function myName() {
   try {
@@ -141,11 +167,17 @@ function sendHello() {
     plane: activePlaneType,
     livery: myLivery(),
   };
+  if (tag.n > 0) hello.tag = tag;
   sentProfile = `${hello.name}|${hello.plane}|${hello.livery}`;
   send(hello);
 }
 
 // --- OTHER PLAYERS' PLANES ---
+
+function hexColor(livery) {
+  const c = ChillFlightLogic.PLANE_COLORS[livery] ?? 0xffffff;
+  return `#${c.toString(16).padStart(6, '0')}`;
+}
 
 function labelSprite(name) {
   const canvas = document.createElement('canvas');
@@ -194,18 +226,51 @@ function buildPeer(peer) {
   const group = new THREE.Group();
   const model = buildPlaneModel(type, peer.livery);
   group.add(model);
-  const label = labelSprite(peer.name);
-  label.position.y = 12;
-  group.add(label);
   group.visible = false;
   scene.add(group);
   peer.group = group;
   peer.model = model;
-  peer.label = label;
+  peer.label = null;
+  setLabel(peer);
+  peer.css = hexColor(peer.livery);
+  if (peer.marker) peer.marker.style.setProperty('--friend-color', peer.css);
   peer.props = model.propGroups || [model.propGroup];
   peer.smokeLast = new THREE.Vector3();
   peer.smokeColor = smokeColor(ChillFlightLogic.PLANE_COLORS[peer.livery]);
   peer.gear = 0;
+}
+
+// The name over a player's plane, with "(it)" for whoever's it in tag
+function setLabel(peer) {
+  const text = tag.it === peer.id ? `${peer.name} (it)` : peer.name;
+  if (peer.label && peer.labelText === text) return;
+  if (peer.label) {
+    peer.group.remove(peer.label);
+    peer.label.material.map.dispose();
+    peer.label.material.dispose();
+  }
+  const label = labelSprite(text);
+  label.position.y = 12;
+  peer.group.add(label);
+  peer.label = label;
+  peer.labelText = text;
+}
+
+// A friend's marker: at the screen's edge when they're out of view
+function addMarker(peer) {
+  if (!markersEl) return;
+  const marker = document.createElement('div');
+  marker.className = 'friend-marker';
+  marker.hidden = true;
+  const mark = document.createElement('div');
+  mark.className = 'friend-mark';
+  const text = document.createElement('div');
+  text.className = 'friend-text';
+  marker.append(mark, text);
+  markersEl.append(marker);
+  peer.marker = marker;
+  peer.markerText = text;
+  peer.markerKey = '';
 }
 
 function addPeer(id) {
@@ -217,7 +282,11 @@ function addPeer(id) {
     livery: 0,
     track: new PeerTrack(),
     group: null,
+    marker: null,
+    // When their waggle shows (performance.now(), after RENDER_DELAY_MS)
+    waggleAt: -Infinity,
   };
+  addMarker(peer);
   peers.set(id, peer);
   return peer;
 }
@@ -226,6 +295,7 @@ function removePeer(id) {
   const peer = peers.get(id);
   if (!peer) return;
   if (peer.group) disposeGroup(peer.group);
+  peer.marker?.remove();
   peers.delete(id);
 }
 
@@ -244,6 +314,7 @@ function onHello(peer, msg) {
     buildPeer(peer);
   }
   if (isNew && peer.announce) toast(`${name} joined`);
+  applyTag(readTag(msg.tag));
   renderPanel();
 }
 
@@ -262,13 +333,97 @@ function onMessage(event) {
     const name = peers.get(msg.f)?.name;
     removePeer(msg.f);
     if (name) toast(`${name} left`);
+    tagAfterLeaving(msg.f);
     renderPanel();
   } else if (msg.t === 'hello') {
     onHello(addPeer(msg.f), msg);
   } else if (msg.t === 's') {
     const s = unpackState(msg);
     if (s) addPeer(msg.f).track.push(s, performance.now());
+  } else if (msg.t === 'waggle') {
+    // Shown when their plane, drawn a moment behind, gets there
+    addPeer(msg.f).waggleAt = performance.now() + RENDER_DELAY_MS;
+  } else if (msg.t === 'tag') {
+    applyTag(readTag({...msg, by: msg.f}));
   }
+}
+
+// --- TAG ---
+
+function nameOf(id) {
+  return peers.get(id)?.name || 'A friend';
+}
+
+function setTag(next) {
+  const was = tag.it;
+  tag = next;
+  if (tag.it !== was) {
+    tagSince = performance.now();
+    if (!tag.it) toast('Tag is over');
+    else if (tag.it === room?.id) toast("You're it");
+    else if (was === room?.id) toast(`You tagged ${nameOf(tag.it)}`);
+    else toast(`${nameOf(tag.it)} is it`);
+  }
+  refreshTag();
+}
+
+// A game of tag as someone else sent it: kept if it's newer than ours
+function applyTag(next) {
+  if (!next || !room || !isNewerTag(next, tag)) return;
+  if (next.it && next.it !== room.id && !peers.has(next.it)) {
+    // It's someone who's already gone
+    setTag({it: nextIt([room.id, ...peers.keys()]), n: next.n + 1, by: '~'});
+    return;
+  }
+  setTag(next);
+}
+
+// Says who's it now (null ends the game)
+function sendTag(it) {
+  if (!room) return;
+  const next = {it, n: tag.n + 1, by: room.id};
+  setTag(next);
+  send({t: 'tag', ...next});
+}
+
+// Someone left: if they were it, the lowest id still here is (worked out
+// the same on every screen); alone, the game's over
+function tagAfterLeaving(id) {
+  if (!tag.it) return;
+  if (peers.size === 0) {
+    setTag({it: null, n: tag.n + 1, by: '~'});
+  } else if (tag.it === id) {
+    setTag({it: nextIt([room.id, ...peers.keys()]), n: tag.n + 1, by: '~'});
+  }
+}
+
+function refreshTag() {
+  for (const peer of peers.values()) {
+    if (peer.group) setLabel(peer);
+    peer.markerKey = '';
+  }
+  if (tagChip) {
+    tagChip.hidden = !room || !tag.it;
+    tagChip.classList.toggle('mine', !!room && tag.it === room.id);
+    if (room && tag.it) {
+      tagChip.textContent =
+        tag.it === room.id
+          ? "You're it, tag a friend"
+          : `${nameOf(tag.it)} is it`;
+    }
+  }
+  renderPanel();
+}
+
+// --- WAVING ---
+
+function wave() {
+  if (!room || state.isPaused) return;
+  if (state.isOnGround || state.isOnWater) return;
+  const now = performance.now();
+  if (now - waggleAt < WAGGLE_MS) return;
+  waggleAt = now;
+  send({t: 'waggle'});
 }
 
 // --- CONNECTING ---
@@ -310,6 +465,10 @@ function enterRoom(ws, welcome, code) {
   room = {code, id: welcome.id, seed: welcome.seed, host: welcome.host};
   reconnectTry = 0;
   for (const id of welcome.peers || []) addPeer(id);
+  // Back after a dropped connection (with a new id): the others' hellos
+  // bring any game of tag
+  tag = NO_TAG;
+  refreshTag();
   ws.onmessage = onMessage;
   ws.onclose = onDropped;
   sendHello();
@@ -333,6 +492,10 @@ function clearRoom() {
   socket = null;
   room = null;
   arriveOnJoin = false;
+  tag = NO_TAG;
+  refreshTag();
+  waggleAt = -Infinity;
+  state.waggleRoll = 0;
   clearInterval(sendTimer);
   sendTimer = null;
   clearTimeout(reconnectTimer);
@@ -557,21 +720,89 @@ function flyTo(peer) {
   return true;
 }
 
+// --- MARKERS ---
+
+// A friend's marker: over their plane once it's too far for the name to
+// show, at the screen's edge when they're out of view, hidden when near
+function placeMarker(peer, dist) {
+  const marker = peer.marker;
+  if (!marker) return;
+  const place = screenPlacement(_pos.x, _pos.y, _pos.z);
+  if (state.isVRPresenting || (place.onScreen && dist < LABEL_FADE_END)) {
+    marker.hidden = true;
+    return;
+  }
+  marker.hidden = false;
+  marker.classList.toggle('offscreen', !place.onScreen);
+  marker.style.transform = `translate(${place.sx.toFixed(1)}px, ${place.sy.toFixed(1)}px)`;
+  if (!place.onScreen) {
+    marker.style.setProperty('--friend-angle', `${place.angle.toFixed(3)}rad`);
+  }
+  // The name sits centred, sliding to one side near the screen's edges so
+  // it stays on screen
+  const w = window.innerWidth;
+  const along = THREE.MathUtils.clamp((place.sx - 80) / (w - 160), 0, 1);
+  marker.style.setProperty('--friend-shift', `${(-100 * along).toFixed(0)}%`);
+  const distText = formatDistance(dist);
+  const key = `${peer.name}|${distText}|${tag.it === peer.id}`;
+  if (key === peer.markerKey) return;
+  peer.markerKey = key;
+  peer.markerText.textContent = `${peer.name} · ${distText}`;
+  if (tag.it === peer.id) {
+    const it = document.createElement('span');
+    it.className = 'friend-it';
+    it.textContent = 'it';
+    peer.markerText.append(it);
+  }
+}
+
+const _mapPos = new THREE.Vector3();
+const _mapQuat = new THREE.Quaternion();
+const mapFriends = [];
+
+/**
+ * Friends for the maps (minimap.js): [{x, z, yaw, color, name, it}], where
+ * they're drawn now. Empty when flying solo.
+ */
+export function friendsOnMap() {
+  mapFriends.length = 0;
+  if (!room) return mapFriends;
+  const now = performance.now();
+  for (const peer of peers.values()) {
+    if (!peer.name || !peer.css) continue;
+    if (peer.track.sample(now, _mapPos, _mapQuat) === null) continue;
+    _euler.setFromQuaternion(_mapQuat, 'YXZ');
+    mapFriends.push({
+      x: _mapPos.x,
+      z: _mapPos.z,
+      yaw: _euler.y,
+      color: peer.css,
+      name: peer.name,
+      it: tag.it === peer.id,
+    });
+  }
+  return mapFriends;
+}
+
 // --- EACH FRAME ---
 
 /** Called once per frame while flying (not while paused). */
 export function updateMultiplayer(delta) {
   if (!room) return;
   const now = performance.now();
+  state.waggleRoll = waggleRoll(now - waggleAt);
   for (const peer of peers.values()) {
-    if (!peer.group) continue;
-    const speed = peer.track.sample(now, _pos, _quat);
-    if (speed === null) continue;
+    const speed = peer.group ? peer.track.sample(now, _pos, _quat) : null;
+    if (speed === null) {
+      if (peer.marker) peer.marker.hidden = true;
+      continue;
+    }
     const g = peer.group;
     g.visible = true;
     g.position.copy(_pos);
     g.quaternion.copy(_quat);
     const flags = peer.track.latest.flags;
+    peer.model.rotation.z = waggleRoll(now - peer.waggleAt);
     const spin = speed * BASE_FLIGHT_SPEED * 60 * delta * 0.15;
     for (const prop of peer.props) if (prop) prop.rotation.z += spin;
     if (peer.model.gearGroups) {
@@ -589,6 +820,17 @@ export function updateMultiplayer(delta) {
     peer.label.material.opacity =
       1 - THREE.MathUtils.smoothstep(dist, LABEL_FADE_START, LABEL_FADE_END);
     peer.label.visible = peer.label.material.opacity > 0.01;
+    placeMarker(peer, dist);
+  }
+  // Whoever's it tags anyone in reach (after a moment's grace)
+  if (tag.it === room.id && now - tagSince > TAG_GRACE_MS) {
+    const others = [];
+    for (const peer of peers.values()) {
+      if (peer.group?.visible)
+        others.push({id: peer.id, pos: peer.group.position});
+    }
+    const target = tagTarget(planeGroup.position, others);
+    if (target) sendTag(target);
   }
   if (arriveOnJoin && !state.isIntroTransitionActive) {
     for (const peer of peers.values()) {
@@ -604,20 +846,23 @@ export function updateMultiplayer(delta) {
 
 function renderPanel() {
   if (counter) counter.textContent = room ? `${peers.size + 1}` : '';
+  if (waveBtn) waveBtn.hidden = !room;
   if (!overlay || overlay.style.display !== 'flex') return;
   soloSection.hidden = !!room;
   roomSection.hidden = !room;
   inviteBtn.disabled = joinBtn.disabled = busy;
   if (!room) return;
   roomCodeText.textContent = room.code;
+  if (tagBtn) {
+    tagBtn.hidden = peers.size === 0 && !tag.it;
+    tagBtn.textContent = tag.it ? 'Stop tag' : 'Play tag';
+  }
   const row = (name, livery, peer) => {
     const el = document.createElement('div');
     el.className = 'fly-player';
     const dot = document.createElement('span');
     dot.className = 'fly-player-dot';
-    dot.style.background = `#${ChillFlightLogic.PLANE_COLORS[livery]
-      .toString(16)
-      .padStart(6, '0')}`;
+    dot.style.background = hexColor(livery);
     const label = document.createElement('span');
     label.className = 'fly-player-name';
     label.textContent = name;
@@ -634,9 +879,18 @@ function renderPanel() {
     }
     return el;
   };
-  const rows = [row(`${myName()} (you)`, myLivery(), null)];
+  const it = (id) => (tag.it === id ? ', it' : '');
+  const rows = [row(`${myName()} (you${it(room.id)})`, myLivery(), null)];
   for (const peer of peers.values()) {
-    if (peer.name) rows.push(row(peer.name, peer.livery, peer));
+    if (peer.name) {
+      rows.push(
+        row(
+          `${peer.name}${tag.it === peer.id ? ' (it)' : ''}`,
+          peer.livery,
+          peer
+        )
+      );
+    }
   }
   playersList.replaceChildren(...rows);
 }
@@ -701,6 +955,22 @@ if (RELAY && openBtn && overlay) {
     join(code);
   });
   shareBtn.addEventListener('click', share);
+  tagBtn?.addEventListener('click', () => {
+    if (!room) return;
+    if (tag.it) {
+      sendTag(null);
+    } else {
+      // Whoever starts the game is it
+      sendTag(room.id);
+      closePanel(true);
+    }
+  });
+  inputManager.onWave = wave;
+  waveBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    wave();
+  });
   leaveBtn.addEventListener('click', () => {
     leaveRoom();
     toast('Left the flight');

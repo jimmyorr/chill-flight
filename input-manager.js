@@ -123,6 +123,7 @@ export class InputManager {
     this.onPauseToggle = null;
     this.onMusicToggle = null;
     this.onZenToggle = null;
+    this.onWave = null; // wing waggle (multiplayer.js)
     this.onCenterDoubleTap = null;
     this._lastCenterTap = 0;
     this.onThrottleChange = null; // function(deltaThrottle)
@@ -284,6 +285,10 @@ export class InputManager {
     }
     if (key === 'x' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       if (this.onSmokeToggle) this.onSmokeToggle();
+      return;
+    }
+    if (key === 'h' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (this.onWave) this.onWave();
       return;
     }
     if (key === 'g') {

@@ -76,43 +76,22 @@ export function setTourStop(spot) {
 
 const el = document.getElementById('waypoint-indicator');
 const distEl = document.getElementById('waypoint-distance');
-const _v = new THREE.Vector3();
 let lastDistText = null;
 
-// "850 m" (in 50 m steps) under a kilometer, "2.4 km" under 10, then "34 km"
-function formatDistance(units) {
-  const m = units * UNITS_TO_M;
-  if (m < 1000) return `${Math.max(50, Math.round(m / 50) * 50)} m`;
-  if (m < 10000) return `${(m / 1000).toFixed(1)} km`;
-  return `${Math.round(m / 1000)} km`;
-}
+const _v = new THREE.Vector3();
+const _place = {sx: 0, sy: 0, angle: 0, onScreen: false};
 
-function update() {
-  requestAnimationFrame(update);
-  if (!el) return;
-  const target = waypoint || tourStop;
-  if (!target || !planeGroup || state.isVRPresenting) {
-    el.hidden = true;
-    return;
-  }
-
-  const dist = Math.hypot(
-    target.x - planeGroup.position.x,
-    target.z - planeGroup.position.z
-  );
-  if (dist < ARRIVE_DIST) {
-    if (waypoint && !waypoint.stay) {
-      clearWaypoint();
-      playChime();
-    }
-    el.hidden = true;
-    return;
-  }
-
+/**
+ * Where a marker for a world point goes on screen: over it when it's in
+ * view, otherwise at the screen's edge in its direction (clear of the HUD),
+ * with `angle` pointing the way. Also friends flying with you
+ * (multiplayer.js). Returns a shared object, overwritten by the next call.
+ */
+export function screenPlacement(x, y, z) {
   const w = window.innerWidth;
   const h = window.innerHeight;
   // Where it is relative to the camera (looking down -Z)
-  _v.set(target.x, target.y, target.z).applyMatrix4(camera.matrixWorldInverse);
+  _v.set(x, y, z).applyMatrix4(camera.matrixWorldInverse);
   const vx = _v.x;
   const vy = _v.y;
   const inFront = _v.z < 0;
@@ -153,6 +132,48 @@ function update() {
     angle = Math.atan2(dy, dx);
   }
 
+  _place.sx = sx;
+  _place.sy = sy;
+  _place.angle = angle;
+  _place.onScreen = onScreen;
+  return _place;
+}
+
+// "850 m" (in 50 m steps) under a kilometer, "2.4 km" under 10, then "34 km"
+export function formatDistance(units) {
+  const m = units * UNITS_TO_M;
+  if (m < 1000) return `${Math.max(50, Math.round(m / 50) * 50)} m`;
+  if (m < 10000) return `${(m / 1000).toFixed(1)} km`;
+  return `${Math.round(m / 1000)} km`;
+}
+
+function update() {
+  requestAnimationFrame(update);
+  if (!el) return;
+  const target = waypoint || tourStop;
+  if (!target || !planeGroup || state.isVRPresenting) {
+    el.hidden = true;
+    return;
+  }
+
+  const dist = Math.hypot(
+    target.x - planeGroup.position.x,
+    target.z - planeGroup.position.z
+  );
+  if (dist < ARRIVE_DIST) {
+    if (waypoint && !waypoint.stay) {
+      clearWaypoint();
+      playChime();
+    }
+    el.hidden = true;
+    return;
+  }
+
+  const {sx, sy, angle, onScreen} = screenPlacement(
+    target.x,
+    target.y,
+    target.z
+  );
   el.hidden = false;
   el.classList.toggle('offscreen', !onScreen);
   el.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;

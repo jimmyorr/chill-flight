@@ -27,6 +27,7 @@ import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 import {LANDMARKS, arrivalAt, nearestLandmark} from './landmarks.js';
 import {cancelJob, progress} from './jobs.js';
 import {PEOPLE} from './people.js';
+import {friendsOnMap} from './multiplayer.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -56,6 +57,29 @@ import {PEOPLE} from './people.js';
 
   // Scratch [r, g, b] for mapColor
   const _color = [0, 0, 0];
+
+  // A friend flying with you (friendsOnMap): the player's arrow, smaller,
+  // in their livery colour; `scale` 1 is the world map's size
+  function drawFriend(c, x, y, friend, scale) {
+    c.save();
+    c.translate(x, y);
+    c.rotate(-friend.yaw - Math.PI / 2);
+    c.scale(scale, scale);
+    c.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    c.shadowBlur = 6;
+    c.fillStyle = friend.color;
+    c.beginPath();
+    c.moveTo(12, 0);
+    c.lineTo(-9, -9);
+    c.lineTo(-5, 0);
+    c.lineTo(-9, 9);
+    c.closePath();
+    c.fill();
+    c.strokeStyle = friend.it ? '#e8505b' : '#ffffff';
+    c.lineWidth = 1.75;
+    c.stroke();
+    c.restore();
+  }
 
   function initMinimap() {
     // Create background canvas for offscreen heightmap caching
@@ -362,6 +386,23 @@ import {PEOPLE} from './people.js';
       ctx.closePath();
       ctx.fill();
       ctx.restore();
+    }
+
+    // Friends flying with you, held at the edge like the waypoint
+    for (const friend of friendsOnMap()) {
+      const dx = friend.x - px;
+      const dz = friend.z - pz;
+      const k = Math.min(
+        1,
+        (viewRadius * 0.92) / Math.max(Math.abs(dx), Math.abs(dz), 1)
+      );
+      drawFriend(
+        ctx,
+        90 + ((dx * k) / viewRadius) * 90,
+        90 + ((dz * k) / viewRadius) * 90,
+        friend,
+        0.6
+      );
     }
 
     // Draw local player indicator in the center
@@ -835,6 +876,28 @@ import {PEOPLE} from './people.js';
       fsCtx.moveTo(wx, wz + 5);
       fsCtx.lineTo(wx, wz + 17);
       fsCtx.stroke();
+      fsCtx.restore();
+    }
+
+    // 3.6 Friends flying with you, with their names
+    for (const friend of friendsOnMap()) {
+      const fx = (friend.x - vMinX) / worldUnitsPerPixel;
+      const fz = (friend.z - vMinZ) / worldUnitsPerPixel;
+      if (fx < -20 || fx > screenW + 20 || fz < -20 || fz > screenH + 20) {
+        continue;
+      }
+      drawFriend(fsCtx, fx, fz, friend, 1);
+      fsCtx.save();
+      fsCtx.font = 'bold 10px Inter, -apple-system, sans-serif';
+      fsCtx.textAlign = 'center';
+      fsCtx.fillStyle = '#ffffff';
+      fsCtx.shadowColor = 'rgba(0,0,0,0.9)';
+      fsCtx.shadowBlur = 4;
+      fsCtx.fillText(
+        friend.it ? `${friend.name} (it)` : friend.name,
+        fx,
+        fz - 18
+      );
       fsCtx.restore();
     }
 
