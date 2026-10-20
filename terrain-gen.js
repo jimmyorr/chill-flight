@@ -189,6 +189,19 @@ const _colorEasternRock = new Color(0x1a0a2e);
 const _colorEasternPeak = new Color(0xc8f000);
 const _colorEasternCliff = new Color(0x4b0082);
 const _colorEasternWater = new Color(0x00ffe7);
+// The eastern land's column tops (see the extreme zone colours): mosses,
+// heather and lichens
+const _colorBasaltTops = [
+  new Color(0x1a4d3a), // deep moss
+  new Color(0x2f6e3a), // moss
+  new Color(0x1f7a72), // teal moss
+  new Color(0x7a9a2a), // lime moss
+  new Color(0x2f6e3a), // moss
+  new Color(0x5a4580), // violet heather
+  new Color(0x7e4a68), // dusky heather
+  new Color(0x95593a), // rust lichen
+];
+const _colorBasaltWall = new Color(0x34304a);
 const _colorWesternLowland = new Color(0x400020);
 const _colorWesternRock = new Color(0x200000);
 // Pale pink crystal, so the spires don't read as snow
@@ -1826,6 +1839,12 @@ export function generateChunkData({
     const extremeBlend = ChillFlightLogic.alienAt(worldX, worldZ, simplex);
     const isAlienLand = extremeBlend > ALIEN_PROPS_AT;
     const isEastAlien = isEast && isAlienLand;
+    // The eastern land's basalt column here (its top's colour, mushroom
+    // groves and giant mushrooms)
+    const basaltCol =
+      isEast && extremeBlend > 0
+        ? ChillFlightLogic.basaltColumnAt(worldX, worldZ, simplex)
+        : null;
 
     const height = heightGrid[vertI];
 
@@ -2204,6 +2223,25 @@ export function generateChunkData({
         const bleed = 1.0 - (height - WATER_LEVEL) / 4.0;
         const shoreColor = baseLandColor.clone().lerp(colorWater, bleed);
         _tempColorObj.lerp(shoreColor, blend * 0.85);
+      } else if (basaltCol && basaltCol.top > 0 && slopeFactor <= 0.4) {
+        // A column's flat top: each one moss, heather or lichen all over,
+        // more of one kind in some places than others, so the honeycomb
+        // reads as a patchwork from above
+        const mix =
+          basaltCol.tint * 0.65 +
+          (simplex.noise2D(
+            basaltCol.cx * 0.00008 - 41.3,
+            basaltCol.cz * 0.00008 + 7.9
+          ) +
+            1) *
+            0.25;
+        const tops = _colorBasaltTops;
+        const topColor =
+          tops[Math.min(tops.length - 1, (mix * tops.length) | 0)];
+        _tempColorObj.lerp(topColor, blend * 0.8);
+      } else if (basaltCol && basaltCol.top > 0) {
+        // A column's walls: dark basalt, all the way up the organ pipes
+        _tempColorObj.lerp(_colorBasaltWall, blend * 0.8);
       } else if (height > MOUNTAIN_LEVEL) {
         const peakFrac = Math.min(1, (height - MOUNTAIN_LEVEL) / 400);
         _tempColorObj.lerp(colorCliff, blend * (isEast ? 0.7 : 1));
@@ -2607,10 +2645,31 @@ export function generateChunkData({
       } else if (treeCount === 0) {
         // Open ground (unless a lone tree took this spot)
         if (isEastAlien) {
-          if (rng() < 0.007 * densityScale) {
+          // A few columns are mushroom groves, crowded with big ones; and
+          // now and then a giant towers over a column's top
+          const grove =
+            basaltCol !== null &&
+            basaltCol.spire === 0 &&
+            basaltCol.tint > 0.86;
+          const flatTop = slopeFactor < 0.25;
+          const giantRoll = rng();
+          if (flatTop && giantRoll < 0.0004 * densityScale) {
+            mushroomTreePositions.push({
+              x: localX,
+              y: height,
+              z: localZ,
+              scale: 9 + rng() * 7,
+              color:
+                ALIEN_MUSHROOM_CAP_COLORS[
+                  Math.floor(rng() * ALIEN_MUSHROOM_CAP_COLORS.length)
+                ],
+            });
+          } else if (rng() < (grove ? 0.09 : 0.007) * densityScale) {
             const scaleRoll = rng();
             let scale;
-            if (scaleRoll < 0.3) {
+            if (grove) {
+              scale = 2 + rng() * 3.5;
+            } else if (scaleRoll < 0.3) {
               scale = 0.5 + rng() * 0.4;
             } else if (scaleRoll < 0.85) {
               scale = 1.0 + rng() * 1.0;

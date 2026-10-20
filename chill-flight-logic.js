@@ -1391,6 +1391,10 @@ export const ChillFlightLogic = {};
   }
   // Columns sit on a hexagonal grid this far apart, nudged off it a little
   const BASALT_CELL = 1000;
+  // How far an organ pipe rises above its ledge, at most (deep in the land)
+  const BASALT_SPIRE = 2000;
+  // An organ pipe stands this far in from its column's edge, on a ledge
+  const SPIRE_INSET = 220;
   const BASALT_ROW = (BASALT_CELL * Math.sqrt(3)) / 2;
   // A hash of a column (0 to 1), different for each world seed (salt)
   function basaltHash(col, row, salt) {
@@ -1432,10 +1436,27 @@ export const ChillFlightLogic = {};
             (0.2 + 0.8 * basaltHash(col + 7, row - 3, salt)) *
             tall;
       }
+      // Organ pipes: in scattered clusters (a slow noise field), some land
+      // columns shoot up far above the rest from a ledge at their usual
+      // height, so there are towers to fly between and see from afar
+      let spire = 0;
+      if (top > 0) {
+        const clump = simplex.noise2D(cx * 0.00015 + 91.7, cz * 0.00015 - 23.4);
+        if (basaltHash(col - 13, row + 17, salt) < (clump - 0.3) * 1.5) {
+          spire =
+            (0.35 + 0.65 * basaltHash(col + 19, row - 7, salt)) *
+            BASALT_SPIRE *
+            rise;
+        }
+      }
       cell = {
         cx,
         cz,
         top,
+        spire,
+        // Picks the colour of its top and whether mushrooms crowd it (see
+        // basaltColumnAt)
+        tint: basaltHash(col + 23, row + 29, salt),
         tiltX: (basaltHash(col - 5, row + 9, salt) - 0.5) * 0.12,
         tiltZ: (basaltHash(col + 11, row + 2, salt) - 0.5) * 0.12,
       };
@@ -1484,8 +1505,32 @@ export const ChillFlightLogic = {};
       0,
       Math.min(1, (edge - RAVINE_FLOOR) / (RAVINE_TOP - RAVINE_FLOOR))
     );
-    const h = h1 > 0 ? floor + (h1 - floor) * t * t * (3 - 2 * t) : 0;
+    let h = h1 > 0 ? floor + (h1 - floor) * t * t * (3 - 2 * t) : 0;
+    if (c1.spire > 0) {
+      const s = Math.max(0, Math.min(1, (edge - SPIRE_INSET) / 50));
+      h += c1.spire * s * s * (3 - 2 * s);
+    }
     return {h, h1};
+  }
+  // The column nearest (x, z) in the eastern land's honeycomb, for its top's
+  // colour and props: {top (0 for sea), spire, tint (0 to 1)}
+  function basaltColumnAt(x, z, simplex) {
+    const salt = Math.floor((simplex.noise2D(12.34, 56.78) + 1) * 1e6);
+    const row0 = Math.round(z / BASALT_ROW);
+    let best = null;
+    let bestD = Infinity;
+    for (let row = row0 - 1; row <= row0 + 1; row++) {
+      const col0 = Math.round(x / BASALT_CELL - (row & 1) * 0.5);
+      for (let col = col0 - 1; col <= col0 + 1; col++) {
+        const c = basaltColumn(col, row, salt, simplex);
+        const d = (x - c.cx) ** 2 + (z - c.cz) ** 2;
+        if (d < bestD) {
+          bestD = d;
+          best = c;
+        }
+      }
+    }
+    return best;
   }
   let continent = CONTINENTS[0];
   // ?continent=<name> forces an outline; otherwise the world seed picks one.
@@ -4177,6 +4222,7 @@ export const ChillFlightLogic = {};
   exports.SALT_PAN_RISE = SALT_PAN_RISE;
   exports.LAKE_ICE_RISE = LAKE_ICE_RISE;
   exports.alienAt = alienAt;
+  exports.basaltColumnAt = basaltColumnAt;
   exports.MAP_WIDTH = MAP_WIDTH;
   exports.getElevation = getElevation;
   exports.getRiverCenterZ = getRiverCenterZ;
