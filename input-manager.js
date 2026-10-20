@@ -210,7 +210,11 @@ export class InputManager {
 
     // 2. Escape toggles pause (or closes the achievements, people or map overlay if open)
     if (e.key === 'Escape') {
-      for (const id of ['achievements-overlay', 'people-overlay']) {
+      for (const id of [
+        'achievements-overlay',
+        'people-overlay',
+        'fly-overlay',
+      ]) {
         const overlay = document.getElementById(id);
         if (overlay?.style.display === 'flex' && this.state.isPaused) {
           overlay.style.display = 'none';
@@ -491,6 +495,7 @@ export class InputManager {
       e.target.closest('#pause-overlay') ||
       e.target.closest('#achievements-overlay') ||
       e.target.closest('#people-overlay') ||
+      e.target.closest('#fly-overlay') ||
       e.target.closest('#fullscreen-map-overlay') ||
       e.target.closest('#mobile-action-menu') ||
       e.target.closest('#minimap-container') ||
@@ -545,6 +550,7 @@ export class InputManager {
         target.closest('#pause-overlay') ||
         target.closest('#achievements-overlay') ||
         target.closest('#people-overlay') ||
+        target.closest('#fly-overlay') ||
         target.closest('#fullscreen-map-overlay') ||
         target.closest('#loading-overlay') ||
         target.closest('#debug-menu') ||
@@ -667,6 +673,7 @@ export class InputManager {
         target.closest('#pause-overlay') ||
         target.closest('#achievements-overlay') ||
         target.closest('#people-overlay') ||
+        target.closest('#fly-overlay') ||
         target.closest('#fullscreen-map-overlay') ||
         target.closest('#loading-overlay') ||
         target.closest('#debug-menu') ||
