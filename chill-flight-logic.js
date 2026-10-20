@@ -3912,8 +3912,11 @@ export const ChillFlightLogic = {};
   }
 
   // Does highway n run at `along` (see roadCenter)? Out to the grid point
-  // past the last on the route, so it ends just past the shore.
+  // past the last on the route, so it ends just past the shore; but the
+  // cross-country one stops at ROAD_EW_END, where Meadow Field's access road
+  // carries on.
   function highwayRunsAt(n, along, simplex, constants) {
+    if (n === ROAD_EW && along > ROAD_EW_END) return false;
     if (routeSeed !== exports.WORLD_SEED || routeLand.size > 200000) {
       routeLand.clear();
       routeOn.clear();
@@ -3995,6 +3998,9 @@ export const ChillFlightLogic = {};
 
   const MEADOW_ROAD = ACCESS_ROADS.find((r) => r.n === ROAD_EW);
   const ROAD_EW_EAST = MEADOW_ROAD.x1;
+  // Where its deck ends, at the start of Meadow Field's access road
+  // (airports.js createAccessRoad)
+  const ROAD_EW_END = ROAD_EW_EAST + ROAD_WIDTH + 1;
 
   // How far (x, z) is from an access road's centre line
   function accessRoadDistance(r, x, z) {
@@ -4183,6 +4189,7 @@ export const ChillFlightLogic = {};
   exports.ROAD_EW_BASE_Z = ROAD_EW_BASE_Z;
   exports.ROAD_EW_WEST = ROAD_EW_WEST;
   exports.ROAD_EW_EAST = ROAD_EW_EAST;
+  exports.ROAD_EW_END = ROAD_EW_END;
   exports.AIRPORTS = AIRPORTS;
   exports.RUNWAY_LENGTH = RUNWAY_LENGTH;
   exports.RUNWAY_WIDTH = RUNWAY_WIDTH;

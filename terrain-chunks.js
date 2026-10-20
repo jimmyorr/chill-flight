@@ -821,6 +821,22 @@ export function clearChunkQueue() {
   hooks.clearFarTerrain?.();
 }
 
+// The top of Meadow Field's access road where it leaves the cross-country
+// highway's end (ROAD_EW_END)
+function meadowRoadStartY() {
+  const i = ChillFlightLogic.ACCESS_ROADS.findIndex((r) => r.crossCountry);
+  const ends = ChillFlightLogic.accessRoadEnds(i, simplex, {
+    WATER_LEVEL,
+    MOUNTAIN_LEVEL,
+  });
+  if (!ends) return null;
+  return ChillFlightLogic.accessRoadDeck(
+    ChillFlightLogic.ACCESS_ROADS[i],
+    ends,
+    ChillFlightLogic.ROAD_EW_END
+  );
+}
+
 // Where a highway bridge span ends, found by walking along the road from one
 // of its samples, keyed by seed, road, walk direction and sample position
 // along the road; spans can
@@ -1576,7 +1592,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       Math.abs(ChillFlightLogic.ROAD_EW_BASE_Z - worldOffsetZ) <
         4000 + halfChunk &&
       worldOffsetX + halfChunk > ChillFlightLogic.ROAD_EW_WEST &&
-      worldOffsetX - halfChunk < ChillFlightLogic.ROAD_EW_EAST
+      worldOffsetX - halfChunk < ChillFlightLogic.ROAD_EW_END
     ) {
       activeRoads.push(ChillFlightLogic.ROAD_EW);
     }
@@ -1597,6 +1613,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
       const margin = 900;
       const rawSamples = [];
+      const ewEnd = ChillFlightLogic.ROAD_EW_END;
       const minHeight = WATER_LEVEL + 60;
 
       // The road's planned height and the terrain under it at world
@@ -1634,7 +1651,14 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         rawSamples.push({
           sampleA,
           wa,
-          onRoute: ChillFlightLogic.highwayRunsAt(n, wa, simplex, constants),
+          // The cross-country one's last segment reaches ROAD_EW_END,
+          // where it's cut off (below)
+          onRoute: ChillFlightLogic.highwayRunsAt(
+            n,
+            crossCountry && wa - sampleStep < ewEnd ? Math.min(wa, ewEnd) : wa,
+            simplex,
+            constants
+          ),
           localC: roadC - acrossOffset,
           rawY,
           actualTerrainH,
@@ -1730,6 +1754,17 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           if (rawSamples[i].junction) finalY[i] -= JUNCTION_DIP;
         }
 
+        // The cross-country one's end is level with the start of Meadow
+        // Field's access road, which carries on from it
+        const endY = crossCountry ? meadowRoadStartY() : null;
+        if (endY !== null) {
+          for (let i = 0; i < rawSamples.length; i++) {
+            if (rawSamples[i].wa > ewEnd - ChillFlightLogic.ROAD_WIDTH * 2) {
+              finalY[i] = endY;
+            }
+          }
+        }
+
         // 3. Assemble bridgePositions for this chunk
         for (let i = 0; i < rawSamples.length - 1; i++) {
           const curr = rawSamples[i];
@@ -1743,7 +1778,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           const needsPilings = finalY[i] - curr.actualTerrainH > 10;
 
           const a0 = curr.sampleA + sampleStep / 2;
-          const a1 = curr.sampleA + sampleStep * 1.5;
+          let a1 = curr.sampleA + sampleStep * 1.5;
+          if (crossCountry && alongOffset + a1 > ewEnd) {
+            a1 = ewEnd - alongOffset;
+          }
           bridgePositions.push({
             x: crossCountry ? a0 : curr.localC,
             y: finalY[i],

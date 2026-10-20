@@ -545,5 +545,29 @@ console.log('  Passed: Highways leave out stretches stranded at sea');
 }
 console.log('  Passed: Trees and rocks stand clear of the highways');
 
+// --- THE CROSS-COUNTRY HIGHWAY ENDS WHERE MEADOW FIELD'S ROAD STARTS ---
+// It used to run on past the junction, a deck over the access road
+{
+  const runs = (x) =>
+    ChillFlightLogic.highwayRunsAt(ChillFlightLogic.ROAD_EW, x, simplex, {
+      WATER_LEVEL: 40,
+      MOUNTAIN_LEVEL: 180,
+    });
+  const end = ChillFlightLogic.ROAD_EW_END;
+  for (const seed of [20260101, 20261019]) {
+    useSeed(seed);
+    if (runs(end + 1) || runs(end + 400)) {
+      console.error(
+        `FAIL: seed ${seed}, the cross-country highway runs past its end at x = ${end}`
+      );
+      process.exit(1);
+    }
+  }
+  useSeed(20260101);
+}
+console.log(
+  "  Passed: The cross-country highway ends at Meadow Field's access road"
+);
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);
