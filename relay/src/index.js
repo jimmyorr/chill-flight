@@ -5,7 +5,7 @@
 // never need the relay redeployed. Rooms hibernate between messages, and
 // the free Workers plan stops rather than bills when it runs out.
 //
-// Connect: wss://<relay>/room/<CODE>?mode=create|join|rejoin&seed=<n>&name=<host>
+// Connect: wss://<relay>/room/<CODE>?mode=create|join&seed=<n>&name=<host>
 // The relay sends {t: 'welcome', id, seed, host, peers}, then {t: 'joined',
 // f} and {t: 'left', f} as players come and go. A refused join is closed
 // with one of the codes in rules.js (CLOSE).
@@ -13,12 +13,19 @@ import {DurableObject} from 'cloudflare:workers';
 import {
   EMPTY_ROOM_MS,
   MAX_FAILED_JOINS,
+  RATE_BURST,
+  CLOSE,
   admit,
   isAllowedOrigin,
   isRoomCode,
   newPlayerId,
   relayed,
+  takeMessage,
 } from './rules.js';
+
+// Each connection's message allowance (takeMessage). In memory only: a room
+// waking from hibernation starts everyone afresh, which is fine
+const buckets = new WeakMap();
 
 // Failed joins per address, for this Worker instance only (a rough brake on
 // guessing codes, not an exact count)
@@ -120,6 +127,16 @@ export class Room extends DurableObject {
   }
 
   async webSocketMessage(ws, message) {
+    let bucket = buckets.get(ws);
+    if (!bucket) {
+      bucket = {tokens: RATE_BURST, at: Date.now()};
+      buckets.set(ws, bucket);
+    }
+    if (!takeMessage(bucket, Date.now())) {
+      ws.close(CLOSE.tooFast, 'too fast');
+      await this.playerLeft(ws, CLOSE.tooFast);
+      return;
+    }
     const text = relayed(message, ws.deserializeAttachment().id);
     if (text) this.broadcast(text, ws);
   }

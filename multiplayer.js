@@ -80,6 +80,9 @@ const RECONNECT_DELAYS_MS = [1000, 3000, 8000];
 // Hidden this long (another app, a locked phone), the connection is closed,
 // and opened again on coming back
 const HIDDEN_DISCONNECT_MS = 60 * 1000;
+// Paused this long, the same, so a game left paused doesn't keep the room
+// awake (and using up the relay's free allowance); flying on reconnects
+const PAUSED_DISCONNECT_MS = 15 * 60 * 1000;
 // Names show over planes nearer than this, fading out over the last part
 // (units)
 const LABEL_FADE_START = 2500;
@@ -115,6 +118,7 @@ let reconnectTry = 0;
 let reconnectTimer = null;
 let hiddenTimer = null;
 let suspended = false;
+let pausedSince = null;
 // Fly to a friend as soon as one is seen (after joining their flight)
 let arriveOnJoin = false;
 let sendTimer = null;
@@ -492,6 +496,7 @@ function clearRoom() {
   socket = null;
   room = null;
   arriveOnJoin = false;
+  pausedSince = null;
   tag = NO_TAG;
   refreshTag();
   waggleAt = -Infinity;
@@ -540,7 +545,7 @@ async function rejoin() {
   if (!room || socket) return;
   const {code} = room;
   try {
-    const {ws, welcome} = await openRoom(code, 'rejoin');
+    const {ws, welcome} = await openRoom(code, 'join');
     if (!room || room.code !== code) {
       ws.close(1000);
       return;
@@ -550,6 +555,9 @@ async function rejoin() {
     log.warn(`[Fly together] Rejoining ${code} failed: ${err.message}`);
     if (err.code === CLOSE.full) {
       toast('The flight is full now, flying solo');
+      clearRoom();
+    } else if (err.code === CLOSE.notFound) {
+      toast('The flight has ended, flying solo');
       clearRoom();
     } else {
       onDropped();
@@ -662,9 +670,35 @@ async function share() {
 
 const _quat = new THREE.Quaternion();
 
+// Away (hidden or paused a while): closes the connection, keeping the room
+// to come back to
+function suspend() {
+  if (!room || !socket) return;
+  suspended = true;
+  socket.onclose = null;
+  socket.close(1000);
+  socket = null;
+  for (const id of [...peers.keys()]) removePeer(id);
+}
+
+function resume() {
+  if (!suspended) return;
+  suspended = false;
+  reconnectTry = 0;
+  rejoin();
+}
+
 function sendState() {
-  if (!room || socket?.readyState !== WebSocket.OPEN) return;
+  if (!room) return;
   const now = performance.now();
+  if (state.isPaused) {
+    pausedSince ??= now;
+    if (now - pausedSince > PAUSED_DISCONNECT_MS) suspend();
+  } else {
+    pausedSince = null;
+    if (!document.hidden) resume();
+  }
+  if (socket?.readyState !== WebSocket.OPEN) return;
   const interval = state.isPaused ? PAUSED_SEND_INTERVAL_MS : SEND_INTERVAL_MS;
   if (now - lastSendAt < interval - 20) return;
   lastSendAt = now;
@@ -979,20 +1013,15 @@ if (RELAY && openBtn && overlay) {
   // Away from the game a while: drop the connection, and come back on return
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      hiddenTimer = setTimeout(() => {
-        if (!room || !socket) return;
-        suspended = true;
-        socket.onclose = null;
-        socket.close(1000);
-        socket = null;
-        for (const id of [...peers.keys()]) removePeer(id);
-      }, HIDDEN_DISCONNECT_MS);
+      hiddenTimer = setTimeout(suspend, HIDDEN_DISCONNECT_MS);
     } else {
       clearTimeout(hiddenTimer);
-      if (suspended) {
-        suspended = false;
-        reconnectTry = 0;
-        rejoin();
+      // Unless paused long enough to stay away (flying on reconnects)
+      if (
+        !pausedSince ||
+        performance.now() - pausedSince <= PAUSED_DISCONNECT_MS
+      ) {
+        resume();
       }
     }
   });

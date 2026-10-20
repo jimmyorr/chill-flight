@@ -21,6 +21,7 @@ export const CLOSE = {
   notFound: 4004,
   taken: 4009,
   badRequest: 4000,
+  tooFast: 4029,
 };
 
 // How often a position update goes out (ms): 5 a second while flying, 1 a

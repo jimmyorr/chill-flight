@@ -179,15 +179,33 @@ check(
         rules.CLOSE.notFound &&
       a({mode: 'create', players: 0, info: stale}).ok
   );
-  const rejoined = a({mode: 'rejoin', players: 0, info: stale, seed: '9'});
   check(
-    'Coming back after a dropped connection starts the room again',
-    rejoined.ok && rejoined.info.seed === 9
+    'Only creating starts a room, so a made-up code finds nothing',
+    a({mode: 'join', players: 0, info: null}).code === rules.CLOSE.notFound &&
+      a({mode: 'rejoin', players: 0, info: stale}).code ===
+        rules.CLOSE.badRequest
   );
   check(
     'Coming back to a live room keeps its world',
-    a({mode: 'rejoin', players: 1, info, seed: '9'}).info.seed === 7
+    a({mode: 'join', players: 1, info, seed: '9'}).info.seed === 7
   );
+  {
+    const bucket = {tokens: rules.RATE_BURST, at: 0};
+    let sent = 0;
+    // The game's 5 a second for a minute: never cut off
+    for (let t = 0; t < 60000; t += 200)
+      if (rules.takeMessage(bucket, t)) sent++;
+    const flood = {tokens: rules.RATE_BURST, at: 0};
+    let flooded = 0;
+    // 100 a second: cut off within a second
+    for (let t = 0; t < 1000; t += 10)
+      if (rules.takeMessage(flood, t)) flooded++;
+    check(
+      'Players are cut off only for flooding the room',
+      sent === 300 && flooded < 70,
+      `${sent} ${flooded}`
+    );
+  }
   check(
     'A bad seed or mode is refused',
     a({mode: 'create', players: 0, info: null, seed: 'x'}).code ===

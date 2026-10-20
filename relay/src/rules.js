@@ -16,6 +16,10 @@ export const MAX_MESSAGE_BYTES = 1024;
 export const EMPTY_ROOM_MS = 10 * 60 * 1000;
 // Failed joins (a wrong or ended code) allowed per address per minute
 export const MAX_FAILED_JOINS = 10;
+// Messages a player may send: RATE_PER_SECOND on average, in bursts of up to
+// RATE_BURST (the game sends 5 a second); faster, and they're disconnected
+export const RATE_PER_SECOND = 20;
+export const RATE_BURST = 40;
 
 // Why a join was refused: WebSocket close codes the game shows a message for
 export const CLOSE = {
@@ -23,6 +27,7 @@ export const CLOSE = {
   notFound: 4004,
   taken: 4009,
   badRequest: 4000,
+  tooFast: 4029,
 };
 
 export function isRoomCode(code) {
@@ -70,9 +75,9 @@ export function cleanName(name) {
 }
 
 // Whether a player may come in. mode: 'create' (a new room, refused if the
-// code is in use), 'join' (refused if there's no such room) or 'rejoin'
-// (join, or start it again: a player coming back after a dropped
-// connection). `info` is what the room stored when it was created: {seed,
+// code is in use) or 'join' (refused if there's no such room, or it has
+// ended; coming back after a dropped connection is a join too, so only the
+// game's own random codes ever start a room). `info` is what the room stored when it was created: {seed,
 // host, emptySince}. Returns {ok: true, info} with the room's info to keep,
 // or {ok: false, code, reason}.
 export function admit({mode, players, info, now, seed, host}) {
@@ -99,10 +104,21 @@ export function admit({mode, players, info, now, seed, host}) {
       ? {ok: true, info: {...info, emptySince: null}}
       : {ok: false, code: CLOSE.notFound, reason: 'not found'};
   }
-  if (mode === 'rejoin') {
-    return live ? {ok: true, info: {...info, emptySince: null}} : fresh();
-  }
   return {ok: false, code: CLOSE.badRequest, reason: 'bad mode'};
+}
+
+// A player's message allowance: a token bucket {tokens, at}, refilled at
+// RATE_PER_SECOND up to RATE_BURST. Takes one for a message at `now` (ms);
+// returns false when there's none left.
+export function takeMessage(bucket, now) {
+  bucket.tokens = Math.min(
+    RATE_BURST,
+    bucket.tokens + ((now - bucket.at) / 1000) * RATE_PER_SECOND
+  );
+  bucket.at = now;
+  if (bucket.tokens < 1) return false;
+  bucket.tokens -= 1;
+  return true;
 }
 
 // A short id for a new player, unique in the room
