@@ -622,6 +622,7 @@ export function createMaterial(params) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
     shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
+    shader.uniforms.uNearEdgeFade = terrainUniforms.uNearEdgeFade;
     shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
     shader.uniforms.uTopColor = terrainUniforms.uTopColor;
     shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
@@ -654,6 +655,7 @@ export function createMaterial(params) {
       uniform vec3 uTopColor;
       uniform vec3 uBottomColor;
       uniform float uRenderRadius;
+      uniform float uNearEdgeFade;
       varying float vDistanceXZ;
       varying vec3 vWorldPosition;
     ` +
@@ -721,7 +723,12 @@ export function createMaterial(params) {
          if (uRenderRadius > 0.0) {
              float distRatio = vDistanceXZ / uRenderRadius;
              float xzFogFactor = smoothstep(0.9, 0.99, distRatio);
-             finalFogFactor = max(fogFactor, xzFogFactor);
+             // Where the far terrain carries the land on past this edge
+             // (uNearEdgeFade 0), the ground doesn't fade to the sky color,
+             // so props don't either: they thin out with a dither instead
+             finalFogFactor = max(fogFactor, xzFogFactor * uNearEdgeFade);
+             float thin = xzFogFactor * (1.0 - uNearEdgeFade);
+             if (thin > 0.0 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) < thin) discard;
          }
          
          gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
