@@ -91,7 +91,7 @@ export const Achievements = (function () {
       id: 'mach_1',
       title: 'Mach 1',
       emoji: '🚀',
-      hint: 'Reach a speed of 500 KTS',
+      hint: 'Reach a speed of 1000 KTS',
     },
     // 3. Exploration & Locations
     {

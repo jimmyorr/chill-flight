@@ -401,7 +401,7 @@ function performFrame() {
       BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
 
     // 3. Mach 1
-    if (currentKTS > 500) {
+    if (currentKTS > 1000) {
       Achievements.unlock('mach_1');
     }
 
