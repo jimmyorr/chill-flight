@@ -208,7 +208,7 @@ function getLatestReleaseNotes(appVersion) {
   const notesPath = path.join(rootDir, 'RELEASE_NOTES.md');
   if (!fs.existsSync(notesPath)) return null;
   const content = fs.readFileSync(notesPath, 'utf8');
-  const escapedVersion = appVersion.replace(/\./g, '\\.');
+  const escapedVersion = appVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(
     `##\\s+\\[?${escapedVersion}\\]?[^\\n]*\\n([\\s\\S]*?)(?=\\n##|$)`
   );

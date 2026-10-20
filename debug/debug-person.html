@@ -505,13 +505,27 @@
       // Typewriter pacing: 35 characters per second (matches dialog.js)
       const TYPE_RATE = 35;
 
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      // List of all characters
+      const allNames = Array.from(
+        new Set([...Object.keys(FACES), ...PEOPLE.map((p) => p.name)])
+      );
+
       // URL parameters
       const urlParams = new URLSearchParams(window.location.search);
-      let currentName =
-        urlParams.get('person') ||
-        urlParams.get('name') ||
-        Object.keys(FACES)[0] ||
-        'Ray';
+      const requestedParam = urlParams.get('person') || urlParams.get('name');
+      let currentName = allNames.includes(requestedParam)
+        ? requestedParam
+        : allNames[0] || 'Ray';
 
       // Elements
       const personSelect = document.getElementById('person-select');
@@ -536,17 +550,12 @@
       const customInput = document.getElementById('custom-input');
       const testCustomBtn = document.getElementById('test-custom-btn');
 
-      // List of all characters
-      const allNames = Array.from(
-        new Set([...Object.keys(FACES), ...PEOPLE.map((p) => p.name)])
-      );
-
       // Populate person selector
       personSelect.innerHTML = allNames
         .map((name) => {
           const airport = PEOPLE.find((p) => p.name === name)?.airport;
           const label = airport ? `${name} (${airport})` : name;
-          return `<option value="${name}">${label}</option>`;
+          return `<option value="${escapeHtml(name)}">${escapeHtml(label)}</option>`;
         })
         .join('');
 
@@ -718,10 +727,12 @@
 
       // Format template words helper
       function formatPreview(text, sampleAirport = 'Lagoon Field') {
-        return text
+        const safeAirport = escapeHtml(sampleAirport);
+        const safeName = escapeHtml(currentName);
+        return escapeHtml(text)
           .replace(
             /\{to\}/g,
-            `<span class="placeholder-pill" title="Destination airport">{to: ${sampleAirport}}</span>`
+            `<span class="placeholder-pill" title="Destination airport">{to: ${safeAirport}}</span>`
           )
           .replace(
             /\{done\}/g,
@@ -729,7 +740,7 @@
           )
           .replace(
             /\{name\}/g,
-            `<span class="placeholder-pill" title="Person name">{name: ${currentName}}</span>`
+            `<span class="placeholder-pill" title="Person name">{name: ${safeName}}</span>`
           );
       }
 
@@ -748,7 +759,7 @@
         currentName = name;
         document.title = `Debug | ${name} dialog`;
         personSelect.value = name;
-        backLink.href = `debug-faces.html#${name.toLowerCase()}`;
+        backLink.href = `debug-faces.html#${encodeURIComponent(name.toLowerCase())}`;
 
         const index = allNames.indexOf(name);
         prevPersonBtn.disabled = index <= 0;
@@ -915,20 +926,20 @@
           html += `
             <section class="dialog-section">
               <h2>Jobs & tasks</h2>
-              <p class="section-sub">Missions offered at ${activePerson.airport}.</p>
+              <p class="section-sub">Missions offered at ${escapeHtml(activePerson.airport)}.</p>
           `;
 
           for (const [jobIdx, job] of activePerson.jobs.entries()) {
-            const destList = job.to.join(', ');
+            const destList = job.to.map((t) => escapeHtml(t)).join(', ');
             const sampleDest = job.to[0] || 'Airport';
 
             html += `
               <div class="job-card">
                 <div class="job-header">
-                  <h3 class="job-title">Job: <code>${job.id}</code></h3>
+                  <h3 class="job-title">Job: <code>${escapeHtml(job.id)}</code></h3>
                   <div class="person-meta" style="margin: 0;">
-                    <span class="pill">${job.kind}</span>
-                    <span class="pill">Cargo: ${job.cargo}</span>
+                    <span class="pill">${escapeHtml(job.kind)}</span>
+                    <span class="pill">Cargo: ${escapeHtml(job.cargo)}</span>
                   </div>
                 </div>
                 <div class="job-meta-row">
@@ -1051,6 +1062,7 @@
 
       // Navigation events
       function navigateToPerson(name) {
+        if (!allNames.includes(name)) return;
         const newUrl = new URL(window.location);
         newUrl.searchParams.set('person', name);
         window.history.pushState(null, '', newUrl);
@@ -1073,7 +1085,10 @@
 
       window.addEventListener('popstate', () => {
         const params = new URLSearchParams(window.location.search);
-        const name = params.get('person') || params.get('name') || allNames[0];
+        const requested = params.get('person') || params.get('name');
+        const name = allNames.includes(requested)
+          ? requested
+          : allNames[0] || 'Ray';
         loadPerson(name);
       });
 

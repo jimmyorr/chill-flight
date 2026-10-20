@@ -144,7 +144,7 @@ try {
   const notesPath = path.join(rootDir, 'RELEASE_NOTES.md');
   if (fs.existsSync(notesPath)) {
     const notesContent = fs.readFileSync(notesPath, 'utf8');
-    const versionEscaped = version.replace(/\./g, '\\.');
+    const versionEscaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(
       `## \\[${versionEscaped}\\][^\\n]*\\n\\n([\\s\\S]*?)(?=\\n## |$)`
     );
