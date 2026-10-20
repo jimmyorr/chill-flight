@@ -1,10 +1,10 @@
 # Release notes
 
-## [1.1.0](https://v1-1-0.chill-flight.pages.dev)
+## [1.1.1](https://v1-1-1.chill-flight.pages.dev)
 
 - **Planes & flight:** Added a playable jet, per-plane speed and handling, smoother aerobatics, and gentler NPC mountain climbs.
 - **World & roads:** Added a cross-country highway, airport access roads, highway towns, and eastern alien basalt spires and mushroom groves.
-- **People:** Added Erin, Lauren, and Marielle with new jobs and blinking portraits.
+- **People & jobs:** Meet new island characters offering jobs across the airfields, with animated blinking portraits.
 - **Effects & audio:** Added procedural sound effects, haptics, lens flare, spray, wakes, dust, and gradual storms.
 
 ## [1.0.0](https://v1-0-0.chill-flight.pages.dev)
