@@ -103,14 +103,55 @@ Object.assign(p, {
   turnAmount: 0,
 });
 let lowest = Infinity;
+let yAtFoot = 500;
 for (let i = 0; i < 60 * 60; i++) {
   stepTrafficPlane(p, 1 / 60, ridge);
+  if (p.z >= -1500) yAtFoot = p.y;
   lowest = Math.min(lowest, p.y - ridge(p.x, p.z));
 }
+check(
+  'a plane starts climbing well before reaching a ridge',
+  yAtFoot > 700,
+  `height at ridge foot ${yAtFoot.toFixed(0)}`
+);
 check(
   'a plane never gets near the ground over a steep ridge',
   lowest >= MIN_CLEARANCE - 1e-6,
   `lowest clearance ${lowest.toFixed(1)}`
+);
+
+// Two ridges with a valley between them: the plane climbs smoothly without
+// dipping into the valley or bobbing over the crests
+const twinRidges = (x, z) => {
+  const r1 = Math.max(0, 900 - Math.abs(z + 3000) * 0.6);
+  const r2 = Math.max(0, 900 - Math.abs(z + 3800) * 0.6);
+  return Math.max(40, r1, r2);
+};
+const tr = spawnTrafficPlane(mulberry32(9), 0, 0, flat, 8);
+Object.assign(tr, {
+  x: 0,
+  z: 0,
+  y: 500,
+  cruiseAlt: 500,
+  heading: 0,
+  turnAmount: 0,
+});
+let switches = 0;
+let lastSign = 0;
+let valleyMinY = Infinity;
+for (let i = 0; i < 60 * 60; i++) {
+  const prevY = tr.y;
+  stepTrafficPlane(tr, 1 / 60, twinRidges);
+  const vy = (tr.y - prevY) * 60;
+  const sign = Math.abs(vy) > 1 ? Math.sign(vy) : 0;
+  if (sign !== 0 && lastSign !== 0 && sign !== lastSign) switches++;
+  if (sign !== 0) lastSign = sign;
+  if (tr.z < -3000 && tr.z > -3800) valleyMinY = Math.min(valleyMinY, tr.y);
+}
+check(
+  'a plane holds its height across a valley between ridges without bobbing',
+  switches <= 1 && valleyMinY >= 1000,
+  `switches ${switches}, valley lowest y ${valleyMinY.toFixed(0)}`
 );
 
 // A lone mountain ahead, lower to its left: the plane turns away from it
