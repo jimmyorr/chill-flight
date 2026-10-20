@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "1.0.0";
-window.__COMMIT_HASH__ = "22ed367";
+    <script>window.__APP_VERSION__ = "1.1.0";
+window.__COMMIT_HASH__ = "459be07";
 window.__IS_DIRTY__ = false;</script>
 
     <meta charset="UTF-8" />
@@ -29,8 +29,8 @@ window.__IS_DIRTY__ = false;</script>
       content="A minimalist flight simulator set in a vast, ever-changing world."
     />
     <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-Cw4a9d6_.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-Msebc98Y.css">
+    <script type="module" crossorigin src="./assets/main-aIzDnIC2.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-D2BL9L14.css">
   </head>
 
   <body>
@@ -61,7 +61,7 @@ window.__IS_DIRTY__ = false;</script>
         <div class="pause-panels">
           <div class="pause-panel active" data-panel="flight" role="tabpanel">
             <div class="customization-row">
-              <span class="customization-label">Plane</span>
+              <span class="customization-label">Vehicle</span>
               <div class="scheme-btn-group" id="plane-select-group">
                 <button class="scheme-btn active" data-plane="biplane">
                   Biplane
@@ -69,8 +69,18 @@ window.__IS_DIRTY__ = false;</script>
                 <button class="scheme-btn" data-plane="seaplane">
                   Seaplane
                 </button>
-                <button class="scheme-btn" data-plane="glider">Glider</button>
                 <button class="scheme-btn" data-plane="twin">Twin</button>
+                <button class="scheme-btn" data-plane="jet">Jet</button>
+                <button class="scheme-btn" data-plane="buggy">Buggy</button>
+              </div>
+              <!-- The chosen plane's handling (filled in by airplane.js) -->
+              <div id="plane-stats" class="plane-stats">
+                <span>Speed</span>
+                <span class="plane-stat-bar"><i data-stat="speed"></i></span>
+                <span>Agility</span>
+                <span class="plane-stat-bar"><i data-stat="agility"></i></span>
+                <span>Float</span>
+                <span class="plane-stat-bar"><i data-stat="float"></i></span>
               </div>
             </div>
             <!-- NES Hardware Palette Colors -->
@@ -91,6 +101,17 @@ window.__IS_DIRTY__ = false;</script>
               <input
                 type="checkbox"
                 id="music-toggle-input"
+                class="pause-switch"
+              />
+            </label>
+            <label class="pause-row" for="sfx-toggle-input">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Sound effects</span>
+                <span class="pause-row-sub">Wind, water, and nature</span>
+              </span>
+              <input
+                type="checkbox"
+                id="sfx-toggle-input"
                 class="pause-switch"
               />
             </label>
@@ -160,6 +181,20 @@ window.__IS_DIRTY__ = false;</script>
                 >
               </span>
               <input type="checkbox" id="invert-y-input" class="pause-switch" />
+            </label>
+            <label
+              class="pause-row"
+              for="haptics-input"
+              id="haptics-row"
+              style="display: none"
+            >
+              <span class="pause-row-text">
+                <span class="pause-row-title">Haptics</span>
+                <span class="pause-row-sub"
+                  >Feel landings, gear, stalls and thunder</span
+                >
+              </span>
+              <input type="checkbox" id="haptics-input" class="pause-switch" />
             </label>
           </div>
         </div>
@@ -390,8 +425,8 @@ window.__IS_DIRTY__ = false;</script>
               id="splash-music-toggle"
               type="button"
               aria-pressed="true"
-              aria-label="Music"
-              title="Music"
+              aria-label="Sound"
+              title="Sound"
             >
               <svg class="music-on-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 9v6h4l5 4V5L8 9H4z" />
@@ -603,6 +638,28 @@ window.__IS_DIRTY__ = false;</script>
           </button>
           <button
             class="sub-btn"
+            id="mobile-smoke-toggle"
+            title="Smoke"
+            tabindex="-1"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              style="
+                width: 24px;
+                height: 24px;
+                fill: none;
+                stroke: currentColor;
+                stroke-width: 2;
+                stroke-linecap: round;
+              "
+            >
+              <path
+                d="M3 15c2-3 4-3 6 0s4 3 6 0 4-3 6 0M3 9c2-3 4-3 6 0s4 3 6 0 4-3 6 0"
+              ></path>
+            </svg>
+          </button>
+          <button
+            class="sub-btn"
             id="mobile-auto-toggle"
             title="Autopilot"
             tabindex="-1"
@@ -708,6 +765,19 @@ window.__IS_DIRTY__ = false;</script>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- The buggy's pedals on touch screens, held down (buggy.js) -->
+    <div id="buggy-pedals">
+      <button class="buggy-pedal" data-pedal="drift" tabindex="-1">
+        Drift
+      </button>
+      <button class="buggy-pedal" data-pedal="brake" tabindex="-1">
+        Brake
+      </button>
+      <button class="buggy-pedal gas" data-pedal="gas" tabindex="-1">
+        Gas
+      </button>
     </div>
 
     <div id="debug-menu">
@@ -1416,9 +1486,7 @@ window.__IS_DIRTY__ = false;</script>
             GC: <span id="debug-last-gc-val">-</span>
           </div>
           <div>Draw calls: <span id="debug-draw-calls">0</span></div>
-          <div>Base prop LOD: <span id="debug-prop-lod-base">0</span></div>
-          <div>LOD mult: <span id="debug-lod-mult">1.00</span></div>
-          <div>Final prop LOD: <span id="debug-prop-lod-final">0</span></div>
+          <div>Prop LOD: <span id="debug-prop-lod-base">0</span></div>
           <div>Triangles: <span id="debug-triangles">0</span></div>
           <div>LOD chunks: <span id="debug-lod-chunks">0</span></div>
           <div>DRS mult: <span id="debug-drs-mult">1.00</span></div>
