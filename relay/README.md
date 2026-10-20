@@ -11,7 +11,13 @@ The rules (who may join, which origins, what's passed on) are plain functions in
 
 ## Deploy
 
-Once, from this folder, signed in to Cloudflare (`npx -y wrangler login`):
+Once signed in to Cloudflare (`npx -y wrangler login`), deploy from the project root:
+
+```bash
+npm run relay:deploy
+```
+
+Or from within this folder:
 
 ```bash
 npx -y wrangler deploy
@@ -20,6 +26,14 @@ npx -y wrangler deploy
 It prints the relay's address, like `https://chill-flight-relay.<account>.workers.dev`. Put it in `DEFAULT_RELAY` in `../multiplayer.js` as `wss://…` (that shows the 👥 button). After that it only needs deploying again if `src/` or `wrangler.toml` change, for example to allow a new origin.
 
 ## Run locally
+
+From the project root:
+
+```bash
+npm run relay:dev
+```
+
+Or from within this folder:
 
 ```bash
 npx -y wrangler dev

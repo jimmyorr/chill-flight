@@ -285,7 +285,7 @@ Fly with up to three friends (`multiplayer.js`, with the rules and smoothing in 
 - **Tag:** **Play tag** in the panel starts a game with you as "it". Fly within 60 m of a friend to tag them; they're then it, after 4 seconds' grace to get away. A chip at the top says who's it, their name gets "(it)", and toasts say who tagged whom. Whoever is it decides the tag from what their own screen shows, so lag never causes an argument. If it leaves, the game carries on with the next player as it (the same one on every screen); alone, the game ends. **Stop tag** ends it for everyone, and latecomers join the game in progress.
 - **Smoothing:** each player sends their position, orientation (a quaternion, so loops don't flip), speed and a few flags (smoke, gear, on the ground or water) five times a second, once a second while paused. Other planes are drawn 400 ms behind, on a curve through the updates either side of that moment using each one's velocity, so a jet in a tight turn stays round. A plane that stops sending carries on for a second and then waits; a jump faster than 3,000 units/s (a warp) jumps instead of streaking across the map. Each player's clock offset is learned from the updates, so clocks don't need to agree.
 - **Network:** joining has a 6-second deadline and never holds up the game; if the relay can't be reached you carry on solo. A dropped connection tries to rejoin three times, and after a minute in the background (or 15 minutes paused, so a forgotten game doesn't keep the room awake) the connection closes and reopens on coming back (or flying on). Coming back only works while the room is still going: an empty room ends after 10 minutes, and only the game's own random codes start rooms. Reloading the page rejoins the room (the URL keeps `?room=`).
-- **The relay** is a small Cloudflare Worker with one Durable Object per room, deployed on its own from `relay/` (see [relay/README.md](relay/README.md)). It knows nothing about the game: it passes each message to the others in the room, so new features don't need it redeployed. It runs at `wss://chill-flight-relay.jimmyorr.workers.dev` (`DEFAULT_RELAY` in `multiplayer.js`; emptying that hides the 👥 button); `?relay=` points the game at another relay, such as one running locally.
+- **The relay** is a small Cloudflare Worker with one Durable Object per room, deployed on its own with `npm run relay:deploy` (see [relay/README.md](relay/README.md)). It knows nothing about the game: it passes each message to the others in the room, so new features don't need it redeployed. It runs at `wss://chill-flight-relay.jimmyorr.workers.dev` (`DEFAULT_RELAY` in `multiplayer.js`; emptying that hides the 👥 button); `?relay=` points the game at another relay, such as one running locally.
 
 ## Buggy
 
@@ -575,7 +575,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`sfx`**: Set to `0` or `1` to turn sound effects off or on for this visit, without changing the saved setting.
 - **`traffic`**: Set to `0` or `1` to turn the other planes off or on for this visit, whether or not zen is on. The promo renders use `0`, so their shots are the same every time.
 - **`room`**: A room code to join on load (what an invite link carries, with `seed`). See [Flying together](#flying-together).
-- **`relay`**: Use another relay for flying together, e.g. `relay=ws://localhost:8787` for one running locally with `npx wrangler dev` in `relay/`.
+- **`relay`**: Use another relay for flying together, e.g. `relay=ws://localhost:8787` for one running locally with `npm run relay:dev` (or `npx -y wrangler dev` in `relay/`).
 - **`tips`**: Set to `0` to skip the first-time "Start the plane" tip for this visit.
 
 ## Development
@@ -798,3 +798,21 @@ npm run build && npx tauri build
 ```
 
 This compiles the web assets into `docs/` and triggers the Rust compiler to bundle them into a native desktop installer.
+
+### Multiplayer relay (Cloudflare Worker)
+
+The multiplayer relay is a Cloudflare Worker with Durable Objects that runs separately from the web client.
+
+#### Run relay locally
+
+```bash
+npm run relay:dev
+```
+
+#### Deploy relay to Cloudflare
+
+```bash
+npm run relay:deploy
+```
+
+See [relay/README.md](relay/README.md) for architecture details, allowed origins, and configuration.

@@ -12,6 +12,8 @@
     "release": "node scripts/check-clean-source.js --mode=all && npm version patch --no-git-tag-version && node scripts/sync-version.js && npm run build",
     "release:tag": "node scripts/tag-release.js",
     "preview": "vite preview",
+    "relay:dev": "npx -y wrangler dev -c relay/wrangler.toml",
+    "relay:deploy": "npx -y wrangler deploy -c relay/wrangler.toml",
     "ios": "npx cap sync ios && npx cap open ios",
     "ios:build": "node scripts/build-ios.js",
     "android": "npx cap sync android && npx cap open android",

@@ -1,8 +1,13 @@
 # The relay for flying together (see README.md here). Deployed on its own,
-# separately from the game: `npx -y wrangler deploy` in this folder.
+# separately from the game: `npm run relay:deploy` from the project root,
+# or `npx -y wrangler deploy` in this folder.
 name = "chill-flight-relay"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
+
+[observability.logs]
+enabled = false
+invocation_logs = true
 
 [vars]
 # Pages that may connect (rules.js isAllowedOrigin; localhost always may).
