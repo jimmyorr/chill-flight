@@ -14,17 +14,82 @@ const CHROME =
   process.env.CHROME_PATH ||
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
-export function launch() {
-  return puppeteer.launch({
+export function autoCloseOnExit(browser, onCleanup) {
+  let closing = false;
+
+  const killSync = () => {
+    try {
+      onCleanup?.();
+    } catch {
+      // Ignore errors during emergency cleanup.
+    }
+    try {
+      const proc = browser.process();
+      if (proc && proc.exitCode === null) {
+        proc.kill('SIGKILL');
+      }
+    } catch {
+      // Process may already be terminated.
+    }
+  };
+
+  const handleSignal = async (signal) => {
+    if (closing) {
+      killSync();
+      process.exit(1);
+    }
+    closing = true;
+    try {
+      try {
+        onCleanup?.();
+      } catch {
+        // Ignore errors during emergency cleanup.
+      }
+      await Promise.race([
+        browser.close(),
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+    } catch {
+      // Ignore errors during emergency cleanup.
+    } finally {
+      killSync();
+      process.exit(signal === 'SIGINT' ? 130 : 143);
+    }
+  };
+
+  const onSigInt = () => handleSignal('SIGINT');
+  const onSigTerm = () => handleSignal('SIGTERM');
+  const onSigHup = () => handleSignal('SIGHUP');
+  const onExit = () => killSync();
+
+  process.on('SIGINT', onSigInt);
+  process.on('SIGTERM', onSigTerm);
+  process.on('SIGHUP', onSigHup);
+  process.once('exit', onExit);
+
+  browser.once('disconnected', () => {
+    process.removeListener('SIGINT', onSigInt);
+    process.removeListener('SIGTERM', onSigTerm);
+    process.removeListener('SIGHUP', onSigHup);
+    process.removeListener('exit', onExit);
+  });
+}
+
+export async function launch(opts = {}) {
+  const defaultArgs =
+    process.platform === 'darwin'
+      ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']
+      : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
+  const browser = await puppeteer.launch({
     executablePath: CHROME,
     headless: true,
+    pipe: true,
     protocolTimeout: 900000,
-    // The GPU through Metal on macOS; software WebGL (slow) elsewhere
-    args:
-      process.platform === 'darwin'
-        ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']
-        : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+    args: defaultArgs,
+    ...opts,
   });
+  autoCloseOnExit(browser);
+  return browser;
 }
 
 // The game URL for a query string ("x=0&z=-5000&tod=0.5"), with the scripted

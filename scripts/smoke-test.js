@@ -4,7 +4,7 @@
 //   npm run test:browser  - against the dev server (`npm run dev` on port 5173)
 //   npm run test:build    - builds to a temp dir (not docs/) and tests that
 import puppeteer from 'puppeteer-core';
-import {serveDir} from './dev-browser.js';
+import {autoCloseOnExit, serveDir} from './dev-browser.js';
 import {execSync} from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -518,6 +518,7 @@ async function exerciseControls(page, tag) {
 const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: true,
+  pipe: true,
   args: [
     '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
@@ -526,6 +527,10 @@ const browser = await puppeteer.launch({
   ],
   // Fail instead of hanging if a page stops responding (e.g. a stuck loop).
   protocolTimeout: 60000,
+});
+autoCloseOnExit(browser, () => {
+  staticServer?.close();
+  if (outDir) fs.rmSync(outDir, {recursive: true, force: true});
 });
 
 const PAGE_TIMEOUT_MS = 120000;
