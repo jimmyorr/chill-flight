@@ -148,6 +148,7 @@ import {FAR_RADIUS, updateFarTerrain} from './far-terrain.js';
 import {state} from './state.js';
 import {updateSfx} from './sfx.js';
 import {updateSfxEvents} from './sfx-events.js';
+import {updateHaptics} from './haptics.js';
 import {Achievements} from './achievements.js';
 
 let _currentOvercast;
@@ -293,6 +294,7 @@ function performFrame() {
   inputManager.pollGamepad(delta);
   updateSfx();
   updateSfxEvents(delta, precipitation.rain);
+  updateHaptics(delta);
 
   if (state.isPaused) {
     const loadingOverlay = getCachedElement('loading-overlay');

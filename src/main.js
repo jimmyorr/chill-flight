@@ -40,6 +40,7 @@ import '../airports.js';
 import '../audio.js';
 import '../sfx.js';
 import '../sfx-events.js';
+import '../haptics.js';
 import '../native-adapter.js';
 import '../achievements.js';
 import '../input-manager.js';

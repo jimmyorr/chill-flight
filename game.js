@@ -26,6 +26,11 @@ import {applyGraphicsPreset, initDebugUI} from './debug-ui.js';
 import {state} from './state.js';
 import {updateUrlParams} from './constants.js';
 import {detectGraphicsPreset} from './native-adapter.js';
+import {
+  hapticsAvailable,
+  isHapticsEnabled,
+  setHapticsEnabled,
+} from './haptics.js';
 import {initLighthouse} from './terrain-geometry.js';
 
 typeof state.daySpeedMultiplier !== 'undefined' ? state.daySpeedMultiplier : 1;
@@ -224,6 +229,17 @@ if (invertYInput) {
   invertYInput.addEventListener('change', (e) => {
     state.invertYAxis = e.target.checked;
     localStorage.setItem('chill_flight_invert_y', state.invertYAxis);
+  });
+}
+
+// Haptics only work in the iOS/Android apps, so the switch hides elsewhere
+const hapticsRow = document.getElementById('haptics-row');
+const hapticsInput = document.getElementById('haptics-input');
+if (hapticsRow && hapticsInput && hapticsAvailable()) {
+  hapticsRow.style.display = '';
+  hapticsInput.checked = isHapticsEnabled();
+  hapticsInput.addEventListener('change', (e) => {
+    setHapticsEnabled(e.target.checked);
   });
 }
 
