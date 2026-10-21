@@ -2638,6 +2638,10 @@ input[type='number'].customization-input {
   transform: rotate(var(--friend-angle, 0rad)) rotate(45deg);
 }
 
+.friend-marker:not(.offscreen) .friend-mark {
+  display: none;
+}
+
 .friend-text {
   position: absolute;
   top: 9px;
@@ -2651,6 +2655,11 @@ input[type='number'].customization-input {
   color: rgba(255, 255, 255, 0.85);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
   white-space: nowrap;
+}
+
+.friend-marker:not(.offscreen) .friend-text {
+  top: 0;
+  transform: translate(var(--friend-shift, -50%), -100%);
 }
 
 .friend-it {

@@ -79,10 +79,6 @@ const HIDDEN_DISCONNECT_MS = 60 * 1000;
 // Paused this long, the same, so a game left paused doesn't keep the room
 // awake (and using up the relay's free allowance); flying on reconnects
 const PAUSED_DISCONNECT_MS = 15 * 60 * 1000;
-// Names show over planes nearer than this, fading out over the last part
-// (units)
-const LABEL_FADE_START = 2500;
-const LABEL_FADE_END = 5000;
 const NAME_KEY = 'chill_flight_name';
 
 const overlay = document.getElementById('fly-overlay');
@@ -182,34 +178,6 @@ function hexColor(livery) {
   return `#${c.toString(16).padStart(6, '0')}`;
 }
 
-function labelSprite(name) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  ctx.font = '600 56px Inter, -apple-system, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-  ctx.shadowBlur = 10;
-  ctx.fillStyle = '#fff';
-  ctx.fillText(name, 256, 64, 490);
-  const texture = new THREE.CanvasTexture(canvas);
-  const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      depthWrite: false,
-      sizeAttenuation: false,
-      fog: false,
-    })
-  );
-  // A fixed share of the screen: text about 3% of its height
-  sprite.scale.set(0.5, 0.125, 1);
-  sprite.renderOrder = 10;
-  return sprite;
-}
-
 function disposeGroup(group) {
   scene.remove(group);
   group.traverse((child) => {
@@ -241,37 +209,12 @@ function buildPeer(peer) {
   peer.group = group;
   peer.model = model;
   peer.opacity = 1;
-  peer.label = null;
-  setLabel(peer);
   peer.css = hexColor(peer.livery);
   if (peer.marker) peer.marker.style.setProperty('--friend-color', peer.css);
   peer.props = model.propGroups || [model.propGroup];
   peer.smokeLast = new THREE.Vector3();
   peer.smokeColor = smokeColor(ChillFlightLogic.PLANE_COLORS[peer.livery]);
   peer.gear = 0;
-}
-
-// The name over a player's plane, with "(it)" for whoever's it in tag, and
-// "(paused)" when they are paused in menu
-function setLabel(peer) {
-  const isIt = tag.it === peer.id;
-  const isPaused = !!(peer.track?.latest?.flags & FLAGS.paused);
-  let status = '';
-  if (isIt && isPaused) status = ' (it, paused)';
-  else if (isIt) status = ' (it)';
-  else if (isPaused) status = ' (paused)';
-  const text = `${peer.name}${status}`;
-  if (peer.label && peer.labelText === text) return;
-  if (peer.label) {
-    peer.group.remove(peer.label);
-    peer.label.material.map.dispose();
-    peer.label.material.dispose();
-  }
-  const label = labelSprite(text);
-  label.position.y = 12;
-  peer.group.add(label);
-  peer.label = label;
-  peer.labelText = text;
 }
 
 // A friend's marker: at the screen's edge when they're out of view
@@ -417,7 +360,6 @@ function tagAfterLeaving(id) {
 
 function refreshTag() {
   for (const peer of peers.values()) {
-    if (peer.group) setLabel(peer);
     peer.markerKey = '';
   }
   if (tagChip) {
@@ -780,16 +722,15 @@ function flyTo(peer) {
 
 // --- MARKERS ---
 
-// A friend's marker: over their plane once it's too far for the name to
-// show, at the screen's edge when they're out of view, hidden when near
+// A friend's marker: over their plane when in view, at the screen's edge
+// when they're out of view
 function placeMarker(peer, dist) {
   const marker = peer.marker;
-  if (!marker) return;
-  const place = screenPlacement(_pos.x, _pos.y, _pos.z);
-  if (state.isVRPresenting || (place.onScreen && dist < LABEL_FADE_END)) {
-    marker.hidden = true;
+  if (!marker || state.isVRPresenting) {
+    if (marker) marker.hidden = true;
     return;
   }
+  const place = screenPlacement(_pos.x, _pos.y + 10, _pos.z);
   marker.hidden = false;
   marker.classList.toggle('offscreen', !place.onScreen);
   marker.style.transform = `translate(${place.sx.toFixed(1)}px, ${place.sy.toFixed(1)}px)`;
@@ -878,7 +819,6 @@ export function updateMultiplayer(delta) {
     g.quaternion.copy(_quat);
     const flags = peer.track.latest.flags;
     const isPaused = !!(flags & FLAGS.paused);
-    setLabel(peer);
 
     // Fade to translucent ghost when paused
     const targetOpacity = isPaused ? 0.45 : 1.0;
@@ -917,9 +857,6 @@ export function updateMultiplayer(delta) {
       peer.smokeLast.valid = false;
     }
     const dist = camera.position.distanceTo(_pos);
-    peer.label.material.opacity =
-      1 - THREE.MathUtils.smoothstep(dist, LABEL_FADE_START, LABEL_FADE_END);
-    peer.label.visible = peer.label.material.opacity > 0.01;
     placeMarker(peer, dist);
   }
   // Whoever's it tags anyone in reach (after a moment's grace), if neither is paused
