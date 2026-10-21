@@ -5,8 +5,11 @@ name = "chill-flight-relay"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
+[observability]
+enabled = true
+
 [observability.logs]
-enabled = false
+enabled = true
 invocation_logs = true
 
 [vars]
