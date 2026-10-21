@@ -17,7 +17,7 @@ export const EMPTY_ROOM_MS = 10 * 60 * 1000;
 // Failed joins (a wrong or ended code) allowed per address per minute
 export const MAX_FAILED_JOINS = 10;
 // Messages a player may send: RATE_PER_SECOND on average, in bursts of up to
-// RATE_BURST (the game sends 5 a second); faster, and they're disconnected
+// RATE_BURST (the game sends 10 a second); faster, and they're disconnected
 export const RATE_PER_SECOND = 20;
 export const RATE_BURST = 40;
 

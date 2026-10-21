@@ -9,7 +9,7 @@
 //
 // A small relay passes messages between the players in a room
 // (relay/README.md); it knows nothing about the game. Each player sends
-// where they are five times a second, and draws everyone else a moment
+// where they are ten times a second, and draws everyone else a moment
 // behind, smoothed between updates (multiplayer-logic.js). If the relay
 // can't be reached, the game carries on solo. Messages:
 //   {t: 'hello', name, plane, livery, tag}  who you are; on joining and on
@@ -123,6 +123,9 @@ let pausedSince = null;
 let arriveOnJoin = false;
 let sendTimer = null;
 let lastSendAt = 0;
+// Monotonic clock advancing by smoothed frame delta while flying, so sent
+// timestamps and sampled positions match the local plane's physics step
+let smoothNow = null;
 let sentProfile = '';
 // When your own last waggle started (performance.now())
 let waggleAt = -Infinity;
@@ -343,7 +346,7 @@ function onMessage(event) {
     onHello(addPeer(msg.f), msg);
   } else if (msg.t === 's') {
     const s = unpackState(msg);
-    if (s) addPeer(msg.f).track.push(s, performance.now());
+    if (s) addPeer(msg.f).track.push(s, smoothNow ?? performance.now());
   } else if (msg.t === 'waggle') {
     // Shown when their plane, drawn a moment behind, gets there
     addPeer(msg.f).waggleAt = performance.now() + RENDER_DELAY_MS;
@@ -501,6 +504,8 @@ function clearRoom() {
   refreshTag();
   waggleAt = -Infinity;
   state.waggleRoll = 0;
+  lastSendAt = 0;
+  smoothNow = null;
   clearInterval(sendTimer);
   sendTimer = null;
   clearTimeout(reconnectTimer);
@@ -688,19 +693,23 @@ function resume() {
   rejoin();
 }
 
-function sendState() {
+function sendState(frameClock) {
   if (!room) return;
-  const now = performance.now();
+  const rawNow = performance.now();
   if (state.isPaused) {
-    pausedSince ??= now;
-    if (now - pausedSince > PAUSED_DISCONNECT_MS) suspend();
+    pausedSince ??= rawNow;
+    if (rawNow - pausedSince > PAUSED_DISCONNECT_MS) suspend();
   } else {
     pausedSince = null;
     if (!document.hidden) resume();
+    // While actively flying, updateMultiplayer sends right after the physics
+    // step so timestamps and positions stay locked to the frame
+    if (typeof frameClock !== 'number' && !document.hidden) return;
   }
   if (socket?.readyState !== WebSocket.OPEN) return;
+  const now = typeof frameClock === 'number' ? frameClock : rawNow;
   const interval = state.isPaused ? PAUSED_SEND_INTERVAL_MS : SEND_INTERVAL_MS;
-  if (now - lastSendAt < interval - 20) return;
+  if (now - lastSendAt < interval - 5) return;
   lastSendAt = now;
   // Changed plane, livery or name: tell the others, and retint the smoke
   const profile = `${myName()}|${activePlaneType}|${myLivery()}`;
@@ -734,7 +743,10 @@ const _side = new THREE.Vector3();
 // Puts the plane just off a friend's wing, heading their way
 function flyTo(peer) {
   if (!peer.track.ready || !hooks.movePlane) return false;
-  const speed = peer.track.sample(performance.now(), _pos, _quat);
+  const now = state.isPaused
+    ? performance.now()
+    : (smoothNow ?? performance.now());
+  const speed = peer.track.sample(now, _pos, _quat);
   _euler.setFromQuaternion(_quat, 'YXZ');
   const yaw = _euler.y;
   // 60 units to their right and 40 behind; well above them if they're
@@ -801,7 +813,9 @@ const mapFriends = [];
 export function friendsOnMap() {
   mapFriends.length = 0;
   if (!room) return mapFriends;
-  const now = performance.now();
+  const now = state.isPaused
+    ? performance.now()
+    : (smoothNow ?? performance.now());
   for (const peer of peers.values()) {
     if (!peer.name || !peer.css) continue;
     if (peer.track.sample(now, _mapPos, _mapQuat) === null) continue;
@@ -823,8 +837,16 @@ export function friendsOnMap() {
 /** Called once per frame while flying (not while paused). */
 export function updateMultiplayer(delta) {
   if (!room) return;
-  const now = performance.now();
-  state.waggleRoll = waggleRoll(now - waggleAt);
+  const rawNow = performance.now();
+  const dtMs = delta * 1000;
+  if (smoothNow === null || Math.abs(rawNow - smoothNow) > 500) {
+    smoothNow = rawNow;
+  } else {
+    smoothNow += dtMs + (rawNow - (smoothNow + dtMs)) * 0.02;
+  }
+  const now = smoothNow;
+  sendState(now);
+  state.waggleRoll = waggleRoll(rawNow - waggleAt);
   for (const peer of peers.values()) {
     const speed = peer.group ? peer.track.sample(now, _pos, _quat) : null;
     if (speed === null) {
@@ -836,7 +858,7 @@ export function updateMultiplayer(delta) {
     g.position.copy(_pos);
     g.quaternion.copy(_quat);
     const flags = peer.track.latest.flags;
-    peer.model.rotation.z = waggleRoll(now - peer.waggleAt);
+    peer.model.rotation.z = waggleRoll(rawNow - peer.waggleAt);
     const spin = speed * BASE_FLIGHT_SPEED * 60 * delta * 0.15;
     for (const prop of peer.props) if (prop) prop.rotation.z += spin;
     if (peer.model.gearGroups) {

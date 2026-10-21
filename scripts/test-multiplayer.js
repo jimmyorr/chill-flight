@@ -192,8 +192,8 @@ check(
   {
     const bucket = {tokens: rules.RATE_BURST, at: 0};
     let sent = 0;
-    // The game's 5 a second for a minute: never cut off
-    for (let t = 0; t < 60000; t += 200)
+    // The game's 10 a second for a minute: never cut off
+    for (let t = 0; t < 60000; t += SEND_INTERVAL_MS)
       if (rules.takeMessage(bucket, t)) sent++;
     const flood = {tokens: rules.RATE_BURST, at: 0};
     let flooded = 0;
@@ -202,7 +202,7 @@ check(
       if (rules.takeMessage(flood, t)) flooded++;
     check(
       'Players are cut off only for flooding the room',
-      sent === 300 && flooded < 70,
+      sent === 60000 / SEND_INTERVAL_MS && flooded < 70,
       `${sent} ${flooded}`
     );
   }
@@ -329,7 +329,7 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
       worstAngle = Math.max(worstAngle, quat.angleTo(truth.quat));
       if (prevTrue) {
         const own = truth.pos.distanceTo(prevTrue);
-        worstJump = Math.max(worstJump, pos.distanceTo(prev) - own);
+        worstJump = Math.max(worstJump, Math.abs(pos.distanceTo(prev) - own));
       }
     }
     prev.copy(pos);
@@ -402,6 +402,16 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
     looped.worstAngle < 0.01,
     `${looped.worstAngle.toFixed(4)} rad`
   );
+
+  // A severe lag spike past RENDER_DELAY_MS blends back in without snapping
+  const spiked = fly(circle(300, 1500), {
+    delay: (i) => (i >= 40 && i <= 44 ? 550 : 60),
+  });
+  check(
+    'A lag spike past the buffer blends back in without snapping',
+    spiked.worstJump < 0.8,
+    `${spiked.worstJump.toFixed(2)} jump`
+  );
 }
 
 {
@@ -412,9 +422,10 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
     quat: new THREE.Quaternion(),
   });
   let now = 0;
-  for (let i = 0; i <= 10; i++) {
+  const steps = Math.round(2000 / SEND_INTERVAL_MS);
+  for (let i = 0; i <= steps; i++) {
     now = i * SEND_INTERVAL_MS + 50;
-    const {pos, quat} = path(i * 0.2);
+    const {pos, quat} = path((i * SEND_INTERVAL_MS) / 1000);
     track.push(
       unpackState(packState(i * SEND_INTERVAL_MS, pos, quat, 1, 0)),
       now

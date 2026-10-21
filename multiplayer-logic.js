@@ -4,12 +4,13 @@
 // smoothing other players' planes between updates. Pure, for Node tests
 // (scripts/test-multiplayer.js).
 //
-// Smoothing: each player sends where they are five times a second, stamped
+// Smoothing: each player sends where they are ten times a second, stamped
 // with their own clock. Their plane is drawn RENDER_DELAY_MS behind, on a
 // curve through the updates either side of that moment (using each update's
-// speed and direction, so fast turns stay round), and turned between them
-// along the shortest way. The delay covers late and bunched-up updates; past
-// the last update it carries on in a straight line for a moment, then waits.
+// velocity and turn rate, so fast turns stay round), with a critically damped
+// blend whenever a late update reshapes the curve. The delay covers late and
+// bunched-up updates; past the last update it carries on for a moment, then
+// waits.
 import * as THREE from 'three';
 
 // As the relay's (relay/src/rules.js; the test checks they match)
@@ -24,9 +25,9 @@ export const CLOSE = {
   tooFast: 4029,
 };
 
-// How often a position update goes out (ms): 5 a second while flying, 1 a
+// How often a position update goes out (ms): 10 a second while flying, 1 a
 // second while paused
-export const SEND_INTERVAL_MS = 200;
+export const SEND_INTERVAL_MS = 100;
 export const PAUSED_SEND_INTERVAL_MS = 1000;
 // How far behind other players are drawn (ms), so there's an update after
 // the moment shown even when one is late
@@ -36,7 +37,9 @@ const EXTRAPOLATE_MS = 1000;
 // Faster than this between two updates is a warp, not flight (units/s; the
 // jet's 800 kts is ~800)
 const WARP_SPEED = 3000;
-const BUFFER_SIZE = 16;
+const BUFFER_SIZE = 24;
+// Time constant (s) for blending out any curve shift from a late update
+const BLEND_TAU = 0.12;
 
 // Bits of an update's `fl` (its `f` is the relay's: who sent it)
 export const FLAGS = {smoke: 1, gear: 2, ground: 4, water: 8};
@@ -124,11 +127,39 @@ export function unpackState(msg) {
     speed: msg.v,
     flags: isNum(msg.fl) ? msg.fl : 0,
     vel: new THREE.Vector3(),
+    angVel: new THREE.Vector3(),
   };
 }
 
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
+const _c = new THREE.Vector3();
+const _oldPos = new THREE.Vector3();
+const _newPos = new THREE.Vector3();
+const _oldVel = new THREE.Vector3();
+const _newVel = new THREE.Vector3();
+const _oldQuat = new THREE.Quaternion();
+const _newQuat = new THREE.Quaternion();
+const _dq = new THREE.Quaternion();
+const _identityQuat = new THREE.Quaternion();
+
+// Rotation vector (axis * angle, radians) from unit quaternion q0 to q1
+function quatLog(q0, q1, out) {
+  _dq.copy(q0).conjugate().multiply(q1);
+  if (_dq.w < 0) _dq.set(-_dq.x, -_dq.y, -_dq.z, -_dq.w);
+  const sinHalf = Math.hypot(_dq.x, _dq.y, _dq.z);
+  const scale =
+    sinHalf > 1e-6 ? (2 * Math.acos(Math.min(1, _dq.w))) / sinHalf : 2;
+  return out.set(_dq.x * scale, _dq.y * scale, _dq.z * scale);
+}
+
+// Unit quaternion from rotation vector (axis * angle, radians)
+function quatExp(vec, out) {
+  const angle = vec.length();
+  const half = angle * 0.5;
+  const s = angle > 1e-6 ? Math.sin(half) / angle : 0.5;
+  return out.set(vec.x * s, vec.y * s, vec.z * s, Math.cos(half));
+}
 
 /**
  * One other player's plane: their updates, and where to draw it now.
@@ -138,39 +169,128 @@ const _b = new THREE.Vector3();
 export class PeerTrack {
   constructor() {
     this.buffer = [];
-    // This device's clock minus theirs, plus the trip: the smallest seen,
-    // creeping up slowly so a clock that drifts is followed
+    // This device's clock minus theirs, plus the trip: targetOffset tracks the
+    // smallest seen (creeping up slowly so a drifting clock is followed), and
+    // offset slews smoothly toward it during sample() so playback never jumps
     this.offset = null;
+    this.targetOffset = null;
+    this.lastLocalNow = null;
+    this.lastT = null;
+    this.hasSampled = false;
+    // Critically damped error offsets that absorb any curve change when an
+    // update arrives late
+    this.posOffset = new THREE.Vector3();
+    this.velOffset = new THREE.Vector3();
+    this.quatOffset = new THREE.Quaternion();
   }
 
   /** Adds an update (from unpackState) received at `localNow`. */
   push(s, localNow) {
+    if (!s.angVel) s.angVel = new THREE.Vector3();
     const sample = localNow - s.ts;
-    if (this.offset === null || sample < this.offset) this.offset = sample;
-    else this.offset += (sample - this.offset) * 0.02;
+    if (this.targetOffset === null) {
+      this.targetOffset = sample;
+      this.offset = sample;
+    } else if (sample < this.targetOffset) {
+      this.targetOffset = sample;
+      if (!this.hasSampled) this.offset = sample;
+    } else {
+      this.targetOffset += (sample - this.targetOffset) * 0.01;
+      if (!this.hasSampled) this.offset = this.targetOffset;
+    }
 
     const last = this.buffer[this.buffer.length - 1];
     if (last) {
       if (s.ts <= last.ts) return; // late or repeated
       const dt = (s.ts - last.ts) / 1000;
-      if (s.pos.distanceTo(last.pos) / dt > WARP_SPEED) this.buffer.length = 0;
+      if (s.pos.distanceTo(last.pos) / dt > WARP_SPEED) {
+        this.buffer.length = 0;
+        this.posOffset.set(0, 0, 0);
+        this.velOffset.set(0, 0, 0);
+        this.quatOffset.identity();
+        this.hasSampled = false;
+      } else if (last.quat.dot(s.quat) < 0) {
+        s.quat.set(-s.quat.x, -s.quat.y, -s.quat.z, -s.quat.w);
+      }
     }
+
+    const preserve = this.hasSampled && this.buffer.length > 0;
+    if (preserve) {
+      this.evalAt(this.lastT, _oldPos, _oldQuat, _oldVel);
+      _oldPos.add(this.posOffset);
+      _oldVel.add(this.velOffset);
+      _oldQuat.multiply(this.quatOffset).normalize();
+    }
+
     this.buffer.push(s);
     if (this.buffer.length > BUFFER_SIZE) this.buffer.shift();
     this.updateVelocities();
+
+    if (preserve) {
+      this.evalAt(this.lastT, _newPos, _newQuat, _newVel);
+      this.posOffset.subVectors(_oldPos, _newPos);
+      this.velOffset.subVectors(_oldVel, _newVel);
+      this.quatOffset.copy(_newQuat).conjugate().multiply(_oldQuat).normalize();
+      if (this.quatOffset.w < 0) {
+        this.quatOffset.set(
+          -this.quatOffset.x,
+          -this.quatOffset.y,
+          -this.quatOffset.z,
+          -this.quatOffset.w
+        );
+      }
+    }
   }
 
-  // Each update's velocity (units/s) from its neighbours: the curve's
-  // direction through it
+  // Each update's velocity (units/s) and angular velocity (rad/s) from its
+  // neighbours: the curve's direction and turn rate through it
   updateVelocities() {
     const b = this.buffer;
     const n = b.length;
     for (let i = Math.max(0, n - 3); i < n; i++) {
-      const prev = b[Math.max(0, i - 1)];
-      const next = b[Math.min(n - 1, i + 1)];
-      const dt = (next.ts - prev.ts) / 1000;
-      if (dt > 0) b[i].vel.subVectors(next.pos, prev.pos).divideScalar(dt);
-      else b[i].vel.set(0, 0, 0);
+      if (n === 1) {
+        b[i].vel.set(0, 0, 0);
+        b[i].angVel.set(0, 0, 0);
+      } else if (i > 0 && i < n - 1) {
+        const prev = b[i - 1];
+        const cur = b[i];
+        const next = b[i + 1];
+        const dt0 = (cur.ts - prev.ts) / 1000;
+        const dt1 = (next.ts - cur.ts) / 1000;
+        const dt = dt0 + dt1;
+        if (dt > 0 && dt0 > 0 && dt1 > 0) {
+          _a.subVectors(cur.pos, prev.pos).divideScalar(dt0);
+          _b.subVectors(next.pos, cur.pos).divideScalar(dt1);
+          cur.vel
+            .copy(_a)
+            .multiplyScalar(dt1 / dt)
+            .addScaledVector(_b, dt0 / dt);
+
+          quatLog(prev.quat, cur.quat, _a).divideScalar(dt0);
+          quatLog(cur.quat, next.quat, _b).divideScalar(dt1);
+          cur.angVel
+            .copy(_a)
+            .multiplyScalar(dt1 / dt)
+            .addScaledVector(_b, dt0 / dt);
+        }
+      } else {
+        const prev = b[Math.max(0, i - 1)];
+        const next = b[Math.min(n - 1, i + 1)];
+        const dt = (next.ts - prev.ts) / 1000;
+        if (dt > 0) {
+          b[i].vel.subVectors(next.pos, prev.pos).divideScalar(dt);
+          quatLog(prev.quat, next.quat, b[i].angVel).divideScalar(dt);
+          if (i === n - 1 && n >= 3) {
+            const speed = b[i].vel.length();
+            if (speed > 0 && b[i].vel.dot(prev.vel) > 0) {
+              b[i].vel.multiplyScalar(2).sub(prev.vel).setLength(speed);
+            }
+          }
+        } else {
+          b[i].vel.set(0, 0, 0);
+          b[i].angVel.set(0, 0, 0);
+        }
+      }
     }
   }
 
@@ -191,13 +311,51 @@ export class PeerTrack {
   sample(localNow, outPos, outQuat) {
     const b = this.buffer;
     if (b.length === 0) return null;
-    const t = localNow - this.offset - RENDER_DELAY_MS;
+
+    const dt = this.lastLocalNow === null ? 0 : localNow - this.lastLocalNow;
+    this.lastLocalNow = localNow;
+
+    if (!this.hasSampled || dt < 0 || dt > 500) {
+      this.offset = this.targetOffset;
+      this.lastT = localNow - this.offset - RENDER_DELAY_MS;
+      this.hasSampled = true;
+    } else if (dt > 0) {
+      const offDiff = this.targetOffset - this.offset;
+      if (Math.abs(offDiff) > 500) {
+        this.offset = this.targetOffset;
+      } else {
+        const maxShift = dt * 0.03;
+        this.offset += THREE.MathUtils.clamp(
+          offDiff * 0.05,
+          -maxShift,
+          maxShift
+        );
+      }
+
+      const dtSec = dt / 1000;
+      const w = 1 / BLEND_TAU;
+      const e = Math.exp(-w * dtSec);
+      _a.copy(this.velOffset).addScaledVector(this.posOffset, w);
+      this.posOffset.addScaledVector(_a, dtSec).multiplyScalar(e);
+      this.velOffset.addScaledVector(_a, -w * dtSec).multiplyScalar(e);
+      this.quatOffset.slerp(_identityQuat, 1 - e);
+      this.lastT = localNow - this.offset - RENDER_DELAY_MS;
+    }
+
+    const speed = this.evalAt(this.lastT, outPos, outQuat);
+    outPos.add(this.posOffset);
+    outQuat.multiply(this.quatOffset).normalize();
+    return speed;
+  }
+
+  evalAt(t, outPos, outQuat, outVel) {
+    const b = this.buffer;
     if (t <= b[0].ts || b.length === 1) {
       const s = t <= b[0].ts ? b[0] : b[b.length - 1];
-      return this.extrapolate(s, t, outPos, outQuat);
+      return this.extrapolate(s, t, outPos, outQuat, outVel);
     }
     const last = b[b.length - 1];
-    if (t >= last.ts) return this.extrapolate(last, t, outPos, outQuat);
+    if (t >= last.ts) return this.extrapolate(last, t, outPos, outQuat, outVel);
 
     let i = b.length - 2;
     while (i > 0 && b[i].ts > t) i--;
@@ -206,7 +364,7 @@ export class PeerTrack {
     const dt = (s1.ts - s0.ts) / 1000;
     const u = (t - s0.ts) / (s1.ts - s0.ts);
     // Cubic Hermite: through both updates, leaving and arriving at their
-    // velocities
+    // velocities and angular velocities
     const u2 = u * u;
     const u3 = u2 * u;
     const h00 = 2 * u3 - 3 * u2 + 1;
@@ -219,14 +377,44 @@ export class PeerTrack {
       .add(_a.copy(s0.vel).multiplyScalar(h10 * dt))
       .add(_b.copy(s1.pos).multiplyScalar(h01))
       .add(_a.copy(s1.vel).multiplyScalar(h11 * dt));
-    outQuat.slerpQuaternions(s0.quat, s1.quat, u);
+
+    if (outVel) {
+      const dh00 = (6 * u2 - 6 * u) / dt;
+      const dh10 = 3 * u2 - 4 * u + 1;
+      const dh01 = (-6 * u2 + 6 * u) / dt;
+      const dh11 = 3 * u2 - 2 * u;
+      outVel
+        .copy(s0.pos)
+        .multiplyScalar(dh00)
+        .addScaledVector(s0.vel, dh10)
+        .addScaledVector(s1.pos, dh01)
+        .addScaledVector(s1.vel, dh11);
+    }
+
+    quatLog(s0.quat, s1.quat, _c);
+    _a.copy(_c)
+      .multiplyScalar(h01)
+      .addScaledVector(s0.angVel, h10 * dt)
+      .addScaledVector(s1.angVel, h11 * dt);
+    quatExp(_a, _dq);
+    outQuat.copy(s0.quat).multiply(_dq).normalize();
     return s0.speed + (s1.speed - s0.speed) * u;
   }
 
-  extrapolate(s, t, outPos, outQuat) {
-    const ahead = THREE.MathUtils.clamp(t - s.ts, 0, EXTRAPOLATE_MS) / 1000;
+  extrapolate(s, t, outPos, outQuat, outVel) {
+    const rawAhead = (t - s.ts) / 1000;
+    const ahead = THREE.MathUtils.clamp(rawAhead, 0, EXTRAPOLATE_MS / 1000);
     outPos.copy(s.pos).add(_a.copy(s.vel).multiplyScalar(ahead));
-    outQuat.copy(s.quat);
+    if (outVel) {
+      if (rawAhead >= 0 && rawAhead <= EXTRAPOLATE_MS / 1000) {
+        outVel.copy(s.vel);
+      } else {
+        outVel.set(0, 0, 0);
+      }
+    }
+    const rotAhead = Math.min(ahead, 0.25);
+    quatExp(_a.copy(s.angVel).multiplyScalar(rotAhead), _dq);
+    outQuat.copy(s.quat).multiply(_dq).normalize();
     return s.speed;
   }
 }
