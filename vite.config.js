@@ -95,7 +95,7 @@ export default defineConfig({
   build: {
     outDir: 'docs',
     emptyOutDir: true,
-    chunkSizeWarningLimit: 1200,
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       input: {
         main: 'index.html',
