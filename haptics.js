@@ -1,25 +1,18 @@
 // haptics.js
 // A tap on the phone (iOS/Android apps, via @capacitor/haptics) when the
-// plane meets land or water, harder for a harder landing, and a soft one as
-// it drops low enough over water to skim (where the spray starts), a clunk as
+// plane meets land or water, harder for a harder landing, a clunk as
 // retracting gear locks, a warning as the plane slows toward a stall, and
 // thunder. Off by default; the switch lives next to Invert y axis in the
 // pause menu.
 import {state} from './state.js';
 import {activePlaneType, planeGroup, planeHandling} from './airplane.js';
-import {BASE_FLIGHT_SPEED, UNITS_TO_M, WATER_LEVEL} from './constants.js';
-import {getElevation} from './terrain-geometry.js';
+import {BASE_FLIGHT_SPEED} from './constants.js';
 
 const STORAGE_KEY = 'chill_flight_haptics';
 
 // Falling speed at touchdown (world units/s, 1 unit = 0.51 m) for each style
 const MEDIUM_FALL = 6;
 const HEAVY_FALL = 16;
-// Skimming starts this far above the water (units, from the bottom of the
-// plane), matching the spray in particles.js. The next pass only counts once
-// the plane has climbed back above SKIM_REARM or left the water.
-const SKIM_HEIGHT = 20 / UNITS_TO_M;
-const SKIM_REARM = 30 / UNITS_TO_M;
 // The stall warning comes this close above the plane's stall speed (knots,
 // just before it starts to fall), and again only once it has sped back up
 // past STALL_REARM_KTS above it
@@ -41,7 +34,6 @@ let lastGround = null;
 let lastWater = null;
 let elapsed = 0;
 let lastImpact = -Infinity;
-let skimming = false;
 let lastGearExtension = null;
 let stallWarned = false;
 
@@ -136,25 +128,6 @@ export function updateHaptics(delta) {
   }
   lastGround = onGround;
   lastWater = onWater;
-
-  // Skimming: one soft tap per pass low over the water. Taking off from
-  // the water doesn't count as a pass.
-  const {x, z} = planeGroup.position;
-  const height = y - WATER_LEVEL - (state.airplaneModel?.wheelDepth ?? 4);
-  if (onWater) {
-    skimming = true;
-  } else if (
-    height > SKIM_REARM ||
-    onGround ||
-    getElevation(x, z) > WATER_LEVEL + 0.1
-  ) {
-    skimming = false;
-  } else if (height <= SKIM_HEIGHT && !skimming) {
-    skimming = true;
-    if (enabled && elapsed > 2 && !paused && !state.isFreeCamera) {
-      pulse('LIGHT');
-    }
-  }
 
   // Gear clunk: a light tap as moving gear locks fully up or down
   const ext = state.gearExtension;
