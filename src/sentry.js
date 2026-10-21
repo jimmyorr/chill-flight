@@ -12,5 +12,9 @@ if (import.meta.env.PROD) {
     dsn: 'https://7d9671463431e10775c66852b238ad8e@o4511337089400832.ingest.us.sentry.io/4511346247532544',
     tracesSampleRate: 0.1,
     maxBreadcrumbs: 30,
+    ignoreErrors: [
+      'THREE.WebGLRenderer: Error creating WebGL context.',
+      /Error creating WebGL context/i,
+    ],
   });
 }

@@ -171,7 +171,7 @@ var isAnimationLoopRunning = false;
 let hasCrashed = false;
 
 function animate() {
-  if (hasCrashed) return;
+  if (hasCrashed || !renderer) return;
   try {
     performFrame();
   } catch (err) {
@@ -918,8 +918,8 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
 }
 
 function startAnimationLoop() {
-  if (isAnimationLoopRunning) return;
-  if (renderer && typeof renderer.setAnimationLoop === 'function') {
+  if (!renderer || isAnimationLoopRunning) return;
+  if (typeof renderer.setAnimationLoop === 'function') {
     isAnimationLoopRunning = true;
     renderer.setAnimationLoop(animate);
   } else {

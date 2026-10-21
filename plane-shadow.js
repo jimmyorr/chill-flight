@@ -162,6 +162,7 @@ function traceToSurface(p) {
 
 // Call once a frame before the main render
 export function updatePlaneShadow() {
+  if (!renderer) return;
   prepareModel();
   // The low preset turns shadows off altogether
   if (!dirLight.castShadow || !planeGroup.visible) {

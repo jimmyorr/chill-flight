@@ -436,7 +436,7 @@ if (!ChillFlightLogic.SHOW_UI) document.body.classList.add('ui-hidden');
 
 // --- DISMISS LOADING SCREEN ---
 const overlay = document.getElementById('loading-overlay');
-if (overlay) {
+if (overlay && renderer) {
   const beginBtn = document.getElementById('begin-btn');
   // Whether START begins with music. The title screen's music toggle changes
   // it; nothing plays or is saved until the game starts.
@@ -593,6 +593,8 @@ if (overlay) {
       btnContainer.style.opacity = '1';
     }
   }
+} else {
+  state.dismissLoadingScreen = () => {};
 }
 
 export function showStartPlaneTooltip() {

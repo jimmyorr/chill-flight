@@ -153,6 +153,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
 });
 
 function ensureTarget() {
+  if (!renderer) return;
   renderer.getDrawingBufferSize(size);
   if (!target) {
     target = new THREE.WebGLRenderTarget(size.x, size.y, {
@@ -187,6 +188,7 @@ function ensureFxaa() {
 
 // Renders one frame of the game, with outlines when the art style has them.
 export function renderFrame(scene, camera) {
+  if (!renderer) return;
   if (!enabled || renderer.xr.isPresenting) {
     renderer.render(scene, camera);
     return;

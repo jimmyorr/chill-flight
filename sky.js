@@ -296,25 +296,104 @@ const _isLowQuality =
 // Update uniforms for initial load
 skyUniforms.uShowClouds.value = ChillFlightLogic.SHOW_CLOUDS && !_isLowQuality;
 
-export const renderer = new THREE.WebGLRenderer({antialias: !_isLowQuality});
-// This project was tuned against the three.js r128 rendering pipeline. r152+
-// enables color management and sRGB output by default; restore the legacy
-// behavior so the established art direction is preserved.
-THREE.ColorManagement.enabled = false;
-renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(
-  _isLowQuality ? 1 : Math.min(window.devicePixelRatio, 2)
-);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;
-if (renderer.xr) {
-  renderer.xr.enabled = true;
-  if (typeof renderer.xr.setReferenceSpaceType === 'function') {
-    renderer.xr.setReferenceSpaceType('local');
+function showWebGLErrorNotice() {
+  const container = document.getElementById('splash-interactive-area');
+  if (!container) return;
+
+  const progress = document.getElementById('splash-progress-container');
+  if (progress) progress.style.display = 'none';
+
+  const btnContainer = document.getElementById('splash-btn-container');
+  if (btnContainer) btnContainer.style.display = 'none';
+
+  const errorEl = document.createElement('div');
+  errorEl.id = 'webgl-error-notice';
+  errorEl.setAttribute('role', 'alert');
+  errorEl.style.cssText =
+    'display: flex; flex-direction: column; align-items: center; justify-content: center; max-width: 320px; margin: 0 auto; padding: 16px; text-align: center; color: #ffffff;';
+
+  const titleEl = document.createElement('div');
+  titleEl.style.cssText =
+    'font-size: 14px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; color: #ff6b6b; font-family: Inter, -apple-system, sans-serif;';
+  titleEl.textContent = 'WebGL 2 not supported';
+
+  const msgEl = document.createElement('div');
+  msgEl.style.cssText =
+    'font-size: 12px; line-height: 18px; color: rgba(255, 255, 255, 0.8); font-family: Inter, -apple-system, sans-serif; margin-bottom: 16px;';
+  msgEl.textContent =
+    'Chill Flight requires WebGL 2, which is unavailable or disabled in your browser. Please try enabling hardware acceleration or updating your browser.';
+
+  const reloadBtn = document.createElement('button');
+  reloadBtn.className = 'btn';
+  reloadBtn.style.cssText = 'font-size: 12px; padding: 8px 18px;';
+  reloadBtn.textContent = 'Reload';
+  reloadBtn.onclick = () => window.location.reload();
+
+  errorEl.appendChild(titleEl);
+  errorEl.appendChild(msgEl);
+  errorEl.appendChild(reloadBtn);
+  container.appendChild(errorEl);
+}
+
+function isWebGL2Available() {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(window.WebGL2RenderingContext && canvas.getContext('webgl2'));
+  } catch {
+    return false;
   }
 }
-document.body.appendChild(renderer.domElement);
+
+function initRenderer() {
+  if (!isWebGL2Available()) {
+    log.warn('WebGL 2 is not available on this device or browser.');
+    return null;
+  }
+  let r = null;
+  try {
+    r = new THREE.WebGLRenderer({antialias: !_isLowQuality});
+  } catch (err) {
+    if (!_isLowQuality) {
+      try {
+        r = new THREE.WebGLRenderer({antialias: false});
+      } catch {
+        // Fallback also failed
+      }
+    }
+    if (!r) {
+      log.warn('WebGL 2 context creation failed:', err);
+    }
+  }
+  return r;
+}
+
+export const renderer = initRenderer();
+if (renderer) {
+  // This project was tuned against the three.js r128 rendering pipeline. r152+
+  // enables color management and sRGB output by default; restore the legacy
+  // behavior so the established art direction is preserved.
+  THREE.ColorManagement.enabled = false;
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(
+    _isLowQuality ? 1 : Math.min(window.devicePixelRatio, 2)
+  );
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  if (renderer.xr) {
+    renderer.xr.enabled = true;
+    if (typeof renderer.xr.setReferenceSpaceType === 'function') {
+      renderer.xr.setReferenceSpaceType('local');
+    }
+  }
+  document.body.appendChild(renderer.domElement);
+} else {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', showWebGLErrorNotice);
+  } else {
+    showWebGLErrorNotice();
+  }
+}
 
 // Lights
 export const hemiLight = new THREE.HemisphereLight(

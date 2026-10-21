@@ -432,15 +432,45 @@
       );
       camera.position.set(20, 20, 20);
 
-      const renderer = new THREE.WebGLRenderer({antialias: true});
-      renderer.setSize(container.clientWidth, container.clientHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFShadowMap;
-      container.appendChild(renderer.domElement);
+      function isWebGL2Available() {
+        try {
+          const canvas = document.createElement('canvas');
+          return !!(
+            window.WebGL2RenderingContext && canvas.getContext('webgl2')
+          );
+        } catch {
+          return false;
+        }
+      }
 
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
+      let renderer = null;
+      if (isWebGL2Available()) {
+        try {
+          renderer = new THREE.WebGLRenderer({antialias: true});
+        } catch {
+          try {
+            renderer = new THREE.WebGLRenderer({antialias: false});
+          } catch {
+            // Failed
+          }
+        }
+      }
+
+      if (!renderer) {
+        container.innerHTML =
+          '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#fff;font-family:sans-serif;text-align:center;padding:20px;">WebGL 2 is not supported or context creation failed.</div>';
+      } else {
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFShadowMap;
+        container.appendChild(renderer.domElement);
+      }
+
+      const controls = renderer
+        ? new OrbitControls(camera, renderer.domElement)
+        : null;
+      if (controls) controls.enableDamping = true;
 
       // Lights - Synchronized with game settings for consistent colors
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
@@ -971,7 +1001,7 @@
             : 1.5;
         const distance = maxDimension * distanceMultiplier;
 
-        if (!isColorCycle) {
+        if (!isColorCycle && controls) {
           controls.reset();
           controls.target.copy(finalCenter);
           if (
@@ -992,16 +1022,18 @@
       }
 
       function animate() {
+        if (!renderer) return;
         requestAnimationFrame(animate);
         const time = performance.now() * 0.001;
         animationUniforms.uTime.value = time;
         waterUniforms.uTime.value = time;
 
-        controls.update();
+        controls?.update();
         renderer.render(viewScene, camera);
       }
 
       window.addEventListener('resize', () => {
+        if (!renderer) return;
         camera.aspect = container.clientWidth / container.clientHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(container.clientWidth, container.clientHeight);
