@@ -433,6 +433,7 @@ export function createWaterfall({course: points, stream, ground, leap}) {
   const indices = [];
   const prev = new THREE.Vector3();
   const mid = new THREE.Vector3();
+  const ribbon = [];
   let along = 0;
   rows.forEach(({p, out: o, side, half, y}, i) => {
     let sum = 0;
@@ -447,6 +448,14 @@ export function createWaterfall({course: points, stream, ground, leap}) {
     }
     const d = sum / n;
     mid.set(p.x + o.x * d, y, p.z + o.z * d);
+    ribbon.push({
+      x: mid.x,
+      y: mid.y,
+      z: mid.z,
+      half,
+      sideX: side.x,
+      sideZ: side.z,
+    });
     for (let k = 0; k <= ACROSS; k++) {
       const u = (k / ACROSS - 0.5) * 2;
       const s = u * half;
@@ -523,13 +532,15 @@ export function createWaterfall({course: points, stream, ground, leap}) {
     group.add(puff);
   }
 
-  // For the drifting mist (particles.js)
+  // For the drifting mist (particles.js) and haptics (haptics.js)
   group.userData.foot = {
     x: bx,
     z: bz,
     half: footHalf,
     size: mistSize,
     top: points[0][1],
+    ribbon,
+    leap: !!leap,
   };
 
   // Churning foam, a little wider than the fall's foot

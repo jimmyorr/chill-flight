@@ -1,12 +1,13 @@
 // haptics.js
 // A tap on the phone (iOS/Android apps, via @capacitor/haptics) when the
-// plane meets land or water, harder for a harder landing, a clunk as
-// retracting gear locks, a warning as the plane slows toward a stall, and
-// thunder. Off by default; the switch lives next to Invert y axis in the
-// pause menu.
+// plane meets land or water, harder for a harder landing, a tap when flying
+// under a waterfall as water hits the plane, a clunk as retracting gear locks,
+// a warning as the plane slows toward a stall, and thunder. Off by default;
+// the switch lives next to Invert y axis in the pause menu.
 import {state} from './state.js';
 import {activePlaneType, planeGroup, planeHandling} from './airplane.js';
 import {BASE_FLIGHT_SPEED} from './constants.js';
+import {waterfallFeet} from './terrain-chunks.js';
 
 const STORAGE_KEY = 'chill_flight_haptics';
 
@@ -36,6 +37,8 @@ let elapsed = 0;
 let lastImpact = -Infinity;
 let lastGearExtension = null;
 let stallWarned = false;
+let underWaterfall = false;
+let lastWaterfallHit = -Infinity;
 
 function plugin() {
   return typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()
@@ -90,6 +93,56 @@ export function thunderHaptic(distance = 0.5) {
   }
 }
 
+// Checks whether the plane is flying under or through a waterfall ribbon,
+// where falling water strikes the canopy and airframe.
+export function checkWaterfallContact(pos) {
+  for (const fall of waterfallFeet.values()) {
+    if (!fall.segments || fall.segments.length === 0) continue;
+    const dx = pos.x - fall.x;
+    const dz = pos.z - fall.z;
+    if (dx * dx + dz * dz > 350 * 350) continue;
+    if (pos.y > fall.top + 5 || pos.y < 38) continue;
+
+    const segs = fall.segments;
+    for (let j = 0; j < segs.length; j++) {
+      const s = segs[j];
+      // Fast AABB rejection per segment
+      if (pos.y < s.minY || pos.y > s.maxY) continue;
+      if (pos.z < s.minZ || pos.z > s.maxZ) continue;
+      if (pos.x < s.minX || pos.x > s.maxX) continue;
+
+      const t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((pos.x - s.p0.x) * s.vx +
+            (pos.y - s.p0.y) * s.vy +
+            (pos.z - s.p0.z) * s.vz) /
+            s.lenSq
+        )
+      );
+      const cx = s.p0.x + t * s.vx;
+      const cy = s.p0.y + t * s.vy;
+      const cz = s.p0.z + t * s.vz;
+      const half = s.half0 + t * s.dHalf;
+
+      // Lateral distance across the waterfall width
+      const lateral = (pos.x - cx) * s.sx + (pos.z - cz) * s.sz;
+      if (Math.abs(lateral) > half + 4) continue;
+
+      // Normal perpendicular to the falling water sheet
+      const distNormal =
+        (pos.x - cx) * s.unx + (pos.y - cy) * s.uny + (pos.z - cz) * s.unz;
+
+      // Water hits top of plane: plane is penetrating or immediately beneath the sheet
+      if (Math.abs(distNormal) <= 10 && pos.y <= cy + 3 && pos.y >= cy - 20) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 // Per frame: watches for the plane settling onto land or water
 export function updateHaptics(delta) {
   if (delta <= 0) return;
@@ -128,6 +181,25 @@ export function updateHaptics(delta) {
   }
   lastGround = onGround;
   lastWater = onWater;
+
+  // Waterfall: a single impact tap when flying through or under falling water
+  const inWaterfall = checkWaterfallContact(planeGroup.position);
+  if (inWaterfall) {
+    if (
+      !underWaterfall &&
+      elapsed - lastWaterfallHit > 0.5 &&
+      enabled &&
+      elapsed > 2 &&
+      !paused &&
+      !state.isFreeCamera
+    ) {
+      lastWaterfallHit = elapsed;
+      pulse('MEDIUM');
+    }
+    underWaterfall = true;
+  } else {
+    underWaterfall = false;
+  }
 
   // Gear clunk: a light tap as moving gear locks fully up or down
   const ext = state.gearExtension;

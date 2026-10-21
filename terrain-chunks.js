@@ -984,10 +984,61 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     waterfall.position.set(worldOffsetX, 0, worldOffsetZ);
     group.add(waterfall);
     const foot = waterfall.userData.foot;
+    const worldRibbon = foot.ribbon?.map((r) => ({
+      x: worldOffsetX + r.x,
+      y: r.y,
+      z: worldOffsetZ + r.z,
+      half: r.half,
+      sideX: r.sideX,
+      sideZ: r.sideZ,
+    }));
+    const segments = [];
+    if (worldRibbon && worldRibbon.length > 1) {
+      for (let j = 0; j < worldRibbon.length - 1; j++) {
+        const p0 = worldRibbon[j];
+        const p1 = worldRibbon[j + 1];
+        const vx = p1.x - p0.x;
+        const vy = p1.y - p0.y;
+        const vz = p1.z - p0.z;
+        const lenSq = vx * vx + vy * vy + vz * vz;
+        if (lenSq < 1e-4) continue;
+        const sideX = (p0.sideX + p1.sideX) * 0.5;
+        const sideZ = (p0.sideZ + p1.sideZ) * 0.5;
+        const sideLen = Math.hypot(sideX, sideZ) || 1;
+        const sx = sideX / sideLen;
+        const sz = sideZ / sideLen;
+        const nx = vy * sz;
+        const ny = vz * sx - vx * sz;
+        const nz = -vy * sx;
+        const nLen = Math.hypot(nx, ny, nz) || 1;
+        segments.push({
+          p0,
+          vx,
+          vy,
+          vz,
+          lenSq,
+          minY: Math.min(p0.y, p1.y) - 20,
+          maxY: Math.max(p0.y, p1.y) + 5,
+          minX: Math.min(p0.x, p1.x) - Math.max(p0.half, p1.half) - 15,
+          maxX: Math.max(p0.x, p1.x) + Math.max(p0.half, p1.half) + 15,
+          minZ: Math.min(p0.z, p1.z) - 20,
+          maxZ: Math.max(p0.z, p1.z) + 20,
+          half0: p0.half,
+          dHalf: p1.half - p0.half,
+          sx,
+          sz,
+          unx: nx / nLen,
+          uny: ny / nLen,
+          unz: nz / nLen,
+        });
+      }
+    }
     waterfallFeet.set(group, {
       ...foot,
       x: worldOffsetX + foot.x,
       z: worldOffsetZ + foot.z,
+      ribbon: worldRibbon,
+      segments,
     });
   }
 
