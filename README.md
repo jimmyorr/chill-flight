@@ -622,7 +622,7 @@ The game is made of ES modules in the repository root. `src/main.js` is the entr
 npm test
 ```
 
-Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script reference checks, a check that no code reads a `window` property that nothing assigns, the module import-order check, and tests for the network timeout helpers, the fog model, the terrain worker pool (dead or failing workers, and custom maps reaching every worker), the day's cloud mood (`scripts/test-cloud-moods.js`), people and their jobs (`scripts/test-jobs.js`), and flying together (`scripts/test-multiplayer.js`: the relay's rules, invite links and smoothing other planes through late, lost and bunched-up updates).
+Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script reference checks, a check that no code reads a `window` property that nothing assigns, the module import-order check, and tests for the network timeout helpers, the fog model, the terrain worker pool (dead or failing workers, and custom maps reaching every worker), the day's cloud mood (`scripts/test-cloud-moods.js`), people and their jobs (`scripts/test-jobs.js`), flying together (`scripts/test-multiplayer.js`: the relay's rules, invite links and smoothing other planes through late, lost and bunched-up updates), and headless autopilot and flight simulation (`scripts/test-sim.js`: airport approach and departure clearance, ridge avoidance, orbit stability, stall recovery, and job reachability).
 
 ```bash
 npm run test:browser

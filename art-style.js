@@ -27,7 +27,10 @@ export const ART_STYLE = loadStyle();
 // Settings' art style select. The style is applied as the game loads, so a
 // change saves the choice and reloads (dropping ?style=, which would
 // override it).
-const select = document.getElementById('art-style-select');
+const select =
+  typeof document !== 'undefined'
+    ? document.getElementById('art-style-select')
+    : null;
 if (select) {
   select.value = ART_STYLE;
   select.addEventListener('change', () => {

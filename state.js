@@ -4,7 +4,12 @@
 // modules import `state` and write `state.SEGMENTS = 20` directly.
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
-const storedColor = localStorage.getItem('chill_flight_color');
+let storedColor = null;
+try {
+  storedColor = localStorage.getItem('chill_flight_color');
+} catch {
+  // Storage unavailable or in Node environment
+}
 
 const startSpeed = ChillFlightLogic.START_SPEED;
 const initialFlightSpeed =
