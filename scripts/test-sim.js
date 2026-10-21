@@ -136,6 +136,51 @@ function wrapAngle(a) {
   );
 }
 
+// 1c. Runway rollout, braking, and touch-and-go cycle
+{
+  const meadow = ChillFlightLogic.AIRPORTS.find(
+    (a) => a.name === 'Meadow Field'
+  );
+  const dx = Math.cos(meadow.angle);
+  const dz = Math.sin(meadow.angle);
+  const halfLen = ChillFlightLogic.RUNWAY_LENGTH / 2;
+  const threshX = meadow.x - dx * halfLen;
+  const threshZ = meadow.z - dz * halfLen;
+  const aptGround = groundAt(meadow.x, meadow.z);
+
+  const sim = new FlightSimulator({
+    worldSeed: 20260101,
+    x: threshX - dx * 500,
+    y: aptGround + 30,
+    z: threshZ - dz * 500,
+    yaw: Math.atan2(-dx, -dz),
+    speed: 0.6,
+    autopilot: false,
+    pitch: -0.06,
+  });
+
+  const res = sim.touchAndGo({
+    rolloutDuration: 2.0,
+    climbPitch: 0.12,
+    climbTargetAlt: aptGround + 150,
+  });
+
+  if (
+    res.crashed ||
+    sim.touchdownCount !== 1 ||
+    sim.takeoffCount !== 1 ||
+    res.finalState.y < aptGround + 140
+  ) {
+    console.error(
+      `FAIL: Touch-and-go cycle failed (crashed: ${res.crashed}, touchdowns: ${sim.touchdownCount}, takeoffs: ${sim.takeoffCount}, y: ${res.finalState.y.toFixed(1)})`
+    );
+    process.exit(1);
+  }
+  console.log(
+    '  Passed: Runway approach, wheel touchdown, rollout, and touch-and-go cycle verified'
+  );
+}
+
 // ---------------------------------------------------------------------------
 // 2. AUTOPILOT STABILITY & EDGE-CASE REGRESSION TESTS
 // ---------------------------------------------------------------------------

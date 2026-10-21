@@ -863,6 +863,12 @@ export const ChillFlightLogic = {};
   const AIRFIELD_HALF_LENGTH = 470;
   const AIRFIELD_HALF_WIDTH = 120;
   const AIRPORT_FALLOFF = 380;
+  // Clearance corridors along runway approach and departure headings (#137)
+  const CORRIDOR_LENGTH = 3000;
+  const CORRIDOR_BASE_WIDTH = 100;
+  const CORRIDOR_EXPANSION = 0.08;
+  const CORRIDOR_FALLOFF = 160;
+  const CORRIDOR_SLOPE = 0.06;
 
   // How far (x, z) is outside an airport's flat field (0 inside), and its
   // position in the airport's frame: u along the runway, v across it
@@ -3636,12 +3642,37 @@ export const ChillFlightLogic = {};
         }
       }
       for (let i = 0; i < AIRPORTS.length; i++) {
-        const dist = airportDistance(AIRPORTS[i], origX, origZ);
-        if (dist < AIRPORT_FALLOFF) {
-          const h = airportFieldHeight(i, simplex, constants, _lerp);
-          if (h !== null) {
+        const a = AIRPORTS[i];
+        if (Math.abs(origX - a.x) > 3600 || Math.abs(origZ - a.z) > 3600) {
+          continue;
+        }
+        const dist = airportDistance(a, origX, origZ);
+        const h = airportFieldHeight(i, simplex, constants, _lerp);
+        if (h !== null) {
+          if (dist < AIRPORT_FALLOFF) {
             const t = 1 - dist / AIRPORT_FALLOFF;
             n = _lerp(n, h, t * t * (3 - 2 * t));
+          }
+          // Clearance corridors extending past the runway ends
+          const {u, v} = airportLocal(a, origX, origZ);
+          const absU = Math.abs(u);
+          if (
+            absU > RUNWAY_LENGTH / 2 &&
+            absU < RUNWAY_LENGTH / 2 + CORRIDOR_LENGTH
+          ) {
+            const d = absU - RUNWAY_LENGTH / 2;
+            const ceiling = h + d * CORRIDOR_SLOPE;
+            if (n > ceiling) {
+              const halfWidth = CORRIDOR_BASE_WIDTH + d * CORRIDOR_EXPANSION;
+              const absV = Math.abs(v);
+              if (absV < halfWidth + CORRIDOR_FALLOFF) {
+                const latFactor =
+                  1 - smoothRamp(absV, halfWidth, halfWidth + CORRIDOR_FALLOFF);
+                const longFactor =
+                  1 - smoothRamp(d, CORRIDOR_LENGTH - 500, CORRIDOR_LENGTH);
+                n -= (n - ceiling) * latFactor * longFactor;
+              }
+            }
           }
         }
       }

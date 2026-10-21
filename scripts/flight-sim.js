@@ -111,6 +111,14 @@ export class FlightSimulator {
     this.verticalVelocity = options.verticalVelocity ?? 0;
     this.fallAmount = 0;
 
+    // Landing gear and runway rollout state
+    this.gearDown = options.gearDown ?? true;
+    this.isRolling = options.isRolling ?? false;
+    this.braking = options.braking ?? false;
+    this.wheelHeight = options.wheelHeight ?? 2.0;
+    this.touchdownCount = 0;
+    this.takeoffCount = 0;
+
     // Autopilot state
     this.autopilotEnabled = options.autopilot ?? true;
     this.waypoint = options.waypoint ? {...options.waypoint} : null;
@@ -356,10 +364,52 @@ export class FlightSimulator {
     this.position.z += dz;
     this.position.y += dy;
 
-    // Stall, sink rate and gravity fall
-    const currentKts = BASE_FLIGHT_SPEED * Math.abs(this.speed) * 60;
+    // Ground contact and touchdown
     const ground = this.groundAt(this.position.x, this.position.z);
-    const airborne = this.position.y > ground;
+    const restingHeight = ground + this.wheelHeight;
+
+    if (this.gearDown && this.position.y <= restingHeight + 0.5) {
+      if (!this.isRolling) {
+        if (Math.abs(this.verticalVelocity) > 40) {
+          this.crashed = true;
+        } else {
+          this.isRolling = true;
+          this.touchdownCount++;
+          this.position.y = restingHeight;
+          this.verticalVelocity = 0;
+          this.rotation.pitch = 0;
+        }
+      } else {
+        this.position.y = restingHeight;
+        this.verticalVelocity = 0;
+      }
+    }
+
+    const currentKts = BASE_FLIGHT_SPEED * Math.abs(this.speed) * 60;
+
+    // Rollout dynamics
+    if (this.isRolling) {
+      // Rotate nose up for takeoff if airspeed is above rotation speed
+      if (this.targetPitch > 0.05 && currentKts > this.handling.stallKts + 5) {
+        this.rotation.pitch = clamp(this.targetPitch, 0, AUTOPILOT.MAX_CLIMB);
+        if (this.position.y > restingHeight + 0.5) {
+          this.isRolling = false;
+          this.takeoffCount++;
+        }
+      } else {
+        this.rotation.pitch = clamp(this.rotation.pitch, -0.02, 0.05);
+        this.rotation.roll = 0;
+        this.targetRoll = 0;
+      }
+
+      if (this.braking || this.targetSpeed === 0) {
+        const brakeDecel = 30 / (BASE_FLIGHT_SPEED * 60);
+        this.speed = Math.max(0, this.speed - brakeDecel * dt);
+      }
+    }
+
+    // Stall, sink rate and gravity fall
+    const airborne = !this.isRolling && this.position.y > restingHeight;
 
     this.fallAmount = lerp(
       this.fallAmount,
@@ -391,16 +441,47 @@ export class FlightSimulator {
     }
 
     // Terrain clearance and collision check
-    const clearance = this.position.y - ground;
+    const clearance = this.isRolling
+      ? this.wheelHeight
+      : this.position.y - ground;
     if (clearance < this.minClearance) {
       this.minClearance = clearance;
     }
 
-    if (clearance < 0) {
+    if (!this.isRolling && clearance < 0) {
       this.crashed = true;
     }
 
     this.simTime += dt;
+  }
+
+  touchAndGo({
+    rolloutDuration = 3.0,
+    climbPitch = 0.12,
+    climbTargetAlt = 400,
+  } = {}) {
+    let rollTimer = 0;
+    let state = 'approach';
+
+    return this.runUntil({
+      maxDuration: 60,
+      condition: (s) => state === 'climbing' && s.position.y >= climbTargetAlt,
+      onStep: (s) => {
+        if (state === 'approach' && s.isRolling) {
+          state = 'rolling';
+          s.targetSpeed = 0.5;
+          s.braking = true;
+        } else if (state === 'rolling') {
+          rollTimer += 1 / 60;
+          if (rollTimer >= rolloutDuration) {
+            state = 'climbing';
+            s.braking = false;
+            s.targetSpeed = 1.0;
+            s.targetPitch = climbPitch;
+          }
+        }
+      },
+    });
   }
 
   runUntil({maxDuration = 60, dt = 1 / 60, condition = null, onStep = null}) {
