@@ -2662,6 +2662,15 @@ input[type='number'].customization-input {
   text-shadow: none;
 }
 
+.friend-paused {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  text-shadow: none;
+}
+
 /* Who's it, in a game of tag (multiplayer.js). Sits centered right below
    the cockpit HUD, tracking its bottom edge without hardcoded offsets */
 #tag-chip {

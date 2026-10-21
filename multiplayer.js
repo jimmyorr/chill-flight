@@ -36,11 +36,7 @@ import {
   planeGroup,
   planeHandling,
 } from './airplane.js';
-import {
-  PLANE_BUILDERS,
-  buildPlaneModel,
-  isLiveryMaterial,
-} from './plane-models.js';
+import {PLANE_BUILDERS, buildPlaneModel} from './plane-models.js';
 import {Achievements} from './achievements.js';
 import {isSmokeOn, setSmokeTint, smokeColor, trailSmoke} from './particles.js';
 import {
@@ -219,7 +215,7 @@ function disposeGroup(group) {
   group.traverse((child) => {
     child.geometry?.dispose();
     const mat = child.material;
-    if (mat && !isLiveryMaterial(mat)) {
+    if (mat) {
       mat.map?.dispose();
       mat.dispose();
     }
@@ -232,11 +228,19 @@ function buildPeer(peer) {
   const type = PLANE_BUILDERS[peer.plane] ? peer.plane : 'biplane';
   const group = new THREE.Group();
   const model = buildPlaneModel(type, peer.livery);
+  peer.materials = [];
+  model.traverse((child) => {
+    if (child.isMesh && child.material) {
+      child.material = child.material.clone();
+      peer.materials.push(child.material);
+    }
+  });
   group.add(model);
   group.visible = false;
   scene.add(group);
   peer.group = group;
   peer.model = model;
+  peer.opacity = 1;
   peer.label = null;
   setLabel(peer);
   peer.css = hexColor(peer.livery);
@@ -247,9 +251,16 @@ function buildPeer(peer) {
   peer.gear = 0;
 }
 
-// The name over a player's plane, with "(it)" for whoever's it in tag
+// The name over a player's plane, with "(it)" for whoever's it in tag, and
+// "(paused)" when they are paused in menu
 function setLabel(peer) {
-  const text = tag.it === peer.id ? `${peer.name} (it)` : peer.name;
+  const isIt = tag.it === peer.id;
+  const isPaused = !!(peer.track?.latest?.flags & FLAGS.paused);
+  let status = '';
+  if (isIt && isPaused) status = ' (it, paused)';
+  else if (isIt) status = ' (it)';
+  else if (isPaused) status = ' (paused)';
+  const text = `${peer.name}${status}`;
   if (peer.label && peer.labelText === text) return;
   if (peer.label) {
     peer.group.remove(peer.label);
@@ -722,6 +733,7 @@ function sendState(frameClock) {
   if (state.gearExtension > 0.5) flags |= FLAGS.gear;
   if (state.isOnGround) flags |= FLAGS.ground;
   if (state.isOnWater) flags |= FLAGS.water;
+  if (state.isPaused) flags |= FLAGS.paused;
   planeGroup.getWorldQuaternion(_quat);
   send(
     packState(
@@ -789,8 +801,9 @@ function placeMarker(peer, dist) {
   const w = window.innerWidth;
   const along = THREE.MathUtils.clamp((place.sx - 80) / (w - 160), 0, 1);
   marker.style.setProperty('--friend-shift', `${(-100 * along).toFixed(0)}%`);
+  const isPaused = !!(peer.track?.latest?.flags & FLAGS.paused);
   const distText = formatDistance(dist);
-  const key = `${peer.name}|${distText}|${tag.it === peer.id}`;
+  const key = `${peer.name}|${distText}|${tag.it === peer.id}|${isPaused}`;
   if (key === peer.markerKey) return;
   peer.markerKey = key;
   peer.markerText.textContent = `${peer.name} · ${distText}`;
@@ -799,6 +812,12 @@ function placeMarker(peer, dist) {
     it.className = 'friend-it';
     it.textContent = 'it';
     peer.markerText.append(it);
+  }
+  if (isPaused) {
+    const paused = document.createElement('span');
+    paused.className = 'friend-paused';
+    paused.textContent = 'paused';
+    peer.markerText.append(paused);
   }
 }
 
@@ -858,15 +877,40 @@ export function updateMultiplayer(delta) {
     g.position.copy(_pos);
     g.quaternion.copy(_quat);
     const flags = peer.track.latest.flags;
+    const isPaused = !!(flags & FLAGS.paused);
+    setLabel(peer);
+
+    // Fade to translucent ghost when paused
+    const targetOpacity = isPaused ? 0.45 : 1.0;
+    if (peer.opacity !== targetOpacity) {
+      peer.opacity += THREE.MathUtils.clamp(
+        targetOpacity - peer.opacity,
+        -delta * 4,
+        delta * 4
+      );
+      if (Math.abs(peer.opacity - targetOpacity) < 0.01) {
+        peer.opacity = targetOpacity;
+      }
+      const trans = peer.opacity < 0.99;
+      for (const mat of peer.materials || []) {
+        mat.transparent = trans;
+        mat.opacity = peer.opacity;
+        mat.depthWrite = !trans || peer.opacity > 0.5;
+      }
+      peer.model.traverse((child) => {
+        if (child.isMesh) child.castShadow = !trans;
+      });
+    }
+
     peer.model.rotation.z = waggleRoll(rawNow - peer.waggleAt);
-    const spin = speed * BASE_FLIGHT_SPEED * 60 * delta * 0.15;
+    const spin = isPaused ? 0 : speed * BASE_FLIGHT_SPEED * 60 * delta * 0.15;
     for (const prop of peer.props) if (prop) prop.rotation.z += spin;
     if (peer.model.gearGroups) {
       const target = flags & FLAGS.gear ? 1 : 0;
       peer.gear += THREE.MathUtils.clamp(target - peer.gear, -delta, delta);
       setGearExtension(peer.model, 1 - Math.pow(1 - peer.gear, 3));
     }
-    if (flags & FLAGS.smoke) {
+    if (flags & FLAGS.smoke && !isPaused) {
       g.updateMatrixWorld();
       trailSmoke(g, peer.smokeLast, speed, peer.smokeColor);
     } else {
@@ -878,12 +922,16 @@ export function updateMultiplayer(delta) {
     peer.label.visible = peer.label.material.opacity > 0.01;
     placeMarker(peer, dist);
   }
-  // Whoever's it tags anyone in reach (after a moment's grace)
-  if (tag.it === room.id && now - tagSince > TAG_GRACE_MS) {
+  // Whoever's it tags anyone in reach (after a moment's grace), if neither is paused
+  if (tag.it === room.id && !state.isPaused && now - tagSince > TAG_GRACE_MS) {
     const others = [];
     for (const peer of peers.values()) {
       if (peer.group?.visible)
-        others.push({id: peer.id, pos: peer.group.position});
+        others.push({
+          id: peer.id,
+          pos: peer.group.position,
+          paused: !!(peer.track.latest?.flags & FLAGS.paused),
+        });
     }
     const target = tagTarget(planeGroup.position, others);
     if (target) sendTag(target);
@@ -936,12 +984,18 @@ function renderPanel() {
     return el;
   };
   const it = (id) => (tag.it === id ? ', it' : '');
-  const rows = [row(`${myName()} (you${it(room.id)})`, myLivery(), null)];
+  const isPaused = (p) =>
+    (p ? p.track?.latest?.flags & FLAGS.paused : state.isPaused)
+      ? ', paused'
+      : '';
+  const rows = [
+    row(`${myName()} (you${it(room.id)}${isPaused(null)})`, myLivery(), null),
+  ];
   for (const peer of peers.values()) {
     if (peer.name) {
       rows.push(
         row(
-          `${peer.name}${tag.it === peer.id ? ' (it)' : ''}`,
+          `${peer.name}${tag.it === peer.id ? ' (it)' : ''}${isPaused(peer) ? ' (paused)' : ''}`,
           peer.livery,
           peer
         )

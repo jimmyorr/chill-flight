@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import * as rules from '../relay/src/rules.js';
 import {
   CLOSE,
+  FLAGS,
   MAX_PLAYERS,
   NO_TAG,
   PeerTrack,
@@ -520,14 +521,19 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
   const me = new THREE.Vector3(0, 500, 0);
   const near = TAG_RADIUS - 1;
   check(
-    'Tagging picks the nearest friend in reach',
+    'Tagging picks the nearest friend in reach and ignores paused friends',
     tagTarget(me, [
       {id: 'far', pos: new THREE.Vector3(TAG_RADIUS + 5, 500, 0)},
       {id: 'near', pos: new THREE.Vector3(0, 500 + near, 0)},
       {id: 'nearer', pos: new THREE.Vector3(near / 2, 500, 0)},
     ]) === 'nearer' &&
+      tagTarget(me, [
+        {id: 'paused', pos: new THREE.Vector3(10, 500, 0), paused: true},
+        {id: 'active', pos: new THREE.Vector3(20, 500, 0), paused: false},
+      ]) === 'active' &&
       tagTarget(me, [{id: 'x', pos: new THREE.Vector3(0, 0, 0)}]) === null &&
-      tagTarget(me, []) === null
+      tagTarget(me, []) === null &&
+      FLAGS.paused === 16
   );
 }
 

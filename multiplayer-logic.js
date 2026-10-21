@@ -42,7 +42,7 @@ const BUFFER_SIZE = 24;
 const BLEND_TAU = 0.12;
 
 // Bits of an update's `fl` (its `f` is the relay's: who sent it)
-export const FLAGS = {smoke: 1, gear: 2, ground: 4, water: 8};
+export const FLAGS = {smoke: 1, gear: 2, ground: 4, water: 8, paused: 16};
 
 /** A new room code from `rng` (Math.random or a seeded one). */
 export function makeRoomCode(rng = Math.random) {
@@ -473,12 +473,14 @@ export function nextIt(ids) {
 
 /**
  * The nearest player in reach of whoever is it, or null. `others` are
- * [{id, pos}], with `pos` as drawn on the tagger's screen.
+ * [{id, pos, paused?}], with `pos` as drawn on the tagger's screen. Paused
+ * players are excluded.
  */
 export function tagTarget(itPos, others, radius = TAG_RADIUS) {
   let best = null;
   let bestDist = radius;
   for (const o of others) {
+    if (o.paused) continue;
     const d = itPos.distanceTo(o.pos);
     if (d < bestDist) {
       best = o.id;
