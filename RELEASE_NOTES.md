@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.1.2](https://v1-1-2.chill-flight.pages.dev)
+
+- **Fly together:** Share a link or 4-letter code to fly with friends in the same world, with livery-tinted smoke and wing waggles.
+- **Markers & tag:** Small nametags show distance and status, edge chevrons point to friends out of view, and play aerial tag.
+- **Presence & smoothing:** Paused players ghost with tag immunity; smooth 10 Hz motion blending keeps turns natural.
+
 ## [1.1.1](https://v1-1-1.chill-flight.pages.dev)
 
 - **Planes & flight:** Added a playable jet, per-plane speed and handling, smoother aerobatics, and gentler NPC mountain climbs.

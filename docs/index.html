@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "1.1.1";
-window.__COMMIT_HASH__ = "971cab6";
+    <script>window.__APP_VERSION__ = "1.1.2";
+window.__COMMIT_HASH__ = "9c434ad";
 window.__IS_DIRTY__ = false;</script>
 
     <meta charset="UTF-8" />
@@ -29,8 +29,8 @@ window.__IS_DIRTY__ = false;</script>
       content="A minimalist flight simulator set in a vast, ever-changing world."
     />
     <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-aIzDnIC2.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-D2BL9L14.css">
+    <script type="module" crossorigin src="./assets/main-DsfcU4L9.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-zFOnUFVz.css">
   </head>
 
   <body>
@@ -215,7 +215,16 @@ window.__IS_DIRTY__ = false;</script>
               title="People"
               aria-label="People"
             >
-              👥 <span id="people-counter"></span>
+              📇 <span id="people-counter"></span>
+            </button>
+            <button
+              id="fly-together-btn"
+              class="pause-icon-btn"
+              title="Fly together"
+              aria-label="Fly together"
+              hidden
+            >
+              👥 <span id="fly-together-counter"></span>
             </button>
             <button
               id="vr-btn"
@@ -291,6 +300,52 @@ window.__IS_DIRTY__ = false;</script>
         </div>
         <div id="people-progress" class="achievements-progress"></div>
         <div id="people-grid"></div>
+      </div>
+    </div>
+
+    <!-- Flying with friends: invite, join with a code, who's here (multiplayer.js) -->
+    <div id="fly-overlay">
+      <div class="achievements-content">
+        <div class="achievements-header">
+          <span class="achievements-title">Fly together</span>
+          <button id="fly-close-btn" class="achievements-close-btn">✕</button>
+        </div>
+        <label class="fly-field">
+          <span>Your name</span>
+          <input
+            id="fly-name"
+            maxlength="16"
+            autocomplete="nickname"
+            placeholder="Pilot"
+            spellcheck="false"
+          />
+        </label>
+        <div id="fly-solo" class="fly-section">
+          <button id="fly-invite-btn" class="fly-btn">Invite friends</button>
+          <div class="fly-or">or join a friend's flight</div>
+          <div class="fly-join-row">
+            <input
+              id="fly-code"
+              maxlength="5"
+              placeholder="Code"
+              autocapitalize="characters"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="fly-join-btn" class="fly-btn">Join</button>
+          </div>
+        </div>
+        <div id="fly-room" class="fly-section" hidden>
+          <div class="fly-or">Room code</div>
+          <div id="fly-room-code" class="fly-room-code"></div>
+          <button id="fly-share-btn" class="fly-btn">Share link</button>
+          <div id="fly-players" class="fly-players"></div>
+          <button id="fly-tag-btn" class="fly-btn" hidden>Play tag</button>
+          <button id="fly-leave-btn" class="fly-btn fly-btn-quiet">
+            Leave
+          </button>
+        </div>
+        <div id="fly-status" class="fly-status"></div>
       </div>
     </div>
 
@@ -489,6 +544,11 @@ window.__IS_DIRTY__ = false;</script>
       <div class="npc-dialog-next" aria-hidden="true">▼</div>
     </div>
 
+    <!-- Friends flying with you: names and distances, at the screen's edge
+         when they're out of view; and who's it in a game of tag
+         (multiplayer.js) -->
+    <div id="friend-markers" aria-hidden="true"></div>
+
     <!-- Points the way to the map's waypoint (waypoint.js) -->
     <div id="waypoint-indicator" hidden aria-hidden="true">
       <div class="waypoint-mark"></div>
@@ -551,6 +611,8 @@ window.__IS_DIRTY__ = false;</script>
           <span class="job-hud-auto" id="job-hud-auto" hidden>AUTO</span>
         </div>
       </div>
+      <!-- Who's it in a game of tag (multiplayer.js) -->
+      <div id="tag-chip" hidden></div>
     </div>
 
     <!-- Virtual Joystick (Outside transform parent for correct position: fixed rendering) -->
@@ -635,6 +697,15 @@ window.__IS_DIRTY__ = false;</script>
               <line x1="9" y1="18" x2="15" y2="18"></line>
               <line x1="10" y1="22" x2="14" y2="22"></line>
             </svg>
+          </button>
+          <button
+            class="sub-btn"
+            id="mobile-wave-btn"
+            title="Waggle wings"
+            tabindex="-1"
+            hidden
+          >
+            👋
           </button>
           <button
             class="sub-btn"
