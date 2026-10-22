@@ -32,7 +32,7 @@ import {hooks} from './hooks.js';
 import {Achievements} from './achievements.js';
 import {getChunkLoadingProgress} from './terrain-chunks.js';
 import {resetAutopilot} from './autopilot.js';
-import {toggleSmoke} from './particles.js';
+import {isSmokeOn, toggleSmoke} from './particles.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -170,9 +170,17 @@ if (hdgtSub) {
 
 // Airshow smoke: X, or the smoke button in the quick menu
 const smokeToggle = document.getElementById('mobile-smoke-toggle');
-function toggleSmokeTrail() {
-  smokeToggle?.classList.toggle('active', toggleSmoke());
+function syncSmokeUI() {
+  if (!smokeToggle) return;
+  smokeToggle.classList.toggle('active', isSmokeOn());
+  smokeToggle.disabled = !!state.mpForceSmoke;
 }
+function toggleSmokeTrail() {
+  if (state.mpForceSmoke) return;
+  toggleSmoke();
+  syncSmokeUI();
+}
+hooks.syncSmokeUI = syncSmokeUI;
 inputManager.onSmokeToggle = toggleSmokeTrail;
 if (smokeToggle) {
   smokeToggle.addEventListener('click', (e) => {

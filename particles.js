@@ -721,7 +721,7 @@ export function setSmokeTint(livery) {
 
 /** Whether the player's airshow smoke is on. */
 export function isSmokeOn() {
-  return smokeOn;
+  return smokeOn || !!state.mpForceSmoke;
 }
 
 /**
@@ -974,8 +974,10 @@ export function updateParticles(delta) {
     if (activePlaneType === 'buggy' && !onWater) slideSmoke(delta);
     if (!wheels && !onWater) skim(delta, speed);
     else skimLast.valid = false;
-    if (smokeOn) {
+    if (isSmokeOn()) {
       smokeTrail(planeGroup, smokeLast, speed, tinted ? smokeTint : SMOKE);
+    } else {
+      smokeLast.valid = false;
     }
     if (!wheels && !onWater) wingtipVapour(delta, speed);
     else vapour = 0;

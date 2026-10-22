@@ -436,25 +436,102 @@ export function waggleRoll(ms) {
 
 // --- TAG ---
 // One player is "it" and chases the others; flying within TAG_RADIUS of one
-// makes them it. Whoever is it decides the tag, on what their own screen
-// shows, so nobody argues over lag. Each change counts up `n`; a message
-// with a lower count is old news, and two at once (two players starting a
-// game) are settled by the sender's id, the same way on every screen.
-//   {t: 'tag', it, n, by}   it: who's it (null: game over); by: who sent it
+// makes them it. Everyone flies the plane of whoever started the game,
+// whoever is it can fly TAG_SPEED_BOOST faster, and everyone else has smoke
+// forced on. Whoever is it decides the tag, on what their own screen shows,
+// so nobody argues over lag. Each change counts up `n`; a message with a
+// lower count is old news, and two at once (two players starting a game) are
+// settled by the sender's id, the same way on every screen.
+//   {t: 'tag', it, plane, n, by, times}
+//   it: who's it (null: game over); plane: locked plane; times: {id: ms as it}
 
 // 60 m (1 unit is 0.5144 m)
 export const TAG_RADIUS = 117;
 // After a tag, the new "it" waits this long before they can tag (ms), so
 // the one who tagged them can get away
 export const TAG_GRACE_MS = 4000;
+// Top-speed multiplier for whoever is it (+15%)
+export const TAG_SPEED_BOOST = 1.15;
 
-export const NO_TAG = Object.freeze({it: null, n: 0, by: ''});
+export const NO_TAG = Object.freeze({
+  it: null,
+  plane: null,
+  n: 0,
+  by: '',
+  times: Object.freeze({}),
+});
 
 /** A tag message tidied up, or null if it isn't one. */
 export function readTag(msg) {
   if (!msg || !Number.isInteger(msg.n) || msg.n < 0) return null;
   if (msg.it !== null && typeof msg.it !== 'string') return null;
-  return {it: msg.it, n: msg.n, by: typeof msg.by === 'string' ? msg.by : ''};
+  const times = {};
+  if (msg.times && typeof msg.times === 'object' && !Array.isArray(msg.times)) {
+    for (const [k, v] of Object.entries(msg.times)) {
+      if (
+        typeof k === 'string' &&
+        typeof v === 'number' &&
+        v >= 0 &&
+        Number.isFinite(v)
+      ) {
+        times[k] = Math.round(v);
+      }
+    }
+  }
+  const plane =
+    msg.it && typeof msg.plane === 'string' && msg.plane ? msg.plane : null;
+  return {
+    it: msg.it,
+    plane,
+    n: msg.n,
+    by: typeof msg.by === 'string' ? msg.by : '',
+    times,
+  };
+}
+
+/** Formats milliseconds spent as "it" as m:ss (e.g. 0:14, 1:05). */
+export function formatTagTime(ms) {
+  const sec = Math.max(0, Math.floor((ms || 0) / 1000));
+  const m = Math.floor(sec / 60);
+  const s = String(sec % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+/** Total ms `id` has been it, including `elapsedMs` of the current stint. */
+export function tagTimeOf(tag, id, elapsedMs = 0) {
+  const base = tag?.times?.[id] || 0;
+  const cur = tag?.it === id ? Math.max(0, Math.round(elapsedMs)) : 0;
+  return base + cur;
+}
+
+/** A copy of `tag.times` with the current "it" player's stint folded in. */
+export function withTagTime(tag, elapsedMs) {
+  const times = {...(tag?.times || {})};
+  if (tag?.it && elapsedMs > 0) {
+    times[tag.it] = (times[tag.it] || 0) + Math.round(elapsedMs);
+  }
+  return times;
+}
+
+/**
+ * Whoever among `ids` has the lowest time as "it" ({id, ms}), or null when
+ * fewer than two players are present or the round lasted under a second.
+ */
+export function tagWinner(times, ids) {
+  const list = [...ids];
+  if (list.length < 2) return null;
+  const total = list.reduce((sum, id) => sum + (times?.[id] || 0), 0);
+  if (total < 1000) return null;
+  let bestId = null;
+  let bestMs = Infinity;
+  for (const id of list) {
+    const ms = times?.[id] || 0;
+    if (ms < bestMs) {
+      bestMs = ms;
+      bestId = id;
+    }
+  }
+  return bestId ? {id: bestId, ms: bestMs} : null;
 }
 
 /** Whether tag state `next` replaces `cur`. */

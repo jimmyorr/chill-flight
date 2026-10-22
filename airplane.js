@@ -292,7 +292,10 @@ export function planeHandling() {
 }
 
 export function getMaxFlightSpeedMult() {
-  return planeHandling().topKts / (BASE_FLIGHT_SPEED * 60);
+  return (
+    (planeHandling().topKts / (BASE_FLIGHT_SPEED * 60)) *
+    (state.mpSpeedBoost || 1)
+  );
 }
 
 // The pause menu's bars for the active plane's handling, each a fraction of
@@ -319,6 +322,7 @@ function updatePlaneStats() {
 
 export function setActivePlane(planeType, skipStorage = false) {
   if (!ChillFlightLogic.PLANE_TYPES.includes(planeType)) return;
+  if (state.mpLockedPlane && planeType !== state.mpLockedPlane) return;
   activePlaneType = planeType;
   if (!skipStorage) {
     try {
@@ -418,6 +422,24 @@ export function setActivePlane(planeType, skipStorage = false) {
 
   // Update URL parameters
   updateUrlParams({plane: planeType}, ['plane', 'vehicle']);
+}
+
+// Locks everyone to one plane while a multiplayer game is active
+// (multiplayer.js), without overwriting their saved solo choice
+export function setLockedPlane(planeType) {
+  state.mpLockedPlane =
+    planeType && ChillFlightLogic.PLANE_TYPES.includes(planeType)
+      ? planeType
+      : null;
+  if (state.mpLockedPlane && activePlaneType !== state.mpLockedPlane) {
+    setActivePlane(state.mpLockedPlane, true);
+  }
+  const planeSelectGroup = document.getElementById('plane-select-group');
+  if (planeSelectGroup) {
+    planeSelectGroup.querySelectorAll('.scheme-btn').forEach((btn) => {
+      btn.disabled = !!state.mpLockedPlane;
+    });
+  }
 }
 
 // Vehicles left out of PLANE_TYPES (the buggy, without ?buggy=1) get no

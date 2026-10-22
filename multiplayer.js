@@ -35,7 +35,9 @@ import {
   getMaxFlightSpeedMult,
   planeGroup,
   planeHandling,
+  setLockedPlane,
 } from './airplane.js';
+import {getElevation} from './terrain-geometry.js';
 import {PLANE_BUILDERS, buildPlaneModel} from './plane-models.js';
 import {Achievements} from './achievements.js';
 import {isSmokeOn, setSmokeTint, smokeColor, trailSmoke} from './particles.js';
@@ -49,8 +51,10 @@ import {
   RENDER_DELAY_MS,
   SEND_INTERVAL_MS,
   TAG_GRACE_MS,
+  TAG_SPEED_BOOST,
   WAGGLE_MS,
   cleanName,
+  formatTagTime,
   inviteUrl,
   isNewerTag,
   makeRoomCode,
@@ -60,8 +64,11 @@ import {
   readTag,
   roomSocketUrl,
   tagTarget,
+  tagTimeOf,
+  tagWinner,
   unpackState,
   waggleRoll,
+  withTagTime,
 } from './multiplayer-logic.js';
 
 // The relay (relay/README.md); empty hides flying together. ?relay= uses
@@ -121,9 +128,10 @@ let smoothNow = null;
 let sentProfile = '';
 // When your own last waggle started (performance.now())
 let waggleAt = -Infinity;
-// The game of tag ({it, n, by}), and when its "it" became it
+// The game of tag ({it, plane, n, by, times}), and when its "it" became it
 let tag = NO_TAG;
 let tagSince = 0;
+let gatherToId = null;
 
 function myName() {
   try {
@@ -166,7 +174,11 @@ function sendHello() {
     plane: activePlaneType,
     livery: myLivery(),
   };
-  if (tag.n > 0) hello.tag = tag;
+  if (tag.n > 0) {
+    hello.tag = tag.it
+      ? {...tag, times: withTagTime(tag, performance.now() - tagSince)}
+      : tag;
+  }
   sentProfile = `${hello.name}|${hello.plane}|${hello.livery}`;
   send(hello);
 }
@@ -315,17 +327,63 @@ function nameOf(id) {
   return peers.get(id)?.name || 'A friend';
 }
 
+function refreshTag() {
+  const inTag = !!room && !!tag.it;
+  const amIt = inTag && tag.it === room.id;
+  const prevMax = getMaxFlightSpeedMult();
+  const wasAtMax = state.targetFlightSpeed >= prevMax - 0.02;
+  setLockedPlane(inTag ? tag.plane : null);
+  state.mpSpeedBoost = amIt ? TAG_SPEED_BOOST : 1;
+  const newMax = getMaxFlightSpeedMult();
+  if (wasAtMax && inTag) {
+    state.targetFlightSpeed = newMax;
+  } else if (state.targetFlightSpeed > newMax) {
+    state.targetFlightSpeed = newMax;
+  }
+  state.mpForceSmoke = inTag && !amIt;
+  hooks.syncSmokeUI?.();
+
+  for (const peer of peers.values()) {
+    peer.markerKey = '';
+  }
+  if (tagChip) {
+    tagChip.hidden = !inTag;
+    tagChip.classList.toggle('mine', amIt);
+    if (inTag) {
+      tagChip.textContent = amIt
+        ? "You're it, tag a friend"
+        : `${nameOf(tag.it)} is it`;
+    }
+  }
+  renderPanel();
+}
+
 function setTag(next) {
   const was = tag.it;
   tag = next;
+  tagSince = performance.now();
+  if (!was && tag.it && tag.it !== room?.id && tag.by === tag.it) {
+    gatherToId = tag.it;
+  } else if (!tag.it) {
+    gatherToId = null;
+  }
   if (tag.it !== was) {
-    tagSince = performance.now();
-    if (!tag.it) toast('Tag is over');
-    else if (tag.it === room?.id) toast("You're it");
+    if (!tag.it) {
+      const win = room
+        ? tagWinner(tag.times, [room.id, ...peers.keys()])
+        : null;
+      if (win) {
+        const who = win.id === room.id ? 'You' : nameOf(win.id);
+        toast(`Tag is over · ${who} won (${formatTagTime(win.ms)} as it)`);
+      } else {
+        toast('Tag is over');
+      }
+    } else if (tag.it === room?.id) toast("You're it");
     else if (was === room?.id) toast(`You tagged ${nameOf(tag.it)}`);
     else toast(`${nameOf(tag.it)} is it`);
   }
   refreshTag();
+  if (gatherToId && !state.isIntroTransitionActive) gatherForTag();
 }
 
 // A game of tag as someone else sent it: kept if it's newer than ours
@@ -333,7 +391,13 @@ function applyTag(next) {
   if (!next || !room || !isNewerTag(next, tag)) return;
   if (next.it && next.it !== room.id && !peers.has(next.it)) {
     // It's someone who's already gone
-    setTag({it: nextIt([room.id, ...peers.keys()]), n: next.n + 1, by: '~'});
+    setTag({
+      it: nextIt([room.id, ...peers.keys()]),
+      plane: next.plane,
+      n: next.n + 1,
+      by: '~',
+      times: next.times,
+    });
     return;
   }
   setTag(next);
@@ -342,7 +406,14 @@ function applyTag(next) {
 // Says who's it now (null ends the game)
 function sendTag(it) {
   if (!room) return;
-  const next = {it, n: tag.n + 1, by: room.id};
+  const starting = !tag.it && !!it;
+  const times = starting ? {} : withTagTime(tag, performance.now() - tagSince);
+  const plane = it
+    ? starting
+      ? activePlaneType
+      : tag.plane || activePlaneType
+    : null;
+  const next = {it, plane, n: tag.n + 1, by: room.id, times};
   setTag(next);
   send({t: 'tag', ...next});
 }
@@ -351,28 +422,18 @@ function sendTag(it) {
 // the same on every screen); alone, the game's over
 function tagAfterLeaving(id) {
   if (!tag.it) return;
+  const times = withTagTime(tag, performance.now() - tagSince);
   if (peers.size === 0) {
-    setTag({it: null, n: tag.n + 1, by: '~'});
+    setTag({it: null, plane: null, n: tag.n + 1, by: '~', times});
   } else if (tag.it === id) {
-    setTag({it: nextIt([room.id, ...peers.keys()]), n: tag.n + 1, by: '~'});
+    setTag({
+      it: nextIt([room.id, ...peers.keys()]),
+      plane: tag.plane,
+      n: tag.n + 1,
+      by: '~',
+      times,
+    });
   }
-}
-
-function refreshTag() {
-  for (const peer of peers.values()) {
-    peer.markerKey = '';
-  }
-  if (tagChip) {
-    tagChip.hidden = !room || !tag.it;
-    tagChip.classList.toggle('mine', !!room && tag.it === room.id);
-    if (room && tag.it) {
-      tagChip.textContent =
-        tag.it === room.id
-          ? "You're it, tag a friend"
-          : `${nameOf(tag.it)} is it`;
-    }
-  }
-  renderPanel();
 }
 
 // --- WAVING ---
@@ -452,6 +513,7 @@ function clearRoom() {
   socket = null;
   room = null;
   arriveOnJoin = false;
+  gatherToId = null;
   pausedSince = null;
   tag = NO_TAG;
   refreshTag();
@@ -686,6 +748,7 @@ function sendState(frameClock) {
       flags
     )
   );
+  if (tag.it && overlay?.style.display === 'flex') renderPanel();
 }
 
 // --- FLYING TO A FRIEND ---
@@ -694,8 +757,9 @@ const _pos = new THREE.Vector3();
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _side = new THREE.Vector3();
 
-// Puts the plane just off a friend's wing, heading their way
-function flyTo(peer) {
+// Puts the plane just off a friend's wing, heading their way; or, when
+// `gatherSlot >= 0`, fans runners out ahead of whoever started tag
+function flyTo(peer, gatherSlot = -1) {
   if (!peer.track.ready || !hooks.movePlane) return false;
   const now = state.isPaused
     ? performance.now()
@@ -703,21 +767,38 @@ function flyTo(peer) {
   const speed = peer.track.sample(now, _pos, _quat);
   _euler.setFromQuaternion(_quat, 'YXZ');
   const yaw = _euler.y;
-  // 60 units to their right and 40 behind; well above them if they're
-  // parked, so you arrive flying
   _side.set(Math.cos(yaw), 0, -Math.sin(yaw));
   const back = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+  const sideDist = gatherSlot >= 0 ? [-80, 80, 0][gatherSlot % 3] : 60;
+  const backDist = gatherSlot >= 0 ? (gatherSlot % 3 === 2 ? -320 : -260) : 40;
+  const x = _pos.x + _side.x * sideDist + back.x * backDist;
+  const z = _pos.z + _side.z * sideDist + back.z * backDist;
   const latest = peer.track.latest;
   const parked = latest.flags & (FLAGS.ground | FLAGS.water);
+  const y = Math.max(_pos.y + (parked ? 150 : 15), getElevation(x, z) + 80);
   const levelSpeed = planeHandling().levelKts / (BASE_FLIGHT_SPEED * 60);
   hooks.movePlane(
-    _pos.x + _side.x * 60 + back.x * 40,
-    _pos.y + (parked ? 150 : 15),
-    _pos.z + _side.z * 60 + back.z * 40,
+    x,
+    y,
+    z,
     yaw,
     Math.min(getMaxFlightSpeedMult(), Math.max(speed, levelSpeed))
   );
   return true;
+}
+
+function gatherForTag() {
+  if (!gatherToId || !room || tag.it !== gatherToId) {
+    gatherToId = null;
+    return;
+  }
+  const peer = peers.get(gatherToId);
+  if (!peer?.track.ready) return;
+  const runners = [room.id, ...peers.keys()]
+    .filter((id) => id !== gatherToId)
+    .sort();
+  const slot = Math.max(0, runners.indexOf(room.id));
+  if (flyTo(peer, slot)) gatherToId = null;
 }
 
 // --- MARKERS ---
@@ -860,7 +941,11 @@ export function updateMultiplayer(delta) {
     placeMarker(peer, dist);
   }
   // Whoever's it tags anyone in reach (after a moment's grace), if neither is paused
-  if (tag.it === room.id && !state.isPaused && now - tagSince > TAG_GRACE_MS) {
+  if (
+    tag.it === room.id &&
+    !state.isPaused &&
+    rawNow - tagSince > TAG_GRACE_MS
+  ) {
     const others = [];
     for (const peer of peers.values()) {
       if (peer.group?.visible)
@@ -873,10 +958,14 @@ export function updateMultiplayer(delta) {
     const target = tagTarget(planeGroup.position, others);
     if (target) sendTag(target);
   }
+  if (gatherToId && !state.isIntroTransitionActive) {
+    gatherForTag();
+  }
   if (arriveOnJoin && !state.isIntroTransitionActive) {
     for (const peer of peers.values()) {
-      if (peer.track.ready && flyTo(peer)) {
+      if (peer.track.ready && flyTo(peer, tag.it ? 0 : -1)) {
         arriveOnJoin = false;
+        gatherToId = null;
         break;
       }
     }
@@ -898,7 +987,9 @@ function renderPanel() {
     tagBtn.hidden = peers.size === 0 && !tag.it;
     tagBtn.textContent = tag.it ? 'Stop tag' : 'Play tag';
   }
-  const row = (name, livery, peer) => {
+  const elapsed = tag.it ? performance.now() - tagSince : 0;
+  const showTimes = !!tag.it || Object.keys(tag.times).length > 0;
+  const row = ({name, livery, peer, timeMs}) => {
     const el = document.createElement('div');
     el.className = 'fly-player';
     const dot = document.createElement('span');
@@ -908,7 +999,13 @@ function renderPanel() {
     label.className = 'fly-player-name';
     label.textContent = name;
     el.append(dot, label);
-    if (peer) {
+    if (showTimes) {
+      const time = document.createElement('span');
+      time.className = 'fly-player-time';
+      time.textContent = formatTagTime(timeMs);
+      el.append(time);
+    }
+    if (peer && !tag.it) {
       const btn = document.createElement('button');
       btn.className = 'fly-btn';
       btn.textContent = 'Fly to';
@@ -925,21 +1022,26 @@ function renderPanel() {
     (p ? p.track?.latest?.flags & FLAGS.paused : state.isPaused)
       ? ', paused'
       : '';
-  const rows = [
-    row(`${myName()} (you${it(room.id)}${isPaused(null)})`, myLivery(), null),
+  const entries = [
+    {
+      name: `${myName()} (you${it(room.id)}${isPaused(null)})`,
+      livery: myLivery(),
+      peer: null,
+      timeMs: tagTimeOf(tag, room.id, elapsed),
+    },
   ];
   for (const peer of peers.values()) {
     if (peer.name) {
-      rows.push(
-        row(
-          `${peer.name}${tag.it === peer.id ? ' (it)' : ''}${isPaused(peer) ? ' (paused)' : ''}`,
-          peer.livery,
-          peer
-        )
-      );
+      entries.push({
+        name: `${peer.name}${tag.it === peer.id ? ' (it)' : ''}${isPaused(peer) ? ' (paused)' : ''}`,
+        livery: peer.livery,
+        peer,
+        timeMs: tagTimeOf(tag, peer.id, elapsed),
+      });
     }
   }
-  playersList.replaceChildren(...rows);
+  if (tag.it) entries.sort((a, b) => a.timeMs - b.timeMs);
+  playersList.replaceChildren(...entries.map(row));
 }
 
 function openPanel() {

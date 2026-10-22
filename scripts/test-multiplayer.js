@@ -22,7 +22,9 @@ import {
   ROOM_CODE_LENGTH,
   SEND_INTERVAL_MS,
   TAG_RADIUS,
+  TAG_SPEED_BOOST,
   WAGGLE_MS,
+  formatTagTime,
   inviteUrl,
   isNewerTag,
   makeRoomCode,
@@ -32,8 +34,11 @@ import {
   readTag,
   roomSocketUrl,
   tagTarget,
+  tagTimeOf,
+  tagWinner,
   unpackState,
   waggleRoll,
+  withTagTime,
 } from '../multiplayer-logic.js';
 
 console.log('Testing flying together...');
@@ -488,13 +493,47 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
 
   check(
     'A tag message is read, and junk is not',
-    readTag({it: 'abc', n: 2, by: 'x'})?.it === 'abc' &&
+    readTag({it: 'abc', plane: 'seaplane', n: 2, by: 'x', times: {abc: 1500}})
+      ?.plane === 'seaplane' &&
+      readTag({it: 'abc', n: 2, by: 'x', times: {abc: 1500, bad: -5}})?.times
+        .abc === 1500 &&
+      readTag({it: 'abc', n: 2, by: 'x', times: {bad: -5}})?.times.bad ===
+        undefined &&
+      readTag({it: null, plane: 'jet', n: 3})?.plane === null &&
       readTag({it: null, n: 3})?.by === '' &&
       readTag({it: 5, n: 1}) === null &&
       readTag({it: 'a', n: -1}) === null &&
       readTag({it: 'a', n: 1.5}) === null &&
-      readTag(undefined) === null
+      readTag(undefined) === null &&
+      TAG_SPEED_BOOST === 1.15
   );
+
+  {
+    const t0 = readTag({
+      it: 'a',
+      plane: 'biplane',
+      n: 1,
+      by: 'a',
+      times: {b: 4000},
+    });
+    const times1 = withTagTime(t0, 2500);
+    const t1 = {...t0, it: 'b', times: times1};
+    check(
+      'Tag times fold in each stint, format as m:ss, and pick the lowest-time winner',
+      tagTimeOf(t0, 'a', 2500) === 2500 &&
+        tagTimeOf(t0, 'b', 2500) === 4000 &&
+        times1.a === 2500 &&
+        times1.b === 4000 &&
+        tagTimeOf(t1, 'b', 3000) === 7000 &&
+        formatTagTime(0) === '0:00' &&
+        formatTagTime(9400) === '0:09' &&
+        formatTagTime(75000) === '1:15' &&
+        tagWinner(times1, ['a', 'b'])?.id === 'a' &&
+        tagWinner(times1, ['a', 'b', 'c'])?.id === 'c' &&
+        tagWinner(times1, ['a']) === null &&
+        tagWinner({a: 200}, ['a', 'b']) === null
+    );
+  }
 
   const a = {it: 'b', n: 1, by: 'a'};
   const b = {it: 'a', n: 1, by: 'b'};
