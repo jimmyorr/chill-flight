@@ -304,6 +304,139 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
   );
 }
 
+// --- 7. MARIO KART HOP-TO-DRIFT & MINI-TURBO MECHANICS ---
+{
+  const d = ChillFlightLogic.createBuggyDriftState();
+
+  // 7a. Trigger hop while grounded and turning left (steerIn = 1)
+  ChillFlightLogic.stepBuggyDrift(
+    d,
+    {hop: true, airborne: false, onWater: false, forward: 75, steerIn: 1},
+    0.016
+  );
+  check(
+    'Hop on ground triggers hopJustStarted and hopping state',
+    d.hopJustStarted === true && d.hopping === true && d.hopSteerDir === 1
+  );
+
+  // 7b. Land from hop while steering left -> locks into left drift (driftDir = 1)
+  ChillFlightLogic.stepBuggyDrift(
+    d,
+    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
+    0.016
+  );
+  check(
+    'Landing from hop while steering locks into drift in that direction',
+    d.hopping === false && d.driftDir === 1
+  );
+
+  // 7c. Tightening vs counter-steering turn rates in a drift
+  const {driftYawRate: tightYawRate} = ChillFlightLogic.stepBuggyDrift(
+    d,
+    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
+    0.016
+  );
+  const {driftYawRate: wideYawRate} = ChillFlightLogic.stepBuggyDrift(
+    d,
+    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: -0.5},
+    0.016
+  );
+  check(
+    'Steering into drift tightens turn rate; counter-steering widens arc without cancelling drift',
+    d.driftDir === 1 && tightYawRate > wideYawRate && wideYawRate > 0,
+    `tightYawRate=${tightYawRate?.toFixed(3)}, wideYawRate=${wideYawRate?.toFixed(3)}`
+  );
+
+  // 7d. Charge to Level 1 (Blue Sparks) and Level 2 (Orange Sparks)
+  for (let i = 0; i < 40; i++) {
+    ChillFlightLogic.stepBuggyDrift(
+      d,
+      {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
+      0.016
+    );
+  }
+  check(
+    'Holding drift charges Level 1 Mini-Turbo (Blue Sparks) and angles chassis slipYaw inward',
+    d.driftLevel === 1 && d.slipYaw > 0.2,
+    `driftLevel=${d.driftLevel}, slipYaw=${d.slipYaw.toFixed(3)}`
+  );
+
+  for (let i = 0; i < 60; i++) {
+    ChillFlightLogic.stepBuggyDrift(
+      d,
+      {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
+      0.016
+    );
+  }
+  check(
+    'Continuing drift charges Level 2 Super Mini-Turbo (Orange Sparks)',
+    d.driftLevel === 2,
+    `driftLevel=${d.driftLevel}, driftCharge=${d.driftCharge.toFixed(2)}`
+  );
+
+  // 7e. Release steering stick -> fires Super Mini-Turbo speed boost
+  let firedLevel = 0;
+  for (let i = 0; i < 12; i++) {
+    ChillFlightLogic.stepBuggyDrift(
+      d,
+      {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 0},
+      0.016
+    );
+    if (d.boostJustFired) firedLevel = d.boostJustFired;
+  }
+  check(
+    'Releasing steering after charged drift fires Mini-Turbo speed boost',
+    d.driftDir === 0 &&
+      firedLevel === 2 &&
+      d.boostTimer > 1.0 &&
+      d.boostSpeed === ChillFlightLogic.BUGGY_DRIFT.BOOST2_SPEED,
+    `firedLevel=${firedLevel}, boostTimer=${d.boostTimer.toFixed(2)}, boostSpeed=${d.boostSpeed}`
+  );
+
+  // 7f. Single-tap hop (neutral in air) followed by steering right after landing (grace window)
+  const dGrace = ChillFlightLogic.createBuggyDriftState();
+  ChillFlightLogic.stepBuggyDrift(
+    dGrace,
+    {hop: true, airborne: false, onWater: false, forward: 75, steerIn: 0},
+    0.016
+  );
+  // Land with steerIn = 0
+  ChillFlightLogic.stepBuggyDrift(
+    dGrace,
+    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 0},
+    0.016
+  );
+  // Steer right 80ms after landing (within 250ms grace window)
+  ChillFlightLogic.stepBuggyDrift(
+    dGrace,
+    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: -1},
+    0.08
+  );
+  check(
+    'Tapping to hop and dragging to steer shortly after landing still locks into drift',
+    dGrace.driftDir === -1,
+    `driftDir=${dGrace.driftDir}`
+  );
+
+  // 7g. Hard braking cancels drift without awarding boost
+  ChillFlightLogic.stepBuggyDrift(
+    dGrace,
+    {
+      hop: false,
+      airborne: false,
+      onWater: false,
+      forward: 75,
+      steerIn: -1,
+      joyY: -1,
+    },
+    0.016
+  );
+  check(
+    'Braking cancels active drift without firing boost',
+    dGrace.driftDir === 0 && dGrace.boostTimer === 0
+  );
+}
+
 if (failed) {
   console.error('\nBuggy mechanics tests failed!');
   process.exit(1);

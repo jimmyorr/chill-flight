@@ -288,6 +288,8 @@ const EXHAUST = new THREE.Color(0.45, 0.45, 0.45);
 const EMBER = new THREE.Color(1.0, 0.45, 0.12);
 const ASH = new THREE.Color(0.55, 0.53, 0.52);
 const TIRE_SMOKE = new THREE.Color(0.86, 0.86, 0.84);
+const SPARK_BLUE = new THREE.Color(0.2, 0.78, 1.0);
+const SPARK_ORANGE = new THREE.Color(1.0, 0.55, 0.1);
 const SMOKE = new THREE.Color(0.97, 0.97, 0.97);
 const DUST_LIGHTEN = new THREE.Color(0.85, 0.8, 0.7);
 const _dust = new THREE.Color();
@@ -318,7 +320,8 @@ const rand = (a, b) => a + Math.random() * (b - a);
 
 // A point beside the plane: `side` units to its right, `back` behind it
 function planePoint(side, back, y, out) {
-  const h = planeGroup.rotation.y;
+  const slip = activePlaneType === 'buggy' ? state.buggySlipYaw || 0 : 0;
+  const h = planeGroup.rotation.y + slip;
   const c = Math.cos(h);
   const s = Math.sin(h);
   out.set(
@@ -571,37 +574,99 @@ function rollingDust(delta, speed) {
 }
 
 // The buggy sliding (state.buggySlide, from buggy.js): smoke off the rear
-// tyres on paving, a thick plume of dust on dirt, thrown out behind
+// tyres on paving, a thick plume of dust on dirt, blue/orange Mario Kart
+// mini-turbo sparks when charged, and twin exhaust flames during boost
 function slideSmoke(delta) {
   const slide = state.buggySlide || 0;
-  if (slide < 0.15) return;
-  const color = groundDustColor() || TIRE_SMOKE;
+  const driftLevel = state.buggyDriftLevel || 0;
+  const boost = state.buggyBoost || 0;
   const groundY =
     planeGroup.position.y - (state.airplaneModel?.wheelDepth ?? 0);
   const fwd = planeVelocity(_v);
-  const count = Math.floor(slide * delta * 70 + Math.random());
-  for (let i = 0; i < count; i++) {
-    const side = Math.random() < 0.5 ? -1 : 1;
-    planePoint(
-      side * 2.65 + rand(-0.4, 0.4),
-      rand(2.5, 3.5),
-      groundY + 0.6,
-      _p
-    );
-    spawn(
-      _p,
-      {
-        x: fwd.x * 0.15 + rand(-2, 2),
-        y: rand(1, 3),
-        z: fwd.z * 0.15 + rand(-2, 2),
-      },
-      1,
-      rand(1.4, 2.4),
-      rand(1.5, 2.5),
-      rand(6, 10) * (0.6 + 0.4 * slide),
-      color,
-      rand(0.3, 0.5) * slide
-    );
+
+  if (slide >= 0.15) {
+    const color = groundDustColor() || TIRE_SMOKE;
+    const count = Math.floor(slide * delta * 70 + Math.random());
+    for (let i = 0; i < count; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      planePoint(
+        side * 2.65 + rand(-0.4, 0.4),
+        rand(2.5, 3.5),
+        groundY + 0.6,
+        _p
+      );
+      spawn(
+        _p,
+        {
+          x: fwd.x * 0.15 + rand(-2, 2),
+          y: rand(1, 3),
+          z: fwd.z * 0.15 + rand(-2, 2),
+        },
+        1,
+        rand(1.4, 2.4),
+        rand(1.5, 2.5),
+        rand(6, 10) * (0.6 + 0.4 * slide),
+        color,
+        rand(0.3, 0.5) * slide
+      );
+    }
+
+    if (driftLevel >= 1) {
+      const sparkColor = driftLevel >= 2 ? SPARK_ORANGE : SPARK_BLUE;
+      const sparkCount = Math.floor(
+        (driftLevel >= 2 ? 95 : 65) * delta + Math.random()
+      );
+      for (let i = 0; i < sparkCount; i++) {
+        const side = Math.random() < 0.5 ? -1 : 1;
+        planePoint(
+          side * 2.65 + rand(-0.3, 0.3),
+          rand(2.6, 3.4),
+          groundY + 0.5,
+          _p
+        );
+        spawn(
+          _p,
+          {
+            x: fwd.x * 0.25 + rand(-8, 8),
+            y: rand(3, 9),
+            z: fwd.z * 0.25 + rand(-8, 8),
+          },
+          -18,
+          rand(0.25, 0.45),
+          rand(0.9, 1.5),
+          rand(0.2, 0.5),
+          sparkColor,
+          0.95,
+          false,
+          true
+        );
+      }
+    }
+  }
+
+  if (boost > 0.05) {
+    const flameCount = Math.floor(boost * delta * 90 + Math.random());
+    for (let i = 0; i < flameCount; i++) {
+      const side = i % 2 === 0 ? -0.6 : 0.6;
+      planePoint(side, 4.1, planeGroup.position.y + 2.9, _p);
+      const flameColor = Math.random() < 0.35 ? SPARK_BLUE : SPARK_ORANGE;
+      spawn(
+        _p,
+        {
+          x: fwd.x * 0.3 + rand(-4, 4),
+          y: rand(-1, 3),
+          z: fwd.z * 0.3 + rand(-4, 4),
+        },
+        0,
+        rand(0.18, 0.35),
+        rand(1.4, 2.2),
+        rand(0.4, 0.8),
+        flameColor,
+        0.9,
+        false,
+        true
+      );
+    }
   }
 }
 

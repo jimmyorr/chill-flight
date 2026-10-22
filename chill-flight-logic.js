@@ -4666,4 +4666,222 @@ export const ChillFlightLogic = {};
 
   exports.WEATHER = WEATHER;
   exports.weatherAt = weatherAt;
+
+  // --- BUGGY HOP & MARIO KART DRIFT ---
+  const BUGGY_DRIFT = {
+    HOP_VELOCITY: 7.2, // upward impulse on hop (units/s) -> ~0.36s airtime at GRAVITY=40
+    HOP_SPRING_KICK: 3.5, // visual suspension pop when hopping
+    HOP_LAND_GRACE: 0.25, // seconds after landing from a hop where starting a turn still locks a drift
+    MIN_SPEED: 25, // minimum forward speed (kts) to initiate/sustain a drift
+    STEER_THRESHOLD: 0.2, // minimum |steerIn| to lock a drift direction
+    RELEASE_DELAY: 0.12, // seconds of neutral/hard-opposite stick before releasing drift & firing boost
+    BASE_YAW_RATE: 1.05, // rad/s base turn rate in a drift
+    TIGHT_FACTOR: 1.38, // turn multiplier when steering fully into the drift
+    WIDE_FACTOR: 0.32, // turn multiplier when counter-steering away from the drift
+    NEUTRAL_FACTOR: 0.78, // turn multiplier when stick is near neutral
+    SLIP_ANGLE: 0.34, // visual inward chassis yaw offset (~19.5 deg) during drift
+    LEVEL1_TIME: 0.65, // drift charge seconds for Blue Sparks (Mini-Turbo)
+    LEVEL2_TIME: 1.5, // drift charge seconds for Orange Sparks (Super Mini-Turbo)
+    BOOST1_DURATION: 0.85, // seconds of Mini-Turbo boost
+    BOOST1_SPEED: 20, // extra kts above cruise/top speed during Mini-Turbo
+    BOOST2_DURATION: 1.4, // seconds of Super Mini-Turbo boost
+    BOOST2_SPEED: 30, // extra kts above cruise/top speed during Super Mini-Turbo
+    BOOST_ACCEL: 65, // units/s² acceleration surge when boost fires
+  };
+
+  function createBuggyDriftState() {
+    return {
+      hopping: false,
+      hopSteerDir: 0,
+      hopLandTimer: 0,
+      driftDir: 0,
+      driftCharge: 0,
+      driftLevel: 0,
+      driftReleaseTimer: 0,
+      spaceLatched: false,
+      slipYaw: 0,
+      boostTimer: 0,
+      boostSpeed: 0,
+      hopJustStarted: false,
+      boostJustFired: 0,
+    };
+  }
+
+  function stepBuggyDrift(d, input, dt) {
+    const {
+      hop = false,
+      airborne = false,
+      onWater = false,
+      forward = 0,
+      steerIn = 0,
+      joyY = 0,
+      spaceHeld = false,
+    } = input;
+
+    d.hopJustStarted = false;
+    d.boostJustFired = 0;
+
+    const endDrift = (awardBoost) => {
+      if (awardBoost && d.driftDir !== 0) {
+        if (d.driftLevel >= 2) {
+          d.boostTimer = BUGGY_DRIFT.BOOST2_DURATION;
+          d.boostSpeed = BUGGY_DRIFT.BOOST2_SPEED;
+          d.boostJustFired = 2;
+        } else if (d.driftLevel >= 1) {
+          d.boostTimer = BUGGY_DRIFT.BOOST1_DURATION;
+          d.boostSpeed = BUGGY_DRIFT.BOOST1_SPEED;
+          d.boostJustFired = 1;
+        }
+      }
+      d.driftDir = 0;
+      d.driftCharge = 0;
+      d.driftLevel = 0;
+      d.driftReleaseTimer = 0;
+      d.spaceLatched = false;
+    };
+
+    // 1. Hop trigger when grounded
+    if (hop && !airborne && !onWater) {
+      if (d.driftDir !== 0) {
+        endDrift(true);
+      }
+      d.hopping = true;
+      d.hopJustStarted = true;
+      d.hopLandTimer = 0;
+      d.hopSteerDir =
+        Math.abs(steerIn) >= BUGGY_DRIFT.STEER_THRESHOLD
+          ? Math.sign(steerIn)
+          : 0;
+    }
+
+    const isAirborne = airborne || d.hopJustStarted;
+
+    // 2. Buffer steering during hop & lock drift on landing
+    if (isAirborne) {
+      if (d.hopping && Math.abs(steerIn) >= BUGGY_DRIFT.STEER_THRESHOLD) {
+        d.hopSteerDir = Math.sign(steerIn);
+      }
+    } else if (d.hopping) {
+      d.hopping = false;
+      if (!onWater && forward >= BUGGY_DRIFT.MIN_SPEED) {
+        const dir =
+          Math.abs(steerIn) >= BUGGY_DRIFT.STEER_THRESHOLD
+            ? Math.sign(steerIn)
+            : d.hopSteerDir;
+        if (dir !== 0) {
+          d.driftDir = dir;
+          d.driftCharge = 0;
+          d.driftLevel = 0;
+          d.driftReleaseTimer = 0;
+          d.hopLandTimer = 0;
+          d.spaceLatched = !!spaceHeld;
+        } else {
+          d.hopLandTimer = BUGGY_DRIFT.HOP_LAND_GRACE;
+        }
+      }
+      d.hopSteerDir = 0;
+    }
+
+    // 3. Post-hop landing grace window (for tap-hop followed immediately by drag-steer)
+    if (!isAirborne && d.driftDir === 0 && d.hopLandTimer > 0) {
+      d.hopLandTimer = Math.max(0, d.hopLandTimer - dt);
+      if (
+        !onWater &&
+        forward >= BUGGY_DRIFT.MIN_SPEED &&
+        Math.abs(steerIn) >= BUGGY_DRIFT.STEER_THRESHOLD
+      ) {
+        d.driftDir = Math.sign(steerIn);
+        d.driftCharge = 0;
+        d.driftLevel = 0;
+        d.driftReleaseTimer = 0;
+        d.hopLandTimer = 0;
+        d.spaceLatched = !!spaceHeld;
+      }
+    }
+
+    // 4. Active drift update: turn rate, counter-steering, and mini-turbo charge
+    let driftYawRate = null;
+    if (d.driftDir !== 0) {
+      if (onWater || forward < BUGGY_DRIFT.MIN_SPEED * 0.75 || joyY < -0.25) {
+        endDrift(false);
+      } else if (!isAirborne) {
+        if (spaceHeld) d.spaceLatched = true;
+        const intoTurn = steerIn * d.driftDir;
+
+        // If player held Spacebar until charging a boost and then released Space, fire boost;
+        // otherwise if they only tapped Space to hop and are still holding the turn key, keep drifting.
+        if (d.spaceLatched && !spaceHeld) {
+          if (Math.abs(steerIn) < 0.15 || d.driftLevel >= 1) {
+            endDrift(true);
+          } else {
+            d.spaceLatched = false;
+          }
+        }
+
+        if (d.driftDir !== 0) {
+          const stickReleased =
+            !spaceHeld && (Math.abs(steerIn) < 0.15 || intoTurn < -0.65);
+          if (stickReleased) {
+            d.driftReleaseTimer += dt;
+            if (d.driftReleaseTimer >= BUGGY_DRIFT.RELEASE_DELAY) {
+              endDrift(true);
+            }
+          } else {
+            d.driftReleaseTimer = 0;
+          }
+        }
+
+        if (d.driftDir !== 0) {
+          let turnFactor;
+          if (intoTurn >= 0) {
+            turnFactor =
+              BUGGY_DRIFT.NEUTRAL_FACTOR +
+              (BUGGY_DRIFT.TIGHT_FACTOR - BUGGY_DRIFT.NEUTRAL_FACTOR) *
+                Math.min(1, intoTurn);
+          } else {
+            const counter = Math.min(1, -intoTurn / 0.65);
+            turnFactor =
+              BUGGY_DRIFT.NEUTRAL_FACTOR +
+              (BUGGY_DRIFT.WIDE_FACTOR - BUGGY_DRIFT.NEUTRAL_FACTOR) * counter;
+          }
+          const speedScale = Math.max(0.5, Math.min(1.25, forward / 65));
+          driftYawRate =
+            d.driftDir * BUGGY_DRIFT.BASE_YAW_RATE * turnFactor * speedScale;
+
+          const chargeRate =
+            1.0 + 0.45 * Math.max(0, intoTurn) - 0.25 * Math.max(0, -intoTurn);
+          d.driftCharge += dt * chargeRate;
+          if (d.driftCharge >= BUGGY_DRIFT.LEVEL2_TIME) {
+            d.driftLevel = 2;
+          } else if (d.driftCharge >= BUGGY_DRIFT.LEVEL1_TIME) {
+            d.driftLevel = 1;
+          } else {
+            d.driftLevel = 0;
+          }
+        }
+      }
+    }
+
+    // 5. Boost timer & visual chassis slip angle
+    if (d.boostTimer > 0) {
+      d.boostTimer = Math.max(0, d.boostTimer - dt);
+      if (d.boostTimer === 0) {
+        d.boostSpeed = 0;
+      }
+    }
+
+    const intoTurn = steerIn * d.driftDir;
+    const targetSlip =
+      d.driftDir !== 0
+        ? d.driftDir * BUGGY_DRIFT.SLIP_ANGLE * (0.85 + 0.25 * intoTurn)
+        : 0;
+    d.slipYaw += (targetSlip - d.slipYaw) * (1 - Math.exp(-dt / 0.09));
+    if (Math.abs(d.slipYaw) < 1e-4 && targetSlip === 0) d.slipYaw = 0;
+
+    return {driftYawRate};
+  }
+
+  exports.BUGGY_DRIFT = BUGGY_DRIFT;
+  exports.createBuggyDriftState = createBuggyDriftState;
+  exports.stepBuggyDrift = stepBuggyDrift;
 })(ChillFlightLogic);

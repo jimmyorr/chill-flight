@@ -176,6 +176,7 @@ export function createBuggyModel(opts = {}) {
   root.body = body;
   root.wheels = wheels;
   root.steerPivots = steerPivots;
+  root.isBuggy = true;
   // The follow camera sits closer behind something this small, and the
   // first-person view is from the driver's helmet (flight-camera.js)
   root.cameraScale = 0.45;

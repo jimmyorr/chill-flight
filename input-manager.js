@@ -1,6 +1,7 @@
 import {renderer} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {hooks} from './hooks.js';
+import {state} from './state.js';
 
 export class InputManager {
   constructor() {
@@ -15,9 +16,10 @@ export class InputManager {
         Minus: false,
         Q: false,
         E: false,
-        // The buggy's handbrake (buggy.js)
+        // The buggy's hop / drift button (buggy.js)
         Space: false,
       },
+      hopPending: false,
       doubleTap: {
         ArrowUp: false,
         ArrowDown: false,
@@ -107,6 +109,8 @@ export class InputManager {
     this._activeGestures = {}; // Maps touch.identifier -> action
     this._lastFreeCamTouchX = 0;
     this._lastFreeCamTouchY = 0;
+    this._lastTouchStartTime = 0;
+    this._touchTapCandidate = null;
 
     // Gamepad state latches
     this._gamepadPauseLatched = false;
@@ -376,6 +380,9 @@ export class InputManager {
     if (e.key === ' ' && !this.state.isPaused) {
       // Not a click on whichever button has focus
       e.preventDefault();
+      if (!this.state.keys.Space) {
+        this.state.hopPending = true;
+      }
       this.state.keys.Space = true;
     }
   }
@@ -440,6 +447,8 @@ export class InputManager {
     this.state.joystick.active = false;
     this.state.joystick.touchId = null;
     this.state.touch.steeringId = null;
+    this.state.hopPending = false;
+    this._touchTapCandidate = null;
     this._activeGestures = {};
   }
 
@@ -580,12 +589,40 @@ export class InputManager {
     const x = touch.clientX / window.innerWidth;
     const y = touch.clientY / window.innerHeight;
 
+    // Buggy hop gesture detection:
+    // 1. Second-finger tap while first finger is already steering on joystick/touch
+    // 2. Double-tap-and-drag (touchstart within DOUBLE_TAP_MS of previous touchstart)
+    // 3. Single quick tap (detected on touchend if held < 240ms and moved < 20px)
+    const alreadySteering =
+      this.state.joystick.active || this.state.touch.steeringId !== null;
+    if (
+      alreadySteering ||
+      now - this._lastTouchStartTime < this.DOUBLE_TAP_MS
+    ) {
+      this.state.hopPending = true;
+    }
+    this._lastTouchStartTime = now;
+    if (!alreadySteering) {
+      this._touchTapCandidate = {
+        id: touch.identifier,
+        time: now,
+        x: touch.clientX,
+        y: touch.clientY,
+      };
+    }
+
     // Gesture detection for screen zones (left/right/top/bottom third)
+    // Only for airplanes (aerobatic gestures like barrel roll and loop). For the buggy,
+    // touches on screen are handled by virtual joystick and hop detection.
+    const isBuggy =
+      state.airplaneModel?.isBuggy || state.airplaneModel?.cameraScale === 0.45;
     let action = null;
-    if (x < 0.33) action = 'ArrowLeft';
-    else if (x > 0.66) action = 'ArrowRight';
-    else if (y < 0.33) action = 'ArrowUp';
-    else if (y > 0.66) action = 'ArrowDown';
+    if (!isBuggy) {
+      if (x < 0.33) action = 'ArrowLeft';
+      else if (x > 0.66) action = 'ArrowRight';
+      else if (y < 0.33) action = 'ArrowUp';
+      else if (y > 0.66) action = 'ArrowDown';
+    }
 
     if (action) {
       const timeSinceLastTap = now - (this._lastArrowTap[action] || 0);
@@ -755,6 +792,25 @@ export class InputManager {
   }
 
   handleTouchEnd(e) {
+    // Quick single tap triggers a hop (allowing one-thumb tap then drag to drift)
+    if (this._touchTapCandidate) {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === this._touchTapCandidate.id) {
+          const dtMs = performance.now() - this._touchTapCandidate.time;
+          const dist = Math.hypot(
+            t.clientX - this._touchTapCandidate.x,
+            t.clientY - this._touchTapCandidate.y
+          );
+          if (dtMs < 240 && dist < 20) {
+            this.state.hopPending = true;
+          }
+          this._touchTapCandidate = null;
+          break;
+        }
+      }
+    }
+
     // Joystick cleanup
     if (this.state.joystick.active) {
       for (let i = 0; i < e.changedTouches.length; i++) {
@@ -1054,6 +1110,14 @@ export class InputManager {
   consumeDoubleTap(action) {
     if (this.state.doubleTap[action]) {
       this.state.doubleTap[action] = false;
+      return true;
+    }
+    return false;
+  }
+
+  consumeHop() {
+    if (this.state.hopPending) {
+      this.state.hopPending = false;
       return true;
     }
     return false;

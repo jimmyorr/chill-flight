@@ -12,16 +12,19 @@
 // speed. The virtual joystick steers left/right. Pushing up temporarily boosts
 // up to top speed. Pulling down smoothly brakes to a stop, and continuing to
 // hold down shifts into reverse. Releasing the stick smoothly resumes cruising
-// forward at the set speed. On keyboard, Arrow keys or WASD provide the same
-// directional control.
+// forward at the set speed. Tapping the screen (or double-tap-and-dragging,
+// tapping with a second finger, or pressing Spacebar) triggers a Mario Kart-style
+// hop; landing from a hop while turning locks into a drift that charges a
+// mini-turbo speed boost upon release.
 import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
 import {sampleRoad} from './terrain-chunks.js';
 import {planeGroup} from './airplane.js';
 import {BUGGY_WHEEL_RADIUS, BUGGY_WHEELBASE} from './buggy-model.js';
 import {BASE_FLIGHT_SPEED, PLANE_HANDLING, WATER_LEVEL} from './constants.js';
 import {state} from './state.js';
-import {keys} from './game-input-bindings.js';
+import {inputManager, keys} from './game-input-bindings.js';
 import {setOnWheels} from './flight-physics.js';
 
 // Speeds in units per second, which read as knots; accelerations in units
@@ -114,6 +117,7 @@ let squat = 0;
 let lean = 0;
 let tiltPitch = 0;
 let tiltRoll = 0;
+const driftState = ChillFlightLogic.createBuggyDriftState();
 
 // Fills _surface with what the wheels would rest on at (x, z), for a buggy
 // at height y: the highway deck (with 3D elevation awareness for junctions/overpasses)
@@ -169,6 +173,8 @@ function enter() {
   airborne = false;
   bounce = 0;
   bounceVel = 0;
+  Object.assign(driftState, ChillFlightLogic.createBuggyDriftState());
+  inputManager.consumeHop();
   const pos = planeGroup.position;
   pos.y = sampleSurface(pos.x, pos.z, Infinity).height;
   pos.y = sampleSurface(pos.x, pos.z, pos.y).height;
@@ -217,6 +223,9 @@ export function updateBuggy(delta) {
   if ((keys.ArrowUp || keys.KeyW) && !shift) joyY = 1;
   else if ((keys.ArrowDown || keys.KeyS) && !shift) joyY = -1;
 
+  const hop = inputManager.consumeHop();
+  const spaceHeld = !!keys.Space;
+
   // --- FORCES ---
   const fx = -Math.sin(yaw);
   const fz = -Math.cos(yaw);
@@ -229,6 +238,24 @@ export function updateBuggy(delta) {
   const ground = sampleSurface(pos.x, pos.z, pos.y);
   const onWater = ground.kind === 'water';
   const top = onWater ? WATER_TOP : TOP_SPEED;
+
+  // Mario Kart hop-to-drift state machine
+  const {driftYawRate} = ChillFlightLogic.stepBuggyDrift(
+    driftState,
+    {hop, airborne, onWater, forward, steerIn, joyY, spaceHeld},
+    dt
+  );
+  if (driftState.hopJustStarted) {
+    const groundVelY = velX * ground.slopeX + velZ * ground.slopeZ;
+    airborne = true;
+    ride = null;
+    velY = groundVelY + ChillFlightLogic.BUGGY_DRIFT.HOP_VELOCITY;
+    pos.y = Math.max(pos.y, ground.height) + 0.15;
+    bounceVel += ChillFlightLogic.BUGGY_DRIFT.HOP_SPRING_KICK;
+  }
+  if (driftState.boostJustFired > 0) {
+    squat -= 0.06;
+  }
 
   // Steering authority: responsive cornering on highway curves even at speed
   const cornerLimit = Math.atan(
@@ -267,7 +294,23 @@ export function updateBuggy(delta) {
       Math.max(0, (state.targetFlightSpeed || 0) * KTS_PER_MULT)
     );
 
-    if (joyY > 0.05) {
+    if (driftState.boostTimer > 0 && !onWater && joyY >= -0.05) {
+      // Mini-turbo speed boost awarded after releasing a charged drift
+      const boostMax = top + driftState.boostSpeed;
+      const baseTarget =
+        joyY > 0.05
+          ? cruise + (top - cruise) * joyY
+          : Math.max(cruise, top * 0.75);
+      const boostTarget = Math.min(
+        boostMax,
+        baseTarget + driftState.boostSpeed
+      );
+      driveAccel = THREE.MathUtils.clamp(
+        (boostTarget - forward) * 3.0 + drag,
+        -BRAKE_DECEL * 0.3,
+        ChillFlightLogic.BUGGY_DRIFT.BOOST_ACCEL
+      );
+    } else if (joyY > 0.05) {
       // Pushing up: temporary boost above cruise speed up to top speed
       const boostTarget = cruise + (top - cruise) * joyY;
       driveAccel = THREE.MathUtils.clamp(
@@ -324,17 +367,28 @@ export function updateBuggy(delta) {
       ground.kind === 'road' ? GRIP_ROAD : onWater ? GRIP_WATER : GRIP_GROUND;
     side *= Math.exp(-grip * dt);
 
-    // Turning: follows steering angle directly
-    const wantYawRate = (forward * Math.tan(steer)) / BUGGY_WHEELBASE;
+    // Turning: follows drift arc when drifting, or front wheel angle normally
+    const wantYawRate =
+      driftYawRate !== null
+        ? driftYawRate
+        : (forward * Math.tan(steer)) / BUGGY_WHEELBASE;
     yawRate += (wantYawRate - yawRate) * (1 - Math.exp(-dt / YAW_EASE_SECONDS));
+  } else if (driftState.hopping && Math.abs(steerIn) > 0.1) {
+    // Mid-hop pre-rotation toward the turn, Mario Kart style
+    const hopTurn = steerIn * ChillFlightLogic.BUGGY_DRIFT.BASE_YAW_RATE * 0.85;
+    yawRate += (hopTurn - yawRate) * (1 - Math.exp(-dt / 0.08));
   } else {
     // In the air: spin carries on and slowly dies away
     yawRate *= Math.exp(-dt * 1.5);
   }
 
-  velX = fx * forward + rx * side;
-  velZ = fz * forward + rz * side;
   yaw += yawRate * dt;
+  const nfx = -Math.sin(yaw);
+  const nfz = -Math.cos(yaw);
+  const nrx = Math.cos(yaw);
+  const nrz = -Math.sin(yaw);
+  velX = nfx * forward + nrx * side;
+  velZ = nfz * forward + nrz * side;
 
   const kick = (impact) => {
     bounceVel -= impact;
@@ -460,11 +514,14 @@ export function updateBuggy(delta) {
   // --- LOOKS ---
   planeGroup.rotation.set(0, yaw, 0);
   const s = surface;
+  const visualYaw = yaw + driftState.slipYaw;
   if (!airborne) {
     const pitch = Math.atan(
-      -Math.sin(yaw) * s.slopeX - Math.cos(yaw) * s.slopeZ
+      -Math.sin(visualYaw) * s.slopeX - Math.cos(visualYaw) * s.slopeZ
     );
-    const roll = Math.atan(Math.cos(yaw) * s.slopeX - Math.sin(yaw) * s.slopeZ);
+    const roll = Math.atan(
+      Math.cos(visualYaw) * s.slopeX - Math.sin(visualYaw) * s.slopeZ
+    );
     const ease = 1 - Math.exp(-dt / TILT_EASE_SECONDS);
     tiltPitch += (pitch - tiltPitch) * ease;
     tiltRoll += (roll - tiltRoll) * ease;
@@ -474,7 +531,8 @@ export function updateBuggy(delta) {
     tiltPitch += (path - tiltPitch) * ease;
     tiltRoll += (0 - tiltRoll) * ease;
   }
-  model.rotation.set(tiltPitch, 0, tiltRoll);
+  model.rotation.order = 'YXZ';
+  model.rotation.set(tiltPitch, driftState.slipYaw, tiltRoll);
   model.position.y = 0;
 
   // The body on its critically damped springs
@@ -498,7 +556,12 @@ export function updateBuggy(delta) {
     for (const wheel of model.wheels) wheel.rotation.x -= roll;
   }
   if (model.steerPivots) {
-    for (const pivot of model.steerPivots) pivot.rotation.y = steer;
+    const wheelSteer = THREE.MathUtils.clamp(
+      steer - driftState.slipYaw * 0.6,
+      -MAX_STEER,
+      MAX_STEER
+    );
+    for (const pivot of model.steerPivots) pivot.rotation.y = wheelSteer;
   }
 
   // --- WHAT THE REST OF THE GAME READS ---
@@ -516,5 +579,16 @@ export function updateBuggy(delta) {
   state.isBarrelRolling = false;
   state.isSteepPitch = false;
   state.sharpTurnAmount = 0;
-  state.buggySlide = 0;
+  state.buggySlide =
+    !airborne && !onWater && driftState.driftDir !== 0
+      ? THREE.MathUtils.clamp(0.75 + 0.12 * driftState.driftLevel, 0, 1)
+      : 0;
+  state.buggyDriftDir = driftState.driftDir;
+  state.buggyDriftLevel = !airborne && !onWater ? driftState.driftLevel : 0;
+  state.buggyBoost =
+    driftState.boostTimer > 0
+      ? THREE.MathUtils.clamp(driftState.boostTimer / 0.8, 0, 1)
+      : 0;
+  state.buggySlipYaw = driftState.slipYaw;
+  state.buggyDriftState = driftState;
 }
