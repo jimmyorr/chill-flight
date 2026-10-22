@@ -425,9 +425,10 @@ export const ChillFlightLogic = {};
     }
   }
 
-  // The buggy is unfinished, so it's only offered with ?buggy=1
+  // The buggy is offered by default (disable with ?buggy=0)
   const PLANE_TYPES = ['biplane', 'seaplane', 'twin', 'jet'];
-  if (getParam('buggy', '0') === '1') PLANE_TYPES.push('buggy');
+  const buggyDisabled = getSwitchParam('buggy') === false;
+  if (!buggyDisabled) PLANE_TYPES.push('buggy');
   // A plane type from a URL or saved setting, or null if it isn't one.
   // "classic" was the seaplane's old name, so old links and saves still work.
   function normalizePlaneType(type) {
@@ -4190,6 +4191,65 @@ export const ChillFlightLogic = {};
     );
   }
 
+  function sampleRoadSegment(
+    seg,
+    x,
+    z,
+    out,
+    vehicleY = null,
+    sampleState = null
+  ) {
+    const dx = seg.x1 - seg.x0;
+    const dz = seg.z1 - seg.z0;
+    const lengthSq = dx * dx + dz * dz;
+    const length = Math.sqrt(lengthSq);
+    const halfWidth = ROAD_WIDTH + 2;
+    const along = ((x - seg.x0) * dx + (z - seg.z0) * dz) / lengthSq;
+    const pad = halfWidth / length;
+    if (along < -pad || along > 1 + pad) return false;
+    const t = Math.min(1, Math.max(0, along));
+    const across = Math.hypot(x - (seg.x0 + dx * t), z - (seg.z0 + dz * t));
+    if (across > halfWidth) return false;
+
+    const grade = (seg.y1 - seg.y0) / length;
+    const height =
+      seg.y0 + (seg.y1 - seg.y0) * along + 0.75 * Math.sqrt(1 + grade * grade);
+    const slopeX = (grade * dx) / length;
+    const slopeZ = (grade * dz) / length;
+    const isInside = along >= 0 && along <= 1;
+
+    if (vehicleY !== null && sampleState) {
+      const dist = Math.abs(height - vehicleY);
+      if (sampleState.found) {
+        if (
+          !sampleState.bestInside &&
+          isInside &&
+          dist < sampleState.bestDist + 5
+        ) {
+          // Upgrade to interior segment match
+        } else if (
+          sampleState.bestInside &&
+          !isInside &&
+          sampleState.bestDist < dist + 5
+        ) {
+          return false;
+        } else if (dist >= sampleState.bestDist) {
+          return false;
+        }
+      }
+      sampleState.bestDist = dist;
+      sampleState.bestInside = isInside;
+    } else if (sampleState && sampleState.found && height <= out.height) {
+      return false;
+    }
+
+    out.height = height;
+    out.slopeX = slopeX;
+    out.slopeZ = slopeZ;
+    if (sampleState) sampleState.found = true;
+    return true;
+  }
+
   // Distance from (x, z) to the nearest highway's centre line, measured
   // square to the road (getRoadFactor measures straight along x or z, which
   // reads too far wherever the road runs at an angle), capped at 150: plenty
@@ -4284,6 +4344,7 @@ export const ChillFlightLogic = {};
   exports.isOnAccessRoad = isOnAccessRoad;
   exports.accessRoadEnds = accessRoadEnds;
   exports.accessRoadDeck = accessRoadDeck;
+  exports.sampleRoadSegment = sampleRoadSegment;
   exports.ROAD_BASE_X = ROAD_BASE_X;
   exports.ROAD_SPACING = ROAD_SPACING;
   exports.ROAD_LAST = ROAD_LAST;

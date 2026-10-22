@@ -393,7 +393,7 @@ export function setActivePlane(planeType, skipStorage = false) {
   if (planeType === 'seaplane') poseGear(state.gearExtension);
 
   state.airplaneModel = newModel;
-  // Shows the buggy's touch pedals (style.css)
+  // Active vehicle class for styling
   document.body.classList.toggle('vehicle-buggy', planeType === 'buggy');
   state.propGroup = newModel.propGroup || state.propGroup;
   state.propGroups =
@@ -442,8 +442,7 @@ export function setLockedPlane(planeType) {
   }
 }
 
-// Vehicles left out of PLANE_TYPES (the buggy, without ?buggy=1) get no
-// button in the pause menu
+// Vehicles left out of PLANE_TYPES get no button in the pause menu
 document.querySelectorAll('#plane-select-group .scheme-btn').forEach((btn) => {
   if (!ChillFlightLogic.PLANE_TYPES.includes(btn.dataset.plane)) btn.remove();
 });

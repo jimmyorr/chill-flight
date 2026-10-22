@@ -289,15 +289,13 @@ Fly with up to three friends (`multiplayer.js`, with the rules and smoothing in 
 
 ## Buggy
 
-The buggy is unfinished, so it's hidden unless the URL has `?buggy=1`. Then pick it in the pause menu (or press **V** until it comes up) to drive instead of fly (`buggy.js`, model in `buggy-model.js`). Switching to it in the air sets it down on the ground below, rolling on at up to its top speed of 120 knots; switching back to a plane leaves the plane on its wheels where the buggy was. It drives on the ground, the highways and their bridges, and floats slowly across water.
+Pick the buggy in the pause menu (or press **V** until it comes up) to drive instead of fly (`buggy.js`, model in `buggy-model.js`). Switching to it in the air sets it down on the ground below, rolling on at up to its top speed of 120 knots; switching back to a plane leaves the plane on its wheels where the buggy was. It drives on the ground, the highways and their bridges, and floats slowly across water.
 
-- **Arrow up / W**: gas. **Arrow down / S**: brake, then reverse once stopped. With a mouse or gamepad stick, forward and back work the same.
-- **Arrow left / right**: steer. The front wheels turn sharply at low speed, and less the faster you go, as far as the tyres can grip.
-- **Space**: handbrake. Held in a turn, the back steps out into a drift: it slows the buggy, swings it round much faster than the tyres would, and lets go as you release it. Flooring the gas in a fast turn on dirt slides the back out too (a power slide). Sliding throws up tyre smoke on the road and dust on dirt.
-- **Touch screens**: the stick only steers, and **Gas**, **Brake** and **Drift** pedals appear at the bottom right, held down while pressed.
-- **Throttle slider**: cruise control. With no pedal pressed the buggy holds the speed it's set to; braking sets it back to zero.
-- Downhill speeds it up and uphill slows it; ground steeper than about 50° is a wall. Crests and the edges of steep ground throw it into the air, and the springs soak up the landing.
-- Roads: it climbs onto a road from beside it when the road is up to about 2 m above the ground, and the sides of higher embankments stop it like a wall; it drives under bridges higher than about 6 m. Edges with a big drop act as guard rails.
+- **Throttle slider**: sets baseline cruise speed. The buggy accelerates to and holds this speed while you steer.
+- **Joystick / directional control**: one-handed driving. Steer left and right with responsive cornering on highway curves. Push up / Arrow up / W to temporarily boost up to top speed. Pull down / Arrow down / S to smoothly brake to a stop, then continue holding to reverse. Releasing the stick automatically brakes and resumes cruising forward at your preset speed.
+- **Pure grip arcade handling**: tyres maintain firm, predictable grip without sliding or spinning out. Touch screens provide clean, single-handed control without pedal buttons cluttering the view.
+- **Smooth highway ride**: critically damped suspension and continuous road deck sampling give a smooth, stable ride over rolling hills without jarring launches or pogo bouncing. Multi-level overpass and underpass junctions pass cleanly.
+- **Roads and off-road driving**: climb smoothly onto highway decks from adjacent ground along embankments up to 12 m high; high bridge edges retain guard rails. Ground steeper than about 50° is a wall.
 - Stop at an airport and that airport's people come over, as when landing.
 - The follow camera sits closer behind it, widening and pulling back as it speeds up, and the first-person view is from the driver's seat.
 
@@ -353,7 +351,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **L**: Toggle headlight.
 - **H**: Waggle your wings at friends flying with you (in a [Fly together](#flying-together) room).
 - **X**: Toggle airshow smoke, a white trail from the tail that hangs in the sky for about 18 seconds, long enough to fly a lazy circle back through it (also the smoke button in the quick menu on touch devices).
-- **V**: Cycle active vehicle (switch between the vintage biplane, the seaplane, the twin-engine transport, the jet and, with `?buggy=1`, the buggy).
+- **V**: Cycle active vehicle (switch between the vintage biplane, the seaplane, the twin-engine transport, the jet and the buggy).
 - **Shift + A**: Toggle autopilot. It flies to your waypoint and circles it once there (slowing to 120 kts), until you set another. With no waypoint it tours the landmarks: it flies to the nearest one it hasn't visited (the waypoint marker shows the way and the distance left), circles it once and moves on to the next. It cruises at least about 150 m up and keeps about 80 m over the highest ground along its course, looking 9,000 units ahead (and a little to either side close in) so it climbs early and gently (about 7 degrees) rather than late and steeply. Past high ground it holds its height until it's well clear, then comes down gently, so it rides over hilly country instead of bobbing over every rise, and it damps its pitch with its vertical speed so it eases onto a new height. It circles a waypoint or landmark 120 units over the highest ground around it (`autopilot.js`). Steering with the arrow keys, the touch joystick, drag-steer or a gamepad stick turns it off (mouse and tilt steering don't, since they're always steering).
 - **Escape**: Toggle pause menu (or close fullscreen map if open).
 - **Z**: Toggle zen (hides the HUD, buttons and other planes for an unobstructed view; also a switch on the pause menu's Flight tab).
@@ -515,8 +513,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`pitch`**: Starting pitch angle in degrees.
 - **`roll`**: Starting bank angle in degrees (positive banks left, negative right). It holds while the free camera freezes the plane; in flight the flight model takes over.
 - **`speed`**: Starting flight speed multiplier (e.g., `1.0`, `2.0`, `0`).
-- **`plane`** or **`vehicle`**: Initial aircraft model (`biplane`, the default, the vintage biplane; `seaplane`, a monoplane on floats; `twin`; `jet`, a swept-wing fighter; or `buggy`, to drive, which needs `buggy=1` too). `classic`, the seaplane's old name, still works.
-- **`buggy`**: `1` offers the unfinished buggy in the pause menu, on **V** and in `plane`.
+- **`plane`** or **`vehicle`**: Initial aircraft model (`biplane`, the default, the vintage biplane; `seaplane`, a monoplane on floats; `twin`; `jet`, a swept-wing fighter; or `buggy`, to drive). `classic`, the seaplane's old name, still works.
+- **`buggy`**: `0` or `false` hides the buggy in the pause menu, on **V** and in `plane`.
 - **`livery`**: Plane color for this visit (not saved): an index (0-7) or a name (`coral`, `teal`, `sage`, `purple`, `slate`, `sand`, `rose`, `black`).
 - **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
 

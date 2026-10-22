@@ -2790,8 +2790,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 // (rise per unit along x and z, as sampleGround does) and returns true. The deck sits a few units above the
 // terrain (and well above it on bridges), so planes land on this rather than
 // the ground beneath it (flight-physics.js).
-const ROAD_DECK_HALF_WIDTH = ChillFlightLogic.ROAD_WIDTH + 2; // bridgeDeckGeo
-const ROAD_DECK_HALF_THICKNESS = 0.75;
 // The terrain's colour at the grid point nearest (x, z), into out (a
 // THREE.Color). False where no chunk is loaded.
 export function sampleGroundColor(x, z, out) {
@@ -2813,41 +2811,25 @@ export function sampleGroundColor(x, z, out) {
   return true;
 }
 
-export function sampleRoad(x, z, out) {
+export function sampleRoad(x, z, out, vehicleY = null) {
   const cx = Math.round(x / CHUNK_SIZE);
   const cz = Math.round(z / CHUNK_SIZE);
-  let found = false;
+  const sampleState = {found: false, bestDist: Infinity, bestInside: false};
+
   // Segments can reach a little past their own chunk, so check its neighbours
   for (let i = cx - 1; i <= cx + 1; i++) {
     for (let j = cz - 1; j <= cz + 1; j++) {
       const segments = chunks.get(`${i},${j}`)?.userData.roadSegments;
       if (!segments) continue;
       for (const seg of segments) {
-        const dx = seg.x1 - seg.x0;
-        const dz = seg.z1 - seg.z0;
-        const lengthSq = dx * dx + dz * dz;
-        // Past a segment's ends counts within the deck's half width of
-        // them, so the outside of a bend between two segments has no gap
-        const length = Math.sqrt(lengthSq);
-        const along = ((x - seg.x0) * dx + (z - seg.z0) * dz) / lengthSq;
-        const pad = ROAD_DECK_HALF_WIDTH / length;
-        if (along < -pad || along > 1 + pad) continue;
-        const t = Math.min(1, Math.max(0, along));
-        const across = Math.hypot(x - (seg.x0 + dx * t), z - (seg.z0 + dz * t));
-        if (across > ROAD_DECK_HALF_WIDTH) continue;
-        // The deck is pitched to the segment, so its top is a little further
-        // above the centre line straight up
-        const grade = (seg.y1 - seg.y0) / length;
-        const height =
-          seg.y0 +
-          (seg.y1 - seg.y0) * t +
-          ROAD_DECK_HALF_THICKNESS * Math.sqrt(1 + grade * grade);
-        // Where segments meet, stand on the higher one
-        if (found && height <= out.height) continue;
-        out.height = height;
-        out.slopeX = (grade * dx) / length;
-        out.slopeZ = (grade * dz) / length;
-        found = true;
+        ChillFlightLogic.sampleRoadSegment(
+          seg,
+          x,
+          z,
+          out,
+          vehicleY,
+          sampleState
+        );
       }
     }
   }
@@ -2863,16 +2845,26 @@ export function sampleRoad(x, z, out) {
     });
     if (!ends?.built) continue;
     const height = ChillFlightLogic.accessRoadDeck(r, ends, x);
-    if (found && height <= out.height) continue;
-    out.height = height;
-    out.slopeX =
+    const slopeX =
       (ChillFlightLogic.accessRoadDeck(r, ends, x + 1) -
         ChillFlightLogic.accessRoadDeck(r, ends, x - 1)) /
       2;
-    out.slopeZ = 0;
-    found = true;
+    const slopeZ = 0;
+
+    if (vehicleY !== null) {
+      const dist = Math.abs(height - vehicleY);
+      if (sampleState.found && dist >= sampleState.bestDist) continue;
+      sampleState.bestDist = dist;
+    } else {
+      if (sampleState.found && height <= out.height) continue;
+    }
+
+    out.height = height;
+    out.slopeX = slopeX;
+    out.slopeZ = slopeZ;
+    sampleState.found = true;
   }
-  return found;
+  return sampleState.found;
 }
 
 // Chunk props are pooled instanced meshes created with culling off (a reused

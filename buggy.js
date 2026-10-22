@@ -1,17 +1,19 @@
 // --- BUGGY DRIVING ---
 // The buggy takes the place of the flight model and flight physics
 // (game-loop.js) while it's the active vehicle. Arcade handling: the engine
-// pulls hard and tails off toward top speed, the steering tightens at low
-// speed and is capped at speed by how much grip the tyres have, the tyres
-// let the back step out a little in fast turns, and crests throw it into
-// the air. It drives on the ground as drawn (sampleGround), the highway deck
-// and bridges, and floats slowly across water.
+// pulls hard and tails off toward top speed, the steering is responsive on
+// highway curves and tightens at speed, tyres grip firmly with zero sliding
+// out, and suspension is critically damped for a smooth, stable ride over
+// rolling hills. It drives on the ground as drawn (sampleGround), the highway
+// deck and bridges (sampleRoad with 3D elevation awareness), and floats
+// slowly across water.
 //
-// Controls: up/down are gas and brake, then reverse once stopped; left/right
-// steer; space is the handbrake, which lets the back slide out for a drift.
-// On touch screens the stick only steers, and gas, brake and drift pedals
-// show at the bottom right. The throttle slider is a cruise control it holds
-// when no pedal is pressed, and braking cancels it.
+// Controls: one-handed joystick control. The throttle slider sets target cruise
+// speed. The virtual joystick steers left/right. Pushing up temporarily boosts
+// up to top speed. Pulling down smoothly brakes to a stop, and continuing to
+// hold down shifts into reverse. Releasing the stick smoothly resumes cruising
+// forward at the set speed. On keyboard, Arrow keys or WASD provide the same
+// directional control.
 import * as THREE from 'three';
 import {getElevation, sampleGround} from './terrain-geometry.js';
 import {sampleRoad} from './terrain-chunks.js';
@@ -30,7 +32,7 @@ const REVERSE_TOP = 20;
 const WATER_TOP = 12;
 // About 0 to 60 knots in 3 seconds, 100 in 7
 const ENGINE_ACCEL = 30;
-const REVERSE_ACCEL = 12;
+const REVERSE_ACCEL = 14;
 const BRAKE_DECEL = 45;
 // Rolling resistance, and drag growing with the square of the speed
 const ROLL_DRAG = 3;
@@ -38,74 +40,51 @@ const AIR_DRAG = 0.0007;
 const WATER_DRAG = 0.04;
 // A little over twice real gravity: hops come back down briskly
 const GRAVITY = 40;
-// The sideways push the tyres can take: the steering is capped so a turn
-// never asks for more (units/s², about 2.5 g)
-const MAX_CORNERING = 55;
+// Responsive cornering authority so the buggy hugs highway curves even at high speed
+const MAX_CORNERING = 160;
 const MAX_STEER = 0.55;
+const MIN_STEER_HIGH_SPEED = 0.18;
 // How fast the front wheels turn toward the stick, and back to centre
 // (radians per second)
-const STEER_RATE = 2.4;
-const STEER_RETURN_RATE = 4.5;
-// How quickly the tyres kill sideways sliding (per second): less grip on
-// dirt than on the road lets the back slide out in fast turns
-const GRIP_ROAD = 14;
-const GRIP_GROUND = 10;
-const GRIP_WATER = 1.5;
-// Flooring it in a hard turn on dirt breaks the back loose a little (a power
-// slide): grip drops by up to this share at full throttle, lock and speed
-const POWER_SLIDE = 0.45;
-// The handbrake: the back wheels lock and barely grip, the front can turn
-// past what the tyres would hold, the turn comes on harder, and it scrubs
-// off speed while held. Grip comes back gradually after letting go, and
-// slower still while the gas and steering are held, which carries the
-// slide on as a power slide.
-const DRIFT_GRIP = 2.5;
-const DRIFT_TURN_BOOST = 0.6;
-const DRIFT_MAX_YAW_RATE = 1.7;
-const HANDBRAKE_DECEL = 10;
-const DRIFT_IN_SECONDS = 0.08;
-const DRIFT_OUT_SECONDS = 0.6;
-const DRIFT_HOLD_SECONDS = 1.8;
+const STEER_RATE = 2.8;
+const STEER_RETURN_RATE = 5.0;
+// Pure grip: tyres kill sideways sliding quickly so the buggy tracks predictably
+const GRIP_ROAD = 25;
+const GRIP_GROUND = 18;
+const GRIP_WATER = 4;
 // How quickly the turn follows the steering (seconds)
 const YAW_EASE_SECONDS = 0.08;
-// Leaving the ground: when the ground drops away from under the buggy by
-// more than this much vertical speed in a frame, it flies on instead of
-// sticking to it
-const LAUNCH_SPEED = 7;
+// Leaving the ground: roads hug hill contours; rough ground hops off crests
+const LAUNCH_SPEED_ROAD = 35;
+const LAUNCH_SPEED_GROUND = 10;
 // How the height the springs follow eases toward the ground under the wheels
-// (seconds): it rises quickly so the wheels never sink in, and falls more
-// slowly so small steps in the ground don't jolt the springs
 const RIDE_RISE_SECONDS = 0.06;
-const RIDE_FALL_SECONDS = 0.6;
-// and leaves it at no more than this speed upward (a hop of about 4 m)
+const RIDE_FALL_SECONDS = 0.5;
+// and leaves it at no more than this speed upward
 const MAX_LAUNCH_SPEED = 25;
 // Ground steeper than this (rise per unit) is a wall it bumps against
 const WALL_SLOPE = Math.tan((50 * Math.PI) / 180);
 // It stays parked on slopes gentler than this pull (units/s²)
 const PARK_HOLD = 9;
-// Roads: a deck up to this far above the wheels is a kerb it bumps up onto
-// (the highway sits a little above the ground beside it). Higher than that
-// but lower than a bridge's clearance it's the deck's side, a barrier it
-// slides along instead of driving under, and dropping off a deck by more
-// than this is stopped by its edge (barriers along embankments and bridges)
-const ROAD_STEP_UP = 4.5;
+// Roads: a deck up to this far above the wheels is a kerb it smoothly mounts
+// (allowing the buggy to easily climb back onto the highway from off-road)
+const ROAD_STEP_UP = 12;
 const BRIDGE_CLEARANCE = 12;
 // How deep it floats in the water, its wheels half under
 const FLOAT_DEPTH = 0.9;
 // A jump of more than this between frames is a teleport (units)
 const TELEPORT_DISTANCE = 300;
 
-// The springs: stiffness and damping of the body's bounce on its wheels,
-// and how much it leans with acceleration and cornering
-const SPRING = 170;
-const DAMPING = 13;
-const SQUAT_PER_ACCEL = 0.003;
-const LEAN_PER_ACCEL = 0.0028;
-const MAX_LEAN = 0.12;
-const LEAN_EASE_SECONDS = 0.15;
-// How quickly the chassis tilts to the slope under it, and to its flight
-// path in the air (seconds)
-const TILT_EASE_SECONDS = 0.06;
+// The springs: critically damped body bounce on its wheels (c = 2*sqrt(k))
+// to eliminate irritating oscillations and pogo-stick bouncing
+const SPRING = 80;
+const DAMPING = 18;
+const SQUAT_PER_ACCEL = 0.0025;
+const LEAN_PER_ACCEL = 0.0024;
+const MAX_LEAN = 0.1;
+const LEAN_EASE_SECONDS = 0.18;
+// How quickly the chassis tilts to the slope under it
+const TILT_EASE_SECONDS = 0.12;
 const AIR_TILT_EASE_SECONDS = 0.4;
 
 const _surface = {
@@ -128,7 +107,6 @@ let steer = 0;
 let airborne = false;
 // The eased ground height the springs follow, or null while airborne
 let ride = null;
-let drift = 0;
 // The body on its springs, and the chassis's tilt
 let bounce = 0;
 let bounceVel = 0;
@@ -138,10 +116,10 @@ let tiltPitch = 0;
 let tiltRoll = 0;
 
 // Fills _surface with what the wheels would rest on at (x, z), for a buggy
-// at height y: the highway deck (on bridges too) when on it, otherwise the
-// ground as drawn, or the water's surface over water
+// at height y: the highway deck (with 3D elevation awareness for junctions/overpasses)
+// when on it, otherwise the ground as drawn, or the water's surface over water
 function sampleSurface(x, z, y) {
-  const onDeck = sampleRoad(x, z, _road);
+  const onDeck = sampleRoad(x, z, _road, y);
   if (onDeck && y >= _road.height - ROAD_STEP_UP) {
     _surface.height = _road.height;
     _surface.slopeX = _road.slopeX;
@@ -161,8 +139,11 @@ function sampleSurface(x, z, y) {
     }
     _surface.kind = 'water';
   }
-  // Beside a deck too high to bump up onto, and too low to drive under
-  _surface.underDeck = onDeck && y >= _road.height - BRIDGE_CLEARANCE;
+  // Beside a deck too high to climb up onto, and within clearance of girder underside
+  _surface.underDeck =
+    onDeck &&
+    y >= _road.height - BRIDGE_CLEARANCE &&
+    y < _road.height - ROAD_STEP_UP;
   return _surface;
 }
 
@@ -184,14 +165,12 @@ function enter() {
   );
   velY = 0;
   yawRate = 0;
-  drift = 0;
   steer = 0;
   airborne = false;
   bounce = 0;
   bounceVel = 0;
   const pos = planeGroup.position;
   pos.y = sampleSurface(pos.x, pos.z, Infinity).height;
-  // A road under a bridge would be the deck above: check again from there
   pos.y = sampleSurface(pos.x, pos.z, pos.y).height;
   const s = _surface;
   tiltPitch = Math.atan(-Math.sin(yaw) * s.slopeX - Math.cos(yaw) * s.slopeZ);
@@ -199,27 +178,6 @@ function enter() {
   state.autopilotEnabled = false;
   _lastPos.copy(pos);
 }
-
-// The touch pedals (index.html), held by pointer: shown for the buggy on
-// touch screens, where the stick then only steers
-const pedals = {gas: false, brake: false, drift: false};
-const touchPedals = window.matchMedia('(any-pointer: coarse)').matches;
-document.querySelectorAll('#buggy-pedals [data-pedal]').forEach((btn) => {
-  const name = btn.dataset.pedal;
-  const press = (down) => (e) => {
-    e.preventDefault();
-    pedals[name] = down;
-    btn.classList.toggle('pressed', down);
-  };
-  btn.addEventListener('pointerdown', (e) => {
-    btn.setPointerCapture?.(e.pointerId);
-    press(true)(e);
-  });
-  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-    btn.addEventListener(type, press(false));
-  }
-  btn.addEventListener('contextmenu', (e) => e.preventDefault());
-});
 
 // The stick's position past its deadzone (gyro tilt always counts)
 function analogAxis(value) {
@@ -252,12 +210,12 @@ export function updateBuggy(delta) {
   // --- INPUT ---
   const shift = keys.Shift;
   let steerIn = -analogAxis(state.mouseX);
-  if (keys.ArrowLeft && !shift) steerIn = 1;
-  else if (keys.ArrowRight && !shift) steerIn = -1;
-  let pedal = touchPedals ? 0 : analogAxis(state.mouseY);
-  if ((keys.ArrowUp && !shift) || pedals.gas) pedal = 1;
-  else if ((keys.ArrowDown && !shift) || pedals.brake) pedal = -1;
-  const handbrake = keys.Space || pedals.drift;
+  if ((keys.ArrowLeft || keys.KeyA) && !shift) steerIn = 1;
+  else if ((keys.ArrowRight || keys.KeyD) && !shift) steerIn = -1;
+
+  let joyY = analogAxis(state.mouseY);
+  if ((keys.ArrowUp || keys.KeyW) && !shift) joyY = 1;
+  else if ((keys.ArrowDown || keys.KeyS) && !shift) joyY = -1;
 
   // --- FORCES ---
   const fx = -Math.sin(yaw);
@@ -272,22 +230,11 @@ export function updateBuggy(delta) {
   const onWater = ground.kind === 'water';
   const top = onWater ? WATER_TOP : TOP_SPEED;
 
-  // The handbrake slide comes on quickly and fades out slowly
-  const drifting = handbrake && !airborne && !onWater && Math.abs(forward) > 8;
-  const holding = pedal > 0 && Math.abs(steerIn) > 0.3;
-  const driftSeconds = drifting
-    ? DRIFT_IN_SECONDS
-    : holding
-      ? DRIFT_HOLD_SECONDS
-      : DRIFT_OUT_SECONDS;
-  drift += ((drifting ? 1 : 0) - drift) * (1 - Math.exp(-dt / driftSeconds));
-
-  // The front wheels turn toward the stick, as far as the tyres can hold
-  // (in a drift, further)
+  // Steering authority: responsive cornering on highway curves even at speed
   const cornerLimit = Math.atan(
     (MAX_CORNERING * BUGGY_WHEELBASE) / Math.max(1, forward * forward)
   );
-  const steerLimit = THREE.MathUtils.lerp(cornerLimit, MAX_STEER, drift);
+  const steerLimit = Math.max(MIN_STEER_HIGH_SPEED, cornerLimit);
   const steerTarget = steerIn * Math.min(MAX_STEER, steerLimit);
   const returning =
     steerTarget === 0 || Math.sign(steerTarget) !== Math.sign(steer);
@@ -306,9 +253,7 @@ export function updateBuggy(delta) {
     const slopeAcross = (rx * ground.slopeX + rz * ground.slopeZ) / norm;
     const slopeAccel = -GRAVITY * slopeAlong;
 
-    // Rolling resistance and drag, which the engine makes up for below top
-    // speed: it pulls hard away from a stop and tails off to nothing at top
-    // speed, so that's where it tops out on the flat
+    // Rolling resistance and drag
     const drag =
       ROLL_DRAG +
       (onWater ? WATER_DRAG : AIR_DRAG) * forward * forward +
@@ -316,40 +261,56 @@ export function updateBuggy(delta) {
     const engine = (v, max, accel) =>
       v >= max ? 0 : accel * (1 - (v / max) ** 2) + drag;
 
-    // Gas, brake and reverse, or holding the cruise speed
-    const cruise = Math.min(top, state.targetFlightSpeed * KTS_PER_MULT);
-    if (pedal > 0) {
-      driveAccel =
-        forward < -1
-          ? BRAKE_DECEL * pedal
-          : engine(Math.max(0, forward), top, ENGINE_ACCEL) * pedal;
-    } else if (pedal < 0) {
-      // Braking cancels the cruise control (and the throttle slider shows it)
-      if (state.targetFlightSpeed > 0) state.targetFlightSpeed = 0;
-      driveAccel =
-        forward > 1
-          ? BRAKE_DECEL * pedal
-          : engine(Math.max(0, -forward), REVERSE_TOP, REVERSE_ACCEL) * pedal;
-    } else if (cruise > 0.5) {
+    // Throttle slider sets baseline cruise speed
+    const cruise = Math.min(
+      top,
+      Math.max(0, (state.targetFlightSpeed || 0) * KTS_PER_MULT)
+    );
+
+    if (joyY > 0.05) {
+      // Pushing up: temporary boost above cruise speed up to top speed
+      const boostTarget = cruise + (top - cruise) * joyY;
       driveAccel = THREE.MathUtils.clamp(
-        (cruise - forward) * 1.5 + drag,
+        (boostTarget - forward) * 2.0 + drag,
         -BRAKE_DECEL * 0.3,
         engine(Math.max(0, forward), top, ENGINE_ACCEL)
       );
+    } else if (joyY < -0.05) {
+      // Pulling down: brakes to a halt, then continuous hold shifts into reverse
+      const downAmount = -joyY;
+      if (forward > 0.5) {
+        driveAccel = -BRAKE_DECEL * downAmount;
+      } else {
+        const revTarget = -REVERSE_TOP * downAmount;
+        driveAccel = THREE.MathUtils.clamp(
+          (revTarget - forward) * 2.0 - drag,
+          -engine(Math.max(0, -forward), REVERSE_TOP, REVERSE_ACCEL),
+          BRAKE_DECEL * 0.5
+        );
+      }
+    } else if (cruise > 0.5) {
+      // Neutral: hold set cruise speed. If reversing, brake to stop first then cruise forward
+      if (forward < -0.5) {
+        driveAccel = BRAKE_DECEL;
+      } else {
+        driveAccel = THREE.MathUtils.clamp(
+          (cruise - forward) * 1.5 + drag,
+          -BRAKE_DECEL * 0.3,
+          engine(Math.max(0, forward), top, ENGINE_ACCEL)
+        );
+      }
+    } else {
+      // Cruise is 0 and stick is neutral: coast to stop
+      driveAccel = forward > 0.5 ? -ROLL_DRAG : forward < -0.5 ? ROLL_DRAG : 0;
     }
 
-    // The handbrake drags it down
-    if (handbrake && Math.abs(forward) > 1) {
-      driveAccel -= Math.sign(forward) * HANDBRAKE_DECEL;
-    }
-
-    const coasting = pedal === 0 && cruise <= 0.5;
+    const coasting = Math.abs(joyY) <= 0.05 && cruise <= 0.5;
     if (
       coasting &&
       Math.abs(forward) < 0.5 &&
       Math.abs(slopeAccel) < PARK_HOLD
     ) {
-      // Parked: the tyres hold it on gentle slopes
+      // Parked: tyres hold it on gentle slopes
       forward = 0;
       side = 0;
     } else {
@@ -357,34 +318,20 @@ export function updateBuggy(delta) {
       forward -= Math.sign(forward) * Math.min(Math.abs(forward), drag * dt);
     }
 
-    // The tyres grip, killing most of any sideways slide
+    // Pure grip: tyres kill sideways sliding firmly without drift break-loose
     side += -GRAVITY * slopeAcross * dt;
-    let grip =
+    const grip =
       ground.kind === 'road' ? GRIP_ROAD : onWater ? GRIP_WATER : GRIP_GROUND;
-    if (ground.kind === 'ground' && pedal > 0) {
-      const fast = THREE.MathUtils.clamp(forward / TOP_SPEED, 0, 1);
-      grip *= 1 - POWER_SLIDE * pedal * Math.abs(steerIn) * fast;
-    }
-    grip = THREE.MathUtils.lerp(grip, DRIFT_GRIP, drift);
     side *= Math.exp(-grip * dt);
 
-    // Turning: the turn the front wheels ask for, at this speed, harder
-    // with the back sliding
-    let wantYawRate =
-      ((forward * Math.tan(steer)) / BUGGY_WHEELBASE) *
-      (1 + DRIFT_TURN_BOOST * drift);
-    if (drift > 0) {
-      const cap = DRIFT_MAX_YAW_RATE / drift;
-      wantYawRate = THREE.MathUtils.clamp(wantYawRate, -cap, cap);
-    }
+    // Turning: follows steering angle directly
+    const wantYawRate = (forward * Math.tan(steer)) / BUGGY_WHEELBASE;
     yawRate += (wantYawRate - yawRate) * (1 - Math.exp(-dt / YAW_EASE_SECONDS));
   } else {
-    // In the air: no grip, the spin carries on and slowly dies away
+    // In the air: spin carries on and slowly dies away
     yawRate *= Math.exp(-dt * 1.5);
   }
 
-  // Velocity stays in the world as the buggy turns under it: the tyres pull
-  // it round next frame, and that lag is the slide
   velX = fx * forward + rx * side;
   velZ = fz * forward + rz * side;
   yaw += yawRate * dt;
@@ -399,12 +346,9 @@ export function updateBuggy(delta) {
   const oldHeight = ground.height;
   const wasOnRoad = ground.kind === 'road';
   const wasUnderDeck = ground.underDeck;
-  // What stops a move to (x, z): a road barrier (the side of a deck too
-  // high to bump up onto, or a deck's edge with a drop beyond it), a wall of
-  // ground too steep to climb, or nothing
+
   const blocker = (x, z) => {
     const s = sampleSurface(x, z, pos.y);
-    // (Already under one, after a teleport say, it can drive out)
     if (s.underDeck && !wasUnderDeck) return 'barrier';
     if (wasOnRoad && s.kind !== 'road' && oldHeight - s.height > ROAD_STEP_UP) {
       return 'barrier';
@@ -421,13 +365,12 @@ export function updateBuggy(delta) {
     }
     return null;
   };
-  let block = blocker(oldX + velX * dt, oldZ + velZ * dt);
+
+  const block = blocker(oldX + velX * dt, oldZ + velZ * dt);
   if (!block) {
     pos.x += velX * dt;
     pos.z += velZ * dt;
   } else if (block === 'barrier') {
-    // Slide along the barrier: keep whichever way along x or z is clear
-    // (the highway runs north and south, the access roads east and west)
     if (!blocker(oldX, oldZ + velZ * dt)) {
       pos.z += velZ * dt;
       velX *= -0.2;
@@ -440,8 +383,6 @@ export function updateBuggy(delta) {
     }
     kick(Math.min(1.5, speed * 0.02));
   } else {
-    // Too steep to climb: bump off, keeping only the part of the speed
-    // along the slope
     const s = sampleSurface(oldX + velX * dt, oldZ + velZ * dt, pos.y);
     const g = Math.hypot(s.slopeX, s.slopeZ) || 1;
     const nx = s.slopeX / g;
@@ -459,33 +400,41 @@ export function updateBuggy(delta) {
     !airborne &&
     surface.kind === 'road' &&
     !wasOnRoad &&
-    surface.height - pos.y > 1
+    surface.height - pos.y > 0.5
   ) {
-    // Bumping up a kerb onto a deck: a jolt, not a launch
-    kick(Math.min(2, (surface.height - pos.y) * 0.4));
+    // Smooth curb mounting when driving onto road from off-road
+    const step = Math.min(surface.height - pos.y, ROAD_STEP_UP);
+    pos.y += Math.min(step, 25 * dt);
+    if (pos.y >= surface.height - 0.1) {
+      pos.y = surface.height;
+    }
     velY = 0;
-    pos.y = surface.height;
-    ride = null;
+    ride = pos.y;
   } else if (!airborne) {
-    // The springs follow the ground eased (RIDE_RISE_SECONDS, RIDE_FALL_SECONDS),
-    // so a small step down in the road is eased into rather than launching the
-    // buggy. It stays on the wheels unless the eased ground drops away faster
-    // than it can follow: then it flies on (off a crest, or the end of a ramp)
     if (ride === null) ride = pos.y;
     const prevRide = ride;
+    // On paved roads, follow the smoothed road deck closely so crests don't launch
     const seconds =
-      surface.height > ride ? RIDE_RISE_SECONDS : RIDE_FALL_SECONDS;
+      surface.kind === 'road'
+        ? 0.04
+        : surface.height > ride
+          ? RIDE_RISE_SECONDS
+          : RIDE_FALL_SECONDS;
     ride += (surface.height - ride) * (1 - Math.exp(-dt / seconds));
     const rideVelY = (ride - prevRide) / dt;
-    if (velY - rideVelY > LAUNCH_SPEED && !onWater) {
+    const launchLimit =
+      surface.kind === 'road' ? LAUNCH_SPEED_ROAD : LAUNCH_SPEED_GROUND;
+
+    if (velY - rideVelY > launchLimit && !onWater) {
       airborne = true;
       ride = null;
-      // The springs soak up some of a steep ramp's kick
       velY = Math.min(velY, MAX_LAUNCH_SPEED) - GRAVITY * dt;
       pos.y += velY * dt;
     } else {
-      // Bumps jolt the springs far less now that they follow the eased ground
-      kick((rideVelY - velY) * 0.06);
+      // Critically damped suspension absorbs road contours without jarring kicks
+      if (surface.kind !== 'road') {
+        kick((rideVelY - velY) * 0.02);
+      }
       velY = THREE.MathUtils.clamp(rideVelY, -200, 200);
       pos.y = ride;
     }
@@ -493,12 +442,11 @@ export function updateBuggy(delta) {
     velY = Math.max(-400, velY - GRAVITY * dt);
     pos.y += velY * dt;
     if (pos.y <= surface.height) {
-      // Touchdown: the springs take the impact, and a hard landing scrubs
-      // off some speed
+      // Touchdown: critically damped suspension settles quickly
       const groundVelY = velX * surface.slopeX + velZ * surface.slopeZ;
       const impact = Math.max(0, groundVelY - velY);
-      kick(impact * 0.09);
-      const scrub = 1 - Math.min(0.3, impact * 0.004);
+      if (impact > 2) kick(impact * 0.04);
+      const scrub = 1 - Math.min(0.15, impact * 0.002);
       velX *= scrub;
       velZ *= scrub;
       velY = groundVelY;
@@ -521,7 +469,6 @@ export function updateBuggy(delta) {
     tiltPitch += (pitch - tiltPitch) * ease;
     tiltRoll += (roll - tiltRoll) * ease;
   } else {
-    // Nose follows the flight path a little, and the roll levels out
     const ease = 1 - Math.exp(-dt / AIR_TILT_EASE_SECONDS);
     const path = Math.atan2(velY, Math.max(1, speed)) * 0.6;
     tiltPitch += (path - tiltPitch) * ease;
@@ -530,8 +477,7 @@ export function updateBuggy(delta) {
   model.rotation.set(tiltPitch, 0, tiltRoll);
   model.position.y = 0;
 
-  // The body bounces on its springs, squats as it pulls away (dips as it
-  // brakes) and leans out of turns
+  // The body on its critically damped springs
   bounceVel += (-SPRING * bounce - DAMPING * bounceVel) * dt;
   bounce = THREE.MathUtils.clamp(bounce + bounceVel * dt, -0.6, 0.6);
   const leanEase = 1 - Math.exp(-dt / LEAN_EASE_SECONDS);
@@ -556,8 +502,6 @@ export function updateBuggy(delta) {
   }
 
   // --- WHAT THE REST OF THE GAME READS ---
-  // The speed readout, the engine sound and the dust go by the speed, and
-  // the jobs count a stop at an airport by the wheels being down
   state.flightSpeedMultiplier = speed / KTS_PER_MULT;
   state._nextYaw = yaw;
   state.verticalVelocity = 0;
@@ -565,7 +509,6 @@ export function updateBuggy(delta) {
   state.isOnWater = !airborne && onWater;
   state.isOnGround = !airborne && !onWater;
   setOnWheels(state.isOnGround);
-  // None of the planes' maneuvers apply (a triple tap can still ask for one)
   state.targetPitch = 0;
   state.targetRoll = 0;
   state.isDoingImmelmann = false;
@@ -573,9 +516,5 @@ export function updateBuggy(delta) {
   state.isBarrelRolling = false;
   state.isSteepPitch = false;
   state.sharpTurnAmount = 0;
-  // How much it's sliding sideways, for the tyre smoke (particles.js)
-  state.buggySlide = airborne
-    ? 0
-    : THREE.MathUtils.clamp((Math.abs(side) - 6) / 10, 0, 1) *
-      (speed > 10 ? 1 : 0);
+  state.buggySlide = 0;
 }
