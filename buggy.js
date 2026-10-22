@@ -13,8 +13,8 @@
 // up to top speed. Pulling down smoothly brakes to a stop, and continuing to
 // hold down shifts into reverse. Releasing the stick smoothly resumes cruising
 // forward at the set speed. Tapping the screen (or double-tap-and-dragging,
-// tapping with a second finger, or pressing Spacebar) triggers a Mario Kart-style
-// hop; landing from a hop while turning locks into a drift that charges a
+// tapping with a second finger, or pressing Spacebar) triggers a hop;
+// landing from a hop while turning locks into a drift that charges a
 // mini-turbo speed boost upon release.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -239,7 +239,7 @@ export function updateBuggy(delta) {
   const onWater = ground.kind === 'water';
   const top = onWater ? WATER_TOP : TOP_SPEED;
 
-  // Mario Kart hop-to-drift state machine
+  // Hop-to-drift state machine
   const {driftYawRate} = ChillFlightLogic.stepBuggyDrift(
     driftState,
     {hop, airborne, onWater, forward, steerIn, joyY, spaceHeld},
@@ -374,7 +374,7 @@ export function updateBuggy(delta) {
         : (forward * Math.tan(steer)) / BUGGY_WHEELBASE;
     yawRate += (wantYawRate - yawRate) * (1 - Math.exp(-dt / YAW_EASE_SECONDS));
   } else if (driftState.hopping && Math.abs(steerIn) > 0.1) {
-    // Mid-hop pre-rotation toward the turn, Mario Kart style
+    // Mid-hop pre-rotation toward the turn
     const hopTurn = steerIn * ChillFlightLogic.BUGGY_DRIFT.BASE_YAW_RATE * 0.85;
     yawRate += (hopTurn - yawRate) * (1 - Math.exp(-dt / 0.08));
   } else {

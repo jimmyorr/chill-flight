@@ -574,7 +574,7 @@ function rollingDust(delta, speed) {
 }
 
 // The buggy sliding (state.buggySlide, from buggy.js): smoke off the rear
-// tyres on paving, a thick plume of dust on dirt, blue/orange Mario Kart
+// tyres on paving, a thick plume of dust on dirt, blue/orange
 // mini-turbo sparks when charged, and twin exhaust flames during boost
 function slideSmoke(delta) {
   const slide = state.buggySlide || 0;

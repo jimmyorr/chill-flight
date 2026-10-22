@@ -4667,7 +4667,7 @@ export const ChillFlightLogic = {};
   exports.WEATHER = WEATHER;
   exports.weatherAt = weatherAt;
 
-  // --- BUGGY HOP & MARIO KART DRIFT ---
+  // --- BUGGY HOP & DRIFT ---
   const BUGGY_DRIFT = {
     HOP_VELOCITY: 7.2, // upward impulse on hop (units/s) -> ~0.36s airtime at GRAVITY=40
     HOP_SPRING_KICK: 3.5, // visual suspension pop when hopping

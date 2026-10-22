@@ -304,7 +304,7 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
   );
 }
 
-// --- 7. MARIO KART HOP-TO-DRIFT & MINI-TURBO MECHANICS ---
+// --- 7. HOP-TO-DRIFT & MINI-TURBO MECHANICS ---
 {
   const d = ChillFlightLogic.createBuggyDriftState();
 
