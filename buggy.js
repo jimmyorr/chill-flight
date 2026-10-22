@@ -14,8 +14,7 @@
 // hold down shifts into reverse. Releasing the stick smoothly resumes cruising
 // forward at the set speed. Tapping the screen (or double-tap-and-dragging,
 // tapping with a second finger, or pressing Spacebar) triggers a hop;
-// landing from a hop while turning locks into a drift that charges a
-// mini-turbo speed boost upon release.
+// landing from a hop while turning locks into a controlled drift.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
@@ -33,8 +32,8 @@ const KTS_PER_MULT = BASE_FLIGHT_SPEED * 60;
 const TOP_SPEED = PLANE_HANDLING.buggy.topKts;
 const REVERSE_TOP = 20;
 const WATER_TOP = 12;
-// About 0 to 60 knots in 3 seconds, 100 in 7
-const ENGINE_ACCEL = 30;
+// About 0 to 60 knots in 2.5 seconds, 100 in 5, top speed 150
+const ENGINE_ACCEL = 45;
 const REVERSE_ACCEL = 14;
 const BRAKE_DECEL = 45;
 // Rolling resistance, and drag growing with the square of the speed
@@ -185,13 +184,36 @@ function enter() {
   _lastPos.copy(pos);
 }
 
-// The stick's position past its deadzone (gyro tilt always counts)
-function analogAxis(value) {
+// Analog steering axis with deadzone and progressive curve.
+// On virtual joystick (JOYSTICK_SENSITIVITY = 0.5), small thumb motions around
+// center yield silky-smooth, subtle lane corrections for straight highway
+// driving, while ramping progressively to 100% full lock on full deflection.
+function analogSteerAxis(value) {
   const live =
     state.mouseControlActive || state.currentControlScheme === 'gyro';
-  return live && Math.abs(value) >= 0.15
-    ? THREE.MathUtils.clamp(value, -1, 1)
-    : 0;
+  if (!live) return 0;
+  const isJoystick = state.currentControlScheme === 'joystick';
+  const maxRange = isJoystick ? 0.5 : 1.0;
+  const deadzone = isJoystick ? 0.06 : 0.12;
+  const absVal = Math.abs(value);
+  if (absVal <= deadzone) return 0;
+  const norm = Math.min(1, (absVal - deadzone) / (maxRange - deadzone));
+  const curved = Math.pow(norm, 1.8);
+  return Math.sign(value) * curved;
+}
+
+// Analog throttle/brake axis (up = forward boost, down = brake/reverse)
+function analogThrottleAxis(value) {
+  const live =
+    state.mouseControlActive || state.currentControlScheme === 'gyro';
+  if (!live) return 0;
+  const isJoystick = state.currentControlScheme === 'joystick';
+  const maxRange = isJoystick ? 0.5 : 1.0;
+  const deadzone = isJoystick ? 0.08 : 0.15;
+  const absVal = Math.abs(value);
+  if (absVal <= deadzone) return 0;
+  const norm = Math.min(1, (absVal - deadzone) / (maxRange - deadzone));
+  return Math.sign(value) * norm;
 }
 
 // Moves a value toward a target at no more than rate per second
@@ -215,11 +237,11 @@ export function updateBuggy(delta) {
 
   // --- INPUT ---
   const shift = keys.Shift;
-  let steerIn = -analogAxis(state.mouseX);
+  let steerIn = -analogSteerAxis(state.mouseX);
   if ((keys.ArrowLeft || keys.KeyA) && !shift) steerIn = 1;
   else if ((keys.ArrowRight || keys.KeyD) && !shift) steerIn = -1;
 
-  let joyY = analogAxis(state.mouseY);
+  let joyY = analogThrottleAxis(state.mouseY);
   if ((keys.ArrowUp || keys.KeyW) && !shift) joyY = 1;
   else if ((keys.ArrowDown || keys.KeyS) && !shift) joyY = -1;
 
@@ -252,9 +274,6 @@ export function updateBuggy(delta) {
     velY = groundVelY + ChillFlightLogic.BUGGY_DRIFT.HOP_VELOCITY;
     pos.y = Math.max(pos.y, ground.height) + 0.15;
     bounceVel += ChillFlightLogic.BUGGY_DRIFT.HOP_SPRING_KICK;
-  }
-  if (driftState.boostJustFired > 0) {
-    squat -= 0.06;
   }
 
   // Steering authority: responsive cornering on highway curves even at speed
@@ -294,23 +313,7 @@ export function updateBuggy(delta) {
       Math.max(0, (state.targetFlightSpeed || 0) * KTS_PER_MULT)
     );
 
-    if (driftState.boostTimer > 0 && !onWater && joyY >= -0.05) {
-      // Mini-turbo speed boost awarded after releasing a charged drift
-      const boostMax = top + driftState.boostSpeed;
-      const baseTarget =
-        joyY > 0.05
-          ? cruise + (top - cruise) * joyY
-          : Math.max(cruise, top * 0.75);
-      const boostTarget = Math.min(
-        boostMax,
-        baseTarget + driftState.boostSpeed
-      );
-      driveAccel = THREE.MathUtils.clamp(
-        (boostTarget - forward) * 3.0 + drag,
-        -BRAKE_DECEL * 0.3,
-        ChillFlightLogic.BUGGY_DRIFT.BOOST_ACCEL
-      );
-    } else if (joyY > 0.05) {
+    if (joyY > 0.05) {
       // Pushing up: temporary boost above cruise speed up to top speed
       const boostTarget = cruise + (top - cruise) * joyY;
       driveAccel = THREE.MathUtils.clamp(
@@ -580,15 +583,8 @@ export function updateBuggy(delta) {
   state.isSteepPitch = false;
   state.sharpTurnAmount = 0;
   state.buggySlide =
-    !airborne && !onWater && driftState.driftDir !== 0
-      ? THREE.MathUtils.clamp(0.75 + 0.12 * driftState.driftLevel, 0, 1)
-      : 0;
+    !airborne && !onWater && driftState.driftDir !== 0 ? 0.8 : 0;
   state.buggyDriftDir = driftState.driftDir;
-  state.buggyDriftLevel = !airborne && !onWater ? driftState.driftLevel : 0;
-  state.buggyBoost =
-    driftState.boostTimer > 0
-      ? THREE.MathUtils.clamp(driftState.boostTimer / 0.8, 0, 1)
-      : 0;
   state.buggySlipYaw = driftState.slipYaw;
   state.buggyDriftState = driftState;
 }

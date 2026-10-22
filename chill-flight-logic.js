@@ -4669,24 +4669,17 @@ export const ChillFlightLogic = {};
 
   // --- BUGGY HOP & DRIFT ---
   const BUGGY_DRIFT = {
-    HOP_VELOCITY: 7.2, // upward impulse on hop (units/s) -> ~0.36s airtime at GRAVITY=40
-    HOP_SPRING_KICK: 3.5, // visual suspension pop when hopping
+    HOP_VELOCITY: 9.6, // upward impulse on hop (units/s) -> ~0.48s airtime at GRAVITY=40
+    HOP_SPRING_KICK: 4.2, // visual suspension pop when hopping
     HOP_LAND_GRACE: 0.25, // seconds after landing from a hop where starting a turn still locks a drift
     MIN_SPEED: 25, // minimum forward speed (kts) to initiate/sustain a drift
     STEER_THRESHOLD: 0.2, // minimum |steerIn| to lock a drift direction
-    RELEASE_DELAY: 0.12, // seconds of neutral/hard-opposite stick before releasing drift & firing boost
+    RELEASE_DELAY: 0.12, // seconds of neutral/hard-opposite stick before releasing drift
     BASE_YAW_RATE: 1.05, // rad/s base turn rate in a drift
     TIGHT_FACTOR: 1.38, // turn multiplier when steering fully into the drift
     WIDE_FACTOR: 0.32, // turn multiplier when counter-steering away from the drift
     NEUTRAL_FACTOR: 0.78, // turn multiplier when stick is near neutral
     SLIP_ANGLE: 0.34, // visual inward chassis yaw offset (~19.5 deg) during drift
-    LEVEL1_TIME: 0.65, // drift charge seconds for Blue Sparks (Mini-Turbo)
-    LEVEL2_TIME: 1.5, // drift charge seconds for Orange Sparks (Super Mini-Turbo)
-    BOOST1_DURATION: 0.85, // seconds of Mini-Turbo boost
-    BOOST1_SPEED: 20, // extra kts above cruise/top speed during Mini-Turbo
-    BOOST2_DURATION: 1.4, // seconds of Super Mini-Turbo boost
-    BOOST2_SPEED: 30, // extra kts above cruise/top speed during Super Mini-Turbo
-    BOOST_ACCEL: 65, // units/s² acceleration surge when boost fires
   };
 
   function createBuggyDriftState() {
@@ -4695,15 +4688,10 @@ export const ChillFlightLogic = {};
       hopSteerDir: 0,
       hopLandTimer: 0,
       driftDir: 0,
-      driftCharge: 0,
-      driftLevel: 0,
       driftReleaseTimer: 0,
       spaceLatched: false,
       slipYaw: 0,
-      boostTimer: 0,
-      boostSpeed: 0,
       hopJustStarted: false,
-      boostJustFired: 0,
     };
   }
 
@@ -4719,23 +4707,9 @@ export const ChillFlightLogic = {};
     } = input;
 
     d.hopJustStarted = false;
-    d.boostJustFired = 0;
 
-    const endDrift = (awardBoost) => {
-      if (awardBoost && d.driftDir !== 0) {
-        if (d.driftLevel >= 2) {
-          d.boostTimer = BUGGY_DRIFT.BOOST2_DURATION;
-          d.boostSpeed = BUGGY_DRIFT.BOOST2_SPEED;
-          d.boostJustFired = 2;
-        } else if (d.driftLevel >= 1) {
-          d.boostTimer = BUGGY_DRIFT.BOOST1_DURATION;
-          d.boostSpeed = BUGGY_DRIFT.BOOST1_SPEED;
-          d.boostJustFired = 1;
-        }
-      }
+    const endDrift = () => {
       d.driftDir = 0;
-      d.driftCharge = 0;
-      d.driftLevel = 0;
       d.driftReleaseTimer = 0;
       d.spaceLatched = false;
     };
@@ -4743,7 +4717,7 @@ export const ChillFlightLogic = {};
     // 1. Hop trigger when grounded
     if (hop && !airborne && !onWater) {
       if (d.driftDir !== 0) {
-        endDrift(true);
+        endDrift();
       }
       d.hopping = true;
       d.hopJustStarted = true;
@@ -4770,8 +4744,6 @@ export const ChillFlightLogic = {};
             : d.hopSteerDir;
         if (dir !== 0) {
           d.driftDir = dir;
-          d.driftCharge = 0;
-          d.driftLevel = 0;
           d.driftReleaseTimer = 0;
           d.hopLandTimer = 0;
           d.spaceLatched = !!spaceHeld;
@@ -4791,28 +4763,26 @@ export const ChillFlightLogic = {};
         Math.abs(steerIn) >= BUGGY_DRIFT.STEER_THRESHOLD
       ) {
         d.driftDir = Math.sign(steerIn);
-        d.driftCharge = 0;
-        d.driftLevel = 0;
         d.driftReleaseTimer = 0;
         d.hopLandTimer = 0;
         d.spaceLatched = !!spaceHeld;
       }
     }
 
-    // 4. Active drift update: turn rate, counter-steering, and mini-turbo charge
+    // 4. Active drift update: turn rate and counter-steering
     let driftYawRate = null;
     if (d.driftDir !== 0) {
       if (onWater || forward < BUGGY_DRIFT.MIN_SPEED * 0.75 || joyY < -0.25) {
-        endDrift(false);
+        endDrift();
       } else if (!isAirborne) {
         if (spaceHeld) d.spaceLatched = true;
         const intoTurn = steerIn * d.driftDir;
 
-        // If player held Spacebar until charging a boost and then released Space, fire boost;
-        // otherwise if they only tapped Space to hop and are still holding the turn key, keep drifting.
+        // If player latched Spacebar and releases it while steering is neutral, end drift;
+        // if still holding the turn key/stick, keep drifting.
         if (d.spaceLatched && !spaceHeld) {
-          if (Math.abs(steerIn) < 0.15 || d.driftLevel >= 1) {
-            endDrift(true);
+          if (Math.abs(steerIn) < 0.15) {
+            endDrift();
           } else {
             d.spaceLatched = false;
           }
@@ -4824,7 +4794,7 @@ export const ChillFlightLogic = {};
           if (stickReleased) {
             d.driftReleaseTimer += dt;
             if (d.driftReleaseTimer >= BUGGY_DRIFT.RELEASE_DELAY) {
-              endDrift(true);
+              endDrift();
             }
           } else {
             d.driftReleaseTimer = 0;
@@ -4847,29 +4817,11 @@ export const ChillFlightLogic = {};
           const speedScale = Math.max(0.5, Math.min(1.25, forward / 65));
           driftYawRate =
             d.driftDir * BUGGY_DRIFT.BASE_YAW_RATE * turnFactor * speedScale;
-
-          const chargeRate =
-            1.0 + 0.45 * Math.max(0, intoTurn) - 0.25 * Math.max(0, -intoTurn);
-          d.driftCharge += dt * chargeRate;
-          if (d.driftCharge >= BUGGY_DRIFT.LEVEL2_TIME) {
-            d.driftLevel = 2;
-          } else if (d.driftCharge >= BUGGY_DRIFT.LEVEL1_TIME) {
-            d.driftLevel = 1;
-          } else {
-            d.driftLevel = 0;
-          }
         }
       }
     }
 
-    // 5. Boost timer & visual chassis slip angle
-    if (d.boostTimer > 0) {
-      d.boostTimer = Math.max(0, d.boostTimer - dt);
-      if (d.boostTimer === 0) {
-        d.boostSpeed = 0;
-      }
-    }
-
+    // 5. Visual chassis slip angle
     const intoTurn = steerIn * d.driftDir;
     const targetSlip =
       d.driftDir !== 0

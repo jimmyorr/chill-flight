@@ -168,7 +168,7 @@ check(
 );
 
 // --- 3. HIGHWAY STEERING AUTHORITY & PURE GRIP ARCADE CORNERING ---
-const topKts = PLANE_HANDLING.buggy.topKts; // 120 kts
+const topKts = PLANE_HANDLING.buggy.topKts; // 150 kts
 const forwardFast = topKts;
 const wheelbase = 2.8;
 const maxCornering = 160;
@@ -187,6 +187,40 @@ check(
   `steerTarget: ${steerTarget}`
 );
 
+// Joystick sensitivity progressive curve for straight highway driving:
+// Small movements around center (mouseX = 0.10 - 0.15 on 0.5 max joystick throw)
+// yield subtle 1-6% steering for silky lane-keeping on straight roads,
+// while full thumb deflection (mouseX = 0.5) reaches 100% lock.
+function simAnalogSteerAxis(value, isJoystick = true) {
+  const maxRange = isJoystick ? 0.5 : 1.0;
+  const deadzone = isJoystick ? 0.06 : 0.12;
+  const absVal = Math.abs(value);
+  if (absVal <= deadzone) return 0;
+  const norm = Math.min(1, (absVal - deadzone) / (maxRange - deadzone));
+  const curved = Math.pow(norm, 1.8);
+  return Math.sign(value) * curved;
+}
+
+const steerCenterSmall = simAnalogSteerAxis(0.12, true); // small thumb nudge on highway
+const steerCenterMedium = simAnalogSteerAxis(0.25, true); // half deflection
+const steerFull = simAnalogSteerAxis(0.5, true); // full thumb throw
+
+check(
+  'Joystick steering curve gives gentle sub-5% lane control around center for straight roads',
+  steerCenterSmall > 0 && steerCenterSmall < 0.05,
+  `steerCenterSmall: ${steerCenterSmall.toFixed(4)}`
+);
+check(
+  'Joystick half deflection provides progressive ~22% intermediate steering',
+  steerCenterMedium > 0.18 && steerCenterMedium < 0.28,
+  `steerCenterMedium: ${steerCenterMedium.toFixed(4)}`
+);
+check(
+  'Joystick steering reaches 100% full steering lock on full deflection',
+  Math.abs(steerFull - 1.0) < 1e-6,
+  `steerFull: ${steerFull.toFixed(4)}`
+);
+
 // Grip: side velocity decays rapidly
 const gripRoad = 25;
 const dt = 0.016; // 60 fps
@@ -201,14 +235,14 @@ check(
 let simCruise = 80; // knots
 let simTargetFlightSpeed = 80 / (2.5 * 60);
 let simForward = 80;
-const topSpeed = 120;
+const topSpeed = 150;
 const reverseTop = 20;
 
 // Test Boost: joyY = 1.0 (pushing up)
 const joyYUp = 1.0;
 const boostTarget = simCruise + (topSpeed - simCruise) * joyYUp;
 check(
-  'Pushing up boosts target speed up to top speed (120 kts)',
+  'Pushing up boosts target speed up to top speed (150 kts)',
   boostTarget === topSpeed,
   `boostTarget: ${boostTarget}`
 );
@@ -304,8 +338,14 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
   );
 }
 
-// --- 7. HOP-TO-DRIFT & MINI-TURBO MECHANICS ---
+// --- 7. HOP-TO-DRIFT MECHANICS ---
 {
+  check(
+    'Hop upward velocity is increased to 9.6 units/s',
+    ChillFlightLogic.BUGGY_DRIFT.HOP_VELOCITY === 9.6,
+    `HOP_VELOCITY: ${ChillFlightLogic.BUGGY_DRIFT.HOP_VELOCITY}`
+  );
+
   const d = ChillFlightLogic.createBuggyDriftState();
 
   // 7a. Trigger hop while grounded and turning left (steerIn = 1)
@@ -347,20 +387,7 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     `tightYawRate=${tightYawRate?.toFixed(3)}, wideYawRate=${wideYawRate?.toFixed(3)}`
   );
 
-  // 7d. Charge to Level 1 (Blue Sparks) and Level 2 (Orange Sparks)
-  for (let i = 0; i < 40; i++) {
-    ChillFlightLogic.stepBuggyDrift(
-      d,
-      {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
-      0.016
-    );
-  }
-  check(
-    'Holding drift charges Level 1 Mini-Turbo (Blue Sparks) and angles chassis slipYaw inward',
-    d.driftLevel === 1 && d.slipYaw > 0.2,
-    `driftLevel=${d.driftLevel}, slipYaw=${d.slipYaw.toFixed(3)}`
-  );
-
+  // 7d. Sustained drift rotates chassis slip angle inward without charging boost or sparks
   for (let i = 0; i < 60; i++) {
     ChillFlightLogic.stepBuggyDrift(
       d,
@@ -369,28 +396,23 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     );
   }
   check(
-    'Continuing drift charges Level 2 Super Mini-Turbo (Orange Sparks)',
-    d.driftLevel === 2,
-    `driftLevel=${d.driftLevel}, driftCharge=${d.driftCharge.toFixed(2)}`
+    'Holding drift angles chassis slipYaw inward with pure drift (no boost timers or spark levels)',
+    d.driftDir === 1 && d.slipYaw > 0.2 && typeof d.driftLevel === 'undefined',
+    `driftDir=${d.driftDir}, slipYaw=${d.slipYaw.toFixed(3)}`
   );
 
-  // 7e. Release steering stick -> fires Super Mini-Turbo speed boost
-  let firedLevel = 0;
+  // 7e. Release steering stick -> smoothly ends drift back to straight grip driving
   for (let i = 0; i < 12; i++) {
     ChillFlightLogic.stepBuggyDrift(
       d,
       {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 0},
       0.016
     );
-    if (d.boostJustFired) firedLevel = d.boostJustFired;
   }
   check(
-    'Releasing steering after charged drift fires Mini-Turbo speed boost',
-    d.driftDir === 0 &&
-      firedLevel === 2 &&
-      d.boostTimer > 1.0 &&
-      d.boostSpeed === ChillFlightLogic.BUGGY_DRIFT.BOOST2_SPEED,
-    `firedLevel=${firedLevel}, boostTimer=${d.boostTimer.toFixed(2)}, boostSpeed=${d.boostSpeed}`
+    'Releasing steering ends drift smoothly with zero speed boost',
+    d.driftDir === 0 && typeof d.boostTimer === 'undefined',
+    `driftDir=${d.driftDir}`
   );
 
   // 7f. Single-tap hop (neutral in air) followed by steering right after landing (grace window)
@@ -418,7 +440,7 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     `driftDir=${dGrace.driftDir}`
   );
 
-  // 7g. Hard braking cancels drift without awarding boost
+  // 7g. Hard braking cancels drift cleanly
   ChillFlightLogic.stepBuggyDrift(
     dGrace,
     {
@@ -431,10 +453,7 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     },
     0.016
   );
-  check(
-    'Braking cancels active drift without firing boost',
-    dGrace.driftDir === 0 && dGrace.boostTimer === 0
-  );
+  check('Braking cancels active drift cleanly', dGrace.driftDir === 0);
 }
 
 if (failed) {
