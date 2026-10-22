@@ -167,29 +167,50 @@ check(
   `step before: ${stepBeforeToAt.toFixed(4)}, step after: ${stepAtToAfter.toFixed(4)}`
 );
 
-// --- 3. HIGHWAY STEERING AUTHORITY & PURE GRIP ARCADE CORNERING ---
+// --- 3. HIGHWAY STEERING AUTHORITY & SPEED-DEPENDENT TURN RADIUS ---
 const topKts = PLANE_HANDLING.buggy.topKts; // 150 kts
-const forwardFast = topKts;
 const wheelbase = 2.8;
-const maxCornering = 160;
-const minSteerHighSpeed = 0.18;
-const maxSteer = 0.55;
+const maxSteer = 0.5;
+const maxYawRate = 1.15;
+const maxCornering = 115;
 
-const cornerLimit = Math.atan(
-  (maxCornering * wheelbase) / Math.max(1, forwardFast * forwardFast)
-);
-const steerLimit = Math.max(minSteerHighSpeed, cornerLimit);
-const steerTarget = Math.min(maxSteer, steerLimit);
+function calcSteerLimit(forwardSpeed) {
+  const fwdSpeed = Math.max(0.1, Math.abs(forwardSpeed));
+  const tanLimit = Math.min(
+    Math.tan(maxSteer),
+    (wheelbase * maxYawRate) / Math.max(5.8, fwdSpeed),
+    (wheelbase * maxCornering) / (fwdSpeed * fwdSpeed)
+  );
+  return Math.atan(tanLimit);
+}
 
+// Low speed (5 kts): tight turning radius for parking and U-turns
+const steerLowSpeed = calcSteerLimit(5);
+const radiusLowSpeed = wheelbase / Math.tan(steerLowSpeed);
 check(
-  'High-speed cornering maintains responsive steering angle authority (>= 0.18 rad)',
-  steerTarget >= 0.18,
-  `steerTarget: ${steerTarget}`
+  'Low-speed parking maintains tight turning radius (<= 6 units)',
+  radiusLowSpeed <= 6.0 && steerLowSpeed === maxSteer,
+  `radiusLowSpeed: ${radiusLowSpeed.toFixed(1)}, steerLowSpeed: ${steerLowSpeed.toFixed(3)}`
+);
+
+// High speed (150 kts): turn radius expands smoothly with speed (~195 units)
+const steerHighSpeed = calcSteerLimit(topKts);
+const radiusHighSpeed = wheelbase / Math.tan(steerHighSpeed);
+const yawRateHighSpeed = (topKts * Math.tan(steerHighSpeed)) / wheelbase;
+check(
+  'High-speed turn radius expands smoothly to ~195 units to prevent sharp twitching',
+  radiusHighSpeed >= 180 && radiusHighSpeed <= 210,
+  `radiusHighSpeed: ${radiusHighSpeed.toFixed(1)}`
+);
+check(
+  'High-speed full-lock yaw rate is controlled (<= 50 deg/s)',
+  yawRateHighSpeed * (180 / Math.PI) <= 50,
+  `yawRateDegPerSec: ${(yawRateHighSpeed * (180 / Math.PI)).toFixed(1)}`
 );
 
 // Joystick sensitivity progressive curve for straight highway driving:
 // Small movements around center (mouseX = 0.10 - 0.15 on 0.5 max joystick throw)
-// yield subtle 1-6% steering for silky lane-keeping on straight roads,
+// yield subtle sub-2% steering for silky lane-keeping on straight roads,
 // while full thumb deflection (mouseX = 0.5) reaches 100% lock.
 function simAnalogSteerAxis(value, isJoystick = true) {
   const maxRange = isJoystick ? 0.5 : 1.0;
@@ -197,7 +218,7 @@ function simAnalogSteerAxis(value, isJoystick = true) {
   const absVal = Math.abs(value);
   if (absVal <= deadzone) return 0;
   const norm = Math.min(1, (absVal - deadzone) / (maxRange - deadzone));
-  const curved = Math.pow(norm, 1.8);
+  const curved = Math.pow(norm, 2.0);
   return Math.sign(value) * curved;
 }
 
@@ -206,13 +227,13 @@ const steerCenterMedium = simAnalogSteerAxis(0.25, true); // half deflection
 const steerFull = simAnalogSteerAxis(0.5, true); // full thumb throw
 
 check(
-  'Joystick steering curve gives gentle sub-5% lane control around center for straight roads',
-  steerCenterSmall > 0 && steerCenterSmall < 0.05,
+  'Joystick steering curve gives gentle sub-2% lane control around center for straight roads',
+  steerCenterSmall > 0 && steerCenterSmall < 0.02,
   `steerCenterSmall: ${steerCenterSmall.toFixed(4)}`
 );
 check(
-  'Joystick half deflection provides progressive ~22% intermediate steering',
-  steerCenterMedium > 0.18 && steerCenterMedium < 0.28,
+  'Joystick half deflection provides progressive ~18% intermediate steering',
+  steerCenterMedium > 0.15 && steerCenterMedium < 0.22,
   `steerCenterMedium: ${steerCenterMedium.toFixed(4)}`
 );
 check(

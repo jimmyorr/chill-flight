@@ -43,9 +43,9 @@ const WATER_DRAG = 0.04;
 // A little over twice real gravity: hops come back down briskly
 const GRAVITY = 40;
 // Responsive cornering authority so the buggy hugs highway curves even at high speed
-const MAX_CORNERING = 160;
-const MAX_STEER = 0.55;
-const MIN_STEER_HIGH_SPEED = 0.18;
+const MAX_STEER = 0.5;
+const MAX_YAW_RATE = 1.15;
+const MAX_CORNERING = 115;
 // How fast the front wheels turn toward the stick, and back to centre
 // (radians per second)
 const STEER_RATE = 2.8;
@@ -54,8 +54,6 @@ const STEER_RETURN_RATE = 5.0;
 const GRIP_ROAD = 25;
 const GRIP_GROUND = 18;
 const GRIP_WATER = 4;
-// How quickly the turn follows the steering (seconds)
-const YAW_EASE_SECONDS = 0.08;
 // Leaving the ground: roads hug hill contours; rough ground hops off crests
 const LAUNCH_SPEED_ROAD = 35;
 const LAUNCH_SPEED_GROUND = 10;
@@ -198,7 +196,7 @@ function analogSteerAxis(value) {
   const absVal = Math.abs(value);
   if (absVal <= deadzone) return 0;
   const norm = Math.min(1, (absVal - deadzone) / (maxRange - deadzone));
-  const curved = Math.pow(norm, 1.8);
+  const curved = Math.pow(norm, 2.0);
   return Math.sign(value) * curved;
 }
 
@@ -276,12 +274,17 @@ export function updateBuggy(delta) {
     bounceVel += ChillFlightLogic.BUGGY_DRIFT.HOP_SPRING_KICK;
   }
 
-  // Steering authority: responsive cornering on highway curves even at speed
-  const cornerLimit = Math.atan(
-    (MAX_CORNERING * BUGGY_WHEELBASE) / Math.max(1, forward * forward)
+  // Speed-dependent turning radius: at low speeds, wheels steer up to MAX_STEER for nimble parking.
+  // As speed increases, turn radius smoothly opens up so high-speed highway driving feels stable and
+  // small stick adjustments gently center the lane instead of violently jerking the vehicle.
+  const fwdSpeed = Math.max(0.1, Math.abs(forward));
+  const tanLimit = Math.min(
+    Math.tan(MAX_STEER),
+    (BUGGY_WHEELBASE * MAX_YAW_RATE) / Math.max(5.8, fwdSpeed),
+    (BUGGY_WHEELBASE * MAX_CORNERING) / (fwdSpeed * fwdSpeed)
   );
-  const steerLimit = Math.max(MIN_STEER_HIGH_SPEED, cornerLimit);
-  const steerTarget = steerIn * Math.min(MAX_STEER, steerLimit);
+  const steerLimit = Math.atan(tanLimit);
+  const steerTarget = steerIn * steerLimit;
   const returning =
     steerTarget === 0 || Math.sign(steerTarget) !== Math.sign(steer);
   steer = approach(
@@ -375,7 +378,9 @@ export function updateBuggy(delta) {
       driftYawRate !== null
         ? driftYawRate
         : (forward * Math.tan(steer)) / BUGGY_WHEELBASE;
-    yawRate += (wantYawRate - yawRate) * (1 - Math.exp(-dt / YAW_EASE_SECONDS));
+    const speedRatio = Math.min(1, Math.abs(forward) / TOP_SPEED);
+    const yawEase = 0.08 + 0.06 * speedRatio;
+    yawRate += (wantYawRate - yawRate) * (1 - Math.exp(-dt / yawEase));
   } else if (driftState.hopping && Math.abs(steerIn) > 0.1) {
     // Mid-hop pre-rotation toward the turn
     const hopTurn = steerIn * ChillFlightLogic.BUGGY_DRIFT.BASE_YAW_RATE * 0.85;
@@ -559,8 +564,9 @@ export function updateBuggy(delta) {
     for (const wheel of model.wheels) wheel.rotation.x -= roll;
   }
   if (model.steerPivots) {
+    const speedRatio = Math.min(1, Math.abs(forward) / TOP_SPEED);
     const wheelSteer = THREE.MathUtils.clamp(
-      steer - driftState.slipYaw * 0.6,
+      steer + steerIn * 0.12 * speedRatio - driftState.slipYaw * 0.6,
       -MAX_STEER,
       MAX_STEER
     );
