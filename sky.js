@@ -335,27 +335,23 @@ function showWebGLErrorNotice() {
   container.appendChild(errorEl);
 }
 
-function isWebGL2Available() {
-  try {
-    const canvas = document.createElement('canvas');
-    return !!(window.WebGL2RenderingContext && canvas.getContext('webgl2'));
-  } catch {
-    return false;
-  }
-}
-
 function initRenderer() {
-  if (!isWebGL2Available()) {
-    log.warn('WebGL 2 is not available on this device or browser.');
-    return null;
-  }
   let r = null;
+  const opts = {
+    antialias: !_isLowQuality,
+    alpha: false,
+    powerPreference: 'high-performance',
+  };
   try {
-    r = new THREE.WebGLRenderer({antialias: !_isLowQuality});
+    r = new THREE.WebGLRenderer(opts);
   } catch (err) {
     if (!_isLowQuality) {
       try {
-        r = new THREE.WebGLRenderer({antialias: false});
+        r = new THREE.WebGLRenderer({
+          antialias: false,
+          alpha: false,
+          powerPreference: 'high-performance',
+        });
       } catch {
         // Fallback also failed
       }
@@ -386,6 +382,10 @@ if (renderer) {
       renderer.xr.setReferenceSpaceType('local');
     }
   }
+  renderer.domElement.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    log.warn('WebGL context lost');
+  });
   document.body.appendChild(renderer.domElement);
 } else {
   if (document.readyState === 'loading') {

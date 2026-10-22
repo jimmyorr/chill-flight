@@ -208,20 +208,23 @@ export function updatePlaneShadow() {
   const prevXr = renderer.xr.enabled;
   renderer.getClearColor(_clear);
   const prevAlpha = renderer.getClearAlpha();
-  scene.background = null;
-  scene.overrideMaterial = coverMaterial;
-  renderer.shadowMap.enabled = false;
-  renderer.xr.enabled = false;
-  renderer.setRenderTarget(target);
-  renderer.setClearColor(0x000000, 0);
-  renderer.clear();
-  renderer.render(scene, shadowCam);
-  renderer.setRenderTarget(prevTarget);
-  renderer.setClearColor(_clear, prevAlpha);
-  renderer.xr.enabled = prevXr;
-  renderer.shadowMap.enabled = prevShadows;
-  scene.overrideMaterial = prevOverride;
-  scene.background = prevBackground;
+  try {
+    scene.background = null;
+    scene.overrideMaterial = coverMaterial;
+    renderer.shadowMap.enabled = false;
+    renderer.xr.enabled = false;
+    renderer.setRenderTarget(target);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear();
+    renderer.render(scene, shadowCam);
+  } finally {
+    renderer.setRenderTarget(prevTarget);
+    renderer.setClearColor(_clear, prevAlpha);
+    renderer.xr.enabled = prevXr;
+    renderer.shadowMap.enabled = prevShadows;
+    scene.overrideMaterial = prevOverride;
+    scene.background = prevBackground;
+  }
 
   const u = decalMaterial.uniforms;
   u.shadowMatrix.value.multiplyMatrices(

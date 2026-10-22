@@ -33,6 +33,7 @@ body {
 body > canvas {
   display: block;
   position: fixed;
+  background-color: #000;
   /* Pin to all four edges to force full-bleed on iOS PWA */
   top: 0;
   left: 0;
