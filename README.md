@@ -26,7 +26,7 @@ Have a chill flight.
 
 <!-- Max 100 characters -->
 
-flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient
+flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient,casual,cozy,zen,plane,flying
 
 ## Music
 
