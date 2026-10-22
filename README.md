@@ -14,7 +14,7 @@ Chill Flight
 
 <!-- Max 4,000 characters -->
 
-A minimalist flight simulator set in a vast, ever-changing world.
+A casual flight simulator set in a vast, ever-changing world.
 
 Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey.
 
