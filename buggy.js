@@ -4,17 +4,16 @@
 // pulls hard and tails off toward top speed, the steering is responsive on
 // highway curves and tightens at speed, tyres grip firmly with zero sliding
 // out, and suspension is critically damped for a smooth, stable ride over
-// rolling hills. It drives on the ground as drawn (sampleGround), the highway
-// deck and bridges (sampleRoad with 3D elevation awareness), and floats
-// slowly across water.
+// rolling hills. Driving up inclines or over crests at high speed reliably
+// catches air in a natural ballistic flight. It drives on the ground as drawn
+// (sampleGround), the highway deck and bridges (sampleRoad with 3D elevation awareness),
+// and floats slowly across water.
 //
 // Controls: one-handed joystick control. The throttle slider sets target cruise
 // speed. The virtual joystick steers left/right. Pushing up temporarily boosts
 // up to top speed. Pulling down smoothly brakes to a stop, and continuing to
 // hold down shifts into reverse. Releasing the stick smoothly resumes cruising
-// forward at the set speed. Tapping the screen (or double-tap-and-dragging,
-// tapping with a second finger, or pressing Spacebar) triggers a hop;
-// landing from a hop while turning locks into a controlled drift.
+// forward at the set speed.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
@@ -23,7 +22,7 @@ import {planeGroup} from './airplane.js';
 import {BUGGY_WHEEL_RADIUS, BUGGY_WHEELBASE} from './buggy-model.js';
 import {BASE_FLIGHT_SPEED, PLANE_HANDLING, WATER_LEVEL} from './constants.js';
 import {state} from './state.js';
-import {inputManager, keys} from './game-input-bindings.js';
+import {keys} from './game-input-bindings.js';
 import {setOnWheels} from './flight-physics.js';
 
 // Speeds in units per second, which read as knots; accelerations in units
@@ -31,14 +30,13 @@ import {setOnWheels} from './flight-physics.js';
 const KTS_PER_MULT = BASE_FLIGHT_SPEED * 60;
 const TOP_SPEED = PLANE_HANDLING.buggy.topKts;
 const WATER_TOP = 12;
-// The engine, brakes and steering limits live in ChillFlightLogic
-// (BUGGY_DRIVE, buggyDriveAccel, buggySteerLimit) so Node tests can run them
+// The engine, brakes, steering limits and vertical air physics live in
+// ChillFlightLogic (BUGGY_DRIVE, BUGGY_AIR, buggyDriveAccel, buggySteerLimit, stepBuggyVertical)
 const {MAX_STEER, ROLL_DRAG} = ChillFlightLogic.BUGGY_DRIVE;
+const {GRAVITY} = ChillFlightLogic.BUGGY_AIR;
 // Drag growing with the square of the speed
 const AIR_DRAG = 0.0007;
 const WATER_DRAG = 0.04;
-// A little over twice real gravity: hops come back down briskly
-const GRAVITY = 40;
 // How fast the front wheels turn toward the stick, and back to centre
 // (radians per second)
 const STEER_RATE = 2.8;
@@ -47,14 +45,6 @@ const STEER_RETURN_RATE = 5.0;
 const GRIP_ROAD = 25;
 const GRIP_GROUND = 18;
 const GRIP_WATER = 4;
-// Leaving the ground: roads hug hill contours; rough ground hops off crests
-const LAUNCH_SPEED_ROAD = 35;
-const LAUNCH_SPEED_GROUND = 10;
-// How the height the springs follow eases toward the ground under the wheels
-const RIDE_RISE_SECONDS = 0.06;
-const RIDE_FALL_SECONDS = 0.5;
-// and leaves it at no more than this speed upward
-const MAX_LAUNCH_SPEED = 25;
 // Ground steeper than this (rise per unit) is a wall it bumps against
 const WALL_SLOPE = Math.tan((50 * Math.PI) / 180);
 // It stays parked on slopes gentler than this pull (units/s²)
@@ -97,8 +87,6 @@ let yaw = 0;
 let yawRate = 0;
 let steer = 0;
 let airborne = false;
-// The eased ground height the springs follow, or null while airborne
-let ride = null;
 // The body on its springs, and the chassis's tilt
 let bounce = 0;
 let bounceVel = 0;
@@ -106,7 +94,6 @@ let squat = 0;
 let lean = 0;
 let tiltPitch = 0;
 let tiltRoll = 0;
-const driftState = ChillFlightLogic.createBuggyDriftState();
 
 // Fills _surface with what the wheels would rest on at (x, z), for a buggy
 // at height y: the highway deck (with 3D elevation awareness for junctions/overpasses)
@@ -156,8 +143,6 @@ function enter() {
   airborne = false;
   bounce = 0;
   bounceVel = 0;
-  Object.assign(driftState, ChillFlightLogic.createBuggyDriftState());
-  inputManager.consumeHop();
   const pos = planeGroup.position;
   pos.y = sampleSurface(pos.x, pos.z, Infinity).height;
   pos.y = sampleSurface(pos.x, pos.z, pos.y).height;
@@ -219,9 +204,6 @@ export function updateBuggy(delta) {
   if ((keys.ArrowUp || keys.KeyW) && !shift) joyY = 1;
   else if ((keys.ArrowDown || keys.KeyS) && !shift) joyY = -1;
 
-  const hop = inputManager.consumeHop();
-  const spaceHeld = !!keys.Space;
-
   // --- FORCES ---
   const fx = -Math.sin(yaw);
   const fz = -Math.cos(yaw);
@@ -234,21 +216,6 @@ export function updateBuggy(delta) {
   const ground = sampleSurface(pos.x, pos.z, pos.y);
   const onWater = ground.kind === 'water';
   const top = onWater ? WATER_TOP : TOP_SPEED;
-
-  // Hop-to-drift state machine
-  const {driftYawRate} = ChillFlightLogic.stepBuggyDrift(
-    driftState,
-    {hop, airborne, onWater, forward, steerIn, joyY, spaceHeld},
-    dt
-  );
-  if (driftState.hopJustStarted) {
-    const groundVelY = velX * ground.slopeX + velZ * ground.slopeZ;
-    airborne = true;
-    ride = null;
-    velY = groundVelY + ChillFlightLogic.BUGGY_DRIFT.HOP_VELOCITY;
-    pos.y = Math.max(pos.y, ground.height) + 0.15;
-    bounceVel += ChillFlightLogic.BUGGY_DRIFT.HOP_SPRING_KICK;
-  }
 
   // Speed-dependent turning radius: at low speeds, wheels steer up to MAX_STEER for nimble parking.
   // As speed increases, turn radius smoothly opens up so high-speed highway driving feels stable and
@@ -310,18 +277,11 @@ export function updateBuggy(delta) {
       ground.kind === 'road' ? GRIP_ROAD : onWater ? GRIP_WATER : GRIP_GROUND;
     side *= Math.exp(-grip * dt);
 
-    // Turning: follows drift arc when drifting, or front wheel angle normally
-    const wantYawRate =
-      driftYawRate !== null
-        ? driftYawRate
-        : (forward * Math.tan(steer)) / BUGGY_WHEELBASE;
+    // Turning: follows front wheel angle
+    const wantYawRate = (forward * Math.tan(steer)) / BUGGY_WHEELBASE;
     const speedRatio = Math.min(1, Math.abs(forward) / TOP_SPEED);
     const yawEase = 0.08 + 0.06 * speedRatio;
     yawRate += (wantYawRate - yawRate) * (1 - Math.exp(-dt / yawEase));
-  } else if (driftState.hopping && Math.abs(steerIn) > 0.1) {
-    // Mid-hop pre-rotation toward the turn
-    const hopTurn = steerIn * ChillFlightLogic.BUGGY_DRIFT.BASE_YAW_RATE * 0.85;
-    yawRate += (hopTurn - yawRate) * (1 - Math.exp(-dt / 0.08));
   } else {
     // In the air: spin carries on and slowly dies away
     yawRate *= Math.exp(-dt * 1.5);
@@ -406,50 +366,25 @@ export function updateBuggy(delta) {
       pos.y = surface.height;
     }
     velY = 0;
-    ride = pos.y;
-  } else if (!airborne) {
-    if (ride === null) ride = pos.y;
-    const prevRide = ride;
-    // On paved roads, follow the smoothed road deck closely so crests don't launch
-    const seconds =
-      surface.kind === 'road'
-        ? 0.04
-        : surface.height > ride
-          ? RIDE_RISE_SECONDS
-          : RIDE_FALL_SECONDS;
-    ride += (surface.height - ride) * (1 - Math.exp(-dt / seconds));
-    const rideVelY = (ride - prevRide) / dt;
-    const launchLimit =
-      surface.kind === 'road' ? LAUNCH_SPEED_ROAD : LAUNCH_SPEED_GROUND;
-
-    if (velY - rideVelY > launchLimit && !onWater) {
-      airborne = true;
-      ride = null;
-      velY = Math.min(velY, MAX_LAUNCH_SPEED) - GRAVITY * dt;
-      pos.y += velY * dt;
-    } else {
-      // Critically damped suspension absorbs road contours without jarring kicks
-      if (surface.kind !== 'road') {
-        kick((rideVelY - velY) * 0.02);
-      }
-      velY = THREE.MathUtils.clamp(rideVelY, -200, 200);
-      pos.y = ride;
-    }
   } else {
-    velY = Math.max(-400, velY - GRAVITY * dt);
-    pos.y += velY * dt;
-    if (pos.y <= surface.height) {
-      // Touchdown: critically damped suspension settles quickly
-      const groundVelY = velX * surface.slopeX + velZ * surface.slopeZ;
-      const impact = Math.max(0, groundVelY - velY);
-      if (impact > 2) kick(impact * 0.04);
-      const scrub = 1 - Math.min(0.15, impact * 0.002);
+    const groundVelY = velX * surface.slopeX + velZ * surface.slopeZ;
+    const res = ChillFlightLogic.stepBuggyVertical({
+      y: pos.y,
+      velY,
+      airborne,
+      surfaceHeight: surface.height,
+      groundVelY,
+      onWater,
+      dt,
+    });
+    pos.y = res.y;
+    velY = res.velY;
+    airborne = res.airborne;
+    if (res.impact > 2) kick(res.impact * 0.04);
+    if (res.impact > 0) {
+      const scrub = 1 - Math.min(0.15, res.impact * 0.002);
       velX *= scrub;
       velZ *= scrub;
-      velY = groundVelY;
-      pos.y = surface.height;
-      ride = null;
-      airborne = false;
     }
   }
   _lastPos.copy(pos);
@@ -457,7 +392,7 @@ export function updateBuggy(delta) {
   // --- LOOKS ---
   planeGroup.rotation.set(0, yaw, 0);
   const s = surface;
-  const visualYaw = yaw + driftState.slipYaw;
+  const visualYaw = yaw;
   if (!airborne) {
     const pitch = Math.atan(
       -Math.sin(visualYaw) * s.slopeX - Math.cos(visualYaw) * s.slopeZ
@@ -475,7 +410,7 @@ export function updateBuggy(delta) {
     tiltRoll += (0 - tiltRoll) * ease;
   }
   model.rotation.order = 'YXZ';
-  model.rotation.set(tiltPitch, driftState.slipYaw, tiltRoll);
+  model.rotation.set(tiltPitch, 0, tiltRoll);
   model.position.y = 0;
 
   // The body on its critically damped springs
@@ -499,12 +434,7 @@ export function updateBuggy(delta) {
     for (const wheel of model.wheels) wheel.rotation.x -= roll;
   }
   if (model.steerPivots) {
-    const speedRatio = Math.min(1, Math.abs(forward) / TOP_SPEED);
-    const wheelSteer = THREE.MathUtils.clamp(
-      steer + steerIn * 0.12 * speedRatio - driftState.slipYaw * 0.6,
-      -MAX_STEER,
-      MAX_STEER
-    );
+    const wheelSteer = THREE.MathUtils.clamp(steer, -MAX_STEER, MAX_STEER);
     for (const pivot of model.steerPivots) pivot.rotation.y = wheelSteer;
   }
 
@@ -524,6 +454,7 @@ export function updateBuggy(delta) {
   state.isSteepPitch = false;
   state.sharpTurnAmount = 0;
   state.buggySlide =
-    !airborne && !onWater && driftState.driftDir !== 0 ? 0.8 : 0;
-  state.buggySlipYaw = driftState.slipYaw;
+    !airborne && !onWater && joyY < -0.2 && forward > 15
+      ? Math.min(1, -joyY)
+      : 0;
 }

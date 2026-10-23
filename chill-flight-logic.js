@@ -4668,175 +4668,89 @@ export const ChillFlightLogic = {};
   exports.WEATHER = WEATHER;
   exports.weatherAt = weatherAt;
 
-  // --- BUGGY HOP & DRIFT ---
-  const BUGGY_DRIFT = {
-    HOP_VELOCITY: 9.6, // upward impulse on hop (units/s) -> ~0.48s airtime at GRAVITY=40
-    HOP_SPRING_KICK: 4.2, // visual suspension pop when hopping
-    HOP_LAND_GRACE: 0.25, // seconds after landing from a hop where starting a turn still locks a drift
-    MIN_SPEED: 25, // minimum forward speed (kts) to initiate/sustain a drift
-    STEER_THRESHOLD: 0.2, // minimum |steerIn| to lock a drift direction
-    RELEASE_DELAY: 0.12, // seconds of neutral/hard-opposite stick before releasing drift
-    BASE_YAW_RATE: 1.05, // rad/s base turn rate in a drift
-    TIGHT_FACTOR: 1.38, // turn multiplier when steering fully into the drift
-    WIDE_FACTOR: 0.32, // turn multiplier when counter-steering away from the drift
-    NEUTRAL_FACTOR: 0.78, // turn multiplier when stick is near neutral
-    SLIP_ANGLE: 0.34, // visual inward chassis yaw offset (~19.5 deg) during drift
+  // --- BUGGY VERTICAL PHYSICS & INCLINE LAUNCH ---
+  // A buggy climbing an incline at speed develops upward momentum
+  // (velX * slopeX + velZ * slopeZ). When the terrain levels out, crests,
+  // or drops off, this upward momentum carries the buggy off the ground
+  // into a natural ballistic flight.
+  const BUGGY_AIR = {
+    GRAVITY: 40,
+    // Minimum upward velocity (units/s) needed to launch off a crest
+    MIN_LAUNCH_VEL: 6.0,
+    // Suspension droop / clearance (units) before wheels separate from ground
+    SUSPENSION_DROOP: 0.25,
+    // Instant drop-off threshold (units) for driving off a cliff or ledge
+    LEDGE_DROP: 1.2,
   };
 
-  function createBuggyDriftState() {
-    return {
-      hopping: false,
-      hopSteerDir: 0,
-      hopLandTimer: 0,
-      driftDir: 0,
-      driftReleaseTimer: 0,
-      spaceLatched: false,
-      slipYaw: 0,
-      hopJustStarted: false,
-    };
-  }
-
-  function stepBuggyDrift(d, input, dt) {
-    const {
-      hop = false,
-      airborne = false,
-      onWater = false,
-      forward = 0,
-      steerIn = 0,
-      joyY = 0,
-      spaceHeld = false,
-    } = input;
-
-    d.hopJustStarted = false;
-
-    const endDrift = () => {
-      d.driftDir = 0;
-      d.driftReleaseTimer = 0;
-      d.spaceLatched = false;
-    };
-
-    // 1. Hop trigger when grounded
-    if (hop && !airborne && !onWater) {
-      if (d.driftDir !== 0) {
-        endDrift();
-      }
-      d.hopping = true;
-      d.hopJustStarted = true;
-      d.hopLandTimer = 0;
-      d.hopSteerDir =
-        Math.abs(steerIn) >= BUGGY_DRIFT.STEER_THRESHOLD
-          ? Math.sign(steerIn)
-          : 0;
+  /**
+   * Updates buggy vertical position, vertical velocity and airborne state.
+   *
+   * @param {Object} p
+   * @param {number} p.y - Current vertical position
+   * @param {number} p.velY - Current vertical velocity
+   * @param {boolean} p.airborne - Whether currently in the air
+   * @param {number} p.surfaceHeight - Ground / road elevation under vehicle
+   * @param {number} p.groundVelY - Vertical rate of terrain change (velX * slopeX + velZ * slopeZ)
+   * @param {boolean} p.onWater - Whether vehicle is on water
+   * @param {number} p.dt - Timestep in seconds
+   * @returns {{y: number, velY: number, airborne: boolean, impact: number}}
+   */
+  function stepBuggyVertical({
+    y,
+    velY,
+    airborne,
+    surfaceHeight,
+    groundVelY,
+    onWater,
+    dt,
+  }) {
+    let impact = 0;
+    if (onWater) {
+      return {y: surfaceHeight, velY: 0, airborne: false, impact: 0};
     }
 
-    const isAirborne = airborne || d.hopJustStarted;
-
-    // 2. Buffer steering during hop & lock drift on landing
-    if (isAirborne) {
-      if (d.hopping && Math.abs(steerIn) >= BUGGY_DRIFT.STEER_THRESHOLD) {
-        d.hopSteerDir = Math.sign(steerIn);
+    if (!airborne) {
+      // While wheels are in contact with the ground:
+      // Terrain pushes upward when climbing
+      if (groundVelY > velY) {
+        velY = groundVelY;
+      } else {
+        // Cresting or slope flattening: gravity pulls downward
+        velY -= BUGGY_AIR.GRAVITY * dt;
       }
-    } else if (d.hopping) {
-      d.hopping = false;
-      if (!onWater && forward >= BUGGY_DRIFT.MIN_SPEED) {
-        const dir =
-          Math.abs(steerIn) >= BUGGY_DRIFT.STEER_THRESHOLD
-            ? Math.sign(steerIn)
-            : d.hopSteerDir;
-        if (dir !== 0) {
-          d.driftDir = dir;
-          d.driftReleaseTimer = 0;
-          d.hopLandTimer = 0;
-          d.spaceLatched = !!spaceHeld;
-        } else {
-          d.hopLandTimer = BUGGY_DRIFT.HOP_LAND_GRACE;
-        }
-      }
-      d.hopSteerDir = 0;
-    }
 
-    // 3. Post-hop landing grace window (for tap-hop followed immediately by drag-steer)
-    if (!isAirborne && d.driftDir === 0 && d.hopLandTimer > 0) {
-      d.hopLandTimer = Math.max(0, d.hopLandTimer - dt);
+      const candidateY = y + velY * dt;
+      // Launch off crest when ballistic trajectory carries wheels above ground,
+      // or when driving off a sudden cliff / drop-off
       if (
-        !onWater &&
-        forward >= BUGGY_DRIFT.MIN_SPEED &&
-        Math.abs(steerIn) >= BUGGY_DRIFT.STEER_THRESHOLD
+        (candidateY > surfaceHeight + BUGGY_AIR.SUSPENSION_DROOP &&
+          velY > BUGGY_AIR.MIN_LAUNCH_VEL) ||
+        y > surfaceHeight + BUGGY_AIR.LEDGE_DROP
       ) {
-        d.driftDir = Math.sign(steerIn);
-        d.driftReleaseTimer = 0;
-        d.hopLandTimer = 0;
-        d.spaceLatched = !!spaceHeld;
+        airborne = true;
+        y = candidateY;
+      } else {
+        y = surfaceHeight;
+        velY = groundVelY;
+      }
+    } else {
+      // Free ballistic trajectory under gravity
+      velY = Math.max(-400, velY - BUGGY_AIR.GRAVITY * dt);
+      y += velY * dt;
+      if (y <= surfaceHeight) {
+        airborne = false;
+        impact = Math.max(0, groundVelY - velY);
+        y = surfaceHeight;
+        velY = groundVelY;
       }
     }
 
-    // 4. Active drift update: turn rate and counter-steering
-    let driftYawRate = null;
-    if (d.driftDir !== 0) {
-      if (onWater || forward < BUGGY_DRIFT.MIN_SPEED * 0.75 || joyY < -0.25) {
-        endDrift();
-      } else if (!isAirborne) {
-        if (spaceHeld) d.spaceLatched = true;
-        const intoTurn = steerIn * d.driftDir;
-
-        // If player latched Spacebar and releases it while steering is neutral, end drift;
-        // if still holding the turn key/stick, keep drifting.
-        if (d.spaceLatched && !spaceHeld) {
-          if (Math.abs(steerIn) < 0.15) {
-            endDrift();
-          } else {
-            d.spaceLatched = false;
-          }
-        }
-
-        if (d.driftDir !== 0) {
-          const stickReleased =
-            !spaceHeld && (Math.abs(steerIn) < 0.15 || intoTurn < -0.65);
-          if (stickReleased) {
-            d.driftReleaseTimer += dt;
-            if (d.driftReleaseTimer >= BUGGY_DRIFT.RELEASE_DELAY) {
-              endDrift();
-            }
-          } else {
-            d.driftReleaseTimer = 0;
-          }
-        }
-
-        if (d.driftDir !== 0) {
-          let turnFactor;
-          if (intoTurn >= 0) {
-            turnFactor =
-              BUGGY_DRIFT.NEUTRAL_FACTOR +
-              (BUGGY_DRIFT.TIGHT_FACTOR - BUGGY_DRIFT.NEUTRAL_FACTOR) *
-                Math.min(1, intoTurn);
-          } else {
-            const counter = Math.min(1, -intoTurn / 0.65);
-            turnFactor =
-              BUGGY_DRIFT.NEUTRAL_FACTOR +
-              (BUGGY_DRIFT.WIDE_FACTOR - BUGGY_DRIFT.NEUTRAL_FACTOR) * counter;
-          }
-          const speedScale = Math.max(0.5, Math.min(1.25, forward / 65));
-          driftYawRate =
-            d.driftDir * BUGGY_DRIFT.BASE_YAW_RATE * turnFactor * speedScale;
-        }
-      }
-    }
-
-    // 5. Visual chassis slip angle
-    const intoTurn = steerIn * d.driftDir;
-    const targetSlip =
-      d.driftDir !== 0
-        ? d.driftDir * BUGGY_DRIFT.SLIP_ANGLE * (0.85 + 0.25 * intoTurn)
-        : 0;
-    d.slipYaw += (targetSlip - d.slipYaw) * (1 - Math.exp(-dt / 0.09));
-    if (Math.abs(d.slipYaw) < 1e-4 && targetSlip === 0) d.slipYaw = 0;
-
-    return {driftYawRate};
+    return {y, velY, airborne, impact};
   }
 
-  exports.BUGGY_DRIFT = BUGGY_DRIFT;
-  exports.createBuggyDriftState = createBuggyDriftState;
-  exports.stepBuggyDrift = stepBuggyDrift;
+  exports.BUGGY_AIR = BUGGY_AIR;
+  exports.stepBuggyVertical = stepBuggyVertical;
 
   // --- BUGGY STEERING & DRIVING ---
   // Speeds in units per second, which read as knots; accelerations in units

@@ -9,7 +9,7 @@
  * 3. Speed-dependent steering limit and stick curves
  * 4. One-handed cruise speed, boost, braking and reverse
  * 5. The ?buggy= switch
- * 6. Hop-to-drift
+ * 6. Incline vertical momentum and catching air
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PLANE_HANDLING} from '../constants.js';
@@ -314,122 +314,113 @@ check(
   ChillFlightLogic.parseSwitch(null) === null
 );
 
-// --- 6. HOP-TO-DRIFT MECHANICS ---
+// --- 6. INCLINE VERTICAL MOMENTUM & CATCHING AIR ---
 {
-  check(
-    'Hop upward velocity is increased to 9.6 units/s',
-    ChillFlightLogic.BUGGY_DRIFT.HOP_VELOCITY === 9.6,
-    `HOP_VELOCITY: ${ChillFlightLogic.BUGGY_DRIFT.HOP_VELOCITY}`
-  );
+  const {GRAVITY, MIN_LAUNCH_VEL, SUSPENSION_DROOP, LEDGE_DROP} =
+    ChillFlightLogic.BUGGY_AIR;
+  check('Gravity is 40 units/s²', GRAVITY === 40);
+  check('Minimum launch velocity is 6.0 units/s', MIN_LAUNCH_VEL === 6.0);
+  check('Suspension droop clearance is 0.25 units', SUSPENSION_DROOP === 0.25);
+  check('Cliff ledge drop threshold is 1.2 units', LEDGE_DROP === 1.2);
 
-  const d = ChillFlightLogic.createBuggyDriftState();
-
-  // 6a. Trigger hop while grounded and turning left (steerIn = 1)
-  ChillFlightLogic.stepBuggyDrift(
-    d,
-    {hop: true, airborne: false, onWater: false, forward: 75, steerIn: 1},
-    0.016
-  );
-  check(
-    'Hop on ground triggers hopJustStarted and hopping state',
-    d.hopJustStarted === true && d.hopping === true && d.hopSteerDir === 1
-  );
-
-  // 6b. Land from hop while steering left -> locks into left drift (driftDir = 1)
-  ChillFlightLogic.stepBuggyDrift(
-    d,
-    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
-    0.016
-  );
-  check(
-    'Landing from hop while steering locks into drift in that direction',
-    d.hopping === false && d.driftDir === 1
-  );
-
-  // 6c. Tightening vs counter-steering turn rates in a drift
-  const {driftYawRate: tightYawRate} = ChillFlightLogic.stepBuggyDrift(
-    d,
-    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
-    0.016
-  );
-  const {driftYawRate: wideYawRate} = ChillFlightLogic.stepBuggyDrift(
-    d,
-    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: -0.5},
-    0.016
-  );
-  check(
-    'Steering into drift tightens turn rate; counter-steering widens arc without cancelling drift',
-    d.driftDir === 1 && tightYawRate > wideYawRate && wideYawRate > 0,
-    `tightYawRate=${tightYawRate?.toFixed(3)}, wideYawRate=${wideYawRate?.toFixed(3)}`
-  );
-
-  // 6d. Sustained drift rotates chassis slip angle inward
-  for (let i = 0; i < 60; i++) {
-    ChillFlightLogic.stepBuggyDrift(
-      d,
-      {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
-      0.016
-    );
-  }
-  check(
-    'Holding drift angles chassis slipYaw inward',
-    d.driftDir === 1 && d.slipYaw > 0.2,
-    `driftDir=${d.driftDir}, slipYaw=${d.slipYaw.toFixed(3)}`
-  );
-
-  // 6e. Release steering stick -> smoothly ends drift back to straight grip driving
-  for (let i = 0; i < 12; i++) {
-    ChillFlightLogic.stepBuggyDrift(
-      d,
-      {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 0},
-      0.016
-    );
-  }
-  check(
-    'Releasing steering ends drift smoothly',
-    d.driftDir === 0,
-    `driftDir=${d.driftDir}`
-  );
-
-  // 6f. Single-tap hop (neutral in air) followed by steering right after landing (grace window)
-  const dGrace = ChillFlightLogic.createBuggyDriftState();
-  ChillFlightLogic.stepBuggyDrift(
-    dGrace,
-    {hop: true, airborne: false, onWater: false, forward: 75, steerIn: 0},
-    0.016
-  );
-  // Land with steerIn = 0
-  ChillFlightLogic.stepBuggyDrift(
-    dGrace,
-    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 0},
-    0.016
-  );
-  // Steer right 80ms after landing (within 250ms grace window)
-  ChillFlightLogic.stepBuggyDrift(
-    dGrace,
-    {hop: false, airborne: false, onWater: false, forward: 75, steerIn: -1},
-    0.08
-  );
-  check(
-    'Tapping to hop and dragging to steer shortly after landing still locks into drift',
-    dGrace.driftDir === -1,
-    `driftDir=${dGrace.driftDir}`
-  );
-
-  // 6g. Hard braking cancels drift cleanly
-  ChillFlightLogic.stepBuggyDrift(
-    dGrace,
-    {
-      hop: false,
-      airborne: false,
+  // 6a. Cruising on flat ground stays planted (never launches)
+  let flat = {y: 0, velY: 0, airborne: false};
+  let launchedOnFlat = false;
+  for (let t = 0; t < 2; t += 0.016) {
+    flat = ChillFlightLogic.stepBuggyVertical({
+      ...flat,
+      surfaceHeight: 0,
+      groundVelY: 0,
       onWater: false,
-      forward: 75,
-      steerIn: -1,
-      joyY: -1,
-    },
-    0.016
+      dt: 0.016,
+    });
+    if (flat.airborne) launchedOnFlat = true;
+  }
+  check('Cruising on flat ground does not launch', !launchedOnFlat);
+
+  // 6b. Driving high speed up an incline reliably catches air over the crest
+  // 150 kts up a 0.25 slope -> groundVelY = 37.5 units/s upward
+  let incline = {y: 0, velY: 0, airborne: false};
+  let launchedOverCrest = false;
+  let maxAirHeight = 0;
+  let airTime = 0;
+  let height = 0;
+  for (let t = 0; t < 3; t += 0.016) {
+    const climbing = t < 1.0;
+    const gVelY = climbing ? 37.5 : 0;
+    height += gVelY * 0.016;
+    incline = ChillFlightLogic.stepBuggyVertical({
+      ...incline,
+      surfaceHeight: height,
+      groundVelY: gVelY,
+      onWater: false,
+      dt: 0.016,
+    });
+    if (incline.airborne) {
+      launchedOverCrest = true;
+      airTime += 0.016;
+      const air = incline.y - height;
+      if (air > maxAirHeight) maxAirHeight = air;
+    }
+  }
+  check(
+    'High-speed incline crest reliably catches air',
+    launchedOverCrest && airTime >= 1.5 && maxAirHeight >= 12,
+    `airTime=${airTime.toFixed(2)}s, maxAir=${maxAirHeight.toFixed(1)} units`
   );
-  check('Braking cancels active drift cleanly', dGrace.driftDir === 0);
+
+  // 6c. Low speed up a gentle slope does not catch air (stays grounded)
+  let gentle = {y: 0, velY: 0, airborne: false};
+  let launchedGentle = false;
+  let gHeight = 0;
+  for (let t = 0; t < 2; t += 0.016) {
+    const climbing = t < 1.0;
+    const gVelY = climbing ? 2.5 : 0;
+    gHeight += gVelY * 0.016;
+    gentle = ChillFlightLogic.stepBuggyVertical({
+      ...gentle,
+      surfaceHeight: gHeight,
+      groundVelY: gVelY,
+      onWater: false,
+      dt: 0.016,
+    });
+    if (gentle.airborne) launchedGentle = true;
+  }
+  check(
+    'Low speed on gentle slope hugs ground without launching',
+    !launchedGentle
+  );
+
+  // 6d. Driving off a cliff/ledge reliably launches into free-fall
+  let cliff = {y: 50, velY: 0, airborne: false};
+  let launchedCliff = false;
+  for (let t = 0; t < 1; t += 0.016) {
+    const h = t < 0.2 ? 50 : 20;
+    cliff = ChillFlightLogic.stepBuggyVertical({
+      ...cliff,
+      surfaceHeight: h,
+      groundVelY: 0,
+      onWater: false,
+      dt: 0.016,
+    });
+    if (cliff.airborne) launchedCliff = true;
+  }
+  check('Driving off a cliff or ledge reliably launches', launchedCliff);
+
+  // 6e. On water, buggy floats and never launches
+  let water = {y: 0, velY: 0, airborne: false};
+  let launchedWater = false;
+  for (let t = 0; t < 1; t += 0.016) {
+    water = ChillFlightLogic.stepBuggyVertical({
+      ...water,
+      surfaceHeight: -0.9,
+      groundVelY: 20,
+      onWater: true,
+      dt: 0.016,
+    });
+    if (water.airborne) launchedWater = true;
+  }
+  check('Buggy on water floats without launching', !launchedWater);
 }
 
 if (failed) {
