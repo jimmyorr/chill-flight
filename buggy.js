@@ -30,22 +30,15 @@ import {setOnWheels} from './flight-physics.js';
 // per second squared
 const KTS_PER_MULT = BASE_FLIGHT_SPEED * 60;
 const TOP_SPEED = PLANE_HANDLING.buggy.topKts;
-const REVERSE_TOP = 20;
 const WATER_TOP = 12;
-// About 0 to 60 knots in 2.5 seconds, 100 in 5, top speed 200
-const ENGINE_ACCEL = 45;
-const REVERSE_ACCEL = 14;
-const BRAKE_DECEL = 45;
-// Rolling resistance, and drag growing with the square of the speed
-const ROLL_DRAG = 3;
+// The engine, brakes and steering limits live in ChillFlightLogic
+// (BUGGY_DRIVE, buggyDriveAccel, buggySteerLimit) so Node tests can run them
+const {MAX_STEER, ROLL_DRAG} = ChillFlightLogic.BUGGY_DRIVE;
+// Drag growing with the square of the speed
 const AIR_DRAG = 0.0007;
 const WATER_DRAG = 0.04;
 // A little over twice real gravity: hops come back down briskly
 const GRAVITY = 40;
-// Responsive cornering authority so the buggy hugs highway curves even at high speed
-const MAX_STEER = 0.5;
-const MAX_YAW_RATE = 1.15;
-const MAX_CORNERING = 115;
 // How fast the front wheels turn toward the stick, and back to centre
 // (radians per second)
 const STEER_RATE = 2.8;
@@ -67,9 +60,9 @@ const WALL_SLOPE = Math.tan((50 * Math.PI) / 180);
 // It stays parked on slopes gentler than this pull (units/s²)
 const PARK_HOLD = 9;
 // Roads: a deck up to this far above the wheels is a kerb it smoothly mounts
-// (allowing the buggy to easily climb back onto the highway from off-road)
+// (allowing the buggy to easily climb back onto the highway from off-road);
+// a higher deck is a bridge it drives under
 const ROAD_STEP_UP = 12;
-const BRIDGE_CLEARANCE = 12;
 // How deep it floats in the water, its wheels half under
 const FLOAT_DEPTH = 0.9;
 // A jump of more than this between frames is a teleport (units)
@@ -92,7 +85,6 @@ const _surface = {
   slopeX: 0,
   slopeZ: 0,
   kind: 'ground',
-  underDeck: false,
 };
 const _road = {height: 0, slopeX: 0, slopeZ: 0};
 const _lastPos = new THREE.Vector3();
@@ -126,7 +118,6 @@ function sampleSurface(x, z, y) {
     _surface.slopeX = _road.slopeX;
     _surface.slopeZ = _road.slopeZ;
     _surface.kind = 'road';
-    _surface.underDeck = false;
     return _surface;
   }
   sampleGround(x, z, _surface);
@@ -140,11 +131,6 @@ function sampleSurface(x, z, y) {
     }
     _surface.kind = 'water';
   }
-  // Beside a deck too high to climb up onto, and within clearance of girder underside
-  _surface.underDeck =
-    onDeck &&
-    y >= _road.height - BRIDGE_CLEARANCE &&
-    y < _road.height - ROAD_STEP_UP;
   return _surface;
 }
 
@@ -182,36 +168,26 @@ function enter() {
   _lastPos.copy(pos);
 }
 
-// Analog steering axis with deadzone and progressive curve.
-// On virtual joystick (JOYSTICK_SENSITIVITY = 0.5), small thumb motions around
-// center yield silky-smooth, subtle lane corrections for straight highway
-// driving, while ramping progressively to 100% full lock on full deflection.
-function analogSteerAxis(value) {
-  const live =
-    state.mouseControlActive || state.currentControlScheme === 'gyro';
-  if (!live) return 0;
-  const isJoystick = state.currentControlScheme === 'joystick';
-  const maxRange = isJoystick ? 0.5 : 1.0;
-  const deadzone = isJoystick ? 0.06 : 0.12;
-  const absVal = Math.abs(value);
-  if (absVal <= deadzone) return 0;
-  const norm = Math.min(1, (absVal - deadzone) / (maxRange - deadzone));
-  const curved = Math.pow(norm, 2.0);
-  return Math.sign(value) * curved;
+// The stick's steering and throttle axes (ChillFlightLogic), only while the
+// stick or gyro is steering
+function stickLive() {
+  return state.mouseControlActive || state.currentControlScheme === 'gyro';
 }
 
-// Analog throttle/brake axis (up = forward boost, down = brake/reverse)
+function analogSteerAxis(value) {
+  if (!stickLive()) return 0;
+  return ChillFlightLogic.buggySteerAxis(
+    value,
+    state.currentControlScheme === 'joystick'
+  );
+}
+
 function analogThrottleAxis(value) {
-  const live =
-    state.mouseControlActive || state.currentControlScheme === 'gyro';
-  if (!live) return 0;
-  const isJoystick = state.currentControlScheme === 'joystick';
-  const maxRange = isJoystick ? 0.5 : 1.0;
-  const deadzone = isJoystick ? 0.08 : 0.15;
-  const absVal = Math.abs(value);
-  if (absVal <= deadzone) return 0;
-  const norm = Math.min(1, (absVal - deadzone) / (maxRange - deadzone));
-  return Math.sign(value) * norm;
+  if (!stickLive()) return 0;
+  return ChillFlightLogic.buggyThrottleAxis(
+    value,
+    state.currentControlScheme === 'joystick'
+  );
 }
 
 // Moves a value toward a target at no more than rate per second
@@ -277,13 +253,7 @@ export function updateBuggy(delta) {
   // Speed-dependent turning radius: at low speeds, wheels steer up to MAX_STEER for nimble parking.
   // As speed increases, turn radius smoothly opens up so high-speed highway driving feels stable and
   // small stick adjustments gently center the lane instead of violently jerking the vehicle.
-  const fwdSpeed = Math.max(0.1, Math.abs(forward));
-  const tanLimit = Math.min(
-    Math.tan(MAX_STEER),
-    (BUGGY_WHEELBASE * MAX_YAW_RATE) / Math.max(5.8, fwdSpeed),
-    (BUGGY_WHEELBASE * MAX_CORNERING) / (fwdSpeed * fwdSpeed)
-  );
-  const steerLimit = Math.atan(tanLimit);
+  const steerLimit = ChillFlightLogic.buggySteerLimit(forward, BUGGY_WHEELBASE);
   const steerTarget = steerIn * steerLimit;
   const returning =
     steerTarget === 0 || Math.sign(steerTarget) !== Math.sign(steer);
@@ -307,51 +277,18 @@ export function updateBuggy(delta) {
       ROLL_DRAG +
       (onWater ? WATER_DRAG : AIR_DRAG) * forward * forward +
       (onWater ? 4 : 0);
-    const engine = (v, max, accel) =>
-      v >= max ? 0 : accel * (1 - (v / max) ** 2) + drag;
-
     // Throttle slider sets baseline cruise speed
     const cruise = Math.min(
       top,
       Math.max(0, (state.targetFlightSpeed || 0) * KTS_PER_MULT)
     );
-
-    if (joyY > 0.05) {
-      // Pushing up: temporary boost above cruise speed up to top speed
-      const boostTarget = cruise + (top - cruise) * joyY;
-      driveAccel = THREE.MathUtils.clamp(
-        (boostTarget - forward) * 2.0 + drag,
-        -BRAKE_DECEL * 0.3,
-        engine(Math.max(0, forward), top, ENGINE_ACCEL)
-      );
-    } else if (joyY < -0.05) {
-      // Pulling down: brakes to a halt, then continuous hold shifts into reverse
-      const downAmount = -joyY;
-      if (forward > 0.5) {
-        driveAccel = -BRAKE_DECEL * downAmount;
-      } else {
-        const revTarget = -REVERSE_TOP * downAmount;
-        driveAccel = THREE.MathUtils.clamp(
-          (revTarget - forward) * 2.0 - drag,
-          -engine(Math.max(0, -forward), REVERSE_TOP, REVERSE_ACCEL),
-          BRAKE_DECEL * 0.5
-        );
-      }
-    } else if (cruise > 0.5) {
-      // Neutral: hold set cruise speed. If reversing, brake to stop first then cruise forward
-      if (forward < -0.5) {
-        driveAccel = BRAKE_DECEL;
-      } else {
-        driveAccel = THREE.MathUtils.clamp(
-          (cruise - forward) * 1.5 + drag,
-          -BRAKE_DECEL * 0.3,
-          engine(Math.max(0, forward), top, ENGINE_ACCEL)
-        );
-      }
-    } else {
-      // Cruise is 0 and stick is neutral: coast to stop
-      driveAccel = forward > 0.5 ? -ROLL_DRAG : forward < -0.5 ? ROLL_DRAG : 0;
-    }
+    driveAccel = ChillFlightLogic.buggyDriveAccel({
+      forward,
+      joyY,
+      cruise,
+      top,
+      drag,
+    });
 
     const coasting = Math.abs(joyY) <= 0.05 && cruise <= 0.5;
     if (
@@ -407,11 +344,9 @@ export function updateBuggy(delta) {
   const oldZ = pos.z;
   const oldHeight = ground.height;
   const wasOnRoad = ground.kind === 'road';
-  const wasUnderDeck = ground.underDeck;
 
   const blocker = (x, z) => {
     const s = sampleSurface(x, z, pos.y);
-    if (s.underDeck && !wasUnderDeck) return 'barrier';
     if (wasOnRoad && s.kind !== 'road' && oldHeight - s.height > ROAD_STEP_UP) {
       return 'barrier';
     }
@@ -590,7 +525,5 @@ export function updateBuggy(delta) {
   state.sharpTurnAmount = 0;
   state.buggySlide =
     !airborne && !onWater && driftState.driftDir !== 0 ? 0.8 : 0;
-  state.buggyDriftDir = driftState.driftDir;
   state.buggySlipYaw = driftState.slipYaw;
-  state.buggyDriftState = driftState;
 }

@@ -16,6 +16,8 @@ export const MAX_MESSAGE_BYTES = 1024;
 export const EMPTY_ROOM_MS = 10 * 60 * 1000;
 // Failed joins (a wrong or ended code) allowed per address per minute
 export const MAX_FAILED_JOINS = 10;
+// New rooms one address may start per minute
+export const MAX_ROOMS_STARTED = 20;
 // Messages a player may send: RATE_PER_SECOND on average, in bursts of up to
 // RATE_BURST (the game sends 10 a second); faster, and they're disconnected
 export const RATE_PER_SECOND = 20;
@@ -144,4 +146,28 @@ export function relayed(raw, from) {
   if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return null;
   msg.f = from;
   return JSON.stringify(msg);
+}
+
+// A count per address over a minute (from its first), for rough limits on
+// one Worker instance (not an exact count across them)
+export class PerMinute {
+  constructor(max) {
+    this.max = max;
+    this.counts = new Map();
+  }
+
+  over(key, now) {
+    const c = this.counts.get(key);
+    return !!c && now <= c.resetAt && c.count >= this.max;
+  }
+
+  add(key, now) {
+    const c = this.counts.get(key);
+    if (!c || now > c.resetAt) {
+      this.counts.set(key, {count: 1, resetAt: now + 60 * 1000});
+    } else {
+      c.count++;
+    }
+    if (this.counts.size > 10000) this.counts.clear();
+  }
 }

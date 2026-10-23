@@ -95,11 +95,19 @@ export default defineConfig({
   build: {
     outDir: 'docs',
     emptyOutDir: true,
-    chunkSizeWarningLimit: 1500,
+    // three.js is ~610 kB and the game ~710 kB
+    chunkSizeWarningLimit: 800,
     rollupOptions: {
       input: {
         main: 'index.html',
         // Debug pages (debug/) are dev-only and not part of the build.
+      },
+      output: {
+        // three.js in a file of its own: it only changes when three is
+        // updated, so players keep it cached from one release to the next
+        codeSplitting: {
+          groups: [{name: 'three', test: /node_modules[\\/]three[\\/]/}],
+        },
       },
     },
   },

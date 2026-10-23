@@ -424,15 +424,28 @@ export function setActivePlane(planeType, skipStorage = false) {
   updateUrlParams({plane: planeType}, ['plane', 'vehicle']);
 }
 
+// The plane flown before a multiplayer game locked it, to go back to after
+let planeBeforeLock = null;
+
 // Locks everyone to one plane while a multiplayer game is active
-// (multiplayer.js), without overwriting their saved solo choice
+// (multiplayer.js), without overwriting their saved solo choice; null
+// unlocks, back to the plane they were flying before
 export function setLockedPlane(planeType) {
+  const wasLocked = !!state.mpLockedPlane;
   state.mpLockedPlane =
     planeType && ChillFlightLogic.PLANE_TYPES.includes(planeType)
       ? planeType
       : null;
-  if (state.mpLockedPlane && activePlaneType !== state.mpLockedPlane) {
-    setActivePlane(state.mpLockedPlane, true);
+  if (state.mpLockedPlane) {
+    if (!wasLocked) planeBeforeLock = activePlaneType;
+    if (activePlaneType !== state.mpLockedPlane) {
+      setActivePlane(state.mpLockedPlane, true);
+    }
+  } else if (wasLocked) {
+    if (planeBeforeLock && activePlaneType !== planeBeforeLock) {
+      setActivePlane(planeBeforeLock, true);
+    }
+    planeBeforeLock = null;
   }
   const planeSelectGroup = document.getElementById('plane-select-group');
   if (planeSelectGroup) {

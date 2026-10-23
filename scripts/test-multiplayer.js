@@ -23,6 +23,7 @@ import {
   SEND_INTERVAL_MS,
   TAG_RADIUS,
   TAG_SPEED_BOOST,
+  TagClock,
   WAGGLE_MS,
   formatTagTime,
   inviteUrl,
@@ -33,6 +34,7 @@ import {
   parseRoomCode,
   readTag,
   roomSocketUrl,
+  tagPlane,
   tagTarget,
   tagTimeOf,
   tagWinner,
@@ -573,6 +575,44 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
       tagTarget(me, [{id: 'x', pos: new THREE.Vector3(0, 0, 0)}]) === null &&
       tagTarget(me, []) === null &&
       FLAGS.paused === 16
+  );
+}
+
+// Tag started from the buggy is flown in biplanes
+check(
+  'Tag from the buggy locks everyone to the biplane',
+  tagPlane('buggy') === 'biplane' &&
+    tagPlane('jet') === 'jet' &&
+    readTag({it: 'abc', plane: 'buggy', n: 1})?.plane === 'biplane'
+);
+
+// Time as it stops while whoever's it is paused
+{
+  const clock = new TagClock(1000);
+  clock.note(false, 3000);
+  clock.note(true, 4000);
+  const whilePaused = clock.elapsed(9000);
+  clock.note(true, 9000);
+  clock.note(false, 10000);
+  const after = clock.elapsed(12000);
+  clock.reset(20000);
+  check(
+    'Tag clock stops while paused and starts afresh on reset',
+    whilePaused === 3000 && after === 5000 && clock.elapsed(20500) === 500,
+    `${whilePaused} ${after} ${clock.elapsed(20500)}`
+  );
+}
+
+// The relay's per-address limits on failed joins and new rooms
+{
+  const limit = new rules.PerMinute(3);
+  for (let i = 0; i < 3; i++) limit.add('1.2.3.4', 1000);
+  check(
+    'Relay per-minute limit trips at its cap and resets after a minute',
+    limit.over('1.2.3.4', 2000) &&
+      !limit.over('5.6.7.8', 2000) &&
+      !limit.over('1.2.3.4', 1000 + 61 * 1000) &&
+      rules.MAX_ROOMS_STARTED > 0
   );
 }
 

@@ -48,10 +48,12 @@ import {
   NO_TAG,
   PAUSED_SEND_INTERVAL_MS,
   PeerTrack,
+  QUIET_MS,
   RENDER_DELAY_MS,
   SEND_INTERVAL_MS,
   TAG_GRACE_MS,
   TAG_SPEED_BOOST,
+  TagClock,
   WAGGLE_MS,
   cleanName,
   formatTagTime,
@@ -63,6 +65,7 @@ import {
   parseRoomCode,
   readTag,
   roomSocketUrl,
+  tagPlane,
   tagTarget,
   tagTimeOf,
   tagWinner,
@@ -131,6 +134,8 @@ let waggleAt = -Infinity;
 // The game of tag ({it, plane, n, by, times}), and when its "it" became it
 let tag = NO_TAG;
 let tagSince = 0;
+// Time as it, stopped while whoever's it is paused
+const tagClock = new TagClock();
 let gatherToId = null;
 
 function myName() {
@@ -175,9 +180,7 @@ function sendHello() {
     livery: myLivery(),
   };
   if (tag.n > 0) {
-    hello.tag = tag.it
-      ? {...tag, times: withTagTime(tag, performance.now() - tagSince)}
-      : tag;
+    hello.tag = tag.it ? {...tag, times: withTagTime(tag, itElapsed())} : tag;
   }
   sentProfile = `${hello.name}|${hello.plane}|${hello.livery}`;
   send(hello);
@@ -312,7 +315,11 @@ function onMessage(event) {
     onHello(addPeer(msg.f), msg);
   } else if (msg.t === 's') {
     const s = unpackState(msg);
-    if (s) addPeer(msg.f).track.push(s, smoothNow ?? performance.now());
+    if (s) {
+      const peer = addPeer(msg.f);
+      peer.heardAt = performance.now();
+      peer.track.push(s, smoothNow ?? performance.now());
+    }
   } else if (msg.t === 'waggle') {
     // Shown when their plane, drawn a moment behind, gets there
     addPeer(msg.f).waggleAt = performance.now() + RENDER_DELAY_MS;
@@ -358,10 +365,32 @@ function refreshTag() {
   renderPanel();
 }
 
+// How long whoever's it has been it (ms), not counting time paused
+function itElapsed() {
+  return tag.it ? tagClock.elapsed(performance.now()) : 0;
+}
+
+// A friend whose updates have stopped (a stalled connection), or who has
+// paused: drawn as a ghost, and can't be tagged
+function isAway(peer, now) {
+  if (peer.track.latest?.flags & FLAGS.paused) return true;
+  return now - (peer.heardAt ?? now) > QUIET_MS;
+}
+
+// Stops the clock on time as it while whoever's it is paused or away
+function noteItPaused(now) {
+  if (!tag.it || !room) return;
+  const peer = peers.get(tag.it);
+  const paused =
+    tag.it === room.id ? !!state.isPaused : !!peer && isAway(peer, now);
+  tagClock.note(paused, now);
+}
+
 function setTag(next) {
   const was = tag.it;
   tag = next;
   tagSince = performance.now();
+  tagClock.reset(tagSince);
   if (!was && tag.it && tag.it !== room?.id && tag.by === tag.it) {
     gatherToId = tag.it;
   } else if (!tag.it) {
@@ -407,11 +436,11 @@ function applyTag(next) {
 function sendTag(it) {
   if (!room) return;
   const starting = !tag.it && !!it;
-  const times = starting ? {} : withTagTime(tag, performance.now() - tagSince);
+  const times = starting ? {} : withTagTime(tag, itElapsed());
   const plane = it
     ? starting
-      ? activePlaneType
-      : tag.plane || activePlaneType
+      ? tagPlane(activePlaneType)
+      : tag.plane || tagPlane(activePlaneType)
     : null;
   const next = {it, plane, n: tag.n + 1, by: room.id, times};
   setTag(next);
@@ -422,7 +451,7 @@ function sendTag(it) {
 // the same on every screen); alone, the game's over
 function tagAfterLeaving(id) {
   if (!tag.it) return;
-  const times = withTagTime(tag, performance.now() - tagSince);
+  const times = withTagTime(tag, itElapsed());
   if (peers.size === 0) {
     setTag({it: null, plane: null, n: tag.n + 1, by: '~', times});
   } else if (tag.it === id) {
@@ -711,6 +740,7 @@ function resume() {
 function sendState(frameClock) {
   if (!room) return;
   const rawNow = performance.now();
+  noteItPaused(rawNow);
   if (state.isPaused) {
     pausedSince ??= rawNow;
     if (rawNow - pausedSince > PAUSED_DISCONNECT_MS) suspend();
@@ -899,7 +929,7 @@ export function updateMultiplayer(delta) {
     g.position.copy(_pos);
     g.quaternion.copy(_quat);
     const flags = peer.track.latest.flags;
-    const isPaused = !!(flags & FLAGS.paused);
+    const isPaused = isAway(peer, rawNow);
 
     // Fade to translucent ghost when paused
     const targetOpacity = isPaused ? 0.45 : 1.0;
@@ -952,7 +982,7 @@ export function updateMultiplayer(delta) {
         others.push({
           id: peer.id,
           pos: peer.group.position,
-          paused: !!(peer.track.latest?.flags & FLAGS.paused),
+          paused: isAway(peer, rawNow),
         });
     }
     const target = tagTarget(planeGroup.position, others);
@@ -987,7 +1017,7 @@ function renderPanel() {
     tagBtn.hidden = peers.size === 0 && !tag.it;
     tagBtn.textContent = tag.it ? 'Stop tag' : 'Play tag';
   }
-  const elapsed = tag.it ? performance.now() - tagSince : 0;
+  const elapsed = itElapsed();
   const showTimes = !!tag.it || Object.keys(tag.times).length > 0;
   const row = ({name, livery, peer, timeMs}) => {
     const el = document.createElement('div');

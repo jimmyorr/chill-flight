@@ -156,11 +156,12 @@ export const ChillFlightLogic = {};
     getParam('freeCamera', 'false') === 'true';
   // On/off switches: "0", "false" or "off" is off; anything else (including
   // a bare ?name) is on; null when the parameter isn't there.
-  const getSwitchParam = (name) => {
-    const v = getParam(name, null);
-    if (v === null) return null;
-    return !['0', 'false', 'off'].includes(v.trim().toLowerCase());
-  };
+  // An on/off URL switch: null when absent; ?x, ?x=1 or ?x=true are on,
+  // ?x=0, ?x=false or ?x=off are off
+  const parseSwitch = (v) =>
+    v === null ? null : !['0', 'false', 'off'].includes(v.trim().toLowerCase());
+  exports.parseSwitch = parseSwitch;
+  const getSwitchParam = (name) => parseSwitch(getParam(name, null));
   // Mostly for scripted screenshots and benchmarks (see README): ?start=1
   // skips the title screen, ?ui=0 hides all interface, ?music=0/1 sets music
   // for this visit only, and ?tips=0 skips the first-time tips.
@@ -4836,4 +4837,106 @@ export const ChillFlightLogic = {};
   exports.BUGGY_DRIFT = BUGGY_DRIFT;
   exports.createBuggyDriftState = createBuggyDriftState;
   exports.stepBuggyDrift = stepBuggyDrift;
+
+  // --- BUGGY STEERING & DRIVING ---
+  // Speeds in units per second, which read as knots; accelerations in units
+  // per second squared (buggy.js)
+  const BUGGY_DRIVE = {
+    REVERSE_TOP: 20,
+    // About 0 to 60 knots in 2.5 seconds, 100 in 5
+    ENGINE_ACCEL: 45,
+    REVERSE_ACCEL: 14,
+    BRAKE_DECEL: 45,
+    // Rolling resistance
+    ROLL_DRAG: 3,
+    // Front wheel lock, and the yaw rate and sideways grip that cap it at speed
+    MAX_STEER: 0.5,
+    MAX_YAW_RATE: 1.15,
+    MAX_CORNERING: 115,
+  };
+
+  // The front wheel angle allowed at a forward speed: full lock for parking,
+  // opening up with speed so the turn radius grows with the square of the
+  // speed on the highway (grip-limited)
+  function buggySteerLimit(forward, wheelbase) {
+    const v = Math.max(0.1, Math.abs(forward));
+    return Math.atan(
+      Math.min(
+        Math.tan(BUGGY_DRIVE.MAX_STEER),
+        (wheelbase * BUGGY_DRIVE.MAX_YAW_RATE) / Math.max(5.8, v),
+        (wheelbase * BUGGY_DRIVE.MAX_CORNERING) / (v * v)
+      )
+    );
+  }
+
+  // Stick to steering, -1 to 1: a deadzone, then a curve that keeps small
+  // thumb motions gentle for lane keeping. The virtual joystick's full throw
+  // is 0.5; a mouse's or gyro's is 1.
+  function buggySteerAxis(value, isJoystick) {
+    const maxRange = isJoystick ? 0.5 : 1.0;
+    const deadzone = isJoystick ? 0.06 : 0.12;
+    const abs = Math.abs(value);
+    if (abs <= deadzone) return 0;
+    const norm = Math.min(1, (abs - deadzone) / (maxRange - deadzone));
+    return Math.sign(value) * norm * norm;
+  }
+
+  // Stick to throttle, -1 to 1 (up boosts, down brakes then reverses): a
+  // deadzone, then linear
+  function buggyThrottleAxis(value, isJoystick) {
+    const maxRange = isJoystick ? 0.5 : 1.0;
+    const deadzone = isJoystick ? 0.08 : 0.15;
+    const abs = Math.abs(value);
+    if (abs <= deadzone) return 0;
+    return (
+      Math.sign(value) * Math.min(1, (abs - deadzone) / (maxRange - deadzone))
+    );
+  }
+
+  // The engine's or brakes' pull along the buggy (units/s²) on the ground.
+  // forward: speed along the buggy (negative reversing); joyY: throttle axis;
+  // cruise: the throttle slider's set speed; top: top speed here; drag: the
+  // rolling and air drag at this speed, which holding a speed makes up for.
+  function buggyDriveAccel({forward, joyY, cruise, top, drag}) {
+    const D = BUGGY_DRIVE;
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const engine = (v, max, accel) =>
+      v >= max ? 0 : accel * (1 - (v / max) ** 2) + drag;
+    if (joyY > 0.05) {
+      // Pushing up: a boost above cruise, up to top speed
+      const boostTarget = cruise + (top - cruise) * joyY;
+      return clamp(
+        (boostTarget - forward) * 2.0 + drag,
+        -D.BRAKE_DECEL * 0.3,
+        engine(Math.max(0, forward), top, D.ENGINE_ACCEL)
+      );
+    }
+    if (joyY < -0.05) {
+      // Pulling down: brakes to a halt, then holding on reverses
+      const down = -joyY;
+      if (forward > 0.5) return -D.BRAKE_DECEL * down;
+      return clamp(
+        (-D.REVERSE_TOP * down - forward) * 2.0 - drag,
+        -engine(Math.max(0, -forward), D.REVERSE_TOP, D.REVERSE_ACCEL),
+        D.BRAKE_DECEL * 0.5
+      );
+    }
+    if (cruise > 0.5) {
+      // Stick at rest: holds the set speed, braking out of reverse first
+      if (forward < -0.5) return D.BRAKE_DECEL;
+      return clamp(
+        (cruise - forward) * 1.5 + drag,
+        -D.BRAKE_DECEL * 0.3,
+        engine(Math.max(0, forward), top, D.ENGINE_ACCEL)
+      );
+    }
+    // No cruise and the stick at rest: coasts to a stop
+    return forward > 0.5 ? -D.ROLL_DRAG : forward < -0.5 ? D.ROLL_DRAG : 0;
+  }
+
+  exports.BUGGY_DRIVE = BUGGY_DRIVE;
+  exports.buggySteerLimit = buggySteerLimit;
+  exports.buggySteerAxis = buggySteerAxis;
+  exports.buggyThrottleAxis = buggyThrottleAxis;
+  exports.buggyDriveAccel = buggyDriveAccel;
 })(ChillFlightLogic);

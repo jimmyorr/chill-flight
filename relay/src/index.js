@@ -13,6 +13,8 @@ import {DurableObject} from 'cloudflare:workers';
 import {
   EMPTY_ROOM_MS,
   MAX_FAILED_JOINS,
+  MAX_ROOMS_STARTED,
+  PerMinute,
   RATE_BURST,
   CLOSE,
   admit,
@@ -27,25 +29,9 @@ import {
 // waking from hibernation starts everyone afresh, which is fine
 const buckets = new WeakMap();
 
-// Failed joins per address, for this Worker instance only (a rough brake on
-// guessing codes, not an exact count)
-const failures = new Map();
-
-function failedTooOften(ip, now) {
-  const f = failures.get(ip);
-  if (!f || now > f.resetAt) return false;
-  return f.count >= MAX_FAILED_JOINS;
-}
-
-function noteFailure(ip, now) {
-  const f = failures.get(ip);
-  if (!f || now > f.resetAt) {
-    failures.set(ip, {count: 1, resetAt: now + 60 * 1000});
-  } else {
-    f.count++;
-  }
-  if (failures.size > 10000) failures.clear();
-}
+// Failed joins, and rooms started, per address
+const failures = new PerMinute(MAX_FAILED_JOINS);
+const starts = new PerMinute(MAX_ROOMS_STARTED);
 
 export default {
   async fetch(request, env) {
@@ -62,12 +48,16 @@ export default {
     if (!isRoomCode(code)) return new Response('Bad room', {status: 400});
     const ip = request.headers.get('CF-Connecting-IP') || '';
     const now = Date.now();
-    if (failedTooOften(ip, now)) {
+    // A script trying codes, or starting rooms in a loop, is cut off for a
+    // minute
+    const starting = url.searchParams.get('mode') === 'create';
+    if (failures.over(ip, now) || (starting && starts.over(ip, now))) {
       return new Response('Too many tries', {status: 429});
     }
     const room = env.ROOMS.get(env.ROOMS.idFromName(code));
     const response = await room.fetch(request);
-    if (response.headers.get('X-Relay-Refused')) noteFailure(ip, now);
+    if (response.headers.get('X-Relay-Refused')) failures.add(ip, now);
+    else if (starting) starts.add(ip, now);
     return response;
   },
 };

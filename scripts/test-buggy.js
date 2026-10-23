@@ -2,15 +2,18 @@
 /**
  * scripts/test-buggy.js
  *
- * Automated tests for buggy driving mechanics:
- * 1. One-handed controls, cruise speed hold, temporary boost, and continuous reverse
- * 2. Pure grip handling and high-speed cornering authority
- * 3. 3D elevation-aware road deck sampling for underpasses/overpasses
- * 4. Continuous road surface height across segment joints without flat ledge steps
- * 5. Seamless curb climbing from off-road
+ * Automated tests for buggy driving mechanics, run against the real
+ * functions in chill-flight-logic.js:
+ * 1. 3D elevation-aware road deck sampling for underpasses/overpasses
+ * 2. Continuous road surface height across segment joints without flat ledge steps
+ * 3. Speed-dependent steering limit and stick curves
+ * 4. One-handed cruise speed, boost, braking and reverse
+ * 5. The ?buggy= switch
+ * 6. Hop-to-drift
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PLANE_HANDLING} from '../constants.js';
+import {BUGGY_WHEELBASE} from '../buggy-model.js';
 
 console.log('Testing buggy driving mechanics...');
 
@@ -168,205 +171,150 @@ check(
 );
 
 // --- 3. HIGHWAY STEERING AUTHORITY & SPEED-DEPENDENT TURN RADIUS ---
-const topKts = PLANE_HANDLING.buggy.topKts; // 200 kts
-const wheelbase = 2.8;
-const maxSteer = 0.5;
-const maxYawRate = 1.15;
-const maxCornering = 115;
+const topKts = PLANE_HANDLING.buggy.topKts;
+const {MAX_STEER, BRAKE_DECEL, REVERSE_TOP, ROLL_DRAG} =
+  ChillFlightLogic.BUGGY_DRIVE;
+const steerLimit = (speed) =>
+  ChillFlightLogic.buggySteerLimit(speed, BUGGY_WHEELBASE);
+const radiusAt = (speed) => BUGGY_WHEELBASE / Math.tan(steerLimit(speed));
 
-function calcSteerLimit(forwardSpeed) {
-  const fwdSpeed = Math.max(0.1, Math.abs(forwardSpeed));
-  const tanLimit = Math.min(
-    Math.tan(maxSteer),
-    (wheelbase * maxYawRate) / Math.max(5.8, fwdSpeed),
-    (wheelbase * maxCornering) / (fwdSpeed * fwdSpeed)
-  );
-  return Math.atan(tanLimit);
-}
-
-// Low speed (5 kts): tight turning radius for parking and U-turns
-const steerLowSpeed = calcSteerLimit(5);
-const radiusLowSpeed = wheelbase / Math.tan(steerLowSpeed);
+// Low speed (5 kts): full lock for parking and U-turns
 check(
-  'Low-speed parking maintains tight turning radius (<= 6 units)',
-  radiusLowSpeed <= 6.0 && steerLowSpeed === maxSteer,
-  `radiusLowSpeed: ${radiusLowSpeed.toFixed(1)}, steerLowSpeed: ${steerLowSpeed.toFixed(3)}`
+  'Low-speed parking gets full lock (radius about 11 units)',
+  radiusAt(5) <= 12 && Math.abs(steerLimit(5) - MAX_STEER) < 1e-9,
+  `radius: ${radiusAt(5).toFixed(1)}, steer: ${steerLimit(5).toFixed(3)}`
 );
 
 // High speed: grip-limited, so the radius grows with the square of the speed
 // (~195 units at 150 kts, ~348 at the 200 kts top speed)
-const radiusAt150 = wheelbase / Math.tan(calcSteerLimit(150));
 check(
   'Turn radius at 150 kts is ~195 units',
-  radiusAt150 >= 180 && radiusAt150 <= 210,
-  `radiusAt150: ${radiusAt150.toFixed(1)}`
+  radiusAt(150) >= 180 && radiusAt(150) <= 210,
+  `radius: ${radiusAt(150).toFixed(1)}`
 );
-const steerHighSpeed = calcSteerLimit(topKts);
-const radiusHighSpeed = wheelbase / Math.tan(steerHighSpeed);
-const yawRateHighSpeed = (topKts * Math.tan(steerHighSpeed)) / wheelbase;
 check(
-  'Top-speed turn radius expands smoothly to ~348 units to prevent sharp twitching',
-  radiusHighSpeed >= 330 && radiusHighSpeed <= 370,
-  `radiusHighSpeed: ${radiusHighSpeed.toFixed(1)}`
+  `Top-speed (${topKts} kts) turn radius is ~348 units`,
+  radiusAt(topKts) >= 330 && radiusAt(topKts) <= 370,
+  `radius: ${radiusAt(topKts).toFixed(1)}`
 );
+const yawRateTop = (topKts * Math.tan(steerLimit(topKts))) / BUGGY_WHEELBASE;
 check(
   'High-speed full-lock yaw rate is controlled (<= 50 deg/s)',
-  yawRateHighSpeed * (180 / Math.PI) <= 50,
-  `yawRateDegPerSec: ${(yawRateHighSpeed * (180 / Math.PI)).toFixed(1)}`
+  yawRateTop * (180 / Math.PI) <= 50,
+  `yaw rate: ${(yawRateTop * (180 / Math.PI)).toFixed(1)} deg/s`
 );
 
-// Joystick sensitivity progressive curve for straight highway driving:
-// Small movements around center (mouseX = 0.10 - 0.15 on 0.5 max joystick throw)
-// yield subtle sub-2% steering for silky lane-keeping on straight roads,
-// while full thumb deflection (mouseX = 0.5) reaches 100% lock.
-function simAnalogSteerAxis(value, isJoystick = true) {
-  const maxRange = isJoystick ? 0.5 : 1.0;
-  const deadzone = isJoystick ? 0.06 : 0.12;
-  const absVal = Math.abs(value);
-  if (absVal <= deadzone) return 0;
-  const norm = Math.min(1, (absVal - deadzone) / (maxRange - deadzone));
-  const curved = Math.pow(norm, 2.0);
-  return Math.sign(value) * curved;
-}
-
-const steerCenterSmall = simAnalogSteerAxis(0.12, true); // small thumb nudge on highway
-const steerCenterMedium = simAnalogSteerAxis(0.25, true); // half deflection
-const steerFull = simAnalogSteerAxis(0.5, true); // full thumb throw
-
+// Joystick curve for straight highway driving: the virtual joystick's full
+// throw is 0.5, and small nudges around the centre steer very little
+const steerAxis = (v) => ChillFlightLogic.buggySteerAxis(v, true);
 check(
   'Joystick steering curve gives gentle sub-2% lane control around center for straight roads',
-  steerCenterSmall > 0 && steerCenterSmall < 0.02,
-  `steerCenterSmall: ${steerCenterSmall.toFixed(4)}`
+  steerAxis(0.12) > 0 && steerAxis(0.12) < 0.02,
+  `steer: ${steerAxis(0.12).toFixed(4)}`
 );
 check(
   'Joystick half deflection provides progressive ~18% intermediate steering',
-  steerCenterMedium > 0.15 && steerCenterMedium < 0.22,
-  `steerCenterMedium: ${steerCenterMedium.toFixed(4)}`
+  steerAxis(0.25) > 0.15 && steerAxis(0.25) < 0.22,
+  `steer: ${steerAxis(0.25).toFixed(4)}`
 );
 check(
   'Joystick steering reaches 100% full steering lock on full deflection',
-  Math.abs(steerFull - 1.0) < 1e-6,
-  `steerFull: ${steerFull.toFixed(4)}`
+  Math.abs(steerAxis(0.5) - 1) < 1e-6 && Math.abs(steerAxis(-0.5) + 1) < 1e-6,
+  `steer: ${steerAxis(0.5).toFixed(4)}`
 );
-
-// Grip: side velocity decays rapidly
-const gripRoad = 25;
-const dt = 0.016; // 60 fps
-const sideDecay = Math.exp(-gripRoad * dt);
+check('Joystick steering ignores the deadzone', steerAxis(0.05) === 0);
 check(
-  'Tyres provide high grip that kills lateral slide quickly (decay < 0.70 per 16ms frame)',
-  sideDecay < 0.7,
-  `decay: ${sideDecay.toFixed(3)}`
+  'Joystick throttle is linear past its deadzone, to full at full throw',
+  ChillFlightLogic.buggyThrottleAxis(0.05, true) === 0 &&
+    Math.abs(ChillFlightLogic.buggyThrottleAxis(-0.5, true) + 1) < 1e-9 &&
+    Math.abs(ChillFlightLogic.buggyThrottleAxis(0.29, true) - 0.5) < 1e-9
 );
 
 // --- 4. ONE-HANDED CRUISE SPEED, BOOST & REVERSE LOGIC ---
-let simCruise = 80; // knots
-let simTargetFlightSpeed = 80 / (2.5 * 60);
-let simForward = 80;
-const topSpeed = 150;
-const reverseTop = 20;
-
-// Test Boost: joyY = 1.0 (pushing up)
-const joyYUp = 1.0;
-const boostTarget = simCruise + (topSpeed - simCruise) * joyYUp;
-check(
-  'Pushing up boosts target speed up to top speed (150 kts)',
-  boostTarget === topSpeed,
-  `boostTarget: ${boostTarget}`
-);
-
-// Test Brake & Reverse: joyY = -1.0 (pulling down)
-const joyYDown = -1.0;
-const downAmount = -joyYDown;
-let simDriveAccel = 0;
-if (simForward > 0.5) {
-  simDriveAccel = -45 * downAmount; // braking
-}
-check(
-  'Pulling down on stick triggers full braking deceleration (-45 units/s²)',
-  simDriveAccel === -45,
-  `accel: ${simDriveAccel}`
-);
-
-// After vehicle stops (stoppedForward <= 0.5), continuous hold shifts into reverse
-const stoppedForward = 0;
-let revDriveAccel = 0;
-if (stoppedForward <= 0.5) {
-  revDriveAccel = -20 * downAmount;
-}
-const revTarget = -reverseTop * downAmount;
-check(
-  'Continuing to hold down shifts into reverse target (-20 kts)',
-  revTarget === -20 && revDriveAccel === -20,
-  `revTarget: ${revTarget}, revDriveAccel: ${revDriveAccel}`
-);
-
-// Target flight speed is preserved during braking/reversing
-check(
-  'Target cruise speed setting is preserved while braking and reversing',
-  simTargetFlightSpeed > 0,
-  `targetFlightSpeed: ${simTargetFlightSpeed}`
-);
-
-// When joystick released (joyY = 0) from reverse:
-const joyYNeutral = 0;
-let neutralAccel = 0;
-const reversingForward = -10;
-if (joyYNeutral === 0 && simCruise > 0.5) {
-  if (reversingForward < -0.5) {
-    neutralAccel = 45; // brake out of reverse
+// Steps the drive force alone (no slope, drag ROLL_DRAG) until it settles
+function settle({forward, joyY, cruise, seconds = 30}) {
+  const dt = 1 / 60;
+  for (let t = 0; t < seconds; t += dt) {
+    const a = ChillFlightLogic.buggyDriveAccel({
+      forward,
+      joyY,
+      cruise,
+      top: topKts,
+      drag: ROLL_DRAG,
+    });
+    forward += a * dt;
+    forward -= Math.sign(forward) * Math.min(Math.abs(forward), ROLL_DRAG * dt);
   }
+  return forward;
 }
+const drive = (forward, joyY, cruise) =>
+  ChillFlightLogic.buggyDriveAccel({
+    forward,
+    joyY,
+    cruise,
+    top: topKts,
+    drag: ROLL_DRAG,
+  });
+
+const cruiseSettled = settle({forward: 0, joyY: 0, cruise: 80});
 check(
-  'Releasing joystick from reverse automatically brakes and resumes cruising forward',
-  neutralAccel === 45,
-  `neutralAccel: ${neutralAccel}`
+  'Stick at rest holds the throttle slider speed',
+  Math.abs(cruiseSettled - 80) < 2,
+  `forward: ${cruiseSettled.toFixed(1)}`
+);
+const boosted = settle({forward: 80, joyY: 1, cruise: 80});
+check(
+  `Pushing up boosts to top speed (${topKts} kts)`,
+  Math.abs(boosted - topKts) < 3,
+  `forward: ${boosted.toFixed(1)}`
+);
+check(
+  'Pulling down on stick triggers full braking deceleration',
+  drive(80, -1, 80) === -BRAKE_DECEL,
+  `accel: ${drive(80, -1, 80)}`
+);
+const reversed = settle({forward: 80, joyY: -1, cruise: 80});
+check(
+  `Continuing to hold down reverses at up to ${REVERSE_TOP} kts`,
+  Math.abs(reversed + REVERSE_TOP) < 1,
+  `forward: ${reversed.toFixed(1)}`
+);
+check(
+  'Releasing joystick from reverse brakes, then cruises forward again',
+  drive(-10, 0, 80) === BRAKE_DECEL &&
+    settle({forward: -10, joyY: 0, cruise: 80}) > 78,
+  `accel: ${drive(-10, 0, 80)}`
+);
+check(
+  'With no cruise set, the stick at rest coasts to a stop',
+  drive(30, 0, 0) === -ROLL_DRAG && drive(0, 0, 0) === 0
 );
 
-// --- 5. OFF-ROAD TO ON-ROAD CURB CLIMBING ---
-const roadStepUp = 12; // units
-check(
-  'Road step-up allowance is at least 10 units for seamless curb and embankment climbing',
-  roadStepUp >= 10,
-  `roadStepUp: ${roadStepUp}`
-);
-
-// --- 6. DEFAULT AVAILABILITY & URL PARAMETERS ---
+// --- 5. DEFAULT AVAILABILITY & URL PARAMETERS ---
 check(
   'Buggy is included in ChillFlightLogic.PLANE_TYPES by default',
   ChillFlightLogic.PLANE_TYPES.includes('buggy'),
   `PLANE_TYPES: ${ChillFlightLogic.PLANE_TYPES.join(', ')}`
 );
-
-const isBuggyEnabled = (query) => {
-  const params = new URLSearchParams(query);
-  const getParam = (name, fallback) => params.get(name) ?? fallback;
-  const getSwitchParam = (name) => {
-    const v = getParam(name, null);
-    if (v === null) return null;
-    return !['0', 'false', 'off'].includes(v.trim().toLowerCase());
-  };
-  const buggyDisabled = getSwitchParam('buggy') === false;
-  return !buggyDisabled;
-};
-
-check(
-  'Buggy is enabled with no parameters (default)',
-  isBuggyEnabled('') === true
-);
-
-for (const variant of ['buggy=true', 'buggy=1', 'buggy']) {
-  check(`Buggy is enabled with ?${variant}`, isBuggyEnabled(variant) === true);
-}
-
-for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
+for (const [value, expected] of [
+  ['', true],
+  ['1', true],
+  ['true', true],
+  ['0', false],
+  ['false', false],
+  ['OFF', false],
+]) {
   check(
-    `Buggy is disabled with ?${disabledVariant}`,
-    isBuggyEnabled(disabledVariant) === false
+    `?buggy=${value} switch reads as ${expected ? 'on' : 'off'}`,
+    ChillFlightLogic.parseSwitch(value) === expected
   );
 }
+check(
+  'No ?buggy= leaves the switch unset (buggy offered)',
+  ChillFlightLogic.parseSwitch(null) === null
+);
 
-// --- 7. HOP-TO-DRIFT MECHANICS ---
+// --- 6. HOP-TO-DRIFT MECHANICS ---
 {
   check(
     'Hop upward velocity is increased to 9.6 units/s',
@@ -376,7 +324,7 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
 
   const d = ChillFlightLogic.createBuggyDriftState();
 
-  // 7a. Trigger hop while grounded and turning left (steerIn = 1)
+  // 6a. Trigger hop while grounded and turning left (steerIn = 1)
   ChillFlightLogic.stepBuggyDrift(
     d,
     {hop: true, airborne: false, onWater: false, forward: 75, steerIn: 1},
@@ -387,7 +335,7 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     d.hopJustStarted === true && d.hopping === true && d.hopSteerDir === 1
   );
 
-  // 7b. Land from hop while steering left -> locks into left drift (driftDir = 1)
+  // 6b. Land from hop while steering left -> locks into left drift (driftDir = 1)
   ChillFlightLogic.stepBuggyDrift(
     d,
     {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
@@ -398,7 +346,7 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     d.hopping === false && d.driftDir === 1
   );
 
-  // 7c. Tightening vs counter-steering turn rates in a drift
+  // 6c. Tightening vs counter-steering turn rates in a drift
   const {driftYawRate: tightYawRate} = ChillFlightLogic.stepBuggyDrift(
     d,
     {hop: false, airborne: false, onWater: false, forward: 75, steerIn: 1},
@@ -415,7 +363,7 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     `tightYawRate=${tightYawRate?.toFixed(3)}, wideYawRate=${wideYawRate?.toFixed(3)}`
   );
 
-  // 7d. Sustained drift rotates chassis slip angle inward without charging boost or sparks
+  // 6d. Sustained drift rotates chassis slip angle inward
   for (let i = 0; i < 60; i++) {
     ChillFlightLogic.stepBuggyDrift(
       d,
@@ -424,12 +372,12 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     );
   }
   check(
-    'Holding drift angles chassis slipYaw inward with pure drift (no boost timers or spark levels)',
-    d.driftDir === 1 && d.slipYaw > 0.2 && typeof d.driftLevel === 'undefined',
+    'Holding drift angles chassis slipYaw inward',
+    d.driftDir === 1 && d.slipYaw > 0.2,
     `driftDir=${d.driftDir}, slipYaw=${d.slipYaw.toFixed(3)}`
   );
 
-  // 7e. Release steering stick -> smoothly ends drift back to straight grip driving
+  // 6e. Release steering stick -> smoothly ends drift back to straight grip driving
   for (let i = 0; i < 12; i++) {
     ChillFlightLogic.stepBuggyDrift(
       d,
@@ -438,12 +386,12 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     );
   }
   check(
-    'Releasing steering ends drift smoothly with zero speed boost',
-    d.driftDir === 0 && typeof d.boostTimer === 'undefined',
+    'Releasing steering ends drift smoothly',
+    d.driftDir === 0,
     `driftDir=${d.driftDir}`
   );
 
-  // 7f. Single-tap hop (neutral in air) followed by steering right after landing (grace window)
+  // 6f. Single-tap hop (neutral in air) followed by steering right after landing (grace window)
   const dGrace = ChillFlightLogic.createBuggyDriftState();
   ChillFlightLogic.stepBuggyDrift(
     dGrace,
@@ -468,7 +416,7 @@ for (const disabledVariant of ['buggy=0', 'buggy=false', 'buggy=off']) {
     `driftDir=${dGrace.driftDir}`
   );
 
-  // 7g. Hard braking cancels drift cleanly
+  // 6g. Hard braking cancels drift cleanly
   ChillFlightLogic.stepBuggyDrift(
     dGrace,
     {

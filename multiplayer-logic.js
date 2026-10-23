@@ -452,6 +452,9 @@ export const TAG_RADIUS = 117;
 export const TAG_GRACE_MS = 4000;
 // Top-speed multiplier for whoever is it (+15%)
 export const TAG_SPEED_BOOST = 1.15;
+// A friend not heard from for this long (a stalled connection) is drawn as
+// a ghost and can't be tagged, until their updates come back (ms)
+export const QUIET_MS = 3000;
 
 export const NO_TAG = Object.freeze({
   it: null,
@@ -479,7 +482,9 @@ export function readTag(msg) {
     }
   }
   const plane =
-    msg.it && typeof msg.plane === 'string' && msg.plane ? msg.plane : null;
+    msg.it && typeof msg.plane === 'string' && msg.plane
+      ? tagPlane(msg.plane)
+      : null;
   return {
     it: msg.it,
     plane,
@@ -487,6 +492,44 @@ export function readTag(msg) {
     by: typeof msg.by === 'string' ? msg.by : '',
     times,
   };
+}
+
+/**
+ * The plane everyone flies in a game of tag started from `type`: the buggy
+ * can't chase planes, so a game started from it is flown in biplanes.
+ */
+export function tagPlane(type) {
+  return type === 'buggy' ? 'biplane' : type;
+}
+
+/**
+ * The current "it" player's time as it, not counting while they're paused.
+ * note() is told often whether they're paused right now.
+ */
+export class TagClock {
+  constructor(now = 0) {
+    this.reset(now);
+  }
+
+  reset(now) {
+    this.since = now;
+    this.pausedMs = 0;
+    this.pausedAt = null;
+  }
+
+  note(paused, now) {
+    if (paused && this.pausedAt === null) {
+      this.pausedAt = now;
+    } else if (!paused && this.pausedAt !== null) {
+      this.pausedMs += now - this.pausedAt;
+      this.pausedAt = null;
+    }
+  }
+
+  elapsed(now) {
+    const pausing = this.pausedAt === null ? 0 : now - this.pausedAt;
+    return Math.max(0, now - this.since - this.pausedMs - pausing);
+  }
 }
 
 /** Formats milliseconds spent as "it" as m:ss (e.g. 0:14, 1:05). */

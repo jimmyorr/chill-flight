@@ -614,8 +614,7 @@ export class InputManager {
     // Gesture detection for screen zones (left/right/top/bottom third)
     // Only for airplanes (aerobatic gestures like barrel roll and loop). For the buggy,
     // touches on screen are handled by virtual joystick and hop detection.
-    const isBuggy =
-      state.airplaneModel?.isBuggy || state.airplaneModel?.cameraScale === 0.45;
+    const isBuggy = !!state.airplaneModel?.isBuggy;
     let action = null;
     if (!isBuggy) {
       if (x < 0.33) action = 'ArrowLeft';
