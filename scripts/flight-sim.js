@@ -7,6 +7,7 @@
  * corridors, and autopilot stability invariants without a browser or WebGL.
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
+import {AUTOPILOT, AutopilotCore, headingTo} from '../autopilot-logic.js';
 import {simplex} from '../noise.js';
 import {
   BASE_FLIGHT_SPEED,
@@ -16,30 +17,7 @@ import {
   TURN_SPEED,
 } from '../constants.js';
 
-export const AUTOPILOT = {
-  CLEARANCE: 160,
-  CRUISE_FLOOR: 330,
-  LOOK_AHEAD: 9000,
-  SCAN_STEP: 300,
-  NEAR_AHEAD: 1500,
-  NEAR_STEP: 150,
-  SIDE_OFFSET: 250,
-  TURN_LOOK_AHEAD: 2500,
-  CLIMB_SLOPE: 0.12,
-  SCAN_INTERVAL: 0.25,
-  DESCENT_MARGIN: 100,
-  DESCENT_RATE: 18,
-  PITCH_PER_UNIT: 0.006,
-  PITCH_DAMPING: 0.012,
-  MAX_CLIMB: Math.PI / 6,
-  MAX_DESCENT: Math.PI / 25,
-  MAX_ROLL: Math.PI / 4,
-  ORBIT_RADIUS: 700,
-  CRUISE_SPEED: 1.0,
-  ORBIT_SPEED: 0.8,
-  ORBIT_CLEARANCE: 120,
-  ORBIT_SAMPLES: 12,
-};
+export {AUTOPILOT};
 
 export const PHYSICS = {
   THROTTLE_EASE: 2,
@@ -49,12 +27,6 @@ export const PHYSICS = {
   TERMINAL_VELOCITY: -600,
   FALL_EASE_SECONDS: 0.6,
 };
-
-function wrapAngle(a) {
-  while (a > Math.PI) a -= Math.PI * 2;
-  while (a < -Math.PI) a += Math.PI * 2;
-  return a;
-}
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
@@ -71,9 +43,7 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-export function headingTo(x, z, tx, tz) {
-  return Math.atan2(-(tx - x), -(tz - z));
-}
+export {headingTo};
 
 export function sinkRateAt(kts, handling) {
   return 15 * (1 - smoothstep(kts, handling.stallKts - 5, handling.levelKts));
@@ -121,14 +91,11 @@ export class FlightSimulator {
     this.touchdownCount = 0;
     this.takeoffCount = 0;
 
-    // Autopilot state
+    // Autopilot state: the game's own autopilot (autopilot-logic.js)
     this.autopilotEnabled = options.autopilot ?? true;
     this.waypoint = options.waypoint ? {...options.waypoint} : null;
-    this.heldAlt = options.heldAlt ?? null;
-    this.lastY = this.position.y;
-    this.smoothedVerticalSpeed = 0;
-    this.scanTimer = 0;
-    this.orbit = null;
+    this.pilot = new AutopilotCore((x, z) => this.groundAt(x, z));
+    this.pilot.heldAlt = options.heldAlt ?? null;
 
     this.simTime = 0;
     this.crashed = false;
@@ -144,7 +111,11 @@ export class FlightSimulator {
 
   setWaypoint(x, z, y = null) {
     this.waypoint = {x, z, y};
-    this.orbit = null;
+    this.pilot.orbit = null;
+  }
+
+  get orbit() {
+    return this.pilot.orbit;
   }
 
   clearWaypoint() {
@@ -153,162 +124,28 @@ export class FlightSimulator {
 
   startOrbit(spot, loiter = true) {
     const {x, z} = this.position;
-    const out = headingTo(spot.x, spot.z, x, z);
-    const yaw = this.rotation.yaw;
-    const dir =
-      Math.abs(wrapAngle(yaw - (out + Math.PI / 2))) <
-      Math.abs(wrapAngle(yaw - (out - Math.PI / 2)))
-        ? 1
-        : -1;
-
-    let top = this.groundAt(spot.x, spot.z);
-    for (let i = 0; i < AUTOPILOT.ORBIT_SAMPLES; i++) {
-      const a = (i / AUTOPILOT.ORBIT_SAMPLES) * Math.PI * 2;
-      top = Math.max(
-        top,
-        this.groundAt(
-          spot.x + Math.cos(a) * AUTOPILOT.ORBIT_RADIUS,
-          spot.z + Math.sin(a) * AUTOPILOT.ORBIT_RADIUS
-        )
-      );
-    }
-
-    this.orbit = {
-      x: spot.x,
-      z: spot.z,
-      alt: top + AUTOPILOT.ORBIT_CLEARANCE,
-      dir,
-      loiter,
-      swept: 0,
-      lastOut: out,
-    };
-  }
-
-  heightAlong(heading, range = AUTOPILOT.LOOK_AHEAD) {
-    const {x, z} = this.position;
-    const fx = -Math.sin(heading);
-    const fz = -Math.cos(heading);
-    const sx = -fz;
-    const sz = fx;
-
-    let needed = AUTOPILOT.CRUISE_FLOOR;
-    for (
-      let d = 0;
-      d <= range;
-      d += d < AUTOPILOT.NEAR_AHEAD ? AUTOPILOT.NEAR_STEP : AUTOPILOT.SCAN_STEP
-    ) {
-      const cx = x + fx * d;
-      const cz = z + fz * d;
-      const ground =
-        d <= AUTOPILOT.NEAR_AHEAD
-          ? Math.max(
-              this.groundAt(cx, cz),
-              this.groundAt(
-                cx + sx * AUTOPILOT.SIDE_OFFSET,
-                cz + sz * AUTOPILOT.SIDE_OFFSET
-              ),
-              this.groundAt(
-                cx - sx * AUTOPILOT.SIDE_OFFSET,
-                cz - sz * AUTOPILOT.SIDE_OFFSET
-              )
-            )
-          : this.groundAt(cx, cz);
-      const h = ground + AUTOPILOT.CLEARANCE - d * AUTOPILOT.CLIMB_SLOPE;
-      if (h > needed) needed = h;
-    }
-    return needed;
-  }
-
-  steerTo(heading, bank = 0) {
-    const yawError = wrapAngle(heading - this.rotation.yaw);
-    this.targetRoll = clamp(
-      yawError * 1.5 + bank,
-      -AUTOPILOT.MAX_ROLL,
-      AUTOPILOT.MAX_ROLL
-    );
+    this.pilot.startOrbit(spot, x, z, this.rotation.yaw, loiter);
   }
 
   updateAutopilot(dt) {
-    const {x, z, y} = this.position;
-
-    // Arrived at waypoint: start orbiting
-    if (
-      !this.orbit &&
-      this.waypoint &&
-      Math.hypot(this.waypoint.x - x, this.waypoint.z - z) <
-        AUTOPILOT.ORBIT_RADIUS
-    ) {
+    const {x, y, z} = this.position;
+    // Arrived at the waypoint: circle it
+    if (this.pilot.reached(x, z, this.waypoint)) {
       this.startOrbit(this.waypoint, true);
     }
-
-    this.targetSpeed = this.orbit
-      ? AUTOPILOT.ORBIT_SPEED
-      : AUTOPILOT.CRUISE_SPEED;
-
-    let heading = this.rotation.yaw;
-    if (this.orbit) {
-      const out = headingTo(this.orbit.x, this.orbit.z, x, z);
-      this.orbit.swept += wrapAngle(out - this.orbit.lastOut) * this.orbit.dir;
-      this.orbit.lastOut = out;
-
-      const dist = Math.hypot(x - this.orbit.x, z - this.orbit.z);
-      const correction = clamp(
-        (dist - AUTOPILOT.ORBIT_RADIUS) / AUTOPILOT.ORBIT_RADIUS,
-        -0.8,
-        0.8
-      );
-      heading = out + this.orbit.dir * (Math.PI / 2 + correction);
-
-      const kts = BASE_FLIGHT_SPEED * this.speed * 60;
-      const bank =
-        (this.orbit.dir * kts) /
-        AUTOPILOT.ORBIT_RADIUS /
-        (1.5 * this.handling.agility);
-      this.steerTo(heading, bank);
-    } else if (this.waypoint) {
-      heading = headingTo(x, z, this.waypoint.x, this.waypoint.z);
-      this.steerTo(heading);
-    } else {
-      this.targetRoll = 0;
-    }
-
-    // Terrain lookahead altitude hold
-    this.scanTimer -= dt;
-    if (this.heldAlt === null || this.scanTimer <= 0) {
-      this.scanTimer = AUTOPILOT.SCAN_INTERVAL;
-      let needed;
-      if (this.orbit) {
-        needed = this.orbit.alt;
-      } else {
-        needed = this.heightAlong(heading);
-        if (Math.abs(wrapAngle(heading - this.rotation.yaw)) > 0.2) {
-          needed = Math.max(
-            needed,
-            this.heightAlong(this.rotation.yaw, AUTOPILOT.TURN_LOOK_AHEAD)
-          );
-        }
-      }
-
-      if (this.heldAlt === null || needed > this.heldAlt) {
-        this.heldAlt = needed;
-      } else if (this.heldAlt - needed > AUTOPILOT.DESCENT_MARGIN) {
-        this.heldAlt -= AUTOPILOT.DESCENT_RATE * AUTOPILOT.SCAN_INTERVAL;
-      }
-    }
-
-    if (dt > 0) {
-      const k = 1 - Math.exp(-dt * 4);
-      this.smoothedVerticalSpeed +=
-        ((y - this.lastY) / dt - this.smoothedVerticalSpeed) * k;
-    }
-    this.lastY = y;
-
-    this.targetPitch = clamp(
-      (this.heldAlt - y) * AUTOPILOT.PITCH_PER_UNIT -
-        this.smoothedVerticalSpeed * AUTOPILOT.PITCH_DAMPING,
-      -AUTOPILOT.MAX_DESCENT,
-      AUTOPILOT.MAX_CLIMB
-    );
+    const {roll, pitch, speed} = this.pilot.update({
+      x,
+      y,
+      z,
+      yaw: this.rotation.yaw,
+      speedKts: BASE_FLIGHT_SPEED * this.speed * 60,
+      agility: this.handling.agility,
+      target: this.waypoint,
+      delta: dt,
+    });
+    this.targetRoll = roll;
+    this.targetPitch = pitch;
+    this.targetSpeed = speed;
   }
 
   step(dt = 1 / 60) {

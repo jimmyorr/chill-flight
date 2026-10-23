@@ -59,6 +59,7 @@ import '../traffic-logic.js';
 import '../traffic.js';
 import '../game-gyro.js';
 import '../waypoint.js';
+import '../autopilot-logic.js';
 import '../autopilot.js';
 import '../game-ui.js';
 import '../zen.js';
