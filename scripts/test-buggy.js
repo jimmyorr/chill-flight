@@ -168,7 +168,7 @@ check(
 );
 
 // --- 3. HIGHWAY STEERING AUTHORITY & SPEED-DEPENDENT TURN RADIUS ---
-const topKts = PLANE_HANDLING.buggy.topKts; // 150 kts
+const topKts = PLANE_HANDLING.buggy.topKts; // 200 kts
 const wheelbase = 2.8;
 const maxSteer = 0.5;
 const maxYawRate = 1.15;
@@ -193,13 +193,20 @@ check(
   `radiusLowSpeed: ${radiusLowSpeed.toFixed(1)}, steerLowSpeed: ${steerLowSpeed.toFixed(3)}`
 );
 
-// High speed (150 kts): turn radius expands smoothly with speed (~195 units)
+// High speed: grip-limited, so the radius grows with the square of the speed
+// (~195 units at 150 kts, ~348 at the 200 kts top speed)
+const radiusAt150 = wheelbase / Math.tan(calcSteerLimit(150));
+check(
+  'Turn radius at 150 kts is ~195 units',
+  radiusAt150 >= 180 && radiusAt150 <= 210,
+  `radiusAt150: ${radiusAt150.toFixed(1)}`
+);
 const steerHighSpeed = calcSteerLimit(topKts);
 const radiusHighSpeed = wheelbase / Math.tan(steerHighSpeed);
 const yawRateHighSpeed = (topKts * Math.tan(steerHighSpeed)) / wheelbase;
 check(
-  'High-speed turn radius expands smoothly to ~195 units to prevent sharp twitching',
-  radiusHighSpeed >= 180 && radiusHighSpeed <= 210,
+  'Top-speed turn radius expands smoothly to ~348 units to prevent sharp twitching',
+  radiusHighSpeed >= 330 && radiusHighSpeed <= 370,
   `radiusHighSpeed: ${radiusHighSpeed.toFixed(1)}`
 );
 check(

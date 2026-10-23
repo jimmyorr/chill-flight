@@ -32,7 +32,7 @@ const KTS_PER_MULT = BASE_FLIGHT_SPEED * 60;
 const TOP_SPEED = PLANE_HANDLING.buggy.topKts;
 const REVERSE_TOP = 20;
 const WATER_TOP = 12;
-// About 0 to 60 knots in 2.5 seconds, 100 in 5, top speed 150
+// About 0 to 60 knots in 2.5 seconds, 100 in 5, top speed 200
 const ENGINE_ACCEL = 45;
 const REVERSE_ACCEL = 14;
 const BRAKE_DECEL = 45;
