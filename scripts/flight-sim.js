@@ -8,6 +8,13 @@
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {AUTOPILOT, AutopilotCore, headingTo} from '../autopilot-logic.js';
+import {
+  airborneVerticalVelocity,
+  diveSpeed,
+  fallAmountAt,
+  sinkRateAt,
+  throttleSpeed,
+} from '../flight-physics-logic.js';
 import {simplex} from '../noise.js';
 import {
   BASE_FLIGHT_SPEED,
@@ -19,35 +26,13 @@ import {
 
 export {AUTOPILOT};
 
-export const PHYSICS = {
-  THROTTLE_EASE: 2,
-  SINK_EASE_SECONDS: 1.0,
-  FALL_BLEND_KTS: 20,
-  GRAVITY: 120,
-  TERMINAL_VELOCITY: -600,
-  FALL_EASE_SECONDS: 0.6,
-};
-
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-function smoothstep(x, min, max) {
-  if (x <= min) return 0;
-  if (x >= max) return 1;
-  const t = (x - min) / (max - min);
-  return t * t * (3 - 2 * t);
-}
-
-function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
-
 export {headingTo};
 
-export function sinkRateAt(kts, handling) {
-  return 15 * (1 - smoothstep(kts, handling.stallKts - 5, handling.levelKts));
-}
+export {sinkRateAt};
 
 export class FlightSimulator {
   constructor(options = {}) {
@@ -176,21 +161,17 @@ export class FlightSimulator {
     this.rotation.roll = flightRot.roll;
     this.rotation.yaw = flightRot.yaw;
 
-    // Throttle / speed recovery & gravity in dives
-    const diff = this.targetSpeed - this.speed;
-    const ktsPerMult = BASE_FLIGHT_SPEED * 60;
-    const maxRate =
-      (diff > 0 ? this.handling.accelKts : this.handling.decelKts) / ktsPerMult;
-    const step = Math.min(Math.abs(diff) * PHYSICS.THROTTLE_EASE, maxRate) * dt;
-    this.speed += Math.sign(diff) * Math.min(step, Math.abs(diff));
-
-    // Gravity acceleration when diving
-    const gravityEffect = -Math.sin(this.rotation.pitch);
-    if (gravityEffect > 0) {
-      this.speed +=
-        gravityEffect * this.handling.diveGain * dt * (1 - this.fallAmount);
-    }
-    this.speed = clamp(this.speed, 0, 10);
+    // Speed in dives, and toward the throttle's target, as the game
+    // (flight-physics-logic.js); the sim has no ground cushion to skim
+    this.speed = diveSpeed(
+      this.speed,
+      this.rotation.pitch,
+      this.handling,
+      this.fallAmount,
+      false,
+      dt
+    );
+    this.speed = throttleSpeed(this.speed, this.targetSpeed, this.handling, dt);
 
     // Forward translation along local forward vector (YXZ Euler)
     const forwardDist = BASE_FLIGHT_SPEED * this.speed * dt * 60;
@@ -250,29 +231,21 @@ export class FlightSimulator {
     // Stall, sink rate and gravity fall
     const airborne = !this.isRolling && this.position.y > restingHeight;
 
-    this.fallAmount = lerp(
+    this.fallAmount = fallAmountAt(
       this.fallAmount,
-      airborne
-        ? 1 -
-            smoothstep(
-              currentKts,
-              this.handling.stallKts - PHYSICS.FALL_BLEND_KTS,
-              this.handling.stallKts
-            )
-        : 0,
-      1 - Math.exp(-dt / PHYSICS.FALL_EASE_SECONDS)
+      airborne,
+      currentKts,
+      this.handling,
+      dt
     );
 
     if (airborne) {
-      this.verticalVelocity -= PHYSICS.GRAVITY * this.fallAmount * dt;
-      this.verticalVelocity = lerp(
+      this.verticalVelocity = airborneVerticalVelocity(
         this.verticalVelocity,
-        -sinkRateAt(currentKts, this.handling),
-        (1 - this.fallAmount) * (1 - Math.exp(-dt / PHYSICS.SINK_EASE_SECONDS))
-      );
-      this.verticalVelocity = Math.max(
-        this.verticalVelocity,
-        PHYSICS.TERMINAL_VELOCITY
+        this.fallAmount,
+        currentKts,
+        this.handling,
+        dt
       );
       this.position.y += this.verticalVelocity * dt;
     } else {
