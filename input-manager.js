@@ -16,7 +16,6 @@ export class InputManager {
         Minus: false,
         Q: false,
         E: false,
-        Space: false,
       },
       doubleTap: {
         ArrowUp: false,
@@ -376,7 +375,6 @@ export class InputManager {
     if (e.key === ' ' && !this.state.isPaused) {
       // Not a click on whichever button has focus
       e.preventDefault();
-      this.state.keys.Space = true;
     }
   }
 
@@ -422,7 +420,6 @@ export class InputManager {
     if (e.key === '-' || e.key === '_') this.state.keys.Minus = false;
     if (key === 'q') this.state.keys.Q = false;
     if (key === 'e') this.state.keys.E = false;
-    if (e.key === ' ') this.state.keys.Space = false;
   }
 
   handleBlur() {

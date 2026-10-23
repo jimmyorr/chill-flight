@@ -89,6 +89,8 @@ export class FlightSimulator {
     this.worldSeed = options.worldSeed ?? 20260101;
     this.constants = {WATER_LEVEL, MOUNTAIN_LEVEL};
 
+    // Both pick the world: the noise, and the continent's outline
+    ChillFlightLogic.WORLD_SEED = this.worldSeed;
     simplex.seed(this.worldSeed);
 
     this.position = {

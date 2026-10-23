@@ -183,7 +183,7 @@ export function updateHaptics(delta) {
   lastWater = onWater;
 
   // Waterfall: a single impact tap when flying through or under falling water
-  const inWaterfall = checkWaterfallContact(planeGroup.position);
+  const inWaterfall = enabled && checkWaterfallContact(planeGroup.position);
   if (inWaterfall) {
     if (
       !underWaterfall &&

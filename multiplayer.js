@@ -317,8 +317,11 @@ function onMessage(event) {
     const s = unpackState(msg);
     if (s) {
       const peer = addPeer(msg.f);
+      // Stamped on arrival with the real clock: smoothNow stands still
+      // while paused or hidden, and arrivals stamped with it then would put
+      // the plane up to a second ahead for half a minute after
       peer.heardAt = performance.now();
-      peer.track.push(s, smoothNow ?? performance.now());
+      peer.track.push(s, peer.heardAt);
     }
   } else if (msg.t === 'waggle') {
     // Shown when their plane, drawn a moment behind, gets there

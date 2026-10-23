@@ -318,8 +318,7 @@ const rand = (a, b) => a + Math.random() * (b - a);
 
 // A point beside the plane: `side` units to its right, `back` behind it
 function planePoint(side, back, y, out) {
-  const slip = activePlaneType === 'buggy' ? state.buggySlipYaw || 0 : 0;
-  const h = planeGroup.rotation.y + slip;
+  const h = planeGroup.rotation.y;
   const c = Math.cos(h);
   const s = Math.sin(h);
   out.set(

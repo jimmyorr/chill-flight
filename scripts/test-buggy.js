@@ -316,12 +316,42 @@ check(
 
 // --- 6. INCLINE VERTICAL MOMENTUM & CATCHING AIR ---
 {
-  const {GRAVITY, MIN_LAUNCH_VEL, SUSPENSION_DROOP, LEDGE_DROP} =
-    ChillFlightLogic.BUGGY_AIR;
-  check('Gravity is 40 units/s²', GRAVITY === 40);
-  check('Minimum launch velocity is 6.0 units/s', MIN_LAUNCH_VEL === 6.0);
-  check('Suspension droop clearance is 0.25 units', SUSPENSION_DROOP === 0.25);
-  check('Cliff ledge drop threshold is 1.2 units', LEDGE_DROP === 1.2);
+  // Climbs at `up` units/s for a second, then the ground runs on at `down`
+  // units/s (a crest), stepped at `fps`: whether it took off, and how long
+  // it was in the air
+  const crest = (fps, up, down) => {
+    const dt = 1 / fps;
+    let b = {y: 0, velY: 0, airborne: false};
+    let ground = 0;
+    let air = 0;
+    for (let i = 0; i < fps * 4; i++) {
+      const gVelY = i < fps ? up : down;
+      ground += gVelY * dt;
+      b = ChillFlightLogic.stepBuggyVertical({
+        ...b,
+        surfaceHeight: ground,
+        groundVelY: gVelY,
+        onWater: false,
+        dt,
+      });
+      if (b.airborne) air += dt;
+    }
+    return air;
+  };
+  // A small crest that rolls over, and a sharp one that launches, the same
+  // at 30, 60 and 120 fps
+  for (const fps of [30, 60, 120]) {
+    check(
+      `A gentle crest stays on the ground at ${fps} fps`,
+      crest(fps, 12, 0) === 0
+    );
+    const air = crest(fps, 10, -10);
+    check(
+      `A sharp crest catches air at ${fps} fps`,
+      air > 0.3,
+      `airTime=${air.toFixed(2)}s`
+    );
+  }
 
   // 6a. Cruising on flat ground stays planted (never launches)
   let flat = {y: 0, velY: 0, airborne: false};
@@ -421,6 +451,22 @@ check(
     if (water.airborne) launchedWater = true;
   }
   check('Buggy on water floats without launching', !launchedWater);
+
+  // 6f. Jumping into water from the bank falls in, rather than dropping
+  // straight to the surface
+  let splash = {y: 30, velY: 10, airborne: true};
+  splash = ChillFlightLogic.stepBuggyVertical({
+    ...splash,
+    surfaceHeight: -0.9,
+    groundVelY: 0,
+    onWater: true,
+    dt: 0.016,
+  });
+  check(
+    'Airborne over water carries on through the air',
+    splash.airborne && splash.y > 29,
+    `y=${splash.y.toFixed(1)}`
+  );
 }
 
 if (failed) {

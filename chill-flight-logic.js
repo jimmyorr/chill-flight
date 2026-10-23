@@ -4214,7 +4214,7 @@ export const ChillFlightLogic = {};
 
     const grade = (seg.y1 - seg.y0) / length;
     const height =
-      seg.y0 + (seg.y1 - seg.y0) * along + 0.75 * Math.sqrt(1 + grade * grade);
+      seg.y0 + (seg.y1 - seg.y0) * t + 0.75 * Math.sqrt(1 + grade * grade);
     const slopeX = (grade * dx) / length;
     const slopeZ = (grade * dz) / length;
     const isInside = along >= 0 && along <= 1;
@@ -4677,10 +4677,13 @@ export const ChillFlightLogic = {};
     GRAVITY: 40,
     // Minimum upward velocity (units/s) needed to launch off a crest
     MIN_LAUNCH_VEL: 6.0,
-    // Suspension droop / clearance (units) before wheels separate from ground
-    SUSPENSION_DROOP: 0.25,
-    // Instant drop-off threshold (units) for driving off a cliff or ledge
-    LEDGE_DROP: 1.2,
+    // How fast (units/s) the wheels must be rising away from the ground
+    // before they leave it: 0.25 units over a 60 fps frame. Rates rather
+    // than distances per frame, so crests launch the same at any frame rate.
+    SEPARATION_RATE: 15,
+    // How fast (units/s) the ground may fall away under the wheels before
+    // it's a ledge to drive off: 1.2 units over a 60 fps frame
+    LEDGE_DROP_RATE: 72,
   };
 
   /**
@@ -4706,7 +4709,8 @@ export const ChillFlightLogic = {};
     dt,
   }) {
     let impact = 0;
-    if (onWater) {
+    // Floating; jumping in from the bank falls the rest of the way below
+    if (onWater && !airborne) {
       return {y: surfaceHeight, velY: 0, airborne: false, impact: 0};
     }
 
@@ -4724,9 +4728,9 @@ export const ChillFlightLogic = {};
       // Launch off crest when ballistic trajectory carries wheels above ground,
       // or when driving off a sudden cliff / drop-off
       if (
-        (candidateY > surfaceHeight + BUGGY_AIR.SUSPENSION_DROOP &&
+        (candidateY - surfaceHeight > BUGGY_AIR.SEPARATION_RATE * dt &&
           velY > BUGGY_AIR.MIN_LAUNCH_VEL) ||
-        y > surfaceHeight + BUGGY_AIR.LEDGE_DROP
+        y - surfaceHeight > BUGGY_AIR.LEDGE_DROP_RATE * dt
       ) {
         airborne = true;
         y = candidateY;
