@@ -13,6 +13,7 @@
  * 7. Turning into a hovercraft on water
  * 8. Grip, leaning into a drift, and turning in the air
  * 9. A raised bridge's railings hold it on the deck
+ * 10. Resting on all four wheels over banks and creases
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PLANE_HANDLING} from '../constants.js';
@@ -770,6 +771,44 @@ check(
   check(
     'It jumps over railings in the air, and no deck without them holds it',
     high.x === 31 && low.x === 31
+  );
+}
+
+// --- 10. RESTING ON ALL FOUR WHEELS ---
+{
+  const {buggyWheelContact} = ChillFlightLogic;
+  const axles = {front: -3.3, rear: 2.9, halfTrack: 2.5};
+  const fwd = [3.3, 3.3, -2.9, -2.9];
+  const right = [-2.5, 2.5, -2.5, 2.5];
+  const below = (h, c) =>
+    Math.max(
+      ...h.map(
+        (hi, i) => hi - (c.height + c.along * fwd[i] + c.across * right[i])
+      )
+    );
+  // A plain slope, rising 0.3 ahead and 0.5 to the right
+  const plane = fwd.map((f, i) => 10 + 0.3 * f + 0.5 * right[i]);
+  const tilted = buggyWheelContact(plane, axles, 10);
+  check(
+    'On a plain slope it sits on it, tilted with it',
+    Math.abs(tilted.height - 10) < 1e-9 &&
+      Math.abs(tilted.along - 0.3) < 1e-9 &&
+      Math.abs(tilted.across - 0.5) < 1e-9
+  );
+  // A bank rising steeply on the left past a crease: the front left tyre
+  // is 3 up, the centre still on the flat
+  const bank = [3, 0, 0, 0];
+  const onBank = buggyWheelContact(bank, axles, 0);
+  check(
+    'With a tyre up a bank, no tyre sinks into the ground',
+    below(bank, onBank) <= 1e-9,
+    `deepest tyre ${below(bank, onBank).toFixed(2)} under`
+  );
+  // A bump under the middle lifts it once it rises past the belly
+  const bump = buggyWheelContact([0, 0, 0, 0], axles, 2);
+  check(
+    'A bump under the middle lifts it past the belly clearance',
+    Math.abs(bump.height - (2 - ChillFlightLogic.BUGGY_BELLY_CLEARANCE)) < 1e-9
   );
 }
 

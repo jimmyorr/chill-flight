@@ -22,6 +22,13 @@ const HOVER_OUT = 0.8;
 const HOVER_DROP = 0.5;
 // Axle to axle, for the steering (buggy.js)
 export const BUGGY_WHEELBASE = REAR_AXLE - FRONT_AXLE;
+// Where the tyres touch down, for resting it on the ground under all four
+// (buggy.js)
+export const BUGGY_AXLES = {
+  front: FRONT_AXLE,
+  rear: REAR_AXLE,
+  halfTrack: HALF_TRACK,
+};
 
 // A box of the given size centred on (x, y, z), tipped by rx about X
 function box(w, h, d, x, y, z, rx = 0) {

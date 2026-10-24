@@ -22,6 +22,7 @@ import {getElevation, sampleGround} from './terrain-geometry.js';
 import {sampleRoad} from './terrain-chunks.js';
 import {planeGroup} from './airplane.js';
 import {
+  BUGGY_AXLES,
   BUGGY_WHEEL_RADIUS,
   BUGGY_WHEELBASE,
   setBuggyHoverFold,
@@ -54,6 +55,9 @@ const ROAD_STEP_UP = 12;
 const FLOAT_DEPTH = 0.3;
 // A jump of more than this between frames is a teleport (units)
 const TELEPORT_DISTANCE = 300;
+// Flying into ground that rises more than this above it (a bank or a
+// hillside ahead), it bounces off rather than climbing straight up it
+const AIR_WALL_STEP = 4;
 // Switched to in the air higher than this above the ground, it falls
 const DROP_HEIGHT = 2;
 // The fastest it can be falling as it's dropped (units/s), as in the air
@@ -92,7 +96,10 @@ const _road = {
   normalX: 0,
   normalZ: 0,
 };
+const _ground = {height: 0, slopeX: 0, slopeZ: 0};
 const _railCar = {x: 0, z: 0, y: 0, velX: 0, velZ: 0};
+const _wheelHeights = [0, 0, 0, 0];
+const _contact = {height: 0, along: 0, across: 0, touch: 0};
 const _lastPos = new THREE.Vector3();
 const _heading = new THREE.Vector3();
 let lastModel = null;
@@ -128,6 +135,16 @@ function sampleSurface(x, z, y) {
     _surface.slopeX = _road.slopeX;
     _surface.slopeZ = _road.slopeZ;
     _surface.kind = 'road';
+    // Where the road runs in a cutting, the bank's drawn ground rises above
+    // the deck's edge: the tyres ride on the bank there
+    if (!_road.rails) {
+      sampleGround(x, z, _ground);
+      if (_ground.height > _road.height) {
+        _surface.height = _ground.height;
+        _surface.slopeX = _ground.slopeX;
+        _surface.slopeZ = _ground.slopeZ;
+      }
+    }
     _surface.rails = _road.rails;
     _surface.across = _road.across;
     _surface.normalX = _road.normalX;
@@ -146,6 +163,61 @@ function sampleSurface(x, z, y) {
     }
     _surface.kind = 'water';
   }
+  return _surface;
+}
+
+// Rests the surface under the middle (from sampleSurface) on all four tyres:
+// its height and slopes become those of the ground the tyres touch, so a
+// tyre over a bank, a crease in the terrain or a road's edge doesn't sink
+// into it. Over water it hovers flat as it was.
+function restOnWheels(surface, x, z, y, yaw) {
+  if (surface.kind === 'water') return surface;
+  const {kind, height} = surface;
+  const rails = surface.rails;
+  const across = surface.across;
+  const normalX = surface.normalX;
+  const normalZ = surface.normalZ;
+  const fx = -Math.sin(yaw);
+  const fz = -Math.cos(yaw);
+  const rx = Math.cos(yaw);
+  const rz = -Math.sin(yaw);
+  for (let i = 0; i < 4; i++) {
+    const back = i < 2 ? BUGGY_AXLES.front : BUGGY_AXLES.rear;
+    const side = (i % 2 ? 1 : -1) * BUGGY_AXLES.halfTrack;
+    _wheelHeights[i] = sampleSurface(
+      x - fx * back + rx * side,
+      z - fz * back + rz * side,
+      y
+    ).height;
+  }
+  ChillFlightLogic.buggyWheelContact(
+    _wheelHeights,
+    BUGGY_AXLES,
+    height,
+    _contact
+  );
+  _surface.kind = kind;
+  _surface.rails = rails;
+  _surface.across = across;
+  _surface.normalX = normalX;
+  _surface.normalZ = normalZ;
+  // How far the lowest tyre is into its ground, at the chassis's tilt now
+  // (in the air the tilt follows its path, not the ground)
+  const tanPitch = Math.tan(tiltPitch);
+  const tanRoll = Math.tan(tiltRoll);
+  let touch = -Infinity;
+  for (let i = 0; i < 4; i++) {
+    const ahead = -(i < 2 ? BUGGY_AXLES.front : BUGGY_AXLES.rear);
+    const side = (i % 2 ? 1 : -1) * BUGGY_AXLES.halfTrack;
+    touch = Math.max(
+      touch,
+      _wheelHeights[i] - (y + tanPitch * ahead + tanRoll * side)
+    );
+  }
+  _contact.touch = touch;
+  _surface.height = _contact.height;
+  _surface.slopeX = _contact.along * fx + _contact.across * rx;
+  _surface.slopeZ = _contact.along * fz + _contact.across * rz;
   return _surface;
 }
 
@@ -402,6 +474,37 @@ export function updateBuggy(delta) {
       ({velX, velZ} = _railCar);
       if (hit > 0) kick(Math.min(1.5, hit * 0.03));
       surface = sampleSurface(pos.x, pos.z, pos.y);
+    }
+  }
+  surface = restOnWheels(surface, pos.x, pos.z, pos.y, yaw);
+  if (airborne && surface.kind !== 'water' && _contact.touch > 0) {
+    if (_contact.height - pos.y > AIR_WALL_STEP) {
+      // Flying into a bank: back out and bounce off its face
+      pos.x = oldX;
+      pos.z = oldZ;
+      const g = Math.hypot(surface.slopeX, surface.slopeZ) || 1;
+      const nx = surface.slopeX / g;
+      const nz = surface.slopeZ / g;
+      const into = velX * nx + velZ * nz;
+      if (into > 0) {
+        velX -= nx * into * 1.3;
+        velZ -= nz * into * 1.3;
+        kick(Math.min(1.5, into * 0.02));
+      }
+      surface = restOnWheels(
+        sampleSurface(pos.x, pos.z, pos.y),
+        pos.x,
+        pos.z,
+        pos.y,
+        yaw
+      );
+    }
+    if (_contact.touch > 0) {
+      // A tyre touches down: the chassis settles onto the ground under all
+      // four, and it lands as soon as it's down to it
+      tiltPitch = Math.atan(_contact.along);
+      tiltRoll = Math.atan(_contact.across);
+      pos.y = Math.max(pos.y, Math.min(surface.height, pos.y + AIR_WALL_STEP));
     }
   }
 
