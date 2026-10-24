@@ -18,7 +18,12 @@ import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {BASE_FLIGHT_SPEED, CHUNK_SIZE, WATER_LEVEL} from './constants.js';
+import {
+  BASE_FLIGHT_SPEED,
+  CHUNK_SIZE,
+  WATER_LEVEL,
+  createMaterial,
+} from './constants.js';
 import {
   animationUniforms,
   chunks,
@@ -86,7 +91,7 @@ const PLASTER = [0.86, 0.82, 0.72];
 // How a building's parts go: folded down where they stand, flung off, or
 // gone (doors, windows, a campfire's flames and smoke). A pier's deck goes
 // to planks.
-const FOLDS = /Body$|^castleRuins$|^windmillBase$/;
+const FOLDS = /Body$|^castleRuins$|^windmillBase$|^bush$/;
 const FLINGS = /Roof$|Chimney$|Blades$|^fireLog$/;
 const ROCKS = /^(rock|snowRock|desertRock)$/;
 // Parts that don't count toward how wide a prop is (a streetlight's arm
@@ -154,10 +159,15 @@ function typeInfo(type) {
   return globalInstancer.types.get(type) || debrisTypes.get(type);
 }
 
-// What draws a type's copies: knocked-off sails stop turning
+// A fallen streetlight's bulb, gone out
+const deadBulbMat = createMaterial({color: 0x6a6a6a, flatShading: true});
+
+// What draws a type's copies: knocked-off sails stop turning, and a fallen
+// streetlight's bulb goes dark
 function debrisInfo(type) {
   const info = typeInfo(type);
   if (type === 'windmillBlades') return {...info, mat: windmillBladesStillMat};
+  if (type === 'streetlightBulb') return {...info, mat: deadBulbMat};
   return info;
 }
 
@@ -769,6 +779,12 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     const spread = Math.max(8, index.radius[i] * 0.7);
     const count = Math.min(90, Math.round(40 * (spread / 8)));
     propPuffs(x, base, z, spread, height * 0.6, dust, count, 9, 5);
+  } else if (parts[0].type === 'bush') {
+    const c = parts[0].data.colors;
+    const o = parts[0].index * 3;
+    LEAF_PUFF.setRGB(c[o], c[o + 1], c[o + 2]);
+    const r = index.radius[i];
+    propPuffs(x, base + height * 0.5, z, r, height * 0.5, LEAF_PUFF, 8, 2.5, 2);
   } else if (small) {
     propPuffs(x, base, z, 3, 3, EMBERS, 12, 2, 6);
     propPuffs(x, base, z, 3, 2, dust, 8, 4, 2);

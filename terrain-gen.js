@@ -3911,7 +3911,10 @@ export function generateChunkData({
         Math.min(1, _baseBushColor.b + bVariation)
       );
 
+      // Bushes get flattened (breakables.js)
+      collector.beginProp(BREAKABLE.SMALL);
       collector.add('bush', _matBuffer, _baseBushColor);
+      collector.endProp();
     });
   }
 
