@@ -4823,6 +4823,48 @@ export const ChillFlightLogic = {};
   }
 
   exports.BUGGY_RAIL = BUGGY_RAIL;
+
+  // --- BUGGY RESTING ON ALL FOUR WHEELS ---
+  // How far a bump under the middle can rise into the gap under the body
+  // before it lifts the buggy
+  const BUGGY_BELLY_CLEARANCE = 1.0;
+
+  // The ground as the four tyres feel it: h holds the surface heights under
+  // the front left, front right, rear left and rear right tyres, axles their
+  // places (front and rear z, negative ahead, and halfTrack either side),
+  // and centre the height under the middle. Fits a plane through the four
+  // and lifts it until no tyre is below its ground, so on a lumpy or creased
+  // bank (the terrain's triangles), a road's edge or a kerb, the wheels stay
+  // on top. Returns, at the buggy's origin, the height and the rise per unit
+  // forward (along) and to the right (across).
+  function buggyWheelContact(h, axles, centre, out = {}) {
+    const fwd = [-axles.front, -axles.front, -axles.rear, -axles.rear];
+    const right = [
+      -axles.halfTrack,
+      axles.halfTrack,
+      -axles.halfTrack,
+      axles.halfTrack,
+    ];
+    const along = (h[0] + h[1] - h[2] - h[3]) / 2 / (fwd[0] - fwd[2]);
+    const across = (h[1] + h[3] - h[0] - h[2]) / 2 / (2 * axles.halfTrack);
+    const meanFwd = (fwd[0] + fwd[2]) / 2;
+    let height = (h[0] + h[1] + h[2] + h[3]) / 4 - along * meanFwd;
+    let lift = 0;
+    for (let i = 0; i < 4; i++) {
+      lift = Math.max(
+        lift,
+        h[i] - (height + along * fwd[i] + across * right[i])
+      );
+    }
+    height = Math.max(height + lift, centre - BUGGY_BELLY_CLEARANCE);
+    out.height = height;
+    out.along = along;
+    out.across = across;
+    return out;
+  }
+
+  exports.BUGGY_BELLY_CLEARANCE = BUGGY_BELLY_CLEARANCE;
+  exports.buggyWheelContact = buggyWheelContact;
   exports.stepBuggyRails = stepBuggyRails;
 
   // --- BUGGY STEERING & DRIVING ---
