@@ -70,6 +70,7 @@ import '../jobs-logic.js';
 import '../dialog.js';
 import '../jobs.js';
 import '../people-screen.js';
+import '../prop-spin-logic.js';
 import '../multiplayer-logic.js';
 import '../multiplayer.js';
 import '../breakables-logic.js';

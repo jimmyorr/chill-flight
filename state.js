@@ -178,6 +178,7 @@ export const state = {
   airplaneModel: undefined,
   propGroup: undefined,
   propGroups: undefined,
+  propSpin: undefined,
   autopilotEnabled: undefined,
   manualBaseFogDensity: undefined,
   manualPropLOD: undefined,

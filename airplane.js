@@ -399,7 +399,8 @@ export function setActivePlane(planeType, skipStorage = false) {
   state.airplaneModel = newModel;
   // Active vehicle class for styling
   document.body.classList.toggle('vehicle-buggy', planeType === 'buggy');
-  state.propGroup = newModel.propGroup || state.propGroup;
+  // The jet and the buggy have no prop
+  state.propGroup = newModel.propGroup || null;
   state.propGroups =
     newModel.propGroups || (state.propGroup ? [state.propGroup] : []);
   planeGroup.add(newModel);

@@ -31,6 +31,7 @@ import {
   updateSkyPalette,
 } from './sky.js';
 import {renderFrame} from './outline-pass.js';
+import {newPropSpin, propSpinTarget, stepPropSpin} from './prop-spin-logic.js';
 import {updatePlaneShadow} from './plane-shadow.js';
 import {performanceMonitor} from './game-performance.js';
 import {
@@ -1267,23 +1268,23 @@ function applyShiftThrottle(delta, nowTime) {
 }
 
 function updatePhysicsAndControls(delta, nowTime) {
-  // Spin the propeller
-  if (!state.isFreeCamera && Math.abs(state.flightSpeedMultiplier) > 0.001) {
-    const baseSpin = 15 * Math.abs(state.flightSpeedMultiplier);
-    const spin = Math.max(4, Math.min(25, baseSpin));
-    // A prop's spinScale (props with fewer blades spin faster), capped at
-    // 40 rad/s: beyond about 90 degrees a frame (at 30 fps), a 2-blade prop
-    // looks like it's turning backwards
-    const spinProp = (prop) => {
-      if (!prop) return;
-      const scale = prop.userData.spinScale ?? 1;
-      prop.rotation.z += Math.min(40, spin * scale) * delta;
-    };
-    if (state.propGroups && Array.isArray(state.propGroups)) {
-      state.propGroups.forEach(spinProp);
-    } else {
-      spinProp(state.propGroup);
-    }
+  // Spin the propeller: the engine drives it while the plane moves or the
+  // throttle is open, and with the engine off it coasts down, catches on
+  // compression and rocks back to rest (prop-spin-logic.js). Props with
+  // fewer blades spin faster (spinScale), so their blades sweep past as often.
+  if (!state.isFreeCamera && state.propGroups?.length) {
+    const spinScale = state.propGroups[0].userData.spinScale ?? 1;
+    const prop = (state.propSpin ??= newPropSpin());
+    stepPropSpin(
+      prop,
+      propSpinTarget(
+        state.flightSpeedMultiplier,
+        state.targetFlightSpeed,
+        spinScale
+      ),
+      delta
+    );
+    for (const group of state.propGroups) group.rotation.z = prop.angle;
   }
 
   // Landing gear eases down or up (flight-physics.js decides which); posed

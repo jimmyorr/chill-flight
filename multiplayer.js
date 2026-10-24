@@ -29,6 +29,7 @@ import {scene} from './scene.js';
 import {camera} from './sky.js';
 import {setGearExtension} from './twin.js';
 import {setBuggyHoverFold} from './buggy-model.js';
+import {PROP_SPIN, newPropSpin, stepPropSpin} from './prop-spin-logic.js';
 import {inputManager} from './game-input-bindings.js';
 import {formatDistance, screenPlacement} from './waypoint.js';
 import {
@@ -971,8 +972,12 @@ export function updateMultiplayer(delta) {
     }
 
     peer.model.rotation.z = waggleRoll(rawNow - peer.waggleAt);
-    const spin = isPaused ? 0 : speed * BASE_FLIGHT_SPEED * 60 * delta * 0.15;
-    for (const prop of peer.props) if (prop) prop.rotation.z += spin;
+    // Their prop coasts down and settles like the player's (prop-spin-logic.js)
+    peer.propSpin ??= newPropSpin();
+    const spinTarget = isPaused ? 0 : speed * BASE_FLIGHT_SPEED * 60 * 0.15;
+    stepPropSpin(peer.propSpin, Math.min(PROP_SPIN.MAX, spinTarget), delta);
+    for (const prop of peer.props)
+      if (prop) prop.rotation.z = peer.propSpin.angle;
     if (peer.model.gearGroups) {
       const target = flags & FLAGS.gear ? 1 : 0;
       peer.gear += THREE.MathUtils.clamp(target - peer.gear, -delta, delta);
