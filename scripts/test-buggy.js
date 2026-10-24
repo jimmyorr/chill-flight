@@ -11,6 +11,7 @@
  * 5. The ?buggy= switch
  * 6. Incline vertical momentum and catching air
  * 7. Turning into a hovercraft on water
+ * 8. Grip, leaning into a drift, and turning in the air
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PLANE_HANDLING} from '../constants.js';
@@ -187,15 +188,20 @@ check(
 );
 
 // High speed: grip-limited, so the radius grows with the square of the speed
-// (~195 units at 150 kts, ~348 at the 200 kts top speed)
+// (~195 units at 150 kts, ~348 at 200, ~500 at the 240 kts top speed)
 check(
   'Turn radius at 150 kts is ~195 units',
   radiusAt(150) >= 180 && radiusAt(150) <= 210,
   `radius: ${radiusAt(150).toFixed(1)}`
 );
 check(
-  `Top-speed (${topKts} kts) turn radius is ~348 units`,
-  radiusAt(topKts) >= 330 && radiusAt(topKts) <= 370,
+  'Turn radius at 200 kts is ~348 units',
+  radiusAt(200) >= 330 && radiusAt(200) <= 370,
+  `radius: ${radiusAt(200).toFixed(1)}`
+);
+check(
+  `Top-speed (${topKts} kts) turn radius is ~500 units`,
+  radiusAt(topKts) >= 470 && radiusAt(topKts) <= 530,
   `radius: ${radiusAt(topKts).toFixed(1)}`
 );
 const yawRateTop = (topKts * Math.tan(steerLimit(topKts))) / BUGGY_WHEELBASE;
@@ -465,6 +471,29 @@ check(
     onWater: true,
     dt: 0.016,
   });
+  // 6g. Hitting a steep bank flat out throws it up no faster than
+  // MAX_RAMP_VEL, rather than hundreds of metres into the sky
+  let bank = {y: 0, velY: 0, airborne: false};
+  let bankGround = 0;
+  let peak = 0;
+  for (let i = 0; i < 60 * 8; i++) {
+    const gVelY = i < 30 ? 240 * 0.8 : 0;
+    bankGround += gVelY / 60;
+    bank = ChillFlightLogic.stepBuggyVertical({
+      ...bank,
+      surfaceHeight: bankGround,
+      groundVelY: gVelY,
+      onWater: false,
+      dt: 1 / 60,
+    });
+    peak = Math.max(peak, bank.y - bankGround);
+  }
+  const {MAX_RAMP_VEL, GRAVITY: G} = ChillFlightLogic.BUGGY_AIR;
+  check(
+    'A steep bank at 240 kts launches no higher than MAX_RAMP_VEL allows',
+    peak > 20 && peak <= (MAX_RAMP_VEL * MAX_RAMP_VEL) / (2 * G) + 1,
+    `peak ${peak.toFixed(1)} units`
+  );
   check(
     'Airborne over water carries on through the air',
     splash.airborne && splash.y > 29,
@@ -530,6 +559,144 @@ check(
     'It slides a little wider on water than on the ground',
     ChillFlightLogic.BUGGY_HOVER.GRIP > 4 &&
       ChillFlightLogic.BUGGY_HOVER.GRIP < 18
+  );
+}
+
+// --- 8. GRIP, LEANING INTO A DRIFT, AND TURNING IN THE AIR ---
+{
+  // Drives on flat ground at fps as buggy.js does: the engine and drag
+  // (cruise control set to kts), then the handling.
+  // steer(t) is the stick. Returns the slide (radians) each frame.
+  const handle = ({kts, kind = 'ground', seconds, steer, fps = 60}) => {
+    const car = {velX: 0, velZ: -kts, yaw: 0, yawRate: 0, steer: 0, lean: 0};
+    const dt = 1 / fps;
+    const slips = [];
+    for (let i = 0; i < seconds * fps; i++) {
+      const fx = -Math.sin(car.yaw);
+      const fz = -Math.cos(car.yaw);
+      let forward = car.velX * fx + car.velZ * fz;
+      const side = car.velX * Math.cos(car.yaw) - car.velZ * Math.sin(car.yaw);
+      const drag = ChillFlightLogic.buggyDrag(forward);
+      forward +=
+        ChillFlightLogic.buggyDriveAccel({
+          forward,
+          joyY: 0,
+          cruise: kts,
+          top: topKts,
+          drag,
+        }) * dt;
+      forward -= Math.sign(forward) * Math.min(Math.abs(forward), drag * dt);
+      slips.push(
+        ChillFlightLogic.stepBuggyHandling(car, {
+          forward,
+          side,
+          steerIn: steer(i * dt),
+          kind,
+          airborne: false,
+          wheelbase: BUGGY_WHEELBASE,
+          topSpeed: topKts,
+          dt,
+        })
+      );
+    }
+    const max = Math.max(...slips.map(Math.abs));
+    return {car, slips, max, kts: Math.hypot(car.velX, car.velZ)};
+  };
+  const deg = (r) => `${((r * 180) / Math.PI).toFixed(1)}°`;
+  const DEG5 = (5 * Math.PI) / 180;
+
+  // Ordinary driving stays on rails
+  const gentle = handle({kts: 220, seconds: 4, steer: () => 0.6});
+  check(
+    'A firm turn at 220 kts barely slides',
+    gentle.max < DEG5,
+    deg(gentle.max)
+  );
+  const taps = handle({
+    kts: 220,
+    seconds: 3,
+    steer: (t) => (t % 1 < 0.25 ? 1 : 0),
+  });
+  check(
+    'Quick full-stick taps at 220 kts barely slide',
+    taps.max < DEG5,
+    deg(taps.max)
+  );
+  const slow = handle({kts: 80, seconds: 3, steer: () => 1});
+  check(
+    'Full lock below the drift speed barely slides',
+    slow.max < DEG5,
+    deg(slow.max)
+  );
+
+  // Holding a hard turn at speed leans in and drifts, steady, turning
+  // tighter than the firmest ordinary turn, and costing speed
+  const held = handle({kts: 200, seconds: 3, steer: () => 1});
+  const settled = held.slips.at(-1);
+  check(
+    'Holding a hard turn at 200 kts drifts at a steady 18-35°',
+    settled > 0.31 && settled < 0.61 && held.max < 0.7,
+    `settled ${deg(settled)}, max ${deg(held.max)}`
+  );
+  const firm = handle({kts: 200, seconds: 3, steer: () => 0.74});
+  check(
+    'The drift turns tighter than an ordinary full turn',
+    held.car.yaw > firm.car.yaw * 1.4,
+    `drift ${deg(held.car.yaw)} vs ${deg(firm.car.yaw)}`
+  );
+  check('Drifting scrubs speed', held.kts < 185, `${held.kts.toFixed(0)} kts`);
+  const road = handle({kts: 200, kind: 'road', seconds: 3, steer: () => 1});
+  check(
+    'Tarmac grips harder: the drift is narrower on the road',
+    road.slips.at(-1) > 0.1 && road.slips.at(-1) < settled * 0.75,
+    `road ${deg(road.slips.at(-1))} vs dirt ${deg(settled)}`
+  );
+
+  // Letting go catches it, a little more slowly the faster it's going
+  const caught = (kts) => {
+    const r = handle({kts, seconds: 5, steer: (t) => (t < 3 ? 1 : 0)});
+    const after = r.slips.slice(180).findIndex((s) => Math.abs(s) < DEG5);
+    return after / 60;
+  };
+  const c150 = caught(150);
+  const c240 = caught(240);
+  check(
+    'Letting go straightens it within a second, slower at top speed',
+    c150 > 0 && c240 < 1 && c240 > c150,
+    `${c150.toFixed(2)} s at 150 kts, ${c240.toFixed(2)} s at 240`
+  );
+
+  // The same drift at any frame rate
+  for (const fps of [30, 144]) {
+    const r = handle({kts: 200, seconds: 3, steer: () => 1, fps});
+    check(
+      `The drift settles the same at ${fps} fps`,
+      Math.abs(r.slips.at(-1) - settled) < (2 * Math.PI) / 180,
+      `${deg(r.slips.at(-1))} vs ${deg(settled)}`
+    );
+  }
+
+  // In the air the stick turns it, but it carries on the way it was going
+  const air = {velX: 0, velZ: -200, yaw: 0, yawRate: 0, steer: 0, lean: 0};
+  for (let i = 0; i < 60; i++) {
+    ChillFlightLogic.stepBuggyHandling(air, {
+      forward: -Math.sin(air.yaw) * air.velX - Math.cos(air.yaw) * air.velZ,
+      side: Math.cos(air.yaw) * air.velX - Math.sin(air.yaw) * air.velZ,
+      steerIn: 1,
+      kind: 'ground',
+      airborne: true,
+      wheelbase: BUGGY_WHEELBASE,
+      topSpeed: topKts,
+      dt: 1 / 60,
+    });
+  }
+  check(
+    'In the air the stick turns it 15-40° a second, its path unchanged',
+    air.yaw > 0.26 &&
+      air.yaw < 0.7 &&
+      Math.abs(air.velX) < 1e-6 &&
+      Math.abs(air.velZ + 200) < 1e-6,
+    `turned ${deg(air.yaw)}, velocity (${air.velX.toFixed(2)}, ${air.velZ.toFixed(2)})`
   );
 }
 

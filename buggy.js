@@ -2,10 +2,11 @@
 // The buggy takes the place of the flight model and flight physics
 // (game-loop.js) while it's the active vehicle. Arcade handling: the engine
 // pulls hard and tails off toward top speed, the steering is responsive on
-// highway curves and tightens at speed, tyres grip firmly with zero sliding
-// out, and suspension is critically damped for a smooth, stable ride over
-// rolling hills. Driving up inclines or over crests at high speed reliably
-// catches air in a natural ballistic flight. It drives on the ground as drawn
+// highway curves and opens out at speed, tyres grip firmly in ordinary
+// turns, and suspension is critically damped for a smooth, stable ride over
+// rolling hills. Holding a hard turn at speed leans in and drifts. Driving
+// up inclines or over crests at high speed reliably catches air in a natural
+// ballistic flight, and the stick turns it in the air to line up a landing. It drives on the ground as drawn
 // (sampleGround), the highway deck and bridges (sampleRoad with 3D elevation awareness),
 // and over water it turns into a hovercraft, wheels folded flat, and carries
 // on at speed.
@@ -40,14 +41,6 @@ const TOP_SPEED = PLANE_HANDLING.buggy.topKts;
 // stepBuggyVertical)
 const {MAX_STEER} = ChillFlightLogic.BUGGY_DRIVE;
 const {GRAVITY} = ChillFlightLogic.BUGGY_AIR;
-// How fast the front wheels turn toward the stick, and back to centre
-// (radians per second)
-const STEER_RATE = 2.8;
-const STEER_RETURN_RATE = 5.0;
-// Pure grip: tyres kill sideways sliding quickly so the buggy tracks predictably
-const GRIP_ROAD = 25;
-const GRIP_GROUND = 18;
-const GRIP_WATER = ChillFlightLogic.BUGGY_HOVER.GRIP;
 // Ground steeper than this (rise per unit) is a wall it bumps against
 const WALL_SLOPE = Math.tan((50 * Math.PI) / 180);
 // It stays parked on slopes gentler than this pull (units/s²)
@@ -100,6 +93,10 @@ let tiltPitch = 0;
 let tiltRoll = 0;
 // The wheels folded flat for hovering: 0 down, 1 flat
 let hoverFold = 0;
+// The handling's own state (lean: leaning into a hard turn, 0 to 1), and
+// how far it's sliding (radians)
+const car = {velX: 0, velZ: 0, yaw: 0, yawRate: 0, steer: 0, lean: 0};
+let slip = 0;
 
 // Fills _surface with what the wheels would rest on at (x, z), for a buggy
 // at height y: the highway deck (with 3D elevation awareness for junctions/overpasses)
@@ -146,6 +143,8 @@ function enter() {
   velY = 0;
   yawRate = 0;
   steer = 0;
+  car.lean = 0;
+  slip = 0;
   airborne = false;
   bounce = 0;
   bounceVel = 0;
@@ -180,12 +179,6 @@ function analogThrottleAxis(value) {
     value,
     state.currentControlScheme === 'joystick'
   );
-}
-
-// Moves a value toward a target at no more than rate per second
-function approach(value, target, rate, delta) {
-  const step = rate * delta;
-  return value + THREE.MathUtils.clamp(target - value, -step, step);
 }
 
 export function updateBuggy(delta) {
@@ -224,20 +217,6 @@ export function updateBuggy(delta) {
   const onWater = ground.kind === 'water';
   const top = TOP_SPEED;
 
-  // Speed-dependent turning radius: at low speeds, wheels steer up to MAX_STEER for nimble parking.
-  // As speed increases, turn radius smoothly opens up so high-speed highway driving feels stable and
-  // small stick adjustments gently center the lane instead of violently jerking the vehicle.
-  const steerLimit = ChillFlightLogic.buggySteerLimit(forward, BUGGY_WHEELBASE);
-  const steerTarget = steerIn * steerLimit;
-  const returning =
-    steerTarget === 0 || Math.sign(steerTarget) !== Math.sign(steer);
-  steer = approach(
-    steer,
-    steerTarget,
-    returning ? STEER_RETURN_RATE : STEER_RATE,
-    dt
-  );
-
   let driveAccel = 0;
   if (!airborne) {
     // Gravity along the slope: downhill speeds up, uphill slows
@@ -275,29 +254,24 @@ export function updateBuggy(delta) {
       forward -= Math.sign(forward) * Math.min(Math.abs(forward), drag * dt);
     }
 
-    // Pure grip: tyres kill sideways sliding firmly without drift break-loose
+    // Sliding down a slope across it
     side += -GRAVITY * slopeAcross * dt;
-    const grip =
-      ground.kind === 'road' ? GRIP_ROAD : onWater ? GRIP_WATER : GRIP_GROUND;
-    side *= Math.exp(-grip * dt);
-
-    // Turning: follows front wheel angle
-    const wantYawRate = (forward * Math.tan(steer)) / BUGGY_WHEELBASE;
-    const speedRatio = Math.min(1, Math.abs(forward) / TOP_SPEED);
-    const yawEase = 0.08 + 0.06 * speedRatio;
-    yawRate += (wantYawRate - yawRate) * (1 - Math.exp(-dt / yawEase));
-  } else {
-    // In the air: spin carries on and slowly dies away
-    yawRate *= Math.exp(-dt * 1.5);
   }
 
-  yaw += yawRate * dt;
-  const nfx = -Math.sin(yaw);
-  const nfz = -Math.cos(yaw);
-  const nrx = Math.cos(yaw);
-  const nrz = -Math.sin(yaw);
-  velX = nfx * forward + nrx * side;
-  velZ = nfz * forward + nrz * side;
+  // Steering, turning and the tyres' grip, leaning in to drift through a
+  // hard turn at speed, and turning in the air (ChillFlightLogic)
+  Object.assign(car, {velX, velZ, yaw, yawRate, steer});
+  slip = ChillFlightLogic.stepBuggyHandling(car, {
+    forward,
+    side,
+    steerIn,
+    kind: ground.kind,
+    airborne,
+    wheelbase: BUGGY_WHEELBASE,
+    topSpeed: TOP_SPEED,
+    dt,
+  });
+  ({velX, velZ, yaw, yawRate, steer} = car);
 
   const kick = (impact) => {
     bounceVel -= impact;
@@ -464,8 +438,9 @@ export function updateBuggy(delta) {
   state.isBarrelRolling = false;
   state.isSteepPitch = false;
   state.sharpTurnAmount = 0;
+  // Smoke or dust off the tyres braking hard or drifting
+  const braking = joyY < -0.2 && forward > 15 ? Math.min(1, -joyY) : 0;
+  const drifting = THREE.MathUtils.clamp((Math.abs(slip) - 0.1) / 0.3, 0, 1);
   state.buggySlide =
-    !airborne && !onWater && joyY < -0.2 && forward > 15
-      ? Math.min(1, -joyY)
-      : 0;
+    !airborne && !onWater && speed > 15 ? Math.max(braking, drifting) : 0;
 }

@@ -4684,6 +4684,10 @@ export const ChillFlightLogic = {};
     // How fast (units/s) the ground may fall away under the wheels before
     // it's a ledge to drive off: 1.2 units over a 60 fps frame
     LEDGE_DROP_RATE: 72,
+    // The fastest the ground can throw it upward (units/s): a 30 m jump at
+    // most. Hitting a steep bank flat out otherwise fired it hundreds of
+    // metres up.
+    MAX_RAMP_VEL: 80,
   };
 
   /**
@@ -4714,11 +4718,12 @@ export const ChillFlightLogic = {};
       return {y: surfaceHeight, velY: 0, airborne: false, impact: 0};
     }
 
+    const rampVelY = Math.min(groundVelY, BUGGY_AIR.MAX_RAMP_VEL);
     if (!airborne) {
       // While wheels are in contact with the ground:
       // Terrain pushes upward when climbing
-      if (groundVelY > velY) {
-        velY = groundVelY;
+      if (rampVelY > velY) {
+        velY = rampVelY;
       } else {
         // Cresting or slope flattening: gravity pulls downward
         velY -= BUGGY_AIR.GRAVITY * dt;
@@ -4736,7 +4741,7 @@ export const ChillFlightLogic = {};
         y = candidateY;
       } else {
         y = surfaceHeight;
-        velY = groundVelY;
+        velY = rampVelY;
       }
     } else {
       // Free ballistic trajectory under gravity
@@ -4746,7 +4751,7 @@ export const ChillFlightLogic = {};
         airborne = false;
         impact = Math.max(0, groundVelY - velY);
         y = surfaceHeight;
-        velY = groundVelY;
+        velY = rampVelY;
       }
     }
 
@@ -4877,6 +4882,160 @@ export const ChillFlightLogic = {};
     return fold + Math.min(step, Math.max(-step, target - fold));
   }
 
+  // --- BUGGY TURNING, GRIP & LEAN-IN DRIFT ---
+  // The tyres turn the buggy's path toward where it points, up to a limit
+  // (MAX_GRIP, units/s² across it). Ordinary steering stays inside it
+  // (buggySteerLimit keeps the cornering under MAX_CORNERING), so the buggy
+  // tracks on rails. Holding a hard turn at speed leans in: the tail kicks
+  // out to a drift angle, the path tightens a little and the slide scrubs
+  // speed. Easing off the stick lets it straighten, more slowly the faster
+  // it goes, so drifting at top speed takes some catching.
+  const BUGGY_TURN = {
+    // Quick grip for small slides (per second), and the most it can turn
+    // the path
+    GRIP_RATE: {road: 25, ground: 18, water: BUGGY_HOVER.GRIP},
+    MAX_GRIP: {road: 150, ground: 125, water: 90},
+    // Leaning in: the stick past LEAN_STEER, held, above LEAN_MIN_SPEED
+    // (fully from LEAN_FULL_SPEED), builds over LEAN_SECONDS and lets go
+    // over LEAN_RELEASE_SECONDS
+    LEAN_STEER: 0.75,
+    LEAN_MIN_SPEED: 90,
+    LEAN_FULL_SPEED: 150,
+    LEAN_SECONDS: 0.35,
+    LEAN_RELEASE_SECONDS: 0.2,
+    // Leaning in fully: the drift angle (radians), and how much more the
+    // grip and the front wheels turn it (0.35 is 35% more)
+    DRIFT_ANGLE: {road: 0.38, ground: 0.52, water: 0.6},
+    LEAN_EXTRA: 0.35,
+    // Past WILD_SPEED the drift swings wider, up to WILD_EXTRA more at top
+    // speed
+    WILD_SPEED: 180,
+    WILD_EXTRA: 0.5,
+    // How quickly the tail swings toward the drift angle, or back in line
+    // (per second), slowing to KICK_RATE / (1 + KICK_FADE) at top speed
+    KICK_RATE: 5,
+    KICK_FADE: 3,
+    // Speed lost to the sideways scrub, as a share of the grip at work
+    SCRUB: 0.5,
+    // How fast the front wheels turn toward the stick, and back to centre
+    // (radians per second)
+    STEER_RATE: 2.8,
+    STEER_RETURN_RATE: 5.0,
+    // In the air the stick turns the buggy (radians per second) to line up
+    // the landing, though it carries on the way it was going
+    AIR_YAW_RATE: 0.6,
+    AIR_YAW_SECONDS: 0.3,
+  };
+
+  /**
+   * One step of the buggy's steering, turning and grip. Updates car in
+   * place: velX/velZ (world, units/s), yaw, yawRate, steer (front wheel
+   * angle) and lean (0 to 1, leaning into a hard turn). forward and side
+   * are its velocity along and across the buggy after the engine, brakes
+   * and slope have acted.
+   *
+   * @param {Object} car
+   * @param {Object} p
+   * @param {number} p.forward
+   * @param {number} p.side
+   * @param {number} p.steerIn - Stick, -1 (right) to 1 (left)
+   * @param {string} p.kind - 'road', 'ground' or 'water'
+   * @param {boolean} p.airborne
+   * @param {number} p.wheelbase
+   * @param {number} p.topSpeed
+   * @param {number} p.dt
+   * @returns {number} How far it's sliding: the angle between where it
+   *   points and where it's going (radians; positive with the nose left of
+   *   its path, as in a drift to the left)
+   */
+  function stepBuggyHandling(
+    car,
+    {forward, side, steerIn, kind, airborne, wheelbase, topSpeed, dt}
+  ) {
+    const T = BUGGY_TURN;
+    const clamp01 = (v) => Math.min(1, Math.max(0, v));
+    const speed = Math.hypot(forward, side);
+    const slipNow =
+      speed < 1 || forward < 0 ? 0 : Math.atan2(side, Math.abs(forward));
+
+    // Leaning in builds while a hard turn is held at speed
+    const hard =
+      !airborne &&
+      Math.abs(steerIn) >= T.LEAN_STEER &&
+      forward > T.LEAN_MIN_SPEED;
+    const leanRate = hard ? 1 / T.LEAN_SECONDS : -1 / T.LEAN_RELEASE_SECONDS;
+    car.lean = clamp01(car.lean + leanRate * dt);
+    const drift =
+      car.lean *
+      clamp01(
+        (forward - T.LEAN_MIN_SPEED) / (T.LEAN_FULL_SPEED - T.LEAN_MIN_SPEED)
+      );
+    const boost = 1 + T.LEAN_EXTRA * drift;
+
+    // The front wheels turn toward the stick, up to the grip-limited lock
+    // for its speed (more of it leaning in). By its whole speed, not just
+    // along it, so a slide doesn't free up more lock.
+    const limit = Math.min(
+      BUGGY_DRIVE.MAX_STEER,
+      Math.atan(Math.tan(buggySteerLimit(speed, wheelbase)) * boost)
+    );
+    const target = steerIn * limit;
+    const returning =
+      target === 0 || Math.sign(target) !== Math.sign(car.steer);
+    const rate = returning ? T.STEER_RETURN_RATE : T.STEER_RATE;
+    car.steer += Math.min(rate * dt, Math.max(-rate * dt, target - car.steer));
+
+    if (!airborne && speed >= 1) {
+      // Grip turns the path toward where it points (quickly for small
+      // slides, limited for big ones), keeping the speed but for a scrub
+      const quick = Math.abs(side) * (1 - Math.exp(-T.GRIP_RATE[kind] * dt));
+      const lateral = Math.min(quick, T.MAX_GRIP[kind] * boost * dt);
+      const along = forward < 0 ? -1 : 1;
+      let slip = Math.atan2(side, Math.abs(forward));
+      slip -= Math.sign(slip) * Math.min(Math.abs(slip), lateral / speed);
+      const scrubbed = Math.max(
+        0,
+        speed - T.SCRUB * lateral * Math.abs(Math.sin(slip))
+      );
+      forward = along * scrubbed * Math.cos(slip);
+      side = scrubbed * Math.sin(slip);
+
+      // Turning follows the front wheels, and the tail swings toward the
+      // drift angle (or back in line)
+      const kick = T.KICK_RATE / (1 + T.KICK_FADE * (speed / topSpeed) ** 2);
+      const wild =
+        1 +
+        T.WILD_EXTRA *
+          clamp01((speed - T.WILD_SPEED) / (topSpeed - T.WILD_SPEED));
+      const wantSlip = Math.sign(steerIn) * T.DRIFT_ANGLE[kind] * wild * drift;
+      const want =
+        (forward * Math.tan(car.steer)) / wheelbase +
+        (forward > 0 ? kick * (wantSlip - slipNow) : 0);
+      const ease = 0.08 + 0.06 * Math.min(1, Math.abs(forward) / topSpeed);
+      car.yawRate += (want - car.yawRate) * (1 - Math.exp(-dt / ease));
+    } else if (airborne) {
+      // In the air the stick turns it, and the spin dies away without it
+      const want = steerIn * T.AIR_YAW_RATE;
+      car.yawRate +=
+        (want - car.yawRate) * (1 - Math.exp(-dt / T.AIR_YAW_SECONDS));
+    } else {
+      car.yawRate = 0;
+    }
+
+    const fx = -Math.sin(car.yaw);
+    const fz = -Math.cos(car.yaw);
+    const rx = Math.cos(car.yaw);
+    const rz = -Math.sin(car.yaw);
+    car.velX = fx * forward + rx * side;
+    car.velZ = fz * forward + rz * side;
+    car.yaw += car.yawRate * dt;
+    const nf = -Math.sin(car.yaw) * car.velX - Math.cos(car.yaw) * car.velZ;
+    const ns = Math.cos(car.yaw) * car.velX - Math.sin(car.yaw) * car.velZ;
+    return Math.hypot(nf, ns) < 1 || nf < 0 ? 0 : Math.atan2(ns, nf);
+  }
+
+  exports.BUGGY_TURN = BUGGY_TURN;
+  exports.stepBuggyHandling = stepBuggyHandling;
   exports.BUGGY_DRIVE = BUGGY_DRIVE;
   exports.BUGGY_HOVER = BUGGY_HOVER;
   exports.buggyDrag = buggyDrag;
