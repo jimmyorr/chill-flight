@@ -2624,7 +2624,9 @@ export const streetlightDecalMat = new THREE.MeshBasicMaterial({
   blending: THREE.AdditiveBlending,
   depthWrite: false,
 });
-streetlightDecalMat.onBeforeCompile = (shader) => {
+// Pools of light on the ground fade out near the edge of the render radius.
+// flicker: the pool breathes like firelight, each at its own phase.
+function decalFade(shader, flicker) {
   if (terrainUniforms) {
     shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
     shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
@@ -2634,6 +2636,36 @@ streetlightDecalMat.onBeforeCompile = (shader) => {
     uniform vec2 uCameraPosXZ;
     varying float vDistanceXZ;
   ` + shader.vertexShader;
+  if (flicker) {
+    shader.uniforms.uTime = animationUniforms.uTime;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+       uniform float uTime;
+       varying float vFlicker;`
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+       #ifdef USE_INSTANCING
+       float phase = instanceMatrix[3][0] + instanceMatrix[3][2];
+       #else
+       float phase = 0.0;
+       #endif
+       vFlicker = 0.85 + 0.1 * sin(uTime * 7.0 + phase)
+         + 0.05 * sin(uTime * 17.0 + phase * 1.7);`
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying float vFlicker;`
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <fog_fragment>',
+      `#include <fog_fragment>
+       gl_FragColor.rgb *= vFlicker;`
+    );
+  }
   shader.vertexShader = shader.vertexShader.replace(
     `#include <worldpos_vertex>`,
     `#include <worldpos_vertex>
@@ -2657,7 +2689,8 @@ streetlightDecalMat.onBeforeCompile = (shader) => {
        gl_FragColor.a *= (1.0 - smoothstep(0.9, 0.99, distRatio));
      }`
   );
-};
+}
+streetlightDecalMat.onBeforeCompile = (shader) => decalFade(shader, false);
 
 // Tent geometries
 function createTentBodyGeometry() {
@@ -2756,6 +2789,28 @@ export var fireMat = createMaterial({
   emissive: 0xff4500,
   emissiveIntensity: 2.0,
 });
+// At night a campfire throws a warm, flickering pool of light on the ground
+// around it: a soft decal added over the ground (no real light, so it costs
+// one draw per chunk with campfires). The game loop fades it in after dusk.
+var fireGlowCanvas = document.createElement('canvas');
+fireGlowCanvas.width = 128;
+fireGlowCanvas.height = 128;
+var fireGlowCtx = fireGlowCanvas.getContext('2d');
+var fireGlowGradient = fireGlowCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+fireGlowGradient.addColorStop(0, 'rgba(255, 150, 60, 0.7)');
+fireGlowGradient.addColorStop(0.25, 'rgba(220, 100, 35, 0.4)');
+fireGlowGradient.addColorStop(0.6, 'rgba(120, 50, 15, 0.14)');
+fireGlowGradient.addColorStop(1, 'rgba(0, 0, 0, 0.0)');
+fireGlowCtx.fillStyle = fireGlowGradient;
+fireGlowCtx.fillRect(0, 0, 128, 128);
+export const fireGlowMat = new THREE.MeshBasicMaterial({
+  map: new THREE.CanvasTexture(fireGlowCanvas),
+  transparent: true,
+  opacity: 0.0,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+fireGlowMat.onBeforeCompile = (shader) => decalFade(shader, true);
 
 // Smoke geometry and material community
 export var smokeGeo = new THREE.BoxGeometry(2, 2, 2);

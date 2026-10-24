@@ -58,6 +58,7 @@ import {
   deciduousGeos,
   desertRockMat,
   fireCoreGeo,
+  fireGlowMat,
   fireLogGeo,
   fireMat,
   getElevation,
@@ -525,6 +526,7 @@ debrisType('pierDeck', pierDeckGeo, woodMat);
 debrisType('fireLog', fireLogGeo, woodMat);
 debrisType('fireCore', fireCoreGeo, fireMat);
 debrisType('fireSmoke', smokeGeo, smokeMat);
+debrisType('fireGlow', streetlightDecalGeo, fireGlowMat);
 debrisType('tentPoles', tentPolesGeo, woodMat);
 debrisType('tentEntrance', tentEntranceGeo, tentEntranceMat);
 tentPalette.forEach((mat, i) => debrisType('tent' + i, tentGeo, mat));
@@ -833,6 +835,8 @@ var workerChunkFailed = new Set();
 // water triangles. 8 bits: depth -30..10 mapped to 0..255.
 const WATER_DEPTH_MIN = -30;
 const _waterMaterialPool = [];
+const _up = new THREE.Vector3();
+const _glowNormal = new THREE.Vector3();
 const WATER_DEPTH_RANGE = 40;
 
 function attachWaterDepthTexture(waterMesh, heightGrid, softDepth) {
@@ -2171,6 +2175,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       smokeMat,
       campfirePositions.length * 5
     ); // 5 particles per fire community
+    const glowInst = getInstancedMesh(
+      streetlightDecalGeo,
+      fireGlowMat,
+      campfirePositions.length
+    );
     const numTentColors = tentPalette.length;
     const tentCounts = Array(numTentColors).fill(0);
     const tentColorIndices = []; // Maps index to colorIndex
@@ -2233,6 +2242,23 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         index: index * 3 + i,
       }));
       fire.push({type: 'fireCore', mesh: coreInst, index});
+      fire.push({type: 'fireGlow', mesh: glowInst, index});
+
+      // The pool of firelight, laid on the slope of the ground around it
+      const gx = worldOffsetX + pos.x;
+      const gz = worldOffsetZ + pos.z;
+      const slopeX =
+        (getElevation(gx + 10, gz) - getElevation(gx - 10, gz)) / 20;
+      const slopeZ =
+        (getElevation(gx, gz + 10) - getElevation(gx, gz - 10)) / 20;
+      dummy.position.set(pos.x, pos.y + 1, pos.z);
+      dummy.quaternion.setFromUnitVectors(
+        _up.set(0, 1, 0),
+        _glowNormal.set(-slopeX, 1, -slopeZ).normalize()
+      );
+      dummy.scale.set(2, 1, 2);
+      dummy.updateMatrix();
+      glowInst.setMatrixAt(index, dummy.matrix);
       for (let i = 0; i < 5; i++) {
         fire.push({type: 'fireSmoke', mesh: smokeInst, index: index * 5 + i});
       }
@@ -2282,6 +2308,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     logInst.position.set(worldOffsetX, 0, worldOffsetZ);
     coreInst.position.set(worldOffsetX, 0, worldOffsetZ);
     smokeInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    glowInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    objectsGroup.add(glowInst);
     objectsGroup.add(logInst);
     objectsGroup.add(coreInst);
     objectsGroup.add(smokeInst);

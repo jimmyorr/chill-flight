@@ -132,6 +132,7 @@ import {
   houseWindowMats,
   streetlightBulbMat,
   streetlightDecalMat,
+  fireGlowMat,
   waterUniforms,
   windUniforms,
 } from './terrain-geometry.js';
@@ -1154,6 +1155,7 @@ function updateDayNightCycle(delta) {
   streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
 
   streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
+  fireGlowMat.opacity = Math.min(1.0, slNightValue);
   updateAirportLights(slNightValue);
 }
 

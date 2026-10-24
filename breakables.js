@@ -91,9 +91,9 @@ const FLINGS = /Roof$|Chimney$|Blades$|^fireLog$/;
 const ROCKS = /^(rock|snowRock|desertRock)$/;
 // Parts that don't count toward how wide a prop is (a streetlight's arm
 // reaches out over the road), and parts that just go out when it falls
-// (its pool of light)
+// (its pool of light, or a campfire's) and don't count toward its size at all
 const OVERHANG = /^streetlight(Arm|Bulb|Decal)$/;
-const GOES_OUT = /^streetlightDecal$/;
+const GOES_OUT = /^streetlightDecal$|^fireGlow$/;
 // The sails turn in their shader at this rate (rad/s, terrain-geometry.js),
 // clockwise about their hub
 const SAIL_SPIN = 1.5;
@@ -358,6 +358,7 @@ function chunkIndex(group) {
     let base = Infinity;
     let top = -Infinity;
     for (const part of parts) {
+      if (GOES_OUT.test(part.type)) continue;
       const box = partWorldBox(part);
       base = Math.min(base, box.min.y);
       top = Math.max(top, box.max.y);
