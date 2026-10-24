@@ -29,8 +29,9 @@ import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
-// Room for four planes' smoke trails at once (~1,000 each) and the rest
-const POOL_SIZE = 4096;
+// Room for four or more planes' smoke trails (~1,000 each), water spray, and
+// environment effects
+const POOL_SIZE = 8192;
 // How quickly a particle's own speed dies away (per second)
 const DRAG = 1.6;
 
