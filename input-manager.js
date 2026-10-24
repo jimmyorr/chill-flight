@@ -1,6 +1,7 @@
 import {renderer} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {hooks} from './hooks.js';
+import {state} from './state.js';
 
 export class InputManager {
   constructor() {
@@ -578,12 +579,17 @@ export class InputManager {
 
     // Gesture detection for screen zones (left/right/top/bottom third):
     // the planes' stunts and the buggy's double-tap moves. The touch still
-    // works the joystick too, steering through the move.
+    // works the joystick too, steering through the move. The chase camera
+    // sits the buggy low, so its up zone reaches down to just above it and
+    // its down zone starts at its roof.
+    const zones = state.airplaneModel?.isBuggy
+      ? ChillFlightLogic.BUGGY_TOUCH_ZONES
+      : {UP_ABOVE: 0.33, DOWN_BELOW: 0.66};
     let action = null;
     if (x < 0.33) action = 'ArrowLeft';
     else if (x > 0.66) action = 'ArrowRight';
-    else if (y < 0.33) action = 'ArrowUp';
-    else if (y > 0.66) action = 'ArrowDown';
+    else if (y < zones.UP_ABOVE) action = 'ArrowUp';
+    else if (y > zones.DOWN_BELOW) action = 'ArrowDown';
 
     if (action) {
       const timeSinceLastTap = now - (this._lastArrowTap[action] || 0);

@@ -4946,6 +4946,14 @@ export const ChillFlightLogic = {};
 
   exports.stepBuggyHop = stepBuggyHop;
 
+  // Touch: the middle column's double-tap zones for the buggy, as shares of
+  // the screen's height (up above UP_ABOVE, down below DOWN_BELOW). The
+  // chase camera puts the buggy at about 60-74% in portrait and landscape,
+  // so up covers the road ahead and the horizon, and a double-tap on the
+  // buggy itself brakes. The planes split the column in thirds.
+  const BUGGY_TOUCH_ZONES = {UP_ABOVE: 0.48, DOWN_BELOW: 0.6};
+  exports.BUGGY_TOUCH_ZONES = BUGGY_TOUCH_ZONES;
+
   const BUGGY_DRIVE = {
     REVERSE_TOP: 20,
     // About 0 to 60 knots in 2.5 seconds, 100 in 5
