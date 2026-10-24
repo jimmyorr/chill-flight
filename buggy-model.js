@@ -2,9 +2,10 @@
 // A single-seat dune buggy: livery-coloured tub and fenders, a dark roll
 // cage over a helmeted driver, the engine out back and four chunky tyres.
 // The origin is on the ground between the axles, forward is -Z, as for the
-// planes. Moving parts for buggy.js: `wheels` (spin about X), `steerPivots`
-// (the front wheels' pivots, turned about Y) and `body` (everything the
-// springs carry, bounced and leaned).
+// planes. Moving parts for buggy.js: `wheels` (spin about X, and fold flat
+// to hover over water, setBuggyHoverFold), `steerPivots` (the front wheels'
+// pivots, turned about Y) and `body` (everything the springs carry, bounced
+// and leaned).
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {createMaterial} from './constants.js';
@@ -15,6 +16,9 @@ export const BUGGY_WHEEL_RADIUS = 1.45;
 const FRONT_AXLE = -3.3;
 const REAR_AXLE = 2.9;
 const HALF_TRACK = 2.5;
+// How far the wheels move out and down as they fold flat to hover
+const HOVER_OUT = 0.8;
+const HOVER_DROP = 0.5;
 // Axle to axle, for the steering (buggy.js)
 export const BUGGY_WHEELBASE = REAR_AXLE - FRONT_AXLE;
 
@@ -61,6 +65,23 @@ function createWheel(width, tyreMat, hubMat) {
   const barGeo = new THREE.BoxGeometry(width + 0.1, 0.26, 1.15);
   wheel.add(new THREE.Mesh(mergeGeometries([hubGeo, barGeo]), hubMat));
   return wheel;
+}
+
+// Folds the wheels flat like a hovercraft's pads (fold 1) or back down onto
+// their treads (fold 0). Each tips over about its hub, moving out and down
+// clear of the tub, and the spin about X stays about the axle, so a folded
+// wheel turns like a fan.
+export function setBuggyHoverFold(model, fold) {
+  if (!model.wheels || model.hoverFold === fold) return;
+  model.hoverFold = fold;
+  const t = fold * fold * (3 - 2 * fold);
+  for (const wheel of model.wheels) {
+    const {side, baseX, baseY} = wheel.userData;
+    wheel.rotation.order = 'ZXY';
+    wheel.rotation.z = side * t * (Math.PI / 2);
+    wheel.position.x = baseX + side * HOVER_OUT * t;
+    wheel.position.y = baseY - HOVER_DROP * t;
+  }
 }
 
 export function createBuggyModel(opts = {}) {
@@ -158,6 +179,7 @@ export function createBuggyModel(opts = {}) {
     const pivot = new THREE.Group();
     pivot.position.set(side * HALF_TRACK, BUGGY_WHEEL_RADIUS, FRONT_AXLE);
     const front = createWheel(1.1, darkMat, lightMat);
+    front.userData = {side, baseX: 0, baseY: 0};
     pivot.add(front);
     root.add(pivot);
     steerPivots.push(pivot);
@@ -169,6 +191,7 @@ export function createBuggyModel(opts = {}) {
       BUGGY_WHEEL_RADIUS,
       REAR_AXLE
     );
+    rear.userData = {side, baseX: rear.position.x, baseY: rear.position.y};
     root.add(rear);
     wheels.push(rear);
   }

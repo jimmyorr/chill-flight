@@ -28,6 +28,7 @@ import {BASE_FLIGHT_SPEED} from './constants.js';
 import {scene} from './scene.js';
 import {camera} from './sky.js';
 import {setGearExtension} from './twin.js';
+import {setBuggyHoverFold} from './buggy-model.js';
 import {inputManager} from './game-input-bindings.js';
 import {formatDistance, screenPlacement} from './waypoint.js';
 import {
@@ -230,6 +231,7 @@ function buildPeer(peer) {
   peer.smokeLast = new THREE.Vector3();
   peer.smokeColor = smokeColor(ChillFlightLogic.PLANE_COLORS[peer.livery]);
   peer.gear = 0;
+  peer.hoverFold = 0;
 }
 
 // A friend's marker: at the screen's edge when they're out of view
@@ -963,6 +965,15 @@ export function updateMultiplayer(delta) {
       const target = flags & FLAGS.gear ? 1 : 0;
       peer.gear += THREE.MathUtils.clamp(target - peer.gear, -delta, delta);
       setGearExtension(peer.model, 1 - Math.pow(1 - peer.gear, 3));
+    }
+    if (peer.model.isBuggy) {
+      // A friend's buggy on the water hovers with its wheels folded flat
+      peer.hoverFold = ChillFlightLogic.stepBuggyHoverFold(
+        peer.hoverFold,
+        !!(flags & FLAGS.water),
+        delta
+      );
+      setBuggyHoverFold(peer.model, peer.hoverFold);
     }
     if (flags & FLAGS.smoke && !isPaused) {
       g.updateMatrixWorld();

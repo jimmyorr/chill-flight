@@ -10,6 +10,7 @@
  * 4. One-handed cruise speed, boost, braking and reverse
  * 5. The ?buggy= switch
  * 6. Incline vertical momentum and catching air
+ * 7. Turning into a hovercraft on water
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PLANE_HANDLING} from '../constants.js';
@@ -231,19 +232,21 @@ check(
 );
 
 // --- 4. ONE-HANDED CRUISE SPEED, BOOST & REVERSE LOGIC ---
-// Steps the drive force alone (no slope, drag ROLL_DRAG) until it settles
+// Steps the drive force and drag (no slope) as buggy.js does, on land or
+// water alike, until it settles
 function settle({forward, joyY, cruise, seconds = 30}) {
   const dt = 1 / 60;
   for (let t = 0; t < seconds; t += dt) {
+    const drag = ChillFlightLogic.buggyDrag(forward);
     const a = ChillFlightLogic.buggyDriveAccel({
       forward,
       joyY,
       cruise,
       top: topKts,
-      drag: ROLL_DRAG,
+      drag,
     });
     forward += a * dt;
-    forward -= Math.sign(forward) * Math.min(Math.abs(forward), ROLL_DRAG * dt);
+    forward -= Math.sign(forward) * Math.min(Math.abs(forward), drag * dt);
   }
   return forward;
 }
@@ -466,6 +469,67 @@ check(
     'Airborne over water carries on through the air',
     splash.airborne && splash.y > 29,
     `y=${splash.y.toFixed(1)}`
+  );
+}
+
+// --- 7. HOVERCRAFT ON WATER ---
+{
+  // Off a bridge 40 units up at 160 kts: it falls, lands on the water and
+  // hovers there rather than sinking or getting stuck
+  let b = {y: 40, velY: 0, airborne: true};
+  let t = 0;
+  while (b.airborne && t < 5) {
+    b = ChillFlightLogic.stepBuggyVertical({
+      ...b,
+      surfaceHeight: -0.3,
+      groundVelY: 0,
+      onWater: true,
+      dt: 1 / 60,
+    });
+    t += 1 / 60;
+  }
+  check(
+    'Falling off a bridge lands on the water and hovers',
+    !b.airborne && b.y === -0.3,
+    `airborne=${b.airborne}, y=${b.y}`
+  );
+  const kept = settle({forward: 160, joyY: 0, cruise: 160, seconds: 10});
+  check(
+    'It carries on across the water at the set speed',
+    Math.abs(kept - 160) < 2,
+    `forward: ${kept.toFixed(1)}`
+  );
+  const fromRest = settle({forward: 0, joyY: 1, cruise: 0, seconds: 20});
+  check(
+    'From a stop on the water it boosts up to top speed',
+    fromRest > topKts - 3,
+    `forward: ${fromRest.toFixed(1)}`
+  );
+
+  // The wheels fold flat over water and back down over land, in
+  // FOLD_SECONDS at any frame rate
+  const {FOLD_SECONDS} = ChillFlightLogic.BUGGY_HOVER;
+  for (const fps of [30, 60, 144]) {
+    let fold = 0;
+    let half = 0;
+    for (let i = 0; i < fps * FOLD_SECONDS; i++) {
+      fold = ChillFlightLogic.stepBuggyHoverFold(fold, true, 1 / fps);
+      if (i === Math.floor((fps * FOLD_SECONDS) / 2) - 1) half = fold;
+    }
+    let back = fold;
+    for (let i = 0; i < fps * FOLD_SECONDS; i++) {
+      back = ChillFlightLogic.stepBuggyHoverFold(back, false, 1 / fps);
+    }
+    check(
+      `Wheels fold flat on water and back on land at ${fps} fps`,
+      Math.abs(fold - 1) < 1e-9 && half > 0.4 && half < 0.6 && back < 1e-9,
+      `fold=${fold}, half=${half}, back=${back}`
+    );
+  }
+  check(
+    'It slides a little wider on water than on the ground',
+    ChillFlightLogic.BUGGY_HOVER.GRIP > 4 &&
+      ChillFlightLogic.BUGGY_HOVER.GRIP < 18
   );
 }
 

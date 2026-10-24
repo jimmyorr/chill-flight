@@ -7,7 +7,8 @@
 // rolling hills. Driving up inclines or over crests at high speed reliably
 // catches air in a natural ballistic flight. It drives on the ground as drawn
 // (sampleGround), the highway deck and bridges (sampleRoad with 3D elevation awareness),
-// and floats slowly across water.
+// and over water it turns into a hovercraft, wheels folded flat, and carries
+// on at speed.
 //
 // Controls: one-handed joystick control. The throttle slider sets target cruise
 // speed. The virtual joystick steers left/right. Pushing up temporarily boosts
@@ -19,7 +20,11 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
 import {sampleRoad} from './terrain-chunks.js';
 import {planeGroup} from './airplane.js';
-import {BUGGY_WHEEL_RADIUS, BUGGY_WHEELBASE} from './buggy-model.js';
+import {
+  BUGGY_WHEEL_RADIUS,
+  BUGGY_WHEELBASE,
+  setBuggyHoverFold,
+} from './buggy-model.js';
 import {BASE_FLIGHT_SPEED, PLANE_HANDLING, WATER_LEVEL} from './constants.js';
 import {state} from './state.js';
 import {keys} from './game-input-bindings.js';
@@ -29,14 +34,12 @@ import {setOnWheels} from './flight-physics.js';
 // per second squared
 const KTS_PER_MULT = BASE_FLIGHT_SPEED * 60;
 const TOP_SPEED = PLANE_HANDLING.buggy.topKts;
-const WATER_TOP = 12;
-// The engine, brakes, steering limits and vertical air physics live in
-// ChillFlightLogic (BUGGY_DRIVE, BUGGY_AIR, buggyDriveAccel, buggySteerLimit, stepBuggyVertical)
-const {MAX_STEER, ROLL_DRAG} = ChillFlightLogic.BUGGY_DRIVE;
+// The engine, brakes, drag, steering limits, hovering and vertical air
+// physics live in ChillFlightLogic (BUGGY_DRIVE, BUGGY_HOVER, BUGGY_AIR,
+// buggyDriveAccel, buggyDrag, buggySteerLimit, stepBuggyHoverFold,
+// stepBuggyVertical)
+const {MAX_STEER} = ChillFlightLogic.BUGGY_DRIVE;
 const {GRAVITY} = ChillFlightLogic.BUGGY_AIR;
-// Drag growing with the square of the speed
-const AIR_DRAG = 0.0007;
-const WATER_DRAG = 0.04;
 // How fast the front wheels turn toward the stick, and back to centre
 // (radians per second)
 const STEER_RATE = 2.8;
@@ -44,7 +47,7 @@ const STEER_RETURN_RATE = 5.0;
 // Pure grip: tyres kill sideways sliding quickly so the buggy tracks predictably
 const GRIP_ROAD = 25;
 const GRIP_GROUND = 18;
-const GRIP_WATER = 4;
+const GRIP_WATER = ChillFlightLogic.BUGGY_HOVER.GRIP;
 // Ground steeper than this (rise per unit) is a wall it bumps against
 const WALL_SLOPE = Math.tan((50 * Math.PI) / 180);
 // It stays parked on slopes gentler than this pull (units/s²)
@@ -53,8 +56,9 @@ const PARK_HOLD = 9;
 // (allowing the buggy to easily climb back onto the highway from off-road);
 // a higher deck is a bridge it drives under
 const ROAD_STEP_UP = 12;
-// How deep it floats in the water, its wheels half under
-const FLOAT_DEPTH = 0.9;
+// How far the buggy's origin sits below the water's surface as it hovers,
+// so the folded wheels skim it
+const FLOAT_DEPTH = 0.3;
 // A jump of more than this between frames is a teleport (units)
 const TELEPORT_DISTANCE = 300;
 
@@ -94,6 +98,8 @@ let squat = 0;
 let lean = 0;
 let tiltPitch = 0;
 let tiltRoll = 0;
+// The wheels folded flat for hovering: 0 down, 1 flat
+let hoverFold = 0;
 
 // Fills _surface with what the wheels would rest on at (x, z), for a buggy
 // at height y: the highway deck (with 3D elevation awareness for junctions/overpasses)
@@ -147,6 +153,7 @@ function enter() {
   pos.y = sampleSurface(pos.x, pos.z, Infinity).height;
   pos.y = sampleSurface(pos.x, pos.z, pos.y).height;
   const s = _surface;
+  hoverFold = s.kind === 'water' ? 1 : 0;
   tiltPitch = Math.atan(-Math.sin(yaw) * s.slopeX - Math.cos(yaw) * s.slopeZ);
   tiltRoll = Math.atan(Math.cos(yaw) * s.slopeX - Math.sin(yaw) * s.slopeZ);
   state.autopilotEnabled = false;
@@ -215,7 +222,7 @@ export function updateBuggy(delta) {
 
   const ground = sampleSurface(pos.x, pos.z, pos.y);
   const onWater = ground.kind === 'water';
-  const top = onWater ? WATER_TOP : TOP_SPEED;
+  const top = TOP_SPEED;
 
   // Speed-dependent turning radius: at low speeds, wheels steer up to MAX_STEER for nimble parking.
   // As speed increases, turn radius smoothly opens up so high-speed highway driving feels stable and
@@ -240,10 +247,7 @@ export function updateBuggy(delta) {
     const slopeAccel = -GRAVITY * slopeAlong;
 
     // Rolling resistance and drag
-    const drag =
-      ROLL_DRAG +
-      (onWater ? WATER_DRAG : AIR_DRAG) * forward * forward +
-      (onWater ? 4 : 0);
+    const drag = ChillFlightLogic.buggyDrag(forward);
     // Throttle slider sets baseline cruise speed
     const cruise = Math.min(
       top,
@@ -429,6 +433,13 @@ export function updateBuggy(delta) {
     model.body.position.y = bounce + bob;
     model.body.rotation.set(squat, 0, lean);
   }
+  // Over water (or flying over it) the wheels fold flat to hover
+  hoverFold = ChillFlightLogic.stepBuggyHoverFold(
+    hoverFold,
+    surface.kind === 'water',
+    dt
+  );
+  setBuggyHoverFold(model, hoverFold);
   if (model.wheels) {
     const roll = (forward * dt) / BUGGY_WHEEL_RADIUS;
     for (const wheel of model.wheels) wheel.rotation.x -= roll;

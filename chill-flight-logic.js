@@ -4765,8 +4765,9 @@ export const ChillFlightLogic = {};
     ENGINE_ACCEL: 45,
     REVERSE_ACCEL: 14,
     BRAKE_DECEL: 45,
-    // Rolling resistance
+    // Rolling resistance, and drag growing with the square of the speed
     ROLL_DRAG: 3,
+    AIR_DRAG: 0.0007,
     // Front wheel lock, and the yaw rate and sideways grip that cap it at speed
     MAX_STEER: 0.5,
     MAX_YAW_RATE: 1.15,
@@ -4852,7 +4853,34 @@ export const ChillFlightLogic = {};
     return forward > 0.5 ? -D.ROLL_DRAG : forward < -0.5 ? D.ROLL_DRAG : 0;
   }
 
+  // On water the buggy turns into a hovercraft: its wheels fold flat like
+  // pontoons and it carries on at land speeds, sliding a little wider in
+  // the turns. Driving out onto land folds the wheels back down.
+  const BUGGY_HOVER = {
+    // Sideways grip (per second; tyres on the ground have 18)
+    GRIP: 7,
+    // Seconds for the wheels to fold flat, or back down
+    FOLD_SECONDS: 0.5,
+  };
+
+  // The drag slowing the buggy (units/s²) at a forward speed: rolling
+  // resistance and air drag, the same on water as on land
+  function buggyDrag(forward) {
+    return BUGGY_DRIVE.ROLL_DRAG + BUGGY_DRIVE.AIR_DRAG * forward * forward;
+  }
+
+  // Moves the wheels' fold (0 down, 1 flat) toward flat over water and down
+  // over land
+  function stepBuggyHoverFold(fold, overWater, dt) {
+    const target = overWater ? 1 : 0;
+    const step = dt / BUGGY_HOVER.FOLD_SECONDS;
+    return fold + Math.min(step, Math.max(-step, target - fold));
+  }
+
   exports.BUGGY_DRIVE = BUGGY_DRIVE;
+  exports.BUGGY_HOVER = BUGGY_HOVER;
+  exports.buggyDrag = buggyDrag;
+  exports.stepBuggyHoverFold = stepBuggyHoverFold;
   exports.buggySteerLimit = buggySteerLimit;
   exports.buggySteerAxis = buggySteerAxis;
   exports.buggyThrottleAxis = buggyThrottleAxis;

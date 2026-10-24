@@ -221,8 +221,11 @@ const GEAR_HALF_TRACK = {
   biplane: 1.8,
   buggy: 2.6,
 };
-// Where the pontoons end behind the plane's centre (units)
-const PONTOON_STERN = 7.5;
+// Where the pontoons end behind the plane's centre (units); the hovering
+// buggy's folded back wheels are nearer
+const PONTOON_STERN = {buggy: 3.6};
+const DEFAULT_STERN = 7.5;
+const sternOf = (type) => PONTOON_STERN[type] ?? DEFAULT_STERN;
 // Below this speed on the water there's no spray or wake (speed multiplier)
 const WAKE_MIN_SPEED = 0.08;
 // How far apart the wake's foam is laid (units)
@@ -359,7 +362,8 @@ function splash(strength) {
   const count = Math.round(14 + strength * 26);
   for (const side of sides) {
     for (let i = 0; i < count; i++) {
-      const along = rand(-PONTOON_STERN, PONTOON_STERN);
+      const stern = sternOf(activePlaneType);
+      const along = rand(-stern, stern);
       planePoint(side * half, along, WATER_LEVEL + 0.5, _p);
       const out = rand(4, 14) * (0.5 + strength);
       const h = planeGroup.rotation.y;
@@ -404,7 +408,12 @@ function wake(delta, speed) {
   const fast = THREE.MathUtils.clamp(speed / 1.2, 0, 1);
   const h = planeGroup.rotation.y;
   sides.forEach((side, i) => {
-    const stern = planePoint(side * half, PONTOON_STERN, WATER_LEVEL, _p);
+    const stern = planePoint(
+      side * half,
+      sternOf(activePlaneType),
+      WATER_LEVEL,
+      _p
+    );
     const last = lastStern[i];
     if (!last.valid || last.distanceTo(stern) > WAKE_SPACING * 20) {
       last.copy(stern);
@@ -430,7 +439,8 @@ function wake(delta, speed) {
 
     // Spray thrown off the bow, more of it the faster
     if (Math.random() < fast * delta * 20) {
-      planePoint(side * half, rand(-6, -2), WATER_LEVEL + 0.5, _q);
+      const bow = sternOf(activePlaneType);
+      planePoint(side * half, rand(-0.8, -0.27) * bow, WATER_LEVEL + 0.5, _q);
       const out = rand(3, 8);
       spawn(
         _q,
