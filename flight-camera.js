@@ -83,6 +83,11 @@ const AEROBATIC_LOCK_SECONDS = 0.25;
 let anchorLock = 0;
 let loopLock = 0;
 
+// Where the vehicle was last frame, so a seat view can carry the camera along
+// with it (see seatLock)
+const _lastVehiclePos = new THREE.Vector3();
+const _seatCarry = new THREE.Vector3();
+
 function easeLock(lock, locked, ease) {
   const target = locked ? 1 : 0;
   const next = lock + (target - lock) * ease;
@@ -210,15 +215,20 @@ export function updateFlightCamera(delta, nowTime) {
       1 - Math.pow(1 - 0.05, delta * 60)
     );
 
-    // How settled the camera is in a vehicle's seat view (the buggy): there
-    // it stays put, with no speed zoom and no follow lag
-    const seatLock = state.airplaneModel?.firstPersonEye
-      ? THREE.MathUtils.clamp(
-          1 - Math.abs(state.cameraTransitionProgress - 0.5) / 0.1,
-          0,
-          1
-        )
-      : 0;
+    // How far the camera is into a vehicle's seat view (the buggy), 0 to 1
+    // along the same eased path as the transition to it. There the camera
+    // stays put in the seat, with no speed zoom and no follow lag, and on the
+    // way it sheds the lag gradually (riding along with the vehicle) rather
+    // than snapping forward at the end
+    let seatLock = 0;
+    if (
+      state.airplaneModel?.firstPersonEye &&
+      state.cameraMode !== 'cinematic'
+    ) {
+      const p = state.cameraTransitionProgress;
+      const t = p <= 0.5 ? p / 0.5 : (1 - p) / 0.5;
+      seatLock = t * t * (3 - 2 * t);
+    }
 
     // Slightly wider base FOV for mobile to increase peripheral awareness
     const baseFov =
@@ -495,7 +505,14 @@ export function updateFlightCamera(delta, nowTime) {
       }
     } else {
       const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
-      // In loops the position locks on, as inertia lag could flip lookAt
+      // Into a seat view the camera rides along with the vehicle, so it
+      // doesn't trail behind it by the follow lag
+      _seatCarry
+        .subVectors(planeGroup.position, _lastVehiclePos)
+        .multiplyScalar(seatLock);
+      activeCamTarget.position.add(_seatCarry);
+      _currentLookTarget.add(_seatCarry);
+      // In loops the position locks on, as inertia lag could flip lookAt,
       // and in a seat view it stays fixed to the seat
       const follow = THREE.MathUtils.lerp(
         1 - Math.pow(1 - 0.25, delta * 60),
@@ -505,6 +522,8 @@ export function updateFlightCamera(delta, nowTime) {
       activeCamTarget.position.lerp(_idealCameraPos, follow);
       _currentLookTarget.lerp(_idealLookTarget, follow);
     }
+
+    _lastVehiclePos.copy(planeGroup.position);
 
     const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
 
