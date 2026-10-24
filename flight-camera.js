@@ -84,7 +84,7 @@ let anchorLock = 0;
 let loopLock = 0;
 
 // Where the vehicle was last frame, so a seat view can carry the camera along
-// with it (see seatLock)
+// with it (see firstPerson)
 const _lastVehiclePos = new THREE.Vector3();
 const _seatCarry = new THREE.Vector3();
 
@@ -215,20 +215,18 @@ export function updateFlightCamera(delta, nowTime) {
       1 - Math.pow(1 - 0.05, delta * 60)
     );
 
-    // How far the camera is into a vehicle's seat view (the buggy), 0 to 1
-    // along the same eased path as the transition to it. There the camera
-    // stays put in the seat, with no speed zoom and no follow lag, and on the
-    // way it sheds the lag gradually (riding along with the vehicle) rather
-    // than snapping forward at the end
-    let seatLock = 0;
-    if (
-      state.airplaneModel?.firstPersonEye &&
-      state.cameraMode !== 'cinematic'
-    ) {
+    // How far the camera is into the first-person view, 0 to 1 along the
+    // same eased path as the transition to it. On the way the camera sheds
+    // the follow lag gradually, riding along with the vehicle, so at speed it
+    // doesn't trail back behind the nose (or into the jet). In a vehicle's
+    // seat (the buggy) it also stays put, with no speed zoom
+    let firstPerson = 0;
+    if (state.cameraMode !== 'cinematic') {
       const p = state.cameraTransitionProgress;
       const t = p <= 0.5 ? p / 0.5 : (1 - p) / 0.5;
-      seatLock = t * t * (3 - 2 * t);
+      firstPerson = t * t * (3 - 2 * t);
     }
+    const seatLock = state.airplaneModel?.firstPersonEye ? firstPerson : 0;
 
     // Slightly wider base FOV for mobile to increase peripheral awareness
     const baseFov =
@@ -505,11 +503,11 @@ export function updateFlightCamera(delta, nowTime) {
       }
     } else {
       const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
-      // Into a seat view the camera rides along with the vehicle, so it
+      // Into first person the camera rides along with the vehicle, so it
       // doesn't trail behind it by the follow lag
       _seatCarry
         .subVectors(planeGroup.position, _lastVehiclePos)
-        .multiplyScalar(seatLock);
+        .multiplyScalar(firstPerson);
       activeCamTarget.position.add(_seatCarry);
       _currentLookTarget.add(_seatCarry);
       // In loops the position locks on, as inertia lag could flip lookAt,
