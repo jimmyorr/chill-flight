@@ -42,6 +42,21 @@ export function sinkRateAt(kts, handling) {
 }
 
 /**
+ * Whether a plane on its wheels or the water, at `kts` with its nose at
+ * `pitch` (radians, up positive), leaves the surface: at its stall speed or
+ * faster, and climbing from the nose faster than it sinks at that speed (a
+ * knot is a unit per second). Otherwise the surface holds it: a raised nose
+ * would lift it for a moment before the sink, or below stall the fall, took
+ * back over and dropped it again, bouncing along the runway over and over.
+ */
+export function canLiftOff(kts, pitch, handling) {
+  return (
+    kts >= handling.stallKts &&
+    kts * Math.sin(pitch) > sinkRateAt(kts, handling)
+  );
+}
+
+/**
  * The speed (multiplier) after `delta` seconds of diving at `pitch`
  * (radians, negative nose down): nose down gains speed, a lot less while
  * skimming the ground (`avoidingGround`) and none while falling (a nose the

@@ -10,6 +10,7 @@ import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {AUTOPILOT, AutopilotCore, headingTo} from '../autopilot-logic.js';
 import {
   airborneVerticalVelocity,
+  canLiftOff,
   diveSpeed,
   fallAmountAt,
   sinkRateAt,
@@ -209,9 +210,14 @@ export class FlightSimulator {
 
     // Rollout dynamics
     if (this.isRolling) {
-      // Rotate nose up for takeoff if airspeed is above rotation speed
-      if (this.targetPitch > 0.05 && currentKts > this.handling.stallKts + 5) {
-        this.rotation.pitch = clamp(this.targetPitch, 0, AUTOPILOT.MAX_CLIMB);
+      // Rotate nose up for takeoff once fast enough to fly at that pitch,
+      // as the game (canLiftOff)
+      const climbPitch = clamp(this.targetPitch, 0, AUTOPILOT.MAX_CLIMB);
+      if (
+        climbPitch > 0.05 &&
+        canLiftOff(currentKts, climbPitch, this.handling)
+      ) {
+        this.rotation.pitch = climbPitch;
         if (this.position.y > restingHeight + 0.5) {
           this.isRolling = false;
           this.takeoffCount++;

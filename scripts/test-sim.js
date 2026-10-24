@@ -9,7 +9,13 @@
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
-import {BASE_FLIGHT_SPEED, WATER_LEVEL, MOUNTAIN_LEVEL} from '../constants.js';
+import {
+  BASE_FLIGHT_SPEED,
+  WATER_LEVEL,
+  MOUNTAIN_LEVEL,
+  PLANE_HANDLING,
+} from '../constants.js';
+import {canLiftOff} from '../flight-physics-logic.js';
 import {arrivalAt} from '../landmarks.js';
 import {PEOPLE} from '../people.js';
 import {newProgress, land, accept, destination} from '../jobs-logic.js';
@@ -178,6 +184,65 @@ function wrapAngle(a) {
   }
   console.log(
     '  Passed: Runway approach, wheel touchdown, rollout, and touch-and-go cycle verified'
+  );
+}
+
+// 1d. The runway holds a plane too slow to fly. Nose up below its stall
+// speed, or too gently to out-climb its sink, a plane used to hop off the
+// ground and drop back, bouncing along the runway over and over.
+{
+  for (const [type, handling] of Object.entries(PLANE_HANDLING)) {
+    if (type === 'buggy') continue;
+    const {stallKts, levelKts} = handling;
+    const fail = (what) => {
+      console.error(`FAIL: ${type} ${what}`);
+      process.exit(1);
+    };
+    for (let kts = 0; kts < stallKts; kts += 5) {
+      if (canLiftOff(kts, 0.6, handling)) fail(`lifts off at ${kts} kts`);
+    }
+    if (!canLiftOff(stallKts, 0.6, handling)) {
+      fail('cannot climb away steeply at its stall speed');
+    }
+    if (canLiftOff(stallKts + 5, 0.06, handling)) {
+      fail('lifts off a gentle nose before it can hold its height');
+    }
+    if (!canLiftOff(levelKts, 0.06, handling)) {
+      fail('cannot lift off a gentle nose at its level speed');
+    }
+  }
+
+  // Rolling below stall speed with the nose held up stays on the runway,
+  // then takes off once the throttle brings it up to speed
+  const meadow = ChillFlightLogic.AIRPORTS.find(
+    (a) => a.name === 'Meadow Field'
+  );
+  simplex.seed(20260101);
+  const ground = groundAt(meadow.x, meadow.z);
+  const sim = new FlightSimulator({
+    worldSeed: 20260101,
+    x: meadow.x - 300,
+    y: ground + 2,
+    z: meadow.z,
+    yaw: -Math.PI / 2,
+    speed: 40 / (BASE_FLIGHT_SPEED * 60),
+    autopilot: false,
+    isRolling: true,
+  });
+  sim.targetPitch = 0.6;
+  sim.runUntil({maxDuration: 5});
+  if (!sim.isRolling || sim.takeoffCount !== 0) {
+    console.error('FAIL: A 40 kt seaplane with its nose up left the runway');
+    process.exit(1);
+  }
+  sim.targetSpeed = 1.0;
+  sim.runUntil({maxDuration: 10, condition: (s) => !s.isRolling});
+  if (sim.isRolling || sim.crashed) {
+    console.error('FAIL: The seaplane never took off once up to speed');
+    process.exit(1);
+  }
+  console.log(
+    '  Passed: Too slow to fly, the runway holds the plane; up to speed, it lifts off'
   );
 }
 

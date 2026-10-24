@@ -8,6 +8,7 @@ import {state} from './state.js';
 import {
   FLIGHT,
   airborneVerticalVelocity,
+  canLiftOff,
   diveSpeed,
   fallAmountAt,
   throttleSpeed,
@@ -180,15 +181,23 @@ export function updateFlightPhysics(delta, nowTime) {
   const currentKTS =
     BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
   // Rolling on the wheels sticks to the ground (downhill too) unless the nose
-  // is raised to take off
-  const followingGround =
-    isRolling && onLandableGround && planeGroup.rotation.x < 0.05;
+  // is raised to take off, and the plane is fast enough to fly
+  // (canLiftOff)
+  const liftingOff =
+    planeGroup.rotation.x >= 0.05 &&
+    canLiftOff(currentKTS, planeGroup.rotation.x, handling);
+  const followingGround = isRolling && onLandableGround && !liftingOff;
+  // Afloat, the water holds the plane the same way
+  const heldByWater = state.isOnWater && isWater && !liftingOff;
 
   // Apply forward movement
   if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
     planeGroup.translateZ(
       -(BASE_FLIGHT_SPEED * state.flightSpeedMultiplier * delta * 60)
     );
+    if (heldByWater) {
+      planeGroup.position.y = Math.min(planeGroup.position.y, restingHeight);
+    }
   }
 
   // Slow flight sinks, more the slower it goes (sinkRateAt), down to the
