@@ -71,6 +71,37 @@ export function cleanName(name) {
     .slice(0, 16);
 }
 
+/** Default callsigns for pilots who haven't set a name. */
+export const CALLSIGNS = [
+  'Crane',
+  'Egret',
+  'Finch',
+  'Flicker',
+  'Gull',
+  'Heron',
+  'Jay',
+  'Junco',
+  'Kite',
+  'Lark',
+  'Magpie',
+  'Merlin',
+  'Piper',
+  'Plover',
+  'Puffin',
+  'Robin',
+  'Sparrow',
+  'Starling',
+  'Swift',
+  'Tern',
+  'Vesper',
+  'Wren',
+];
+
+/** Picks a random callsign from the list. */
+export function randomCallsign(random = Math.random) {
+  return CALLSIGNS[Math.floor(random() * CALLSIGNS.length)];
+}
+
 /** The link that brings a friend into the room, in the same world. */
 export function inviteUrl(base, code, seed) {
   const url = new URL(base);

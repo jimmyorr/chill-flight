@@ -64,6 +64,7 @@ import {
   nextIt,
   packState,
   parseRoomCode,
+  randomCallsign,
   readTag,
   roomSocketUrl,
   tagPlane,
@@ -91,6 +92,7 @@ const HIDDEN_DISCONNECT_MS = 60 * 1000;
 // awake (and using up the relay's free allowance); flying on reconnects
 const PAUSED_DISCONNECT_MS = 15 * 60 * 1000;
 const NAME_KEY = 'chill_flight_name';
+const defaultCallsign = randomCallsign();
 
 const overlay = document.getElementById('fly-overlay');
 const openBtn = document.getElementById('fly-together-btn');
@@ -141,9 +143,9 @@ let gatherToId = null;
 
 function myName() {
   try {
-    return cleanName(localStorage.getItem(NAME_KEY)) || 'Pilot';
+    return cleanName(localStorage.getItem(NAME_KEY)) || defaultCallsign;
   } catch {
-    return 'Pilot';
+    return defaultCallsign;
   }
 }
 
@@ -278,7 +280,7 @@ function removePeer(id) {
 }
 
 function onHello(peer, msg) {
-  const name = cleanName(msg.name) || 'Pilot';
+  const name = cleanName(msg.name) || defaultCallsign;
   const plane = typeof msg.plane === 'string' ? msg.plane : 'biplane';
   const livery =
     Number.isInteger(msg.livery) &&
@@ -1095,6 +1097,7 @@ function openPanel() {
   } catch {
     nameInput.value = '';
   }
+  if (nameInput) nameInput.placeholder = defaultCallsign;
   overlay.style.display = 'flex';
   if (!busy) setStatus('');
   renderPanel();
@@ -1108,6 +1111,7 @@ function closePanel(resume = false) {
 
 if (RELAY && openBtn && overlay) {
   openBtn.hidden = false;
+  if (nameInput) nameInput.placeholder = defaultCallsign;
   openBtn.addEventListener('click', openPanel);
   document
     .getElementById('fly-close-btn')

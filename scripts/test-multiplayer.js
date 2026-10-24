@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import * as rules from '../relay/src/rules.js';
 import {
+  CALLSIGNS,
   CLOSE,
   FLAGS,
   MAX_PLAYERS,
@@ -32,6 +33,7 @@ import {
   nextIt,
   packState,
   parseRoomCode,
+  randomCallsign,
   readTag,
   roomSocketUrl,
   tagPlane,
@@ -246,6 +248,18 @@ check(
   check(
     'Names are trimmed to 16 characters',
     rules.cleanName('  A very long pilot name\n') === 'A very long pilo'
+  );
+  check(
+    'Default callsigns list has 22 bird names',
+    CALLSIGNS.length === 22 &&
+      CALLSIGNS[0] === 'Crane' &&
+      CALLSIGNS[CALLSIGNS.length - 1] === 'Wren'
+  );
+  check(
+    'randomCallsign picks predictably with an rng',
+    randomCallsign(() => 0) === 'Crane' &&
+      randomCallsign(() => 0.999) === 'Wren' &&
+      CALLSIGNS.includes(randomCallsign())
   );
 }
 
