@@ -784,8 +784,9 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
   return out;
 }
 
-// What a breakable prop is, for how it breaks (breakables.js)
-export const BREAKABLE = {TREE: 0, HOUSE: 1, SNOWMAN: 2};
+// What a breakable prop is, for how it breaks (breakables.js); SMALL is a
+// campfire and the like, knocked apart
+export const BREAKABLE = {TREE: 0, HOUSE: 1, SNOWMAN: 2, SMALL: 3};
 
 class InstanceCollector {
   constructor() {
@@ -997,6 +998,97 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
     part('houseDoor', 0, 2.25, 5.1);
     for (const [wx, wy, wz] of windows) {
       part('houseWindow' + pos.poolId, wx * sx, wy * sy, wz);
+    }
+    collector.endProp();
+  }
+}
+
+// The direction the wind blows toward, on the XZ plane (not normalized)
+export const WIND_DIR_X = 0.8;
+export const WIND_DIR_Z = 0.5;
+// Windmills all turn their sails (+Z in model space) into the wind.
+export const WINDMILL_ROT_Y = Math.atan2(-WIND_DIR_X, -WIND_DIR_Z);
+// A barn's doors and their trim sit this far in front of and behind its
+// middle, and its silo this far to the side (units, before turning)
+const BARN_DOOR_Z = 14.1;
+const BARN_SILO_X = 12;
+const BARN_TRIM_TILT = Math.atan2(8, 9);
+
+// Adds straw huts, pagodas, barns (and their silos), monasteries, castle
+// ruins and windmills to the collector, each a breakable prop, in world
+// coordinates. Huts and pagodas keep their own scale; the rest are drawn at
+// their model's size.
+function collectStructures(collector, positions, offsetX, offsetZ) {
+  const place = (type, x, y, z, s, rx, ry, rz) => {
+    composeMatrix(_matBuffer, 0, x, y, z, s, s, s, rx, ry, rz);
+    collector.add(type, _matBuffer);
+  };
+  const simple = (list, body, roof, scaled) => {
+    for (const pos of list) {
+      const s = scaled ? (pos.scale ?? 1) : 1;
+      const x = offsetX + pos.x;
+      const z = offsetZ + pos.z;
+      collector.beginProp(BREAKABLE.HOUSE);
+      place(body, x, pos.y, z, s, 0, pos.rotY, 0);
+      if (roof) place(roof, x, pos.y, z, s, 0, pos.rotY, 0);
+      collector.endProp();
+    }
+  };
+  simple(positions.strawHutPositions, 'strawHutBody', 'strawHutRoof', true);
+  simple(positions.pagodaPositions, 'pagodaBody', 'pagodaRoof', true);
+  simple(positions.monasteryPositions, 'monasteryBody', 'monasteryRoof');
+  simple(positions.castleRuinsPositions, 'castleRuins', null);
+
+  for (const pos of positions.barnPositions) {
+    const x = offsetX + pos.x;
+    const z = offsetZ + pos.z;
+    const r = pos.rotY;
+    collector.beginProp(BREAKABLE.HOUSE);
+    place('barnBody', x, pos.y, z, 1, 0, r, 0);
+    place('barnRoof', x, pos.y, z, 1, 0, r, 0);
+    for (const side of [1, -1]) {
+      const d = rotateY(0, side * BARN_DOOR_Z, r);
+      place('barnDoor', x + d.x, pos.y + 4.5, z + d.z, 1, 0, r, 0);
+      place('barnTrim', x + d.x, pos.y + 4.5, z + d.z, 1, 0, r, BARN_TRIM_TILT);
+      place(
+        'barnTrim',
+        x + d.x,
+        pos.y + 4.5,
+        z + d.z,
+        1,
+        0,
+        r,
+        -BARN_TRIM_TILT
+      );
+    }
+    collector.endProp();
+    // The silo stands on its own, and topples
+    const silo = rotateY(BARN_SILO_X, 0, r);
+    collector.beginProp(BREAKABLE.TREE);
+    place('barnSiloBody', x + silo.x, pos.y, z + silo.z, 1, 0, r, 0);
+    place('barnSiloRoof', x + silo.x, pos.y, z + silo.z, 1, 0, r, 0);
+    collector.endProp();
+  }
+
+  // Each windmill's tower and its four sails, a quarter turn apart, on a hub
+  // out front
+  const hub = rotateY(0, 16.5, WINDMILL_ROT_Y);
+  for (const pos of positions.windmillPositions) {
+    const x = offsetX + pos.x;
+    const z = offsetZ + pos.z;
+    collector.beginProp(BREAKABLE.HOUSE);
+    place('windmillBase', x, pos.y, z, 1.5, 0, WINDMILL_ROT_Y, 0);
+    for (let k = 0; k < 4; k++) {
+      place(
+        'windmillBlades',
+        x + hub.x,
+        pos.y + 45,
+        z + hub.z,
+        1.5,
+        0,
+        WINDMILL_ROT_Y,
+        (k * Math.PI) / 2
+      );
     }
     collector.endProp();
   }
@@ -3583,7 +3675,10 @@ export function generateChunkData({
           rng() * Math.PI,
           rng() * Math.PI
         );
+        // Boulders shatter (breakables.js)
+        collector.beginProp(BREAKABLE.HOUSE);
         collector.add(variation.key, _matBuffer);
+        collector.endProp();
       });
     }
   });
@@ -3896,6 +3991,19 @@ export function generateChunkData({
       pos.scale = 0.8 + rng() * 0.4;
     });
   }
+  collectStructures(
+    collector,
+    {
+      strawHutPositions,
+      pagodaPositions,
+      barnPositions,
+      monasteryPositions,
+      castleRuinsPositions,
+      windmillPositions,
+    },
+    worldOffsetX,
+    worldOffsetZ
+  );
 
   if (sailboatPositions.length > 0) {
     sailboatPositions.forEach((pos) => {

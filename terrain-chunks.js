@@ -174,7 +174,6 @@ import {
   twoStoryChimneyGeo,
   twoStoryRoofGeo,
   useInstancedDepthMaterial,
-  WINDMILL_ROT_Y,
   waterMaterial,
   watercraftChunks,
   whiteSmokeMat,
@@ -202,7 +201,7 @@ import {simplex} from './noise.js';
 import {camera} from './sky.js';
 import {planeGroup} from './airplane.js';
 import {terrainWorkerManager} from './terrain-worker-manager.js';
-import {ALIEN_PROPS_AT, generateChunkData} from './terrain-gen.js';
+import {ALIEN_PROPS_AT, BREAKABLE, generateChunkData} from './terrain-gen.js';
 import {hooks} from './hooks.js';
 import {state} from './state.js';
 
@@ -512,6 +511,80 @@ export function createDebrisMesh(geo, mat, capacity, useColor) {
   return mesh;
 }
 
+// Models of props built per chunk that can be knocked over (piers,
+// campfires and tents): type -> {geo, mat}, for breakables.js. A chunk lists
+// them in userData.meshProps: [{kind, parts: [{type, mesh, index}]}], each
+// part an instance of one of the chunk's instanced meshes.
+export const debrisTypes = new Map();
+// Breakable props that aren't in any chunk (airports): each a stand-in for
+// a chunk, {userData: {meshProps, ...}}. A part can also be a whole object
+// ({type: 'obj', object, role}), drawn by a copy of it when it falls.
+export const standaloneProps = [];
+const debrisType = (type, geo, mat) => debrisTypes.set(type, {geo, mat});
+debrisType('pierDeck', pierDeckGeo, woodMat);
+debrisType('fireLog', fireLogGeo, woodMat);
+debrisType('fireCore', fireCoreGeo, fireMat);
+debrisType('fireSmoke', smokeGeo, smokeMat);
+debrisType('tentPoles', tentPolesGeo, woodMat);
+debrisType('tentEntrance', tentEntranceGeo, tentEntranceMat);
+tentPalette.forEach((mat, i) => debrisType('tent' + i, tentGeo, mat));
+debrisType('streetlightPole', streetlightPoleGeo, streetlightPoleMat);
+debrisType('streetlightArm', streetlightArmGeo, streetlightPoleMat);
+debrisType('streetlightBulb', streetlightBulbGeo, streetlightBulbMat);
+debrisType('streetlightDecal', streetlightDecalGeo, streetlightDecalMat);
+// Boats sinking
+boatHullPalette.forEach((mat, i) =>
+  debrisType('boatHull' + i, boatHullGeo, mat)
+);
+debrisType('boatRim', boatRimGeo, boatRimMat);
+debrisType('boatDeck', boatDeckGeo, boatDeckMat);
+debrisType('boatMast', boatMastGeo, woodMat);
+debrisType('boatBoom', boatBoomGeo, woodMat);
+debrisType('boatSail', boatSailGeo, boatSailMat);
+debrisType('pirateHull', pirateHullGeo, pirateHullMat);
+debrisType('pirateRim', pirateRimGeo, pirateRimMat);
+debrisType('pirateDeck', pirateDeckGeo, woodMat);
+debrisType('pirateMast', pirateMastGeo, woodMat);
+debrisType('pirateFlag', pirateFlagGeo, pirateFlagMat);
+debrisType('pirateJollyRoger', pirateJollyRogerGeo, pirateJollyRogerMat);
+pirateSailPalette.forEach((mat, i) =>
+  debrisType('pirateSail' + i, pirateSailGeo, mat)
+);
+
+// A rock arch as a breakable prop: it comes down in its blocks, but only
+// when you hit one of them, not when you fly through the gap. pos: the
+// arch's spot in its chunk, already offset into the world by its meshes.
+function rockArchProp(pos, meshes, blocks, grass = true) {
+  const {x, y, z} = meshes[0].position;
+  const c = Math.cos(pos.rotY);
+  const s = Math.sin(pos.rotY);
+  // In the world: [x, y, z, size, colour]
+  const world = blocks
+    .filter((b) => grass || !b[4])
+    .map(([bx, by, bz, size, isGrass]) => [
+      x + bx * c + bz * s,
+      y + by,
+      z - bx * s + bz * c,
+      size,
+      isGrass ? rockArchGrassMat.color.toArray() : rockMat.color.toArray(),
+    ]);
+  return {
+    kind: BREAKABLE.HOUSE,
+    parts: meshes.map((object) => ({type: 'obj', object, role: 'hide'})),
+    rubble: 0,
+    blocks: world,
+    // Within half a block (and the vehicle's radius r) of one of them
+    hit: (p, r) =>
+      world.some(([bx, by, bz, size]) => {
+        const reach = size * 0.5 + r;
+        const dx = p.x - bx;
+        const dy = p.y - by;
+        const dz = p.z - bz;
+        return dx * dx + dy * dy + dz * dz < reach * reach;
+      }),
+  };
+}
+
 // Where loaded waterfalls land (world units), by chunk group, and the top of
 // the volcano's lava once built: for their particles (particles.js)
 export const waterfallFeet = new Map();
@@ -661,6 +734,31 @@ houseWindowMats.forEach((mat, i) => {
   );
 });
 
+// Straw huts, pagodas, barns, monasteries, castle ruins and windmills, one
+// material each (collectStructures in terrain-gen.js)
+for (const [type, geo, mat] of [
+  ['strawHutBody', strawHutBodyGeo, strawHutMat],
+  ['strawHutRoof', strawHutRoofGeo, strawHutMat],
+  ['pagodaBody', pagodaBodyGeo, pagodaBodyMat],
+  ['pagodaRoof', pagodaRoofGeo, pagodaRoofMat],
+  ['barnBody', barnBodyGeo, barnBodyMat],
+  ['barnRoof', barnRoofGeo, barnRoofMat],
+  ['barnDoor', barnDoorGeo, barnWhiteMat],
+  ['barnTrim', barnTrimGeo, barnBodyMat],
+  ['barnSiloBody', barnSiloBodyGeo, barnSiloMat],
+  ['barnSiloRoof', barnSiloRoofGeo, barnSiloRoofMat],
+  ['monasteryBody', monasteryBodyGeo, monasteryBodyMat],
+  ['monasteryRoof', monasteryRoofGeo, monasteryRoofMat],
+  ['castleRuins', castleRuinsGeo, castleRuinsMat],
+  ['windmillBase', windmillBaseGeo, windmillBaseMat],
+  ['windmillBlades', windmillBladesGeo, windmillBladesMat],
+]) {
+  globalInstancer.registerType(type, geo, mat);
+}
+// The sails turn in their shader, shadows too
+globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =
+  windmillBladesDepthMat;
+
 // Distant versions (beyond TREE_LOD_CHUNK_RADIUS). The costliest models get a
 // simple shape fitted to their bounds (same material and instance colors);
 // props too small to see that far away aren't drawn. Pines, rocks and other
@@ -686,6 +784,8 @@ globalInstancer.setFarGeometry(
   fitToBounds(new THREE.BoxGeometry(2, 2, 2), cactusGeo)
 );
 globalInstancer.setFarGeometry('bush', null);
+globalInstancer.setFarGeometry('barnDoor', null);
+globalInstancer.setFarGeometry('barnTrim', null);
 globalInstancer.setFarGeometry('snowmanBody', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
 // Town streets: flat, so they cast no shadow
@@ -1257,6 +1357,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   // Trees, rocks and other small props arrive as instanceData, drawn by
   // GlobalInstanceManager; the rest are built per chunk below.
   const dummy = new THREE.Object3D();
+  const meshProps = [];
+  group.userData.meshProps = meshProps;
 
   // 2.3b Generate Rock Arches (Unique instances)
   if (rockArchPositions.length > 0) {
@@ -1271,6 +1373,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       geos.grass.dispose(); // Unused in this variant
 
       group.add(mesh);
+      meshProps.push(rockArchProp(pos, [mesh], geos.blocks, false));
     });
   }
 
@@ -1290,264 +1393,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
       group.add(rockMesh);
       group.add(grassMesh);
+      meshProps.push(rockArchProp(pos, [rockMesh, grassMesh], geos.blocks));
     });
   }
 
-  // 2.55 Generate Straw Huts (islands)
-  if (strawHutPositions.length > 0) {
-    const strawHutBodyInst = getInstancedMesh(
-      strawHutBodyGeo,
-      strawHutMat,
-      strawHutPositions.length
-    );
-    const strawHutRoofInst = getInstancedMesh(
-      strawHutRoofGeo,
-      strawHutMat,
-      strawHutPositions.length
-    );
-    strawHutPositions.forEach((pos, i) => {
-      const scale = pos.scale !== undefined ? pos.scale : 0.9 + rng() * 0.3;
-      dummy.position.set(pos.x, pos.y, pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(scale, scale, scale);
-      dummy.updateMatrix();
-      strawHutBodyInst.setMatrixAt(i, dummy.matrix);
-      strawHutRoofInst.setMatrixAt(i, dummy.matrix);
-    });
-    strawHutBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    strawHutRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(strawHutBodyInst);
-    objectsGroup.add(strawHutRoofInst);
-  }
-
-  // 2.6 Generate Pagodas (rare, cherry blossom zones)
-  if (pagodaPositions.length > 0) {
-    const pagodaBodyInst = getInstancedMesh(
-      pagodaBodyGeo,
-      pagodaBodyMat,
-      pagodaPositions.length
-    );
-    const pagodaRoofInst = getInstancedMesh(
-      pagodaRoofGeo,
-      pagodaRoofMat,
-      pagodaPositions.length
-    );
-    pagodaPositions.forEach((pos, i) => {
-      const scale = pos.scale !== undefined ? pos.scale : 0.9 + rng() * 0.3;
-      dummy.position.set(pos.x, pos.y, pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(scale, scale, scale);
-      dummy.updateMatrix();
-      pagodaBodyInst.setMatrixAt(i, dummy.matrix);
-      pagodaRoofInst.setMatrixAt(i, dummy.matrix);
-    });
-    pagodaBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    pagodaRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(pagodaBodyInst);
-    objectsGroup.add(pagodaRoofInst);
-  }
-
-  // 2.61 Generate Barns (temperate plains)
-  if (barnPositions.length > 0) {
-    const barnBodyInst = getInstancedMesh(
-      barnBodyGeo,
-      barnBodyMat,
-      barnPositions.length
-    );
-    const barnRoofInst = getInstancedMesh(
-      barnRoofGeo,
-      barnRoofMat,
-      barnPositions.length
-    );
-    const barnDoorInst = getInstancedMesh(
-      barnDoorGeo,
-      barnWhiteMat,
-      barnPositions.length * 2
-    );
-    const barnTrimInst = getInstancedMesh(
-      barnTrimGeo,
-      barnBodyMat,
-      barnPositions.length * 4
-    );
-    const barnSiloBodyInst = getInstancedMesh(
-      barnSiloBodyGeo,
-      barnSiloMat,
-      barnPositions.length
-    );
-    const barnSiloRoofInst = getInstancedMesh(
-      barnSiloRoofGeo,
-      barnSiloRoofMat,
-      barnPositions.length
-    );
-
-    barnPositions.forEach((pos, i) => {
-      dummy.position.set(pos.x, pos.y, pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(1, 1, 1);
-      dummy.updateMatrix();
-      barnBodyInst.setMatrixAt(i, dummy.matrix);
-      barnRoofInst.setMatrixAt(i, dummy.matrix);
-
-      const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-      const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(
-        yAxis,
-        pos.rotY
-      );
-
-      // Front Door
-      dummy.position.set(
-        pos.x + doorFOffset.x,
-        pos.y + doorFOffset.y,
-        pos.z + doorFOffset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.updateMatrix();
-      barnDoorInst.setMatrixAt(i * 2, dummy.matrix);
-
-      dummy.rotation.set(0, pos.rotY, Math.atan2(8, 9));
-      dummy.updateMatrix();
-      barnTrimInst.setMatrixAt(i * 4, dummy.matrix);
-
-      dummy.rotation.set(0, pos.rotY, -Math.atan2(8, 9));
-      dummy.updateMatrix();
-      barnTrimInst.setMatrixAt(i * 4 + 1, dummy.matrix);
-
-      // Back Door
-      dummy.position.set(
-        pos.x + doorBOffset.x,
-        pos.y + doorBOffset.y,
-        pos.z + doorBOffset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.updateMatrix();
-      barnDoorInst.setMatrixAt(i * 2 + 1, dummy.matrix);
-
-      dummy.rotation.set(0, pos.rotY, Math.atan2(8, 9));
-      dummy.updateMatrix();
-      barnTrimInst.setMatrixAt(i * 4 + 2, dummy.matrix);
-
-      dummy.rotation.set(0, pos.rotY, -Math.atan2(8, 9));
-      dummy.updateMatrix();
-      barnTrimInst.setMatrixAt(i * 4 + 3, dummy.matrix);
-
-      // Silo
-      dummy.position.set(
-        pos.x + siloOffset.x,
-        pos.y + siloOffset.y,
-        pos.z + siloOffset.z
-      );
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.updateMatrix();
-      barnSiloBodyInst.setMatrixAt(i, dummy.matrix);
-      barnSiloRoofInst.setMatrixAt(i, dummy.matrix);
-    });
-
-    barnBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    barnRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    barnDoorInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    barnTrimInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    barnSiloBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    barnSiloRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-
-    objectsGroup.add(barnBodyInst);
-    objectsGroup.add(barnRoofInst);
-    objectsGroup.add(barnDoorInst);
-    objectsGroup.add(barnTrimInst);
-    objectsGroup.add(barnSiloBodyInst);
-    objectsGroup.add(barnSiloRoofInst);
-  }
-
-  // 2.62 Generate Monasteries (rare, temperate highlands)
-  if (monasteryPositions.length > 0) {
-    const monasteryBodyInst = getInstancedMesh(
-      monasteryBodyGeo,
-      monasteryBodyMat,
-      monasteryPositions.length
-    );
-    const monasteryRoofInst = getInstancedMesh(
-      monasteryRoofGeo,
-      monasteryRoofMat,
-      monasteryPositions.length
-    );
-    monasteryPositions.forEach((pos, i) => {
-      dummy.position.set(pos.x, pos.y, pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(1, 1, 1);
-      dummy.updateMatrix();
-      monasteryBodyInst.setMatrixAt(i, dummy.matrix);
-      monasteryRoofInst.setMatrixAt(i, dummy.matrix);
-    });
-    monasteryBodyInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    monasteryRoofInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(monasteryBodyInst);
-    objectsGroup.add(monasteryRoofInst);
-  }
-
-  // 2.63 Generate Castle Ruins (very rare, elevated terrain)
-  if (castleRuinsPositions.length > 0) {
-    const castleInst = getInstancedMesh(
-      castleRuinsGeo,
-      castleRuinsMat,
-      castleRuinsPositions.length
-    );
-    castleRuinsPositions.forEach((pos, i) => {
-      dummy.position.set(pos.x, pos.y, pos.z);
-      dummy.rotation.set(0, pos.rotY, 0);
-      dummy.scale.set(1, 1, 1);
-      dummy.updateMatrix();
-      castleInst.setMatrixAt(i, dummy.matrix);
-    });
-    castleInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    group.add(castleInst);
-  }
-
-  // 2.7 Generate Windmills
-  if (windmillPositions.length > 0) {
-    const baseInst = getInstancedMesh(
-      windmillBaseGeo,
-      windmillBaseMat,
-      windmillPositions.length
-    );
-    const bladesInst = getInstancedMesh(
-      windmillBladesGeo,
-      windmillBladesMat,
-      windmillPositions.length * 4
-    );
-    bladesInst.customDepthMaterial = windmillBladesDepthMat;
-
-    windmillPositions.forEach((pos, index) => {
-      const structure = ModelAssembler.getStructure('windmill', WINDMILL_ROT_Y);
-      structure.forEach((part, pIdx) => {
-        dummy.position.set(
-          pos.x + part.pos[0],
-          pos.y + part.pos[1],
-          pos.z + part.pos[2]
-        );
-        dummy.rotation.order = part.order || 'XYZ';
-        dummy.rotation.set(...part.rot);
-        dummy.scale.set(...part.scale);
-        dummy.updateMatrix();
-
-        if (pIdx === 0) {
-          baseInst.setMatrixAt(index, dummy.matrix);
-        } else {
-          bladesInst.setMatrixAt(index * 4 + (pIdx - 1), dummy.matrix);
-        }
-      });
-    });
-
-    baseInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    bladesInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(baseInst);
-    objectsGroup.add(bladesInst);
-  }
+  // Straw huts, pagodas, barns, monasteries, castle ruins and windmills
+  // arrive as instanceData too (collectStructures in terrain-gen.js), so they
+  // can be knocked down (breakables.js).
 
   // 2.9 Generate Lighthouse
   if (lighthousePos) {
@@ -1570,6 +1422,31 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       pos.z + worldOffsetZ
     );
     group.add(lighthouseGroup);
+
+    // The tower topples like a giant tree and its light goes out; the
+    // keeper's house falls down and the flagpole tips over
+    const objs = lighthouseGroup.children;
+    const objPart = (object, role) => ({type: 'obj', object, role});
+    meshProps.push({
+      kind: BREAKABLE.TREE,
+      parts: objs.slice(0, 6).map((o) => objPart(o)),
+      onBreak: (g) => {
+        const {lighthouseBeam: beam, lighthouseLight: light} = g.userData;
+        if (beam) beam.visible = false;
+        if (light) light.intensity = 0;
+        g.userData.lighthouseBeam = null;
+        g.userData.lighthouseLight = null;
+      },
+    });
+    meshProps.push({
+      kind: BREAKABLE.HOUSE,
+      parts: [objPart(objs[6], 'fold'), objPart(objs[7], 'fling')],
+      rubble: 9,
+    });
+    meshProps.push({
+      kind: BREAKABLE.TREE,
+      parts: [objPart(objs[8]), objPart(objs[9])],
+    });
 
     // Use persistent beam and light
     const beamHeight = 126; // Middle of lantern (63 * 2)
@@ -1626,6 +1503,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.updateMatrix();
       deckInst.setMatrixAt(index, dummy.matrix);
+      meshProps.push({
+        kind: BREAKABLE.HOUSE,
+        parts: [{type: 'pierDeck', mesh: deckInst, index}],
+      });
 
       // Posts
       const offsets = [
@@ -2216,6 +2097,15 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
               dummy.scale.set(1.5, 1, 1.5); // Perfectly circular, large soft pool
               dummy.updateMatrix();
               slDecalInst.setMatrixAt(slIndex, dummy.matrix);
+              meshProps.push({
+                kind: BREAKABLE.TREE,
+                parts: [
+                  ['streetlightPole', slBaseInst],
+                  ['streetlightArm', slArmInst],
+                  ['streetlightBulb', slBulbInst],
+                  ['streetlightDecal', slDecalInst],
+                ].map(([type, mesh]) => ({type, mesh, index: slIndex})),
+              });
 
               slIndex++;
             }
@@ -2337,6 +2227,17 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         }
       });
 
+      const fire = [0, 1, 2].map((i) => ({
+        type: 'fireLog',
+        mesh: logInst,
+        index: index * 3 + i,
+      }));
+      fire.push({type: 'fireCore', mesh: coreInst, index});
+      for (let i = 0; i < 5; i++) {
+        fire.push({type: 'fireSmoke', mesh: smokeInst, index: index * 5 + i});
+      }
+      meshProps.push({kind: BREAKABLE.SMALL, parts: fire});
+
       // Smoke community
       for (let i = 0; i < 5; i++) {
         dummy.position.set(pos.x, pos.y + 5, pos.z);
@@ -2368,6 +2269,14 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
       tentPolesInst.setMatrixAt(index, dummy.matrix);
       tentEntranceInst.setMatrixAt(index, dummy.matrix);
+      meshProps.push({
+        kind: BREAKABLE.TREE,
+        parts: [
+          {type: 'tent' + colorIdx, mesh: tentInsts[colorIdx], index: instIdx},
+          {type: 'tentPoles', mesh: tentPolesInst, index},
+          {type: 'tentEntrance', mesh: tentEntranceInst, index},
+        ],
+      });
     });
 
     logInst.position.set(worldOffsetX, 0, worldOffsetZ);
@@ -3088,6 +2997,7 @@ export function updateChunks() {
       }
       group.userData.instanceData = null;
       group.userData.breakables = null;
+      group.userData.meshProps = null;
       group.userData.objectsGroup = null;
       group.userData.watercraftGroup = null;
       disposeWaterDepthTexture(group.userData.water);

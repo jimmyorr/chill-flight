@@ -6,6 +6,9 @@ import {
   HOUSE_BODY_COLORS,
   HOUSE_ROOF_COLORS,
   HOUSE_WINDOW_POOLS,
+  WIND_DIR_X,
+  WIND_DIR_Z,
+  WINDMILL_ROT_Y,
 } from './terrain-gen.js';
 import {ART_STYLE} from './art-style.js';
 import {
@@ -1844,6 +1847,9 @@ export var monasteryRoofMat = createMaterial({
 export function createRockArchGeometries(rng) {
   const rockGeos = [];
   const grassGeos = [];
+  // Each block's middle and size, in the arch's own space, for knocking it
+  // down (breakables.js): [x, y, z, size, grass (0 or 1)]
+  const blocks = [];
 
   // We'll build the arch by placing blocks along a parabolic curve
   // that is thick at the base and thins out at the top.
@@ -1884,6 +1890,7 @@ export function createRockArchGeometries(rng) {
 
       box.translate(jx, jy, jz);
       rockGeos.push(box);
+      blocks.push([jx, jy, jz, (w + h + d) / 3, 0]);
 
       // Grass logic - only add grass on the top-facing blocks of the arch
       // We check if this block is relatively high up, or just add a grass block slightly above it
@@ -1900,6 +1907,7 @@ export function createRockArchGeometries(rng) {
           grassBox.rotateX((rng() - 0.5) * 0.2);
           grassBox.translate(jx, jy + h / 2, jz);
           grassGeos.push(grassBox);
+          blocks.push([jx, jy + h / 2, jz, w * 0.9, 1]);
         }
       }
     }
@@ -1945,7 +1953,7 @@ export function createRockArchGeometries(rng) {
   rockGeos.forEach((g) => g.dispose());
   grassGeos.forEach((g) => g.dispose());
 
-  return {rock: mergedRock, grass: mergedGrass};
+  return {rock: mergedRock, grass: mergedGrass, blocks};
 }
 if (typeof window !== 'undefined')
   window.createRockArchGeometries = createRockArchGeometries;
@@ -2332,6 +2340,12 @@ export var windmillBaseMat = createMaterial({
   roughness: 0.9,
 });
 export var windmillBladesMat = createMaterial({
+  color: 0x5c4033,
+  flatShading: true,
+  roughness: 0.9,
+});
+// The same, still: for sails knocked off (breakables.js)
+export var windmillBladesStillMat = createMaterial({
   color: 0x5c4033,
   flatShading: true,
   roughness: 0.9,
@@ -2768,12 +2782,10 @@ export const animationUniforms = {uTime: {value: 0}};
 // own phase. The wind blows one way across the world: the offset is turned
 // into each instance's rotated, scaled space. Shadows don't sway.
 export const windUniforms = {uWindStrength: {value: 1}};
-// The direction the wind blows toward, on the XZ plane (not normalized).
-const WIND_DIR_X = 0.8;
-const WIND_DIR_Z = 0.5;
+// The direction the wind blows toward (WIND_DIR_X, WIND_DIR_Z in
+// terrain-gen.js, which also turns the windmills into it)
 const WIND_DIR_GLSL = `normalize(vec3(${WIND_DIR_X.toFixed(1)}, 0.0, ${WIND_DIR_Z.toFixed(1)}))`;
-// Windmills all turn their sails (+Z in model space) into the wind.
-export const WINDMILL_ROT_Y = Math.atan2(-WIND_DIR_X, -WIND_DIR_Z);
+export {WINDMILL_ROT_Y};
 
 function addWindSway(material, {bendStart, bendPerUnit}) {
   const base = material.onBeforeCompile;

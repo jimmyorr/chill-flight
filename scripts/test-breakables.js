@@ -55,6 +55,9 @@ function chunk(cx, cz) {
 // --- The generator's list ---
 let trees = 0;
 let houses = 0;
+// Other buildings (huts, barns, castles...), by their first part
+const buildings = new Set();
+let boulders = 0;
 let consistent = true;
 let detail = '';
 for (let cx = -2; cx <= 2; cx++) {
@@ -90,10 +93,18 @@ for (let cx = -2; cx <= 2; cx++) {
         }
       }
       if (b.kinds[i] === BREAKABLE.HOUSE) {
-        houses++;
+        if (types[0] === 'houseBody' || types[0] === 'twoStoryBody') houses++;
+        else if (/^(rock|snowRock|desertRock)$/.test(types[0])) boulders++;
+        else buildings.add(types[0]);
+        // Walls that fold down first, and a roof (or sails) to throw off; a
+        // castle ruin has none, and a boulder is one rock
+        const boulder = /^(rock|snowRock|desertRock)$/.test(types[0]);
         if (
-          !types[0].endsWith('Body') ||
-          !types.some((t) => t.endsWith('Roof'))
+          boulder
+            ? types.length !== 1
+            : !/Body$|^castleRuins$|^windmillBase$/.test(types[0]) ||
+              (types[0] !== 'castleRuins' &&
+                !types.some((t) => t.endsWith('Roof') || t.endsWith('Blades')))
         ) {
           consistent = false;
           detail = `house ${i} is ${types.join(' ')}`;
@@ -106,6 +117,12 @@ for (let cx = -2; cx <= 2; cx++) {
 }
 check('chunks list breakable trees', trees > 100, `${trees} trees`);
 check('chunks list breakable houses', houses > 5, `${houses} houses`);
+check('chunks list breakable boulders', boulders > 10, `${boulders}`);
+check(
+  'chunks list other breakable buildings',
+  buildings.size >= 2,
+  [...buildings].join(' ')
+);
 check("each prop's parts are its own instances", consistent, detail);
 
 // The same chunk lists the same props every time, so friends (and a chunk

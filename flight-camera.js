@@ -73,6 +73,8 @@ import {performanceMonitor} from './game-performance.js';
 import {Achievements} from './achievements.js';
 
 let _frameCount;
+// A sunk boat's matrix: nothing drawn
+const _SUNK = new THREE.Matrix4().makeScale(0, 0, 0);
 
 // How locked the follow camera is to the plane in aerobatics, 0 to 1. Rolls
 // and loops lock its turn to the plane's (lagging behind would swing the
@@ -904,6 +906,8 @@ export function updateFlightCamera(delta, nowTime) {
         _boatDummy.rotation.z = roll;
         _boatDummy.scale.set(1.8, 1.8, 1.8);
         _boatDummy.updateMatrix();
+        // Sunk (breakables.js): drawn no more
+        if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
 
         if (Array.isArray(hulls)) {
           const colorIdx = chunkGroup.userData.boatColorIndices[index];
@@ -927,6 +931,7 @@ export function updateFlightCamera(delta, nowTime) {
           _boatDummy.rotation.z = -roll;
           _boatDummy.scale.set(1.8, -1.8, 1.8);
           _boatDummy.updateMatrix();
+          if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
           chunkGroup.userData.boatReflections.setMatrixAt(
             index,
             _boatDummy.matrix
@@ -994,6 +999,8 @@ export function updateFlightCamera(delta, nowTime) {
         _boatDummy.rotation.z = roll;
         _boatDummy.scale.set(2.5, 2.5, 2.5);
         _boatDummy.updateMatrix();
+        // Sunk (breakables.js): drawn no more
+        if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
 
         const colorIdx = pos.bodyId;
         const instIdx = sailCounts[colorIdx]++;
@@ -1014,6 +1021,7 @@ export function updateFlightCamera(delta, nowTime) {
           _boatDummy.rotation.z = -roll;
           _boatDummy.scale.set(2.5, -2.5, 2.5);
           _boatDummy.updateMatrix();
+          if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
           chunkGroup.userData.pirateReflections.setMatrixAt(
             index,
             _boatDummy.matrix

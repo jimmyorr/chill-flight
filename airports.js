@@ -11,6 +11,8 @@ import {createMaterial, WATER_LEVEL, MOUNTAIN_LEVEL} from './constants.js';
 import {scene} from './scene.js';
 import {simplex} from './noise.js';
 import {getElevation} from './terrain-geometry.js';
+import {BREAKABLE} from './terrain-gen.js';
+import {standaloneProps} from './terrain-chunks.js';
 import {buildPlaneModel} from './plane-models.js';
 
 const asphaltMat = createMaterial({color: 0x4f5155, flatShading: true});
@@ -214,9 +216,9 @@ function reverseWinding(geo) {
   }
 }
 
-// Parked planes never move, so each airport's are baked into one mesh per
-// material: a plane is 50 to 70 meshes, each its own draw call (twice, with
-// shadows). `group` has no parent, so world matrices are relative to it.
+// Parked planes never move, so each is baked into one mesh per material: a
+// plane is 50 to 70 meshes, each its own draw call (twice, with shadows).
+// `group` has no parent, so world matrices are relative to it.
 function mergeByMaterial(group) {
   group.updateMatrixWorld(true);
   const byMaterial = new Map();
@@ -261,9 +263,10 @@ function createParkedPlanes(index) {
     const span = _box.max.x - _box.min.x;
     plane.position.set(x + span / 2, APRON_TOP - _box.min.y, 48);
     x += span + 4 + rng() * 6;
-    group.add(plane);
+    // Each on its own, so one can be knocked over (breakables.js)
+    group.add(mergeByMaterial(plane));
   }
-  return mergeByMaterial(group);
+  return group;
 }
 
 // --- AIRPORT SIGN ---
@@ -455,6 +458,7 @@ function createAccessRoad(road, a, fieldY) {
   }
   signs.applyMatrix4(toLocal);
   group.add(signs);
+  group.userData.signs = signs.children;
   for (const [positions, material] of [
     [pave, asphaltMat],
     [dashes, markingMat],
@@ -514,7 +518,54 @@ function createAirport(a, index) {
   airport.position.set(a.x, fieldY, a.z);
   // Local X along the runway: (cos angle, sin angle) in world x, z
   airport.rotation.y = -a.angle;
+  airport.updateMatrixWorld(true);
+  addBreakables(index, {
+    tower,
+    hangar,
+    sock,
+    planes: details.children[0].children,
+    signs: accessRoad?.userData.signs || [],
+  });
   return airport;
+}
+
+// What can be knocked over at an airport (breakables.js): the tower and
+// windsock and signs topple, the hangar falls in and parked planes tumble
+function addBreakables(index, {tower, hangar, sock, planes, signs}) {
+  const part = (object, role) => ({type: 'obj', object, role});
+  const topples = (group) => ({
+    kind: BREAKABLE.TREE,
+    parts: group.children.map((o) => part(o)),
+  });
+  const meshProps = [
+    topples(tower),
+    topples(sock),
+    ...signs.map(topples),
+    {
+      kind: BREAKABLE.HOUSE,
+      parts: [
+        part(hangar.children[0], 'fold'),
+        part(hangar.children[1], 'fling'),
+        part(hangar.children[2], 'fling'),
+      ],
+      rubble: 22,
+    },
+    ...planes.map((plane) => ({
+      kind: BREAKABLE.HOUSE,
+      parts: [part(plane, 'fling')],
+      rubble: 5,
+    })),
+  ];
+  standaloneProps.push({
+    userData: {
+      breakables: {kinds: []},
+      instanceData: {},
+      meshProps,
+      chunkX: 'airport',
+      chunkZ: index,
+      standalone: true,
+    },
+  });
 }
 
 if (ChillFlightLogic.SHOW_OBJECTS !== false) {
