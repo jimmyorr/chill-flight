@@ -201,6 +201,9 @@ export function createBuggyModel(opts = {}) {
   // The follow camera sits closer behind something this small, and the
   // first-person view is from the driver's seat (flight-camera.js)
   root.cameraScale = 0.45;
+  // and higher, looking up the road, so the buggy sits in the lower third
+  root.chaseLift = 1.6;
+  root.chaseFrame = 0.45;
   root.firstPersonEye = new THREE.Vector3(0, 4.6, -0.3);
   return root;
 }

@@ -197,11 +197,10 @@ export function updateFlightCamera(delta, nowTime) {
       60 * followScale,
       speedFactor
     );
-    const yOffset = THREE.MathUtils.lerp(
-      12 * followScale,
-      20 * followScale,
-      speedFactor
-    );
+    // A vehicle can sit the camera higher over itself (chaseLift)
+    const yOffset =
+      THREE.MathUtils.lerp(12 * followScale, 20 * followScale, speedFactor) *
+      (state.airplaneModel?.chaseLift ?? 1);
 
     // FOV expands with speed AND dive/loop steepness, capped at 70 to avoid excessive distortion
     // We use a smoothed factor to prevent "jumping" when entering loops
@@ -295,7 +294,23 @@ export function updateFlightCamera(delta, nowTime) {
       .copy(_cameraOffset)
       .applyMatrix4(_cameraAnchorMatrix);
 
-    _lookOffset.set(0, 0, -20);
+    // Planes sit in the middle of the view. A car sits low (chaseFrame, the
+    // way from the middle to the bottom edge), with more road ahead in view
+    const chaseFrame = state.airplaneModel?.chaseFrame;
+    if (chaseFrame) {
+      const back = zOffset + pullBack;
+      const below = Math.atan2(yOffset, back);
+      const tilt = Math.atan(
+        chaseFrame * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
+      );
+      _lookOffset.set(
+        0,
+        yOffset - 100 * Math.sin(below - tilt),
+        back - 100 * Math.cos(below - tilt)
+      );
+    } else {
+      _lookOffset.set(0, 0, -20);
+    }
     _idealLookTarget_Follow.copy(_lookOffset).applyMatrix4(_cameraAnchorMatrix);
 
     // World up, or the plane's up in a loop (so the view doesn't flip as
