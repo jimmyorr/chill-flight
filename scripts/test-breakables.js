@@ -125,6 +125,38 @@ check(
 );
 check("each prop's parts are its own instances", consistent, detail);
 
+// Up north, icebergs and floes break (one model each), and penguins, which
+// scatter, are one prop of eight parts each
+let ice = 0;
+let penguins = 0;
+let iceOk = true;
+for (const [cx, cz] of [
+  [-4, -36],
+  [-2, -36],
+  [-6, -34],
+  [-4, -32],
+]) {
+  const {breakables: b} = chunk(cx, cz);
+  for (let i = 0; i < b.kinds.length; i++) {
+    const types = [];
+    for (let j = b.propStarts[i]; j < b.propStarts[i + 1]; j++) {
+      types.push(b.types[b.partTypes[j]]);
+    }
+    if (/^ice/.test(types[0])) {
+      ice++;
+      if (b.kinds[i] !== BREAKABLE.HOUSE || types.length !== 1) iceOk = false;
+    } else if (types[0] === 'penguinBody') {
+      penguins++;
+      if (b.kinds[i] !== BREAKABLE.CRITTER || types.length !== 8) {
+        iceOk = false;
+      }
+    }
+  }
+}
+check('icebergs and floes are breakable', ice > 10, `${ice}`);
+check('penguins are listed to scatter', penguins > 5, `${penguins}`);
+check('ice and penguin props hold their own models', iceOk);
+
 // The same chunk lists the same props every time, so friends (and a chunk
 // loaded again) break the same ones
 const again = chunk(0, 0).breakables;

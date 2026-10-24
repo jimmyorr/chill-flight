@@ -785,8 +785,9 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
 }
 
 // What a breakable prop is, for how it breaks (breakables.js); SMALL is a
-// campfire and the like, knocked apart
-export const BREAKABLE = {TREE: 0, HOUSE: 1, SNOWMAN: 2, SMALL: 3};
+// campfire and the like, knocked apart, and a CRITTER (a penguin) gets out
+// of the way instead
+export const BREAKABLE = {TREE: 0, HOUSE: 1, SNOWMAN: 2, SMALL: 3, CRITTER: 4};
 
 class InstanceCollector {
   constructor() {
@@ -3743,7 +3744,9 @@ export function generateChunkData({
         pos.rotY,
         0
       );
+      collector.beginProp(BREAKABLE.HOUSE);
       collector.add('iceberg', _matBuffer);
+      collector.endProp();
 
       const r1 = rotateY(14, 6, pos.rotY);
       composeMatrix(
@@ -3759,7 +3762,9 @@ export function generateChunkData({
         pos.rotY + 1.2,
         0
       );
+      collector.beginProp(BREAKABLE.HOUSE);
       collector.add('iceberg', _matBuffer);
+      collector.endProp();
 
       const r2 = rotateY(-12, -8, pos.rotY);
       composeMatrix(
@@ -3775,7 +3780,9 @@ export function generateChunkData({
         pos.rotY - 0.8,
         0
       );
+      collector.beginProp(BREAKABLE.HOUSE);
       collector.add('iceberg', _matBuffer);
+      collector.endProp();
     });
   }
 
@@ -3794,7 +3801,9 @@ export function generateChunkData({
         pos.rotY,
         0
       );
+      collector.beginProp(BREAKABLE.HOUSE);
       collector.add('iceFloe', _matBuffer);
+      collector.endProp();
 
       const r1 = rotateY(16, 4, pos.rotY);
       composeMatrix(
@@ -3810,7 +3819,9 @@ export function generateChunkData({
         pos.rotY + 0.5,
         0
       );
+      collector.beginProp(BREAKABLE.HOUSE);
       collector.add('iceFloe', _matBuffer);
+      collector.endProp();
 
       const r2 = rotateY(-15, -6, pos.rotY);
       composeMatrix(
@@ -3826,7 +3837,9 @@ export function generateChunkData({
         pos.rotY - 0.5,
         0
       );
+      collector.beginProp(BREAKABLE.HOUSE);
       collector.add('iceFloe', _matBuffer);
+      collector.endProp();
     });
   }
 
@@ -3846,6 +3859,7 @@ export function generateChunkData({
         pos.rotY,
         0
       );
+      collector.beginProp(BREAKABLE.CRITTER);
       collector.add('penguinBody', _matBuffer);
       collector.add('penguinBelly', _matBuffer);
       collector.add('penguinHead', _matBuffer);
@@ -3854,6 +3868,7 @@ export function generateChunkData({
       collector.add('penguinWingR', _matBuffer);
       collector.add('penguinFootL', _matBuffer);
       collector.add('penguinFootR', _matBuffer);
+      collector.endProp();
     });
   }
 

@@ -75,6 +75,12 @@ import {Achievements} from './achievements.js';
 let _frameCount;
 // A sunk boat's matrix: nothing drawn
 const _SUNK = new THREE.Matrix4().makeScale(0, 0, 0);
+// A hawk or gull flies off when the plane comes this close (units), this far
+// (units), and is back circling after this long (s)
+const BIRD_STARTLE_RADIUS = 90;
+const BIRD_STARTLE_DISTANCE = 60;
+const BIRD_STARTLE_TIME = 4;
+const _birdAway = new THREE.Vector3();
 
 // How locked the follow camera is to the plane in aerobatics, 0 to 1. Rolls
 // and loops lock its turn to the plane's (lagging behind would swing the
@@ -673,6 +679,14 @@ export function updateFlightCamera(delta, nowTime) {
           flap =
             Math.sin(clock.getElapsed() * flapSpeed + flapPhase) * amplitude;
         }
+        // A hawk or gull the plane comes close to flaps off out of its way
+        // and drifts back to its circle (startle: {t, dir}, the way it goes)
+        const startle = data.startle;
+        if (startle) {
+          startle.t += delta;
+          flap = Math.sin(startle.t * 22) * 0.8;
+          if (startle.t > BIRD_STARTLE_TIME) data.startle = null;
+        }
         if (data.wings) {
           data.wings[0].rotation.z = flap;
           data.wings[1].rotation.z = flap;
@@ -686,6 +700,11 @@ export function updateFlightCamera(delta, nowTime) {
           const targetZ =
             data.circleCenter.z + Math.sin(data.angle) * data.circleRadius;
 
+          // Back where it would be without last frame's startle
+          if (data.startleOffset) {
+            bird.position.sub(data.startleOffset);
+            data.startleOffset = null;
+          }
           let targetY = bird.position.y;
           let tiltZ = 0.3; // Bank angle for circling
           let tiltX = 0; // Pitch angle
@@ -735,6 +754,26 @@ export function updateFlightCamera(delta, nowTime) {
           bird.rotation.x += tiltX;
 
           bird.position.set(targetX, targetY, targetZ);
+          if (!data.startle && !state.isFreeCamera) {
+            _birdAway.subVectors(bird.position, planeGroup.position);
+            if (_birdAway.lengthSq() < BIRD_STARTLE_RADIUS ** 2) {
+              _birdAway.normalize();
+              _birdAway.y = Math.max(0.3, _birdAway.y + 0.4);
+              data.startle = {t: 0, dir: _birdAway.clone().normalize()};
+            }
+          }
+          if (data.startle) {
+            // Out fast, back slowly
+            const t = data.startle.t;
+            const out =
+              t < 0.6
+                ? Math.sin((t / 0.6) * Math.PI * 0.5)
+                : 1 - THREE.MathUtils.smoothstep(t, 0.6, BIRD_STARTLE_TIME);
+            data.startleOffset = data.startle.dir
+              .clone()
+              .multiplyScalar(out * BIRD_STARTLE_DISTANCE);
+            bird.position.add(data.startleOffset);
+          }
         } else if (data.type === 'goose') {
           // Prevent geese from flying into the volcano or terrain
           const groundY = getElevation(bird.position.x, bird.position.z);

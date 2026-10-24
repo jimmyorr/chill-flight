@@ -1,8 +1,9 @@
 // --- KNOCKING PROPS OVER ---
 // Trees, cacti, snowmen, streetlights, tents, towers and the lighthouse
 // topple, buildings fall apart, boulders and rock arches come down in
-// blocks, piers in planks, and boats roll over and sink, when the plane or
-// the buggy runs into them, a friend's too in multiplayer: each player's game
+// blocks, piers in planks, icebergs and ice floes crack into floating chunks,
+// and boats roll over and sink, when the plane or the buggy runs into them,
+// a friend's too in multiplayer: each player's game
 // runs the same hit test for the friends it shows, and the world is the same
 // from the seed, so nothing is sent over the network. Bridges and waterfalls
 // never break.
@@ -29,6 +30,7 @@ import {
   chunks,
   getElevation,
   houseTintMat,
+  icebergMat,
   watercraftChunks,
   windmillBladesStillMat,
 } from './terrain-geometry.js';
@@ -84,7 +86,11 @@ const RUBBLE = {
   rock: 7,
   snowRock: 7,
   desertRock: 7,
+  iceberg: 10,
+  iceFloe: 6,
 };
+// Chunks of ice are bigger than bits of house
+const ICE_CHUNK = 2.2;
 // Rubble colour for a model drawn in vertex colours (the windmill's
 // whitewash)
 const PLASTER = [0.86, 0.82, 0.72];
@@ -94,6 +100,7 @@ const PLASTER = [0.86, 0.82, 0.72];
 const FOLDS = /Body$|^castleRuins$|^windmillBase$|^bush$/;
 const FLINGS = /Roof$|Chimney$|Blades$|^fireLog$/;
 const ROCKS = /^(rock|snowRock|desertRock)$/;
+const ICE = /^(iceberg|iceFloe)$/;
 // Parts that don't count toward how wide a prop is (a streetlight's arm
 // reaches out over the road), and parts that just go out when it falls
 // (its pool of light, or a campfire's) and don't count toward its size at all
@@ -112,6 +119,22 @@ const CHUNK_SPILL = 150;
 const HIGH_ABOVE_GROUND = 320;
 // Time after spawning or a teleport before hits count (s)
 const SETTLE = 1.5;
+// A penguin hops off its floe and dives in when something comes this close
+// (units, across and above)
+const SCARE_RADIUS = 200;
+const SCARE_HEIGHT = 150;
+// A penguin's hops: how long each takes (s), how high (units), and its dive
+// into the water: how long (s), how far out, and how deep it goes before
+// it's gone (units)
+const HOP_TIME = 0.3;
+const HOP_HEIGHT = 1.4;
+const DIVE_TIME = 0.8;
+const DIVE_OUT = 5;
+const DIVE_DEPTH = 6;
+// How far a floe's edge is from its middle (units, at scale 1), and how far
+// a penguin can be from it
+const FLOE_RADIUS = 15;
+const FLOE_NEAR = 25;
 
 const LEAF_PUFF = new THREE.Color();
 const SNOW = new THREE.Color(0.96, 0.97, 1);
@@ -122,6 +145,7 @@ const _dust = new THREE.Color();
 const _m = new THREE.Matrix4();
 const _m0 = new THREE.Matrix4();
 const _r = new THREE.Matrix4();
+const _r2 = new THREE.Matrix4();
 const _t = new THREE.Matrix4();
 const _v = new THREE.Vector3();
 const _axis = new THREE.Vector3();
@@ -131,6 +155,8 @@ const _s = new THREE.Vector3();
 const _p = new THREE.Vector3();
 
 const rubbleGeo = new THREE.BoxGeometry(1, 1, 1);
+// Chunks of ice, glassy like the berg they came off
+const iceChunkGeo = new THREE.IcosahedronGeometry(0.65, 0);
 
 // Wrecks this session, by chunk key then prop index: {x, z, pieces:
 // [{type, m, color}]}, m being the piece's matrix where it lies
@@ -156,6 +182,7 @@ function typeInfo(type) {
   if (type === 'rubble') {
     return {geo: rubbleGeo, mat: houseTintMat, useColor: true};
   }
+  if (type === 'iceChunk') return {geo: iceChunkGeo, mat: icebergMat};
   return globalInstancer.types.get(type) || debrisTypes.get(type);
 }
 
@@ -388,8 +415,13 @@ function chunkIndex(group) {
     const cx = tree ? first[12] : (x0 + x1) / 2;
     const cz = tree ? first[14] : (z0 + z1) / 2;
     const reach = Math.max(cx - x0, x1 - cx, cz - z0, z1 - cz);
-    const radius =
-      reach * (kind === BREAKABLE.HOUSE ? BREAK.HOUSE_REACH : BREAK.TREE_REACH);
+    // A penguin is "hit" when something comes near enough to scare it
+    const critter = kind === BREAKABLE.CRITTER;
+    if (critter) top = base + SCARE_HEIGHT;
+    const radius = critter
+      ? SCARE_RADIUS
+      : reach *
+        (kind === BREAKABLE.HOUSE ? BREAK.HOUSE_REACH : BREAK.TREE_REACH);
     index.x[i] = first[12];
     index.z[i] = first[14];
     index.cx[i] = cx;
@@ -559,7 +591,8 @@ function partRole(part) {
   if (part.role) return part.role;
   if (FOLDS.test(part.type)) return 'fold';
   if (FLINGS.test(part.type)) return 'fling';
-  if (part.type === 'pierDeck' || ROCKS.test(part.type)) return 'rubble';
+  if (part.type === 'pierDeck' || ROCKS.test(part.type) || ICE.test(part.type))
+    return 'rubble';
   return 'hide';
 }
 
@@ -653,9 +686,11 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
   }
   const count = spec?.rubble ?? (RUBBLE[parts[0].type] || 0);
   const planks = parts[0].type === 'pierDeck';
+  const ice = ICE.test(parts[0].type);
+  const floe = parts[0].type === 'iceFloe';
   const height = Math.max(2, top - base);
   const spread = Math.max(4, radius * 0.5);
-  const scale = Math.min(2.2, Math.max(1, radius / 8));
+  const scale = Math.min(2.2, Math.max(1, radius / 8)) * (ice ? ICE_CHUNK : 1);
   for (let i = 0; i < count; i++) {
     const size = rand(0.8, 1.8) * scale;
     const color = (i % 3 === 2 ? roofColor : bodyColor) || bodyColor;
@@ -664,15 +699,21 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
     const pz = z + rand(-spread, spread);
     _m.compose(
       _p.set(px, py, pz),
-      _q.setFromEuler(new THREE.Euler(rand(0, 3), rand(0, 3), 0)),
+      _q.setFromEuler(
+        floe
+          ? new THREE.Euler(rand(-0.15, 0.15), rand(0, 3), rand(-0.15, 0.15))
+          : new THREE.Euler(rand(0, 3), rand(0, 3), 0)
+      ),
       planks
         ? _s.set(size * 2.5, size * 0.25, size * 0.7)
-        : _s.set(size, size * rand(0.5, 1), size)
+        : floe
+          ? _s.set(size * rand(1.2, 1.8), size * 0.3, size * rand(1, 1.5))
+          : _s.set(size, size * rand(0.5, 1), size)
     );
     const piece = addPiece(
-      'rubble',
+      ice ? 'iceChunk' : 'rubble',
       _m.toArray(new Float32Array(16)),
-      color,
+      ice ? null : color,
       group
     );
     const out = rand(4, 12);
@@ -685,11 +726,14 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
       py,
       pz,
       dx * fwd * rand(0.6, 1.1) + (ox / len) * out,
-      rand(4, 12),
+      // Slabs of a floe skid out flat, turning
+      floe ? rand(1, 3) : rand(4, 12),
       dz * fwd * rand(0.6, 1.1) + (oz / len) * out,
-      new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize(),
+      floe
+        ? new THREE.Vector3(0, 1, 0)
+        : new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize(),
       rand(2, 6),
-      // Planks float
+      // Planks and ice float
       Math.max(getElevation(px, pz), WATER_LEVEL - 0.3) + size * 0.3
     );
   }
@@ -730,6 +774,7 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   const small = kind === BREAKABLE.SMALL;
   const snowman = kind === BREAKABLE.SNOWMAN;
   const pier = parts[0].type === 'pierDeck';
+  const ice = ICE.test(parts[0].type);
 
   fresh = [];
   if (house || small) {
@@ -776,6 +821,20 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   const dust = sampleGroundColor(x, z, _dust) ? _dust.lerp(DUST, 0.5) : DUST;
   if (pier) {
     propPuffs(x, WATER_LEVEL, z, index.radius[i], 4, SPRAY, 30, 6, 6);
+  } else if (ice) {
+    const r = index.radius[i];
+    propPuffs(x, WATER_LEVEL, z, r, 4, SPRAY, Math.round(20 + r * 2), 7, 6);
+    propPuffs(
+      x,
+      WATER_LEVEL + height * 0.4,
+      z,
+      r * 0.7,
+      height * 0.5,
+      SNOW,
+      Math.round(10 + r * 2),
+      5,
+      4
+    );
   } else if (house) {
     const spread = Math.max(8, index.radius[i] * 0.7);
     const count = Math.min(90, Math.round(40 * (spread / 8)));
@@ -812,8 +871,8 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     propPuffs(x, base, z, 2, 2, dust, 6, 4, 2);
   }
 
-  // A boulder is knocked aside about as easily as a tree
-  const boulder = ROCKS.test(parts[0].type);
+  // A boulder or a floe is knocked aside about as easily as a tree
+  const boulder = ROCKS.test(parts[0].type) || parts[0].type === 'iceFloe';
   const what =
     house && !boulder ? 'house' : snowman || small ? 'snowman' : 'tree';
   const fallTime = house ? 0 : 1.1 - Math.min(0.6, kts / 400);
@@ -836,6 +895,97 @@ function playSmashSound(house, loud, fallTime) {
   if (!house && now - lastSoundAt < 70) return;
   lastSoundAt = now;
   playSmash(house, loud, fallTime);
+}
+
+// A penguin (prop i of a chunk) scared by something at (vx, vz) heading
+// along (hx, hz) turns away, out of its path, hops to the edge of its floe
+// and dives in. It's back when its chunk loads again.
+function scatter(group, index, i, vx, vz, hx, hz) {
+  index.broken.add(i);
+  const parts = propParts(group, i);
+  const m0 = copyMatrix(parts[0]);
+  const x = m0[12];
+  const z = m0[14];
+  let ux = x - vx;
+  let uz = z - vz;
+  let len = Math.hypot(ux, uz) || 1;
+  // Mostly off to the side it's on, a little away
+  const side = ux * -hz + uz * hx > 0 ? 1 : -1;
+  ux = -hz * side * 0.8 + (ux / len) * 0.4;
+  uz = hx * side * 0.8 + (uz / len) * 0.4;
+  len = Math.hypot(ux, uz) || 1;
+  const turn = rand(-0.5, 0.5);
+  const c = Math.cos(turn);
+  const s = Math.sin(turn);
+  [ux, uz] = [(ux / len) * c - (uz / len) * s, (ux / len) * s + (uz / len) * c];
+  // How far it is to the water: out to the edge of the floe it stands on
+  let out = 2;
+  const floes = group.userData.instanceData.iceFloe;
+  for (let k = 0; floes && k < floes.count; k++) {
+    const e = floes.matrices;
+    const fx = e[k * 16 + 12] - x;
+    const fz = e[k * 16 + 14] - z;
+    const scale = Math.hypot(e[k * 16], e[k * 16 + 2]);
+    if (fx * fx + fz * fz > FLOE_NEAR * FLOE_NEAR || scale < 0.9) continue;
+    // Along (ux, uz) from the penguin to the circle around the floe
+    const r = FLOE_RADIUS * scale;
+    const b = -(fx * ux + fz * uz);
+    const disc = b * b - (fx * fx + fz * fz - r * r);
+    if (disc > 0) out = Math.max(out, -b + Math.sqrt(disc));
+  }
+  const hops = Math.max(1, Math.round(out / 3.5));
+  const anim = {
+    kind: 'scatter',
+    p0: new THREE.Vector3(x, m0[13], z),
+    ux,
+    uz,
+    // From facing its own way (model +z) to facing (ux, uz)
+    turn: Math.atan2(ux, uz) - Math.atan2(m0[8], m0[10]),
+    hops,
+    hopLen: (out + 0.5) / hops,
+    t: -rand(0, 0.3),
+    splashed: false,
+    pieces: [],
+  };
+  parts.forEach((part) => {
+    const m = copyMatrix(part);
+    const piece = addPiece(part.type, m.slice(), null, group);
+    piece.m0 = m;
+    piece.anim = anim;
+    anim.pieces.push(piece);
+    moving.add(piece);
+    hidePart(part);
+  });
+}
+
+// Where a scattering penguin is at its time t: into _r (its turn and tilt)
+// and _p (how far its feet have moved). Returns whether it's gone.
+function scatterPose(anim) {
+  const t = Math.max(0, anim.t);
+  const hopEnd = anim.hops * HOP_TIME;
+  let along;
+  let up;
+  let pitch = 0;
+  let roll = 0;
+  const turn = anim.turn * Math.min(1, t / HOP_TIME);
+  if (t < hopEnd) {
+    const h = t / HOP_TIME;
+    const f = h - Math.floor(h);
+    along = Math.floor(h) * anim.hopLen + f * anim.hopLen;
+    up = Math.sin(f * Math.PI) * HOP_HEIGHT;
+    roll = Math.sin(h * Math.PI) * 0.2;
+  } else {
+    // Belly first into the water
+    const d = Math.min(1, (t - hopEnd) / DIVE_TIME);
+    along = anim.hops * anim.hopLen + d * DIVE_OUT;
+    up = Math.sin(d * Math.PI) * HOP_HEIGHT - d * d * DIVE_DEPTH;
+    pitch = Math.min(1.5, d * 2.5);
+  }
+  _r.makeRotationY(turn);
+  _r.premultiply(_r2.makeRotationAxis(_axis.set(anim.uz, 0, -anim.ux), pitch));
+  _r.premultiply(_r2.makeRotationAxis(_axis.set(anim.ux, 0, anim.uz), roll));
+  _p.set(anim.ux * along, up, anim.uz * along);
+  return t >= hopEnd + DIVE_TIME;
 }
 
 function countPieces() {
@@ -1054,6 +1204,7 @@ function sweep(a, b, r, mine, buggy) {
         if (!cell) continue;
         for (const i of cell) {
           if (index.broken.has(i)) continue;
+          const critter = propKind(group.userData, i) === BREAKABLE.CRITTER;
           if (
             sweptHit(
               a,
@@ -1066,6 +1217,10 @@ function sweep(a, b, r, mine, buggy) {
               index.top[i]
             )
           ) {
+            if (critter) {
+              scatter(group, index, i, b.x, b.z, ux, uz);
+              continue;
+            }
             // Some props have gaps you can pass through (a rock arch)
             const spec = propSpec(group.userData, i);
             if (spec?.hit && !spec.hit(b, r)) continue;
@@ -1131,6 +1286,35 @@ function animate(delta) {
       _m.multiply(_m0.fromArray(piece.m0));
       _m.toArray(piece.m);
       if (anim.t > SINK_GONE) removePiece(piece);
+      continue;
+    } else if (anim.kind === 'scatter') {
+      if (anim.stepped !== frame) {
+        anim.stepped = frame;
+        anim.t += delta;
+      }
+      const gone = scatterPose(anim);
+      const pv = anim.p0;
+      // Into the water with a splash
+      if (!anim.splashed && pv.y + _p.y < WATER_LEVEL) {
+        anim.splashed = true;
+        propPuffs(
+          pv.x + _p.x,
+          WATER_LEVEL,
+          pv.z + _p.z,
+          1.5,
+          2,
+          SPRAY,
+          10,
+          3,
+          3
+        );
+      }
+      _m.makeTranslation(pv.x + _p.x, pv.y + _p.y, pv.z + _p.z);
+      _m.multiply(_r);
+      _m.multiply(_t.makeTranslation(-pv.x, -pv.y, -pv.z));
+      _m.multiply(_m0.fromArray(piece.m0));
+      _m.toArray(piece.m);
+      if (gone) removePiece(piece);
       continue;
     } else if (anim.kind === 'fold') {
       anim.t = Math.min(1, anim.t + delta / COLLAPSE_TIME);
