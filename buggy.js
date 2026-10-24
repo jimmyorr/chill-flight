@@ -16,6 +16,11 @@
 // up to top speed. Pulling down smoothly brakes to a stop, and continuing to
 // hold down shifts into reverse. Releasing the stick smoothly resumes cruising
 // forward at the set speed.
+//
+// Double-tap moves, like the planes': double-tap up to hop (hold on to float
+// higher and steer in the air), double-tap left or right and hold to power
+// slide, double-tap down and hold to brake hard. On touch: a quick tap, then
+// press and push the stick the way of the move (input-manager.js).
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
@@ -29,7 +34,7 @@ import {
 } from './buggy-model.js';
 import {BASE_FLIGHT_SPEED, PLANE_HANDLING, WATER_LEVEL} from './constants.js';
 import {state} from './state.js';
-import {keys} from './game-input-bindings.js';
+import {doubleTap, keys} from './game-input-bindings.js';
 import {setOnWheels} from './flight-physics.js';
 
 // Speeds in units per second, which read as knots; accelerations in units
@@ -122,8 +127,22 @@ let tiltRoll = 0;
 let hoverFold = 0;
 // The handling's own state (lean: leaning into a hard turn, 0 to 1), and
 // how far it's sliding (radians)
-const car = {velX: 0, velZ: 0, yaw: 0, yawRate: 0, steer: 0, lean: 0};
+const car = {
+  velX: 0,
+  velZ: 0,
+  yaw: 0,
+  yawRate: 0,
+  steer: 0,
+  lean: 0,
+  slide: 0,
+};
 let slip = 0;
+// Hopping (double-tap up): in the air from a hop, the double-tap seen
+// last frame (a hop fires once per double-tap), and how much longer holding
+// up keeps it light on the way up (seconds)
+let hopping = false;
+let hopLatch = false;
+let hopFloatLeft = 0;
 
 // Fills _surface with what the wheels would rest on at (x, z), for a buggy
 // at height y: the highway deck (with 3D elevation awareness for junctions/overpasses)
@@ -250,7 +269,9 @@ function enter(fall) {
   yawRate = 0;
   steer = 0;
   car.lean = 0;
+  car.slide = 0;
   slip = 0;
+  hopping = false;
   airborne = false;
   bounce = 0;
   bounceVel = 0;
@@ -330,6 +351,24 @@ export function updateBuggy(delta) {
   if ((keys.ArrowUp || keys.KeyW) && !shift) joyY = 1;
   else if ((keys.ArrowDown || keys.KeyS) && !shift) joyY = -1;
 
+  // Double-tap moves (held: the double-tap stays set until the key's let go)
+  const held = (dir) => doubleTap[dir] && keys[dir] && !shift;
+  const dtUp = held('ArrowUp');
+  const hop = dtUp && !hopLatch && !airborne;
+  hopLatch = dtUp;
+  if (hop) {
+    hopping = true;
+    hopFloatLeft = ChillFlightLogic.BUGGY_MOVES.HOP_FLOAT_SECONDS;
+  }
+  const hopHeld = hopping && keys.ArrowUp && !shift;
+  const float = hopHeld && hopFloatLeft > 0;
+  hopFloatLeft = hopHeld ? hopFloatLeft - dt : 0;
+  const hardBrake = held('ArrowDown');
+  const slide =
+    held('ArrowLeft') ||
+    held('ArrowRight') ||
+    (hardBrake && Math.abs(steerIn) > 0.5);
+
   // --- FORCES ---
   const fx = -Math.sin(yaw);
   const fz = -Math.cos(yaw);
@@ -364,9 +403,10 @@ export function updateBuggy(delta) {
       cruise,
       top,
       drag,
+      hardBrake,
     });
 
-    const coasting = Math.abs(joyY) <= 0.05 && cruise <= 0.5;
+    const coasting = hardBrake || (Math.abs(joyY) <= 0.05 && cruise <= 0.5);
     if (
       coasting &&
       Math.abs(forward) < 0.5 &&
@@ -392,6 +432,8 @@ export function updateBuggy(delta) {
     side,
     steerIn,
     kind: ground.kind,
+    slide,
+    hopHeld,
     airborne,
     wheelbase: BUGGY_WHEELBASE,
     topSpeed: TOP_SPEED,
@@ -531,6 +573,8 @@ export function updateBuggy(delta) {
       surfaceHeight: surface.height,
       groundVelY,
       onWater,
+      hop,
+      float,
       dt,
     });
     pos.y = res.y;
@@ -543,6 +587,7 @@ export function updateBuggy(delta) {
       velZ *= scrub;
     }
   }
+  if (!airborne) hopping = false;
   _lastPos.copy(pos);
 
   // --- LOOKS ---

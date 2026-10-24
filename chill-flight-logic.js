@@ -4709,6 +4709,8 @@ export const ChillFlightLogic = {};
    * @param {number} p.surfaceHeight - Ground / road elevation under vehicle
    * @param {number} p.groundVelY - Vertical rate of terrain change (velX * slopeX + velZ * slopeZ)
    * @param {boolean} p.onWater - Whether vehicle is on water
+   * @param {boolean} [p.hop] - Double-tapped up: hop off the ground or water
+   * @param {boolean} [p.float] - Holding up after a hop: lighter on the way up
    * @param {number} p.dt - Timestep in seconds
    * @returns {{y: number, velY: number, airborne: boolean, impact: number}}
    */
@@ -4719,9 +4721,16 @@ export const ChillFlightLogic = {};
     surfaceHeight,
     groundVelY,
     onWater,
+    hop = false,
+    float = false,
     dt,
   }) {
     let impact = 0;
+    if (hop && !airborne) {
+      // A hop: up off the ground, as off a crest
+      velY = Math.max(velY, BUGGY_MOVES.HOP_VEL);
+      return {y: y + velY * dt, velY, airborne: true, impact: 0};
+    }
     // Floating; jumping in from the bank falls the rest of the way below
     if (onWater && !airborne) {
       return {y: surfaceHeight, velY: 0, airborne: false, impact: 0};
@@ -4753,8 +4762,13 @@ export const ChillFlightLogic = {};
         velY = rampVelY;
       }
     } else {
-      // Free ballistic trajectory under gravity
-      velY = Math.max(-400, velY - BUGGY_AIR.GRAVITY * dt);
+      // Free ballistic trajectory under gravity, lighter rising from a hop
+      // with up held
+      const g =
+        float && velY > 0
+          ? BUGGY_AIR.GRAVITY * BUGGY_MOVES.HOP_FLOAT_GRAVITY
+          : BUGGY_AIR.GRAVITY;
+      velY = Math.max(-400, velY - g * dt);
       y += velY * dt;
       if (y <= surfaceHeight) {
         airborne = false;
@@ -4870,6 +4884,51 @@ export const ChillFlightLogic = {};
   // --- BUGGY STEERING & DRIVING ---
   // Speeds in units per second, which read as knots; accelerations in units
   // per second squared (buggy.js)
+  // Double-tap moves, like the planes' (a double-tap and hold is a stronger
+  // version of the same input). Up: a hop, and holding on floats it and
+  // carves the path in the air. Left or right, held: a power slide. Down,
+  // held: a hard brake to a halt (steering too swings the tail round).
+  const BUGGY_MOVES = {
+    // Leaving the ground at this (units/s): about a 6 m hop, 1.5 s up and
+    // down
+    HOP_VEL: 31,
+    // Holding up after the hop: gravity on the way up, as a share (it rises
+    // higher, to about 9 m), and for how long at most (seconds)
+    HOP_FLOAT_GRAVITY: 0.6,
+    HOP_FLOAT_SECONDS: 1.2,
+    // Holding up after the hop: the stick turns it this much faster in the
+    // air, and the path follows where it points at this rate (per second)
+    HOP_AIR_YAW: 2.2,
+    HOP_CARVE_RATE: 2.5,
+    // Power slide: fully on from SLIDE_FULL_SPEED (from nothing at
+    // SLIDE_MIN_SPEED), building over SLIDE_SECONDS, swinging this much
+    // wider than leaning in (0.15 is 15% more)
+    SLIDE_MIN_SPEED: 30,
+    SLIDE_FULL_SPEED: 70,
+    SLIDE_SECONDS: 0.1,
+    SLIDE_EXTRA: 0.15,
+    // and the tyres let go: their grip falls by this share
+    SLIDE_LOOSEN: 0.5,
+    // Hard brake (units/s²): twice the ordinary brakes
+    HARD_BRAKE_DECEL: 90,
+  };
+
+  // Touch: a quick tap (shorter than TAP_MS, moving less than TAP_SLOP px),
+  // then within the double-tap window a second touch pushed PUSH_PX one way
+  // is a double-tap that way, held until that touch lifts
+  const BUGGY_TOUCH_MOVES = {TAP_MS: 220, TAP_SLOP: 15, PUSH_PX: 18};
+
+  // Which way a tap-then-push went ('ArrowUp' etc., screen y down), or null
+  // while it hasn't gone far enough
+  function buggyPushAction(dx, dy) {
+    if (Math.hypot(dx, dy) < BUGGY_TOUCH_MOVES.PUSH_PX) return null;
+    if (Math.abs(dx) > Math.abs(dy)) return dx < 0 ? 'ArrowLeft' : 'ArrowRight';
+    return dy < 0 ? 'ArrowUp' : 'ArrowDown';
+  }
+
+  exports.BUGGY_TOUCH_MOVES = BUGGY_TOUCH_MOVES;
+  exports.buggyPushAction = buggyPushAction;
+
   const BUGGY_DRIVE = {
     REVERSE_TOP: 20,
     // About 0 to 60 knots in 2.5 seconds, 100 in 5
@@ -4927,9 +4986,15 @@ export const ChillFlightLogic = {};
   // forward: speed along the buggy (negative reversing); joyY: throttle axis;
   // cruise: the throttle slider's set speed; top: top speed here; drag: the
   // rolling and air drag at this speed, which holding a speed makes up for.
-  function buggyDriveAccel({forward, joyY, cruise, top, drag}) {
+  // hardBrake: double-tap down and hold, braking harder to a halt and
+  // holding it there, never reversing.
+  function buggyDriveAccel({forward, joyY, cruise, top, drag, hardBrake}) {
     const D = BUGGY_DRIVE;
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    if (hardBrake) {
+      const stop = BUGGY_MOVES.HARD_BRAKE_DECEL;
+      return clamp(-forward * 8, -stop, stop);
+    }
     const engine = (v, max, accel) =>
       v >= max ? 0 : accel * (1 - (v / max) ** 2) + drag;
     if (joyY > 0.05) {
@@ -5046,6 +5111,9 @@ export const ChillFlightLogic = {};
    * @param {number} p.side
    * @param {number} p.steerIn - Stick, -1 (right) to 1 (left)
    * @param {string} p.kind - 'road', 'ground' or 'water'
+   * @param {boolean} [p.slide] - Power sliding (double-tap left or right
+   *   and hold, or hard braking while steering)
+   * @param {boolean} [p.hopHeld] - Holding up after a hop: more air control
    * @param {boolean} p.airborne
    * @param {number} p.wheelbase
    * @param {number} p.topSpeed
@@ -5056,9 +5124,21 @@ export const ChillFlightLogic = {};
    */
   function stepBuggyHandling(
     car,
-    {forward, side, steerIn, kind, airborne, wheelbase, topSpeed, dt}
+    {
+      forward,
+      side,
+      steerIn,
+      kind,
+      slide = false,
+      hopHeld = false,
+      airborne,
+      wheelbase,
+      topSpeed,
+      dt,
+    }
   ) {
     const T = BUGGY_TURN;
+    const M = BUGGY_MOVES;
     const clamp01 = (v) => Math.min(1, Math.max(0, v));
     const speed = Math.hypot(forward, side);
     const slipNow =
@@ -5071,11 +5151,24 @@ export const ChillFlightLogic = {};
       forward > T.LEAN_MIN_SPEED;
     const leanRate = hard ? 1 / T.LEAN_SECONDS : -1 / T.LEAN_RELEASE_SECONDS;
     car.lean = clamp01(car.lean + leanRate * dt);
-    const drift =
-      car.lean *
+    // A power slide kicks the tail out almost at once, from lower speeds
+    const sliding = slide && !airborne && forward > M.SLIDE_MIN_SPEED;
+    const slideRate = sliding
+      ? 1 / M.SLIDE_SECONDS
+      : -1 / T.LEAN_RELEASE_SECONDS;
+    car.slide = clamp01((car.slide || 0) + slideRate * dt);
+    const slideDrift =
+      car.slide *
       clamp01(
-        (forward - T.LEAN_MIN_SPEED) / (T.LEAN_FULL_SPEED - T.LEAN_MIN_SPEED)
+        (forward - M.SLIDE_MIN_SPEED) / (M.SLIDE_FULL_SPEED - M.SLIDE_MIN_SPEED)
       );
+    const drift = Math.max(
+      slideDrift,
+      car.lean *
+        clamp01(
+          (forward - T.LEAN_MIN_SPEED) / (T.LEAN_FULL_SPEED - T.LEAN_MIN_SPEED)
+        )
+    );
     const boost = 1 + T.LEAN_EXTRA * drift;
 
     // The front wheels turn toward the stick, up to the grip-limited lock
@@ -5094,8 +5187,10 @@ export const ChillFlightLogic = {};
     if (!airborne && speed >= 1) {
       // Grip turns the path toward where it points (quickly for small
       // slides, limited for big ones), keeping the speed but for a scrub
-      const quick = Math.abs(side) * (1 - Math.exp(-T.GRIP_RATE[kind] * dt));
-      const lateral = Math.min(quick, T.MAX_GRIP[kind] * boost * dt);
+      const loose = 1 - M.SLIDE_LOOSEN * car.slide;
+      const quick =
+        Math.abs(side) * (1 - Math.exp(-T.GRIP_RATE[kind] * loose * dt));
+      const lateral = Math.min(quick, T.MAX_GRIP[kind] * boost * loose * dt);
       const along = forward < 0 ? -1 : 1;
       let slip = Math.atan2(side, Math.abs(forward));
       slip -= Math.sign(slip) * Math.min(Math.abs(slip), lateral / speed);
@@ -5113,17 +5208,32 @@ export const ChillFlightLogic = {};
         1 +
         T.WILD_EXTRA *
           clamp01((speed - T.WILD_SPEED) / (topSpeed - T.WILD_SPEED));
-      const wantSlip = Math.sign(steerIn) * T.DRIFT_ANGLE[kind] * wild * drift;
+      const wantSlip =
+        Math.sign(steerIn) *
+        T.DRIFT_ANGLE[kind] *
+        wild *
+        (1 + M.SLIDE_EXTRA * car.slide) *
+        drift;
       const want =
         (forward * Math.tan(car.steer)) / wheelbase +
         (forward > 0 ? kick * (wantSlip - slipNow) : 0);
       const ease = 0.08 + 0.06 * Math.min(1, Math.abs(forward) / topSpeed);
       car.yawRate += (want - car.yawRate) * (1 - Math.exp(-dt / ease));
     } else if (airborne) {
-      // In the air the stick turns it, and the spin dies away without it
-      const want = steerIn * T.AIR_YAW_RATE;
+      // In the air the stick turns it, and the spin dies away without it.
+      // Holding up after a hop it turns faster, and carves its path round.
+      const want = steerIn * T.AIR_YAW_RATE * (hopHeld ? M.HOP_AIR_YAW : 1);
       car.yawRate +=
         (want - car.yawRate) * (1 - Math.exp(-dt / T.AIR_YAW_SECONDS));
+      if (hopHeld && forward > 1) {
+        // The path's angle off the nose, closing
+        const off = Math.atan2(side, forward);
+        const turn = off * (1 - Math.exp(-M.HOP_CARVE_RATE * dt));
+        const f2 = forward * Math.cos(turn) + side * Math.sin(turn);
+        const s2 = side * Math.cos(turn) - forward * Math.sin(turn);
+        forward = f2;
+        side = s2;
+      }
     } else {
       car.yawRate = 0;
     }
@@ -5143,6 +5253,7 @@ export const ChillFlightLogic = {};
   exports.BUGGY_TURN = BUGGY_TURN;
   exports.stepBuggyHandling = stepBuggyHandling;
   exports.BUGGY_DRIVE = BUGGY_DRIVE;
+  exports.BUGGY_MOVES = BUGGY_MOVES;
   exports.BUGGY_HOVER = BUGGY_HOVER;
   exports.buggyDrag = buggyDrag;
   exports.stepBuggyHoverFold = stepBuggyHoverFold;

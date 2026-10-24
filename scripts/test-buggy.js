@@ -14,6 +14,7 @@
  * 8. Grip, leaning into a drift, and turning in the air
  * 9. A raised bridge's railings hold it on the deck
  * 10. Resting on all four wheels over banks and creases
+ * 11. Double-tap moves: hop, power slide, hard brake, touch tap-then-push
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PLANE_HANDLING} from '../constants.js';
@@ -809,6 +810,212 @@ check(
   check(
     'A bump under the middle lifts it past the belly clearance',
     Math.abs(bump.height - (2 - ChillFlightLogic.BUGGY_BELLY_CLEARANCE)) < 1e-9
+  );
+}
+
+// --- 11. DOUBLE-TAP MOVES ---
+{
+  const {BUGGY_MOVES, stepBuggyVertical, stepBuggyHandling, buggyPushAction} =
+    ChillFlightLogic;
+  const deg = (r) => `${((r * 180) / Math.PI).toFixed(1)}°`;
+
+  // Hops off flat ground (or water), holding up for float seconds.
+  // Returns its peak and time in the air.
+  const hopFrom = ({onWater = false, floatFor = 0, fps = 60}) => {
+    const dt = 1 / fps;
+    let v = {y: 0, velY: 0, airborne: false};
+    let peak = 0;
+    let t = 0;
+    for (let i = 0; i < 10 * fps; i++) {
+      v = stepBuggyVertical({
+        ...v,
+        surfaceHeight: 0,
+        groundVelY: 0,
+        onWater,
+        hop: i === 0,
+        float: t < floatFor,
+        dt,
+      });
+      peak = Math.max(peak, v.y);
+      if (i > 0 && !v.airborne) break;
+      t += dt;
+    }
+    return {peak, t};
+  };
+  const tap = hopFrom({});
+  check(
+    'Double-tap up hops about 6 m (10-14 units) for 1.2-1.8 s',
+    tap.peak > 10 && tap.peak < 14 && tap.t > 1.2 && tap.t < 1.8,
+    `peak ${tap.peak.toFixed(1)}, ${tap.t.toFixed(2)} s`
+  );
+  const floaty = hopFrom({floatFor: BUGGY_MOVES.HOP_FLOAT_SECONDS});
+  check(
+    'Holding up floats it higher and longer, still under 12 m',
+    floaty.peak > tap.peak * 1.3 && floaty.peak < 24 && floaty.t > tap.t,
+    `peak ${floaty.peak.toFixed(1)}, ${floaty.t.toFixed(2)} s`
+  );
+  const wet = hopFrom({onWater: true});
+  check(
+    'It hops off water too',
+    Math.abs(wet.peak - tap.peak) < 0.5,
+    `peak ${wet.peak.toFixed(1)}`
+  );
+  const fast = hopFrom({fps: 144});
+  check(
+    'The hop is the same at 144 fps',
+    Math.abs(fast.peak - tap.peak) < 0.5 && Math.abs(fast.t - tap.t) < 0.05,
+    `peak ${fast.peak.toFixed(1)}, ${fast.t.toFixed(2)} s`
+  );
+  const midAir = stepBuggyVertical({
+    y: 5,
+    velY: -10,
+    airborne: true,
+    surfaceHeight: 0,
+    groundVelY: 0,
+    onWater: false,
+    hop: true,
+    dt: 1 / 60,
+  });
+  check("It can't hop again in the air", midAir.velY < -10);
+
+  // In the air with full stick for a second, holding up after a hop or not
+  const fly = (hopHeld) => {
+    const car = {velX: 0, velZ: -150, yaw: 0, yawRate: 0, steer: 0, lean: 0};
+    for (let i = 0; i < 60; i++) {
+      stepBuggyHandling(car, {
+        forward: -Math.sin(car.yaw) * car.velX - Math.cos(car.yaw) * car.velZ,
+        side: Math.cos(car.yaw) * car.velX - Math.sin(car.yaw) * car.velZ,
+        steerIn: 1,
+        kind: 'ground',
+        hopHeld,
+        airborne: true,
+        wheelbase: BUGGY_WHEELBASE,
+        topSpeed: topKts,
+        dt: 1 / 60,
+      });
+    }
+    // Which way it's going (yaw-style: 0 is -z, left is positive)
+    const path = Math.atan2(-car.velX, -car.velZ);
+    return {yaw: car.yaw, path, kts: Math.hypot(car.velX, car.velZ)};
+  };
+  const plain = fly(false);
+  const steered = fly(true);
+  check(
+    'Holding up after a hop steers it in the air: turns 2x faster and its path follows',
+    steered.yaw > plain.yaw * 2 &&
+      steered.path > steered.yaw * 0.5 &&
+      Math.abs(steered.kts - 150) < 1,
+    `nose ${deg(steered.yaw)} (vs ${deg(plain.yaw)}), path ${deg(steered.path)}`
+  );
+
+  // On flat ground at a set cruise speed, steering, power sliding or hard
+  // braking as given. Returns the slide each frame and the speed.
+  const drive = ({
+    kts,
+    seconds,
+    steer = 0,
+    slide = false,
+    hardBrake = false,
+  }) => {
+    const car = {velX: 0, velZ: -kts, yaw: 0, yawRate: 0, steer: 0, lean: 0};
+    const dt = 1 / 60;
+    const slips = [];
+    const speeds = [];
+    for (let i = 0; i < seconds * 60; i++) {
+      const fx = -Math.sin(car.yaw);
+      const fz = -Math.cos(car.yaw);
+      let forward = car.velX * fx + car.velZ * fz;
+      const side = car.velX * Math.cos(car.yaw) - car.velZ * Math.sin(car.yaw);
+      const drag = ChillFlightLogic.buggyDrag(forward);
+      forward +=
+        ChillFlightLogic.buggyDriveAccel({
+          forward,
+          joyY: hardBrake ? -1 : 0,
+          cruise: kts,
+          top: topKts,
+          drag,
+          hardBrake,
+        }) * dt;
+      forward -= Math.sign(forward) * Math.min(Math.abs(forward), drag * dt);
+      slips.push(
+        stepBuggyHandling(car, {
+          forward,
+          side,
+          steerIn: steer,
+          kind: 'ground',
+          slide,
+          airborne: false,
+          wheelbase: BUGGY_WHEELBASE,
+          topSpeed: topKts,
+          dt,
+        })
+      );
+      const along =
+        -Math.sin(car.yaw) * car.velX - Math.cos(car.yaw) * car.velZ;
+      speeds.push(along);
+    }
+    return {slips, speeds, yaw: car.yaw};
+  };
+  const lowLean = drive({kts: 60, seconds: 2, steer: 1});
+  const lowSlide = drive({kts: 60, seconds: 2, steer: 1, slide: true});
+  check(
+    'A power slide drifts at 60 kts, where holding the stick over barely slides',
+    Math.abs(lowLean.slips.at(-1)) < (5 * Math.PI) / 180 &&
+      lowSlide.slips.at(-1) > (15 * Math.PI) / 180,
+    `${deg(lowSlide.slips.at(-1))} vs ${deg(lowLean.slips.at(-1))}`
+  );
+  const kick = lowSlide.slips.findIndex((s) => s > (10 * Math.PI) / 180) / 60;
+  check(
+    'The tail kicks out within half a second',
+    kick > 0 && kick < 0.5,
+    `${kick.toFixed(2)} s`
+  );
+  const lean200 = drive({kts: 200, seconds: 3, steer: 1});
+  const slide200 = drive({kts: 200, seconds: 3, steer: 1, slide: true});
+  check(
+    'At speed the power slide swings wider than leaning in, under 50°',
+    slide200.slips.at(-1) > lean200.slips.at(-1) * 1.2 &&
+      slide200.slips.at(-1) < (50 * Math.PI) / 180,
+    `${deg(slide200.slips.at(-1))} vs ${deg(lean200.slips.at(-1))}`
+  );
+
+  const stopTime = (r) => r.speeds.findIndex((v) => v < 0.5) / 60;
+  const hard = drive({kts: 150, seconds: 5, hardBrake: true});
+  const soft = (() => {
+    // Ordinary brakes: 150 kts at BRAKE_DECEL
+    return 150 / ChillFlightLogic.BUGGY_DRIVE.BRAKE_DECEL;
+  })();
+  check(
+    'Double-tap down and hold stops from 150 kts in under 2 s, faster than the brakes',
+    stopTime(hard) > 0 && stopTime(hard) < 2 && stopTime(hard) < soft * 0.7,
+    `${stopTime(hard).toFixed(2)} s vs ${soft.toFixed(2)} s`
+  );
+  check(
+    'Holding the hard brake never reverses',
+    Math.min(...hard.speeds) > -0.5,
+    `${Math.min(...hard.speeds).toFixed(2)}`
+  );
+  const turn = drive({
+    kts: 120,
+    seconds: 1,
+    steer: 1,
+    slide: true,
+    hardBrake: true,
+  });
+  check(
+    'Hard braking while steering swings the tail round',
+    Math.max(...turn.slips) > (20 * Math.PI) / 180,
+    deg(Math.max(...turn.slips))
+  );
+
+  // Touch: a quick tap, then a push picks the move
+  check(
+    'A tap-then-push picks the way it was pushed',
+    buggyPushAction(0, -30) === 'ArrowUp' &&
+      buggyPushAction(0, 30) === 'ArrowDown' &&
+      buggyPushAction(-30, 5) === 'ArrowLeft' &&
+      buggyPushAction(30, -5) === 'ArrowRight' &&
+      buggyPushAction(5, 5) === null
   );
 }
 
