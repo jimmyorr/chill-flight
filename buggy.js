@@ -138,10 +138,13 @@ const car = {
 };
 let slip = 0;
 // Hopping (double-tap up): in the air from a hop, the double-tap seen
-// last frame (a hop fires once per double-tap), and how much longer holding
-// up keeps it light on the way up (seconds)
+// last frame (a hop fires once per double-tap), a tap waiting for the
+// wheels to touch and how long they've been off the ground
+// (ChillFlightLogic.stepBuggyHop), and how much longer holding up keeps it
+// light on the way up (seconds)
 let hopping = false;
 let hopLatch = false;
+const hopTimer = {buffer: 0, airTime: 0};
 let hopFloatLeft = 0;
 
 // Fills _surface with what the wheels would rest on at (x, z), for a buggy
@@ -272,6 +275,7 @@ function enter(fall) {
   car.slide = 0;
   slip = 0;
   hopping = false;
+  hopTimer.buffer = 0;
   airborne = false;
   bounce = 0;
   bounceVel = 0;
@@ -354,7 +358,12 @@ export function updateBuggy(delta) {
   // Double-tap moves (held: the double-tap stays set until the key's let go)
   const held = (dir) => doubleTap[dir] && keys[dir] && !shift;
   const dtUp = held('ArrowUp');
-  const hop = dtUp && !hopLatch && !airborne;
+  const hop = ChillFlightLogic.stepBuggyHop(hopTimer, {
+    tapped: dtUp && !hopLatch,
+    airborne,
+    hopping,
+    dt,
+  });
   hopLatch = dtUp;
   if (hop) {
     hopping = true;

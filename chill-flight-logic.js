@@ -4726,8 +4726,9 @@ export const ChillFlightLogic = {};
     dt,
   }) {
     let impact = 0;
-    if (hop && !airborne) {
-      // A hop: up off the ground, as off a crest
+    if (hop) {
+      // A hop: up off the ground, as off a crest (or just after leaving it,
+      // over a bump)
       velY = Math.max(velY, BUGGY_MOVES.HOP_VEL);
       return {y: y + velY * dt, velY, airborne: true, impact: 0};
     }
@@ -4900,6 +4901,11 @@ export const ChillFlightLogic = {};
     // air, and the path follows where it points at this rate (per second)
     HOP_AIR_YAW: 2.2,
     HOP_CARVE_RATE: 2.5,
+    // Over bumpy ground the wheels are often just off it: a double-tap up
+    // waits this long for them to touch (seconds), and still hops this
+    // soon after they've left it
+    HOP_BUFFER_SECONDS: 0.35,
+    HOP_COYOTE_SECONDS: 0.25,
     // Power slide: fully on from SLIDE_FULL_SPEED (from nothing at
     // SLIDE_MIN_SPEED), building over SLIDE_SECONDS, swinging this much
     // wider than leaning in (0.15 is 15% more)
@@ -4912,6 +4918,33 @@ export const ChillFlightLogic = {};
     // Hard brake (units/s²): twice the ordinary brakes
     HARD_BRAKE_DECEL: 90,
   };
+
+  /**
+   * Whether the buggy hops this frame. timer ({buffer, airTime}, updated
+   * in place) remembers a double-tap up for a moment and how long the
+   * wheels have been off the ground, so a tap over bumps still hops.
+   *
+   * @param {Object} timer
+   * @param {Object} p
+   * @param {boolean} p.tapped - Double-tapped up this frame
+   * @param {boolean} p.airborne
+   * @param {boolean} p.hopping - Already in the air from a hop
+   * @param {number} p.dt
+   * @returns {boolean}
+   */
+  function stepBuggyHop(timer, {tapped, airborne, hopping, dt}) {
+    const M = BUGGY_MOVES;
+    if (tapped) timer.buffer = M.HOP_BUFFER_SECONDS;
+    timer.airTime = airborne ? timer.airTime + dt : 0;
+    if (timer.buffer > 0 && !hopping && timer.airTime <= M.HOP_COYOTE_SECONDS) {
+      timer.buffer = 0;
+      return true;
+    }
+    timer.buffer = Math.max(0, timer.buffer - dt);
+    return false;
+  }
+
+  exports.stepBuggyHop = stepBuggyHop;
 
   const BUGGY_DRIVE = {
     REVERSE_TOP: 20,

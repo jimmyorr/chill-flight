@@ -815,7 +815,8 @@ check(
 
 // --- 11. DOUBLE-TAP MOVES ---
 {
-  const {BUGGY_MOVES, stepBuggyVertical, stepBuggyHandling} = ChillFlightLogic;
+  const {BUGGY_MOVES, stepBuggyVertical, stepBuggyHandling, stepBuggyHop} =
+    ChillFlightLogic;
   const deg = (r) => `${((r * 180) / Math.PI).toFixed(1)}°`;
 
   // Hops off flat ground (or water), holding up for float seconds.
@@ -865,17 +866,36 @@ check(
     Math.abs(fast.peak - tap.peak) < 0.5 && Math.abs(fast.t - tap.t) < 0.05,
     `peak ${fast.peak.toFixed(1)}, ${fast.t.toFixed(2)} s`
   );
-  const midAir = stepBuggyVertical({
-    y: 5,
-    velY: -10,
-    airborne: true,
-    surfaceHeight: 0,
-    groundVelY: 0,
-    onWater: false,
-    hop: true,
-    dt: 1 / 60,
-  });
-  check("It can't hop again in the air", midAir.velY < -10);
+  // Over bumps: a tap with the wheels just off the ground still hops, as
+  // soon as they touch or within a moment of leaving it, but not again in
+  // the air from a hop, nor long after leaving the ground
+  const hopsAfter = ({airFor, tapAt, hopping = false, seconds = 1}) => {
+    const timer = {buffer: 0, airTime: 0};
+    const dt = 1 / 60;
+    for (let i = 0; i < seconds * 60; i++) {
+      const t = i * dt;
+      const airborne = t < airFor;
+      const tapped = Math.abs(t - tapAt) < dt / 2;
+      if (stepBuggyHop(timer, {tapped, airborne, hopping, dt})) return t;
+    }
+    return null;
+  };
+  const onGround = hopsAfter({airFor: 0, tapAt: 0.1});
+  const bumpLand = hopsAfter({airFor: 0.5, tapAt: 0.4});
+  const justLeft = hopsAfter({airFor: 0.6, tapAt: 0.15});
+  check(
+    'A tap on the ground hops at once; over a bump it hops as the wheels touch, or just after leaving',
+    Math.abs(onGround - 0.1) < 0.01 &&
+      Math.abs(bumpLand - 0.5) < 0.02 &&
+      Math.abs(justLeft - 0.15) < 0.01,
+    `${onGround}, ${bumpLand}, ${justLeft}`
+  );
+  check(
+    "It can't hop again in the air, nor long after leaving the ground",
+    hopsAfter({airFor: 2, tapAt: 0.1, hopping: true}) === null &&
+      hopsAfter({airFor: 2, tapAt: 0.6}) === null &&
+      hopsAfter({airFor: 2, tapAt: 0.1}) !== null
+  );
 
   // In the air with full stick for a second, holding up after a hop or not
   const fly = (hopHeld) => {
