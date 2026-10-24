@@ -24,6 +24,7 @@ import {
   FOG_SKY_VERTEX_GLSL,
   SKY_COLOR_GLSL,
   WATER_LEVEL,
+  addHeadlightPool,
   createMaterial,
   terrainUniforms,
 } from './constants.js';
@@ -340,6 +341,8 @@ terrainMaterial.onBeforeCompile = (shader) => {
     `
   );
 };
+
+addHeadlightPool(terrainMaterial);
 
 // The water's swell (GLSL), shared with the foam in particles.js so it
 // rides the same waves
@@ -2482,8 +2485,12 @@ const markingParams = {
   polygonOffsetFactor: -2,
   polygonOffsetUnits: -2,
 };
-export var roadWhiteMat = createMaterial({color: 0xf2f0e6, ...markingParams});
-export var roadYellowMat = createMaterial({color: 0xe8c24a, ...markingParams});
+export var roadWhiteMat = addHeadlightPool(
+  createMaterial({color: 0xf2f0e6, ...markingParams})
+);
+export var roadYellowMat = addHeadlightPool(
+  createMaterial({color: 0xe8c24a, ...markingParams})
+);
 
 // 2. Box girder: trapezoidal underside attached ONLY under elevated bridge spans
 function createBridgeGirderGeometry() {
@@ -2567,7 +2574,10 @@ if (typeof window !== 'undefined') {
   window.bridgePierFootingGeo = bridgePierFootingGeo;
 }
 
-export var bridgeDeckMat = createMaterial({color: 0x4a4a4a, flatShading: true}); // Asphalt gray
+export var bridgeDeckMat = addHeadlightPool(
+  createMaterial({color: 0x4a4a4a, flatShading: true}),
+  2.2
+); // Asphalt gray
 // A town street's slab of asphalt (a unit box, scaled to each piece)
 export var townStreetGeo = new THREE.BoxGeometry(1, 1, 1);
 export var bridgePilingMat = createMaterial({
