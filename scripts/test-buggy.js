@@ -12,6 +12,7 @@
  * 6. Incline vertical momentum and catching air
  * 7. Turning into a hovercraft on water
  * 8. Grip, leaning into a drift, and turning in the air
+ * 9. A raised bridge's railings hold it on the deck
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PLANE_HANDLING} from '../constants.js';
@@ -697,6 +698,78 @@ check(
       Math.abs(air.velX) < 1e-6 &&
       Math.abs(air.velZ + 200) < 1e-6,
     `turned ${deg(air.yaw)}, velocity (${air.velX.toFixed(2)}, ${air.velZ.toFixed(2)})`
+  );
+}
+
+// --- 9. BRIDGE RAILINGS ---
+{
+  const {BUGGY_RAIL, stepBuggyRails, sampleRoadSegment} = ChillFlightLogic;
+  // A raised deck running north (-z) from the origin at y = 50
+  const bridge = {x0: 0, z0: 0, y0: 50, x1: 0, z1: -2000, y1: 50, rails: true};
+  const road = {height: 0, slopeX: 0, slopeZ: 0};
+  const sample = (x, z, y, seg = bridge) => {
+    const st = {found: false, bestDist: Infinity, bestInside: false};
+    return sampleRoadSegment(seg, x, z, road, y, st);
+  };
+  // Driving at the right-hand railing at 200 kts, 25° off the road's line,
+  // the body (its reach across the road at that angle) never goes past it
+  const yaw = (-25 * Math.PI) / 180;
+  const car = {x: 0, z: -100, y: 50.75, velX: 0, velZ: 0};
+  car.velX = -Math.sin(yaw) * 200;
+  car.velZ = -Math.cos(yaw) * 200;
+  let worst = -Infinity;
+  let hits = 0;
+  for (let i = 0; i < 120; i++) {
+    car.x += car.velX / 60;
+    car.z += car.velZ / 60;
+    if (!sample(car.x, car.z, car.y)) break;
+    if (stepBuggyRails(car, road, yaw) > 0) hits++;
+    sample(car.x, car.z, car.y);
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    const c = Math.abs(fx * road.normalX + fz * road.normalZ);
+    const reach =
+      BUGGY_RAIL.HALF_WIDTH * Math.sqrt(1 - c * c) + BUGGY_RAIL.HALF_LENGTH * c;
+    worst = Math.max(worst, Math.abs(road.across) + reach);
+  }
+  check(
+    "Heading into a bridge's railing at speed, the body stops at it",
+    hits > 0 && worst <= BUGGY_RAIL.INNER + 1e-6,
+    `${hits} hits, reaches ${worst.toFixed(2)} of ${BUGGY_RAIL.INNER}`
+  );
+  check(
+    'It bounces off and keeps going along the deck',
+    car.velX * road.normalX * Math.sign(road.across) +
+      car.velZ * road.normalZ * Math.sign(road.across) <=
+      0 && -car.velZ > 100,
+    `velocity (${car.velX.toFixed(1)}, ${car.velZ.toFixed(1)})`
+  );
+
+  // Cruising straight along the deck clear of the railing: untouched
+  const cruise = {x: 25, z: -100, y: 50.75, velX: 0, velZ: -200};
+  sample(cruise.x, cruise.z, cruise.y);
+  check(
+    'Cruising straight 25 off the centre line, the railing leaves it be',
+    stepBuggyRails(cruise, road, 0) === 0 && cruise.x === 25
+  );
+
+  // Above the railing's top it flies over; on a deck without railings
+  // nothing holds it
+  const high = {
+    x: 31,
+    z: -100,
+    y: 50.75 + BUGGY_RAIL.TOP + 1,
+    velX: 50,
+    velZ: 0,
+  };
+  sample(high.x, high.z, high.y);
+  stepBuggyRails(high, road, 0);
+  const low = {x: 31, z: -100, y: 50.75, velX: 50, velZ: 0};
+  sample(low.x, low.z, low.y, {...bridge, rails: false});
+  stepBuggyRails(low, road, 0);
+  check(
+    'It jumps over railings in the air, and no deck without them holds it',
+    high.x === 31 && low.x === 31
   );
 }
 

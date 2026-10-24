@@ -1890,6 +1890,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           x1: pos.nextPos.x + worldOffsetX,
           z1: pos.nextPos.z + worldOffsetZ,
           y1: pos.nextPos.y,
+          // Raised sections have railings either side (below)
+          rails: pos.needsPilings,
         });
       }
 
@@ -2894,6 +2896,7 @@ export function sampleRoad(x, z, out, vehicleY = null) {
     out.height = height;
     out.slopeX = slopeX;
     out.slopeZ = slopeZ;
+    out.rails = false;
     sampleState.found = true;
   }
   return sampleState.found;

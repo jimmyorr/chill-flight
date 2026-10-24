@@ -76,8 +76,23 @@ const _surface = {
   slopeX: 0,
   slopeZ: 0,
   kind: 'ground',
+  // On a raised bridge, its railings: which side of the centre line it's
+  // on and the way across the road (sampleRoadSegment)
+  rails: false,
+  across: 0,
+  normalX: 0,
+  normalZ: 0,
 };
-const _road = {height: 0, slopeX: 0, slopeZ: 0};
+const _road = {
+  height: 0,
+  slopeX: 0,
+  slopeZ: 0,
+  rails: false,
+  across: 0,
+  normalX: 0,
+  normalZ: 0,
+};
+const _railCar = {x: 0, z: 0, y: 0, velX: 0, velZ: 0};
 const _lastPos = new THREE.Vector3();
 const _heading = new THREE.Vector3();
 let lastModel = null;
@@ -113,8 +128,13 @@ function sampleSurface(x, z, y) {
     _surface.slopeX = _road.slopeX;
     _surface.slopeZ = _road.slopeZ;
     _surface.kind = 'road';
+    _surface.rails = _road.rails;
+    _surface.across = _road.across;
+    _surface.normalX = _road.normalX;
+    _surface.normalZ = _road.normalZ;
     return _surface;
   }
+  _surface.rails = false;
   sampleGround(x, z, _surface);
   _surface.kind = 'ground';
   if (getElevation(x, z) <= WATER_LEVEL + 0.1) {
@@ -316,10 +336,19 @@ export function updateBuggy(delta) {
   const oldZ = pos.z;
   const oldHeight = ground.height;
   const wasOnRoad = ground.kind === 'road';
+  // Between a raised bridge's railings, below their tops
+  const railed =
+    wasOnRoad &&
+    ground.rails &&
+    pos.y <= oldHeight + ChillFlightLogic.BUGGY_RAIL.TOP;
 
   const blocker = (x, z) => {
     const s = sampleSurface(x, z, pos.y);
-    if (wasOnRoad && s.kind !== 'road' && oldHeight - s.height > ROAD_STEP_UP) {
+    if (
+      wasOnRoad &&
+      s.kind !== 'road' &&
+      (railed || oldHeight - s.height > ROAD_STEP_UP)
+    ) {
       return 'barrier';
     }
     const rise = s.height - oldHeight;
@@ -362,7 +391,19 @@ export function updateBuggy(delta) {
       velZ -= nz * into * 1.3;
     }
   }
-  const surface = sampleSurface(pos.x, pos.z, pos.y);
+  let surface = sampleSurface(pos.x, pos.z, pos.y);
+  if (surface.kind === 'road' && surface.rails) {
+    // A raised bridge's railings hold it on the deck (ChillFlightLogic)
+    Object.assign(_railCar, {x: pos.x, z: pos.z, y: pos.y, velX, velZ});
+    const hit = ChillFlightLogic.stepBuggyRails(_railCar, surface, yaw);
+    if (_railCar.x !== pos.x || _railCar.z !== pos.z) {
+      pos.x = _railCar.x;
+      pos.z = _railCar.z;
+      ({velX, velZ} = _railCar);
+      if (hit > 0) kick(Math.min(1.5, hit * 0.03));
+      surface = sampleSurface(pos.x, pos.z, pos.y);
+    }
+  }
 
   // --- UP AND DOWN ---
   if (

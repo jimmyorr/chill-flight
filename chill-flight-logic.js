@@ -4247,6 +4247,14 @@ export const ChillFlightLogic = {};
     out.height = height;
     out.slopeX = slopeX;
     out.slopeZ = slopeZ;
+    // Which side of the centre line, and the way across the road (unit
+    // normal), for keeping the buggy inside a bridge's railings
+    out.normalX = -dz / length;
+    out.normalZ = dx / length;
+    out.across =
+      (x - (seg.x0 + dx * t)) * out.normalX +
+      (z - (seg.z0 + dz * t)) * out.normalZ;
+    out.rails = !!seg.rails;
     if (sampleState) sampleState.found = true;
     return true;
   }
@@ -4761,6 +4769,61 @@ export const ChillFlightLogic = {};
 
   exports.BUGGY_AIR = BUGGY_AIR;
   exports.stepBuggyVertical = stepBuggyVertical;
+
+  // --- BUGGY AND BRIDGE RAILINGS ---
+  // A raised bridge's railings (terrain-chunks.js) stand ROAD_WIDTH + 1.4
+  // either side of the centre line, 1.2 thick and 2.6 above the deck. The
+  // buggy's body reaches 3.35 either side (the rear tyres' outer faces) and
+  // 4.6 ahead and behind (the tyres' front and back)
+  const BUGGY_RAIL = {
+    INNER: ROAD_WIDTH + 0.8,
+    TOP: 2.6,
+    HALF_WIDTH: 3.35,
+    HALF_LENGTH: 4.6,
+    // Of the speed into the rail, how much it bounces back with
+    BOUNCE: 0.2,
+    // Of the speed along the rail, how much a hit scrubs off per unit of
+    // speed into it
+    SCRUB: 0.003,
+  };
+
+  // Keeps the buggy (car: x, z, velX, velZ, y; yaw) inside a railed deck's
+  // railings (road: rails, across, normalX, normalZ, height, as
+  // sampleRoadSegment fills it). Its reach across the road grows as it turns
+  // toward the rail, so the nose stops at the rail too. Above the rails' top
+  // it flies over. Changes car in place; returns the speed it hit with (0
+  // when it didn't touch).
+  function stepBuggyRails(car, road, yaw) {
+    if (!road.rails || car.y > road.height + BUGGY_RAIL.TOP) return 0;
+    // The buggy's forward and the road's normal: cos of the angle between
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    const cosToNormal = Math.abs(fx * road.normalX + fz * road.normalZ);
+    const sinToNormal = Math.sqrt(Math.max(0, 1 - cosToNormal * cosToNormal));
+    const reach =
+      BUGGY_RAIL.HALF_WIDTH * sinToNormal +
+      BUGGY_RAIL.HALF_LENGTH * cosToNormal;
+    const limit = BUGGY_RAIL.INNER - reach;
+    const over = Math.abs(road.across) - limit;
+    if (over <= 0) return 0;
+    // Outward along the normal
+    const side = Math.sign(road.across);
+    const nx = road.normalX * side;
+    const nz = road.normalZ * side;
+    car.x -= nx * over;
+    car.z -= nz * over;
+    const into = car.velX * nx + car.velZ * nz;
+    if (into <= 0) return 0;
+    car.velX -= nx * into * (1 + BUGGY_RAIL.BOUNCE);
+    car.velZ -= nz * into * (1 + BUGGY_RAIL.BOUNCE);
+    const keep = Math.max(0.5, 1 - into * BUGGY_RAIL.SCRUB);
+    car.velX *= keep;
+    car.velZ *= keep;
+    return into;
+  }
+
+  exports.BUGGY_RAIL = BUGGY_RAIL;
+  exports.stepBuggyRails = stepBuggyRails;
 
   // --- BUGGY STEERING & DRIVING ---
   // Speeds in units per second, which read as knots; accelerations in units
