@@ -1,8 +1,11 @@
 // --- JOBS ---
 // Plays the jobs people offer (people.js has them, jobs-logic.js the rules).
 // Land at an airport (rolling on the runway, slowed to a stop) and someone
-// there offers a job, which you take or turn down. On a job, the waypoint
-// points to the next airport and stays until you land there, and the HUD
+// there offers a job, which you take or turn down. That's once a visit:
+// stopping again before you leave the airport says nothing, and leaving
+// mid-conversation ends it (an offer left unanswered comes up next time).
+// On a job, the waypoint points to the next airport and stays until you
+// land there, and the HUD
 // shows who it's for, what you're carrying and where to. Clearing the
 // waypoint on the map drops the job (minimap.js calls cancelJob); another
 // waypoint is a detour, and once it's reached or cleared the job's comes
@@ -16,7 +19,7 @@ import {Achievements} from './achievements.js';
 import {isOnWheels} from './flight-physics.js';
 import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 import {BASE_FLIGHT_SPEED} from './constants.js';
-import {openDialog, changeOutfit} from './dialog.js';
+import {openDialog, closeDialog, changeOutfit} from './dialog.js';
 import {playChime} from './sfx-events.js';
 import {hooks} from './hooks.js';
 import {
@@ -29,6 +32,7 @@ import {
   land,
   newProgress,
   validProgress,
+  visit,
 } from './jobs-logic.js';
 
 const PROGRESS_KEY = 'chill_flight_jobs';
@@ -45,8 +49,9 @@ const hudAuto = document.getElementById('job-hud-auto');
 const statusPanel = document.getElementById('cockpit-status-panel');
 
 export let progress = newProgress();
-// The airport the plane last stopped at, so one stop counts once
-let stoppedAt = null;
+// The airport you're visiting (see visit in jobs-logic.js), so a visit
+// gets one greeting
+let visiting = null;
 
 function load(key) {
   try {
@@ -175,15 +180,19 @@ function update() {
   }
   // A detour's waypoint was reached or cleared: back to the job
   if (destination(progress) && !getWaypoint()) pointToDestination();
+  const {x, z} = planeGroup.position;
   const kts = BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
-  if (!isOnWheels() || kts > STOPPED_KTS) {
-    stoppedAt = null;
-    return;
+  const stopped = isOnWheels() && kts <= STOPPED_KTS;
+  const away = visiting
+    ? ChillFlightLogic.airportDistance(visiting, x, z)
+    : Infinity;
+  const step = visit(visiting, away, stopped ? airportAt(x, z) : null);
+  visiting = step.visiting;
+  if (step.left) {
+    closeDialog();
+    log.info(`[Jobs] Left ${step.left.name}`);
   }
-  const a = airportAt(planeGroup.position.x, planeGroup.position.z);
-  if (!a || a === stoppedAt) return;
-  stoppedAt = a;
-  landedAt(a);
+  if (step.arrived) landedAt(step.arrived);
 }
 
 requestAnimationFrame(update);

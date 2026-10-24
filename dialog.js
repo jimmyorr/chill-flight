@@ -104,7 +104,8 @@ export function openDialog(person, newLines, answer = null) {
   showLine();
 }
 
-function closeDialog() {
+// (jobs.js calls this when you leave the airport mid-conversation)
+export function closeDialog() {
   onAnswer = null;
   clearInterval(blinking);
   blinking = null;

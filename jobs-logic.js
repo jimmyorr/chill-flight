@@ -178,6 +178,20 @@ export function decline(progress, offer, rng = Math.random, people = PEOPLE) {
   };
 }
 
+// A visit to an airport lasts from stopping on its field until you're
+// LEAVE_MARGIN (world units) past its edge, so taxiing about and stopping
+// again doesn't start another, and touching down and stopping outside it
+// does. visiting is the airport you're visiting (or null), away how far past
+// its field you are, stoppedOn the airport whose field you're stopped on (or
+// null). Says who you're visiting now, and the airport you arrived at or
+// left this time, if any.
+export const LEAVE_MARGIN = 200;
+export function visit(visiting, away, stoppedOn) {
+  if (visiting && away > LEAVE_MARGIN) return {visiting: null, left: visiting};
+  if (!visiting && stoppedOn) return {visiting: stoppedOn, arrived: stoppedOn};
+  return {visiting};
+}
+
 // The job is dropped (its waypoint was cleared on the map)
 export function cancel(progress) {
   return {...progress, job: null};

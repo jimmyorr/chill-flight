@@ -8,8 +8,8 @@
  * airport with nothing on, turning it down leaves nothing on,
  * a round trip goes there and back, a one-way job ends where it sends you,
  * only the destination moves a job on, the person you've helped least asks
- * first, dropping a job cancels it, and saved progress is checked before
- * it's used.
+ * first, dropping a job cancels it, saved progress is checked before it's
+ * used, and a visit to an airport greets you once and ends when you leave.
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PEOPLE} from '../people.js';
@@ -27,6 +27,8 @@ import {
   land,
   newProgress,
   validProgress,
+  visit,
+  LEAVE_MARGIN,
 } from '../jobs-logic.js';
 
 console.log('Testing people and jobs...');
@@ -276,6 +278,36 @@ check('nothing saved is ignored', validProgress(null) === null);
 check(
   "the coffee run's deliveries count for Ray",
   doneFor(fromCoffeeRun({delivered: 4, met: true}), 'Ray') === 4
+);
+
+// A visit: stop, taxi about and stop again, then drive or fly off
+const field = ChillFlightLogic.AIRPORTS[0];
+check(
+  'stopping on a field starts a visit',
+  visit(null, Infinity, field).arrived === field
+);
+check(
+  'stopping again on the same visit says nothing',
+  !visit(field, 0, field).arrived && visit(field, 0, field).visiting === field
+);
+check(
+  'rolling just off the field is still the visit',
+  !visit(field, LEAVE_MARGIN - 1, null).left
+);
+check(
+  'going well past the field ends the visit',
+  visit(field, LEAVE_MARGIN + 1, null).left === field &&
+    visit(field, LEAVE_MARGIN + 1, null).visiting === null
+);
+check(
+  'moving without stopping starts no visit',
+  !visit(null, Infinity, null).arrived
+);
+check(
+  'the middle of the field is on it, a few km off is away',
+  ChillFlightLogic.airportDistance(field, field.x, field.z) === 0 &&
+    ChillFlightLogic.airportDistance(field, field.x + 3000, field.z) >
+      LEAVE_MARGIN
 );
 
 if (failed) {

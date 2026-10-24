@@ -4337,6 +4337,7 @@ export const ChillFlightLogic = {};
   exports.RUNWAY_WIDTH = RUNWAY_WIDTH;
   exports.airportLocal = airportLocal;
   exports.isOnAirport = isOnAirport;
+  exports.airportDistance = airportDistance;
   exports.getRoadFactor = getRoadFactor;
   exports.highwayDistance = highwayDistance;
   exports.highwayHeight = highwayHeight;
