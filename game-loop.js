@@ -104,6 +104,7 @@ import {
   planeGroup,
   planeHandling,
   poseGear,
+  updateHeadlightBeam,
 } from './airplane.js';
 import {
   manualCloudCover,
@@ -430,6 +431,7 @@ function performFrame() {
   state.wasDoingImmelmann = state.isDoingImmelmann;
 
   if (!driving) updateFlightPhysics(delta, nowTime);
+  updateHeadlightBeam(driving);
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
   if (!state.isFreeCamera) {
     if (!state.previousPosition) {

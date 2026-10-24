@@ -759,6 +759,77 @@ export function createMaterial(params) {
   return mat;
 }
 
+// The buggy's headlight pool on the ground (set each frame in game-loop.js;
+// colour black when off). A spotlight from a car's lamp height meets flat
+// ground almost edge-on, so it lit the road and fields only faintly, and
+// each flat-shaded terrain facet a few degrees steeper or flatter came out
+// far brighter or darker. The ground and roads add this pool instead:
+// shaped by the beam's cone and fading with distance, and only gently
+// shaded by the slope, like a game's car headlights.
+export const headlightPoolUniforms = {
+  uHeadlightPos: {value: new THREE.Vector3()},
+  uHeadlightDir: {value: new THREE.Vector3(0, 0, -1)},
+  uHeadlightColor: {value: new THREE.Color(0, 0, 0)},
+  // cos of the beam's outer and inner half-angles
+  uHeadlightCone: {value: new THREE.Vector2(0.86, 0.97)},
+  // fades out between these distances
+  uHeadlightRange: {value: new THREE.Vector2(100, 400)},
+};
+
+// Lets a ground or road material (keeping its own onBeforeCompile) take the
+// headlight pool above. `gain` brightens it on dark surfaces such as
+// asphalt, which would otherwise barely show it.
+export function addHeadlightPool(material, gain = 1) {
+  const base = material.onBeforeCompile;
+  // Keyed by the material's own shader source, which the wrapper hides
+  const key = `headlightPool${gain}` + material.customProgramCacheKey();
+  material.onBeforeCompile = function (shader, renderer) {
+    base.call(this, shader, renderer);
+    Object.assign(shader.uniforms, headlightPoolUniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('void main() {', 'varying vec3 vHeadlightWorld;\nvoid main() {')
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+        {
+          vec4 hw = vec4(transformed, 1.0);
+          #ifdef USE_INSTANCING
+            hw = instanceMatrix * hw;
+          #endif
+          vHeadlightWorld = (modelMatrix * hw).xyz;
+        }`
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        'void main() {',
+        `uniform vec3 uHeadlightPos;
+        uniform vec3 uHeadlightDir;
+        uniform vec3 uHeadlightColor;
+        uniform vec2 uHeadlightCone;
+        uniform vec2 uHeadlightRange;
+        varying vec3 vHeadlightWorld;
+        void main() {`
+      )
+      .replace(
+        '#include <lights_fragment_end>',
+        `#include <lights_fragment_end>
+        if (uHeadlightColor.r + uHeadlightColor.g + uHeadlightColor.b > 0.0) {
+          vec3 toLight = uHeadlightPos - vHeadlightWorld;
+          float d = length(toLight);
+          toLight /= max(d, 1e-3);
+          float beam = smoothstep(uHeadlightCone.x, uHeadlightCone.y, dot(-toLight, uHeadlightDir));
+          float reach = 1.0 - smoothstep(uHeadlightRange.x, uHeadlightRange.y, d);
+          // Slopes facing the lamp a little brighter, flat ground still lit
+          float facing = dot(normal, (viewMatrix * vec4(toLight, 0.0)).xyz);
+          float shade = clamp(0.55 + 0.45 * facing, 0.0, 1.0);
+          reflectedLight.directDiffuse += diffuseColor.rgb * uHeadlightColor * (beam * reach * shade * ${gain.toFixed(2)});
+        }`
+      );
+  };
+  material.customProgramCacheKey = () => key;
+  return material;
+}
+
 // DOM caching & utilities
 const _domCache = new Map();
 

@@ -11,6 +11,7 @@ import {
   UNITS_TO_M,
   WATER_LEVEL,
   createMaterial,
+  headlightPoolUniforms,
   updateUrlParams,
 } from './constants.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -502,6 +503,36 @@ export const HEADLIGHT_GLOW_INTENSITY = 0.3;
 headlightGlow.decay = 1;
 planeGroup.add(headlightGlow);
 planeGroup.add(headlight);
+
+// The buggy's lamps sit low on its nose (buggy-model.js), and its beam is
+// mostly the pool on the ground (headlightPoolUniforms in constants.js); the
+// spotlight from there still lights trees, houses and hillsides ahead.
+const PLANE_BEAM = {pos: [0, 0, -10], target: [0, -12, -100]};
+const BUGGY_BEAM = {pos: [0, 2.75, -4.7], target: [0, 1, -100]};
+const BUGGY_POOL_BRIGHTNESS = 0.9;
+const _beamPos = new THREE.Vector3();
+const _beamTarget = new THREE.Vector3();
+
+// Each frame: place the beam for the vehicle, and point the pool where it
+// shines (only while driving with the lights on).
+export function updateHeadlightBeam(driving) {
+  const beam = driving ? BUGGY_BEAM : PLANE_BEAM;
+  headlight.position.fromArray(beam.pos);
+  headlightTarget.position.fromArray(beam.target);
+  const pool = headlightPoolUniforms;
+  if (!driving || headlight.intensity === 0) {
+    pool.uHeadlightColor.value.setRGB(0, 0, 0);
+    return;
+  }
+  planeGroup.updateMatrixWorld();
+  planeGroup.localToWorld(_beamPos.fromArray(beam.pos));
+  planeGroup.localToWorld(_beamTarget.fromArray(beam.target));
+  pool.uHeadlightPos.value.copy(_beamPos);
+  pool.uHeadlightDir.value.subVectors(_beamTarget, _beamPos).normalize();
+  pool.uHeadlightColor.value
+    .copy(headlight.color)
+    .multiplyScalar(BUGGY_POOL_BRIGHTNESS);
+}
 
 // Initial position
 let startX = 0;
