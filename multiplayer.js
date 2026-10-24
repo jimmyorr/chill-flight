@@ -913,6 +913,16 @@ export function friendsOnMap() {
 // --- EACH FRAME ---
 
 /** Called once per frame while flying (not while paused). */
+// Each friend's plane or buggy shown this frame, for knocking props over
+// (breakables.js): fn(id, position, isBuggy)
+export function forEachPeerVehicle(fn) {
+  if (!room) return;
+  for (const peer of peers.values()) {
+    if (peer.group?.visible)
+      fn(peer.id, peer.group.position, !!peer.model?.isBuggy);
+  }
+}
+
 export function updateMultiplayer(delta) {
   if (!room) return;
   const rawNow = performance.now();

@@ -395,6 +395,9 @@ class GlobalInstanceManager {
         const typeInfo = this.types.get(type);
         if (!typeInfo) continue;
         const data = instanceData[type];
+        // Which meshes draw this data, and from which instance (pairs), for
+        // hideInstance
+        data.drawnAt = [];
         if (!data.count) continue;
         if (castsShadows && typeInfo.shadowMesh) {
           if (!shadowParts.has(type)) shadowParts.set(type, []);
@@ -443,6 +446,7 @@ class GlobalInstanceManager {
         );
         let n = 0;
         for (const data of tile.parts) {
+          data.drawnAt.push(mesh, n);
           mesh.instanceMatrix.array.set(
             data.matrices.subarray(0, data.count * 16),
             n * 16
@@ -466,6 +470,7 @@ class GlobalInstanceManager {
       for (const data of shadowParts.get(type) || []) {
         const numToCopy = Math.min(data.count, typeInfo.maxInstances - n);
         if (numToCopy <= 0) break;
+        data.drawnAt.push(shadowMesh, n);
         shadowMesh.instanceMatrix.array.set(
           data.matrices.subarray(0, numToCopy * 16),
           n * 16
@@ -480,6 +485,32 @@ class GlobalInstanceManager {
 }
 
 export var globalInstancer = new GlobalInstanceManager();
+
+// Stops drawing instance `index` of a chunk's instance data (a prop knocked
+// over, breakables.js), now and in later rebuilds: its matrix is zeroed in
+// the data and in the meshes already drawing it.
+export function hideInstance(data, index) {
+  data.matrices.fill(0, index * 16, index * 16 + 16);
+  const drawnAt = data.drawnAt || [];
+  for (let i = 0; i < drawnAt.length; i += 2) {
+    const mesh = drawnAt[i];
+    const slot = drawnAt[i + 1] + index;
+    if (slot >= mesh.instanceMatrix.count) continue;
+    mesh.instanceMatrix.array.fill(0, slot * 16, slot * 16 + 16);
+    mesh.instanceMatrix.addUpdateRange(slot * 16, 16);
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+// An instanced mesh drawing `type`'s model and material (as registered
+// above) anywhere in the world, casting shadows, for props knocked over
+export function createDebrisMesh(geo, mat, capacity, useColor) {
+  const mesh = createTreeInstancedMesh(geo, mat, capacity, useColor);
+  mesh.frustumCulled = false;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
 
 // Where loaded waterfalls land (world units), by chunk group, and the top of
 // the volcano's lava once built: for their particles (particles.js)
@@ -2780,6 +2811,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   }
 
   group.userData.instanceData = workerData.instanceData;
+  group.userData.breakables = workerData.breakables || null;
   enableChunkInstanceCulling(group);
   scene.add(group);
   return group;
@@ -3052,6 +3084,7 @@ export function updateChunks() {
         releaseInstancedMesh(instancedMeshesToRelease[i]);
       }
       group.userData.instanceData = null;
+      group.userData.breakables = null;
       group.userData.objectsGroup = null;
       group.userData.watercraftGroup = null;
       disposeWaterDepthTexture(group.userData.water);

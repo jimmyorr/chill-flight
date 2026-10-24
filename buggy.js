@@ -181,6 +181,12 @@ function analogThrottleAxis(value) {
   );
 }
 
+// Loses speed hitting something (breakables.js): keep is the fraction kept
+export function slowBuggy(keep) {
+  velX *= keep;
+  velZ *= keep;
+}
+
 export function updateBuggy(delta) {
   const model = state.airplaneModel;
   if (state.isFreeCamera || !model) return;

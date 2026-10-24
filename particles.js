@@ -942,6 +942,39 @@ function volcanoEffects(delta) {
 }
 
 /** Turns the airshow smoke on or off; returns whether it's now on. */
+// Puffs off a prop knocked over (breakables.js): `count` of them, `color`,
+// scattered within `spread` of (x, z) and from y up to y + height, drifting
+// up to `rise` units/s
+export function propPuffs(
+  x,
+  y,
+  z,
+  spread,
+  height,
+  color,
+  count,
+  size = 4,
+  rise = 3
+) {
+  for (let i = 0; i < count; i++) {
+    _p.set(
+      x + rand(-spread, spread),
+      y + rand(0, height),
+      z + rand(-spread, spread)
+    );
+    spawn(
+      _p,
+      {x: rand(-4, 4), y: rand(0.5, rise), z: rand(-4, 4)},
+      0.5,
+      rand(2, 3.5),
+      size * rand(0.4, 0.7),
+      size * rand(1.2, 1.8),
+      color,
+      rand(0.35, 0.6)
+    );
+  }
+}
+
 export function toggleSmoke() {
   smokeOn = !smokeOn;
   smokeLast.valid = false;

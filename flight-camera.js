@@ -244,6 +244,14 @@ export function updateFlightCamera(delta, nowTime) {
       _cameraOffset.y += (Math.random() - 0.5) * shakeIntensity;
     }
 
+    // A jolt when knocking a tree or house over (breakables.js)
+    if (state.impactShake > 0) {
+      const jolt = state.impactShake;
+      _cameraOffset.x += (Math.random() - 0.5) * jolt;
+      _cameraOffset.y += (Math.random() - 0.5) * jolt;
+      state.impactShake = Math.max(0, jolt - delta * (2 + jolt * 3));
+    }
+
     // 1. Calculate Follow State
 
     // Smooth the plane's rotation to create camera inertia, locked to it in

@@ -72,6 +72,8 @@ import '../jobs.js';
 import '../people-screen.js';
 import '../multiplayer-logic.js';
 import '../multiplayer.js';
+import '../breakables-logic.js';
+import '../breakables.js';
 import '../vr-manager.js';
 import '../game-loop.js';
 import '../map-loader.js';

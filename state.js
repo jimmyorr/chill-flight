@@ -185,6 +185,9 @@ export const state = {
 
   // Free camera (debug-ui.js)
   isFreeCamera: false,
+  // Camera jolt from knocking something over (breakables.js), dying away in
+  // flight-camera.js
+  impactShake: 0,
 
   // Controls settings (game.js)
   invertYAxis: false,

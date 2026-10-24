@@ -139,6 +139,7 @@ import {updateFlightCamera} from './flight-camera.js';
 import {trafficCount, updateTraffic} from './traffic.js';
 import {updateParticles} from './particles.js';
 import {updateMultiplayer} from './multiplayer.js';
+import {updateBreakables} from './breakables.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_CLOUDS} from './art-style.js';
 import {updateAirportLights} from './airports.js';
@@ -509,6 +510,7 @@ function performFrame() {
   updateThrottle(nowTime);
   updateTraffic(delta);
   updateMultiplayer(delta);
+  updateBreakables(delta);
   updateParticles(delta);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping();

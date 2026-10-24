@@ -2,6 +2,7 @@
 // A tap on the phone (iOS/Android apps, via @capacitor/haptics) when the
 // plane meets land or water, harder for a harder landing, a tap when flying
 // under a waterfall as water hits the plane, a clunk as retracting gear locks,
+// a tap for each tree or house knocked over,
 // a warning as the plane slows toward a stall, and thunder. Off by default;
 // the switch lives next to Invert y axis in the pause menu.
 import {state} from './state.js';
@@ -91,6 +92,17 @@ export function thunderHaptic(distance = 0.5) {
   } else {
     setTimeout(() => pulse('LIGHT'), wait);
   }
+}
+
+// Knocking a tree (light) or a house (heavy) over, no more than a few a
+// second so plowing through a forest doesn't buzz nonstop
+let lastSmash = -Infinity;
+export function smashHaptic(heavy = false) {
+  if (!enabled || !plugin()) return;
+  const now = performance.now();
+  if (!heavy && now - lastSmash < 150) return;
+  lastSmash = now;
+  pulse(heavy ? 'HEAVY' : 'LIGHT');
 }
 
 // Checks whether the plane is flying under or through a waterfall ribbon,

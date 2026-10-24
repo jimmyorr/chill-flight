@@ -25,6 +25,7 @@ export const SFX_EVENTS = [
   {key: 'dialog', label: 'Dialog blips'},
   {key: 'chime', label: 'Job and waypoint chime'},
   {key: 'thunder', label: 'Thunder'},
+  {key: 'smash', label: 'Knocking trees and houses over'},
 ];
 
 const STORAGE_KEY = 'chill_flight_sfx_events';
@@ -358,6 +359,81 @@ export function playThunder(distance = 0.5, force = false) {
   }
 }
 
+// Knocking a prop over (breakables.js): a tree's trunk cracking, a rustle
+// of leaves and a thud as it lands about fallTime s later, or a house
+// crunching down with its walls and roof clattering after. loud is 0..1
+// (quieter far from the camera, as when a friend does it).
+export function playSmash(
+  house = false,
+  loud = 1,
+  fallTime = 0.9,
+  force = false
+) {
+  if ((!force && !isSfxEventEnabled('smash')) || !ready()) return;
+  const g = THREE.MathUtils.clamp(loud, 0, 1);
+  if (g < 0.02) return;
+  const t = ctx.currentTime;
+  if (!house) {
+    noiseBurst(t, {
+      type: 'bandpass',
+      freq: 2200,
+      freqEnd: 700,
+      q: 0.9,
+      gain: 0.7 * g,
+      attack: 0.003,
+      decay: 0.12,
+    });
+    noiseBurst(t + 0.02, {
+      type: 'highpass',
+      freq: 3500,
+      q: 0.5,
+      gain: 0.25 * g,
+      attack: 0.05,
+      decay: 0.5,
+    });
+    tone(t + fallTime, {
+      freq: 70,
+      freqEnd: 40,
+      gain: 0.5 * g,
+      attack: 0.01,
+      decay: 0.35,
+    });
+    noiseBurst(t + fallTime, {
+      type: 'lowpass',
+      freq: 700,
+      freqEnd: 200,
+      gain: 0.45 * g,
+      attack: 0.01,
+      decay: 0.4,
+    });
+    return;
+  }
+  noiseBurst(t, {
+    type: 'lowpass',
+    freq: 1400,
+    freqEnd: 180,
+    q: 0.6,
+    gain: 1.0 * g,
+    attack: 0.01,
+    decay: 1.1,
+  });
+  tone(t, {freq: 60, freqEnd: 32, gain: 0.7 * g, attack: 0.01, decay: 0.7});
+  // Bits landing
+  let at = t + 0.12;
+  for (let i = 0; i < 5; i++) {
+    noiseBurst(at, {
+      type: 'bandpass',
+      freq: 900 + Math.random() * 1400,
+      freqEnd: 400,
+      q: 1.2,
+      gain: (0.35 - i * 0.05) * g,
+      attack: 0.004,
+      decay: 0.12 + Math.random() * 0.1,
+    });
+    at += 0.08 + Math.random() * 0.18;
+  }
+}
+
 // Audition each one-shot from the debug menu and sound lab, even when it's
 // switched off
 export const SFX_EVENT_PLAYERS = {
@@ -371,6 +447,10 @@ export const SFX_EVENT_PLAYERS = {
   },
   chime: () => playChime(true),
   thunder: () => playThunder(0.3, true),
+  smash: () => {
+    playSmash(false, 1, 0.9, true);
+    setTimeout(() => playSmash(true, 1, 0, true), 1600);
+  },
 };
 
 // Loops forced on for auditioning in the sound lab, whatever the plane is

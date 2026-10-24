@@ -784,9 +784,30 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
   return out;
 }
 
+// What a breakable prop is, for how it breaks (breakables.js)
+export const BREAKABLE = {TREE: 0, HOUSE: 1, SNOWMAN: 2};
+
 class InstanceCollector {
   constructor() {
     this.data = {};
+    // Props that can be knocked over: each one's kind, and the instances
+    // (type and index) drawing it, recorded between beginProp and endProp
+    this.propKinds = [];
+    this.propStarts = [];
+    this.partTypes = [];
+    this.partIndices = [];
+    this.typeIds = new Map();
+    this.propOpen = false;
+  }
+
+  beginProp(kind) {
+    this.propKinds.push(kind);
+    this.propStarts.push(this.partTypes.length);
+    this.propOpen = true;
+  }
+
+  endProp() {
+    this.propOpen = false;
   }
 
   add(type, matrixElements, color = null) {
@@ -815,6 +836,11 @@ class InstanceCollector {
     }
 
     d.matrices.set(matrixElements, d.count * 16);
+    if (this.propOpen) {
+      if (!this.typeIds.has(type)) this.typeIds.set(type, this.typeIds.size);
+      this.partTypes.push(this.typeIds.get(type));
+      this.partIndices.push(d.count);
+    }
 
     if (color) {
       d.colors[d.count * 3] = color.r;
@@ -835,6 +861,18 @@ class InstanceCollector {
       }
     }
     return this.data;
+  }
+
+  // The breakable props: prop i is drawn by parts propStarts[i] up to
+  // propStarts[i + 1], each an instance (partIndices) of types[partTypes]
+  breakables() {
+    return {
+      kinds: Uint8Array.from(this.propKinds),
+      propStarts: Uint32Array.from([...this.propStarts, this.partTypes.length]),
+      partTypes: Uint8Array.from(this.partTypes),
+      partIndices: Uint32Array.from(this.partIndices),
+      types: [...this.typeIds.keys()],
+    };
   }
 }
 
@@ -932,6 +970,7 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
       collector.add(type, _matBuffer);
     };
 
+    collector.beginProp(BREAKABLE.HOUSE);
     composeMatrix(_matBuffer, 0, x, pos.y, z, sx, sy, 1, 0, pos.rotY, 0);
     collector.add(prefix + 'Body', _matBuffer, _houseBodyColors[pos.bodyId]);
     // Adobe: the gable squashed into a flat slab on top of the walls (its
@@ -959,6 +998,7 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
     for (const [wx, wy, wz] of windows) {
       part('houseWindow' + pos.poolId, wx * sx, wy * sy, wz);
     }
+    collector.endProp();
   }
 }
 
@@ -3391,6 +3431,7 @@ export function generateChunkData({
         0
       );
 
+      collector.beginProp(BREAKABLE.TREE);
       if (trunkKey) collector.add(trunkKey, _matBuffer);
 
       if (leavesKey && baseLeafColor) {
@@ -3423,6 +3464,7 @@ export function generateChunkData({
         }
         collector.add(leavesKey, _matBuffer, _treeTempColor);
       }
+      collector.endProp();
     });
   };
 
@@ -3511,7 +3553,9 @@ export function generateChunkData({
         rng() * Math.PI * 2,
         0
       );
+      collector.beginProp(BREAKABLE.TREE);
       collector.add('deadTrunk', _matBuffer);
+      collector.endProp();
     });
   }
 
@@ -3560,7 +3604,9 @@ export function generateChunkData({
         rng() * Math.PI * 2,
         0
       );
+      collector.beginProp(BREAKABLE.TREE);
       collector.add('cactus', _matBuffer);
+      collector.endProp();
     });
   }
 
@@ -3580,8 +3626,10 @@ export function generateChunkData({
         pos.rotY,
         0
       );
+      collector.beginProp(BREAKABLE.SNOWMAN);
       collector.add('snowmanBody', _matBuffer);
       collector.add('snowmanNose', _matBuffer);
+      collector.endProp();
     });
   }
 
@@ -3964,6 +4012,13 @@ export function generateChunkData({
     transferables.push(d.matrices.buffer);
     transferables.push(d.colors.buffer);
   }
+  const breakables = collector.breakables();
+  transferables.push(
+    breakables.kinds.buffer,
+    breakables.propStarts.buffer,
+    breakables.partTypes.buffer,
+    breakables.partIndices.buffer
+  );
 
   const waterfall =
     _enableObjects && hasWater && waterfallChunk(chunkX, chunkZ, chunkSize)
@@ -4053,6 +4108,7 @@ export function generateChunkData({
         softWaterDepth,
       },
       instanceData,
+      breakables,
       chunkProps,
     },
     transferables,
