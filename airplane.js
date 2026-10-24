@@ -340,6 +340,8 @@ export function setActivePlane(planeType, skipStorage = false) {
     );
   }
 
+  // Switching from another plane, rather than the game loading
+  const switching = !!state.airplaneModel;
   // Remove existing model from planeGroup
   if (state.airplaneModel && planeGroup) {
     planeGroup.remove(state.airplaneModel);
@@ -392,6 +394,8 @@ export function setActivePlane(planeType, skipStorage = false) {
   newModel.wheelDepth = -new THREE.Box3().setFromObject(newModel).min.y;
   if (planeType === 'seaplane') poseGear(state.gearExtension);
 
+  // The buggy drops from where the plane was (buggy.js)
+  newModel.switchedTo = switching;
   state.airplaneModel = newModel;
   // Active vehicle class for styling
   document.body.classList.toggle('vehicle-buggy', planeType === 'buggy');

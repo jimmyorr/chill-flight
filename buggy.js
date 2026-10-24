@@ -54,6 +54,10 @@ const ROAD_STEP_UP = 12;
 const FLOAT_DEPTH = 0.3;
 // A jump of more than this between frames is a teleport (units)
 const TELEPORT_DISTANCE = 300;
+// Switched to in the air higher than this above the ground, it falls
+const DROP_HEIGHT = 2;
+// The fastest it can be falling as it's dropped (units/s), as in the air
+const MAX_FALL_SPEED = 400;
 
 // The springs: critically damped body bounce on its wheels (c = 2*sqrt(k))
 // to eliminate irritating oscillations and pogo-stick bouncing
@@ -75,6 +79,7 @@ const _surface = {
 };
 const _road = {height: 0, slopeX: 0, slopeZ: 0};
 const _lastPos = new THREE.Vector3();
+const _heading = new THREE.Vector3();
 let lastModel = null;
 // Horizontal velocity (world x and z) and vertical speed
 let velX = 0;
@@ -124,14 +129,19 @@ function sampleSurface(x, z, y) {
   return _surface;
 }
 
-// Into the buggy: set down on the ground under where the plane was, rolling
-// on at the speed it had (up to the buggy's top speed). Also after a
-// teleport (the map's click-to-fly).
-function enter() {
+// Into the buggy. Switching from a plane in the air drops it from where the
+// plane was, carrying on along the plane's heading at the speed it had (up
+// to the buggy's top speed) and climbing or sinking as the plane was, to
+// fall from there. Otherwise (the game loading, a teleport from the map's
+// click-to-fly) it's set down on the ground under the plane.
+function enter(fall) {
   yaw = planeGroup.rotation.y;
+  const planeSpeed = Math.abs(state.flightSpeedMultiplier) * KTS_PER_MULT;
+  _heading.set(0, 0, -1).applyEuler(planeGroup.rotation);
+  const climb = fall ? _heading.y : 0;
   const speed = Math.min(
     TOP_SPEED,
-    Math.abs(state.flightSpeedMultiplier) * KTS_PER_MULT
+    planeSpeed * Math.sqrt(Math.max(0, 1 - climb * climb))
   );
   velX = -Math.sin(yaw) * speed;
   velZ = -Math.cos(yaw) * speed;
@@ -140,7 +150,11 @@ function enter() {
     state.targetFlightSpeed || 0,
     TOP_SPEED / KTS_PER_MULT
   );
-  velY = 0;
+  velY = THREE.MathUtils.clamp(
+    planeSpeed * climb,
+    -MAX_FALL_SPEED,
+    ChillFlightLogic.BUGGY_AIR.MAX_RAMP_VEL
+  );
   yawRate = 0;
   steer = 0;
   car.lean = 0;
@@ -149,12 +163,24 @@ function enter() {
   bounce = 0;
   bounceVel = 0;
   const pos = planeGroup.position;
-  pos.y = sampleSurface(pos.x, pos.z, Infinity).height;
-  pos.y = sampleSurface(pos.x, pos.z, pos.y).height;
+  // What it'd land on: the deck it's over and above, or else the ground
+  const below = sampleSurface(pos.x, pos.z, fall ? pos.y : Infinity).height;
+  if (fall && pos.y > below + DROP_HEIGHT) {
+    airborne = true;
+  } else {
+    velY = 0;
+    pos.y = below;
+    pos.y = sampleSurface(pos.x, pos.z, pos.y).height;
+  }
   const s = _surface;
   hoverFold = s.kind === 'water' ? 1 : 0;
-  tiltPitch = Math.atan(-Math.sin(yaw) * s.slopeX - Math.cos(yaw) * s.slopeZ);
-  tiltRoll = Math.atan(Math.cos(yaw) * s.slopeX - Math.sin(yaw) * s.slopeZ);
+  if (airborne) {
+    tiltPitch = Math.atan2(velY, Math.max(1, speed)) * 0.6;
+    tiltRoll = 0;
+  } else {
+    tiltPitch = Math.atan(-Math.sin(yaw) * s.slopeX - Math.cos(yaw) * s.slopeZ);
+    tiltRoll = Math.atan(Math.cos(yaw) * s.slopeX - Math.sin(yaw) * s.slopeZ);
+  }
   state.autopilotEnabled = false;
   _lastPos.copy(pos);
 }
@@ -195,8 +221,10 @@ export function updateBuggy(delta) {
     model !== lastModel ||
     pos.distanceToSquared(_lastPos) > TELEPORT_DISTANCE ** 2
   ) {
+    // Switched to from another plane (not the game loading, nor a teleport)
+    const fall = model !== lastModel && !!model.switchedTo;
     lastModel = model;
-    enter();
+    enter(fall);
   }
   const dt = Math.min(delta, 0.05);
 
