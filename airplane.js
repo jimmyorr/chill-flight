@@ -299,20 +299,17 @@ export function getMaxFlightSpeedMult() {
   );
 }
 
-// The pause menu's bars for the active plane's handling, each a fraction of
-// the best plane's: top speed, agility, and float (a low stall speed)
+// The pause menu's bars for the active vehicle's handling, each a fraction of
+// the best: top speed, agility, and float (a low stall speed, or the buggy's hop/hover)
 function updatePlaneStats() {
   const stats = document.getElementById('plane-stats');
   if (!stats) return;
-  // The buggy doesn't fly: no bars for it, and it isn't in the comparison
-  stats.hidden = activePlaneType === 'buggy';
-  if (stats.hidden) return;
-  const all = Object.values(PLANE_HANDLING).filter((p) => p.stallKts > 0);
+  const planes = Object.values(PLANE_HANDLING).filter((p) => p.stallKts > 0);
   const h = planeHandling();
   const values = {
-    speed: h.topKts / Math.max(...all.map((p) => p.topKts)),
-    agility: h.agility / Math.max(...all.map((p) => p.agility)),
-    float: Math.min(...all.map((p) => p.stallKts)) / h.stallKts,
+    speed: h.topKts / Math.max(...planes.map((p) => p.topKts)),
+    agility: h.agility / Math.max(...planes.map((p) => p.agility)),
+    float: h.float ?? Math.min(...planes.map((p) => p.stallKts)) / h.stallKts,
   };
   for (const [stat, value] of Object.entries(values)) {
     stats

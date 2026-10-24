@@ -464,6 +464,50 @@ async function exerciseControls(page, tag) {
   await page.keyboard.press('Escape');
   await wait(500);
   if (!(await isPaused())) fail('Escape did not pause the game');
+  if (!(await isVisible('#plane-stats'))) {
+    fail('plane stats should be visible for airplane');
+  }
+  await page.click('.scheme-btn[data-plane="buggy"]');
+  await wait(200);
+  if (!(await isVisible('#plane-stats'))) {
+    fail('vehicle stats should be visible for buggy');
+  }
+  const buggyStats = await page.evaluate(() => {
+    const el = document.getElementById('plane-stats');
+    return {
+      speed: el
+        ?.querySelector('[data-stat="speed"]')
+        ?.style.getPropertyValue('--v'),
+      agility: el
+        ?.querySelector('[data-stat="agility"]')
+        ?.style.getPropertyValue('--v'),
+      float: el
+        ?.querySelector('[data-stat="float"]')
+        ?.style.getPropertyValue('--v'),
+    };
+  });
+  if (buggyStats.speed !== '0.300' || buggyStats.float !== '0.500') {
+    fail(`buggy stats mismatch: ${JSON.stringify(buggyStats)}`);
+  }
+  await page.click('.scheme-btn[data-plane="biplane"]');
+  await wait(200);
+  const biplaneStats = await page.evaluate(() => {
+    const el = document.getElementById('plane-stats');
+    return {
+      speed: el
+        ?.querySelector('[data-stat="speed"]')
+        ?.style.getPropertyValue('--v'),
+      agility: el
+        ?.querySelector('[data-stat="agility"]')
+        ?.style.getPropertyValue('--v'),
+      float: el
+        ?.querySelector('[data-stat="float"]')
+        ?.style.getPropertyValue('--v'),
+    };
+  });
+  if (biplaneStats.speed !== '0.350' || biplaneStats.float !== '1.000') {
+    fail(`biplane stats mismatch: ${JSON.stringify(biplaneStats)}`);
+  }
   await clickAndCheck(
     '#achievements-btn',
     '#achievements-overlay',

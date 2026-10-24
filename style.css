@@ -1313,6 +1313,10 @@ input[type='number'].customization-input {
   color: rgba(255, 255, 255, 0.5);
 }
 
+.plane-stats[hidden] {
+  display: none;
+}
+
 .plane-stat-bar {
   height: 4px;
   border-radius: 2px;
