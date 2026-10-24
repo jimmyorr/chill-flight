@@ -1,7 +1,6 @@
 import {renderer} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {hooks} from './hooks.js';
-import {state} from './state.js';
 
 export class InputManager {
   constructor() {
@@ -104,11 +103,6 @@ export class InputManager {
 
     // Mobile gesture tracking (for on-screen swipe/double-tap zones)
     this._activeGestures = {}; // Maps touch.identifier -> action
-    // Buggy tap-then-push moves: touches by id (start time and place), the
-    // last quick tap's end, and second touches waiting for their push
-    this._buggyTouches = {};
-    this._buggyLastQuickTap = 0;
-    this._buggyArmed = {};
     this._lastFreeCamTouchX = 0;
     this._lastFreeCamTouchY = 0;
 
@@ -433,7 +427,6 @@ export class InputManager {
     for (const k in this.state.doubleTap) this.state.doubleTap[k] = false;
     for (const k in this.state.tripleTap) this.state.tripleTap[k] = false;
     for (const k in this._tapCount) this._tapCount[k] = 0;
-    this._buggyArmed = {};
     this.state.mouse.controlActive = false;
     this.state.mouse.x = 0;
     this.state.mouse.y = 0;
@@ -583,29 +576,14 @@ export class InputManager {
     const x = touch.clientX / window.innerWidth;
     const y = touch.clientY / window.innerHeight;
 
-    // Gesture detection for screen zones (left/right/top/bottom third)
-    // Only for airplanes (aerobatic gestures like barrel roll and loop). For the buggy,
-    // touches on screen are handled by virtual joystick and drag-to-steer.
-    const isBuggy = !!state.airplaneModel?.isBuggy;
-    if (isBuggy) {
-      // A quick tap, then this touch: its first push picks a double-tap move
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        const start = {t: now, x: t.clientX, y: t.clientY};
-        this._buggyTouches[t.identifier] = start;
-        if (now - this._buggyLastQuickTap < this.DOUBLE_TAP_MS) {
-          this._buggyArmed[t.identifier] = start;
-          this._buggyLastQuickTap = 0;
-        }
-      }
-    }
+    // Gesture detection for screen zones (left/right/top/bottom third):
+    // the planes' stunts and the buggy's double-tap moves. The touch still
+    // works the joystick too, steering through the move.
     let action = null;
-    if (!isBuggy) {
-      if (x < 0.33) action = 'ArrowLeft';
-      else if (x > 0.66) action = 'ArrowRight';
-      else if (y < 0.33) action = 'ArrowUp';
-      else if (y > 0.66) action = 'ArrowDown';
-    }
+    if (x < 0.33) action = 'ArrowLeft';
+    else if (x > 0.66) action = 'ArrowRight';
+    else if (y < 0.33) action = 'ArrowUp';
+    else if (y > 0.66) action = 'ArrowDown';
 
     if (action) {
       const timeSinceLastTap = now - (this._lastArrowTap[action] || 0);
@@ -720,8 +698,6 @@ export class InputManager {
       return;
     }
 
-    this.pushBuggyMoves(e.changedTouches);
-
     if (this.state.controlScheme === 'gyro') return;
 
     if (this.state.controlScheme === 'joystick' && this.state.joystick.active) {
@@ -814,26 +790,6 @@ export class InputManager {
           break;
         }
       }
-    }
-
-    // Buggy tap-then-push: a quick tap arms the next touch
-    const endTime = performance.now();
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const touch = e.changedTouches[i];
-      const start = this._buggyTouches[touch.identifier];
-      const M = ChillFlightLogic.BUGGY_TOUCH_MOVES;
-      if (
-        start &&
-        !this._buggyArmed[touch.identifier] &&
-        !this._activeGestures[touch.identifier] &&
-        endTime - start.t < M.TAP_MS &&
-        Math.hypot(touch.clientX - start.x, touch.clientY - start.y) <
-          M.TAP_SLOP
-      ) {
-        this._buggyLastQuickTap = endTime;
-      }
-      delete this._buggyTouches[touch.identifier];
-      delete this._buggyArmed[touch.identifier];
     }
 
     // Gesture cleanup
@@ -1091,32 +1047,6 @@ export class InputManager {
     gp.buttons.forEach((btn, idx) => {
       this._lastGamepadButtons[idx] = btn.pressed;
     });
-  }
-
-  // A buggy touch armed by a quick tap: once pushed far enough one way it
-  // holds that way's double-tap (as a key would) until it lifts. One that
-  // waits too long to push is an ordinary touch.
-  pushBuggyMoves(touches) {
-    const now = performance.now();
-    for (let i = 0; i < touches.length; i++) {
-      const touch = touches[i];
-      const start = this._buggyArmed[touch.identifier];
-      if (!start) continue;
-      if (now - start.t > this.DOUBLE_TAP_MS) {
-        delete this._buggyArmed[touch.identifier];
-        continue;
-      }
-      const action = ChillFlightLogic.buggyPushAction(
-        touch.clientX - start.x,
-        touch.clientY - start.y
-      );
-      if (!action) continue;
-      delete this._buggyArmed[touch.identifier];
-      this.state.keys[action] = true;
-      this.state.doubleTap[action] = true;
-      this.state.keyPressStartTime[action] = now;
-      this._activeGestures[touch.identifier] = action;
-    }
   }
 
   consumeDoubleTap(action) {

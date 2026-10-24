@@ -19,8 +19,8 @@
 //
 // Double-tap moves, like the planes': double-tap up to hop (hold on to float
 // higher and steer in the air), double-tap left or right and hold to power
-// slide, double-tap down and hold to brake hard. On touch: a quick tap, then
-// press and push the stick the way of the move (input-manager.js).
+// slide, double-tap down and hold to brake hard. On touch, double-tap the
+// screen's top, left, right or bottom third, as for the planes.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';

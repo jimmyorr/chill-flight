@@ -14,7 +14,7 @@
  * 8. Grip, leaning into a drift, and turning in the air
  * 9. A raised bridge's railings hold it on the deck
  * 10. Resting on all four wheels over banks and creases
- * 11. Double-tap moves: hop, power slide, hard brake, touch tap-then-push
+ * 11. Double-tap moves: hop, power slide, hard brake
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PLANE_HANDLING} from '../constants.js';
@@ -815,8 +815,7 @@ check(
 
 // --- 11. DOUBLE-TAP MOVES ---
 {
-  const {BUGGY_MOVES, stepBuggyVertical, stepBuggyHandling, buggyPushAction} =
-    ChillFlightLogic;
+  const {BUGGY_MOVES, stepBuggyVertical, stepBuggyHandling} = ChillFlightLogic;
   const deg = (r) => `${((r * 180) / Math.PI).toFixed(1)}°`;
 
   // Hops off flat ground (or water), holding up for float seconds.
@@ -1006,16 +1005,6 @@ check(
     'Hard braking while steering swings the tail round',
     Math.max(...turn.slips) > (20 * Math.PI) / 180,
     deg(Math.max(...turn.slips))
-  );
-
-  // Touch: a quick tap, then a push picks the move
-  check(
-    'A tap-then-push picks the way it was pushed',
-    buggyPushAction(0, -30) === 'ArrowUp' &&
-      buggyPushAction(0, 30) === 'ArrowDown' &&
-      buggyPushAction(-30, 5) === 'ArrowLeft' &&
-      buggyPushAction(30, -5) === 'ArrowRight' &&
-      buggyPushAction(5, 5) === null
   );
 }
 

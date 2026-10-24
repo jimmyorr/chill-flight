@@ -4913,22 +4913,6 @@ export const ChillFlightLogic = {};
     HARD_BRAKE_DECEL: 90,
   };
 
-  // Touch: a quick tap (shorter than TAP_MS, moving less than TAP_SLOP px),
-  // then within the double-tap window a second touch pushed PUSH_PX one way
-  // is a double-tap that way, held until that touch lifts
-  const BUGGY_TOUCH_MOVES = {TAP_MS: 220, TAP_SLOP: 15, PUSH_PX: 18};
-
-  // Which way a tap-then-push went ('ArrowUp' etc., screen y down), or null
-  // while it hasn't gone far enough
-  function buggyPushAction(dx, dy) {
-    if (Math.hypot(dx, dy) < BUGGY_TOUCH_MOVES.PUSH_PX) return null;
-    if (Math.abs(dx) > Math.abs(dy)) return dx < 0 ? 'ArrowLeft' : 'ArrowRight';
-    return dy < 0 ? 'ArrowUp' : 'ArrowDown';
-  }
-
-  exports.BUGGY_TOUCH_MOVES = BUGGY_TOUCH_MOVES;
-  exports.buggyPushAction = buggyPushAction;
-
   const BUGGY_DRIVE = {
     REVERSE_TOP: 20,
     // About 0 to 60 knots in 2.5 seconds, 100 in 5
