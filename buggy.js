@@ -55,9 +55,8 @@ const PARK_HOLD = 9;
 // (allowing the buggy to easily climb back onto the highway from off-road);
 // a higher deck is a bridge it drives under
 const ROAD_STEP_UP = 12;
-// How far the buggy's origin sits below the water's surface as it hovers,
-// so the folded wheels skim it
-const FLOAT_DEPTH = 0.3;
+// How far the buggy's origin sits below the water's surface as it hovers
+const {FLOAT_DEPTH} = ChillFlightLogic.BUGGY_HOVER;
 // A jump of more than this between frames is a teleport (units)
 const TELEPORT_DISTANCE = 300;
 // Flying into ground that rises more than this above it (a bank or a
@@ -176,7 +175,13 @@ function sampleSurface(x, z, y) {
   _surface.rails = false;
   sampleGround(x, z, _surface);
   _surface.kind = 'ground';
-  if (getElevation(x, z) <= WATER_LEVEL + 0.1) {
+  if (
+    ChillFlightLogic.buggyOverWater(
+      _surface.height,
+      getElevation(x, z),
+      WATER_LEVEL
+    )
+  ) {
     const float = WATER_LEVEL - FLOAT_DEPTH;
     if (_surface.height < float) {
       _surface.height = float;

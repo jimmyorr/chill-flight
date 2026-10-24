@@ -5054,7 +5054,22 @@ export const ChillFlightLogic = {};
     GRIP: 7,
     // Seconds for the wheels to fold flat, or back down
     FOLD_SECONDS: 0.5,
+    // How far its origin sits below the water's surface as it hovers, so
+    // the folded wheels skim it
+    FLOAT_DEPTH: 0.3,
   };
+
+  // Whether the buggy hovers at a spot: the ground as drawn (groundHeight)
+  // is under the water's surface, or the terrain (elevation) counts it as
+  // sea. Shallows off a beach can count as land yet be drawn several units
+  // under the water: judged by elevation alone, the water's surface beside
+  // them stood up as a wall and tipped the buggy onto its side.
+  function buggyOverWater(groundHeight, elevation, waterLevel) {
+    return (
+      groundHeight < waterLevel - BUGGY_HOVER.FLOAT_DEPTH ||
+      elevation <= waterLevel + 0.1
+    );
+  }
 
   // The drag slowing the buggy (units/s²) at a forward speed: rolling
   // resistance and air drag, the same on water as on land
@@ -5272,6 +5287,7 @@ export const ChillFlightLogic = {};
   exports.BUGGY_DRIVE = BUGGY_DRIVE;
   exports.BUGGY_MOVES = BUGGY_MOVES;
   exports.BUGGY_HOVER = BUGGY_HOVER;
+  exports.buggyOverWater = buggyOverWater;
   exports.buggyDrag = buggyDrag;
   exports.stepBuggyHoverFold = stepBuggyHoverFold;
   exports.buggySteerLimit = buggySteerLimit;

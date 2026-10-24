@@ -558,6 +558,20 @@ check(
       `fold=${fold}, half=${half}, back=${back}`
     );
   }
+  // Shallows the terrain counts as land but draws under the water (off the
+  // Montauk lighthouse's beach, 6-8 units deep): it hovers there too, so
+  // the water's surface beside them isn't a wall it tips against
+  const over = ChillFlightLogic.buggyOverWater;
+  check(
+    'It hovers over shallows drawn under the water, even counted as land',
+    over(-6.8, 0.5, 0) && over(-1, 0.5, 0) && over(2, 0, 0),
+    `${over(-6.8, 0.5, 0)}, ${over(-1, 0.5, 0)}, ${over(2, 0, 0)}`
+  );
+  check(
+    'It drives on land drawn above the water',
+    !over(1, 3, 0) && !over(-0.2, 0.5, 0),
+    `${over(1, 3, 0)}, ${over(-0.2, 0.5, 0)}`
+  );
   check(
     'It slides a little wider on water than on the ground',
     ChillFlightLogic.BUGGY_HOVER.GRIP > 4 &&
