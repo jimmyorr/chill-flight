@@ -1,6 +1,7 @@
 // --- BUGGY MODEL ---
 // A single-seat dune buggy: livery-coloured tub and fenders, a dark roll
-// cage over a helmeted driver, the engine out back and four chunky tyres.
+// cage over an empty seat (no visible driver, like the planes), the engine
+// out back and four chunky tyres.
 // The origin is on the ground between the axles, forward is -Z, as for the
 // planes. Moving parts for buggy.js: `wheels` (spin about X, and fold flat
 // to hover over water, setBuggyHoverFold), `steerPivots` (the front wheels'
@@ -122,10 +123,6 @@ export function createBuggyModel(opts = {}) {
     box(1.3, 0.18, 2.4, -HALF_TRACK, 3.1, FRONT_AXLE, 0.08),
     box(1.3, 0.18, 2.4, HALF_TRACK, 3.1, FRONT_AXLE, 0.08),
   ];
-  // The driver's helmet
-  const helmet = new THREE.SphereGeometry(0.66, 10, 8);
-  helmet.translate(0, 4.4, 0.55);
-  accent.push(helmet);
   body.add(new THREE.Mesh(mergeGeometries(accent), accentMat));
 
   const dark = [
@@ -135,8 +132,6 @@ export function createBuggyModel(opts = {}) {
     box(2.4, 1.2, 1.7, 0, 2.75, 2.55),
     box(1.7, 0.45, 1.5, 0, 2.4, 0.6),
     box(1.7, 1.9, 0.35, 0, 3.25, 1.35, 0.18),
-    // The helmet's visor
-    box(0.95, 0.32, 0.25, 0, 4.42, -0.08),
     // Steering wheel
     box(1.0, 0.16, 0.16, 0, 3.55, -0.75),
     box(0.16, 0.7, 0.16, 0, 3.4, -0.85, 0.5),
@@ -156,10 +151,6 @@ export function createBuggyModel(opts = {}) {
   body.add(new THREE.Mesh(mergeGeometries(dark), darkMat));
 
   const light = [
-    // The driver's body and arms reaching for the wheel
-    box(1.3, 1.5, 0.85, 0, 3.3, 0.7),
-    box(0.3, 0.3, 1.3, -0.55, 3.55, 0.0, 0.3),
-    box(0.3, 0.3, 1.3, 0.55, 3.55, 0.0, 0.3),
     // Exhaust pipes
     tube([-0.6, 2.6, 3.3], [-0.6, 2.9, 4.1], 0.16),
     tube([0.6, 2.6, 3.3], [0.6, 2.9, 4.1], 0.16),
@@ -201,7 +192,7 @@ export function createBuggyModel(opts = {}) {
   root.steerPivots = steerPivots;
   root.isBuggy = true;
   // The follow camera sits closer behind something this small, and the
-  // first-person view is from the driver's helmet (flight-camera.js)
+  // first-person view is from the driver's seat (flight-camera.js)
   root.cameraScale = 0.45;
   root.firstPersonEye = new THREE.Vector3(0, 4.6, -0.3);
   return root;

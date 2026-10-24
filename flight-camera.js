@@ -210,9 +210,19 @@ export function updateFlightCamera(delta, nowTime) {
       1 - Math.pow(1 - 0.05, delta * 60)
     );
 
+    // How settled the camera is in a vehicle's seat view (the buggy): there
+    // it stays put, with no speed zoom and no follow lag
+    const seatLock = state.airplaneModel?.firstPersonEye
+      ? THREE.MathUtils.clamp(
+          1 - Math.abs(state.cameraTransitionProgress - 0.5) / 0.1,
+          0,
+          1
+        )
+      : 0;
+
     // Slightly wider base FOV for mobile to increase peripheral awareness
     const baseFov =
-      THREE.MathUtils.lerp(60, 85, speedFactor) +
+      THREE.MathUtils.lerp(60, 85, speedFactor * (1 - seatLock)) +
       (mobileCameraScale > 1.0 ? 5 : 0);
     const targetFov = Math.min(
       75,
@@ -486,10 +496,11 @@ export function updateFlightCamera(delta, nowTime) {
     } else {
       const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
       // In loops the position locks on, as inertia lag could flip lookAt
+      // and in a seat view it stays fixed to the seat
       const follow = THREE.MathUtils.lerp(
         1 - Math.pow(1 - 0.25, delta * 60),
         1,
-        loopLock
+        Math.max(loopLock, seatLock)
       );
       activeCamTarget.position.lerp(_idealCameraPos, follow);
       _currentLookTarget.lerp(_idealLookTarget, follow);

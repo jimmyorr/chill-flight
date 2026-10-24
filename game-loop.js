@@ -377,8 +377,10 @@ function performFrame() {
   updateDayNightCycle(delta);
   // The buggy drives in place of the flight model and physics
   const driving = activePlaneType === 'buggy';
-  if (driving) updateBuggy(delta);
-  else updatePhysicsAndControls(delta, nowTime);
+  if (driving) {
+    applyShiftThrottle(delta, nowTime);
+    updateBuggy(delta);
+  } else updatePhysicsAndControls(delta, nowTime);
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
   if (!state.isFreeCamera && !driving) {
     // 1. Maneuver completions
@@ -1234,6 +1236,34 @@ function wrapAngle(a) {
   return a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
 }
 
+// Shift+Up/Down: throttle control, for the planes and the buggy
+function applyShiftThrottle(delta, nowTime) {
+  if (keys.Shift) {
+    const rawUp = keys.ArrowUp && !state.isFreeCamera;
+    const rawDown = keys.ArrowDown && !state.isFreeCamera;
+    const startRawUp = keyPressStartTime.ArrowUp;
+    const startRawDown = keyPressStartTime.ArrowDown;
+
+    if (rawUp) {
+      const heldTime = nowTime - startRawUp;
+      const ramp = Math.min(1.0, heldTime / 2000);
+      const throttleRate = (0.2 + ramp * 1.0) * delta;
+      state.targetFlightSpeed = Math.min(
+        getMaxFlightSpeedMult(),
+        state.targetFlightSpeed + throttleRate
+      );
+    } else if (rawDown) {
+      const heldTime = nowTime - startRawDown;
+      const ramp = Math.min(1.0, heldTime / 2000);
+      const throttleRate = (0.2 + ramp * 1.0) * delta;
+      state.targetFlightSpeed = Math.max(
+        0,
+        state.targetFlightSpeed - throttleRate
+      );
+    }
+  }
+}
+
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller
   if (!state.isFreeCamera && Math.abs(state.flightSpeedMultiplier) > 0.001) {
@@ -1319,31 +1349,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     toggleAutopilot();
   }
 
-  // Shift+Up/Down: throttle control
-  if (keys.Shift) {
-    const rawUp = keys.ArrowUp && !state.isFreeCamera;
-    const rawDown = keys.ArrowDown && !state.isFreeCamera;
-    const startRawUp = keyPressStartTime.ArrowUp;
-    const startRawDown = keyPressStartTime.ArrowDown;
-
-    if (rawUp) {
-      const heldTime = nowTime - startRawUp;
-      const ramp = Math.min(1.0, heldTime / 2000);
-      const throttleRate = (0.2 + ramp * 1.0) * delta;
-      state.targetFlightSpeed = Math.min(
-        getMaxFlightSpeedMult(),
-        state.targetFlightSpeed + throttleRate
-      );
-    } else if (rawDown) {
-      const heldTime = nowTime - startRawDown;
-      const ramp = Math.min(1.0, heldTime / 2000);
-      const throttleRate = (0.2 + ramp * 1.0) * delta;
-      state.targetFlightSpeed = Math.max(
-        0,
-        state.targetFlightSpeed - throttleRate
-      );
-    }
-  }
+  applyShiftThrottle(delta, nowTime);
 
   if (
     !state.isFreeCamera &&
