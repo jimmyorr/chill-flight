@@ -326,7 +326,20 @@ function performFrame() {
   state.smoothedDelta = state._deltaRingSum / state._deltaRingCount;
 
   const delta = state.smoothedDelta; // Use smoothed delta for all game logic below
-  if (performanceMonitor && typeof performanceMonitor.update === 'function') {
+  // Paused frames draw nothing, so they look fast and would make adaptive
+  // quality raise the resolution; resizing the canvas clears it and the
+  // blurred game behind the pause menu turns black. Only measure frames
+  // that render (the boot loading screen does)
+  const bootOverlay =
+    isBootLoadingScreen && getCachedElement('loading-overlay');
+  const rendersWhilePaused =
+    state.isVRPresenting ||
+    (bootOverlay && bootOverlay.style.display !== 'none');
+  if (
+    performanceMonitor &&
+    typeof performanceMonitor.update === 'function' &&
+    (!state.isPaused || rendersWhilePaused)
+  ) {
     performanceMonitor.update(rawDelta);
   }
 
