@@ -262,6 +262,16 @@ function performFrame() {
     drag.deltaX = 0;
     drag.deltaY = 0;
   }
+  // A pinch zooms the camera showing (first person doesn't zoom)
+  const pinch = inputManager.state.pinch;
+  inputManager.state.pinch = 1;
+  if (pinch !== 1 && state.cameraZoom[state.cameraMode] !== undefined) {
+    state.cameraZoom[state.cameraMode] = ChillFlightLogic.zoomCamera(
+      state.cameraMode,
+      state.cameraZoom[state.cameraMode],
+      pinch
+    );
+  }
   if (state.currentControlScheme !== 'gyro') {
     if (steering.active && !framing) {
       state.mouseX = steering.x;

@@ -325,14 +325,15 @@ export const ChillFlightLogic = {};
     const parts = v.split(',').map((p) => parseFloat(p));
     return parts.length === 3 && parts.every((n) => !isNaN(n)) ? parts : null;
   };
-  const CAMERA_MODES = [
-    'follow',
-    'first-person',
-    'birds-eye-close',
-    'birds-eye-far',
-    'cinematic',
-  ];
-  const _cameraParam = (getParam('camera', '') || '').trim().toLowerCase();
+  const CAMERA_MODES = ['follow', 'first-person', 'birds-eye', 'cinematic'];
+  // The bird's eye view used to come in two heights; their old names still
+  // start it, zoomed in or out (CAMERA_ZOOM)
+  const OLD_CAMERA_MODES = {
+    'birds-eye-close': {mode: 'birds-eye', zoom: 0.5},
+    'birds-eye-far': {mode: 'birds-eye', zoom: 2},
+  };
+  const _cameraArg = (getParam('camera', '') || '').trim().toLowerCase();
+  const _cameraParam = OLD_CAMERA_MODES[_cameraArg]?.mode || _cameraArg;
   // A chase offset relative to the plane (right, up, behind) is a custom
   // cinematic view; camLook is the point it looks at, also relative.
   const START_CAM_OFFSET = parseVec3Param('camOffset');
@@ -4582,6 +4583,9 @@ export const ChillFlightLogic = {};
   exports.getIslandArchetype = getIslandArchetype;
   exports.START_PLANE = START_PLANE;
   exports.START_CAMERA = START_CAMERA;
+  exports.START_CAMERA_ZOOM = START_CAM_OFFSET
+    ? null
+    : (OLD_CAMERA_MODES[_cameraArg]?.zoom ?? null);
   exports.START_CAM_OFFSET = START_CAM_OFFSET;
   exports.START_CAM_LOOK = START_CAM_LOOK;
   exports.START_CAM_ANGLE = START_CAM_ANGLE;
@@ -5109,6 +5113,27 @@ export const ChillFlightLogic = {};
   // buggy itself brakes. The planes split the column in thirds.
   const BUGGY_TOUCH_ZONES = {UP_ABOVE: 0.48, DOWN_BELOW: 0.6};
   exports.BUGGY_TOUCH_ZONES = BUGGY_TOUCH_ZONES;
+
+  // How far a pinch (or a trackpad pinch) can zoom each camera: the camera's
+  // distance from the plane times this, 1 as it starts. The bird's eye view
+  // is BIRDS_EYE_HEIGHT above the plane at 1. The first-person view doesn't
+  // zoom.
+  const CAMERA_ZOOM = {
+    follow: {min: 0.6, max: 2.5},
+    'birds-eye': {min: 0.35, max: 2},
+    cinematic: {min: 0.4, max: 3},
+  };
+  const BIRDS_EYE_HEIGHT = 1000;
+  // A camera's zoom after a pinch that spread the fingers by `spread` (the
+  // fingers' distance apart now over before: above 1 zooms in, closer)
+  function zoomCamera(mode, zoom, spread) {
+    const range = CAMERA_ZOOM[mode];
+    if (!range || !(spread > 0)) return zoom;
+    return Math.min(range.max, Math.max(range.min, zoom / spread));
+  }
+  exports.CAMERA_ZOOM = CAMERA_ZOOM;
+  exports.BIRDS_EYE_HEIGHT = BIRDS_EYE_HEIGHT;
+  exports.zoomCamera = zoomCamera;
 
   const BUGGY_DRIVE = {
     REVERSE_TOP: 20,

@@ -54,11 +54,8 @@ export var STEER_HOLD_THRESHOLD = 100; // ms to wait before a tap becomes a hold
 
 inputManager.onCameraToggle = () => {
   if (state.cameraMode === 'follow') state.cameraMode = 'first-person';
-  else if (state.cameraMode === 'first-person')
-    state.cameraMode = 'birds-eye-close';
-  else if (state.cameraMode === 'birds-eye-close')
-    state.cameraMode = 'birds-eye-far';
-  else if (state.cameraMode === 'birds-eye-far') {
+  else if (state.cameraMode === 'first-person') state.cameraMode = 'birds-eye';
+  else if (state.cameraMode === 'birds-eye') {
     state.cameraMode = 'cinematic';
     currentCinematicIndex = 0;
     state.cinematicOrbitYaw = 0;

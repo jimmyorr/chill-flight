@@ -133,20 +133,7 @@ if (camToggle) {
   camToggle.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (state.cameraMode === 'follow') {
-      state.cameraMode = 'first-person';
-    } else if (state.cameraMode === 'first-person') {
-      state.cameraMode = 'birds-eye-close';
-    } else if (state.cameraMode === 'birds-eye-close') {
-      state.cameraMode = 'birds-eye-far';
-    } else if (state.cameraMode === 'birds-eye-far') {
-      state.cameraMode = 'cinematic';
-    } else {
-      state.cameraMode = 'follow';
-      state.cameraTransitionProgress = 0; // Reset progress to avoid bounce
-    }
-
-    Achievements.unlock('directors_cut');
+    inputManager.onCameraToggle();
   });
 }
 

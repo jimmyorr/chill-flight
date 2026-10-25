@@ -356,6 +356,8 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **Arrow left / right**: Control roll and turning.
 - **Shift + arrow up / down**: Throttle control (increase / decrease speed).
 - **Mouse wheel / trackpad scroll**: Smoothly adjust throttle (increase / decrease speed).
+- **C**: Cycle the camera: follow, first person, bird's eye (straight down, north up) and cinematic.
+- **Trackpad pinch / Ctrl + scroll**: Zoom the follow, bird's eye and cinematic cameras in and out (the bird's eye view from about 180 m to 1 km above the plane, 510 m as it starts; the chase cameras from about half to three times their usual distance; first person doesn't zoom). Each camera keeps its own zoom while you switch between them.
 - **M**: Open or close the fullscreen map. The game pauses while it's open, and closing it (M, Escape or the **Resume** bar along the bottom) goes straight back to flying.
 - **Shift+M**: Toggle the minimap overlay.
 - **L**: Toggle headlight.
@@ -403,6 +405,7 @@ When playing on a touch device, specialized UI and controls become available:
 - **Virtual joystick:** A premium, floating virtual joystick appears on screen for smooth, thumb-based flight control. It remains active and visible during double-tap-and-hold gestures (such as sharp turns, steep climbs, dives, and barrel rolls), allowing continuous steering throughout maneuvers.
 - **Control schemes:** The Controls setting on the pause menu's Settings tab lets you choose between virtual joystick, device tilt (gyroscope), or directional button steering.
 - **Throttle:** The slider next to the quick menu sets your speed: drag or tap anywhere on it, from a stop on the left to the plane's top speed (**MAX**) on the right. The knob shows the speed you've set in knots: amber where the plane sinks (50 to 100 knots in the seaplane), and red where it falls out of the sky (the striped band on the left marks where the fall starts, at 55 knots in the seaplane; see [Planes](#planes)). Left alone for about four seconds, the throttle fades back until you use it again. Keys, the scroll wheel and a gamepad move the knob too. The plane follows at a steady rate (in the seaplane, speeding up about 50 knots a second and slowing about 30), easing in over the last few knots, while the SPD readout shows its actual speed. On a desktop it works with the mouse.
+- **Pinch to zoom:** Put two fingers on the view together and pinch to zoom the follow, bird's eye or cinematic camera in and out (each keeps its own zoom). While they're down they don't steer or count as taps; a finger left down after the pinch does nothing until it lifts. A second finger that comes down later (tapping a stunt while steering) still works as before.
 - **Fullscreen world map:** Tap the map button in the quick menu (the ^ button at the bottom left) to open the full screen map. It pauses while open; tap **Resume** along the bottom to go back to flying. Press and hold / drag to pan across the world, pinch with two fingers to zoom in and out, double-tap to zoom in, and tap the locate button at the bottom right to re-center on your plane. Tap a spot to pin it (a tap near a landmark or airport picks that place, with its name and who's there), then **Warp here** to jump there (to an airport, lined up to land; to a landmark, facing it) or **Set waypoint** to fly there with a marker showing the way.
 - **Airshow smoke:** The smoke button in the quick menu (the ^ button at the bottom left) toggles a white smoke trail from the tail, like the **X** key.
 - **Zen:** Turn on **Zen** on the pause menu's Flight tab to hide the HUD, buttons and other planes (the joystick still appears while you steer). Double-tap the center of the screen to bring the controls back. The setting is saved between visits.
@@ -555,7 +558,7 @@ The game supports various URL query parameters for deep linking to specific loca
 
 ### Camera and system
 
-- **`camera`**: Start in a camera mode: `follow` (default), `first-person`, `birds-eye-close`, `birds-eye-far` or `cinematic`. The **C** key cycles them.
+- **`camera`**: Start in a camera mode: `follow` (default), `first-person`, `birds-eye` or `cinematic`. The **C** key cycles them. `birds-eye-close` and `birds-eye-far` start the bird's eye view zoomed in or out.
 - **`angle`**: With `camera=cinematic`, which of its preset angles (0-4: side-on, low from the front, front quarter, high above, wing tip).
 - **`camOffset`**: A custom chase camera, `x,y,z` relative to the plane's heading (x to the right, y up, z behind; negative z is ahead, looking back). It follows the plane, so it works for stills and moving shots. **`camLook`** (`x,y,z`, same frame, default the plane) is the point it looks at and **`fov`** its field of view (default 65).
 - **`headlight`**: Set to `1` to start with the headlight on.

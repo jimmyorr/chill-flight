@@ -61,6 +61,10 @@ export class InputManager {
       touch: {
         steeringId: null,
       },
+      // How far two fingers (or a trackpad) have pinched since the camera
+      // last read it (game-loop.js): their distance apart now over before,
+      // above 1 spreading them to zoom in
+      pinch: 1,
       gyro: {
         active: false,
       },
@@ -114,6 +118,15 @@ export class InputManager {
     this._activeGestures = {}; // Maps touch.identifier -> action
     this._lastFreeCamTouchX = 0;
     this._lastFreeCamTouchY = 0;
+    // Touches on the view (not the UI): identifier -> {time, action}, the
+    // zone it tapped
+    this._viewTouches = {};
+    // Two fingers coming down together pinch to zoom instead of steering or
+    // tapping: {ids, distance} while they do. Fingers left down after it
+    // do nothing until they lift (pinchDone)
+    this._pinch = null;
+    this._pinchDone = false;
+    this.PINCH_START_MS = 250;
 
     // Gamepad state latches
     this._gamepadPauseLatched = false;
@@ -170,6 +183,76 @@ export class InputManager {
     });
     window.addEventListener('touchend', this.handleTouchEnd.bind(this));
     window.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
+
+    // A trackpad pinch: a ctrl-wheel in most browsers (the plain wheel is
+    // the throttle, game-state.js), gesture events in Safari. Kept from
+    // zooming the page.
+    window.addEventListener(
+      'wheel',
+      (e) => {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        if (this.state.isPaused || this.state.isFreeCamera) return;
+        this.state.pinch *= Math.exp(
+          -Math.max(-50, Math.min(50, e.deltaY)) * 0.006
+        );
+      },
+      {passive: false}
+    );
+    let gestureScale = 1;
+    window.addEventListener('gesturestart', (e) => {
+      e.preventDefault();
+      gestureScale = 1;
+    });
+    window.addEventListener('gesturechange', (e) => {
+      e.preventDefault();
+      if (this.state.isPaused || this.state.isFreeCamera) return;
+      if (e.scale > 0) this.state.pinch *= e.scale / gestureScale;
+      gestureScale = e.scale;
+    });
+  }
+
+  // Lets go of the steering touch or joystick (for a pinch)
+  releaseTouchSteering() {
+    this.state.joystick.active = false;
+    this.state.joystick.touchId = null;
+    this.state.touch.steeringId = null;
+    this.resetMouseSteering();
+    const joystickBase = document.getElementById('virtual-joystick-base');
+    if (joystickBase) {
+      joystickBase.classList.remove('joystick-visible');
+      joystickBase.classList.add('joystick-hidden');
+    }
+    const stick = document.getElementById('virtual-joystick-stick');
+    if (stick) stick.style.transform = 'translate(-50%, -50%)';
+  }
+
+  // Starts a pinch if this touch came down with another on the view: undoes
+  // the other's tap (so pinching twice isn't a double tap) and the steering
+  startPinch(touch, now) {
+    const other = Object.keys(this._viewTouches).find(
+      (id) =>
+        Number(id) !== touch.identifier &&
+        now - this._viewTouches[id].time < this.PINCH_START_MS
+    );
+    if (other === undefined) return false;
+    const otherAction = this._viewTouches[other].action;
+    if (otherAction) {
+      this._tapCount[otherAction] = 0;
+      this._lastArrowTap[otherAction] = 0;
+    } else {
+      this._lastCenterTap = 0;
+    }
+    const gesture = this._activeGestures[other];
+    if (gesture) {
+      this.state.doubleTap[gesture] = false;
+      this.state.tripleTap[gesture] = false;
+      this.state.keys[gesture] = false;
+      delete this._activeGestures[other];
+    }
+    this.releaseTouchSteering();
+    this._pinch = {ids: [Number(other), touch.identifier], distance: 0};
+    return true;
   }
 
   resetMouseSteering() {
@@ -446,6 +529,9 @@ export class InputManager {
     this.state.joystick.touchId = null;
     this.state.touch.steeringId = null;
     this._activeGestures = {};
+    this._viewTouches = {};
+    this._pinch = null;
+    this._pinchDone = false;
   }
 
   handleFocus() {
@@ -591,6 +677,16 @@ export class InputManager {
     const x = touch.clientX / window.innerWidth;
     const y = touch.clientY / window.innerHeight;
 
+    // (Two fingers landing together can come in one event)
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      this._viewTouches[e.changedTouches[i].identifier] = {
+        time: now,
+        action: null,
+      };
+    }
+    if (this._pinch || this._pinchDone) return;
+    if (this.startPinch(touch, now)) return;
+
     // Gesture detection for screen zones (left/right/top/bottom third):
     // the planes' stunts and the buggy's double-tap moves. The touch still
     // works the joystick too, steering through the move. The chase camera
@@ -605,6 +701,7 @@ export class InputManager {
     else if (y < zones.UP_ABOVE) action = 'ArrowUp';
     else if (y > zones.DOWN_BELOW) action = 'ArrowDown';
 
+    this._viewTouches[touch.identifier].action = action;
     if (action) {
       const timeSinceLastTap = now - (this._lastArrowTap[action] || 0);
       if (timeSinceLastTap < this.DOUBLE_TAP_MS) {
@@ -718,6 +815,24 @@ export class InputManager {
       return;
     }
 
+    if (this._pinch) {
+      const [a, b] = this._pinch.ids.map((id) =>
+        Array.from(e.touches).find((t) => t.identifier === id)
+      );
+      if (a && b) {
+        const distance = Math.hypot(
+          a.clientX - b.clientX,
+          a.clientY - b.clientY
+        );
+        if (this._pinch.distance > 0 && distance > 0) {
+          this.state.pinch *= distance / this._pinch.distance;
+        }
+        this._pinch.distance = distance;
+      }
+      return;
+    }
+    if (this._pinchDone) return;
+
     if (this.state.controlScheme === 'gyro') return;
 
     if (this.state.controlScheme === 'joystick' && this.state.joystick.active) {
@@ -773,6 +888,17 @@ export class InputManager {
   }
 
   handleTouchEnd(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const id = e.changedTouches[i].identifier;
+      delete this._viewTouches[id];
+      if (this._pinch?.ids.includes(id)) {
+        this._pinch = null;
+        this._pinchDone = true;
+      }
+    }
+    if (e.touches.length === 0) this._viewTouches = {};
+    if (Object.keys(this._viewTouches).length === 0) this._pinchDone = false;
+
     // Joystick cleanup
     if (this.state.joystick.active) {
       for (let i = 0; i < e.changedTouches.length; i++) {

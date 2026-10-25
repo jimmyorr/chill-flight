@@ -83,6 +83,8 @@ window.addEventListener(
       (typeof state.isFreeCamera !== 'undefined' && state.isFreeCamera)
     )
       return;
+    // A trackpad pinch zooms the camera instead (input-manager.js)
+    if (e.ctrlKey) return;
 
     // Use e.deltaY to scale the throttle change.
     // This handles both fast trackpad scrolls (many small deltas)

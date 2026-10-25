@@ -152,11 +152,7 @@ export function updateFlightCamera(delta, nowTime) {
   } else {
     let targetProgress = 0;
     if (state.cameraMode === 'first-person') targetProgress = 0.5;
-    else if (
-      state.cameraMode === 'birds-eye-close' ||
-      state.cameraMode === 'birds-eye-far'
-    )
-      targetProgress = 1.0;
+    else if (state.cameraMode === 'birds-eye') targetProgress = 1.0;
 
     let speed = 0.25; // Slower transitions for all modes
 
@@ -172,9 +168,9 @@ export function updateFlightCamera(delta, nowTime) {
       );
     }
 
-    // Smoothly transition between different bird's eye heights
-    let targetBirdEyeHeight = 2000;
-    if (state.cameraMode === 'birds-eye-close') targetBirdEyeHeight = 500;
+    // Smoothly follow the bird's eye view's pinch zoom
+    const targetBirdEyeHeight =
+      ChillFlightLogic.BIRDS_EYE_HEIGHT * state.cameraZoom['birds-eye'];
 
     state.currentBirdEyeHeight = THREE.MathUtils.lerp(
       state.currentBirdEyeHeight,
@@ -209,15 +205,16 @@ export function updateFlightCamera(delta, nowTime) {
       : (state.flightSpeedMultiplier - 0.5) / 9.5;
     const diveFactor = Math.max(0, -planeGroup.rotation.x / (Math.PI / 4)); // 1.0 at 45 degree dive
 
-    const zOffset = THREE.MathUtils.lerp(
-      40 * followScale,
-      60 * followScale,
-      speedFactor
-    );
+    // Pinched in or out (cameraZoom)
+    const followZoom = state.cameraZoom.follow;
+    const zOffset =
+      THREE.MathUtils.lerp(40 * followScale, 60 * followScale, speedFactor) *
+      followZoom;
     // A vehicle can sit the camera higher over itself (chaseLift)
     const yOffset =
       THREE.MathUtils.lerp(12 * followScale, 20 * followScale, speedFactor) *
-      (state.airplaneModel?.chaseLift ?? 1);
+      (state.airplaneModel?.chaseLift ?? 1) *
+      followZoom;
 
     // FOV expands with speed AND dive/loop steepness, capped at 70 to avoid excessive distortion
     // We use a smoothed factor to prevent "jumping" when entering loops
@@ -435,6 +432,7 @@ export function updateFlightCamera(delta, nowTime) {
     );
     _orbitSpherical.theta += state.cinematicOrbitYaw;
     _orbitSpherical.phi -= state.cinematicOrbitPitch;
+    _orbitSpherical.radius *= state.cameraZoom.cinematic;
     _orbitOffset.setFromSpherical(_orbitSpherical);
     _orbitLook
       .copy(_cinematicLookTargetCurrent)

@@ -97,13 +97,19 @@ export const state = {
   smoothedManeuverFactor: 0, // Ensures smooth cinematic transitions
   manualPitch: 0,
   // A ?camera= mode starts in place rather than easing in from follow.
-  cameraMode: ChillFlightLogic.START_CAMERA || 'follow', // 'follow', 'first-person', 'birds-eye-close', 'birds-eye-far', or 'cinematic'
+  cameraMode: ChillFlightLogic.START_CAMERA || 'follow', // 'follow', 'first-person', 'birds-eye', or 'cinematic'
   cameraTransitionProgress:
-    {'first-person': 0.5, 'birds-eye-close': 1, 'birds-eye-far': 1}[
-      ChillFlightLogic.START_CAMERA
-    ] || 0, // 0 = follow/cinematic, 1 = bird's eye
+    {'first-person': 0.5, 'birds-eye': 1}[ChillFlightLogic.START_CAMERA] || 0, // 0 = follow/cinematic, 1 = bird's eye
+  // Each camera's pinch zoom (ChillFlightLogic.CAMERA_ZOOM): its distance
+  // from the plane times this
+  cameraZoom: {
+    follow: 1,
+    'birds-eye': ChillFlightLogic.START_CAMERA_ZOOM ?? 1,
+    cinematic: 1,
+  },
   currentBirdEyeHeight:
-    ChillFlightLogic.START_CAMERA === 'birds-eye-close' ? 500 : 2000,
+    ChillFlightLogic.BIRDS_EYE_HEIGHT *
+    (ChillFlightLogic.START_CAMERA_ZOOM ?? 1),
   _cinematicStableHeading: null, // set to the plane's heading on first use
   // In the cinematic camera a stick or touch steer swings the camera around
   // the plane instead of flying it (game-loop.js, flight-camera.js): the
