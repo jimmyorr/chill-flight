@@ -473,8 +473,9 @@ export function waggleRoll(ms) {
 // so nobody argues over lag. Each change counts up `n`; a message with a
 // lower count is old news, and two at once (two players starting a game) are
 // settled by the sender's id, the same way on every screen.
-//   {t: 'tag', it, plane, n, by, times}
-//   it: who's it (null: game over); plane: locked plane; times: {id: ms as it}
+//   {t: 'tag', it, plane, n, by, times, present}
+//   it: who's it (null: game over); plane: locked plane; times: {id: ms as it};
+//   present: {id: ms in the game}, so a late joiner can't win by arriving
 
 // 60 m (1 unit is 0.5144 m)
 export const TAG_RADIUS = 117;
@@ -493,25 +494,30 @@ export const NO_TAG = Object.freeze({
   n: 0,
   by: '',
   times: Object.freeze({}),
+  present: Object.freeze({}),
 });
+
+// To win, a player must have been in the game at least this share of the
+// longest anyone has
+export const TAG_MIN_PRESENT = 0.5;
+
+// {id: ms} from a message, keeping only sensible entries
+function readMsMap(map) {
+  const out = {};
+  if (map && typeof map === 'object' && !Array.isArray(map)) {
+    for (const [k, v] of Object.entries(map)) {
+      if (typeof v === 'number' && v >= 0 && Number.isFinite(v)) {
+        out[k] = Math.round(v);
+      }
+    }
+  }
+  return out;
+}
 
 /** A tag message tidied up, or null if it isn't one. */
 export function readTag(msg) {
   if (!msg || !Number.isInteger(msg.n) || msg.n < 0) return null;
   if (msg.it !== null && typeof msg.it !== 'string') return null;
-  const times = {};
-  if (msg.times && typeof msg.times === 'object' && !Array.isArray(msg.times)) {
-    for (const [k, v] of Object.entries(msg.times)) {
-      if (
-        typeof k === 'string' &&
-        typeof v === 'number' &&
-        v >= 0 &&
-        Number.isFinite(v)
-      ) {
-        times[k] = Math.round(v);
-      }
-    }
-  }
   const plane =
     msg.it && typeof msg.plane === 'string' && msg.plane
       ? tagPlane(msg.plane)
@@ -521,7 +527,8 @@ export function readTag(msg) {
     plane,
     n: msg.n,
     by: typeof msg.by === 'string' ? msg.by : '',
-    times,
+    times: readMsMap(msg.times),
+    present: readMsMap(msg.present),
   };
 }
 
@@ -588,24 +595,49 @@ export function withTagTime(tag, elapsedMs) {
 }
 
 /**
- * Whoever among `ids` has the lowest time as "it" ({id, ms}), or null when
- * fewer than two players are present or the round lasted under a second.
+ * A copy of `tag.present` with `stints` ({id: ms}) added: how long each
+ * player was in the game since the last change.
  */
-export function tagWinner(times, ids) {
-  const list = [...ids];
+export function withTagPresence(tag, stints) {
+  const present = {...(tag?.present || {})};
+  for (const [id, ms] of Object.entries(stints)) {
+    if (ms > 0) present[id] = (present[id] || 0) + Math.round(ms);
+  }
+  return present;
+}
+
+/**
+ * Who won among `ids` ({id, ids, ms}): the lowest share of their time in
+ * the game spent as "it", among those in it at least TAG_MIN_PRESENT of the
+ * longest anyone was, so a late joiner can't win by arriving. Equal shares
+ * share the win (`ids`); `id` and `ms` are the first winner's. Without
+ * `present` (an older game), everyone counts as in it the whole time. Null
+ * when fewer than two players are present or the round lasted under a
+ * second.
+ */
+export function tagWinner(times, ids, present) {
+  const list = [...ids].sort();
   if (list.length < 2) return null;
   const total = list.reduce((sum, id) => sum + (times?.[id] || 0), 0);
   if (total < 1000) return null;
-  let bestId = null;
-  let bestMs = Infinity;
+  const known = present && Object.keys(present).length > 0;
+  const inGame = (id) => (known ? present[id] || 0 : 1);
+  const longest = Math.max(...list.map(inGame));
+  let best = Infinity;
+  let winners = [];
   for (const id of list) {
-    const ms = times?.[id] || 0;
-    if (ms < bestMs) {
-      bestMs = ms;
-      bestId = id;
+    const ms = inGame(id);
+    if (ms <= 0 || ms < longest * TAG_MIN_PRESENT) continue;
+    const share = (times?.[id] || 0) / ms;
+    if (share < best - 1e-9) {
+      best = share;
+      winners = [id];
+    } else if (share <= best + 1e-9) {
+      winners.push(id);
     }
   }
-  return bestId ? {id: bestId, ms: bestMs} : null;
+  if (winners.length === 0) return null;
+  return {id: winners[0], ids: winners, ms: times?.[winners[0]] || 0};
 }
 
 /** Whether tag state `next` replaces `cur`. */

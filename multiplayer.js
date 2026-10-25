@@ -74,6 +74,7 @@ import {
   tagWinner,
   unpackState,
   waggleRoll,
+  withTagPresence,
   withTagTime,
 } from './multiplayer-logic.js';
 
@@ -111,6 +112,9 @@ const playersList = document.getElementById('fly-players');
 const statusText = document.getElementById('fly-status');
 const tagBtn = document.getElementById('fly-tag-btn');
 const tagChip = document.getElementById('tag-chip');
+const tagHint = document.getElementById('fly-tag-hint');
+// The boost whoever's it gets, as shown to players ("15% faster")
+const BOOST_TEXT = `${Math.round((TAG_SPEED_BOOST - 1) * 100)}% faster`;
 const markersEl = document.getElementById('friend-markers');
 const waveBtn = document.getElementById('mobile-wave-btn');
 
@@ -184,7 +188,7 @@ function sendHello() {
     livery: myLivery(),
   };
   if (tag.n > 0) {
-    hello.tag = tag.it ? {...tag, times: withTagTime(tag, itElapsed())} : tag;
+    hello.tag = tag.it ? {...tag, ...tagTotals()} : tag;
   }
   sentProfile = `${hello.name}|${hello.plane}|${hello.livery}`;
   send(hello);
@@ -266,6 +270,8 @@ function addPeer(id) {
     marker: null,
     // When their waggle shows (performance.now(), after RENDER_DELAY_MS)
     waggleAt: -Infinity,
+    // When they arrived (performance.now()), for their time in a game of tag
+    joinedAt: performance.now(),
   };
   addMarker(peer);
   peers.set(id, peer);
@@ -366,8 +372,8 @@ function refreshTag() {
     tagChip.classList.toggle('mine', amIt);
     if (inTag) {
       tagChip.textContent = amIt
-        ? "You're it, tag a friend"
-        : `${nameOf(tag.it)} is it`;
+        ? `You're it · ${BOOST_TEXT}, tag a friend`
+        : `${nameOf(tag.it)} is it · ${BOOST_TEXT}`;
     }
   }
   renderPanel();
@@ -376,6 +382,24 @@ function refreshTag() {
 // How long whoever's it has been it (ms), not counting time paused
 function itElapsed() {
   return tag.it ? tagClock.elapsed(performance.now()) : 0;
+}
+
+// The game's times as it and times in it, with the current stint folded in.
+// Someone who arrived during the stint is only counted from when they did.
+function tagTotals() {
+  const elapsed = itElapsed();
+  const now = performance.now();
+  const stints = {};
+  if (tag.it && room) {
+    stints[room.id] = Math.min(elapsed, now - room.joinedAt);
+    for (const peer of peers.values()) {
+      stints[peer.id] = Math.min(elapsed, now - peer.joinedAt);
+    }
+  }
+  return {
+    times: withTagTime(tag, elapsed),
+    present: withTagPresence(tag, stints),
+  };
 }
 
 // A friend whose updates have stopped (a stalled connection), or who has
@@ -407,15 +431,21 @@ function setTag(next) {
   if (tag.it !== was) {
     if (!tag.it) {
       const win = room
-        ? tagWinner(tag.times, [room.id, ...peers.keys()])
+        ? tagWinner(tag.times, [room.id, ...peers.keys()], tag.present)
         : null;
-      if (win) {
+      if (win?.ids.length > 1) {
+        const names = win.ids.map((id) =>
+          id === room.id ? 'You' : nameOf(id)
+        );
+        const who = `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+        toast(`Tag is over · ${who} share the win`);
+      } else if (win) {
         const who = win.id === room.id ? 'You' : nameOf(win.id);
         toast(`Tag is over · ${who} won (${formatTagTime(win.ms)} as it)`);
       } else {
         toast('Tag is over');
       }
-    } else if (tag.it === room?.id) toast("You're it");
+    } else if (tag.it === room?.id) toast(`You're it · ${BOOST_TEXT}`);
     else if (was === room?.id) toast(`You tagged ${nameOf(tag.it)}`);
     else toast(`${nameOf(tag.it)} is it`);
   }
@@ -434,6 +464,7 @@ function applyTag(next) {
       n: next.n + 1,
       by: '~',
       times: next.times,
+      present: next.present,
     });
     return;
   }
@@ -444,13 +475,13 @@ function applyTag(next) {
 function sendTag(it) {
   if (!room) return;
   const starting = !tag.it && !!it;
-  const times = starting ? {} : withTagTime(tag, itElapsed());
+  const {times, present} = starting ? {times: {}, present: {}} : tagTotals();
   const plane = it
     ? starting
       ? tagPlane(activePlaneType)
       : tag.plane || tagPlane(activePlaneType)
     : null;
-  const next = {it, plane, n: tag.n + 1, by: room.id, times};
+  const next = {it, plane, n: tag.n + 1, by: room.id, times, present};
   setTag(next);
   send({t: 'tag', ...next});
 }
@@ -459,9 +490,9 @@ function sendTag(it) {
 // the same on every screen); alone, the game's over
 function tagAfterLeaving(id) {
   if (!tag.it) return;
-  const times = withTagTime(tag, itElapsed());
+  const {times, present} = tagTotals();
   if (peers.size === 0) {
-    setTag({it: null, plane: null, n: tag.n + 1, by: '~', times});
+    setTag({it: null, plane: null, n: tag.n + 1, by: '~', times, present});
   } else if (tag.it === id) {
     setTag({
       it: nextIt([room.id, ...peers.keys()]),
@@ -469,6 +500,7 @@ function tagAfterLeaving(id) {
       n: tag.n + 1,
       by: '~',
       times,
+      present,
     });
   }
 }
@@ -520,7 +552,13 @@ function openRoom(code, mode) {
 
 function enterRoom(ws, welcome, code) {
   socket = ws;
-  room = {code, id: welcome.id, seed: welcome.seed, host: welcome.host};
+  room = {
+    code,
+    id: welcome.id,
+    seed: welcome.seed,
+    host: welcome.host,
+    joinedAt: performance.now(),
+  };
   reconnectTry = 0;
   for (const id of welcome.peers || []) addPeer(id);
   // Back after a dropped connection (with a new id): the others' hellos
@@ -1055,6 +1093,10 @@ function renderPanel() {
   if (tagBtn) {
     tagBtn.hidden = peers.size === 0 && !tag.it;
     tagBtn.textContent = tag.it ? 'Stop tag' : 'Play tag';
+  }
+  if (tagHint) {
+    tagHint.hidden = !tagBtn || tagBtn.hidden;
+    tagHint.textContent = `Whoever's it flies ${BOOST_TEXT}. Least time as it wins.`;
   }
   const elapsed = itElapsed();
   const showTimes = !!tag.it || Object.keys(tag.times).length > 0;

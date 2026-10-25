@@ -42,6 +42,7 @@ import {
   tagWinner,
   unpackState,
   waggleRoll,
+  withTagPresence,
   withTagTime,
 } from '../multiplayer-logic.js';
 
@@ -548,6 +549,40 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
         tagWinner(times1, ['a', 'b', 'c'])?.id === 'c' &&
         tagWinner(times1, ['a']) === null &&
         tagWinner({a: 200}, ['a', 'b']) === null
+    );
+  }
+
+  {
+    // a and b played 10 minutes; c arrived for the last 20 seconds
+    const times = {a: 240000, b: 360000};
+    const present = withTagPresence(
+      {present: {a: 580000, b: 580000}},
+      {a: 20000, b: 20000, c: 20000, gone: 0}
+    );
+    check(
+      'Tag presence folds in, and a late joiner cannot win by arriving',
+      present.a === 600000 &&
+        present.c === 20000 &&
+        !('gone' in present) &&
+        tagWinner(times, ['a', 'b', 'c'], present)?.id === 'a' &&
+        // Ranked by share of time in the game, not total time as it
+        tagWinner({a: 200000, b: 150000}, ['a', 'b'], {a: 600000, b: 400000})
+          ?.id === 'a' &&
+        // Even shares share the win
+        tagWinner({a: 0, b: 0, c: 5000}, ['b', 'a', 'c'], {
+          a: 9000,
+          b: 9000,
+          c: 9000,
+        })?.ids.join() === 'a,b' &&
+        // Someone never counted in the game can't win
+        tagWinner({a: 3000, b: 2000}, ['a', 'b', 'c'], {a: 9000, b: 9000})
+          ?.id === 'b' &&
+        // Older games without presence: lowest time as it, as before
+        tagWinner({a: 3000, b: 2000}, ['a', 'b', 'c'], {})?.id === 'c' &&
+        readTag({it: 'a', n: 1, present: {a: 5, b: -1}})?.present.a === 5 &&
+        readTag({it: 'a', n: 1, present: {a: 5, b: -1}})?.present.b ===
+          undefined &&
+        readTag({it: 'a', n: 1})?.present !== undefined
     );
   }
 
