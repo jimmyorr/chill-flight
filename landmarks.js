@@ -4,6 +4,10 @@
 // near one picks it (nearestLandmark), and warping there arrives in view of
 // it (arrivalAt).
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {simplex} from './noise.js';
+
+// The pyramids' place depends on the world (chill-flight-logic.js)
+const pyramids = ChillFlightLogic.pyramidSite(simplex, {WATER_LEVEL: 40});
 
 export const LANDMARKS = [
   {
@@ -46,6 +50,18 @@ export const LANDMARKS = [
     color: '#d2693c', // canyon-rock rust
     symbol: '⩔',
   },
+  ...(pyramids
+    ? [
+        {
+          // The middle of the three
+          name: 'Pyramids',
+          x: pyramids.x,
+          z: pyramids.z,
+          color: '#e8c27a', // sandstone
+          symbol: '△',
+        },
+      ]
+    : []),
   // The airports (chill-flight-logic.js)
   ...ChillFlightLogic.AIRPORTS.map((a) => ({
     name: a.name,

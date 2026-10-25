@@ -148,6 +148,46 @@ check(
     spot.speed === undefined
 );
 
+// The pyramids: a desert site found for every world, standing on dry land
+// clear of the highways, with the great one's tip the right height
+{
+  const {simplex} = await import('../noise.js');
+  const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 200};
+  const pin = LANDMARKS.find((l) => l.name === 'Pyramids');
+  const bad = [];
+  for (const seed of [20260101, 20261025, 42, 7, 3]) {
+    simplex.seed(seed);
+    ChillFlightLogic.WORLD_SEED = seed;
+    const site = ChillFlightLogic.pyramidSite(simplex, constants);
+    if (!site) {
+      bad.push(`${seed}: no site`);
+      continue;
+    }
+    const [great] = ChillFlightLogic.PYRAMIDS;
+    const tip = ChillFlightLogic.getElevation(
+      site.x + great.dx,
+      site.z + great.dz,
+      simplex,
+      constants
+    );
+    const want = site.base + great.half * ChillFlightLogic.PYRAMID_SLOPE;
+    if (Math.abs(tip - want) > 5) bad.push(`${seed}: tip ${tip} not ${want}`);
+    const road = Math.round(
+      (site.x - ChillFlightLogic.ROAD_BASE_X) / ChillFlightLogic.ROAD_SPACING
+    );
+    const fromRoad = Math.abs(
+      site.x - ChillFlightLogic.getRoadCenterX(site.z, road)
+    );
+    if (fromRoad < 1500) bad.push(`${seed}: ${fromRoad} from a highway`);
+    if (site.base <= 40) bad.push(`${seed}: plaza under water`);
+  }
+  check(
+    'the pyramids stand in the desert in every world, pinned on the map',
+    !!pin && pin.z > 10000 && bad.length === 0,
+    bad.join('; ')
+  );
+}
+
 if (failed) {
   console.error('Map place tests failed.');
   process.exit(1);

@@ -2238,6 +2238,147 @@ export const ChillFlightLogic = {};
     return carveFactor > 0 ? lerp(h, roadY - 2.5, carveFactor) : h;
   }
 
+  // --- THE PYRAMIDS ---
+  // Three giant pyramids out in the southern desert, a landmark seen from
+  // far off, laid out like Giza's: the great one, a middle one and a small
+  // one in a line to the south-west, on a plaza of flat sand. Where depends
+  // on the world: the first spot in PYRAMID_SITES (nearest the desert's
+  // heart first) that's dry, low desert clear of the highways, the airfields
+  // and the canyon. The terrain grid can't draw their edges straight, so
+  // pyramids.js draws them, and the ground here (for landing and crashing
+  // into) sits PYRAMID_SINK inside, out of sight.
+  const PYRAMID_SLOPE = 1.27; // Giza's 52 degree faces
+  const PYRAMID_SINK = 3;
+  const PYRAMIDS = [
+    {dx: 1275, dz: -1275, half: 600}, // 620 m base, 390 m high
+    {dx: 0, dz: 0, half: 450},
+    {dx: -1125, dz: 1275, half: 262.5},
+  ];
+  // The plaza: flat sand out to this far around the pyramids, easing back
+  // into the land by PYRAMID_PLAZA_EDGE
+  const PYRAMID_PLAZA = 400;
+  const PYRAMID_PLAZA_EDGE = 1100;
+  const PYRAMID_HEART = [-10000, 21000];
+  // How far (dx, dz) from the middle pyramid is outside the nearest one's
+  // base (0 on a pyramid)
+  function pyramidFootDistance(dx, dz) {
+    let best = Infinity;
+    for (const p of PYRAMIDS) {
+      const r = Math.max(Math.abs(dx - p.dx), Math.abs(dz - p.dz)) - p.half;
+      if (r < best) best = r;
+    }
+    return Math.max(0, best);
+  }
+  // Where the plaza is looked at to choose a site: every 500 units over it
+  const PYRAMID_PROBES = [];
+  for (let dx = -2400; dx <= 2400; dx += 500) {
+    for (let dz = -2400; dz <= 2400; dz += 500) {
+      if (pyramidFootDistance(dx, dz) < PYRAMID_PLAZA_EDGE) {
+        PYRAMID_PROBES.push([dx, dz]);
+      }
+    }
+  }
+  // Of those, how many can be water (or hills)
+  const PYRAMID_MAX_WET = Math.round(PYRAMID_PROBES.length * 0.2);
+  const PYRAMID_SITES = [];
+  for (let x = -24000; x <= -3000; x += 750) {
+    for (let z = 16500; z <= 27000; z += 750) PYRAMID_SITES.push([x, z]);
+  }
+  PYRAMID_SITES.sort(
+    (a, b) =>
+      Math.hypot(a[0] - PYRAMID_HEART[0], a[1] - PYRAMID_HEART[1]) -
+      Math.hypot(b[0] - PYRAMID_HEART[0], b[1] - PYRAMID_HEART[1])
+  );
+  const _pyramidSites = new WeakMap();
+  let _findingPyramids = false;
+  // The pyramids' plaza for this world: {x, z, base} (x, z: the middle
+  // pyramid; base: the plaza's height), worked out once per world
+  function pyramidSite(simplex, constants, lerp) {
+    const signature = simplex.noise2D(0.123, 0.456);
+    const cached = _pyramidSites.get(simplex);
+    if (cached && cached.signature === signature) return cached.site;
+    const water = constants.WATER_LEVEL || 40;
+    _findingPyramids = true;
+    // The first good site, or failing that the driest (on its own island,
+    // in a world with little desert)
+    let site = null;
+    let bestWet = Infinity;
+    try {
+      for (const [cx, cz] of PYRAMID_SITES) {
+        if (isOnAirport(cx, cz, 6000)) continue;
+        if (
+          cx > _canyonBox[0] - 4000 &&
+          cx < _canyonBox[1] + 4000 &&
+          cz > _canyonBox[2] - 4000 &&
+          cz < _canyonBox[3] + 4000
+        ) {
+          continue;
+        }
+        if (desertLowlandAt(cx, cz, simplex) < 0.9) continue;
+        let sum = 0;
+        let count = 0;
+        let wet = 0;
+        for (const [dx, dz] of PYRAMID_PROBES) {
+          const x = cx + dx;
+          const z = cz + dz;
+          if (roadClear(x, z) < 1) {
+            wet = Infinity;
+            break;
+          }
+          const h = getElevation(x, z, simplex, constants, lerp);
+          // The odd pond is filled in by the plaza, and the odd hill cut down
+          if (h < water + 4 || h > 200) {
+            if (++wet >= bestWet) break;
+          } else {
+            sum += h;
+            count++;
+          }
+        }
+        if (wet < bestWet) {
+          bestWet = wet;
+          site = {
+            x: cx,
+            z: cz,
+            base: Math.max(water + 6, count ? sum / count : 0),
+          };
+          if (wet <= PYRAMID_MAX_WET) break;
+        }
+      }
+    } finally {
+      _findingPyramids = false;
+    }
+    _pyramidSites.set(simplex, {signature, site});
+    return site;
+  }
+  // The pyramids at (x, z), for getElevation and the terrain's colours:
+  // fills _pyramid (plaza 0 to 1, base height, the height of the stone
+  // above the plaza, 0 off the pyramids) and returns whether it's near them
+  const _pyramid = {plaza: 0, base: 0, stone: 0};
+  function pyramidAt(x, z, simplex, constants, lerp) {
+    _pyramid.plaza = 0;
+    _pyramid.stone = 0;
+    if (_findingPyramids || x > -1000 || z < 12000) return false;
+    const site = pyramidSite(simplex, constants || {}, lerp);
+    if (!site) return false;
+    const dx = x - site.x;
+    const dz = z - site.z;
+    if (Math.abs(dx) > 3600 || Math.abs(dz) > 3600) return false;
+    const foot = pyramidFootDistance(dx, dz);
+    if (foot >= PYRAMID_PLAZA_EDGE) return false;
+    _pyramid.plaza = 1 - smoothRamp(foot, PYRAMID_PLAZA, PYRAMID_PLAZA_EDGE);
+    _pyramid.base = site.base;
+    for (const p of PYRAMIDS) {
+      const r = Math.max(Math.abs(dx - p.dx), Math.abs(dz - p.dz));
+      if (r < p.half) {
+        _pyramid.stone = Math.max(
+          _pyramid.stone,
+          (p.half - r) * PYRAMID_SLOPE - PYRAMID_SINK
+        );
+      }
+    }
+    return true;
+  }
+
   function getElevation(x, z, simplex, constants, lerp, options = {}) {
     const WATER_LEVEL = constants.WATER_LEVEL || 40;
 
@@ -3619,6 +3760,12 @@ export const ChillFlightLogic = {};
     if (fallsW > 0) n = _lerp(n, fallsH, fallsW);
     n = Math.max(n, fallsSpurAt(origX, origZ, simplex));
 
+    // The pyramids on their plaza (after the rivers, so none run through)
+    if (pyramidAt(origX, origZ, simplex, constants, _lerp)) {
+      n = _lerp(n, _pyramid.base, _pyramid.plaza);
+      n = Math.max(n, _pyramid.base + _pyramid.stone);
+    }
+
     // Airports: the ground inside each airfield is flat at its field height,
     // easing into the surrounding land over AIRPORT_FALLOFF (an island
     // where the field is over water, a plateau where it cuts into hills).
@@ -3694,6 +3841,14 @@ export const ChillFlightLogic = {};
   exports.spawnYaw = spawnYaw;
   exports.CANYON_PATH = CANYON_PATH;
   exports.canyonRockAt = canyonRockAt;
+  exports.PYRAMIDS = PYRAMIDS;
+  exports.PYRAMID_SLOPE = PYRAMID_SLOPE;
+  exports.desertLowlandAt = desertLowlandAt;
+  exports.pyramidSite = pyramidSite;
+  // How high the pyramids' stone stands above their plaza at (x, z), 0 off
+  // them (terrain-gen.js colours it)
+  exports.pyramidStoneAt = (x, z, simplex, constants) =>
+    pyramidAt(x, z, simplex, constants) ? _pyramid.stone : 0;
   exports.CANYON_TIER_HEIGHT = CANYON_TIER_HEIGHT;
   exports.FALLS_Z = FALLS_Z;
   exports.FALLS_LIP_Z = FALLS_LIP_Z;

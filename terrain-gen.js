@@ -167,6 +167,12 @@ const _colorSandMottleHigh = new Color(0xd2b48c);
 const _colorSandMottleLow = new Color(0xdeb887);
 const _colorArizonaDark = new Color(0x8b0000);
 const _colorDesertMottle = new Color(0xdaa520);
+// The pyramids: sandstone in courses this tall (units), and a pale
+// limestone cap above this height on the great one
+const _colorPyramidStone = new Color(0xd8b07a);
+const _colorPyramidCap = new Color(0xf0e6cc);
+const PYRAMID_COURSE = 12;
+const PYRAMID_CAP = 690;
 // The canyon's sandstone layers, one per tier of its walls, bottom to top
 const _canyonBands = [
   new Color(0xb5532e), // rust
@@ -3194,6 +3200,24 @@ export function generateChunkData({
             _canyonBands.length
         ];
       _tempColorObj.lerp(band, canyonRock * 0.85);
+    }
+
+    // The pyramids' stone: sandstone laid in courses, with a pale cap on
+    // the great one's tip
+    const pyramidStone = ChillFlightLogic.pyramidStoneAt(
+      worldX,
+      worldZ,
+      simplex,
+      elevParams
+    );
+    if (pyramidStone > 0) {
+      _tempColorObj.copy(
+        pyramidStone > PYRAMID_CAP ? _colorPyramidCap : _colorPyramidStone
+      );
+      if (Math.floor(pyramidStone / PYRAMID_COURSE) % 2) {
+        _tempColorObj.multiplyScalar(0.93);
+      }
+      _tempColorObj.multiplyScalar(1.0 + grain);
     }
 
     // The falls landmark's crags are bare rock
