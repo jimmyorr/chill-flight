@@ -104,11 +104,11 @@ check(
 // --- Links ---
 {
   const link = new URL(
-    inviteUrl('https://chill-flight.cowneck.com/?plane=jet#x', 'AB7K', 20261020)
+    inviteUrl('https://chillflight.app/?plane=jet#x', 'AB7K', 20261020)
   );
   check(
     'Invite link carries the room and the world, nothing else',
-    link.origin === 'https://chill-flight.cowneck.com' &&
+    link.origin === 'https://chillflight.app' &&
       link.searchParams.get('room') === 'AB7K' &&
       link.searchParams.get('seed') === '20261020' &&
       !link.searchParams.has('plane') &&
@@ -133,11 +133,12 @@ check(
 // --- Which pages may connect ---
 {
   const allowed =
-    'https://chill-flight.cowneck.com,https://*.chill-flight.pages.dev,capacitor://localhost,tauri://localhost';
+    'https://chillflight.app,https://*.chillflight.app,https://chill-flight.cowneck.com,https://*.chill-flight.pages.dev,capacitor://localhost,tauri://localhost';
   const ok = (o) => rules.isAllowedOrigin(o, allowed);
   check(
     'The site, its previews, the apps and local testing may connect',
-    ok('https://chill-flight.cowneck.com') &&
+    ok('https://chillflight.app') &&
+      ok('https://chill-flight.cowneck.com') &&
       ok('https://v1-1-2.chill-flight.pages.dev') &&
       ok('capacitor://localhost') &&
       ok('tauri://localhost') &&
@@ -147,6 +148,8 @@ check(
   check(
     'Other pages may not',
     !ok('https://evil.example') &&
+      !ok('https://chillflight.app.evil.example') &&
+      !ok('http://chillflight.app') &&
       !ok('https://chill-flight.cowneck.com.evil.example') &&
       !ok('https://chill-flight.pages.dev.evil.example') &&
       !ok('http://chill-flight.cowneck.com') &&

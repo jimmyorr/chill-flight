@@ -16,7 +16,7 @@ invocation_logs = true
 # Pages that may connect (rules.js isAllowedOrigin; localhost always may).
 # Web: the site, its Pages previews and GitHub Pages. Apps: Capacitor on iOS
 # and Android, Tauri on Mac/Linux and Windows.
-ALLOWED_ORIGINS = "https://chill-flight.cowneck.com,https://chill-flight.pages.dev,https://*.chill-flight.pages.dev,https://jimmyorr.github.io,capacitor://localhost,https://localhost,tauri://localhost,http://tauri.localhost,https://tauri.localhost"
+ALLOWED_ORIGINS = "https://chillflight.app,https://*.chillflight.app,https://chill-flight.cowneck.com,https://chill-flight.pages.dev,https://*.chill-flight.pages.dev,https://jimmyorr.github.io,capacitor://localhost,https://localhost,tauri://localhost,http://tauri.localhost,https://tauri.localhost"
 
 [[durable_objects.bindings]]
 name = "ROOMS"

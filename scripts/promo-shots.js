@@ -85,7 +85,7 @@ export const TARGETS = {
     titleCard: {...TITLE, seconds: 2.5},
     endCard: {
       ...SIGN_OFF,
-      lines: [...SIGN_OFF.lines, 'chill-flight.cowneck.com'],
+      lines: [...SIGN_OFF.lines, 'chillflight.app'],
       version: true,
       seconds: 3.5,
     },

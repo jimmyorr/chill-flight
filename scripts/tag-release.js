@@ -179,7 +179,7 @@ console.log('================================================================');
 console.log(`\n📊 Status Summary:`);
 console.log(`   - Web (Cloudflare Pages): ${cloudflareStatus}`);
 console.log(`     • Production:    https://chill-flight.pages.dev`);
-console.log(`     • Custom domain: https://chill-flight.cowneck.com`);
+console.log(`     • Custom domain: https://chillflight.app`);
 console.log(`     • Version alias: https://${safeName}.chill-flight.pages.dev`);
 console.log(`   - Android (Google Play):   ${androidStatus}`);
 console.log(

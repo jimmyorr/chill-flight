@@ -83,7 +83,7 @@ import {
 const DEFAULT_RELAY = 'wss://chill-flight-relay.jimmyorr.workers.dev';
 const RELAY = ChillFlightLogic.RELAY_PARAM || DEFAULT_RELAY;
 // Invite links from the apps point at the website
-const WEB_URL = 'https://chill-flight.cowneck.com/';
+const WEB_URL = 'https://chillflight.app/';
 const CONNECT_TIMEOUT_MS = 6000;
 // Waits before trying to get back into the room after the connection drops
 const RECONNECT_DELAYS_MS = [1000, 3000, 8000];
