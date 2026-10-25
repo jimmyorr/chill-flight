@@ -643,6 +643,12 @@ npm run test:build
 
 Runs the same game checks against a production build written to a temporary directory (never `docs/`).
 
+```bash
+npm run test:road-landings
+```
+
+With `npm run dev` running, lands each plane on the highways (open road, a viaduct, the cross-country highway, a junction, across a road and at a highway end) and warps one away while parked. Fails on height jumps between frames, repeated bounces, or not coming to a stop on the wheels. `PLANES=jet,biplane` picks planes.
+
 ### Screenshots and render benchmarks
 
 With the dev server running, these open the game in headless Chrome with `start=1&ui=0&music=0` (see [URL parameters](#url-parameters)), wait until the terrain around the camera has loaded, and then work from there.

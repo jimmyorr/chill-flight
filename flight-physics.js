@@ -53,6 +53,18 @@ const RIDE_FALL_SECONDS = 0.3;
 const RIDE_LAG = 3;
 // The smoothed ride height while rolling, or null when not rolling
 let rideHeight = null;
+// Over land the plane keeps this far above the ground (units) unless it
+// can land there. Leaving the wheels (rolling onto ground too steep for
+// them, say) it grows back from 0 at GROUND_CUSHION_RISE units a second,
+// instead of lifting the plane 5 m in one frame.
+const GROUND_CUSHION = 10;
+const GROUND_CUSHION_RISE = 20;
+let groundCushion = GROUND_CUSHION;
+// Where the plane was at the end of the last frame: a jump further than
+// this (units) is a warp, or a switch from the buggy, and the wheels'
+// contact with the ground it left is forgotten
+const TELEPORT_DISTANCE = 100;
+const _lastPosition = new THREE.Vector3(NaN, NaN, NaN);
 
 // Speed, sinking and falling (flight-physics-logic.js, shared with
 // scripts/flight-sim.js)
@@ -98,6 +110,11 @@ export function setOnWheels(onWheels) {
 
 export function updateFlightPhysics(delta, nowTime) {
   const handling = planeHandling();
+  if (planeGroup.position.distanceTo(_lastPosition) > TELEPORT_DISTANCE) {
+    isRolling = false;
+    rideHeight = null;
+    groundCushion = GROUND_CUSHION;
+  }
   // --- FLIGHT PHYSICS & SPEED ---
   let terrainHeight = getElevation(
     planeGroup.position.x,
@@ -116,7 +133,9 @@ export function updateFlightPhysics(delta, nowTime) {
   // Ground avoidance heights:
   // Over water, avoidance and resting heights are anchored to WATER_LEVEL (surface)
   // rather than terrainHeight (the seabed below the water).
-  let minFlightHeight = isWater ? WATER_LEVEL + 2.8 : terrainHeight + 10.0;
+  let minFlightHeight = isWater
+    ? WATER_LEVEL + 2.8
+    : terrainHeight + groundCushion;
   let restingHeight = minFlightHeight + 2.0;
 
   // Planes with their gear down (wheels, or the seaplane's pontoons) can
@@ -265,6 +284,9 @@ export function updateFlightPhysics(delta, nowTime) {
     1 - Math.exp(-delta / FLIGHT.SINK_EASE_SECONDS)
   );
 
+  // Off the wheels, their ride height starts again from wherever they next
+  // touch
+  if (!followingGround) rideHeight = null;
   if (
     !state.isFreeCamera &&
     (planeGroup.position.y <= restingHeight + 0.1 || followingGround)
@@ -304,14 +326,15 @@ export function updateFlightPhysics(delta, nowTime) {
       const target = wheelRestHeight(wheelDepth);
       const seconds =
         target > rideHeight ? RIDE_RISE_SECONDS : RIDE_FALL_SECONDS;
+      // From where the wheels touched, which can be up to RIDE_LAG above
+      // the ground, so touching down doesn't drop it there in one frame
       rideHeight =
         rideHeight === null
-          ? target
+          ? planeGroup.position.y
           : rideHeight +
             (target - rideHeight) * (1 - Math.exp(-delta / seconds));
       planeGroup.position.y = rideHeight;
     } else {
-      rideHeight = null;
       // Smooth landing
       planeGroup.position.y = THREE.MathUtils.lerp(
         planeGroup.position.y,
@@ -440,6 +463,10 @@ export function updateFlightPhysics(delta, nowTime) {
     isRolling =
       planeGroup.position.y <= wheelRestHeight(wheelDepth) + 0.5 + RIDE_LAG;
   }
+  groundCushion = isRolling
+    ? 0
+    : Math.min(GROUND_CUSHION, groundCushion + GROUND_CUSHION_RISE * delta);
+  _lastPosition.copy(planeGroup.position);
 
   // Pontoons and retractable wheels come down approaching water (and, for
   // wheels, any ground) and go up climbing away, by height above the surface

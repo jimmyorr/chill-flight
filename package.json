@@ -30,6 +30,7 @@
     "export:faces": "node scripts/export-faces.js",
     "format": "prettier --write \"**/*.{js,json,css,html,md}\" --ignore-path .prettierignore",
     "test:browser": "node scripts/smoke-test.js",
+    "test:road-landings": "node scripts/test-road-landings.js",
     "test:build": "node scripts/smoke-test.js --build",
     "test:globals": "node scripts/check-window-globals.js",
     "test:imports": "node scripts/check-import-order.js",
