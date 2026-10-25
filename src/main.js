@@ -73,6 +73,7 @@ import '../jobs.js';
 import '../people-screen.js';
 import '../prop-spin-logic.js';
 import '../multiplayer-logic.js';
+import '../bot-logic.js';
 import '../multiplayer.js';
 import '../breakables-logic.js';
 import '../breakables.js';

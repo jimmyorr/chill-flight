@@ -5,7 +5,9 @@
 // smoke. Everyone's smoke takes their livery's colour while in a room.
 // Friends out of view show at the screen's edge and on the maps; H (or the
 // quick menu's 👋) waggles your wings at them; and the panel starts a game
-// of tag.
+// of tag. Empty seats can be filled with bots (bot-logic.js): the player
+// who turns them on flies them on their device, and sends them along with
+// their own updates, so to everyone else they're players like any other.
 //
 // A small relay passes messages between the players in a room
 // (relay/README.md); it knows nothing about the game. Each player sends
@@ -17,6 +19,12 @@
 //   {t: 's', ts, p, q, v, fl}          where you are (packState)
 //   {t: 'waggle'}                      a wave
 //   {t: 'tag', it, n}                  who's it (multiplayer-logic.js)
+// A player's bots have ids "<their id>~<k>". {t: 'bot', k, hello} (as a
+// hello's name, plane, livery), {t: 'bot', k, waggle: true} and {t: 'bot',
+// k, bye: true} speak for one; their positions ride along in the player's
+// own update as `b: [{k, p, q, v, fl}]`; and {t: 'bots', on: false} asks
+// whoever brought them to take them away. (Their own message type, so an
+// older game in the room just doesn't see them.)
 // and from the relay: welcome, joined, left (relay/src/index.js).
 import * as THREE from 'three';
 import {log} from './logger.js';
@@ -24,7 +32,7 @@ import {withTimeout} from './network.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
-import {BASE_FLIGHT_SPEED} from './constants.js';
+import {BASE_FLIGHT_SPEED, PLANE_HANDLING, WATER_LEVEL} from './constants.js';
 import {scene} from './scene.js';
 import {camera} from './sky.js';
 import {setGearExtension} from './twin.js';
@@ -43,6 +51,14 @@ import {getElevation} from './terrain-geometry.js';
 import {PLANE_BUILDERS, buildPlaneModel} from './plane-models.js';
 import {Achievements} from './achievements.js';
 import {isSmokeOn, setSmokeTint, smokeColor, trailSmoke} from './particles.js';
+import {
+  BOT_PLANES,
+  REJOIN_DISTANCE,
+  fanSpot,
+  newBot,
+  rejoin as rejoinBot,
+  stepBot,
+} from './bot-logic.js';
 import {
   CLOSE,
   FLAGS,
@@ -65,6 +81,7 @@ import {
   nextIt,
   packState,
   parseRoomCode,
+  CALLSIGNS,
   randomCallsign,
   readTag,
   roomSocketUrl,
@@ -113,6 +130,8 @@ const statusText = document.getElementById('fly-status');
 const tagBtn = document.getElementById('fly-tag-btn');
 const tagChip = document.getElementById('tag-chip');
 const tagHint = document.getElementById('fly-tag-hint');
+const botsInput = document.getElementById('fly-bots-input');
+const botsBtn = document.getElementById('fly-bots-btn');
 // The boost whoever's it gets, as shown to players ("15% faster")
 const BOOST_TEXT = `${Math.round((TAG_SPEED_BOOST - 1) * 100)}% faster`;
 const markersEl = document.getElementById('friend-markers');
@@ -145,6 +164,14 @@ let tagSince = 0;
 // Time as it, stopped while whoever's it is paused
 const tagClock = new TagClock();
 let gatherToId = null;
+// Bots this player brought, by k ('1' to '3'): {bot (bot-logic.js), peer,
+// name, livery, plane (out of games)}; and whether they want them
+const myBots = new Map();
+let botsWanted = false;
+// A game of tag just started: this player's bots are to gather for it
+let gatherBotsPending = false;
+// Who was it before whoever's it now (a bot doesn't tag them straight back)
+let tagBefore = null;
 
 function myName() {
   try {
@@ -316,27 +343,70 @@ function onMessage(event) {
   if (msg.t === 'joined') {
     addPeer(msg.f).announce = true;
     sendHello();
+    // Someone's here: a bot makes room for them
+    syncBots();
+    for (const k of myBots.keys()) sendBotHello(k);
   } else if (msg.t === 'left') {
+    const gone = [
+      msg.f,
+      ...[...peers.keys()].filter((id) => ownerOf(id) === msg.f),
+    ];
     const name = peers.get(msg.f)?.name;
-    removePeer(msg.f);
+    for (const id of gone) removePeer(id);
     if (name) toast(`${name} left`);
-    tagAfterLeaving(msg.f);
+    for (const id of gone) tagAfterLeaving(id);
+    syncBots();
     renderPanel();
   } else if (msg.t === 'hello') {
     onHello(addPeer(msg.f), msg);
+    syncBots();
   } else if (msg.t === 's') {
+    // Stamped on arrival with the real clock: smoothNow stands still while
+    // paused or hidden, and arrivals stamped with it then would put the
+    // plane up to a second ahead for half a minute after
+    const heardAt = performance.now();
     const s = unpackState(msg);
     if (s) {
       const peer = addPeer(msg.f);
-      // Stamped on arrival with the real clock: smoothNow stands still
-      // while paused or hidden, and arrivals stamped with it then would put
-      // the plane up to a second ahead for half a minute after
-      peer.heardAt = performance.now();
+      peer.heardAt = heardAt;
       peer.track.push(s, peer.heardAt);
+    }
+    // Their bots, at the same moment
+    if (Array.isArray(msg.b)) {
+      for (const b of msg.b.slice(0, MAX_PLAYERS)) {
+        if (typeof b?.k !== 'string') continue;
+        const bs = unpackState({...b, t: 's', ts: msg.ts});
+        if (!bs) continue;
+        const peer = addPeer(botId(msg.f, b.k));
+        peer.isBot = true;
+        peer.heardAt = heardAt;
+        peer.track.push(bs, heardAt);
+      }
     }
   } else if (msg.t === 'waggle') {
     // Shown when their plane, drawn a moment behind, gets there
     addPeer(msg.f).waggleAt = performance.now() + RENDER_DELAY_MS;
+    botsWaveBack(msg.f);
+  } else if (msg.t === 'bot') {
+    if (typeof msg.k !== 'string' || !msg.k) return;
+    const id = botId(msg.f, msg.k);
+    if (msg.bye) {
+      botGone(id);
+    } else if (msg.waggle) {
+      addPeer(id).waggleAt = performance.now() + RENDER_DELAY_MS;
+      botsWaveBack(id);
+    } else if (msg.hello) {
+      const peer = addPeer(id);
+      peer.isBot = true;
+      onHello(peer, {...msg.hello, tag: undefined});
+      syncBots();
+    }
+  } else if (msg.t === 'bots') {
+    if (msg.on === false && botsWanted) {
+      botsWanted = false;
+      syncBots();
+    }
+    renderPanel();
   } else if (msg.t === 'tag') {
     applyTag(readTag({...msg, by: msg.f}));
   }
@@ -420,6 +490,7 @@ function noteItPaused(now) {
 
 function setTag(next) {
   const was = tag.it;
+  if (next.it !== was) tagBefore = was;
   tag = next;
   tagSince = performance.now();
   tagClock.reset(tagSince);
@@ -428,6 +499,7 @@ function setTag(next) {
   } else if (!tag.it) {
     gatherToId = null;
   }
+  gatherBotsPending = !was && !!tag.it && tag.by === tag.it;
   if (tag.it !== was) {
     if (!tag.it) {
       const win = room
@@ -514,7 +586,344 @@ function wave() {
   if (now - waggleAt < WAGGLE_MS) return;
   waggleAt = now;
   send({t: 'waggle'});
+  botsWaveBack(room.id);
 }
+
+// --- BOTS ---
+
+const BOT_MARK = ' 🤖';
+// Bots wave back at a waggle within this distance, after a moment
+const WAVE_BACK_DISTANCE = 1500;
+
+function botId(owner, k) {
+  return `${owner}~${k}`;
+}
+
+// Who brought a bot (null for a player)
+function ownerOf(id) {
+  const i = id.indexOf('~');
+  return i > 0 ? id.slice(0, i) : null;
+}
+
+// The player's own plane as a bot follows it: {x, y, z, heading, speed}
+// (speed in units a second)
+function leaderNow() {
+  planeGroup.getWorldQuaternion(_botQuat);
+  _botEuler.setFromQuaternion(_botQuat, 'YXZ');
+  const p = planeGroup.position;
+  return {
+    x: p.x,
+    y: p.y,
+    z: p.z,
+    heading: _botEuler.y,
+    speed: (state.flightSpeedMultiplier || 0) * BASE_FLIGHT_SPEED * 60,
+  };
+}
+
+// Everyone in the room where they are now, for the bots' games of tag:
+// [{id, x, y, z, vx, vy, vz, paused}]. Others are as drawn; this player's
+// own bots as flown.
+function playerSpots(rawNow) {
+  const spots = [];
+  const units = BASE_FLIGHT_SPEED * 60;
+  const add = (id, pos, quat, speed, paused) => {
+    _botFwd.set(0, 0, -1).applyQuaternion(quat).multiplyScalar(speed);
+    spots.push({
+      id,
+      x: pos.x,
+      y: pos.y,
+      z: pos.z,
+      vx: _botFwd.x,
+      vy: _botFwd.y,
+      vz: _botFwd.z,
+      paused,
+    });
+  };
+  planeGroup.getWorldQuaternion(_botQuat);
+  add(
+    room.id,
+    planeGroup.position,
+    _botQuat,
+    (state.flightSpeedMultiplier || 0) * units,
+    !!state.isPaused
+  );
+  for (const peer of peers.values()) {
+    if (ownerOf(peer.id) === room.id || !peer.group?.visible) continue;
+    add(
+      peer.id,
+      peer.group.position,
+      peer.group.quaternion,
+      (peer.track.latest?.speed || 0) * units,
+      isAway(peer, rawNow)
+    );
+  }
+  for (const {bot, peer} of myBots.values()) {
+    _botEuler.set(bot.pitch, bot.heading, bot.bank, 'YXZ');
+    _botQuat.setFromEuler(_botEuler);
+    _botPos.set(bot.x, bot.y, bot.z);
+    add(peer.id, _botPos, _botQuat, bot.speed, !!state.isPaused);
+  }
+  return spots;
+}
+
+function sendBotHello(k) {
+  const mine = myBots.get(k);
+  if (!mine) return;
+  const hello = {name: mine.name, plane: mine.bot.plane, livery: mine.livery};
+  onHello(mine.peer, hello);
+  send({t: 'bot', k, hello});
+}
+
+// A name and livery no one in the room has
+function botLook() {
+  const names = new Set([myName(), ...[...peers.values()].map((p) => p.name)]);
+  const free = CALLSIGNS.filter(
+    (c) => !names.has(c) && !names.has(c + BOT_MARK)
+  );
+  const callsign = free.length
+    ? free[Math.floor(Math.random() * free.length)]
+    : randomCallsign();
+  const used = new Set([
+    myLivery(),
+    ...[...peers.values()].map((p) => p.livery),
+  ]);
+  const colours = ChillFlightLogic.PLANE_COLORS.map((_, i) => i).filter(
+    (i) => !used.has(i)
+  );
+  const livery = colours.length
+    ? colours[Math.floor(Math.random() * colours.length)]
+    : Math.floor(Math.random() * ChillFlightLogic.PLANE_COLORS.length);
+  return {name: callsign + BOT_MARK, livery};
+}
+
+function addBot(k) {
+  const home = BOT_PLANES[Math.floor(Math.random() * BOT_PLANES.length)];
+  const bot = newBot(Number(k) - 1, leaderNow(), tag.it ? tag.plane : home);
+  const peer = addPeer(botId(room.id, k));
+  peer.isBot = true;
+  peer.announce = true;
+  myBots.set(k, {bot, peer, plane: home, ...botLook()});
+  sendBotHello(k);
+}
+
+// One of this player's bots flies off
+function dismissBot(k) {
+  const mine = myBots.get(k);
+  if (!mine) return;
+  send({t: 'bot', k, bye: true});
+  botGone(mine.peer.id);
+}
+
+function botGone(id) {
+  const peer = peers.get(id);
+  if (!peer) return;
+  if (ownerOf(id) === room?.id) myBots.delete(id.slice(id.indexOf('~') + 1));
+  removePeer(id);
+  if (peer.name) toast(`${peer.name} flew off`);
+  tagAfterLeaving(id);
+  renderPanel();
+}
+
+// Fills the empty seats with this player's bots when they want them, a
+// bot making room whenever someone arrives. Only one player in a room
+// brings bots: should two turn them on at once, the lower id keeps theirs.
+function syncBots() {
+  if (!room) return;
+  let people = 1;
+  let othersBots = 0;
+  let otherOwner = null;
+  for (const id of peers.keys()) {
+    const owner = ownerOf(id);
+    if (!owner) people++;
+    else if (owner !== room.id) {
+      othersBots++;
+      if (!otherOwner || owner < otherOwner) otherOwner = owner;
+    }
+  }
+  const want =
+    botsWanted && !(otherOwner && otherOwner < room.id)
+      ? Math.max(0, MAX_PLAYERS - people - othersBots)
+      : 0;
+  // Someone arrived with a bot's name: the bot takes another
+  for (const [k, mine] of myBots) {
+    const clash = [...peers.values()].some(
+      (p) => !ownerOf(p.id) && p.name + BOT_MARK === mine.name
+    );
+    if (clash || myName() + BOT_MARK === mine.name) {
+      mine.name = botLook().name;
+      sendBotHello(k);
+    }
+  }
+  // The newest first
+  const ks = [...myBots.keys()].sort().reverse();
+  while (myBots.size > want) dismissBot(ks.shift());
+  for (let k = 1; myBots.size < want && k <= MAX_PLAYERS; k++) {
+    if (!myBots.has(String(k))) addBot(String(k));
+  }
+  renderPanel();
+}
+
+// Any bots in the room, this player's or someone else's
+function botsInRoom() {
+  for (const id of peers.keys()) if (ownerOf(id)) return true;
+  return false;
+}
+
+function setBotsWanted(on) {
+  botsWanted = on;
+  // Someone else's bots: ask them to go
+  if (!on) send({t: 'bots', on: false});
+  syncBots();
+}
+
+// This player's bots near a friend who waggled wave back, a moment later
+function botsWaveBack(id) {
+  if (!room || ownerOf(id) || !myBots.size) return;
+  const at =
+    id === room.id ? planeGroup.position : peers.get(id)?.group?.position;
+  if (!at) return;
+  for (const [k, {bot, peer}] of myBots) {
+    if (
+      Math.hypot(bot.x - at.x, bot.y - at.y, bot.z - at.z) > WAVE_BACK_DISTANCE
+    ) {
+      continue;
+    }
+    setTimeout(
+      () => {
+        if (myBots.get(k)?.peer !== peer) return;
+        peer.waggleAt = performance.now() + RENDER_DELAY_MS;
+        send({t: 'bot', k, waggle: true});
+      },
+      500 + Math.random() * 700
+    );
+  }
+}
+
+// Flies this player's bots a frame
+function stepMyBots(delta, rawNow) {
+  if (!room || !myBots.size) return;
+  const leader = leaderNow();
+  const spots = tag.it ? playerSpots(rawNow) : [];
+  const itSpot = spots.find((p) => p.id === tag.it) || null;
+  let centre = null;
+  if (spots.length) {
+    centre = {x: 0, y: 0, z: 0};
+    for (const p of spots) {
+      centre.x += p.x / spots.length;
+      centre.y += p.y / spots.length;
+      centre.z += p.z / spots.length;
+    }
+  }
+  for (const [k, {bot, peer, plane: home}] of myBots) {
+    const plane = tag.it ? tag.plane : home;
+    if (bot.plane !== plane) {
+      bot.plane = plane;
+      sendBotHello(k);
+    }
+    const away = Math.hypot(bot.x - leader.x, bot.z - leader.z);
+    if (!tag.it && away > REJOIN_DISTANCE) rejoinBot(bot, leader);
+    const isIt = tag.it === peer.id;
+    const topSpeed =
+      (PLANE_HANDLING[plane]?.topKts ?? 280) * (isIt ? TAG_SPEED_BOOST : 1);
+    let tagCtx = null;
+    if (tag.it) {
+      tagCtx = isIt
+        ? {
+            it: true,
+            targets: spots
+              .filter((p) => p.id !== peer.id && !p.paused)
+              .map((p) => ({
+                ...p,
+                bot: !!ownerOf(p.id),
+                tagger: p.id === tagBefore,
+              })),
+          }
+        : {it: false, chaser: itSpot, centre};
+    }
+    stepBot(bot, Math.min(delta, 0.1), {
+      elevationAt: getElevation,
+      waterLevel: WATER_LEVEL,
+      leader,
+      topSpeed,
+      tag: tagCtx,
+    });
+  }
+}
+
+// When a game of tag starts, this player's bots fan out ahead of whoever's
+// it with everyone else (gatherForTag); true once done
+function gatherBots() {
+  if (!room || !tag.it) return true;
+  if (!myBots.size) return true;
+  let it;
+  if (tag.it === room.id) {
+    it = leaderNow();
+  } else {
+    const peer = peers.get(tag.it);
+    if (!peer?.group?.visible) return false;
+    _botEuler.setFromQuaternion(peer.group.quaternion, 'YXZ');
+    const {x, y, z} = peer.group.position;
+    it = {x, y, z, heading: _botEuler.y};
+  }
+  const runners = [room.id, ...peers.keys()]
+    .filter((id) => id !== tag.it)
+    .sort();
+  for (const {bot, peer} of myBots.values()) {
+    const spot = fanSpot(it, Math.max(0, runners.indexOf(peer.id)));
+    Object.assign(bot, spot, {heading: it.heading, vs: 0, aim: null});
+  }
+  return true;
+}
+
+// This player's bots' positions, to go out with their own update; and
+// drawn here like everyone else's
+function packMyBots(now) {
+  const out = [];
+  const heardAt = performance.now();
+  const units = BASE_FLIGHT_SPEED * 60;
+  for (const [k, {bot, peer}] of myBots) {
+    let flags = 0;
+    if (tag.it && tag.it !== peer.id) flags |= FLAGS.smoke;
+    if (state.isPaused) flags |= FLAGS.paused;
+    _botEuler.set(bot.pitch, bot.heading, bot.bank, 'YXZ');
+    _botQuat.setFromEuler(_botEuler);
+    _botPos.set(bot.x, bot.y, bot.z);
+    const packed = packState(now, _botPos, _botQuat, bot.speed / units, flags);
+    const s = unpackState(packed);
+    if (s) {
+      peer.heardAt = heardAt;
+      peer.track.push(s, heardAt);
+    }
+    out.push({k, p: packed.p, q: packed.q, v: packed.v, fl: packed.fl});
+  }
+  return out;
+}
+
+// One of this player's bots that's it tags anyone in its reach
+function botTags(rawNow) {
+  if (!tag.it || ownerOf(tag.it) !== room.id || state.isPaused) return;
+  if (rawNow - tagSince <= TAG_GRACE_MS) return;
+  const mine = [...myBots.values()].find((m) => m.peer.id === tag.it);
+  if (!mine) return;
+  let spots = playerSpots(rawNow).filter((p) => p.id !== tag.it);
+  // No tag-backs from a bot (as it chases, bot-logic.js)
+  if (spots.some((p) => p.id !== tagBefore)) {
+    spots = spots.filter((p) => p.id !== tagBefore);
+  }
+  const others = spots.map((p) => ({
+    id: p.id,
+    pos: new THREE.Vector3(p.x, p.y, p.z),
+    paused: p.paused,
+  }));
+  _botPos.set(mine.bot.x, mine.bot.y, mine.bot.z);
+  const target = tagTarget(_botPos, others);
+  if (target) sendTag(target);
+}
+
+const _botQuat = new THREE.Quaternion();
+const _botEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+const _botPos = new THREE.Vector3();
+const _botFwd = new THREE.Vector3();
 
 // --- CONNECTING ---
 
@@ -580,11 +989,16 @@ function enterRoom(ws, welcome, code) {
     /* not on the page's own URL */
   }
   log.info(`[Fly together] In room ${code} as ${welcome.id}`);
+  // Back after a dropped connection: bots again, under the new id
+  syncBots();
   renderPanel();
 }
 
 function clearRoom() {
   for (const id of [...peers.keys()]) removePeer(id);
+  myBots.clear();
+  botsWanted = false;
+  gatherBotsPending = false;
   socket = null;
   room = null;
   arriveOnJoin = false;
@@ -611,6 +1025,8 @@ function clearRoom() {
 }
 
 function leaveRoom() {
+  // Their bots go with them
+  for (const k of [...myBots.keys()]) send({t: 'bot', k, bye: true});
   if (socket) {
     leaving = true;
     socket.onclose = null;
@@ -627,6 +1043,7 @@ function onDropped() {
   if (leaving || !room) return;
   socket = null;
   for (const id of [...peers.keys()]) removePeer(id);
+  myBots.clear();
   if (suspended) return;
   if (reconnectTry >= RECONNECT_DELAYS_MS.length) {
     toast('Lost the flight, flying solo');
@@ -774,6 +1191,7 @@ function suspend() {
   socket.close(1000);
   socket = null;
   for (const id of [...peers.keys()]) removePeer(id);
+  myBots.clear();
 }
 
 function resume() {
@@ -797,10 +1215,12 @@ function sendState(frameClock) {
     // step so timestamps and positions stay locked to the frame
     if (typeof frameClock !== 'number' && !document.hidden) return;
   }
-  if (socket?.readyState !== WebSocket.OPEN) return;
   const now = typeof frameClock === 'number' ? frameClock : rawNow;
   const interval = state.isPaused ? PAUSED_SEND_INTERVAL_MS : SEND_INTERVAL_MS;
   if (now - lastSendAt < interval - 5) return;
+  // This player's bots are drawn here even while the connection is down
+  const bots = myBots.size ? packMyBots(now) : null;
+  if (socket?.readyState !== WebSocket.OPEN) return;
   lastSendAt = now;
   // Changed plane, livery or name: tell the others, and retint the smoke
   const profile = `${myName()}|${activePlaneType}|${myLivery()}`;
@@ -815,15 +1235,15 @@ function sendState(frameClock) {
   if (state.isOnWater) flags |= FLAGS.water;
   if (state.isPaused) flags |= FLAGS.paused;
   planeGroup.getWorldQuaternion(_quat);
-  send(
-    packState(
-      now,
-      planeGroup.position,
-      _quat,
-      state.flightSpeedMultiplier || 0,
-      flags
-    )
+  const update = packState(
+    now,
+    planeGroup.position,
+    _quat,
+    state.flightSpeedMultiplier || 0,
+    flags
   );
+  if (bots) update.b = bots;
+  send(update);
   if (tag.it && overlay?.style.display === 'flex') renderPanel();
 }
 
@@ -924,8 +1344,8 @@ const _mapQuat = new THREE.Quaternion();
 const mapFriends = [];
 
 /**
- * Friends for the maps (minimap.js): [{x, z, yaw, color, name, it}], where
- * they're drawn now. Empty when flying solo.
+ * Friends for the maps (minimap.js): [{x, y, z, yaw, color, name, it}],
+ * where they're drawn now. Empty when flying solo.
  */
 export function friendsOnMap() {
   mapFriends.length = 0;
@@ -939,6 +1359,7 @@ export function friendsOnMap() {
     _euler.setFromQuaternion(_mapQuat, 'YXZ');
     mapFriends.push({
       x: _mapPos.x,
+      y: _mapPos.y,
       z: _mapPos.z,
       yaw: _euler.y,
       color: peer.css,
@@ -980,6 +1401,7 @@ export function updateMultiplayer(delta) {
     smoothNow += dtMs + (rawNow - (smoothNow + dtMs)) * 0.02;
   }
   const now = smoothNow;
+  stepMyBots(delta, rawNow);
   sendState(now);
   state.waggleRoll = waggleRoll(rawNow - waggleAt);
   for (const peer of peers.values()) {
@@ -1065,6 +1487,10 @@ export function updateMultiplayer(delta) {
     const target = tagTarget(planeGroup.position, others);
     if (target) sendTag(target);
   }
+  botTags(rawNow);
+  if (gatherBotsPending && !state.isIntroTransitionActive) {
+    gatherBotsPending = !gatherBots();
+  }
   if (gatherToId && !state.isIntroTransitionActive) {
     gatherForTag();
   }
@@ -1088,7 +1514,9 @@ function renderPanel() {
   soloSection.hidden = !!room;
   roomSection.hidden = !room;
   inviteBtn.disabled = joinBtn.disabled = busy;
+  if (botsBtn) botsBtn.disabled = busy;
   if (!room) return;
+  if (botsInput) botsInput.checked = botsWanted || botsInRoom();
   roomCodeText.textContent = room.code;
   if (tagBtn) {
     tagBtn.hidden = peers.size === 0 && !tag.it;
@@ -1217,6 +1645,18 @@ if (RELAY && openBtn && overlay) {
     join(code);
   });
   shareBtn.addEventListener('click', share);
+  botsInput?.addEventListener('change', () => {
+    if (room) setBotsWanted(botsInput.checked);
+  });
+  // A flight of your own, with bots in the other seats (friends can still
+  // join with the code)
+  botsBtn?.addEventListener('click', async () => {
+    await invite();
+    if (!room) return;
+    setStatus('');
+    setBotsWanted(true);
+    closePanel(true);
+  });
   tagBtn?.addEventListener('click', () => {
     if (!room) return;
     if (tag.it) {
