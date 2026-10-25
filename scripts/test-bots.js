@@ -6,12 +6,16 @@
  * leader's wing, keep clear of hills, rejoin after a warp and circle over a
  * parked leader; in tag a bot that's it catches a player flying straight
  * and gives up a hopeless chase for someone else, and a bot running can be
- * caught.
+ * caught. In a buggy round they drive: beside their leader past a cliff
+ * without sticking or climbing it, calling for rescue from a pit they
+ * can't leave, and catching a player who drives straight.
  */
 import {TAG_RADIUS, TAG_SPEED_BOOST} from '../multiplayer-logic.js';
 import {forwardOf, headingToward} from '../traffic-logic.js';
 import {
   CHASE_GIVE_UP,
+  DRIVE,
+  driveSpot,
   MIN_CLEARANCE,
   ORBIT_RADIUS,
   REJOIN_DISTANCE,
@@ -315,6 +319,134 @@ function chase(targets, seconds, moveTargets) {
     'a bot running drifts back toward the others',
     back < 2500,
     `${back.toFixed(0)} away`
+  );
+}
+
+// --- Driving (a buggy round) ---
+// A mesa with cliffs (radius 800 round (0, -3000)), on gentle ground
+const mesa = (x, z) => {
+  const r = Math.hypot(x, z + 3000);
+  const cliff = Math.min(1, Math.max(0, (840 - r) / 40));
+  return 100 + 20 * Math.sin(x / 700) + 300 * cliff;
+};
+const driving = (surface, leader, tag = null, topSpeed = 240) => ({
+  elevationAt: surface,
+  waterLevel: WATER,
+  driving: true,
+  surfaceAt: (x, z) => Math.max(surface(x, z), WATER),
+  leader,
+  topSpeed,
+  tag,
+});
+{
+  const lead = player(900, 100, 0, 0, 150);
+  const bots = [0, 1, 2].map((slot) => newBot(slot, lead, 'buggy'));
+  for (const b of bots) Object.assign(b, driveSpot(lead, b.slot));
+  let stuck = 0;
+  let climbed = 0;
+  let rescue = false;
+  for (let i = 0; i < 50 * 60; i++) {
+    stepPlayer(lead, DT, () => -Infinity);
+    lead.y = mesa(lead.x, lead.z);
+    for (const b of bots) {
+      stepBot(b, DT, driving(mesa, lead));
+      stuck = Math.max(stuck, b.stuckFor);
+      climbed = Math.max(climbed, b.y - (100 + 20 * Math.sin(b.x / 700)));
+      rescue ||= b.needsRescue;
+    }
+  }
+  const behind = Math.max(...bots.map((b) => dist(b, driveSpot(lead, b.slot))));
+  check(
+    'buggy bots drive past a cliff without sticking',
+    stuck < DRIVE.STUCK_AFTER && !rescue,
+    `stuck ${stuck.toFixed(1)} s`
+  );
+  check(
+    'buggy bots steer round a cliff, not up it',
+    climbed < 60,
+    `climbed ${climbed.toFixed(0)}`
+  );
+  check(
+    'buggy bots keep up beside their leader',
+    behind < 120,
+    `${behind.toFixed(0)} off`
+  );
+
+  // Parked: they pull up beside
+  lead.speed = 0;
+  for (let i = 0; i < 20 * 60; i++)
+    for (const b of bots) stepBot(b, DT, driving(mesa, lead));
+  const parked = Math.max(...bots.map((b) => b.speed));
+  const near = Math.max(...bots.map((b) => dist(b, driveSpot(lead, b.slot))));
+  check(
+    'buggy bots park beside a stopped leader',
+    parked < 1 && near < DRIVE.PARK_RADIUS + 10,
+    `speed ${parked.toFixed(1)}, ${near.toFixed(0)} off`
+  );
+}
+{
+  // Walled in a pit: it asks to be rescued
+  const pit = (x, z) => (Math.hypot(x, z) < 100 ? 0 : 600);
+  const lead = player(0, 600, -3000, 0, 150);
+  const bot = newBot(0, lead, 'buggy');
+  Object.assign(bot, {x: 0, y: 0, z: 0});
+  let at = null;
+  for (let i = 0; i < 30 * 60 && at === null; i++) {
+    stepBot(bot, DT, driving(pit, lead));
+    if (bot.needsRescue) at = i / 60;
+  }
+  check(
+    'a buggy bot walled in asks to be rescued',
+    at !== null && at < DRIVE.RESCUE_AFTER + 4,
+    `at ${at}`
+  );
+  rejoin(bot, lead, true);
+  check(
+    'a rescued buggy bot is put back beside its leader',
+    !bot.needsRescue && dist(bot, driveSpot(lead, 0)) < 1
+  );
+}
+{
+  // Over the sea it hovers on
+  const sea = (x, z) =>
+    100 - 100 * Math.min(1, Math.max(0, Math.min(-1000 - z, z + 4000) / 300));
+  const lead = player(0, 100, 0, 0, 150);
+  const bot = newBot(0, lead, 'buggy');
+  Object.assign(bot, driveSpot(lead, 0));
+  let stuck = 0;
+  for (let i = 0; i < 40 * 60; i++) {
+    stepPlayer(lead, DT, () => -Infinity);
+    lead.y = Math.max(sea(lead.x, lead.z), WATER);
+    stepBot(bot, DT, driving(sea, lead));
+    stuck = Math.max(stuck, bot.stuckFor);
+  }
+  check(
+    'buggy bots cross water with their leader',
+    stuck < 0.5 && dist(bot, driveSpot(lead, 0)) < 120,
+    `stuck ${stuck.toFixed(1)}`
+  );
+}
+{
+  // As it, catching a player driving straight at 200
+  const lead = player(0, 100, 0, 0, 0);
+  const bot = newBot(0, lead, 'buggy');
+  Object.assign(bot, {x: 0, y: 100, z: 1200, heading: 0});
+  const runner = {id: 'a', ...player(400, 100, -200, Math.PI / 2, 200)};
+  let at = null;
+  for (let i = 0; i < 120 * 60 && at === null; i++) {
+    stepPlayer(runner, DT, () => -Infinity);
+    runner.y = 100 + 20 * Math.sin(runner.x / 700);
+    stepBot(
+      bot,
+      DT,
+      driving(mesa, lead, {it: true, targets: [runner]}, 240 * TAG_SPEED_BOOST)
+    );
+    if (dist(bot, runner) < TAG_RADIUS) at = i / 60;
+  }
+  check(
+    'a buggy bot that is it catches a player driving straight',
+    at !== null,
+    'not caught in 2 min'
   );
 }
 

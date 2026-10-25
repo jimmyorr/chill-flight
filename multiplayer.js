@@ -47,7 +47,8 @@ import {
   planeHandling,
   setLockedPlane,
 } from './airplane.js';
-import {getElevation} from './terrain-geometry.js';
+import {getElevation, sampleGround} from './terrain-geometry.js';
+import {sampleRoad} from './terrain-chunks.js';
 import {PLANE_BUILDERS, buildPlaneModel} from './plane-models.js';
 import {Achievements} from './achievements.js';
 import {isSmokeOn, setSmokeTint, smokeColor, trailSmoke} from './particles.js';
@@ -592,6 +593,37 @@ function wave() {
 const BOT_MARK = ' 🤖';
 // Bots wave back at a waggle within this distance, after a moment
 const WAVE_BACK_DISTANCE = 1500;
+// A buggy steps up onto a road's deck from this far below it (buggy.js)
+const ROAD_STEP_UP = 12;
+
+const _road = {};
+const _ground = {};
+// Whether the last surfaceAt was the water
+let surfaceIsWater = false;
+
+// Where a buggy at height y rests at (x, z), as buggy.js has it: a road's
+// deck it's on, the drawn ground, or the water it hovers on
+function surfaceAt(x, z, y) {
+  surfaceIsWater = false;
+  if (sampleRoad(x, z, _road, y) && y >= _road.height - ROAD_STEP_UP) {
+    return _road.height;
+  }
+  sampleGround(x, z, _ground);
+  if (
+    ChillFlightLogic.buggyOverWater(
+      _ground.height,
+      getElevation(x, z),
+      WATER_LEVEL
+    )
+  ) {
+    surfaceIsWater = true;
+    return Math.max(
+      _ground.height,
+      WATER_LEVEL - ChillFlightLogic.BUGGY_HOVER.FLOAT_DEPTH
+    );
+  }
+  return _ground.height;
+}
 
 function botId(owner, k) {
   return `${owner}~${k}`;
@@ -812,14 +844,21 @@ function stepMyBots(delta, rawNow) {
       centre.z += p.z / spots.length;
     }
   }
+  // Out of games, bots drive with a player who's driving
+  const free = activePlaneType === 'buggy' ? 'buggy' : null;
   for (const [k, {bot, peer, plane: home}] of myBots) {
-    const plane = tag.it ? tag.plane : home;
+    const plane = tag.it ? tag.plane : free || home;
     if (bot.plane !== plane) {
       bot.plane = plane;
       sendBotHello(k);
     }
+    const driving = plane === 'buggy';
     const away = Math.hypot(bot.x - leader.x, bot.z - leader.z);
-    if (!tag.it && away > REJOIN_DISTANCE) rejoinBot(bot, leader);
+    // Back beside the player after a warp, or when stuck in the terrain
+    if ((!tag.it && away > REJOIN_DISTANCE) || bot.needsRescue) {
+      rejoinBot(bot, leader, driving);
+      if (driving) bot.y = surfaceAt(bot.x, bot.z, bot.y + ROAD_STEP_UP);
+    }
     const isIt = tag.it === peer.id;
     const topSpeed =
       (PLANE_HANDLING[plane]?.topKts ?? 280) * (isIt ? TAG_SPEED_BOOST : 1);
@@ -844,6 +883,8 @@ function stepMyBots(delta, rawNow) {
       leader,
       topSpeed,
       tag: tagCtx,
+      driving,
+      surfaceAt,
     });
   }
 }
@@ -868,6 +909,7 @@ function gatherBots() {
     .sort();
   for (const {bot, peer} of myBots.values()) {
     const spot = fanSpot(it, Math.max(0, runners.indexOf(peer.id)));
+    if (tag.plane === 'buggy') spot.y = surfaceAt(spot.x, spot.z, Infinity);
     Object.assign(bot, spot, {heading: it.heading, vs: 0, aim: null});
   }
   return true;
@@ -882,6 +924,11 @@ function packMyBots(now) {
   for (const [k, {bot, peer}] of myBots) {
     let flags = 0;
     if (tag.it && tag.it !== peer.id) flags |= FLAGS.smoke;
+    if (bot.plane === 'buggy') {
+      flags |= FLAGS.ground;
+      surfaceAt(bot.x, bot.z, bot.y + 1);
+      if (surfaceIsWater) flags |= FLAGS.water;
+    }
     if (state.isPaused) flags |= FLAGS.paused;
     _botEuler.set(bot.pitch, bot.heading, bot.bank, 'YXZ');
     _botQuat.setFromEuler(_botEuler);
@@ -1269,7 +1316,11 @@ function flyTo(peer, gatherSlot = -1) {
   const z = _pos.z + _side.z * sideDist + back.z * backDist;
   const latest = peer.track.latest;
   const parked = latest.flags & (FLAGS.ground | FLAGS.water);
-  const y = Math.max(_pos.y + (parked ? 150 : 15), getElevation(x, z) + 80);
+  // A buggy is set down on the ground (or the water)
+  const y =
+    activePlaneType === 'buggy'
+      ? surfaceAt(x, z, Infinity)
+      : Math.max(_pos.y + (parked ? 150 : 15), getElevation(x, z) + 80);
   const levelSpeed = planeHandling().levelKts / (BASE_FLIGHT_SPEED * 60);
   hooks.movePlane(
     x,

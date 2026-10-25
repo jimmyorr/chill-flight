@@ -414,7 +414,8 @@ export function updateBuggy(delta) {
 
   const ground = sampleSurface(pos.x, pos.z, pos.y);
   const onWater = ground.kind === 'water';
-  const top = TOP_SPEED;
+  // Whoever's it in tag goes faster (multiplayer.js)
+  const top = TOP_SPEED * (state.mpSpeedBoost || 1);
 
   let driveAccel = 0;
   if (!airborne) {

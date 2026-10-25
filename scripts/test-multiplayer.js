@@ -630,12 +630,12 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
   );
 }
 
-// Tag started from the buggy is flown in biplanes
+// Tag started from the buggy is played in buggies
 check(
-  'Tag from the buggy locks everyone to the biplane',
-  tagPlane('buggy') === 'biplane' &&
+  'Tag from the buggy locks everyone to the buggy',
+  tagPlane('buggy') === 'buggy' &&
     tagPlane('jet') === 'jet' &&
-    readTag({it: 'abc', plane: 'buggy', n: 1})?.plane === 'biplane'
+    readTag({it: 'abc', plane: 'buggy', n: 1})?.plane === 'buggy'
 );
 
 // Time as it stops while whoever's it is paused

@@ -533,11 +533,12 @@ export function readTag(msg) {
 }
 
 /**
- * The plane everyone flies in a game of tag started from `type`: the buggy
- * can't chase planes, so a game started from it is flown in biplanes.
+ * The vehicle everyone uses in a game of tag started from `type`: the
+ * starter's, so a game started from the buggy is played in buggies (planes
+ * and buggies never mix, since a plane could swoop on a buggy at will).
  */
 export function tagPlane(type) {
-  return type === 'buggy' ? 'biplane' : type;
+  return typeof type === 'string' ? type : 'biplane';
 }
 
 /**
