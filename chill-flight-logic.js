@@ -4254,6 +4254,7 @@ export const ChillFlightLogic = {};
     out.across =
       (x - (seg.x0 + dx * t)) * out.normalX +
       (z - (seg.z0 + dz * t)) * out.normalZ;
+    out.halfWidth = ROAD_WIDTH;
     out.rails = !!seg.rails;
     if (sampleState) sampleState.found = true;
     return true;

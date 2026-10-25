@@ -2833,6 +2833,10 @@ export function sampleRoad(x, z, out, vehicleY = null) {
     out.height = height;
     out.slopeX = slopeX;
     out.slopeZ = slopeZ;
+    out.normalX = 0;
+    out.normalZ = 1;
+    out.across = z - r.z;
+    out.halfWidth = ChillFlightLogic.ACCESS_ROAD_WIDTH;
     out.rails = false;
     sampleState.found = true;
   }

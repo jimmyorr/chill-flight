@@ -85,11 +85,18 @@ const _surface = {
   slopeZ: 0,
   kind: 'ground',
   // On a raised bridge, its railings: which side of the centre line it's
-  // on and the way across the road (sampleRoadSegment)
+  // on and the way across the road (sampleRoadSegment), and the road's
+  // half-width
   rails: false,
   across: 0,
   normalX: 0,
   normalZ: 0,
+  halfWidth: 0,
+  // The slope it's driving up for throwing it into the air (restOnWheels):
+  // the tyres' slope, but the middle's own while the tyres straddle a road's
+  // edge, whose step isn't a ramp
+  rampX: 0,
+  rampZ: 0,
 };
 const _road = {
   height: 0,
@@ -99,6 +106,7 @@ const _road = {
   across: 0,
   normalX: 0,
   normalZ: 0,
+  halfWidth: 0,
 };
 const _ground = {height: 0, slopeX: 0, slopeZ: 0};
 const _railCar = {x: 0, z: 0, y: 0, velX: 0, velZ: 0};
@@ -170,6 +178,7 @@ function sampleSurface(x, z, y) {
     _surface.across = _road.across;
     _surface.normalX = _road.normalX;
     _surface.normalZ = _road.normalZ;
+    _surface.halfWidth = _road.halfWidth;
     return _surface;
   }
   _surface.rails = false;
@@ -198,24 +207,32 @@ function sampleSurface(x, z, y) {
 // tyre over a bank, a crease in the terrain or a road's edge doesn't sink
 // into it. Over water it hovers flat as it was.
 function restOnWheels(surface, x, z, y, yaw) {
+  surface.rampX = surface.slopeX;
+  surface.rampZ = surface.slopeZ;
   if (surface.kind === 'water') return surface;
-  const {kind, height} = surface;
+  const {kind, height, rampX, rampZ} = surface;
   const rails = surface.rails;
   const across = surface.across;
   const normalX = surface.normalX;
   const normalZ = surface.normalZ;
+  const halfWidth = surface.halfWidth;
   const fx = -Math.sin(yaw);
   const fz = -Math.cos(yaw);
   const rx = Math.cos(yaw);
   const rz = -Math.sin(yaw);
+  let straddling = false;
   for (let i = 0; i < 4; i++) {
     const back = i < 2 ? BUGGY_AXLES.front : BUGGY_AXLES.rear;
     const side = (i % 2 ? 1 : -1) * BUGGY_AXLES.halfTrack;
-    _wheelHeights[i] = sampleSurface(
+    const wheel = sampleSurface(
       x - fx * back + rx * side,
       z - fz * back + rz * side,
       y
-    ).height;
+    );
+    // A tyre out over a drop (past the end of a road that stops short, or
+    // a deck's edge) has nothing under it to lean on
+    _wheelHeights[i] = Math.max(wheel.height, height - ROAD_STEP_UP);
+    if ((wheel.kind === 'road') !== (kind === 'road')) straddling = true;
   }
   ChillFlightLogic.buggyWheelContact(
     _wheelHeights,
@@ -228,6 +245,7 @@ function restOnWheels(surface, x, z, y, yaw) {
   _surface.across = across;
   _surface.normalX = normalX;
   _surface.normalZ = normalZ;
+  _surface.halfWidth = halfWidth;
   // How far the lowest tyre is into its ground, at the chassis's tilt now
   // (in the air the tilt follows its path, not the ground)
   const tanPitch = Math.tan(tiltPitch);
@@ -245,6 +263,8 @@ function restOnWheels(surface, x, z, y, yaw) {
   _surface.height = _contact.height;
   _surface.slopeX = _contact.along * fx + _contact.across * rx;
   _surface.slopeZ = _contact.along * fz + _contact.across * rz;
+  _surface.rampX = straddling ? rampX : _surface.slopeX;
+  _surface.rampZ = straddling ? rampZ : _surface.slopeZ;
   return _surface;
 }
 
@@ -469,13 +489,18 @@ export function updateBuggy(delta) {
     wasOnRoad &&
     ground.rails &&
     pos.y <= oldHeight + ChillFlightLogic.BUGGY_RAIL.TOP;
+  // Where it is across the deck, to tell its sides from its end
+  const {across, normalX, normalZ, halfWidth} = ground;
 
   const blocker = (x, z) => {
     const s = sampleSurface(x, z, pos.y);
     if (
       wasOnRoad &&
       s.kind !== 'road' &&
-      (railed || oldHeight - s.height > ROAD_STEP_UP)
+      (railed || oldHeight - s.height > ROAD_STEP_UP) &&
+      // Off the end of a highway that stops short (one ending on a bridge
+      // over the sea) it drives off and falls; only the sides hold it on
+      Math.abs(across + (x - oldX) * normalX + (z - oldZ) * normalZ) > halfWidth
     ) {
       return 'barrier';
     }
@@ -579,7 +604,7 @@ export function updateBuggy(delta) {
     }
     velY = 0;
   } else {
-    const groundVelY = velX * surface.slopeX + velZ * surface.slopeZ;
+    const groundVelY = velX * surface.rampX + velZ * surface.rampZ;
     const res = ChillFlightLogic.stepBuggyVertical({
       y: pos.y,
       velY,
