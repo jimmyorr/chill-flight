@@ -77,6 +77,7 @@ import '../multiplayer.js';
 import '../breakables-logic.js';
 import '../breakables.js';
 import '../vr-manager.js';
+import '../promo-script.js';
 import '../game-loop.js';
 import '../map-loader.js';
 import '../map-tiles.js';

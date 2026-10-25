@@ -96,7 +96,12 @@ export const TARGETS = {
 // those targets (e.g. another camera position). `seconds`: a video clip of
 // that length (in list order). `still: false` leaves it out of the stills.
 // `preroll`: seconds to fly before filming, for things that build up slowly
-// (default PREROLL, 1.5 s).
+// (default PREROLL, 1.5 s). `moves`: scripted flying for a clip, as keyframes
+// [t, rollDeg, pitchDeg]: t in seconds from the start of filming (after the
+// preroll), roll positive to the left (left wing down), pitch positive nose
+// up. Values ease between keyframes and hold after the last one. The flight
+// model turns the plane from the roll and climbs it from the pitch. Stills
+// ignore moves.
 // Shots from straight behind the plane use the game's own chase camera with
 // the interface on (ui=1), as players see it. The others each have their own
 // angle, so the set shows the planes from all around.
@@ -150,6 +155,12 @@ export const SHOTS = {
       '&camOffset=12,75,-140&camLook=0,30,40&cloudMood=fair',
     seconds: 4,
     portrait: 'camOffset=8,26,-180',
+    moves: [
+      [0, 0, 0],
+      [1, 25, 0],
+      [3, 25, 4],
+      [4, 25, 4],
+    ],
   },
   'snow-biplane': {
     // From high above, over the snowy forest, in falling snow
@@ -172,6 +183,11 @@ export const SHOTS = {
       'x=6300&y=440&z=15600&heading=180&speed=1&tod=0.5&plane=twin' +
       '&livery=sand&camOffset=0,40,75&camLook=0,-60,-200&cloudMood=high',
     seconds: 4,
+    moves: [
+      [0, 0, 0],
+      [1.5, -20, 0],
+      [4, -20, 8],
+    ],
   },
   'islands-sunset': {
     // North-west over the islands, side-on against the sunset
@@ -180,6 +196,10 @@ export const SHOTS = {
       '&camOffset=60,-8,5&cloudMood=busy',
     seconds: 4,
     portrait: 'camOffset=85,-12,5',
+    moves: [
+      [0, 0, 0],
+      [4, -30, 0],
+    ],
   },
   'lighthouse-dusk': {
     // Past the lighthouse at dusk, from the side, passing the tower late in

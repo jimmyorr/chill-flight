@@ -91,6 +91,9 @@ export const state = {
   stoppedStartTime: null,
   targetPitch: 0,
   targetRoll: 0,
+  // A promo clip's scripted attitude: (now) => {roll, pitch} in radians, or
+  // null (promo-script.js; set by the promo script's event only)
+  scriptedFlight: null,
   smoothedManeuverFactor: 0, // Ensures smooth cinematic transitions
   manualPitch: 0,
   // A ?camera= mode starts in place rather than easing in from follow.

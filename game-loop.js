@@ -155,6 +155,13 @@ import {updateSfx} from './sfx.js';
 import {updateSfxEvents} from './sfx-events.js';
 import {updateHaptics} from './haptics.js';
 import {Achievements} from './achievements.js';
+import {scriptedFlight} from './promo-script.js';
+
+// Promo clips: filming starts with a promo-script event (promo.js), and the
+// clip's keyframes fly the plane from then on (see updatePhysicsAndControls)
+window.addEventListener('promo-script', (event) => {
+  state.scriptedFlight = scriptedFlight(event.detail, performance.now());
+});
 
 let _currentOvercast;
 // How slowly the sky follows the weather map's cloud cover (seconds)
@@ -1464,7 +1471,19 @@ function updatePhysicsAndControls(delta, nowTime) {
 
   state.manualRollSpeed = planeHandling().rollRate;
 
-  if (
+  // A promo clip's scripted attitude takes over from the controls, the
+  // autopilot and the manual maneuvers below (see promo-script.js)
+  const scripted = !state.isFreeCamera && state.scriptedFlight?.(nowTime);
+  if (scripted) {
+    state.isDoingImmelmann = false;
+    state.targetPitch = scripted.pitch;
+    state.targetRoll = scripted.roll;
+    manualPitchVel = 0;
+    manualPitchActive = false;
+    lastPitchMode = 0;
+    loopActive = false;
+    loopRecovering = false;
+  } else if (
     !state.isFreeCamera &&
     state.autopilotEnabled &&
     state.flightSpeedMultiplier > 0

@@ -592,6 +592,15 @@ try {
       fs.rmSync(frameDir, {recursive: true, force: true});
       fs.mkdirSync(frameDir, {recursive: true});
       const page = await openShot(browser, shot, target);
+      // Filming starts now: a shot's moves (scripted banks and pull ups) fly
+      // from this frame, on the virtual clock (promo-script.js)
+      if (shot.moves) {
+        await page.evaluate((moves) => {
+          window.dispatchEvent(
+            new CustomEvent('promo-script', {detail: moves})
+          );
+        }, shot.moves);
+      }
       const frames = Math.round(shot.seconds * FPS);
       const frameFile = (i) =>
         path.join(frameDir, `${String(i).padStart(5, '0')}.jpg`);
