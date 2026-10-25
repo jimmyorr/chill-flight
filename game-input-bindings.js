@@ -61,6 +61,8 @@ inputManager.onCameraToggle = () => {
   else if (state.cameraMode === 'birds-eye-far') {
     state.cameraMode = 'cinematic';
     currentCinematicIndex = 0;
+    state.cinematicOrbitYaw = 0;
+    state.cinematicOrbitPitch = 0;
   } else {
     state.cameraMode = 'follow';
     state.cameraTransitionProgress = 0;

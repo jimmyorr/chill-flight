@@ -102,6 +102,13 @@ export const state = {
   currentBirdEyeHeight:
     ChillFlightLogic.START_CAMERA === 'birds-eye-close' ? 500 : 2000,
   _cinematicStableHeading: null, // set to the plane's heading on first use
+  // In the cinematic camera a stick or touch steer swings the camera around
+  // the plane instead of flying it (game-loop.js, flight-camera.js): the
+  // stick this frame (-1 to 1), and how far the shot has been swung (radians)
+  cinematicSteerX: 0,
+  cinematicSteerY: 0,
+  cinematicOrbitYaw: 0,
+  cinematicOrbitPitch: 0,
   isDoingImmelmann: false,
   immelmannProgress: 0,
   wasLooping: false,

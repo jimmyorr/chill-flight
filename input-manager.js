@@ -51,6 +51,13 @@ export class InputManager {
         deltaX: 0,
         deltaY: 0,
       },
+      // In the cinematic camera the mouse drags the shot around instead of
+      // steering (game-loop.js); pixels moved since last read
+      cinematicDrag: {
+        dragging: false,
+        deltaX: 0,
+        deltaY: 0,
+      },
       touch: {
         steeringId: null,
       },
@@ -68,6 +75,7 @@ export class InputManager {
         localStorage.getItem('chill_flight_control_scheme') || 'joystick',
       isPaused: false, // Updated every frame from game.js
       isFreeCamera: false, // Updated every frame from game.js
+      isCinematic: false, // Updated every frame from game-loop.js
     };
 
     // Performance optimization: Pre-allocated steering result object returned by getSteering().
@@ -457,11 +465,25 @@ export class InputManager {
       ) {
         this.state.freeCam.dragging = true;
       }
+    } else if (this.state.isCinematic && !this.isOverUI(e.target)) {
+      this.state.cinematicDrag.dragging = true;
     }
   }
 
   handleMouseUp() {
     this.state.freeCam.dragging = false;
+    this.state.cinematicDrag.dragging = false;
+  }
+
+  // Whether the pointer is over a menu, button or panel rather than the view
+  isOverUI(target) {
+    return !!target.closest?.(
+      '#loading-overlay, #cockpit-ui, #npc-dialog, #debug-menu, ' +
+        '#debug-telemetry, .title, #mobile-controls, #pause-overlay, ' +
+        '#achievements-overlay, #people-overlay, #fly-overlay, ' +
+        '#fullscreen-map-overlay, #mobile-action-menu, #minimap-container, ' +
+        '.mobile-btn, .sub-btn, button, input, select, a'
+    );
   }
 
   handleMouseMove(e) {
@@ -481,28 +503,20 @@ export class InputManager {
       return;
     }
 
-    if (
-      e.target.closest('#loading-overlay') ||
-      e.target.closest('#cockpit-ui') ||
-      e.target.closest('#npc-dialog') ||
-      e.target.closest('#debug-menu') ||
-      e.target.closest('#debug-telemetry') ||
-      e.target.closest('.title') ||
-      e.target.closest('#mobile-controls') ||
-      e.target.closest('#pause-overlay') ||
-      e.target.closest('#achievements-overlay') ||
-      e.target.closest('#people-overlay') ||
-      e.target.closest('#fly-overlay') ||
-      e.target.closest('#fullscreen-map-overlay') ||
-      e.target.closest('#mobile-action-menu') ||
-      e.target.closest('#minimap-container') ||
-      e.target.closest('.mobile-btn') ||
-      e.target.closest('.sub-btn') ||
-      e.target.closest('button') ||
-      e.target.closest('input') ||
-      e.target.closest('select') ||
-      e.target.closest('a')
-    ) {
+    // The cinematic camera: dragging swings the shot, and the cursor doesn't
+    // steer
+    if (this.state.isCinematic && !this.state.isFreeCamera) {
+      if (this.state.cinematicDrag.dragging) {
+        this.state.cinematicDrag.deltaX += e.movementX || 0;
+        this.state.cinematicDrag.deltaY += e.movementY || 0;
+      }
+      if (this.state.mouse.controlActive && !this.state.joystick.active) {
+        this.resetMouseSteering();
+      }
+      return;
+    }
+
+    if (this.isOverUI(e.target)) {
       this.resetMouseSteering();
       return;
     }

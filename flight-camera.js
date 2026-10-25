@@ -72,6 +72,17 @@ import {
 import {performanceMonitor} from './game-performance.js';
 import {Achievements} from './achievements.js';
 
+// Swinging the cinematic camera around the plane with the stick: full stick
+// turns this fast (radians a second), between these angles from overhead
+const ORBIT_YAW_RATE = 1.6;
+const ORBIT_PITCH_RATE = 0.9;
+const ORBIT_MIN_PHI = 0.15;
+const ORBIT_MAX_PHI = Math.PI / 2 + 0.4;
+const _orbitSpherical = new THREE.Spherical();
+const _orbitOffset = new THREE.Vector3();
+const _orbitLook = new THREE.Vector3();
+const _orbitAxis = new THREE.Vector3(0, 1, 0);
+
 let _frameCount;
 // A sunk boat's matrix: nothing drawn
 const _SUNK = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -409,11 +420,30 @@ export function updateFlightCamera(delta, nowTime) {
       state._cinematicStableHeading = planeGroup.rotation.y;
     }
 
+    // Swung around the plane by the stick (game-loop.js), from the preset
+    if (state.cameraMode === 'cinematic') {
+      state.cinematicOrbitYaw += state.cinematicSteerX * ORBIT_YAW_RATE * delta;
+      state.cinematicOrbitPitch +=
+        state.cinematicSteerY * ORBIT_PITCH_RATE * delta;
+    }
+    _orbitSpherical.setFromVector3(_cinematicOffsetCurrent);
+    // Kept between nearly overhead and a little below the plane
+    state.cinematicOrbitPitch = THREE.MathUtils.clamp(
+      state.cinematicOrbitPitch,
+      _orbitSpherical.phi - ORBIT_MAX_PHI,
+      _orbitSpherical.phi - ORBIT_MIN_PHI
+    );
+    _orbitSpherical.theta += state.cinematicOrbitYaw;
+    _orbitSpherical.phi -= state.cinematicOrbitPitch;
+    _orbitOffset.setFromSpherical(_orbitSpherical);
+    _orbitLook
+      .copy(_cinematicLookTargetCurrent)
+      .applyAxisAngle(_orbitAxis, state.cinematicOrbitYaw);
     _idealCameraPos_Cinematic
-      .copy(_cinematicOffsetCurrent)
+      .copy(_orbitOffset)
       .applyMatrix4(_cinematicStableMatrix);
     _idealLookTarget_Cinematic
-      .copy(_cinematicLookTargetCurrent)
+      .copy(_orbitLook)
       .applyMatrix4(_cinematicStableMatrix);
 
     // 4. Blend FOV

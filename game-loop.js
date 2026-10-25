@@ -226,10 +226,37 @@ function performFrame() {
   // Sync InputManager state
   inputManager.state.isPaused = state.isPaused;
   inputManager.state.isFreeCamera = state.isFreeCamera;
+  inputManager.state.isCinematic = state.cameraMode === 'cinematic';
 
   const steering = inputManager.getSteering();
+  // In the cinematic camera the touch joystick or a gamepad stick frames the
+  // shot instead of steering (flight-camera.js); keys and the mouse still fly
+  const framing =
+    steering.active &&
+    state.cameraMode === 'cinematic' &&
+    !state.isFreeCamera &&
+    inputManager.isDeliberateSteering();
+  // The touch joystick tops out at its sensitivity; the camera wants -1 to 1
+  const stickScale = inputManager.state.joystick.active
+    ? 1 / inputManager.JOYSTICK_SENSITIVITY
+    : 1;
+  state.cinematicSteerX = framing
+    ? THREE.MathUtils.clamp(steering.x * stickScale, -1, 1)
+    : 0;
+  state.cinematicSteerY = framing
+    ? THREE.MathUtils.clamp(steering.y * stickScale, -1, 1)
+    : 0;
+  // A mouse drag swings it too: a screen's height is half a turn
+  const drag = inputManager.state.cinematicDrag;
+  if (drag.deltaX || drag.deltaY) {
+    const perPixel = Math.PI / Math.max(1, window.innerHeight);
+    state.cinematicOrbitYaw -= drag.deltaX * perPixel;
+    state.cinematicOrbitPitch += drag.deltaY * perPixel;
+    drag.deltaX = 0;
+    drag.deltaY = 0;
+  }
   if (state.currentControlScheme !== 'gyro') {
-    if (steering.active) {
+    if (steering.active && !framing) {
       state.mouseX = steering.x;
       state.mouseY = steering.y;
       state.mouseControlActive = true;
