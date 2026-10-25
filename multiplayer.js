@@ -1723,7 +1723,7 @@ function renderPanel() {
   // In a game, live points; after one, how it ended
   const showPoints = !!tag.it || Object.keys(tag.points).length > 0;
   const live = tag.it ? currentPoints() : tag.points;
-  const row = ({name, livery, peer, points}) => {
+  const row = ({name, note, livery, peer, points}) => {
     const el = document.createElement('div');
     el.className = 'fly-player';
     const dot = document.createElement('span');
@@ -1733,6 +1733,12 @@ function renderPanel() {
     label.className = 'fly-player-name';
     label.textContent = name;
     el.append(dot, label);
+    if (note) {
+      const noteEl = document.createElement('span');
+      noteEl.className = 'fly-player-note';
+      noteEl.textContent = note;
+      el.append(noteEl);
+    }
     if (showPoints) {
       const score = document.createElement('span');
       score.className = 'fly-player-time';
@@ -1751,22 +1757,27 @@ function renderPanel() {
     }
     return el;
   };
-  const it = (id) => (tag.it === id ? ', it' : '');
-  const isPaused = (p) =>
-    (p ? p.track?.latest?.flags & FLAGS.paused : state.isPaused)
-      ? ', paused'
-      : '';
+  // The small grey words after a name: "you, it, paused"
+  const noteOf = (id, p) =>
+    [
+      !p && 'you',
+      tag.it === id && 'it',
+      (p ? p.track?.latest?.flags & FLAGS.paused : state.isPaused) && 'paused',
+    ]
+      .filter(Boolean)
+      .join(', ');
   // Out of tag games you're your own row at the top, with your name to tap
   // and change; in one, the list is sorted by points, you included
   selfRow.hidden = showPoints;
   selfDot.style.background = hexColor(myLivery());
   if (document.activeElement !== selfName) selfName.value = myName();
   selfName.placeholder = defaultCallsign;
-  selfNote.textContent = `you${isPaused(null)}`;
+  selfNote.textContent = noteOf(room.id, null);
   const entries = showPoints
     ? [
         {
-          name: `${myName()} (you${it(room.id)}${isPaused(null)})`,
+          name: myName(),
+          note: noteOf(room.id, null),
           livery: myLivery(),
           peer: null,
           points: live[room.id] || 0,
@@ -1776,7 +1787,8 @@ function renderPanel() {
   for (const peer of peers.values()) {
     if (peer.name) {
       entries.push({
-        name: `${peer.name}${tag.it === peer.id ? ' (it)' : ''}${isPaused(peer) ? ' (paused)' : ''}`,
+        name: peer.name,
+        note: noteOf(peer.id, peer),
         livery: peer.livery,
         peer,
         points: live[peer.id] || 0,

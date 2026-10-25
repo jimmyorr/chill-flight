@@ -273,7 +273,9 @@ select.customization-input {
 }
 
 .pause-tab {
+  position: relative;
   flex: 1;
+  white-space: nowrap;
   height: 32px;
   background: transparent;
   border: none;
@@ -1335,18 +1337,22 @@ input[type='number'].customization-input {
 }
 
 .scheme-btn {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   height: 30px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.6);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   cursor: pointer;
   transition: all 0.2s ease;
-  padding: 0 8px;
+  padding: 0 5px;
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -1466,7 +1472,7 @@ input[type='number'].customization-input {
   color: rgba(255, 255, 255, 0.4);
   margin-top: 0;
   font-family: inherit;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   pointer-events: none;
   user-select: none;
 }
@@ -1481,6 +1487,7 @@ input[type='number'].customization-input {
 
 .pause-footer a {
   pointer-events: auto;
+  white-space: nowrap;
   color: #3498db;
   text-decoration: none;
 }
@@ -1925,33 +1932,46 @@ input[type='number'].customization-input {
 /* Fly together (multiplayer.js) */
 /* The Together tab's dot while you're in a room */
 .fly-tab-dot {
-  display: inline-block;
+  position: absolute;
+  top: 4px;
+  right: 4px;
   width: 6px;
   height: 6px;
-  margin-left: 6px;
   border-radius: 50%;
   background: #7ed957;
   box-shadow: 0 0 6px #7ed957;
-  vertical-align: middle;
 }
 
 .fly-tab-dot[hidden] {
   display: none;
 }
 
-/* Room code and share link on one row, so a full room fits the menu */
+/* "Room CODE" and the share link on one row, so a full room fits in the
+   Flight tab's height */
 .fly-room-head {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   width: 100%;
+}
+
+.fly-room-head > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .fly-room-head .fly-or {
   text-transform: uppercase;
   font-size: 10px;
   letter-spacing: 2px;
+}
+
+.fly-room-head .fly-btn {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 
 .fly-room-actions {
@@ -1962,6 +1982,33 @@ input[type='number'].customization-input {
 
 .fly-room-actions .fly-btn {
   flex: 1;
+  height: 38px;
+}
+
+/* Out of a room the tab is shorter than the others: three tight groups
+   (name, start a flight, join one) split the spare space evenly between them */
+#fly-solo {
+  flex: 1;
+  justify-content: space-between;
+}
+
+.fly-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+/* In a room the sections sit a little closer, and the tag rule right
+   under its button */
+#fly-room {
+  gap: 8px;
+}
+
+#fly-room .fly-tag-hint {
+  margin-top: -2px;
+  line-height: 1.25;
 }
 
 /* Your own row: tap your name to change it */
@@ -1972,10 +2019,10 @@ input[type='number'].customization-input {
 .fly-self-name {
   flex: 1;
   min-width: 0;
-  height: 30px;
+  height: 26px;
   padding: 0;
   border: none;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.25);
+  border-bottom: 1px solid transparent;
   border-radius: 0;
   background: transparent;
   color: #fff;
@@ -2048,7 +2095,7 @@ input[type='number'].customization-input {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
 }
 
@@ -2082,7 +2129,8 @@ input[type='number'].customization-input {
   flex-shrink: 0;
 }
 
-#fly-invite-btn {
+#fly-invite-btn,
+#fly-bots-btn {
   width: 100%;
 }
 
@@ -2112,10 +2160,10 @@ input[type='number'].customization-input {
     'Inter',
     -apple-system,
     sans-serif;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: 6px;
+  line-height: 1;
+  letter-spacing: 4px;
   -webkit-user-select: text;
   user-select: text;
 }
@@ -2123,7 +2171,7 @@ input[type='number'].customization-input {
 .fly-players {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
   width: 100%;
 }
 
@@ -2131,8 +2179,8 @@ input[type='number'].customization-input {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 42px;
-  padding: 0 4px 0 12px;
+  min-height: 34px;
+  padding: 0 3px 0 12px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   font-size: 14px;
@@ -2165,9 +2213,20 @@ input[type='number'].customization-input {
 }
 
 .fly-player .fly-btn {
-  height: 34px;
+  height: 28px;
   padding: 0 12px;
   font-size: 12px;
+}
+
+/* "it", "paused": small and grey after the name, as on your own row */
+.fly-player-note {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.fly-player-note:last-child {
+  padding-right: 8px;
 }
 
 .fly-bots-row {

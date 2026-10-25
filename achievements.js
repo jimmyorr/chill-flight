@@ -225,7 +225,7 @@ export const Achievements = (function () {
   function updateButtonCounter() {
     const counter = document.getElementById('achievements-counter');
     if (counter) {
-      counter.textContent = `(${getUnlockedCount()}/${getTotalCount()})`;
+      counter.textContent = `${getUnlockedCount()}/${getTotalCount()}`;
     }
   }
 
