@@ -986,6 +986,11 @@ const MAX_SPAN_SAMPLES = 400;
 const JUNCTION_REACH = ChillFlightLogic.ROAD_WIDTH + 2 + 60;
 const JUNCTION_DIP = 0.5;
 
+// Where a highway stops short (at a coast), its deck slopes down to the
+// ground over this far (units) before the end, rather than stopping in
+// mid-air on its bridge
+const ROAD_END_RAMP = 600;
+
 // Is world (x, z) at a crossing with a north-south highway that runs there?
 function atJunction(x, z) {
   const n = Math.round(
@@ -1713,6 +1718,38 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
               );
             }
             runStart = -1;
+          }
+        }
+
+        // Slope down to the ground where the road stops short. Each sample
+        // looks along the route itself (not just this chunk's window), so
+        // neighbouring chunks agree on the deck's height.
+        const rampSamples = Math.round(ROAD_END_RAMP / sampleStep);
+        const runsAt = (wa) =>
+          // The cross-country one carries on into Meadow Field's access road
+          (crossCountry && wa > ewEnd) ||
+          ChillFlightLogic.highwayRunsAt(n, wa, simplex, constants);
+        for (let i = 0; i < rawSamples.length; i++) {
+          if (!rawSamples[i].onRoute) continue;
+          const wa = rawSamples[i].wa;
+          for (let k = 1; k <= rampSamples; k++) {
+            const dir = runsAt(wa + k * sampleStep)
+              ? runsAt(wa - k * sampleStep)
+                ? 0
+                : -1
+              : 1;
+            if (!dir) continue;
+            // The last sample on the route, where the deck meets the ground
+            const endA = wa + (k - 1) * sampleStep * dir;
+            const {actualTerrainH} = sampleRoadHeight(endA);
+            const endY = Math.max(actualTerrainH, WATER_LEVEL) + 1.0;
+            const t = (k - 1) / rampSamples;
+            const ease = t * t * (3 - 2 * t);
+            finalY[i] = Math.max(
+              endY + (finalY[i] - endY) * ease,
+              rawSamples[i].actualTerrainH + 1.0
+            );
+            break;
           }
         }
 
