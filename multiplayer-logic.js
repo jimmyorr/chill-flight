@@ -467,15 +467,18 @@ export function waggleRoll(ms) {
 
 // --- TAG ---
 // One player is "it" and chases the others; flying within TAG_RADIUS of one
-// makes them it. Everyone flies the plane of whoever started the game,
+// makes them it. A round lasts TAG_ROUND_MS, and everyone who isn't it
+// scores points for each second they stay near whoever is (tagPointsRate):
+// most points wins. Everyone flies the plane of whoever started the game,
 // whoever is it can fly TAG_SPEED_BOOST faster, and everyone else has smoke
 // forced on. Whoever is it decides the tag, on what their own screen shows,
-// so nobody argues over lag. Each change counts up `n`; a message with a
+// so nobody argues over lag; each player counts their own points and sends
+// them with their position. Each change counts up `n`; a message with a
 // lower count is old news, and two at once (two players starting a game) are
 // settled by the sender's id, the same way on every screen.
-//   {t: 'tag', it, plane, n, by, times, present}
-//   it: who's it (null: game over); plane: locked plane; times: {id: ms as it};
-//   present: {id: ms in the game}, so a late joiner can't win by arriving
+//   {t: 'tag', it, plane, n, by, left, points}
+//   it: who's it (null: game over); plane: locked plane; left: ms of the
+//   round to go; points: {id: points} so far (at the end, the final score)
 
 // 60 m (1 unit is 0.5144 m)
 export const TAG_RADIUS = 117;
@@ -487,27 +490,35 @@ export const TAG_SPEED_BOOST = 1.15;
 // A friend not heard from for this long (a stalled connection) is drawn as
 // a ghost and can't be tagged, until their updates come back (ms)
 export const QUIET_MS = 3000;
+// A round of tag (ms)
+export const TAG_ROUND_MS = 3 * 60 * 1000;
+// Points a second for staying within TAG_NEAR (300 m) of whoever's it, and
+// fewer out to TAG_FAR (800 m)
+export const TAG_NEAR = 583;
+export const TAG_FAR = 1555;
+export const TAG_NEAR_POINTS = 3;
+export const TAG_FAR_POINTS = 1;
+// When time's up, whoever's it ends the round this long after (ms), once
+// everyone's last points have come in; anyone does, should they not have
+export const TAG_END_MS = 1000;
+export const TAG_END_LATE_MS = 4000;
 
 export const NO_TAG = Object.freeze({
   it: null,
   plane: null,
   n: 0,
   by: '',
-  times: Object.freeze({}),
-  present: Object.freeze({}),
+  left: 0,
+  points: Object.freeze({}),
 });
 
-// To win, a player must have been in the game at least this share of the
-// longest anyone has
-export const TAG_MIN_PRESENT = 0.5;
-
-// {id: ms} from a message, keeping only sensible entries
-function readMsMap(map) {
+// {id: points} from a message, keeping only sensible entries
+function readPoints(map) {
   const out = {};
   if (map && typeof map === 'object' && !Array.isArray(map)) {
     for (const [k, v] of Object.entries(map)) {
       if (typeof v === 'number' && v >= 0 && Number.isFinite(v)) {
-        out[k] = Math.round(v);
+        out[k] = Math.floor(v);
       }
     }
   }
@@ -522,13 +533,19 @@ export function readTag(msg) {
     msg.it && typeof msg.plane === 'string' && msg.plane
       ? tagPlane(msg.plane)
       : null;
+  const left =
+    typeof msg.left === 'number' && Number.isFinite(msg.left)
+      ? Math.min(TAG_ROUND_MS, Math.max(0, Math.round(msg.left)))
+      : msg.it
+        ? TAG_ROUND_MS
+        : 0;
   return {
     it: msg.it,
     plane,
     n: msg.n,
     by: typeof msg.by === 'string' ? msg.by : '',
-    times: readMsMap(msg.times),
-    present: readMsMap(msg.present),
+    left,
+    points: readPoints(msg.points),
   };
 }
 
@@ -541,104 +558,42 @@ export function tagPlane(type) {
   return typeof type === 'string' ? type : 'biplane';
 }
 
-/**
- * The current "it" player's time as it, not counting while they're paused.
- * note() is told often whether they're paused right now.
- */
-export class TagClock {
-  constructor(now = 0) {
-    this.reset(now);
-  }
-
-  reset(now) {
-    this.since = now;
-    this.pausedMs = 0;
-    this.pausedAt = null;
-  }
-
-  note(paused, now) {
-    if (paused && this.pausedAt === null) {
-      this.pausedAt = now;
-    } else if (!paused && this.pausedAt !== null) {
-      this.pausedMs += now - this.pausedAt;
-      this.pausedAt = null;
-    }
-  }
-
-  elapsed(now) {
-    const pausing = this.pausedAt === null ? 0 : now - this.pausedAt;
-    return Math.max(0, now - this.since - this.pausedMs - pausing);
-  }
+/** Points a second for being `dist` (units) from whoever's it. */
+export function tagPointsRate(dist) {
+  if (dist <= TAG_NEAR) return TAG_NEAR_POINTS;
+  if (dist <= TAG_FAR) return TAG_FAR_POINTS;
+  return 0;
 }
 
-/** Formats milliseconds spent as "it" as m:ss (e.g. 0:14, 1:05). */
+/** Formats milliseconds as m:ss (e.g. 0:14, 1:05), rounding up. */
 export function formatTagTime(ms) {
-  const sec = Math.max(0, Math.floor((ms || 0) / 1000));
+  const sec = Math.max(0, Math.ceil((ms || 0) / 1000));
   const m = Math.floor(sec / 60);
   const s = String(sec % 60).padStart(2, '0');
   return `${m}:${s}`;
 }
 
-/** Total ms `id` has been it, including `elapsedMs` of the current stint. */
-export function tagTimeOf(tag, id, elapsedMs = 0) {
-  const base = tag?.times?.[id] || 0;
-  const cur = tag?.it === id ? Math.max(0, Math.round(elapsedMs)) : 0;
-  return base + cur;
-}
-
-/** A copy of `tag.times` with the current "it" player's stint folded in. */
-export function withTagTime(tag, elapsedMs) {
-  const times = {...(tag?.times || {})};
-  if (tag?.it && elapsedMs > 0) {
-    times[tag.it] = (times[tag.it] || 0) + Math.round(elapsedMs);
-  }
-  return times;
-}
-
 /**
- * A copy of `tag.present` with `stints` ({id: ms}) added: how long each
- * player was in the game since the last change.
+ * Who won among `ids` ({id, ids, points}): the most points. Equal scores
+ * share the win (`ids`); `id` is the first winner's. Null when fewer than
+ * two players are there or nobody scored.
  */
-export function withTagPresence(tag, stints) {
-  const present = {...(tag?.present || {})};
-  for (const [id, ms] of Object.entries(stints)) {
-    if (ms > 0) present[id] = (present[id] || 0) + Math.round(ms);
-  }
-  return present;
-}
-
-/**
- * Who won among `ids` ({id, ids, ms}): the lowest share of their time in
- * the game spent as "it", among those in it at least TAG_MIN_PRESENT of the
- * longest anyone was, so a late joiner can't win by arriving. Equal shares
- * share the win (`ids`); `id` and `ms` are the first winner's. Without
- * `present` (an older game), everyone counts as in it the whole time. Null
- * when fewer than two players are present or the round lasted under a
- * second.
- */
-export function tagWinner(times, ids, present) {
+export function tagWinner(points, ids) {
   const list = [...ids].sort();
   if (list.length < 2) return null;
-  const total = list.reduce((sum, id) => sum + (times?.[id] || 0), 0);
-  if (total < 1000) return null;
-  const known = present && Object.keys(present).length > 0;
-  const inGame = (id) => (known ? present[id] || 0 : 1);
-  const longest = Math.max(...list.map(inGame));
-  let best = Infinity;
+  let best = 0;
   let winners = [];
   for (const id of list) {
-    const ms = inGame(id);
-    if (ms <= 0 || ms < longest * TAG_MIN_PRESENT) continue;
-    const share = (times?.[id] || 0) / ms;
-    if (share < best - 1e-9) {
-      best = share;
+    const p = points?.[id] || 0;
+    if (p > best) {
+      best = p;
       winners = [id];
-    } else if (share <= best + 1e-9) {
+    } else if (p === best && best > 0) {
       winners.push(id);
     }
   }
   if (winners.length === 0) return null;
-  return {id: winners[0], ids: winners, ms: times?.[winners[0]] || 0};
+  return {id: winners[0], ids: winners, points: best};
 }
 
 /** Whether tag state `next` replaces `cur`. */

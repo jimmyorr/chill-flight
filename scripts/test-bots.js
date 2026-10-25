@@ -10,7 +10,14 @@
  * without sticking or climbing it, calling for rescue from a pit they
  * can't leave, and catching a player who drives straight.
  */
-import {TAG_RADIUS, TAG_SPEED_BOOST} from '../multiplayer-logic.js';
+import {
+  TAG_FAR,
+  TAG_NEAR,
+  TAG_RADIUS,
+  TAG_ROUND_MS,
+  TAG_SPEED_BOOST,
+  tagPointsRate,
+} from '../multiplayer-logic.js';
 import {forwardOf, headingToward} from '../traffic-logic.js';
 import {
   CHASE_GIVE_UP,
@@ -301,6 +308,46 @@ function chase(targets, seconds, moveTargets) {
     at === null || at > 8,
     `caught in ${at?.toFixed(1)} s`
   );
+
+  // Whoever's it cruising about: the bot hangs about near them to score,
+  // in and out, without getting caught
+  for (const [name, turn] of [
+    ['straight', 0],
+    ['circling', 0.12],
+  ]) {
+    const hoverer = newBot(1, lead, 'biplane');
+    const cruiser = player(0, 600, 1200, 0, 220, turn);
+    let near = 0;
+    let inRange = 0;
+    let points = 0;
+    let closest = Infinity;
+    const steps = (TAG_ROUND_MS / 1000) * 60;
+    for (let i = 0; i < steps; i++) {
+      stepPlayer(cruiser, DT, hills);
+      stepBot(hoverer, DT, {
+        elevationAt: hills,
+        waterLevel: WATER,
+        leader: lead,
+        topSpeed: 280,
+        tag: {it: false, chaser: cruiser, centre: null},
+      });
+      const d = dist(hoverer, cruiser);
+      closest = Math.min(closest, d);
+      if (d <= TAG_NEAR) near++;
+      if (d <= TAG_FAR) inRange++;
+      points += tagPointsRate(d) * DT;
+    }
+    const detail = `near ${((100 * near) / steps).toFixed(0)}%, in range ${((100 * inRange) / steps).toFixed(0)}%, ${points.toFixed(0)} points, closest ${closest.toFixed(0)}`;
+    check(
+      `a bot running hangs about near whoever's it (${name})`,
+      inRange / steps > 0.75 &&
+        near / steps > 0.2 &&
+        near / steps < 0.85 &&
+        closest > TAG_RADIUS,
+      detail
+    );
+    console.log(`    (${detail})`);
+  }
 
   // Left alone far from the others, it comes back
   const far = newBot(1, lead, 'biplane');

@@ -2741,6 +2741,28 @@ input[type='number'].customization-input {
    with their name and distance, over their plane when it's far off and at
    the screen's edge (a chevron pointing the way) when it's out of view.
    Placed like the waypoint marker; --friend-angle turns the chevron. */
+/* A soft glow round the screen's edge while scoring in tag (multiplayer.js):
+   faint when within 800 m of whoever's it, brighter within 300 m */
+#tag-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 138;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 90px 10px rgba(255, 196, 64, 0.55),
+    inset 0 0 22px rgba(255, 214, 102, 0.45);
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+#tag-glow[data-level='far'] {
+  opacity: 0.4;
+}
+
+#tag-glow[data-level='near'] {
+  opacity: 1;
+}
+
 #friend-markers {
   position: fixed;
   inset: 0;
@@ -2837,6 +2859,7 @@ input[type='number'].customization-input {
     -apple-system,
     sans-serif;
   letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
   white-space: nowrap;
 }
@@ -3053,6 +3076,7 @@ body.zen
     #waypoint-indicator,
     #friend-markers,
     #tag-chip,
+    #tag-glow,
     #mobile-controls,
     #achievement-toast-container,
     #debug-menu,
@@ -3065,6 +3089,7 @@ body.zen
     #waypoint-indicator,
     #friend-markers,
     #tag-chip,
+    #tag-glow,
     #mobile-controls,
     #achievement-toast-container,
     #debug-menu,

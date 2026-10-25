@@ -22,9 +22,13 @@ import {
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
   SEND_INTERVAL_MS,
+  TAG_FAR,
+  TAG_FAR_POINTS,
+  TAG_NEAR,
+  TAG_NEAR_POINTS,
   TAG_RADIUS,
+  TAG_ROUND_MS,
   TAG_SPEED_BOOST,
-  TagClock,
   WAGGLE_MS,
   formatTagTime,
   inviteUrl,
@@ -37,13 +41,11 @@ import {
   readTag,
   roomSocketUrl,
   tagPlane,
+  tagPointsRate,
   tagTarget,
-  tagTimeOf,
   tagWinner,
   unpackState,
   waggleRoll,
-  withTagPresence,
-  withTagTime,
 } from '../multiplayer-logic.js';
 
 console.log('Testing flying together...');
@@ -513,11 +515,13 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
 
   check(
     'A tag message is read, and junk is not',
-    readTag({it: 'abc', plane: 'seaplane', n: 2, by: 'x', times: {abc: 1500}})
+    readTag({it: 'abc', plane: 'seaplane', n: 2, by: 'x', points: {abc: 15}})
       ?.plane === 'seaplane' &&
-      readTag({it: 'abc', n: 2, by: 'x', times: {abc: 1500, bad: -5}})?.times
-        .abc === 1500 &&
-      readTag({it: 'abc', n: 2, by: 'x', times: {bad: -5}})?.times.bad ===
+      readTag({it: 'abc', n: 2, by: 'x', points: {abc: 15.7, bad: -5}})?.points
+        .abc === 15 &&
+      readTag({it: 'abc', n: 2, by: 'x', points: {bad: -5}})?.points.bad ===
+        undefined &&
+      readTag({it: 'abc', n: 2, by: 'x', points: [3]})?.points[0] ===
         undefined &&
       readTag({it: null, plane: 'jet', n: 3})?.plane === null &&
       readTag({it: null, n: 3})?.by === '' &&
@@ -528,66 +532,46 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
       TAG_SPEED_BOOST === 1.15
   );
 
-  {
-    const t0 = readTag({
-      it: 'a',
-      plane: 'biplane',
-      n: 1,
-      by: 'a',
-      times: {b: 4000},
-    });
-    const times1 = withTagTime(t0, 2500);
-    const t1 = {...t0, it: 'b', times: times1};
-    check(
-      'Tag times fold in each stint, format as m:ss, and pick the lowest-time winner',
-      tagTimeOf(t0, 'a', 2500) === 2500 &&
-        tagTimeOf(t0, 'b', 2500) === 4000 &&
-        times1.a === 2500 &&
-        times1.b === 4000 &&
-        tagTimeOf(t1, 'b', 3000) === 7000 &&
-        formatTagTime(0) === '0:00' &&
-        formatTagTime(9400) === '0:09' &&
-        formatTagTime(75000) === '1:15' &&
-        tagWinner(times1, ['a', 'b'])?.id === 'a' &&
-        tagWinner(times1, ['a', 'b', 'c'])?.id === 'c' &&
-        tagWinner(times1, ['a']) === null &&
-        tagWinner({a: 200}, ['a', 'b']) === null
-    );
-  }
+  check(
+    "A round is 3 minutes, and a message says how long it's got to go",
+    TAG_ROUND_MS === 180000 &&
+      readTag({it: 'a', n: 1, left: 60000.4})?.left === 60000 &&
+      readTag({it: 'a', n: 1, left: -5})?.left === 0 &&
+      readTag({it: 'a', n: 1, left: 1e9})?.left === TAG_ROUND_MS &&
+      // From an older game: a whole round
+      readTag({it: 'a', n: 1})?.left === TAG_ROUND_MS &&
+      readTag({it: null, n: 2})?.left === 0 &&
+      formatTagTime(TAG_ROUND_MS) === '3:00' &&
+      formatTagTime(179001) === '3:00' &&
+      formatTagTime(65000) === '1:05' &&
+      formatTagTime(400) === '0:01' &&
+      formatTagTime(0) === '0:00'
+  );
 
-  {
-    // a and b played 10 minutes; c arrived for the last 20 seconds
-    const times = {a: 240000, b: 360000};
-    const present = withTagPresence(
-      {present: {a: 580000, b: 580000}},
-      {a: 20000, b: 20000, c: 20000, gone: 0}
-    );
-    check(
-      'Tag presence folds in, and a late joiner cannot win by arriving',
-      present.a === 600000 &&
-        present.c === 20000 &&
-        !('gone' in present) &&
-        tagWinner(times, ['a', 'b', 'c'], present)?.id === 'a' &&
-        // Ranked by share of time in the game, not total time as it
-        tagWinner({a: 200000, b: 150000}, ['a', 'b'], {a: 600000, b: 400000})
-          ?.id === 'a' &&
-        // Even shares share the win
-        tagWinner({a: 0, b: 0, c: 5000}, ['b', 'a', 'c'], {
-          a: 9000,
-          b: 9000,
-          c: 9000,
-        })?.ids.join() === 'a,b' &&
-        // Someone never counted in the game can't win
-        tagWinner({a: 3000, b: 2000}, ['a', 'b', 'c'], {a: 9000, b: 9000})
-          ?.id === 'b' &&
-        // Older games without presence: lowest time as it, as before
-        tagWinner({a: 3000, b: 2000}, ['a', 'b', 'c'], {})?.id === 'c' &&
-        readTag({it: 'a', n: 1, present: {a: 5, b: -1}})?.present.a === 5 &&
-        readTag({it: 'a', n: 1, present: {a: 5, b: -1}})?.present.b ===
-          undefined &&
-        readTag({it: 'a', n: 1})?.present !== undefined
-    );
-  }
+  check(
+    'Points for being near whoever is it: more within 300 m, some to 800 m',
+    tagPointsRate(0) === TAG_NEAR_POINTS &&
+      tagPointsRate(TAG_NEAR) === TAG_NEAR_POINTS &&
+      tagPointsRate(TAG_NEAR + 1) === TAG_FAR_POINTS &&
+      tagPointsRate(TAG_FAR) === TAG_FAR_POINTS &&
+      tagPointsRate(TAG_FAR + 1) === 0 &&
+      TAG_NEAR_POINTS > TAG_FAR_POINTS &&
+      // 300 m and 800 m (1 unit is 0.5144 m)
+      Math.abs(TAG_NEAR * 0.5144 - 300) < 1 &&
+      Math.abs(TAG_FAR * 0.5144 - 800) < 1
+  );
+
+  check(
+    'Most points wins, equal points share the win',
+    tagWinner({a: 40, b: 120, c: 90}, ['a', 'b', 'c'])?.id === 'b' &&
+      tagWinner({a: 40, b: 120, c: 90}, ['a', 'b', 'c'])?.points === 120 &&
+      tagWinner({a: 90, b: 40, c: 90}, ['c', 'b', 'a'])?.ids.join() === 'a,c' &&
+      // Someone not in the room can't win
+      tagWinner({a: 40, b: 120}, ['a', 'c'])?.id === 'a' &&
+      tagWinner({a: 40}, ['a']) === null &&
+      tagWinner({}, ['a', 'b']) === null &&
+      tagWinner({a: 0, b: 0}, ['a', 'b']) === null
+  );
 
   const a = {it: 'b', n: 1, by: 'a'};
   const b = {it: 'a', n: 1, by: 'b'};
@@ -637,23 +621,6 @@ check(
     tagPlane('jet') === 'jet' &&
     readTag({it: 'abc', plane: 'buggy', n: 1})?.plane === 'buggy'
 );
-
-// Time as it stops while whoever's it is paused
-{
-  const clock = new TagClock(1000);
-  clock.note(false, 3000);
-  clock.note(true, 4000);
-  const whilePaused = clock.elapsed(9000);
-  clock.note(true, 9000);
-  clock.note(false, 10000);
-  const after = clock.elapsed(12000);
-  clock.reset(20000);
-  check(
-    'Tag clock stops while paused and starts afresh on reset',
-    whilePaused === 3000 && after === 5000 && clock.elapsed(20500) === 500,
-    `${whilePaused} ${after} ${clock.elapsed(20500)}`
-  );
-}
 
 // The relay's per-address limits on failed joins and new rooms
 {

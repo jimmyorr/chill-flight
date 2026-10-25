@@ -16,13 +16,14 @@
 // can't be reached, the game carries on solo. Messages:
 //   {t: 'hello', name, plane, livery, tag}  who you are; on joining and on
 //                                            change (tag: the game so far)
-//   {t: 's', ts, p, q, v, fl}          where you are (packState)
+//   {t: 's', ts, p, q, v, fl, pt}      where you are (packState), and in
+//                                      a game of tag, your points
 //   {t: 'waggle'}                      a wave
-//   {t: 'tag', it, n}                  who's it (multiplayer-logic.js)
+//   {t: 'tag', it, n, left, points}    who's it (multiplayer-logic.js)
 // A player's bots have ids "<their id>~<k>". {t: 'bot', k, hello} (as a
 // hello's name, plane, livery), {t: 'bot', k, waggle: true} and {t: 'bot',
 // k, bye: true} speak for one; their positions ride along in the player's
-// own update as `b: [{k, p, q, v, fl}]`; and {t: 'bots', on: false} asks
+// own update as `b: [{k, p, q, v, fl, pt}]`; and {t: 'bots', on: false} asks
 // whoever brought them to take them away. (Their own message type, so an
 // older game in the room just doesn't see them.)
 // and from the relay: welcome, joined, left (relay/src/index.js).
@@ -70,9 +71,11 @@ import {
   QUIET_MS,
   RENDER_DELAY_MS,
   SEND_INTERVAL_MS,
+  TAG_END_LATE_MS,
+  TAG_END_MS,
   TAG_GRACE_MS,
+  TAG_ROUND_MS,
   TAG_SPEED_BOOST,
-  TagClock,
   WAGGLE_MS,
   cleanName,
   formatTagTime,
@@ -87,13 +90,11 @@ import {
   readTag,
   roomSocketUrl,
   tagPlane,
+  tagPointsRate,
   tagTarget,
-  tagTimeOf,
   tagWinner,
   unpackState,
   waggleRoll,
-  withTagPresence,
-  withTagTime,
 } from './multiplayer-logic.js';
 
 // The relay (relay/README.md); empty hides flying together. ?relay= uses
@@ -139,6 +140,7 @@ const statusText = document.getElementById('fly-status');
 const tagBtn = document.getElementById('fly-tag-btn');
 const tagChip = document.getElementById('tag-chip');
 const tagHint = document.getElementById('fly-tag-hint');
+const tagGlow = document.getElementById('tag-glow');
 const botsInput = document.getElementById('fly-bots-input');
 const botsBtn = document.getElementById('fly-bots-btn');
 const markersEl = document.getElementById('friend-markers');
@@ -165,11 +167,20 @@ let smoothNow = null;
 let sentProfile = '';
 // When your own last waggle started (performance.now())
 let waggleAt = -Infinity;
-// The game of tag ({it, plane, n, by, times}), and when its "it" became it
+// The game of tag ({it, plane, n, by, left, points}), when its "it" became
+// it, and when the round ends (performance.now())
 let tag = NO_TAG;
 let tagSince = 0;
-// Time as it, stopped while whoever's it is paused
-const tagClock = new TagClock();
+let tagEndsAt = 0;
+// This player's points in the round, counted here (everyone else's come
+// with their updates, as peer.points)
+let myPoints = 0;
+// Points a second being scored right now (for the glow), and the chip's text
+let scoringRate = 0;
+let chipText = '';
+// When points were last added (performance.now()): they go by the clock,
+// not the frame, so a slow device scores the same
+let scoredAt = 0;
 let gatherToId = null;
 // Bots this player brought, by k ('1' to '3'): {bot (bot-logic.js), peer,
 // name, livery, plane (out of games)}; and whether they want them
@@ -222,7 +233,9 @@ function sendHello() {
     livery: myLivery(),
   };
   if (tag.n > 0) {
-    hello.tag = tag.it ? {...tag, ...tagTotals()} : tag;
+    hello.tag = tag.it
+      ? {...tag, left: timeLeft(), points: currentPoints()}
+      : tag;
   }
   sentProfile = `${hello.name}|${hello.plane}|${hello.livery}`;
   send(hello);
@@ -304,8 +317,8 @@ function addPeer(id) {
     marker: null,
     // When their waggle shows (performance.now(), after RENDER_DELAY_MS)
     waggleAt: -Infinity,
-    // When they arrived (performance.now()), for their time in a game of tag
-    joinedAt: performance.now(),
+    // Their points in a game of tag (as they last said)
+    points: 0,
   };
   addMarker(peer);
   peers.set(id, peer);
@@ -377,6 +390,7 @@ function onMessage(event) {
       const peer = addPeer(msg.f);
       peer.heardAt = heardAt;
       peer.track.push(s, peer.heardAt);
+      if (tag.it) peer.points = readPt(msg.pt, peer.points);
     }
     // Their bots, at the same moment
     if (Array.isArray(msg.b)) {
@@ -388,6 +402,7 @@ function onMessage(event) {
         peer.isBot = true;
         peer.heardAt = heardAt;
         peer.track.push(bs, heardAt);
+        if (tag.it) peer.points = readPt(b.pt, peer.points);
       }
     }
   } else if (msg.t === 'waggle') {
@@ -444,39 +459,62 @@ function refreshTag() {
   for (const peer of peers.values()) {
     peer.markerKey = '';
   }
-  if (tagChip) {
-    tagChip.hidden = !inTag;
-    tagChip.classList.toggle('mine', amIt);
-    if (inTag) {
-      tagChip.textContent = amIt
-        ? "You're it · tag a friend"
-        : `${nameOf(tag.it)} is it`;
-    }
+  if (!inTag) {
+    scoringRate = 0;
+    showGlow();
   }
+  renderTagChip();
   renderPanel();
 }
 
-// How long whoever's it has been it (ms), not counting time paused
-function itElapsed() {
-  return tag.it ? tagClock.elapsed(performance.now()) : 0;
+// The chip under the HUD in a game of tag: who's it, your points and the
+// time left
+function renderTagChip() {
+  if (!tagChip) return;
+  const inTag = !!room && !!tag.it;
+  const amIt = inTag && tag.it === room.id;
+  tagChip.hidden = !inTag;
+  tagChip.classList.toggle('mine', amIt);
+  if (!inTag) {
+    chipText = '';
+    return;
+  }
+  const left = timeLeft();
+  const who = amIt ? "You're it" : `${nameOf(tag.it)} is it`;
+  const text =
+    left > 0
+      ? `${who} · ${pointsText(Math.floor(myPoints))} · ${formatTagTime(left)}`
+      : `Time's up · ${pointsText(Math.floor(myPoints))}`;
+  if (text === chipText) return;
+  chipText = text;
+  tagChip.textContent = text;
 }
 
-// The game's times as it and times in it, with the current stint folded in.
-// Someone who arrived during the stint is only counted from when they did.
-function tagTotals() {
-  const elapsed = itElapsed();
-  const now = performance.now();
-  const stints = {};
-  if (tag.it && room) {
-    stints[room.id] = Math.min(elapsed, now - room.joinedAt);
-    for (const peer of peers.values()) {
-      stints[peer.id] = Math.min(elapsed, now - peer.joinedAt);
-    }
+function pointsText(n) {
+  return n === 1 ? '1 point' : `${n} points`;
+}
+
+// The round's time to go (ms)
+function timeLeft() {
+  return tag.it ? Math.max(0, tagEndsAt - performance.now()) : 0;
+}
+
+// A player's points as they sent them, or what we had
+function readPt(pt, had) {
+  return typeof pt === 'number' && pt >= 0 && Number.isFinite(pt)
+    ? Math.floor(pt)
+    : had;
+}
+
+// Everyone's points as this player knows them: {id: points}
+function currentPoints() {
+  const points = {};
+  if (!room) return points;
+  points[room.id] = Math.floor(myPoints);
+  for (const peer of peers.values()) {
+    if (peer.name) points[peer.id] = Math.floor(peer.points || 0);
   }
-  return {
-    times: withTagTime(tag, elapsed),
-    present: withTagPresence(tag, stints),
-  };
+  return points;
 }
 
 // A friend whose updates have stopped (a stalled connection), or who has
@@ -486,31 +524,35 @@ function isAway(peer, now) {
   return now - (peer.heardAt ?? now) > QUIET_MS;
 }
 
-// Stops the clock on time as it while whoever's it is paused or away
-function noteItPaused(now) {
-  if (!tag.it || !room) return;
-  const peer = peers.get(tag.it);
-  const paused =
-    tag.it === room.id ? !!state.isPaused : !!peer && isAway(peer, now);
-  tagClock.note(paused, now);
-}
-
 function setTag(next) {
   const was = tag.it;
   if (next.it !== was) tagBefore = was;
+  const starting = !was && !!next.it;
   tag = next;
   tagSince = performance.now();
-  tagClock.reset(tagSince);
+  if (tag.it) tagEndsAt = tagSince + tag.left;
+  if (starting) {
+    myPoints = 0;
+    for (const peer of peers.values()) peer.points = 0;
+  }
+  // Whoever we hadn't heard from yet (arriving mid-game) starts from the
+  // message's count
+  if (tag.it) {
+    for (const peer of peers.values()) {
+      peer.points = Math.max(peer.points || 0, tag.points[peer.id] || 0);
+    }
+    if (room) myPoints = Math.max(myPoints, tag.points[room.id] || 0);
+  }
   if (!was && tag.it && tag.it !== room?.id && tag.by === tag.it) {
     gatherToId = tag.it;
   } else if (!tag.it) {
     gatherToId = null;
   }
-  gatherBotsPending = !was && !!tag.it && tag.by === tag.it;
+  gatherBotsPending = starting && tag.by === tag.it;
   if (tag.it !== was) {
     if (!tag.it) {
       const win = room
-        ? tagWinner(tag.times, [room.id, ...peers.keys()], tag.present)
+        ? tagWinner(tag.points, [room.id, ...peers.keys()])
         : null;
       if (win?.ids.length > 1) {
         const names = win.ids.map((id) =>
@@ -520,7 +562,7 @@ function setTag(next) {
         toast(`Tag is over · ${who} share the win`);
       } else if (win) {
         const who = win.id === room.id ? 'You' : nameOf(win.id);
-        toast(`Tag is over · ${who} won (${formatTagTime(win.ms)} as it)`);
+        toast(`Tag is over · ${who} won with ${pointsText(win.points)}`);
       } else {
         toast('Tag is over');
       }
@@ -538,12 +580,10 @@ function applyTag(next) {
   if (next.it && next.it !== room.id && !peers.has(next.it)) {
     // It's someone who's already gone
     setTag({
+      ...next,
       it: nextIt([room.id, ...peers.keys()]),
-      plane: next.plane,
       n: next.n + 1,
       by: '~',
-      times: next.times,
-      present: next.present,
     });
     return;
   }
@@ -554,13 +594,19 @@ function applyTag(next) {
 function sendTag(it) {
   if (!room) return;
   const starting = !tag.it && !!it;
-  const {times, present} = starting ? {times: {}, present: {}} : tagTotals();
   const plane = it
     ? starting
       ? tagPlane(activePlaneType)
       : tag.plane || tagPlane(activePlaneType)
     : null;
-  const next = {it, plane, n: tag.n + 1, by: room.id, times, present};
+  const next = {
+    it,
+    plane,
+    n: tag.n + 1,
+    by: room.id,
+    left: starting ? TAG_ROUND_MS : it ? Math.round(timeLeft()) : 0,
+    points: starting ? {} : currentPoints(),
+  };
   setTag(next);
   send({t: 'tag', ...next});
 }
@@ -569,20 +615,76 @@ function sendTag(it) {
 // the same on every screen); alone, the game's over
 function tagAfterLeaving(id) {
   if (!tag.it) return;
-  const {times, present} = tagTotals();
+  const points = currentPoints();
   if (peers.size === 0) {
-    setTag({it: null, plane: null, n: tag.n + 1, by: '~', times, present});
+    setTag({it: null, plane: null, n: tag.n + 1, by: '~', left: 0, points});
   } else if (tag.it === id) {
     setTag({
       it: nextIt([room.id, ...peers.keys()]),
       plane: tag.plane,
       n: tag.n + 1,
       by: '~',
-      times,
-      present,
+      left: Math.round(timeLeft()),
+      points,
     });
   }
 }
+
+// Scores a frame of the round: this player's points and their bots', for
+// being near whoever's it (and not it, or away); and the glow round the
+// screen while scoring. Once time's up, whoever's it ends the round, or
+// anyone, should they not.
+function scoreTag(rawNow) {
+  scoringRate = 0;
+  if (!room || !tag.it) {
+    showGlow();
+    return;
+  }
+  // Not across a pause, or past the end of the round
+  const to = Math.min(rawNow, tagEndsAt);
+  const dt = Math.min(1, Math.max(0, to - Math.max(scoredAt, tagSince)) / 1000);
+  scoredAt = rawNow;
+  if (rawNow < tagEndsAt) {
+    let itPos = null;
+    const mineIt = [...myBots.values()].find((m) => m.peer.id === tag.it);
+    if (mineIt) {
+      itPos = _scorePos.set(mineIt.bot.x, mineIt.bot.y, mineIt.bot.z);
+    } else if (tag.it === room.id) {
+      if (!state.isPaused) itPos = planeGroup.position;
+    } else {
+      const peer = peers.get(tag.it);
+      if (peer?.group?.visible && !isAway(peer, rawNow)) {
+        itPos = peer.group.position;
+      }
+    }
+    if (itPos) {
+      if (tag.it !== room.id && !state.isPaused) {
+        scoringRate = tagPointsRate(planeGroup.position.distanceTo(itPos));
+        myPoints += scoringRate * dt;
+      }
+      for (const {bot, peer} of myBots.values()) {
+        if (peer.id === tag.it) continue;
+        const d = Math.hypot(bot.x - itPos.x, bot.y - itPos.y, bot.z - itPos.z);
+        peer.points = (peer.points || 0) + tagPointsRate(d) * dt;
+      }
+    }
+  } else {
+    const late = rawNow - tagEndsAt;
+    const mine = tag.it === room.id || ownerOf(tag.it) === room.id;
+    if (late > (mine ? TAG_END_MS : TAG_END_LATE_MS)) sendTag(null);
+  }
+  showGlow();
+  renderTagChip();
+}
+
+// The soft glow round the screen's edge while scoring: brighter when close
+function showGlow() {
+  if (!tagGlow) return;
+  const level = scoringRate > 1 ? 'near' : scoringRate > 0 ? 'far' : '';
+  if (tagGlow.dataset.level !== level) tagGlow.dataset.level = level;
+}
+
+const _scorePos = new THREE.Vector3();
 
 // --- WAVING ---
 
@@ -947,7 +1049,9 @@ function packMyBots(now) {
       peer.heardAt = heardAt;
       peer.track.push(s, heardAt);
     }
-    out.push({k, p: packed.p, q: packed.q, v: packed.v, fl: packed.fl});
+    const entry = {k, p: packed.p, q: packed.q, v: packed.v, fl: packed.fl};
+    if (tag.it) entry.pt = Math.floor(peer.points || 0);
+    out.push(entry);
   }
   return out;
 }
@@ -955,7 +1059,7 @@ function packMyBots(now) {
 // One of this player's bots that's it tags anyone in its reach
 function botTags(rawNow) {
   if (!tag.it || ownerOf(tag.it) !== room.id || state.isPaused) return;
-  if (rawNow - tagSince <= TAG_GRACE_MS) return;
+  if (rawNow - tagSince <= TAG_GRACE_MS || rawNow >= tagEndsAt) return;
   const mine = [...myBots.values()].find((m) => m.peer.id === tag.it);
   if (!mine) return;
   let spots = playerSpots(rawNow).filter((p) => p.id !== tag.it);
@@ -1019,7 +1123,6 @@ function enterRoom(ws, welcome, code) {
     id: welcome.id,
     seed: welcome.seed,
     host: welcome.host,
-    joinedAt: performance.now(),
   };
   reconnectTry = 0;
   for (const id of welcome.peers || []) addPeer(id);
@@ -1257,7 +1360,6 @@ function resume() {
 function sendState(frameClock) {
   if (!room) return;
   const rawNow = performance.now();
-  noteItPaused(rawNow);
   if (state.isPaused) {
     pausedSince ??= rawNow;
     if (rawNow - pausedSince > PAUSED_DISCONNECT_MS) suspend();
@@ -1296,8 +1398,9 @@ function sendState(frameClock) {
     flags
   );
   if (bots) update.b = bots;
+  if (tag.it) update.pt = Math.floor(myPoints);
   send(update);
-  // Kept fresh: the chip's colours, and while showing, tag times, who's
+  // Kept fresh: the chip's colours, and while showing, tag points, who's
   // paused and who's ready to fly to
   if ((tag.it && panelShown()) || rawNow - renderedAt > 1000) renderPanel();
 }
@@ -1532,7 +1635,8 @@ export function updateMultiplayer(delta) {
   if (
     tag.it === room.id &&
     !state.isPaused &&
-    rawNow - tagSince > TAG_GRACE_MS
+    rawNow - tagSince > TAG_GRACE_MS &&
+    rawNow < tagEndsAt
   ) {
     const others = [];
     for (const peer of peers.values()) {
@@ -1547,6 +1651,7 @@ export function updateMultiplayer(delta) {
     if (target) sendTag(target);
   }
   botTags(rawNow);
+  scoreTag(rawNow);
   if (gatherBotsPending && !state.isIntroTransitionActive) {
     gatherBotsPending = !gatherBots();
   }
@@ -1613,11 +1718,12 @@ function renderPanel() {
   }
   if (tagHint) {
     tagHint.hidden = !tagBtn || tagBtn.hidden;
-    tagHint.textContent = 'Least time as it wins.';
+    tagHint.textContent = "Stay near whoever's it to score.";
   }
-  const elapsed = itElapsed();
-  const showTimes = !!tag.it || Object.keys(tag.times).length > 0;
-  const row = ({name, livery, peer, timeMs}) => {
+  // In a game, live points; after one, how it ended
+  const showPoints = !!tag.it || Object.keys(tag.points).length > 0;
+  const live = tag.it ? currentPoints() : tag.points;
+  const row = ({name, livery, peer, points}) => {
     const el = document.createElement('div');
     el.className = 'fly-player';
     const dot = document.createElement('span');
@@ -1627,11 +1733,11 @@ function renderPanel() {
     label.className = 'fly-player-name';
     label.textContent = name;
     el.append(dot, label);
-    if (showTimes) {
-      const time = document.createElement('span');
-      time.className = 'fly-player-time';
-      time.textContent = formatTagTime(timeMs);
-      el.append(time);
+    if (showPoints) {
+      const score = document.createElement('span');
+      score.className = 'fly-player-time';
+      score.textContent = pointsText(points);
+      el.append(score);
     }
     if (peer && !tag.it) {
       const btn = document.createElement('button');
@@ -1651,19 +1757,19 @@ function renderPanel() {
       ? ', paused'
       : '';
   // Out of tag games you're your own row at the top, with your name to tap
-  // and change; in one, the list is sorted by time, you included
-  selfRow.hidden = showTimes;
+  // and change; in one, the list is sorted by points, you included
+  selfRow.hidden = showPoints;
   selfDot.style.background = hexColor(myLivery());
   if (document.activeElement !== selfName) selfName.value = myName();
   selfName.placeholder = defaultCallsign;
   selfNote.textContent = `you${isPaused(null)}`;
-  const entries = showTimes
+  const entries = showPoints
     ? [
         {
           name: `${myName()} (you${it(room.id)}${isPaused(null)})`,
           livery: myLivery(),
           peer: null,
-          timeMs: tagTimeOf(tag, room.id, elapsed),
+          points: live[room.id] || 0,
         },
       ]
     : [];
@@ -1673,11 +1779,11 @@ function renderPanel() {
         name: `${peer.name}${tag.it === peer.id ? ' (it)' : ''}${isPaused(peer) ? ' (paused)' : ''}`,
         livery: peer.livery,
         peer,
-        timeMs: tagTimeOf(tag, peer.id, elapsed),
+        points: live[peer.id] || 0,
       });
     }
   }
-  if (tag.it) entries.sort((a, b) => a.timeMs - b.timeMs);
+  if (showPoints) entries.sort((a, b) => b.points - a.points);
   playersList.replaceChildren(...entries.map(row));
 }
 

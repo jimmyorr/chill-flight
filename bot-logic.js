@@ -89,9 +89,15 @@ export const RUN_SPEED = 0.88;
 const BOT_TARGET_WEIGHT = 3;
 // A chase that hasn't got any closer for this long switches to someone else
 export const CHASE_GIVE_UP = 30;
-// The chaser within this: run (ducking low); further: drift back toward
-// the others so the game stays together
-export const FLEE_DISTANCE = 1800;
+// Runners score for staying near whoever's it (multiplayer-logic.js: most
+// within 583 units, some out to 1555), so a bot runner hangs about at
+// HOVER_NEAR in daring spells and HOVER_FAR in wary ones, circling, and
+// runs for it (ducking low) once the chaser's within FLEE_DISTANCE
+export const HOVER_NEAR = 420;
+export const HOVER_FAR = 1050;
+export const FLEE_DISTANCE = 260;
+const DARE_FOR = 12;
+const WARY_FOR = 9;
 const REGROUP_DISTANCE = 1500;
 // Every MISTAKE_EVERY seconds or so a runner dawdles for MISTAKE_FOR
 const MISTAKE_EVERY = 25;
@@ -494,44 +500,76 @@ function stepChaser(bot, dt, ctx) {
   move(bot, dt, ctx, bot.aim.y, ctx.topSpeed * CHASE_SPEED, CHASE_CLEARANCE);
 }
 
-// In tag, running: away from whoever's it when they're close, weaving and
-// ducking low, with the odd dawdle; otherwise drifting back toward the
-// others
+// In tag, running: hanging about near whoever's it to score, circling at a
+// distance that comes and goes, and away (weaving and ducking low) when
+// they get close, with the odd dawdle; with nobody to run from, drifting
+// back toward the others
 function stepRunner(bot, dt, ctx) {
   const {chaser, centre} = ctx.tag;
-  const near = chaser && distance2d(bot, chaser) < FLEE_DISTANCE;
   bot.mistakeAt -= dt;
   if (bot.mistakeAt < -MISTAKE_FOR) {
     bot.mistakeAt = MISTAKE_EVERY * (0.7 + 0.6 * ((bot.age * 7.3) % 1));
   }
   const dawdling = bot.mistakeAt < 0;
-  if (near) {
+  if (!chaser) {
+    const home = centre || ctx.leader;
+    if (distance2d(bot, home) > REGROUP_DISTANCE) {
+      steer(
+        bot,
+        ctx,
+        dt,
+        headingToward(bot.x, bot.z, home.x, home.z),
+        RUN_TURN
+      );
+    } else {
+      steer(
+        bot,
+        ctx,
+        dt,
+        bot.heading + Math.sin(bot.age * 0.2 + bot.slot) * 0.4,
+        RUN_TURN
+      );
+    }
+    move(bot, dt, ctx, home.y ?? bot.y, ctx.topSpeed * 0.7, WING_CLEARANCE);
+    return;
+  }
+  const gap = distance2d(bot, chaser);
+  if (gap < FLEE_DISTANCE) {
     let away = headingToward(chaser.x, chaser.z, bot.x, bot.z);
     away += Math.sin(bot.age * 0.45 + bot.slot * 2) * 0.6;
-    // Not off into the distance: bend back toward the others
-    if (centre && distance2d(bot, centre) > REGROUP_DISTANCE * 2) {
-      const home = headingToward(bot.x, bot.z, centre.x, centre.z);
-      away += wrapAngle(home - away) * 0.4;
-    }
     if (!dawdling) steer(bot, ctx, dt, away, RUN_TURN);
     const ground = Math.max(ctx.elevationAt(bot.x, bot.z), ctx.waterLevel);
     const speed = ctx.topSpeed * (dawdling ? 0.6 : RUN_SPEED);
     move(bot, dt, ctx, ground + DUCK_CLEARANCE, speed, DUCK_CLEARANCE);
     return;
   }
-  const home = centre || ctx.leader;
-  if (distance2d(bot, home) > REGROUP_DISTANCE) {
-    steer(bot, ctx, dt, headingToward(bot.x, bot.z, home.x, home.z), RUN_TURN);
-  } else {
-    steer(
-      bot,
-      ctx,
-      dt,
-      bot.heading + Math.sin(bot.age * 0.2 + bot.slot) * 0.4,
-      RUN_TURN
-    );
+  // Daring and wary spells in turn, each a little different in length
+  bot.spell = (bot.spell ?? DARE_FOR * (0.5 + 0.3 * bot.slot)) - dt;
+  if (bot.spell <= 0) {
+    bot.daring = !bot.daring;
+    const jitter = 0.7 + 0.6 * ((bot.age * 3.7) % 1);
+    bot.spell = (bot.daring ? DARE_FOR : WARY_FOR) * jitter;
   }
-  move(bot, dt, ctx, home.y ?? bot.y, ctx.topSpeed * 0.7, WING_CLEARANCE);
+  const want = bot.daring === false ? HOVER_FAR : HOVER_NEAR;
+  // Round the chaser (each bot its own way), in or out toward `want`,
+  // keeping up with where they're going
+  const rx = (bot.x - chaser.x) / gap;
+  const rz = (bot.z - chaser.z) / gap;
+  const side = bot.slot % 2 ? 1 : -1;
+  const push = clamp((want - gap) / 250, -1.5, 1.5);
+  // (flat out to catch up)
+  const run = ctx.topSpeed * (dawdling ? 0.6 : gap > want ? 1 : RUN_SPEED);
+  const vx = (chaser.vx || 0) + (-rz * side + rx * push) * run * 0.6;
+  const vz = (chaser.vz || 0) + (rx * side + rz * push) * run * 0.6;
+  steer(
+    bot,
+    ctx,
+    dt,
+    headingToward(bot.x, bot.z, bot.x + vx, bot.z + vz),
+    RUN_TURN
+  );
+  const speed = clamp(Math.hypot(vx, vz), MIN_SPEED, run);
+  move(bot, dt, ctx, chaser.y ?? bot.y, speed, WING_CLEARANCE);
 }
 
 /**
