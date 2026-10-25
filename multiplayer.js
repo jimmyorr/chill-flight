@@ -911,6 +911,14 @@ export function friendsOnMap() {
   return mapFriends;
 }
 
+/**
+ * Whether a game (tag) is on in this room. Warping is off while it is, since
+ * it would skip the game (minimap.js); the game's own gathering still warps.
+ */
+export function inGameMode() {
+  return !!room && !!tag.it;
+}
+
 // --- EACH FRAME ---
 
 /** Called once per frame while flying (not while paused). */

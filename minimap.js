@@ -27,7 +27,7 @@ import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 import {LANDMARKS, arrivalAt, nearestLandmark} from './landmarks.js';
 import {cancelJob, progress} from './jobs.js';
 import {PEOPLE} from './people.js';
-import {friendsOnMap} from './multiplayer.js';
+import {friendsOnMap, inGameMode} from './multiplayer.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -1132,6 +1132,9 @@ import {friendsOnMap} from './multiplayer.js';
       const btn = document.getElementById(id);
       if (btn) btn.hidden = !warpPin;
     }
+    // No warping during a multiplayer game; the pin can still be a waypoint
+    const warpBtn = document.getElementById('fullscreen-map-warp-btn');
+    if (warpBtn && inGameMode()) warpBtn.hidden = true;
   }
 
   function groundAt(x, z) {
@@ -1287,7 +1290,7 @@ import {friendsOnMap} from './multiplayer.js';
     attachButtonAction(
       document.getElementById('fullscreen-map-warp-btn'),
       () => {
-        if (!warpPin) return;
+        if (!warpPin || inGameMode()) return;
         warpTo(warpPin);
         // Straight into flight at the new spot
         closeFullscreenMap();
