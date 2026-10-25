@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "1.1.2";
-window.__COMMIT_HASH__ = "9c434ad";
-window.__IS_DIRTY__ = false;</script>
+    <script>window.__APP_VERSION__ = "1.1.3";
+window.__COMMIT_HASH__ = "e03a753";
+window.__IS_DIRTY__ = true;</script>
 
     <meta charset="UTF-8" />
     <meta
@@ -26,11 +26,12 @@ window.__IS_DIRTY__ = false;</script>
     <!-- sync-start:meta-description -->
     <meta
       name="description"
-      content="A minimalist flight simulator set in a vast, ever-changing world."
+      content="A casual flight simulator set in a vast, ever-changing world."
     />
     <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-DsfcU4L9.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-zFOnUFVz.css">
+    <script type="module" crossorigin src="./assets/main-DbGtFFWB.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/three-Bbd3hpd3.js">
+    <link rel="stylesheet" crossorigin href="./assets/main--d9Yj70g.css">
   </head>
 
   <body>
@@ -54,10 +55,20 @@ window.__IS_DIRTY__ = false;</script>
           >
             Settings
           </button>
+          <button
+            id="fly-tab"
+            class="pause-tab"
+            data-tab="together"
+            role="tab"
+            aria-selected="false"
+            hidden
+          >
+            Together<span id="fly-tab-dot" class="fly-tab-dot" hidden></span>
+          </button>
         </div>
 
-        <!-- Both panels share one grid cell, so the box is as tall as the
-             taller one and switching tabs doesn't change its height. -->
+        <!-- The panels share one grid cell, so the box is as tall as the
+             tallest one and switching tabs doesn't change its height. -->
         <div class="pause-panels">
           <div class="pause-panel active" data-panel="flight" role="tabpanel">
             <div class="customization-row">
@@ -197,6 +208,89 @@ window.__IS_DIRTY__ = false;</script>
               <input type="checkbox" id="haptics-input" class="pause-switch" />
             </label>
           </div>
+
+          <!-- Flying with friends: invite, join with a code, who's here
+               (multiplayer.js) -->
+          <div class="pause-panel" data-panel="together" role="tabpanel">
+            <div id="fly-solo" class="fly-section">
+              <label class="fly-field">
+                <span>Your name</span>
+                <input
+                  id="fly-name"
+                  maxlength="16"
+                  autocomplete="nickname"
+                  placeholder="Callsign"
+                  spellcheck="false"
+                />
+              </label>
+              <div class="fly-group">
+                <button id="fly-invite-btn" class="fly-btn">
+                  Invite friends
+                </button>
+                <button id="fly-bots-btn" class="fly-btn fly-btn-quiet">
+                  Fly with bots
+                </button>
+              </div>
+              <div class="fly-group">
+                <div class="fly-or">or join a friend's flight</div>
+                <div class="fly-join-row">
+                  <input
+                    id="fly-code"
+                    maxlength="5"
+                    placeholder="Code"
+                    autocapitalize="characters"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <button id="fly-join-btn" class="fly-btn">Join</button>
+                </div>
+              </div>
+            </div>
+            <div id="fly-room" class="fly-section" hidden>
+              <div class="fly-room-head">
+                <div>
+                  <div class="fly-or">Room</div>
+                  <div id="fly-room-code" class="fly-room-code"></div>
+                </div>
+                <button id="fly-share-btn" class="fly-btn">Share link</button>
+              </div>
+              <div class="fly-players">
+                <!-- You, with your name to tap and change (out of tag games,
+                     where the list is sorted by time) -->
+                <label id="fly-self" class="fly-player fly-self">
+                  <span id="fly-self-dot" class="fly-player-dot"></span>
+                  <input
+                    id="fly-self-name"
+                    class="fly-self-name"
+                    maxlength="16"
+                    autocomplete="nickname"
+                    spellcheck="false"
+                    aria-label="Your name"
+                  />
+                  <span id="fly-self-note" class="fly-self-note"></span>
+                </label>
+                <div id="fly-players" class="fly-players"></div>
+              </div>
+              <label class="fly-bots-row" for="fly-bots-input">
+                <span>Fill empty seats with bots</span>
+                <input
+                  type="checkbox"
+                  id="fly-bots-input"
+                  class="pause-switch"
+                />
+              </label>
+              <div class="fly-room-actions">
+                <button id="fly-tag-btn" class="fly-btn" hidden>
+                  Play tag
+                </button>
+                <button id="fly-leave-btn" class="fly-btn fly-btn-quiet">
+                  Leave
+                </button>
+              </div>
+              <div id="fly-tag-hint" class="fly-tag-hint" hidden></div>
+            </div>
+            <div id="fly-status" class="fly-status"></div>
+          </div>
         </div>
 
         <div class="customization-footer">
@@ -216,15 +310,6 @@ window.__IS_DIRTY__ = false;</script>
               aria-label="People"
             >
               📇 <span id="people-counter"></span>
-            </button>
-            <button
-              id="fly-together-btn"
-              class="pause-icon-btn"
-              title="Fly together"
-              aria-label="Fly together"
-              hidden
-            >
-              👥 <span id="fly-together-counter"></span>
             </button>
             <button
               id="vr-btn"
@@ -300,52 +385,6 @@ window.__IS_DIRTY__ = false;</script>
         </div>
         <div id="people-progress" class="achievements-progress"></div>
         <div id="people-grid"></div>
-      </div>
-    </div>
-
-    <!-- Flying with friends: invite, join with a code, who's here (multiplayer.js) -->
-    <div id="fly-overlay">
-      <div class="achievements-content">
-        <div class="achievements-header">
-          <span class="achievements-title">Fly together</span>
-          <button id="fly-close-btn" class="achievements-close-btn">✕</button>
-        </div>
-        <label class="fly-field">
-          <span>Your name</span>
-          <input
-            id="fly-name"
-            maxlength="16"
-            autocomplete="nickname"
-            placeholder="Pilot"
-            spellcheck="false"
-          />
-        </label>
-        <div id="fly-solo" class="fly-section">
-          <button id="fly-invite-btn" class="fly-btn">Invite friends</button>
-          <div class="fly-or">or join a friend's flight</div>
-          <div class="fly-join-row">
-            <input
-              id="fly-code"
-              maxlength="5"
-              placeholder="Code"
-              autocapitalize="characters"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button id="fly-join-btn" class="fly-btn">Join</button>
-          </div>
-        </div>
-        <div id="fly-room" class="fly-section" hidden>
-          <div class="fly-or">Room code</div>
-          <div id="fly-room-code" class="fly-room-code"></div>
-          <button id="fly-share-btn" class="fly-btn">Share link</button>
-          <div id="fly-players" class="fly-players"></div>
-          <button id="fly-tag-btn" class="fly-btn" hidden>Play tag</button>
-          <button id="fly-leave-btn" class="fly-btn fly-btn-quiet">
-            Leave
-          </button>
-        </div>
-        <div id="fly-status" class="fly-status"></div>
       </div>
     </div>
 
@@ -547,6 +586,7 @@ window.__IS_DIRTY__ = false;</script>
     <!-- Friends flying with you: names and distances, at the screen's edge
          when they're out of view; and who's it in a game of tag
          (multiplayer.js) -->
+    <div id="tag-glow" aria-hidden="true"></div>
     <div id="friend-markers" aria-hidden="true"></div>
 
     <!-- Points the way to the map's waypoint (waypoint.js) -->
@@ -613,6 +653,12 @@ window.__IS_DIRTY__ = false;</script>
       </div>
       <!-- Who's it in a game of tag (multiplayer.js) -->
       <div id="tag-chip" hidden></div>
+      <!-- The room you're flying in; opens it in the pause menu
+           (multiplayer.js) -->
+      <button id="room-chip" class="room-chip" hidden>
+        <span id="room-chip-dots" class="room-chip-dots"></span>
+        <span id="room-chip-code"></span>
+      </button>
     </div>
 
     <!-- Virtual Joystick (Outside transform parent for correct position: fixed rendering) -->
@@ -829,6 +875,7 @@ window.__IS_DIRTY__ = false;</script>
         >
           <div class="throttle-stall"></div>
           <div class="throttle-fill"></div>
+          <div class="throttle-boost"></div>
           <div class="throttle-ticks"></div>
           <span class="throttle-max">MAX</span>
           <div class="throttle-knob">
@@ -836,19 +883,6 @@ window.__IS_DIRTY__ = false;</script>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- The buggy's pedals on touch screens, held down (buggy.js) -->
-    <div id="buggy-pedals">
-      <button class="buggy-pedal" data-pedal="drift" tabindex="-1">
-        Drift
-      </button>
-      <button class="buggy-pedal" data-pedal="brake" tabindex="-1">
-        Brake
-      </button>
-      <button class="buggy-pedal gas" data-pedal="gas" tabindex="-1">
-        Gas
-      </button>
     </div>
 
     <div id="debug-menu">

@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.1.3](https://v1-1-3.chill-flight.pages.dev)
+
+- **Buggy:** Drive across the island with hops, drifting, headlights, and hovercraft mode over water.
+- **Tag & bots:** Timed rounds with proximity scoring, boost meters, and bot pilots to fill empty rooms.
+- **World & camera:** Giant desert pyramids, destructible landmarks and trees, and cinematic drag controls.
+
 ## [1.1.2](https://v1-1-2.chill-flight.pages.dev)
 
 - **Fly together:** Share a link or 4-letter code to fly with friends in the same world, with livery-tinted smoke and wing waggles.
