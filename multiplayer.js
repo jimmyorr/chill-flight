@@ -132,8 +132,6 @@ const tagChip = document.getElementById('tag-chip');
 const tagHint = document.getElementById('fly-tag-hint');
 const botsInput = document.getElementById('fly-bots-input');
 const botsBtn = document.getElementById('fly-bots-btn');
-// The boost whoever's it gets, as shown to players ("15% faster")
-const BOOST_TEXT = `${Math.round((TAG_SPEED_BOOST - 1) * 100)}% faster`;
 const markersEl = document.getElementById('friend-markers');
 const waveBtn = document.getElementById('mobile-wave-btn');
 
@@ -442,8 +440,8 @@ function refreshTag() {
     tagChip.classList.toggle('mine', amIt);
     if (inTag) {
       tagChip.textContent = amIt
-        ? `You're it · ${BOOST_TEXT}, tag a friend`
-        : `${nameOf(tag.it)} is it · ${BOOST_TEXT}`;
+        ? "You're it · tag a friend"
+        : `${nameOf(tag.it)} is it`;
     }
   }
   renderPanel();
@@ -517,7 +515,7 @@ function setTag(next) {
       } else {
         toast('Tag is over');
       }
-    } else if (tag.it === room?.id) toast(`You're it · ${BOOST_TEXT}`);
+    } else if (tag.it === room?.id) toast("You're it");
     else if (was === room?.id) toast(`You tagged ${nameOf(tag.it)}`);
     else toast(`${nameOf(tag.it)} is it`);
   }
@@ -1524,7 +1522,7 @@ function renderPanel() {
   }
   if (tagHint) {
     tagHint.hidden = !tagBtn || tagBtn.hidden;
-    tagHint.textContent = `Whoever's it flies ${BOOST_TEXT}. Least time as it wins.`;
+    tagHint.textContent = 'Least time as it wins.';
   }
   const elapsed = itElapsed();
   const showTimes = !!tag.it || Object.keys(tag.times).length > 0;

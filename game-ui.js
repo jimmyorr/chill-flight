@@ -239,6 +239,7 @@ document.addEventListener('mouseover', (e) => {
 // updateThrottle(), which reads the same target each frame.
 const throttleEl = document.getElementById('throttle');
 const throttleKts = document.getElementById('throttle-kts');
+const throttleBoost = throttleEl?.querySelector('.throttle-boost');
 
 function setThrottleFromPointer(e) {
   const rect = throttleEl.getBoundingClientRect();
@@ -286,6 +287,8 @@ let lastThrottleMax = -1;
 let lastThrottleZone = '';
 let throttleActiveAt = 0;
 let throttleIdle = false;
+let lastThrottleBoost = 1;
+let boostChangeTimer = null;
 
 function wakeThrottle(now) {
   throttleActiveAt = now;
@@ -315,6 +318,26 @@ export function updateThrottle(now) {
   lastThrottleTarget = target;
   lastThrottleMax = max;
   wakeThrottle(now);
+  // Tag's speed boost (multiplayer.js): a gold stretch past the usual top
+  // speed, which the knob glides into at full throttle
+  const boost = state.mpSpeedBoost || 1;
+  if (boost !== lastThrottleBoost) {
+    lastThrottleBoost = boost;
+    throttleEl.classList.toggle('boosted', boost > 1);
+    if (boost > 1) {
+      throttleBoost?.style.setProperty('--boost-from', (1 / boost).toFixed(4));
+    }
+    throttleEl.classList.add('boost-change');
+    clearTimeout(boostChangeTimer);
+    boostChangeTimer = setTimeout(
+      () => throttleEl.classList.remove('boost-change'),
+      800
+    );
+  }
+  throttleEl.classList.toggle(
+    'in-boost',
+    boost > 1 && target > max / boost + 1e-6
+  );
   const ktsPerMult = BASE_FLIGHT_SPEED * 60;
   const kts = Math.round(target * ktsPerMult);
   const {stallKts, levelKts} = planeHandling();

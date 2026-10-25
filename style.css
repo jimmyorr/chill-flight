@@ -814,6 +814,75 @@ input[type='number'].customization-input {
   );
 }
 
+/* Tag: whoever's it gets a gold stretch past the usual top speed, from
+   --boost-from (the usual top speed as a fraction of the boosted one) */
+#throttle .throttle-boost {
+  --boost-from: 1;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: calc(
+    var(--pad) + var(--knob-w) / 2 + var(--boost-from) *
+      (100% - var(--knob-w) - 2 * var(--pad))
+  );
+  background:
+    repeating-linear-gradient(
+      60deg,
+      rgba(255, 255, 255, 0.14) 0 4px,
+      transparent 4px 10px
+    ),
+    linear-gradient(90deg, rgba(240, 170, 0, 0.45), rgba(255, 205, 0, 0.75));
+  border-left: 2px solid #ffd700;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+#throttle.boosted .throttle-boost {
+  opacity: 1;
+  animation: throttle-boost-shimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes throttle-boost-shimmer {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #throttle.boosted .throttle-boost {
+    animation: none;
+  }
+}
+
+#throttle.boosted .throttle-max {
+  color: rgba(42, 33, 18, 0.8);
+}
+
+/* The knob in the gold: lit up */
+#throttle.in-boost .throttle-knob {
+  border-color: rgba(255, 215, 0, 0.9);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 0 14px 2px rgba(255, 215, 0, 0.75);
+}
+
+/* As the boost comes and goes, the knob glides to its new place */
+#throttle.boost-change .throttle-knob {
+  transition:
+    left 0.7s ease,
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+#throttle.boost-change .throttle-fill {
+  transition: width 0.7s ease;
+}
+
 #throttle .throttle-ticks {
   position: absolute;
   left: 12px;
