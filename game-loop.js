@@ -236,24 +236,21 @@ function performFrame() {
   inputManager.state.isCinematic = state.cameraMode === 'cinematic';
 
   const steering = inputManager.getSteering();
-  // In the cinematic camera the touch joystick or a gamepad stick frames the
-  // shot instead of steering (flight-camera.js); keys and the mouse still fly
+  // In the cinematic camera a gamepad stick frames the shot instead of
+  // steering (flight-camera.js); keys, the mouse and one finger still fly
   const framing =
     steering.active &&
     state.cameraMode === 'cinematic' &&
     !state.isFreeCamera &&
-    inputManager.isDeliberateSteering();
-  // The touch joystick tops out at its sensitivity; the camera wants -1 to 1
-  const stickScale = inputManager.state.joystick.active
-    ? 1 / inputManager.JOYSTICK_SENSITIVITY
-    : 1;
+    inputManager.state.gamepad.steeringActive;
   state.cinematicSteerX = framing
-    ? THREE.MathUtils.clamp(steering.x * stickScale, -1, 1)
+    ? THREE.MathUtils.clamp(steering.x, -1, 1)
     : 0;
   state.cinematicSteerY = framing
-    ? THREE.MathUtils.clamp(steering.y * stickScale, -1, 1)
+    ? THREE.MathUtils.clamp(steering.y, -1, 1)
     : 0;
-  // A mouse drag swings it too: a screen's height is half a turn
+  // A mouse drag or a two-finger drag (input-manager.js) swings it too: a
+  // screen's height is half a turn
   const drag = inputManager.state.cinematicDrag;
   if (drag.deltaX || drag.deltaY) {
     const perPixel = Math.PI / Math.max(1, window.innerHeight);

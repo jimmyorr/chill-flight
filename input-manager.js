@@ -822,6 +822,15 @@ export class InputManager {
           this.state.pinch *= distance / this._pinch.distance;
         }
         this._pinch.distance = distance;
+        // Dragging both fingers swings the cinematic shot, like a mouse drag
+        const midX = (a.clientX + b.clientX) / 2;
+        const midY = (a.clientY + b.clientY) / 2;
+        if (this._pinch.midX !== undefined && this.state.isCinematic) {
+          this.state.cinematicDrag.deltaX += midX - this._pinch.midX;
+          this.state.cinematicDrag.deltaY += midY - this._pinch.midY;
+        }
+        this._pinch.midX = midX;
+        this._pinch.midY = midY;
       }
       return;
     }
