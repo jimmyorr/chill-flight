@@ -114,10 +114,18 @@ const PAUSED_DISCONNECT_MS = 15 * 60 * 1000;
 const NAME_KEY = 'chill_flight_name';
 const defaultCallsign = randomCallsign();
 
-const overlay = document.getElementById('fly-overlay');
-const openBtn = document.getElementById('fly-together-btn');
-const counter = document.getElementById('fly-together-counter');
+// The pause menu's Together tab, and its panel
+const tabBtn = document.getElementById('fly-tab');
+const tabDot = document.getElementById('fly-tab-dot');
+const panel = document.querySelector('.pause-panel[data-panel="together"]');
 const nameInput = document.getElementById('fly-name');
+const selfRow = document.getElementById('fly-self');
+const selfDot = document.getElementById('fly-self-dot');
+const selfName = document.getElementById('fly-self-name');
+const selfNote = document.getElementById('fly-self-note');
+const roomChip = document.getElementById('room-chip');
+const roomChipDots = document.getElementById('room-chip-dots');
+const roomChipCode = document.getElementById('room-chip-code');
 const codeInput = document.getElementById('fly-code');
 const inviteBtn = document.getElementById('fly-invite-btn');
 const joinBtn = document.getElementById('fly-join-btn');
@@ -1181,7 +1189,7 @@ async function join(code, fromLink = false) {
       welcome.host ? `Joined ${welcome.host}'s flight` : 'Joined the flight'
     );
     setStatus('');
-    if (!fromLink) closePanel(true);
+    if (!fromLink) closePanel();
   } catch (err) {
     log.warn(`[Fly together] Joining ${code} failed: ${err.message}`);
     setStatus(refusal(err));
@@ -1289,7 +1297,9 @@ function sendState(frameClock) {
   );
   if (bots) update.b = bots;
   send(update);
-  if (tag.it && overlay?.style.display === 'flex') renderPanel();
+  // Kept fresh: the chip's colours, and while showing, tag times, who's
+  // paused and who's ready to fly to
+  if ((tag.it && panelShown()) || rawNow - renderedAt > 1000) renderPanel();
 }
 
 // --- FLYING TO A FRIEND ---
@@ -1556,10 +1566,40 @@ export function updateMultiplayer(delta) {
 
 // --- THE PANEL ---
 
+// Whether the Together tab is showing
+function panelShown() {
+  return !!state.isPaused && !!panel?.classList.contains('active');
+}
+
+// The room chip under the HUD: a dot per plane, and the code
+function renderChip() {
+  if (!roomChip) return;
+  roomChip.hidden = !room;
+  if (!room) return;
+  roomChipCode.textContent = room.code;
+  const liveries = [myLivery()];
+  for (const peer of peers.values()) if (peer.name) liveries.push(peer.livery);
+  roomChipDots.replaceChildren(
+    ...liveries.map((livery) => {
+      const dot = document.createElement('span');
+      dot.style.background = hexColor(livery);
+      return dot;
+    })
+  );
+  roomChip.setAttribute(
+    'aria-label',
+    `Room ${room.code}, ${liveries.length} flying`
+  );
+}
+
+let renderedAt = 0;
+
 function renderPanel() {
-  if (counter) counter.textContent = room ? `${peers.size + 1}` : '';
+  renderedAt = performance.now();
   if (waveBtn) waveBtn.hidden = !room;
-  if (!overlay || overlay.style.display !== 'flex') return;
+  if (tabDot) tabDot.hidden = !room;
+  renderChip();
+  if (!panel) return;
   soloSection.hidden = !!room;
   roomSection.hidden = !room;
   inviteBtn.disabled = joinBtn.disabled = busy;
@@ -1599,7 +1639,7 @@ function renderPanel() {
       btn.textContent = 'Fly to';
       btn.disabled = !peer.track.ready;
       btn.addEventListener('click', () => {
-        if (flyTo(peer)) closePanel(true);
+        if (flyTo(peer)) closePanel();
       });
       el.append(btn);
     }
@@ -1610,14 +1650,23 @@ function renderPanel() {
     (p ? p.track?.latest?.flags & FLAGS.paused : state.isPaused)
       ? ', paused'
       : '';
-  const entries = [
-    {
-      name: `${myName()} (you${it(room.id)}${isPaused(null)})`,
-      livery: myLivery(),
-      peer: null,
-      timeMs: tagTimeOf(tag, room.id, elapsed),
-    },
-  ];
+  // Out of tag games you're your own row at the top, with your name to tap
+  // and change; in one, the list is sorted by time, you included
+  selfRow.hidden = showTimes;
+  selfDot.style.background = hexColor(myLivery());
+  if (document.activeElement !== selfName) selfName.value = myName();
+  selfName.placeholder = defaultCallsign;
+  selfNote.textContent = `you${isPaused(null)}`;
+  const entries = showTimes
+    ? [
+        {
+          name: `${myName()} (you${it(room.id)}${isPaused(null)})`,
+          livery: myLivery(),
+          peer: null,
+          timeMs: tagTimeOf(tag, room.id, elapsed),
+        },
+      ]
+    : [];
   for (const peer of peers.values()) {
     if (peer.name) {
       entries.push({
@@ -1632,52 +1681,57 @@ function renderPanel() {
   playersList.replaceChildren(...entries.map(row));
 }
 
+// The Together tab coming into view
 function openPanel() {
-  if (!overlay) return;
   try {
     nameInput.value = localStorage.getItem(NAME_KEY) || '';
   } catch {
     nameInput.value = '';
   }
-  if (nameInput) nameInput.placeholder = defaultCallsign;
-  overlay.style.display = 'flex';
+  nameInput.placeholder = defaultCallsign;
   if (!busy) setStatus('');
   renderPanel();
 }
 
-// Closes the panel; `resume` also unpauses, back to flying
-function closePanel(resume = false) {
-  if (overlay) overlay.style.display = 'none';
-  if (resume && state.isPaused) hooks.togglePause?.();
+// Pauses onto the Together tab (from the room chip)
+function showPanel() {
+  if (!state.isPaused) hooks.togglePause?.();
+  tabBtn.click();
 }
 
-if (RELAY && openBtn && overlay) {
-  openBtn.hidden = false;
-  if (nameInput) nameInput.placeholder = defaultCallsign;
-  openBtn.addEventListener('click', openPanel);
-  document
-    .getElementById('fly-close-btn')
-    ?.addEventListener('click', () => closePanel());
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closePanel();
+// Back to flying
+function closePanel() {
+  if (state.isPaused) hooks.togglePause?.();
+}
+
+if (RELAY && tabBtn && panel) {
+  tabBtn.hidden = false;
+  openPanel();
+  // After game-ui.js's own listener has switched the panel over
+  tabBtn.addEventListener('click', openPanel);
+  roomChip?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showPanel();
   });
   // Typing a name or code mustn't fly the plane (or toggle the smoke)
-  for (const input of [nameInput, codeInput]) {
+  for (const input of [nameInput, selfName, codeInput]) {
     input.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Enter') input.blur();
     });
     input.addEventListener('keyup', (e) => e.stopPropagation());
   }
-  nameInput.addEventListener('change', () => {
-    try {
-      localStorage.setItem(NAME_KEY, cleanName(nameInput.value));
-    } catch {
-      /* not saved */
-    }
-    if (room) sendHello();
-    renderPanel();
-  });
+  for (const input of [nameInput, selfName]) {
+    input.addEventListener('change', () => {
+      try {
+        localStorage.setItem(NAME_KEY, cleanName(input.value));
+      } catch {
+        /* not saved */
+      }
+      if (room) sendHello();
+      renderPanel();
+    });
+  }
   codeInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') joinBtn.click();
   });
@@ -1704,7 +1758,7 @@ if (RELAY && openBtn && overlay) {
     if (!room) return;
     setStatus('');
     setBotsWanted(true);
-    closePanel(true);
+    closePanel();
   });
   tagBtn?.addEventListener('click', () => {
     if (!room) return;
@@ -1713,7 +1767,7 @@ if (RELAY && openBtn && overlay) {
     } else {
       // Whoever starts the game is it
       sendTag(room.id);
-      closePanel(true);
+      closePanel();
     }
   });
   inputManager.onWave = wave;
