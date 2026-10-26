@@ -120,7 +120,7 @@ import {updateVRPauseInteraction} from './vr-manager.js';
 import {scene} from './scene.js';
 import {clearInputState} from './game-state.js';
 import {toggleAutopilot, updateThrottle} from './game-ui.js';
-import {updateAutopilot} from './autopilot.js';
+import {updateAutopilot, updateDrivingAutopilot} from './autopilot.js';
 import {updateFlightPhysics} from './flight-physics.js';
 import {updateBuggy} from './buggy.js';
 import {log} from './logger.js';
@@ -408,6 +408,21 @@ function performFrame() {
   const driving = activePlaneType === 'buggy';
   if (driving) {
     applyShiftThrottle(delta, nowTime);
+    if (state.autopilotEnabled && !state.isFreeCamera) {
+      // Steering takes over from the autopilot, as in the planes
+      const steering =
+        !keys.Shift &&
+        (keys.ArrowUp ||
+          keys.ArrowDown ||
+          keys.ArrowLeft ||
+          keys.ArrowRight ||
+          keys.KeyW ||
+          keys.KeyA ||
+          keys.KeyS ||
+          keys.KeyD);
+      if (steering || deliberateSteer()) toggleAutopilot();
+      else updateDrivingAutopilot(delta);
+    }
     updateBuggy(delta);
   } else updatePhysicsAndControls(delta, nowTime);
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
@@ -1295,6 +1310,19 @@ function applyShiftThrottle(delta, nowTime) {
   }
 }
 
+// Steering on purpose: the touch joystick, drag-steer or a gamepad stick
+// pushed past the deadzone. Gyro tilt and the desktop mouse are always
+// "steering", so they don't count (turning the autopilot off).
+function deliberateSteer() {
+  return (
+    state.currentControlScheme !== 'gyro' &&
+    state.mouseControlActive &&
+    !state.isFreeCamera &&
+    inputManager.isDeliberateSteering() &&
+    (Math.abs(state.mouseX) >= 0.15 || Math.abs(state.mouseY) >= 0.15)
+  );
+}
+
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller: the engine drives it while the plane moves or the
   // throttle is open, and with the engine off it coasts down, catches on
@@ -1366,16 +1394,12 @@ function updatePhysicsAndControls(delta, nowTime) {
   const ttRight = tripleTap.ArrowRight && !state.isFreeCamera;
 
   // Auto-disable autopilot on manual steering input: arrow keys, or the touch
-  // joystick, drag-steer or a gamepad stick pushed past the deadzone. Gyro
-  // tilt and the desktop mouse are always "steering", so they don't count.
-  const isDeliberateSteer =
-    state.currentControlScheme !== 'gyro' &&
-    inputManager.isDeliberateSteering() &&
-    (effMouseX !== 0 || effMouseY !== 0);
+  // joystick, drag-steer or a gamepad stick pushed past the deadzone
+  // (deliberateSteer)
   if (
     state.autopilotEnabled &&
     !keys.Shift &&
-    (isUp || isDown || isLeft || isRight || isDeliberateSteer)
+    (isUp || isDown || isLeft || isRight || deliberateSteer())
   ) {
     toggleAutopilot();
   }

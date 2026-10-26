@@ -193,6 +193,8 @@ export const state = {
   propGroups: undefined,
   propSpin: undefined,
   autopilotEnabled: undefined,
+  // The buggy's stick on autopilot, {steer, throttle} (autopilot.js)
+  autopilotDrive: null,
   manualBaseFogDensity: undefined,
   manualPropLOD: undefined,
   manualTimeOfDay: undefined,

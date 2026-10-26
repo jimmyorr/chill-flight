@@ -3,15 +3,19 @@
 // one is set. With no waypoint it tours the landmarks (landmarks.js): it flies
 // to the nearest one it hasn't seen, circles it once, and moves on to the
 // next. Either way it keeps a safe height over the ground ahead, climbing
-// only as early as the terrain needs, and comes back down after.
-// game-loop.js calls updateAutopilot each frame while it's engaged.
+// only as early as the terrain needs, and comes back down after. In the buggy
+// it drives to the waypoint and parks there, or with none drives on the way
+// it's pointed, following the road it's on (updateDrivingAutopilot).
+// game-loop.js calls updateAutopilot or updateDrivingAutopilot each frame
+// while it's engaged.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {AutopilotCore} from './autopilot-logic.js';
+import {AutopilotCore, DrivingAutopilotCore} from './autopilot-logic.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {LANDMARKS} from './landmarks.js';
 import {getElevation} from './terrain-geometry.js';
 import {planeGroup, planeHandling} from './airplane.js';
+import {buggySurface} from './buggy.js';
 import {clearWaypoint, getWaypoint, setTourStop} from './waypoint.js';
 import {log} from './logger.js';
 import {state} from './state.js';
@@ -28,6 +32,11 @@ function groundAt(x, z) {
 
 // How it flies (autopilot-logic.js, shared with scripts/flight-sim.js)
 const pilot = new AutopilotCore(groundAt);
+const driver = new DrivingAutopilotCore(
+  (x, z, y) => buggySurface(x, z, y).height
+);
+// Which of the two was driving last frame, to start the other afresh
+let wasDriving = false;
 
 // The nearest landmark not yet visited (the nearest copy east or west, as
 // the world repeats), starting over once all are
@@ -55,6 +64,7 @@ function nextTourStop() {
 }
 
 export function updateAutopilot(delta) {
+  if (wasDriving) resetAutopilot();
   state.isDoingImmelmann = false;
   const {x, y, z} = planeGroup.position;
   const waypoint = getWaypoint();
@@ -101,9 +111,43 @@ export function updateAutopilot(delta) {
   state.isClampedRoll = false;
 }
 
+/**
+ * The buggy's autopilot: sets state.autopilotDrive ({steer, throttle}, the
+ * stick, which buggy.js drives by) and the cruise speed.
+ */
+export function updateDrivingAutopilot(delta) {
+  if (!wasDriving) resetAutopilot();
+  wasDriving = true;
+  const {x, y, z} = planeGroup.position;
+  const here = buggySurface(x, z, y);
+  const road =
+    here.kind === 'road'
+      ? {
+          dirX: here.normalZ,
+          dirZ: -here.normalX,
+          across: here.across,
+          halfWidth: here.halfWidth,
+        }
+      : null;
+  const {steer, throttle, cruise} = driver.update({
+    x,
+    y,
+    z,
+    yaw: planeGroup.rotation.y,
+    speed: BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60,
+    target: getWaypoint(),
+    road,
+    delta,
+  });
+  state.autopilotDrive = {steer, throttle};
+  state.targetFlightSpeed = cruise / (BASE_FLIGHT_SPEED * 60);
+}
+
 // Forget the route when the autopilot is turned off
 export function resetAutopilot() {
   pilot.reset();
+  driver.reset();
+  wasDriving = false;
   tourStop = null;
   setTourStop(null);
 }

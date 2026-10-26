@@ -202,6 +202,12 @@ function sampleSurface(x, z, y) {
   return _surface;
 }
 
+// What a buggy at height y would rest on at (x, z), for the autopilot
+// (autopilot.js); overwritten by the next look
+export function buggySurface(x, z, y) {
+  return sampleSurface(x, z, y);
+}
+
 // Rests the surface under the middle (from sampleSurface) on all four tyres:
 // its height and slopes become those of the ground the tyres touch, so a
 // tyre over a bank, a crease in the terrain or a road's edge doesn't sink
@@ -323,7 +329,6 @@ function enter(fall) {
     tiltPitch = Math.atan(-Math.sin(yaw) * s.slopeX - Math.cos(yaw) * s.slopeZ);
     tiltRoll = Math.atan(Math.cos(yaw) * s.slopeX - Math.sin(yaw) * s.slopeZ);
   }
-  state.autopilotEnabled = false;
   _lastPos.copy(pos);
 }
 
@@ -379,6 +384,12 @@ export function updateBuggy(delta) {
   let joyY = analogThrottleAxis(state.mouseY);
   if ((keys.ArrowUp || keys.KeyW) && !shift) joyY = 1;
   else if ((keys.ArrowDown || keys.KeyS) && !shift) joyY = -1;
+  // On autopilot (autopilot.js) it drives itself; steering turns it off
+  // (game-loop.js)
+  if (state.autopilotEnabled && state.autopilotDrive) {
+    steerIn = state.autopilotDrive.steer;
+    joyY = state.autopilotDrive.throttle;
+  }
 
   // Double-tap moves (held: the double-tap stays set until the key's let go)
   const held = (dir) => doubleTap[dir] && keys[dir] && !shift;

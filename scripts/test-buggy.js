@@ -15,10 +15,13 @@
  * 9. A raised bridge's railings hold it on the deck
  * 10. Resting on all four wheels over banks and creases
  * 11. Double-tap moves: hop, power slide, hard brake
+ * 12. Autopilot: to the waypoint and parked, along a road in its lane, round
+ *     a hill too steep to drive, and backing off a wall
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PLANE_HANDLING} from '../constants.js';
 import {BUGGY_WHEELBASE} from '../buggy-model.js';
+import {DRIVE_AUTOPILOT, DrivingAutopilotCore} from '../autopilot-logic.js';
 
 console.log('Testing buggy driving mechanics...');
 
@@ -1051,6 +1054,172 @@ check(
       PLANE_HANDLING.buggy.float > 0 &&
       PLANE_HANDLING.buggy.float <= 1,
     `speed: ${PLANE_HANDLING.buggy.topKts}, agility: ${PLANE_HANDLING.buggy.agility}, float: ${PLANE_HANDLING.buggy.float}`
+  );
+}
+
+// --- 12. AUTOPILOT ---
+{
+  // Drives the autopilot (autopilot-logic.js) with the real engine and
+  // handling, as buggy.js does: the ground's pull along slopes, and stopped
+  // dead by ground rising more steeply than 50 degrees. `surface(x, z)` is
+  // the ground; `road(x, z)` the road there or null.
+  const topKts = PLANE_HANDLING.buggy.topKts;
+  const {GRAVITY} = ChillFlightLogic.BUGGY_AIR;
+  const WALL = Math.tan((50 * Math.PI) / 180);
+  const autoDrive = ({
+    surface = () => 0,
+    road = () => null,
+    target = null,
+    x = 0,
+    z = 0,
+    yaw = 0,
+    kts = 0,
+    seconds,
+  }) => {
+    const pilot = new DrivingAutopilotCore((px, pz) => surface(px, pz));
+    const car = {
+      velX: -Math.sin(yaw) * kts,
+      velZ: -Math.cos(yaw) * kts,
+      yaw,
+      yawRate: 0,
+      steer: 0,
+      lean: 0,
+    };
+    const dt = 1 / 60;
+    const path = [];
+    for (let i = 0; i < seconds / dt; i++) {
+      const y = surface(x, z);
+      const fx = -Math.sin(car.yaw);
+      const fz = -Math.cos(car.yaw);
+      let forward = car.velX * fx + car.velZ * fz;
+      const side = car.velX * Math.cos(car.yaw) - car.velZ * Math.sin(car.yaw);
+      const {steer, throttle, cruise} = pilot.update({
+        x,
+        y,
+        z,
+        yaw: car.yaw,
+        speed: Math.hypot(car.velX, car.velZ),
+        target,
+        road: road(x, z),
+        delta: dt,
+      });
+      const drag = ChillFlightLogic.buggyDrag(forward);
+      const slope = (surface(x + fx, z + fz) - surface(x - fx, z - fz)) / 2;
+      forward +=
+        (ChillFlightLogic.buggyDriveAccel({
+          forward,
+          joyY: throttle,
+          cruise,
+          top: topKts,
+          drag,
+        }) -
+          GRAVITY * Math.sin(Math.atan(slope))) *
+        dt;
+      forward -= Math.sign(forward) * Math.min(Math.abs(forward), drag * dt);
+      ChillFlightLogic.stepBuggyHandling(car, {
+        forward,
+        side,
+        steerIn: steer,
+        kind: 'ground',
+        airborne: false,
+        wheelbase: BUGGY_WHEELBASE,
+        topSpeed: topKts,
+        dt,
+      });
+      const nx = x + car.velX * dt;
+      const nz = z + car.velZ * dt;
+      const moved = Math.hypot(nx - x, nz - z);
+      const rise = surface(nx, nz) - y;
+      if (rise > 0.5 && rise > WALL * moved) {
+        car.velX = 0;
+        car.velZ = 0;
+      } else {
+        x = nx;
+        z = nz;
+      }
+      path.push({
+        x,
+        z,
+        y: surface(x, z),
+        speed: Math.hypot(car.velX, car.velZ),
+      });
+    }
+    return {x, z, yaw: car.yaw, path};
+  };
+  const near = (run, t) => Math.hypot(run.x - t.x, run.z - t.z);
+  const last = (run) => run.path[run.path.length - 1];
+
+  // To a waypoint off behind it, and parked there
+  const spot = {x: 1800, z: 1500};
+  const toSpot = autoDrive({target: spot, seconds: 90});
+  check(
+    'Autopilot drives to a waypoint behind it and parks there',
+    near(toSpot, spot) < DRIVE_AUTOPILOT.ARRIVE + 15 && last(toSpot).speed < 1,
+    `${near(toSpot, spot).toFixed(0)} units off at ${last(toSpot).speed.toFixed(1)} kts`
+  );
+
+  // With no waypoint: straight on at cruise
+  const straight = autoDrive({yaw: 0.7, seconds: 20});
+  check(
+    'With no waypoint it holds its heading at cruise',
+    Math.abs(straight.yaw - 0.7) < 0.02 &&
+      Math.abs(last(straight).speed - DRIVE_AUTOPILOT.CRUISE) < 3,
+    `heading ${straight.yaw.toFixed(3)}, ${last(straight).speed.toFixed(0)} kts`
+  );
+
+  // A road bending along x: follows it, keeping right of the centre line
+  const HALF = ChillFlightLogic.ROAD_WIDTH;
+  const roadZ = (x) => 400 * Math.sin(x / 1500);
+  const curvy = (x, z) => {
+    const dz = (400 / 1500) * Math.cos(x / 1500);
+    const len = Math.hypot(1, dz);
+    // Square to the road, right of it facing +x
+    const across = (z - roadZ(x)) / len;
+    if (Math.abs(across) > HALF) return null;
+    return {dirX: 1 / len, dirZ: dz / len, across, halfWidth: HALF};
+  };
+  const onRoad = autoDrive({
+    road: curvy,
+    yaw: -Math.PI / 2,
+    kts: 80,
+    seconds: 60,
+  });
+  const lanes = onRoad.path
+    .slice(600)
+    .map((p) => curvy(p.x, p.z)?.across ?? Infinity);
+  check(
+    'It follows a winding road, right of the centre line',
+    onRoad.x > 4000 && lanes.every((a) => a > 0 && a < HALF - 4),
+    `got to x ${onRoad.x.toFixed(0)}; across ${Math.min(...lanes).toFixed(1)} to ${Math.max(...lanes).toFixed(1)}`
+  );
+
+  // A hill far too steep to climb in the way: round it
+  const hill = (x, z) => Math.max(0, 600 - 1.5 * Math.hypot(x, z + 1500));
+  const goal = {x: 0, z: -3000};
+  const round = autoDrive({surface: hill, target: goal, seconds: 120});
+  const highest = Math.max(...round.path.map((p) => p.y));
+  check(
+    'It drives round a hill too steep to climb to the waypoint',
+    near(round, goal) < DRIVE_AUTOPILOT.ARRIVE + 15 && highest < 300,
+    `${near(round, goal).toFixed(0)} units off, highest ${highest.toFixed(0)}`
+  );
+
+  // Nose up against a mesa's cliffs (radius 800, as in test-bots.js), the
+  // waypoint beyond it: backs off and goes round
+  const mesa = (x, z) =>
+    300 * Math.min(1, Math.max(0, (840 - Math.hypot(x, z + 900)) / 40));
+  const beyond = {x: 0, z: -2000};
+  const backOff = autoDrive({
+    surface: mesa,
+    target: beyond,
+    z: -55,
+    seconds: 120,
+  });
+  check(
+    'Nose against a cliff, it backs off and finds a way round',
+    near(backOff, beyond) < DRIVE_AUTOPILOT.ARRIVE + 15 &&
+      Math.max(...backOff.path.map((p) => p.y)) < 50,
+    `${near(backOff, beyond).toFixed(0)} units off`
   );
 }
 

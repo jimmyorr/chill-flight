@@ -3,6 +3,8 @@
 // target or round a circle, and keeping a safe height over the ground ahead,
 // climbing only as early as the terrain needs and coming back down after.
 // No three.js or DOM, so scripts/flight-sim.js flies this same code in Node.
+// In the buggy it drives instead (DrivingAutopilotCore).
+import {DRIVE, driveHeading, scanTick, watchStuck} from './bot-logic.js';
 
 export const AUTOPILOT = {
   // Height to keep over the ground ahead (units, about 80 m), and the lowest
@@ -245,5 +247,159 @@ export class AutopilotCore {
     );
 
     return {roll, pitch, speed: orbit ? A.ORBIT_SPEED : A.CRUISE_SPEED};
+  }
+}
+
+// Driving the buggy: speeds in units/s (read as knots)
+export const DRIVE_AUTOPILOT = {
+  CRUISE: 100,
+  // Slows from this far out from the waypoint, down to SLOWEST of cruise,
+  // and parks once ARRIVE away (or once the waypoint clears on arrival,
+  // waypoint.js, within PARK_NEAR)
+  SLOW_FROM: 700,
+  SLOWEST: 0.25,
+  ARRIVE: 40,
+  PARK_NEAR: 500,
+  // On a road it keeps to the right of the centre line, this much of the
+  // way to the edge, steering back in by LANE_STEER radians per unit off
+  LANE: 0.4,
+  LANE_STEER: 0.03,
+  // A road running within this of the way to the waypoint (radians) is
+  // followed rather than cut across
+  ROAD_FOLLOW: 0.7,
+  // The stick: so much per radian off course, less so much per rad/s
+  // already turning, and no harder than MAX_STEER (a hard turn at speed
+  // leans in and drifts), but full lock slower than LOCK_BELOW
+  STEER_PER_RAD: 2,
+  STEER_DAMPING: 0.35,
+  MAX_STEER: 0.7,
+  LOCK_BELOW: 40,
+  // Slower round a bend: down to TURN_SLOWEST of cruise at TURN_SLOW off
+  TURN_SLOW: 1.2,
+  TURN_SLOWEST: 0.35,
+  // Freeing itself (bot-logic.js watchStuck) from something in front:
+  // backs up for this long first
+  REVERSE_FOR: 1.2,
+  // A jump further than this in a frame is a warp (units)
+  WARP: 300,
+};
+
+const D = DRIVE_AUTOPILOT;
+
+/**
+ * The autopilot's driving: heads for the waypoint and parks there, or
+ * without one keeps going the way it's pointed, following the road it's
+ * on; round ground too steep to drive, and turning off toward open ground
+ * when it's held up (bot-logic.js, as the bots drive). `surfaceAt(x, z, y)`
+ * is the height a buggy at height y would rest on there (as buggy.js).
+ */
+export class DrivingAutopilotCore {
+  constructor(surfaceAt) {
+    this.ctx = {surfaceAt};
+    this.reset();
+  }
+
+  // Forgets the course
+  reset() {
+    // As a bot, for bot-logic.js's driving
+    this.car = {x: 0, y: 0, z: 0, heading: 0, speed: 0};
+    this.car.stuckFor = this.car.escapeFor = this.car.escapeHeading = 0;
+    this.course = null; // The heading held with no waypoint
+    this.goal = null; // The waypoint last driven to
+    this.parked = false;
+    this.lastYaw = null;
+    this.yawRate = 0;
+  }
+
+  /**
+   * One frame of driving, for a buggy at {x, y, z} heading `yaw` at
+   * `speed`, toward `target` ({x, z}, or null), on `road` or null: {dirX,
+   * dirZ} the way along it, `across` how far right of its centre line
+   * facing that way, and its `halfWidth`. Returns the stick (`steer`, 1
+   * full left; `throttle`, -1 to brake or back up) and the speed to cruise
+   * at.
+   */
+  update({x, y, z, yaw, speed, target, road, delta}) {
+    // Warped (the map's click-to-fly): starts afresh from there
+    if (
+      this.lastYaw !== null &&
+      Math.hypot(x - this.car.x, z - this.car.z) > D.WARP
+    ) {
+      this.reset();
+    }
+    const car = this.car;
+    Object.assign(car, {x, y, z, heading: yaw, speed: Math.abs(speed)});
+    scanTick(car, delta);
+    if (this.lastYaw !== null && delta > 0) {
+      const k = 1 - Math.exp(-delta * 10);
+      this.yawRate +=
+        (wrapAngle(yaw - this.lastYaw) / delta - this.yawRate) * k;
+    }
+    this.lastYaw = yaw;
+
+    // Parks at the waypoint, until there's a new one
+    const dist = target ? Math.hypot(target.x - x, target.z - z) : Infinity;
+    const goal = this.goal;
+    if (target && goal && (target.x !== goal.x || target.z !== goal.z)) {
+      this.parked = false;
+    }
+    if (target && dist < D.ARRIVE) this.parked = true;
+    if (!target && goal && Math.hypot(goal.x - x, goal.z - z) < D.PARK_NEAR) {
+      this.parked = true;
+    }
+    this.goal = target ? {x: target.x, z: target.z} : this.parked ? goal : null;
+    if (this.parked) {
+      this.course = null;
+      return {steer: 0, throttle: car.speed > 1 ? -1 : 0, cruise: 0};
+    }
+
+    // The way to go: the road's, if it's on one going about the right way;
+    // else the waypoint's, or straight on
+    const bearing = target ? headingTo(x, z, target.x, target.z) : null;
+    let want = bearing ?? (this.course ??= yaw);
+    let onRoad = false;
+    if (road) {
+      // Along the road the way nearer where it's going
+      let along = headingTo(0, 0, road.dirX, road.dirZ);
+      let side = road.across;
+      if (Math.abs(wrapAngle(along - want)) > Math.PI / 2) {
+        along = wrapAngle(along + Math.PI);
+        side = -side;
+      }
+      if (
+        bearing === null ||
+        Math.abs(wrapAngle(along - bearing)) < D.ROAD_FOLLOW
+      ) {
+        onRoad = true;
+        // Toward its lane, right of the centre line
+        const off = D.LANE * road.halfWidth - side;
+        want = wrapAngle(along - clamp(off * D.LANE_STEER, -0.4, 0.4));
+        if (bearing === null) this.course = along;
+      }
+    }
+    // Round steep ground (a road's built to drive); held up, off toward
+    // open ground
+    const heading =
+      onRoad && car.escapeFor === 0 ? want : driveHeading(car, this.ctx, want);
+    let cruise = D.CRUISE;
+    if (target) {
+      cruise *= clamp(dist / D.SLOW_FROM, D.SLOWEST, 1);
+    }
+    watchStuck(car, this.ctx, delta, cruise);
+
+    const err = wrapAngle(heading - yaw);
+    // Freeing itself from something in front: backs up first, the wheels
+    // turned the other way to swing the nose round toward open ground
+    if (car.escapeFor > DRIVE.ESCAPE_FOR - D.REVERSE_FOR) {
+      return {steer: -Math.sign(err), throttle: -1, cruise: 0};
+    }
+    cruise *= clamp(1 - Math.abs(err) / D.TURN_SLOW, D.TURN_SLOWEST, 1);
+    const lock = car.speed < D.LOCK_BELOW ? 1 : D.MAX_STEER;
+    const steer = clamp(
+      err * D.STEER_PER_RAD - this.yawRate * D.STEER_DAMPING,
+      -lock,
+      lock
+    );
+    return {steer, throttle: 0, cruise};
   }
 }

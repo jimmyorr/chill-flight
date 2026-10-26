@@ -234,8 +234,7 @@ function floorFor(bot, ctx, clearance) {
 // or off toward open ground while it frees itself (drive)
 function steer(bot, ctx, dt, heading, maxTurn) {
   if (ctx.driving) {
-    heading =
-      bot.escapeFor > 0 ? bot.escapeHeading : clearHeading(bot, ctx, heading);
+    heading = driveHeading(bot, ctx, heading);
     maxTurn = Math.min(maxTurn, DRIVE.TURN);
   }
   const err = wrapAngle(heading - bot.heading);
@@ -280,6 +279,24 @@ function gradeAlong(bot, ctx, heading) {
     prevD = d;
   }
   return worst;
+}
+
+// The way a buggy at {x, y, z} wanting to go `want` drives: off toward open
+// ground while it frees itself (watchStuck), else the nearest heading clear
+// of steep ground (ctx.surfaceAt). Also drives the player's buggy on
+// autopilot (autopilot-logic.js)
+export function driveHeading(bot, ctx, want) {
+  return bot.escapeFor > 0 ? bot.escapeHeading : clearHeading(bot, ctx, want);
+}
+
+// Lets a bot's cached looks at the ground ahead go stale every
+// SCAN_INTERVAL, so they're looked at again
+export function scanTick(bot, dt) {
+  bot.scanIn = (bot.scanIn ?? 0) - dt;
+  if (bot.scanIn <= 0) {
+    bot.scanIn = SCAN_INTERVAL;
+    bot.floors = null;
+  }
 }
 
 // The heading nearest `want` that's clear of steep ground, looked up every
@@ -332,8 +349,25 @@ function drive(bot, dt, ctx, speed) {
   bot.y = ctx.surfaceAt(bot.x, bot.z, here);
   bot.vs = 0;
   bot.pitch += (Math.atan(grade) - bot.pitch) * Math.min(1, dt * 6);
-  // Held up while wanting to go: turn toward open ground for a moment, and
-  // in the end ask to be put back
+  watchStuck(bot, ctx, dt, speed);
+  // Gone almost nowhere in RESCUE_AFTER seconds of trying (boxed in,
+  // circling a pit): put it back
+  const w = (bot.window ??= {x: bot.x, z: bot.z, t: 0, trying: 0});
+  w.t += dt;
+  if (speed > 30) w.trying += dt;
+  if (w.t >= DRIVE.RESCUE_AFTER) {
+    const moved = Math.hypot(bot.x - w.x, bot.z - w.z);
+    if (w.trying > w.t * 0.8 && moved < DRIVE.RESCUE_DISTANCE) {
+      bot.needsRescue = true;
+    }
+    bot.window = null;
+  }
+}
+
+// A buggy wanting to go at `speed` but going slower than STUCK_SPEED (its
+// bot.speed) for STUCK_AFTER seconds turns toward the most open ground for
+// ESCAPE_FOR seconds (driveHeading)
+export function watchStuck(bot, ctx, dt, speed) {
   if (speed > 30 && bot.speed < DRIVE.STUCK_SPEED) bot.stuckFor += dt;
   else bot.stuckFor = Math.max(0, bot.stuckFor - dt * 2);
   bot.escapeFor = Math.max(0, bot.escapeFor - dt);
@@ -348,18 +382,6 @@ function drive(bot, dt, ctx, speed) {
       }
     }
     bot.escapeFor = DRIVE.ESCAPE_FOR;
-  }
-  // Gone almost nowhere in RESCUE_AFTER seconds of trying (boxed in,
-  // circling a pit): put it back
-  const w = (bot.window ??= {x: bot.x, z: bot.z, t: 0, trying: 0});
-  w.t += dt;
-  if (speed > 30) w.trying += dt;
-  if (w.t >= DRIVE.RESCUE_AFTER) {
-    const moved = Math.hypot(bot.x - w.x, bot.z - w.z);
-    if (w.trying > w.t * 0.8 && moved < DRIVE.RESCUE_DISTANCE) {
-      bot.needsRescue = true;
-    }
-    bot.window = null;
   }
 }
 
@@ -586,11 +608,7 @@ function stepRunner(bot, dt, ctx) {
  */
 export function stepBot(bot, dt, ctx) {
   bot.age += dt;
-  bot.scanIn = (bot.scanIn ?? 0) - dt;
-  if (bot.scanIn <= 0) {
-    bot.scanIn = SCAN_INTERVAL;
-    bot.floors = null;
-  }
+  scanTick(bot, dt);
   if (!ctx.tag) {
     bot.chaseId = null;
     bot.aim = null;
