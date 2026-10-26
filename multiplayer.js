@@ -5,7 +5,7 @@
 // smoke. Everyone's smoke takes their livery's colour while in a room.
 // Friends out of view show at the screen's edge and on the maps; H (or the
 // quick menu's 👋) waggles your wings at them; and the panel starts a game
-// of tag. Empty seats can be filled with bots (bot-logic.js): the player
+// of tag or a race. Empty seats can be filled with bots (bot-logic.js): the player
 // who turns them on flies them on their device, and sends them along with
 // their own updates, so to everyone else they're players like any other.
 //
@@ -20,6 +20,9 @@
 //                                      a game of tag, your points
 //   {t: 'waggle'}                      a wave
 //   {t: 'tag', it, n, left, points}    who's it (multiplayer-logic.js)
+//   {t: 'race', n, plane, course, grid, go}  a race (race-logic.js); with
+//                                      rg and rf (gates passed, finish ms)
+//                                      in 's' while it's on
 // A player's bots have ids "<their id>~<k>". {t: 'bot', k, hello} (as a
 // hello's name, plane, livery), {t: 'bot', k, waggle: true} and {t: 'bot',
 // k, bye: true} speak for one; their positions ride along in the player's
@@ -33,7 +36,13 @@ import {withTimeout} from './network.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
-import {BASE_FLIGHT_SPEED, PLANE_HANDLING, WATER_LEVEL} from './constants.js';
+import {
+  BASE_FLIGHT_SPEED,
+  MOUNTAIN_LEVEL,
+  PLANE_HANDLING,
+  WATER_LEVEL,
+} from './constants.js';
+import {simplex} from './noise.js';
 import {scene} from './scene.js';
 import {camera} from './sky.js';
 import {setGearExtension} from './twin.js';
@@ -53,6 +62,37 @@ import {sampleRoad} from './terrain-chunks.js';
 import {PLANE_BUILDERS, buildPlaneModel} from './plane-models.js';
 import {Achievements} from './achievements.js';
 import {isSmokeOn, setSmokeTint, smokeColor, trailSmoke} from './particles.js';
+import {playChime, playRaceBeep} from './sfx-events.js';
+import {
+  NO_RACE,
+  RACE_COUNT_MS,
+  RACE_GATES,
+  RACE_SETTLE_MS,
+  SLIP,
+  SLIP_HOLD,
+  botRaceSpeed,
+  formatRaceTime,
+  gridSpot,
+  inSlipstream,
+  isNewerRace,
+  missedGate,
+  packCourse,
+  packResults,
+  passesGate,
+  placeText,
+  planeCourse,
+  raceOver,
+  raceStandings,
+  readRace,
+  roadCourse,
+} from './race-logic.js';
+import {
+  hideCourse,
+  hideGateMarker,
+  setNextGate,
+  showCourse,
+  updateGates,
+} from './race-gates.js';
 import {
   BOT_PLANES,
   REJOIN_DISTANCE,
@@ -151,6 +191,10 @@ const botsRow = document.getElementById('fly-bots-row');
 const playersList = document.getElementById('fly-players');
 const statusText = document.getElementById('fly-status');
 const tagBtn = document.getElementById('fly-tag-btn');
+const gamesPicker = document.getElementById('fly-games');
+const gameTagBtn = document.getElementById('fly-game-tag');
+const gameRaceBtn = document.getElementById('fly-game-race');
+const raceCount = document.getElementById('race-count');
 const tagChip = document.getElementById('tag-chip');
 const tagGlow = document.getElementById('tag-glow');
 const botsInput = document.getElementById('fly-bots-input');
@@ -222,6 +266,24 @@ let botsWanted = false;
 let gatherBotsPending = false;
 // Who was it before whoever's it now (a bot doesn't tag them straight back)
 let tagBefore = null;
+// The race ({n, by, plane, course, grid, go, results}, race-logic.js),
+// and when it starts (performance.now())
+let race = NO_RACE;
+let raceGoAt = 0;
+// This player's run: gates passed and finish time (ms from the start, or
+// null); and where they were last frame, to see them pass through a gate
+let myRace = {gates: 0, finish: null};
+const racePrev = new THREE.Vector3();
+let racePrevSet = false;
+// The race has just started: everyone to the grid
+let lineUpPending = false;
+// When the race first looked over here (performance.now())
+let raceOverSince = null;
+// In someone's slipstream until then (performance.now())
+let slipUntil = 0;
+// The game picker is open (Play a game)
+let pickerOpen = false;
+let countShown = '';
 
 function myName() {
   try {
@@ -275,6 +337,7 @@ function sendHello() {
       ? {...tag, left: timeLeft(), points: currentPoints()}
       : tag;
   }
+  if (race.n > 0) hello.race = raceMessage();
   sentProfile = `${hello.name}|${hello.plane}|${hello.livery}`;
   send(hello);
 }
@@ -387,6 +450,7 @@ function onHello(peer, msg) {
   }
   if (isNew && peer.announce) toast(`${name} joined`);
   applyTag(readTag(msg.tag));
+  if (msg.race) applyRace(readRace(msg.race));
   if (isNew && !ownerOf(peer.id)) syncBots();
   renderPanel();
 }
@@ -436,6 +500,7 @@ function onMessage(event) {
       peer.heardAt = heardAt;
       peer.track.push(s, peer.heardAt);
       if (tag.it) peer.points = readPt(msg.pt, peer.points);
+      if (race.course) readProgress(peer, msg);
     }
     // Their bots, at the same moment
     if (Array.isArray(msg.b)) {
@@ -448,6 +513,7 @@ function onMessage(event) {
         peer.heardAt = heardAt;
         peer.track.push(bs, heardAt);
         if (tag.it) peer.points = readPt(b.pt, peer.points);
+        if (race.course) readProgress(peer, b);
       }
     }
   } else if (msg.t === 'waggle') {
@@ -476,6 +542,8 @@ function onMessage(event) {
     renderPanel();
   } else if (msg.t === 'tag') {
     applyTag(readTag({...msg, by: msg.f}));
+  } else if (msg.t === 'race') {
+    applyRace(readRace({...msg, by: msg.f}));
   }
 }
 
@@ -485,19 +553,54 @@ function nameOf(id) {
   return peers.get(id)?.name || 'A friend';
 }
 
-function refreshTag() {
-  const inTag = !!room && !!tag.it;
-  const amIt = inTag && tag.it === room.id;
+// The vehicle locked in for a game, as last set (applyBoost)
+let appliedPlane = null;
+
+// The vehicle everyone's in for the game on (null: none)
+function gamePlane() {
+  if (!room) return null;
+  return tag.it ? tag.plane : race.course ? race.plane : null;
+}
+
+// The top-speed boost now: whoever's it in tag, a racer in a slipstream;
+// and on the grid before a race, held to a slow formation (planes) or
+// standing still (buggies)
+function speedBoost() {
+  if (!room) return 1;
+  if (tag.it) return tag.it === room.id ? TAG_SPEED_BOOST : 1;
+  if (!race.course || !race.grid.includes(room.id)) return 1;
+  if (myRace.finish !== null) return 1;
+  const now = performance.now();
+  if (now < raceGoAt) {
+    const top = PLANE_HANDLING[race.plane]?.topKts ?? 280;
+    return Math.max(0.001, holdKts(race.plane) / top);
+  }
+  return now < slipUntil ? SLIP.BOOST : 1;
+}
+
+// Sets the boost (and the vehicle), keeping a full throttle full
+function applyBoost() {
+  const boost = speedBoost();
+  const plane = gamePlane();
+  if (boost === state.mpSpeedBoost && plane === appliedPlane) return;
+  appliedPlane = plane;
   const prevMax = getMaxFlightSpeedMult();
   const wasAtMax = state.targetFlightSpeed >= prevMax - 0.02;
-  setLockedPlane(inTag ? tag.plane : null);
-  state.mpSpeedBoost = amIt ? TAG_SPEED_BOOST : 1;
+  setLockedPlane(plane);
+  state.mpSpeedBoost = boost;
   const newMax = getMaxFlightSpeedMult();
-  if (wasAtMax && inTag) {
+  if (wasAtMax && plane) {
     state.targetFlightSpeed = newMax;
   } else if (state.targetFlightSpeed > newMax) {
     state.targetFlightSpeed = newMax;
   }
+}
+
+function refreshTag() {
+  const inTag = !!room && !!tag.it;
+  const amIt = inTag && tag.it === room.id;
+  appliedPlane = undefined;
+  applyBoost();
   state.mpForceSmoke = inTag && !amIt;
   hooks.syncSmokeUI?.();
 
@@ -516,6 +619,10 @@ function refreshTag() {
 // time left
 function renderTagChip() {
   if (!tagChip) return;
+  if (room && race.course) {
+    renderRaceChip();
+    return;
+  }
   const inTag = !!room && !!tag.it;
   const amIt = inTag && tag.it === room.id;
   tagChip.hidden = !inTag;
@@ -579,6 +686,8 @@ function setTag(next) {
   if (starting) {
     myPoints = 0;
     for (const peer of peers.values()) peer.points = 0;
+    // Any race gives way (and its results go)
+    if (race.n > 0) clearRace();
   }
   // Whoever we hadn't heard from yet (arriving mid-game) starts from the
   // message's count
@@ -727,6 +836,336 @@ function showGlow() {
   if (!tagGlow) return;
   const level = scoringRate > 1 ? 'near' : scoringRate > 0 ? 'far' : '';
   if (tagGlow.dataset.level !== level) tagGlow.dataset.level = level;
+}
+
+// --- RACE ---
+
+// A plane holds its level speed on the grid; a buggy waits
+function holdKts(plane) {
+  return plane === 'buggy' ? 0 : (PLANE_HANDLING[plane]?.levelKts ?? 80);
+}
+
+function highwayRuns(n, along) {
+  return ChillFlightLogic.highwayRunsAt(n, along, simplex, {
+    WATER_LEVEL,
+    MOUNTAIN_LEVEL,
+  });
+}
+
+// Where an arch stands: the road's deck, or the ground or water there
+function gateHeight(x, z) {
+  return surfaceAt(x, z, Infinity);
+}
+
+// The race as a message (for a hello, or starting it)
+function raceMessage() {
+  if (!race.course) {
+    return {
+      n: race.n,
+      by: race.by,
+      end: true,
+      results: packResults(
+        Object.entries(race.results || {}).map(([id, r]) => ({id, ...r}))
+      ),
+    };
+  }
+  return {
+    n: race.n,
+    by: race.by,
+    plane: race.plane,
+    course: packCourse(race.course),
+    grid: race.grid,
+    go: Math.round(raceGoAt - performance.now()),
+  };
+}
+
+// A racer's gates and finish as they sent them
+function readProgress(peer, msg) {
+  if (typeof msg.rg === 'number' && msg.rg >= 0 && Number.isFinite(msg.rg)) {
+    peer.raceGates = Math.max(peer.raceGates || 0, Math.floor(msg.rg));
+  }
+  if (typeof msg.rf === 'number' && msg.rf >= 0 && Number.isFinite(msg.rf)) {
+    peer.raceFinish = Math.round(msg.rf);
+  }
+}
+
+// Everyone on the grid who's still here: [{id, gates, finish}]
+function racers() {
+  const out = [];
+  for (const id of race.grid) {
+    if (id === room.id) {
+      out.push({id, gates: myRace.gates, finish: myRace.finish});
+    } else if (peers.has(id)) {
+      const peer = peers.get(id);
+      out.push({
+        id,
+        gates: peer.raceGates || 0,
+        finish: peer.raceFinish ?? null,
+      });
+    }
+  }
+  return out;
+}
+
+// No race, and no results either (a game of tag starting, leaving)
+function clearRace() {
+  race = {...NO_RACE, n: race.n};
+  hideCourse();
+  lineUpPending = false;
+  raceOverSince = null;
+  showCount('');
+}
+
+function setRace(next) {
+  const was = race;
+  race = next;
+  raceOverSince = null;
+  if (race.course) {
+    raceGoAt = performance.now() + race.go;
+    // Any game of tag gives way
+    if (tag.it || tag.n) tag = {...NO_TAG, n: tag.n};
+    myRace = {gates: 0, finish: null};
+    racePrevSet = false;
+    slipUntil = 0;
+    for (const peer of peers.values()) {
+      peer.raceGates = 0;
+      peer.raceFinish = null;
+    }
+    showCourse(race.course);
+    const racing = race.grid.includes(room.id);
+    lineUpPending = racing && race.go > 0;
+    if (!racing) toast('A race is on · join the next one');
+    else if (race.by === room.id) toast('Race! Get ready');
+    else toast(`${nameOf(race.by)} started a race`);
+  } else {
+    hideCourse();
+    lineUpPending = false;
+    showCount('');
+    if (was.course) {
+      const standings = raceStandings(
+        Object.entries(race.results || {}).map(([id, r]) => ({id, ...r}))
+      );
+      const win = standings[0];
+      if (win?.finish != null) {
+        const who = win.id === room.id ? 'You' : nameOf(win.id);
+        toast(`Race over · ${who} won in ${formatRaceTime(win.finish)}`);
+      } else {
+        toast('Race over');
+      }
+    }
+  }
+  refreshTag();
+}
+
+// A race as someone else sent it: kept if it's newer than ours
+function applyRace(next) {
+  if (!next || !room || !isNewerRace(next, race)) return;
+  setRace(next);
+}
+
+// Starts a race from here: everyone in the vehicle you're in, through a
+// course ahead of you (rings), or along the nearest highway (buggies)
+function startRace() {
+  if (!room) return;
+  const plane = tagPlane(activePlaneType);
+  const topKts = PLANE_HANDLING[plane]?.topKts ?? 280;
+  const lead = leaderNow();
+  const course =
+    plane === 'buggy'
+      ? roadCourse(lead, topKts, highwayRuns)
+      : planeCourse(
+          lead,
+          topKts,
+          Math.floor(Math.random() * 2 ** 31),
+          getElevation,
+          WATER_LEVEL
+        );
+  if (!course) {
+    toast('No highway near enough to race on');
+    return;
+  }
+  if (tag.it) sendTag(null);
+  const grid = [room.id];
+  for (const peer of peers.values()) if (peer.name) grid.push(peer.id);
+  grid.sort();
+  setRace({
+    n: race.n + 1,
+    by: room.id,
+    plane,
+    course,
+    grid,
+    go: RACE_SETTLE_MS + RACE_COUNT_MS,
+    results: null,
+  });
+  send({t: 'race', ...raceMessage()});
+}
+
+// Over: everyone's results as this player has them
+function endRace() {
+  if (!room || !race.course) return;
+  const results = packResults(racers());
+  const next = readRace({n: race.n + 1, by: room.id, end: true, results});
+  setRace(next);
+  send({t: 'race', n: next.n, end: true, results});
+}
+
+// Everyone onto the grid: this player and their bots, each in their slot
+// (race.grid's order), far enough back to reach the start line at the
+// start
+function lineUp() {
+  lineUpPending = false;
+  if (!room || !race.course) return;
+  const holdMs = Math.max(0, raceGoAt - performance.now());
+  const kts = holdKts(race.plane);
+  const units = BASE_FLIGHT_SPEED * 60;
+  const place = (id) => {
+    const slot = race.grid.indexOf(id);
+    if (slot < 0) return null;
+    const spot = gridSpot(race.course, slot, kts, holdMs);
+    if (race.plane === 'buggy') spot.y = surfaceAt(spot.x, spot.z, Infinity);
+    return spot;
+  };
+  const me = place(room.id);
+  if (me && hooks.movePlane) {
+    hooks.movePlane(me.x, me.y, me.z, me.heading, kts / units);
+    racePrevSet = false;
+  }
+  for (const {bot, peer} of myBots.values()) {
+    const spot = place(peer.id);
+    if (!spot) continue;
+    Object.assign(bot, spot, {
+      plane: race.plane,
+      speed: kts,
+      vs: 0,
+      aim: null,
+      pitch: 0,
+      bank: 0,
+      stuckFor: 0,
+      escapeFor: 0,
+      needsRescue: false,
+      window: null,
+      racePrev: null,
+    });
+  }
+}
+
+// Whether going from a to b passed through the next gate: counts it, and
+// on the last, the finish time. `progress` is {gates, finish}
+function checkGate(progress, a, b, sinceGo) {
+  const gates = race.course.gates;
+  if (progress.finish !== null || progress.gates >= gates.length) return false;
+  if (!passesGate(gates[progress.gates], race.course.kind, a, b)) return false;
+  progress.gates++;
+  if (progress.gates >= gates.length) progress.finish = Math.round(sinceGo);
+  return true;
+}
+
+// Everyone else racing, where they are: [{x, y, z, heading}] (for the
+// slipstream); spots from playerSpots
+function slipOthers(spots, id) {
+  return spots
+    .filter((p) => p.id !== id && !p.paused)
+    .map((p) => ({...p, heading: Math.atan2(-p.vx, -p.vz)}));
+}
+
+// A frame of the race: the countdown, this player's gates, the
+// slipstream, and once it's over, ending it
+function stepRace(rawNow) {
+  if (!room || !race.course) return;
+  const sinceGo = rawNow - raceGoAt;
+  const racing = race.grid.includes(room.id);
+  const pos = planeGroup.position;
+  if (racing && sinceGo >= 0 && myRace.finish === null && racePrevSet) {
+    if (checkGate(myRace, racePrev, pos, sinceGo)) {
+      setNextGate(myRace.gates);
+      playChime();
+      if (myRace.finish !== null) {
+        const place =
+          1 +
+          racers().filter(
+            (r) =>
+              r.id !== room.id && r.finish !== null && r.finish < myRace.finish
+          ).length;
+        toast(
+          `Finished ${placeText(place)} · ${formatRaceTime(myRace.finish)}`
+        );
+      }
+    }
+  }
+  racePrev.copy(pos);
+  racePrevSet = true;
+  // Close behind another racer: a tow
+  if (racing && sinceGo >= 0 && myRace.finish === null && !state.isPaused) {
+    const me = leaderNow();
+    if (inSlipstream(me, slipOthers(playerSpots(rawNow), room.id))) {
+      slipUntil = rawNow + SLIP_HOLD * 1000;
+    }
+  }
+  applyBoost();
+  // 3, 2, 1, Go!
+  if (!racing) showCount('');
+  else if (sinceGo < -RACE_COUNT_MS) showCount('Get ready');
+  else if (sinceGo < 0) showCount(String(Math.ceil(-sinceGo / 1000)));
+  else if (sinceGo < 900) showCount('Go!');
+  else showCount('');
+  updateGates(pos, gateHeight, rawNow / 1000);
+  if (state.isVRPresenting) hideGateMarker();
+  // Over: whoever started it ends it, or anyone should they not
+  if (sinceGo >= 0 && raceOver(racers(), sinceGo)) {
+    raceOverSince ??= rawNow;
+    const late = rawNow - raceOverSince;
+    const delay =
+      race.by === room.id || !peers.has(race.by) ? TAG_END_MS : TAG_END_LATE_MS;
+    if (late > delay) endRace();
+  } else {
+    raceOverSince = null;
+  }
+  renderTagChip();
+}
+
+function showCount(text) {
+  if (!raceCount || text === countShown) return;
+  countShown = text;
+  if (/^[123]$/.test(text)) playRaceBeep(false);
+  else if (text === 'Go!') playRaceBeep(true);
+  raceCount.textContent = text;
+  raceCount.hidden = !text;
+  raceCount.classList.toggle('race-go', text === 'Go!');
+  // Restarts the pop for each new number
+  raceCount.classList.remove('race-pop');
+  void raceCount.offsetWidth;
+  if (text) raceCount.classList.add('race-pop');
+}
+
+// The chip in a race: the next gate and the time; your place at the end
+function renderRaceChip() {
+  const n = race.course.gates.length;
+  const sinceGo = performance.now() - raceGoAt;
+  let text;
+  if (!race.grid.includes(room.id)) {
+    text = 'Race on · join the next one';
+  } else if (sinceGo < 0) {
+    text = `Race · ${n - 1} gates and the finish`;
+  } else if (myRace.finish !== null) {
+    const place =
+      1 +
+      racers().filter(
+        (r) => r.id !== room.id && r.finish !== null && r.finish < myRace.finish
+      ).length;
+    text = `Finished ${placeText(place)} · ${formatRaceTime(myRace.finish)}`;
+  } else {
+    const gate = race.course.gates[myRace.gates];
+    const what =
+      myRace.gates === n - 1 ? 'Finish' : `Gate ${myRace.gates + 1}/${n - 1}`;
+    text = missedGate(gate, planeGroup.position.x, planeGroup.position.z)
+      ? `Missed ${what.toLowerCase().replace(/\/.*/, '')} · turn back`
+      : `${what} · ${formatRaceTime(sinceGo)}`;
+  }
+  tagChip.hidden = false;
+  tagChip.classList.remove('mine');
+  if (text === chipText) return;
+  chipText = text;
+  tagChip.textContent = text;
 }
 
 const _scorePos = new THREE.Vector3();
@@ -992,7 +1431,8 @@ function botsWaveBack(id) {
 function stepMyBots(delta, rawNow) {
   if (!room || !myBots.size) return;
   const leader = leaderNow();
-  const spots = tag.it ? playerSpots(rawNow) : [];
+  const spots = tag.it || race.course ? playerSpots(rawNow) : [];
+  const sinceGo = rawNow - raceGoAt;
   const itSpot = spots.find((p) => p.id === tag.it) || null;
   let centre = null;
   if (spots.length) {
@@ -1006,21 +1446,51 @@ function stepMyBots(delta, rawNow) {
   // Out of games, bots drive with a player who's driving
   const free = activePlaneType === 'buggy' ? 'buggy' : null;
   for (const [k, {bot, peer, plane: home}] of myBots) {
-    const plane = tag.it ? tag.plane : free || home;
+    const plane = gamePlane() || free || home;
     if (bot.plane !== plane) {
       bot.plane = plane;
       sendBotHello(k);
     }
     const driving = plane === 'buggy';
     const away = Math.hypot(bot.x - leader.x, bot.z - leader.z);
-    // Back beside the player after a warp, or when stuck in the terrain
-    if ((!tag.it && away > REJOIN_DISTANCE) || bot.needsRescue) {
+    const racing = !!race.course && race.grid.includes(peer.id);
+    // Back beside the player after a warp, or when stuck in the terrain;
+    // stuck in a race, back at the last gate it passed
+    if (racing && bot.needsRescue) {
+      backOnCourse(bot, peer);
+    } else if (
+      (!tag.it && !racing && away > REJOIN_DISTANCE) ||
+      bot.needsRescue
+    ) {
       rejoinBot(bot, leader, driving);
       if (driving) bot.y = surfaceAt(bot.x, bot.z, bot.y + ROAD_STEP_UP);
     }
     const isIt = tag.it === peer.id;
-    const topSpeed =
+    let topSpeed =
       (PLANE_HANDLING[plane]?.topKts ?? 280) * (isIt ? TAG_SPEED_BOOST : 1);
+    let raceCtx = null;
+    if (racing) {
+      const progress = {
+        gates: peer.raceGates || 0,
+        finish: peer.raceFinish ?? null,
+      };
+      const gate =
+        progress.finish === null ? race.course.gates[progress.gates] : null;
+      raceCtx = {
+        hold: sinceGo < 0,
+        holdSpeed: holdKts(plane),
+        gate,
+        road: race.course.road || null,
+        speed: botRaceSpeed(bot.slot),
+      };
+      if (sinceGo >= 0 && gate) {
+        const me = {x: bot.x, y: bot.y, z: bot.z, heading: bot.heading};
+        if (inSlipstream(me, slipOthers(spots, peer.id))) {
+          bot.slipUntil = rawNow + SLIP_HOLD * 1000;
+        }
+        if (rawNow < (bot.slipUntil || 0)) topSpeed *= SLIP.BOOST;
+      }
+    }
     let tagCtx = null;
     if (tag.it) {
       tagCtx = isIt
@@ -1036,16 +1506,51 @@ function stepMyBots(delta, rawNow) {
           }
         : {it: false, chaser: itSpot, centre};
     }
+    const prev = racing ? {x: bot.x, y: bot.y, z: bot.z} : null;
     stepBot(bot, Math.min(delta, 0.1), {
       elevationAt: getElevation,
       waterLevel: WATER_LEVEL,
       leader,
       topSpeed,
-      tag: tagCtx,
+      tag: raceCtx ? null : tagCtx,
+      race: raceCtx,
       driving,
       surfaceAt,
     });
+    // Through a gate
+    if (racing && sinceGo >= 0) {
+      const progress = {
+        gates: peer.raceGates || 0,
+        finish: peer.raceFinish ?? null,
+      };
+      if (checkGate(progress, prev, bot, sinceGo)) {
+        peer.raceGates = progress.gates;
+        peer.raceFinish = progress.finish;
+      }
+    }
   }
+}
+
+// A racing bot stuck in the terrain: back at the last gate it passed (or
+// the start), facing the next
+function backOnCourse(bot, peer) {
+  const {course} = race;
+  const passed = peer.raceGates || 0;
+  const from = passed > 0 ? course.gates[passed - 1] : course.start;
+  const to = course.gates[Math.min(passed, course.gates.length - 1)];
+  const heading = Math.atan2(-(to.x - from.x), -(to.z - from.z));
+  Object.assign(bot, {
+    x: from.x,
+    z: from.z,
+    y: race.plane === 'buggy' ? surfaceAt(from.x, from.z, Infinity) : from.y,
+    heading,
+    speed: 0,
+    vs: 0,
+    stuckFor: 0,
+    escapeFor: 0,
+    needsRescue: false,
+    window: null,
+  });
 }
 
 // When a game of tag starts, this player's bots fan out ahead of whoever's
@@ -1100,6 +1605,10 @@ function packMyBots(now) {
     }
     const entry = {k, p: packed.p, q: packed.q, v: packed.v, fl: packed.fl};
     if (tag.it) entry.pt = Math.floor(peer.points || 0);
+    if (race.course && race.grid.includes(peer.id)) {
+      entry.rg = peer.raceGates || 0;
+      if (peer.raceFinish != null) entry.rf = peer.raceFinish;
+    }
     out.push(entry);
   }
   return out;
@@ -1191,8 +1700,10 @@ function enterRoom(ws, welcome, code) {
   }
   for (const id of welcome.peers || []) if (!oldIds.has(id)) addPeer(id);
   // Back after a dropped connection (with a new id): the others' hellos
-  // bring any game of tag
+  // bring any game of tag, or race
   tag = NO_TAG;
+  race = NO_RACE;
+  clearRace();
   refreshTag();
   ws.onmessage = onMessage;
   ws.onclose = onDropped;
@@ -1268,6 +1779,8 @@ function flyWithBots() {
   if (busy || room) return;
   room = {local: true, id: 'solo', seed: ChillFlightLogic.WORLD_SEED};
   tag = NO_TAG;
+  race = NO_RACE;
+  clearRace();
   refreshTag();
   setSmokeTint(state.planeColor);
   if (!sendTimer) sendTimer = setInterval(sendState, SEND_INTERVAL_MS);
@@ -1287,6 +1800,8 @@ function clearRoom() {
   gatherToId = null;
   pausedSince = null;
   tag = NO_TAG;
+  race = NO_RACE;
+  clearRace();
   refreshTag();
   waggleAt = -Infinity;
   state.waggleRoll = 0;
@@ -1333,6 +1848,8 @@ function onDropped() {
   dropOthers();
   // Out of a game: whoever was it may not be back
   tag = NO_TAG;
+  race = NO_RACE;
+  clearRace();
   refreshTag();
   if (suspended) return;
   if (!navigator.onLine) {
@@ -1528,8 +2045,10 @@ function sendState(frameClock) {
   // This player's bots are drawn here even while the connection is down
   const bots = myBots.size ? packMyBots(now) : null;
   // Kept fresh, connected or not: the chip's colours, and while showing,
-  // tag points, who's paused and who's ready to fly to
-  if ((tag.it && panelShown()) || rawNow - renderedAt > 1000) renderPanel();
+  // tag points or race places, who's paused and who's ready to fly to
+  if (((tag.it || race.course) && panelShown()) || rawNow - renderedAt > 1000) {
+    renderPanel();
+  }
   if (socket?.readyState !== WebSocket.OPEN) return;
   // Nobody else here to see it (the bots are this player's own): send
   // nothing. Someone arriving gets a hello straight away, then updates.
@@ -1557,6 +2076,10 @@ function sendState(frameClock) {
   );
   if (bots) update.b = bots;
   if (tag.it) update.pt = Math.floor(myPoints);
+  if (race.course && race.grid.includes(room.id)) {
+    update.rg = myRace.gates;
+    if (myRace.finish !== null) update.rf = myRace.finish;
+  }
   send(update);
 }
 
@@ -1688,11 +2211,27 @@ export function friendsOnMap() {
 }
 
 /**
- * Whether a game (tag) is on in this room. Warping is off while it is, since
+ * The race on (for tests and the maps): {course, plane, grid, goAt, gates,
+ * finish} with this player's gates passed and finish time; null with none.
+ */
+export function raceNow() {
+  if (!room || !race.course) return null;
+  return {
+    course: race.course,
+    plane: race.plane,
+    grid: race.grid,
+    goAt: raceGoAt,
+    gates: myRace.gates,
+    finish: myRace.finish,
+  };
+}
+
+/**
+ * Whether a game (tag or a race) is on in this room. Warping is off while it is, since
  * it would skip the game (minimap.js); the game's own gathering still warps.
  */
 export function inGameMode() {
-  return !!room && !!tag.it;
+  return !!room && (!!tag.it || !!race.course);
 }
 
 // --- EACH FRAME ---
@@ -1807,6 +2346,8 @@ export function updateMultiplayer(delta) {
   }
   botTags(rawNow);
   scoreTag(rawNow);
+  if (lineUpPending && !state.isIntroTransitionActive) lineUp();
+  stepRace(rawNow);
   if (gatherBotsPending && !state.isIntroTransitionActive) {
     gatherBotsPending = !gatherBots();
   }
@@ -1885,14 +2426,27 @@ function renderPanel() {
   shareBtn.textContent = room.local ? 'Invite friends' : 'Share link';
   shareBtn.disabled = busy;
   if (botsRow) botsRow.hidden = !!room.local;
+  const gameOn = !!tag.it || !!race.course;
   if (tagBtn) {
-    tagBtn.hidden = peers.size === 0 && !tag.it;
+    tagBtn.hidden = peers.size === 0 && !gameOn;
     // Nobody to play with while the connection is down
     tagBtn.disabled = !socket && !room.local;
-    tagBtn.textContent = tag.it ? 'Stop tag' : 'Play tag';
+    tagBtn.textContent = tag.it
+      ? 'Stop tag'
+      : race.course
+        ? 'Stop race'
+        : 'Play a game';
+    tagBtn.classList.toggle('open', pickerOpen && !gameOn);
   }
-  // In a game, live points; after one, how it ended
-  const showPoints = !!tag.it || Object.keys(tag.points).length > 0;
+  // Choosing a game takes the list's place a moment
+  if (gamesPicker) {
+    gamesPicker.hidden = !pickerOpen || gameOn || tagBtn.hidden;
+    playersList.parentElement.hidden = !gamesPicker.hidden;
+  }
+  // In a game, live points or race places; after one, how it ended
+  const raceRows = raceListing();
+  const showPoints =
+    !raceRows && (!!tag.it || Object.keys(tag.points).length > 0);
   const live = tag.it ? currentPoints() : tag.points;
   const row = ({name, note, livery, peer, points}) => {
     const el = document.createElement('div');
@@ -1915,21 +2469,21 @@ function renderPanel() {
       text.append(noteEl);
     }
     el.append(dot, text);
-    if (showPoints) {
+    if (showPoints || raceRows) {
       const score = document.createElement('span');
       score.className = 'fly-player-time';
-      score.textContent = `${points} pts`;
+      score.textContent = raceRows ? points : `${points} pts`;
       el.append(score);
     }
     // Your own row gets an invisible stand-in for Fly to, so every score
     // lines up in one column
-    if (!peer && !tag.it && showPoints) {
+    if (!peer && !gameOn && (showPoints || raceRows)) {
       const spacer = document.createElement('span');
       spacer.className = 'fly-btn fly-btn-icon fly-btn-spacer';
       spacer.setAttribute('aria-hidden', 'true');
       el.append(spacer);
     }
-    if (peer && !tag.it) {
+    if (peer && !gameOn) {
       const btn = document.createElement('button');
       btn.className = 'fly-btn fly-btn-icon';
       btn.innerHTML = PLANE_ICON;
@@ -1955,7 +2509,7 @@ function renderPanel() {
       .join(', ');
   // Out of tag games you're your own row at the top, with your name to tap
   // and change; in one, the list is sorted by points, you included
-  selfRow.hidden = showPoints;
+  selfRow.hidden = showPoints || !!raceRows;
   selfDot.style.background = hexColor(myLivery());
   if (document.activeElement !== selfName) selfName.value = myName();
   selfName.placeholder = defaultCallsign;
@@ -1983,7 +2537,55 @@ function renderPanel() {
     }
   }
   if (showPoints) entries.sort((a, b) => b.points - a.points);
-  playersList.replaceChildren(...entries.map(row));
+  playersList.replaceChildren(...(raceRows || entries).map(row));
+}
+
+// The room list in a race, or after one: everyone in finishing order,
+// with their time (or how far they got), then anyone who wasn't racing.
+// Null with no race to show.
+function raceListing() {
+  if (!room || (!race.course && !race.results)) return null;
+  const list = race.course
+    ? racers()
+    : Object.entries(race.results).map(([id, r]) => ({id, ...r}));
+  const gates = race.course?.gates.length ?? RACE_GATES;
+  const rows = [];
+  const seen = new Set();
+  const look = (id) =>
+    id === room.id
+      ? {name: myName(), livery: myLivery(), peer: null}
+      : peers.has(id)
+        ? {
+            name: peers.get(id).name,
+            livery: peers.get(id).livery,
+            peer: peers.get(id),
+          }
+        : null;
+  raceStandings(list).forEach((r, i) => {
+    const who = look(r.id);
+    if (!who?.name) return;
+    seen.add(r.id);
+    const finished = r.finish !== null;
+    rows.push({
+      ...who,
+      note: [who.peer ? '' : 'you', finished ? placeText(i + 1) : '']
+        .filter(Boolean)
+        .join(', '),
+      points: finished
+        ? formatRaceTime(r.finish)
+        : `${Math.min(r.gates, gates - 1)}/${gates - 1}`,
+    });
+  });
+  for (const id of [room.id, ...peers.keys()]) {
+    const who = look(id);
+    if (seen.has(id) || !who?.name) continue;
+    rows.push({
+      ...who,
+      note: who.peer ? 'watching' : 'you, watching',
+      points: '',
+    });
+  }
+  return rows;
 }
 
 // The Together tab coming into view
@@ -2065,15 +2667,31 @@ if (RELAY && tabBtn && panel) {
     flyWithBots();
     if (room) closePanel();
   });
+  // Play a game opens the picker; in a game, it stops it
   tagBtn?.addEventListener('click', () => {
     if (!room) return;
     if (tag.it) {
       sendTag(null);
+    } else if (race.course) {
+      endRace();
     } else {
-      // Whoever starts the game is it
-      sendTag(room.id);
-      closePanel();
+      pickerOpen = !pickerOpen;
     }
+    renderPanel();
+  });
+  gameTagBtn?.addEventListener('click', () => {
+    if (!room) return;
+    pickerOpen = false;
+    // Whoever starts the game is it
+    sendTag(room.id);
+    closePanel();
+  });
+  gameRaceBtn?.addEventListener('click', () => {
+    if (!room) return;
+    pickerOpen = false;
+    startRace();
+    if (race.course) closePanel();
+    else renderPanel();
   });
   inputManager.onWave = wave;
   waveBtn?.addEventListener('click', (e) => {

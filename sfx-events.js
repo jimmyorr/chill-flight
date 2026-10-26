@@ -26,6 +26,7 @@ export const SFX_EVENTS = [
   {key: 'chime', label: 'Job and waypoint chime'},
   {key: 'thunder', label: 'Thunder'},
   {key: 'smash', label: 'Knocking trees and houses over'},
+  {key: 'race', label: 'Race countdown'},
 ];
 
 const STORAGE_KEY = 'chill_flight_sfx_events';
@@ -317,6 +318,26 @@ export function playChime(force = false) {
   }
 }
 
+// A race's countdown (multiplayer.js): a soft beep for 3, 2 and 1, and a
+// higher, longer one for go
+export function playRaceBeep(go = false, force = false) {
+  if ((!force && !isSfxEventEnabled('race')) || !ready()) return;
+  const freq = go ? 880 : 523.25;
+  tone(ctx.currentTime, {
+    type: 'triangle',
+    freq,
+    gain: 0.16,
+    attack: 0.006,
+    decay: go ? 0.7 : 0.22,
+  });
+  tone(ctx.currentTime, {
+    freq: freq * 2,
+    gain: 0.03,
+    attack: 0.006,
+    decay: 0.2,
+  });
+}
+
 // How loud thunder is (1.6 = +4 dB), so it stands out over the rain
 const THUNDER_LEVEL = 1.6;
 
@@ -450,6 +471,11 @@ export const SFX_EVENT_PLAYERS = {
   smash: () => {
     playSmash(false, 1, 0.9, true);
     setTimeout(() => playSmash(true, 1, 0, true), 1600);
+  },
+  race: () => {
+    for (let i = 0; i < 4; i++) {
+      setTimeout(() => playRaceBeep(i === 3, true), i * 1000);
+    }
   },
 };
 

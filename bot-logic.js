@@ -9,6 +9,7 @@
 // reads as a knot). Drawn with rotation (pitch, heading, bank) in 'YXZ'
 // order, like the traffic planes.
 import {forwardOf, headingToward} from './traffic-logic.js';
+import {roadAim} from './race-logic.js';
 
 export const BOT_PLANES = ['biplane', 'seaplane', 'twin', 'jet'];
 
@@ -594,6 +595,61 @@ function stepRunner(bot, dt, ctx) {
   move(bot, dt, ctx, chaser.y ?? bot.y, speed, WING_CLEARANCE);
 }
 
+// In a race: through each gate in turn, a buggy keeping to the road
+// between them (roadAim); on the grid until the start, a plane flies
+// straight on at the hold speed and a buggy waits. Past the finish, it
+// eases off.
+const RACE_CLEARANCE = 30;
+function stepRacer(bot, dt, ctx) {
+  const race = ctx.race;
+  const {gate} = race;
+  if (race.hold) {
+    steer(bot, ctx, dt, bot.heading, WING_TURN);
+    if (ctx.driving) drive(bot, dt, ctx, 0);
+    else move(bot, dt, ctx, gate?.y ?? bot.y, race.holdSpeed, WING_CLEARANCE);
+    return;
+  }
+  const top = ctx.topSpeed * race.speed;
+  if (!gate) {
+    steer(bot, ctx, dt, bot.heading, WING_TURN);
+    move(bot, dt, ctx, bot.y, top * 0.5, WING_CLEARANCE);
+    return;
+  }
+  let aim = gate;
+  if (ctx.driving && race.road && distance2d(bot, gate) > 150) {
+    const lane = [-14, 14, 0][bot.slot % 3];
+    aim = roadAim(race.road, bot.x, bot.z, Math.max(120, bot.speed), lane);
+  }
+  steer(
+    bot,
+    ctx,
+    dt,
+    headingToward(bot.x, bot.z, aim.x, aim.z),
+    ctx.driving ? DRIVE.TURN : WING_TURN
+  );
+  if (ctx.driving) {
+    drive(bot, dt, ctx, top);
+    return;
+  }
+  // Clear of the ground only as far as the gate, so a hill past it
+  // doesn't lift the bot over the ring
+  bot.floors ??= {};
+  if (!('gate' in bot.floors)) {
+    const f = forwardOf(bot.heading);
+    const reach = Math.min(LOOK_AHEAD, distance2d(bot, gate) - 150);
+    let floor = -Infinity;
+    for (let d = 0; d <= Math.max(0, reach); d += SCAN_STEP) {
+      const ground = Math.max(
+        ctx.elevationAt(bot.x + f.x * d, bot.z + f.z * d),
+        ctx.waterLevel
+      );
+      floor = Math.max(floor, ground + RACE_CLEARANCE - d * CLIMB_SLOPE);
+    }
+    bot.floors.gate = floor;
+  }
+  fly(bot, dt, ctx, gate.y, top, bot.floors.gate);
+}
+
 /**
  * Advances a bot by dt seconds, in place. ctx:
  * - elevationAt(x, z), waterLevel: the ground and the sea
@@ -605,11 +661,18 @@ function stepRunner(bot, dt, ctx) {
  *   vy?, vz?}]} as whoever's it, or {it: false, chaser: {x, y, z} or
  *   null, centre: {x, y, z} or null} as a runner. A target's `bot` marks
  *   another bot, and `tagger` whoever just tagged this one
+ * - race: null out of races; else {hold, holdSpeed, gate: {x, y, z} the
+ *   next gate (null once finished), road: a road course's road or null,
+ *   speed: share of top speed (botRaceSpeed)}
  */
 export function stepBot(bot, dt, ctx) {
   bot.age += dt;
   scanTick(bot, dt);
-  if (!ctx.tag) {
+  if (ctx.race) {
+    bot.chaseId = null;
+    bot.aim = null;
+    stepRacer(bot, dt, ctx);
+  } else if (!ctx.tag) {
     bot.chaseId = null;
     bot.aim = null;
     stepWingman(bot, dt, ctx);

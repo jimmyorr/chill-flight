@@ -32,6 +32,16 @@ import {
   wingSpot,
   wrapAngle,
 } from '../bot-logic.js';
+import {ChillFlightLogic} from '../chill-flight-logic.js';
+import {simplex} from '../noise.js';
+import {
+  RACE_SECONDS,
+  botRaceSpeed,
+  gridSpot,
+  passesGate,
+  planeCourse,
+  roadCourse,
+} from '../race-logic.js';
 
 console.log('Testing bots...');
 
@@ -494,6 +504,91 @@ const driving = (surface, leader, tag = null, topSpeed = 240) => ({
     'a buggy bot that is it catches a player driving straight',
     at !== null,
     'not caught in 2 min'
+  );
+}
+
+// --- RACES ---
+// A bot runs a whole course, gate by gate: seconds it took, or null
+function runRace(course, plane, ctxFor, limit) {
+  const spot = gridSpot(course, 0, 0, 0);
+  const bot = newBot(0, {...spot, speed: 0}, plane);
+  Object.assign(bot, spot, {speed: plane === 'buggy' ? 0 : 100});
+  let gates = 0;
+  for (let i = 0; i < limit * 60; i++) {
+    const prev = {x: bot.x, y: bot.y, z: bot.z};
+    const gate = course.gates[gates];
+    stepBot(bot, DT, ctxFor(gate));
+    if (passesGate(gate, course.kind, prev, bot)) {
+      gates++;
+      if (gates === course.gates.length) return i / 60;
+    }
+  }
+  return null;
+}
+{
+  // Through every ring over the hills, at about race pace
+  const course = planeCourse({x: 0, z: 0, heading: 0.3}, 280, 11, hills, WATER);
+  const took = runRace(
+    course,
+    'biplane',
+    (gate) => ({
+      elevationAt: hills,
+      waterLevel: WATER,
+      leader: player(0, 0, 0, 0, 0),
+      topSpeed: 280,
+      tag: null,
+      race: {
+        hold: false,
+        holdSpeed: 80,
+        gate,
+        road: null,
+        speed: botRaceSpeed(0),
+      },
+    }),
+    RACE_SECONDS * 2
+  );
+  check(
+    'a racing bot flies through every ring',
+    took !== null && took < RACE_SECONDS * 1.25,
+    took === null ? 'missed a ring' : `(${took.toFixed(0)} s)`
+  );
+}
+{
+  // Along a real highway, under every arch
+  ChillFlightLogic.WORLD_SEED = 20260101;
+  simplex.seed(20260101);
+  const consts = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+  const ground = (x, z) => ChillFlightLogic.getElevation(x, z, simplex, consts);
+  const course = roadCourse(
+    {x: ChillFlightLogic.getRoadCenterX(10000, 0), z: 10000, heading: 0},
+    240,
+    (n, a) => ChillFlightLogic.highwayRunsAt(n, a, simplex, consts)
+  );
+  const took = runRace(
+    course,
+    'buggy',
+    (gate) => ({
+      elevationAt: ground,
+      waterLevel: 40,
+      driving: true,
+      surfaceAt: (x, z) => Math.max(ground(x, z), 40),
+      leader: player(0, 0, 0, 0, 0),
+      topSpeed: 240,
+      tag: null,
+      race: {
+        hold: false,
+        holdSpeed: 0,
+        gate,
+        road: course.road,
+        speed: botRaceSpeed(0),
+      },
+    }),
+    RACE_SECONDS * 2
+  );
+  check(
+    'a racing buggy bot drives the highway under every arch',
+    took !== null && took < RACE_SECONDS * 1.4,
+    took === null ? 'missed an arch' : `(${took.toFixed(0)} s)`
   );
 }
 

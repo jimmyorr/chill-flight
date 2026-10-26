@@ -285,9 +285,21 @@
                   class="pause-switch"
                 />
               </label>
+              <div id="fly-games" class="fly-games" hidden>
+                <button id="fly-game-tag" class="fly-game">
+                  <span class="fly-game-name">Tag</span>
+                  <span class="fly-game-rule">Stay near whoever's it</span>
+                </button>
+                <button id="fly-game-race" class="fly-game">
+                  <span class="fly-game-name">Race</span>
+                  <span class="fly-game-rule"
+                    >Through the gates, first wins</span
+                  >
+                </button>
+              </div>
               <div class="fly-room-actions">
                 <button id="fly-tag-btn" class="fly-btn" hidden>
-                  Play tag
+                  Play a game
                 </button>
                 <button id="fly-leave-btn" class="fly-btn fly-btn-quiet">
                   Leave
@@ -589,10 +601,12 @@
     </div>
 
     <!-- Friends flying with you: names and distances, at the screen's edge
-         when they're out of view; and who's it in a game of tag
-         (multiplayer.js) -->
+         when they're out of view; who's it in a game of tag; and a
+         race's next gate (multiplayer.js, race-gates.js) -->
     <div id="tag-glow" aria-hidden="true"></div>
     <div id="friend-markers" aria-hidden="true"></div>
+    <!-- A race's countdown: 3, 2, 1, Go! (multiplayer.js) -->
+    <div id="race-count" hidden aria-live="polite"></div>
 
     <!-- Points the way to the map's waypoint (waypoint.js) -->
     <div id="waypoint-indicator" hidden aria-hidden="true">
