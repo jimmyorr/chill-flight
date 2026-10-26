@@ -554,6 +554,54 @@ function runRace(course, plane, ctxFor, limit) {
   );
 }
 {
+  // Real terrain, every plane, courses all over the map: no ring flown
+  // past (each would cost a turn back), so every course takes about
+  // race pace
+  ChillFlightLogic.WORLD_SEED = 20260101;
+  simplex.seed(20260101);
+  const consts = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+  const ground = (x, z) => ChillFlightLogic.getElevation(x, z, simplex, consts);
+  const tops = {biplane: 280, seaplane: 380, twin: 500, jet: 800};
+  for (const [plane, top] of Object.entries(tops)) {
+    let slowest = 0;
+    let where = '';
+    for (let k = 0; k < 12; k++) {
+      const a = k * 2.39996;
+      const r = 4000 + k * 2500;
+      const from = {x: Math.sin(a) * r, z: Math.cos(a) * r, heading: a * 3};
+      const course = planeCourse(from, top, k + 1, ground, 40);
+      const took = runRace(
+        course,
+        plane,
+        (gate) => ({
+          elevationAt: ground,
+          waterLevel: 40,
+          leader: player(0, 0, 0, 0, 0),
+          topSpeed: top,
+          tag: null,
+          race: {
+            hold: false,
+            holdSpeed: 80,
+            gate,
+            road: null,
+            speed: botRaceSpeed(k),
+          },
+        }),
+        RACE_SECONDS * 2
+      );
+      if (took === null || took > slowest) {
+        slowest = took ?? Infinity;
+        where = `course ${k}`;
+      }
+    }
+    check(
+      `a racing ${plane} bot makes every ring on real terrain`,
+      slowest < RACE_SECONDS * 1.05,
+      `(slowest ${slowest.toFixed(0)} s, ${where})`
+    );
+  }
+}
+{
   // Along a real highway, under every arch
   ChillFlightLogic.WORLD_SEED = 20260101;
   simplex.seed(20260101);

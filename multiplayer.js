@@ -2042,6 +2042,10 @@ function sendState(frameClock) {
   const now = typeof frameClock === 'number' ? frameClock : rawNow;
   const interval = state.isPaused ? PAUSED_SEND_INTERVAL_MS : SEND_INTERVAL_MS;
   if (now - lastSendAt < interval - 5) return;
+  // Set even when nothing goes out, so this player's own bots are drawn
+  // from updates as far apart as anyone else's. Fed every frame, the 24
+  // kept would span less than RENDER_DELAY_MS and the bots would judder
+  lastSendAt = now;
   // This player's bots are drawn here even while the connection is down
   const bots = myBots.size ? packMyBots(now) : null;
   // Kept fresh, connected or not: the chip's colours, and while showing,
@@ -2053,7 +2057,6 @@ function sendState(frameClock) {
   // Nobody else here to see it (the bots are this player's own): send
   // nothing. Someone arriving gets a hello straight away, then updates.
   if (!hasOthers()) return;
-  lastSendAt = now;
   // Changed plane, livery or name: tell the others, and retint the smoke
   const profile = `${myName()}|${activePlaneType}|${myLivery()}`;
   if (profile !== sentProfile) {

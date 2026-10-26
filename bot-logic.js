@@ -254,12 +254,15 @@ function move(bot, dt, ctx, y, speed, clearance) {
   else fly(bot, dt, ctx, y, speed, floorFor(bot, ctx, clearance));
 }
 
-function fly(bot, dt, ctx, y, speed, floor) {
+// Climbing or diving toward height `y` at `gain` of the gap a second, but
+// no faster than `climb` and `sink` (units/s)
+function fly(bot, dt, ctx, y, speed, floor, steep = null) {
+  const {climb = MAX_CLIMB, sink = MAX_SINK, gain = 0.8} = steep || {};
   bot.speed += clamp(speed - bot.speed, -ACCEL * dt, ACCEL * dt);
   const f = forwardOf(bot.heading);
   bot.x += f.x * bot.speed * dt;
   bot.z += f.z * bot.speed * dt;
-  const want = clamp((Math.max(y, floor) - bot.y) * 0.8, -MAX_SINK, MAX_CLIMB);
+  const want = clamp((Math.max(y, floor) - bot.y) * gain, -sink, climb);
   bot.vs += (want - bot.vs) * Math.min(1, dt * 2.5);
   const ground = Math.max(ctx.elevationAt(bot.x, bot.z), ctx.waterLevel);
   bot.y = Math.max(bot.y + bot.vs * dt, ground + MIN_CLEARANCE);
@@ -598,8 +601,17 @@ function stepRunner(bot, dt, ctx) {
 // In a race: through each gate in turn, a buggy keeping to the road
 // between them (roadAim); on the grid until the start, a plane flies
 // straight on at the hold speed and a buggy waits. Past the finish, it
-// eases off.
+// eases off. A plane follows the line into the next ring (aiming
+// RACE_LOOK_AHEAD turning circles along it) and climbs or dives to be at
+// its height there, as steeply as RACE_CLIMB and RACE_SINK of its speed.
+// Having flown past a ring, it turns back to a spot RACE_LINE_UP turning
+// circles short of it and lines up again, so it never circles a ring it
+// can't turn tight enough to hit
 const RACE_CLEARANCE = 30;
+const RACE_CLIMB = 0.25;
+const RACE_SINK = 0.35;
+const RACE_LOOK_AHEAD = 1.2;
+const RACE_LINE_UP = 2.5;
 function stepRacer(bot, dt, ctx) {
   const race = ctx.race;
   const {gate} = race;
@@ -616,6 +628,21 @@ function stepRacer(bot, dt, ctx) {
     return;
   }
   let aim = gate;
+  const pace = Math.max(bot.speed, 100);
+  if (!ctx.driving) {
+    const circle = pace / WING_TURN;
+    const g = forwardOf(gate.heading);
+    const along = (bot.x - gate.x) * g.x + (bot.z - gate.z) * g.z;
+    if (bot.lineUp !== gate) bot.lineUp = along > 0 ? gate : null;
+    if (bot.lineUp) {
+      const back = RACE_LINE_UP * circle;
+      aim = {x: gate.x - g.x * back, z: gate.z - g.z * back};
+      if (distance2d(bot, aim) < back * 0.3) bot.lineUp = null;
+    } else {
+      const on = Math.min(0, along + RACE_LOOK_AHEAD * circle);
+      aim = {x: gate.x + g.x * on, z: gate.z + g.z * on};
+    }
+  }
   if (ctx.driving && race.road && distance2d(bot, gate) > 150) {
     const lane = [-14, 14, 0][bot.slot % 3];
     aim = roadAim(race.road, bot.x, bot.z, Math.max(120, bot.speed), lane);
@@ -647,7 +674,11 @@ function stepRacer(bot, dt, ctx) {
     }
     bot.floors.gate = floor;
   }
-  fly(bot, dt, ctx, gate.y, top, bot.floors.gate);
+  fly(bot, dt, ctx, gate.y, top, bot.floors.gate, {
+    climb: Math.max(MAX_CLIMB, pace * RACE_CLIMB),
+    sink: Math.max(MAX_SINK, pace * RACE_SINK),
+    gain: Math.max(0.8, (1.5 * pace) / Math.max(1, distance2d(bot, gate))),
+  });
 }
 
 /**

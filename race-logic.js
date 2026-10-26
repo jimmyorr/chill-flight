@@ -41,6 +41,10 @@ export const RACE_MAX_MS = 5 * 60 * 1000;
 export const RING_RADIUS = 45;
 export const RING_PASS = 55;
 export const RING_CLEAR = 85;
+// And high enough to dive into from the way in: over the ground along the
+// last APPROACH.REACH of the leg by APPROACH.CLEAR, less APPROACH.SLOPE of
+// the distance (a bot dives at about a third of its speed, bot-logic.js)
+const APPROACH = {REACH: 900, CLEAR: 60, SLOPE: 0.2};
 // Arches: across the road and its shoulders (half-width, and height)
 export const ARCH_HALF = 60;
 export const ARCH_HEIGHT = 70;
@@ -135,7 +139,12 @@ export function planeCourse(from, topKts, seed, elevationAt, waterLevel) {
     const f = forwardOf(heading);
     x += f.x * leg;
     z += f.z * leg;
-    gates.push({x, y: ringY(x, z), z, heading});
+    let y = ringY(x, z);
+    for (let d = 150; d <= APPROACH.REACH; d += 75) {
+      const g = ground(x - f.x * d, z - f.z * d);
+      y = Math.max(y, g + APPROACH.CLEAR - d * APPROACH.SLOPE);
+    }
+    gates.push({x, y, z, heading});
   }
   return {kind: 'air', start, gates};
 }
