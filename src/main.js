@@ -54,6 +54,7 @@ import '../debug-ui.js';
 import '../game.js';
 import '../flight-physics-logic.js';
 import '../flight-physics.js';
+import '../rescue-logic.js';
 import '../buggy.js';
 import '../flight-camera.js';
 import '../particles.js';

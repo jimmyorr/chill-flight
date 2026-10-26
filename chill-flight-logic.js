@@ -2174,18 +2174,23 @@ export const ChillFlightLogic = {};
     return (45 + 70 * size) * body * lumps * district;
   }
 
-  // 0 on and beside the highway, rising to 1 by 400 units out, so dunes,
-  // mesas and tors don't bury it
-  function roadClear(x, z) {
+  // The western alien land's spires, chasms and terraces stay this far off
+  // the highways (roadClear)
+  const WEST_ROAD_NEAR = 120;
+  const WEST_ROAD_FAR = 1000;
+
+  // 0 on and beside the highway (out to `near`), rising to 1 by `far`
+  // units out, so dunes, mesas and tors don't bury it
+  function roadClear(x, z, near = 150, far = 400) {
     let clear = 1;
     const i = Math.round((x - ROAD_BASE_X) / ROAD_SPACING);
     if (i >= 0 && i <= ROAD_LAST) {
-      clear = smoothRamp(Math.abs(x - getRoadCenterX(z, i)), 150, 400);
+      clear = smoothRamp(Math.abs(x - getRoadCenterX(z, i)), near, far);
     }
     if (x > ROAD_EW_WEST && x < ROAD_EW_EAST) {
       clear = Math.min(
         clear,
-        smoothRamp(Math.abs(z - getRoadCenterZ(x)), 150, 400)
+        smoothRamp(Math.abs(z - getRoadCenterZ(x)), near, far)
       );
     }
     return clear;
@@ -3474,7 +3479,14 @@ export const ChillFlightLogic = {};
         1.0,
         (westAlienEdge(z, simplex) - x) / 15000
       );
-      const ef = extremeFactor * extremeFactor * (3 - 2 * extremeFactor);
+      // Kept off the highways (out to WEST_ROAD_NEAR, back in full by
+      // WEST_ROAD_FAR), so they run along drivable valleys instead of up
+      // spires and across chasms
+      const ef =
+        extremeFactor *
+        extremeFactor *
+        (3 - 2 * extremeFactor) *
+        roadClear(origX, origZ, WEST_ROAD_NEAR, WEST_ROAD_FAR);
 
       // 1. Stepped Plateaus (Terracing)
       // We quantize the terrain height to create flat tiers

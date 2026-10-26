@@ -32,10 +32,24 @@ import {
   BUGGY_WHEELBASE,
   setBuggyHoverFold,
 } from './buggy-model.js';
-import {BASE_FLIGHT_SPEED, PLANE_HANDLING, WATER_LEVEL} from './constants.js';
+import {
+  BASE_FLIGHT_SPEED,
+  MOUNTAIN_LEVEL,
+  PLANE_HANDLING,
+  WATER_LEVEL,
+} from './constants.js';
 import {state} from './state.js';
 import {doubleTap, keys} from './game-input-bindings.js';
 import {setOnWheels} from './flight-physics.js';
+import {simplex} from './noise.js';
+import {hooks} from './hooks.js';
+import {Achievements} from './achievements.js';
+import {
+  STUCK,
+  nearestRoadSpot,
+  newStuckWatch,
+  stepStuck,
+} from './rescue-logic.js';
 
 // Speeds in units per second, which read as knots; accelerations in units
 // per second squared
@@ -355,6 +369,47 @@ function analogThrottleAxis(value) {
 }
 
 // Loses speed hitting something (breakables.js): keep is the fraction kept
+// Getting it out when stuck (rescue-logic.js): the watch, and where it was
+// driving well a few seconds back (a spot a second, the oldest kept), for
+// when there's no highway near
+const stuckWatch = newStuckWatch();
+const goodSpots = [];
+const GOOD_SPOTS = 4;
+let goodSpotIn = 0;
+
+// Tried to go but stuck for a while: back on the nearest highway, or where
+// it was last driving well
+function rescue(cruiseKts, joyY, speed, dt) {
+  const pos = planeGroup.position;
+  const trying =
+    !state.isFreeCamera &&
+    (state.mpSpeedBoost ?? 1) > 0.5 &&
+    (Math.abs(joyY) > 0.3 || cruiseKts > STUCK.CRUISE_KTS);
+  goodSpotIn -= dt;
+  if (!airborne && speed > 40 && goodSpotIn <= 0) {
+    goodSpotIn = 1;
+    goodSpots.push({x: pos.x, y: pos.y, z: pos.z, heading: yaw});
+    if (goodSpots.length > GOOD_SPOTS) goodSpots.shift();
+  }
+  if (!stepStuck(stuckWatch, dt, pos.x, pos.z, trying)) return;
+  const spot =
+    nearestRoadSpot(pos.x, pos.z, yaw, simplex, {
+      WATER_LEVEL,
+      MOUNTAIN_LEVEL,
+    }) || goodSpots[0];
+  if (!spot || !hooks.movePlane) return;
+  goodSpots.length = 0;
+  hooks.movePlane(spot.x, spot.y + 1, spot.z, spot.heading);
+  state.flightSpeedMultiplier = 0;
+  enter(false);
+  _lastPos.copy(pos);
+  Achievements.toast({
+    emoji: '🛞',
+    label: 'STUCK',
+    title: 'Back on the road',
+  });
+}
+
 export function slowBuggy(keep) {
   velX *= keep;
   velZ *= keep;
@@ -706,6 +761,7 @@ export function updateBuggy(delta) {
 
   // --- WHAT THE REST OF THE GAME READS ---
   state.flightSpeedMultiplier = speed / KTS_PER_MULT;
+  rescue((state.targetFlightSpeed || 0) * KTS_PER_MULT, joyY, speed, dt);
   state._nextYaw = yaw;
   state.verticalVelocity = 0;
   state.lastY = pos.y;

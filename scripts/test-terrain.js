@@ -545,6 +545,50 @@ console.log('  Passed: Highways leave out stretches stranded at sea');
 }
 console.log('  Passed: Trees and rocks stand clear of the highways');
 
+// --- HIGHWAYS ACROSS THE WESTERN ALIEN LAND STAY DRIVABLE ---
+// Its spires, chasms and terraces used to rise up through the road, so it
+// climbed sheer walls (seed 20261026, highway 7 near z = 43000)
+{
+  const C = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+  const L = ChillFlightLogic;
+  const deck = (n, a) => {
+    const {x, z} = L.roadPoint(n, a, L.roadCenter(n, a));
+    const natural = L.getElevation(x, z, simplex, C, null, {
+      ignoreRivers: true,
+      ignoreRoads: true,
+      forRoad: true,
+    });
+    return Math.max(
+      L.highwayHeight(natural, 40),
+      L.getElevation(x, z, simplex, C, null) + 1
+    );
+  };
+  useSeed(20261026);
+  for (const [n, from, to] of [
+    [7, 30000, 50000],
+    [6, 25000, 45000],
+    [L.ROAD_EW, L.ROAD_EW_WEST + 1000, L.ROAD_EW_WEST + 21000],
+  ]) {
+    let prev = null;
+    for (let a = from; a <= to; a += 50) {
+      if (!L.highwayRunsAt(n, a, simplex, C)) {
+        prev = null;
+        continue;
+      }
+      const y = deck(n, a);
+      if (prev !== null && Math.abs(y - prev) / 50 > 1.5) {
+        console.error(
+          `FAIL: highway ${n} climbs a wall at ${a} (${prev.toFixed(0)} to ${y.toFixed(0)})`
+        );
+        process.exit(1);
+      }
+      prev = y;
+    }
+  }
+  useSeed(20260101);
+}
+console.log('  Passed: Highways across the western alien land stay drivable');
+
 // --- THE CROSS-COUNTRY HIGHWAY ENDS WHERE MEADOW FIELD'S ROAD STARTS ---
 // It used to run on past the junction, a deck over the access road
 {
