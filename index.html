@@ -244,7 +244,7 @@
             <div id="fly-room" class="fly-section" hidden>
               <div class="fly-room-head">
                 <div>
-                  <div class="fly-or">Room</div>
+                  <div id="fly-room-label" class="fly-or">Room</div>
                   <div id="fly-room-code" class="fly-room-code"></div>
                 </div>
                 <button id="fly-share-btn" class="fly-btn">Share link</button>
@@ -271,7 +271,11 @@
                 </label>
                 <div id="fly-players" class="fly-players"></div>
               </div>
-              <label class="fly-bots-row" for="fly-bots-input">
+              <label
+                id="fly-bots-row"
+                class="fly-bots-row"
+                for="fly-bots-input"
+              >
                 <span>Fill empty seats with bots</span>
                 <input
                   type="checkbox"

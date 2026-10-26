@@ -146,6 +146,8 @@ const leaveBtn = document.getElementById('fly-leave-btn');
 const soloSection = document.getElementById('fly-solo');
 const roomSection = document.getElementById('fly-room');
 const roomCodeText = document.getElementById('fly-room-code');
+const roomLabel = document.getElementById('fly-room-label');
+const botsRow = document.getElementById('fly-bots-row');
 const playersList = document.getElementById('fly-players');
 const statusText = document.getElementById('fly-status');
 const tagBtn = document.getElementById('fly-tag-btn');
@@ -157,7 +159,9 @@ const markersEl = document.getElementById('friend-markers');
 const waveBtn = document.getElementById('mobile-wave-btn');
 
 let socket = null;
-// {code, id, seed, host} while in a room
+// {code, id, seed, host} while in a room; or {local: true, id, seed} for a
+// flight with bots on this device alone, which needs no connection and
+// sends nothing until friends are invited
 let room = null;
 const peers = new Map();
 let busy = false;
@@ -244,7 +248,7 @@ function toast(title) {
 
 // What the panel says while the connection is down, getting back in
 function linkNote() {
-  if (!room || socket || suspended) return '';
+  if (!room || room.local || socket || suspended) return '';
   return navigator.onLine ? 'Reconnecting…' : 'Offline, waiting to reconnect…';
 }
 
@@ -1213,6 +1217,12 @@ function enterRoom(ws, welcome, code) {
   renderPanel();
 }
 
+// Anyone in the room besides this player and their bots
+function hasOthers() {
+  for (const id of peers.keys()) if (ownerOf(id) !== room?.id) return true;
+  return false;
+}
+
 // Pings the relay, and drops a connection that has stalled
 function checkLink() {
   if (socket?.readyState !== WebSocket.OPEN) return;
@@ -1250,6 +1260,20 @@ function dropOthers() {
   for (const id of [...peers.keys()]) {
     if (ownerOf(id) !== room?.id) removePeer(id);
   }
+}
+
+// A flight with bots on this device alone: no relay, nothing sent, and it
+// works offline. Invite friends turns it into a room (invite above).
+function flyWithBots() {
+  if (busy || room) return;
+  room = {local: true, id: 'solo', seed: ChillFlightLogic.WORLD_SEED};
+  tag = NO_TAG;
+  refreshTag();
+  setSmokeTint(state.planeColor);
+  if (!sendTimer) sendTimer = setInterval(sendState, SEND_INTERVAL_MS);
+  setStatus('');
+  botsWanted = true;
+  syncBots();
 }
 
 function clearRoom() {
@@ -1328,7 +1352,7 @@ function onDropped() {
 }
 
 async function rejoin() {
-  if (!room || socket || busy) return;
+  if (!room || room.local || socket || busy) return;
   const {code} = room;
   try {
     const {ws, welcome} = await openRoom(code, 'join');
@@ -1359,7 +1383,7 @@ function refusal(err) {
 }
 
 async function invite() {
-  if (busy || room) return;
+  if (busy || (room && !room.local)) return;
   if (!navigator.onLine) {
     setStatus(refusal({}));
     return;
@@ -1373,6 +1397,7 @@ async function invite() {
       const code = makeRoomCode();
       try {
         const {ws, welcome} = await openRoom(code, 'create');
+        // From a flight with bots, they come along into the room
         enterRoom(ws, welcome, code);
         setStatus('Share the link or the code with friends');
         break;
@@ -1502,7 +1527,13 @@ function sendState(frameClock) {
   if (now - lastSendAt < interval - 5) return;
   // This player's bots are drawn here even while the connection is down
   const bots = myBots.size ? packMyBots(now) : null;
+  // Kept fresh, connected or not: the chip's colours, and while showing,
+  // tag points, who's paused and who's ready to fly to
+  if ((tag.it && panelShown()) || rawNow - renderedAt > 1000) renderPanel();
   if (socket?.readyState !== WebSocket.OPEN) return;
+  // Nobody else here to see it (the bots are this player's own): send
+  // nothing. Someone arriving gets a hello straight away, then updates.
+  if (!hasOthers()) return;
   lastSendAt = now;
   // Changed plane, livery or name: tell the others, and retint the smoke
   const profile = `${myName()}|${activePlaneType}|${myLivery()}`;
@@ -1527,9 +1558,6 @@ function sendState(frameClock) {
   if (bots) update.b = bots;
   if (tag.it) update.pt = Math.floor(myPoints);
   send(update);
-  // Kept fresh: the chip's colours, and while showing, tag points, who's
-  // paused and who's ready to fly to
-  if ((tag.it && panelShown()) || rawNow - renderedAt > 1000) renderPanel();
 }
 
 // --- FLYING TO A FRIEND ---
@@ -1809,9 +1837,13 @@ function renderChip() {
   roomChip.hidden = !room;
   if (!room) return;
   // Getting back in after the connection dropped: dimmed, and says so
-  const down = !socket && !suspended;
+  const down = !room.local && !socket && !suspended;
   roomChip.classList.toggle('room-chip-down', down);
-  roomChipCode.textContent = down ? 'Reconnecting' : room.code;
+  roomChipCode.textContent = room.local
+    ? ''
+    : down
+      ? 'Reconnecting'
+      : room.code;
   const liveries = [myLivery()];
   for (const peer of peers.values()) if (peer.name) liveries.push(peer.livery);
   roomChipDots.replaceChildren(
@@ -1823,9 +1855,11 @@ function renderChip() {
   );
   roomChip.setAttribute(
     'aria-label',
-    down
-      ? `Room ${room.code}, reconnecting`
-      : `Room ${room.code}, ${liveries.length} flying`
+    room.local
+      ? 'Flying with bots'
+      : down
+        ? `Room ${room.code}, reconnecting`
+        : `Room ${room.code}, ${liveries.length} flying`
   );
 }
 
@@ -1843,11 +1877,18 @@ function renderPanel() {
   if (botsBtn) botsBtn.disabled = busy;
   if (!room) return;
   if (botsInput) botsInput.checked = botsWanted || botsInRoom();
-  roomCodeText.textContent = room.code;
+  // A flight with bots has no code yet: Invite friends makes one
+  roomCodeText.hidden = !!room.local;
+  roomCodeText.textContent = room.code || '';
+  if (roomLabel)
+    roomLabel.textContent = room.local ? 'Flying with bots' : 'Room';
+  shareBtn.textContent = room.local ? 'Invite friends' : 'Share link';
+  shareBtn.disabled = busy;
+  if (botsRow) botsRow.hidden = !!room.local;
   if (tagBtn) {
     tagBtn.hidden = peers.size === 0 && !tag.it;
     // Nobody to play with while the connection is down
-    tagBtn.disabled = !socket;
+    tagBtn.disabled = !socket && !room.local;
     tagBtn.textContent = tag.it ? 'Stop tag' : 'Play tag';
   }
   // In a game, live points; after one, how it ended
@@ -2011,18 +2052,18 @@ if (RELAY && tabBtn && panel) {
     }
     join(code);
   });
-  shareBtn.addEventListener('click', share);
+  shareBtn.addEventListener('click', async () => {
+    if (room?.local) await invite();
+    if (room && !room.local) share();
+  });
   botsInput?.addEventListener('change', () => {
     if (room) setBotsWanted(botsInput.checked);
   });
-  // A flight of your own, with bots in the other seats (friends can still
-  // join with the code)
-  botsBtn?.addEventListener('click', async () => {
-    await invite();
-    if (!room) return;
-    setStatus('');
-    setBotsWanted(true);
-    closePanel();
+  // A flight of your own, with bots in the other seats, on this device
+  // alone (Invite friends opens it up)
+  botsBtn?.addEventListener('click', () => {
+    flyWithBots();
+    if (room) closePanel();
   });
   tagBtn?.addEventListener('click', () => {
     if (!room) return;
