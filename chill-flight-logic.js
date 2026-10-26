@@ -2212,13 +2212,12 @@ export const ChillFlightLogic = {};
     // Find the intended natural height of the road center
     // We MUST ignore roads and rivers here to avoid recursion and hitting trenches
     roadPoint(n, along, center, _roadXZ);
-    const centerNaturalH = getElevation(
+    const centerNaturalH = highwayLand(
       _roadXZ.x,
       _roadXZ.z,
       simplex,
       constants,
-      lerp,
-      {ignoreRivers: true, ignoreRoads: true, forRoad: true}
+      lerp
     );
 
     const roadY = highwayHeight(centerNaturalH, WATER_LEVEL);
@@ -3474,7 +3473,9 @@ export const ChillFlightLogic = {};
     // Massive geometric stepped plateaus, jagged crystal spires, and deep
     // fractured chasms, from a wandering edge (westAlienEdge) out to the
     // continent's west coast
-    else if (x < westAlienEdge(z, simplex)) {
+    // (Not for a highway's own samples, forRoad: it follows the land under
+    // the spires, which are kept off it)
+    else if (!options.forRoad && x < westAlienEdge(z, simplex)) {
       const extremeFactor = Math.min(
         1.0,
         (westAlienEdge(z, simplex) - x) / 15000
@@ -4194,6 +4195,67 @@ export const ChillFlightLogic = {};
     return Math.min(MAX_HIGHWAY_HEIGHT, Math.max(low, y));
   }
 
+  // The land a highway at (x, z) follows: the natural height (no roads or
+  // rivers, lakes as sea) averaged over HIGHWAY_BLUR.RINGS around it, so a
+  // cliff it crosses becomes a long slope instead of a ramp as steep as the
+  // cliff. A function of the spot alone, so two highways crossing agree.
+  // Worked out on a HIGHWAY_BLUR.CELL grid (cached) and blended between
+  const HIGHWAY_BLUR = {CELL: 50, RINGS: [200, 400], PER_RING: 8};
+  const _highwayLand = new Map();
+  let _highwayLandSig = null;
+  function highwayLandAt(ix, iz, simplex, constants, lerp) {
+    const key = ix * 100003 + iz;
+    let v = _highwayLand.get(key);
+    if (v !== undefined) return v;
+    const x = ix * HIGHWAY_BLUR.CELL;
+    const z = iz * HIGHWAY_BLUR.CELL;
+    const natural = (px, pz) =>
+      getElevation(px, pz, simplex, constants, lerp, {
+        ignoreRivers: true,
+        ignoreRoads: true,
+        forRoad: true,
+      });
+    let sum = natural(x, z);
+    let count = 1;
+    for (const r of HIGHWAY_BLUR.RINGS) {
+      for (let k = 0; k < HIGHWAY_BLUR.PER_RING; k++) {
+        const a = ((k + 0.5) / HIGHWAY_BLUR.PER_RING) * Math.PI * 2;
+        sum += natural(x + Math.sin(a) * r, z + Math.cos(a) * r);
+        count++;
+      }
+    }
+    v = sum / count;
+    if (_highwayLand.size > 200000) _highwayLand.clear();
+    _highwayLand.set(key, v);
+    return v;
+  }
+  function highwayLand(x, z, simplex, constants, lerp) {
+    const sig = `${exports.WORLD_SEED}:${simplex.noise2D(0.123, 0.456)}`;
+    if (sig !== _highwayLandSig) {
+      _highwayLand.clear();
+      _highwayLandSig = sig;
+    }
+    const fx = x / HIGHWAY_BLUR.CELL;
+    const fz = z / HIGHWAY_BLUR.CELL;
+    const ix = Math.floor(fx);
+    const iz = Math.floor(fz);
+    const tx = fx - ix;
+    const tz = fz - iz;
+    const at = (i, j) => highwayLandAt(i, j, simplex, constants, lerp);
+    const top = at(ix, iz) * (1 - tx) + at(ix + 1, iz) * tx;
+    const bottom = at(ix, iz + 1) * (1 - tx) + at(ix + 1, iz + 1) * tx;
+    return top * (1 - tz) + bottom * tz;
+  }
+
+  // A highway's deck height at (x, z) on its line (highwayHeight over
+  // highwayLand)
+  function highwayY(x, z, simplex, constants, lerp) {
+    return highwayHeight(
+      highwayLand(x, z, simplex, constants, lerp),
+      constants.WATER_LEVEL || 40
+    );
+  }
+
   // --- AIRPORT ACCESS ROADS ---
   // From the end of the apron (airports.js), straight along x to the
   // nearest highway, which runs straight past its end (getRoadCenterX) clear
@@ -4304,13 +4366,12 @@ export const ChillFlightLogic = {};
         ends[i] = undefined;
         return null;
       }
-      const natural = getElevation(r.x1, r.z, simplex, constants, lerp, {
-        ignoreRivers: true,
-        ignoreRoads: true,
-        forRoad: true,
-      });
       const water = constants.WATER_LEVEL || 40;
-      const e = {field, highway: highwayHeight(natural, water), built: true};
+      const e = {
+        field,
+        highway: highwayY(r.x1, r.z, simplex, constants, lerp),
+        built: true,
+      };
       const count = Math.ceil((r.maxX - r.minX) / ACCESS_ROAD_SAMPLE) + 1;
       e.depth = new Float32Array(count);
       for (let k = 0; k < count; k++) {
@@ -4524,6 +4585,7 @@ export const ChillFlightLogic = {};
   exports.getRoadFactor = getRoadFactor;
   exports.highwayDistance = highwayDistance;
   exports.highwayHeight = highwayHeight;
+  exports.highwayY = highwayY;
   exports.ACCESS_ROADS = ACCESS_ROADS;
   exports.ACCESS_ROAD_WIDTH = ACCESS_ROAD_WIDTH;
   exports.isOnAccessRoad = isOnAccessRoad;

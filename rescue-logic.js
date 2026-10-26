@@ -70,19 +70,13 @@ function highwaysNear(x, z) {
  * `simplex` and `constants` as for ChillFlightLogic.getElevation.
  */
 export function nearestRoadSpot(x, z, heading, simplex, constants) {
-  const water = constants.WATER_LEVEL ?? 40;
   for (const {n, along, off} of highwaysNear(x, z)) {
     if (off > STUCK.NEAR) continue;
     for (let d = 0; d <= STUCK.ALONG; d += 100) {
       for (const a of d ? [along + d, along - d] : [along]) {
         if (!L.highwayRunsAt(n, a, simplex, constants)) continue;
         const p = L.roadPoint(n, a, L.roadCenter(n, a));
-        const natural = L.getElevation(p.x, p.z, simplex, constants, null, {
-          ignoreRivers: true,
-          ignoreRoads: true,
-          forRoad: true,
-        });
-        const y = L.highwayHeight(natural, water);
+        const y = L.highwayY(p.x, p.z, simplex, constants, null);
         const ground = L.getElevation(p.x, p.z, simplex, constants, null);
         if (y - ground > 10) continue; // a bridge
         const q = L.roadPoint(n, a + 10, L.roadCenter(n, a + 10));

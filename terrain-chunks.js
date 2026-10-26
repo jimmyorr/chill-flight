@@ -1595,16 +1595,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         roadC = ChillFlightLogic.roadCenter(n, wa)
       ) => {
         const {x, z} = ChillFlightLogic.roadPoint(n, wa, roadC);
-        const naturalH = ChillFlightLogic.getElevation(
-          x,
-          z,
-          simplex,
-          constants,
-          null,
-          {ignoreRivers: true, ignoreRoads: true, forRoad: true}
-        );
         return {
-          rawY: ChillFlightLogic.highwayHeight(naturalH, WATER_LEVEL),
+          rawY: ChillFlightLogic.highwayY(x, z, simplex, constants, null),
           actualTerrainH: getElevation(x, z),
         };
       };
