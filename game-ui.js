@@ -71,10 +71,10 @@ export function toggleAutopilot(forceState) {
   const flightStatusEl = document.getElementById('flight-status');
   if (flightStatusEl) {
     if (state.autopilotEnabled) {
-      flightStatusEl.textContent = 'A U T O P I L O T';
+      flightStatusEl.textContent = 'Autopilot';
       flightStatusEl.style.color = '#e74c3c';
     } else {
-      flightStatusEl.textContent = 'C H I L L - F L I G H T';
+      flightStatusEl.textContent = 'Chill-Flight';
       flightStatusEl.style.color = ''; // Reset to default CSS color
     }
   }

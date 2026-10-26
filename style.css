@@ -575,6 +575,9 @@ input[type='number'].customization-input {
 #flight-status {
   font-weight: bold;
   font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 1ch;
+  text-indent: 1ch;
+  text-transform: uppercase;
   color: #ffd700;
   text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
   display: inline-block;
@@ -1083,13 +1086,18 @@ input[type='number'].customization-input {
   min-height: 420px;
 }
 
+/* The title, START and the HUD's status are written as plain words (so
+   search engines and screen readers read them) and spaced out here: a
+   monospace space (1ch) plus the letter spacing either side of it */
 .loading-title {
+  --title-spacing: calc(1ch + 24px);
   font-size: 32px;
   font-weight: 200;
   font-family: var(--font-mono);
-  letter-spacing: 12px;
+  letter-spacing: var(--title-spacing);
   line-height: 1.6;
-  margin: 0 0 0 12px; /* Fix centering issue caused by letter-spacing */
+  /* Balances the spacing after the last letter */
+  margin: 0 0 0 var(--title-spacing);
   color: #fff;
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
   text-transform: uppercase;
@@ -1192,6 +1200,13 @@ input[type='number'].customization-input {
 
 #begin-btn {
   margin-top: 0;
+  /* A space (about a quarter em in system fonts) and the button's 2px either
+     side of it. The narrower right padding takes back the extra spacing after
+     the last letter, so the button keeps its width. */
+  --start-spacing: calc(0.25em + 4px);
+  letter-spacing: var(--start-spacing);
+  padding-right: calc(26px - var(--start-spacing));
+  text-transform: uppercase;
   animation: pulse 2s infinite;
   border-color: var(--accent-color, rgba(255, 255, 255, 0.3));
   transition: all 0.3s ease;
@@ -1332,8 +1347,8 @@ input[type='number'].customization-input {
   }
 
   .loading-title {
+    --title-spacing: calc(1ch + 12px);
     font-size: 24px;
-    letter-spacing: 6px;
   }
 }
 
