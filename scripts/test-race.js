@@ -221,7 +221,9 @@ const runsAt = (n, along) =>
     'Places read 1st to 4th',
     [1, 2, 3, 4, 11].map(placeText).join(' ') === '1st 2nd 3rd 4th 11th'
   );
-  check('Times read m:ss.t', formatRaceTime(112345) === '1:52.3');
+  check('Finish times read m:ss.hh', formatRaceTime(112345) === '1:52.34');
+  check('Times read 1:05.07', formatRaceTime(65070) === '1:05.07');
+  check('The clock reads m:ss.t', formatRaceTime(112345, true) === '1:52.3');
 }
 
 // --- MESSAGES ---

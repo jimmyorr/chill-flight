@@ -1159,7 +1159,7 @@ function renderRaceChip() {
       myRace.gates === n - 1 ? 'Finish' : `Gate ${myRace.gates + 1}/${n - 1}`;
     text = missedGate(gate, planeGroup.position.x, planeGroup.position.z)
       ? `Missed ${what.toLowerCase().replace(/\/.*/, '')} · turn back`
-      : `${what} · ${formatRaceTime(sinceGo)}`;
+      : `${what} · ${formatRaceTime(sinceGo, true)}`;
   }
   tagChip.hidden = false;
   tagChip.classList.remove('mine');
@@ -1577,6 +1577,15 @@ function gatherBots() {
     Object.assign(bot, spot, {heading: it.heading, vs: 0, aim: null});
   }
   return true;
+}
+
+// The bot that `peer` is, if it's one of this player's own
+function ownBot(peer) {
+  if (!peer.isBot) return null;
+  for (const entry of myBots.values()) {
+    if (entry.peer === peer) return entry.bot;
+  }
+  return null;
 }
 
 // This player's bots' positions, to go out with their own update; and
@@ -2264,7 +2273,17 @@ export function updateMultiplayer(delta) {
   sendState(now);
   state.waggleRoll = waggleRoll(rawNow - waggleAt);
   for (const peer of peers.values()) {
-    const speed = peer.group ? peer.track.sample(now, _pos, _quat) : null;
+    let speed = peer.group ? peer.track.sample(now, _pos, _quat) : null;
+    // This player's own bots are drawn where they really are, not
+    // RENDER_DELAY_MS behind like everyone else: a race is timed where
+    // they are, so a bot drawn behind could beat a player who saw it trail
+    const own = speed === null ? null : ownBot(peer);
+    if (own) {
+      _botEuler.set(own.pitch, own.heading, own.bank, 'YXZ');
+      _quat.setFromEuler(_botEuler);
+      _pos.set(own.x, own.y, own.z);
+      speed = own.speed / (BASE_FLIGHT_SPEED * 60);
+    }
     if (speed === null) {
       if (peer.marker) peer.marker.hidden = true;
       continue;

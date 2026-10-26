@@ -411,12 +411,18 @@ export function placeText(place) {
   return `${place}${place % 100 >= 11 && place % 100 <= 13 ? 'th' : s || 'th'}`;
 }
 
-/** Milliseconds as m:ss.t (e.g. 1:52.3). */
-export function formatRaceTime(ms) {
-  const tenths = Math.max(0, Math.floor((ms || 0) / 100));
-  const m = Math.floor(tenths / 600);
-  const s = String(Math.floor((tenths % 600) / 10)).padStart(2, '0');
-  return `${m}:${s}.${tenths % 10}`;
+/**
+ * Milliseconds as m:ss.hh (e.g. 1:52.34), for finish times, which can be
+ * that close; or as m:ss.t with `tenths` (the clock while racing).
+ */
+export function formatRaceTime(ms, tenths = false) {
+  const unit = tenths ? 100 : 10;
+  const per = 1000 / unit;
+  const n = Math.max(0, Math.floor((ms || 0) / unit));
+  const m = Math.floor(n / (60 * per));
+  const s = String(Math.floor((n % (60 * per)) / per)).padStart(2, '0');
+  const frac = String(n % per).padStart(tenths ? 1 : 2, '0');
+  return `${m}:${s}.${frac}`;
 }
 
 /** A racing bot's share of top speed (each a little different). */
