@@ -1,6 +1,6 @@
 # Release notes
 
-## [1.1.3](https://v1-1-3.chill-flight.pages.dev)
+## [1.2.0](https://v1-2-0.chill-flight.pages.dev)
 
 - **Buggy:** Drive across the island with hops, drifting, headlights, and hovercraft mode over water.
 - **Tag & bots:** Timed rounds with proximity scoring, boost meters, and bot pilots to fill empty rooms.
