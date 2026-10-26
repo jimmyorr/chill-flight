@@ -2194,18 +2194,29 @@ input[type='number'].customization-input {
   width: 12px;
   height: 12px;
   border-radius: 50%;
+  /* A faint ring, as in the room chip, so the black livery shows */
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
   flex-shrink: 0;
 }
 
-.fly-player-name {
+.fly-player-text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.fly-player-name {
+  min-width: 0;
+  line-height: 17px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .fly-player-time {
+  flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.65);
@@ -2213,20 +2224,35 @@ input[type='number'].customization-input {
 }
 
 .fly-player .fly-btn {
+  flex-shrink: 0;
   height: 28px;
   padding: 0 12px;
   font-size: 12px;
 }
 
-/* "it", "paused": small and grey after the name, as on your own row */
-.fly-player-note {
-  flex-shrink: 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+/* Fly to: a square button with a plane in it */
+.fly-player .fly-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 34px;
+  padding: 0;
 }
 
-.fly-player-note:last-child {
-  padding-right: 8px;
+/* Same size as Fly to, but not shown */
+.fly-player .fly-btn-spacer {
+  visibility: hidden;
+}
+
+/* "it", "paused": small and grey under the name */
+.fly-player-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 13px;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .fly-bots-row {

@@ -157,6 +157,12 @@ let reconnectTimer = null;
 let hiddenTimer = null;
 let suspended = false;
 let pausedSince = null;
+// The Fly to button's icon: a small plane heading right
+const PLANE_ICON =
+  '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
+  '<path fill="currentColor" transform="rotate(90 12 12)" d="M21 16v-2l-8-5V3.5' +
+  'c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 ' +
+  '3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>';
 // Fly to a friend as soon as one is seen (after joining their flight)
 let arriveOnJoin = false;
 let sendTimer = null;
@@ -1729,26 +1735,41 @@ function renderPanel() {
     const dot = document.createElement('span');
     dot.className = 'fly-player-dot';
     dot.style.background = hexColor(livery);
+    // The name, with "it, paused" in small grey under it, so a narrow
+    // phone row still has room for the whole name
+    const text = document.createElement('span');
+    text.className = 'fly-player-text';
     const label = document.createElement('span');
     label.className = 'fly-player-name';
     label.textContent = name;
-    el.append(dot, label);
+    text.append(label);
     if (note) {
       const noteEl = document.createElement('span');
       noteEl.className = 'fly-player-note';
       noteEl.textContent = note;
-      el.append(noteEl);
+      text.append(noteEl);
     }
+    el.append(dot, text);
     if (showPoints) {
       const score = document.createElement('span');
       score.className = 'fly-player-time';
-      score.textContent = pointsText(points);
+      score.textContent = `${points} pts`;
       el.append(score);
+    }
+    // Your own row gets an invisible stand-in for Fly to, so every score
+    // lines up in one column
+    if (!peer && !tag.it && showPoints) {
+      const spacer = document.createElement('span');
+      spacer.className = 'fly-btn fly-btn-icon fly-btn-spacer';
+      spacer.setAttribute('aria-hidden', 'true');
+      el.append(spacer);
     }
     if (peer && !tag.it) {
       const btn = document.createElement('button');
-      btn.className = 'fly-btn';
-      btn.textContent = 'Fly to';
+      btn.className = 'fly-btn fly-btn-icon';
+      btn.innerHTML = PLANE_ICON;
+      btn.title = 'Fly to';
+      btn.setAttribute('aria-label', `Fly to ${name}`);
       btn.disabled = !peer.track.ready;
       btn.addEventListener('click', () => {
         if (flyTo(peer)) closePanel();
