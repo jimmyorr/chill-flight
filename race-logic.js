@@ -36,18 +36,21 @@ export const RACE_COUNT_MS = 3000;
 export const RACE_LINGER_MS = 45 * 1000;
 export const RACE_MAX_MS = 5 * 60 * 1000;
 // Rings: drawn this big (radius, units: about 46 m across) and passed
-// within RING_PASS of the middle; hung RING_CLEAR over the highest ground
-// near them, so the bottom is about 20 m up
+// within RING_PASS of the middle, so a near miss still counts; hung
+// RING_CLEAR over the highest ground near them, so the bottom is about 20 m
+// up
 export const RING_RADIUS = 45;
-export const RING_PASS = 55;
+export const RING_PASS = 110;
 export const RING_CLEAR = 85;
 // And high enough to dive into from the way in: over the ground along the
 // last APPROACH.REACH of the leg by APPROACH.CLEAR, less APPROACH.SLOPE of
 // the distance (a bot dives at about a third of its speed, bot-logic.js)
 const APPROACH = {REACH: 900, CLEAR: 60, SLOPE: 0.2};
-// Arches: across the road and its shoulders (half-width, and height)
+// Arches: across the road and its shoulders (half-width, and height),
+// passed within ARCH_PASS of the road's middle
 export const ARCH_HALF = 60;
 export const ARCH_HEIGHT = 70;
+export const ARCH_PASS = 120;
 // A plane course starts this far ahead of the starter
 export const START_AHEAD = 600;
 // This far past a gate (along its heading) without passing it: missed
@@ -328,21 +331,22 @@ function gateFrame(gate, x, z) {
 }
 
 /**
- * Whether going from a to b ({x, y, z}) passes through `gate` the right
- * way: through the ring (kind 'air'), or under the arch (any height, so a
- * buggy that jumps it still counts).
+ * Whether going from a to b ({x, y, z}) passes through `gate`, either way
+ * (turning back for one counts): through the ring (kind 'air'), or under
+ * the arch (any height, so a buggy that jumps it, or drives under the
+ * bridge it's on, still counts).
  */
 export function passesGate(gate, kind, a, b) {
   const sa = gateFrame(gate, a.x, a.z).along;
   const sb = gateFrame(gate, b.x, b.z).along;
-  if (!(sa < 0 && sb >= 0)) return false;
+  if (!((sa < 0 && sb >= 0) || (sa > 0 && sb <= 0))) return false;
   const t = sa / (sa - sb);
   const x = a.x + (b.x - a.x) * t;
   const y = a.y + (b.y - a.y) * t;
   const z = a.z + (b.z - a.z) * t;
   const {across} = gateFrame(gate, x, z);
   if (kind === 'air') return Math.hypot(across, y - gate.y) <= RING_PASS;
-  return Math.abs(across) <= ARCH_HALF;
+  return Math.abs(across) <= ARCH_PASS;
 }
 
 /** Whether (x, z) is well past `gate` without having gone through it. */

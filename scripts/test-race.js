@@ -13,7 +13,7 @@ import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
 import {forwardOf} from '../traffic-logic.js';
 import {
-  ARCH_HALF,
+  ARCH_PASS,
   RACE_GATES,
   RING_CLEAR,
   RING_PASS,
@@ -136,7 +136,11 @@ const runsAt = (n, along) =>
   const a = {x: 10, y: 210, z: 20};
   const b = {x: 10, y: 210, z: -20};
   check('Through a ring counts', passesGate(gate, 'air', a, b));
-  check('The wrong way does not', !passesGate(gate, 'air', b, a));
+  check('The other way counts too', passesGate(gate, 'air', b, a));
+  check(
+    'A near miss just outside the ring counts',
+    passesGate(gate, 'air', {...a, x: 90}, {...b, x: 90})
+  );
   check(
     'Past the edge does not',
     !passesGate(gate, 'air', {...a, x: RING_PASS + 5}, {...b, x: RING_PASS + 5})
@@ -150,12 +154,16 @@ const runsAt = (n, along) =>
     !passesGate(
       gate,
       'road',
-      {...a, x: ARCH_HALF + 5},
-      {...b, x: ARCH_HALF + 5}
+      {...a, x: ARCH_PASS + 5},
+      {...b, x: ARCH_PASS + 5}
     )
   );
   check('Well past a gate is a miss', missedGate(gate, 0, -400));
   check('Short of it is not', !missedGate(gate, 0, 100));
+  check(
+    'Flying alongside a gate does not count',
+    !passesGate(gate, 'air', {x: 0, y: 200, z: 0}, {x: 0, y: 200, z: 0})
+  );
 }
 
 // --- SLIPSTREAM ---
