@@ -491,7 +491,7 @@ export const TAG_SPEED_BOOST = 1.15;
 // a ghost and can't be tagged, until their updates come back (ms)
 export const QUIET_MS = 3000;
 // A round of tag (ms)
-export const TAG_ROUND_MS = 3 * 60 * 1000;
+export const TAG_ROUND_MS = 2 * 60 * 1000;
 // Points a second for staying within TAG_NEAR (300 m) of whoever's it, and
 // fewer out to TAG_FAR (800 m)
 export const TAG_NEAR = 583;

@@ -533,16 +533,16 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
   );
 
   check(
-    "A round is 3 minutes, and a message says how long it's got to go",
-    TAG_ROUND_MS === 180000 &&
+    "A round is 2 minutes, and a message says how long it's got to go",
+    TAG_ROUND_MS === 120000 &&
       readTag({it: 'a', n: 1, left: 60000.4})?.left === 60000 &&
       readTag({it: 'a', n: 1, left: -5})?.left === 0 &&
       readTag({it: 'a', n: 1, left: 1e9})?.left === TAG_ROUND_MS &&
       // From an older game: a whole round
       readTag({it: 'a', n: 1})?.left === TAG_ROUND_MS &&
       readTag({it: null, n: 2})?.left === 0 &&
-      formatTagTime(TAG_ROUND_MS) === '3:00' &&
-      formatTagTime(179001) === '3:00' &&
+      formatTagTime(TAG_ROUND_MS) === '2:00' &&
+      formatTagTime(119001) === '2:00' &&
       formatTagTime(65000) === '1:05' &&
       formatTagTime(400) === '0:01' &&
       formatTagTime(0) === '0:00'
