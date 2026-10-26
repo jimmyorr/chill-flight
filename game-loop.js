@@ -119,11 +119,7 @@ import {
 import {updateVRPauseInteraction} from './vr-manager.js';
 import {scene} from './scene.js';
 import {clearInputState} from './game-state.js';
-import {
-  showStartPlaneTooltip,
-  toggleAutopilot,
-  updateThrottle,
-} from './game-ui.js';
+import {toggleAutopilot, updateThrottle} from './game-ui.js';
 import {updateAutopilot} from './autopilot.js';
 import {updateFlightPhysics} from './flight-physics.js';
 import {updateBuggy} from './buggy.js';
@@ -404,30 +400,6 @@ function performFrame() {
     clearInputState();
     if (state.isVRPresenting) renderer.render(scene, camera);
     return;
-  }
-
-  // Trigger start plane tooltip if plane is stopped for the first time after a 5 second delay
-  if (
-    !state.startPlaneTooltipShown &&
-    state.targetFlightSpeed === 0 &&
-    Math.abs(state.flightSpeedMultiplier) < 0.01
-  ) {
-    if (state.stoppedStartTime === null) {
-      state.stoppedStartTime = now;
-    } else if (now - state.stoppedStartTime >= 5000) {
-      showStartPlaneTooltip();
-    }
-  } else {
-    state.stoppedStartTime = null;
-  }
-
-  // Dismiss start plane tooltip if we start moving
-  if (
-    state.dismissStartPlaneTooltipFunc &&
-    Math.abs(state.targetFlightSpeed) > 0
-  ) {
-    state.dismissStartPlaneTooltipFunc();
-    state.dismissStartPlaneTooltipFunc = null;
   }
 
   // --- DAY/NIGHT CYCLE ---

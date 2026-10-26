@@ -206,8 +206,6 @@ export var _lastChunkUpdatePos = new THREE.Vector3(
 state.currentControlScheme =
   localStorage.getItem('chill_flight_control_scheme') || 'joystick';
 
-state.startPlaneTooltipShown =
-  localStorage.getItem('chill_flight_stopped_tooltip_shown') === 'true';
 state.targetFlightSpeed = state.flightSpeedMultiplier; // Initialize based on current vehicle speed multiplier
 
 // Apply a throttle delta: snap to 0 near rest, and give a minimum kick

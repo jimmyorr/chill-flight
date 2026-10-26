@@ -651,7 +651,6 @@ export class InputManager {
         target.closest('#mobile-controls') ||
         target.closest('#mobile-action-menu') ||
         target.closest('#minimap-container') ||
-        target.closest('#zen-tooltip') ||
         target.closest('#npc-dialog') ||
         target.closest('.color-swatch'));
 

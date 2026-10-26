@@ -86,9 +86,6 @@ export const state = {
   currentControlScheme: undefined, // set in game-input-bindings.js
   joystickActive: false,
   joystickTouchId: null,
-  startPlaneTooltipShown: undefined, // set in game-input-bindings.js
-  dismissStartPlaneTooltipFunc: null,
-  stoppedStartTime: null,
   targetPitch: 0,
   targetRoll: 0,
   // A promo clip's scripted attitude: (now) => {roll, pitch} in radians, or

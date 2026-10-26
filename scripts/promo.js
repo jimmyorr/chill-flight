@@ -119,7 +119,7 @@ if (mode === 'urls') {
       const shot = SHOTS[name];
       if (targetName === 'portrait' && !shot.portrait) continue;
       const url = new URL(shotUrl(shot, target, devBase));
-      for (const k of ['ui', 'music', 'tips']) url.searchParams.delete(k);
+      for (const k of ['ui', 'music']) url.searchParams.delete(k);
       url.searchParams.set('debug', '1');
       console.log(
         `${name}${shot.portrait ? ` (${targetName})` : ''}:\n  ${url}`

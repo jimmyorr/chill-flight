@@ -581,13 +581,12 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`x`, `y`, `z`**: Starting exact XYZ coordinates for the airplane, or for the free camera when no `camX`/`camY`/`camZ` are given (takes precedence over lat/long).
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).
 - **`start`**: Set to `1` to skip the title screen and start flying as soon as the game loads.
-- **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus, debug panels and tips), for clean screenshots and recordings. The keyboard controls still work.
+- **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus and debug panels), for clean screenshots and recordings. The keyboard controls still work.
 - **`music`**: Set to `0` or `1` to turn music off or on for this visit, without changing the saved setting.
 - **`sfx`**: Set to `0` or `1` to turn sound effects off or on for this visit, without changing the saved setting.
 - **`traffic`**: Set to `0` or `1` to turn the other planes off or on for this visit, whether or not zen is on. The promo renders use `0`, so their shots are the same every time.
 - **`room`**: A room code to join on load (what an invite link carries, with `seed`). See [Flying together](#flying-together).
 - **`relay`**: Use another relay for flying together, e.g. `relay=ws://localhost:8787` for one running locally with `npm run relay:dev` (or `npx -y wrangler dev` in `relay/`).
-- **`tips`**: Set to `0` to skip the first-time "Start the plane" tip for this visit.
 
 ## Development
 

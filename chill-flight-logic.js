@@ -163,8 +163,8 @@ export const ChillFlightLogic = {};
   exports.parseSwitch = parseSwitch;
   const getSwitchParam = (name) => parseSwitch(getParam(name, null));
   // Mostly for scripted screenshots and benchmarks (see README): ?start=1
-  // skips the title screen, ?ui=0 hides all interface, ?music=0/1 sets music
-  // for this visit only, and ?tips=0 skips the first-time tips.
+  // skips the title screen, ?ui=0 hides all interface, and ?music=0/1 sets
+  // music for this visit only.
   const START_NOW = getSwitchParam('start') === true;
   const SHOW_UI = getSwitchParam('ui') !== false;
   // ?adaptive=0: hold the preset's full quality instead of lowering detail and
@@ -178,7 +178,6 @@ export const ChillFlightLogic = {};
   const RELAY_PARAM = getParam('relay', null);
   const MUSIC_PARAM = getSwitchParam('music');
   const SFX_PARAM = getSwitchParam('sfx');
-  const SHOW_TIPS = getSwitchParam('tips') !== false && SHOW_UI;
   const _debugParam = getParam('debug', null);
   const START_DEBUG =
     _debugParam === '' ||
@@ -4584,7 +4583,6 @@ export const ChillFlightLogic = {};
   exports.SHOW_UI = SHOW_UI;
   exports.MUSIC_PARAM = MUSIC_PARAM;
   exports.SFX_PARAM = SFX_PARAM;
-  exports.SHOW_TIPS = SHOW_TIPS;
   exports.START_ISLAND_TYPE = START_ISLAND_TYPE;
   exports.FORCE_ISLAND_TYPE = START_ISLAND_TYPE;
   exports.getIslandArchetype = getIslandArchetype;

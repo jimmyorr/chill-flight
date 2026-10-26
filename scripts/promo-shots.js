@@ -5,12 +5,12 @@
 // shot's query. Locations are for seed 20260101 (the rock arch's latitude
 // depends on the seed).
 
-// Shared by every shot: no title screen, interface, tips or music; one world
+// Shared by every shot: no title screen, interface or music; one world
 // and one clock, so the moon, weather, sky palette and clouds repeat. Each
 // shot sets its own cloudMood (fair, mixed, mackerel, high or busy), so the
 // set shows off the different skies.
 export const COMMON =
-  'start=1&ui=0&music=0&tips=0&seed=20260101&preset=ultra&timeSpeed=0' +
+  'start=1&ui=0&music=0&seed=20260101&preset=ultra&timeSpeed=0' +
   '&clock=1790000000000&cloudTime=500&fps=0&adaptive=0&traffic=0';
 
 // Title and end cards: the app icon and name, an optional tagline, and lines

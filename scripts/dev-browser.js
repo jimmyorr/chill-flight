@@ -3,7 +3,7 @@
 // benchmarks (scripts/bench-render.js).
 //
 // Pages open with ?start=1&ui=0&music=0 unless the query says otherwise: no
-// Begin button, no HUD, panels or tips over the view, and no music downloads.
+// Begin button, no HUD or panels over the view, and no music downloads.
 import puppeteer from 'puppeteer-core';
 import fs from 'fs';
 import http from 'http';
