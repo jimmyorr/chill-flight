@@ -3035,6 +3035,23 @@ body.zen
   * {
   visibility: hidden !important;
 }
+/* Also see-through, so nothing flashes back while a button's own transition
+   (some transition all, visibility included) runs out after the fade below */
+body.zen
+  :is(
+    #ui-layer,
+    #cockpit-ui,
+    #waypoint-indicator,
+    #friend-markers,
+    #tag-chip,
+    #tag-glow,
+    #mobile-controls,
+    #achievement-toast-container,
+    #debug-menu,
+    #debug-telemetry
+  ) {
+  opacity: 0 !important;
+}
 
 /* Zen turning on in flight (zen.js): the HUD fades away, a group at a time,
    before the zen class hides it. */
