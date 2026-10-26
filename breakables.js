@@ -31,6 +31,8 @@ import {
   getElevation,
   houseTintMat,
   icebergMat,
+  penguinStillMats,
+  penguinWaddlePose,
   watercraftChunks,
   windmillBladesStillMat,
 } from './terrain-geometry.js';
@@ -126,8 +128,8 @@ const SCARE_HEIGHT = 150;
 // A penguin's hops: how long each takes (s), how high (units), and its dive
 // into the water: how long (s), how far out, and how deep it goes before
 // it's gone (units)
-const HOP_TIME = 0.3;
-const HOP_HEIGHT = 1.4;
+const HOP_TIME = 0.36;
+const HOP_HEIGHT = 1.1;
 const DIVE_TIME = 0.8;
 const DIVE_OUT = 5;
 const DIVE_DEPTH = 6;
@@ -189,12 +191,14 @@ function typeInfo(type) {
 // A fallen streetlight's bulb, gone out
 const deadBulbMat = createMaterial({color: 0x6a6a6a, flatShading: true});
 
-// What draws a type's copies: knocked-off sails stop turning, and a fallen
-// streetlight's bulb goes dark
+// What draws a type's copies: knocked-off sails stop turning, a fallen
+// streetlight's bulb goes dark, and a scared penguin stops its waddle
 function debrisInfo(type) {
   const info = typeInfo(type);
   if (type === 'windmillBlades') return {...info, mat: windmillBladesStillMat};
   if (type === 'streetlightBulb') return {...info, mat: deadBulbMat};
+  const still = penguinStillMats.get(info.mat);
+  if (still) return {...info, mat: still};
   return info;
 }
 
@@ -897,13 +901,26 @@ function playSmashSound(house, loud, fallTime) {
   playSmash(house, loud, fallTime);
 }
 
+const _pose = new THREE.Matrix4();
+const smoothstep = (x) => x * x * (3 - 2 * x);
+const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
 // A penguin (prop i of a chunk) scared by something at (vx, vz) heading
 // along (hx, hz) turns away, out of its path, hops to the edge of its floe
 // and dives in. It's back when its chunk loads again.
 function scatter(group, index, i, vx, vz, hx, hz) {
   index.broken.add(i);
   const parts = propParts(group, i);
-  const m0 = copyMatrix(parts[0]);
+  // Its copies carry on from where its waddle had got to: the step and turn
+  // go into their matrices, and its sway eases off as it hops
+  const first = copyMatrix(parts[0]);
+  const sway = penguinWaddlePose(
+    first[12],
+    first[14],
+    animationUniforms.uTime.value,
+    _pose
+  );
+  const m0 = _m.fromArray(first).multiply(_pose).toArray(first);
   const x = m0[12];
   const z = m0[14];
   let ux = x - vx;
@@ -939,8 +956,9 @@ function scatter(group, index, i, vx, vz, hx, hz) {
     p0: new THREE.Vector3(x, m0[13], z),
     ux,
     uz,
-    // From facing its own way (model +z) to facing (ux, uz)
-    turn: Math.atan2(ux, uz) - Math.atan2(m0[8], m0[10]),
+    // From facing its own way (model +z) to facing (ux, uz), the short way
+    turn: wrapAngle(Math.atan2(ux, uz) - Math.atan2(m0[8], m0[10])),
+    sway,
     hops,
     hopLen: (out + 0.5) / hops,
     t: -rand(0, 0.3),
@@ -948,7 +966,7 @@ function scatter(group, index, i, vx, vz, hx, hz) {
     pieces: [],
   };
   parts.forEach((part) => {
-    const m = copyMatrix(part);
+    const m = _m.fromArray(copyMatrix(part)).multiply(_pose).toArray([]);
     const piece = addPiece(part.type, m.slice(), null, group);
     piece.m0 = m;
     piece.anim = anim;
@@ -967,7 +985,10 @@ function scatterPose(anim) {
   let up;
   let pitch = 0;
   let roll = 0;
-  const turn = anim.turn * Math.min(1, t / HOP_TIME);
+  // It turns and stops swaying over its first hop, easing in and out
+  const e = smoothstep(Math.min(1, t / HOP_TIME));
+  const turn = anim.turn * e;
+  anim.swayNow = anim.sway * (1 - e);
   if (t < hopEnd) {
     const h = t / HOP_TIME;
     const f = h - Math.floor(h);
@@ -1313,6 +1334,7 @@ function animate(delta) {
       _m.multiply(_r);
       _m.multiply(_t.makeTranslation(-pv.x, -pv.y, -pv.z));
       _m.multiply(_m0.fromArray(piece.m0));
+      _m.multiply(_t.makeRotationZ(-anim.swayNow));
       _m.toArray(piece.m);
       if (gone) removePiece(piece);
       continue;

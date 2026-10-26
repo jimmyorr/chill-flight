@@ -1603,6 +1603,40 @@ var penguinShaderInject = (shader) => {
 penguinBlackMat.onBeforeCompile = penguinShaderInject;
 penguinWhiteMat.onBeforeCompile = penguinShaderInject;
 penguinOrangeMat.onBeforeCompile = penguinShaderInject;
+// The same, without the waddle: for penguins scared off their floe
+// (breakables.js), which move by their own matrices. The waddle is worked
+// out from where each penguin stands, so on one that's moving it would jump
+// about every frame.
+export var penguinStillMats = new Map(
+  [
+    [penguinBlackMat, 0x222222],
+    [penguinWhiteMat, 0xffffff],
+    [penguinOrangeMat, 0xffa500],
+  ].map(([mat, color]) => [mat, createMaterial({color, flatShading: true})])
+);
+
+// Where the waddle above has a penguin standing at (x, z) at time t: its
+// step off its spot and turn, into `target` (in its own space), and its
+// sway (rad, about its own z). In float32 like the shader, which it follows.
+export function penguinWaddlePose(x, z, t, target) {
+  const f = Math.fround;
+  const fract = (v) => v - Math.floor(v);
+  const phase = f(f(x) + f(z));
+  const waddling = fract(f(phase * 1.543)) >= 0.4 ? 1 : 0;
+  const cycle = f(f(t * 4) + phase);
+  const sway = Math.sin(cycle) * 0.15 * waddling;
+  const bob = Math.abs(Math.cos(cycle)) * 0.2 * waddling;
+  const walk = f(f(t * 0.8) + f(phase * 2.5));
+  const ry = (walk + 1.5708) * waddling;
+  // The shader's rotY turns the other way from three's
+  target.makeRotationY(-ry);
+  target.setPosition(
+    Math.cos(walk) * 2.5 * waddling,
+    bob,
+    Math.sin(walk) * 2.5 * waddling
+  );
+  return sway;
+}
 
 // House color palettes, for the model debug page; the game tints one white
 // material per house instead (houseTintMat)
