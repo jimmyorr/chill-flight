@@ -254,15 +254,20 @@
                      where the list is sorted by time) -->
                 <label id="fly-self" class="fly-player fly-self">
                   <span id="fly-self-dot" class="fly-player-dot"></span>
-                  <input
-                    id="fly-self-name"
-                    class="fly-self-name"
-                    maxlength="16"
-                    autocomplete="nickname"
-                    spellcheck="false"
-                    aria-label="Your name"
-                  />
-                  <span id="fly-self-note" class="fly-self-note"></span>
+                  <span class="fly-player-text">
+                    <input
+                      id="fly-self-name"
+                      class="fly-player-name fly-self-name"
+                      maxlength="16"
+                      autocomplete="nickname"
+                      spellcheck="false"
+                      aria-label="Your name"
+                    />
+                    <span
+                      id="fly-self-note"
+                      class="fly-player-note fly-self-note"
+                    ></span>
+                  </span>
                 </label>
                 <div id="fly-players" class="fly-players"></div>
               </div>
@@ -282,7 +287,6 @@
                   Leave
                 </button>
               </div>
-              <div id="fly-tag-hint" class="fly-tag-hint" hidden></div>
             </div>
             <div id="fly-status" class="fly-status"></div>
           </div>

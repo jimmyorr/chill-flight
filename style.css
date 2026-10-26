@@ -2006,20 +2006,15 @@ input[type='number'].customization-input {
   gap: 8px;
 }
 
-#fly-room .fly-tag-hint {
-  margin-top: -2px;
-  line-height: 1.25;
-}
-
 /* Your own row: tap your name to change it */
 .fly-self {
   cursor: text;
 }
 
 .fly-self-name {
-  flex: 1;
-  min-width: 0;
-  height: 26px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 18px;
   padding: 0;
   border: none;
   border-bottom: 1px solid transparent;
@@ -2030,7 +2025,10 @@ input[type='number'].customization-input {
     'Inter',
     -apple-system,
     sans-serif;
-  font-size: 16px; /* 16px or more, or iOS zooms in on focus */
+  /* Same size as the other names; the viewport's maximum-scale stops
+     iOS zooming in on focus */
+  font-size: inherit;
+  line-height: 17px;
   outline: none;
   -webkit-user-select: text;
   user-select: text;
@@ -2038,13 +2036,6 @@ input[type='number'].customization-input {
 
 .fly-self-name:focus {
   border-bottom: 1px solid #ffd700;
-}
-
-.fly-self-note {
-  flex-shrink: 0;
-  padding-right: 8px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
 }
 
 .fly-self-note::after {
@@ -2266,13 +2257,6 @@ input[type='number'].customization-input {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
-}
-
-.fly-tag-hint {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  text-align: center;
-  line-height: 1.4;
 }
 
 .fly-status:empty {

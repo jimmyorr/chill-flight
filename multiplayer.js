@@ -139,7 +139,6 @@ const playersList = document.getElementById('fly-players');
 const statusText = document.getElementById('fly-status');
 const tagBtn = document.getElementById('fly-tag-btn');
 const tagChip = document.getElementById('tag-chip');
-const tagHint = document.getElementById('fly-tag-hint');
 const tagGlow = document.getElementById('tag-glow');
 const botsInput = document.getElementById('fly-bots-input');
 const botsBtn = document.getElementById('fly-bots-btn');
@@ -1722,10 +1721,6 @@ function renderPanel() {
     tagBtn.hidden = peers.size === 0 && !tag.it;
     tagBtn.textContent = tag.it ? 'Stop tag' : 'Play tag';
   }
-  if (tagHint) {
-    tagHint.hidden = !tagBtn || tagBtn.hidden;
-    tagHint.textContent = "Stay near whoever's it to score.";
-  }
   // In a game, live points; after one, how it ended
   const showPoints = !!tag.it || Object.keys(tag.points).length > 0;
   const live = tag.it ? currentPoints() : tag.points;
@@ -1778,12 +1773,13 @@ function renderPanel() {
     }
     return el;
   };
-  // The small grey words after a name: "you, it, paused"
+  // The small grey words under a name: "you, it" or "it, paused". You're
+  // always paused while this menu shows, so your row doesn't say it
   const noteOf = (id, p) =>
     [
       !p && 'you',
       tag.it === id && 'it',
-      (p ? p.track?.latest?.flags & FLAGS.paused : state.isPaused) && 'paused',
+      p?.track?.latest?.flags & FLAGS.paused && 'paused',
     ]
       .filter(Boolean)
       .join(', ');
