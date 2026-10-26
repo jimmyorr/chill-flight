@@ -375,6 +375,8 @@ function hedgeNear(x, z, simplex, reach) {
 const ROAD_TREE_CLEAR = 18;
 const ROAD_BUILDING_CLEAR = 15;
 const ROAD_PROP_CLEAR = 8;
+// And how far from the pyramids' bases any prop stands
+const PYRAMID_PROP_CLEAR = 30;
 
 // Villages along the highways: now and then a stretch of road is lined on
 // both sides with houses facing it, with a second row behind them toward the
@@ -3442,6 +3444,58 @@ export function generateChunkData({
       barnPositions,
       windmillPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_BUILDING_CLEAR));
+
+    // Nothing grows or stands on the pyramids
+    const keepOffPyramids = (arr) => {
+      let kept = 0;
+      for (const p of arr) {
+        if (
+          ChillFlightLogic.pyramidFootAt(
+            worldOffsetX + p.x,
+            worldOffsetZ + p.z,
+            simplex,
+            elevParams
+          ) >= PYRAMID_PROP_CLEAR
+        ) {
+          arr[kept++] = p;
+        }
+      }
+      arr.length = kept;
+    };
+    [
+      treePositions,
+      deciduousTreePositions,
+      tallDeciduousTreePositions,
+      palmTreePositions,
+      deadTreePositions,
+      snowTreePositions,
+      autumnTree1Positions,
+      autumnTree2Positions,
+      autumnTree3Positions,
+      cherryTreePositions,
+      yellowCortezTreePositions,
+      japaneseMapleTreePositions,
+      mushroomTreePositions,
+      crystalPositions,
+      bushPositions,
+      rockPositions,
+      snowRockPositions,
+      desertRockPositions,
+      cactusPositions,
+      snowmanPositions,
+      campfirePositions,
+      housePositions,
+      twoStoryHousePositions,
+      chimneySmokePositions,
+      strawHutPositions,
+      barnPositions,
+      windmillPositions,
+      pagodaPositions,
+      monasteryPositions,
+      castleRuinsPositions,
+      rockArchPositions,
+      rockArchGrassPositions,
+    ].forEach(keepOffPyramids);
   }
 
   // Montauk chunk lighthouse

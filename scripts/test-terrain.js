@@ -569,5 +569,56 @@ console.log(
   "  Passed: The cross-country highway ends at Meadow Field's access road"
 );
 
+// --- NOTHING STANDS ON THE PYRAMIDS ---
+// Trees, rocks and cacti used to sprout from their faces
+{
+  const L = ChillFlightLogic;
+  const seed = 20261025;
+  useSeed(seed);
+  const elevParams = {
+    WATER_LEVEL: 40,
+    MOUNTAIN_LEVEL: 180,
+    MAP_WORLD_SIZE: 10000,
+    MAP_HEIGHT_SCALE: 400,
+  };
+  const site = L.pyramidSite(simplex, elevParams);
+  let checked = 0;
+  const cx0 = Math.round(site.x / 1500);
+  const cz0 = Math.round(site.z / 1500);
+  for (let cx = cx0 - 2; cx <= cx0 + 2; cx++) {
+    for (let cz = cz0 - 2; cz <= cz0 + 2; cz++) {
+      const {result} = generateChunkData({
+        chunkX: cx,
+        chunkZ: cz,
+        chunkSize: 1500,
+        segments: 40,
+        elevParams,
+        worldSeed: seed,
+        enableObjects: true,
+      });
+      for (const type in result.instanceData) {
+        const d = result.instanceData[type];
+        for (let i = 0; i < d.count; i++) {
+          const x = d.matrices[i * 16 + 12];
+          const z = d.matrices[i * 16 + 14];
+          if (L.pyramidFootAt(x, z, simplex, elevParams) < 20) {
+            console.error(
+              `FAIL: ${type} on a pyramid at X ${x.toFixed(0)}, Z ${z.toFixed(0)}`
+            );
+            process.exit(1);
+          }
+          checked++;
+        }
+      }
+    }
+  }
+  if (checked < 1000) {
+    console.error(`FAIL: only ${checked} props near the pyramids to check`);
+    process.exit(1);
+  }
+  useSeed(20260101);
+}
+console.log('  Passed: Nothing grows or stands on the pyramids');
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

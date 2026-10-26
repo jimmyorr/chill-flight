@@ -3850,6 +3850,13 @@ export const ChillFlightLogic = {};
   // them (terrain-gen.js colours it)
   exports.pyramidStoneAt = (x, z, simplex, constants) =>
     pyramidAt(x, z, simplex, constants) ? _pyramid.stone : 0;
+  // How far (x, z) is outside the nearest pyramid's base, 0 on one and
+  // Infinity away from them (terrain-gen.js keeps props off them)
+  exports.pyramidFootAt = (x, z, simplex, constants) => {
+    if (!pyramidAt(x, z, simplex, constants)) return Infinity;
+    const site = pyramidSite(simplex, constants || {});
+    return pyramidFootDistance(x - site.x, z - site.z);
+  };
   exports.CANYON_TIER_HEIGHT = CANYON_TIER_HEIGHT;
   exports.FALLS_Z = FALLS_Z;
   exports.FALLS_LIP_Z = FALLS_LIP_Z;
