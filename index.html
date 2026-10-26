@@ -14,6 +14,23 @@
     />
     <meta name="theme-color" content="#000000" />
     <title>Chill Flight</title>
+    <link rel="canonical" href="https://chillflight.app/" />
+    <!-- Link previews (Open Graph, Twitter/X cards). The image is made by
+         `node scripts/promo.js artwork og-image`. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Chill Flight" />
+    <meta property="og:title" content="Chill Flight" />
+    <meta property="og:url" content="https://chillflight.app/" />
+    <meta property="og:image" content="https://chillflight.app/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A biplane flying over islands at sunset, with the Chill Flight app icon"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Chill Flight" />
+    <meta name="twitter:image" content="https://chillflight.app/og-image.jpg" />
 
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
     <link rel="manifest" href="manifest.json" />
@@ -21,12 +38,42 @@
     <link rel="stylesheet" href="style.css" />
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
     <script type="module" src="/src/main.js"></script>
-    <!-- sync-start:meta-description -->
+    <!-- sync-start:description -->
     <meta
       name="description"
-      content="A casual flight simulator set in a vast, ever-changing world."
+      content="A casual flight simulator set in a vast, ever-changing world. Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey."
     />
-    <!-- sync-end:meta-description -->
+    <meta
+      property="og:description"
+      content="A casual flight simulator set in a vast, ever-changing world. Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey."
+    />
+    <meta
+      name="twitter:description"
+      content="A casual flight simulator set in a vast, ever-changing world. Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey."
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Chill Flight",
+        "url": "https://chillflight.app/",
+        "image": "https://chillflight.app/og-image.jpg",
+        "description": "A casual flight simulator set in a vast, ever-changing world. Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey.",
+        "genre": ["Flight simulator", "Casual"],
+        "keywords": "flight, simulator, chill, lofi, relaxing, procedural, exploration, ambient, casual, cozy, zen, plane, flying",
+        "gamePlatform": ["Web browser", "iOS", "Android"],
+        "playMode": ["SinglePlayer", "MultiPlayer"],
+        "author": {
+          "@type": "Person",
+          "name": "Jimmy Orr"
+        },
+        "sameAs": [
+          "https://apps.apple.com/us/app/chill-flight/id6779847377",
+          "https://play.google.com/store/apps/details?id=com.cowneck.chillflight"
+        ]
+      }
+    </script>
+    <!-- sync-end:description -->
   </head>
 
   <body>
@@ -553,6 +600,15 @@
                 <path d="M17 9.5l5 5M22 9.5l-5 5" />
               </svg>
             </button>
+            <a
+              id="splash-about-link"
+              href="https://chillflight.app/about"
+              onclick="
+                window.openExternalLink(this.href);
+                return false;
+              "
+              >About</a
+            >
             <div
               id="loading-music-attribution"
               class="pause-metadata"

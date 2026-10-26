@@ -27,6 +27,9 @@ const SIGN_OFF = {title: 'CHILL FLIGHT', lines: ['Music by Purrple Cat']};
 // (RGB, no alpha) instead of a JPEG.
 export const ARTWORK = {
   thumbnail: {shot: 'islands-sunset', width: 1280, height: 720, logo: true},
+  // The link preview (Open Graph and Twitter cards) for the website: copy it
+  // to public/og-image.jpg
+  'og-image': {shot: 'islands-sunset', width: 1200, height: 630, logo: true},
   // 3840x1646. App Store Connect takes the header only as a PNG (it calls a
   // JPEG's dimensions invalid), though it takes the search results as a JPEG
   'appstore-header': {

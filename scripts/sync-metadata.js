@@ -92,10 +92,44 @@ fs.writeFileSync(packageJsonPath, updatedPackageJson, 'utf8');
 console.log('Successfully updated description and keywords in package.json');
 
 // --- UPDATE index.html ---
-// Meta description tag
-const metaDescriptionHtml = `    <meta name="description" content="${descParagraph}" />`;
-const metaStartTag = '<!-- sync-start:meta-description -->';
-const metaEndTag = '<!-- sync-end:meta-description -->';
+// The description's opening paragraphs (up to the music credit), for search
+// results, link previews and the structured data
+const webDescription = descriptionRaw
+  .split(/\n\s*\n/)
+  .map((p) => p.replace(/\s+/g, ' ').trim())
+  .filter(Boolean)
+  .slice(0, 2)
+  .join(' ');
+const escapeAttr = (text) =>
+  text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const webDescriptionAttr = escapeAttr(webDescription);
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'Chill Flight',
+  url: 'https://chillflight.app/',
+  image: 'https://chillflight.app/og-image.jpg',
+  description: webDescription,
+  genre: ['Flight simulator', 'Casual'],
+  keywords: keywords.join(', '),
+  gamePlatform: ['Web browser', 'iOS', 'Android'],
+  playMode: ['SinglePlayer', 'MultiPlayer'],
+  author: {'@type': 'Person', name: packageJson.author},
+  sameAs: [
+    'https://apps.apple.com/us/app/chill-flight/id6779847377',
+    'https://play.google.com/store/apps/details?id=com.cowneck.chillflight',
+  ],
+};
+const metaDescriptionHtml = [
+  `    <meta name="description" content="${webDescriptionAttr}" />`,
+  `    <meta property="og:description" content="${webDescriptionAttr}" />`,
+  `    <meta name="twitter:description" content="${webDescriptionAttr}" />`,
+  '    <script type="application/ld+json">',
+  JSON.stringify(structuredData, null, 2).replace(/</g, '\\u003c'),
+  '    </script>',
+].join('\n');
+const metaStartTag = '<!-- sync-start:description -->';
+const metaEndTag = '<!-- sync-end:description -->';
 const metaRegex = new RegExp(`${metaStartTag}[\\s\\S]*?${metaEndTag}`);
 
 if (indexContent.includes(metaStartTag)) {
@@ -111,7 +145,9 @@ if (indexContent.includes(metaStartTag)) {
   );
 }
 fs.writeFileSync(indexPath, indexContent, 'utf8');
-console.log('Successfully updated meta description in index.html');
+console.log(
+  'Successfully updated description and structured data in index.html'
+);
 
 // --- UPDATE public/about.html ---
 // Convert Description Raw to HTML

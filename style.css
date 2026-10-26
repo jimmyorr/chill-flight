@@ -1237,6 +1237,21 @@ input[type='number'].customization-input {
   display: none;
 }
 
+/* A quiet link under the title screen's controls, for anyone who wants to
+   know more before playing */
+#splash-about-link {
+  margin-top: 14px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.45);
+  text-decoration: none;
+}
+
+#splash-about-link:hover,
+#splash-about-link:focus-visible {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 #loading-music-attribution {
   transition: opacity 0.3s ease;
 }

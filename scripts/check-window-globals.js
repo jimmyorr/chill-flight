@@ -48,8 +48,9 @@ for (const dir of ['.', 'src', 'debug']) {
       });
     } else if (f.endsWith('.html')) {
       const html = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+      // Inline scripts, but not data blocks (the structured data's JSON)
       for (const m of html.matchAll(
-        /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g
+        /<script(?![^>]*\b(?:src=|type="application\/ld\+json"))[^>]*>([\s\S]*?)<\/script>/g
       )) {
         const line = html.slice(0, m.index).split('\n').length;
         sources.push({file: rel, code: m[1], lineOffset: line - 1});
