@@ -4,8 +4,9 @@
 // to the nearest one it hasn't seen, circles it once, and moves on to the
 // next. Either way it keeps a safe height over the ground ahead, climbing
 // only as early as the terrain needs, and comes back down after. In the buggy
-// it drives to the waypoint and parks there, or with none drives on the way
-// it's pointed, following the road it's on (updateDrivingAutopilot).
+// it drives to the waypoint and parks there, or with none tours the
+// landmarks the same way, driving a lap round each, and follows a road going
+// its way (updateDrivingAutopilot).
 // game-loop.js calls updateAutopilot or updateDrivingAutopilot each frame
 // while it's engaged.
 import * as THREE from 'three';
@@ -129,16 +130,26 @@ export function updateDrivingAutopilot(delta) {
           halfWidth: here.halfWidth,
         }
       : null;
-  const {steer, throttle, cruise} = driver.update({
+  // With no waypoint (and not parked at one) it tours the landmarks
+  const waypoint = getWaypoint();
+  if (waypoint || driver.parked) tourStop = null;
+  else tourStop ??= nextTourStop();
+  const {steer, throttle, cruise, done} = driver.update({
     x,
     y,
     z,
     yaw: planeGroup.rotation.y,
     speed: BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60,
-    target: getWaypoint(),
+    target: waypoint,
+    stop: tourStop,
     road,
     delta,
   });
+  if (done) {
+    visited.add(tourStop.name);
+    tourStop = nextTourStop();
+  }
+  setTourStop(driver.tour?.lap ? null : tourStop);
   state.autopilotDrive = {steer, throttle};
   state.targetFlightSpeed = cruise / (BASE_FLIGHT_SPEED * 60);
 }

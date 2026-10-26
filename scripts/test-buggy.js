@@ -1070,12 +1070,15 @@ check(
     surface = () => 0,
     road = () => null,
     target = null,
+    stops = [],
     x = 0,
     z = 0,
     yaw = 0,
     kts = 0,
     seconds,
   }) => {
+    // Touring `stops` in turn: how many it's done and when
+    const done = [];
     const pilot = new DrivingAutopilotCore((px, pz) => surface(px, pz));
     const car = {
       velX: -Math.sin(yaw) * kts,
@@ -1093,23 +1096,25 @@ check(
       const fz = -Math.cos(car.yaw);
       let forward = car.velX * fx + car.velZ * fz;
       const side = car.velX * Math.cos(car.yaw) - car.velZ * Math.sin(car.yaw);
-      const {steer, throttle, cruise} = pilot.update({
+      const out = pilot.update({
         x,
         y,
         z,
         yaw: car.yaw,
         speed: Math.hypot(car.velX, car.velZ),
         target,
+        stop: stops[done.length] ?? null,
         road: road(x, z),
         delta: dt,
       });
+      if (out.done) done.push(i * dt);
       const drag = ChillFlightLogic.buggyDrag(forward);
       const slope = (surface(x + fx, z + fz) - surface(x - fx, z - fz)) / 2;
       forward +=
         (ChillFlightLogic.buggyDriveAccel({
           forward,
-          joyY: throttle,
-          cruise,
+          joyY: out.throttle,
+          cruise: out.cruise,
           top: topKts,
           drag,
         }) -
@@ -1119,7 +1124,7 @@ check(
       ChillFlightLogic.stepBuggyHandling(car, {
         forward,
         side,
-        steerIn: steer,
+        steerIn: out.steer,
         kind: 'ground',
         airborne: false,
         wheelbase: BUGGY_WHEELBASE,
@@ -1142,9 +1147,10 @@ check(
         z,
         y: surface(x, z),
         speed: Math.hypot(car.velX, car.velZ),
+        stop: done.length,
       });
     }
-    return {x, z, yaw: car.yaw, path};
+    return {x, z, yaw: car.yaw, path, done};
   };
   const near = (run, t) => Math.hypot(run.x - t.x, run.z - t.z);
   const last = (run) => run.path[run.path.length - 1];
@@ -1161,10 +1167,41 @@ check(
   // With no waypoint: straight on at cruise
   const straight = autoDrive({yaw: 0.7, seconds: 20});
   check(
-    'With no waypoint it holds its heading at cruise',
+    'With nowhere to go it holds its heading at cruise',
     Math.abs(straight.yaw - 0.7) < 0.02 &&
       Math.abs(last(straight).speed - DRIVE_AUTOPILOT.CRUISE) < 3,
     `heading ${straight.yaw.toFixed(3)}, ${last(straight).speed.toFixed(0)} kts`
+  );
+
+  // With no waypoint: tours the landmarks, a lap round each
+  const stops = [
+    {x: 2500, z: -1500},
+    {x: -1000, z: -3500},
+  ];
+  const tour = autoDrive({stops, seconds: 240});
+  const lapGap = (n) =>
+    tour.path
+      .filter((p, i) => p.stop === n && i > 0)
+      .map((p) => Math.hypot(p.x - stops[n].x, p.z - stops[n].z));
+  check(
+    'With no waypoint it tours: to each landmark and a lap round it',
+    tour.done.length === 2 &&
+      Math.min(...lapGap(0)) > DRIVE_AUTOPILOT.LAP_RADIUS - 120 &&
+      Math.min(...lapGap(1)) > DRIVE_AUTOPILOT.LAP_RADIUS - 120,
+    `done at ${tour.done.map((t) => t.toFixed(0)).join(', ')} s; closest ${Math.min(...lapGap(0)).toFixed(0)}, ${Math.min(...lapGap(1)).toFixed(0)}`
+  );
+  // One up on a mesa it can't climb: given up on, not circled forever
+  const plateau = (px, pz) =>
+    300 * Math.min(1, Math.max(0, (840 - Math.hypot(px, pz + 2500)) / 40));
+  const unreachable = autoDrive({
+    surface: plateau,
+    stops: [{x: 0, z: -2500}],
+    seconds: 240,
+  });
+  check(
+    "It gives up on a landmark it can't get to",
+    unreachable.done.length === 1,
+    `${unreachable.done.length} done`
   );
 
   // A road bending along x: follows it, keeping right of the centre line

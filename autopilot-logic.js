@@ -282,14 +282,25 @@ export const DRIVE_AUTOPILOT = {
   REVERSE_FOR: 1.2,
   // A jump further than this in a frame is a warp (units)
   WARP: 300,
+  // Touring (no waypoint): once this close to a landmark it drives a lap
+  // round it at LAP_RADIUS and LAP_SPEED, aiming LAP_LEAD radians ahead
+  // round the circle; it gives up on one it's got no closer to (by
+  // GIVE_UP_GAIN) in GIVE_UP_AFTER seconds, or whose lap takes longer than
+  // that (one on a peak, or across ground it can't drive)
+  LAP_REACH: 450,
+  LAP_RADIUS: 300,
+  LAP_SPEED: 60,
+  LAP_LEAD: 0.6,
+  GIVE_UP_GAIN: 200,
+  GIVE_UP_AFTER: 90,
 };
 
 const D = DRIVE_AUTOPILOT;
 
 /**
  * The autopilot's driving: heads for the waypoint and parks there, or
- * without one keeps going the way it's pointed, following the road it's
- * on; round ground too steep to drive, and turning off toward open ground
+ * without one tours the landmark it's given (a lap round it), following a
+ * road going its way; round ground too steep to drive, and turning off toward open ground
  * when it's held up (bot-logic.js, as the bots drive). `surfaceAt(x, z, y)`
  * is the height a buggy at height y would rest on there (as buggy.js).
  */
@@ -304,9 +315,10 @@ export class DrivingAutopilotCore {
     // As a bot, for bot-logic.js's driving
     this.car = {x: 0, y: 0, z: 0, heading: 0, speed: 0};
     this.car.stuckFor = this.car.escapeFor = this.car.escapeHeading = 0;
-    this.course = null; // The heading held with no waypoint
+    this.course = null; // The heading held with nowhere to go
     this.goal = null; // The waypoint last driven to
     this.parked = false;
+    this.tour = null; // The landmark being toured, and the lap round it
     this.lastYaw = null;
     this.yawRate = 0;
   }
@@ -317,9 +329,10 @@ export class DrivingAutopilotCore {
    * dirZ} the way along it, `across` how far right of its centre line
    * facing that way, and its `halfWidth`. Returns the stick (`steer`, 1
    * full left; `throttle`, -1 to brake or back up) and the speed to cruise
-   * at.
+   * at. With no `target`, it tours `stop` ({x, z}, a landmark) instead: to
+   * it and a lap round it, after which `done` turns true for the next.
    */
-  update({x, y, z, yaw, speed, target, road, delta}) {
+  update({x, y, z, yaw, speed, target, stop = null, road, delta}) {
     // Warped (the map's click-to-fly): starts afresh from there
     if (
       this.lastYaw !== null &&
@@ -352,10 +365,17 @@ export class DrivingAutopilotCore {
       this.course = null;
       return {steer: 0, throttle: car.speed > 1 ? -1 : 0, cruise: 0};
     }
+    // Touring: on to the landmark, then round it
+    const lapAim = target ? null : this.touring(stop, x, z, delta);
+    if (lapAim?.done)
+      return {steer: 0, throttle: 0, cruise: D.CRUISE, done: true};
+    if (lapAim) target = lapAim;
 
     // The way to go: the road's, if it's on one going about the right way;
     // else the waypoint's, or straight on
     const bearing = target ? headingTo(x, z, target.x, target.z) : null;
+    // A lap keeps off the road (it'd carry it away)
+    if (lapAim?.lap) road = null;
     let want = bearing ?? (this.course ??= yaw);
     let onRoad = false;
     if (road) {
@@ -382,7 +402,8 @@ export class DrivingAutopilotCore {
     const heading =
       onRoad && car.escapeFor === 0 ? want : driveHeading(car, this.ctx, want);
     let cruise = D.CRUISE;
-    if (target) {
+    if (lapAim?.lap) cruise = D.LAP_SPEED;
+    else if (target && !lapAim) {
       cruise *= clamp(dist / D.SLOW_FROM, D.SLOWEST, 1);
     }
     watchStuck(car, this.ctx, delta, cruise);
@@ -401,5 +422,41 @@ export class DrivingAutopilotCore {
       lock
     );
     return {steer, throttle: 0, cruise};
+  }
+
+  // Where to aim touring `stop` ({x, z} and the aim, plus `lap` while
+  // going round it), or {done} once round it or given up; null with none
+  touring(stop, x, z, delta) {
+    if (!stop) {
+      this.tour = null;
+      return null;
+    }
+    let t = this.tour;
+    if (!t || t.x !== stop.x || t.z !== stop.z) {
+      t = this.tour = {x: stop.x, z: stop.z, lap: null, best: Infinity, for: 0};
+    }
+    const dist = Math.hypot(stop.x - x, stop.z - z);
+    t.for += delta;
+    if (dist < t.best - D.GIVE_UP_GAIN) {
+      t.best = dist;
+      t.for = 0;
+    }
+    if (t.for > D.GIVE_UP_AFTER) return {done: true};
+    if (!t.lap && dist < D.LAP_REACH) {
+      t.lap = {swept: 0, last: Math.atan2(z - stop.z, x - stop.x)};
+      t.for = 0;
+    }
+    if (!t.lap) return {x: stop.x, z: stop.z};
+    // Round the circle (anticlockwise from above), pulled in or out to it
+    const around = Math.atan2(z - stop.z, x - stop.x);
+    t.lap.swept += wrapAngle(around - t.lap.last);
+    t.lap.last = around;
+    if (Math.abs(t.lap.swept) >= Math.PI * 2) return {done: true};
+    const a = around + D.LAP_LEAD;
+    return {
+      x: stop.x + Math.cos(a) * D.LAP_RADIUS,
+      z: stop.z + Math.sin(a) * D.LAP_RADIUS,
+      lap: true,
+    };
   }
 }
