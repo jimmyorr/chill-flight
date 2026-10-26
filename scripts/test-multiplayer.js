@@ -14,6 +14,8 @@ import * as rules from '../relay/src/rules.js';
 import {
   CALLSIGNS,
   CLOSE,
+  PING,
+  PONG,
   FLAGS,
   MAX_PLAYERS,
   NO_TAG,
@@ -77,7 +79,9 @@ check(
   ROOM_CODE_ALPHABET === rules.ROOM_CODE_ALPHABET &&
     ROOM_CODE_LENGTH === rules.ROOM_CODE_LENGTH &&
     MAX_PLAYERS === rules.MAX_PLAYERS &&
-    JSON.stringify(CLOSE) === JSON.stringify(rules.CLOSE)
+    JSON.stringify(CLOSE) === JSON.stringify(rules.CLOSE) &&
+    PING === rules.PING &&
+    PONG === rules.PONG
 );
 
 // --- Room codes ---

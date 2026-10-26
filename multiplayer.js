@@ -67,6 +67,8 @@ import {
   MAX_PLAYERS,
   NO_TAG,
   PAUSED_SEND_INTERVAL_MS,
+  PING,
+  PONG,
   PeerTrack,
   QUIET_MS,
   RENDER_DELAY_MS,
@@ -104,8 +106,17 @@ const RELAY = ChillFlightLogic.RELAY_PARAM || DEFAULT_RELAY;
 // Invite links from the apps point at the website
 const WEB_URL = 'https://chillflight.app/';
 const CONNECT_TIMEOUT_MS = 6000;
-// Waits before trying to get back into the room after the connection drops
-const RECONNECT_DELAYS_MS = [1000, 3000, 8000];
+// Waits before trying to get back into the room after the connection drops,
+// about two minutes in all (time offline doesn't count: that waits for the
+// connection to come back, however long, as the room may still be there)
+const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000, 30000, 30000];
+// A ping goes to the relay this often, and a connection that's heard
+// nothing back (not even the pong) for STALL_MS has stalled: a subway
+// tunnel, or wifi that's gone without closing the socket
+const PING_MS = 4000;
+const STALL_MS = 12000;
+// Back after a drop at least this long: say so
+const BACK_TOAST_AFTER_MS = 5000;
 // Hidden this long (another app, a locked phone), the connection is closed,
 // and opened again on coming back
 const HIDDEN_DISCONNECT_MS = 60 * 1000;
@@ -153,6 +164,18 @@ let busy = false;
 let leaving = false;
 let reconnectTry = 0;
 let reconnectTimer = null;
+let linkTimer = null;
+// When anything last came in, and the last ping went out (performance.now());
+// whether this relay answers pings (an older one doesn't, so a quiet room
+// can't be told from a stalled one there)
+let heardAt = 0;
+let pingedAt = 0;
+let relayPongs = false;
+// When the connection dropped (performance.now()), while getting back in
+let droppedAt = null;
+// This player's ids from before the connection dropped: the relay can
+// still pass on what the old connection had sent, which isn't someone else
+const oldIds = new Set();
 let hiddenTimer = null;
 let suspended = false;
 let pausedSince = null;
@@ -217,6 +240,12 @@ function isNativeApp() {
 
 function toast(title) {
   Achievements.toast({emoji: '👥', label: 'FLY TOGETHER', title});
+}
+
+// What the panel says while the connection is down, getting back in
+function linkNote() {
+  if (!room || socket || suspended) return '';
+  return navigator.onLine ? 'Reconnecting…' : 'Offline, waiting to reconnect…';
 }
 
 function setStatus(text) {
@@ -354,10 +383,16 @@ function onHello(peer, msg) {
   }
   if (isNew && peer.announce) toast(`${name} joined`);
   applyTag(readTag(msg.tag));
+  if (isNew && !ownerOf(peer.id)) syncBots();
   renderPanel();
 }
 
 function onMessage(event) {
+  heardAt = performance.now();
+  if (event.data === PONG) {
+    relayPongs = true;
+    return;
+  }
   let msg;
   try {
     msg = JSON.parse(event.data);
@@ -365,11 +400,12 @@ function onMessage(event) {
     return;
   }
   if (!msg || typeof msg.f !== 'string' || msg.f === room?.id) return;
+  if (oldIds.has(msg.f)) return;
   if (msg.t === 'joined') {
     addPeer(msg.f).announce = true;
     sendHello();
-    // Someone's here: a bot makes room for them
-    syncBots();
+    // Someone's here: the bots say hello to them (and one makes room for
+    // them once they've said theirs)
     for (const k of myBots.keys()) sendBotHello(k);
   } else if (msg.t === 'left') {
     const gone = [
@@ -877,10 +913,14 @@ function syncBots() {
   let people = 1;
   let othersBots = 0;
   let otherOwner = null;
-  for (const id of peers.keys()) {
+  for (const [id, peer] of peers) {
     const owner = ownerOf(id);
-    if (!owner) people++;
-    else if (owner !== room.id) {
+    // Someone counts once they've said hello: after a dropped connection
+    // the room can briefly hold this player's old connection, or a try at
+    // getting back in that timed out, and those never do
+    if (!owner) {
+      if (peer.name) people++;
+    } else if (owner !== room.id) {
       othersBots++;
       if (!otherOwner || owner < otherOwner) otherOwner = owner;
     }
@@ -1122,6 +1162,7 @@ function openRoom(code, mode) {
 }
 
 function enterRoom(ws, welcome, code) {
+  if (room?.code === code) oldIds.add(room.id);
   socket = ws;
   room = {
     code,
@@ -1130,7 +1171,21 @@ function enterRoom(ws, welcome, code) {
     host: welcome.host,
   };
   reconnectTry = 0;
-  for (const id of welcome.peers || []) addPeer(id);
+  heardAt = performance.now();
+  pingedAt = 0;
+  if (droppedAt !== null) {
+    if (heardAt - droppedAt > BACK_TOAST_AFTER_MS) toast('Back in the flight');
+    droppedAt = null;
+    setStatus('');
+  }
+  // This player's bots kept flying while the connection was down: they
+  // take the new id
+  for (const [k, mine] of myBots) {
+    peers.delete(mine.peer.id);
+    mine.peer.id = botId(welcome.id, k);
+    peers.set(mine.peer.id, mine.peer);
+  }
+  for (const id of welcome.peers || []) if (!oldIds.has(id)) addPeer(id);
   // Back after a dropped connection (with a new id): the others' hellos
   // bring any game of tag
   tag = NO_TAG;
@@ -1140,6 +1195,8 @@ function enterRoom(ws, welcome, code) {
   sendHello();
   setSmokeTint(state.planeColor);
   if (!sendTimer) sendTimer = setInterval(sendState, SEND_INTERVAL_MS);
+  clearInterval(linkTimer);
+  linkTimer = setInterval(checkLink, 1000);
   // Reloading the page comes back to the room, in its world
   try {
     const url = new URL(window.location.href);
@@ -1151,8 +1208,48 @@ function enterRoom(ws, welcome, code) {
   }
   log.info(`[Fly together] In room ${code} as ${welcome.id}`);
   // Back after a dropped connection: bots again, under the new id
+  for (const k of myBots.keys()) sendBotHello(k);
   syncBots();
   renderPanel();
+}
+
+// Pings the relay, and drops a connection that has stalled
+function checkLink() {
+  if (socket?.readyState !== WebSocket.OPEN) return;
+  const now = performance.now();
+  if (now - pingedAt >= PING_MS) {
+    pingedAt = now;
+    try {
+      socket.send(PING);
+    } catch {
+      /* closing */
+    }
+  }
+  if (relayPongs && now - heardAt > STALL_MS) {
+    log.warn('[Fly together] The connection stalled');
+    dropSocket();
+  }
+}
+
+// Closes this end of a connection that has stopped working, and tries to
+// get back in
+function dropSocket() {
+  if (!socket) return;
+  socket.onclose = null;
+  try {
+    socket.close();
+  } catch {
+    /* already closed */
+  }
+  onDropped();
+}
+
+// Everyone else goes when the connection does; this player's bots keep
+// flying here
+function dropOthers() {
+  for (const id of [...peers.keys()]) {
+    if (ownerOf(id) !== room?.id) removePeer(id);
+  }
 }
 
 function clearRoom() {
@@ -1174,6 +1271,10 @@ function clearRoom() {
   clearInterval(sendTimer);
   sendTimer = null;
   clearTimeout(reconnectTimer);
+  clearInterval(linkTimer);
+  linkTimer = null;
+  droppedAt = null;
+  oldIds.clear();
   setSmokeTint(null);
   try {
     const url = new URL(window.location.href);
@@ -1203,19 +1304,31 @@ function leaveRoom() {
 function onDropped() {
   if (leaving || !room) return;
   socket = null;
-  for (const id of [...peers.keys()]) removePeer(id);
-  myBots.clear();
+  clearTimeout(reconnectTimer);
+  droppedAt ??= performance.now();
+  dropOthers();
+  // Out of a game: whoever was it may not be back
+  tag = NO_TAG;
+  refreshTag();
   if (suspended) return;
-  if (reconnectTry >= RECONNECT_DELAYS_MS.length) {
-    toast('Lost the flight, flying solo');
-    clearRoom();
+  if (!navigator.onLine) {
+    // No connection at all: wait for it ('online' rejoins), however long
+    setStatus(linkNote());
+    renderPanel();
     return;
   }
+  if (reconnectTry >= RECONNECT_DELAYS_MS.length) {
+    toast('Lost the flight, flying solo');
+    leaveRoom();
+    return;
+  }
+  setStatus(linkNote());
+  renderPanel();
   reconnectTimer = setTimeout(rejoin, RECONNECT_DELAYS_MS[reconnectTry++]);
 }
 
 async function rejoin() {
-  if (!room || socket) return;
+  if (!room || socket || busy) return;
   const {code} = room;
   try {
     const {ws, welcome} = await openRoom(code, 'join');
@@ -1228,10 +1341,10 @@ async function rejoin() {
     log.warn(`[Fly together] Rejoining ${code} failed: ${err.message}`);
     if (err.code === CLOSE.full) {
       toast('The flight is full now, flying solo');
-      clearRoom();
+      leaveRoom();
     } else if (err.code === CLOSE.notFound) {
       toast('The flight has ended, flying solo');
-      clearRoom();
+      leaveRoom();
     } else {
       onDropped();
     }
@@ -1239,6 +1352,7 @@ async function rejoin() {
 }
 
 function refusal(err) {
+  if (!navigator.onLine) return 'Offline. Try again when connected.';
   if (err.code === CLOSE.notFound) return 'No flight with that code';
   if (err.code === CLOSE.full) return `That flight is full (${MAX_PLAYERS})`;
   return "Couldn't reach the flight, try again in a moment";
@@ -1246,6 +1360,10 @@ function refusal(err) {
 
 async function invite() {
   if (busy || room) return;
+  if (!navigator.onLine) {
+    setStatus(refusal({}));
+    return;
+  }
   busy = true;
   setStatus('Starting a flight…');
   renderPanel();
@@ -1276,6 +1394,11 @@ async function invite() {
 // into theirs.
 async function join(code, fromLink = false) {
   if (busy || room) return;
+  if (!navigator.onLine) {
+    setStatus(refusal({}));
+    if (fromLink) toast("You're offline, so you can't join the flight");
+    return;
+  }
   busy = true;
   setStatus('Joining…');
   renderPanel();
@@ -1351,8 +1474,7 @@ function suspend() {
   socket.onclose = null;
   socket.close(1000);
   socket = null;
-  for (const id of [...peers.keys()]) removePeer(id);
-  myBots.clear();
+  dropOthers();
 }
 
 function resume() {
@@ -1686,7 +1808,10 @@ function renderChip() {
   if (!roomChip) return;
   roomChip.hidden = !room;
   if (!room) return;
-  roomChipCode.textContent = room.code;
+  // Getting back in after the connection dropped: dimmed, and says so
+  const down = !socket && !suspended;
+  roomChip.classList.toggle('room-chip-down', down);
+  roomChipCode.textContent = down ? 'Reconnecting' : room.code;
   const liveries = [myLivery()];
   for (const peer of peers.values()) if (peer.name) liveries.push(peer.livery);
   roomChipDots.replaceChildren(
@@ -1698,7 +1823,9 @@ function renderChip() {
   );
   roomChip.setAttribute(
     'aria-label',
-    `Room ${room.code}, ${liveries.length} flying`
+    down
+      ? `Room ${room.code}, reconnecting`
+      : `Room ${room.code}, ${liveries.length} flying`
   );
 }
 
@@ -1719,6 +1846,8 @@ function renderPanel() {
   roomCodeText.textContent = room.code;
   if (tagBtn) {
     tagBtn.hidden = peers.size === 0 && !tag.it;
+    // Nobody to play with while the connection is down
+    tagBtn.disabled = !socket;
     tagBtn.textContent = tag.it ? 'Stop tag' : 'Play tag';
   }
   // In a game, live points; after one, how it ended
@@ -1824,7 +1953,7 @@ function openPanel() {
     nameInput.value = '';
   }
   nameInput.placeholder = defaultCallsign;
-  if (!busy) setStatus('');
+  if (!busy) setStatus(linkNote());
   renderPanel();
 }
 
@@ -1930,6 +2059,20 @@ if (RELAY && tabBtn && panel) {
         resume();
       }
     }
+  });
+
+  // The connection going and coming back (a subway, a flight): drop the
+  // socket straight away rather than wait for it to time out, and get back
+  // in as soon as there's a connection again
+  window.addEventListener('offline', () => {
+    if (socket) dropSocket();
+  });
+  window.addEventListener('online', () => {
+    if (!room || socket || suspended) return;
+    reconnectTry = 0;
+    clearTimeout(reconnectTimer);
+    setStatus(linkNote());
+    rejoin();
   });
 
   // An invite link: join that room (the link's seed already chose its world)

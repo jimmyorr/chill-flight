@@ -11,6 +11,10 @@ export const ROOM_CODE_LENGTH = 4;
 export const MAX_PLAYERS = 4;
 // Bigger messages are dropped (a position update is ~120 bytes)
 export const MAX_MESSAGE_BYTES = 1024;
+// A player's ping, answered at once without waking the room, so the game
+// can tell a stalled connection from a quiet one
+export const PING = 'ping';
+export const PONG = 'pong';
 // An empty room can still be rejoined for this long (a reload, a dropped
 // connection), then it's forgotten
 export const EMPTY_ROOM_MS = 10 * 60 * 1000;

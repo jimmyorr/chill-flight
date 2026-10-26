@@ -14,6 +14,8 @@ import {
   EMPTY_ROOM_MS,
   MAX_FAILED_JOINS,
   MAX_ROOMS_STARTED,
+  PING,
+  PONG,
   PerMinute,
   RATE_BURST,
   CLOSE,
@@ -62,7 +64,15 @@ export default {
   },
 };
 
+/* global WebSocketRequestResponsePair */
 export class Room extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    // Answered by Cloudflare without waking the room (or counting against
+    // the player's message rate)
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
+  }
+
   async fetch(request) {
     const url = new URL(request.url);
     const sockets = this.ctx.getWebSockets();

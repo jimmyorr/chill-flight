@@ -25,6 +25,11 @@ export const CLOSE = {
   tooFast: 4029,
 };
 
+// A ping to the relay, and its answer (the relay replies without waking the
+// room; as the relay's, which the test checks)
+export const PING = 'ping';
+export const PONG = 'pong';
+
 // How often a position update goes out (ms): 10 a second while flying, 1 a
 // second while paused
 export const SEND_INTERVAL_MS = 100;
