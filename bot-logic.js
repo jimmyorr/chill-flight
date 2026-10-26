@@ -10,6 +10,7 @@
 // order, like the traffic planes.
 import {forwardOf, headingToward} from './traffic-logic.js';
 import {roadAim} from './race-logic.js';
+import {AVOID, avoidStep, fadePush} from './bumps-logic.js';
 
 export const BOT_PLANES = ['biplane', 'seaplane', 'twin', 'jet'];
 
@@ -681,6 +682,36 @@ function stepRacer(bot, dt, ctx) {
   });
 }
 
+// A bump's push (bot.push, units/s, from bumps.js), fading; and a sidestep
+// away from anyone about to come too close (ctx.others)
+function shove(bot, dt, ctx) {
+  const p = bot.push;
+  if (p) {
+    bot.x += p.x * dt;
+    bot.z += p.z * dt;
+    if (!ctx.driving) bot.y += p.y * dt;
+    p.x = fadePush(p.x, dt);
+    p.y = fadePush(p.y, dt);
+    p.z = fadePush(p.z, dt);
+    if (Math.hypot(p.x, p.y, p.z) < 1) bot.push = null;
+  }
+  if (!ctx.others?.length) return;
+  const f = forwardOf(bot.heading);
+  const step = avoidStep(
+    {
+      x: bot.x,
+      y: bot.y,
+      z: bot.z,
+      vx: f.x * bot.speed,
+      vz: f.z * bot.speed,
+    },
+    ctx.others
+  );
+  if (!step) return;
+  bot.x += step.x * AVOID.SPEED * dt;
+  bot.z += step.z * AVOID.SPEED * dt;
+}
+
 /**
  * Advances a bot by dt seconds, in place. ctx:
  * - elevationAt(x, z), waterLevel: the ground and the sea
@@ -695,10 +726,13 @@ function stepRacer(bot, dt, ctx) {
  * - race: null out of races; else {hold, holdSpeed, gate: {x, y, z} the
  *   next gate (null once finished), road: a road course's road or null,
  *   speed: share of top speed (botRaceSpeed)}
+ * - others: optional [{x, y, z, vx?, vz?}], everyone else close by, to
+ *   keep clear of (bumps-logic.js avoidStep)
  */
 export function stepBot(bot, dt, ctx) {
   bot.age += dt;
   scanTick(bot, dt);
+  shove(bot, dt, ctx);
   if (ctx.race) {
     bot.chaseId = null;
     bot.aim = null;

@@ -27,6 +27,7 @@ export const SFX_EVENTS = [
   {key: 'thunder', label: 'Thunder'},
   {key: 'smash', label: 'Knocking trees and houses over'},
   {key: 'race', label: 'Race countdown'},
+  {key: 'bump', label: 'Bumping into other planes'},
 ];
 
 const STORAGE_KEY = 'chill_flight_sfx_events';
@@ -338,6 +339,33 @@ export function playRaceBeep(go = false, force = false) {
   });
 }
 
+// Bumping into another plane or buggy (bumps.js): a dull knock of panels
+// and a low thud. loud is 0..1 (how near it was)
+export function playBump(loud = 1, force = false) {
+  if ((!force && !isSfxEventEnabled('bump')) || !ready()) return;
+  const s = THREE.MathUtils.clamp(loud, 0, 1);
+  if (s < 0.02) return;
+  const t = ctx.currentTime;
+  tone(t, {freq: 110, freqEnd: 55, gain: 0.7 * s, attack: 0.004, decay: 0.25});
+  tone(t, {
+    type: 'triangle',
+    freq: 240,
+    freqEnd: 180,
+    gain: 0.18 * s,
+    attack: 0.002,
+    decay: 0.12,
+  });
+  noiseBurst(t, {
+    type: 'bandpass',
+    freq: 1400,
+    freqEnd: 600,
+    q: 0.8,
+    gain: 0.5 * s,
+    attack: 0.002,
+    decay: 0.1,
+  });
+}
+
 // How loud thunder is (1.6 = +4 dB), so it stands out over the rain
 const THUNDER_LEVEL = 1.6;
 
@@ -472,6 +500,7 @@ export const SFX_EVENT_PLAYERS = {
     playSmash(false, 1, 0.9, true);
     setTimeout(() => playSmash(true, 1, 0, true), 1600);
   },
+  bump: () => playBump(1, true),
   race: () => {
     for (let i = 0; i < 4; i++) {
       setTimeout(() => playRaceBeep(i === 3, true), i * 1000);

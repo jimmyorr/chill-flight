@@ -360,6 +360,13 @@ export function slowBuggy(keep) {
   velZ *= keep;
 }
 
+// Bumped (bumps.js): pushed along (dx, dz) units/s, sliding off it as the
+// tyres grip again
+export function pushBuggy(dx, dz) {
+  velX += dx;
+  velZ += dz;
+}
+
 export function updateBuggy(delta) {
   const model = state.airplaneModel;
   if (state.isFreeCamera || !model) return;

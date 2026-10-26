@@ -19,6 +19,7 @@ import {
   wingtipPoints,
 } from './plane-models.js';
 import {getElevation} from './terrain-geometry.js';
+import {fadePush} from './bumps-logic.js';
 import {
   isTrafficPlaneGone,
   spawnTrafficPlane,
@@ -150,6 +151,12 @@ export function setTrafficEnabled(on) {
   spawnTimer = FIRST_SPAWN_DELAY;
 }
 
+// Each plane flying now, for bumps (bumps.js): fn(plane), a traffic-logic
+// plane {x, y, z, heading, bank, speed, ...} to read and push
+export function forEachTrafficPlane(fn) {
+  for (const p of planes) fn(p);
+}
+
 // How many other planes are flying now (for the debug panel)
 export function trafficCount() {
   return planes.length;
@@ -200,6 +207,14 @@ export function updateTraffic(delta) {
   for (let i = planes.length - 1; i >= 0; i--) {
     const p = planes[i];
     stepTrafficPlane(p, delta, getElevation, player);
+    // A bump's push (bumps.js), fading
+    if (p.push) {
+      p.x += p.push.x * delta;
+      p.y += p.push.y * delta;
+      p.z += p.push.z * delta;
+      for (const k of ['x', 'y', 'z']) p.push[k] = fadePush(p.push[k], delta);
+      if (Math.hypot(p.push.x, p.push.y, p.push.z) < 1) p.push = null;
+    }
     if (isTrafficPlaneGone(p, center.x, center.z)) {
       disposePlane(p.group);
       planes.splice(i, 1);

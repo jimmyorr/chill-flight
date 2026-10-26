@@ -55,6 +55,8 @@ export const state = {
   // Wing waggle roll (radians) on top of the flying wobble: a wave to
   // friends flying with you (multiplayer.js)
   waggleRoll: 0,
+  // A bump's wobble (rad of roll, fading; bumps.js)
+  bumpRoll: 0,
   // Multiplayer game rules (multiplayer.js): locked plane type, top-speed
   // multiplier, and forced airshow smoke
   mpLockedPlane: null,

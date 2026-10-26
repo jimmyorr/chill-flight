@@ -63,6 +63,8 @@ import {PLANE_BUILDERS, buildPlaneModel} from './plane-models.js';
 import {Achievements} from './achievements.js';
 import {isSmokeOn, setSmokeTint, smokeColor, trailSmoke} from './particles.js';
 import {playChime, playRaceBeep} from './sfx-events.js';
+import {forEachTrafficPlane} from './traffic.js';
+import {forwardOf} from './traffic-logic.js';
 import {
   NO_RACE,
   RACE_COUNT_MS,
@@ -1443,6 +1445,7 @@ function stepMyBots(delta, rawNow) {
       centre.z += p.z / spots.length;
     }
   }
+  const others = bodiesAround();
   // Out of games, bots drive with a player who's driving
   const free = activePlaneType === 'buggy' ? 'buggy' : null;
   for (const [k, {bot, peer, plane: home}] of myBots) {
@@ -1516,6 +1519,7 @@ function stepMyBots(delta, rawNow) {
       race: raceCtx,
       driving,
       surfaceAt,
+      others: others.filter((o) => o.id !== peer.id),
     });
     // Through a gate
     if (racing && sinceGo >= 0) {
@@ -1528,6 +1532,76 @@ function stepMyBots(delta, rawNow) {
         peer.raceFinish = progress.finish;
       }
     }
+  }
+}
+
+// Everything flying or driving about, for bots to keep clear of (and not
+// pass through, bumps.js): [{id, x, y, z, vx, vz}]
+function bodiesAround() {
+  const out = [];
+  const units = BASE_FLIGHT_SPEED * 60;
+  if (!state.isFreeCamera) {
+    planeGroup.getWorldQuaternion(_botQuat);
+    _botFwd.set(0, 0, -1).applyQuaternion(_botQuat);
+    const speed = (state.flightSpeedMultiplier || 0) * units;
+    const {x, y, z} = planeGroup.position;
+    out.push({
+      id: room.id,
+      x,
+      y,
+      z,
+      vx: _botFwd.x * speed,
+      vz: _botFwd.z * speed,
+    });
+  }
+  for (const peer of peers.values()) {
+    const bot = ownBot(peer);
+    if (bot) {
+      const f = forwardOf(bot.heading);
+      out.push({
+        id: peer.id,
+        x: bot.x,
+        y: bot.y,
+        z: bot.z,
+        vx: f.x * bot.speed,
+        vz: f.z * bot.speed,
+      });
+    } else if (peer.group?.visible && peer.track.latest) {
+      _botFwd.set(0, 0, -1).applyQuaternion(peer.group.quaternion);
+      const speed = (peer.track.latest.speed || 0) * units;
+      const {x, y, z} = peer.group.position;
+      out.push({
+        id: peer.id,
+        x,
+        y,
+        z,
+        vx: _botFwd.x * speed,
+        vz: _botFwd.z * speed,
+      });
+    }
+  }
+  forEachTrafficPlane((p) => {
+    const f = forwardOf(p.heading);
+    out.push({
+      id: null,
+      x: p.x,
+      y: p.y,
+      z: p.z,
+      vx: f.x * p.speed,
+      vz: f.z * p.speed,
+    });
+  });
+  return out;
+}
+
+// Everyone else's plane or buggy shown this frame, for bumps (bumps.js):
+// fn(id, position, isBuggy, bot), bot being this player's own bot there
+// (to push about), else null. Anyone away (drawn faded) is left out
+export function forEachBumpable(fn) {
+  if (!room) return;
+  for (const peer of peers.values()) {
+    if (!peer.group?.visible || peer.opacity < 0.99) continue;
+    fn(peer.id, peer.group.position, !!peer.model?.isBuggy, ownBot(peer));
   }
 }
 
