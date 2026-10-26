@@ -11,6 +11,7 @@ export const hooks = {
   fullscreenMap: null, // minimap.js: {open, close, toggle, isOpen, syncUrlParams}
   minimap: null, // minimap.js: {toggle, isVisible}
   clearFarTerrain: null, // far-terrain.js: drops the distant terrain ring
+  onResume: null, // zen.js: called when flight starts or the game unpauses
   onJobProgress: null, // people-screen.js: called by jobs.js when progress changes
   movePlane: null, // minimap.js: (x, y, z, yaw?, speed?) moves the plane there
   syncSmokeUI: null, // game-ui.js: updates the smoke button when forced on/off

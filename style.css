@@ -3036,6 +3036,97 @@ body.zen
   visibility: hidden !important;
 }
 
+/* Zen turning on in flight (zen.js): the HUD fades away, a group at a time,
+   before the zen class hides it. */
+body.zen-fading
+  :is(
+    #ui-layer,
+    #cockpit-ui,
+    #waypoint-indicator,
+    #friend-markers,
+    #tag-chip,
+    #tag-glow,
+    #mobile-controls,
+    #achievement-toast-container,
+    #debug-menu,
+    #debug-telemetry
+  ) {
+  opacity: 0 !important;
+  transition: opacity 1.4s ease !important;
+}
+body.zen-fading #mobile-controls {
+  transition-delay: 0.25s !important;
+}
+body.zen-fading :is(#cockpit-ui, #waypoint-indicator, #friend-markers) {
+  transition-delay: 0.5s !important;
+}
+
+/* How to leave zen: one line high in the sky that fades in, holds and fades
+   out by itself (zen.js) */
+#zen-hint {
+  position: fixed;
+  top: 17%;
+  left: 0;
+  right: 0;
+  padding: 0 24px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 150;
+  opacity: 0;
+  visibility: hidden;
+}
+#zen-hint b {
+  font-weight: 700;
+}
+#zen-hint.show {
+  visibility: visible;
+  animation: zen-hint 5.6s ease 0.4s both;
+}
+@keyframes zen-hint {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  11% {
+    opacity: 1;
+    transform: none;
+  }
+  73% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (max-width: 768px) {
+  #zen-hint {
+    top: 15%;
+    font-size: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #zen-hint.show {
+    animation-name: zen-hint-still;
+  }
+  @keyframes zen-hint-still {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    11%,
+    73% {
+      opacity: 1;
+    }
+  }
+}
+
 /* ?ui=0: nothing on screen but the game view, for clean screenshots and
    recordings. visibility (not display) keeps layout and scripts unaffected;
    the renderer's canvas is the body's direct child. */

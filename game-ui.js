@@ -490,6 +490,7 @@ if (overlay && renderer) {
     state.isPaused = false;
     state.justResumed = true;
     clock.update();
+    hooks.onResume?.();
 
     // Start music (or not, per the title screen's sound toggle)
     setMusicEnabled(startWithMusic);
