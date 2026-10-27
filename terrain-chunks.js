@@ -136,8 +136,12 @@ import {
   releaseInstancedMesh,
   resetChunkQueue,
   roadCentreDashGeo,
+  roadSlipLineGeo,
+  SLIP_EDGE_LINE_X,
+  ROAD_EDGE_LINE_X,
+  roadEdgeLineGeo,
   roadCentreLinesGeo,
-  roadLaneLinesGeo,
+  roadLaneDashesGeo,
   roadWhiteMat,
   roadYellowMat,
   rockArchGrassMat,
@@ -1006,6 +1010,144 @@ function atJunction(x, z) {
   );
 }
 
+// The slip roads round the corners of the highway crossings
+// (ChillFlightLogic.slipRoads): the pieces whose middles are on the chunk
+// centred on (worldOffsetX, worldOffsetZ), as decks narrower than a
+// highway's with white edge lines, and in roadSegments for driving on
+const SLIP_DECK_SCALE =
+  (ChillFlightLogic.SLIP.HALF * 2 + 4) / (ChillFlightLogic.ROAD_WIDTH * 2 + 4);
+const _slipDummy = new THREE.Object3D();
+function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
+  const half = CHUNK_SIZE / 2;
+  const pieces = [];
+  for (const s of ChillFlightLogic.slipRoads(simplex, {
+    WATER_LEVEL,
+    MOUNTAIN_LEVEL,
+  })) {
+    if (
+      s.maxX < worldOffsetX - half ||
+      s.minX > worldOffsetX + half ||
+      s.maxZ < worldOffsetZ - half ||
+      s.minZ > worldOffsetZ + half
+    ) {
+      continue;
+    }
+    for (let i = 0; i < s.pts.length - 1; i++) {
+      const a = s.pts[i];
+      const b = s.pts[i + 1];
+      const mx = (a.x + b.x) / 2 - worldOffsetX;
+      const mz = (a.z + b.z) / 2 - worldOffsetZ;
+      if (mx < -half || mx >= half || mz < -half || mz >= half) continue;
+      pieces.push([a, b]);
+      roadSegments.push({
+        x0: a.x,
+        z0: a.z,
+        y0: a.y,
+        x1: b.x,
+        z1: b.z,
+        y1: b.y,
+        halfWidth: ChillFlightLogic.SLIP.HALF,
+        rails: false,
+      });
+    }
+  }
+  if (pieces.length === 0) return;
+  const deckInst = getInstancedMesh(
+    bridgeDeckGeo,
+    bridgeDeckMat,
+    pieces.length
+  );
+  // Each edge line one at a time, and only where it's clear of the
+  // highways' decks (not while it runs inside a highway's lane)
+  const lineInst = getInstancedMesh(
+    roadSlipLineGeo,
+    roadWhiteMat,
+    pieces.length * 2
+  );
+  const dummy = _slipDummy;
+  const next = new THREE.Vector3();
+  pieces.forEach(([a, b], i) => {
+    dummy.position.set(
+      (a.x + b.x) / 2 - worldOffsetX,
+      (a.y + b.y) / 2,
+      (a.z + b.z) / 2 - worldOffsetZ
+    );
+    next.set(b.x - worldOffsetX, b.y, b.z - worldOffsetZ);
+    dummy.lookAt(next);
+    // A little longer than the piece, so the bends have no gaps
+    const length = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) + 1.5;
+    dummy.scale.set(SLIP_DECK_SCALE, 1, length / BRIDGE_SEGMENT_LENGTH);
+    dummy.updateMatrix();
+    deckInst.setMatrixAt(i, dummy.matrix);
+    [-1, 1].forEach((side, k) => {
+      dummy.position.set(
+        (a.x + b.x) / 2 - worldOffsetX,
+        (a.y + b.y) / 2,
+        (a.z + b.z) / 2 - worldOffsetZ
+      );
+      dummy.lookAt(next);
+      dummy.translateX(side * SLIP_EDGE_LINE_X);
+      const clear =
+        ChillFlightLogic.highwayDistance(
+          dummy.position.x + worldOffsetX,
+          dummy.position.z + worldOffsetZ
+        ) >
+        ChillFlightLogic.ROAD_WIDTH + 1;
+      dummy.scale.setScalar(0);
+      if (clear) dummy.scale.set(1, 1, length / BRIDGE_SEGMENT_LENGTH);
+      dummy.updateMatrix();
+      lineInst.setMatrixAt(i * 2 + k, dummy.matrix);
+    });
+  });
+  for (const m of [deckInst, lineInst]) {
+    m.position.set(worldOffsetX, 0, worldOffsetZ);
+    group.add(m);
+  }
+  lineInst.castShadow = false;
+}
+
+// Is world (x, z), on a highway (the cross-country one if crossCountry),
+// inside the box where it crosses the other? Its lane markings stop there,
+// so the crossing is plain asphalt. Out to `pad` past the other's edge.
+function inCrossingBox(x, z, crossCountry, pad) {
+  const constants = {WATER_LEVEL, MOUNTAIN_LEVEL};
+  const reach = (slope) =>
+    (ChillFlightLogic.ROAD_WIDTH + 2) * Math.hypot(1, slope) + pad;
+  if (crossCountry) {
+    const n = Math.round(
+      (x - ChillFlightLogic.ROAD_BASE_X) / ChillFlightLogic.ROAD_SPACING
+    );
+    if (n < 0 || n > ChillFlightLogic.ROAD_LAST) return false;
+    const slope =
+      (ChillFlightLogic.getRoadCenterX(z + 5, n) -
+        ChillFlightLogic.getRoadCenterX(z - 5, n)) /
+      10;
+    return (
+      Math.abs(x - ChillFlightLogic.getRoadCenterX(z, n)) < reach(slope) &&
+      ChillFlightLogic.highwayRunsAt(n, z, simplex, constants)
+    );
+  }
+  if (
+    x <= ChillFlightLogic.ROAD_EW_WEST ||
+    x >= ChillFlightLogic.ROAD_EW_EAST
+  ) {
+    return false;
+  }
+  const slope =
+    (ChillFlightLogic.getRoadCenterZ(x + 5) -
+      ChillFlightLogic.getRoadCenterZ(x - 5)) /
+    10;
+  return (
+    Math.abs(z - ChillFlightLogic.getRoadCenterZ(x)) < reach(slope) &&
+    ChillFlightLogic.highwayRunsAt(
+      ChillFlightLogic.ROAD_EW,
+      x,
+      simplex,
+      constants
+    )
+  );
+}
+
 // Builds a chunk's meshes from generateChunkData() output: a worker's result,
 // or (when workers are unavailable) data generated here on the main thread.
 function generateChunk(chunkX, chunkZ, workerData = null) {
@@ -1784,7 +1926,19 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             z: crossCountry ? curr.localC : a0,
             needsPilings: needsPilings,
             terrainH: curr.actualTerrainH,
-            junction: curr.junction || next.junction,
+            // No streetlights there, nor where a slip road joins
+            junction:
+              curr.junction ||
+              next.junction ||
+              ChillFlightLogic.isOnSlipRoad(
+                (crossCountry ? a0 + a1 : curr.localC + next.localC) / 2 +
+                  worldOffsetX,
+                (crossCountry ? curr.localC + next.localC : a0 + a1) / 2 +
+                  worldOffsetZ,
+                ChillFlightLogic.ROAD_WIDTH + 4,
+                simplex,
+                constants
+              ),
             nextPos: {
               x: crossCountry ? a1 : next.localC,
               y: finalY[i + 1],
@@ -1949,12 +2103,23 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             : slFrequency > 4
               ? [[roadCentreDashGeo, roadYellowMat]]
               : [
-                  [roadLaneLinesGeo, roadWhiteMat],
+                  [roadLaneDashesGeo, roadWhiteMat],
                   [roadCentreLinesGeo, roadYellowMat],
                 ];
         const markingInsts = markings.map(([geo, mat]) =>
           getInstancedMesh(geo, mat, bridgePositions.length)
         );
+        // White edge lines with the lane lines, each side on its own so it
+        // can break where a slip road joins
+        const edgeInst =
+          slFrequency > 0 && slFrequency <= 4
+            ? getInstancedMesh(
+                roadEdgeLineGeo,
+                roadWhiteMat,
+                bridgePositions.length * 2
+              )
+            : null;
+        if (edgeInst) markingInsts.push(edgeInst);
 
         // Calculate exact number of streetlights based on global segment alignment
         let numStreetlights = 0;
@@ -2008,7 +2173,40 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
           dummy.updateMatrix();
           deckInst.setMatrixAt(index, dummy.matrix);
-          for (const m of markingInsts) m.setMatrixAt(index, dummy.matrix);
+          // No markings in the box where it crosses another highway
+          const inBox = inCrossingBox(
+            midVec.x + worldOffsetX,
+            midVec.z + worldOffsetZ,
+            crossCountry,
+            sampleStep / 2
+          );
+          if (inBox) dummy.scale.setScalar(0);
+          dummy.updateMatrix();
+          for (const m of markingInsts) {
+            if (m !== edgeInst) m.setMatrixAt(index, dummy.matrix);
+          }
+          if (edgeInst) {
+            [-1, 1].forEach((side, k) => {
+              dummy.position.copy(midVec);
+              dummy.lookAt(nextVec);
+              dummy.translateX(side * ROAD_EDGE_LINE_X);
+              dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+              if (
+                inBox ||
+                ChillFlightLogic.isOnSlipRoad(
+                  dummy.position.x + worldOffsetX,
+                  dummy.position.z + worldOffsetZ,
+                  1,
+                  simplex,
+                  constants
+                )
+              ) {
+                dummy.scale.setScalar(0);
+              }
+              dummy.updateMatrix();
+              edgeInst.setMatrixAt(index * 2 + k, dummy.matrix);
+            });
+          }
 
           // Extract just the yaw from the deck's rotation for pilings
           const euler = new THREE.Euler().setFromQuaternion(
@@ -2184,6 +2382,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         }
       }
     }); // End activeRoads.forEach
+    addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ);
     if (roadSegments.length > 0) group.userData.roadSegments = roadSegments;
   }
 

@@ -586,6 +586,104 @@ console.log('  Passed: Trees and rocks stand clear of the highways');
 }
 console.log('  Passed: Highways have no ramps steeper than 0.4');
 
+// --- SLIP ROADS ROUND THE CROSSINGS ---
+// Where the cross-country highway crosses a north-south one, slip roads
+// curve round the corners: smooth, gentle, on the ground (not buried in a
+// hill or floating over a hollow), and nothing stands on them
+{
+  const L = ChillFlightLogic;
+  const params = {
+    WATER_LEVEL: 40,
+    MOUNTAIN_LEVEL: 180,
+    MAP_WORLD_SIZE: 10000,
+    MAP_HEIGHT_SCALE: 400,
+  };
+  const fail = (msg) => {
+    console.error(`FAIL: ${msg}`);
+    process.exit(1);
+  };
+  let total = 0;
+  for (const seed of [20261026, 20260101, 20261025, 20261019]) {
+    useSeed(seed);
+    const slips = L.slipRoads(simplex, params);
+    total += slips.length;
+    for (const s of slips) {
+      const p = s.pts;
+      for (let i = 1; i < p.length; i++) {
+        const run = Math.hypot(p[i].x - p[i - 1].x, p[i].z - p[i - 1].z);
+        const grade = Math.abs(p[i].y - p[i - 1].y) / run;
+        if (grade > 0.3) {
+          fail(
+            `seed ${seed}, a slip road off highway ${s.n} climbs ${grade.toFixed(2)}`
+          );
+        }
+        if (i < p.length - 1) {
+          const h0 = Math.atan2(p[i].x - p[i - 1].x, p[i].z - p[i - 1].z);
+          const h1 = Math.atan2(p[i + 1].x - p[i].x, p[i + 1].z - p[i].z);
+          let turn = Math.abs(h1 - h0);
+          if (turn > Math.PI) turn = Math.PI * 2 - turn;
+          if (turn > 1e-4 && run / turn < L.SLIP.MIN_RADIUS * 0.9) {
+            fail(
+              `seed ${seed}, a slip road off highway ${s.n} turns ${(run / turn).toFixed(0)} round`
+            );
+          }
+        }
+        // The ground just under its deck (which is 1.5 thick)
+        const below =
+          p[i].y - L.getElevation(p[i].x, p[i].z, simplex, params, null);
+        if (below < 0.75 || below > 2) {
+          fail(
+            `seed ${seed}, a slip road off highway ${s.n} is ${below.toFixed(1)} over the ground at X ${p[i].x.toFixed(0)}, Z ${p[i].z.toFixed(0)}`
+          );
+        }
+      }
+    }
+  }
+  // Most corners of the 32 crossings get one
+  if (total < 70) fail(`only ${total} slip roads on four worlds`);
+
+  // Nothing stands on them, round Jimmy's crossing
+  const seed = 20261026;
+  useSeed(seed);
+  const c = L.highwayCrossing(0);
+  for (
+    let cx = Math.round(c.x / 1500) - 1;
+    cx <= Math.round(c.x / 1500) + 1;
+    cx++
+  ) {
+    for (
+      let cz = Math.round(c.z / 1500) - 1;
+      cz <= Math.round(c.z / 1500) + 1;
+      cz++
+    ) {
+      const {result} = generateChunkData({
+        chunkX: cx,
+        chunkZ: cz,
+        chunkSize: 1500,
+        segments: 40,
+        elevParams: params,
+        worldSeed: seed,
+        enableObjects: true,
+      });
+      for (const type in result.instanceData) {
+        const d = result.instanceData[type];
+        for (let i = 0; i < d.count; i++) {
+          const x = d.matrices[i * 16 + 12];
+          const z = d.matrices[i * 16 + 14];
+          if (L.isOnSlipRoad(x, z, 2, simplex, params)) {
+            fail(
+              `${type} on a slip road at X ${x.toFixed(0)}, Z ${z.toFixed(0)}`
+            );
+          }
+        }
+      }
+    }
+  }
+}
+console.log(
+  '  Passed: Slip roads round the highway crossings are smooth and clear'
+);
+
 // --- THE CROSS-COUNTRY HIGHWAY ENDS WHERE MEADOW FIELD'S ROAD STARTS ---
 // It used to run on past the junction, a deck over the access road
 {

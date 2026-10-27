@@ -3783,6 +3783,11 @@ export const ChillFlightLogic = {};
     // easing into the surrounding land over AIRPORT_FALLOFF (an island
     // where the field is over water, a plateau where it cuts into hills).
     // Last, so no other pass undoes it.
+    // Before them, the slip roads at the highway crossings, cut and filled
+    // to their height (not for the highways' own samples, forRoad)
+    if (!options.ignoreRoads && !options.forRoad) {
+      n = carveSlipRoads(n, origX, origZ, simplex, constants, _lerp);
+    }
     if (!options.ignoreAirports) {
       // First their access roads, at their own height across the falloff
       // and on to the highway, in a cutting or on an embankment with sides
@@ -4427,6 +4432,274 @@ export const ChillFlightLogic = {};
     );
   }
 
+  // --- SLIP ROADS AT THE CROSSINGS ---
+  // Where the cross-country highway crosses a north-south one, a slip road
+  // curves round each of the four corners from one to the other, so a
+  // buggy can turn off without braking. Each leaves a highway's outer lane
+  // (its outer edge on the highway's) running along it, then curves round
+  // SLIP.RADIUS onto the other; driven either way, so the four cover every
+  // turn. It runs at the highways' own height there (highwayY), with the
+  // ground cut and filled to it. Not where any of it would cross water.
+  const SLIP = {
+    RADIUS: 320, // Of its centre line (a buggy holds about 185 kts round it)
+    // Where the roads bend, it comes out tighter in places; not this tight
+    MIN_RADIUS: 100,
+    HALF: 12, // Half-width of the paving
+    // But at most this far along a highway from where their lanes' lines
+    // meet to where it curves off (a sharp corner gets a tighter curve)
+    MAX_TANGENT: 600,
+    LEAD: 60, // Runs along inside the highway's lane this far first
+    STEP: 15, // Between the points of its centre line
+    // The ground is at its height out to CORE, then eases back to the land
+    // over WALL, plus 1.5 per unit of cut or fill, up to MAX_WALL
+    CORE: 50,
+    WALL: 150,
+    MAX_WALL: 600,
+    // Its deck sits this far under the highways', so where it runs inside
+    // one's lane the highway's shows
+    DIP: 0.3,
+  };
+  const SLIP_OFFSET = ROAD_WIDTH - SLIP.HALF;
+
+  // Where the cross-country highway crosses highway n: {x, z}
+  function highwayCrossing(n) {
+    let x = ROAD_BASE_X + n * ROAD_SPACING;
+    let z;
+    // Each road's centre at the other's: settles on the crossing in a few
+    // steps (as terrain-gen.js townAt)
+    for (let i = 0; i < 20; i++) {
+      z = getRoadCenterZ(x);
+      x = getRoadCenterX(z, n);
+    }
+    return {x, z: getRoadCenterZ(x)};
+  }
+
+  // Road m's unit direction at `along`, toward rising `along`, as {x, z}
+  function roadDirection(m, along) {
+    const a = roadPoint(m, along - 5, roadCenter(m, along - 5));
+    const b = roadPoint(m, along + 5, roadCenter(m, along + 5));
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    return {x: (b.x - a.x) / len, z: (b.z - a.z) / len};
+  }
+
+  // One corner's slip road, from highway n on its `sa` side (+1 south of
+  // the crossing c) to the cross-country one on its `sb` side (+1 east):
+  // its centre line as [{x, y, z}] (y the middle of its deck, as for a
+  // highway's segments), or null where it can't be built
+  function buildSlipRoad(n, c, sa, sb, simplex, constants) {
+    const water = constants.WATER_LEVEL || 40;
+    // The two roads' directions out of the crossing into this corner
+    const dn = roadDirection(n, c.z);
+    const de = roadDirection(ROAD_EW, c.x);
+    const u = {x: dn.x * sa, z: dn.z * sa};
+    const v = {x: de.x * sb, z: de.z * sb};
+    const cos = u.x * v.x + u.z * v.z;
+    const phi = Math.acos(Math.max(-0.95, Math.min(0.95, cos)));
+    // Where the two outer lanes' lines meet, then out along each to where
+    // the curve meets it, at first as if the roads ran straight
+    const k = SLIP_OFFSET / Math.sin(phi);
+    const tangent = Math.min(SLIP.MAX_TANGENT, SLIP.RADIUS / Math.tan(phi / 2));
+    // Those ends' places along each road (z for n, x for the cross-country
+    // one), from that meeting point, c + k (u + v)
+    let endN = c.z + (u.z * (k + tangent) + v.z * k);
+    let endE = c.x + (v.x * (k + tangent) + u.x * k);
+    const lane = (m, along, toward) => {
+      const p = roadPoint(m, along, roadCenter(m, along));
+      const d = roadDirection(m, along);
+      // Off the centre line toward the corner (the side `toward` points)
+      let nx = -d.z;
+      let nz = d.x;
+      if (nx * toward.x + nz * toward.z < 0) {
+        nx = -nx;
+        nz = -nz;
+      }
+      return {x: p.x + nx * SLIP_OFFSET, z: p.z + nz * SLIP_OFFSET, d};
+    };
+    // The roads bend, so the ends' own directions set the curve: a cubic
+    // Bezier with its handles along them toward where their lines meet
+    // (da and db from each end), as near a circle's arc as it gets when
+    // that's the same distance from both. So the ends are moved along the
+    // roads until it is, a radius's worth for the turn (tighter where the
+    // corner is sharp, a turn back on itself, so it doesn't run alongside
+    // the highway for kilometres first). Not where their lines never meet
+    // ahead (an S-bend).
+    let a, b, ta, tb, da, db, turn;
+    for (let i = 0; i < 8; i++) {
+      a = lane(n, endN, v);
+      b = lane(ROAD_EW, endE, u);
+      // Into the crossing along n, out of it along the cross-country one
+      ta = {x: a.d.x * -sa, z: a.d.z * -sa};
+      tb = {x: b.d.x * sb, z: b.d.z * sb};
+      const cross = ta.x * tb.z - ta.z * tb.x;
+      if (Math.abs(cross) < 0.05) return null;
+      da = ((b.x - a.x) * tb.z - (b.z - a.z) * tb.x) / cross;
+      db = (ta.x * (b.z - a.z) - ta.z * (b.x - a.x)) / cross;
+      if (da <= 0 || db <= 0) return null;
+      turn = Math.acos(Math.max(-1, Math.min(1, ta.x * tb.x + ta.z * tb.z)));
+      const want = Math.min(SLIP.MAX_TANGENT, SLIP.RADIUS * Math.tan(turn / 2));
+      endN += (want - da) * u.z;
+      endE += (want - db) * v.x;
+    }
+    if (
+      !highwayRunsAt(n, endN + sa * SLIP.LEAD, simplex, constants) ||
+      !highwayRunsAt(ROAD_EW, endE + sb * SLIP.LEAD, simplex, constants)
+    ) {
+      return null;
+    }
+    const w = ((4 / 3) * Math.tan(turn / 4)) / Math.tan(turn / 2);
+    const p1 = {x: a.x + ta.x * da * w, z: a.z + ta.z * da * w};
+    const p2 = {x: b.x - tb.x * db * w, z: b.z - tb.z * db * w};
+    const curve = (t) => {
+      const s = 1 - t;
+      const w0 = s * s * s;
+      const w1 = 3 * s * s * t;
+      const w2 = 3 * s * t * t;
+      const w3 = t * t * t;
+      return {
+        x: w0 * a.x + w1 * p1.x + w2 * p2.x + w3 * b.x,
+        z: w0 * a.z + w1 * p1.z + w2 * p2.z + w3 * b.z,
+      };
+    };
+    const pts = [{x: a.x - ta.x * SLIP.LEAD, z: a.z - ta.z * SLIP.LEAD}];
+    const steps = Math.max(4, Math.round((da + db) / SLIP.STEP));
+    for (let i = 0; i <= steps; i++) pts.push(curve(i / steps));
+    pts.push({x: b.x + tb.x * SLIP.LEAD, z: b.z + tb.z * SLIP.LEAD});
+    // Where the roads bend hard just there, the curve can come out kinked
+    // or cut back across a highway: no slip road at that corner
+    let heading = null;
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i];
+      const q = pts[i - 1];
+      const hd = Math.atan2(p.x - q.x, p.z - q.z);
+      if (heading !== null) {
+        let turnBy = Math.abs(hd - heading);
+        if (turnBy > Math.PI) turnBy = Math.PI * 2 - turnBy;
+        if (turnBy * SLIP.MIN_RADIUS > Math.hypot(p.x - q.x, p.z - q.z)) {
+          return null;
+        }
+      }
+      heading = hd;
+      if (i > 2 && i < pts.length - 3) {
+        const offN = Math.abs(p.x - getRoadCenterX(p.z, n));
+        const offE = Math.abs(p.z - getRoadCenterZ(p.x));
+        if (Math.min(offN, offE) < SLIP_OFFSET - 1) return null;
+      }
+    }
+    for (const p of pts) {
+      const land = getElevation(p.x, p.z, simplex, constants, null, {
+        ignoreRivers: true,
+        ignoreRoads: true,
+        forRoad: true,
+      });
+      if (land < water + 2) return null;
+      p.y = highwayY(p.x, p.z, simplex, constants, null) - SLIP.DIP;
+    }
+    return pts;
+  }
+
+  // Every slip road ({pts, minX, maxX, minZ, maxZ}), cached per world
+  let _slipRoads = null;
+  let _slipRoadsSig = null;
+  function slipRoads(simplex, constants) {
+    const sig = `${exports.WORLD_SEED}:${simplex.noise2D(0.123, 0.456)}`;
+    if (sig === _slipRoadsSig) return _slipRoads;
+    _slipRoadsSig = sig;
+    _slipRoads = [];
+    for (let n = 0; n <= ROAD_LAST; n++) {
+      const c = highwayCrossing(n);
+      if (
+        c.x <= ROAD_EW_WEST ||
+        c.x >= ROAD_EW_EAST ||
+        !highwayRunsAt(n, c.z, simplex, constants) ||
+        !highwayRunsAt(ROAD_EW, c.x, simplex, constants)
+      ) {
+        continue;
+      }
+      for (const sa of [-1, 1]) {
+        for (const sb of [-1, 1]) {
+          const pts = buildSlipRoad(n, c, sa, sb, simplex, constants);
+          if (!pts) continue;
+          const xs = pts.map((p) => p.x);
+          const zs = pts.map((p) => p.z);
+          _slipRoads.push({
+            n,
+            pts,
+            minX: Math.min(...xs),
+            maxX: Math.max(...xs),
+            minZ: Math.min(...zs),
+            maxZ: Math.max(...zs),
+          });
+        }
+      }
+    }
+    return _slipRoads;
+  }
+
+  // How far (x, z) is from slip road s's centre line, if within `reach` of
+  // its bounds (else Infinity)
+  function slipRoadDistance(s, x, z, reach) {
+    if (
+      x < s.minX - reach ||
+      x > s.maxX + reach ||
+      z < s.minZ - reach ||
+      z > s.maxZ + reach
+    ) {
+      return Infinity;
+    }
+    let best = Infinity;
+    const pts = s.pts;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const t = Math.max(
+        0,
+        Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz))
+      );
+      const ex = x - (a.x + dx * t);
+      const ez = z - (a.z + dz * t);
+      best = Math.min(best, ex * ex + ez * ez);
+    }
+    return Math.sqrt(best);
+  }
+
+  // Slip roads can only be near the cross-country highway's line, where
+  // it crosses the north-south ones (x < 0)
+  function nearSlipRoads(x, z) {
+    return x < 2000 && Math.abs(z - ROAD_EW_BASE_Z) < 7000;
+  }
+
+  // Whether (x, z) is on a slip road, plus margin: props stay off it
+  function isOnSlipRoad(x, z, margin, simplex, constants) {
+    if (!nearSlipRoads(x, z)) return false;
+    const reach = SLIP.HALF + margin;
+    for (const s of slipRoads(simplex, constants)) {
+      if (slipRoadDistance(s, x, z, reach) <= reach) return true;
+    }
+    return false;
+  }
+
+  // The ground at (x, z), natural height h, cut or filled to the slip
+  // roads' height near them (getElevation)
+  function carveSlipRoads(h, x, z, simplex, constants, lerp) {
+    if (!nearSlipRoads(x, z)) return h;
+    const reach = SLIP.CORE + SLIP.MAX_WALL;
+    for (const s of slipRoads(simplex, constants)) {
+      const d = slipRoadDistance(s, x, z, reach);
+      if (d >= reach) continue;
+      // Just under the deck, as on an access road
+      const target = highwayY(x, z, simplex, constants, lerp) - 1.5;
+      const wall = Math.min(
+        SLIP.MAX_WALL,
+        SLIP.WALL + 1.5 * Math.abs(h - target)
+      );
+      const k = 1 - smoothRamp(d, SLIP.CORE, SLIP.CORE + wall);
+      if (k > 0) h = lerp(h, target, k);
+    }
+    return h;
+  }
+
   function sampleRoadSegment(
     seg,
     x,
@@ -4439,7 +4712,7 @@ export const ChillFlightLogic = {};
     const dz = seg.z1 - seg.z0;
     const lengthSq = dx * dx + dz * dz;
     const length = Math.sqrt(lengthSq);
-    const halfWidth = ROAD_WIDTH + 2;
+    const halfWidth = (seg.halfWidth ?? ROAD_WIDTH) + 2;
     const along = ((x - seg.x0) * dx + (z - seg.z0) * dz) / lengthSq;
     const pad = halfWidth / length;
     if (along < -pad || along > 1 + pad) return false;
@@ -4489,7 +4762,7 @@ export const ChillFlightLogic = {};
     out.across =
       (x - (seg.x0 + dx * t)) * out.normalX +
       (z - (seg.z0 + dz * t)) * out.normalZ;
-    out.halfWidth = ROAD_WIDTH;
+    out.halfWidth = seg.halfWidth ?? ROAD_WIDTH;
     out.rails = !!seg.rails;
     if (sampleState) sampleState.found = true;
     return true;
@@ -4592,6 +4865,10 @@ export const ChillFlightLogic = {};
   exports.accessRoadEnds = accessRoadEnds;
   exports.accessRoadDeck = accessRoadDeck;
   exports.sampleRoadSegment = sampleRoadSegment;
+  exports.SLIP = SLIP;
+  exports.slipRoads = slipRoads;
+  exports.isOnSlipRoad = isOnSlipRoad;
+  exports.highwayCrossing = highwayCrossing;
   exports.ROAD_BASE_X = ROAD_BASE_X;
   exports.ROAD_SPACING = ROAD_SPACING;
   exports.ROAD_LAST = ROAD_LAST;

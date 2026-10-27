@@ -2530,7 +2530,14 @@ export function generateChunkData({
     const isOnRoad =
       ChillFlightLogic.getRoadFactor(worldX, worldZ) > 0 ||
       ChillFlightLogic.isOnAirport(worldX, worldZ, 40) ||
-      ChillFlightLogic.isOnAccessRoad(worldX, worldZ, 30, simplex, elevParams);
+      ChillFlightLogic.isOnAccessRoad(
+        worldX,
+        worldZ,
+        30,
+        simplex,
+        elevParams
+      ) ||
+      ChillFlightLogic.isOnSlipRoad(worldX, worldZ, 20, simplex, elevParams);
     // The falls landmark: no props on its walls (they'd hang off the rock),
     // apart from its shelf's ledge
     const falls = ChillFlightLogic.fallsSiteAt(worldX, worldZ, simplex);
@@ -3252,6 +3259,14 @@ export function generateChunkData({
   const townStreets = _enableObjects
     ? townStreetsNear(worldOffsetX, worldOffsetZ, chunkSize, elevParams).filter(
         (st) =>
+          // Stopping short of the slip roads round the crossing
+          !ChillFlightLogic.isOnSlipRoad(
+            (st.x0 + st.x1) / 2,
+            (st.z0 + st.z1) / 2,
+            TOWN_STREET_STEP / 2 + TOWN_STREET_HALF_WIDTH + 2,
+            simplex,
+            elevParams
+          ) &&
           houseStyleGrid[
             Math.round(((st.z0 + st.z1) / 2 - worldOffsetZ + halfSize) / step) *
               gridX1 +
@@ -3312,7 +3327,14 @@ export function generateChunkData({
           hi - lo > 3.5 ||
           lo < WATER_LEVEL + 3 ||
           ChillFlightLogic.isOnAirport(h.x, h.z, 40) ||
-          ChillFlightLogic.isOnAccessRoad(h.x, h.z, 30, simplex, elevParams)
+          ChillFlightLogic.isOnAccessRoad(h.x, h.z, 30, simplex, elevParams) ||
+          ChillFlightLogic.isOnSlipRoad(
+            h.x,
+            h.z,
+            h.halfW + 6,
+            simplex,
+            elevParams
+          )
         ) {
           continue;
         }
@@ -3403,7 +3425,14 @@ export function generateChunkData({
           p.roadVillage ||
           (ChillFlightLogic.highwayDistance(x, z) >=
             ChillFlightLogic.ROAD_WIDTH + margin &&
-            !ChillFlightLogic.isOnAccessRoad(x, z, margin, simplex, elevParams))
+            !ChillFlightLogic.isOnAccessRoad(
+              x,
+              z,
+              margin,
+              simplex,
+              elevParams
+            ) &&
+            !ChillFlightLogic.isOnSlipRoad(x, z, margin, simplex, elevParams))
         ) {
           arr[kept++] = p;
         }

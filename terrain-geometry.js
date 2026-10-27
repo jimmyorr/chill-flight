@@ -2501,10 +2501,11 @@ function roadStripes(stripes) {
   );
 }
 const LANE_LINE_X = ChillFlightLogic.ROAD_WIDTH / 2;
-const EDGE_LINE_X = ChillFlightLogic.ROAD_WIDTH - 1.5;
-export var roadLaneLinesGeo = roadStripes([
-  [-EDGE_LINE_X, 0.7, BRIDGE_SEGMENT_LENGTH],
-  [EDGE_LINE_X, 0.7, BRIDGE_SEGMENT_LENGTH],
+// The edge lines are one stripe down the middle, set out to each edge by
+// terrain-chunks.js, which leaves one out where a slip road joins
+export const ROAD_EDGE_LINE_X = ChillFlightLogic.ROAD_WIDTH - 1.5;
+export var roadEdgeLineGeo = roadStripes([[0, 0.7, BRIDGE_SEGMENT_LENGTH]]);
+export var roadLaneDashesGeo = roadStripes([
   [-LANE_LINE_X, 0.5, 12],
   [LANE_LINE_X, 0.5, 12],
 ]);
@@ -2513,6 +2514,10 @@ export var roadCentreLinesGeo = roadStripes([
   [0.6, 0.45, BRIDGE_SEGMENT_LENGTH],
 ]);
 export var roadCentreDashGeo = roadStripes([[0, 0.5, 12]]);
+// A slip road's white edge lines, set out the same way (terrain-chunks.js
+// scales its deck down from the highway's, but not these)
+export const SLIP_EDGE_LINE_X = ChillFlightLogic.SLIP.HALF - 1.2;
+export var roadSlipLineGeo = roadStripes([[0, 0.6, BRIDGE_SEGMENT_LENGTH]]);
 const markingParams = {
   flatShading: true,
   polygonOffset: true,

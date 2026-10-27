@@ -130,6 +130,14 @@ function drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd) {
   const highwayAlpha = Math.min(1, (roadHalf / minHalf) ** 0.5 + 0.35);
   const accessHalf = ChillFlightLogic.ACCESS_ROAD_WIDTH;
   const accessAlpha = Math.min(1, (accessHalf / minHalf) ** 0.5 + 0.2);
+  const slipHalf = Math.max(minHalf, ChillFlightLogic.SLIP.HALF);
+  const slips = ChillFlightLogic.slipRoads(simplex, CONSTANTS).filter(
+    (s) =>
+      s.maxX + slipHalf >= x0 &&
+      s.minX - slipHalf <= x1 &&
+      s.maxZ + slipHalf >= z0 + rowStart * upp &&
+      s.minZ - slipHalf <= z0 + rowEnd * upp
+  );
   // The cross-country highway runs along x, so it's drawn down the columns:
   // its centre z at each column's left edge, and whether it runs there
   const ew = ChillFlightLogic.ROAD_EW;
@@ -208,6 +216,41 @@ function drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd) {
         for (let i = 0; i < 3; i++) {
           pixels[out + i] += (ROAD_COLOR[i] - pixels[out + i]) * alpha;
         }
+      }
+    }
+    // The slip roads round the crossings: each piece's stretch across the
+    // row, widened by its half-width
+    for (const s of slips) {
+      if (s.maxZ + slipHalf < zTop || s.minZ - slipHalf >= zTop + upp) {
+        continue;
+      }
+      for (let i = 0; i < s.pts.length - 1; i++) {
+        const a = s.pts[i];
+        const b = s.pts[i + 1];
+        const zLo = Math.max(zTop, Math.min(a.z, b.z) - slipHalf);
+        const zHi = Math.min(zTop + upp, Math.max(a.z, b.z) + slipHalf);
+        if (zHi <= zLo) continue;
+        const dz = b.z - a.z;
+        const at = (zz) =>
+          Math.abs(dz) < 1e-6
+            ? null
+            : a.x +
+              ((Math.max(Math.min(zz, Math.max(a.z, b.z)), Math.min(a.z, b.z)) -
+                a.z) /
+                dz) *
+                (b.x - a.x);
+        const x0s = at(zLo) ?? Math.min(a.x, b.x);
+        const x1s = at(zHi) ?? Math.max(a.x, b.x);
+        paintSpan(
+          pixels,
+          row,
+          width,
+          x0,
+          upp,
+          Math.min(x0s, x1s) - slipHalf,
+          Math.max(x0s, x1s) + slipHalf,
+          accessAlpha
+        );
       }
     }
     ChillFlightLogic.ACCESS_ROADS.forEach((road, i) => {
