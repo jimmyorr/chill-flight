@@ -840,6 +840,10 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
       4
     );
   } else if (house) {
+    // A bridge support standing in the water throws up spray too
+    if (parts[0].type === 'bridgePierShaft' && base < WATER_LEVEL + 2) {
+      propPuffs(x, WATER_LEVEL, z, index.radius[i], 4, SPRAY, 30, 6, 6);
+    }
     const spread = Math.max(8, index.radius[i] * 0.7);
     const count = Math.min(90, Math.round(40 * (spread / 8)));
     propPuffs(x, base, z, spread, height * 0.6, dust, count, 9, 5);

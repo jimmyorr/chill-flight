@@ -517,7 +517,7 @@ export function createDebrisMesh(geo, mat, capacity, useColor) {
 }
 
 // Models of props built per chunk that can be knocked over (piers,
-// campfires and tents): type -> {geo, mat}, for breakables.js. A chunk lists
+// bridge supports, campfires and tents): type -> {geo, mat}, for breakables.js. A chunk lists
 // them in userData.meshProps: [{kind, parts: [{type, mesh, index}]}], each
 // part an instance of one of the chunk's instanced meshes.
 export const debrisTypes = new Map();
@@ -534,6 +534,8 @@ debrisType('fireGlow', streetlightDecalGeo, fireGlowMat);
 debrisType('tentPoles', tentPolesGeo, woodMat);
 debrisType('tentEntrance', tentEntranceGeo, tentEntranceMat);
 tentPalette.forEach((mat, i) => debrisType('tent' + i, tentGeo, mat));
+debrisType('bridgePierShaft', bridgePierShaftGeo, bridgePilingMat);
+debrisType('bridgePierFooting', bridgePierFootingGeo, bridgePilingMat);
 debrisType('streetlightPole', streetlightPoleGeo, streetlightPoleMat);
 debrisType('streetlightArm', streetlightArmGeo, streetlightPoleMat);
 debrisType('streetlightBulb', streetlightBulbGeo, streetlightBulbMat);
@@ -2260,6 +2262,23 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             dummy.scale.set(1, 1, 1);
             dummy.updateMatrix();
             pierFootingInst.setMatrixAt(pierIndex, dummy.matrix);
+
+            // The shaft and footing crumble when hit; the cap stays up
+            // under the deck, which stays up too
+            if (shaftHeight > 0) {
+              meshProps.push({
+                kind: BREAKABLE.HOUSE,
+                parts: [
+                  {type: 'bridgePierShaft', mesh: pierShaftInst, role: 'fold'},
+                  {
+                    type: 'bridgePierFooting',
+                    mesh: pierFootingInst,
+                    role: 'rubble',
+                  },
+                ].map((part) => ({...part, index: pierIndex})),
+                rubble: 20,
+              });
+            }
 
             pierIndex++;
           }
