@@ -32,8 +32,8 @@ const fxaaParam = params.get('fxaa');
 let target = null;
 let quad = null;
 // Smoothing jagged edges (FXAA) needs the finished frame, so with it the
-// pass renders to this target first. High and ultra only: it costs ~1.4 ms a
-// frame on an M1 MacBook Air at mid.
+// pass renders to this target first. Mid and up: it costs ~1.4 ms a frame
+// on an M1 MacBook Air at mid, but without it the plane's edges crawl.
 let inkTarget = null;
 let fxaaQuad = null;
 const quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -281,7 +281,7 @@ export function renderFrame(scene, camera) {
   u.uFar.value = camera.far;
   const fxaa = fxaaParam
     ? fxaaParam !== '0'
-    : state.graphicsPreset === 'high' || state.graphicsPreset === 'ultra';
+    : state.graphicsPreset !== 'low';
   if (!fxaa) {
     renderer.render(quad, quadCamera);
     return;
