@@ -118,7 +118,7 @@ if (ART_PAINTED) {
       float sat = hi > 0.001 ? 1.0 - lo / hi : 0.0;
       vec3 hue = diffuseColor.rgb / max(hi, 0.001);
       vec3 lavender = vec3(0.9, 0.9, 1.1) * (1.0 - diffuseColor.rgb) * (1.0 - diffuseColor.rgb);
-      diffuseColor.rgb += 0.15 * mix(lavender, hue * (1.0 - hi) * (1.0 - hi), 0.6 * sat);
+      diffuseColor.rgb += 0.08 * mix(lavender, hue * (1.0 - hi) * (1.0 - hi), 0.6 * sat);
     }
     // Near-white surfaces start a little darker, so they keep their shading
     // in full sun instead of saturating to flat white (white paint at noon)
