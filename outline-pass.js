@@ -54,6 +54,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uKuwahara: {value: false},
     uHaze: {value: params.get('haze') !== '0'},
     uHorizonColor: terrainUniforms.uBottomColor,
+    uSunDirection: terrainUniforms.uSunDirection,
   },
   defines: {
     // How far toward the horizon's color distant land fades (aerial
@@ -81,6 +82,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uniform bool uKuwahara;
     uniform bool uHaze;
     uniform vec3 uHorizonColor;
+    uniform vec3 uSunDirection;
     varying vec2 vUv;
 
     // Kuwahara: the mean of whichever of the four quadrants around the pixel
@@ -213,13 +215,15 @@ const outlineMaterial = new THREE.ShaderMaterial({
         }
         // Pastel: a little less saturated, lifted
         color = mix(vec3(luma(color)), color, 0.85) * 0.9 + 0.1;
-        // Hatching in the shadows, crossed in the deepest ones
+        // Hatching in the shadows, crossed in the deepest ones; at night,
+        // when nearly everything is dark, only a trace of it
         if (!sky) {
+          float daylight = mix(0.15, 1.0, smoothstep(0.0, 0.35, uSunDirection.y));
           float hatch = step(0.5, fract((p.x + p.y) / 5.0));
           float crossed = step(0.5, fract((p.x - p.y) / 5.0));
           float shade = 1.0 - smoothstep(0.28, 0.42, lc);
           float deep = 1.0 - smoothstep(0.15, 0.25, lc);
-          color = mix(color, ink, ((1.0 - hatch) * shade * 0.55 + (1.0 - crossed) * deep * 0.45) * (1.0 - water));
+          color = mix(color, ink, ((1.0 - hatch) * shade * 0.55 + (1.0 - crossed) * deep * 0.45) * (1.0 - water) * daylight);
         }
       }
     #endif
