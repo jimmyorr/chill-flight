@@ -5,18 +5,18 @@
 //   once at load, so every lit material picks it up: smooth shading, sun and
 //   moon light in three soft steps, lavender (not grey) shadows, no
 //   near-black or blown-out white colors, fewer plastic highlights and a
-//   gentle color grade; plus its clouds, sky and post pass (outline-pass.js),
-// - comic (?style=comic): the same lighting, clouds and sky, inked and
-//   hatched like a comic by the post pass instead of painted.
+//   gentle color grade; plus its clouds, sky and post pass (outline-pass.js).
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
 const STORAGE_KEY = 'chill_flight_art_style';
 
-const STYLES = ['anime', 'comic'];
-const known = (style) => (STYLES.includes(style) ? style : 'classic');
+const STYLES = ['anime'];
+// (the retired comic style, the closest, carries on as anime)
+const known = (style) =>
+  style === 'comic' ? 'anime' : STYLES.includes(style) ? style : 'classic';
 
-// The Settings choice, unless ?style= overrides it: anime, comic, or lowpoly (also low-poly or classic) for the low-poly look
+// The Settings choice, unless ?style= overrides it: anime, or lowpoly (also low-poly or classic) for the low-poly look
 function loadStyle() {
   const param = ChillFlightLogic.urlParams?.get('style');
   if (param) return known(param);
@@ -54,8 +54,8 @@ if (select) {
   });
 }
 
-// Anime's lighting, terrain, water and clouds, which comic shares
-export const ART_PAINTED = ART_STYLE === 'anime' || ART_STYLE === 'comic';
+// Anime's lighting, terrain, water and clouds
+export const ART_PAINTED = ART_STYLE === 'anime';
 
 // The post pass (outline-pass.js) draws the frame from an offscreen target,
 // inking breaks in the depth buffer
@@ -98,16 +98,28 @@ if (ART_PAINTED) {
     'float dotNL = animeStep( dot( geometryNormal, directLight.direction ) );';
   patch('lights_physical_pars_fragment', dotNL, stepped);
   patch('lights_lambert_pars_fragment', dotNL, stepped);
-  // Brighter lavender shadows, warmer light, fewer plastic highlights
+  // Brighter lavender shadows, warmer light, fewer plastic highlights. On
+  // near-white surfaces (snow) the shade is a cool blue instead, or snow
+  // turns candy pink.
   THREE.ShaderChunk.lights_fragment_end += `
-    reflectedLight.indirectDiffuse *= vec3(0.86, 0.8, 1.12) * 1.4;
+    float animeWhite = smoothstep(0.45, 0.6,
+      min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b)));
+    reflectedLight.indirectDiffuse *= mix(vec3(0.86, 0.8, 1.12), vec3(0.9, 0.95, 1.05), animeWhite) * 1.4;
     reflectedLight.directDiffuse *= vec3(1.05, 1.0, 0.92);
     reflectedLight.directSpecular *= 0.15;
   `;
-  // No near-black surfaces: dark colors lift toward lavender grey
+  // No near-black surfaces: dark colors lift toward lavender grey, strongly
+  // colored ones partly toward their own hue (or the eastern lands' deep
+  // purple rock fades to grey)
   THREE.ShaderChunk.color_fragment += `
-    diffuseColor.rgb += 0.15 * vec3(0.9, 0.9, 1.1)
-      * (1.0 - diffuseColor.rgb) * (1.0 - diffuseColor.rgb);
+    {
+      float hi = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b));
+      float lo = min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
+      float sat = hi > 0.001 ? 1.0 - lo / hi : 0.0;
+      vec3 hue = diffuseColor.rgb / max(hi, 0.001);
+      vec3 lavender = vec3(0.9, 0.9, 1.1) * (1.0 - diffuseColor.rgb) * (1.0 - diffuseColor.rgb);
+      diffuseColor.rgb += 0.15 * mix(lavender, hue * (1.0 - hi) * (1.0 - hi), 0.6 * sat);
+    }
     // Near-white surfaces start a little darker, so they keep their shading
     // in full sun instead of saturating to flat white (white paint at noon)
     diffuseColor.rgb *= mix(1.0, 0.75, smoothstep(0.75, 0.95,

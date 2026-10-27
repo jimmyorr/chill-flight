@@ -180,8 +180,11 @@
                     lightFactorLow = mix(lightFactorLow, 1.0, thinEdge * 0.75 * (1.0 - storm * 0.7));
                     
 #ifdef ANIME_SKY
-                    // Two tones: lit and a lavender shade
-                    lightFactorLow = mix(0.35, 1.0, smoothstep(0.5, 0.65, lightFactorLow));
+                    // Two tones: lit and a lavender shade; a storm deck
+                    // shades gently instead (its flattened light sits right on
+                    // the step, which breaks it into grey camouflage blotches)
+                    lightFactorLow = mix(mix(0.35, 1.0, smoothstep(0.5, 0.65, lightFactorLow)),
+                                         mix(0.7, 1.0, lightFactorLow), storm);
                     vec3 cloudColorLow = mix(shadowColor * vec3(0.94, 0.88, 1.1), brightEdgeColor, lightFactorLow);
 #else
                     vec3 cloudColorLow = mix(shadowColor, brightEdgeColor, lightFactorLow);
@@ -278,8 +281,10 @@
                 lightFactorHorizon = mix(0.5, lightFactorHorizon, mix(1.0, 0.65, uCloudDensity));
                 
 #ifdef ANIME_SKY
-                // Two tones: lit and a lavender shade
-                lightFactorHorizon = mix(0.3, 1.0, smoothstep(0.55, 0.62, lightFactorHorizon));
+                // Two tones: lit and a lavender shade (shaded gently in a
+                // storm deck, as above)
+                lightFactorHorizon = mix(mix(0.3, 1.0, smoothstep(0.55, 0.62, lightFactorHorizon)),
+                                         mix(0.7, 1.0, lightFactorHorizon), stormHorizon);
                 vec3 cloudColorHorizon = mix(shadowColor * vec3(0.94, 0.88, 1.1), brightEdgeColor, lightFactorHorizon);
 #else
                 vec3 cloudColorHorizon = mix(shadowColor, brightEdgeColor, lightFactorHorizon);

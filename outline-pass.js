@@ -8,8 +8,8 @@
 //   the camera, so the plane reads like a drawn character. Breaks are found
 //   in 1/depth, which is linear across any plane in screen space, so slopes
 //   seen at a grazing angle don't draw lines; ?outline=0 turns them off,
-// - (comic) inks color edges too, flattens the light into a few bands and
-//   hatches the shadows,
+// - inks land and mountains boldly out to the haze, and the sharp changes
+//   of light or paint in the middle distance,
 // - fades distant land into the horizon's color (?haze=0 turns it off),
 // - and (anime) lets bright pixels glow softly into their neighbors.
 // ?brush=0 turns off the Kuwahara filter, and ?fxaa=1 or ?fxaa=0 turns edge
@@ -58,7 +58,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
     // How far toward the horizon's color distant land fades (aerial
     // perspective)
     HAZE_STRENGTH: '0.35',
-    // ANIME or COMIC: the art style's own steps
+    // ANIME: the art style's own steps
     [ART_STYLE.toUpperCase()]: '',
   },
   vertexShader: /* glsl */ `
@@ -132,8 +132,6 @@ const outlineMaterial = new THREE.ShaderMaterial({
     }
 
     void main() {
-      // Screen position in CSS pixels, for textures that keep their size
-      vec2 p = gl_FragCoord.xy / uPixelRatio;
       vec2 uv = vUv;
       // Neighbors for the outlines: one CSS pixel away
       vec2 nb = uTexel;
@@ -168,42 +166,30 @@ const outlineMaterial = new THREE.ShaderMaterial({
       edge *= (1.0 - fog) * (1.0 - fog);
       // Ink: the surface's own color darkened, leaning toward indigo close up
       vec3 ink = mix(color * vec3(0.32, 0.27, 0.36), vec3(0.16, 0.13, 0.24), 0.4 * near);
-    #ifdef COMIC
       {
-        // Water (which zeroes the target's alpha) keeps its swell and glints
-        // smooth: no ink, bands or hatching, or the glints turn to scribble
+        // Land and mountains get bolder ink, like a comic: every ridge
+        // against what's behind it inked out to the haze, in a dark indigo
+        // (the plane and things close by keep the lighter lines above), and
+        // where the light or the paint changes sharply in the middle
+        // distance (sunlit faces against shadowed ones, snow against rock).
+        // Not on water (which zeroes the target's alpha), or its glints turn
+        // to scribble.
         float water = sky ? 0.0 : 1.0 - texture2D(tColor, uv).a;
-        // Color edges are inked too (where the light or the paint changes)
         vec2 tx = vec2(uTexel.x, 0.0);
         vec2 ty = vec2(0.0, uTexel.y);
         float gx = luma(texture2D(tColor, uv + tx).rgb) - luma(texture2D(tColor, uv - tx).rgb);
         float gy = luma(texture2D(tColor, uv + ty).rgb) - luma(texture2D(tColor, uv - ty).rgb);
         float colorEdge = smoothstep(0.1, 0.22, length(vec2(gx, gy)))
-                        * (1.0 - smoothstep(800.0, 4000.0, dist));
-        edge = max(smoothstep(0.02, 0.06, bulge / c) * (1.0 - fog), colorEdge) * (1.0 - water);
-        // (softer on the plane and other things close up)
-        ink = mix(vec3(0.12, 0.1, 0.14), color * vec3(0.4, 0.36, 0.44), 0.5 * near);
-        // Flat fills: the light in four bands, keeping the hue (the sky stays
-        // smooth, or its gradient would break into stripes)
-        float lc = luma(color);
-        if (!sky) {
-          vec3 banded = clamp(color / max(lc, 0.02) * (floor(lc * 4.0) + 0.6) / 4.0, 0.0, 1.0);
-          color = mix(color, banded, 0.85 * (1.0 - water));
-        }
-        // Pastel: a little less saturated, lifted
-        color = mix(vec3(luma(color)), color, 0.85) * 0.9 + 0.1;
-        // Hatching in the shadows, crossed in the deepest ones; at night,
-        // when nearly everything is dark, only a trace of it
-        if (!sky) {
-          float daylight = mix(0.15, 1.0, smoothstep(0.0, 0.35, uSunDirection.y));
-          float hatch = step(0.5, fract((p.x + p.y) / 5.0));
-          float crossed = step(0.5, fract((p.x - p.y) / 5.0));
-          float shade = 1.0 - smoothstep(0.28, 0.42, lc);
-          float deep = 1.0 - smoothstep(0.15, 0.25, lc);
-          color = mix(color, ink, ((1.0 - hatch) * shade * 0.55 + (1.0 - crossed) * deep * 0.45) * (1.0 - water) * daylight);
-        }
+                        * smoothstep(250.0, 600.0, dist) * (1.0 - smoothstep(2500.0, 5000.0, dist));
+        // (thinning a little toward the horizon, where the ridges crowd)
+        float ridge = smoothstep(0.02, 0.06, bulge / c) * (1.0 - fog)
+                    * mix(1.0, 0.5, smoothstep(6000.0, 14000.0, dist));
+        float land = smoothstep(150.0, 400.0, dist) * (1.0 - water);
+        float landEdge = max(ridge, colorEdge * 0.7) * land;
+        vec3 landInk = mix(vec3(0.13, 0.11, 0.19), color * vec3(0.3, 0.26, 0.36), 0.35);
+        ink = mix(ink, landInk, landEdge);
+        edge = max(edge, landEdge);
       }
-    #endif
       if (uOutline) color = mix(color, ink, edge);
       // Aerial perspective: distant land fades into soft layers of the
       // horizon's color, nudged toward lavender (not the sky itself, whose
@@ -215,14 +201,16 @@ const outlineMaterial = new THREE.ShaderMaterial({
     #ifdef ANIME
       {
         // Soft glow: the brightest parts (sunlit cloud tops, white paint,
-        // glints) bleed a little warm light into their neighbors
+        // glints) bleed a little warm light into their neighbors; not into
+        // what's already bright, or the sky round a low sun swells into a
+        // big white blob
         vec3 glow = vec3(0.0);
         for (int i = 0; i < 8; i++) {
           float a = float(i) * 0.785398;
           vec3 s = texture2D(tColor, uv + vec2(cos(a), sin(a)) * 6.0 * uTexel).rgb;
           glow += max(s - 0.85, 0.0);
         }
-        color += glow / 8.0 * vec3(1.0, 0.92, 0.8) * 0.9;
+        color += glow / 8.0 * vec3(1.0, 0.92, 0.8) * 0.9 * (1.0 - smoothstep(0.7, 0.9, luma(color)));
       }
     #endif
       gl_FragColor = vec4(color, 1.0);

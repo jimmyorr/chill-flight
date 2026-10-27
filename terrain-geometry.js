@@ -184,8 +184,8 @@ export var waterMaterial = createMaterial({
   flatShading: true,
   depthWrite: false,
 });
-// The art styles' post pass needs to know where the water is (comic leaves
-// its glints and swell unbanded and uninked): see-through water blends its
+// The art styles' post pass needs to know where the water is (it leaves its
+// glints and swell uninked): see-through water blends its
 // color as usual but zeroes the target's alpha, which everything else leaves
 // at 1
 if (ART_POST) {
