@@ -191,6 +191,9 @@ const outlineMaterial = new THREE.ShaderMaterial({
       vec3 ink = mix(color * vec3(0.32, 0.27, 0.36), vec3(0.16, 0.13, 0.24), 0.4 * near);
     #ifdef COMIC
       {
+        // Water (which zeroes the target's alpha) keeps its swell and glints
+        // smooth: no ink, bands or hatching, or the glints turn to scribble
+        float water = sky ? 0.0 : 1.0 - texture2D(tColor, uv).a;
         // Color edges are inked too (where the light or the paint changes)
         vec2 tx = vec2(uTexel.x, 0.0);
         vec2 ty = vec2(0.0, uTexel.y);
@@ -198,7 +201,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
         float gy = luma(texture2D(tColor, uv + ty).rgb) - luma(texture2D(tColor, uv - ty).rgb);
         float colorEdge = smoothstep(0.1, 0.22, length(vec2(gx, gy)))
                         * (1.0 - smoothstep(800.0, 4000.0, dist));
-        edge = max(smoothstep(0.02, 0.06, bulge / c) * (1.0 - fog), colorEdge);
+        edge = max(smoothstep(0.02, 0.06, bulge / c) * (1.0 - fog), colorEdge) * (1.0 - water);
         // (softer on the plane and other things close up)
         ink = mix(vec3(0.12, 0.1, 0.14), color * vec3(0.4, 0.36, 0.44), 0.5 * near);
         // Flat fills: the light in four bands, keeping the hue (the sky stays
@@ -206,7 +209,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
         float lc = luma(color);
         if (!sky) {
           vec3 banded = clamp(color / max(lc, 0.02) * (floor(lc * 4.0) + 0.6) / 4.0, 0.0, 1.0);
-          color = mix(color, banded, 0.85);
+          color = mix(color, banded, 0.85 * (1.0 - water));
         }
         // Pastel: a little less saturated, lifted
         color = mix(vec3(luma(color)), color, 0.85) * 0.9 + 0.1;
@@ -216,7 +219,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
           float crossed = step(0.5, fract((p.x - p.y) / 5.0));
           float shade = 1.0 - smoothstep(0.28, 0.42, lc);
           float deep = 1.0 - smoothstep(0.15, 0.25, lc);
-          color = mix(color, ink, (1.0 - hatch) * shade * 0.55 + (1.0 - crossed) * deep * 0.45);
+          color = mix(color, ink, ((1.0 - hatch) * shade * 0.55 + (1.0 - crossed) * deep * 0.45) * (1.0 - water));
         }
       }
     #endif

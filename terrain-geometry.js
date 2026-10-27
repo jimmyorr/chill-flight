@@ -184,6 +184,17 @@ export var waterMaterial = createMaterial({
   flatShading: true,
   depthWrite: false,
 });
+// The art styles' post pass needs to know where the water is (comic leaves
+// its glints and swell unbanded and uninked): see-through water blends its
+// color as usual but zeroes the target's alpha, which everything else leaves
+// at 1
+if (ART_POST) {
+  waterMaterial.blending = THREE.CustomBlending;
+  waterMaterial.blendSrc = THREE.SrcAlphaFactor;
+  waterMaterial.blendDst = THREE.OneMinusSrcAlphaFactor;
+  waterMaterial.blendSrcAlpha = THREE.ZeroFactor;
+  waterMaterial.blendDstAlpha = THREE.ZeroFactor;
+}
 
 terrainMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
