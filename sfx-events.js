@@ -11,7 +11,12 @@ import {state} from './state.js';
 import {camera} from './sky.js';
 import {waterfallFeet} from './terrain-chunks.js';
 import {activePlaneType, planeGroup, planeHandling} from './airplane.js';
-import {createNoiseBuffer, getAudioContext, getSfxBus} from './sfx.js';
+import {
+  createNoiseBuffer,
+  getAudioContext,
+  getSfxBus,
+  prebakedBuffer,
+} from './sfx.js';
 
 export const SFX_EVENTS = [
   {key: 'touchdown', label: 'Touchdown'},
@@ -108,7 +113,7 @@ function makeLoop(type, freq, q, out = bus) {
 }
 
 function build() {
-  noise = createNoiseBuffer(ctx);
+  noise = prebakedBuffer('eventNoise', ctx, createNoiseBuffer);
   fallsPanner = ctx.createPanner();
   fallsPanner.panningModel = 'equalpower';
   // Loudness comes from the falls' own curve, so the panner only places the sound

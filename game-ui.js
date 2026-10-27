@@ -25,12 +25,13 @@ import {
 import {camera, clock, renderer} from './sky.js';
 import {scene} from './scene.js';
 import {musicEnabled, setMusicEnabled} from './audio.js';
-import {initAudioContext, setSfxEnabled} from './sfx.js';
+import {initAudioContext, prebakeSfxBuffers, setSfxEnabled} from './sfx.js';
 import {state} from './state.js';
 import {BASE_FLIGHT_SPEED, updateDOM, updateUrlParams} from './constants.js';
 import {hooks} from './hooks.js';
 import {Achievements} from './achievements.js';
 import {getChunkLoadingProgress} from './terrain-chunks.js';
+import {performanceMonitor} from './game-performance.js';
 import {resetAutopilot} from './autopilot.js';
 import {isSmokeOn, toggleSmoke} from './particles.js';
 
@@ -466,9 +467,6 @@ if (overlay && renderer) {
   let mutedOnTitle = false;
 
   state.dismissLoadingScreen = (instant = false) => {
-    if (renderer && typeof renderer.compile === 'function') {
-      renderer.compile(scene, camera);
-    }
     if (instant) {
       overlay.style.display = 'none';
     } else {
@@ -531,6 +529,47 @@ if (overlay && renderer) {
     });
   }
 
+  // The loading screen's last step, so the switch to flying doesn't hitch:
+  // - compiles every shader in the scene. three.js otherwise compiles one
+  //   the first time something drawn with it is on screen, and START used to
+  //   compile ~30 at once (props out of the intro camera's view, hidden
+  //   effects). getUniforms() waits for each to finish linking, a step
+  //   compileAsync doesn't wait for on browsers without parallel compiling
+  // - lets the frame rate monitor start fresh, at full resolution
+  // - generates the sound effects' noise loops
+  // - starts drawing the map around the plane (minimap.js)
+  const warmUp = async () => {
+    const t0 = performance.now();
+    // No frames meanwhile: the screen is covered, and drawing them would
+    // only compete with the compiling
+    state.isWarmingUp = true;
+    try {
+      await renderer.compileAsync(scene, camera);
+      let sliceStart = performance.now();
+      for (const program of renderer.info.programs) {
+        program.getUniforms();
+        if (performance.now() - sliceStart > 30) {
+          await new Promise((r) => setTimeout(r, 0));
+          sliceStart = performance.now();
+        }
+      }
+    } catch (e) {
+      log.warn('Shader warm-up failed', e);
+    }
+    state.isWarmingUp = false;
+    const tShaders = performance.now();
+    performanceMonitor.reset();
+    try {
+      prebakeSfxBuffers();
+    } catch (e) {
+      log.warn('Sound warm-up failed', e);
+    }
+    hooks.warmMap?.();
+    log.info(
+      `Warm-up: shaders ${Math.round(tShaders - t0)} ms (${renderer.info.programs.length} programs), sound and map ${Math.round(performance.now() - tShaders)} ms`
+    );
+  };
+
   // Always run the progress bar animation first
   if (progressContainer && progressBar) {
     progressContainer.classList.remove('hidden');
@@ -555,7 +594,8 @@ if (overlay && renderer) {
         progress = 1.0; // Fallback
       }
 
-      progressBar.style.width = `${progress * 100}%`;
+      // Terrain fills the bar to 90%, the warm-up the rest
+      progressBar.style.width = `${progress * 90}%`;
 
       // Update messages based on progress
       if (msgEl) {
@@ -565,46 +605,50 @@ if (overlay && renderer) {
         } else if (progress > 0.5 && messageIndex === 1) {
           messageIndex = 2;
           msgEl.textContent = messages[messageIndex];
-        } else if (progress >= 1.0 && messageIndex === 2) {
-          messageIndex = 3;
-          msgEl.textContent = messages[messageIndex];
         }
       }
 
       if (progress >= 1.0) {
         clearInterval(loadInterval);
-
-        // Wait a tiny bit so the progress bar visually reaches 100%
-        setTimeout(() => {
-          if (ChillFlightLogic.START_NOW) {
-            // ?start=1: straight into the flight, no intro
-            state.dismissLoadingScreen(true);
-          } else if (!musicEnabled) {
-            // Auto-skip
-            log.info('🎵 Music was paused last session. Auto-skipping.');
-            state.dismissLoadingScreen(false);
-          } else {
-            // Start cross-fade: fade out progress, fade in button simultaneously
-            const interactiveArea = document.getElementById(
-              'splash-interactive-area'
-            );
-            if (interactiveArea) interactiveArea.classList.add('crossfading');
-
-            progressContainer.classList.remove('visible');
-            progressContainer.classList.add('hidden');
-
-            if (btnContainer) {
-              btnContainer.classList.remove('hidden');
-              btnContainer.classList.add('visible');
-              if (beginBtn) {
-                // Focus after a short delay to allow transition to start
-                setTimeout(() => beginBtn.focus(), 100);
-              }
-            }
-          }
-        }, 150);
+        warmUp().then(() => {
+          progressBar.style.width = '100%';
+          if (msgEl) msgEl.textContent = messages[3];
+          onLoaded();
+        });
       }
     }, 50);
+
+    const onLoaded = () => {
+      // Wait a tiny bit so the progress bar visually reaches 100%
+      setTimeout(() => {
+        if (ChillFlightLogic.START_NOW) {
+          // ?start=1: straight into the flight, no intro
+          state.dismissLoadingScreen(true);
+        } else if (!musicEnabled) {
+          // Auto-skip
+          log.info('🎵 Music was paused last session. Auto-skipping.');
+          state.dismissLoadingScreen(false);
+        } else {
+          // Start cross-fade: fade out progress, fade in button simultaneously
+          const interactiveArea = document.getElementById(
+            'splash-interactive-area'
+          );
+          if (interactiveArea) interactiveArea.classList.add('crossfading');
+
+          progressContainer.classList.remove('visible');
+          progressContainer.classList.add('hidden');
+
+          if (btnContainer) {
+            btnContainer.classList.remove('hidden');
+            btnContainer.classList.add('visible');
+            if (beginBtn) {
+              // Focus after a short delay to allow transition to start
+              setTimeout(() => beginBtn.focus(), 100);
+            }
+          }
+        }
+      }, 150);
+    };
   } else {
     // Fallback if elements are missing
     if (!musicEnabled || ChillFlightLogic.START_NOW) {

@@ -61,6 +61,7 @@ export class MapTiles {
   // Replaces the queue with these tiles ([level, tx, tz], most wanted
   // first), skipping any already cached or being drawn
   want(tiles) {
+    this.checkWorld();
     this.queue = tiles.filter(([level, tx, tz]) => {
       const key = `${level}:${tx}:${tz}`;
       return !this.cache.has(key) && !this.inFlight.has(key);

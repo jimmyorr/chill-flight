@@ -435,6 +435,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
   // FULLSCREEN WORLD MAP IMPLEMENTATION
   // ============================================================
 
+  const pauseOverlay = document.getElementById('pause-overlay');
   let fsOverlay = null;
   let fsCanvas = null;
   let fsCtx = null;
@@ -678,6 +679,53 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
       ...wanted.map(([, lvl, tx, tz]) => [lvl, tx, tz]),
     ]);
   }
+
+  // Draws the tiles the map would open on now (around the plane, at the
+  // current zoom) ahead of time, so the first open shows the map at once
+  // instead of every map worker starting up and drawing while you wait.
+  // Runs when loading finishes, then every few seconds; cached tiles cost
+  // nothing, so in flight it only draws the odd new tile as the plane moves.
+  let mapWarmTimer = null;
+  function warmMapView() {
+    if (!mapWarmTimer) {
+      mapWarmTimer = setInterval(warmMapView, 10000);
+      // Size the canvas now too: it's a large allocation
+      resizeFsCanvas();
+    }
+    if (fsVisible || !planeGroup) return;
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+    const upp = (fsViewRadius * 2) / Math.min(screenW, screenH);
+    const cx = planeGroup.position.x;
+    const cz = planeGroup.position.z;
+    // A level's tiles on screen, nearest the middle first
+    const tilesAt = (level) => {
+      const tileWorld = TILE_PX * MapTiles.upp(level);
+      const tiles = [];
+      const tx0 = Math.floor((cx - (screenW * upp) / 2) / tileWorld);
+      const tx1 = Math.floor((cx + (screenW * upp) / 2) / tileWorld);
+      const tz0 = Math.floor((cz - (screenH * upp) / 2) / tileWorld);
+      const tz1 = Math.floor((cz + (screenH * upp) / 2) / tileWorld);
+      for (let tz = tz0; tz <= tz1; tz++) {
+        for (let tx = tx0; tx <= tx1; tx++) {
+          const d = Math.hypot(
+            (tx + 0.5) * tileWorld - cx,
+            (tz + 0.5) * tileWorld - cz
+          );
+          tiles.push([d, level, tx, tz]);
+        }
+      }
+      return tiles.sort((a, b) => a[0] - b[0]).map((t) => t.slice(1));
+    };
+    // As drawMapTiles asks: a coarse level first, then the sharp one
+    const level = MapTiles.levelFor(upp);
+    const coarse = Math.min(MAX_LEVEL, level + 2);
+    mapTiles.want([
+      ...(coarse > level ? tilesAt(coarse) : []),
+      ...tilesAt(level),
+    ]);
+  }
+  hooks.warmMap = warmMapView;
 
   function renderFullscreenMap() {
     if (!fsVisible || !fsCtx) return;
@@ -1030,6 +1078,9 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
   function openFullscreenMap() {
     if (fsVisible) return;
     if (!state.isPaused) togglePause();
+    // The pause menu sits under the map, and its blurred backdrop would
+    // still be redrawn every frame
+    if (pauseOverlay) pauseOverlay.classList.add('under-map');
     initFullscreenMap();
     fsVisible = true;
     if (fsOverlay) {
@@ -1208,6 +1259,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
 
     fsVisible = false;
     setWarpPin(null);
+    if (pauseOverlay) pauseOverlay.classList.remove('under-map');
     if (state.isPaused) togglePause();
     if (fsOverlay) {
       fsOverlay.style.display = 'none';

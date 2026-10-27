@@ -387,9 +387,12 @@ function performFrame() {
     } else if (
       loadingOverlay &&
       loadingOverlay.style.display !== 'none' &&
-      !state.isIntroTransitionActive
+      !state.isIntroTransitionActive &&
+      !state.isWarmingUp
     ) {
-      renderer.render(scene, camera);
+      // As in flight (with the art style's outline pass), so its shaders
+      // and render targets are ready before START
+      renderFrame(scene, camera);
     }
     return;
   }

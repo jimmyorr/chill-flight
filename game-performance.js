@@ -108,6 +108,24 @@ class DynamicPerformanceMonitor {
   }
 
   /**
+   * Forgets the frame times so far and goes back to full resolution. Called
+   * when loading finishes: generating terrain makes loading frames slow, so
+   * resolution had dropped, and stepping it back up resized the canvas a few
+   * times in the first seconds of flight.
+   */
+  reset() {
+    this.ringIndex = 0;
+    this.ringSum = 0;
+    this.ringCount = 0;
+    this.cooldownFrames = 0;
+    this._chunkBudgetMs = 4.0;
+    if (this.pixelRatioMultiplier !== 1.0) {
+      this.pixelRatioMultiplier = 1.0;
+      this.applyDRS();
+    }
+  }
+
+  /**
    * Update night culling state. Call each frame with the current sunLightFactor.
    * When it is < 0.05, shadows are entirely skipped (no shadow pass at all).
    */

@@ -369,6 +369,51 @@ export function setSfxVolume(vol) {
   syncSfxState();
 }
 
+// Buffers generated ahead on the loading screen (prebakeSfxBuffers), so
+// starting the game only copies them: generating them all inside the START
+// tap held it up by ~100 ms. Made at phones' usual output rate; a context at
+// another rate generates its own as before. Name -> channel data
+const PREBAKE_RATE = 48000;
+const prebaked = new Map();
+
+// Stands in for an AudioContext so the generators fill plain arrays
+function arrayContext(sampleRate) {
+  return {
+    sampleRate,
+    createBuffer(channels, length) {
+      const data = Array.from(
+        {length: channels},
+        () => new Float32Array(length)
+      );
+      return {data, getChannelData: (i) => data[i]};
+    },
+  };
+}
+
+export function prebakeSfxBuffers() {
+  if (isInitialized || prebaked.size > 0) return;
+  const context = arrayContext(PREBAKE_RATE);
+  prebaked.set('wind', createNoiseBuffer(context).data);
+  prebaked.set('crickets', createCricketBuffer(context).data);
+  prebaked.set('breeze', createBreezeBuffer(context).data);
+  prebaked.set('eventNoise', createNoiseBuffer(context).data);
+}
+
+// The prebaked buffer `name` (each is used once), or make(context) if there
+// isn't one at this context's rate
+export function prebakedBuffer(name, context, make) {
+  const data = prebaked.get(name);
+  prebaked.delete(name);
+  if (!data || context.sampleRate !== PREBAKE_RATE) return make(context);
+  const buffer = context.createBuffer(
+    data.length,
+    data[0].length,
+    context.sampleRate
+  );
+  data.forEach((channel, i) => buffer.copyToChannel(channel, i));
+  return buffer;
+}
+
 /**
  * Initializes the Web Audio graph for sound effects.
  * Safe to call repeatedly; initializes only once.
@@ -397,7 +442,7 @@ export function initAudioContext() {
 
     // --- Wind rush (Pink noise bandpass) ---
     windSource = audioCtx.createBufferSource();
-    windSource.buffer = createNoiseBuffer(audioCtx);
+    windSource.buffer = prebakedBuffer('wind', audioCtx, createNoiseBuffer);
     windSource.loop = true;
 
     windFilter = audioCtx.createBiquadFilter();
@@ -415,7 +460,11 @@ export function initAudioContext() {
 
     // --- Stopped land crickets ambiance (night/dusk) ---
     cricketSource = audioCtx.createBufferSource();
-    cricketSource.buffer = createCricketBuffer(audioCtx);
+    cricketSource.buffer = prebakedBuffer(
+      'crickets',
+      audioCtx,
+      createCricketBuffer
+    );
     cricketSource.loop = true;
 
     cricketGain = audioCtx.createGain();
@@ -427,7 +476,11 @@ export function initAudioContext() {
 
     // --- Stopped land meadow breeze ambiance (daytime) ---
     breezeSource = audioCtx.createBufferSource();
-    breezeSource.buffer = createBreezeBuffer(audioCtx);
+    breezeSource.buffer = prebakedBuffer(
+      'breeze',
+      audioCtx,
+      createBreezeBuffer
+    );
     breezeSource.loop = true;
 
     breezeFilter = audioCtx.createBiquadFilter();

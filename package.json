@@ -50,6 +50,7 @@
     "test:weather": "node scripts/test-weather.js",
     "test:multiplayer": "node scripts/test-multiplayer.js",
     "bench": "node scripts/bench-render.js",
+    "bench:startup": "node scripts/bench-startup.js",
     "promo": "npm run promo:stills && npm run promo:artwork && npm run promo:video -- iphone-preview && npm run promo:video -- ipad-preview && npm run promo:video -- trailer",
     "promo:sheet": "node scripts/promo.js sheet",
     "promo:stills": "node scripts/promo.js stills",

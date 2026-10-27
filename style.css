@@ -117,6 +117,11 @@ textarea {
   backdrop-filter: blur(5px);
 }
 
+/* Covered by the full map (minimap.js): no blur to redraw */
+#pause-overlay.under-map {
+  backdrop-filter: none;
+}
+
 #pause-overlay::after {
   content: '';
   position: absolute;

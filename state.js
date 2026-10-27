@@ -161,6 +161,8 @@ export const state = {
   lifetimeDistanceTravelled: undefined, // set in game.js
   distanceSinceLastSave: 0,
   isIntroTransitionActive: false,
+  // The loading screen's shader warm-up is running (game-ui.js)
+  isWarmingUp: false,
   introTransitionStartTime: 0,
   freeCamDeltaX: 0,
   freeCamDeltaY: 0,
