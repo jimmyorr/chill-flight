@@ -80,9 +80,17 @@ function patch(chunkName, from, to) {
 
 if (ART_PAINTED) {
   THREE.ShaderChunk.common += `
-    // Three light levels: shadow, half lit and lit, with soft edges
+    // Three light levels: shadow, half lit and lit, with soft edges.
+    // Vehicles (ANIME_SOFT_LIGHT, see softenAnimeLight) get much wider
+    // edges: a wing is one big flat face, so a narrow edge flipped the whole
+    // wing from half lit to lit within a few degrees of bank, and the lit
+    // edge sits where a level wing faces a sun ~20 deg up
     float animeStep(float d) {
+    #ifdef ANIME_SOFT_LIGHT
+      return 0.35 * smoothstep(-0.2, 0.2, d) + 0.65 * smoothstep(0.05, 0.75, d);
+    #else
       return 0.35 * smoothstep(-0.05, 0.05, d) + 0.65 * smoothstep(0.32, 0.42, d);
+    #endif
     }
     // A little more saturation, with blacks lifted toward lavender
     vec3 animeGrade(vec3 c) {
@@ -130,4 +138,20 @@ if (ART_PAINTED) {
     'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
     'gl_FragColor = vec4( animeGrade( outgoingLight ), diffuseColor.a );'
   );
+}
+
+// Gives a vehicle model's materials anime's softer light steps (above). The
+// materials are only shared with other vehicles, so this marks them in place.
+export function softenAnimeLight(object) {
+  if (!ART_PAINTED) return;
+  object.traverse((child) => {
+    if (!child.isMesh) return;
+    for (const m of Array.isArray(child.material)
+      ? child.material
+      : [child.material]) {
+      if (!m || m.defines?.ANIME_SOFT_LIGHT !== undefined) continue;
+      m.defines = {...m.defines, ANIME_SOFT_LIGHT: ''};
+      m.needsUpdate = true;
+    }
+  });
 }

@@ -10,6 +10,7 @@ import {createTwinModel} from './twin.js';
 import {createJetModel} from './jet.js';
 import {createSeaplaneModel} from './airplane.js';
 import {createBuggyModel} from './buggy-model.js';
+import {softenAnimeLight} from './art-style.js';
 
 // The seaplane flies without the player's pontoons, so it has no landing
 // gear; the buggy is for friends driving one (multiplayer.js)
@@ -51,6 +52,7 @@ export function buildPlaneModel(type, livery) {
       child.receiveShadow = false;
     }
   });
+  softenAnimeLight(model);
   return model;
 }
 

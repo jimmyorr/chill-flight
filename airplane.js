@@ -21,6 +21,7 @@ import {createJetModel} from './jet.js';
 import {createBuggyModel} from './buggy-model.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
+import {softenAnimeLight} from './art-style.js';
 
 export const planeGroup = new THREE.Group();
 // Turned so the Falls aren't dead ahead (spawnYaw), unless heading specified in URL
@@ -410,6 +411,7 @@ export function setActivePlane(planeType, skipStorage = false) {
       child.receiveShadow = false;
     }
   });
+  softenAnimeLight(newModel);
 
   // Update UI buttons if present in pause overlay
   const planeSelectGroup = document.getElementById('plane-select-group');
