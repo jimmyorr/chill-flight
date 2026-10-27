@@ -538,10 +538,12 @@ if (overlay && renderer) {
   // - lets the frame rate monitor start fresh, at full resolution
   // - generates the sound effects' noise loops
   // - starts drawing the map around the plane (minimap.js)
-  const warmUp = async () => {
-    const t0 = performance.now();
-    // No frames meanwhile: the screen is covered, and drawing them would
-    // only compete with the compiling
+  // Compiles every shader in the scene, then waits for each to link. It
+  // runs first once some terrain is in (most materials appear with the first
+  // chunks), overlapping the rest of the terrain loading, then again at the
+  // end for anything new. No frames meanwhile: the screen is covered, and
+  // drawing them would only compete with the compiling
+  const compileAll = async () => {
     state.isWarmingUp = true;
     try {
       await renderer.compileAsync(scene, camera);
@@ -557,6 +559,15 @@ if (overlay && renderer) {
       log.warn('Shader warm-up failed', e);
     }
     state.isWarmingUp = false;
+  };
+  let earlyCompile = null;
+  const warmUp = async () => {
+    const t0 = performance.now();
+    await earlyCompile;
+    const tEarly = performance.now();
+    const early = renderer.info.programs.length;
+    // Anything the later chunks added
+    await compileAll();
     const tShaders = performance.now();
     performanceMonitor.reset();
     try {
@@ -566,7 +577,7 @@ if (overlay && renderer) {
     }
     hooks.warmMap?.();
     log.info(
-      `Warm-up: shaders ${Math.round(tShaders - t0)} ms (${renderer.info.programs.length} programs), sound and map ${Math.round(performance.now() - tShaders)} ms`
+      `Warm-up: shaders ${Math.round(tShaders - t0)} ms (${Math.round(tEarly - t0)} ms waiting for the early ${early}, ${renderer.info.programs.length} in all), sound and map ${Math.round(performance.now() - tShaders)} ms`
     );
   };
 
@@ -607,6 +618,8 @@ if (overlay && renderer) {
           msgEl.textContent = messages[messageIndex];
         }
       }
+
+      if (progress >= 0.25 && !earlyCompile) earlyCompile = compileAll();
 
       if (progress >= 1.0) {
         clearInterval(loadInterval);

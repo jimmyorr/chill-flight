@@ -596,6 +596,17 @@ function rockArchProp(pos, meshes, blocks, grass = true) {
 export const waterfallFeet = new Map();
 export const volcanoCrater = {y: null};
 
+// The glow up the volcano's crater walls. One light for the game's life,
+// lit while the volcano's chunk is loaded: adding and removing a light
+// changes the light count every lit shader is compiled for, so loading or
+// dropping that chunk made all of them recompile at once (a big hitch,
+// including right after START near the volcano). Physical units (candela):
+// the legacy-tuned 30.0 converted to keep the glow at ~200 m (decay 1)
+const VOLCANO_GLOW = 5600;
+const volcanoGlow = new THREE.SpotLight(0xff4500, 0, 3000, Math.PI / 6, 0.5, 1);
+scene.add(volcanoGlow);
+scene.add(volcanoGlow.target);
+
 // Register Tree types
 globalInstancer.registerType('pineTrunk', treeTrunkGeo, treeTrunkMat);
 globalInstancer.registerType(
@@ -1389,25 +1400,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           group.add(mesh);
         });
 
-        // Spot light pointing up to cast a glow on the crater walls
-        // three.js r155+ uses physical light units (candela). Converted from
-        // the legacy-tuned 30.0 to preserve the glow at ~200 m (decay was and
-        // remains 1). Verify visually.
-        const sLight = new THREE.SpotLight(
-          0xff4500,
-          5600,
-          3000,
-          Math.PI / 6,
-          0.5,
-          1
-        );
-        // Place spotlight slightly above lava surface to avoid being buried
-        sLight.position.set(vX, lavaY + 10, vZ);
-        const sTarget = new THREE.Object3D();
-        sTarget.position.set(vX, 2000, vZ);
-        group.add(sTarget);
-        sLight.target = sTarget;
-        group.add(sLight);
+        // Spot light pointing up to cast a glow on the crater walls, placed
+        // slightly above the lava surface to avoid being buried
+        volcanoGlow.position.set(vX, lavaY + 10, vZ);
+        volcanoGlow.target.position.set(vX, 2000, vZ);
+        volcanoGlow.target.updateMatrixWorld();
+        volcanoGlow.intensity = VOLCANO_GLOW;
+        group.userData.volcanoGlow = true;
       }
     }
   }
@@ -3285,6 +3284,7 @@ export function updateChunks() {
       group.userData.counts = null;
       group.userData.rockArch = null;
       group.userData.roadSegments = null;
+      if (group.userData.volcanoGlow) volcanoGlow.intensity = 0;
 
       scene.remove(group);
       chunks.delete(key);
