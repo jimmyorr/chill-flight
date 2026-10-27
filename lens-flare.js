@@ -206,7 +206,14 @@ const elementMaterial = new THREE.ShaderMaterial({
       gl_FragColor = vec4(color * texture2D(map, vUV).a * vVisibility, 1.0);
     }
   `,
-  blending: THREE.AdditiveBlending,
+  // Added to the color, leaving the target's alpha alone: the art styles'
+  // post pass reads alpha 0 as water (see waterMaterial), and additive
+  // blending's alpha turned each ghost's square into land there
+  blending: THREE.CustomBlending,
+  blendSrc: THREE.OneFactor,
+  blendDst: THREE.OneFactor,
+  blendSrcAlpha: THREE.ZeroFactor,
+  blendDstAlpha: THREE.OneFactor,
   transparent: true,
   depthTest: false,
   depthWrite: false,
