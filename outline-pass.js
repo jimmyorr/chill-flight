@@ -5,7 +5,7 @@
 //   faded in with distance so nearby things stay crisp; not on low),
 // - (pixel) draws the frame in blocks of 4x4 CSS pixels,
 // - darkens pixels on the near side of depth breaks into ink outlines
-//   (silhouettes, ridges against what's behind), bolder and darker close to
+//   (silhouettes, ridges against what's behind), a little bolder close to
 //   the camera, so the plane reads like a drawn character. Breaks are found
 //   in 1/depth, which is linear across any plane in screen space, so slopes
 //   seen at a grazing angle don't draw lines; ?outline=0 turns them off,
@@ -160,14 +160,16 @@ const outlineMaterial = new THREE.ShaderMaterial({
       vec3 color = texture2D(tColor, uv).rgb;
     #ifdef ANIME
       // Brushwork fades in with distance: nearby trees, houses and roads stay
-      // crisp, distant land melts into daubs like a painted backdrop
-      float brushAmt = smoothstep(250.0, 1800.0, dist);
+      // crisp, distant land softens into daubs like a painted backdrop (only
+      // partway, so far hills keep their shapes)
+      float brushAmt = smoothstep(600.0, 4000.0, dist) * 0.55;
       if (uKuwahara && brushAmt > 0.0) color = mix(color, kuwahara(uv), brushAmt);
     #endif
     #ifndef PIXEL
-      // Close to the camera (the plane, nearby buildings) lines get bolder
+      // Close to the camera (the plane, nearby buildings) lines get a little
+      // bolder
       float near = 1.0 - smoothstep(60.0, 400.0, dist);
-      nb *= 1.0 + 2.0 * near;
+      nb *= 1.0 + 0.75 * near;
     #else
       float near = 0.0;
     #endif
@@ -185,9 +187,8 @@ const outlineMaterial = new THREE.ShaderMaterial({
       // ...and fade out with the scene's fog, like the surfaces they ink
       float fog = 1.0 - exp(-uFogDensity * uFogDensity * dist * dist);
       edge *= (1.0 - fog) * (1.0 - fog);
-      // Ink: the surface's own color darkened, turning to solid indigo close
-      // up
-      vec3 ink = mix(color * vec3(0.32, 0.27, 0.36), vec3(0.16, 0.13, 0.24), near);
+      // Ink: the surface's own color darkened, leaning toward indigo close up
+      vec3 ink = mix(color * vec3(0.32, 0.27, 0.36), vec3(0.16, 0.13, 0.24), 0.4 * near);
     #ifdef COMIC
       {
         // Color edges are inked too (where the light or the paint changes)
@@ -198,7 +199,8 @@ const outlineMaterial = new THREE.ShaderMaterial({
         float colorEdge = smoothstep(0.1, 0.22, length(vec2(gx, gy)))
                         * (1.0 - smoothstep(800.0, 4000.0, dist));
         edge = max(smoothstep(0.02, 0.06, bulge / c) * (1.0 - fog), colorEdge);
-        ink = vec3(0.12, 0.1, 0.14);
+        // (softer on the plane and other things close up)
+        ink = mix(vec3(0.12, 0.1, 0.14), color * vec3(0.4, 0.36, 0.44), 0.5 * near);
         // Flat fills: the light in four bands, keeping the hue (the sky stays
         // smooth, or its gradient would break into stripes)
         float lc = luma(color);
