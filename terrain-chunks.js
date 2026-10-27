@@ -518,8 +518,8 @@ export function createDebrisMesh(geo, mat, capacity, useColor) {
 
 // Models of props built per chunk that can be knocked over (piers, bridge
 // supports, campfires and tents): type -> {geo, mat}, for breakables.js. A
-// chunk lists them in userData.meshProps: [{kind, parts: [{type, mesh, index}]}], each
-// part an instance of one of the chunk's instanced meshes.
+// chunk lists them in userData.meshProps: [{kind, parts: [{type, mesh,
+// index}]}], each part an instance of one of the chunk's instanced meshes.
 export const debrisTypes = new Map();
 // Breakable props that aren't in any chunk (airports): each a stand-in for
 // a chunk, {userData: {meshProps, ...}}. A part can also be a whole object
