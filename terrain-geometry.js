@@ -10,7 +10,7 @@ import {
   WIND_DIR_Z,
   WINDMILL_ROT_Y,
 } from './terrain-gen.js';
-import {ART_STYLE} from './art-style.js';
+import {ART_PAINTED, ART_POST} from './art-style.js';
 import {
   CHUNK_SIZE,
   CLOUD_GLSL,
@@ -262,7 +262,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
   );
 
   // Anime style: painterly variation in the greens
-  if (ART_STYLE === 'anime') {
+  if (ART_PAINTED) {
     shader.fragmentShader = shader.fragmentShader.replace(
       'void main() {',
       `#define ANIME_TERRAIN
@@ -728,7 +728,7 @@ waterMaterial.onBeforeCompile = function (shader) {
   );
 
   // Anime style: painted wave strokes
-  if (ART_STYLE === 'anime') {
+  if (ART_PAINTED) {
     shader.fragmentShader = '#define ANIME_WATER\n' + shader.fragmentShader;
   }
 };
@@ -3428,9 +3428,9 @@ export var reflectionMat = new THREE.MeshBasicMaterial({
   // program on every draw (~100x per frame here). One flat color blends the
   // same in any order, so a single pass looks identical.
   forceSinglePass: true,
-  // The anime style's outline pass inks depth breaks; a see-through
+  // The art styles' post pass inks depth breaks; a see-through
   // reflection shouldn't draw them
-  depthWrite: ART_STYLE !== 'anime',
+  depthWrite: !ART_POST,
 });
 
 export var sailboatReflectionGeo = mergeGeometries([

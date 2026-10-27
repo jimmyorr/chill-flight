@@ -1,22 +1,30 @@
 // --- ART STYLE ---
-// Opt-in anime / painterly look (?style=anime). Patches three.js's shared
-// lighting shader chunks once at load, so every lit material picks it up:
-// smooth shading, sun and moon light in three soft steps, lavender (not grey)
-// shadows, no near-black or blown-out white colors, fewer plastic highlights
-// and a gentle color grade. The low-poly look (called "classic" in code) is
-// untouched.
+// Opt-in looks besides low poly (called "classic" in code, untouched by the
+// others):
+// - anime (?style=anime): patches three.js's shared lighting shader chunks
+//   once at load, so every lit material picks it up: smooth shading, sun and
+//   moon light in three soft steps, lavender (not grey) shadows, no
+//   near-black or blown-out white colors, fewer plastic highlights and a
+//   gentle color grade; plus its clouds, sky and post pass (outline-pass.js),
+// - comic (?style=comic): the same lighting, clouds and sky, inked and
+//   hatched like a comic by the post pass instead of painted,
+// - pixel (?style=pixel): low poly, drawn in chunky pixels with a limited
+//   palette by the post pass.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
 const STORAGE_KEY = 'chill_flight_art_style';
 
-// The Settings choice, unless ?style= overrides it: anime, or lowpoly (also
-// low-poly or classic) for the low-poly look
+const STYLES = ['anime', 'comic', 'pixel'];
+const known = (style) => (STYLES.includes(style) ? style : 'classic');
+
+// The Settings choice, unless ?style= overrides it: anime, comic, pixel, or
+// lowpoly (also low-poly or classic) for the low-poly look
 function loadStyle() {
   const param = ChillFlightLogic.urlParams?.get('style');
-  if (param) return param === 'anime' ? 'anime' : 'classic';
+  if (param) return known(param);
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'anime' ? 'anime' : 'classic';
+    return known(localStorage.getItem(STORAGE_KEY));
   } catch {
     return 'classic';
   }
@@ -43,20 +51,27 @@ if (select) {
     const url = new URL(window.location.href);
     url.searchParams.delete('style');
     // Without storage, carry the choice in the URL instead
-    if (!saved && select.value === 'anime')
-      url.searchParams.set('style', 'anime');
+    if (!saved && select.value !== 'classic')
+      url.searchParams.set('style', select.value);
     window.location.assign(url.toString());
   });
 }
 
+// Anime's lighting, terrain, water and clouds, which comic shares
+export const ART_PAINTED = ART_STYLE === 'anime' || ART_STYLE === 'comic';
+
+// The post pass (outline-pass.js) draws the frame from an offscreen target,
+// inking breaks in the depth buffer
+export const ART_POST = ART_STYLE !== 'classic';
+
 // Smooth shading for materials that would otherwise be flat-shaded
-export const ART_SMOOTH = ART_STYLE === 'anime';
+export const ART_SMOOTH = ART_PAINTED;
 
 // Anime clouds (bigger, rounder, crisp-edged and two-toned; constants.js and
-// sky.frag.glsl), unless ?cloudStyle=classic keeps the classic clouds
+// sky.frag.glsl) and a deeper sky, unless ?cloudStyle=classic keeps the
+// classic ones
 export const ART_CLOUDS =
-  ART_STYLE === 'anime' &&
-  ChillFlightLogic.urlParams.get('cloudStyle') !== 'classic';
+  ART_PAINTED && ChillFlightLogic.urlParams.get('cloudStyle') !== 'classic';
 
 function patch(chunkName, from, to) {
   const chunk = THREE.ShaderChunk[chunkName];
@@ -66,7 +81,7 @@ function patch(chunkName, from, to) {
   THREE.ShaderChunk[chunkName] = chunk.replace(from, to);
 }
 
-if (ART_STYLE === 'anime') {
+if (ART_PAINTED) {
   THREE.ShaderChunk.common += `
     // Three light levels: shadow, half lit and lit, with soft edges
     float animeStep(float d) {

@@ -3,7 +3,7 @@
 // live in state.js instead.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {ART_CLOUDS, ART_SMOOTH, ART_STYLE} from './art-style.js';
+import {ART_CLOUDS, ART_PAINTED, ART_POST, ART_SMOOTH} from './art-style.js';
 import {state} from './state.js';
 
 // Terrain parameters
@@ -200,7 +200,20 @@ export const SKY_COLOR_GLSL = `
 // sunCoreAt(d) * coreAmount).
 vec3 skyBaseAt(vec3 d, vec3 topCol, vec3 bottomCol, vec3 sunDir) {
   float h = d.y;
-
+${
+  ART_CLOUDS
+    ? `
+  // Anime sky: by day a deeper, more saturated zenith over a bluer horizon,
+  // and the deep blue reaching further down, so white clouds stand out
+  float animeDay = smoothstep(0.05, 0.3, sunDir.y);
+  float animeTopLum = dot(topCol, vec3(0.299, 0.587, 0.114));
+  topCol = mix(topCol, clamp(mix(vec3(animeTopLum), topCol, 2.2) * 0.72, 0.0, 1.0), animeDay);
+  float animeBottomLum = dot(bottomCol, vec3(0.299, 0.587, 0.114));
+  bottomCol = mix(bottomCol, clamp(mix(vec3(animeBottomLum), bottomCol, 1.3), 0.0, 1.0), animeDay);
+  h = h > 0.0 ? pow(h, mix(1.0, 0.4, animeDay)) : h;
+`
+    : ''
+}
   // Around sunrise and sunset the sky varies around the compass, not just
   // with height: warm and bright toward the sun, cooler away from it, with
   // the earth's shadow (a darker blue band) and the pink "belt of Venus"
@@ -579,7 +592,7 @@ export function createMaterial(params) {
   const newParams = {...params};
   if (ART_SMOOTH) newParams.flatShading = false;
   // foliage: in the anime style, leaves get clumps of light and shadow
-  const foliage = newParams.foliage && ART_STYLE === 'anime';
+  const foliage = newParams.foliage && ART_PAINTED;
   delete newParams.foliage;
 
   let mat;
@@ -738,14 +751,10 @@ export function createMaterial(params) {
     );
   };
 
-  // The anime style's outline pass inks breaks in the depth buffer, so
-  // mostly see-through things (smoke, glass) stay out of it; otherwise they
-  // get ink outlines
-  if (
-    ART_STYLE === 'anime' &&
-    newParams.transparent &&
-    (newParams.opacity ?? 1) < 0.7
-  ) {
+  // The art styles' post pass inks breaks in the depth buffer, so mostly
+  // see-through things (smoke, glass) stay out of it; otherwise they get ink
+  // outlines
+  if (ART_POST && newParams.transparent && (newParams.opacity ?? 1) < 0.7) {
     mat.depthWrite = false;
   }
 
