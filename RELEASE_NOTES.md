@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.2](https://v1-2-2.chill-flight.pages.dev)
+
+- **Races:** Compete in multiplayer ring and highway arch races with slipstream drafting and bot racers.
+- **Highways:** Added two-lane crossing slip roads, gentler grades, and automatic stuck buggy rescue.
+- **Collisions & autopilot:** Planes and buggies bump with tactile thuds; buggies gain road and tour autopilot.
+
 ## [1.2.1](https://v1-2-1.chill-flight.pages.dev)
 
 - **Buggy:** Drive across the island with hops, drifting, headlights, and hovercraft mode over water.

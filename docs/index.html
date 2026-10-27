@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "1.2.1";
-window.__COMMIT_HASH__ = "6b86be7";
+    <script>window.__APP_VERSION__ = "1.2.2";
+window.__COMMIT_HASH__ = "e652030";
 window.__IS_DIRTY__ = false;</script>
 
     <meta charset="UTF-8" />
@@ -18,20 +18,67 @@ window.__IS_DIRTY__ = false;</script>
     />
     <meta name="theme-color" content="#000000" />
     <title>Chill Flight</title>
+    <link rel="canonical" href="https://chillflight.app/" />
+    <!-- Link previews (Open Graph, Twitter/X cards). The image is made by
+         `node scripts/promo.js artwork og-image`. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Chill Flight" />
+    <meta property="og:title" content="Chill Flight" />
+    <meta property="og:url" content="https://chillflight.app/" />
+    <meta property="og:image" content="https://chillflight.app/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A biplane flying over islands at sunset, with the Chill Flight app icon"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Chill Flight" />
+    <meta name="twitter:image" content="https://chillflight.app/og-image.jpg" />
 
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
     <link rel="manifest" href="manifest.json" />
     <link rel="apple-touch-icon" href="icon-192.png" />
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
-    <!-- sync-start:meta-description -->
+    <!-- sync-start:description -->
     <meta
       name="description"
-      content="A casual flight simulator set in a vast, ever-changing world."
+      content="A casual flight simulator set in a vast, ever-changing world. Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey."
     />
-    <!-- sync-end:meta-description -->
-    <script type="module" crossorigin src="./assets/main-BR6HrK5s.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/three-Bbd3hpd3.js">
-    <link rel="stylesheet" crossorigin href="./assets/main-BgsthHov.css">
+    <meta
+      property="og:description"
+      content="A casual flight simulator set in a vast, ever-changing world. Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey."
+    />
+    <meta
+      name="twitter:description"
+      content="A casual flight simulator set in a vast, ever-changing world. Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey."
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Chill Flight",
+        "url": "https://chillflight.app/",
+        "image": "https://chillflight.app/og-image.jpg",
+        "description": "A casual flight simulator set in a vast, ever-changing world. Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey.",
+        "genre": ["Flight simulator", "Casual"],
+        "keywords": "flight, simulator, chill, lofi, relaxing, procedural, exploration, ambient, casual, cozy, zen, plane, flying",
+        "gamePlatform": ["Web browser", "iOS", "Android"],
+        "playMode": ["SinglePlayer", "MultiPlayer"],
+        "author": {
+          "@type": "Person",
+          "name": "Jimmy Orr"
+        },
+        "sameAs": [
+          "https://apps.apple.com/us/app/chill-flight/id6779847377",
+          "https://play.google.com/store/apps/details?id=com.cowneck.chillflight"
+        ]
+      }
+    </script>
+    <!-- sync-end:description -->
+    <script type="module" crossorigin src="./assets/main-B965Z158.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/three-BL735g1z.js">
+    <link rel="stylesheet" crossorigin href="./assets/main-DgV8iOM5.css">
   </head>
 
   <body>
@@ -290,9 +337,21 @@ window.__IS_DIRTY__ = false;</script>
                   class="pause-switch"
                 />
               </label>
+              <div id="fly-games" class="fly-games" hidden>
+                <button id="fly-game-tag" class="fly-game">
+                  <span class="fly-game-name">Tag</span>
+                  <span class="fly-game-rule">Stay near whoever's it</span>
+                </button>
+                <button id="fly-game-race" class="fly-game">
+                  <span class="fly-game-name">Race</span>
+                  <span class="fly-game-rule"
+                    >Through the gates, first wins</span
+                  >
+                </button>
+              </div>
               <div class="fly-room-actions">
                 <button id="fly-tag-btn" class="fly-btn" hidden>
-                  Play tag
+                  Play a game
                 </button>
                 <button id="fly-leave-btn" class="fly-btn fly-btn-quiet">
                   Leave
@@ -473,7 +532,7 @@ window.__IS_DIRTY__ = false;</script>
 
     <div id="loading-overlay">
       <div class="loading-content">
-        <h1 class="loading-title">C H I L L<br />F L I G H T</h1>
+        <h1 class="loading-title">Chill<br />Flight</h1>
         <div class="version-tag">&nbsp;</div>
         <div id="splash-interactive-area">
           <div id="splash-progress-container" class="splash-fade-item hidden">
@@ -512,7 +571,7 @@ window.__IS_DIRTY__ = false;</script>
             </div>
           </div>
           <div id="splash-btn-container" class="splash-fade-item hidden">
-            <button id="begin-btn" class="btn">S T A R T</button>
+            <button id="begin-btn" class="btn">Start</button>
             <button
               id="splash-vr-btn"
               class="btn"
@@ -546,6 +605,15 @@ window.__IS_DIRTY__ = false;</script>
                 <path d="M17 9.5l5 5M22 9.5l-5 5" />
               </svg>
             </button>
+            <a
+              id="splash-about-link"
+              href="https://chillflight.app/about"
+              onclick="
+                window.openExternalLink(this.href);
+                return false;
+              "
+              >About</a
+            >
             <div
               id="loading-music-attribution"
               class="pause-metadata"
@@ -594,10 +662,12 @@ window.__IS_DIRTY__ = false;</script>
     </div>
 
     <!-- Friends flying with you: names and distances, at the screen's edge
-         when they're out of view; and who's it in a game of tag
-         (multiplayer.js) -->
+         when they're out of view; who's it in a game of tag; and a
+         race's next gate (multiplayer.js, race-gates.js) -->
     <div id="tag-glow" aria-hidden="true"></div>
     <div id="friend-markers" aria-hidden="true"></div>
+    <!-- A race's countdown: 3, 2, 1, Go! (multiplayer.js) -->
+    <div id="race-count" hidden aria-live="polite"></div>
 
     <!-- Points the way to the map's waypoint (waypoint.js) -->
     <div id="waypoint-indicator" hidden aria-hidden="true">
@@ -650,7 +720,7 @@ window.__IS_DIRTY__ = false;</script>
               line-height: 1;
               min-height: 11px;
             "
-            >C H I L L - F L I G H T</span
+            >Chill-Flight</span
           >
         </div>
         <!-- The job you're on, in place of the line above (jobs.js) -->
