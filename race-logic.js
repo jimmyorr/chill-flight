@@ -222,9 +222,18 @@ function traceRoad(n, along, d, length, runsAt) {
  * along it, the last the finish. runsAt(n, along): whether highway n runs
  * there (ChillFlightLogic.highwayRunsAt). Gates' y is left at 0 (the
  * ground's height is the game's to find). Null with no highway near
- * enough, or none long enough.
+ * enough, or none long enough. onGround(n, along), if given: whether the
+ * road's on the ground there (not a bridge); the start moves on along the
+ * road, up to START_SHIFT, until it and the grid behind it are, so no one
+ * starts on a bridge (and falls under it while it's still loading).
  */
-export function roadCourse(from, topKts, runsAt, reach = 20000) {
+export function roadCourse(
+  from,
+  topKts,
+  runsAt,
+  reach = 20000,
+  onGround = null
+) {
   const length = courseLength(topKts);
   const f = forwardOf(from.heading);
   let fallback = null;
@@ -246,12 +255,13 @@ export function roadCourse(from, topKts, runsAt, reach = 20000) {
     const ew = r.n === L.ROAD_EW;
     const pref = (ew ? f.x : f.z) >= 0 ? 1 : -1;
     for (const d of [pref, -pref]) {
-      const points = traceRoad(r.n, a0, d, length, runsAt);
+      const a1 = groundStart(r.n, a0, d, runsAt, onGround);
+      const points = traceRoad(r.n, a1, d, length, runsAt);
       const got = points[points.length - 1].arc;
       if (got >= length - STEP)
-        return buildRoadCourse(r.n, a0, d, points, length);
+        return buildRoadCourse(r.n, a1, d, points, length);
       if (!fallback || got > fallback.got) {
-        fallback = {n: r.n, a0, d, points, got};
+        fallback = {n: r.n, a0: a1, d, points, got};
       }
     }
   }
@@ -262,6 +272,28 @@ export function roadCourse(from, topKts, runsAt, reach = 20000) {
     return buildRoadCourse(n, a0, d, points, got);
   }
   return null;
+}
+
+// How far a road race's start may move on to get off a bridge, and how far
+// back its grid reaches (gridSpot, with room for eight)
+const START_SHIFT = 3000;
+const GRID_BACK = 200;
+
+// Where a road race going way d from `along` on road n starts: the first
+// spot on from there where it and the grid behind it are on the ground
+// (or `along`, with none in reach or no onGround)
+function groundStart(n, along, d, runsAt, onGround) {
+  if (!onGround) return along;
+  for (let k = 0; k * 100 <= START_SHIFT; k++) {
+    const a = along + d * k * 100;
+    if (!runsAt(n, a)) break;
+    let solid = true;
+    for (let back = 0; back <= GRID_BACK && solid; back += 50) {
+      solid = onGround(n, a - d * back);
+    }
+    if (solid) return a;
+  }
+  return along;
 }
 
 function buildRoadCourse(n, a0, d, points, length) {

@@ -44,11 +44,12 @@ const mapBtn = document.getElementById('mobile-map-btn');
 const autoToggle = document.getElementById('mobile-auto-toggle');
 
 export function toggleAutopilot(forceState) {
-  if (forceState !== undefined) {
-    state.autopilotEnabled = !!forceState;
-  } else {
-    state.autopilotEnabled = !state.autopilotEnabled;
-  }
+  const want =
+    forceState !== undefined ? !!forceState : !state.autopilotEnabled;
+  // Not during tag or a race: it's too easy to turn on by accident there
+  // (multiplayer.js turns it off when one starts)
+  if (want && hooks.inGameMode?.()) return;
+  state.autopilotEnabled = want;
   if (!state.autopilotEnabled) resetAutopilot();
   const msg = state.autopilotEnabled
     ? 'AUTOPILOT ENABLED'
@@ -168,6 +169,7 @@ function toggleSmokeTrail() {
   syncSmokeUI();
 }
 hooks.syncSmokeUI = syncSmokeUI;
+hooks.toggleAutopilot = toggleAutopilot;
 inputManager.onSmokeToggle = toggleSmokeTrail;
 if (smokeToggle) {
   smokeToggle.addEventListener('click', (e) => {

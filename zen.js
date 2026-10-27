@@ -50,6 +50,8 @@ function fadeOut() {
 }
 
 function setZen(enabled, {instant = false} = {}) {
+  // Not during tag or a race (multiplayer.js turns it off when one starts)
+  if (enabled && hooks.inGameMode?.()) enabled = false;
   zenEnabled = enabled;
   localStorage.setItem(STORAGE_KEY, String(enabled));
   setTrafficEnabled(!enabled);
@@ -79,6 +81,8 @@ if (checkbox) {
 }
 
 inputManager.onZenToggle = () => setZen(!zenEnabled);
+hooks.setZen = (on) => setZen(on);
+hooks.isZen = () => zenEnabled;
 inputManager.onCenterDoubleTap = () => {
   if (zenEnabled) setZen(false);
 };

@@ -15,4 +15,8 @@ export const hooks = {
   onJobProgress: null, // people-screen.js: called by jobs.js when progress changes
   movePlane: null, // minimap.js: (x, y, z, yaw?, speed?) moves the plane there
   syncSmokeUI: null, // game-ui.js: updates the smoke button when forced on/off
+  inGameMode: null, // multiplayer.js: () => whether tag or a race is on
+  toggleAutopilot: null, // game-ui.js: (on?) => void
+  setZen: null, // zen.js: (on) => void
+  isZen: null, // zen.js: () => whether zen is on
 };

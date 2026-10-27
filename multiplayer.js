@@ -557,6 +557,9 @@ function nameOf(id) {
 
 // The vehicle locked in for a game, as last set (applyBoost)
 let appliedPlane = null;
+// The last game's vehicle: after it, everyone stays in it (bots too)
+// until this player picks another
+let lastGamePlane = null;
 
 // The vehicle everyone's in for the game on (null: none)
 function gamePlane() {
@@ -586,6 +589,7 @@ function applyBoost() {
   const plane = gamePlane();
   if (boost === state.mpSpeedBoost && plane === appliedPlane) return;
   appliedPlane = plane;
+  if (plane) lastGamePlane = plane;
   const prevMax = getMaxFlightSpeedMult();
   const wasAtMax = state.targetFlightSpeed >= prevMax - 0.02;
   setLockedPlane(plane);
@@ -854,6 +858,32 @@ function highwayRuns(n, along) {
   });
 }
 
+// Whether highway n is on the ground at `along`, not a bridge (its planned
+// deck within 10 of the ground there, as terrain-chunks.js decides), so a
+// road race doesn't start on one
+function highwayOnGround(n, along) {
+  const p = ChillFlightLogic.roadPoint(
+    n,
+    along,
+    ChillFlightLogic.roadCenter(n, along)
+  );
+  return highwayDeckY(p.x, p.z) - 0.75 - getElevation(p.x, p.z) <= 10;
+}
+
+// The top of a highway's deck at (x, z) where it's on the ground, worked
+// out from the road's plan, so it's right before its chunk has loaded
+function highwayDeckY(x, z) {
+  return (
+    ChillFlightLogic.highwayY(
+      x,
+      z,
+      simplex,
+      {WATER_LEVEL, MOUNTAIN_LEVEL},
+      null
+    ) + 0.75
+  );
+}
+
 // Where an arch stands: the road's deck, or the ground or water there
 function gateHeight(x, z) {
   return surfaceAt(x, z, Infinity);
@@ -974,7 +1004,7 @@ function startRace() {
   const lead = leaderNow();
   const course =
     plane === 'buggy'
-      ? roadCourse(lead, topKts, highwayRuns)
+      ? roadCourse(lead, topKts, highwayRuns, undefined, highwayOnGround)
       : planeCourse(
           lead,
           topKts,
@@ -1024,7 +1054,14 @@ function lineUp() {
     const slot = race.grid.indexOf(id);
     if (slot < 0) return null;
     const spot = gridSpot(race.course, slot, kts, holdMs);
-    if (race.plane === 'buggy') spot.y = surfaceAt(spot.x, spot.z, Infinity);
+    // On the road's deck, even if its chunk hasn't loaded yet here (a
+    // buggy put on the ground under it would stay under it)
+    if (race.plane === 'buggy') {
+      spot.y = Math.max(
+        surfaceAt(spot.x, spot.z, Infinity),
+        highwayDeckY(spot.x, spot.z)
+      );
+    }
     return spot;
   };
   const me = place(room.id);
@@ -1446,10 +1483,12 @@ function stepMyBots(delta, rawNow) {
     }
   }
   const others = bodiesAround();
-  // Out of games, bots drive with a player who's driving
+  // Out of games, bots stay in the last game's vehicle while this player
+  // does, and drive with a player who's driving
+  const kept = activePlaneType === lastGamePlane ? lastGamePlane : null;
   const free = activePlaneType === 'buggy' ? 'buggy' : null;
   for (const [k, {bot, peer, plane: home}] of myBots) {
-    const plane = gamePlane() || free || home;
+    const plane = gamePlane() || kept || free || home;
     if (bot.plane !== plane) {
       bot.plane = plane;
       sendBotHello(k);
@@ -2319,6 +2358,7 @@ export function raceNow() {
 export function inGameMode() {
   return !!room && (!!tag.it || !!race.course);
 }
+hooks.inGameMode = inGameMode;
 
 // --- EACH FRAME ---
 
@@ -2343,6 +2383,11 @@ export function updateMultiplayer(delta) {
     smoothNow += dtMs + (rawNow - (smoothNow + dtMs)) * 0.02;
   }
   const now = smoothNow;
+  // No autopilot or zen during tag or a race
+  if (inGameMode()) {
+    if (state.autopilotEnabled) hooks.toggleAutopilot?.(false);
+    if (hooks.isZen?.()) hooks.setZen?.(false);
+  }
   stepMyBots(delta, rawNow);
   sendState(now);
   state.waggleRoll = waggleRoll(rawNow - waggleAt);

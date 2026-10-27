@@ -123,6 +123,25 @@ const runsAt = (n, along) =>
       (course.start.x - spot.x) * f.x + (course.start.z - spot.z) * f.z;
     check('Buggies line up behind the start', behind > 0 && behind < 120);
   }
+  // A bridge where the race would start (z 9000 to 10300 here): the start
+  // moves on north, clear of it with the grid behind
+  const bridge = (n, along) => !(along > 9000 && along < 10300);
+  const moved = roadCourse(
+    {x: x0, z: z0, heading: 0},
+    240,
+    runsAt,
+    20000,
+    bridge
+  );
+  check(
+    'A buggy race starts off a bridge, grid and all',
+    !!moved &&
+      [0, 1, 2, 3, 4, 5, 6, 7].every((slot) => {
+        const g = gridSpot(moved, slot, 0, 0);
+        return bridge(0, g.z);
+      }),
+    moved ? `(starts at z ${moved.start.z.toFixed(0)})` : ''
+  );
   check(
     'No highway course far out at sea',
     roadCourse({x: 60000, z: -200000, heading: 0}, 240, runsAt) === null
