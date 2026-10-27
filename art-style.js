@@ -7,19 +7,16 @@
 //   near-black or blown-out white colors, fewer plastic highlights and a
 //   gentle color grade; plus its clouds, sky and post pass (outline-pass.js),
 // - comic (?style=comic): the same lighting, clouds and sky, inked and
-//   hatched like a comic by the post pass instead of painted,
-// - pixel (?style=pixel): low poly, drawn in chunky pixels with a limited
-//   palette by the post pass.
+//   hatched like a comic by the post pass instead of painted.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
 const STORAGE_KEY = 'chill_flight_art_style';
 
-const STYLES = ['anime', 'comic', 'pixel'];
+const STYLES = ['anime', 'comic'];
 const known = (style) => (STYLES.includes(style) ? style : 'classic');
 
-// The Settings choice, unless ?style= overrides it: anime, comic, pixel, or
-// lowpoly (also low-poly or classic) for the low-poly look
+// The Settings choice, unless ?style= overrides it: anime, comic, or lowpoly (also low-poly or classic) for the low-poly look
 function loadStyle() {
   const param = ChillFlightLogic.urlParams?.get('style');
   if (param) return known(param);

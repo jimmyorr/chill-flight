@@ -3,7 +3,6 @@
 // depth texture, then one full-screen pass
 // - (anime) softens distant detail into daubs of paint (a Kuwahara filter,
 //   faded in with distance so nearby things stay crisp; not on low),
-// - (pixel) draws the frame in blocks of 4x4 CSS pixels,
 // - darkens pixels on the near side of depth breaks into ink outlines
 //   (silhouettes, ridges against what's behind), a little bolder close to
 //   the camera, so the plane reads like a drawn character. Breaks are found
@@ -12,8 +11,7 @@
 // - (comic) inks color edges too, flattens the light into a few bands and
 //   hatches the shadows,
 // - fades distant land into the horizon's color (?haze=0 turns it off),
-// - (anime) lets bright pixels glow softly into their neighbors,
-// - (pixel) and keeps to a small palette with ordered dithering.
+// - and (anime) lets bright pixels glow softly into their neighbors.
 // ?brush=0 turns off the Kuwahara filter, and ?fxaa=1 or ?fxaa=0 turns edge
 // smoothing on or off whatever the preset, for comparing.
 // The classic style (and VR) renders straight to the screen as before.
@@ -60,7 +58,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
     // How far toward the horizon's color distant land fades (aerial
     // perspective)
     HAZE_STRENGTH: '0.35',
-    // ANIME, COMIC or PIXEL: the art style's own steps
+    // ANIME or COMIC: the art style's own steps
     [ART_STYLE.toUpperCase()]: '',
   },
   vertexShader: /* glsl */ `
@@ -133,29 +131,12 @@ const outlineMaterial = new THREE.ShaderMaterial({
       return dot(c, vec3(0.299, 0.587, 0.114));
     }
 
-    // 4x4 ordered (Bayer) dithering threshold, 0 to 1
-    float bayer2(vec2 a) {
-      a = floor(a);
-      return fract(a.x / 2.0 + a.y * a.y * 0.75);
-    }
-    float bayer4(vec2 a) {
-      return bayer2(0.5 * a) * 0.25 + bayer2(a) + 0.03125;
-    }
-
     void main() {
       // Screen position in CSS pixels, for textures that keep their size
       vec2 p = gl_FragCoord.xy / uPixelRatio;
       vec2 uv = vUv;
-      // Neighbors for the outlines: one CSS pixel away...
+      // Neighbors for the outlines: one CSS pixel away
       vec2 nb = uTexel;
-    #ifdef PIXEL
-      // ...or, in pixel blocks, one block away, every pixel of a block
-      // reading its middle
-      const float BLOCK = 4.0;
-      vec2 cell = floor(p / BLOCK);
-      uv = (cell + 0.5) * BLOCK * uTexel;
-      nb = uTexel * BLOCK;
-    #endif
       float c = invDepth(uv);
       float dist = 1.0 / c;
       bool sky = c <= 1.0 / (uFar * 0.99);
@@ -167,14 +148,10 @@ const outlineMaterial = new THREE.ShaderMaterial({
       float brushAmt = smoothstep(600.0, 4000.0, dist) * 0.55;
       if (uKuwahara && brushAmt > 0.0) color = mix(color, kuwahara(uv), brushAmt);
     #endif
-    #ifndef PIXEL
       // Close to the camera (the plane, nearby buildings) lines get a little
       // bolder
       float near = 1.0 - smoothstep(60.0, 400.0, dist);
       nb *= 1.0 + 0.75 * near;
-    #else
-      float near = 0.0;
-    #endif
       float l = invDepth(uv - vec2(nb.x, 0.0));
       float r = invDepth(uv + vec2(nb.x, 0.0));
       float d = invDepth(uv - vec2(0.0, nb.y));
@@ -248,11 +225,6 @@ const outlineMaterial = new THREE.ShaderMaterial({
         color += glow / 8.0 * vec3(1.0, 0.92, 0.8) * 0.9;
       }
     #endif
-    #ifdef PIXEL
-      // A small palette (8 levels a channel), dithered
-      color = floor(color * 7.0 + 0.5 + (bayer4(cell) - 0.5) * 0.6) / 7.0;
-      color = mix(vec3(luma(color)), color, 1.15);
-    #endif
       gl_FragColor = vec4(color, 1.0);
     }
   `,
@@ -319,12 +291,9 @@ export function renderFrame(scene, camera) {
   u.uFogDensity.value = scene.fog ? scene.fog.density || 0 : 0;
   u.uNear.value = camera.near;
   u.uFar.value = camera.far;
-  // (never on pixels, which it would blur)
-  const fxaa =
-    ART_STYLE !== 'pixel' &&
-    (fxaaParam
-      ? fxaaParam !== '0'
-      : state.graphicsPreset === 'high' || state.graphicsPreset === 'ultra');
+  const fxaa = fxaaParam
+    ? fxaaParam !== '0'
+    : state.graphicsPreset === 'high' || state.graphicsPreset === 'ultra';
   if (!fxaa) {
     renderer.render(quad, quadCamera);
     return;
