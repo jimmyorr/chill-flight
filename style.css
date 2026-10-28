@@ -976,7 +976,10 @@ input[type='number'].customization-input {
   color: rgba(255, 255, 255, 0.8);
 }
 
-/* The Sub-Menu Animation */
+/* The Sub-Menu Animation: opacity and transform live on each .sub-btn rather
+   than on the parent .menu-items, because an ancestor with opacity < 1 forms a
+   CSS Backdrop Root that blocks descendant backdrop-filter blur until the
+   fade-in finishes. */
 .menu-items {
   position: absolute;
   bottom: 60px;
@@ -984,10 +987,7 @@ input[type='number'].customization-input {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  opacity: 0;
   pointer-events: none;
-  transform: translateY(20px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   /* Match trigger button width */
   padding-bottom: 15px;
@@ -995,9 +995,7 @@ input[type='number'].customization-input {
 }
 
 .menu-container.expanded .menu-items {
-  opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
 }
 
 /* The Chevron Rotation */
@@ -1016,6 +1014,7 @@ input[type='number'].customization-input {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: white;
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -1023,12 +1022,24 @@ input[type='number'].customization-input {
   justify-content: center;
   font-size: 20px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   outline: none;
+}
+
+.menu-container.expanded .sub-btn {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .sub-btn[hidden] {
@@ -1039,7 +1050,7 @@ input[type='number'].customization-input {
   outline: none;
 }
 
-.sub-btn:active {
+.menu-container.expanded .sub-btn:active {
   background: rgba(255, 255, 255, 0.3);
   transform: scale(0.95);
 }
@@ -1050,7 +1061,7 @@ input[type='number'].customization-input {
   border-color: rgba(255, 215, 0, 0.5);
 }
 
-.sub-btn:disabled,
+.menu-container.expanded .sub-btn:disabled,
 .scheme-btn:disabled {
   opacity: 0.55;
   cursor: default;
