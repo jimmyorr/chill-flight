@@ -166,23 +166,41 @@ export function createTwinModel(opts = {}) {
   noseDomeMesh.scale.set(0.95, 0.95, 1.1);
   fuselageGroup.add(noseDomeMesh);
 
-  // Lower nose chin accent (coral red lower nose shell matching inspo image)
-  const chinGeo = new THREE.CylinderGeometry(
-    1.42,
-    0.44,
-    2.9,
-    16,
-    1,
-    false,
-    0,
-    Math.PI
+  // Lower nose chin accent (flush lofted lower shell matching rings 0..2)
+  const chinPositions = [];
+  const chinUvs = [];
+  const chinIndices = [];
+  const halfSegs = segments / 2;
+  for (let r = 0; r <= 2; r++) {
+    const ring = rings[r];
+    for (let s = 0; s <= halfSegs; s++) {
+      // Lower half of ring: angle from PI to 2*PI (sin <= 0)
+      const angle = Math.PI + (s / halfSegs) * Math.PI;
+      const x = ring.rx * 1.015 * Math.cos(angle);
+      const y = ring.y + ring.ry * 1.015 * Math.sin(angle);
+      chinPositions.push(x, y, ring.z);
+      chinUvs.push(s / halfSegs, r / 2);
+    }
+  }
+  const stride = halfSegs + 1;
+  for (let r = 0; r < 2; r++) {
+    for (let s = 0; s < halfSegs; s++) {
+      const i0 = r * stride + s;
+      const i1 = r * stride + s + 1;
+      const i2 = (r + 1) * stride + s;
+      const i3 = (r + 1) * stride + s + 1;
+      chinIndices.push(i0, i1, i2, i1, i3, i2);
+    }
+  }
+  const chinGeo = new THREE.BufferGeometry();
+  chinGeo.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(chinPositions, 3)
   );
-  chinGeo.rotateX(Math.PI / 2);
-  chinGeo.rotateZ(Math.PI / 2);
-  const chinMesh = new THREE.Mesh(chinGeo, accentMat);
-  chinMesh.position.set(0, -0.01, -9.4);
-  chinMesh.scale.set(0.98, 0.96, 1.0);
-  fuselageGroup.add(chinMesh);
+  chinGeo.setAttribute('uv', new THREE.Float32BufferAttribute(chinUvs, 2));
+  chinGeo.setIndex(chinIndices);
+  chinGeo.computeVertexNormals();
+  fuselageGroup.add(new THREE.Mesh(chinGeo, accentMat));
 
   // ==========================================
   // 2. COCKPIT WINDSHIELD & CANOPY
@@ -232,24 +250,6 @@ export function createTwinModel(opts = {}) {
   rightStripe.position.set(1.65, 0.26, 0);
   rightStripe.rotation.y = Math.PI / 2;
   fuselageGroup.add(rightStripe);
-
-  // Front nose stripe transition curving beneath windshield
-  const noseStripeGeo = new THREE.CylinderGeometry(
-    1.42,
-    1.42,
-    0.48,
-    16,
-    1,
-    true,
-    0,
-    Math.PI
-  );
-  noseStripeGeo.rotateX(Math.PI / 2);
-  noseStripeGeo.rotateZ(Math.PI / 2);
-  const noseStripeMesh = new THREE.Mesh(noseStripeGeo, accentMat);
-  noseStripeMesh.position.set(0, 0.12, -7.8);
-  noseStripeMesh.scale.set(0.98, 0.96, 1.0);
-  fuselageGroup.add(noseStripeMesh);
 
   // Passenger windows along cheatline
   const windowCount = 7;
@@ -660,8 +660,18 @@ export function createTwinModel(opts = {}) {
 // Lowers or raises a twin's (or jet's) landing gear: 1 is down, 0 is up (folded away and
 // hidden, so no tire pokes through the nacelle).
 export function setGearExtension(model, extension) {
+  const fold = 1 - extension;
   for (const gear of model.gearGroups) {
-    gear.rotation.x = gear.userData.foldAngle * (1 - extension);
+    if (gear.userData.foldAngle !== undefined) {
+      gear.rotation.x = gear.userData.foldAngle * fold;
+    } else {
+      if (gear.userData.retractRotX !== undefined) {
+        gear.rotation.x = gear.userData.retractRotX * fold;
+      }
+      if (gear.userData.retractRotZ !== undefined) {
+        gear.rotation.z = gear.userData.retractRotZ * fold;
+      }
+    }
     gear.visible = extension > 0;
   }
 }

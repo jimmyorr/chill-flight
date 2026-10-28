@@ -1469,12 +1469,80 @@ export var twoStoryRoofGeo = createHouseRoof(8, 14);
 export var twoStoryChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
 twoStoryChimneyGeo.translate(0, 17.5, 0);
 
-// Straw hut geometries
-export var strawHutBodyGeo = new THREE.CylinderGeometry(4, 4, 6, 8);
-strawHutBodyGeo.translate(0, 3, 0);
-export var strawHutRoofGeo = new THREE.ConeGeometry(5.5, 5, 8);
-strawHutRoofGeo.translate(0, 8.5, 0);
-export var strawHutMat = createMaterial({color: 0xe6c280, flatShading: true}); // Straw color
+// Straw hut geometries (vertex-colored adobe walls + doorway + tiered thatch roof)
+function buildVertexColoredGeo(parts) {
+  const pos = [],
+    norm = [],
+    col = [],
+    idx = [];
+  let offset = 0;
+  for (const {geo, color} of parts) {
+    const c = new THREE.Color(color);
+    pos.push(...geo.attributes.position.array);
+    if (geo.attributes.normal) norm.push(...geo.attributes.normal.array);
+    const count = geo.attributes.position.count;
+    for (let i = 0; i < count; i++) col.push(c.r, c.g, c.b);
+    if (geo.index) {
+      for (let i = 0; i < geo.index.array.length; i++)
+        idx.push(geo.index.array[i] + offset);
+    } else {
+      for (let i = 0; i < count; i++) idx.push(i + offset);
+    }
+    offset += count;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (norm.length === pos.length)
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  else geom.computeVertexNormals();
+  geom.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+
+function createStrawHutBodyGeometry() {
+  const wall = new THREE.CylinderGeometry(3.85, 4.1, 6.0, 8);
+  wall.translate(0, 3.0, 0);
+  const plinth = new THREE.CylinderGeometry(4.25, 4.35, 0.7, 8);
+  plinth.translate(0, 0.35, 0);
+  const door = new THREE.BoxGeometry(1.7, 3.6, 0.4);
+  door.translate(0, 1.8, 3.78);
+  const postL = new THREE.BoxGeometry(0.32, 3.8, 0.55);
+  postL.translate(-0.95, 1.9, 3.82);
+  const postR = new THREE.BoxGeometry(0.32, 3.8, 0.55);
+  postR.translate(0.95, 1.9, 3.82);
+  const lintel = new THREE.BoxGeometry(2.4, 0.38, 0.62);
+  lintel.translate(0, 3.75, 3.85);
+  return buildVertexColoredGeo([
+    {geo: plinth, color: 0x7d6b57},
+    {geo: wall, color: 0xc99e67},
+    {geo: door, color: 0x1e140d},
+    {geo: postL, color: 0x5c3d24},
+    {geo: postR, color: 0x5c3d24},
+    {geo: lintel, color: 0x5c3d24},
+  ]);
+}
+
+function createStrawHutRoofGeometry() {
+  const lowerEave = new THREE.CylinderGeometry(3.3, 5.7, 2.2, 8);
+  lowerEave.translate(0, 6.9, 0);
+  const upperCone = new THREE.ConeGeometry(3.55, 3.2, 8);
+  upperCone.translate(0, 9.4, 0);
+  const finial = new THREE.CylinderGeometry(0.28, 0.55, 1.1, 6);
+  finial.translate(0, 11.1, 0);
+  return buildVertexColoredGeo([
+    {geo: lowerEave, color: 0xd9b36c},
+    {geo: upperCone, color: 0xe6c280},
+    {geo: finial, color: 0x5c3d24},
+  ]);
+}
+
+export var strawHutBodyGeo = createStrawHutBodyGeometry();
+export var strawHutRoofGeo = createStrawHutRoofGeometry();
+export var strawHutMat = createMaterial({
+  vertexColors: true,
+  flatShading: true,
+});
 
 // Iceberg & Ice floe geometries & materials
 export var icebergMainGeo = new THREE.CylinderGeometry(8, 16, 20, 6, 2);
@@ -1512,27 +1580,37 @@ export var icebergMat = createMaterial({
 });
 
 // Penguin geometries & materials
-export var penguinBodyGeo = new THREE.CylinderGeometry(1.1, 1.3, 3.2, 6);
+export var penguinBodyGeo = new THREE.CylinderGeometry(1.05, 1.32, 3.2, 8);
 penguinBodyGeo.translate(0, 1.6, 0);
 
-export var penguinBellyGeo = new THREE.BoxGeometry(1.4, 2.4, 0.3);
-penguinBellyGeo.translate(0, 1.5, 1.2);
+// Sculpted front chest patch that conforms to the tapered round torso
+export var penguinBellyGeo = new THREE.CylinderGeometry(0.95, 1.18, 2.55, 8);
+penguinBellyGeo.scale(0.82, 1.0, 0.72);
+penguinBellyGeo.translate(0, 1.52, 0.56);
 
-export var penguinHeadGeo = new THREE.SphereGeometry(1.0, 6, 6);
-penguinHeadGeo.translate(0, 3.8, 0.2);
+export var penguinHeadGeo = new THREE.SphereGeometry(1.0, 8, 6);
+penguinHeadGeo.translate(0, 3.75, 0.15);
 
-export var penguinBeakGeo = new THREE.ConeGeometry(0.3, 0.9, 4);
+export var penguinBeakGeo = new THREE.ConeGeometry(0.28, 0.95, 4);
 penguinBeakGeo.rotateX(Math.PI / 2);
-penguinBeakGeo.translate(0, 3.8, 1.5);
+penguinBeakGeo.translate(0, 3.72, 1.42);
 
-var penguinWingGeo = new THREE.BoxGeometry(0.25, 2.0, 0.8);
+var penguinWingGeo = new THREE.BoxGeometry(0.22, 2.05, 0.72);
+// Taper flipper tips
+var pwPos = penguinWingGeo.attributes.position;
+for (let i = 0; i < pwPos.count; i++) {
+  if (pwPos.getY(i) < 0) {
+    pwPos.setZ(i, pwPos.getZ(i) * 0.55 - 0.08);
+  }
+}
+penguinWingGeo.computeVertexNormals();
 export var penguinWingLGeo = penguinWingGeo.clone();
-penguinWingLGeo.rotateZ(-0.15);
-penguinWingLGeo.translate(-1.4, 1.8, 0.2);
+penguinWingLGeo.rotateZ(-0.18);
+penguinWingLGeo.translate(-1.32, 1.82, 0.12);
 
 export var penguinWingRGeo = penguinWingGeo.clone();
-penguinWingRGeo.rotateZ(0.15);
-penguinWingRGeo.translate(1.4, 1.8, 0.2);
+penguinWingRGeo.rotateZ(0.18);
+penguinWingRGeo.translate(1.32, 1.82, 0.12);
 
 var penguinFootGeo = new THREE.BoxGeometry(0.7, 0.2, 1.3);
 export var penguinFootLGeo = penguinFootGeo.clone();
@@ -1674,15 +1752,29 @@ for (let i = 0; i < HOUSE_WINDOW_POOLS; i++) {
 
 // --- PAGODA ---
 function createPagodaBodyGeometry() {
-  const foundation = new THREE.BoxGeometry(12, 2, 12);
-  foundation.translate(0, 1, 0);
-  const tier1 = new THREE.BoxGeometry(9, 6, 9);
-  tier1.translate(0, 5, 0);
-  const tier2 = new THREE.BoxGeometry(6.5, 5, 6.5);
-  tier2.translate(0, 11.5, 0);
-  const tier3 = new THREE.BoxGeometry(4, 4, 4);
-  tier3.translate(0, 17.5, 0);
-  const geometries = [foundation, tier1, tier2, tier3];
+  const plinth = new THREE.BoxGeometry(13.2, 1.0, 13.2);
+  plinth.translate(0, 0.5, 0);
+  const foundation = new THREE.BoxGeometry(11.6, 1.6, 11.6);
+  foundation.translate(0, 1.8, 0);
+  const tier1 = new THREE.BoxGeometry(8.8, 5.8, 8.8);
+  tier1.translate(0, 5.2, 0);
+  const balcony2 = new THREE.BoxGeometry(7.8, 0.45, 7.8);
+  balcony2.translate(0, 9.6, 0);
+  const tier2 = new THREE.BoxGeometry(6.4, 4.8, 6.4);
+  tier2.translate(0, 12.0, 0);
+  const balcony3 = new THREE.BoxGeometry(5.4, 0.4, 5.4);
+  balcony3.translate(0, 15.8, 0);
+  const tier3 = new THREE.BoxGeometry(4.2, 4.0, 4.2);
+  tier3.translate(0, 17.8, 0);
+  const geometries = [
+    plinth,
+    foundation,
+    tier1,
+    balcony2,
+    tier2,
+    balcony3,
+    tier3,
+  ];
   const pos = [],
     norm = [],
     idx = [];
@@ -1701,19 +1793,32 @@ function createPagodaBodyGeometry() {
   return geom;
 }
 function createPagodaRoofGeometry() {
-  // Wide flat square eaves per tier + top spire
-  const eave1 = new THREE.CylinderGeometry(8.5, 8.5, 1.5, 4);
-  eave1.rotateY(Math.PI / 4);
-  eave1.translate(0, 8.5, 0);
-  const eave2 = new THREE.CylinderGeometry(6, 6, 1.5, 4);
-  eave2.rotateY(Math.PI / 4);
-  eave2.translate(0, 14.5, 0);
-  const eave3 = new THREE.CylinderGeometry(4, 4, 1.5, 4);
-  eave3.rotateY(Math.PI / 4);
-  eave3.translate(0, 20, 0);
-  const spire = new THREE.CylinderGeometry(0.3, 0.6, 7, 6);
-  spire.translate(0, 25, 0);
-  const geometries = [eave1, eave2, eave3, spire];
+  // Flared two-stage hipped eaves per tier + ringed sorin finial spire
+  const makeTierEave = (rTop, rMid, rBot, yCenter) => {
+    const upper = new THREE.CylinderGeometry(rTop, rMid, 1.35, 4);
+    upper.rotateY(Math.PI / 4);
+    upper.translate(0, yCenter + 0.35, 0);
+    const skirt = new THREE.CylinderGeometry(rMid, rBot, 0.55, 4);
+    skirt.rotateY(Math.PI / 4);
+    skirt.translate(0, yCenter - 0.6, 0);
+    return [upper, skirt];
+  };
+  const topCap = new THREE.ConeGeometry(3.4, 1.6, 4);
+  topCap.rotateY(Math.PI / 4);
+  topCap.translate(0, 21.6, 0);
+  const spire = new THREE.CylinderGeometry(0.22, 0.58, 6.8, 6);
+  spire.translate(0, 25.4, 0);
+  const jewel = new THREE.SphereGeometry(0.48, 6, 5);
+  jewel.translate(0, 22.8, 0);
+
+  const geometries = [
+    ...makeTierEave(5.4, 8.6, 9.6, 8.6),
+    ...makeTierEave(3.8, 6.5, 7.4, 14.8),
+    ...makeTierEave(2.2, 4.6, 5.3, 20.3),
+    topCap,
+    spire,
+    jewel,
+  ];
   const pos = [],
     norm = [],
     idx = [];
@@ -1733,8 +1838,8 @@ function createPagodaRoofGeometry() {
 }
 export var pagodaBodyGeo = createPagodaBodyGeometry();
 export var pagodaRoofGeo = createPagodaRoofGeometry();
-export var pagodaBodyMat = createMaterial({color: 0x3e2723, flatShading: true}); // dark wood
-export var pagodaRoofMat = createMaterial({color: 0x1b5e20, flatShading: true}); // deep green eaves
+export var pagodaBodyMat = createMaterial({color: 0x4e3227, flatShading: true}); // warm timber
+export var pagodaRoofMat = createMaterial({color: 0x1e6b34, flatShading: true}); // jade green eaves
 
 // --- BARN ---
 function createBarnRoofGeometry() {
@@ -2840,10 +2945,40 @@ export var tentPalette = [
 ];
 export var tentMat = tentPalette[0];
 
-// Campfire geometries
-export var fireLogGeo = new THREE.CylinderGeometry(0.8, 0.8, 6, 6);
+// Campfire geometries (crossed logs + faceted multi-tongue flame cluster)
+export var fireLogGeo = new THREE.CylinderGeometry(0.68, 0.72, 6, 6);
 fireLogGeo.rotateZ(Math.PI / 2);
-export var fireCoreGeo = new THREE.SphereGeometry(2, 8, 8);
+
+function createCampfireCoreGeometry() {
+  const flames = [
+    // [radius, height, x, y, z, rx, rz]
+    [1.15, 2.9, 0.0, 0.85, 0.0, 0.06, -0.05],
+    [0.88, 2.2, -0.62, 0.55, 0.38, -0.18, 0.24],
+    [0.85, 2.1, 0.65, 0.52, 0.32, -0.15, -0.25],
+    [0.82, 2.0, 0.05, 0.5, -0.62, 0.24, 0.08],
+  ];
+  const pos = [],
+    norm = [],
+    idx = [];
+  let offset = 0;
+  for (const [r, h, x, y, z, rx, rz] of flames) {
+    const g = new THREE.ConeGeometry(r, h, 5);
+    g.rotateX(rx);
+    g.rotateZ(rz);
+    g.translate(x, y, z);
+    pos.push(...g.attributes.position.array);
+    norm.push(...g.attributes.normal.array);
+    for (let i = 0; i < g.index.array.length; i++)
+      idx.push(g.index.array[i] + offset);
+    offset += g.attributes.position.count;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+export var fireCoreGeo = createCampfireCoreGeometry();
 export var fireMat = createMaterial({
   color: 0xff4500,
   emissive: 0xff4500,
@@ -3134,18 +3269,27 @@ function createBoatDeckGeometry() {
   }
   prow.computeVertexNormals();
 
-  const pos = [
-    ...main.attributes.position.array,
-    ...prow.attributes.position.array,
-  ];
-  const norm = [
-    ...main.attributes.normal.array,
-    ...prow.attributes.normal.array,
-  ];
-  const idx = [...main.index.array];
-  let offset = main.attributes.position.count;
-  for (let i = 0; i < prow.index.array.length; i++)
-    idx.push(prow.index.array[i] + offset);
+  // Low cabin trunk / coaming ahead of the cockpit
+  const cabin = new THREE.BoxGeometry(1.9, 0.55, 3.2);
+  cabin.translate(0, 0.28, -1.8);
+  const cabPos = cabin.attributes.position.array;
+  for (let i = 0; i < cabPos.length; i += 3) {
+    if (cabPos[i + 2] < -2.5) cabPos[i] *= 0.65;
+  }
+  cabin.computeVertexNormals();
+
+  const geos = [main, prow, cabin];
+  const pos = [],
+    norm = [],
+    idx = [];
+  let offset = 0;
+  for (const g of geos) {
+    pos.push(...g.attributes.position.array);
+    norm.push(...g.attributes.normal.array);
+    for (let i = 0; i < g.index.array.length; i++)
+      idx.push(g.index.array[i] + offset);
+    offset += g.attributes.position.count;
+  }
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
@@ -3155,19 +3299,71 @@ function createBoatDeckGeometry() {
 export var boatDeckGeo = createBoatDeckGeometry();
 boatDeckGeo.translate(0, 1.91, 0); // slightly above the white rim (1.7 + 0.2)
 
-export var boatMastGeo = new THREE.CylinderGeometry(0.15, 0.15, 12, 4);
-boatMastGeo.translate(0, 6, -1);
-export var boatBoomGeo = new THREE.CylinderGeometry(0.1, 0.1, 7, 4);
+export var boatMastGeo = new THREE.CylinderGeometry(0.14, 0.18, 12.6, 6);
+boatMastGeo.translate(0, 6.3, -1);
+export var boatBoomGeo = new THREE.CylinderGeometry(0.1, 0.1, 6.6, 6);
 boatBoomGeo.rotateX(Math.PI / 2);
-boatBoomGeo.translate(0, 2.5, 2.5);
+boatBoomGeo.translate(0, 2.7, 2.3);
 
-export var boatSailGeo = new THREE.BufferGeometry();
-var sailVertices = new Float32Array([0, 2.5, -0.9, 0, 11, -0.9, 0, 2.5, 5.5]);
-boatSailGeo.setAttribute(
-  'position',
-  new THREE.BufferAttribute(sailVertices, 3)
-);
-boatSailGeo.computeVertexNormals();
+function createBoatSailGeometry() {
+  // Billowed triangular mainsail (behind mast) + forward jib sail (ahead of mast)
+  const buildTriSail = (zLuff, zFoot, yFoot, yHead, billowX) => {
+    const rows = 5;
+    const cols = 4;
+    const pos = [];
+    const idx = [];
+    for (let r = 0; r <= rows; r++) {
+      const v = r / rows; // 0 at foot, 1 at head
+      const y = yFoot + v * (yHead - yFoot);
+      const zEnd = zLuff + (1 - v) * (zFoot - zLuff);
+      for (let c = 0; c <= cols; c++) {
+        const u = c / cols; // 0 at luff, 1 at leech
+        const z = zLuff + u * (zEnd - zLuff);
+        const camber =
+          Math.sin(u * Math.PI) * Math.sin((1 - v * 0.65) * Math.PI) * billowX;
+        pos.push(camber, y, z);
+      }
+    }
+    const stride = cols + 1;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const i0 = r * stride + c;
+        const i1 = i0 + 1;
+        const i2 = i0 + stride;
+        const i3 = i2 + 1;
+        idx.push(i0, i1, i2, i1, i3, i2);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
+  };
+
+  const mainSail = buildTriSail(-0.85, 5.4, 2.8, 12.1, 0.65);
+  const jibSail = buildTriSail(-1.25, -7.4, 2.4, 10.6, 0.48);
+
+  const pos = [
+    ...mainSail.attributes.position.array,
+    ...jibSail.attributes.position.array,
+  ];
+  const norm = [
+    ...mainSail.attributes.normal.array,
+    ...jibSail.attributes.normal.array,
+  ];
+  const idx = [...mainSail.index.array];
+  const offset = mainSail.attributes.position.count;
+  for (let i = 0; i < jibSail.index.array.length; i++) {
+    idx.push(jibSail.index.array[i] + offset);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+export var boatSailGeo = createBoatSailGeometry();
 
 export var boatHullPalette = [
   createMaterial({color: 0xaa0000, flatShading: true}), // Dark Red

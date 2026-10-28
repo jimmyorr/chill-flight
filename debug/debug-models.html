@@ -259,6 +259,9 @@
       <button class="model-btn" onclick="viewModel('bridge', event)">
         Bridge
       </button>
+      <button class="model-btn" onclick="viewModel('streetlight', event)">
+        Streetlight
+      </button>
       <button class="model-btn" onclick="viewModel('tent', event)">Tent</button>
       <button class="model-btn" onclick="viewModel('campfire', event)">
         Campfire
@@ -364,11 +367,12 @@
       } from '../airports.js';
       import {createWaterfall} from '../waterfalls.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
-      import {createBuggyModel} from '../buggy-model.js';
+      import {createBuggyModel, setBuggyHoverFold} from '../buggy-model.js';
       import {
         createSeaplaneModel,
         planeMat,
         planeWhiteMat,
+        poseGear,
       } from '../airplane.js';
       import {
         ModelAssembler,
@@ -500,11 +504,10 @@
       }
 
       function viewModel(type, e, colorSeed = 0) {
-        const isColorCycle =
-          !e && colorSeed > 0 && window.currentModelType === type;
+        const keepCamera = !e && window.currentModelType === type;
         clearViewer();
 
-        if (!e && colorSeed === 0) {
+        if (e || (colorSeed === 0 && !keepCamera)) {
           window.currentColorSeed = 0;
         }
         window.currentModelType = type;
@@ -528,9 +531,22 @@
           ? 'block'
           : 'none';
         const gearToggle = document.getElementById('gear-toggle');
-        const isTwin = ['twin', 'twin-engine', 'twin_engine'].includes(type);
-        gearToggle.style.display = isTwin ? 'block' : 'none';
-        gearToggle.textContent = window.gearUp ? 'Gear down' : 'Gear up';
+        const supportsGear = [
+          'airplane',
+          'jet',
+          'twin',
+          'twin-engine',
+          'twin_engine',
+          'buggy',
+        ].includes(type);
+        gearToggle.style.display = supportsGear ? 'block' : 'none';
+        if (type === 'airplane') {
+          gearToggle.textContent = window.gearUp ? 'Floats down' : 'Floats up';
+        } else if (type === 'buggy') {
+          gearToggle.textContent = window.gearUp ? 'Wheels down' : 'Hover mode';
+        } else {
+          gearToggle.textContent = window.gearUp ? 'Gear down' : 'Gear up';
+        }
 
         // Update UI
         document.querySelectorAll('.model-btn').forEach((btn) => {
@@ -599,6 +615,7 @@
                 });
               }
 
+              poseGear(window.gearUp ? 0 : 1);
               ap.visible = true;
               previewGroup.add(ap);
               break;
@@ -673,6 +690,7 @@
                   : [0x4794db];
               const newColor = colors[colorSeed % colors.length];
               const jet = createJetModel({planeColor: newColor});
+              setGearExtension(jet, window.gearUp ? 0 : 1);
 
               jet.visible = true;
               previewGroup.add(jet);
@@ -701,7 +719,9 @@
                   ? ChillFlightLogic.PLANE_COLORS
                   : [0xe0564c];
               const newColor = colors[colorSeed % colors.length];
-              previewGroup.add(createBuggyModel({planeColor: newColor}));
+              const buggy = createBuggyModel({planeColor: newColor});
+              setBuggyHoverFold(buggy, window.gearUp ? 1 : 0);
+              previewGroup.add(buggy);
               break;
             }
 
@@ -837,14 +857,14 @@
               break;
             case 'rock_arch': {
               const geos = createRockArchGeometries(
-                ChillFlightLogic.mulberry32(Math.random() * 1000000)
+                ChillFlightLogic.mulberry32(42)
               );
               previewGroup.add(new THREE.Mesh(geos.rock, rockMat));
               break;
             }
             case 'rock_arch_grass': {
               const geos = createRockArchGeometries(
-                ChillFlightLogic.mulberry32(Math.random() * 1000000)
+                ChillFlightLogic.mulberry32(42)
               );
               previewGroup.add(new THREE.Mesh(geos.rock, rockMat));
               previewGroup.add(
@@ -926,9 +946,7 @@
           }
         }
 
-        // Force visibility on all children
         previewGroup.traverse((child) => {
-          child.visible = true;
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
@@ -981,21 +999,29 @@
         const finalSize = new THREE.Vector3();
         finalBox.getSize(finalSize);
 
+        const frontFacingTypes = [
+          'airplane',
+          'biplane',
+          'jet',
+          'twin',
+          'twin-engine',
+          'twin_engine',
+          'buggy',
+          'sailboat',
+          'pirateship',
+          'hawk',
+          'seagull',
+          'goose',
+        ];
+        const isFrontFacing = frontFacingTypes.includes(type);
         const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);
-        const distanceMultiplier =
-          type === 'twin' || type === 'twin-engine' || type === 'twin_engine'
-            ? 1.15
-            : 1.5;
+        const distanceMultiplier = isFrontFacing ? 1.2 : 1.5;
         const distance = maxDimension * distanceMultiplier;
 
-        if (!isColorCycle && controls) {
+        if (!keepCamera && controls) {
           controls.reset();
           controls.target.copy(finalCenter);
-          if (
-            type === 'twin' ||
-            type === 'twin-engine' ||
-            type === 'twin_engine'
-          ) {
+          if (isFrontFacing) {
             camera.position.set(
               distance * 0.92,
               distance * 0.58,

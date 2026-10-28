@@ -42,31 +42,142 @@ function mesh(geometries, material) {
   return m;
 }
 
-// The control tower: a cream shaft, a dark glass cab and a flat roof
+// The control tower: a cream shaft with base annex, flared glass cab with
+// corner mullions, catwalk railing, and rooftop radar/antennas
 export function createControlTower() {
   const group = new THREE.Group();
+
+  // Flared octagonal/square cab glass (wider at top like a real ATC cab)
+  const cabGlass = new THREE.CylinderGeometry(7.6, 6.4, 5.6, 4);
+  cabGlass.rotateY(Math.PI / 4);
+  cabGlass.translate(0, 23.8, 0);
+
+  // Corner mullions matching the flared cab slope
+  const mullions = [];
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const m = new THREE.BoxGeometry(0.45, 5.8, 0.45);
+      m.rotateZ(sx * -0.14);
+      m.rotateX(sz * 0.14);
+      m.translate(sx * 4.85, 23.8, sz * 4.85);
+      mullions.push(m);
+    }
+  }
+
+  // Catwalk railings around the observation deck (y = 21.0..22.2)
+  const rails = [
+    box(12.6, 0.25, 0.25, 0, 22.1, 6.15),
+    box(12.6, 0.25, 0.25, 0, 22.1, -6.15),
+    box(0.25, 0.25, 12.6, 6.15, 22.1, 0),
+    box(0.25, 0.25, 12.6, -6.15, 22.1, 0),
+  ];
+  for (const p of [-5.8, 0, 5.8]) {
+    rails.push(
+      box(0.22, 1.2, 0.22, p, 21.5, 6.15),
+      box(0.22, 1.2, 0.22, p, 21.5, -6.15),
+      box(0.22, 1.2, 0.22, 6.15, 21.5, p),
+      box(0.22, 1.2, 0.22, -6.15, 21.5, p)
+    );
+  }
+
   group.add(
-    mesh([box(7, 20, 7, 0, 10, 0), box(12, 1, 12, 0, 20.5, 0)], wallMat)
+    mesh(
+      [
+        // Main concrete shaft + flared upper collar + base entrance annex
+        box(7.2, 20, 7.2, 0, 10, 0),
+        box(8.8, 1.6, 8.8, 0, 19.2, 0),
+        box(5.2, 5.0, 3.2, 0, 2.5, 4.8),
+        // Observation catwalk deck + cab floor/ceiling
+        box(12.8, 1.0, 12.8, 0, 20.5, 0),
+        box(11.4, 0.6, 11.4, 0, 26.8, 0),
+        // Rooftop radar scanner bar
+        box(4.6, 0.55, 0.8, 0, 30.2, 0),
+      ],
+      wallMat
+    )
   );
-  group.add(mesh([box(10, 6, 10, 0, 24, 0)], glassMat));
   group.add(
-    mesh([box(13, 1.2, 13, 0, 27.6, 0), box(0.4, 5, 0.4, 3, 30.5, 3)], trimMat)
+    mesh(
+      [
+        cabGlass,
+        // Vertical staircase window strips on shaft + doorway
+        box(1.4, 11.0, 7.4, 0, 12.0, 0),
+        box(2.0, 3.6, 0.4, 0, 1.8, 6.3),
+      ],
+      glassMat
+    )
+  );
+  group.add(
+    mesh(
+      [
+        ...mullions,
+        ...rails,
+        // Overhanging cab roof & radar pedestal + twin whip antennas
+        box(13.4, 1.1, 13.4, 0, 27.5, 0),
+        box(1.6, 1.6, 1.6, 0, 28.8, 0),
+        box(0.35, 5.5, 0.35, 3.6, 30.6, 3.6),
+        box(0.25, 4.2, 0.25, -3.6, 29.9, -3.2),
+      ],
+      trimMat
+    )
   );
   return group;
 }
 
-// The hangar: a long shed with a rounded roof and a big door on its front
-// (+Z)
+// The hangar: a long shed with a barrel-arched roof, structural side
+// buttresses, and multi-panel sliding doors on its front (+Z)
 export function createHangar() {
   const group = new THREE.Group();
-  group.add(mesh([box(34, 10, 26, 0, 5, 0)], hangarMat));
+  const walls = [
+    box(34, 10, 26, 0, 5, 0),
+    // Front & rear doorway header/frame fascia
+    box(26.4, 1.2, 1.2, 0, 9.2, 12.8),
+    box(1.2, 9.2, 1.2, -12.6, 4.6, 12.8),
+    box(1.2, 9.2, 1.2, 12.6, 4.6, 12.8),
+  ];
+  // Structural side wall pilasters along the length of the hangar
+  for (const x of [-15.5, -7.8, 0, 7.8, 15.5]) {
+    walls.push(box(1.1, 10.2, 27.0, x, 5.1, 0));
+  }
+  group.add(mesh(walls, hangarMat));
+
   const roof = new THREE.CylinderGeometry(13, 13, 34, 16, 1, false, 0, Math.PI);
   // On its side along X; theta 0..PI is then the upper half
   roof.rotateZ(Math.PI / 2);
   roof.scale(1, 0.55, 1);
   roof.translate(0, 10, 0);
-  group.add(mesh([roof], hangarMat));
-  group.add(mesh([box(24, 8.5, 0.6, 0, 4.25, 13)], doorMat));
+  const roofParts = [roof];
+  // Arched roof ribs at ends and mid-span
+  for (const x of [-16.6, 0, 16.6]) {
+    const rib = new THREE.CylinderGeometry(
+      13.35,
+      13.35,
+      0.9,
+      16,
+      1,
+      false,
+      0,
+      Math.PI
+    );
+    rib.rotateZ(Math.PI / 2);
+    rib.scale(1, 0.56, 1);
+    rib.translate(x, 10, 0);
+    roofParts.push(rib);
+  }
+  group.add(mesh(roofParts, hangarMat));
+
+  // Multi-panel sliding hangar doors (+Z) + side clerestory windows
+  const doors = [
+    box(24, 8.5, 0.5, 0, 4.25, 13.0),
+    // Recessed vertical sliding door panel dividers & horizontal transom Mullion
+    box(0.45, 8.6, 0.85, -6.0, 4.3, 13.05),
+    box(0.45, 8.6, 0.85, 0.0, 4.3, 13.05),
+    box(0.45, 8.6, 0.85, 6.0, 4.3, 13.05),
+    box(24.2, 0.4, 0.8, 0, 6.8, 13.05),
+    // Clerestory window bands along both side walls
+    box(34.5, 1.8, 20.0, 0, 7.6, 0),
+  ];
+  group.add(mesh(doors, doorMat));
   return group;
 }
 

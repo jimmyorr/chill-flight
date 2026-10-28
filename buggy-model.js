@@ -1,7 +1,8 @@
 // --- BUGGY MODEL ---
-// A single-seat dune buggy: livery-coloured tub and fenders, a dark roll
-// cage over an empty seat (no visible driver, like the planes), the engine
-// out back and four chunky tyres.
+// A single-seat dune buggy: livery-coloured tub and arched fenders, visible
+// A-arm suspension and coilover shocks, a dark roll cage over a bucket seat
+// and round steering wheel, round bucket headlights, an exposed rear engine
+// with twin exhaust stingers, and four chunky off-road tyres.
 // The origin is on the ground between the axles, forward is -Z, as for the
 // planes. Moving parts for buggy.js: `wheels` (spin about X, and fold flat
 // to hover over water, setBuggyHoverFold), `steerPivots` (the front wheels'
@@ -30,10 +31,35 @@ export const BUGGY_AXLES = {
   halfTrack: HALF_TRACK,
 };
 
-// A box of the given size centred on (x, y, z), tipped by rx about X
-function box(w, h, d, x, y, z, rx = 0) {
+// A box of the given size centred on (x, y, z), rotated by (rx, ry, rz)
+function box(w, h, d, x, y, z, rx = 0, ry = 0, rz = 0) {
   const geo = new THREE.BoxGeometry(w, h, d);
   if (rx) geo.rotateX(rx);
+  if (ry) geo.rotateY(ry);
+  if (rz) geo.rotateZ(rz);
+  geo.translate(x, y, z);
+  return geo;
+}
+
+// A cylinder aligned along Z (like headlights, engine barrels, or taillights)
+function cylZ(rTop, rBot, len, segs, x, y, z, rx = 0) {
+  const geo = new THREE.CylinderGeometry(rTop, rBot, len, segs);
+  geo.rotateX(Math.PI / 2 + rx);
+  geo.translate(x, y, z);
+  return geo;
+}
+
+// A cylinder aligned along X (like horizontally opposed cylinder heads)
+function cylX(rTop, rBot, len, segs, x, y, z) {
+  const geo = new THREE.CylinderGeometry(rTop, rBot, len, segs);
+  geo.rotateZ(Math.PI / 2);
+  geo.translate(x, y, z);
+  return geo;
+}
+
+// A cylinder aligned along Y
+function cylY(rTop, rBot, len, segs, x, y, z) {
+  const geo = new THREE.CylinderGeometry(rTop, rBot, len, segs);
   geo.translate(x, y, z);
   return geo;
 }
@@ -42,11 +68,11 @@ function box(w, h, d, x, y, z, rx = 0) {
 const _up = new THREE.Vector3(0, 1, 0);
 const _dir = new THREE.Vector3();
 const _quat = new THREE.Quaternion();
-function tube(a, b, radius = 0.13) {
+function tube(a, b, radius = 0.13, segs = 6) {
   const start = new THREE.Vector3(...a);
   const end = new THREE.Vector3(...b);
   _dir.subVectors(end, start);
-  const geo = new THREE.CylinderGeometry(radius, radius, _dir.length(), 6);
+  const geo = new THREE.CylinderGeometry(radius, radius, _dir.length(), segs);
   _quat.setFromUnitVectors(_up, _dir.normalize());
   geo.applyQuaternion(_quat);
   geo.translate(
@@ -57,21 +83,72 @@ function tube(a, b, radius = 0.13) {
   return geo;
 }
 
-// A tyre with a light hub and a bar across it, so the spin shows
-function createWheel(width, tyreMat, hubMat) {
+// 3-piece arched fender over a wheel at (cx, zCenter)
+function fenderArch(cx, yTop, zCenter, width, length) {
+  const segLen = length * 0.46;
+  const lipLen = length * 0.36;
+  const angle = 0.46;
+  const drop = lipLen * 0.5 * Math.sin(angle);
+  const zOff = segLen * 0.5 + lipLen * 0.5 * Math.cos(angle) - 0.04;
+  return [
+    // Center crown
+    box(width, 0.18, segLen, cx, yTop, zCenter),
+    // Front downward-sloped lip
+    box(width, 0.17, lipLen, cx, yTop - drop, zCenter - zOff, -angle),
+    // Rear downward-sloped lip
+    box(width, 0.17, lipLen, cx, yTop - drop, zCenter + zOff, angle),
+  ];
+}
+
+// Off-road tyre with shoulder bevels, a 5-spoke alloy rim and an accent hubcap
+function createWheel(width, tyreMat, hubMat, accentMat) {
   const wheel = new THREE.Group();
-  const tyreGeo = new THREE.CylinderGeometry(
-    BUGGY_WHEEL_RADIUS,
-    BUGGY_WHEEL_RADIUS,
-    width,
+  const r = BUGGY_WHEEL_RADIUS;
+  const treadW = width * 0.76;
+
+  // Main tread + bevelled shoulders for a chunky off-road profile
+  const treadGeo = new THREE.CylinderGeometry(r, r, treadW, 14);
+  treadGeo.rotateZ(Math.PI / 2);
+  const shoulderL = new THREE.CylinderGeometry(
+    r * 0.88,
+    r,
+    (width - treadW) * 0.5,
     14
   );
-  tyreGeo.rotateZ(Math.PI / 2);
-  wheel.add(new THREE.Mesh(tyreGeo, tyreMat));
-  const hubGeo = new THREE.CylinderGeometry(0.62, 0.62, width + 0.06, 8);
-  hubGeo.rotateZ(Math.PI / 2);
-  const barGeo = new THREE.BoxGeometry(width + 0.1, 0.26, 1.15);
-  wheel.add(new THREE.Mesh(mergeGeometries([hubGeo, barGeo]), hubMat));
+  shoulderL.rotateZ(Math.PI / 2);
+  shoulderL.translate(treadW * 0.5 + (width - treadW) * 0.25, 0, 0);
+  const shoulderR = new THREE.CylinderGeometry(
+    r,
+    r * 0.88,
+    (width - treadW) * 0.5,
+    14
+  );
+  shoulderR.rotateZ(Math.PI / 2);
+  shoulderR.translate(-(treadW * 0.5 + (width - treadW) * 0.25), 0, 0);
+
+  wheel.add(
+    new THREE.Mesh(mergeGeometries([treadGeo, shoulderL, shoulderR]), tyreMat)
+  );
+
+  // Alloy wheel rim & 5 spokes (makes wheel spin clearly visible)
+  const rimParts = [];
+  const rimDisk = new THREE.CylinderGeometry(0.76, 0.76, width * 0.82, 10);
+  rimDisk.rotateZ(Math.PI / 2);
+  rimParts.push(rimDisk);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const spoke = new THREE.BoxGeometry(width + 0.06, 0.18, 0.72);
+    spoke.translate(0, 0, 0.34);
+    spoke.rotateX(a);
+    rimParts.push(spoke);
+  }
+  wheel.add(new THREE.Mesh(mergeGeometries(rimParts), hubMat));
+
+  // Center lug cap in vehicle accent color
+  const capGeo = new THREE.CylinderGeometry(0.28, 0.28, width + 0.12, 8);
+  capGeo.rotateZ(Math.PI / 2);
+  wheel.add(new THREE.Mesh(capGeo, accentMat));
+
   return wheel;
 }
 
@@ -108,82 +185,220 @@ export function createBuggyModel(opts = {}) {
     createMaterial({color: planeColor, flatShading: true, roughness: 0.5});
   const lightMat =
     opts.planeWhiteMat ||
-    createMaterial({color: whiteColor, flatShading: true, roughness: 0.5});
+    createMaterial({color: whiteColor, flatShading: true, roughness: 0.45});
   const darkMat = createMaterial({
-    color: 0x2a2a2e,
+    color: 0x24262b,
     flatShading: true,
     roughness: 0.8,
   });
-  const lensMat = createMaterial({color: 0xfff1b8, flatShading: true});
+  const lensMat = createMaterial({
+    color: 0xfff3c4,
+    emissive: 0xffd54f,
+    emissiveIntensity: 0.35,
+    flatShading: true,
+  });
+  const tailMat = createMaterial({
+    color: 0xe53935,
+    emissive: 0xb71c1c,
+    emissiveIntensity: 0.3,
+    flatShading: true,
+  });
 
-  // Everything on the springs, one mesh per material
+  // Everything on the springs, grouped by material
   const body = new THREE.Group();
   root.add(body);
 
+  // --- 1. ACCENT BODYWORK (TUB, SLOPED HOOD, ARCHED FENDERS, COIL SPRINGS) ---
   const accent = [
-    // Floor pan, the sloping nose and the side pods
-    box(3.6, 0.5, 7.0, 0, 1.95, -0.2),
-    box(3.2, 0.8, 2.4, 0, 2.45, -3.3, -0.22),
-    box(0.5, 0.9, 3.4, -1.75, 2.55, 0.3),
-    box(0.5, 0.9, 3.4, 1.75, 2.55, 0.3),
-    // Front fenders over the wheels
-    box(1.3, 0.18, 2.4, -HALF_TRACK, 3.1, FRONT_AXLE, 0.08),
-    box(1.3, 0.18, 2.4, HALF_TRACK, 3.1, FRONT_AXLE, 0.08),
+    // Main floor pan and lower belly tub
+    box(3.3, 0.45, 6.2, 0, 1.88, -0.2),
+    // Sculpted, forward-sloping Meyers-Manx style hood & nose cone
+    box(3.1, 0.65, 1.8, 0, 2.48, -2.15, -0.18),
+    box(2.6, 0.55, 1.6, 0, 2.22, -3.55, -0.26),
+    // Angled hood side cheeks
+    box(0.45, 0.52, 2.6, -1.35, 2.32, -2.7, -0.2, 0.14, 0),
+    box(0.45, 0.52, 2.6, 1.35, 2.32, -2.7, -0.2, -0.14, 0),
+    // Side sill pods with rear quarter kick-up
+    box(0.52, 0.82, 3.3, -1.65, 2.38, 0.15),
+    box(0.52, 0.82, 3.3, 1.65, 2.38, 0.15),
+    box(0.55, 0.92, 1.5, -1.62, 2.68, 2.0, 0.18),
+    box(0.55, 0.92, 1.5, 1.62, 2.68, 2.0, 0.18),
+    // Rear engine cowling deck lid behind the roll cage
+    box(2.5, 0.32, 1.2, 0, 3.22, 2.0, -0.15),
+    // Arched front fenders over the front wheels
+    ...fenderArch(-HALF_TRACK, 3.25, FRONT_AXLE, 1.28, 2.55),
+    ...fenderArch(HALF_TRACK, 3.25, FRONT_AXLE, 1.28, 2.55),
+    // Wider arched rear Baja fenders over the rear wheels
+    ...fenderArch(-(HALF_TRACK + 0.12), 3.32, REAR_AXLE, 1.52, 2.75),
+    ...fenderArch(HALF_TRACK + 0.12, 3.32, REAR_AXLE, 1.52, 2.75),
+    // Coilover spring collars on all four shocks
+    tube([-1.95, 1.9, FRONT_AXLE], [-1.52, 2.85, FRONT_AXLE], 0.19, 8),
+    tube([1.95, 1.9, FRONT_AXLE], [1.52, 2.85, FRONT_AXLE], 0.19, 8),
+    tube([-2.05, 1.9, REAR_AXLE], [-1.55, 2.95, REAR_AXLE], 0.21, 8),
+    tube([2.05, 1.9, REAR_AXLE], [1.55, 2.95, REAR_AXLE], 0.21, 8),
+    // Whip antenna pennant flag at the top
+    box(0.06, 0.38, 0.65, 1.15, 6.65, 1.95),
   ];
   body.add(new THREE.Mesh(mergeGeometries(accent), accentMat));
 
+  // --- 2. DARK CHASSIS, SUSPENSION A-ARMS, ROLL CAGE, SEAT, ENGINE & WHEEL ---
+  // Round steering wheel rim (torus) + 3 spokes
+  const steerWheelRim = new THREE.TorusGeometry(0.44, 0.075, 6, 12);
+  steerWheelRim.rotateX(0.55);
+  steerWheelRim.translate(0, 3.55, -0.82);
+
   const dark = [
-    // Bumpers, the engine and the seat
-    box(4.0, 0.4, 0.45, 0, 1.95, -4.65),
-    box(3.4, 0.4, 0.45, 0, 2.0, 3.55),
-    box(2.4, 1.2, 1.7, 0, 2.75, 2.55),
-    box(1.7, 0.45, 1.5, 0, 2.4, 0.6),
-    box(1.7, 1.9, 0.35, 0, 3.25, 1.35, 0.18),
-    // Steering wheel
-    box(1.0, 0.16, 0.16, 0, 3.55, -0.75),
-    box(0.16, 0.7, 0.16, 0, 3.4, -0.85, 0.5),
-    // Roll cage: front hoop, roof rails, main hoop behind the seat and its
-    // braces down to the back
-    tube([-1.55, 2.4, -1.9], [-1.3, 5.1, -0.3]),
-    tube([1.55, 2.4, -1.9], [1.3, 5.1, -0.3]),
-    tube([-1.3, 5.1, -0.3], [1.3, 5.1, -0.3]),
-    tube([-1.3, 5.1, -0.3], [-1.3, 5.1, 1.6]),
-    tube([1.3, 5.1, -0.3], [1.3, 5.1, 1.6]),
-    tube([-1.45, 2.4, 1.6], [-1.3, 5.1, 1.6]),
-    tube([1.45, 2.4, 1.6], [1.3, 5.1, 1.6]),
-    tube([-1.3, 5.1, 1.6], [1.3, 5.1, 1.6]),
-    tube([-1.3, 5.1, 1.6], [-1.2, 2.5, 3.4]),
-    tube([1.3, 5.1, 1.6], [1.2, 2.5, 3.4]),
+    steerWheelRim,
+    // Steering wheel spokes, center hub, and column shaft
+    box(0.82, 0.09, 0.09, 0, 3.55, -0.82, 0.55),
+    box(0.09, 0.42, 0.09, 0, 3.38, -0.72, 0.55),
+    cylZ(0.14, 0.14, 0.16, 8, 0, 3.55, -0.82, -1.02),
+    tube([0, 3.05, -1.35], [0, 3.55, -0.82], 0.1),
+    // Dashboard brow and cockpit floor footwell
+    box(2.5, 0.42, 0.65, 0, 2.95, -1.45, 0.2),
+    box(2.6, 0.15, 2.4, 0, 1.72, -0.3),
+
+    // Sculpted bucket seat: base cushion, side bolsters, backrest, headrest
+    box(1.65, 0.38, 1.45, 0, 2.18, 0.55, -0.06),
+    box(0.28, 0.52, 1.4, -0.78, 2.38, 0.55, -0.06),
+    box(0.28, 0.52, 1.4, 0.78, 2.38, 0.55, -0.06),
+    box(1.55, 1.75, 0.34, 0, 3.08, 1.25, 0.18),
+    box(0.26, 1.55, 0.42, -0.72, 3.05, 1.15, 0.18),
+    box(0.26, 1.55, 0.42, 0.72, 3.05, 1.15, 0.18),
+    box(0.85, 0.55, 0.32, 0, 4.18, 1.42, 0.12),
+
+    // Front bullbar bumper & tubular hoop
+    box(2.8, 0.34, 0.4, 0, 1.85, -4.45),
+    tube([-1.35, 1.85, -4.45], [-0.95, 2.55, -4.55], 0.11),
+    tube([1.35, 1.85, -4.45], [0.95, 2.55, -4.55], 0.11),
+    tube([-0.95, 2.55, -4.55], [0.95, 2.55, -4.55], 0.11),
+
+    // Round bucket headlight housings
+    cylZ(0.38, 0.32, 0.48, 10, -0.95, 2.65, -4.2),
+    cylZ(0.38, 0.32, 0.48, 10, 0.95, 2.65, -4.2),
+
+    // Front & rear fender support struts
+    tube([-1.3, 2.25, FRONT_AXLE], [-HALF_TRACK, 3.18, FRONT_AXLE], 0.08),
+    tube([1.3, 2.25, FRONT_AXLE], [HALF_TRACK, 3.18, FRONT_AXLE], 0.08),
+    tube(
+      [-1.45, 2.55, REAR_AXLE],
+      [-(HALF_TRACK + 0.1), 3.25, REAR_AXLE],
+      0.09
+    ),
+    tube([1.45, 2.55, REAR_AXLE], [HALF_TRACK + 0.1, 3.25, REAR_AXLE], 0.09),
+
+    // Front double-wishbone A-arm suspension (left & right)
+    tube([-1.2, 1.75, FRONT_AXLE - 0.55], [-2.35, 1.45, FRONT_AXLE], 0.1),
+    tube([-1.2, 1.75, FRONT_AXLE + 0.55], [-2.35, 1.45, FRONT_AXLE], 0.1),
+    tube([-1.25, 2.15, FRONT_AXLE - 0.35], [-2.25, 1.75, FRONT_AXLE], 0.085),
+    tube([-1.25, 2.15, FRONT_AXLE + 0.35], [-2.25, 1.75, FRONT_AXLE], 0.085),
+    tube([1.2, 1.75, FRONT_AXLE - 0.55], [2.35, 1.45, FRONT_AXLE], 0.1),
+    tube([1.2, 1.75, FRONT_AXLE + 0.55], [2.35, 1.45, FRONT_AXLE], 0.1),
+    tube([1.25, 2.15, FRONT_AXLE - 0.35], [2.25, 1.75, FRONT_AXLE], 0.085),
+    tube([1.25, 2.15, FRONT_AXLE + 0.35], [2.25, 1.75, FRONT_AXLE], 0.085),
+    // Front shock tower hoop
+    tube([-1.45, 2.2, FRONT_AXLE], [-1.38, 3.1, FRONT_AXLE], 0.11),
+    tube([1.45, 2.2, FRONT_AXLE], [1.38, 3.1, FRONT_AXLE], 0.11),
+
+    // Rear trailing-arm & wishbone suspension (left & right)
+    tube([-1.25, 1.8, REAR_AXLE - 0.7], [-2.45, 1.45, REAR_AXLE], 0.11),
+    tube([-1.25, 1.8, REAR_AXLE + 0.45], [-2.45, 1.45, REAR_AXLE], 0.11),
+    tube([-1.3, 2.25, REAR_AXLE - 0.35], [-2.35, 1.8, REAR_AXLE], 0.09),
+    tube([1.25, 1.8, REAR_AXLE - 0.7], [2.45, 1.45, REAR_AXLE], 0.11),
+    tube([1.25, 1.8, REAR_AXLE + 0.45], [2.45, 1.45, REAR_AXLE], 0.11),
+    tube([1.3, 2.25, REAR_AXLE - 0.35], [2.35, 1.8, REAR_AXLE], 0.09),
+
+    // Detailed rear air-cooled boxer engine: crankcase, fan shroud, cylinder banks
+    box(1.65, 1.15, 1.55, 0, 2.45, 2.75),
+    cylZ(0.68, 0.68, 0.55, 10, 0, 2.85, 2.45),
+    cylX(0.46, 0.46, 2.45, 8, 0, 2.35, 2.55),
+    cylX(0.46, 0.46, 2.45, 8, 0, 2.35, 3.05),
+    // Rear engine guard cage / bumper
+    tube([-1.35, 1.95, 3.45], [1.35, 1.95, 3.45], 0.13),
+    tube([-1.35, 1.95, 3.45], [-1.05, 2.55, 3.85], 0.12),
+    tube([1.35, 1.95, 3.45], [1.05, 2.55, 3.85], 0.12),
+    tube([-1.05, 2.55, 3.85], [1.05, 2.55, 3.85], 0.12),
+    // Taillight pods
+    cylZ(0.24, 0.24, 0.24, 8, -1.05, 2.75, 3.55),
+    cylZ(0.24, 0.24, 0.24, 8, 1.05, 2.75, 3.55),
+
+    // Roll cage: A-pillars, windshield header, roof rails, B-pillar hoop, V-braces & rear down-bars
+    tube([-1.48, 2.55, -1.85], [-1.22, 4.95, -0.35], 0.13),
+    tube([1.48, 2.55, -1.85], [1.22, 4.95, -0.35], 0.13),
+    tube([-1.22, 4.95, -0.35], [1.22, 4.95, -0.35], 0.13),
+    tube([-1.22, 4.95, -0.35], [-1.22, 5.05, 1.55], 0.13),
+    tube([1.22, 4.95, -0.35], [1.22, 5.05, 1.55], 0.13),
+    tube([-0.45, 4.95, -0.35], [-0.45, 5.05, 1.55], 0.09),
+    tube([0.45, 4.95, -0.35], [0.45, 5.05, 1.55], 0.09),
+    tube([-1.45, 2.45, 1.55], [-1.22, 5.05, 1.55], 0.135),
+    tube([1.45, 2.45, 1.55], [1.22, 5.05, 1.55], 0.135),
+    tube([-1.22, 5.05, 1.55], [1.22, 5.05, 1.55], 0.135),
+    // Diagonal harness bar / V-brace behind the seat
+    tube([-1.35, 3.35, 1.55], [1.35, 3.35, 1.55], 0.1),
+    tube([0, 3.35, 1.55], [-0.75, 5.05, 1.55], 0.09),
+    tube([0, 3.35, 1.55], [0.75, 5.05, 1.55], 0.09),
+    // Rear cage down-bars anchoring to the rear shock towers and engine guard
+    tube([-1.22, 5.05, 1.55], [-1.15, 2.45, 3.45], 0.125),
+    tube([1.22, 5.05, 1.55], [1.15, 2.45, 3.45], 0.125),
+    // Flexible whip antenna pole on right rear cage
+    tube([1.15, 3.2, 1.6], [1.15, 6.85, 1.65], 0.045, 5),
   ];
   body.add(new THREE.Mesh(mergeGeometries(dark), darkMat));
 
+  // --- 3. LIGHT / CHROME DETAILS (STRIPE, SKID PLATE, SHOCKS, HEADERS, VALVE COVERS) ---
   const light = [
-    // Exhaust pipes
-    tube([-0.6, 2.6, 3.3], [-0.6, 2.9, 4.1], 0.16),
-    tube([0.6, 2.6, 3.3], [0.6, 2.9, 4.1], 0.16),
+    // Raised center hood racing stripe / vent scoop
+    box(0.75, 0.12, 3.1, 0, 2.66, -2.75, -0.22),
+    // Angled front aluminum skid plate under the nose
+    box(2.1, 0.14, 1.15, 0, 1.62, -4.15, 0.42),
+    // Dashboard instrument gauge faces
+    cylZ(0.18, 0.18, 0.08, 8, -0.35, 3.02, -1.12, 0.2),
+    cylZ(0.18, 0.18, 0.08, 8, 0.35, 3.02, -1.12, 0.2),
+    // Chrome shock absorber shafts (all 4 corners)
+    tube([-2.22, 1.52, FRONT_AXLE], [-1.42, 3.02, FRONT_AXLE], 0.09),
+    tube([2.22, 1.52, FRONT_AXLE], [1.42, 3.02, FRONT_AXLE], 0.09),
+    tube([-2.32, 1.52, REAR_AXLE], [-1.45, 3.12, REAR_AXLE], 0.1),
+    tube([2.32, 1.52, REAR_AXLE], [1.45, 3.12, REAR_AXLE], 0.1),
+    // Engine top chrome air cleaner, alternator pulley & finned valve covers
+    cylY(0.48, 0.42, 0.32, 10, 0, 3.35, 2.85),
+    cylZ(0.26, 0.26, 0.16, 8, 0, 2.85, 3.56),
+    box(0.18, 0.55, 1.15, -1.28, 2.35, 2.8),
+    box(0.18, 0.55, 1.15, 1.28, 2.35, 2.8),
+    // Twin curved exhaust header pipes & angled megaphone stingers
+    tube([-1.15, 2.15, 2.95], [-0.55, 2.55, 3.65], 0.12, 8),
+    tube([1.15, 2.15, 2.95], [0.55, 2.55, 3.65], 0.12, 8),
+    tube([-0.55, 2.55, 3.65], [-0.42, 3.15, 4.35], 0.17, 8),
+    tube([0.55, 2.55, 3.65], [0.42, 3.15, 4.35], 0.17, 8),
   ];
   body.add(new THREE.Mesh(mergeGeometries(light), lightMat));
 
+  // --- 4. HEADLIGHT & TAILLIGHT LENSES ---
   const lenses = [
-    box(0.7, 0.45, 0.2, -1.05, 2.75, -4.5),
-    box(0.7, 0.45, 0.2, 1.05, 2.75, -4.5),
+    cylZ(0.31, 0.31, 0.12, 10, -0.95, 2.65, -4.42),
+    cylZ(0.31, 0.31, 0.12, 10, 0.95, 2.65, -4.42),
   ];
   body.add(new THREE.Mesh(mergeGeometries(lenses), lensMat));
 
-  // Wheels: the front pair turn on pivots, the back ones are a bit wider
+  const tails = [
+    cylZ(0.19, 0.19, 0.1, 8, -1.05, 2.75, 3.66),
+    cylZ(0.19, 0.19, 0.1, 8, 1.05, 2.75, 3.66),
+  ];
+  body.add(new THREE.Mesh(mergeGeometries(tails), tailMat));
+
+  // Wheels: the front pair turn on pivots, the back ones are wider
   const wheels = [];
   const steerPivots = [];
   for (const side of [-1, 1]) {
     const pivot = new THREE.Group();
     pivot.position.set(side * HALF_TRACK, BUGGY_WHEEL_RADIUS, FRONT_AXLE);
-    const front = createWheel(1.1, darkMat, lightMat);
+    const front = createWheel(1.15, darkMat, lightMat, accentMat);
     front.userData = {side, baseX: 0, baseY: 0};
     pivot.add(front);
     root.add(pivot);
     steerPivots.push(pivot);
     wheels.push(front);
 
-    const rear = createWheel(1.4, darkMat, lightMat);
+    const rear = createWheel(1.48, darkMat, lightMat, accentMat);
     rear.position.set(
       side * (HALF_TRACK + 0.15),
       BUGGY_WHEEL_RADIUS,
