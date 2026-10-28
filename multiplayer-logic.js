@@ -47,7 +47,14 @@ const BUFFER_SIZE = 24;
 const BLEND_TAU = 0.12;
 
 // Bits of an update's `fl` (its `f` is the relay's: who sent it)
-export const FLAGS = {smoke: 1, gear: 2, ground: 4, water: 8, paused: 16};
+export const FLAGS = {
+  smoke: 1,
+  gear: 2,
+  ground: 4,
+  water: 8,
+  paused: 16,
+  crashed: 32,
+};
 
 /** A new room code from `rng` (Math.random or a seeded one). */
 export function makeRoomCode(rng = Math.random) {
@@ -218,6 +225,7 @@ export class PeerTrack {
     this.posOffset = new THREE.Vector3();
     this.velOffset = new THREE.Vector3();
     this.quatOffset = new THREE.Quaternion();
+    this.sampledFlags = 0;
   }
 
   /** Adds an update (from unpackState) received at `localNow`. */
@@ -284,13 +292,18 @@ export class PeerTrack {
     const b = this.buffer;
     const n = b.length;
     for (let i = Math.max(0, n - 3); i < n; i++) {
-      if (n === 1) {
-        b[i].vel.set(0, 0, 0);
-        b[i].angVel.set(0, 0, 0);
-      } else if (i > 0 && i < n - 1) {
-        const prev = b[i - 1];
-        const cur = b[i];
-        const next = b[i + 1];
+      const cur = b[i];
+      if (cur.flags & FLAGS.crashed) {
+        cur.vel.set(0, 0, 0);
+        cur.angVel.set(0, 0, 0);
+        continue;
+      }
+      // Respawning out of FLAGS.crashed jumps to clear air overhead: don't
+      // blend the crash site below into the post-respawn velocity
+      const prev = i > 0 && !(b[i - 1].flags & FLAGS.crashed) ? b[i - 1] : cur;
+      const next =
+        i < n - 1 && !(b[i + 1].flags & FLAGS.crashed) ? b[i + 1] : cur;
+      if (prev !== cur && next !== cur) {
         const dt0 = (cur.ts - prev.ts) / 1000;
         const dt1 = (next.ts - cur.ts) / 1000;
         const dt = dt0 + dt1;
@@ -310,21 +323,19 @@ export class PeerTrack {
             .addScaledVector(_b, dt0 / dt);
         }
       } else {
-        const prev = b[Math.max(0, i - 1)];
-        const next = b[Math.min(n - 1, i + 1)];
         const dt = (next.ts - prev.ts) / 1000;
         if (dt > 0) {
-          b[i].vel.subVectors(next.pos, prev.pos).divideScalar(dt);
-          quatLog(prev.quat, next.quat, b[i].angVel).divideScalar(dt);
-          if (i === n - 1 && n >= 3) {
-            const speed = b[i].vel.length();
-            if (speed > 0 && b[i].vel.dot(prev.vel) > 0) {
-              b[i].vel.multiplyScalar(2).sub(prev.vel).setLength(speed);
+          cur.vel.subVectors(next.pos, prev.pos).divideScalar(dt);
+          quatLog(prev.quat, next.quat, cur.angVel).divideScalar(dt);
+          if (i === n - 1 && prev !== cur && n >= 3) {
+            const speed = cur.vel.length();
+            if (speed > 0 && cur.vel.dot(prev.vel) > 0) {
+              cur.vel.multiplyScalar(2).sub(prev.vel).setLength(speed);
             }
           }
         } else {
-          b[i].vel.set(0, 0, 0);
-          b[i].angVel.set(0, 0, 0);
+          cur.vel.set(0, 0, 0);
+          cur.angVel.set(0, 0, 0);
         }
       }
     }
@@ -378,7 +389,14 @@ export class PeerTrack {
       this.lastT = localNow - this.offset - RENDER_DELAY_MS;
     }
 
+    const prevCrashed = !!(this.sampledFlags & FLAGS.crashed);
     const speed = this.evalAt(this.lastT, outPos, outQuat);
+    const nowCrashed = !!(this.sampledFlags & FLAGS.crashed);
+    if (prevCrashed !== nowCrashed) {
+      this.posOffset.set(0, 0, 0);
+      this.velOffset.set(0, 0, 0);
+      this.quatOffset.identity();
+    }
     outPos.add(this.posOffset);
     outQuat.multiply(this.quatOffset).normalize();
     return speed;
@@ -388,15 +406,28 @@ export class PeerTrack {
     const b = this.buffer;
     if (t <= b[0].ts || b.length === 1) {
       const s = t <= b[0].ts ? b[0] : b[b.length - 1];
+      this.sampledFlags = s.flags;
       return this.extrapolate(s, t, outPos, outQuat, outVel);
     }
     const last = b[b.length - 1];
-    if (t >= last.ts) return this.extrapolate(last, t, outPos, outQuat, outVel);
+    if (t >= last.ts) {
+      this.sampledFlags = last.flags;
+      return this.extrapolate(last, t, outPos, outQuat, outVel);
+    }
 
     let i = b.length - 2;
     while (i > 0 && b[i].ts > t) i--;
     const s0 = b[i];
     const s1 = b[i + 1];
+    this.sampledFlags = s0.flags;
+    // Across the overhead respawn out of a crash, hold the crash site until
+    // the respawn timestamp so the plane snaps overhead instead of rising up
+    if (s0.flags & FLAGS.crashed && !(s1.flags & FLAGS.crashed)) {
+      outPos.copy(s0.pos);
+      outQuat.copy(s0.quat);
+      if (outVel) outVel.set(0, 0, 0);
+      return s0.speed;
+    }
     const dt = (s1.ts - s0.ts) / 1000;
     const u = (t - s0.ts) / (s1.ts - s0.ts);
     // Cubic Hermite: through both updates, leaving and arriving at their

@@ -56,6 +56,7 @@ const _m = new THREE.Matrix4();
 const _r = new THREE.Matrix4();
 const _t = new THREE.Matrix4();
 const _m0 = new THREE.Matrix4();
+const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _shotChase = {
   camX: 0,
   camY: 0,
@@ -77,7 +78,6 @@ function clearWreckPieces() {
 }
 
 function endCrashSequence() {
-  clearWreckPieces();
   if (state.airplaneModel) state.airplaneModel.visible = true;
   state.isCrashed = false;
   seq = null;
@@ -86,6 +86,7 @@ function endCrashSequence() {
 function resetCrashState() {
   crashState.strain = 0;
   crashState.cooldown = 0;
+  clearWreckPieces();
   if (seq) endCrashSequence();
 }
 
@@ -93,13 +94,11 @@ function rand(lo, hi) {
   return lo + Math.random() * (hi - lo);
 }
 
-// Clones the plane's visible parts at its current world pose into tumbling
+// Clones a plane model's visible parts at its current world pose into tumbling
 // wreck pieces that fly apart and bounce on the ground or water
-function spawnPlaneWreck(wreckPos, heading) {
-  clearWreckPieces();
-  const model = state.airplaneModel;
-  if (!model) return;
-  planeGroup.updateMatrixWorld(true);
+function spawnModelWreck(model, group, wreckPos, heading) {
+  if (!model || !group) return;
+  group.updateMatrixWorld(true);
   const fx = -Math.sin(heading);
   const fz = -Math.cos(heading);
 
@@ -154,12 +153,20 @@ function spawnPlaneWreck(wreckPos, heading) {
       angle: 0,
       spin: rand(2.5, 6.5),
       rest,
+      ttl: CRASH.DURATION,
     });
   }
 }
 
 function stepWreckPieces(dt) {
-  for (const p of wreckPieces) {
+  for (let i = wreckPieces.length - 1; i >= 0; i--) {
+    const p = wreckPieces[i];
+    p.ttl -= dt;
+    if (p.ttl <= 0) {
+      scene.remove(p.mesh);
+      wreckPieces.splice(i, 1);
+      continue;
+    }
     stepWreckPiece(p, dt);
     _m.makeTranslation(p.x, p.y, p.z);
     _m.multiply(_r.makeRotationAxis(p.axis, p.angle));
@@ -167,6 +174,47 @@ function stepWreckPieces(dt) {
     _m.multiply(_m0.fromArray(p.m0));
     p.mesh.matrix.copy(_m);
   }
+}
+
+function spawnCrashEffects(wreckPos, heading, overWater, audible) {
+  const fx = -Math.sin(heading);
+  const fz = -Math.cos(heading);
+  scrapeSparks(wreckPos.x, wreckPos.y, wreckPos.z, -fx, -fz, -fx, -fz, 120, 45);
+  if (overWater) {
+    propPuffs(wreckPos.x, WATER_LEVEL, wreckPos.z, 8, 5, SPRAY_WHITE, 32, 7, 7);
+    if (audible) playSplash(1);
+  } else {
+    propPuffs(wreckPos.x, wreckPos.y, wreckPos.z, 7, 5, DUST_LIGHT, 26, 8, 5);
+  }
+  propPuffs(wreckPos.x, wreckPos.y + 1, wreckPos.z, 5, 4, SMOKE_DARK, 18, 7, 6);
+  if (audible) playSmash(true, 1, 0);
+}
+
+/**
+ * Spawns tumbling wreck pieces and impact puffs for a friend's plane in
+ * multiplayer when their FLAGS.crashed bit turns on.
+ */
+export function triggerPeerCrash(model, group) {
+  if (!model || !group) return;
+  const pos = group.position;
+  _euler.setFromQuaternion(group.quaternion, 'YXZ');
+  const heading = _euler.y;
+  sampleGround(pos.x, pos.z, _ground);
+  const overWater = _ground.height <= WATER_LEVEL + 0.5;
+  const surfaceY = Math.max(WATER_LEVEL, _ground.height);
+  const wreckPos = {
+    x: pos.x,
+    y: Math.max(surfaceY, pos.y),
+    z: pos.z,
+  };
+  spawnModelWreck(model, group, wreckPos, heading);
+  const audible = camera.position.distanceTo(pos) < 1200;
+  spawnCrashEffects(wreckPos, heading, overWater, audible);
+}
+
+/** True during Act 1 while the local plane is broken into wreck pieces. */
+export function isPlaneWrecked() {
+  return !!(seq && !seq.placed);
 }
 
 function triggerCrash() {
@@ -186,21 +234,13 @@ function triggerCrash() {
   };
 
   // Spawn tumbling plane pieces and hide the intact model during Act 1
-  spawnPlaneWreck(wreckPos, heading);
+  spawnModelWreck(state.airplaneModel, planeGroup, wreckPos, heading);
   if (state.airplaneModel) state.airplaneModel.visible = false;
 
   // Sparks, smoke/dust or water spray, crunch and camera jolt
   const fx = -Math.sin(heading);
   const fz = -Math.cos(heading);
-  scrapeSparks(wreckPos.x, wreckPos.y, wreckPos.z, -fx, -fz, -fx, -fz, 120, 45);
-  if (overWater) {
-    propPuffs(wreckPos.x, WATER_LEVEL, wreckPos.z, 8, 5, SPRAY_WHITE, 32, 7, 7);
-    playSplash(1);
-  } else {
-    propPuffs(wreckPos.x, wreckPos.y, wreckPos.z, 7, 5, DUST_LIGHT, 26, 8, 5);
-  }
-  propPuffs(wreckPos.x, wreckPos.y + 1, wreckPos.z, 5, 4, SMOKE_DARK, 18, 7, 6);
-  playSmash(true, 1, 0);
+  spawnCrashEffects(wreckPos, heading, overWater, true);
   smashHaptic(true);
   state.impactShake = Math.max(state.impactShake || 0, 2.5);
 
@@ -289,13 +329,16 @@ export function updateCrash(delta) {
   lastY = p.y;
   lastZ = p.z;
 
+  if (wreckPieces.length > 0) {
+    stepWreckPieces(delta);
+  }
+
   if (seq) {
     if (activePlaneType !== seq.planeType || state.isFreeCamera) {
       resetCrashState();
       return;
     }
     seq.t += delta;
-    stepWreckPieces(delta);
 
     // Entering Act 2: place the fresh plane overhead in clear air so the
     // camera can arc smoothly up into the chase view behind it

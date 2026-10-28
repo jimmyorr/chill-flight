@@ -499,6 +499,44 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
     if (pos.x > 100 && pos.x < 49000) streaked = true;
   }
   check('A warp jumps instead of streaking across the map', !streaked);
+
+  // A crash (FLAGS.crashed) holds the crash site and snaps cleanly overhead on
+  // respawn without rising through mid-air or overshooting
+  const crashTrack = new PeerTrack();
+  for (let i = 0; i < 8; i++) {
+    const isCrashed = i >= 1 && i <= 4;
+    const y = i === 0 ? 50 : isCrashed ? 50 : 170;
+    const fl = isCrashed ? FLAGS.crashed : 0;
+    crashTrack.push(
+      unpackState(
+        packState(
+          i * SEND_INTERVAL_MS,
+          {x: 0, y, z: 0},
+          new THREE.Quaternion(),
+          0,
+          fl
+        )
+      ),
+      i * SEND_INTERVAL_MS + 50
+    );
+  }
+  let sawCrashedFlag = false;
+  let sawMidAirRise = false;
+  let sawOvershoot = false;
+  for (let now3 = 0; now3 <= 1200; now3 += 20) {
+    crashTrack.sample(now3, pos, quat);
+    if (crashTrack.sampledFlags & FLAGS.crashed) {
+      sawCrashedFlag = true;
+      if (Math.abs(pos.y - 50) > 1e-4) sawMidAirRise = true;
+    } else if (now3 > 600) {
+      if (pos.y < 169.9) sawMidAirRise = true;
+      if (pos.y > 170.1) sawOvershoot = true;
+    }
+  }
+  check(
+    'A crashed friend holds at the wreck then snaps overhead without streaking or overshooting',
+    sawCrashedFlag && !sawMidAirRise && !sawOvershoot && FLAGS.crashed === 32
+  );
 }
 
 // --- Waggle and tag ---

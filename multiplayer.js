@@ -62,6 +62,7 @@ import {sampleRoad} from './terrain-chunks.js';
 import {PLANE_BUILDERS, buildPlaneModel} from './plane-models.js';
 import {Achievements} from './achievements.js';
 import {isSmokeOn, setSmokeTint, smokeColor, trailSmoke} from './particles.js';
+import {isPlaneWrecked, triggerPeerCrash} from './crash.js';
 import {playChime, playRaceBeep} from './sfx-events.js';
 import {forEachTrafficPlane} from './traffic.js';
 import {forwardOf} from './traffic-logic.js';
@@ -810,15 +811,15 @@ function scoreTag(rawNow) {
     if (mineIt) {
       itPos = _scorePos.set(mineIt.bot.x, mineIt.bot.y, mineIt.bot.z);
     } else if (tag.it === room.id) {
-      if (!state.isPaused) itPos = planeGroup.position;
+      if (!state.isPaused && !state.isCrashed) itPos = planeGroup.position;
     } else {
       const peer = peers.get(tag.it);
-      if (peer?.group?.visible && !isAway(peer, rawNow)) {
+      if (peer?.group?.visible && !peer.crashed && !isAway(peer, rawNow)) {
         itPos = peer.group.position;
       }
     }
     if (itPos) {
-      if (tag.it !== room.id && !state.isPaused) {
+      if (tag.it !== room.id && !state.isPaused && !state.isCrashed) {
         scoringRate = tagPointsRate(planeGroup.position.distanceTo(itPos));
         myPoints += scoringRate * dt;
       }
@@ -1308,7 +1309,7 @@ function playerSpots(rawNow) {
     planeGroup.position,
     _botQuat,
     (state.flightSpeedMultiplier || 0) * units,
-    !!state.isPaused
+    !!state.isPaused || !!state.isCrashed
   );
   for (const peer of peers.values()) {
     if (ownerOf(peer.id) === room.id || !peer.group?.visible) continue;
@@ -1317,7 +1318,7 @@ function playerSpots(rawNow) {
       peer.group.position,
       peer.group.quaternion,
       (peer.track.latest?.speed || 0) * units,
-      isAway(peer, rawNow)
+      isAway(peer, rawNow) || !!peer.crashed
     );
   }
   for (const {bot, peer} of myBots.values()) {
@@ -1579,7 +1580,7 @@ function stepMyBots(delta, rawNow) {
 function bodiesAround() {
   const out = [];
   const units = BASE_FLIGHT_SPEED * 60;
-  if (!state.isFreeCamera) {
+  if (!state.isFreeCamera && !state.isCrashed) {
     planeGroup.getWorldQuaternion(_botQuat);
     _botFwd.set(0, 0, -1).applyQuaternion(_botQuat);
     const speed = (state.flightSpeedMultiplier || 0) * units;
@@ -1605,7 +1606,7 @@ function bodiesAround() {
         vx: f.x * bot.speed,
         vz: f.z * bot.speed,
       });
-    } else if (peer.group?.visible && peer.track.latest) {
+    } else if (peer.group?.visible && !peer.crashed && peer.track.latest) {
       _botFwd.set(0, 0, -1).applyQuaternion(peer.group.quaternion);
       const speed = (peer.track.latest.speed || 0) * units;
       const {x, y, z} = peer.group.position;
@@ -1639,7 +1640,7 @@ function bodiesAround() {
 export function forEachBumpable(fn) {
   if (!room) return;
   for (const peer of peers.values()) {
-    if (!peer.group?.visible || peer.opacity < 0.99) continue;
+    if (!peer.group?.visible || peer.crashed || peer.opacity < 0.99) continue;
     fn(peer.id, peer.group.position, !!peer.model?.isBuggy, ownBot(peer));
   }
 }
@@ -2191,6 +2192,7 @@ function sendState(frameClock) {
   if (state.isOnGround) flags |= FLAGS.ground;
   if (state.isOnWater) flags |= FLAGS.water;
   if (state.isPaused) flags |= FLAGS.paused;
+  if (isPlaneWrecked()) flags |= FLAGS.crashed;
   planeGroup.getWorldQuaternion(_quat);
   const update = packState(
     now,
@@ -2368,7 +2370,7 @@ hooks.inGameMode = inGameMode;
 export function forEachPeerVehicle(fn) {
   if (!room) return;
   for (const peer of peers.values()) {
-    if (peer.group?.visible)
+    if (peer.group?.visible && !peer.crashed)
       fn(peer.id, peer.group.position, !!peer.model?.isBuggy);
   }
 }
@@ -2411,7 +2413,14 @@ export function updateMultiplayer(delta) {
     g.visible = true;
     g.position.copy(_pos);
     g.quaternion.copy(_quat);
-    const flags = peer.track.latest.flags;
+    const flags = own ? peer.track.latest.flags : peer.track.sampledFlags;
+    const isCrashed = !!(flags & FLAGS.crashed);
+    if (isCrashed && !peer.crashed && !peer.model.isBuggy) {
+      g.updateMatrixWorld(true);
+      triggerPeerCrash(peer.model, g);
+    }
+    peer.crashed = isCrashed;
+    peer.model.visible = !isCrashed;
     const isPaused = isAway(peer, rawNow);
 
     // Fade to translucent ghost when paused
@@ -2439,7 +2448,8 @@ export function updateMultiplayer(delta) {
     peer.model.rotation.z = waggleRoll(rawNow - peer.waggleAt);
     // Their prop coasts down and settles like the player's (prop-spin-logic.js)
     peer.propSpin ??= newPropSpin();
-    const spinTarget = isPaused ? 0 : speed * BASE_FLIGHT_SPEED * 60 * 0.15;
+    const spinTarget =
+      isPaused || isCrashed ? 0 : speed * BASE_FLIGHT_SPEED * 60 * 0.15;
     stepPropSpin(peer.propSpin, Math.min(PROP_SPIN.MAX, spinTarget), delta);
     for (const prop of peer.props)
       if (prop) prop.rotation.z = peer.propSpin.angle;
@@ -2457,7 +2467,7 @@ export function updateMultiplayer(delta) {
       );
       setBuggyHoverFold(peer.model, peer.hoverFold);
     }
-    if (flags & FLAGS.smoke && !isPaused) {
+    if (flags & FLAGS.smoke && !isPaused && !isCrashed) {
       g.updateMatrixWorld();
       trailSmoke(g, peer.smokeLast, speed, peer.smokeColor);
     } else {
@@ -2470,6 +2480,7 @@ export function updateMultiplayer(delta) {
   if (
     tag.it === room.id &&
     !state.isPaused &&
+    !state.isCrashed &&
     rawNow - tagSince > TAG_GRACE_MS &&
     rawNow < tagEndsAt
   ) {
@@ -2479,7 +2490,7 @@ export function updateMultiplayer(delta) {
         others.push({
           id: peer.id,
           pos: peer.group.position,
-          paused: isAway(peer, rawNow),
+          paused: isAway(peer, rawNow) || !!peer.crashed,
         });
     }
     const target = tagTarget(planeGroup.position, others);
