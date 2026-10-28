@@ -41,10 +41,10 @@ import {
   createDebrisMesh,
   debrisTypes,
   globalInstancer,
-  standaloneProps,
   hideInstance,
   sampleGroundColor,
 } from './terrain-chunks.js';
+import {standaloneProps} from './airports.js';
 import {camera} from './sky.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {playSmash} from './sfx-events.js';

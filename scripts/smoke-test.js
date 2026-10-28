@@ -205,6 +205,25 @@ async function checkPage(browser, {path, fly, blackhole}) {
 
   if (!fly) {
     await new Promise((r) => setTimeout(r, DEBUG_PAGE_MS));
+    if (path === 'debug/debug-models.html') {
+      const check = await page.evaluate(() => ({
+        canvases: document.querySelectorAll('canvas').length,
+        sidebarW: document.getElementById('sidebar')?.offsetWidth || 0,
+        viewerW: document.getElementById('viewer')?.offsetWidth || 0,
+        hasModel: !!window.currentModel,
+      }));
+      if (
+        check.canvases !== 1 ||
+        check.sidebarW < 250 ||
+        check.viewerW < 600 ||
+        !check.hasModel
+      ) {
+        failPage(
+          tag,
+          `unexpected model viewer layout: ${JSON.stringify(check)}`
+        );
+      }
+    }
     await page.close();
     return;
   }

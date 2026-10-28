@@ -521,10 +521,6 @@ export function createDebrisMesh(geo, mat, capacity, useColor) {
 // chunk lists them in userData.meshProps: [{kind, parts: [{type, mesh,
 // index}]}], each part an instance of one of the chunk's instanced meshes.
 export const debrisTypes = new Map();
-// Breakable props that aren't in any chunk (airports): each a stand-in for
-// a chunk, {userData: {meshProps, ...}}. A part can also be a whole object
-// ({type: 'obj', object, role}), drawn by a copy of it when it falls.
-export const standaloneProps = [];
 const debrisType = (type, geo, mat) => debrisTypes.set(type, {geo, mat});
 debrisType('pierDeck', pierDeckGeo, woodMat);
 debrisType('fireLog', fireLogGeo, woodMat);

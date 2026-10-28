@@ -12,8 +12,12 @@ import {scene} from './scene.js';
 import {simplex} from './noise.js';
 import {getElevation} from './terrain-geometry.js';
 import {BREAKABLE} from './terrain-gen.js';
-import {standaloneProps} from './terrain-chunks.js';
 import {buildPlaneModel} from './plane-models.js';
+
+// Breakable props that aren't in any chunk (airports): each a stand-in for
+// a chunk, {userData: {meshProps, ...}}. A part can also be a whole object
+// ({type: 'obj', object, role}), drawn by a copy of it when it falls.
+export const standaloneProps = [];
 
 const asphaltMat = createMaterial({color: 0x4f5155, flatShading: true});
 const concreteMat = createMaterial({color: 0x9a9890, flatShading: true});
