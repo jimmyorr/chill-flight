@@ -6,6 +6,8 @@ import {
   glanceHeading,
   headingOf,
   isHeadOn,
+  isScrapeTeleport,
+  noseLookahead,
   scrapeRoll,
   stepOut,
   turnToward,
@@ -85,6 +87,26 @@ console.log('  Passed: glances off along the wall, the way nearer the heading');
 check(scrapeRoll(along, 1, 0) < 0, 'wall on the left rolls left');
 check(scrapeRoll(along, -1, 0) > 0, 'wall on the right rolls right');
 console.log('  Passed: the wing on the wall side lifts away from it');
+
+// --- 6. Nose lookahead and teleports ---
+check(near(noseLookahead(120, 1 / 60), 2), 'normal frame lookahead');
+check(
+  noseLookahead(300, 0.1) === SCRAPE.MAX_AHEAD,
+  'nose lookahead is not capped on a long frame'
+);
+check(
+  !isScrapeTeleport({x: NaN, y: NaN, z: NaN}, {x: 0, y: 100, z: 0}),
+  'first frame counts as a teleport'
+);
+check(
+  !isScrapeTeleport({x: 0, y: 100, z: 0}, {x: 10, y: 100, z: -20}),
+  'normal flight counts as a teleport'
+);
+check(
+  isScrapeTeleport({x: 0, y: 100, z: 0}, {x: 500, y: 100, z: 0}),
+  'a warp does not clear the scrape state'
+);
+console.log('  Passed: nose lookahead is capped and warps reset scrape state');
 
 if (failed) process.exit(1);
 console.log('Wall scrape tests passed.');

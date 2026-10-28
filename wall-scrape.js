@@ -21,6 +21,8 @@ import {
   glanceHeading,
   headingOf,
   isHeadOn,
+  isScrapeTeleport,
+  noseLookahead,
   scrapeRoll,
   stepOut,
   turnToward,
@@ -37,9 +39,11 @@ const SHAKE = {graze: 0.5, headOn: 1.2, scraping: 0.25};
 const DUST = new THREE.Color(0.62, 0.56, 0.5);
 
 const _ground = {height: 0, slopeX: 0, slopeZ: 0};
+const _tip = new THREE.Vector3();
 const _probe = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 const _q = new THREE.Quaternion();
+const _lastPosition = new THREE.Vector3(NaN, NaN, NaN);
 // The push off the wall (units/s), fading
 const push = {x: 0, z: 0};
 // The probes touching this frame, deepest first is the one shown
@@ -53,19 +57,27 @@ let sparkDebt = 0;
 let pressing = 0;
 let exitHeading = null;
 
+function clearScrapeState() {
+  push.x = push.z = 0;
+  pressing = 0;
+  exitHeading = null;
+}
+
 // Probes at the wingtips and the nose, one frame of travel ahead of the
-// nose so a wall is met before the plane's middle reaches it
+// nose so a wall is met before the plane's middle reaches it; sparks and
+// puffs still come off the tip itself (_tip), not out in front
 function probe(kind, x, y, z, ahead) {
-  _probe.set(x, y, z);
-  planeGroup.localToWorld(_probe);
+  _tip.set(x, y, z);
+  planeGroup.localToWorld(_tip);
+  _probe.copy(_tip);
   if (ahead) _probe.addScaledVector(_fwd, ahead);
   sampleGround(_probe.x, _probe.z, _ground);
   const c = wallContact(_probe.y, _ground, WATER_LEVEL);
   if (!c) return;
   c.kind = kind;
-  c.x = _probe.x;
-  c.y = _probe.y;
-  c.z = _probe.z;
+  c.x = _tip.x;
+  c.y = _tip.y;
+  c.z = _tip.z;
   touches.push(c);
 }
 
@@ -89,24 +101,26 @@ function turnOut(delta) {
 /** Called once per frame while flying, after the flight physics. */
 export function updateWallScrape(delta) {
   clock += delta;
+  if (isScrapeTeleport(_lastPosition, planeGroup.position)) {
+    clearScrapeState();
+  }
   const flying =
     activePlaneType !== 'buggy' &&
     !state.isFreeCamera &&
     !state.isOnGround &&
     !state.isOnWater;
+  const model = state.airplaneModel;
+  if (!flying || !model?.halfSpan) {
+    clearScrapeState();
+    _lastPosition.copy(planeGroup.position);
+    return;
+  }
   if (push.x || push.z) {
-    if (flying) {
-      planeGroup.position.x += push.x * delta;
-      planeGroup.position.z += push.z * delta;
-    }
+    planeGroup.position.x += push.x * delta;
+    planeGroup.position.z += push.z * delta;
     push.x = fadeScrapePush(push.x, delta);
     push.z = fadeScrapePush(push.z, delta);
     if (Math.hypot(push.x, push.z) < 1) push.x = push.z = 0;
-  }
-  const model = state.airplaneModel;
-  if (!flying || !model?.halfSpan) {
-    exitHeading = null;
-    return;
   }
 
   planeGroup.updateMatrixWorld();
@@ -116,10 +130,11 @@ export function updateWallScrape(delta) {
   touches.length = 0;
   probe('left', -model.halfSpan, 0, 0, 0);
   probe('right', model.halfSpan, 0, 0, 0);
-  probe('nose', 0, 0, -model.noseLength, speed * delta);
+  probe('nose', 0, 0, -model.noseLength, noseLookahead(speed, delta));
   if (!touches.length) {
     pressing = Math.max(0, pressing - delta);
     turnOut(delta);
+    _lastPosition.copy(planeGroup.position);
     return;
   }
 
@@ -217,4 +232,5 @@ export function updateWallScrape(delta) {
     lastRasp = clock;
     playScrape(headOn ? 1 : 0.7, newHit);
   }
+  _lastPosition.copy(planeGroup.position);
 }

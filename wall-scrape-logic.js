@@ -32,6 +32,10 @@ export const SCRAPE = {
   CORNERED: 0.6,
   // A touch this long after the last is a new hit (s)
   NEW_HIT: 0.3,
+  // Look at most this far ahead of the nose (units)
+  MAX_AHEAD: 8,
+  // A jump further than this (units) is a warp, forgetting the wall
+  TELEPORT_DISTANCE: 100,
 };
 
 /** The forward direction ({x, z}) of `heading`. */
@@ -71,6 +75,28 @@ export function wallContact(y, ground, waterLevel) {
  */
 export function stepOut(depth, slope) {
   return Math.min(SCRAPE.MAX_STEP, depth / slope);
+}
+
+/**
+ * How far ahead of the nose to sample the ground (units): one frame of
+ * travel at `speed` (units/s), capped at MAX_AHEAD so a long frame doesn't
+ * reach far ahead of the plane.
+ */
+export function noseLookahead(speed, dt) {
+  return Math.min(SCRAPE.MAX_AHEAD, Math.max(0, speed * dt));
+}
+
+/**
+ * Whether a plane that moved from `last` to `pos` ({x, y, z}) jumped far
+ * enough to be a teleport or vehicle switch, forgetting any wall scrape in
+ * progress.
+ */
+export function isScrapeTeleport(last, pos) {
+  if (!Number.isFinite(last.x)) return false;
+  return (
+    Math.hypot(pos.x - last.x, pos.y - last.y, pos.z - last.z) >
+    SCRAPE.TELEPORT_DISTANCE
+  );
 }
 
 /**
