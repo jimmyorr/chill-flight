@@ -942,6 +942,37 @@ function volcanoEffects(delta) {
   }
 }
 
+// Sparks off a wingtip or nose scraping rock (wall-scrape.js): `count` of
+// them at (x, y, z), flung out along (nx, nz) off the wall and back along
+// (bx, bz) at up to `speed` units/s, glowing and falling as they fade
+const SPARK_HOT = new THREE.Color(1, 0.85, 0.45);
+const SPARK_COOL = new THREE.Color(1, 0.45, 0.12);
+const _sparkColor = new THREE.Color();
+const _sparkVel = {x: 0, y: 0, z: 0};
+export function scrapeSparks(x, y, z, nx, nz, bx, bz, speed, count) {
+  for (let i = 0; i < count; i++) {
+    _p.set(x + rand(-1, 1), y + rand(-0.5, 0.5), z + rand(-1, 1));
+    const out = rand(8, 30);
+    const back = speed * rand(0.2, 0.6);
+    _sparkVel.x = nx * out + bx * back + rand(-6, 6);
+    _sparkVel.y = rand(2, 18);
+    _sparkVel.z = nz * out + bz * back + rand(-6, 6);
+    _sparkColor.lerpColors(SPARK_HOT, SPARK_COOL, Math.random());
+    spawn(
+      _p,
+      _sparkVel,
+      -60,
+      rand(0.25, 0.55),
+      rand(0.9, 1.6),
+      0.2,
+      _sparkColor,
+      1,
+      false,
+      true
+    );
+  }
+}
+
 /** Turns the airshow smoke on or off; returns whether it's now on. */
 // Puffs off a prop knocked over (breakables.js): `count` of them, `color`,
 // scattered within `spread` of (x, z) and from y up to y + height, drifting

@@ -390,7 +390,12 @@ export function setActivePlane(planeType, skipStorage = false) {
   // with them all the way down.
   if (planeType === 'seaplane') poseGear(1);
   newModel.updateMatrixWorld(true);
-  newModel.wheelDepth = -new THREE.Box3().setFromObject(newModel).min.y;
+  const box = new THREE.Box3().setFromObject(newModel);
+  newModel.wheelDepth = -box.min.y;
+  // How far the wingtips and the nose reach, for scraping walls
+  // (wall-scrape.js)
+  newModel.halfSpan = Math.max(-box.min.x, box.max.x);
+  newModel.noseLength = -box.min.z;
   if (planeType === 'seaplane') poseGear(state.gearExtension);
 
   // The buggy drops from where the plane was (buggy.js)

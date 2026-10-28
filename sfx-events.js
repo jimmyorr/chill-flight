@@ -33,6 +33,7 @@ export const SFX_EVENTS = [
   {key: 'smash', label: 'Knocking trees and houses over'},
   {key: 'race', label: 'Race countdown'},
   {key: 'bump', label: 'Bumping into other planes'},
+  {key: 'scrape', label: 'Scraping a wall'},
 ];
 
 const STORAGE_KEY = 'chill_flight_sfx_events';
@@ -371,6 +372,36 @@ export function playBump(loud = 1, force = false) {
   });
 }
 
+// A wingtip or the nose scraping rock (wall-scrape.js): a gritty rasp with
+// a thin metal squeal; `hit` adds a knock for the first touch. loud is 0..1
+export function playScrape(loud = 1, hit = false, force = false) {
+  if ((!force && !isSfxEventEnabled('scrape')) || !ready()) return;
+  const s = THREE.MathUtils.clamp(loud, 0, 1);
+  if (s < 0.02) return;
+  const t = ctx.currentTime;
+  noiseBurst(t, {
+    type: 'bandpass',
+    freq: 2600 + Math.random() * 1200,
+    freqEnd: 1200,
+    q: 1.2,
+    gain: 0.35 * s,
+    attack: 0.01,
+    decay: 0.18,
+  });
+  tone(t, {
+    type: 'sawtooth',
+    freq: 1700 + Math.random() * 500,
+    freqEnd: 1300,
+    gain: 0.025 * s,
+    attack: 0.01,
+    decay: 0.16,
+    lowpass: 3500,
+  });
+  if (hit) {
+    tone(t, {freq: 120, freqEnd: 50, gain: 0.6 * s, attack: 0.004, decay: 0.3});
+  }
+}
+
 // How loud thunder is (1.6 = +4 dB), so it stands out over the rain
 const THUNDER_LEVEL = 1.6;
 
@@ -506,6 +537,11 @@ export const SFX_EVENT_PLAYERS = {
     setTimeout(() => playSmash(true, 1, 0, true), 1600);
   },
   bump: () => playBump(1, true),
+  scrape: () => {
+    for (let i = 0; i < 6; i++) {
+      setTimeout(() => playScrape(1, i === 0, true), i * 160);
+    }
+  },
   race: () => {
     for (let i = 0; i < 4; i++) {
       setTimeout(() => playRaceBeep(i === 3, true), i * 1000);

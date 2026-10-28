@@ -82,6 +82,8 @@ import '../multiplayer.js';
 import '../breakables-logic.js';
 import '../breakables.js';
 import '../bumps.js';
+import '../wall-scrape-logic.js';
+import '../wall-scrape.js';
 import '../vr-manager.js';
 import '../promo-script.js';
 import '../game-loop.js';
