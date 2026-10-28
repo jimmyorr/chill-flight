@@ -15,7 +15,7 @@ import {
 } from './flight-physics-logic.js';
 import {keys} from './game-input-bindings.js';
 import {Achievements} from './achievements.js';
-import {checkDiveCrash} from './crash.js';
+import {hooks} from './hooks.js';
 
 // Wheeled planes touch down on ground gentler than 15° (rise per unit) and,
 // once rolling, stay down on ground up to 30°: the land is hilly at the scale
@@ -293,7 +293,15 @@ export function updateFlightPhysics(delta, nowTime) {
     (planeGroup.position.y <= restingHeight + 0.1 || followingGround)
   ) {
     if (!state.isOnGround && !state.isOnWater && !followingGround) {
-      checkDiveCrash(planeGroup.rotation.x, currentKTS, state.verticalVelocity);
+      if (
+        hooks.checkDiveCrash?.(
+          planeGroup.rotation.x,
+          currentKTS,
+          state.verticalVelocity
+        )
+      ) {
+        return;
+      }
     }
     state.isOnWater = isWater && planeGroup.position.y <= restingHeight + 0.1;
     state.isOnGround = !state.isOnWater;

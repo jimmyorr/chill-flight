@@ -1036,7 +1036,7 @@ export function updateParticles(delta) {
   const speed = Math.max(0, state.flightSpeedMultiplier || 0);
   // Ignore the spawn and teleports settling
   settleTime += delta;
-  if (!state.isFreeCamera && settleTime > 2) {
+  if (!state.isFreeCamera && !state.isCrashed && settleTime > 2) {
     const impact = THREE.MathUtils.clamp(
       0.3 + fallRate / 60 + speed * 0.3,
       0,
@@ -1059,6 +1059,10 @@ export function updateParticles(delta) {
     const target = state.targetFlightSpeed || 0;
     if (lastTarget === 0 && target > 0 && speed < 0.05) engineStartPuff();
     lastTarget = target;
+  } else if (state.isCrashed) {
+    smokeLast.valid = false;
+    skimLast.valid = false;
+    vapour = 0;
   }
   boatWakes();
   waterfallMist(delta);

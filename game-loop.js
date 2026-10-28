@@ -430,7 +430,9 @@ function performFrame() {
       else updateDrivingAutopilot(delta);
     }
     updateBuggy(delta);
-  } else updatePhysicsAndControls(delta, nowTime);
+  } else if (!state.isCrashed) {
+    updatePhysicsAndControls(delta, nowTime);
+  }
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
   if (!state.isFreeCamera && !driving) {
     // 1. Maneuver completions
@@ -478,9 +480,9 @@ function performFrame() {
   state.wasDoingFullBarrelRoll = state.isDoingFullBarrelRoll;
   state.wasDoingImmelmann = state.isDoingImmelmann;
 
-  if (!driving) updateFlightPhysics(delta, nowTime);
+  if (!driving && !state.isCrashed) updateFlightPhysics(delta, nowTime);
   // Wingtips and the nose push off steep walls
-  updateWallScrape(delta);
+  if (!state.isCrashed) updateWallScrape(delta);
   updateCrash(delta);
   updateHeadlightBeam(driving);
   // --- SPATIAL / BIOME ACHIEVEMENTS ---

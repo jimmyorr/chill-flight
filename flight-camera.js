@@ -71,6 +71,7 @@ import {
 } from './game.js';
 import {performanceMonitor} from './game-performance.js';
 import {Achievements} from './achievements.js';
+import {applyCrashCamera} from './crash.js';
 
 // Swinging the cinematic camera around the plane with the stick: full stick
 // turns this fast (radians a second), between these angles from overhead
@@ -514,7 +515,19 @@ export function updateFlightCamera(delta, nowTime) {
 
     // Apply smooth tracking to the results
     // We use smoothedDelta and a higher lerp factor for a more "locked-in" feel.
-    if (state.isIntroTransitionActive) {
+    if (
+      applyCrashCamera(
+        state.isVRPresenting ? cameraDolly : camera,
+        _currentLookTarget,
+        _idealCameraPos,
+        _idealLookTarget
+      )
+    ) {
+      const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
+      _virtualCameraPos.copy(activeCamTarget.position);
+      _virtualLookTarget.copy(_currentLookTarget);
+      _idealUp.set(0, 1, 0);
+    } else if (state.isIntroTransitionActive) {
       // Update the virtual tracking camera (steady state lag)
       _virtualCameraPos.lerp(
         _idealCameraPos,

@@ -64,6 +64,8 @@ export const state = {
   mpForceSmoke: false,
   isOnWater: false,
   isOnGround: false,
+  // While the plane is wrecked and the camera orbits the crash site (crash.js)
+  isCrashed: false,
   // How hard the buggy is sliding, 0-1 (buggy.js; tyre smoke in particles.js)
   buggySlide: 0,
 

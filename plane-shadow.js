@@ -165,7 +165,11 @@ export function updatePlaneShadow() {
   if (!renderer) return;
   prepareModel();
   // The low preset turns shadows off altogether
-  if (!dirLight.castShadow || !planeGroup.visible) {
+  if (
+    !dirLight.castShadow ||
+    !planeGroup.visible ||
+    !state.airplaneModel?.visible
+  ) {
     decal.visible = false;
     return;
   }
