@@ -52,6 +52,8 @@ import '../game-state.js';
 import '../game-hud.js';
 import '../debug-ui.js';
 import '../game.js';
+import '../crash-logic.js';
+import '../crash.js';
 import '../flight-physics-logic.js';
 import '../flight-physics.js';
 import '../rescue-logic.js';

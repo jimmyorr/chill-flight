@@ -141,6 +141,7 @@ import {updateMultiplayer} from './multiplayer.js';
 import {updateBreakables} from './breakables.js';
 import {applyBumps, updateBumps} from './bumps.js';
 import {updateWallScrape} from './wall-scrape.js';
+import {updateCrash} from './crash.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_CLOUDS} from './art-style.js';
 import {updateAirportLights} from './airports.js';
@@ -480,6 +481,7 @@ function performFrame() {
   if (!driving) updateFlightPhysics(delta, nowTime);
   // Wingtips and the nose push off steep walls
   updateWallScrape(delta);
+  updateCrash(delta);
   updateHeadlightBeam(driving);
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
   if (!state.isFreeCamera) {

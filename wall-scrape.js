@@ -14,6 +14,7 @@ import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {propPuffs, scrapeSparks} from './particles.js';
 import {playScrape} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
+import {checkWallCrash} from './crash.js';
 import {
   SCRAPE,
   fadeScrapePush,
@@ -171,6 +172,16 @@ export function updateWallScrape(delta) {
   const heading = planeGroup.rotation.y;
   const nose = touches.find((c) => c.kind === 'nose');
   const headOn = !!nose && isHeadOn(heading, nose.nx, nose.nz);
+  const away = Math.hypot(sx, sz);
+  const intoWall = away > 0 && isHeadOn(heading, sx / away, sz / away, 0);
+  checkWallCrash({
+    heading,
+    nose,
+    headOn,
+    intoWall,
+    kts: speed,
+    delta,
+  });
   const newHit = clock - lastTouch > SCRAPE.NEW_HIT;
   lastTouch = clock;
   if (headOn && newHit) state.flightSpeedMultiplier *= SCRAPE.HEAD_ON_KEEP;
@@ -179,9 +190,8 @@ export function updateWallScrape(delta) {
   // they push out), the heading swings along them. Still into them after a
   // glance's worth of turning (in a corner, where along one wall is into
   // the other), it turns out of the corner the way they push, all the way.
-  const away = Math.hypot(sx, sz);
   if (!turnOut(delta)) {
-    if (away > 0 && isHeadOn(heading, sx / away, sz / away, 0)) {
+    if (intoWall) {
       pressing += delta;
       if (pressing > SCRAPE.CORNERED) {
         exitHeading = headingOf(sx, sz);

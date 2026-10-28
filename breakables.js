@@ -49,6 +49,7 @@ import {camera} from './sky.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {playSmash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
+import {recordPropCrashStrain} from './crash.js';
 import {slowBuggy} from './buggy.js';
 import {propPuffs} from './particles.js';
 import {forEachPeerVehicle} from './multiplayer.js';
@@ -888,6 +889,7 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     const keep = speedKept(what, buggy);
     if (buggy) slowBuggy(keep);
     else state.flightSpeedMultiplier *= keep;
+    recordPropCrashStrain(what, kts, buggy);
     state.impactShake = Math.max(state.impactShake || 0, SHAKE[what]);
     smashHaptic(house);
     playSmashSound(house, 1, fallTime);
