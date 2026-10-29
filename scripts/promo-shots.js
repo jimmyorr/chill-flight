@@ -46,6 +46,14 @@ export const ARTWORK = {
     height: 1280,
     scale: 2,
   },
+  // itch.io project cover: minimum 315x250, recommended 630x500 (aspect ratio 63:50).
+  // Rendered at 1260x1000 (2x) so the 3D scene renders natively in high resolution for Retina displays.
+  'itch-cover': {
+    shot: 'islands-sunset',
+    width: 1260,
+    height: 1000,
+    logo: true,
+  },
 };
 
 // Output targets: CSS size, pixel density (scale), touch device (mobile, for
