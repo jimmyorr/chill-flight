@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.3](https://v1-2-3.chill-flight.pages.dev)
+
+- **Crash & respawn:** Added steep-dive and cliff impact crash detection, wreck breakup tumble, cinematic orbit camera, and overhead clear-air respawns.
+- **Art & models:** Polished anime shaders, upgraded 3D vehicle and prop models, and added wall scrapes with sparks and glancing push-offs.
+- **Publishing:** Added destruction animations in the debug viewer, HTML5 web packaging, and itch.io deployment via Butler.
+
 ## [1.2.2](https://v1-2-2.chill-flight.pages.dev)
 
 - **Races:** Compete in multiplayer ring and highway arch races with slipstream drafting and bot racers.
