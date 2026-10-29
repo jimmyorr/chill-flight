@@ -827,6 +827,16 @@ npm run build && npx tauri build
 
 This compiles the web assets into `docs/` and triggers the Rust compiler to bundle them into a native desktop installer.
 
+### itch.io web package
+
+To package the game as an HTML5 web build ready for upload to itch.io:
+
+```bash
+npm run build:itch
+```
+
+This compiles the web client into an isolated temporary directory (keeping `docs/` untouched) and creates `dist/chill-flight-itch.zip` with `index.html` at the root of the archive, formatted to itch.io's HTML5 upload requirements.
+
 ### Multiplayer relay (Cloudflare Worker)
 
 The multiplayer relay is a Cloudflare Worker with Durable Objects that runs separately from the web client.
