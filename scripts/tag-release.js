@@ -15,6 +15,7 @@ const tagName = `v${version}`;
 const args = process.argv.slice(2);
 const skipMobile =
   args.includes('--skip-mobile') || args.includes('--web-only');
+const skipItch = args.includes('--skip-itch');
 const skipGitPush = args.includes('--no-push');
 const targetCommit = args.find((arg) => !arg.startsWith('--')) || 'HEAD';
 
@@ -91,6 +92,21 @@ if (fs.existsSync(docsPath)) {
     console.warn(
       `\n⚠️  Cloudflare Pages deployment skipped or failed: ${error.message}`
     );
+  }
+}
+
+// 3. Deploy Web to itch.io via butler
+let itchStatus = 'Skipped';
+if (!skipItch) {
+  try {
+    console.log('\n========================================');
+    console.log(`🎮 Deploying ${tagName} to itch.io...`);
+    console.log('========================================');
+    execSync('node scripts/deploy-itch.js', {cwd: rootDir, stdio: 'inherit'});
+    itchStatus = 'Success';
+  } catch (error) {
+    itchStatus = `Failed: ${error.message}`;
+    console.warn(`\n⚠️  itch.io deployment failed: ${error.message}`);
   }
 }
 
@@ -181,6 +197,8 @@ console.log(`   - Web (Cloudflare Pages): ${cloudflareStatus}`);
 console.log(`     • Production:    https://chill-flight.pages.dev`);
 console.log(`     • Custom domain: https://chillflight.app`);
 console.log(`     • Version alias: https://${safeName}.chill-flight.pages.dev`);
+console.log(`   - Web (itch.io HTML5):     ${itchStatus}`);
+console.log(`     • Game page:     https://cowneck.itch.io/chill-flight`);
 console.log(`   - Android (Google Play):   ${androidStatus}`);
 console.log(
   `     • Play Console:  https://play.google.com/console/developers/app/tracks`

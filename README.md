@@ -746,7 +746,7 @@ The application's version number is managed using a single-source-of-truth syste
 To release a new production version:
 
 - **Release builds (`npm run release`)**: Running this command automatically bumps the patch version of the application (e.g., `0.8.7` -> `0.8.8`), builds the optimized frontend assets, and packages them inside `docs/` in a single step!
-- **Commit, tag, and deploy (`npm run release:tag`)**: After compiling and generating release notes in `RELEASE_NOTES.md`, the release bundle is committed as `Release vX.Y.Z`. Running `npm run release:tag` tags the commit, deploys the web release to Cloudflare Pages, builds and publishes Android to Google Play, builds and delivers iOS to App Store Connect / TestFlight, pushes the commit and tags to GitHub, and outputs a formatted summary with release notes and App Store Connect links for final submission. Use `--skip-mobile` or `--web-only` if you only want to deploy the web build.
+- **Commit, tag, and deploy (`npm run release:tag`)**: After compiling and generating release notes in `RELEASE_NOTES.md`, the release bundle is committed as `Release vX.Y.Z`. Running `npm run release:tag` tags the commit, deploys the web release to Cloudflare Pages and itch.io (via Butler), builds and publishes Android to Google Play, builds and delivers iOS to App Store Connect / TestFlight, pushes the commit and tags to GitHub, and outputs a formatted summary with release notes and App Store Connect links for final submission. Use `--skip-mobile` or `--web-only` to skip mobile builds, and `--skip-itch` to skip the itch.io upload.
 
 For local development compiles, standard compilation is done via `npm run build`, which compiles the assets **without** modifying any version numbers.
 
@@ -827,7 +827,7 @@ npm run build && npx tauri build
 
 This compiles the web assets into `docs/` and triggers the Rust compiler to bundle them into a native desktop installer.
 
-### itch.io web package
+### itch.io web package and deployment
 
 To package the game as an HTML5 web build ready for upload to itch.io:
 
@@ -836,6 +836,14 @@ npm run build:itch
 ```
 
 This compiles the web client into an isolated temporary directory (keeping `docs/` untouched) and creates `dist/chill-flight-itch.zip` with `index.html` at the root of the archive, formatted to itch.io's HTML5 upload requirements.
+
+To upload the build directly to itch.io via the `butler` CLI:
+
+```bash
+npm run deploy:itch
+```
+
+This uses `butler push` to deliver the build to `cowneck/chill-flight:html5` tagged with the current version. The deployment is also run automatically during production releases (`npm run release:tag`). Use `--skip-itch` to skip the itch.io upload step during release. Requires `butler` to be authenticated (`butler login` or setting `BUTLER_API_KEY`).
 
 ### Multiplayer relay (Cloudflare Worker)
 

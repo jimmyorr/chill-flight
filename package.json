@@ -15,6 +15,7 @@
     "relay:dev": "npx -y wrangler dev -c relay/wrangler.toml",
     "relay:deploy": "npx -y wrangler deploy -c relay/wrangler.toml",
     "build:itch": "node scripts/build-itch.js",
+    "deploy:itch": "node scripts/deploy-itch.js",
     "ios": "npx cap sync ios && npx cap open ios",
     "ios:build": "node scripts/build-ios.js",
     "android": "npx cap sync android && npx cap open android",
