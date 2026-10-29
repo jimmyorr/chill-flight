@@ -15,6 +15,9 @@ import {
   restAngle,
   speedKept,
   stepFlying,
+  stepFold,
+  stepScatter,
+  stepSink,
   stepTopple,
   sweptHit,
   toppleSpin,
@@ -220,6 +223,32 @@ const p = {
 };
 for (let i = 0; i < 600 && !p.done; i++) stepFlying(p, 1 / 60, -40);
 check('a piece thrown off lands on the ground', p.done && p.y === 0 && p.x > 5);
+
+// --- Folding building ---
+const fold = {t: 0, done: false};
+for (let i = 0; i < 120 && !fold.done; i++) stepFold(fold, 1 / 60);
+check(
+  'a building folds down and leans over COLLAPSE_TIME',
+  fold.done &&
+    Math.abs(fold.squash - BREAK.COLLAPSE_HEIGHT) < 0.01 &&
+    Math.abs(fold.lean - BREAK.COLLAPSE_LEAN) < 0.01
+);
+
+// --- Sinking boat ---
+const boat = {t: 0, done: false};
+for (let i = 0; i < 600 && !boat.done; i++) stepSink(boat, 1 / 60);
+check(
+  'a sinking boat rolls and drops before gone',
+  boat.done && Math.abs(boat.roll - BREAK.SINK_ROLL) < 0.01 && boat.drop > 40
+);
+
+// --- Scattering penguin ---
+const penguin = {t: 0, done: false};
+for (let i = 0; i < 300 && !penguin.done; i++) stepScatter(penguin, 1 / 60);
+check(
+  'a scattering penguin hops and dives',
+  penguin.done && penguin.along > 10 && penguin.up < -5
+);
 
 // --- Speed lost ---
 check(

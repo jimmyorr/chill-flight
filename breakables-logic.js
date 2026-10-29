@@ -31,6 +31,46 @@ export const BREAK = {
   TOPPLE_MAX_ANGLE: 1.62,
   // Moving further than this in a frame is a teleport, not a hit
   MAX_STEP: 400,
+  // Gravity on bits of house (units/s², about 2 g, so they don't float)
+  GRAVITY: -40,
+  // How long a house's walls take to fold down (s), how low they end up
+  // (fraction of their height) and how far they lean over (rad)
+  COLLAPSE_TIME: 0.9,
+  COLLAPSE_HEIGHT: 0.22,
+  COLLAPSE_LEAN: 0.35,
+  // How far a sinking boat rolls (rad), how long that takes (s), how fast it
+  // goes down after (units/s, growing), delay before dropping (s), and when
+  // it's gone (s)
+  SINK_ROLL: 1.3,
+  SINK_ROLL_TIME: 1.6,
+  SINK_DELAY: 0.6,
+  SINK_RATE: 3,
+  SINK_GONE: 7,
+  // A penguin's hops: how long each takes (s), how high (units), and its dive
+  // into the water: how long (s), how far out, and how deep it goes before
+  // it's gone (units)
+  HOP_TIME: 0.36,
+  HOP_HEIGHT: 1.1,
+  DIVE_TIME: 0.8,
+  DIVE_OUT: 5,
+  DIVE_DEPTH: 6,
+  // Rubble blocks thrown out of each kind of building or prop
+  RUBBLE: {
+    house: 9,
+    two_story_house: 13,
+    straw_hut: 6,
+    pagoda: 12,
+    barn: 16,
+    monastery: 22,
+    castle: 26,
+    windmill: 10,
+    hangar: 22,
+    lighthouse: 9,
+    pier: 14,
+    rock: 7,
+    iceberg: 10,
+    iceFloe: 6,
+  },
 };
 
 // Closest approach of the segment a -> b (x, z) to the point p, as the
@@ -121,4 +161,66 @@ export function stepFlying(p, dt, gravity) {
     p.done = true;
   }
   return p;
+}
+
+// One step of a folding building, s = {t, squash, lean, done}: it folds
+// down and leans over COLLAPSE_TIME (s)
+export function stepFold(s, dt) {
+  if (s.done) return s;
+  s.t = Math.min(1, (s.t || 0) + dt / BREAK.COLLAPSE_TIME);
+  const e = 1 - (1 - s.t) * (1 - s.t);
+  s.squash = 1 - (1 - BREAK.COLLAPSE_HEIGHT) * e;
+  s.lean = BREAK.COLLAPSE_LEAN * e;
+  if (s.t >= 1) s.done = true;
+  return s;
+}
+
+// One step of a sinking boat, s = {t, roll, drop, done}: it rolls over
+// SINK_ROLL_TIME (s), and drops after SINK_DELAY (s)
+export function stepSink(s, dt) {
+  if (s.done) return s;
+  s.t = (s.t || 0) + dt;
+  const roll = Math.min(1, s.t / BREAK.SINK_ROLL_TIME);
+  s.roll = BREAK.SINK_ROLL * (1 - (1 - roll) ** 2);
+  s.drop = Math.max(0, s.t - BREAK.SINK_DELAY) ** 1.5 * BREAK.SINK_RATE;
+  if (s.t > BREAK.SINK_GONE) s.done = true;
+  return s;
+}
+
+// One step of a scattering penguin, s = {t, along, up, pitch, roll, turnAngle,
+// swayNow, hops, hopLen, turn, sway, done}
+export function stepScatter(s, dt) {
+  if (s.done) return s;
+  s.t = (s.t || 0) + dt;
+  const t = Math.max(0, s.t);
+  const hops = s.hops ?? 3;
+  const hopLen = s.hopLen ?? 3;
+  const hopEnd = hops * BREAK.HOP_TIME;
+  let along;
+  let up;
+  let pitch = 0;
+  let roll = 0;
+  const u = Math.min(1, t / BREAK.HOP_TIME);
+  const e = u * u * (3 - 2 * u);
+  const turn = (s.turn ?? Math.PI * 0.45) * e;
+  s.swayNow = (s.sway ?? 0) * (1 - e);
+  if (t < hopEnd) {
+    const h = t / BREAK.HOP_TIME;
+    const f = h - Math.floor(h);
+    along = Math.floor(h) * hopLen + f * hopLen;
+    up = Math.sin(f * Math.PI) * BREAK.HOP_HEIGHT;
+    roll = Math.sin(h * Math.PI) * 0.2;
+  } else {
+    const d = Math.min(1, (t - hopEnd) / BREAK.DIVE_TIME);
+    along = hops * hopLen + d * BREAK.DIVE_OUT;
+    up = Math.sin(d * Math.PI) * BREAK.HOP_HEIGHT - d * d * BREAK.DIVE_DEPTH;
+    pitch = Math.min(1.5, d * 2.5);
+  }
+  s.along = along;
+  s.up = up;
+  s.pitch = pitch;
+  s.roll = roll;
+  s.turnAngle = turn;
+  if (t >= hopEnd + BREAK.DIVE_TIME) s.done = true;
+  return s;
 }

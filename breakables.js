@@ -58,6 +58,8 @@ import {
   restAngle,
   speedKept,
   stepFlying,
+  stepFold,
+  stepSink,
   stepTopple,
   sweptHit,
 } from './breakables-logic.js';
@@ -66,31 +68,28 @@ import {
 const CELL = 64;
 // The buggy's centre above its position (which is where its wheels touch)
 const BUGGY_CENTER = 2;
-// Gravity on bits of house (units/s², about 2 g, so they don't float)
-const GRAVITY = -40;
+// Animation and physics constants shared from breakables-logic.js:
+// - GRAVITY: gravity on bits of house (units/s², about 2 g)
+// - HOP_TIME, HOP_HEIGHT, DIVE_TIME, DIVE_OUT, DIVE_DEPTH: penguin scatter timings
+const {DIVE_DEPTH, DIVE_OUT, DIVE_TIME, GRAVITY, HOP_HEIGHT, HOP_TIME} = BREAK;
 // How fast bits of house fly off (units/s), at most
 const FLING_MAX = 35;
-// How long a house's walls take to fold down (s), how low they end up
-// (fraction of their height) and how far they lean over (rad)
-const COLLAPSE_TIME = 0.9;
-const COLLAPSE_HEIGHT = 0.22;
-const COLLAPSE_LEAN = 0.35;
 // Rubble blocks thrown out of each kind of building, by its first part
 const RUBBLE = {
-  houseBody: 9,
-  twoStoryBody: 13,
-  strawHutBody: 6,
-  pagodaBody: 12,
-  barnBody: 16,
-  monasteryBody: 22,
-  castleRuins: 26,
-  windmillBase: 10,
-  pierDeck: 14,
-  rock: 7,
-  snowRock: 7,
-  desertRock: 7,
-  iceberg: 10,
-  iceFloe: 6,
+  houseBody: BREAK.RUBBLE.house,
+  twoStoryBody: BREAK.RUBBLE.two_story_house,
+  strawHutBody: BREAK.RUBBLE.straw_hut,
+  pagodaBody: BREAK.RUBBLE.pagoda,
+  barnBody: BREAK.RUBBLE.barn,
+  monasteryBody: BREAK.RUBBLE.monastery,
+  castleRuins: BREAK.RUBBLE.castle,
+  windmillBase: BREAK.RUBBLE.windmill,
+  pierDeck: BREAK.RUBBLE.pier,
+  rock: BREAK.RUBBLE.rock,
+  snowRock: BREAK.RUBBLE.rock,
+  desertRock: BREAK.RUBBLE.rock,
+  iceberg: BREAK.RUBBLE.iceberg,
+  iceFloe: BREAK.RUBBLE.iceFloe,
 };
 // Chunks of ice are bigger than bits of house
 const ICE_CHUNK = 2.2;
@@ -126,14 +125,6 @@ const SETTLE = 1.5;
 // (units, across and above)
 const SCARE_RADIUS = 200;
 const SCARE_HEIGHT = 150;
-// A penguin's hops: how long each takes (s), how high (units), and its dive
-// into the water: how long (s), how far out, and how deep it goes before
-// it's gone (units)
-const HOP_TIME = 0.36;
-const HOP_HEIGHT = 1.1;
-const DIVE_TIME = 0.8;
-const DIVE_OUT = 5;
-const DIVE_DEPTH = 6;
 // How far a floe's edge is from its middle (units, at scale 1), and how far
 // a penguin can be from it
 const FLOE_RADIUS = 15;
@@ -1035,12 +1026,6 @@ const _near = [];
 
 // How far a boat's middle can be from its chunk's (units)
 const BOAT_RANGE = 1200;
-// How far a sinking boat rolls (rad), how long that takes (s), how fast it
-// goes down after (units/s, growing) and when it's gone (s)
-const SINK_ROLL = 1.3;
-const SINK_ROLL_TIME = 1.6;
-const SINK_RATE = 3;
-const SINK_GONE = 7;
 // Sunk boats this session: chunk key + ':s' or ':p' + index
 const sunk = new Set();
 const BOATS = {
@@ -1300,19 +1285,15 @@ function animate(delta) {
     } else if (anim.kind === 'sink') {
       if (anim.stepped !== frame) {
         anim.stepped = frame;
-        anim.t += delta;
+        stepSink(anim, delta);
       }
-      const roll = Math.min(1, anim.t / SINK_ROLL_TIME);
-      const drop = Math.max(0, anim.t - 0.6) ** 1.5 * SINK_RATE;
       const pv = anim.pivot;
-      _m.makeTranslation(pv.x, pv.y - drop, pv.z);
-      _m.multiply(
-        _r.makeRotationAxis(anim.axis, SINK_ROLL * (1 - (1 - roll) ** 2))
-      );
+      _m.makeTranslation(pv.x, pv.y - anim.drop, pv.z);
+      _m.multiply(_r.makeRotationAxis(anim.axis, anim.roll));
       _m.multiply(_t.makeTranslation(-pv.x, -pv.y, -pv.z));
       _m.multiply(_m0.fromArray(piece.m0));
       _m.toArray(piece.m);
-      if (anim.t > SINK_GONE) removePiece(piece);
+      if (anim.done) removePiece(piece);
       continue;
     } else if (anim.kind === 'scatter') {
       if (anim.stepped !== frame) {
@@ -1345,11 +1326,9 @@ function animate(delta) {
       if (gone) removePiece(piece);
       continue;
     } else if (anim.kind === 'fold') {
-      anim.t = Math.min(1, anim.t + delta / COLLAPSE_TIME);
-      const e = 1 - (1 - anim.t) * (1 - anim.t);
-      _r.makeRotationAxis(_axis.copy(anim.axis).normalize(), COLLAPSE_LEAN * e);
-      _r.multiply(_t.makeScale(1, 1 - (1 - COLLAPSE_HEIGHT) * e, 1));
-      if (anim.t >= 1) anim.done = true;
+      stepFold(anim, delta);
+      _r.makeRotationAxis(_axis.copy(anim.axis).normalize(), anim.lean);
+      _r.multiply(_t.makeScale(1, anim.squash, 1));
     } else {
       stepFlying(anim, delta, GRAVITY);
       _m.makeTranslation(anim.x, anim.y, anim.z);

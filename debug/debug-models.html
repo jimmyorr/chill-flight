@@ -320,6 +320,7 @@
           "
         >
           <button
+            id="cycle-colors-btn"
             class="model-btn"
             onclick="cycleColors()"
             style="
@@ -346,6 +347,21 @@
           >
             Gear up
           </button>
+          <button
+            id="destroy-toggle"
+            class="model-btn"
+            onclick="toggleDestruction()"
+            style="
+              display: none;
+              margin-top: 8px;
+              margin-bottom: 0;
+              text-align: center;
+              border-color: var(--accent-color);
+              pointer-events: auto;
+            "
+          >
+            Destroy
+          </button>
         </div>
       </div>
     </div>
@@ -356,6 +372,7 @@
       import * as THREE from 'three';
       import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
       import {ChillFlightLogic} from '../chill-flight-logic.js';
+      import {destructibleTypes, startDestruction} from './destruction.js';
       import {createMaterial} from '../constants.js';
       import {createBiplaneModel} from '../biplane.js';
       import {createJetModel} from '../jet.js';
@@ -377,6 +394,15 @@
       import {
         ModelAssembler,
         animationUniforms,
+        barnBodyGeo,
+        barnRoofGeo,
+        houseBodyGeo,
+        houseChimneyGeo,
+        houseRoofGeo,
+        twoStoryBodyGeo,
+        twoStoryChimneyGeo,
+        twoStoryRoofGeo,
+        windmillBaseGeo,
         bridgeDeckGeo,
         bridgeDeckMat,
         bridgeGirderGeo,
@@ -395,6 +421,7 @@
         deadTreeGeo,
         deadTreeMat,
         deciduousGeos,
+        icebergMat,
         japaneseMapleGeos,
         lilyPadGeo,
         lilyPadMat,
@@ -479,8 +506,11 @@
       window.currentModel = null;
       window.currentColorSeed = 0;
       window.currentModelType = null;
+      let isDestroyed = false;
+      let activeDestruction = null;
 
       function clearViewer() {
+        activeDestruction = null;
         if (window.currentModel) {
           viewScene.remove(window.currentModel);
           window.currentModel = null;
@@ -503,6 +533,24 @@
         }
       }
 
+      function toggleDestruction() {
+        const btn = document.getElementById('destroy-toggle');
+        if (isDestroyed) {
+          isDestroyed = false;
+          activeDestruction = null;
+          if (btn) btn.textContent = 'Destroy';
+          viewModel(window.currentModelType, null, window.currentColorSeed);
+        } else {
+          isDestroyed = true;
+          if (btn) btn.textContent = 'Reset';
+          activeDestruction = startDestruction(
+            window.currentModelType,
+            window.currentModel,
+            {rockMat, woodMat}
+          );
+        }
+      }
+
       function viewModel(type, e, colorSeed = 0) {
         const keepCamera = !e && window.currentModelType === type;
         clearViewer();
@@ -511,6 +559,8 @@
           window.currentColorSeed = 0;
         }
         window.currentModelType = type;
+        isDestroyed = false;
+        activeDestruction = null;
 
         const supportsColors = [
           'house',
@@ -527,9 +577,11 @@
           'mushroom',
           'crystal',
         ].includes(type);
-        document.getElementById('color-options').style.display = supportsColors
-          ? 'block'
-          : 'none';
+
+        const colorBtn = document.getElementById('cycle-colors-btn');
+        if (colorBtn)
+          colorBtn.style.display = supportsColors ? 'block' : 'none';
+
         const gearToggle = document.getElementById('gear-toggle');
         const supportsGear = [
           'airplane',
@@ -547,6 +599,23 @@
         } else {
           gearToggle.textContent = window.gearUp ? 'Gear down' : 'Gear up';
         }
+
+        const destroyToggle = document.getElementById('destroy-toggle');
+        const supportsDestruction = destructibleTypes.has(type);
+        if (destroyToggle) {
+          destroyToggle.style.display = supportsDestruction ? 'block' : 'none';
+          destroyToggle.textContent = 'Destroy';
+        }
+
+        const visibleButtons = [colorBtn, gearToggle, destroyToggle].filter(
+          (btn) => btn && btn.style.display !== 'none'
+        );
+        visibleButtons.forEach((btn, idx) => {
+          btn.style.marginTop = idx === 0 ? '0' : '8px';
+        });
+
+        document.getElementById('color-options').style.display =
+          visibleButtons.length > 0 ? 'block' : 'none';
 
         // Update UI
         document.querySelectorAll('.model-btn').forEach((btn) => {
@@ -859,6 +928,7 @@
               const geos = createRockArchGeometries(
                 ChillFlightLogic.mulberry32(42)
               );
+              previewGroup.userData.blocks = geos.blocks;
               previewGroup.add(new THREE.Mesh(geos.rock, rockMat));
               break;
             }
@@ -866,6 +936,7 @@
               const geos = createRockArchGeometries(
                 ChillFlightLogic.mulberry32(42)
               );
+              previewGroup.userData.blocks = geos.blocks;
               previewGroup.add(new THREE.Mesh(geos.rock, rockMat));
               previewGroup.add(
                 new THREE.Mesh(geos.grass, createMaterial({color: 0x7cb342}))
@@ -1034,12 +1105,21 @@
         }
       }
 
+      let lastAnimTime = performance.now();
       function animate() {
         if (!renderer) return;
         requestAnimationFrame(animate);
-        const time = performance.now() * 0.001;
+        const now = performance.now();
+        const delta = Math.min(0.1, (now - lastAnimTime) * 0.001);
+        lastAnimTime = now;
+
+        const time = now * 0.001;
         animationUniforms.uTime.value = time;
         waterUniforms.uTime.value = time;
+
+        if (activeDestruction) {
+          activeDestruction.update(delta);
+        }
 
         controls?.update();
         renderer.render(viewScene, camera);
@@ -1076,6 +1156,7 @@
       window.viewModel = viewModel;
       window.cycleColors = cycleColors;
       window.toggleGear = toggleGear;
+      window.toggleDestruction = toggleDestruction;
     </script>
   </body>
 </html>
