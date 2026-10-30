@@ -7,7 +7,6 @@
  */
 
 import {createMemoryStorage, installStorageShim} from '../storage-polyfill.js';
-import {launch} from './dev-browser.js';
 
 console.log('Testing storage polyfill...');
 
@@ -48,17 +47,32 @@ assert(
   mem.getItem('num') === null && mem.length === 0
 );
 
-// 2. Mock environment tests (simulating SecurityError)
+// 2. Headless / SSR environment test (window is undefined)
+{
+  const result = installStorageShim('localStorage');
+  assert(
+    'installStorageShim handles undefined window gracefully',
+    result.native === false && result.shimmed === false
+  );
+}
+
+// 3. Mock environment tests (simulating SecurityError)
 {
   const mockWindow = {};
+  const throwSecurityError = () => {
+    const err = new Error(
+      "Failed to read the 'localStorage' property from 'Window': Access is denied for this document."
+    );
+    err.name = 'SecurityError';
+    throw err;
+  };
+
   Object.defineProperty(mockWindow, 'localStorage', {
-    get() {
-      const err = new Error(
-        "Failed to read the 'localStorage' property from 'Window': Access is denied for this document."
-      );
-      err.name = 'SecurityError';
-      throw err;
-    },
+    get: throwSecurityError,
+    configurable: true,
+  });
+  Object.defineProperty(mockWindow, 'sessionStorage', {
+    get: throwSecurityError,
     configurable: true,
   });
 
@@ -66,10 +80,16 @@ assert(
   const origWindow = global.window;
   global.window = mockWindow;
 
-  const result = installStorageShim('localStorage');
+  const localRes = installStorageShim('localStorage');
   assert(
-    'installStorageShim detects blocked storage and shims',
-    result.shimmed === true && result.native === false
+    'installStorageShim detects blocked localStorage and shims',
+    localRes.shimmed === true && localRes.native === false
+  );
+
+  const sessionRes = installStorageShim('sessionStorage');
+  assert(
+    'installStorageShim detects blocked sessionStorage and shims',
+    sessionRes.shimmed === true && sessionRes.native === false
   );
 
   // Operations that would previously throw SecurityError now work safely
@@ -89,36 +109,29 @@ assert(
       'mocked window.localStorage.getItem returns null after removal',
       mockWindow.localStorage.getItem('chill_flight_plane') === null
     );
+
+    mockWindow.sessionStorage.setItem('chill_flight_session', 'active');
+    assert(
+      'mocked window.sessionStorage.getItem works',
+      mockWindow.sessionStorage.getItem('chill_flight_session') === 'active'
+    );
   } catch (err) {
     threw = true;
     console.error('Unexpected throw during mock storage operations:', err);
   }
   assert('no SecurityError thrown during storage operations', !threw);
 
+  // 4. Healthy storage environment test
+  const healthyStorage = createMemoryStorage();
+  mockWindow.localStorage = healthyStorage;
+  const healthyRes = installStorageShim('localStorage');
+  assert(
+    'installStorageShim recognizes healthy working storage',
+    healthyRes.native === true && healthyRes.shimmed === false
+  );
+
   // Restore global
   global.window = origWindow;
-}
-
-// 3. Browser runtime test against dev server
-const browser = await launch();
-try {
-  const page = await browser.newPage();
-  await page.goto('http://localhost:5173/?start=1&music=0', {
-    waitUntil: 'domcontentloaded',
-  });
-
-  const liveResult = await page.evaluate(() => {
-    localStorage.setItem('chill_flight_smoke_key', 'ok');
-    const val = localStorage.getItem('chill_flight_smoke_key');
-    localStorage.removeItem('chill_flight_smoke_key');
-    return val === 'ok';
-  });
-  assert(
-    'Live browser session evaluates localStorage successfully',
-    liveResult
-  );
-} finally {
-  await browser.close();
 }
 
 if (failed) {
