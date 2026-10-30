@@ -174,15 +174,15 @@ export class InputManager {
       }
     });
 
-    // Touch
-    window.addEventListener('touchstart', this.handleTouchStart.bind(this), {
+    // Touch (bind to document so iOS WebKit reliably delivers events inside iframes)
+    document.addEventListener('touchstart', this.handleTouchStart.bind(this), {
       passive: false,
     });
-    window.addEventListener('touchmove', this.handleTouchMove.bind(this), {
+    document.addEventListener('touchmove', this.handleTouchMove.bind(this), {
       passive: false,
     });
-    window.addEventListener('touchend', this.handleTouchEnd.bind(this));
-    window.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
+    document.addEventListener('touchend', this.handleTouchEnd.bind(this));
+    document.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
 
     // A trackpad pinch: a ctrl-wheel in most browsers (the plain wheel is
     // the throttle, game-state.js), gesture events in Safari. Kept from

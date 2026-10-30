@@ -57,16 +57,14 @@ export function deployItch(options = {}) {
 
   // 4. Push to itch.io
   const command = dryRun ? 'push-preview' : 'push';
+  const versionArg = dryRun ? '' : ` --userversion "${userVersion}"`;
   console.log(
     `\n🚀 ${dryRun ? 'Testing upload' : 'Uploading'} ${zipPath} to itch.io (${target}) as ${userVersion}...`
   );
-  execSync(
-    `butler ${command} "${zipPath}" "${target}" --userversion "${userVersion}"`,
-    {
-      cwd: rootDir,
-      stdio: 'inherit',
-    }
-  );
+  execSync(`butler ${command} "${zipPath}" "${target}"${versionArg}`, {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
   console.log(
     `\n✨ itch.io deployment complete: https://cowneck.itch.io/chill-flight`
   );
