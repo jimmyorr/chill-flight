@@ -160,6 +160,34 @@ console.log(
   '  Passed: respawn places the plane overhead in clear air, facing downhill on slopes'
 );
 
+// --- 4b. Respawn looks ahead for rising ground ---
+{
+  const flat = {height: 0, slopeX: 0, slopeZ: 0};
+  // A ridge 300 units tall starting 200 units north (-z, heading 0): the
+  // respawn turns away from it rather than flying into it at 120
+  const ridgeNorth = (x, z) => (z < -200 ? 300 : 0);
+  const turned = crashRespawnPose(0, 0, 0, flat, -10, ridgeNorth);
+  const north = -Math.cos(turned.heading);
+  check(north > -0.01, `respawn still heads for the ridge (${turned.heading})`);
+  check(
+    turned.y === CRASH.RESPAWN_CLEARANCE,
+    `respawn y (${turned.y}) should stay RESPAWN_CLEARANCE over flat ground`
+  );
+
+  // Ringed by tall ground every way: it climbs to clear the lowest way out
+  const bowl = (x, z) => (Math.hypot(x, z) > 300 ? 500 : 0);
+  const boxed = crashRespawnPose(0, 0, 0, flat, -10, bowl);
+  check(
+    boxed.y === 500 + CRASH.RESPAWN_CLEAR_AHEAD,
+    `boxed-in respawn y (${boxed.y}) does not clear the ground ahead`
+  );
+
+  // Open ground ahead keeps the heading
+  const open = crashRespawnPose(0, 0, 1.23, flat, -10, () => 0);
+  check(open.heading === 1.23, 'respawn turned with clear air ahead');
+}
+console.log('  Passed: respawn turns away from and clears rising ground ahead');
+
 // --- 5. Two-act camera choreography & wreck piece physics ---
 {
   const wreck = {x: 0, y: 50, z: 0};

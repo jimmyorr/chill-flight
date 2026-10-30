@@ -50,6 +50,13 @@ export const CRASH = {
 
   // Respawn clearance above the ground or water (units, ~60 m)
   RESPAWN_CLEARANCE: 120,
+  // How far ahead the respawn looks for rising ground (units, ~6 s at
+  // cruise), in steps of RESPAWN_STEP, over RESPAWN_HEADINGS headings, and
+  // how high it clears the highest ground on the way it picks (units)
+  RESPAWN_LOOK: 900,
+  RESPAWN_STEP: 30,
+  RESPAWN_HEADINGS: 8,
+  RESPAWN_CLEAR_AHEAD: 40,
   // Slope above which respawn turns downhill away from the hill/cliff
   SLOPE_TURN_THRESHOLD: 0.25,
 
@@ -151,21 +158,54 @@ export function addPropHitStrain(s, kind, kts) {
 }
 
 /**
+ * The highest ground or water (units) along `heading` from (x, z), out to
+ * RESPAWN_LOOK; groundAt(x, z) is the ground's height.
+ */
+export function highestAhead(x, z, heading, groundAt, waterLevel) {
+  const fx = -Math.sin(heading);
+  const fz = -Math.cos(heading);
+  let top = waterLevel;
+  for (let d = 0; d <= CRASH.RESPAWN_LOOK; d += CRASH.RESPAWN_STEP) {
+    top = Math.max(top, groundAt(x + fx * d, z + fz * d));
+  }
+  return top;
+}
+
+/**
  * Option B respawn pose: lifted RESPAWN_CLEARANCE above the ground or water at
  * (x, z), level, at cruise speed 1.0, and facing downhill (`-slopeX, -slopeZ`)
  * whenever the ground is sloped so the plane flies out into open air away from
- * the cliff.
+ * the cliff. With groundAt(x, z) (the ground's height), it also looks ahead
+ * RESPAWN_LOOK: if the ground rises that way, it turns to whichever of
+ * RESPAWN_HEADINGS headings has the lowest ground ahead, and flies high
+ * enough to clear it, so the fresh plane doesn't meet the next ridge.
  */
-export function crashRespawnPose(x, z, heading, ground, waterLevel) {
+export function crashRespawnPose(x, z, heading, ground, waterLevel, groundAt) {
   const surface = Math.max(waterLevel, ground.height);
   const slope = Math.hypot(ground.slopeX || 0, ground.slopeZ || 0);
-  const respawnHeading =
+  let respawnHeading =
     slope >= CRASH.SLOPE_TURN_THRESHOLD
       ? Math.atan2(ground.slopeX, ground.slopeZ)
       : heading;
+  let y = surface + CRASH.RESPAWN_CLEARANCE;
+  if (groundAt) {
+    let top = highestAhead(x, z, respawnHeading, groundAt, waterLevel);
+    if (top + CRASH.RESPAWN_CLEAR_AHEAD > y) {
+      const start = respawnHeading;
+      for (let i = 1; i < CRASH.RESPAWN_HEADINGS; i++) {
+        const h = start + (i * Math.PI * 2) / CRASH.RESPAWN_HEADINGS;
+        const t = highestAhead(x, z, h, groundAt, waterLevel);
+        if (t < top) {
+          top = t;
+          respawnHeading = h;
+        }
+      }
+    }
+    y = Math.max(y, top + CRASH.RESPAWN_CLEAR_AHEAD);
+  }
   return {
     x,
-    y: surface + CRASH.RESPAWN_CLEARANCE,
+    y,
     z,
     heading: respawnHeading,
     speed: 1.0,

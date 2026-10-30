@@ -108,6 +108,7 @@ export function updateWallScrape(delta) {
   const flying =
     activePlaneType !== 'buggy' &&
     !state.isFreeCamera &&
+    !state.isCrashed &&
     !state.isOnGround &&
     !state.isOnWater;
   const model = state.airplaneModel;

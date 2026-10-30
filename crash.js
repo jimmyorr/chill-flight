@@ -12,15 +12,16 @@
 //   ground or splash into the water, with sparks, smoke puffs, a crunch and
 //   camera shake.
 // - Act 1 (0 .. 1.35 s): the camera pulls back and orbits around the wreck.
-// - Act 2 (1.35 .. 2.3 s): the plane respawns 120 units overhead in clear air
-//   facing downhill away from any cliff, and the camera tilts up and arcs
-//   smoothly into the chase view behind it.
+// - Act 2 (1.35 .. 2.3 s): the plane respawns at least 120 units overhead in
+//   clear air, facing downhill away from any cliff (or whichever way the
+//   ground ahead is lowest), and the camera tilts up and arcs smoothly into
+//   the chase view behind it.
 import * as THREE from 'three';
 import {state} from './state.js';
 import {scene} from './scene.js';
 import {camera} from './sky.js';
 import {WATER_LEVEL} from './constants.js';
-import {sampleGround} from './terrain-geometry.js';
+import {getElevation, sampleGround} from './terrain-geometry.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {playSmash, playSplash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
@@ -245,7 +246,14 @@ function triggerCrash() {
   state.impactShake = Math.max(state.impactShake || 0, 2.5);
 
   // Stop the plane at the crash site for Act 1 while the camera orbits
-  const respawn = crashRespawnPose(pos.x, pos.z, heading, _ground, WATER_LEVEL);
+  const respawn = crashRespawnPose(
+    pos.x,
+    pos.z,
+    heading,
+    _ground,
+    WATER_LEVEL,
+    getElevation
+  );
   state.flightSpeedMultiplier = 0;
   state.verticalVelocity = 0;
   state.isOnGround = false;

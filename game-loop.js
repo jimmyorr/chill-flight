@@ -481,8 +481,8 @@ function performFrame() {
   state.wasDoingImmelmann = state.isDoingImmelmann;
 
   if (!driving && !state.isCrashed) updateFlightPhysics(delta, nowTime);
-  // Wingtips and the nose push off steep walls
-  if (!state.isCrashed) updateWallScrape(delta);
+  // Wingtips and the nose push off steep walls (and forget them in a crash)
+  updateWallScrape(delta);
   updateCrash(delta);
   updateHeadlightBeam(driving);
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
