@@ -171,6 +171,9 @@ let hopping = false;
 let hopLatch = false;
 const hopTimer = {buffer: 0, airTime: 0};
 let hopFloatLeft = 0;
+// How long it's been drifting (seconds), for Tokyo drift
+let driftTime = 0;
+const DRIFT_ACHIEVEMENT_SECONDS = 2;
 
 // Fills _surface with what the wheels would rest on at (x, z), for a buggy
 // at height y: the highway deck (with 3D elevation awareness for junctions/overpasses)
@@ -814,4 +817,12 @@ export function updateBuggy(delta) {
   // The same off water, for the spray thrown up by hard turns and stops
   state.buggySpray =
     !airborne && onWater && speed > 15 ? Math.max(braking, drifting) : 0;
+
+  // Achievements: a hop, a drift held a couple of seconds, hovering on water
+  if (hop) Achievements.unlock('bunny_hop');
+  driftTime = state.buggySlide > 0 && drifting > 0.5 ? driftTime + dt : 0;
+  if (driftTime > DRIFT_ACHIEVEMENT_SECONDS) {
+    Achievements.unlock('tokyo_drift');
+  }
+  if (state.isOnWater && speed > 15) Achievements.unlock('walk_on_water');
 }

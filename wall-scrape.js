@@ -18,6 +18,7 @@ import {checkWallCrash} from './crash.js';
 import {archGround} from './arches-logic.js';
 import {arches} from './arches.js';
 import {underArch} from './flight-physics.js';
+import {Achievements} from './achievements.js';
 import {
   SCRAPE,
   fadeScrapePush,
@@ -65,7 +66,13 @@ function clearScrapeState() {
   push.x = push.z = 0;
   pressing = 0;
   exitHeading = null;
+  wingScrapedAt = null;
 }
+
+// Close shave: when a wingtip last scraped a wall (clock), until the plane
+// has flown clear of it for CLOSE_SHAVE_CLEAR seconds without crashing
+let wingScrapedAt = null;
+const CLOSE_SHAVE_CLEAR = 1;
 
 // Probes at the wingtips and the nose, one frame of travel ahead of the
 // nose so a wall is met before the plane's middle reaches it; sparks and
@@ -155,6 +162,10 @@ export function updateWallScrape(delta) {
     });
   }
   if (!touches.length) {
+    if (wingScrapedAt !== null && clock - wingScrapedAt > CLOSE_SHAVE_CLEAR) {
+      wingScrapedAt = null;
+      Achievements.unlock('close_shave');
+    }
     pressing = Math.max(0, pressing - delta);
     turnOut(delta);
     _lastPosition.copy(planeGroup.position);
@@ -204,6 +215,9 @@ export function updateWallScrape(delta) {
     kts: speed,
     delta,
   });
+  if (touches.some((c) => c.kind === 'left' || c.kind === 'right')) {
+    wingScrapedAt = clock;
+  }
   const newHit = clock - lastTouch > SCRAPE.NEW_HIT;
   lastTouch = clock;
   if (headOn && newHit) state.flightSpeedMultiplier *= SCRAPE.HEAD_ON_KEEP;

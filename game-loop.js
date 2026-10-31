@@ -12,6 +12,7 @@ import {
 import {syncChunkBorders} from './debug-ui.js';
 import {arches} from './arches.js';
 import {archCeiling} from './arches-logic.js';
+import {LANDMARKS} from './landmarks.js';
 import {
   _daySky,
   camera,
@@ -190,6 +191,9 @@ const STUNT_PITCH_GRACE = 2;
 let stuntPitchGrace = 0;
 // Frequent flyer: lifetime distance travelled (units; 1000 to a km)
 const FREQUENT_FLYER_DISTANCE = 100000;
+// Tomb raider: within this of the middle pyramid, across the ground (units)
+const PYRAMIDS = LANDMARKS.find((l) => l.name === 'Pyramids');
+const TOMB_RAIDER_RANGE = 900;
 
 function animate() {
   if (hasCrashed || !renderer) return;
@@ -545,6 +549,17 @@ function performFrame() {
     const distToVolcanoSq = planeGroup.position.distanceToSquared(_volcanoPos);
     if (distToVolcanoSq < 640000) {
       Achievements.unlock('pura_vida');
+    }
+
+    // Pyramids (Tomb raider), in worlds that have them
+    if (
+      PYRAMIDS &&
+      Math.hypot(
+        planeGroup.position.x - PYRAMIDS.x,
+        planeGroup.position.z - PYRAMIDS.z
+      ) < TOMB_RAIDER_RANGE
+    ) {
+      Achievements.unlock('tomb_raider');
     }
 
     // 2. Alien Lands - East (X > 50000) for Xen, West (X < -50000) for Westworld

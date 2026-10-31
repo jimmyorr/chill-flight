@@ -37,6 +37,7 @@ import {
   windmillBladesStillMat,
 } from './terrain-geometry.js';
 import {BREAKABLE} from './terrain-gen.js';
+import {Achievements} from './achievements.js';
 import {
   createDebrisMesh,
   debrisTypes,
@@ -103,6 +104,8 @@ const FOLDS = /Body$|^castleRuins$|^windmillBase$|^bush$/;
 const FLINGS = /Roof$|Chimney$|Blades$|^fireLog$/;
 const ROCKS = /^(rock|snowRock|desertRock)$/;
 const ICE = /^(iceberg|iceFloe)$/;
+// A real tree (not a streetlight, tent or silo), for Timber!
+const TREE_PART = /Trunk|Leaves|^cactus/;
 // Parts that don't count toward how wide a prop is (a streetlight's arm
 // reaches out over the road), and parts that just go out when it falls
 // (its pool of light, or a campfire's) and don't count toward its size at all
@@ -884,6 +887,9 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     state.impactShake = Math.max(state.impactShake || 0, SHAKE[what]);
     smashHaptic(house);
     playSmashSound(house, 1, fallTime);
+    if (kind === BREAKABLE.TREE && parts.some((p) => TREE_PART.test(p.type))) {
+      Achievements.unlock('timber');
+    }
   } else {
     const d = camera.position.distanceTo(_v.set(x, base, z));
     if (d < HEAR_RANGE) playSmashSound(house, 1 - d / HEAR_RANGE, fallTime);
@@ -1231,6 +1237,7 @@ function sweep(a, b, r, mine, buggy) {
           ) {
             if (critter) {
               scatter(group, index, i, b.x, b.z, ux, uz);
+              if (mine) Achievements.unlock('penguin_parade');
               continue;
             }
             // Some props have gaps you can pass through (a rock arch)

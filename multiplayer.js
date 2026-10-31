@@ -426,6 +426,8 @@ function addPeer(id) {
   };
   addMarker(peer);
   peers.set(id, peer);
+  // Flying with someone, friend or bot
+  Achievements.unlock('squadron');
   return peer;
 }
 
@@ -728,8 +730,10 @@ function setTag(next) {
         toast('Tag is over');
       }
     } else if (tag.it === room?.id) toast("You're it");
-    else if (was === room?.id) toast(`You tagged ${nameOf(tag.it)}`);
-    else toast(`${nameOf(tag.it)} is it`);
+    else if (was === room?.id) {
+      toast(`You tagged ${nameOf(tag.it)}`);
+      Achievements.unlock('tag_youre_it');
+    } else toast(`${nameOf(tag.it)} is it`);
   }
   refreshTag();
   if (gatherToId && !state.isIntroTransitionActive) gatherForTag();
@@ -1129,6 +1133,9 @@ function stepRace(rawNow) {
         toast(
           `Finished ${placeText(place)} · ${formatRaceTime(myRace.finish)}`
         );
+        if (place === 1 && racers().length > 1) {
+          Achievements.unlock('checkered_flag');
+        }
       }
     }
   }

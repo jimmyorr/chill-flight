@@ -22,6 +22,7 @@ import {BASE_FLIGHT_SPEED} from './constants.js';
 import {openDialog, closeDialog, changeOutfit} from './dialog.js';
 import {playChime} from './sfx-events.js';
 import {hooks} from './hooks.js';
+import {PEOPLE} from './people.js';
 import {
   accept,
   cancel,
@@ -107,10 +108,22 @@ function updateHud() {
   hudCargo.textContent = `${cargoLabel(progress) || 'Empty'} → ${field}`;
 }
 
+// Odd jobs (a job done for anyone) and Everybody knows your name (met
+// everyone)
+function jobAchievements(p) {
+  if (Object.values(p.done).some((n) => n > 0)) {
+    Achievements.unlock('odd_jobs');
+  }
+  if (PEOPLE.every((person) => p.met[person.name])) {
+    Achievements.unlock('everybody_knows');
+  }
+}
+
 function setProgress(next) {
   progress = next;
   save();
   updateHud();
+  jobAchievements(progress);
   hooks.onJobProgress?.();
 }
 
@@ -124,6 +137,8 @@ export function cancelJob() {
 }
 
 updateHud();
+// Earned before these achievements existed
+jobAchievements(progress);
 
 // --- LANDING ---
 // The airport whose flat field (x, z) is on, if any

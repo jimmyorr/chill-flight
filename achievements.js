@@ -124,7 +124,32 @@ export const Achievements = (function () {
       emoji: '🤠',
       hint: 'Reach alien lands to the West',
     },
-    // 4. Events
+    {
+      id: 'tomb_raider',
+      title: 'Tomb raider',
+      emoji: '🔺',
+      hint: 'Fly over the pyramids',
+    },
+    // 4. Buggy
+    {
+      id: 'bunny_hop',
+      title: 'Bunny hop',
+      emoji: '🐇',
+      hint: 'Hop the buggy',
+    },
+    {
+      id: 'tokyo_drift',
+      title: 'Tokyo drift',
+      emoji: '🏎️',
+      hint: 'Hold a power slide',
+    },
+    {
+      id: 'walk_on_water',
+      title: 'Walk on water',
+      emoji: '🛥️',
+      hint: 'Drive the buggy out over water',
+    },
+    // 5. Events
     {
       id: 'geese_police',
       title: 'Geese police',
@@ -136,6 +161,55 @@ export const Achievements = (function () {
       title: 'Wingman',
       emoji: '🛩️',
       hint: 'Fly alongside another plane',
+    },
+    {
+      id: 'close_shave',
+      title: 'Close shave',
+      emoji: '✨',
+      hint: 'Scrape a wingtip along a cliff and fly on',
+    },
+    {
+      id: 'timber',
+      title: 'Timber!',
+      emoji: '🌲',
+      hint: 'Knock over a tree',
+    },
+    {
+      id: 'penguin_parade',
+      title: 'Penguin parade',
+      emoji: '🐧',
+      hint: 'Send the penguins diving off their floe',
+    },
+    // 6. People and games
+    {
+      id: 'odd_jobs',
+      title: 'Odd jobs',
+      emoji: '📦',
+      hint: 'Finish a job for someone',
+    },
+    {
+      id: 'everybody_knows',
+      title: 'Everybody knows your name',
+      emoji: '📇',
+      hint: 'Meet everyone',
+    },
+    {
+      id: 'squadron',
+      title: 'Squadron',
+      emoji: '🤝',
+      hint: 'Fly together, with friends or bots',
+    },
+    {
+      id: 'tag_youre_it',
+      title: "Tag, you're it",
+      emoji: '🏷️',
+      hint: 'Tag someone in a game of tag',
+    },
+    {
+      id: 'checkered_flag',
+      title: 'Checkered flag',
+      emoji: '🏁',
+      hint: 'Win a race',
     },
   ];
 
