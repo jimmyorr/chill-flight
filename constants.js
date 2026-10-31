@@ -38,6 +38,12 @@ export const BASE_FLIGHT_SPEED = 2.5;
 // reads as a knot): distances and altitude are shown on it
 export const UNITS_TO_M = 0.5144;
 export const TURN_SPEED = 0.03;
+// The top of the sky (units; about 2,060 m on the altitude readout). Over
+// the last CEILING_EASE units (about 300 m) below it the steepest climb
+// allowed eases to level, so the plane rounds out at the top instead of
+// sliding along it
+export const MAX_FLIGHT_HEIGHT = 4045.5;
+export const CEILING_EASE = 600;
 
 // Each plane's speed and handling, kept close enough that every plane still
 // flies gently (README, "Planes"):

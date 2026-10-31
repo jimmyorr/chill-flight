@@ -4,7 +4,11 @@ import {sampleRoad} from './terrain-chunks.js';
 import {ARCH, archCeiling, archGround} from './arches-logic.js';
 import {arches} from './arches.js';
 import {planeGroup, planeHandling} from './airplane.js';
-import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
+import {
+  BASE_FLIGHT_SPEED,
+  MAX_FLIGHT_HEIGHT,
+  WATER_LEVEL,
+} from './constants.js';
 import {precipitation} from './weather-manager.js';
 import {state} from './state.js';
 import {
@@ -509,9 +513,10 @@ export function updateFlightPhysics(delta, nowTime) {
     underArch = true;
   }
 
-  const maxFlightHeight = 4045.5; // About 2,060 m on the altitude readout
-  if (planeGroup.position.y > maxFlightHeight) {
-    planeGroup.position.y = maxFlightHeight;
+  // The controls level the climb out near the top (game-loop.js); this
+  // holds loops and the like under it
+  if (planeGroup.position.y > MAX_FLIGHT_HEIGHT) {
+    planeGroup.position.y = MAX_FLIGHT_HEIGHT;
   }
 
   // On the wheels this frame (on the ground under where the plane is now):

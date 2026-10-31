@@ -92,7 +92,9 @@ import {
 } from './game.js';
 import {
   BASE_FLIGHT_SPEED,
+  CEILING_EASE,
   CHUNK_SIZE,
+  MAX_FLIGHT_HEIGHT,
   TURN_SPEED,
   getCachedElement,
   moonlightUniforms,
@@ -1839,9 +1841,20 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     planeGroup.rotation.x = flightRot.pitch;
     if (!state.isLooping && !state.isDoingImmelmann) {
+      // Near the top of the sky the steepest climb eases to level
+      // (CEILING_EASE), so the plane rounds out instead of sliding along it
+      const maxClimb =
+        MAX_CLIMB_ANGLE *
+        (1 -
+          THREE.MathUtils.smoothstep(
+            planeGroup.position.y,
+            MAX_FLIGHT_HEIGHT - CEILING_EASE,
+            MAX_FLIGHT_HEIGHT
+          ));
+      if (planeGroup.rotation.x > maxClimb) manualPitchVel = 0;
       planeGroup.rotation.x = Math.max(
         MAX_DIVE_ANGLE,
-        Math.min(MAX_CLIMB_ANGLE, planeGroup.rotation.x)
+        Math.min(maxClimb, planeGroup.rotation.x)
       );
     }
     planeGroup.rotation.z = flightRot.roll;
