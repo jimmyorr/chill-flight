@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
-import {activePlaneType} from './airplane.js';
+import {activePlaneType, planeGroup} from './airplane.js';
 import {UNLOCK_EVENTS, musicEnabled} from './audio.js';
 import {log} from './logger.js';
 import {PLANE_HANDLING} from './constants.js';
@@ -65,6 +65,14 @@ let oscSubGain = null;
 let lfo = null;
 let lfoGain = null;
 let windGain = null;
+// The wind's movement: last frame's time, height and speed, the smoothed
+// sink rate and speed change, and the swell they set off (0-1)
+let lastWindTime = null;
+let lastWindY = 0;
+let lastWindSpeed = 0;
+let windSwell = 0;
+let windSink = 0;
+let windSpeedRate = 0;
 let windFilter = null;
 let windSource = null;
 let cricketGain = null;
@@ -685,6 +693,41 @@ export function updateSfx() {
   );
   const engineLoudness = (0.05 + 0.19 * Math.sqrt(speedFrac)) * engineDuck;
 
+  // The flying wind moves instead of sitting as a flat hiss: slow gusts that
+  // average out to its set level, and a swell while diving or speeding up or
+  // slowing down quickly. A steady cruise stays calm
+  // Frame time from the page clock, which follows the game's frames (the
+  // audio clock moves in its own steps)
+  const frameNow = performance.now() / 1000;
+  const windDt =
+    lastWindTime === null ? 0 : Math.min(0.1, frameNow - lastWindTime);
+  lastWindTime = frameNow;
+  const y = planeGroup.position.y;
+  if (windDt > 0) {
+    // Sink rate (units/s) and speed change (knots/s), smoothed
+    const ease = Math.min(1, windDt * 4);
+    windSink += ((lastWindY - y) / windDt - windSink) * ease;
+    windSpeedRate +=
+      ((Math.abs(speed - lastWindSpeed) * 150) / windDt - windSpeedRate) * ease;
+    const swellTarget = Math.min(
+      1,
+      0.6 * THREE.MathUtils.clamp((windSink - 20) / 80, 0, 1) +
+        0.4 * THREE.MathUtils.clamp((windSpeedRate - 5) / 40, 0, 1)
+    );
+    // Builds over a second or so and dies away more slowly
+    const rate = swellTarget > windSwell ? 2.5 : 0.8;
+    windSwell += (swellTarget - windSwell) * Math.min(1, windDt * rate);
+  }
+  lastWindY = y;
+  lastWindSpeed = speed;
+  const gust =
+    1 +
+    0.18 * Math.sin(2 * Math.PI * 0.071 * frameNow) +
+    0.12 * Math.sin(2 * Math.PI * 0.173 * frameNow + 1.3);
+  // Up to twice as loud (+6 dB) and a little brighter in a steep dive
+  const windMove = gust * (1 + windSwell);
+  const windBright = 1 + 0.3 * windSwell;
+
   // Stopped ambient soundscapes (crickets at night/dusk or gentle meadow breeze during day when parked on land)
   let targetCricketGain = 0;
   let targetBreezeGain = 0;
@@ -746,12 +789,12 @@ export function updateSfx() {
 
     // Subtle wind rush
     windGain.gain.setTargetAtTime(
-      speed * 0.06 * WIND_LEVEL,
+      speed * 0.06 * WIND_LEVEL * windMove,
       audioCtx.currentTime,
       0.05
     );
     windFilter.frequency.setTargetAtTime(
-      380 + speed * 110,
+      (380 + speed * 110) * windBright,
       audioCtx.currentTime,
       0.05
     );
@@ -776,7 +819,7 @@ export function updateSfx() {
       0.05
     );
     windGain.gain.setTargetAtTime(
-      speed * 0.03 * WIND_LEVEL,
+      speed * 0.03 * WIND_LEVEL * windMove,
       audioCtx.currentTime,
       0.05
     );
@@ -788,12 +831,12 @@ export function updateSfx() {
 
     // Air rushing past the intakes and canopy
     windGain.gain.setTargetAtTime(
-      speed * 0.05 * WIND_LEVEL,
+      speed * 0.05 * WIND_LEVEL * windMove,
       audioCtx.currentTime,
       0.05
     );
     windFilter.frequency.setTargetAtTime(
-      380 + speed * 120,
+      (380 + speed * 120) * windBright,
       audioCtx.currentTime,
       0.05
     );
@@ -819,12 +862,12 @@ export function updateSfx() {
 
     // Subtle wind rush
     windGain.gain.setTargetAtTime(
-      speed * 0.05 * WIND_LEVEL,
+      speed * 0.05 * WIND_LEVEL * windMove,
       audioCtx.currentTime,
       0.05
     );
     windFilter.frequency.setTargetAtTime(
-      380 + speed * 100,
+      (380 + speed * 100) * windBright,
       audioCtx.currentTime,
       0.05
     );
