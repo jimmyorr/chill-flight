@@ -446,22 +446,18 @@ export function updateWeather(delta) {
         Math.random() < 0.3 ? 0 : lightningFlashIntensity;
     }
   } else if (_rainLevel > 0.2 && Math.random() < _rainLevel * 0.0025) {
-    // Only allow lightning between 6pm and 6am
-    const hours = (state.timeOfDay / (Math.PI * 2)) * 24;
-    if (hours >= 18 || hours <= 6) {
-      // Trigger a new lightning strike during heavy rain
-      lightningFlashIntensity = 1.5 + Math.random() * 1.0;
-      if (lightningLight) {
-        // Set a random overhead angle for the strike
-        lightningLight.position
-          .set((Math.random() - 0.5) * 2, 1, (Math.random() - 0.5) * 2)
-          .normalize();
-        lightningLight.color.setHSL(0.6, 0.2, 0.8 + Math.random() * 0.2); // Cool white/blue
-      }
-      const distance = Math.random();
-      playThunder(distance);
-      thunderHaptic(distance);
+    // Trigger a new lightning strike during heavy rain
+    lightningFlashIntensity = 1.5 + Math.random() * 1.0;
+    if (lightningLight) {
+      // Set a random overhead angle for the strike
+      lightningLight.position
+        .set((Math.random() - 0.5) * 2, 1, (Math.random() - 0.5) * 2)
+        .normalize();
+      lightningLight.color.setHSL(0.6, 0.2, 0.8 + Math.random() * 0.2); // Cool white/blue
     }
+    const distance = Math.random();
+    playThunder(distance);
+    thunderHaptic(distance);
   }
 
   // Store unfaded opacities to drive cloud density even when above clouds
