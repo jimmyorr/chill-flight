@@ -84,7 +84,11 @@ const _lastPosition = new THREE.Vector3(NaN, NaN, NaN);
 // scripts/flight-sim.js)
 const smoothstep = THREE.MathUtils.smoothstep;
 let fallAmount = 0;
-// How far the nose dips in slow flight, a stall you can see (radians)
+// Slow flight raises the model's nose, as real planes fly slow, up to
+// SLOW_NOSE_UP from level speed + 10 knots down to stall + 5 (a flare on
+// every landing); below that it tips over to STALL_NOSE_DIP by 15 knots
+// under stall, a stall you can see (radians)
+const SLOW_NOSE_UP = 0.12;
 const STALL_NOSE_DIP = -0.18;
 let stallNose = 0;
 
@@ -297,20 +301,22 @@ export function updateFlightPhysics(delta, nowTime) {
   } else {
     state.verticalVelocity = 0;
   }
-  // The nose dips as the plane gets slow, a visible stall (the tumble takes
-  // over once it falls)
+  // The nose rises as the plane slows and dips as it stalls (the tumble
+  // takes over once it falls); on the ground it eases back down
+  const unstalled = smoothstep(
+    currentKTS,
+    handling.stallKts - 15,
+    handling.stallKts + 5
+  );
+  const slowNose =
+    SLOW_NOSE_UP *
+      (1 -
+        smoothstep(currentKTS, handling.stallKts + 5, handling.levelKts + 10)) *
+      unstalled +
+    STALL_NOSE_DIP * (1 - unstalled);
   stallNose = THREE.MathUtils.lerp(
     stallNose,
-    airborne
-      ? STALL_NOSE_DIP *
-          (1 -
-            smoothstep(
-              currentKTS,
-              handling.stallKts - 25,
-              handling.levelKts - 30
-            )) *
-          (1 - fallAmount)
-      : 0,
+    airborne ? slowNose * (1 - fallAmount) : 0,
     1 - Math.exp(-delta / FLIGHT.SINK_EASE_SECONDS)
   );
 
