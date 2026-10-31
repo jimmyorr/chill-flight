@@ -1883,19 +1883,28 @@ function updatePhysicsAndControls(delta, nowTime) {
       // Weighted roll (?weightedRoll=1, or the debug menu; on trial): the
       // bank eases in and stops cleanly, like a spring with no overshoot,
       // settling about when the usual roll does (WEIGHTED_ROLL_OMEGA)
+      // The roll is kept within half a turn either way: a barrel roll leaves
+      // it a whole turn or more round, which the turn would read as banked
+      // all the way over, spinning the plane
       const omega = WEIGHTED_ROLL_OMEGA * effTurnSpeed * 60;
+      const roll = wrapAngle(rollBefore);
       let target = state.targetRoll;
-      while (target > rollBefore + Math.PI) target -= Math.PI * 2;
-      while (target < rollBefore - Math.PI) target += Math.PI * 2;
+      while (target > roll + Math.PI) target -= Math.PI * 2;
+      while (target < roll - Math.PI) target += Math.PI * 2;
       const step = Math.min(delta, 0.05);
       rollRate +=
-        (omega * omega * (target - rollBefore) - 2 * omega * rollRate) * step;
-      planeGroup.rotation.z = rollBefore + rollRate * step;
+        (omega * omega * (target - roll) - 2 * omega * rollRate) * step;
+      planeGroup.rotation.z = wrapAngle(roll + rollRate * step);
     } else {
       planeGroup.rotation.z = flightRot.roll;
       // Carried over, so switching to the weighted roll (or out of a barrel
-      // roll) doesn't jolt
-      rollRate = delta > 0 ? (flightRot.roll - rollBefore) / delta : 0;
+      // roll, which turned the plane before this) doesn't jolt
+      rollRate =
+        barrelRollDir !== 0
+          ? barrelRollDir * barrelRollRate
+          : delta > 0
+            ? (flightRot.roll - rollBefore) / delta
+            : 0;
     }
 
     // Store calculated yaw to be applied later in the physics block
