@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.5](https://v1-2-5.chill-flight.pages.dev)
+
+- **Flight & controls:** Weighted roll response by default, frame-rate independent climb/dive momentum, flared landings, and smooth stick dead zones.
+- **World & foliage:** Swaying tall grass and village wheat fields enabled across the island; planes stay below overcast cloud decks.
+- **Audio & ambience:** Dynamic wind gusts with dive swells, dedicated buggy wind audio, varied night crickets, and quieter parked breezes.
+
 ## [1.2.4](https://v1-2-4.chill-flight.pages.dev)
 
 - **Landmarks:** Fly under natural sea arches, canyon bridges, and basalt rock gates.
