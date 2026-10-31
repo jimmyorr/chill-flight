@@ -32,7 +32,7 @@ export function extractReleaseNotes(dir = rootDir, ver = version) {
   try {
     const notesPath = path.join(dir, 'RELEASE_NOTES.md');
     if (!fs.existsSync(notesPath)) {
-      return {markdown: '', plainText: ''};
+      return {markdown: '', plainText: '', categories: []};
     }
     const notesContent = fs.readFileSync(notesPath, 'utf8');
     const versionEscaped = ver.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -41,7 +41,7 @@ export function extractReleaseNotes(dir = rootDir, ver = version) {
     );
     const match = notesContent.match(regex);
     if (!match) {
-      return {markdown: '', plainText: ''};
+      return {markdown: '', plainText: '', categories: []};
     }
     const markdown = match[1].trim();
     const plainText = markdown
@@ -49,9 +49,11 @@ export function extractReleaseNotes(dir = rootDir, ver = version) {
       .replace(/(^|[^\w*])([*_])(\S(?:.*?\S)?)\2(?=[^\w*]|$)/gm, '$1$3')
       .replace(/`([^`]+)`/g, '$1')
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-    return {markdown, plainText};
+    const categoryMatches = [...markdown.matchAll(/-\s*\*\*([^*:]+?):?\*\*/g)];
+    const categories = categoryMatches.map((m) => m[1].trim());
+    return {markdown, plainText, categories};
   } catch {
-    return {markdown: '', plainText: ''};
+    return {markdown: '', plainText: '', categories: []};
   }
 }
 
@@ -60,9 +62,27 @@ export function printItchDevlogDetails(options = {}) {
     version: ver = version,
     target = ITCH_TARGET,
     gameId = ITCH_GAME_ID,
+    notes,
   } = options;
   const cleanVersion = ver.startsWith('v') ? ver.slice(1) : ver;
-  const {markdown} = extractReleaseNotes(rootDir, cleanVersion);
+  const {markdown: extractedMarkdown, categories} = extractReleaseNotes(
+    rootDir,
+    cleanVersion
+  );
+  const markdown = notes ?? extractedMarkdown;
+
+  let categorySummary = '';
+  if (categories.length === 1) {
+    categorySummary = categories[0];
+  } else if (categories.length === 2) {
+    categorySummary = `${categories[0]} and ${categories[1]}`;
+  } else if (categories.length > 2) {
+    categorySummary = `${categories.slice(0, -1).join(', ')}, and ${categories[categories.length - 1]}`;
+  }
+
+  const suggestedTitle = categorySummary
+    ? `Chill Flight v${cleanVersion} — ${categorySummary}`
+    : `Chill Flight v${cleanVersion}`;
 
   const [project] = target.split(':');
   const [user, slug] = project
@@ -73,6 +93,7 @@ export function printItchDevlogDetails(options = {}) {
       ? `https://${user}.itch.io/${slug}`
       : 'https://cowneck.itch.io/chill-flight';
   const dashboardUrl = `https://itch.io/game/summary/${gameId}`;
+  const rssUrl = `${gameUrl}/devlog.rss`;
 
   console.log(
     '\n----------------------------------------------------------------'
@@ -83,8 +104,14 @@ export function printItchDevlogDetails(options = {}) {
   );
   console.log(`Game page:     ${gameUrl}`);
   console.log(`Dashboard:     ${dashboardUrl}`);
-  console.log(`Title:         Chill Flight v${cleanVersion}`);
-  console.log(`Type:          Major update`);
+  console.log(`Devlog RSS:    ${rssUrl}`);
+  console.log(`Title:         ${suggestedTitle}`);
+  console.log(
+    `Type:          Major update (enters itch.io curation & browse queue)`
+  );
+  console.log(
+    `Tip:           Attach a screenshot or GIF to boost browse feed CTR`
+  );
   console.log('\nPost body (copy-paste for devlog):');
   console.log('```markdown');
   console.log(markdown || '(No release notes recorded for this version)');

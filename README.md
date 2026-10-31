@@ -845,7 +845,7 @@ To upload the build directly to itch.io via the `butler` CLI:
 npm run deploy:itch
 ```
 
-This uses `butler push` to deliver the build to `cowneck/chill-flight:html5` tagged with the current version. Upon completion, it extracts the latest notes from `RELEASE_NOTES.md` and outputs formatted copy-paste details for publishing an update devlog on itch.io. The deployment is also run automatically during production releases (`npm run release:tag`). Use `--skip-itch` to skip the itch.io upload step during release. Requires `butler` to be authenticated (`butler login` or setting `BUTLER_API_KEY`).
+This uses `butler push` to deliver the build to `cowneck/chill-flight:html5` tagged with the current version. Upon completion, it extracts the latest notes from `RELEASE_NOTES.md` and outputs formatted copy-paste details for publishing an update devlog on itch.io (including a keyword-rich title derived from release categories, curation tips, and RSS link). The deployment is also run automatically during production releases (`npm run release:tag`). Use `--skip-itch` to skip the itch.io upload step during release. Requires `butler` to be authenticated (`butler login` or setting `BUTLER_API_KEY`).
 
 ### Multiplayer relay (Cloudflare Worker)
 
