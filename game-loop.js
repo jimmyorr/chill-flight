@@ -1254,6 +1254,7 @@ const STEEP_CLIMB_ANGLE = (60 * Math.PI) / 180;
 const STEEP_DIVE_ANGLE = -(70 * Math.PI) / 180;
 const MAX_DIVE_ANGLE = -(75 * Math.PI) / 180;
 const MAX_CLIMB_ANGLE = (75 * Math.PI) / 180;
+const SLOW_CLIMB_ANGLE = (20 * Math.PI) / 180; // steepest climb at stall speed
 const PITCH_SPEED = 1.0; // rad/s (~57 deg/s)
 const STEEP_PITCH_SPEED = 1.6; // rad/s (~92 deg/s)
 
@@ -1846,15 +1847,27 @@ function updatePhysicsAndControls(delta, nowTime) {
     planeGroup.rotation.x = flightRot.pitch;
     if (!state.isLooping && !state.isDoingImmelmann) {
       // Near the top of the sky the steepest climb eases to level
-      // (CEILING_EASE), so the plane rounds out instead of sliding along it
-      const maxClimb =
+      // (CEILING_EASE), so the plane rounds out instead of sliding along it;
+      // and slow, it can't climb as steeply: from any climb at its level
+      // speed down to SLOW_CLIMB_ANGLE at its stall speed, still enough to
+      // lift off there
+      const {stallKts, levelKts} = planeHandling();
+      const maxClimb = Math.min(
         MAX_CLIMB_ANGLE *
-        (1 -
-          THREE.MathUtils.smoothstep(
-            planeGroup.position.y,
-            MAX_FLIGHT_HEIGHT - CEILING_EASE,
-            MAX_FLIGHT_HEIGHT
-          ));
+          (1 -
+            THREE.MathUtils.smoothstep(
+              planeGroup.position.y,
+              MAX_FLIGHT_HEIGHT - CEILING_EASE,
+              MAX_FLIGHT_HEIGHT
+            )),
+        stallKts > 0
+          ? THREE.MathUtils.lerp(
+              SLOW_CLIMB_ANGLE,
+              MAX_CLIMB_ANGLE,
+              THREE.MathUtils.smoothstep(kts, stallKts, levelKts)
+            )
+          : MAX_CLIMB_ANGLE
+      );
       if (planeGroup.rotation.x > maxClimb) manualPitchVel = 0;
       planeGroup.rotation.x = Math.max(
         MAX_DIVE_ANGLE,
