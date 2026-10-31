@@ -1,5 +1,5 @@
 // --- FLY TOGETHER ---
-// Flying with up to three friends: the 👥 button on the pause menu starts a
+// Flying with up to three friends: the Together tab on the pause menu starts a
 // room and shares a link (or a 4-character code, for the apps), and friends
 // who open it fly the same world and see each other's planes, names and
 // smoke. Everyone's smoke takes their livery's colour while in a room.
@@ -308,7 +308,7 @@ function isNativeApp() {
 }
 
 function toast(title) {
-  Achievements.toast({emoji: '👥', label: 'FLY TOGETHER', title});
+  Achievements.toast({emoji: '👋', label: 'FLY TOGETHER', title});
 }
 
 // What the panel says while the connection is down, getting back in
