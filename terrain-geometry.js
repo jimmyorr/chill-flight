@@ -166,7 +166,7 @@ var _isLowQualityInitial =
 export var VOLCANO_X = -5000;
 export var VOLCANO_Z = 5000;
 
-// Tall grass (grass.js, ?grass=1). Its gusts: bands that roll downwind
+// Tall grass (grass.js; off with ?grass=0). Its gusts: bands that roll downwind
 // across the land, shared by the grass blades (how far they lean) and the
 // terrain (a sheen on green ground where a gust passes, seen from the air).
 export const GRASS_ON = !!ChillFlightLogic.GRASS;

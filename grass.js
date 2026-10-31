@@ -1,4 +1,4 @@
-// --- TALL GRASS (prototype, ?grass=1) ---
+// --- TALL GRASS (?grass=0 turns it off) ---
 // A field of grass blades around the camera, drawn in one call, that only
 // exists when the camera is low (the buggy, taxiing, low passes). The blades
 // sit on a fixed world lattice that wraps around the field as the camera

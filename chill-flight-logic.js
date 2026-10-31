@@ -1550,8 +1550,9 @@ export const ChillFlightLogic = {};
   // ?continent=<name> forces an outline; otherwise the world seed picks one.
   // Workers can't see the URL, so it travels with each chunk job.
   exports.CONTINENT = getParam('continent', null);
-  // ?grass=1: tall grass round the camera when it's low (grass.js), a prototype
-  exports.GRASS = getParam('grass', '0') === '1';
+  // Tall grass and wheat round the camera when it's low (grass.js); ?grass=0
+  // turns it off
+  exports.GRASS = getParam('grass', '1') !== '0';
   let continentSeed = null;
   let continentForced = null;
   // Sets `continent` for the current seed (and forced name), when they change
