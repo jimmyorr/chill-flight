@@ -823,6 +823,13 @@ export function updateSfx() {
       audioCtx.currentTime,
       0.05
     );
+    // Its own tone (it used to keep whatever the last plane set), a little
+    // darker than a plane's since the buggy is close to the ground
+    windFilter.frequency.setTargetAtTime(
+      (300 + speed * 90) * windBright,
+      audioCtx.currentTime,
+      0.05
+    );
   } else if (planeType === 'jet') {
     // The jet is silent for now: its engine sound is muted, and the wind rush
     // below still plays
