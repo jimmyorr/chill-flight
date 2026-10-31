@@ -114,12 +114,30 @@ function createCricketBuffer(
   context,
   {pitchA = 2520, pitchB = 2740, rate = 1} = {}
 ) {
-  const duration = 9;
+  // Long enough, with the calls at uneven times, that the pattern isn't
+  // heard repeating
+  const duration = 24;
   const sampleRate = context.sampleRate;
   const totalSamples = sampleRate * duration;
   const buffer = context.createBuffer(2, totalSamples, sampleRate);
   const left = buffer.getChannelData(0);
   const right = buffer.getChannelData(1);
+
+  // Seeded so every load sounds the same
+  let seed = 16807;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  // Call start times about `every` seconds apart, give or take, kept clear
+  // of the loop's crossfade at the end
+  const callTimes = (first, every) => {
+    const times = [];
+    for (let t = first; t < duration - 1; t += every * (0.6 + 0.9 * rand())) {
+      times.push(t);
+    }
+    return times;
+  };
 
   const rateScale = 1 / Math.max(0.4, rate);
   // Warm, mellow snowy-tree-cricket pitches (~2.4-2.7 kHz) with sparse,
@@ -129,7 +147,7 @@ function createCricketBuffer(
       freq: pitchA,
       gain: 0.16,
       pan: -0.45,
-      times: [0.7, 4.1, 7.3],
+      times: callTimes(0.7, 3.2),
       pulses: 4,
       len: 0.028 * rateScale,
       gap: 0.048 * rateScale,
@@ -138,7 +156,7 @@ function createCricketBuffer(
       freq: pitchB,
       gain: 0.12,
       pan: 0.5,
-      times: [2.2, 5.8],
+      times: callTimes(2.2, 4.4),
       pulses: 3,
       len: 0.026 * rateScale,
       gap: 0.046 * rateScale,
@@ -147,7 +165,7 @@ function createCricketBuffer(
       freq: pitchA * 0.94,
       gain: 0.08,
       pan: 0.15,
-      times: [3.3, 8.1],
+      times: callTimes(3.3, 4.6),
       pulses: 3,
       len: 0.03 * rateScale,
       gap: 0.052 * rateScale,
@@ -158,10 +176,14 @@ function createCricketBuffer(
     const leftGain = c.gain * (1 - c.pan) * 0.5;
     const rightGain = c.gain * (1 + c.pan) * 0.5;
     for (const st of c.times) {
-      for (let p = 0; p < c.pulses; p++) {
+      // Each call a syllable longer or shorter and a little louder or softer
+      const pulses = Math.max(2, c.pulses + Math.round(rand() * 2 - 1));
+      const callGain = 0.75 + 0.35 * rand();
+      for (let p = 0; p < pulses; p++) {
         // Gentle phrase swell across the syllables so chirps ease in and trail off
-        const phraseFrac = c.pulses > 1 ? p / (c.pulses - 1) : 0.5;
-        const phraseEnv = 0.55 + 0.45 * Math.sin(phraseFrac * Math.PI);
+        const phraseFrac = pulses > 1 ? p / (pulses - 1) : 0.5;
+        const phraseEnv =
+          (0.55 + 0.45 * Math.sin(phraseFrac * Math.PI)) * callGain;
         // Subtle natural pitch settle across the phrase
         const pulseFreq = c.freq * (1 - 0.012 * phraseFrac);
         const pStart = st + p * c.gap;
