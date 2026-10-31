@@ -2,6 +2,7 @@ import {execSync} from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import {fileURLToPath} from 'url';
+import {extractReleaseNotes, printItchDevlogDetails} from './deploy-itch.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -155,31 +156,8 @@ if (!skipGitPush) {
 }
 
 // 5. Extract release notes for current version
-let releaseNotes = '';
-try {
-  const notesPath = path.join(rootDir, 'RELEASE_NOTES.md');
-  if (fs.existsSync(notesPath)) {
-    const notesContent = fs.readFileSync(notesPath, 'utf8');
-    const versionEscaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(
-      `## \\[${versionEscaped}\\][^\\n]*\\n\\n([\\s\\S]*?)(?=\\n## |$)`
-    );
-    const match = notesContent.match(regex);
-    if (match) {
-      // App Store Connect's "What's New" is plain text, so drop the Markdown
-      // (bold, italics, code and links, keeping the text); the "- " bullets
-      // read fine as they are
-      releaseNotes = match[1]
-        .trim()
-        .replace(/\*\*(.+?)\*\*/g, '$1')
-        .replace(/(^|[^\w*])([*_])(\S(?:.*?\S)?)\2(?=[^\w*]|$)/gm, '$1$3')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-    }
-  }
-} catch {
-  // Fall back to empty release notes
-}
+const {markdown: markdownReleaseNotes, plainText: plainReleaseNotes} =
+  extractReleaseNotes(rootDir, version);
 
 const parts = version.split('.');
 const buildCode =
@@ -206,9 +184,9 @@ console.log(
 console.log(`   - iOS (TestFlight / ASC):  ${iosStatus}`);
 console.log(`     • App Store:     https://appstoreconnect.apple.com/apps`);
 
-console.log(
-  '\n----------------------------------------------------------------'
-);
+printItchDevlogDetails({version, notes: markdownReleaseNotes});
+
+console.log('----------------------------------------------------------------');
 console.log('📋 Apple App Store Connect — Final submission details:');
 console.log('----------------------------------------------------------------');
 console.log(`Version:    ${version}`);
@@ -218,7 +196,9 @@ console.log(
 );
 console.log('\nWhat\'s new in this version (copy-paste for "What\'s New"):');
 console.log('```text');
-console.log(releaseNotes || '(No release notes recorded for this version)');
+console.log(
+  plainReleaseNotes || '(No release notes recorded for this version)'
+);
 console.log('```');
 console.log(
   '----------------------------------------------------------------\n'
