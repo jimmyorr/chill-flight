@@ -1,5 +1,12 @@
 # Release notes
 
+## [1.2.4](https://v1-2-4.chill-flight.pages.dev)
+
+- **Landmarks:** Fly under natural sea arches, canyon bridges, and basalt rock gates.
+- **World & performance:** Optimized distant tree, foliage, and boat rendering; tuned Canada goose flocking.
+- **Airports & characters:** Reorganized island residents so each airfield has its own unique local contact.
+- **Controls & fixes:** Bound iOS touch handlers to document for embedded iframes, with storage polyfill fallbacks.
+
 ## [1.2.3](https://v1-2-3.chill-flight.pages.dev)
 
 - **Crash & respawn:** Added steep-dive and cliff impact crash detection, wreck breakup tumble, cinematic orbit camera, and overhead clear-air respawns.
