@@ -4210,7 +4210,7 @@ export function generateChunkData({
     if (baseY > 1200) baseY = 1200;
 
     const baseRotationY = rng() * Math.PI * 2;
-    const speed = 0.5 + rng() * 0.2;
+    const speed = 1.1 + rng() * 0.2;
 
     for (let i = 0; i < flockSize; i++) {
       let offsetX = 0;
@@ -4232,7 +4232,7 @@ export function generateChunkData({
         rotY: baseRotationY,
         speed,
         flapPhase: rng() * Math.PI * 2,
-        flapSpeed: 3.0 + rng() * 1.0,
+        flapSpeed: 8.0 + rng() * 2.0,
         flapDuration: 1000.0,
         soarDuration: 0.0,
       });
