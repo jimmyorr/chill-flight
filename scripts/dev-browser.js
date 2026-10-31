@@ -5,6 +5,7 @@
 // Pages open with ?start=1&ui=0&music=0 unless the query says otherwise: no
 // Begin button, no HUD or panels over the view, and no music downloads.
 import puppeteer from 'puppeteer-core';
+import {execFileSync} from 'child_process';
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
@@ -75,17 +76,52 @@ export function autoCloseOnExit(browser, onCleanup) {
   });
 }
 
+// WebGL backend: the Mac's GPU through Metal, software SwiftShader elsewhere
+// (cloud and CI have no GPU). SwiftShader on a Mac keeps 3-4 cores busy.
+export const GL_ARGS =
+  process.platform === 'darwin'
+    ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']
+    : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
+
+// Kill headless Chrome left running by an earlier run that was killed before
+// it could close its browser (its Node parent is gone, so it now belongs to
+// pid 1). Puppeteer gives every browser it launches a temporary profile
+// named puppeteer_dev_chrome_profile-*, so a browser someone opened by hand,
+// or one another run is still using, is never touched.
+export function killOrphanedChrome() {
+  if (process.platform === 'win32') return;
+  let rows;
+  try {
+    rows = execFileSync('ps', ['-Ao', 'pid=,ppid=,command='], {
+      encoding: 'utf8',
+    });
+  } catch {
+    return;
+  }
+  let killed = 0;
+  for (const row of rows.split('\n')) {
+    const m = row.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/);
+    if (!m || m[2] !== '1' || !m[3].includes('puppeteer_dev_chrome_profile-'))
+      continue;
+    try {
+      process.kill(Number(m[1]), 'SIGKILL');
+      killed++;
+    } catch {
+      // Already gone.
+    }
+  }
+  if (killed)
+    console.log(`Closed ${killed} leftover headless Chrome process(es)`);
+}
+
 export async function launch(opts = {}) {
-  const defaultArgs =
-    process.platform === 'darwin'
-      ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']
-      : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
+  killOrphanedChrome();
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     headless: true,
     pipe: true,
     protocolTimeout: 900000,
-    args: defaultArgs,
+    args: GL_ARGS,
     ...opts,
   });
   autoCloseOnExit(browser);

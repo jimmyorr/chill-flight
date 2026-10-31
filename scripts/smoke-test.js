@@ -4,7 +4,12 @@
 //   npm run test:browser  - against the dev server (`npm run dev` on port 5173)
 //   npm run test:build    - builds to a temp dir (not docs/) and tests that
 import puppeteer from 'puppeteer-core';
-import {autoCloseOnExit, serveDir} from './dev-browser.js';
+import {
+  GL_ARGS,
+  autoCloseOnExit,
+  killOrphanedChrome,
+  serveDir,
+} from './dev-browser.js';
 import {execSync} from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -578,13 +583,13 @@ async function exerciseControls(page, tag) {
   }
 }
 
+killOrphanedChrome();
 const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: true,
   pipe: true,
   args: [
-    '--use-angle=swiftshader',
-    '--enable-unsafe-swiftshader',
+    ...GL_ARGS,
     // Let music start without a real user gesture.
     '--autoplay-policy=no-user-gesture-required',
   ],
