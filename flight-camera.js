@@ -26,6 +26,8 @@ import {
 } from './constants.js';
 import {log} from './logger.js';
 import {state} from './state.js';
+import {archCameraY} from './arches-logic.js';
+import {arches} from './arches.js';
 import {
   _lastChunkUpdatePos,
   cameraDolly,
@@ -512,6 +514,14 @@ export function updateFlightCamera(delta, nowTime) {
     if (_idealCameraPos.y < minCamSurface + 2.0) {
       _idealCameraPos.y = minCamSurface + 2.0;
     }
+    // Under an arch with the plane, or over it (not inside the rock)
+    _idealCameraPos.y = archCameraY(
+      arches,
+      _idealCameraPos.x,
+      _idealCameraPos.z,
+      _idealCameraPos.y,
+      planeGroup.position.y
+    );
 
     // Apply smooth tracking to the results
     // We use smoothedDelta and a higher lerp factor for a more "locked-in" feel.
@@ -597,6 +607,13 @@ export function updateFlightCamera(delta, nowTime) {
     if (activeCamTarget.position.y < actualTerrainHeight + 1.0) {
       activeCamTarget.position.y = actualTerrainHeight + 1.0;
     }
+    activeCamTarget.position.y = archCameraY(
+      arches,
+      activeCamTarget.position.x,
+      activeCamTarget.position.z,
+      activeCamTarget.position.y,
+      planeGroup.position.y
+    );
 
     if (state.isVRPresenting && loopLock === 0) {
       activeCamTarget.up.set(0, 1, 0); // Keep world up stable in VR during normal flight

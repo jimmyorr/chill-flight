@@ -27,6 +27,8 @@ export const ARCH = {
   // Up to this far into the underside is still under it, pushed back down
   // (a few frames of a steep climb); deeper, it's in it from the side
   CEILING_CATCH: 10,
+  // A camera stays this far out of the rock (units)
+  CAMERA_CLEAR: 4,
   // Profiles are sampled every STEP units across
   STEP: 6,
   // At most this many of each (sea arches are found until this many)
@@ -190,6 +192,39 @@ export function archCeiling(arches, x, z, y) {
     if (ceiling === null || _solid.under < ceiling) ceiling = _solid.under;
   }
   return ceiling;
+}
+
+/**
+ * Where a camera at height y over (x, z) can be, out of the arch rock there:
+ * kept CAMERA_CLEAR under the underside when the plane it follows (at
+ * height planeY) is lower than the slab's middle, so it stays under the
+ * span with it, and over the top otherwise. Solid rock to the ground (the
+ * legs) only keeps it over the top when the plane is above it.
+ */
+export function archCameraY(arches, x, z, y, planeY) {
+  for (const arch of arches) {
+    if (!solidAt(arch, x, z, _solid)) continue;
+    const {under, top} = _solid;
+    const below = under === SOLID ? planeY < top : planeY < (under + top) / 2;
+    if (!below) y = Math.max(y, top + ARCH.CAMERA_CLEAR);
+    else if (under !== SOLID) y = Math.min(y, under - ARCH.CAMERA_CLEAR);
+  }
+  return y;
+}
+
+/**
+ * Whether something `tall` units high standing at height y at (x, z) is in
+ * an arch's rock: up against its side or a leg, under its top by more than
+ * `step` (closer to the top it climbs onto it) and not clear under its
+ * underside. For the buggy, which drives under spans and over tops but not
+ * through legs.
+ */
+export function archBlocks(arches, x, z, y, tall, step) {
+  for (const arch of arches) {
+    if (!solidAt(arch, x, z, _solid, y)) continue;
+    if (y + tall > _solid.under && y < _solid.top - step) return true;
+  }
+  return false;
 }
 
 /** The highest arch top over (x, z), or -Infinity: for keeping clear above. */

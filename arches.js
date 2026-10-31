@@ -30,6 +30,9 @@ const CLIFF_GREY = new THREE.Color(0x7f8c8d);
 const CLIFF_RED = new THREE.Color(0x8b3a3a);
 const SEA_WET = new THREE.Color(0x2e2c2a);
 const GUANO = new THREE.Color(0xdcd8cc);
+// The mountains' lighter and darker bands of rock (terrain-gen.js's)
+const ROCK_LIGHT = new THREE.Color(0x9ba2a8);
+const ROCK_DARK = new THREE.Color(0x424a54);
 // The canyon's sandstone layers (terrain-gen.js's), one per tier
 const CANYON_BANDS = [
   0xb5532e, 0xe3b48a, 0xc9683b, 0x8f3b26, 0xd99a64, 0xa84a2c,
@@ -199,11 +202,17 @@ function faceColor(arch, a, b, c, out) {
           : 0;
     if (white > 0) out.lerp(GUANO, Math.min(0.85, white * birds));
   } else if (arch.kind === 'gorge') {
-    // The mountains' cliffs, darker underneath
+    // The mountains' cliffs, in their bands of lighter and darker rock
+    // (terrain-gen.js's strata), darker underneath
+    out.copy(CLIFF_GREY);
+    const x = (a[0] + b[0] + c[0]) / 3;
+    const z = (a[2] + b[2] + c[2]) / 3;
+    const strata = Math.sin(y * 0.025 + x * 0.0015 + z * 0.001) * 0.15;
+    if (strata > 0.04) out.lerp(ROCK_LIGHT, Math.min(0.5, strata * 2.5));
+    else if (strata < -0.04) out.lerp(ROCK_DARK, Math.min(0.6, -strata * 2.5));
     out
-      .copy(CLIFF_GREY)
       .lerp(CLIFF_RED, arch.desert ?? 0)
-      .multiplyScalar((_n.y < -0.3 ? 0.85 : 1.05) + r * 0.14);
+      .multiplyScalar((_n.y < -0.3 ? 0.9 : 1.15) + r * 0.14);
   } else if (arch.kind === 'canyon') {
     const tier = Math.floor(
       (y - WATER_LEVEL - 14) / ChillFlightLogic.CANYON_TIER_HEIGHT

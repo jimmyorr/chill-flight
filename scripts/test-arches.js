@@ -14,6 +14,8 @@ import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
 import {
   ARCH,
+  archBlocks,
+  archCameraY,
   archCeiling,
   archGround,
   archSites,
@@ -152,10 +154,37 @@ for (const arch of arches) {
     );
   }
 }
+// --- 3b. The chase camera stays out of the rock ---
+for (const arch of arches) {
+  const c = crown(arch);
+  const p = at(arch, c.u, 0);
+  const name = `${arch.kind} arch at (${Math.round(arch.x)}, ${Math.round(arch.z)})`;
+  const top = archTop(arches, p.x, p.z);
+  const mid = (c.under + top) / 2;
+  // Following the plane under it: pulled down under the underside
+  check(
+    archCameraY(arches, p.x, p.z, mid, c.under - 20) <=
+      c.under - ARCH.CAMERA_CLEAR + 1e-6,
+    `${name}: camera left in the rock with the plane under it`
+  );
+  // Following the plane over it: lifted over the top
+  check(
+    archCameraY(arches, p.x, p.z, mid, top + 30) >=
+      top + ARCH.CAMERA_CLEAR - 1e-6,
+    `${name}: camera left in the rock with the plane over it`
+  );
+  // Clear of the rock, left alone
+  const y = c.under - 25;
+  check(
+    archCameraY(arches, p.x, p.z, y, y) === y,
+    `${name}: camera moved under it, clear of the rock`
+  );
+}
 console.log(
   '  Passed: clear under each, the underside a ceiling, the top ground'
 );
 console.log('  Passed: a wingtip at the side is pushed off it');
+console.log('  Passed: the chase camera kept out of the rock');
 
 // --- 4. Standing on something ---
 for (const arch of kinds('sea')) {
@@ -175,6 +204,26 @@ for (const arch of kinds('sea')) {
     const p = at(arch, c.u, v);
     check(E(p.x, p.z) < WATER, `sea arch's way through is not water at ${v}`);
   }
+}
+// The buggy (7 tall, stepping up 12) is stopped by a sea arch's legs, and
+// drives under its span and over its top
+for (const arch of kinds('sea')) {
+  const name = `sea arch at (${Math.round(arch.x)}, ${Math.round(arch.z)})`;
+  const leg = at(arch, (arch.uMin - arch.opening) / 2, 0);
+  check(
+    archBlocks(arches, leg.x, leg.z, WATER, 7, 12),
+    `${name}: the buggy drives through its leg`
+  );
+  const c = crown(arch);
+  const p = at(arch, c.u, 0);
+  check(
+    !archBlocks(arches, p.x, p.z, WATER, 7, 12),
+    `${name}: the buggy can't drive under it`
+  );
+  check(
+    !archBlocks(arches, p.x, p.z, archTop(arches, p.x, p.z), 7, 12),
+    `${name}: the buggy can't drive over it`
+  );
 }
 for (const arch of [...kinds('canyon'), ...kinds('gorge')]) {
   // Each end goes into the gorge's walls: the ground there is up to its top
@@ -211,7 +260,7 @@ for (const arch of kinds('basalt')) {
   }
 }
 console.log(
-  '  Passed: sea legs in the water, bridges in the walls, columns on tops'
+  '  Passed: sea legs in the water (and block the buggy), bridges in the walls, columns on tops'
 );
 
 if (failed) {

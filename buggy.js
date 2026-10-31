@@ -43,7 +43,7 @@ import {doubleTap, keys} from './game-input-bindings.js';
 import {setOnWheels} from './flight-physics.js';
 import {simplex} from './noise.js';
 import {hooks} from './hooks.js';
-import {archTop} from './arches-logic.js';
+import {archBlocks, archTop} from './arches-logic.js';
 import {arches} from './arches.js';
 import {Achievements} from './achievements.js';
 import {
@@ -78,6 +78,8 @@ const TELEPORT_DISTANCE = 300;
 // Flying into ground that rises more than this above it (a bank or a
 // hillside ahead), it bounces off rather than climbing straight up it
 const AIR_WALL_STEP = 4;
+// How tall it is, for driving under an arch's span (units)
+const ARCH_HEADROOM = 7;
 // Switched to in the air higher than this above the ground, it falls
 const DROP_HEIGHT = 2;
 // The fastest it can be falling as it's dropped (units/s), as in the air
@@ -580,7 +582,22 @@ export function updateBuggy(delta) {
   // Where it is across the deck, to tell its sides from its end
   const {across, normalX, normalZ, halfWidth} = ground;
 
+  // Already in an arch's rock (put there), it can drive out
+  const inArch = archBlocks(
+    arches,
+    oldX,
+    oldZ,
+    pos.y,
+    ARCH_HEADROOM,
+    ROAD_STEP_UP
+  );
   const blocker = (x, z) => {
+    if (
+      !inArch &&
+      archBlocks(arches, x, z, pos.y, ARCH_HEADROOM, ROAD_STEP_UP)
+    ) {
+      return 'barrier';
+    }
     const s = sampleSurface(x, z, pos.y);
     if (
       wasOnRoad &&
