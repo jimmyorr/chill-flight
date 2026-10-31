@@ -128,15 +128,15 @@ export const ChillFlightLogic = {};
       ? Math.max(0, Math.min(20, parsedCloudSpeed))
       : 1.0;
 
-  let SHOW_OBJECTS = true;
-  const objectsParam = getParam('objects', null);
-  if (objectsParam === 'none') {
-    SHOW_OBJECTS = false;
-  } else if (typeof window !== 'undefined' && window.localStorage) {
-    const saved = window.localStorage.getItem('chill_flight_show_objects');
-    if (saved !== null) {
-      SHOW_OBJECTS = saved === 'true';
-    }
+  // Procedural objects (trees, houses, airports...) are always on at load:
+  // only ?objects=none turns them off. The debug menu's toggle lasts for the
+  // visit; it used to be saved, so a toggle left off hid the world's props
+  // on every later visit. Clear that old saved choice.
+  const SHOW_OBJECTS = getParam('objects', null) !== 'none';
+  try {
+    window.localStorage?.removeItem('chill_flight_show_objects');
+  } catch {
+    /* storage blocked or no window (workers, Node) */
   }
 
   const MAP_NAME = getParam('map', null);

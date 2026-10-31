@@ -3461,9 +3461,6 @@ export function getChunkLoadingProgress() {
 export function toggleProceduralObjects(enabled) {
   state._enableObjects = enabled;
   ChillFlightLogic.setShowObjects(enabled);
-  if (typeof window !== 'undefined' && window.localStorage) {
-    window.localStorage.setItem('chill_flight_show_objects', enabled);
-  }
 
   // Update all existing chunks
   chunks.forEach((group) => {
