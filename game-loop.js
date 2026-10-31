@@ -1826,7 +1826,15 @@ function updatePhysicsAndControls(delta, nowTime) {
       yawMultiplier:
         THREE.MathUtils.lerp(1.0, SHARP_TURN_YAW_MULT, sharpTurnAmount) *
         turnRate,
-      manualYaw: state.isBarrelRolling ? -effMouseX : 0,
+      // A stick, mouse or gamepad can steer through a barrel roll; the
+      // arrow key (or touch zone) holding the roll doesn't, so the roll goes
+      // straight on keys as it does on the phone
+      manualYaw:
+        state.isBarrelRolling &&
+        (inputManager.state.mouse.controlActive ||
+          inputManager.state.gamepad.steeringActive)
+          ? -effMouseX
+          : 0,
     });
 
     planeGroup.rotation.x = flightRot.pitch;
