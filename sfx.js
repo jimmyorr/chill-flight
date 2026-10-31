@@ -32,9 +32,13 @@ const CHOP_DEPTH = 0.3;
 // Engine level while music is on (0.25 = -12 dB): the engine's steady drone
 // fights the music at full level, so it sits well underneath it instead
 const ENGINE_MUSIC_DUCK = 0.25;
-// Overall engine level for every plane and the buggy, music or not. Muted for
-// now (the engine code is kept): set it back to restore the engine sounds
-const ENGINE_LEVEL = 0;
+// Overall engine level, music or not. A steady drone all through a flight
+// grated, so the planes' engines are heard only on the ground and water
+// (taxiing, the takeoff run, after touchdown) and fade out after liftoff.
+// The buggy's and jet's engines stay silent
+const ENGINE_LEVEL = 1;
+// Time constant of the fade after liftoff (s): mostly gone in about 4 s
+const ENGINE_LIFTOFF_FADE = 1.3;
 // Wind rush level (0.5 = -6 dB). With the engine muted the wind is heard on
 // its own, so it sits lower, and its pitch rises only gently with speed so
 // it stays a soft rush instead of a hiss
@@ -645,7 +649,15 @@ export function updateSfx() {
     audioCtx.currentTime,
     0.05
   );
-  const engineLoudness = (0.05 + 0.19 * Math.sqrt(speedFrac)) * engineDuck;
+  // Planes' engines only while rolling on the ground or water (auditioning in
+  // the sound lab always hears them); the buggy's is silent
+  const onSurface =
+    !!(state.isOnGround || state.isOnWater) || !!planeTypeOverride;
+  const engineOn = onSurface && planeType !== 'buggy' && planeType !== 'jet';
+  const engineFade = engineOn ? 0.05 : ENGINE_LIFTOFF_FADE;
+  const engineLoudness = engineOn
+    ? (0.05 + 0.19 * Math.sqrt(speedFrac)) * engineDuck
+    : 0;
 
   // Stopped ambient soundscapes (crickets at night/dusk or gentle meadow breeze during day when parked on land)
   let targetCricketGain = 0;
@@ -671,12 +683,8 @@ export function updateSfx() {
   breezeGain.gain.setTargetAtTime(targetBreezeGain, audioCtx.currentTime, 0.4);
 
   if (isStopped) {
-    // Engine idles at low murmur when plane is parked (the jet is silent)
-    engineGain.gain.setTargetAtTime(
-      planeType === 'jet' ? 0 : 0.03 * engineDuck,
-      audioCtx.currentTime,
-      0.1
-    );
+    // Parked: the engine winds down to silence, leaving the crickets or breeze
+    engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.4);
     windGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
     osc1.frequency.setTargetAtTime(36, audioCtx.currentTime, 0.1);
     osc2.frequency.setTargetAtTime(37.5, audioCtx.currentTime, 0.1);
@@ -702,7 +710,7 @@ export function updateSfx() {
     engineGain.gain.setTargetAtTime(
       engineLoudness * 1.05,
       audioCtx.currentTime,
-      0.05
+      engineFade
     );
 
     // Subtle wind rush
@@ -731,11 +739,7 @@ export function updateSfx() {
       0.05
     );
     raspFilter.frequency.setTargetAtTime(f * 6, audioCtx.currentTime, 0.05);
-    engineGain.gain.setTargetAtTime(
-      (0.07 + 0.15 * Math.sqrt(revs)) * engineDuck,
-      audioCtx.currentTime,
-      0.05
-    );
+    engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
     windGain.gain.setTargetAtTime(
       speed * 0.03 * WIND_LEVEL,
       audioCtx.currentTime,
@@ -776,7 +780,11 @@ export function updateSfx() {
     engineFilter.frequency.setTargetAtTime(cutoff, audioCtx.currentTime, 0.05);
 
     raspFilter.frequency.setTargetAtTime(f * 6, audioCtx.currentTime, 0.05);
-    engineGain.gain.setTargetAtTime(engineLoudness, audioCtx.currentTime, 0.05);
+    engineGain.gain.setTargetAtTime(
+      engineLoudness,
+      audioCtx.currentTime,
+      engineFade
+    );
 
     // Subtle wind rush
     windGain.gain.setTargetAtTime(
