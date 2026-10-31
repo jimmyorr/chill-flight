@@ -27,9 +27,9 @@ export const state = {
   // in game-loop.js): a mood name forcing the day's cloud mood (null: the
   // day's own), and days to step the cloud day forward or back
   cloudMoodOverride: ChillFlightLogic.START_CLOUD_MOOD,
-  // The weighted roll on trial (game-loop.js): ?weightedRoll=1 or the debug
+  // The weighted roll (game-loop.js), on unless ?weightedRoll=0 or the debug
   // menu
-  weightedRoll: ChillFlightLogic.WEIGHTED_ROLL_PARAM ?? false,
+  weightedRoll: ChillFlightLogic.WEIGHTED_ROLL_PARAM ?? true,
   cloudDayOffset: 0,
   PROP_LOD_DISTANCE: 4200,
 

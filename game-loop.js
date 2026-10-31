@@ -1880,7 +1880,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     }
     const rollBefore = planeGroup.rotation.z;
     if (state.weightedRoll && !state.isBarrelRolling) {
-      // Weighted roll (?weightedRoll=1, or the debug menu; on trial): the
+      // Weighted roll (on unless ?weightedRoll=0 or the debug menu): the
       // bank eases in and stops cleanly, like a spring with no overshoot,
       // settling about when the usual roll does (WEIGHTED_ROLL_OMEGA)
       // The roll is kept within half a turn either way: a barrel roll leaves
