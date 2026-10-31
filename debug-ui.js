@@ -51,6 +51,7 @@ import {
   updateChunks,
   waterfallFeet,
 } from './terrain-chunks.js';
+import {refreshArchDetail} from './arches.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
@@ -117,6 +118,7 @@ export function applyGraphicsPreset(preset) {
   // Set global variables
   state.graphicsPreset = preset;
   state.SEGMENTS = segments;
+  refreshArchDetail();
   state.RENDER_DISTANCE = dist;
   state.PROP_LOD_DISTANCE = propLod;
   state.PROP_LOD_DISTANCE = propLod;

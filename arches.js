@@ -8,18 +8,20 @@
 import * as THREE from 'three';
 import {archSearch, flareAt} from './arches-logic.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {WATER_LEVEL} from './constants.js';
+import {CHUNK_SIZE, WATER_LEVEL} from './constants.js';
 import {simplex} from './noise.js';
 import {scene} from './scene.js';
+import {state} from './state.js';
 import {terrainMaterial} from './terrain-geometry.js';
 
-// Across the slab's top and bottom in this many steps, and down its sides
-const ACROSS = 8;
-const DOWN = 8;
 // Drawn up to this far outside the rock the plane meets (units)
 const ROUGH = 3;
-// Every this many of an arch's profile samples is drawn
-const STRIDE = 2;
+// The slab's faces are about this fraction of the terrain's grid cell
+// (smaller, for its curves), so it's as faceted as the land it stands in
+// at every graphics preset
+const EDGE_PER_CELL = 1;
+// Across its top and bottom, and down its sides, in this many steps at most
+const MAX_STEPS = 8;
 
 // Sea arch rock: the coast's own cliffs' (terrain-gen.js's cliff colours,
 // grey, or red in the south, darkened as steep rock is), the waterline
@@ -55,17 +57,34 @@ function hash(x, y, z) {
 // each drawn u: over the top, down one side, under and up the other, in the
 // arch's own space (u, y, v). Where it's solid to the ground, the bottom is
 // below the ground there (groundAt, in world space).
-function slabRings(arch, groundAt) {
+// About `edge` apart.
+function slabRings(arch, groundAt, edge) {
   const rings = [];
   const n = arch.under.length;
-  for (let i = 0; i < n; i += STRIDE) {
-    rings.push(slabRing(arch, Math.min(i, n - 1), groundAt));
+  const stride = Math.max(1, Math.round(edge / 6));
+  // Steps across the widest top, and down the tallest side over the opening
+  let wide = 0;
+  let tall = 0;
+  for (let i = 0; i < n; i++) {
+    wide = Math.max(wide, arch.depth[i] * 2);
+    if (arch.under[i] !== -Infinity) {
+      tall = Math.max(tall, arch.top[i] - arch.under[i]);
+    }
   }
-  if ((n - 1) % STRIDE) rings.push(slabRing(arch, n - 1, groundAt));
+  const steps = (length) =>
+    Math.max(2, Math.min(MAX_STEPS, Math.round(length / edge)));
+  const across = steps(wide);
+  const down = steps(tall || wide);
+  for (let i = 0; i < n; i += stride) {
+    rings.push(slabRing(arch, i, groundAt, across, down));
+  }
+  if ((n - 1) % stride) {
+    rings.push(slabRing(arch, n - 1, groundAt, across, down));
+  }
   return rings;
 }
 
-function slabRing(arch, i, groundAt) {
+function slabRing(arch, i, groundAt, across, down) {
   const u = arch.uMin + i * 6;
   const d = arch.depth[i];
   const top = arch.top[i];
@@ -80,27 +99,27 @@ function slabRing(arch, i, groundAt) {
   };
   const ring = [];
   // Top, from v = d to -d
-  for (let k = 0; k <= ACROSS; k++) {
-    const s = 1 - (2 * k) / ACROSS;
+  for (let k = 0; k <= across; k++) {
+    const s = 1 - (2 * k) / across;
     ring.push({u, v: s * d, y: top - round * s * s, out: [0, 1, 0]});
   }
   // Down the -v side
   const yTop = top - round;
   const b1 = bottom(-d);
-  for (let k = 1; k < DOWN; k++) {
-    const y = yTop + (b1 - yTop) * (k / DOWN);
+  for (let k = 1; k < down; k++) {
+    const y = yTop + (b1 - yTop) * (k / down);
     ring.push({u, v: -half(y), y, out: [0, 0, -1]});
   }
   // Under, from v = -d to d
-  for (let k = 0; k <= ACROSS; k++) {
-    const s = -1 + (2 * k) / ACROSS;
+  for (let k = 0; k <= across; k++) {
+    const s = -1 + (2 * k) / across;
     const y = bottom(s * d);
     ring.push({u, v: s * half(y), y, out: [0, -1, 0]});
   }
   // Up the +v side
   const b2 = bottom(d);
-  for (let k = DOWN - 1; k >= 1; k--) {
-    const y = yTop + (b2 - yTop) * (k / DOWN);
+  for (let k = down - 1; k >= 1; k--) {
+    const y = yTop + (b2 - yTop) * (k / down);
     ring.push({u, v: half(y), y, out: [0, 0, 1]});
   }
   return ring;
@@ -184,7 +203,7 @@ function faceColor(arch, a, b, c, out) {
     out
       .copy(CLIFF_GREY)
       .lerp(CLIFF_RED, arch.desert ?? 0)
-      .multiplyScalar((_n.y < -0.3 ? 0.75 : 0.92) + r * 0.14);
+      .multiplyScalar((_n.y < -0.3 ? 0.85 : 1.05) + r * 0.14);
   } else if (arch.kind === 'canyon') {
     const tier = Math.floor(
       (y - WATER_LEVEL - 14) / ChillFlightLogic.CANYON_TIER_HEIGHT
@@ -208,11 +227,13 @@ function faceColor(arch, a, b, c, out) {
 /**
  * The geometry of `arch` (arches-logic.js), in world space, for the
  * terrain's material: positions, colours and morphY (its own height, so it
- * never morphs). groundAt(x, z) is the ground's height, to bury its legs in.
+ * never morphs). groundAt(x, z) is the ground's height, to bury its legs in;
+ * `segments` the terrain chunks' grid (state.SEGMENTS), for its faces' size.
  */
-export function archGeometry(arch, groundAt) {
+export function archGeometry(arch, groundAt, segments = state.SEGMENTS) {
   const hex = arch.kind === 'basalt';
-  const rings = hex ? hexRings(arch) : slabRings(arch, groundAt);
+  const edge = (CHUNK_SIZE / segments) * EDGE_PER_CELL;
+  const rings = hex ? hexRings(arch) : slabRings(arch, groundAt, edge);
   const positions = [];
   const colors = [];
   const tri = (a, b, c) => {
@@ -266,6 +287,9 @@ export function archGeometry(arch, groundAt) {
 // milliseconds) has run, a few milliseconds a frame after loading, so it
 // never holds up the start
 export const arches = [];
+// Their meshes, and the terrain grid they were built for
+const meshes = [];
+let builtSegments = state.SEGMENTS;
 
 const groundAt = (x, z) =>
   ChillFlightLogic.getElevation(x, z, simplex, {WATER_LEVEL});
@@ -283,13 +307,29 @@ function searchSome(search) {
       mesh.name = `arch-${arch.kind}`;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      mesh.userData.arch = arch;
       scene.add(mesh);
+      meshes.push(mesh);
       arches.push(arch);
     }
+    builtSegments = state.SEGMENTS;
     return;
   }
   setTimeout(() => searchSome(search), 16);
 }
 if (ChillFlightLogic.SHOW_OBJECTS !== false) {
   setTimeout(() => searchSome(archSearch(simplex, {WATER_LEVEL})), 0);
+}
+
+/**
+ * Rebuilds the arches' meshes when the terrain's grid (state.SEGMENTS) has
+ * changed with the graphics preset, so they stay as faceted as the land.
+ */
+export function refreshArchDetail() {
+  if (state.SEGMENTS === builtSegments) return;
+  builtSegments = state.SEGMENTS;
+  for (const mesh of meshes) {
+    mesh.geometry.dispose();
+    mesh.geometry = archGeometry(mesh.userData.arch, groundAt);
+  }
 }
