@@ -229,7 +229,7 @@ check(
   `seeds ${badJobs}`
 );
 
-// Meadow Field's jobs play through too (Ray and Bonnie share the field)
+// Meadow Field's jobs play through too (Ray offers the jobs)
 {
   const r = rng(7);
   let p = newProgress();
@@ -244,7 +244,7 @@ check(
   }
   check(
     "Meadow Field's jobs play through",
-    done === 6 && doneFor(p, 'Ray') === 3 && doneFor(p, 'Bonnie') === 3
+    done === 6 && doneFor(p, 'Ray') === 6
   );
 }
 

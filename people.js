@@ -205,10 +205,10 @@ export const PEOPLE = [
   },
   {
     name: 'Bonnie',
-    airport: 'Meadow Field',
+    airport: 'Dune Field',
     intro: [
-      "Hi there, I'm Bonnie! Welcome to Meadow Field.",
-      "Ray's got the coffee, I've got the moonwater. Land and roll to a stop on a runway to pick up or drop off.",
+      "Hi there, I'm Bonnie! Welcome to Dune Field.",
+      'Out here under the desert stars, the moonwater practically charges itself. Land and roll to a stop on a runway to pick up or drop off.',
     ],
     hello: [
       ["Hi! Oh, your airplane's aura is sparkling today!"],
@@ -254,7 +254,9 @@ export const PEOPLE = [
           [
             'Sparkling clean! Time to set them out and let the stars do their thing.',
           ],
-          ['Thank you so much! Ray says hello, by the way.'],
+          [
+            'Thank you so much! Ray sent a radio ping to say hello, by the way.',
+          ],
         ],
       },
       {
@@ -266,7 +268,7 @@ export const PEOPLE = [
           'Mesa Field',
           'Frost Field',
           'Coral Field',
-          'Dune Field',
+          'Meadow Field',
         ],
         cargo: 'Moonwater',
         offer: [
@@ -295,14 +297,14 @@ export const PEOPLE = [
   },
   {
     name: 'Esther',
-    airport: 'Mesa Field',
+    airport: 'Pinewood Field',
     intro: [
-      "Hi, I'm Esther! I study proteins, and I bake cookies when the experiments run long.",
+      "Hi, I'm Esther! Welcome to Pinewood Field. I study proteins, and I bake cookies when the experiments run long.",
       'Land and roll to a stop on a runway to pick up or drop off. Easy, right?',
     ],
     hello: [
       ['Hey, you! Grab a cookie—peer-reviewed for maximum chewiness!'],
-      ['Oh hi! Doug and I were just harmonizing by the centrifuge.'],
+      ['Oh hi! I was just harmonizing with the hum of the centrifuge.'],
       [
         'Perfect timing! My proteins are behaving and the chocolate chips are melty.',
       ],
@@ -321,7 +323,7 @@ export const PEOPLE = [
       {
         id: 'lab-supplies',
         kind: 'round trip',
-        to: ['Meadow Field', 'Pinewood Field', 'Frost Field', 'Coral Field'],
+        to: ['Meadow Field', 'Mesa Field', 'Frost Field', 'Coral Field'],
         cargo: 'Lab supplies',
         offer: [
           [
@@ -465,9 +467,9 @@ export const PEOPLE = [
   },
   {
     name: 'Marielle',
-    airport: 'Lagoon Field',
+    airport: 'Coral Field',
     intro: [
-      "Hi, I'm Marielle! Welcome to Lagoon Field. I read, I drink tea, and I usually do both at once.",
+      "Hi, I'm Marielle! Welcome to Coral Field. I read, I drink tea, and I usually do both at once.",
       'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.',
     ],
     hello: [
@@ -496,7 +498,7 @@ export const PEOPLE = [
           'Mesa Field',
           'Pinewood Field',
           'Sagebrush Field',
-          'Coral Field',
+          'Lagoon Field',
         ],
         cargo: 'Library books',
         offer: [
@@ -559,7 +561,7 @@ export const PEOPLE = [
           'Mesa Field',
           'Dune Field',
           'Frost Field',
-          'Coral Field',
+          'Lagoon Field',
           'Sagebrush Field',
         ],
         cargo: 'A good book',
@@ -683,9 +685,9 @@ export const PEOPLE = [
   },
   {
     name: 'Lauren',
-    airport: 'Sagebrush Field',
+    airport: 'Frost Field',
     intro: [
-      "Hi, I'm Lauren! I knit, I volley, and I talk to my yarn. It listens better than people.",
+      "Hi, I'm Lauren! Welcome to Frost Field. I knit, I volley, and I talk to my yarn. It listens better than people.",
       'Land and roll to a stop on a runway to pick up or drop off. Easy peasy.',
     ],
     hello: [
@@ -745,7 +747,7 @@ export const PEOPLE = [
           'Meadow Field',
           'Lagoon Field',
           'Mesa Field',
-          'Frost Field',
+          'Sagebrush Field',
           'Coral Field',
         ],
         cargo: 'Tennis racquets',
