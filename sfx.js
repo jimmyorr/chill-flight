@@ -195,15 +195,20 @@ function createCricketBuffer(
 
 /**
  * Generates a peaceful stereo looping buffer of soft meadow breeze
- * when parked on land during the day.
+ * when parked on land during the day. Twenty seconds long, with gusts from
+ * several slow swells that all repeat exactly over the loop, so the gusts
+ * come at uneven times and the loop point is seamless.
  */
 function createBreezeBuffer(context) {
-  const duration = 5;
+  const duration = 20;
   const sampleRate = context.sampleRate;
   const totalSamples = sampleRate * duration;
+  const fadeLen = Math.floor(sampleRate * 0.25);
   const buffer = context.createBuffer(2, totalSamples, sampleRate);
   const left = buffer.getChannelData(0);
   const right = buffer.getChannelData(1);
+  const tailL = new Float32Array(fadeLen);
+  const tailR = new Float32Array(fadeLen);
 
   // Deterministic seeded pseudo-random noise generator with zero DC offset
   let seedL = 48271;
@@ -217,6 +222,38 @@ function createBreezeBuffer(context) {
     return seedR / 1073741824 - 1;
   };
 
+  // A swell from sines that each fit a whole number of times into the loop
+  // (cycles, depth, phase): uneven gusts that still meet up at the seam
+  const swellOf = (parts) => (t) => {
+    let v = 0;
+    for (const [cycles, depth, phase] of parts) {
+      v += depth * Math.sin((2 * Math.PI * cycles * t) / duration + phase);
+    }
+    return v;
+  };
+  const swellL = swellOf([
+    [3, 0.22, 0],
+    [5, 0.16, 1.3],
+    [8, 0.1, 2.1],
+    [13, 0.05, 0.4],
+  ]);
+  const swellR = swellOf([
+    [3, 0.2, 0.9],
+    [4, 0.16, 2.6],
+    [7, 0.1, 0.2],
+    [11, 0.05, 1.7],
+  ]);
+  const rustleSwellL = swellOf([
+    [3, 0.35, 0.4],
+    [14, 0.25, 0],
+    [9, 0.15, 2.4],
+  ]);
+  const rustleSwellR = swellOf([
+    [3, 0.35, 1.2],
+    [12, 0.25, 0.7],
+    [10, 0.15, 1.1],
+  ]);
+
   let bz0L = 0;
   let bz1L = 0;
   let bz2L = 0;
@@ -228,7 +265,7 @@ function createBreezeBuffer(context) {
   let r0R = 0;
   let r1R = 0;
 
-  for (let i = 0; i < totalSamples; i++) {
+  for (let i = 0; i < totalSamples + fadeLen; i++) {
     const t = i / sampleRate;
     const wL1 = nextL();
     const wR1 = nextR();
@@ -246,55 +283,34 @@ function createBreezeBuffer(context) {
     const lowNoiseL = (bz0L + bz1L + bz2L) * 0.5;
     const lowNoiseR = (bz0R + bz1R + bz2R) * 0.5;
 
-    const swellL =
-      0.5 +
-      0.35 * Math.sin((2 * Math.PI * t) / 5.2) +
-      0.15 * Math.sin((2 * Math.PI * t) / 2.7);
-    const swellR =
-      0.5 +
-      0.35 * Math.sin((2 * Math.PI * t) / 5.6 + 0.9) +
-      0.15 * Math.sin((2 * Math.PI * t) / 3.1);
-
     // Subtle meadow grass / foliage rustle
     r0L = 0.8 * r0L + wL2 * 0.2;
     r1L = 0.6 * r1L + (wL2 - r0L) * 0.2;
     r0R = 0.8 * r0R + wR2 * 0.2;
     r1R = 0.6 * r1R + (wR2 - r0R) * 0.2;
 
-    const rustleL =
-      r1L *
-      Math.pow(
-        Math.max(
-          0,
-          0.3 +
-            0.4 * Math.sin((2 * Math.PI * t) / 5.2 + 0.4) +
-            0.3 * Math.sin((2 * Math.PI * t) / 1.4)
-        ),
-        1.5
-      );
-    const rustleR =
-      r1R *
-      Math.pow(
-        Math.max(
-          0,
-          0.3 +
-            0.4 * Math.sin((2 * Math.PI * t) / 5.6 + 1.2) +
-            0.3 * Math.sin((2 * Math.PI * t) / 1.6)
-        ),
-        1.5
-      );
+    const rustleL = r1L * Math.pow(Math.max(0, 0.3 + rustleSwellL(t)), 1.5);
+    const rustleR = r1R * Math.pow(Math.max(0, 0.3 + rustleSwellR(t)), 1.5);
 
-    left[i] = lowNoiseL * swellL * 0.75 + rustleL * 0.25;
-    right[i] = lowNoiseR * swellR * 0.75 + rustleR * 0.25;
+    const l =
+      lowNoiseL * Math.max(0.05, 0.5 + swellL(t)) * 0.75 + rustleL * 0.25;
+    const r =
+      lowNoiseR * Math.max(0.05, 0.5 + swellR(t)) * 0.75 + rustleR * 0.25;
+    if (i < totalSamples) {
+      left[i] = l;
+      right[i] = r;
+    } else {
+      tailL[i - totalSamples] = l;
+      tailR[i - totalSamples] = r;
+    }
   }
 
-  // Seamless crossfade loop
-  const fadeLen = 4096;
+  // Seamless loop: the sample after the last is the tail's first, so blend
+  // the start from the tail (continuing the end) into the original start
   for (let i = 0; i < fadeLen; i++) {
     const alpha = i / fadeLen;
-    const endIdx = totalSamples - fadeLen + i;
-    left[i] = left[i] * alpha + left[endIdx] * (1 - alpha);
-    right[i] = right[i] * alpha + right[endIdx] * (1 - alpha);
+    left[i] = left[i] * alpha + tailL[i] * (1 - alpha);
+    right[i] = right[i] * alpha + tailR[i] * (1 - alpha);
   }
 
   return buffer;
@@ -660,7 +676,8 @@ export function updateSfx() {
       1
     );
     targetCricketGain = 0.28 * nightFactor;
-    targetBreezeGain = 0.4 * (1 - nightFactor * 0.7);
+    // 0.25 = 4 dB under where it was: it sat well above the flying wind
+    targetBreezeGain = 0.25 * (1 - nightFactor * 0.7);
   }
 
   cricketGain.gain.setTargetAtTime(
