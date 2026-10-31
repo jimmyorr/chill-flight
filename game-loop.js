@@ -1797,8 +1797,14 @@ function updatePhysicsAndControls(delta, nowTime) {
     loopRecovering = false;
   }
 
-  // Taxi steering: allow airplane to yaw when stopped or at very low speed
-  if (!state.isFreeCamera && state.flightSpeedMultiplier < 0.4) {
+  // Taxi steering: allow airplane to yaw when stopped or at very low speed,
+  // on the ground or the water only (in the air it added to the banked turn,
+  // whipping a slow plane round)
+  if (
+    !state.isFreeCamera &&
+    (state.isOnGround || state.isOnWater) &&
+    state.flightSpeedMultiplier < 0.4
+  ) {
     if (isLeft && !keys.Shift) {
       planeGroup.rotation.y += 1.5 * delta;
     } else if (isRight && !keys.Shift) {
