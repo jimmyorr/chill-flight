@@ -11,8 +11,8 @@ import {AUTOPILOT, AutopilotCore, headingTo} from '../autopilot-logic.js';
 import {
   airborneVerticalVelocity,
   canLiftOff,
-  diveSpeed,
   fallAmountAt,
+  pitchedTarget,
   sinkRateAt,
   throttleSpeed,
 } from '../flight-physics-logic.js';
@@ -162,17 +162,19 @@ export class FlightSimulator {
     this.rotation.roll = flightRot.roll;
     this.rotation.yaw = flightRot.yaw;
 
-    // Speed in dives, and toward the throttle's target, as the game
-    // (flight-physics-logic.js); the sim has no ground cushion to skim
-    this.speed = diveSpeed(
-      this.speed,
-      this.rotation.pitch,
-      this.handling,
-      this.fallAmount,
-      false,
-      dt
-    );
-    this.speed = throttleSpeed(this.speed, this.targetSpeed, this.handling, dt);
+    // Speed toward the throttle's target, faster diving and slower
+    // climbing, as the game (flight-physics-logic.js); the sim has no ground
+    // cushion to skim
+    const target = this.isRolling
+      ? this.targetSpeed
+      : pitchedTarget(
+          this.targetSpeed,
+          this.rotation.pitch,
+          this.handling,
+          this.fallAmount,
+          false
+        );
+    this.speed = throttleSpeed(this.speed, target, this.handling, dt);
 
     // Forward translation along local forward vector (YXZ Euler)
     const forwardDist = BASE_FLIGHT_SPEED * this.speed * dt * 60;

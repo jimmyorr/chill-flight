@@ -11,8 +11,8 @@ import {
   FLIGHT,
   airborneVerticalVelocity,
   canLiftOff,
-  diveSpeed,
   fallAmountAt,
+  pitchedTarget,
   throttleSpeed,
 } from './flight-physics-logic.js';
 import {keys} from './game-input-bindings.js';
@@ -188,32 +188,35 @@ export function updateFlightPhysics(delta, nowTime) {
   ) {
     // Apply the yaw calculated by the flight model
     planeGroup.rotation.y = state._nextYaw;
-
-    // --- GRAVITY ACCELERATION/DECELERATION ---
-    // Nose down = gain speed, Nose up = lose speed
-    // planeGroup.rotation.x: negative is diving, positive is climbing
-    // Much less while being pushed up by ground avoidance
-    const softBuffer = 2.0;
-    state.flightSpeedMultiplier = diveSpeed(
-      state.flightSpeedMultiplier,
-      planeGroup.rotation.x,
-      handling,
-      fallAmount,
-      planeGroup.position.y < minFlightHeight + softBuffer,
-      delta
-    );
   }
 
-  // --- SPEED RECOVERY (DRAG & THROTTLE) ---
+  // --- SPEED (THROTTLE, CLIMBS AND DIVES) ---
   // Toward the throttle's target, even at speed 0 so the vehicle can start
-  // moving again
+  // moving again. Nose down it heads for a faster speed and nose up a slower
+  // one (pitchedTarget), much less while being pushed up by ground avoidance;
+  // the throttle slider itself stays where it was set.
   if (
     Math.abs(state.flightSpeedMultiplier) > 0.001 ||
     Math.abs(state.targetFlightSpeed) > 0.001
   ) {
+    const flying =
+      !state.isFreeCamera &&
+      !state.isOnGround &&
+      !state.isOnWater &&
+      state.flightSpeedMultiplier > 0;
+    const softBuffer = 2.0;
+    const target = flying
+      ? pitchedTarget(
+          state.targetFlightSpeed,
+          planeGroup.rotation.x,
+          handling,
+          fallAmount,
+          planeGroup.position.y < minFlightHeight + softBuffer
+        )
+      : state.targetFlightSpeed;
     state.flightSpeedMultiplier = throttleSpeed(
       state.flightSpeedMultiplier,
-      state.targetFlightSpeed,
+      target,
       handling,
       delta
     );

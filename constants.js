@@ -47,7 +47,9 @@ export const TURN_SPEED = 0.03;
 //   slower it flies below it
 // - accelKts, decelKts: how fast the throttle speeds it up and slows it down
 //   (knots per second)
-// - diveGain: how much speed a dive wins back
+// - diveGain: how much a dive speeds it up and a climb slows it, as a share
+//   of its top speed going straight down or up (the throttle slider stays
+//   put; flight-physics-logic.js, pitchedTarget)
 // - agility: how quickly it rolls and pitches toward the controls and how
 //   sharply it turns for a given bank (1 for the seaplane)
 // - rollRate: its barrel roll rate (radians per second)
@@ -58,7 +60,7 @@ export const PLANE_HANDLING = {
     levelKts: 80,
     accelKts: 40,
     decelKts: 30,
-    diveGain: 0.7,
+    diveGain: 0.4,
     agility: 1.3,
     rollRate: 3.7,
   },
@@ -68,7 +70,7 @@ export const PLANE_HANDLING = {
     levelKts: 100,
     accelKts: 50,
     decelKts: 30,
-    diveGain: 0.7,
+    diveGain: 0.35,
     agility: 1,
     rollRate: 2.8,
   },
@@ -78,7 +80,7 @@ export const PLANE_HANDLING = {
     levelKts: 115,
     accelKts: 60,
     decelKts: 20,
-    diveGain: 0.7,
+    diveGain: 0.3,
     agility: 0.75,
     rollRate: 2.25,
   },
@@ -88,7 +90,7 @@ export const PLANE_HANDLING = {
     levelKts: 130,
     accelKts: 70,
     decelKts: 25,
-    diveGain: 0.8,
+    diveGain: 0.3,
     agility: 1,
     rollRate: 3,
   },

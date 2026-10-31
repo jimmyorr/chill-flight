@@ -257,19 +257,23 @@ The world is populated with dynamic, procedural wildlife that adds life to the e
 
 There are four planes to fly, picked on the pause menu's Flight tab (or with **V**). Each has its own speed and handling, kept close enough that every one still flies gently (`PLANE_HANDLING` in `constants.js`). Under the plane buttons, three bars compare the chosen plane's top speed, agility and float (how slowly it can fly) with the best of the four.
 
-| Plane    | Top speed | Falls below | Level from | Throttle (up / down, kts/s) | Agility | Barrel roll |
-| -------- | --------- | ----------- | ---------- | --------------------------- | ------- | ----------- |
-| Biplane  | 280 kts   | 40 kts      | 80 kts     | 40 / 30                     | 1.3     | ~1.7 s      |
-| Seaplane | 380 kts   | 55 kts      | 100 kts    | 50 / 30                     | 1       | ~2.2 s      |
-| Twin     | 500 kts   | 65 kts      | 115 kts    | 60 / 20                     | 0.75    | ~2.8 s      |
-| Jet      | 800 kts   | 75 kts      | 130 kts    | 70 / 25                     | 1       | ~2.1 s      |
+| Plane    | Top speed | Falls below | Level from | Throttle (up / down, kts/s) | Agility | Barrel roll | Climb / dive |
+| -------- | --------- | ----------- | ---------- | --------------------------- | ------- | ----------- | ------------ |
+| Biplane  | 280 kts   | 40 kts      | 80 kts     | 40 / 30                     | 1.3     | ~1.7 s      | 40%          |
+| Seaplane | 380 kts   | 55 kts      | 100 kts    | 50 / 30                     | 1       | ~2.2 s      | 35%          |
+| Twin     | 500 kts   | 65 kts      | 115 kts    | 60 / 20                     | 0.75    | ~2.8 s      | 30%          |
+| Jet      | 800 kts   | 75 kts      | 130 kts    | 70 / 25                     | 1       | ~2.1 s      | 30%          |
 
 - **Biplane:** slow and nimble, the one for aerobatics.
 - **Seaplane:** the all-rounder.
 - **Twin:** fast and heavy, for long trips. It turns wide, rolls lazily, needs more speed (and runway) to stay up, and coasts a long way when you throttle back.
 - **Jet:** the fastest, with twin tails and swept wings. It needs speed to stay up, lands fast, and its turbine whine climbs with the throttle.
 
-Agility scales how quickly a plane rolls and pitches toward the controls and how sharply it turns for a given bank. All planes also turn more gently when fast: full turn rate up to 150 knots, easing down to 70% of it at 450 knots and up (`TURN_FADE_FROM_KTS` and the rest in `game-loop.js`). Warping to an airport arrives at an approach speed to suit the plane (90 knots in the seaplane).
+Agility scales how quickly a plane rolls and pitches toward the controls and how sharply it turns for a given bank. All planes also turn more gently when fast: full turn rate up to 150 knots, easing down to 70% of it at 450 knots and up (`TURN_FADE_FROM_KTS` and the rest in `game-loop.js`).
+
+Climbing trades speed for height and diving trades it back (`diveGain`, the last column, as a share of top speed going straight up or down; `pitchedTarget` in `flight-physics-logic.js`, `npm run test:flight-speed`): a seaplane at full throttle settles at about 300 knots in a 35° climb and about 475 in a 45° dive, and eases back to the throttle setting once level. The throttle slider stays where you set it. A climb never slows a plane below its level speed plus 20 knots, so climbing alone can't stall it, and a dive at idle glides. It's the same at any frame rate.
+
+Warping to an airport arrives at an approach speed to suit the plane (90 knots in the seaplane).
 
 ## Other planes
 

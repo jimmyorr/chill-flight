@@ -20,6 +20,11 @@ export const FLIGHT = {
   TERMINAL_VELOCITY: -600,
   // How quickly the fall comes on, and fades when powering out of it (seconds)
   FALL_EASE_SECONDS: 0.6,
+  // Climbing slows the plane no lower than this above its level speed
+  // (knots), and skimming the ground it gains or loses this share of a
+  // dive's or climb's speed (pitchedTarget)
+  CLIMB_FLOOR_KTS: 20,
+  SKIM_SHARE: 0.15,
 };
 
 const KTS_PER_MULT = BASE_FLIGHT_SPEED * 60;
@@ -57,23 +62,32 @@ export function canLiftOff(kts, pitch, handling) {
 }
 
 /**
- * The speed (multiplier) after `delta` seconds of diving at `pitch`
- * (radians, negative nose down): nose down gains speed, a lot less while
- * skimming the ground (`avoidingGround`) and none while falling (a nose the
- * tumble tipped down would win back speed and pop the plane out of the fall).
+ * The speed (multiplier) the plane heads for at the throttle's `target` with
+ * its nose at `pitch` (radians, negative nose down): a dive speeds it up and
+ * a climb slows it, by up to `diveGain` of its top speed going straight down
+ * or up, so it settles at a faster speed diving and a slower one climbing and
+ * eases back once level (throttleSpeed). A climb never takes it below its
+ * level speed plus CLIMB_FLOOR_KTS, so climbing alone never stalls it. A lot
+ * less while skimming the ground (`avoidingGround`) and none while falling
+ * (a nose the tumble tipped down would win back speed and pop the plane out
+ * of the fall). Moving the target rather than the speed keeps it the same at
+ * any frame rate.
  */
-export function diveSpeed(
-  speed,
+export function pitchedTarget(
+  target,
   pitch,
   handling,
   fallAmount,
-  avoidingGround,
-  delta
+  avoidingGround
 ) {
-  const gravityEffect = -Math.sin(pitch);
-  if (gravityEffect <= 0) return speed;
-  const gain = (avoidingGround ? 0.1 : handling.diveGain) * (1 - fallAmount);
-  return speed + gravityEffect * gain * delta;
+  const share =
+    handling.diveGain *
+    (avoidingGround ? FLIGHT.SKIM_SHARE : 1) *
+    (1 - fallAmount);
+  const change = (-Math.sin(pitch) * share * handling.topKts) / KTS_PER_MULT;
+  if (change >= 0) return target + change;
+  const floor = (handling.levelKts + FLIGHT.CLIMB_FLOOR_KTS) / KTS_PER_MULT;
+  return Math.max(Math.min(target, floor), target + change);
 }
 
 /**
