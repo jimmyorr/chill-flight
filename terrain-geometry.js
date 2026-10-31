@@ -294,7 +294,12 @@ terrainMaterial.onBeforeCompile = (shader) => {
      diffuseColor.rgb *= mix(vec3(1.0), uSnowExposure, snowWhiteness);
      #ifdef GRASS_SHEEN
      {
-       float sheenGreen = smoothstep(0.015, 0.06, diffuseColor.g - max(diffuseColor.r, diffuseColor.b));
+       // Grass (green) and wheat fields (yellow, as in grass.js)
+       vec3 sc = diffuseColor.rgb;
+       float sheenRatio = sc.g / max(sc.r, 1e-3);
+       float sheenGreen = max(
+         smoothstep(0.015, 0.06, sc.g - max(sc.r, sc.b)),
+         smoothstep(0.22, 0.32, min(sc.r, sc.g) - sc.b) * smoothstep(0.75, 0.82, sheenRatio) * smoothstep(1.16, 1.1, sheenRatio));
        float sheenFade = 1.0 - smoothstep(2500.0, 6000.0, vDistanceXZ);
        diffuseColor.rgb *= 1.0 + 0.12 * grassGust(vWorldPosition.xz, uTime) * sheenGreen * sheenFade;
      }

@@ -9,7 +9,8 @@
 // ground's colour and lighting, so the field blends into the terrain where
 // it thins out.
 //
-// Grass grows only on green ground (not sand, snow, rock or water), off
+// Grass grows only on green ground (not sand, snow, rock or water), and
+// taller wheat on the villages' golden wheat and barley fields, both off
 // roads and runways. It bends in the same wind as the trees, in gusts that
 // roll across the field (GRASS_WAVE_GLSL; the terrain shows the same gusts
 // as a sheen from the air), and is pushed aside by the active vehicle: the
@@ -142,9 +143,16 @@ const VERTEX_MAIN = `
   vec3 groundN = normalize(vec3(-slope.x, 1.0, -slope.y));
   vec3 groundCol = ground.yzw;
 
-  // Only on green ground, above the water, off steep slopes, roads and the
-  // runway; thinning out (fewer blades, not shorter ones) where it ends
-  float density = smoothstep(0.015, 0.06, groundCol.g - max(groundCol.r, groundCol.b));
+  // Grass on green ground, wheat on the golden wheat and barley fields
+  // (yellow: red and green well above blue, neither far ahead of the other,
+  // which leaves out orange desert sand and the young green crops). Both
+  // only above the water, off steep slopes, roads and the runway, thinning
+  // out (fewer blades, not shorter ones) where they end.
+  float gOverR = groundCol.g / max(groundCol.r, 1e-3);
+  float wheat = smoothstep(0.22, 0.32, min(groundCol.r, groundCol.g) - groundCol.b)
+              * smoothstep(0.75, 0.82, gOverR) * smoothstep(1.16, 1.1, gOverR);
+  float grass = smoothstep(0.015, 0.06, groundCol.g - max(groundCol.r, groundCol.b)) * (1.0 - wheat);
+  float density = 1.0;
   density *= step(${(WATER_LEVEL + 1.5).toFixed(1)}, ground.x);
   density *= smoothstep(0.62, 0.8, groundN.y);
   for (int i = 0; i < ${MAX_ROADS}; i++) {
@@ -159,16 +167,20 @@ const VERTEX_MAIN = `
   }
   float dC = length(wxz - uGrassCenter);
   float edge = smoothstep(uGrassRadius, uGrassRadius * 0.4, dC);
-  float keep = step(fract(rnd * 7.13 + bladeIdx * 0.29), density * edge);
-  float bladeH = keep * uGrassFade * (1.4 + 1.4 * r2) * mix(0.35, 1.0, edge);
+  float isWheat = step(grass, wheat);
+  float keep = step(fract(rnd * 7.13 + bladeIdx * 0.29), max(grass, wheat) * density * edge);
+  // Wheat stands about chest high on the buggy, grass about half that
+  float fullH = mix(1.4 + 1.4 * r2, 3.0 + 0.8 * r2, isWheat);
+  float bladeH = keep * uGrassFade * fullH * mix(0.35, 1.0, edge);
 
   // Bend: the wind's gusts, a little flutter, the blade's own lean, and
   // anything pushing it aside
   vec2 wd = GRASS_WIND_DIR;
   float gust = grassGust(wxz, uTime);
-  vec2 bend = wd * (0.18 + 0.6 * gust) * uWindStrength;
-  bend += vec2(-wd.y, wd.x) * sin(uTime * 3.1 + rnd * 40.0) * 0.07 * uWindStrength;
-  bend += vec2(cos(yaw), sin(yaw)) * 0.12;
+  // Wheat leans further in the gusts and barely flutters: heavy, slow waves
+  vec2 bend = wd * mix(0.18 + 0.6 * gust, 0.1 + 0.85 * gust, isWheat) * uWindStrength;
+  bend += vec2(-wd.y, wd.x) * sin(uTime * 3.1 + rnd * 40.0) * mix(0.07, 0.025, isWheat) * uWindStrength;
+  bend += vec2(cos(yaw), sin(yaw)) * mix(0.12, 0.05, isWheat);
   float pushed = 0.0;
   for (int i = 0; i < ${MAX_PUSH}; i++) {
     vec4 p = uPush[i];
@@ -185,21 +197,28 @@ const VERTEX_MAIN = `
   vec2 bendDir = bend / max(bendLen, 1e-4);
   float bendAngle = min(bendLen, 1.45);
 
-  // The blade: position.x across (-0.5..0.5), position.y up (0..1)
+  // The blade: position.x across (-0.5..0.5), position.y up (0..1). A wheat
+  // stalk is thin, with its middle vertices raised to make an ear at the top
   float t = position.y;
+  float width = 0.42 * (1.0 - 0.9 * t);
+  if (isWheat > 0.5) {
+    t = t > 0.25 && t < 0.75 ? 0.7 : t;
+    width = t < 0.01 ? 0.1 : (t < 0.99 ? 0.34 : 0.0);
+  }
   float a = bendAngle * t;
   vec2 side = vec2(cos(yaw), sin(yaw));
   vec3 bladePos = vec3(wxz.x, ground.x, wxz.y);
-  bladePos.xz += side * position.x * 0.42 * (1.0 - 0.9 * t) * step(0.001, bladeH);
+  bladePos.xz += side * position.x * width * step(0.001, bladeH);
   bladePos.xz += bendDir * bladeH * t * sin(a) * 0.9;
   bladePos.y += bladeH * t * cos(a) - 0.15;
   vec3 bladeNormal = groundN;
 
   // The ground's colour at the root, lighter and warmer toward the tip, and
   // catching the light where a gust lays it over
-  vec3 tipCol = groundCol * vec3(1.18, 1.14, 0.82);
-  vec3 bladeCol = mix(groundCol * 0.78, tipCol, t);
-  bladeCol *= 1.0 + (0.16 * gust + 0.3 * pushed) * t;
+  // (wheat: a deeper stalk, a pale gold ear, a stronger sheen in the gusts)
+  vec3 tipCol = groundCol * mix(vec3(1.18, 1.14, 0.82), vec3(1.14, 1.08, 0.8), isWheat);
+  vec3 bladeCol = mix(groundCol * mix(0.78, 0.68, isWheat), tipCol, t);
+  bladeCol *= 1.0 + (mix(0.16, 0.28, isWheat) * gust + 0.3 * pushed) * t;
   // Toward the field's edge, the ground's own colour, so it ends unseen
   bladeCol = mix(groundCol, bladeCol, edge);
 `;
