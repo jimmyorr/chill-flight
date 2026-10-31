@@ -1340,6 +1340,19 @@ function deliberateSteer() {
   );
 }
 
+// The controls' response to a stick, the mouse, a gamepad or tilt (-1 to
+// 1): nothing inside STICK_DEAD_ZONE, then rising from zero (not jumping to
+// the dead zone's edge) along a gentle curve, finer near the middle, to the
+// same full deflection at 1 (keys, at 1, are unchanged)
+const STICK_DEAD_ZONE = 0.15;
+const STICK_CURVE = 0.45; // share of the response that's cubic
+function stickResponse(v) {
+  const a = Math.abs(v);
+  if (a < STICK_DEAD_ZONE) return 0;
+  const u = Math.min(1, (a - STICK_DEAD_ZONE) / (1 - STICK_DEAD_ZONE));
+  return Math.sign(v) * ((1 - STICK_CURVE) * u + STICK_CURVE * u * u * u);
+}
+
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller: the engine drives it while the plane moves or the
   // throttle is open, and with the engine off it coasts down, catches on
@@ -1372,18 +1385,9 @@ function updatePhysicsAndControls(delta, nowTime) {
   // Plane rotation control
   const maxPitch = Math.PI / 4;
   const maxRoll = Math.PI / 3;
-  let effMouseX =
-    state.mouseControlActive &&
-    !state.isFreeCamera &&
-    Math.abs(state.mouseX) >= 0.15
-      ? state.mouseX
-      : 0;
-  let effMouseY =
-    state.mouseControlActive &&
-    !state.isFreeCamera &&
-    Math.abs(state.mouseY) >= 0.15
-      ? state.mouseY
-      : 0;
+  const steeringOn = state.mouseControlActive && !state.isFreeCamera;
+  let effMouseX = steeringOn ? stickResponse(state.mouseX) : 0;
+  let effMouseY = steeringOn ? stickResponse(state.mouseY) : 0;
 
   // Logical inputs based on Y-axis inversion
   const isUp =
