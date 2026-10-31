@@ -10,6 +10,8 @@ import {
   tripleTap,
 } from './game-input-bindings.js';
 import {syncChunkBorders} from './debug-ui.js';
+import {arches} from './arches.js';
+import {archCeiling} from './arches-logic.js';
 import {
   _daySky,
   camera,
@@ -182,6 +184,12 @@ let benchmarkFrameTimes;
 
 var isAnimationLoopRunning = false;
 let hasCrashed = false;
+// After a loop or Immelmann, how long before a steep climb or dive counts
+// for To the moon / Nose dive (seconds)
+const STUNT_PITCH_GRACE = 2;
+let stuntPitchGrace = 0;
+// Frequent flyer: lifetime distance travelled (units; 1000 to a km)
+const FREQUENT_FLYER_DISTANCE = 100000;
 
 function animate() {
   if (hasCrashed || !renderer) return;
@@ -449,8 +457,14 @@ function performFrame() {
       Achievements.unlock('u_turn');
     }
 
-    // 2. Steep climb / steep dive
-    if (planeGroup.rotation.x > Math.PI / 4) {
+    // 2. Steep climb / steep dive: teaches double-tap and hold, so loops
+    // and Immelmanns (which pass through both) don't count, nor the
+    // moments after one while the plane levels out
+    if (state.isLooping || state.isDoingImmelmann) {
+      stuntPitchGrace = STUNT_PITCH_GRACE;
+    } else if (stuntPitchGrace > 0) {
+      stuntPitchGrace -= delta;
+    } else if (planeGroup.rotation.x > Math.PI / 4) {
       Achievements.unlock('to_the_moon');
     } else if (planeGroup.rotation.x < -Math.PI / 4) {
       Achievements.unlock('nose_dive');
@@ -512,6 +526,9 @@ function performFrame() {
         if (Achievements.updateStats) {
           Achievements.updateStats(state.lifetimeDistanceTravelled);
         }
+        if (state.lifetimeDistanceTravelled >= FREQUENT_FLYER_DISTANCE) {
+          Achievements.unlock('frequent_flyer');
+        }
         state.distanceSinceLastSave = 0;
       }
 
@@ -551,9 +568,17 @@ function performFrame() {
     }
     const distToRockArchSq =
       planeGroup.position.distanceToSquared(_rockArchPos);
+    // ...or under any of the arches and bridges (arches.js)
+    const underAnArch =
+      archCeiling(
+        arches,
+        planeGroup.position.x,
+        planeGroup.position.z,
+        planeGroup.position.y
+      ) !== null;
     if (
-      distToRockArchSq < 62500 &&
-      planeGroup.position.y < _rockArchPos.y + 120
+      underAnArch ||
+      (distToRockArchSq < 62500 && planeGroup.position.y < _rockArchPos.y + 120)
     ) {
       if (Achievements.unlock('limbo')) {
         log.info(

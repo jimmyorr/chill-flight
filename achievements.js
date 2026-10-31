@@ -18,7 +18,7 @@ export const Achievements = (function () {
       id: 'frequent_flyer',
       title: 'Frequent flyer',
       emoji: '🎖️',
-      hint: 'Play 10 times',
+      hint: 'Travel 100 km in all',
     },
     {
       id: 'directors_cut',
@@ -176,7 +176,8 @@ export const Achievements = (function () {
 
   /** Get count of unlocked achievements */
   function getUnlockedCount() {
-    return Object.keys(unlockedMap).length;
+    // Only ones still on the list (old ids stay saved, in case they return)
+    return ACHIEVEMENTS.filter((a) => a.id in unlockedMap).length;
   }
 
   /** Get total number of achievements */

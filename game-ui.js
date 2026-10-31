@@ -675,20 +675,5 @@ if (overlay && renderer) {
   state.dismissLoadingScreen = () => {};
 }
 
-// Track play count for "frequent_flyer"
-(function () {
-  try {
-    const playCountKey = 'chill_flight_play_count';
-    let count = parseInt(localStorage.getItem(playCountKey) || '0', 10);
-    count++;
-    localStorage.setItem(playCountKey, count.toString());
-    if (count >= 10) {
-      Achievements.unlock('frequent_flyer');
-    }
-  } catch (e) {
-    console.error('[Achievements] Failed to track play count', e);
-  }
-})();
-
 inputManager.onAutopilotToggle = () => toggleAutopilot();
 hooks.resetSteering = resetSteering;
