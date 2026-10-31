@@ -599,6 +599,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`traffic`**: Set to `0` or `1` to turn the other planes off or on for this visit, whether or not zen is on. The promo renders use `0`, so their shots are the same every time.
 - **`room`**: A room code to join on load (what an invite link carries, with `seed`). See [Flying together](#flying-together).
 - **`relay`**: Use another relay for flying together, e.g. `relay=ws://localhost:8787` for one running locally with `npm run relay:dev` (or `npx -y wrangler dev` in `relay/`).
+- **`analytics`**: Set to `1` (or include `?analytics` or `?test_analytics`) to force Google Analytics to initialize in local development or preview environments where it is otherwise disabled.
 
 ## Development
 

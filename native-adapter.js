@@ -116,22 +116,46 @@ export async function detectGraphicsPreset() {
   };
 
   // 2. WEB ANALYTICS
-  // Dynamically inject Google Analytics for web environments.
+  // Dynamically inject Google Analytics for production web environments.
+  // Local development, previews, and tests do not load analytics to avoid polluting metrics.
   // Native builds use the native Firebase Analytics bridge instead.
   if (!isNative()) {
-    log.info('Web environment detected. Initializing Google Analytics...');
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = 'https://www.googletagmanager.com/gtag/js?id=G-N6RGBLQCZ8';
-    document.head.appendChild(script);
+    const isLocalHost =
+      typeof window !== 'undefined' &&
+      (['localhost', '127.0.0.1'].includes(window.location.hostname) ||
+        window.location.hostname.startsWith('192.168.') ||
+        window.location.hostname.startsWith('10.') ||
+        window.location.hostname.endsWith('.local') ||
+        window.location.protocol === 'file:');
+    const isPreview = import.meta.env.VITE_PREVIEW === 'true';
+    const forceAnalytics =
+      typeof window !== 'undefined' &&
+      (new URLSearchParams(window.location.search).has('analytics') ||
+        new URLSearchParams(window.location.search).has('test_analytics'));
 
-    window.dataLayer = window.dataLayer || [];
-    function gtag() {
-      window.dataLayer.push(arguments);
+    if (
+      (import.meta.env.PROD && !isLocalHost && !isPreview) ||
+      forceAnalytics
+    ) {
+      log.info('Web environment detected. Initializing Google Analytics...');
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = 'https://www.googletagmanager.com/gtag/js?id=G-N6RGBLQCZ8';
+      document.head.appendChild(script);
+
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        window.dataLayer.push(arguments);
+      }
+      window.gtag = gtag;
+      gtag('js', new Date());
+      gtag('config', 'G-N6RGBLQCZ8');
+    } else {
+      log.info(
+        'Local or preview environment detected. Google Analytics disabled.'
+      );
+      window.gtag = function () {};
     }
-    window.gtag = gtag;
-    gtag('js', new Date());
-    gtag('config', 'G-N6RGBLQCZ8');
   } else {
     log.info('Native environment detected. Initializing Firebase Analytics...');
     // Expose a compatible window.gtag wrapper that forwards calls to native FirebaseAnalytics

@@ -279,9 +279,7 @@ export function renderFrame(scene, camera) {
   u.uFogDensity.value = scene.fog ? scene.fog.density || 0 : 0;
   u.uNear.value = camera.near;
   u.uFar.value = camera.far;
-  const fxaa = fxaaParam
-    ? fxaaParam !== '0'
-    : state.graphicsPreset !== 'low';
+  const fxaa = fxaaParam ? fxaaParam !== '0' : state.graphicsPreset !== 'low';
   if (!fxaa) {
     renderer.render(quad, quadCamera);
     return;
