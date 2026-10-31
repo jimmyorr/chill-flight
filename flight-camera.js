@@ -682,6 +682,9 @@ export function updateFlightCamera(delta, nowTime) {
 
   // Animate Birds
   const activeBirds = birdChunks;
+  // Geese hide past the prop draw distance like the houses below them (each
+  // is 9 meshes, and a dot that far off)
+  const gooseDrawDistSq = performanceMonitor.getEffectiveLOD() ** 2;
   activeBirds.forEach((chunkGroup) => {
     // Optimization: Distance culling (6000 units) for the hawks and seagulls
     // circling a distant chunk. Geese always animate: a flock flies far from
@@ -696,6 +699,10 @@ export function updateFlightCamera(delta, nowTime) {
         if (chunkIsFar && bird.userData.type !== 'goose') return;
         bird.visible = state.dayFactor > 0.1;
         if (!bird.visible) return;
+        // Still animated, so the flock is where it should be when it shows
+        if (bird.userData.type === 'goose')
+          bird.visible =
+            bird.position.distanceToSquared(camera.position) < gooseDrawDistSq;
 
         const data = bird.userData;
         const flapSpeed = data.flapSpeed || 2;

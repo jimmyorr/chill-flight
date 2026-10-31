@@ -47,6 +47,7 @@ import {
   bushBaseMat,
   bushGeo,
   cactusGeo,
+  cactusShadowGeo,
   cactusMat,
   castleRuinsGeo,
   castleRuinsMat,
@@ -203,7 +204,7 @@ import {
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {log} from './logger.js';
 import {simplex} from './noise.js';
-import {camera} from './sky.js';
+import {camera, renderer} from './sky.js';
 import {planeGroup} from './airplane.js';
 import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {ALIEN_PROPS_AT, BREAKABLE, generateChunkData} from './terrain-gen.js';
@@ -238,6 +239,24 @@ const TREE_SHADOW_CHUNK_RADIUS = 4;
 // few pixels across at that range, so the full models only cost triangles.
 // (Woods are dense enough that 3 chunks out cost ~350k more triangles.)
 const TREE_LOD_CHUNK_RADIUS = 2;
+
+// Canopies, palms, cacti and bushes (setFarGeometry's `screenSized`) keep
+// their full models only out to where a canopy still spans this many pixels:
+// within 1 chunk (at least 1,500 units) on a phone, 2 on a bigger screen.
+// They're most of the triangles drawn, and a 16-unit canopy is 3-4 pixels
+// across on a phone at 2 chunks.
+const CANOPY_DETAIL_PIXELS = 8;
+const CANOPY_SIZE = 16;
+function canopyDetailRadius() {
+  // The preset's pixel ratio, not the one adaptive quality lowers for a while
+  const height =
+    window.innerHeight * (state._basePixelRatio ?? renderer.getPixelRatio());
+  const pixelsPerUnitAt1 =
+    height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+  const detailDistance =
+    (CANOPY_SIZE * pixelsPerUnitAt1) / CANOPY_DETAIL_PIXELS;
+  return detailDistance < CHUNK_SIZE ? 1 : TREE_LOD_CHUNK_RADIUS;
+}
 
 // A simple shape (spanning -1..1) scaled and moved to fill `geo`'s bounds.
 function fitToBounds(shape, geo) {
@@ -323,14 +342,21 @@ class GlobalInstanceManager {
       useColor,
       maxInstances,
       shadowMesh,
+      screenSized: false,
+      farRadius: Infinity,
       tiles: new Map(), // tile key (+ '|far') -> on-screen InstancedMesh
     });
   }
 
-  // Geometry for this type beyond TREE_LOD_CHUNK_RADIUS, or null to not draw
-  // it that far away.
-  setFarGeometry(type, farGeo) {
-    this.types.get(type).farGeo = farGeo;
+  // Geometry for this type beyond TREE_LOD_CHUNK_RADIUS (or beyond
+  // canopyDetailRadius() if `screenSized`), or null to not draw it that far
+  // away. Beyond `farRadius` chunks it isn't drawn at all.
+  setFarGeometry(
+    type,
+    farGeo,
+    {screenSized = false, farRadius = Infinity} = {}
+  ) {
+    Object.assign(this.types.get(type), {farGeo, screenSized, farRadius});
     this.requestRebuild();
   }
 
@@ -376,6 +402,7 @@ class GlobalInstanceManager {
 
     const planeChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
     const planeChunkZ = Math.round(planeGroup.position.z / CHUNK_SIZE);
+    const detailRadius = canopyDetailRadius();
 
     // 1. Group each type's instance data by tile.
     const byType = new Map(); // type -> Map(tileKey -> {tileX, tileZ, parts, count})
@@ -393,7 +420,6 @@ class GlobalInstanceManager {
         Math.abs(chunkZ - planeChunkZ)
       );
       const castsShadows = chunkDistance <= TREE_SHADOW_CHUNK_RADIUS;
-      const isFar = chunkDistance > TREE_LOD_CHUNK_RADIUS;
 
       for (const type in instanceData) {
         const typeInfo = this.types.get(type);
@@ -407,7 +433,12 @@ class GlobalInstanceManager {
           if (!shadowParts.has(type)) shadowParts.set(type, []);
           shadowParts.get(type).push(data);
         }
-        const useFar = isFar && typeInfo.farGeo !== typeInfo.geo;
+        if (chunkDistance > typeInfo.farRadius) continue;
+        const nearRadius = typeInfo.screenSized
+          ? detailRadius
+          : TREE_LOD_CHUNK_RADIUS;
+        const useFar =
+          chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
         if (useFar && typeInfo.farGeo === null) continue; // not drawn far away
         const meshKey = useFar ? tileKey + '|far' : tileKey;
         if (!byType.has(type)) byType.set(type, new Map());
@@ -780,25 +811,46 @@ globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =
 // cheap models stay as they are.
 const farCanopy = (geo) =>
   fitToBounds(new THREE.IcosahedronGeometry(1, 0), geo); // 20 triangles
-globalInstancer.setFarGeometry('decidLeaves', farCanopy(deciduousGeos.leaves));
+const screenSized = {screenSized: true};
+globalInstancer.setFarGeometry(
+  'decidLeaves',
+  farCanopy(deciduousGeos.leaves),
+  screenSized
+);
 globalInstancer.setFarGeometry(
   'tallDecidLeaves',
-  farCanopy(tallDeciduousGeos.leaves)
+  farCanopy(tallDeciduousGeos.leaves),
+  screenSized
 );
-globalInstancer.setFarGeometry('palmLeaves', farCanopy(palmGeos.leaves));
+globalInstancer.setFarGeometry(
+  'palmLeaves',
+  farCanopy(palmGeos.leaves),
+  screenSized
+);
 globalInstancer.setFarGeometry(
   'japaneseMapleLeaves',
-  farCanopy(japaneseMapleGeos.leaves)
+  farCanopy(japaneseMapleGeos.leaves),
+  screenSized
 );
 globalInstancer.setFarGeometry(
   'palmTrunk',
-  fitToBounds(new THREE.CylinderGeometry(0.6, 1, 2, 6, 1, true), palmGeos.trunk)
+  fitToBounds(
+    new THREE.CylinderGeometry(0.6, 1, 2, 6, 1, true),
+    palmGeos.trunk
+  ),
+  screenSized
 );
 globalInstancer.setFarGeometry(
   'cactus',
-  fitToBounds(new THREE.BoxGeometry(2, 2, 2), cactusGeo)
+  fitToBounds(new THREE.BoxGeometry(2, 2, 2), cactusGeo),
+  screenSized
 );
-globalInstancer.setFarGeometry('bush', null);
+// Bushes (480 triangles each) are a fitted shape past the detail radius, and
+// not drawn at all past TREE_LOD_CHUNK_RADIUS
+globalInstancer.setFarGeometry('bush', farCanopy(bushGeo), {
+  screenSized: true,
+  farRadius: TREE_LOD_CHUNK_RADIUS,
+});
 globalInstancer.setFarGeometry('barnDoor', null);
 globalInstancer.setFarGeometry('barnTrim', null);
 globalInstancer.setFarGeometry('snowmanBody', null);
@@ -822,8 +874,18 @@ globalInstancer.setFarGeometry('twoStoryChimney', null);
 // Rounded canopies and bushes cast shadows with the same fitted shapes. Palm
 // fronds cast with a version without their notches (216 triangles instead of
 // 504), which keeps their distinctive star-shaped shadow.
-globalInstancer.setShadowGeometry('bush', farCanopy(bushGeo));
+globalInstancer.setShadowGeometry(
+  'bush',
+  globalInstancer.types.get('bush').farGeo
+);
 globalInstancer.setShadowGeometry('palmLeaves', palmSimpleLeavesGeo);
+// Palm trunks and cacti cast with simpler models too (12 triangles instead
+// of 186, and 80 instead of 424): a trunk's shadow is 2-3 texels wide.
+globalInstancer.setShadowGeometry(
+  'palmTrunk',
+  globalInstancer.types.get('palmTrunk').farGeo
+);
+globalInstancer.setShadowGeometry('cactus', cactusShadowGeo);
 globalInstancer.setShadowGeometry(
   'decidLeaves',
   globalInstancer.types.get('decidLeaves').farGeo
@@ -836,6 +898,8 @@ globalInstancer.setShadowGeometry(
   'japaneseMapleLeaves',
   globalInstancer.types.get('japaneseMapleLeaves').farGeo
 );
+
+const WATERCRAFT_DRAW_DISTANCE = 6000;
 
 var workerChunkRequests = new Map();
 var workerChunkResults = new Map();
@@ -2357,12 +2421,16 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           }
         });
 
+        // The deck, girders, pier shafts and the lamps' glow show to the
+        // horizon; lane markings, rails, pier caps and footings and lamp
+        // posts are a pixel or less that far, so they go with the chunk's
+        // props (hidden past the prop draw distance). Each is a draw call.
         deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
         group.add(deckInst);
         for (const m of markingInsts) {
           m.position.set(worldOffsetX, 0, worldOffsetZ);
           m.castShadow = false;
-          group.add(m);
+          objectsGroup.add(m);
         }
 
         if (numGirderSegments > 0) {
@@ -2372,16 +2440,16 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
         if (numRailSegments > 0) {
           railInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(railInst);
+          objectsGroup.add(railInst);
         }
 
         if (numPiers > 0) {
           pierCapInst.position.set(worldOffsetX, 0, worldOffsetZ);
           pierShaftInst.position.set(worldOffsetX, 0, worldOffsetZ);
           pierFootingInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(pierCapInst);
+          objectsGroup.add(pierCapInst);
           group.add(pierShaftInst);
-          group.add(pierFootingInst);
+          objectsGroup.add(pierFootingInst);
         }
 
         if (numStreetlights > 0) {
@@ -2389,8 +2457,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
           slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
           slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(slBaseInst);
-          group.add(slArmInst);
+          objectsGroup.add(slBaseInst);
+          objectsGroup.add(slArmInst);
           group.add(slBulbInst);
           group.add(slDecalInst);
         }
@@ -2594,10 +2662,17 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   // 2.98 Generate Sailboats
   let watercraftGroup = null;
   if (sailboatPositions.length > 0 || pirateShipPositions.length > 0) {
+    // Not drawn past 6,000 units, where they stop animating too
+    // (flight-camera.js); sails are a couple of pixels by then
     watercraftGroup = new THREE.Group();
-    watercraftGroup.visible = state._enableObjects;
-    group.add(watercraftGroup);
-    group.userData.watercraftGroup = watercraftGroup;
+    watercraftGroup.position.set(-worldOffsetX, 0, -worldOffsetZ);
+    const watercraftLOD = new THREE.LOD();
+    watercraftLOD.position.set(worldOffsetX, 0, worldOffsetZ);
+    watercraftLOD.addLevel(watercraftGroup, 0);
+    watercraftLOD.addLevel(new THREE.Group(), WATERCRAFT_DRAW_DISTANCE);
+    watercraftLOD.visible = state._enableObjects;
+    group.add(watercraftLOD);
+    group.userData.watercraftGroup = watercraftLOD;
   }
 
   if (sailboatPositions.length > 0) {

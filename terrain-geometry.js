@@ -1168,7 +1168,9 @@ export var snowRockMat = createMaterial({color: 0xdddddd, flatShading: true});
 export var desertRockMat = createMaterial({color: 0xd2b48c, flatShading: true});
 
 // Cactus geometries and materials
-function createCactusGeometry() {
+// `simple`: 4-sided, without the rounded caps and elbows, for its shadow
+function createCactusGeometry(simple = false) {
+  const sides = simple ? 4 : 8;
   const geometries = [];
 
   // Main trunk
@@ -1178,23 +1180,25 @@ function createCactusGeometry() {
     mainRadius * 0.9,
     mainRadius,
     mainHeight,
-    8
+    sides
   );
   trunk.translate(0, mainHeight / 2, 0);
   geometries.push(trunk);
 
   // Trunk top cap (hemisphere)
-  const trunkCap = new THREE.SphereGeometry(
-    mainRadius * 0.9,
-    8,
-    4,
-    0,
-    Math.PI * 2,
-    0,
-    Math.PI / 2
-  );
-  trunkCap.translate(0, mainHeight, 0);
-  geometries.push(trunkCap);
+  if (!simple) {
+    const trunkCap = new THREE.SphereGeometry(
+      mainRadius * 0.9,
+      8,
+      4,
+      0,
+      Math.PI * 2,
+      0,
+      Math.PI / 2
+    );
+    trunkCap.translate(0, mainHeight, 0);
+    geometries.push(trunkCap);
+  }
 
   // Helper function to create an arm
   function createArm(direction, startY, horizontalLen, verticalHeight) {
@@ -1205,7 +1209,7 @@ function createCactusGeometry() {
       armRadius,
       armRadius,
       horizontalLen,
-      8
+      sides
     );
     hPiece.rotateZ(Math.PI / 2);
     const hCenterX = direction * (mainRadius + horizontalLen / 2 - 0.5);
@@ -1213,22 +1217,25 @@ function createCactusGeometry() {
     geometries.push(hPiece);
 
     // Elbow sphere to round the joint
-    const elbow = new THREE.SphereGeometry(armRadius, 8, 4);
     const elbowX = direction * (mainRadius + horizontalLen - 0.5);
-    elbow.translate(elbowX, startY, 0);
-    geometries.push(elbow);
+    if (!simple) {
+      const elbow = new THREE.SphereGeometry(armRadius, 8, 4);
+      elbow.translate(elbowX, startY, 0);
+      geometries.push(elbow);
+    }
 
     // Vertical piece
     const vPiece = new THREE.CylinderGeometry(
       armRadius * 0.9,
       armRadius,
       verticalHeight,
-      8
+      sides
     );
     vPiece.translate(elbowX, startY + verticalHeight / 2, 0);
     geometries.push(vPiece);
 
     // Top cap
+    if (simple) return;
     const cap = new THREE.SphereGeometry(
       armRadius * 0.9,
       8,
@@ -1279,6 +1286,7 @@ function createCactusGeometry() {
   return geom;
 }
 export var cactusGeo = createCactusGeometry();
+export var cactusShadowGeo = createCactusGeometry(true);
 export var cactusMat = createMaterial({color: 0x4caf50, flatShading: true});
 
 // Mushroom geometry and materials
