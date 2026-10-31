@@ -39,6 +39,8 @@ import '../terrain-chunks.js';
 import '../far-terrain.js';
 import '../airports.js';
 import '../pyramids.js';
+import '../arches-logic.js';
+import '../arches.js';
 import '../audio.js';
 import '../sfx.js';
 import '../sfx-events.js';

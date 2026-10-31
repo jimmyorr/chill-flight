@@ -43,6 +43,8 @@ import {doubleTap, keys} from './game-input-bindings.js';
 import {setOnWheels} from './flight-physics.js';
 import {simplex} from './noise.js';
 import {hooks} from './hooks.js';
+import {archTop} from './arches-logic.js';
+import {arches} from './arches.js';
 import {Achievements} from './achievements.js';
 import {
   STUCK,
@@ -196,6 +198,18 @@ function sampleSurface(x, z, y) {
     return _surface;
   }
   _surface.rails = false;
+  // On an arch's top, as on the deck (the canyon's bridges join its walls)
+  const archY = archTop(arches, x, z);
+  if (archY > -Infinity && y >= archY - ROAD_STEP_UP) {
+    sampleGround(x, z, _surface);
+    if (_surface.height < archY) {
+      _surface.height = archY;
+      _surface.slopeX = 0;
+      _surface.slopeZ = 0;
+    }
+    _surface.kind = 'ground';
+    return _surface;
+  }
   sampleGround(x, z, _surface);
   _surface.kind = 'ground';
   if (

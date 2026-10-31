@@ -4836,6 +4836,18 @@ export const ChillFlightLogic = {};
   exports.LAKE_ICE_RISE = LAKE_ICE_RISE;
   exports.alienAt = alienAt;
   exports.basaltColumnAt = basaltColumnAt;
+  // One column of the honeycomb by its place in it (arches-logic.js looks
+  // for neighbours of the same height to lay a fallen column across)
+  exports.basaltCell = (col, row, simplex) =>
+    basaltColumn(
+      col,
+      row,
+      Math.floor((simplex.noise2D(12.34, 56.78) + 1) * 1e6),
+      simplex
+    );
+  exports.BASALT_CELL = BASALT_CELL;
+  exports.BASALT_ROW = BASALT_ROW;
+  exports.roadClear = roadClear;
   exports.MAP_WIDTH = MAP_WIDTH;
   exports.getElevation = getElevation;
   exports.getRiverCenterZ = getRiverCenterZ;

@@ -15,6 +15,9 @@ import {propPuffs, scrapeSparks} from './particles.js';
 import {playScrape} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
 import {checkWallCrash} from './crash.js';
+import {archGround} from './arches-logic.js';
+import {arches} from './arches.js';
+import {underArch} from './flight-physics.js';
 import {
   SCRAPE,
   fadeScrapePush,
@@ -73,6 +76,8 @@ function probe(kind, x, y, z, ahead) {
   _probe.copy(_tip);
   if (ahead) _probe.addScaledVector(_fwd, ahead);
   sampleGround(_probe.x, _probe.z, _ground);
+  // An arch's rock is ground too, for a probe above its underside
+  archGround(arches, _probe.x, _probe.z, _probe.y, _ground);
   const c = wallContact(_probe.y, _ground, WATER_LEVEL);
   if (!c) return;
   c.kind = kind;
@@ -133,6 +138,22 @@ export function updateWallScrape(delta) {
   probe('left', -model.halfSpan, 0, 0, 0);
   probe('right', model.halfSpan, 0, 0, 0);
   probe('nose', 0, 0, -model.noseLength, noseLookahead(speed, delta));
+  // Held under an arch's underside (flight-physics.js): its back scrapes it,
+  // nothing to push it off sideways
+  if (underArch) {
+    _tip.set(0, 1, 0);
+    planeGroup.localToWorld(_tip);
+    touches.push({
+      kind: 'ceiling',
+      depth: 0,
+      slope: 1,
+      nx: 0,
+      nz: 0,
+      x: _tip.x,
+      y: _tip.y,
+      z: _tip.z,
+    });
+  }
   if (!touches.length) {
     pressing = Math.max(0, pressing - delta);
     turnOut(delta);

@@ -224,6 +224,15 @@
       <button class="model-btn" onclick="viewModel('rock_arch_grass', event)">
         Rock arch (Grass)
       </button>
+      <button class="model-btn" onclick="viewModel('sea_arch', event)">
+        Sea arch
+      </button>
+      <button class="model-btn" onclick="viewModel('canyon_bridge', event)">
+        Canyon bridge
+      </button>
+      <button class="model-btn" onclick="viewModel('basalt_gate', event)">
+        Basalt gate
+      </button>
       <button class="model-btn" onclick="viewModel('control_tower', event)">
         Control tower
       </button>
@@ -370,6 +379,8 @@
         createWindsock,
       } from '../airports.js';
       import {createWaterfall} from '../waterfalls.js';
+      import {basaltGate, canyonBridge, seaArch} from '../arches-logic.js';
+      import {archGeometry} from '../arches.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
       import {createBuggyModel, setBuggyHoverFold} from '../buggy-model.js';
       import {
@@ -917,6 +928,25 @@
               );
               previewGroup.userData.blocks = geos.blocks;
               previewGroup.add(new THREE.Mesh(geos.rock, rockMat));
+              break;
+            }
+            // The arches to fly under (arches.js), on flat ground at 0
+            case 'sea_arch':
+            case 'canyon_bridge':
+            case 'basalt_gate': {
+              const rand = ChillFlightLogic.mulberry32(7);
+              const arch =
+                type === 'sea_arch'
+                  ? seaArch(0, 0, 0, 0, rand)
+                  : type === 'canyon_bridge'
+                    ? canyonBridge(0, 0, 0, -160, 160, 0, 150, rand)
+                    : basaltGate(0, 0, 0, -190, 190, 0, 10, 62, 0.4);
+              previewGroup.add(
+                new THREE.Mesh(
+                  archGeometry(arch, () => 0),
+                  createMaterial({vertexColors: true, flatShading: true})
+                )
+              );
               break;
             }
             case 'rock_arch_grass': {

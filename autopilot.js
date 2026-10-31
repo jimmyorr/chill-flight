@@ -15,6 +15,8 @@ import {AutopilotCore, DrivingAutopilotCore} from './autopilot-logic.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {LANDMARKS} from './landmarks.js';
 import {getElevation} from './terrain-geometry.js';
+import {archTop} from './arches-logic.js';
+import {arches} from './arches.js';
 import {planeGroup, planeHandling} from './airplane.js';
 import {buggySurface} from './buggy.js';
 import {clearWaypoint, getWaypoint, setTourStop} from './waypoint.js';
@@ -27,8 +29,9 @@ const MAP_WIDTH = ChillFlightLogic.MAP_WIDTH;
 let tourStop = null; // {name, x, y, z}
 const visited = new Set();
 
+// The ground, the water or an arch's top (flying over arches, not into them)
 function groundAt(x, z) {
-  return Math.max(WATER_LEVEL, getElevation(x, z));
+  return Math.max(WATER_LEVEL, getElevation(x, z), archTop(arches, x, z));
 }
 
 // How it flies (autopilot-logic.js, shared with scripts/flight-sim.js)

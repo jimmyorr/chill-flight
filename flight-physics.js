@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import {getElevation, sampleGround} from './terrain-geometry.js';
 import {sampleRoad} from './terrain-chunks.js';
+import {ARCH, archCeiling, archGround} from './arches-logic.js';
+import {arches} from './arches.js';
 import {planeGroup, planeHandling} from './airplane.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {precipitation} from './weather-manager.js';
@@ -32,6 +34,13 @@ let isRolling = false;
 let onRoad = false;
 // How far below the deck the plane can be and still count as on it
 const ROAD_CATCH_DEPTH = 2.0;
+// Over an arch's rock (arches.js) this frame: its top is the ground, but not
+// for landing on
+let onArch = false;
+const _arch = {height: 0, slopeX: 0, slopeZ: 0};
+// Whether the plane was held under an arch's underside this frame
+// (wall-scrape.js scrapes it)
+export let underArch = false;
 // Whether the throttle has been opened since settling on the water or the
 // ground (see the surface drag below), and its setting last frame: every
 // throttle input (keys, gamepad, the throttle slider) raises it, and only
@@ -130,6 +139,19 @@ export function updateFlightPhysics(delta, nowTime) {
     terrainHeight = _road.height;
     isWater = false;
   }
+  // Above an arch's underside, its top is the ground (below, it goes by)
+  _arch.height = isWater ? WATER_LEVEL : terrainHeight;
+  onArch = archGround(
+    arches,
+    planeGroup.position.x,
+    planeGroup.position.z,
+    planeGroup.position.y,
+    _arch
+  );
+  if (onArch) {
+    terrainHeight = _arch.height;
+    isWater = false;
+  }
 
   // Ground avoidance heights:
   // Over water, avoidance and resting heights are anchored to WATER_LEVEL (surface)
@@ -149,7 +171,7 @@ export function updateFlightPhysics(delta, nowTime) {
   const gearDown =
     wheelDepth !== undefined && (!retracts || state.gearExtension >= 1);
   let onLandableGround = false;
-  if (!isWater && gearDown) {
+  if (!isWater && !onArch && gearDown) {
     sampleSurface(planeGroup.position.x, planeGroup.position.z);
     onLandableGround =
       Math.hypot(_ground.slopeX, _ground.slopeZ) <
@@ -462,6 +484,27 @@ export function updateFlightPhysics(delta, nowTime) {
     throttleOpenedOnSurface = false;
   }
   lastTargetSpeed = state.targetFlightSpeed;
+
+  // Under an arch, its underside holds the plane down (a climb into it is
+  // stopped there, scraping it)
+  underArch = false;
+  const ceiling = archCeiling(
+    arches,
+    planeGroup.position.x,
+    planeGroup.position.z,
+    planeGroup.position.y
+  );
+  if (
+    ceiling !== null &&
+    planeGroup.position.y > ceiling - ARCH.CEILING_MARGIN
+  ) {
+    planeGroup.position.y = Math.max(
+      minFlightHeight,
+      ceiling - ARCH.CEILING_MARGIN
+    );
+    state.verticalVelocity = Math.min(0, state.verticalVelocity);
+    underArch = true;
+  }
 
   const maxFlightHeight = 4045.5; // About 2,060 m on the altitude readout
   if (planeGroup.position.y > maxFlightHeight) {

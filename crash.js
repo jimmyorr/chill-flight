@@ -27,6 +27,8 @@ import {playSmash, playSplash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
 import {propPuffs, scrapeSparks} from './particles.js';
 import {hooks} from './hooks.js';
+import {archTop} from './arches-logic.js';
+import {arches} from './arches.js';
 import {
   CRASH,
   addPropHitStrain,
@@ -252,7 +254,7 @@ function triggerCrash() {
     heading,
     _ground,
     WATER_LEVEL,
-    getElevation
+    groundOrArch
   );
   state.flightSpeedMultiplier = 0;
   state.verticalVelocity = 0;
@@ -391,6 +393,12 @@ export function updateCrash(delta) {
     crashState.strain = 0;
   }
   stepCrashState(crashState, delta);
+}
+
+// The ground's height at (x, z), or an arch's top over it: the respawn
+// clears both
+function groundOrArch(x, z) {
+  return Math.max(getElevation(x, z), archTop(arches, x, z));
 }
 
 /**
