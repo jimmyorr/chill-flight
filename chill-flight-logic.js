@@ -172,6 +172,8 @@ export const ChillFlightLogic = {};
   const ADAPTIVE_QUALITY = getSwitchParam('adaptive') !== false;
   // ?traffic=0/1: other planes off or on for this visit (traffic.js)
   const TRAFFIC_PARAM = getSwitchParam('traffic');
+  // ?weightedRoll=1/0: the weighted roll on trial (game-loop.js)
+  const WEIGHTED_ROLL_PARAM = getSwitchParam('weightedRoll');
   // Flying together (multiplayer.js): ?room= a room code to join (an invite
   // link), ?relay= a relay to use instead of the game's own (local testing)
   const ROOM_PARAM = getParam('room', null);
@@ -4935,6 +4937,7 @@ export const ChillFlightLogic = {};
   exports.START_BENCHMARK = START_BENCHMARK;
   exports.ADAPTIVE_QUALITY = ADAPTIVE_QUALITY;
   exports.TRAFFIC_PARAM = TRAFFIC_PARAM;
+  exports.WEIGHTED_ROLL_PARAM = WEIGHTED_ROLL_PARAM;
   exports.ROOM_PARAM = ROOM_PARAM;
   exports.RELAY_PARAM = RELAY_PARAM;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;

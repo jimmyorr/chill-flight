@@ -1255,6 +1255,10 @@ const STEEP_DIVE_ANGLE = -(70 * Math.PI) / 180;
 const MAX_DIVE_ANGLE = -(75 * Math.PI) / 180;
 const MAX_CLIMB_ANGLE = (75 * Math.PI) / 180;
 const SLOW_CLIMB_ANGLE = (20 * Math.PI) / 180; // steepest climb at stall speed
+// Weighted roll (state.weightedRoll): its spring's stiffness against the
+// usual roll's rate, matched so both reach 90% of a new bank together
+const WEIGHTED_ROLL_OMEGA = 1.69;
+let rollRate = 0; // rad/s
 const PITCH_SPEED = 1.0; // rad/s (~57 deg/s)
 const STEEP_PITCH_SPEED = 1.6; // rad/s (~92 deg/s)
 
@@ -1874,7 +1878,25 @@ function updatePhysicsAndControls(delta, nowTime) {
         Math.min(maxClimb, planeGroup.rotation.x)
       );
     }
-    planeGroup.rotation.z = flightRot.roll;
+    const rollBefore = planeGroup.rotation.z;
+    if (state.weightedRoll && !state.isBarrelRolling) {
+      // Weighted roll (?weightedRoll=1, or the debug menu; on trial): the
+      // bank eases in and stops cleanly, like a spring with no overshoot,
+      // settling about when the usual roll does (WEIGHTED_ROLL_OMEGA)
+      const omega = WEIGHTED_ROLL_OMEGA * effTurnSpeed * 60;
+      let target = state.targetRoll;
+      while (target > rollBefore + Math.PI) target -= Math.PI * 2;
+      while (target < rollBefore - Math.PI) target += Math.PI * 2;
+      const step = Math.min(delta, 0.05);
+      rollRate +=
+        (omega * omega * (target - rollBefore) - 2 * omega * rollRate) * step;
+      planeGroup.rotation.z = rollBefore + rollRate * step;
+    } else {
+      planeGroup.rotation.z = flightRot.roll;
+      // Carried over, so switching to the weighted roll (or out of a barrel
+      // roll) doesn't jolt
+      rollRate = delta > 0 ? (flightRot.roll - rollBefore) / delta : 0;
+    }
 
     // Store calculated yaw to be applied later in the physics block
     state._nextYaw = flightRot.yaw;

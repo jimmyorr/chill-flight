@@ -379,6 +379,17 @@ export function initDebugUI() {
     });
   }
 
+  // Weighted roll, on trial (game-loop.js)
+  const weightedRollToggle = document.getElementById(
+    'debug-weighted-roll-toggle'
+  );
+  if (weightedRollToggle) {
+    weightedRollToggle.checked = state.weightedRoll;
+    weightedRollToggle.addEventListener('change', (e) => {
+      state.weightedRoll = e.target.checked;
+    });
+  }
+
   // Fog slider
   const fogSlider = document.getElementById('debug-fog-slider');
   const baseFogVal = document.getElementById('debug-base-fog-val');
