@@ -230,6 +230,9 @@
       <button class="model-btn" onclick="viewModel('canyon_bridge', event)">
         Canyon bridge
       </button>
+      <button class="model-btn" onclick="viewModel('gorge_bridge', event)">
+        Gorge bridge
+      </button>
       <button class="model-btn" onclick="viewModel('basalt_gate', event)">
         Basalt gate
       </button>
@@ -933,6 +936,7 @@
             // The arches to fly under (arches.js), on flat ground at 0
             case 'sea_arch':
             case 'canyon_bridge':
+            case 'gorge_bridge':
             case 'basalt_gate': {
               const rand = ChillFlightLogic.mulberry32(7);
               const arch =
@@ -940,7 +944,9 @@
                   ? seaArch(0, 0, 0, 0, rand)
                   : type === 'canyon_bridge'
                     ? canyonBridge(0, 0, 0, -160, 160, 0, 150, rand)
-                    : basaltGate(0, 0, 0, -190, 190, 0, 10, 62, 0.4);
+                    : type === 'gorge_bridge'
+                      ? canyonBridge(0, 0, 0, -180, 180, 0, 200, rand, 'gorge')
+                      : basaltGate(0, 0, 0, -190, 190, 0, 10, 62, 0.4);
               previewGroup.add(
                 new THREE.Mesh(
                   archGeometry(arch, () => 0),

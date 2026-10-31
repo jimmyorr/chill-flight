@@ -6,7 +6,8 @@
  * is found, each opening is clear to fly through with the underside a
  * ceiling over it, the top is the ground above it, a wingtip at its side is
  * pushed off sideways (wall-scrape-logic.js), the legs stand solid in the
- * water, the canyon's bridges end in its walls and the basalt columns lie on
+ * water, the canyon's and the mountain ravines' bridges end in their walls
+ * (with a way along the ravine under them) and the basalt columns lie on
  * their tops.
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
@@ -42,7 +43,7 @@ const arches = archSites(simplex, {WATER_LEVEL: WATER});
 const kinds = (kind) => arches.filter((a) => a.kind === kind);
 
 // --- 1. Found ---
-for (const kind of ['sea', 'canyon', 'basalt']) {
+for (const kind of ['sea', 'canyon', 'basalt', 'gorge']) {
   check(kinds(kind).length > 0, `no ${kind} arch in world ${SEED}`);
 }
 check(
@@ -60,7 +61,7 @@ for (const a of arches) {
   }
 }
 console.log(
-  `  Passed: ${kinds('sea').length} sea arches, ${kinds('canyon').length} canyon bridges, ${kinds('basalt').length} basalt gates`
+  `  Passed: ${kinds('sea').length} sea arches, ${kinds('canyon').length} canyon bridges, ${kinds('basalt').length} basalt gates, ${kinds('gorge').length} gorge bridges`
 );
 
 // A point on `arch` at (u, v) in its own space
@@ -175,14 +176,25 @@ for (const arch of kinds('sea')) {
     check(E(p.x, p.z) < WATER, `sea arch's way through is not water at ${v}`);
   }
 }
-for (const arch of kinds('canyon')) {
-  // Each end goes into the canyon's walls: the ground there is up to its top
+for (const arch of [...kinds('canyon'), ...kinds('gorge')]) {
+  // Each end goes into the gorge's walls: the ground there is up to its top
   for (const u of [arch.uMin, arch.uMax]) {
     const p = at(arch, u, 0);
     const top = archTop(arches, p.x, p.z);
     check(
       E(p.x, p.z) > top - 25,
-      `canyon bridge end at ${Math.round(u)} hangs ${Math.round(top - E(p.x, p.z))} over the ground`
+      `${arch.kind} bridge end at ${Math.round(u)} hangs ${Math.round(top - E(p.x, p.z))} over the ground`
+    );
+  }
+}
+for (const arch of kinds('gorge')) {
+  // And a way along the ravine under it, not a hollow
+  const c = crown(arch);
+  for (const v of [-400, -250, 250, 400]) {
+    const p = at(arch, c.u, v);
+    check(
+      E(p.x, p.z) < c.under - 40,
+      `gorge bridge's way along is blocked at ${v}`
     );
   }
 }

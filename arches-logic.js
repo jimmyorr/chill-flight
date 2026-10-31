@@ -13,6 +13,7 @@
 // - canyon: a natural bridge across the canyon at one of its tiers
 // - basalt: a fallen hex column lying across a ravine between two columns
 //   of the eastern land's honeycomb
+// - gorge: a natural bridge across a ravine in the mountain ranges
 //
 // Flying, its top is the ground when above it (like the highway's deck),
 // its underside is a ceiling when below it, and its sides are walls for the
@@ -32,6 +33,7 @@ export const ARCH = {
   SEA_COUNT: 4,
   CANYON_COUNT: 2,
   BASALT_COUNT: 6,
+  GORGE_COUNT: 3,
   // Arches of a kind stay at least this far apart (units)
   SPACING: 6000,
 };
@@ -318,6 +320,13 @@ export function seaArch(x, z, angle, water, rand, coast = {}) {
   );
 }
 
+// How much the land's cliffs at (x, z) are the south's red rock, 0 to 1
+function desertAt(x, z, simplex) {
+  const d =
+    Math.max(0, z / 5000) + ChillFlightLogic.desertShift(x, z, simplex) - 2;
+  return Math.max(0, Math.min(1, d));
+}
+
 // Whether there's a cliff coast `dir` (radians) from (x, z) out at sea: the
 // shore within 120 to 320 units and the land behind it standing at least
 // 120 over the water within 200 more, rising steeply: {shore, cliff} or null
@@ -408,13 +417,7 @@ function* findSeaArches(E, simplex, water, rand) {
       }
     }
     if (!through) continue;
-    const desert = Math.max(
-      0,
-      Math.min(
-        1,
-        Math.max(0, z / 5000) + ChillFlightLogic.desertShift(x, z, simplex) - 2
-      )
-    );
+    const desert = desertAt(x, z, simplex);
     found.push(
       seaArch(x, z, best.dir, water, rand, {
         W,
@@ -428,9 +431,45 @@ function* findSeaArches(E, simplex, water, rand) {
   return found;
 }
 
+// The canyon's path, in units
+function canyonPath() {
+  return ChillFlightLogic.CANYON_PATH.map(([lon, lat]) => [
+    lon * 5000,
+    -lat * 5000,
+  ]);
+}
+
+// How far (x, z) is from the canyon's path
+function canyonDistance(path, x, z) {
+  let best = Infinity;
+  for (let i = 0; i < path.length - 1; i++) {
+    const [ax, az] = path[i];
+    const dx = path[i + 1][0] - ax;
+    const dz = path[i + 1][1] - az;
+    const t = Math.max(
+      0,
+      Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz))
+    );
+    best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
+  }
+  return best;
+}
+
 // A natural bridge across the canyon at (x, z), its u axis across the gorge:
-// its top level with the tier `top`, its ends in the walls at uL and uR
-export function canyonBridge(x, z, angle, uL, uR, floor, top, rand) {
+// its top level with the tier `top`, its ends in the walls at uL and uR.
+// Also a mountain ravine's (kind 'gorge', `extra` its rock's desert).
+export function canyonBridge(
+  x,
+  z,
+  angle,
+  uL,
+  uR,
+  floor,
+  top,
+  rand,
+  kind = 'canyon',
+  extra = {}
+) {
   const mid = (uL + uR) / 2;
   const half = (uR - uL) / 2;
   const T = 30 + rand() * 14;
@@ -438,7 +477,7 @@ export function canyonBridge(x, z, angle, uL, uR, floor, top, rand) {
   const depth = 38 + rand() * 20;
   const bumpSide = wobble(rand);
   const bumpTop = wobble(rand);
-  return makeArch('canyon', x, z, angle, uL - 60, uR + 60, (u, p) => {
+  const shape = (u, p) => {
     const t = Math.abs(u - mid) / half;
     const crownUnder = top - T;
     p.under =
@@ -449,14 +488,71 @@ export function canyonBridge(x, z, angle, uL, uR, floor, top, rand) {
     p.top = top + 2 + bumpTop(u) * 2;
     p.depth = depth + bumpSide(u) * 10 + smooth(0.7, 1.3, t) * 20;
     p.round = 5;
-  });
+  };
+  return makeArch(kind, x, z, angle, uL - 60, uR + 60, shape, extra);
+}
+
+// The gorge across (x, z) along (ux, uz): the level it's best bridged at
+// (high above the floor, and narrow: its walls 160 to 650 apart there, at
+// least `rise` above the floor), or null. Checked a little either way along
+// the gorge too, so the walls are there all along the bridge.
+function gorgeSection(E, x, z, ux, uz, rise) {
+  const vx = -uz;
+  const vz = ux;
+  const profile = (offset) => {
+    const row = [];
+    for (let u = -500; u <= 500; u += 20) {
+      row.push(E(x + ux * u + vx * offset, z + uz * u + vz * offset));
+    }
+    return row;
+  };
+  const rows = [profile(0)];
+  const mid = 25;
+  let floor = Infinity;
+  let at = mid;
+  for (let k = mid - 10; k <= mid + 10; k++) {
+    if (rows[0][k] < floor) {
+      floor = rows[0][k];
+      at = k;
+    }
+  }
+  const edges = (row, level) => {
+    let l = at;
+    while (l > 0 && row[l] < level) l--;
+    let r = at;
+    while (r < row.length - 1 && row[r] < level) r++;
+    if (row[l] < level || row[r] < level) return null;
+    return [(l - mid) * 20, (r - mid) * 20];
+  };
+  let best = null;
+  for (let level = floor + rise; level < floor + 320; level += 8) {
+    const e = edges(rows[0], level);
+    if (!e) break;
+    const width = e[1] - e[0];
+    if (width > 650) break;
+    if (width < 160) continue;
+    const score = level - floor - width * 0.15;
+    if (best && score < best.score) continue;
+    if (rows.length === 1) rows.push(profile(-70), profile(70));
+    const ok = rows.slice(1).every((row) => {
+      const f = edges(row, level);
+      return f && Math.abs(f[0] - e[0]) < 80 && Math.abs(f[1] - e[1]) < 80;
+    });
+    if (ok) best = {uL: e[0], uR: e[1], top: level, score};
+  }
+  if (!best) return null;
+  return {x, z, ux, uz, floor, ...best};
+}
+
+// The canyon's gorge across (x, z) along (ux, uz), down by the river
+function canyonSection(E, x, z, ux, uz, water) {
+  if (E(x, z) > water + 30) return null;
+  const s = gorgeSection(E, x, z, ux, uz, 80);
+  return s && s.floor <= water + 30 ? s : null;
 }
 
 function* findCanyonBridges(E, water, rand) {
-  const path = ChillFlightLogic.CANYON_PATH.map(([lon, lat]) => [
-    lon * 5000,
-    -lat * 5000,
-  ]);
+  const path = canyonPath();
   const options = [];
   for (let i = 0; i < path.length - 1; i++) {
     const [ax, az] = path[i];
@@ -485,58 +581,104 @@ function* findCanyonBridges(E, water, rand) {
   return found;
 }
 
-// The gorge across (x, z) along (ux, uz): the tier it's best bridged at
-// (high above the floor, and narrow: its walls 160 to 650 apart there, at
-// least 80 above the floor), or null. Checked a little either way along the gorge
-// too, so the walls are there all along the bridge.
-function canyonSection(E, x, z, ux, uz, water) {
-  const profile = (offset) => {
-    const vx = -uz;
-    const vz = ux;
-    const row = [];
-    for (let u = -500; u <= 500; u += 20) {
-      row.push(E(x + ux * u + vx * offset, z + uz * u + vz * offset));
-    }
-    return row;
-  };
-  if (E(x, z) > water + 30) return null;
-  const rows = [profile(0)];
-  const mid = 25;
-  let floor = Infinity;
-  let at = mid;
-  for (let k = mid - 10; k <= mid + 10; k++) {
-    if (rows[0][k] < floor) {
-      floor = rows[0][k];
-      at = k;
+// Whether the gorge `s` (gorgeSection's) is open along it under its bridge:
+// the ground 100 under the bridge's top 120 to 400 either way
+function openUnder(E, s) {
+  const mid = (s.uL + s.uR) / 2;
+  const x = s.x + s.ux * mid;
+  const z = s.z + s.uz * mid;
+  for (const v of [-400, -250, -120, 120, 250, 400]) {
+    if (E(x - s.uz * v, z + s.ux * v) > s.top - 100) return false;
+  }
+  return true;
+}
+
+// Ravines in the first mountain ranges (1 North and 1 South, always there
+// and met early): the land's heights on a grid GORGE_GRID apart over them,
+// and each spot with the ground at least 120 higher a step away both ways
+// (across, along or either diagonal) looked across, the deepest first;
+// bridged where it's narrow and deep, and open along it under the bridge
+// (not a hollow).
+// Not in the alien lands or the eastern honeycomb (which has its own
+// columns), nor the canyon.
+const GORGE_GRID = 300;
+const GORGE_STEPS = [
+  [1, 0],
+  [0, 1],
+  [1, 1],
+  [1, -1],
+];
+function* findGorgeBridges(E, simplex, water, rand) {
+  const path = canyonPath();
+  const spots = [];
+  const rows = Math.round(6000 / GORGE_GRID) + 1;
+  for (const lat of [-1, 1]) {
+    const z0 = lat * 5000 - 3000;
+    // Three columns of heights (NaN where not looked at): x - 1, x, x + 1
+    let columns = [null, null, null];
+    const column = (x) => {
+      const h = new Float64Array(rows).fill(NaN);
+      for (let j = 0; j < rows; j++) {
+        const z = z0 + j * GORGE_GRID;
+        if (ChillFlightLogic.alienAt(x, z, simplex) > 0.05) continue;
+        if (canyonDistance(path, x, z) < 4000) continue;
+        h[j] = E(x, z);
+      }
+      return h;
+    };
+    for (let x = -100000; x <= 100000; x += GORGE_GRID) {
+      yield;
+      columns = [columns[1], columns[2] ?? column(x - GORGE_GRID), null];
+      columns[2] = column(x + GORGE_GRID);
+      const [, mid] = columns;
+      for (let j = 1; j < rows - 1; j++) {
+        const c = mid[j];
+        if (!(c >= water - 2)) continue;
+        for (const [di, dj] of GORGE_STEPS) {
+          // A missing height (NaN) fails
+          const depth =
+            Math.min(columns[1 + di][j + dj], columns[1 - di][j - dj]) - c;
+          if (!(depth >= 120)) continue;
+          const len = Math.hypot(di, dj);
+          spots.push({
+            x,
+            z: z0 + j * GORGE_GRID,
+            ux: di / len,
+            uz: dj / len,
+            depth,
+          });
+        }
+      }
     }
   }
-  if (floor > water + 30) return null;
-  const edges = (row, level) => {
-    let l = at;
-    while (l > 0 && row[l] < level) l--;
-    let r = at;
-    while (r < row.length - 1 && row[r] < level) r++;
-    if (row[l] < level || row[r] < level) return null;
-    return [(l - mid) * 20, (r - mid) * 20];
-  };
-  let best = null;
-  for (let level = floor + 80; level < floor + 320; level += 8) {
-    const e = edges(rows[0], level);
-    if (!e) break;
-    const width = e[1] - e[0];
-    if (width > 650) break;
-    if (width < 160) continue;
-    const score = level - floor - width * 0.15;
-    if (best && score < best.score) continue;
-    if (rows.length === 1) rows.push(profile(-70), profile(70));
-    const ok = rows.slice(1).every((row) => {
-      const f = edges(row, level);
-      return f && Math.abs(f[0] - e[0]) < 80 && Math.abs(f[1] - e[1]) < 80;
-    });
-    if (ok) best = {uL: e[0], uR: e[1], top: level, score};
+  spots.sort((a, b) => b.depth - a.depth);
+  const found = [];
+  let tried = 0;
+  for (const spot of spots) {
+    if (found.length >= ARCH.GORGE_COUNT || tried > 200) break;
+    if (!farFrom(found, spot.x, spot.z, ARCH.SPACING)) continue;
+    if (ChillFlightLogic.isOnAirport(spot.x, spot.z, 1500)) continue;
+    yield;
+    tried++;
+    const o = gorgeSection(E, spot.x, spot.z, spot.ux, spot.uz, 100);
+    if (!o || !openUnder(E, o)) continue;
+    const desert = desertAt(o.x, o.z, simplex);
+    found.push(
+      canyonBridge(
+        o.x,
+        o.z,
+        Math.atan2(o.uz, o.ux),
+        o.uL,
+        o.uR,
+        o.floor,
+        o.top,
+        rand,
+        'gorge',
+        {desert}
+      )
+    );
   }
-  if (!best) return null;
-  return {x, z, ux, uz, floor, ...best};
+  return found;
 }
 
 // A fallen hex column lying across a ravine, its u axis along its length,
@@ -651,8 +793,8 @@ const _sites = new WeakMap();
 
 /**
  * Every arch in this world (the world seed and noise), worked out once:
- * sea arches in the island sea, a bridge or two over the canyon and fallen
- * columns in the eastern honeycomb. A generator that yields every few
+ * sea arches in the island sea, a bridge or two over the canyon, fallen
+ * columns in the eastern honeycomb and bridges over mountain ravines. A generator that yields every few
  * looks at the land, so the search can be spread over frames (arches.js),
  * and returns the arches.
  */
@@ -668,6 +810,7 @@ export function* archSearch(simplex, constants = {}) {
     ...(yield* findSeaArches(E, simplex, water, worldRandom(simplex, 1.1))),
     ...(yield* findCanyonBridges(E, water, worldRandom(simplex, 2.2))),
     ...(yield* findBasaltGates(E, simplex, water, worldRandom(simplex, 3.3))),
+    ...(yield* findGorgeBridges(E, simplex, water, worldRandom(simplex, 4.4))),
   ];
   _sites.set(simplex, {signature, arches});
   return arches;

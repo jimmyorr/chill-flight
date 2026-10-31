@@ -1,7 +1,7 @@
 // --- ARCHES ---
 // Rock arches to fly under (arches-logic.js finds them and has the maths):
-// sea arches in the island sea, natural bridges over the canyon and fallen
-// basalt columns across the eastern ravines. The ground can't have a roof,
+// sea arches in the island sea, natural bridges over the canyon and the
+// mountains' ravines, and fallen basalt columns across the eastern ravines. The ground can't have a roof,
 // so each is drawn here, a little outside the rock the plane meets. They use
 // the terrain's material, so they light, fog and fade into the distance
 // with the land.
@@ -51,7 +51,7 @@ function hash(x, y, z) {
   return (h >>> 0) / 4294967296;
 }
 
-// A slab arch's (sea, canyon) rings of points around its cross section at
+// A slab arch's (sea, canyon, gorge) rings of points around its cross section at
 // each drawn u: over the top, down one side, under and up the other, in the
 // arch's own space (u, y, v). Where it's solid to the ground, the bottom is
 // below the ground there (groundAt, in world space).
@@ -179,6 +179,12 @@ function faceColor(arch, a, b, c, out) {
           ? (high - 0.4) * 1.4 * (0.6 + 0.4 * r)
           : 0;
     if (white > 0) out.lerp(GUANO, Math.min(0.85, white * birds));
+  } else if (arch.kind === 'gorge') {
+    // The mountains' cliffs, darker underneath
+    out
+      .copy(CLIFF_GREY)
+      .lerp(CLIFF_RED, arch.desert ?? 0)
+      .multiplyScalar((_n.y < -0.3 ? 0.75 : 0.92) + r * 0.14);
   } else if (arch.kind === 'canyon') {
     const tier = Math.floor(
       (y - WATER_LEVEL - 14) / ChillFlightLogic.CANYON_TIER_HEIGHT
