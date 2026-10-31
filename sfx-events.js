@@ -89,6 +89,11 @@ let lastGear = null;
 let lastTouchdown = 0;
 let lastY = null;
 let fallRate = 0;
+// The buggy's speed last frame and how fast it is changing (knots per second,
+// smoothed), and the swell that change sets off in its rumble
+let lastSpeed = null;
+let speedRate = 0;
+let buggySwell = 0;
 let startedAt = 0;
 // Places the falls' sound in the scene; loops below route through it
 let fallsPanner = null;
@@ -123,6 +128,7 @@ function build() {
   fallsPanner.connect(bus);
   loops = {
     taxi: makeLoop('lowpass', 200, 0.7),
+    crunch: makeLoop('bandpass', 1100, 0.9),
     water: makeLoop('bandpass', 500, 0.6),
     fall: makeLoop('bandpass', 700, 1.2),
     rain: makeLoop('highpass', 1800, 0.5),
@@ -656,9 +662,25 @@ export function updateSfxEvents(delta, rain = 0) {
   lastWater = onWater;
   lastGear = state.gearWanted;
 
-  // Taxi rumble on land, rising with ground speed
+  // The buggy only makes noise when something happens: a swell of rumble as
+  // it speeds up or slows down that dies away at a steady speed, a gravel
+  // crunch while it slides, and spray on the water. A steady cruise is quiet
+  const buggy = activePlaneType === 'buggy';
+  if (lastSpeed !== null && !paused) {
+    const rate = (Math.abs(speed - lastSpeed) * 150) / delta;
+    speedRate += (rate - speedRate) * Math.min(1, delta * 8);
+  }
+  lastSpeed = speed;
+  const swellTarget = THREE.MathUtils.clamp((speedRate - 4) / 26, 0, 1);
+  // Builds quickly, then fades over about a second and a half
+  const swellRate = swellTarget > buggySwell ? 10 : 2;
+  buggySwell += (swellTarget - buggySwell) * Math.min(1, delta * swellRate);
+
+  // Taxi rumble on land, rising with ground speed; the buggy's follows the
+  // swell instead
   const rolling = THREE.MathUtils.clamp(speed / 0.6, 0, 1);
-  const taxiRoll = preview.taxi ? 0.6 : onGround ? rolling : 0;
+  const groundRoll = buggy ? rolling * buggySwell : rolling;
+  const taxiRoll = preview.taxi ? 0.6 : onGround ? groundRoll : 0;
   setLoop(
     loops.taxi.gain.gain,
     isSfxEventEnabled('taxi') || preview.taxi ? 0.5 * taxiRoll : 0,
@@ -666,10 +688,22 @@ export function updateSfxEvents(delta, rain = 0) {
   );
   setLoop(loops.taxi.filter.frequency, 120 + taxiRoll * 260);
 
-  // Water: gentle lapping when resting, a hiss of spray when moving
+  // Gravel under the buggy's tyres while it drifts or brakes hard
+  const slide = buggy && onGround ? state.buggySlide || 0 : 0;
+  const crunch = isSfxEventEnabled('taxi') ? slide : 0;
+  // A little flutter so it sounds like loose stones, not a steady hiss
+  const grit = 0.75 + 0.25 * Math.random();
+  setLoop(loops.crunch.gain.gain, 0.3 * crunch * grit, 0.05);
+  setLoop(loops.crunch.filter.frequency, 800 + crunch * 900, 0.05);
+
+  // Water: gentle lapping when resting, a hiss of spray when moving. The
+  // buggy laps only when slow, and sprays only turning hard, braking or
+  // speeding up
   const waterOn = preview.water || (isSfxEventEnabled('water') && onWater);
-  const waterRoll = preview.water ? 0 : rolling;
-  const lap = 0.22;
+  const buggySpray = Math.max(state.buggySpray || 0, buggySwell);
+  const waterRoll = preview.water ? 0 : buggy ? buggySpray : rolling;
+  const calm = buggy ? 1 - THREE.MathUtils.clamp(speed / 0.2, 0, 1) : 1;
+  const lap = 0.22 * calm;
   setLoop(loops.water.gain.gain, waterOn ? lap + 0.5 * waterRoll : 0, 0.2);
   setLoop(loops.water.swellDepth.gain, waterOn ? lap * 0.7 : 0, 0.2);
   setLoop(loops.water.filter.frequency, 450 + waterRoll * 1600);

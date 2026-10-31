@@ -71,6 +71,8 @@ export const state = {
   isCrashed: false,
   // How hard the buggy is sliding, 0-1 (buggy.js; tyre smoke in particles.js)
   buggySlide: 0,
+  // The same on water, for spray sounds (sfx-events.js)
+  buggySpray: 0,
 
   // Next frame's yaw, computed in game-loop.js and applied by flight-physics.js
   _nextYaw: undefined,

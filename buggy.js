@@ -811,4 +811,7 @@ export function updateBuggy(delta) {
   const drifting = THREE.MathUtils.clamp((Math.abs(slip) - 0.1) / 0.3, 0, 1);
   state.buggySlide =
     !airborne && !onWater && speed > 15 ? Math.max(braking, drifting) : 0;
+  // The same off water, for the spray thrown up by hard turns and stops
+  state.buggySpray =
+    !airborne && onWater && speed > 15 ? Math.max(braking, drifting) : 0;
 }
