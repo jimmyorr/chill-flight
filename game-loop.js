@@ -139,6 +139,7 @@ import {
 import {updateFlightCamera} from './flight-camera.js';
 import {trafficCount, updateTraffic} from './traffic.js';
 import {updateParticles} from './particles.js';
+import {updateGrass} from './grass.js';
 import {updateMultiplayer} from './multiplayer.js';
 import {updateBreakables} from './breakables.js';
 import {applyBumps, updateBumps} from './bumps.js';
@@ -576,6 +577,7 @@ function performFrame() {
   updateBumps(delta);
   updateBreakables(delta);
   updateParticles(delta);
+  updateGrass(delta);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping();
   // Smoothly interpolate sky shader palettes

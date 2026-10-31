@@ -166,6 +166,22 @@ var _isLowQualityInitial =
 export var VOLCANO_X = -5000;
 export var VOLCANO_Z = 5000;
 
+// Tall grass (grass.js, ?grass=1). Its gusts: bands that roll downwind
+// across the land, shared by the grass blades (how far they lean) and the
+// terrain (a sheen on green ground where a gust passes, seen from the air).
+export const GRASS_ON = !!ChillFlightLogic.GRASS;
+export const GRASS_WAVE_GLSL = `
+  #define GRASS_WIND_DIR normalize(vec2(${WIND_DIR_X.toFixed(2)}, ${WIND_DIR_Z.toFixed(2)}))
+  float grassGust(vec2 p, float time) {
+    vec2 wd = GRASS_WIND_DIR;
+    float along = dot(p, wd);
+    float across = dot(p, vec2(-wd.y, wd.x));
+    float w = sin(along * 0.03 - time * 0.75 + sin(across * 0.006) * 2.5 + sin(across * 0.017 + along * 0.004) * 1.2);
+    float g = 0.5 + 0.5 * w;
+    return g * g * (0.55 + 0.45 * sin(along * 0.0023 + across * 0.0031 - time * 0.11));
+  }
+`;
+
 // Materials for terrain
 export var terrainMaterial = createMaterial({
   vertexColors: true,
@@ -245,6 +261,15 @@ terrainMaterial.onBeforeCompile = (shader) => {
      #endif`
   );
 
+  if (GRASS_ON) {
+    shader.uniforms.uTime = animationUniforms.uTime;
+    shader.fragmentShader =
+      `#define GRASS_SHEEN
+      uniform float uTime;
+      ${GRASS_WAVE_GLSL}
+    ` + shader.fragmentShader;
+  }
+
   shader.fragmentShader =
     `
     uniform float uRenderRadius;
@@ -267,6 +292,13 @@ terrainMaterial.onBeforeCompile = (shader) => {
     `#include <color_fragment>
      float snowWhiteness = smoothstep(0.55, 0.85, min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b)));
      diffuseColor.rgb *= mix(vec3(1.0), uSnowExposure, snowWhiteness);
+     #ifdef GRASS_SHEEN
+     {
+       float sheenGreen = smoothstep(0.015, 0.06, diffuseColor.g - max(diffuseColor.r, diffuseColor.b));
+       float sheenFade = 1.0 - smoothstep(2500.0, 6000.0, vDistanceXZ);
+       diffuseColor.rgb *= 1.0 + 0.12 * grassGust(vWorldPosition.xz, uTime) * sheenGreen * sheenFade;
+     }
+     #endif
      #ifdef ANIME_TERRAIN
        animeTerrainColor(diffuseColor.rgb);
      #endif`
