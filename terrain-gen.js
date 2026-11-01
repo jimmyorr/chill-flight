@@ -224,6 +224,9 @@ const _treeTempColor = new Color();
 
 const VOLCANO_X = -5000;
 const VOLCANO_Z = 5000;
+// Palms stop where the desert takes over (desertFactor), leaving a gap
+// before the cacti start at 0.4, so the two never grow side by side
+const PALM_MAX_DESERT = 0.3;
 const ENABLE_PAGODAS = false;
 const ENABLE_BARNS = true;
 const ENABLE_MONASTERIES = true;
@@ -2636,7 +2639,13 @@ export function generateChunkData({
 
           if (distToVolcano < 3000 && rng() < 0.7) {
             yellowCortezTreePositions.push(treeSpot);
-          } else if (isIsland && isSouthOf1N) {
+          } else if (
+            isIsland &&
+            isSouthOf1N &&
+            desertFactor < PALM_MAX_DESERT
+          ) {
+            // Palms on the tropical islands, but not out in the desert's
+            // dunes, which belong to the cacti (they start at 0.4)
             palmTreePositions.push(treeSpot);
           } else if (
             snowFactor > 0.4 ||
@@ -2657,7 +2666,12 @@ export function generateChunkData({
           } else if (
             eastCoastFactor > 0.7 &&
             height < WATER_LEVEL + 40 &&
-            !isIsland
+            !isIsland &&
+            desertFactor < PALM_MAX_DESERT &&
+            // Only where the woods stay green: north of where the leaves
+            // start to turn, the coast's palms would stand among pines,
+            // autumn colours and bare trees
+            ChillFlightLogic.fallTurnAt(worldX, worldZ, height, simplex) === 0
           ) {
             palmTreePositions.push(treeSpot);
           } else {
@@ -2921,7 +2935,9 @@ export function generateChunkData({
                 const hz = localZ + rowZ * along + rowX * across;
                 const hy = k === 0 ? height : heightAtLocal(hx, hz);
                 const houseRot = k === 0 ? rotY : houseRotY();
-                if (isIsland) {
+                // Straw huts on the tropical islands; the desert's islands
+                // get its adobe houses
+                if (isIsland && houseStyle !== 'adobe') {
                   strawHutPositions.push({x: hx, y: hy, z: hz, rotY: houseRot});
                   continue;
                 }
