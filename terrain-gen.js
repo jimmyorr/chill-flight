@@ -239,7 +239,7 @@ const HAY_FIELD_CHANCE = 0.45;
 const HAY_BALE_CHANCE = 0.12;
 // Ice fishing huts on the far north's frozen lakes: they gather in little
 // camps (a slow noise field) out on the ice, with this chance per grid point
-const ICE_HUT_CHANCE = 0.05;
+const ICE_HUT_CHANCE = 0.03;
 export const ICE_HUT_COLORS = [
   0xb8463a, 0x3f6fa3, 0x4e8a4c, 0xd9a43c, 0xc9682f,
 ];
@@ -2054,6 +2054,10 @@ export function generateChunkData({
     const localZ = positions[i + 2];
     const worldX = worldOffsetX + localX;
     const worldZ = worldOffsetZ + localZ;
+    // The chunk's east and south rows of grid points are its neighbours'
+    // west and north rows too. Props placed from hashes of the grid point
+    // (not the chunk's rolls) skip them, so they aren't placed twice.
+    const sharedEdge = localX > chunkSize / 2 - 1 || localZ > chunkSize / 2 - 1;
     const isEast = worldX > 0;
     // How alien the colours are, past the wandering edges of the alien lands.
     // Props turn alien (mushrooms, no houses or ordinary trees) partway in,
@@ -2837,6 +2841,7 @@ export function generateChunkData({
           const gx = Math.round(worldX / gridSpacing);
           const gz = Math.round(worldZ / gridSpacing);
           if (
+            !sharedEdge &&
             fieldHash(f.bx * 31 + fi, f.bz * 17 + fj, 9) < HAY_FIELD_CHANCE &&
             fieldHash(gx, gz, 23) < HAY_BALE_CHANCE * densityScale
           ) {
@@ -3304,11 +3309,11 @@ export function generateChunkData({
 
     // Ice fishing huts out on a frozen lake, in little camps. From hashes of
     // the grid point, not the chunk's rolls.
-    if (_enableObjects && isLakeIce && !isAlienLand) {
+    if (_enableObjects && isLakeIce && !isAlienLand && !sharedEdge) {
       const gx = Math.round(worldX / gridSpacing);
       const gz = Math.round(worldZ / gridSpacing);
       if (
-        simplex.noise2D(worldX * 0.002 + 61, worldZ * 0.002 - 47) > 0.3 &&
+        simplex.noise2D(worldX * 0.002 + 61, worldZ * 0.002 - 47) > 0.55 &&
         fieldHash(gx, gz, 71) < ICE_HUT_CHANCE * densityScale
       ) {
         iceHutPositions.push({
