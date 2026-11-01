@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {controlSchemeToggle, gyroSchemeBtn, gyroSensitivity} from './game.js';
 import {inputManager} from './game-input-bindings.js';
 import {state} from './state.js';
+import {t} from './i18n.js';
 
 function checkGyroSupport() {
   let supported = false;
@@ -56,7 +57,7 @@ if (controlSchemeToggle) {
           const permissionState =
             await DeviceOrientationEvent.requestPermission();
           if (permissionState !== 'granted') {
-            alert('Gyro permission denied.');
+            alert(t('Gyro permission denied.'));
             return; // Don't switch to gyro
           }
         } catch (err) {

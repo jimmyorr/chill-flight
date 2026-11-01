@@ -15,9 +15,10 @@ import {
   outfitOf,
 } from './faces.js';
 import {playDialogBlip} from './sfx-events.js';
+import {NO_SPACES, t} from './i18n.js';
 
-// Characters typed per second
-const TYPE_RATE = 35;
+// Characters typed per second (Chinese says more in each one)
+const TYPE_RATE = NO_SPACES ? 18 : 35;
 
 const dialog = document.getElementById('npc-dialog');
 const portrait = document.getElementById('npc-portrait');
@@ -93,7 +94,7 @@ export function changeOutfit(name, outfit) {
 // question, and answer(yes) is called with the reply.
 export function openDialog(person, newLines, answer = null) {
   if (!dialog || !newLines?.length) return;
-  dialogName.textContent = person.name;
+  dialogName.textContent = t(person.name);
   face = wearing[person.name] || FACES[person.name];
   voice = person.name;
   lines = newLines;

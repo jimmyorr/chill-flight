@@ -30,6 +30,15 @@ body {
   -webkit-touch-callout: none;
 }
 
+/* Chinese (i18n.js sets <html lang>): each system's Simplified Chinese
+   font, so no device falls back to Japanese or Traditional glyphs. Elements
+   with their own font fall back to the same through the lang. */
+html:lang(zh) body {
+  font-family:
+    'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', sans-serif;
+}
+
 body > canvas {
   display: block;
   position: fixed;

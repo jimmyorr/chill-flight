@@ -52,6 +52,7 @@ import {
   newStuckWatch,
   stepStuck,
 } from './rescue-logic.js';
+import {t} from './i18n.js';
 
 // Speeds in units per second, which read as knots; accelerations in units
 // per second squared
@@ -424,8 +425,8 @@ function rescue(cruiseKts, joyY, speed, dt) {
   _lastPos.copy(pos);
   Achievements.toast({
     emoji: '🛞',
-    label: 'STUCK',
-    title: 'Back on the road',
+    label: t('STUCK'),
+    title: t('Back on the road'),
   });
 }
 

@@ -2,6 +2,7 @@
 // Data registry, localStorage persistence, unlock API, and in-game toast notifications.
 // Loaded before game.js so Achievements.unlock() is available during gameplay.
 import {log} from './logger.js';
+import {t} from './i18n.js';
 
 export const Achievements = (function () {
   // --- ACHIEVEMENT REGISTRY ---
@@ -343,11 +344,15 @@ export const Achievements = (function () {
 
     const label = document.createElement('div');
     label.className = 'achievement-toast-label';
-    label.textContent = detail.label || 'ACHIEVEMENT UNLOCKED';
+    // Achievements send their English title; other toasts translate their
+    // own (t() leaves an already translated title as it is)
+    label.textContent = detail.label
+      ? t(detail.label)
+      : t('ACHIEVEMENT UNLOCKED');
 
     const title = document.createElement('div');
     title.className = 'achievement-toast-title';
-    title.textContent = detail.title;
+    title.textContent = t(detail.title);
 
     text.appendChild(label);
     text.appendChild(title);
@@ -386,7 +391,10 @@ export const Achievements = (function () {
 
     const progressEl = document.getElementById('achievements-progress');
     if (progressEl) {
-      progressEl.textContent = `${getUnlockedCount()} of ${getTotalCount()} unlocked`;
+      progressEl.textContent = t('{n} of {total} unlocked', {
+        n: getUnlockedCount(),
+        total: getTotalCount(),
+      });
     }
 
     updateStats(
@@ -405,7 +413,7 @@ export const Achievements = (function () {
 
       const titleEl = document.createElement('div');
       titleEl.className = 'achievement-card-title';
-      titleEl.textContent = achievement.title;
+      titleEl.textContent = t(achievement.title);
 
       card.appendChild(emojiEl);
       card.appendChild(titleEl);
@@ -414,7 +422,7 @@ export const Achievements = (function () {
       if (unlocked) {
         const hintEl = document.createElement('div');
         hintEl.className = 'achievement-card-hint';
-        hintEl.textContent = achievement.hint;
+        hintEl.textContent = t(achievement.hint);
         card.appendChild(hintEl);
       }
 
@@ -445,7 +453,7 @@ export const Achievements = (function () {
     if (statsEl) {
       // Divide by 1000 to simulate 'miles/km' and round to 1 decimal place
       const displayDist = (distance / 1000).toFixed(1);
-      statsEl.textContent = `LIFETIME DISTANCE: ${displayDist} KM`;
+      statsEl.textContent = t('LIFETIME DISTANCE: {km} KM', {km: displayDist});
     }
   }
 

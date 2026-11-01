@@ -8,12 +8,14 @@
 // jobs you've done for each and the job you're on.
 // No DOM or three.js, so scripts/test-jobs.js can run it in Node.
 import {PEOPLE} from './people.js';
+import {t} from './i18n.js';
 
 export const KINDS = ['round trip', 'one way'];
 
 // Said after the first job you ever take, so dropping one is easy to find
 const FIRST_JOB_TIP =
   'If something comes up, just clear the waypoint on the map.';
+// (translated where it's said, as are people's lines: people.js has English)
 
 function pick(list, rng) {
   return list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
@@ -47,11 +49,16 @@ export function doneFor(progress, name) {
   return progress.done[name] || 0;
 }
 
-// What a person says, with {to}, {name} and {done} filled in
+// What a person says, in the player's language, with {to}, {name} and
+// {done} filled in
 function say(person, field, progress, to, rng) {
   const n = doneFor(progress, person.name);
-  const words = {to, name: person.name, done: n === 1 ? '1 job' : `${n} jobs`};
-  return lines(field, rng).map((line) => fill(line, words));
+  const words = {
+    to: t(to),
+    name: t(person.name),
+    done: n === 1 ? t('1 job') : t('{n} jobs', {n}),
+  };
+  return lines(field, rng).map((line) => fill(t(line), words));
 }
 
 // Where to fly next: null with no job on
@@ -133,7 +140,12 @@ export function land(progress, field, rng = Math.random, people = PEOPLE) {
       dialog: null,
       offer: null,
       outfit: null,
-      toast: {label: 'PICKED UP', title: spec.cargo || `For ${person.name}`},
+      toast: {
+        label: t('PICKED UP'),
+        title: spec.cargo
+          ? t(spec.cargo)
+          : t('For {name}', {name: t(person.name)}),
+      },
     };
   }
 
@@ -149,7 +161,10 @@ export function land(progress, field, rng = Math.random, people = PEOPLE) {
     dialog: say(person, spec.thanks, next, job.to, rng),
     offer: null,
     outfit: spec.outfit || null,
-    toast: {label: 'JOB DONE', title: `For ${person.name}`},
+    toast: {
+      label: t('JOB DONE'),
+      title: t('For {name}', {name: t(person.name)}),
+    },
   };
 }
 
@@ -157,7 +172,7 @@ export function land(progress, field, rng = Math.random, people = PEOPLE) {
 export function accept(progress, offer, rng = Math.random, people = PEOPLE) {
   const person = personNamed(offer.person, people);
   const dialog = say(person, person.accept, progress, offer.to, rng);
-  if (!progress.tipped) dialog.push(FIRST_JOB_TIP);
+  if (!progress.tipped) dialog.push(t(FIRST_JOB_TIP));
   return {
     progress: {
       ...progress,

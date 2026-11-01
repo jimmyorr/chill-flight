@@ -8,6 +8,7 @@ import '@fontsource/inter/latin-600.css';
 import '@fontsource/inter/latin-700.css';
 import '../storage-polyfill.js';
 import '../logger.js';
+import '../i18n.js';
 import '../network.js';
 import '../chill-flight-logic.js';
 import '../art-style.js';

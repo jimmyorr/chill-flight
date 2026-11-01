@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import {scene} from './scene.js';
 import {formatDistance, screenPlacement} from './waypoint.js';
 import {ARCH_HALF, ARCH_HEIGHT, RING_RADIUS} from './race-logic.js';
+import {t} from './i18n.js';
 
 const GOLD = 0xffc23d;
 const FAINT = 0xffffff;
@@ -195,7 +196,7 @@ export function updateGates(from, heightAt, timeS) {
   _pos.set(nextGate.x, nextGate.y, nextGate.z);
   const dist = formatDistance(from.distanceTo(_pos));
   const last = nextGate.i === course.gates.length - 1;
-  const name = last ? 'Finish' : `Gate ${nextGate.i + 1}`;
+  const name = last ? t('Finish') : t('Gate {n}', {n: nextGate.i + 1});
   const key = `${name}|${dist}`;
   if (key === markerKey) return;
   markerKey = key;

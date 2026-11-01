@@ -15,6 +15,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation} from './terrain-geometry.js';
 import {UNITS_TO_M, WATER_LEVEL} from './constants.js';
 import {playChime} from './sfx-events.js';
+import {t} from './i18n.js';
 
 const STORAGE_KEY = 'chill_flight_waypoint';
 // Within this many units (horizontally) counts as there
@@ -179,7 +180,7 @@ function update() {
   el.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
   el.style.setProperty('--waypoint-angle', `${angle.toFixed(3)}rad`);
   const distText = target.name
-    ? `${target.name} · ${formatDistance(dist)}`
+    ? `${t(target.name)} · ${formatDistance(dist)}`
     : formatDistance(dist);
   if (distText !== lastDistText) {
     lastDistText = distText;

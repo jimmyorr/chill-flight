@@ -35,6 +35,7 @@ import {
   validProgress,
   visit,
 } from './jobs-logic.js';
+import {t} from './i18n.js';
 
 const PROGRESS_KEY = 'chill_flight_jobs';
 // Where the coffee run, before there were people, kept its progress
@@ -104,8 +105,9 @@ function updateHud() {
   hud.hidden = !field;
   if (statusPanel) statusPanel.style.display = hud.hidden ? 'flex' : 'none';
   if (hud.hidden) return;
-  hudPerson.textContent = progress.job.person;
-  hudCargo.textContent = `${cargoLabel(progress) || 'Empty'} → ${field}`;
+  hudPerson.textContent = t(progress.job.person);
+  const cargo = cargoLabel(progress);
+  hudCargo.textContent = `${cargo ? t(cargo) : t('Empty')} → ${t(field)}`;
 }
 
 // Odd jobs (a job done for anyone) and meeting everyone
@@ -131,7 +133,11 @@ function setProgress(next) {
 export function cancelJob() {
   if (!onJobWaypoint()) return;
   setProgress(cancel(progress));
-  Achievements.toast({emoji: '📦', label: 'JOB DROPPED', title: 'No worries'});
+  Achievements.toast({
+    emoji: '📦',
+    label: t('JOB DROPPED'),
+    title: t('No worries'),
+  });
   log.info('[Jobs] Job dropped');
 }
 

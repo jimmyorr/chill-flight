@@ -34,6 +34,7 @@ import {getChunkLoadingProgress} from './terrain-chunks.js';
 import {performanceMonitor} from './game-performance.js';
 import {resetAutopilot} from './autopilot.js';
 import {isSmokeOn, toggleSmoke} from './particles.js';
+import {t} from './i18n.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -73,7 +74,7 @@ export function toggleAutopilot(forceState) {
   const flightStatusEl = document.getElementById('flight-status');
   if (flightStatusEl) {
     if (state.autopilotEnabled) {
-      flightStatusEl.textContent = 'Autopilot';
+      flightStatusEl.textContent = t('Autopilot');
       flightStatusEl.style.color = '#e74c3c';
     } else {
       flightStatusEl.textContent = 'Chill-Flight';
@@ -588,10 +589,10 @@ if (overlay && renderer) {
 
     const msgEl = document.getElementById('splash-loading-msg');
     const messages = [
-      'Generating terrain chunks...',
-      'Reticulating splines...',
-      'Calculating flight paths...',
-      'Have a chill flight.',
+      t('Generating terrain chunks...'),
+      t('Reticulating splines...'),
+      t('Calculating flight paths...'),
+      t('Have a chill flight.'),
     ];
 
     let messageIndex = 0;

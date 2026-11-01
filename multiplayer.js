@@ -141,6 +141,7 @@ import {
   unpackState,
   waggleRoll,
 } from './multiplayer-logic.js';
+import {joinList, t} from './i18n.js';
 
 // The relay (relay/README.md); empty hides flying together. ?relay= uses
 // another one, e.g. ws://localhost:8787 for a local `wrangler dev`.
@@ -308,13 +309,15 @@ function isNativeApp() {
 }
 
 function toast(title) {
-  Achievements.toast({emoji: '👋', label: 'FLY TOGETHER', title});
+  Achievements.toast({emoji: '👋', label: t('FLY TOGETHER'), title});
 }
 
 // What the panel says while the connection is down, getting back in
 function linkNote() {
   if (!room || room.local || socket || suspended) return '';
-  return navigator.onLine ? 'Reconnecting…' : 'Offline, waiting to reconnect…';
+  return navigator.onLine
+    ? t('Reconnecting…')
+    : t('Offline, waiting to reconnect…');
 }
 
 function setStatus(text) {
@@ -453,7 +456,7 @@ function onHello(peer, msg) {
     Object.assign(peer, {name, plane, livery});
     buildPeer(peer);
   }
-  if (isNew && peer.announce) toast(`${name} joined`);
+  if (isNew && peer.announce) toast(t('{name} joined', {name}));
   applyTag(readTag(msg.tag));
   if (msg.race) applyRace(readRace(msg.race));
   if (isNew && !ownerOf(peer.id)) syncBots();
@@ -487,7 +490,7 @@ function onMessage(event) {
     ];
     const name = peers.get(msg.f)?.name;
     for (const id of gone) removePeer(id);
-    if (name) toast(`${name} left`);
+    if (name) toast(t('{name} left', {name}));
     for (const id of gone) tagAfterLeaving(id);
     syncBots();
     renderPanel();
@@ -555,7 +558,7 @@ function onMessage(event) {
 // --- TAG ---
 
 function nameOf(id) {
-  return peers.get(id)?.name || 'A friend';
+  return peers.get(id)?.name || t('A friend');
 }
 
 // The vehicle locked in for a game, as last set (applyBoost)
@@ -641,18 +644,18 @@ function renderTagChip() {
     return;
   }
   const left = timeLeft();
-  const who = amIt ? "You're it" : `${nameOf(tag.it)} is it`;
+  const who = amIt ? t("You're it") : t('{name} is it', {name: nameOf(tag.it)});
   const text =
     left > 0
       ? `${who} · ${pointsText(Math.floor(myPoints))} · ${formatTagTime(left)}`
-      : `Time's up · ${pointsText(Math.floor(myPoints))}`;
+      : t("Time's up · {points}", {points: pointsText(Math.floor(myPoints))});
   if (text === chipText) return;
   chipText = text;
   tagChip.textContent = text;
 }
 
 function pointsText(n) {
-  return n === 1 ? '1 point' : `${n} points`;
+  return n === 1 ? t('1 point') : t('{n} points', {n});
 }
 
 // The round's time to go (ms)
@@ -719,21 +722,26 @@ function setTag(next) {
         : null;
       if (win?.ids.length > 1) {
         const names = win.ids.map((id) =>
-          id === room.id ? 'You' : nameOf(id)
+          id === room.id ? t('You') : nameOf(id)
         );
-        const who = `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
-        toast(`Tag is over · ${who} share the win`);
+        const who = joinList(names);
+        toast(t('Tag is over · {who} share the win', {who}));
       } else if (win) {
-        const who = win.id === room.id ? 'You' : nameOf(win.id);
-        toast(`Tag is over · ${who} won with ${pointsText(win.points)}`);
+        const who = win.id === room.id ? t('You') : nameOf(win.id);
+        toast(
+          t('Tag is over · {who} won with {points}', {
+            who,
+            points: pointsText(win.points),
+          })
+        );
       } else {
-        toast('Tag is over');
+        toast(t('Tag is over'));
       }
-    } else if (tag.it === room?.id) toast("You're it");
+    } else if (tag.it === room?.id) toast(t("You're it"));
     else if (was === room?.id) {
-      toast(`You tagged ${nameOf(tag.it)}`);
+      toast(t('You tagged {name}', {name: nameOf(tag.it)}));
       Achievements.unlock('tag_youre_it');
-    } else toast(`${nameOf(tag.it)} is it`);
+    } else toast(t('{name} is it', {name: nameOf(tag.it)}));
   }
   refreshTag();
   if (gatherToId && !state.isIntroTransitionActive) gatherForTag();
@@ -971,9 +979,9 @@ function setRace(next) {
     showCourse(race.course);
     const racing = race.grid.includes(room.id);
     lineUpPending = racing && race.go > 0;
-    if (!racing) toast('A race is on · join the next one');
-    else if (race.by === room.id) toast('Race! Get ready');
-    else toast(`${nameOf(race.by)} started a race`);
+    if (!racing) toast(t('A race is on · join the next one'));
+    else if (race.by === room.id) toast(t('Race! Get ready'));
+    else toast(t('{name} started a race', {name: nameOf(race.by)}));
   } else {
     hideCourse();
     lineUpPending = false;
@@ -984,10 +992,15 @@ function setRace(next) {
       );
       const win = standings[0];
       if (win?.finish != null) {
-        const who = win.id === room.id ? 'You' : nameOf(win.id);
-        toast(`Race over · ${who} won in ${formatRaceTime(win.finish)}`);
+        const who = win.id === room.id ? t('You') : nameOf(win.id);
+        toast(
+          t('Race over · {who} won in {time}', {
+            who,
+            time: formatRaceTime(win.finish),
+          })
+        );
       } else {
-        toast('Race over');
+        toast(t('Race over'));
       }
     }
   }
@@ -1018,7 +1031,7 @@ function startRace() {
           WATER_LEVEL
         );
   if (!course) {
-    toast('No highway near enough to race on');
+    toast(t('No highway near enough to race on'));
     return;
   }
   if (tag.it) sendTag(null);
@@ -1131,7 +1144,10 @@ function stepRace(rawNow) {
               r.id !== room.id && r.finish !== null && r.finish < myRace.finish
           ).length;
         toast(
-          `Finished ${placeText(place)} · ${formatRaceTime(myRace.finish)}`
+          t('Finished {place} · {time}', {
+            place: placeText(place),
+            time: formatRaceTime(myRace.finish),
+          })
         );
         if (place === 1 && racers().length > 1) {
           Achievements.unlock('checkered_flag');
@@ -1151,9 +1167,9 @@ function stepRace(rawNow) {
   applyBoost();
   // 3, 2, 1, Go!
   if (!racing) showCount('');
-  else if (sinceGo < -RACE_COUNT_MS) showCount('Get ready');
+  else if (sinceGo < -RACE_COUNT_MS) showCount(t('Get ready'));
   else if (sinceGo < 0) showCount(String(Math.ceil(-sinceGo / 1000)));
-  else if (sinceGo < 900) showCount('Go!');
+  else if (sinceGo < 900) showCount(GO);
   else showCount('');
   updateGates(pos, gateHeight, rawNow / 1000);
   if (state.isVRPresenting) hideGateMarker();
@@ -1170,14 +1186,16 @@ function stepRace(rawNow) {
   renderTagChip();
 }
 
+const GO = t('Go!');
+
 function showCount(text) {
   if (!raceCount || text === countShown) return;
   countShown = text;
   if (/^[123]$/.test(text)) playRaceBeep(false);
-  else if (text === 'Go!') playRaceBeep(true);
+  else if (text === GO) playRaceBeep(true);
   raceCount.textContent = text;
   raceCount.hidden = !text;
-  raceCount.classList.toggle('race-go', text === 'Go!');
+  raceCount.classList.toggle('race-go', text === GO);
   // Restarts the pop for each new number
   raceCount.classList.remove('race-pop');
   void raceCount.offsetWidth;
@@ -1190,22 +1208,29 @@ function renderRaceChip() {
   const sinceGo = performance.now() - raceGoAt;
   let text;
   if (!race.grid.includes(room.id)) {
-    text = 'Race on · join the next one';
+    text = t('Race on · join the next one');
   } else if (sinceGo < 0) {
-    text = `Race · ${n - 1} gates and the finish`;
+    text = t('Race · {n} gates and the finish', {n: n - 1});
   } else if (myRace.finish !== null) {
     const place =
       1 +
       racers().filter(
         (r) => r.id !== room.id && r.finish !== null && r.finish < myRace.finish
       ).length;
-    text = `Finished ${placeText(place)} · ${formatRaceTime(myRace.finish)}`;
+    text = t('Finished {place} · {time}', {
+      place: placeText(place),
+      time: formatRaceTime(myRace.finish),
+    });
   } else {
     const gate = race.course.gates[myRace.gates];
-    const what =
-      myRace.gates === n - 1 ? 'Finish' : `Gate ${myRace.gates + 1}/${n - 1}`;
+    const last = myRace.gates === n - 1;
+    const what = last
+      ? t('Finish')
+      : t('Gate {n}/{total}', {n: myRace.gates + 1, total: n - 1});
     text = missedGate(gate, planeGroup.position.x, planeGroup.position.z)
-      ? `Missed ${what.toLowerCase().replace(/\/.*/, '')} · turn back`
+      ? last
+        ? t('Missed finish · turn back')
+        : t('Missed gate {n} · turn back', {n: myRace.gates + 1})
       : `${what} · ${formatRaceTime(sinceGo, true)}`;
   }
   tagChip.hidden = false;
@@ -1390,7 +1415,7 @@ function botGone(id) {
   if (!peer) return;
   if (ownerOf(id) === room?.id) myBots.delete(id.slice(id.indexOf('~') + 1));
   removePeer(id);
-  if (peer.name) toast(`${peer.name} flew off`);
+  if (peer.name) toast(t('{name} flew off', {name: peer.name}));
   tagAfterLeaving(id);
   renderPanel();
 }
@@ -1817,7 +1842,8 @@ function enterRoom(ws, welcome, code) {
   heardAt = performance.now();
   pingedAt = 0;
   if (droppedAt !== null) {
-    if (heardAt - droppedAt > BACK_TOAST_AFTER_MS) toast('Back in the flight');
+    if (heardAt - droppedAt > BACK_TOAST_AFTER_MS)
+      toast(t('Back in the flight'));
     droppedAt = null;
     setStatus('');
   }
@@ -1989,7 +2015,7 @@ function onDropped() {
     return;
   }
   if (reconnectTry >= RECONNECT_DELAYS_MS.length) {
-    toast('Lost the flight, flying solo');
+    toast(t('Lost the flight, flying solo'));
     leaveRoom();
     return;
   }
@@ -2011,10 +2037,10 @@ async function rejoin() {
   } catch (err) {
     log.warn(`[Fly together] Rejoining ${code} failed: ${err.message}`);
     if (err.code === CLOSE.full) {
-      toast('The flight is full now, flying solo');
+      toast(t('The flight is full now, flying solo'));
       leaveRoom();
     } else if (err.code === CLOSE.notFound) {
-      toast('The flight has ended, flying solo');
+      toast(t('The flight has ended, flying solo'));
       leaveRoom();
     } else {
       onDropped();
@@ -2023,10 +2049,11 @@ async function rejoin() {
 }
 
 function refusal(err) {
-  if (!navigator.onLine) return 'Offline. Try again when connected.';
-  if (err.code === CLOSE.notFound) return 'No flight with that code';
-  if (err.code === CLOSE.full) return `That flight is full (${MAX_PLAYERS})`;
-  return "Couldn't reach the flight, try again in a moment";
+  if (!navigator.onLine) return t('Offline. Try again when connected.');
+  if (err.code === CLOSE.notFound) return t('No flight with that code');
+  if (err.code === CLOSE.full)
+    return t('That flight is full ({n})', {n: MAX_PLAYERS});
+  return t("Couldn't reach the flight, try again in a moment");
 }
 
 async function invite() {
@@ -2036,7 +2063,7 @@ async function invite() {
     return;
   }
   busy = true;
-  setStatus('Starting a flight…');
+  setStatus(t('Starting a flight…'));
   renderPanel();
   try {
     // A new code is very rarely in use; pick another if so
@@ -2046,7 +2073,7 @@ async function invite() {
         const {ws, welcome} = await openRoom(code, 'create');
         // From a flight with bots, they come along into the room
         enterRoom(ws, welcome, code);
-        setStatus('Share the link or the code with friends');
+        setStatus(t('Share the link or the code with friends'));
         break;
       } catch (err) {
         if (err.code !== CLOSE.taken || tries >= 3) throw err;
@@ -2068,17 +2095,17 @@ async function join(code, fromLink = false) {
   if (busy || room) return;
   if (!navigator.onLine) {
     setStatus(refusal({}));
-    if (fromLink) toast("You're offline, so you can't join the flight");
+    if (fromLink) toast(t("You're offline, so you can't join the flight"));
     return;
   }
   busy = true;
-  setStatus('Joining…');
+  setStatus(t('Joining…'));
   renderPanel();
   try {
     const {ws, welcome} = await openRoom(code, 'join');
     if (welcome.seed !== ChillFlightLogic.WORLD_SEED) {
       ws.close(1000);
-      setStatus('Loading their world…');
+      setStatus(t('Loading their world…'));
       // Keeps this visit's other parameters (?relay=, ?plane=)
       const url = new URL(window.location.href);
       url.searchParams.set('room', code);
@@ -2089,7 +2116,9 @@ async function join(code, fromLink = false) {
     enterRoom(ws, welcome, code);
     arriveOnJoin = true;
     toast(
-      welcome.host ? `Joined ${welcome.host}'s flight` : 'Joined the flight'
+      welcome.host
+        ? t("Joined {name}'s flight", {name: welcome.host})
+        : t('Joined the flight')
     );
     setStatus('');
     if (!fromLink) closePanel();
@@ -2098,7 +2127,7 @@ async function join(code, fromLink = false) {
     setStatus(refusal(err));
     if (fromLink)
       toast(
-        err.code === CLOSE.notFound ? 'That flight has ended' : refusal(err)
+        err.code === CLOSE.notFound ? t('That flight has ended') : refusal(err)
       );
   } finally {
     busy = false;
@@ -2117,7 +2146,9 @@ function linkToShare() {
 async function share() {
   if (!room) return;
   const url = linkToShare();
-  const text = `Fly with me in Chill Flight! Room code ${room.code}`;
+  const text = t('Fly with me in Chill Flight! Room code {code}', {
+    code: room.code,
+  });
   try {
     if (navigator.share) {
       await navigator.share({title: 'Chill Flight', text, url});
@@ -2128,7 +2159,7 @@ async function share() {
   }
   try {
     await navigator.clipboard.writeText(url);
-    setStatus('Link copied');
+    setStatus(t('Link copied'));
   } catch {
     setStatus(url);
   }
@@ -2302,13 +2333,13 @@ function placeMarker(peer, dist) {
   if (tag.it === peer.id) {
     const it = document.createElement('span');
     it.className = 'friend-it';
-    it.textContent = 'it';
+    it.textContent = t('it');
     peer.markerText.append(it);
   }
   if (isPaused) {
     const paused = document.createElement('span');
     paused.className = 'friend-paused';
-    paused.textContent = 'paused';
+    paused.textContent = t('paused');
     peer.markerText.append(paused);
   }
 }
@@ -2542,7 +2573,7 @@ function renderChip() {
   roomChipCode.textContent = room.local
     ? ''
     : down
-      ? 'Reconnecting'
+      ? t('Reconnecting')
       : room.code;
   const liveries = [myLivery()];
   for (const peer of peers.values()) if (peer.name) liveries.push(peer.livery);
@@ -2556,10 +2587,10 @@ function renderChip() {
   roomChip.setAttribute(
     'aria-label',
     room.local
-      ? 'Flying with bots'
+      ? t('Flying with bots')
       : down
-        ? `Room ${room.code}, reconnecting`
-        : `Room ${room.code}, ${liveries.length} flying`
+        ? t('Room {code}, reconnecting', {code: room.code})
+        : t('Room {code}, {n} flying', {code: room.code, n: liveries.length})
   );
 }
 
@@ -2581,8 +2612,8 @@ function renderPanel() {
   roomCodeText.hidden = !!room.local;
   roomCodeText.textContent = room.code || '';
   if (roomLabel)
-    roomLabel.textContent = room.local ? 'Flying with bots' : 'Room';
-  shareBtn.textContent = room.local ? 'Invite friends' : 'Share link';
+    roomLabel.textContent = room.local ? t('Flying with bots') : t('Room');
+  shareBtn.textContent = room.local ? t('Invite friends') : t('Share link');
   shareBtn.disabled = busy;
   if (botsRow) botsRow.hidden = !!room.local;
   const gameOn = !!tag.it || !!race.course;
@@ -2591,10 +2622,10 @@ function renderPanel() {
     // Nobody to play with while the connection is down
     tagBtn.disabled = !socket && !room.local;
     tagBtn.textContent = tag.it
-      ? 'Stop tag'
+      ? t('Stop tag')
       : race.course
-        ? 'Stop race'
-        : 'Play a game';
+        ? t('Stop race')
+        : t('Play a game');
     tagBtn.classList.toggle('open', pickerOpen && !gameOn);
   }
   // Choosing a game takes the list's place a moment
@@ -2631,7 +2662,7 @@ function renderPanel() {
     if (showPoints || raceRows) {
       const score = document.createElement('span');
       score.className = 'fly-player-time';
-      score.textContent = raceRows ? points : `${points} pts`;
+      score.textContent = raceRows ? points : t('{n} pts', {n: points});
       el.append(score);
     }
     // Your own row gets an invisible stand-in for Fly to, so every score
@@ -2646,8 +2677,8 @@ function renderPanel() {
       const btn = document.createElement('button');
       btn.className = 'fly-btn fly-btn-icon';
       btn.innerHTML = PLANE_ICON;
-      btn.title = 'Fly to';
-      btn.setAttribute('aria-label', `Fly to ${name}`);
+      btn.title = t('Fly to');
+      btn.setAttribute('aria-label', t('Fly to {name}', {name}));
       btn.disabled = !peer.track.ready;
       btn.addEventListener('click', () => {
         if (flyTo(peer)) closePanel();
@@ -2660,12 +2691,12 @@ function renderPanel() {
   // always paused while this menu shows, so your row doesn't say it
   const noteOf = (id, p) =>
     [
-      !p && 'you',
-      tag.it === id && 'it',
-      p?.track?.latest?.flags & FLAGS.paused && 'paused',
+      !p && t('you'),
+      tag.it === id && t('it'),
+      p?.track?.latest?.flags & FLAGS.paused && t('paused'),
     ]
       .filter(Boolean)
-      .join(', ');
+      .join(t(', '));
   // Out of tag games you're your own row at the top, with your name to tap
   // and change; in one, the list is sorted by points, you included
   selfRow.hidden = showPoints || !!raceRows;
@@ -2727,9 +2758,9 @@ function raceListing() {
     const finished = r.finish !== null;
     rows.push({
       ...who,
-      note: [who.peer ? '' : 'you', finished ? placeText(i + 1) : '']
+      note: [who.peer ? '' : t('you'), finished ? placeText(i + 1) : '']
         .filter(Boolean)
-        .join(', '),
+        .join(t(', ')),
       points: finished
         ? formatRaceTime(r.finish)
         : `${Math.min(r.gates, gates - 1)}/${gates - 1}`,
@@ -2740,7 +2771,7 @@ function raceListing() {
     if (seen.has(id) || !who?.name) continue;
     rows.push({
       ...who,
-      note: who.peer ? 'watching' : 'you, watching',
+      note: who.peer ? t('watching') : t('you, watching'),
       points: '',
     });
   }
@@ -2808,7 +2839,7 @@ if (RELAY && tabBtn && panel) {
   joinBtn.addEventListener('click', () => {
     const code = parseRoomCode(codeInput.value);
     if (!code) {
-      setStatus('A code is 4 letters and numbers');
+      setStatus(t('A code is 4 letters and numbers'));
       return;
     }
     join(code);
@@ -2860,7 +2891,7 @@ if (RELAY && tabBtn && panel) {
   });
   leaveBtn.addEventListener('click', () => {
     leaveRoom();
-    toast('Left the flight');
+    toast(t('Left the flight'));
   });
 
   // Away from the game a while: drop the connection, and come back on return

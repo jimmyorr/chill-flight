@@ -161,6 +161,7 @@ import {updateSfxEvents} from './sfx-events.js';
 import {updateHaptics} from './haptics.js';
 import {Achievements} from './achievements.js';
 import {scriptedFlight} from './promo-script.js';
+import {t} from './i18n.js';
 
 // Promo clips: filming starts with a promo-script event (promo.js), and the
 // clip's keyframes fly the plane from then on (see updatePhysicsAndControls)
@@ -213,11 +214,11 @@ function animate() {
 
     const h1 = document.createElement('h1');
     h1.style.cssText = 'font-size:2em;margin-bottom:0.5em;';
-    h1.textContent = 'Game Crashed';
+    h1.textContent = t('Game crashed');
 
     const p = document.createElement('p');
     p.style.cssText = 'margin-bottom:1em;font-size:1.2em;';
-    p.textContent = 'A fatal error occurred in the game loop.';
+    p.textContent = t('A fatal error occurred in the game loop.');
 
     const preContainer = document.createElement('div');
     preContainer.style.cssText =
@@ -231,7 +232,7 @@ function animate() {
     const btn = document.createElement('button');
     btn.style.cssText =
       'margin-top:20px;padding:10px 20px;font-size:1.2em;cursor:pointer;background:#fff;color:#900;border:none;border-radius:5px;font-weight:bold;';
-    btn.textContent = 'Reload Game';
+    btn.textContent = t('Reload game');
     btn.onclick = () => location.reload();
 
     crashDiv.appendChild(h1);

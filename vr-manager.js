@@ -12,6 +12,7 @@ import {scene} from './scene.js';
 import {clearInputState, togglePause} from './game-state.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
+import {t} from './i18n.js';
 
 async function toggleVRSession() {
   if (!renderer || !renderer.xr) return;
@@ -73,8 +74,8 @@ if (renderer && renderer.xr) {
       }
     }
 
-    if (vrBtnLabel) vrBtnLabel.textContent = 'Exit VR';
-    if (splashVrBtn) splashVrBtn.textContent = 'Exit VR';
+    if (vrBtnLabel) vrBtnLabel.textContent = t('Exit VR');
+    if (splashVrBtn) splashVrBtn.textContent = t('Exit VR');
 
     // If still at loading screen, dismiss and begin flight immediately
     const loadingEl = document.getElementById('loading-overlay');
@@ -166,12 +167,12 @@ function drawVRPauseMenu(hovered = -1) {
   ctx.fillStyle = '#ffffff';
   ctx.font =
     'bold 54px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('PAUSED', 512, 175);
+  ctx.fillText(t('PAUSED'), 512, 175);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
   ctx.font =
     '22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('Take a breather or adjust your flight', 512, 220);
+  ctx.fillText(t('Take a breather or adjust your flight'), 512, 220);
 
   // Button 1: Resume
   const isResumeHover = hovered === 0;
@@ -182,12 +183,12 @@ function drawVRPauseMenu(hovered = -1) {
   ctx.fillStyle = '#161616';
   ctx.font =
     'bold 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('Resume flight', 512, 335);
+  ctx.fillText(t('Resume flight'), 512, 335);
 
   ctx.fillStyle = 'rgba(22, 22, 22, 0.7)';
   ctx.font =
     '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('Trigger or Press A / Menu', 512, 365);
+  ctx.fillText(t('Trigger or Press A / Menu'), 512, 365);
 
   // Button 2: Exit VR
   const isExitHover = hovered === 1;
@@ -203,18 +204,18 @@ function drawVRPauseMenu(hovered = -1) {
   ctx.fillStyle = '#ffffff';
   ctx.font =
     'bold 38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('Exit VR', 512, 485);
+  ctx.fillText(t('Exit VR'), 512, 485);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
   ctx.font =
     '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('Trigger or Press B / X', 512, 515);
+  ctx.fillText(t('Trigger or Press B / X'), 512, 515);
 
   // Footer instructions
   ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
   ctx.font =
     '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('Point controller & pull trigger to select', 512, 595);
+  ctx.fillText(t('Point controller & pull trigger to select'), 512, 595);
 
   ctx.restore();
   if (vrPauseTexture) vrPauseTexture.needsUpdate = true;

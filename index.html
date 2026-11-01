@@ -207,6 +207,18 @@
                 <option value="anime">Anime</option>
               </select>
             </div>
+            <div class="pause-row">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Language</span>
+                <span class="pause-row-sub">Restarts the game</span>
+              </span>
+              <!-- i18n.js -->
+              <select id="language-select" class="customization-input">
+                <option value="auto">Match device</option>
+                <option value="en" data-no-translate>English</option>
+                <option value="zh-CN" data-no-translate>简体中文</option>
+              </select>
+            </div>
             <!-- Shown on touch devices (game-gyro.js) -->
             <div id="control-scheme-toggle" style="display: none">
               <span class="pause-row-text">
@@ -527,7 +539,7 @@
 
     <div id="loading-overlay">
       <div class="loading-content">
-        <h1 class="loading-title">Chill<br />Flight</h1>
+        <h1 class="loading-title" data-no-translate>Chill<br />Flight</h1>
         <div class="version-tag">&nbsp;</div>
         <div id="splash-interactive-area">
           <div id="splash-progress-container" class="splash-fade-item hidden">
@@ -943,7 +955,7 @@
       </div>
     </div>
 
-    <div id="debug-menu">
+    <div id="debug-menu" data-no-translate>
       <div class="debug-columns">
         <!-- Left Column: Environment, Sky & Weather -->
         <div class="debug-col">
@@ -1541,7 +1553,7 @@
       </div>
     </div>
 
-    <div id="debug-telemetry">
+    <div id="debug-telemetry" data-no-translate>
       <div>
         <div
           style="

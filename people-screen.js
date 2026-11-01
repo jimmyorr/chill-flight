@@ -8,6 +8,7 @@ import {doneFor} from './jobs-logic.js';
 import {progress} from './jobs.js';
 import {FACES, drawFace} from './faces.js';
 import {hooks} from './hooks.js';
+import {t} from './i18n.js';
 
 const overlay = document.getElementById('people-overlay');
 const openBtn = document.getElementById('people-btn');
@@ -34,12 +35,12 @@ function card(person) {
   drawFace(face, FACES[person.name], {hidden: !met});
   const title = document.createElement('div');
   title.className = 'achievement-card-title';
-  title.textContent = met ? person.name : '???';
+  title.textContent = met ? t(person.name) : '???';
   const hint = document.createElement('div');
   hint.className = 'achievement-card-hint';
   hint.textContent = met
-    ? `${person.airport} · ${done === 1 ? '1 job' : `${done} jobs`}`
-    : person.airport;
+    ? `${t(person.airport)} · ${done === 1 ? t('1 job') : t('{n} jobs', {n: done})}`
+    : t(person.airport);
   el.append(face, title, hint);
   return el;
 }
@@ -49,7 +50,11 @@ function render() {
   grid.replaceChildren(...PEOPLE.map(card));
   const jobs = PEOPLE.reduce((n, p) => n + doneFor(progress, p.name), 0);
   if (progressText) {
-    progressText.textContent = `${metCount()} of ${PEOPLE.length} met · ${jobs} ${jobs === 1 ? 'job' : 'jobs'} done`;
+    progressText.textContent = t('{met} of {total} met · {jobs} done', {
+      met: metCount(),
+      total: PEOPLE.length,
+      jobs: jobs === 1 ? t('1 job') : t('{n} jobs', {n: jobs}),
+    });
   }
   updateCounter();
 }

@@ -1,5 +1,6 @@
 // --- GAME HUD & ACHIEVEMENTS OVERLAY ---
 import {Achievements} from './achievements.js';
+import {t} from './i18n.js';
 
 var achievementsOverlay = document.getElementById('achievements-overlay');
 var achievementsBtn = document.getElementById('achievements-btn');
@@ -24,7 +25,7 @@ function resetAchievementsResetBtn() {
   }
   if (achievementsResetBtn) {
     achievementsResetBtn.classList.remove('confirming');
-    achievementsResetBtn.textContent = 'R E S E T';
+    achievementsResetBtn.textContent = t('R E S E T');
   }
 }
 
@@ -61,7 +62,7 @@ if (achievementsResetBtn) {
     e.stopPropagation();
     if (!achievementsResetBtn.classList.contains('confirming')) {
       achievementsResetBtn.classList.add('confirming');
-      achievementsResetBtn.textContent = 'CONFIRM RESET?';
+      achievementsResetBtn.textContent = t('CONFIRM RESET?');
       resetConfirmTimeout = setTimeout(resetAchievementsResetBtn, 4000);
     } else {
       resetAchievementsResetBtn();

@@ -16,6 +16,7 @@ import rainbowVertShader from './src/shaders/rainbow.vert.glsl?raw';
 import rainbowFragShader from './src/shaders/rainbow.frag.glsl?raw';
 import {state} from './state.js';
 import {skyNoiseTexture, skyUniforms} from './sky-uniforms.js';
+import {t} from './i18n.js';
 
 export {skyUniforms};
 
@@ -315,18 +316,19 @@ function showWebGLErrorNotice() {
   const titleEl = document.createElement('div');
   titleEl.style.cssText =
     'font-size: 14px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; color: #ff6b6b; font-family: Inter, -apple-system, sans-serif;';
-  titleEl.textContent = 'WebGL 2 not supported';
+  titleEl.textContent = t('WebGL 2 not supported');
 
   const msgEl = document.createElement('div');
   msgEl.style.cssText =
     'font-size: 12px; line-height: 18px; color: rgba(255, 255, 255, 0.8); font-family: Inter, -apple-system, sans-serif; margin-bottom: 16px;';
-  msgEl.textContent =
-    'Chill Flight requires WebGL 2, which is unavailable or disabled in your browser. Please try enabling hardware acceleration or updating your browser.';
+  msgEl.textContent = t(
+    'Chill Flight requires WebGL 2, which is unavailable or disabled in your browser. Please try enabling hardware acceleration or updating your browser.'
+  );
 
   const reloadBtn = document.createElement('button');
   reloadBtn.className = 'btn';
   reloadBtn.style.cssText = 'font-size: 12px; padding: 8px 18px;';
-  reloadBtn.textContent = 'Reload';
+  reloadBtn.textContent = t('Reload');
   reloadBtn.onclick = () => window.location.reload();
 
   errorEl.appendChild(titleEl);

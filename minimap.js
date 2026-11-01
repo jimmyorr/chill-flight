@@ -28,6 +28,7 @@ import {LANDMARKS, arrivalAt, nearestLandmark} from './landmarks.js';
 import {cancelJob, progress} from './jobs.js';
 import {PEOPLE} from './people.js';
 import {friendsOnMap, inGameMode} from './multiplayer.js';
+import {joinList, t} from './i18n.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -105,7 +106,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
     header.id = 'minimap-header';
 
     const title = document.createElement('span');
-    title.textContent = 'Minimap'; // Sentence case!
+    title.textContent = t('Minimap'); // Sentence case!
     header.appendChild(title);
 
     const controls = document.createElement('div');
@@ -116,7 +117,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
     const zoomInBtn = document.createElement('button');
     zoomInBtn.className = 'minimap-btn';
     zoomInBtn.textContent = '+';
-    zoomInBtn.title = 'Zoom in';
+    zoomInBtn.title = t('Zoom in');
     zoomInBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (viewRadius > 1000) {
@@ -128,7 +129,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
     const zoomOutBtn = document.createElement('button');
     zoomOutBtn.className = 'minimap-btn';
     zoomOutBtn.textContent = '-';
-    zoomOutBtn.title = 'Zoom out';
+    zoomOutBtn.title = t('Zoom out');
     zoomOutBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (viewRadius < 5000) {
@@ -358,7 +359,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
         // Draw name label below circle (Sentence case for UI labels)
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.font = '8px "Segoe UI", sans-serif';
-        ctx.fillText(landmark.name, cx, cy - 8);
+        ctx.fillText(t(landmark.name), cx, cy - 8);
         ctx.restore();
       }
     });
@@ -793,7 +794,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
       fsCtx.stroke();
 
       const latLabel = isEquator
-        ? '0.0° (Equator)'
+        ? t('0.0° (Equator)')
         : lat > 0
           ? `${lat.toFixed(prec)}° N`
           : `${Math.abs(lat).toFixed(prec)}° S`;
@@ -865,7 +866,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
 
           fsCtx.fillStyle = '#ffffff';
           fsCtx.font = '600 12px Inter, -apple-system, sans-serif';
-          fsCtx.fillText(lm.name, lx, lz + 18);
+          fsCtx.fillText(t(lm.name), lx, lz + 18);
 
           const lmLat = -lm.z / 5000;
           const lmLon = lm.x / 5000;
@@ -942,7 +943,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
       fsCtx.shadowColor = 'rgba(0,0,0,0.9)';
       fsCtx.shadowBlur = 4;
       fsCtx.fillText(
-        friend.it ? `${friend.name} (it)` : friend.name,
+        friend.it ? t('{name} (it)', {name: friend.name}) : friend.name,
         fx,
         fz - 18
       );
@@ -1004,7 +1005,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
         fsCtx.fillStyle = '#ffd700';
         fsCtx.shadowColor = 'rgba(0,0,0,0.9)';
         fsCtx.shadowBlur = 4;
-        fsCtx.fillText('YOU', screenPx, screenPz - 18);
+        fsCtx.fillText(t('YOU'), screenPx, screenPz - 18);
         fsCtx.restore();
       } else {
         const dx = screenPx - screenW / 2;
@@ -1132,17 +1133,18 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
   // called name, by name once you've met them (as on the People screen)
   function whoIsHere(name) {
     const here = PEOPLE.filter((p) => p.airport === name);
-    const names = here.filter((p) => progress.met[p.name]).map((p) => p.name);
+    const names = here
+      .filter((p) => progress.met[p.name])
+      .map((p) => t(p.name));
     const unmet = here.length - names.length;
-    if (unmet === 1) names.push('someone new');
-    else if (unmet > 1) names.push(`${unmet} people you haven't met`);
+    if (unmet === 1) names.push(t('someone new'));
+    else if (unmet > 1) names.push(t("{n} people you haven't met", {n: unmet}));
     if (!names.length) return '';
-    const list =
-      names.length === 1
-        ? names[0]
-        : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
-    const verb = here.length === 1 ? 'is' : 'are';
-    return `${list[0].toUpperCase()}${list.slice(1)} ${verb} here`;
+    const list = joinList(names);
+    const who = `${list[0].toUpperCase()}${list.slice(1)}`;
+    return here.length === 1
+      ? t('{who} is here', {who})
+      : t('{who} are here', {who});
   }
 
   function setWarpPin(pin) {
@@ -1160,12 +1162,12 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
     const name = document.getElementById('fullscreen-map-warp-name');
     if (name) {
       name.hidden = !spot.name;
-      name.textContent = spot.name || '';
+      name.textContent = spot.name ? t(spot.name) : '';
     }
     const coords = document.getElementById('fullscreen-map-warp-coords');
     if (coords) {
-      coords.textContent =
-        (warpPin ? '' : 'Waypoint ') + formatLatLon(spot.x, spot.z);
+      const where = formatLatLon(spot.x, spot.z);
+      coords.textContent = warpPin ? where : t('Waypoint {where}', {where});
     }
     const people = document.getElementById('fullscreen-map-warp-people');
     if (people) {
@@ -1174,7 +1176,9 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
     }
     const waypointBtn = document.getElementById('fullscreen-map-waypoint-btn');
     if (waypointBtn) {
-      waypointBtn.textContent = warpPin ? 'Set waypoint' : 'Clear waypoint';
+      waypointBtn.textContent = warpPin
+        ? t('Set waypoint')
+        : t('Clear waypoint');
     }
     for (const id of [
       'fullscreen-map-warp-btn',

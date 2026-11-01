@@ -21,6 +21,7 @@
 // they've passed (rg) and their finish time (rf) with their position.
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {forwardOf} from './traffic-logic.js';
+import {t} from './i18n.js';
 
 // Rings to fly through or arches to drive under, the last one the finish
 export const RACE_GATES = 9;
@@ -444,7 +445,12 @@ export function raceOver(racers, sinceGo) {
 /** 1st, 2nd, 3rd, 4th... */
 export function placeText(place) {
   const s = {1: 'st', 2: 'nd', 3: 'rd'}[place % 10];
-  return `${place}${place % 100 >= 11 && place % 100 <= 13 ? 'th' : s || 'th'}`;
+  const suffix = place % 100 >= 11 && place % 100 <= 13 ? 'th' : s || 'th';
+  // 第1名 in Chinese: the whole ordinal is the translation's
+  if (suffix === 'st') return t('{n}st', {n: place});
+  if (suffix === 'nd') return t('{n}nd', {n: place});
+  if (suffix === 'rd') return t('{n}rd', {n: place});
+  return t('{n}th', {n: place});
 }
 
 /**
