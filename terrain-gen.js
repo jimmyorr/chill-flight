@@ -243,6 +243,10 @@ const ICE_HUT_CHANCE = 0.03;
 export const ICE_HUT_COLORS = [
   0xb8463a, 0x3f6fa3, 0x4e8a4c, 0xd9a43c, 0xc9682f,
 ];
+// Fallen logs and stumps toward the edges of the woods (not their dark
+// cores, where the canopy hides them): chance of each per grid point
+const FALLEN_LOG_CHANCE = 0.045;
+const STUMP_CHANCE = 0.03;
 // Joshua trees: share of the desert's trees, and their tufts' colour
 const JOSHUA_SHARE = 0.65;
 export const JOSHUA_LEAF_COLOR = 0x6f8a3c;
@@ -2005,6 +2009,7 @@ export function generateChunkData({
   const joshuaTreePositions = [];
   const hayBalePositions = [];
   const iceHutPositions = [];
+  const fallenLogPositions = [];
   const snowTreePositions = [];
   const mushroomTreePositions = [];
   const crystalPositions = [];
@@ -3329,6 +3334,39 @@ export function generateChunkData({
       }
     }
 
+    // Fallen logs and stumps where the woods thin out, from hashes of the
+    // grid point like the huts above
+    if (
+      _enableObjects &&
+      !sharedEdge &&
+      isForest &&
+      !isAlienLand &&
+      !isLakeIce &&
+      forestNoise < 0.4 &&
+      desertFactor < 0.3 &&
+      // Not in the snow, where bare dark wood looks pasted on
+      snowFactor < 0.2 &&
+      slopeFactor < 0.3 &&
+      height > WATER_LEVEL + 3 &&
+      height < MOUNTAIN_LEVEL
+    ) {
+      const gx = Math.round(worldX / gridSpacing);
+      const gz = Math.round(worldZ / gridSpacing);
+      const roll = fieldHash(gx, gz, 97);
+      if (roll < (FALLEN_LOG_CHANCE + STUMP_CHANCE) * densityScale) {
+        const x = localX + (fieldHash(gx, gz, 101) - 0.5) * gridSpacing * 0.7;
+        const z = localZ + (fieldHash(gx, gz, 103) - 0.5) * gridSpacing * 0.7;
+        fallenLogPositions.push({
+          x,
+          y: heightAtLocal(x, z),
+          z,
+          rotY: fieldHash(gx, gz, 107) * Math.PI * 2,
+          stump: roll >= FALLEN_LOG_CHANCE * densityScale,
+          size: 0.8 + 0.4 * fieldHash(gx, gz, 109),
+        });
+      }
+    }
+
     // The falls landmark's top, above the tree line: boulders among its
     // crags, a few stunted pines out of the wind, and bushes along the stream
     if (_enableObjects && falls !== null && falls.out < -20) {
@@ -3517,6 +3555,7 @@ export function generateChunkData({
         rockPositions,
         campfirePositions,
         hayBalePositions,
+        fallenLogPositions,
       ].forEach(clearStead);
     }
   }
@@ -3666,6 +3705,7 @@ export function generateChunkData({
         japaneseMapleTreePositions,
         bushPositions,
         hayBalePositions,
+        fallenLogPositions,
         housePositions,
         twoStoryHousePositions,
         chimneySmokePositions,
@@ -3737,6 +3777,7 @@ export function generateChunkData({
       snowmanPositions,
       campfirePositions,
       hayBalePositions,
+      fallenLogPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_PROP_CLEAR));
     // A house's chimney smoke sits on the same spot, so goes with it
     [
@@ -4341,6 +4382,31 @@ export function generateChunkData({
     collector.beginProp(BREAKABLE.HOUSE);
     collector.add('iceHutBody', _matBuffer, _iceHutColor);
     collector.add('iceHutRoof', _matBuffer);
+    collector.endProp();
+  }
+
+  // Fallen logs and stumps (no rolls here either)
+  for (const pos of fallenLogPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.size,
+      pos.size,
+      pos.size,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.beginProp(BREAKABLE.SMALL);
+    if (pos.stump) {
+      collector.add('stump', _matBuffer);
+      collector.add('stumpTop', _matBuffer);
+    } else {
+      collector.add('fallenLog', _matBuffer);
+    }
     collector.endProp();
   }
 

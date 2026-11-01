@@ -1389,6 +1389,31 @@ export var hayBaleGeo = (() => {
 })();
 export var hayBaleMat = createMaterial({color: 0xead283, flatShading: true});
 
+// Fallen log, lying along x with a broken branch stub, and a tree stump.
+// One bark material for both
+export var fallenLogGeo = (() => {
+  const log = new THREE.CylinderGeometry(1.1, 1.4, 16, 6);
+  log.rotateZ(Math.PI / 2);
+  log.translate(0, 1.1, 0);
+  const stub = new THREE.CylinderGeometry(0.25, 0.45, 3.2, 4);
+  stub.rotateX(-0.9);
+  stub.translate(2.5, 2.4, 1);
+  return mergeGeometries([log.toNonIndexed(), stub.toNonIndexed()]);
+})();
+export var stumpGeo = (() => {
+  const g = new THREE.CylinderGeometry(1.4, 1.9, 2.4, 7);
+  g.translate(0, 1, 0);
+  return g;
+})();
+export var fallenLogMat = createMaterial({color: 0x6e5841, flatShading: true});
+// The stump's pale sawn top, so it reads as a stump from above
+export var stumpTopGeo = (() => {
+  const g = new THREE.CylinderGeometry(1.42, 1.42, 0.1, 7, 1, false);
+  g.translate(0, 2.22, 0);
+  return g;
+})();
+export var stumpTopMat = createMaterial({color: 0xc9a777, flatShading: true});
+
 // Ice fishing hut (the far north's frozen lakes): a little painted shed with
 // a pitched roof and a stovepipe, its walls tinted per hut
 function createIceHutGeometries() {

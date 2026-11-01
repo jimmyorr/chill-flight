@@ -53,6 +53,11 @@ import {
   joshuaTrunkMat,
   hayBaleGeo,
   hayBaleMat,
+  fallenLogGeo,
+  stumpGeo,
+  fallenLogMat,
+  stumpTopGeo,
+  stumpTopMat,
   iceHutGeos,
   iceHutRoofMat,
   castleRuinsGeo,
@@ -716,6 +721,16 @@ globalInstancer.registerType('snowRock', rockGeo, snowRockMat);
 globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
 globalInstancer.registerType('cactus', cactusGeo, cactusMat);
 globalInstancer.registerType('hayBale', hayBaleGeo, hayBaleMat);
+globalInstancer.registerType('fallenLog', fallenLogGeo, fallenLogMat);
+globalInstancer.registerType('stump', stumpGeo, fallenLogMat);
+globalInstancer.registerType(
+  'stumpTop',
+  stumpTopGeo,
+  stumpTopMat,
+  30000,
+  false,
+  false
+);
 globalInstancer.registerType(
   'iceHutBody',
   iceHutGeos.body,
@@ -878,6 +893,9 @@ globalInstancer.setFarGeometry('barnDoor', null);
 globalInstancer.setFarGeometry('barnTrim', null);
 globalInstancer.setFarGeometry('snowmanBody', null);
 globalInstancer.setFarGeometry('hayBale', null);
+globalInstancer.setFarGeometry('fallenLog', null);
+globalInstancer.setFarGeometry('stump', null);
+globalInstancer.setFarGeometry('stumpTop', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
 // Town streets: flat, so they cast no shadow
 globalInstancer.registerType(

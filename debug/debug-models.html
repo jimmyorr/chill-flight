@@ -186,6 +186,9 @@
       <button class="model-btn" onclick="viewModel('hay_bale', event)">
         Hay bale
       </button>
+      <button class="model-btn" onclick="viewModel('fallen_log', event)">
+        Fallen log and stump
+      </button>
       <button class="model-btn" onclick="viewModel('ice_hut', event)">
         Ice fishing hut
       </button>
@@ -432,6 +435,11 @@
         joshuaTrunkMat,
         hayBaleGeo,
         hayBaleMat,
+        fallenLogGeo,
+        stumpGeo,
+        fallenLogMat,
+        stumpTopGeo,
+        stumpTopMat,
         iceHutGeos,
         iceHutRoofMat,
         castleRuinsGeo,
@@ -887,6 +895,15 @@
                 previewGroup.add(body, roof);
               });
               break;
+            case 'fallen_log': {
+              const log = new THREE.Mesh(fallenLogGeo, fallenLogMat);
+              const stump = new THREE.Mesh(stumpGeo, fallenLogMat);
+              const top = new THREE.Mesh(stumpTopGeo, stumpTopMat);
+              stump.position.set(4, 0, 7);
+              top.position.set(4, 0, 7);
+              previewGroup.add(log, stump, top);
+              break;
+            }
             case 'hay_bale':
               for (const [x, z, r] of [
                 [0, 0, 0],
