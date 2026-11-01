@@ -169,7 +169,6 @@ export default {
   'Low poly': 'Low poly',
   Anime: 'Anime',
   Language: 'Langue',
-  'Match device': 'Auto',
   Controls: 'Commandes',
   'How you steer on touch': 'Comment tu pilotes au toucher',
   Touch: 'Tactile',

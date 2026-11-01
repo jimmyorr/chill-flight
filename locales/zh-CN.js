@@ -160,7 +160,6 @@ export default {
   'Low poly': '低多边形',
   Anime: '动漫',
   Language: '语言',
-  'Match device': '跟随设备',
   Controls: '操控',
   'How you steer on touch': '触屏上的操控方式',
   Touch: '触摸',

@@ -162,7 +162,6 @@ export default {
   'Low poly': '로우폴리',
   Anime: '애니메',
   Language: '언어',
-  'Match device': '자동',
   Controls: '조작',
   'How you steer on touch': '터치로 조종하는 방식',
   Touch: '터치',

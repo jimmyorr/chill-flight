@@ -157,7 +157,6 @@ export default {
   'Low poly': '低多邊形',
   Anime: '動漫',
   Language: '語言',
-  'Match device': '跟隨裝置',
   Controls: '操控',
   'How you steer on touch': '觸屏上的操控方式',
   Touch: '觸控',

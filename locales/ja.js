@@ -166,7 +166,6 @@ export default {
   'Low poly': 'ローポリ',
   Anime: 'アニメ',
   Language: '言語',
-  'Match device': '自動',
   Controls: '操作',
   'How you steer on touch': 'タッチ画面での操縦方法',
   Touch: 'タッチ',
