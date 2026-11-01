@@ -1007,6 +1007,59 @@ export function propPuffs(
   }
 }
 
+// A whale's blow (whales.js): a tall column of mist that rises, spreads and
+// drifts away
+export function whaleBlow(x, z) {
+  for (let i = 0; i < 28; i++) {
+    _p.set(x + rand(-1, 1), WATER_LEVEL + 2, z + rand(-1, 1));
+    _v.set(rand(-2, 2), rand(16, 34), rand(-2, 2));
+    spawn(
+      _p,
+      _v,
+      -6,
+      rand(1.6, 2.8),
+      rand(1.5, 2.5),
+      rand(7, 12),
+      WHITE,
+      rand(0.5, 0.75)
+    );
+  }
+}
+
+// White water where a whale's back or tail breaks the surface, and a patch
+// of foam left on it
+export function whaleSplash(x, z, size) {
+  for (let i = 0; i < Math.round(12 * size); i++) {
+    _p.set(x + rand(-4, 4) * size, WATER_LEVEL + 0.5, z + rand(-4, 4) * size);
+    _v.set(rand(-5, 5), rand(6, 16) * size, rand(-5, 5));
+    spawn(
+      _p,
+      _v,
+      -40,
+      rand(0.9, 1.5),
+      rand(2, 3.5),
+      rand(5, 8),
+      WHITE,
+      rand(0.6, 0.85)
+    );
+  }
+  for (let i = 0; i < 8; i++) {
+    _p.set(x + rand(-5, 5) * size, WATER_LEVEL + 0.3, z + rand(-5, 5) * size);
+    _v.set(0, 0, 0);
+    spawn(
+      _p,
+      _v,
+      0,
+      rand(3, 4.5),
+      rand(6, 9) * size,
+      rand(12, 18) * size,
+      FOAM,
+      0.5,
+      true
+    );
+  }
+}
+
 export function toggleSmoke() {
   smokeOn = !smokeOn;
   smokeLast.valid = false;

@@ -60,6 +60,7 @@ import '../crash-logic.js';
 import '../flight-physics-logic.js';
 import '../flight-physics.js';
 import '../particles.js';
+import '../whales.js';
 import '../grass.js';
 import '../crash.js';
 import '../rescue-logic.js';
