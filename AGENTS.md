@@ -35,6 +35,7 @@
 ## UI & typography rules
 
 - **Sentence case only**: Always use "Sentence case" instead of "Title Case" for UI text, labels, buttons, and titles, as well as titles and headers in all documentation (such as the README). Strings that are intended to be ALL CAPS should remain so.
+- **Translate on-screen text**: Every string a player can see goes through `t()` from `i18n.js` (English is the key) and gets a line in each table in `locales/` (`locales/zh-CN.js` for Simplified Chinese). Static text in `index.html` is translated automatically, but it still needs a table entry. Put placeholders in the string (`t('{name} joined', {name})`) rather than gluing translated pieces together, and pass each piece of text to its own `t()` (`x ? t(x) : t('Empty')`, not `t(x || 'Empty')`). Wrap debug-only UI in `data-no-translate`. `npm run test:i18n` (part of `npm test`) fails on any missing translation, and `node scripts/check-i18n.js --missing` lists them. See the README's Language section.
 - **No em dashes**: Never use em dashes (`—` or `&mdash;`) in any writing, including UI text, release notes, documentation, scripts, commit messages, or chat responses. Use hyphens (`-`), colons (`:`), commas, or parentheses instead.
 
 ## Geometry & model rules
