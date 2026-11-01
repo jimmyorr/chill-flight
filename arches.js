@@ -30,6 +30,8 @@ const CLIFF_GREY = new THREE.Color(0x7f8c8d);
 const CLIFF_RED = new THREE.Color(0x8b3a3a);
 const SEA_WET = new THREE.Color(0x2e2c2a);
 const GUANO = new THREE.Color(0xdcd8cc);
+// The north's snow (terrain-gen.js's), on an arch's tops and ledges
+const SNOW = new THREE.Color(0xfafafa);
 // The mountains' lighter and darker bands of rock (terrain-gen.js's)
 const ROCK_LIGHT = new THREE.Color(0x9ba2a8);
 const ROCK_DARK = new THREE.Color(0x424a54);
@@ -229,6 +231,12 @@ function faceColor(arch, a, b, c, out) {
       );
       out.copy(BASALT_TOPS[k]).multiplyScalar(0.9 + r * 0.15);
     }
+  }
+  // Up north, snow lies on whatever faces up, and dusts the steeper rock
+  const snow = arch.snow ?? 0;
+  if (snow > 0) {
+    const lie = Math.max(0, Math.min(1, (_n.y - 0.2) / 0.3));
+    out.lerp(SNOW, Math.min(1, snow * 1.6) * (0.12 + 0.88 * lie));
   }
   return out;
 }

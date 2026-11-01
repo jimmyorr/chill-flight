@@ -362,6 +362,15 @@ function desertAt(x, z, simplex) {
   return Math.max(0, Math.min(1, d));
 }
 
+// How snowy the land at (x, z) is, 0 to 1 (terrain-gen.js's snowFactor), so
+// an arch up north wears snow on its top like the land around it
+function snowAt(x, z, simplex) {
+  return ChillFlightLogic.snowFactorAt(
+    z,
+    ChillFlightLogic.snowNoiseShift(x, z, simplex)
+  );
+}
+
 // Whether there's a cliff coast `dir` (radians) from (x, z) out at sea: the
 // shore within 120 to 320 units and the land behind it standing at least
 // 120 over the water within 200 more, rising steeply: {shore, cliff} or null
@@ -453,15 +462,15 @@ function* findSeaArches(E, simplex, water, rand) {
     }
     if (!through) continue;
     const desert = desertAt(x, z, simplex);
-    found.push(
-      seaArch(x, z, best.dir, water, rand, {
-        W,
-        shore: W + 60,
-        cliff: best.cliff,
-        groundAlong: (u) => E(x + ux * u, z + uz * u),
-        desert,
-      })
-    );
+    const arch = seaArch(x, z, best.dir, water, rand, {
+      W,
+      shore: W + 60,
+      cliff: best.cliff,
+      groundAlong: (u) => E(x + ux * u, z + uz * u),
+      desert,
+    });
+    arch.snow = snowAt(x, z, simplex);
+    found.push(arch);
   }
   return found;
 }
@@ -698,20 +707,20 @@ function* findGorgeBridges(E, simplex, water, rand) {
     const o = gorgeSection(E, spot.x, spot.z, spot.ux, spot.uz, 100);
     if (!o || !openUnder(E, o)) continue;
     const desert = desertAt(o.x, o.z, simplex);
-    found.push(
-      canyonBridge(
-        o.x,
-        o.z,
-        Math.atan2(o.uz, o.ux),
-        o.uL,
-        o.uR,
-        o.floor,
-        o.top,
-        rand,
-        'gorge',
-        {desert}
-      )
+    const bridge = canyonBridge(
+      o.x,
+      o.z,
+      Math.atan2(o.uz, o.ux),
+      o.uL,
+      o.uR,
+      o.floor,
+      o.top,
+      rand,
+      'gorge',
+      {desert}
     );
+    bridge.snow = snowAt(o.x, o.z, simplex);
+    found.push(bridge);
   }
   return found;
 }
