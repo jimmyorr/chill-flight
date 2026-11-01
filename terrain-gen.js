@@ -227,6 +227,11 @@ const VOLCANO_Z = 5000;
 // Palms stop where the desert takes over (desertFactor), leaving a gap
 // before the cacti start at 0.4, so the two never grow side by side
 const PALM_MAX_DESERT = 0.3;
+// Desert scrub (bushes in a dusty sage green): chance per grid point in its
+// loose patches, and of a lone one between them
+const DESERT_SCRUB_PATCH = 0.035;
+const DESERT_SCRUB_LONE = 0.004;
+const DESERT_SCRUB_COLOR = 0x8f9a62;
 const ENABLE_PAGODAS = false;
 const ENABLE_BARNS = true;
 const ENABLE_MONASTERIES = true;
@@ -2614,7 +2619,8 @@ export function generateChunkData({
           // About three times the trees of the old even scatter (1.3 times on
           // the low preset, for slower devices)
           (segments <= 20 ? 0.45 : 1.02) *
-          (desertFactor > 0.5 ? 0.33 : 1) *
+          // The desert's trees are sparse: lone bare snags, not a dead wood
+          (desertFactor > 0.5 ? 0.12 : 1) *
           treeFade *
           densityScale;
         treeCount =
@@ -3156,6 +3162,26 @@ export function generateChunkData({
           y: height,
           z: localZ,
           rotY: rng() * Math.PI * 2,
+        });
+      } else if (
+        !isAlienLand &&
+        desertFactor >= 0.2 &&
+        slopeFactor < 0.4 &&
+        height > WATER_LEVEL + 3 &&
+        height < MOUNTAIN_LEVEL - 50 &&
+        rng() <
+          (simplex.noise2D(worldX * 0.004 + 19, worldZ * 0.004 - 53) > 0.1
+            ? DESERT_SCRUB_PATCH
+            : DESERT_SCRUB_LONE) *
+            densityScale
+      ) {
+        // Desert scrub: low, dusty sage-green bushes in loose patches
+        bushPositions.push({
+          x: localX,
+          y: height,
+          z: localZ,
+          rotY: rng() * Math.PI * 2,
+          scrub: true,
         });
       }
     }
@@ -4017,7 +4043,7 @@ export function generateChunkData({
 
   if (bushPositions.length > 0) {
     bushPositions.forEach((pos) => {
-      const scale = 0.5 + rng() * 1.5;
+      const scale = (0.5 + rng() * 1.5) * (pos.scrub ? 0.55 : 1);
       composeMatrix(
         _matBuffer,
         0,
@@ -4035,7 +4061,7 @@ export function generateChunkData({
       const gVariation = (rng() - 0.5) * 0.15;
       const bVariation = (rng() - 0.5) * 0.15;
 
-      _baseBushColor.setHex(0x558b2f);
+      _baseBushColor.setHex(pos.scrub ? DESERT_SCRUB_COLOR : 0x558b2f);
       _baseBushColor.r = Math.max(
         0,
         Math.min(1, _baseBushColor.r + rVariation)
