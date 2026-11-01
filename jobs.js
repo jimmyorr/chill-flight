@@ -108,8 +108,7 @@ function updateHud() {
   hudCargo.textContent = `${cargoLabel(progress) || 'Empty'} → ${field}`;
 }
 
-// Odd jobs (a job done for anyone) and Everybody knows your name (met
-// everyone)
+// Odd jobs (a job done for anyone) and meeting everyone
 function jobAchievements(p) {
   if (Object.values(p.done).some((n) => n > 0)) {
     Achievements.unlock('odd_jobs');

@@ -104,7 +104,7 @@ const FOLDS = /Body$|^castleRuins$|^windmillBase$|^bush$/;
 const FLINGS = /Roof$|Chimney$|Blades$|^fireLog$/;
 const ROCKS = /^(rock|snowRock|desertRock)$/;
 const ICE = /^(iceberg|iceFloe)$/;
-// A real tree (not a streetlight, tent or silo), for Timber!
+// A real tree (not a streetlight, tent or silo), for Treehugger
 const TREE_PART = /Trunk|Leaves|^cactus/;
 // Parts that don't count toward how wide a prop is (a streetlight's arm
 // reaches out over the road), and parts that just go out when it falls

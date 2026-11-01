@@ -145,7 +145,7 @@ export const Achievements = (function () {
     },
     {
       id: 'walk_on_water',
-      title: 'Walk on water',
+      title: 'Amphibious',
       emoji: '🛥️',
       hint: 'Drive the buggy out over water',
     },
@@ -170,13 +170,13 @@ export const Achievements = (function () {
     },
     {
       id: 'timber',
-      title: 'Timber!',
+      title: 'Treehugger',
       emoji: '🌲',
       hint: 'Knock over a tree',
     },
     {
       id: 'penguin_parade',
-      title: 'Penguin parade',
+      title: 'Happy feet',
       emoji: '🐧',
       hint: 'Send the penguins diving off their floe',
     },
@@ -207,7 +207,7 @@ export const Achievements = (function () {
     },
     {
       id: 'checkered_flag',
-      title: 'Checkered flag',
+      title: 'Speed racer',
       emoji: '🏁',
       hint: 'Win a race',
     },
