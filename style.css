@@ -589,7 +589,9 @@ input[type='number'].customization-input {
   text-transform: uppercase;
   letter-spacing: 1.5px;
   font-weight: 600;
-  width: 38px;
+  /* min: a longer word (German HÖHE, French HEURE) pushes its value along */
+  min-width: 38px;
+  white-space: nowrap;
   text-align: right;
 }
 
@@ -1368,7 +1370,7 @@ input[type='number'].customization-input {
     }
 
     .cockpit-label {
-      width: 28px;
+      min-width: 28px;
       font-size: 8px;
     }
 
@@ -1429,6 +1431,15 @@ input[type='number'].customization-input {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   outline: none;
+}
+
+/* Vehicle names wrap onto a second row rather than cut off (German's
+   Doppeldecker and Wasserflugzeug don't fit on one) */
+#plane-select-group {
+  flex-wrap: wrap;
+}
+#plane-select-group .scheme-btn {
+  min-width: max-content;
 }
 
 .scheme-btn:hover {
@@ -3054,7 +3065,7 @@ input[type='number'].customization-input {
   display: none;
 }
 #job-hud .cockpit-label {
-  width: auto;
+  min-width: 0;
 }
 #job-hud .cockpit-value {
   min-width: 0;
