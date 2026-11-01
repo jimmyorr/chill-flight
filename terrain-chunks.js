@@ -51,6 +51,8 @@ import {
   cactusMat,
   joshuaGeos,
   joshuaTrunkMat,
+  hayBaleGeo,
+  hayBaleMat,
   castleRuinsGeo,
   castleRuinsMat,
   chunkQueueSet,
@@ -711,6 +713,7 @@ globalInstancer.registerType('rock', rockGeo, rockMat);
 globalInstancer.registerType('snowRock', rockGeo, snowRockMat);
 globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
 globalInstancer.registerType('cactus', cactusGeo, cactusMat);
+globalInstancer.registerType('hayBale', hayBaleGeo, hayBaleMat);
 globalInstancer.registerType('joshuaTrunk', joshuaGeos.trunk, joshuaTrunkMat);
 globalInstancer.registerType(
   'joshuaLeaves',
@@ -864,6 +867,7 @@ globalInstancer.setFarGeometry('bush', farCanopy(bushGeo), {
 globalInstancer.setFarGeometry('barnDoor', null);
 globalInstancer.setFarGeometry('barnTrim', null);
 globalInstancer.setFarGeometry('snowmanBody', null);
+globalInstancer.setFarGeometry('hayBale', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
 // Town streets: flat, so they cast no shadow
 globalInstancer.registerType(

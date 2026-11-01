@@ -183,6 +183,9 @@
       <button class="model-btn" onclick="viewModel('joshua_tree', event)">
         Joshua tree
       </button>
+      <button class="model-btn" onclick="viewModel('hay_bale', event)">
+        Hay bale
+      </button>
       <button class="model-btn" onclick="viewModel('bush', event)">Bush</button>
       <button class="model-btn" onclick="viewModel('mushroom', event)">
         Mushroom
@@ -421,6 +424,8 @@
         cactusMat,
         joshuaGeos,
         joshuaTrunkMat,
+        hayBaleGeo,
+        hayBaleMat,
         castleRuinsGeo,
         castleRuinsMat,
         createRockArchGeometries,
@@ -862,6 +867,18 @@
               break;
             case 'cactus':
               previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
+              break;
+            case 'hay_bale':
+              for (const [x, z, r] of [
+                [0, 0, 0],
+                [6, 1, 0.2],
+                [2, 7, 1.4],
+              ]) {
+                const m = new THREE.Mesh(hayBaleGeo, hayBaleMat);
+                m.position.set(x, 0, z);
+                m.rotation.y = r;
+                previewGroup.add(m);
+              }
               break;
             case 'joshua_tree':
               previewGroup.add(

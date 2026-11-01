@@ -1379,6 +1379,15 @@ function createCactusGeometry(simple = false) {
 export var cactusGeo = createCactusGeometry();
 export var cactusShadowGeo = createCactusGeometry(true);
 export var cactusMat = createMaterial({color: 0x4caf50, flatShading: true});
+
+// Round hay bale, lying on its side (its axis along x), 5.2 units across
+export var hayBaleGeo = (() => {
+  const g = new THREE.CylinderGeometry(2.6, 2.6, 3.4, 10);
+  g.rotateZ(Math.PI / 2);
+  g.translate(0, 2.4, 0);
+  return g;
+})();
+export var hayBaleMat = createMaterial({color: 0xead283, flatShading: true});
 export var joshuaGeos = createJoshuaTreeGeometry();
 export var joshuaTrunkMat = createMaterial({
   color: 0x7d6a55,

@@ -232,6 +232,10 @@ const PALM_MAX_DESERT = 0.3;
 const DESERT_SCRUB_PATCH = 0.035;
 const DESERT_SCRUB_LONE = 0.004;
 const DESERT_SCRUB_COLOR = 0x8f9a62;
+// Hay bales: the share of the mown meadows among the fields that have them,
+// and the chance of a bale (or a pair) at each grid point of one
+const HAY_FIELD_CHANCE = 0.45;
+const HAY_BALE_CHANCE = 0.12;
 // Joshua trees: share of the desert's trees, and their tufts' colour
 const JOSHUA_SHARE = 0.65;
 export const JOSHUA_LEAF_COLOR = 0x6f8a3c;
@@ -1992,6 +1996,7 @@ export function generateChunkData({
   const palmTreePositions = [];
   const deadTreePositions = [];
   const joshuaTreePositions = [];
+  const hayBalePositions = [];
   const snowTreePositions = [];
   const mushroomTreePositions = [];
   const crystalPositions = [];
@@ -2813,6 +2818,39 @@ export function generateChunkData({
           }
         }
       }
+      // Hay bales on some of the mown meadows among the fields (fields
+      // with no crop), in loose rows along the strip. From hashes of the
+      // field and the grid point, not the chunk's rolls.
+      if (farm > 0.4 && slopeFactor < 0.25) {
+        const f = fieldAt(worldX, worldZ, simplex);
+        if (f.crop === -1) {
+          const fi = Math.floor(f.u / FIELD_WIDTH);
+          const fj = Math.floor(f.v / FIELD_LENGTH);
+          const gx = Math.round(worldX / gridSpacing);
+          const gz = Math.round(worldZ / gridSpacing);
+          if (
+            fieldHash(f.bx * 31 + fi, f.bz * 17 + fj, 9) < HAY_FIELD_CHANCE &&
+            fieldHash(gx, gz, 23) < HAY_BALE_CHANCE * densityScale
+          ) {
+            const jx = (fieldHash(gx, gz, 29) - 0.5) * gridSpacing * 0.7;
+            const jz = (fieldHash(gx, gz, 31) - 0.5) * gridSpacing * 0.7;
+            const pair = fieldHash(gx, gz, 37) < 0.35;
+            for (let b = 0; b < (pair ? 2 : 1); b++) {
+              // A pair lies end to end along the bale's axis
+              const ax = Math.cos(f.angle) * 6 * b;
+              const az = -Math.sin(f.angle) * 6 * b;
+              const hx = localX + jx + ax;
+              const hz = localZ + jz + az;
+              hayBalePositions.push({
+                x: hx,
+                y: heightAtLocal(hx, hz),
+                z: hz,
+                rotY: f.angle + (fieldHash(gx, gz, 41 + b) - 0.5) * 0.4,
+              });
+            }
+          }
+        }
+      }
       // Fairly flat farmland outside the villages can take a farmstead
       // (placed after the loop, farmsteadsAt)
       if (farm > 0.3 && villageNoise < 0.4 && slopeFactor < 0.2) {
@@ -3443,6 +3481,7 @@ export function generateChunkData({
         bushPositions,
         rockPositions,
         campfirePositions,
+        hayBalePositions,
       ].forEach(clearStead);
     }
   }
@@ -3591,6 +3630,7 @@ export function generateChunkData({
         yellowCortezTreePositions,
         japaneseMapleTreePositions,
         bushPositions,
+        hayBalePositions,
         housePositions,
         twoStoryHousePositions,
         chimneySmokePositions,
@@ -3661,6 +3701,7 @@ export function generateChunkData({
       cactusPositions,
       snowmanPositions,
       campfirePositions,
+      hayBalePositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_PROP_CLEAR));
     // A house's chimney smoke sits on the same spot, so goes with it
     [
@@ -4243,6 +4284,26 @@ export function generateChunkData({
       collector.add('bush', _matBuffer, _baseBushColor);
       collector.endProp();
     });
+  }
+
+  // Hay bales (no rolls here, so the props after them come out as before)
+  for (const pos of hayBalePositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      1,
+      1,
+      1,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.beginProp(BREAKABLE.SMALL);
+    collector.add('hayBale', _matBuffer);
+    collector.endProp();
   }
 
   // Wall and roof colors (indices into houseBodyPalette and
