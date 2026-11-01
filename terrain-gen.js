@@ -356,6 +356,40 @@ function fieldAt(x, z, simplex) {
   return _field;
 }
 
+// The farmsteads a farm parcel (fieldAt's result) may have: a few spots,
+// one per field strip in turn, each kept about half the time, where a barn
+// stands just inside a field's corner by its hedges, long side along the
+// strip, and now and then a windmill beside it. Only the spots on fairly
+// flat farmland outside the villages get built (steadOk in
+// generateChunkData), so a parcel of fields has a farm or two.
+const FARMSTEAD_SPOTS = 6;
+const FARMSTEAD_CHANCE = 0.5;
+const FARMSTEAD_MILL_CHANCE = 0.25;
+function farmsteadsAt(f) {
+  const {bx, bz} = f;
+  const cos = Math.cos(f.angle);
+  const sin = Math.sin(f.angle);
+  const spots = [];
+  for (let k = 0; k < FARMSTEAD_SPOTS; k++) {
+    if (fieldHash(bx, bz, 4242 + k * 101) >= FARMSTEAD_CHANCE) continue;
+    const i = k - FARMSTEAD_SPOTS / 2;
+    const j = Math.floor(fieldHash(bx, bz, 91 + k * 37) * 3) - 1;
+    const stagger = fieldHash(bx, bz, i * 7919 + 11);
+    const u = i * FIELD_WIDTH + 30;
+    const v = (j - stagger) * FIELD_LENGTH + 45;
+    spots.push({
+      x: f.cx + cos * u + sin * v,
+      z: f.cz - sin * u + cos * v,
+      rotY: f.angle,
+      mill: fieldHash(bx, bz, 1313 + k * 53) < FARMSTEAD_MILL_CHANCE,
+      // The windmill 70 units further into the field along the strip
+      mx: f.cx + cos * (u + 20) + sin * (v + 70),
+      mz: f.cz - sin * (u + 20) + cos * (v + 70),
+    });
+  }
+  return spots;
+}
+
 // The nearest hedgerow to (x, z) in its field parcel, as a world point, or
 // null if it's more than `reach` away. Hedges run along most of the strips'
 // long sides and some of their ends.
@@ -1990,6 +2024,8 @@ export function generateChunkData({
   const bushPositions = [];
   const pagodaPositions = [];
   const barnPositions = [];
+  // Grid points where a farmstead may stand (see farmsteadsAt)
+  const steadOk = new Uint8Array(positions.length / 3);
   const monasteryPositions = [];
   const castleRuinsPositions = [];
   const rockArchPositions = [];
@@ -2777,6 +2813,11 @@ export function generateChunkData({
           }
         }
       }
+      // Fairly flat farmland outside the villages can take a farmstead
+      // (placed after the loop, farmsteadsAt)
+      if (farm > 0.3 && villageNoise < 0.4 && slopeFactor < 0.2) {
+        steadOk[vertI] = 1;
+      }
       // Hedgerows between the fields (fieldAt): bushes, and now and then a
       // tree, lined up along the field edges
       if (farm > 0.3 && rng() < 0.35 * farm * densityScale) {
@@ -3320,6 +3361,90 @@ export function generateChunkData({
     terrainColors[colorIdx++] = _tempColorObj.r;
     terrainColors[colorIdx++] = _tempColorObj.g;
     terrainColors[colorIdx++] = _tempColorObj.b;
+  }
+
+  // Farmsteads (farmsteadsAt): each farm parcel touching this chunk whose
+  // barn spot is on this chunk, on a grid point fit for one, with the
+  // trees, bushes and rocks cleared from around the barn and windmill
+  if (_enableObjects) {
+    const steadClear = [];
+    const bx0 = Math.floor((worldOffsetX - halfSize - 300) / FARM_BLOCK);
+    const bx1 = Math.floor((worldOffsetX + halfSize + 300) / FARM_BLOCK);
+    const bz0 = Math.floor((worldOffsetZ - halfSize - 300) / FARM_BLOCK);
+    const bz1 = Math.floor((worldOffsetZ + halfSize + 300) / FARM_BLOCK);
+    const vertexAt = (wx, wz) => {
+      const ix = Math.round((wx - worldOffsetX + halfSize) / gridSpacing);
+      const iz = Math.round((wz - worldOffsetZ + halfSize) / gridSpacing);
+      return ix < 0 || iz < 0 || ix > segments || iz > segments
+        ? -1
+        : iz * gridX1 + ix;
+    };
+    for (let bx = bx0; bx <= bx1; bx++) {
+      for (let bz = bz0; bz <= bz1; bz++) {
+        const cx = (bx + 0.5) * FARM_BLOCK;
+        const cz = (bz + 0.5) * FARM_BLOCK;
+        for (const stead of farmsteadsAt({
+          bx,
+          bz,
+          cx,
+          cz,
+          angle: villageAngleAt(cx, cz, simplex),
+        })) {
+          const lx = stead.x - worldOffsetX;
+          const lz = stead.z - worldOffsetZ;
+          if (Math.abs(lx) >= halfSize || Math.abs(lz) >= halfSize) continue;
+          const v = vertexAt(stead.x, stead.z);
+          if (v < 0 || !steadOk[v]) continue;
+          const by = getElevation(stead.x, stead.z, elevParams);
+          if (by <= WATER_LEVEL + 5) continue;
+          barnPositions.push({x: lx, y: by, z: lz, rotY: stead.rotY});
+          steadClear.push({x: lx, z: lz, r: 26});
+          const mv = vertexAt(stead.mx, stead.mz);
+          if (stead.mill && mv >= 0 && steadOk[mv]) {
+            const my = getElevation(stead.mx, stead.mz, elevParams);
+            if (my > WATER_LEVEL + 5) {
+              const mlx = stead.mx - worldOffsetX;
+              const mlz = stead.mz - worldOffsetZ;
+              windmillPositions.push({x: mlx, y: my, z: mlz});
+              steadClear.push({x: mlx, z: mlz, r: 16});
+            }
+          }
+        }
+      }
+    }
+    if (steadClear.length > 0) {
+      const clearStead = (arr) => {
+        let kept = 0;
+        for (const p of arr) {
+          let blocked = false;
+          for (const c of steadClear) {
+            const dx = p.x - c.x;
+            const dz = p.z - c.z;
+            if (dx * dx + dz * dz < c.r * c.r) {
+              blocked = true;
+              break;
+            }
+          }
+          if (!blocked) arr[kept++] = p;
+        }
+        arr.length = kept;
+      };
+      [
+        treePositions,
+        deciduousTreePositions,
+        tallDeciduousTreePositions,
+        snowTreePositions,
+        autumnTree1Positions,
+        autumnTree2Positions,
+        autumnTree3Positions,
+        cherryTreePositions,
+        japaneseMapleTreePositions,
+        deadTreePositions,
+        bushPositions,
+        rockPositions,
+        campfirePositions,
+      ].forEach(clearStead);
+    }
   }
 
   // Road villages (see roadVillageHouses): each house on this chunk's
