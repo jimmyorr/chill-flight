@@ -2667,7 +2667,11 @@ export function generateChunkData({
             eastCoastFactor > 0.7 &&
             height < WATER_LEVEL + 40 &&
             !isIsland &&
-            desertFactor < PALM_MAX_DESERT
+            desertFactor < PALM_MAX_DESERT &&
+            // Only where the woods stay green: north of where the leaves
+            // start to turn, the coast's palms would stand among pines,
+            // autumn colours and bare trees
+            ChillFlightLogic.fallTurnAt(worldX, worldZ, height, simplex) === 0
           ) {
             palmTreePositions.push(treeSpot);
           } else {
