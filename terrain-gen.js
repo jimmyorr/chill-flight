@@ -2931,7 +2931,9 @@ export function generateChunkData({
                 const hz = localZ + rowZ * along + rowX * across;
                 const hy = k === 0 ? height : heightAtLocal(hx, hz);
                 const houseRot = k === 0 ? rotY : houseRotY();
-                if (isIsland) {
+                // Straw huts on the tropical islands; the desert's islands
+                // get its adobe houses
+                if (isIsland && houseStyle !== 'adobe') {
                   strawHutPositions.push({x: hx, y: hy, z: hz, rotY: houseRot});
                   continue;
                 }
