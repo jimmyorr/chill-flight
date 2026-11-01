@@ -1209,6 +1209,7 @@ import {friendsOnMap, inGameMode} from './multiplayer.js';
         ? undefined
         : (speed * planeHandling().levelKts) / 100;
     movePlane(x, y, z, yaw, approach);
+    Achievements.unlock('beam_me_up');
     log.info(
       `[Warp] To ${place.name ? `${place.name}, ` : ''}X = ${x.toFixed(0)}, Z = ${z.toFixed(0)} (${formatLatLon(x, z)})`
     );

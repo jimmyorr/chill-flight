@@ -166,7 +166,7 @@ function syncSmokeUI() {
 }
 function toggleSmokeTrail() {
   if (state.mpForceSmoke) return;
-  toggleSmoke();
+  if (toggleSmoke()) Achievements.unlock('smoke_show');
   syncSmokeUI();
 }
 hooks.syncSmokeUI = syncSmokeUI;

@@ -44,6 +44,18 @@ export const Achievements = (function () {
       emoji: '🗺️',
       hint: 'Open the map',
     },
+    {
+      id: 'beam_me_up',
+      title: 'Beam me up',
+      emoji: '🌀',
+      hint: 'Warp somewhere from the map',
+    },
+    {
+      id: 'smoke_show',
+      title: 'Smoke show',
+      emoji: '💨',
+      hint: 'Turn on the airshow smoke',
+    },
     // 2. Flight & Maneuvers
     {
       id: 'to_the_moon',
