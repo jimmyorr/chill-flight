@@ -6,6 +6,20 @@
     <string>$(CAPACITOR_DEBUG)</string>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
+    <!-- The game's own languages (i18n.js, locales/): lets iOS and the App
+         Store listing know the app speaks them -->
+    <key>CFBundleLocalizations</key>
+    <array>
+      <string>en</string>
+      <string>zh-Hans</string>
+      <string>zh-Hant</string>
+      <string>ja</string>
+      <string>ko</string>
+      <string>es</string>
+      <string>pt-BR</string>
+      <string>de</string>
+      <string>fr</string>
+    </array>
     <key>CFBundleDisplayName</key>
     <string>Chill Flight</string>
     <key>CFBundleExecutable</key>
