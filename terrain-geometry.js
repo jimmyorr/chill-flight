@@ -1188,6 +1188,60 @@ function createDeadTreeGeometry() {
 }
 export var deadTreeGeo = createDeadTreeGeometry();
 
+// Joshua tree (the desert): a shaggy trunk forking into a few crooked arms,
+// each ending in a spiky tuft of leaves. Trunk and tufts are separate
+// geometries so the tufts take the per-instance leaf colour.
+function createJoshuaTreeGeometry() {
+  const wood = [];
+  const tufts = [];
+  // A spiky tuft: two octahedra a quarter turn apart, so its points stick
+  // out all round like a ball of dagger leaves
+  const tuftAt = (x, y, z, r) => {
+    for (const turn of [0, Math.PI / 4]) {
+      const t = new THREE.OctahedronGeometry(r, 0);
+      t.rotateY(turn);
+      t.rotateX(turn * 0.6);
+      t.translate(x, y, z);
+      tufts.push(t);
+    }
+  };
+  const trunk = new THREE.CylinderGeometry(1.1, 1.6, 8, 5);
+  trunk.translate(0, 4, 0);
+  wood.push(trunk);
+  // [lean from upright, direction, length, fork]
+  const arms = [
+    [1.05, 0.4, 9, true],
+    [1.2, 2.5, 7.5, false],
+    [0.8, 4.3, 10, true],
+  ];
+  const tipOf = (lean, dir, len) => [
+    Math.sin(lean) * Math.cos(dir) * len,
+    Math.cos(lean) * len,
+    -Math.sin(lean) * Math.sin(dir) * len,
+  ];
+  const branch = (x, y, z, lean, dir, len, r0, r1) => {
+    const g = new THREE.CylinderGeometry(r1, r0, len, 5);
+    g.translate(0, len / 2, 0);
+    g.rotateZ(-lean);
+    g.rotateY(dir);
+    g.translate(x, y, z);
+    wood.push(g);
+    const [tx, ty, tz] = tipOf(lean, dir, len);
+    return [x + tx, y + ty, z + tz];
+  };
+  for (const [lean, dir, len, fork] of arms) {
+    // Each arm crooks upward halfway along
+    const mid = branch(0, 7.5, 0, lean, dir, len * 0.55, 0.8, 0.65);
+    const end = branch(...mid, lean * 0.25, dir, len * 0.45, 0.65, 0.55);
+    tuftAt(end[0], end[1] + 1.2, end[2], 2);
+    if (fork) {
+      const f = branch(...mid, 0.75, dir + 1.4, 4.5, 0.5, 0.45);
+      tuftAt(f[0], f[1] + 1, f[2], 1.7);
+    }
+  }
+  return {trunk: mergeGeometries(wood), leaves: mergeGeometries(tufts)};
+}
+
 export var treeTrunkMat = createMaterial({color: 0x5d4037, flatShading: true});
 // Leaf materials use WHITE as the base color so per-instance colors control the actual appearance
 // (Three.js multiplies instance color × material color, so white = identity / no tint)
@@ -1325,6 +1379,11 @@ function createCactusGeometry(simple = false) {
 export var cactusGeo = createCactusGeometry();
 export var cactusShadowGeo = createCactusGeometry(true);
 export var cactusMat = createMaterial({color: 0x4caf50, flatShading: true});
+export var joshuaGeos = createJoshuaTreeGeometry();
+export var joshuaTrunkMat = createMaterial({
+  color: 0x7d6a55,
+  flatShading: true,
+});
 
 // Mushroom geometry and materials
 function createMushroomGeometry() {

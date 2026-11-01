@@ -180,6 +180,9 @@
       <button class="model-btn" onclick="viewModel('cactus', event)">
         Cactus
       </button>
+      <button class="model-btn" onclick="viewModel('joshua_tree', event)">
+        Joshua tree
+      </button>
       <button class="model-btn" onclick="viewModel('bush', event)">Bush</button>
       <button class="model-btn" onclick="viewModel('mushroom', event)">
         Mushroom
@@ -416,6 +419,8 @@
         bushGeo,
         cactusGeo,
         cactusMat,
+        joshuaGeos,
+        joshuaTrunkMat,
         castleRuinsGeo,
         castleRuinsMat,
         createRockArchGeometries,
@@ -450,6 +455,7 @@
         waterUniforms,
         woodMat,
       } from '../terrain-geometry.js';
+      import {JOSHUA_LEAF_COLOR} from '../terrain-gen.js';
 
       // Setup Viewer
       const container = document.getElementById('viewer');
@@ -856,6 +862,15 @@
               break;
             case 'cactus':
               previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
+              break;
+            case 'joshua_tree':
+              previewGroup.add(
+                new THREE.Mesh(joshuaGeos.trunk, joshuaTrunkMat),
+                new THREE.Mesh(
+                  joshuaGeos.leaves,
+                  createMaterial({color: JOSHUA_LEAF_COLOR})
+                )
+              );
               break;
             case 'bush': {
               const variations = [-10, 0, 10];

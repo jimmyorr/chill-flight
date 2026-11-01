@@ -49,6 +49,8 @@ import {
   cactusGeo,
   cactusShadowGeo,
   cactusMat,
+  joshuaGeos,
+  joshuaTrunkMat,
   castleRuinsGeo,
   castleRuinsMat,
   chunkQueueSet,
@@ -709,6 +711,14 @@ globalInstancer.registerType('rock', rockGeo, rockMat);
 globalInstancer.registerType('snowRock', rockGeo, snowRockMat);
 globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
 globalInstancer.registerType('cactus', cactusGeo, cactusMat);
+globalInstancer.registerType('joshuaTrunk', joshuaGeos.trunk, joshuaTrunkMat);
+globalInstancer.registerType(
+  'joshuaLeaves',
+  joshuaGeos.leaves,
+  treeLeavesBaseMat,
+  30000,
+  true
+);
 globalInstancer.registerType('snowmanBody', snowmanGeos.body, snowmanBodyMat);
 globalInstancer.registerType('snowmanNose', snowmanGeos.nose, snowmanNoseMat);
 globalInstancer.registerType('iceberg', icebergMainGeo, icebergMat);

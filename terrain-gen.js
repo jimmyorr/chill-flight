@@ -232,6 +232,9 @@ const PALM_MAX_DESERT = 0.3;
 const DESERT_SCRUB_PATCH = 0.035;
 const DESERT_SCRUB_LONE = 0.004;
 const DESERT_SCRUB_COLOR = 0x8f9a62;
+// Joshua trees: share of the desert's trees, and their tufts' colour
+const JOSHUA_SHARE = 0.65;
+export const JOSHUA_LEAF_COLOR = 0x6f8a3c;
 const ENABLE_PAGODAS = false;
 const ENABLE_BARNS = true;
 const ENABLE_MONASTERIES = true;
@@ -1934,6 +1937,7 @@ export function generateChunkData({
   const tallDeciduousTreePositions = [];
   const palmTreePositions = [];
   const deadTreePositions = [];
+  const joshuaTreePositions = [];
   const snowTreePositions = [];
   const mushroomTreePositions = [];
   const crystalPositions = [];
@@ -2619,8 +2623,8 @@ export function generateChunkData({
           // About three times the trees of the old even scatter (1.3 times on
           // the low preset, for slower devices)
           (segments <= 20 ? 0.45 : 1.02) *
-          // The desert's trees are sparse: lone bare snags, not a dead wood
-          (desertFactor > 0.5 ? 0.12 : 1) *
+          // The desert's trees are sparse: lone Joshua trees and snags, not a wood
+          (desertFactor > 0.5 ? 0.2 : 1) *
           treeFade *
           densityScale;
         treeCount =
@@ -2668,7 +2672,11 @@ export function generateChunkData({
           ) {
             snowTreePositions.push(treeSpot);
           } else if (desertFactor > 0.6) {
-            deadTreePositions.push(treeSpot);
+            // Joshua trees, and the odd bare snag among them
+            (rng() < JOSHUA_SHARE
+              ? joshuaTreePositions
+              : deadTreePositions
+            ).push(treeSpot);
           } else if (
             eastCoastFactor > 0.7 &&
             height < WATER_LEVEL + 40 &&
@@ -3428,6 +3436,7 @@ export function generateChunkData({
         tallDeciduousTreePositions,
         palmTreePositions,
         deadTreePositions,
+        joshuaTreePositions,
         snowTreePositions,
         autumnTree1Positions,
         autumnTree2Positions,
@@ -3487,6 +3496,7 @@ export function generateChunkData({
       tallDeciduousTreePositions,
       palmTreePositions,
       deadTreePositions,
+      joshuaTreePositions,
       snowTreePositions,
       autumnTree1Positions,
       autumnTree2Positions,
@@ -3539,6 +3549,7 @@ export function generateChunkData({
       tallDeciduousTreePositions,
       palmTreePositions,
       deadTreePositions,
+      joshuaTreePositions,
       snowTreePositions,
       autumnTree1Positions,
       autumnTree2Positions,
@@ -3772,6 +3783,12 @@ export function generateChunkData({
     0x9c27b0
   );
   renderTreesToCollector(crystalPositions, null, 'crystal', 0xff4fd8);
+  renderTreesToCollector(
+    joshuaTreePositions,
+    'joshuaTrunk',
+    'joshuaLeaves',
+    JOSHUA_LEAF_COLOR
+  );
   renderTreesToCollector(
     japaneseMapleTreePositions,
     'japaneseMapleTrunk',
@@ -4043,7 +4060,7 @@ export function generateChunkData({
 
   if (bushPositions.length > 0) {
     bushPositions.forEach((pos) => {
-      const scale = (0.5 + rng() * 1.5) * (pos.scrub ? 0.55 : 1);
+      const scale = (0.5 + rng() * 1.5) * (pos.scrub ? 0.8 : 1);
       composeMatrix(
         _matBuffer,
         0,
@@ -4345,6 +4362,7 @@ export function generateChunkData({
         deciduousTreePositions.length + tallDeciduousTreePositions.length,
       trees_palm: palmTreePositions.length,
       trees_dead: deadTreePositions.length,
+      trees_joshua: joshuaTreePositions.length,
       trees_autumn:
         autumnTree1Positions.length +
         autumnTree2Positions.length +
