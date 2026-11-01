@@ -230,6 +230,20 @@ export class InputManager {
     if (stick) stick.style.transform = 'translate(-50%, -50%)';
   }
 
+  // iOS can take a touch for a system swipe (Notification or Control Centre
+  // from the top edge, the home bar) without sending touchend or
+  // touchcancel. The joystick then stays drawn and held by a finger that is
+  // gone, and new touches can't take it, so let go of it when its finger is
+  // no longer on the screen.
+  releaseLostJoystick(e) {
+    if (!this.state.joystick.active) return;
+    const id = this.state.joystick.touchId;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === id) return;
+    }
+    this.releaseTouchSteering();
+  }
+
   // Starts a pinch if this touch came down with another on the view: undoes
   // the other's tap (so pinching twice isn't a double tap) and the steering
   startPinch(touch, now) {
@@ -524,9 +538,7 @@ export class InputManager {
     this.state.freeCam.dragging = false;
     this.state.gamepad.throttlingUp = false;
     this.state.gamepad.throttlingDown = false;
-    this.state.joystick.active = false;
-    this.state.joystick.touchId = null;
-    this.state.touch.steeringId = null;
+    this.releaseTouchSteering();
     this._activeGestures = {};
     this._viewTouches = {};
     this._pinch = null;
@@ -737,6 +749,7 @@ export class InputManager {
     }
 
     if (this.state.controlScheme === 'joystick') {
+      this.releaseLostJoystick(e);
       if (!this.state.joystick.active) {
         this.state.joystick.active = true;
         this.state.joystick.touchId = touch.identifier;
@@ -840,6 +853,7 @@ export class InputManager {
 
     if (this.state.controlScheme === 'gyro') return;
 
+    if (this.state.controlScheme === 'joystick') this.releaseLostJoystick(e);
     if (this.state.controlScheme === 'joystick' && this.state.joystick.active) {
       for (let i = 0; i < e.touches.length; i++) {
         if (e.touches[i].identifier === this.state.joystick.touchId) {
@@ -956,6 +970,7 @@ export class InputManager {
     }
 
     if (e.touches.length === 0) {
+      if (this.state.joystick.active) this.releaseTouchSteering();
       this.state.mouse.controlActive = false;
       this.state.mouse.x = 0;
       this.state.mouse.y = 0;
