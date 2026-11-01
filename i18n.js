@@ -7,24 +7,40 @@
 // {name}-style placeholders are filled from `vars` after translating, so a
 // translation can move them: t('{n} of {total} unlocked', {n, total}).
 //
-// The language: ?lang= (en, zh), else the Settings choice, else the
-// browser's. Static text in index.html is translated once at load
+// The language: ?lang= (en, ja, ko, zh, zh-TW, es, pt, de, fr), else the
+// Settings choice, else the browser's. Only the player's table loads (its
+// own chunk). Static text in index.html is translated once at load
 // (translateDom); text the game sets later goes through t() where it's set.
-import ZH_CN from './locales/zh-CN.js';
+import {log} from './logger.js';
+import {withTimeout} from './network.js';
 
 const STORAGE_KEY = 'chill_flight_language';
 
-// Language code → its table. English needs none.
-const TABLES = {'zh-CN': ZH_CN};
-export const LANGUAGES = ['en', 'zh-CN'];
+// Language code → its table, loaded on demand. English needs none.
+const TABLES = {
+  'zh-CN': () => import('./locales/zh-CN.js'),
+  'zh-TW': () => import('./locales/zh-TW.js'),
+  ja: () => import('./locales/ja.js'),
+  ko: () => import('./locales/ko.js'),
+  es: () => import('./locales/es.js'),
+  'pt-BR': () => import('./locales/pt-BR.js'),
+  de: () => import('./locales/de.js'),
+  fr: () => import('./locales/fr.js'),
+};
+export const LANGUAGES = ['en', ...Object.keys(TABLES)];
 
-// 'zh', 'zh-Hans', 'zh-TW'... → zh-CN (the only Chinese so far: Simplified
-// reads fine for most Traditional readers, better than English)
+// A browser or URL language code → one of LANGUAGES, or null. Chinese:
+// Traditional for Taiwan, Hong Kong and Macau (and zh-Hant), Simplified
+// otherwise. Any Portuguese gets Brazil's, any Spanish the one table.
 function known(code) {
   if (!code) return null;
-  const c = String(code).toLowerCase();
-  if (c === 'en' || c.startsWith('en-')) return 'en';
-  if (c === 'zh' || c.startsWith('zh-') || c.startsWith('zh_')) return 'zh-CN';
+  const c = String(code).toLowerCase().replace('_', '-');
+  const base = c.split('-')[0];
+  if (base === 'zh') {
+    return /-(tw|hk|mo|hant)\b/.test(c) ? 'zh-TW' : 'zh-CN';
+  }
+  if (base === 'pt') return 'pt-BR';
+  if (['en', 'ja', 'ko', 'es', 'de', 'fr'].includes(base)) return base;
   return null;
 }
 
@@ -59,7 +75,20 @@ function loadLanguage() {
 }
 
 export const LANG = loadLanguage();
-const table = TABLES[LANG] || null;
+
+// The table, or null for English (also if it fails to load in time: the
+// game starts in English rather than waiting)
+async function loadTable() {
+  if (!TABLES[LANG]) return null;
+  try {
+    return (await withTimeout(TABLES[LANG](), 8000, `Language ${LANG}`))
+      .default;
+  } catch (e) {
+    log.warn(`[Language] ${LANG} didn't load, using English`, e);
+    return null;
+  }
+}
+const table = await loadTable();
 
 function fill(text, vars) {
   if (!vars) return text;
@@ -73,7 +102,7 @@ export function t(text, vars) {
 }
 
 // Whether the language writes without spaces between words
-export const NO_SPACES = LANG === 'zh-CN';
+export const NO_SPACES = ['zh-CN', 'zh-TW', 'ja'].includes(LANG);
 
 // "Ray", "Ray and Doug", "Ray, Doug and Bonnie" (Chinese: 雷、道格和邦妮)
 export function joinList(items) {

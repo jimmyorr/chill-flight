@@ -30,13 +30,29 @@ body {
   -webkit-touch-callout: none;
 }
 
-/* Chinese (i18n.js sets <html lang>): each system's Simplified Chinese
-   font, so no device falls back to Japanese or Traditional glyphs. Elements
-   with their own font fall back to the same through the lang. */
-html:lang(zh) body {
+/* Chinese, Japanese and Korean (i18n.js sets <html lang>): each system's
+   font for the language, so no device borrows another language's glyphs
+   for the shared characters. Elements with their own font fall back to the
+   same through the lang. */
+html:lang(zh-CN) body {
   font-family:
     'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
     'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', sans-serif;
+}
+html:lang(zh-TW) body {
+  font-family:
+    'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC',
+    'Noto Sans TC', 'Source Han Sans TC', sans-serif;
+}
+html:lang(ja) body {
+  font-family:
+    'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic',
+    'Meiryo', 'Noto Sans CJK JP', 'Noto Sans JP', sans-serif;
+}
+html:lang(ko) body {
+  font-family:
+    'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR',
+    'Noto Sans KR', sans-serif;
 }
 
 body > canvas {
