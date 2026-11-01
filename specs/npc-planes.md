@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the design and implementation strategy for introducing Non-Player Character (NPC) aircraft into `chill-flight`. In alignment with the project's core identity—a relaxing, meditative procedural flight simulator—NPCs should enhance the sense of a living world without introducing stress, aggressive combat, or punitive mechanics.
+This document outlines the design and implementation strategy for introducing Non-Player Character (NPC) aircraft into `chill-flight`. In alignment with the project's core identity - a relaxing, meditative procedural flight simulator - NPCs should enhance the sense of a living world without introducing stress, aggressive combat, or punitive mechanics.
 
 ---
 

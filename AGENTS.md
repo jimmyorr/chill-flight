@@ -35,6 +35,7 @@
 ## UI & typography rules
 
 - **Sentence case only**: Always use "Sentence case" instead of "Title Case" for UI text, labels, buttons, and titles, as well as titles and headers in all documentation (such as the README). Strings that are intended to be ALL CAPS should remain so.
+- **No em dashes**: Never use em dashes (`—` or `&mdash;`) in any writing, including UI text, release notes, documentation, scripts, commit messages, or chat responses. Use hyphens (`-`), colons (`:`), commas, or parentheses instead.
 
 ## Geometry & model rules
 

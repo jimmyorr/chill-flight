@@ -683,7 +683,7 @@ export function updateFlightCamera(delta, nowTime) {
     Math.sin(baseMoonAngle + moonWobbleX) *
     Math.cos(baseMoonElev + moonWobbleY);
 
-  // Update water shader uniform — the GPU handles all wave displacement
+  // Update water shader uniform - the GPU handles all wave displacement
   waterUniforms.uTime.value = nowTime * 0.0015;
 
   // Update global animation time for GPU-offloaded objects

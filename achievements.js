@@ -242,7 +242,7 @@ export const Achievements = (function () {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
     } catch {
-      // Storage full or unavailable — silently ignore
+      // Storage full or unavailable - silently ignore
     }
   }
 
@@ -278,11 +278,11 @@ export const Achievements = (function () {
   }
 
   /**
-   * Unlock an achievement by id. Idempotent — does nothing if already unlocked.
+   * Unlock an achievement by id. Idempotent - does nothing if already unlocked.
    * Saves to localStorage and dispatches a CustomEvent for the toast.
    */
   function unlock(id) {
-    // Already unlocked — no-op
+    // Already unlocked - no-op
     if (unlockedMap[id]) return false;
 
     // Validate the id exists in the registry
@@ -427,7 +427,7 @@ export const Achievements = (function () {
     updateButtonCounter();
   });
 
-  /** Reset all achievements — clears localStorage and in-memory cache */
+  /** Reset all achievements - clears localStorage and in-memory cache */
   function reset() {
     try {
       localStorage.removeItem(STORAGE_KEY);

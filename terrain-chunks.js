@@ -2284,7 +2284,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             dummy.updateMatrix();
             girderInst.setMatrixAt(girderIndex++, dummy.matrix);
 
-            // Railings — one on each side, sitting flush on top of deck (+0.75)
+            // Railings - one on each side, sitting flush on top of deck (+0.75)
             [-halfRoadW, halfRoadW].forEach((xOff) => {
               dummy.position.copy(midVec);
               dummy.lookAt(nextVec);

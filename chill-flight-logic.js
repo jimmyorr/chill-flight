@@ -518,7 +518,7 @@ export const ChillFlightLogic = {};
 
   // Per-chunk seeded PRNG. Derives a unique seed from (WORLD_SEED, chunkX, chunkZ) so
   // each chunk's detail generation (trees, clouds, birds) is identical regardless of
-  // which order chunks are loaded—critical for world consistency.
+  // which order chunks are loaded - critical for world consistency.
   // Reads exports.WORLD_SEED, not the local constant: terrain workers can't
   // see the page URL's ?seed=, so they set the seed they're given there.
   function chunkRng(chunkX, chunkZ) {
@@ -649,7 +649,7 @@ export const ChillFlightLogic = {};
 
   // Cylinder-wrapped 3D noise: maps the X-axis onto a cylinder so that
   // x = 0 and x = MAP_WIDTH sample the same noise, eliminating the wrap seam.
-  // The callback receives (nx, ny) — the cylinder-surface coordinates — and
+  // The callback receives (nx, ny) - the cylinder-surface coordinates - and
   // should return a simplex.noise3D(...) call that uses them in place of raw x.
   function cylNoise(x, fn) {
     const angle = (x / MAP_WIDTH) * Math.PI * 2;
@@ -2475,7 +2475,7 @@ export const ChillFlightLogic = {};
     pickContinent();
 
     // --- DOMAIN WARPING ---
-    // Warp coordinates for terrain noise sampling — creates organic coastlines
+    // Warp coordinates for terrain noise sampling - creates organic coastlines
     // and natural-looking terrain by distorting the noise grid.
     const origX = x;
     const origZ = z;
@@ -2916,7 +2916,7 @@ export const ChillFlightLogic = {};
                   heightFactor;
 
                 // Remnant volcanic peak: the drowned original volcano at the atoll center
-                // (Bora Bora / Moorea style — Mt. Otemanu rising from inside the lagoon).
+                // (Bora Bora / Moorea style - Mt. Otemanu rising from inside the lagoon).
                 // Only appears at high shapeFactor (deep inside the ring) with ridged noise.
                 let volcanicPeak = 0;
                 if (shapeFactor > 0.54) {

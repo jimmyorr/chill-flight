@@ -140,7 +140,7 @@ export function resetChunkQueue() {
   chunkQueueSet.clear();
 }
 
-// GPU water uniform — shared globally so game.js animate() can update uTime
+// GPU water uniform - shared globally so game.js animate() can update uTime
 export const waterUniforms = {
   uTime: {value: 0.0},
   // Defaults only; each water chunk's material has its own (terrain-chunks.js)
@@ -162,7 +162,7 @@ var _isLowQualityInitial =
     _legacyQualityForTerrain &&
     parseInt(_legacyQualityForTerrain) <= 20);
 
-// Volcano center — single source of truth for all coloring and landmark placement
+// Volcano center - single source of truth for all coloring and landmark placement
 export var VOLCANO_X = -5000;
 export var VOLCANO_Z = 5000;
 
@@ -922,7 +922,7 @@ function createJapaneseMapleGeometry() {
   const trunk = new THREE.CylinderGeometry(0.8, 1.4, 11, 6);
   trunk.translate(0, 5.5, 0);
 
-  // Cloud-pruned Niwaki canopy — gently squashed spheres at staggered heights
+  // Cloud-pruned Niwaki canopy - gently squashed spheres at staggered heights
   const segs = 7;
   const hSegs = 5;
 
@@ -931,7 +931,7 @@ function createJapaneseMapleGeometry() {
   leaf1.scale(1.4, 0.6, 1.4);
   leaf1.translate(0, 12, 0);
 
-  // Lower side pads — asymmetric placement for organic feel
+  // Lower side pads - asymmetric placement for organic feel
   const leaf2 = new THREE.SphereGeometry(3.5, segs, hSegs);
   leaf2.scale(1.3, 0.6, 1.3);
   leaf2.translate(4, 10, 2);
@@ -940,12 +940,12 @@ function createJapaneseMapleGeometry() {
   leaf3.scale(1.3, 0.6, 1.3);
   leaf3.translate(-4, 10.5, -2);
 
-  // Upper crown pad — slightly offset
+  // Upper crown pad - slightly offset
   const leaf4 = new THREE.SphereGeometry(3, segs, hSegs);
   leaf4.scale(1.2, 0.6, 1.2);
   leaf4.translate(1, 14, -1.5);
 
-  // Small accent pad — rear fill
+  // Small accent pad - rear fill
   const leaf5 = new THREE.SphereGeometry(2.5, segs, hSegs);
   leaf5.scale(1.2, 0.55, 1.2);
   leaf5.translate(-2, 11, 3);
@@ -1021,7 +1021,7 @@ function createPalmGeometry(simple = false) {
   crown.translate(2.5, trunkHeight, 0);
   trunkGeos.push(crown);
 
-  // Fronds — V-creased leaves with jagged cutouts/notches along the edges
+  // Fronds - V-creased leaves with jagged cutouts/notches along the edges
   const frondCount = 9;
   const leafGeos = [];
 

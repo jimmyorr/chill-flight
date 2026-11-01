@@ -349,7 +349,7 @@
             float warp = fbm(auv * 0.9 + vec2(tSlow * 0.6, tSlow * 0.35));
 
             // Primary curtain: reduced amplitude (0.25 not 0.5) so the troughs
-            // stay at ~0.37 instead of 0 — no pure-black gaps between bands
+            // stay at ~0.37 instead of 0 - no pure-black gaps between bands
             float sweep = sin((auv.x + warp * 1.4) * 2.2 + tMed * 0.45) * 0.25 + 0.62;
 
             // Second harmonic: very subtle, just adds organic variation

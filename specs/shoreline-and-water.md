@@ -4,7 +4,7 @@
 
 This specification addresses visual shortcomings along the shorelines, beaches, and water bodies across the procedural world. While recent coastline fixes successfully eliminated z-fighting and plane submersion, the current presentation has an opaque, flat water surface, harsh polygonal shoreline intersections, invisible seabed gradients, missing coastal surf lines, and no wet sand transitions.
 
-The goal is to achieve a lush, vibrant, low-poly coastal aesthetic with translucent turquoise shallows, visible sandy ocean floors, animated shoreline foam, smooth beach transitions, and damp sand tide lines—all while maintaining optimal frame rates and zero z-fighting.
+The goal is to achieve a lush, vibrant, low-poly coastal aesthetic with translucent turquoise shallows, visible sandy ocean floors, animated shoreline foam, smooth beach transitions, and damp sand tide lines - all while maintaining optimal frame rates and zero z-fighting.
 
 ---
 

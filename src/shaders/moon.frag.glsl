@@ -65,7 +65,7 @@
     // Uses the same noise texture and drift as the sky shader's volumetric clouds
     float getCloudCoverage() {
         float h = uMoonSkyDir.y;
-        if (h < 0.01) return 0.0; // Below horizon — no overhead clouds visible
+        if (h < 0.01) return 0.0; // Below horizon - no overhead clouds visible
 
         float cloudHeight = 3000.0;
         float distToPlane = cloudHeight - uCameraPos.y;
@@ -110,7 +110,7 @@
         vec3 darkCol = baseCol * 0.92;
         vec3 color = mix(darkCol, baseCol, smoothstep(0.3, 0.7, n));
 
-        // Phase lighting in world space — softer terminator for natural look
+        // Phase lighting in world space - softer terminator for natural look
         float illum = dot(worldNormal, normalize(uSunDirectionWorld));
         float phaseMask = smoothstep(-0.12, 0.12, illum);
 
@@ -123,7 +123,7 @@
         fresnel = pow(fresnel, 3.0);
         color += vec3(0.95, 0.95, 1.0) * fresnel * 0.15 * phaseMask;
 
-        // Cloud occlusion — moon fades behind clouds
+        // Cloud occlusion - moon fades behind clouds
         float cloudCover = getCloudCoverage();
         #ifdef ANIME_TOWERS
         // ...and behind the anime style's towering horizon clouds, pixel by

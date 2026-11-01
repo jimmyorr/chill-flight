@@ -2281,7 +2281,7 @@ function updateEnvironmentLighting(delta, now) {
   const auroraNightFactor = starFactor; // reuse: 0 at day, 1 at deep night
 
   // Geomagnetic activity: slow simplex noise on the world clock so the aurora
-  // naturally waxes and wanes — sometimes absent, sometimes a faint shimmer,
+  // naturally waxes and wanes - sometimes absent, sometimes a faint shimmer,
   // sometimes blazing. Two samples at different rates give organic variation.
   // Period ~20 min (primary) + ~7 min (secondary). The same for every player.
   const _auroraT1 = state.worldClockNow / 1200000; // ~20-min primary cycle
@@ -2290,7 +2290,7 @@ function updateEnvironmentLighting(delta, now) {
     simplex.noise2D(_auroraT1, 0.37) * 0.7 +
     simplex.noise2D(_auroraT2, 1.91) * 0.3; // -1 to 1
   // Map noise to 0..1: quiet (~33% of the time when noise is low/negative),
-  // linearly scaling to 1.0 at peak. No pow bias — overcast already suppresses it.
+  // linearly scaling to 1.0 at peak. No pow bias - overcast already suppresses it.
   const auroraActivity = THREE.MathUtils.clamp(_auroraRaw * 0.6 + 0.4, 0, 1);
 
   const targetAuroraIntensity = Math.min(
@@ -2584,7 +2584,7 @@ function updateEnvironmentLighting(delta, now) {
   // Pass the rotation matrix so the shader can recover world normals
   const moonRotMat = _moonRotMat.setFromMatrix4(mRot);
   moonUniforms.uMoonRotMat.value.copy(moonRotMat);
-  // Phase light direction — 29.5 game days per cycle
+  // Phase light direction - 29.5 game days per cycle
   // Ties the moon phase back to the game clock so it advances faster when time is sped up
   const moonDirNorm = _moonDirNorm
     .set(state.moonX, state.moonY, state.moonZ)
@@ -2600,7 +2600,7 @@ function updateEnvironmentLighting(delta, now) {
     .normalize();
   moonUniforms.uSunDirectionWorld.value.copy(phaseSunDir);
 
-  // Dynamic Moon Sizing (Moon Illusion) — uniform scale only
+  // Dynamic Moon Sizing (Moon Illusion) - uniform scale only
   const moonElevation = Math.max(0.0, state.moonY);
   const moonScale = 1.0 + Math.pow(1.0 - moonElevation, 3.0) * 1.5;
   moonMesh.scale.setScalar(moonScale);
@@ -2636,7 +2636,7 @@ function updateEnvironmentLighting(delta, now) {
 function updateWeatherAndRendering(delta) {
   // Update the particle positions
   updateWeather(delta);
-  // Sync chunk border helpers if enabled (low cost — only iterates loaded chunks)
+  // Sync chunk border helpers if enabled (low cost - only iterates loaded chunks)
   syncChunkBorders();
 
   // Shadow cadence: DynamicPerformanceMonitor throttles shadow updates under load

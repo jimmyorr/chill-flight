@@ -187,7 +187,7 @@ console.log(`     • App Store:     https://appstoreconnect.apple.com/apps`);
 printItchDevlogDetails({version, notes: markdownReleaseNotes});
 
 console.log('----------------------------------------------------------------');
-console.log('📋 Apple App Store Connect — Final submission details:');
+console.log('📋 Apple App Store Connect - Final submission details:');
 console.log('----------------------------------------------------------------');
 console.log(`Version:    ${version}`);
 console.log(`Build:      ${buildCode}`);

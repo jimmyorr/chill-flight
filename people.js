@@ -65,7 +65,7 @@ export const PEOPLE = [
         cargo: 'Green beans',
         offer: [
           [
-            "Code Brown, buddy—we're down to our last twelve coffee beans!",
+            "Code Brown, buddy - we're down to our last twelve coffee beans!",
             'Could you zip over to {to} and rescue a crate of green beans?',
           ],
           [
@@ -179,7 +179,7 @@ export const PEOPLE = [
         cargo: 'Cheese fries',
         offer: [
           [
-            'VIP order for {to}—extra crispy, maximum melt.',
+            'VIP order for {to} - extra crispy, maximum melt.',
             'Can you fly these over while the cheese still has that epic pull?',
           ],
           [
@@ -214,7 +214,7 @@ export const PEOPLE = [
       ["Hi! Oh, your airplane's aura is sparkling today!"],
       ['Good to see you! The moonwater is crisp and the vibes are immaculate.'],
       [
-        "Look who floated in! Mercury isn't even in retrograde—it's a great day to fly!",
+        "Look who floated in! Mercury isn't even in retrograde - it's a great day to fly!",
       ],
     ],
     accept: [
@@ -249,7 +249,7 @@ export const PEOPLE = [
         ],
         thanks: [
           [
-            "Ooh, listen to them clink—that's an A-sharp! The moon is going to love these.",
+            "Ooh, listen to them clink - that's an A-sharp! The moon is going to love these.",
           ],
           [
             'Sparkling clean! Time to set them out and let the stars do their thing.',
@@ -303,7 +303,7 @@ export const PEOPLE = [
       'Land and roll to a stop on a runway to pick up or drop off. Easy, right?',
     ],
     hello: [
-      ['Hey, you! Grab a cookie—peer-reviewed for maximum chewiness!'],
+      ['Hey, you! Grab a cookie - peer-reviewed for maximum chewiness!'],
       ['Oh hi! I was just harmonizing with the hum of the centrifuge.'],
       [
         'Perfect timing! My proteins are behaving and the chocolate chips are melty.',
@@ -393,7 +393,7 @@ export const PEOPLE = [
     ],
     hello: [
       [
-        'Hey! Check out this practice swing—only divoted the lawn a little bit!',
+        'Hey! Check out this practice swing - only divoted the lawn a little bit!',
       ],
       [
         'Good to see you! My 9-iron is polished and my optimism is dangerously high.',
@@ -426,7 +426,7 @@ export const PEOPLE = [
         cargo: 'Golf clubs',
         offer: [
           [
-            'Heard the wind at {to} adds thirty yards to your drive—or puts it in a lake.',
+            'Heard the wind at {to} adds thirty yards to your drive - or puts it in a lake.',
             'Can I hitch a ride over to play 18 holes?',
           ],
           [

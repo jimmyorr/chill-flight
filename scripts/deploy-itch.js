@@ -81,7 +81,7 @@ export function printItchDevlogDetails(options = {}) {
   }
 
   const suggestedTitle = categorySummary
-    ? `Chill Flight v${cleanVersion} — ${categorySummary}`
+    ? `Chill Flight v${cleanVersion} - ${categorySummary}`
     : `Chill Flight v${cleanVersion}`;
 
   const [project] = target.split(':');
@@ -98,7 +98,7 @@ export function printItchDevlogDetails(options = {}) {
   console.log(
     '\n----------------------------------------------------------------'
   );
-  console.log('🎮 itch.io devlog — Submission details:');
+  console.log('🎮 itch.io devlog - Submission details:');
   console.log(
     '----------------------------------------------------------------'
   );

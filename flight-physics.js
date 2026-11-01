@@ -341,7 +341,7 @@ export function updateFlightPhysics(delta, nowTime) {
     state.isOnWater = isWater && planeGroup.position.y <= restingHeight + 0.1;
     state.isOnGround = !state.isOnWater;
 
-    // Grounded — rest flat peacefully, kill vertical velocity. On land the
+    // Grounded - rest flat peacefully, kill vertical velocity. On land the
     // plane stays level (so the flight model and controls work as on water)
     // and only the model tilts to the slope, below.
     state.verticalVelocity = 0;
@@ -456,7 +456,7 @@ export function updateFlightPhysics(delta, nowTime) {
     keys.ArrowUp = false;
   }
 
-  // Apply Ground avoidance — soft cushion + hard clamp + kill velocity on impact
+  // Apply Ground avoidance - soft cushion + hard clamp + kill velocity on impact
   const softBuffer = 2.0;
   if (planeGroup.position.y < minFlightHeight + softBuffer) {
     // Smoothly push up if we're in the "soft" buffer zone
