@@ -13,6 +13,7 @@ import {simplex} from './noise.js';
 import {getElevation} from './terrain-geometry.js';
 import {BREAKABLE} from './terrain-gen.js';
 import {buildPlaneModel} from './plane-models.js';
+import {t} from './i18n.js';
 
 // Breakable props that aren't in any chunk (airports): each a stand-in for
 // a chunk, {userData: {meshProps, ...}}. A part can also be a whole object
@@ -394,7 +395,8 @@ const SIGN_CLEARANCE = 7;
 const signGreenMat = createMaterial({color: 0x1f6b45, flatShading: true});
 const signPostMat = createMaterial({color: 0x8a9096, flatShading: true});
 
-function signTexture(name, arrow) {
+function signTexture(english, arrow) {
+  const name = t(english);
   const canvas = document.createElement('canvas');
   canvas.width = 576;
   canvas.height = 160;
