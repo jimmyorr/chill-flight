@@ -7,7 +7,7 @@ export const Achievements = (function () {
   // --- ACHIEVEMENT REGISTRY ---
   // Each achievement has: id (snake_case key), title (display name), emoji, hint (shown after unlock)
   const ACHIEVEMENTS = [
-    // 1. Intro & UI
+    // 1. Getting started: the controls and menus
     {
       id: 'welcome',
       title: 'Welcome to Chill Flight',
@@ -15,28 +15,10 @@ export const Achievements = (function () {
       hint: 'Take your first flight',
     },
     {
-      id: 'frequent_flyer',
-      title: 'Frequent flyer',
-      emoji: '🎖️',
-      hint: 'Travel 100 km in all',
-    },
-    {
       id: 'directors_cut',
       title: "Director's cut",
       emoji: '🎬',
       hint: 'Cycle the camera views',
-    },
-    {
-      id: 'night_vision',
-      title: 'Night vision',
-      emoji: '🔦',
-      hint: 'Toggle your headlights',
-    },
-    {
-      id: 'otto',
-      title: 'Otto',
-      emoji: '🤖',
-      hint: 'Otto, take the wheel',
     },
     {
       id: 'cartographer',
@@ -51,12 +33,24 @@ export const Achievements = (function () {
       hint: 'Warp somewhere from the map',
     },
     {
+      id: 'otto',
+      title: 'Otto',
+      emoji: '🤖',
+      hint: 'Otto, take the wheel',
+    },
+    {
+      id: 'night_vision',
+      title: 'Night vision',
+      emoji: '🔦',
+      hint: 'Toggle your headlights',
+    },
+    {
       id: 'smoke_show',
       title: 'Smoke show',
       emoji: '💨',
       hint: 'Turn on the airshow smoke',
     },
-    // 2. Flight & Maneuvers
+    // 2. Flying: the moves, roughly in the order they are learned
     {
       id: 'to_the_moon',
       title: 'To the moon',
@@ -68,18 +62,6 @@ export const Achievements = (function () {
       title: 'Nose dive',
       emoji: '📉',
       hint: 'Steep dive',
-    },
-    {
-      id: 'free_falling',
-      title: 'Free falling',
-      emoji: '🪂',
-      hint: 'Cut engine mid flight',
-    },
-    {
-      id: 'splash_down',
-      title: 'Splash down',
-      emoji: '💦',
-      hint: 'Land in water',
     },
     {
       id: 'barrel_roll',
@@ -100,12 +82,30 @@ export const Achievements = (function () {
       hint: 'Perform an Immelmann turn',
     },
     {
+      id: 'free_falling',
+      title: 'Free falling',
+      emoji: '🪂',
+      hint: 'Cut engine mid flight',
+    },
+    {
+      id: 'splash_down',
+      title: 'Splash down',
+      emoji: '💦',
+      hint: 'Land in water',
+    },
+    {
+      id: 'close_shave',
+      title: 'Close shave',
+      emoji: '✨',
+      hint: 'Scrape a wingtip along a cliff and fly on',
+    },
+    {
       id: 'mach_1',
       title: 'Mach 1',
       emoji: '🚀',
       hint: 'Reach a speed of 1000 KTS',
     },
-    // 3. Exploration & Locations
+    // 3. Places: the landmarks, then the alien lands
     {
       id: 'gatsby',
       title: 'Gatsby',
@@ -125,6 +125,12 @@ export const Achievements = (function () {
       hint: 'How low can you go?',
     },
     {
+      id: 'tomb_raider',
+      title: 'Tomb raider',
+      emoji: '🔺',
+      hint: 'Fly over the pyramids',
+    },
+    {
       id: 'xen',
       title: 'Xen',
       emoji: '👽',
@@ -136,13 +142,32 @@ export const Achievements = (function () {
       emoji: '🤠',
       hint: 'Reach alien lands to the West',
     },
+    // 4. Out and about: birds, penguins, trees, other planes
     {
-      id: 'tomb_raider',
-      title: 'Tomb raider',
-      emoji: '🔺',
-      hint: 'Fly over the pyramids',
+      id: 'geese_police',
+      title: 'Geese police',
+      emoji: '🪿',
+      hint: 'Startle a goose',
     },
-    // 4. Buggy
+    {
+      id: 'penguin_parade',
+      title: 'Happy feet',
+      emoji: '🐧',
+      hint: 'Send the penguins diving off their floe',
+    },
+    {
+      id: 'timber',
+      title: 'Treehugger',
+      emoji: '🌲',
+      hint: 'Knock over a tree',
+    },
+    {
+      id: 'wingman',
+      title: 'Wingman',
+      emoji: '🛩️',
+      hint: 'Fly alongside another plane',
+    },
+    // 5. Buggy
     {
       id: 'bunny_hop',
       title: 'Bunny hop',
@@ -160,37 +185,6 @@ export const Achievements = (function () {
       title: 'Amphibious',
       emoji: '🛥️',
       hint: 'Drive the buggy out over water',
-    },
-    // 5. Events
-    {
-      id: 'geese_police',
-      title: 'Geese police',
-      emoji: '🪿',
-      hint: 'Startle a goose',
-    },
-    {
-      id: 'wingman',
-      title: 'Wingman',
-      emoji: '🛩️',
-      hint: 'Fly alongside another plane',
-    },
-    {
-      id: 'close_shave',
-      title: 'Close shave',
-      emoji: '✨',
-      hint: 'Scrape a wingtip along a cliff and fly on',
-    },
-    {
-      id: 'timber',
-      title: 'Treehugger',
-      emoji: '🌲',
-      hint: 'Knock over a tree',
-    },
-    {
-      id: 'penguin_parade',
-      title: 'Happy feet',
-      emoji: '🐧',
-      hint: 'Send the penguins diving off their floe',
     },
     // 6. People and games
     {
@@ -222,6 +216,13 @@ export const Achievements = (function () {
       title: 'Speed racer',
       emoji: '🏁',
       hint: 'Win a race',
+    },
+    // 7. The long haul
+    {
+      id: 'frequent_flyer',
+      title: 'Frequent flyer',
+      emoji: '🎖️',
+      hint: 'Travel 100 km in all',
     },
   ];
 
