@@ -53,6 +53,8 @@ import {
   joshuaTrunkMat,
   hayBaleGeo,
   hayBaleMat,
+  iceHutGeos,
+  iceHutRoofMat,
   castleRuinsGeo,
   castleRuinsMat,
   chunkQueueSet,
@@ -714,6 +716,14 @@ globalInstancer.registerType('snowRock', rockGeo, snowRockMat);
 globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
 globalInstancer.registerType('cactus', cactusGeo, cactusMat);
 globalInstancer.registerType('hayBale', hayBaleGeo, hayBaleMat);
+globalInstancer.registerType(
+  'iceHutBody',
+  iceHutGeos.body,
+  houseTintMat,
+  30000,
+  true
+);
+globalInstancer.registerType('iceHutRoof', iceHutGeos.roof, iceHutRoofMat);
 globalInstancer.registerType('joshuaTrunk', joshuaGeos.trunk, joshuaTrunkMat);
 globalInstancer.registerType(
   'joshuaLeaves',

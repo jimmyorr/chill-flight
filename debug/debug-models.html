@@ -186,6 +186,9 @@
       <button class="model-btn" onclick="viewModel('hay_bale', event)">
         Hay bale
       </button>
+      <button class="model-btn" onclick="viewModel('ice_hut', event)">
+        Ice fishing hut
+      </button>
       <button class="model-btn" onclick="viewModel('bush', event)">Bush</button>
       <button class="model-btn" onclick="viewModel('mushroom', event)">
         Mushroom
@@ -426,6 +429,8 @@
         joshuaTrunkMat,
         hayBaleGeo,
         hayBaleMat,
+        iceHutGeos,
+        iceHutRoofMat,
         castleRuinsGeo,
         castleRuinsMat,
         createRockArchGeometries,
@@ -460,7 +465,7 @@
         waterUniforms,
         woodMat,
       } from '../terrain-geometry.js';
-      import {JOSHUA_LEAF_COLOR} from '../terrain-gen.js';
+      import {JOSHUA_LEAF_COLOR, ICE_HUT_COLORS} from '../terrain-gen.js';
 
       // Setup Viewer
       const container = document.getElementById('viewer');
@@ -867,6 +872,17 @@
               break;
             case 'cactus':
               previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
+              break;
+            case 'ice_hut':
+              ICE_HUT_COLORS.forEach((color, i) => {
+                const body = new THREE.Mesh(
+                  iceHutGeos.body,
+                  createMaterial({color})
+                );
+                const roof = new THREE.Mesh(iceHutGeos.roof, iceHutRoofMat);
+                body.position.x = roof.position.x = (i - 2) * 10;
+                previewGroup.add(body, roof);
+              });
               break;
             case 'hay_bale':
               for (const [x, z, r] of [

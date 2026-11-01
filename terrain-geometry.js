@@ -1388,6 +1388,23 @@ export var hayBaleGeo = (() => {
   return g;
 })();
 export var hayBaleMat = createMaterial({color: 0xead283, flatShading: true});
+
+// Ice fishing hut (the far north's frozen lakes): a little painted shed with
+// a pitched roof and a stovepipe, its walls tinted per hut
+function createIceHutGeometries() {
+  const body = new THREE.BoxGeometry(6, 4.5, 8);
+  body.translate(0, 2.25, 0);
+  const roof = new THREE.CylinderGeometry(4.2, 4.2, 8.6, 3, 1);
+  // A triangular prism along the hut, ridge up, eaves overhanging
+  roof.rotateX(-Math.PI / 2);
+  roof.scale(1, 0.55, 1);
+  roof.translate(0, 4.5 + 4.2 * 0.55 * 0.5, 0);
+  const pipe = new THREE.CylinderGeometry(0.35, 0.35, 3, 5);
+  pipe.translate(1.6, 6.8, -2.2);
+  return {body, roof: mergeGeometries([roof, pipe])};
+}
+export var iceHutGeos = createIceHutGeometries();
+export var iceHutRoofMat = createMaterial({color: 0xe4ebf0, flatShading: true});
 export var joshuaGeos = createJoshuaTreeGeometry();
 export var joshuaTrunkMat = createMaterial({
   color: 0x7d6a55,

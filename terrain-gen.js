@@ -219,6 +219,7 @@ const _colorWhite = new Color(0xffffff);
 const _colorIceMottleDark = new Color(0x8a9ea8);
 const _tempColorObj = new Color();
 const _baseBushColor = new Color();
+const _iceHutColor = new Color();
 const _treeBaseColor = new Color();
 const _treeTempColor = new Color();
 
@@ -236,6 +237,12 @@ const DESERT_SCRUB_COLOR = 0x8f9a62;
 // and the chance of a bale (or a pair) at each grid point of one
 const HAY_FIELD_CHANCE = 0.45;
 const HAY_BALE_CHANCE = 0.12;
+// Ice fishing huts on the far north's frozen lakes: they gather in little
+// camps (a slow noise field) out on the ice, with this chance per grid point
+const ICE_HUT_CHANCE = 0.05;
+export const ICE_HUT_COLORS = [
+  0xb8463a, 0x3f6fa3, 0x4e8a4c, 0xd9a43c, 0xc9682f,
+];
 // Joshua trees: share of the desert's trees, and their tufts' colour
 const JOSHUA_SHARE = 0.65;
 export const JOSHUA_LEAF_COLOR = 0x6f8a3c;
@@ -1997,6 +2004,7 @@ export function generateChunkData({
   const deadTreePositions = [];
   const joshuaTreePositions = [];
   const hayBalePositions = [];
+  const iceHutPositions = [];
   const snowTreePositions = [];
   const mushroomTreePositions = [];
   const crystalPositions = [];
@@ -3294,6 +3302,28 @@ export function generateChunkData({
       }
     }
 
+    // Ice fishing huts out on a frozen lake, in little camps. From hashes of
+    // the grid point, not the chunk's rolls.
+    if (_enableObjects && isLakeIce && !isAlienLand) {
+      const gx = Math.round(worldX / gridSpacing);
+      const gz = Math.round(worldZ / gridSpacing);
+      if (
+        simplex.noise2D(worldX * 0.002 + 61, worldZ * 0.002 - 47) > 0.3 &&
+        fieldHash(gx, gz, 71) < ICE_HUT_CHANCE * densityScale
+      ) {
+        iceHutPositions.push({
+          x: localX + (fieldHash(gx, gz, 73) - 0.5) * gridSpacing * 0.6,
+          y: height,
+          z: localZ + (fieldHash(gx, gz, 79) - 0.5) * gridSpacing * 0.6,
+          rotY: fieldHash(gx, gz, 83) * Math.PI * 2,
+          color:
+            ICE_HUT_COLORS[
+              Math.floor(fieldHash(gx, gz, 89) * ICE_HUT_COLORS.length)
+            ],
+        });
+      }
+    }
+
     // The falls landmark's top, above the tree line: boulders among its
     // crags, a few stunted pines out of the wind, and bushes along the stream
     if (_enableObjects && falls !== null && falls.out < -20) {
@@ -3711,6 +3741,7 @@ export function generateChunkData({
       strawHutPositions,
       barnPositions,
       windmillPositions,
+      iceHutPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_BUILDING_CLEAR));
 
     // Nothing grows or stands on the pyramids
@@ -4284,6 +4315,28 @@ export function generateChunkData({
       collector.add('bush', _matBuffer, _baseBushColor);
       collector.endProp();
     });
+  }
+
+  // Ice fishing huts (no rolls here either)
+  for (const pos of iceHutPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      1,
+      1,
+      1,
+      0,
+      pos.rotY,
+      0
+    );
+    _iceHutColor.setHex(pos.color);
+    collector.beginProp(BREAKABLE.HOUSE);
+    collector.add('iceHutBody', _matBuffer, _iceHutColor);
+    collector.add('iceHutRoof', _matBuffer);
+    collector.endProp();
   }
 
   // Hay bales (no rolls here, so the props after them come out as before)
