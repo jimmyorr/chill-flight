@@ -80,7 +80,7 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
   - **Farmland:** Around the villages, gentle ground below the upland woods is a patchwork of strip fields in wheat, barley, young green crops, dark green rows and plowed earth, with some left as pasture. The land is split into parcels about 1,500 units across, each turned to its village's orientation, so neighboring parcels meet at an angle. Fields are cleared of the woods, and hedgerows of bushes and the odd tree run along most field edges (`fieldAt` and `hedgeNear` in `terrain-gen.js`).
   - **Trees in the wind:** Tree canopies sway gently in slow, uneven gusts, more in overcast weather, all leaning the same way downwind (`addWindSway` in `terrain-geometry.js`).
   - **Vegetation:** Oak-like deciduous trees and bushes.
-  - **Water:** Standard sky-blue water (#40C4FF) often featuring lily pads and piers.
+  - **Water:** Standard sky-blue water (#40C4FF) often featuring lily pads (only on sheltered water: ponds, lakes, rivers and inlets, `shelteredWater` in `terrain-gen.js`) and piers.
 
 ### Lake district (the west)
 

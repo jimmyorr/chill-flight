@@ -1211,6 +1211,26 @@ function getElevation(x, z, elevParams) {
   );
 }
 
+// Lily pads float only on sheltered water (ponds, lakes, rivers, inlets):
+// land within LILY_SHELTER units on at least two of eight sides
+const LILY_SHELTER = 150;
+function shelteredWater(x, z, elevParams) {
+  let land = 0;
+  for (let k = 0; k < 8; k++) {
+    const a = (k * Math.PI) / 4;
+    if (
+      getElevation(
+        x + Math.cos(a) * LILY_SHELTER,
+        z + Math.sin(a) * LILY_SHELTER,
+        elevParams
+      ) > elevParams.WATER_LEVEL &&
+      ++land >= 2
+    )
+      return true;
+  }
+  return false;
+}
+
 // Pirate ships only sail water at least this deep, at their spot and 300
 // units around it, so they stay off the south coast's shallow shelf (2 to
 // 4.5 units deep, see southShelfFloor) and other shallows.
@@ -2169,7 +2189,8 @@ export function generateChunkData({
             snowFactor < 0.1 &&
             desertFactor < 0.1 &&
             ChillFlightLogic.getBiome(worldX, worldZ, simplex) > -0.15 &&
-            rng() < 0.015 * densityScale
+            rng() < 0.035 * densityScale &&
+            shelteredWater(worldX, worldZ, elevParams)
           ) {
             lilyPadPositions.push({
               x: localX,
