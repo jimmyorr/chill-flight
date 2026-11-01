@@ -189,8 +189,8 @@ export const Achievements = (function () {
     },
     {
       id: 'everybody_knows',
-      title: 'Everybody knows your name',
-      emoji: '📇',
+      title: 'Local legend',
+      emoji: '🏅',
       hint: 'Meet everyone',
     },
     {
