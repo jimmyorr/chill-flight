@@ -201,7 +201,7 @@ export const Achievements = (function () {
     },
     {
       id: 'tag_youre_it',
-      title: "Tag, you're it",
+      title: 'It',
       emoji: '🏷️',
       hint: 'Tag someone in a game of tag',
     },
