@@ -1407,7 +1407,7 @@ export var iceHutGeos = createIceHutGeometries();
 export var iceHutRoofMat = createMaterial({color: 0xe4ebf0, flatShading: true});
 export var joshuaGeos = createJoshuaTreeGeometry();
 export var joshuaTrunkMat = createMaterial({
-  color: 0x7d6a55,
+  color: 0x9c8669,
   flatShading: true,
 });
 
