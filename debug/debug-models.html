@@ -189,6 +189,9 @@
       <button class="model-btn" onclick="viewModel('fallen_log', event)">
         Fallen log and stump
       </button>
+      <button class="model-btn" onclick="viewModel('cairn', event)">
+        Summit cairn
+      </button>
       <button class="model-btn" onclick="viewModel('ice_hut', event)">
         Ice fishing hut
       </button>
@@ -440,6 +443,8 @@
         fallenLogMat,
         stumpTopGeo,
         stumpTopMat,
+        cairnGeo,
+        cairnMat,
         iceHutGeos,
         iceHutRoofMat,
         castleRuinsGeo,
@@ -894,6 +899,9 @@
                 body.position.x = roof.position.x = (i - 2) * 10;
                 previewGroup.add(body, roof);
               });
+              break;
+            case 'cairn':
+              previewGroup.add(new THREE.Mesh(cairnGeo, cairnMat));
               break;
             case 'fallen_log': {
               const log = new THREE.Mesh(fallenLogGeo, fallenLogMat);
