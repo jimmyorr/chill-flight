@@ -254,9 +254,11 @@ const BUOY_MIN_DEPTH = 3;
 const BUOY_MAX_DEPTH = 9;
 const BUOY_COLORS = [0xc8372d, 0x2f8a52];
 // Lighthouses on headlands, besides Montauk's: the share of chunks that may
-// have one (if they have a headland in a fitting region), and no nearer than
-// this many chunks to Montauk's
-const LIGHTHOUSE_CHUNK_CHANCE = 0.1;
+// have one (if they have a headland in a fitting region). Of two such chunks
+// within LIGHTHOUSE_SPACING chunks of each other, only one may, so they never
+// stand close together; and none within LIGHTHOUSE_MONTAUK_CLEAR of Montauk's
+const LIGHTHOUSE_CHUNK_CHANCE = 0.15;
+const LIGHTHOUSE_SPACING = 2;
 const LIGHTHOUSE_MONTAUK_CLEAR = 4;
 // How far props are cleared around one (its keeper's house and yard)
 const LIGHTHOUSE_CLEAR = 55;
@@ -354,6 +356,27 @@ function fieldHash(a, b, c) {
   let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ c;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+// A chunk's roll for a headland lighthouse (0 to 1; one is possible under
+// LIGHTHOUSE_CHUNK_CHANCE), and whether it wins: no lower roll among the
+// possible ones within LIGHTHOUSE_SPACING chunks, and clear of Montauk's
+function lighthouseRoll(cx, cz) {
+  if (
+    Math.max(Math.abs(cx - 5), Math.abs(cz - 2)) <= LIGHTHOUSE_MONTAUK_CLEAR
+  ) {
+    return 1;
+  }
+  return fieldHash(cx, cz, 197 + (ChillFlightLogic.WORLD_SEED % 100003));
+}
+function lighthouseChunkWins(cx, cz) {
+  const roll = lighthouseRoll(cx, cz);
+  if (roll >= LIGHTHOUSE_CHUNK_CHANCE) return false;
+  for (let dz = -LIGHTHOUSE_SPACING; dz <= LIGHTHOUSE_SPACING; dz++) {
+    for (let dx = -LIGHTHOUSE_SPACING; dx <= LIGHTHOUSE_SPACING; dx++) {
+      if ((dx || dz) && lighthouseRoll(cx + dx, cz + dz) < roll) return false;
+    }
+  }
+  return true;
 }
 function fieldAt(x, z, simplex) {
   const wx = x + simplex.noise2D(x * 0.0015 + 3.3, z * 0.0015 - 8.1) * 150;
@@ -2037,12 +2060,7 @@ export function generateChunkData({
   const windmillPositions = [];
   let lighthousePos = null;
   // Whether this chunk may have a headland lighthouse (see the loop)
-  const lighthouseChunk =
-    _enableObjects &&
-    Math.max(Math.abs(chunkX - 5), Math.abs(chunkZ - 2)) >
-      LIGHTHOUSE_MONTAUK_CLEAR &&
-    fieldHash(chunkX, chunkZ, 197 + (ChillFlightLogic.WORLD_SEED % 100003)) <
-      LIGHTHOUSE_CHUNK_CHANCE;
+  const lighthouseChunk = _enableObjects && lighthouseChunkWins(chunkX, chunkZ);
   const pierPositions = [];
   const campfirePositions = [];
   const chimneySmokePositions = [];
