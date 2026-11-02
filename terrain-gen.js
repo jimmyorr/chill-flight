@@ -237,6 +237,11 @@ const DESERT_SCRUB_COLOR = 0x8f9a62;
 // and the chance of a bale (or a pair) at each grid point of one
 const HAY_FIELD_CHANCE = 0.45;
 const HAY_BALE_CHANCE = 0.12;
+// Tractors (farm-models.js): the share of the crop fields with one parked
+// out in them, and how many paint schemes there are (tractorBody,
+// tractor2Body, ...)
+const TRACTOR_FIELD_CHANCE = 0.12;
+const TRACTOR_LOOKS = 3;
 // Ice fishing huts on the far north's frozen lakes: they gather in little
 // camps (a slow noise field) out on the ice, with this chance per grid point
 const ICE_HUT_CHANCE = 0.03;
@@ -454,6 +459,31 @@ function farmsteadsAt(f) {
     });
   }
   return spots;
+}
+
+// The spot where the field holding fieldAt's point `f` has a tractor, if it
+// has one (TRACTOR_FIELD_CHANCE): somewhere inside it, facing along the
+// strip either way. Returns {type, x, z, rotY} or null.
+function tractorSpot(f) {
+  const i = Math.floor(f.u / FIELD_WIDTH);
+  const stagger = fieldHash(f.bx, f.bz, i * 7919 + 11);
+  const j = Math.floor(f.v / FIELD_LENGTH + stagger);
+  const h = (salt) => fieldHash(f.bx * 31 + i, f.bz * 17 + j, salt);
+  if (h(61) >= TRACTOR_FIELD_CHANCE) return null;
+  const u = (i + 0.25 + h(67) * 0.5) * FIELD_WIDTH;
+  const v = (j - stagger + 0.2 + h(71) * 0.6) * FIELD_LENGTH;
+  const cos = Math.cos(f.angle);
+  const sin = Math.sin(f.angle);
+  // (Hashed the other way round: h's rolls with nearby salts go together)
+  const look = Math.floor(
+    fieldHash(f.bz * 13 + j, f.bx * 7 + i, 977) * TRACTOR_LOOKS
+  );
+  return {
+    type: look ? 'tractor' + (look + 1) + 'Body' : 'tractorBody',
+    x: f.cx + cos * u + sin * v,
+    z: f.cz - sin * u + cos * v,
+    rotY: f.angle + (h(79) < 0.5 ? Math.PI : 0),
+  };
 }
 
 // The nearest hedgerow to (x, z) in its field parcel, as a world point, or
@@ -1128,11 +1158,18 @@ export const WIND_DIR_X = 0.8;
 export const WIND_DIR_Z = 0.5;
 // Windmills all turn their sails (+Z in model space) into the wind.
 export const WINDMILL_ROT_Y = Math.atan2(-WIND_DIR_X, -WIND_DIR_Z);
-// A barn's doors and their trim sit this far in front of and behind its
-// middle, and its silo this far to the side (units, before turning)
-const BARN_DOOR_Z = 14.1;
+// A red barn's silo stands this far to its side (units, before turning)
 const BARN_SILO_X = 12;
-const BARN_TRIM_TILT = Math.atan2(8, 9);
+// North of this (units) the farms' barns are timber-framed barns or alpine
+// hay barns instead of red ones, half and half
+const NORTH_BARNS_Z = -4500;
+// Which barn stands at (x, z): its type's name ('barn' for the red one)
+function barnStyle(x, z) {
+  if (z > NORTH_BARNS_Z) return 'barn';
+  return fieldHash(Math.round(x), Math.round(z), 811) < 0.5
+    ? 'timberBarn'
+    : 'hayBarn';
+}
 
 // Adds straw huts, barns (and their silos), monasteries, castle ruins and
 // windmills to the collector, each a breakable prop, in world coordinates.
@@ -1161,26 +1198,13 @@ function collectStructures(collector, positions, offsetX, offsetZ) {
     const x = offsetX + pos.x;
     const z = offsetZ + pos.z;
     const r = pos.rotY;
+    const style = barnStyle(x, z);
     collector.beginProp(BREAKABLE.HOUSE);
-    place('barnBody', x, pos.y, z, 1, 0, r, 0);
-    place('barnRoof', x, pos.y, z, 1, 0, r, 0);
-    for (const side of [1, -1]) {
-      const d = rotateY(0, side * BARN_DOOR_Z, r);
-      place('barnDoor', x + d.x, pos.y + 4.5, z + d.z, 1, 0, r, 0);
-      place('barnTrim', x + d.x, pos.y + 4.5, z + d.z, 1, 0, r, BARN_TRIM_TILT);
-      place(
-        'barnTrim',
-        x + d.x,
-        pos.y + 4.5,
-        z + d.z,
-        1,
-        0,
-        r,
-        -BARN_TRIM_TILT
-      );
-    }
+    place(style + 'Body', x, pos.y, z, 1, 0, r, 0);
+    place(style + 'Roof', x, pos.y, z, 1, 0, r, 0);
     collector.endProp();
-    // The silo stands on its own, and topples
+    // A red barn's silo stands on its own, and topples
+    if (style !== 'barn') continue;
     const silo = rotateY(BARN_SILO_X, 0, r);
     collector.beginProp(BREAKABLE.TREE);
     place('barnSiloBody', x + silo.x, pos.y, z + silo.z, 1, 0, r, 0);
@@ -1327,6 +1351,76 @@ function shelteredWater(x, z, elevParams) {
       return true;
   }
   return false;
+}
+
+// Small boats (Polyfork models, terrain-chunks.js): the chance a water grid
+// point has one (before it's sorted by where it is), how far out a fishing
+// boat may sit from land, and south of this (units) the fishing boats are
+// the island kind
+const SMALL_BOAT_CHANCE = 0.0012;
+// Floating boats need this much water under them (units), so none sit on
+// the beach at the water's edge
+const SMALL_BOAT_MIN_DEPTH = 2;
+const FISHING_BOAT_NEAR_LAND = 500;
+const SOUTH_BOATS_Z = 6000;
+// A sunken boat lies in water this shallow (its grid point's height below
+// sea level; the sea floor is drawn 5 lower) once in this many points
+const SUNKEN_BOAT_DEPTH = [3, 8];
+const SUNKEN_BOAT_CHANCE = 0.0004;
+// How far a river must be in its channel for a river boat, and how much
+// the rivers' flow sets a boat's heading
+const RIVER_BOAT_FLOW = 0.5;
+
+// Which small boat (if any) a water point gets: a flat river boat on the
+// rivers (along the flow), rowboats on lakes and ponds, and fishing boats in
+// inlets and close inshore on the sea. Returns {type, rotY} or null.
+function smallBoatAt(x, z, hash, elevParams) {
+  const flow = ChillFlightLogic.getRiverFlow(x, z, simplex);
+  if (flow && Math.hypot(flow[0], flow[1]) > RIVER_BOAT_FLOW) {
+    // Along the river, either way
+    const back = hash(3) < 0.5 ? Math.PI : 0;
+    return {type: 'riverBoatBody', rotY: Math.atan2(flow[0], flow[1]) + back};
+  }
+  const rotY = hash(5) * Math.PI * 2;
+  // Two paint schemes of each fishing boat
+  const fishing =
+    (z > SOUTH_BOATS_Z ? 'islandBoat' : 'fishingBoat') +
+    (hash(13) < 0.5 ? 'Body' : '2Body');
+  if (shelteredWater(x, z, elevParams)) {
+    // Shut in on most sides: a lake or pond; open to the sea: an inlet
+    let open = 0;
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI) / 4;
+      if (
+        getElevation(
+          x + Math.cos(a) * 1500,
+          z + Math.sin(a) * 1500,
+          elevParams
+        ) <= elevParams.WATER_LEVEL
+      )
+        open++;
+    }
+    if (open < 3) {
+      return {
+        type: hash(7) < 0.5 ? 'rowboatBody' : 'woodenRowboatBody',
+        rotY,
+      };
+    }
+    return {type: fishing, rotY};
+  }
+  // On the sea, only close inshore
+  for (let k = 0; k < 4; k++) {
+    const a = (k * Math.PI) / 2 + hash(9);
+    if (
+      getElevation(
+        x + Math.cos(a) * FISHING_BOAT_NEAR_LAND,
+        z + Math.sin(a) * FISHING_BOAT_NEAR_LAND,
+        elevParams
+      ) > elevParams.WATER_LEVEL
+    )
+      return {type: fishing, rotY};
+  }
+  return null;
 }
 
 // Pirate ships only sail water at least this deep, at their spot and 300
@@ -2057,6 +2151,8 @@ export function generateChunkData({
   const deadTreePositions = [];
   const joshuaTreePositions = [];
   const hayBalePositions = [];
+  // Tractors: {type, x, y, z, rotY}
+  const tractorPositions = [];
   const iceHutPositions = [];
   const fallenLogPositions = [];
   const snowTreePositions = [];
@@ -2093,6 +2189,8 @@ export function generateChunkData({
   const cactusPositions = [];
   const snowmanPositions = [];
   const lilyPadPositions = [];
+  // Small boats and sunken ones: {type, x, y, z, rotY}
+  const smallBoatPositions = [];
   const bushPositions = [];
   const barnPositions = [];
   // Grid points where a farmstead may stand (see farmsteadsAt)
@@ -2333,6 +2431,39 @@ export function generateChunkData({
               z: localZ,
               rotY: rng() * Math.PI * 2,
             });
+          }
+          // Small boats, by a hash of the grid point (not rng(), so the
+          // props after them stay where they were)
+          if (snowFactor < 0.3 && !isAlienLand) {
+            const gx = Math.round(worldX / gridSpacing);
+            const gz = Math.round(worldZ / gridSpacing);
+            const hash = (salt) => fieldHash(gx, gz, 400 + salt);
+            if (
+              hash(0) < SMALL_BOAT_CHANCE * densityScale &&
+              height < WATER_LEVEL - SMALL_BOAT_MIN_DEPTH
+            ) {
+              const boat = smallBoatAt(worldX, worldZ, hash, elevParams);
+              if (boat) {
+                smallBoatPositions.push({
+                  ...boat,
+                  x: localX,
+                  y: WATER_LEVEL,
+                  z: localZ,
+                });
+              }
+            } else if (
+              height <= WATER_LEVEL - SUNKEN_BOAT_DEPTH[0] &&
+              height >= WATER_LEVEL - SUNKEN_BOAT_DEPTH[1] &&
+              hash(1) < SUNKEN_BOAT_CHANCE * densityScale
+            ) {
+              smallBoatPositions.push({
+                type: 'sunkenBoatBody',
+                x: localX,
+                y: height - 5,
+                z: localZ,
+                rotY: hash(11) * Math.PI * 2,
+              });
+            }
           }
         }
         positions[i + 1] = height - 5;
@@ -2944,6 +3075,33 @@ export function generateChunkData({
               });
             }
           }
+        }
+      }
+      // Now and then a tractor stands out in a crop field, along its
+      // strip: each field has one spot for it, built by the grid point
+      // nearest to it (hashes, not the chunk's rolls)
+      if (farm > 0.4 && slopeFactor < 0.2 && snowFactor < 0.1) {
+        const f = fieldAt(worldX, worldZ, simplex);
+        const tractor = f.crop >= 0 && tractorSpot(f);
+        if (
+          tractor &&
+          Math.round(tractor.x / gridSpacing) ===
+            Math.round(worldX / gridSpacing) &&
+          Math.round(tractor.z / gridSpacing) ===
+            Math.round(worldZ / gridSpacing)
+        ) {
+          const tx = tractor.x - worldOffsetX;
+          const tz = tractor.z - worldOffsetZ;
+          // A spot on the chunks' shared edge goes to one of them
+          const half = chunkSize / 2;
+          if (tx >= -half && tx < half && tz >= -half && tz < half)
+            tractorPositions.push({
+              type: tractor.type,
+              x: tx,
+              y: heightAtLocal(tx, tz),
+              z: tz,
+              rotY: tractor.rotY,
+            });
         }
       }
       // Fairly flat farmland outside the villages can take a farmstead
@@ -4542,6 +4700,27 @@ export function generateChunkData({
     });
   }
 
+  // Each small boat and tractor is one model, folded flat when hit like a
+  // bush
+  for (const pos of [...smallBoatPositions, ...tractorPositions]) {
+    collector.beginProp(BREAKABLE.SMALL);
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      1,
+      1,
+      1,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.add(pos.type, _matBuffer);
+    collector.endProp();
+  }
+
   if (lilyPadPositions.length > 0) {
     lilyPadPositions.forEach((pos) => {
       const scale = 0.6 + rng() * 0.8;
@@ -5026,6 +5205,8 @@ export function generateChunkData({
       snowmen: snowmanPositions.length,
       cactus: cactusPositions.length,
       lily_pads: lilyPadPositions.length,
+      small_boats: smallBoatPositions.length,
+      tractors: tractorPositions.length,
       icebergs: icebergPositions.length,
       ice_floes: iceFloePositions.length,
       penguins: penguinPositions.length,

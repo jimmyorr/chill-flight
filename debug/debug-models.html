@@ -231,6 +231,12 @@
         Straw hut
       </button>
       <button class="model-btn" onclick="viewModel('barn', event)">Barn</button>
+      <button class="model-btn" onclick="viewModel('north_barns', event)">
+        Northern barns
+      </button>
+      <button class="model-btn" onclick="viewModel('tractors', event)">
+        Tractors
+      </button>
       <button class="model-btn" onclick="viewModel('monastery', event)">
         Monastery
       </button>
@@ -302,6 +308,9 @@
       </button>
       <button class="model-btn" onclick="viewModel('pirateship', event)">
         Pirate ship
+      </button>
+      <button class="model-btn" onclick="viewModel('small_boats', event)">
+        Small boats
       </button>
       <button
         class="model-btn"
@@ -414,6 +423,8 @@
       } from '../road-vehicles.js';
       import {basaltGate, canyonBridge, seaArch} from '../arches-logic.js';
       import {archGeometry} from '../arches.js';
+      import {boatMat, buildSmallBoatGeos} from '../boat-models.js';
+      import {buildTractorGeos} from '../farm-models.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
       import {createBuggyModel, setBuggyHoverFold} from '../buggy-model.js';
       import {
@@ -426,7 +437,12 @@
         ModelAssembler,
         animationUniforms,
         barnBodyGeo,
+        barnMat,
         barnRoofGeo,
+        hayBarnBodyGeo,
+        hayBarnRoofGeo,
+        timberBarnBodyGeo,
+        timberBarnRoofGeo,
         houseBodyGeo,
         houseChimneyGeo,
         houseRoofGeo,
@@ -948,6 +964,43 @@
             case 'seal':
               previewGroup.add(new THREE.Mesh(sealGeo, sealMat));
               break;
+            case 'north_barns':
+              // The timber barn and the alpine hay barn, walls and roof
+              // (farm-models.js)
+              [
+                [timberBarnBodyGeo, timberBarnRoofGeo, -11],
+                [hayBarnBodyGeo, hayBarnRoofGeo, 11],
+              ].forEach(([body, roof, x]) => {
+                for (const geo of [body, roof]) {
+                  const m = new THREE.Mesh(geo, barnMat);
+                  m.position.x = x;
+                  previewGroup.add(m);
+                }
+              });
+              break;
+            case 'tractors': {
+              // Each paint scheme, side by side at the game's scale
+              // (farm-models.js)
+              const geos = Object.values(buildTractorGeos());
+              geos.forEach((geo, i) => {
+                const m = new THREE.Mesh(geo, boatMat);
+                m.position.x = (i - (geos.length - 1) / 2) * 6;
+                previewGroup.add(m);
+              });
+              break;
+            }
+            case 'small_boats': {
+              // Rowboats, river boat, fishing boats (two schemes each) and
+              // the sunken one, side by side at the game's scale, waterline
+              // at y = 0 (boat-models.js)
+              const geos = Object.values(buildSmallBoatGeos());
+              geos.forEach((geo, i) => {
+                const m = new THREE.Mesh(geo, boatMat);
+                m.position.x = (i - (geos.length - 1) / 2) * 8;
+                previewGroup.add(m);
+              });
+              break;
+            }
             case 'road_vehicles':
               // Every kind the road traffic drives, side by side at the
               // game's scale (colour button cycles their paint schemes)

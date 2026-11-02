@@ -81,6 +81,8 @@ const RUBBLE = {
   twoStoryBody: BREAK.RUBBLE.two_story_house,
   strawHutBody: BREAK.RUBBLE.straw_hut,
   barnBody: BREAK.RUBBLE.barn,
+  timberBarnBody: BREAK.RUBBLE.barn,
+  hayBarnBody: BREAK.RUBBLE.barn,
   monasteryBody: BREAK.RUBBLE.monastery,
   castleRuins: BREAK.RUBBLE.castle,
   windmillBase: BREAK.RUBBLE.windmill,
@@ -1072,16 +1074,17 @@ const BOAT_RANGE = 1200;
 const sunk = new Set();
 const BOATS = {
   s: {positions: 'sailboatPositions', scale: 1.8, mast: 'boatMast'},
-  p: {positions: 'pirateShipPositions', scale: 2.5, mast: 'pirateMast'},
+  p: {positions: 'pirateShipPositions', scale: 2.5},
 };
 const _boatShape = {};
 
-// A boat's reach and height above its waterline, from its models
+// A boat's reach and height above its waterline, from its models (a
+// pirate ship's from its biggest look, the galleon)
 function boatShape(kind) {
   if (_boatShape[kind]) return _boatShape[kind];
   const {scale, mast} = BOATS[kind];
-  const hull = geoBox(kind === 's' ? 'boatHull0' : 'pirateHull');
-  const m = geoBox(mast);
+  const hull = geoBox(kind === 's' ? 'boatHull0' : 'pirateShip0');
+  const m = kind === 's' ? geoBox(mast) : hull;
   const shape = {
     radius: Math.max(hull.h.x, hull.h.z) * scale * 0.7,
     top: (m.c.y + m.h.y) * scale,
@@ -1104,19 +1107,9 @@ function boatModels(ud, kind, index) {
       ['boatSail', ud.boatSails, index],
     ];
   }
-  const sail =
-    (ud.pirateShipPositions[index].bodyId || 0) % ud.pirateSails.length;
-  // A pirate ship's sail instance moves about, but its matrix is the same as
-  // its mast's
-  return [
-    ['pirateHull', ud.pirateHulls, index],
-    ['pirateRim', ud.pirateRims, index],
-    ['pirateDeck', ud.pirateDecks, index],
-    ['pirateMast', ud.pirateMasts, index],
-    ['pirateFlag', ud.pirateFlags, index],
-    ['pirateJollyRoger', ud.pirateJollyRogers, index],
-    ['pirateSail' + sail, ud.pirateMasts, index],
-  ];
+  // A pirate ship: its own look's mesh, at its index
+  const look = ud.pirateShipPositions[index].bodyId;
+  return [['pirateShip' + look, ud.pirateShips[look], index]];
 }
 
 function sinkBoat(group, kind, index, dx, dz, kts, mine, buggy) {
@@ -1125,8 +1118,8 @@ function sinkBoat(group, kind, index, dx, dz, kts, mine, buggy) {
   pos.sunk = true;
   sunk.add(chunkKey(ud.chunkX, ud.chunkZ) + ':' + kind + index);
   const models = boatModels(ud, kind, index);
-  // Where it is now, from its mast's matrix
-  const mast = models[3][1];
+  // Where it is now, from its mast's matrix (a pirate ship's own)
+  const mast = models[kind === 's' ? 3 : 0][1];
   const m0 = mast.instanceMatrix.array.slice(index * 16, index * 16 + 16);
   m0[12] += mast.position.x;
   m0[13] += mast.position.y;
@@ -1147,27 +1140,19 @@ function sinkBoat(group, kind, index, dx, dz, kts, mine, buggy) {
     pieces: [],
   };
   // Stop drawing it now (flight-camera.js keeps it hidden while it moves
-  // the rest): a pirate ship's sail is found by where it stands
+  // the rest)
   const hide = (mesh, slot) => {
     if (!mesh || slot < 0) return;
     mesh.instanceMatrix.array.fill(0, slot * 16, slot * 16 + 16);
     mesh.instanceMatrix.needsUpdate = true;
   };
-  for (const [type, mesh, slot] of models) {
-    if (!type.startsWith('pirateSail')) hide(mesh, slot);
-  }
-  if (kind === 'p') {
-    const sails = ud.pirateSails[models[6][0].slice(10)];
-    const e = sails.instanceMatrix.array;
-    let slot = -1;
-    for (let i = 0; i < sails.count; i++) {
-      const dx = e[i * 16 + 12] + sails.position.x - x;
-      const dz = e[i * 16 + 14] + sails.position.z - z;
-      if (dx * dx + dz * dz < 0.01) slot = i;
-    }
-    hide(sails, slot);
-  }
-  hide(kind === 's' ? ud.boatReflections : ud.pirateReflections, index);
+  for (const [, mesh, slot] of models) hide(mesh, slot);
+  hide(
+    kind === 's'
+      ? ud.boatReflections
+      : ud.pirateReflections[ud.pirateShipPositions[index].bodyId],
+    index
+  );
   for (const [type] of models) {
     const piece = addPiece(type, m0.slice(), null, group);
     piece.m0 = m0;

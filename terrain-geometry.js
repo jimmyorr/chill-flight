@@ -15,6 +15,12 @@ import * as polyforkLighthouse from './third-party/polyfork/old-lighthouse-48ca6
 import * as polyforkCottage from './third-party/polyfork/porch-front-cottage-620c29.mjs';
 import {createAsset as createPolyforkDolphin} from './third-party/polyfork/dolphin-base.mjs';
 import {
+  PIRATE_SHIP_LOOKS,
+  boatMat,
+  buildPirateShipGeos,
+} from './boat-models.js';
+import {buildBarnGeos} from './farm-models.js';
+import {
   CHUNK_SIZE,
   CLOUD_GLSL,
   moonlightUniforms,
@@ -1980,32 +1986,15 @@ for (let i = 0; i < HOUSE_WINDOW_POOLS; i++) {
 }
 
 // --- BARN ---
-function createBarnRoofGeometry() {
-  const shape = new THREE.Shape();
-  shape.moveTo(-10, 12);
-  shape.lineTo(-10, 16);
-  shape.lineTo(-4, 23);
-  shape.lineTo(4, 23);
-  shape.lineTo(10, 16);
-  shape.lineTo(10, 12);
-  shape.lineTo(-10, 12);
-
-  const extrudeSettings = {
-    depth: 30,
-    bevelEnabled: false,
-  };
-  const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-  // Center along Z (depth is 30, so translate by -15)
-  geo.translate(0, 0, -15);
-  return geo;
-}
-export var barnBodyGeo = new THREE.BoxGeometry(18, 12, 28);
-barnBodyGeo.translate(0, 6, 0);
-export var barnRoofGeo = createBarnRoofGeometry();
-
-// Details
-export var barnDoorGeo = new THREE.BoxGeometry(8, 9, 0.5);
-export var barnTrimGeo = new THREE.BoxGeometry(0.5, 12.04, 0.6); // sqrt(8^2 + 9^2) = 12.04
+// Polyfork barns (farm-models.js), walls and roof: the red barn (barn...),
+// and up north the timber barn and the alpine hay barn
+var barnGeos = buildBarnGeos();
+export var barnBodyGeo = barnGeos.barnBody;
+export var barnRoofGeo = barnGeos.barnRoof;
+export var timberBarnBodyGeo = barnGeos.timberBarnBody;
+export var timberBarnRoofGeo = barnGeos.timberBarnRoof;
+export var hayBarnBodyGeo = barnGeos.hayBarnBody;
+export var hayBarnRoofGeo = barnGeos.hayBarnRoof;
 
 export var barnSiloBodyGeo = new THREE.CylinderGeometry(4, 4, 22, 12);
 barnSiloBodyGeo.translate(0, 11, 0);
@@ -2020,9 +2009,8 @@ export var barnSiloRoofGeo = new THREE.SphereGeometry(
 );
 barnSiloRoofGeo.translate(0, 22, 0);
 
-export var barnBodyMat = createMaterial({color: 0x9b1c1c, flatShading: true}); // classic barn red
-export var barnRoofMat = createMaterial({color: 0x3e2723, flatShading: true}); // dark timber
-export var barnWhiteMat = createMaterial({color: 0xeeeeee, flatShading: true});
+// Painted in vertex colours, walls and roof alike
+export var barnMat = createMaterial({vertexColors: true, flatShading: true});
 export var barnSiloMat = createMaterial({
   color: 0xaaaaaa,
   metalness: 0.2,
@@ -3729,189 +3717,11 @@ export var crystalMat = createMaterial({
   flatShading: true,
 });
 
-function createPirateHullGeometry() {
-  const main = new THREE.BoxGeometry(6, 4, 16);
-  const prow = new THREE.BoxGeometry(6, 4, 6);
-  prow.translate(0, 0, -11);
-  const prowPos = prow.attributes.position.array;
-  for (let i = 0; i < prowPos.length; i += 3) {
-    if (prowPos[i + 2] < -10) prowPos[i] *= 0.2; // Pinch X
-  }
-  prow.computeVertexNormals();
-
-  const stern = new THREE.BoxGeometry(6, 6, 6);
-  stern.translate(0, 1, 11);
-
-  const merged = mergeGeometries([main, prow, stern]);
-  const pos = merged.attributes.position.array;
-  for (let i = 0; i < pos.length; i += 3) {
-    if (pos[i + 1] < 0) {
-      pos[i] *= 0.6; // Pinch bottom X for a boat shape
-    }
-  }
-  merged.computeVertexNormals();
-  return merged;
-}
-export var pirateHullGeo = createPirateHullGeometry();
-pirateHullGeo.translate(0, 1, 0); // lift above water
-
-function createPirateRimGeometry() {
-  const main = new THREE.BoxGeometry(6.4, 0.4, 16.4);
-  const prow = new THREE.BoxGeometry(6.4, 0.4, 6.4);
-  prow.translate(0, 0, -11.4);
-  const prowPos = prow.attributes.position.array;
-  for (let i = 0; i < prowPos.length; i += 3) {
-    if (prowPos[i + 2] < -10.4) prowPos[i] *= 0.2;
-  }
-  prow.computeVertexNormals();
-
-  const stern = new THREE.BoxGeometry(6.4, 0.4, 6.4);
-  stern.translate(0, 1, 11.4);
-
-  return mergeGeometries([main, prow, stern]);
-}
-export var pirateRimGeo = createPirateRimGeometry();
-pirateRimGeo.translate(0, 3, 0);
-
-function createPirateDeckGeometry() {
-  const main = new THREE.BoxGeometry(5.8, 0.2, 15.8);
-  const prow = new THREE.BoxGeometry(5.8, 0.2, 5.8);
-  prow.translate(0, 0, -10.8);
-  const prowPos = prow.attributes.position.array;
-  for (let i = 0; i < prowPos.length; i += 3) {
-    if (prowPos[i + 2] < -9.8) prowPos[i] *= 0.2;
-  }
-  prow.computeVertexNormals();
-
-  const stern = new THREE.BoxGeometry(5.8, 0.2, 5.8);
-  stern.translate(0, 1, 10.8);
-
-  return mergeGeometries([main, prow, stern]);
-}
-export var pirateDeckGeo = createPirateDeckGeometry();
-pirateDeckGeo.translate(0, 3.2, 0);
-
-function createPirateMastGeometry() {
-  const mainmast = new THREE.CylinderGeometry(0.3, 0.3, 24, 6);
-  mainmast.translate(0, 14, 0);
-  const foremast = new THREE.CylinderGeometry(0.25, 0.25, 20, 6);
-  foremast.translate(0, 12, -7);
-  const mizzenmast = new THREE.CylinderGeometry(0.2, 0.2, 16, 6);
-  mizzenmast.translate(0, 11, 8);
-  const bowsprit = new THREE.CylinderGeometry(0.15, 0.15, 10, 6);
-  bowsprit.rotateX(-Math.PI / 3); // point UP and forward
-  bowsprit.translate(0, 5, -12); // lower so it connects to the prow
-
-  // Yardarms (horizontal poles holding the sails)
-  const yards = [];
-  const addYard = (width, y, z) => {
-    const yard = new THREE.CylinderGeometry(0.1, 0.1, width, 6);
-    yard.rotateZ(Math.PI / 2);
-    yard.translate(0, y, z);
-    yards.push(yard);
-  };
-
-  // Mainmast yards
-  addYard(10.5, 15, -0.2);
-  addYard(8.5, 20.5, -0.2);
-  addYard(5.5, 25, -0.2);
-
-  // Foremast yards
-  addYard(8.5, 12.5, -7.2);
-  addYard(6.5, 17, -7.2);
-
-  // Mizzenmast yards
-  addYard(6.5, 12.5, 7.8);
-
-  return mergeGeometries([mainmast, foremast, mizzenmast, bowsprit, ...yards]);
-}
-export var pirateMastGeo = createPirateMastGeometry();
-
-function createPirateSailGeometry() {
-  const sails = [];
-  const createSail = (w, h, yOffset, zOffset) => {
-    const sail = new THREE.BoxGeometry(w, h, 0.2, 4, 2);
-    const pos = sail.attributes.position.array;
-    for (let i = 0; i < pos.length; i += 3) {
-      const x = pos[i];
-      const y = pos[i + 1]; // Local Y goes from -h/2 to h/2
-
-      // We want billow to be 0 at the top (attached to yard), max at bottom.
-      const factor = (h / 2 - y) / h;
-
-      // Forward is negative Z.
-      // 1. Pull edges back (positive Z)
-      pos[i + 2] += x * x * 0.05 * factor;
-      // 2. Push center forward (negative Z)
-      pos[i + 2] -= factor * 1.5;
-    }
-    sail.computeVertexNormals();
-    sail.translate(0, yOffset, zOffset);
-    sails.push(sail);
-  };
-
-  // Mainmast sails
-  createSail(10, 6, 12, -0.2);
-  createSail(8, 5, 18, -0.2);
-  createSail(5, 4, 23, -0.2);
-
-  // Foremast sails
-  createSail(8, 5, 10, -7.2);
-  createSail(6, 4, 15, -7.2);
-
-  // Mizzenmast sails
-  createSail(6, 5, 10, 7.8);
-
-  return mergeGeometries(sails);
-}
-export var pirateSailGeo = createPirateSailGeometry();
-
-export var pirateFlagGeo = new THREE.PlaneGeometry(3, 2, 4, 2);
-pirateFlagGeo.rotateY(Math.PI / 2); // align with Z axis
-pirateFlagGeo.translate(0, 25, 1.5); // attach to mast at Z=0
-var flagPos = pirateFlagGeo.attributes.position.array;
-for (let i = 0; i < flagPos.length; i += 3) {
-  const z = flagPos[i + 2];
-  flagPos[i] += Math.sin(z * 2) * 0.3; // Wavy
-}
-pirateFlagGeo.computeVertexNormals();
-
-var skull = new THREE.BoxGeometry(0.2, 0.4, 0.5);
-skull.translate(0, 25.2, 1.5);
-var bone1 = new THREE.BoxGeometry(0.2, 0.8, 0.15);
-bone1.rotateX(Math.PI / 4);
-bone1.translate(0, 24.6, 1.5);
-var bone2 = new THREE.BoxGeometry(0.2, 0.8, 0.15);
-bone2.rotateX(-Math.PI / 4);
-bone2.translate(0, 24.6, 1.5);
-
-export var pirateJollyRogerGeo = mergeGeometries([skull, bone1, bone2]);
-var jrPos = pirateJollyRogerGeo.attributes.position.array;
-for (let i = 0; i < jrPos.length; i += 3) {
-  const z = jrPos[i + 2];
-  jrPos[i] += Math.sin(z * 2) * 0.3; // Match flag wave
-}
-pirateJollyRogerGeo.computeVertexNormals();
-
-export var pirateHullMat = createMaterial({color: 0x3d2314, flatShading: true}); // Dark brown wood
-export var pirateRimMat = createMaterial({color: 0x8b0000, flatShading: true}); // Dark red trim
-export var pirateFlagMat = createMaterial({
-  color: 0x050505,
-  flatShading: true,
-  side: THREE.DoubleSide,
-}); // Pitch black flag
-export var pirateJollyRogerMat = createMaterial({
-  color: 0xeeeeee,
-  flatShading: true,
-}); // White skull & bones
-
-// Sail color variants
-export var pirateSailPalette = [
-  createMaterial({color: 0x111111, flatShading: true, side: THREE.DoubleSide}), // Black
-  createMaterial({color: 0xffffff, flatShading: true, side: THREE.DoubleSide}), // White
-  createMaterial({color: 0xd2c4a7, flatShading: true, side: THREE.DoubleSide}), // Dirty canvas
-  createMaterial({color: 0x660000, flatShading: true, side: THREE.DoubleSide}), // Dark red
-];
+// Pirate ships: Polyfork's galleon, brigantine and sloop in four looks, one
+// geometry each (boat-models.js), indexed by a ship's bodyId. Their water
+// reflections are the same geometries flipped, in reflectionMat.
+export var pirateShipGeos = buildPirateShipGeos();
+export var pirateShipMat = boatMat;
 
 export var reflectionMat = new THREE.MeshBasicMaterial({
   color: 0x07151e,
@@ -3945,16 +3755,6 @@ export var sailboatMooredReflectionGeo = mergeGeometries([
   boatMastGeo,
   boatBoomGeo,
   boatSailGeo.clone().applyMatrix4(SAIL_FURL),
-]);
-
-export var pirateShipReflectionGeo = mergeGeometries([
-  pirateHullGeo,
-  pirateRimGeo,
-  pirateDeckGeo,
-  pirateMastGeo,
-  pirateSailGeo,
-  pirateFlagGeo,
-  pirateJollyRogerGeo,
 ]);
 
 // Lighthouse Beam geometry - wider and longer
@@ -4263,70 +4063,14 @@ export const ModelAssembler = {
           },
         ];
       case 'barn': {
-        const doorFOffset = new THREE.Vector3(0, 4.5, 14.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const doorBOffset = new THREE.Vector3(0, 4.5, -14.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
         const siloOffset = new THREE.Vector3(12, 0, 0).applyAxisAngle(
           yAxis,
           rotY
         );
 
         return [
-          {
-            geo: barnBodyGeo,
-            mat: barnBodyMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: barnRoofGeo,
-            mat: barnRoofMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          // Front Door
-          {
-            geo: barnDoorGeo,
-            mat: barnWhiteMat,
-            pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: barnTrimGeo,
-            mat: barnBodyMat,
-            pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z],
-            rot: [0, rotY, Math.atan2(8, 9)],
-          },
-          {
-            geo: barnTrimGeo,
-            mat: barnBodyMat,
-            pos: [doorFOffset.x, doorFOffset.y, doorFOffset.z],
-            rot: [0, rotY, -Math.atan2(8, 9)],
-          },
-          // Back Door
-          {
-            geo: barnDoorGeo,
-            mat: barnWhiteMat,
-            pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: barnTrimGeo,
-            mat: barnBodyMat,
-            pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z],
-            rot: [0, rotY, Math.atan2(8, 9)],
-          },
-          {
-            geo: barnTrimGeo,
-            mat: barnBodyMat,
-            pos: [doorBOffset.x, doorBOffset.y, doorBOffset.z],
-            rot: [0, rotY, -Math.atan2(8, 9)],
-          },
+          {geo: barnBodyGeo, mat: barnMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
+          {geo: barnRoofGeo, mat: barnMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
           // Silo
           {
             geo: barnSiloBodyGeo,
@@ -4653,43 +4397,15 @@ export const ModelAssembler = {
           },
         ];
       }
-      case 'pirateship': {
-        const sailId = (opts.bodyId || 0) % pirateSailPalette.length;
+      case 'pirateship':
         return [
           {
-            geo: pirateHullGeo,
-            mat: pirateHullMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: pirateRimGeo,
-            mat: pirateRimMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {geo: pirateDeckGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {geo: pirateMastGeo, mat: woodMat, pos: [0, 0, 0], rot: [0, rotY, 0]},
-          {
-            geo: pirateSailGeo,
-            mat: pirateSailPalette[sailId],
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: pirateFlagGeo,
-            mat: pirateFlagMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: pirateJollyRogerGeo,
-            mat: pirateJollyRogerMat,
+            geo: pirateShipGeos[(opts.bodyId || 0) % PIRATE_SHIP_LOOKS],
+            mat: pirateShipMat,
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
         ];
-      }
       case 'volcano_active_elements':
         return [
           {

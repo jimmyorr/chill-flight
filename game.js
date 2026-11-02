@@ -500,7 +500,6 @@ export const _rockArchPos = new THREE.Vector3(
     ? ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED)() * 10000 - 5000
     : 0
 );
-export const _pirateSailCounts = [0, 0, 0, 0];
 export const _lighthouseBeamWorldPos = new THREE.Vector3();
 export const _shootingStarLookDir = new THREE.Vector3();
 export const _shootingStarStreakDir = new THREE.Vector3();

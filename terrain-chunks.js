@@ -12,16 +12,12 @@ import {
   assembleHawk,
   assembleSeagull,
   barnBodyGeo,
-  barnBodyMat,
-  barnDoorGeo,
+  barnMat,
   barnRoofGeo,
-  barnRoofMat,
   barnSiloBodyGeo,
   barnSiloMat,
   barnSiloRoofGeo,
   barnSiloRoofMat,
-  barnTrimGeo,
-  barnWhiteMat,
   birdChunks,
   headlandLighthouseChunks,
   strayBirds,
@@ -53,6 +49,8 @@ import {
   joshuaGeos,
   joshuaTrunkMat,
   hayBaleGeo,
+  hayBarnBodyGeo,
+  hayBarnRoofGeo,
   hayBaleMat,
   fallenLogGeo,
   stumpGeo,
@@ -137,19 +135,8 @@ import {
   persistentLighthouseLight,
   pierDeckGeo,
   pierPostGeo,
-  pirateDeckGeo,
-  pirateFlagGeo,
-  pirateFlagMat,
-  pirateHullGeo,
-  pirateHullMat,
-  pirateJollyRogerGeo,
-  pirateJollyRogerMat,
-  pirateMastGeo,
-  pirateRimGeo,
-  pirateRimMat,
-  pirateSailGeo,
-  pirateSailPalette,
-  pirateShipReflectionGeo,
+  pirateShipGeos,
+  pirateShipMat,
   reflectionMat,
   releaseInstancedMesh,
   resetChunkQueue,
@@ -176,6 +163,8 @@ import {
   snowmanGeos,
   snowmanNoseMat,
   strawHutBodyGeo,
+  timberBarnBodyGeo,
+  timberBarnRoofGeo,
   strawHutMat,
   strawHutRoofGeo,
   streetlightArmGeo,
@@ -222,6 +211,8 @@ import {
   updateUrlParams,
 } from './constants.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {boatMat, buildSmallBoatGeos} from './boat-models.js';
+import {buildTractorGeos} from './farm-models.js';
 import {log} from './logger.js';
 import {simplex} from './noise.js';
 import {camera, renderer} from './sky.js';
@@ -600,14 +591,8 @@ debrisType('boatDeck', boatDeckGeo, boatDeckMat);
 debrisType('boatMast', boatMastGeo, woodMat);
 debrisType('boatBoom', boatBoomGeo, woodMat);
 debrisType('boatSail', boatSailGeo, boatSailMat);
-debrisType('pirateHull', pirateHullGeo, pirateHullMat);
-debrisType('pirateRim', pirateRimGeo, pirateRimMat);
-debrisType('pirateDeck', pirateDeckGeo, woodMat);
-debrisType('pirateMast', pirateMastGeo, woodMat);
-debrisType('pirateFlag', pirateFlagGeo, pirateFlagMat);
-debrisType('pirateJollyRoger', pirateJollyRogerGeo, pirateJollyRogerMat);
-pirateSailPalette.forEach((mat, i) =>
-  debrisType('pirateSail' + i, pirateSailGeo, mat)
+pirateShipGeos.forEach((geo, i) =>
+  debrisType('pirateShip' + i, geo, pirateShipMat)
 );
 
 // A rock arch as a breakable prop: it comes down in its blocks, but only
@@ -847,10 +832,12 @@ houseWindowMats.forEach((mat, i) => {
 for (const [type, geo, mat] of [
   ['strawHutBody', strawHutBodyGeo, strawHutMat],
   ['strawHutRoof', strawHutRoofGeo, strawHutMat],
-  ['barnBody', barnBodyGeo, barnBodyMat],
-  ['barnRoof', barnRoofGeo, barnRoofMat],
-  ['barnDoor', barnDoorGeo, barnWhiteMat],
-  ['barnTrim', barnTrimGeo, barnBodyMat],
+  ['barnBody', barnBodyGeo, barnMat],
+  ['barnRoof', barnRoofGeo, barnMat],
+  ['timberBarnBody', timberBarnBodyGeo, barnMat],
+  ['timberBarnRoof', timberBarnRoofGeo, barnMat],
+  ['hayBarnBody', hayBarnBodyGeo, barnMat],
+  ['hayBarnRoof', hayBarnRoofGeo, barnMat],
   ['barnSiloBody', barnSiloBodyGeo, barnSiloMat],
   ['barnSiloRoof', barnSiloRoofGeo, barnSiloRoofMat],
   ['monasteryBody', monasteryBodyGeo, monasteryBodyMat],
@@ -860,6 +847,16 @@ for (const [type, geo, mat] of [
   ['windmillBlades', windmillBladesGeo, windmillBladesMat],
 ]) {
   globalInstancer.registerType(type, geo, mat);
+}
+// Small boats (boat-models.js, placed by smallBoatAt in terrain-gen.js) and
+// tractors (farm-models.js, tractorSpot): one model each, a few thousand
+// triangles at most, so not drawn far away
+for (const [type, geo] of Object.entries({
+  ...buildSmallBoatGeos(),
+  ...buildTractorGeos(),
+})) {
+  globalInstancer.registerType(type, geo, boatMat, 2000);
+  globalInstancer.setFarGeometry(type, null);
 }
 // The sails turn in their shader, shadows too
 globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =
@@ -911,8 +908,6 @@ globalInstancer.setFarGeometry('bush', farCanopy(bushGeo), {
   screenSized: true,
   farRadius: TREE_LOD_CHUNK_RADIUS,
 });
-globalInstancer.setFarGeometry('barnDoor', null);
-globalInstancer.setFarGeometry('barnTrim', null);
 globalInstancer.setFarGeometry('snowmanBody', null);
 globalInstancer.setFarGeometry('hayBale', null);
 globalInstancer.setFarGeometry('fallenLog', null);
@@ -2922,121 +2917,49 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     group.userData.boatMooredReflections = mooredReflectionInst;
   }
 
-  // 3.5 Pirate Ships
+  // 3.5 Pirate Ships: one mesh per look the chunk's ships use (null for the
+  // others), and one for its reflections, each with a slot for every ship of
+  // the chunk, by its index. A ship is drawn only in its own look's mesh;
+  // the others keep a zero matrix there.
   if (pirateShipPositions.length > 0) {
-    const sailInsts = pirateSailPalette.map((mat) =>
-      getInstancedMesh(pirateSailGeo, mat, pirateShipPositions.length)
-    );
-    const hullInst = getInstancedMesh(
-      pirateHullGeo,
-      pirateHullMat,
-      pirateShipPositions.length
-    );
-    const rimInst = getInstancedMesh(
-      pirateRimGeo,
-      pirateRimMat,
-      pirateShipPositions.length
-    );
-    const deckInst = getInstancedMesh(
-      pirateDeckGeo,
-      woodMat,
-      pirateShipPositions.length
-    );
-    const mastInst = getInstancedMesh(
-      pirateMastGeo,
-      woodMat,
-      pirateShipPositions.length
-    );
-    const flagInst = getInstancedMesh(
-      pirateFlagGeo,
-      pirateFlagMat,
-      pirateShipPositions.length
-    );
-    const jrInst = getInstancedMesh(
-      pirateJollyRogerGeo,
-      pirateJollyRogerMat,
-      pirateShipPositions.length
-    );
-    const pirateReflectionInst = getInstancedMesh(
-      pirateShipReflectionGeo,
-      reflectionMat,
-      pirateShipPositions.length
-    );
-
-    const sailCounts = new Array(pirateSailPalette.length).fill(0);
-
+    const n = pirateShipPositions.length;
+    for (const pos of pirateShipPositions)
+      pos.bodyId = (pos.bodyId || 0) % pirateShipGeos.length;
+    const used = new Set(pirateShipPositions.map((pos) => pos.bodyId));
+    const meshes = (mat) =>
+      pirateShipGeos.map((geo, look) => {
+        if (!used.has(look)) return null;
+        const inst = getInstancedMesh(geo, mat, n);
+        inst.position.set(worldOffsetX, 0, worldOffsetZ);
+        watercraftGroup.add(inst);
+        return inst;
+      });
+    const ships = meshes(pirateShipMat);
+    const reflections = meshes(reflectionMat);
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    const place = (list, pos, index) =>
+      list.forEach((inst, look) => {
+        if (inst)
+          inst.setMatrixAt(index, look === pos.bodyId ? dummy.matrix : zero);
+      });
     pirateShipPositions.forEach((pos, index) => {
       dummy.position.set(pos.x, pos.y, pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.scale.set(2.5, 2.5, 2.5);
       dummy.updateMatrix();
-
-      const colorIdx =
-        (pos.bodyId !== undefined ? pos.bodyId : 0) % pirateSailPalette.length;
-      const instIdx = sailCounts[colorIdx]++;
-      sailInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
-
-      hullInst.setMatrixAt(index, dummy.matrix);
-      rimInst.setMatrixAt(index, dummy.matrix);
-      deckInst.setMatrixAt(index, dummy.matrix);
-      mastInst.setMatrixAt(index, dummy.matrix);
-      flagInst.setMatrixAt(index, dummy.matrix);
-      jrInst.setMatrixAt(index, dummy.matrix);
-
-      // Initialize reflection matrix with Y-flipped scale
+      place(ships, pos, index);
+      // Reflection: the same, flipped about the water
       dummy.scale.set(2.5, -2.5, 2.5);
       dummy.updateMatrix();
-      pirateReflectionInst.setMatrixAt(index, dummy.matrix);
+      place(reflections, pos, index);
     });
-
-    hullInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    mastInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    flagInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    jrInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    pirateReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    watercraftGroup.add(
-      hullInst,
-      rimInst,
-      deckInst,
-      mastInst,
-      flagInst,
-      jrInst,
-      pirateReflectionInst
-    );
-
-    sailInsts.forEach((inst, idx) => {
-      if (sailCounts[idx] > 0) {
-        inst.count = sailCounts[idx];
-        inst.position.set(worldOffsetX, 0, worldOffsetZ);
-        watercraftGroup.add(inst);
-      }
-    });
-
-    // Performance optimization: When pirate ships are outside 2,000 units, dynamic
-    // patrol and wave calculations are culled. Marking needsUpdate = true once ensures
-    // their resting matrices are uploaded to the GPU on initial chunk render.
-    hullInst.instanceMatrix.needsUpdate = true;
-    rimInst.instanceMatrix.needsUpdate = true;
-    deckInst.instanceMatrix.needsUpdate = true;
-    mastInst.instanceMatrix.needsUpdate = true;
-    flagInst.instanceMatrix.needsUpdate = true;
-    jrInst.instanceMatrix.needsUpdate = true;
-    pirateReflectionInst.instanceMatrix.needsUpdate = true;
-    sailInsts.forEach((inst) => {
+    // Past 2,000 units the patrols stop moving (flight-camera.js), so these
+    // resting matrices are what's drawn until then
+    for (const inst of [...ships, ...reflections])
       if (inst) inst.instanceMatrix.needsUpdate = true;
-    });
-
     group.userData.pirateShipPositions = pirateShipPositions;
-    group.userData.pirateHulls = hullInst;
-    group.userData.pirateRims = rimInst;
-    group.userData.pirateDecks = deckInst;
-    group.userData.pirateMasts = mastInst;
-    group.userData.pirateFlags = flagInst;
-    group.userData.pirateJollyRogers = jrInst;
-    group.userData.pirateSails = sailInsts;
-    group.userData.pirateReflections = pirateReflectionInst;
+    group.userData.pirateShips = ships;
+    group.userData.pirateReflections = reflections;
   }
 
   // 4. Generate Birds
@@ -3485,13 +3408,7 @@ export function updateChunks() {
       group.userData.boatReflections = null;
       group.userData.boatMooredReflections = null;
       group.userData.pirateShipPositions = null;
-      group.userData.pirateHulls = null;
-      group.userData.pirateRims = null;
-      group.userData.pirateDecks = null;
-      group.userData.pirateMasts = null;
-      group.userData.pirateFlags = null;
-      group.userData.pirateJollyRogers = null;
-      group.userData.pirateSails = null;
+      group.userData.pirateShips = null;
       group.userData.pirateReflections = null;
       group.userData.birds = null;
       group.userData.counts = null;

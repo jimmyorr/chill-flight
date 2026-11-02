@@ -66,7 +66,6 @@ import {
   _introLookTargetStart,
   _lighthouseBeamWorldPos,
   _lookOffset,
-  _pirateSailCounts,
   _up_FirstPerson,
   _up_Follow,
   _up_TopDown,
@@ -1112,21 +1111,15 @@ export function updateFlightCamera(delta, nowTime) {
       }
     }
 
-    // Animate Pirate Ships (Patrolling & Bobbing)
+    // Animate Pirate Ships (Patrolling & Bobbing): each ship's slot (its
+    // index) in its own look's mesh, and in its reflection's
     if (
-      chunkGroup.userData.pirateHulls &&
+      chunkGroup.userData.pirateShips &&
       chunkGroup.userData.pirateShipPositions
     ) {
-      const hulls = chunkGroup.userData.pirateHulls;
-      const rims = chunkGroup.userData.pirateRims;
-      const decks = chunkGroup.userData.pirateDecks;
-      const masts = chunkGroup.userData.pirateMasts;
-      const flags = chunkGroup.userData.pirateFlags;
-      const jollyRogers = chunkGroup.userData.pirateJollyRogers;
-      const sailInsts = chunkGroup.userData.pirateSails;
+      const ships = chunkGroup.userData.pirateShips;
+      const reflections = chunkGroup.userData.pirateReflections;
       const positions = chunkGroup.userData.pirateShipPositions;
-
-      const sailCounts = _pirateSailCounts.fill(0);
 
       positions.forEach((pos, index) => {
         const patrolRadius = 40 + _boatHash(index, 7) * 30;
@@ -1156,46 +1149,21 @@ export function updateFlightCamera(delta, nowTime) {
         _boatDummy.updateMatrix();
         // Sunk (breakables.js): drawn no more
         if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
+        ships[pos.bodyId].setMatrixAt(index, _boatDummy.matrix);
 
-        const colorIdx = pos.bodyId;
-        const instIdx = sailCounts[colorIdx]++;
-        sailInsts[colorIdx].setMatrixAt(instIdx, _boatDummy.matrix);
-
-        hulls.setMatrixAt(index, _boatDummy.matrix);
-        rims.setMatrixAt(index, _boatDummy.matrix);
-        decks.setMatrixAt(index, _boatDummy.matrix);
-        masts.setMatrixAt(index, _boatDummy.matrix);
-        flags.setMatrixAt(index, _boatDummy.matrix);
-        jollyRogers.setMatrixAt(index, _boatDummy.matrix);
-
-        if (chunkGroup.userData.pirateReflections) {
-          _boatDummy.position.set(pos.x + dx, pos.y - dy, pos.z + dz);
-          _boatDummy.rotation.set(0, 0, 0);
-          _boatDummy.rotation.y = tangentYaw + Math.PI;
-          _boatDummy.rotation.x = -pitch;
-          _boatDummy.rotation.z = -roll;
-          _boatDummy.scale.set(2.5, -2.5, 2.5);
-          _boatDummy.updateMatrix();
-          if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
-          chunkGroup.userData.pirateReflections.setMatrixAt(
-            index,
-            _boatDummy.matrix
-          );
-        }
+        _boatDummy.position.set(pos.x + dx, pos.y - dy, pos.z + dz);
+        _boatDummy.rotation.set(0, 0, 0);
+        _boatDummy.rotation.y = tangentYaw + Math.PI;
+        _boatDummy.rotation.x = -pitch;
+        _boatDummy.rotation.z = -roll;
+        _boatDummy.scale.set(2.5, -2.5, 2.5);
+        _boatDummy.updateMatrix();
+        if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
+        reflections[pos.bodyId].setMatrixAt(index, _boatDummy.matrix);
       });
 
-      hulls.instanceMatrix.needsUpdate = true;
-      rims.instanceMatrix.needsUpdate = true;
-      decks.instanceMatrix.needsUpdate = true;
-      masts.instanceMatrix.needsUpdate = true;
-      flags.instanceMatrix.needsUpdate = true;
-      jollyRogers.instanceMatrix.needsUpdate = true;
-      sailInsts.forEach((inst) => {
+      for (const inst of [...ships, ...reflections])
         if (inst) inst.instanceMatrix.needsUpdate = true;
-      });
-      if (chunkGroup.userData.pirateReflections) {
-        chunkGroup.userData.pirateReflections.instanceMatrix.needsUpdate = true;
-      }
     }
   });
 

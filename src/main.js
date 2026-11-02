@@ -32,6 +32,8 @@ import '../jet.js';
 import '../buggy-model.js';
 import '../airplane.js';
 import '../plane-models.js';
+import '../boat-models.js';
+import '../farm-models.js';
 import '../terrain-geometry.js';
 import '../plane-shadow.js';
 import '../waterfalls.js';
