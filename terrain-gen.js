@@ -247,9 +247,12 @@ export const ICE_HUT_COLORS = [
 // cores, where the canopy hides them): chance of each per grid point
 const FALLEN_LOG_CHANCE = 0.045;
 const STUMP_CHANCE = 0.03;
-// Channel buoys, red and green, in the shallows just off the coasts: their
-// chance per grid point between these depths
-const BUOY_CHANCE = 0.004;
+// Channel buoys, red and green, in the sea's shallows off the harbours
+// (near a pier, house or lighthouse): their chance per grid point between
+// these depths
+const BUOY_CHANCE = 0.012;
+// How near a pier, house or lighthouse a buoy must be
+const BUOY_HARBOUR_RANGE = 600;
 const BUOY_MIN_DEPTH = 3;
 const BUOY_MAX_DEPTH = 9;
 const BUOY_COLORS = [0xc8372d, 0x2f8a52];
@@ -3937,6 +3940,40 @@ export function generateChunkData({
       windmillPositions,
       iceHutPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_BUILDING_CLEAR));
+
+    // Buoys only mark harbour approaches: on the sea (open water well out,
+    // not a river or lake) and near a pier, a house or the lighthouse, so
+    // the wild shores stay wild
+    if (buoyPositions.length > 0) {
+      const anchors = [
+        ...pierPositions,
+        ...housePositions,
+        ...twoStoryHousePositions,
+        ...(lighthousePos ? [lighthousePos] : []),
+      ];
+      const near2 = BUOY_HARBOUR_RANGE * BUOY_HARBOUR_RANGE;
+      let kept = 0;
+      for (const b of buoyPositions) {
+        if (!anchors.some((p) => (p.x - b.x) ** 2 + (p.z - b.z) ** 2 < near2)) {
+          continue;
+        }
+        let open = 0;
+        for (let k = 0; k < 8; k++) {
+          const a = (k * Math.PI) / 4;
+          if (
+            getElevation(
+              worldOffsetX + b.x + Math.cos(a) * 1500,
+              worldOffsetZ + b.z + Math.sin(a) * 1500,
+              elevParams
+            ) <= WATER_LEVEL
+          ) {
+            open++;
+          }
+        }
+        if (open >= 4) buoyPositions[kept++] = b;
+      }
+      buoyPositions.length = kept;
+    }
 
     // A headland lighthouse stays off the roads too, and clears the props
     // from around itself and its keeper's house
