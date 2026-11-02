@@ -99,8 +99,15 @@ const PLASTER = [0.86, 0.82, 0.72];
 // How a building's parts go: folded down where they stand, flung off, or
 // gone (doors, windows, a campfire's flames and smoke). A pier's deck goes
 // to planks.
-const FOLDS = /Body$|^castleRuins$|^windmillBase$|^bush$/;
-const FLINGS = /Roof$|Chimney$|Blades$|^fireLog$/;
+const FOLDS = /Body$|^castleRuins$|^windmillBase$|^bush$|^stump(Top)?$/;
+const FLINGS = /Roof$|Chimney$|Blades$|^fireLog$|^hayBale$|^fallenLog$/;
+// Flung parts that roll away along the hit rather than spin
+const ROLLS = /^(hayBale|fallenLog)$/;
+// Critters that run off over the land, and stay where they stop, rather
+// than diving into the water
+const LAND_CRITTER = /^sheep/;
+// Critters that don't waddle (only the penguins do, in their shader)
+const STILL_CRITTER = /^(sheep|seal)/;
 const ROCKS = /^(rock|snowRock|desertRock)$/;
 const ICE = /^(iceberg|iceFloe)$/;
 // A real tree (not a streetlight, tent or silo), for Treehugger
@@ -136,6 +143,7 @@ const LEAF_PUFF = new THREE.Color();
 const SNOW = new THREE.Color(0.96, 0.97, 1);
 const SPRAY = new THREE.Color(0.9, 0.95, 1);
 const EMBERS = new THREE.Color(1, 0.55, 0.2);
+const STRAW = new THREE.Color(0xead283);
 const DUST = new THREE.Color(0.8, 0.75, 0.66);
 const _dust = new THREE.Color();
 const _m = new THREE.Matrix4();
@@ -636,7 +644,7 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
         ? _box.setFromObject(part.object)
         : partBox(type, m, 0);
       const piece = addPiece(type, m, color, group, source);
-      const tumble = roof || type === 'windmillBlades';
+      const tumble = roof || type === 'windmillBlades' || ROLLS.test(type);
       fling(
         piece,
         (box.min.x + box.max.x) / 2,
@@ -847,6 +855,10 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     LEAF_PUFF.setRGB(c[o], c[o + 1], c[o + 2]);
     const r = index.radius[i];
     propPuffs(x, base + height * 0.5, z, r, height * 0.5, LEAF_PUFF, 8, 2.5, 2);
+  } else if (parts[0].type === 'hayBale') {
+    propPuffs(x, base + 2, z, 3, 2.5, STRAW, 16, 3, 3);
+  } else if (/^(fallenLog|stump)$/.test(parts[0].type)) {
+    propPuffs(x, base, z, 3, 2, dust, 10, 4, 2);
   } else if (small) {
     propPuffs(x, base, z, 3, 3, EMBERS, 12, 2, 6);
     propPuffs(x, base, z, 3, 2, dust, 8, 4, 2);
@@ -916,12 +928,16 @@ function scatter(group, index, i, vx, vz, hx, hz) {
   // Its copies carry on from where its waddle had got to: the step and turn
   // go into their matrices, and its sway eases off as it hops
   const first = copyMatrix(parts[0]);
-  const sway = penguinWaddlePose(
-    first[12],
-    first[14],
-    animationUniforms.uTime.value,
-    _pose
-  );
+  const still = STILL_CRITTER.test(parts[0].type);
+  const land = LAND_CRITTER.test(parts[0].type);
+  const sway = still
+    ? (_pose.identity(), 0)
+    : penguinWaddlePose(
+        first[12],
+        first[14],
+        animationUniforms.uTime.value,
+        _pose
+      );
   const m0 = _m.fromArray(first).multiply(_pose).toArray(first);
   const x = m0[12];
   const z = m0[14];
@@ -952,6 +968,8 @@ function scatter(group, index, i, vx, vz, hx, hz) {
     const disc = b * b - (fx * fx + fz * fz - r * r);
     if (disc > 0) out = Math.max(out, -b + Math.sqrt(disc));
   }
+  // A sheep bounds off a fair way over the grass instead
+  if (land) out = rand(20, 30);
   const hops = Math.max(1, Math.round(out / 3.5));
   const anim = {
     kind: 'scatter',
@@ -963,13 +981,14 @@ function scatter(group, index, i, vx, vz, hx, hz) {
     sway,
     hops,
     hopLen: (out + 0.5) / hops,
+    land,
     t: -rand(0, 0.3),
     splashed: false,
     pieces: [],
   };
   parts.forEach((part) => {
     const m = _m.fromArray(copyMatrix(part)).multiply(_pose).toArray([]);
-    const piece = addPiece(part.type, m.slice(), null, group);
+    const piece = addPiece(part.type, m.slice(), copyColor(part), group);
     piece.m0 = m;
     piece.anim = anim;
     anim.pieces.push(piece);
@@ -1009,6 +1028,24 @@ function scatterPose(anim) {
   _r.premultiply(_r2.makeRotationAxis(_axis.set(anim.ux, 0, anim.uz), roll));
   _p.set(anim.ux * along, up, anim.uz * along);
   return t >= hopEnd + DIVE_TIME;
+}
+
+// A sheep's hops follow the ground; at the end it stands where it stopped
+function landHopPose(anim) {
+  const t = Math.max(0, anim.t);
+  const hopEnd = anim.hops * HOP_TIME;
+  const e = smoothstep(Math.min(1, t / HOP_TIME));
+  anim.swayNow = 0;
+  const h = Math.min(t, hopEnd) / HOP_TIME;
+  const f = t >= hopEnd ? 0 : h - Math.floor(h);
+  const along = Math.min(h, anim.hops) * anim.hopLen;
+  const gx = anim.p0.x + anim.ux * along;
+  const gz = anim.p0.z + anim.uz * along;
+  const up =
+    getElevation(gx, gz) - anim.p0.y + Math.sin(f * Math.PI) * HOP_HEIGHT * 0.6;
+  _r.makeRotationY(anim.turn * e);
+  _p.set(anim.ux * along, up, anim.uz * along);
+  return t >= hopEnd;
 }
 
 function countPieces() {
@@ -1236,7 +1273,9 @@ function sweep(a, b, r, mine, buggy) {
           ) {
             if (critter) {
               scatter(group, index, i, b.x, b.z, ux, uz);
-              if (mine) Achievements.unlock('penguin_parade');
+              if (mine && /^penguin/.test(propParts(group, i)[0].type)) {
+                Achievements.unlock('penguin_parade');
+              }
               continue;
             }
             // Some props have gaps you can pass through (a rock arch)
@@ -1306,7 +1345,7 @@ function animate(delta) {
         anim.stepped = frame;
         anim.t += delta;
       }
-      const gone = scatterPose(anim);
+      const gone = anim.land ? landHopPose(anim) : scatterPose(anim);
       const pv = anim.p0;
       // Into the water with a splash
       if (!anim.splashed && pv.y + _p.y < WATER_LEVEL) {
@@ -1329,7 +1368,8 @@ function animate(delta) {
       _m.multiply(_m0.fromArray(piece.m0));
       _m.multiply(_t.makeRotationZ(-anim.swayNow));
       _m.toArray(piece.m);
-      if (gone) removePiece(piece);
+      if (gone && anim.land) moving.delete(piece);
+      else if (gone) removePiece(piece);
       continue;
     } else if (anim.kind === 'fold') {
       stepFold(anim, delta);

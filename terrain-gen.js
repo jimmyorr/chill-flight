@@ -4625,7 +4625,7 @@ export function generateChunkData({
     collector.endProp();
   }
 
-  // Sheep: they don't break or scatter, you pass over them
+  // Sheep: they bound off out of your way, like the penguins (no rolls)
   for (const pos of sheepPositions) {
     composeMatrix(
       _matBuffer,
@@ -4641,8 +4641,10 @@ export function generateChunkData({
       0
     );
     _iceHutColor.setHex(pos.color);
+    collector.beginProp(BREAKABLE.CRITTER);
     collector.add('sheepWool', _matBuffer, _iceHutColor);
     collector.add('sheepDark', _matBuffer);
+    collector.endProp();
   }
 
   // Channel buoys: nothing to break, you pass over them
@@ -4665,7 +4667,8 @@ export function generateChunkData({
     collector.add('buoyTop', _matBuffer);
   }
 
-  // Seals on the floes: they don't break or scatter, you pass over them
+  // Seals on the floes: they slip into the water as you come, like the
+  // penguins
   for (const pos of sealPositions) {
     composeMatrix(
       _matBuffer,
@@ -4680,7 +4683,9 @@ export function generateChunkData({
       pos.rotY,
       0
     );
+    collector.beginProp(BREAKABLE.CRITTER);
     collector.add('seal', _matBuffer);
+    collector.endProp();
   }
 
   // Fallen logs and stumps (no rolls here either)
