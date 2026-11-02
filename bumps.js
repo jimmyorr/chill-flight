@@ -14,6 +14,8 @@ import {camera} from './sky.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {pushBuggy, slowBuggy} from './buggy.js';
 import {forEachTrafficPlane} from './traffic.js';
+import {forEachRoadCar} from './road-traffic.js';
+import {bumpRoadCar} from './road-traffic-logic.js';
 import {forEachBumpable} from './multiplayer.js';
 import {propPuffs} from './particles.js';
 import {playBump} from './sfx-events.js';
@@ -49,14 +51,16 @@ const _other = {x: 0, y: 0, z: 0};
 let clock = 0;
 
 // Something that can bump this frame: {key, a (last frame), b (now), r,
-// heading, hit(push, roll)} with hit null for a friend's plane (their own
-// game pushes them)
+// heading, hit(push, roll), car} with hit null for a friend's plane (their own
+// game pushes them) and car set for a buggy on the roads (road-traffic.js)
 function bodies() {
   const out = [];
   const add = (key, x, y, z, r, heading, hit) => {
     const was = last.get(key);
     const b = {x, y, z};
-    out.push({key, a: was || b, b, r, heading, hit});
+    const body = {key, a: was || b, b, r, heading, hit};
+    out.push(body);
+    return body;
   };
   if (!state.isFreeCamera && state.airplaneModel) {
     const buggy = activePlaneType === 'buggy';
@@ -95,6 +99,19 @@ function bodies() {
       p.heading,
       (push, roll) => shove(p, push, roll, false)
     );
+  });
+  // The cars on the roads: knocked sideways out of their lane, easing back
+  forEachRoadCar((c) => {
+    c.bumpKey ??= `car~${Math.random().toString(36).slice(2)}`;
+    add(
+      c.bumpKey,
+      c.x,
+      c.y + BUGGY_CENTER,
+      c.z,
+      bumpRadius('buggy'),
+      c.heading,
+      (push) => bumpRoadCar(c, push, BUMP.KEEP)
+    ).car = true;
   });
   return out;
 }
@@ -182,6 +199,8 @@ export function updateBumps(delta) {
     for (let j = i + 1; j < list.length; j++) {
       const q = list[j];
       if (!p.hit && !q.hit) continue;
+      // Cars pass through each other where highways cross
+      if (p.car && q.car) continue;
       if (!touched(p.a, p.b, p.r, q.a, q.b, q.r)) continue;
       const key = pairKey(p.key, q.key);
       if ((ghosts.get(key) ?? -Infinity) > clock) continue;
