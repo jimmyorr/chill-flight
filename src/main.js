@@ -71,6 +71,7 @@ import '../traffic-logic.js';
 import '../bumps-logic.js';
 import '../traffic.js';
 import '../road-traffic-logic.js';
+import '../road-vehicles.js';
 import '../road-traffic.js';
 import '../game-gyro.js';
 import '../waypoint.js';

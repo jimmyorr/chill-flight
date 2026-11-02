@@ -17,6 +17,12 @@ import {planeGroup, activePlaneType} from './airplane.js';
 import {simplex} from './noise.js';
 import {BUGGY_WHEEL_RADIUS} from './buggy-model.js';
 import {buildPlaneModel, isLiveryMaterial} from './plane-models.js';
+import {
+  ROAD_VEHICLES,
+  ROAD_VEHICLE_SCALE,
+  buildRoadVehicle,
+  cloneRoadVehicle,
+} from './road-vehicles.js';
 import {sampleRoad} from './terrain-chunks.js';
 import {trafficEnabled} from './traffic.js';
 import {
@@ -27,6 +33,10 @@ import {
 } from './road-traffic-logic.js';
 
 const MAX_CARS = 4;
+// Seconds between building one more vehicle model in the background, until
+// every kind has been built in this many paint schemes
+const BUILD_EVERY = 0.4;
+const SCHEMES_PER_KIND = 2;
 // Seconds before the next car appears while there's room
 const SPAWN_DELAY_MIN = 3;
 const SPAWN_DELAY_MAX = 10;
@@ -163,10 +173,62 @@ function addGlow(group, mat, size, x, y, z) {
   return sprite;
 }
 
+// Vehicles built so far, and the ones still to build (each kind in a couple
+// of its paint schemes, in random order)
+const built = [];
+const toBuild = [];
+for (const kind of ROAD_VEHICLES) {
+  const schemes = [...kind.colorways].sort(() => Math.random() - 0.5);
+  for (const colorway of schemes.slice(0, SCHEMES_PER_KIND)) {
+    toBuild.push({kind, colorway});
+  }
+}
+toBuild.sort(() => Math.random() - 0.5);
+let buildTimer = BUILD_EVERY;
+
+function buildNextVehicle() {
+  const next = toBuild.pop();
+  if (next) built.push(buildRoadVehicle(next.kind, next.colorway));
+}
+
+// A random built vehicle, by the kinds' weights (null before any is built)
+function pickVehicle() {
+  let total = 0;
+  for (const b of built) total += b.kind.weight / SCHEMES_PER_KIND;
+  let r = Math.random() * total;
+  for (const b of built) {
+    r -= b.kind.weight / SCHEMES_PER_KIND;
+    if (r <= 0) return b;
+  }
+  return built[built.length - 1] || null;
+}
+
 function buildCar(car) {
   const group = new THREE.Group();
   group.rotation.order = 'YXZ';
-  const model = buildPlaneModel('buggy', car.livery);
+  const vehicle = pickVehicle();
+  let model;
+  // Where its lamps are (the buggy's, or from the vehicle's size), and its
+  // wheel radius
+  let head = {x: HEAD_X, y: HEAD_Y, z: HEAD_Z};
+  let tail = {x: TAIL_X, y: TAIL_Y, z: TAIL_Z};
+  let wheelRadius = BUGGY_WHEEL_RADIUS;
+  if (vehicle) {
+    // Facing -z, like the buggy
+    const S = ROAD_VEHICLE_SCALE;
+    model = cloneRoadVehicle(vehicle);
+    model.scale.setScalar(S);
+    model.rotation.y = Math.PI;
+    const b = vehicle.box;
+    const lampY = Math.min(0.8, (b.max.y - b.min.y) * 0.38) * S;
+    head = {x: b.max.x * 0.72 * S, y: lampY, z: -b.max.z * S};
+    tail = {x: b.max.x * 0.75 * S, y: lampY, z: -b.min.z * S};
+    const w = model.wheels[0];
+    wheelRadius = (w ? w.position.y || 0.33 : 0.33) * S;
+    car.vehicle = vehicle.kind.name;
+  } else {
+    model = buildPlaneModel('buggy', car.livery);
+  }
   group.add(model);
 
   // The lenses glow brighter at night, the tail lenses when braking too
@@ -180,17 +242,27 @@ function buildCar(car) {
   });
 
   for (const side of [-1, 1]) {
-    addGlow(group, headMat, HEAD_SIZE, side * HEAD_X, HEAD_Y, HEAD_Z);
+    addGlow(group, headMat, HEAD_SIZE, side * head.x, head.y, head.z);
   }
   const tailMat = glowMat(0xff2a1a, false);
   const tails = [-1, 1].map((side) =>
-    addGlow(group, tailMat, TAIL_SIZE, side * TAIL_X, TAIL_Y, TAIL_Z)
+    addGlow(group, tailMat, TAIL_SIZE, side * tail.x, tail.y, tail.z)
   );
   const pool = new THREE.Mesh(poolGeo, poolMat);
+  pool.position.z = head.z - HEAD_Z;
   pool.renderOrder = 1;
   group.add(pool);
 
-  group.userData = {model, tailMat, tails, pool, headLens, tailLens};
+  group.userData = {
+    model,
+    tailMat,
+    tails,
+    pool,
+    headLens,
+    tailLens,
+    wheelRadius,
+    shared: !!vehicle,
+  };
   scene.add(group);
   return group;
 }
@@ -198,6 +270,8 @@ function buildCar(car) {
 function disposeCar(group) {
   scene.remove(group);
   group.userData.tailMat.dispose();
+  // A built vehicle's copies share its geometry and material
+  if (group.userData.shared) return;
   group.userData.model.traverse((child) => {
     if (child.geometry) child.geometry.dispose();
     if (
@@ -242,6 +316,12 @@ export function updateRoadTraffic(delta) {
   }
   lastCenter.copy(center);
   hasLastCenter = true;
+
+  buildTimer -= delta;
+  if (buildTimer <= 0 && toBuild.length) {
+    buildTimer = BUILD_EVERY;
+    buildNextVehicle();
+  }
 
   spawnTimer -= delta;
   if (spawnTimer <= 0) {
@@ -296,8 +376,10 @@ export function updateRoadTraffic(delta) {
       camera.position.distanceToSquared(_pos.set(car.x, car.y, car.z)) <
       MODEL_RANGE * MODEL_RANGE;
     if (u.model.visible) {
-      const roll = (car.speed * delta) / BUGGY_WHEEL_RADIUS;
-      for (const wheel of u.model.wheels) wheel.rotation.x -= roll;
+      const roll = (car.speed * delta) / u.wheelRadius;
+      // The buggy faces -z; built vehicles face +z inside the group
+      const spin = u.shared ? roll : -roll;
+      for (const wheel of u.model.wheels) wheel.rotation.x += spin;
       for (const pivot of u.model.steerPivots) pivot.rotation.y = car.steer;
     }
 

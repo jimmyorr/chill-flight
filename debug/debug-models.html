@@ -154,6 +154,9 @@
       <button class="model-btn" onclick="viewModel('buggy', event)">
         Buggy
       </button>
+      <button class="model-btn" onclick="viewModel('road_vehicles', event)">
+        Road vehicles
+      </button>
 
       <div class="category-title">Nature</div>
       <button class="model-btn" onclick="viewModel('pine', event)">
@@ -404,6 +407,11 @@
         createWindsock,
       } from '../airports.js';
       import {createWaterfall} from '../waterfalls.js';
+      import {
+        ROAD_VEHICLES,
+        ROAD_VEHICLE_SCALE,
+        buildRoadVehicle,
+      } from '../road-vehicles.js';
       import {basaltGate, canyonBridge, seaArch} from '../arches-logic.js';
       import {archGeometry} from '../arches.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
@@ -622,6 +630,7 @@
           'buggy',
           'mushroom',
           'crystal',
+          'road_vehicles',
         ].includes(type);
 
         const colorBtn = document.getElementById('cycle-colors-btn');
@@ -938,6 +947,18 @@
               break;
             case 'seal':
               previewGroup.add(new THREE.Mesh(sealGeo, sealMat));
+              break;
+            case 'road_vehicles':
+              // Every kind the road traffic drives, side by side at the
+              // game's scale (colour button cycles their paint schemes)
+              ROAD_VEHICLES.forEach((kind, i) => {
+                const scheme =
+                  kind.colorways[colorSeed % kind.colorways.length];
+                const {asset} = buildRoadVehicle(kind, scheme);
+                asset.scale.setScalar(ROAD_VEHICLE_SCALE);
+                asset.position.x = (i - (ROAD_VEHICLES.length - 1) / 2) * 7;
+                previewGroup.add(asset);
+              });
               break;
             case 'dolphin': {
               // Drawn at the game's scale (dolphins.js)
