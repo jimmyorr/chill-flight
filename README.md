@@ -28,6 +28,10 @@ Have a chill flight.
 
 flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient,casual,cozy,zen,plane,flying
 
+## Models
+
+The lighthouse is Polyfork's [Old Lighthouse](https://polyfork.dev/asset/old-lighthouse-48ca6c) (free licence: games can ship it, no attribution needed, but the file itself can't be redistributed as an asset). Its source is kept unchanged in `third-party/polyfork/`; `terrain-geometry.js` builds it once at load and splits it into the tower, rock islet, lantern glass and windows.
+
 ## Music
 
 In-game radio features tracks by Purrple Cat (Used with permission/attribution).

@@ -4,6 +4,7 @@ docs/
 # Ignore local dependency folders
 node_modules/
 vendor/
+third-party/
 src-tauri/target/
 .wrangler/
 android/

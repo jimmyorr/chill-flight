@@ -12,6 +12,11 @@ import {
 } from './terrain-gen.js';
 import {ART_PAINTED, ART_POST} from './art-style.js';
 import {
+  createAsset as createPolyforkLighthouse,
+  params as polyforkLighthouseParams,
+  presets as polyforkLighthousePresets,
+} from './third-party/polyfork/old-lighthouse-48ca6c.mjs';
+import {
   CHUNK_SIZE,
   CLOUD_GLSL,
   moonlightUniforms,
@@ -2642,40 +2647,115 @@ export var windmillBladesDepthMat = new THREE.MeshDepthMaterial({
   depthPacking: THREE.RGBADepthPacking,
 });
 
-// Lighthouse geometries
-var lighthouseTowerBottomGeo = new THREE.CylinderGeometry(8, 9, 20, 8);
-var lighthouseTowerMidGeo = new THREE.CylinderGeometry(7, 8, 20, 8);
-var lighthouseTowerTopGeo = new THREE.CylinderGeometry(6, 7, 20, 8);
-var lighthouseLanternGeo = new THREE.CylinderGeometry(5.5, 5.5, 6, 8);
-var lighthouseInnerLightGeo = new THREE.CylinderGeometry(3, 3, 5, 8);
-var lighthouseDomeGeo = new THREE.SphereGeometry(
-  5.5,
-  8,
-  8,
-  0,
-  Math.PI * 2,
-  0,
-  Math.PI / 2
-);
+// Lighthouse: Polyfork's Old Lighthouse (polyfork.dev, free licence; the
+// model's source is vendored unchanged in third-party/polyfork). Built once at
+// load and split by paint into the parts the game treats differently: the
+// rock islet stays put when the tower is knocked down, the lantern panes glow
+// like our old lamp and the small windows light up with the houses'.
+var lighthouseVertexMat = createMaterial({
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.85,
+});
+var lighthouseLampMat = createMaterial({
+  color: 0xffe0a0,
+  emissive: 0xffd98a,
+  emissiveIntensity: 1.0,
+});
+// Lantern centre height in the model's own frame, matched to our old tower
+// (the beam and spotlight hang at 63 before the chunk's 2x scale)
+const LIGHTHOUSE_LANTERN_Y = 63;
+var lighthouseParts = buildPolyforkLighthouse();
+
+function buildPolyforkLighthouse() {
+  const S = {
+    colorway: 'harbour-red',
+    bands: 5,
+    jetty: false,
+    antenna: false,
+  };
+  const asset = createPolyforkLighthouse(S);
+  asset.updateMatrixWorld(true);
+  const {glass, window: win, rock} = polyforkLighthouseDefaults(S);
+  const key = (c) => c.getHexString();
+  const buckets = {rock: [], glass: [], window: [], tower: []};
+  const zoneOf = new Map([
+    [key(glass), 'glass'],
+    [key(win), 'window'],
+    [key(rock), 'rock'],
+  ]);
+  const c = new THREE.Color();
+  const v = new THREE.Vector3();
+  asset.traverse((o) => {
+    if (!o.isMesh) return;
+    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
+    const pos = g.attributes.position;
+    const col = g.attributes.color;
+    for (let t = 0; t < pos.count; t += 3) {
+      c.fromBufferAttribute(col, t);
+      const zone = zoneOf.get(key(c)) || 'tower';
+      for (let i = t; i < t + 3; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+        c.fromBufferAttribute(col, i);
+        buckets[zone].push(v.x, v.y, v.z, c.r, c.g, c.b);
+      }
+    }
+  });
+  // Scale so the lantern sits where our old one did
+  let gy0 = Infinity;
+  let gy1 = -Infinity;
+  for (let i = 1; i < buckets.glass.length; i += 6) {
+    gy0 = Math.min(gy0, buckets.glass[i]);
+    gy1 = Math.max(gy1, buckets.glass[i]);
+  }
+  const scale = LIGHTHOUSE_LANTERN_Y / ((gy0 + gy1) / 2);
+  const toGeo = (arr) => {
+    const n = arr.length / 6;
+    const p = new Float32Array(n * 3);
+    const cc = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      for (let k = 0; k < 3; k++) {
+        p[i * 3 + k] = arr[i * 6 + k] * scale;
+        cc[i * 3 + k] = arr[i * 6 + 3 + k];
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(cc, 3));
+    g.computeVertexNormals();
+    g.computeBoundingSphere();
+    return g;
+  };
+  return {
+    tower: toGeo(buckets.tower),
+    glass: toGeo(buckets.glass),
+    window: toGeo(buckets.window),
+    rock: toGeo(buckets.rock),
+  };
+}
+
+// The resolved colours for the zones we split on (the asset bakes them into
+// vertex colours)
+function polyforkLighthouseDefaults(S) {
+  const pick = (name) =>
+    new THREE.Color(
+      S[name] ??
+        polyforkLighthousePresets[S.colorway]?.[name] ??
+        polyforkLighthouseParams[name].default
+    );
+  return {glass: pick('glass'), window: pick('window'), rock: pick('rock')};
+}
+
+// How many of the lighthouse structure's first parts make up the tower (they
+// topple together); the rest are the rock, the keeper's house and the
+// flagpole
+export const LIGHTHOUSE_TOWER_PARTS = 3;
 
 var flagpoleGeo = new THREE.CylinderGeometry(0.2, 0.2, 20, 4);
 var flagGeo = new THREE.BoxGeometry(4, 3, 0.1);
 
 var lighthouseRedMat = createMaterial({color: 0xc62828, flatShading: true});
 var lighthouseWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
-var lighthouseBandMat = createMaterial({color: 0x7b3f2a, flatShading: true}); // Reddish-brown
-var lighthouseBlackMat = createMaterial({color: 0x212121, flatShading: true}); // Dark grey/black
-var lighthouseGlassMat = createMaterial({
-  color: 0x212121,
-  flatShading: true,
-  transparent: true,
-  opacity: 0.4,
-});
-var lighthouseGlowMat = createMaterial({
-  color: 0xffffaa,
-  emissive: 0xffffaa,
-  emissiveIntensity: 1.0,
-});
 
 // Pier geometries
 function createPierDeckGeometry() {
@@ -4272,51 +4352,24 @@ export const ModelAssembler = {
         ];
       }
       case 'lighthouse': {
-        const houseOffset = new THREE.Vector3(16, 0, 0).applyAxisAngle(
+        // Keeper's house and flagpole stand clear of the rock islet
+        const houseOffset = new THREE.Vector3(26, 0, 0).applyAxisAngle(
           yAxis,
           rotY
         );
-        const flagpoleOffset = new THREE.Vector3(-15, 0, 10).applyAxisAngle(
+        const flagpoleOffset = new THREE.Vector3(-20, 0, 16).applyAxisAngle(
           yAxis,
           rotY
         );
+        const at = [0, 0, 0];
+        const rot = [0, rotY, 0];
         return [
-          {
-            geo: lighthouseTowerBottomGeo,
-            mat: lighthouseWhiteMat,
-            pos: [0, 10, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: lighthouseTowerMidGeo,
-            mat: lighthouseBandMat,
-            pos: [0, 30, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: lighthouseTowerTopGeo,
-            mat: lighthouseWhiteMat,
-            pos: [0, 50, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: lighthouseLanternGeo,
-            mat: lighthouseGlassMat,
-            pos: [0, 63, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: lighthouseInnerLightGeo,
-            mat: lighthouseGlowMat,
-            pos: [0, 63, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: lighthouseDomeGeo,
-            mat: lighthouseBlackMat,
-            pos: [0, 66, 0],
-            rot: [0, rotY, 0],
-          },
+          // Tower (LIGHTHOUSE_TOWER_PARTS)
+          {geo: lighthouseParts.tower, mat: lighthouseVertexMat, pos: at, rot},
+          {geo: lighthouseParts.glass, mat: lighthouseLampMat, pos: at, rot},
+          {geo: lighthouseParts.window, mat: houseWindowMats[0], pos: at, rot},
+          // Rock islet
+          {geo: lighthouseParts.rock, mat: lighthouseVertexMat, pos: at, rot},
           // House
           {
             geo: houseBodyGeo,

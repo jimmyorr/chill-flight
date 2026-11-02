@@ -49,6 +49,7 @@ export default [
       'docs/',
       'node_modules/',
       'vendor/',
+      'third-party/',
       'www/',
       'src-tauri/',
       'ios/',

@@ -108,6 +108,7 @@ import {
   japaneseMapleGeos,
   lighthouseBeamMat,
   lighthouseBeamGeo,
+  LIGHTHOUSE_TOWER_PARTS,
   lighthouseHeadlandBeamMat,
   lilyPadGeo,
   lilyPadMat,
@@ -1705,9 +1706,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     // keeper's house falls down and the flagpole tips over
     const objs = lighthouseGroup.children;
     const objPart = (object, role) => ({type: 'obj', object, role});
+    // The rock islet comes after the tower and never breaks; then the house
+    const h = LIGHTHOUSE_TOWER_PARTS + 1;
     meshProps.push({
       kind: BREAKABLE.TREE,
-      parts: objs.slice(0, 6).map((o) => objPart(o)),
+      parts: objs.slice(0, LIGHTHOUSE_TOWER_PARTS).map((o) => objPart(o)),
       onBreak: (g) => {
         const {lighthouseBeam: beam, lighthouseLight: light} = g.userData;
         if (beam) beam.visible = false;
@@ -1718,12 +1721,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     });
     meshProps.push({
       kind: BREAKABLE.HOUSE,
-      parts: [objPart(objs[6], 'fold'), objPart(objs[7], 'fling')],
+      parts: [objPart(objs[h], 'fold'), objPart(objs[h + 1], 'fling')],
       rubble: 9,
     });
     meshProps.push({
       kind: BREAKABLE.TREE,
-      parts: [objPart(objs[8]), objPart(objs[9])],
+      parts: [objPart(objs[h + 2]), objPart(objs[h + 3])],
     });
 
     // Use persistent beam and light
