@@ -124,6 +124,18 @@ export function inviteUrl(base, code, seed) {
   return url.toString();
 }
 
+/**
+ * The room an invite link (inviteUrl) brings you into, or null for any other
+ * link. The app gets these when a chillflight.app link opens it.
+ */
+export function roomFromLink(link) {
+  try {
+    return parseRoomCode(new URL(link).searchParams.get('room'));
+  } catch {
+    return null;
+  }
+}
+
 /** The relay address for a room. */
 export function roomSocketUrl(relay, code, {mode, seed, name}) {
   const url = new URL(`${relay.replace(/\/+$/, '')}/room/${code}`);

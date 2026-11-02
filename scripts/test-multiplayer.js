@@ -41,6 +41,7 @@ import {
   parseRoomCode,
   randomCallsign,
   readTag,
+  roomFromLink,
   roomSocketUrl,
   tagPlane,
   tagPointsRate,
@@ -119,6 +120,18 @@ check(
       link.searchParams.get('seed') === '20261020' &&
       !link.searchParams.has('plane') &&
       link.hash === ''
+  );
+  check(
+    'An invite link opening the app gives its room',
+    roomFromLink(link.toString()) === 'AB7K' &&
+      roomFromLink('https://chillflight.app/?room=ab-7k&seed=1') === 'AB7K'
+  );
+  check(
+    'Other links opening the app give no room',
+    roomFromLink('https://chillflight.app/') === null &&
+      roomFromLink('https://chillflight.app/?room=nope') === null &&
+      roomFromLink('not a link') === null &&
+      roomFromLink(undefined) === null
   );
   const ws = new URL(
     roomSocketUrl('wss://relay.example/', 'AB7K', {

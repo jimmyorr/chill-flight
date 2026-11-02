@@ -133,6 +133,7 @@ import {
   CALLSIGNS,
   randomCallsign,
   readTag,
+  roomFromLink,
   roomSocketUrl,
   tagPlane,
   tagPointsRate,
@@ -2927,4 +2928,46 @@ if (RELAY && tabBtn && panel) {
   // An invite link: join that room (the link's seed already chose its world)
   const linkCode = parseRoomCode(ChillFlightLogic.ROOM_PARAM);
   if (linkCode) join(linkCode, true);
+
+  listenForAppLinks();
+}
+
+// The phone apps: a chillflight.app link opens the app (Android App Links,
+// iOS Universal Links) rather than the web page, but the app always loads its
+// own page, so ?room= never reaches ChillFlightLogic. The link comes here
+// instead: at launch (getLaunchUrl) or while running (appUrlOpen).
+const LAUNCH_LINK_KEY = 'chill-flight-launch-link';
+
+function listenForAppLinks() {
+  const App =
+    typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()
+      ? Capacitor.Plugins?.App
+      : null;
+  if (!App) return;
+  App.addListener('appUrlOpen', ({url}) => openAppLink(url));
+  App.getLaunchUrl()
+    .then((launch) => {
+      if (!launch?.url) return;
+      // The launch link stays the same after a reload into the friend's
+      // world (and any later reload), so it's only followed once
+      let seen = null;
+      try {
+        seen = sessionStorage.getItem(LAUNCH_LINK_KEY);
+        sessionStorage.setItem(LAUNCH_LINK_KEY, launch.url);
+      } catch {
+        // No storage: a reload may follow the link again, which is harmless
+      }
+      if (seen !== launch.url) openAppLink(launch.url);
+    })
+    .catch(() => {});
+}
+
+// Into the link's room, leaving the one you're in. Joining a different world
+// reloads into it (join).
+function openAppLink(url) {
+  const code = roomFromLink(url);
+  if (!code || room?.code === code) return;
+  log.info(`[Fly together] Opened by an invite link to ${code}`);
+  if (room) leaveRoom();
+  join(code, true);
 }
