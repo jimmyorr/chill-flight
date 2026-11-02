@@ -105,11 +105,68 @@ function islandBoatGeo(colorway) {
   return mergeAsset(asset, topOfColor(asset, bottom));
 }
 
+// A ring of foam round a floating boat's hull where it meets the water, so
+// it sits in the water rather than seeming to hover over its shadow in clear
+// shallows. Flat, a hair above the surface (y = 0 after sinking), from just
+// inside the hull's widest outline to a ragged edge a little outside it.
+// Merged into the boat's own geometry: no extra draw call.
+const FOAM_COLOR = [0.86, 0.94, 0.96];
+const FOAM_Y = 0.12;
+const FOAM_WIDTH = 0.9;
+const FOAM_SEGMENTS = 20;
+function withFoam(geo) {
+  const p = geo.attributes.position;
+  // The hull's outline near the waterline (not masts, oars up high)
+  let hx = 0;
+  let hz = 0;
+  let cz = 0;
+  let z0 = Infinity;
+  let z1 = -Infinity;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i);
+    if (y < -1 || y > 1.5) continue;
+    hx = Math.max(hx, Math.abs(p.getX(i)));
+    z0 = Math.min(z0, p.getZ(i));
+    z1 = Math.max(z1, p.getZ(i));
+  }
+  hz = (z1 - z0) / 2;
+  cz = (z0 + z1) / 2;
+  const pos = Array.from(p.array);
+  const col = Array.from(geo.attributes.color.array);
+  const ring = (k, r) => {
+    const a = (k / FOAM_SEGMENTS) * Math.PI * 2;
+    // Ragged outer edge: a fixed wobble per segment
+    const w = r ? FOAM_WIDTH * (0.7 + 0.6 * Math.abs(Math.sin(k * 2.7))) : 0;
+    return [
+      Math.cos(a) * (hx * 0.9 + w),
+      FOAM_Y,
+      cz + Math.sin(a) * (hz * 0.97 + w),
+    ];
+  };
+  for (let k = 0; k < FOAM_SEGMENTS; k++) {
+    const a0 = ring(k, 0);
+    const a1 = ring(k + 1, 0);
+    const b0 = ring(k, 1);
+    const b1 = ring(k + 1, 1);
+    // Two triangles facing up
+    for (const v of [a0, b1, b0, a0, a1, b1]) {
+      pos.push(...v);
+      col.push(...FOAM_COLOR);
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  out.computeVertexNormals();
+  out.computeBoundingSphere();
+  return out;
+}
+
 // Each boat type (instanced by this name in terrain-chunks.js), built in one
 // paint scheme. Rowboats ride high (a hand's width of freeboard sunk); the
 // small fishing boat's painted waterline is 0.35 m up its keel.
 export function buildSmallBoatGeos() {
-  return {
+  const geos = {
     rowboatBody: mergeAsset(
       rowboat.createAsset({colorway: 'harbour-blue'}),
       0.2
@@ -132,12 +189,14 @@ export function buildSmallBoatGeos() {
     ),
     islandBoatBody: islandBoatGeo('red-and-yellow'),
     islandBoat2Body: islandBoatGeo('turquoise-and-white'),
-    // On the sea floor, so not sunk any further
-    sunkenBoatBody: mergeAsset(
-      sunkenBoat.createAsset({colorway: 'deep-wreck'}),
-      0
-    ),
   };
+  for (const type in geos) geos[type] = withFoam(geos[type]);
+  // On the sea floor, so not sunk any further, and no foam
+  geos.sunkenBoatBody = mergeAsset(
+    sunkenBoat.createAsset({colorway: 'deep-wreck'}),
+    0
+  );
+  return geos;
 }
 
 // --- PIRATE SHIPS ---
