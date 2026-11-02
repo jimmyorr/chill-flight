@@ -564,6 +564,9 @@ export function createDebrisMesh(geo, mat, capacity, useColor) {
   return mesh;
 }
 
+// How big the campfires' logs and flame are drawn (their model is sized for
+// an older, bigger look)
+const CAMPFIRE_SCALE = 0.6;
 // Models of props built per chunk that can be knocked over (piers, bridge
 // supports, campfires and tents): type -> {geo, mat}, for breakables.js. A
 // chunk lists them in userData.meshProps: [{kind, parts: [{type, mesh,
@@ -2569,7 +2572,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     if (roadSegments.length > 0) group.userData.roadSegments = roadSegments;
   }
 
-  // 2.96 Generate Campfires
+  // 2.96 Generate Campfires (logs and flame drawn at CAMPFIRE_SCALE, in
+  // keeping with the tent and the lean-to shelters beside some of them)
   if (campfirePositions.length > 0) {
     const logInst = getInstancedMesh(
       fireLogGeo,
@@ -2631,13 +2635,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       const structure = ModelAssembler.getStructure('campfire', pos.rotY || 0);
       structure.forEach((part, pIdx) => {
         dummy.position.set(
-          pos.x + part.pos[0],
-          pos.y + part.pos[1],
-          pos.z + part.pos[2]
+          pos.x + part.pos[0] * CAMPFIRE_SCALE,
+          pos.y + part.pos[1] * CAMPFIRE_SCALE,
+          pos.z + part.pos[2] * CAMPFIRE_SCALE
         );
         dummy.rotation.order = part.order || 'XYZ';
         dummy.rotation.set(...part.rot);
-        dummy.scale.set(1, 1, 1);
+        dummy.scale.setScalar(CAMPFIRE_SCALE);
         dummy.updateMatrix();
 
         if (part.geo === fireLogGeo) {
