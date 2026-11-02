@@ -163,7 +163,11 @@ const VERTEX_MAIN = `
     vec2 d = wxz - uAirport.xy;
     float u = d.x * uAirport.z + d.y * uAirport.w;
     float v = -d.x * uAirport.w + d.y * uAirport.z;
-    density *= 1.0 - step(abs(u), 430.0) * step(-30.0, v) * step(v, 62.0);
+    // The runway's strip, then the apron behind it (to its back edge at
+    // v = 71, plus a blade's lean) where the tower and hangar stand
+    float strip = step(abs(u), 430.0) * step(-30.0, v) * step(v, 28.0);
+    float apron = step(abs(u), 90.0) * step(-30.0, v) * step(v, 75.0);
+    density *= 1.0 - max(strip, apron);
   }
   float dC = length(wxz - uGrassCenter);
   float edge = smoothstep(uGrassRadius, uGrassRadius * 0.4, dC);
