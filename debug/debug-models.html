@@ -192,6 +192,7 @@
       <button class="model-btn" onclick="viewModel('cairn', event)">
         Summit cairn
       </button>
+      <button class="model-btn" onclick="viewModel('seal', event)">Seal</button>
       <button class="model-btn" onclick="viewModel('ice_hut', event)">
         Ice fishing hut
       </button>
@@ -445,6 +446,8 @@
         stumpTopMat,
         cairnGeo,
         cairnMat,
+        sealGeo,
+        sealMat,
         iceHutGeos,
         iceHutRoofMat,
         castleRuinsGeo,
@@ -899,6 +902,9 @@
                 body.position.x = roof.position.x = (i - 2) * 10;
                 previewGroup.add(body, roof);
               });
+              break;
+            case 'seal':
+              previewGroup.add(new THREE.Mesh(sealGeo, sealMat));
               break;
             case 'cairn':
               previewGroup.add(new THREE.Mesh(cairnGeo, cairnMat));

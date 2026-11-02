@@ -247,6 +247,8 @@ export const ICE_HUT_COLORS = [
 // cores, where the canopy hides them): chance of each per grid point
 const FALLEN_LOG_CHANCE = 0.045;
 const STUMP_CHANCE = 0.03;
+// The share of the ice floes with a seal or two lying on them
+const SEAL_FLOE_CHANCE = 0.45;
 // Stone cairns on the summits: how high above MOUNTAIN_LEVEL a top must be,
 // and the share of such tops that have one
 const CAIRN_MIN_RISE = 220;
@@ -2038,6 +2040,7 @@ export function generateChunkData({
   const icebergPositions = [];
   const iceFloePositions = [];
   const penguinPositions = [];
+  const sealPositions = [];
   const rockPositions = [];
   const snowRockPositions = [];
   const desertRockPositions = [];
@@ -2244,6 +2247,30 @@ export function generateChunkData({
                   y: WATER_LEVEL + 3,
                   z: localZ + (rng() - 0.5) * 12,
                   rotY: rng() * Math.PI * 2,
+                });
+              }
+              // A seal or two hauled out on some of the floes, from hashes
+              // of the grid point (so the rolls after come out as before)
+              const gx = Math.round(worldX / gridSpacing);
+              const gz = Math.round(worldZ / gridSpacing);
+              const seals =
+                fieldHash(gx, gz, 131) < SEAL_FLOE_CHANCE
+                  ? fieldHash(gx, gz, 137) < 0.35
+                    ? 2
+                    : 1
+                  : 0;
+              for (let k = 0; k < seals; k++) {
+                // The second lies across the floe from the first
+                const a =
+                  fieldHash(gx, gz, 139) * Math.PI * 2 +
+                  k * (Math.PI + (fieldHash(gx, gz, 141) - 0.5) * 1.2);
+                const d = 7 + 2 * fieldHash(gx, gz, 149 + k);
+                sealPositions.push({
+                  x: localX + Math.cos(a) * d,
+                  y: WATER_LEVEL + 2.4,
+                  z: localZ + Math.sin(a) * d,
+                  rotY: fieldHash(gx, gz, 151 + k) * Math.PI * 2,
+                  size: 1.6 + 0.4 * fieldHash(gx, gz, 157 + k),
                 });
               }
             }
@@ -4431,6 +4458,24 @@ export function generateChunkData({
     collector.add('iceHutBody', _matBuffer, _iceHutColor);
     collector.add('iceHutRoof', _matBuffer);
     collector.endProp();
+  }
+
+  // Seals on the floes: they don't break or scatter, you pass over them
+  for (const pos of sealPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.size,
+      pos.size,
+      pos.size,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.add('seal', _matBuffer);
   }
 
   // Summit cairns (no rolls here either)

@@ -60,6 +60,8 @@ import {
   stumpTopMat,
   cairnGeo,
   cairnMat,
+  sealGeo,
+  sealMat,
   iceHutGeos,
   iceHutRoofMat,
   castleRuinsGeo,
@@ -726,6 +728,7 @@ globalInstancer.registerType('hayBale', hayBaleGeo, hayBaleMat);
 globalInstancer.registerType('fallenLog', fallenLogGeo, fallenLogMat);
 globalInstancer.registerType('stump', stumpGeo, fallenLogMat);
 globalInstancer.registerType('cairn', cairnGeo, cairnMat);
+globalInstancer.registerType('seal', sealGeo, sealMat);
 globalInstancer.registerType(
   'stumpTop',
   stumpTopGeo,
@@ -899,6 +902,7 @@ globalInstancer.setFarGeometry('hayBale', null);
 globalInstancer.setFarGeometry('fallenLog', null);
 globalInstancer.setFarGeometry('stump', null);
 globalInstancer.setFarGeometry('cairn', null);
+globalInstancer.setFarGeometry('seal', null);
 globalInstancer.setFarGeometry('stumpTop', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
 // Town streets: flat, so they cast no shadow

@@ -1433,6 +1433,28 @@ export var cairnGeo = (() => {
 })();
 export var cairnMat = createMaterial({color: 0x9a9b9a, flatShading: true});
 
+// Seal hauled out on an ice floe: a plump body lying along z, its head
+// raised at the front (+z) and its hind flippers splayed behind, about 6.5
+// units long
+export var sealGeo = (() => {
+  const body = new THREE.SphereGeometry(1, 8, 5);
+  body.scale(1.25, 0.95, 2.9);
+  body.translate(0, 0.9, 0);
+  const head = new THREE.SphereGeometry(0.75, 7, 5);
+  head.scale(1, 0.95, 1.15);
+  head.translate(0, 1.75, 2.75);
+  const flippers = new THREE.ConeGeometry(0.9, 1.6, 4);
+  flippers.scale(1.4, 1, 0.35);
+  flippers.rotateX(-Math.PI / 2);
+  flippers.translate(0, 0.55, -3.3);
+  return mergeGeometries([
+    body.toNonIndexed(),
+    head.toNonIndexed(),
+    flippers.toNonIndexed(),
+  ]);
+})();
+export var sealMat = createMaterial({color: 0x878a8d, flatShading: true});
+
 // Ice fishing hut (the far north's frozen lakes): a little painted shed with
 // a pitched roof and a stovepipe, its walls tinted per hut
 function createIceHutGeometries() {
