@@ -14,6 +14,7 @@ import {getElevation} from './terrain-geometry.js';
 import {BREAKABLE} from './terrain-gen.js';
 import {buildPlaneModel} from './plane-models.js';
 import {t} from './i18n.js';
+import {buildingMesh, controlTowerGeo} from './building-models.js';
 
 // Breakable props that aren't in any chunk (airports): each a stand-in for
 // a chunk, {userData: {meshProps, ...}}. A part can also be a whole object
@@ -23,8 +24,6 @@ export const standaloneProps = [];
 const asphaltMat = createMaterial({color: 0x4f5155, flatShading: true});
 const concreteMat = createMaterial({color: 0x9a9890, flatShading: true});
 const markingMat = createMaterial({color: 0xf2f0e6, flatShading: true});
-const wallMat = createMaterial({color: 0xe8e0cc, flatShading: true});
-const glassMat = createMaterial({color: 0x2a4a5a, flatShading: true});
 const trimMat = createMaterial({color: 0x5a6470, flatShading: true});
 const hangarMat = createMaterial({color: 0x8a9aa6, flatShading: true});
 const doorMat = createMaterial({color: 0x4a5560, flatShading: true});
@@ -43,87 +42,23 @@ function mesh(geometries, material) {
   return m;
 }
 
-// The control tower: a cream shaft with base annex, flared glass cab with
-// corner mullions, catwalk railing, and rooftop radar/antennas
-export function createControlTower() {
+// The control tower: Polyfork's Airfield Control Tower (building-models.js)
+// in the airport's colours
+export function createControlTower(colorway) {
   const group = new THREE.Group();
-
-  // Flared octagonal/square cab glass (wider at top like a real ATC cab)
-  const cabGlass = new THREE.CylinderGeometry(7.6, 6.4, 5.6, 4);
-  cabGlass.rotateY(Math.PI / 4);
-  cabGlass.translate(0, 23.8, 0);
-
-  // Corner mullions matching the flared cab slope
-  const mullions = [];
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      const m = new THREE.BoxGeometry(0.45, 5.8, 0.45);
-      m.rotateZ(sx * -0.14);
-      m.rotateX(sz * 0.14);
-      m.translate(sx * 4.85, 23.8, sz * 4.85);
-      mullions.push(m);
-    }
-  }
-
-  // Catwalk railings around the observation deck (y = 21.0..22.2)
-  const rails = [
-    box(12.6, 0.25, 0.25, 0, 22.1, 6.15),
-    box(12.6, 0.25, 0.25, 0, 22.1, -6.15),
-    box(0.25, 0.25, 12.6, 6.15, 22.1, 0),
-    box(0.25, 0.25, 12.6, -6.15, 22.1, 0),
-  ];
-  for (const p of [-5.8, 0, 5.8]) {
-    rails.push(
-      box(0.22, 1.2, 0.22, p, 21.5, 6.15),
-      box(0.22, 1.2, 0.22, p, 21.5, -6.15),
-      box(0.22, 1.2, 0.22, 6.15, 21.5, p),
-      box(0.22, 1.2, 0.22, -6.15, 21.5, p)
-    );
-  }
-
-  group.add(
-    mesh(
-      [
-        // Main concrete shaft + flared upper collar + base entrance annex
-        box(7.2, 20, 7.2, 0, 10, 0),
-        box(8.8, 1.6, 8.8, 0, 19.2, 0),
-        box(5.2, 5.0, 3.2, 0, 2.5, 4.8),
-        // Observation catwalk deck + cab floor/ceiling
-        box(12.8, 1.0, 12.8, 0, 20.5, 0),
-        box(11.4, 0.6, 11.4, 0, 26.8, 0),
-        // Rooftop radar scanner bar
-        box(4.6, 0.55, 0.8, 0, 30.2, 0),
-      ],
-      wallMat
-    )
-  );
-  group.add(
-    mesh(
-      [
-        cabGlass,
-        // Vertical staircase window strips on shaft + doorway
-        box(1.4, 11.0, 7.4, 0, 12.0, 0),
-        box(2.0, 3.6, 0.4, 0, 1.8, 6.3),
-      ],
-      glassMat
-    )
-  );
-  group.add(
-    mesh(
-      [
-        ...mullions,
-        ...rails,
-        // Overhanging cab roof & radar pedestal + twin whip antennas
-        box(13.4, 1.1, 13.4, 0, 27.5, 0),
-        box(1.6, 1.6, 1.6, 0, 28.8, 0),
-        box(0.35, 5.5, 0.35, 3.6, 30.6, 3.6),
-        box(0.25, 4.2, 0.25, -3.6, 29.9, -3.2),
-      ],
-      trimMat
-    )
-  );
+  group.add(buildingMesh(controlTowerGeo(colorway)));
   return group;
 }
+
+// The tower's colours at each airport: tan in the deserts, pale grey in
+// the snowy north, brick elsewhere
+const TOWER_COLORS = {
+  'Mesa Field': 'desert-tan',
+  'Dune Field': 'desert-tan',
+  'Sagebrush Field': 'desert-tan',
+  'Pinewood Field': 'winter-ash',
+  'Frost Field': 'winter-ash',
+};
 
 // The hangar: a long shed with a barrel-arched roof, structural side
 // buttresses, and multi-panel sliding doors on its front (+Z)
@@ -607,7 +542,7 @@ function createAirport(a, index) {
   const lights = createRunwayLights();
   _lightGroups.push(lights);
   group.add(lights);
-  const tower = createControlTower();
+  const tower = createControlTower(TOWER_COLORS[a.name]);
   tower.position.set(-55, 0, 92);
   group.add(tower);
   const hangar = createHangar();

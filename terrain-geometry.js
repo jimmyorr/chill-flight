@@ -19,7 +19,11 @@ import {
   boatMat,
   buildPirateShipGeos,
 } from './boat-models.js';
-import {buildBarnGeos} from './farm-models.js';
+import {
+  buildBarnGeos,
+  buildSiloGeos,
+  buildWindmillGeos,
+} from './farm-models.js';
 import {
   CHUNK_SIZE,
   CLOUD_GLSL,
@@ -1996,33 +2000,15 @@ export var timberBarnRoofGeo = barnGeos.timberBarnRoof;
 export var hayBarnBodyGeo = barnGeos.hayBarnBody;
 export var hayBarnRoofGeo = barnGeos.hayBarnRoof;
 
-export var barnSiloBodyGeo = new THREE.CylinderGeometry(4, 4, 22, 12);
-barnSiloBodyGeo.translate(0, 11, 0);
-export var barnSiloRoofGeo = new THREE.SphereGeometry(
-  4,
-  12,
-  8,
-  0,
-  Math.PI * 2,
-  0,
-  Math.PI / 2
-);
-barnSiloRoofGeo.translate(0, 22, 0);
-
+// The red barns' silo (farm-models.js), drum and cap
+var siloGeos = buildSiloGeos();
+export var barnSiloBodyGeo = siloGeos.body;
+export var barnSiloRoofGeo = siloGeos.roof;
 // Painted in vertex colours, walls and roof alike
 export var barnMat = createMaterial({vertexColors: true, flatShading: true});
-export var barnSiloMat = createMaterial({
-  color: 0xaaaaaa,
-  metalness: 0.2,
-  roughness: 0.6,
-  flatShading: true,
-});
-export var barnSiloRoofMat = createMaterial({
-  color: 0xc2c2c2,
-  metalness: 0.3,
-  roughness: 0.5,
-  flatShading: true,
-});
+export var barnSiloMat = barnMat;
+export var barnSiloRoofMat = barnMat;
+
 // --- MONASTERY ---
 function createMonasteryBodyGeometry() {
   // Long main hall
@@ -2503,129 +2489,26 @@ gooseWingGeo.translate(3, 0, 0);
 taperWingGeometry(gooseWingGeo, 0, 6, 0.6, 1.0);
 
 // Windmill geometries
-function createWindmillBaseGeometry() {
-  const geometries = [];
-
-  // 1. Tapered white stone base
-  const base = new THREE.CylinderGeometry(4, 9, 30, 8);
-  base.translate(0, 15, 0);
-  geometries.push({geo: base, color: new THREE.Color(0xeeeeee)});
-
-  // 2. Small dark windows/doors on the sides
-  for (let i = 0; i < 3; i++) {
-    const windowGeo = new THREE.BoxGeometry(2, 2.5, 2);
-    // Position windows on the front side (+Z) going up
-    windowGeo.translate(0, 8 + i * 6, 3.5 - i * 0.5);
-    geometries.push({geo: windowGeo, color: new THREE.Color(0x222222)});
-  }
-
-  // 3. Dark octagonal/conical roof cap
-  const roof = new THREE.CylinderGeometry(0.5, 4.5, 8, 8);
-  roof.translate(0, 34, 0);
-  geometries.push({geo: roof, color: new THREE.Color(0x3a404d)});
-
-  // 4. Wooden hub sticking out the front (+Z) for the blades
-  const hub = new THREE.CylinderGeometry(0.8, 1.2, 10, 8);
-  hub.rotateX(Math.PI / 2);
-  hub.translate(0, 30, 6);
-  geometries.push({geo: hub, color: new THREE.Color(0x5c4033)});
-
-  const pos = [],
-    norm = [],
-    col = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geometries) {
-    pos.push(...g.geo.attributes.position.array);
-    if (g.geo.attributes.normal) norm.push(...g.geo.attributes.normal.array);
-    const colorCount = g.geo.attributes.position.count;
-    for (let i = 0; i < colorCount; i++)
-      col.push(g.color.r, g.color.g, g.color.b);
-    if (g.geo.index) {
-      for (let i = 0; i < g.geo.index.array.length; i++)
-        idx.push(g.geo.index.array[i] + offset);
-    } else {
-      for (let i = 0; i < colorCount; i++) idx.push(i + offset);
-    }
-    offset += colorCount;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  if (norm.length === pos.length)
-    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  else geom.computeVertexNormals();
-  geom.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-
-function createWindmillBladesGeometry() {
-  const geometries = [];
-
-  // Main central spine (wooden pole)
-  const spine = new THREE.BoxGeometry(0.6, 26, 0.4);
-  spine.translate(0, 15, 0); // Rotate around Y=0 at the bottom
-  geometries.push(spine);
-
-  // Lattice crossbars
-  // We'll place the lattice on one side of the spine (e.g., +X)
-  const numBars = 14;
-  for (let i = 0; i < numBars; i++) {
-    const bar = new THREE.BoxGeometry(4.5, 0.3, 0.2);
-    // Shift slightly to the right of the spine
-    bar.translate(2.25, 7 + i * 1.5, 0);
-    geometries.push(bar);
-  }
-
-  // Outer frame for the lattice
-  const outerFrame = new THREE.BoxGeometry(0.3, numBars * 1.5, 0.2);
-  outerFrame.translate(4.5, 7 + (numBars - 1) * 0.75, 0);
-  geometries.push(outerFrame);
-
-  const innerFrame = new THREE.BoxGeometry(0.3, numBars * 1.5, 0.2);
-  innerFrame.translate(0.5, 7 + (numBars - 1) * 0.75, 0);
-  geometries.push(innerFrame);
-
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    if (g.attributes.normal) norm.push(...g.attributes.normal.array);
-    const count = g.attributes.position.count;
-    if (g.index) {
-      for (let i = 0; i < g.index.array.length; i++)
-        idx.push(g.index.array[i] + offset);
-    } else {
-      for (let i = 0; i < count; i++) idx.push(i + offset);
-    }
-    offset += count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  if (norm.length === pos.length)
-    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  else geom.computeVertexNormals();
-  geom.setIndex(idx);
-  return geom;
-}
-
-export var windmillBaseGeo = createWindmillBaseGeometry();
-export var windmillBladesGeo = createWindmillBladesGeometry();
+// Windmills: Polyfork's Windmill (farm-models.js), the tower and its sails
+// about their hub, drawn at 1.5 times these sizes
+var windmillGeos = buildWindmillGeos();
+export var windmillBaseGeo = windmillGeos.base;
+export var windmillBladesGeo = windmillGeos.blades;
+// The hub's place on the tower (units, at full size)
+export var windmillHub = windmillGeos.hub;
 export var windmillBaseMat = createMaterial({
   vertexColors: true,
   flatShading: true,
   roughness: 0.9,
 });
 export var windmillBladesMat = createMaterial({
-  color: 0x5c4033,
+  vertexColors: true,
   flatShading: true,
   roughness: 0.9,
 });
 // The same, still: for sails knocked off (breakables.js)
 export var windmillBladesStillMat = createMaterial({
-  color: 0x5c4033,
+  vertexColors: true,
   flatShading: true,
   roughness: 0.9,
 });
@@ -4102,10 +3985,7 @@ export const ModelAssembler = {
           },
         ];
       case 'windmill': {
-        const hubOffset = new THREE.Vector3(0, 0, 16.5).applyAxisAngle(
-          yAxis,
-          rotY
-        );
+        const hub = windmillHub.clone().applyAxisAngle(yAxis, rotY);
         return [
           {
             geo: windmillBaseGeo,
@@ -4117,29 +3997,8 @@ export const ModelAssembler = {
           {
             geo: windmillBladesGeo,
             mat: windmillBladesMat,
-            pos: [hubOffset.x, 45, hubOffset.z],
+            pos: [hub.x, hub.y, hub.z],
             rot: [0, rotY, 0],
-            scale: [1.5, 1.5, 1.5],
-          },
-          {
-            geo: windmillBladesGeo,
-            mat: windmillBladesMat,
-            pos: [hubOffset.x, 45, hubOffset.z],
-            rot: [0, rotY, Math.PI / 2],
-            scale: [1.5, 1.5, 1.5],
-          },
-          {
-            geo: windmillBladesGeo,
-            mat: windmillBladesMat,
-            pos: [hubOffset.x, 45, hubOffset.z],
-            rot: [0, rotY, Math.PI],
-            scale: [1.5, 1.5, 1.5],
-          },
-          {
-            geo: windmillBladesGeo,
-            mat: windmillBladesMat,
-            pos: [hubOffset.x, 45, hubOffset.z],
-            rot: [0, rotY, (3 * Math.PI) / 2],
             scale: [1.5, 1.5, 1.5],
           },
         ];

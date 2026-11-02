@@ -1158,6 +1158,10 @@ export const WIND_DIR_X = 0.8;
 export const WIND_DIR_Z = 0.5;
 // Windmills all turn their sails (+Z in model space) into the wind.
 export const WINDMILL_ROT_Y = Math.atan2(-WIND_DIR_X, -WIND_DIR_Z);
+// The sails' hub on the windmill, up and out front (units; the Polyfork
+// model's hub, farm-models.js buildWindmillGeos)
+const WINDMILL_HUB_Y = 31.23;
+const WINDMILL_HUB_Z = 8.88;
 // A red barn's silo stands this far to its side (units, before turning)
 const BARN_SILO_X = 12;
 // North of this (units) the farms' barns are timber-framed barns or alpine
@@ -1212,26 +1216,23 @@ function collectStructures(collector, positions, offsetX, offsetZ) {
     collector.endProp();
   }
 
-  // Each windmill's tower and its four sails, a quarter turn apart, on a hub
-  // out front
-  const hub = rotateY(0, 16.5, WINDMILL_ROT_Y);
+  // Each windmill's tower and its sails, on their hub out front
+  const hub = rotateY(0, WINDMILL_HUB_Z, WINDMILL_ROT_Y);
   for (const pos of positions.windmillPositions) {
     const x = offsetX + pos.x;
     const z = offsetZ + pos.z;
     collector.beginProp(BREAKABLE.HOUSE);
     place('windmillBase', x, pos.y, z, 1.5, 0, WINDMILL_ROT_Y, 0);
-    for (let k = 0; k < 4; k++) {
-      place(
-        'windmillBlades',
-        x + hub.x,
-        pos.y + 45,
-        z + hub.z,
-        1.5,
-        0,
-        WINDMILL_ROT_Y,
-        (k * Math.PI) / 2
-      );
-    }
+    place(
+      'windmillBlades',
+      x + hub.x,
+      pos.y + WINDMILL_HUB_Y,
+      z + hub.z,
+      1.5,
+      0,
+      WINDMILL_ROT_Y,
+      0
+    );
     collector.endProp();
   }
 }

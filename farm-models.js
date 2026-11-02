@@ -9,6 +9,9 @@ import * as compactTractor from './third-party/polyfork/compact-tractor-35b84b.m
 import * as redBarn from './third-party/polyfork/red-barn-d41683.mjs';
 import * as timberBarn from './third-party/polyfork/timber-barn-90b3ce.mjs';
 import * as hayBarn from './third-party/polyfork/alpine-hay-barn-3965e5.mjs';
+import * as grainSilo from './third-party/polyfork/grain-silo-58ca67.mjs';
+import * as stoneWindmill from './third-party/polyfork/windmill-3aad49.mjs';
+import * as THREE from 'three';
 import {mergeAsset} from './boat-models.js';
 
 // How much bigger than real life (a 2.8 m tractor comes out 7 units long,
@@ -76,4 +79,75 @@ export function buildBarnGeos() {
     );
   }
   return geos;
+}
+
+// The silo beside each red barn: Polyfork's Grain Silo, galvanised with a
+// sage cap, about 8 units across and 26 tall, split at its eave into drum
+// and cap (they topple together)
+const SILO_SCALE = 2.8;
+const SILO_EAVE = 8;
+export function buildSiloGeos() {
+  const asset = grainSilo.createAsset({
+    colorway: 'galvanised-sage',
+    bodyHeight: SILO_EAVE,
+  });
+  return {
+    body: mergeAsset(asset, 0, SILO_SCALE, 0, (y) => y < SILO_EAVE - 0.01),
+    roof: mergeAsset(asset, 0, SILO_SCALE, 0, (y) => y >= SILO_EAVE - 0.01),
+  };
+}
+
+// The farm windmills: Polyfork's Windmill, cream stone with a timber cap,
+// about 45 units tall and 26 across at the foot like our old one. Built for
+// terrain-gen.js's instance scale (1.5): the tower, and its sails about
+// their hub (turning about z in windmillBladesMat's shader). The hub's
+// place on the tower, after scaling, is WINDMILL_HUB in terrain-gen.js.
+const WINDMILL_SCALE = 4.7;
+const WINDMILL_INSTANCE_SCALE = 1.5;
+export function buildWindmillGeos() {
+  const asset = stoneWindmill.createAsset({
+    colorway: 'cream-stone',
+    sailSpan: 1.15,
+  });
+  asset.updateMatrixWorld(true);
+  const sails = asset.getObjectByName('sails');
+  const hub = new THREE.Vector3().setFromMatrixPosition(sails.matrixWorld);
+  const inSails = (o) => {
+    for (let p = o; p; p = p.parent) if (p === sails) return true;
+    return false;
+  };
+  const tower = [];
+  const blades = [];
+  asset.traverse((o) => {
+    if (o.isMesh) (inSails(o) ? blades : tower).push(o);
+  });
+  const k = WINDMILL_SCALE / WINDMILL_INSTANCE_SCALE;
+  const merge = (meshes, origin) => {
+    const pos = [];
+    const col = [];
+    const v = new THREE.Vector3();
+    for (const o of meshes) {
+      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
+      const p = g.attributes.position;
+      const c = g.attributes.color;
+      for (let i = 0; i < p.count; i++) {
+        v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld).sub(origin);
+        pos.push(v.x * k, v.y * k, v.z * k);
+        if (c) col.push(c.getX(i), c.getY(i), c.getZ(i));
+        else col.push(1, 1, 1);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    return geo;
+  };
+  return {
+    base: merge(tower, new THREE.Vector3()),
+    blades: merge(blades, hub),
+    // Where the hub is, at the game's scale (units)
+    hub: hub.multiplyScalar(WINDMILL_SCALE),
+  };
 }
