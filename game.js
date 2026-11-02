@@ -31,7 +31,7 @@ import {
   isHapticsEnabled,
   setHapticsEnabled,
 } from './haptics.js';
-import {initLighthouse} from './terrain-geometry.js';
+import {boatHash, initLighthouse} from './terrain-geometry.js';
 
 typeof state.daySpeedMultiplier !== 'undefined' ? state.daySpeedMultiplier : 1;
 
@@ -488,10 +488,7 @@ export const _shadowUp = new THREE.Vector3();
 export const _worldUp = new THREE.Vector3(0, 1, 0);
 export const _boatDummy = new THREE.Object3D();
 // Deterministic hash hoisted out of per-frame boat loops to eliminate GC closure allocations
-export function _boatHash(index, seed) {
-  const val = Math.sin(index * 12.9898 + seed * 78.233) * 43758.5453;
-  return val - Math.floor(val);
-}
+export const _boatHash = boatHash;
 
 // --- PRE-ALLOCATED SCRATCH OBJECTS FOR ANIMATE() LOOP TO PREVENT GC CHURN ---
 export const _immelmannForward = new THREE.Vector3();

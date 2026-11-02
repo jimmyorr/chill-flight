@@ -11,6 +11,7 @@ import {
   getElevation,
   headlandLighthouseChunks,
   lighthouseHeadlandBeamMat,
+  SAIL_FURL,
   smokeMat,
   strayBirds,
   waterUniforms,
@@ -91,6 +92,7 @@ const _orbitAxis = new THREE.Vector3(0, 1, 0);
 let _frameCount;
 // A sunk boat's matrix: nothing drawn
 const _SUNK = new THREE.Matrix4().makeScale(0, 0, 0);
+const _furledSail = new THREE.Matrix4();
 // A hawk or gull flies off when the plane comes this close (units), this far
 // (units), and is back circling after this long (s)
 const BIRD_STARTLE_RADIUS = 90;
@@ -1003,7 +1005,9 @@ export function updateFlightCamera(delta, nowTime) {
       positions.forEach((pos, index) => {
         const driftPhase = _boatHash(index, 1) * Math.PI * 2;
         const driftSpeed = 0.03 + _boatHash(index, 2) * 0.04; // Extremely slow drifting
-        const doesDrift = _boatHash(index, 3) < 0.8; // 80% drift, 20% completely anchored in place
+        // 80% drift; the rest are moored in place with their sails down
+        const moored = pos.moored;
+        const doesDrift = !moored;
         const isAnchored = doesDrift && _boatHash(index, 4) < 0.6; // 60% of drifting ones are on a tight anchor, 40% are loose
 
         let driftRadius = 0;
@@ -1060,7 +1064,12 @@ export function updateFlightCamera(delta, nowTime) {
         }
 
         masts.setMatrixAt(index, _boatDummy.matrix);
-        sails.setMatrixAt(index, _boatDummy.matrix);
+        if (moored) {
+          _furledSail.multiplyMatrices(_boatDummy.matrix, SAIL_FURL);
+          sails.setMatrixAt(index, _furledSail);
+        } else {
+          sails.setMatrixAt(index, _boatDummy.matrix);
+        }
         if (rims) rims.setMatrixAt(index, _boatDummy.matrix);
         if (decks) decks.setMatrixAt(index, _boatDummy.matrix);
         if (booms) booms.setMatrixAt(index, _boatDummy.matrix);
@@ -1074,10 +1083,11 @@ export function updateFlightCamera(delta, nowTime) {
           _boatDummy.scale.set(1.8, -1.8, 1.8);
           _boatDummy.updateMatrix();
           if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
-          chunkGroup.userData.boatReflections.setMatrixAt(
-            index,
-            _boatDummy.matrix
-          );
+          // Moored boats are mirrored by their own sails-down reflection
+          (moored
+            ? chunkGroup.userData.boatMooredReflections
+            : chunkGroup.userData.boatReflections
+          ).setMatrixAt(index, _boatDummy.matrix);
         }
       });
 
@@ -1096,6 +1106,9 @@ export function updateFlightCamera(delta, nowTime) {
       if (booms) booms.instanceMatrix.needsUpdate = true;
       if (chunkGroup.userData.boatReflections) {
         chunkGroup.userData.boatReflections.instanceMatrix.needsUpdate = true;
+      }
+      if (chunkGroup.userData.boatMooredReflections) {
+        chunkGroup.userData.boatMooredReflections.instanceMatrix.needsUpdate = true;
       }
     }
 

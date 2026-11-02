@@ -164,7 +164,10 @@ import {
   rockArchGrassMat,
   rockGeo,
   rockMat,
+  sailboatMooredReflectionGeo,
+  sailboatMoored,
   sailboatReflectionGeo,
+  SAIL_FURL,
   smokeGeo,
   smokeMat,
   snowRockMat,
@@ -568,6 +571,10 @@ export function createDebrisMesh(geo, mat, capacity, useColor) {
 // chunk lists them in userData.meshProps: [{kind, parts: [{type, mesh,
 // index}]}], each part an instance of one of the chunk's instanced meshes.
 export const debrisTypes = new Map();
+// Sailboat scratch: a moored boat's sail matrix, and a zero matrix that
+// draws nothing (a boat shown by the other reflection mesh)
+const _furledSail = new THREE.Matrix4();
+const _NO_BOAT = new THREE.Matrix4().makeScale(0, 0, 0);
 const debrisType = (type, geo, mat) => debrisTypes.set(type, {geo, mat});
 debrisType('pierDeck', pierDeckGeo, woodMat);
 debrisType('fireLog', fireLogGeo, woodMat);
@@ -2813,6 +2820,20 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       reflectionMat,
       sailboatPositions.length
     );
+    // Moored boats (sails down) are mirrored by their own mesh, only made
+    // where a chunk has one; each boat shows in one of the two
+    // (pos.moored, read by the boat animation in flight-camera.js)
+    sailboatPositions.forEach((pos) => {
+      pos.moored = sailboatMoored(worldOffsetX + pos.x, worldOffsetZ + pos.z);
+    });
+    const anyMoored = sailboatPositions.some((pos) => pos.moored);
+    const mooredReflectionInst = anyMoored
+      ? getInstancedMesh(
+          sailboatMooredReflectionGeo,
+          reflectionMat,
+          sailboatPositions.length
+        )
+      : null;
 
     sailboatPositions.forEach((pos, index) => {
       dummy.position.set(pos.x, pos.y, pos.z);
@@ -2829,12 +2850,26 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       deckInst.setMatrixAt(index, dummy.matrix);
       mastInst.setMatrixAt(index, dummy.matrix);
       boomInst.setMatrixAt(index, dummy.matrix);
-      sailInst.setMatrixAt(index, dummy.matrix);
+      const moored = pos.moored;
+      sailInst.setMatrixAt(
+        index,
+        moored
+          ? _furledSail.multiplyMatrices(dummy.matrix, SAIL_FURL)
+          : dummy.matrix
+      );
 
       // Initialize reflection matrix with Y-flipped scale
       dummy.scale.set(1.8, -1.8, 1.8);
       dummy.updateMatrix();
-      sailboatReflectionInst.setMatrixAt(index, dummy.matrix);
+      sailboatReflectionInst.setMatrixAt(
+        index,
+        moored ? _NO_BOAT : dummy.matrix
+      );
+      if (mooredReflectionInst)
+        mooredReflectionInst.setMatrixAt(
+          index,
+          moored ? dummy.matrix : _NO_BOAT
+        );
     });
 
     rimInst.position.set(worldOffsetX, 0, worldOffsetZ);
@@ -2843,6 +2878,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     boomInst.position.set(worldOffsetX, 0, worldOffsetZ);
     sailInst.position.set(worldOffsetX, 0, worldOffsetZ);
     sailboatReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
+    if (mooredReflectionInst) {
+      mooredReflectionInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      mooredReflectionInst.instanceMatrix.needsUpdate = true;
+      watercraftGroup.add(mooredReflectionInst);
+    }
     watercraftGroup.add(
       rimInst,
       deckInst,
@@ -2876,6 +2916,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     group.userData.boatDecks = deckInst;
     group.userData.boatBooms = boomInst;
     group.userData.boatReflections = sailboatReflectionInst;
+    group.userData.boatMooredReflections = mooredReflectionInst;
   }
 
   // 3.5 Pirate Ships
@@ -3439,6 +3480,7 @@ export function updateChunks() {
       group.userData.boatDecks = null;
       group.userData.boatBooms = null;
       group.userData.boatReflections = null;
+      group.userData.boatMooredReflections = null;
       group.userData.pirateShipPositions = null;
       group.userData.pirateHulls = null;
       group.userData.pirateRims = null;

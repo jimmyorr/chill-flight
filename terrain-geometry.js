@@ -3500,6 +3500,30 @@ function createBoatSailGeometry() {
 }
 export var boatSailGeo = createBoatSailGeometry();
 
+// A steady hash of a boat's index in its chunk, so its drift and look stay
+// the same frame to frame (flight-camera.js animates boats with it)
+export function boatHash(index, seed) {
+  const val = Math.sin(index * 12.9898 + seed * 78.233) * 43758.5453;
+  return val - Math.floor(val);
+}
+
+// About one sailboat in five is moored: it never drifts, and its sails are
+// down, flaked along the boom (#163). Picked by where the boat is in the
+// world (x, z), since a boat's index in its chunk is rarely above 2.
+export function sailboatMoored(x, z) {
+  return boatHash(Math.round(x) * 0.0731 + Math.round(z) * 0.0419, 3) >= 0.8;
+}
+
+// The sails of a moored boat, multiplied after the boat's matrix: squashed
+// flat down to just above the boom (y 2.7) and drawn in toward it along the
+// boat, so the jib bundles onto the cabin roof instead of reaching the bow
+const SAIL_FURL_Y = 2.75;
+const SAIL_FURL_Z = 2.3;
+export const SAIL_FURL = new THREE.Matrix4()
+  .makeTranslation(0, SAIL_FURL_Y, SAIL_FURL_Z)
+  .multiply(new THREE.Matrix4().makeScale(0.6, 0.06, 0.55))
+  .multiply(new THREE.Matrix4().makeTranslation(0, -SAIL_FURL_Y, -SAIL_FURL_Z));
+
 export var boatHullPalette = [
   createMaterial({color: 0xaa0000, flatShading: true}), // Dark Red
   createMaterial({color: 0x004400, flatShading: true}), // Dark Green
@@ -3782,6 +3806,16 @@ export var sailboatReflectionGeo = mergeGeometries([
   boatMastGeo,
   boatBoomGeo,
   boatSailGeo,
+]);
+
+// The same for a moored boat, sails down
+export var sailboatMooredReflectionGeo = mergeGeometries([
+  boatHullGeo,
+  boatRimGeo,
+  boatDeckGeo,
+  boatMastGeo,
+  boatBoomGeo,
+  boatSailGeo.clone().applyMatrix4(SAIL_FURL),
 ]);
 
 export var pirateShipReflectionGeo = mergeGeometries([
