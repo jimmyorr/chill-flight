@@ -193,6 +193,9 @@
         Summit cairn
       </button>
       <button class="model-btn" onclick="viewModel('seal', event)">Seal</button>
+      <button class="model-btn" onclick="viewModel('buoy', event)">
+        Channel buoys
+      </button>
       <button class="model-btn" onclick="viewModel('ice_hut', event)">
         Ice fishing hut
       </button>
@@ -448,6 +451,8 @@
         cairnMat,
         sealGeo,
         sealMat,
+        buoyGeos,
+        buoyTopMat,
         iceHutGeos,
         iceHutRoofMat,
         castleRuinsGeo,
@@ -901,6 +906,17 @@
                 const roof = new THREE.Mesh(iceHutGeos.roof, iceHutRoofMat);
                 body.position.x = roof.position.x = (i - 2) * 10;
                 previewGroup.add(body, roof);
+              });
+              break;
+            case 'buoy':
+              [0xc8372d, 0x2f8a52].forEach((color, i) => {
+                const body = new THREE.Mesh(
+                  buoyGeos.body,
+                  createMaterial({color, flatShading: true})
+                );
+                const top = new THREE.Mesh(buoyGeos.top, buoyTopMat);
+                body.position.x = top.position.x = i * 6 - 3;
+                previewGroup.add(body, top);
               });
               break;
             case 'seal':

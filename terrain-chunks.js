@@ -62,6 +62,8 @@ import {
   cairnMat,
   sealGeo,
   sealMat,
+  buoyGeos,
+  buoyTopMat,
   iceHutGeos,
   iceHutRoofMat,
   castleRuinsGeo,
@@ -729,6 +731,8 @@ globalInstancer.registerType('fallenLog', fallenLogGeo, fallenLogMat);
 globalInstancer.registerType('stump', stumpGeo, fallenLogMat);
 globalInstancer.registerType('cairn', cairnGeo, cairnMat);
 globalInstancer.registerType('seal', sealGeo, sealMat);
+globalInstancer.registerType('buoy', buoyGeos.body, houseTintMat, 30000, true);
+globalInstancer.registerType('buoyTop', buoyGeos.top, buoyTopMat);
 globalInstancer.registerType(
   'stumpTop',
   stumpTopGeo,
@@ -903,6 +907,8 @@ globalInstancer.setFarGeometry('fallenLog', null);
 globalInstancer.setFarGeometry('stump', null);
 globalInstancer.setFarGeometry('cairn', null);
 globalInstancer.setFarGeometry('seal', null);
+globalInstancer.setFarGeometry('buoy', null);
+globalInstancer.setFarGeometry('buoyTop', null);
 globalInstancer.setFarGeometry('stumpTop', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
 // Town streets: flat, so they cast no shadow

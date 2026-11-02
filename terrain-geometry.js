@@ -1455,6 +1455,22 @@ export var sealGeo = (() => {
 })();
 export var sealMat = createMaterial({color: 0x878a8d, flatShading: true});
 
+// Channel buoy: a round float riding low in the water and a tapering
+// lattice tower on it (tinted per buoy), with a dark lamp cap on top
+export var buoyGeos = (() => {
+  const float = new THREE.CylinderGeometry(1.5, 1.2, 2.2, 8);
+  const tower = new THREE.CylinderGeometry(0.35, 1.05, 3.6, 4);
+  tower.rotateY(Math.PI / 4);
+  tower.translate(0, 2.9, 0);
+  const cap = new THREE.CylinderGeometry(0.4, 0.4, 0.6, 6);
+  cap.translate(0, 5, 0);
+  return {
+    body: mergeGeometries([float.toNonIndexed(), tower.toNonIndexed()]),
+    top: cap,
+  };
+})();
+export var buoyTopMat = createMaterial({color: 0x2d3033, flatShading: true});
+
 // Ice fishing hut (the far north's frozen lakes): a little painted shed with
 // a pitched roof and a stovepipe, its walls tinted per hut
 function createIceHutGeometries() {

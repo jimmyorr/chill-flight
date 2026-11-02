@@ -247,6 +247,12 @@ export const ICE_HUT_COLORS = [
 // cores, where the canopy hides them): chance of each per grid point
 const FALLEN_LOG_CHANCE = 0.045;
 const STUMP_CHANCE = 0.03;
+// Channel buoys, red and green, in the shallows just off the coasts: their
+// chance per grid point between these depths
+const BUOY_CHANCE = 0.004;
+const BUOY_MIN_DEPTH = 3;
+const BUOY_MAX_DEPTH = 9;
+const BUOY_COLORS = [0xc8372d, 0x2f8a52];
 // The share of the ice floes with a seal or two lying on them
 const SEAL_FLOE_CHANCE = 0.45;
 // Stone cairns on the summits: how high above MOUNTAIN_LEVEL a top must be,
@@ -2041,6 +2047,7 @@ export function generateChunkData({
   const iceFloePositions = [];
   const penguinPositions = [];
   const sealPositions = [];
+  const buoyPositions = [];
   const rockPositions = [];
   const snowRockPositions = [];
   const desertRockPositions = [];
@@ -3399,6 +3406,30 @@ export function generateChunkData({
       }
     }
 
+    // A channel buoy in the shallows off the coast (not among the ice, nor
+    // off the wild western coasts)
+    if (
+      _enableObjects &&
+      !sharedEdge &&
+      !isAlienLand &&
+      !isLakeIce &&
+      snowFactor < 0.5 &&
+      height < WATER_LEVEL - BUOY_MIN_DEPTH &&
+      height > WATER_LEVEL - BUOY_MAX_DEPTH
+    ) {
+      const gx = Math.round(worldX / gridSpacing);
+      const gz = Math.round(worldZ / gridSpacing);
+      if (fieldHash(gx, gz, 163) < BUOY_CHANCE * densityScale) {
+        buoyPositions.push({
+          x: localX,
+          y: WATER_LEVEL,
+          z: localZ,
+          rotY: fieldHash(gx, gz, 167) * Math.PI * 2,
+          color: BUOY_COLORS[fieldHash(gx, gz, 173) < 0.5 ? 0 : 1],
+        });
+      }
+    }
+
     // A stone cairn on a summit: the highest grid point within two of it
     // each way (reading past the chunk's edge), from hashes like the huts
     if (
@@ -4458,6 +4489,26 @@ export function generateChunkData({
     collector.add('iceHutBody', _matBuffer, _iceHutColor);
     collector.add('iceHutRoof', _matBuffer);
     collector.endProp();
+  }
+
+  // Channel buoys: nothing to break, you pass over them
+  for (const pos of buoyPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      1,
+      1,
+      1,
+      0,
+      pos.rotY,
+      0
+    );
+    _iceHutColor.setHex(pos.color);
+    collector.add('buoy', _matBuffer, _iceHutColor);
+    collector.add('buoyTop', _matBuffer);
   }
 
   // Seals on the floes: they don't break or scatter, you pass over them
