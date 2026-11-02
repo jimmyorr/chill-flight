@@ -1745,6 +1745,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         pos.y + beamHeight,
         pos.z + worldOffsetZ
       );
+      // Yaw then tilt, so it dips the same whichever way it points
+      persistentLighthouseBeam.rotation.order = 'YXZ';
       persistentLighthouseBeam.rotation.y = pos.rotY;
       persistentLighthouseBeam.rotation.x = 0.15; // Tilt slightly downward
       persistentLighthouseBeam.scale.set(2, 2, 2); // Scale beam to match
