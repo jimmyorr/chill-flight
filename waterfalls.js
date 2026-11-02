@@ -90,14 +90,26 @@ function fallMaterial(
 
 // The falling water: u across (0 to 1), v down the fall in world units.
 // Two layers of streaks pour down at different speeds; the edges are ragged
-// and the top fades in where the stream leaves the rock.
+// and the top fades in where the stream leaves the rock. The water leaves the
+// lip at the stream's pace and speeds up as it falls, as under gravity, up to
+// a top speed (air drag), so a tall fall pours fast at its foot. The streaks
+// move with the water, so they stretch out as it speeds up.
 const fallMat = fallMaterial(`
+  // Seconds after leaving the lip that the water is v units down
+  const float V0 = 15.0;
+  const float G = 9.8;
+  const float VMAX = 50.0;
+  const float FREE = (VMAX * VMAX - V0 * V0) / (2.0 * G);
   float u = vFallUv.x;
   float v = vFallUv.y;
-  float s1 = fallNoise(vec2(u * 9.0, v * 0.07 - uTime * 1.1));
-  float s2 = fallNoise(vec2(u * 17.0 + 3.0, v * 0.12 - uTime * 1.6));
+  float t = (sqrt(V0 * V0 + 2.0 * G * min(v, FREE)) - V0) / G
+          + max(v - FREE, 0.0) / VMAX;
+  // uTime runs 1.5 times as fast as seconds
+  float now = uTime / 1.5;
+  float s1 = fallNoise(vec2(u * 9.0, (t - now) * 1.4));
+  float s2 = fallNoise(vec2(u * 17.0 + 3.0, (t - now * 1.15) * 2.0));
   float streak = s1 * 0.6 + s2 * 0.4;
-  float rag = fallNoise(vec2(v * 0.05 - uTime * 0.6, u * 2.0)) * 0.12;
+  float rag = fallNoise(vec2((t - now * 0.8) * 0.9, u * 2.0)) * 0.12;
   float edge = smoothstep(rag, 0.22 + rag, u) * (1.0 - smoothstep(0.78 - rag, 1.0 - rag, u));
   shade = mix(0.85, 1.12, streak);
   alpha = edge * smoothstep(0.0, 10.0, v) * mix(0.72, 1.0, streak);
