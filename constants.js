@@ -121,7 +121,6 @@ export const PLANE_HANDLING = {
 export const ENABLE_BARNS = true;
 export const ENABLE_MONASTERIES = true;
 export const ENABLE_CASTLE_RUINS = true;
-export const ENABLE_LIGHTHOUSES = false;
 
 export const THEME = ChillFlightLogic.THEME;
 

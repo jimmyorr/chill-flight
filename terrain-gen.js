@@ -253,6 +253,13 @@ const BUOY_CHANCE = 0.004;
 const BUOY_MIN_DEPTH = 3;
 const BUOY_MAX_DEPTH = 9;
 const BUOY_COLORS = [0xc8372d, 0x2f8a52];
+// Lighthouses on headlands, besides Montauk's: the share of chunks that may
+// have one (if they have a headland in a fitting region), and no nearer than
+// this many chunks to Montauk's
+const LIGHTHOUSE_CHUNK_CHANCE = 0.1;
+const LIGHTHOUSE_MONTAUK_CLEAR = 4;
+// How far props are cleared around one (its keeper's house and yard)
+const LIGHTHOUSE_CLEAR = 55;
 // The share of the ice floes with a seal or two lying on them
 const SEAL_FLOE_CHANCE = 0.45;
 // Joshua trees: share of the desert's trees, and their tufts' colour
@@ -261,7 +268,6 @@ export const JOSHUA_LEAF_COLOR = 0x6f8a3c;
 const ENABLE_BARNS = true;
 const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = true;
-const ENABLE_LIGHTHOUSES = false;
 
 // How alien (ChillFlightLogic.alienAt) the land must be for alien props
 export const ALIEN_PROPS_AT = 0.3;
@@ -2030,6 +2036,13 @@ export function generateChunkData({
   const strawHutPositions = [];
   const windmillPositions = [];
   let lighthousePos = null;
+  // Whether this chunk may have a headland lighthouse (see the loop)
+  const lighthouseChunk =
+    _enableObjects &&
+    Math.max(Math.abs(chunkX - 5), Math.abs(chunkZ - 2)) >
+      LIGHTHOUSE_MONTAUK_CLEAR &&
+    fieldHash(chunkX, chunkZ, 197 + (ChillFlightLogic.WORLD_SEED % 100003)) <
+      LIGHTHOUSE_CHUNK_CHANCE;
   const pierPositions = [];
   const campfirePositions = [];
   const chimneySmokePositions = [];
@@ -3179,30 +3192,6 @@ export function generateChunkData({
             // roll stays so the rolls after it, and the world, don't shift.
             rng();
             windmillPositions.push({x: localX, y: height, z: localZ});
-          } else if (
-            ENABLE_LIGHTHOUSES &&
-            !(chunkX === 5 && chunkZ === 2) &&
-            !lighthousePos &&
-            rng() < 0.0004 * densityScale &&
-            height < sandMaxHeight + 15
-          ) {
-            const hN = getElevation(worldX, worldZ - 50, elevParams);
-            const hS = getElevation(worldX, worldZ + 50, elevParams);
-            const hE = getElevation(worldX + 50, worldZ, elevParams);
-            const hW = getElevation(worldX - 50, worldZ, elevParams);
-            if (
-              hN <= WATER_LEVEL ||
-              hS <= WATER_LEVEL ||
-              hE <= WATER_LEVEL ||
-              hW <= WATER_LEVEL
-            ) {
-              lighthousePos = {
-                x: localX,
-                y: height,
-                z: localZ,
-                rotY: rng() * Math.PI * 2,
-              };
-            }
           }
 
           if (
@@ -3351,6 +3340,77 @@ export function generateChunkData({
           stump: roll >= FALLEN_LOG_CHANCE * densityScale,
           size: 0.8 + 0.4 * fieldHash(gx, gz, 109),
         });
+      }
+    }
+
+    // A lighthouse on a headland: a point of fairly low land with water on
+    // most sides, on the temperate and northern coasts (not the desert, the
+    // ice, the alien lands or the tropical islands), in a few chunks only
+    if (
+      lighthouseChunk &&
+      !lighthousePos &&
+      !sharedEdge &&
+      !isAlienLand &&
+      !isLakeIce &&
+      desertFactor < 0.3 &&
+      snowFactor < 0.7 &&
+      !(
+        worldX > 3000 &&
+        worldZ > -5000 &&
+        ChillFlightLogic.getBiome(worldX, worldZ, simplex) < -0.1
+      ) &&
+      height > WATER_LEVEL + 6 &&
+      height < WATER_LEVEL + 70 &&
+      slopeFactor < 0.35 &&
+      fieldHash(
+        Math.round(worldX / gridSpacing),
+        Math.round(worldZ / gridSpacing),
+        191
+      ) < 0.3 &&
+      !ChillFlightLogic.isOnAirport(worldX, worldZ, 300)
+    ) {
+      let wet = 0;
+      for (let k = 0; k < 8; k++) {
+        const a = (k * Math.PI) / 4;
+        if (
+          getElevation(
+            worldX + Math.cos(a) * 130,
+            worldZ + Math.sin(a) * 130,
+            elevParams
+          ) <= WATER_LEVEL
+        ) {
+          wet++;
+        }
+      }
+      // Out on the sea, not a lake: open water much further out too
+      let open = 0;
+      for (let k = 0; wet >= 5 && k < 8; k++) {
+        const a = (k * Math.PI) / 4;
+        if (
+          getElevation(
+            worldX + Math.cos(a) * 1500,
+            worldZ + Math.sin(a) * 1500,
+            elevParams
+          ) <= WATER_LEVEL
+        ) {
+          open++;
+        }
+      }
+      if (wet >= 5 && open >= 4) {
+        lighthousePos = {
+          x: localX,
+          y: height,
+          z: localZ,
+          rotY:
+            fieldHash(
+              Math.round(worldX / gridSpacing),
+              Math.round(worldZ / gridSpacing),
+              193
+            ) *
+            Math.PI *
+            2,
+          headland: true,
+        };
       }
     }
 
@@ -3800,6 +3860,61 @@ export function generateChunkData({
       windmillPositions,
       iceHutPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_BUILDING_CLEAR));
+
+    // A headland lighthouse stays off the roads too, and clears the props
+    // from around itself and its keeper's house
+    if (lighthousePos?.headland) {
+      const lh = [lighthousePos];
+      keepOffRoads(lh, ROAD_BUILDING_CLEAR + 40);
+      if (lh.length === 0) {
+        lighthousePos = null;
+      } else {
+        const {x: lx, z: lz} = lighthousePos;
+        const r2 = LIGHTHOUSE_CLEAR * LIGHTHOUSE_CLEAR;
+        const clearLighthouse = (arr) => {
+          let kept = 0;
+          for (const p of arr) {
+            const dx = p.x - lx;
+            const dz = p.z - lz;
+            if (dx * dx + dz * dz >= r2) arr[kept++] = p;
+          }
+          arr.length = kept;
+        };
+        [
+          treePositions,
+          deciduousTreePositions,
+          tallDeciduousTreePositions,
+          palmTreePositions,
+          deadTreePositions,
+          joshuaTreePositions,
+          snowTreePositions,
+          autumnTree1Positions,
+          autumnTree2Positions,
+          autumnTree3Positions,
+          cherryTreePositions,
+          yellowCortezTreePositions,
+          japaneseMapleTreePositions,
+          bushPositions,
+          rockPositions,
+          snowRockPositions,
+          desertRockPositions,
+          cactusPositions,
+          snowmanPositions,
+          campfirePositions,
+          hayBalePositions,
+          fallenLogPositions,
+          housePositions,
+          twoStoryHousePositions,
+          chimneySmokePositions,
+          strawHutPositions,
+          barnPositions,
+          windmillPositions,
+          monasteryPositions,
+          castleRuinsPositions,
+          pierPositions,
+        ].forEach(clearLighthouse);
+      }
+    }
 
     // Nothing grows or stands on the pyramids
     const keepOffPyramids = (arr) => {

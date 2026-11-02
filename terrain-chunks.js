@@ -23,6 +23,7 @@ import {
   barnTrimGeo,
   barnWhiteMat,
   birdChunks,
+  headlandLighthouseChunks,
   strayBirds,
   boatBoomGeo,
   boatDeckGeo,
@@ -104,6 +105,8 @@ import {
   icebergMat,
   japaneseMapleGeos,
   lighthouseBeamMat,
+  lighthouseBeamGeo,
+  lighthouseHeadlandBeamMat,
   lilyPadGeo,
   lilyPadMat,
   monasteryBodyGeo,
@@ -1707,7 +1710,24 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     // Use persistent beam and light
     const beamHeight = 126; // Middle of lantern (63 * 2)
 
-    if (persistentLighthouseBeam) {
+    if (pos.headland) {
+      // A headland lighthouse: a beam of its own, and no spotlight (one is
+      // plenty, at Montauk)
+      const beam = new THREE.Mesh(lighthouseBeamGeo, lighthouseHeadlandBeamMat);
+      beam.position.set(
+        pos.x + worldOffsetX,
+        pos.y + beamHeight,
+        pos.z + worldOffsetZ
+      );
+      beam.rotation.order = 'YXZ';
+      beam.rotation.y = pos.rotY;
+      beam.rotation.x = 0.15;
+      beam.scale.set(2, 2, 2);
+      beam.visible = false;
+      group.add(beam);
+      group.userData.lighthouseBeam = beam;
+      headlandLighthouseChunks.add(group);
+    } else if (persistentLighthouseBeam) {
       persistentLighthouseBeam.position.set(
         pos.x + worldOffsetX,
         pos.y + beamHeight,
@@ -1722,7 +1742,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       group.userData.lighthouseBeam = persistentLighthouseBeam;
     }
 
-    if (persistentLighthouseLight) {
+    if (persistentLighthouseLight && !pos.headland) {
       persistentLighthouseLight.position.set(
         pos.x + worldOffsetX,
         pos.y + beamHeight,
@@ -3077,6 +3097,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       } else if (
         child.material !== smokeMat &&
         child.material !== lighthouseBeamMat &&
+        child.material !== lighthouseHeadlandBeamMat &&
         child.geometry !== streetlightDecalGeo
       ) {
         child.castShadow = true;
@@ -3424,6 +3445,7 @@ export function updateChunks() {
       watercraftChunks.delete(group);
       waterfallFeet.delete(group);
       birdChunks.delete(group);
+      headlandLighthouseChunks.delete(group);
       workerChunkRequests.delete(key);
       workerChunkResults.delete(key);
       if (
@@ -3434,7 +3456,7 @@ export function updateChunks() {
         terrainWorkerManager.cancelJob(cx, cz);
       }
       chunksEvicted = true;
-      if (key === '4,2') {
+      if (key === '5,2') {
         if (persistentLighthouseLight) persistentLighthouseLight.intensity = 0;
         if (persistentLighthouseBeam) persistentLighthouseBeam.visible = false;
       }

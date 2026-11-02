@@ -9,6 +9,8 @@ import {
   chunks,
   fireMat,
   getElevation,
+  headlandLighthouseChunks,
+  lighthouseHeadlandBeamMat,
   smokeMat,
   strayBirds,
   waterUniforms,
@@ -927,6 +929,22 @@ export function updateFlightCamera(delta, nowTime) {
           light.intensity = 0;
         }
       }
+    }
+  }
+
+  // The headland lighthouses' beams sweep too, at night (no spotlight)
+  if (headlandLighthouseChunks.size > 0) {
+    const fade = 1.0 - state.dayFactor;
+    lighthouseHeadlandBeamMat.opacity =
+      (LIGHTHOUSE_BEAM_OPACITY_MIN +
+        (Math.sin(performance.now() * 0.002) * 0.5 + 0.5) *
+          (LIGHTHOUSE_BEAM_OPACITY_MAX - LIGHTHOUSE_BEAM_OPACITY_MIN)) *
+      fade;
+    for (const g of headlandLighthouseChunks) {
+      const beam = g.userData.lighthouseBeam;
+      if (!beam) continue;
+      beam.visible = fade > 0;
+      if (beam.visible) beam.rotation.y += delta * 0.15;
     }
   }
 

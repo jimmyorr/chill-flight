@@ -41,6 +41,8 @@ export var chunks = new Map();
 // Allows animate() in game.js to skip iterating dozens of dry land chunks every frame.
 export var watercraftChunks = new Set();
 export var birdChunks = new Set();
+// Loaded chunks with a headland lighthouse (its beam to sweep)
+export var headlandLighthouseChunks = new Set();
 // Geese that have outlived their chunk: a flock flies far from where it
 // spawned, so when its chunk unloads it moves here and keeps flying until
 // it's too far away to see (terrain-chunks.js, flight-camera.js)
@@ -3762,7 +3764,14 @@ export var pirateShipReflectionGeo = mergeGeometries([
 ]);
 
 // Lighthouse Beam geometry - wider and longer
-var lighthouseBeamGeo = new THREE.CylinderGeometry(40, 2, 500, 16, 1, true);
+export var lighthouseBeamGeo = new THREE.CylinderGeometry(
+  40,
+  2,
+  500,
+  16,
+  1,
+  true
+);
 lighthouseBeamGeo.rotateX(Math.PI / 2);
 lighthouseBeamGeo.translate(0, 0, 250);
 
@@ -3790,6 +3799,10 @@ export var lighthouseBeamMat = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
   depthWrite: false,
 });
+
+// The headland lighthouses' beams (Montauk's has the persistent one and the
+// spotlight): their own material, faded by flight-camera.js
+export var lighthouseHeadlandBeamMat = lighthouseBeamMat.clone();
 
 export var persistentLighthouseLight = null;
 export var persistentLighthouseBeam = null;
