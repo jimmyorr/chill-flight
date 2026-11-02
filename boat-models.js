@@ -18,10 +18,12 @@ import * as pirateGalleon from './third-party/polyfork/pirate-galleon-2e9aea.mjs
 import * as pirateBrigantine from './third-party/polyfork/pirate-brigantine-c29c57.mjs';
 import * as pirateSloop from './third-party/polyfork/pirate-sloop-d8ead0.mjs';
 
-// How much bigger than real life the boats are drawn (like the road
-// vehicles, a bit more so they hold their own beside a plane on the
-// water): a 3 m rowboat comes out 10.5 units long
-export const SMALL_BOAT_SCALE = 3.5;
+// How much bigger than real life the Polyfork models are drawn (they're
+// built in metres), so they hold their own beside the planes: the boats,
+// road vehicles, tractors, silos and buildings all share it. A 3 m rowboat
+// comes out 10.5 units long.
+export const POLYFORK_SCALE = 3.5;
+export const SMALL_BOAT_SCALE = POLYFORK_SCALE;
 
 export const boatMat = createMaterial({
   vertexColors: true,

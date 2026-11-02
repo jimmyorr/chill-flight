@@ -7,6 +7,7 @@
 // geometry). Front toward +z, wheels on y = 0, real-world metres.
 import * as THREE from 'three';
 import {createMaterial} from './constants.js';
+import {POLYFORK_SCALE} from './boat-models.js';
 import * as compactHatchback from './third-party/polyfork/compact-hatchback-386417.mjs';
 import * as deliveryTruck from './third-party/polyfork/delivery-truck-a9537e.mjs';
 import * as familyMinivan from './third-party/polyfork/family-minivan-924de0.mjs';
@@ -18,9 +19,9 @@ import * as skateTourVan from './third-party/polyfork/skate-team-tour-van-fb3c89
 import * as stationWagon70s from './third-party/polyfork/station-wagon-70s-11d67b.mjs';
 import * as townCar from './third-party/polyfork/town-car-56eeb6.mjs';
 
-// How much bigger than real life the world's things are drawn (a 4 m
-// hatchback comes out a little longer than the buggy, readable from the air)
-export const ROAD_VEHICLE_SCALE = 2.5;
+// How much bigger than real life they're drawn, like every Polyfork model
+// (boat-models.js): a 4 m hatchback comes out 14 units long
+export const ROAD_VEHICLE_SCALE = POLYFORK_SCALE;
 
 // Each kind, how often it turns up (relative), and its paint schemes
 export const ROAD_VEHICLES = [
