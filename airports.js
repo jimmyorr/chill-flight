@@ -543,7 +543,7 @@ function createAirport(a, index) {
   _lightGroups.push(lights);
   group.add(lights);
   const tower = createControlTower(TOWER_COLORS[a.name]);
-  tower.position.set(-55, 0, 81);
+  tower.position.set(-55, 0, 86);
   group.add(tower);
   const hangar = createHangar();
   hangar.position.set(45, 0, 85);

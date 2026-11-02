@@ -12,11 +12,11 @@ import * as hayBarn from './third-party/polyfork/alpine-hay-barn-3965e5.mjs';
 import * as grainSilo from './third-party/polyfork/grain-silo-58ca67.mjs';
 import * as stoneWindmill from './third-party/polyfork/windmill-3aad49.mjs';
 import * as THREE from 'three';
-import {mergeAsset} from './boat-models.js';
+import {mergeAsset, POLYFORK_SCALE} from './boat-models.js';
 
 // How much bigger than real life (a 2.8 m tractor comes out 7 units long,
 // a little longer than the buggy)
-export const TRACTOR_SCALE = 2.5;
+export const TRACTOR_SCALE = POLYFORK_SCALE;
 
 // Each tractor type (instanced by this name), in the order terrain-gen.js
 // numbers them
@@ -84,7 +84,7 @@ export function buildBarnGeos() {
 // The silo beside each red barn: Polyfork's Grain Silo, galvanised with a
 // sage cap, about 8 units across and 26 tall, split at its eave into drum
 // and cap (they topple together)
-const SILO_SCALE = 2.8;
+const SILO_SCALE = POLYFORK_SCALE;
 const SILO_EAVE = 8;
 export function buildSiloGeos() {
   const asset = grainSilo.createAsset({

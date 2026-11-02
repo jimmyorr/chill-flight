@@ -216,6 +216,7 @@ import {buildTractorGeos} from './farm-models.js';
 import {
   buildLandmarkGeos,
   buildingMat,
+  LANDMARK_HOUSES,
   LANDMARK_TOWERS,
 } from './building-models.js';
 import {log} from './logger.js';
@@ -868,6 +869,12 @@ for (const [type, geo] of Object.entries({
 // sight far off, over the woods and villages
 for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_TOWERS))) {
   globalInstancer.registerType(type, geo, buildingMat, 200);
+}
+// The landmark houses (beach huts, shacks, ranger stations and
+// lean-tos): too small to see far off
+for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_HOUSES))) {
+  globalInstancer.registerType(type, geo, buildingMat, 400);
+  globalInstancer.setFarGeometry(type, null);
 }
 // The sails turn in their shader, shadows too
 globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =

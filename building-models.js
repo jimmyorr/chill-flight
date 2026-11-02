@@ -5,12 +5,11 @@
 // world. Front toward +z, standing on y = 0.
 import * as THREE from 'three';
 import {createMaterial} from './constants.js';
-import {mergeAsset} from './boat-models.js';
+import {mergeAsset, POLYFORK_SCALE as S} from './boat-models.js';
 import * as controlTower from './third-party/polyfork/airfield-control-tower-ab8d3e.mjs';
 import * as fireLookout from './third-party/polyfork/fire-lookout-tower-714fa1.mjs';
 import * as waterTower from './third-party/polyfork/water-tower-7eb7ec.mjs';
 import * as windpump from './third-party/polyfork/windpump-tower-1633a9.mjs';
-import * as diner from './third-party/polyfork/streamline-diner-car-de9777.mjs';
 import * as beachHut from './third-party/polyfork/beach-hut-fc7649.mjs';
 import * as fishShack from './third-party/polyfork/fisherman-shack-ea9b2b.mjs';
 import * as rangerStation from './third-party/polyfork/ranger-station-ef6407.mjs';
@@ -28,7 +27,7 @@ export const buildingMat = createMaterial({
 // The airport control tower: Polyfork's Airfield Control Tower, three brick
 // storeys under its glass cab, about 18 units across and 32 tall. Brick by
 // default, tan at the desert fields and pale grey at the snowy ones.
-const CONTROL_TOWER_SCALE = 2.2;
+const CONTROL_TOWER_SCALE = S;
 const _towerGeos = new Map();
 export function controlTowerGeo(colorway = 'raf-brick') {
   if (!_towerGeos.has(colorway)) {
@@ -60,30 +59,36 @@ export function buildingMesh(geo) {
 // colour, whose lowest point is the eave.
 //   type: [module, options, scale (times real size), roof colour or null]
 const LANDMARKS = {
-  fireLookout: [
-    fireLookout,
-    {colorway: 'sun-bleached', height: 1.18},
-    3.6,
-    null,
-  ],
-  waterTower: [waterTower, {colorway: 'turquoise'}, 2, null],
-  windpump: [windpump, {colorway: 'weathered-pine'}, 3, null],
-  diner: [diner, {colorway: 'cherry', word: 'DINER'}, 2, 'chrome'],
-  beachHut0: [beachHut, {colorway: 'mint'}, 2.6, 'roof'],
-  beachHut1: [beachHut, {colorway: 'coral'}, 2.6, 'roof'],
-  beachHut2: [beachHut, {colorway: 'sky'}, 2.6, 'roof'],
-  beachHut3: [beachHut, {colorway: 'buttermilk'}, 2.6, 'roof'],
-  fishShack: [fishShack, {colorway: 'driftwood-brown'}, 3, 'shake'],
-  rangerStation: [rangerStation, {colorway: 'ranger-cedar'}, 3, 'roof'],
-  leanTo: [leanTo, {colorway: 'weathered-pine'}, 3, 'roof'],
+  fireLookout: [fireLookout, {colorway: 'sun-bleached', height: 1.18}, S, null],
+  waterTower: [waterTower, {colorway: 'turquoise'}, S, null],
+  windpump: [windpump, {colorway: 'weathered-pine'}, S, null],
+  beachHut0: [beachHut, {colorway: 'mint'}, S, 'roof'],
+  beachHut1: [beachHut, {colorway: 'coral'}, S, 'roof'],
+  beachHut2: [beachHut, {colorway: 'sky'}, S, 'roof'],
+  beachHut3: [beachHut, {colorway: 'buttermilk'}, S, 'roof'],
+  fishShack: [fishShack, {colorway: 'driftwood-brown'}, S, 'shake'],
+  // A small 6 by 4 m cabin as built: drawn bigger so it doesn't look like a
+  // toy among the pines
+  rangerStation: [rangerStation, {colorway: 'ranger-cedar'}, 5, 'roof'],
+  leanTo: [leanTo, {colorway: 'weathered-pine'}, S, 'roof'],
   mushroomCottage0: [mushroomCottage, {colorway: 'amanita'}, 9, 'cap'],
   mushroomCottage1: [mushroomCottage, {colorway: 'blueberry'}, 9, 'cap'],
-  gardenShed0: [gardenShed, {colorway: 'sage-garden'}, 2.2, 'roof'],
-  gardenShed1: [gardenShed, {colorway: 'seaside-boards'}, 2.2, 'roof'],
-  farmhouse: [farmhouse, {colorway: 'cream-plaster'}, 3, 'roof'],
+  gardenShed0: [gardenShed, {colorway: 'sage-garden'}, S, 'roof'],
+  gardenShed1: [gardenShed, {colorway: 'seaside-boards'}, S, 'roof'],
+  farmhouse: [farmhouse, {colorway: 'cream-plaster'}, S, 'roof'],
 };
 // Types toppled whole (the rest are houses)
 export const LANDMARK_TOWERS = ['fireLookout', 'waterTower', 'windpump'];
+// The houses placed so far (terrain-gen.js LANDMARK_RULES)
+export const LANDMARK_HOUSES = [
+  'beachHut0',
+  'beachHut1',
+  'beachHut2',
+  'beachHut3',
+  'fishShack',
+  'rangerStation',
+  'leanTo',
+];
 
 // The lowest point painted in a colour (the model's eave, for its roof)
 function lowestOf(asset, hex) {
@@ -107,7 +112,7 @@ function lowestOf(asset, hex) {
   return low;
 }
 
-// {fireLookout, waterTower, windpump, dinerBody, dinerRoof, ...}, for the
+// {fireLookout, waterTower, windpump, beachHut0Body, beachHut0Roof, ...}, for the
 // landmarks named (all of them by default)
 export function buildLandmarkGeos(types = Object.keys(LANDMARKS)) {
   const geos = {};

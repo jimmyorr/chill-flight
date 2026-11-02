@@ -240,6 +240,9 @@
       <button class="model-btn" onclick="viewModel('landmark_towers', event)">
         Lookout, water tower, windpump
       </button>
+      <button class="model-btn" onclick="viewModel('landmark_houses', event)">
+        Beach huts, shack, ranger station, lean-to
+      </button>
       <button class="model-btn" onclick="viewModel('monastery', event)">
         Monastery
       </button>
@@ -431,6 +434,7 @@
       import {
         buildLandmarkGeos,
         buildingMat,
+        LANDMARK_HOUSES,
         LANDMARK_TOWERS,
       } from '../building-models.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
@@ -1005,6 +1009,19 @@
                 const m = new THREE.Mesh(geo, buildingMat);
                 m.position.x = (i - (geos.length - 1) / 2) * 20;
                 previewGroup.add(m);
+              });
+              break;
+            }
+            case 'landmark_houses': {
+              // Walls and roof of each, side by side at the game's scale
+              // (building-models.js)
+              const geos = buildLandmarkGeos(LANDMARK_HOUSES);
+              LANDMARK_HOUSES.forEach((type, i) => {
+                for (const part of ['Body', 'Roof']) {
+                  const m = new THREE.Mesh(geos[type + part], buildingMat);
+                  m.position.x = (i - (LANDMARK_HOUSES.length - 1) / 2) * 24;
+                  previewGroup.add(m);
+                }
               });
               break;
             }

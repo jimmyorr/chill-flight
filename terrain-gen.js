@@ -248,13 +248,28 @@ const ICE_HUT_CHANCE = 0.03;
 // Landmarks (building-models.js), each from a hash of a grid point fit for
 // it, with this chance per such point: fire lookouts on wooded ridges,
 // water towers in the villages, windpumps where the farmland dries out into
-// desert. Each stands on its own and topples whole, clear of the trees and
-// other props around it (`clear`, units).
+// desert, rows of beach huts on the beaches,
+// ranger stations deep in the woods far from the villages, a fisherman's
+// shack by some of the piers and a lean-to shelter by some of the
+// campfires (`chance` there is per pier or campfire). Each is cleared of the trees and other props around it
+// (`clear`, units) on ground no steeper than `flat` (rise across it,
+// units). Towers stand on their own and topple whole; the rest are houses
+// ('...Body' and '...Roof').
 const LANDMARK_RULES = {
-  fireLookout: {chance: 0.06, clear: 10, flat: 6},
-  waterTower: {chance: 0.006, clear: 14, flat: 3},
-  windpump: {chance: 0.004, clear: 8, flat: 4},
+  fireLookout: {chance: 0.06, clear: 10, flat: 6, tower: true},
+  waterTower: {chance: 0.006, clear: 24, flat: 3, tower: true},
+  windpump: {chance: 0.004, clear: 9, flat: 4, tower: true},
+  beachHut: {chance: 0.01, clear: 11, flat: 3},
+  rangerStation: {chance: 0.007, clear: 22, flat: 5},
+  leanTo: {chance: 0.4, clear: 7, flat: 4},
+  fishShack: {chance: 0.5, clear: 11, flat: 4},
 };
+// How many paint schemes of beach hut there are (beachHut0Body, ...), and
+// how far apart they stand in a row (units)
+const BEACH_HUT_LOOKS = 4;
+const BEACH_HUT_STEP = 19;
+// Ranger stations stand only in some squares this big (units)
+const RANGER_CELL = 3000;
 // A fire lookout's spot must be this much higher than the ground this far
 // round it on every side (units): the top of a ridge
 const LOOKOUT_RIDGE_REACH = 150;
@@ -880,6 +895,15 @@ function townStreetsNear(cx, cz, chunkSize, elevParams) {
   return out;
 }
 
+// Whether (x, z) is within `margin` of a town (townAt)
+function nearTown(x, z, margin, elevParams) {
+  for (const n of TOWN_ROADS) {
+    const t = townAt(n, elevParams);
+    if (t && Math.hypot(t.x - x, t.z - z) < t.radius + margin) return true;
+  }
+  return false;
+}
+
 // The houses of every road village that could reach the chunk centered on
 // (cx, cz), and of any town
 function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
@@ -1177,7 +1201,7 @@ export const WINDMILL_ROT_Y = Math.atan2(-WIND_DIR_X, -WIND_DIR_Z);
 const WINDMILL_HUB_Y = 31.23;
 const WINDMILL_HUB_Z = 8.88;
 // A red barn's silo stands this far to its side (units, before turning)
-const BARN_SILO_X = 12;
+const BARN_SILO_X = 15;
 // North of this (units) the farms' barns are timber-framed barns or alpine
 // hay barns instead of red ones, half and half
 const NORTH_BARNS_Z = -4500;
@@ -3526,7 +3550,7 @@ export function generateChunkData({
       !sharedEdge &&
       !isAlienLand &&
       !isLakeIce &&
-      height > sandMaxHeight + 3
+      height > WATER_LEVEL + 1
     ) {
       const gx = Math.round(worldX / gridSpacing);
       const gz = Math.round(worldZ / gridSpacing);
@@ -3560,6 +3584,7 @@ export function generateChunkData({
       ) {
         type = 'waterTower';
       } else if (
+        height > sandMaxHeight + 3 &&
         desertFactor > 0.08 &&
         desertFactor < 0.7 &&
         slopeFactor < 0.2 &&
@@ -3567,10 +3592,36 @@ export function generateChunkData({
         roll < LANDMARK_RULES.windpump.chance
       ) {
         type = 'windpump';
+      } else if (
+        height < sandMaxHeight &&
+        snowFactor < 0.2 &&
+        desertFactor < 0.5 &&
+        roll < LANDMARK_RULES.beachHut.chance
+      ) {
+        type = 'beachHut';
+      } else if (
+        height > sandMaxHeight + 3 &&
+        (isForest || villageNoise < -0.35) &&
+        villageNoise < -0.15 &&
+        snowFactor < 0.5 &&
+        desertFactor < 0.2 &&
+        slopeFactor < 0.12 &&
+        height < treeLine - TREE_LINE_FADE &&
+        roll < LANDMARK_RULES.rangerStation.chance &&
+        // Only in one 3 km square in four, so they don't crowd the wilds
+        fieldHash(
+          Math.floor(worldX / RANGER_CELL),
+          Math.floor(worldZ / RANGER_CELL),
+          1331
+        ) < 0.25
+      ) {
+        type = 'rangerStation';
       }
       if (type) {
         landmarkPositions.push({
           type,
+          rule: type,
+          group: landmarkPositions.length,
           x: localX,
           y: height,
           z: localZ,
@@ -3579,6 +3630,7 @@ export function generateChunkData({
             type === 'windpump'
               ? WINDMILL_ROT_Y
               : fieldHash(gx, gz, 1203) * Math.PI * 2,
+          look: fieldHash(gx, gz, 1207),
         });
       }
     }
@@ -4114,11 +4166,95 @@ export function generateChunkData({
   // Landmarks: each kept only on flat, dry ground off the roads and
   // airports and clear of the others, standing on its lowest corner, with
   // the trees and other props cleared from round it
+  // A fisherman's shack beside some of the piers, set back from the water
+  // to one side, facing it like the pier
+  for (const pier of pierPositions) {
+    const wx = Math.round(worldOffsetX + pier.x);
+    const wz = Math.round(worldOffsetZ + pier.z);
+    if (fieldHash(wx, wz, 1301) >= LANDMARK_RULES.fishShack.chance) continue;
+    const side = fieldHash(wx, wz, 1303) < 0.5 ? -1 : 1;
+    const back = rotateY(side * 19, -17, pier.rotY);
+    landmarkPositions.push({
+      type: 'fishShack',
+      rule: 'fishShack',
+      group: landmarkPositions.length,
+      x: pier.x + back.x,
+      y: pier.y,
+      z: pier.z + back.z,
+      rotY: pier.rotY,
+      pier: true,
+    });
+  }
+  // A lean-to shelter beside some of the campfires, its open front to the
+  // fire
+  for (const fire of campfirePositions) {
+    const wx = Math.round(worldOffsetX + fire.x);
+    const wz = Math.round(worldOffsetZ + fire.z);
+    if (fieldHash(wx, wz, 1321) >= LANDMARK_RULES.leanTo.chance) continue;
+    const a = fieldHash(wx, wz, 1323) * Math.PI * 2;
+    landmarkPositions.push({
+      type: 'leanTo',
+      rule: 'leanTo',
+      group: landmarkPositions.length,
+      x: fire.x - Math.sin(a) * 11,
+      y: fire.y,
+      z: fire.z - Math.cos(a) * 11,
+      rotY: a,
+    });
+  }
+  // Each beach hut spot becomes a row of huts along the shore, facing the
+  // water
+  {
+    const rows = [];
+    for (const p of landmarkPositions) {
+      const x = worldOffsetX + p.x;
+      const z = worldOffsetZ + p.z;
+      if (p.type === 'beachHut') {
+        // Toward the lowest ground round about: the water
+        let best = Infinity;
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          const h = getElevation(
+            x + Math.sin(a) * 60,
+            z + Math.cos(a) * 60,
+            elevParams
+          );
+          if (h < best) {
+            best = h;
+            p.rotY = a;
+          }
+        }
+        if (best > WATER_LEVEL) continue;
+        const n = 3 + Math.floor(p.look * 3);
+        for (let i = 0; i < n; i++) {
+          const along = rotateY((i - (n - 1) / 2) * BEACH_HUT_STEP, 0, p.rotY);
+          rows.push({
+            type:
+              'beachHut' +
+              Math.floor(fieldHash(Math.round(x), i, 1311) * BEACH_HUT_LOOKS),
+            rule: 'beachHut',
+            group: p.group,
+            x: p.x + along.x,
+            y: p.y,
+            z: p.z + along.z,
+            rotY: p.rotY,
+            beach: true,
+          });
+        }
+      }
+    }
+    let n = 0;
+    for (const p of landmarkPositions) {
+      if (p.type !== 'beachHut') landmarkPositions[n++] = p;
+    }
+    landmarkPositions.length = n;
+    landmarkPositions.push(...rows);
+  }
   if (landmarkPositions.length > 0) {
     let kept = 0;
     const clearings = [];
     for (const p of landmarkPositions) {
-      const rule = LANDMARK_RULES[p.type];
+      const rule = LANDMARK_RULES[p.rule];
       const x = worldOffsetX + p.x;
       const z = worldOffsetZ + p.z;
       const r = rule.clear;
@@ -4137,12 +4273,26 @@ export function generateChunkData({
         lo = Math.min(lo, y);
         hi = Math.max(hi, y);
       }
+      // Huts on the beach and shacks by the piers stand lower, just clear
+      // of the water
+      const low = p.beach || p.pier ? WATER_LEVEL + 0.8 : WATER_LEVEL + 3;
+      const road = ChillFlightLogic.ROAD_WIDTH + ROAD_BUILDING_CLEAR + r;
       if (
+        Math.abs(p.x) >= halfSize ||
+        Math.abs(p.z) >= halfSize ||
+        nearTown(x, z, r + 40, elevParams) ||
+        housePositions.some(
+          (h) => h.roadVillage && Math.hypot(h.x - p.x, h.z - p.z) < r + 12
+        ) ||
+        twoStoryHousePositions.some(
+          (h) => h.roadVillage && Math.hypot(h.x - p.x, h.z - p.z) < r + 12
+        ) ||
         hi - lo > rule.flat ||
-        lo < WATER_LEVEL + 3 ||
-        clearings.some((c) => Math.hypot(c.x - p.x, c.z - p.z) < 300) ||
-        ChillFlightLogic.highwayDistance(x, z) <
-          ChillFlightLogic.ROAD_WIDTH + ROAD_BUILDING_CLEAR + r ||
+        lo < low ||
+        clearings.some(
+          (c) => c.group !== p.group && Math.hypot(c.x - p.x, c.z - p.z) < 300
+        ) ||
+        ChillFlightLogic.highwayDistance(x, z) < road ||
         ChillFlightLogic.isOnAirport(x, z, 60) ||
         ChillFlightLogic.isOnAccessRoad(x, z, r + 6, simplex, elevParams) ||
         ChillFlightLogic.isOnSlipRoad(x, z, r + 6, simplex, elevParams)
@@ -4151,7 +4301,7 @@ export function generateChunkData({
       }
       p.y = lo;
       landmarkPositions[kept++] = p;
-      clearings.push({x: p.x, z: p.z, r});
+      clearings.push({x: p.x, z: p.z, r, group: p.group});
     }
     landmarkPositions.length = kept;
     const clear = (arr) => {
@@ -4956,7 +5106,8 @@ export function generateChunkData({
     });
   }
 
-  // Landmarks: towers stand on their own and topple whole
+  // Landmarks: towers stand on their own and topple whole; the rest are
+  // houses, walls and roof
   for (const pos of landmarkPositions) {
     composeMatrix(
       _matBuffer,
@@ -4971,8 +5122,14 @@ export function generateChunkData({
       pos.rotY,
       0
     );
-    collector.beginProp(BREAKABLE.TREE);
-    collector.add(pos.type, _matBuffer);
+    if (LANDMARK_RULES[pos.rule].tower) {
+      collector.beginProp(BREAKABLE.TREE);
+      collector.add(pos.type, _matBuffer);
+    } else {
+      collector.beginProp(BREAKABLE.HOUSE);
+      collector.add(pos.type + 'Body', _matBuffer);
+      collector.add(pos.type + 'Roof', _matBuffer);
+    }
     collector.endProp();
   }
 
