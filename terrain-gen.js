@@ -262,6 +262,11 @@ const LIGHTHOUSE_SPACING = 2;
 const LIGHTHOUSE_MONTAUK_CLEAR = 4;
 // How far props are cleared around one (its keeper's house and yard)
 const LIGHTHOUSE_CLEAR = 55;
+// Sheep grazing in loose flocks on open grassland and hill pasture (a slow
+// noise field picks the pastures; in the farmland, only the meadows): their
+// chance per grid point there, and their wool colours
+const SHEEP_CHANCE = 0.12;
+export const SHEEP_WOOL_COLORS = [0xf1ede2, 0xe6dfcf, 0xf4f1ea, 0xd9d1bf];
 // Birds: the chance of a flock of gulls over a coastal chunk (one that's
 // part land, part water) and over open sea, none north of GULL_MAX_NORTH
 // (the frozen lakes); and of a hawk over a mostly dry chunk
@@ -2078,6 +2083,7 @@ export function generateChunkData({
   const penguinPositions = [];
   const sealPositions = [];
   const buoyPositions = [];
+  const sheepPositions = [];
   const rockPositions = [];
   const snowRockPositions = [];
   const desertRockPositions = [];
@@ -3439,6 +3445,49 @@ export function generateChunkData({
       }
     }
 
+    // Sheep on the pastures: open, gentle, temperate grassland, from hashes
+    // of the grid point; one or two grazing near each chosen point
+    if (
+      _enableObjects &&
+      !sharedEdge &&
+      !isAlienLand &&
+      !isForest &&
+      desertFactor < 0.2 &&
+      snowFactor < 0.2 &&
+      slopeFactor < 0.35 &&
+      height > WATER_LEVEL + 6 &&
+      height < MOUNTAIN_LEVEL + 60 &&
+      simplex.noise2D(worldX * 0.0025 - 71, worldZ * 0.0025 + 23) > 0.5
+    ) {
+      const gx = Math.round(worldX / gridSpacing);
+      const gz = Math.round(worldZ / gridSpacing);
+      if (
+        fieldHash(gx, gz, 199) < SHEEP_CHANCE * densityScale &&
+        (farm <= 0.3 || fieldAt(worldX, worldZ, simplex).crop === -1)
+      ) {
+        const n = fieldHash(gx, gz, 211) < 0.4 ? 2 : 1;
+        for (let k = 0; k < n; k++) {
+          const x =
+            localX + (fieldHash(gx, gz, 223 + k) - 0.5) * gridSpacing * 0.9;
+          const z =
+            localZ + (fieldHash(gx, gz, 227 + k) - 0.5) * gridSpacing * 0.9;
+          sheepPositions.push({
+            x,
+            y: heightAtLocal(x, z),
+            z,
+            rotY: fieldHash(gx, gz, 229 + k) * Math.PI * 2,
+            size: 1.15 + 0.3 * fieldHash(gx, gz, 233 + k),
+            color:
+              SHEEP_WOOL_COLORS[
+                Math.floor(
+                  fieldHash(gx, gz, 239 + k) * SHEEP_WOOL_COLORS.length
+                )
+              ],
+          });
+        }
+      }
+    }
+
     // A channel buoy in the shallows off the coast (not among the ice, nor
     // off the wild western coasts)
     if (
@@ -3652,6 +3701,7 @@ export function generateChunkData({
         campfirePositions,
         hayBalePositions,
         fallenLogPositions,
+        sheepPositions,
       ].forEach(clearStead);
     }
   }
@@ -3802,6 +3852,7 @@ export function generateChunkData({
         bushPositions,
         hayBalePositions,
         fallenLogPositions,
+        sheepPositions,
         housePositions,
         twoStoryHousePositions,
         chimneySmokePositions,
@@ -3874,6 +3925,7 @@ export function generateChunkData({
       campfirePositions,
       hayBalePositions,
       fallenLogPositions,
+      sheepPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_PROP_CLEAR));
     // A house's chimney smoke sits on the same spot, so goes with it
     [
@@ -3928,6 +3980,7 @@ export function generateChunkData({
           campfirePositions,
           hayBalePositions,
           fallenLogPositions,
+          sheepPositions,
           housePositions,
           twoStoryHousePositions,
           chimneySmokePositions,
@@ -4533,6 +4586,26 @@ export function generateChunkData({
     collector.add('iceHutBody', _matBuffer, _iceHutColor);
     collector.add('iceHutRoof', _matBuffer);
     collector.endProp();
+  }
+
+  // Sheep: they don't break or scatter, you pass over them
+  for (const pos of sheepPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.size,
+      pos.size,
+      pos.size,
+      0,
+      pos.rotY,
+      0
+    );
+    _iceHutColor.setHex(pos.color);
+    collector.add('sheepWool', _matBuffer, _iceHutColor);
+    collector.add('sheepDark', _matBuffer);
   }
 
   // Channel buoys: nothing to break, you pass over them

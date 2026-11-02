@@ -1454,6 +1454,37 @@ export var buoyGeos = (() => {
 })();
 export var buoyTopMat = createMaterial({color: 0x2d3033, flatShading: true});
 
+// Sheep: a woolly body (tinted per sheep) on four dark legs, with a dark
+// face held low as if grazing, facing +z; about 3.5 units long (drawn 15 to 45% bigger)
+export var sheepGeos = (() => {
+  const wool = new THREE.DodecahedronGeometry(1, 0);
+  wool.scale(1.1, 0.9, 1.55);
+  wool.translate(0, 1.75, 0);
+  const head = new THREE.BoxGeometry(0.62, 0.7, 1.0);
+  head.rotateX(0.5);
+  head.translate(0, 1.45, 1.75);
+  const earL = new THREE.BoxGeometry(0.5, 0.14, 0.22);
+  earL.translate(0.42, 1.75, 1.45);
+  const earR = earL.clone();
+  earR.translate(-0.84, 0, 0);
+  const parts = [head, earL, earR];
+  for (const [x, z] of [
+    [0.5, 0.8],
+    [-0.5, 0.8],
+    [0.5, -0.8],
+    [-0.5, -0.8],
+  ]) {
+    const leg = new THREE.BoxGeometry(0.26, 1.2, 0.26);
+    leg.translate(x, 0.6, z);
+    parts.push(leg);
+  }
+  return {
+    wool,
+    dark: mergeGeometries(parts.map((g) => g.toNonIndexed())),
+  };
+})();
+export var sheepDarkMat = createMaterial({color: 0x2f2a27, flatShading: true});
+
 // Ice fishing hut (the far north's frozen lakes): a little painted shed with
 // a pitched roof and a stovepipe, its walls tinted per hut
 function createIceHutGeometries() {

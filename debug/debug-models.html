@@ -193,6 +193,9 @@
       <button class="model-btn" onclick="viewModel('buoy', event)">
         Channel buoys
       </button>
+      <button class="model-btn" onclick="viewModel('sheep', event)">
+        Sheep
+      </button>
       <button class="model-btn" onclick="viewModel('ice_hut', event)">
         Ice fishing hut
       </button>
@@ -445,6 +448,8 @@
         sealMat,
         buoyGeos,
         buoyTopMat,
+        sheepGeos,
+        sheepDarkMat,
         iceHutGeos,
         iceHutRoofMat,
         castleRuinsGeo,
@@ -481,7 +486,11 @@
         waterUniforms,
         woodMat,
       } from '../terrain-geometry.js';
-      import {JOSHUA_LEAF_COLOR, ICE_HUT_COLORS} from '../terrain-gen.js';
+      import {
+        JOSHUA_LEAF_COLOR,
+        ICE_HUT_COLORS,
+        SHEEP_WOOL_COLORS,
+      } from '../terrain-gen.js';
 
       // Setup Viewer
       const container = document.getElementById('viewer');
@@ -898,6 +907,18 @@
                 const roof = new THREE.Mesh(iceHutGeos.roof, iceHutRoofMat);
                 body.position.x = roof.position.x = (i - 2) * 10;
                 previewGroup.add(body, roof);
+              });
+              break;
+            case 'sheep':
+              SHEEP_WOOL_COLORS.forEach((color, i) => {
+                const wool = new THREE.Mesh(
+                  sheepGeos.wool,
+                  createMaterial({color, flatShading: true})
+                );
+                const dark = new THREE.Mesh(sheepGeos.dark, sheepDarkMat);
+                wool.position.x = dark.position.x = i * 4 - 6;
+                wool.rotation.y = dark.rotation.y = i * 0.6;
+                previewGroup.add(wool, dark);
               });
               break;
             case 'buoy':

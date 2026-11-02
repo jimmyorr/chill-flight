@@ -63,6 +63,8 @@ import {
   sealMat,
   buoyGeos,
   buoyTopMat,
+  sheepGeos,
+  sheepDarkMat,
   iceHutGeos,
   iceHutRoofMat,
   castleRuinsGeo,
@@ -730,6 +732,14 @@ globalInstancer.registerType('seal', sealGeo, sealMat);
 globalInstancer.registerType('buoy', buoyGeos.body, houseTintMat, 30000, true);
 globalInstancer.registerType('buoyTop', buoyGeos.top, buoyTopMat);
 globalInstancer.registerType(
+  'sheepWool',
+  sheepGeos.wool,
+  houseTintMat,
+  30000,
+  true
+);
+globalInstancer.registerType('sheepDark', sheepGeos.dark, sheepDarkMat);
+globalInstancer.registerType(
   'stumpTop',
   stumpTopGeo,
   stumpTopMat,
@@ -902,6 +912,8 @@ globalInstancer.setFarGeometry('stump', null);
 globalInstancer.setFarGeometry('seal', null);
 globalInstancer.setFarGeometry('buoy', null);
 globalInstancer.setFarGeometry('buoyTop', null);
+globalInstancer.setFarGeometry('sheepWool', null);
+globalInstancer.setFarGeometry('sheepDark', null);
 globalInstancer.setFarGeometry('stumpTop', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
 // Town streets: flat, so they cast no shadow
