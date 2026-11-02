@@ -1943,97 +1943,6 @@ for (let i = 0; i < HOUSE_WINDOW_POOLS; i++) {
   );
 }
 
-// --- PAGODA ---
-function createPagodaBodyGeometry() {
-  const plinth = new THREE.BoxGeometry(13.2, 1.0, 13.2);
-  plinth.translate(0, 0.5, 0);
-  const foundation = new THREE.BoxGeometry(11.6, 1.6, 11.6);
-  foundation.translate(0, 1.8, 0);
-  const tier1 = new THREE.BoxGeometry(8.8, 5.8, 8.8);
-  tier1.translate(0, 5.2, 0);
-  const balcony2 = new THREE.BoxGeometry(7.8, 0.45, 7.8);
-  balcony2.translate(0, 9.6, 0);
-  const tier2 = new THREE.BoxGeometry(6.4, 4.8, 6.4);
-  tier2.translate(0, 12.0, 0);
-  const balcony3 = new THREE.BoxGeometry(5.4, 0.4, 5.4);
-  balcony3.translate(0, 15.8, 0);
-  const tier3 = new THREE.BoxGeometry(4.2, 4.0, 4.2);
-  tier3.translate(0, 17.8, 0);
-  const geometries = [
-    plinth,
-    foundation,
-    tier1,
-    balcony2,
-    tier2,
-    balcony3,
-    tier3,
-  ];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
-    offset += g.attributes.position.count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-function createPagodaRoofGeometry() {
-  // Flared two-stage hipped eaves per tier + ringed sorin finial spire
-  const makeTierEave = (rTop, rMid, rBot, yCenter) => {
-    const upper = new THREE.CylinderGeometry(rTop, rMid, 1.35, 4);
-    upper.rotateY(Math.PI / 4);
-    upper.translate(0, yCenter + 0.35, 0);
-    const skirt = new THREE.CylinderGeometry(rMid, rBot, 0.55, 4);
-    skirt.rotateY(Math.PI / 4);
-    skirt.translate(0, yCenter - 0.6, 0);
-    return [upper, skirt];
-  };
-  const topCap = new THREE.ConeGeometry(3.4, 1.6, 4);
-  topCap.rotateY(Math.PI / 4);
-  topCap.translate(0, 21.6, 0);
-  const spire = new THREE.CylinderGeometry(0.22, 0.58, 6.8, 6);
-  spire.translate(0, 25.4, 0);
-  const jewel = new THREE.SphereGeometry(0.48, 6, 5);
-  jewel.translate(0, 22.8, 0);
-
-  const geometries = [
-    ...makeTierEave(5.4, 8.6, 9.6, 8.6),
-    ...makeTierEave(3.8, 6.5, 7.4, 14.8),
-    ...makeTierEave(2.2, 4.6, 5.3, 20.3),
-    topCap,
-    spire,
-    jewel,
-  ];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
-    offset += g.attributes.position.count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-export var pagodaBodyGeo = createPagodaBodyGeometry();
-export var pagodaRoofGeo = createPagodaRoofGeometry();
-export var pagodaBodyMat = createMaterial({color: 0x4e3227, flatShading: true}); // warm timber
-export var pagodaRoofMat = createMaterial({color: 0x1e6b34, flatShading: true}); // jade green eaves
-
 // --- BARN ---
 function createBarnRoofGeometry() {
   const shape = new THREE.Shape();
@@ -4142,21 +4051,6 @@ export const ModelAssembler = {
           {
             geo: strawHutRoofGeo,
             mat: strawHutMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-        ];
-      case 'pagoda':
-        return [
-          {
-            geo: pagodaBodyGeo,
-            mat: pagodaBodyMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: pagodaRoofGeo,
-            mat: pagodaRoofMat,
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },

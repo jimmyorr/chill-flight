@@ -118,7 +118,6 @@ export const PLANE_HANDLING = {
 };
 
 // Feature Flags
-export const ENABLE_PAGODAS = false;
 export const ENABLE_BARNS = true;
 export const ENABLE_MONASTERIES = true;
 export const ENABLE_CASTLE_RUINS = true;

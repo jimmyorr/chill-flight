@@ -48,7 +48,6 @@ export const destructibleTypes = new Set([
   'house',
   'two_story_house',
   'straw_hut',
-  'pagoda',
   'barn',
   'monastery',
   'castle',
@@ -338,7 +337,6 @@ export function startDestruction(type, previewGroup, mats = {}) {
       'house',
       'two_story_house',
       'straw_hut',
-      'pagoda',
       'barn',
       'monastery',
       'castle',
@@ -435,7 +433,7 @@ export function startDestruction(type, previewGroup, mats = {}) {
         addTopple(silo, new THREE.Vector3(12, localGroundY, 0));
       }
     } else {
-      // house, two_story_house, straw_hut, pagoda, monastery
+      // house, two_story_house, straw_hut, monastery
       const isHouse = type === 'house' || type === 'two_story_house';
       const body =
         allMeshes.find(

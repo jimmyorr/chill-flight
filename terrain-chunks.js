@@ -114,10 +114,6 @@ import {
   mushroomStalkMat,
   crystalClusterGeo,
   crystalMat,
-  pagodaBodyGeo,
-  pagodaBodyMat,
-  pagodaRoofGeo,
-  pagodaRoofMat,
   palmGeos,
   palmSimpleLeavesGeo,
   penguinBeakGeo,
@@ -825,13 +821,11 @@ houseWindowMats.forEach((mat, i) => {
   );
 });
 
-// Straw huts, pagodas, barns, monasteries, castle ruins and windmills, one
+// Straw huts, barns, monasteries, castle ruins and windmills, one
 // material each (collectStructures in terrain-gen.js)
 for (const [type, geo, mat] of [
   ['strawHutBody', strawHutBodyGeo, strawHutMat],
   ['strawHutRoof', strawHutRoofGeo, strawHutMat],
-  ['pagodaBody', pagodaBodyGeo, pagodaBodyMat],
-  ['pagodaRoof', pagodaRoofGeo, pagodaRoofMat],
   ['barnBody', barnBodyGeo, barnBodyMat],
   ['barnRoof', barnRoofGeo, barnRoofMat],
   ['barnDoor', barnDoorGeo, barnWhiteMat],
@@ -1345,7 +1339,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   const chimneySmokePositions = [];
   const sailboatPositions = [];
   const pirateShipPositions = [];
-  const pagodaPositions = [];
   const barnPositions = [];
   const monasteryPositions = [];
   const castleRuinsPositions = [];
@@ -1368,7 +1361,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   if (cp.twoStoryHousePositions)
     twoStoryHousePositions.push(...cp.twoStoryHousePositions);
   if (cp.strawHutPositions) strawHutPositions.push(...cp.strawHutPositions);
-  if (cp.pagodaPositions) pagodaPositions.push(...cp.pagodaPositions);
   if (cp.barnPositions) barnPositions.push(...cp.barnPositions);
   if (cp.monasteryPositions) monasteryPositions.push(...cp.monasteryPositions);
   if (cp.castleRuinsPositions)
@@ -1661,7 +1653,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     });
   }
 
-  // Straw huts, pagodas, barns, monasteries, castle ruins and windmills
+  // Straw huts, barns, monasteries, castle ruins and windmills
   // arrive as instanceData too (collectStructures in terrain-gen.js), so they
   // can be knocked down (breakables.js).
 
@@ -3099,7 +3091,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     ...workerData.chunkProps.counts,
     houses:
       housePositions.length +
-      pagodaPositions.length +
       barnPositions.length +
       monasteryPositions.length +
       castleRuinsPositions.length,

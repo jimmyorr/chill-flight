@@ -80,7 +80,6 @@ const RUBBLE = {
   houseBody: BREAK.RUBBLE.house,
   twoStoryBody: BREAK.RUBBLE.two_story_house,
   strawHutBody: BREAK.RUBBLE.straw_hut,
-  pagodaBody: BREAK.RUBBLE.pagoda,
   barnBody: BREAK.RUBBLE.barn,
   monasteryBody: BREAK.RUBBLE.monastery,
   castleRuins: BREAK.RUBBLE.castle,

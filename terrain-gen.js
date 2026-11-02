@@ -258,7 +258,6 @@ const SEAL_FLOE_CHANCE = 0.45;
 // Joshua trees: share of the desert's trees, and their tufts' colour
 const JOSHUA_SHARE = 0.65;
 export const JOSHUA_LEAF_COLOR = 0x6f8a3c;
-const ENABLE_PAGODAS = false;
 const ENABLE_BARNS = true;
 const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = true;
@@ -1091,10 +1090,9 @@ const BARN_DOOR_Z = 14.1;
 const BARN_SILO_X = 12;
 const BARN_TRIM_TILT = Math.atan2(8, 9);
 
-// Adds straw huts, pagodas, barns (and their silos), monasteries, castle
-// ruins and windmills to the collector, each a breakable prop, in world
-// coordinates. Huts and pagodas keep their own scale; the rest are drawn at
-// their model's size.
+// Adds straw huts, barns (and their silos), monasteries, castle ruins and
+// windmills to the collector, each a breakable prop, in world coordinates.
+// Huts keep their own scale; the rest are drawn at their model's size.
 function collectStructures(collector, positions, offsetX, offsetZ) {
   const place = (type, x, y, z, s, rx, ry, rz) => {
     composeMatrix(_matBuffer, 0, x, y, z, s, s, s, rx, ry, rz);
@@ -1112,7 +1110,6 @@ function collectStructures(collector, positions, offsetX, offsetZ) {
     }
   };
   simple(positions.strawHutPositions, 'strawHutBody', 'strawHutRoof', true);
-  simple(positions.pagodaPositions, 'pagodaBody', 'pagodaRoof', true);
   simple(positions.monasteryPositions, 'monasteryBody', 'monasteryRoof');
   simple(positions.castleRuinsPositions, 'castleRuins', null);
 
@@ -2050,7 +2047,6 @@ export function generateChunkData({
   const snowmanPositions = [];
   const lilyPadPositions = [];
   const bushPositions = [];
-  const pagodaPositions = [];
   const barnPositions = [];
   // Grid points where a farmstead may stand (see farmsteadsAt)
   const steadOk = new Uint8Array(positions.length / 3);
@@ -3235,49 +3231,6 @@ export function generateChunkData({
         }
       }
 
-      if (
-        !isAlienLand &&
-        ENABLE_PAGODAS &&
-        cherryNoise > 0.65 &&
-        snowFactor < 0.2 &&
-        desertFactor < 0.2 &&
-        height > WATER_LEVEL + 5 &&
-        height < MOUNTAIN_LEVEL - 80 &&
-        rng() < 0.0003 * densityScale
-      ) {
-        pagodaPositions.push({
-          x: localX,
-          y: height,
-          z: localZ,
-          rotY: rng() * Math.PI * 2,
-        });
-        const offset1X = -12;
-        const offset1Z = 12;
-        const h1 = getElevation(
-          worldX + offset1X,
-          worldZ + offset1Z,
-          elevParams
-        );
-        japaneseMapleTreePositions.push({
-          x: localX + offset1X,
-          y: h1,
-          z: localZ + offset1Z,
-        });
-
-        const offset2X = 12;
-        const offset2Z = -12;
-        const h2 = getElevation(
-          worldX + offset2X,
-          worldZ + offset2Z,
-          elevParams
-        );
-        japaneseMapleTreePositions.push({
-          x: localX + offset2X,
-          y: h2,
-          z: localZ + offset2Z,
-        });
-      }
-
       if (rng() < 0.015 * densityScale) {
         if (snowFactor > 0.4)
           snowRockPositions.push({x: localX, y: height, z: localZ});
@@ -3894,7 +3847,6 @@ export function generateChunkData({
       strawHutPositions,
       barnPositions,
       windmillPositions,
-      pagodaPositions,
       monasteryPositions,
       castleRuinsPositions,
       rockArchPositions,
@@ -4579,12 +4531,6 @@ export function generateChunkData({
     });
   }
 
-  if (pagodaPositions.length > 0) {
-    pagodaPositions.forEach((pos) => {
-      pos.scale = 0.9 + rng() * 0.3;
-    });
-  }
-
   if (monasteryPositions.length > 0) {
     monasteryPositions.forEach((pos) => {
       pos.scale = 0.9 + rng() * 0.2;
@@ -4606,7 +4552,6 @@ export function generateChunkData({
     collector,
     {
       strawHutPositions,
-      pagodaPositions,
       barnPositions,
       monasteryPositions,
       castleRuinsPositions,
@@ -4767,7 +4712,6 @@ export function generateChunkData({
     housePositions,
     twoStoryHousePositions,
     strawHutPositions,
-    pagodaPositions,
     barnPositions,
     monasteryPositions,
     castleRuinsPositions,

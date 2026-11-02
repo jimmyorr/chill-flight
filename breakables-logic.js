@@ -59,7 +59,6 @@ export const BREAK = {
     house: 9,
     two_story_house: 13,
     straw_hut: 6,
-    pagoda: 12,
     barn: 16,
     monastery: 22,
     castle: 26,

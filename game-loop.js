@@ -892,7 +892,6 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
       totalCactus = 0,
       totalLighthouses = 0,
       totalCastles = 0,
-      totalPagodas = 0,
       totalChunks = 0;
     let totalWindmills = 0,
       totalCampfires = 0;
@@ -908,8 +907,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
       activePirateShips = 0,
       activePiers = 0,
       activeCastles = 0,
-      activeWindmills = 0,
-      activePagodas = 0;
+      activeWindmills = 0;
 
     const camPos = state.isFreeCamera ? camera.position : planeGroup.position;
     const maxPropLOD =
@@ -969,8 +967,6 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
           if (isLODActive) activePiers += cg.userData.counts.piers || 0;
 
           totalBirds += cg.userData.counts.birds || 0;
-          totalPagodas += cg.userData.counts.pagodas || 0;
-          if (isLODActive) activePagodas += cg.userData.counts.pagodas || 0;
         }
       }
     });
@@ -1023,7 +1019,6 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     updateDOM('debug-lily-pads', totalLilyPads);
     updateDOM('debug-piers', formatCount(activePiers, totalPiers));
     updateDOM('debug-birds', totalBirds);
-    updateDOM('debug-pagodas', formatCount(activePagodas, totalPagodas));
     updateDOM('debug-traffic', String(trafficCount()));
   }
 }
