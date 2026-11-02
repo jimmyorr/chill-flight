@@ -1414,25 +1414,6 @@ export var stumpTopGeo = (() => {
 })();
 export var stumpTopMat = createMaterial({color: 0xc9a777, flatShading: true});
 
-// Stone cairn for the summits: four flat stones stacked smaller up to the
-// top, each turned a little, about 5 units tall
-export var cairnGeo = (() => {
-  const stones = [
-    [2.0, 0.55, 0.8, 0],
-    [1.6, 0.6, 2.1, 0.8],
-    [1.2, 0.62, 3.2, 1.9],
-    [0.8, 0.7, 4.15, 2.7],
-  ].map(([r, flat, y, turn]) => {
-    const g = new THREE.DodecahedronGeometry(r, 0);
-    g.scale(1, flat, 1);
-    g.rotateY(turn);
-    g.translate(0.15 * Math.sin(turn * 3), y, 0.15 * Math.cos(turn * 3));
-    return g;
-  });
-  return mergeGeometries(stones);
-})();
-export var cairnMat = createMaterial({color: 0x9a9b9a, flatShading: true});
-
 // Seal hauled out on an ice floe: a plump body lying along z, its head
 // raised at the front (+z) and its hind flippers splayed behind, about 6.5
 // units long

@@ -255,10 +255,6 @@ const BUOY_MAX_DEPTH = 9;
 const BUOY_COLORS = [0xc8372d, 0x2f8a52];
 // The share of the ice floes with a seal or two lying on them
 const SEAL_FLOE_CHANCE = 0.45;
-// Stone cairns on the summits: how high above MOUNTAIN_LEVEL a top must be,
-// and the share of such tops that have one
-const CAIRN_MIN_RISE = 220;
-const CAIRN_CHANCE = 0.6;
 // Joshua trees: share of the desert's trees, and their tufts' colour
 const JOSHUA_SHARE = 0.65;
 export const JOSHUA_LEAF_COLOR = 0x6f8a3c;
@@ -2022,7 +2018,6 @@ export function generateChunkData({
   const hayBalePositions = [];
   const iceHutPositions = [];
   const fallenLogPositions = [];
-  const cairnPositions = [];
   const snowTreePositions = [];
   const mushroomTreePositions = [];
   const crystalPositions = [];
@@ -3430,47 +3425,6 @@ export function generateChunkData({
       }
     }
 
-    // A stone cairn on a summit: the highest grid point within two of it
-    // each way (reading past the chunk's edge), from hashes like the huts
-    if (
-      _enableObjects &&
-      !sharedEdge &&
-      !isAlienLand &&
-      height > MOUNTAIN_LEVEL + CAIRN_MIN_RISE &&
-      fieldHash(
-        Math.round(worldX / gridSpacing),
-        Math.round(worldZ / gridSpacing),
-        113
-      ) < CAIRN_CHANCE
-    ) {
-      const ix = vertI % gridX1;
-      const iz = (vertI - ix) / gridX1;
-      let top = true;
-      for (let dz = -2; dz <= 2 && top; dz++) {
-        for (let dx = -2; dx <= 2; dx++) {
-          if ((dx || dz) && gridHeightAt(ix + dx, iz + dz) >= height) {
-            top = false;
-            break;
-          }
-        }
-      }
-      if (top) {
-        cairnPositions.push({
-          x: localX,
-          y: height - 0.4,
-          z: localZ,
-          rotY:
-            fieldHash(
-              Math.round(worldX / gridSpacing),
-              Math.round(worldZ / gridSpacing),
-              127
-            ) *
-            Math.PI *
-            2,
-        });
-      }
-    }
-
     // The falls landmark's top, above the tree line: boulders among its
     // crags, a few stunted pines out of the wind, and bushes along the stream
     if (_enableObjects && falls !== null && falls.out < -20) {
@@ -3882,7 +3836,6 @@ export function generateChunkData({
       campfirePositions,
       hayBalePositions,
       fallenLogPositions,
-      cairnPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_PROP_CLEAR));
     // A house's chimney smoke sits on the same spot, so goes with it
     [
@@ -3946,7 +3899,6 @@ export function generateChunkData({
       castleRuinsPositions,
       rockArchPositions,
       rockArchGrassPositions,
-      cairnPositions,
     ].forEach(keepOffPyramids);
   }
 
@@ -4527,26 +4479,6 @@ export function generateChunkData({
       0
     );
     collector.add('seal', _matBuffer);
-  }
-
-  // Summit cairns (no rolls here either)
-  for (const pos of cairnPositions) {
-    composeMatrix(
-      _matBuffer,
-      0,
-      worldOffsetX + pos.x,
-      pos.y,
-      worldOffsetZ + pos.z,
-      1,
-      1,
-      1,
-      0,
-      pos.rotY,
-      0
-    );
-    collector.beginProp(BREAKABLE.SMALL);
-    collector.add('cairn', _matBuffer);
-    collector.endProp();
   }
 
   // Fallen logs and stumps (no rolls here either)

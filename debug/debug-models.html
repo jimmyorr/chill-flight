@@ -189,9 +189,6 @@
       <button class="model-btn" onclick="viewModel('fallen_log', event)">
         Fallen log and stump
       </button>
-      <button class="model-btn" onclick="viewModel('cairn', event)">
-        Summit cairn
-      </button>
       <button class="model-btn" onclick="viewModel('seal', event)">Seal</button>
       <button class="model-btn" onclick="viewModel('buoy', event)">
         Channel buoys
@@ -447,8 +444,6 @@
         fallenLogMat,
         stumpTopGeo,
         stumpTopMat,
-        cairnGeo,
-        cairnMat,
         sealGeo,
         sealMat,
         buoyGeos,
@@ -921,9 +916,6 @@
               break;
             case 'seal':
               previewGroup.add(new THREE.Mesh(sealGeo, sealMat));
-              break;
-            case 'cairn':
-              previewGroup.add(new THREE.Mesh(cairnGeo, cairnMat));
               break;
             case 'fallen_log': {
               const log = new THREE.Mesh(fallenLogGeo, fallenLogMat);
