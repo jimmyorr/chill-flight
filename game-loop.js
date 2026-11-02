@@ -134,6 +134,7 @@ import {
   getElevation,
   houseWindowMats,
   streetlightBulbMat,
+  lighthouseLampMat,
   streetlightDecalMat,
   fireGlowMat,
   waterUniforms,
@@ -1257,6 +1258,8 @@ function updateDayNightCycle(delta) {
   const slNightValue = Math.max(0, (-slSunY + 0.1) * 2);
 
   streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
+  // The lighthouse lantern comes on at dusk, like its beam
+  lighthouseLampMat.emissiveIntensity = Math.min(1.0, slNightValue);
 
   streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
   fireGlowMat.opacity = Math.min(1.0, slNightValue);

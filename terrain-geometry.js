@@ -2657,10 +2657,12 @@ var lighthouseVertexMat = createMaterial({
   flatShading: true,
   roughness: 0.85,
 });
-var lighthouseLampMat = createMaterial({
-  color: 0xffe0a0,
+// Pale frosted glass by day; game-loop.js lights it up at dusk with the
+// streetlights
+export var lighthouseLampMat = createMaterial({
+  color: 0xd2cfbc,
   emissive: 0xffd98a,
-  emissiveIntensity: 1.0,
+  emissiveIntensity: 0.0,
 });
 // Lantern centre height in the model's own frame, matched to our old tower
 // (the beam and spotlight hang at 63 before the chunk's 2x scale)
