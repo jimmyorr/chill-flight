@@ -1,0 +1,10 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["X5333WXA73.com.cowneck.chillflight"],
+        "components": [{"/": "/", "comment": "The game page and invite links"}]
+      }
+    ]
+  }
+}

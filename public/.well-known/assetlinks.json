@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.cowneck.chillflight",
+      "sha256_cert_fingerprints": ["74:26:B1:81:E1:11:0A:87:64:03:70:25:34:3D:7F:61:99:2F:58:23:69:00:4E:A4:34:DB:69:A0:5A:8D:40:D3"]
+    }
+  }
+]

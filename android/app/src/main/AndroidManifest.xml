@@ -19,6 +19,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- chillflight.app links (invites) open the app: App Links,
+                 verified by public/.well-known/assetlinks.json. Only the game
+                 page, so /about and /privacy stay in the browser. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="chillflight.app" />
+                <data android:path="/" />
+            </intent-filter>
         </activity>
 
         <provider
