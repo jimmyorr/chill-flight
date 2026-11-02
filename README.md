@@ -30,7 +30,7 @@ flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient,casual,cozy,
 
 ## Models
 
-The lighthouse and its keeper's cottage are Polyfork's [Old Lighthouse](https://polyfork.dev/asset/old-lighthouse-48ca6c) and [Porch-Front Cottage](https://polyfork.dev/asset/porch-front-cottage-620c29) (free licence: games can ship them, no attribution needed, but the files themselves can't be redistributed as assets). Their source is kept unchanged in `third-party/polyfork/`; `terrain-geometry.js` builds each once at load and splits it by paint (tower, rock islet, lantern glass, windows).
+The lighthouse, its keeper's cottage and the dolphins are Polyfork's [Old Lighthouse](https://polyfork.dev/asset/old-lighthouse-48ca6c), [Porch-Front Cottage](https://polyfork.dev/asset/porch-front-cottage-620c29) and [Dolphin](https://polyfork.dev/asset/dolphin-base) (free licence: games can ship them, no attribution needed, but the files themselves can't be redistributed as assets). Their source is kept unchanged in `third-party/polyfork/`; `terrain-geometry.js` builds each once at load and splits it by paint (tower, rock islet, lantern glass, windows).
 
 ## Music
 
@@ -257,6 +257,7 @@ The world is populated with dynamic, procedural wildlife that adds life to the e
 - **Sheep:** Small flocks graze the open grassland and hill pastures of the temperate middle, in patches picked by a slow noise field (in the farmland, only on the meadows), heads down, in a few shades of wool. Come close and they bound out of your way (`SHEEP_*` in `terrain-gen.js`).
 - **Seagulls:** Flocks of gulls circle over the coasts (about one coastal chunk in five, part land and part water), now and then out over open sea, and a few always wheel round each lighthouse's lantern; none over the frozen lakes of the far north. Hawks circle over the land only. Hawks and gulls more than 6 km off are hidden (`GULL_*`, `HAWK_CHANCE` in `terrain-gen.js`).
 - **Whales:** Now and then over deep open sea, a whale surfaces a few hundred meters ahead of you: it blows a plume of mist, rolls its back along the surface, then lifts its tail flukes and dives with a splash. One whale at a time, roughly one or two a minute while you fly low over the ocean, never in the frozen north (`whales.js`).
+- **Dolphins:** Now and then, low over the sea or sitting on it in the seaplane, a pod of three to five dolphins appears a few hundred meters ahead, swimming your way just under the surface and taking turns leaping clear with a splash. Never at the same time as a whale, and not in the frozen north. The model is Polyfork's Dolphin, with its tail beating as it swims (`dolphins.js`).
 - **Penguins:** Animated waddling penguins inhabit the icy terrain and floating icebergs of the deep north. About half the ice floes also have a grey seal or two lying on them (`SEAL_FLOE_CHANCE` in `terrain-gen.js`) that slip into the water as you come, like the penguins.
 
 ## Planes

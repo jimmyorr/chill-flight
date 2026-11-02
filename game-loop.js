@@ -145,6 +145,7 @@ import {trafficCount, updateTraffic} from './traffic.js';
 import {roadCarCount, updateRoadTraffic} from './road-traffic.js';
 import {updateParticles} from './particles.js';
 import {updateWhales} from './whales.js';
+import {updateDolphins} from './dolphins.js';
 import {updateGrass} from './grass.js';
 import {updateMultiplayer} from './multiplayer.js';
 import {updateBreakables} from './breakables.js';
@@ -623,6 +624,7 @@ function performFrame() {
   updateBreakables(delta);
   updateParticles(delta);
   updateWhales(delta);
+  updateDolphins(delta);
   updateGrass(delta);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping();

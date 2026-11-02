@@ -13,6 +13,7 @@ import {
 import {ART_PAINTED, ART_POST} from './art-style.js';
 import * as polyforkLighthouse from './third-party/polyfork/old-lighthouse-48ca6c.mjs';
 import * as polyforkCottage from './third-party/polyfork/porch-front-cottage-620c29.mjs';
+import {createAsset as createPolyforkDolphin} from './third-party/polyfork/dolphin-base.mjs';
 import {
   CHUNK_SIZE,
   CLOUD_GLSL,
@@ -2771,6 +2772,28 @@ function buildKeeperCottage() {
     body: polyforkZoneGeo(buckets.body, KEEPER_COTTAGE_SCALE),
     pane: polyforkZoneGeo(buckets.pane, KEEPER_COTTAGE_SCALE),
   };
+}
+
+// A dolphin: Polyfork's Dolphin, a skinned mesh (about 2.5 m long, head
+// toward +z, belly at y = 0) with spine bones for swimming. Each call builds
+// its own skeleton; `variant` (0 to 1) varies its length and shading a little.
+// No shadow: from a leap it made big soft blots on the water.
+var dolphinMat = createMaterial({vertexColors: true, flatShading: true});
+export function createDolphinModel(variant = 0.5) {
+  const asset = createPolyforkDolphin({
+    length: 2.3 + variant * 0.5,
+    build: 0.3 + variant * 0.4,
+    pale: 0.9 + variant * 0.25,
+  });
+  const bones = {};
+  asset.traverse((o) => {
+    if (o.isSkinnedMesh) {
+      o.material = dolphinMat;
+      o.castShadow = false;
+    }
+    if (o.isBone) bones[o.name] = o;
+  });
+  return {group: asset, bones};
 }
 
 // How many of the lighthouse structure's first parts make up the tower (they
