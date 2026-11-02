@@ -237,6 +237,9 @@
       <button class="model-btn" onclick="viewModel('tractors', event)">
         Tractors
       </button>
+      <button class="model-btn" onclick="viewModel('landmark_towers', event)">
+        Lookout, water tower, windpump
+      </button>
       <button class="model-btn" onclick="viewModel('monastery', event)">
         Monastery
       </button>
@@ -425,6 +428,11 @@
       import {archGeometry} from '../arches.js';
       import {boatMat, buildSmallBoatGeos} from '../boat-models.js';
       import {buildTractorGeos} from '../farm-models.js';
+      import {
+        buildLandmarkGeos,
+        buildingMat,
+        LANDMARK_TOWERS,
+      } from '../building-models.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
       import {createBuggyModel, setBuggyHoverFold} from '../buggy-model.js';
       import {
@@ -985,6 +993,17 @@
               geos.forEach((geo, i) => {
                 const m = new THREE.Mesh(geo, boatMat);
                 m.position.x = (i - (geos.length - 1) / 2) * 6;
+                previewGroup.add(m);
+              });
+              break;
+            }
+            case 'landmark_towers': {
+              // Fire lookout, water tower and windpump side by side at the
+              // game's scale (building-models.js)
+              const geos = Object.values(buildLandmarkGeos(LANDMARK_TOWERS));
+              geos.forEach((geo, i) => {
+                const m = new THREE.Mesh(geo, buildingMat);
+                m.position.x = (i - (geos.length - 1) / 2) * 20;
                 previewGroup.add(m);
               });
               break;

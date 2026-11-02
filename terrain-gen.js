@@ -245,6 +245,20 @@ const TRACTOR_LOOKS = 3;
 // Ice fishing huts on the far north's frozen lakes: they gather in little
 // camps (a slow noise field) out on the ice, with this chance per grid point
 const ICE_HUT_CHANCE = 0.03;
+// Landmarks (building-models.js), each from a hash of a grid point fit for
+// it, with this chance per such point: fire lookouts on wooded ridges,
+// water towers in the villages, windpumps where the farmland dries out into
+// desert. Each stands on its own and topples whole, clear of the trees and
+// other props around it (`clear`, units).
+const LANDMARK_RULES = {
+  fireLookout: {chance: 0.06, clear: 10, flat: 6},
+  waterTower: {chance: 0.006, clear: 14, flat: 3},
+  windpump: {chance: 0.004, clear: 8, flat: 4},
+};
+// A fire lookout's spot must be this much higher than the ground this far
+// round it on every side (units): the top of a ridge
+const LOOKOUT_RIDGE_REACH = 150;
+const LOOKOUT_RIDGE_RISE = 6;
 export const ICE_HUT_COLORS = [
   0xb8463a, 0x3f6fa3, 0x4e8a4c, 0xd9a43c, 0xc9682f,
 ];
@@ -2155,6 +2169,8 @@ export function generateChunkData({
   // Tractors: {type, x, y, z, rotY}
   const tractorPositions = [];
   const iceHutPositions = [];
+  // Landmarks: {type, x, y, z, rotY}
+  const landmarkPositions = [];
   const fallenLogPositions = [];
   const snowTreePositions = [];
   const mushroomTreePositions = [];
@@ -3503,6 +3519,70 @@ export function generateChunkData({
       }
     }
 
+    // Landmarks (LANDMARK_RULES), from hashes of the grid point like the
+    // huts above. Checked for flat ground and roads after the grid pass.
+    if (
+      _enableObjects &&
+      !sharedEdge &&
+      !isAlienLand &&
+      !isLakeIce &&
+      height > sandMaxHeight + 3
+    ) {
+      const gx = Math.round(worldX / gridSpacing);
+      const gz = Math.round(worldZ / gridSpacing);
+      const roll = fieldHash(gx, gz, 1201) / densityScale;
+      let type = null;
+      if (
+        isForest &&
+        snowFactor < 0.4 &&
+        desertFactor < 0.3 &&
+        height > WATER_LEVEL + 120 &&
+        height < treeLine &&
+        roll < LANDMARK_RULES.fireLookout.chance
+      ) {
+        let ridge = true;
+        for (let k = 0; k < 4 && ridge; k++) {
+          const a = (k * Math.PI) / 2;
+          ridge =
+            getElevation(
+              worldX + Math.cos(a) * LOOKOUT_RIDGE_REACH,
+              worldZ + Math.sin(a) * LOOKOUT_RIDGE_REACH,
+              elevParams
+            ) <
+            height - LOOKOUT_RIDGE_RISE;
+        }
+        if (ridge) type = 'fireLookout';
+      } else if (
+        farm > 0 &&
+        villageNoise > 0.45 &&
+        slopeFactor < 0.15 &&
+        roll < LANDMARK_RULES.waterTower.chance
+      ) {
+        type = 'waterTower';
+      } else if (
+        desertFactor > 0.08 &&
+        desertFactor < 0.7 &&
+        slopeFactor < 0.2 &&
+        snowFactor < 0.1 &&
+        roll < LANDMARK_RULES.windpump.chance
+      ) {
+        type = 'windpump';
+      }
+      if (type) {
+        landmarkPositions.push({
+          type,
+          x: localX,
+          y: height,
+          z: localZ,
+          // Windpumps' wheels face into the wind, like the windmills'
+          rotY:
+            type === 'windpump'
+              ? WINDMILL_ROT_Y
+              : fieldHash(gx, gz, 1203) * Math.PI * 2,
+        });
+      }
+    }
+
     // Fallen logs and stumps where the woods thin out, from hashes of the
     // grid point like the huts above
     if (
@@ -4029,6 +4109,99 @@ export function generateChunkData({
         castleRuinsPositions,
       ].forEach(clear);
     }
+  }
+
+  // Landmarks: each kept only on flat, dry ground off the roads and
+  // airports and clear of the others, standing on its lowest corner, with
+  // the trees and other props cleared from round it
+  if (landmarkPositions.length > 0) {
+    let kept = 0;
+    const clearings = [];
+    for (const p of landmarkPositions) {
+      const rule = LANDMARK_RULES[p.type];
+      const x = worldOffsetX + p.x;
+      const z = worldOffsetZ + p.z;
+      const r = rule.clear;
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (const [a, b] of [
+        [-1, -1],
+        [-1, 1],
+        [1, -1],
+        [1, 1],
+      ]) {
+        const y = heightAtLocal(
+          Math.max(-halfSize, Math.min(halfSize, p.x + a * r * 0.7)),
+          Math.max(-halfSize, Math.min(halfSize, p.z + b * r * 0.7))
+        );
+        lo = Math.min(lo, y);
+        hi = Math.max(hi, y);
+      }
+      if (
+        hi - lo > rule.flat ||
+        lo < WATER_LEVEL + 3 ||
+        clearings.some((c) => Math.hypot(c.x - p.x, c.z - p.z) < 300) ||
+        ChillFlightLogic.highwayDistance(x, z) <
+          ChillFlightLogic.ROAD_WIDTH + ROAD_BUILDING_CLEAR + r ||
+        ChillFlightLogic.isOnAirport(x, z, 60) ||
+        ChillFlightLogic.isOnAccessRoad(x, z, r + 6, simplex, elevParams) ||
+        ChillFlightLogic.isOnSlipRoad(x, z, r + 6, simplex, elevParams)
+      ) {
+        continue;
+      }
+      p.y = lo;
+      landmarkPositions[kept++] = p;
+      clearings.push({x: p.x, z: p.z, r});
+    }
+    landmarkPositions.length = kept;
+    const clear = (arr) => {
+      let n = 0;
+      for (const q of arr) {
+        let blocked = false;
+        for (const c of clearings) {
+          const dx = q.x - c.x;
+          const dz = q.z - c.z;
+          if (dx * dx + dz * dz < c.r * c.r) {
+            blocked = true;
+            break;
+          }
+        }
+        if (!blocked) arr[n++] = q;
+      }
+      arr.length = n;
+    };
+    [
+      treePositions,
+      deciduousTreePositions,
+      tallDeciduousTreePositions,
+      palmTreePositions,
+      deadTreePositions,
+      joshuaTreePositions,
+      snowTreePositions,
+      autumnTree1Positions,
+      autumnTree2Positions,
+      autumnTree3Positions,
+      cherryTreePositions,
+      yellowCortezTreePositions,
+      japaneseMapleTreePositions,
+      bushPositions,
+      hayBalePositions,
+      fallenLogPositions,
+      sheepPositions,
+      housePositions,
+      twoStoryHousePositions,
+      chimneySmokePositions,
+      rockPositions,
+      snowRockPositions,
+      desertRockPositions,
+      cactusPositions,
+      snowmanPositions,
+      campfirePositions,
+      windmillPositions,
+      barnPositions,
+      monasteryPositions,
+      castleRuinsPositions,
+    ].forEach(clear);
   }
 
   // Keep the props clear of the roads, where they ended up. The check above
@@ -4783,6 +4956,26 @@ export function generateChunkData({
     });
   }
 
+  // Landmarks: towers stand on their own and topple whole
+  for (const pos of landmarkPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      1,
+      1,
+      1,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.beginProp(BREAKABLE.TREE);
+    collector.add(pos.type, _matBuffer);
+    collector.endProp();
+  }
+
   // Ice fishing huts (no rolls here either)
   for (const pos of iceHutPositions) {
     composeMatrix(
@@ -5208,6 +5401,7 @@ export function generateChunkData({
       lily_pads: lilyPadPositions.length,
       small_boats: smallBoatPositions.length,
       tractors: tractorPositions.length,
+      landmarks: landmarkPositions.length,
       icebergs: icebergPositions.length,
       ice_floes: iceFloePositions.length,
       penguins: penguinPositions.length,

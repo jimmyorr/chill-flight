@@ -213,6 +213,11 @@ import {
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {boatMat, buildSmallBoatGeos} from './boat-models.js';
 import {buildTractorGeos} from './farm-models.js';
+import {
+  buildLandmarkGeos,
+  buildingMat,
+  LANDMARK_TOWERS,
+} from './building-models.js';
 import {log} from './logger.js';
 import {simplex} from './noise.js';
 import {camera, renderer} from './sky.js';
@@ -857,6 +862,12 @@ for (const [type, geo] of Object.entries({
 })) {
   globalInstancer.registerType(type, geo, boatMat, 2000);
   globalInstancer.setFarGeometry(type, null);
+}
+// Landmarks (building-models.js, LANDMARK_RULES in terrain-gen.js): a few
+// thousand triangles each but only a handful about, so the towers stay in
+// sight far off, over the woods and villages
+for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_TOWERS))) {
+  globalInstancer.registerType(type, geo, buildingMat, 200);
 }
 // The sails turn in their shader, shadows too
 globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =
