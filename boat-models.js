@@ -19,8 +19,9 @@ import * as pirateBrigantine from './third-party/polyfork/pirate-brigantine-c29c
 import * as pirateSloop from './third-party/polyfork/pirate-sloop-d8ead0.mjs';
 
 // How much bigger than real life the boats are drawn (like the road
-// vehicles): a 3 m rowboat comes out 7.5 units long
-export const SMALL_BOAT_SCALE = 2.5;
+// vehicles, a bit more so they hold their own beside a plane on the
+// water): a 3 m rowboat comes out 10.5 units long
+export const SMALL_BOAT_SCALE = 3.5;
 
 export const boatMat = createMaterial({
   vertexColors: true,
