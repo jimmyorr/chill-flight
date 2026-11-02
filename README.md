@@ -30,7 +30,7 @@ flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient,casual,cozy,
 
 ## Models
 
-The lighthouse is Polyfork's [Old Lighthouse](https://polyfork.dev/asset/old-lighthouse-48ca6c) (free licence: games can ship it, no attribution needed, but the file itself can't be redistributed as an asset). Its source is kept unchanged in `third-party/polyfork/`; `terrain-geometry.js` builds it once at load and splits it into the tower, rock islet, lantern glass and windows.
+The lighthouse and its keeper's cottage are Polyfork's [Old Lighthouse](https://polyfork.dev/asset/old-lighthouse-48ca6c) and [Porch-Front Cottage](https://polyfork.dev/asset/porch-front-cottage-620c29) (free licence: games can ship them, no attribution needed, but the files themselves can't be redistributed as assets). Their source is kept unchanged in `third-party/polyfork/`; `terrain-geometry.js` builds each once at load and splits it by paint (tower, rock islet, lantern glass, windows).
 
 ## Music
 

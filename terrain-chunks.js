@@ -1721,7 +1721,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     });
     meshProps.push({
       kind: BREAKABLE.HOUSE,
-      parts: [objPart(objs[h], 'fold'), objPart(objs[h + 1], 'fling')],
+      parts: [objPart(objs[h], 'fold'), objPart(objs[h + 1], 'fold')],
       rubble: 9,
     });
     meshProps.push({

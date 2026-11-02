@@ -11,11 +11,8 @@ import {
   WINDMILL_ROT_Y,
 } from './terrain-gen.js';
 import {ART_PAINTED, ART_POST} from './art-style.js';
-import {
-  createAsset as createPolyforkLighthouse,
-  params as polyforkLighthouseParams,
-  presets as polyforkLighthousePresets,
-} from './third-party/polyfork/old-lighthouse-48ca6c.mjs';
+import * as polyforkLighthouse from './third-party/polyfork/old-lighthouse-48ca6c.mjs';
+import * as polyforkCottage from './third-party/polyfork/porch-front-cottage-620c29.mjs';
 import {
   CHUNK_SIZE,
   CLOUD_GLSL,
@@ -2669,23 +2666,18 @@ export var lighthouseLampMat = createMaterial({
 const LIGHTHOUSE_LANTERN_Y = 63;
 var lighthouseParts = buildPolyforkLighthouse();
 
-function buildPolyforkLighthouse() {
-  const S = {
-    colorway: 'harbour-red',
-    bands: 5,
-    jetty: false,
-    antenna: false,
-  };
-  const asset = createPolyforkLighthouse(S);
+// Splits a Polyfork asset's triangles into zones by their exact vertex colour
+// (zones: name -> THREE.Color; anything else goes to `rest`), in the asset's
+// own frame. Returns arrays of x, y, z, r, g, b per vertex.
+function splitPolyforkAsset(asset, zones, rest) {
   asset.updateMatrixWorld(true);
-  const {glass, window: win, rock} = polyforkLighthouseDefaults(S);
   const key = (c) => c.getHexString();
-  const buckets = {rock: [], glass: [], window: [], tower: []};
-  const zoneOf = new Map([
-    [key(glass), 'glass'],
-    [key(win), 'window'],
-    [key(rock), 'rock'],
-  ]);
+  const buckets = {[rest]: []};
+  const zoneOf = new Map();
+  for (const [name, color] of Object.entries(zones)) {
+    buckets[name] = [];
+    zoneOf.set(key(color), name);
+  }
   const c = new THREE.Color();
   const v = new THREE.Vector3();
   asset.traverse((o) => {
@@ -2695,7 +2687,7 @@ function buildPolyforkLighthouse() {
     const col = g.attributes.color;
     for (let t = 0; t < pos.count; t += 3) {
       c.fromBufferAttribute(col, t);
-      const zone = zoneOf.get(key(c)) || 'tower';
+      const zone = zoneOf.get(key(c)) || rest;
       for (let i = t; i < t + 3; i++) {
         v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
         c.fromBufferAttribute(col, i);
@@ -2703,6 +2695,49 @@ function buildPolyforkLighthouse() {
       }
     }
   });
+  return buckets;
+}
+
+// A zone's arrays as a vertex-coloured geometry, scaled
+function polyforkZoneGeo(arr, scale) {
+  const n = arr.length / 6;
+  const p = new Float32Array(n * 3);
+  const cc = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    for (let k = 0; k < 3; k++) {
+      p[i * 3 + k] = arr[i * 6 + k] * scale;
+      cc[i * 3 + k] = arr[i * 6 + 3 + k];
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(cc, 3));
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  return g;
+}
+
+// A Polyfork colour option as resolved by its createAsset (an explicit
+// option, else the colourway preset's, else the default)
+function polyforkColor(module, S, name) {
+  return new THREE.Color(
+    S[name] ?? module.presets[S.colorway]?.[name] ?? module.params[name].default
+  );
+}
+
+function buildPolyforkLighthouse() {
+  const S = {
+    colorway: 'harbour-red',
+    bands: 5,
+    jetty: false,
+    antenna: false,
+  };
+  const pick = (name) => polyforkColor(polyforkLighthouse, S, name);
+  const buckets = splitPolyforkAsset(
+    polyforkLighthouse.createAsset(S),
+    {glass: pick('glass'), window: pick('window'), rock: pick('rock')},
+    'tower'
+  );
   // Scale so the lantern sits where our old one did
   let gy0 = Infinity;
   let gy1 = -Infinity;
@@ -2711,41 +2746,31 @@ function buildPolyforkLighthouse() {
     gy1 = Math.max(gy1, buckets.glass[i]);
   }
   const scale = LIGHTHOUSE_LANTERN_Y / ((gy0 + gy1) / 2);
-  const toGeo = (arr) => {
-    const n = arr.length / 6;
-    const p = new Float32Array(n * 3);
-    const cc = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      for (let k = 0; k < 3; k++) {
-        p[i * 3 + k] = arr[i * 6 + k] * scale;
-        cc[i * 3 + k] = arr[i * 6 + 3 + k];
-      }
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-    g.setAttribute('color', new THREE.BufferAttribute(cc, 3));
-    g.computeVertexNormals();
-    g.computeBoundingSphere();
-    return g;
-  };
   return {
-    tower: toGeo(buckets.tower),
-    glass: toGeo(buckets.glass),
-    window: toGeo(buckets.window),
-    rock: toGeo(buckets.rock),
+    tower: polyforkZoneGeo(buckets.tower, scale),
+    glass: polyforkZoneGeo(buckets.glass, scale),
+    window: polyforkZoneGeo(buckets.window, scale),
+    rock: polyforkZoneGeo(buckets.rock, scale),
   };
 }
 
-// The resolved colours for the zones we split on (the asset bakes them into
-// vertex colours)
-function polyforkLighthouseDefaults(S) {
-  const pick = (name) =>
-    new THREE.Color(
-      S[name] ??
-        polyforkLighthousePresets[S.colorway]?.[name] ??
-        polyforkLighthouseParams[name].default
-    );
-  return {glass: pick('glass'), window: pick('window'), rock: pick('rock')};
+// The keeper's cottage: Polyfork's Porch-Front Cottage, white boards and a
+// slate roof, about the size of our old 10 x 10 keeper's house. Its windows
+// light up with the village houses'.
+const KEEPER_COTTAGE_SCALE = 1.6;
+var keeperCottageParts = buildKeeperCottage();
+
+function buildKeeperCottage() {
+  const S = {colorway: 'slate-white', windows: 2};
+  const buckets = splitPolyforkAsset(
+    polyforkCottage.createAsset(S),
+    {pane: polyforkColor(polyforkCottage, S, 'pane')},
+    'body'
+  );
+  return {
+    body: polyforkZoneGeo(buckets.body, KEEPER_COTTAGE_SCALE),
+    pane: polyforkZoneGeo(buckets.pane, KEEPER_COTTAGE_SCALE),
+  };
 }
 
 // How many of the lighthouse structure's first parts make up the tower (they
@@ -2757,7 +2782,6 @@ var flagpoleGeo = new THREE.CylinderGeometry(0.2, 0.2, 20, 4);
 var flagGeo = new THREE.BoxGeometry(4, 3, 0.1);
 
 var lighthouseRedMat = createMaterial({color: 0xc62828, flatShading: true});
-var lighthouseWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
 
 // Pier geometries
 function createPierDeckGeometry() {
@@ -4372,18 +4396,18 @@ export const ModelAssembler = {
           {geo: lighthouseParts.window, mat: houseWindowMats[0], pos: at, rot},
           // Rock islet
           {geo: lighthouseParts.rock, mat: lighthouseVertexMat, pos: at, rot},
-          // House
+          // Keeper's cottage, door toward the tower
           {
-            geo: houseBodyGeo,
-            mat: lighthouseWhiteMat,
+            geo: keeperCottageParts.body,
+            mat: lighthouseVertexMat,
             pos: [houseOffset.x, 0, houseOffset.z],
-            rot: [0, rotY, 0],
+            rot: [0, rotY - Math.PI / 2, 0],
           },
           {
-            geo: houseRoofGeo,
-            mat: lighthouseRedMat,
+            geo: keeperCottageParts.pane,
+            mat: houseWindowMats[1],
             pos: [houseOffset.x, 0, houseOffset.z],
-            rot: [0, rotY, 0],
+            rot: [0, rotY - Math.PI / 2, 0],
           },
           // Flagpole
           {
