@@ -715,7 +715,12 @@ export function updateFlightCamera(delta, nowTime) {
 
     if (chunkGroup.userData.birds) {
       chunkGroup.userData.birds.forEach((bird) => {
-        if (chunkIsFar && bird.userData.type !== 'goose') return;
+        // (hidden, not just left still: each is several meshes, and a
+        // speck that far off)
+        if (chunkIsFar && bird.userData.type !== 'goose') {
+          bird.visible = false;
+          return;
+        }
         bird.visible = state.dayFactor > 0.1;
         if (!bird.visible) return;
         // Still animated, so the flock is where it should be when it shows

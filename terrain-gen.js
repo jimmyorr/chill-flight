@@ -262,6 +262,13 @@ const LIGHTHOUSE_SPACING = 2;
 const LIGHTHOUSE_MONTAUK_CLEAR = 4;
 // How far props are cleared around one (its keeper's house and yard)
 const LIGHTHOUSE_CLEAR = 55;
+// Birds: the chance of a flock of gulls over a coastal chunk (one that's
+// part land, part water) and over open sea, none north of GULL_MAX_NORTH
+// (the frozen lakes); and of a hawk over a mostly dry chunk
+const GULL_COAST_CHANCE = 0.2;
+const GULL_SEA_CHANCE = 0.04;
+const GULL_MAX_NORTH = -22000;
+const HAWK_CHANCE = 0.22;
 // The share of the ice floes with a seal or two lying on them
 const SEAL_FLOE_CHANCE = 0.45;
 // Joshua trees: share of the desert's trees, and their tufts' colour
@@ -4704,56 +4711,66 @@ export function generateChunkData({
   const isAlienChunk =
     ChillFlightLogic.alienAt(worldOffsetX, worldOffsetZ, simplex) >
     ALIEN_PROPS_AT;
-  if (!isAlienChunk && rng() < 0.2) {
-    const baseX = worldOffsetX + (rng() - 0.5) * chunkSize;
-    const baseZ = worldOffsetZ + (rng() - 0.5) * chunkSize;
-    let baseY = getElevation(baseX, baseZ, elevParams) + 150 + rng() * 200;
-    if (baseY > 400) baseY = 400;
-
-    const baseRotationY = rng() * Math.PI * 2;
-    const isSouth = worldOffsetZ > 0;
-    const heightAtCenter = getElevation(worldOffsetX, worldOffsetZ, elevParams);
-    const isBeach =
-      heightAtCenter > WATER_LEVEL - 20 && heightAtCenter < WATER_LEVEL + 40;
-
-    if (isSouth && isBeach && rng() < 0.3) {
-      const numSeagulls = 2 + Math.floor(rng() * 4);
-      const flockCenterX = worldOffsetX + (rng() - 0.5) * chunkSize;
-      const flockCenterZ = worldOffsetZ + (rng() - 0.5) * chunkSize;
-      const flockBaseY =
-        getElevation(flockCenterX, flockCenterZ, elevParams) + 40 + rng() * 60;
-
-      for (let i = 0; i < numSeagulls; i++) {
-        birds.push({
-          type: 'seagull',
-          scale: 2.5 + rng() * 1.0,
-          x: flockCenterX,
-          y: flockBaseY,
-          z: flockCenterZ,
-          circleSpeed: 0.4 + rng() * 0.2,
-          circleRadius: 50 + rng() * 80,
-          circleCenter: {
-            x: flockCenterX,
-            y: flockBaseY + (rng() - 0.5) * 40,
-            z: flockCenterZ,
-          },
-          angle: rng() * Math.PI * 2,
-          flapPhase: rng() * Math.PI * 2,
-          flapSpeed: 10.0 + rng() * 5.0,
-          flapDuration: 2.0 + rng() * 2.0,
-          soarDuration: 3.0 + rng() * 3.0,
-          diveTimer: rng() * 10,
-          nextDiveWait: 10.0 + rng() * 20.0,
-        });
-      }
-    } else {
+  // Gulls over the coasts (any but the frozen far north), now and then out
+  // at sea, and a few always round a lighthouse; hawks over the land only
+  let wetPoints = 0;
+  for (let k = 0; k < heightGrid.length; k++) {
+    if (heightGrid[k] < WATER_LEVEL) wetPoints++;
+  }
+  const waterShare = wetPoints / heightGrid.length;
+  const gullChance =
+    worldOffsetZ < GULL_MAX_NORTH
+      ? 0
+      : waterShare >= 0.92
+        ? GULL_SEA_CHANCE
+        : waterShare > 0.08
+          ? GULL_COAST_CHANCE
+          : 0;
+  const pushGulls = (cx, cz, cy, n, radius) => {
+    for (let i = 0; i < n; i++) {
+      birds.push({
+        type: 'seagull',
+        scale: 2.5 + rng() * 1.0,
+        x: cx,
+        y: cy,
+        z: cz,
+        circleSpeed: 0.4 + rng() * 0.2,
+        circleRadius: radius + rng() * radius * 0.8,
+        circleCenter: {x: cx, y: cy + (rng() - 0.5) * 40, z: cz},
+        angle: rng() * Math.PI * 2,
+        flapPhase: rng() * Math.PI * 2,
+        flapSpeed: 10.0 + rng() * 5.0,
+        flapDuration: 2.0 + rng() * 2.0,
+        soarDuration: 3.0 + rng() * 3.0,
+        diveTimer: rng() * 10,
+        nextDiveWait: 10.0 + rng() * 20.0,
+      });
+    }
+  };
+  if (!isAlienChunk) {
+    const roll = rng();
+    if (roll < gullChance) {
+      const cx = worldOffsetX + (rng() - 0.5) * chunkSize;
+      const cz = worldOffsetZ + (rng() - 0.5) * chunkSize;
+      const cy =
+        Math.max(WATER_LEVEL, getElevation(cx, cz, elevParams)) +
+        40 +
+        rng() * 60;
+      pushGulls(cx, cz, cy, 2 + Math.floor(rng() * 4), 50);
+    } else if (waterShare < 0.5 && rng() < HAWK_CHANCE) {
+      const baseX = worldOffsetX + (rng() - 0.5) * chunkSize;
+      const baseZ = worldOffsetZ + (rng() - 0.5) * chunkSize;
+      const baseY = Math.min(
+        400,
+        getElevation(baseX, baseZ, elevParams) + 150 + rng() * 200
+      );
       birds.push({
         type: 'hawk',
         scale: 4.0,
         x: baseX,
         y: baseY,
         z: baseZ,
-        rotY: baseRotationY,
+        rotY: rng() * Math.PI * 2,
         circleSpeed: 0.3 + rng() * 0.2,
         circleRadius: 150 + rng() * 100,
         circleCenter: {x: baseX, y: baseY, z: baseZ},
@@ -4764,6 +4781,16 @@ export function generateChunkData({
         soarDuration: 4.0 + rng() * 4.0,
       });
     }
+  }
+  // A few gulls wheeling round each lighthouse's lantern (Montauk's too)
+  if (lighthousePos) {
+    pushGulls(
+      worldOffsetX + lighthousePos.x,
+      worldOffsetZ + lighthousePos.z,
+      lighthousePos.y + 150,
+      3 + Math.floor(rng() * 2),
+      45
+    );
   }
 
   if (!isAlienChunk && rng() < 0.04) {

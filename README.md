@@ -250,7 +250,7 @@ The world is populated with dynamic, procedural wildlife that adds life to the e
 
 - **Geese:** Flocks of Canada geese fly in V-formations across the sky. They sleep and disappear at night, resuming their flight in the morning. A flock stays in view wherever it flies, even far from where it set off (and after that area of the world unloads), until it's too far away to see.
 - **Hawks:** Solitary hawks glide on thermal currents, dynamically transitioning between flapping and soaring.
-- **Seagulls:** Flocks of gulls circle over coastal regions and beaches.
+- **Seagulls:** Flocks of gulls circle over the coasts (about one coastal chunk in five, part land and part water), now and then out over open sea, and a few always wheel round each lighthouse's lantern; none over the frozen lakes of the far north. Hawks circle over the land only. Hawks and gulls more than 6 km off are hidden (`GULL_*`, `HAWK_CHANCE` in `terrain-gen.js`).
 - **Whales:** Now and then over deep open sea, a whale surfaces a few hundred meters ahead of you: it blows a plume of mist, rolls its back along the surface, then lifts its tail flukes and dives with a splash. One whale at a time, roughly one or two a minute while you fly low over the ocean, never in the frozen north (`whales.js`).
 - **Penguins:** Animated waddling penguins inhabit the icy terrain and floating icebergs of the deep north. About half the ice floes also have a grey seal or two lying on them (`SEAL_FLOE_CHANCE` in `terrain-gen.js`); unlike the penguins they stay put as you pass.
 
