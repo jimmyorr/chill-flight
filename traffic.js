@@ -5,7 +5,8 @@
 // (traffic-logic.js has the flight math). They fly the game's own models in
 // random liveries, and show navigation lights at night. Zen mode hides them
 // (zen.js calls setTrafficEnabled), and ?traffic=0/1 sets them for one visit,
-// overriding zen.
+// overriding zen. The buggies on the highways (road-traffic.js) follow the
+// same switch.
 import * as THREE from 'three';
 import {Achievements} from './achievements.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -149,6 +150,12 @@ export function setTrafficEnabled(on) {
   enabled = on;
   if (!on) removeAll();
   spawnTimer = FIRST_SPAWN_DELAY;
+}
+
+// Whether the traffic is on (the cars on the roads, road-traffic.js,
+// follow it)
+export function trafficEnabled() {
+  return enabled;
 }
 
 // Each plane flying now, for bumps (bumps.js): fn(plane), a traffic-logic

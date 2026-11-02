@@ -1,0 +1,313 @@
+// --- ROAD TRAFFIC ---
+// A few buggies driving the highways, as the air traffic flies the sky
+// (traffic.js). Each appears on a highway near the player, keeps to the
+// right-hand lane, slows for bends, the car ahead and the player on the
+// road, turns round where its highway ends, and is removed once it's well
+// behind (road-traffic-logic.js has the driving). At night they drive with
+// headlights (a glow at each lamp and a pool of light on the road ahead)
+// and dim red tail lights, which brighten when they brake. Hidden with the
+// air traffic (zen mode, ?traffic=0).
+import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {MOUNTAIN_LEVEL, WATER_LEVEL} from './constants.js';
+import {state} from './state.js';
+import {scene} from './scene.js';
+import {camera} from './sky.js';
+import {planeGroup, activePlaneType} from './airplane.js';
+import {simplex} from './noise.js';
+import {BUGGY_WHEEL_RADIUS} from './buggy-model.js';
+import {buildPlaneModel, isLiveryMaterial} from './plane-models.js';
+import {sampleRoad} from './terrain-chunks.js';
+import {trafficEnabled} from './traffic.js';
+import {
+  brakeLightsOn,
+  isRoadCarGone,
+  spawnRoadCar,
+  stepRoadCar,
+} from './road-traffic-logic.js';
+
+const MAX_CARS = 4;
+// Seconds before the next car appears while there's room
+const SPAWN_DELAY_MIN = 3;
+const SPAWN_DELAY_MAX = 10;
+const FIRST_SPAWN_DELAY = 2;
+// Past this the buggy itself is a speck: only its lights are drawn
+const MODEL_RANGE = 1600;
+// Faster than this between frames is a teleport, not driving or flight
+const MAX_TRACKED_SPEED = 400;
+
+const L = ChillFlightLogic;
+const CONSTANTS = {WATER_LEVEL, MOUNTAIN_LEVEL};
+const _road = {};
+const roads = {
+  near(x, z) {
+    const out = [];
+    const n0 = Math.round((x - L.ROAD_BASE_X) / L.ROAD_SPACING);
+    for (let n = n0 - 1; n <= n0 + 1; n++) {
+      if (n < 0 || n > L.ROAD_LAST) continue;
+      out.push({n, along: z});
+    }
+    if (x > L.ROAD_EW_WEST && x < L.ROAD_EW_END) {
+      out.push({n: L.ROAD_EW, along: x});
+    }
+    return out;
+  },
+  center: (n, along) => L.roadCenter(n, along),
+  point: (n, along, across, out) => L.roadPoint(n, along, across, out),
+  runs: (n, along) => L.highwayRunsAt(n, along, simplex, CONSTANTS),
+  surface(x, z, y) {
+    if (!sampleRoad(x, z, _road, y)) return null;
+    return _road;
+  },
+};
+
+const cars = [];
+let spawnTimer = FIRST_SPAWN_DELAY;
+const lastCenter = new THREE.Vector3();
+const velocity = new THREE.Vector3();
+let hasLastCenter = false;
+
+// --- LIGHTS ---
+// Glows of a fixed size on screen (as the planes' navigation lights), so a
+// car far off at night is still a pair of lights
+function glowTexture() {
+  const size = 32;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const h = size / 2;
+  const g = ctx.createRadialGradient(h, h, 0, h, h, h);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.6)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(canvas);
+}
+const glow = glowTexture();
+// Additive, except the tail lights: red added to daylight barely shows, so
+// they're painted over it (a brake light still shows by day)
+const glowMat = (color, additive = true) =>
+  new THREE.SpriteMaterial({
+    map: glow,
+    color,
+    transparent: true,
+    blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    depthWrite: false,
+    sizeAttenuation: false,
+    opacity: 0,
+  });
+// Headlights are shared (they're on together at night); tail lights are
+// each car's own, since each brakes on its own
+const headMat = glowMat(0xfff1c8);
+const HEAD_SIZE = 0.016;
+const TAIL_SIZE = 0.009;
+const BRAKE_SIZE = 0.015;
+// Tail lights at night, and how bright braking makes them (day or night)
+const TAIL_NIGHT = 0.45;
+const TAIL_BRAKE = 0.6;
+// The lamps' and lenses' places on the buggy (buggy-model.js)
+const HEAD_X = 0.95;
+const HEAD_Y = 2.65;
+const HEAD_Z = -4.55;
+const TAIL_X = 1.05;
+const TAIL_Y = 2.75;
+const TAIL_Z = 3.8;
+
+// The pool of light the headlights throw on the road ahead: a soft oval,
+// brightest near the car
+function poolTexture() {
+  const w = 32;
+  const h = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.translate(w / 2, h * 0.8);
+  ctx.scale(1, 2.2);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, w / 2);
+  g.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(-w / 2, -h, w, h * 2);
+  return new THREE.CanvasTexture(canvas);
+}
+const POOL_WIDTH = 18;
+const POOL_LENGTH = 40;
+const POOL_OPACITY = 0.4;
+const poolGeo = new THREE.PlaneGeometry(POOL_WIDTH, POOL_LENGTH);
+poolGeo.rotateX(-Math.PI / 2);
+// Its bright end just in front of the bumper
+poolGeo.translate(0, 0.35, HEAD_Z - POOL_LENGTH * 0.3);
+const poolMat = new THREE.MeshBasicMaterial({
+  map: poolTexture(),
+  color: 0xffe9b8,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  opacity: 0,
+  polygonOffset: true,
+  polygonOffsetFactor: -2,
+  polygonOffsetUnits: -2,
+  fog: true,
+});
+
+const SHARED = new Set([headMat, poolMat]);
+
+function addGlow(group, mat, size, x, y, z) {
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(size, size, 1);
+  sprite.position.set(x, y, z);
+  group.add(sprite);
+  return sprite;
+}
+
+function buildCar(car) {
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const model = buildPlaneModel('buggy', car.livery);
+  group.add(model);
+
+  // The lenses glow brighter at night, the tail lenses when braking too
+  let headLens = null;
+  let tailLens = null;
+  model.traverse((child) => {
+    const m = child.material;
+    if (!m?.emissive) return;
+    if (m.emissive.getHex() === 0xffd54f) headLens = m;
+    else if (m.emissive.getHex() === 0xb71c1c) tailLens = m;
+  });
+
+  for (const side of [-1, 1]) {
+    addGlow(group, headMat, HEAD_SIZE, side * HEAD_X, HEAD_Y, HEAD_Z);
+  }
+  const tailMat = glowMat(0xff2a1a, false);
+  const tails = [-1, 1].map((side) =>
+    addGlow(group, tailMat, TAIL_SIZE, side * TAIL_X, TAIL_Y, TAIL_Z)
+  );
+  const pool = new THREE.Mesh(poolGeo, poolMat);
+  pool.renderOrder = 1;
+  group.add(pool);
+
+  group.userData = {model, tailMat, tails, pool, headLens, tailLens};
+  scene.add(group);
+  return group;
+}
+
+function disposeCar(group) {
+  scene.remove(group);
+  group.userData.tailMat.dispose();
+  group.userData.model.traverse((child) => {
+    if (child.geometry) child.geometry.dispose();
+    if (
+      child.material &&
+      !SHARED.has(child.material) &&
+      !isLiveryMaterial(child.material)
+    ) {
+      child.material.dispose();
+    }
+  });
+}
+
+function removeAll() {
+  for (const c of cars) disposeCar(c.group);
+  cars.length = 0;
+  spawnTimer = FIRST_SPAWN_DELAY;
+}
+
+// Each car driving now, for bumps (bumps.js): fn(car), a road-traffic-logic
+// car {x, y, z, heading, speed, ...}
+export function forEachRoadCar(fn) {
+  for (const c of cars) fn(c);
+}
+
+// How many cars are driving now (for the debug panel)
+export function roadCarCount() {
+  return cars.length;
+}
+
+const _pos = new THREE.Vector3();
+
+// Called once per frame while flying (not while paused)
+export function updateRoadTraffic(delta) {
+  if (!trafficEnabled()) {
+    if (cars.length) removeAll();
+    return;
+  }
+  const center = state.isFreeCamera ? camera.position : planeGroup.position;
+  if (hasLastCenter && delta > 0) {
+    velocity.subVectors(center, lastCenter).divideScalar(delta);
+    if (velocity.length() > MAX_TRACKED_SPEED) velocity.set(0, 0, 0);
+  }
+  lastCenter.copy(center);
+  hasLastCenter = true;
+
+  spawnTimer -= delta;
+  if (spawnTimer <= 0) {
+    spawnTimer =
+      SPAWN_DELAY_MIN + Math.random() * (SPAWN_DELAY_MAX - SPAWN_DELAY_MIN);
+    if (cars.length < MAX_CARS) {
+      const car = spawnRoadCar(
+        Math.random,
+        center.x,
+        center.z,
+        roads,
+        L.PLANE_COLORS.length,
+        cars
+      );
+      if (car) {
+        car.group = buildCar(car);
+        cars.push(car);
+      }
+    }
+  }
+
+  // The player's plane or buggy, for cars to slow behind on the road (a
+  // plane low over the road counts too)
+  const player = state.isFreeCamera
+    ? null
+    : {
+        x: center.x,
+        y: center.y + (activePlaneType === 'buggy' ? 0 : -2),
+        z: center.z,
+        vx: velocity.x,
+        vz: velocity.z,
+      };
+
+  const night = 1 - THREE.MathUtils.smoothstep(state.dayFactor, 0.3, 0.8);
+  headMat.opacity = night;
+  poolMat.opacity = night * POOL_OPACITY;
+
+  for (let i = cars.length - 1; i >= 0; i--) {
+    const car = cars[i];
+    stepRoadCar(car, delta, roads, cars, player);
+    if (isRoadCarGone(car, center.x, center.z)) {
+      disposeCar(car.group);
+      cars.splice(i, 1);
+      continue;
+    }
+    const g = car.group;
+    const u = g.userData;
+    g.position.set(car.x, car.y, car.z);
+    g.rotation.set(car.pitch, car.heading, 0);
+    g.visible = car.grounded;
+    u.model.visible =
+      camera.position.distanceToSquared(_pos.set(car.x, car.y, car.z)) <
+      MODEL_RANGE * MODEL_RANGE;
+    if (u.model.visible) {
+      const roll = (car.speed * delta) / BUGGY_WHEEL_RADIUS;
+      for (const wheel of u.model.wheels) wheel.rotation.x -= roll;
+      for (const pivot of u.model.steerPivots) pivot.rotation.y = car.steer;
+    }
+
+    const braking = brakeLightsOn(car) ? car.brake : 0;
+    u.tailMat.opacity = Math.min(1, night * TAIL_NIGHT + braking * TAIL_BRAKE);
+    const size = TAIL_SIZE + (BRAKE_SIZE - TAIL_SIZE) * braking;
+    for (const s of u.tails) s.scale.set(size, size, 1);
+    if (u.headLens) u.headLens.emissiveIntensity = 0.35 + night * 1.2;
+    if (u.tailLens) {
+      u.tailLens.emissiveIntensity = 0.3 + night * 0.5 + braking * 1.2;
+    }
+  }
+}

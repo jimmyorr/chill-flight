@@ -141,6 +141,7 @@ import {
 } from './terrain-geometry.js';
 import {updateFlightCamera} from './flight-camera.js';
 import {trafficCount, updateTraffic} from './traffic.js';
+import {roadCarCount, updateRoadTraffic} from './road-traffic.js';
 import {updateParticles} from './particles.js';
 import {updateWhales} from './whales.js';
 import {updateGrass} from './grass.js';
@@ -615,6 +616,7 @@ function performFrame() {
   updateFlightCamera(delta, nowTime);
   updateThrottle(nowTime);
   updateTraffic(delta);
+  updateRoadTraffic(delta);
   updateMultiplayer(delta);
   updateBumps(delta);
   updateBreakables(delta);
@@ -1020,6 +1022,7 @@ function updateDebugTelemetry(delta, now, frameStartTime) {
     updateDOM('debug-piers', formatCount(activePiers, totalPiers));
     updateDOM('debug-birds', totalBirds);
     updateDOM('debug-traffic', String(trafficCount()));
+    updateDOM('debug-road-cars', String(roadCarCount()));
   }
 }
 
