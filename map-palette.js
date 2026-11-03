@@ -7,9 +7,14 @@
 // colour mapping is added here (e.g. frozen north pack ice vs beach sand).
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
-// The frozen north pack ice shelf (chill-flight-logic.js) draws as ice, not land
+// The frozen north pack ice shelf (chill-flight-logic.js) draws as ice, not
+// land, and so do the frozen lakes and the island sea's drift ice (flat at
+// LAKE_ICE_RISE), which reach a little further south
 function isPackIce(elev, wz) {
-  return wz < -20000 && elev <= 72;
+  if (wz < -20000) return elev <= 72;
+  return (
+    wz < -19000 && Math.abs(elev - 40 - ChillFlightLogic.LAKE_ICE_RISE) < 0.02
+  );
 }
 
 // Region colours over the height colours, for land: the snowy north, the

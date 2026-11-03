@@ -1574,6 +1574,10 @@ export const ChillFlightLogic = {};
   // How much the nearest coast to the last point continentPast measured
   // faces south (the warm south coast), 0 to 1
   let coastSouthness = 0;
+  // How far (degrees, roughly) the last point continentPast measured lies
+  // outside the land's own ellipses (the outline without the island sea):
+  // above 0 is the island sea or open sea, not a lake on the land
+  let coastLandPast = 0;
   // How far past the coast (x, z) lies, seaward, in units (negative inland):
   // a smooth union of the outline's ellipses (rounded where they meet),
   // warped at the 1-3 degree scale so no edge stays a clean curve, and
@@ -1603,9 +1607,15 @@ export const ChillFlightLogic = {};
       if (d < m) m = d;
     }
     let sum = 0;
+    let land = Infinity;
     for (let i = 0; i < ellipses.length; i++) {
       sum += Math.exp(-(_ellipseDist[i] - m) / CONTINENT_BLEND);
+      // The island sea is always the last ellipse
+      if (i < ellipses.length - 1 && _ellipseDist[i] < land) {
+        land = _ellipseDist[i];
+      }
     }
+    coastLandPast = land;
     const past = (m - CONTINENT_BLEND * Math.log(sum)) * 5000;
     coastSouthness = Math.max(0, Math.min(1, (-lat - 2.5) / 2.5));
     return (
@@ -1653,6 +1663,7 @@ export const ChillFlightLogic = {};
   function continentPastFar(x, z, simplex) {
     if (Math.hypot(x - HEARTLAND_X, z) < HEARTLAND_INNER) {
       coastSouthness = 0;
+      coastLandPast = -Infinity;
       return -Infinity;
     }
     return continentPast(x, z, simplex);
@@ -1697,6 +1708,29 @@ export const ChillFlightLogic = {};
       simplex.noise2D(x * 0.0011 + 41, z * 0.0011 - 23) * 0.6 +
       simplex.noise2D(x * 0.003 - 7, z * 0.003 + 11) * 0.4;
     return floe > 0.9 - into * 1.9;
+  }
+
+  // How frozen the island sea is at (x, z), 0 to 1, at latitude lat (with
+  // the frozen lakes' wobble): drift ice from about 3.9 North, scattered
+  // floes (the same noise as seaIceAt's) that crowd together over the next
+  // ISLAND_SEA_ICE_BAND degrees, with a wide wobble of their own so their
+  // southern edge wanders. Never quite solid, so leads of open water run
+  // through it out to the coast. Edges ramp over a little height, not a
+  // step on the terrain grid.
+  const ISLAND_SEA_ICE_BAND = 2.2;
+  function islandSeaIceAt(x, z, lat, simplex) {
+    const into =
+      (lat + simplex.noise2D(x * 0.00008 + 71, z * 0.00008 - 3) * 0.5 - 3.9) /
+      ISLAND_SEA_ICE_BAND;
+    if (into <= 0) return 0;
+    const floe =
+      simplex.noise2D(x * 0.0011 + 41, z * 0.0011 - 23) * 0.6 +
+      simplex.noise2D(x * 0.003 - 7, z * 0.003 + 11) * 0.4;
+    const threshold = 0.9 - Math.min(into, 1) * 1.2;
+    // Not south of 3.85 North, where the ground no longer colours as ice
+    return (
+      smoothRamp(floe - threshold, 0, 0.06) * smoothRamp(-z / 5000, 3.85, 4)
+    );
   }
 
   // --- THE CANYON (landmark, south-east of spawn) ---
@@ -3551,6 +3585,7 @@ export const ChillFlightLogic = {};
     // Across the outline the land gives way to coast (coastDetail), then
     // deep sea (before the ice shelf, which freezes that sea in the north)
     const coastPast = continentPastFar(origX, origZ, simplex);
+    const landPast = coastLandPast;
     const coastIn = coastPast + COAST_BAND / 2 + COAST_BLEND;
     if (coastIn > 0) {
       const t = Math.min(1, (coastPast + COAST_BAND / 2) / COAST_BAND);
@@ -3768,7 +3803,22 @@ export const ChillFlightLogic = {};
       const inland =
         (simplex.noise2D(origX * 0.002 + 5, origZ * 0.002) - 0.2) * 800 -
         coastPast;
-      const ice = smoothRamp(lat, 4.4, 4.45) * smoothRamp(inland, 0, 250);
+      let ice = smoothRamp(lat, 4.4, 4.45) * smoothRamp(inland, 0, 250);
+      // Out in the island sea it isn't one sheet with a straight edge but
+      // drift ice: floes that grow larger and closer heading north
+      // (and in the channels between the eastern land's columns, which are
+      // sea too). Past the outline it fades out, into the open lane along
+      // the north coast (seaIceAt).
+      const sea = Math.max(
+        smoothRamp(landPast, 0.15, 0.6),
+        smoothRamp(origX / 5000 - eastLandLon(-origZ / 5000, simplex), -1, -0.5)
+      );
+      if (sea > 0) {
+        const drift =
+          islandSeaIceAt(origX, origZ, lat, simplex) *
+          (1 - smoothRamp(coastPast, -2500, 1500));
+        ice = _lerp(ice, drift, sea);
+      }
       if (ice > 0) n = _lerp(n, WATER_LEVEL + LAKE_ICE_RISE, ice);
     }
 
