@@ -108,6 +108,8 @@ export function buildPierGeo() {
 // colour, whose lowest point is the eave.
 //   type: [module, options, scale (times real size), roof colour or null]
 const GARDEN_SHED_SCALE = 1.8;
+// Big enough to live in among the eastern groves' giant mushrooms
+const MUSHROOM_COTTAGE_SCALE = 18;
 const LANDMARKS = {
   fireLookout: [fireLookout, {colorway: 'sun-bleached', height: 1.18}, S, null],
   waterTower: [waterTower, {colorway: 'turquoise'}, S, null],
@@ -121,8 +123,18 @@ const LANDMARKS = {
   // toy among the pines
   rangerStation: [rangerStation, {colorway: 'ranger-cedar'}, 5, 'roof'],
   leanTo: [leanTo, {colorway: 'weathered-pine'}, S, 'roof'],
-  mushroomCottage0: [mushroomCottage, {colorway: 'amanita'}, 9, 'cap'],
-  mushroomCottage1: [mushroomCottage, {colorway: 'blueberry'}, 9, 'cap'],
+  mushroomCottage0: [
+    mushroomCottage,
+    {colorway: 'amanita'},
+    MUSHROOM_COTTAGE_SCALE,
+    'cap',
+  ],
+  mushroomCottage1: [
+    mushroomCottage,
+    {colorway: 'blueberry'},
+    MUSHROOM_COTTAGE_SCALE,
+    'cap',
+  ],
   // Behind the village houses, drawn at their size (not S) so a shed
   // isn't bigger than the house
   gardenShed0: [
@@ -180,6 +192,8 @@ export const LANDMARK_HOUSES = [
   'farmhouse3',
   'gardenShed0',
   'gardenShed1',
+  'mushroomCottage0',
+  'mushroomCottage1',
 ];
 
 // The lowest point painted in a colour (the model's eave, for its roof)

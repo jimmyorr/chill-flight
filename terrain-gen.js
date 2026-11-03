@@ -264,6 +264,7 @@ const LANDMARK_RULES = {
   leanTo: {chance: 0.4, clear: 7, flat: 4},
   fishShack: {chance: 0.5, clear: 11, flat: 4},
   farmhouse: {chance: 0.7, clear: 13, flat: 4},
+  mushroomCottage: {chance: 0.03, clear: 30, flat: 6},
   // Placed behind the houses after the rest (GARDEN_SHED_*)
   gardenShed: {chance: 0, clear: 0, flat: 0},
 };
@@ -3592,6 +3593,37 @@ export function generateChunkData({
       }
     }
 
+    // A mushroom cottage in some of the eastern mushroom groves (the
+    // basalt columns crowded with big mushrooms), checked like the
+    // landmarks below
+    if (
+      _enableObjects &&
+      !sharedEdge &&
+      isEastAlien &&
+      basaltCol !== null &&
+      basaltCol.spire === 0 &&
+      basaltCol.tint > 0.86 &&
+      slopeFactor < 0.2 &&
+      height > WATER_LEVEL + 3
+    ) {
+      const gx = Math.round(worldX / gridSpacing);
+      const gz = Math.round(worldZ / gridSpacing);
+      if (
+        fieldHash(gx, gz, 1351) / densityScale <
+        LANDMARK_RULES.mushroomCottage.chance
+      ) {
+        landmarkPositions.push({
+          type: 'mushroomCottage' + (fieldHash(gx, gz, 1353) < 0.5 ? 0 : 1),
+          rule: 'mushroomCottage',
+          group: landmarkPositions.length,
+          x: localX,
+          y: height,
+          z: localZ,
+          rotY: fieldHash(gx, gz, 1357) * Math.PI * 2,
+        });
+      }
+    }
+
     // Landmarks (LANDMARK_RULES), from hashes of the grid point like the
     // huts above. Checked for flat ground and roads after the grid pass.
     if (
@@ -4412,6 +4444,7 @@ export function generateChunkData({
       cherryTreePositions,
       yellowCortezTreePositions,
       japaneseMapleTreePositions,
+      mushroomTreePositions,
       bushPositions,
       hayBalePositions,
       fallenLogPositions,
