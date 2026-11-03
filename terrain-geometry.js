@@ -18,6 +18,8 @@ import {
   PIRATE_SHIP_LOOKS,
   boatMat,
   buildPirateShipGeos,
+  foamRing,
+  withFoam,
 } from './boat-models.js';
 import {
   buildBarnGeos,
@@ -3390,6 +3392,20 @@ function createBoatRimGeometry() {
 }
 export var boatRimGeo = createBoatRimGeometry();
 boatRimGeo.translate(0, 1.7, 0);
+// The rim with a ring of foam merged in round the hull (3.6 wide, z -8 to
+// 4) where it meets the water, both white, so the boat sits in the water
+// rather than over its shadow in clear shallows. Drawn in the rim's mesh,
+// so it bobs with the boat (boat units, 1.8 times smaller than the world).
+export var boatRimFoamGeo = (() => {
+  const rim = boatRimGeo.toNonIndexed();
+  const pos = Array.from(rim.attributes.position.array).concat(
+    foamRing(1.8, -8, 4, 0.07, 0.5)
+  );
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  return geo;
+})();
 
 function createBoatDeckGeometry() {
   const main = new THREE.BoxGeometry(3.2, 0.2, 7.8);
@@ -3601,9 +3617,13 @@ export var crystalMat = createMaterial({
 });
 
 // Pirate ships: Polyfork's galleon, brigantine and sloop in four looks, one
-// geometry each (boat-models.js), indexed by a ship's bodyId. Their water
-// reflections are the same geometries flipped, in reflectionMat.
-export var pirateShipGeos = buildPirateShipGeos();
+// geometry each (boat-models.js), indexed by a ship's bodyId, each with a
+// ring of foam at its waterline. Their water reflections are the same
+// geometries without the foam, flipped, in reflectionMat.
+export var pirateShipReflectionGeos = buildPirateShipGeos();
+export var pirateShipGeos = pirateShipReflectionGeos.map((geo) =>
+  withFoam(geo, 0.8)
+);
 export var pirateShipMat = boatMat;
 
 export var reflectionMat = new THREE.MeshBasicMaterial({

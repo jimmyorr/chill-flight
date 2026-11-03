@@ -28,6 +28,7 @@ import {
   boatHullPalette,
   boatMastGeo,
   boatRimGeo,
+  boatRimFoamGeo,
   boatRimMat,
   boatSailGeo,
   boatSailMat,
@@ -136,6 +137,7 @@ import {
   pierDeckGeo,
   pierPostGeo,
   pirateShipGeos,
+  pirateShipReflectionGeos,
   pirateShipMat,
   reflectionMat,
   releaseInstancedMesh,
@@ -2811,7 +2813,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     }
 
     const rimInst = getInstancedMesh(
-      boatRimGeo,
+      boatRimFoamGeo,
       boatRimMat,
       sailboatPositions.length
     );
@@ -2948,16 +2950,16 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     for (const pos of pirateShipPositions)
       pos.bodyId = (pos.bodyId || 0) % pirateShipGeos.length;
     const used = new Set(pirateShipPositions.map((pos) => pos.bodyId));
-    const meshes = (mat) =>
-      pirateShipGeos.map((geo, look) => {
+    const meshes = (geos, mat) =>
+      geos.map((geo, look) => {
         if (!used.has(look)) return null;
         const inst = getInstancedMesh(geo, mat, n);
         inst.position.set(worldOffsetX, 0, worldOffsetZ);
         watercraftGroup.add(inst);
         return inst;
       });
-    const ships = meshes(pirateShipMat);
-    const reflections = meshes(reflectionMat);
+    const ships = meshes(pirateShipGeos, pirateShipMat);
+    const reflections = meshes(pirateShipReflectionGeos, reflectionMat);
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
     const place = (list, pos, index) =>
       list.forEach((inst, look) => {
