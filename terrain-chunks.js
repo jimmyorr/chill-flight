@@ -2343,6 +2343,29 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         );
 
         const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 1.4;
+        // Whether a railing (placed by dummy, `length` long) runs onto
+        // another road: any of its ends or middle inside another highway's
+        // deck (this road's own centre is halfRoadW away, so it never
+        // counts) or on a slip road
+        const _railPoint = new THREE.Vector3();
+        const railMeetsRoad = (rail, length) => {
+          for (const t of [-0.5, 0, 0.5]) {
+            _railPoint
+              .set(0, 0, t * length)
+              .applyQuaternion(rail.quaternion)
+              .add(rail.position);
+            const x = _railPoint.x + worldOffsetX;
+            const z = _railPoint.z + worldOffsetZ;
+            if (
+              ChillFlightLogic.highwayDistance(x, z) <
+                ChillFlightLogic.ROAD_WIDTH + 1 ||
+              ChillFlightLogic.isOnSlipRoad(x, z, 1, simplex, constants)
+            ) {
+              return true;
+            }
+          }
+          return false;
+        };
         let girderIndex = 0;
         let railIndex = 0;
         let pierIndex = 0;
@@ -2505,13 +2528,19 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             dummy.updateMatrix();
             girderInst.setMatrixAt(girderIndex++, dummy.matrix);
 
-            // Railings - one on each side, sitting flush on top of deck (+0.75)
+            // Railings - one on each side, sitting flush on top of deck
+            // (+0.75). None where another road joins or crosses: under the
+            // other road's deck at a junction, or across the mouth where a
+            // road or slip road leaves this one
             [-halfRoadW, halfRoadW].forEach((xOff) => {
               dummy.position.copy(midVec);
               dummy.lookAt(nextVec);
               dummy.translateX(xOff);
               dummy.translateY(2.05);
               dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+              if (pos.junction || railMeetsRoad(dummy, dist)) {
+                dummy.scale.setScalar(0);
+              }
               dummy.updateMatrix();
               railInst.setMatrixAt(railIndex++, dummy.matrix);
             });
