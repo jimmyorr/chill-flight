@@ -2822,6 +2822,21 @@ export var bridgeDeckMat = addHeadlightPool(
   createMaterial({color: 0x4a4a4a, flatShading: true}),
   2.2
 ); // Asphalt gray
+// The highways' and slip roads' decks: white, so each segment's instance
+// colour sets its asphalt, weathered by the biome (terrain-chunks.js)
+export var highwayDeckMat = addHeadlightPool(
+  createMaterial({color: 0xffffff, flatShading: true}),
+  2.2
+);
+// (Colours made while the module loads are converted from sRGB, as the
+// heartland asphalt's is; the much lighter dusty and snowy ones are taken
+// as they are, the way the prototypes looked)
+export var ROAD_ASPHALT = {
+  base: new THREE.Color(0x4a4a4a),
+  dust: new THREE.Color().setHex(0x6f665a, THREE.LinearSRGBColorSpace), // Sun-bleached, sand-dusted
+  snow: new THREE.Color().setHex(0x8d939b, THREE.LinearSRGBColorSpace), // Snow-dusted pale grey
+  alien: new THREE.Color(0x504658), // A faint purple-grey
+};
 // A town street's slab of asphalt (a unit box, scaled to each piece)
 export var townStreetGeo = new THREE.BoxGeometry(1, 1, 1);
 export var bridgePilingMat = createMaterial({

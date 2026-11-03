@@ -2111,6 +2111,16 @@ export const ChillFlightLogic = {};
   function desertLowlandAt(x, z, simplex) {
     return smoothRamp(z / 5000 + desertShift(x, z, simplex), 2.2, 3.2);
   }
+  // How a highway's surface weathers at (x, z), each 0 to 1: sun-bleached
+  // and dusty in the desert, snow-dusted in the north, a little strange in
+  // the alien lands (terrain-chunks.js tints the road by these)
+  function roadWeatherAt(x, z, simplex) {
+    return {
+      dust: desertLowlandAt(x, z, simplex),
+      snow: snowFactorAt(z, snowNoiseShift(x, z, simplex)),
+      alien: alienAt(x, z, simplex),
+    };
+  }
   // Dunes: long ridges across the prevailing wind (from the west-south-west),
   // with a gentle windward slope and a steep lee face, in dune fields that
   // cover most of the desert. Height above the ground, 0 to about 44.
@@ -3970,6 +3980,7 @@ export const ChillFlightLogic = {};
   exports.PYRAMIDS = PYRAMIDS;
   exports.PYRAMID_SLOPE = PYRAMID_SLOPE;
   exports.desertLowlandAt = desertLowlandAt;
+  exports.roadWeatherAt = roadWeatherAt;
   exports.pyramidSite = pyramidSite;
   // How high the pyramids' stone stands above their plaza at (x, z), 0 off
   // them (terrain-gen.js colours it)
