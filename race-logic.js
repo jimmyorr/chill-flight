@@ -180,8 +180,7 @@ function roadsNear(x, z) {
   }
   const east = L.eastRoadNear(x, z);
   if (east) out.push(east);
-  const north = L.northRoadNear(x, z);
-  if (north) out.push(north);
+  out.push(...L.coastRoadsNear(x, z));
   return out.sort((a, b) => a.off - b.off);
 }
 
