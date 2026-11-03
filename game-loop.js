@@ -2346,6 +2346,9 @@ function updateEnvironmentLighting(delta, now) {
   const phaseAngle =
     ((state.worldClockNow % PHASE_CYCLE_MS) / PHASE_CYCLE_MS) * Math.PI * 2;
   const phaseIntensity = (-Math.cos(phaseAngle) + 1.0) / 2.0;
+  // (0 at new moon, 1 at full: the ghost ship's glow follows it too,
+  // flight-camera.js)
+  state.moonPhase = phaseIntensity;
 
   // Moonlight shines when the sun is down, independent of moon's now-fixed elevation
   let moonFactor = Math.max(0, Math.min(1, (-state.sunY - 0.25) / 0.25));

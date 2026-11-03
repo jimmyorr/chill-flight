@@ -97,8 +97,10 @@ const _SUNK = new THREE.Matrix4().makeScale(0, 0, 0);
 const GHOST_SHIP_DAY = 0.5;
 const GHOST_SHIP_FADE = 0.3;
 const GHOST_SHIP_SINK = 30;
-// How strongly it glows at full night (terrain-geometry.js pirateShipMat)
+// How strongly it glows at full night under a full moon (terrain-geometry.js
+// pirateShipMat), and the share of that left at new moon
 const GHOST_SHIP_GLOW_MAX = 0.35;
+const GHOST_SHIP_GLOW_NEW_MOON = 0.15;
 const _furledSail = new THREE.Matrix4();
 // A hawk or gull flies off when the plane comes this close (units), this far
 // (units), and is back circling after this long (s)
@@ -1137,7 +1139,12 @@ export function updateFlightCamera(delta, nowTime) {
         1
       );
       const rise = (1 - ghost) * GHOST_SHIP_SINK;
-      pirateShipMat.emissiveIntensity = ghost * GHOST_SHIP_GLOW_MAX;
+      // Brightest under a full moon, faint under a thin crescent
+      const moon = state.moonPhase ?? 1;
+      pirateShipMat.emissiveIntensity =
+        ghost *
+        GHOST_SHIP_GLOW_MAX *
+        (GHOST_SHIP_GLOW_NEW_MOON + (1 - GHOST_SHIP_GLOW_NEW_MOON) * moon);
       positions.forEach((pos, index) => {
         pos.hidden = ghost === 0;
         const patrolRadius = 40 + _boatHash(index, 7) * 30;
