@@ -1737,24 +1737,37 @@ export const ChillFlightLogic = {};
   // A Grand Canyon: a deep, meandering gorge cut into a raised desert
   // plateau, its walls stepped in tiers of cliffs and benches, buttes
   // standing inside it and side canyons scalloping its rims, with a river at
-  // the bottom that opens into the island sea. It runs south from about 1.2
+  // the bottom that opens into the island sea. It runs south from about 0.6
   // East, 2.3 South and turns east to its mouth near 2.8 East, 5.4 South:
-  // land in every continent outline, clear of the airports and highways.
-  // Points are [lon, lat] in degrees.
-  const CANYON_PATH = [
+  // land in every continent outline, clear of the airports, and far enough
+  // inland to leave room along the coast for the east coast highway. Its
+  // plateau eases down beside every highway (roadClear). Points are
+  // [lon, lat] in degrees.
+  // Its shape is laid out at [lon, lat] 0.6 East of where it stands and
+  // moved west by CANYON_SHIFT, noise and all, so the gorge keeps the shape
+  // (and the bridges) it had before the move
+  const CANYON_SHIFT = 3000;
+  const _canyonShape = [
     [1.0, -2.3],
     [1.4, -3.4],
     [1.0, -4.4],
     [1.6, -5.1],
     [2.6, -5.4],
     // The river runs on out to open water, past the plateau's end
-    [3.8, -5.6],
+    [4.4, -5.6],
   ];
+  const CANYON_PATH = _canyonShape.map(([lon, lat]) => [
+    lon - CANYON_SHIFT / 5000,
+    lat,
+  ]);
   // Where along the path the plateau ends (the rest is the river's mouth)
   const CANYON_PLATEAU_END = 4;
   const CANYON_PLATEAU = 300; // Rim height
   const CANYON_TIERS = 5; // Cliff-and-bench steps from river to rim
-  const _canyonPts = CANYON_PATH.map(([lon, lat]) => [lon * 5000, -lat * 5000]);
+  const _canyonPts = _canyonShape.map(([lon, lat]) => [
+    lon * 5000,
+    -lat * 5000,
+  ]);
   const _canyonLen = [0];
   for (let i = 1; i < _canyonPts.length; i++) {
     _canyonLen.push(
@@ -1771,8 +1784,8 @@ export const ChillFlightLogic = {};
   // everywhere else
   const CANYON_REACH = 6000;
   const _canyonBox = [
-    Math.min(..._canyonPts.map((p) => p[0])) - CANYON_REACH,
-    Math.max(..._canyonPts.map((p) => p[0])) + CANYON_REACH,
+    Math.min(..._canyonPts.map((p) => p[0])) - CANYON_REACH - CANYON_SHIFT,
+    Math.max(..._canyonPts.map((p) => p[0])) + CANYON_REACH - CANYON_SHIFT,
     Math.min(..._canyonPts.map((p) => p[1])) - CANYON_REACH,
     Math.max(..._canyonPts.map((p) => p[1])) + CANYON_REACH,
   ];
@@ -1788,6 +1801,8 @@ export const ChillFlightLogic = {};
     ) {
       return null;
     }
+    // Into the shape's own frame (see CANYON_SHIFT)
+    x += CANYON_SHIFT;
     // Meanders: the course bends back and forth around the path
     const qx = x + simplex.noise2D(x * 0.00035 + 61, z * 0.00035) * 900;
     const qz = z + simplex.noise2D(x * 0.00035 - 61, z * 0.00035 + 4) * 900;
@@ -3698,8 +3713,11 @@ export const ChillFlightLogic = {};
       // channel only cuts
       const land = Math.max(0, Math.min(1, (n - WATER_LEVEL) / 15));
       const w = canyon.core ? canyon.weight : canyon.weight * land;
+      // Where it would raise the land, not over the highways (it only cuts
+      // there: they bridge the gorge)
+      const raise = canyon.height < n ? 1 : roadClear(origX, origZ, 300, 1500);
       const target =
-        canyon.height < n ? canyon.height : _lerp(n, canyon.height, w);
+        canyon.height < n ? canyon.height : _lerp(n, canyon.height, w * raise);
       n = canyon.height < n ? _lerp(n, target, canyon.weight) : target;
     }
 
@@ -4183,11 +4201,11 @@ export const ChillFlightLogic = {};
     STEP: 500,
     SCAN: 250, // Between the samples looking east for the coast
     OPEN: 2500,
-    INSET: 2500,
+    INSET: 2000,
     PERCENTILE: 0.25,
     WINDOW: 4000,
     GAP: 4000, // Gaps in the coast up to this long are bridged
-    CANYON_CLEAR: 600,
+    CANYON_CLEAR: 500,
     WEST_CLEAR: 2000,
     MIN_LAND: 2000, // Of land before the coast, or there's no coast there
     START_X: -5000, // Where each look east starts
@@ -4268,24 +4286,25 @@ export const ChillFlightLogic = {};
       near.sort((a, b) => a - b);
       return near[Math.floor((near.length - 1) * EAST.PERCENTILE)] - EAST.INSET;
     });
-    // Kept west of the canyon (a landmark the highways stay clear of): the
-    // canyon's westmost edge on each row (where its landform starts), and
-    // the line kept further west of that than EAST.CANYON_CLEAR before
-    // smoothing (which pulls it back toward its neighbours), and at least
-    // that after
-    const canyonEdge = new Float64Array(count).fill(Infinity);
+    // Kept east of the canyon's gorge, between it and the sea: on each row
+    // where the gorge runs north-south with coast beyond it, at least
+    // EAST.CANYON_CLEAR east of its rim (canyonEdge, a least x), even
+    // after smoothing. Where it turns east to the sea, the road crosses it.
+    const canyonEdge = new Float64Array(count).fill(-Infinity);
     for (let k = 0; k < count; k++) {
       if (inland[k] === null) continue;
       const z = EAST.Z_MIN + k * EAST.STEP;
       if (z < _canyonBox[2] || z > _canyonBox[3]) continue;
-      for (let x = _canyonBox[0]; x <= _canyonBox[1]; x += EAST.SCAN) {
-        const c = canyonAt(x, z, simplex, constants.WATER_LEVEL);
-        if (c && c.weight > 0.01) {
-          canyonEdge[k] = x - EAST.CANYON_CLEAR;
-          inland[k] = Math.min(inland[k], canyonEdge[k] - EAST.WINDOW / 2);
-          break;
-        }
+      // The coast here, as the line has it (before the inset)
+      const shore = inland[k] + EAST.INSET;
+      let rim = null;
+      for (let x = _canyonBox[0]; x <= shore; x += EAST.SCAN) {
+        if (canyonAt(x, z, simplex, constants.WATER_LEVEL)?.core) rim = x;
       }
+      // (Where that would put it in the sea, it crosses the gorge instead)
+      if (rim === null || shore - rim < EAST.CANYON_CLEAR + 1000) continue;
+      canyonEdge[k] = rim + EAST.CANYON_CLEAR;
+      inland[k] = Math.max(inland[k], canyonEdge[k]);
     }
     // And at least EAST.WEST_CLEAR east of highway 0, so where the coast
     // runs close to it the two don't crowd each other (or its crossing
@@ -4346,7 +4365,7 @@ export const ChillFlightLogic = {};
     xs = smooth(smooth(xs));
     const edge = canyonEdge.subarray(best[0], best[1] + 1);
     const clampCanyon = () => {
-      for (let k = 0; k < xs.length; k++) xs[k] = Math.min(xs[k], edge[k]);
+      for (let k = 0; k < xs.length; k++) xs[k] = Math.max(xs[k], edge[k]);
     };
     clampCanyon();
     const maxStep = EAST.MAX_SLOPE * EAST.STEP;
@@ -4364,13 +4383,35 @@ export const ChillFlightLogic = {};
         );
       }
     }
-    clampCanyon();
+    // Clamping again can leave steps where the rim's limit starts and
+    // ends: ease them out eastward (never back into the limit), lightly
+    // smooth, and once more
+    const ease = () => {
+      clampCanyon();
+      for (let k = 1; k < xs.length; k++) {
+        xs[k] = Math.max(xs[k], xs[k - 1] - maxStep);
+      }
+      for (let k = xs.length - 2; k >= 0; k--) {
+        xs[k] = Math.max(xs[k], xs[k + 1] - maxStep);
+      }
+    };
+    ease();
+    for (let pass = 0; pass < 3; pass++) {
+      xs = xs.map(
+        (v, k) =>
+          (xs[Math.max(0, k - 1)] +
+            2 * v +
+            xs[Math.min(xs.length - 1, k + 1)]) /
+          4
+      );
+      ease();
+    }
     return {
       // How far it can be pushed aside by an airport (eastRawX)
       minX: Math.min(...xs) - ROAD_EAST_MEADOW_CLEAR - 1000,
       maxX: Math.max(...xs) + ROAD_EAST_MEADOW_CLEAR + 1000,
-      // Where the table starts; the road runs from zStart (moved north
-      // where it joins highway 0) to zEnd
+      // Where the table starts; the road runs from zStart (moved south to
+      // where it meets the cross-country highway) to zEnd
       z0: EAST.Z_MIN + best[0] * EAST.STEP,
       zStart: EAST.Z_MIN + best[0] * EAST.STEP,
       zEnd: EAST.Z_MIN + best[1] * EAST.STEP,
