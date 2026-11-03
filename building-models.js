@@ -138,10 +138,30 @@ const LANDMARKS = {
     'roof',
   ],
   // By the farmsteads' barns, the cold grey-green one up north (the last)
-  farmhouse0: [farmhouse, {colorway: 'cream-plaster', storeys: 2}, S, 'roof'],
-  farmhouse1: [farmhouse, {colorway: 'ochre-barn', storeys: 2}, S, 'roof'],
-  farmhouse2: [farmhouse, {colorway: 'orchard-plum', storeys: 2}, S, 'roof'],
-  farmhouse3: [farmhouse, {colorway: 'slate-north', storeys: 2}, S, 'roof'],
+  farmhouse0: [
+    farmhouse,
+    {colorway: 'cream-plaster', storeys: 1, dormers: 0, shutters: false},
+    S,
+    'roof',
+  ],
+  farmhouse1: [
+    farmhouse,
+    {colorway: 'ochre-barn', storeys: 1, dormers: 0, shutters: false},
+    S,
+    'roof',
+  ],
+  farmhouse2: [
+    farmhouse,
+    {colorway: 'orchard-plum', storeys: 1, dormers: 0, shutters: false},
+    S,
+    'roof',
+  ],
+  farmhouse3: [
+    farmhouse,
+    {colorway: 'slate-north', storeys: 1, dormers: 0, shutters: false},
+    S,
+    'roof',
+  ],
 };
 // Types toppled whole (the rest are houses)
 export const LANDMARK_TOWERS = ['fireLookout', 'waterTower', 'windpump'];
