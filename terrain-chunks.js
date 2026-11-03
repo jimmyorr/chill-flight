@@ -36,6 +36,8 @@ import {
   bridgeDeckMat,
   highwayDeckMat,
   ROAD_ASPHALT,
+  highwayRailMat,
+  ROAD_RAIL,
   townStreetGeo,
   bridgeGirderGeo,
   bridgeGirderMat,
@@ -1190,6 +1192,15 @@ const _slipDummy = new THREE.Object3D();
 // biome (dusty in the desert, snow-dusted in the north, faintly purple in the
 // alien lands). Shared; copy it before the next call.
 const _roadTint = new THREE.Color();
+// And its railings' concrete
+const _railTint = new THREE.Color();
+function roadRailAt(x, z) {
+  const w = ChillFlightLogic.roadWeatherAt(x, z, simplex);
+  return _railTint
+    .copy(ROAD_RAIL.base)
+    .lerp(ROAD_RAIL.dust, w.dust)
+    .lerp(ROAD_RAIL.snow, w.snow);
+}
 function roadAsphaltAt(x, z) {
   const w = ChillFlightLogic.roadWeatherAt(x, z, simplex);
   return _roadTint
@@ -2334,7 +2345,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         // Railings (2 per segment, only for elevated bridge sections)
         const railInst = getInstancedMesh(
           bridgeRailGeo,
-          bridgePilingMat,
+          highwayRailMat,
           numRailSegments > 0 ? numRailSegments * 2 : 1
         );
 
@@ -2567,6 +2578,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
                 dummy.scale.setScalar(0);
               }
               dummy.updateMatrix();
+              railInst.setColorAt(
+                railIndex,
+                roadRailAt(midVec.x + worldOffsetX, midVec.z + worldOffsetZ)
+              );
               railInst.setMatrixAt(railIndex++, dummy.matrix);
             });
           }
@@ -2706,6 +2721,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         // posts are a pixel or less that far, so they go with the chunk's
         // props (hidden past the prop draw distance). Each is a draw call.
         if (deckInst.instanceColor) deckInst.instanceColor.needsUpdate = true;
+        if (railInst.instanceColor) railInst.instanceColor.needsUpdate = true;
         deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
         group.add(deckInst);
         for (const m of markingInsts) {
