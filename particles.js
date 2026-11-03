@@ -342,7 +342,8 @@ function planeVelocity(out) {
 
 // Whether (x, z) is paved: a runway, an apron or a road
 function isPaved(x, z) {
-  if (sampleRoad(x, z, _road)) return true;
+  // Highways worn to dirt out in the desert throw up dust like the ground
+  if (sampleRoad(x, z, _road)) return !_road.dirt;
   const L = ChillFlightLogic;
   return L.AIRPORTS.some((a) => {
     const {u, v} = L.airportLocal(a, x, z);
