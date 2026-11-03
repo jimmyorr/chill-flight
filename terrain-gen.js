@@ -1423,20 +1423,25 @@ const SOUTH_BOATS_Z = 6000;
 // sea level; the sea floor is drawn 5 lower) once in this many points
 const SUNKEN_BOAT_DEPTH = [3, 8];
 const SUNKEN_BOAT_CHANCE = 0.0004;
-// How far a river must be in its channel for a river boat, and how much
-// the rivers' flow sets a boat's heading
+// How strong a river's flow keeps the small boats off it
 const RIVER_BOAT_FLOW = 0.5;
+// How far a lake rowboat looks for the shore, and how far its middle sits
+// back from the water's edge (its bow up on the sand), in units
+const ROWBOAT_SHORE_REACH = 120;
+const ROWBOAT_BEACHED = 4;
+// How high a beached rowboat sits over the sand (it's built sunk to its
+// waterline)
+const ROWBOAT_KEEL = 0.6;
+// The highest a beached rowboat's spot may be above the water (units)
+const ROWBOAT_SHORE_RISE = 2;
 
 // Which small boat (if any) a water point gets: a flat river boat on the
 // rivers (along the flow), rowboats on lakes and ponds, and fishing boats in
 // inlets and close inshore on the sea. Returns {type, rotY} or null.
-function smallBoatAt(x, z, hash, elevParams) {
+function smallBoatAt(x, z, hash, elevParams, gridSpacing) {
+  // None on the rivers (an empty boat in midstream looks lost)
   const flow = ChillFlightLogic.getRiverFlow(x, z, simplex);
-  if (flow && Math.hypot(flow[0], flow[1]) > RIVER_BOAT_FLOW) {
-    // Along the river, either way
-    const back = hash(3) < 0.5 ? Math.PI : 0;
-    return {type: 'riverBoatBody', rotY: Math.atan2(flow[0], flow[1]) + back};
-  }
+  if (flow && Math.hypot(flow[0], flow[1]) > RIVER_BOAT_FLOW) return null;
   const rotY = hash(5) * Math.PI * 2;
   // Two paint schemes of each fishing boat
   const fishing =
@@ -1457,9 +1462,44 @@ function smallBoatAt(x, z, hash, elevParams) {
         open++;
     }
     if (open < 3) {
+      // A rowboat pulled up on the lake's shore, bow on the sand, so an
+      // empty one reads as put away rather than adrift: toward the nearest
+      // shore, if it's close
+      let best = null;
+      for (let k = 0; k < 8; k++) {
+        const a = (k * Math.PI) / 4 + hash(9);
+        const dx = Math.sin(a);
+        const dz = Math.cos(a);
+        for (let d = 4; d <= ROWBOAT_SHORE_REACH; d += 4) {
+          if (best && d >= best.d) break;
+          // The drawn shore runs by the first dry grid point (the sea
+          // floor is drawn lower), so go by the grid point nearest
+          const vx = Math.round((x + dx * d) / gridSpacing) * gridSpacing;
+          const vz = Math.round((z + dz * d) / gridSpacing) * gridSpacing;
+          if (getElevation(vx, vz, elevParams) > elevParams.WATER_LEVEL) {
+            // That point's distance along the way
+            const along = (vx - x) * dx + (vz - z) * dz;
+            if (along > 0) best = {d: along, dx, dz, a};
+            break;
+          }
+        }
+      }
+      if (!best) return null;
+      const back = best.d - ROWBOAT_BEACHED;
+      // Only on a gentle shore, low and flat enough to pull a boat up on
+      const ground = getElevation(
+        x + best.dx * back,
+        z + best.dz * back,
+        elevParams
+      );
+      if (ground > elevParams.WATER_LEVEL + ROWBOAT_SHORE_RISE) return null;
       return {
         type: hash(7) < 0.5 ? 'rowboatBody' : 'woodenRowboatBody',
-        rotY,
+        rotY: best.a,
+        dx: best.dx * back,
+        dz: best.dz * back,
+        // Resting on the sand where it's dry under it
+        y: Math.max(elevParams.WATER_LEVEL, ground + ROWBOAT_KEEL),
       };
     }
     return {type: fishing, rotY};
@@ -2500,13 +2540,20 @@ export function generateChunkData({
               hash(0) < SMALL_BOAT_CHANCE * densityScale &&
               height < WATER_LEVEL - SMALL_BOAT_MIN_DEPTH
             ) {
-              const boat = smallBoatAt(worldX, worldZ, hash, elevParams);
+              const boat = smallBoatAt(
+                worldX,
+                worldZ,
+                hash,
+                elevParams,
+                gridSpacing
+              );
               if (boat) {
                 smallBoatPositions.push({
-                  ...boat,
-                  x: localX,
-                  y: WATER_LEVEL,
-                  z: localZ,
+                  type: boat.type,
+                  rotY: boat.rotY,
+                  x: localX + (boat.dx || 0),
+                  y: boat.y || WATER_LEVEL,
+                  z: localZ + (boat.dz || 0),
                 });
               }
             } else if (

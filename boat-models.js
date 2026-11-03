@@ -10,7 +10,6 @@ import * as THREE from 'three';
 import {createMaterial} from './constants.js';
 import * as rowboat from './third-party/polyfork/rowboat-c42d85.mjs';
 import * as woodenRowboat from './third-party/polyfork/wooden-rowboat-916981.mjs';
-import * as riverBoat from './third-party/polyfork/flat-river-boat-6bac37.mjs';
 import * as fishingBoat from './third-party/polyfork/small-fishing-boat-4ac0e3.mjs';
 import * as islandBoat from './third-party/polyfork/hanga-roa-fishing-boat-f09534.mjs';
 import * as sunkenBoat from './third-party/polyfork/sunken-fishing-boat-061c70.mjs';
@@ -197,10 +196,6 @@ export function buildSmallBoatGeos() {
       woodenRowboat.createAsset({colorway: 'weathered-oak'}),
       0.22
     ),
-    riverBoatBody: mergeAsset(
-      riverBoat.createAsset({colorway: 'tarred-cedar'}),
-      0.2
-    ),
     fishingBoatBody: mergeAsset(
       fishingBoat.createAsset({colorway: 'harbour-blue', parked: false}),
       0.35
@@ -212,7 +207,11 @@ export function buildSmallBoatGeos() {
     islandBoatBody: islandBoatGeo('red-and-yellow'),
     islandBoat2Body: islandBoatGeo('turquoise-and-white'),
   };
-  for (const type in geos) geos[type] = withFoam(geos[type]);
+  // Foam at the waterline, but not round the rowboats: they lie pulled up
+  // on the shore (terrain-gen.js smallBoatAt)
+  for (const type in geos) {
+    if (!/owboat/.test(type)) geos[type] = withFoam(geos[type]);
+  }
   // On the sea floor, so not sunk any further, and no foam
   geos.sunkenBoatBody = mergeAsset(
     sunkenBoat.createAsset({colorway: 'deep-wreck'}),
