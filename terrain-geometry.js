@@ -22,7 +22,6 @@ import {
 } from './building-models.js';
 import {
   PIRATE_SHIP_LOOKS,
-  boatMat,
   buildPirateShipGeos,
   foamRing,
   withFoam,
@@ -3490,11 +3489,20 @@ export var crystalMat = createMaterial({
 // (boat-models.js), indexed by a ship's bodyId, each with a
 // ring of foam at its waterline. Their water reflections are the same
 // geometries without the foam, flipped, in reflectionMat.
+const GHOST_SHIP_GLOW = 0x6fe3cf;
 export var pirateShipReflectionGeos = buildPirateShipGeos();
 export var pirateShipGeos = pirateShipReflectionGeos.map((geo) =>
   withFoam(geo, 0.8)
 );
-export var pirateShipMat = boatMat;
+// Its own copy of the boats' material, glowing a faint sea green after
+// dark (flight-camera.js turns the glow up with the night)
+export var pirateShipMat = createMaterial({
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.85,
+  emissive: GHOST_SHIP_GLOW,
+  emissiveIntensity: 0,
+});
 
 export var reflectionMat = new THREE.MeshBasicMaterial({
   color: 0x07151e,
