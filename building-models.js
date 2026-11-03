@@ -107,6 +107,7 @@ export function buildPierGeo() {
 // folded) and roof ('...Roof', thrown off). `roof` names the model's roof
 // colour, whose lowest point is the eave.
 //   type: [module, options, scale (times real size), roof colour or null]
+const GARDEN_SHED_SCALE = 1.8;
 const LANDMARKS = {
   fireLookout: [fireLookout, {colorway: 'sun-bleached', height: 1.18}, S, null],
   waterTower: [waterTower, {colorway: 'turquoise'}, S, null],
@@ -122,8 +123,20 @@ const LANDMARKS = {
   leanTo: [leanTo, {colorway: 'weathered-pine'}, S, 'roof'],
   mushroomCottage0: [mushroomCottage, {colorway: 'amanita'}, 9, 'cap'],
   mushroomCottage1: [mushroomCottage, {colorway: 'blueberry'}, 9, 'cap'],
-  gardenShed0: [gardenShed, {colorway: 'sage-garden'}, S, 'roof'],
-  gardenShed1: [gardenShed, {colorway: 'seaside-boards'}, S, 'roof'],
+  // Behind the village houses, drawn at their size (not S) so a shed
+  // isn't bigger than the house
+  gardenShed0: [
+    gardenShed,
+    {colorway: 'sage-garden'},
+    GARDEN_SHED_SCALE,
+    'roof',
+  ],
+  gardenShed1: [
+    gardenShed,
+    {colorway: 'seaside-boards'},
+    GARDEN_SHED_SCALE,
+    'roof',
+  ],
   // By the farmsteads' barns, the cold grey-green one up north (the last)
   farmhouse0: [farmhouse, {colorway: 'cream-plaster', storeys: 2}, S, 'roof'],
   farmhouse1: [farmhouse, {colorway: 'ochre-barn', storeys: 2}, S, 'roof'],
@@ -145,6 +158,8 @@ export const LANDMARK_HOUSES = [
   'farmhouse1',
   'farmhouse2',
   'farmhouse3',
+  'gardenShed0',
+  'gardenShed1',
 ];
 
 // The lowest point painted in a colour (the model's eave, for its roof)

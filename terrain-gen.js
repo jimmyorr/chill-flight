@@ -264,7 +264,14 @@ const LANDMARK_RULES = {
   leanTo: {chance: 0.4, clear: 7, flat: 4},
   fishShack: {chance: 0.5, clear: 11, flat: 4},
   farmhouse: {chance: 0.7, clear: 13, flat: 4},
+  // Placed behind the houses after the rest (GARDEN_SHED_*)
+  gardenShed: {chance: 0, clear: 0, flat: 0},
 };
+// How many village houses have a garden shed, how far behind the house's
+// middle it stands, and how far round it the trees are cleared (units)
+const GARDEN_SHED_CHANCE = 0.25;
+const GARDEN_SHED_BACK = 14;
+const GARDEN_SHED_CLEAR = 7;
 // How many paint schemes of farmhouse there are (farmhouse0Body, ...; the
 // last is for the north), and where it stands from its barn (units, in
 // the barn's frame: out along the strip and to the side)
@@ -4423,6 +4430,87 @@ export function generateChunkData({
       monasteryPositions,
       castleRuinsPositions,
     ].forEach(clear);
+  }
+
+  // A garden shed behind some of the village houses (not the towns' or
+  // the road villages'), its door toward the house, wherever it fits clear
+  // of the other houses and the roads, with the trees round it cleared
+  {
+    const houses = [...housePositions, ...twoStoryHousePositions];
+    const sheds = [];
+    for (const h of houses) {
+      if (h.roadVillage || h.style === 'adobe') continue;
+      const wx = Math.round(worldOffsetX + h.x);
+      const wz = Math.round(worldOffsetZ + h.z);
+      if (fieldHash(wx, wz, 1341) >= GARDEN_SHED_CHANCE) continue;
+      const side = (fieldHash(wx, wz, 1343) - 0.5) * 2 * (5 * h.sx - 3);
+      const at = rotateY(side, -GARDEN_SHED_BACK, h.rotY);
+      const x = h.x + at.x;
+      const z = h.z + at.z;
+      if (Math.abs(x) >= halfSize || Math.abs(z) >= halfSize) continue;
+      if (
+        houses.some(
+          (o) => o !== h && Math.hypot(o.x - x, o.z - z) < 6 + 6 * o.sx
+        ) ||
+        sheds.some((o) => Math.hypot(o.x - x, o.z - z) < 12) ||
+        landmarkPositions.some((o) => Math.hypot(o.x - x, o.z - z) < 20)
+      ) {
+        continue;
+      }
+      const gx = worldOffsetX + x;
+      const gz = worldOffsetZ + z;
+      const y = heightAtLocal(x, z);
+      if (
+        y < WATER_LEVEL + 3 ||
+        Math.abs(y - h.y) > 3 ||
+        ChillFlightLogic.highwayDistance(gx, gz) <
+          ChillFlightLogic.ROAD_WIDTH + 8 ||
+        ChillFlightLogic.isOnAccessRoad(gx, gz, 8, simplex, elevParams) ||
+        ChillFlightLogic.isOnSlipRoad(gx, gz, 8, simplex, elevParams)
+      ) {
+        continue;
+      }
+      sheds.push({
+        type: 'gardenShed' + (fieldHash(wx, wz, 1347) < 0.5 ? 0 : 1),
+        rule: 'gardenShed',
+        x,
+        y: Math.min(y, h.y),
+        z,
+        rotY: h.rotY,
+      });
+    }
+    if (sheds.length > 0) {
+      const r2 = GARDEN_SHED_CLEAR * GARDEN_SHED_CLEAR;
+      const clearShed = (arr) => {
+        let n = 0;
+        for (const q of arr) {
+          if (!sheds.some((c) => (q.x - c.x) ** 2 + (q.z - c.z) ** 2 < r2)) {
+            arr[n++] = q;
+          }
+        }
+        arr.length = n;
+      };
+      [
+        treePositions,
+        deciduousTreePositions,
+        tallDeciduousTreePositions,
+        snowTreePositions,
+        autumnTree1Positions,
+        autumnTree2Positions,
+        autumnTree3Positions,
+        cherryTreePositions,
+        japaneseMapleTreePositions,
+        deadTreePositions,
+        bushPositions,
+        rockPositions,
+        snowRockPositions,
+        hayBalePositions,
+        fallenLogPositions,
+        sheepPositions,
+        campfirePositions,
+      ].forEach(clearShed);
+      landmarkPositions.push(...sheds);
+    }
   }
 
   // Keep the props clear of the roads, where they ended up. The check above
