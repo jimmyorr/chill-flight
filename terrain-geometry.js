@@ -2836,6 +2836,7 @@ export var ROAD_ASPHALT = {
   dust: new THREE.Color().setHex(0x6f665a, THREE.LinearSRGBColorSpace), // Sun-bleached, sand-dusted
   snow: new THREE.Color().setHex(0x8d939b, THREE.LinearSRGBColorSpace), // Snow-dusted pale grey
   alien: new THREE.Color(0x504658), // A faint purple-grey
+  dirt: new THREE.Color().setHex(0xa88c64, THREE.LinearSRGBColorSpace), // Packed desert dirt
 };
 // A town street's slab of asphalt (a unit box, scaled to each piece)
 export var townStreetGeo = new THREE.BoxGeometry(1, 1, 1);

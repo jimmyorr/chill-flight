@@ -2227,6 +2227,31 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         }
       }
 
+      // A segment's place along the road, counted from world 0, for piers
+      // and streetlights at a steady cadence across chunks
+      const segmentIndex = (pos) =>
+        Math.round(
+          (alongOffset +
+            (alongX ? pos.x + pos.nextPos.x : pos.z + pos.nextPos.z) / 2) /
+            BRIDGE_SEGMENT_LENGTH
+        );
+
+      // Out in the desert the road wears to packed dirt (roadDirtAt), in
+      // patches of two segments where it's part way. Junctions, crossings
+      // and slip roads stay paved.
+      for (const pos of bridgePositions) {
+        const mx = (pos.x + pos.nextPos.x) / 2 + worldOffsetX;
+        const mz = (pos.z + pos.nextPos.z) / 2 + worldOffsetZ;
+        const dirt = ChillFlightLogic.roadDirtAt(mx, mz, simplex);
+        const patch = Math.floor(segmentIndex(pos) / 2);
+        const h = Math.sin(patch * 12.9898 + n * 78.233) * 43758.5453;
+        pos.dirt =
+          dirt > 0 &&
+          dirt > h - Math.floor(h) &&
+          !pos.junction &&
+          !inCrossingBox(mx, mz, alongX, sampleStep / 2);
+      }
+
       // The deck's centre line in world coordinates, for landing on the
       // road (sampleRoad)
       for (const pos of bridgePositions) {
@@ -2239,17 +2264,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           y1: pos.nextPos.y,
           // Raised sections have railings either side (below)
           rails: pos.needsPilings,
+          dirt: pos.dirt,
         });
       }
-
-      // A segment's place along the road, counted from world 0, for piers
-      // and streetlights at a steady cadence across chunks
-      const segmentIndex = (pos) =>
-        Math.round(
-          (alongOffset +
-            (alongX ? pos.x + pos.nextPos.x : pos.z + pos.nextPos.z) / 2) /
-            BRIDGE_SEGMENT_LENGTH
-        );
 
       if (bridgePositions.length > 0) {
         // 1. Determine which segments need girders, railings, and piers
@@ -2428,6 +2445,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           bridgePositions.forEach((pos) => {
             if (
               !pos.junction &&
+              !pos.dirt &&
               Math.abs(segmentIndex(pos)) % slFrequency === 0
             ) {
               numStreetlights++;
@@ -2471,13 +2489,18 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           // 1. Deck (paper-thin, for all segments)
           dummy.position.copy(midVec);
           dummy.lookAt(nextVec);
-          dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+          // A little longer than the segment, so no seam shows where the
+          // road bends over a rise
+          dummy.scale.set(1, 1, (dist + 1) / BRIDGE_SEGMENT_LENGTH);
           dummy.updateMatrix();
           deckInst.setMatrixAt(index, dummy.matrix);
           deckInst.setColorAt(
             index,
-            roadAsphaltAt(midVec.x + worldOffsetX, midVec.z + worldOffsetZ)
+            pos.dirt
+              ? ROAD_ASPHALT.dirt
+              : roadAsphaltAt(midVec.x + worldOffsetX, midVec.z + worldOffsetZ)
           );
+          dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
           // No markings in the box where it crosses another highway
           const inBox = inCrossingBox(
             midVec.x + worldOffsetX,
@@ -2485,7 +2508,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             alongX,
             sampleStep / 2
           );
-          if (inBox) dummy.scale.setScalar(0);
+          // Nor on dirt
+          if (inBox || pos.dirt) dummy.scale.setScalar(0);
           dummy.updateMatrix();
           for (const m of markingInsts) {
             if (m !== edgeInst) m.setMatrixAt(index, dummy.matrix);
@@ -2498,6 +2522,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
               dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
               if (
                 inBox ||
+                pos.dirt ||
                 ChillFlightLogic.isOnSlipRoad(
                   dummy.position.x + worldOffsetX,
                   dummy.position.z + worldOffsetZ,
@@ -2594,7 +2619,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           }
 
           // Streetlights
-          if (slFrequency > 0 && slIndex < numStreetlights && !pos.junction) {
+          if (
+            slFrequency > 0 &&
+            slIndex < numStreetlights &&
+            !pos.junction &&
+            !pos.dirt
+          ) {
             const globalSegmentIndex = segmentIndex(pos);
 
             if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
@@ -3351,6 +3381,7 @@ export function sampleRoad(x, z, out, vehicleY = null) {
     out.across = z - r.z;
     out.halfWidth = ChillFlightLogic.ACCESS_ROAD_WIDTH;
     out.rails = false;
+    out.dirt = false;
     sampleState.found = true;
   }
   return sampleState.found;
