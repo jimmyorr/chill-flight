@@ -1273,9 +1273,10 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
   lineInst.castShadow = false;
 }
 
-// Is world (x, z), on a highway (the cross-country one if crossCountry),
-// inside the box where it crosses the other? Its lane markings stop there,
-// so the crossing is plain asphalt. Out to `pad` past the other's edge.
+// Is world (x, z), on a highway (one running along x if crossCountry: the
+// cross-country or north coast one), inside the box where it crosses
+// another? Its lane markings stop there, so the crossing is plain asphalt.
+// Out to `pad` past the other's edge.
 function inCrossingBox(x, z, crossCountry, pad) {
   const constants = {WATER_LEVEL, MOUNTAIN_LEVEL};
   const reach = (slope) =>
@@ -1302,6 +1303,18 @@ function inCrossingBox(x, z, crossCountry, pad) {
       Math.abs(x - ChillFlightLogic.getRoadCenterX(z, n)) < reach(slope) &&
       ChillFlightLogic.highwayRunsAt(n, z, simplex, constants)
     );
+  }
+  // Where the north coast one crosses it
+  const north = ChillFlightLogic.ROAD_NORTH;
+  const northSpan = ChillFlightLogic.northRoadSpan();
+  if (northSpan && x >= northSpan[0] - 200 && x <= northSpan[1] + 200) {
+    const nx = Math.max(northSpan[0], Math.min(northSpan[1], x));
+    const nz = ChillFlightLogic.roadCenter(north, nx);
+    const slope =
+      (ChillFlightLogic.roadCenter(north, nx + 5) -
+        ChillFlightLogic.roadCenter(north, nx - 5)) /
+      10;
+    if (Math.abs(z - nz) < reach(slope)) return true;
   }
   if (
     x <= ChillFlightLogic.ROAD_EW_WEST ||
@@ -1912,16 +1925,37 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         activeRoads.push(ChillFlightLogic.ROAD_EAST);
       }
     }
+    // The north coast one, between its T junctions
+    const northSpan = ChillFlightLogic.northRoadSpan();
+    if (
+      northSpan &&
+      worldOffsetX + halfChunk > northSpan[0] - 1000 &&
+      worldOffsetX - halfChunk < northSpan[1] + 1000
+    ) {
+      const nz = ChillFlightLogic.roadCenter(
+        ChillFlightLogic.ROAD_NORTH,
+        Math.max(northSpan[0], Math.min(northSpan[1], worldOffsetX))
+      );
+      if (Math.abs(nz - worldOffsetZ) < halfChunk * 3 + 2000) {
+        activeRoads.push(ChillFlightLogic.ROAD_NORTH);
+      }
+    }
 
     const roadSegments = [];
     activeRoads.forEach((n) => {
       const crossCountry = n === ChillFlightLogic.ROAD_EW;
       // The east coast one starts at a T junction on the cross-country one
-      // (eastStart), and runs east of 0 longitude
+      // (spanStart), and runs east of 0 longitude
       const east = n === ChillFlightLogic.ROAD_EAST;
-      const eastStart = east ? eastSpan[0] : -Infinity;
-      const alongOffset = crossCountry ? worldOffsetX : worldOffsetZ;
-      const acrossOffset = crossCountry ? worldOffsetZ : worldOffsetX;
+      // The north coast one runs along x like the cross-country one, from
+      // a T junction on one north-south highway to another
+      const north = n === ChillFlightLogic.ROAD_NORTH;
+      const alongX = crossCountry || north;
+      // Where along it a road that starts or ends at a T junction does
+      const spanStart = east ? eastSpan[0] : north ? northSpan[0] : -Infinity;
+      const spanEnd = north ? northSpan[1] : Infinity;
+      const alongOffset = alongX ? worldOffsetX : worldOffsetZ;
+      const acrossOffset = alongX ? worldOffsetZ : worldOffsetX;
       const bridgePositions = [];
       const sampleStep = BRIDGE_SEGMENT_LENGTH;
 
@@ -1956,7 +1990,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       ) {
         const wa = alongOffset + sampleA + sampleStep / 2;
         const roadC = ChillFlightLogic.roadCenter(n, wa);
-        if (!crossCountry && !east && roadC >= 0) continue;
+        if (!alongX && !east && roadC >= 0) continue;
 
         const {rawY, actualTerrainH} = sampleRoadHeight(wa, roadC);
 
@@ -1966,12 +2000,13 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           // The cross-country one's last segment reaches ROAD_EW_END,
           // where it's cut off (below)
           onRoute:
-            wa + sampleStep > eastStart &&
+            wa + sampleStep > spanStart &&
+            wa - sampleStep < spanEnd &&
             ChillFlightLogic.highwayRunsAt(
               n,
               crossCountry && wa - sampleStep < ewEnd
                 ? Math.min(wa, ewEnd)
-                : Math.max(wa, eastStart),
+                : Math.min(spanEnd, Math.max(wa, spanStart)),
               simplex,
               constants
             ),
@@ -1979,7 +2014,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           rawY,
           actualTerrainH,
           // Under the deck of the other road where they meet
-          junction: crossCountry
+          junction: alongX
             ? atJunction(wa, roadC)
             : east && atEastJunction(roadC, wa),
         });
@@ -2076,7 +2111,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           // The cross-country one carries on into Meadow Field's access
           // road, and the east coast one into the cross-country one
           (crossCountry && wa > ewEnd) ||
-          (east && wa < eastStart) ||
+          // and the north coast one into the north-south ones at its ends
+          wa < spanStart ||
+          wa > spanEnd ||
           ChillFlightLogic.highwayRunsAt(n, wa, simplex, constants);
         for (let i = 0; i < rawSamples.length; i++) {
           if (!rawSamples[i].onRoute) continue;
@@ -2131,15 +2168,16 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           const needsPilings = finalY[i] - curr.actualTerrainH > 10;
 
           let a0 = curr.sampleA + sampleStep / 2;
-          if (alongOffset + a0 < eastStart) a0 = eastStart - alongOffset;
+          if (alongOffset + a0 < spanStart) a0 = spanStart - alongOffset;
           let a1 = curr.sampleA + sampleStep * 1.5;
+          if (alongOffset + a1 > spanEnd) a1 = spanEnd - alongOffset;
           if (crossCountry && alongOffset + a1 > ewEnd) {
             a1 = ewEnd - alongOffset;
           }
           bridgePositions.push({
-            x: crossCountry ? a0 : curr.localC,
+            x: alongX ? a0 : curr.localC,
             y: finalY[i],
-            z: crossCountry ? curr.localC : a0,
+            z: alongX ? curr.localC : a0,
             needsPilings: needsPilings,
             terrainH: curr.actualTerrainH,
             // No streetlights there, nor where a slip road joins
@@ -2147,18 +2185,18 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
               curr.junction ||
               next.junction ||
               ChillFlightLogic.isOnSlipRoad(
-                (crossCountry ? a0 + a1 : curr.localC + next.localC) / 2 +
+                (alongX ? a0 + a1 : curr.localC + next.localC) / 2 +
                   worldOffsetX,
-                (crossCountry ? curr.localC + next.localC : a0 + a1) / 2 +
+                (alongX ? curr.localC + next.localC : a0 + a1) / 2 +
                   worldOffsetZ,
                 ChillFlightLogic.ROAD_WIDTH + 4,
                 simplex,
                 constants
               ),
             nextPos: {
-              x: crossCountry ? a1 : next.localC,
+              x: alongX ? a1 : next.localC,
               y: finalY[i + 1],
-              z: crossCountry ? next.localC : a1,
+              z: alongX ? next.localC : a1,
             },
           });
         }
@@ -2184,8 +2222,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       const segmentIndex = (pos) =>
         Math.round(
           (alongOffset +
-            (crossCountry ? pos.x + pos.nextPos.x : pos.z + pos.nextPos.z) /
-              2) /
+            (alongX ? pos.x + pos.nextPos.x : pos.z + pos.nextPos.z) / 2) /
             BRIDGE_SEGMENT_LENGTH
         );
 
@@ -2393,7 +2430,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           const inBox = inCrossingBox(
             midVec.x + worldOffsetX,
             midVec.z + worldOffsetZ,
-            crossCountry,
+            alongX,
             sampleStep / 2
           );
           if (inBox) dummy.scale.setScalar(0);

@@ -2249,6 +2249,8 @@ export const ChillFlightLogic = {};
     }
     const east = eastRoadOffset(x, z, far);
     if (east < far) clear = Math.min(clear, smoothRamp(east, near, far));
+    const north = northRoadOffset(x, z, far);
+    if (north < far) clear = Math.min(clear, smoothRamp(north, near, far));
     return clear;
   }
 
@@ -3067,7 +3069,8 @@ export const ChillFlightLogic = {};
     }
 
     // --- LARGE LAKES LOGIC (West) ---
-    if (x < -3000) {
+    // (Left out for tracing the north coast road, which looks for the sea)
+    if (x < -3000 && !options.ignoreLakes) {
       const lakeRegion = cylNoise(x, (nx, ny) =>
         simplex.noise3D(nx * 0.0001 + 200, z * 0.0001 + 200, ny * 0.0001 + 200)
       );
@@ -3520,6 +3523,18 @@ export const ChillFlightLogic = {};
           ROAD_EAST,
           origZ,
           origX,
+          simplex,
+          constants,
+          _lerp
+        );
+      }
+      // The north coast one, along its traced stretch
+      if (northRoadOffset(origX, origZ, 3600) < 3600) {
+        n = carveRoadTrench(
+          n,
+          ROAD_NORTH,
+          origX,
+          origZ,
           simplex,
           constants,
           _lerp
@@ -4520,17 +4535,292 @@ export const ChillFlightLogic = {};
     return Math.abs(x - eastRoadX(z));
   }
 
+  // --- THE NORTH COAST ROAD ---
+  // Highway ROAD_NORTH runs east-west along the main continent's north
+  // shore, a little inland, the east coast one's trace turned on its side:
+  // every NORTH.STEP of x it finds the coast looking north (the last land
+  // before NORTH.OPEN of open water, so lakes and the drift ice don't stop
+  // it), keeps NORTH.INSET inland of a high percentile of that nearby and
+  // smooths it. It runs from a T junction on highway 0 west to one on the
+  // last highway short of the western alien land, crossing the others
+  // (northRoadJoin).
+  const ROAD_NORTH = ROAD_EAST + 1;
+  const NORTH = {
+    STEP: 500,
+    SCAN: 250,
+    OPEN: 3000,
+    ISLAND: 1000,
+    INSET: 2000,
+    PERCENTILE: 0.75, // Of z: toward the inland (south) side
+    WINDOW: 4000,
+    GAP: 4000,
+    MIN_LAND: 2000,
+    START_Z: -6000, // Where each look north starts
+    X_MIN: -70000,
+    X_MAX: 10000,
+    MAX_SLOPE: 1.2,
+  };
+  const ROAD_NORTH_AIRPORT_CLEAR = 1300;
+  let northLine = null;
+  let northLineKey = null;
+  let tracingNorth = false;
+  function northRoadLine() {
+    const key = `${exports.WORLD_SEED}|${exports.CONTINENT}`;
+    if (northLineKey === key) return northLine;
+    if (tracingNorth || !roadNoise || exports.customMap) return null;
+    tracingNorth = true;
+    try {
+      northLine = traceNorthCoast(roadNoise);
+      if (northLine && !northRoadJoin(northLine, roadNoise)) northLine = null;
+      northLineKey = key;
+    } finally {
+      tracingNorth = false;
+    }
+    return northLine;
+  }
+  function traceNorthCoast(simplex) {
+    const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+    // Its big lakes as land, so the coast is the sea's
+    const land = (x, z) =>
+      getElevation(x, z, simplex, constants, null, {
+        ignoreRivers: true,
+        ignoreRoads: true,
+        ignoreLakes: true,
+        forRoad: true,
+      }) > constants.WATER_LEVEL;
+    const count = Math.round((NORTH.X_MAX - NORTH.X_MIN) / NORTH.STEP) + 1;
+    const open = NORTH.OPEN / NORTH.SCAN;
+    const coast = [];
+    for (let k = 0; k < count; k++) {
+      const x = NORTH.X_MIN + k * NORTH.STEP;
+      let last = null;
+      let landRun = 0;
+      let water = 0;
+      // Land counts as the coast only NORTH.ISLAND or more across (z), so
+      // the islands and skerries off the shore don't lead it out to sea
+      let run = 0;
+      for (let i = 0; i < 400; i++) {
+        const z = NORTH.START_Z - i * NORTH.SCAN;
+        if (land(x, z)) {
+          run++;
+          if (last === null || run * NORTH.SCAN >= NORTH.ISLAND) {
+            last = z;
+            water = 0;
+          }
+          landRun++;
+        } else if (last !== null) {
+          run = 0;
+          if (++water >= open) break;
+        } else if (i > 40) {
+          break;
+        }
+      }
+      coast.push(
+        last !== null && landRun * NORTH.SCAN >= NORTH.MIN_LAND ? last : null
+      );
+    }
+    const win = Math.round(NORTH.WINDOW / NORTH.STEP);
+    const inland = coast.map((c, k) => {
+      if (c === null) return null;
+      const near = [];
+      for (
+        let j = Math.max(0, k - win);
+        j <= Math.min(count - 1, k + win);
+        j++
+      ) {
+        if (coast[j] !== null) near.push(coast[j]);
+      }
+      near.sort((a, b) => a - b);
+      return (
+        near[Math.floor((near.length - 1) * NORTH.PERCENTILE)] + NORTH.INSET
+      );
+    });
+    // Short gaps (a bay, a sound) are bridged straight across
+    for (let k = 0; k < count;) {
+      if (inland[k] !== null) {
+        k++;
+        continue;
+      }
+      let e = k;
+      while (e + 1 < count && inland[e + 1] === null) e++;
+      const a = inland[k - 1];
+      const b = inland[e + 1];
+      if (
+        a !== undefined &&
+        b !== undefined &&
+        b !== null &&
+        e - k + 1 <= NORTH.GAP / NORTH.STEP
+      ) {
+        for (let j = k; j <= e; j++) {
+          inland[j] = a + ((b - a) * (j - k + 1)) / (e - k + 2);
+        }
+      }
+      k = e + 1;
+    }
+    let best = [0, -1];
+    for (let k = 0; k < count;) {
+      if (inland[k] === null) {
+        k++;
+        continue;
+      }
+      let e = k;
+      while (e + 1 < count && inland[e + 1] !== null) e++;
+      if (e - k > best[1] - best[0]) best = [k, e];
+      k = e + 1;
+    }
+    if (best[1] - best[0] < 8) return null;
+    let zs = inland.slice(best[0], best[1] + 1);
+    const smooth = (arr) =>
+      arr.map((_, k) => {
+        let sum = 0;
+        let n = 0;
+        for (let j = k - win; j <= k + win; j++) {
+          sum += arr[Math.max(0, Math.min(arr.length - 1, j))];
+          n++;
+        }
+        return sum / n;
+      });
+    zs = smooth(smooth(zs));
+    const maxStep = NORTH.MAX_SLOPE * NORTH.STEP;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let k = 1; k < zs.length; k++) {
+        zs[k] = Math.max(
+          zs[k - 1] - maxStep,
+          Math.min(zs[k - 1] + maxStep, zs[k])
+        );
+      }
+      for (let k = zs.length - 2; k >= 0; k--) {
+        zs[k] = Math.max(
+          zs[k + 1] - maxStep,
+          Math.min(zs[k + 1] + maxStep, zs[k])
+        );
+      }
+    }
+    return {
+      minZ: Math.min(...zs) - ROAD_NORTH_AIRPORT_CLEAR - 1000,
+      maxZ: Math.max(...zs) + ROAD_NORTH_AIRPORT_CLEAR + 1000,
+      x0: NORTH.X_MIN + best[0] * NORTH.STEP,
+      xStart: NORTH.X_MIN + best[0] * NORTH.STEP,
+      xEnd: NORTH.X_MIN + best[1] * NORTH.STEP,
+      zs: Float64Array.from(zs),
+    };
+  }
+  // The traced line at x, through its points as a smooth (Catmull-Rom)
+  // curve
+  function northLineZ(line, x) {
+    const {zs, x0} = line;
+    const f = Math.max(0, Math.min(zs.length - 1, (x - x0) / NORTH.STEP));
+    const k = Math.min(zs.length - 2, Math.floor(f));
+    const t = f - k;
+    const p = (j) => zs[Math.max(0, Math.min(zs.length - 1, j))];
+    const p0 = p(k - 1);
+    const p1 = p(k);
+    const p2 = p(k + 1);
+    const p3 = p(k + 2);
+    return (
+      0.5 *
+      (2 * p1 +
+        (p2 - p0) * t +
+        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t +
+        (3 * p1 - p0 - 3 * p2 + p3) * t * t * t)
+    );
+  }
+  // The traced line, kept clear of the airports near it (on the side of
+  // each that the line runs)
+  function northRawZ(line, x) {
+    let z = northLineZ(line, x);
+    if (!line.obstacles) {
+      line.obstacles = AIRPORTS.filter(
+        (a) => Math.abs(northLineZ(line, a.x) - a.z) < 6000
+      ).map((a) => ({a, side: northLineZ(line, a.x) < a.z ? -1 : 1}));
+    }
+    for (const {a, side} of line.obstacles) {
+      const near = 1 - smoothRamp(Math.abs(x - a.x), 2500, 7000);
+      if (near === 0) continue;
+      const over = (a.z - z) * side + ROAD_NORTH_AIRPORT_CLEAR;
+      const excess = 0.5 * (over + Math.sqrt(over * over + 500 * 500));
+      z += excess * near * side;
+    }
+    return z;
+  }
+  // The north coast road's centre z at x
+  function northRoadZ(x) {
+    const line = northRoadLine();
+    return line ? northRawZ(line, x) : -1e9;
+  }
+  // Where it crosses the north-south highways: it runs from highway 0
+  // (its east end, a T junction; or the next one west, where highway 0
+  // ends short of it) west to the last one it crosses short of the western
+  // alien land (another). False if it doesn't reach two of them.
+  function northRoadJoin(line, simplex) {
+    const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+    const crossings = [];
+    for (let n = 0; n <= ROAD_LAST; n++) {
+      let x = ROAD_BASE_X + n * ROAD_SPACING;
+      let z = 0;
+      for (let i = 0; i < 20; i++) {
+        z = northRawZ(line, x);
+        x = getRoadCenterX(z, n);
+      }
+      if (
+        x <= line.xStart + 200 ||
+        x >= line.xEnd - 200 ||
+        x < westAlienEdge(z, simplex)
+      ) {
+        if (n === 0) return false;
+        break;
+      }
+      // (One that ends short of it, at a bay, it passes by)
+      if (highwayRunsAt(n, z, simplex, constants)) crossings[n] = x;
+    }
+    const xs = crossings.filter((x) => x !== undefined);
+    if (xs.length < 2) return false;
+    line.xEnd = xs[0];
+    line.xStart = xs[xs.length - 1];
+    // By highway (sparse where one doesn't reach it)
+    line.crossings = crossings;
+    return true;
+  }
+  // Where along x the north coast road runs, or null
+  function northRoadSpan() {
+    const line = northRoadLine();
+    return line ? [line.xStart, line.xEnd] : null;
+  }
+  function onNorthSpan(x) {
+    const line = northRoadLine();
+    return !!line && x >= line.xStart && x <= line.xEnd;
+  }
+  // How far (x, z) is from the north coast road's centre line, across
+  // (along z), or Infinity where it's nowhere near
+  function northRoadOffset(x, z, reach) {
+    const line = northRoadLine();
+    if (!line || x < line.xStart || x > line.xEnd) return Infinity;
+    if (z < line.minZ - reach || z > line.maxZ + reach) return Infinity;
+    return Math.abs(z - northRawZ(line, x));
+  }
+  // As eastRoadNear
+  function northRoadNear(x, z, reach = 6000) {
+    const off = northRoadOffset(x, z, reach);
+    return off < reach ? {n: ROAD_NORTH, along: x, off} : null;
+  }
+  // Does road n run along x (the cross-country and north coast ones), or
+  // along z (the rest)?
+  function roadAlongX(n) {
+    return n === ROAD_EW || n === ROAD_NORTH;
+  }
+
   // A highway's line, for code that handles them all alike: `along` is the
   // coordinate it runs along (z for the north-south ones, x for ROAD_EW) and
   // roadCenter gives the other one, `across`, at its centre
   function roadCenter(n, along) {
+    if (n === ROAD_NORTH) return northRoadZ(along);
     return n === ROAD_EW ? getRoadCenterZ(along) : getRoadCenterX(along, n);
   }
 
   // The world point (out.x, out.z) at `along`, `across` on road n
   function roadPoint(n, along, across, out = {}) {
-    out.x = n === ROAD_EW ? along : across;
-    out.z = n === ROAD_EW ? across : along;
+    out.x = roadAlongX(n) ? along : across;
+    out.z = roadAlongX(n) ? across : along;
     return out;
   }
   const _roadXZ = {x: 0, z: 0};
@@ -4552,6 +4842,7 @@ export const ChillFlightLogic = {};
       land =
         (n !== ROAD_EW || (along > ROAD_EW_WEST && along < ROAD_EW_EAST)) &&
         (n !== ROAD_EAST || onEastSpan(along)) &&
+        (n !== ROAD_NORTH || onNorthSpan(along)) &&
         getElevation(p.x, p.z, simplex, constants, null, {
           ignoreRivers: true,
           ignoreRoads: true,
@@ -4614,6 +4905,8 @@ export const ChillFlightLogic = {};
     if (n === ROAD_EW && along > ROAD_EW_END) return false;
     // The east coast one starts where it meets the cross-country one
     if (n === ROAD_EAST && !onEastSpan(along)) return false;
+    // The north coast one runs between its two T junctions
+    if (n === ROAD_NORTH && !onNorthSpan(along)) return false;
     if (routeSeed !== exports.WORLD_SEED || routeLand.size > 200000) {
       routeLand.clear();
       routeOn.clear();
@@ -4918,14 +5211,15 @@ export const ChillFlightLogic = {};
   }
 
   // One corner's slip road, from highway n on its `sa` side (+1 south of
-  // the crossing c) to the cross-country one on its `sb` side (+1 east):
+  // the crossing c) to the cross-country one (or the east-west road ew) on
+  // its `sb` side (+1 east):
   // its centre line as [{x, y, z}] (y the middle of its deck, as for a
   // highway's segments), or null where it can't be built
-  function buildSlipRoad(n, c, sa, sb, simplex, constants) {
+  function buildSlipRoad(n, c, sa, sb, simplex, constants, ew = ROAD_EW) {
     const water = constants.WATER_LEVEL || 40;
     // The two roads' directions out of the crossing into this corner
     const dn = roadDirection(n, c.z);
-    const de = roadDirection(ROAD_EW, c.x);
+    const de = roadDirection(ew, c.x);
     const u = {x: dn.x * sa, z: dn.z * sa};
     const v = {x: de.x * sb, z: de.z * sb};
     const cos = u.x * v.x + u.z * v.z;
@@ -4961,7 +5255,7 @@ export const ChillFlightLogic = {};
     let a, b, ta, tb, da, db, turn;
     for (let i = 0; i < 8; i++) {
       a = lane(n, endN, v);
-      b = lane(ROAD_EW, endE, u);
+      b = lane(ew, endE, u);
       // Into the crossing along n, out of it along the cross-country one
       ta = {x: a.d.x * -sa, z: a.d.z * -sa};
       tb = {x: b.d.x * sb, z: b.d.z * sb};
@@ -4977,7 +5271,7 @@ export const ChillFlightLogic = {};
     }
     if (
       !highwayRunsAt(n, endN + sa * SLIP.LEAD, simplex, constants) ||
-      !highwayRunsAt(ROAD_EW, endE + sb * SLIP.LEAD, simplex, constants)
+      !highwayRunsAt(ew, endE + sb * SLIP.LEAD, simplex, constants)
     ) {
       return null;
     }
@@ -5016,7 +5310,7 @@ export const ChillFlightLogic = {};
       heading = hd;
       if (i > 2 && i < pts.length - 3) {
         const offN = Math.abs(p.x - getRoadCenterX(p.z, n));
-        const offE = Math.abs(p.z - getRoadCenterZ(p.x));
+        const offE = Math.abs(p.z - roadCenter(ew, p.x));
         if (Math.min(offN, offE) < SLIP_OFFSET - 1) return null;
       }
     }
@@ -5036,10 +5330,12 @@ export const ChillFlightLogic = {};
   let _slipRoads = null;
   let _slipRoadsSig = null;
   function slipRoads(simplex, constants) {
-    const sig = `${exports.WORLD_SEED}:${simplex.noise2D(0.123, 0.456)}`;
+    const sig = `${exports.WORLD_SEED}:${exports.CONTINENT}:${simplex.noise2D(0.123, 0.456)}`;
     if (sig === _slipRoadsSig) return _slipRoads;
     _slipRoadsSig = sig;
     _slipRoads = [];
+    // Where each east-west road crosses the north-south ones
+    const crossings = [];
     for (let n = 0; n <= ROAD_LAST; n++) {
       const c = highwayCrossing(n);
       if (
@@ -5050,9 +5346,24 @@ export const ChillFlightLogic = {};
       ) {
         continue;
       }
+      crossings.push({n, c, ew: ROAD_EW});
+    }
+    // The north coast one's (two of them its ends, T junctions: only the
+    // corners on its side get one, as it doesn't run past them)
+    const north = northRoadLine();
+    if (north) {
+      north.crossings.forEach((x, n) => {
+        crossings.push({n, c: {x, z: northRoadZ(x)}, ew: ROAD_NORTH});
+      });
+    }
+    // Not kept while the north coast road is still being traced (its
+    // trace reaches here through the airfields' heights), or they'd be
+    // left without its own
+    if (!north && tracingNorth) _slipRoadsSig = null;
+    for (const {n, c, ew} of crossings) {
       for (const sa of [-1, 1]) {
         for (const sb of [-1, 1]) {
-          const pts = buildSlipRoad(n, c, sa, sb, simplex, constants);
+          const pts = buildSlipRoad(n, c, sa, sb, simplex, constants, ew);
           if (!pts) continue;
           const xs = pts.map((p) => p.x);
           const zs = pts.map((p) => p.z);
@@ -5100,9 +5411,18 @@ export const ChillFlightLogic = {};
   }
 
   // Slip roads can only be near the cross-country highway's line, where
-  // it crosses the north-south ones (x < 0)
+  // it crosses the north-south ones (x < 0), or the north coast one's
   function nearSlipRoads(x, z) {
-    return x < 2000 && Math.abs(z - ROAD_EW_BASE_Z) < 7000;
+    if (x >= 2000) return false;
+    if (Math.abs(z - ROAD_EW_BASE_Z) < 7000) return true;
+    const north = northRoadLine();
+    return (
+      !!north &&
+      x > north.xStart - 2000 &&
+      x < north.xEnd + 2000 &&
+      z > north.minZ - 2000 &&
+      z < north.maxZ + 2000
+    );
   }
 
   // Whether (x, z) is on a slip road, plus margin: props stay off it
@@ -5231,6 +5551,11 @@ export const ChillFlightLogic = {};
       const slope = (eastRoadX(z + 2) - eastRoadX(z - 2)) / 4;
       dist = Math.min(dist, east / Math.hypot(1, slope));
     }
+    const north = northRoadOffset(x, z, 400);
+    if (north < 400) {
+      const slope = (northRoadZ(x + 2) - northRoadZ(x - 2)) / 4;
+      dist = Math.min(dist, north / Math.hypot(1, slope));
+    }
     return dist;
   }
 
@@ -5249,6 +5574,7 @@ export const ChillFlightLogic = {};
       dist = Math.min(dist, Math.abs(z - getRoadCenterZ(x)));
     }
     dist = Math.min(dist, eastRoadOffset(x, z, ROAD_WIDTH + ROAD_SHOULDER));
+    dist = Math.min(dist, northRoadOffset(x, z, ROAD_WIDTH + ROAD_SHOULDER));
 
     if (dist <= ROAD_WIDTH) {
       return 1.0;
@@ -5305,6 +5631,10 @@ export const ChillFlightLogic = {};
   exports.ROAD_EAST = ROAD_EAST;
   exports.eastRoadSpan = eastRoadSpan;
   exports.eastRoadNear = eastRoadNear;
+  exports.ROAD_NORTH = ROAD_NORTH;
+  exports.northRoadSpan = northRoadSpan;
+  exports.northRoadNear = northRoadNear;
+  exports.roadAlongX = roadAlongX;
   exports.AIRPORTS = AIRPORTS;
   exports.RUNWAY_LENGTH = RUNWAY_LENGTH;
   exports.RUNWAY_WIDTH = RUNWAY_WIDTH;
