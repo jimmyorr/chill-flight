@@ -135,6 +135,7 @@ import {
   persistentLighthouseBeam,
   persistentLighthouseLight,
   pierDeckGeo,
+  pierDeckMat,
   pierPostGeo,
   pirateShipGeos,
   pirateShipReflectionGeos,
@@ -174,14 +175,11 @@ import {
   streetlightBulbMat,
   streetlightDecalGeo,
   streetlightDecalMat,
+  tentGeos,
+  tentMat,
   streetlightPoleGeo,
   streetlightPoleMat,
   tallDeciduousGeos,
-  tentEntranceGeo,
-  tentEntranceMat,
-  tentGeo,
-  tentPalette,
-  tentPolesGeo,
   terrainMaterial,
   treeLeavesBaseMat,
   treeLeavesGeo,
@@ -220,6 +218,7 @@ import {
   buildingMat,
   LANDMARK_HOUSES,
   LANDMARK_TOWERS,
+  PIER_DECK_TOP,
 } from './building-models.js';
 import {log} from './logger.js';
 import {simplex} from './noise.js';
@@ -579,14 +578,12 @@ export const debrisTypes = new Map();
 const _furledSail = new THREE.Matrix4();
 const _NO_BOAT = new THREE.Matrix4().makeScale(0, 0, 0);
 const debrisType = (type, geo, mat) => debrisTypes.set(type, {geo, mat});
-debrisType('pierDeck', pierDeckGeo, woodMat);
+debrisType('pierDeck', pierDeckGeo, pierDeckMat);
 debrisType('fireLog', fireLogGeo, woodMat);
 debrisType('fireCore', fireCoreGeo, fireMat);
 debrisType('fireSmoke', smokeGeo, smokeMat);
 debrisType('fireGlow', streetlightDecalGeo, fireGlowMat);
-debrisType('tentPoles', tentPolesGeo, woodMat);
-debrisType('tentEntrance', tentEntranceGeo, tentEntranceMat);
-tentPalette.forEach((mat, i) => debrisType('tent' + i, tentGeo, mat));
+tentGeos.forEach((geo, i) => debrisType('tent' + i, geo, tentMat));
 debrisType('bridgePierShaft', bridgePierShaftGeo, bridgePilingMat);
 debrisType('bridgePierFooting', bridgePierFootingGeo, bridgePilingMat);
 debrisType('streetlightPole', streetlightPoleGeo, streetlightPoleMat);
@@ -1807,7 +1804,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   if (pierPositions.length > 0) {
     const deckInst = getInstancedMesh(
       pierDeckGeo,
-      woodMat,
+      pierDeckMat,
       pierPositions.length
     );
     const postInst = getInstancedMesh(
@@ -1817,7 +1814,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     );
 
     pierPositions.forEach((pos, index) => {
-      dummy.position.set(pos.x, pos.y - 1, pos.z);
+      // The deck at its old height (1 above the shore), its posts down
+      // into the sand and water
+      dummy.position.set(pos.x, pos.y + 1 - PIER_DECK_TOP, pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.updateMatrix();
       deckInst.setMatrixAt(index, dummy.matrix);
@@ -1826,18 +1825,19 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         parts: [{type: 'pierDeck', mesh: deckInst, index}],
       });
 
-      // Posts
+      // Pilings carrying the deck's outer posts on down to the bottom
       const offsets = [
-        [-6, 10],
-        [6, 10],
-        [-6, 25],
-        [6, 25],
+        [-6.6, 10.5],
+        [6.6, 10.5],
+        [-6.6, 31],
+        [6.6, 31],
       ];
       offsets.forEach((off, i) => {
-        const p = new THREE.Vector3(off[0], -5, off[1]).applyAxisAngle(
-          yAxis,
-          pos.rotY
-        );
+        const p = new THREE.Vector3(
+          off[0],
+          1 - PIER_DECK_TOP - 5,
+          off[1]
+        ).applyAxisAngle(yAxis, pos.rotY);
         dummy.position.set(pos.x + p.x, pos.y + p.y, pos.z + p.z);
         dummy.rotation.set(0, 0, 0);
         dummy.updateMatrix();
@@ -2597,7 +2597,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       fireGlowMat,
       campfirePositions.length
     );
-    const numTentColors = tentPalette.length;
+    const numTentColors = tentGeos.length;
     const tentCounts = Array(numTentColors).fill(0);
     const tentColorIndices = []; // Maps index to colorIndex
 
@@ -2609,29 +2609,15 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     });
 
     const tentInsts = [];
-    const tentPolesInst = getInstancedMesh(
-      tentPolesGeo,
-      woodMat,
-      campfirePositions.length
-    );
-    const tentEntranceInst = getInstancedMesh(
-      tentEntranceGeo,
-      tentEntranceMat,
-      campfirePositions.length
-    );
     const currentComboIndices = Array(numTentColors).fill(0);
 
     for (let i = 0; i < numTentColors; i++) {
       if (tentCounts[i] > 0) {
-        tentInsts[i] = getInstancedMesh(tentGeo, tentPalette[i], tentCounts[i]);
+        tentInsts[i] = getInstancedMesh(tentGeos[i], tentMat, tentCounts[i]);
         tentInsts[i].position.set(worldOffsetX, 0, worldOffsetZ);
         objectsGroup.add(tentInsts[i]);
       }
     }
-
-    tentPolesInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    tentEntranceInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(tentPolesInst, tentEntranceInst);
 
     campfirePositions.forEach((pos, index) => {
       const structure = ModelAssembler.getStructure('campfire', pos.rotY || 0);
@@ -2710,14 +2696,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       const instIdx = currentComboIndices[colorIdx]++;
       tentInsts[colorIdx].setMatrixAt(instIdx, dummy.matrix);
 
-      tentPolesInst.setMatrixAt(index, dummy.matrix);
-      tentEntranceInst.setMatrixAt(index, dummy.matrix);
       meshProps.push({
         kind: BREAKABLE.TREE,
         parts: [
           {type: 'tent' + colorIdx, mesh: tentInsts[colorIdx], index: instIdx},
-          {type: 'tentPoles', mesh: tentPolesInst, index},
-          {type: 'tentEntrance', mesh: tentEntranceInst, index},
         ],
       });
     });

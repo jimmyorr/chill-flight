@@ -17,6 +17,8 @@ import * as leanTo from './third-party/polyfork/lean-to-shelter-f0709f.mjs';
 import * as mushroomCottage from './third-party/polyfork/mushroom-cottage-1135d1.mjs';
 import * as gardenShed from './third-party/polyfork/backyard-garden-shed-38d79f.mjs';
 import * as stoneChapel from './third-party/polyfork/stone-chapel-03e774.mjs';
+import * as campTent from './third-party/polyfork/camp-tent-3c5c89.mjs';
+import * as pierSection from './third-party/polyfork/pier-deck-section-7047d7.mjs';
 import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
 
 export const buildingMat = createMaterial({
@@ -69,6 +71,33 @@ export function buildChapelGeos() {
     body: mergeAsset(asset, 0, S, 0, (y, hex) => y < eave && !cross(y, hex)),
     roof: mergeAsset(asset, 0, S, 0, (y, hex) => y >= eave && !cross(y, hex)),
   };
+}
+
+// The campers' tents by the campfires (terrain-chunks.js): Polyfork's Camp
+// Tent in three colours, door open toward +z
+export const TENT_COLORWAYS = ['canvas-cream', 'forest-olive', 'ranger-grey'];
+export function buildTentGeos() {
+  return TENT_COLORWAYS.map((colorway) =>
+    mergeAsset(campTent.createAsset({colorway}), 0, S)
+  );
+}
+
+// The piers (terrain-chunks.js): three of Polyfork's pier deck sections in
+// a row, running out from the shore along +z, about 14 wide and 31 long,
+// the deck 4.2 up on its posts
+const PIER_SECTIONS = 3;
+export const PIER_DECK_TOP = 1.2 * S;
+export function buildPierGeo() {
+  const row = new THREE.Group();
+  for (let i = 0; i < PIER_SECTIONS; i++) {
+    const section = pierSection.createAsset({
+      colorway: 'harbour-oak',
+      boards: 9 + i,
+    });
+    section.position.z = 1.5 + i * 3;
+    row.add(section);
+  }
+  return mergeAsset(row, 0, S);
 }
 
 // --- LANDMARKS ---

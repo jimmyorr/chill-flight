@@ -14,7 +14,12 @@ import {ART_PAINTED, ART_POST} from './art-style.js';
 import * as polyforkLighthouse from './third-party/polyfork/old-lighthouse-48ca6c.mjs';
 import * as polyforkCottage from './third-party/polyfork/porch-front-cottage-620c29.mjs';
 import {createAsset as createPolyforkDolphin} from './third-party/polyfork/dolphin-base.mjs';
-import {buildChapelGeos, buildingMat} from './building-models.js';
+import {
+  buildChapelGeos,
+  buildPierGeo,
+  buildTentGeos,
+  buildingMat,
+} from './building-models.js';
 import {
   PIRATE_SHIP_LOOKS,
   boatMat,
@@ -2604,53 +2609,9 @@ var flagGeo = new THREE.BoxGeometry(4, 3, 0.1);
 
 var lighthouseRedMat = createMaterial({color: 0xc62828, flatShading: true});
 
-// Pier geometries
-function createPierDeckGeometry() {
-  const geometries = [];
-
-  // Main support beams (lengthwise)
-  const beam1 = new THREE.BoxGeometry(1.5, 1.5, 30);
-  beam1.translate(-5, 0.75, 15);
-  const beam2 = new THREE.BoxGeometry(1.5, 1.5, 30);
-  beam2.translate(5, 0.75, 15);
-  geometries.push(beam1, beam2);
-
-  // Planks across
-  for (let i = 0; i < 15; i++) {
-    const plank = new THREE.BoxGeometry(16, 0.5, 1.8);
-    plank.translate(0, 1.75, 1 + i * 2);
-    geometries.push(plank);
-  }
-
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    if (g.attributes.normal) {
-      norm.push(...g.attributes.normal.array);
-    }
-    if (g.index) {
-      for (let i = 0; i < g.index.array.length; i++)
-        idx.push(g.index.array[i] + offset);
-    } else {
-      for (let i = 0; i < g.attributes.position.count; i++)
-        idx.push(i + offset);
-    }
-    offset += g.attributes.position.count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  if (norm.length === pos.length) {
-    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  } else {
-    geom.computeVertexNormals();
-  }
-  geom.setIndex(idx);
-  return geom;
-}
-export var pierDeckGeo = createPierDeckGeometry();
+// Polyfork's pier deck sections (building-models.js), in buildingMat
+export var pierDeckGeo = buildPierGeo();
+export var pierDeckMat = buildingMat;
 export var pierPostGeo = new THREE.CylinderGeometry(1, 1, 10, 6);
 export var woodMat = createMaterial({color: 0x5d4037, flatShading: true});
 
@@ -2919,93 +2880,10 @@ function decalFade(shader, flicker) {
 }
 streetlightDecalMat.onBeforeCompile = (shader) => decalFade(shader, false);
 
-// Tent geometries
-function createTentBodyGeometry() {
-  const geom = new THREE.BoxGeometry(8, 6, 10);
-  geom.translate(0, 3, 0); // Base at Y=0
-  const pos = geom.attributes.position.array;
-  for (let i = 0; i < pos.length; i += 3) {
-    if (pos[i + 1] > 5) {
-      // Top vertices
-      pos[i] = 0; // Pinch X to 0 (ridge)
-    }
-  }
-  geom.computeVertexNormals();
-  return geom;
-}
-export var tentGeo = createTentBodyGeometry();
-
-function createTentEntranceGeometry() {
-  const geom = new THREE.BoxGeometry(4, 4, 0.2);
-  geom.translate(0, 2, 5.05); // Front of the tent
-  const pos = geom.attributes.position.array;
-  for (let i = 0; i < pos.length; i += 3) {
-    if (pos[i + 1] > 3) {
-      // Top vertices
-      pos[i] = 0; // Pinch to triangle
-    }
-  }
-  geom.computeVertexNormals();
-  return geom;
-}
-export var tentEntranceGeo = createTentEntranceGeometry();
-
-function createTentPolesGeometry() {
-  const poleLength = Math.sqrt(4 * 4 + 6 * 6); // ~7.211
-  const poleBase = new THREE.CylinderGeometry(0.2, 0.2, poleLength, 4);
-  const angle = Math.atan2(4, 6); // Matches tent slope
-
-  const poleF1 = poleBase.clone();
-  poleF1.rotateZ(angle);
-  poleF1.translate(2, 3, 5.2);
-
-  const poleF2 = poleBase.clone();
-  poleF2.rotateZ(-angle);
-  poleF2.translate(-2, 3, 5.2);
-
-  const poleB1 = poleBase.clone();
-  poleB1.rotateZ(angle);
-  poleB1.translate(2, 3, -5.2);
-
-  const poleB2 = poleBase.clone();
-  poleB2.rotateZ(-angle);
-  poleB2.translate(-2, 3, -5.2);
-
-  const ridgePole = new THREE.CylinderGeometry(0.2, 0.2, 11, 4);
-  ridgePole.rotateX(Math.PI / 2);
-  ridgePole.translate(0, 6.1, 0);
-
-  const geos = [poleF1, poleF2, poleB1, poleB2, ridgePole];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geos) {
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
-    offset += g.attributes.position.count;
-  }
-
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-export var tentPolesGeo = createTentPolesGeometry();
-export var tentEntranceMat = createMaterial({
-  color: 0x111111,
-  flatShading: true,
-});
-// Tent color palettes
-export var tentPalette = [
-  createMaterial({color: 0xd2b48c, flatShading: true}), // Tan color
-  createMaterial({color: 0x485c3f, flatShading: true}), // Army green
-  createMaterial({color: 0x1d3557, flatShading: true}), // Navy blue
-];
-export var tentMat = tentPalette[0];
+// Tents (Polyfork's Camp Tent, building-models.js): one vertex-coloured
+// geometry per colour, all drawn in buildingMat
+export var tentGeos = buildTentGeos();
+export var tentMat = buildingMat;
 
 // Campfire geometries (crossed logs + faceted multi-tongue flame cluster)
 export var fireLogGeo = new THREE.CylinderGeometry(0.68, 0.72, 6, 6);

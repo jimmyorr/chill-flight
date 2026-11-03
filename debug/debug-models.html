@@ -244,7 +244,7 @@
         Beach huts, shack, ranger station, lean-to
       </button>
       <button class="model-btn" onclick="viewModel('monastery', event)">
-        Monastery
+        Chapel (was monastery)
       </button>
       <button class="model-btn" onclick="viewModel('castle', event)">
         Castle ruins
@@ -508,18 +508,15 @@
         crystalMat,
         palmGeos,
         pierDeckGeo,
+        pierDeckMat,
         rockGeo,
         rockMat,
         snowmanBodyMat,
         snowmanGeos,
         snowmanNoseMat,
         tallDeciduousGeos,
-        tentEntranceGeo,
-        tentEntranceMat,
-        tentGeo,
+        tentGeos,
         tentMat,
-        tentPalette,
-        tentPolesGeo,
         treeLeavesGeo,
         treeTrunkGeo,
         treeTrunkMat,
@@ -1212,7 +1209,7 @@
               previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));
               break;
             case 'pier':
-              previewGroup.add(new THREE.Mesh(pierDeckGeo, woodMat));
+              previewGroup.add(new THREE.Mesh(pierDeckGeo, pierDeckMat));
               break;
             case 'bridge': {
               previewGroup.add(new THREE.Mesh(bridgeDeckGeo, bridgeDeckMat));
@@ -1259,13 +1256,10 @@
               break;
             }
             case 'tent': {
-              const palette = tentPalette || [tentMat];
-              const mat = palette[colorSeed % palette.length];
-              previewGroup.add(new THREE.Mesh(tentGeo, mat));
+              // Polyfork camp tent, its colour by the seed
               previewGroup.add(
-                new THREE.Mesh(tentEntranceGeo, tentEntranceMat)
+                new THREE.Mesh(tentGeos[colorSeed % tentGeos.length], tentMat)
               );
-              previewGroup.add(new THREE.Mesh(tentPolesGeo, woodMat));
               break;
             }
           }

@@ -3432,15 +3432,50 @@ export function generateChunkData({
             height < WATER_LEVEL + 3 &&
             rng() < 0.15 * densityScale
           ) {
-            const hN = getElevation(worldX, worldZ - 20, elevParams);
-            const hS = getElevation(worldX, worldZ + 20, elevParams);
-            const hE = getElevation(worldX + 20, worldZ, elevParams);
-            const hW = getElevation(worldX - 20, worldZ, elevParams);
+            // Out toward the deepest water round about (of eight ways, 40
+            // units off), so the pier runs out from the shore rather than
+            // along it
+            // (only where there's water 20 units off on one side)
+            const shore =
+              getElevation(worldX, worldZ - 20, elevParams) <= WATER_LEVEL ||
+              getElevation(worldX, worldZ + 20, elevParams) <= WATER_LEVEL ||
+              getElevation(worldX + 20, worldZ, elevParams) <= WATER_LEVEL ||
+              getElevation(worldX - 20, worldZ, elevParams) <= WATER_LEVEL;
             let angleToWater = -1;
-            if (hN <= WATER_LEVEL) angleToWater = Math.PI;
-            else if (hS <= WATER_LEVEL) angleToWater = 0;
-            else if (hE <= WATER_LEVEL) angleToWater = -Math.PI / 2;
-            else if (hW <= WATER_LEVEL) angleToWater = Math.PI / 2;
+            let deepest = WATER_LEVEL;
+            for (let k = 0; shore && k < 8; k++) {
+              const a = (k / 8) * Math.PI * 2;
+              const h = getElevation(
+                worldX + Math.sin(a) * 40,
+                worldZ + Math.cos(a) * 40,
+                elevParams
+              );
+              if (h <= deepest) {
+                deepest = h;
+                angleToWater = a;
+              }
+            }
+            // Open water out past the pier's end and to either side of it,
+            // so it doesn't jam into a narrow inlet between steep banks
+            if (angleToWater !== -1) {
+              const dx = Math.sin(angleToWater);
+              const dz = Math.cos(angleToWater);
+              const wet = (along, side) =>
+                getElevation(
+                  worldX + dx * along + dz * side,
+                  worldZ + dz * along - dx * side,
+                  elevParams
+                ) <= WATER_LEVEL;
+              const open =
+                wet(20, 0) &&
+                wet(45, 0) &&
+                wet(80, 0) &&
+                wet(30, -35) &&
+                wet(30, 35) &&
+                wet(60, -50) &&
+                wet(60, 50);
+              if (!open) angleToWater = -1;
+            }
             if (angleToWater !== -1) {
               pierPositions.push({
                 x: localX,
