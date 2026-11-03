@@ -11,6 +11,7 @@ import {
   getElevation,
   headlandLighthouseChunks,
   lighthouseHeadlandBeamMat,
+  pirateShipGeos,
   pirateShipMat,
   SAIL_FURL,
   smokeMat,
@@ -93,10 +94,20 @@ let _frameCount;
 // A sunk boat's matrix: nothing drawn
 const _SUNK = new THREE.Matrix4().makeScale(0, 0, 0);
 // The ghost ship is out while state.dayFactor is under GHOST_SHIP_DAY,
-// rising over GHOST_SHIP_FADE of it from GHOST_SHIP_SINK units down
+// rising over GHOST_SHIP_FADE of it from GHOST_SHIP_SINK units down: deep
+// enough to hide the top of the mast (plus bobbing), so nothing is left
+// above water when it's hidden
 const GHOST_SHIP_DAY = 0.5;
 const GHOST_SHIP_FADE = 0.3;
-const GHOST_SHIP_SINK = 30;
+const GHOST_SHIP_SINK =
+  Math.max(
+    ...pirateShipGeos.map((geo) => {
+      if (!geo.boundingBox) geo.computeBoundingBox();
+      return geo.boundingBox.max.y;
+    })
+  ) *
+    2.5 +
+  2;
 // How strongly it glows at full night under a full moon (terrain-geometry.js
 // pirateShipMat), and the share of that left at new moon
 const GHOST_SHIP_GLOW_MAX = 0.35;
