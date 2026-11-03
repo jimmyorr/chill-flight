@@ -167,20 +167,29 @@ function drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd) {
         : 0;
     }
   }
+  // The north-south highways, the east coast one last (where it's traced)
+  const northSouth = [];
+  for (let n = 0; n <= ChillFlightLogic.ROAD_LAST; n++) northSouth.push(n);
+  const eastSpan = ChillFlightLogic.eastRoadSpan();
+  if (eastSpan) northSouth.push(ChillFlightLogic.ROAD_EAST);
   for (let r = rowStart; r < rowEnd; r++) {
     const row = r - rowStart;
     const zTop = z0 + r * upp;
     const zMid = zTop + upp / 2;
-    for (let n = 0; n <= ChillFlightLogic.ROAD_LAST; n++) {
+    for (const n of northSouth) {
+      const east = n === ChillFlightLogic.ROAD_EAST;
+      if (east && (zMid < eastSpan[0] || zMid > eastSpan[1])) continue;
       // Highways keep within about 5000 units of their base line
-      const base =
-        ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
-      if (base + 6000 < x0 || base - 6000 > x1) continue;
+      const base = east
+        ? null
+        : ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
+      if (!east && (base + 6000 < x0 || base - 6000 > x1)) continue;
       // The road's centre across the row, top to bottom, so steep bends
       // stay joined up
       const a = ChillFlightLogic.getRoadCenterX(zTop, n);
       const b = ChillFlightLogic.getRoadCenterX(zTop + upp, n);
-      if (Math.max(a, b) >= 0) continue;
+      // The western ones are only west of 0 longitude
+      if (!east && Math.max(a, b) >= 0) continue;
       if (Math.max(a, b) + roadHalf < x0 || Math.min(a, b) - roadHalf > x1) {
         continue;
       }

@@ -577,7 +577,8 @@ const ROAD_VILLAGE_FRONT = 55;
 const ROAD_VILLAGE_BACK = 28;
 
 // Road n's village in stretch `slot`, or null: its center (`along` the road:
-// z for the north-south roads, x for the cross-country one), half its
+// z for the north-south roads and the east coast one, x for the
+// cross-country one), half its
 // length, and its own seed
 function roadVillage(n, slot) {
   const seed = ChillFlightLogic.WORLD_SEED | 0;
@@ -946,8 +947,11 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
   // Road villages give way to the towns
   const inTown = (h) =>
     towns.some((t) => Math.hypot(h.x - t.x, h.z - t.z) < t.radius + 150);
-  for (let n = 0; n <= ChillFlightLogic.ROAD_EW; n++) {
+  const eastSpan = ChillFlightLogic.eastRoadSpan();
+  for (let n = 0; n <= ChillFlightLogic.ROAD_EAST; n++) {
     const crossCountry = n === ChillFlightLogic.ROAD_EW;
+    const east = n === ChillFlightLogic.ROAD_EAST;
+    if (east && !eastSpan) continue;
     // The chunk's centre along the road and across it
     const ca = crossCountry ? cx : cz;
     const cc = crossCountry ? cz : cx;
@@ -966,8 +970,16 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
         ) {
           continue;
         }
+      } else if (east) {
+        // Along its traced stretch, clear of its junction at the north end
+        if (
+          v.along - v.half < eastSpan[0] + 1500 ||
+          v.along + v.half > eastSpan[1]
+        ) {
+          continue;
+        }
       } else if (across >= 0) {
-        // The north-south roads only run on the western land
+        // The other north-south roads only run on the western land
         continue;
       }
       // Nor where the highway is left out (out at sea)

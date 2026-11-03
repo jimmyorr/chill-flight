@@ -60,6 +60,8 @@ const roads = {
     if (x > L.ROAD_EW_WEST && x < L.ROAD_EW_END) {
       out.push({n: L.ROAD_EW, along: x});
     }
+    const east = L.eastRoadNear(x, z, 3000);
+    if (east) out.push({n: east.n, along: east.along});
     return out;
   },
   center: (n, along) => L.roadCenter(n, along),

@@ -1167,6 +1167,16 @@ function atJunction(x, z) {
   );
 }
 
+// Is world (x, z), on the east coast highway, where it meets the
+// cross-country one (at its north end)?
+function atEastJunction(x, z) {
+  return (
+    x > ChillFlightLogic.ROAD_EW_WEST &&
+    x < ChillFlightLogic.ROAD_EW_END &&
+    Math.abs(z - ChillFlightLogic.getRoadCenterZ(x)) < JUNCTION_REACH
+  );
+}
+
 // The slip roads round the corners of the highway crossings
 // (ChillFlightLogic.slipRoads): the pieces whose middles are on the chunk
 // centred on (worldOffsetX, worldOffsetZ), as decks narrower than a
@@ -1271,6 +1281,15 @@ function inCrossingBox(x, z, crossCountry, pad) {
   const reach = (slope) =>
     (ChillFlightLogic.ROAD_WIDTH + 2) * Math.hypot(1, slope) + pad;
   if (crossCountry) {
+    // Where the east coast highway meets it
+    const eastSpan = ChillFlightLogic.eastRoadSpan();
+    if (eastSpan && Math.abs(z - eastSpan[0]) < 200) {
+      const e = ChillFlightLogic.ROAD_EAST;
+      const ex = ChillFlightLogic.getRoadCenterX(eastSpan[0], e);
+      const slope =
+        (ChillFlightLogic.getRoadCenterX(eastSpan[0] + 10, e) - ex) / 10;
+      if (Math.abs(x - ex) < reach(slope)) return true;
+    }
     const n = Math.round(
       (x - ChillFlightLogic.ROAD_BASE_X) / ChillFlightLogic.ROAD_SPACING
     );
@@ -1877,10 +1896,30 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     ) {
       activeRoads.push(ChillFlightLogic.ROAD_EW);
     }
+    // The east coast highway, along its traced stretch
+    const eastSpan = ChillFlightLogic.eastRoadSpan();
+    if (
+      eastSpan &&
+      worldOffsetZ + halfChunk > eastSpan[0] - 1000 &&
+      worldOffsetZ - halfChunk < eastSpan[1] + 1000
+    ) {
+      const ex = ChillFlightLogic.getRoadCenterX(
+        Math.max(eastSpan[0], Math.min(eastSpan[1], worldOffsetZ)),
+        ChillFlightLogic.ROAD_EAST
+      );
+      // It turns at most about 58 degrees off north-south (a slope of 1.6)
+      if (Math.abs(ex - worldOffsetX) < halfChunk * 3 + 2000) {
+        activeRoads.push(ChillFlightLogic.ROAD_EAST);
+      }
+    }
 
     const roadSegments = [];
     activeRoads.forEach((n) => {
       const crossCountry = n === ChillFlightLogic.ROAD_EW;
+      // The east coast one starts at a T junction on the cross-country one
+      // (eastStart), and runs east of 0 longitude
+      const east = n === ChillFlightLogic.ROAD_EAST;
+      const eastStart = east ? eastSpan[0] : -Infinity;
       const alongOffset = crossCountry ? worldOffsetX : worldOffsetZ;
       const acrossOffset = crossCountry ? worldOffsetZ : worldOffsetX;
       const bridgePositions = [];
@@ -1917,7 +1956,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       ) {
         const wa = alongOffset + sampleA + sampleStep / 2;
         const roadC = ChillFlightLogic.roadCenter(n, wa);
-        if (!crossCountry && roadC >= 0) continue;
+        if (!crossCountry && !east && roadC >= 0) continue;
 
         const {rawY, actualTerrainH} = sampleRoadHeight(wa, roadC);
 
@@ -1926,16 +1965,23 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           wa,
           // The cross-country one's last segment reaches ROAD_EW_END,
           // where it's cut off (below)
-          onRoute: ChillFlightLogic.highwayRunsAt(
-            n,
-            crossCountry && wa - sampleStep < ewEnd ? Math.min(wa, ewEnd) : wa,
-            simplex,
-            constants
-          ),
+          onRoute:
+            wa + sampleStep > eastStart &&
+            ChillFlightLogic.highwayRunsAt(
+              n,
+              crossCountry && wa - sampleStep < ewEnd
+                ? Math.min(wa, ewEnd)
+                : Math.max(wa, eastStart),
+              simplex,
+              constants
+            ),
           localC: roadC - acrossOffset,
           rawY,
           actualTerrainH,
-          junction: crossCountry && atJunction(wa, roadC),
+          // Under the deck of the other road where they meet
+          junction: crossCountry
+            ? atJunction(wa, roadC)
+            : east && atEastJunction(roadC, wa),
         });
       }
 
@@ -2027,8 +2073,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         // neighbouring chunks agree on the deck's height.
         const rampSamples = Math.round(ROAD_END_RAMP / sampleStep);
         const runsAt = (wa) =>
-          // The cross-country one carries on into Meadow Field's access road
+          // The cross-country one carries on into Meadow Field's access
+          // road, and the east coast one into the cross-country one
           (crossCountry && wa > ewEnd) ||
+          (east && wa < eastStart) ||
           ChillFlightLogic.highwayRunsAt(n, wa, simplex, constants);
         for (let i = 0; i < rawSamples.length; i++) {
           if (!rawSamples[i].onRoute) continue;
@@ -2082,7 +2130,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
           const needsPilings = finalY[i] - curr.actualTerrainH > 10;
 
-          const a0 = curr.sampleA + sampleStep / 2;
+          let a0 = curr.sampleA + sampleStep / 2;
+          if (alongOffset + a0 < eastStart) a0 = eastStart - alongOffset;
           let a1 = curr.sampleA + sampleStep * 1.5;
           if (crossCountry && alongOffset + a1 > ewEnd) {
             a1 = ewEnd - alongOffset;
