@@ -2232,6 +2232,8 @@ export const ChillFlightLogic = {};
         smoothRamp(Math.abs(z - getRoadCenterZ(x)), near, far)
       );
     }
+    const east = eastRoadOffset(x, z, far);
+    if (east < far) clear = Math.min(clear, smoothRamp(east, near, far));
     return clear;
   }
 
@@ -3496,6 +3498,18 @@ export const ChillFlightLogic = {};
           _lerp
         );
       }
+      // The east coast highway, along its traced stretch
+      if (eastRoadOffset(origX, origZ, 3600) < 3600) {
+        n = carveRoadTrench(
+          n,
+          ROAD_EAST,
+          origZ,
+          origX,
+          simplex,
+          constants,
+          _lerp
+        );
+      }
     }
 
     // --- EASTERN ALIEN BIOME (the eastern land, from about 10 East) ---
@@ -4090,6 +4104,7 @@ export const ChillFlightLogic = {};
   }
 
   function getRoadCenterX(z, n = 0) {
+    if (n === ROAD_EAST) return eastRoadX(z);
     const x = ROAD_BASE_X + n * ROAD_SPACING + getRoadSweepOffset(z, n);
     // Past an airport's access road, the highway runs straight north-south
     // through the road's end, bending back to its own course further out
@@ -4151,6 +4166,319 @@ export const ChillFlightLogic = {};
     return MEADOW_ROAD.z + (z - MEADOW_ROAD.z) * t;
   }
 
+  // --- THE EAST COAST HIGHWAY ---
+  // Highway ROAD_EAST runs north-south down the main continent's east coast
+  // (around 1 East), a little inland of the shore. Unlike the others its
+  // line isn't laid out from noise: it's traced from the land itself, once
+  // per world. Every EAST.STEP of z it finds the coast (the last land
+  // looking east before EAST.OPEN of open water, so it doesn't hop out
+  // along the islands), takes a low percentile of the coast within
+  // EAST.WINDOW (so a stray inlet or headland doesn't swing it), keeps
+  // EAST.INSET inland of that and smooths it.
+  // Short gaps with no coast (bays) are bridged across; the longest run
+  // that's left is the road (where it runs inside that is
+  // up to highwayRunsAt, as for the others).
+  const ROAD_EAST = ROAD_EW + 1;
+  const EAST = {
+    STEP: 500,
+    SCAN: 250, // Between the samples looking east for the coast
+    OPEN: 2500,
+    INSET: 2500,
+    PERCENTILE: 0.25,
+    WINDOW: 4000,
+    GAP: 4000, // Gaps in the coast up to this long are bridged
+    CANYON_CLEAR: 600,
+    WEST_CLEAR: 2000,
+    MIN_LAND: 2000, // Of land before the coast, or there's no coast there
+    START_X: -5000, // Where each look east starts
+    Z_MIN: -50000,
+    Z_MAX: 50000,
+    // The line moves at most this much x per unit z (about 50 degrees)
+    MAX_SLOPE: 1.2,
+  };
+  // Airports near the line, which it keeps `clear` of (easing in from 7000
+  // units out along z), on whichever side of them it runs. Meadow Field
+  // further, and always to the west, so it meets the cross-country highway
+  // (below) on its last straight, short of where Meadow Field's access road
+  // carries on from it.
+  const ROAD_EAST_AIRPORT_CLEAR = 1300;
+  const ROAD_EAST_MEADOW_CLEAR = 2300;
+  let eastLine = null;
+  let eastLineKey = null;
+  let tracingEast = false;
+  function eastRoadLine() {
+    const key = `${exports.WORLD_SEED}|${exports.CONTINENT}`;
+    if (eastLineKey === key && eastLine) return eastLine;
+    if (tracingEast || !roadNoise || exports.customMap) return null;
+    tracingEast = true;
+    try {
+      eastLine = traceEastCoast(roadNoise);
+      if (eastLine) eastRoadJoin(eastLine);
+      eastLineKey = key;
+    } finally {
+      tracingEast = false;
+    }
+    return eastLine;
+  }
+  function traceEastCoast(simplex) {
+    const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+    const land = (x, z) =>
+      getElevation(x, z, simplex, constants, null, {
+        ignoreRivers: true,
+        ignoreRoads: true,
+        forRoad: true,
+      }) > constants.WATER_LEVEL;
+    const count = Math.round((EAST.Z_MAX - EAST.Z_MIN) / EAST.STEP) + 1;
+    const open = EAST.OPEN / EAST.SCAN;
+    // The coast's x at each step, or null
+    const coast = [];
+    for (let k = 0; k < count; k++) {
+      const z = EAST.Z_MIN + k * EAST.STEP;
+      let last = null;
+      let landRun = 0;
+      let water = 0;
+      for (let i = 0; i < 400; i++) {
+        const x = EAST.START_X + i * EAST.SCAN;
+        if (land(x, z)) {
+          last = x;
+          water = 0;
+          landRun++;
+        } else if (last !== null) {
+          if (++water >= open) break;
+        } else if (i > 40) {
+          break;
+        }
+      }
+      coast.push(
+        last !== null && landRun * EAST.SCAN >= EAST.MIN_LAND ? last : null
+      );
+    }
+    // Inland of a low percentile of the coast nearby
+    const win = Math.round(EAST.WINDOW / EAST.STEP);
+    const inland = coast.map((c, k) => {
+      if (c === null) return null;
+      const near = [];
+      for (
+        let j = Math.max(0, k - win);
+        j <= Math.min(count - 1, k + win);
+        j++
+      ) {
+        if (coast[j] !== null) near.push(coast[j]);
+      }
+      near.sort((a, b) => a - b);
+      return near[Math.floor((near.length - 1) * EAST.PERCENTILE)] - EAST.INSET;
+    });
+    // Kept west of the canyon (a landmark the highways stay clear of): the
+    // canyon's westmost edge on each row (where its landform starts), and
+    // the line kept further west of that than EAST.CANYON_CLEAR before
+    // smoothing (which pulls it back toward its neighbours), and at least
+    // that after
+    const canyonEdge = new Float64Array(count).fill(Infinity);
+    for (let k = 0; k < count; k++) {
+      if (inland[k] === null) continue;
+      const z = EAST.Z_MIN + k * EAST.STEP;
+      if (z < _canyonBox[2] || z > _canyonBox[3]) continue;
+      for (let x = _canyonBox[0]; x <= _canyonBox[1]; x += EAST.SCAN) {
+        const c = canyonAt(x, z, simplex, constants.WATER_LEVEL);
+        if (c && c.weight > 0.01) {
+          canyonEdge[k] = x - EAST.CANYON_CLEAR;
+          inland[k] = Math.min(inland[k], canyonEdge[k] - EAST.WINDOW / 2);
+          break;
+        }
+      }
+    }
+    // And at least EAST.WEST_CLEAR east of highway 0, so where the coast
+    // runs close to it the two don't crowd each other (or its crossing
+    // with the cross-country highway, and the slip roads there)
+    for (let k = 0; k < count; k++) {
+      if (inland[k] === null) continue;
+      const z = EAST.Z_MIN + k * EAST.STEP;
+      inland[k] = Math.max(inland[k], getRoadCenterX(z, 0) + EAST.WEST_CLEAR);
+    }
+    // Short gaps (a bay, a sound) are bridged straight across
+    for (let k = 0; k < count;) {
+      if (inland[k] !== null) {
+        k++;
+        continue;
+      }
+      let e = k;
+      while (e + 1 < count && inland[e + 1] === null) e++;
+      const a = inland[k - 1];
+      const b = inland[e + 1];
+      if (
+        a !== undefined &&
+        b !== undefined &&
+        b !== null &&
+        e - k + 1 <= EAST.GAP / EAST.STEP
+      ) {
+        for (let j = k; j <= e; j++) {
+          inland[j] = a + ((b - a) * (j - k + 1)) / (e - k + 2);
+        }
+      }
+      k = e + 1;
+    }
+    // The longest run without a gap
+    let best = [0, -1];
+    for (let k = 0; k < count;) {
+      if (inland[k] === null) {
+        k++;
+        continue;
+      }
+      let e = k;
+      while (e + 1 < count && inland[e + 1] !== null) e++;
+      if (e - k > best[1] - best[0]) best = [k, e];
+      k = e + 1;
+    }
+    if (best[1] - best[0] < 8) return null;
+    let xs = inland.slice(best[0], best[1] + 1);
+    // Smoothed (twice, a box each time), then the steepest stretches eased
+    const smooth = (arr) =>
+      arr.map((_, k) => {
+        let sum = 0;
+        let n = 0;
+        for (let j = k - win; j <= k + win; j++) {
+          const v = arr[Math.max(0, Math.min(arr.length - 1, j))];
+          sum += v;
+          n++;
+        }
+        return sum / n;
+      });
+    xs = smooth(smooth(xs));
+    const edge = canyonEdge.subarray(best[0], best[1] + 1);
+    const clampCanyon = () => {
+      for (let k = 0; k < xs.length; k++) xs[k] = Math.min(xs[k], edge[k]);
+    };
+    clampCanyon();
+    const maxStep = EAST.MAX_SLOPE * EAST.STEP;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let k = 1; k < xs.length; k++) {
+        xs[k] = Math.max(
+          xs[k - 1] - maxStep,
+          Math.min(xs[k - 1] + maxStep, xs[k])
+        );
+      }
+      for (let k = xs.length - 2; k >= 0; k--) {
+        xs[k] = Math.max(
+          xs[k + 1] - maxStep,
+          Math.min(xs[k + 1] + maxStep, xs[k])
+        );
+      }
+    }
+    clampCanyon();
+    return {
+      // How far it can be pushed aside by an airport (eastRawX)
+      minX: Math.min(...xs) - ROAD_EAST_MEADOW_CLEAR - 1000,
+      maxX: Math.max(...xs) + ROAD_EAST_MEADOW_CLEAR + 1000,
+      // Where the table starts; the road runs from zStart (moved north
+      // where it joins highway 0) to zEnd
+      z0: EAST.Z_MIN + best[0] * EAST.STEP,
+      zStart: EAST.Z_MIN + best[0] * EAST.STEP,
+      zEnd: EAST.Z_MIN + best[1] * EAST.STEP,
+      xs: Float64Array.from(xs),
+    };
+  }
+  // The traced line at z, through its points as a smooth (Catmull-Rom)
+  // curve
+  function eastLineX(line, z) {
+    const {xs, z0} = line;
+    const f = Math.max(0, Math.min(xs.length - 1, (z - z0) / EAST.STEP));
+    const k = Math.min(xs.length - 2, Math.floor(f));
+    const t = f - k;
+    const p = (j) => xs[Math.max(0, Math.min(xs.length - 1, j))];
+    const p0 = p(k - 1);
+    const p1 = p(k);
+    const p2 = p(k + 1);
+    const p3 = p(k + 2);
+    return (
+      0.5 *
+      (2 * p1 +
+        (p2 - p0) * t +
+        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t +
+        (3 * p1 - p0 - 3 * p2 + p3) * t * t * t)
+    );
+  }
+  // The east coast highway's centre x at z: the traced line, kept clear of
+  // the airports near it (on the side of each that the line runs)
+  function eastRoadX(z) {
+    const line = eastRoadLine();
+    return line ? eastRawX(line, z) : 1e9;
+  }
+  // The traced line, kept clear of the airports near it (on the side of
+  // each that the line runs)
+  function eastRawX(line, z) {
+    // (eastRoadX, before the line is cached)
+    let x = eastLineX(line, z);
+    if (!line.obstacles) {
+      line.obstacles = AIRPORTS.filter(
+        (a) => Math.abs(eastLineX(line, a.z) - a.x) < 6000
+      ).map((a) => ({
+        a,
+        // Always west of Meadow Field, toward the cross-country highway
+        side: a.crossCountry || eastLineX(line, a.z) < a.x ? -1 : 1,
+        clear: a.crossCountry
+          ? ROAD_EAST_MEADOW_CLEAR
+          : ROAD_EAST_AIRPORT_CLEAR,
+      }));
+    }
+    for (const {a, side, clear} of line.obstacles) {
+      const near = 1 - smoothRamp(Math.abs(z - a.z), 2500, 7000);
+      if (near === 0) continue;
+      const over = (a.x - x) * side + clear;
+      const excess = 0.5 * (over + Math.sqrt(over * over + 500 * 500));
+      x += excess * near * side;
+    }
+    return x;
+  }
+  // Where it meets the cross-country highway, if it does: looking north
+  // from its south end for where it reaches that road's line, it ends
+  // there (its new zStart), a T junction
+  function eastRoadJoin(line) {
+    const ewZ = (z) => {
+      const x = eastRawX(line, z);
+      return x > ROAD_EW_WEST && x < ROAD_EW_END ? getRoadCenterZ(x) : null;
+    };
+    for (let z = line.zEnd; z - EAST.STEP >= line.zStart; z -= EAST.STEP) {
+      const a = ewZ(z);
+      const b = ewZ(z - EAST.STEP);
+      if (a === null || b === null || z - EAST.STEP > b || z < a) continue;
+      // Between z - STEP and z: halve the step down to the crossing
+      let lo = z - EAST.STEP;
+      let hi = z;
+      for (let i = 0; i < 30; i++) {
+        const mid = (lo + hi) / 2;
+        if (mid > ewZ(mid)) hi = mid;
+        else lo = mid;
+      }
+      line.zStart = hi;
+      line.joinsEW = true;
+      return;
+    }
+  }
+  // Where along z the east coast highway's traced line reaches, or null
+  function eastRoadSpan() {
+    const line = eastRoadLine();
+    return line ? [line.zStart, line.zEnd] : null;
+  }
+  // The east coast highway as the code finding highways near (x, z) wants
+  // it: {n, along, off} (off: how far across from its line), or null where
+  // it's more than `reach` away
+  function eastRoadNear(x, z, reach = 6000) {
+    const off = eastRoadOffset(x, z, reach);
+    return off < reach ? {n: ROAD_EAST, along: z, off} : null;
+  }
+  function onEastSpan(z) {
+    const line = eastRoadLine();
+    return !!line && z >= line.zStart && z <= line.zEnd;
+  }
+  // How far (x, z) is from the east coast highway's centre line, across
+  // (along x), or Infinity where it's nowhere near
+  function eastRoadOffset(x, z, reach) {
+    const line = eastRoadLine();
+    if (!line || z < line.zStart || z > line.zEnd) return Infinity;
+    if (x < line.minX - reach || x > line.maxX + reach) return Infinity;
+    return Math.abs(x - eastRoadX(z));
+  }
+
   // A highway's line, for code that handles them all alike: `along` is the
   // coordinate it runs along (z for the north-south ones, x for ROAD_EW) and
   // roadCenter gives the other one, `across`, at its centre
@@ -4182,6 +4510,7 @@ export const ChillFlightLogic = {};
       const p = roadPoint(n, along, roadCenter(n, along));
       land =
         (n !== ROAD_EW || (along > ROAD_EW_WEST && along < ROAD_EW_EAST)) &&
+        (n !== ROAD_EAST || onEastSpan(along)) &&
         getElevation(p.x, p.z, simplex, constants, null, {
           ignoreRivers: true,
           ignoreRoads: true,
@@ -4239,9 +4568,11 @@ export const ChillFlightLogic = {};
   // Does highway n run at `along` (see roadCenter)? Out to the grid point
   // past the last on the route, so it ends just past the shore; but the
   // cross-country one stops at ROAD_EW_END, where Meadow Field's access road
-  // carries on.
+  // carries on, and the east coast one only runs along its traced stretch.
   function highwayRunsAt(n, along, simplex, constants) {
     if (n === ROAD_EW && along > ROAD_EW_END) return false;
+    // The east coast one starts where it meets the cross-country one
+    if (n === ROAD_EAST && !onEastSpan(along)) return false;
     if (routeSeed !== exports.WORLD_SEED || routeLand.size > 200000) {
       routeLand.clear();
       routeOn.clear();
@@ -4854,6 +5185,11 @@ export const ChillFlightLogic = {};
         dist = Math.min(dist, off / Math.hypot(1, slope));
       }
     }
+    const east = eastRoadOffset(x, z, 400);
+    if (east < 400) {
+      const slope = (eastRoadX(z + 2) - eastRoadX(z - 2)) / 4;
+      dist = Math.min(dist, east / Math.hypot(1, slope));
+    }
     return dist;
   }
 
@@ -4871,6 +5207,7 @@ export const ChillFlightLogic = {};
     if (x > ROAD_EW_WEST && x < ROAD_EW_EAST) {
       dist = Math.min(dist, Math.abs(z - getRoadCenterZ(x)));
     }
+    dist = Math.min(dist, eastRoadOffset(x, z, ROAD_WIDTH + ROAD_SHOULDER));
 
     if (dist <= ROAD_WIDTH) {
       return 1.0;
@@ -4924,6 +5261,9 @@ export const ChillFlightLogic = {};
   exports.ROAD_EW_WEST = ROAD_EW_WEST;
   exports.ROAD_EW_EAST = ROAD_EW_EAST;
   exports.ROAD_EW_END = ROAD_EW_END;
+  exports.ROAD_EAST = ROAD_EAST;
+  exports.eastRoadSpan = eastRoadSpan;
+  exports.eastRoadNear = eastRoadNear;
   exports.AIRPORTS = AIRPORTS;
   exports.RUNWAY_LENGTH = RUNWAY_LENGTH;
   exports.RUNWAY_WIDTH = RUNWAY_WIDTH;

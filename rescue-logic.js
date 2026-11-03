@@ -60,6 +60,8 @@ function highwaysNear(x, z) {
       off: Math.abs(z - L.roadCenter(L.ROAD_EW, x)),
     });
   }
+  const east = L.eastRoadNear(x, z);
+  if (east) out.push(east);
   return out.sort((a, b) => a.off - b.off);
 }
 
