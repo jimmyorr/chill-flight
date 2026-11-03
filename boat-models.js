@@ -33,8 +33,10 @@ export const boatMat = createMaterial({
 
 // Merges every mesh of a built asset into one non-indexed geometry with
 // vertex colours, turned by rotY, lowered by `draft` (metres, before scale)
-// and scaled (farm-models.js uses it too). `keep(lowY)`, if given, picks the
-// triangles to include by their lowest corner's height (metres, as built).
+// and scaled (farm-models.js uses it too). `keep(lowY, hex)`, if given,
+// picks the triangles to include by their lowest corner's height (metres,
+// as built) and their first corner's colour (hex string).
+const _keepColor = new THREE.Color();
 export function mergeAsset(
   asset,
   draft,
@@ -60,7 +62,10 @@ export function mergeAsset(
             low,
             v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld).y
           );
-        if (!keep(low)) continue;
+        const hex = c
+          ? _keepColor.fromBufferAttribute(c, t).getHexString()
+          : '';
+        if (!keep(low, hex)) continue;
       }
       for (let i = t; i < t + 3; i++) {
         v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
@@ -117,12 +122,39 @@ const FOAM_COLOR = [0.86, 0.94, 0.96];
 const FOAM_Y = 0.12;
 const FOAM_WIDTH = 0.9;
 const FOAM_SEGMENTS = 20;
-function withFoam(geo) {
+
+// The foam ring's triangles (facing up) round a hull hx wide each side and
+// running z0 to z1, at height y: from just inside the outline to a ragged
+// edge `width` outside it. A flat array of positions.
+export function foamRing(hx, z0, z1, y = FOAM_Y, width = FOAM_WIDTH) {
+  const hz = (z1 - z0) / 2;
+  const cz = (z0 + z1) / 2;
+  const ring = (k, r) => {
+    const a = (k / FOAM_SEGMENTS) * Math.PI * 2;
+    // Ragged outer edge: a fixed wobble per segment
+    const w = r ? width * (0.7 + 0.6 * Math.abs(Math.sin(k * 2.7))) : 0;
+    return [
+      Math.cos(a) * (hx * 0.9 + w),
+      y,
+      cz + Math.sin(a) * (hz * 0.97 + w),
+    ];
+  };
+  const pos = [];
+  for (let k = 0; k < FOAM_SEGMENTS; k++) {
+    const a0 = ring(k, 0);
+    const a1 = ring(k + 1, 0);
+    const b0 = ring(k, 1);
+    const b1 = ring(k + 1, 1);
+    for (const v of [a0, b1, b0, a0, a1, b1]) pos.push(...v);
+  }
+  return pos;
+}
+
+// The hull's outline near the waterline (not masts, oars or bowsprits up
+// high): {hx, z0, z1}
+function hullOutline(geo) {
   const p = geo.attributes.position;
-  // The hull's outline near the waterline (not masts, oars up high)
   let hx = 0;
-  let hz = 0;
-  let cz = 0;
   let z0 = Infinity;
   let z1 = -Infinity;
   for (let i = 0; i < p.count; i++) {
@@ -132,31 +164,18 @@ function withFoam(geo) {
     z0 = Math.min(z0, p.getZ(i));
     z1 = Math.max(z1, p.getZ(i));
   }
-  hz = (z1 - z0) / 2;
-  cz = (z0 + z1) / 2;
-  const pos = Array.from(p.array);
+  return {hx, z0, z1};
+}
+
+// A boat's vertex-coloured geometry with its foam ring merged in: no extra
+// draw call. `width` and `y` in the geometry's units (pirate ships are
+// built smaller and scaled up as instances).
+export function withFoam(geo, width = FOAM_WIDTH, y = FOAM_Y) {
+  const {hx, z0, z1} = hullOutline(geo);
+  const ring = foamRing(hx, z0, z1, y, width);
+  const pos = Array.from(geo.attributes.position.array).concat(ring);
   const col = Array.from(geo.attributes.color.array);
-  const ring = (k, r) => {
-    const a = (k / FOAM_SEGMENTS) * Math.PI * 2;
-    // Ragged outer edge: a fixed wobble per segment
-    const w = r ? FOAM_WIDTH * (0.7 + 0.6 * Math.abs(Math.sin(k * 2.7))) : 0;
-    return [
-      Math.cos(a) * (hx * 0.9 + w),
-      FOAM_Y,
-      cz + Math.sin(a) * (hz * 0.97 + w),
-    ];
-  };
-  for (let k = 0; k < FOAM_SEGMENTS; k++) {
-    const a0 = ring(k, 0);
-    const a1 = ring(k + 1, 0);
-    const b0 = ring(k, 1);
-    const b1 = ring(k + 1, 1);
-    // Two triangles facing up
-    for (const v of [a0, b1, b0, a0, a1, b1]) {
-      pos.push(...v);
-      col.push(...FOAM_COLOR);
-    }
-  }
+  for (let i = 0; i < ring.length / 3; i++) col.push(...FOAM_COLOR);
   const out = new THREE.BufferGeometry();
   out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
