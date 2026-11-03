@@ -138,34 +138,42 @@ function drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd) {
       s.maxZ + slipHalf >= z0 + rowStart * upp &&
       s.minZ - slipHalf <= z0 + rowEnd * upp
   );
-  // The cross-country highway runs along x, so it's drawn down the columns:
-  // its centre z at each column's left edge, and whether it runs there
-  const ew = ChillFlightLogic.ROAD_EW;
-  let ewZ = null;
-  let ewRuns = null;
-  if (
-    x1 > ChillFlightLogic.ROAD_EW_WEST &&
-    x0 < ChillFlightLogic.ROAD_EW_EAST &&
-    Math.abs(
-      z0 + ((rowStart + rowEnd) / 2) * upp - ChillFlightLogic.ROAD_EW_BASE_Z
-    ) <
-      ((rowEnd - rowStart) / 2) * upp + 5000
-  ) {
-    ewZ = new Float32Array(width + 1);
-    ewRuns = new Uint8Array(width);
+  // The cross-country and north coast highways run along x, so they're
+  // drawn down the columns: each one's centre z at each column's left edge,
+  // and whether it runs there
+  const alongX = [];
+  const rowsMidZ = z0 + ((rowStart + rowEnd) / 2) * upp;
+  const rowsHalf = ((rowEnd - rowStart) / 2) * upp;
+  const addAlongX = (n, from, to) => {
+    if (x1 <= from || x0 >= to) return;
+    const zs = new Float32Array(width + 1);
+    const runs = new Uint8Array(width);
+    let any = false;
     for (let c = 0; c <= width; c++) {
-      ewZ[c] = ChillFlightLogic.getRoadCenterZ(x0 + c * upp);
+      const x = Math.max(from, Math.min(to, x0 + c * upp));
+      zs[c] = ChillFlightLogic.roadCenter(n, x);
     }
     for (let c = 0; c < width; c++) {
-      ewRuns[c] = ChillFlightLogic.highwayRunsAt(
-        ew,
-        x0 + (c + 0.5) * upp,
-        simplex,
-        CONSTANTS
-      )
-        ? 1
-        : 0;
+      const x = x0 + (c + 0.5) * upp;
+      if (x < from || x > to) continue;
+      if (Math.abs(zs[c] - rowsMidZ) > rowsHalf + 500) continue;
+      if (ChillFlightLogic.highwayRunsAt(n, x, simplex, CONSTANTS)) {
+        runs[c] = 1;
+        any = true;
+      }
     }
+    if (any) alongX.push({zs, runs});
+  };
+  if (Math.abs(rowsMidZ - ChillFlightLogic.ROAD_EW_BASE_Z) < rowsHalf + 5000) {
+    addAlongX(
+      ChillFlightLogic.ROAD_EW,
+      ChillFlightLogic.ROAD_EW_WEST,
+      ChillFlightLogic.ROAD_EW_EAST
+    );
+  }
+  const northSpan = ChillFlightLogic.northRoadSpan();
+  if (northSpan) {
+    addAlongX(ChillFlightLogic.ROAD_NORTH, northSpan[0], northSpan[1]);
   }
   // The north-south highways, the east coast one last (where it's traced)
   const northSouth = [];
@@ -209,11 +217,11 @@ function drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd) {
         highwayAlpha
       );
     }
-    if (ewZ) {
+    for (const {zs, runs} of alongX) {
       for (let c = 0; c < width; c++) {
-        if (!ewRuns[c]) continue;
-        const a = ewZ[c];
-        const b = ewZ[c + 1];
+        if (!runs[c]) continue;
+        const a = zs[c];
+        const b = zs[c + 1];
         const slope = (b - a) / upp;
         const half = Math.max(minHalf, roadHalf * Math.sqrt(1 + slope * slope));
         // How much of this pixel's height the road covers

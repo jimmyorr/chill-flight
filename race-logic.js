@@ -180,6 +180,8 @@ function roadsNear(x, z) {
   }
   const east = L.eastRoadNear(x, z);
   if (east) out.push(east);
+  const north = L.northRoadNear(x, z);
+  if (north) out.push(north);
   return out.sort((a, b) => a.off - b.off);
 }
 
@@ -255,7 +257,7 @@ export function roadCourse(
     }
     if (a0 === null) continue;
     // The way the starter's heading, first
-    const ew = r.n === L.ROAD_EW;
+    const ew = L.roadAlongX(r.n);
     const pref = (ew ? f.x : f.z) >= 0 ? 1 : -1;
     for (const d of [pref, -pref]) {
       const a1 = groundStart(r.n, a0, d, runsAt, onGround);
@@ -321,7 +323,7 @@ function buildRoadCourse(n, a0, d, points, length) {
  * than (x, z), `lane` across it.
  */
 export function roadAim(road, x, z, ahead, lane = 0) {
-  const along = road.n === L.ROAD_EW ? x : z;
+  const along = L.roadAlongX(road.n) ? x : z;
   return roadSpot(road.n, along + road.d * ahead, lane);
 }
 
