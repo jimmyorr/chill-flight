@@ -4,7 +4,7 @@ import {scene} from './scene.js';
 import {log} from './logger.js';
 import {planeGroup} from './airplane.js';
 import {simplex} from './noise.js';
-import {updateUrlParams} from './constants.js';
+import {roadSnowUniforms, updateUrlParams} from './constants.js';
 import {camera, skyUniforms} from './sky.js';
 import {state} from './state.js';
 import {playThunder} from './sfx-events.js';
@@ -381,6 +381,7 @@ export function updateWeather(delta) {
     rainParticles.material.opacity = 0;
     precipitation.rain = 0;
     precipitation.snow = 0;
+    roadSnowUniforms.uRoadSnow.value = 0;
     return;
   }
 
@@ -463,6 +464,12 @@ export function updateWeather(delta) {
   // Store unfaded opacities to drive cloud density even when above clouds
   state._unfadedSnowOpacity = _snowLevel;
   state._unfadedRainOpacity = _rainLevel;
+  // Snow still settles below while you fly above the clouds
+  roadSnowUniforms.uRoadSnow.value = ChillFlightLogic.settleRoadSnow(
+    roadSnowUniforms.uRoadSnow.value,
+    _snowLevel / SNOW_FULL,
+    delta
+  );
 
   // Fade out precipitation when flying above the cloud layer
   let rainShown = _rainLevel / RAIN_FULL;

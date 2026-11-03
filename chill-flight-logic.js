@@ -6072,6 +6072,20 @@ export const ChillFlightLogic = {};
     LIGHT_SNOW_DEEP: 0.25, // and 1.5 degrees farther north
   };
 
+  // Snow settling on the roads, 0 bare to 1 white (weather-manager.js,
+  // roadSnowUniforms): `snow` is what's falling, 0 to 1 of full snow. Full
+  // snow whitens them over about BUILD_SECONDS, lighter snow more slowly and
+  // only so far, and once it stops they clear over MELT_SECONDS.
+  const ROAD_SNOW = {BUILD_SECONDS: 35, MELT_SECONDS: 70, FALLING: 0.05};
+  function settleRoadSnow(roadSnow, snow, delta) {
+    if (snow <= ROAD_SNOW.FALLING) {
+      return Math.max(0, roadSnow - delta / ROAD_SNOW.MELT_SECONDS);
+    }
+    const most = Math.min(1, 0.3 + snow);
+    if (roadSnow >= most) return roadSnow;
+    return Math.min(most, roadSnow + (delta * snow) / ROAD_SNOW.BUILD_SECONDS);
+  }
+
   function weatherAt(x, z, clockMs, simplex) {
     // Latitude as the climate sees it: the snow line wanders (snowWobble)
     const lat = -z / 5000 + snowWobble(x, z, simplex);
@@ -6143,6 +6157,8 @@ export const ChillFlightLogic = {};
 
   exports.WEATHER = WEATHER;
   exports.weatherAt = weatherAt;
+  exports.ROAD_SNOW = ROAD_SNOW;
+  exports.settleRoadSnow = settleRoadSnow;
 
   // --- BUGGY VERTICAL PHYSICS & INCLINE LAUNCH ---
   // A buggy climbing an incline at speed develops upward momentum

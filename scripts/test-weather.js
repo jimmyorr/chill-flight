@@ -172,4 +172,29 @@ check(
 );
 check('snow gets heavier farther north', deep > edge * 1.3);
 
+// Snow settling on the roads (settleRoadSnow): builds while it snows,
+// lighter snow only so far, and clears once it stops
+{
+  const {settleRoadSnow} = ChillFlightLogic;
+  const run = (start, snow, seconds) => {
+    let road = start;
+    for (let t = 0; t < seconds; t += 0.1)
+      road = settleRoadSnow(road, snow, 0.1);
+    return road;
+  };
+  check('roads stay bare with no snow', run(0, 0, 60) === 0);
+  check(
+    'full snow whitens the roads gradually (under half in 15 s, full by 40 s)',
+    run(0, 1, 15) < 0.5 && run(0, 1, 40) === 1
+  );
+  check(
+    'light snow only dusts them, slowly',
+    run(0, 0.2, 30) < 0.2 && run(0, 0.2, 600) <= 0.5 + 1e-9
+  );
+  check(
+    'snowy roads clear within a couple of minutes of the snow stopping',
+    run(1, 0, 30) > 0.4 && run(1, 0, 75) === 0
+  );
+}
+
 process.exit(failed ? 1 : 0);

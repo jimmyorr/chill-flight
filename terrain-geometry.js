@@ -45,6 +45,7 @@ import {
   SKY_COLOR_GLSL,
   WATER_LEVEL,
   addHeadlightPool,
+  addRoadSnow,
   createMaterial,
   terrainUniforms,
 } from './constants.js';
@@ -2729,11 +2730,12 @@ const markingParams = {
   polygonOffsetFactor: -2,
   polygonOffsetUnits: -2,
 };
-export var roadWhiteMat = addHeadlightPool(
-  createMaterial({color: 0xf2f0e6, ...markingParams})
+// (buried by settling snow along with the decks)
+export var roadWhiteMat = addRoadSnow(
+  addHeadlightPool(createMaterial({color: 0xf2f0e6, ...markingParams}))
 );
-export var roadYellowMat = addHeadlightPool(
-  createMaterial({color: 0xe8c24a, ...markingParams})
+export var roadYellowMat = addRoadSnow(
+  addHeadlightPool(createMaterial({color: 0xe8c24a, ...markingParams}))
 );
 
 // 2. Box girder: trapezoidal underside attached ONLY under elevated bridge spans
@@ -2818,15 +2820,14 @@ if (typeof window !== 'undefined') {
   window.bridgePierFootingGeo = bridgePierFootingGeo;
 }
 
-export var bridgeDeckMat = addHeadlightPool(
-  createMaterial({color: 0x4a4a4a, flatShading: true}),
-  2.2
+export var bridgeDeckMat = addRoadSnow(
+  addHeadlightPool(createMaterial({color: 0x4a4a4a, flatShading: true}), 2.2)
 ); // Asphalt gray
 // The highways' and slip roads' decks: white, so each segment's instance
 // colour sets its asphalt, weathered by the biome (terrain-chunks.js)
-export var highwayDeckMat = addHeadlightPool(
-  createMaterial({color: 0xffffff, flatShading: true}),
-  2.2
+// (and snow settles on them while it snows: addRoadSnow)
+export var highwayDeckMat = addRoadSnow(
+  addHeadlightPool(createMaterial({color: 0xffffff, flatShading: true}), 2.2)
 );
 // (Colours made while the module loads are converted from sRGB, as the
 // heartland asphalt's is; the much lighter dusty and snowy ones are taken

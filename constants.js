@@ -854,6 +854,83 @@ export function addHeadlightPool(material, gain = 1) {
   return material;
 }
 
+// Snow settling on the roads while it snows: 0 bare to 1 white over
+// (weather-manager.js builds it up while snow falls and melts it after)
+export const roadSnowUniforms = {
+  uRoadSnow: {value: 0},
+  uRoadSnowColor: {value: new THREE.Color(0xd3d9df)},
+};
+
+// Lets a road material (keeping its own onBeforeCompile) take the settling
+// snow: patches of white on its upward faces that join up as uRoadSnow
+// rises, in world space so the deck and its markings bury together
+export function addRoadSnow(material) {
+  const base = material.onBeforeCompile;
+  const key = 'roadSnow' + material.customProgramCacheKey();
+  material.onBeforeCompile = function (shader, renderer) {
+    base.call(this, shader, renderer);
+    Object.assign(shader.uniforms, roadSnowUniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        'void main() {',
+        'varying vec3 vRoadSnowWorld;\nvarying float vRoadSnowUp;\nvoid main() {'
+      )
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+        {
+          vec4 sw = vec4(transformed, 1.0);
+          vec3 sn = normal;
+          #ifdef USE_INSTANCING
+            sw = instanceMatrix * sw;
+            sn = mat3(instanceMatrix) * sn;
+          #endif
+          vRoadSnowWorld = (modelMatrix * sw).xyz;
+          vRoadSnowUp = normalize(mat3(modelMatrix) * sn).y;
+        }`
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        'void main() {',
+        `uniform float uRoadSnow;
+        uniform vec3 uRoadSnowColor;
+        varying vec3 vRoadSnowWorld;
+        varying float vRoadSnowUp;
+        float roadSnowHash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+        float roadSnowNoise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(
+            mix(roadSnowHash(i), roadSnowHash(i + vec2(1.0, 0.0)), f.x),
+            mix(roadSnowHash(i + vec2(0.0, 1.0)), roadSnowHash(i + vec2(1.0, 1.0)), f.x),
+            f.y
+          );
+        }
+        void main() {`
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        if (uRoadSnow > 0.001) {
+          vec2 sp = vRoadSnowWorld.xz;
+          // Drifts tens of metres across, broken up finer at their edges
+          // (stretched out of the middle, so patches come in steadily)
+          float n = 0.7 * roadSnowNoise(sp / 45.0) + 0.3 * roadSnowNoise(sp / 6.0);
+          n = clamp((n - 0.5) * 2.4 + 0.5, 0.0, 1.0);
+          float cover = smoothstep(n - 0.05, n + 0.05, uRoadSnow * 1.15 - 0.05);
+          // Only on faces that look up
+          cover *= smoothstep(0.5, 0.8, vRoadSnowUp);
+          diffuseColor.rgb = mix(diffuseColor.rgb, uRoadSnowColor, cover);
+        }`
+      );
+  };
+  material.customProgramCacheKey = () => key;
+  return material;
+}
+
 // DOM caching & utilities
 const _domCache = new Map();
 
