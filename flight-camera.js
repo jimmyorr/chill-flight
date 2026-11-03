@@ -91,6 +91,11 @@ const _orbitAxis = new THREE.Vector3(0, 1, 0);
 let _frameCount;
 // A sunk boat's matrix: nothing drawn
 const _SUNK = new THREE.Matrix4().makeScale(0, 0, 0);
+// The ghost ship is out while state.dayFactor is under GHOST_SHIP_DAY,
+// rising over GHOST_SHIP_FADE of it from GHOST_SHIP_SINK units down
+const GHOST_SHIP_DAY = 0.5;
+const GHOST_SHIP_FADE = 0.3;
+const GHOST_SHIP_SINK = 30;
 const _furledSail = new THREE.Matrix4();
 // A hawk or gull flies off when the plane comes this close (units), this far
 // (units), and is back circling after this long (s)
@@ -1121,7 +1126,16 @@ export function updateFlightCamera(delta, nowTime) {
       const reflections = chunkGroup.userData.pirateReflections;
       const positions = chunkGroup.userData.pirateShipPositions;
 
+      // The ghost ship rises out of the sea at dusk and sinks back at
+      // dawn; by day it's gone (not drawn, hit or leaving a wake)
+      const ghost = THREE.MathUtils.clamp(
+        (GHOST_SHIP_DAY - state.dayFactor) / GHOST_SHIP_FADE,
+        0,
+        1
+      );
+      const rise = (1 - ghost) * GHOST_SHIP_SINK;
       positions.forEach((pos, index) => {
+        pos.hidden = ghost === 0;
         const patrolRadius = 40 + _boatHash(index, 7) * 30;
         const patrolSpeed = 0.05 + _boatHash(index, 8) * 0.03;
         const patrolPhase = _boatHash(index, 9) * Math.PI * 2;
@@ -1140,25 +1154,25 @@ export function updateFlightCamera(delta, nowTime) {
         const roll = Math.sin(bobTime * 0.7) * 0.03;
         const pitch = Math.cos(bobTime * 0.9) * 0.02;
 
-        _boatDummy.position.set(pos.x + dx, pos.y + dy, pos.z + dz);
+        _boatDummy.position.set(pos.x + dx, pos.y + dy - rise, pos.z + dz);
         _boatDummy.rotation.set(0, 0, 0);
         _boatDummy.rotation.y = tangentYaw + Math.PI;
         _boatDummy.rotation.x = pitch;
         _boatDummy.rotation.z = roll;
         _boatDummy.scale.set(2.5, 2.5, 2.5);
         _boatDummy.updateMatrix();
-        // Sunk (breakables.js): drawn no more
-        if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
+        // Sunk (breakables.js), or gone for the day: drawn no more
+        if (pos.sunk || pos.hidden) _boatDummy.matrix.copy(_SUNK);
         ships[pos.bodyId].setMatrixAt(index, _boatDummy.matrix);
 
-        _boatDummy.position.set(pos.x + dx, pos.y - dy, pos.z + dz);
+        _boatDummy.position.set(pos.x + dx, pos.y - dy + rise, pos.z + dz);
         _boatDummy.rotation.set(0, 0, 0);
         _boatDummy.rotation.y = tangentYaw + Math.PI;
         _boatDummy.rotation.x = -pitch;
         _boatDummy.rotation.z = -roll;
         _boatDummy.scale.set(2.5, -2.5, 2.5);
         _boatDummy.updateMatrix();
-        if (pos.sunk) _boatDummy.matrix.copy(_SUNK);
+        if (pos.sunk || pos.hidden) _boatDummy.matrix.copy(_SUNK);
         reflections[pos.bodyId].setMatrixAt(index, _boatDummy.matrix);
       });
 

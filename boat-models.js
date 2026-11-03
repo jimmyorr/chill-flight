@@ -14,8 +14,6 @@ import * as fishingBoat from './third-party/polyfork/small-fishing-boat-4ac0e3.m
 import * as islandBoat from './third-party/polyfork/hanga-roa-fishing-boat-f09534.mjs';
 import * as sunkenBoat from './third-party/polyfork/sunken-fishing-boat-061c70.mjs';
 import * as pirateGalleon from './third-party/polyfork/pirate-galleon-2e9aea.mjs';
-import * as pirateBrigantine from './third-party/polyfork/pirate-brigantine-c29c57.mjs';
-import * as pirateSloop from './third-party/polyfork/pirate-sloop-d8ead0.mjs';
 
 // How much bigger than real life the Polyfork models are drawn (they're
 // built in metres), so they hold their own beside the planes: the boats,
@@ -221,18 +219,16 @@ export function buildSmallBoatGeos() {
 }
 
 // --- PIRATE SHIPS ---
-// The pirate ships' four looks (a ship's bodyId, terrain-gen.js), Polyfork
-// models like the small boats: the galleon, a tarred brigantine, a black
-// raider sloop and a grey ghost galleon. Each is built bow toward -z (our
-// old ships' way), sunk to its waterline and sized for the instance scale
-// flight-camera.js and terrain-chunks.js give pirate ships (2.5), so the
-// galleon comes out about 74 units long and the sloop about 41.
+// The one pirate ship: Polyfork's galleon in its grey ghost colours, out
+// only at night (flight-camera.js: an empty ship under sail by day looked
+// abandoned). Built bow toward -z (our old ships' way), sunk to its
+// waterline and sized for the instance scale flight-camera.js and
+// terrain-chunks.js give pirate ships (2.5), about 74 units long. A ship's
+// bodyId (terrain-gen.js) picks among the looks, wrapping
+// (terrain-chunks.js), so with one look every ship is the ghost.
 export const PIRATE_SHIP_INSTANCE_SCALE = 2.5;
 const PIRATE_SHIPS = [
   // module, options, how many times real size, draft (m), turn to face -z
-  [pirateGalleon, {colorway: 'weathered-oak'}, 2.8, 2.0, Math.PI],
-  [pirateBrigantine, {colorway: 'tarred-black'}, 3.6, 1.6, -Math.PI / 2],
-  [pirateSloop, {colorway: 'black-hull-raider'}, 4.2, 0.7, Math.PI],
   [pirateGalleon, {colorway: 'ghost-tide'}, 2.8, 2.0, Math.PI],
 ];
 export const PIRATE_SHIP_LOOKS = PIRATE_SHIPS.length;

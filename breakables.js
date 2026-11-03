@@ -1195,7 +1195,8 @@ function sweepBoats(a, b, r, ux, uz, kts, mine, buggy) {
       if (!list) continue;
       const shape = boatShape(kind);
       list.forEach((pos, index) => {
-        if (pos.sunk) return;
+        // (A ghost ship by day isn't there)
+        if (pos.sunk || pos.hidden) return;
         const x = pos.worldX ?? wp.x + pos.x;
         const z = pos.worldZ ?? wp.z + pos.z;
         const top = pos.y + shape.top;

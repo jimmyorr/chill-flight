@@ -3486,8 +3486,8 @@ export var crystalMat = createMaterial({
   flatShading: true,
 });
 
-// Pirate ships: Polyfork's galleon, brigantine and sloop in four looks, one
-// geometry each (boat-models.js), indexed by a ship's bodyId, each with a
+// Pirate ships: Polyfork's ghost galleon, one geometry per look
+// (boat-models.js), indexed by a ship's bodyId, each with a
 // ring of foam at its waterline. Their water reflections are the same
 // geometries without the foam, flipped, in reflectionMat.
 export var pirateShipReflectionGeos = buildPirateShipGeos();

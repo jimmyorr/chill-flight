@@ -814,7 +814,7 @@ function nearPlane(x, z, range) {
 function boatWake(boats, scale) {
   if (!boats) return;
   for (const b of boats) {
-    if (b.worldX === undefined || b.sunk) continue;
+    if (b.worldX === undefined || b.sunk || b.hidden) continue;
     if (b.wakeX === undefined) {
       b.wakeX = b.worldX;
       b.wakeZ = b.worldZ;
