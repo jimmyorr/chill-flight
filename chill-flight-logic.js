@@ -3427,10 +3427,18 @@ export const ChillFlightLogic = {};
     // flat; terrain-gen.js colours them). Away from the sea (biome) the lake
     // floors rise to the pan, so where a lake reaches toward the coast it
     // keeps water at its seaward end, with a smooth shore between. Before
-    // the rivers and highway, which still cut through.
+    // the rivers and highway, which still cut through. How dry wanders at
+    // the scale of the lakes themselves, so the last lakes with water don't
+    // all stop along one line of latitude.
     const desert = desertLowlandAt(origX, origZ, simplex);
-    if (desert > 0.4) {
-      const dry = smoothRamp(biome, -0.08, 0.06) * smoothRamp(desert, 0.4, 0.8);
+    if (desert > 0.15) {
+      const dryness =
+        desert -
+        0.05 +
+        simplex.noise2D(origX * 0.0004 + 83, origZ * 0.0004 - 51) * 0.3 +
+        simplex.noise2D(origX * 0.0015 - 19, origZ * 0.0015 + 37) * 0.1;
+      const dry =
+        smoothRamp(biome, -0.08, 0.06) * smoothRamp(dryness, 0.45, 0.85);
       if (dry > 0 && n < WATER_LEVEL + SALT_PAN_RISE) {
         n = _lerp(n, WATER_LEVEL + SALT_PAN_RISE, dry);
       }
