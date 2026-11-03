@@ -1176,7 +1176,9 @@ export function updateFlightCamera(delta, nowTime) {
         if (pos.sunk || pos.hidden) _boatDummy.matrix.copy(_SUNK);
         ships[pos.bodyId].setMatrixAt(index, _boatDummy.matrix);
 
-        _boatDummy.position.set(pos.x + dx, pos.y - dy + rise, pos.z + dz);
+        // (The reflection sinks with it: mirrored, it would rise out of the
+        // water upside down)
+        _boatDummy.position.set(pos.x + dx, pos.y - dy - rise, pos.z + dz);
         _boatDummy.rotation.set(0, 0, 0);
         _boatDummy.rotation.y = tangentYaw + Math.PI;
         _boatDummy.rotation.x = -pitch;
