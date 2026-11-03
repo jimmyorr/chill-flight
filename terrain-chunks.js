@@ -34,6 +34,8 @@ import {
   boatSailMat,
   bridgeDeckGeo,
   bridgeDeckMat,
+  highwayDeckMat,
+  ROAD_ASPHALT,
   townStreetGeo,
   bridgeGirderGeo,
   bridgeGirderMat,
@@ -1184,6 +1186,18 @@ function atEastJunction(x, z) {
 const SLIP_DECK_SCALE =
   (ChillFlightLogic.SLIP.HALF * 2 + 4) / (ChillFlightLogic.ROAD_WIDTH * 2 + 4);
 const _slipDummy = new THREE.Object3D();
+// The asphalt at world (x, z): the heartland's dark grey, weathered by the
+// biome (dusty in the desert, snow-dusted in the north, faintly purple in the
+// alien lands). Shared; copy it before the next call.
+const _roadTint = new THREE.Color();
+function roadAsphaltAt(x, z) {
+  const w = ChillFlightLogic.roadWeatherAt(x, z, simplex);
+  return _roadTint
+    .copy(ROAD_ASPHALT.base)
+    .lerp(ROAD_ASPHALT.alien, w.alien)
+    .lerp(ROAD_ASPHALT.dust, w.dust)
+    .lerp(ROAD_ASPHALT.snow, w.snow);
+}
 function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
   const half = CHUNK_SIZE / 2;
   const pieces = [];
@@ -1221,7 +1235,7 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
   if (pieces.length === 0) return;
   const deckInst = getInstancedMesh(
     bridgeDeckGeo,
-    bridgeDeckMat,
+    highwayDeckMat,
     pieces.length
   );
   // Each edge line one at a time, and only where it's clear of the
@@ -1246,6 +1260,7 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
     dummy.scale.set(SLIP_DECK_SCALE, 1, length / BRIDGE_SEGMENT_LENGTH);
     dummy.updateMatrix();
     deckInst.setMatrixAt(i, dummy.matrix);
+    deckInst.setColorAt(i, roadAsphaltAt((a.x + b.x) / 2, (a.z + b.z) / 2));
     [-1, 1].forEach((side, k) => {
       dummy.position.set(
         (a.x + b.x) / 2 - worldOffsetX,
@@ -1266,6 +1281,7 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
       lineInst.setMatrixAt(i * 2 + k, dummy.matrix);
     });
   });
+  if (deckInst.instanceColor) deckInst.instanceColor.needsUpdate = true;
   for (const m of [deckInst, lineInst]) {
     m.position.set(worldOffsetX, 0, worldOffsetZ);
     group.add(m);
@@ -2287,7 +2303,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         // Road decks (paper-thin, for all segments)
         const deckInst = getInstancedMesh(
           bridgeDeckGeo,
-          bridgeDeckMat,
+          highwayDeckMat,
           bridgePositions.length
         );
 
@@ -2435,6 +2451,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
           dummy.updateMatrix();
           deckInst.setMatrixAt(index, dummy.matrix);
+          deckInst.setColorAt(
+            index,
+            roadAsphaltAt(midVec.x + worldOffsetX, midVec.z + worldOffsetZ)
+          );
           // No markings in the box where it crosses another highway
           const inBox = inCrossingBox(
             midVec.x + worldOffsetX,
@@ -2626,6 +2646,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         // horizon; lane markings, rails, pier caps and footings and lamp
         // posts are a pixel or less that far, so they go with the chunk's
         // props (hidden past the prop draw distance). Each is a draw call.
+        if (deckInst.instanceColor) deckInst.instanceColor.needsUpdate = true;
         deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
         group.add(deckInst);
         for (const m of markingInsts) {
