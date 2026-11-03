@@ -124,7 +124,11 @@ const LANDMARKS = {
   mushroomCottage1: [mushroomCottage, {colorway: 'blueberry'}, 9, 'cap'],
   gardenShed0: [gardenShed, {colorway: 'sage-garden'}, S, 'roof'],
   gardenShed1: [gardenShed, {colorway: 'seaside-boards'}, S, 'roof'],
-  farmhouse: [farmhouse, {colorway: 'cream-plaster'}, S, 'roof'],
+  // By the farmsteads' barns, the cold grey-green one up north (the last)
+  farmhouse0: [farmhouse, {colorway: 'cream-plaster', storeys: 2}, S, 'roof'],
+  farmhouse1: [farmhouse, {colorway: 'ochre-barn', storeys: 2}, S, 'roof'],
+  farmhouse2: [farmhouse, {colorway: 'orchard-plum', storeys: 2}, S, 'roof'],
+  farmhouse3: [farmhouse, {colorway: 'slate-north', storeys: 2}, S, 'roof'],
 };
 // Types toppled whole (the rest are houses)
 export const LANDMARK_TOWERS = ['fireLookout', 'waterTower', 'windpump'];
@@ -137,6 +141,10 @@ export const LANDMARK_HOUSES = [
   'fishShack',
   'rangerStation',
   'leanTo',
+  'farmhouse0',
+  'farmhouse1',
+  'farmhouse2',
+  'farmhouse3',
 ];
 
 // The lowest point painted in a colour (the model's eave, for its roof)

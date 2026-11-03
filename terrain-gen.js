@@ -263,7 +263,14 @@ const LANDMARK_RULES = {
   rangerStation: {chance: 0.007, clear: 22, flat: 5},
   leanTo: {chance: 0.4, clear: 7, flat: 4},
   fishShack: {chance: 0.5, clear: 11, flat: 4},
+  farmhouse: {chance: 0.7, clear: 13, flat: 4},
 };
+// How many paint schemes of farmhouse there are (farmhouse0Body, ...; the
+// last is for the north), and where it stands from its barn (units, in
+// the barn's frame: out along the strip and to the side)
+const FARMHOUSE_LOOKS = 4;
+const FARMHOUSE_YARD = 42;
+const FARMHOUSE_SIDE = -14;
 // How many paint schemes of beach hut there are (beachHut0Body, ...), and
 // how far apart they stand in a row (units)
 const BEACH_HUT_LOOKS = 4;
@@ -3982,7 +3989,13 @@ export function generateChunkData({
           if (v < 0 || !steadOk[v]) continue;
           const by = getElevation(stead.x, stead.z, elevParams);
           if (by <= WATER_LEVEL + 5) continue;
-          barnPositions.push({x: lx, y: by, z: lz, rotY: stead.rotY});
+          barnPositions.push({
+            x: lx,
+            y: by,
+            z: lz,
+            rotY: stead.rotY,
+            stead: true,
+          });
           steadClear.push({x: lx, z: lz, r: 26});
           const mv = vertexAt(stead.mx, stead.mz);
           if (stead.mill && mv >= 0 && steadOk[mv]) {
@@ -4218,6 +4231,29 @@ export function generateChunkData({
       z: pier.z + back.z,
       rotY: pier.rotY,
       pier: true,
+    });
+  }
+  // A farmhouse across the yard from most of the farmsteads' barns, out
+  // past the barn's door along the strip, a little to the side away from
+  // any windmill, facing it
+  for (const barn of barnPositions) {
+    if (!barn.stead) continue;
+    const wx = Math.round(worldOffsetX + barn.x);
+    const wz = Math.round(worldOffsetZ + barn.z);
+    if (fieldHash(wx, wz, 1331) >= LANDMARK_RULES.farmhouse.chance) continue;
+    const yard = rotateY(FARMHOUSE_SIDE, FARMHOUSE_YARD, barn.rotY);
+    const look =
+      wz < NORTH_BARNS_Z
+        ? FARMHOUSE_LOOKS - 1
+        : Math.floor(fieldHash(wx, wz, 1333) * (FARMHOUSE_LOOKS - 1));
+    landmarkPositions.push({
+      type: 'farmhouse' + look,
+      rule: 'farmhouse',
+      group: landmarkPositions.length,
+      x: barn.x + yard.x,
+      y: barn.y,
+      z: barn.z + yard.z,
+      rotY: barn.rotY + Math.PI,
     });
   }
   // A lean-to shelter beside some of the campfires, its open front to the
