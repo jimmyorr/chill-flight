@@ -16,6 +16,7 @@ import * as rangerStation from './third-party/polyfork/ranger-station-ef6407.mjs
 import * as leanTo from './third-party/polyfork/lean-to-shelter-f0709f.mjs';
 import * as mushroomCottage from './third-party/polyfork/mushroom-cottage-1135d1.mjs';
 import * as gardenShed from './third-party/polyfork/backyard-garden-shed-38d79f.mjs';
+import * as stoneChapel from './third-party/polyfork/stone-chapel-03e774.mjs';
 import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
 
 export const buildingMat = createMaterial({
@@ -49,6 +50,25 @@ export function buildingMesh(geo) {
   m.castShadow = true;
   m.receiveShadow = true;
   return m;
+}
+
+// The chapel standing where the monasteries used to: Polyfork's Stone
+// Chapel in grey stone and slate, its nave stretched to a little hall,
+// with the cross on its gable left off (the dark iron up top). Split at
+// the eave into walls and roof (terrain-geometry.js monasteryBodyGeo).
+const CHAPEL_OPTS = {colorway: 'slate-roof', tile: '#56616a', naveLength: 1.22};
+const CHAPEL_CROSS_Y = 7;
+export function buildChapelGeos() {
+  const asset = stoneChapel.createAsset(CHAPEL_OPTS);
+  const iron = new THREE.Color(
+    stoneChapel.presets['slate-roof'].iron
+  ).getHexString();
+  const eave = lowestOf(asset, CHAPEL_OPTS.tile) - 0.01;
+  const cross = (low, hex) => hex === iron && low > CHAPEL_CROSS_Y;
+  return {
+    body: mergeAsset(asset, 0, S, 0, (y, hex) => y < eave && !cross(y, hex)),
+    roof: mergeAsset(asset, 0, S, 0, (y, hex) => y >= eave && !cross(y, hex)),
+  };
 }
 
 // --- LANDMARKS ---

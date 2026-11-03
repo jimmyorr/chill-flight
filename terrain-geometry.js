@@ -14,6 +14,7 @@ import {ART_PAINTED, ART_POST} from './art-style.js';
 import * as polyforkLighthouse from './third-party/polyfork/old-lighthouse-48ca6c.mjs';
 import * as polyforkCottage from './third-party/polyfork/porch-front-cottage-620c29.mjs';
 import {createAsset as createPolyforkDolphin} from './third-party/polyfork/dolphin-base.mjs';
+import {buildChapelGeos, buildingMat} from './building-models.js';
 import {
   PIRATE_SHIP_LOOKS,
   boatMat,
@@ -2011,36 +2012,6 @@ export var barnMat = createMaterial({vertexColors: true, flatShading: true});
 export var barnSiloMat = barnMat;
 export var barnSiloRoofMat = barnMat;
 
-// --- MONASTERY ---
-function createMonasteryBodyGeometry() {
-  // Long main hall
-  const hall = new THREE.BoxGeometry(30, 10, 16);
-  hall.translate(0, 5, 0);
-  // Side cloister wing
-  const wing = new THREE.BoxGeometry(18, 6, 8);
-  wing.translate(4, 3, -12);
-  // Bell tower base (attached at one end of hall)
-  const tower = new THREE.BoxGeometry(9, 22, 9);
-  tower.translate(-16, 11, 0);
-  const geometries = [hall, wing, tower];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
-    offset += g.attributes.position.count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-
 function createGableRoof(width, depth, height, overhang) {
   const shape = new THREE.Shape();
   const hw = width / 2 + overhang;
@@ -2056,59 +2027,13 @@ function createGableRoof(width, depth, height, overhang) {
   return geo;
 }
 
-function createMonasteryRoofGeometry() {
-  const hallRoof = createGableRoof(16, 30, 8, 1.5);
-  hallRoof.rotateY(Math.PI / 2);
-  hallRoof.translate(0, 10, 0);
-
-  const wingRoof = createGableRoof(8, 18, 5, 1.5);
-  wingRoof.rotateY(Math.PI / 2);
-  wingRoof.translate(4, 6, -12);
-
-  const towerCap = new THREE.ConeGeometry(7.5, 9, 4);
-  towerCap.rotateY(Math.PI / 4);
-  towerCap.translate(-16, 22 + 4.5, 0);
-
-  const geometries = [hallRoof, wingRoof, towerCap];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    if (g.attributes.normal) {
-      norm.push(...g.attributes.normal.array);
-    }
-    if (g.index) {
-      for (let i = 0; i < g.index.array.length; i++)
-        idx.push(g.index.array[i] + offset);
-    } else {
-      for (let i = 0; i < g.attributes.position.count; i++)
-        idx.push(i + offset);
-    }
-    offset += g.attributes.position.count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  if (norm.length === pos.length) {
-    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  } else {
-    geom.computeVertexNormals();
-  }
-  geom.setIndex(idx);
-  return geom;
-}
-
-export var monasteryBodyGeo = createMonasteryBodyGeometry();
-export var monasteryRoofGeo = createMonasteryRoofGeometry();
-export var monasteryBodyMat = createMaterial({
-  color: 0x9e9e9e,
-  flatShading: true,
-}); // stone
-export var monasteryRoofMat = createMaterial({
-  color: 0x546e7a,
-  flatShading: true,
-}); // slate
+// Polyfork's stone chapel stands where the monasteries were
+// (building-models.js), walls and roof
+const chapelGeos = buildChapelGeos();
+export var monasteryBodyGeo = chapelGeos.body;
+export var monasteryRoofGeo = chapelGeos.roof;
+export var monasteryBodyMat = buildingMat;
+export var monasteryRoofMat = buildingMat;
 
 // --- CASTLE RUINS ---
 export function createRockArchGeometries(rng) {
