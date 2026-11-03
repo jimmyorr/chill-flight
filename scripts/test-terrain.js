@@ -238,9 +238,11 @@ console.log(
 );
 
 // --- 4. INVARIANT TEST: HIGHWAY GEOGRAPHIC BOUNDS ---
-// Highways only exist at X < 0. For X >= 0, ignoreRoads: true vs false MUST be identical.
+// Highways only exist at X < 0, but for the east coast highway. For X >= 0
+// away from that one, ignoreRoads: true vs false MUST be identical.
 for (let testX = 0; testX <= 30000; testX += 5000) {
   for (let testZ = -20000; testZ <= 20000; testZ += 5000) {
+    if (ChillFlightLogic.eastRoadNear(testX, testZ, 6000)) continue;
     const elevWithRoads = ChillFlightLogic.getElevation(
       testX,
       testZ,
@@ -266,7 +268,7 @@ for (let testX = 0; testX <= 30000; testX += 5000) {
   }
 }
 console.log(
-  '  Passed: Highway canyon carving strictly confined to West Coast (X < 0)'
+  '  Passed: Highway carving confined to the west and the east coast highway'
 );
 
 // --- 5. MONTAUK LIGHTHOUSE ISLAND ---
