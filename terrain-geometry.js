@@ -1528,28 +1528,95 @@ export var joshuaTrunkMat = createMaterial({
   flatShading: true,
 });
 
-// Mushroom geometry and materials
+// Mushroom geometry and materials, shaped like the cap on Polyfork's
+// Mushroom Cottage (building-models.js): a stout stalk that swells at the
+// foot, a round domed cap whose rim curls under, and pale spots and gills.
+// The spots and gills go with the stalk (its own pale colour); the cap
+// alone takes each mushroom's colour.
+const lathe = (pts, segs) =>
+  new THREE.LatheGeometry(
+    pts.map(([r, y]) => new THREE.Vector2(r, y)),
+    segs
+  ).toNonIndexed();
+// The cap's outline, rim to crown ([distance out, height]), and its
+// spots ([distance out, angle around, size])
+const CAP_OUTLINE = [
+  [6.4, 10.9],
+  [7.1, 11.6],
+  [7.2, 12.6],
+  [6.6, 14.0],
+  [5.4, 15.4],
+  [3.6, 16.5],
+  [1.6, 17.0],
+  [0, 17.1],
+];
+const CAP_SPOTS = [
+  [0.4, 0, 1.1],
+  [3.2, 0.4, 0.9],
+  [3.0, 2.4, 0.85],
+  [3.4, 4.3, 0.9],
+  [5.4, 1.3, 0.75],
+  [5.6, 3.3, 0.7],
+  [5.3, 5.3, 0.75],
+  [6.4, 0.2, 0.6],
+  [6.3, 2.3, 0.6],
+  [6.5, 4.4, 0.6],
+];
 function createMushroomGeometry() {
-  const stalk = new THREE.CylinderGeometry(1.2, 1.8, 12, 8);
-  stalk.translate(0, 6, 0);
-
-  const cap = new THREE.SphereGeometry(
-    7,
-    12,
-    8,
-    0,
-    Math.PI * 2,
-    0,
-    Math.PI / 2
+  const stalk = lathe(
+    [
+      [0, 0],
+      [2.1, 0],
+      [2.0, 1.2],
+      [1.5, 3.5],
+      [1.3, 7],
+      [1.45, 10.5],
+      [1.7, 11.8],
+      [0, 11.8],
+    ],
+    8
   );
-  cap.scale(1, 0.6, 1);
-  cap.translate(0, 12, 0);
-
-  return {trunk: stalk, leaves: cap};
+  // The gills: the cap's underside, from the stalk out to the rim
+  const gills = lathe(
+    [
+      [6.7, 11.0],
+      [4.5, 11.5],
+      [1.6, 11.8],
+    ],
+    12
+  );
+  // Pale spots set into the dome, each at its height on the cap's
+  // outline (by its distance out from the middle, and around)
+  const dome = CAP_OUTLINE.slice(3).reverse();
+  const domeY = (d) => {
+    for (let i = 1; i < dome.length; i++) {
+      const [r0, y0] = dome[i - 1];
+      const [r1, y1] = dome[i];
+      if (d <= r1) return y0 + ((d - r0) / (r1 - r0)) * (y1 - y0);
+    }
+    return dome[dome.length - 1][1];
+  };
+  const spots = [];
+  for (const [d, a, r] of CAP_SPOTS) {
+    const spot = new THREE.OctahedronGeometry(r * 1.35, 0);
+    spot.scale(1, 0.4, 1);
+    const y = domeY(d);
+    // Tilted to lie along the dome
+    const slope = (domeY(d - 0.3) - domeY(d + 0.3)) / 0.6;
+    const out = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
+    const n = out.clone().multiplyScalar(slope).setY(1).normalize();
+    spot.applyQuaternion(
+      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n)
+    );
+    spot.translate(out.x * d, y - 0.05, out.z * d);
+    spots.push(spot.toNonIndexed());
+  }
+  const cap = lathe(CAP_OUTLINE, 12);
+  return {trunk: mergeGeometries([stalk, gills, ...spots]), leaves: cap};
 }
 export var mushroomGeos = createMushroomGeometry();
 export var mushroomStalkMat = createMaterial({
-  color: 0xdddddd,
+  color: 0xfff7e6,
   flatShading: true,
 });
 

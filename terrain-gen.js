@@ -345,8 +345,10 @@ const TREE_LINE_FADE = 150;
 
 const ALIEN_CRYSTAL_COLORS = [0xff4fd8, 0xff7a3d, 0xffb8ec, 0xc04dff, 0xff2e7e];
 
+// (The last two are the mushroom cottages' red and blueberry caps)
 const ALIEN_MUSHROOM_CAP_COLORS = [
   0x9c27b0, 0xab47bc, 0x7b1fa2, 0xba68c8, 0x8e24aa, 0x00bcd4, 0x26a69a,
+  0xc2422f, 0x7c7fc0,
 ];
 
 const _matBuffer = new Float32Array(16);
