@@ -171,9 +171,9 @@ function drawRoads(pixels, simplex, x0, z0, upp, width, rowStart, rowEnd) {
       ChillFlightLogic.ROAD_EW_EAST
     );
   }
-  const northSpan = ChillFlightLogic.northRoadSpan();
-  if (northSpan) {
-    addAlongX(ChillFlightLogic.ROAD_NORTH, northSpan[0], northSpan[1]);
+  for (const coast of ChillFlightLogic.COAST_ROADS) {
+    const span = ChillFlightLogic.coastRoadSpan(coast);
+    if (span) addAlongX(coast, span[0], span[1]);
   }
   // The north-south highways, the east coast one last (where it's traced)
   const northSouth = [];

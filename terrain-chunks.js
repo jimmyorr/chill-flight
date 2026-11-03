@@ -1304,17 +1304,17 @@ function inCrossingBox(x, z, crossCountry, pad) {
       ChillFlightLogic.highwayRunsAt(n, z, simplex, constants)
     );
   }
-  // Where the north coast one crosses it
-  const north = ChillFlightLogic.ROAD_NORTH;
-  const northSpan = ChillFlightLogic.northRoadSpan();
-  if (northSpan && x >= northSpan[0] - 200 && x <= northSpan[1] + 200) {
-    const nx = Math.max(northSpan[0], Math.min(northSpan[1], x));
-    const nz = ChillFlightLogic.roadCenter(north, nx);
+  // Where a coast one crosses it
+  for (const coast of ChillFlightLogic.COAST_ROADS) {
+    const span = ChillFlightLogic.coastRoadSpan(coast);
+    if (!span || x < span[0] - 200 || x > span[1] + 200) continue;
+    const cx = Math.max(span[0], Math.min(span[1], x));
+    const cz = ChillFlightLogic.roadCenter(coast, cx);
     const slope =
-      (ChillFlightLogic.roadCenter(north, nx + 5) -
-        ChillFlightLogic.roadCenter(north, nx - 5)) /
+      (ChillFlightLogic.roadCenter(coast, cx + 5) -
+        ChillFlightLogic.roadCenter(coast, cx - 5)) /
       10;
-    if (Math.abs(z - nz) < reach(slope)) return true;
+    if (Math.abs(z - cz) < reach(slope)) return true;
   }
   if (
     x <= ChillFlightLogic.ROAD_EW_WEST ||
@@ -1925,19 +1925,24 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         activeRoads.push(ChillFlightLogic.ROAD_EAST);
       }
     }
-    // The north coast one, between its T junctions
-    const northSpan = ChillFlightLogic.northRoadSpan();
-    if (
-      northSpan &&
-      worldOffsetX + halfChunk > northSpan[0] - 1000 &&
-      worldOffsetX - halfChunk < northSpan[1] + 1000
-    ) {
-      const nz = ChillFlightLogic.roadCenter(
-        ChillFlightLogic.ROAD_NORTH,
-        Math.max(northSpan[0], Math.min(northSpan[1], worldOffsetX))
+    // The north and south coast ones, between their T junctions
+    const coastSpans = {};
+    for (const coast of ChillFlightLogic.COAST_ROADS) {
+      const span = ChillFlightLogic.coastRoadSpan(coast);
+      coastSpans[coast] = span;
+      if (
+        !span ||
+        worldOffsetX + halfChunk <= span[0] - 1000 ||
+        worldOffsetX - halfChunk >= span[1] + 1000
+      ) {
+        continue;
+      }
+      const cz = ChillFlightLogic.roadCenter(
+        coast,
+        Math.max(span[0], Math.min(span[1], worldOffsetX))
       );
-      if (Math.abs(nz - worldOffsetZ) < halfChunk * 3 + 2000) {
-        activeRoads.push(ChillFlightLogic.ROAD_NORTH);
+      if (Math.abs(cz - worldOffsetZ) < halfChunk * 3 + 2000) {
+        activeRoads.push(coast);
       }
     }
 
@@ -1947,13 +1952,17 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       // The east coast one starts at a T junction on the cross-country one
       // (spanStart), and runs east of 0 longitude
       const east = n === ChillFlightLogic.ROAD_EAST;
-      // The north coast one runs along x like the cross-country one, from
-      // a T junction on one north-south highway to another
-      const north = n === ChillFlightLogic.ROAD_NORTH;
-      const alongX = crossCountry || north;
+      // The coast ones run along x like the cross-country one, from a T
+      // junction on one north-south highway to another
+      const coastSpan = coastSpans[n];
+      const alongX = crossCountry || !!coastSpan;
       // Where along it a road that starts or ends at a T junction does
-      const spanStart = east ? eastSpan[0] : north ? northSpan[0] : -Infinity;
-      const spanEnd = north ? northSpan[1] : Infinity;
+      const spanStart = east
+        ? eastSpan[0]
+        : coastSpan
+          ? coastSpan[0]
+          : -Infinity;
+      const spanEnd = coastSpan ? coastSpan[1] : Infinity;
       const alongOffset = alongX ? worldOffsetX : worldOffsetZ;
       const acrossOffset = alongX ? worldOffsetZ : worldOffsetX;
       const bridgePositions = [];

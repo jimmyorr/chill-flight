@@ -948,16 +948,16 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
   const inTown = (h) =>
     towns.some((t) => Math.hypot(h.x - t.x, h.z - t.z) < t.radius + 150);
   const eastSpan = ChillFlightLogic.eastRoadSpan();
-  const northSpan = ChillFlightLogic.northRoadSpan();
-  for (let n = 0; n <= ChillFlightLogic.ROAD_NORTH; n++) {
+  for (let n = 0; n <= ChillFlightLogic.ROAD_SOUTH; n++) {
     const crossCountry = n === ChillFlightLogic.ROAD_EW;
     const east = n === ChillFlightLogic.ROAD_EAST;
-    const north = n === ChillFlightLogic.ROAD_NORTH;
+    const coast = ChillFlightLogic.COAST_ROADS.includes(n);
+    const coastSpan = coast ? ChillFlightLogic.coastRoadSpan(n) : null;
     if (east && !eastSpan) continue;
-    if (north && !northSpan) continue;
+    if (coast && !coastSpan) continue;
     // The chunk's centre along the road and across it
-    const ca = crossCountry || north ? cx : cz;
-    const cc = crossCountry || north ? cz : cx;
+    const ca = crossCountry || coast ? cx : cz;
+    const cc = crossCountry || coast ? cz : cx;
     const slot0 = Math.floor((ca - reach - 500) / ROAD_VILLAGE_SLOT);
     const slot1 = Math.floor((ca + reach + 500) / ROAD_VILLAGE_SLOT);
     for (let slot = slot0; slot <= slot1; slot++) {
@@ -981,11 +981,11 @@ function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {
         ) {
           continue;
         }
-      } else if (north) {
+      } else if (coast) {
         // Between its T junctions, clear of them
         if (
-          v.along - v.half < northSpan[0] + 1500 ||
-          v.along + v.half > northSpan[1] - 1500
+          v.along - v.half < coastSpan[0] + 1500 ||
+          v.along + v.half > coastSpan[1] - 1500
         ) {
           continue;
         }

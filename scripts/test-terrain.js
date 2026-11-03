@@ -487,12 +487,12 @@ console.log('  Passed: Highways leave out stretches stranded at sea');
     for (let zz = z - 300; zz <= z + 300; zz += 0.5) {
       brute = Math.min(brute, Math.hypot(x - L.getRoadCenterX(zz, n), z - zz));
     }
-    const north = L.northRoadSpan();
+    const coasts = L.COAST_ROADS.map((c) => [c, L.coastRoadSpan(c)]);
     for (let xx = x - 300; xx <= x + 300; xx += 0.5) {
       brute = Math.min(brute, Math.hypot(xx - x, z - L.getRoadCenterZ(xx)));
-      if (north && xx >= north[0] && xx <= north[1]) {
-        const nz = L.roadCenter(L.ROAD_NORTH, xx);
-        brute = Math.min(brute, Math.hypot(xx - x, z - nz));
+      for (const [c, span] of coasts) {
+        if (!span || xx < span[0] || xx > span[1]) continue;
+        brute = Math.min(brute, Math.hypot(xx - x, z - L.roadCenter(c, xx)));
       }
     }
     const d = L.highwayDistance(x, z);
