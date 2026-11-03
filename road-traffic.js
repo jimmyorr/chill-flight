@@ -83,21 +83,41 @@ const velocity = new THREE.Vector3();
 let hasLastCenter = false;
 
 // --- LIGHTS ---
+// A white texture whose alpha is alphaAt(x, y) (pixel centres, y down as on
+// a canvas). Written
+// directly, not drawn as a canvas gradient: Safari dithers canvas gradients,
+// and its premultiplied canvas turns the faint dithered edge of a glow into
+// texels of strong, random colour once un-premultiplied for WebGL. Stretched
+// over a headlight pool on the road they showed as coloured polka dots.
+function alphaTexture(w, h, alphaAt) {
+  const data = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = ((h - 1 - y) * w + x) * 4;
+      data[i] = data[i + 1] = data[i + 2] = 255;
+      data[i + 3] = Math.round(
+        255 * THREE.MathUtils.clamp(alphaAt(x + 0.5, y + 0.5), 0, 1)
+      );
+    }
+  }
+  const tex = new THREE.DataTexture(data, w, h);
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 // Glows of a fixed size on screen (as the planes' navigation lights), so a
 // car far off at night is still a pair of lights
 function glowTexture() {
   const size = 32;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
   const h = size / 2;
-  const g = ctx.createRadialGradient(h, h, 0, h, h, h);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.35, 'rgba(255,255,255,0.6)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-  return new THREE.CanvasTexture(canvas);
+  return alphaTexture(size, size, (x, y) => {
+    const r = Math.hypot(x - h, y - h) / h;
+    // (the stops of the old canvas gradient: 1 at the middle, 0.6 at 0.35)
+    return r < 0.35 ? 1 - (0.4 * r) / 0.35 : 0.6 * Math.max(0, (1 - r) / 0.65);
+  });
 }
 const glow = glowTexture();
 // Additive, except the tail lights: red added to daylight barely shows, so
@@ -134,19 +154,12 @@ const TAIL_Z = 3.8;
 function poolTexture() {
   const w = 32;
   const h = 64;
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  ctx.translate(w / 2, h * 0.8);
-  ctx.scale(1, 2.2);
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, w / 2);
-  g.addColorStop(0, 'rgba(255,255,255,0.9)');
-  g.addColorStop(0.5, 'rgba(255,255,255,0.35)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(-w / 2, -h, w, h * 2);
-  return new THREE.CanvasTexture(canvas);
+  return alphaTexture(w, h, (x, y) => {
+    // An oval 2.2 times as long as it's wide, centred 80% of the way down
+    const r = Math.hypot(x - w / 2, (y - h * 0.8) / 2.2) / (w / 2);
+    if (r >= 1) return 0;
+    return r < 0.5 ? 0.9 - 1.1 * r : 0.35 * (1 - r) * 2;
+  });
 }
 const POOL_WIDTH = 18;
 const POOL_LENGTH = 40;
