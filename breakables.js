@@ -1028,6 +1028,30 @@ function hopSheep(anim, vx, vz, hx, hz) {
   for (const piece of anim.pieces) moving.add(piece);
 }
 
+// A sheep that ends up in the water splashes and sinks out of sight; it's
+// back (where it first stood) when its chunk loads again
+const SHEEP_SINK_TIME = 1.2;
+function sinkSheep(anim) {
+  if (!anim.splashed) {
+    propPuffs(anim.x, WATER_LEVEL, anim.z, 2, 2.5, SPRAY, 12, 4, 3);
+  }
+  anim.splashed = true;
+  anim.mode = 'sink';
+  anim.y = Math.min(anim.y, WATER_LEVEL);
+  anim.t = 0;
+  anim.angle = 0;
+  anim.pitch = 0;
+  anim.done = false;
+  sheepAnims.delete(anim);
+  const key = chunkKey(anim.group.userData.chunkX, anim.group.userData.chunkZ);
+  const list = wrecks.get(key);
+  if (list) {
+    for (const [i, wreck] of list) {
+      if (wreck.sheepAnim === anim) list.delete(i);
+    }
+  }
+}
+
 // Punts a sheep high into the air when the buggy hits it: launches ahead of
 // the hit along (hx, hz), tumbling end-over-end, with a puff of wool and dust.
 function puntSheep(anim, hx, hz, kts, mine, buggy) {
@@ -1546,7 +1570,12 @@ function animate(delta) {
     } else if (anim.kind === 'sheep') {
       if (anim.stepped !== frame) {
         anim.stepped = frame;
-        if (anim.mode === 'hop') {
+        if (anim.mode === 'sink') {
+          // Settles under the surface, then it's gone
+          anim.t += delta;
+          anim.y -= delta * (1 + anim.t * 4);
+          anim.done = anim.t > SHEEP_SINK_TIME;
+        } else if (anim.mode === 'hop') {
           stepSheepHop(anim, delta);
         } else if (anim.mode === 'punt') {
           const prevBounces = anim.bounces;
@@ -1567,6 +1596,14 @@ function animate(delta) {
             propPuffs(anim.x, anim.y, anim.z, 2, 1.5, dust, 6, 2.5, 1.5);
           }
         }
+        // Landed (or hopped) in a lake or the sea: under it goes
+        if (
+          anim.mode !== 'sink' &&
+          anim.y <= WATER_LEVEL &&
+          getElevation(anim.x, anim.z) < WATER_LEVEL - 0.5
+        ) {
+          sinkSheep(anim);
+        }
       }
       const cy = 1.6 * anim.size;
       _m.makeTranslation(anim.x, anim.y + cy, anim.z);
@@ -1576,7 +1613,9 @@ function animate(delta) {
       if (anim.pitch) _m.multiply(_r.makeRotationX(anim.pitch));
       _m.scale(_s.set(anim.size, anim.size, anim.size));
       _m.toArray(piece.m);
-      if (anim.done) {
+      if (anim.done && anim.mode === 'sink') {
+        removePiece(piece);
+      } else if (anim.done) {
         moving.delete(piece);
         pool(piece.type).dirty = true;
       }
