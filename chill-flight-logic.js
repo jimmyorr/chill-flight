@@ -2111,24 +2111,25 @@ export const ChillFlightLogic = {};
   function desertLowlandAt(x, z, simplex) {
     return smoothRamp(z / 5000 + desertShift(x, z, simplex), 2.2, 3.2);
   }
+  // How far a highway at (x, z) has worn to packed dirt, 0 to 1: deep in
+  // the desert, away from the heartland, easing in over several kilometres
+  function roadDirtAt(x, z, simplex) {
+    return (
+      smoothRamp(z / 5000 + desertShift(x, z, simplex), 2.5, 3.5) *
+      smoothRamp(Math.abs(z), 13500, 18500)
+    );
+  }
   // How a highway's surface weathers at (x, z), each 0 to 1: sun-bleached
-  // and dusty in the desert, snow-dusted in the north, a little strange in
-  // the alien lands (terrain-chunks.js tints the road by these)
+  // and dusty in the desert (and wearing to packed dirt further out),
+  // snow-dusted in the north, a little strange in the alien lands
+  // (terrain-chunks.js tints the road and its markings by these)
   function roadWeatherAt(x, z, simplex) {
     return {
       dust: desertLowlandAt(x, z, simplex),
+      dirt: roadDirtAt(x, z, simplex),
       snow: snowFactorAt(z, snowNoiseShift(x, z, simplex)),
       alien: alienAt(x, z, simplex),
     };
-  }
-  // How far a highway at (x, z) has worn to packed dirt, 0 to 1: deep in
-  // the desert, away from the heartland. Part way, the pavement breaks up
-  // into patches (terrain-chunks.js).
-  function roadDirtAt(x, z, simplex) {
-    return (
-      smoothRamp(desertLowlandAt(x, z, simplex), 0.5, 0.85) *
-      smoothRamp(Math.abs(z), 15000, 18000)
-    );
   }
   // Dunes: long ridges across the prevailing wind (from the west-south-west),
   // with a gentle windward slope and a steep lee face, in dune fields that

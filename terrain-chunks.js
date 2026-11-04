@@ -36,6 +36,7 @@ import {
   bridgeDeckMat,
   highwayDeckMat,
   ROAD_ASPHALT,
+  ROAD_PAINT,
   highwayRailMat,
   ROAD_RAIL,
   townStreetGeo,
@@ -1189,15 +1190,18 @@ const SLIP_DECK_SCALE =
   (ChillFlightLogic.SLIP.HALF * 2 + 4) / (ChillFlightLogic.ROAD_WIDTH * 2 + 4);
 const _slipDummy = new THREE.Object3D();
 // The asphalt at world (x, z): the heartland's dark grey, weathered by the
-// biome (dusty in the desert, snow-dusted in the north, faintly purple in the
-// alien lands). Shared; copy it before the next call.
+// biome (dusty in the desert and wearing to packed dirt further out,
+// snow-dusted in the north, faintly purple in the alien lands). Shared;
+// copy it before the next call.
 const _roadTint = new THREE.Color();
-// And its railings' concrete
+// And its railings' concrete and painted lane markings
 const _railTint = new THREE.Color();
+const _paintTint = new THREE.Color();
 function roadRailAt(x, z) {
   const w = ChillFlightLogic.roadWeatherAt(x, z, simplex);
   return _railTint
     .copy(ROAD_RAIL.base)
+    .lerp(ROAD_RAIL.alien, w.alien)
     .lerp(ROAD_RAIL.dust, w.dust)
     .lerp(ROAD_RAIL.snow, w.snow);
 }
@@ -1207,7 +1211,16 @@ function roadAsphaltAt(x, z) {
     .copy(ROAD_ASPHALT.base)
     .lerp(ROAD_ASPHALT.alien, w.alien)
     .lerp(ROAD_ASPHALT.dust, w.dust)
+    .lerp(ROAD_ASPHALT.dirt, w.dirt)
     .lerp(ROAD_ASPHALT.snow, w.snow);
+}
+// Paint colour (ROAD_PAINT.white or yellow) weathered by biome and faded by
+// `fade` (0 fresh to 1 blended into the deck at (x, z))
+function roadPaintAt(paint, x, z, fade) {
+  const w = ChillFlightLogic.roadWeatherAt(x, z, simplex);
+  const weather = Math.max(w.dust, w.snow, w.alien) * 0.25;
+  const t = Math.min(1, weather + (1 - weather) * fade);
+  return _paintTint.copy(paint).lerp(roadAsphaltAt(x, z), t);
 }
 function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
   const half = CHUNK_SIZE / 2;
@@ -1227,8 +1240,10 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
     for (let i = 0; i < s.pts.length - 1; i++) {
       const a = s.pts[i];
       const b = s.pts[i + 1];
-      const mx = (a.x + b.x) / 2 - worldOffsetX;
-      const mz = (a.z + b.z) / 2 - worldOffsetZ;
+      const sx = (a.x + b.x) / 2;
+      const sz = (a.z + b.z) / 2;
+      const mx = sx - worldOffsetX;
+      const mz = sz - worldOffsetZ;
       if (mx < -half || mx >= half || mz < -half || mz >= half) continue;
       pieces.push([a, b]);
       roadSegments.push({
@@ -1240,6 +1255,7 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
         y1: b.y,
         halfWidth: ChillFlightLogic.SLIP.HALF,
         rails: false,
+        dirt: ChillFlightLogic.roadDirtAt(sx, sz, simplex) > 0.5,
       });
     }
   }
@@ -1259,11 +1275,9 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
   const dummy = _slipDummy;
   const next = new THREE.Vector3();
   pieces.forEach(([a, b], i) => {
-    dummy.position.set(
-      (a.x + b.x) / 2 - worldOffsetX,
-      (a.y + b.y) / 2,
-      (a.z + b.z) / 2 - worldOffsetZ
-    );
+    const sx = (a.x + b.x) / 2;
+    const sz = (a.z + b.z) / 2;
+    dummy.position.set(sx - worldOffsetX, (a.y + b.y) / 2, sz - worldOffsetZ);
     next.set(b.x - worldOffsetX, b.y, b.z - worldOffsetZ);
     dummy.lookAt(next);
     // A little longer than the piece, so the bends have no gaps
@@ -1271,28 +1285,33 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
     dummy.scale.set(SLIP_DECK_SCALE, 1, length / BRIDGE_SEGMENT_LENGTH);
     dummy.updateMatrix();
     deckInst.setMatrixAt(i, dummy.matrix);
-    deckInst.setColorAt(i, roadAsphaltAt((a.x + b.x) / 2, (a.z + b.z) / 2));
+    deckInst.setColorAt(i, roadAsphaltAt(sx, sz));
+    const w = ChillFlightLogic.roadWeatherAt(sx, sz, simplex);
+    const slipFade = Math.max(
+      THREE.MathUtils.smoothstep(w.dirt, 0, 0.55),
+      THREE.MathUtils.smoothstep(w.alien, 0.1, ALIEN_PROPS_AT)
+    );
+    const lineColor = roadPaintAt(ROAD_PAINT.white, sx, sz, slipFade);
     [-1, 1].forEach((side, k) => {
-      dummy.position.set(
-        (a.x + b.x) / 2 - worldOffsetX,
-        (a.y + b.y) / 2,
-        (a.z + b.z) / 2 - worldOffsetZ
-      );
+      dummy.position.set(sx - worldOffsetX, (a.y + b.y) / 2, sz - worldOffsetZ);
       dummy.lookAt(next);
       dummy.translateX(side * SLIP_EDGE_LINE_X);
       const clear =
+        slipFade < 1 &&
         ChillFlightLogic.highwayDistance(
           dummy.position.x + worldOffsetX,
           dummy.position.z + worldOffsetZ
         ) >
-        ChillFlightLogic.ROAD_WIDTH + 1;
+          ChillFlightLogic.ROAD_WIDTH + 1;
       dummy.scale.setScalar(0);
       if (clear) dummy.scale.set(1, 1, length / BRIDGE_SEGMENT_LENGTH);
       dummy.updateMatrix();
       lineInst.setMatrixAt(i * 2 + k, dummy.matrix);
+      lineInst.setColorAt(i * 2 + k, lineColor);
     });
   });
   if (deckInst.instanceColor) deckInst.instanceColor.needsUpdate = true;
+  if (lineInst.instanceColor) lineInst.instanceColor.needsUpdate = true;
   for (const m of [deckInst, lineInst]) {
     m.position.set(worldOffsetX, 0, worldOffsetZ);
     group.add(m);
@@ -2247,20 +2266,42 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             BRIDGE_SEGMENT_LENGTH
         );
 
-      // Out in the desert the road wears to packed dirt (roadDirtAt), in
-      // patches of two segments where it's part way. Junctions, crossings
-      // and slip roads stay paved.
+      // Out in the desert the road wears smoothly to packed dirt
+      // (roadDirtAt); lane markings fade into the deck as the road leaves
+      // the heartland or wears to dirt/frontier, and streetlights thin out
+      // per segment rather than jumping at chunk edges.
       for (const pos of bridgePositions) {
         const mx = (pos.x + pos.nextPos.x) / 2 + worldOffsetX;
         const mz = (pos.z + pos.nextPos.z) / 2 + worldOffsetZ;
-        const dirt = ChillFlightLogic.roadDirtAt(mx, mz, simplex);
-        const patch = Math.floor(segmentIndex(pos) / 2);
-        const h = Math.sin(patch * 12.9898 + n * 78.233) * 43758.5453;
-        pos.dirt =
-          dirt > 0 &&
-          dirt > h - Math.floor(h) &&
-          !pos.junction &&
-          !inCrossingBox(mx, mz, alongX, sampleStep / 2);
+        const w = ChillFlightLogic.roadWeatherAt(mx, mz, simplex);
+        const absAlong = Math.abs(crossCountry ? mx : mz);
+        pos.dirt = w.dirt > 0.5;
+        const bare = Math.max(
+          THREE.MathUtils.smoothstep(w.dirt, 0, 0.55),
+          THREE.MathUtils.smoothstep(w.alien, 0.1, ALIEN_PROPS_AT),
+          THREE.MathUtils.smoothstep(absAlong, 46000, 50000)
+        );
+        pos.laneFade = Math.max(
+          THREE.MathUtils.smoothstep(absAlong, 12000, 15000),
+          bare
+        );
+        pos.centreLinesFade = Math.max(
+          THREE.MathUtils.smoothstep(absAlong, 13500, 16000),
+          bare
+        );
+        pos.centreDashFade = Math.max(
+          1 - THREE.MathUtils.smoothstep(absAlong, 14500, 16500),
+          THREE.MathUtils.smoothstep(w.dirt, 0, 0.15),
+          bare
+        );
+        pos.slFreq =
+          w.dirt > 0.15 || w.alien > ALIEN_PROPS_AT || absAlong > 50000
+            ? 0
+            : absAlong > 25000
+              ? 16
+              : absAlong > 15000
+                ? 8
+                : 4;
       }
 
       // The deck's centre line in world coordinates, for landing on the
@@ -2398,71 +2439,62 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         let railIndex = 0;
         let pierIndex = 0;
 
-        // Streetlights
-        let slFrequency = 4; // Normal: every 4th segment (120 units)
-        // By distance north or south of the equator, or east or west of
-        // the meridian for the cross-country highway
-        const absZ = Math.abs(crossCountry ? worldOffsetX : worldOffsetZ);
-
-        // Stop completely (abs(Z) > 50000, 10.0° North/South)
-        if (absZ > 50000) {
-          slFrequency = 0;
-          // Sparse frontier (abs(Z) > 25000, 5.0° North/South)
-        } else if (absZ > 25000) {
-          slFrequency = 16;
-          // Outer highway (abs(Z) > 15000, 3.0° North/South)
-        } else if (absZ > 15000) {
-          slFrequency = 8;
-        }
-        // The western alien land is wild country: past where its houses
-        // stop, the road runs bare, with no streetlights or lane markings
-        if (
-          ChillFlightLogic.alienAt(worldOffsetX, worldOffsetZ, simplex) >
-          ALIEN_PROPS_AT
-        ) {
-          slFrequency = 0;
-        }
-
         // Lane markings thin out with the streetlights: full markings in
-        // the heartland, a dashed centre line further out, none on the
-        // frontier
-        const markings =
-          slFrequency === 0
-            ? []
-            : slFrequency > 4
-              ? [[roadCentreDashGeo, roadYellowMat]]
-              : [
-                  [roadLaneDashesGeo, roadWhiteMat],
-                  [roadCentreLinesGeo, roadYellowMat],
-                ];
-        const markingInsts = markings.map(([geo, mat]) =>
-          getInstancedMesh(geo, mat, bridgePositions.length)
+        // the heartland, fading out into a dashed centre line further out,
+        // and fading into the deck on dirt or the frontier
+        const hasLaneMarkings = bridgePositions.some((p) => p.laneFade < 1);
+        const hasCentreLines = bridgePositions.some(
+          (p) => p.centreLinesFade < 1
         );
+        const hasCentreDash = bridgePositions.some((p) => p.centreDashFade < 1);
+        const laneDashesInst = hasLaneMarkings
+          ? getInstancedMesh(
+              roadLaneDashesGeo,
+              roadWhiteMat,
+              bridgePositions.length
+            )
+          : null;
+        const centreLinesInst = hasCentreLines
+          ? getInstancedMesh(
+              roadCentreLinesGeo,
+              roadYellowMat,
+              bridgePositions.length
+            )
+          : null;
+        const centreDashInst = hasCentreDash
+          ? getInstancedMesh(
+              roadCentreDashGeo,
+              roadYellowMat,
+              bridgePositions.length
+            )
+          : null;
         // White edge lines with the lane lines, each side on its own so it
         // can break where a slip road joins
-        const edgeInst =
-          slFrequency > 0 && slFrequency <= 4
-            ? getInstancedMesh(
-                roadEdgeLineGeo,
-                roadWhiteMat,
-                bridgePositions.length * 2
-              )
-            : null;
-        if (edgeInst) markingInsts.push(edgeInst);
+        const edgeInst = hasLaneMarkings
+          ? getInstancedMesh(
+              roadEdgeLineGeo,
+              roadWhiteMat,
+              bridgePositions.length * 2
+            )
+          : null;
+        const markingInsts = [
+          laneDashesInst,
+          centreLinesInst,
+          centreDashInst,
+          edgeInst,
+        ].filter(Boolean);
 
         // Calculate exact number of streetlights based on global segment alignment
         let numStreetlights = 0;
-        if (slFrequency > 0) {
-          bridgePositions.forEach((pos) => {
-            if (
-              !pos.junction &&
-              !pos.dirt &&
-              Math.abs(segmentIndex(pos)) % slFrequency === 0
-            ) {
-              numStreetlights++;
-            }
-          });
-        }
+        bridgePositions.forEach((pos) => {
+          if (
+            pos.slFreq > 0 &&
+            !pos.junction &&
+            Math.abs(segmentIndex(pos)) % pos.slFreq === 0
+          ) {
+            numStreetlights++;
+          }
+        });
         const slBaseInst = getInstancedMesh(
           streetlightPoleGeo,
           streetlightPoleMat,
@@ -2496,6 +2528,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           // Calculate center of the edge and the exact distance
           const midVec = currentVec.clone().lerp(nextVec, 0.5);
           const dist = currentVec.distanceTo(nextVec);
+          const mx = midVec.x + worldOffsetX;
+          const mz = midVec.z + worldOffsetZ;
 
           // 1. Deck (paper-thin, for all segments)
           dummy.position.copy(midVec);
@@ -2505,27 +2539,46 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           dummy.scale.set(1, 1, (dist + 1) / BRIDGE_SEGMENT_LENGTH);
           dummy.updateMatrix();
           deckInst.setMatrixAt(index, dummy.matrix);
-          deckInst.setColorAt(
-            index,
-            pos.dirt
-              ? ROAD_ASPHALT.dirt
-              : roadAsphaltAt(midVec.x + worldOffsetX, midVec.z + worldOffsetZ)
-          );
-          dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+          deckInst.setColorAt(index, roadAsphaltAt(mx, mz));
           // No markings in the box where it crosses another highway
-          const inBox = inCrossingBox(
-            midVec.x + worldOffsetX,
-            midVec.z + worldOffsetZ,
-            alongX,
-            sampleStep / 2
-          );
-          // Nor on dirt
-          if (inBox || pos.dirt) dummy.scale.setScalar(0);
-          dummy.updateMatrix();
-          for (const m of markingInsts) {
-            if (m !== edgeInst) m.setMatrixAt(index, dummy.matrix);
+          const inBox = inCrossingBox(mx, mz, alongX, sampleStep / 2);
+          if (laneDashesInst) {
+            dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+            if (inBox || pos.laneFade >= 1) dummy.scale.setScalar(0);
+            dummy.updateMatrix();
+            laneDashesInst.setMatrixAt(index, dummy.matrix);
+            laneDashesInst.setColorAt(
+              index,
+              roadPaintAt(ROAD_PAINT.white, mx, mz, pos.laneFade)
+            );
+          }
+          if (centreLinesInst) {
+            dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+            if (inBox || pos.centreLinesFade >= 1) dummy.scale.setScalar(0);
+            dummy.updateMatrix();
+            centreLinesInst.setMatrixAt(index, dummy.matrix);
+            centreLinesInst.setColorAt(
+              index,
+              roadPaintAt(ROAD_PAINT.yellow, mx, mz, pos.centreLinesFade)
+            );
+          }
+          if (centreDashInst) {
+            dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+            if (inBox || pos.centreDashFade >= 1) dummy.scale.setScalar(0);
+            dummy.updateMatrix();
+            centreDashInst.setMatrixAt(index, dummy.matrix);
+            centreDashInst.setColorAt(
+              index,
+              roadPaintAt(ROAD_PAINT.yellow, mx, mz, pos.centreDashFade)
+            );
           }
           if (edgeInst) {
+            const edgeColor = roadPaintAt(
+              ROAD_PAINT.white,
+              mx,
+              mz,
+              pos.laneFade
+            );
             [-1, 1].forEach((side, k) => {
               dummy.position.copy(midVec);
               dummy.lookAt(nextVec);
@@ -2533,7 +2586,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
               dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
               if (
                 inBox ||
-                pos.dirt ||
+                pos.laneFade >= 1 ||
                 ChillFlightLogic.isOnSlipRoad(
                   dummy.position.x + worldOffsetX,
                   dummy.position.z + worldOffsetZ,
@@ -2546,6 +2599,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
               }
               dummy.updateMatrix();
               edgeInst.setMatrixAt(index * 2 + k, dummy.matrix);
+              edgeInst.setColorAt(index * 2 + k, edgeColor);
             });
           }
 
@@ -2634,18 +2688,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           }
 
           // Streetlights
-          if (
-            slFrequency > 0 &&
-            slIndex < numStreetlights &&
-            !pos.junction &&
-            !pos.dirt
-          ) {
+          if (pos.slFreq > 0 && slIndex < numStreetlights && !pos.junction) {
             const globalSegmentIndex = segmentIndex(pos);
 
-            if (Math.abs(globalSegmentIndex) % slFrequency === 0) {
+            if (Math.abs(globalSegmentIndex) % pos.slFreq === 0) {
               const isLeftSide =
-                Math.floor(Math.abs(globalSegmentIndex) / slFrequency) % 2 ===
-                0;
+                Math.floor(Math.abs(globalSegmentIndex) / pos.slFreq) % 2 === 0;
 
               const sideOff = isLeftSide ? halfRoadW - 0.5 : -halfRoadW + 0.5;
               const slYaw = isLeftSide ? yaw + Math.PI : yaw;
@@ -2725,6 +2773,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
         group.add(deckInst);
         for (const m of markingInsts) {
+          if (m.instanceColor) m.instanceColor.needsUpdate = true;
           m.position.set(worldOffsetX, 0, worldOffsetZ);
           m.castShadow = false;
           objectsGroup.add(m);

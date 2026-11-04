@@ -2725,18 +2725,23 @@ export var roadCentreDashGeo = roadStripes([[0, 0.5, 12]]);
 export const SLIP_EDGE_LINE_X = ChillFlightLogic.SLIP.HALF - 1.2;
 export var roadSlipLineGeo = roadStripes([[0, 0.6, BRIDGE_SEGMENT_LENGTH]]);
 const markingParams = {
+  color: 0xffffff,
   flatShading: true,
   polygonOffset: true,
   polygonOffsetFactor: -2,
   polygonOffsetUnits: -2,
 };
-// (buried by settling snow along with the decks)
+// White, coloured per piece (ROAD_PAINT) so markings weather with the road
+// and fade smoothly into the deck where they end (and buried by settling
+// snow along with the decks: addRoadSnow)
 export var roadWhiteMat = addRoadSnow(
-  addHeadlightPool(createMaterial({color: 0xf2f0e6, ...markingParams}))
+  addHeadlightPool(createMaterial(markingParams), 2.2)
 );
-export var roadYellowMat = addRoadSnow(
-  addHeadlightPool(createMaterial({color: 0xe8c24a, ...markingParams}))
-);
+export var roadYellowMat = roadWhiteMat;
+export var ROAD_PAINT = {
+  white: new THREE.Color(0xf2f0e6),
+  yellow: new THREE.Color(0xe8c24a),
+};
 
 // 2. Box girder: trapezoidal underside attached ONLY under elevated bridge spans
 function createBridgeGirderGeometry() {
@@ -2849,6 +2854,7 @@ export var ROAD_RAIL = {
   base: new THREE.Color(0x626262),
   dust: new THREE.Color().setHex(0xb39d7c, THREE.LinearSRGBColorSpace),
   snow: new THREE.Color().setHex(0xa3a8ae, THREE.LinearSRGBColorSpace),
+  alien: new THREE.Color(0x665a70),
 };
 // A town street's slab of asphalt (a unit box, scaled to each piece)
 export var townStreetGeo = new THREE.BoxGeometry(1, 1, 1);
