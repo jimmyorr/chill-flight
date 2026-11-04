@@ -31,6 +31,10 @@ const FADE_LOW = 35;
 const FADE_HIGH = 90;
 // How far past a road's paved edge a spot must sit, so its wander stays off
 const ROAD_CLEAR = 10;
+// How close the active vehicle gets before a firefly drifts aside, and how fast
+const PUSH_RADIUS = 18;
+const PUSH_OUTER2 = (PUSH_RADIUS + 7) * (PUSH_RADIUS + 7);
+const PUSH_SPEED = 22;
 const _elevParams = {WATER_LEVEL, MOUNTAIN_LEVEL};
 
 const uniforms = {
@@ -39,9 +43,6 @@ const uniforms = {
   uCenter: {value: new THREE.Vector3()},
   uRadius: {value: RADIUS},
   uScale: {value: 1},
-  // The active vehicle: x, y, z, how far they keep away, and its side vector
-  uPush: {value: new THREE.Vector4(0, -1e6, 0, 0)},
-  uSide: {value: new THREE.Vector2(1, 0)},
 };
 
 const VERTEX = `
@@ -52,8 +53,6 @@ const VERTEX = `
   uniform vec3 uCenter;
   uniform float uRadius;
   uniform float uScale;
-  uniform vec4 uPush;
-  uniform vec2 uSide;
   varying float vGlow;
 
   void main() {
@@ -68,15 +67,6 @@ const VERTEX = `
     p.z += cos(t * (0.17 + 0.11 * r3) + r * 23.0) * 5.0
          + cos(t * (0.47 + 0.2 * r2) + r * 7.0) * 1.5;
     p.y += 2.5 + 5.0 * r3 + sin(t * (0.35 + 0.2 * r) + r * 17.0) * 1.2;
-
-    // Drift to the side of the vehicle (stronger the closer it is)
-    vec3 away = p - uPush.xyz;
-    float d = length(away);
-    if (uPush.w > 0.0 && d < uPush.w) {
-      float k = 1.0 - d / uPush.w;
-      float side = clamp((dot(away.xz, uSide) + (r - 0.5) * 3.0) * 1.5, -1.0, 1.0);
-      p.xz += uSide * side * uPush.w * k * k * 0.9;
-    }
 
     // A blink every few seconds: a quick rise, a slower fade, then dark
     float period = 2.6 + 3.2 * r2;
@@ -119,6 +109,7 @@ let count = 0;
 let spots = null;
 let born = null;
 let nextCheck = 0;
+let lastTime = 0;
 const _cam = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 const _color = new THREE.Color();
@@ -247,14 +238,48 @@ export function updateFireflies() {
   const h = renderer.domElement.height;
   uniforms.uScale.value =
     h / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+
+  const now = animationUniforms.uTime.value;
+  const dt = Math.min(0.1, Math.max(0, now - lastTime));
+  lastTime = now;
+  let moved = false;
+
+  // Drift spots to the side of the active vehicle and leave them there, so
+  // they never snap back after it passes
   const p = planeGroup.position;
-  uniforms.uPush.value.set(p.x, p.y, p.z, 14);
-  const yaw = planeGroup.rotation.y;
-  uniforms.uSide.value.set(Math.cos(yaw), -Math.sin(yaw));
+  const vehAgl = p.y - Math.max(getElevation(p.x, p.z), WATER_LEVEL);
+  if (dt > 0 && vehAgl < PUSH_RADIUS) {
+    const yaw = planeGroup.rotation.y;
+    const sx = Math.cos(yaw);
+    const sz = -Math.sin(yaw);
+    for (let i = 0; i < count; i++) {
+      const k = i * 4;
+      if (spots[k + 1] < -1e4) continue;
+      const dx0 = spots[k] - p.x;
+      const dz0 = spots[k + 2] - p.z;
+      if (dx0 * dx0 + dz0 * dz0 > PUSH_OUTER2) continue;
+      const r = spots[k + 3];
+      const r2 = (r * 13.7) % 1;
+      const r3 = (r * 29.3) % 1;
+      const dx =
+        dx0 +
+        Math.sin(now * (0.21 + 0.12 * r2) + r * 40) * 5 +
+        Math.sin(now * (0.53 + 0.2 * r3) + r * 11) * 1.5;
+      const dz =
+        dz0 +
+        Math.cos(now * (0.17 + 0.11 * r3) + r * 23) * 5 +
+        Math.cos(now * (0.47 + 0.2 * r2) + r * 7) * 1.5;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= PUSH_RADIUS * PUSH_RADIUS) continue;
+      const side = dx * sx + dz * sz >= 0 ? 1 : -1;
+      const step = (1 - Math.sqrt(d2) / PUSH_RADIUS) * PUSH_SPEED * dt * side;
+      spots[k] += sx * step;
+      spots[k + 2] += sz * step;
+      moved = true;
+    }
+  }
 
   // Move the ones that have fallen behind (or never found a spot)
-  const now = animationUniforms.uTime.value;
-  let moved = false;
   for (let n = 0; n < CHECKS_PER_FRAME; n++) {
     const i = nextCheck;
     nextCheck = (nextCheck + 1) % count;
