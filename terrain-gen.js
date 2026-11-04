@@ -922,6 +922,28 @@ function nearTown(x, z, margin, elevParams) {
   return false;
 }
 
+// Whether (x, z) is on a town's street, plus margin
+export function isOnTownStreet(x, z, margin, elevParams) {
+  const reach = TOWN_STREET_HALF_WIDTH + margin;
+  const reach2 = reach * reach;
+  for (const n of TOWN_ROADS) {
+    const t = townAt(n, elevParams);
+    if (!t || Math.hypot(t.x - x, t.z - z) >= t.radius + reach) continue;
+    for (const s of townHouses(t).streets) {
+      const dx = s.x1 - s.x0;
+      const dz = s.z1 - s.z0;
+      const u = Math.max(
+        0,
+        Math.min(1, ((x - s.x0) * dx + (z - s.z0) * dz) / (dx * dx + dz * dz))
+      );
+      const ex = x - s.x0 - dx * u;
+      const ez = z - s.z0 - dz * u;
+      if (ex * ex + ez * ez <= reach2) return true;
+    }
+  }
+  return false;
+}
+
 // The houses of every road village that could reach the chunk centered on
 // (cx, cz), and of any town
 function roadVillageHousesNear(cx, cz, chunkSize, elevParams) {

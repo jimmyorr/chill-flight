@@ -11,9 +11,10 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
-import {WATER_LEVEL} from './constants.js';
+import {MOUNTAIN_LEVEL, WATER_LEVEL} from './constants.js';
 import {animationUniforms, getElevation} from './terrain-geometry.js';
 import {sampleGroundColor} from './terrain-chunks.js';
+import {isOnTownStreet} from './terrain-gen.js';
 import {planeGroup} from './airplane.js';
 import {camera, renderer} from './sky.js';
 import {precipitation} from './weather-manager.js';
@@ -28,6 +29,9 @@ const CHECKS_PER_FRAME = 24;
 // The camera's height above the ground where they fade out
 const FADE_LOW = 35;
 const FADE_HIGH = 90;
+// How far past a road's paved edge a spot must sit, so its wander stays off
+const ROAD_CLEAR = 10;
+const _elevParams = {WATER_LEVEL, MOUNTAIN_LEVEL};
 
 const uniforms = {
   uTime: animationUniforms.uTime,
@@ -35,8 +39,9 @@ const uniforms = {
   uCenter: {value: new THREE.Vector3()},
   uRadius: {value: RADIUS},
   uScale: {value: 1},
-  // The active vehicle: x, y, z and how far they keep away from it
+  // The active vehicle: x, y, z, how far they keep away, and its side vector
   uPush: {value: new THREE.Vector4(0, -1e6, 0, 0)},
+  uSide: {value: new THREE.Vector2(1, 0)},
 };
 
 const VERTEX = `
@@ -48,6 +53,7 @@ const VERTEX = `
   uniform float uRadius;
   uniform float uScale;
   uniform vec4 uPush;
+  uniform vec2 uSide;
   varying float vGlow;
 
   void main() {
@@ -63,13 +69,13 @@ const VERTEX = `
          + cos(t * (0.47 + 0.2 * r2) + r * 7.0) * 1.5;
     p.y += 2.5 + 5.0 * r3 + sin(t * (0.35 + 0.2 * r) + r * 17.0) * 1.2;
 
-    // Keep away from the vehicle (stronger the closer it is)
+    // Drift to the side of the vehicle (stronger the closer it is)
     vec3 away = p - uPush.xyz;
     float d = length(away);
     if (uPush.w > 0.0 && d < uPush.w) {
       float k = 1.0 - d / uPush.w;
-      p += away / max(d, 0.1) * uPush.w * k * k * 0.9;
-      p.y += uPush.w * k * k * 0.4;
+      float side = clamp((dot(away.xz, uSide) + (r - 0.5) * 3.0) * 1.5, -1.0, 1.0);
+      p.xz += uSide * side * uPush.w * k * k * 0.9;
     }
 
     // A blink every few seconds: a quick rise, a slower fade, then dark
@@ -125,8 +131,9 @@ function rand() {
   return seed / 2147483647;
 }
 
-// Whether a firefly can live at (x, z): green ground above the water, in a
-// loose swarm, outside the alien lands. Returns the ground height or null.
+// Whether a firefly can live at (x, z): green ground above the water, off the
+// roads, in a loose swarm, outside the alien lands. Returns the ground height
+// or null.
 function groundAt(x, z) {
   if (!sampleGroundColor(x, z, _color)) return null;
   if (_color.g - Math.max(_color.r, _color.b) < 0.015) return null;
@@ -135,6 +142,15 @@ function groundAt(x, z) {
   // Swarms tens of metres across, with a few strays between them
   const swarm = simplex.noise2D(x * 0.006 + 31.7, z * 0.006 - 12.3);
   if (swarm < -0.15 && rand() > 0.15) return null;
+  if (
+    ChillFlightLogic.highwayDistance(x, z) <
+      ChillFlightLogic.ROAD_WIDTH + ROAD_CLEAR ||
+    ChillFlightLogic.isOnAccessRoad(x, z, ROAD_CLEAR, simplex, _elevParams) ||
+    ChillFlightLogic.isOnSlipRoad(x, z, ROAD_CLEAR, simplex, _elevParams) ||
+    isOnTownStreet(x, z, ROAD_CLEAR, _elevParams)
+  ) {
+    return null;
+  }
   if (ChillFlightLogic.alienAt(x, z, simplex) > 0.3) return null;
   return y;
 }
@@ -233,6 +249,8 @@ export function updateFireflies() {
     h / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
   const p = planeGroup.position;
   uniforms.uPush.value.set(p.x, p.y, p.z, 14);
+  const yaw = planeGroup.rotation.y;
+  uniforms.uSide.value.set(Math.cos(yaw), -Math.sin(yaw));
 
   // Move the ones that have fallen behind (or never found a spot)
   const now = animationUniforms.uTime.value;
