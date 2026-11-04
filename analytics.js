@@ -14,8 +14,6 @@ let flightSessionActive = false;
 let flightStarted = false;
 let milestoneTimers = [];
 
-const visitedLandmarks = new Set();
-
 /**
  * Dispatches an event to Google Analytics (web) and Firebase Analytics (native).
  * Safe to call in any environment; no-op if gtag is not available or analytics is disabled.
@@ -174,23 +172,19 @@ export function trackAppStoreClick(placement = 'settings_footer') {
 }
 
 /**
+ * Tracks clicks on the splash screen's About link (chillflight.app/about).
+ */
+export function trackAboutClick(placement = 'splash') {
+  trackEvent('about_click', {placement});
+}
+
+/**
  * Tracks social/multiplayer sharing actions.
  */
 export function trackShare(method, contentType = 'multiplayer_invite') {
   trackEvent('share', {
     method,
     content_type: contentType,
-  });
-}
-
-/**
- * Tracks landmark discovery once per session per landmark.
- */
-export function trackLandmarkVisited(landmarkName) {
-  if (!landmarkName || visitedLandmarks.has(landmarkName)) return;
-  visitedLandmarks.add(landmarkName);
-  trackEvent('discover_landmark', {
-    landmark_name: landmarkName,
   });
 }
 

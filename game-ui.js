@@ -23,7 +23,11 @@ import {
   _virtualLookTarget,
 } from './game.js';
 import {camera, clock, renderer} from './sky.js';
-import {trackAppStoreClick, trackFlightStart} from './analytics.js';
+import {
+  trackAboutClick,
+  trackAppStoreClick,
+  trackFlightStart,
+} from './analytics.js';
 import {scene} from './scene.js';
 import {musicEnabled, setMusicEnabled} from './audio.js';
 import {initAudioContext, prebakeSfxBuffers, setSfxEnabled} from './sfx.js';
@@ -691,5 +695,5 @@ pauseAppStoreLink?.addEventListener('click', () => {
 
 const splashAboutLink = document.getElementById('splash-about-link');
 splashAboutLink?.addEventListener('click', () => {
-  trackAppStoreClick('splash_about');
+  trackAboutClick('splash');
 });
