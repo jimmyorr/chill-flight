@@ -22,10 +22,10 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 
 // How many by graphics preset, and the field's radius (world units, ~0.5 m)
-const COUNT = {low: 150, mid: 260, high: 340, ultra: 420};
+const COUNT = {low: 55, mid: 90, high: 120, ultra: 150};
 const RADIUS = 110;
 // Spots looked at (moved if they've fallen behind) per frame
-const CHECKS_PER_FRAME = 24;
+const CHECKS_PER_FRAME = 12;
 // The camera's height above the ground where they fade out
 const FADE_LOW = 35;
 const FADE_HIGH = 90;
@@ -69,11 +69,11 @@ const VERTEX = `
     p.y += 2.5 + 5.0 * r3 + sin(t * (0.35 + 0.2 * r) + r * 17.0) * 1.2;
 
     // A blink every few seconds: a quick rise, a slower fade, then dark
-    float period = 2.6 + 3.2 * r2;
+    float period = 3.0 + 3.8 * r2;
     float ph = fract(t / period + r * 7.31);
-    float flash = smoothstep(0.0, 0.07, ph) * (1.0 - smoothstep(0.12, 0.5, ph));
-    // Some of them glow faintly between blinks
-    flash = max(flash, 0.18 * step(0.6, r3));
+    float flash = smoothstep(0.0, 0.06, ph) * (1.0 - smoothstep(0.1, 0.42, ph));
+    // A few of them glow faintly between blinks
+    flash = max(flash, 0.12 * step(0.8, r3));
 
     // Fade in after being placed, out toward the field's edge, and only
     // as many as the hour and weather call for
@@ -146,26 +146,25 @@ function groundAt(x, z) {
   return y;
 }
 
-// Puts firefly i somewhere in the field, mostly ahead of the camera; if no
-// spot is found it waits underground (hidden) for its next turn
+// Puts firefly i at a spot in the field; if that spot is on a road, water or
+// between swarms it stays dark there until the field moves past it, so swarms
+// and roads thin the field out instead of crowding into the nearest grass
 function place(i, cx, cz, now) {
   const k = i * 4;
-  for (let tries = 0; tries < 4; tries++) {
-    const a = rand() * Math.PI * 2;
-    const d = Math.sqrt(rand()) * RADIUS;
-    const x = cx + Math.cos(a) * d;
-    const z = cz + Math.sin(a) * d;
-    const y = groundAt(x, z);
-    if (y === null) continue;
-    spots[k] = x;
-    spots[k + 1] = y;
-    spots[k + 2] = z;
-    born[i] = now;
+  const a = rand() * Math.PI * 2;
+  const d = Math.sqrt(rand()) * RADIUS;
+  const x = cx + Math.cos(a) * d;
+  const z = cz + Math.sin(a) * d;
+  spots[k] = x;
+  spots[k + 2] = z;
+  if (!sampleGroundColor(x, z, _color)) {
+    spots[k + 1] = -1e5;
+    born[i] = -1e3;
     return;
   }
-  spots[k] = cx;
-  spots[k + 1] = -1e5;
-  spots[k + 2] = cz;
+  const y = groundAt(x, z);
+  spots[k + 1] = y !== null ? y : -1e5;
+  born[i] = now;
 }
 
 function build(preset) {
@@ -279,14 +278,14 @@ export function updateFireflies() {
     }
   }
 
-  // Move the ones that have fallen behind (or never found a spot)
+  // Move the ones that have fallen behind (or whose chunk wasn't loaded yet)
   for (let n = 0; n < CHECKS_PER_FRAME; n++) {
     const i = nextCheck;
     nextCheck = (nextCheck + 1) % count;
     const k = i * 4;
     const dx = spots[k] - cx;
     const dz = spots[k + 2] - cz;
-    if (spots[k + 1] < -1e4 || dx * dx + dz * dz > RADIUS * RADIUS) {
+    if (born[i] < 0 || dx * dx + dz * dz > RADIUS * RADIUS) {
       place(i, cx, cz, now);
       moved = true;
     }
