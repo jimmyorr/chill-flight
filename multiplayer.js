@@ -143,6 +143,7 @@ import {
   waggleRoll,
 } from './multiplayer-logic.js';
 import {joinList, t} from './i18n.js';
+import {trackShare} from './analytics.js';
 
 // The relay (relay/README.md); empty hides flying together. ?relay= uses
 // another one, e.g. ws://localhost:8787 for a local `wrangler dev`.
@@ -2152,6 +2153,7 @@ async function share() {
   });
   try {
     if (navigator.share) {
+      trackShare('system_sheet', 'multiplayer_invite');
       await navigator.share({title: 'Chill Flight', text, url});
       return;
     }
@@ -2159,6 +2161,7 @@ async function share() {
     if (err?.name === 'AbortError') return;
   }
   try {
+    trackShare('clipboard_copy', 'multiplayer_invite');
     await navigator.clipboard.writeText(url);
     setStatus(t('Link copied'));
   } catch {

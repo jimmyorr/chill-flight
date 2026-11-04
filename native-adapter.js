@@ -93,6 +93,7 @@ export async function detectGraphicsPreset() {
           setSfxBackgrounded(!appState.isActive);
           handleMusicVisibility(!appState.isActive);
           if (!appState.isActive) {
+            hooks.onBackground?.();
             if (
               typeof state.isPaused !== 'undefined' &&
               !state.isPaused &&
@@ -161,6 +162,16 @@ export async function detectGraphicsPreset() {
     // Expose a compatible window.gtag wrapper that forwards calls to native FirebaseAnalytics
     window.gtag = function (command, eventName, params) {
       if (command === 'event') {
+        if (
+          eventName === 'screen_view' &&
+          params?.screen_name &&
+          FirebaseAnalytics?.setCurrentScreen
+        ) {
+          FirebaseAnalytics.setCurrentScreen({
+            screenName: params.screen_name,
+            screenClassOverride: params.screen_class || params.screen_name,
+          }).catch(() => {});
+        }
         if (FirebaseAnalytics) {
           FirebaseAnalytics.logEvent({
             name: eventName,
@@ -172,9 +183,15 @@ export async function detectGraphicsPreset() {
       }
     };
 
-    // Log app launch/init event
+    // Log app launch/init event and set initial screen
     setTimeout(() => {
       if (FirebaseAnalytics) {
+        if (FirebaseAnalytics.setCurrentScreen) {
+          FirebaseAnalytics.setCurrentScreen({
+            screenName: 'splash',
+            screenClassOverride: 'splash',
+          }).catch(() => {});
+        }
         FirebaseAnalytics.logEvent({
           name: 'app_launch',
           params: {platform: Capacitor.getPlatform()},

@@ -8,7 +8,9 @@ import {doneFor} from './jobs-logic.js';
 import {progress} from './jobs.js';
 import {FACES, drawFace} from './faces.js';
 import {hooks} from './hooks.js';
+import {state} from './state.js';
 import {t} from './i18n.js';
+import {trackScreen} from './analytics.js';
 
 const overlay = document.getElementById('people-overlay');
 const openBtn = document.getElementById('people-btn');
@@ -61,10 +63,12 @@ function render() {
 
 function close() {
   if (overlay) overlay.style.display = 'none';
+  trackScreen(state.isPaused ? 'pause' : 'flight');
 }
 
 openBtn?.addEventListener('click', () => {
   render();
+  trackScreen('people');
   if (overlay) overlay.style.display = 'flex';
 });
 closeBtn?.addEventListener('click', close);

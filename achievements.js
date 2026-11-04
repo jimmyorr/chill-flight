@@ -3,6 +3,7 @@
 // Loaded before game.js so Achievements.unlock() is available during gameplay.
 import {log} from './logger.js';
 import {t} from './i18n.js';
+import {trackAchievement} from './analytics.js';
 
 export const Achievements = (function () {
   // --- ACHIEVEMENT REGISTRY ---
@@ -296,6 +297,9 @@ export const Achievements = (function () {
     // Record unlock
     unlockedMap[id] = Date.now();
     saveUnlocked(unlockedMap);
+
+    // Track standard GA4 recommended game event
+    trackAchievement(id, achievement.title);
 
     // Fire event for toast and any other listeners
     document.dispatchEvent(

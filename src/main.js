@@ -50,6 +50,7 @@ import '../sfx.js';
 import '../sfx-events.js';
 import '../haptics.js';
 import '../native-adapter.js';
+import '../analytics.js';
 import '../achievements.js';
 import '../input-manager.js';
 import '../game-audio-integration.js';

@@ -23,6 +23,7 @@ import {camera} from './sky.js';
 import {WATER_LEVEL} from './constants.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
 import {activePlaneType, planeGroup} from './airplane.js';
+import {trackFlightCrash} from './analytics.js';
 import {playSmash, playSplash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
 import {propPuffs, scrapeSparks} from './particles.js';
@@ -246,6 +247,11 @@ function triggerCrash() {
   spawnCrashEffects(wreckPos, heading, overWater, true);
   smashHaptic(true);
   state.impactShake = Math.max(state.impactShake || 0, 2.5);
+  trackFlightCrash({
+    x: Math.round(wreckPos.x),
+    z: Math.round(wreckPos.z),
+    over_water: overWater,
+  });
 
   // Stop the plane at the crash site for Act 1 while the camera orbits
   const respawn = crashRespawnPose(

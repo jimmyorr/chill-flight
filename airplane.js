@@ -385,6 +385,7 @@ export function setActivePlane(planeType, skipStorage = false) {
   if (!ChillFlightLogic.PLANE_TYPES.includes(planeType)) return;
   if (state.mpLockedPlane && planeType !== state.mpLockedPlane) return;
   activePlaneType = planeType;
+  state.planeType = planeType;
   if (!skipStorage) {
     try {
       localStorage.setItem('chill_flight_plane', planeType);

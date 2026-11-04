@@ -1,6 +1,8 @@
 // --- GAME HUD & ACHIEVEMENTS OVERLAY ---
 import {Achievements} from './achievements.js';
+import {state} from './state.js';
 import {t} from './i18n.js';
+import {trackScreen} from './analytics.js';
 
 var achievementsOverlay = document.getElementById('achievements-overlay');
 var achievementsBtn = document.getElementById('achievements-btn');
@@ -13,6 +15,7 @@ function openAchievementsOverlay() {
   if (!achievementsOverlay) return;
   // Render the grid and update progress text
 
+  trackScreen('achievements');
   Achievements.renderAchievementsOverlay();
 
   achievementsOverlay.style.display = 'flex';
@@ -33,6 +36,7 @@ function closeAchievementsOverlay() {
   if (achievementsOverlay) {
     achievementsOverlay.style.display = 'none';
     resetAchievementsResetBtn();
+    trackScreen(state.isPaused ? 'pause' : 'flight');
   }
 }
 

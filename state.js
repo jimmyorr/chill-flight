@@ -44,6 +44,7 @@ export const state = {
       : 1,
 
   // Airplane (game.js changes the color; physics/debug drive the pontoons)
+  planeType: undefined, // active plane type: 'biplane', 'twin', 'jet', 'buggy', 'seaplane'
   planeColor:
     ChillFlightLogic.START_LIVERY !== null
       ? ChillFlightLogic.START_LIVERY

@@ -28,6 +28,7 @@ import {LANDMARKS, arrivalAt, nearestLandmark} from './landmarks.js';
 import {cancelJob, progress} from './jobs.js';
 import {PEOPLE} from './people.js';
 import {friendsOnMap, inGameMode} from './multiplayer.js';
+import {trackScreen} from './analytics.js';
 import {joinList, t} from './i18n.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
@@ -1078,6 +1079,7 @@ import {joinList, t} from './i18n.js';
   // flying
   function openFullscreenMap() {
     if (fsVisible) return;
+    trackScreen('map');
     if (!state.isPaused) togglePause();
     // The pause menu sits under the map, and its blurred backdrop would
     // still be redrawn every frame
@@ -1263,6 +1265,7 @@ import {joinList, t} from './i18n.js';
     suppressPauseClick(500);
 
     fsVisible = false;
+    trackScreen('flight');
     setWarpPin(null);
     if (pauseOverlay) pauseOverlay.classList.remove('under-map');
     if (state.isPaused) togglePause();

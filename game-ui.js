@@ -23,6 +23,7 @@ import {
   _virtualLookTarget,
 } from './game.js';
 import {camera, clock, renderer} from './sky.js';
+import {trackAppStoreClick, trackFlightStart} from './analytics.js';
 import {scene} from './scene.js';
 import {musicEnabled, setMusicEnabled} from './audio.js';
 import {initAudioContext, prebakeSfxBuffers, setSfxEnabled} from './sfx.js';
@@ -499,6 +500,9 @@ if (overlay && renderer) {
 
     // Initialize sound effects audio graph on first user start
     initAudioContext();
+
+    // Telemetry: track flight start and transition active screen to flight
+    trackFlightStart({start_with_music: startWithMusic});
   };
 
   const progressContainer = document.getElementById(
@@ -678,3 +682,14 @@ if (overlay && renderer) {
 
 inputManager.onAutopilotToggle = () => toggleAutopilot();
 hooks.resetSteering = resetSteering;
+
+// Track store link clicks on web
+const pauseAppStoreLink = document.getElementById('pause-app-store-link');
+pauseAppStoreLink?.addEventListener('click', () => {
+  trackAppStoreClick('pause_footer');
+});
+
+const splashAboutLink = document.getElementById('splash-about-link');
+splashAboutLink?.addEventListener('click', () => {
+  trackAppStoreClick('splash_about');
+});

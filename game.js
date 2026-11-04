@@ -23,6 +23,7 @@ import {
   currentCinematicIndex,
 } from './game-input-bindings.js';
 import {applyGraphicsPreset, initDebugUI} from './debug-ui.js';
+import {trackVehicleSelect} from './analytics.js';
 import {state} from './state.js';
 import {updateUrlParams} from './constants.js';
 import {detectGraphicsPreset} from './native-adapter.js';
@@ -181,6 +182,7 @@ if (planeSelectGroupInit) {
       const planeType = btn.getAttribute('data-plane');
 
       setActivePlane(planeType);
+      trackVehicleSelect(planeType);
     }
   });
 }

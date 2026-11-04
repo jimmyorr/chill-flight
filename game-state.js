@@ -10,6 +10,7 @@ import {updatePauseMenuMusicInfo} from './game-audio-integration.js';
 import {state} from './state.js';
 import {clock} from './sky.js';
 import {hooks} from './hooks.js';
+import {trackScreen} from './analytics.js';
 
 export function clearInputState() {
   if (typeof state.mouseX !== 'undefined') state.mouseX = 0;
@@ -40,6 +41,7 @@ export function togglePause() {
   state.isPaused = !state.isPaused;
   syncSfxState();
   if (state.isPaused) {
+    trackScreen('pause');
     if (pauseOverlay) pauseOverlay.style.display = 'flex';
     clearInputState();
 
@@ -51,6 +53,7 @@ export function togglePause() {
       hooks.openVRPauseMenu();
     }
   } else {
+    trackScreen('flight');
     if (pauseOverlay) pauseOverlay.style.display = 'none';
     if (hooks.closeVRPauseMenu) {
       hooks.closeVRPauseMenu();
