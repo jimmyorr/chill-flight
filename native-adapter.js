@@ -92,7 +92,9 @@ export async function detectGraphicsPreset() {
         Capacitor.Plugins.App.addListener('appStateChange', (appState) => {
           setSfxBackgrounded(!appState.isActive);
           handleMusicVisibility(!appState.isActive);
-          if (!appState.isActive) {
+          if (appState.isActive) {
+            hooks.onForeground?.();
+          } else {
             hooks.onBackground?.();
             if (
               typeof state.isPaused !== 'undefined' &&
@@ -162,6 +164,7 @@ export async function detectGraphicsPreset() {
     // Expose a compatible window.gtag wrapper that forwards calls to native FirebaseAnalytics
     window.gtag = function (command, eventName, params) {
       if (command === 'event') {
+        // setCurrentScreen logs its own screen_view, so don't log another
         if (
           eventName === 'screen_view' &&
           params?.screen_name &&
@@ -171,6 +174,7 @@ export async function detectGraphicsPreset() {
             screenName: params.screen_name,
             screenClassOverride: params.screen_class || params.screen_name,
           }).catch(() => {});
+          return;
         }
         if (FirebaseAnalytics) {
           FirebaseAnalytics.logEvent({

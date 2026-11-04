@@ -2153,16 +2153,16 @@ async function share() {
   });
   try {
     if (navigator.share) {
-      trackShare('system_sheet', 'multiplayer_invite');
       await navigator.share({title: 'Chill Flight', text, url});
+      trackShare('system_sheet', 'multiplayer_invite');
       return;
     }
   } catch (err) {
     if (err?.name === 'AbortError') return;
   }
   try {
-    trackShare('clipboard_copy', 'multiplayer_invite');
     await navigator.clipboard.writeText(url);
+    trackShare('clipboard_copy', 'multiplayer_invite');
     setStatus(t('Link copied'));
   } catch {
     setStatus(url);

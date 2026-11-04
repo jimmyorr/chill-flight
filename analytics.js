@@ -3,13 +3,15 @@
 import {log} from './logger.js';
 import {hooks} from './hooks.js';
 import {state} from './state.js';
-import {ChillFlightLogic} from './chill-flight-logic.js';
+import {ART_STYLE} from './art-style.js';
 
 let currentScreen = 'splash';
 let flightStartTime = null;
 let flightStartDistance = 0;
 let flightCrashCount = 0;
 let flightSessionActive = false;
+// Whether a flight has started this visit (so one resumes after backgrounding)
+let flightStarted = false;
 let milestoneTimers = [];
 
 const visitedLandmarks = new Set();
@@ -74,17 +76,16 @@ function scheduleMilestones() {
  * Triggered when the player leaves the splash screen and begins flying.
  */
 export function trackFlightStart(extraParams = {}) {
+  flightStarted = true;
   flightStartTime = performance.now();
   flightStartDistance = state.lifetimeDistanceTravelled || 0;
   flightCrashCount = 0;
   flightSessionActive = true;
 
   const planeType = state.planeType || 'biplane';
-  const artStyle = ChillFlightLogic.ART_STYLE || 'classic';
-  const preset =
-    localStorage.getItem('chill_flight_graphics_preset') ||
-    ChillFlightLogic.GRAPHICS_PRESET ||
-    'auto';
+  const artStyle = ART_STYLE;
+  // The preset in use, whether picked or auto-detected
+  const preset = state.graphicsPreset || 'auto';
   const controlScheme = state.currentControlScheme || 'joystick';
 
   trackScreen('flight');
@@ -193,10 +194,17 @@ export function trackLandmarkVisited(landmarkName) {
   });
 }
 
-// Hook for native backgrounding from native-adapter.js
+// A flight that ended because the app was backgrounded (or the page hidden
+// into the back/forward cache) starts again when the player comes back
+function resumeFlight() {
+  if (flightStarted && !flightSessionActive) trackFlightStart({resumed: true});
+}
+
+// Hooks for native backgrounding from native-adapter.js
 hooks.onBackground = () => {
   trackFlightEnd('backgrounded');
 };
+hooks.onForeground = resumeFlight;
 
 // Global lifecycle listeners for session end on web
 if (typeof window !== 'undefined') {
@@ -205,4 +213,7 @@ if (typeof window !== 'undefined') {
   };
   window.addEventListener('pagehide', handleUnload);
   window.addEventListener('beforeunload', handleUnload);
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) resumeFlight();
+  });
 }

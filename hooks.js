@@ -21,4 +21,5 @@ export const hooks = {
   isZen: null, // zen.js: () => whether zen is on
   checkDiveCrash: null, // crash.js: (pitch, kts, verticalVelocity) => boolean
   onBackground: null, // analytics.js: called when mobile app is backgrounded
+  onForeground: null, // analytics.js: called when mobile app comes back
 };
