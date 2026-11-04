@@ -57,9 +57,11 @@ import {forEachPeerVehicle} from './multiplayer.js';
 import {
   BREAK,
   restAngle,
+  shouldScareSheep,
   speedKept,
   stepFlying,
   stepFold,
+  stepSheepPunt,
   stepSink,
   stepTopple,
   sweptHit,
@@ -178,6 +180,9 @@ const wrecks = new Map();
 const pools = new Map();
 // Pieces falling this frame
 const moving = new Set();
+// Live sheep detached from their chunk's static instances (so they can bound
+// away again or get punted into the air by the buggy)
+const sheepAnims = new Set();
 // Copies of whole objects (addObjectPiece)
 const objectPieces = new Set();
 // Each vehicle's last position, by id ('me' for the player)
@@ -432,11 +437,16 @@ function chunkIndex(group) {
     const reach = Math.max(cx - x0, x1 - cx, cz - z0, z1 - cz);
     // A penguin is "hit" when something comes near enough to scare it
     const critter = kind === BREAKABLE.CRITTER;
-    if (critter) top = base + SCARE_HEIGHT;
-    const radius = critter
-      ? SCARE_RADIUS
-      : reach *
-        (kind === BREAKABLE.HOUSE ? BREAK.HOUSE_REACH : BREAK.TREE_REACH);
+    const sheep = critter && LAND_CRITTER.test(parts[0].type);
+    if (critter) {
+      top = base + (sheep ? BREAK.SHEEP_SCARE_HEIGHT : SCARE_HEIGHT);
+    }
+    const radius = sheep
+      ? BREAK.SHEEP_PLANE_SCARE
+      : critter
+        ? SCARE_RADIUS
+        : reach *
+          (kind === BREAKABLE.HOUSE ? BREAK.HOUSE_REACH : BREAK.TREE_REACH);
     index.x[i] = first[12];
     index.z[i] = first[14];
     index.cx[i] = cx;
@@ -928,9 +938,152 @@ const _pose = new THREE.Matrix4();
 const smoothstep = (x) => x * x * (3 - 2 * x);
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
-// A penguin (prop i of a chunk) scared by something at (vx, vz) heading
-// along (hx, hz) turns away, out of its path, hops to the edge of its floe
-// and dives in. It's back when its chunk loads again.
+// Detaches a sheep prop from its chunk's static instances into `pools` and
+// `sheepAnims` so it can bound away or get punted into the air repeatedly.
+function createSheepAnim(group, index, i) {
+  index.broken.add(i);
+  group.userData.breakBroken = index.broken;
+  const parts = propParts(group, i);
+  const first = copyMatrix(parts[0]);
+  const x = first[12];
+  const y = first[13];
+  const z = first[14];
+  const size = Math.hypot(first[0], first[2]) || 1;
+  const yaw = Math.atan2(first[8], first[10]);
+  const woolColor = copyColor(parts[0]);
+  const anim = {
+    kind: 'sheep',
+    mode: 'idle',
+    group,
+    x,
+    y,
+    z,
+    size,
+    yaw,
+    yaw0: yaw,
+    turn: 0,
+    pitch: 0,
+    p0: new THREE.Vector3(x, y, z),
+    ux: 0,
+    uz: 1,
+    vx: 0,
+    vy: 0,
+    vz: 0,
+    axis: new THREE.Vector3(1, 0, 0),
+    angle: 0,
+    spin: 0,
+    bounces: 0,
+    hops: 1,
+    hopLen: 4,
+    t: 0,
+    splashed: false,
+    done: true,
+    woolColor,
+    pieces: [],
+  };
+  parts.forEach((part) => {
+    const m = copyMatrix(part);
+    const piece = addPiece(part.type, m.slice(), copyColor(part), group);
+    piece.m0 = m;
+    piece.anim = anim;
+    anim.pieces.push(piece);
+    hidePart(part);
+  });
+  const key = chunkKey(group.userData.chunkX, group.userData.chunkZ);
+  if (!wrecks.has(key)) wrecks.set(key, new Map());
+  wrecks.get(key).set(i, {x, z, pieces: anim.pieces, sheepAnim: anim});
+  sheepAnims.add(anim);
+  return anim;
+}
+
+// Starts a sheep bounding out of the way of a vehicle at (vx, vz) heading
+// along (hx, hz).
+function hopSheep(anim, vx, vz, hx, hz) {
+  let ux = anim.x - vx;
+  let uz = anim.z - vz;
+  let len = Math.hypot(ux, uz) || 1;
+  // Mostly off to the side it's on, a little away
+  const side = ux * -hz + uz * hx > 0 ? 1 : -1;
+  ux = -hz * side * 0.8 + (ux / len) * 0.4;
+  uz = hx * side * 0.8 + (uz / len) * 0.4;
+  len = Math.hypot(ux, uz) || 1;
+  const jitter = rand(-0.4, 0.4);
+  const c = Math.cos(jitter);
+  const s = Math.sin(jitter);
+  [ux, uz] = [(ux / len) * c - (uz / len) * s, (ux / len) * s + (uz / len) * c];
+  const out = rand(20, 30);
+  const hops = Math.max(1, Math.round(out / 4));
+  anim.mode = 'hop';
+  anim.p0.set(anim.x, anim.y, anim.z);
+  anim.ux = ux;
+  anim.uz = uz;
+  anim.yaw0 = anim.yaw;
+  anim.turn = wrapAngle(Math.atan2(ux, uz) - anim.yaw);
+  anim.hops = hops;
+  anim.hopLen = (out + 0.5) / hops;
+  anim.angle = 0;
+  anim.pitch = 0;
+  anim.t = -rand(0, 0.12);
+  anim.done = false;
+  for (const piece of anim.pieces) moving.add(piece);
+}
+
+// Punts a sheep high into the air when the buggy hits it: launches ahead of
+// the hit along (hx, hz), tumbling end-over-end, with a puff of wool and dust.
+function puntSheep(anim, hx, hz, kts, mine, buggy) {
+  const jitter = rand(-0.22, 0.22);
+  const c = Math.cos(jitter);
+  const s = Math.sin(jitter);
+  const ux = hx * c - hz * s;
+  const uz = hx * s + hz * c;
+  const fwd = Math.min(
+    BREAK.PUNT_SPEED_MAX,
+    Math.max(BREAK.PUNT_SPEED_MIN, kts * 0.85)
+  );
+  anim.mode = 'punt';
+  anim.vx = ux * fwd;
+  anim.vz = uz * fwd;
+  anim.vy =
+    BREAK.PUNT_UP +
+    Math.min(16, Math.max(0, kts) * BREAK.PUNT_UP_PER_KT) +
+    rand(0, 4);
+  anim.axis.set(uz, rand(-0.25, 0.25), -ux).normalize();
+  anim.angle = 0;
+  anim.pitch = 0;
+  anim.spin = BREAK.PUNT_SPIN + rand(-1.5, 2.5);
+  anim.yaw = Math.atan2(ux, uz);
+  anim.bounces = 0;
+  anim.splashed = false;
+  anim.done = false;
+  for (const piece of anim.pieces) moving.add(piece);
+
+  const dust = sampleGroundColor(anim.x, anim.z, _dust)
+    ? _dust.lerp(DUST, 0.5)
+    : DUST;
+  if (anim.woolColor) {
+    LEAF_PUFF.setRGB(anim.woolColor[0], anim.woolColor[1], anim.woolColor[2]);
+  } else {
+    LEAF_PUFF.setRGB(0.95, 0.93, 0.88);
+  }
+  propPuffs(anim.x, anim.y + 2, anim.z, 2.5, 2.5, LEAF_PUFF, 14, 4, 3);
+  propPuffs(anim.x, anim.y, anim.z, 2, 1.5, dust, 8, 3, 2);
+
+  if (mine) {
+    const keep = speedKept('snowman', buggy);
+    if (buggy) slowBuggy(keep);
+    else state.flightSpeedMultiplier *= keep;
+    state.impactShake = Math.max(state.impactShake || 0, SHAKE.snowman);
+    smashHaptic(false);
+    playSmashSound(false, 0.8, 0.4);
+  } else {
+    const d = camera.position.distanceTo(_v.set(anim.x, anim.y, anim.z));
+    if (d < HEAR_RANGE) playSmashSound(false, (1 - d / HEAR_RANGE) * 0.8, 0.4);
+  }
+}
+
+// A penguin or seal (prop i of a chunk) scared by something at (vx, vz)
+// heading along (hx, hz) turns away, out of its path, hops to the edge of its
+// floe and dives in. It's back when its chunk loads again.
 function scatter(group, index, i, vx, vz, hx, hz) {
   index.broken.add(i);
   const parts = propParts(group, i);
@@ -938,7 +1091,6 @@ function scatter(group, index, i, vx, vz, hx, hz) {
   // go into their matrices, and its sway eases off as it hops
   const first = copyMatrix(parts[0]);
   const still = STILL_CRITTER.test(parts[0].type);
-  const land = LAND_CRITTER.test(parts[0].type);
   const sway = still
     ? (_pose.identity(), 0)
     : penguinWaddlePose(
@@ -977,8 +1129,6 @@ function scatter(group, index, i, vx, vz, hx, hz) {
     const disc = b * b - (fx * fx + fz * fz - r * r);
     if (disc > 0) out = Math.max(out, -b + Math.sqrt(disc));
   }
-  // A sheep bounds off a fair way over the grass instead
-  if (land) out = rand(20, 30);
   const hops = Math.max(1, Math.round(out / 3.5));
   const anim = {
     kind: 'scatter',
@@ -990,7 +1140,6 @@ function scatter(group, index, i, vx, vz, hx, hz) {
     sway,
     hops,
     hopLen: (out + 0.5) / hops,
-    land,
     t: -rand(0, 0.3),
     splashed: false,
     pieces: [],
@@ -1039,22 +1188,27 @@ function scatterPose(anim) {
   return t >= hopEnd + DIVE_TIME;
 }
 
-// A sheep's hops follow the ground; at the end it stands where it stopped
-function landHopPose(anim) {
+// Steps a bounding sheep along the ground; at the end it stands where it
+// stopped.
+function stepSheepHop(anim, delta) {
+  anim.t += delta;
   const t = Math.max(0, anim.t);
   const hopEnd = anim.hops * HOP_TIME;
   const e = smoothstep(Math.min(1, t / HOP_TIME));
-  anim.swayNow = 0;
   const h = Math.min(t, hopEnd) / HOP_TIME;
   const f = t >= hopEnd ? 0 : h - Math.floor(h);
   const along = Math.min(h, anim.hops) * anim.hopLen;
-  const gx = anim.p0.x + anim.ux * along;
-  const gz = anim.p0.z + anim.uz * along;
-  const up =
-    getElevation(gx, gz) - anim.p0.y + Math.sin(f * Math.PI) * HOP_HEIGHT * 0.6;
-  _r.makeRotationY(anim.turn * e);
-  _p.set(anim.ux * along, up, anim.uz * along);
-  return t >= hopEnd;
+  anim.x = anim.p0.x + anim.ux * along;
+  anim.z = anim.p0.z + anim.uz * along;
+  const ground = Math.max(getElevation(anim.x, anim.z), WATER_LEVEL - 0.5);
+  anim.y = ground + Math.sin(f * Math.PI) * HOP_HEIGHT * 1.35;
+  anim.yaw = anim.yaw0 + anim.turn * e;
+  anim.pitch = t >= hopEnd ? 0 : -Math.cos(f * Math.PI) * 0.22;
+  anim.angle = 0;
+  if (t >= hopEnd) {
+    anim.y = ground;
+    anim.done = true;
+  }
 }
 
 function countPieces() {
@@ -1242,6 +1396,37 @@ function sweep(a, b, r, mine, buggy) {
   }
   _near.push(...standaloneProps);
   sweepBoats(a, b, r, ux, uz, kts, mine, buggy);
+  // Sheep that have already bounded off or landed from a punt stay live at
+  // their new spot (and can be punted mid-hop if the buggy catches them)
+  for (const anim of sheepAnims) {
+    if (
+      Math.abs(anim.x - b.x) > BREAK.SHEEP_PLANE_SCARE + r + step ||
+      Math.abs(anim.z - b.z) > BREAK.SHEEP_PLANE_SCARE + r + step
+    ) {
+      continue;
+    }
+    if (anim.mode === 'punt' && !anim.done) continue;
+    if (
+      buggy &&
+      sweptHit(
+        a,
+        b,
+        r,
+        anim.x,
+        anim.z,
+        BREAK.SHEEP_HIT_RADIUS,
+        anim.y - 3,
+        anim.y + BREAK.SHEEP_HIT_HEIGHT
+      )
+    ) {
+      puntSheep(anim, ux, uz, kts, mine, buggy);
+    } else if (
+      anim.done &&
+      shouldScareSheep(a, b, r, ux, uz, anim.x, anim.y, anim.z, buggy)
+    ) {
+      hopSheep(anim, b.x, b.z, ux, uz);
+    }
+  }
   for (const group of _near) {
     const index = chunkIndex(group);
     if (!index || minY > index.maxTop) continue;
@@ -1252,6 +1437,31 @@ function sweep(a, b, r, mine, buggy) {
         for (const i of cell) {
           if (index.broken.has(i)) continue;
           const critter = propKind(group.userData, i) === BREAKABLE.CRITTER;
+          if (critter && LAND_CRITTER.test(propParts(group, i)[0].type)) {
+            const sx = index.cx[i];
+            const sy = index.base[i];
+            const sz = index.cz[i];
+            if (
+              buggy &&
+              sweptHit(
+                a,
+                b,
+                r,
+                sx,
+                sz,
+                BREAK.SHEEP_HIT_RADIUS,
+                sy - 3,
+                sy + BREAK.SHEEP_HIT_HEIGHT
+              )
+            ) {
+              const anim = createSheepAnim(group, index, i);
+              puntSheep(anim, ux, uz, kts, mine, buggy);
+            } else if (shouldScareSheep(a, b, r, ux, uz, sx, sy, sz, buggy)) {
+              const anim = createSheepAnim(group, index, i);
+              hopSheep(anim, b.x, b.z, ux, uz);
+            }
+            continue;
+          }
           if (
             sweptHit(
               a,
@@ -1333,12 +1543,50 @@ function animate(delta) {
       _m.toArray(piece.m);
       if (anim.done) removePiece(piece);
       continue;
+    } else if (anim.kind === 'sheep') {
+      if (anim.stepped !== frame) {
+        anim.stepped = frame;
+        if (anim.mode === 'hop') {
+          stepSheepHop(anim, delta);
+        } else if (anim.mode === 'punt') {
+          const prevBounces = anim.bounces;
+          stepSheepPunt(anim, delta, (x, z) =>
+            Math.max(getElevation(x, z), WATER_LEVEL - 0.5)
+          );
+          if (
+            !anim.splashed &&
+            getElevation(anim.x, anim.z) < WATER_LEVEL &&
+            anim.y <= WATER_LEVEL
+          ) {
+            anim.splashed = true;
+            propPuffs(anim.x, WATER_LEVEL, anim.z, 2, 2.5, SPRAY, 12, 4, 3);
+          } else if (anim.bounces > prevBounces || anim.done) {
+            const dust = sampleGroundColor(anim.x, anim.z, _dust)
+              ? _dust.lerp(DUST, 0.5)
+              : DUST;
+            propPuffs(anim.x, anim.y, anim.z, 2, 1.5, dust, 6, 2.5, 1.5);
+          }
+        }
+      }
+      const cy = 1.6 * anim.size;
+      _m.makeTranslation(anim.x, anim.y + cy, anim.z);
+      if (anim.angle) _m.multiply(_r.makeRotationAxis(anim.axis, anim.angle));
+      _m.multiply(_t.makeTranslation(0, -cy, 0));
+      _m.multiply(_r2.makeRotationY(anim.yaw));
+      if (anim.pitch) _m.multiply(_r.makeRotationX(anim.pitch));
+      _m.scale(_s.set(anim.size, anim.size, anim.size));
+      _m.toArray(piece.m);
+      if (anim.done) {
+        moving.delete(piece);
+        pool(piece.type).dirty = true;
+      }
+      continue;
     } else if (anim.kind === 'scatter') {
       if (anim.stepped !== frame) {
         anim.stepped = frame;
         anim.t += delta;
       }
-      const gone = anim.land ? landHopPose(anim) : scatterPose(anim);
+      const gone = scatterPose(anim);
       const pv = anim.p0;
       // Into the water with a splash
       if (!anim.splashed && pv.y + _p.y < WATER_LEVEL) {
@@ -1361,8 +1609,7 @@ function animate(delta) {
       _m.multiply(_m0.fromArray(piece.m0));
       _m.multiply(_t.makeRotationZ(-anim.swayNow));
       _m.toArray(piece.m);
-      if (gone && anim.land) moving.delete(piece);
-      else if (gone) removePiece(piece);
+      if (gone) removePiece(piece);
       continue;
     } else if (anim.kind === 'fold') {
       stepFold(anim, delta);
@@ -1430,6 +1677,12 @@ function syncChunks() {
           k: old.k,
         })
       );
+      if (wreck.sheepAnim) {
+        wreck.sheepAnim.group = group;
+        wreck.sheepAnim.pieces = wreck.pieces;
+        for (const piece of wreck.pieces) piece.anim = wreck.sheepAnim;
+        sheepAnims.add(wreck.sheepAnim);
+      }
     }
   }
   // Pieces of chunks no longer loaded
@@ -1445,6 +1698,7 @@ function syncChunks() {
     }
   }
   for (const piece of objectPieces) if (gone(piece)) removePiece(piece);
+  for (const anim of sheepAnims) if (gone(anim)) sheepAnims.delete(anim);
 }
 
 /** Per frame: knocks over what the player and friends ran into, and moves

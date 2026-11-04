@@ -13,10 +13,12 @@ import {BREAKABLE, generateChunkData} from '../terrain-gen.js';
 import {
   BREAK,
   restAngle,
+  shouldScareSheep,
   speedKept,
   stepFlying,
   stepFold,
   stepScatter,
+  stepSheepPunt,
   stepSink,
   stepTopple,
   sweptHit,
@@ -248,6 +250,59 @@ for (let i = 0; i < 300 && !penguin.done; i++) stepScatter(penguin, 1 / 60);
 check(
   'a scattering penguin hops and dives',
   penguin.done && penguin.along > 10 && penguin.up < -5
+);
+
+// --- Sheep reacting to the buggy ---
+check(
+  'a sheep beside the buggy path jumps out of the way when the buggy gets close',
+  shouldScareSheep(
+    {x: 0, y: 12, z: -22},
+    {x: 0, y: 12, z: -20},
+    BREAK.BUGGY_RADIUS,
+    0,
+    1,
+    12,
+    10,
+    0,
+    true
+  ) &&
+    !shouldScareSheep(
+      {x: 0, y: 12, z: -80},
+      {x: 0, y: 12, z: -78},
+      BREAK.BUGGY_RADIUS,
+      0,
+      1,
+      12,
+      10,
+      0,
+      true
+    )
+);
+const punted = {
+  x: 0,
+  y: 20,
+  z: 0,
+  vx: 45,
+  vy: 28,
+  vz: 0,
+  angle: 0,
+  spin: BREAK.PUNT_SPIN,
+  bounces: 0,
+  done: false,
+};
+let peakY = punted.y;
+for (let i = 0; i < 300 && !punted.done; i++) {
+  stepSheepPunt(punted, 1 / 60, (x) => 20 + x * 0.05);
+  if (punted.y > peakY) peakY = punted.y;
+}
+check(
+  'a sheep hit by the buggy gets punted high in the air, bounces, and lands on the slope',
+  punted.done &&
+    peakY > 28 &&
+    punted.bounces === 1 &&
+    punted.x > 40 &&
+    Math.abs(punted.y - (20 + punted.x * 0.05)) < 0.01 &&
+    punted.angle === 0
 );
 
 // --- Speed lost ---

@@ -54,6 +54,20 @@ export const BREAK = {
   DIVE_TIME: 0.8,
   DIVE_OUT: 5,
   DIVE_DEPTH: 6,
+  // A sheep: hit cylinder when the buggy runs into it and punts it into the
+  // air, and the distance at which it bounds out of the way of the buggy or a
+  // low-flying plane
+  SHEEP_HIT_RADIUS: 3.5,
+  SHEEP_HIT_HEIGHT: 5,
+  SHEEP_BUGGY_SCARE: 35,
+  SHEEP_PLANE_SCARE: 90,
+  SHEEP_SCARE_HEIGHT: 80,
+  PUNT_SPEED_MIN: 28,
+  PUNT_SPEED_MAX: 65,
+  PUNT_UP: 22,
+  PUNT_UP_PER_KT: 0.18,
+  PUNT_SPIN: 9,
+  PUNT_BOUNCE: 0.35,
   // Rubble blocks thrown out of each kind of building or prop
   RUBBLE: {
     house: 9,
@@ -221,5 +235,65 @@ export function stepScatter(s, dt) {
   s.roll = roll;
   s.turnAngle = turn;
   if (t >= hopEnd + BREAK.DIVE_TIME) s.done = true;
+  return s;
+}
+
+// Whether a vehicle moving from a to b (radius r, unit heading (ux, uz))
+// scares a sheep at (sx, sy, sz) into bounding out of the way. When the buggy
+// is aimed straight at a sheep at speed, it holds off until close so a fast
+// charge connects and punts the sheep into the air instead.
+export function shouldScareSheep(a, b, r, ux, uz, sx, sy, sz, buggy) {
+  if (!buggy) {
+    return sweptHit(
+      a,
+      b,
+      r,
+      sx,
+      sz,
+      BREAK.SHEEP_PLANE_SCARE,
+      sy - 10,
+      sy + BREAK.SHEEP_SCARE_HEIGHT
+    );
+  }
+  if (!sweptHit(a, b, r, sx, sz, BREAK.SHEEP_BUGGY_SCARE, sy - 20, sy + 25)) {
+    return false;
+  }
+  const dx = sx - b.x;
+  const dz = sz - b.z;
+  const ahead = dx * ux + dz * uz;
+  if (ahead < -r) return false;
+  const lateral = Math.abs(dx * -uz + dz * ux);
+  if (lateral <= r + BREAK.SHEEP_HIT_RADIUS * 0.75 && ahead > 8) return false;
+  return true;
+}
+
+// One step of a sheep punted into the air by the buggy, s = {x, y, z, vx, vy,
+// vz, angle, spin, bounces, done}: arcs under GRAVITY, tumbles end-over-end,
+// bounces once on groundAt(x, z), and lands back on its feet.
+export function stepSheepPunt(s, dt, groundAt) {
+  if (s.done) return s;
+  s.vy += BREAK.GRAVITY * dt;
+  s.x += s.vx * dt;
+  s.y += s.vy * dt;
+  s.z += s.vz * dt;
+  s.angle += s.spin * dt;
+  const ground = groundAt(s.x, s.z);
+  if (s.y <= ground && s.vy < 0) {
+    s.y = ground;
+    if ((s.bounces || 0) < 1 && -s.vy * BREAK.PUNT_BOUNCE > 5) {
+      s.bounces = (s.bounces || 0) + 1;
+      s.vy = -s.vy * BREAK.PUNT_BOUNCE;
+      s.vx *= 0.55;
+      s.vz *= 0.55;
+      const tBounce = Math.max(0.15, (2 * s.vy) / -BREAK.GRAVITY);
+      const target = Math.ceil(s.angle / (Math.PI * 2)) * Math.PI * 2;
+      s.spin = (target - s.angle) / tBounce;
+    } else {
+      s.vy = 0;
+      s.angle = 0;
+      s.spin = 0;
+      s.done = true;
+    }
+  }
   return s;
 }
