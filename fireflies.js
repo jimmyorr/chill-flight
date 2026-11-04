@@ -274,6 +274,11 @@ export function updateFireflies() {
       const step = (1 - Math.sqrt(d2) / PUSH_RADIUS) * PUSH_SPEED * dt * side;
       spots[k] += sx * step;
       spots[k + 2] += sz * step;
+      // Follow the ground, so a push across a slope doesn't bury or strand it
+      spots[k + 1] = Math.max(
+        getElevation(spots[k], spots[k + 2]),
+        WATER_LEVEL + 1.5
+      );
       moved = true;
     }
   }
