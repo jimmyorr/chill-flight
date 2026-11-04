@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "1.2.5";
-window.__COMMIT_HASH__ = "8bd664c";
+    <script>window.__APP_VERSION__ = "1.2.6";
+window.__COMMIT_HASH__ = "b4dc084";
 window.__IS_DIRTY__ = false;</script>
 
     <meta charset="UTF-8" />
@@ -76,9 +76,10 @@ window.__IS_DIRTY__ = false;</script>
       }
     </script>
     <!-- sync-end:description -->
-    <script type="module" crossorigin src="./assets/main-DvHBoLQI.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/three-BFa6_i-7.js">
-    <link rel="stylesheet" crossorigin href="./assets/main-CyN_bKN8.css">
+    <script type="module" crossorigin src="./assets/main-BgJlB1Xs.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/three-BxF9f2ro.js">
+    <link rel="modulepreload" crossorigin href="./assets/definitions-DzrWiD94.js">
+    <link rel="stylesheet" crossorigin href="./assets/main-Dm4jiRCA.css">
   </head>
 
   <body>
@@ -210,6 +211,25 @@ window.__IS_DIRTY__ = false;</script>
               <select id="art-style-select" class="customization-input">
                 <option value="classic" selected>Low poly</option>
                 <option value="anime">Anime</option>
+              </select>
+            </div>
+            <div class="pause-row">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Language</span>
+                <span class="pause-row-sub">Restarts the game</span>
+              </span>
+              <!-- i18n.js -->
+              <select id="language-select" class="customization-input">
+                <option value="auto" data-no-translate>Auto</option>
+                <option value="en" data-no-translate>English</option>
+                <option value="de" data-no-translate>Deutsch</option>
+                <option value="es" data-no-translate>Español</option>
+                <option value="fr" data-no-translate>Français</option>
+                <option value="pt-BR" data-no-translate>Português</option>
+                <option value="ja" data-no-translate>日本語</option>
+                <option value="ko" data-no-translate>한국어</option>
+                <option value="zh-CN" data-no-translate>简体中文</option>
+                <option value="zh-TW" data-no-translate>繁體中文</option>
               </select>
             </div>
             <!-- Shown on touch devices (game-gyro.js) -->
@@ -378,7 +398,7 @@ window.__IS_DIRTY__ = false;</script>
               title="People"
               aria-label="People"
             >
-              📇 <span id="people-counter"></span>
+              👥 <span id="people-counter"></span>
             </button>
             <button
               id="vr-btn"
@@ -532,7 +552,7 @@ window.__IS_DIRTY__ = false;</script>
 
     <div id="loading-overlay">
       <div class="loading-content">
-        <h1 class="loading-title">Chill<br />Flight</h1>
+        <h1 class="loading-title" data-no-translate>Chill<br />Flight</h1>
         <div class="version-tag">&nbsp;</div>
         <div id="splash-interactive-area">
           <div id="splash-progress-container" class="splash-fade-item hidden">
@@ -948,7 +968,7 @@ window.__IS_DIRTY__ = false;</script>
       </div>
     </div>
 
-    <div id="debug-menu">
+    <div id="debug-menu" data-no-translate>
       <div class="debug-columns">
         <!-- Left Column: Environment, Sky & Weather -->
         <div class="debug-col">
@@ -1546,7 +1566,7 @@ window.__IS_DIRTY__ = false;</script>
       </div>
     </div>
 
-    <div id="debug-telemetry">
+    <div id="debug-telemetry" data-no-translate>
       <div>
         <div
           style="
@@ -1723,9 +1743,9 @@ window.__IS_DIRTY__ = false;</script>
           <div>Piers: <span id="debug-piers">0</span></div>
           <div>Pirate Ships: <span id="debug-pirateships">0</span></div>
           <div>Castles: <span id="debug-castles">0</span></div>
-          <div>Pagodas: <span id="debug-pagodas">0</span></div>
           <div>Windmills: <span id="debug-windmills">0</span></div>
           <div>Other planes: <span id="debug-traffic">0</span></div>
+          <div>Road cars: <span id="debug-road-cars">0</span></div>
           <div style="display: none">
             Lighthouses: <span id="debug-lighthouses">0</span>
           </div>

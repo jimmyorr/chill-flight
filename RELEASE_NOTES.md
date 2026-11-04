@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.6](https://v1-2-6.chill-flight.pages.dev)
+
+- **Languages:** Added 8 languages including Japanese, Korean, Chinese, Spanish, Portuguese, German, and French.
+- **Wildlife & world:** Added dolphins, whales, seals, sheep, fireflies, and a ghost galleon; new north, south, and east coast highways.
+- **Models & roads:** Biome-weathered asphalt, road snow buildup, and new 3D models for vehicles, boats, farmsteads, and lighthouses.
+
 ## [1.2.5](https://v1-2-5.chill-flight.pages.dev)
 
 - **Flight & controls:** Weighted roll response by default, frame-rate independent climb/dive momentum, flared landings, and smooth stick dead zones.
