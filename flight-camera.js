@@ -14,6 +14,7 @@ import {
   pirateShipGeos,
   pirateShipMat,
   SAIL_FURL,
+  sampleGround,
   smokeMat,
   strayBirds,
   waterUniforms,
@@ -133,6 +134,45 @@ let loopLock = 0;
 // with it (see firstPerson)
 const _lastVehiclePos = new THREE.Vector3();
 const _seatCarry = new THREE.Vector3();
+
+// A car's chase camera (chaseFrame) tips with the slope it's on: down a
+// steep hill it rises up behind and looks down the hill, up one it sinks
+// and looks up it, instead of staying level and burying itself in the
+// hillside behind (or staring into the slope ahead). It follows part of
+// the car's pitch, eased so bumps don't nod the view, and keeps the
+// horizon level (no roll)
+const CHASE_PITCH_FOLLOW = 0.6;
+const CHASE_PITCH_SECONDS = 0.35;
+const CHASE_PITCH_MAX = 0.5;
+let chasePitch = 0;
+const _chasePitchQuat = new THREE.Quaternion();
+const _chaseAnchorQuat = new THREE.Quaternion();
+const _xAxis = new THREE.Vector3(1, 0, 0);
+
+// How far a car's chase camera stays above the drawn ground (sampleGround,
+// the flat-shaded triangles, which can sit above getElevation), and the
+// points along its line of sight to the car that must clear the ground too,
+// so a crest behind it doesn't hide the car
+const CHASE_GROUND_CLEARANCE = 3;
+const CHASE_SIGHT_POINTS = [0.35, 0.6, 0.85];
+const _chaseGround = {height: 0, slopeX: 0, slopeZ: 0};
+
+// The lowest a car's chase camera at (x, y, z) may be, looking at the car
+// at (vx, vy, vz): above the drawn ground under it, and high enough that
+// the ground along the way doesn't block the view
+function chaseCameraFloor(x, z, vx, vy, vz, sight = true) {
+  let floor = sampleGround(x, z, _chaseGround).height + CHASE_GROUND_CLEARANCE;
+  if (!sight) return floor;
+  const eye = vy + 2;
+  for (const t of CHASE_SIGHT_POINTS) {
+    const ground =
+      sampleGround(vx + (x - vx) * t, vz + (z - vz) * t, _chaseGround).height +
+      CHASE_GROUND_CLEARANCE;
+    // The camera height that puts this point of the sight line on ground
+    floor = Math.max(floor, eye + (ground - eye) / t);
+  }
+  return floor;
+}
 
 function easeLock(lock, locked, ease) {
   const target = locked ? 1 : 0;
@@ -328,7 +368,20 @@ export function updateFlightCamera(delta, nowTime) {
       THREE.MathUtils.lerp(1 - Math.pow(1 - 0.15, delta * 60), 1, anchorLock)
     );
 
-    _cameraAnchorMatrix.makeRotationFromQuaternion(_cameraAnchorQuat);
+    // A car's camera tips with the slope (see CHASE_PITCH_FOLLOW)
+    const chaseFrame = state.airplaneModel?.chaseFrame;
+    const slopePitch = chaseFrame
+      ? THREE.MathUtils.clamp(
+          (state.airplaneModel.rotation.x || 0) * CHASE_PITCH_FOLLOW,
+          -CHASE_PITCH_MAX,
+          CHASE_PITCH_MAX
+        )
+      : 0;
+    chasePitch +=
+      (slopePitch - chasePitch) * (1 - Math.exp(-delta / CHASE_PITCH_SECONDS));
+    _chasePitchQuat.setFromAxisAngle(_xAxis, chasePitch);
+    _chaseAnchorQuat.copy(_cameraAnchorQuat).multiply(_chasePitchQuat);
+    _cameraAnchorMatrix.makeRotationFromQuaternion(_chaseAnchorQuat);
     _cameraAnchorMatrix.setPosition(planeGroup.position);
 
     _idealCameraPos_Follow
@@ -337,7 +390,6 @@ export function updateFlightCamera(delta, nowTime) {
 
     // Planes sit in the middle of the view. A car sits low (chaseFrame, the
     // way from the middle to the bottom edge), with more road ahead in view
-    const chaseFrame = state.airplaneModel?.chaseFrame;
     if (chaseFrame) {
       const back = zOffset + pullBack;
       const below = Math.atan2(yOffset, back);
@@ -546,6 +598,27 @@ export function updateFlightCamera(delta, nowTime) {
       _idealCameraPos.y,
       planeGroup.position.y
     );
+    // A car's chase camera stays over the drawn ground, with the car in
+    // sight (shedding it on the way into the seat view)
+    const chaseFloorWeight =
+      chaseFrame &&
+      state.cameraMode !== 'cinematic' &&
+      state.cameraTransitionProgress < 0.5
+        ? 1 - firstPerson
+        : 0;
+    if (chaseFloorWeight > 0) {
+      const v = planeGroup.position;
+      const floor = chaseCameraFloor(
+        _idealCameraPos.x,
+        _idealCameraPos.z,
+        v.x,
+        v.y,
+        v.z
+      );
+      if (_idealCameraPos.y < floor) {
+        _idealCameraPos.y += (floor - _idealCameraPos.y) * chaseFloorWeight;
+      }
+    }
 
     // Apply smooth tracking to the results
     // We use smoothedDelta and a higher lerp factor for a more "locked-in" feel.
@@ -617,6 +690,14 @@ export function updateFlightCamera(delta, nowTime) {
       );
       activeCamTarget.position.lerp(_idealCameraPos, follow);
       _currentLookTarget.lerp(_idealLookTarget, follow);
+      // The follow lag mustn't sink a car's camera into the hill either (the
+      // sight line is left to the smoothing, so a crest doesn't jolt it)
+      if (chaseFloorWeight > 0) {
+        const cam = activeCamTarget.position;
+        const v = planeGroup.position;
+        const floor = chaseCameraFloor(cam.x, cam.z, v.x, v.y, v.z, false);
+        if (cam.y < floor) cam.y += (floor - cam.y) * chaseFloorWeight;
+      }
     }
 
     _lastVehiclePos.copy(planeGroup.position);
