@@ -138,6 +138,31 @@ check(
 const desert = fly({lat: -4.5, kts: 150, hours: 20, kind: 'rain'});
 check('it never rains deep in the desert', desert.share === 0);
 
+// Storms and cloud patches still drift over the desert, but deep in it they
+// thin to a veil, against a heavy overcast in the heartland
+function mostCloud(lat) {
+  let most = 0;
+  for (let i = 0; i < 4000; i++) {
+    const clock = Date.UTC(2026, 9, 18, 8) + i * 15000;
+    const x = -40000 + (i % 80) * 1000;
+    const w = weatherAt(x, -lat * 5000, clock, simplex);
+    most = Math.max(most, w.cloud);
+  }
+  return most;
+}
+const desertCloud = mostCloud(-4.5);
+const heartlandCloud = mostCloud(0);
+if (report) {
+  console.log(
+    `  most cloud: desert ${desertCloud.toFixed(2)}, heartland ${heartlandCloud.toFixed(2)}`
+  );
+}
+check(
+  'the sky stays mostly clear deep in the desert',
+  desertCloud < 0.4 && heartlandCloud > 0.9,
+  `(desert ${desertCloud.toFixed(2)}, heartland ${heartlandCloud.toFixed(2)})`
+);
+
 const north = fly({lat: 3, kts: 150, hours: 40, kind: 'snow', threshold: 0.2});
 show('snow at 150 kts', north);
 check(

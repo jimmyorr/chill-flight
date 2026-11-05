@@ -6071,6 +6071,7 @@ export const ChillFlightLogic = {};
     SNOW_STORM: 0.45,
     LIGHT_SNOW_EDGE: 0.15, // light snow where the snow cover is full
     LIGHT_SNOW_DEEP: 0.25, // and 1.5 degrees farther north
+    DESERT_CLEAR: 0.65, // share of the cloud cover that clears deep in the desert
   };
 
   // Snow settling on the roads, 0 bare to 1 white (weather-manager.js,
@@ -6121,16 +6122,25 @@ export const ChillFlightLogic = {};
     // Cloud cover: the cloud patches (clear below about 0.65), the storms'
     // overcast, and over the snow the light snow's cloud (reaching a little
     // south of the snow, so the first flakes fall from cloud too)
+    // The desert, from its edge (2.0 South) to deep in (3.0 South): the sky
+    // there stays mostly clear, storms and cloud patches thinning to a veil
+    const dry = smoothRamp(z / 5000 + desertShift(x, z, simplex), 2.0, 3.0);
     const snowCloudZone = smoothRamp(
       lat,
       SNOW_START_LAT - 0.3,
       SNOW_START_LAT + 0.2
     );
-    const cloud = Math.max(
-      smoothRamp(cloudNoise, 0.65 - WEATHER.SNOW_CLOUD_HEADSTART * snowZone, 1),
-      ramp(stormNoise, WEATHER.STORM_CLOUD),
-      0.75 * snowCloudZone * ramp(snowNoise, WEATHER.LIGHT_SNOW_CLOUD)
-    );
+    const cloud =
+      Math.max(
+        smoothRamp(
+          cloudNoise,
+          0.65 - WEATHER.SNOW_CLOUD_HEADSTART * snowZone,
+          1
+        ),
+        ramp(stormNoise, WEATHER.STORM_CLOUD),
+        0.75 * snowCloudZone * ramp(snowNoise, WEATHER.LIGHT_SNOW_CLOUD)
+      ) *
+      (1 - WEATHER.DESERT_CLEAR * dry);
 
     // Light snow from where the snow cover starts, heavier farther north
     const lightSnow =
@@ -6140,7 +6150,6 @@ export const ChillFlightLogic = {};
           (WEATHER.LIGHT_SNOW_DEEP - WEATHER.LIGHT_SNOW_EDGE));
     // Storms bring rain in the south, snow in the north, and sleet between;
     // the rain dries up toward the desert
-    const dry = smoothRamp(z / 5000 + desertShift(x, z, simplex), 2.0, 3.0);
     const rain = storm * WEATHER.RAIN_FULL * (1 - snowZone) * (1 - dry);
     const snow = Math.max(lightSnow, storm * WEATHER.SNOW_STORM * snowZone);
     const zone =
