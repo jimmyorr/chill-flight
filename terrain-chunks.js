@@ -299,6 +299,32 @@ function canopyDetailRadius() {
   return detailDistance < CHUNK_SIZE ? 1 : TREE_LOD_CHUNK_RADIUS;
 }
 
+function geometryAverageColor(geo) {
+  const srcCol = geo.attributes.color;
+  if (!srcCol) return [1, 1, 1];
+  let r = 0,
+    g = 0,
+    b = 0;
+  for (let i = 0; i < srcCol.count; i++) {
+    r += srcCol.getX(i);
+    g += srcCol.getY(i);
+    b += srcCol.getZ(i);
+  }
+  return [r / srcCol.count, g / srcCol.count, b / srcCol.count];
+}
+
+function fillVertexColor(geo, r, g, b) {
+  const count = geo.attributes.position.count;
+  const col = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    col[i * 3] = r;
+    col[i * 3 + 1] = g;
+    col[i * 3 + 2] = b;
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
 // A simple shape (spanning -1..1) scaled and moved to fill `geo`'s bounds.
 function fitToBounds(shape, geo) {
   geo.computeBoundingBox();
@@ -307,27 +333,9 @@ function fitToBounds(shape, geo) {
   const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
   shape.scale(half.x, half.y, half.z);
   shape.translate(center.x, center.y, center.z);
-  const srcCol = geo.attributes.color;
-  if (srcCol) {
-    let r = 0,
-      g = 0,
-      b = 0;
-    for (let i = 0; i < srcCol.count; i++) {
-      r += srcCol.getX(i);
-      g += srcCol.getY(i);
-      b += srcCol.getZ(i);
-    }
-    r /= srcCol.count;
-    g /= srcCol.count;
-    b /= srcCol.count;
-    const count = shape.attributes.position.count;
-    const col = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      col[i * 3] = r;
-      col[i * 3 + 1] = g;
-      col[i * 3 + 2] = b;
-    }
-    shape.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  if (geo.attributes.color) {
+    const [r, g, b] = geometryAverageColor(geo);
+    fillVertexColor(shape, r, g, b);
   }
   return shape;
 }
@@ -433,6 +441,7 @@ class GlobalInstanceManager {
     this.types.set(type, {
       geo,
       farGeo: geo, // see setFarGeometry
+      farShare: null,
       mat,
       useColor,
       maxInstances,
@@ -450,9 +459,14 @@ class GlobalInstanceManager {
   setFarGeometry(
     type,
     farGeo,
-    {screenSized = false, farRadius = Infinity} = {}
+    {screenSized = false, farRadius = Infinity, farShare = null} = {}
   ) {
-    Object.assign(this.types.get(type), {farGeo, screenSized, farRadius});
+    Object.assign(this.types.get(type), {
+      farGeo,
+      screenSized,
+      farRadius,
+      farShare,
+    });
     if (Number.isFinite(farRadius) && farRadius > this._maxFarRadius) {
       this._maxFarRadius = farRadius;
     }
@@ -651,24 +665,31 @@ class GlobalInstanceManager {
           const useFar =
             chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
           if (useFar && typeInfo.farGeo === null) continue; // not drawn far away
+          const share = useFar ? typeInfo.farShare : null;
+          const bucketType = share ? share.targetType : type;
+          const bucketInfo = share ? this.types.get(bucketType) : typeInfo;
           const meshKey = useFar ? tileKey + '|far' : tileKey;
-          let tiles = byType.get(type);
+          let tiles = byType.get(bucketType);
           if (!tiles) {
             tiles = new Map();
-            byType.set(type, tiles);
+            byType.set(bucketType, tiles);
           }
           let tile = tiles.get(meshKey);
           if (!tile) {
             tile = {
               tileX,
               tileZ,
-              geo: useFar ? typeInfo.farGeo : typeInfo.geo,
+              geo: share
+                ? bucketInfo.geo
+                : useFar
+                  ? typeInfo.farGeo
+                  : typeInfo.geo,
               parts: [],
               count: 0,
             };
             tiles.set(meshKey, tile);
           }
-          tile.parts.push(data);
+          tile.parts.push({data, share});
           tile.count += data.count;
         }
       }
@@ -729,19 +750,68 @@ class GlobalInstanceManager {
               tile.geo
             );
             let n = 0;
-            for (const data of tile.parts) {
+            for (const {data, share} of tile.parts) {
               data._tileMesh = mesh;
               data._tileSlot = n;
               syncDrawnAt(data);
-              mesh.instanceMatrix.array.set(
-                data.matrices.subarray(0, data.count * 16),
-                n * 16
-              );
-              if (typeInfo.useColor) {
-                mesh.instanceColor.array.set(
-                  data.colors.subarray(0, data.count * 3),
-                  n * 3
+              if (!share) {
+                mesh.instanceMatrix.array.set(
+                  data.matrices.subarray(0, data.count * 16),
+                  n * 16
                 );
+                if (typeInfo.useColor) {
+                  mesh.instanceColor.array.set(
+                    data.colors.subarray(0, data.count * 3),
+                    n * 3
+                  );
+                }
+              } else {
+                const {sx, sy, sz, tx, ty, tz, cr, cg, cb} = share;
+                const srcM = data.matrices;
+                const dstM = mesh.instanceMatrix.array;
+                const srcC = data.colors;
+                const dstC = mesh.instanceColor.array;
+                for (let i = 0; i < data.count; i++) {
+                  const so = i * 16;
+                  const doff = (n + i) * 16;
+                  const m0 = srcM[so],
+                    m1 = srcM[so + 1],
+                    m2 = srcM[so + 2];
+                  const m4 = srcM[so + 4],
+                    m5 = srcM[so + 5],
+                    m6 = srcM[so + 6];
+                  const m8 = srcM[so + 8],
+                    m9 = srcM[so + 9],
+                    m10 = srcM[so + 10];
+                  dstM[doff] = m0 * sx;
+                  dstM[doff + 1] = m1 * sx;
+                  dstM[doff + 2] = m2 * sx;
+                  dstM[doff + 3] = 0;
+                  dstM[doff + 4] = m4 * sy;
+                  dstM[doff + 5] = m5 * sy;
+                  dstM[doff + 6] = m6 * sy;
+                  dstM[doff + 7] = 0;
+                  dstM[doff + 8] = m8 * sz;
+                  dstM[doff + 9] = m9 * sz;
+                  dstM[doff + 10] = m10 * sz;
+                  dstM[doff + 11] = 0;
+                  dstM[doff + 12] = m0 * tx + m4 * ty + m8 * tz + srcM[so + 12];
+                  dstM[doff + 13] = m1 * tx + m5 * ty + m9 * tz + srcM[so + 13];
+                  dstM[doff + 14] =
+                    m2 * tx + m6 * ty + m10 * tz + srcM[so + 14];
+                  dstM[doff + 15] = srcM[so + 15];
+                  const co = (n + i) * 3;
+                  if (srcC) {
+                    const sco = i * 3;
+                    dstC[co] = srcC[sco] * cr;
+                    dstC[co + 1] = srcC[sco + 1] * cg;
+                    dstC[co + 2] = srcC[sco + 2] * cb;
+                  } else {
+                    dstC[co] = cr;
+                    dstC[co + 1] = cg;
+                    dstC[co + 2] = cb;
+                  }
+                }
               }
               n += data.count;
             }
@@ -1215,8 +1285,8 @@ globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =
 
 // Distant versions (beyond TREE_LOD_CHUNK_RADIUS). The costliest models get a
 // simple shape fitted to their bounds (same material and instance colors);
-// props too small to see that far away aren't drawn. Pines, rocks and other
-// cheap models stay as they are.
+// props too small to see that far away aren't drawn. All tree species share a
+// single far canopy mesh and a single far trunk mesh per tile.
 const farCanopy = (geo) =>
   fitToBounds(new THREE.IcosahedronGeometry(1, 0), geo); // 20 triangles
 const farTrunk = (geo) => {
@@ -1224,72 +1294,129 @@ const farTrunk = (geo) => {
   const h = geo.boundingBox.max.y * 0.75;
   const shape = new THREE.CylinderGeometry(0.9, 1.4, h, 6, 1, true); // 12 triangles
   shape.translate(0, h * 0.5, 0);
-  const srcCol = geo.attributes.color;
-  if (srcCol) {
-    let r = 0,
-      g = 0,
-      b = 0;
-    for (let i = 0; i < srcCol.count; i++) {
-      r += srcCol.getX(i);
-      g += srcCol.getY(i);
-      b += srcCol.getZ(i);
-    }
-    r /= srcCol.count;
-    g /= srcCol.count;
-    b /= srcCol.count;
-    const count = shape.attributes.position.count;
-    const col = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      col[i * 3] = r;
-      col[i * 3 + 1] = g;
-      col[i * 3 + 2] = b;
-    }
-    shape.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  if (geo.attributes.color) {
+    const [r, g, b] = geometryAverageColor(geo);
+    fillVertexColor(shape, r, g, b);
   }
   return shape;
 };
+const sharedFarCanopyGeo = fillVertexColor(
+  new THREE.IcosahedronGeometry(6, 0).translate(0, 12, 0),
+  1,
+  1,
+  1
+);
+const sharedFarTrunkGeo = new THREE.CylinderGeometry(
+  0.9,
+  1.4,
+  1,
+  6,
+  1,
+  true
+).translate(0, 0.5, 0);
+globalInstancer.registerType(
+  'farTreeLeaves',
+  sharedFarCanopyGeo,
+  treeLeavesBaseMat,
+  30000,
+  true,
+  false
+);
+globalInstancer.registerType(
+  'farTreeTrunk',
+  sharedFarTrunkGeo,
+  houseTintMat,
+  30000,
+  true,
+  false
+);
+const shareFarCanopy = (type, geo) => {
+  const farGeo = farCanopy(geo);
+  const box = geo.boundingBox;
+  const center = box.getCenter(new THREE.Vector3());
+  const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+  const [cr, cg, cb] = geometryAverageColor(geo);
+  const sx = half.x / 6;
+  const sy = half.y / 6;
+  const sz = half.z / 6;
+  globalInstancer.setFarGeometry(type, farGeo, {
+    screenSized: true,
+    farShare: {
+      targetType: 'farTreeLeaves',
+      sx,
+      sy,
+      sz,
+      tx: center.x,
+      ty: center.y - 12 * sy,
+      tz: center.z,
+      cr,
+      cg,
+      cb,
+    },
+  });
+  return farGeo;
+};
+const shareFarTrunk = (type, geo) => {
+  const farGeo = farTrunk(geo);
+  const h = geo.boundingBox.max.y * 0.75;
+  const [cr, cg, cb] = geometryAverageColor(geo);
+  globalInstancer.setFarGeometry(type, farGeo, {
+    screenSized: true,
+    farShare: {
+      targetType: 'farTreeTrunk',
+      sx: 1,
+      sy: h,
+      sz: 1,
+      tx: 0,
+      ty: 0,
+      tz: 0,
+      cr,
+      cg,
+      cb,
+    },
+  });
+  return farGeo;
+};
 const screenSized = {screenSized: true};
-globalInstancer.setFarGeometry(
-  'decidLeaves',
-  farCanopy(deciduousGeos.leaves),
-  screenSized
-);
-globalInstancer.setFarGeometry(
-  'tallDecidLeaves',
-  farCanopy(tallDeciduousGeos.leaves),
-  screenSized
-);
-globalInstancer.setFarGeometry(
-  'palmLeaves',
-  farCanopy(palmGeos.leaves),
-  screenSized
-);
-globalInstancer.setFarGeometry(
-  'palmTrunk',
-  fitToBounds(
+shareFarCanopy('decidLeaves', deciduousGeos.leaves);
+shareFarTrunk('decidTrunk', deciduousGeos.trunk);
+shareFarCanopy('tallDecidLeaves', tallDeciduousGeos.leaves);
+shareFarTrunk('tallDecidTrunk', tallDeciduousGeos.trunk);
+shareFarCanopy('palmLeaves', palmGeos.leaves);
+{
+  const palmFarTrunk = fitToBounds(
     new THREE.CylinderGeometry(0.6, 1, 2, 6, 1, true),
     palmGeos.trunk
-  ),
-  screenSized
-);
+  );
+  const box = palmGeos.trunk.boundingBox;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const [cr, cg, cb] = geometryAverageColor(palmGeos.trunk);
+  globalInstancer.setFarGeometry('palmTrunk', palmFarTrunk, {
+    screenSized: true,
+    farShare: {
+      targetType: 'farTreeTrunk',
+      sx: (size.x * 0.5) / 1.4,
+      sy: size.y,
+      sz: (size.z * 0.5) / 1.4,
+      tx: center.x,
+      ty: box.min.y,
+      tz: center.z,
+      cr,
+      cg,
+      cb,
+    },
+  });
+}
 for (const [prefix, geos] of POLYFORK_TREES) {
-  globalInstancer.setFarGeometry(
-    prefix + 'Trunk',
-    farTrunk(geos.trunk),
-    screenSized
-  );
-  globalInstancer.setFarGeometry(
-    prefix + 'Leaves',
-    farCanopy(geos.leaves),
-    screenSized
-  );
+  shareFarTrunk(prefix + 'Trunk', geos.trunk);
+  shareFarCanopy(prefix + 'Leaves', geos.leaves);
 }
 for (const [deadType, deadGeo] of [
   ['deadCottonwoodTrunk', deadCottonwoodGeo],
   ['twistedDeadOakTrunk', twistedDeadOakGeo],
 ]) {
-  const farDead = farTrunk(deadGeo);
-  globalInstancer.setFarGeometry(deadType, farDead, screenSized);
+  const farDead = shareFarTrunk(deadType, deadGeo);
   globalInstancer.setShadowGeometry(deadType, farDead);
 }
 globalInstancer.setFarGeometry(
