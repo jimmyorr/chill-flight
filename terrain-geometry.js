@@ -1,6 +1,7 @@
 // --- PROCEDURAL TERRAIN & CHUNKS ---
 // chunkQueue and _enableObjects live in state.js (terrain-chunks.js writes them).
 import * as THREE from 'three';
+import {mergeGeometries as mergeBufferGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
   HOUSE_BODY_COLORS,
@@ -2291,11 +2292,27 @@ export var gooseWhiteTailGeo = new THREE.BoxGeometry(1.0, 0.5, 1.0);
 gooseWhiteTailGeo.translate(0, -0.1, 1.5);
 
 export var gooseBrownMat = createMaterial({color: 0x8b7355, flatShading: true});
-export var gooseBlackMat = createMaterial({color: 0x222222, flatShading: true});
-export var gooseWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
 export var gooseWingGeo = new THREE.BoxGeometry(6, 0.1, 2);
 gooseWingGeo.translate(3, 0, 0);
 taperWingGeometry(gooseWingGeo, 0, 6, 0.6, 1.0);
+// Everything but the wings in one mesh, its parts coloured per vertex: a goose
+// is drawn with 3 meshes instead of 9, and flocks fly kilometres away
+export var gooseStaticGeo = mergeBufferGeometries(
+  [
+    [gooseBodyGeo, 0x8b7355],
+    [gooseNeckGeo, 0x222222],
+    [gooseHeadGeo, 0x222222],
+    [gooseBeakGeo, 0x222222],
+    [gooseCheekGeo, 0xffffff],
+    [gooseWhiteTailGeo, 0xffffff],
+    [gooseTailGeo, 0x222222],
+  ].map(([geo, hex]) => paintGeometry(geo.clone(), hex))
+);
+export var gooseStaticMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
+  flatShading: true,
+});
 
 // Windmill geometries
 // Windmills: Polyfork's Windmill (farm-models.js), the tower and its sails
@@ -3917,44 +3934,8 @@ export const ModelAssembler = {
       case 'goose':
         return [
           {
-            geo: gooseBodyGeo,
-            mat: gooseBrownMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: gooseNeckGeo,
-            mat: gooseBlackMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: gooseHeadGeo,
-            mat: gooseBlackMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: gooseBeakGeo,
-            mat: gooseBlackMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: gooseCheekGeo,
-            mat: gooseWhiteMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: gooseWhiteTailGeo,
-            mat: gooseWhiteMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: gooseTailGeo,
-            mat: gooseBlackMat,
+            geo: gooseStaticGeo,
+            mat: gooseStaticMat,
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },

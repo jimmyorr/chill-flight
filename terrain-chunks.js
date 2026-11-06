@@ -90,16 +90,9 @@ import {
   fruitTreeGeos,
   getElevation,
   getInstancedMesh,
-  gooseBeakGeo,
-  gooseBlackMat,
-  gooseBodyGeo,
   gooseBrownMat,
-  gooseCheekGeo,
-  gooseHeadGeo,
-  gooseNeckGeo,
-  gooseTailGeo,
-  gooseWhiteMat,
-  gooseWhiteTailGeo,
+  gooseStaticGeo,
+  gooseStaticMat,
   gooseWingGeo,
   houseBodyGeo,
   houseChimneyGeo,
@@ -3879,27 +3872,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       group.userData.birds.push(hawk);
     } else if (bData.type === 'goose') {
       const goose = new THREE.Group();
-      const body = new THREE.Mesh(gooseBodyGeo, gooseBrownMat);
-      const neck = new THREE.Mesh(gooseNeckGeo, gooseBlackMat);
-      const head = new THREE.Mesh(gooseHeadGeo, gooseBlackMat);
-      const beak = new THREE.Mesh(gooseBeakGeo, gooseBlackMat);
-      const cheek = new THREE.Mesh(gooseCheekGeo, gooseWhiteMat);
-      const tailWhite = new THREE.Mesh(gooseWhiteTailGeo, gooseWhiteMat);
-      const tailBlack = new THREE.Mesh(gooseTailGeo, gooseBlackMat);
+      const body = new THREE.Mesh(gooseStaticGeo, gooseStaticMat);
       const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
       const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
       wingL.rotation.y = Math.PI;
-      goose.add(
-        body,
-        neck,
-        head,
-        beak,
-        cheek,
-        tailWhite,
-        tailBlack,
-        wingL,
-        wingR
-      );
+      goose.add(body, wingL, wingR);
       goose.scale.set(3.5, 3.5, 3.5);
       goose.userData.wings = [wingL, wingR];
 
