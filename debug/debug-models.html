@@ -249,6 +249,9 @@
       <button class="model-btn" onclick="viewModel('castle', event)">
         Castle ruins
       </button>
+      <button class="model-btn" onclick="viewModel('dragon_skeleton', event)">
+        Dragon skeleton
+      </button>
       <button class="model-btn" onclick="viewModel('windmill', event)">
         Windmill
       </button>
@@ -434,6 +437,8 @@
       import {
         buildLandmarkGeos,
         buildingMat,
+        DRAGON_COLORWAYS,
+        dragonSkeletonGeo,
         LANDMARK_HOUSES,
         LANDMARK_TOWERS,
       } from '../building-models.js';
@@ -656,6 +661,7 @@
           'mushroom',
           'crystal',
           'road_vehicles',
+          'dragon_skeleton',
         ].includes(type);
 
         const colorBtn = document.getElementById('cycle-colors-btn');
@@ -1208,6 +1214,14 @@
             case 'castle':
               previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));
               break;
+            case 'dragon_skeleton': {
+              const colorway =
+                DRAGON_COLORWAYS[colorSeed % DRAGON_COLORWAYS.length];
+              previewGroup.add(
+                new THREE.Mesh(dragonSkeletonGeo(colorway), buildingMat)
+              );
+              break;
+            }
             case 'pier':
               previewGroup.add(new THREE.Mesh(pierDeckGeo, pierDeckMat));
               break;

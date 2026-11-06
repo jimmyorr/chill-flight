@@ -199,6 +199,54 @@ check(
   );
 }
 
+// The dragon skeleton: a tundra site found in the far north for every world
+// and continent shape, standing on dry land clear of the highways
+{
+  const {simplex} = await import('../noise.js');
+  const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 200};
+  const pin = LANDMARKS.find((l) => l.name === 'Dragon Skeleton');
+  const bad = [];
+  for (const continent of ChillFlightLogic.CONTINENT_NAMES) {
+    ChillFlightLogic.CONTINENT = continent;
+    for (const seed of [20260101, 20261025, 42, 7, 3]) {
+      simplex.seed(seed);
+      ChillFlightLogic.WORLD_SEED = seed;
+      const site = ChillFlightLogic.dragonSite(simplex, constants);
+      if (!site) {
+        bad.push(`${continent}/${seed}: no site`);
+        continue;
+      }
+      const ground = ChillFlightLogic.getElevation(
+        site.x,
+        site.z,
+        simplex,
+        constants
+      );
+      if (Math.abs(ground - site.base) > 1) {
+        bad.push(`${continent}/${seed}: ground ${ground} not ${site.base}`);
+      }
+      if (site.base <= 40) bad.push(`${continent}/${seed}: hollow under water`);
+      const road = Math.round(
+        (site.x - ChillFlightLogic.ROAD_BASE_X) / ChillFlightLogic.ROAD_SPACING
+      );
+      const fromRoad = Math.abs(
+        site.x - ChillFlightLogic.getRoadCenterX(site.z, road)
+      );
+      if (fromRoad < 400) {
+        bad.push(`${continent}/${seed}: ${fromRoad} from a highway`);
+      }
+    }
+  }
+  ChillFlightLogic.CONTINENT = null;
+  simplex.seed(20260101);
+  ChillFlightLogic.WORLD_SEED = 20260101;
+  check(
+    'the dragon skeleton lies in the northern tundra in every world, pinned on the map',
+    !!pin && pin.z < -12000 && bad.length === 0,
+    bad.join('; ')
+  );
+}
+
 if (failed) {
   console.error('Map place tests failed.');
   process.exit(1);

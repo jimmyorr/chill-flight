@@ -762,9 +762,40 @@ console.log(
     console.error(`FAIL: only ${checked} props near the pyramids to check`);
     process.exit(1);
   }
+  const dragon = L.dragonSite(simplex, elevParams);
+  const dcx0 = Math.round(dragon.x / 1500);
+  const dcz0 = Math.round(dragon.z / 1500);
+  for (let cx = dcx0 - 1; cx <= dcx0 + 1; cx++) {
+    for (let cz = dcz0 - 1; cz <= dcz0 + 1; cz++) {
+      const {result} = generateChunkData({
+        chunkX: cx,
+        chunkZ: cz,
+        chunkSize: 1500,
+        segments: 40,
+        elevParams,
+        worldSeed: seed,
+        enableObjects: true,
+      });
+      for (const type in result.instanceData) {
+        const d = result.instanceData[type];
+        for (let i = 0; i < d.count; i++) {
+          const x = d.matrices[i * 16 + 12];
+          const z = d.matrices[i * 16 + 14];
+          if (L.dragonFootAt(x, z, simplex, elevParams) < 20) {
+            console.error(
+              `FAIL: ${type} on the dragon skeleton at X ${x.toFixed(0)}, Z ${z.toFixed(0)}`
+            );
+            process.exit(1);
+          }
+        }
+      }
+    }
+  }
   useSeed(20260101);
 }
-console.log('  Passed: Nothing grows or stands on the pyramids');
+console.log(
+  '  Passed: Nothing grows or stands on the pyramids or the dragon skeleton'
+);
 
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

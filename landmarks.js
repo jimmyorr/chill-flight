@@ -6,8 +6,10 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 
-// The pyramids' place depends on the world (chill-flight-logic.js)
+// The pyramids' and dragon skeleton's places depend on the world
+// (chill-flight-logic.js)
 const pyramids = ChillFlightLogic.pyramidSite(simplex, {WATER_LEVEL: 40});
+const dragon = ChillFlightLogic.dragonSite(simplex, {WATER_LEVEL: 40});
 
 // Map pin colours: orange for sightseeing landmarks, aviation blue for
 // airports, leaving gold (#ffd700) for the player arrow and waypoint
@@ -64,6 +66,17 @@ export const LANDMARKS = [
           z: pyramids.z,
           color: LANDMARK_COLOR,
           symbol: '△',
+        },
+      ]
+    : []),
+  ...(dragon
+    ? [
+        {
+          name: 'Dragon Skeleton',
+          x: dragon.x,
+          z: dragon.z,
+          color: LANDMARK_COLOR,
+          symbol: 'Ψ',
         },
       ]
     : []),

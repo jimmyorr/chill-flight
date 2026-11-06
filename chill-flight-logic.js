@@ -2465,6 +2465,115 @@ export const ChillFlightLogic = {};
     return true;
   }
 
+  // --- THE DRAGON SKELETON ---
+  // The bleached bones of a giant dragon curled in a wind-scoured hollow in
+  // the northern tundra between Pinewood Field and Frost Field. Where
+  // depends on the world: the first spot in DRAGON_SITES (nearest
+  // DRAGON_HEART first) that sits on dry, level tundra clear of the
+  // highways and airfields.
+  const DRAGON_BED = 180;
+  const DRAGON_BED_EDGE = 420;
+  const DRAGON_HEART = [-13500, -18000];
+  const DRAGON_PROBES = [
+    [-300, -300],
+    [0, -300],
+    [300, -300],
+    [-300, 0],
+    [0, 0],
+    [300, 0],
+    [-300, 300],
+    [0, 300],
+    [300, 300],
+  ];
+  const DRAGON_SITES = [];
+  for (let x = -21000; x <= -6000; x += 750) {
+    for (let z = -22500; z <= -14250; z += 750) DRAGON_SITES.push([x, z]);
+  }
+  DRAGON_SITES.sort(
+    (a, b) =>
+      Math.hypot(a[0] - DRAGON_HEART[0], a[1] - DRAGON_HEART[1]) -
+      Math.hypot(b[0] - DRAGON_HEART[0], b[1] - DRAGON_HEART[1])
+  );
+  const _dragonSites = new WeakMap();
+  let _findingDragon = false;
+  // The dragon skeleton's hollow for this world: {x, z, base, yaw}, worked
+  // out once per world
+  function dragonSite(simplex, constants, lerp) {
+    const signature = `${exports.CONTINENT}:${simplex.noise2D(0.123, 0.456)}`;
+    const cached = _dragonSites.get(simplex);
+    if (cached && cached.signature === signature) return cached.site;
+    const water = constants.WATER_LEVEL || 40;
+    _findingDragon = true;
+    coastRoadsOff++;
+    let site = null;
+    let bestScore = Infinity;
+    try {
+      for (const [cx, cz] of DRAGON_SITES) {
+        if (isOnAirport(cx, cz, 4500)) continue;
+        let sum = 0;
+        let count = 0;
+        let wet = 0;
+        let minH = Infinity;
+        let maxH = -Infinity;
+        for (const [dx, dz] of DRAGON_PROBES) {
+          const x = cx + dx;
+          const z = cz + dz;
+          if (roadClear(x, z) < 1) {
+            wet = Infinity;
+            break;
+          }
+          const h = getElevation(x, z, simplex, constants, lerp, {
+            ignoreRoads: true,
+            ignoreAirports: true,
+          });
+          if (h < water + 6 || h > 220) {
+            wet++;
+          } else {
+            sum += h;
+            count++;
+            if (h < minH) minH = h;
+            if (h > maxH) maxH = h;
+          }
+        }
+        if (!Number.isFinite(wet)) continue;
+        const spread = count > 1 ? maxH - minH : 200;
+        const score = wet * 1000 + Math.max(0, spread - 40);
+        if (score < bestScore) {
+          bestScore = score;
+          site = {
+            x: cx,
+            z: cz,
+            base: Math.max(water + 8, count ? sum / count : water + 12),
+            yaw: 0.55,
+          };
+          if (wet === 0 && spread <= 60) break;
+        }
+      }
+    } finally {
+      _findingDragon = false;
+      coastRoadsOff--;
+    }
+    _dragonSites.set(simplex, {signature, site});
+    return site;
+  }
+  const _dragon = {bed: 0, base: 0};
+  function dragonAt(x, z, simplex, constants, lerp) {
+    _dragon.bed = 0;
+    if (_findingDragon || x > -4000 || z > -12000) return false;
+    const site = dragonSite(simplex, constants || {}, lerp);
+    if (!site) return false;
+    const dx = x - site.x;
+    const dz = z - site.z;
+    if (Math.abs(dx) > DRAGON_BED_EDGE || Math.abs(dz) > DRAGON_BED_EDGE) {
+      return false;
+    }
+    const r = Math.hypot(dx, dz);
+    if (r >= DRAGON_BED_EDGE) return false;
+    _dragon.bed = 1 - smoothRamp(r, DRAGON_BED, DRAGON_BED_EDGE);
+    _dragon.base = site.base;
+    return true;
+  }
+
   function getElevation(x, z, simplex, constants, lerp, options = {}) {
     const WATER_LEVEL = constants.WATER_LEVEL || 40;
 
@@ -3907,6 +4016,11 @@ export const ChillFlightLogic = {};
       n = Math.max(n, _pyramid.base + _pyramid.stone);
     }
 
+    // The dragon skeleton's wind-scoured hollow in the northern tundra
+    if (dragonAt(origX, origZ, simplex, constants, _lerp)) {
+      n = _lerp(n, _dragon.base, _dragon.bed);
+    }
+
     // Airports: the ground inside each airfield is flat at its field height,
     // easing into the surrounding land over AIRPORT_FALLOFF (an island
     // where the field is over water, a plateau where it cuts into hills).
@@ -4003,6 +4117,14 @@ export const ChillFlightLogic = {};
     if (!pyramidAt(x, z, simplex, constants)) return Infinity;
     const site = pyramidSite(simplex, constants || {});
     return pyramidFootDistance(x - site.x, z - site.z);
+  };
+  exports.dragonSite = dragonSite;
+  exports.dragonBedAt = (x, z, simplex, constants) =>
+    dragonAt(x, z, simplex, constants) ? _dragon.bed : 0;
+  exports.dragonFootAt = (x, z, simplex, constants) => {
+    if (!dragonAt(x, z, simplex, constants)) return Infinity;
+    const site = dragonSite(simplex, constants || {});
+    return Math.max(0, Math.hypot(x - site.x, z - site.z) - DRAGON_BED);
   };
   exports.CANYON_TIER_HEIGHT = CANYON_TIER_HEIGHT;
   exports.FALLS_Z = FALLS_Z;
@@ -4596,6 +4718,7 @@ export const ChillFlightLogic = {};
   const COAST_END_REACH = 3000;
   // From the middle pyramid: past the plaza's edge round the great one
   const COAST_PYRAMID_CLEAR = 3400;
+  const COAST_DRAGON_CLEAR = 900;
   const coastLines = new Map();
   const tracingCoast = new Set();
   // While above 0 there are none (the pyramids are placed without them)
@@ -4799,9 +4922,11 @@ export const ChillFlightLogic = {};
         z: a.z,
         clear: COAST_AIRPORT_CLEAR,
       }));
-      // And the pyramids' plaza
+      // And the pyramids' plaza and the dragon skeleton's hollow
       const p = pyramidSite(roadNoise, {WATER_LEVEL: 40}, null);
       if (p) places.push({x: p.x, z: p.z, clear: COAST_PYRAMID_CLEAR});
+      const d = dragonSite(roadNoise, {WATER_LEVEL: 40}, null);
+      if (d) places.push({x: d.x, z: d.z, clear: COAST_DRAGON_CLEAR});
       line.obstacles = places
         .filter((a) => Math.abs(coastLineZ(line, a.x) - a.z) < 6000)
         .map((a) => ({a, side: coastLineZ(line, a.x) < a.z ? -1 : 1}));

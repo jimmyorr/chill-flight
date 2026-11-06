@@ -4074,6 +4074,20 @@ export function generateChunkData({
       );
     }
 
+    // The dragon skeleton's hollow is wind-scoured bare stone
+    const dragonBed = ChillFlightLogic.dragonBedAt(
+      worldX,
+      worldZ,
+      simplex,
+      elevParams
+    );
+    if (dragonBed > 0) {
+      _tempColorObj.lerp(
+        mottle > 0.5 ? _colorMountainTint : _colorAlpineRockDark,
+        dragonBed * 0.88
+      );
+    }
+
     // Volcano texturing
     if (distToVolcano < 2000) {
       const vFactor = Math.max(0, Math.min(1, (2000 - distToVolcano) / 1000));
@@ -4799,17 +4813,17 @@ export function generateChunkData({
       }
     }
 
-    // Nothing grows or stands on the pyramids
+    // Nothing grows or stands on the pyramids or the dragon skeleton
     const keepOffPyramids = (arr) => {
       let kept = 0;
       for (const p of arr) {
+        const wx = worldOffsetX + p.x;
+        const wz = worldOffsetZ + p.z;
         if (
-          ChillFlightLogic.pyramidFootAt(
-            worldOffsetX + p.x,
-            worldOffsetZ + p.z,
-            simplex,
-            elevParams
-          ) >= PYRAMID_PROP_CLEAR
+          ChillFlightLogic.pyramidFootAt(wx, wz, simplex, elevParams) >=
+            PYRAMID_PROP_CLEAR &&
+          ChillFlightLogic.dragonFootAt(wx, wz, simplex, elevParams) >=
+            PYRAMID_PROP_CLEAR
         ) {
           arr[kept++] = p;
         }

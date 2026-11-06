@@ -760,6 +760,7 @@ export default {
   Falls: '폭포',
   Canyon: '협곡',
   Pyramids: '피라미드',
+  'Dragon Skeleton': '드래곤 뼈대',
   'If something comes up, just clear the waypoint on the map.':
     '무슨 일이 생기면 지도에서 웨이포인트를 지우면 돼.',
   'ACHIEVEMENT UNLOCKED': '업적 달성',

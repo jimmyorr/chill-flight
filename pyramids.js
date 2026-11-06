@@ -10,6 +10,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {WATER_LEVEL} from './constants.js';
 import {simplex} from './noise.js';
 import {scene} from './scene.js';
+import {buildingMesh, dragonSkeletonGeo} from './building-models.js';
 import {terrainMaterial} from './terrain-geometry.js';
 
 // Each course of stone is this tall (units), every other one a shade
@@ -18,6 +19,7 @@ const COURSE = 12;
 const CAP_HEIGHT = 690;
 const STONE = new THREE.Color(0xd8b07a);
 const CAP = new THREE.Color(0xf0e6cc);
+const DRAGON_DRAW_DISTANCE = 12000;
 
 // The four faces of a pyramid with its base's middle at (x, base, z), in
 // horizontal bands one course tall: positions, colours and the terrain
@@ -93,4 +95,17 @@ if (site && ChillFlightLogic.SHOW_OBJECTS !== false) {
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   scene.add(mesh);
+}
+
+const dragon = ChillFlightLogic.dragonSite(simplex, {WATER_LEVEL});
+if (dragon && ChillFlightLogic.SHOW_OBJECTS !== false) {
+  const bones = buildingMesh(dragonSkeletonGeo());
+  const lod = new THREE.LOD();
+  lod.name = 'dragon-skeleton';
+  lod.addLevel(bones, 0);
+  lod.addLevel(new THREE.Group(), DRAGON_DRAW_DISTANCE);
+  lod.position.set(dragon.x, dragon.base, dragon.z);
+  lod.rotation.y = dragon.yaw;
+  lod.updateMatrixWorld(true);
+  scene.add(lod);
 }

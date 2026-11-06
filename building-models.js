@@ -20,6 +20,7 @@ import * as stoneChapel from './third-party/polyfork/stone-chapel-03e774.mjs';
 import * as campTent from './third-party/polyfork/camp-tent-3c5c89.mjs';
 import * as pierSection from './third-party/polyfork/pier-deck-section-7047d7.mjs';
 import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
+import * as dragonSkeleton from './third-party/polyfork/dragon-skeleton-88de43.mjs';
 
 export const buildingMat = createMaterial({
   vertexColors: true,
@@ -44,6 +45,26 @@ export function controlTowerGeo(colorway = 'raf-brick') {
     );
   }
   return _towerGeos.get(colorway);
+}
+
+// The ancient dragon skeleton curled in a northern tundra hollow: Polyfork's
+// Dragon Skeleton scaled up to a landmark ~290 units across and ~100 tall,
+// sunk slightly into the ground bed so every rib tip and claw sits firm.
+export const DRAGON_SCALE = 45;
+export const DRAGON_COLORWAYS = ['old-ivory', 'fossil', 'ash-grey', 'scorched'];
+const _dragonGeos = new Map();
+export function dragonSkeletonGeo(colorway = 'old-ivory') {
+  if (!_dragonGeos.has(colorway)) {
+    _dragonGeos.set(
+      colorway,
+      mergeAsset(
+        dragonSkeleton.createAsset({colorway, curl: 0.45}),
+        0.05,
+        DRAGON_SCALE
+      )
+    );
+  }
+  return _dragonGeos.get(colorway);
 }
 
 // A mesh of one of these geometries, casting and taking shadows

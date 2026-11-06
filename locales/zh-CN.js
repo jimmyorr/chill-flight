@@ -743,6 +743,7 @@ export default {
   Falls: '瀑布',
   Canyon: '峡谷',
   Pyramids: '金字塔',
+  'Dragon Skeleton': '巨龙骸骨',
   'If something comes up, just clear the waypoint on the map.':
     '如果有事，在地图上清除航点就行。',
 };
