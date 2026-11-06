@@ -363,10 +363,27 @@ class GlobalInstanceManager {
     this.types = new Map();
     this.group = new THREE.Group();
     this.group.name = 'GlobalInstances';
+    this.shadowGroup = new THREE.Group();
+    this.shadowGroup.name = 'GlobalShadowInstances';
+    this.shadowGroup.visible = false;
+    this.group.add(this.shadowGroup);
     scene.add(this.group);
     this._dirty = true;
     this._shadowLightPos = new THREE.Vector3(Infinity, Infinity, Infinity);
     this._shadowTargetPos = new THREE.Vector3(Infinity, Infinity, Infinity);
+    if (renderer?.shadowMap) {
+      const origShadowRender = renderer.shadowMap.render.bind(
+        renderer.shadowMap
+      );
+      renderer.shadowMap.render = (lights, sc, cam) => {
+        this.shadowGroup.visible = true;
+        try {
+          origShadowRender(lights, sc, cam);
+        } finally {
+          this.shadowGroup.visible = false;
+        }
+      };
+    }
   }
 
   requestRebuild() {
@@ -378,13 +395,7 @@ class GlobalInstanceManager {
     if (customDepthMaterial) mesh.customDepthMaterial = customDepthMaterial;
     mesh.frustumCulled = false;
     mesh.castShadow = true;
-    mesh.onBeforeRender = () => {
-      mesh.userData.shadowCount = mesh.count;
-      mesh.count = 0;
-    };
-    mesh.onAfterRender = () => {
-      mesh.count = mesh.userData.shadowCount;
-    };
+    mesh.visible = false;
     return mesh;
   }
 
@@ -396,14 +407,13 @@ class GlobalInstanceManager {
     useColor = false,
     castsShadow = true
   ) {
-    // Shadow-only mesh with just the instances near the plane. three.js has no
-    // shadow-only flag (layers are tested against the main camera even for
-    // shadows), so it draws zero instances on screen: onBeforeRender only runs
-    // for the on-screen pass, not the shadow pass.
+    // Shadow-only mesh with just the instances near the plane, kept in
+    // shadowGroup (visible only during shadowMap.render) so the main pass
+    // skips it completely instead of binding materials for a 0-instance draw.
     let shadowMesh = null;
     if (castsShadow) {
       shadowMesh = this._createShadowMesh(geo, mat, Math.min(64, maxInstances));
-      this.group.add(shadowMesh);
+      this.shadowGroup.add(shadowMesh);
     }
 
     this.types.set(type, {
@@ -633,9 +643,9 @@ class GlobalInstanceManager {
           capacity,
           shadowMesh.customDepthMaterial
         );
-        this.group.remove(shadowMesh);
+        this.shadowGroup.remove(shadowMesh);
         shadowMesh.dispose();
-        this.group.add(next);
+        this.shadowGroup.add(next);
         typeInfo.shadowMesh = shadowMesh = next;
       }
       let n = 0;
