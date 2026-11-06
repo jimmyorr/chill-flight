@@ -265,12 +265,14 @@ const TREE_TILE_CULL_RADIUS =
 
 // The tiles don't cast shadows: that would draw every tree within draw
 // distance (~10 km) into the shadow map. Instead a shadow-only mesh per type
-// holds just the chunks whose box (padded by one chunk across the footprint
-// for flying and sun motion between rebuilds) touches the shadow camera's
-// frustum.
+// holds just the chunks whose box touches the shadow camera's frustum. The
+// set is refreshed once the light has moved SHADOW_REBUILD_STEP, so each
+// chunk's box is padded by that much: chunks the shadow map reaches before
+// the next refresh already cast.
 const TREE_SHADOW_CHUNK_RADIUS = 4;
-const SHADOW_CHUNK_HALF = CHUNK_SIZE * 0.75;
-const SHADOW_REBUILD_STEP_SQ = 700 * 700;
+const SHADOW_REBUILD_STEP = 700;
+const SHADOW_REBUILD_STEP_SQ = SHADOW_REBUILD_STEP * SHADOW_REBUILD_STEP;
+const SHADOW_CHUNK_HALF = CHUNK_SIZE / 2 + SHADOW_REBUILD_STEP;
 const _shadowMatrix = new THREE.Matrix4();
 const _shadowFrustum = new THREE.Frustum();
 const _chunkShadowBox = new THREE.Box3();
