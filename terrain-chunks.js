@@ -78,6 +78,7 @@ import {
   chunkQueueSet,
   chunks,
   createRockArchGeometries,
+  deadCottonwoodGeo,
   deadTreeGeo,
   deadTreeMat,
   deciduousGeos,
@@ -124,6 +125,7 @@ import {
   monasteryBodyMat,
   monasteryRoofGeo,
   monasteryRoofMat,
+  mountainRowanGeos,
   mushroomGeos,
   mushroomStalkMat,
   crystalClusterGeo,
@@ -175,6 +177,7 @@ import {
   smokeGeo,
   smokeMat,
   snowRockMat,
+  snowSpruceGeos,
   snowmanBodyMat,
   snowmanGeos,
   snowmanNoseMat,
@@ -198,6 +201,7 @@ import {
   treeLeavesGeo,
   treeTrunkGeo,
   treeTrunkMat,
+  twistedDeadOakGeo,
   twoStoryBodyGeo,
   twoStoryChimneyGeo,
   twoStoryRoofGeo,
@@ -738,6 +742,8 @@ const POLYFORK_TREES = [
   ['orchardApple', orchardAppleGeos],
   ['plumTree', plumTreeGeos],
   ['fruitTree', fruitTreeGeos],
+  ['snowSpruce', snowSpruceGeos],
+  ['mountainRowan', mountainRowanGeos],
 ];
 for (const [prefix, geos] of POLYFORK_TREES) {
   globalInstancer.registerType(prefix + 'Trunk', geos.trunk, treeTrunkMat);
@@ -769,6 +775,16 @@ globalInstancer.registerType(
   true
 );
 globalInstancer.registerType('deadTrunk', deadTreeGeo, deadTreeMat);
+globalInstancer.registerType(
+  'deadCottonwoodTrunk',
+  deadCottonwoodGeo,
+  treeTrunkMat
+);
+globalInstancer.registerType(
+  'twistedDeadOakTrunk',
+  twistedDeadOakGeo,
+  treeTrunkMat
+);
 globalInstancer.registerType('rock', rockGeo, rockMat);
 globalInstancer.registerType('snowRock', rockGeo, snowRockMat);
 globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
@@ -991,6 +1007,14 @@ for (const [prefix, geos] of POLYFORK_TREES) {
     farCanopy(geos.leaves),
     screenSized
   );
+}
+for (const [deadType, deadGeo] of [
+  ['deadCottonwoodTrunk', deadCottonwoodGeo],
+  ['twistedDeadOakTrunk', twistedDeadOakGeo],
+]) {
+  const farDead = farTrunk(deadGeo);
+  globalInstancer.setFarGeometry(deadType, farDead, screenSized);
+  globalInstancer.setShadowGeometry(deadType, farDead);
 }
 globalInstancer.setFarGeometry(
   'cactus',

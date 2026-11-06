@@ -36,15 +36,19 @@ import {
   buildBirchGeos,
   buildBroadleafOakGeos,
   buildCherryBlossomGeos,
+  buildDeadCottonwoodGeo,
   buildFruitTreeGeos,
   buildJapaneseMapleGeos,
   buildMagnoliaGeos,
+  buildMountainRowanGeos,
   buildOakGeos,
   buildOrchardAppleGeos,
   buildPalmGeos,
   buildPlumTreeGeos,
   buildSculptedPineGeos,
+  buildSnowSpruceGeos,
   buildStumpGeo,
+  buildTwistedDeadOakGeo,
   paintGeometry,
 } from './tree-models.js';
 import {
@@ -977,6 +981,10 @@ export var appleTreeGeos = buildAppleTreeGeos();
 export var orchardAppleGeos = buildOrchardAppleGeos();
 export var plumTreeGeos = buildPlumTreeGeos();
 export var fruitTreeGeos = buildFruitTreeGeos();
+export var snowSpruceGeos = buildSnowSpruceGeos();
+export var mountainRowanGeos = buildMountainRowanGeos();
+export var deadCottonwoodGeo = buildDeadCottonwoodGeo();
+export var twistedDeadOakGeo = buildTwistedDeadOakGeo();
 const _palmGeos = buildPalmGeos();
 export var palmGeos = {trunk: _palmGeos.trunk, leaves: _palmGeos.leaves};
 export var palmSimpleLeavesGeo = _palmGeos.simpleLeaves;

@@ -43,6 +43,8 @@ export const destructibleTypes = new Set([
   'oak',
   'magnolia',
   'fruit_trees',
+  'snow_spruce',
+  'mountain_rowan',
   'palm',
   'dead_tree',
   'bush',

@@ -18,6 +18,10 @@ import * as appleTree from './third-party/polyfork/apple-tree-ef0ba0.mjs';
 import * as orchardAppleTree from './third-party/polyfork/orchard-apple-tree-b21f85.mjs';
 import * as plumTree from './third-party/polyfork/plum-tree-565179.mjs';
 import * as fruitTree from './third-party/polyfork/fruit-tree-4bb1af.mjs';
+import * as snowLadenSpruce from './third-party/polyfork/snow-laden-spruce-36716e.mjs';
+import * as bareMountainRowan from './third-party/polyfork/bare-mountain-rowan-10e72e.mjs';
+import * as deadCottonwood from './third-party/polyfork/dead-cottonwood-edbde8.mjs';
+import * as twistedDeadOak from './third-party/polyfork/twisted-dead-oak-49457b.mjs';
 
 // Brightest foliage shade of each Polyfork tree's palette. Canopy vertex
 // colours are divided by this shade so the brightest clumps sit at (1, 1, 1)
@@ -32,8 +36,9 @@ export const BIRCH_LEAF_COLOR = 0xb3d47f;
 export const BROADLEAF_OAK_LEAF_COLOR = 0x77b258;
 export const OAK_LEAF_COLOR = 0x7d8a5a;
 // Neutral base tint for canopies that carry both green leaves and contrasting
-// blossoms or fruit (magnolia, apple, plum, orchard fruit), keeping both hues
-// intact while still taking subtle per-tree variation and snow tinting.
+// blossoms, fruit or snow caps (magnolia, apple, plum, orchard fruit, snow
+// spruce, mountain rowan), keeping both hues intact while still taking subtle
+// per-tree variation and snow tinting.
 export const MULTI_TONE_LEAF_COLOR = 0xf2f2f2;
 
 // Fills a geometry's vertex colour attribute with a uniform colour so
@@ -223,6 +228,59 @@ export function buildFruitTreeGeos() {
     fruitTree.createAsset({wear: 'kept', fruitLoad: 4}),
     FRUIT_TREE_SCALE,
     ['#8a6236']
+  );
+}
+
+// Snow-laden spruce: Polyfork's Snow-Laden Spruce, five tiers of dark green
+// spruce needles weighted down by thick snow caps and a root drift, ~22.7
+// units tall.
+const SNOW_SPRUCE_SCALE = 4.2;
+export function buildSnowSpruceGeos() {
+  return splitTreeAsset(
+    snowLadenSpruce.createAsset({tiers: 5}),
+    SNOW_SPRUCE_SCALE,
+    ['#a97c50']
+  );
+}
+
+// Bare mountain rowan: Polyfork's Bare Mountain Rowan, smooth grey bole under
+// snow-loafed winter branches and clusters of red-orange berries, ~18.1 units
+// tall.
+const MOUNTAIN_ROWAN_SCALE = 3.6;
+export function buildMountainRowanGeos() {
+  return splitTreeAsset(
+    bareMountainRowan.createAsset({berry: '#c84b31'}),
+    MOUNTAIN_ROWAN_SCALE,
+    ['#6b6862']
+  );
+}
+
+// Dead cottonwood: Polyfork's Dead Cottonwood without the boomtown notice
+// board, bleached grey-white snag with peeling bark strips and a rotted
+// hollow, ~22.4 units tall.
+const DEAD_COTTONWOOD_SCALE = 3.2;
+export function buildDeadCottonwoodGeo() {
+  return mergeAsset(
+    deadCottonwood.createAsset({boomtown: 0.3, weather: 0.6}),
+    0.2,
+    DEAD_COTTONWOOD_SCALE
+  );
+}
+
+// Twisted dead oak: Polyfork's Twisted Dead Oak in dark storm-brown bark with
+// gnarled limbs, buttress roots and a hollow knothole, ~20.9 units tall.
+const TWISTED_DEAD_OAK_SCALE = 3.0;
+export function buildTwistedDeadOakGeo() {
+  return mergeAsset(
+    twistedDeadOak.createAsset({
+      colorway: 'storm-brown',
+      gnarl: 0.75,
+      spread: 1.1,
+      knothole: true,
+      roots: 5,
+    }),
+    0.2,
+    TWISTED_DEAD_OAK_SCALE
   );
 }
 

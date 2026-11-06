@@ -98,6 +98,7 @@ import {
   castleRuinsMat,
   cherryBlossomGeos,
   createRockArchGeometries,
+  deadCottonwoodGeo,
   deadTreeGeo,
   deadTreeMat,
   deciduousGeos,
@@ -106,6 +107,7 @@ import {
   lilyPadGeo,
   lilyPadMat,
   magnoliaGeos,
+  mountainRowanGeos,
   mushroomGeos,
   mushroomStalkMat,
   crystalClusterGeo,
@@ -119,6 +121,7 @@ import {
   rockGeo,
   rockMat,
   sculptedPineGeos,
+  snowSpruceGeos,
   snowmanBodyMat,
   snowmanGeos,
   snowmanNoseMat,
@@ -128,6 +131,7 @@ import {
   treeLeavesGeo,
   treeTrunkGeo,
   treeTrunkMat,
+  twistedDeadOakGeo,
   waterUniforms,
   woodMat,
 } from '../terrain-geometry.js';
@@ -497,6 +501,8 @@ function viewModel(type, e, colorSeed = 0) {
       case 'broadleaf_oak':
       case 'oak':
       case 'magnolia':
+      case 'snow_spruce':
+      case 'mountain_rowan':
       case 'palm': {
         const variations = [-15, 0, 15];
         variations.forEach((xOffset, i) => {
@@ -544,6 +550,14 @@ function viewModel(type, e, colorSeed = 0) {
           } else if (type === 'magnolia') {
             trunkGeo = magnoliaGeos.trunk;
             leavesGeo = magnoliaGeos.leaves;
+            baseHex = 0xf2f2f2;
+          } else if (type === 'snow_spruce') {
+            trunkGeo = snowSpruceGeos.trunk;
+            leavesGeo = snowSpruceGeos.leaves;
+            baseHex = 0xf2f2f2;
+          } else if (type === 'mountain_rowan') {
+            trunkGeo = mountainRowanGeos.trunk;
+            leavesGeo = mountainRowanGeos.leaves;
             baseHex = 0xf2f2f2;
           } else if (type === 'palm') {
             trunkGeo = palmGeos.trunk;
@@ -601,9 +615,18 @@ function viewModel(type, e, colorSeed = 0) {
         });
         break;
       }
-      case 'dead_tree':
-        previewGroup.add(new THREE.Mesh(deadTreeGeo, deadTreeMat));
+      case 'dead_tree': {
+        [
+          [deadTreeGeo, deadTreeMat, -18],
+          [deadCottonwoodGeo, treeTrunkMat, 0],
+          [twistedDeadOakGeo, treeTrunkMat, 18],
+        ].forEach(([geo, mat, xOffset]) => {
+          const m = new THREE.Mesh(geo, mat);
+          m.position.x = xOffset;
+          previewGroup.add(m);
+        });
         break;
+      }
       case 'swamp_trees': {
         const geos = buildSwampGeos();
         const mat = createMaterial({
@@ -920,8 +943,7 @@ function viewModel(type, e, colorSeed = 0) {
         previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));
         break;
       case 'dragon_skeleton': {
-        const colorway =
-          DRAGON_COLORWAYS[colorSeed % DRAGON_COLORWAYS.length];
+        const colorway = DRAGON_COLORWAYS[colorSeed % DRAGON_COLORWAYS.length];
         previewGroup.add(
           new THREE.Mesh(dragonSkeletonGeo(colorway), buildingMat)
         );

@@ -3169,13 +3169,34 @@ export function generateChunkData({
                     Math.max(0, (height - (MOUNTAIN_LEVEL - 130)) / 140)
                   )))
           ) {
+            if (snowFactor > 0.35) {
+              const snowRoll = fieldHash(
+                Math.round(worldX),
+                Math.round(worldZ),
+                601
+              );
+              if (snowRoll < 0.45) {
+                treeSpot.trunkKey = 'snowSpruceTrunk';
+                treeSpot.leavesKey = 'snowSpruceLeaves';
+                treeSpot.color = 0xf2f2f2;
+              } else if (snowRoll < 0.58) {
+                treeSpot.trunkKey = 'mountainRowanTrunk';
+                treeSpot.leavesKey = 'mountainRowanLeaves';
+                treeSpot.color = 0xf2f2f2;
+              }
+            }
             snowTreePositions.push(treeSpot);
           } else if (desertFactor > 0.6) {
             // Joshua trees, and the odd bare snag among them
-            (rng() < JOSHUA_SHARE
-              ? joshuaTreePositions
-              : deadTreePositions
-            ).push(treeSpot);
+            if (rng() < JOSHUA_SHARE) {
+              joshuaTreePositions.push(treeSpot);
+            } else {
+              treeSpot.deadType =
+                fieldHash(Math.round(worldX), Math.round(worldZ), 607) < 0.65
+                  ? 'deadCottonwoodTrunk'
+                  : 'deadTrunk';
+              deadTreePositions.push(treeSpot);
+            }
           } else if (
             eastCoastFactor > 0.7 &&
             height < WATER_LEVEL + 40 &&
@@ -3219,6 +3240,17 @@ export function generateChunkData({
                 Math.min(1, (fall - rng() * 0.85) * 4)
               );
               if (rng() < bare) {
+                const deadRoll = fieldHash(
+                  Math.round(worldX),
+                  Math.round(worldZ),
+                  607
+                );
+                treeSpot.deadType =
+                  deadRoll < 0.45
+                    ? 'twistedDeadOakTrunk'
+                    : deadRoll < 0.75
+                      ? 'deadCottonwoodTrunk'
+                      : 'deadTrunk';
                 deadTreePositions.push(treeSpot);
               } else if (turned > 0) {
                 const kind = rng();
@@ -5419,10 +5451,13 @@ export function generateChunkData({
         0
       );
 
-      collector.beginProp(BREAKABLE.TREE);
-      if (trunkKey) collector.add(trunkKey, _matBuffer);
+      const tKey = pos.trunkKey || trunkKey;
+      const lKey = pos.leavesKey || leavesKey;
 
-      if (leavesKey && baseLeafColor) {
+      collector.beginProp(BREAKABLE.TREE);
+      if (tKey) collector.add(tKey, _matBuffer);
+
+      if (lKey && baseLeafColor) {
         const rVariation = (roll(1407) - 0.5) * 0.1;
         const gVariation = (roll(1409) - 0.5) * 0.1;
         const bVariation = (roll(1411) - 0.5) * 0.1;
@@ -5445,12 +5480,14 @@ export function generateChunkData({
         _treeTempColor.copy(_treeBaseColor);
         if (
           snowFactor > 0 &&
-          leavesKey !== 'mushroomCap' &&
-          leavesKey !== 'crystal'
+          lKey !== 'mushroomCap' &&
+          lKey !== 'crystal' &&
+          lKey !== 'snowSpruceLeaves' &&
+          lKey !== 'mountainRowanLeaves'
         ) {
           _treeTempColor.lerp(_snowColor, snowFactor);
         }
-        collector.add(leavesKey, _matBuffer, _treeTempColor);
+        collector.add(lKey, _matBuffer, _treeTempColor);
       }
       collector.endProp();
     });
@@ -5597,7 +5634,7 @@ export function generateChunkData({
         0
       );
       collector.beginProp(BREAKABLE.TREE);
-      collector.add('deadTrunk', _matBuffer);
+      collector.add(pos.deadType || 'deadTrunk', _matBuffer);
       collector.endProp();
     });
   }
@@ -6435,6 +6472,12 @@ export function generateChunkData({
         orchardAppleTreePositions.length +
         plumTreePositions.length +
         fruitTreePositions.length,
+      trees_snow_spruce: snowTreePositions.filter(
+        (p) => p.trunkKey === 'snowSpruceTrunk'
+      ).length,
+      trees_mountain_rowan: snowTreePositions.filter(
+        (p) => p.trunkKey === 'mountainRowanTrunk'
+      ).length,
       rocks:
         rockPositions.length +
         snowRockPositions.length +
