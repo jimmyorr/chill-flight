@@ -358,6 +358,13 @@ function markInstancesUpdated(mesh, useColor) {
   }
 }
 
+function syncDrawnAt(data) {
+  const drawnAt = [];
+  if (data._tileMesh) drawnAt.push(data._tileMesh, data._tileSlot);
+  if (data._shadowMesh) drawnAt.push(data._shadowMesh, data._shadowSlot);
+  data.drawnAt = drawnAt;
+}
+
 class GlobalInstanceManager {
   constructor() {
     this.types = new Map();
@@ -369,6 +376,13 @@ class GlobalInstanceManager {
     this.group.add(this.shadowGroup);
     scene.add(this.group);
     this._dirty = true;
+    this._planeChunkX = NaN;
+    this._planeChunkZ = NaN;
+    this._nextChunkId = 0;
+    this._configVersion = 0;
+    this._maxFarRadius = 0;
+    this._tileSigs = new Map();
+    this._shadowSig = '';
     this._shadowLightPos = new THREE.Vector3(Infinity, Infinity, Infinity);
     this._shadowTargetPos = new THREE.Vector3(Infinity, Infinity, Infinity);
     if (renderer?.shadowMap) {
@@ -427,6 +441,7 @@ class GlobalInstanceManager {
       farRadius: Infinity,
       tiles: new Map(), // tile key (+ '|far') -> on-screen InstancedMesh
     });
+    this._configVersion++;
   }
 
   // Geometry for this type beyond TREE_LOD_CHUNK_RADIUS (or beyond
@@ -438,6 +453,10 @@ class GlobalInstanceManager {
     {screenSized = false, farRadius = Infinity} = {}
   ) {
     Object.assign(this.types.get(type), {farGeo, screenSized, farRadius});
+    if (Number.isFinite(farRadius) && farRadius > this._maxFarRadius) {
+      this._maxFarRadius = farRadius;
+    }
+    this._configVersion++;
     this.requestRebuild();
   }
 
@@ -473,11 +492,31 @@ class GlobalInstanceManager {
       );
       typeInfo.tiles.set(tileKey, mesh);
       this.group.add(mesh);
+    } else if (mesh.geometry !== geo) {
+      mesh.geometry = geo;
     }
     return mesh;
   }
 
+  _removeTileMesh(typeInfo, meshKey) {
+    const mesh = typeInfo.tiles.get(meshKey);
+    if (!mesh) return;
+    this.group.remove(mesh);
+    mesh.dispose();
+    typeInfo.tiles.delete(meshKey);
+  }
+
   rebuildAll() {
+    const planeChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
+    const planeChunkZ = Math.round(planeGroup.position.z / CHUNK_SIZE);
+    if (
+      planeChunkX !== this._planeChunkX ||
+      planeChunkZ !== this._planeChunkZ
+    ) {
+      this._planeChunkX = planeChunkX;
+      this._planeChunkZ = planeChunkZ;
+      this._dirty = true;
+    }
     const hasShadowCam =
       dirLight.position.distanceToSquared(dirLight.target.position) > 100;
     if (
@@ -508,16 +547,21 @@ class GlobalInstanceManager {
       _shadowFrustum.setFromProjectionMatrix(_shadowMatrix);
     }
 
-    const planeChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
-    const planeChunkZ = Math.round(planeGroup.position.z / CHUNK_SIZE);
     const detailRadius = canopyDetailRadius();
+    const maxLodRadius = Math.max(
+      TREE_LOD_CHUNK_RADIUS,
+      detailRadius,
+      this._maxFarRadius
+    );
+    const sigPrefix = `${this._configVersion}|${state._enableObjects ? 1 : 0}|${detailRadius}|`;
+    const tileChunks = new Map();
+    const shadowChunks = [];
+    let shadowSig = `${this._configVersion}|${state._enableObjects ? 1 : 0}|`;
 
-    // 1. Group each type's instance data by tile.
-    const byType = new Map(); // type -> Map(tileKey -> {tileX, tileZ, parts, count})
-    const shadowParts = new Map(); // type -> [data]
     chunks.forEach((chunk) => {
       const instanceData = chunk.userData.instanceData;
       if (!instanceData) return;
+      const id = (chunk.userData._instId ??= ++this._nextChunkId);
       const {chunkX, chunkZ} = chunk.userData;
       // Tiles are aligned so chunk centers (chunkX * CHUNK_SIZE) fall inside.
       const tileX = Math.floor((chunkX * CHUNK_SIZE) / TREE_TILE_SIZE);
@@ -527,6 +571,15 @@ class GlobalInstanceManager {
         Math.abs(chunkX - planeChunkX),
         Math.abs(chunkZ - planeChunkZ)
       );
+      const band = Math.min(chunkDistance, maxLodRadius + 1);
+      let entry = tileChunks.get(tileKey);
+      if (!entry) {
+        entry = {tileX, tileZ, list: [], sig: sigPrefix};
+        tileChunks.set(tileKey, entry);
+      }
+      entry.list.push({chunk, chunkDistance});
+      entry.sig += `${id}:${band},`;
+
       let castsShadows;
       if (hasShadowCam) {
         const cx = chunkX * CHUNK_SIZE;
@@ -547,85 +600,159 @@ class GlobalInstanceManager {
       } else {
         castsShadows = chunkDistance <= TREE_SHADOW_CHUNK_RADIUS;
       }
-
-      for (const type in instanceData) {
-        const typeInfo = this.types.get(type);
-        if (!typeInfo) continue;
-        const data = instanceData[type];
-        // Which meshes draw this data, and from which instance (pairs), for
-        // hideInstance
-        data.drawnAt = [];
-        if (!data.count) continue;
-        if (castsShadows && typeInfo.shadowMesh) {
-          if (!shadowParts.has(type)) shadowParts.set(type, []);
-          shadowParts.get(type).push(data);
-        }
-        if (chunkDistance > typeInfo.farRadius) continue;
-        const nearRadius = typeInfo.screenSized
-          ? detailRadius
-          : TREE_LOD_CHUNK_RADIUS;
-        const useFar =
-          chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
-        if (useFar && typeInfo.farGeo === null) continue; // not drawn far away
-        const meshKey = useFar ? tileKey + '|far' : tileKey;
-        if (!byType.has(type)) byType.set(type, new Map());
-        const tiles = byType.get(type);
-        if (!tiles.has(meshKey)) {
-          tiles.set(meshKey, {
-            tileX,
-            tileZ,
-            geo: useFar ? typeInfo.farGeo : typeInfo.geo,
-            parts: [],
-            count: 0,
-          });
-        }
-        const tile = tiles.get(meshKey);
-        tile.parts.push(data);
-        tile.count += data.count;
+      if (castsShadows) {
+        shadowChunks.push(chunk);
+        shadowSig += `${id},`;
       }
     });
 
-    // 2. Fill each type's tile meshes and its shadow-only mesh.
-    for (const [type, typeInfo] of this.types) {
-      const tiles = byType.get(type) || new Map();
-
-      for (const [tileKey, mesh] of typeInfo.tiles) {
-        if (!tiles.has(tileKey)) {
-          this.group.remove(mesh);
-          mesh.dispose();
-          typeInfo.tiles.delete(tileKey);
+    // Drop any tile whose chunks were all evicted.
+    for (const oldTileKey of this._tileSigs.keys()) {
+      if (!tileChunks.has(oldTileKey)) {
+        this._tileSigs.delete(oldTileKey);
+        const farKey = oldTileKey + '|far';
+        for (const typeInfo of this.types.values()) {
+          this._removeTileMesh(typeInfo, oldTileKey);
+          this._removeTileMesh(typeInfo, farKey);
         }
       }
+    }
 
-      for (const [tileKey, tile] of tiles) {
-        const mesh = this._tileMesh(
-          typeInfo,
-          tileKey,
-          tile.tileX,
-          tile.tileZ,
-          tile.count,
-          tile.geo
-        );
-        let n = 0;
-        for (const data of tile.parts) {
-          data.drawnAt.push(mesh, n);
-          mesh.instanceMatrix.array.set(
-            data.matrices.subarray(0, data.count * 16),
-            n * 16
-          );
-          if (typeInfo.useColor) {
-            mesh.instanceColor.array.set(
-              data.colors.subarray(0, data.count * 3),
-              n * 3
-            );
+    const dirtyTiles = new Set();
+    for (const [tileKey, entry] of tileChunks) {
+      if (this._tileSigs.get(tileKey) !== entry.sig) {
+        this._tileSigs.set(tileKey, entry.sig);
+        dirtyTiles.add(tileKey);
+      }
+    }
+    const shadowDirty = shadowSig !== this._shadowSig;
+    if (shadowDirty) {
+      this._shadowSig = shadowSig;
+    }
+    if (dirtyTiles.size === 0 && !shadowDirty) return;
+
+    // 1. Group instance data only for dirty tiles (and shadow chunks if dirty).
+    const byType = new Map(); // type -> Map(meshKey -> {tileX, tileZ, geo, parts, count})
+    for (const tileKey of dirtyTiles) {
+      const {tileX, tileZ, list} = tileChunks.get(tileKey);
+      for (const {chunk, chunkDistance} of list) {
+        const instanceData = chunk.userData.instanceData;
+        for (const type in instanceData) {
+          const typeInfo = this.types.get(type);
+          if (!typeInfo) continue;
+          const data = instanceData[type];
+          data._tileMesh = null;
+          data._tileSlot = 0;
+          syncDrawnAt(data);
+          if (!data.count || chunkDistance > typeInfo.farRadius) continue;
+          const nearRadius = typeInfo.screenSized
+            ? detailRadius
+            : TREE_LOD_CHUNK_RADIUS;
+          const useFar =
+            chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
+          if (useFar && typeInfo.farGeo === null) continue; // not drawn far away
+          const meshKey = useFar ? tileKey + '|far' : tileKey;
+          let tiles = byType.get(type);
+          if (!tiles) {
+            tiles = new Map();
+            byType.set(type, tiles);
           }
-          n += data.count;
+          let tile = tiles.get(meshKey);
+          if (!tile) {
+            tile = {
+              tileX,
+              tileZ,
+              geo: useFar ? typeInfo.farGeo : typeInfo.geo,
+              parts: [],
+              count: 0,
+            };
+            tiles.set(meshKey, tile);
+          }
+          tile.parts.push(data);
+          tile.count += data.count;
         }
-        mesh.count = n;
-        markInstancesUpdated(mesh, typeInfo.useColor);
-        mesh.visible = state._enableObjects;
+      }
+    }
+
+    const shadowParts = new Map(); // type -> [data]
+    if (shadowDirty) {
+      chunks.forEach((chunk) => {
+        const instanceData = chunk.userData.instanceData;
+        if (!instanceData) return;
+        for (const type in instanceData) {
+          const data = instanceData[type];
+          if (data._shadowMesh) {
+            data._shadowMesh = null;
+            data._shadowSlot = 0;
+            syncDrawnAt(data);
+          }
+        }
+      });
+      for (const chunk of shadowChunks) {
+        const instanceData = chunk.userData.instanceData;
+        for (const type in instanceData) {
+          const typeInfo = this.types.get(type);
+          if (!typeInfo?.shadowMesh) continue;
+          const data = instanceData[type];
+          if (!data.count) continue;
+          let parts = shadowParts.get(type);
+          if (!parts) {
+            parts = [];
+            shadowParts.set(type, parts);
+          }
+          parts.push(data);
+        }
+      }
+    }
+
+    // 2. Fill dirty tile meshes and (when shadowDirty) shadow-only meshes.
+    for (const [type, typeInfo] of this.types) {
+      if (dirtyTiles.size > 0) {
+        const tiles = byType.get(type);
+        for (const baseKey of dirtyTiles) {
+          if (!tiles?.has(baseKey)) {
+            this._removeTileMesh(typeInfo, baseKey);
+          }
+          const farKey = baseKey + '|far';
+          if (!tiles?.has(farKey)) {
+            this._removeTileMesh(typeInfo, farKey);
+          }
+        }
+        if (tiles) {
+          for (const [meshKey, tile] of tiles) {
+            const mesh = this._tileMesh(
+              typeInfo,
+              meshKey,
+              tile.tileX,
+              tile.tileZ,
+              tile.count,
+              tile.geo
+            );
+            let n = 0;
+            for (const data of tile.parts) {
+              data._tileMesh = mesh;
+              data._tileSlot = n;
+              syncDrawnAt(data);
+              mesh.instanceMatrix.array.set(
+                data.matrices.subarray(0, data.count * 16),
+                n * 16
+              );
+              if (typeInfo.useColor) {
+                mesh.instanceColor.array.set(
+                  data.colors.subarray(0, data.count * 3),
+                  n * 3
+                );
+              }
+              n += data.count;
+            }
+            mesh.count = n;
+            markInstancesUpdated(mesh, typeInfo.useColor);
+            mesh.visible = state._enableObjects;
+          }
+        }
       }
 
+      if (!shadowDirty) continue;
       let shadowMesh = typeInfo.shadowMesh;
       if (!shadowMesh) continue;
       const parts = shadowParts.get(type) || [];
@@ -652,7 +779,9 @@ class GlobalInstanceManager {
       for (const data of parts) {
         const numToCopy = Math.min(data.count, typeInfo.maxInstances - n);
         if (numToCopy <= 0) break;
-        data.drawnAt.push(shadowMesh, n);
+        data._shadowMesh = shadowMesh;
+        data._shadowSlot = n;
+        syncDrawnAt(data);
         shadowMesh.instanceMatrix.array.set(
           data.matrices.subarray(0, numToCopy * 16),
           n * 16
