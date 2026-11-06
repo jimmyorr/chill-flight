@@ -91,6 +91,9 @@ import {
   sheepDarkMat,
   iceHutGeos,
   iceHutRoofMat,
+  appleTreeGeos,
+  birchGeos,
+  broadleafOakGeos,
   castleRuinsGeo,
   castleRuinsMat,
   cherryBlossomGeos,
@@ -98,16 +101,21 @@ import {
   deadTreeGeo,
   deadTreeMat,
   deciduousGeos,
+  fruitTreeGeos,
   japaneseMapleGeos,
   lilyPadGeo,
   lilyPadMat,
+  magnoliaGeos,
   mushroomGeos,
   mushroomStalkMat,
   crystalClusterGeo,
   crystalMat,
+  oakGeos,
+  orchardAppleGeos,
   palmGeos,
   pierDeckGeo,
   pierDeckMat,
+  plumTreeGeos,
   rockGeo,
   rockMat,
   sculptedPineGeos,
@@ -259,6 +267,9 @@ function viewModel(type, e, colorSeed = 0) {
     'road_vehicles',
     'dragon_skeleton',
     'dinosaur_skull',
+    'birch',
+    'broadleaf_oak',
+    'oak',
   ].includes(type);
 
   const colorBtn = document.getElementById('cycle-colors-btn');
@@ -482,6 +493,10 @@ function viewModel(type, e, colorSeed = 0) {
       case 'cherry_blossom':
       case 'japanese_maple':
       case 'sculpted_pine':
+      case 'birch':
+      case 'broadleaf_oak':
+      case 'oak':
+      case 'magnolia':
       case 'palm': {
         const variations = [-15, 0, 15];
         variations.forEach((xOffset, i) => {
@@ -514,6 +529,22 @@ function viewModel(type, e, colorSeed = 0) {
             trunkGeo = sculptedPineGeos.trunk;
             leavesGeo = sculptedPineGeos.leaves;
             baseHex = 0x7fa95c;
+          } else if (type === 'birch') {
+            trunkGeo = birchGeos.trunk;
+            leavesGeo = birchGeos.leaves;
+            baseHex = colorSeed % 2 === 1 ? 0xf39c12 : 0xb3d47f;
+          } else if (type === 'broadleaf_oak') {
+            trunkGeo = broadleafOakGeos.trunk;
+            leavesGeo = broadleafOakGeos.leaves;
+            baseHex = colorSeed % 2 === 1 ? 0xd35400 : 0x77b258;
+          } else if (type === 'oak') {
+            trunkGeo = oakGeos.trunk;
+            leavesGeo = oakGeos.leaves;
+            baseHex = colorSeed % 2 === 1 ? 0xc0392b : 0x7d8a5a;
+          } else if (type === 'magnolia') {
+            trunkGeo = magnoliaGeos.trunk;
+            leavesGeo = magnoliaGeos.leaves;
+            baseHex = 0xf2f2f2;
           } else if (type === 'palm') {
             trunkGeo = palmGeos.trunk;
             leavesGeo = palmGeos.leaves;
@@ -539,6 +570,31 @@ function viewModel(type, e, colorSeed = 0) {
             })
           );
 
+          trunk.position.x = xOffset;
+          leaves.position.x = xOffset;
+          previewGroup.add(trunk, leaves);
+        });
+        break;
+      }
+      case 'fruit_trees': {
+        const fruitVarieties = [
+          appleTreeGeos,
+          orchardAppleGeos,
+          plumTreeGeos,
+          fruitTreeGeos,
+        ];
+        fruitVarieties.forEach((geos, i) => {
+          const xOffset = (i - (fruitVarieties.length - 1) / 2) * 14;
+          const trunk = new THREE.Mesh(geos.trunk, treeTrunkMat);
+          const leaves = new THREE.Mesh(
+            geos.leaves,
+            createMaterial({
+              color: 0xf2f2f2,
+              vertexColors: true,
+              flatShading: true,
+              foliage: true,
+            })
+          );
           trunk.position.x = xOffset;
           leaves.position.x = xOffset;
           previewGroup.add(trunk, leaves);

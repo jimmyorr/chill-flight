@@ -32,9 +32,17 @@ import {
   buildWindmillGeos,
 } from './farm-models.js';
 import {
+  buildAppleTreeGeos,
+  buildBirchGeos,
+  buildBroadleafOakGeos,
   buildCherryBlossomGeos,
+  buildFruitTreeGeos,
   buildJapaneseMapleGeos,
+  buildMagnoliaGeos,
+  buildOakGeos,
+  buildOrchardAppleGeos,
   buildPalmGeos,
+  buildPlumTreeGeos,
   buildSculptedPineGeos,
   buildStumpGeo,
   paintGeometry,
@@ -961,6 +969,14 @@ export var tallDeciduousGeos = createTallDeciduousGeometry();
 export var japaneseMapleGeos = buildJapaneseMapleGeos();
 export var cherryBlossomGeos = buildCherryBlossomGeos();
 export var sculptedPineGeos = buildSculptedPineGeos();
+export var birchGeos = buildBirchGeos();
+export var broadleafOakGeos = buildBroadleafOakGeos();
+export var oakGeos = buildOakGeos();
+export var magnoliaGeos = buildMagnoliaGeos();
+export var appleTreeGeos = buildAppleTreeGeos();
+export var orchardAppleGeos = buildOrchardAppleGeos();
+export var plumTreeGeos = buildPlumTreeGeos();
+export var fruitTreeGeos = buildFruitTreeGeos();
 const _palmGeos = buildPalmGeos();
 export var palmGeos = {trunk: _palmGeos.trunk, leaves: _palmGeos.leaves};
 export var palmSimpleLeavesGeo = _palmGeos.simpleLeaves;

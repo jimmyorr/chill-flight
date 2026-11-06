@@ -69,6 +69,9 @@ import {
   sheepDarkMat,
   iceHutGeos,
   iceHutRoofMat,
+  appleTreeGeos,
+  birchGeos,
+  broadleafOakGeos,
   castleRuinsGeo,
   castleRuinsMat,
   cherryBlossomGeos,
@@ -83,6 +86,7 @@ import {
   fireGlowMat,
   fireLogGeo,
   fireMat,
+  fruitTreeGeos,
   getElevation,
   getInstancedMesh,
   gooseBeakGeo,
@@ -115,6 +119,7 @@ import {
   lighthouseHeadlandBeamMat,
   lilyPadGeo,
   lilyPadMat,
+  magnoliaGeos,
   monasteryBodyGeo,
   monasteryBodyMat,
   monasteryRoofGeo,
@@ -123,6 +128,8 @@ import {
   mushroomStalkMat,
   crystalClusterGeo,
   crystalMat,
+  oakGeos,
+  orchardAppleGeos,
   palmGeos,
   palmSimpleLeavesGeo,
   penguinBeakGeo,
@@ -144,6 +151,7 @@ import {
   pirateShipGeos,
   pirateShipReflectionGeos,
   pirateShipMat,
+  plumTreeGeos,
   reflectionMat,
   releaseInstancedMesh,
   resetChunkQueue,
@@ -718,42 +726,29 @@ globalInstancer.registerType(
   30000,
   true
 );
-globalInstancer.registerType(
-  'japaneseMapleTrunk',
-  japaneseMapleGeos.trunk,
-  treeTrunkMat
-);
-globalInstancer.registerType(
-  'japaneseMapleLeaves',
-  japaneseMapleGeos.leaves,
-  treeLeavesBaseMat,
-  30000,
-  true
-);
-globalInstancer.registerType(
-  'cherryBlossomTrunk',
-  cherryBlossomGeos.trunk,
-  treeTrunkMat
-);
-globalInstancer.registerType(
-  'cherryBlossomLeaves',
-  cherryBlossomGeos.leaves,
-  treeLeavesBaseMat,
-  30000,
-  true
-);
-globalInstancer.registerType(
-  'sculptedPineTrunk',
-  sculptedPineGeos.trunk,
-  treeTrunkMat
-);
-globalInstancer.registerType(
-  'sculptedPineLeaves',
-  sculptedPineGeos.leaves,
-  treeLeavesBaseMat,
-  30000,
-  true
-);
+const POLYFORK_TREES = [
+  ['japaneseMaple', japaneseMapleGeos],
+  ['cherryBlossom', cherryBlossomGeos],
+  ['sculptedPine', sculptedPineGeos],
+  ['birch', birchGeos],
+  ['broadleafOak', broadleafOakGeos],
+  ['oak', oakGeos],
+  ['magnolia', magnoliaGeos],
+  ['appleTree', appleTreeGeos],
+  ['orchardApple', orchardAppleGeos],
+  ['plumTree', plumTreeGeos],
+  ['fruitTree', fruitTreeGeos],
+];
+for (const [prefix, geos] of POLYFORK_TREES) {
+  globalInstancer.registerType(prefix + 'Trunk', geos.trunk, treeTrunkMat);
+  globalInstancer.registerType(
+    prefix + 'Leaves',
+    geos.leaves,
+    treeLeavesBaseMat,
+    30000,
+    true
+  );
+}
 globalInstancer.registerType(
   'mushroomStalk',
   mushroomGeos.trunk,
@@ -932,6 +927,35 @@ globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =
 // cheap models stay as they are.
 const farCanopy = (geo) =>
   fitToBounds(new THREE.IcosahedronGeometry(1, 0), geo); // 20 triangles
+const farTrunk = (geo) => {
+  geo.computeBoundingBox();
+  const h = geo.boundingBox.max.y * 0.75;
+  const shape = new THREE.CylinderGeometry(0.9, 1.4, h, 6, 1, true); // 12 triangles
+  shape.translate(0, h * 0.5, 0);
+  const srcCol = geo.attributes.color;
+  if (srcCol) {
+    let r = 0,
+      g = 0,
+      b = 0;
+    for (let i = 0; i < srcCol.count; i++) {
+      r += srcCol.getX(i);
+      g += srcCol.getY(i);
+      b += srcCol.getZ(i);
+    }
+    r /= srcCol.count;
+    g /= srcCol.count;
+    b /= srcCol.count;
+    const count = shape.attributes.position.count;
+    const col = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      col[i * 3] = r;
+      col[i * 3 + 1] = g;
+      col[i * 3 + 2] = b;
+    }
+    shape.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  }
+  return shape;
+};
 const screenSized = {screenSized: true};
 globalInstancer.setFarGeometry(
   'decidLeaves',
@@ -949,21 +973,6 @@ globalInstancer.setFarGeometry(
   screenSized
 );
 globalInstancer.setFarGeometry(
-  'japaneseMapleLeaves',
-  farCanopy(japaneseMapleGeos.leaves),
-  screenSized
-);
-globalInstancer.setFarGeometry(
-  'cherryBlossomLeaves',
-  farCanopy(cherryBlossomGeos.leaves),
-  screenSized
-);
-globalInstancer.setFarGeometry(
-  'sculptedPineLeaves',
-  farCanopy(sculptedPineGeos.leaves),
-  screenSized
-);
-globalInstancer.setFarGeometry(
   'palmTrunk',
   fitToBounds(
     new THREE.CylinderGeometry(0.6, 1, 2, 6, 1, true),
@@ -971,6 +980,18 @@ globalInstancer.setFarGeometry(
   ),
   screenSized
 );
+for (const [prefix, geos] of POLYFORK_TREES) {
+  globalInstancer.setFarGeometry(
+    prefix + 'Trunk',
+    farTrunk(geos.trunk),
+    screenSized
+  );
+  globalInstancer.setFarGeometry(
+    prefix + 'Leaves',
+    farCanopy(geos.leaves),
+    screenSized
+  );
+}
 globalInstancer.setFarGeometry(
   'cactus',
   fitToBounds(new THREE.BoxGeometry(2, 2, 2), cactusGeo),
@@ -1048,8 +1069,9 @@ globalInstancer.setShadowGeometry(
   globalInstancer.types.get('bush').farGeo
 );
 globalInstancer.setShadowGeometry('palmLeaves', palmSimpleLeavesGeo);
-// Palm trunks and cacti cast with simpler models too (12 triangles instead
-// of 108, and 80 instead of 424): a trunk's shadow is 2-3 texels wide.
+// Palm trunks, Polyfork trunks and cacti cast with simpler models too (12
+// triangles instead of 114..391, and 80 instead of 424): a trunk's shadow is
+// 2-3 texels wide.
 globalInstancer.setShadowGeometry(
   'palmTrunk',
   globalInstancer.types.get('palmTrunk').farGeo
@@ -1063,18 +1085,16 @@ globalInstancer.setShadowGeometry(
   'tallDecidLeaves',
   globalInstancer.types.get('tallDecidLeaves').farGeo
 );
-globalInstancer.setShadowGeometry(
-  'japaneseMapleLeaves',
-  globalInstancer.types.get('japaneseMapleLeaves').farGeo
-);
-globalInstancer.setShadowGeometry(
-  'cherryBlossomLeaves',
-  globalInstancer.types.get('cherryBlossomLeaves').farGeo
-);
-globalInstancer.setShadowGeometry(
-  'sculptedPineLeaves',
-  globalInstancer.types.get('sculptedPineLeaves').farGeo
-);
+for (const [prefix] of POLYFORK_TREES) {
+  globalInstancer.setShadowGeometry(
+    prefix + 'Trunk',
+    globalInstancer.types.get(prefix + 'Trunk').farGeo
+  );
+  globalInstancer.setShadowGeometry(
+    prefix + 'Leaves',
+    globalInstancer.types.get(prefix + 'Leaves').farGeo
+  );
+}
 
 const WATERCRAFT_DRAW_DISTANCE = 6000;
 

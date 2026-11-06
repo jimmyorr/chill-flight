@@ -2321,6 +2321,20 @@ export function generateChunkData({
   const yellowCortezTreePositions = [];
   const japaneseMapleTreePositions = [];
   const sculptedPineTreePositions = [];
+  const birchTreePositions = [];
+  const broadleafOakTreePositions = [];
+  const oakTreePositions = [];
+  const magnoliaTreePositions = [];
+  const appleTreePositions = [];
+  const orchardAppleTreePositions = [];
+  const plumTreePositions = [];
+  const fruitTreePositions = [];
+  const fruitTreeLists = [
+    appleTreePositions,
+    orchardAppleTreePositions,
+    plumTreePositions,
+    fruitTreePositions,
+  ];
 
   const housePositions = [];
   const twoStoryHousePositions = [];
@@ -3262,9 +3276,35 @@ export function generateChunkData({
                     rotY: fieldHash(gx, gz, 521 + t) * Math.PI * 2,
                   });
                 } else if (tallRoll) {
-                  tallDeciduousTreePositions.push(treeSpot);
+                  const woodRoll = fieldHash(
+                    Math.round(worldX),
+                    Math.round(worldZ),
+                    503
+                  );
+                  if (
+                    worldZ > -4000 &&
+                    (villageNoise > 0.35 || cherryNoise > 0.45) &&
+                    woodRoll < 0.18
+                  ) {
+                    magnoliaTreePositions.push(treeSpot);
+                  } else if (woodRoll < (worldZ < 0 ? 0.5 : 0.3)) {
+                    birchTreePositions.push(treeSpot);
+                  } else if (woodRoll < 0.78) {
+                    oakTreePositions.push(treeSpot);
+                  } else {
+                    tallDeciduousTreePositions.push(treeSpot);
+                  }
                 } else {
-                  deciduousTreePositions.push(treeSpot);
+                  const woodRoll = fieldHash(
+                    Math.round(worldX),
+                    Math.round(worldZ),
+                    509
+                  );
+                  if (woodRoll < 0.45) {
+                    broadleafOakTreePositions.push(treeSpot);
+                  } else {
+                    deciduousTreePositions.push(treeSpot);
+                  }
                 }
               }
             }
@@ -3357,7 +3397,18 @@ export function generateChunkData({
               spot.rotY = rng() * Math.PI * 2;
               bushPositions.push(spot);
             } else {
-              deciduousTreePositions.push(spot);
+              const hedgeRoll = fieldHash(
+                Math.round(hedge.x),
+                Math.round(hedge.z),
+                601
+              );
+              if (snowFactor < 0.1 && hedgeRoll < 0.6) {
+                fruitTreeLists[Math.floor((hedgeRoll / 0.6) * 4)].push(spot);
+              } else if (hedgeRoll < 0.8) {
+                broadleafOakTreePositions.push(spot);
+              } else {
+                deciduousTreePositions.push(spot);
+              }
             }
           }
         }
@@ -4469,6 +4520,11 @@ export function generateChunkData({
         cherryTreePositions,
         japaneseMapleTreePositions,
         sculptedPineTreePositions,
+        birchTreePositions,
+        broadleafOakTreePositions,
+        oakTreePositions,
+        magnoliaTreePositions,
+        ...fruitTreeLists,
         deadTreePositions,
         bushPositions,
         rockPositions,
@@ -4627,6 +4683,11 @@ export function generateChunkData({
         yellowCortezTreePositions,
         japaneseMapleTreePositions,
         sculptedPineTreePositions,
+        birchTreePositions,
+        broadleafOakTreePositions,
+        oakTreePositions,
+        magnoliaTreePositions,
+        ...fruitTreeLists,
         bushPositions,
         hayBalePositions,
         fallenLogPositions,
@@ -4845,6 +4906,11 @@ export function generateChunkData({
       yellowCortezTreePositions,
       japaneseMapleTreePositions,
       sculptedPineTreePositions,
+      birchTreePositions,
+      broadleafOakTreePositions,
+      oakTreePositions,
+      magnoliaTreePositions,
+      ...fruitTreeLists,
       mushroomTreePositions,
       bushPositions,
       hayBalePositions,
@@ -4938,6 +5004,11 @@ export function generateChunkData({
         cherryTreePositions,
         japaneseMapleTreePositions,
         sculptedPineTreePositions,
+        birchTreePositions,
+        broadleafOakTreePositions,
+        oakTreePositions,
+        magnoliaTreePositions,
+        ...fruitTreeLists,
         deadTreePositions,
         bushPositions,
         rockPositions,
@@ -4948,6 +5019,63 @@ export function generateChunkData({
         campfirePositions,
       ].forEach(clearShed);
       landmarkPositions.push(...sheds);
+    }
+
+    // Flowering magnolias in warm village yards beside some houses, and small
+    // orchards of apple, plum and fruit trees beside farmstead barns (seeded
+    // by fieldHash with noRoll so downstream rng rolls stay unchanged)
+    for (const h of houses) {
+      if (h.roadVillage || h.style !== 'plain') continue;
+      const wx = Math.round(worldOffsetX + h.x);
+      const wz = Math.round(worldOffsetZ + h.z);
+      if (wz < -4000 || fieldHash(wx, wz, 1361) >= 0.3) continue;
+      const side =
+        (fieldHash(wx, wz, 1363) < 0.5 ? -1 : 1) * (6 * (h.sx || 1) + 6);
+      const at = rotateY(side, 4, h.rotY);
+      const x = h.x + at.x;
+      const z = h.z + at.z;
+      if (Math.abs(x) >= halfSize || Math.abs(z) >= halfSize) continue;
+      const y = heightAtLocal(x, z);
+      if (
+        y < WATER_LEVEL + 3 ||
+        Math.abs(y - h.y) > 3 ||
+        houses.some(
+          (o) => o !== h && Math.hypot(o.x - x, o.z - z) < 8 + 6 * (o.sx || 1)
+        ) ||
+        landmarkPositions.some((o) => Math.hypot(o.x - x, o.z - z) < 16)
+      ) {
+        continue;
+      }
+      magnoliaTreePositions.push({x, y, z, noRoll: true});
+    }
+    for (const barn of barnPositions) {
+      if (!barn.stead) continue;
+      const wx = Math.round(worldOffsetX + barn.x);
+      const wz = Math.round(worldOffsetZ + barn.z);
+      if (wz < NORTH_BARNS_Z) continue;
+      const baseKind = Math.floor(fieldHash(wx, wz, 1371) * 4);
+      for (let row = 0; row < 2; row++) {
+        for (let col = 0; col < 3; col++) {
+          const at = rotateY(-30 - row * 12, -10 + col * 12, barn.rotY);
+          const x = barn.x + at.x;
+          const z = barn.z + at.z;
+          if (Math.abs(x) >= halfSize || Math.abs(z) >= halfSize) continue;
+          const y = heightAtLocal(x, z);
+          if (
+            y < WATER_LEVEL + 3 ||
+            Math.abs(y - barn.y) > 4 ||
+            houses.some(
+              (o) => Math.hypot(o.x - x, o.z - z) < 8 + 6 * (o.sx || 1)
+            ) ||
+            windmillPositions.some((o) => Math.hypot(o.x - x, o.z - z) < 16) ||
+            landmarkPositions.some((o) => Math.hypot(o.x - x, o.z - z) < 16)
+          ) {
+            continue;
+          }
+          const kind = (baseKind + row) % 4;
+          fruitTreeLists[kind].push({x, y, z, noRoll: true});
+        }
+      }
     }
   }
 
@@ -4995,6 +5123,11 @@ export function generateChunkData({
       yellowCortezTreePositions,
       japaneseMapleTreePositions,
       sculptedPineTreePositions,
+      birchTreePositions,
+      broadleafOakTreePositions,
+      oakTreePositions,
+      magnoliaTreePositions,
+      ...fruitTreeLists,
       mushroomTreePositions,
       crystalPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_TREE_CLEAR));
@@ -5089,6 +5222,11 @@ export function generateChunkData({
           yellowCortezTreePositions,
           japaneseMapleTreePositions,
           sculptedPineTreePositions,
+          birchTreePositions,
+          broadleafOakTreePositions,
+          oakTreePositions,
+          magnoliaTreePositions,
+          ...fruitTreeLists,
           bushPositions,
           rockPositions,
           snowRockPositions,
@@ -5144,6 +5282,11 @@ export function generateChunkData({
       yellowCortezTreePositions,
       japaneseMapleTreePositions,
       sculptedPineTreePositions,
+      birchTreePositions,
+      broadleafOakTreePositions,
+      oakTreePositions,
+      magnoliaTreePositions,
+      ...fruitTreeLists,
       mushroomTreePositions,
       crystalPositions,
       bushPositions,
@@ -5244,30 +5387,35 @@ export function generateChunkData({
   ) => {
     if (positionsList.length === 0) return;
     positionsList.forEach((pos) => {
+      const worldX = worldOffsetX + pos.x;
       const worldZ = worldOffsetZ + pos.z;
       const northInfluence = Math.max(0, -worldZ / 4000);
       const snowFactor = ChillFlightLogic.snowFactorAt(
         worldZ,
-        ChillFlightLogic.snowNoiseShift(worldOffsetX + pos.x, worldZ, simplex)
+        ChillFlightLogic.snowNoiseShift(worldX, worldZ, simplex)
       );
+      const hx = Math.round(worldX);
+      const hz = Math.round(worldZ);
+      const roll = (salt) => (pos.noRoll ? fieldHash(hx, hz, salt) : rng());
 
       const baseScale = 0.6 + Math.min(0.6, northInfluence * 0.5);
       const scale =
         (pos.scale !== undefined
           ? pos.scale
-          : baseScale + rng() * (0.4 + rng() * 0.5)) * (pos.size || 1);
+          : baseScale + roll(1401) * (0.4 + roll(1403) * 0.5)) *
+        (pos.size || 1);
 
       composeMatrix(
         _matBuffer,
         0,
-        worldOffsetX + pos.x,
+        worldX,
         pos.y,
-        worldOffsetZ + pos.z,
+        worldZ,
         scale,
         scale,
         scale,
         0,
-        rng() * Math.PI * 2,
+        roll(1405) * Math.PI * 2,
         0
       );
 
@@ -5275,9 +5423,9 @@ export function generateChunkData({
       if (trunkKey) collector.add(trunkKey, _matBuffer);
 
       if (leavesKey && baseLeafColor) {
-        const rVariation = (rng() - 0.5) * 0.1;
-        const gVariation = (rng() - 0.5) * 0.1;
-        const bVariation = (rng() - 0.5) * 0.1;
+        const rVariation = (roll(1407) - 0.5) * 0.1;
+        const gVariation = (roll(1409) - 0.5) * 0.1;
+        const bVariation = (roll(1411) - 0.5) * 0.1;
 
         const leafHex = pos.color !== undefined ? pos.color : baseLeafColor;
         _treeBaseColor.setHex(leafHex);
@@ -5328,6 +5476,49 @@ export function generateChunkData({
     0x1a451d
   );
   renderTreesToCollector(
+    birchTreePositions,
+    'birchTrunk',
+    'birchLeaves',
+    0xb3d47f
+  );
+  renderTreesToCollector(
+    broadleafOakTreePositions,
+    'broadleafOakTrunk',
+    'broadleafOakLeaves',
+    0x77b258
+  );
+  renderTreesToCollector(oakTreePositions, 'oakTrunk', 'oakLeaves', 0x7d8a5a);
+  renderTreesToCollector(
+    magnoliaTreePositions,
+    'magnoliaTrunk',
+    'magnoliaLeaves',
+    0xf2f2f2
+  );
+  renderTreesToCollector(
+    appleTreePositions,
+    'appleTreeTrunk',
+    'appleTreeLeaves',
+    0xf2f2f2
+  );
+  renderTreesToCollector(
+    orchardAppleTreePositions,
+    'orchardAppleTrunk',
+    'orchardAppleLeaves',
+    0xf2f2f2
+  );
+  renderTreesToCollector(
+    plumTreePositions,
+    'plumTreeTrunk',
+    'plumTreeLeaves',
+    0xf2f2f2
+  );
+  renderTreesToCollector(
+    fruitTreePositions,
+    'fruitTreeTrunk',
+    'fruitTreeLeaves',
+    0xf2f2f2
+  );
+  renderTreesToCollector(
     palmTreePositions,
     'palmTrunk',
     'palmLeaves',
@@ -5341,20 +5532,20 @@ export function generateChunkData({
   );
   renderTreesToCollector(
     autumnTree1Positions,
-    'decidTrunk',
-    'decidLeaves',
+    'broadleafOakTrunk',
+    'broadleafOakLeaves',
     0xd35400
   );
   renderTreesToCollector(
     autumnTree2Positions,
-    'decidTrunk',
-    'decidLeaves',
+    'birchTrunk',
+    'birchLeaves',
     0xf39c12
   );
   renderTreesToCollector(
     autumnTree3Positions,
-    'decidTrunk',
-    'decidLeaves',
+    'oakTrunk',
+    'oakLeaves',
     0xc0392b
   );
   renderTreesToCollector(
@@ -6212,9 +6403,17 @@ export function generateChunkData({
     counts: {
       trees_pine: treePositions.length + snowTreePositions.length,
       trees_decid:
-        deciduousTreePositions.length + tallDeciduousTreePositions.length,
+        deciduousTreePositions.length +
+        tallDeciduousTreePositions.length +
+        birchTreePositions.length +
+        broadleafOakTreePositions.length +
+        oakTreePositions.length,
       trees_deciduous:
-        deciduousTreePositions.length + tallDeciduousTreePositions.length,
+        deciduousTreePositions.length +
+        tallDeciduousTreePositions.length +
+        birchTreePositions.length +
+        broadleafOakTreePositions.length +
+        oakTreePositions.length,
       trees_palm: palmTreePositions.length,
       trees_dead: deadTreePositions.length,
       trees_joshua: joshuaTreePositions.length,
@@ -6228,6 +6427,14 @@ export function generateChunkData({
       crystals: crystalPositions.length,
       trees_japanese_maple: japaneseMapleTreePositions.length,
       trees_sculpted_pine: sculptedPineTreePositions.length,
+      trees_birch: birchTreePositions.length,
+      trees_oak: broadleafOakTreePositions.length + oakTreePositions.length,
+      trees_magnolia: magnoliaTreePositions.length,
+      trees_fruit:
+        appleTreePositions.length +
+        orchardAppleTreePositions.length +
+        plumTreePositions.length +
+        fruitTreePositions.length,
       rocks:
         rockPositions.length +
         snowRockPositions.length +

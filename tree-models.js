@@ -10,6 +10,14 @@ import * as cherryBlossom from './third-party/polyfork/cherry-blossom-tree-3f7ab
 import * as japaneseMaple from './third-party/polyfork/japanese-maple-d2fb29.mjs';
 import * as sculptedPine from './third-party/polyfork/sculpted-pine-e45d4f.mjs';
 import * as exposedRoots from './third-party/polyfork/exposed-tree-roots-e1409c.mjs';
+import * as birchTree from './third-party/polyfork/birch-tree-181b33.mjs';
+import * as broadleafOak from './third-party/polyfork/broadleaf-oak-997c22.mjs';
+import * as oakTree from './third-party/polyfork/oak-tree-50ee7c.mjs';
+import * as floweringMagnolia from './third-party/polyfork/flowering-magnolia-dd76cb.mjs';
+import * as appleTree from './third-party/polyfork/apple-tree-ef0ba0.mjs';
+import * as orchardAppleTree from './third-party/polyfork/orchard-apple-tree-b21f85.mjs';
+import * as plumTree from './third-party/polyfork/plum-tree-565179.mjs';
+import * as fruitTree from './third-party/polyfork/fruit-tree-4bb1af.mjs';
 
 // Brightest foliage shade of each Polyfork tree's palette. Canopy vertex
 // colours are divided by this shade so the brightest clumps sit at (1, 1, 1)
@@ -20,6 +28,13 @@ export const PALM_LEAF_COLOR = 0x8fbf5a;
 export const CHERRY_BLOSSOM_LEAF_COLOR = 0xf7c9d6;
 export const JAPANESE_MAPLE_LEAF_COLOR = 0xb5433a;
 export const SCULPTED_PINE_LEAF_COLOR = 0x7fa95c;
+export const BIRCH_LEAF_COLOR = 0xb3d47f;
+export const BROADLEAF_OAK_LEAF_COLOR = 0x77b258;
+export const OAK_LEAF_COLOR = 0x7d8a5a;
+// Neutral base tint for canopies that carry both green leaves and contrasting
+// blossoms or fruit (magnolia, apple, plum, orchard fruit), keeping both hues
+// intact while still taking subtle per-tree variation and snow tinting.
+export const MULTI_TONE_LEAF_COLOR = 0xf2f2f2;
 
 // Fills a geometry's vertex colour attribute with a uniform colour so
 // procedural trunks and canopies can share vertex-coloured materials with
@@ -48,17 +63,23 @@ function normalizeLeafColors(geo, baseHex) {
   return geo;
 }
 
-function splitTreeAsset(asset, scale, trunkColors, baseLeafHex) {
+function splitTreeAsset(asset, scale, trunkColors, baseLeafHex = null) {
   const trunkHexes = new Set(
     trunkColors.map((c) => new THREE.Color(c).getHexString())
   );
   const trunk = mergeAsset(asset, 0, scale, 0, (_y, hex) =>
     trunkHexes.has(hex)
   );
-  const leaves = normalizeLeafColors(
-    mergeAsset(asset, 0, scale, 0, (_y, hex) => !trunkHexes.has(hex)),
-    baseLeafHex
+  const rawLeaves = mergeAsset(
+    asset,
+    0,
+    scale,
+    0,
+    (_y, hex) => !trunkHexes.has(hex)
   );
+  const leaves = baseLeafHex
+    ? normalizeLeafColors(rawLeaves, baseLeafHex)
+    : rawLeaves;
   return {trunk, leaves};
 }
 
@@ -116,6 +137,92 @@ export function buildSculptedPineGeos() {
     SCULPTED_PINE_SCALE,
     ['#6e5a45'],
     SCULPTED_PINE_LEAF_COLOR
+  );
+}
+
+// Birch tree: Polyfork's Birch Tree, white papery bark with grey and dark
+// lenticel bands and an airy two-tone crown, ~23.4 units tall.
+const BIRCH_SCALE = 3.6;
+export function buildBirchGeos() {
+  return splitTreeAsset(
+    birchTree.createAsset({clumps: 4}),
+    BIRCH_SCALE,
+    ['#f8f3ec', '#a3a099', '#3a2a1e'],
+    BIRCH_LEAF_COLOR
+  );
+}
+
+// Broadleaf oak: Polyfork's Broadleaf Oak, two-tone furrowed bark and a
+// three-limbed dome of faceted foliage clumps, ~22.3 units tall.
+const BROADLEAF_OAK_SCALE = 3.2;
+export function buildBroadleafOakGeos() {
+  return splitTreeAsset(
+    broadleafOak.createAsset({limbs: 3}),
+    BROADLEAF_OAK_SCALE,
+    ['#4a3527', '#75563b'],
+    BROADLEAF_OAK_LEAF_COLOR
+  );
+}
+
+// Oak tree: Polyfork's Oak Tree, sturdy buttressed trunk with three-tone
+// bark under a broad spreading crown, ~23.5 units tall.
+const OAK_SCALE = 3.8;
+export function buildOakGeos() {
+  return splitTreeAsset(
+    oakTree.createAsset({blobs: 6, trunkFacets: 6}),
+    OAK_SCALE,
+    ['#8c6a4a', '#6f4e37', '#b89b72'],
+    OAK_LEAF_COLOR
+  );
+}
+
+// Flowering magnolia: Polyfork's Flowering Magnolia, pale grey bark and a
+// deep green crown studded with cream and rose-pink blossoms, ~17.1 units tall.
+const MAGNOLIA_SCALE = 2.8;
+export function buildMagnoliaGeos() {
+  return splitTreeAsset(
+    floweringMagnolia.createAsset({bloom: 0.3}),
+    MAGNOLIA_SCALE,
+    ['#7e8286']
+  );
+}
+
+// Orchard and hedgerow fruit trees: Polyfork's Apple Tree, Orchard Apple Tree,
+// Plum Tree and Fruit Tree, keeping their multi-tone green leaves and red,
+// gold and purple fruit un-normalized (~12.6 to 13.6 units tall).
+const APPLE_TREE_SCALE = 3.8;
+export function buildAppleTreeGeos() {
+  return splitTreeAsset(
+    appleTree.createAsset({crop: 6, canopyFacets: 6}),
+    APPLE_TREE_SCALE,
+    ['#764f35']
+  );
+}
+
+const ORCHARD_APPLE_SCALE = 3.5;
+export function buildOrchardAppleGeos() {
+  return splitTreeAsset(
+    orchardAppleTree.createAsset({overgrowth: 0.2}),
+    ORCHARD_APPLE_SCALE,
+    ['#856850', '#bdaa93']
+  );
+}
+
+const PLUM_TREE_SCALE = 4.2;
+export function buildPlumTreeGeos() {
+  return splitTreeAsset(
+    plumTree.createAsset({crop: 6, canopyFacets: 6}),
+    PLUM_TREE_SCALE,
+    ['#593c2a']
+  );
+}
+
+const FRUIT_TREE_SCALE = 3.4;
+export function buildFruitTreeGeos() {
+  return splitTreeAsset(
+    fruitTree.createAsset({wear: 'kept', fruitLoad: 4}),
+    FRUIT_TREE_SCALE,
+    ['#8a6236']
   );
 }
 
