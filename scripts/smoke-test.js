@@ -5,6 +5,7 @@
 //   npm run test:build    - builds to a temp dir (not docs/) and tests that
 import puppeteer from 'puppeteer-core';
 import {
+  CHROME,
   GL_ARGS,
   autoCloseOnExit,
   killOrphanedChrome,
@@ -30,9 +31,6 @@ if (BUILD_MODE) {
   staticServer = await serveDir(outDir);
   BASE = `http://localhost:${staticServer.address().port}/`;
 }
-const CHROME =
-  process.env.CHROME_PATH ||
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const FLIGHT_MS = 8000;
 const DEBUG_PAGE_MS = 3000;
 
@@ -87,6 +85,11 @@ async function checkPage(browser, {path, fly, blackhole}) {
   const url = pageUrl.href;
   const tag = blackhole ? 'black-hole network' : path || 'index.html';
   const page = await browser.newPage();
+  let closing = false;
+  const closePage = async () => {
+    closing = true;
+    await page.close();
+  };
   // Smallish viewport (software WebGL is slow on a busy machine), but wider
   // than 1024px so the game uses its desktop layout.
   await page.setViewport({width: 1100, height: 700});
@@ -126,7 +129,7 @@ async function checkPage(browser, {path, fly, blackhole}) {
     }
   });
   page.on('requestfailed', (req) => {
-    if (req.url().startsWith(origin)) {
+    if (!closing && req.url().startsWith(origin)) {
       errors.push(
         `[${tag}] requestfailed: ${req.url()} (${req.failure()?.errorText})`
       );
@@ -155,8 +158,10 @@ async function checkPage(browser, {path, fly, blackhole}) {
 
   if (blackhole) {
     // A returning player (first-time players always get the bundled track),
-    // with music on. ?seed=1 starts on a streamed track.
+    // with music on, on a network that claims to be online. ?seed=1 starts on
+    // a streamed track.
     await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'onLine', {get: () => true});
       localStorage.setItem('chill_flight_played_before', 'true');
       localStorage.setItem('chill_flight_music_enabled', 'true');
     });
@@ -201,7 +206,7 @@ async function checkPage(browser, {path, fly, blackhole}) {
     if (musicSetting === 'false') {
       failPage(tag, 'falling back turned the music setting off');
     }
-    await page.close();
+    await closePage();
     console.log(
       `  black-hole network: painted ${painted ? 'ok' : 'NO'}, music ${fellBack ? 'fell back ok' : 'did NOT fall back'}`
     );
@@ -229,7 +234,7 @@ async function checkPage(browser, {path, fly, blackhole}) {
         );
       }
     }
-    await page.close();
+    await closePage();
     return;
   }
 
@@ -258,7 +263,7 @@ async function checkPage(browser, {path, fly, blackhole}) {
   }
   console.log(`  terrain worker replies: ${state.workerMessages}`);
   await exerciseControls(page, tag);
-  await page.close();
+  await closePage();
 }
 
 // Drive the game through the keyboard and check its effects through the DOM

@@ -43,7 +43,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import {fileURLToPath} from 'url';
-import {launch, serveDir} from './dev-browser.js';
+import {launch, requireGpu, serveDir} from './dev-browser.js';
 import {ARTWORK, COMMON, SHOTS, TARGETS} from './promo-shots.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -260,6 +260,8 @@ if (mode === 'view') {
   if (process.platform === 'darwin') execFileSync('open', [page]);
   process.exit(0);
 }
+
+requireGpu(`promo.js ${mode}`);
 
 // --- The game: a build in a temp dir, or GAME_URL ---
 let base = process.env.GAME_URL;

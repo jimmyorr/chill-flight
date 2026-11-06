@@ -11,9 +11,17 @@ import http from 'http';
 import path from 'path';
 
 export const BASE = process.env.GAME_URL || 'http://localhost:5173/';
-const CHROME =
+const DEFAULT_CHROME_PATHS = [
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/usr/lib/chromium/chromium',
+  '/usr/bin/google-chrome',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+];
+export const CHROME =
   process.env.CHROME_PATH ||
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  DEFAULT_CHROME_PATHS.find((p) => fs.existsSync(p)) ||
+  DEFAULT_CHROME_PATHS[0];
 
 export function autoCloseOnExit(browser, onCleanup) {
   let closing = false;
@@ -77,11 +85,26 @@ export function autoCloseOnExit(browser, onCleanup) {
 }
 
 // WebGL backend: the Mac's GPU through Metal, software SwiftShader elsewhere
-// (cloud and CI have no GPU). SwiftShader on a Mac keeps 3-4 cores busy.
+// (cloud and CI have no GPU, and containers lack user namespaces for Chrome's
+// sandbox). SwiftShader on a Mac keeps 3-4 cores busy.
 export const GL_ARGS =
   process.platform === 'darwin'
     ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']
-    : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
+    : [
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--use-angle=swiftshader',
+        '--enable-unsafe-swiftshader',
+      ];
+
+export function requireGpu(what) {
+  if (process.platform !== 'darwin' && !process.env.ALLOW_SOFTWARE_GL) {
+    console.error(
+      `${what} needs a hardware GPU (macOS Metal). Run on a Mac, or set ALLOW_SOFTWARE_GL=1 to force software WebGL.`
+    );
+    process.exit(1);
+  }
+}
 
 // Kill headless Chrome left running by an earlier run that was killed before
 // it could close its browser (its Node parent is gone, so it now belongs to

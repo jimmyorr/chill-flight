@@ -8,7 +8,9 @@
 // Measure on a quiet machine (other GPU work skews it), and alternate runs of
 // the versions you compare: results drift by ~0.5 ms over minutes.
 // Usage: npm run bench [-- label]   env: VIEWS=land,sunset  PRESET=mid  QUERY=a=1&b=2
-import {launch, openGame} from './dev-browser.js';
+import {launch, openGame, requireGpu} from './dev-browser.js';
+
+requireGpu('npm run bench');
 
 const label = process.argv[2] || 'bench';
 const VIEWS = {
