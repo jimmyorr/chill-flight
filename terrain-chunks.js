@@ -1221,9 +1221,26 @@ houseWindowMats.forEach((mat, i) => {
 const shadowBox = (geo) => fitToBounds(new THREE.BoxGeometry(2, 2, 2), geo); // 12 triangles
 const shadowCylinder = (geo) =>
   fitToBounds(new THREE.CylinderGeometry(1, 1, 2, 8, 1, true), geo); // 16 triangles
+// A gable roof: a box whose top edges meet along the longer side (8 triangles)
+const shadowGable = (geo) => {
+  geo.computeBoundingBox();
+  const size = geo.boundingBox.getSize(new THREE.Vector3());
+  const shape = new THREE.BoxGeometry(2, 2, 2);
+  const pos = shape.attributes.position;
+  const across = size.x < size.z ? 0 : 2; // ridge runs along the other axis
+  for (let i = 0; i < pos.count; i++) {
+    if (pos.getY(i) > 0) pos.setComponent(i, across, 0);
+  }
+  shape.computeVertexNormals();
+  return fitToBounds(shape, geo);
+};
 
 // Straw huts, barns, monasteries, castle ruins and windmills, one
-// material each (collectStructures in terrain-gen.js)
+// material each (collectStructures in terrain-gen.js). Past
+// TREE_LOD_CHUNK_RADIUS the farm buildings, huts and chapels draw as the same
+// simple shapes they cast shadows with: a barn is a few pixels there. Castle
+// ruins and windmills keep their full models, as landmarks.
+const FULL_DETAIL_FAR = new Set(['castleRuins', 'windmillBase']);
 for (const [type, geo, mat, round] of [
   ['strawHutBody', strawHutBodyGeo, strawHutMat, true],
   ['strawHutRoof', strawHutRoofGeo, strawHutMat, true],
@@ -1243,10 +1260,15 @@ for (const [type, geo, mat, round] of [
 ]) {
   globalInstancer.registerType(type, geo, mat);
   if (round !== null) {
-    globalInstancer.setShadowGeometry(
-      type,
-      round ? shadowCylinder(geo) : shadowBox(geo)
-    );
+    const proxy = round
+      ? shadowCylinder(geo)
+      : type.endsWith('Roof')
+        ? shadowGable(geo)
+        : shadowBox(geo);
+    globalInstancer.setShadowGeometry(type, proxy);
+    if (!FULL_DETAIL_FAR.has(type)) {
+      globalInstancer.setFarGeometry(type, proxy);
+    }
   }
 }
 // Small boats (boat-models.js, placed by smallBoatAt in terrain-gen.js) and
@@ -1550,16 +1572,17 @@ globalInstancer.setShadowGeometry(
   'tallDecidLeaves',
   globalInstancer.types.get('tallDecidLeaves').farGeo
 );
-globalInstancer.setShadowGeometry('joshuaTrunk', farTrunk(joshuaGeos.trunk));
-globalInstancer.setShadowGeometry('joshuaLeaves', farCanopy(joshuaGeos.leaves));
-globalInstancer.setShadowGeometry(
-  'mushroomStalk',
-  farTrunk(mushroomGeos.trunk)
-);
-globalInstancer.setShadowGeometry(
-  'mushroomCap',
-  farCanopy(mushroomGeos.leaves)
-);
+// Joshua trees and giant mushrooms cast with simple shapes and draw as them
+// far away, like the other trees
+for (const [type, proxy] of [
+  ['joshuaTrunk', farTrunk(joshuaGeos.trunk)],
+  ['joshuaLeaves', farCanopy(joshuaGeos.leaves)],
+  ['mushroomStalk', farTrunk(mushroomGeos.trunk)],
+  ['mushroomCap', farCanopy(mushroomGeos.leaves)],
+]) {
+  globalInstancer.setShadowGeometry(type, proxy);
+  globalInstancer.setFarGeometry(type, proxy, screenSized);
+}
 for (const [prefix] of POLYFORK_TREES) {
   globalInstancer.setShadowGeometry(
     prefix + 'Trunk',
