@@ -854,5 +854,61 @@ console.log(
   '  Passed: Nothing grows or stands on the pyramids or the dragon skeleton, and dinosaur skulls spawn in the south-west desert'
 );
 
+// --- SWAMP BIOME BASIN AND BAYOU PROPS ---
+{
+  const L = ChillFlightLogic;
+  useSeed(20260101);
+  const elevParams = {
+    WATER_LEVEL: 40,
+    MOUNTAIN_LEVEL: 180,
+    MAP_WORLD_SIZE: 10000,
+    MAP_HEIGHT_SCALE: 400,
+  };
+  if (
+    L.swampFactorAt(-15000, 8000, simplex) < 0.8 ||
+    L.swampFactorAt(-3000, 8200, simplex) < 0.8
+  ) {
+    console.error('FAIL: swampFactorAt is not active in the A+B swamp basin');
+    process.exit(1);
+  }
+  if (
+    L.swampFactorAt(5000, 8000, simplex) > 0 ||
+    L.swampFactorAt(-5000, 5000, simplex) > 0 ||
+    L.swampFactorAt(0, -10000, simplex) > 0
+  ) {
+    console.error(
+      'FAIL: swampFactorAt leaked onto the East Coast, Volcano, or northern autumn region'
+    );
+    process.exit(1);
+  }
+  const {result} = generateChunkData({
+    chunkX: -8,
+    chunkZ: 5,
+    chunkSize: 1500,
+    segments: 40,
+    elevParams,
+    worldSeed: 20260101,
+    enableObjects: true,
+  });
+  const id = result.instanceData;
+  const swampTrees =
+    (id.swampCypress?.count || 0) +
+    (id.swampCypressMoss?.count || 0) +
+    (id.swampTupelo?.count || 0);
+  const swampReeds =
+    (id.swampReeds?.count || 0) + (id.swampCattails?.count || 0);
+  if (swampTrees < 20 || swampReeds < 20 || !(id.swampLilyPads?.count > 0)) {
+    console.error(
+      `FAIL: expected swamp trees, reeds, and lily pads in chunk (-8, 5); got trees=${swampTrees}, reeds=${swampReeds}, lilyPads=${id.swampLilyPads?.count || 0}`
+    );
+    process.exit(1);
+  }
+  if ((id.houseBody?.count || 0) > 0 || (id.barnBody?.count || 0) > 0) {
+    console.error('FAIL: suburban houses or barns spawned inside deep swamp');
+    process.exit(1);
+  }
+}
+console.log('  Passed: Swamp biome basin and bayou props');
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

@@ -217,6 +217,9 @@ const _colorWesternWater = new Color(0xff00ff);
 const _snowColor = new Color(0xe0f7fa);
 const _colorWhite = new Color(0xffffff);
 const _colorIceMottleDark = new Color(0x8a9ea8);
+const _colorSwampMud = new Color(0x3b3527);
+const _colorSwampMoss = new Color(0x4a5e32);
+const _colorSwampMossDark = new Color(0x384a26);
 const _tempColorObj = new Color();
 const _baseBushColor = new Color();
 const _iceHutColor = new Color();
@@ -2164,6 +2167,7 @@ export function generateChunkData({
     const colorWater = new Color(0x40c4ff);
     const colorIcyWater = new Color(0x88ccff);
     const colorDesertWater = new Color(0x00ced1);
+    const colorSwampWater = new Color(0x33523a);
     const tempColor = new Color();
 
     let wPosIdx = 0;
@@ -2192,10 +2196,17 @@ export function generateChunkData({
           Math.min(1, (southInfluence + tempNoise * 0.05 - 0.7) * 1.5)
         );
         const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
+        const swampWaterFactor = ChillFlightLogic.swampFactorAt(
+          worldX,
+          worldZ,
+          simplex
+        );
 
         tempColor.copy(colorWater);
         if (snowFactor > 0) tempColor.lerp(colorIcyWater, snowFactor);
         if (desertFactor > 0) tempColor.lerp(colorDesertWater, desertFactor);
+        if (swampWaterFactor > 0)
+          tempColor.lerp(colorSwampWater, swampWaterFactor * 0.88);
 
         waterColors[wPosIdx] = tempColor.r;
         waterColors[wPosIdx + 1] = tempColor.g;
@@ -2344,6 +2355,10 @@ export function generateChunkData({
   const castleRuinsPositions = [];
   const rockArchPositions = [];
   const rockArchGrassPositions = [];
+  const swampTreePositions = [];
+  const swampReedPositions = [];
+  const swampLilyPadPositions = [];
+  const swampLogPositions = [];
 
   const WATER_LEVEL = elevParams.WATER_LEVEL;
   const MOUNTAIN_LEVEL = elevParams.MOUNTAIN_LEVEL;
@@ -2427,9 +2442,12 @@ export function generateChunkData({
       Math.min(1, (southInfluence + noisePath * 0.05 - biomeNoise - 2.0) * 1.0)
     );
     const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
+    const swampFactor = ChillFlightLogic.swampFactorAt(worldX, worldZ, simplex);
 
-    const eastCoastFactor = Math.max(0, Math.min(1, (worldX + 2000) / 2000));
-    const sandMaxHeight = WATER_LEVEL + 2 + eastCoastFactor * 10;
+    const eastCoastFactor =
+      Math.max(0, Math.min(1, (worldX + 2000) / 2000)) * (1 - swampFactor);
+    const sandMaxHeight =
+      WATER_LEVEL + (2 + eastCoastFactor * 10) * (1 - 0.85 * swampFactor);
 
     // The tree line: about 600 m in the south, 400 m by 1 North, and down
     // toward the valleys with the snow, wobbling so it isn't a contour line.
@@ -2459,13 +2477,15 @@ export function generateChunkData({
       height > sandMaxHeight &&
       height < treeLine - TREE_LINE_FADE &&
       desertFactor < 0.3 &&
-      snowFactor < 0.3
+      snowFactor < 0.3 &&
+      swampFactor < 0.5
     ) {
       farm =
         Math.max(0, Math.min(1, (villageNoise + 0.05) / 0.2)) *
         (1 - Math.max(0, Math.min(1, (slopeFactor - 0.25) / 0.2))) *
         (1 - desertFactor / 0.3) *
         (1 - snowFactor / 0.3) *
+        (1 - Math.min(1, swampFactor * 2)) *
         Math.min(1, (treeLine - TREE_LINE_FADE - height) / 60);
     }
     const isForest = forestNoise > 0.2 + 0.6 * farm;
@@ -2507,12 +2527,15 @@ export function generateChunkData({
               }
             }
           } else if (rng() < 0.0005 * densityScale) {
-            sailboatPositions.push({
-              x: localX,
-              y: WATER_LEVEL,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
+            const rotY = rng() * Math.PI * 2;
+            if (swampFactor < 0.2) {
+              sailboatPositions.push({
+                x: localX,
+                y: WATER_LEVEL,
+                z: localZ,
+                rotY,
+              });
+            }
           } else if (snowFactor > 0.5) {
             if (rng() < 0.0005 * densityScale) {
               icebergPositions.push({
@@ -2579,7 +2602,7 @@ export function generateChunkData({
           }
           // Small boats, by a hash of the grid point (not rng(), so the
           // props after them stay where they were)
-          if (snowFactor < 0.3 && !isAlienLand) {
+          if (snowFactor < 0.3 && !isAlienLand && swampFactor < 0.2) {
             const gx = Math.round(worldX / gridSpacing);
             const gz = Math.round(worldZ / gridSpacing);
             const hash = (salt) => fieldHash(gx, gz, 400 + salt);
@@ -2618,11 +2641,13 @@ export function generateChunkData({
             }
           }
         }
-        positions[i + 1] = height - 5;
+        positions[i + 1] = height - 5 * (1 - 0.75 * swampFactor);
         _tempColorObj.copy(_colorSand).lerp(_colorWater, 0.15);
         if (snowFactor > 0) _tempColorObj.lerp(_colorSandSnowTint, snowFactor);
         if (desertFactor > 0)
           _tempColorObj.lerp(_colorDesertSand, desertFactor);
+        if (swampFactor > 0)
+          _tempColorObj.lerp(_colorSwampMud, swampFactor * 0.92);
       } else if (
         desertFactor > 0.3 &&
         Math.abs(height - WATER_LEVEL - ChillFlightLogic.SALT_PAN_RISE) < 0.02
@@ -2648,6 +2673,8 @@ export function generateChunkData({
           _tempColorObj.lerp(_colorWetSand, wetFactor);
         }
         if (snowFactor > 0) _tempColorObj.lerp(_colorSnow, snowFactor);
+        if (swampFactor > 0)
+          _tempColorObj.lerp(_colorSwampMud, swampFactor * 0.9);
       } else {
         _tempColorObj.copy(_colorSand);
         if (snowFactor > 0)
@@ -2659,6 +2686,8 @@ export function generateChunkData({
           _tempColorObj.lerp(_colorSandMottleHigh, (mottle - 0.6) * 0.5);
         if (mottle < 0.4)
           _tempColorObj.lerp(_colorSandMottleLow, (0.4 - mottle) * 0.5);
+        if (swampFactor > 0)
+          _tempColorObj.lerp(_colorSwampMud, swampFactor * 0.88);
       }
     } else if (
       height >
@@ -2792,6 +2821,18 @@ export function generateChunkData({
         _tempColorObj.lerp(_colorSnowShade, mottle * 0.3 * snowFactor);
       if (desertFactor > 0)
         _tempColorObj.lerp(_colorSandShade, mottle * 0.25 * desertFactor);
+      if (swampFactor > 0) {
+        const mudMix = Math.max(
+          0,
+          Math.min(1, 1 - (height - WATER_LEVEL) / 2.2)
+        );
+        const swampGround =
+          mottle > 0.48 ? _colorSwampMoss : _colorSwampMossDark;
+        _tempColorObj.lerp(swampGround, swampFactor * 0.85);
+        if (mudMix > 0) {
+          _tempColorObj.lerp(_colorSwampMud, swampFactor * mudMix * 0.85);
+        }
+      }
     }
 
     // Extreme zone color blend
@@ -2917,7 +2958,11 @@ export function generateChunkData({
 
     const isStandardLand = height > sandMaxHeight && height <= treeLine;
     houseStyleGrid[vertI] =
-      !isStandardLand || isFrozen || isAlienLand || worldZ < -25000
+      !isStandardLand ||
+      isFrozen ||
+      isAlienLand ||
+      worldZ < -25000 ||
+      swampFactor > 0.2
         ? 0
         : desertFactor > 0.5
           ? 4
@@ -3186,10 +3231,37 @@ export function generateChunkData({
                 }
                 treeSpot.color = _fallColor.getHex();
                 list.push(treeSpot);
-              } else if (rng() < 0.25) {
-                tallDeciduousTreePositions.push(treeSpot);
               } else {
-                deciduousTreePositions.push(treeSpot);
+                const tallRoll = rng() < 0.25;
+                if (swampFactor > 0.35) {
+                  const gx = Math.round(worldX / gridSpacing);
+                  const gz = Math.round(worldZ / gridSpacing);
+                  const hPick = fieldHash(gx + t * 17, gz + t * 31, 503);
+                  const sType =
+                    hPick < 0.34
+                      ? 'swampCypressMoss'
+                      : hPick < 0.64
+                        ? 'swampCypress'
+                        : hPick < 0.86
+                          ? 'swampTupelo'
+                          : hPick < 0.94
+                            ? 'swampDeadOak'
+                            : 'swampSnag';
+                  swampTreePositions.push({
+                    type: sType,
+                    x: treeSpot.x,
+                    y: treeSpot.y - 0.3,
+                    z: treeSpot.z,
+                    size:
+                      treeSpot.size *
+                      (0.95 + 0.25 * fieldHash(gx, gz, 509 + t)),
+                    rotY: fieldHash(gx, gz, 521 + t) * Math.PI * 2,
+                  });
+                } else if (tallRoll) {
+                  tallDeciduousTreePositions.push(treeSpot);
+                } else {
+                  deciduousTreePositions.push(treeSpot);
+                }
               }
             }
           }
@@ -3457,20 +3529,29 @@ export function generateChunkData({
                 // Straw huts on the tropical islands; the desert's islands
                 // get its adobe houses
                 if (isIsland && houseStyle !== 'adobe') {
-                  strawHutPositions.push({x: hx, y: hy, z: hz, rotY: houseRot});
+                  if (swampFactor < 0.2) {
+                    strawHutPositions.push({
+                      x: hx,
+                      y: hy,
+                      z: hz,
+                      rotY: houseRot,
+                    });
+                  }
                   continue;
                 }
-                (twoStory ? twoStoryHousePositions : housePositions).push({
-                  x: hx,
-                  y: hy,
-                  z: hz,
-                  rotY: houseRot,
-                  sx,
-                  sy,
-                  style: houseStyle,
-                });
-                if (snowFactor > 0.3 && houseStyle !== 'adobe') {
-                  chimneySmokePositions.push({x: hx, y: hy + 10, z: hz});
+                if (swampFactor < 0.2) {
+                  (twoStory ? twoStoryHousePositions : housePositions).push({
+                    x: hx,
+                    y: hy,
+                    z: hz,
+                    rotY: houseRot,
+                    sx,
+                    sy,
+                    style: houseStyle,
+                  });
+                  if (snowFactor > 0.3 && houseStyle !== 'adobe') {
+                    chimneySmokePositions.push({x: hx, y: hy + 10, z: hz});
+                  }
                 }
               }
             }
@@ -3485,12 +3566,15 @@ export function generateChunkData({
             height > WATER_LEVEL + 15 &&
             height < MOUNTAIN_LEVEL - 100
           ) {
-            barnPositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              rotY: rng() * Math.PI * 2,
-            });
+            const rotY = rng() * Math.PI * 2;
+            if (swampFactor < 0.2) {
+              barnPositions.push({
+                x: localX,
+                y: height,
+                z: localZ,
+                rotY,
+              });
+            }
           } else if (
             !isAlienLand &&
             ENABLE_MONASTERIES &&
@@ -3535,7 +3619,9 @@ export function generateChunkData({
             // Windmills all face into the wind (see WINDMILL_ROT_Y), but this
             // roll stays so the rolls after it, and the world, don't shift.
             rng();
-            windmillPositions.push({x: localX, y: height, z: localZ});
+            if (swampFactor < 0.2) {
+              windmillPositions.push({x: localX, y: height, z: localZ});
+            }
           }
 
           if (
@@ -3587,7 +3673,7 @@ export function generateChunkData({
                 wet(60, 50);
               if (!open) angleToWater = -1;
             }
-            if (angleToWater !== -1) {
+            if (angleToWater !== -1 && swampFactor < 0.2) {
               pierPositions.push({
                 x: localX,
                 y: height,
@@ -3604,7 +3690,8 @@ export function generateChunkData({
           snowRockPositions.push({x: localX, y: height, z: localZ});
         else if (desertFactor > 0.4)
           desertRockPositions.push({x: localX, y: height, z: localZ});
-        else rockPositions.push({x: localX, y: height, z: localZ});
+        else if (swampFactor < 0.4)
+          rockPositions.push({x: localX, y: height, z: localZ});
       }
 
       if (
@@ -3773,6 +3860,7 @@ export function generateChunkData({
         height < sandMaxHeight &&
         snowFactor < 0.2 &&
         desertFactor < 0.5 &&
+        swampFactor < 0.2 &&
         roll < LANDMARK_RULES.beachHut.chance
       ) {
         type = 'beachHut';
@@ -3782,6 +3870,7 @@ export function generateChunkData({
         villageNoise < -0.15 &&
         snowFactor < 0.5 &&
         desertFactor < 0.2 &&
+        swampFactor < 0.2 &&
         slopeFactor < 0.12 &&
         height < treeLine - TREE_LINE_FADE &&
         roll < LANDMARK_RULES.rangerStation.chance &&
@@ -3844,6 +3933,7 @@ export function generateChunkData({
       desertFactor < 0.3 &&
       // Not in the snow, where bare dark wood looks pasted on
       snowFactor < 0.2 &&
+      swampFactor < 0.35 &&
       slopeFactor < 0.3 &&
       height > WATER_LEVEL + 3 &&
       height < MOUNTAIN_LEVEL
@@ -3865,6 +3955,171 @@ export function generateChunkData({
       }
     }
 
+    // Swamp bayou vegetation and backwater props (from hashes of the grid
+    // point, so the chunk's rng() sequence stays unchanged): bald cypress,
+    // tupelo and dead snags standing in shallow water and on mudbanks,
+    // clumps of reeds and cattails along water edges, lily pad drifts in
+    // the sloughs, and mossy hollow logs and stumps on the hummocks
+    if (
+      _enableObjects &&
+      !sharedEdge &&
+      !isAlienLand &&
+      !isLakeIce &&
+      !isOnRoad &&
+      !onFallsWall &&
+      swampFactor > 0.25 &&
+      slopeFactor < 0.26
+    ) {
+      const gx = Math.round(worldX / gridSpacing);
+      const gz = Math.round(worldZ / gridSpacing);
+      const swampGrove =
+        0.5 + 0.5 * simplex.noise2D(worldX * 0.004 + 313, worldZ * 0.004 - 197);
+
+      // 1. Shallow-water & mudbank swamp trees, plus extra grove trees on hummocks
+      if (height >= WATER_LEVEL - 1.9 && height <= WATER_LEVEL + 6.5) {
+        const inSloughOrBank = height <= WATER_LEVEL + 1.4;
+        const treeChanceSwamp =
+          (inSloughOrBank
+            ? 0.14 + 0.34 * swampGrove
+            : 0.08 + 0.22 * swampGrove) *
+          swampFactor *
+          (segments <= 20 ? 0.55 : 1.0) *
+          densityScale;
+        if (fieldHash(gx, gz, 601) < treeChanceSwamp) {
+          const tx =
+            localX + (fieldHash(gx, gz, 603) - 0.5) * gridSpacing * 0.85;
+          const tz =
+            localZ + (fieldHash(gx, gz, 605) - 0.5) * gridSpacing * 0.85;
+          const wx = worldOffsetX + tx;
+          const wz = worldOffsetZ + tz;
+          const ty = heightAtLocal(tx, tz);
+          if (
+            ty >= WATER_LEVEL - 2.0 &&
+            ChillFlightLogic.getRoadFactor(wx, wz) === 0
+          ) {
+            const pick = fieldHash(gx, gz, 607);
+            const sType =
+              ty <= WATER_LEVEL + 0.2
+                ? pick < 0.38
+                  ? 'swampCypressMoss'
+                  : pick < 0.68
+                    ? 'swampCypress'
+                    : pick < 0.84
+                      ? 'swampTupelo'
+                      : pick < 0.93
+                        ? 'swampDeadOak'
+                        : 'swampSnag'
+                : pick < 0.3
+                  ? 'swampCypressMoss'
+                  : pick < 0.58
+                    ? 'swampCypress'
+                    : pick < 0.86
+                      ? 'swampTupelo'
+                      : pick < 0.94
+                        ? 'swampDeadOak'
+                        : 'swampSnag';
+            swampTreePositions.push({
+              type: sType,
+              x: tx,
+              y: Math.max(WATER_LEVEL - 1.2, ty - 0.35),
+              z: tz,
+              size: 0.85 + 0.45 * fieldHash(gx, gz, 611),
+              rotY: fieldHash(gx, gz, 613) * Math.PI * 2,
+            });
+          }
+        }
+      }
+
+      // 2. Clumps of tall reeds and cattails along shallow water edges and mudbanks
+      if (height >= WATER_LEVEL - 1.3 && height <= WATER_LEVEL + 1.1) {
+        if (fieldHash(gx, gz, 617) < 0.38 * swampFactor * densityScale) {
+          const clumpCount = fieldHash(gx, gz, 619) < 0.45 ? 2 : 1;
+          for (let c = 0; c < clumpCount; c++) {
+            const rx =
+              localX +
+              (fieldHash(gx, gz, 623 + c * 2) - 0.5) * gridSpacing * 0.85;
+            const rz =
+              localZ +
+              (fieldHash(gx, gz, 624 + c * 2) - 0.5) * gridSpacing * 0.85;
+            const ry = heightAtLocal(rx, rz);
+            if (
+              ry >= WATER_LEVEL - 1.4 &&
+              ry <= WATER_LEVEL + 1.3 &&
+              ChillFlightLogic.getRoadFactor(
+                worldOffsetX + rx,
+                worldOffsetZ + rz
+              ) === 0
+            ) {
+              swampReedPositions.push({
+                type:
+                  fieldHash(gx, gz, 631 + c) < 0.52
+                    ? 'swampReeds'
+                    : 'swampCattails',
+                x: rx,
+                y: Math.max(WATER_LEVEL - 0.4, ry - 0.15),
+                z: rz,
+                size: 0.85 + 0.45 * fieldHash(gx, gz, 635 + c),
+                rotY: fieldHash(gx, gz, 639 + c) * Math.PI * 2,
+              });
+            }
+          }
+        }
+      }
+
+      // 3. Drifts of lily pads in the shallow backwaters
+      if (height >= WATER_LEVEL - 2.6 && height <= WATER_LEVEL - 0.15) {
+        if (fieldHash(gx, gz, 643) < 0.28 * swampFactor * densityScale) {
+          const lx =
+            localX + (fieldHash(gx, gz, 647) - 0.5) * gridSpacing * 0.8;
+          const lz =
+            localZ + (fieldHash(gx, gz, 649) - 0.5) * gridSpacing * 0.8;
+          const ly = heightAtLocal(lx, lz);
+          if (
+            ly <= WATER_LEVEL - 0.1 &&
+            ChillFlightLogic.getRoadFactor(
+              worldOffsetX + lx,
+              worldOffsetZ + lz
+            ) === 0
+          ) {
+            swampLilyPadPositions.push({
+              x: lx,
+              y: WATER_LEVEL + 0.04,
+              z: lz,
+              size: 0.85 + 0.55 * fieldHash(gx, gz, 653),
+              rotY: fieldHash(gx, gz, 655) * Math.PI * 2,
+            });
+          }
+        }
+      }
+
+      // 4. Fallen mossy hollow logs and mossy stumps on mudbanks and hummocks
+      if (height >= WATER_LEVEL - 0.2 && height <= WATER_LEVEL + 5.0) {
+        if (fieldHash(gx, gz, 659) < 0.075 * swampFactor * densityScale) {
+          const lx =
+            localX + (fieldHash(gx, gz, 661) - 0.5) * gridSpacing * 0.75;
+          const lz =
+            localZ + (fieldHash(gx, gz, 663) - 0.5) * gridSpacing * 0.75;
+          const ly = heightAtLocal(lx, lz);
+          if (
+            ly >= WATER_LEVEL - 0.3 &&
+            ChillFlightLogic.getRoadFactor(
+              worldOffsetX + lx,
+              worldOffsetZ + lz
+            ) === 0
+          ) {
+            swampLogPositions.push({
+              type: fieldHash(gx, gz, 665) < 0.55 ? 'swampLog' : 'swampStump',
+              x: lx,
+              y: ly - 0.1,
+              z: lz,
+              size: 0.85 + 0.35 * fieldHash(gx, gz, 667),
+              rotY: fieldHash(gx, gz, 671) * Math.PI * 2,
+            });
+          }
+        }
+      }
+    }
+
     // A lighthouse on a headland: a point of fairly low land with water on
     // most sides, on the temperate and northern coasts (not the desert, the
     // ice, the alien lands or the tropical islands), in a few chunks only
@@ -3876,6 +4131,7 @@ export function generateChunkData({
       !isLakeIce &&
       desertFactor < 0.3 &&
       snowFactor < 0.7 &&
+      swampFactor < 0.2 &&
       !(
         worldX > 3000 &&
         worldZ > -5000 &&
@@ -3945,6 +4201,7 @@ export function generateChunkData({
       !isForest &&
       desertFactor < 0.2 &&
       snowFactor < 0.2 &&
+      swampFactor < 0.2 &&
       slopeFactor < 0.35 &&
       height > WATER_LEVEL + 6 &&
       height < MOUNTAIN_LEVEL + 60 &&
@@ -3987,6 +4244,7 @@ export function generateChunkData({
       !isAlienLand &&
       !isLakeIce &&
       snowFactor < 0.5 &&
+      swampFactor < 0.2 &&
       height < WATER_LEVEL - BUOY_MIN_DEPTH &&
       height > WATER_LEVEL - BUOY_MAX_DEPTH
     ) {
@@ -4213,6 +4471,9 @@ export function generateChunkData({
         hayBalePositions,
         fallenLogPositions,
         sheepPositions,
+        swampTreePositions,
+        swampReedPositions,
+        swampLogPositions,
       ].forEach(clearStead);
     }
   }
@@ -4376,6 +4637,9 @@ export function generateChunkData({
         barnPositions,
         monasteryPositions,
         castleRuinsPositions,
+        swampTreePositions,
+        swampReedPositions,
+        swampLogPositions,
       ].forEach(clear);
     }
   }
@@ -4592,6 +4856,9 @@ export function generateChunkData({
       barnPositions,
       monasteryPositions,
       castleRuinsPositions,
+      swampTreePositions,
+      swampReedPositions,
+      swampLogPositions,
     ].forEach(clear);
   }
 
@@ -5563,6 +5830,79 @@ export function generateChunkData({
     } else {
       collector.add('fallenLog', _matBuffer);
     }
+    collector.endProp();
+  }
+
+  // Swamp trees, reeds, cattails, lily pads, logs, and stumps (no rolls here)
+  for (const pos of swampTreePositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.size,
+      pos.size,
+      pos.size,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.beginProp(BREAKABLE.TREE);
+    collector.add(pos.type, _matBuffer);
+    collector.endProp();
+  }
+
+  for (const pos of swampReedPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.size,
+      pos.size,
+      pos.size,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.add(pos.type, _matBuffer);
+  }
+
+  for (const pos of swampLilyPadPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.size,
+      pos.size,
+      pos.size,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.add('swampLilyPads', _matBuffer);
+  }
+
+  for (const pos of swampLogPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.size,
+      pos.size,
+      pos.size,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.beginProp(BREAKABLE.SMALL);
+    collector.add(pos.type, _matBuffer);
     collector.endProp();
   }
 

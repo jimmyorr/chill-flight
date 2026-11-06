@@ -99,6 +99,7 @@ import {
   CHUNK_SIZE,
   MAX_FLIGHT_HEIGHT,
   TURN_SPEED,
+  WATER_LEVEL,
   getCachedElement,
   moonlightUniforms,
   terrainUniforms,
@@ -2431,9 +2432,25 @@ function updateEnvironmentLighting(delta, now) {
     afterRain: fogAfterRain,
     clearDensity: baseFogDensity,
   });
+  // Low-lying bayou mist when flying or driving low over the swamp
+  const swampMist =
+    ChillFlightLogic.swampFactorAt(
+      planeGroup.position.x,
+      planeGroup.position.z,
+      simplex
+    ) *
+    THREE.MathUtils.clamp(
+      1 - (planeGroup.position.y - WATER_LEVEL) / 140,
+      0,
+      1
+    );
+  const effectiveFogDensity = Math.max(
+    targetFogDensity,
+    baseFogDensity + swampMist * 0.000085
+  );
   scene.fog.density = THREE.MathUtils.lerp(
     scene.fog.density,
-    targetFogDensity,
+    effectiveFogDensity,
     1 - Math.pow(1 - 0.01, delta * 60)
   );
 

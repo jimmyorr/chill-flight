@@ -68,6 +68,19 @@ function tintForRegion(out, wx, wz, elev, simplex) {
     b += ((east ? 210 : 190) - b) * k;
   }
 
+  const swamp = ChillFlightLogic.swampFactorAt(wx, wz, simplex);
+  if (swamp > 0) {
+    // Peaty mud along water margins (40..41.2), mossy olive-green on hummocks
+    const hummock = Math.max(0, Math.min(1, (elev - 40.2) / 2.2));
+    const tr = 66 + hummock * 12;
+    const tg = 60 + hummock * 40;
+    const tb = 44 + hummock * 12;
+    const k = swamp * 0.88;
+    r += (tr - r) * k;
+    g += (tg - g) * k;
+    b += (tb - b) * k;
+  }
+
   out[0] = r;
   out[1] = g;
   out[2] = b;
@@ -79,9 +92,19 @@ export function mapColor(elev, wx, wz, simplex, out = [0, 0, 0]) {
   if (elev <= 40) {
     // Bathymetry depth variation for crisp, clean coastlines
     const depth = Math.min(1.0, (40 - elev) / 12);
-    out[0] = Math.round(34 - depth * 12);
-    out[1] = Math.round(66 - depth * 22);
-    out[2] = Math.round(120 - depth * 32);
+    let r = 34 - depth * 12;
+    let g = 66 - depth * 22;
+    let b = 120 - depth * 32;
+    const swamp = ChillFlightLogic.swampFactorAt(wx, wz, simplex);
+    if (swamp > 0) {
+      const k = swamp * 0.78;
+      r += (43 - depth * 10 - r) * k;
+      g += (74 - depth * 16 - g) * k;
+      b += (56 - depth * 14 - b) * k;
+    }
+    out[0] = Math.round(r);
+    out[1] = Math.round(g);
+    out[2] = Math.round(b);
     return out;
   }
   if (isPackIce(elev, wz)) {

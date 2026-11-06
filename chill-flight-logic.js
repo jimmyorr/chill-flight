@@ -2104,6 +2104,38 @@ export const ChillFlightLogic = {};
     return crest + 20 - slope * Math.hypot(v, 35);
   }
 
+  // --- THE SWAMP / BAYOU LOWLAND ---
+  // A broad lowland basin between the heartland (1 South) and the southern
+  // desert (2.2 South), spanning from 3.8 West to 0.24 East (X = -19000 to
+  // 1200, Z = 6000 to 10800). Kept clear of the volcano at (-5000, 5000),
+  // the canyon head at (2000, 11500), and well inland of the east coast
+  // beach and highway.
+  function swampFactorAt(x, z, simplex) {
+    if (x < -21500 || x > 3500 || z < 4500 || z > 12500) return 0;
+    const wx =
+      simplex.noise2D(x * 0.00018 + 41, z * 0.00018 - 19) * 1400 +
+      simplex.noise2D(x * 0.00055 - 73, z * 0.00055 + 29) * 500;
+    const wz =
+      simplex.noise2D(x * 0.00022 - 17, z * 0.00022 + 53) * 900 +
+      simplex.noise2D(x * 0.0006 + 89, z * 0.0006 - 37) * 350;
+    const sx = x + wx;
+    const sz = z + wz;
+    const west = smoothRamp(sx, -19500, -16000);
+    const east = 1 - smoothRamp(sx, -800, 1200);
+    const north = smoothRamp(sz, 5800, 7000);
+    const south = 1 - smoothRamp(sz, 9400, 10800);
+    let f = west * east * north * south;
+    if (f <= 0) return 0;
+    // Keep clear of the volcano (X = -5000, Z = 5000) and canyon head (X = 2000, Z = 11500)
+    const distV = Math.hypot(x + 5000, z - 5000);
+    f *= smoothRamp(distV, 2100, 2900);
+    const distC = Math.hypot(x - 2000, z - 11500);
+    f *= smoothRamp(distC, 2200, 3200);
+    const desert = desertLowlandAt(x, z, simplex);
+    f *= 1 - smoothRamp(desert, 0.05, 0.35);
+    return f;
+  }
+
   // --- THE DESERT LOWLAND ---
   // How deep in the desert (x, z) is, 0 to 1: from about 2.2 South (where
   // the sand has taken over) to full by 3.2 South, following the desert's
@@ -3269,6 +3301,7 @@ export const ChillFlightLogic = {};
     const latScale = 5000;
     const currentLat = Math.round(z / latScale);
     const terrainFrequency = 0.8; // Tunable variable for feature density
+    const swamp = swampFactorAt(origX, origZ, simplex);
 
     // Check center latitude and adjacent ones to handle meander overlap
     for (let l = currentLat - 1; l <= currentLat + 1; l++) {
@@ -3462,7 +3495,8 @@ export const ChillFlightLogic = {};
               cirqueScoop
           );
 
-          let totalContribution = (baseHeight + peakHeight) * fadeIn;
+          let totalContribution =
+            (baseHeight + peakHeight) * fadeIn * (1 - swamp);
 
           // Land/Water Protection
           const landFactor = Math.min(1, Math.max(0, n - WATER_LEVEL) / 15);
@@ -3573,6 +3607,30 @@ export const ChillFlightLogic = {};
           n = WATER_LEVEL + (n - WATER_LEVEL) * t * t * (3 - 2 * t);
         }
       }
+    }
+
+    // --- THE SWAMP / BAYOU BASIN ---
+    // Settles the terrain into a flat, braided wetland hovering around
+    // WATER_LEVEL: shallow backwater sloughs and pools interleaved with low
+    // mudbanks and mossy hummocks. Road route checks (forRoad) see continuous
+    // low ground above water so highways cross on causeways without breaking.
+    if (swamp > 0 && biome > -0.08) {
+      const landMask = smoothRamp(biome, -0.08, 0.05);
+      let swampH = WATER_LEVEL + 2.5;
+      if (!options.forRoad) {
+        const ch1 = Math.abs(
+          simplex.noise2D(origX * 0.0014 + 31.7, origZ * 0.0014 - 18.3)
+        );
+        const ch2 = Math.abs(
+          simplex.noise2D(origX * 0.0029 - 53.1, origZ * 0.0029 + 41.9)
+        );
+        const hummock =
+          simplex.noise2D(origX * 0.0009 + 11.4, origZ * 0.0009 + 67.2) * 2.4 +
+          simplex.noise2D(origX * 0.0042 - 23.8, origZ * 0.0042 - 14.6) * 1.4;
+        const slough = smoothRamp(ch1, 0.0, 0.22) * smoothRamp(ch2, 0.0, 0.18);
+        swampH = WATER_LEVEL - 2.4 + slough * 5.2 + hummock;
+      }
+      n = _lerp(n, swampH, swamp * landMask);
     }
 
     // --- THE DESERT'S SALT PANS ---
@@ -5887,6 +5945,7 @@ export const ChillFlightLogic = {};
   exports.snowNoiseShift = snowNoiseShift;
   exports.snowWobble = snowWobble;
   exports.desertShift = desertShift;
+  exports.swampFactorAt = swampFactorAt;
   exports.SALT_PAN_RISE = SALT_PAN_RISE;
   exports.LAKE_ICE_RISE = LAKE_ICE_RISE;
   exports.alienAt = alienAt;

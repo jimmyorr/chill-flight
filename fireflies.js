@@ -127,12 +127,15 @@ function rand() {
 // or null.
 function groundAt(x, z) {
   if (!sampleGroundColor(x, z, _color)) return null;
-  if (_color.g - Math.max(_color.r, _color.b) < 0.015) return null;
+  const swamp = ChillFlightLogic.swampFactorAt(x, z, simplex);
+  if (swamp <= 0.25 && _color.g - Math.max(_color.r, _color.b) < 0.015) {
+    return null;
+  }
   const y = getElevation(x, z);
-  if (y < WATER_LEVEL + 1.5) return null;
-  // Swarms tens of metres across, with a few strays between them
+  if (y < (swamp > 0.25 ? WATER_LEVEL - 2.8 : WATER_LEVEL + 1.5)) return null;
+  // Swarms tens of metres across, with a few strays between them (more in the swamp)
   const swarm = simplex.noise2D(x * 0.006 + 31.7, z * 0.006 - 12.3);
-  if (swarm < -0.15 && rand() > 0.15) return null;
+  if (swarm < -0.15 && rand() > (swamp > 0.25 ? 0.5 : 0.15)) return null;
   if (
     ChillFlightLogic.highwayDistance(x, z) <
       ChillFlightLogic.ROAD_WIDTH + ROAD_CLEAR ||
@@ -143,7 +146,7 @@ function groundAt(x, z) {
     return null;
   }
   if (ChillFlightLogic.alienAt(x, z, simplex) > 0.3) return null;
-  return y;
+  return Math.max(y, WATER_LEVEL);
 }
 
 // Puts firefly i at a spot in the field; if that spot is on a road, water or

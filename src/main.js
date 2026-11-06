@@ -36,6 +36,7 @@ import '../boat-models.js';
 import '../farm-models.js';
 import '../building-models.js';
 import '../terrain-geometry.js';
+import '../swamp-models.js';
 import '../plane-shadow.js';
 import '../waterfalls.js';
 import '../game-performance.js';

@@ -110,10 +110,12 @@ const PLASTER = [0.86, 0.82, 0.72];
 // How a building's parts go: folded down where they stand, flung off, or
 // gone (doors, windows, a campfire's flames and smoke). A pier's deck goes
 // to planks.
-const FOLDS = /Body$|^castleRuins$|^windmillBase$|^bush$|^stump(Top)?$/;
-const FLINGS = /Roof$|Chimney$|Blades$|^fireLog$|^hayBale$|^fallenLog$/;
+const FOLDS =
+  /Body$|^castleRuins$|^windmillBase$|^bush$|^stump(Top)?$|^swampStump$/;
+const FLINGS =
+  /Roof$|Chimney$|Blades$|^fireLog$|^hayBale$|^fallenLog$|^swampLog$/;
 // Flung parts that roll away along the hit rather than spin
-const ROLLS = /^(hayBale|fallenLog)$/;
+const ROLLS = /^(hayBale|fallenLog|swampLog)$/;
 // Critters that run off over the land, and stay where they stop, rather
 // than diving into the water
 const LAND_CRITTER = /^sheep/;
@@ -122,7 +124,7 @@ const STILL_CRITTER = /^(sheep|seal)/;
 const ROCKS = /^(rock|snowRock|desertRock)$/;
 const ICE = /^(iceberg|iceFloe)$/;
 // A real tree (not a streetlight, tent or silo), for Treehugger
-const TREE_PART = /Trunk|Leaves|^cactus/;
+const TREE_PART = /Trunk|Leaves|^cactus|^swamp(Cypress|Tupelo|DeadOak|Snag)/;
 // Parts that don't count toward how wide a prop is (a streetlight's arm
 // reaches out over the road), and parts that just go out when it falls
 // (its pool of light, or a campfire's) and don't count toward its size at all
@@ -876,7 +878,7 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     propPuffs(x, base + height * 0.5, z, r, height * 0.5, LEAF_PUFF, 8, 2.5, 2);
   } else if (parts[0].type === 'hayBale') {
     propPuffs(x, base + 2, z, 3, 2.5, STRAW, 16, 3, 3);
-  } else if (/^(fallenLog|stump)$/.test(parts[0].type)) {
+  } else if (/^(fallenLog|stump|swampLog|swampStump)$/.test(parts[0].type)) {
     propPuffs(x, base, z, 3, 2, dust, 10, 4, 2);
   } else if (small) {
     propPuffs(x, base, z, 3, 3, EMBERS, 12, 2, 6);

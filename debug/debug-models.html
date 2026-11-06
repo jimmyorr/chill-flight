@@ -180,6 +180,12 @@
       <button class="model-btn" onclick="viewModel('dead_tree', event)">
         Dead tree
       </button>
+      <button class="model-btn" onclick="viewModel('swamp_trees', event)">
+        Swamp trees
+      </button>
+      <button class="model-btn" onclick="viewModel('swamp_flora', event)">
+        Swamp reeds, lilies, and logs
+      </button>
       <button class="model-btn" onclick="viewModel('cactus', event)">
         Cactus
       </button>
@@ -437,6 +443,7 @@
       import {archGeometry} from '../arches.js';
       import {boatMat, buildSmallBoatGeos} from '../boat-models.js';
       import {buildTractorGeos} from '../farm-models.js';
+      import {buildSwampGeos} from '../swamp-models.js';
       import {
         buildLandmarkGeos,
         buildingMat,
@@ -944,6 +951,48 @@
             case 'dead_tree':
               previewGroup.add(new THREE.Mesh(deadTreeGeo, deadTreeMat));
               break;
+            case 'swamp_trees': {
+              const geos = buildSwampGeos();
+              const mat = createMaterial({
+                color: 0xffffff,
+                vertexColors: true,
+                flatShading: true,
+              });
+              const keys = [
+                'swampCypress',
+                'swampCypressMoss',
+                'swampTupelo',
+                'swampDeadOak',
+                'swampSnag',
+              ];
+              keys.forEach((key, i) => {
+                const m = new THREE.Mesh(geos[key], mat);
+                m.position.x = (i - (keys.length - 1) / 2) * 18;
+                previewGroup.add(m);
+              });
+              break;
+            }
+            case 'swamp_flora': {
+              const geos = buildSwampGeos();
+              const mat = createMaterial({
+                color: 0xffffff,
+                vertexColors: true,
+                flatShading: true,
+              });
+              const keys = [
+                'swampReeds',
+                'swampCattails',
+                'swampLilyPads',
+                'swampLog',
+                'swampStump',
+              ];
+              keys.forEach((key, i) => {
+                const m = new THREE.Mesh(geos[key], mat);
+                m.position.x = (i - (keys.length - 1) / 2) * 8;
+                previewGroup.add(m);
+              });
+              break;
+            }
             case 'cactus':
               previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
               break;

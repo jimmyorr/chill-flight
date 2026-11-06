@@ -6,6 +6,7 @@ import {activePlaneType, planeGroup} from './airplane.js';
 import {UNLOCK_EVENTS, musicEnabled} from './audio.js';
 import {log} from './logger.js';
 import {PLANE_HANDLING} from './constants.js';
+import {simplex} from './noise.js';
 
 // ?sfx=0/1 overrides the saved setting for this visit (and changes made
 // during it aren't saved). With no saved setting, sound effects follow the
@@ -80,6 +81,8 @@ let cricketSource = null;
 let breezeGain = null;
 let breezeFilter = null;
 let breezeSource = null;
+let frogGain = null;
+let frogSource = null;
 let isInitialized = false;
 
 /**
@@ -346,6 +349,114 @@ function createBreezeBuffer(context) {
   return buffer;
 }
 
+/**
+ * Generates a stereo looping buffer of mellow bayou bullfrog and tree-frog
+ * calls when parked or idling in the swamp.
+ */
+function createFrogBuffer(context) {
+  const duration = 24;
+  const sampleRate = context.sampleRate;
+  const totalSamples = sampleRate * duration;
+  const buffer = context.createBuffer(2, totalSamples, sampleRate);
+  const left = buffer.getChannelData(0);
+  const right = buffer.getChannelData(1);
+
+  let seed = 31337;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  const callTimes = (first, every) => {
+    const times = [];
+    for (
+      let t = first;
+      t < duration - 1.2;
+      t += every * (0.65 + 0.85 * rand())
+    ) {
+      times.push(t);
+    }
+    return times;
+  };
+
+  const frogs = [
+    // Deep bullfrog two-note jug-o-rum croaks
+    {
+      f0: 138,
+      f1: 162,
+      trillHz: 36,
+      gain: 0.14,
+      pan: -0.5,
+      times: callTimes(1.1, 6.2),
+      notes: 2,
+      len: 0.24,
+      gap: 0.34,
+    },
+    {
+      f0: 152,
+      f1: 176,
+      trillHz: 40,
+      gain: 0.11,
+      pan: 0.55,
+      times: callTimes(3.4, 7.5),
+      notes: 2,
+      len: 0.21,
+      gap: 0.31,
+    },
+    // Higher woody tree-frog chirps
+    {
+      f0: 560,
+      f1: 680,
+      trillHz: 52,
+      gain: 0.08,
+      pan: 0.2,
+      times: callTimes(0.6, 4.3),
+      notes: 2,
+      len: 0.085,
+      gap: 0.15,
+    },
+  ];
+
+  for (const f of frogs) {
+    const leftGain = f.gain * (1 - f.pan) * 0.5;
+    const rightGain = f.gain * (1 + f.pan) * 0.5;
+    for (const st of f.times) {
+      const callGain = 0.75 + 0.3 * rand();
+      for (let n = 0; n < f.notes; n++) {
+        const noteStart = st + n * f.gap;
+        const startSample = Math.floor(noteStart * sampleRate);
+        const noteSamples = Math.floor(f.len * sampleRate);
+        let phase = 0;
+        for (let i = 0; i < noteSamples; i++) {
+          const idx = (startSample + i) % totalSamples;
+          const frac = i / noteSamples;
+          const env = Math.sin(frac * Math.PI) * (1 - 0.25 * frac) * callGain;
+          const trill =
+            0.65 + 0.35 * Math.sin(2 * Math.PI * f.trillHz * (i / sampleRate));
+          const freq = f.f0 + (f.f1 - f.f0) * Math.sin(frac * Math.PI * 0.85);
+          phase += (2 * Math.PI * freq) / sampleRate;
+          const carrier =
+            0.65 * Math.sin(phase) +
+            0.25 * Math.sin(phase * 2) +
+            0.1 * Math.sin(phase * 3);
+          const sample = carrier * env * trill;
+          left[idx] += sample * leftGain;
+          right[idx] += sample * rightGain;
+        }
+      }
+    }
+  }
+
+  const fadeLen = 4096;
+  for (let i = 0; i < fadeLen; i++) {
+    const alpha = i / fadeLen;
+    const endIdx = totalSamples - fadeLen + i;
+    left[i] = left[i] * alpha + left[endIdx] * (1 - alpha);
+    right[i] = right[i] * alpha + right[endIdx] * (1 - alpha);
+  }
+
+  return buffer;
+}
+
 let suspendTimer = null;
 let wasActive = false;
 let isBackgrounded = false;
@@ -442,6 +553,7 @@ export function prebakeSfxBuffers() {
   prebaked.set('wind', createNoiseBuffer(context).data);
   prebaked.set('crickets', createCricketBuffer(context).data);
   prebaked.set('breeze', createBreezeBuffer(context).data);
+  prebaked.set('frogs', createFrogBuffer(context).data);
   prebaked.set('eventNoise', createNoiseBuffer(context).data);
 }
 
@@ -541,6 +653,18 @@ export function initAudioContext() {
     breezeFilter.connect(breezeGain);
     breezeGain.connect(masterGain);
     breezeSource.start(0);
+
+    // --- Stopped swamp frog ambiance ---
+    frogSource = audioCtx.createBufferSource();
+    frogSource.buffer = prebakedBuffer('frogs', audioCtx, createFrogBuffer);
+    frogSource.loop = true;
+
+    frogGain = audioCtx.createGain();
+    frogGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+    frogSource.connect(frogGain);
+    frogGain.connect(masterGain);
+    frogSource.start(0);
 
     // --- Engine synthesis ---
     // Primary oscillator (sawtooth for rich harmonic body)
@@ -728,9 +852,10 @@ export function updateSfx() {
   const windMove = gust * (1 + windSwell);
   const windBright = 1 + 0.3 * windSwell;
 
-  // Stopped ambient soundscapes (crickets at night/dusk or gentle meadow breeze during day when parked on land)
+  // Stopped ambient soundscapes (crickets at night/dusk, meadow breeze by day, and frogs in the swamp)
   let targetCricketGain = 0;
   let targetBreezeGain = 0;
+  let targetFrogGain = 0;
 
   if (isStopped && state.isOnGround) {
     // Transition from crickets (night/dusk) to meadow breeze (day) based on dayFactor
@@ -743,6 +868,14 @@ export function updateSfx() {
     targetCricketGain = 0.28 * nightFactor;
     // 0.25 = 4 dB under where it was: it sat well above the flying wind
     targetBreezeGain = 0.25 * (1 - nightFactor * 0.7);
+    const swamp = ChillFlightLogic.swampFactorAt(
+      planeGroup.position.x,
+      planeGroup.position.z,
+      simplex
+    );
+    if (swamp > 0.15) {
+      targetFrogGain = 0.25 * swamp * (0.45 + 0.55 * nightFactor);
+    }
   }
 
   cricketGain.gain.setTargetAtTime(
@@ -751,6 +884,9 @@ export function updateSfx() {
     0.8
   );
   breezeGain.gain.setTargetAtTime(targetBreezeGain, audioCtx.currentTime, 0.4);
+  if (frogGain) {
+    frogGain.gain.setTargetAtTime(targetFrogGain, audioCtx.currentTime, 0.8);
+  }
 
   if (isStopped) {
     // Engine idles at low murmur when plane is parked (the jet is silent)
@@ -921,7 +1057,14 @@ export function getSfxNodes() {
     breezeGain,
     breezeFilter,
     breezeSource,
+    frogGain,
+    frogSource,
   };
 }
 
-export {createNoiseBuffer, createCricketBuffer, createBreezeBuffer};
+export {
+  createNoiseBuffer,
+  createCricketBuffer,
+  createBreezeBuffer,
+  createFrogBuffer,
+};

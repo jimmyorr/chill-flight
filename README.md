@@ -30,7 +30,7 @@ flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient,casual,cozy,
 
 ## Models
 
-The road vehicles (`road-vehicles.js`), the small boats and pirate ships (`boat-models.js`), the tractors, barns, silos and windmills (`farm-models.js`), the airport control towers (`building-models.js`), the lighthouse, its keeper's cottage and the dolphins are Polyfork models, including [Old Lighthouse](https://polyfork.dev/asset/old-lighthouse-48ca6c), [Porch-Front Cottage](https://polyfork.dev/asset/porch-front-cottage-620c29) and [Dolphin](https://polyfork.dev/asset/dolphin-base) (free licence: games can ship them, no attribution needed, but the files themselves can't be redistributed as assets). Their source is kept unchanged in `third-party/polyfork/`; `terrain-geometry.js` builds each once at load and splits it by paint (tower, rock islet, lantern glass, windows).
+The road vehicles (`road-vehicles.js`), the small boats and pirate ships (`boat-models.js`), the tractors, barns, silos and windmills (`farm-models.js`), the airport control towers (`building-models.js`), the swamp trees, reeds, cattails, lily pads, hollow logs and mossy stumps (`swamp-models.js`), the lighthouse, its keeper's cottage and the dolphins are Polyfork models, including [Old Lighthouse](https://polyfork.dev/asset/old-lighthouse-48ca6c), [Porch-Front Cottage](https://polyfork.dev/asset/porch-front-cottage-620c29) and [Dolphin](https://polyfork.dev/asset/dolphin-base) (free licence: games can ship them, no attribution needed, but the files themselves can't be redistributed as assets). Their source is kept unchanged in `third-party/polyfork/`; `terrain-geometry.js` builds each once at load and splits it by paint (tower, rock islet, lantern glass, windows).
 
 ## Music
 
@@ -45,7 +45,7 @@ To start without sound (say, on a train), tap the speaker button under Start on 
 Procedural sound effects generated in real time with the Web Audio API provide ambient immersion without adding download weight.
 
 - **Engine:** Synthesizes a warm piston propeller tone (sub-octave rumble, dual oscillators, an upper-mid rasp that carries on phone speakers, and propeller chop) pitched and getting louder with airspeed and throttle. The jet has a turbine whine that climbs with the throttle instead. While music is on, the engine plays 12 dB quieter (`ENGINE_MUSIC_DUCK` in `sfx.js`) so its drone sits under the music instead of competing with it. Twin-engine aircraft feature dual asynchronous props with acoustic beat frequencies.
-- **Ambiance:** When parked on land, tranquil environmental soundscapes fade in: meadow crickets at dusk and night, or a soft countryside breeze during the day. On water, small waves lap at the floats.
+- **Ambiance:** When parked on land, tranquil environmental soundscapes fade in: meadow crickets at dusk and night, a soft countryside breeze during the day, or a chorus of bullfrogs and tree frogs in the swamp. On water, small waves lap at the floats.
 - **Events and places:** A thump on touchdown and a splash on water landings, tyre rumble while taxiing, spray hiss on the water, the landing gear's clunk, wind rushing past when the plane falls, rain on the canopy, thunder rolling in a moment after each lightning flash (nearer strikes sooner, louder and with a crack), the roar and spray of every waterfall, placed where it lands so it pans across as you fly past and grows as you approach, typed dialog blips pitched per person, and a soft chime when a job step is done or a waypoint is reached. Each can be switched off on its own and auditioned in the sound lab (`debug/debug-sound.html`).
 - **Controls:** Sound effects can be toggled in the pause menu settings or temporarily via the `?sfx=0` / `?sfx=1` URL parameter. Sound effects automatically mute when paused and stop entirely while the game is in the background. With no saved choice they follow the music setting.
 
@@ -65,14 +65,15 @@ Every outline also keeps the island sea (`ISLAND_SEA`), and none touches the hea
 
 Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`): coves and spits, broad bights and headlands, fjords cutting inland, island chains breaking off, and barrier islands with lagoons behind them. How broken the coast is varies along it, from smooth shores to stretches thick with fjords and islands. Past it lies open sea. The coast only cuts into the land, never raises it, so where the outline crosses the island sea, the sea stays open. The western alien land runs right out to the west coast. On the south coast, drowned land becomes a warm, shallow sandy shelf instead of deep sea, out to about 5000 units past the outline: turquoise water 2 to 4.5 units deep, reefs just under the surface and low sand cays (`southShelfFloor`).
 
-| Biome             | Direction     | Latitude/Longitude          | Primary Characteristics                                                                                                             |
-| :---------------- | :------------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-| **Temperate**     | Central       | Around (0, 0) (Center)      | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).                                       |
-| **Snowy**         | North         | Negative Z (North Latitude) | Frozen terrain, snow-capped mountains, icy water, pine forests, and light snow whenever cloud is overhead (never from a clear sky). |
-| **Desert**        | South         | Positive Z (South Latitude) | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                                                       |
-| **Archipelago**   | East          | Positive X (East Longitude) | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000).                            |
-| **Lake District** | West          | Negative X (West Longitude) | Long lakes filling the valleys between hills and ranges, west of 0.7 West (X < -3500), within about 2 degrees of the equator.       |
-| **Alien Zone**    | Far East/West | From about 10.0 East/West   | Warped, jagged alien topography with glowing neon seas and surreal colors.                                                          |
+| Biome             | Direction     | Latitude/Longitude                       | Primary Characteristics                                                                                                             |
+| :---------------- | :------------ | :--------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+| **Temperate**     | Central       | Around (0, 0) (Center)                   | Lush green plains and thick forests. High density of civilization (houses, barns, windmills).                                       |
+| **Snowy**         | North         | Negative Z (North Latitude)              | Frozen terrain, snow-capped mountains, icy water, pine forests, and light snow whenever cloud is overhead (never from a clear sky). |
+| **Swamp**         | South-central | 1.2 to 2.16 South, 3.8 West to 0.24 East | Braided bayou channels, mossy hummocks, murky olive water, bald cypresses, reeds, cattails, lily pads, low mist, and fireflies.     |
+| **Desert**        | South         | Positive Z (South Latitude)              | Sandy dunes, reddish rock canyons, turquoise water, cactuses, and dead trees.                                                       |
+| **Archipelago**   | East          | Positive X (East Longitude)              | Coastlines flatten starting at 0.0 Longitude, leading to large island chains beyond 0.6 East (X > 3000).                            |
+| **Lake District** | West          | Negative X (West Longitude)              | Long lakes filling the valleys between hills and ranges, west of 0.7 West (X < -3500), within about 2 degrees of the equator.       |
+| **Alien Zone**    | Far East/West | From about 10.0 East/West                | Warped, jagged alien topography with glowing neon seas and surreal colors.                                                          |
 
 ### 1. Temperate central (the heartland)
 
@@ -102,6 +103,15 @@ Across the outline, a band 10000 units wide becomes rugged coast (`coastDetail`)
   - **The far north:** From about 3 North the low ground isn't all snow. The wind scours small patches of grey-green tundra, and tors (steep, lumpy knobs of dark rock 45 to 115 units high) break through in scattered districts, kept clear of the highway (`torAt` in `chill-flight-logic.js`); steep banks show bare rock too. North of about 4.4 North the land's lakes and rivers freeze over into a flat sheet of blue-white ice, with smooth, ragged edges where it meets open water; highway bridges still cross them. Out on the frozen lakes, little painted ice fishing huts with snowy roofs gather in a few small, scattered camps (`ICE_HUT_*` in `terrain-gen.js`).
   - **Objects:** Snowmen, chimney smoke from houses, and frost-covered pine trees.
   - **Water:** Icy, pale blue water (#88CCFF) that transitions into solid, textured cyan ice (#6CA6A8) shelves and floating icebergs in the deep north.
+
+### Swamp (the south-central bayou)
+
+- **Location:** Between the southern mountain range (`Z = 6000` / `1.2 South`) and the northern edge of the desert (`Z = 10800` / `2.16 South`), from `X = -19000` (`3.8 West`, east of Sagebrush Field) across to `X = 1200` (`0.24 East`, inland of the East Coast Highway and beach), curving clear of the Volcano (`X = -5000, Z = 5000` / `1.0 West, 1.0 South`) and the Canyon head (`X = 2000, Z = 11500` / `0.4 East, 2.3 South`) (`swampFactorAt` in `chill-flight-logic.js`).
+- **Landscape:** The basin settles into a braided network of shallow backwater channels (`y ≈ 36.2` to `40.0`) and low mossy hummocks (`y ≈ 40.0` to `45.5`), with dark peaty mudbanks (#3B3527), mossy olive-green ground (#4A5E32, #384A26), and murky olive-teal water (#33523A). Both north-south highways (`1.0 West` and `3.0 West`) cross the swamp on continuous elevated causeways.
+- **Key Features:**
+  - **Polyfork flora and deadwood:** Flared-buttress bald cypresses in lush and Spanish-moss-draped variants, leaning water tupelos, gnarled bleached dead oaks, broken dead snags, marsh reed clumps, cattail clusters, water-lily drifts, fallen mossy hollow logs, and flared-root mossy stumps (`swamp-models.js`), rooted in both shallow water and mudbanks.
+  - **Wild backwater:** Suburban houses, road villages, farmland, barns, windmills, piers, boats, sheep, and channel buoys are kept out of the swamp.
+  - **Atmosphere and sound:** Low-altitude mist thickens when flying or driving low over the bayou (`game-loop.js`), fireflies drift over shallow swamp water and hummocks at dusk and night (`fireflies.js`), and a chorus of bullfrogs and tree frogs fades in when parked or idling in the swamp (`sfx.js`).
 
 ### 3. The arid south (Arizona style)
 

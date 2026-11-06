@@ -218,6 +218,7 @@ import {
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {boatMat, buildSmallBoatGeos} from './boat-models.js';
 import {buildTractorGeos} from './farm-models.js';
+import {buildSwampGeos, createSwampFarCanopy} from './swamp-models.js';
 import {
   buildLandmarkGeos,
   buildingMat,
@@ -943,6 +944,38 @@ globalInstancer.setFarGeometry('buoyTop', null);
 globalInstancer.setFarGeometry('sheepWool', null);
 globalInstancer.setFarGeometry('sheepDark', null);
 globalInstancer.setFarGeometry('stumpTop', null);
+
+// Swamp biome vegetation and backwater props (swamp-models.js, vertex-colored)
+const swampGeos = buildSwampGeos();
+for (const [type, canopyHex, barkHex] of [
+  ['swampCypress', 0x3d5c2e, 0x4b3b2c],
+  ['swampCypressMoss', 0x485e38, 0x4b3b2c],
+  ['swampTupelo', 0x3b582c, 0x4a3b2c],
+]) {
+  globalInstancer.registerType(type, swampGeos[type], boatMat, 12000);
+  globalInstancer.setFarGeometry(
+    type,
+    createSwampFarCanopy(swampGeos[type], canopyHex, barkHex),
+    screenSized
+  );
+}
+for (const type of ['swampDeadOak', 'swampSnag', 'swampLog', 'swampStump']) {
+  globalInstancer.registerType(type, swampGeos[type], boatMat, 6000);
+  globalInstancer.setFarGeometry(type, null);
+}
+for (const type of ['swampReeds', 'swampCattails']) {
+  globalInstancer.registerType(type, swampGeos[type], boatMat, 16000);
+  globalInstancer.setFarGeometry(type, null);
+}
+globalInstancer.registerType(
+  'swampLilyPads',
+  swampGeos.swampLilyPads,
+  boatMat,
+  16000,
+  false,
+  false
+);
+globalInstancer.setFarGeometry('swampLilyPads', null);
 globalInstancer.setFarGeometry('snowmanNose', null);
 // Town streets: flat, so they cast no shadow
 globalInstancer.registerType(
