@@ -366,6 +366,21 @@ class GlobalInstanceManager {
     this._dirty = true;
   }
 
+  _createShadowMesh(geo, mat, capacity, customDepthMaterial) {
+    const mesh = createTreeInstancedMesh(geo, mat, capacity, false);
+    if (customDepthMaterial) mesh.customDepthMaterial = customDepthMaterial;
+    mesh.frustumCulled = false;
+    mesh.castShadow = true;
+    mesh.onBeforeRender = () => {
+      mesh.userData.shadowCount = mesh.count;
+      mesh.count = 0;
+    };
+    mesh.onAfterRender = () => {
+      mesh.count = mesh.userData.shadowCount;
+    };
+    return mesh;
+  }
+
   registerType(
     type,
     geo,
@@ -380,16 +395,7 @@ class GlobalInstanceManager {
     // for the on-screen pass, not the shadow pass.
     let shadowMesh = null;
     if (castsShadow) {
-      shadowMesh = createTreeInstancedMesh(geo, mat, maxInstances, false);
-      shadowMesh.frustumCulled = false;
-      shadowMesh.castShadow = true;
-      shadowMesh.onBeforeRender = () => {
-        shadowMesh.userData.shadowCount = shadowMesh.count;
-        shadowMesh.count = 0;
-      };
-      shadowMesh.onAfterRender = () => {
-        shadowMesh.count = shadowMesh.userData.shadowCount;
-      };
+      shadowMesh = this._createShadowMesh(geo, mat, Math.min(64, maxInstances));
       this.group.add(shadowMesh);
     }
 
@@ -557,10 +563,30 @@ class GlobalInstanceManager {
         mesh.visible = state._enableObjects;
       }
 
-      const shadowMesh = typeInfo.shadowMesh;
+      let shadowMesh = typeInfo.shadowMesh;
       if (!shadowMesh) continue;
+      const parts = shadowParts.get(type) || [];
+      let total = 0;
+      for (const data of parts) total += data.count;
+      total = Math.min(total, typeInfo.maxInstances);
+      if (shadowMesh.instanceMatrix.count < total) {
+        const capacity = Math.min(
+          typeInfo.maxInstances,
+          Math.max(64, 2 ** Math.ceil(Math.log2(total)))
+        );
+        const next = this._createShadowMesh(
+          shadowMesh.geometry,
+          typeInfo.mat,
+          capacity,
+          shadowMesh.customDepthMaterial
+        );
+        this.group.remove(shadowMesh);
+        shadowMesh.dispose();
+        this.group.add(next);
+        typeInfo.shadowMesh = shadowMesh = next;
+      }
       let n = 0;
-      for (const data of shadowParts.get(type) || []) {
+      for (const data of parts) {
         const numToCopy = Math.min(data.count, typeInfo.maxInstances - n);
         if (numToCopy <= 0) break;
         data.drawnAt.push(shadowMesh, n);
