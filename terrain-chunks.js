@@ -240,7 +240,7 @@ import {
 } from './building-models.js';
 import {log} from './logger.js';
 import {simplex} from './noise.js';
-import {camera, renderer} from './sky.js';
+import {camera, dirLight, renderer} from './sky.js';
 import {planeGroup} from './airplane.js';
 import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {ALIEN_PROPS_AT, BREAKABLE, generateChunkData} from './terrain-gen.js';
@@ -264,11 +264,16 @@ const TREE_TILE_CULL_RADIUS =
   Math.hypot(((TREE_TILE_SIZE + CHUNK_SIZE) / 2) * Math.SQRT2, 800) + 200;
 
 // The tiles don't cast shadows: that would draw every tree within draw
-// distance (~10 km) into the shadow map, though the sun's shadow volume only
-// reaches ~4,500 units from the plane, even at low sun. Instead a shadow-only
-// mesh per type holds just the chunks within this radius of the plane (+1
-// chunk for flying between rebuilds).
+// distance (~10 km) into the shadow map. Instead a shadow-only mesh per type
+// holds just the chunks whose box (padded by one chunk across the footprint
+// for flying and sun motion between rebuilds) touches the shadow camera's
+// frustum.
 const TREE_SHADOW_CHUNK_RADIUS = 4;
+const SHADOW_CHUNK_HALF = CHUNK_SIZE * 0.75;
+const SHADOW_REBUILD_STEP_SQ = 700 * 700;
+const _shadowMatrix = new THREE.Matrix4();
+const _shadowFrustum = new THREE.Frustum();
+const _chunkShadowBox = new THREE.Box3();
 
 // Beyond this many chunks (~3 km) from the plane, types with a far version
 // (see setFarGeometry below) swap to it: a 5-unit bush or a tree canopy is a
@@ -360,6 +365,8 @@ class GlobalInstanceManager {
     this.group.name = 'GlobalInstances';
     scene.add(this.group);
     this._dirty = true;
+    this._shadowLightPos = new THREE.Vector3(Infinity, Infinity, Infinity);
+    this._shadowTargetPos = new THREE.Vector3(Infinity, Infinity, Infinity);
   }
 
   requestRebuild() {
@@ -461,8 +468,35 @@ class GlobalInstanceManager {
   }
 
   rebuildAll() {
+    const hasShadowCam =
+      dirLight.position.distanceToSquared(dirLight.target.position) > 100;
+    if (
+      !this._dirty &&
+      hasShadowCam &&
+      (dirLight.position.distanceToSquared(this._shadowLightPos) >
+        SHADOW_REBUILD_STEP_SQ ||
+        dirLight.target.position.distanceToSquared(this._shadowTargetPos) >
+          SHADOW_REBUILD_STEP_SQ)
+    ) {
+      this._dirty = true;
+    }
     if (!this._dirty) return;
     this._dirty = false;
+
+    if (hasShadowCam) {
+      this._shadowLightPos.copy(dirLight.position);
+      this._shadowTargetPos.copy(dirLight.target.position);
+      const shadowCam = dirLight.shadow.camera;
+      shadowCam.position.copy(dirLight.position);
+      shadowCam.lookAt(dirLight.target.position);
+      shadowCam.updateProjectionMatrix();
+      shadowCam.updateMatrixWorld();
+      _shadowMatrix.multiplyMatrices(
+        shadowCam.projectionMatrix,
+        shadowCam.matrixWorldInverse
+      );
+      _shadowFrustum.setFromProjectionMatrix(_shadowMatrix);
+    }
 
     const planeChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
     const planeChunkZ = Math.round(planeGroup.position.z / CHUNK_SIZE);
@@ -483,7 +517,26 @@ class GlobalInstanceManager {
         Math.abs(chunkX - planeChunkX),
         Math.abs(chunkZ - planeChunkZ)
       );
-      const castsShadows = chunkDistance <= TREE_SHADOW_CHUNK_RADIUS;
+      let castsShadows;
+      if (hasShadowCam) {
+        const cx = chunkX * CHUNK_SIZE;
+        const cz = chunkZ * CHUNK_SIZE;
+        const minY = chunk.userData.minY ?? 0;
+        const maxY = chunk.userData.maxY ?? 800;
+        _chunkShadowBox.min.set(
+          cx - SHADOW_CHUNK_HALF,
+          minY,
+          cz - SHADOW_CHUNK_HALF
+        );
+        _chunkShadowBox.max.set(
+          cx + SHADOW_CHUNK_HALF,
+          maxY,
+          cz + SHADOW_CHUNK_HALF
+        );
+        castsShadows = _shadowFrustum.intersectsBox(_chunkShadowBox);
+      } else {
+        castsShadows = chunkDistance <= TREE_SHADOW_CHUNK_RADIUS;
+      }
 
       for (const type in instanceData) {
         const typeInfo = this.types.get(type);
@@ -817,18 +870,47 @@ globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
 globalInstancer.registerType('cactus', cactusGeo, cactusMat);
 globalInstancer.registerType('hayBale', hayBaleGeo, hayBaleMat);
 globalInstancer.registerType('fallenLog', fallenLogGeo, fallenLogMat);
-globalInstancer.registerType('stump', stumpGeo, buildingMat);
+globalInstancer.registerType(
+  'stump',
+  stumpGeo,
+  buildingMat,
+  30000,
+  false,
+  false
+);
 globalInstancer.registerType('seal', sealGeo, sealMat);
-globalInstancer.registerType('buoy', buoyGeos.body, houseTintMat, 30000, true);
-globalInstancer.registerType('buoyTop', buoyGeos.top, buoyTopMat);
+globalInstancer.registerType(
+  'buoy',
+  buoyGeos.body,
+  houseTintMat,
+  30000,
+  true,
+  false
+);
+globalInstancer.registerType(
+  'buoyTop',
+  buoyGeos.top,
+  buoyTopMat,
+  30000,
+  false,
+  false
+);
 globalInstancer.registerType(
   'sheepWool',
   sheepGeos.wool,
   houseTintMat,
   30000,
-  true
+  true,
+  false
 );
-globalInstancer.registerType('sheepDark', sheepGeos.dark, sheepDarkMat);
+globalInstancer.registerType(
+  'sheepDark',
+  sheepGeos.dark,
+  sheepDarkMat,
+  30000,
+  false,
+  false
+);
 globalInstancer.registerType(
   'iceHutBody',
   iceHutGeos.body,
@@ -857,7 +939,14 @@ globalInstancer.registerType('penguinWingL', penguinWingLGeo, penguinBlackMat);
 globalInstancer.registerType('penguinWingR', penguinWingRGeo, penguinBlackMat);
 globalInstancer.registerType('penguinFootL', penguinFootLGeo, penguinOrangeMat);
 globalInstancer.registerType('penguinFootR', penguinFootRGeo, penguinOrangeMat);
-globalInstancer.registerType('lilypad', lilyPadGeo, lilyPadMat);
+globalInstancer.registerType(
+  'lilypad',
+  lilyPadGeo,
+  lilyPadMat,
+  30000,
+  false,
+  false
+);
 globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
 
 // Houses: walls and roofs in one white material tinted per house, so a
@@ -916,26 +1005,36 @@ houseWindowMats.forEach((mat, i) => {
   );
 });
 
+const shadowBox = (geo) => fitToBounds(new THREE.BoxGeometry(2, 2, 2), geo); // 12 triangles
+const shadowCylinder = (geo) =>
+  fitToBounds(new THREE.CylinderGeometry(1, 1, 2, 8, 1, true), geo); // 16 triangles
+
 // Straw huts, barns, monasteries, castle ruins and windmills, one
 // material each (collectStructures in terrain-gen.js)
-for (const [type, geo, mat] of [
-  ['strawHutBody', strawHutBodyGeo, strawHutMat],
-  ['strawHutRoof', strawHutRoofGeo, strawHutMat],
-  ['barnBody', barnBodyGeo, barnMat],
-  ['barnRoof', barnRoofGeo, barnMat],
-  ['timberBarnBody', timberBarnBodyGeo, barnMat],
-  ['timberBarnRoof', timberBarnRoofGeo, barnMat],
-  ['hayBarnBody', hayBarnBodyGeo, barnMat],
-  ['hayBarnRoof', hayBarnRoofGeo, barnMat],
-  ['barnSiloBody', barnSiloBodyGeo, barnSiloMat],
-  ['barnSiloRoof', barnSiloRoofGeo, barnSiloRoofMat],
-  ['monasteryBody', monasteryBodyGeo, monasteryBodyMat],
-  ['monasteryRoof', monasteryRoofGeo, monasteryRoofMat],
-  ['castleRuins', castleRuinsGeo, castleRuinsMat],
-  ['windmillBase', windmillBaseGeo, windmillBaseMat],
-  ['windmillBlades', windmillBladesGeo, windmillBladesMat],
+for (const [type, geo, mat, round] of [
+  ['strawHutBody', strawHutBodyGeo, strawHutMat, true],
+  ['strawHutRoof', strawHutRoofGeo, strawHutMat, true],
+  ['barnBody', barnBodyGeo, barnMat, false],
+  ['barnRoof', barnRoofGeo, barnMat, false],
+  ['timberBarnBody', timberBarnBodyGeo, barnMat, false],
+  ['timberBarnRoof', timberBarnRoofGeo, barnMat, false],
+  ['hayBarnBody', hayBarnBodyGeo, barnMat, false],
+  ['hayBarnRoof', hayBarnRoofGeo, barnMat, false],
+  ['barnSiloBody', barnSiloBodyGeo, barnSiloMat, true],
+  ['barnSiloRoof', barnSiloRoofGeo, barnSiloRoofMat, true],
+  ['monasteryBody', monasteryBodyGeo, monasteryBodyMat, false],
+  ['monasteryRoof', monasteryRoofGeo, monasteryRoofMat, false],
+  ['castleRuins', castleRuinsGeo, castleRuinsMat, false],
+  ['windmillBase', windmillBaseGeo, windmillBaseMat, true],
+  ['windmillBlades', windmillBladesGeo, windmillBladesMat, null],
 ]) {
   globalInstancer.registerType(type, geo, mat);
+  if (round !== null) {
+    globalInstancer.setShadowGeometry(
+      type,
+      round ? shadowCylinder(geo) : shadowBox(geo)
+    );
+  }
 }
 // Small boats (boat-models.js, placed by smallBoatAt in terrain-gen.js) and
 // tractors (farm-models.js, tractorSpot): one model each, a few thousand
@@ -946,18 +1045,30 @@ for (const [type, geo] of Object.entries({
 })) {
   globalInstancer.registerType(type, geo, boatMat, 2000);
   globalInstancer.setFarGeometry(type, null);
+  globalInstancer.setShadowGeometry(type, shadowBox(geo));
 }
 // Landmarks (building-models.js, LANDMARK_RULES in terrain-gen.js): a few
 // thousand triangles each but only a handful about, so the towers stay in
 // sight far off, over the woods and villages
 for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_TOWERS))) {
-  globalInstancer.registerType(type, geo, buildingMat, 200);
+  const isSkull = type.startsWith('dinoSkull');
+  globalInstancer.registerType(type, geo, buildingMat, 200, false, !isSkull);
+  if (!isSkull) {
+    globalInstancer.setShadowGeometry(
+      type,
+      type === 'fireLookout' ? shadowBox(geo) : shadowCylinder(geo)
+    );
+  }
 }
 // The landmark houses (beach huts, shacks, ranger stations and
 // lean-tos): too small to see far off
 for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_HOUSES))) {
   globalInstancer.registerType(type, geo, buildingMat, 400);
   globalInstancer.setFarGeometry(type, null);
+  globalInstancer.setShadowGeometry(
+    type,
+    type.startsWith('mushroomCottage') ? shadowCylinder(geo) : shadowBox(geo)
+  );
 }
 // The sails turn in their shader, shadows too
 globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =
@@ -1056,6 +1167,7 @@ globalInstancer.setFarGeometry('bush', farCanopy(bushGeo), {
 globalInstancer.setFarGeometry('snowmanBody', null);
 globalInstancer.setFarGeometry('hayBale', null);
 globalInstancer.setFarGeometry('fallenLog', null);
+globalInstancer.setShadowGeometry('fallenLog', shadowBox(fallenLogGeo));
 globalInstancer.setFarGeometry('stump', null);
 globalInstancer.setFarGeometry('seal', null);
 globalInstancer.setFarGeometry('buoy', null);
@@ -1070,16 +1182,30 @@ for (const [type, canopyHex, barkHex] of [
   ['swampCypressMoss', 0x485e38, 0x4b3b2c],
   ['swampTupelo', 0x3b582c, 0x4a3b2c],
 ]) {
+  const farSwamp = createSwampFarCanopy(swampGeos[type], canopyHex, barkHex);
   globalInstancer.registerType(type, swampGeos[type], boatMat, 12000);
-  globalInstancer.setFarGeometry(
-    type,
-    createSwampFarCanopy(swampGeos[type], canopyHex, barkHex),
-    screenSized
-  );
+  globalInstancer.setFarGeometry(type, farSwamp, screenSized);
+  globalInstancer.setShadowGeometry(type, farSwamp);
 }
 for (const type of ['swampDeadOak', 'swampSnag', 'swampLog', 'swampStump']) {
-  globalInstancer.registerType(type, swampGeos[type], boatMat, 6000);
+  const castsShadow = type !== 'swampStump';
+  globalInstancer.registerType(
+    type,
+    swampGeos[type],
+    boatMat,
+    6000,
+    false,
+    castsShadow
+  );
   globalInstancer.setFarGeometry(type, null);
+  if (castsShadow) {
+    globalInstancer.setShadowGeometry(
+      type,
+      type === 'swampLog'
+        ? shadowBox(swampGeos[type])
+        : farTrunk(swampGeos[type])
+    );
+  }
 }
 // Unmarked giant twisted dead oak in the swamp (~272 units tall): kept in
 // sight at full distance like the landmark towers
@@ -1089,8 +1215,19 @@ globalInstancer.registerType(
   boatMat,
   16
 );
+globalInstancer.setShadowGeometry(
+  'swampGiantOak',
+  farTrunk(swampGeos.swampGiantOak)
+);
 for (const type of ['swampReeds', 'swampCattails']) {
-  globalInstancer.registerType(type, swampGeos[type], boatMat, 16000);
+  globalInstancer.registerType(
+    type,
+    swampGeos[type],
+    boatMat,
+    16000,
+    false,
+    false
+  );
   globalInstancer.setFarGeometry(type, null);
 }
 globalInstancer.registerType(
@@ -1142,6 +1279,16 @@ globalInstancer.setShadowGeometry(
 globalInstancer.setShadowGeometry(
   'tallDecidLeaves',
   globalInstancer.types.get('tallDecidLeaves').farGeo
+);
+globalInstancer.setShadowGeometry('joshuaTrunk', farTrunk(joshuaGeos.trunk));
+globalInstancer.setShadowGeometry('joshuaLeaves', farCanopy(joshuaGeos.leaves));
+globalInstancer.setShadowGeometry(
+  'mushroomStalk',
+  farTrunk(mushroomGeos.trunk)
+);
+globalInstancer.setShadowGeometry(
+  'mushroomCap',
+  farCanopy(mushroomGeos.leaves)
 );
 for (const [prefix] of POLYFORK_TREES) {
   globalInstancer.setShadowGeometry(
@@ -1738,6 +1885,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
+  group.userData.minY = geometry.boundingBox.min.y;
+  group.userData.maxY = geometry.boundingBox.max.y + 120;
 
   // 2.99 Volcano Landmark Details
   // Must run BEFORE the early-exit guard to avoid the async race where the chunk
