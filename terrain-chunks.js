@@ -1262,9 +1262,9 @@ for (const [type, geo] of Object.entries({
 // thousand triangles each but only a handful about, so the towers stay in
 // sight far off, over the woods and villages
 for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_TOWERS))) {
-  const isSkull = type.startsWith('dinoSkull');
-  globalInstancer.registerType(type, geo, buildingMat, 200, false, !isSkull);
-  if (!isSkull) {
+  globalInstancer.registerType(type, geo, buildingMat, 200);
+  // Dinosaur skulls are rare enough to cast with their own shape
+  if (!type.startsWith('dinoSkull')) {
     globalInstancer.setShadowGeometry(
       type,
       type === 'fireLookout' ? shadowBox(geo) : shadowCylinder(geo)
