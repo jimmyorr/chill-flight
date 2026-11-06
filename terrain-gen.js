@@ -2320,6 +2320,7 @@ export function generateChunkData({
   const cherryTreePositions = [];
   const yellowCortezTreePositions = [];
   const japaneseMapleTreePositions = [];
+  const sculptedPineTreePositions = [];
 
   const housePositions = [];
   const twoStoryHousePositions = [];
@@ -3174,8 +3175,11 @@ export function generateChunkData({
             palmTreePositions.push(treeSpot);
           } else {
             if (cherryNoise > 0.65) {
-              if (rng() < 0.35) {
+              const groveRoll = rng();
+              if (groveRoll < 0.25) {
                 japaneseMapleTreePositions.push(treeSpot);
+              } else if (groveRoll < 0.45) {
+                sculptedPineTreePositions.push(treeSpot);
               } else {
                 cherryTreePositions.push(treeSpot);
               }
@@ -4464,6 +4468,7 @@ export function generateChunkData({
         autumnTree3Positions,
         cherryTreePositions,
         japaneseMapleTreePositions,
+        sculptedPineTreePositions,
         deadTreePositions,
         bushPositions,
         rockPositions,
@@ -4621,6 +4626,7 @@ export function generateChunkData({
         cherryTreePositions,
         yellowCortezTreePositions,
         japaneseMapleTreePositions,
+        sculptedPineTreePositions,
         bushPositions,
         hayBalePositions,
         fallenLogPositions,
@@ -4838,6 +4844,7 @@ export function generateChunkData({
       cherryTreePositions,
       yellowCortezTreePositions,
       japaneseMapleTreePositions,
+      sculptedPineTreePositions,
       mushroomTreePositions,
       bushPositions,
       hayBalePositions,
@@ -4930,6 +4937,7 @@ export function generateChunkData({
         autumnTree3Positions,
         cherryTreePositions,
         japaneseMapleTreePositions,
+        sculptedPineTreePositions,
         deadTreePositions,
         bushPositions,
         rockPositions,
@@ -4986,6 +4994,7 @@ export function generateChunkData({
       cherryTreePositions,
       yellowCortezTreePositions,
       japaneseMapleTreePositions,
+      sculptedPineTreePositions,
       mushroomTreePositions,
       crystalPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_TREE_CLEAR));
@@ -5079,6 +5088,7 @@ export function generateChunkData({
           cherryTreePositions,
           yellowCortezTreePositions,
           japaneseMapleTreePositions,
+          sculptedPineTreePositions,
           bushPositions,
           rockPositions,
           snowRockPositions,
@@ -5133,6 +5143,7 @@ export function generateChunkData({
       cherryTreePositions,
       yellowCortezTreePositions,
       japaneseMapleTreePositions,
+      sculptedPineTreePositions,
       mushroomTreePositions,
       crystalPositions,
       bushPositions,
@@ -5320,13 +5331,13 @@ export function generateChunkData({
     palmTreePositions,
     'palmTrunk',
     'palmLeaves',
-    0x689f38
+    0x8fbf5a
   );
   renderTreesToCollector(
     cherryTreePositions,
-    'decidTrunk',
-    'decidLeaves',
-    0xf8bbd0
+    'cherryBlossomTrunk',
+    'cherryBlossomLeaves',
+    0xf7c9d6
   );
   renderTreesToCollector(
     autumnTree1Positions,
@@ -5369,7 +5380,13 @@ export function generateChunkData({
     japaneseMapleTreePositions,
     'japaneseMapleTrunk',
     'japaneseMapleLeaves',
-    0xa31515
+    0xb5433a
+  );
+  renderTreesToCollector(
+    sculptedPineTreePositions,
+    'sculptedPineTrunk',
+    'sculptedPineLeaves',
+    0x7fa95c
   );
 
   if (deadTreePositions.length > 0) {
@@ -5826,7 +5843,6 @@ export function generateChunkData({
     collector.beginProp(BREAKABLE.SMALL);
     if (pos.stump) {
       collector.add('stump', _matBuffer);
-      collector.add('stumpTop', _matBuffer);
     } else {
       collector.add('fallenLog', _matBuffer);
     }
@@ -6211,6 +6227,7 @@ export function generateChunkData({
       trees_mushroom: mushroomTreePositions.length,
       crystals: crystalPositions.length,
       trees_japanese_maple: japaneseMapleTreePositions.length,
+      trees_sculpted_pine: sculptedPineTreePositions.length,
       rocks:
         rockPositions.length +
         snowRockPositions.length +

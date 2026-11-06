@@ -61,8 +61,6 @@ import {
   fallenLogGeo,
   stumpGeo,
   fallenLogMat,
-  stumpTopGeo,
-  stumpTopMat,
   sealGeo,
   sealMat,
   buoyGeos,
@@ -73,6 +71,7 @@ import {
   iceHutRoofMat,
   castleRuinsGeo,
   castleRuinsMat,
+  cherryBlossomGeos,
   chunkQueueSet,
   chunks,
   createRockArchGeometries,
@@ -164,6 +163,7 @@ import {
   sailboatMoored,
   sailboatReflectionGeo,
   SAIL_FURL,
+  sculptedPineGeos,
   smokeGeo,
   smokeMat,
   snowRockMat,
@@ -290,6 +290,28 @@ function fitToBounds(shape, geo) {
   const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
   shape.scale(half.x, half.y, half.z);
   shape.translate(center.x, center.y, center.z);
+  const srcCol = geo.attributes.color;
+  if (srcCol) {
+    let r = 0,
+      g = 0,
+      b = 0;
+    for (let i = 0; i < srcCol.count; i++) {
+      r += srcCol.getX(i);
+      g += srcCol.getY(i);
+      b += srcCol.getZ(i);
+    }
+    r /= srcCol.count;
+    g /= srcCol.count;
+    b /= srcCol.count;
+    const count = shape.attributes.position.count;
+    const col = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      col[i * 3] = r;
+      col[i * 3 + 1] = g;
+      col[i * 3 + 2] = b;
+    }
+    shape.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  }
   return shape;
 }
 
@@ -709,6 +731,30 @@ globalInstancer.registerType(
   true
 );
 globalInstancer.registerType(
+  'cherryBlossomTrunk',
+  cherryBlossomGeos.trunk,
+  treeTrunkMat
+);
+globalInstancer.registerType(
+  'cherryBlossomLeaves',
+  cherryBlossomGeos.leaves,
+  treeLeavesBaseMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
+  'sculptedPineTrunk',
+  sculptedPineGeos.trunk,
+  treeTrunkMat
+);
+globalInstancer.registerType(
+  'sculptedPineLeaves',
+  sculptedPineGeos.leaves,
+  treeLeavesBaseMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
   'mushroomStalk',
   mushroomGeos.trunk,
   mushroomStalkMat
@@ -734,7 +780,7 @@ globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
 globalInstancer.registerType('cactus', cactusGeo, cactusMat);
 globalInstancer.registerType('hayBale', hayBaleGeo, hayBaleMat);
 globalInstancer.registerType('fallenLog', fallenLogGeo, fallenLogMat);
-globalInstancer.registerType('stump', stumpGeo, fallenLogMat);
+globalInstancer.registerType('stump', stumpGeo, buildingMat);
 globalInstancer.registerType('seal', sealGeo, sealMat);
 globalInstancer.registerType('buoy', buoyGeos.body, houseTintMat, 30000, true);
 globalInstancer.registerType('buoyTop', buoyGeos.top, buoyTopMat);
@@ -746,14 +792,6 @@ globalInstancer.registerType(
   true
 );
 globalInstancer.registerType('sheepDark', sheepGeos.dark, sheepDarkMat);
-globalInstancer.registerType(
-  'stumpTop',
-  stumpTopGeo,
-  stumpTopMat,
-  30000,
-  false,
-  false
-);
 globalInstancer.registerType(
   'iceHutBody',
   iceHutGeos.body,
@@ -916,6 +954,16 @@ globalInstancer.setFarGeometry(
   screenSized
 );
 globalInstancer.setFarGeometry(
+  'cherryBlossomLeaves',
+  farCanopy(cherryBlossomGeos.leaves),
+  screenSized
+);
+globalInstancer.setFarGeometry(
+  'sculptedPineLeaves',
+  farCanopy(sculptedPineGeos.leaves),
+  screenSized
+);
+globalInstancer.setFarGeometry(
   'palmTrunk',
   fitToBounds(
     new THREE.CylinderGeometry(0.6, 1, 2, 6, 1, true),
@@ -943,7 +991,6 @@ globalInstancer.setFarGeometry('buoy', null);
 globalInstancer.setFarGeometry('buoyTop', null);
 globalInstancer.setFarGeometry('sheepWool', null);
 globalInstancer.setFarGeometry('sheepDark', null);
-globalInstancer.setFarGeometry('stumpTop', null);
 
 // Swamp biome vegetation and backwater props (swamp-models.js, vertex-colored)
 const swampGeos = buildSwampGeos();
@@ -994,15 +1041,15 @@ globalInstancer.setFarGeometry('houseChimney', null);
 globalInstancer.setFarGeometry('twoStoryChimney', null);
 
 // Rounded canopies and bushes cast shadows with the same fitted shapes. Palm
-// fronds cast with a version without their notches (216 triangles instead of
-// 504), which keeps their distinctive star-shaped shadow.
+// fronds cast with their own geometry (176 triangles), which keeps their
+// distinctive star-shaped shadow.
 globalInstancer.setShadowGeometry(
   'bush',
   globalInstancer.types.get('bush').farGeo
 );
 globalInstancer.setShadowGeometry('palmLeaves', palmSimpleLeavesGeo);
 // Palm trunks and cacti cast with simpler models too (12 triangles instead
-// of 186, and 80 instead of 424): a trunk's shadow is 2-3 texels wide.
+// of 108, and 80 instead of 424): a trunk's shadow is 2-3 texels wide.
 globalInstancer.setShadowGeometry(
   'palmTrunk',
   globalInstancer.types.get('palmTrunk').farGeo
@@ -1019,6 +1066,14 @@ globalInstancer.setShadowGeometry(
 globalInstancer.setShadowGeometry(
   'japaneseMapleLeaves',
   globalInstancer.types.get('japaneseMapleLeaves').farGeo
+);
+globalInstancer.setShadowGeometry(
+  'cherryBlossomLeaves',
+  globalInstancer.types.get('cherryBlossomLeaves').farGeo
+);
+globalInstancer.setShadowGeometry(
+  'sculptedPineLeaves',
+  globalInstancer.types.get('sculptedPineLeaves').farGeo
 );
 
 const WATERCRAFT_DRAW_DISTANCE = 6000;

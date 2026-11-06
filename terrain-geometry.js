@@ -32,6 +32,14 @@ import {
   buildWindmillGeos,
 } from './farm-models.js';
 import {
+  buildCherryBlossomGeos,
+  buildJapaneseMapleGeos,
+  buildPalmGeos,
+  buildSculptedPineGeos,
+  buildStumpGeo,
+  paintGeometry,
+} from './tree-models.js';
+import {
   CHUNK_SIZE,
   CLOUD_GLSL,
   moonlightUniforms,
@@ -805,7 +813,10 @@ waterMaterial.onBeforeCompile = function (shader) {
 };
 
 // Reusable tree geometries for forest instances
-export var treeTrunkGeo = new THREE.CylinderGeometry(1.5, 2.5, 14, 6);
+export var treeTrunkGeo = paintGeometry(
+  new THREE.CylinderGeometry(1.5, 2.5, 14, 6),
+  0x5d4037
+);
 treeTrunkGeo.translate(0, 7, 0);
 
 // Pine tier: a cone whose skirt alternates drooping branch tips
@@ -858,7 +869,7 @@ function createPineGeometry() {
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
   geom.setIndex(idx);
-  return geom;
+  return paintGeometry(geom);
 }
 export var treeLeavesGeo = createPineGeometry();
 
@@ -906,11 +917,14 @@ function createLumpCanopy(center, radii, count, lumpR) {
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
   geom.setIndex(idx);
-  return geom;
+  return paintGeometry(geom);
 }
 
 function createDeciduousGeometry() {
-  const trunk = new THREE.CylinderGeometry(1.2, 1.8, 12, 6);
+  const trunk = paintGeometry(
+    new THREE.CylinderGeometry(1.2, 1.8, 12, 6),
+    0x5d4037
+  );
   trunk.translate(0, 6, 0);
 
   return {
@@ -926,7 +940,10 @@ function createDeciduousGeometry() {
 export var deciduousGeos = createDeciduousGeometry();
 
 function createTallDeciduousGeometry() {
-  const trunk = new THREE.CylinderGeometry(1.5, 2.2, 16, 6);
+  const trunk = paintGeometry(
+    new THREE.CylinderGeometry(1.5, 2.2, 16, 6),
+    0x5d4037
+  );
   trunk.translate(0, 8, 0);
 
   return {
@@ -941,243 +958,12 @@ function createTallDeciduousGeometry() {
 }
 export var tallDeciduousGeos = createTallDeciduousGeometry();
 
-function createJapaneseMapleGeometry() {
-  const trunk = new THREE.CylinderGeometry(0.8, 1.4, 11, 6);
-  trunk.translate(0, 5.5, 0);
-
-  // Cloud-pruned Niwaki canopy - gently squashed spheres at staggered heights
-  const segs = 7;
-  const hSegs = 5;
-
-  // Main central canopy pad
-  const leaf1 = new THREE.SphereGeometry(4.5, segs, hSegs);
-  leaf1.scale(1.4, 0.6, 1.4);
-  leaf1.translate(0, 12, 0);
-
-  // Lower side pads - asymmetric placement for organic feel
-  const leaf2 = new THREE.SphereGeometry(3.5, segs, hSegs);
-  leaf2.scale(1.3, 0.6, 1.3);
-  leaf2.translate(4, 10, 2);
-
-  const leaf3 = new THREE.SphereGeometry(3.5, segs, hSegs);
-  leaf3.scale(1.3, 0.6, 1.3);
-  leaf3.translate(-4, 10.5, -2);
-
-  // Upper crown pad - slightly offset
-  const leaf4 = new THREE.SphereGeometry(3, segs, hSegs);
-  leaf4.scale(1.2, 0.6, 1.2);
-  leaf4.translate(1, 14, -1.5);
-
-  // Small accent pad - rear fill
-  const leaf5 = new THREE.SphereGeometry(2.5, segs, hSegs);
-  leaf5.scale(1.2, 0.55, 1.2);
-  leaf5.translate(-2, 11, 3);
-
-  // Drooping lower accent
-  const leaf6 = new THREE.SphereGeometry(2, segs, hSegs);
-  leaf6.scale(1.3, 0.55, 1.3);
-  leaf6.translate(2.5, 8.5, -3);
-
-  const geometries = [leaf1, leaf2, leaf3, leaf4, leaf5, leaf6];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
-    offset += g.attributes.position.count;
-  }
-
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return {trunk, leaves: geom};
-}
-export var japaneseMapleGeos = createJapaneseMapleGeometry();
-
-// simple: fronds without their notches (3 segments instead of 7), for the
-// shadow map, where they keep their star-shaped silhouette.
-function createPalmGeometry(simple = false) {
-  // Stacked, flared trunk segments to create a bumpy, ridged bark texture
-  const trunkSegments = 6;
-  const segHeight = 3.5;
-  const trunkHeight = trunkSegments * segHeight;
-  const trunkGeos = [];
-
-  for (let j = 0; j < trunkSegments; j++) {
-    const tBottom = j / trunkSegments;
-
-    // Bottom flare is wider than the top of the previous segment
-    const rBottom = 2.2 * (1.0 - tBottom * 0.45);
-    const rTop = rBottom * 0.85;
-
-    const segGeo = new THREE.CylinderGeometry(rTop, rBottom, segHeight, 6);
-    // Move to correct height
-    segGeo.translate(0, j * segHeight + segHeight / 2, 0);
-
-    // Apply lean on X axis
-    const pos = segGeo.attributes.position.array;
-    for (let idx = 0; idx < pos.length; idx += 3) {
-      const y = pos[idx + 1];
-      const lean = Math.pow(y / trunkHeight, 2) * 2.5;
-      pos[idx] += lean;
-    }
-    segGeo.computeVertexNormals();
-    trunkGeos.push(segGeo);
-  }
-
-  // Crown knob where fronds emerge at top
-  const crown = new THREE.SphereGeometry(
-    1.8,
-    6,
-    4,
-    0,
-    Math.PI * 2,
-    0,
-    Math.PI / 2
-  );
-  crown.translate(2.5, trunkHeight, 0);
-  trunkGeos.push(crown);
-
-  // Fronds - V-creased leaves with jagged cutouts/notches along the edges
-  const frondCount = 9;
-  const leafGeos = [];
-
-  for (let i = 0; i < frondCount; i++) {
-    // Steps defining X along length and leaf width (w)
-    // Duplicate X values create sharp, stylized cutouts (notches)
-    const steps = simple
-      ? [
-          {x: 0, w: 0.4},
-          {x: 5, w: 2.6},
-          {x: 10, w: 2.4},
-          {x: 15, w: 0.0},
-        ]
-      : [
-          {x: 0, w: 0.4},
-          {x: 3.5, w: 2.8},
-          {x: 3.5, w: 0.8}, // Notch 1
-          {x: 7.5, w: 3.2},
-          {x: 7.5, w: 1.0}, // Notch 2
-          {x: 11.5, w: 2.4},
-          {x: 11.5, w: 0.6}, // Notch 3
-          {x: 15, w: 0.0},
-        ];
-
-    const bendFactor = 0.045 + (i % 3) * 0.012; // Varying droop
-    const verts = [];
-    const indices = [];
-
-    for (let k = 0; k < steps.length; k++) {
-      const {x, w} = steps[k];
-      const y = x * 0.42 - x * x * bendFactor;
-
-      // Creased V-shape (Center is raised, Left/Right are lowered)
-      verts.push(x, y - 0.25, -w / 2); // Left
-      verts.push(x, y + 0.25, 0); // Center
-      verts.push(x, y - 0.25, w / 2); // Right
-    }
-
-    for (let k = 0; k < steps.length - 1; k++) {
-      const idx_L = k * 3;
-      const idx_C = k * 3 + 1;
-      const idx_R = k * 3 + 2;
-
-      const idx_L_next = (k + 1) * 3;
-      const idx_C_next = (k + 1) * 3 + 1;
-      const idx_R_next = (k + 1) * 3 + 2;
-
-      // Front faces
-      indices.push(idx_L, idx_L_next, idx_C_next);
-      indices.push(idx_L, idx_C_next, idx_C);
-      indices.push(idx_C, idx_C_next, idx_R_next);
-      indices.push(idx_C, idx_R_next, idx_R);
-
-      // Back faces
-      indices.push(idx_L, idx_C_next, idx_L_next);
-      indices.push(idx_L, idx_C, idx_C_next);
-      indices.push(idx_C, idx_R_next, idx_C_next);
-      indices.push(idx_C, idx_R, idx_R_next);
-    }
-
-    const frondGeo = new THREE.BufferGeometry();
-    frondGeo.setAttribute(
-      'position',
-      new THREE.BufferAttribute(new Float32Array(verts), 3)
-    );
-    frondGeo.setIndex(indices);
-    frondGeo.computeVertexNormals();
-
-    // Slight roll around the leaf's central axis (X)
-    const roll = 0.15 * Math.sin(i * 1.7);
-    frondGeo.rotateX(roll);
-
-    // Rotate around Y to spread evenly
-    const yAngle = (i * Math.PI * 2) / frondCount + (i % 2 === 0 ? 0.1 : -0.08);
-    frondGeo.rotateY(yAngle);
-
-    // Position at trunk top (shifted for lean)
-    frondGeo.translate(2.5, trunkHeight + 0.5 + (i % 3) * 0.25, 0);
-    leafGeos.push(frondGeo);
-  }
-
-  // Combine trunk geometries
-  const combinedTrunkPos = [],
-    combinedTrunkNorm = [],
-    combinedTrunkIdx = [];
-  let trunkOffset = 0;
-  for (const g of trunkGeos) {
-    combinedTrunkPos.push(...g.attributes.position.array);
-    combinedTrunkNorm.push(...g.attributes.normal.array);
-    const gIdx = g.index ? g.index.array : [];
-    for (let i = 0; i < gIdx.length; i++)
-      combinedTrunkIdx.push(gIdx[i] + trunkOffset);
-    trunkOffset += g.attributes.position.count;
-  }
-  const trunkGeom = new THREE.BufferGeometry();
-  trunkGeom.setAttribute(
-    'position',
-    new THREE.Float32BufferAttribute(combinedTrunkPos, 3)
-  );
-  trunkGeom.setAttribute(
-    'normal',
-    new THREE.Float32BufferAttribute(combinedTrunkNorm, 3)
-  );
-  trunkGeom.setIndex(combinedTrunkIdx);
-
-  // Combine leaf geometries
-  const combinedLeafPos = [],
-    combinedLeafNorm = [],
-    combinedLeafIdx = [];
-  let leafOffset = 0;
-  for (const g of leafGeos) {
-    combinedLeafPos.push(...g.attributes.position.array);
-    combinedLeafNorm.push(...g.attributes.normal.array);
-    const gIdx = g.index ? g.index.array : [];
-    for (let i = 0; i < gIdx.length; i++)
-      combinedLeafIdx.push(gIdx[i] + leafOffset);
-    leafOffset += g.attributes.position.count;
-  }
-  const leafGeom = new THREE.BufferGeometry();
-  leafGeom.setAttribute(
-    'position',
-    new THREE.Float32BufferAttribute(combinedLeafPos, 3)
-  );
-  leafGeom.setAttribute(
-    'normal',
-    new THREE.Float32BufferAttribute(combinedLeafNorm, 3)
-  );
-  leafGeom.setIndex(combinedLeafIdx);
-
-  return {trunk: trunkGeom, leaves: leafGeom};
-}
-export var palmGeos = createPalmGeometry();
-export var palmSimpleLeavesGeo = createPalmGeometry(true).leaves;
+export var japaneseMapleGeos = buildJapaneseMapleGeos();
+export var cherryBlossomGeos = buildCherryBlossomGeos();
+export var sculptedPineGeos = buildSculptedPineGeos();
+const _palmGeos = buildPalmGeos();
+export var palmGeos = {trunk: _palmGeos.trunk, leaves: _palmGeos.leaves};
+export var palmSimpleLeavesGeo = _palmGeos.simpleLeaves;
 
 function createDeadTreeGeometry() {
   const trunk = new THREE.CylinderGeometry(0.5, 1.8, 14, 5);
@@ -1262,14 +1048,22 @@ function createJoshuaTreeGeometry() {
       tuftAt(f[0], f[1] + 1, f[2], 1.7);
     }
   }
-  return {trunk: mergeGeometries(wood), leaves: mergeGeometries(tufts)};
+  return {
+    trunk: mergeGeometries(wood),
+    leaves: paintGeometry(mergeGeometries(tufts)),
+  };
 }
 
-export var treeTrunkMat = createMaterial({color: 0x5d4037, flatShading: true});
+export var treeTrunkMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
+  flatShading: true,
+});
 // Leaf materials use WHITE as the base color so per-instance colors control the actual appearance
 // (Three.js multiplies instance color × material color, so white = identity / no tint)
 export var treeLeavesBaseMat = createMaterial({
   color: 0xffffff,
+  vertexColors: true,
   flatShading: true,
   foliage: true,
 });
@@ -1423,19 +1217,8 @@ export var fallenLogGeo = (() => {
   stub.translate(2.5, 2.4, 1);
   return mergeGeometries([log.toNonIndexed(), stub.toNonIndexed()]);
 })();
-export var stumpGeo = (() => {
-  const g = new THREE.CylinderGeometry(1.4, 1.9, 2.4, 7);
-  g.translate(0, 1, 0);
-  return g;
-})();
+export var stumpGeo = buildStumpGeo();
 export var fallenLogMat = createMaterial({color: 0x6e5841, flatShading: true});
-// The stump's pale sawn top, so it reads as a stump from above
-export var stumpTopGeo = (() => {
-  const g = new THREE.CylinderGeometry(1.42, 1.42, 0.1, 7, 1, false);
-  g.translate(0, 2.22, 0);
-  return g;
-})();
-export var stumpTopMat = createMaterial({color: 0xc9a777, flatShading: true});
 
 // Seal hauled out on an ice floe: a plump body lying along z, its head
 // raised at the front (+z) and its hind flippers splayed behind, about 6.5
@@ -1612,7 +1395,10 @@ function createMushroomGeometry() {
     spots.push(spot.toNonIndexed());
   }
   const cap = lathe(CAP_OUTLINE, 12);
-  return {trunk: mergeGeometries([stalk, gills, ...spots]), leaves: cap};
+  return {
+    trunk: mergeGeometries([stalk, gills, ...spots]),
+    leaves: paintGeometry(cap),
+  };
 }
 export var mushroomGeos = createMushroomGeometry();
 export var mushroomStalkMat = createMaterial({
