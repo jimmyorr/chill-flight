@@ -9,12 +9,17 @@ import {simplex} from './noise.js';
 // The pyramids' place depends on the world (chill-flight-logic.js)
 const pyramids = ChillFlightLogic.pyramidSite(simplex, {WATER_LEVEL: 40});
 
+// Map pin colours: orange for sightseeing landmarks, aviation blue for
+// airports, leaving gold (#ffd700) for the player arrow and waypoint
+export const LANDMARK_COLOR = '#f07828';
+export const AIRPORT_COLOR = '#2589f5';
+
 export const LANDMARKS = [
   {
     name: 'Volcano',
     x: -5000,
     z: 5000,
-    color: '#e74c3c', // vibrant red-orange
+    color: LANDMARK_COLOR,
     symbol: '▲',
   },
   {
@@ -22,7 +27,7 @@ export const LANDMARKS = [
     name: 'Lighthouse',
     x: 7500,
     z: 3000,
-    color: '#3498db', // vibrant blue beacon
+    color: LANDMARK_COLOR,
     symbol: '☤',
   },
   {
@@ -32,14 +37,14 @@ export const LANDMARKS = [
       ? ChillFlightLogic.mulberry32(ChillFlightLogic.WORLD_SEED)() * 10000 -
         5000
       : 0,
-    color: '#2ecc71', // lush emerald green
+    color: LANDMARK_COLOR,
     symbol: '∩',
   },
   {
     name: 'Falls',
     x: ChillFlightLogic.FALLS_X,
     z: ChillFlightLogic.FALLS_Z,
-    color: '#7fd8f0', // falling-water blue
+    color: LANDMARK_COLOR,
     symbol: '≋',
   },
   {
@@ -47,7 +52,7 @@ export const LANDMARKS = [
     name: 'Canyon',
     x: ChillFlightLogic.CANYON_PATH[2][0] * 5000,
     z: -ChillFlightLogic.CANYON_PATH[2][1] * 5000,
-    color: '#d2693c', // canyon-rock rust
+    color: LANDMARK_COLOR,
     symbol: '⩔',
   },
   ...(pyramids
@@ -57,7 +62,7 @@ export const LANDMARKS = [
           name: 'Pyramids',
           x: pyramids.x,
           z: pyramids.z,
-          color: '#e8c27a', // sandstone
+          color: LANDMARK_COLOR,
           symbol: '△',
         },
       ]
@@ -67,7 +72,7 @@ export const LANDMARKS = [
     name: a.name,
     x: a.x,
     z: a.z,
-    color: '#f1c40f', // runway-light amber
+    color: AIRPORT_COLOR,
     symbol: '✈',
   })),
 ];

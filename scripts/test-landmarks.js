@@ -14,9 +14,11 @@ import {ChillFlightLogic} from '../chill-flight-logic.js';
 // The Rock Arch's place comes from the seed when landmarks.js loads
 ChillFlightLogic.WORLD_SEED = 20260101;
 const {
+  AIRPORT_COLOR,
   APPROACH_DISTANCE,
   APPROACH_HEIGHT,
   APPROACH_SPEED,
+  LANDMARK_COLOR,
   LANDMARKS,
   VIEW_CLEARANCE,
   VIEW_DISTANCE,
@@ -66,6 +68,15 @@ check(
 check(
   'a tap by any place picks it, not another',
   LANDMARKS.every((l) => nearestLandmark(l.x + 10, l.z - 10, 1e9) === l)
+);
+const airportNames = new Set(ChillFlightLogic.AIRPORTS.map((a) => a.name));
+check(
+  'airports share one pin color and landmarks share another',
+  AIRPORT_COLOR !== LANDMARK_COLOR &&
+    LANDMARKS.every(
+      (l) =>
+        l.color === (airportNames.has(l.name) ? AIRPORT_COLOR : LANDMARK_COLOR)
+    )
 );
 
 const problems = [];
