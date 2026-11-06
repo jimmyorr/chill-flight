@@ -20,6 +20,9 @@ import {mergeAsset, POLYFORK_SCALE} from './boat-models.js';
 // fluted buttressed trunk and feathery sprays) is 20 m tall as built; scaled
 // by 2.1 it stands ~42 units tall, matching tallDeciduous.
 const CYPRESS_SCALE = 2.1;
+// Extra-large twisted dead oak landmark in the swamp (~272 units tall,
+// comparable to the 270-unit peak height of the rock arch).
+const GIANT_SWAMP_OAK_SCALE = 39;
 
 function buildCattailClumpAsset() {
   const group = new THREE.Group();
@@ -97,6 +100,18 @@ export function buildSwampGeos() {
       }),
       0.2,
       POLYFORK_SCALE
+    ),
+    // Extra-large twisted dead oak landmark (~272 units tall) in the heart of the swamp
+    swampGiantOak: mergeAsset(
+      deadOak.createAsset({
+        colorway: 'storm-brown',
+        gnarl: 0.9,
+        spread: 1.2,
+        knothole: true,
+        roots: 7,
+      }),
+      0.12,
+      GIANT_SWAMP_OAK_SCALE
     ),
     // Standing dead conifer snag with moss cushions and stub-fork ferns
     swampSnag: mergeAsset(

@@ -3211,7 +3211,29 @@ export function generateChunkData({
           } else {
             if (cherryNoise > 0.65) {
               const groveRoll = rng();
-              if (groveRoll < 0.25) {
+              if (swampFactor > 0.35) {
+                const gx = Math.round(worldX / gridSpacing);
+                const gz = Math.round(worldZ / gridSpacing);
+                const hPick = fieldHash(gx + t * 17, gz + t * 31, 503);
+                swampTreePositions.push({
+                  type:
+                    hPick < 0.34
+                      ? 'swampCypressMoss'
+                      : hPick < 0.64
+                        ? 'swampCypress'
+                        : hPick < 0.86
+                          ? 'swampTupelo'
+                          : hPick < 0.94
+                            ? 'swampDeadOak'
+                            : 'swampSnag',
+                  x: treeSpot.x,
+                  y: treeSpot.y - 0.3,
+                  z: treeSpot.z,
+                  size:
+                    treeSpot.size * (0.95 + 0.25 * fieldHash(gx, gz, 509 + t)),
+                  rotY: fieldHash(gx, gz, 521 + t) * Math.PI * 2,
+                });
+              } else if (groveRoll < 0.25) {
                 japaneseMapleTreePositions.push(treeSpot);
               } else if (groveRoll < 0.45) {
                 sculptedPineTreePositions.push(treeSpot);
@@ -5406,6 +5428,59 @@ export function generateChunkData({
         }
       }
     }
+  }
+
+  // Unmarked giant twisted dead oak landmark in the heart of the swamp
+  // (~272 units tall, comparable to the height of the rock arch), seeded
+  // once per world between the 1.0 West and 3.0 West highways.
+  const giantOakRng = ChillFlightLogic.mulberry32(
+    (ChillFlightLogic.WORLD_SEED ^ 0x57a490a4) >>> 0
+  );
+  const giantOakTargetX = -11200 + giantOakRng() * 2600;
+  const giantOakTargetZ = 7800 + giantOakRng() * 1400;
+  const giantOakChunkX = Math.round(giantOakTargetX / chunkSize);
+  const giantOakChunkZ = Math.round(giantOakTargetZ / chunkSize);
+  if (
+    chunkX === giantOakChunkX &&
+    chunkZ === giantOakChunkZ &&
+    _enableObjects
+  ) {
+    const localOakX = giantOakTargetX - worldOffsetX;
+    const localOakZ = giantOakTargetZ - worldOffsetZ;
+    const clearR2 = 95 * 95;
+    const clearGiantOak = (arr) => {
+      let kept = 0;
+      for (const p of arr) {
+        const dx = p.x - localOakX;
+        const dz = p.z - localOakZ;
+        if (dx * dx + dz * dz >= clearR2) arr[kept++] = p;
+      }
+      arr.length = kept;
+    };
+    [
+      swampTreePositions,
+      swampReedPositions,
+      swampLilyPadPositions,
+      swampLogPositions,
+      treePositions,
+      deciduousTreePositions,
+      tallDeciduousTreePositions,
+      deadTreePositions,
+      bushPositions,
+      rockPositions,
+    ].forEach(clearGiantOak);
+    const oakGroundY = Math.max(
+      WATER_LEVEL - 1.5,
+      getElevation(giantOakTargetX, giantOakTargetZ, elevParams)
+    );
+    swampTreePositions.push({
+      type: 'swampGiantOak',
+      x: localOakX,
+      y: oakGroundY,
+      z: localOakZ,
+      rotY: giantOakRng() * Math.PI * 2,
+      size: 1,
+    });
   }
 
   // Instance collector for global instances

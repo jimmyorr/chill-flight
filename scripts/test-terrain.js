@@ -907,6 +907,24 @@ console.log(
     console.error('FAIL: suburban houses or barns spawned inside deep swamp');
     process.exit(1);
   }
+  const giantOakRng = L.mulberry32((20260101 ^ 0x57a490a4) >>> 0);
+  const giantOakX = -11200 + giantOakRng() * 2600;
+  const giantOakZ = 7800 + giantOakRng() * 1400;
+  const {result: oakChunk} = generateChunkData({
+    chunkX: Math.round(giantOakX / 1500),
+    chunkZ: Math.round(giantOakZ / 1500),
+    chunkSize: 1500,
+    segments: 40,
+    elevParams,
+    worldSeed: 20260101,
+    enableObjects: true,
+  });
+  if (oakChunk.instanceData.swampGiantOak?.count !== 1) {
+    console.error(
+      `FAIL: expected 1 swampGiantOak in target swamp chunk, got ${oakChunk.instanceData.swampGiantOak?.count || 0}`
+    );
+    process.exit(1);
+  }
 }
 console.log('  Passed: Swamp biome basin and bayou props');
 

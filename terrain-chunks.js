@@ -1055,6 +1055,14 @@ for (const type of ['swampDeadOak', 'swampSnag', 'swampLog', 'swampStump']) {
   globalInstancer.registerType(type, swampGeos[type], boatMat, 6000);
   globalInstancer.setFarGeometry(type, null);
 }
+// Unmarked giant twisted dead oak in the swamp (~272 units tall): kept in
+// sight at full distance like the landmark towers
+globalInstancer.registerType(
+  'swampGiantOak',
+  swampGeos.swampGiantOak,
+  boatMat,
+  16
+);
 for (const type of ['swampReeds', 'swampCattails']) {
   globalInstancer.registerType(type, swampGeos[type], boatMat, 16000);
   globalInstancer.setFarGeometry(type, null);
