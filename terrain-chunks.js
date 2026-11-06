@@ -689,7 +689,7 @@ class GlobalInstanceManager {
             };
             tiles.set(meshKey, tile);
           }
-          tile.parts.push({data, share});
+          tile.parts.push({data, share, tinted: typeInfo.useColor});
           tile.count += data.count;
         }
       }
@@ -750,7 +750,7 @@ class GlobalInstanceManager {
               tile.geo
             );
             let n = 0;
-            for (const {data, share} of tile.parts) {
+            for (const {data, share, tinted} of tile.parts) {
               data._tileMesh = mesh;
               data._tileSlot = n;
               syncDrawnAt(data);
@@ -801,7 +801,9 @@ class GlobalInstanceManager {
                     m2 * tx + m6 * ty + m10 * tz + srcM[so + 14];
                   dstM[doff + 15] = srcM[so + 15];
                   const co = (n + i) * 3;
-                  if (srcC) {
+                  // Types drawn without instance colours (trunks) leave
+                  // theirs at 0: those take the species colour alone
+                  if (tinted) {
                     const sco = i * 3;
                     dstC[co] = srcC[sco] * cr;
                     dstC[co + 1] = srcC[sco + 1] * cg;
