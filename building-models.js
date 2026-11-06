@@ -21,6 +21,7 @@ import * as campTent from './third-party/polyfork/camp-tent-3c5c89.mjs';
 import * as pierSection from './third-party/polyfork/pier-deck-section-7047d7.mjs';
 import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
 import * as dragonSkeleton from './third-party/polyfork/dragon-skeleton-88de43.mjs';
+import * as dinosaurSkull from './third-party/polyfork/dinosaur-skull-4c3a3c.mjs';
 
 export const buildingMat = createMaterial({
   vertexColors: true,
@@ -131,10 +132,46 @@ export function buildPierGeo() {
 const GARDEN_SHED_SCALE = 1.8;
 // Big enough to live in among the eastern groves' giant mushrooms
 const MUSHROOM_COTTAGE_SCALE = 18;
+// Giant fossil skulls half-buried in the south-west desert: Polyfork's
+// Dinosaur Skull in its three species (Tyrannosaurus rex, Triceratops and
+// Camarasaurus sauropod), scaled so each reads across the dunes.
+export const DINO_SKULL_SPECIES = ['rex', 'triceratops', 'sauropod'];
+export const DINO_SKULL_COLORWAYS = [
+  'weathered',
+  'bleached',
+  'river-stained',
+  'tar-soaked',
+];
+const DINO_SKULL_SCALES = {rex: 12, triceratops: 10, sauropod: 16};
+export function dinoSkullGeo(species = 'rex', colorway = 'bleached') {
+  return mergeAsset(
+    dinosaurSkull.createAsset({species, colorway, climate: 'dry'}),
+    0,
+    DINO_SKULL_SCALES[species] || 12
+  );
+}
 const LANDMARKS = {
   fireLookout: [fireLookout, {colorway: 'sun-bleached', height: 1.18}, S, null],
   waterTower: [waterTower, {colorway: 'turquoise'}, S, null],
   windpump: [windpump, {colorway: 'weathered-pine'}, S, null],
+  dinoSkull0: [
+    dinosaurSkull,
+    {species: 'rex', colorway: 'bleached', climate: 'dry'},
+    DINO_SKULL_SCALES.rex,
+    null,
+  ],
+  dinoSkull1: [
+    dinosaurSkull,
+    {species: 'triceratops', colorway: 'weathered', climate: 'dry'},
+    DINO_SKULL_SCALES.triceratops,
+    null,
+  ],
+  dinoSkull2: [
+    dinosaurSkull,
+    {species: 'sauropod', colorway: 'river-stained', climate: 'dry'},
+    DINO_SKULL_SCALES.sauropod,
+    null,
+  ],
   beachHut0: [beachHut, {colorway: 'mint'}, S, 'roof'],
   beachHut1: [beachHut, {colorway: 'coral'}, S, 'roof'],
   beachHut2: [beachHut, {colorway: 'sky'}, S, 'roof'],
@@ -197,7 +234,14 @@ const LANDMARKS = {
   ],
 };
 // Types toppled whole (the rest are houses)
-export const LANDMARK_TOWERS = ['fireLookout', 'waterTower', 'windpump'];
+export const LANDMARK_TOWERS = [
+  'fireLookout',
+  'waterTower',
+  'windpump',
+  'dinoSkull0',
+  'dinoSkull1',
+  'dinoSkull2',
+];
 // The houses placed so far (terrain-gen.js LANDMARK_RULES)
 export const LANDMARK_HOUSES = [
   'beachHut0',

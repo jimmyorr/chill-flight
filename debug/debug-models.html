@@ -213,6 +213,9 @@
         Crystal cluster
       </button>
       <button class="model-btn" onclick="viewModel('rock', event)">Rock</button>
+      <button class="model-btn" onclick="viewModel('dinosaur_skull', event)">
+        Dinosaur skull
+      </button>
       <button class="model-btn" onclick="viewModel('lily_pad', event)">
         Lily pad
       </button>
@@ -437,10 +440,12 @@
       import {
         buildLandmarkGeos,
         buildingMat,
+        DINO_SKULL_COLORWAYS,
+        DINO_SKULL_SPECIES,
+        dinoSkullGeo,
         DRAGON_COLORWAYS,
         dragonSkeletonGeo,
         LANDMARK_HOUSES,
-        LANDMARK_TOWERS,
       } from '../building-models.js';
       import {createTwinModel, setGearExtension} from '../twin.js';
       import {createBuggyModel, setBuggyHoverFold} from '../buggy-model.js';
@@ -1007,10 +1012,27 @@
             case 'landmark_towers': {
               // Fire lookout, water tower and windpump side by side at the
               // game's scale (building-models.js)
-              const geos = Object.values(buildLandmarkGeos(LANDMARK_TOWERS));
+              const geos = Object.values(
+                buildLandmarkGeos(['fireLookout', 'waterTower', 'windpump'])
+              );
               geos.forEach((geo, i) => {
                 const m = new THREE.Mesh(geo, buildingMat);
                 m.position.x = (i - (geos.length - 1) / 2) * 20;
+                previewGroup.add(m);
+              });
+              break;
+            }
+            case 'dinosaur_skull': {
+              // Rex, Triceratops and Sauropod skulls side by side at the
+              // game's scale (colour button cycles their bone schemes)
+              const colorway =
+                DINO_SKULL_COLORWAYS[colorSeed % DINO_SKULL_COLORWAYS.length];
+              DINO_SKULL_SPECIES.forEach((species, i) => {
+                const m = new THREE.Mesh(
+                  dinoSkullGeo(species, colorway),
+                  buildingMat
+                );
+                m.position.x = (i - (DINO_SKULL_SPECIES.length - 1) / 2) * 20;
                 previewGroup.add(m);
               });
               break;

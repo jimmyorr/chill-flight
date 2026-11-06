@@ -265,9 +265,11 @@ const LANDMARK_RULES = {
   fishShack: {chance: 0.5, clear: 11, flat: 4},
   farmhouse: {chance: 0.7, clear: 13, flat: 4},
   mushroomCottage: {chance: 0.03, clear: 30, flat: 6},
+  dinoSkull: {chance: 0.0012, clear: 14, flat: 3.5, tower: true},
   // Placed behind the houses after the rest (GARDEN_SHED_*)
   gardenShed: {chance: 0, clear: 0, flat: 0},
 };
+const DINO_SKULL_LOOKS = 3;
 // How many village houses have a garden shed, how far behind the house's
 // middle it stands, and how far round it the trees are cleared (units)
 const GARDEN_SHED_CHANCE = 0.25;
@@ -3791,11 +3793,31 @@ export function generateChunkData({
         ) < 0.25
       ) {
         type = 'rangerStation';
+      } else if (
+        worldX < -5000 &&
+        worldZ > 10000 &&
+        height > sandMaxHeight + 3 &&
+        height < MOUNTAIN_LEVEL - 50 &&
+        desertFactor > 0.5 &&
+        villageNoise < 0.25 &&
+        slopeFactor < 0.18
+      ) {
+        const skullRoll = fieldHash(gx, gz, 1361) / densityScale;
+        if (skullRoll < LANDMARK_RULES.dinoSkull.chance) {
+          type =
+            'dinoSkull' +
+            Math.min(
+              DINO_SKULL_LOOKS - 1,
+              Math.floor(
+                (skullRoll / LANDMARK_RULES.dinoSkull.chance) * DINO_SKULL_LOOKS
+              )
+            );
+        }
       }
       if (type) {
         landmarkPositions.push({
           type,
-          rule: type,
+          rule: type.startsWith('dinoSkull') ? 'dinoSkull' : type,
           group: landmarkPositions.length,
           x: localX,
           y: height,
@@ -4863,6 +4885,7 @@ export function generateChunkData({
       castleRuinsPositions,
       rockArchPositions,
       rockArchGrassPositions,
+      landmarkPositions,
     ].forEach(keepOffPyramids);
   }
 

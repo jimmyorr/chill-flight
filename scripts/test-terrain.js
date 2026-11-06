@@ -791,10 +791,67 @@ console.log(
       }
     }
   }
+  // Rare dinosaur skulls in the south-west desert (X < -5000, Z > 10000)
+  const skullTypes = ['dinoSkull0', 'dinoSkull1', 'dinoSkull2'];
+  const skullCounts = {dinoSkull0: 0, dinoSkull1: 0, dinoSkull2: 0};
+  let totalSkulls = 0;
+  for (let cx = -12; cx <= -5; cx++) {
+    for (let cz = 9; cz <= 14; cz++) {
+      const {result} = generateChunkData({
+        chunkX: cx,
+        chunkZ: cz,
+        chunkSize: 1500,
+        segments: 40,
+        elevParams,
+        worldSeed: seed,
+        enableObjects: true,
+      });
+      for (const type of skullTypes) {
+        const d = result.instanceData[type];
+        if (!d) continue;
+        for (let i = 0; i < d.count; i++) {
+          const x = d.matrices[i * 16 + 12];
+          const y = d.matrices[i * 16 + 13];
+          const z = d.matrices[i * 16 + 14];
+          if (x >= -5000 || z <= 10000) {
+            console.error(
+              `FAIL: ${type} outside south-west desert at X=${x.toFixed(0)}, Z=${z.toFixed(0)}`
+            );
+            process.exit(1);
+          }
+          if (y <= elevParams.WATER_LEVEL) {
+            console.error(
+              `FAIL: ${type} underwater at X=${x.toFixed(0)}, Z=${z.toFixed(0)} (y=${y.toFixed(1)})`
+            );
+            process.exit(1);
+          }
+          if (L.highwayDistance(x, z) < L.ROAD_WIDTH + 10) {
+            console.error(
+              `FAIL: ${type} on highway at X=${x.toFixed(0)}, Z=${z.toFixed(0)}`
+            );
+            process.exit(1);
+          }
+          skullCounts[type]++;
+          totalSkulls++;
+        }
+      }
+    }
+  }
+  if (
+    totalSkulls < 3 ||
+    !skullCounts.dinoSkull0 ||
+    !skullCounts.dinoSkull1 ||
+    !skullCounts.dinoSkull2
+  ) {
+    console.error(
+      `FAIL: expected all three dinosaur skull species in south-west desert, got ${JSON.stringify(skullCounts)}`
+    );
+    process.exit(1);
+  }
   useSeed(20260101);
 }
 console.log(
-  '  Passed: Nothing grows or stands on the pyramids or the dragon skeleton'
+  '  Passed: Nothing grows or stands on the pyramids or the dragon skeleton, and dinosaur skulls spawn in the south-west desert'
 );
 
 console.log('All terrain invariant tests passed successfully!');
