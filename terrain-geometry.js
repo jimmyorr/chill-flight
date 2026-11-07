@@ -666,11 +666,11 @@ waterMaterial.onBeforeCompile = function (shader) {
           reefColor = mix(reefColor, mix(vec3(0.9, 0.55, 0.52), vec3(0.88, 0.78, 0.45), step(0.5, noise(rp * 0.09 - 2.0))), spot);
           halo *= smoothstep(0.7, 1.6, vWaterDepth);
           float lum = max(max(waterLit.r, waterLit.g), waterLit.b);
-          gl_FragColor.rgb = mix(gl_FragColor.rgb, min(gl_FragColor.rgb * 1.25 + 0.06, vec3(1.0)), halo * 0.4 * min(1.0, reefAmount * 2.0));
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, min(gl_FragColor.rgb * 1.25 + 0.06, vec3(1.0)), halo * 0.33 * min(1.0, reefAmount * 2.0));
           // Muted toward the water's own colour, under the water's tint
-          reefColor = mix(reefColor, waterLit * vec3(0.55, 0.85, 0.85), 0.25);
-          gl_FragColor.rgb = mix(gl_FragColor.rgb, reefColor * lum * 1.15, coral * 0.62);
-          gl_FragColor.a = max(gl_FragColor.a, coral * 0.7);
+          reefColor = mix(reefColor, waterLit * vec3(0.55, 0.85, 0.85), 0.32);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, reefColor * lum * 1.15, coral * 0.54);
+          gl_FragColor.a = max(gl_FragColor.a, coral * 0.62);
         }
 
         // Add macro-scale spatial variation to break up monotony across different water bodies
