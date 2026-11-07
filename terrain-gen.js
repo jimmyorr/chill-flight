@@ -266,6 +266,11 @@ const LANDMARK_RULES = {
   windpump: {chance: 0.004, clear: 9, flat: 4, tower: true},
   beachHut: {chance: 0.01, clear: 11, flat: 3},
   rangerStation: {chance: 0.007, clear: 22, flat: 5},
+  // Log cabins in some squares of the woods (CABIN_CELL), thatched
+  // cottages on the edges of the farm villages, cottages by the highways
+  logCabin: {chance: 0.02, clear: 16, flat: 4},
+  thatchedCottage: {chance: 0.004, clear: 12, flat: 3},
+  roadCottage: {chance: 0.02, clear: 14, flat: 3},
   leanTo: {chance: 0.4, clear: 7, flat: 4},
   trailer: {chance: 0.4, clear: 9, flat: 4, tower: true},
   fishShack: {chance: 0.5, clear: 11, flat: 4},
@@ -315,6 +320,10 @@ const BEACH_HUT_LOOKS = 4;
 const BEACH_HUT_STEP = 19;
 // Ranger stations stand only in some squares this big (units)
 const RANGER_CELL = 3000;
+// Log cabins stand only in some squares this big (units), and roadside
+// cottages this far from the highway's middle (units, past its edge)
+const CABIN_CELL = 2500;
+const ROAD_COTTAGE_BACK = [30, 70];
 // A fire lookout's spot must be this much higher than the ground this far
 // round it on every side (units): the top of a ridge
 const LOOKOUT_RIDGE_REACH = 150;
@@ -4016,6 +4025,8 @@ export function generateChunkData({
       const gz = Math.round(worldZ / gridSpacing);
       const roll = fieldHash(gx, gz, 1201) / densityScale;
       let type = null;
+      // A roadside cottage's way to the road
+      let roadFacing = 0;
       if (
         isForest &&
         snowFactor < 0.4 &&
@@ -4079,6 +4090,66 @@ export function generateChunkData({
       ) {
         type = 'rangerStation';
       } else if (
+        height > sandMaxHeight + 3 &&
+        isForest &&
+        villageNoise < 0 &&
+        // Not among the palms (tropical islands, the warm east coast)
+        !(
+          worldX > 3000 &&
+          worldZ > -5000 &&
+          ChillFlightLogic.getBiome(worldX, worldZ, simplex) < -0.1
+        ) &&
+        eastCoastFactor < 0.5 &&
+        snowFactor < 0.6 &&
+        desertFactor < 0.2 &&
+        swampFactor < 0.2 &&
+        slopeFactor < 0.12 &&
+        height < treeLine - TREE_LINE_FADE &&
+        roll < LANDMARK_RULES.logCabin.chance &&
+        fireHash(
+          Math.floor(worldX / CABIN_CELL),
+          Math.floor(worldZ / CABIN_CELL),
+          1381
+        ) < 0.6
+      ) {
+        type = 'logCabin' + (fireHash(gx, gz, 1383) < 0.5 ? 0 : 1);
+      } else if (
+        height > sandMaxHeight + 3 &&
+        farm > 0 &&
+        villageNoise > 0.15 &&
+        villageNoise < 0.42 &&
+        snowFactor < 0.2 &&
+        desertFactor < 0.2 &&
+        swampFactor < 0.2 &&
+        slopeFactor < 0.12 &&
+        roll < LANDMARK_RULES.thatchedCottage.chance
+      ) {
+        type = 'thatchedCottage';
+      } else if (
+        height > sandMaxHeight + 3 &&
+        snowFactor < 0.4 &&
+        desertFactor < 0.3 &&
+        swampFactor < 0.2 &&
+        slopeFactor < 0.12 &&
+        roll < LANDMARK_RULES.roadCottage.chance
+      ) {
+        const d = ChillFlightLogic.highwayDistance(worldX, worldZ);
+        const edge = ChillFlightLogic.ROAD_WIDTH;
+        if (
+          d > edge + ROAD_COTTAGE_BACK[0] &&
+          d < edge + ROAD_COTTAGE_BACK[1]
+        ) {
+          // Facing the road: down the slope of the distance to it
+          const gxd =
+            ChillFlightLogic.highwayDistance(worldX + 4, worldZ) -
+            ChillFlightLogic.highwayDistance(worldX - 4, worldZ);
+          const gzd =
+            ChillFlightLogic.highwayDistance(worldX, worldZ + 4) -
+            ChillFlightLogic.highwayDistance(worldX, worldZ - 4);
+          roadFacing = Math.atan2(-gxd, -gzd);
+          type = 'roadCottage';
+        }
+      } else if (
         worldX < -5000 &&
         worldZ > 10000 &&
         height > sandMaxHeight + 3 &&
@@ -4129,7 +4200,7 @@ export function generateChunkData({
       if (type) {
         landmarkPositions.push({
           type,
-          rule: type.startsWith('dinoSkull') ? 'dinoSkull' : type,
+          rule: type.replace(/\d+$/, ''),
           group: landmarkPositions.length,
           x: localX,
           y: height,
@@ -4140,7 +4211,9 @@ export function generateChunkData({
               ? WINDMILL_ROT_Y
               : type === 'waterMill'
                 ? millRotY
-                : fieldHash(gx, gz, 1203) * Math.PI * 2,
+                : type === 'roadCottage'
+                  ? roadFacing
+                  : fieldHash(gx, gz, 1203) * Math.PI * 2,
           bank: type === 'waterMill',
           look: fieldHash(gx, gz, 1207),
         });

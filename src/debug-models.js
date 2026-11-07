@@ -792,6 +792,26 @@ function viewModel(type, e, colorSeed = 0) {
         });
         break;
       }
+      case 'cabins_cottages': {
+        // Log cabins and cottages, walls and roof, side by side at the
+        // game's scale (a farmhouse for scale)
+        const types = [
+          'logCabin0',
+          'logCabin1',
+          'thatchedCottage',
+          'roadCottage',
+          'farmhouse0',
+        ];
+        const geos = buildLandmarkGeos(types);
+        types.forEach((type, i) => {
+          for (const part of ['Body', 'Roof']) {
+            const m = new THREE.Mesh(geos[type + part], buildingMat);
+            m.position.x = (i - (types.length - 1) / 2) * 34;
+            previewGroup.add(m);
+          }
+        });
+        break;
+      }
       case 'landmark_houses': {
         // Walls and roof of each, side by side at the game's scale
         // (building-models.js)

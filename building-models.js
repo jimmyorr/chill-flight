@@ -25,6 +25,10 @@ import * as rvTrailer from './third-party/polyfork/rv-travel-trailer-bd53d7.mjs'
 import * as waterMill from './third-party/polyfork/water-mill-b31972.mjs';
 import * as villageTavern from './third-party/polyfork/village-tavern-4e94e3.mjs';
 import * as coveTavern from './third-party/polyfork/cove-tavern-5861a6.mjs';
+import * as logCabin from './third-party/polyfork/log-cabin-4fac3b.mjs';
+import * as porchLogCabin from './third-party/polyfork/porch-log-cabin-d2f3ef.mjs';
+import * as thatchedCottage from './third-party/polyfork/thatched-cottage-0e63f5.mjs';
+import * as keeperCottage from './third-party/polyfork/crossing-keeper-s-cottage-de49a4.mjs';
 import * as pierSection from './third-party/polyfork/pier-deck-section-7047d7.mjs';
 import * as pierCorner from './third-party/polyfork/pier-deck-corner-c56248.mjs';
 import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
@@ -246,6 +250,18 @@ const LANDMARKS = {
     2.2,
     'tile',
   ],
+  // Log cabins in forest clearings
+  logCabin0: [logCabin, {colorway: 'pine-cabin', shutters: true}, S, 'shingle'],
+  logCabin1: [porchLogCabin, {colorway: 'golden-pine'}, S, 'roof'],
+  // A thatched cottage out on the edge of the farm villages
+  thatchedCottage: [
+    thatchedCottage,
+    {colorway: 'lime-oak', chimney: true},
+    S,
+    'thatch',
+  ],
+  // A roadside cottage beside the highways, facing the road
+  roadCottage: [keeperCottage, {colorway: 'red-brick'}, S, 'slate'],
   // A harbour inn beside some of the piers
   coveTavern: [coveTavern, {colorway: 'weathered-cove'}, S, 'roof'],
   leanTo: [leanTo, {colorway: 'weathered-pine'}, S, 'roof'],
@@ -324,6 +340,10 @@ export const LANDMARK_HOUSES = [
   'waterMill',
   'villageTavern',
   'coveTavern',
+  'logCabin0',
+  'logCabin1',
+  'thatchedCottage',
+  'roadCottage',
   'farmhouse0',
   'farmhouse1',
   'farmhouse2',
