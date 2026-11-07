@@ -37,6 +37,7 @@ import {renderFrame} from './outline-pass.js';
 import {newPropSpin, propSpinTarget, stepPropSpin} from './prop-spin-logic.js';
 import {updatePlaneShadow} from './plane-shadow.js';
 import {performanceMonitor} from './game-performance.js';
+import {updatePerfHud} from './perf-hud.js';
 import {
   DELTA_BUFFER_SIZE,
   _cloudyColor,
@@ -638,6 +639,10 @@ function performFrame() {
   // --- BENCHMARKING LOGIC ---
   updateBenchmarking(delta, frameStartTime);
   updateDebugTelemetry(delta, now, frameStartTime);
+  if (renderer) {
+    const t = performance.now();
+    updatePerfHud(t, t - frameStartTime, renderer);
+  }
 }
 
 function updateDebugTelemetry(delta, now, frameStartTime) {

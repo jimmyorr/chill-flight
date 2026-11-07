@@ -174,6 +174,8 @@ export const ChillFlightLogic = {};
   const TRAFFIC_PARAM = getSwitchParam('traffic');
   // ?weightedRoll=0/1: the weighted roll off or on (game-loop.js)
   const WEIGHTED_ROLL_PARAM = getSwitchParam('weightedRoll');
+  // ?perf=1: one-line FPS / draw call readout (perf-hud.js)
+  const PERF_HUD = getSwitchParam('perf') === true;
   // Flying together (multiplayer.js): ?room= a room code to join (an invite
   // link), ?relay= a relay to use instead of the game's own (local testing)
   const ROOM_PARAM = getParam('room', null);
@@ -6059,6 +6061,7 @@ export const ChillFlightLogic = {};
   exports.ADAPTIVE_QUALITY = ADAPTIVE_QUALITY;
   exports.TRAFFIC_PARAM = TRAFFIC_PARAM;
   exports.WEIGHTED_ROLL_PARAM = WEIGHTED_ROLL_PARAM;
+  exports.PERF_HUD = PERF_HUD;
   exports.ROOM_PARAM = ROOM_PARAM;
   exports.RELAY_PARAM = RELAY_PARAM;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;

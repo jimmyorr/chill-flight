@@ -41,6 +41,7 @@ import '../swamp-models.js';
 import '../plane-shadow.js';
 import '../waterfalls.js';
 import '../game-performance.js';
+import '../perf-hud.js';
 import '../terrain-chunks.js';
 import '../far-terrain.js';
 import '../airports.js';
