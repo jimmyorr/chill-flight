@@ -1214,6 +1214,10 @@ houseWindowMats.forEach((mat, i) => {
 const shadowBox = (geo) => fitToBounds(new THREE.BoxGeometry(2, 2, 2), geo); // 12 triangles
 const shadowCylinder = (geo) =>
   fitToBounds(new THREE.CylinderGeometry(1, 1, 2, 8, 1, true), geo); // 16 triangles
+// A round roof (straw hut, silo dome): a cone, closed on top unlike the
+// open-ended cylinder, which looks hollow from above far away (16 triangles)
+const shadowCone = (geo) =>
+  fitToBounds(new THREE.ConeGeometry(1, 2, 8, 1, false), geo);
 // A gable roof: a box whose top edges meet along the longer side (8 triangles)
 const shadowGable = (geo) => {
   geo.computeBoundingBox();
@@ -1254,7 +1258,9 @@ for (const [type, geo, mat, round] of [
   globalInstancer.registerType(type, geo, mat);
   if (round !== null) {
     const proxy = round
-      ? shadowCylinder(geo)
+      ? type.endsWith('Roof')
+        ? shadowCone(geo)
+        : shadowCylinder(geo)
       : type.endsWith('Roof')
         ? shadowGable(geo)
         : shadowBox(geo);
