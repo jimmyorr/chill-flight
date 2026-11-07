@@ -343,6 +343,31 @@ const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = true;
 
 // How alien (ChillFlightLogic.alienAt) the land must be for alien props
+// A swamp tree standing where a forest tree would (pick by a hash of the
+// spot, like the swamp groves)
+function swampTreeFrom(spot, worldX, worldZ, gridSpacing, t) {
+  const gx = Math.round(worldX / gridSpacing);
+  const gz = Math.round(worldZ / gridSpacing);
+  const hPick = fieldHash(gx + t * 17, gz + t * 31, 503);
+  return {
+    type:
+      hPick < 0.34
+        ? 'swampCypressMoss'
+        : hPick < 0.64
+          ? 'swampCypress'
+          : hPick < 0.86
+            ? 'swampTupelo'
+            : hPick < 0.94
+              ? 'swampDeadOak'
+              : 'swampSnag',
+    x: spot.x,
+    y: spot.y - 0.3,
+    z: spot.z,
+    size: spot.size * (0.95 + 0.25 * fieldHash(gx, gz, 509 + t)),
+    rotY: fieldHash(gx, gz, 521 + t) * Math.PI * 2,
+  };
+}
+
 // Share of swamp trees not placed (see the swamp tree loop below)
 const SWAMP_TREE_THINNING = 0.33;
 
@@ -3154,7 +3179,13 @@ export function generateChunkData({
           const isSouthOf1N = worldZ > -5000;
 
           if (distToVolcano < 3000 && rng() < 0.7) {
-            yellowCortezTreePositions.push(treeSpot);
+            if (swampFactor > 0.35) {
+              swampTreePositions.push(
+                swampTreeFrom(treeSpot, worldX, worldZ, gridSpacing, t)
+              );
+            } else {
+              yellowCortezTreePositions.push(treeSpot);
+            }
           } else if (
             isIsland &&
             isSouthOf1N &&
@@ -3192,7 +3223,14 @@ export function generateChunkData({
                 treeSpot.color = 0xf2f2f2;
               }
             }
-            snowTreePositions.push(treeSpot);
+            if (swampFactor > 0.35 && snowFactor < 0.3) {
+              // No pines in the bayou: a swamp tree instead
+              swampTreePositions.push(
+                swampTreeFrom(treeSpot, worldX, worldZ, gridSpacing, t)
+              );
+            } else {
+              snowTreePositions.push(treeSpot);
+            }
           } else if (desertFactor > 0.6) {
             // Joshua trees, and the odd bare snag among them
             if (rng() < JOSHUA_SHARE) {
