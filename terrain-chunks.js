@@ -1472,6 +1472,10 @@ for (const [type, canopyHex, barkHex] of [
   globalInstancer.setFarGeometry(type, farSwamp, screenSized);
   globalInstancer.setShadowGeometry(type, farSwamp);
 }
+// Reeds, cattails, lily pads, logs and stumps are 5-14 units and 600-1,000
+// triangles each, and the swamp is thick with them: drawn only this many
+// chunks out (a 5-unit reed clump is ~2 pixels at 1.5 km on a phone)
+const SWAMP_SMALL_PROP_RADIUS = 1;
 for (const type of ['swampDeadOak', 'swampSnag', 'swampLog', 'swampStump']) {
   const castsShadow = type !== 'swampStump';
   globalInstancer.registerType(
@@ -1482,7 +1486,15 @@ for (const type of ['swampDeadOak', 'swampSnag', 'swampLog', 'swampStump']) {
     false,
     castsShadow
   );
-  globalInstancer.setFarGeometry(type, null);
+  // Small deadwood (~700-900 triangles each) only in the plane's chunk and the
+  // ring around it; the tall dead oaks and snags are a trunk shape past the
+  // detail radius instead
+  const tall = type === 'swampDeadOak' || type === 'swampSnag';
+  globalInstancer.setFarGeometry(
+    type,
+    tall ? farTrunk(swampGeos[type]) : null,
+    tall ? screenSized : {farRadius: SWAMP_SMALL_PROP_RADIUS}
+  );
   if (castsShadow) {
     globalInstancer.setShadowGeometry(
       type,
@@ -1513,7 +1525,9 @@ for (const type of ['swampReeds', 'swampCattails']) {
     false,
     false
   );
-  globalInstancer.setFarGeometry(type, null);
+  globalInstancer.setFarGeometry(type, null, {
+    farRadius: SWAMP_SMALL_PROP_RADIUS,
+  });
 }
 globalInstancer.registerType(
   'swampLilyPads',
@@ -1523,7 +1537,9 @@ globalInstancer.registerType(
   false,
   false
 );
-globalInstancer.setFarGeometry('swampLilyPads', null);
+globalInstancer.setFarGeometry('swampLilyPads', null, {
+  farRadius: SWAMP_SMALL_PROP_RADIUS,
+});
 globalInstancer.setFarGeometry('snowmanNose', null);
 // Town streets: flat, so they cast no shadow
 globalInstancer.registerType(
