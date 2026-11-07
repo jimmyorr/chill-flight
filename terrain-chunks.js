@@ -1381,10 +1381,15 @@ const shareFarCanopy = (type, geo) => {
   });
   return farGeo;
 };
-const shareFarTrunk = (type, geo) => {
+// `mat`: the trunk's material, for its colour when the model has no vertex
+// colours of its own (Joshua trees, mushroom stalks)
+const shareFarTrunk = (type, geo, mat = null) => {
   const farGeo = farTrunk(geo);
   const h = geo.boundingBox.max.y * 0.75;
-  const [cr, cg, cb] = geometryAverageColor(geo);
+  const [cr, cg, cb] =
+    mat && !geo.attributes.color
+      ? [mat.color.r, mat.color.g, mat.color.b]
+      : geometryAverageColor(geo);
   globalInstancer.setFarGeometry(type, farGeo, {
     screenSized: true,
     farShare: {
@@ -1496,11 +1501,12 @@ for (const type of ['swampDeadOak', 'swampSnag', 'swampLog', 'swampStump']) {
   // ring around it; the tall dead oaks and snags are a trunk shape past the
   // detail radius instead
   const tall = type === 'swampDeadOak' || type === 'swampSnag';
-  globalInstancer.setFarGeometry(
-    type,
-    tall ? farTrunk(swampGeos[type]) : null,
-    tall ? screenSized : {farRadius: SWAMP_SMALL_PROP_RADIUS}
-  );
+  if (tall) shareFarTrunk(type, swampGeos[type]);
+  else {
+    globalInstancer.setFarGeometry(type, null, {
+      farRadius: SWAMP_SMALL_PROP_RADIUS,
+    });
+  }
   if (castsShadow) {
     globalInstancer.setShadowGeometry(
       type,
@@ -1587,16 +1593,21 @@ globalInstancer.setShadowGeometry(
   'tallDecidLeaves',
   globalInstancer.types.get('tallDecidLeaves').farGeo
 );
-// Joshua trees and giant mushrooms cast with simple shapes and draw as them
-// far away, like the other trees
+// Joshua trees and giant mushrooms cast with simple shapes and, far away,
+// join the shared far trunk and canopy meshes like the other trees
 for (const [type, proxy] of [
-  ['joshuaTrunk', farTrunk(joshuaGeos.trunk)],
-  ['joshuaLeaves', farCanopy(joshuaGeos.leaves)],
-  ['mushroomStalk', farTrunk(mushroomGeos.trunk)],
-  ['mushroomCap', farCanopy(mushroomGeos.leaves)],
+  [
+    'joshuaTrunk',
+    shareFarTrunk('joshuaTrunk', joshuaGeos.trunk, joshuaTrunkMat),
+  ],
+  ['joshuaLeaves', shareFarCanopy('joshuaLeaves', joshuaGeos.leaves)],
+  [
+    'mushroomStalk',
+    shareFarTrunk('mushroomStalk', mushroomGeos.trunk, mushroomStalkMat),
+  ],
+  ['mushroomCap', shareFarCanopy('mushroomCap', mushroomGeos.leaves)],
 ]) {
   globalInstancer.setShadowGeometry(type, proxy);
-  globalInstancer.setFarGeometry(type, proxy, screenSized);
 }
 for (const [prefix] of POLYFORK_TREES) {
   globalInstancer.setShadowGeometry(
