@@ -150,9 +150,9 @@ for (const [cx, cz] of [
     if (/^ice/.test(types[0])) {
       ice++;
       if (b.kinds[i] !== BREAKABLE.HOUSE || types.length !== 1) iceOk = false;
-    } else if (types[0] === 'penguinBody') {
+    } else if (types[0] === 'penguin') {
       penguins++;
-      if (b.kinds[i] !== BREAKABLE.CRITTER || types.length !== 8) {
+      if (b.kinds[i] !== BREAKABLE.CRITTER || types.length !== 1) {
         iceOk = false;
       }
     }

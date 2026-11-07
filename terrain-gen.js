@@ -6275,14 +6275,7 @@ export function generateChunkData({
         0
       );
       collector.beginProp(BREAKABLE.CRITTER);
-      collector.add('penguinBody', _matBuffer);
-      collector.add('penguinBelly', _matBuffer);
-      collector.add('penguinHead', _matBuffer);
-      collector.add('penguinBeak', _matBuffer);
-      collector.add('penguinWingL', _matBuffer);
-      collector.add('penguinWingR', _matBuffer);
-      collector.add('penguinFootL', _matBuffer);
-      collector.add('penguinFootR', _matBuffer);
+      collector.add('penguin', _matBuffer);
       collector.endProp();
     });
   }

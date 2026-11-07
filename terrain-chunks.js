@@ -94,6 +94,8 @@ import {
   getInstancedMesh,
   gooseBrownMat,
   gooseStaticGeo,
+  penguinGeo,
+  penguinMat,
   gooseStaticMat,
   gooseWingGeo,
   houseBodyGeo,
@@ -129,17 +131,6 @@ import {
   orchardAppleGeos,
   palmGeos,
   palmSimpleLeavesGeo,
-  penguinBeakGeo,
-  penguinBellyGeo,
-  penguinBlackMat,
-  penguinBodyGeo,
-  penguinFootLGeo,
-  penguinFootRGeo,
-  penguinHeadGeo,
-  penguinOrangeMat,
-  penguinWhiteMat,
-  penguinWingLGeo,
-  penguinWingRGeo,
   persistentLighthouseBeam,
   persistentLighthouseLight,
   pierDeckGeo,
@@ -1165,14 +1156,7 @@ globalInstancer.registerType('snowmanBody', snowmanGeos.body, snowmanBodyMat);
 globalInstancer.registerType('snowmanNose', snowmanGeos.nose, snowmanNoseMat);
 globalInstancer.registerType('iceberg', icebergMainGeo, icebergMat);
 globalInstancer.registerType('iceFloe', iceFloeMainGeo, icebergMat);
-globalInstancer.registerType('penguinBody', penguinBodyGeo, penguinBlackMat);
-globalInstancer.registerType('penguinBelly', penguinBellyGeo, penguinWhiteMat);
-globalInstancer.registerType('penguinHead', penguinHeadGeo, penguinBlackMat);
-globalInstancer.registerType('penguinBeak', penguinBeakGeo, penguinOrangeMat);
-globalInstancer.registerType('penguinWingL', penguinWingLGeo, penguinBlackMat);
-globalInstancer.registerType('penguinWingR', penguinWingRGeo, penguinBlackMat);
-globalInstancer.registerType('penguinFootL', penguinFootLGeo, penguinOrangeMat);
-globalInstancer.registerType('penguinFootR', penguinFootRGeo, penguinOrangeMat);
+globalInstancer.registerType('penguin', penguinGeo, penguinMat);
 globalInstancer.registerType(
   'lilypad',
   lilyPadGeo,
@@ -1513,6 +1497,7 @@ globalInstancer.setFarGeometry('fallenLog', null);
 globalInstancer.setShadowGeometry('fallenLog', shadowBox(fallenLogGeo));
 globalInstancer.setFarGeometry('stump', null);
 globalInstancer.setFarGeometry('seal', null);
+globalInstancer.setFarGeometry('penguin', null);
 globalInstancer.setFarGeometry('buoy', null);
 globalInstancer.setFarGeometry('buoyTop', null);
 globalInstancer.setFarGeometry('sheepWool', null);

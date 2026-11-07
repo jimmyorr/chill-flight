@@ -1821,16 +1821,23 @@ penguinFootLGeo.translate(-0.6, 0.1, 0.4);
 export var penguinFootRGeo = penguinFootGeo.clone();
 penguinFootRGeo.translate(0.6, 0.1, 0.4);
 
-export var penguinBlackMat = createMaterial({
-  color: 0x222222,
-  flatShading: true,
-});
-export var penguinWhiteMat = createMaterial({
+// All of a penguin in one mesh, its parts coloured per vertex: one draw call
+// a tile instead of eight
+export var penguinGeo = mergeBufferGeometries(
+  [
+    [penguinBodyGeo, 0x222222],
+    [penguinBellyGeo, 0xffffff],
+    [penguinHeadGeo, 0x222222],
+    [penguinBeakGeo, 0xffa500],
+    [penguinWingLGeo, 0x222222],
+    [penguinWingRGeo, 0x222222],
+    [penguinFootLGeo, 0xffa500],
+    [penguinFootRGeo, 0xffa500],
+  ].map(([geo, hex]) => paintGeometry(geo.clone().toNonIndexed(), hex))
+);
+export var penguinMat = createMaterial({
   color: 0xffffff,
-  flatShading: true,
-});
-export var penguinOrangeMat = createMaterial({
-  color: 0xffa500,
+  vertexColors: true,
   flatShading: true,
 });
 
@@ -1891,20 +1898,17 @@ var penguinShaderInject = (shader) => {
     `
   );
 };
-penguinBlackMat.onBeforeCompile = penguinShaderInject;
-penguinWhiteMat.onBeforeCompile = penguinShaderInject;
-penguinOrangeMat.onBeforeCompile = penguinShaderInject;
+penguinMat.onBeforeCompile = penguinShaderInject;
 // The same, without the waddle: for penguins scared off their floe
 // (breakables.js), which move by their own matrices. The waddle is worked
 // out from where each penguin stands, so on one that's moving it would jump
 // about every frame.
-export var penguinStillMats = new Map(
+export var penguinStillMats = new Map([
   [
-    [penguinBlackMat, 0x222222],
-    [penguinWhiteMat, 0xffffff],
-    [penguinOrangeMat, 0xffa500],
-  ].map(([mat, color]) => [mat, createMaterial({color, flatShading: true})])
-);
+    penguinMat,
+    createMaterial({color: 0xffffff, vertexColors: true, flatShading: true}),
+  ],
+]);
 
 // Where the waddle above has a penguin standing at (x, z) at time t: its
 // step off its spot and turn, into `target` (in its own space), and its
@@ -4124,50 +4128,8 @@ export const ModelAssembler = {
       case 'penguin':
         return [
           {
-            geo: penguinBodyGeo,
-            mat: penguinBlackMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: penguinBellyGeo,
-            mat: penguinWhiteMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: penguinHeadGeo,
-            mat: penguinBlackMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: penguinBeakGeo,
-            mat: penguinOrangeMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: penguinWingLGeo,
-            mat: penguinBlackMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: penguinWingRGeo,
-            mat: penguinBlackMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: penguinFootLGeo,
-            mat: penguinOrangeMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: penguinFootRGeo,
-            mat: penguinOrangeMat,
+            geo: penguinGeo,
+            mat: penguinMat,
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
