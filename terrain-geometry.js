@@ -635,6 +635,12 @@ waterMaterial.onBeforeCompile = function (shader) {
         gl_FragColor.rgb = mix(waterLit, waterLit * vec3(0.24, 0.46, 0.82), deep * 0.7);
         gl_FragColor.rgb = mix(gl_FragColor.rgb, waterLit * vec3(0.55, 1.05, 0.9), shallow * 0.6);
         gl_FragColor.a = mix(gl_FragColor.a, 1.0, deep * 0.9);
+        // Swamp water (vertex color with less blue than green, the only water
+        // that has; terrain-gen.js) is still and murky: nearly opaque however
+        // shallow, and no shore foam
+        float swampWater = 1.0 - smoothstep(0.75, 0.92, vColor.b / max(vColor.g, 0.01));
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, waterLit, swampWater);
+        gl_FragColor.a = mix(gl_FragColor.a, 0.93, swampWater);
 
 
         // Add macro-scale spatial variation to break up monotony across different water bodies
@@ -778,7 +784,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         float foamRings = smoothstep(0.35, 0.8, 0.5 + 0.5 * sin(uTime * 1.3 + shoreDist * 0.3 + foamNoise * 1.5));
         float foamEdge = 1.0 - smoothstep(3.0, 8.0, shoreDist); // solid at the waterline
         float foam = (1.0 - smoothstep(12.0, 28.0, shoreDist)) * smoothstep(0.0, 0.05, vWaterDepth)
-                   * max(foamRings * 0.8, foamEdge);
+                   * max(foamRings * 0.8, foamEdge) * (1.0 - swampWater);
         gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.95, 0.97, 1.0) * lightLevel, foam * 0.9);
         gl_FragColor.a = max(gl_FragColor.a, foam * 0.9);
 

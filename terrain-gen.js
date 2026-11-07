@@ -218,8 +218,10 @@ const _snowColor = new Color(0xe0f7fa);
 const _colorWhite = new Color(0xffffff);
 const _colorIceMottleDark = new Color(0x8a9ea8);
 const _colorSwampMud = new Color(0x3b3527);
-const _colorSwampMoss = new Color(0x4a5e32);
-const _colorSwampMossDark = new Color(0x384a26);
+// Peaty olive, not meadow green: brown enough that the tall grass
+// (grass.js, green ground only) stays off it
+const _colorSwampMoss = new Color(0x55553a);
+const _colorSwampMossDark = new Color(0x3e402c);
 const _tempColorObj = new Color();
 const _baseBushColor = new Color();
 const _iceHutColor = new Color();
@@ -2170,7 +2172,9 @@ export function generateChunkData({
     const colorWater = new Color(0x40c4ff);
     const colorIcyWater = new Color(0x88ccff);
     const colorDesertWater = new Color(0x00ced1);
-    const colorSwampWater = new Color(0x33523a);
+    // Dark tea-brown; its very low blue also tells the water shader it's swamp
+    // water (opaque, no shore foam)
+    const colorSwampWater = new Color(0x3a3320);
     const tempColor = new Color();
 
     let wPosIdx = 0;
@@ -2209,7 +2213,7 @@ export function generateChunkData({
         if (snowFactor > 0) tempColor.lerp(colorIcyWater, snowFactor);
         if (desertFactor > 0) tempColor.lerp(colorDesertWater, desertFactor);
         if (swampWaterFactor > 0)
-          tempColor.lerp(colorSwampWater, swampWaterFactor * 0.88);
+          tempColor.lerp(colorSwampWater, Math.min(1, swampWaterFactor * 1.25));
 
         waterColors[wPosIdx] = tempColor.r;
         waterColors[wPosIdx + 1] = tempColor.g;
