@@ -39,14 +39,12 @@ import {updatePlaneShadow} from './plane-shadow.js';
 import {performanceMonitor} from './game-performance.js';
 import {updatePerfHud} from './perf-hud.js';
 import {
-  DELTA_BUFFER_SIZE,
   _cloudyColor,
   _currentGoldenSky,
   _currentLookTarget,
   _currentSunriseSky,
   _dayLightColor,
   _debugCamEuler,
-  _deltaRing,
   _finalFogColor,
   _finalSkyColor,
   _goldenSky,
@@ -204,10 +202,10 @@ const FREQUENT_FLYER_DISTANCE = 100000;
 const PYRAMIDS = LANDMARKS.find((l) => l.name === 'Pyramids');
 const TOMB_RAIDER_RANGE = 900;
 
-function animate() {
+function animate(timestamp) {
   if (hasCrashed || !renderer) return;
   try {
-    performFrame();
+    performFrame(timestamp);
   } catch (err) {
     if (hasCrashed) return;
     hasCrashed = true;
@@ -252,7 +250,7 @@ function animate() {
   }
 }
 
-function performFrame() {
+function performFrame(timestamp) {
   // Sync InputManager state
   inputManager.state.isPaused = state.isPaused;
   inputManager.state.isFreeCamera = state.isFreeCamera;
@@ -339,23 +337,18 @@ function performFrame() {
   if (processChunkQueue) processChunkQueue(chunkBudget);
   updateFarTerrain(planeGroup.position);
   if (globalInstancer) globalInstancer.rebuildAll();
-  clock.update();
+  // Timed by the frame's own timestamp (when the browser will show it), not
+  // by when this code got round to running: under load frames alternate
+  // between one and two screen refreshes, and moving everything by the time
+  // each frame is actually on screen keeps motion even. (An average of the
+  // last ten frames used to be used here, which made the view lurch back and
+  // forth whenever frames were uneven.)
+  clock.update(typeof timestamp === 'number' ? timestamp : undefined);
   let rawDelta = clock.getDelta();
   if (rawDelta > 0.1) rawDelta = 0.1; // Cap at 100ms to prevent logic blowouts
+  state.smoothedDelta = rawDelta;
 
-  // Apply delta smoothing (moving average) to eliminate jitter from OS/browser timing.
-  // Uses an O(1) ring buffer running sum to prevent garbage collection pauses from array churn.
-  if (state._deltaRingCount < DELTA_BUFFER_SIZE) {
-    state._deltaRingSum += rawDelta;
-    state._deltaRingCount++;
-  } else {
-    state._deltaRingSum += rawDelta - _deltaRing[state._deltaRingIndex];
-  }
-  _deltaRing[state._deltaRingIndex] = rawDelta;
-  state._deltaRingIndex = (state._deltaRingIndex + 1) % DELTA_BUFFER_SIZE;
-  state.smoothedDelta = state._deltaRingSum / state._deltaRingCount;
-
-  const delta = state.smoothedDelta; // Use smoothed delta for all game logic below
+  const delta = state.smoothedDelta;
   // Paused frames draw nothing, so they look fast and would make adaptive
   // quality raise the resolution; resizing the canvas clears it and the
   // blurred game behind the pause menu turns black. Only measure frames

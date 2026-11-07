@@ -159,10 +159,7 @@ if (
 }
 
 // --- MAIN GAME LOOP ---
-// Performance optimization: Static Float32Array ring buffer with running sum for delta smoothing.
-// Eliminates per-frame array allocations (push/shift) and closure functions (.reduce()) in the main loop.
-export const DELTA_BUFFER_SIZE = 10;
-export const _deltaRing = new Float32Array(DELTA_BUFFER_SIZE);
+// The last frame's time step (game-loop.js), before the first frame
 state.smoothedDelta = 1 / 60;
 
 // --- PERSISTENCE ---

@@ -175,9 +175,6 @@ export const state = {
   freeCamDeltaX: 0,
   freeCamDeltaY: 0,
   lastY: 250, // track for ascent/descent detection
-  _deltaRingIndex: 0,
-  _deltaRingCount: 0,
-  _deltaRingSum: 0,
   smoothedDelta: undefined, // set in game.js
   gyroEnabled: undefined, // set in game.js
   gyroBasePitch: null,
