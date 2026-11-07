@@ -1986,6 +1986,52 @@ for (let i = 0; i < HOUSE_WINDOW_POOLS; i++) {
   );
 }
 
+// Every house window in one instanced mesh (one draw a tile, not eight):
+// each instance's colour carries its pool (red = pool / 7, set in
+// terrain-gen.js), whose glow is uHouseWindowGlow[pool] (game-loop.js). The
+// instance colour isn't painted on, the glass stays houseWindowMats' blue.
+export var houseWindowGlow = {value: new Array(HOUSE_WINDOW_POOLS).fill(0)};
+export var houseWindowMat = createMaterial({
+  color: 0x4a6a8a,
+  emissive: 0xffd54f,
+  emissiveIntensity: 1.0,
+  roughness: 0.2,
+});
+{
+  const base = houseWindowMat.onBeforeCompile;
+  houseWindowMat.onBeforeCompile = (shader, renderer) => {
+    base?.(shader, renderer);
+    shader.uniforms.uHouseWindowGlow = houseWindowGlow;
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        uniform float uHouseWindowGlow[${HOUSE_WINDOW_POOLS}];
+        varying float vWindowGlow;`
+      )
+      .replace(
+        '#include <color_vertex>',
+        `#include <color_vertex>
+        #ifdef USE_INSTANCING_COLOR
+        vWindowGlow = uHouseWindowGlow[int(instanceColor.r * ${(HOUSE_WINDOW_POOLS - 1).toFixed(1)} + 0.5)];
+        #else
+        vWindowGlow = uHouseWindowGlow[0];
+        #endif`
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        varying float vWindowGlow;`
+      )
+      .replace('#include <color_fragment>', '')
+      .replace(
+        'vec3 totalEmissiveRadiance = emissive;',
+        'vec3 totalEmissiveRadiance = emissive * vWindowGlow;'
+      );
+  };
+}
+
 // --- BARN ---
 // Polyfork barns (farm-models.js), walls and roof: the red barn (barn...),
 // and up north the timber barn and the alpine hay barn

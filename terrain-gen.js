@@ -1245,6 +1245,12 @@ const _houseRoofColors = HOUSE_ROOF_COLORS.map((hex) => new Color(hex));
 // keep their own hours: lights on at dusk, off at bedtime (windowGlow in
 // game-loop.js)
 export const HOUSE_WINDOW_POOLS = 8;
+// Each window's pool, as its instance colour (houseWindowMat reads red)
+const _windowPools = Array.from({length: HOUSE_WINDOW_POOLS}, (_, i) => ({
+  r: i / (HOUSE_WINDOW_POOLS - 1),
+  g: 0,
+  b: 0,
+}));
 
 // How far an adobe house's flat roof is squashed from the gable
 const FLAT_ROOF = 0.12;
@@ -1285,7 +1291,7 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
     const cos = Math.cos(pos.rotY);
     const sin = Math.sin(pos.rotY);
     // A point on the house (lx along the ridge, ly up, lz toward the front)
-    const part = (type, lx, ly, lz) => {
+    const part = (type, lx, ly, lz, color = null) => {
       composeMatrix(
         _matBuffer,
         0,
@@ -1299,7 +1305,7 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
         pos.rotY,
         0
       );
-      collector.add(type, _matBuffer);
+      collector.add(type, _matBuffer, color);
     };
 
     collector.beginProp(BREAKABLE.HOUSE);
@@ -1328,7 +1334,7 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
 
     part('houseDoor', 0, 2.25, 5.1);
     for (const [wx, wy, wz] of windows) {
-      part('houseWindow' + pos.poolId, wx * sx, wy * sy, wz);
+      part('houseWindow', wx * sx, wy * sy, wz, _windowPools[pos.poolId]);
     }
     collector.endProp();
   }

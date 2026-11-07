@@ -106,7 +106,7 @@ import {
   houseRoofGeo,
   houseTintMat,
   houseWindowGeo,
-  houseWindowMats,
+  houseWindowMat,
   iceFloeMainGeo,
   icebergMainGeo,
   icebergMat,
@@ -1212,16 +1212,14 @@ globalInstancer.registerType(
   false,
   false
 );
-houseWindowMats.forEach((mat, i) => {
-  globalInstancer.registerType(
-    'houseWindow' + i,
-    houseWindowGeo,
-    mat,
-    30000,
-    false,
-    false
-  );
-});
+globalInstancer.registerType(
+  'houseWindow',
+  houseWindowGeo,
+  houseWindowMat,
+  30000,
+  true,
+  false
+);
 
 const shadowBox = (geo) => fitToBounds(new THREE.BoxGeometry(2, 2, 2), geo); // 12 triangles
 const shadowCylinder = (geo) =>

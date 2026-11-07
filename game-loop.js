@@ -134,6 +134,7 @@ import {log} from './logger.js';
 import {
   chunks,
   getElevation,
+  houseWindowGlow,
   houseWindowMats,
   streetlightBulbMat,
   lighthouseLampMat,
@@ -1261,6 +1262,7 @@ function updateDayNightCycle(delta) {
       hour,
       darkness
     );
+    houseWindowGlow.value[i] = mat.emissiveIntensity;
   });
 
   // Calculate streetlight intensity based on time of day
