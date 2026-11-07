@@ -1473,11 +1473,12 @@ for (const [prefix, geos] of POLYFORK_TREES) {
   shareFarTrunk(prefix + 'Trunk', geos.trunk);
   shareFarCanopy(prefix + 'Leaves', geos.leaves);
 }
-for (const [deadType, deadGeo] of [
-  ['deadCottonwoodTrunk', deadCottonwoodGeo],
-  ['twistedDeadOakTrunk', twistedDeadOakGeo],
+for (const [deadType, deadGeo, deadMat] of [
+  ['deadTrunk', deadTreeGeo, deadTreeMat],
+  ['deadCottonwoodTrunk', deadCottonwoodGeo, null],
+  ['twistedDeadOakTrunk', twistedDeadOakGeo, null],
 ]) {
-  const farDead = shareFarTrunk(deadType, deadGeo);
+  const farDead = shareFarTrunk(deadType, deadGeo, deadMat);
   globalInstancer.setShadowGeometry(deadType, farDead);
 }
 globalInstancer.setFarGeometry(
@@ -1498,6 +1499,13 @@ globalInstancer.setShadowGeometry('fallenLog', shadowBox(fallenLogGeo));
 globalInstancer.setFarGeometry('stump', null);
 globalInstancer.setFarGeometry('seal', null);
 globalInstancer.setFarGeometry('penguin', null);
+// Small critters and snowmen (200-400 triangles) cast a fitted shape's shadow
+globalInstancer.setShadowGeometry('penguin', shadowCylinder(penguinGeo));
+globalInstancer.setShadowGeometry('seal', shadowBox(sealGeo));
+globalInstancer.setShadowGeometry(
+  'snowmanBody',
+  shadowCylinder(snowmanGeos.body)
+);
 globalInstancer.setFarGeometry('buoy', null);
 globalInstancer.setFarGeometry('buoyTop', null);
 globalInstancer.setFarGeometry('sheepWool', null);
@@ -1512,7 +1520,9 @@ for (const [type, canopyHex, barkHex] of [
 ]) {
   const farSwamp = createSwampFarCanopy(swampGeos[type], canopyHex, barkHex);
   globalInstancer.registerType(type, swampGeos[type], boatMat, 12000);
-  globalInstancer.setFarGeometry(type, farSwamp, screenSized);
+  // Far away, a blob in the shared far canopy mesh (one draw a tile for all
+  // the trees, not one per kind)
+  shareFarCanopy(type, swampGeos[type]);
   globalInstancer.setShadowGeometry(type, farSwamp);
 }
 // Reeds, cattails, lily pads, logs and stumps are 5-14 units and 600-1,000
