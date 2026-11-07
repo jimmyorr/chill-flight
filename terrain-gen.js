@@ -1549,6 +1549,71 @@ const SOUTH_BOATS_Z = 6000;
 // sea level; the sea floor is drawn 5 lower) once in this many points
 const SUNKEN_BOAT_DEPTH = [3, 8];
 const SUNKEN_BOAT_CHANCE = 0.0004;
+// Coral reefs drawn in the shallow water's colour (the water shader tints
+// by these weights): south of this z, or among the island palms, in simplex
+// patches of this scale (faded in between these values), in water this deep
+// (fading in over the first pair, out over the second)
+const REEF_SOUTH_Z = 6000;
+const REEF_PATCH_SCALE = 0.003;
+const REEF_PATCH = [0.1, 0.45];
+const REEF_DEPTH = [0.3, 1.2, 3.5, 6];
+function reefStep(a, b, x) {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+// Per height-grid point, how much reef there is in two colours (dark teal,
+// dusky pink), interleaved, for the water's depth texture (terrain-chunks.js)
+function reefWeights(
+  heightGrid,
+  gridX1,
+  step,
+  halfSize,
+  worldOffsetX,
+  worldOffsetZ,
+  elevParams
+) {
+  const out = new Float32Array(gridX1 * gridX1 * 2);
+  const wl = elevParams.WATER_LEVEL;
+  for (let gz = 0; gz < gridX1; gz++) {
+    const z = worldOffsetZ - halfSize + gz * step;
+    if (z <= -5000) continue;
+    for (let gx = 0; gx < gridX1; gx++) {
+      const x = worldOffsetX - halfSize + gx * step;
+      if (z <= REEF_SOUTH_Z && x <= 3000) continue;
+      const depth = wl - heightGrid[gz * gridX1 + gx];
+      if (depth < REEF_DEPTH[0] || depth > REEF_DEPTH[3]) continue;
+      const patch = simplex.noise2D(
+        x * REEF_PATCH_SCALE + 7.7,
+        z * REEF_PATCH_SCALE - 3.1
+      );
+      if (patch <= REEF_PATCH[0]) continue;
+      if (z <= REEF_SOUTH_Z && ChillFlightLogic.getBiome(x, z, simplex) >= -0.1)
+        continue;
+      if (
+        ChillFlightLogic.snowFactorAt(
+          z,
+          ChillFlightLogic.snowNoiseShift(x, z, simplex)
+        ) > 0 ||
+        ChillFlightLogic.swampFactorAt(x, z, simplex) > 0.1
+      )
+        continue;
+      const flow = ChillFlightLogic.getRiverFlow(x, z, simplex);
+      if (flow && Math.hypot(flow[0], flow[1]) > RIVER_BOAT_FLOW) continue;
+      const w =
+        reefStep(REEF_DEPTH[0], REEF_DEPTH[1], depth) *
+        (1 - reefStep(REEF_DEPTH[2], REEF_DEPTH[3], depth)) *
+        reefStep(REEF_PATCH[0], REEF_PATCH[1], patch);
+      const hue = reefStep(
+        -0.3,
+        0.3,
+        simplex.noise2D(x * 0.006 - 19.3, z * 0.006 + 4.2)
+      );
+      out[(gz * gridX1 + gx) * 2] = w * (1 - hue);
+      out[(gz * gridX1 + gx) * 2 + 1] = w * hue;
+    }
+  }
+  return out;
+}
 // How strong a river's flow keeps the small boats off it
 const RIVER_BOAT_FLOW = 0.5;
 // How far a lake rowboat looks for the shore, and how far its middle sits
@@ -2220,6 +2285,7 @@ export function generateChunkData({
   let waterColors = null;
   let waterFlow = null;
   let softWaterDepth = null;
+  let reefGrid = null;
   const transferables = [
     positions.buffer,
     heightGrid.buffer,
@@ -2286,11 +2352,12 @@ export function generateChunkData({
         if (swampWaterFactor > 0)
           tempColor.lerp(colorSwampWater, Math.min(1, swampWaterFactor * 1.25));
 
+        const flow = ChillFlightLogic.getRiverFlow(worldX, worldZ, simplex);
+
         waterColors[wPosIdx] = tempColor.r;
         waterColors[wPosIdx + 1] = tempColor.g;
         waterColors[wPosIdx + 2] = tempColor.b;
 
-        const flow = ChillFlightLogic.getRiverFlow(worldX, worldZ, simplex);
         if (flow) {
           waterFlow[(wPosIdx / 3) * 2] = flow[0];
           waterFlow[(wPosIdx / 3) * 2 + 1] = flow[1];
@@ -2309,11 +2376,21 @@ export function generateChunkData({
       worldOffsetZ,
       elevParams
     );
+    reefGrid = reefWeights(
+      heightGrid,
+      gridX1,
+      step,
+      halfSize,
+      worldOffsetX,
+      worldOffsetZ,
+      elevParams
+    );
     transferables.push(
       waterPositions.buffer,
       waterColors.buffer,
       waterFlow.buffer,
-      softWaterDepth.buffer
+      softWaterDepth.buffer,
+      reefGrid.buffer
     );
   }
 
@@ -6988,6 +7065,7 @@ export function generateChunkData({
         waterColors,
         waterFlow,
         softWaterDepth,
+        reefGrid,
       },
       instanceData,
       breakables,

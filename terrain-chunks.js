@@ -1689,7 +1689,7 @@ const _up = new THREE.Vector3();
 const _glowNormal = new THREE.Vector3();
 const WATER_DEPTH_RANGE = 40;
 
-function attachWaterDepthTexture(waterMesh, heightGrid, softDepth) {
+function attachWaterDepthTexture(waterMesh, heightGrid, softDepth, reef) {
   const n = state.SEGMENTS + 1;
   const encode = (depth) =>
     Math.max(
@@ -1700,16 +1700,21 @@ function attachWaterDepthTexture(waterMesh, heightGrid, softDepth) {
       )
     );
   // R: exact depth (foam at the waterline). G: softened depth (color and
-  // transparency, blending gradually from the beach to open water).
-  const bytes = new Uint8Array(n * n * 2);
+  // transparency, blending gradually from the beach to open water). B, A:
+  // how much coral reef shows through, dark teal and dusky pink
+  // (terrain-gen.js reefWeights).
+  const bytes = new Uint8Array(n * n * 4);
   for (let i = 0; i < n * n; i++) {
-    bytes[i * 2] = encode(WATER_LEVEL - heightGrid[i]);
-    bytes[i * 2 + 1] = encode(softDepth[i]);
+    bytes[i * 4] = encode(WATER_LEVEL - heightGrid[i]);
+    bytes[i * 4 + 1] = encode(softDepth[i]);
+    if (reef) {
+      bytes[i * 4 + 2] = Math.round(reef[i * 2] * 255);
+      bytes[i * 4 + 3] = Math.round(reef[i * 2 + 1] * 255);
+    }
   }
-  const tex = new THREE.DataTexture(bytes, n, n, THREE.RGFormat);
+  const tex = new THREE.DataTexture(bytes, n, n, THREE.RGBAFormat);
   tex.magFilter = THREE.LinearFilter;
   tex.minFilter = THREE.LinearFilter;
-  tex.unpackAlignment = 1; // rows are 2n bytes, not padded to 4
   tex.needsUpdate = true;
   // One shared material can't hold a different texture per draw, so each
   // water chunk gets its own material. Clones share the compiled shader, but
@@ -2375,7 +2380,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     attachWaterDepthTexture(
       waterMesh,
       workerData.buffers.heightGrid,
-      workerData.buffers.softWaterDepth
+      workerData.buffers.softWaterDepth,
+      workerData.buffers.reefGrid
     );
     group.add(waterMesh);
     group.userData.water = waterMesh; // accessible for animation!
