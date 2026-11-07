@@ -269,6 +269,10 @@ const LANDMARK_RULES = {
   leanTo: {chance: 0.4, clear: 7, flat: 4},
   trailer: {chance: 0.4, clear: 9, flat: 4, tower: true},
   fishShack: {chance: 0.5, clear: 11, flat: 4},
+  coveTavern: {chance: 0.5, clear: 12, flat: 8},
+  waterMill: {chance: 0.3, clear: 10, flat: 6},
+  // Swapped in for a village's two-storey house (VILLAGE_TAVERN_*)
+  villageTavern: {chance: 0, clear: 0, flat: 0},
   farmhouse: {chance: 0.7, clear: 13, flat: 4},
   mushroomCottage: {chance: 0.03, clear: 30, flat: 6},
   dinoSkull: {chance: 0.0012, clear: 14, flat: 3.5, tower: true},
@@ -283,6 +287,17 @@ const PIER_ELL_CHANCE = 0.35;
 // the campfire one is parked (units, to its middle)
 const TRAILER_LOOKS = 4;
 const TRAILER_FROM_FIRE = 24;
+// How far a water mill's middle stands back from the river (its wheel on
+// the river side), and how strongly the river there must flow
+const MILL_FROM_RIVER = 14;
+const MILL_RIVER_FLOW = 0.3;
+// Water mills stand only in some squares this big (units; chance in
+// LANDMARK_RULES)
+const MILL_CELL = 2000;
+// The share of the grid villages' two-storey houses that are an inn
+// instead, and how far round it the other houses must leave room (units)
+const VILLAGE_TAVERN_CHANCE = 0.08;
+const VILLAGE_TAVERN_ROOM = 20;
 // How many village houses have a garden shed, how far behind the house's
 // middle it stands, and how far round it the trees are cleared (units)
 const GARDEN_SHED_CHANCE = 0.25;
@@ -469,7 +484,7 @@ function fieldHash(a, b, c) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 // fieldHash hashed again: a near salt in fieldHash alone gives rolls that
-// follow its others' too closely over the campfire spots
+// follow its others' too closely (seen over the campfire spots)
 function fireHash(a, b, c) {
   return fieldHash((fieldHash(a, b, c) * 2147483647) | 0, 0x2c1b3c6d, c);
 }
@@ -4084,6 +4099,33 @@ export function generateChunkData({
             );
         }
       }
+      // A water mill on a river bank, its wheel side (+x) to the stream
+      let millRotY = null;
+      if (
+        !type &&
+        height < WATER_LEVEL + 3 &&
+        snowFactor < 0.4 &&
+        desertFactor < 0.4 &&
+        swampFactor < 0.2 &&
+        // Only in some squares, as a bank has many grid points to try
+        fireHash(
+          Math.floor(worldX / MILL_CELL),
+          Math.floor(worldZ / MILL_CELL),
+          1213
+        ) < LANDMARK_RULES.waterMill.chance
+      ) {
+        for (let k = 0; k < 8 && millRotY === null; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          const rx = worldX + Math.sin(a) * MILL_FROM_RIVER;
+          const rz = worldZ + Math.cos(a) * MILL_FROM_RIVER;
+          if (getElevation(rx, rz, elevParams) > WATER_LEVEL - 0.5) continue;
+          const flow = ChillFlightLogic.getRiverFlow(rx, rz, simplex);
+          if (flow && Math.hypot(flow[0], flow[1]) > MILL_RIVER_FLOW) {
+            millRotY = a - Math.PI / 2;
+          }
+        }
+        if (millRotY !== null) type = 'waterMill';
+      }
       if (type) {
         landmarkPositions.push({
           type,
@@ -4096,7 +4138,10 @@ export function generateChunkData({
           rotY:
             type === 'windpump'
               ? WINDMILL_ROT_Y
-              : fieldHash(gx, gz, 1203) * Math.PI * 2,
+              : type === 'waterMill'
+                ? millRotY
+                : fieldHash(gx, gz, 1203) * Math.PI * 2,
+          bank: type === 'waterMill',
           look: fieldHash(gx, gz, 1207),
         });
       }
@@ -4842,23 +4887,39 @@ export function generateChunkData({
   // airports and clear of the others, standing on its lowest corner, with
   // the trees and other props cleared from round it
   // A fisherman's shack beside some of the piers, set back from the water
-  // to one side, facing it like the pier
+  // to one side, facing it like the pier, and a harbour inn on the other
+  // side of some
   for (const pier of pierPositions) {
     const wx = Math.round(worldOffsetX + pier.x);
     const wz = Math.round(worldOffsetZ + pier.z);
-    if (fieldHash(wx, wz, 1301) >= LANDMARK_RULES.fishShack.chance) continue;
+    const group = landmarkPositions.length;
     const side = fieldHash(wx, wz, 1303) < 0.5 ? -1 : 1;
-    const back = rotateY(side * 19, -17, pier.rotY);
-    landmarkPositions.push({
-      type: 'fishShack',
-      rule: 'fishShack',
-      group: landmarkPositions.length,
-      x: pier.x + back.x,
-      y: pier.y,
-      z: pier.z + back.z,
-      rotY: pier.rotY,
-      pier: true,
-    });
+    if (fieldHash(wx, wz, 1301) < LANDMARK_RULES.fishShack.chance) {
+      const back = rotateY(side * 19, -17, pier.rotY);
+      landmarkPositions.push({
+        type: 'fishShack',
+        rule: 'fishShack',
+        group,
+        x: pier.x + back.x,
+        y: pier.y,
+        z: pier.z + back.z,
+        rotY: pier.rotY,
+        pier: true,
+      });
+    }
+    if (fireHash(wx, wz, 1305) < LANDMARK_RULES.coveTavern.chance) {
+      const back = rotateY(-side * 26, -22, pier.rotY);
+      landmarkPositions.push({
+        type: 'coveTavern',
+        rule: 'coveTavern',
+        group,
+        x: pier.x + back.x,
+        y: pier.y,
+        z: pier.z + back.z,
+        rotY: pier.rotY,
+        pier: true,
+      });
+    }
   }
   // A farmhouse across the yard from most of the farmsteads' barns, out
   // past the barn's door along the strip, a little to the side away from
@@ -4991,8 +5052,12 @@ export function generateChunkData({
         hi = Math.max(hi, y);
       }
       // Huts on the beach and shacks by the piers stand lower, just clear
-      // of the water
-      const low = p.beach || p.pier ? WATER_LEVEL + 0.8 : WATER_LEVEL + 3;
+      // of the water, and a water mill's wheel side goes down to the river
+      const low = p.bank
+        ? WATER_LEVEL - 4
+        : p.beach || p.pier
+          ? WATER_LEVEL + 0.8
+          : WATER_LEVEL + 3;
       const road = ChillFlightLogic.ROAD_WIDTH + ROAD_BUILDING_CLEAR + r;
       if (
         Math.abs(p.x) >= halfSize ||
@@ -5016,7 +5081,7 @@ export function generateChunkData({
       ) {
         continue;
       }
-      p.y = lo;
+      p.y = p.bank ? Math.max(lo, WATER_LEVEL + 0.3) : lo;
       landmarkPositions[kept++] = p;
       clearings.push({x: p.x, z: p.z, r, group: p.group});
     }
@@ -5085,6 +5150,91 @@ export function generateChunkData({
   // the road villages'), its door toward the house, wherever it fits clear
   // of the other houses and the roads, with the trees round it cleared
   {
+    // Trees and other props cleared from round some new spots (r units)
+    const clearAround = (spots, r) => {
+      const r2 = r * r;
+      const clearList = (arr) => {
+        let n = 0;
+        for (const q of arr) {
+          if (!spots.some((c) => (q.x - c.x) ** 2 + (q.z - c.z) ** 2 < r2)) {
+            arr[n++] = q;
+          }
+        }
+        arr.length = n;
+      };
+      [
+        treePositions,
+        deciduousTreePositions,
+        tallDeciduousTreePositions,
+        snowTreePositions,
+        autumnTree1Positions,
+        autumnTree2Positions,
+        autumnTree3Positions,
+        cherryTreePositions,
+        japaneseMapleTreePositions,
+        sculptedPineTreePositions,
+        birchTreePositions,
+        broadleafOakTreePositions,
+        oakTreePositions,
+        magnoliaTreePositions,
+        ...fruitTreeLists,
+        deadTreePositions,
+        bushPositions,
+        rockPositions,
+        snowRockPositions,
+        hayBalePositions,
+        fallenLogPositions,
+        sheepPositions,
+        campfirePositions,
+      ].forEach(clearList);
+    };
+
+    // An inn in place of a few of the grid villages' two-storey houses,
+    // where the houses round about leave it room, its chimney smoke gone
+    // with the house
+    const taverns = [];
+    {
+      const all = [...housePositions, ...twoStoryHousePositions];
+      let n = 0;
+      for (const h of twoStoryHousePositions) {
+        let swap = false;
+        if (!h.roadVillage && h.style !== 'adobe') {
+          const wx = Math.round(worldOffsetX + h.x);
+          const wz = Math.round(worldOffsetZ + h.z);
+          const near = (o, d) => Math.hypot(o.x - h.x, o.z - h.z) < d;
+          swap =
+            fireHash(wx, wz, 1371) < VILLAGE_TAVERN_CHANCE &&
+            !all.some((o) => o !== h && near(o, VILLAGE_TAVERN_ROOM)) &&
+            !landmarkPositions.some((o) => near(o, 30)) &&
+            !taverns.some((o) => near(o, 600));
+        }
+        if (swap) {
+          taverns.push({
+            type: 'villageTavern',
+            rule: 'villageTavern',
+            x: h.x,
+            y: h.y,
+            z: h.z,
+            rotY: h.rotY,
+          });
+        } else {
+          twoStoryHousePositions[n++] = h;
+        }
+      }
+      twoStoryHousePositions.length = n;
+      if (taverns.length > 0) {
+        let k = 0;
+        for (const q of chimneySmokePositions) {
+          if (!taverns.some((t) => Math.hypot(q.x - t.x, q.z - t.z) < 12)) {
+            chimneySmokePositions[k++] = q;
+          }
+        }
+        chimneySmokePositions.length = k;
+        clearAround(taverns, VILLAGE_TAVERN_ROOM - 4);
+        landmarkPositions.push(...taverns);
+      }
+    }
+
     const houses = [...housePositions, ...twoStoryHousePositions];
     const sheds = [];
     for (const h of houses) {
@@ -5129,41 +5279,7 @@ export function generateChunkData({
       });
     }
     if (sheds.length > 0) {
-      const r2 = GARDEN_SHED_CLEAR * GARDEN_SHED_CLEAR;
-      const clearShed = (arr) => {
-        let n = 0;
-        for (const q of arr) {
-          if (!sheds.some((c) => (q.x - c.x) ** 2 + (q.z - c.z) ** 2 < r2)) {
-            arr[n++] = q;
-          }
-        }
-        arr.length = n;
-      };
-      [
-        treePositions,
-        deciduousTreePositions,
-        tallDeciduousTreePositions,
-        snowTreePositions,
-        autumnTree1Positions,
-        autumnTree2Positions,
-        autumnTree3Positions,
-        cherryTreePositions,
-        japaneseMapleTreePositions,
-        sculptedPineTreePositions,
-        birchTreePositions,
-        broadleafOakTreePositions,
-        oakTreePositions,
-        magnoliaTreePositions,
-        ...fruitTreeLists,
-        deadTreePositions,
-        bushPositions,
-        rockPositions,
-        snowRockPositions,
-        hayBalePositions,
-        fallenLogPositions,
-        sheepPositions,
-        campfirePositions,
-      ].forEach(clearShed);
+      clearAround(sheds, GARDEN_SHED_CLEAR);
       landmarkPositions.push(...sheds);
     }
 

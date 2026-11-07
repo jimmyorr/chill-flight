@@ -22,6 +22,9 @@ import * as campTent from './third-party/polyfork/camp-tent-3c5c89.mjs';
 import * as camperTrailer from './third-party/polyfork/camper-trailer-b2f706.mjs';
 import * as teardropTrailer from './third-party/polyfork/teardrop-trailer-580e25.mjs';
 import * as rvTrailer from './third-party/polyfork/rv-travel-trailer-bd53d7.mjs';
+import * as waterMill from './third-party/polyfork/water-mill-b31972.mjs';
+import * as villageTavern from './third-party/polyfork/village-tavern-4e94e3.mjs';
+import * as coveTavern from './third-party/polyfork/cove-tavern-5861a6.mjs';
 import * as pierSection from './third-party/polyfork/pier-deck-section-7047d7.mjs';
 import * as pierCorner from './third-party/polyfork/pier-deck-corner-c56248.mjs';
 import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
@@ -233,6 +236,18 @@ const LANDMARKS = {
   // A small 6 by 4 m cabin as built: drawn bigger so it doesn't look like a
   // toy among the pines
   rangerStation: [rangerStation, {colorway: 'ranger-cedar'}, 5, 'roof'],
+  // A water mill on a river bank, its wheel in the stream
+  waterMill: [waterMill, {colorway: 'mill-oak'}, S, 'thatch'],
+  // The inn in some grid villages, in place of one of the two-storey
+  // houses, drawn smaller than S so it doesn't tower over them
+  villageTavern: [
+    villageTavern,
+    {colorway: 'cream-oak', width: '10'},
+    2.2,
+    'tile',
+  ],
+  // A harbour inn beside some of the piers
+  coveTavern: [coveTavern, {colorway: 'weathered-cove'}, S, 'roof'],
   leanTo: [leanTo, {colorway: 'weathered-pine'}, S, 'roof'],
   mushroomCottage0: [
     mushroomCottage,
@@ -306,6 +321,9 @@ export const LANDMARK_HOUSES = [
   'fishShack',
   'rangerStation',
   'leanTo',
+  'waterMill',
+  'villageTavern',
+  'coveTavern',
   'farmhouse0',
   'farmhouse1',
   'farmhouse2',
