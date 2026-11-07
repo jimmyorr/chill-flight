@@ -46,6 +46,8 @@ import {
   DRAGON_COLORWAYS,
   dragonSkeletonGeo,
   LANDMARK_HOUSES,
+  LANDMARK_SMALL,
+  buildTentGeos,
 } from '../building-models.js';
 import {createTwinModel, setGearExtension} from '../twin.js';
 import {createBuggyModel, setBuggyHoverFold} from '../buggy-model.js';
@@ -756,6 +758,17 @@ function viewModel(type, e, colorSeed = 0) {
             buildingMat
           );
           m.position.x = (i - (DINO_SKULL_SPECIES.length - 1) / 2) * 20;
+          previewGroup.add(m);
+        });
+        break;
+      }
+      case 'camp_trailers': {
+        // The campers' trailers side by side, with a tent for scale
+        const geos = Object.values(buildLandmarkGeos(LANDMARK_SMALL));
+        geos.push(buildTentGeos()[0]);
+        geos.forEach((geo, i) => {
+          const m = new THREE.Mesh(geo, buildingMat);
+          m.position.x = (i - (geos.length - 1) / 2) * 14;
           previewGroup.add(m);
         });
         break;

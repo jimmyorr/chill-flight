@@ -260,9 +260,6 @@ const ICE_HUT_CHANCE = 0.03;
 // (`clear`, units) on ground no steeper than `flat` (rise across it,
 // units). Towers stand on their own and topple whole; the rest are houses
 // ('...Body' and '...Roof').
-// The share of piers that turn off to one side at the end, where there's
-// room (an L)
-const PIER_ELL_CHANCE = 0.35;
 const LANDMARK_RULES = {
   fireLookout: {chance: 0.06, clear: 10, flat: 6, tower: true},
   waterTower: {chance: 0.006, clear: 24, flat: 3, tower: true},
@@ -270,6 +267,7 @@ const LANDMARK_RULES = {
   beachHut: {chance: 0.01, clear: 11, flat: 3},
   rangerStation: {chance: 0.007, clear: 22, flat: 5},
   leanTo: {chance: 0.4, clear: 7, flat: 4},
+  trailer: {chance: 0.4, clear: 9, flat: 4, tower: true},
   fishShack: {chance: 0.5, clear: 11, flat: 4},
   farmhouse: {chance: 0.7, clear: 13, flat: 4},
   mushroomCottage: {chance: 0.03, clear: 30, flat: 6},
@@ -278,6 +276,13 @@ const LANDMARK_RULES = {
   gardenShed: {chance: 0, clear: 0, flat: 0},
 };
 const DINO_SKULL_LOOKS = 3;
+// The share of piers that turn off to one side at the end, where there's
+// room (an L)
+const PIER_ELL_CHANCE = 0.35;
+// The campers' trailers (trailer0, ...): how many looks, and how far from
+// the campfire one is parked (units, to its middle)
+const TRAILER_LOOKS = 4;
+const TRAILER_FROM_FIRE = 24;
 // How many village houses have a garden shed, how far behind the house's
 // middle it stands, and how far round it the trees are cleared (units)
 const GARDEN_SHED_CHANCE = 0.25;
@@ -460,6 +465,11 @@ function fieldHash(a, b, c) {
   let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ c;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+// fieldHash hashed again: a near salt in fieldHash alone gives rolls that
+// follow its others' too closely over the campfire spots
+function fireHash(a, b, c) {
+  return fieldHash((fieldHash(a, b, c) * 2147483647) | 0, 0x2c1b3c6d, c);
 }
 // A chunk's roll for a headland lighthouse (0 to 1; one is possible under
 // LIGHTHOUSE_CHUNK_CHANCE), and whether it wins: no lower roll among the
@@ -4872,21 +4882,40 @@ export function generateChunkData({
     });
   }
   // A lean-to shelter beside some of the campfires, its open front to the
-  // fire
+  // fire, and a camper's trailer parked across from it at some (the
+  // tent, placed in terrain-chunks.js, keeps clear of the trailer)
   for (const fire of campfirePositions) {
     const wx = Math.round(worldOffsetX + fire.x);
     const wz = Math.round(worldOffsetZ + fire.z);
-    if (fieldHash(wx, wz, 1321) >= LANDMARK_RULES.leanTo.chance) continue;
+    const group = landmarkPositions.length;
     const a = fieldHash(wx, wz, 1323) * Math.PI * 2;
-    landmarkPositions.push({
-      type: 'leanTo',
-      rule: 'leanTo',
-      group: landmarkPositions.length,
-      x: fire.x - Math.sin(a) * 11,
-      y: fire.y,
-      z: fire.z - Math.cos(a) * 11,
-      rotY: a,
-    });
+    if (fieldHash(wx, wz, 1321) < LANDMARK_RULES.leanTo.chance) {
+      landmarkPositions.push({
+        type: 'leanTo',
+        rule: 'leanTo',
+        group,
+        x: fire.x - Math.sin(a) * 11,
+        y: fire.y,
+        z: fire.z - Math.cos(a) * 11,
+        rotY: a,
+        fire,
+      });
+    }
+    if (fireHash(wx, wz, 1327) < LANDMARK_RULES.trailer.chance) {
+      // Across the fire from the lean-to, side on to the fire
+      const b = a + Math.PI + (fireHash(wx, wz, 1329) - 0.5) * 0.8;
+      fire.trailerAngle = b;
+      landmarkPositions.push({
+        type: 'trailer' + Math.floor(fireHash(wx, wz, 1331) * TRAILER_LOOKS),
+        rule: 'trailer',
+        group,
+        x: fire.x - Math.sin(b) * TRAILER_FROM_FIRE,
+        y: fire.y,
+        z: fire.z - Math.cos(b) * TRAILER_FROM_FIRE,
+        rotY: b + Math.PI / 2,
+        fire,
+      });
+    }
   }
   // Each beach hut spot becomes a row of huts along the shore, facing the
   // water
@@ -6077,6 +6106,18 @@ export function generateChunkData({
     });
   }
 
+  // A lean-to or trailer whose campfire was cleared away since (off the
+  // roads, out of the clearings) goes with it
+  {
+    const fires = new Set(campfirePositions);
+    let n = 0;
+    for (const p of landmarkPositions) {
+      const keep = !p.fire || fires.has(p.fire);
+      delete p.fire;
+      if (keep) landmarkPositions[n++] = p;
+    }
+    landmarkPositions.length = n;
+  }
   // Landmarks: towers stand on their own and topple whole; the rest are
   // houses, walls and roof
   for (const pos of landmarkPositions) {

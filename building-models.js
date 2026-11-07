@@ -19,6 +19,9 @@ import * as mushroomCottage from './third-party/polyfork/mushroom-cottage-1135d1
 import * as gardenShed from './third-party/polyfork/backyard-garden-shed-38d79f.mjs';
 import * as stoneChapel from './third-party/polyfork/stone-chapel-03e774.mjs';
 import * as campTent from './third-party/polyfork/camp-tent-3c5c89.mjs';
+import * as camperTrailer from './third-party/polyfork/camper-trailer-b2f706.mjs';
+import * as teardropTrailer from './third-party/polyfork/teardrop-trailer-580e25.mjs';
+import * as rvTrailer from './third-party/polyfork/rv-travel-trailer-bd53d7.mjs';
 import * as pierSection from './third-party/polyfork/pier-deck-section-7047d7.mjs';
 import * as pierCorner from './third-party/polyfork/pier-deck-corner-c56248.mjs';
 import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
@@ -195,6 +198,12 @@ export function dinoSkullGeo(species = 'rex', colorway = 'bleached') {
   );
 }
 const LANDMARKS = {
+  // Campers' trailers parked by some of the campfires: one part each,
+  // knocked over whole, not drawn far off (LANDMARK_SMALL)
+  trailer0: [camperTrailer, {colorway: 'turquoise'}, S, null],
+  trailer1: [camperTrailer, {colorway: 'cherry-red'}, S, null],
+  trailer2: [teardropTrailer, {colorway: 'forest-olive'}, S, null],
+  trailer3: [rvTrailer, {colorway: 'woodland-brown'}, S, null],
   fireLookout: [fireLookout, {colorway: 'sun-bleached', height: 1.18}, S, null],
   waterTower: [waterTower, {colorway: 'turquoise'}, S, null],
   windpump: [windpump, {colorway: 'weathered-pine'}, S, null],
@@ -278,6 +287,8 @@ const LANDMARKS = {
   ],
 };
 // Types toppled whole (the rest are houses)
+// One-part landmarks too small to see far off
+export const LANDMARK_SMALL = ['trailer0', 'trailer1', 'trailer2', 'trailer3'];
 export const LANDMARK_TOWERS = [
   'fireLookout',
   'waterTower',

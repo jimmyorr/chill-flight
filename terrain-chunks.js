@@ -229,6 +229,7 @@ import {
   buildLandmarkGeos,
   buildingMat,
   LANDMARK_HOUSES,
+  LANDMARK_SMALL,
   LANDMARK_TOWERS,
   PIER_DECK_TOP,
 } from './building-models.js';
@@ -1295,6 +1296,12 @@ for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_TOWERS))) {
       type === 'fireLookout' ? shadowBox(geo) : shadowCylinder(geo)
     );
   }
+}
+// The campers' trailers: one part each, too small to see far off
+for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_SMALL))) {
+  globalInstancer.registerType(type, geo, buildingMat, 200);
+  globalInstancer.setFarGeometry(type, null);
+  globalInstancer.setShadowGeometry(type, shadowBox(geo));
 }
 // The landmark houses (beach huts, shacks, ranger stations and
 // lean-tos): too small to see far off
@@ -3571,8 +3578,18 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         smokeInst.setColorAt(smokeIdx, new THREE.Color(i / 10.0, phase, 0));
       }
 
-      // Tent community
-      const angle = rng() * Math.PI * 2;
+      // Tent community (kept off the side where a trailer is parked)
+      let angle = rng() * Math.PI * 2;
+      if (pos.trailerAngle !== undefined) {
+        // The trailer stands at -(sin, cos) of trailerAngle from the
+        // fire, which is this angle in the tent's (cos, sin) terms
+        const toTrailer = Math.PI / 2 - pos.trailerAngle + Math.PI;
+        const d = Math.atan2(
+          Math.sin(angle - toTrailer),
+          Math.cos(angle - toTrailer)
+        );
+        if (Math.abs(d) < Math.PI / 2) angle += Math.PI;
+      }
       const dist = 12 + rng() * 4;
       const tentX = pos.x + Math.cos(angle) * dist;
       const tentZ = pos.z + Math.sin(angle) * dist;
