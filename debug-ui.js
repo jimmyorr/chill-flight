@@ -57,6 +57,10 @@ import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
 import {hooks} from './hooks.js';
 
+// Props as the page asked for them (?objects=none turns them off), before
+// any preset hides them
+const URL_SHOWS_OBJECTS = ChillFlightLogic.SHOW_OBJECTS;
+
 export function applyGraphicsPreset(preset) {
   let segments;
   let dist;
@@ -140,16 +144,21 @@ export function applyGraphicsPreset(preset) {
   );
 
   // Update pixel ratio dynamically: baked resolution scale into quality levels
+  // Low draws no props at all (trees, houses, rocks: nearly all of a
+  // phone's frame) and spends that on mid's sharpness instead of half
+  // resolution
   let pixelRatio;
-  if (segments <= 20) {
-    pixelRatio = 0.5;
-  } else if (segments <= 40) {
+  if (segments <= 40) {
     pixelRatio = Math.min(window.devicePixelRatio, 2) * 0.75;
   } else if (segments <= 50) {
     pixelRatio = Math.min(window.devicePixelRatio, 1.5);
   } else {
     pixelRatio = Math.min(window.devicePixelRatio, 2.0); // Capped at 2.0 for Ultra
   }
+
+  const showObjects = URL_SHOWS_OBJECTS && preset !== 'low';
+  if (showObjects !== state._enableObjects)
+    toggleProceduralObjects(showObjects);
 
   // Store the preset's base pixel ratio so DRS can scale relative to it
   state._basePixelRatio = pixelRatio;
