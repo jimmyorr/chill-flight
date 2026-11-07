@@ -7,6 +7,7 @@ import {simplex} from './noise.js';
 import {roadSnowUniforms, updateUrlParams} from './constants.js';
 import {camera, skyUniforms} from './sky.js';
 import {state} from './state.js';
+import {WIND_DIR_X, WIND_DIR_Z} from './terrain-gen.js';
 import {playThunder} from './sfx-events.js';
 import {thunderHaptic} from './haptics.js';
 
@@ -62,164 +63,265 @@ export const precipitation = {rain: 0, snow: 0};
 function showParticles(points, amount, fullOpacity) {
   const k = Math.sqrt(Math.min(1, amount));
   points.material.opacity = fullOpacity * k;
-  points.geometry.setDrawRange(0, Math.ceil(WEATHER_PARTICLE_COUNT * k));
+  points.material.uniforms.uOpacity.value =
+    fullOpacity * k * points.userData.strength;
+  points.geometry.instanceCount = Math.ceil(points.userData.count * k);
   // Hide when completely transparent to save the draw
   points.visible = amount >= 0.002;
 }
 
-// Optimization: Weather particle GPU simulation uniforms.
-// Rather than updating 5,000 particle positions (15,000 floats) on the CPU and streaming
-// them across the PCIe bus every frame via needsUpdate=true, particle velocities and bounds
-// wrapping are computed entirely on the GPU via custom onBeforeCompile vertex shaders.
-var weatherUniforms = {
-  snowTime: {value: 0},
-  rainTime: {value: 0},
+// Rain and snow are one draw call each: every drop or flake is a small quad
+// (an instance) whose fall, wrap around the camera, flutter and motion streak
+// are all worked out in the vertex shader, so the CPU only moves a clock.
+//
+// Each quad is drawn as a capsule from where the drop is to where it was a
+// moment ago as the camera saw it (its fall minus the camera's own motion),
+// so rain slants toward you in flight and stands straight when parked, and
+// snow smears a little at speed. Widths are in world units but never thinner
+// than about a pixel (thinner ones fade instead, so far drops don't
+// shimmer) and flakes never grow past a few pixels right by the camera.
+const weatherUniforms = {
   cameraPos: {value: new THREE.Vector3()},
+  cameraVel: {value: new THREE.Vector3()},
   range: {value: WEATHER_RANGE},
+  resolution: {value: new THREE.Vector2(1, 1)},
+  // Drawing-buffer pixels per CSS pixel
+  pxScale: {value: 1},
+  light: {value: 1},
 };
+const _lastCamPos = new THREE.Vector3();
+let _haveLastCamPos = false;
+const _camVelRaw = new THREE.Vector3();
+const _bufferSize = new THREE.Vector2();
+const _windDir = new THREE.Vector2(WIND_DIR_X, WIND_DIR_Z).normalize();
 
-// Generate a soft, glowing circle for snow
-function createSnowTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 16;
-  canvas.height = 16;
-  const ctx = canvas.getContext('2d');
-  ctx.beginPath();
-  ctx.arc(8, 8, 8, 0, Math.PI * 2);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fill();
-  return new THREE.CanvasTexture(canvas);
-}
+const WEATHER_VERTEX = /* glsl */ `
+  attribute vec3 aPos;
+  attribute vec4 aVel;
+  uniform float uTime;
+  uniform vec3 uCamPos;
+  uniform vec3 uCamVel;
+  uniform float uRange;
+  uniform vec2 uResolution;
+  uniform float uPxScale;
+  // Seconds of motion a streak shows
+  uniform float uExposure;
+  // World width, and the narrowest and widest it's drawn, in CSS pixels
+  uniform float uWidth;
+  uniform float uMinPx;
+  uniform float uMaxPx;
+  // Longest streak, as a fraction of the screen height
+  uniform float uMaxLen;
+  // Flutter, in world units
+  uniform float uSway;
+  // Fade in from the camera between these distances
+  uniform vec2 uNear;
+  varying vec2 vLocal;
+  varying float vLen;
+  varying float vR;
+  varying float vAlpha;
+  void main() {
+    float seed = aVel.w;
+    vec3 p = aPos + aVel.xyz * uTime;
+    vec3 swayVel = vec3(0.0);
+    if (uSway > 0.0) {
+      float a = uTime * (0.9 + seed * 0.8) + seed * 40.0;
+      float b = uTime * (0.7 + seed * 0.6) + seed * 17.0;
+      p.x += uSway * sin(a);
+      p.z += uSway * cos(b);
+      swayVel = vec3(
+        uSway * cos(a) * (0.9 + seed * 0.8),
+        0.0,
+        -uSway * sin(b) * (0.7 + seed * 0.6)
+      );
+    }
+    vec3 halfBox = vec3(uRange * 0.5);
+    vec3 rel = mod(p - uCamPos + halfBox, uRange) - halfBox;
+    vec3 world = uCamPos + rel;
+    vec3 seen = aVel.xyz + swayVel - uCamVel;
 
-// Generate a motion-blurred streak for rain
-function createRainTexture() {
-  const canvas = document.createElement('canvas');
-  // The canvas MUST be square for PointsMaterial to prevent stretching
-  canvas.width = 64;
-  canvas.height = 64;
-  const ctx = canvas.getContext('2d');
+    vec4 head = projectionMatrix * viewMatrix * vec4(world, 1.0);
+    vec4 tail = projectionMatrix * viewMatrix * vec4(world - seen * uExposure, 1.0);
+    if (head.w < 0.5) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      vAlpha = 0.0;
+      return;
+    }
+    if (tail.w < 0.5) tail = head;
 
-  // Vertical gradient to simulate motion blur
-  const grad = ctx.createLinearGradient(0, 0, 0, 64);
-  grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
-  grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.8)'); // Brighter core
-  grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    vec2 halfRes = 0.5 * uResolution;
+    vec2 sH = head.xy / head.w * halfRes;
+    vec2 sT = tail.xy / tail.w * halfRes;
+    vec2 d = sH - sT;
+    float len = length(d);
+    float maxLen = uMaxLen * uResolution.y;
+    if (len > maxLen) {
+      sT = sH - d / len * maxLen;
+      len = maxLen;
+    }
+    vec2 n = len > 0.001 ? d / len : vec2(0.0, 1.0);
+    vec2 side = vec2(-n.y, n.x);
 
-  ctx.fillStyle = grad;
-  // Draw a thin streak directly down the middle (X=31, Y=0, Width=2, Height=64)
-  ctx.fillRect(31, 0, 2, 64);
+    // Width on screen, flakes a little varied in size
+    float size = uWidth * (0.6 + 0.8 * fract(seed * 7.13));
+    float px = size * projectionMatrix[1][1] * halfRes.y / head.w;
+    float minPx = max(uMinPx * uPxScale, 1.0);
+    float w = clamp(px, minPx, uMaxPx * uPxScale);
+    float r = 0.5 * w;
 
-  return new THREE.CanvasTexture(canvas);
+    // position.xy: x across (-0.5..0.5), y along (-0.5 tail .. 0.5 head)
+    float along = position.y + 0.5;
+    vec2 s = mix(sT - n * r, sH + n * r, along) + side * position.x * 2.0 * r;
+    gl_Position = vec4(s / halfRes * head.w, head.z, head.w);
+
+    vLocal = vec2(position.x * 2.0 * r, along * (len + 2.0 * r) - r);
+    vLen = len;
+    vR = r;
+    float dist = length(rel);
+    vAlpha = min(1.0, px / minPx) *
+      smoothstep(uNear.x, uNear.y, head.w) *
+      (1.0 - smoothstep(0.38 * uRange, 0.5 * uRange, dist));
+  }
+`;
+
+const WEATHER_FRAGMENT = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  uniform float uLight;
+  // 0: a soft dot (snow); 1: brighter toward the falling end (rain)
+  uniform float uHeadBias;
+  varying vec2 vLocal;
+  varying float vLen;
+  varying float vR;
+  varying float vAlpha;
+  void main() {
+    float beyond = max(0.0, max(-vLocal.y, vLocal.y - vLen));
+    float d = length(vec2(beyond, vLocal.x)) / max(vR, 0.001);
+    if (d >= 1.0) discard;
+    float soft = 1.0 - d * d;
+    float t = clamp(vLocal.y / max(vLen, 0.001), 0.0, 1.0);
+    float body = mix(1.0, 0.25 + 0.75 * t, uHeadBias);
+    gl_FragColor = vec4(uColor * uLight, uOpacity * vAlpha * soft * body);
+  }
+`;
+
+function buildPrecipitation(count, makeVelocity, look) {
+  const geometry = new THREE.InstancedBufferGeometry();
+  const quad = new THREE.PlaneGeometry(1, 1);
+  geometry.index = quad.index;
+  geometry.setAttribute('position', quad.attributes.position);
+  const pos = new Float32Array(count * 3);
+  const vel = new Float32Array(count * 4);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < count; i++) {
+    pos[i * 3] = (Math.random() - 0.5) * WEATHER_RANGE;
+    pos[i * 3 + 1] = (Math.random() - 0.5) * WEATHER_RANGE;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * WEATHER_RANGE;
+    makeVelocity(v);
+    // Blown along the same wind the trees lean in
+    v.x += _windDir.x * look.wind;
+    v.z += _windDir.y * look.wind;
+    vel[i * 4] = v.x;
+    vel[i * 4 + 1] = v.y;
+    vel[i * 4 + 2] = v.z;
+    vel[i * 4 + 3] = Math.random();
+  }
+  geometry.setAttribute('aPos', new THREE.InstancedBufferAttribute(pos, 3));
+  geometry.setAttribute('aVel', new THREE.InstancedBufferAttribute(vel, 4));
+  geometry.instanceCount = count;
+
+  const uniforms = {
+    uTime: {value: 0},
+    uCamPos: weatherUniforms.cameraPos,
+    uCamVel: weatherUniforms.cameraVel,
+    uRange: weatherUniforms.range,
+    uResolution: weatherUniforms.resolution,
+    uPxScale: weatherUniforms.pxScale,
+    uLight: weatherUniforms.light,
+    uOpacity: {value: 0},
+    uColor: {value: new THREE.Color(look.color)},
+    uExposure: {value: look.exposure},
+    uWidth: {value: look.width},
+    uMinPx: {value: look.minPx},
+    uMaxPx: {value: look.maxPx},
+    uMaxLen: {value: look.maxLen},
+    uSway: {value: look.sway},
+    uNear: {value: new THREE.Vector2(look.near[0], look.near[1])},
+    uHeadBias: {value: look.headBias},
+  };
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: WEATHER_VERTEX,
+    fragmentShader: WEATHER_FRAGMENT,
+    transparent: true,
+    depthWrite: false,
+    // The quad's winding follows the streak's direction on screen
+    side: THREE.DoubleSide,
+  });
+  material.opacity = 0;
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  mesh.visible = false;
+  mesh.renderOrder = 3;
+  mesh.userData.count = count;
+  // Opacity at full rain or snow is RAIN_FULL or SNOW_FULL times this
+  mesh.userData.strength = look.strength;
+  mesh.onBeforeRender = (renderer) => {
+    renderer.getDrawingBufferSize(_bufferSize);
+    weatherUniforms.resolution.value.copy(_bufferSize);
+    weatherUniforms.pxScale.value = renderer.getPixelRatio();
+  };
+  scene.add(mesh);
+  return mesh;
 }
 
 function initWeather() {
-  // Geometries
-  const snowGeo = new THREE.BufferGeometry();
-  const rainGeo = new THREE.BufferGeometry();
-
-  const snowPos = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
-  const snowVel = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
-  const rainPos = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
-  const rainVel = new Float32Array(WEATHER_PARTICLE_COUNT * 3);
-
-  for (let i = 0; i < WEATHER_PARTICLE_COUNT; i++) {
-    // Shared random spawn positions
-    const startX = (Math.random() - 0.5) * WEATHER_RANGE;
-    const startY = (Math.random() - 0.5) * WEATHER_RANGE;
-    const startZ = (Math.random() - 0.5) * WEATHER_RANGE;
-
-    snowPos[i * 3] = startX;
-    snowPos[i * 3 + 1] = startY;
-    snowPos[i * 3 + 2] = startZ;
-    rainPos[i * 3] = startX;
-    rainPos[i * 3 + 1] = startY;
-    rainPos[i * 3 + 2] = startZ;
-
-    // Snow velocity: gentle drift and slow fall
-    snowVel[i * 3] = (Math.random() - 0.5) * 15;
-    snowVel[i * 3 + 1] = -(Math.random() * 25 + 30);
-    snowVel[i * 3 + 2] = (Math.random() - 0.5) * 15;
-
-    // Rain velocity: fast fall, minimal horizontal drift
-    rainVel[i * 3] = (Math.random() - 0.5) * 5;
-    rainVel[i * 3 + 1] = -(Math.random() * 200 + 250);
-    rainVel[i * 3 + 2] = (Math.random() - 0.5) * 5;
-  }
-
-  snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
-  snowGeo.setAttribute('velocity', new THREE.BufferAttribute(snowVel, 3));
-
-  rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-  rainGeo.setAttribute('velocity', new THREE.BufferAttribute(rainVel, 3));
-
-  // Materials
-  const snowMat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 2.0,
-    map: createSnowTexture(),
-    transparent: true,
-    opacity: 0.0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-
-  const rainMat = new THREE.PointsMaterial({
-    color: 0xaaccff,
-    size: 15.0, // Increased size to compensate for the larger square canvas
-    map: createRainTexture(),
-    transparent: true,
-    opacity: 0.0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-
-  // Optimization: Weather particle GPU simulation and vertex shader injection.
-  // Why: Evaluating particle trajectories and toroidal box wrapping on the GPU avoids updating
-  // 5,000 particle positions on the CPU every frame, eliminating 60KB/frame (~35MB/min) of PCIe
-  // buffer transfers and main-thread bounds calculation loops.
-  const injectWeatherShader = (shader, timeUniform) => {
-    shader.uniforms.uWeatherTime = timeUniform;
-    shader.uniforms.uCameraPos = weatherUniforms.cameraPos;
-    shader.uniforms.uRange = weatherUniforms.range;
-
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <common>',
-      `#include <common>
-       uniform float uWeatherTime;
-       uniform vec3 uCameraPos;
-       uniform float uRange;
-       attribute vec3 velocity;`
-    );
-
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      `
-       // Particles move along their static velocity attribute scaled by accumulated elapsed time.
-       // We compute displacement relative to the camera position and wrap modulo uRange so particles
-       // remain centered in a bounding volume around the airplane.
-       vec3 animatedPos = position + velocity * uWeatherTime;
-       vec3 relPos = animatedPos - uCameraPos;
-       vec3 halfRange = vec3(uRange * 0.5);
-       vec3 transformed = mod(relPos + halfRange, uRange) - halfRange;
-      `
-    );
-  };
-
-  snowMat.onBeforeCompile = (shader) =>
-    injectWeatherShader(shader, weatherUniforms.snowTime);
-  rainMat.onBeforeCompile = (shader) =>
-    injectWeatherShader(shader, weatherUniforms.rainTime);
-
-  // Meshes
-  snowParticles = new THREE.Points(snowGeo, snowMat);
-  snowParticles.visible = false;
-  snowParticles.frustumCulled = false;
-  scene.add(snowParticles);
-
-  rainParticles = new THREE.Points(rainGeo, rainMat);
-  rainParticles.visible = false;
-  rainParticles.frustumCulled = false;
-  scene.add(rainParticles);
+  // Snow: gentle drift and slow fall, small soft flakes that flutter
+  snowParticles = buildPrecipitation(
+    WEATHER_PARTICLE_COUNT,
+    (v) =>
+      v.set(
+        (Math.random() - 0.5) * 15,
+        -(Math.random() * 25 + 30),
+        (Math.random() - 0.5) * 15
+      ),
+    {
+      color: 0xf4f7ff,
+      strength: 1.2,
+      wind: 10,
+      exposure: 0.003,
+      width: 1.4,
+      minPx: 1.4,
+      maxPx: 7,
+      maxLen: 0.01,
+      sway: 1.6,
+      near: [1.5, 6],
+      headBias: 0,
+    }
+  );
+  // Rain: fast fall, minimal horizontal drift, thin streaks
+  rainParticles = buildPrecipitation(
+    WEATHER_PARTICLE_COUNT,
+    (v) =>
+      v.set(
+        (Math.random() - 0.5) * 5,
+        -(Math.random() * 200 + 250),
+        (Math.random() - 0.5) * 5
+      ),
+    {
+      color: 0xdde6f0,
+      strength: 1.3,
+      wind: 55,
+      exposure: 0.04,
+      width: 0.3,
+      minPx: 1,
+      maxPx: 1.8,
+      maxLen: 0.12,
+      sway: 0,
+      near: [6, 20],
+      headBias: 1,
+    }
+  );
 
   // Bind UI
   const weatherSelect = document.getElementById('weather-select');
@@ -514,21 +616,32 @@ export function updateWeather(delta) {
 
   if (!snowParticles.visible && !rainParticles.visible) return;
 
-  // Optimization: Weather particle physics and wrapping run entirely on the GPU.
-  // We only need to sync the camera position and advance the uniform simulation time for visible precipitation.
+  // The camera's own motion, smoothed, so the streaks slant with it
   const camPos = camera.position;
   weatherUniforms.cameraPos.value.copy(camPos);
+  if (_haveLastCamPos && delta > 0) {
+    _camVelRaw.subVectors(camPos, _lastCamPos).divideScalar(delta);
+    // A jump (respawn, teleport) isn't motion
+    if (_camVelRaw.lengthSq() > 1500 * 1500) _camVelRaw.set(0, 0, 0);
+    weatherUniforms.cameraVel.value.lerp(
+      _camVelRaw,
+      1 - Math.exp(-delta / 0.15)
+    );
+  }
+  _lastCamPos.copy(camPos);
+  _haveLastCamPos = true;
+  // Dimmer at night, but still catching what light there is
+  weatherUniforms.light.value =
+    0.6 + 0.4 * THREE.MathUtils.clamp(state.dayFactor, 0, 1);
 
   if (snowParticles.visible) {
-    snowParticles.position.copy(camPos);
     // Snow speed varies subtly: base speed is 0.8x, speeding up to 1.0x in heavy snow
     const snowSpeed = 0.8 + Math.min(1, snowShown / 0.5) * 0.2;
-    weatherUniforms.snowTime.value += delta * snowSpeed;
+    snowParticles.material.uniforms.uTime.value += delta * snowSpeed;
   }
 
   if (rainParticles.visible) {
-    rainParticles.position.copy(camPos);
-    weatherUniforms.rainTime.value += delta;
+    rainParticles.material.uniforms.uTime.value += delta;
   }
 }
 
