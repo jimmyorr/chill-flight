@@ -9,6 +9,9 @@ import {
   averageColor,
   bareTree,
   joinColored,
+  bentTrunk,
+  coneTiers,
+  frondRosette,
   limbsTo,
   lumpCrown,
   prismTrunk,
@@ -125,22 +128,33 @@ function splitTreeAsset(
 // without coconuts casts the star-shaped shadow for fewer triangles.
 const PALM_SCALE = 4.4;
 const PALM_TRUNK_COLORS = ['#6b4526', '#a88458', '#4a2e1b'];
+// Drawn as a bent five-sided trunk and seven creased fronds (~200 triangles,
+// was ~645): palms line every tropical beach.
+const PALM_FRONDS = 7;
 export function buildPalmGeos() {
   const {trunk, leaves} = splitTreeAsset(
-    palmTree.createAsset(),
+    palmTree.createAsset({coconuts: 0}),
     PALM_SCALE,
     PALM_TRUNK_COLORS,
     PALM_LEAF_COLOR,
     false
   );
-  const simpleLeaves = splitTreeAsset(
-    palmTree.createAsset({fronds: 5, coconuts: 0}),
-    PALM_SCALE,
-    PALM_TRUNK_COLORS,
-    PALM_LEAF_COLOR,
-    false
-  ).leaves;
-  return {trunk, leaves, simpleLeaves};
+  const lowTrunk = bentTrunk(trunk);
+  lowTrunk.computeBoundingBox();
+  const top = trunk.boundingBox;
+  // The crown sits on the trunk's top
+  const p = trunk.attributes.position;
+  let cx = 0;
+  let cz = 0;
+  let n = 0;
+  for (let i = 0; i < p.count; i++) {
+    if (p.getY(i) < top.max.y - (top.max.y - top.min.y) * 0.08) continue;
+    cx += p.getX(i);
+    cz += p.getZ(i);
+    n++;
+  }
+  const lowLeaves = frondRosette(leaves, PALM_FRONDS, cx / n, cz / n);
+  return {trunk: lowTrunk, leaves: lowLeaves, simpleLeaves: lowLeaves};
 }
 
 // Cherry blossom tree: Polyfork's Cherry Blossom Tree (sakura), dark forked
@@ -270,13 +284,15 @@ export function buildFruitTreeGeos() {
 // units tall.
 const SNOW_SPRUCE_SCALE = 4.2;
 export function buildSnowSpruceGeos() {
-  return splitTreeAsset(
+  const {trunk, leaves} = splitTreeAsset(
     snowLadenSpruce.createAsset({tiers: 5}),
     SNOW_SPRUCE_SCALE,
     ['#a97c50'],
     null,
     false
   );
+  // Five snowy cones (140 triangles, was ~640): spruces fill the north
+  return {trunk, leaves: coneTiers(leaves, 5, 7)};
 }
 
 // Bare mountain rowan: Polyfork's Bare Mountain Rowan, smooth grey bole under

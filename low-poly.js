@@ -306,3 +306,274 @@ export function limbsTo(trunk, crown) {
   }
   return joinColored(parts);
 }
+
+// Rings through `geo` from foot to top: `bands` + 1 of them, each its
+// triangles' centre at that height and a radius a little inside their spread
+function trunkRings(geo, bands) {
+  geo.computeBoundingBox();
+  const box = geo.boundingBox;
+  const h = box.max.y - box.min.y;
+  const tris = triangles(geo);
+  const rings = [];
+  for (let i = 0; i <= bands; i++) {
+    const y = box.min.y + (h * i) / bands;
+    const near = tris.filter((t) => Math.abs(t.y - y) <= h / bands / 1.5);
+    if (!near.length) {
+      rings.push(null);
+      continue;
+    }
+    const cx = near.reduce((s, t) => s + t.x, 0) / near.length;
+    const cz = near.reduce((s, t) => s + t.z, 0) / near.length;
+    const d = near
+      .map((t) => Math.hypot(t.x - cx, t.z - cz))
+      .sort((a, b) => a - b);
+    rings.push({
+      x: cx,
+      y,
+      z: cz,
+      r: Math.max(0.2, d[Math.floor(d.length * 0.6)]),
+    });
+  }
+  // Fill any band without triangles from its neighbours
+  for (let i = 0; i < rings.length; i++) {
+    if (rings[i]) continue;
+    const prev = rings.slice(0, i).reverse().find(Boolean);
+    const next = rings.slice(i + 1).find(Boolean);
+    const src = prev || next;
+    rings[i] = {...src, y: box.min.y + (h * i) / bands};
+  }
+  return rings;
+}
+
+// A tube through `rings` ({x, y, z, r}) with `sides` sides, open ends
+function tube(rings, sides) {
+  const pos = [];
+  const ring = (k, j) => {
+    const a = (j / sides) * Math.PI * 2;
+    const g = rings[k];
+    return [g.x + Math.cos(a) * g.r, g.y, g.z + Math.sin(a) * g.r];
+  };
+  for (let k = 0; k < rings.length - 1; k++) {
+    for (let j = 0; j < sides; j++) {
+      const a = ring(k, j);
+      const b = ring(k, j + 1);
+      const c = ring(k + 1, j + 1);
+      const d = ring(k + 1, j);
+      pos.push(...a, ...d, ...c, ...a, ...c, ...b);
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  return out;
+}
+
+/**
+ * A bent trunk (a palm's) standing in for `geo`: a five-sided tube through
+ * its middle at `bands` + 1 heights, in its average colour (10 triangles a
+ * band).
+ */
+export function bentTrunk(geo, bands = 4) {
+  return joinColored([[tube(trunkRings(geo, bands), 5), averageColor(geo)]]);
+}
+
+/**
+ * Palm fronds standing in for `geo` (a rosette of `count` fronds round
+ * (cx, cz)): each frond a flat blade from the crown, through two points
+ * along its spine, to its tip, as wide as the frond, both faces (10
+ * triangles a frond), in the frond's average colour.
+ */
+export function frondRosette(geo, count, cx, cz) {
+  const tris = triangles(geo);
+  if (!tris.length) return geo;
+  for (const t of tris) t.a = Math.atan2(t.z - cz, t.x - cx);
+  tris.sort((p, q) => p.a - q.a);
+  // Split the circle at the `count` widest gaps between fronds
+  const gaps = tris.map((t, i) => {
+    const next = tris[(i + 1) % tris.length];
+    let g = next.a - t.a;
+    if (g < 0) g += Math.PI * 2;
+    return {i, g};
+  });
+  const cuts = gaps
+    .sort((p, q) => q.g - p.g)
+    .slice(0, count)
+    .map((g) => g.i)
+    .sort((p, q) => p - q);
+  const crownY =
+    tris.reduce((s, t) => s + t.y * t.w, 0) / tris.reduce((s, t) => s + t.w, 0);
+  const parts = [];
+  for (let f = 0; f < cuts.length; f++) {
+    const from = cuts[f] + 1;
+    const to = f + 1 < cuts.length ? cuts[f + 1] : cuts[0] + tris.length;
+    const frond = [];
+    for (let i = from; i <= to; i++) frond.push(tris[i % tris.length]);
+    if (frond.length < 2) continue;
+    // Direction out from the crown (area-weighted)
+    let w = 0;
+    let dx = 0;
+    let dz = 0;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    for (const t of frond) {
+      w += t.w;
+      dx += (t.x - cx) * t.w;
+      dz += (t.z - cz) * t.w;
+      r += t.r * t.w;
+      g += t.g * t.w;
+      b += t.b * t.w;
+    }
+    const len = Math.hypot(dx, dz) || 1;
+    const ux = dx / len;
+    const uz = dz / len;
+    // Along the frond: distance out, and how far to the side
+    for (const t of frond) {
+      t.d = (t.x - cx) * ux + (t.z - cz) * uz;
+      t.s = -(t.x - cx) * uz + (t.z - cz) * ux;
+    }
+    const maxD = Math.max(...frond.map((t) => t.d));
+    const spine = [];
+    for (const [lo, hi] of [
+      [0, 0.12],
+      [0.18, 0.34],
+      [0.4, 0.56],
+      [0.62, 0.78],
+      [0.88, 1.01],
+    ]) {
+      const bin = frond.filter((t) => t.d >= lo * maxD && t.d <= hi * maxD);
+      if (!bin.length) continue;
+      let bw = 0;
+      let x = 0;
+      let y = 0;
+      let z = 0;
+      let s2 = 0;
+      for (const t of bin) {
+        bw += t.w;
+        x += t.x * t.w;
+        y += t.y * t.w;
+        z += t.z * t.w;
+      }
+      x /= bw;
+      y /= bw;
+      z /= bw;
+      const sMid = -(x - cx) * uz + (z - cz) * ux;
+      for (const t of bin) s2 += (t.s - sMid) ** 2 * t.w;
+      spine.push({x, y, z, half: Math.sqrt(s2 / bw) * 1.3});
+    }
+    if (spine.length < 2) continue;
+    // From the crown's middle, narrow at both ends
+    spine.unshift({x: cx + ux * 0.3, y: crownY, z: cz + uz * 0.3, half: 0.2});
+    spine[spine.length - 1].half = 0;
+    // Each segment a shallow V (the midrib raised), both faces
+    const pos = [];
+    const edge = (p, side) => [
+      p.x - uz * p.half * side,
+      p.y - p.half * 0.35,
+      p.z + ux * p.half * side,
+    ];
+    for (let k = 0; k < spine.length - 1; k++) {
+      const p = spine[k];
+      const q = spine[k + 1];
+      const pm = [p.x, p.y, p.z];
+      const qm = [q.x, q.y, q.z];
+      for (const side of [1, -1]) {
+        const pe = edge(p, side);
+        const qe = edge(q, side);
+        if (side === 1) {
+          pos.push(...pe, ...qe, ...qm, ...pe, ...qm, ...pm);
+          pos.push(...pe, ...qm, ...qe, ...pe, ...pm, ...qm);
+        } else {
+          pos.push(...pm, ...qm, ...qe, ...pm, ...qe, ...pe);
+          pos.push(...pm, ...qe, ...qm, ...pm, ...pe, ...qe);
+        }
+      }
+    }
+    const blade = new THREE.BufferGeometry();
+    blade.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    parts.push([blade, [r / w, g / w, b / w]]);
+  }
+  return joinColored(parts);
+}
+
+/**
+ * Stacked cones (a snowy spruce) standing in for `geo`: `tiers` cones of
+ * `sides` sides from its foliage's foot to its top, each as wide as its
+ * band's widest reach, snow on top over a band of needles at the rim,
+ * needles underneath (4 x sides triangles a tier).
+ */
+export function coneTiers(geo, tiers = 4, sides = 7) {
+  geo.computeBoundingBox();
+  const box = geo.boundingBox;
+  const h = box.max.y - box.min.y;
+  const cx = (box.max.x + box.min.x) / 2;
+  const cz = (box.max.z + box.min.z) / 2;
+  // (Leaving out a snow drift round the roots)
+  const foot = box.min.y + h * 0.12;
+  const tris = triangles(geo).filter((t) => t.y >= foot);
+  const luma = (t) => t.r * 0.3 + t.g * 0.59 + t.b * 0.11;
+  const avg = (list) => {
+    let w = 0;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    for (const t of list) {
+      w += t.w;
+      r += t.r * t.w;
+      g += t.g * t.w;
+      b += t.b * t.w;
+    }
+    return w > 0 ? [r / w, g / w, b / w] : null;
+  };
+  const pos = [];
+  const col = [];
+  const all = avg(tris) || [1, 1, 1];
+  const snow = avg(tris.filter((t) => luma(t) >= 0.5)) || all;
+  const needles = avg(tris.filter((t) => luma(t) < 0.5)) || all;
+  const span = box.max.y - foot;
+  for (let i = 0; i < tiers; i++) {
+    const y0 = foot + (span * i) / tiers;
+    const y1 = foot + (span * (i + 1)) / tiers;
+    const band = tris.filter((t) => t.y >= y0 && t.y < y1 + 1e-6);
+    if (!band.length) continue;
+    const reach = band
+      .map((t) => Math.hypot(t.x - cx, t.z - cz))
+      .sort((a, b) => a - b);
+    const r = reach[Math.floor(reach.length * 0.9)] * 1.1;
+    // Snow on top, fading to needles at the rim; dark needles underneath
+    const rim = snow.map((c, k) => c * 0.15 + needles[k] * 0.85);
+    // Each cone's point reaches a little into the tier above
+    const top = i === tiers - 1 ? box.max.y : y1 + (y1 - y0) * 0.35;
+    const base = y0 - (i === 0 ? 0 : (y1 - y0) * 0.1);
+    // Snow down to SNOW_LINE of the way to the rim, then a band of needles
+    const SNOW_LINE = 0.72;
+    const at = (a, f) => [
+      cx + Math.cos(a) * r * f,
+      top + (base - top) * f,
+      cz + Math.sin(a) * r * f,
+    ];
+    for (let j = 0; j < sides; j++) {
+      const a0 = (j / sides) * Math.PI * 2 + i * 0.4;
+      const a1 = ((j + 1) / sides) * Math.PI * 2 + i * 0.4;
+      const p0 = at(a0, 1);
+      const p1 = at(a1, 1);
+      const s0 = at(a0, SNOW_LINE);
+      const s1 = at(a1, SNOW_LINE);
+      // Snowy top
+      pos.push(...s0, cx, top, cz, ...s1);
+      col.push(...snow, ...snow, ...snow);
+      // Needles below the snow
+      pos.push(...p0, ...s0, ...s1, ...p0, ...s1, ...p1);
+      col.push(...rim, ...rim, ...rim, ...rim, ...rim, ...rim);
+      // Underside
+      pos.push(...p0, ...p1, cx, base + (top - base) * 0.15, cz);
+      col.push(...needles, ...needles, ...needles);
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  out.computeVertexNormals();
+  out.computeBoundingBox();
+  out.computeBoundingSphere();
+  return out;
+}
