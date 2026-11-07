@@ -1560,9 +1560,9 @@ const SUNKEN_BOAT_CHANCE = 0.0004;
 // patches of this scale (faded in between these values), in water this deep
 // (fading in over the first pair, out over the second)
 const REEF_SOUTH_Z = 6000;
-const REEF_PATCH_SCALE = 0.003;
-const REEF_PATCH = [0.1, 0.45];
-const REEF_DEPTH = [0.3, 1.2, 3.5, 6];
+const REEF_PATCH_SCALE = 0.0012;
+const REEF_PATCH = [-0.35, 0.25];
+// Reefs fade with depth in the water shader
 function reefStep(a, b, x) {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
@@ -1587,7 +1587,10 @@ function reefWeights(
       const x = worldOffsetX - halfSize + gx * step;
       if (z <= REEF_SOUTH_Z && x <= 3000) continue;
       const depth = wl - heightGrid[gz * gridX1 + gx];
-      if (depth < REEF_DEPTH[0] || depth > REEF_DEPTH[3]) continue;
+      // Loose gate only: far chunks have coarse height grids whose points
+      // rarely land in the shallow band, so the water shader fades reefs by
+      // its own interpolated depth instead
+      if (depth < -30 || depth > 40) continue;
       const patch = simplex.noise2D(
         x * REEF_PATCH_SCALE + 7.7,
         z * REEF_PATCH_SCALE - 3.1
@@ -1605,10 +1608,7 @@ function reefWeights(
         continue;
       const flow = ChillFlightLogic.getRiverFlow(x, z, simplex);
       if (flow && Math.hypot(flow[0], flow[1]) > RIVER_BOAT_FLOW) continue;
-      const w =
-        reefStep(REEF_DEPTH[0], REEF_DEPTH[1], depth) *
-        (1 - reefStep(REEF_DEPTH[2], REEF_DEPTH[3], depth)) *
-        reefStep(REEF_PATCH[0], REEF_PATCH[1], patch);
+      const w = reefStep(REEF_PATCH[0], REEF_PATCH[1], patch);
       const hue = reefStep(
         -0.3,
         0.3,

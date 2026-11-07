@@ -641,35 +641,31 @@ waterMaterial.onBeforeCompile = function (shader) {
         gl_FragColor.rgb = mix(gl_FragColor.rgb, waterLit, swampWater);
         gl_FragColor.a = mix(gl_FragColor.a, 0.93, swampWater);
         // Coral reefs in the warm shallows (terrain-gen.js reefWeights): as
-        // seen from the air, crisp clumps of coral (dense in the middle of a
-        // patch, breaking into scattered heads at its edge) in deep teal,
-        // olive-brown and dusky purple, darker at their cores, with bright
-        // sand ringing them
+        // seen from the air, broad soft blotches of dark blue-green under the
+        // bright shallow water, mottled inside, a little bluer where
+        // the reef weight says so. Colours come from the water's own lit
+        // colour so they follow the time of day.
         vec2 reef = texture2D(uDepthTex, vDepthUV).ba;
-        float reefAmount = reef.x + reef.y;
+        // Shallow water out to ~10 deep. Exact depth, not the softened one:
+        // that is softened per chunk and steps at chunk edges
+        float reefAmount = (reef.x + reef.y)
+          * smoothstep(0.0, 0.3, vWaterDepth) * (1.0 - smoothstep(4.0, 10.0, vWaterDepth));
         if (reefAmount > 0.004) {
           vec2 rp = vWorldPosition.xz;
-          vec2 warp = vec2(noise(rp * 0.011 + 3.1), noise(rp * 0.011 - 7.4)) * 30.0;
-          float n = noise((rp + warp) * 0.045) * 0.55
-                  + noise((rp - warp) * 0.13) * 0.3
-                  + noise(rp * 0.4) * 0.15;
-          float edge = mix(0.66, 0.4, min(1.0, reefAmount * 1.2));
-          float coral = smoothstep(edge, edge + 0.05, n);
-          float halo = smoothstep(edge - 0.14, edge, n) * (1.0 - coral);
-          float kind = noise(rp * 0.05 + 11.0) * 0.6 + noise(rp * 0.017 - 4.0) * 0.4;
-          vec3 reefColor = mix(vec3(0.1, 0.48, 0.52), vec3(0.66, 0.52, 0.28), smoothstep(0.42, 0.6, kind));
-          reefColor = mix(reefColor, vec3(0.62, 0.36, 0.6), smoothstep(0.45, 0.75, reef.y / reefAmount));
-          reefColor *= mix(1.0, 0.72, smoothstep(edge + 0.05, edge + 0.25, n));
-          // The odd bright coral head
-          float spot = 0.4 * smoothstep(0.8, 0.83, noise(rp * 0.3 + 5.0)) * smoothstep(edge + 0.02, edge + 0.08, n);
-          reefColor = mix(reefColor, mix(vec3(0.9, 0.55, 0.52), vec3(0.88, 0.78, 0.45), step(0.5, noise(rp * 0.09 - 2.0))), spot);
-          halo *= smoothstep(0.7, 1.6, vWaterDepth);
+          vec2 warp = vec2(noise(rp * 0.006 + 3.1), noise(rp * 0.006 - 7.4)) * 50.0;
+          float n = noise((rp + warp) * 0.02) * 0.6
+                  + noise((rp - warp) * 0.065) * 0.28
+                  + noise(rp * 0.18) * 0.12;
+          float edge = mix(0.52, 0.26, min(1.0, reefAmount * 1.5));
+          float blot = smoothstep(edge, edge + 0.14, n);
+          float core = smoothstep(edge + 0.06, edge + 0.32, n);
+          float mottle = noise(rp * 0.11 + 9.0);
           float lum = max(max(waterLit.r, waterLit.g), waterLit.b);
-          gl_FragColor.rgb = mix(gl_FragColor.rgb, min(gl_FragColor.rgb * 1.25 + 0.06, vec3(1.0)), halo * 0.33 * min(1.0, reefAmount * 2.0));
-          // Muted toward the water's own colour, under the water's tint
-          reefColor = mix(reefColor, waterLit * vec3(0.55, 0.85, 0.85), 0.32);
-          gl_FragColor.rgb = mix(gl_FragColor.rgb, reefColor * lum * 1.15, coral * 0.54);
-          gl_FragColor.a = max(gl_FragColor.a, coral * 0.62);
+          vec3 shallowTint = waterLit * vec3(0.62, 0.86, 0.95);
+          vec3 deepTint = mix(vec3(0.03, 0.3, 0.5), vec3(0.12, 0.24, 0.5), smoothstep(0.45, 0.75, reef.y / max(reef.x + reef.y, 0.004))) * lum * 1.2;
+          vec3 reefColor = mix(shallowTint, deepTint, core * (0.75 + 0.25 * mottle));
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, reefColor, blot * 0.75);
+          gl_FragColor.a = max(gl_FragColor.a, blot * 0.6);
         }
 
         // Add macro-scale spatial variation to break up monotony across different water bodies
