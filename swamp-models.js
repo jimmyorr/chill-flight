@@ -29,14 +29,14 @@ function buildCattailClumpAsset() {
   const a = cattail.createAsset({
     colorway: 'summer-green',
     stage: 'mature',
-    blades: 6,
+    blades: 4,
     spread: 1.2,
     scale: 2.0,
   });
   const b = cattail.createAsset({
     colorway: 'autumn-sedge',
     stage: 'seeding',
-    blades: 5,
+    blades: 3,
     spread: 1.3,
     scale: 1.75,
   });
@@ -128,8 +128,8 @@ export function buildSwampGeos() {
     swampReeds: mergeAsset(
       moatReed.createAsset({
         colorway: 'silt-black',
-        blades: 26,
-        heads: 10,
+        blades: 14,
+        heads: 6,
         tallness: 1.1,
         splay: 1.15,
       }),

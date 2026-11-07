@@ -341,6 +341,9 @@ const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = true;
 
 // How alien (ChillFlightLogic.alienAt) the land must be for alien props
+// Share of swamp trees not placed (see the swamp tree loop below)
+const SWAMP_TREE_THINNING = 0.33;
+
 export const ALIEN_PROPS_AT = 0.3;
 
 // Above the tree line: alpine meadow for this many meters, then bare rock
@@ -4141,8 +4144,9 @@ export function generateChunkData({
 
       // 2. Clumps of tall reeds and cattails along shallow water edges and mudbanks
       if (height >= WATER_LEVEL - 1.3 && height <= WATER_LEVEL + 1.1) {
-        if (fieldHash(gx, gz, 617) < 0.38 * swampFactor * densityScale) {
-          const clumpCount = fieldHash(gx, gz, 619) < 0.45 ? 2 : 1;
+        // (Half as many as at first, for frame rate)
+        if (fieldHash(gx, gz, 617) < 0.24 * swampFactor * densityScale) {
+          const clumpCount = fieldHash(gx, gz, 619) < 0.2 ? 2 : 1;
           for (let c = 0; c < clumpCount; c++) {
             const rx =
               localX +
@@ -4177,7 +4181,7 @@ export function generateChunkData({
 
       // 3. Drifts of lily pads in the shallow backwaters
       if (height >= WATER_LEVEL - 2.6 && height <= WATER_LEVEL - 0.15) {
-        if (fieldHash(gx, gz, 643) < 0.28 * swampFactor * densityScale) {
+        if (fieldHash(gx, gz, 643) < 0.14 * swampFactor * densityScale) {
           const lx =
             localX + (fieldHash(gx, gz, 647) - 0.5) * gridSpacing * 0.8;
           const lz =
@@ -6154,6 +6158,18 @@ export function generateChunkData({
 
   // Swamp trees, reeds, cattails, lily pads, logs, and stumps (no rolls here)
   for (const pos of swampTreePositions) {
+    // A third of the swamp trees (from every path above) left out for frame
+    // rate: their models are 600-900 triangles each
+    if (
+      pos.type !== 'swampGiantOak' &&
+      fieldHash(
+        Math.round(worldOffsetX + pos.x),
+        Math.round(worldOffsetZ + pos.z),
+        661
+      ) < SWAMP_TREE_THINNING
+    ) {
+      continue;
+    }
     composeMatrix(
       _matBuffer,
       0,
