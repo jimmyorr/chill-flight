@@ -6,7 +6,7 @@
 // the terrain's material, so they light, fog and fade into the distance
 // with the land.
 import * as THREE from 'three';
-import {archSearch, flareAt} from './arches-logic.js';
+import {archSearch, flareAt, solidPost} from './arches-logic.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {CHUNK_SIZE, WATER_LEVEL} from './constants.js';
 import {simplex} from './noise.js';
@@ -337,6 +337,30 @@ function searchSome(search) {
 if (ChillFlightLogic.SHOW_OBJECTS !== false) {
   setTimeout(() => searchSome(archSearch(simplex, {WATER_LEVEL})), 0);
 }
+
+// The giant swamp oak (terrain-gen.js, swamp-models.js) is too big to knock
+// over: its trunk, up to where the limbs branch off, is solid like an
+// arch's leg, with no mesh of its own here. The limbs above stay open to
+// fly between.
+const OAK_TRUNK = {x: -4, z: 15, half: 30, height: 85};
+function giantOakTrunk() {
+  const {x, z, rotY} = ChillFlightLogic.giantSwampOak();
+  const c = Math.cos(rotY);
+  const s = Math.sin(rotY);
+  // Where the model's trunk is, turned with it (as Object3D's rotation.y)
+  const tx = x + OAK_TRUNK.x * c + OAK_TRUNK.z * s;
+  const tz = z - OAK_TRUNK.x * s + OAK_TRUNK.z * c;
+  const ground = Math.max(WATER_LEVEL - 1.5, groundAt(x, z));
+  return solidPost(
+    'oak',
+    tx,
+    tz,
+    -rotY,
+    OAK_TRUNK.half,
+    ground + OAK_TRUNK.height
+  );
+}
+if (ChillFlightLogic.SHOW_OBJECTS !== false) arches.push(giantOakTrunk());
 
 /**
  * Rebuilds the arches' meshes when the terrain's grid (state.SEGMENTS) has

@@ -5523,11 +5523,9 @@ export function generateChunkData({
   // Unmarked giant twisted dead oak landmark in the heart of the swamp
   // (~272 units tall, comparable to the height of the rock arch), seeded
   // once per world between the 1.0 West and 3.0 West highways.
-  const giantOakRng = ChillFlightLogic.mulberry32(
-    (ChillFlightLogic.WORLD_SEED ^ 0x57a490a4) >>> 0
-  );
-  const giantOakTargetX = -11200 + giantOakRng() * 2600;
-  const giantOakTargetZ = 7800 + giantOakRng() * 1400;
+  const giantOak = ChillFlightLogic.giantSwampOak();
+  const giantOakTargetX = giantOak.x;
+  const giantOakTargetZ = giantOak.z;
   const giantOakChunkX = Math.round(giantOakTargetX / chunkSize);
   const giantOakChunkZ = Math.round(giantOakTargetZ / chunkSize);
   if (
@@ -5568,7 +5566,7 @@ export function generateChunkData({
       x: localOakX,
       y: oakGroundY,
       z: localOakZ,
-      rotY: giantOakRng() * Math.PI * 2,
+      rotY: giantOak.rotY,
       size: 1,
     });
   }
@@ -6281,6 +6279,11 @@ export function generateChunkData({
       pos.rotY,
       0
     );
+    // The giant oak stands solid (its trunk is in arches.js), not knocked over
+    if (pos.type === 'swampGiantOak') {
+      collector.add(pos.type, _matBuffer);
+      continue;
+    }
     collector.beginProp(BREAKABLE.TREE);
     collector.add(pos.type, _matBuffer);
     collector.endProp();

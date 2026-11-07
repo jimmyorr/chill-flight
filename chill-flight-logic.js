@@ -530,6 +530,16 @@ export const ChillFlightLogic = {};
     return mulberry32(s);
   }
 
+  // Where the world's one giant dead oak stands in the swamp (between the
+  // 1.0 West and 3.0 West highways), and which way it faces: for placing it
+  // (terrain-gen.js) and its solid trunk (arches.js)
+  function giantSwampOak() {
+    const r = mulberry32((exports.WORLD_SEED ^ 0x57a490a4) >>> 0);
+    const x = -11200 + r() * 2600;
+    const z = 7800 + r() * 1400;
+    return {x, z, rotY: r() * Math.PI * 2};
+  }
+
   // --- PLANE COLOR ---
   // Deterministic color picker based on a hash of the user's UID.
   const PLANE_COLORS = [
@@ -4193,6 +4203,7 @@ export const ChillFlightLogic = {};
   exports.fallsValleyX = fallsValleyX;
   exports.fallsSiteAt = fallsSiteAt;
   exports.chunkRng = chunkRng;
+  exports.giantSwampOak = giantSwampOak;
   exports.PLANE_COLORS = PLANE_COLORS;
   exports.LIVERY_NAMES = LIVERY_NAMES;
   exports.getPlaneColor = getPlaneColor;

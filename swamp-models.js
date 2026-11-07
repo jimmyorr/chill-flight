@@ -30,20 +30,31 @@ const CYPRESS_SPREAD = 1.5;
 const CYPRESS_SQUAT = 0.8;
 const SPANISH_MOSS = '#9aa08a';
 
-// Strands of Spanish moss hanging under `count` of the model's green
-// sprays (picked evenly, upper part of the tree only): two crossed
+// Green spray triangles, where moss hangs on a cypress
+const greenSpray = (c, t) =>
+  c.getY(t) > c.getX(t) * 1.05 && c.getY(t) > c.getZ(t) * 1.05;
+
+// Strands of Spanish moss hanging under `count` of the model's triangles
+// that `pick` (picked evenly, upper part of the tree only): two crossed
 // triangles each way, so 4 triangles a strand
-function hangMoss(geo, count, length, width) {
+function hangMoss(
+  geo,
+  count,
+  length,
+  width,
+  pick = greenSpray,
+  from = 0.35,
+  color = SPANISH_MOSS
+) {
   const p = geo.attributes.position;
   const c = geo.attributes.color;
   geo.computeBoundingBox();
   const minY =
     geo.boundingBox.min.y +
-    (geo.boundingBox.max.y - geo.boundingBox.min.y) * 0.35;
+    (geo.boundingBox.max.y - geo.boundingBox.min.y) * from;
   const spots = [];
   for (let t = 0; t < p.count; t += 3) {
-    const g = c.getY(t);
-    if (!(g > c.getX(t) * 1.05 && g > c.getZ(t) * 1.05)) continue;
+    if (!pick(c, t, p)) continue;
     const y = Math.min(p.getY(t), p.getY(t + 1), p.getY(t + 2));
     if (y < minY) continue;
     spots.push([
@@ -52,7 +63,7 @@ function hangMoss(geo, count, length, width) {
       (p.getZ(t) + p.getZ(t + 1) + p.getZ(t + 2)) / 3,
     ]);
   }
-  const moss = new THREE.Color(SPANISH_MOSS);
+  const moss = new THREE.Color(color);
   const pos = [...p.array];
   const col = [...c.array];
   const step = Math.max(1, Math.floor(spots.length / count));
@@ -76,6 +87,14 @@ function hangMoss(geo, count, length, width) {
   out.computeBoundingSphere();
   return out;
 }
+
+// The giant oak's limbs, out from the trunk, for its moss streamers
+const GHOST_OAK_BARK = '#a8a59c';
+const GHOST_OAK_STRANDS = 56;
+// Greener than the bark, so the streamers read as moss, not more wood
+const GHOST_OAK_MOSS = '#77845c';
+const oakLimb = (c, t, p) =>
+  Math.hypot(p.getX(t), p.getZ(t)) > 55 && c.getX(t) > 0.3;
 
 function baldCypress(geo, strands) {
   geo.scale(CYPRESS_SPREAD, CYPRESS_SQUAT, CYPRESS_SPREAD);
@@ -166,16 +185,26 @@ export function buildSwampGeos() {
       POLYFORK_SCALE
     ),
     // Extra-large twisted dead oak landmark (~272 units tall) in the heart of the swamp
-    swampGiantOak: mergeAsset(
-      deadOak.createAsset({
-        colorway: 'storm-brown',
-        gnarl: 0.9,
-        spread: 1.2,
-        knothole: true,
-        roots: 7,
-      }),
-      0.12,
-      GIANT_SWAMP_OAK_SCALE
+    // A bleached silver-grey "ghost oak", long moss streamers off its limbs
+    swampGiantOak: hangMoss(
+      mergeAsset(
+        deadOak.createAsset({
+          colorway: 'moonlit-silver',
+          bark: GHOST_OAK_BARK,
+          gnarl: 0.9,
+          spread: 1.2,
+          knothole: true,
+          roots: 7,
+        }),
+        0.12,
+        GIANT_SWAMP_OAK_SCALE
+      ),
+      GHOST_OAK_STRANDS,
+      52,
+      4,
+      oakLimb,
+      0.3,
+      GHOST_OAK_MOSS
     ),
     // Standing dead conifer snag with moss cushions and stub-fork ferns
     swampSnag: mergeAsset(

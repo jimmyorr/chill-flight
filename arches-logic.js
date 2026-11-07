@@ -749,6 +749,18 @@ export function basaltGate(x, z, angle, uA, uB, hA, hB, r, tint) {
   );
 }
 
+// A solid square post from the ground up to `top`, `half` wide each way of
+// (x, z) and turned `angle`: the giant swamp oak's trunk (arches.js), which
+// the plane glances off and the buggy drives round like an arch's leg
+export function solidPost(kind, x, z, angle, half, top) {
+  return makeArch(kind, x, z, angle, -half, half, (u, p) => {
+    p.under = SOLID;
+    p.top = top;
+    p.depth = half;
+    p.round = 0;
+  });
+}
+
 function* findBasaltGates(E, simplex, water, rand) {
   const cell = ChillFlightLogic.basaltCell;
   const ROW = ChillFlightLogic.BASALT_ROW;
