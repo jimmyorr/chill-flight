@@ -1,38 +1,19 @@
 // --- SWAMP MODELS ---
 // Vegetation and backwater props for the southern bayou / swamp biome
-// (placed in terrain-gen.js, drawn by terrain-chunks.js): Polyfork models
-// (polyfork.dev, free licence; sources unchanged in third-party/polyfork),
-// each merged into one vertex-coloured geometry at load via mergeAsset
-// from boat-models.js.
+// (placed in terrain-gen.js, drawn by terrain-chunks.js): low-poly models
+// built here from a few primitives, and the one giant dead oak landmark from
+// Polyfork (polyfork.dev, free licence; source unchanged in
+// third-party/polyfork), merged into one vertex-coloured geometry via
+// mergeAsset from boat-models.js.
 import * as THREE from 'three';
-import * as dawnRedwood from './third-party/polyfork/dawn-redwood-001c29.mjs';
-import * as lakesideTree from './third-party/polyfork/lakeside-swing-tree-02c084.mjs';
 import * as deadOak from './third-party/polyfork/twisted-dead-oak-49457b.mjs';
-import * as deadSnag from './third-party/polyfork/dead-snag-0b1891.mjs';
-import * as cattail from './third-party/polyfork/cattail-reed-6abbb3.mjs';
-import * as moatReed from './third-party/polyfork/moat-reed-clump-dd6b60.mjs';
-import * as lilyPads from './third-party/polyfork/lily-pads-b0c5d0.mjs';
-import * as hollowLog from './third-party/polyfork/hollow-log-329fd7.mjs';
-import * as mossStump from './third-party/polyfork/moss-covered-stump-7253ab.mjs';
-import {mergeAsset, POLYFORK_SCALE} from './boat-models.js';
+import {mergeAsset} from './boat-models.js';
 
-// Dawn Redwood (Metasequoia, close cousin of bald cypress with an 8-lobed
-// fluted buttressed trunk and feathery sprays) is 20 m tall as built; scaled
-// by 2.1 it stands ~42 units tall, matching tallDeciduous.
-const CYPRESS_SCALE = 2.1;
 // Extra-large twisted dead oak landmark in the swamp (~272 units tall,
 // comparable to the 270-unit peak height of the rock arch).
 const GIANT_SWAMP_OAK_SCALE = 39;
 
-// A bald cypress is broader and lower than the dawn redwood it's built from
-// (a tall spire): squash it, then hang Spanish moss off its sprays
-const CYPRESS_SPREAD = 1.5;
-const CYPRESS_SQUAT = 0.8;
 const SPANISH_MOSS = '#9aa08a';
-
-// Green spray triangles, where moss hangs on a cypress
-const greenSpray = (c, t) =>
-  c.getY(t) > c.getX(t) * 1.05 && c.getY(t) > c.getZ(t) * 1.05;
 
 // Strands of Spanish moss hanging under `count` of the model's triangles
 // that `pick` (picked evenly, upper part of the tree only): two crossed
@@ -42,7 +23,7 @@ function hangMoss(
   count,
   length,
   width,
-  pick = greenSpray,
+  pick,
   from = 0.35,
   color = SPANISH_MOSS
 ) {
@@ -96,95 +77,246 @@ const GHOST_OAK_MOSS = '#77845c';
 const oakLimb = (c, t, p) =>
   Math.hypot(p.getX(t), p.getZ(t)) > 55 && c.getX(t) > 0.3;
 
-function baldCypress(geo, strands) {
-  geo.scale(CYPRESS_SPREAD, CYPRESS_SQUAT, CYPRESS_SPREAD);
-  return hangMoss(geo, strands, 6.5, 0.9);
+// --- LOW-POLY SWAMP PROPS ---
+// Built from a few flat-shaded primitives in the world's own style, about
+// 10-100 triangles each: the Polyfork swamp models were 400-930 apiece, and
+// the swamp has hundreds in view, which was too much for phones.
+
+// Adds `src` (any primitive), placed by position/rotation/scale, to the
+// parts list as flat triangles of one colour
+const _m = new THREE.Matrix4();
+const _q = new THREE.Quaternion();
+const _e = new THREE.Euler();
+function part(
+  parts,
+  src,
+  hex,
+  [x, y, z],
+  [sx, sy, sz] = [1, 1, 1],
+  rot = [0, 0, 0]
+) {
+  const g = src.index ? src.toNonIndexed() : src.clone();
+  _m.compose(
+    new THREE.Vector3(x, y, z),
+    _q.setFromEuler(_e.set(rot[0], rot[1], rot[2])),
+    new THREE.Vector3(sx, sy, sz)
+  );
+  g.applyMatrix4(_m);
+  parts.push([g, new THREE.Color(hex)]);
 }
 
-function buildCattailClumpAsset() {
-  const group = new THREE.Group();
-  const a = cattail.createAsset({
-    colorway: 'summer-green',
-    stage: 'mature',
-    blades: 4,
-    spread: 1.2,
-    scale: 2.0,
-  });
-  const b = cattail.createAsset({
-    colorway: 'autumn-sedge',
-    stage: 'seeding',
-    blades: 3,
-    spread: 1.3,
-    scale: 1.75,
-  });
-  b.position.set(0.35, 0, 0.25);
-  b.rotation.y = 2.1;
-  group.add(a, b);
-  return group;
+// The parts as one non-indexed vertex-coloured geometry (like mergeAsset's)
+function joinParts(parts) {
+  const pos = [];
+  const col = [];
+  for (const [g, c] of parts) {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      pos.push(p.getX(i), p.getY(i), p.getZ(i));
+      col.push(c.r, c.g, c.b);
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  out.computeVertexNormals();
+  out.computeBoundingSphere();
+  return out;
+}
+
+// Open-ended tapered prism (no caps): sides * 2 triangles
+const prism = (sides, top, bottom) =>
+  new THREE.CylinderGeometry(top, bottom, 1, sides, 1, true).translate(
+    0,
+    0.5,
+    0
+  );
+const blob = new THREE.IcosahedronGeometry(1, 0); // 20 triangles
+const pad = new THREE.CylinderGeometry(1, 1, 1, 6, 1, false); // 24, flat top
+
+// A moss strand: a thin hanging blade, both windings (4 triangles)
+function strand(parts, x, y, z, len, w, hex, turn) {
+  const c = Math.cos(turn) * w;
+  const s = Math.sin(turn) * w;
+  const g = new THREE.BufferGeometry();
+  // prettier-ignore
+  g.setAttribute('position', new THREE.Float32BufferAttribute([
+    x - c, y, z - s, x + c, y, z + s, x, y - len, z,
+    x + c, y, z + s, x - c, y, z - s, x, y - len, z,
+    x - s, y, z + c, x + s, y, z - c, x, y - len, z,
+    x + s, y, z - c, x - s, y, z + c, x, y - len, z,
+  ], 3));
+  parts.push([g, new THREE.Color(hex)]);
+}
+
+// Bald cypress: flared buttress, tall straight trunk, flat-topped tiers of
+// foliage and Spanish moss under them (~110 triangles)
+function lowCypress(foliage, bark, moss, strands) {
+  const parts = [];
+  part(parts, prism(6, 0.9, 2.6), bark, [0, -0.5, 0], [1, 5, 1]);
+  part(parts, prism(5, 0.45, 0.9), bark, [0, 4.4, 0], [1, 24, 1]);
+  const tiers = [
+    [0, 16.5, 0, 10, 2.4],
+    [3, 21.5, -2, 8, 2.2],
+    [-2.5, 25.5, 2, 6.5, 2],
+    [0.5, 29, 0, 4, 1.6],
+  ];
+  for (const [x, y, z, r, h] of tiers) {
+    part(parts, pad, foliage, [x, y, z], [r, h, r * 0.85], [0, x * 0.4, 0]);
+  }
+  for (let i = 0; i < strands; i++) {
+    const [x, y, z, r] = tiers[i % 3];
+    const a = i * 2.4;
+    strand(
+      parts,
+      x + Math.cos(a) * r * 0.75,
+      y - 0.8,
+      z + Math.sin(a) * r * 0.65,
+      4 + (i % 3) * 1.5,
+      0.7,
+      moss,
+      a
+    );
+  }
+  return joinParts(parts);
+}
+
+// Leaning tupelo / water oak: trunk and three rounded crowns (~70)
+function lowTupelo() {
+  const parts = [];
+  part(
+    parts,
+    prism(5, 0.6, 1.5),
+    '#595043',
+    [0, -0.5, 0],
+    [1, 17, 1],
+    [0, 0, 0.12]
+  );
+  part(parts, blob, '#445931', [-1.8, 19, 0], [8, 6, 7]);
+  part(parts, blob, '#4a6136', [4, 22, 2], [6.5, 5, 6]);
+  part(parts, blob, '#3f542d', [0, 25, -2.5], [5.5, 4.5, 5]);
+  return joinParts(parts);
+}
+
+// Gnarled bare dead oak: squat trunk and crooked limbs (~50)
+function lowDeadOak() {
+  const parts = [];
+  const bark = '#776a68';
+  part(parts, prism(5, 1.2, 2.4), bark, [0, -0.5, 0], [1, 11, 1]);
+  for (const [a, tilt, len, w] of [
+    [0, 1.0, 15, 0.9],
+    [2.1, 0.8, 13, 0.8],
+    [4.0, 1.1, 14, 0.8],
+    [5.3, 0.4, 11, 0.7],
+  ]) {
+    part(
+      parts,
+      prism(4, w * 0.3, w),
+      bark,
+      [0, 9.5, 0],
+      [1, len, 1],
+      [Math.sin(a) * tilt, 0, -Math.cos(a) * tilt]
+    );
+  }
+  return joinParts(parts);
+}
+
+// Standing dead snag: a tall bare pole with broken stubs (~30)
+function lowSnag() {
+  const parts = [];
+  part(parts, prism(5, 0.25, 1.1), '#6f6a62', [0, -0.5, 0], [1, 27, 1]);
+  part(
+    parts,
+    prism(4, 0.1, 0.35),
+    '#5e5448',
+    [0, 15, 0],
+    [1, 4, 1],
+    [0, 0, 1.1]
+  );
+  part(
+    parts,
+    prism(4, 0.1, 0.3),
+    '#5e5448',
+    [0, 20, 0],
+    [1, 3, 1],
+    [0.9, 0, -0.4]
+  );
+  return joinParts(parts);
+}
+
+// Reeds: a fan of thin blades (~16)
+function lowReeds(blade, head) {
+  const parts = [];
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    strand(
+      parts,
+      Math.cos(a) * 0.5,
+      0,
+      Math.sin(a) * 0.5,
+      -7 - (i % 2),
+      0.35,
+      blade,
+      a
+    );
+  }
+  if (head) {
+    part(parts, prism(4, 0.3, 0.3), head, [0.3, 5.5, 0.2], [1, 1.8, 1]);
+    part(parts, prism(4, 0.3, 0.3), head, [-0.4, 6.2, -0.3], [1, 1.8, 1]);
+  }
+  return joinParts(parts);
+}
+
+// Lily pads: a few flat discs on the water (~18)
+function lowLilyPads() {
+  const parts = [];
+  const disc = new THREE.CircleGeometry(1, 6).rotateX(-Math.PI / 2);
+  for (const [x, z, r, hex] of [
+    [0, 0, 1.6, '#4f7a3a'],
+    [2.6, 1.2, 1.2, '#5a8240'],
+    [-1.8, 1.9, 1.1, '#46703a'],
+    [1.2, -2.2, 1.3, '#557d3d'],
+  ]) {
+    part(parts, disc, hex, [x, 0.05, z], [r, 1, r]);
+  }
+  part(parts, blob, '#e5d5c4', [0.4, 0.3, 0.2], [0.45, 0.3, 0.45]);
+  return joinParts(parts);
+}
+
+// Fallen mossy log lying along z (~30)
+function lowLog() {
+  const parts = [];
+  part(
+    parts,
+    prism(6, 1.1, 1.3),
+    '#5a4632',
+    [0, 0, -6.5],
+    [1, 13, 1],
+    [Math.PI / 2, 0, 0]
+  );
+  part(parts, blob, '#5c6a2e', [0, 1.1, 1], [1.2, 0.4, 3]);
+  return joinParts(parts);
+}
+
+// Mossy stump with a moss cap (~20)
+function lowStump() {
+  const parts = [];
+  part(parts, prism(6, 1.0, 1.5), '#5e4431', [0, -0.3, 0], [1, 3.2, 1]);
+  part(
+    parts,
+    new THREE.CircleGeometry(1, 6).rotateX(-Math.PI / 2),
+    '#5c6a2e',
+    [0, 2.9, 0]
+  );
+  return joinParts(parts);
 }
 
 export function buildSwampGeos() {
   return {
-    // Lush bald cypress with buttressed trunk and olive-green feathery sprays
-    swampCypress: baldCypress(
-      mergeAsset(
-        dawnRedwood.createAsset({
-          height: 20,
-          climate: 'lush',
-          colorway: 'old-giant',
-          foliage: '#4d6330',
-          bark: '#634835',
-          tone: 0.6,
-        }),
-        0.25,
-        CYPRESS_SCALE
-      ),
-      10
-    ),
-    // Weathered cypress with bare forked limbs and drooping Spanish-moss-toned sprays
-    swampCypressMoss: baldCypress(
-      mergeAsset(
-        dawnRedwood.createAsset({
-          height: 20,
-          climate: 'dry',
-          colorway: 'old-giant',
-          rust: '#6d7a50',
-          bark: '#543f30',
-          tone: 0.6,
-        }),
-        0.25,
-        CYPRESS_SCALE * 0.95
-      ),
-      22
-    ),
-    // Broad leaning tupelo / water oak with flared roots on y = 0
-    swampTupelo: mergeAsset(
-      lakesideTree.createAsset({
-        colorway: 'grey-alder',
-        season: 'summer',
-        wear: 0.7,
-        lean: 10,
-        limb: false,
-        spread: 1.2,
-        bark: '#595043',
-        foliage: '#445931',
-      }),
-      0.2,
-      POLYFORK_SCALE
-    ),
-    // Gnarled bare dead swamp oak with buttressed roots and hollow knothole
-    swampDeadOak: mergeAsset(
-      deadOak.createAsset({
-        colorway: 'ashen-oak',
-        gnarl: 0.85,
-        spread: 1.15,
-        knothole: true,
-        roots: 7,
-      }),
-      0.2,
-      POLYFORK_SCALE
-    ),
-    // Extra-large twisted dead oak landmark (~272 units tall) in the heart of the swamp
+    swampCypress: lowCypress('#4d6330', '#634835', SPANISH_MOSS, 4),
+    swampCypressMoss: lowCypress('#6d7a50', '#543f30', SPANISH_MOSS, 8),
+    swampTupelo: lowTupelo(),
+    swampDeadOak: lowDeadOak(),
     // A bleached silver-grey "ghost oak", long moss streamers off its limbs
     swampGiantOak: hangMoss(
       mergeAsset(
@@ -206,66 +338,12 @@ export function buildSwampGeos() {
       0.3,
       GHOST_OAK_MOSS
     ),
-    // Standing dead conifer snag with moss cushions and stub-fork ferns
-    swampSnag: mergeAsset(
-      deadSnag.createAsset({
-        colorway: 'valley-damp',
-        climate: 'lush',
-        height: 8,
-        tone: 0.55,
-      }),
-      0.2,
-      POLYFORK_SCALE
-    ),
-    // Splayed clump of tall marsh reeds and seed heads on a dark silt base
-    swampReeds: mergeAsset(
-      moatReed.createAsset({
-        colorway: 'silt-black',
-        blades: 14,
-        heads: 6,
-        tallness: 1.1,
-        splay: 1.15,
-      }),
-      0.15,
-      POLYFORK_SCALE
-    ),
-    // Classic cattail cluster with brown cylindrical seed heads
-    swampCattails: mergeAsset(buildCattailClumpAsset(), 0.15, POLYFORK_SCALE),
-    // Drift of 9 notched lily pads with cream water-lily blooms
-    swampLilyPads: mergeAsset(
-      lilyPads.createAsset({
-        colorway: 'shaded-pool',
-        count: 9,
-        spread: 1.15,
-        blooms: 2,
-        wear: 0.4,
-      }),
-      0,
-      POLYFORK_SCALE
-    ),
-    // Fallen moss-and-fern-covered hollow log
-    swampLog: mergeAsset(
-      hollowLog.createAsset({
-        colorway: 'old-umber',
-        climate: 'lush',
-        ragged: 0.65,
-        ferns: 3,
-      }),
-      0.15,
-      POLYFORK_SCALE
-    ),
-    // Flared-root mossy swamp stump with fern fronds
-    swampStump: mergeAsset(
-      mossStump.createAsset({
-        colorway: 'deep-shade',
-        climate: 'lush',
-        height: 1.3,
-        mossCover: 0.85,
-        sprig: true,
-      }),
-      0.15,
-      POLYFORK_SCALE
-    ),
+    swampSnag: lowSnag(),
+    swampReeds: lowReeds('#6b7a3a', null),
+    swampCattails: lowReeds('#5f7a3c', '#75563b'),
+    swampLilyPads: lowLilyPads(),
+    swampLog: lowLog(),
+    swampStump: lowStump(),
   };
 }
 
