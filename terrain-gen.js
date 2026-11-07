@@ -376,8 +376,10 @@ function swampTreeFrom(spot, worldX, worldZ, gridSpacing, t) {
   };
 }
 
-// Share of swamp trees not placed (see the swamp tree loop below)
-const SWAMP_TREE_THINNING = 0.33;
+// Share of swamp trees not placed (see the swamp tree loop below): their
+// models are 600-900 triangles each, against tens for a pine, so the swamp
+// keeps about a third of them
+const SWAMP_TREE_THINNING = 0.65;
 
 export const ALIEN_PROPS_AT = 0.3;
 
@@ -4211,8 +4213,8 @@ export function generateChunkData({
 
       // 2. Clumps of tall reeds and cattails along shallow water edges and mudbanks
       if (height >= WATER_LEVEL - 1.3 && height <= WATER_LEVEL + 1.1) {
-        // (Half as many as at first, for frame rate)
-        if (fieldHash(gx, gz, 617) < 0.24 * swampFactor * densityScale) {
+        // (A quarter as many as at first, for frame rate)
+        if (fieldHash(gx, gz, 617) < 0.12 * swampFactor * densityScale) {
           const clumpCount = fieldHash(gx, gz, 619) < 0.2 ? 2 : 1;
           for (let c = 0; c < clumpCount; c++) {
             const rx =
@@ -4248,7 +4250,7 @@ export function generateChunkData({
 
       // 3. Drifts of lily pads in the shallow backwaters
       if (height >= WATER_LEVEL - 2.6 && height <= WATER_LEVEL - 0.15) {
-        if (fieldHash(gx, gz, 643) < 0.14 * swampFactor * densityScale) {
+        if (fieldHash(gx, gz, 643) < 0.08 * swampFactor * densityScale) {
           const lx =
             localX + (fieldHash(gx, gz, 647) - 0.5) * gridSpacing * 0.8;
           const lz =
@@ -4274,7 +4276,7 @@ export function generateChunkData({
 
       // 4. Fallen mossy hollow logs and mossy stumps on mudbanks and hummocks
       if (height >= WATER_LEVEL - 0.2 && height <= WATER_LEVEL + 5.0) {
-        if (fieldHash(gx, gz, 659) < 0.075 * swampFactor * densityScale) {
+        if (fieldHash(gx, gz, 659) < 0.04 * swampFactor * densityScale) {
           const lx =
             localX + (fieldHash(gx, gz, 661) - 0.5) * gridSpacing * 0.75;
           const lz =
@@ -6254,8 +6256,8 @@ export function generateChunkData({
 
   // Swamp trees, reeds, cattails, lily pads, logs, and stumps (no rolls here)
   for (const pos of swampTreePositions) {
-    // A third of the swamp trees (from every path above) left out for frame
-    // rate: their models are 600-900 triangles each
+    // Most of the swamp trees (from every path above) left out for frame
+    // rate (SWAMP_TREE_THINNING)
     if (
       pos.type !== 'swampGiantOak' &&
       fieldHash(
