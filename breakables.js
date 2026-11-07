@@ -119,9 +119,9 @@ const FLINGS =
 const ROLLS = /^(hayBale|fallenLog|swampLog)$/;
 // Critters that run off over the land, and stay where they stop, rather
 // than diving into the water
-const LAND_CRITTER = /^sheep/;
+const LAND_CRITTER = /^(sheep|goat|deer)/;
 // Critters that don't waddle (only the penguins do, in their shader)
-const STILL_CRITTER = /^(sheep|seal)/;
+const STILL_CRITTER = /^(sheep|goat|deer|seal)/;
 const ROCKS = /^(rock|snowRock|desertRock)$/;
 const ICE = /^(iceberg|iceFloe)$/;
 // A real tree (not a streetlight, tent or silo), for Treehugger

@@ -1321,6 +1321,76 @@ export var sheepGeos = (() => {
 })();
 export var sheepDarkMat = createMaterial({color: 0x2f2a27, flatShading: true});
 
+// Mountain goat and forest deer, built like the sheep: a coat (tinted per
+// animal) and dark parts (legs, horns or antlers, nose) sharing the sheep's
+// dark material, facing +z with feet at y 0. Goat ~3 units long, about 110
+// triangles; deer ~3.6 long and 4.4 tall to the antler tips, about 140.
+function boxAt(w, h, d, x, y, z, rx = 0) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  if (rx) g.rotateX(rx);
+  g.translate(x, y, z);
+  return g.toNonIndexed();
+}
+function hornAt(r, h, x, y, z, rx, rz) {
+  const g = new THREE.ConeGeometry(r, h, 3, 1, true);
+  g.translate(0, h / 2, 0);
+  g.rotateX(rx);
+  g.rotateZ(rz);
+  g.translate(x, y, z);
+  return g.toNonIndexed();
+}
+function legsAt(w, h, x, z) {
+  const legs = [];
+  for (const [sx, sz] of [
+    [1, 1],
+    [-1, 1],
+    [1, -1],
+    [-1, -1],
+  ]) {
+    legs.push(boxAt(w, h, w, sx * x, h / 2, sz * z));
+  }
+  return legs;
+}
+export var goatGeos = (() => {
+  const coat = mergeGeometries([
+    boxAt(0.85, 0.85, 1.7, 0, 1.55, 0),
+    // Neck up from the shoulders, head held up and forward
+    boxAt(0.45, 0.8, 0.5, 0, 2.05, 0.8, 0.5),
+    boxAt(0.42, 0.45, 0.85, 0, 2.45, 1.15, 0.35),
+    // Short tail cocked up
+    boxAt(0.18, 0.35, 0.15, 0, 2.0, -0.85, -0.5),
+  ]);
+  const dark = mergeGeometries([
+    ...legsAt(0.18, 1.15, 0.28, 0.62),
+    // Horns sweeping back off the crown, a beard under the chin
+    hornAt(0.12, 1.0, 0.14, 2.6, 1.05, -1.05, 0.2),
+    hornAt(0.12, 1.0, -0.14, 2.6, 1.05, -1.05, -0.2),
+    hornAt(0.1, 0.4, 0, 2.3, 1.45, Math.PI, 0),
+    boxAt(0.3, 0.2, 0.12, 0, 2.38, 1.6),
+  ]);
+  return {coat, dark};
+})();
+export var deerGeos = (() => {
+  const coat = mergeGeometries([
+    boxAt(0.8, 0.95, 2.0, 0, 2.15, 0),
+    boxAt(0.4, 1.1, 0.45, 0, 2.85, 0.9, 0.45),
+    boxAt(0.38, 0.42, 0.95, 0, 3.4, 1.3, 0.25),
+    // Ears out to the sides
+    boxAt(0.45, 0.12, 0.18, 0.32, 3.62, 1.05),
+    boxAt(0.45, 0.12, 0.18, -0.32, 3.62, 1.05),
+  ]);
+  const dark = mergeGeometries([
+    ...legsAt(0.15, 1.75, 0.26, 0.72),
+    boxAt(0.22, 0.2, 0.12, 0, 3.3, 1.8),
+    // Antlers: a beam up and back each side with a forward tine
+    hornAt(0.07, 1.0, 0.18, 3.6, 1.15, -0.35, -0.45),
+    hornAt(0.07, 1.0, -0.18, 3.6, 1.15, -0.35, 0.45),
+    hornAt(0.05, 0.5, 0.42, 4.1, 1.0, 0.5, -0.2),
+    hornAt(0.05, 0.5, -0.42, 4.1, 1.0, 0.5, 0.2),
+  ]);
+  return {coat, dark};
+})();
+
 // Ice fishing hut (the far north's frozen lakes): a little painted shed with
 // a pitched roof and a stovepipe, its walls tinted per hut
 function createIceHutGeometries() {

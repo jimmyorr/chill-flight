@@ -66,6 +66,8 @@ import {
   buoyGeos,
   buoyTopMat,
   sheepGeos,
+  goatGeos,
+  deerGeos,
   sheepDarkMat,
   iceHutGeos,
   iceHutRoofMat,
@@ -1120,6 +1122,28 @@ globalInstancer.registerType(
   false,
   false
 );
+// Goats and deer, like the sheep: coat tinted per animal, dark parts
+for (const [kind, geos] of [
+  ['goat', goatGeos],
+  ['deer', deerGeos],
+]) {
+  globalInstancer.registerType(
+    kind + 'Coat',
+    geos.coat,
+    houseTintMat,
+    4000,
+    true,
+    false
+  );
+  globalInstancer.registerType(
+    kind + 'Dark',
+    geos.dark,
+    sheepDarkMat,
+    4000,
+    false,
+    false
+  );
+}
 globalInstancer.registerType(
   'iceHutBody',
   iceHutGeos.body,
@@ -1509,6 +1533,12 @@ for (const [type, canopyHex, barkHex] of [
 // triangles each, and the swamp is thick with them: drawn only this many
 // chunks out (a 5-unit reed clump is ~2 pixels at 1.5 km on a phone)
 const SWAMP_SMALL_PROP_RADIUS = 1;
+// Goats and deer only in the plane's chunk and the ring around it
+for (const type of ['goatCoat', 'goatDark', 'deerCoat', 'deerDark']) {
+  globalInstancer.setFarGeometry(type, null, {
+    farRadius: SWAMP_SMALL_PROP_RADIUS,
+  });
+}
 for (const type of ['swampDeadOak', 'swampSnag', 'swampLog', 'swampStump']) {
   const castsShadow = type !== 'swampStump';
   globalInstancer.registerType(

@@ -358,6 +358,13 @@ const LIGHTHOUSE_CLEAR = 55;
 // chance per grid point there, and their wool colours
 const SHEEP_CHANCE = 0.12;
 export const SHEEP_WOOL_COLORS = [0xf1ede2, 0xe6dfcf, 0xf4f1ea, 0xd9d1bf];
+// Mountain goats on the rocky slopes round the tree line and deer in the
+// woods: the chance a grid point in one of their patches has a group (of
+// 1 to 3), and their coats
+const GOAT_CHANCE = 0.018;
+const DEER_CHANCE = 0.03;
+export const GOAT_COLORS = [0xece6da, 0xd8c8a8, 0x8a6a4a, 0x47403a, 0xb0a79c];
+export const DEER_COLORS = [0xa0703f, 0x8f6239, 0xb2804d, 0x7d5634];
 // Birds: the chance of a flock of gulls over a coastal chunk (one that's
 // part land, part water) and over open sea, none north of GULL_MAX_NORTH
 // (the frozen lakes); and of a hawk over a mostly dry chunk
@@ -2425,6 +2432,7 @@ export function generateChunkData({
   const sealPositions = [];
   const buoyPositions = [];
   const sheepPositions = [];
+  const herdPositions = [];
   const rockPositions = [];
   const snowRockPositions = [];
   const desertRockPositions = [];
@@ -4536,6 +4544,66 @@ export function generateChunkData({
       }
     }
 
+    // A few mountain goats on the rocky slopes round the tree line, and deer
+    // in the temperate woods (not among the palms), in patches; 1 to 3 in
+    // a group
+    if (
+      _enableObjects &&
+      !sharedEdge &&
+      !isAlienLand &&
+      desertFactor < 0.2 &&
+      swampFactor < 0.2 &&
+      snowFactor < 0.6 &&
+      height > WATER_LEVEL + 6
+    ) {
+      const goatLand =
+        height > treeLine - 120 && slopeFactor > 0.12 && slopeFactor < 0.7;
+      const deerLand =
+        !goatLand &&
+        isForest &&
+        slopeFactor < 0.3 &&
+        height < treeLine - TREE_LINE_FADE &&
+        eastCoastFactor < 0.5;
+      const gx = Math.round(worldX / gridSpacing);
+      const gz = Math.round(worldZ / gridSpacing);
+      if (
+        (goatLand || deerLand) &&
+        fieldHash(gx, gz, 751) <
+          (goatLand ? GOAT_CHANCE : DEER_CHANCE) * densityScale &&
+        simplex.noise2D(worldX * 0.002 + 41, worldZ * 0.002 - 17) > 0.3 &&
+        (goatLand ||
+          !(
+            worldX > 3000 &&
+            worldZ > -5000 &&
+            ChillFlightLogic.getBiome(worldX, worldZ, simplex) < -0.1
+          ))
+      ) {
+        const kind = goatLand ? 'goat' : 'deer';
+        const colors = goatLand ? GOAT_COLORS : DEER_COLORS;
+        const n = 1 + Math.floor(fireHash(gx, gz, 753) * 3);
+        const facing = fireHash(gx, gz, 755) * Math.PI * 2;
+        for (let k = 0; k < n; k++) {
+          const x = localX + (fireHash(gx, gz, 760 + k * 10) - 0.5) * 24;
+          const z = localZ + (fireHash(gx, gz, 761 + k * 10) - 0.5) * 24;
+          const y = heightAtLocal(x, z);
+          if (y < WATER_LEVEL + 2) continue;
+          herdPositions.push({
+            kind,
+            x,
+            y,
+            z,
+            // Grazing roughly the same way
+            rotY: facing + (fireHash(gx, gz, 762 + k * 10) - 0.5) * 1.6,
+            size: 1.15 + 0.3 * fireHash(gx, gz, 763 + k * 10),
+            color:
+              colors[
+                Math.floor(fireHash(gx, gz, 764 + k * 10) * colors.length)
+              ],
+          });
+        }
+      }
+    }
+
     // A channel buoy in the shallows off the coast (not among the ice, nor
     // off the wild western coasts)
     if (
@@ -4777,6 +4845,7 @@ export function generateChunkData({
         hayBalePositions,
         fallenLogPositions,
         sheepPositions,
+        herdPositions,
         swampTreePositions,
         swampReedPositions,
         swampLogPositions,
@@ -4937,6 +5006,7 @@ export function generateChunkData({
         hayBalePositions,
         fallenLogPositions,
         sheepPositions,
+        herdPositions,
         housePositions,
         twoStoryHousePositions,
         chimneySmokePositions,
@@ -5200,6 +5270,7 @@ export function generateChunkData({
       hayBalePositions,
       fallenLogPositions,
       sheepPositions,
+      herdPositions,
       housePositions,
       twoStoryHousePositions,
       chimneySmokePositions,
@@ -5258,6 +5329,7 @@ export function generateChunkData({
         hayBalePositions,
         fallenLogPositions,
         sheepPositions,
+        herdPositions,
         campfirePositions,
       ].forEach(clearList);
     };
@@ -5477,6 +5549,7 @@ export function generateChunkData({
       hayBalePositions,
       fallenLogPositions,
       sheepPositions,
+      herdPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_PROP_CLEAR));
     // A house's chimney smoke sits on the same spot, so goes with it
     [
@@ -5572,6 +5645,7 @@ export function generateChunkData({
           hayBalePositions,
           fallenLogPositions,
           sheepPositions,
+          herdPositions,
           housePositions,
           twoStoryHousePositions,
           chimneySmokePositions,
@@ -6378,6 +6452,28 @@ export function generateChunkData({
     collector.endProp();
   }
 
+  // Goats and deer bound off and get punted like the sheep
+  for (const pos of herdPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.size,
+      pos.size,
+      pos.size,
+      0,
+      pos.rotY,
+      0
+    );
+    _iceHutColor.setHex(pos.color);
+    collector.beginProp(BREAKABLE.CRITTER);
+    collector.add(pos.kind + 'Coat', _matBuffer, _iceHutColor);
+    collector.add(pos.kind + 'Dark', _matBuffer);
+    collector.endProp();
+  }
+
   // Channel buoys: nothing to break, you pass over them
   for (const pos of buoyPositions) {
     composeMatrix(
@@ -6870,6 +6966,7 @@ export function generateChunkData({
       cactus: cactusPositions.length,
       lily_pads: lilyPadPositions.length,
       small_boats: smallBoatPositions.length,
+      herd: herdPositions.length,
       tractors: tractorPositions.length,
       landmarks: landmarkPositions.length,
       icebergs: icebergPositions.length,

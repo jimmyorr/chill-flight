@@ -90,6 +90,8 @@ import {
   buoyGeos,
   buoyTopMat,
   sheepGeos,
+  goatGeos,
+  deerGeos,
   sheepDarkMat,
   iceHutGeos,
   iceHutRoofMat,
@@ -142,6 +144,8 @@ import {
   JOSHUA_LEAF_COLOR,
   ICE_HUT_COLORS,
   SHEEP_WOOL_COLORS,
+  GOAT_COLORS,
+  DEER_COLORS,
 } from '../terrain-gen.js';
 
 // Setup Viewer
@@ -693,6 +697,24 @@ function viewModel(type, e, colorSeed = 0) {
           wool.position.x = dark.position.x = i * 4 - 6;
           wool.rotation.y = dark.rotation.y = i * 0.6;
           previewGroup.add(wool, dark);
+        });
+        break;
+      case 'goats_deer':
+        [
+          [goatGeos, GOAT_COLORS, -4],
+          [deerGeos, DEER_COLORS, 4],
+        ].forEach(([geos, colors, z]) => {
+          colors.forEach((color, i) => {
+            const coat = new THREE.Mesh(
+              geos.coat,
+              createMaterial({color, flatShading: true})
+            );
+            const dark = new THREE.Mesh(geos.dark, sheepDarkMat);
+            coat.position.set(i * 3.5 - 7, 0, z);
+            dark.position.copy(coat.position);
+            coat.rotation.y = dark.rotation.y = 1.2 + i * 0.3;
+            previewGroup.add(coat, dark);
+          });
         });
         break;
       case 'buoy':
