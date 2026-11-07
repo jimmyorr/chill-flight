@@ -66,6 +66,7 @@ import '../debug-ui.js';
 import '../game.js';
 import '../crash-logic.js';
 import '../flight-physics-logic.js';
+import '../follow-logic.js';
 import '../flight-physics.js';
 import '../particles.js';
 import '../whales.js';

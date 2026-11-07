@@ -79,6 +79,12 @@ import {
 import {performanceMonitor} from './game-performance.js';
 import {Achievements} from './achievements.js';
 import {applyCrashCamera} from './crash.js';
+import {FOLLOW_RATE, followStep} from './follow-logic.js';
+
+// Where the chase camera wanted to be last frame (followStep)
+const _prevIdealCameraPos = new THREE.Vector3();
+const _prevIdealLookTarget = new THREE.Vector3();
+let _followPrevValid = false;
 
 // Swinging the cinematic camera around the plane with the stick: full stick
 // turns this fast (radians a second), between these angles from overhead
@@ -634,7 +640,9 @@ export function updateFlightCamera(delta, nowTime) {
       _virtualCameraPos.copy(activeCamTarget.position);
       _virtualLookTarget.copy(_currentLookTarget);
       _idealUp.set(0, 1, 0);
+      _followPrevValid = false;
     } else if (state.isIntroTransitionActive) {
+      _followPrevValid = false;
       // Update the virtual tracking camera (steady state lag)
       _virtualCameraPos.lerp(
         _idealCameraPos,
@@ -683,13 +691,33 @@ export function updateFlightCamera(delta, nowTime) {
       _currentLookTarget.add(_seatCarry);
       // In loops the position locks on, as inertia lag could flip lookAt,
       // and in a seat view it stays fixed to the seat
-      const follow = THREE.MathUtils.lerp(
-        1 - Math.pow(1 - 0.25, delta * 60),
-        1,
-        Math.max(loopLock, seatLock)
-      );
-      activeCamTarget.position.lerp(_idealCameraPos, follow);
-      _currentLookTarget.lerp(_idealLookTarget, follow);
+      // (follow-logic.js: the same lag whatever each frame's length)
+      if (_followPrevValid) {
+        followStep(
+          activeCamTarget.position,
+          _idealCameraPos,
+          _prevIdealCameraPos,
+          delta,
+          FOLLOW_RATE
+        );
+        followStep(
+          _currentLookTarget,
+          _idealLookTarget,
+          _prevIdealLookTarget,
+          delta,
+          FOLLOW_RATE
+        );
+      } else {
+        const follow = 1 - Math.pow(1 - 0.25, delta * 60);
+        activeCamTarget.position.lerp(_idealCameraPos, follow);
+        _currentLookTarget.lerp(_idealLookTarget, follow);
+      }
+      const lock = Math.max(loopLock, seatLock);
+      activeCamTarget.position.lerp(_idealCameraPos, lock);
+      _currentLookTarget.lerp(_idealLookTarget, lock);
+      _prevIdealCameraPos.copy(_idealCameraPos);
+      _prevIdealLookTarget.copy(_idealLookTarget);
+      _followPrevValid = true;
       // The follow lag mustn't sink a car's camera into the hill either (the
       // sight line is left to the smoothing, so a crest doesn't jolt it)
       if (chaseFloorWeight > 0) {
