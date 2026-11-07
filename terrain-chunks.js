@@ -277,6 +277,26 @@ const TREE_LOD_CHUNK_RADIUS = 2;
 // They're most of the triangles drawn, and a 16-unit canopy is 3-4 pixels
 // across on a phone at 2 chunks.
 const CANOPY_DETAIL_PIXELS = 8;
+// Types with a close-up version (setNearGeometry: the full Polyfork trees
+// behind the low-poly stand-ins) draw it in the chunks within this many
+// units of the plane, usually one or two
+const CLOSE_UP_RANGE = 500;
+// Which of the nine chunks round (cx, cz) are within CLOSE_UP_RANGE of
+// (x, z), as bits
+function closeUpMask(x, z, cx, cz) {
+  let mask = 0;
+  let bit = 1;
+  for (let dz = -1; dz <= 1; dz++) {
+    for (let dx = -1; dx <= 1; dx++, bit <<= 1) {
+      const ox = Math.abs(x - (cx + dx) * CHUNK_SIZE) - CHUNK_SIZE / 2;
+      const oz = Math.abs(z - (cz + dz) * CHUNK_SIZE) - CHUNK_SIZE / 2;
+      if (Math.hypot(Math.max(ox, 0), Math.max(oz, 0)) <= CLOSE_UP_RANGE) {
+        mask |= bit;
+      }
+    }
+  }
+  return mask;
+}
 const CANOPY_SIZE = 16;
 function canopyDetailRadius() {
   // The preset's pixel ratio, not the one adaptive quality lowers for a while
@@ -433,6 +453,7 @@ class GlobalInstanceManager {
       geo,
       farGeo: geo, // see setFarGeometry
       farShare: null,
+      nearGeo: null, // see setNearGeometry
       mat,
       useColor,
       maxInstances,
@@ -442,6 +463,14 @@ class GlobalInstanceManager {
       tiles: new Map(), // tile key (+ '|far') -> on-screen InstancedMesh
     });
     this._configVersion++;
+  }
+
+  // Geometry for this type in the chunks within CLOSE_UP_RANGE of the plane
+  // (its full model, where `geo` is a cheaper stand-in)
+  setNearGeometry(type, nearGeo) {
+    this.types.get(type).nearGeo = nearGeo;
+    this._configVersion++;
+    this.requestRebuild();
   }
 
   // Geometry for this type beyond TREE_LOD_CHUNK_RADIUS (or beyond
@@ -522,6 +551,16 @@ class GlobalInstanceManager {
       this._planeChunkZ = planeChunkZ;
       this._dirty = true;
     }
+    const closeMask = closeUpMask(
+      planeGroup.position.x,
+      planeGroup.position.z,
+      planeChunkX,
+      planeChunkZ
+    );
+    if (closeMask !== this._closeMask) {
+      this._closeMask = closeMask;
+      this._dirty = true;
+    }
     const hasShadowCam =
       dirLight.position.distanceToSquared(dirLight.target.position) > 100;
     if (
@@ -577,13 +616,17 @@ class GlobalInstanceManager {
         Math.abs(chunkZ - planeChunkZ)
       );
       const band = Math.min(chunkDistance, maxLodRadius + 1);
+      const ox = chunkX - planeChunkX + 1;
+      const oz = chunkZ - planeChunkZ + 1;
+      const close =
+        chunkDistance <= 1 && ((closeMask >> (oz * 3 + ox)) & 1) === 1;
       let entry = tileChunks.get(tileKey);
       if (!entry) {
         entry = {tileX, tileZ, list: [], sig: sigPrefix};
         tileChunks.set(tileKey, entry);
       }
-      entry.list.push({chunk, chunkDistance});
-      entry.sig += `${id}:${band},`;
+      entry.list.push({chunk, chunkDistance, close});
+      entry.sig += `${id}:${band}${close ? 'c' : ''},`;
 
       let castsShadows;
       if (hasShadowCam) {
@@ -616,9 +659,11 @@ class GlobalInstanceManager {
       if (!tileChunks.has(oldTileKey)) {
         this._tileSigs.delete(oldTileKey);
         const farKey = oldTileKey + '|far';
+        const closeKey = oldTileKey + '|close';
         for (const typeInfo of this.types.values()) {
           this._removeTileMesh(typeInfo, oldTileKey);
           this._removeTileMesh(typeInfo, farKey);
+          this._removeTileMesh(typeInfo, closeKey);
         }
       }
     }
@@ -640,7 +685,7 @@ class GlobalInstanceManager {
     const byType = new Map(); // type -> Map(meshKey -> {tileX, tileZ, geo, parts, count})
     for (const tileKey of dirtyTiles) {
       const {tileX, tileZ, list} = tileChunks.get(tileKey);
-      for (const {chunk, chunkDistance} of list) {
+      for (const {chunk, chunkDistance, close} of list) {
         const instanceData = chunk.userData.instanceData;
         for (const type in instanceData) {
           const typeInfo = this.types.get(type);
@@ -656,10 +701,15 @@ class GlobalInstanceManager {
           const useFar =
             chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
           if (useFar && typeInfo.farGeo === null) continue; // not drawn far away
+          const closeUp = close && typeInfo.nearGeo !== null;
           const share = useFar ? typeInfo.farShare : null;
           const bucketType = share ? share.targetType : type;
           const bucketInfo = share ? this.types.get(bucketType) : typeInfo;
-          const meshKey = useFar ? tileKey + '|far' : tileKey;
+          const meshKey = useFar
+            ? tileKey + '|far'
+            : closeUp
+              ? tileKey + '|close'
+              : tileKey;
           let tiles = byType.get(bucketType);
           if (!tiles) {
             tiles = new Map();
@@ -674,7 +724,9 @@ class GlobalInstanceManager {
                 ? bucketInfo.geo
                 : useFar
                   ? typeInfo.farGeo
-                  : typeInfo.geo,
+                  : closeUp
+                    ? typeInfo.nearGeo
+                    : typeInfo.geo,
               parts: [],
               count: 0,
             };
@@ -725,9 +777,8 @@ class GlobalInstanceManager {
           if (!tiles?.has(baseKey)) {
             this._removeTileMesh(typeInfo, baseKey);
           }
-          const farKey = baseKey + '|far';
-          if (!tiles?.has(farKey)) {
-            this._removeTileMesh(typeInfo, farKey);
+          for (const key of [baseKey + '|far', baseKey + '|close']) {
+            if (!tiles?.has(key)) this._removeTileMesh(typeInfo, key);
           }
         }
         if (tiles) {
@@ -1036,6 +1087,12 @@ for (const [prefix, geos] of POLYFORK_TREES) {
     30000,
     true
   );
+}
+// Close to the plane, the full Polyfork models behind the low-poly trees
+for (const [prefix, geos] of [...POLYFORK_TREES, ['palm', palmGeos]]) {
+  if (!geos.fullLeaves) continue;
+  globalInstancer.setNearGeometry(prefix + 'Trunk', geos.fullTrunk);
+  globalInstancer.setNearGeometry(prefix + 'Leaves', geos.fullLeaves);
 }
 globalInstancer.registerType(
   'mushroomStalk',

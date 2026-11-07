@@ -120,7 +120,10 @@ function splitTreeAsset(
   const leaves = baseLeafHex
     ? normalizeLeafColors(rawLeaves, baseLeafHex)
     : rawLeaves;
-  return low ? lowPolyTree({trunk, leaves}) : {trunk, leaves};
+  // (The full model too, drawn close up: setNearGeometry in terrain-chunks.js)
+  return low
+    ? {...lowPolyTree({trunk, leaves}), fullTrunk: trunk, fullLeaves: leaves}
+    : {trunk, leaves};
 }
 
 // Palm tree: Polyfork's Palm Tree (cove-palm), curved trunk with flared foot
@@ -154,7 +157,21 @@ export function buildPalmGeos() {
     n++;
   }
   const lowLeaves = frondRosette(leaves, PALM_FRONDS, cx / n, cz / n);
-  return {trunk: lowTrunk, leaves: lowLeaves, simpleLeaves: lowLeaves};
+  // Close up, the full model with its coconuts
+  const full = splitTreeAsset(
+    palmTree.createAsset(),
+    PALM_SCALE,
+    PALM_TRUNK_COLORS,
+    PALM_LEAF_COLOR,
+    false
+  );
+  return {
+    trunk: lowTrunk,
+    leaves: lowLeaves,
+    simpleLeaves: lowLeaves,
+    fullTrunk: full.trunk,
+    fullLeaves: full.leaves,
+  };
 }
 
 // Cherry blossom tree: Polyfork's Cherry Blossom Tree (sakura), dark forked
@@ -292,7 +309,12 @@ export function buildSnowSpruceGeos() {
     false
   );
   // Five snowy cones (140 triangles, was ~640): spruces fill the north
-  return {trunk, leaves: coneTiers(leaves, 5, 7)};
+  return {
+    trunk,
+    leaves: coneTiers(leaves, 5, 7),
+    fullTrunk: trunk,
+    fullLeaves: leaves,
+  };
 }
 
 // Bare mountain rowan: Polyfork's Bare Mountain Rowan, smooth grey bole under

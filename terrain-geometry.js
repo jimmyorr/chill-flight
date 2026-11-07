@@ -1023,7 +1023,12 @@ export var mountainRowanGeos = buildMountainRowanGeos();
 export var deadCottonwoodGeo = buildDeadCottonwoodGeo();
 export var twistedDeadOakGeo = buildTwistedDeadOakGeo();
 const _palmGeos = buildPalmGeos();
-export var palmGeos = {trunk: _palmGeos.trunk, leaves: _palmGeos.leaves};
+export var palmGeos = {
+  trunk: _palmGeos.trunk,
+  leaves: _palmGeos.leaves,
+  fullTrunk: _palmGeos.fullTrunk,
+  fullLeaves: _palmGeos.fullLeaves,
+};
 export var palmSimpleLeavesGeo = _palmGeos.simpleLeaves;
 
 function createDeadTreeGeometry() {
