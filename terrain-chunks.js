@@ -1417,6 +1417,19 @@ const shareFarTrunk = (type, geo, mat = null) => {
   return farGeo;
 };
 const screenSized = {screenSized: true};
+// Pines: the most numerous trees (thousands near the plane), and until now
+// drawn whole at every distance. Past the canopy detail radius a six-sided
+// cone (6 triangles, was 64) on the shared far trunk; their shadows are the
+// cone too
+{
+  const pineFar = fitToBounds(
+    new THREE.ConeGeometry(1, 2, 6, 1, true),
+    treeLeavesGeo
+  );
+  globalInstancer.setFarGeometry('pineLeaves', pineFar, screenSized);
+  globalInstancer.setShadowGeometry('pineLeaves', pineFar);
+  shareFarTrunk('pineTrunk', treeTrunkGeo, treeTrunkMat);
+}
 shareFarCanopy('decidLeaves', deciduousGeos.leaves);
 shareFarTrunk('decidTrunk', deciduousGeos.trunk);
 shareFarCanopy('tallDecidLeaves', tallDeciduousGeos.leaves);
