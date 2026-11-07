@@ -141,6 +141,7 @@ import {
   persistentLighthouseBeam,
   persistentLighthouseLight,
   pierDeckGeo,
+  pierDeckLGeo,
   pierDeckMat,
   pierPostGeo,
   pirateShipGeos,
@@ -904,6 +905,7 @@ const _furledSail = new THREE.Matrix4();
 const _NO_BOAT = new THREE.Matrix4().makeScale(0, 0, 0);
 const debrisType = (type, geo, mat) => debrisTypes.set(type, {geo, mat});
 debrisType('pierDeck', pierDeckGeo, pierDeckMat);
+debrisType('pierDeckL', pierDeckLGeo, pierDeckMat);
 debrisType('fireLog', fireLogGeo, woodMat);
 debrisType('fireCore', fireCoreGeo, fireMat);
 debrisType('fireSmoke', smokeGeo, smokeMat);
@@ -2514,37 +2516,48 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
   // 2.95 Generate Piers
   if (pierPositions.length > 0) {
+    // Straight piers, and the ones turning off at the end (an L)
+    const ells = pierPositions.filter((p) => p.ell).length;
     const deckInst = getInstancedMesh(
       pierDeckGeo,
       pierDeckMat,
-      pierPositions.length
+      pierPositions.length - ells
     );
+    const ellInst =
+      ells > 0 ? getInstancedMesh(pierDeckLGeo, pierDeckMat, ells) : null;
     const postInst = getInstancedMesh(
       pierPostGeo,
       woodMat,
-      pierPositions.length * 4
+      pierPositions.length * 4 + ells * 3
     );
 
-    pierPositions.forEach((pos, index) => {
+    let straightIndex = 0;
+    let ellIndex = 0;
+    let postIndex = 0;
+    pierPositions.forEach((pos) => {
       // The deck at its old height (1 above the shore), its posts down
       // into the sand and water
       dummy.position.set(pos.x, pos.y + 1 - PIER_DECK_TOP, pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
       dummy.updateMatrix();
-      deckInst.setMatrixAt(index, dummy.matrix);
+      const inst = pos.ell ? ellInst : deckInst;
+      const index = pos.ell ? ellIndex++ : straightIndex++;
+      inst.setMatrixAt(index, dummy.matrix);
       meshProps.push({
         kind: BREAKABLE.HOUSE,
-        parts: [{type: 'pierDeck', mesh: deckInst, index}],
+        parts: [{type: pos.ell ? 'pierDeckL' : 'pierDeck', mesh: inst, index}],
       });
 
-      // Pilings carrying the deck's outer posts on down to the bottom
+      // Pilings carrying the deck's outer posts on down to the bottom (and
+      // the L's outer corner and arm end)
       const offsets = [
         [-6.6, 10.5],
         [6.6, 10.5],
         [-6.6, 31],
         [6.6, 31],
       ];
-      offsets.forEach((off, i) => {
+      if (pos.ell) offsets.push([6.6, 41.5], [-34.5, 31.5], [-34.5, 41.5]);
+      offsets.forEach((off) => {
         const p = new THREE.Vector3(
           off[0],
           1 - PIER_DECK_TOP - 5,
@@ -2553,7 +2566,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         dummy.position.set(pos.x + p.x, pos.y + p.y, pos.z + p.z);
         dummy.rotation.set(0, 0, 0);
         dummy.updateMatrix();
-        postInst.setMatrixAt(index * 4 + i, dummy.matrix);
+        postInst.setMatrixAt(postIndex++, dummy.matrix);
       });
     });
 
@@ -2561,6 +2574,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     postInst.position.set(worldOffsetX, 0, worldOffsetZ);
     objectsGroup.add(deckInst);
     objectsGroup.add(postInst);
+    if (ellInst) {
+      ellInst.position.set(worldOffsetX, 0, worldOffsetZ);
+      objectsGroup.add(ellInst);
+    }
   }
 
   // 2.955 Generate West Coast Highway

@@ -116,6 +116,7 @@ import {
   orchardAppleGeos,
   palmGeos,
   pierDeckGeo,
+  pierDeckLGeo,
   pierDeckMat,
   plumTreeGeos,
   rockGeo,
@@ -951,6 +952,9 @@ function viewModel(type, e, colorSeed = 0) {
       }
       case 'pier':
         previewGroup.add(new THREE.Mesh(pierDeckGeo, pierDeckMat));
+        break;
+      case 'pier_l':
+        previewGroup.add(new THREE.Mesh(pierDeckLGeo, pierDeckMat));
         break;
       case 'bridge': {
         previewGroup.add(new THREE.Mesh(bridgeDeckGeo, bridgeDeckMat));

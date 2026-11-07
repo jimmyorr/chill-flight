@@ -96,6 +96,7 @@ const RUBBLE = {
   rangerStationBody: BREAK.RUBBLE.house,
   leanToBody: BREAK.RUBBLE.straw_hut,
   pierDeck: BREAK.RUBBLE.pier,
+  pierDeckL: BREAK.RUBBLE.pier,
   rock: BREAK.RUBBLE.rock,
   snowRock: BREAK.RUBBLE.rock,
   desertRock: BREAK.RUBBLE.rock,
@@ -619,7 +620,11 @@ function partRole(part) {
   if (part.role) return part.role;
   if (FOLDS.test(part.type)) return 'fold';
   if (FLINGS.test(part.type)) return 'fling';
-  if (part.type === 'pierDeck' || ROCKS.test(part.type) || ICE.test(part.type))
+  if (
+    part.type.startsWith('pierDeck') ||
+    ROCKS.test(part.type) ||
+    ICE.test(part.type)
+  )
     return 'rubble';
   return 'hide';
 }
@@ -713,7 +718,7 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
     );
   }
   const count = spec?.rubble ?? (RUBBLE[parts[0].type] || 0);
-  const planks = parts[0].type === 'pierDeck';
+  const planks = parts[0].type.startsWith('pierDeck');
   const ice = ICE.test(parts[0].type);
   const floe = parts[0].type === 'iceFloe';
   const height = Math.max(2, top - base);
@@ -801,7 +806,7 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   const house = kind === BREAKABLE.HOUSE;
   const small = kind === BREAKABLE.SMALL;
   const snowman = kind === BREAKABLE.SNOWMAN;
-  const pier = parts[0].type === 'pierDeck';
+  const pier = parts[0].type.startsWith('pierDeck');
   const ice = ICE.test(parts[0].type);
 
   fresh = [];

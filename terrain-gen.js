@@ -260,6 +260,9 @@ const ICE_HUT_CHANCE = 0.03;
 // (`clear`, units) on ground no steeper than `flat` (rise across it,
 // units). Towers stand on their own and topple whole; the rest are houses
 // ('...Body' and '...Roof').
+// The share of piers that turn off to one side at the end, where there's
+// room (an L)
+const PIER_ELL_CHANCE = 0.35;
 const LANDMARK_RULES = {
   fireLookout: {chance: 0.06, clear: 10, flat: 6, tower: true},
   waterTower: {chance: 0.006, clear: 24, flat: 3, tower: true},
@@ -3793,6 +3796,7 @@ export function generateChunkData({
               getElevation(worldX + 20, worldZ, elevParams) <= WATER_LEVEL ||
               getElevation(worldX - 20, worldZ, elevParams) <= WATER_LEVEL;
             let angleToWater = -1;
+            let ell = false;
             let deepest = WATER_LEVEL;
             for (let k = 0; shore && k < 8; k++) {
               const a = (k / 8) * Math.PI * 2;
@@ -3826,6 +3830,16 @@ export function generateChunkData({
                 wet(60, -50) &&
                 wet(60, 50);
               if (!open) angleToWater = -1;
+              // About a third of the piers turn off to one side at the end
+              // (an L, building-models.js buildPierGeo) where there's open
+              // water under the arm and past it
+              else
+                ell =
+                  fieldHash(Math.round(worldX), Math.round(worldZ), 1307) <
+                    PIER_ELL_CHANCE &&
+                  wet(37, -20) &&
+                  wet(37, -40) &&
+                  wet(55, -30);
             }
             if (angleToWater !== -1 && swampFactor < 0.2) {
               pierPositions.push({
@@ -3833,6 +3847,7 @@ export function generateChunkData({
                 y: height,
                 z: localZ,
                 rotY: angleToWater,
+                ell,
               });
             }
           }

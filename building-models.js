@@ -20,6 +20,7 @@ import * as gardenShed from './third-party/polyfork/backyard-garden-shed-38d79f.
 import * as stoneChapel from './third-party/polyfork/stone-chapel-03e774.mjs';
 import * as campTent from './third-party/polyfork/camp-tent-3c5c89.mjs';
 import * as pierSection from './third-party/polyfork/pier-deck-section-7047d7.mjs';
+import * as pierCorner from './third-party/polyfork/pier-deck-corner-c56248.mjs';
 import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
 import * as dragonSkeleton from './third-party/polyfork/dragon-skeleton-88de43.mjs';
 import * as dinosaurSkull from './third-party/polyfork/dinosaur-skull-4c3a3c.mjs';
@@ -125,10 +126,15 @@ export function buildTentGeos() {
 
 // The piers (terrain-chunks.js): three of Polyfork's pier deck sections in
 // a row, running out from the shore along +z, about 14 wide and 31 long,
-// the deck 4.2 up on its posts
+// the deck 4.2 up on its posts. With `ell`, Polyfork's deck corner (its
+// 3 m module stretched to the deck's 4 m width) turns the end off to -x
+// with two more sections, an arm about 28 long at z 31 to 42.
 const PIER_SECTIONS = 3;
 export const PIER_DECK_TOP = 1.2 * S;
-export function buildPierGeo() {
+// Where the L's arm runs (in model units, before rotation): its far end's
+// centre, for the pilings and the open-water check
+export const PIER_ARM_END = {x: -10 * S, z: 10.5 * S};
+export function buildPierGeo(ell = false) {
   const row = new THREE.Group();
   for (let i = 0; i < PIER_SECTIONS; i++) {
     const section = pierSection.createAsset({
@@ -137,6 +143,25 @@ export function buildPierGeo() {
     });
     section.position.z = 1.5 + i * 3;
     row.add(section);
+  }
+  if (ell) {
+    const corner = pierCorner.createAsset({
+      colorway: 'harbour-oak',
+      junction: 'corner',
+      postHead: 0.36,
+    });
+    corner.scale.x = 4 / 3;
+    corner.position.z = 1.5 + PIER_SECTIONS * 3;
+    row.add(corner);
+    // The arm: sections in their own way round (4 long along x, 3 wide)
+    for (let i = 0; i < 2; i++) {
+      const section = pierSection.createAsset({
+        colorway: 'harbour-oak',
+        boards: 10 - i,
+      });
+      section.position.set(-4 - i * 4, 0, 1.5 + PIER_SECTIONS * 3);
+      row.add(section);
+    }
   }
   return mergeAsset(row, 0, S);
 }

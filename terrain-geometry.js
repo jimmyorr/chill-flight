@@ -2511,6 +2511,7 @@ var lighthouseRedMat = createMaterial({color: 0xc62828, flatShading: true});
 
 // Polyfork's pier deck sections (building-models.js), in buildingMat
 export var pierDeckGeo = buildPierGeo();
+export var pierDeckLGeo = buildPierGeo(true);
 export var pierDeckMat = buildingMat;
 export var pierPostGeo = new THREE.CylinderGeometry(1, 1, 10, 6);
 export var woodMat = createMaterial({color: 0x5d4037, flatShading: true});
