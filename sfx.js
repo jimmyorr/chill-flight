@@ -528,8 +528,9 @@ export function setSfxVolume(vol) {
 
 // Buffers generated ahead on the loading screen (prebakeSfxBuffers), so
 // starting the game only copies them: generating them all inside the START
-// tap held it up by ~100 ms. Made at phones' usual output rate; a context at
-// another rate generates its own as before. Name -> channel data
+// tap held it up by ~600 ms. Made at 48 kHz; an AudioBuffer can have its own
+// rate, so a context at another rate (44.1 kHz is common) plays them
+// resampled rather than generating its own. Name -> channel data
 const PREBAKE_RATE = 48000;
 const prebaked = new Map();
 
@@ -558,15 +559,15 @@ export function prebakeSfxBuffers() {
 }
 
 // The prebaked buffer `name` (each is used once), or make(context) if there
-// isn't one at this context's rate
+// isn't one
 export function prebakedBuffer(name, context, make) {
   const data = prebaked.get(name);
   prebaked.delete(name);
-  if (!data || context.sampleRate !== PREBAKE_RATE) return make(context);
+  if (!data) return make(context);
   const buffer = context.createBuffer(
     data.length,
     data[0].length,
-    context.sampleRate
+    PREBAKE_RATE
   );
   data.forEach((channel, i) => buffer.copyToChannel(channel, i));
   return buffer;
