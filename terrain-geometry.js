@@ -544,9 +544,8 @@ waterMaterial.onBeforeCompile = function (shader) {
     `#include <begin_vertex>`,
     `
         vec3 transformed = vec3(position);
-        vec4 worldPosV = modelMatrix * vec4(position, 1.0);
-
-        transformed.y += swell(worldPosV.xz, uTime).x * swellCalm;
+        // (Same vertex as the normal above: reuse its swell)
+        transformed.y += swellN.x;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
         vFlow = flow;

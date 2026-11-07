@@ -376,6 +376,7 @@ export function updateRoadTraffic(delta) {
   const night = 1 - THREE.MathUtils.smoothstep(state.dayFactor, 0.3, 0.8);
   headMat.opacity = night;
   poolMat.opacity = night * POOL_OPACITY;
+  headMat.visible = poolMat.visible = night > 0.001;
 
   for (let i = cars.length - 1; i >= 0; i--) {
     const car = cars[i];

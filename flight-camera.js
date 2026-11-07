@@ -1237,8 +1237,12 @@ export function updateFlightCamera(delta, nowTime) {
         ghost *
         GHOST_SHIP_GLOW_MAX *
         (GHOST_SHIP_GLOW_NEW_MOON + (1 - GHOST_SHIP_GLOW_NEW_MOON) * moon);
+      // By day the ships aren't drawn at all (no draw calls, no matrices)
+      const shown = ghost > 0;
+      for (const inst of [...ships, ...reflections])
+        if (inst) inst.visible = shown;
       positions.forEach((pos, index) => {
-        pos.hidden = ghost === 0;
+        pos.hidden = !shown;
         const patrolRadius = 40 + _boatHash(index, 7) * 30;
         const patrolSpeed = 0.05 + _boatHash(index, 8) * 0.03;
         const patrolPhase = _boatHash(index, 9) * Math.PI * 2;
@@ -1257,6 +1261,7 @@ export function updateFlightCamera(delta, nowTime) {
         const roll = Math.sin(bobTime * 0.7) * 0.03;
         const pitch = Math.cos(bobTime * 0.9) * 0.02;
 
+        if (!shown) return;
         _boatDummy.position.set(pos.x + dx, pos.y + dy - rise, pos.z + dz);
         _boatDummy.rotation.set(0, 0, 0);
         _boatDummy.rotation.y = tangentYaw + Math.PI;
@@ -1281,8 +1286,10 @@ export function updateFlightCamera(delta, nowTime) {
         reflections[pos.bodyId].setMatrixAt(index, _boatDummy.matrix);
       });
 
-      for (const inst of [...ships, ...reflections])
-        if (inst) inst.instanceMatrix.needsUpdate = true;
+      if (shown) {
+        for (const inst of [...ships, ...reflections])
+          if (inst) inst.instanceMatrix.needsUpdate = true;
+      }
     }
   });
 

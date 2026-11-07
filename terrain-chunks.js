@@ -366,10 +366,11 @@ function markInstancesUpdated(mesh, useColor) {
 }
 
 function syncDrawnAt(data) {
-  const drawnAt = [];
+  // (Refilled in place: rebuilds run this for every type of every chunk)
+  const drawnAt = (data.drawnAt ??= []);
+  drawnAt.length = 0;
   if (data._tileMesh) drawnAt.push(data._tileMesh, data._tileSlot);
   if (data._shadowMesh) drawnAt.push(data._shadowMesh, data._shadowSlot);
-  data.drawnAt = drawnAt;
 }
 
 class GlobalInstanceManager {
@@ -2000,7 +2001,7 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
     m.position.set(worldOffsetX, 0, worldOffsetZ);
     group.add(m);
   }
-  lineInst.castShadow = false;
+  lineInst.userData.noShadow = true;
 }
 
 // Is world (x, z), on a highway (one running along x if crossCountry: the
@@ -3476,19 +3477,19 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         for (const m of markingInsts) {
           if (m.instanceColor) m.instanceColor.needsUpdate = true;
           m.position.set(worldOffsetX, 0, worldOffsetZ);
-          m.castShadow = false;
+          m.userData.noShadow = true;
           objectsGroup.add(m);
         }
 
         if (numGirderSegments > 0) {
           girderInst.position.set(worldOffsetX, 0, worldOffsetZ);
           group.add(girderInst);
-        }
+        } else releaseInstancedMesh(girderInst);
 
         if (numRailSegments > 0) {
           railInst.position.set(worldOffsetX, 0, worldOffsetZ);
           objectsGroup.add(railInst);
-        }
+        } else releaseInstancedMesh(railInst);
 
         if (numPiers > 0) {
           pierCapInst.position.set(worldOffsetX, 0, worldOffsetZ);
@@ -3497,6 +3498,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           objectsGroup.add(pierCapInst);
           group.add(pierShaftInst);
           objectsGroup.add(pierFootingInst);
+        } else {
+          // Unused: back to the pool (not in the chunk, so never released)
+          releaseInstancedMesh(pierCapInst);
+          releaseInstancedMesh(pierShaftInst);
+          releaseInstancedMesh(pierFootingInst);
         }
 
         if (numStreetlights > 0) {
@@ -3508,6 +3514,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           objectsGroup.add(slArmInst);
           group.add(slBulbInst);
           group.add(slDecalInst);
+        } else {
+          for (const m of [slBaseInst, slArmInst, slBulbInst, slDecalInst]) {
+            releaseInstancedMesh(m);
+          }
         }
       }
     }); // End activeRoads.forEach
@@ -4012,9 +4022,26 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     birdChunks.add(group);
   }
 
+  // Casting shadows: everything but water, smoke, beams, decals and what
+  // can't show one (road paint flat on the deck, mirrored boats under the
+  // water, waterline foam, birds in the air): each that casts is another
+  // draw in the shadow pass
+  const castsNoShadow = (child) => {
+    if (child.userData.noShadow) return true;
+    if (child.material === reflectionMat || child.material === boatRimMat)
+      return true;
+    for (let o = child.parent; o && o !== group; o = o.parent) {
+      const t = o.userData.type;
+      if (t === 'seagull' || t === 'hawk' || t === 'goose') return true;
+    }
+    return false;
+  };
   group.traverse((child) => {
     if (child.isMesh || child.isInstancedMesh) {
       if (child.material.userData.isWater) {
+        child.receiveShadow = true;
+      } else if (castsNoShadow(child)) {
+        child.castShadow = false;
         child.receiveShadow = true;
       } else if (
         child.material !== smokeMat &&

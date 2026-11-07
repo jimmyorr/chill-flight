@@ -138,7 +138,8 @@ const outlineMaterial = new THREE.ShaderMaterial({
       float c = invDepth(uv);
       float dist = 1.0 / c;
       bool sky = c <= 1.0 / (uFar * 0.99);
-      vec3 color = texture2D(tColor, uv).rgb;
+      vec4 base = texture2D(tColor, uv);
+      vec3 color = base.rgb;
     #ifdef ANIME
       // Brushwork fades in with distance: nearby trees, houses and roads stay
       // crisp, distant land softens into daubs like a painted backdrop (only
@@ -146,6 +147,8 @@ const outlineMaterial = new THREE.ShaderMaterial({
       float brushAmt = smoothstep(600.0, 4000.0, dist) * 0.55;
       if (uKuwahara && brushAmt > 0.0) color = mix(color, kuwahara(uv), brushAmt);
     #endif
+      // (The sky has no edges to ink: skip its neighbor reads)
+      if (uOutline && !sky) {
       // Close to the camera (the plane, nearby buildings) lines get a little
       // bolder
       float near = 1.0 - smoothstep(60.0, 400.0, dist);
@@ -174,7 +177,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
         // distance (sunlit faces against shadowed ones, snow against rock).
         // Not on water (which zeroes the target's alpha), or its glints turn
         // to scribble.
-        float water = sky ? 0.0 : 1.0 - texture2D(tColor, uv).a;
+        float water = 1.0 - base.a;
         vec2 tx = vec2(uTexel.x, 0.0);
         vec2 ty = vec2(0.0, uTexel.y);
         float gx = luma(texture2D(tColor, uv + tx).rgb) - luma(texture2D(tColor, uv - tx).rgb);
@@ -190,7 +193,8 @@ const outlineMaterial = new THREE.ShaderMaterial({
         ink = mix(ink, landInk, landEdge);
         edge = max(edge, landEdge);
       }
-      if (uOutline) color = mix(color, ink, edge);
+      color = mix(color, ink, edge);
+      }
       // Aerial perspective: distant land fades into soft layers of the
       // horizon's color, nudged toward lavender (not the sky itself, whose
       // depth is the far plane)
@@ -204,13 +208,16 @@ const outlineMaterial = new THREE.ShaderMaterial({
         // glints) bleed a little warm light into their neighbors; not into
         // what's already bright, or the sky round a low sun swells into a
         // big white blob
-        vec3 glow = vec3(0.0);
-        for (int i = 0; i < 8; i++) {
-          float a = float(i) * 0.785398;
-          vec3 s = texture2D(tColor, uv + vec2(cos(a), sin(a)) * 6.0 * uTexel).rgb;
-          glow += max(s - 0.85, 0.0);
+        float glowAmt = 1.0 - smoothstep(0.7, 0.9, luma(color));
+        if (glowAmt > 0.0) {
+          vec3 glow = vec3(0.0);
+          for (int i = 0; i < 8; i++) {
+            float a = float(i) * 0.785398;
+            vec3 s = texture2D(tColor, uv + vec2(cos(a), sin(a)) * 6.0 * uTexel).rgb;
+            glow += max(s - 0.85, 0.0);
+          }
+          color += glow / 8.0 * vec3(1.0, 0.92, 0.8) * 0.9 * glowAmt;
         }
-        color += glow / 8.0 * vec3(1.0, 0.92, 0.8) * 0.9 * (1.0 - smoothstep(0.7, 0.9, luma(color)));
       }
     #endif
       gl_FragColor = vec4(color, 1.0);

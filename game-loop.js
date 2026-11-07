@@ -1273,6 +1273,9 @@ function updateDayNightCycle(delta) {
 
   streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
   fireGlowMat.opacity = Math.min(1.0, slNightValue);
+  // Fully faded out by day: not drawn at all (each is a draw per chunk)
+  streetlightDecalMat.visible = streetlightDecalMat.opacity > 0.001;
+  fireGlowMat.visible = fireGlowMat.opacity > 0.001;
   updateAirportLights(slNightValue);
 }
 
@@ -2142,6 +2145,7 @@ function updateEnvironmentLighting(delta, now) {
   // Stars disappear when overcast
   let starFactor = Math.max(0, Math.min(1, (state.sunY + 0.2) / -0.3));
   starsMat.opacity = starFactor * (1.0 - overcast);
+  starsMat.visible = starsMat.opacity > 0.001;
 
   // --- SHOOTING STARS ---
   if (

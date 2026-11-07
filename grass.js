@@ -230,6 +230,7 @@ const VERTEX_MAIN = `
 let mesh = null;
 let field = null;
 const _fwd = new THREE.Vector3();
+const _cam = new THREE.Vector3();
 const _color = new THREE.Color();
 let lastOrigin = '';
 let framesSinceGrid = 0;
@@ -501,13 +502,18 @@ export function updateGrass(delta) {
     buildMesh(preset);
   }
 
-  const cam = camera.getWorldPosition(new THREE.Vector3());
+  const cam = camera.getWorldPosition(_cam);
   const camAgl = cam.y - Math.max(getElevation(cam.x, cam.z), WATER_LEVEL);
   const fade = 1 - THREE.MathUtils.smoothstep(camAgl, FADE_LOW, FADE_HIGH);
   uniforms.uGrassFade.value = fade;
   mesh.visible = fade > 0;
+  if (!mesh.visible) {
+    // (Nothing to part up high: start afresh on the way down)
+    trail.length = 0;
+    hasLast = false;
+    return;
+  }
   updatePush(delta);
-  if (!mesh.visible) return;
 
   // The field reaches further ahead of the camera than behind it
   camera.getWorldDirection(_fwd);

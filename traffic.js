@@ -200,6 +200,7 @@ export function updateTraffic(delta) {
   // Lights show as the day fades; strobes flash briefly every 1-1.4 s
   const night = 1 - THREE.MathUtils.smoothstep(state.dayFactor, 0.3, 0.8);
   navMats.red.opacity = navMats.green.opacity = navMats.strobe.opacity = night;
+  navMats.red.visible = navMats.green.visible = night > 0.001;
   const now = performance.now() / 1000;
 
   // Planes pace the player's plane (not the free camera)
