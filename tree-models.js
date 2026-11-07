@@ -5,6 +5,14 @@
 // tinting (terrain-geometry.js, terrain-gen.js).
 import * as THREE from 'three';
 import {mergeAsset, POLYFORK_SCALE} from './boat-models.js';
+import {
+  averageColor,
+  bareTree,
+  joinColored,
+  limbsTo,
+  lumpCrown,
+  prismTrunk,
+} from './low-poly.js';
 import * as palmTree from './third-party/polyfork/palm-tree-a307da.mjs';
 import * as cherryBlossom from './third-party/polyfork/cherry-blossom-tree-3f7ab7.mjs';
 import * as japaneseMaple from './third-party/polyfork/japanese-maple-d2fb29.mjs';
@@ -68,7 +76,31 @@ function normalizeLeafColors(geo, baseHex) {
   return geo;
 }
 
-function splitTreeAsset(asset, scale, trunkColors, baseLeafHex = null) {
+// Low-poly stand-ins (low-poly.js) for the split model: crowns of
+// LEAF_LUMPS faceted lumps on a one-prism trunk with a limb up to each,
+// ~125 triangles a tree
+// instead of 300-1,000 (trees are drawn by the hundred)
+const LEAF_LUMPS = 4;
+function lowPolyTree({trunk, leaves}) {
+  leaves.computeBoundingBox();
+  const crown = leaves.boundingBox;
+  const lumps = lumpCrown(leaves, LEAF_LUMPS);
+  return {
+    trunk: limbsTo(
+      prismTrunk(trunk, crown.min.y + (crown.max.y - crown.min.y) * 0.3),
+      lumps
+    ),
+    leaves: lumps,
+  };
+}
+
+function splitTreeAsset(
+  asset,
+  scale,
+  trunkColors,
+  baseLeafHex = null,
+  low = true
+) {
   const trunkHexes = new Set(
     trunkColors.map((c) => new THREE.Color(c).getHexString())
   );
@@ -85,7 +117,7 @@ function splitTreeAsset(asset, scale, trunkColors, baseLeafHex = null) {
   const leaves = baseLeafHex
     ? normalizeLeafColors(rawLeaves, baseLeafHex)
     : rawLeaves;
-  return {trunk, leaves};
+  return low ? lowPolyTree({trunk, leaves}) : {trunk, leaves};
 }
 
 // Palm tree: Polyfork's Palm Tree (cove-palm), curved trunk with flared foot
@@ -98,13 +130,15 @@ export function buildPalmGeos() {
     palmTree.createAsset(),
     PALM_SCALE,
     PALM_TRUNK_COLORS,
-    PALM_LEAF_COLOR
+    PALM_LEAF_COLOR,
+    false
   );
   const simpleLeaves = splitTreeAsset(
     palmTree.createAsset({fronds: 5, coconuts: 0}),
     PALM_SCALE,
     PALM_TRUNK_COLORS,
-    PALM_LEAF_COLOR
+    PALM_LEAF_COLOR,
+    false
   ).leaves;
   return {trunk, leaves, simpleLeaves};
 }
@@ -239,7 +273,9 @@ export function buildSnowSpruceGeos() {
   return splitTreeAsset(
     snowLadenSpruce.createAsset({tiers: 5}),
     SNOW_SPRUCE_SCALE,
-    ['#a97c50']
+    ['#a97c50'],
+    null,
+    false
   );
 }
 
@@ -260,10 +296,12 @@ export function buildMountainRowanGeos() {
 // hollow, ~22.4 units tall.
 const DEAD_COTTONWOOD_SCALE = 3.2;
 export function buildDeadCottonwoodGeo() {
-  return mergeAsset(
-    deadCottonwood.createAsset({boomtown: 0.3, weather: 0.6}),
-    0.2,
-    DEAD_COTTONWOOD_SCALE
+  return bareTree(
+    mergeAsset(
+      deadCottonwood.createAsset({boomtown: 0.3, weather: 0.6}),
+      0.2,
+      DEAD_COTTONWOOD_SCALE
+    )
   );
 }
 
@@ -271,21 +309,32 @@ export function buildDeadCottonwoodGeo() {
 // gnarled limbs, buttress roots and a hollow knothole, ~20.9 units tall.
 const TWISTED_DEAD_OAK_SCALE = 3.0;
 export function buildTwistedDeadOakGeo() {
-  return mergeAsset(
-    twistedDeadOak.createAsset({
-      colorway: 'storm-brown',
-      gnarl: 0.75,
-      spread: 1.1,
-      knothole: true,
-      roots: 5,
-    }),
-    0.2,
-    TWISTED_DEAD_OAK_SCALE
+  return bareTree(
+    mergeAsset(
+      twistedDeadOak.createAsset({
+        colorway: 'storm-brown',
+        gnarl: 0.75,
+        spread: 1.1,
+        knothole: true,
+        roots: 5,
+      }),
+      0.2,
+      TWISTED_DEAD_OAK_SCALE
+    )
   );
 }
 
 // Woodland stump: Polyfork's Exposed Tree Roots, a sawn stump with buttress
 // roots and stones around its foot, ~8.7 units across.
+// (Low poly: a capped six-sided stump in its colours, ~24 triangles)
 export function buildStumpGeo() {
-  return mergeAsset(exposedRoots.createAsset(), 0, POLYFORK_SCALE);
+  const full = mergeAsset(exposedRoots.createAsset(), 0, POLYFORK_SCALE);
+  full.computeBoundingBox();
+  const box = full.boundingBox;
+  const h = box.max.y - box.min.y;
+  const r = Math.min(box.max.x - box.min.x, box.max.z - box.min.z) * 0.22;
+  const color = averageColor(full);
+  const stump = new THREE.CylinderGeometry(r, r * 1.35, h, 6);
+  stump.translate(0, box.min.y + h / 2, 0);
+  return joinColored([[stump, color]]);
 }

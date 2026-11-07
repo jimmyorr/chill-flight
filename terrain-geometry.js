@@ -899,7 +899,8 @@ export var treeLeavesGeo = createPineGeometry();
 // the top.
 function createLumpCanopy(center, radii, count, lumpR) {
   const parts = [];
-  const core = new THREE.SphereGeometry(1, 7, 5);
+  // Few segments: trees are drawn by the thousand (~150 triangles a canopy)
+  const core = new THREE.SphereGeometry(1, 6, 3);
   core.scale(radii.x * 0.78, radii.y * 0.78, radii.z * 0.78);
   core.translate(center.x, center.y, center.z);
   parts.push(core);
@@ -913,7 +914,7 @@ function createLumpCanopy(center, radii, count, lumpR) {
     const a = i * golden;
     // Lumps vary a little in size, bigger near the crown
     const r = lumpR * (0.85 + 0.3 * ((i * 0.618) % 1)) * (1.1 - t * 0.25);
-    const lump = new THREE.SphereGeometry(r, 6, 4);
+    const lump = new THREE.SphereGeometry(r, 4, 3);
     lump.translate(
       center.x + Math.cos(a) * ring * radii.x * 0.82,
       center.y + y * radii.y * 0.82,
@@ -1470,7 +1471,8 @@ function createBushGeometry() {
   ];
 
   for (const c of clumps) {
-    const geo = new THREE.IcosahedronGeometry(c.r, 1);
+    // 20 triangles a clump (bushes are drawn by the hundred)
+    const geo = new THREE.IcosahedronGeometry(c.r, 0);
     // Add varying rotations to catch the light beautifully
     geo.rotateX(c.x * 2.5);
     geo.rotateY(c.y * 2.5);
