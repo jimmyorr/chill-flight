@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import {createMaterial} from './constants.js';
 import {mergeAsset, POLYFORK_SCALE as S} from './boat-models.js';
 import * as controlTower from './third-party/polyfork/airfield-control-tower-ab8d3e.mjs';
+import * as windsock from './third-party/polyfork/windsock-d5df79.mjs';
 import * as fireLookout from './third-party/polyfork/fire-lookout-tower-714fa1.mjs';
 import * as waterTower from './third-party/polyfork/water-tower-7eb7ec.mjs';
 import * as windpump from './third-party/polyfork/windpump-tower-1633a9.mjs';
@@ -46,6 +47,24 @@ export function controlTowerGeo(colorway = 'raf-brick') {
     );
   }
   return _towerGeos.get(colorway);
+}
+
+// The airfield windsock: Polyfork's Windsock in orange and white bands on
+// its grey mast, scaled up to a 12-unit pole with its foot at y = 0 and
+// the sock streaming off toward +x (down the runway, like the old one)
+export const WINDSOCK_POLE_H = 12;
+const WINDSOCK_MAST_H = 6.33;
+let _windsockGeo = null;
+export function windsockGeo() {
+  if (!_windsockGeo) {
+    _windsockGeo = mergeAsset(
+      windsock.createAsset({colorway: 'international-orange'}),
+      0,
+      WINDSOCK_POLE_H / WINDSOCK_MAST_H,
+      Math.PI / 2
+    );
+  }
+  return _windsockGeo;
 }
 
 // The ancient dragon skeleton curled in a northern tundra hollow: Polyfork's

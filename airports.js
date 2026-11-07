@@ -14,7 +14,7 @@ import {getElevation} from './terrain-geometry.js';
 import {BREAKABLE} from './terrain-gen.js';
 import {buildPlaneModel} from './plane-models.js';
 import {t} from './i18n.js';
-import {buildingMesh, controlTowerGeo} from './building-models.js';
+import {buildingMesh, controlTowerGeo, windsockGeo} from './building-models.js';
 
 // Breakable props that aren't in any chunk (airports): each a stand-in for
 // a chunk, {userData: {meshProps, ...}}. A part can also be a whole object
@@ -24,10 +24,8 @@ export const standaloneProps = [];
 const asphaltMat = createMaterial({color: 0x4f5155, flatShading: true});
 const concreteMat = createMaterial({color: 0x9a9890, flatShading: true});
 const markingMat = createMaterial({color: 0xf2f0e6, flatShading: true});
-const trimMat = createMaterial({color: 0x5a6470, flatShading: true});
 const hangarMat = createMaterial({color: 0x8a9aa6, flatShading: true});
 const doorMat = createMaterial({color: 0x4a5560, flatShading: true});
-const sockMat = createMaterial({color: 0xe8743b, flatShading: true});
 
 function box(w, h, d, x, y, z) {
   const g = new THREE.BoxGeometry(w, h, d);
@@ -117,14 +115,10 @@ export function createHangar() {
   return group;
 }
 
-// The windsock: a thin pole and an orange sock streaming off it
+// The windsock (Polyfork's, building-models.js): one mesh, pole and sock
 export function createWindsock() {
   const group = new THREE.Group();
-  group.add(mesh([box(0.5, 12, 0.5, 0, 6, 0)], trimMat));
-  const sock = new THREE.ConeGeometry(1.4, 7, 8, 1, true);
-  sock.rotateZ(Math.PI / 2);
-  sock.translate(3.6, 11.4, 0);
-  group.add(mesh([sock], sockMat));
+  group.add(buildingMesh(windsockGeo()));
   return group;
 }
 
