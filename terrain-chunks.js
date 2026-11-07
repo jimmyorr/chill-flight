@@ -65,6 +65,10 @@ import {
   sealMat,
   buoyGeos,
   buoyTopMat,
+  breakwaterRockGeos,
+  breakwaterBeaconGeos,
+  breakwaterSurfGeo,
+  breakwaterSurfMat,
   sheepGeos,
   goatGeos,
   deerGeos,
@@ -516,6 +520,7 @@ class GlobalInstanceManager {
       );
       mesh.receiveShadow = true;
       mesh.castShadow = false;
+      mesh.renderOrder = typeInfo.renderOrder || 0;
       mesh.boundingSphere = new THREE.Sphere(
         new THREE.Vector3(
           (tileX + 0.5) * TREE_TILE_SIZE,
@@ -1152,6 +1157,55 @@ globalInstancer.registerType(
   buoyGeos.top,
   buoyTopMat,
   30000,
+  false,
+  false
+);
+// Rock breakwaters off harbours (terrain-gen.js findBreakwater): rare, a
+// few dozen rubble stretches each
+// (no shadow: in clear shallows it falls on the sea floor well off the
+// rocks and makes the mound look as if it floats)
+breakwaterRockGeos.forEach((geo, i) =>
+  globalInstancer.registerType(
+    'breakwaterRock' + i,
+    geo,
+    boatMat,
+    4000,
+    false,
+    false
+  )
+);
+globalInstancer.registerType(
+  'breakwaterBeacon',
+  breakwaterBeaconGeos.body,
+  houseTintMat,
+  1000,
+  true,
+  false
+);
+globalInstancer.registerType(
+  'breakwaterSurf',
+  breakwaterBeaconGeos.surf,
+  breakwaterSurfMat,
+  1000,
+  true,
+  false
+);
+globalInstancer.registerType(
+  'breakwaterFoam',
+  breakwaterSurfGeo,
+  breakwaterSurfMat,
+  4000,
+  true,
+  false
+);
+// Surf draws after the see-through water
+globalInstancer.types.get('breakwaterSurf').renderOrder = 1;
+globalInstancer.types.get('breakwaterFoam').renderOrder = 1;
+globalInstancer.registerType(
+  'breakwaterLamp',
+  breakwaterBeaconGeos.lamp,
+  buoyTopMat,
+  1000,
   false,
   false
 );

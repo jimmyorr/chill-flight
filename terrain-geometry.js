@@ -1320,6 +1320,208 @@ export var buoyGeos = (() => {
 })();
 export var buoyTopMat = createMaterial({color: 0x2d3033, flatShading: true});
 
+// Breakwater rubble (terrain-gen.js findBreakwater): one stretch of the
+// mound, 9 units of it along +z with its waterline at y = 0. A rough
+// trapezoid core down to the sea floor and 23 boulders piled on its
+// crown, along its flanks at the waterline and down its slopes, vertex
+// coloured grey and brown, a little darker where wet. Three variants so the
+// stretches don't repeat. About 470 triangles a stretch, 20 or so units wide
+// at the waterline and 34 at the foot.
+export var breakwaterRockGeos = (() => {
+  const palette = [0x9b958b, 0xaba395, 0x8a857c, 0xb3a893, 0x7f7a71, 0xa09482];
+  const variants = [];
+  for (let v = 0; v < 3; v++) {
+    let seed = 97 + v * 131;
+    const rand = () => {
+      seed = (seed * 16807) % 2147483647;
+      return (seed - 1) / 2147483646;
+    };
+    const parts = [];
+    const paint = (geo, hex) => {
+      geo = geo.index ? geo.toNonIndexed() : geo;
+      // As written (not converted from sRGB; see sky.js colour management)
+      const c = new THREE.Color().setHex(hex, THREE.LinearSRGBColorSpace);
+      const pos = geo.attributes.position;
+      const col = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i += 3) {
+        // A little darker where wet (one shade a triangle); under water the
+        // rocks keep their own colour and the clear water tints them
+        const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+        const wet = y < 0.1 ? 0.84 : y < 0.8 ? 0.92 : 1;
+        for (let j = 0; j < 3; j++) {
+          col[(i + j) * 3] = c.r * wet * 0.95;
+          col[(i + j) * 3 + 1] = c.g * wet;
+          col[(i + j) * 3 + 2] = c.b * wet * 0.93;
+        }
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      geo.deleteAttribute('uv');
+      parts.push(geo);
+    };
+    // Core: a mound down to the sea floor, base 34 wide 10 down, crown 8
+    // wide 1.4 up (inside the boulders, so no straight edge shows through
+    // clear water; deeper than 10 the water hides it anyway)
+    const core = new THREE.BoxGeometry(1, 1, 9.4, 1, 1, 1);
+    const cp = core.attributes.position;
+    for (let i = 0; i < cp.count; i++) {
+      const top = cp.getY(i) > 0;
+      cp.setX(i, cp.getX(i) * (top ? 8 : 34));
+      cp.setY(i, top ? 1.4 : -10);
+    }
+    core.deleteAttribute('normal');
+    paint(core, 0x857f75);
+    // Boulders: [across, height, jitter, count, radius]: a crown row, a
+    // flank row each side at the waterline, a row half under water, then
+    // two rows each side down the slope toward the sea floor
+    const rows = [
+      [0, 1.8, 0.6, 3, 2.4],
+      [-5.6, 0.6, 0.7, 3, 2.2],
+      [5.6, 0.6, 0.7, 3, 2.2],
+      [-8.6, -0.6, 0.6, 2, 1.8],
+      [8.6, -0.6, 0.6, 2, 1.8],
+      [-10.8, -3.2, 0.6, 3, 2.3],
+      [10.8, -3.2, 0.6, 3, 2.3],
+      [-14.2, -6, 0.6, 2, 2.6],
+      [14.2, -6, 0.6, 2, 2.6],
+    ];
+    for (const [x0, y0, jit, count, size] of rows) {
+      for (let k = 0; k < count; k++) {
+        const r = size * (0.8 + rand() * 0.45);
+        const b = new THREE.IcosahedronGeometry(r, 0);
+        b.deleteAttribute('normal');
+        b.scale(1 + rand() * 0.4, 0.6 + rand() * 0.3, 1 + rand() * 0.4);
+        b.rotateY(rand() * Math.PI);
+        b.rotateX((rand() - 0.5) * 0.5);
+        b.translate(
+          x0 + (rand() - 0.5) * 2 * jit * 2,
+          y0 + (rand() - 0.5) * jit,
+          -4.5 + (k + 0.5) * (9 / count) + (rand() - 0.5) * 1.2
+        );
+        paint(b, palette[Math.floor(rand() * palette.length)]);
+      }
+    }
+    const geo = mergeBufferGeometries(parts);
+    geo.computeVertexNormals();
+    variants.push(geo);
+  }
+  return variants;
+})();
+// Surf along both flanks of a rubble stretch, where the rocks meet the
+// water, so the mound sits in the sea: thin broken strips like the boats'
+// foam rings, starting under the waterline boulders (which break up the
+// inner edge) with a ragged outer edge and a gap here and there
+export var breakwaterSurfGeo = (() => {
+  const foam = [];
+  const N = 8;
+  for (const side of [-1, 1]) {
+    const edge = [];
+    for (let k = 0; k <= N; k++) {
+      edge.push(9.2 + 1.6 * Math.abs(Math.sin(k * 2.9 + side)));
+    }
+    for (let k = 0; k < N; k++) {
+      if (Math.sin(k * 1.9 + side * 2.2) > 0.8) continue;
+      const z0 = -4.7 + (k / N) * 9.4;
+      const z1 = -4.7 + ((k + 1) / N) * 9.4;
+      const a0 = [side * 7, 0.3, z0];
+      const a1 = [side * 7, 0.3, z1];
+      const b0 = [side * edge[k], 0.3, z0];
+      const b1 = [side * edge[k + 1], 0.3, z1];
+      const tris =
+        side > 0 ? [a0, a1, b1, a0, b1, b0] : [a0, b1, a1, a0, b0, b1];
+      for (const v of tris) foam.push(...v);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(foam, 3));
+  geo.computeVertexNormals();
+  return geo;
+})();
+// Breakwater surf: the boats' foam white, drawn after the water (which writes no depth when
+// see-through) so the swell, interpolated across the water's coarse grid,
+// never hides it; riding the swell itself so it moves with the waves. Each
+// instance's colour red channel carries how much the swell is calmed where
+// it stands (as the water shader calms it in the shallows); it doesn't tint.
+export var breakwaterSurfMat = createMaterial({
+  color: 0xffffff,
+  // Transparent only to be drawn after the water; fully opaque, so the
+  // stretches' overlapping strips don't stack up brighter
+  transparent: true,
+  opacity: 1,
+  depthWrite: false,
+  flatShading: true,
+  roughness: 0.9,
+});
+{
+  const base = breakwaterSurfMat.onBeforeCompile;
+  breakwaterSurfMat.onBeforeCompile = (shader) => {
+    base.call(breakwaterSurfMat, shader);
+    shader.uniforms.uWaterTime = waterUniforms.uTime;
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        'void main() {',
+        `uniform float uWaterTime;
+        ${WATER_SWELL_GLSL}
+        void main() {`
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        #ifdef USE_INSTANCING_COLOR
+          vec4 surfWorld = modelMatrix * instanceMatrix * vec4(transformed, 1.0);
+          transformed.y += swell(surfWorld.xz, uWaterTime).x * instanceColor.r;
+        #endif`
+      )
+      .replace(
+        '#include <color_vertex>',
+        `#include <color_vertex>
+        #ifdef USE_INSTANCING_COLOR
+          vColor.xyz = vec3(0.8, 0.9, 0.93);
+        #endif`
+      );
+  };
+  breakwaterSurfMat.customProgramCacheKey = () => 'breakwaterSurf';
+}
+// The beacon at a breakwater's head: a concrete footing and a post (tinted
+// red or green per breakwater), with a dark lamp on top
+export var breakwaterBeaconGeos = (() => {
+  const foot = new THREE.CylinderGeometry(2.6, 3.2, 2.2, 8);
+  foot.translate(0, 2.6, 0);
+  const post = new THREE.CylinderGeometry(0.8, 1.1, 10, 6);
+  post.translate(0, 8.7, 0);
+  const lamp = new THREE.CylinderGeometry(1.0, 1.0, 1.6, 6);
+  lamp.translate(0, 14.5, 0);
+  // Surf round the head (the rubble's own surf runs along its sides only)
+  const foam = [];
+  const N = 14;
+  const outer = [];
+  for (let k = 0; k <= N; k++)
+    outer.push(10.6 + 2 * Math.abs(Math.sin(k * 2.3)));
+  for (let k = 0; k < N; k++) {
+    if (Math.sin(k * 1.7 + 0.4) > 0.6) continue;
+    const a0 = (k / N) * Math.PI * 2;
+    const a1 = ((k + 1) / N) * Math.PI * 2;
+    const p = (r, a) => [Math.sin(a) * r, 0.3, Math.cos(a) * r];
+    for (const v of [
+      p(9, a0),
+      p(outer[k], a0),
+      p(outer[k + 1], a1),
+      p(9, a0),
+      p(outer[k + 1], a1),
+      p(9, a1),
+    ]) {
+      foam.push(...v);
+    }
+  }
+  const surf = new THREE.BufferGeometry();
+  surf.setAttribute('position', new THREE.Float32BufferAttribute(foam, 3));
+  surf.computeVertexNormals();
+  return {
+    body: mergeGeometries([foot.toNonIndexed(), post.toNonIndexed()]),
+    lamp,
+    surf,
+  };
+})();
+
 // Sheep: a woolly body (tinted per sheep) on four dark legs, with a dark
 // face held low as if grazing, facing +z; about 3.5 units long (drawn 15 to 45% bigger)
 export var sheepGeos = (() => {

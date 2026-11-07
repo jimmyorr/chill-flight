@@ -344,6 +344,17 @@ const BUOY_HARBOUR_RANGE = 600;
 const BUOY_MIN_DEPTH = 3;
 const BUOY_MAX_DEPTH = 9;
 const BUOY_COLORS = [0xc8372d, 0x2f8a52];
+// Rock breakwaters: a rubble mound from the beach out into the sea off a
+// harbour (near a pier, house or lighthouse), curving a little, with a
+// beacon post at its end. The share of chunks that may have one, and their
+// shape: segment spacing along the mound, length and total bend.
+const BREAKWATER_CHUNK_CHANCE = 0.6;
+const BREAKWATER_SEGMENT = 9;
+const BREAKWATER_LENGTH = [130, 230];
+const BREAKWATER_BEND = 0.55;
+const BREAKWATER_HARBOUR_RANGE = 500;
+// How deep the sea may get under it (rubble mounds stay in the shallows)
+const BREAKWATER_MAX_DEPTH = 25;
 // Lighthouses on headlands, besides Montauk's: the share of chunks that may
 // have one (if they have a headland in a fitting region). Of two such chunks
 // within LIGHTHOUSE_SPACING chunks of each other, only one may, so they never
@@ -2193,6 +2204,141 @@ function coarseGridHeights(
   return out;
 }
 
+// A rock breakwater for a chunk, or null: tries spots on the beach (in a
+// fixed hashed order) near a harbour anchor, runs out toward the deepest
+// water, and keeps the first whose whole curving length lies over shallow
+// open sea. Returns its rubble segments (local x/z, waterline y, rotY,
+// stretch, variant) and the beacon at the end.
+function findBreakwater(
+  chunkX,
+  chunkZ,
+  worldOffsetX,
+  worldOffsetZ,
+  halfSize,
+  elevParams,
+  anchors,
+  piers
+) {
+  const wl = elevParams.WATER_LEVEL;
+  const elev = (x, z) => getElevation(x, z, elevParams);
+  const near2 = BREAKWATER_HARBOUR_RANGE * BREAKWATER_HARBOUR_RANGE;
+  const STEP = 25;
+  const n = Math.floor((halfSize * 2 - 200) / STEP);
+  for (let t = 0; t < 400; t++) {
+    const i = Math.floor(fireHash(chunkX, chunkZ, 1900 + t) * n * n);
+    const lx = -halfSize + 100 + (i % n) * STEP;
+    const lz = -halfSize + 100 + Math.floor(i / n) * STEP;
+    const wx = worldOffsetX + lx;
+    const wz = worldOffsetZ + lz;
+    const h = elev(wx, wz);
+    // At the water's edge (the rubble starts at the waterline)
+    if (h < wl - 2 || h > wl + 5) continue;
+    if (!anchors.some((p) => (p.x - lx) ** 2 + (p.z - lz) ** 2 < near2)) {
+      continue;
+    }
+    if (piers.some((p) => (p.x - lx) ** 2 + (p.z - lz) ** 2 < 120 * 120)) {
+      continue;
+    }
+    if (
+      ChillFlightLogic.alienAt(wx, wz, simplex) > ALIEN_PROPS_AT ||
+      ChillFlightLogic.swampFactorAt(wx, wz, simplex) > 0.1 ||
+      ChillFlightLogic.snowFactorAt(
+        wz,
+        ChillFlightLogic.snowNoiseShift(wx, wz, simplex)
+      ) > 0.5
+    ) {
+      continue;
+    }
+    // Out toward the deepest water 60 units off
+    let angle = -1;
+    let deepest = wl;
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      const d = elev(wx + Math.sin(a) * 60, wz + Math.cos(a) * 60);
+      if (d < deepest) {
+        deepest = d;
+        angle = a;
+      }
+    }
+    if (angle === -1) continue;
+    // The open sea, not a lake or a river: water most ways 1.5 km out
+    let open = 0;
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI) / 4;
+      if (elev(wx + Math.cos(a) * 1500, wz + Math.sin(a) * 1500) <= wl) open++;
+    }
+    if (open < 4) continue;
+    const length =
+      BREAKWATER_LENGTH[0] +
+      (BREAKWATER_LENGTH[1] - BREAKWATER_LENGTH[0]) *
+        fireHash(chunkX, chunkZ, 1811 + t);
+    const bend = (fireHash(chunkX, chunkZ, 1812 + t) * 2 - 1) * BREAKWATER_BEND;
+    const segs = Math.round(length / BREAKWATER_SEGMENT);
+    const out = [];
+    let x = wx;
+    let z = wz;
+    let a = angle;
+    let ok = true;
+    for (let k = 0; k <= segs && ok; k++) {
+      // The bend comes in over the outer half
+      if (k > segs / 2) a += (bend * 2) / segs;
+      const d = elev(x, z);
+      if (k > 2 && (d > wl - 0.5 || d < wl - BREAKWATER_MAX_DEPTH)) ok = false;
+      // Open water to both sides past the beach (not up an inlet)
+      if (k === Math.round(segs / 2) || k === segs) {
+        for (const side of [-1, 1]) {
+          const sx = x + Math.cos(a) * 45 * side;
+          const sz = z - Math.sin(a) * 45 * side;
+          if (elev(sx, sz) > wl) ok = false;
+        }
+      }
+      out.push({
+        x: x - worldOffsetX,
+        y: wl,
+        z: z - worldOffsetZ,
+        // How much the water's swell is calmed here (as its shader does)
+        calm: reefStep(1, 6, wl - d),
+        rotY: a + (fireHash(chunkX + k, chunkZ, 1813 + t) < 0.5 ? 0 : Math.PI),
+        sx: 0.85 + 0.3 * fireHash(chunkX + k, chunkZ, 1814 + t),
+        sz: 1.15,
+        variant: Math.floor(fireHash(chunkX + k, chunkZ, 1815 + t) * 3),
+      });
+      x += Math.sin(a) * BREAKWATER_SEGMENT;
+      z += Math.cos(a) * BREAKWATER_SEGMENT;
+    }
+    // Sea on past the head and off to its sides, not a pond or a bay's
+    // narrow end
+    for (const [along, side] of [
+      [120, 0],
+      [300, 0],
+      [550, 0],
+      [200, -200],
+      [200, 200],
+    ]) {
+      const fx = x + Math.sin(a) * along + Math.cos(a) * side;
+      const fz = z + Math.cos(a) * along - Math.sin(a) * side;
+      if (elev(fx, fz) > wl - 1) ok = false;
+    }
+    if (!ok) continue;
+    // The head: a broader last stretch and the beacon on it
+    const end = out[out.length - 1];
+    end.sx = 1.25;
+    out.push({
+      x: end.x,
+      y: wl,
+      z: end.z,
+      rotY: a,
+      sx: 1,
+      sz: 1,
+      calm: end.calm,
+      beacon: true,
+      color: fireHash(chunkX, chunkZ, 1816) < 0.5 ? 0xc8372d : 0x2f8a52,
+    });
+    return out;
+  }
+  return null;
+}
+
 export function generateChunkData({
   chunkX,
   chunkZ,
@@ -2514,6 +2660,7 @@ export function generateChunkData({
   const penguinPositions = [];
   const sealPositions = [];
   const buoyPositions = [];
+  const breakwaterPositions = [];
   const sheepPositions = [];
   const herdPositions = [];
   const rockPositions = [];
@@ -5679,6 +5826,32 @@ export function generateChunkData({
       buoyPositions.length = kept;
     }
 
+    // At most one rock breakwater, off a harbour on the open sea
+    if (
+      fireHash(chunkX, chunkZ, 1811) < BREAKWATER_CHUNK_CHANCE &&
+      (pierPositions.length > 0 ||
+        housePositions.length > 0 ||
+        twoStoryHousePositions.length > 0 ||
+        lighthousePos)
+    ) {
+      const bw = findBreakwater(
+        chunkX,
+        chunkZ,
+        worldOffsetX,
+        worldOffsetZ,
+        halfSize,
+        elevParams,
+        [
+          ...pierPositions,
+          ...housePositions,
+          ...twoStoryHousePositions,
+          ...(lighthousePos ? [lighthousePos] : []),
+        ],
+        pierPositions
+      );
+      if (bw) breakwaterPositions.push(...bw);
+    }
+
     // A headland lighthouse stays off the roads too, and clears the props
     // from around itself and its keeper's house
     if (lighthousePos?.headland) {
@@ -6550,6 +6723,41 @@ export function generateChunkData({
     collector.endProp();
   }
 
+  // Breakwater rubble: each stretch a prop that the plane can knock apart,
+  // the beacon at the end another
+  for (const pos of breakwaterPositions) {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.sx,
+      1,
+      pos.sz,
+      0,
+      pos.rotY,
+      0
+    );
+    // Its surf stays when the rocks are knocked off; it rides the swell,
+    // calmed in the shallows (red channel, breakwaterSurfMat)
+    _iceHutColor.setHex(0x00ffff).r = pos.calm;
+    collector.add(
+      pos.beacon ? 'breakwaterSurf' : 'breakwaterFoam',
+      _matBuffer,
+      _iceHutColor
+    );
+    collector.beginProp(BREAKABLE.SMALL);
+    if (pos.beacon) {
+      _iceHutColor.setHex(pos.color);
+      collector.add('breakwaterBeacon', _matBuffer, _iceHutColor);
+      collector.add('breakwaterLamp', _matBuffer);
+    } else {
+      collector.add('breakwaterRock' + pos.variant, _matBuffer);
+    }
+    collector.endProp();
+  }
+
   // Channel buoys: nothing to break, you pass over them
   for (const pos of buoyPositions) {
     composeMatrix(
@@ -7043,6 +7251,7 @@ export function generateChunkData({
       lily_pads: lilyPadPositions.length,
       small_boats: smallBoatPositions.length,
       herd: herdPositions.length,
+      breakwater: breakwaterPositions.length,
       tractors: tractorPositions.length,
       landmarks: landmarkPositions.length,
       icebergs: icebergPositions.length,
