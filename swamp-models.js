@@ -24,6 +24,64 @@ const CYPRESS_SCALE = 2.1;
 // comparable to the 270-unit peak height of the rock arch).
 const GIANT_SWAMP_OAK_SCALE = 39;
 
+// A bald cypress is broader and lower than the dawn redwood it's built from
+// (a tall spire): squash it, then hang Spanish moss off its sprays
+const CYPRESS_SPREAD = 1.5;
+const CYPRESS_SQUAT = 0.8;
+const SPANISH_MOSS = '#9aa08a';
+
+// Strands of Spanish moss hanging under `count` of the model's green
+// sprays (picked evenly, upper part of the tree only): two crossed
+// triangles each way, so 4 triangles a strand
+function hangMoss(geo, count, length, width) {
+  const p = geo.attributes.position;
+  const c = geo.attributes.color;
+  geo.computeBoundingBox();
+  const minY =
+    geo.boundingBox.min.y +
+    (geo.boundingBox.max.y - geo.boundingBox.min.y) * 0.35;
+  const spots = [];
+  for (let t = 0; t < p.count; t += 3) {
+    const g = c.getY(t);
+    if (!(g > c.getX(t) * 1.05 && g > c.getZ(t) * 1.05)) continue;
+    const y = Math.min(p.getY(t), p.getY(t + 1), p.getY(t + 2));
+    if (y < minY) continue;
+    spots.push([
+      (p.getX(t) + p.getX(t + 1) + p.getX(t + 2)) / 3,
+      y,
+      (p.getZ(t) + p.getZ(t + 1) + p.getZ(t + 2)) / 3,
+    ]);
+  }
+  const moss = new THREE.Color(SPANISH_MOSS);
+  const pos = [...p.array];
+  const col = [...c.array];
+  const step = Math.max(1, Math.floor(spots.length / count));
+  for (let i = 0, n = 0; i < spots.length && n < count; i += step, n++) {
+    const [x, y, z] = spots[i];
+    const len = length * (0.7 + 0.6 * ((n * 0.618) % 1));
+    for (const [dx, dz] of [
+      [width, 0],
+      [0, width],
+    ]) {
+      // Both windings, so it shows from either side
+      pos.push(x - dx, y, z - dz, x + dx, y, z + dz, x, y - len, z);
+      pos.push(x + dx, y, z + dz, x - dx, y, z - dz, x, y - len, z);
+      for (let k = 0; k < 6; k++) col.push(moss.r, moss.g, moss.b);
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  out.computeVertexNormals();
+  out.computeBoundingSphere();
+  return out;
+}
+
+function baldCypress(geo, strands) {
+  geo.scale(CYPRESS_SPREAD, CYPRESS_SQUAT, CYPRESS_SPREAD);
+  return hangMoss(geo, strands, 6.5, 0.9);
+}
+
 function buildCattailClumpAsset() {
   const group = new THREE.Group();
   const a = cattail.createAsset({
@@ -49,30 +107,36 @@ function buildCattailClumpAsset() {
 export function buildSwampGeos() {
   return {
     // Lush bald cypress with buttressed trunk and olive-green feathery sprays
-    swampCypress: mergeAsset(
-      dawnRedwood.createAsset({
-        height: 20,
-        climate: 'lush',
-        colorway: 'old-giant',
-        foliage: '#4d6330',
-        bark: '#634835',
-        tone: 0.6,
-      }),
-      0.25,
-      CYPRESS_SCALE
+    swampCypress: baldCypress(
+      mergeAsset(
+        dawnRedwood.createAsset({
+          height: 20,
+          climate: 'lush',
+          colorway: 'old-giant',
+          foliage: '#4d6330',
+          bark: '#634835',
+          tone: 0.6,
+        }),
+        0.25,
+        CYPRESS_SCALE
+      ),
+      10
     ),
     // Weathered cypress with bare forked limbs and drooping Spanish-moss-toned sprays
-    swampCypressMoss: mergeAsset(
-      dawnRedwood.createAsset({
-        height: 20,
-        climate: 'dry',
-        colorway: 'old-giant',
-        rust: '#6d7a50',
-        bark: '#543f30',
-        tone: 0.6,
-      }),
-      0.25,
-      CYPRESS_SCALE * 0.95
+    swampCypressMoss: baldCypress(
+      mergeAsset(
+        dawnRedwood.createAsset({
+          height: 20,
+          climate: 'dry',
+          colorway: 'old-giant',
+          rust: '#6d7a50',
+          bark: '#543f30',
+          tone: 0.6,
+        }),
+        0.25,
+        CYPRESS_SCALE * 0.95
+      ),
+      22
     ),
     // Broad leaning tupelo / water oak with flared roots on y = 0
     swampTupelo: mergeAsset(
