@@ -88,6 +88,7 @@ import {performanceMonitor} from './game-performance.js';
 import {Achievements} from './achievements.js';
 import {applyCrashCamera} from './crash.js';
 import {FOLLOW_RATE, followStep} from './follow-logic.js';
+import {RUSH_FOV, rushAmount} from './crystal-rush.js';
 
 // Where the chase camera wanted to be last frame (followStep)
 const _prevIdealCameraPos = new THREE.Vector3();
@@ -328,13 +329,16 @@ export function updateFlightCamera(delta, nowTime) {
     const baseFov =
       THREE.MathUtils.lerp(60, 85, speedFactor * (1 - seatLock)) +
       (mobileCameraScale > 1.0 ? 5 : 0);
-    const targetFov = Math.min(
-      75,
-      baseFov +
-        state.smoothedManeuverFactor *
-          15 *
-          Math.min(1, state.flightSpeedMultiplier / 2)
-    );
+    // (wider still during a shattered crystal's rush: crystal-rush.js)
+    const rushFov = RUSH_FOV * rushAmount() * (1 - seatLock);
+    const targetFov =
+      Math.min(
+        75,
+        baseFov +
+          state.smoothedManeuverFactor *
+            15 *
+            Math.min(1, state.flightSpeedMultiplier / 2)
+      ) + rushFov;
 
     camera.fov = THREE.MathUtils.lerp(
       camera.fov,

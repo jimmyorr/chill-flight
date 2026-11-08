@@ -31,6 +31,7 @@ import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {precipitation} from './weather-manager.js';
+import {rushTrail} from './crystal-rush.js';
 
 // Room for four or more planes' smoke trails (~1,000 each), water spray, and
 // environment effects
@@ -1247,8 +1248,9 @@ export function updateParticles(delta) {
     else skimLast.valid = false;
     if (isSmokeOn()) {
       smokeTrail(planeGroup, smokeLast, speed, tinted ? smokeTint : SMOKE);
-    } else if (tripTrail) {
-      smokeTrail(planeGroup, smokeLast, speed, tripTrail);
+    } else if (rushTrail() || tripTrail) {
+      // (a shattered crystal's rush, crystal-rush.js, or a mushroom trip)
+      smokeTrail(planeGroup, smokeLast, speed, rushTrail() || tripTrail);
     } else {
       smokeLast.valid = false;
     }

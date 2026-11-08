@@ -154,6 +154,7 @@ import {updateFireflies} from './fireflies.js';
 import {updateMultiplayer} from './multiplayer.js';
 import {updateBreakables} from './breakables.js';
 import {applyTrip, restoreTrip, updateTrip} from './mushroom-trip.js';
+import {updateRush} from './crystal-rush.js';
 import {applyBumps, updateBumps} from './bumps.js';
 import {updateWallScrape} from './wall-scrape.js';
 import {updateCrash} from './crash.js';
@@ -623,6 +624,7 @@ function performFrame(timestamp) {
   updateBumps(delta);
   updateBreakables(delta);
   updateTrip(delta);
+  updateRush(delta);
   updateParticles(delta);
   updateWhales(delta);
   updateDolphins(delta);

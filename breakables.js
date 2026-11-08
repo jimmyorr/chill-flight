@@ -55,6 +55,7 @@ import {recordPropCrashStrain} from './crash.js';
 import {slowBuggy} from './buggy.js';
 import {propPuffs, sporeBurst} from './particles.js';
 import {startTrip} from './mushroom-trip.js';
+import {startRush} from './crystal-rush.js';
 import {forEachPeerVehicle} from './multiplayer.js';
 import {
   BREAK,
@@ -817,7 +818,7 @@ const _shardColor = new THREE.Color();
 const SHARD_WHITE = new THREE.Color(1, 1, 1);
 function shatterCrystal(group, part, base, dx, dz, kts) {
   const m = copyMatrix(part);
-  const color = copyColor(part) || [1, 0.31, 0.85];
+  const color = crystalColor(part);
   _m.fromArray(m);
   const s = _s.setFromMatrixScale(_m).x;
   const fwd = Math.min(FLING_MAX, kts * 0.1);
@@ -866,6 +867,11 @@ function shatterCrystal(group, part, base, dx, dz, kts) {
       color,
     };
   });
+}
+
+// A crystal cluster's colour ([r, g, b])
+function crystalColor(part) {
+  return copyColor(part) || [1, 0.31, 0.85];
 }
 
 // A flying spire bursts into shards, which fall and lie glowing where they
@@ -1066,11 +1072,17 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   const what =
     house && !boulder ? 'house' : snowman || small ? 'snowman' : 'tree';
   const fallTime = house ? 0 : 1.1 - Math.min(0.6, kts / 400);
-  if (mine) {
+  if (mine && crystal && !buggy && !state.isOnGround && !state.isOnWater) {
+    // A crystal gives the plane a rush instead of slowing it, and glass
+    // doesn't strain it toward a crash (crystal-rush.js)
+    startRush(height / 150, crystalColor(parts[0]));
+  } else if (mine) {
     const keep = speedKept(what, buggy);
     if (buggy) slowBuggy(keep);
     else state.flightSpeedMultiplier *= keep;
     recordPropCrashStrain(what, kts, buggy);
+  }
+  if (mine) {
     state.impactShake = Math.max(state.impactShake || 0, SHAKE[what]);
     smashHaptic(house);
     if (crystal) playShatter(1);

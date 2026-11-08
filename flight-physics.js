@@ -22,6 +22,7 @@ import {
 import {keys} from './game-input-bindings.js';
 import {Achievements} from './achievements.js';
 import {hooks} from './hooks.js';
+import {rushTarget} from './crystal-rush.js';
 
 // Wheeled planes touch down on ground gentler than 15° (rise per unit) and,
 // once rolling, stay down on ground up to 30°: the land is hilly at the scale
@@ -219,13 +220,16 @@ export function updateFlightPhysics(delta, nowTime) {
       !state.isOnWater &&
       state.flightSpeedMultiplier > 0;
     const softBuffer = 2.0;
+    // (A shattered crystal's rush raises it for a while: crystal-rush.js)
     const target = flying
-      ? pitchedTarget(
-          state.targetFlightSpeed,
-          planeGroup.rotation.x,
-          handling,
-          fallAmount,
-          planeGroup.position.y < minFlightHeight + softBuffer
+      ? rushTarget(
+          pitchedTarget(
+            state.targetFlightSpeed,
+            planeGroup.rotation.x,
+            handling,
+            fallAmount,
+            planeGroup.position.y < minFlightHeight + softBuffer
+          )
         )
       : state.targetFlightSpeed;
     state.flightSpeedMultiplier = throttleSpeed(
