@@ -834,6 +834,13 @@ export function setSmokeTint(livery) {
   smokeColor(livery, smokeTint);
 }
 
+// A rainbow trail while a knocked-over mushroom has the player tripping
+// (mushroom-trip.js sets its colour each frame, or null when it's over)
+let tripTrail = null;
+export function setTripTrail(color) {
+  tripTrail = color;
+}
+
 /** Whether the player's airshow smoke is on. */
 export function isSmokeOn() {
   return smokeOn || !!state.mpForceSmoke;
@@ -1240,6 +1247,8 @@ export function updateParticles(delta) {
     else skimLast.valid = false;
     if (isSmokeOn()) {
       smokeTrail(planeGroup, smokeLast, speed, tinted ? smokeTint : SMOKE);
+    } else if (tripTrail) {
+      smokeTrail(planeGroup, smokeLast, speed, tripTrail);
     } else {
       smokeLast.valid = false;
     }
