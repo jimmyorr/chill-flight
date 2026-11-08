@@ -5112,6 +5112,34 @@ export const ChillFlightLogic = {};
     const line = coastRoadLine(n);
     return line ? [line.xStart, line.xEnd] : null;
   }
+  // Where highway n ends in a T on another highway: [{along, road,
+  // roadAlong}] (along: where on n; road: the highway it meets, at its own
+  // `along` roadAlong)
+  function roadTJunctions(n) {
+    if (n === ROAD_EAST) {
+      const line = eastRoadLine();
+      if (!line || !line.joinsEW) return [];
+      return [
+        {
+          along: line.zStart,
+          road: ROAD_EW,
+          roadAlong: getRoadCenterX(line.zStart, ROAD_EAST),
+        },
+      ];
+    }
+    if (COAST[n]) {
+      const line = coastRoadLine(n);
+      if (!line) return [];
+      const ends = [];
+      line.crossings.forEach((x, road) => {
+        if (x === line.xStart || x === line.xEnd) {
+          ends.push({along: x, road, roadAlong: coastRoadZ(n, x)});
+        }
+      });
+      return ends;
+    }
+    return [];
+  }
   function onCoastSpan(n, x) {
     const line = coastRoadLine(n);
     return !!line && x >= line.xStart && x <= line.xEnd;
@@ -5178,17 +5206,41 @@ export const ChillFlightLogic = {};
       const along = k * ROUTE_STEP;
       const p = roadPoint(n, along, roadCenter(n, along));
       land =
-        (n !== ROAD_EW || (along > ROAD_EW_WEST && along < ROAD_EW_EAST)) &&
-        (n !== ROAD_EAST || onEastSpan(along)) &&
-        (!COAST[n] || onCoastSpan(n, along)) &&
-        getElevation(p.x, p.z, simplex, constants, null, {
-          ignoreRivers: true,
-          ignoreRoads: true,
-          forRoad: true,
-        }) > constants.WATER_LEVEL;
+        tJunctionCell(n, k) ||
+        ((n !== ROAD_EW || (along > ROAD_EW_WEST && along < ROAD_EW_EAST)) &&
+          (n !== ROAD_EAST || onEastSpan(along)) &&
+          (!COAST[n] || onCoastSpan(n, along)) &&
+          getElevation(p.x, p.z, simplex, constants, null, {
+            ignoreRivers: true,
+            ignoreRoads: true,
+            forRoad: true,
+          }) > constants.WATER_LEVEL);
       routeLand.set(key, land);
     }
     return land;
+  }
+
+  // Is grid point k the one at a T junction where highway n meets another
+  // highway? It counts as land: the road carries on into the other one
+  // there, so a stretch that starts at a T over water is a bridge from it,
+  // not a bridge from nowhere (which the route would drop, leaving the deck
+  // sloping down to the water as at a dead end)
+  function tJunctionCell(n, k) {
+    if (n === ROAD_EAST) {
+      const line = eastRoadLine();
+      return (
+        !!line && line.joinsEW && k === Math.floor(line.zStart / ROUTE_STEP)
+      );
+    }
+    if (COAST[n]) {
+      const line = coastRoadLine(n);
+      return (
+        !!line &&
+        (k === Math.floor(line.xStart / ROUTE_STEP) ||
+          k === Math.ceil(line.xEnd / ROUTE_STEP))
+      );
+    }
+    return false;
   }
 
   // Is grid point k on highway n's route: on land, or on a bridge of at most
@@ -5995,6 +6047,7 @@ export const ChillFlightLogic = {};
   exports.ROAD_SOUTH = ROAD_SOUTH;
   exports.COAST_ROADS = COAST_ROADS;
   exports.coastRoadSpan = coastRoadSpan;
+  exports.roadTJunctions = roadTJunctions;
   exports.coastRoadsNear = coastRoadsNear;
   exports.roadAlongX = roadAlongX;
   exports.AIRPORTS = AIRPORTS;

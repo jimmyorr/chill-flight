@@ -1948,6 +1948,76 @@ function meadowRoadStartY() {
 const abutmentCache = new Map();
 const MAX_SPAN_SAMPLES = 400;
 
+// Highway n's planned height and the terrain under it at world `along` wa
+// (its centre `across` at roadC)
+function roadHeightAt(n, wa, roadC = ChillFlightLogic.roadCenter(n, wa)) {
+  const {x, z} = ChillFlightLogic.roadPoint(n, wa, roadC);
+  return {
+    rawY: ChillFlightLogic.highwayY(
+      x,
+      z,
+      simplex,
+      {WATER_LEVEL, MOUNTAIN_LEVEL},
+      null
+    ),
+    actualTerrainH: getElevation(x, z),
+  };
+}
+
+// Is the deck there a bridge (well above the ground)?
+const isBridgeSample = ({rawY, actualTerrainH}) => rawY - actualTerrainH > 10;
+
+// Steps from `along` wa (a bridge sample) along highway n until the span
+// ends; returns how many more bridge samples there were and the height of
+// the ground sample past them
+function findAbutment(n, wa, step) {
+  const key = (a) => `${ChillFlightLogic.WORLD_SEED}:${n}:${step}:${a}`;
+  const cached = abutmentCache.get(key(wa));
+  if (cached) return {extra: (cached.a - wa) / step - 1, y: cached.y};
+  let extra = 0;
+  let y = 0;
+  for (; extra < MAX_SPAN_SAMPLES; extra++) {
+    const sample = roadHeightAt(n, wa + (extra + 1) * step);
+    y = Math.max(sample.rawY, sample.actualTerrainH + 1.0);
+    if (!isBridgeSample(sample)) break;
+  }
+  // Every bridge sample walked over leads to the same abutment, so the next
+  // chunk along this span finds it without walking
+  if (abutmentCache.size > 50000) abutmentCache.clear();
+  const end = {a: wa + (extra + 1) * step, y};
+  for (let k = 0; k <= extra; k++) abutmentCache.set(key(wa + k * step), end);
+  return {extra, y};
+}
+
+// Highway n's deck height at `along` wa, graded across a bridge span as the
+// chunks grade it (below): samples sit every BRIDGE_SEGMENT_LENGTH from
+// half a segment past 0 (chunk edges are whole segments apart)
+function gradedDeckY(n, wa) {
+  const step = BRIDGE_SEGMENT_LENGTH;
+  const at = (a) => {
+    const sample = roadHeightAt(n, a);
+    const y = Math.max(sample.rawY, sample.actualTerrainH + 1.0);
+    if (!isBridgeSample(sample)) return y;
+    const back = findAbutment(n, a, -step);
+    const ahead = findAbutment(n, a, step);
+    const t = (back.extra + 1) / (back.extra + ahead.extra + 2);
+    return Math.max(
+      WATER_LEVEL + 60,
+      back.y + (ahead.y - back.y) * t,
+      sample.actualTerrainH + 1.0
+    );
+  };
+  const i = Math.floor((wa - step / 2) / step);
+  const a0 = i * step + step / 2;
+  const f = (wa - a0) / step;
+  return at(a0) * (1 - f) + at(a0 + step) * f;
+}
+
+// Where a highway ends in a T on another (the east and coast ones), its deck
+// eases to the other's height over this far, so they meet flush even where
+// both are bridges graded between different abutments
+const T_JUNCTION_BLEND = 300;
+
 // Within this of a north-south highway's centre line, the cross-country
 // highway (which crosses it) dips just under its deck, so the two don't
 // fight where they overlap: its half width, a little for crossing at an
@@ -2848,16 +2918,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
       // The road's planned height and the terrain under it at world
       // `along` wa (its centre `across` at roadC)
-      const sampleRoadHeight = (
-        wa,
-        roadC = ChillFlightLogic.roadCenter(n, wa)
-      ) => {
-        const {x, z} = ChillFlightLogic.roadPoint(n, wa, roadC);
-        return {
-          rawY: ChillFlightLogic.highwayY(x, z, simplex, constants, null),
-          actualTerrainH: getElevation(x, z),
-        };
-      };
+      const sampleRoadHeight = (wa, roadC) => roadHeightAt(n, wa, roadC);
 
       for (
         let sampleA = -halfChunk - margin;
@@ -2901,8 +2962,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         // 1. Identify elevated bridge spans over water / deep canyons
         const isBridgeSegment = new Uint8Array(rawSamples.length);
         for (let i = 0; i < rawSamples.length; i++) {
-          isBridgeSegment[i] =
-            rawSamples[i].rawY - rawSamples[i].actualTerrainH > 10 ? 1 : 0;
+          isBridgeSegment[i] = isBridgeSample(rawSamples[i]) ? 1 : 0;
         }
 
         // Ground highway segments follow rawY directly to sit flush with the carved canyon floor
@@ -2913,31 +2973,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             rawSamples[i].actualTerrainH + 1.0
           );
         }
-
-        // Steps from world z (a bridge sample) along the road until the
-        // span ends; returns how many more bridge samples there were and the
-        // height of the ground sample past them
-        const findAbutment = (wa, step) => {
-          const key = (a) => `${ChillFlightLogic.WORLD_SEED}:${n}:${step}:${a}`;
-          const cached = abutmentCache.get(key(wa));
-          if (cached) return {extra: (cached.a - wa) / step - 1, y: cached.y};
-          let extra = 0;
-          let y = 0;
-          for (; extra < MAX_SPAN_SAMPLES; extra++) {
-            const {rawY, actualTerrainH} = sampleRoadHeight(
-              wa + (extra + 1) * step
-            );
-            y = Math.max(rawY, actualTerrainH + 1.0);
-            if (rawY - actualTerrainH <= 10) break;
-          }
-          // Every bridge sample walked over leads to the same abutment, so
-          // the next chunk along this span finds it without walking
-          if (abutmentCache.size > 50000) abutmentCache.clear();
-          const end = {a: wa + (extra + 1) * step, y};
-          for (let k = 0; k <= extra; k++)
-            abutmentCache.set(key(wa + k * step), end);
-          return {extra, y};
-        };
 
         // 2. Linearly grade elevated bridge spans between entry and exit abutments to remove jagged elevation changes
         let runStart = -1;
@@ -2956,12 +2991,14 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             let yEnd = finalY[runEnd + 1];
             if (runStart === 0) {
               ({extra: before, y: yStart} = findAbutment(
+                n,
                 rawSamples[0].wa,
                 -sampleStep
               ));
             }
             if (runEnd === rawSamples.length - 1) {
               ({extra: after, y: yEnd} = findAbutment(
+                n,
                 rawSamples[runEnd].wa,
                 sampleStep
               ));
@@ -3012,6 +3049,24 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
               rawSamples[i].actualTerrainH + 1.0
             );
             break;
+          }
+        }
+
+        // Level with the highway it meets at a T junction
+        for (const t of ChillFlightLogic.roadTJunctions(n)) {
+          if (Math.abs(t.along - alongOffset) > halfChunk + margin + 500) {
+            continue;
+          }
+          const joinY = gradedDeckY(t.road, t.roadAlong);
+          for (let i = 0; i < rawSamples.length; i++) {
+            const d = Math.abs(rawSamples[i].wa - t.along);
+            if (d >= T_JUNCTION_BLEND) continue;
+            const u = d / T_JUNCTION_BLEND;
+            const ease = u * u * (3 - 2 * u);
+            finalY[i] = Math.max(
+              joinY + (finalY[i] - joinY) * ease,
+              rawSamples[i].actualTerrainH + 1.0
+            );
           }
         }
 
