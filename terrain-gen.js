@@ -3919,8 +3919,23 @@ export function generateChunkData({
             });
           }
         } else if (isAlienLand) {
-          // The western alien land: crystal clusters, nothing else
-          if (rng() < 0.004 * densityScale) pushCrystal();
+          // The western alien land: crystal clusters, nothing else; now and
+          // then a giant on flat ground, as tall as the east's giant
+          // mushrooms (150 to 275 m)
+          if (slopeFactor < 0.25 && rng() < 0.0004 * densityScale) {
+            crystalPositions.push({
+              x: localX,
+              y: height - 2,
+              z: localZ,
+              scale: 6 + rng() * 5,
+              color:
+                ALIEN_CRYSTAL_COLORS[
+                  Math.floor(rng() * ALIEN_CRYSTAL_COLORS.length)
+                ],
+            });
+          } else if (rng() < 0.004 * densityScale) {
+            pushCrystal();
+          }
         } else {
           // (Every building here needs fairly flat ground: houses through
           // \`flat\`, the rest through their slopeFactor limits below.)
