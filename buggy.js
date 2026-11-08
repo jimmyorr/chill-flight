@@ -64,8 +64,10 @@ const TOP_SPEED = PLANE_HANDLING.buggy.topKts;
 // stepBuggyVertical)
 const {MAX_STEER} = ChillFlightLogic.BUGGY_DRIVE;
 const {GRAVITY} = ChillFlightLogic.BUGGY_AIR;
-// Ground steeper than this (rise per unit) is a wall it bumps against
-const WALL_SLOPE = Math.tan((50 * Math.PI) / 180);
+// Ground steeper than this (rise per unit) is a wall it bumps against.
+// Gentler banks it can try to climb, slowed by gravity along the slope, and
+// rolls back down if it runs out of speed.
+const WALL_SLOPE = Math.tan((60 * Math.PI) / 180);
 // It stays parked on slopes gentler than this pull (units/s²)
 const PARK_HOLD = 9;
 // Roads: a deck up to this far above the wheels is a kerb it smoothly mounts
