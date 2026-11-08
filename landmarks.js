@@ -182,3 +182,111 @@ export function arrivalAt(place, fromX, fromZ, groundAt) {
   }
   return {x: place.x, y: groundAt(place.x, place.z) + WARP_HEIGHT, z: place.z};
 }
+
+// --- BUGGY ARRIVALS ---
+// A buggy can't fly in, so warping one puts it down close by, parked (no
+// speed, cruise off), facing the place: you look at it and drive the last
+// bit. How far back (units) it parks from each landmark, sized to it: past
+// the volcano's steep cone, the pyramids and the skeleton's bones, in sight
+// of the others. A place not listed (a map pin) parks right on the spot.
+export const BUGGY_VIEW = {
+  Volcano: 2000,
+  Pyramids: 900,
+  Skeleton: 450,
+  Lighthouse: 200,
+  'Rock Arch': 300,
+  Falls: 800,
+  Canyon: 250,
+};
+// Landmarks seen best from one side, whichever way it's coming from (x, z
+// of that side): the Falls pour from the south wall of their table mountain
+export const BUGGY_SIDE = {Falls: [0, 1]};
+// Into an airport's runway from the end planes land from (units), facing
+// down it
+export const BUGGY_RUNWAY_IN = 60;
+// The steepest ground (rise over run) it parks on: about 10 degrees
+export const BUGGY_PARK_SLOPE = 0.18;
+// Ground no higher than this above the sea is water (it hovers on it); dry
+// land is tried first
+const SEA = 40.5;
+
+// How steep the ground is round (x, z): the steepest rise over run from it
+// out to a little more than the drawn terrain's grid (75 units apart on the
+// low preset), whose flat triangles smear a nearby cliff across the spot
+const SLOPE_REACH = [25, 50, 80];
+function slopeAt(x, z, groundAt) {
+  const h = groundAt(x, z);
+  let steep = 0;
+  for (const r of SLOPE_REACH) {
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4;
+      const rise = groundAt(x + Math.cos(a) * r, z + Math.sin(a) * r) - h;
+      steep = Math.max(steep, Math.abs(rise) / r);
+    }
+  }
+  return steep;
+}
+
+// Where warping to place puts a buggy that's at (fromX, fromZ), heading
+// (yaw) yaw: {x, y, z, yaw, speed: 0}, on ground level enough to park on.
+// - An airport: on the runway just in from the end planes land from,
+//   facing down it.
+// - A landmark: BUGGY_VIEW back from it on the side it's coming from (or
+//   its BUGGY_SIDE),
+//   facing it. Too steep there (or water, while there's land), it tries
+//   further round either way, then further back.
+// - Anywhere else: on the spot, heading kept (or the nearest level ground
+//   round it).
+export function buggyArrivalAt(place, fromX, fromZ, yaw, groundAt) {
+  const airport =
+    place.name && ChillFlightLogic.AIRPORTS.find((a) => a.name === place.name);
+  if (airport) {
+    const dx = Math.cos(airport.angle);
+    const dz = Math.sin(airport.angle);
+    const back = ChillFlightLogic.RUNWAY_LENGTH / 2 - BUGGY_RUNWAY_IN;
+    const x = airport.x - dx * back;
+    const z = airport.z - dz * back;
+    return {x, y: groundAt(x, z), z, yaw: Math.atan2(-dx, -dz), speed: 0};
+  }
+  const view = (place.name && BUGGY_VIEW[place.name]) ?? 0;
+  let dx = fromX - place.x;
+  let dz = fromZ - place.z;
+  const len = Math.hypot(dx, dz);
+  const side = place.name && BUGGY_SIDE[place.name];
+  if (side) [dx, dz] = side;
+  else if (len < 1) [dx, dz] = [0, 1];
+  else [dx, dz] = [dx / len, dz / len];
+  const from = Math.atan2(dz, dx);
+  // Back from it, round from the side it's coming from (dry land first,
+  // then water), then further back
+  const level = (x, z) => slopeAt(x, z, groundAt) <= BUGGY_PARK_SLOPE;
+  let pick = null;
+  for (const scale of [1, 1.5, 2, 3]) {
+    const r = view ? view * scale : 150 * (scale - 1);
+    const turns = r ? 16 : 1;
+    const ring = [];
+    for (let i = 0; i < turns; i++) {
+      const step = Math.ceil(i / 2) * (i % 2 ? 1 : -1);
+      const a = from + (step * Math.PI * 2) / turns;
+      ring.push([place.x + Math.cos(a) * r, place.z + Math.sin(a) * r]);
+    }
+    pick =
+      ring.find(([x, z]) => groundAt(x, z) > SEA && level(x, z)) ||
+      ring.find(([x, z]) => level(x, z));
+    if (pick) break;
+  }
+  // Nowhere level: back from it as a plane would be
+  pick ??= [place.x + dx * view, place.z + dz * view];
+  const [x, z] = pick;
+  // Facing the landmark (from the spot towards it); a pin keeps the heading
+  const faceX = place.x - x;
+  const faceZ = place.z - z;
+  return {
+    x,
+    y: groundAt(x, z),
+    z,
+    yaw:
+      view && Math.hypot(faceX, faceZ) > 1 ? Math.atan2(-faceX, -faceZ) : yaw,
+    speed: 0,
+  };
+}

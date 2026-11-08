@@ -440,6 +440,14 @@ function rescue(cruiseKts, joyY, speed, dt) {
   });
 }
 
+// Set down where it's been put (warped there from the map, minimap.js, which
+// zeroes the speed first), stopped. A warp too short to read as a teleport
+// would otherwise keep its speed. Not yet driven: entering it will
+hooks.parkBuggy = () => {
+  if (state.airplaneModel !== lastModel) return;
+  enter(false);
+};
+
 export function slowBuggy(keep) {
   velX *= keep;
   velZ *= keep;

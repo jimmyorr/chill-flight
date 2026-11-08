@@ -7,7 +7,7 @@ import {
   updateUrlParams,
 } from './constants.js';
 import {simplex} from './noise.js';
-import {planeGroup, planeHandling} from './airplane.js';
+import {activePlaneType, planeGroup, planeHandling} from './airplane.js';
 import {suppressPauseClick, togglePause} from './game-state.js';
 import {hooks} from './hooks.js';
 import {resetSteering} from './game-ui.js';
@@ -24,7 +24,12 @@ import {
 } from './game.js';
 import {state} from './state.js';
 import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
-import {LANDMARKS, arrivalAt, nearestLandmark} from './landmarks.js';
+import {
+  LANDMARKS,
+  arrivalAt,
+  buggyArrivalAt,
+  nearestLandmark,
+} from './landmarks.js';
 import {cancelJob, progress} from './jobs.js';
 import {PEOPLE} from './people.js';
 import {friendsOnMap, inGameMode} from './multiplayer.js';
@@ -1207,6 +1212,23 @@ import {joinList, t} from './i18n.js';
 
   function warpTo(place) {
     const from = planeGroup.position;
+    // A buggy parks close by instead (buggyArrivalAt)
+    if (activePlaneType === 'buggy') {
+      const at = buggyArrivalAt(
+        place,
+        from.x,
+        from.z,
+        planeGroup.rotation.y,
+        groundAt
+      );
+      movePlane(at.x, at.y, at.z, at.yaw, 0);
+      hooks.parkBuggy?.();
+      Achievements.unlock('beam_me_up');
+      log.info(
+        `[Warp] Buggy to ${place.name ? `${place.name}, ` : ''}X = ${at.x.toFixed(0)}, Z = ${at.z.toFixed(0)}`
+      );
+      return;
+    }
     const {x, y, z, yaw, speed} = arrivalAt(place, from.x, from.z, groundAt);
     // The approach speed suits the seaplane; others fly it in proportion to
     // the speed they hold their height at

@@ -23,7 +23,11 @@ const {
   VIEW_CLEARANCE,
   VIEW_DISTANCE,
   WARP_HEIGHT,
+  BUGGY_PARK_SLOPE,
+  BUGGY_RUNWAY_IN,
+  BUGGY_VIEW,
   arrivalAt,
+  buggyArrivalAt,
   nearestLandmark,
 } = await import('../landmarks.js');
 
@@ -158,6 +162,64 @@ check(
     spot.yaw === undefined &&
     spot.speed === undefined
 );
+
+// A buggy parks close by, stopped, facing the place
+{
+  const bad = [];
+  for (const airport of ChillFlightLogic.AIRPORTS) {
+    const at = buggyArrivalAt({...airport}, 0, 0, 1, groundAt);
+    const along = {x: Math.cos(airport.angle), z: Math.sin(airport.angle)};
+    const u = (at.x - airport.x) * along.x + (at.z - airport.z) * along.z;
+    const f = forward(at.yaw);
+    if (!near(u, -(ChillFlightLogic.RUNWAY_LENGTH / 2 - BUGGY_RUNWAY_IN), 1e-6))
+      bad.push(`${airport.name}: ${u.toFixed(0)} along the runway`);
+    if (!near(f.x, along.x, 1e-9) || !near(f.z, along.z, 1e-9))
+      bad.push(`${airport.name}: not facing down the runway`);
+    if (at.speed !== 0 || at.y !== groundAt(at.x, at.z))
+      bad.push(`${airport.name}: not parked on the ground`);
+  }
+  check(
+    'a buggy at an airport: on the runway by the landing end, facing down it',
+    !bad.length,
+    bad.join('; ')
+  );
+  const flat = () => 100;
+  const lm = {x: 0, z: 0, name: 'Lighthouse'};
+  const at = buggyArrivalAt(lm, 0, 5000, 1, flat);
+  const f = forward(at.yaw);
+  check(
+    'a buggy at a landmark: parked back from it on your side, facing it',
+    near(at.x, 0, 1e-6) &&
+      near(at.z, BUGGY_VIEW.Lighthouse, 1e-6) &&
+      near(f.z, -1, 1e-9) &&
+      at.speed === 0
+  );
+  // A wall on the side you come from: it goes round to level ground
+  const wall = (x, z) => (z > 0 ? 100 + x * x * 0.01 : 100);
+  const round = buggyArrivalAt(lm, 0, 5000, 1, wall);
+  const s = 8;
+  const slope =
+    Math.max(
+      Math.abs(wall(round.x + s, round.z) - wall(round.x - s, round.z)),
+      Math.abs(wall(round.x, round.z + s) - wall(round.x, round.z - s))
+    ) /
+    (2 * s);
+  check(
+    'a buggy at a landmark: round to level ground when it is steep',
+    slope <= BUGGY_PARK_SLOPE &&
+      near(Math.hypot(round.x, round.z), BUGGY_VIEW.Lighthouse, 1e-6),
+    `slope ${slope.toFixed(2)} at ${round.x.toFixed(0)}, ${round.z.toFixed(0)}`
+  );
+  // Sea on your side: dry land round from it first
+  const coast = (x) => (x > 0 ? 40 : 60);
+  const dry = buggyArrivalAt(lm, 5000, 0, 1, coast);
+  check('a buggy at a landmark: dry land before water', dry.x < 0);
+  const pin = buggyArrivalAt({x: 1234, z: -5678}, 0, 0, 0.7, flat);
+  check(
+    'a buggy at a plain spot: on it, heading kept, stopped',
+    pin.x === 1234 && pin.z === -5678 && pin.yaw === 0.7 && pin.speed === 0
+  );
+}
 
 // The pyramids: a desert site found for every world, standing on dry land
 // clear of the highways, with the great one's tip the right height

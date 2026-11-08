@@ -14,6 +14,7 @@ export const hooks = {
   onResume: null, // zen.js: called when flight starts or the game unpauses
   onJobProgress: null, // people-screen.js: called by jobs.js when progress changes
   movePlane: null, // minimap.js: (x, y, z, yaw?, speed?) moves the plane there
+  parkBuggy: null, // buggy.js: sets the buggy down where it is, stopped
   syncSmokeUI: null, // game-ui.js: updates the smoke button when forced on/off
   inGameMode: null, // multiplayer.js: () => whether tag or a race is on
   toggleAutopilot: null, // game-ui.js: (on?) => void
