@@ -2180,6 +2180,26 @@ export const ChillFlightLogic = {};
   // cover most of the desert. Height above the ground, 0 to about 44.
   // Salt pans sit this far above the water
   const SALT_PAN_RISE = 0.8;
+  // How far the desert's lakes have dried to salt pan here, 0 to 1 (see THE
+  // DESERT'S SALT PANS in getElevation). origX/origZ unwarped, biome from the
+  // warped point.
+  function saltPanDry(origX, origZ, biome, simplex) {
+    const desert = desertLowlandAt(origX, origZ, simplex);
+    if (desert <= 0.15) return 0;
+    const dryness =
+      desert -
+      0.05 +
+      simplex.noise2D(origX * 0.0004 + 83, origZ * 0.0004 - 51) * 0.3 +
+      simplex.noise2D(origX * 0.0015 - 19, origZ * 0.0015 + 37) * 0.1;
+    return smoothRamp(biome, -0.08, 0.06) * smoothRamp(dryness, 0.45, 0.85);
+  }
+  // The same for a world point, for colouring the pans (terrain-gen.js)
+  function saltPanAt(x, z, simplex) {
+    pickContinent();
+    const wx = x + domainWarpX(x, z, simplex);
+    const wz = z + domainWarpZ(x, z, simplex);
+    return saltPanDry(x, z, getBiome(wx, wz, simplex), simplex);
+  }
   // And the frozen lakes of the far north
   const LAKE_ICE_RISE = 0.6;
   const DUNE_WIND = 0.35;
@@ -3654,17 +3674,9 @@ export const ChillFlightLogic = {};
     // the scale of the lakes themselves, so the last lakes with water don't
     // all stop along one line of latitude.
     const desert = desertLowlandAt(origX, origZ, simplex);
-    if (desert > 0.15) {
-      const dryness =
-        desert -
-        0.05 +
-        simplex.noise2D(origX * 0.0004 + 83, origZ * 0.0004 - 51) * 0.3 +
-        simplex.noise2D(origX * 0.0015 - 19, origZ * 0.0015 + 37) * 0.1;
-      const dry =
-        smoothRamp(biome, -0.08, 0.06) * smoothRamp(dryness, 0.45, 0.85);
-      if (dry > 0 && n < WATER_LEVEL + SALT_PAN_RISE) {
-        n = _lerp(n, WATER_LEVEL + SALT_PAN_RISE, dry);
-      }
+    const dry = saltPanDry(origX, origZ, biome, simplex);
+    if (dry > 0 && n < WATER_LEVEL + SALT_PAN_RISE) {
+      n = _lerp(n, WATER_LEVEL + SALT_PAN_RISE, dry);
     }
 
     // --- RIVER CARVING LOGIC ---
@@ -6012,6 +6024,7 @@ export const ChillFlightLogic = {};
   exports.desertShift = desertShift;
   exports.swampFactorAt = swampFactorAt;
   exports.SALT_PAN_RISE = SALT_PAN_RISE;
+  exports.saltPanAt = saltPanAt;
   exports.LAKE_ICE_RISE = LAKE_ICE_RISE;
   exports.alienAt = alienAt;
   exports.basaltColumnAt = basaltColumnAt;

@@ -140,13 +140,20 @@ const _colorAlpineRockDark = new Color(0x424a54);
 const _colorAlpineRockLight = new Color(0x9ba2a8);
 const _colorScree = new Color(0x736960);
 const _colorAlpineMeadow = new Color(0x9aa95c);
-const _colorSaltPan = new Color(0xf2ede1);
+const _colorSaltPan = new Color(0xdcc29a);
 const _colorTundra = new Color(0x7f8a72);
 const _colorLakeIce = new Color(0xb9dbe8);
 const _colorLakeIceDark = new Color(0x86b2c4);
 const _colorTundraDark = new Color(0x667060);
 const _colorFrostRock = new Color(0x45474a);
-const _colorSaltPanStain = new Color(0xd6c9ad);
+const _colorSaltPanStain = new Color(0xbf9b6c);
+const _panColor = new Color();
+// The pan's colour fades into the sand up to this far above the water
+const SALT_PAN_SHORE = 4;
+const smoothRamp = (v, a, b) => {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
 const _colorDesertMountainRock = new Color(0xc24b2b);
 const _colorIce = new Color(0x6ca6a8);
 const _colorAutumnForestTint = new Color(0x5d4037);
@@ -2973,13 +2980,6 @@ export function generateChunkData({
         if (swampFactor > 0)
           _tempColorObj.lerp(_colorSwampMud, swampFactor * 0.92);
       } else if (
-        desertFactor > 0.3 &&
-        Math.abs(height - WATER_LEVEL - ChillFlightLogic.SALT_PAN_RISE) < 0.02
-      ) {
-        // A salt pan (a dried desert lake): white crust, cracked and stained
-        _tempColorObj.copy(_colorSaltPan);
-        _tempColorObj.lerp(_colorSaltPanStain, mottle * 0.6);
-      } else if (
         worldZ < -19000 &&
         Math.abs(height - WATER_LEVEL - ChillFlightLogic.LAKE_ICE_RISE) < 0.02
       ) {
@@ -3155,6 +3155,26 @@ export function generateChunkData({
         _tempColorObj.lerp(swampGround, swampFactor * 0.85);
         if (mudMix > 0) {
           _tempColorObj.lerp(_colorSwampMud, swampFactor * mudMix * 0.85);
+        }
+      }
+    }
+
+    // A salt pan (a dried desert lake): a pale crust, stained, over the
+    // pan's floor and fading into the sand up its shore and where the lake
+    // is only partly dry, so its edge isn't a hard white line along the grid
+    if (desertFactor > 0.3) {
+      const above = height - WATER_LEVEL;
+      if (above > 0.3 && above < SALT_PAN_SHORE) {
+        const dry = ChillFlightLogic.saltPanAt(worldX, worldZ, simplex);
+        const pan =
+          smoothRamp(dry, 0.35, 0.95) *
+          (above < ChillFlightLogic.SALT_PAN_RISE
+            ? smoothRamp(above, 0.3, ChillFlightLogic.SALT_PAN_RISE)
+            : 1 - smoothRamp(above, 0.85, SALT_PAN_SHORE));
+        if (pan > 0) {
+          _panColor.copy(_colorSaltPan);
+          _panColor.lerp(_colorSaltPanStain, mottle * 0.7);
+          _tempColorObj.lerp(_panColor, pan * Math.min(1, desertFactor * 1.5));
         }
       }
     }
