@@ -129,10 +129,10 @@ check(
   `${displaySpeed(jetDiveUnits, 'jet')} KTS`
 );
 check(
-  'buggy top speed maps to 138 KM/H (metric) and 85 MPH (imperial)',
-  displaySpeed(PLANE_HANDLING.buggy.topKts, 'buggy', false) === 138 &&
+  'buggy top speed maps to 161 KM/H (metric) and 100 MPH (imperial)',
+  displaySpeed(PLANE_HANDLING.buggy.topKts, 'buggy', false) === 161 &&
     speedUnit('buggy', false) === 'KM/H' &&
-    displaySpeed(PLANE_HANDLING.buggy.topKts, 'buggy', true) === 85 &&
+    displaySpeed(PLANE_HANDLING.buggy.topKts, 'buggy', true) === 100 &&
     speedUnit('buggy', true) === 'MPH' &&
     speedUnit('seaplane', true) === 'KTS'
 );
