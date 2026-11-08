@@ -59,6 +59,8 @@ function browserLanguage() {
   // The first language we have, in the browser's order of preference
   for (const code of list) {
     const lang = known(code);
+    // English (US)'s imperial units are opt in: Auto stays metric
+    if (lang === 'en-US') return 'en';
     if (lang) return lang;
   }
   return 'en';
