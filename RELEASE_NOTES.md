@@ -1,5 +1,9 @@
 # Release notes
 
+## [1.2.8](https://v1-2-8.chill-flight.pages.dev)
+
+- **Alien lands:** Extended mushroom trips to 28-45 seconds and locked the sky and fog to the rainbow smoke trail's complementary hue so the trail always stands out.
+
 ## [1.2.7](https://v1-2-7.chill-flight.pages.dev)
 
 - **Alien lands:** Shatter crystals for a 2.5x speed rush, find giant crystals, and trip on mushrooms with glowing spores and rainbow smoke.
