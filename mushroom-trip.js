@@ -15,87 +15,99 @@ import {terrainUniforms} from './constants.js';
 import {setTripTrail} from './particles.js';
 import {dirLight, hemiLight, skyUniforms} from './sky.js';
 
-// How long a trip lasts (s): fading in, then out
+// How long a trip lasts (s): ~28 s for a small mushroom up to 45 s for a
+// giant, easing in over FADE_IN and out over FADE_OUT at the end
 const FADE_IN = 1.5;
-const LENGTH = 14;
-// How far round the colour wheel the sky turns at the peak (0-1 is a full
-// turn), and how fast it swings (radians/s)
-const HUE_SWING = 0.35;
-const SWING_SPEED = 0.18;
+const FADE_OUT = 5;
+const LENGTH_SMALL = 28;
+const LENGTH_GIANT = 45;
+// How fast the smoke and sky revolve round the colour wheel together
+// (turns/s: ~16.7 s per full cycle). The sky sits on the opposite side of
+// the wheel (+0.5) from the smoke so the trail always stands out against it.
+const RAINBOW_RATE = 0.06;
 // How much of the light takes the rainbow's colour at the peak
 const LIGHT_TINT = 0.35;
 // Extra saturation for the sky and fog at the peak
-const SATURATE = 0.25;
+const SATURATE = 0.3;
 
 // The rainbow trail shows while the trip is at least this strong
 const TRAIL_FROM = 0.2;
 const _trail = new THREE.Color();
+const _hsl = {h: 0, s: 0, l: 0};
 // ?trip=1 holds a full trip, for trying the look without finding a mushroom
 const FOREVER =
   typeof location !== 'undefined' &&
   new URLSearchParams(location.search).get('trip') === '1';
 
-// 0-1 how strong this trip is (bigger mushrooms, stronger), and how far in (s)
-let strength = 0;
-let age = LENGTH;
-// The swing's clock, kept running so trips that overlap don't jump
+// How long this trip lasts (s) and how far in we are (s)
+let length = LENGTH_SMALL;
+let age = Infinity;
+// The rainbow clock (s), kept running so overlapping trips don't jump
 let clock = 0;
+
+/** Where the smoke's rainbow is now (0-1 round the wheel); the sky sits
+ * opposite it at `(tripHue() + 0.5) % 1`. */
+export function tripHue() {
+  return (clock * RAINBOW_RATE) % 1;
+}
 
 /** Starts (or tops up) a trip: `size` 0-1 from a small mushroom to a giant. */
 export function startTrip(size) {
-  const s = THREE.MathUtils.clamp(size, 0.3, 1);
-  if (age < LENGTH) {
-    // Already tripping: stretch it out rather than starting over
-    strength = Math.max(strength * tripEnvelope(age), s);
+  const s = THREE.MathUtils.clamp(size, 0, 1);
+  const nextLength = THREE.MathUtils.lerp(LENGTH_SMALL, LENGTH_GIANT, s);
+  if (age < length) {
+    // Already tripping: keep the rainbow moving and top up the time left
+    const left = Math.max(0, length - age);
+    length = Math.max(left, nextLength);
     age = Math.min(age, FADE_IN);
   } else {
-    strength = s;
+    // Start the wheel where the sky already is so the sky sweeps smoothly
+    // away from its natural colour while the smoke starts at its complement
+    const base = skyUniforms ? skyUniforms.topColor.value : scene.fog?.color;
+    if (base) {
+      base.getHSL(_hsl);
+      clock = ((_hsl.h + 0.5) % 1) / RAINBOW_RATE;
+    }
+    length = nextLength;
     age = 0;
   }
 }
 
 /** 0-1 how strong the trip is now (0 when not tripping). */
 export function tripAmount() {
-  return age < LENGTH ? strength * tripEnvelope(age) : 0;
-}
-
-// Eases in over FADE_IN and slowly out to LENGTH
-function tripEnvelope(t) {
-  if (t < FADE_IN) return THREE.MathUtils.smoothstep(t, 0, FADE_IN);
-  const out = (t - FADE_IN) / (LENGTH - FADE_IN);
-  return 1 - THREE.MathUtils.smoothstep(out, 0.35, 1);
+  if (age >= length) return 0;
+  if (age < FADE_IN) return THREE.MathUtils.smoothstep(age, 0, FADE_IN);
+  if (age > length - FADE_OUT) {
+    return 1 - THREE.MathUtils.smoothstep(age, length - FADE_OUT, length);
+  }
+  return 1;
 }
 
 /** Per frame: moves the trip along. */
 export function updateTrip(delta) {
   if (state.isPaused || delta <= 0) return;
   if (FOREVER) {
-    strength = 1;
+    length = LENGTH_GIANT;
     age = FADE_IN;
   }
-  if (age < LENGTH) {
+  if (age < length) {
     age += delta;
     clock += delta;
   }
   // A rainbow smoke trail from the tail while it's strong, running round
-  // the colour wheel about every 16 seconds
+  // the colour wheel in lockstep with the complementary sky (~16.7 s/cycle)
   if (tripAmount() > TRAIL_FROM) {
-    _trail.setHSL((clock * 0.06) % 1, 0.9, 0.62);
+    _trail.setHSL(tripHue(), 0.9, 0.62);
     setTripTrail(_trail);
   } else {
     setTripTrail(null);
   }
 }
 
-/** Where the rainbow is now (0-1 round the wheel). */
-export function tripHue() {
-  return (clock * 0.025) % 1;
-}
-
 // The colours applyTrip changes, kept to put back after the frame
 const touched = [];
 const saved = [];
-const _hsl = {h: 0, s: 0, l: 0};
+const _target = new THREE.Color();
 const _rainbow = new THREE.Color();
 let applied = false;
 
@@ -105,10 +117,20 @@ function remember(color) {
   else saved[touched.length - 1].copy(color);
 }
 
-function shift(color, hue, sat) {
+function shift(color, hueDelta, sat, amount) {
   remember(color);
   color.getHSL(_hsl);
-  color.setHSL((_hsl.h + hue + 1) % 1, Math.min(1, _hsl.s + sat), _hsl.l);
+  const h = (_hsl.h + hueDelta + 1) % 1;
+  const s = THREE.MathUtils.lerp(_hsl.s, Math.min(1, _hsl.s + sat), amount);
+  if (amount >= 0.999) {
+    color.setHSL(h, s, _hsl.l);
+  } else {
+    _target.setHSL(h, s, _hsl.l);
+    color.lerp(_target, amount);
+    const l = _hsl.l;
+    color.getHSL(_hsl);
+    color.setHSL(_hsl.h, s, l);
+  }
 }
 
 function tint(color, amount) {
@@ -122,18 +144,21 @@ export function applyTrip() {
   if (a <= 0.001) return;
   applied = true;
   touched.length = 0;
-  const hue = Math.sin(clock * SWING_SPEED) * HUE_SWING * a;
-  const sat = SATURATE * a;
-  shift(scene.fog.color, hue, sat);
+  const smokeHue = tripHue();
+  const skyHue = (smokeHue + 0.5) % 1;
+  const base = skyUniforms ? skyUniforms.topColor.value : scene.fog.color;
+  base.getHSL(_hsl);
+  const hueDelta = skyHue - _hsl.h;
+  shift(scene.fog.color, hueDelta, SATURATE, a);
   if (skyUniforms) {
-    shift(skyUniforms.topColor.value, hue, sat);
-    shift(skyUniforms.bottomColor.value, hue, sat);
+    shift(skyUniforms.topColor.value, hueDelta, SATURATE, a);
+    shift(skyUniforms.bottomColor.value, hueDelta, SATURATE, a);
   }
-  shift(terrainUniforms.uTopColor.value, hue, sat);
-  shift(terrainUniforms.uBottomColor.value, hue, sat);
-  _rainbow.setHSL(tripHue(), 0.85, 0.65);
+  shift(terrainUniforms.uTopColor.value, hueDelta, SATURATE, a);
+  shift(terrainUniforms.uBottomColor.value, hueDelta, SATURATE, a);
+  _rainbow.setHSL(smokeHue, 0.85, 0.65);
   tint(dirLight.color, LIGHT_TINT * a);
-  _rainbow.setHSL((tripHue() + 0.5) % 1, 0.85, 0.65);
+  _rainbow.setHSL(skyHue, 0.85, 0.65);
   tint(hemiLight.color, LIGHT_TINT * a);
   tint(hemiLight.groundColor, LIGHT_TINT * a * 0.6);
 }
