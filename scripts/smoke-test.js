@@ -517,7 +517,7 @@ async function exerciseControls(page, tag) {
     };
   });
   if (
-    buggyStats.speed !== '0.218' ||
+    buggyStats.speed !== '0.273' ||
     buggyStats.float !== '0.500' ||
     buggyStats.unit !== 'KM/H'
   ) {

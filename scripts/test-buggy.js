@@ -1049,7 +1049,7 @@ check(
 {
   check(
     'Buggy has defined top speed, agility and float ratings',
-    PLANE_HANDLING.buggy.topKts === 240 &&
+    PLANE_HANDLING.buggy.topKts === 300 &&
       PLANE_HANDLING.buggy.agility === 1 &&
       PLANE_HANDLING.buggy.float > 0 &&
       PLANE_HANDLING.buggy.float <= 1,

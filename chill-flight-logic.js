@@ -6775,19 +6775,35 @@ export const ChillFlightLogic = {};
     MAX_STEER: 0.5,
     MAX_YAW_RATE: 1.15,
     MAX_CORNERING: 115,
+    // Past the speed where that grip gives this radius (~240 units/s), the
+    // turn stays this wide and the grip grows to hold it
+    MAX_TURN_RADIUS: 500,
   };
 
   // The front wheel angle allowed at a forward speed: full lock for parking,
   // opening up with speed so the turn radius grows with the square of the
-  // speed on the highway (grip-limited)
+  // speed on the highway (grip-limited), up to MAX_TURN_RADIUS
   function buggySteerLimit(forward, wheelbase) {
     const v = Math.max(0.1, Math.abs(forward));
     return Math.atan(
-      Math.min(
-        Math.tan(BUGGY_DRIVE.MAX_STEER),
-        (wheelbase * BUGGY_DRIVE.MAX_YAW_RATE) / Math.max(5.8, v),
-        (wheelbase * BUGGY_DRIVE.MAX_CORNERING) / (v * v)
+      Math.max(
+        Math.min(
+          Math.tan(BUGGY_DRIVE.MAX_STEER),
+          (wheelbase * BUGGY_DRIVE.MAX_YAW_RATE) / Math.max(5.8, v),
+          (wheelbase * BUGGY_DRIVE.MAX_CORNERING) / (v * v)
+        ),
+        wheelbase / BUGGY_DRIVE.MAX_TURN_RADIUS
       )
+    );
+  }
+
+  // How much more grip the tyres have past the speed where turns stop
+  // widening (1 below it), so steering there still tracks on rails
+  function buggyGripScale(speed) {
+    return Math.max(
+      1,
+      (speed * speed) /
+        (BUGGY_DRIVE.MAX_CORNERING * BUGGY_DRIVE.MAX_TURN_RADIUS)
     );
   }
 
@@ -7038,7 +7054,10 @@ export const ChillFlightLogic = {};
       const loose = 1 - M.SLIDE_LOOSEN * car.slide;
       const quick =
         Math.abs(side) * (1 - Math.exp(-T.GRIP_RATE[kind] * loose * dt));
-      const lateral = Math.min(quick, T.MAX_GRIP[kind] * boost * loose * dt);
+      const lateral = Math.min(
+        quick,
+        T.MAX_GRIP[kind] * buggyGripScale(speed) * boost * loose * dt
+      );
       const along = forward < 0 ? -1 : 1;
       let slip = Math.atan2(side, Math.abs(forward));
       slip -= Math.sign(slip) * Math.min(Math.abs(slip), lateral / speed);
