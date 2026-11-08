@@ -39,6 +39,7 @@ import {activePlaneType, planeGroup} from './airplane.js';
 import {camera} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
+import {forEachTownStreetNear} from './terrain-gen.js';
 
 // Field radius and blade spacing (world units, ~0.5 m) by preset; tufts of
 // three blades sit on a jittered square lattice
@@ -51,7 +52,7 @@ const BLADES_PER_TUFT = 3;
 // Terrain vertices around the field centre in the ground grid
 const GRID = 12;
 // Road segments and push points the shader looks at
-const MAX_ROADS = 8;
+const MAX_ROADS = 12;
 const MAX_PUSH = 10;
 // The camera's height above the ground where the grass fades out
 const FADE_LOW = 70;
@@ -361,6 +362,7 @@ function updateGround(cx, cz) {
 
 // Roads, access roads and the runway near the field, so no grass grows on them
 const _roadPick = [];
+const _elevParams = {WATER_LEVEL, MOUNTAIN_LEVEL};
 function updateRoads(cx, cz) {
   const reach = field.radius + 80;
   _roadPick.length = 0;
@@ -404,6 +406,10 @@ function updateRoads(cx, cz) {
     if (!ends?.built) continue;
     consider(r.minX, r.z, r.maxX, r.z, ChillFlightLogic.ACCESS_ROAD_WIDTH + 2);
   }
+  // Town streets, between the blocks of houses
+  forEachTownStreetNear(cx, cz, reach, _elevParams, (x0, z0, x1, z1, hw) =>
+    consider(x0, z0, x1, z1, hw + 2)
+  );
   _roadPick.sort((a, b) => a.d - b.d);
   for (let i = 0; i < MAX_ROADS; i++) {
     const r = _roadPick[i];

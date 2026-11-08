@@ -942,10 +942,14 @@ function townHouses(t) {
   // the town's edge. Cross streets join them, from the first street that
   // reaches them to the last. Both stop short of the highways' decks.
   const streets = [];
+  // The same streets as unbroken runs of pieces ({x0, z0, x1, z1}), for
+  // keeping the tall grass off them
+  const lines = [];
   const end = t.radius * TOWN_STREET_END;
   const addStreet = (ua, va, ub, vb) => {
     const len = Math.hypot(ub - ua, vb - va);
     const pieces = Math.max(1, Math.round(len / TOWN_STREET_STEP));
+    let run = null;
     for (let i = 0; i < pieces; i++) {
       const a = toWorld(
         ua + ((ub - ua) * i) / pieces,
@@ -956,8 +960,18 @@ function townHouses(t) {
         va + ((vb - va) * (i + 1)) / pieces
       );
       const mid = {x: (a.x + b.x) / 2, z: (a.z + b.z) / 2};
-      if (townRoadDistance(t, mid.x, mid.z) < 34) continue;
+      if (townRoadDistance(t, mid.x, mid.z) < 34) {
+        run = null;
+        continue;
+      }
       streets.push({x0: a.x, z0: a.z, x1: b.x, z1: b.z});
+      if (run) {
+        run.x1 = b.x;
+        run.z1 = b.z;
+      } else {
+        run = {x0: a.x, z0: a.z, x1: b.x, z1: b.z};
+        lines.push(run);
+      }
     }
   };
   const spans = [];
@@ -983,7 +997,7 @@ function townHouses(t) {
       addStreet(u, v0 + TOWN_STREET_HALF_WIDTH, u, v1 - TOWN_STREET_HALF_WIDTH);
     }
   }
-  const town = {houses, streets};
+  const town = {houses, streets, lines};
   if (_townHouses.size > 16) _townHouses.clear();
   _townHouses.set(key, town);
   return town;
@@ -1019,6 +1033,18 @@ function nearTown(x, z, margin, elevParams) {
     if (t && Math.hypot(t.x - x, t.z - z) < t.radius + margin) return true;
   }
   return false;
+}
+
+// Calls fn(x0, z0, x1, z1, halfWidth) for each town street (a whole
+// unbroken run) of any town within `reach` of (x, z)
+export function forEachTownStreetNear(x, z, reach, elevParams, fn) {
+  for (const n of TOWN_ROADS) {
+    const t = townAt(n, elevParams);
+    if (!t || Math.hypot(t.x - x, t.z - z) >= t.radius + reach) continue;
+    for (const l of townHouses(t).lines) {
+      fn(l.x0, l.z0, l.x1, l.z1, TOWN_STREET_HALF_WIDTH);
+    }
+  }
 }
 
 // Whether (x, z) is on a town's street, plus margin
