@@ -616,7 +616,6 @@ function performFrame(timestamp) {
   planeGroup.updateMatrixWorld();
 
   updateFlightCamera(delta, nowTime);
-  updateThrottle(nowTime);
   updateTraffic(delta);
   updateRoadTraffic(delta);
   updateMultiplayer(delta);

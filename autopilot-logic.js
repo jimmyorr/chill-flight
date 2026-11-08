@@ -7,8 +7,8 @@
 import {DRIVE, driveHeading, scanTick, watchStuck} from './bot-logic.js';
 
 export const AUTOPILOT = {
-  // Height to keep over the ground ahead (units, about 80 m), and the lowest
-  // it cruises (y, about 150 m on the altitude readout), so it flies high
+  // Height to keep over the ground ahead (units, 160 m), and the lowest
+  // it cruises (y, about 285 m on the altitude readout), so it flies high
   // over low country too
   CLEARANCE: 160,
   CRUISE_FLOOR: 330,

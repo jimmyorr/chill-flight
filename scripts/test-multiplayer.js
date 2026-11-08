@@ -604,16 +604,15 @@ function fly(path, {seconds = 10, skew = 0, delay = () => 60} = {}) {
   );
 
   check(
-    'Points for being near whoever is it: more within 300 m, some to 800 m',
+    'Points for being near whoever is it: more within 583 m, some to 1,555 m',
     tagPointsRate(0) === TAG_NEAR_POINTS &&
       tagPointsRate(TAG_NEAR) === TAG_NEAR_POINTS &&
       tagPointsRate(TAG_NEAR + 1) === TAG_FAR_POINTS &&
       tagPointsRate(TAG_FAR) === TAG_FAR_POINTS &&
       tagPointsRate(TAG_FAR + 1) === 0 &&
       TAG_NEAR_POINTS > TAG_FAR_POINTS &&
-      // 300 m and 800 m (1 unit is 0.5144 m)
-      Math.abs(TAG_NEAR * 0.5144 - 300) < 1 &&
-      Math.abs(TAG_FAR * 0.5144 - 800) < 1
+      TAG_NEAR === 583 &&
+      TAG_FAR === 1555
   );
 
   check(

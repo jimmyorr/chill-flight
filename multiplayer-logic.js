@@ -40,7 +40,7 @@ export const RENDER_DELAY_MS = 400;
 // How long a plane carries on past its last update before it waits (ms)
 const EXTRAPOLATE_MS = 1000;
 // Faster than this between two updates is a warp, not flight (units/s; the
-// jet's 800 kts is ~800)
+// jet tops out at 1100, about 1430 in a dive)
 const WARP_SPEED = 3000;
 const BUFFER_SIZE = 24;
 // Time constant (s) for blending out any curve shift from a late update
@@ -528,7 +528,7 @@ export function waggleRoll(ms) {
 //   it: who's it (null: game over); plane: locked plane; left: ms of the
 //   round to go; points: {id: points} so far (at the end, the final score)
 
-// 60 m (1 unit is 0.5144 m)
+// 117 m (1 unit is 1 m)
 export const TAG_RADIUS = 117;
 // After a tag, the new "it" waits this long before they can tag (ms), so
 // the one who tagged them can get away
@@ -540,8 +540,8 @@ export const TAG_SPEED_BOOST = 1.15;
 export const QUIET_MS = 3000;
 // A round of tag (ms)
 export const TAG_ROUND_MS = 2 * 60 * 1000;
-// Points a second for staying within TAG_NEAR (300 m) of whoever's it, and
-// fewer out to TAG_FAR (800 m)
+// Points a second for staying within TAG_NEAR (583 m) of whoever's it, and
+// fewer out to TAG_FAR (1,555 m)
 export const TAG_NEAR = 583;
 export const TAG_FAR = 1555;
 export const TAG_NEAR_POINTS = 3;
