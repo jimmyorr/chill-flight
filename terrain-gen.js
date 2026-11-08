@@ -6723,9 +6723,20 @@ export function generateChunkData({
     collector.endProp();
   }
 
-  // Breakwater rubble: each stretch a prop that the plane can knock apart,
-  // the beacon at the end another
+  // Breakwater rubble: solid, driven on as ground (breakwater-logic.js,
+  // from the pieces listed here); only the beacon at the end is a prop
+  // that can be knocked over
+  const breakwaters = [];
   for (const pos of breakwaterPositions) {
+    breakwaters.push(
+      worldOffsetX + pos.x,
+      worldOffsetZ + pos.z,
+      pos.y,
+      pos.rotY,
+      pos.sx,
+      pos.sz,
+      pos.beacon ? 1 : 0
+    );
     composeMatrix(
       _matBuffer,
       0,
@@ -6747,17 +6758,17 @@ export function generateChunkData({
       _matBuffer,
       _iceHutColor
     );
-    collector.beginProp(BREAKABLE.SMALL);
     if (pos.beacon) {
-      _iceHutColor.setHex(pos.color);
-      collector.add('breakwaterBeacon', _matBuffer, _iceHutColor);
       // The mound's round end, under the beacon
       collector.add('breakwaterHead', _matBuffer);
+      collector.beginProp(BREAKABLE.SMALL);
+      _iceHutColor.setHex(pos.color);
+      collector.add('breakwaterBeacon', _matBuffer, _iceHutColor);
       collector.add('breakwaterLamp', _matBuffer);
+      collector.endProp();
     } else {
       collector.add('breakwaterRock' + pos.variant, _matBuffer);
     }
-    collector.endProp();
   }
 
   // Channel buoys: nothing to break, you pass over them
@@ -7279,6 +7290,7 @@ export function generateChunkData({
       },
       instanceData,
       breakables,
+      breakwaters,
       chunkProps,
     },
     transferables,

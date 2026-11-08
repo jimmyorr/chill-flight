@@ -29,6 +29,7 @@ import {smashHaptic} from './haptics.js';
 import {propPuffs, scrapeSparks} from './particles.js';
 import {hooks} from './hooks.js';
 import {archTop} from './arches-logic.js';
+import {breakwaterTop} from './terrain-chunks.js';
 import {arches} from './arches.js';
 import {
   CRASH,
@@ -404,7 +405,11 @@ export function updateCrash(delta) {
 // The ground's height at (x, z), or an arch's top over it: the respawn
 // clears both
 function groundOrArch(x, z) {
-  return Math.max(getElevation(x, z), archTop(arches, x, z));
+  return Math.max(
+    getElevation(x, z),
+    archTop(arches, x, z),
+    breakwaterTop(x, z)
+  );
 }
 
 /**

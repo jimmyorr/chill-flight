@@ -1,5 +1,6 @@
 // --- GLOBAL INSTANCING ARCHITECTURE ---
 import * as THREE from 'three';
+import {breakwaterTopIn} from './breakwater-logic.js';
 import {createWaterfall} from './waterfalls.js';
 import {scene} from './scene.js';
 import {
@@ -4255,6 +4256,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
   group.userData.instanceData = workerData.instanceData;
   group.userData.breakables = workerData.breakables || null;
+  group.userData.breakwaters = workerData.breakwaters?.length
+    ? workerData.breakwaters
+    : null;
   enableChunkInstanceCulling(group);
   scene.add(group);
   return group;
@@ -4284,6 +4288,22 @@ export function sampleGroundColor(x, z, out) {
   const colors = data.terrainColors;
   out.setRGB(colors[i], colors[i + 1], colors[i + 2]);
   return true;
+}
+
+// The top of a rock breakwater over (x, z), or -Infinity: they're solid
+// ground to drive on and fly over (breakwater-logic.js)
+export function breakwaterTop(x, z) {
+  const cx = Math.round(x / CHUNK_SIZE);
+  const cz = Math.round(z / CHUNK_SIZE);
+  let top = -Infinity;
+  // A breakwater can run a little past its own chunk
+  for (let i = cx - 1; i <= cx + 1; i++) {
+    for (let j = cz - 1; j <= cz + 1; j++) {
+      const pieces = chunks.get(`${i},${j}`)?.userData.breakwaters;
+      if (pieces) top = Math.max(top, breakwaterTopIn(pieces, x, z));
+    }
+  }
+  return top;
 }
 
 export function sampleRoad(x, z, out, vehicleY = null) {
@@ -4534,6 +4554,7 @@ export function updateChunks() {
       }
       group.userData.instanceData = null;
       group.userData.breakables = null;
+      group.userData.breakwaters = null;
       group.userData.meshProps = null;
       group.userData.objectsGroup = null;
       group.userData.watercraftGroup = null;

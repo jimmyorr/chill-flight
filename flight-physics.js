@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {getElevation, sampleGround} from './terrain-geometry.js';
-import {sampleRoad} from './terrain-chunks.js';
+import {breakwaterTop, sampleRoad} from './terrain-chunks.js';
 import {ARCH, archCeiling, archGround} from './arches-logic.js';
 import {arches} from './arches.js';
 import {planeGroup, planeHandling} from './airplane.js';
@@ -158,6 +158,12 @@ export function updateFlightPhysics(delta, nowTime) {
   );
   if (onArch) {
     terrainHeight = _arch.height;
+    isWater = false;
+  }
+  // A rock breakwater is ground to keep clear of (and roll along)
+  const rocks = breakwaterTop(planeGroup.position.x, planeGroup.position.z);
+  if (rocks > (isWater ? WATER_LEVEL : terrainHeight)) {
+    terrainHeight = rocks;
     isWater = false;
   }
 

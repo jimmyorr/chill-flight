@@ -16,6 +16,7 @@ import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {LANDMARKS} from './landmarks.js';
 import {getElevation} from './terrain-geometry.js';
 import {archTop} from './arches-logic.js';
+import {breakwaterTop} from './terrain-chunks.js';
 import {arches} from './arches.js';
 import {planeGroup, planeHandling} from './airplane.js';
 import {buggySurface} from './buggy.js';
@@ -31,7 +32,12 @@ const visited = new Set();
 
 // The ground, the water or an arch's top (flying over arches, not into them)
 function groundAt(x, z) {
-  return Math.max(WATER_LEVEL, getElevation(x, z), archTop(arches, x, z));
+  return Math.max(
+    WATER_LEVEL,
+    getElevation(x, z),
+    archTop(arches, x, z),
+    breakwaterTop(x, z)
+  );
 }
 
 // How it flies (autopilot-logic.js, shared with scripts/flight-sim.js)

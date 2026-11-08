@@ -24,7 +24,7 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
-import {sampleRoad} from './terrain-chunks.js';
+import {breakwaterTop, sampleRoad} from './terrain-chunks.js';
 import {planeGroup} from './airplane.js';
 import {
   BUGGY_AXLES,
@@ -232,6 +232,16 @@ function sampleSurface(x, z, y) {
       _surface.slopeZ = 0;
     }
     _surface.kind = 'water';
+  }
+  // Up onto a rock breakwater's mound, as onto a bank
+  const rocks = breakwaterTop(x, z);
+  if (rocks > _surface.height) {
+    const base = _surface.height;
+    const at = (px, pz) => Math.max(base, breakwaterTop(px, pz));
+    _surface.slopeX = (at(x + 1, z) - at(x - 1, z)) / 2;
+    _surface.slopeZ = (at(x, z + 1) - at(x, z - 1)) / 2;
+    _surface.height = rocks;
+    _surface.kind = 'ground';
   }
   return _surface;
 }
