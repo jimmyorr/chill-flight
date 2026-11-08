@@ -652,19 +652,24 @@ waterMaterial.onBeforeCompile = function (shader) {
           * smoothstep(0.0, 0.3, vWaterDepth) * (1.0 - smoothstep(4.0, 10.0, vWaterDepth));
         if (reefAmount > 0.004) {
           vec2 rp = vWorldPosition.xz;
-          vec2 warp = vec2(noise(rp * 0.006 + 3.1), noise(rp * 0.006 - 7.4)) * 50.0;
-          float n = noise((rp + warp) * 0.02) * 0.6
-                  + noise((rp - warp) * 0.065) * 0.28
-                  + noise(rp * 0.18) * 0.12;
-          float edge = mix(0.52, 0.26, min(1.0, reefAmount * 1.5));
-          float blot = smoothstep(edge, edge + 0.14, n);
-          float core = smoothstep(edge + 0.06, edge + 0.32, n);
-          float mottle = noise(rp * 0.11 + 9.0);
-          float lum = max(max(waterLit.r, waterLit.g), waterLit.b);
-          vec3 shallowTint = waterLit * vec3(0.62, 0.86, 0.95);
-          vec3 deepTint = mix(vec3(0.03, 0.3, 0.5), vec3(0.12, 0.24, 0.5), smoothstep(0.45, 0.75, reef.y / max(reef.x + reef.y, 0.004))) * lum * 1.2;
-          vec3 reefColor = mix(shallowTint, deepTint, core * (0.75 + 0.25 * mottle));
-          gl_FragColor.rgb = mix(gl_FragColor.rgb, reefColor, blot * 0.75);
+          // Blotches a few hundred units across (smaller read as speckle
+          // from the air), their edges wavy
+          vec2 warp = vec2(noise(rp * 0.002 + 3.1), noise(rp * 0.002 - 7.4)) * 160.0;
+          float n = noise((rp + warp) * 0.006) * 0.68
+                  + noise((rp - warp) * 0.022) * 0.32;
+          // Separate soft blotches, never a carpet: at most about a third
+          // of the shallows even where the reef weight is full
+          // (A fixed threshold: one from the reef weight steps with the
+          // depth texture's texels and gives the blotches blocky edges)
+          const float edge = 0.5;
+          float blot = smoothstep(edge, edge + 0.2, n) * smoothstep(0.0, 0.5, reefAmount);
+          float core = smoothstep(edge + 0.08, edge + 0.32, n);
+          // A darker, deeper shade of the water's own colour (a fixed navy
+          // greyed out over green shallows)
+          vec3 shallowTint = waterLit * vec3(0.72, 0.86, 0.92);
+          vec3 deepTint = waterLit * mix(vec3(0.42, 0.6, 0.7), vec3(0.5, 0.52, 0.72), smoothstep(0.45, 0.75, reef.y / max(reef.x + reef.y, 0.004)));
+          vec3 reefColor = mix(shallowTint, deepTint, core);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, reefColor, blot * 0.7);
           gl_FragColor.a = max(gl_FragColor.a, blot * 0.6);
         }
 
