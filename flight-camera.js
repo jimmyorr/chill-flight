@@ -642,16 +642,32 @@ export function updateFlightCamera(delta, nowTime) {
       _idealUp.set(0, 1, 0);
       _followPrevValid = false;
     } else if (state.isIntroTransitionActive) {
-      _followPrevValid = false;
-      // Update the virtual tracking camera (steady state lag)
-      _virtualCameraPos.lerp(
-        _idealCameraPos,
-        1 - Math.pow(1 - 0.25, delta * 60)
-      );
-      _virtualLookTarget.lerp(
-        _idealLookTarget,
-        1 - Math.pow(1 - 0.25, delta * 60)
-      );
+      // Update the virtual tracking camera (steady state lag), following
+      // the same way as after the intro, so handing over to it doesn't
+      // change how far behind it sits
+      if (_followPrevValid) {
+        followStep(
+          _virtualCameraPos,
+          _idealCameraPos,
+          _prevIdealCameraPos,
+          delta,
+          FOLLOW_RATE
+        );
+        followStep(
+          _virtualLookTarget,
+          _idealLookTarget,
+          _prevIdealLookTarget,
+          delta,
+          FOLLOW_RATE
+        );
+      } else {
+        const follow = 1 - Math.pow(1 - 0.25, delta * 60);
+        _virtualCameraPos.lerp(_idealCameraPos, follow);
+        _virtualLookTarget.lerp(_idealLookTarget, follow);
+      }
+      _prevIdealCameraPos.copy(_idealCameraPos);
+      _prevIdealLookTarget.copy(_idealLookTarget);
+      _followPrevValid = true;
 
       const progress = (nowTime - state.introTransitionStartTime) / 1250;
       if (progress < 1) {
