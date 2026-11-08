@@ -214,6 +214,38 @@ for (const file of fs.readdirSync(path.join(rootDir, 'locales'))) {
   }
 }
 
+// English (US)'s table in i18n.js (only the strings naming metric units):
+// each key must still be on screen and keep its {placeholders}
+const i18nAst = espree.parse(read('i18n.js'), {
+  ecmaVersion: 'latest',
+  sourceType: 'module',
+});
+let enUs = null;
+walk(i18nAst, (n) => {
+  if (n.type === 'VariableDeclarator' && n.id.name === 'EN_US_TABLE') {
+    enUs = n.init;
+  }
+});
+if (!enUs?.properties?.length) {
+  console.error("❌ i18n.js: couldn't find EN_US_TABLE");
+  problems++;
+}
+for (const prop of enUs?.properties || []) {
+  const text = prop.key.value ?? prop.key.name;
+  const value = prop.value.value;
+  if (!keys.has(text)) {
+    console.error(
+      `❌ i18n.js EN_US_TABLE: the game no longer says ${JSON.stringify(text)}`
+    );
+    problems++;
+  } else if (placeholders(text).join() !== placeholders(value).join()) {
+    console.error(
+      `❌ i18n.js EN_US_TABLE: ${JSON.stringify(text)} has different {placeholders}`
+    );
+    problems++;
+  }
+}
+
 if (process.argv.includes('--missing')) {
   for (const [text] of keys) {
     if (missingOut.some((l) => l.endsWith(JSON.stringify(text)))) {

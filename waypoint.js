@@ -145,13 +145,14 @@ export function screenPlacement(x, y, z) {
 export function formatDistance(units, imperial = IMPERIAL) {
   const m = units * UNITS_TO_M;
   if (imperial) {
-    const ft = m * M_TO_FT;
-    if (ft < 1000) return `${Math.max(100, Math.round(ft / 100) * 100)} ft`;
+    const ft = Math.max(100, Math.round((m * M_TO_FT) / 100) * 100);
+    if (ft < 1000) return `${ft} ft`;
     const mi = m * M_TO_MI;
     if (mi < 10) return `${mi.toFixed(1)} mi`;
     return `${Math.round(mi)} mi`;
   }
-  if (m < 1000) return `${Math.max(50, Math.round(m / 50) * 50)} m`;
+  const near = Math.max(50, Math.round(m / 50) * 50);
+  if (near < 1000) return `${near} m`;
   if (m < 10000) return `${(m / 1000).toFixed(1)} km`;
   return `${Math.round(m / 1000)} km`;
 }
