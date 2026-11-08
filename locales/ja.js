@@ -771,7 +771,7 @@ export default {
   Falls: '滝',
   Canyon: '峡谷',
   Pyramids: 'ピラミッド',
-  'Dragon Skeleton': 'ドラゴンの骨格',
+  'Skeleton': '骸骨',
   'If something comes up, just clear the waypoint on the map.':
     '何か用事ができたら、マップでウェイポイントを消せば大丈夫。',
   'ACHIEVEMENT UNLOCKED': '実績解除',

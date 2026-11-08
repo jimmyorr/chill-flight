@@ -72,7 +72,7 @@ export const LANDMARKS = [
   ...(dragon
     ? [
         {
-          name: 'Dragon Skeleton',
+          name: 'Skeleton',
           x: dragon.x,
           z: dragon.z,
           color: LANDMARK_COLOR,

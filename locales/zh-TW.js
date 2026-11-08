@@ -740,7 +740,7 @@ export default {
   Falls: '瀑布',
   Canyon: '峽谷',
   Pyramids: '金字塔',
-  'Dragon Skeleton': '巨龍骸骨',
+  'Skeleton': '骸骨',
   'If something comes up, just clear the waypoint on the map.':
     '如果有事，在地圖上清除航點就行。',
   'ACHIEVEMENT UNLOCKED': '成就解鎖',

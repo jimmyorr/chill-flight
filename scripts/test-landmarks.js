@@ -204,7 +204,7 @@ check(
 {
   const {simplex} = await import('../noise.js');
   const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 200};
-  const pin = LANDMARKS.find((l) => l.name === 'Dragon Skeleton');
+  const pin = LANDMARKS.find((l) => l.name === 'Skeleton');
   const bad = [];
   for (const continent of ChillFlightLogic.CONTINENT_NAMES) {
     ChillFlightLogic.CONTINENT = continent;

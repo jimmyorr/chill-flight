@@ -785,7 +785,7 @@ export default {
   Falls: 'Cataratas',
   Canyon: 'Cañón',
   Pyramids: 'Pirámides',
-  'Dragon Skeleton': 'Esqueleto de dragón',
+  'Skeleton': 'Esqueleto',
   'If something comes up, just clear the waypoint on the map.':
     'Si te surge algo, borra el punto de ruta en el mapa y listo.',
   'ACHIEVEMENT UNLOCKED': 'LOGRO DESBLOQUEADO',

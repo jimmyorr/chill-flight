@@ -792,7 +792,7 @@ export default {
   Falls: 'Chutes',
   Canyon: 'Canyon',
   Pyramids: 'Pyramides',
-  'Dragon Skeleton': 'Squelette de dragon',
+  'Skeleton': 'Squelette',
   'If something comes up, just clear the waypoint on the map.':
     'Si un imprévu arrive, efface simplement le point de passage sur la carte.',
   'ACHIEVEMENT UNLOCKED': 'SUCCÈS DÉBLOQUÉ',

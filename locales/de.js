@@ -790,7 +790,7 @@ export default {
   Falls: 'Wasserfälle',
   Canyon: 'Schlucht',
   Pyramids: 'Pyramiden',
-  'Dragon Skeleton': 'Drachenskelett',
+  'Skeleton': 'Skelett',
   'If something comes up, just clear the waypoint on the map.':
     'Wenn etwas dazwischenkommt, lösch einfach den Wegpunkt auf der Karte.',
   'ACHIEVEMENT UNLOCKED': 'ERFOLG FREIGESCHALTET',
