@@ -376,7 +376,7 @@ function isPaved(x, z) {
 
 // --- RAIN ON THE VEHICLE ---
 // Splashes a second on the vehicle at full rain
-const RAIN_SPLASH_RATE = 120;
+const RAIN_SPLASH_RATE = 60;
 // Spots on the vehicle's upper surfaces (model space), found once per model
 // by casting rays straight down onto it
 let rainSpotsModel = null;
@@ -425,8 +425,7 @@ function findRainSpots(model) {
   if (rainSpots.length > 0) rainSpotsModel = model;
 }
 
-// Raindrops landing on the wings, body and buggy: tiny puffs that, in
-// flight, are swept back off the surfaces by the airflow
+// Raindrops landing on the wings, body and buggy: brief tiny specks
 function rainOnVehicle(delta) {
   const rain = precipitation.rain;
   const model = state.airplaneModel;
@@ -444,20 +443,18 @@ function rainOnVehicle(delta) {
   for (let i = 0; i < count; i++) {
     const spot = rainSpots[(Math.random() * rainSpots.length) | 0];
     _p.copy(spot).applyMatrix4(model.matrixWorld);
-    _p.y += 0.15;
+    _p.y += 0.1;
+    // A brief glint of a drop breaking on the surface, carried along with
+    // the vehicle (bigger, longer puffs read as smoke)
     spawn(
       _p,
-      {
-        x: _v.x * 0.9 + rand(-3, 3),
-        y: rand(3, 7),
-        z: _v.z * 0.9 + rand(-3, 3),
-      },
-      -30,
-      rand(0.3, 0.45),
+      {x: _v.x + rand(-1, 1), y: rand(1, 2), z: _v.z + rand(-1, 1)},
+      -20,
+      rand(0.1, 0.16),
+      rand(0.2, 0.3),
       rand(0.4, 0.6),
-      rand(1.6, 2.4),
       RAIN_SPLASH,
-      rand(0.6, 0.8)
+      rand(0.45, 0.6)
     );
   }
 }
