@@ -21,7 +21,7 @@ const LENGTH = 14;
 // How far round the colour wheel the sky turns at the peak (0-1 is a full
 // turn), and how fast it swings (radians/s)
 const HUE_SWING = 0.35;
-const SWING_SPEED = 0.55;
+const SWING_SPEED = 0.18;
 // How much of the light takes the rainbow's colour at the peak
 const LIGHT_TINT = 0.35;
 // Extra saturation for the sky and fog at the peak
@@ -78,9 +78,9 @@ export function updateTrip(delta) {
     clock += delta;
   }
   // A rainbow smoke trail from the tail while it's strong, running round
-  // the colour wheel every couple of seconds
+  // the colour wheel about every 8 seconds
   if (tripAmount() > TRAIL_FROM) {
-    _trail.setHSL((clock * 0.45) % 1, 0.9, 0.62);
+    _trail.setHSL((clock * 0.12) % 1, 0.9, 0.62);
     setTripTrail(_trail);
   } else {
     setTripTrail(null);
@@ -89,7 +89,7 @@ export function updateTrip(delta) {
 
 /** Where the rainbow is now (0-1 round the wheel). */
 export function tripHue() {
-  return (clock * 0.07) % 1;
+  return (clock * 0.025) % 1;
 }
 
 // The colours applyTrip changes, kept to put back after the frame
