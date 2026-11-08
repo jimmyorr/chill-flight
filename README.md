@@ -30,7 +30,7 @@ flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient,casual,cozy,
 
 ## Models
 
-The road vehicles (`road-vehicles.js`), the small boats and pirate ships (`boat-models.js`), the tractors, barns, silos and windmills (`farm-models.js`), the airport control towers (`building-models.js`), the swamp trees, reeds, cattails, lily pads, hollow logs and mossy stumps (`swamp-models.js`), the lighthouse, its keeper's cottage and the dolphins are Polyfork models, including [Old Lighthouse](https://polyfork.dev/asset/old-lighthouse-48ca6c), [Porch-Front Cottage](https://polyfork.dev/asset/porch-front-cottage-620c29) and [Dolphin](https://polyfork.dev/asset/dolphin-base) (free licence: games can ship them, no attribution needed, but the files themselves can't be redistributed as assets). Their source is kept unchanged in `third-party/polyfork/`; `terrain-geometry.js` builds each once at load and splits it by paint (tower, rock islet, lantern glass, windows).
+Some of the 3D models are from [Polyfork](https://polyfork.dev/) (free licence: games can ship them, no attribution needed, but the files themselves can't be redistributed as assets; sources kept unchanged in `third-party/polyfork/`).
 
 ## Music
 
