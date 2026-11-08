@@ -3549,8 +3549,17 @@ export const ChillFlightLogic = {};
             Math.min(1, (valleyNoise + 0.5) * 5.0)
           );
 
-          if (landFactor > 0.3 || totalContribution > 25) {
-            n += totalContribution * valleyFactor;
+          // Eased in over the land's first 15 above the water rather than
+          // switched on at 4.5: that cut left a cliff (up to 25 high) along
+          // the coasts by the ranges, drawn as a bank too steep for the
+          // buggy to climb. A mountain of more than 25 still rises out of
+          // the water, eased in over 25-30.
+          const protect = Math.max(
+            landFactor,
+            Math.min(1, Math.max(0, (totalContribution - 25) / 5))
+          );
+          if (protect > 0) {
+            n += totalContribution * valleyFactor * protect;
           }
         }
       }
