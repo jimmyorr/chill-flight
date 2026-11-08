@@ -30,12 +30,14 @@ import {
   LIGHTHOUSE_BEAM_OPACITY_MAX,
   LIGHTHOUSE_BEAM_OPACITY_MIN,
   LIGHTHOUSE_LIGHT_INTENSITY,
+  M_TO_FT,
   UNITS_TO_M,
   WATER_LEVEL,
   displaySpeed,
   speedUnit,
   updateDOM,
 } from './constants.js';
+import {IMPERIAL} from './i18n.js';
 import {log} from './logger.js';
 import {state} from './state.js';
 import {archCameraY} from './arches-logic.js';
@@ -1364,7 +1366,10 @@ export function updateFlightCamera(delta, nowTime) {
   const lonStr =
     Math.abs(lonVal).toFixed(3) + '\u00b0 ' + (lonVal >= 0 ? 'E' : 'W');
   const coordStr = `${latStr} ${lonStr}`;
-  const altStr = `${Math.round(Math.max(0, hudTarget.position.y - 45.5) * UNITS_TO_M)} M`;
+  const altM = Math.max(0, hudTarget.position.y - 45.5) * UNITS_TO_M;
+  const altStr = IMPERIAL
+    ? `${Math.round(altM * M_TO_FT)} FT`
+    : `${Math.round(altM)} M`;
   const unitsPerSec =
     BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
   const spdStr = `${displaySpeed(unitsPerSec, activePlaneType)} ${speedUnit(activePlaneType)}`;

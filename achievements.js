@@ -2,7 +2,7 @@
 // Data registry, localStorage persistence, unlock API, and in-game toast notifications.
 // Loaded before game.js so Achievements.unlock() is available during gameplay.
 import {log} from './logger.js';
-import {t} from './i18n.js';
+import {IMPERIAL, t} from './i18n.js';
 import {trackAchievement} from './analytics.js';
 
 export const Achievements = (function () {
@@ -455,8 +455,7 @@ export const Achievements = (function () {
   function updateStats(distance) {
     const statsEl = document.getElementById('achievements-stats');
     if (statsEl) {
-      // Divide by 1000 to simulate 'miles/km' and round to 1 decimal place
-      const displayDist = (distance / 1000).toFixed(1);
+      const displayDist = (distance / (IMPERIAL ? 1609.344 : 1000)).toFixed(1);
       statsEl.textContent = t('LIFETIME DISTANCE: {km} KM', {km: displayDist});
     }
   }

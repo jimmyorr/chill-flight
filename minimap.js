@@ -3,6 +3,7 @@ import {log} from './logger.js';
 import {
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
+  M_TO_MI,
   WATER_LEVEL,
   updateUrlParams,
 } from './constants.js';
@@ -34,7 +35,7 @@ import {cancelJob, progress} from './jobs.js';
 import {PEOPLE} from './people.js';
 import {friendsOnMap, inGameMode} from './multiplayer.js';
 import {trackScreen} from './analytics.js';
-import {joinList, t} from './i18n.js';
+import {IMPERIAL, joinList, t} from './i18n.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -1052,12 +1053,14 @@ import {joinList, t} from './i18n.js';
         fsCtx.restore();
 
         const distUnits = Math.hypot(px - fsViewCenterX, pz - fsViewCenterZ);
-        const distKm = (distUnits / 1000).toFixed(1);
+        const distLabel = IMPERIAL
+          ? `${(distUnits * M_TO_MI).toFixed(1)} mi`
+          : `${(distUnits / 1000).toFixed(1)} km`;
         fsCtx.save();
         fsCtx.font = 'bold 9px Inter, -apple-system, sans-serif';
         fsCtx.textAlign = 'center';
         fsCtx.fillStyle = '#ffd700';
-        fsCtx.fillText(`${distKm} km`, edgeX, edgeY + 16);
+        fsCtx.fillText(distLabel, edgeX, edgeY + 16);
         fsCtx.restore();
       }
     }

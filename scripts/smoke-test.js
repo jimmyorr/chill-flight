@@ -519,7 +519,7 @@ async function exerciseControls(page, tag) {
   if (
     buggyStats.speed !== '0.218' ||
     buggyStats.float !== '0.500' ||
-    buggyStats.unit !== 'KM/H'
+    !['KM/H', 'MPH'].includes(buggyStats.unit)
   ) {
     fail(`buggy stats mismatch: ${JSON.stringify(buggyStats)}`);
   }

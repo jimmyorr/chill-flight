@@ -21,6 +21,7 @@ import {createJetModel} from './jet.js';
 import {createBuggyModel} from './buggy-model.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {softenAnimeLight} from './art-style.js';
 
 export const planeGroup = new THREE.Group();
@@ -492,6 +493,7 @@ export function setActivePlane(planeType, skipStorage = false) {
     });
   }
   updatePlaneStats();
+  hooks.updateThrottle?.();
 
   // Update URL parameters
   updateUrlParams({plane: planeType}, ['plane', 'vehicle']);

@@ -702,6 +702,7 @@ if (overlay && renderer) {
 
 inputManager.onAutopilotToggle = () => toggleAutopilot();
 hooks.resetSteering = resetSteering;
+hooks.updateThrottle = () => updateThrottle(performance.now());
 
 // Track store link clicks on web
 const pauseAppStoreLink = document.getElementById('pause-app-store-link');

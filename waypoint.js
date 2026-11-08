@@ -13,9 +13,9 @@ import {camera} from './sky.js';
 import {state} from './state.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation} from './terrain-geometry.js';
-import {UNITS_TO_M, WATER_LEVEL} from './constants.js';
+import {M_TO_FT, M_TO_MI, UNITS_TO_M, WATER_LEVEL} from './constants.js';
 import {playChime} from './sfx-events.js';
-import {t} from './i18n.js';
+import {IMPERIAL, t} from './i18n.js';
 
 const STORAGE_KEY = 'chill_flight_waypoint';
 // Within this many units (horizontally) counts as there
@@ -140,9 +140,17 @@ export function screenPlacement(x, y, z) {
   return _place;
 }
 
-// "850 m" (in 50 m steps) under a kilometer, "2.4 km" under 10, then "34 km"
-export function formatDistance(units) {
+// "850 m" (in 50 m steps) under a kilometer, "2.4 km" under 10, then "34 km";
+// in English (US), "600 ft" (in 100 ft steps) under 1,000 ft, "2.4 mi" under 10, then "21 mi"
+export function formatDistance(units, imperial = IMPERIAL) {
   const m = units * UNITS_TO_M;
+  if (imperial) {
+    const ft = m * M_TO_FT;
+    if (ft < 1000) return `${Math.max(100, Math.round(ft / 100) * 100)} ft`;
+    const mi = m * M_TO_MI;
+    if (mi < 10) return `${mi.toFixed(1)} mi`;
+    return `${Math.round(mi)} mi`;
+  }
   if (m < 1000) return `${Math.max(50, Math.round(m / 50) * 50)} m`;
   if (m < 10000) return `${(m / 1000).toFixed(1)} km`;
   return `${Math.round(m / 1000)} km`;

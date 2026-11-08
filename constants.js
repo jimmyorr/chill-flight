@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_CLOUDS, ART_PAINTED, ART_POST, ART_SMOOTH} from './art-style.js';
 import {state} from './state.js';
+import {IMPERIAL} from './i18n.js';
 
 // Terrain parameters
 export const CHUNK_SIZE = 1500;
@@ -36,6 +37,8 @@ export const MAP_HEIGHT_SCALE = 400;
 export const BASE_FLIGHT_SPEED = 2.5;
 // World units to meters: 1 unit is 1 m on the altimeter and distance readouts
 export const UNITS_TO_M = 1;
+export const M_TO_FT = 3.28084;
+export const M_TO_MI = 1 / 1609.344;
 export const TURN_SPEED = 0.03;
 // The top of the sky (units; about 2,854 m on the altitude readout), just
 // under the cloud deck at 3,000 (cloudHeight), whose flat layer gives itself
@@ -53,17 +56,26 @@ export const MACH_1_KTS = 661;
 //   to 0.5 kt per unit/s from the biplane's top speed (140 kts at 280) up
 //   to the jet's (550 kts at 1100, breaking Mach 1 = 661 kts in a dive).
 // - The buggy reads in KM/H on the same 0.5 kt per unit/s scale, rounded to
-//   an even 220 km/h at its 240 units/s top speed (~120 kts).
-export function displaySpeed(unitsPerSec, planeType = 'seaplane') {
+//   an even 220 km/h at its 240 units/s top speed (~120 kts), or 137 MPH in
+//   English (US).
+export function displaySpeed(
+  unitsPerSec,
+  planeType = 'seaplane',
+  imperial = IMPERIAL
+) {
   const u = Math.max(0, unitsPerSec);
-  if (planeType === 'buggy') return Math.round((u * 220) / 240);
+  if (planeType === 'buggy') {
+    const kph = (u * 220) / 240;
+    return Math.round(imperial ? kph / 1.609344 : kph);
+  }
   if (u <= 40) return Math.round(u);
   if (u < 280) return Math.round(40 + ((u - 40) * 100) / 240);
   return Math.round(u * 0.5);
 }
 
-export function speedUnit(planeType = 'seaplane') {
-  return planeType === 'buggy' ? 'KM/H' : 'KTS';
+export function speedUnit(planeType = 'seaplane', imperial = IMPERIAL) {
+  if (planeType === 'buggy') return imperial ? 'MPH' : 'KM/H';
+  return 'KTS';
 }
 
 // Each plane's speed and handling, in world units/s (displayed via

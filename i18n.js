@@ -7,7 +7,7 @@
 // {name}-style placeholders are filled from `vars` after translating, so a
 // translation can move them: t('{n} of {total} unlocked', {n, total}).
 //
-// The language: ?lang= (en, ja, ko, zh, zh-TW, es, pt, de, fr), else the
+// The language: ?lang= (en, en-US, ja, ko, zh, zh-TW, es, pt, de, fr), else the
 // Settings choice, else the browser's. Only the player's table loads (its
 // own chunk). Static text in index.html is translated once at load
 // (translateDom); text the game sets later goes through t() where it's set.
@@ -16,7 +16,8 @@ import {withTimeout} from './network.js';
 
 const STORAGE_KEY = 'chill_flight_language';
 
-// Language code → its table, loaded on demand. English needs none.
+// Language code → its table, loaded on demand. English needs none;
+// English (US) overrides only the strings that name metric units.
 const TABLES = {
   'zh-CN': () => import('./locales/zh-CN.js'),
   'zh-TW': () => import('./locales/zh-TW.js'),
@@ -27,7 +28,12 @@ const TABLES = {
   de: () => import('./locales/de.js'),
   fr: () => import('./locales/fr.js'),
 };
-export const LANGUAGES = ['en', ...Object.keys(TABLES)];
+export const LANGUAGES = ['en', 'en-US', ...Object.keys(TABLES)];
+
+const EN_US_TABLE = {
+  'LIFETIME DISTANCE: {km} KM': 'LIFETIME DISTANCE: {km} MI',
+  'Travel 100 km in all': 'Travel 62 mi in all',
+};
 
 // A browser or URL language code → one of LANGUAGES, or null. Chinese:
 // Traditional for Taiwan, Hong Kong and Macau (and zh-Hant), Simplified
@@ -35,6 +41,7 @@ export const LANGUAGES = ['en', ...Object.keys(TABLES)];
 function known(code) {
   if (!code) return null;
   const c = String(code).toLowerCase().replace('_', '-');
+  if (c === 'en-us') return 'en-US';
   const base = c.split('-')[0];
   if (base === 'zh') {
     return /-(tw|hk|mo|hant)\b/.test(c) ? 'zh-TW' : 'zh-CN';
@@ -75,10 +82,12 @@ function loadLanguage() {
 }
 
 export const LANG = loadLanguage();
+export const IMPERIAL = LANG === 'en-US';
 
 // The table, or null for English (also if it fails to load in time: the
 // game starts in English rather than waiting)
 async function loadTable() {
+  if (LANG === 'en-US') return EN_US_TABLE;
   if (!TABLES[LANG]) return null;
   try {
     return (await withTimeout(TABLES[LANG](), 8000, `Language ${LANG}`))
