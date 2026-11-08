@@ -332,7 +332,9 @@ let groundDust = null;
 const _rollDust = new THREE.Color();
 const skimLast = new THREE.Vector3();
 const smokeLast = new THREE.Vector3();
-let smokeOn = false;
+let smokeOn =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('smoke') === '1';
 let vapour = 0;
 const vapourLast = [new THREE.Vector3(), new THREE.Vector3()];
 let lastTarget = null;
@@ -1233,6 +1235,18 @@ export function updateParticles(delta) {
   const speed = Math.max(0, state.flightSpeedMultiplier || 0);
   // Ignore the spawn and teleports settling
   settleTime += delta;
+  if (!state.isFreeCamera && !state.isCrashed) {
+    if (isSmokeOn()) {
+      smokeTrail(planeGroup, smokeLast, speed, tinted ? smokeTint : SMOKE);
+    } else if (rushTrail() || tripTrail) {
+      // (a shattered crystal's rush, crystal-rush.js, or a mushroom trip)
+      smokeTrail(planeGroup, smokeLast, speed, rushTrail() || tripTrail);
+    } else {
+      smokeLast.valid = false;
+    }
+    if (!wheels && !onWater) wingtipVapour(delta, speed);
+    else vapour = 0;
+  }
   if (!state.isFreeCamera && !state.isCrashed && settleTime > 2) {
     const impact = THREE.MathUtils.clamp(
       0.3 + fallRate / 60 + speed * 0.3,
@@ -1246,16 +1260,6 @@ export function updateParticles(delta) {
     if (activePlaneType === 'buggy' && !onWater) slideSmoke(delta);
     if (!wheels && !onWater) skim(delta, speed);
     else skimLast.valid = false;
-    if (isSmokeOn()) {
-      smokeTrail(planeGroup, smokeLast, speed, tinted ? smokeTint : SMOKE);
-    } else if (rushTrail() || tripTrail) {
-      // (a shattered crystal's rush, crystal-rush.js, or a mushroom trip)
-      smokeTrail(planeGroup, smokeLast, speed, rushTrail() || tripTrail);
-    } else {
-      smokeLast.valid = false;
-    }
-    if (!wheels && !onWater) wingtipVapour(delta, speed);
-    else vapour = 0;
     rainOnVehicle(delta);
     const target = state.targetFlightSpeed || 0;
     if (lastTarget === 0 && target > 0 && speed < 0.05) engineStartPuff();

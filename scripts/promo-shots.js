@@ -61,6 +61,17 @@ export const ARTWORK = {
 // the clips and end card after them. App Store sizes: iPhone 6.9" and 6.3"
 // screenshots, iPhone previews (one size for both), and iPad 13" screenshots
 // and previews (portrait).
+const PREVIEW_SHOTS = [
+  'sunrise-lakes',
+  'falls-pass',
+  'arch',
+  'snow-biplane',
+  'clover-loop',
+  'canyon-jet',
+  'islands-sunset',
+  'airport-dusk',
+];
+
 export const TARGETS = {
   iphone: {width: 440, height: 956, scale: 3, mobile: true}, // 1320x2868
   // iPhone with Dynamic Island, medium display (6.3"): the size App Store
@@ -78,6 +89,7 @@ export const TARGETS = {
     scale: 2, // 886x1920
     mobile: true,
     video: true,
+    shots: PREVIEW_SHOTS,
     endCard: {...SIGN_OFF, seconds: 2.5},
   },
   'ipad-preview': {
@@ -86,6 +98,7 @@ export const TARGETS = {
     scale: 4 / 3, // 1200x1600
     mobile: true,
     video: true,
+    shots: PREVIEW_SHOTS,
     endCard: {...SIGN_OFF, seconds: 2.5},
   },
   // The website, YouTube and Google Play
@@ -117,87 +130,134 @@ export const TARGETS = {
 // the interface on (ui=1), as players see it. The others each have their own
 // angle, so the set shows the planes from all around.
 export const SHOTS = {
-  // --- Stills: a frozen plane at the landmarks (free camera) ---
-  // The rock arch (X = 3000, Z = -2441: 0.6 East, 0.5 North), from the water
-  // to its east, the plane flying out toward the camera (head-on)
-  arch: {
-    query:
-      'freecam=true&x=3120&y=88&z=-2441&heading=-90&pitch=2&roll=10' +
-      '&camX=3260&camY=55&camZ=-2441&camHeading=90&camPitch=8' +
-      '&tod=0.36&livery=coral&cloudMood=fair',
-    portrait: 'x=3330&y=85&camX=3480&camY=60&camPitch=12',
-  },
-  // The lighthouse (X = 7500, Z = 3000: 1.5 East, 0.6 South) at dusk, side-on
-  lighthouse: {
-    query:
-      'freecam=true&x=7812&y=60&z=3345&heading=-40&roll=10' +
-      '&camX=7900&camY=45&camZ=3380&camHeading=50&camPitch=6' +
-      '&tod=0.785&headlight=1&livery=teal&cloudMood=mackerel',
-    portrait: 'x=7807&y=60&z=3320',
-  },
-
   // --- Flying: stills, and the video's clips in order (through one day,
-  // sunrise to night) ---
-  // Over the volcano (X = -5000, Z = 5000: 1.0 West, 1.0 South) at sunset
-  volcano: {
-    query:
-      'x=-3050&y=2486&z=3050&heading=135&tod=0.745&livery=rose&ui=1' +
-      '&cloudMood=busy',
-  },
-  // Under the west coast highway where it crosses water (X = -6337,
-  // Z = 1770: 1.3 West, 0.35 South)
-  highway: {
-    query:
-      'x=-6560&y=72&z=1818&heading=-92&tod=0.4&livery=slate&ui=1' +
-      '&cloudMood=mixed',
-  },
+  // sunrise to dusk) ---
   'sunrise-lakes': {
     query:
       'lat=0.1S&long=1.3W&heading=-80&tod=0.265&livery=coral&ui=1' +
       '&cloudMood=busy',
     seconds: 4,
-  },
-  'falls-pass': {
-    // South away from the falls (X = 0, Z = -4500: 0.9 North) in morning
-    // light, from ahead and above, the fall pouring from its bay behind the
-    // plane
-    query:
-      'x=40&y=330&z=-4280&heading=180&speed=1&tod=0.33&livery=coral' +
-      '&camOffset=12,75,-140&camLook=0,30,40&cloudMood=fair',
-    seconds: 4,
-    portrait: 'camOffset=8,26,-180',
     moves: [
       [0, 0, 0],
-      [1, 25, 0],
-      [3, 25, 4],
-      [4, 25, 4],
+      [1.5, -18, 2],
+      [4, 12, 0],
+    ],
+  },
+  'falls-pass': {
+    // South away from the falls (X = 0, Z = -4500: 0.9 North) in warm morning
+    // light, from ahead and above, the fall pouring from its bay behind the
+    // banking plane
+    query:
+      'x=25&y=295&z=-4320&heading=180&speed=1&tod=0.285&livery=coral' +
+      '&camOffset=16,28,-78&camLook=-4,16,55&cloudMood=fair',
+    seconds: 4,
+    stillTime: 1.5,
+    portrait: 'camOffset=10,22,-105',
+    moves: [
+      [0, 0, 0],
+      [1.2, 26, 2],
+      [3, 22, 4],
+      [4, 15, 4],
+    ],
+  },
+  arch: {
+    // Flying through the grand natural sea arch (X = 8711, Z = 7660: 1.74 East,
+    // 1.53 South) over turquoise coral reef shallows toward the karst islands
+    query:
+      'x=8420&y=115&z=8160&heading=-30&speed=1&tod=0.36&plane=twin&livery=teal' +
+      '&camOffset=12,-4,48&camLook=0,6,-80&cloudMood=fair',
+    seconds: 4,
+    stillTime: 0.9,
+    portrait: 'camOffset=9,-4,68&camLook=0,6,-80',
+    moves: [
+      [0, 0, 0],
+      [1.2, 0, 0],
+      [2.5, -16, 2],
+      [4, -8, 2],
     ],
   },
   'snow-biplane': {
-    // From high above, over the snowy forest, in falling snow
+    // From high above, gliding over a snowy alpine lake shore and pine woods
+    // (X = -1360, Z = -14680: 0.27 West, 2.94 North) in falling snow
     query:
-      'lat=2.9N&long=0.3W&heading=200&tod=0.42&plane=biplane&livery=coral' +
+      'x=-1360&y=420&z=-14680&heading=198&tod=0.42&plane=biplane&livery=coral' +
       '&camOffset=0,60,25&camLook=0,0,-10&cloudMood=high&weather=snow',
     seconds: 4,
   },
-  'hud-islands': {
-    // The game as players see it, the interface on, among the karst islands'
-    // limestone towers (X = 10000, Z = 6900: 2.0 East, 1.4 South)
+  'clover-loop': {
+    // Three-quarter front view over the island bays (X = 9200, Z = 4200:
+    // 1.84 East, 0.84 South) with airshow smoke on, pulling up into a quarter
+    // clover loop
     query:
-      'x=10000&y=380&z=6900&heading=90&tod=0.5&plane=twin&livery=teal&ui=1' +
-      '&cloudMood=fair',
-  },
-  'canyon-run': {
-    // South down the canyon (X = 6300, Z = 15600: 1.3 East, 3.1 South) at
-    // midday, from above and behind, looking down into the gorge
-    query:
-      'x=6300&y=440&z=15600&heading=180&speed=1&tod=0.5&plane=twin' +
-      '&livery=sand&camOffset=0,40,75&camLook=0,-60,-200&cloudMood=high',
+      'x=9200&y=340&z=4200&heading=145&speed=1.15&tod=0.58&plane=biplane' +
+      '&livery=coral&smoke=1&camOffset=34,8,-36&camLook=-6,4,18&cloudMood=fair',
     seconds: 4,
+    stillTime: 3.55,
+    portrait: 'camOffset=26,8,-52&camLook=-6,4,18',
     moves: [
-      [0, 0, 0],
-      [1.5, -20, 0],
-      [4, -20, 8],
+      [0, 0, 0, 0],
+      [0.25, 0, 0, 0],
+      [0.9, 18, null, 0],
+      [1.6, 52, null, 45],
+      [2.3, 0, null, 90],
+      [3.7, 0, 360, 90],
+      [4, 0, 360, 90],
+    ],
+  },
+  'buggy-bridge': {
+    // Driving the dune buggy across the cross-country lake bridge (X = -2480,
+    // Z = 2216: 0.50 West, 0.44 South) with sailboats and mountains beyond
+    query:
+      'x=-2650&y=48&z=2186&heading=-103.5&plane=buggy&livery=coral' +
+      '&autopilot=1&waypoint=0.5S,0.3E&traffic=1&speed=1.6&tod=0.66' +
+      '&camOffset=7,7.5,15&camLook=-2,-1,-30&cloudMood=fair',
+    seconds: 4,
+    portrait: 'camOffset=5,8,20&camLook=-2,-1,-30',
+  },
+  'canyon-jet': {
+    // Swept-wing jet carving at high speed through the winding red-rock canyon
+    // and under a natural rock bridge (X = 3061, Z = 14413: 0.61 East,
+    // 2.88 South) at golden hour
+    query:
+      'x=3150&y=108&z=16050&heading=-11&speed=2.2&tod=0.69&plane=jet' +
+      '&livery=coral&camOffset=-10,10,36&camLook=2,-2,-90&cloudMood=high',
+    preroll: 1.2,
+    seconds: 4,
+    stillTime: 1.5,
+    portrait: 'camOffset=-8,12,52&camLook=2,-2,-90',
+    moves: [
+      [0, -24, 0],
+      [0.7, 26, 0],
+      [2.0, 26, 0],
+      [3.0, -18, 1],
+      [4, 14, 3],
+    ],
+  },
+  pyramids: {
+    // Past the three Great Pyramids in the southwestern desert (X = -9750,
+    // Z = 21000: 1.95 West, 4.20 South) in low golden-hour sun
+    query:
+      'x=-7950&y=460&z=21650&heading=72&speed=1&tod=0.71&plane=biplane' +
+      '&livery=gold&camOffset=-32,12,42&camLook=18,-18,-80&cloudMood=high',
+    stillTime: 1.2,
+    portrait: 'camOffset=-24,14,62&camLook=16,-18,-80',
+    moves: [
+      [0, -10, 0],
+      [1.5, -24, 2],
+      [4, -12, 3],
+    ],
+  },
+  volcano: {
+    // Over the volcano (X = -5000, Z = 5000: 1.0 West, 1.0 South) at sunset,
+    // with the smoking crater ahead and the desert pyramids on the horizon
+    query:
+      'x=-3250&y=2420&z=2900&heading=140&tod=0.745&livery=rose&ui=1' +
+      '&cloudMood=busy',
+    stillTime: 1.0,
+    moves: [
+      [0, -14, 0],
+      [2.5, 16, 2],
+      [4, 10, 0],
     ],
   },
   'islands-sunset': {
@@ -207,76 +267,68 @@ export const SHOTS = {
       '&camOffset=60,-8,5&cloudMood=busy',
     seconds: 4,
     portrait: 'camOffset=85,-12,5',
+  },
+  lighthouse: {
+    // Banking past the headland lighthouse (X = 7500, Z = 3000: 1.5 East,
+    // 0.6 South) at dusk with its rotating warm beam and crescent moon
+    query:
+      'x=7960&y=105&z=3210&heading=75&speed=1&tod=0.785&headlight=1' +
+      '&plane=biplane&livery=teal&camOffset=-48,-4,28&camLook=8,8,-50' +
+      '&cloudMood=mackerel',
+    seconds: 4,
+    stillTime: 1.65,
+    portrait: 'camOffset=-65,-4,38&camLook=8,8,-50',
     moves: [
-      [0, 0, 0],
-      [4, -30, 0],
+      [0, 8, 0],
+      [1.5, 22, 2],
+      [4, -12, 2],
     ],
   },
-  'lighthouse-dusk': {
-    // Past the lighthouse at dusk, from the side, passing the tower late in
-    // the clip so it stays in frame
-    query:
-      'x=8150&y=135&z=3150&heading=90&speed=1&tod=0.785&headlight=1' +
-      '&livery=teal&camOffset=-70,-5,40&cloudMood=mixed',
-    seconds: 4,
-    still: false,
-    portrait: 'x=8080&camOffset=-35,12,-85',
-  },
   'airport-dusk': {
-    // The game as players see it, the interface on: low along Meadow
-    // Field's runway (X = 1500, Z = 2400: 0.3 East, 0.5 South) at dusk, the
-    // runway lights on, past the parked planes
+    // Rolling on the wheels down Meadow Field's lit runway (X = 1500, Z = 2400:
+    // 0.3 East, 0.5 South) at dusk and lifting off past the control tower,
+    // hangar and parked planes
     query:
-      'x=800&y=115&z=2400&heading=-90&speed=1&tod=0.8&headlight=1' +
-      '&livery=slate&ui=1&cloudMood=mackerel',
+      'x=1100&y=56&z=2400&heading=-90&speed=1&tod=0.8&headlight=1' +
+      '&plane=biplane&livery=slate&camOffset=-14,2,36&camLook=6,4,-80' +
+      '&cloudMood=mackerel',
+    preroll: 0.8,
     seconds: 4,
+    stillTime: 1.9,
+    portrait: 'camOffset=-10,4,52&camLook=6,4,-80',
+    moves: [
+      [0, 0, 0],
+      [1.4, 0, 0],
+      [2.4, -12, 15],
+      [3.5, -14, 12],
+      [4, -8, 8],
+    ],
   },
-  aurora: {
-    // North under the aurora, from low behind looking up at it (it needs
-    // night, a clear sky, high northern latitudes and an active clock), after
-    // a long run-up while it fades in
+  alien: {
+    // Emerging through a basalt hex gate (X = 73316, Z = -12234: 14.66 East,
+    // 2.45 North) into a wide alien mushroom grove while trailing rainbow smoke
     query:
-      'lat=1.3N&long=0.3W&heading=0&tod=0.95&headlight=1&livery=slate' +
-      '&camOffset=0,-3,38&camLook=0,30,-120&cloud=clear&weather=clear' +
-      '&cloudMood=fair&clock=1790120480000',
+      'x=73344&y=215&z=-11800&heading=2&speed=1&tod=0.53&plane=seaplane' +
+      '&livery=gold&trip=1&camOffset=-10,10,42&camLook=2,-4,-70&cloudMood=busy',
+    preroll: 1.2,
     seconds: 4,
-    preroll: 20,
-    portrait: 'camOffset=0,-3,62&camLook=0,30,-140',
+    stillTime: 2.2,
+    portrait: 'camOffset=-8,12,58&camLook=2,-4,-70',
+    moves: [
+      [0, 0, 0],
+      [1.2, 0, 0],
+      [2.4, -10, 1],
+      [3.5, 12, 2],
+      [4, 6, 3],
+    ],
   },
 
-  // --- More stills ---
+  // --- Stills only ---
   map: {
     // The whole-world map with a waypoint set on the canyon, over the
     // islands at midday
     query:
       'lat=0.2S&long=2.4E&heading=180&tod=0.5&ui=1&fullscreenmap=1' +
       '&mapLat=3S&mapLong=-3&mapZoom=60000&waypoint=4S,1E&cloudMood=fair',
-  },
-  'islands-sunrise': {
-    // West over the islands, from low ahead, the sunrise behind the plane
-    query:
-      'lat=0.2S&long=2.4E&heading=90&tod=0.27&plane=twin&livery=teal' +
-      '&camOffset=-25,-4,-45&camLook=0,3,0&cloudMood=mackerel',
-    portrait: 'camOffset=-28,-5,-75',
-  },
-  islands: {
-    // Past a hilly island (X = 14500, Z = 6000: 2.9 East, 1.2 South), from
-    // high on its far side
-    query:
-      'x=15600&y=220&z=6000&heading=0&tod=0.5&plane=twin&livery=teal' +
-      '&camOffset=90,40,10&camLook=0,25,0&cloudMood=fair',
-  },
-  desert: {
-    // From high ahead, over the dunes
-    query:
-      'lat=2.7S&long=0.4W&heading=110&tod=0.6&plane=biplane&livery=sand' +
-      '&camOffset=-35,15,-45&camLook=0,0,0&cloudMood=high',
-  },
-  alien: {
-    // From below, the plane over the alien peaks
-    query:
-      'lat=0.2N&long=12E&heading=-90&tod=0.55&livery=purple' +
-      '&camOffset=12,-10,22&camLook=0,2,-10&cloudMood=busy',
-    portrait: 'camOffset=4,-10,60&camLook=0,2,-5',
   },
 };

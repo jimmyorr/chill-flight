@@ -173,9 +173,13 @@ import {Achievements} from './achievements.js';
 import {scriptedFlight} from './promo-script.js';
 import {t} from './i18n.js';
 
+let scriptedStartYaw = 0;
+let scriptedStartSpeed = 1;
 // Promo clips: filming starts with a promo-script event (promo.js), and the
 // clip's keyframes fly the plane from then on (see updatePhysicsAndControls)
 window.addEventListener('promo-script', (event) => {
+  scriptedStartYaw = planeGroup.rotation.y;
+  scriptedStartSpeed = state.flightSpeedMultiplier;
   state.scriptedFlight = scriptedFlight(event.detail, performance.now());
 });
 
@@ -1585,6 +1589,18 @@ function updatePhysicsAndControls(delta, nowTime) {
     lastPitchMode = 0;
     loopActive = false;
     loopRecovering = false;
+    if (scripted.loop) {
+      planeGroup.rotation.x = scripted.pitch;
+      planeGroup.rotation.z = scripted.roll;
+      planeGroup.rotation.y = scriptedStartYaw + scripted.yaw;
+      state._nextYaw = planeGroup.rotation.y;
+      state.flightSpeedMultiplier =
+        scriptedStartSpeed *
+        (1 - (LOOP_SPEED_DIP * (1 - Math.cos(scripted.pitch))) / 2);
+      state.isLooping = true;
+      state.isDoingFullLoop = true;
+      state.isBarrelRolling = true;
+    }
   } else if (
     !state.isFreeCamera &&
     state.autopilotEnabled &&

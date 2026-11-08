@@ -340,17 +340,18 @@ async function openShot(browser, shot, target) {
   // and the sky's easing toward the set cloud cover. The title screen goes
   // away on its own (start=1).
   const started = Date.now();
-  let loaded = false;
-  while (!loaded || Date.now() - started < SETTLE_MS) {
+  let loadedAt = 0;
+  while (!loadedAt || Date.now() - loadedAt < SETTLE_MS) {
     if (Date.now() - started > SETTLE_MS + 600000) {
       throw new Error('The game did not finish loading');
     }
     await step(page, 0.001);
-    loaded ||= await page.evaluate(
+    const ready = await page.evaluate(
       () =>
         getComputedStyle(document.getElementById('loading-overlay')).display ===
-        'none'
+          'none' && document.body.dataset.farReady === '1'
     );
+    if (ready && !loadedAt) loadedAt = Date.now();
     await sleep(20);
   }
   // Then full size and real time, so the chase camera and the plane's motion
@@ -358,6 +359,14 @@ async function openShot(browser, shot, target) {
   await page.setViewport(viewport(1));
   for (let i = 0; i < Math.round((shot.preroll ?? PREROLL) * FPS); i++) {
     await step(page, 1000 / FPS);
+  }
+  if (mode !== 'video' && shot.moves && shot.stillTime) {
+    await page.evaluate((moves) => {
+      window.dispatchEvent(new CustomEvent('promo-script', {detail: moves}));
+    }, shot.moves);
+    for (let i = 0; i < Math.round(shot.stillTime * FPS); i++) {
+      await step(page, 1000 / FPS);
+    }
   }
   page.close = async () => context.close();
   return page;
@@ -587,7 +596,8 @@ try {
       fs.rmSync(png);
       return {mp4, seconds: card.seconds};
     };
-    for (const name of selected) {
+    const videoShots = args.length ? selected : target.shots || selected;
+    for (const name of videoShots) {
       const shot = SHOTS[name];
       if (!shot.seconds) continue;
       const frameDir = path.join(OUT, `frames-${name}`);
@@ -617,17 +627,33 @@ try {
       }
       reportErrors(name, page);
       await page.close();
-      if (!clips.length) fs.copyFileSync(frameFile(0), firstFrame);
-      fs.copyFileSync(frameFile(frames - 1), lastFrame);
       const mp4 = path.join(OUT, `${videoTargetName}-clip-${name}.mp4`);
       ffmpeg([
         ...['-framerate', String(FPS), '-i', path.join(frameDir, '%05d.jpg')],
         ...['-vf', `scale=${pixelW}:${pixelH}`, ...H264, mp4],
       ]);
       fs.rmSync(frameDir, {recursive: true, force: true});
-      clips.push({mp4, seconds: shot.seconds});
       console.log(mp4);
     }
+    const allShots = (target.shots || Object.keys(SHOTS)).filter(
+      (name) => SHOTS[name]?.seconds
+    );
+    for (const name of allShots) {
+      const mp4 = path.join(OUT, `${videoTargetName}-clip-${name}.mp4`);
+      if (fs.existsSync(mp4)) {
+        clips.push({mp4, seconds: SHOTS[name].seconds});
+      }
+    }
+    ffmpeg(['-i', clips[0].mp4, '-frames:v', '1', firstFrame]);
+    ffmpeg([
+      '-sseof',
+      '-0.1',
+      '-i',
+      clips.at(-1).mp4,
+      '-frames:v',
+      '1',
+      lastFrame,
+    ]);
     const {titleCard, endCard} = target;
     const parts = [
       ...(titleCard ? [await addCard(titleCard, 0, firstFrame)] : []),

@@ -52,6 +52,25 @@ const flat = [];
 for (let t = 0; t <= 4; t += 0.01) flat.push(at(t).roll);
 const rising = flat.every((v, i) => i === 0 || v >= flat[i - 1] - 1e-12);
 check('a bank rises monotonically between keyframes', rising);
+check('gentle maneuvers do not enable loop mode', !at(1).loop);
+
+const clover = [
+  [0, 0, 0, 0],
+  [1, 0, null, 0],
+  [2, -45, null, 45],
+  [3, 0, null, 90],
+  [4, 0, 360, 90],
+];
+const cloverAt = (t) => attitudeAt(clover, t);
+check(
+  'null intermediate channel eases across full span while other channels hit intermediate keyframes',
+  cloverAt(2).loop &&
+    near(cloverAt(2).roll, -45 * DEG) &&
+    near(cloverAt(2).pitch, 180 * DEG) &&
+    near(cloverAt(2).yaw, 45 * DEG) &&
+    near(cloverAt(4).pitch, 360 * DEG) &&
+    near(cloverAt(4).yaw, 90 * DEG)
+);
 
 console.log(
   failed ? 'Scripted flight test failed' : 'Scripted flight test passed'

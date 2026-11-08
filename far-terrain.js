@@ -254,6 +254,7 @@ export function updateFarTerrain(position) {
     if (cells.size > 0 || terrainUniforms.uNearEdgeFade.value !== 1) {
       clearFarTerrain();
     }
+    if (typeof document !== 'undefined') document.body.dataset.farReady = '1';
     return;
   }
 
@@ -310,4 +311,10 @@ export function updateFarTerrain(position) {
   else if (wantedCount === 0 || ready < wantedCount * 0.5) edgeFadeTarget = 1;
   const fade = terrainUniforms.uNearEdgeFade;
   fade.value += Math.max(-0.05, Math.min(0.05, edgeFadeTarget - fade.value));
+  if (typeof document !== 'undefined') {
+    document.body.dataset.farReady =
+      wantedCount === 0 || (ready >= wantedCount && fade.value === 0)
+        ? '1'
+        : '0';
+  }
 }
