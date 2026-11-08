@@ -52,7 +52,8 @@ import {playSmash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
 import {recordPropCrashStrain} from './crash.js';
 import {slowBuggy} from './buggy.js';
-import {propPuffs} from './particles.js';
+import {propPuffs, sporeBurst} from './particles.js';
+import {startTrip} from './mushroom-trip.js';
 import {forEachPeerVehicle} from './multiplayer.js';
 import {
   BREAK,
@@ -916,6 +917,22 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
         3,
         2
       );
+      // An alien mushroom lets go of its spores, glowing in its cap's
+      // colour, and the player who knocked it over goes a bit trippy
+      // (mushroom-trip.js), more so for the giants
+      if (leaves.type === 'mushroomCap') {
+        sporeBurst(
+          x,
+          base + height * 0.55,
+          z,
+          index.radius[i],
+          height * 0.45,
+          LEAF_PUFF,
+          Math.min(120, Math.round(40 + height * 0.4)),
+          Math.max(3, height * 0.07)
+        );
+        if (mine) startTrip(height / 150);
+      }
     }
     propPuffs(x, base, z, 2, 2, dust, 6, 4, 2);
   }

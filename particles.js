@@ -1111,6 +1111,38 @@ export function propPuffs(
   }
 }
 
+// Spores off a knocked-over mushroom (breakables.js): `count` glowing motes
+// of `color` and paler, from around the cap (within `spread` of (x, z), y up
+// to y + height), that drift slowly up and away and twinkle out over
+// several seconds
+const _spore = new THREE.Color();
+export function sporeBurst(x, y, z, spread, height, color, count, size = 1.5) {
+  for (let i = 0; i < count; i++) {
+    _p.set(
+      x + rand(-spread, spread),
+      y + rand(0, height),
+      z + rand(-spread, spread)
+    );
+    _spore.copy(color).lerp(WHITE, rand(0, 0.6));
+    spawn(
+      _p,
+      {
+        x: rand(-1, 1) * spread * 0.25,
+        y: rand(0.5, 2.5) + height * 0.05,
+        z: rand(-1, 1) * spread * 0.25,
+      },
+      rand(0.2, 0.6),
+      rand(5, 9),
+      size * rand(0.6, 1),
+      size * rand(1.4, 2.2),
+      _spore,
+      rand(0.7, 0.95),
+      false,
+      true
+    );
+  }
+}
+
 // A whale's blow (whales.js): a tall column of mist that rises, spreads and
 // drifts away
 export function whaleBlow(x, z) {

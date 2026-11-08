@@ -102,6 +102,7 @@ import '../prop-spin-logic.js';
 import '../multiplayer-logic.js';
 import '../race-gates.js';
 import '../multiplayer.js';
+import '../mushroom-trip.js';
 import '../breakables-logic.js';
 import '../breakables.js';
 import '../bumps.js';
