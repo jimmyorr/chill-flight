@@ -6270,7 +6270,27 @@ export const ChillFlightLogic = {};
     LIGHT_SNOW_EDGE: 0.15, // light snow where the snow cover is full
     LIGHT_SNOW_DEEP: 0.25, // and 1.5 degrees farther north
     DESERT_CLEAR: 0.65, // share of the cloud cover that clears deep in the desert
+    // It always snows around the skeleton (dragonSite), so there's a place
+    // to count on seeing snow: steady snow under a grey sky out to
+    // SKELETON_SNOW_FULL units, easing off by SKELETON_SNOW_EDGE
+    SKELETON_SNOW: 0.45, // as heavy as a snowstorm
+    SKELETON_CLOUD: 0.6,
+    SKELETON_SNOW_FULL: 3000, // about 1.5 km
+    SKELETON_SNOW_EDGE: 7000, // about 3.5 km
   };
+
+  // How much the skeleton's own snow holds at (x, z): 1 near it, easing to 0
+  // at SKELETON_SNOW_EDGE (0 on a world with no skeleton)
+  function skeletonSnowAt(x, z, simplex) {
+    if (_findingDragon) return 0;
+    const site = dragonSite(simplex, {WATER_LEVEL: 40});
+    if (!site) return 0;
+    const dx = x - site.x;
+    const dz = z - site.z;
+    const edge = WEATHER.SKELETON_SNOW_EDGE;
+    if (Math.abs(dx) > edge || Math.abs(dz) > edge) return 0;
+    return 1 - smoothRamp(Math.hypot(dx, dz), WEATHER.SKELETON_SNOW_FULL, edge);
+  }
 
   // Snow settling on the roads, 0 bare to 1 white (weather-manager.js,
   // roadSnowUniforms): `snow` is what's falling, 0 to 1 of full snow. Full
@@ -6314,6 +6334,8 @@ export const ChillFlightLogic = {};
         1) /
       2;
     const ramp = (v, [from, to]) => smoothRamp(v, from, to);
+    // Around the skeleton it always snows
+    const skeleton = skeletonSnowAt(x, z, simplex);
     const snowZone = smoothRamp(lat, SNOW_START_LAT, SNOW_FULL_LAT);
     const storm = ramp(stormNoise, WEATHER.STORM_PRECIP);
 
@@ -6336,7 +6358,9 @@ export const ChillFlightLogic = {};
           1
         ),
         ramp(stormNoise, WEATHER.STORM_CLOUD),
-        0.75 * snowCloudZone * ramp(snowNoise, WEATHER.LIGHT_SNOW_CLOUD)
+        0.75 * snowCloudZone * ramp(snowNoise, WEATHER.LIGHT_SNOW_CLOUD),
+        // (the grey sky reaching out past where the flakes thin out)
+        WEATHER.SKELETON_CLOUD * smoothRamp(skeleton, 0, 0.15)
       ) *
       (1 - WEATHER.DESERT_CLEAR * dry);
 
@@ -6348,8 +6372,13 @@ export const ChillFlightLogic = {};
           (WEATHER.LIGHT_SNOW_DEEP - WEATHER.LIGHT_SNOW_EDGE));
     // Storms bring rain in the south, snow in the north, and sleet between;
     // the rain dries up toward the desert
-    const rain = storm * WEATHER.RAIN_FULL * (1 - snowZone) * (1 - dry);
-    const snow = Math.max(lightSnow, storm * WEATHER.SNOW_STORM * snowZone);
+    const rain =
+      storm * WEATHER.RAIN_FULL * (1 - snowZone) * (1 - dry) * (1 - skeleton);
+    const snow = Math.max(
+      lightSnow,
+      storm * WEATHER.SNOW_STORM * snowZone,
+      skeleton * WEATHER.SKELETON_SNOW
+    );
     const zone =
       snowZone >= 1
         ? 'Snow'
@@ -6360,11 +6389,12 @@ export const ChillFlightLogic = {};
             : dry > 0
               ? 'Dry edge'
               : 'Rain';
-    return {cloud, rain, snow, cloudNoise, stormNoise, lat, zone};
+    return {cloud, rain, snow, cloudNoise, stormNoise, lat, zone, skeleton};
   }
 
   exports.WEATHER = WEATHER;
   exports.weatherAt = weatherAt;
+  exports.skeletonSnowAt = skeletonSnowAt;
   exports.ROAD_SNOW = ROAD_SNOW;
   exports.settleRoadSnow = settleRoadSnow;
 

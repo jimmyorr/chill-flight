@@ -222,4 +222,37 @@ check('snow gets heavier farther north', deep > edge * 1.3);
   );
 }
 
+// It always snows around the skeleton, easing off at the edge
+{
+  const site = ChillFlightLogic.dragonSite(simplex, {WATER_LEVEL: 40});
+  if (site) {
+    let least = Infinity;
+    let most = 0;
+    let rainy = 0;
+    for (let clock = 0; clock < 4 * 3600 * 1000; clock += 37000) {
+      const w = weatherAt(site.x + 1500, site.z - 1000, clock, simplex);
+      least = Math.min(least, w.snow);
+      rainy = Math.max(rainy, w.rain);
+      const far = weatherAt(site.x + 12000, site.z, clock, simplex);
+      most = Math.max(most, far.skeleton);
+    }
+    check(
+      `always snowing near the skeleton (least ${least.toFixed(2)})`,
+      least >= WEATHER.SKELETON_SNOW - 1e-9 && rainy === 0
+    );
+    check('the skeleton snow stops by its edge', most === 0);
+    const half = ChillFlightLogic.skeletonSnowAt(
+      site.x + (WEATHER.SKELETON_SNOW_FULL + WEATHER.SKELETON_SNOW_EDGE) / 2,
+      site.z,
+      simplex
+    );
+    check(
+      `the skeleton snow fades smoothly (${half.toFixed(2)} halfway out)`,
+      half > 0.3 && half < 0.7
+    );
+  } else {
+    console.log('  (no skeleton on this world)');
+  }
+}
+
 process.exit(failed ? 1 : 0);
