@@ -6751,6 +6751,8 @@ export function generateChunkData({
     if (pos.beacon) {
       _iceHutColor.setHex(pos.color);
       collector.add('breakwaterBeacon', _matBuffer, _iceHutColor);
+      // The mound's round end, under the beacon
+      collector.add('breakwaterHead', _matBuffer);
       collector.add('breakwaterLamp', _matBuffer);
     } else {
       collector.add('breakwaterRock' + pos.variant, _matBuffer);

@@ -1320,6 +1320,64 @@ export var buoyGeos = (() => {
 })();
 export var buoyTopMat = createMaterial({color: 0x2d3033, flatShading: true});
 
+// Vertex colour a rubble part (one shade a triangle, a little darker where
+// wet; under water the rocks keep their own colour and the clear water
+// tints them) and add it to parts
+function paintRubble(parts, geo, hex) {
+  geo = geo.index ? geo.toNonIndexed() : geo;
+  // As written (not converted from sRGB; see sky.js colour management)
+  const c = new THREE.Color().setHex(hex, THREE.LinearSRGBColorSpace);
+  const pos = geo.attributes.position;
+  const col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i += 3) {
+    const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+    const wet = y < 0.1 ? 0.84 : y < 0.8 ? 0.92 : 1;
+    for (let j = 0; j < 3; j++) {
+      col[(i + j) * 3] = c.r * wet * 0.95;
+      col[(i + j) * 3 + 1] = c.g * wet;
+      col[(i + j) * 3 + 2] = c.b * wet * 0.93;
+    }
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.deleteAttribute('uv');
+  parts.push(geo);
+}
+const RUBBLE_PALETTE = [
+  0x9b958b, 0xaba395, 0x8a857c, 0xb3a893, 0x7f7a71, 0xa09482,
+];
+const RUBBLE_CORE = 0x857f75;
+// A seeded random function for a rubble variant
+function rubbleRand(seed) {
+  return () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+}
+// One boulder of radius about `size` at (x, y, z), squashed and turned
+function rubbleBoulder(parts, rand, size, x, y, z) {
+  const r = size * (0.8 + rand() * 0.45);
+  const b = new THREE.IcosahedronGeometry(r, 0);
+  b.deleteAttribute('normal');
+  b.scale(1 + rand() * 0.4, 0.6 + rand() * 0.3, 1 + rand() * 0.4);
+  b.rotateY(rand() * Math.PI);
+  b.rotateX((rand() - 0.5) * 0.5);
+  b.translate(x, y, z);
+  paintRubble(
+    parts,
+    b,
+    RUBBLE_PALETTE[Math.floor(rand() * RUBBLE_PALETTE.length)]
+  );
+}
+// Rubble rows: [across, height, jitter, radius]: a crown row, a flank row
+// each side at the waterline, a row half under water, then two rows each
+// side down the slope toward the sea floor
+const RUBBLE_ROWS = [
+  [0, 1.8, 0.6, 2.4],
+  [5.6, 0.6, 0.7, 2.2],
+  [8.6, -0.6, 0.6, 1.8],
+  [10.8, -3.2, 0.6, 2.3],
+  [14.2, -6, 0.6, 2.6],
+];
 // Breakwater rubble (terrain-gen.js findBreakwater): one stretch of the
 // mound, 9 units of it along +z with its waterline at y = 0. A rough
 // trapezoid core down to the sea floor and 23 boulders piled on its
@@ -1328,36 +1386,11 @@ export var buoyTopMat = createMaterial({color: 0x2d3033, flatShading: true});
 // stretches don't repeat. About 470 triangles a stretch, 20 or so units wide
 // at the waterline and 34 at the foot.
 export var breakwaterRockGeos = (() => {
-  const palette = [0x9b958b, 0xaba395, 0x8a857c, 0xb3a893, 0x7f7a71, 0xa09482];
   const variants = [];
+  const counts = [3, 3, 2, 3, 2];
   for (let v = 0; v < 3; v++) {
-    let seed = 97 + v * 131;
-    const rand = () => {
-      seed = (seed * 16807) % 2147483647;
-      return (seed - 1) / 2147483646;
-    };
+    const rand = rubbleRand(97 + v * 131);
     const parts = [];
-    const paint = (geo, hex) => {
-      geo = geo.index ? geo.toNonIndexed() : geo;
-      // As written (not converted from sRGB; see sky.js colour management)
-      const c = new THREE.Color().setHex(hex, THREE.LinearSRGBColorSpace);
-      const pos = geo.attributes.position;
-      const col = new Float32Array(pos.count * 3);
-      for (let i = 0; i < pos.count; i += 3) {
-        // A little darker where wet (one shade a triangle); under water the
-        // rocks keep their own colour and the clear water tints them
-        const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
-        const wet = y < 0.1 ? 0.84 : y < 0.8 ? 0.92 : 1;
-        for (let j = 0; j < 3; j++) {
-          col[(i + j) * 3] = c.r * wet * 0.95;
-          col[(i + j) * 3 + 1] = c.g * wet;
-          col[(i + j) * 3 + 2] = c.b * wet * 0.93;
-        }
-      }
-      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-      geo.deleteAttribute('uv');
-      parts.push(geo);
-    };
     // Core: a mound down to the sea floor, base 34 wide 10 down, crown 8
     // wide 1.4 up (inside the boulders, so no straight edge shows through
     // clear water; deeper than 10 the water hides it anyway)
@@ -1369,42 +1402,58 @@ export var breakwaterRockGeos = (() => {
       cp.setY(i, top ? 1.4 : -10);
     }
     core.deleteAttribute('normal');
-    paint(core, 0x857f75);
-    // Boulders: [across, height, jitter, count, radius]: a crown row, a
-    // flank row each side at the waterline, a row half under water, then
-    // two rows each side down the slope toward the sea floor
-    const rows = [
-      [0, 1.8, 0.6, 3, 2.4],
-      [-5.6, 0.6, 0.7, 3, 2.2],
-      [5.6, 0.6, 0.7, 3, 2.2],
-      [-8.6, -0.6, 0.6, 2, 1.8],
-      [8.6, -0.6, 0.6, 2, 1.8],
-      [-10.8, -3.2, 0.6, 3, 2.3],
-      [10.8, -3.2, 0.6, 3, 2.3],
-      [-14.2, -6, 0.6, 2, 2.6],
-      [14.2, -6, 0.6, 2, 2.6],
-    ];
-    for (const [x0, y0, jit, count, size] of rows) {
-      for (let k = 0; k < count; k++) {
-        const r = size * (0.8 + rand() * 0.45);
-        const b = new THREE.IcosahedronGeometry(r, 0);
-        b.deleteAttribute('normal');
-        b.scale(1 + rand() * 0.4, 0.6 + rand() * 0.3, 1 + rand() * 0.4);
-        b.rotateY(rand() * Math.PI);
-        b.rotateX((rand() - 0.5) * 0.5);
-        b.translate(
-          x0 + (rand() - 0.5) * 2 * jit * 2,
-          y0 + (rand() - 0.5) * jit,
-          -4.5 + (k + 0.5) * (9 / count) + (rand() - 0.5) * 1.2
-        );
-        paint(b, palette[Math.floor(rand() * palette.length)]);
+    paintRubble(parts, core, RUBBLE_CORE);
+    RUBBLE_ROWS.forEach(([x0, y0, jit, size], row) => {
+      for (const side of x0 ? [-1, 1] : [1]) {
+        const count = counts[row];
+        for (let k = 0; k < count; k++) {
+          rubbleBoulder(
+            parts,
+            rand,
+            size,
+            side * x0 + (rand() - 0.5) * 2 * jit * 2,
+            y0 + (rand() - 0.5) * jit,
+            -4.5 + (k + 0.5) * (9 / count) + (rand() - 0.5) * 1.2
+          );
+        }
       }
-    }
+    });
     const geo = mergeBufferGeometries(parts);
     geo.computeVertexNormals();
     variants.push(geo);
   }
   return variants;
+})();
+// The round end of a breakwater, under its beacon: a cone of core and the
+// same rows of boulders in rings, so the mound rounds off past the last
+// stretch down to the sea floor instead of ending in a flat face.
+// About 700 triangles, one a breakwater.
+export var breakwaterHeadGeo = (() => {
+  const rand = rubbleRand(4211);
+  const parts = [];
+  const core = new THREE.CylinderGeometry(4, 19, 11.4, 12, 1, true);
+  core.translate(0, -4.3, 0);
+  core.deleteAttribute('normal');
+  paintRubble(parts, core, RUBBLE_CORE);
+  const ringCounts = [0, 6, 8, 10, 12];
+  RUBBLE_ROWS.forEach(([r0, y0, jit, size], row) => {
+    const count = ringCounts[row];
+    for (let k = 0; k < count; k++) {
+      const a = ((k + rand() * 0.5) / count) * Math.PI * 2;
+      const r = r0 + (rand() - 0.5) * jit * 2;
+      rubbleBoulder(
+        parts,
+        rand,
+        size,
+        Math.sin(a) * r,
+        y0 + (rand() - 0.5) * jit,
+        Math.cos(a) * r
+      );
+    }
+  });
+  const geo = mergeBufferGeometries(parts);
+  geo.computeVertexNormals();
+  return geo;
 })();
 // Surf along both flanks of a rubble stretch, where the rocks meet the
 // water, so the mound sits in the sea: thin broken strips like the boats'

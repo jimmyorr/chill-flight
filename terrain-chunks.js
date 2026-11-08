@@ -66,6 +66,7 @@ import {
   buoyGeos,
   buoyTopMat,
   breakwaterRockGeos,
+  breakwaterHeadGeo,
   breakwaterBeaconGeos,
   breakwaterSurfGeo,
   breakwaterSurfMat,
@@ -1173,6 +1174,14 @@ breakwaterRockGeos.forEach((geo, i) =>
     false,
     false
   )
+);
+globalInstancer.registerType(
+  'breakwaterHead',
+  breakwaterHeadGeo,
+  boatMat,
+  1000,
+  false,
+  false
 );
 globalInstancer.registerType(
   'breakwaterBeacon',
