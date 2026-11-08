@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.7](https://v1-2-7.chill-flight.pages.dev)
+
+- **Alien lands:** Shatter crystals for a 2.5x speed rush, find giant crystals, and trip on mushrooms with glowing spores and rainbow smoke.
+- **World & weather:** Added coral reefs, breakwaters, wind-slanted rain with splashes, fluttering snow, and smoother sunsets and coastlines.
+- **Buggy & HUD:** Raised buggy speed to 161 km/h (100 mph), added 60-degree bank climbs, and added opt-in imperial units with realistic speeds.
+
 ## [1.2.6](https://v1-2-6.chill-flight.pages.dev)
 
 - **Languages:** Added 8 languages including Japanese, Korean, Chinese, Spanish, Portuguese, German, and French.

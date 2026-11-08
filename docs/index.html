@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "1.2.6";
-window.__COMMIT_HASH__ = "b4dc084";
+    <script>window.__APP_VERSION__ = "1.2.7";
+window.__COMMIT_HASH__ = "63dd39f";
 window.__IS_DIRTY__ = false;</script>
 
     <meta charset="UTF-8" />
@@ -76,8 +76,8 @@ window.__IS_DIRTY__ = false;</script>
       }
     </script>
     <!-- sync-end:description -->
-    <script type="module" crossorigin src="./assets/main-BgJlB1Xs.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/three-BxF9f2ro.js">
+    <script type="module" crossorigin src="./assets/main-DXBRNIi-.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/three-BXovzCg_.js">
     <link rel="modulepreload" crossorigin href="./assets/definitions-DzrWiD94.js">
     <link rel="stylesheet" crossorigin href="./assets/main-Dm4jiRCA.css">
   </head>
@@ -222,6 +222,7 @@ window.__IS_DIRTY__ = false;</script>
               <select id="language-select" class="customization-input">
                 <option value="auto" data-no-translate>Auto</option>
                 <option value="en" data-no-translate>English</option>
+                <option value="en-US" data-no-translate>English (US)</option>
                 <option value="de" data-no-translate>Deutsch</option>
                 <option value="es" data-no-translate>Español</option>
                 <option value="fr" data-no-translate>Français</option>
@@ -432,6 +433,7 @@ window.__IS_DIRTY__ = false;</script>
           ><span id="about-app-store-container">
             &bull;
             <a
+              id="pause-app-store-link"
               href="#"
               onclick="
                 window.openExternalLink(
@@ -794,6 +796,25 @@ window.__IS_DIRTY__ = false;</script>
           </button>
           <button
             class="sub-btn"
+            id="mobile-auto-toggle"
+            title="Autopilot"
+            tabindex="-1"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              style="
+                width: 24px;
+                height: 24px;
+                fill: none;
+                stroke: currentColor;
+                stroke-width: 2;
+              "
+            >
+              <path d="M22 12L3 20l3.5-8L3 4l19 8zL6.5 12"></path>
+            </svg>
+          </button>
+          <button
+            class="sub-btn"
             id="mobile-cam-toggle"
             title="Camera"
             tabindex="-1"
@@ -866,25 +887,6 @@ window.__IS_DIRTY__ = false;</script>
               <path
                 d="M3 15c2-3 4-3 6 0s4 3 6 0 4-3 6 0M3 9c2-3 4-3 6 0s4 3 6 0 4-3 6 0"
               ></path>
-            </svg>
-          </button>
-          <button
-            class="sub-btn"
-            id="mobile-auto-toggle"
-            title="Autopilot"
-            tabindex="-1"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              style="
-                width: 24px;
-                height: 24px;
-                fill: none;
-                stroke: currentColor;
-                stroke-width: 2;
-              "
-            >
-              <path d="M22 12L3 20l3.5-8L3 4l19 8zL6.5 12"></path>
             </svg>
           </button>
           <button
@@ -962,7 +964,7 @@ window.__IS_DIRTY__ = false;</script>
           <div class="throttle-ticks"></div>
           <span class="throttle-max">MAX</span>
           <div class="throttle-knob">
-            <b id="throttle-kts">150</b><small>KTS</small>
+            <b id="throttle-kts">150</b><small id="throttle-unit">KTS</small>
           </div>
         </div>
       </div>
