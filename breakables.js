@@ -285,7 +285,15 @@ function uploadPools() {
       }
       const info = debrisInfo(p.type);
       const capacity = Math.max(32, 2 ** Math.ceil(Math.log2(n || 1)));
-      p.mesh = createDebrisMesh(info.geo, info.mat, capacity, info.useColor);
+      // A tree knocked over near the plane keeps the full model it was
+      // drawn with (nearGeo, within CLOSE_UP_RANGE) instead of popping to
+      // its low-poly stand-in as it falls
+      p.mesh = createDebrisMesh(
+        info.nearGeo || info.geo,
+        info.mat,
+        capacity,
+        info.useColor
+      );
       p.mesh.name = 'Breakable ' + p.type;
       scene.add(p.mesh);
     }
