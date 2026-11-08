@@ -452,7 +452,24 @@ export function pushBuggy(dx, dz) {
   velZ += dz;
 }
 
+// The longest step the buggy's physics takes at once (s). A longer frame (a
+// hitch, often in the first seconds after START) is driven in more than one
+// step, so the buggy still covers the whole frame's time: only stepping
+// part of it put it behind where the chase camera (which follows by the
+// frame's whole length) expected it, and the camera lurched toward it and
+// sprang back.
+const MAX_STEP = 0.05;
+
 export function updateBuggy(delta) {
+  let left = delta;
+  while (left > 1e-6) {
+    const dt = Math.min(left, MAX_STEP);
+    stepBuggy(dt);
+    left -= dt;
+  }
+}
+
+function stepBuggy(dt) {
   const model = state.airplaneModel;
   if (state.isFreeCamera || !model) return;
   const pos = planeGroup.position;
@@ -465,7 +482,6 @@ export function updateBuggy(delta) {
     lastModel = model;
     enter(fall);
   }
-  const dt = Math.min(delta, 0.05);
 
   // --- INPUT ---
   const shift = keys.Shift;
