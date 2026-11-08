@@ -2082,6 +2082,31 @@ function lerpKeepSaturation(c, target, t) {
   c.lerp(target, t).getHSL(_hslA);
   return c.setHSL(_hslA.h, s, _hslA.l);
 }
+// Warms the horizon color c (the day's blue) toward the sunset color target.
+// A blend that keeps saturation (above) swings the hue from blue through
+// indigo, magenta and red in a few game minutes, since blue and orange sit on
+// opposite sides of the color wheel. Instead the blue fades to a pale haze
+// (brighter, like the glare of a low sun), and the warm color grows out of it,
+// golden at first and turning to the target's orange. hueShift (degrees)
+// turns the warm side redder after sunset, for the afterglow.
+const HORIZON_HAZE_AT = 0.2; // where the blue has faded out
+const HORIZON_HAZE_LIFT = 0.15; // how much brighter the haze is
+const HORIZON_GOLD_DEGREES = 15; // how golden the warm color starts
+function warmHorizon(c, target, t, hueShift) {
+  c.getHSL(_hslA);
+  target.getHSL(_hslB);
+  let l = _hslA.l + (_hslB.l - _hslA.l) * t;
+  if (t < 2 * HORIZON_HAZE_AT) {
+    l += HORIZON_HAZE_LIFT * Math.sin((Math.PI * t) / (2 * HORIZON_HAZE_AT));
+  }
+  if (t < HORIZON_HAZE_AT) {
+    const s = _hslA.s * (1 - t / HORIZON_HAZE_AT);
+    return c.setHSL(_hslA.h, s, Math.min(0.95, l));
+  }
+  const v = (t - HORIZON_HAZE_AT) / (1 - HORIZON_HAZE_AT);
+  const h = _hslB.h + ((1 - v) * HORIZON_GOLD_DEGREES + hueShift) / 360;
+  return c.setHSL((h + 1) % 1, _hslB.s * Math.pow(v, 0.4), Math.min(0.95, l));
+}
 // How warm the sky is: full with the sun on the horizon, none from 24
 // degrees up (or down)
 function skyWarmth(sunY) {
@@ -2654,7 +2679,14 @@ function updateEnvironmentLighting(delta, now) {
         const overcastMuteFactor = isSnowing ? 0.3 : 0.6; // Snow only mutes by 30%, rain by 60%
         const actualDawnDusk =
           dawnDuskFactor * 0.8 * (1.0 - overcast * overcastMuteFactor);
-        lerpKeepSaturation(_skyBottomCol, _warmHorizonColor, actualDawnDusk);
+        // Redder in the afterglow, the sun up to about 9 degrees down
+        const afterglow = THREE.MathUtils.clamp(-state.sunY / 0.15, 0, 1);
+        warmHorizon(
+          _skyBottomCol,
+          _warmHorizonColor,
+          actualDawnDusk,
+          -18 * afterglow
+        );
       }
 
       skyUniforms.bottomColor.value.copy(_skyBottomCol);
