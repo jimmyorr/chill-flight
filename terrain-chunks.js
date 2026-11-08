@@ -1274,7 +1274,15 @@ globalInstancer.registerType(
   true
 );
 globalInstancer.registerType('snowmanBody', snowmanGeos.body, snowmanBodyMat);
-globalInstancer.registerType('snowmanNose', snowmanGeos.nose, snowmanNoseMat);
+// The carrot nose is too small to cast a shadow worth drawing
+globalInstancer.registerType(
+  'snowmanNose',
+  snowmanGeos.nose,
+  snowmanNoseMat,
+  30000,
+  false,
+  false
+);
 globalInstancer.registerType('iceberg', icebergMainGeo, icebergMat);
 globalInstancer.registerType('iceFloe', iceFloeMainGeo, icebergMat);
 globalInstancer.registerType('penguin', penguinGeo, penguinMat);
