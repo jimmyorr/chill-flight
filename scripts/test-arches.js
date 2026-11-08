@@ -20,8 +20,13 @@ import {
   archGround,
   archSites,
   archTop,
+  heightsFromTriangles,
   solidAt,
+  solidFromHeights,
 } from '../arches-logic.js';
+import {mergeAsset} from '../boat-models.js';
+import {DRAGON_SCALE} from '../building-models.js';
+import * as dragonSkeleton from '../third-party/polyfork/dragon-skeleton-88de43.mjs';
 import {wallContact} from '../wall-scrape-logic.js';
 
 const SEED = 20260101;
@@ -262,6 +267,88 @@ for (const arch of kinds('basalt')) {
 console.log(
   '  Passed: sea legs in the water (and block the buggy), bridges in the walls, columns on tops'
 );
+
+// --- The dragon skeleton, solid (pyramids.js) ---
+{
+  const geo = mergeAsset(
+    dragonSkeleton.createAsset({colorway: 'old-ivory', curl: 0.45}),
+    0.05,
+    DRAGON_SCALE
+  );
+  const grid = heightsFromTriangles(
+    geo.attributes.position.array,
+    geo.index ? geo.index.array : null,
+    ARCH.STEP
+  );
+  const X = 1000;
+  const Z = -2000;
+  const BASE = 100;
+  const YAW = 0.55;
+  const hull = solidFromHeights('skeleton', X, Z, YAW, BASE, grid);
+  const c = Math.cos(YAW);
+  const s = Math.sin(YAW);
+  // The model's own (x, z) in the world, turned as Object3D's rotation.y
+  const world = (mx, mz) => ({x: X + mx * c + mz * s, z: Z - mx * s + mz * c});
+  // Every tall bone is inside it, no lower than the bone
+  const p = geo.attributes.position.array;
+  let missed = 0;
+  let tall = 0;
+  for (let i = 0; i < p.length; i += 3) {
+    if (p[i + 1] < 8) continue;
+    tall++;
+    const w = world(p[i], p[i + 2]);
+    const y = BASE + p[i + 1];
+    const inside = hull.some(
+      (slab) =>
+        solidAt(slab, w.x, w.z, out) && out.under <= y + 1 && out.top >= y - 1
+    );
+    if (!inside) missed++;
+  }
+  check(missed === 0, `${missed} of ${tall} skeleton points outside its solid`);
+  // Its highest (over the ribs) is a wall to the plane and the buggy
+  let hi = 0;
+  for (let k = 1; k < grid.heights.length; k++) {
+    if (grid.heights[k] > grid.heights[hi]) hi = k;
+  }
+  const ribs = world(
+    grid.x0 + ((hi % grid.nx) + 0.5) * grid.cell,
+    grid.z0 + (Math.floor(hi / grid.nx) + 0.5) * grid.cell
+  );
+  const g = {height: BASE, slopeX: 0, slopeZ: 0};
+  check(
+    archGround(hull, ribs.x, ribs.z, BASE + 20, g) && g.height > BASE + 50,
+    'the skeleton is not solid over its ribs'
+  );
+  check(
+    archBlocks(hull, ribs.x, ribs.z, BASE, 6, 3),
+    'the skeleton does not block the buggy'
+  );
+  // Flown into from the side low down, a wingtip finds a wall
+  {
+    const y = BASE + 30;
+    const from = world(0, 260);
+    let wall = null;
+    for (let t = 0; t <= 1 && !wall; t += 0.01) {
+      const qx = from.x + (ribs.x - from.x) * t;
+      const qz = from.z + (ribs.z - from.z) * t;
+      const g2 = {height: BASE, slopeX: 0, slopeZ: 0};
+      if (archGround(hull, qx, qz, y, g2)) wall = wallContact(y, g2, WATER);
+    }
+    check(wall !== null, 'a wingtip flying into the skeleton finds no wall');
+  }
+  // Some of it is held up off the ground, with room under it
+  const held = hull.filter((slab) => slab.under.some((u) => u > BASE + 12));
+  check(held.length > 0, 'nothing of the skeleton is off the ground');
+  // Clear of it all round
+  const far = world(0, 220);
+  check(
+    archTop(hull, far.x, far.z) === -Infinity,
+    'the skeleton reaches too far'
+  );
+  console.log(
+    `  Passed: the dragon skeleton is solid (${hull.length} slabs, ${tall} bone points inside)`
+  );
+}
 
 if (failed) {
   console.error('Arch tests FAILED');

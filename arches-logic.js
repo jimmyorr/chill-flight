@@ -761,6 +761,185 @@ export function solidPost(kind, x, z, angle, half, top) {
   });
 }
 
+// --- SOLID HULLS ---
+// A model too big to knock over (the dragon skeleton, pyramids.js) made
+// solid: its heights seen from above on a grid (heightsFromTriangles), and
+// each row of that grid's runs of tall cells a slab (solidFromHeights),
+// solid to the ground where its bones come down to it, and with an
+// underside where they're up off it (a neck or wing held up), so the plane
+// glances off it or lands on it and the buggy drives round it, as off an
+// arch's leg, or under it, as under an arch.
+
+/**
+ * The highest and lowest points of a mesh over each `cell`-wide square of
+ * its own (x, z), from its triangles (`positions` x, y, z per vertex,
+ * `index` three per triangle or null): {cell, x0, z0, nx, nz, heights,
+ * lows} with heights[iz * nx + ix] for the square from x0 + ix * cell,
+ * z0 + iz * cell (-Infinity where nothing is over it).
+ */
+export function heightsFromTriangles(positions, index, cell) {
+  const count = index ? index.length : positions.length / 3;
+  let x0 = Infinity;
+  let z0 = Infinity;
+  let x1 = -Infinity;
+  let z1 = -Infinity;
+  for (let i = 0; i < positions.length; i += 3) {
+    x0 = Math.min(x0, positions[i]);
+    x1 = Math.max(x1, positions[i]);
+    z0 = Math.min(z0, positions[i + 2]);
+    z1 = Math.max(z1, positions[i + 2]);
+  }
+  const nx = Math.floor((x1 - x0) / cell) + 1;
+  const nz = Math.floor((z1 - z0) / cell) + 1;
+  const heights = new Float64Array(nx * nz).fill(-Infinity);
+  const lows = new Float64Array(nx * nz).fill(Infinity);
+  const vertex = (k) => (index ? index[k] : k) * 3;
+  for (let t = 0; t + 2 < count; t += 3) {
+    const a = vertex(t);
+    const b = vertex(t + 1);
+    const c = vertex(t + 2);
+    // Points over the triangle under half a cell apart, so every square it
+    // covers is found
+    const edge = Math.max(
+      Math.hypot(
+        positions[a] - positions[b],
+        positions[a + 2] - positions[b + 2]
+      ),
+      Math.hypot(
+        positions[b] - positions[c],
+        positions[b + 2] - positions[c + 2]
+      ),
+      Math.hypot(
+        positions[c] - positions[a],
+        positions[c + 2] - positions[a + 2]
+      )
+    );
+    const n = Math.max(1, Math.ceil(edge / (cell / 2)));
+    for (let i = 0; i <= n; i++) {
+      for (let j = 0; j <= n - i; j++) {
+        const wa = i / n;
+        const wb = j / n;
+        const wc = 1 - wa - wb;
+        const x = positions[a] * wa + positions[b] * wb + positions[c] * wc;
+        const y =
+          positions[a + 1] * wa + positions[b + 1] * wb + positions[c + 1] * wc;
+        const z =
+          positions[a + 2] * wa + positions[b + 2] * wb + positions[c + 2] * wc;
+        const ix = Math.min(nx - 1, Math.floor((x - x0) / cell));
+        const iz = Math.min(nz - 1, Math.floor((z - z0) / cell));
+        const k = iz * nx + ix;
+        if (y > heights[k]) heights[k] = y;
+        if (y < lows[k]) lows[k] = y;
+      }
+    }
+  }
+  return {cell, x0, z0, nx, nz, heights, lows};
+}
+
+/**
+ * The slabs making `grid` (heightsFromTriangles) solid, for the model drawn
+ * at (x, base, z) and turned `yaw` (as Object3D's rotation.y): cells at
+ * least `minHeight` tall are solid (lower ones, bones lying flat, are left
+ * to drive over), with gaps between them a cell wide filled in (between
+ * ribs), and each row `rowCells` cells deep. Where a cell's lowest bone is
+ * more than `clear` up, it has an underside there; lower, it's solid to
+ * the ground.
+ */
+export function solidFromHeights(
+  kind,
+  x,
+  z,
+  yaw,
+  base,
+  grid,
+  {minHeight = 4, rowCells = 2, clear = 12} = {}
+) {
+  const {cell, x0, z0, nx, nz, heights, lows} = grid;
+  const at = (ix, iz) =>
+    ix < 0 || iz < 0 || ix >= nx || iz >= nz
+      ? -Infinity
+      : heights[iz * nx + ix];
+  const tall = (ix, iz) => at(ix, iz) >= minHeight;
+  const low = (ix, iz) =>
+    lows[iz * nx + ix] > clear ? lows[iz * nx + ix] : SOLID;
+  // Close the gaps: a cell is filled when it has a tall cell on both sides
+  // of it (across, along or diagonally), as high as the lower of them and
+  // its underside the higher of theirs
+  const top = new Float64Array(nx * nz).fill(-Infinity);
+  const under = new Float64Array(nx * nz).fill(Infinity);
+  const pairs = [
+    [1, 0],
+    [0, 1],
+    [1, 1],
+    [1, -1],
+  ];
+  for (let iz = 0; iz < nz; iz++) {
+    for (let ix = 0; ix < nx; ix++) {
+      const own = tall(ix, iz);
+      let h = own ? at(ix, iz) : -Infinity;
+      let b = own ? low(ix, iz) : Infinity;
+      for (const [dx, dz] of pairs) {
+        if (tall(ix + dx, iz + dz) && tall(ix - dx, iz - dz)) {
+          h = Math.max(h, Math.min(at(ix + dx, iz + dz), at(ix - dx, iz - dz)));
+          const gap = Math.max(low(ix + dx, iz + dz), low(ix - dx, iz - dz));
+          if (!own) b = Math.min(b, gap);
+        }
+      }
+      top[iz * nx + ix] = h;
+      under[iz * nx + ix] = b;
+    }
+  }
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  const slabs = [];
+  for (let r = 0; r * rowCells < nz; r++) {
+    // The row's highest and lowest over its depth, per cell along it
+    const row = new Float64Array(nx).fill(-Infinity);
+    const rowUnder = new Float64Array(nx).fill(Infinity);
+    for (let k = 0; k < rowCells; k++) {
+      const iz = r * rowCells + k;
+      if (iz >= nz) break;
+      for (let ix = 0; ix < nx; ix++) {
+        row[ix] = Math.max(row[ix], top[iz * nx + ix]);
+        rowUnder[ix] = Math.min(rowUnder[ix], under[iz * nx + ix]);
+      }
+    }
+    const depth = (Math.min(rowCells, nz - r * rowCells) * cell) / 2;
+    const v = z0 + r * rowCells * cell + depth;
+    // Its middle (model x 0) in the world
+    const cx = x + v * s;
+    const cz = z + v * c;
+    for (let ix = 0; ix < nx;) {
+      if (row[ix] === -Infinity) {
+        ix++;
+        continue;
+      }
+      let end = ix;
+      while (end + 1 < nx && row[end + 1] > -Infinity) end++;
+      const first = ix;
+      const last = end;
+      const uMin = x0 + first * cell;
+      slabs.push(
+        makeArch(kind, cx, cz, -yaw, uMin, x0 + (last + 1) * cell, (u, p) => {
+          // At each cell's edge, the higher top and lower underside of the
+          // two cells either side
+          const i = Math.round((u - x0) / cell);
+          const a = Math.max(first, Math.min(last, i - 1));
+          const b = Math.max(first, Math.min(last, i));
+          const h = Math.max(row[a], row[b]);
+          const bottom = Math.min(rowUnder[a], rowUnder[b]);
+          p.under = bottom === SOLID ? SOLID : base + bottom;
+          p.top = base + h;
+          p.depth = depth;
+          p.round = 0;
+        })
+      );
+      ix = end + 1;
+    }
+  }
+  return slabs;
+}
+
 function* findBasaltGates(E, simplex, water, rand) {
   const cell = ChillFlightLogic.basaltCell;
   const ROW = ChillFlightLogic.BASALT_ROW;

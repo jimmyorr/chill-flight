@@ -6,7 +6,15 @@
 // the terrain's material, so they light, fog and fade into the distance
 // with the land.
 import * as THREE from 'three';
-import {archSearch, flareAt, solidPost} from './arches-logic.js';
+import {
+  ARCH,
+  archSearch,
+  flareAt,
+  heightsFromTriangles,
+  solidFromHeights,
+  solidPost,
+} from './arches-logic.js';
+import {dragonSkeletonGeo} from './building-models.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {CHUNK_SIZE, WATER_LEVEL} from './constants.js';
 import {simplex} from './noise.js';
@@ -361,6 +369,32 @@ function giantOakTrunk() {
   );
 }
 if (ChillFlightLogic.SHOW_OBJECTS !== false) arches.push(giantOakTrunk());
+
+// The dragon skeleton (pyramids.js) is too big to knock over too: solid,
+// built from its bones' heights seen from above, so the plane glances off
+// it or lands on its back and the buggy drives round it. Bones lying flat
+// stay open to drive over.
+function dragonSkeletonSolid() {
+  const dragon = ChillFlightLogic.dragonSite(simplex, {WATER_LEVEL});
+  if (!dragon) return [];
+  const geo = dragonSkeletonGeo();
+  const grid = heightsFromTriangles(
+    geo.attributes.position.array,
+    geo.index ? geo.index.array : null,
+    ARCH.STEP
+  );
+  return solidFromHeights(
+    'skeleton',
+    dragon.x,
+    dragon.z,
+    dragon.yaw,
+    dragon.base,
+    grid
+  );
+}
+if (ChillFlightLogic.SHOW_OBJECTS !== false) {
+  arches.push(...dragonSkeletonSolid());
+}
 
 /**
  * Rebuilds the arches' meshes when the terrain's grid (state.SEGMENTS) has
