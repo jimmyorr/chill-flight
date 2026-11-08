@@ -738,7 +738,7 @@ export default {
   'Scrape a wingtip along a cliff and fly on':
     'Raspe a ponta da asa num penhasco e siga voando',
   'Mach 1': 'Mach 1',
-  'Reach a speed of 1000 KTS': 'Chegue a 1000 KTS',
+  'Reach a speed of 661 KTS': 'Chegue a 661 KTS',
   Gatsby: 'Gatsby',
   'Lighthouse flyby': 'Passagem pelo farol',
   'Pura Vida': 'Pura vida',
@@ -784,7 +784,7 @@ export default {
   Falls: 'Cachoeira',
   Canyon: 'Cânion',
   Pyramids: 'Pirâmides',
-  'Skeleton': 'Esqueleto',
+  Skeleton: 'Esqueleto',
   'If something comes up, just clear the waypoint on the map.':
     'Se surgir alguma coisa, é só limpar o ponto de rota no mapa.',
   'ACHIEVEMENT UNLOCKED': 'CONQUISTA DESBLOQUEADA',

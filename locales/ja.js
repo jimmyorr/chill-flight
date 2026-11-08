@@ -726,7 +726,7 @@ export default {
   'Close shave': '間一髪',
   'Scrape a wingtip along a cliff and fly on': '崖に翼端をこすって飛び続ける',
   'Mach 1': 'マッハ1',
-  'Reach a speed of 1000 KTS': '速度 1000 KTS に到達する',
+  'Reach a speed of 661 KTS': '速度 661 KTS に到達する',
   Gatsby: 'ギャツビー',
   'Lighthouse flyby': '灯台をフライバイ',
   'Pura Vida': 'プーラ・ビーダ',
@@ -771,7 +771,7 @@ export default {
   Falls: '滝',
   Canyon: '峡谷',
   Pyramids: 'ピラミッド',
-  'Skeleton': '骸骨',
+  Skeleton: '骸骨',
   'If something comes up, just clear the waypoint on the map.':
     '何か用事ができたら、マップでウェイポイントを消せば大丈夫。',
   'ACHIEVEMENT UNLOCKED': '実績解除',

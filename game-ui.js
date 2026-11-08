@@ -32,7 +32,13 @@ import {scene} from './scene.js';
 import {musicEnabled, setMusicEnabled} from './audio.js';
 import {initAudioContext, prebakeSfxBuffers, setSfxEnabled} from './sfx.js';
 import {state} from './state.js';
-import {BASE_FLIGHT_SPEED, updateDOM, updateUrlParams} from './constants.js';
+import {
+  BASE_FLIGHT_SPEED,
+  displaySpeed,
+  speedUnit,
+  updateDOM,
+  updateUrlParams,
+} from './constants.js';
 import {hooks} from './hooks.js';
 import {Achievements} from './achievements.js';
 import {getChunkLoadingProgress} from './terrain-chunks.js';
@@ -235,6 +241,7 @@ document.addEventListener('mouseover', (e) => {
 // updateThrottle(), which reads the same target each frame.
 const throttleEl = document.getElementById('throttle');
 const throttleKts = document.getElementById('throttle-kts');
+const throttleUnit = document.getElementById('throttle-unit');
 const throttleBoost = throttleEl?.querySelector('.throttle-boost');
 
 function setThrottleFromPointer(e) {
@@ -280,6 +287,7 @@ const THROTTLE_IDLE_MS = 4000;
 
 let lastThrottleTarget = -1;
 let lastThrottleMax = -1;
+let lastThrottlePlane = '';
 let lastThrottleZone = '';
 let throttleActiveAt = 0;
 let throttleIdle = false;
@@ -304,7 +312,11 @@ export function updateThrottle(now) {
   if (!throttleEl) return;
   const max = getMaxFlightSpeedMult();
   const target = state.targetFlightSpeed;
-  if (target === lastThrottleTarget && max === lastThrottleMax) {
+  if (
+    target === lastThrottleTarget &&
+    max === lastThrottleMax &&
+    activePlaneType === lastThrottlePlane
+  ) {
     if (!throttleIdle && now - throttleActiveAt > THROTTLE_IDLE_MS) {
       throttleIdle = true;
       throttleEl.classList.add('idle');
@@ -313,6 +325,7 @@ export function updateThrottle(now) {
   }
   lastThrottleTarget = target;
   lastThrottleMax = max;
+  lastThrottlePlane = activePlaneType;
   wakeThrottle(now);
   // Tag's speed boost (multiplayer.js): a gold stretch past the usual top
   // speed, which the knob glides into at full throttle
@@ -336,6 +349,8 @@ export function updateThrottle(now) {
   );
   const ktsPerMult = BASE_FLIGHT_SPEED * 60;
   const kts = Math.round(target * ktsPerMult);
+  const shownSpeed = displaySpeed(target * ktsPerMult, activePlaneType);
+  const maxShownSpeed = displaySpeed(max * ktsPerMult, activePlaneType);
   const {stallKts, levelKts} = planeHandling();
   throttleEl.style.setProperty('--thr', Math.min(1, target / max).toFixed(4));
   // The buggy can't stall: no stall mark or warning colours for it
@@ -345,9 +360,10 @@ export function updateThrottle(now) {
     '--stall',
     (stallKts / (max * ktsPerMult)).toFixed(4)
   );
-  throttleEl.setAttribute('aria-valuemax', Math.round(max * ktsPerMult));
-  throttleEl.setAttribute('aria-valuenow', kts);
-  updateDOM(throttleKts, kts);
+  throttleEl.setAttribute('aria-valuemax', maxShownSpeed);
+  throttleEl.setAttribute('aria-valuenow', shownSpeed);
+  updateDOM(throttleKts, shownSpeed);
+  updateDOM(throttleUnit, speedUnit(activePlaneType));
   const zone = !stalls
     ? ''
     : kts < stallKts - 5

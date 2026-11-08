@@ -34,26 +34,46 @@ export const MAP_HEIGHT_SCALE = 400;
 
 // Flight parameters
 export const BASE_FLIGHT_SPEED = 2.5;
-// World units to meters, on the speed readout's scale (a unit per second
-// reads as a knot): distances and altitude are shown on it
-export const UNITS_TO_M = 0.5144;
+// World units to meters: 1 unit is 1 m on the altimeter and distance readouts
+export const UNITS_TO_M = 1;
 export const TURN_SPEED = 0.03;
-// The top of the sky (units; about 1,470 m on the altitude readout), just
+// The top of the sky (units; about 2,854 m on the altitude readout), just
 // under the cloud deck at 3,000 (cloudHeight), whose flat layer gives itself
-// away from above. Over the last CEILING_EASE units (about 150 m) below it
+// away from above. Over the last CEILING_EASE units (300 m) below it
 // the steepest climb allowed eases to level, so the plane rounds out under
 // the clouds instead of sliding along the top
 export const MAX_FLIGHT_HEIGHT = 2900;
 export const CEILING_EASE = 300;
 
-// Each plane's speed and handling, kept close enough that every plane still
-// flies gently (README, "Planes"):
-// - topKts: the throttle's top speed (knots)
-// - stallKts: below this it starts to fall out of the sky, fully 20 knots
+// Sea-level speed of sound in knots (displayed HUD KTS)
+export const MACH_1_KTS = 661;
+
+// Converts internal speed (world units/s) to the HUD readout:
+// - Planes read in KTS: 1:1 up to the biplane's 40 kt stall, then easing
+//   to 0.5 kt per unit/s from the biplane's top speed (140 kts at 280) up
+//   to the jet's (550 kts at 1100, breaking Mach 1 = 661 kts in a dive).
+// - The buggy reads in KM/H on the same 0.5 kt per unit/s scale, rounded to
+//   an even 220 km/h at its 240 units/s top speed (~120 kts).
+export function displaySpeed(unitsPerSec, planeType = 'seaplane') {
+  const u = Math.max(0, unitsPerSec);
+  if (planeType === 'buggy') return Math.round((u * 220) / 240);
+  if (u <= 40) return Math.round(u);
+  if (u < 280) return Math.round(40 + ((u - 40) * 100) / 240);
+  return Math.round(u * 0.5);
+}
+
+export function speedUnit(planeType = 'seaplane') {
+  return planeType === 'buggy' ? 'KM/H' : 'KTS';
+}
+
+// Each plane's speed and handling, in world units/s (displayed via
+// displaySpeed; README, "Planes"):
+// - topKts: the throttle's top speed (units/s; 140/190/250/550 kts on HUD)
+// - stallKts: below this it starts to fall out of the sky, fully 20 units/s
 //   lower; levelKts: at and above this it holds its height, sinking more the
 //   slower it flies below it
 // - accelKts, decelKts: how fast the throttle speeds it up and slows it down
-//   (knots per second)
+//   (units/s per second)
 // - diveGain: how much a dive speeds it up and a climb slows it, as a share
 //   of its top speed going straight down or up (the throttle slider stays
 //   put; flight-physics-logic.js, pitchedTarget)
@@ -92,18 +112,18 @@ export const PLANE_HANDLING = {
     rollRate: 2.25,
   },
   jet: {
-    topKts: 800,
+    topKts: 1100,
     stallKts: 75,
     levelKts: 130,
-    accelKts: 70,
-    decelKts: 25,
+    accelKts: 95,
+    decelKts: 35,
     diveGain: 0.3,
     agility: 1,
     rollRate: 3,
   },
   // The buggy (buggy.js) drives rather than flies: only its top speed
-  // forward is used, and it never stalls. In the pause menu its hop and
-  // hover give it a float rating.
+  // forward is used (240 units/s, shown as 220 KM/H), and it never stalls.
+  // In the pause menu its hop and hover give it a float rating.
   buggy: {
     topKts: 240,
     stallKts: 0,
@@ -871,10 +891,7 @@ export function addRoadSnow(material) {
     base.call(this, shader, renderer);
     Object.assign(shader.uniforms, roadSnowUniforms);
     shader.vertexShader = shader.vertexShader
-      .replace(
-        'void main() {',
-        'varying float vRoadSnowUp;\nvoid main() {'
-      )
+      .replace('void main() {', 'varying float vRoadSnowUp;\nvoid main() {')
       .replace(
         '#include <project_vertex>',
         `#include <project_vertex>

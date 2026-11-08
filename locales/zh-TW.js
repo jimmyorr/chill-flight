@@ -695,7 +695,7 @@ export default {
   'Close shave': '千鈞一髮',
   'Scrape a wingtip along a cliff and fly on': '翼尖擦過懸崖後繼續飛',
   'Mach 1': '一馬赫',
-  'Reach a speed of 1000 KTS': '速度達到 1000 節',
+  'Reach a speed of 661 KTS': '速度達到 661 節',
   Gatsby: '蓋茨比',
   'Lighthouse flyby': '飛過燈塔',
   'Pura Vida': '純粹生活',
@@ -740,7 +740,7 @@ export default {
   Falls: '瀑布',
   Canyon: '峽谷',
   Pyramids: '金字塔',
-  'Skeleton': '骸骨',
+  Skeleton: '骸骨',
   'If something comes up, just clear the waypoint on the map.':
     '如果有事，在地圖上清除航點就行。',
   'ACHIEVEMENT UNLOCKED': '成就解鎖',

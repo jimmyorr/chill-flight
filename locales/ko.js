@@ -715,7 +715,7 @@ export default {
   'Scrape a wingtip along a cliff and fly on':
     '날개 끝으로 절벽을 긁고 계속 비행하세요',
   'Mach 1': '마하 1',
-  'Reach a speed of 1000 KTS': '속도 1000 KTS에 도달하세요',
+  'Reach a speed of 661 KTS': '속도 661 KTS에 도달하세요',
   Gatsby: '개츠비',
   'Lighthouse flyby': '등대 근접 비행',
   'Pura Vida': '푸라 비다',
@@ -760,7 +760,7 @@ export default {
   Falls: '폭포',
   Canyon: '협곡',
   Pyramids: '피라미드',
-  'Skeleton': '해골',
+  Skeleton: '해골',
   'If something comes up, just clear the waypoint on the map.':
     '무슨 일이 생기면 지도에서 웨이포인트를 지우면 돼.',
   'ACHIEVEMENT UNLOCKED': '업적 달성',

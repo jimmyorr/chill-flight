@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
-import {BASE_FLIGHT_SPEED, UNITS_TO_M, WATER_LEVEL} from './constants.js';
+import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {
   VOLCANO_X,
   VOLCANO_Z,
@@ -251,7 +251,7 @@ const WAKE_SPACING = 1.5;
 const DUST_SPACING = 1.5;
 // Skimming spray starts this far above the water (units, from the bottom of
 // the plane)
-const SKIM_HEIGHT = 20 / UNITS_TO_M; // 20 m on the altimeter
+const SKIM_HEIGHT = 39; // ~39 m on the altimeter
 // Where the airshow smoke comes out, behind the plane's centre (units), and
 // how long it hangs in the sky (seconds)
 const SMOKE_TAIL = 7;

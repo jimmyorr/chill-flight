@@ -7,7 +7,14 @@
  * climb slows it, by the same amount at any frame rate, a climb never slows
  * it toward a stall, and it settles back to the throttle once level.
  */
-import {PLANE_HANDLING, BASE_FLIGHT_SPEED} from '../constants.js';
+import {
+  PLANE_HANDLING,
+  BASE_FLIGHT_SPEED,
+  MACH_1_KTS,
+  UNITS_TO_M,
+  displaySpeed,
+  speedUnit,
+} from '../constants.js';
 import {pitchedTarget, throttleSpeed} from '../flight-physics-logic.js';
 
 console.log('Testing climb and dive speeds...');
@@ -91,6 +98,40 @@ const h = PLANE_HANDLING.seaplane;
 check(
   'falling, a nose-down tumble gains nothing',
   pitchedTarget(0.2, deg(-60), h, 1, false) === 0.2
+);
+
+// HUD speed readout mapping (KTS for planes, KM/H for buggy) and 1 unit = 1 m
+check('world units to meters is 1:1', UNITS_TO_M === 1);
+check(
+  'plane top speeds map to realistic KTS (140 / 190 / 250 / 550)',
+  displaySpeed(PLANE_HANDLING.biplane.topKts, 'biplane') === 140 &&
+    displaySpeed(PLANE_HANDLING.seaplane.topKts, 'seaplane') === 190 &&
+    displaySpeed(PLANE_HANDLING.twin.topKts, 'twin') === 250 &&
+    displaySpeed(PLANE_HANDLING.jet.topKts, 'jet') === 550 &&
+    speedUnit('seaplane') === 'KTS'
+);
+check(
+  'biplane stall speed stays at 40 KTS and zero is 0',
+  displaySpeed(0, 'biplane') === 0 &&
+    displaySpeed(PLANE_HANDLING.biplane.stallKts, 'biplane') === 40
+);
+const jetDiveUnits = fly(
+  'jet',
+  PLANE_HANDLING.jet.topKts,
+  PLANE_HANDLING.jet.topKts,
+  -70,
+  10,
+  60
+);
+check(
+  `jet in a steep dive breaks Mach 1 (${MACH_1_KTS} KTS)`,
+  displaySpeed(jetDiveUnits, 'jet') >= MACH_1_KTS,
+  `${displaySpeed(jetDiveUnits, 'jet')} KTS`
+);
+check(
+  'buggy top speed maps to 220 KM/H',
+  displaySpeed(PLANE_HANDLING.buggy.topKts, 'buggy') === 220 &&
+    speedUnit('buggy') === 'KM/H'
 );
 
 if (failed) {

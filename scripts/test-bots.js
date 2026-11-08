@@ -561,7 +561,7 @@ function runRace(course, plane, ctxFor, limit) {
   simplex.seed(20260101);
   const consts = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
   const ground = (x, z) => ChillFlightLogic.getElevation(x, z, simplex, consts);
-  const tops = {biplane: 280, seaplane: 380, twin: 500, jet: 800};
+  const tops = {biplane: 280, seaplane: 380, twin: 500, jet: 1100};
   for (const [plane, top] of Object.entries(tops)) {
     let slowest = 0;
     let where = '';

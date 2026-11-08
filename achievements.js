@@ -105,7 +105,7 @@ export const Achievements = (function () {
       id: 'mach_1',
       title: 'Mach 1',
       emoji: '🚀',
-      hint: 'Reach a speed of 1000 KTS',
+      hint: 'Reach a speed of 661 KTS',
     },
     // 3. Places: the landmarks, then the alien lands
     {

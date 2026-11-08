@@ -429,7 +429,7 @@ async function exerciseControls(page, tag) {
     fail(`Meadow Field's panel didn't say who's there ("${picked.people}")`);
   }
   // Warping there arrives on final approach: lined up with Meadow's runway
-  // (which runs east), slowed to 90 knots
+  // (which runs east), slowed to 61 knots (90 units/s)
   await page
     .click('#fullscreen-map-warp-btn')
     .catch((err) => fail(`warp to Meadow Field: ${err.message}`));
@@ -443,9 +443,9 @@ async function exerciseControls(page, tag) {
       heading: document.getElementById('cockpit-dir')?.textContent,
       speed: document.getElementById('cockpit-spd')?.textContent,
     }));
-    if (readout.heading === 'E' && readout.speed === '90 KTS') break;
+    if (readout.heading === 'E' && readout.speed === '61 KTS') break;
   }
-  if (readout.heading !== 'E' || readout.speed !== '90 KTS') {
+  if (readout.heading !== 'E' || readout.speed !== '61 KTS') {
     fail(
       `warping to Meadow Field didn't line up for landing (${readout.heading}, ${readout.speed})`
     );
@@ -513,9 +513,14 @@ async function exerciseControls(page, tag) {
       float: el
         ?.querySelector('[data-stat="float"]')
         ?.style.getPropertyValue('--v'),
+      unit: document.getElementById('throttle-unit')?.textContent,
     };
   });
-  if (buggyStats.speed !== '0.300' || buggyStats.float !== '0.500') {
+  if (
+    buggyStats.speed !== '0.218' ||
+    buggyStats.float !== '0.500' ||
+    buggyStats.unit !== 'KM/H'
+  ) {
     fail(`buggy stats mismatch: ${JSON.stringify(buggyStats)}`);
   }
   await page.click('.scheme-btn[data-plane="biplane"]');
@@ -532,9 +537,14 @@ async function exerciseControls(page, tag) {
       float: el
         ?.querySelector('[data-stat="float"]')
         ?.style.getPropertyValue('--v'),
+      unit: document.getElementById('throttle-unit')?.textContent,
     };
   });
-  if (biplaneStats.speed !== '0.350' || biplaneStats.float !== '1.000') {
+  if (
+    biplaneStats.speed !== '0.255' ||
+    biplaneStats.float !== '1.000' ||
+    biplaneStats.unit !== 'KTS'
+  ) {
     fail(`biplane stats mismatch: ${JSON.stringify(biplaneStats)}`);
   }
   await clickAndCheck(

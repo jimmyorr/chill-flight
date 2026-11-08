@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import {camera, clock, moonMesh, sunMesh} from './sky.js';
 import {updateChunks} from './terrain-chunks.js';
-import {getMaxFlightSpeedMult, planeGroup} from './airplane.js';
+import {
+  activePlaneType,
+  getMaxFlightSpeedMult,
+  planeGroup,
+} from './airplane.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
   animationUniforms,
@@ -28,6 +32,8 @@ import {
   LIGHTHOUSE_LIGHT_INTENSITY,
   UNITS_TO_M,
   WATER_LEVEL,
+  displaySpeed,
+  speedUnit,
   updateDOM,
 } from './constants.js';
 import {log} from './logger.js';
@@ -1359,7 +1365,9 @@ export function updateFlightCamera(delta, nowTime) {
     Math.abs(lonVal).toFixed(3) + '\u00b0 ' + (lonVal >= 0 ? 'E' : 'W');
   const coordStr = `${latStr} ${lonStr}`;
   const altStr = `${Math.round(Math.max(0, hudTarget.position.y - 45.5) * UNITS_TO_M)} M`;
-  const spdStr = `${Math.round(BASE_FLIGHT_SPEED * state.flightSpeedMultiplier * 60)} KTS`;
+  const unitsPerSec =
+    BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
+  const spdStr = `${displaySpeed(unitsPerSec, activePlaneType)} ${speedUnit(activePlaneType)}`;
 
   updateDOM('cockpit-time', timeStr);
   updateDOM('cockpit-dir', dirStr);

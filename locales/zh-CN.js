@@ -698,7 +698,7 @@ export default {
   'Close shave': '千钧一发',
   'Scrape a wingtip along a cliff and fly on': '翼尖擦过悬崖后继续飞',
   'Mach 1': '一马赫',
-  'Reach a speed of 1000 KTS': '速度达到 1000 节',
+  'Reach a speed of 661 KTS': '速度达到 661 节',
   Gatsby: '盖茨比',
   'Lighthouse flyby': '飞过灯塔',
   'Pura Vida': '纯粹生活',
@@ -743,7 +743,7 @@ export default {
   Falls: '瀑布',
   Canyon: '峡谷',
   Pyramids: '金字塔',
-  'Skeleton': '骸骨',
+  Skeleton: '骸骨',
   'If something comes up, just clear the waypoint on the map.':
     '如果有事，在地图上清除航点就行。',
 };

@@ -743,7 +743,7 @@ export default {
   'Scrape a wingtip along a cliff and fly on':
     'Streif mit der Flügelspitze eine Klippe und flieg weiter',
   'Mach 1': 'Mach 1',
-  'Reach a speed of 1000 KTS': 'Erreiche 1000 KTS',
+  'Reach a speed of 661 KTS': 'Erreiche 661 KTS',
   Gatsby: 'Gatsby',
   'Lighthouse flyby': 'Vorbeiflug am Leuchtturm',
   'Pura Vida': 'Pura Vida',
@@ -790,7 +790,7 @@ export default {
   Falls: 'Wasserfälle',
   Canyon: 'Schlucht',
   Pyramids: 'Pyramiden',
-  'Skeleton': 'Skelett',
+  Skeleton: 'Skelett',
   'If something comes up, just clear the waypoint on the map.':
     'Wenn etwas dazwischenkommt, lösch einfach den Wegpunkt auf der Karte.',
   'ACHIEVEMENT UNLOCKED': 'ERFOLG FREIGESCHALTET',

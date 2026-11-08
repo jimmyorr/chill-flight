@@ -96,9 +96,11 @@ import {
   BASE_FLIGHT_SPEED,
   CEILING_EASE,
   CHUNK_SIZE,
+  MACH_1_KTS,
   MAX_FLIGHT_HEIGHT,
   TURN_SPEED,
   WATER_LEVEL,
+  displaySpeed,
   getCachedElement,
   moonlightUniforms,
   terrainUniforms,
@@ -370,6 +372,7 @@ function performFrame(timestamp) {
   updateSfx();
   updateSfxEvents(delta, precipitation.rain);
   updateHaptics(delta);
+  updateThrottle(now);
 
   if (state.isPaused) {
     const loadingOverlay = getCachedElement('loading-overlay');
@@ -479,8 +482,8 @@ function performFrame(timestamp) {
     const currentKTS =
       BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
 
-    // 3. Mach 1
-    if (currentKTS > 1000) {
+    // 3. Mach 1 (661 KTS at sea level)
+    if (displaySpeed(currentKTS, activePlaneType) >= MACH_1_KTS) {
       Achievements.unlock('mach_1');
     }
 
