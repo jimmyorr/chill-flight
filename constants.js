@@ -55,9 +55,10 @@ export const MACH_1_KTS = 661;
 // - Planes read in KTS: 1:1 up to the biplane's 40 kt stall, then easing
 //   to 0.5 kt per unit/s from the biplane's top speed (140 kts at 280) up
 //   to the jet's (550 kts at 1100, breaking Mach 1 = 661 kts in a dive).
-// - The buggy reads in KM/H on the same 0.5 kt per unit/s scale, rounded to
-//   an even 220 km/h at its 240 units/s top speed (~120 kts), or 137 MPH in
-//   English (US).
+// - The buggy reads in KM/H at half the planes' scale (110 km/h at its 240
+//   units/s top speed, 68 MPH in English (US)): it's about 3x a real
+//   buggy's size and its chase camera rides high, so the planes' scale
+//   felt about twice as fast as it looked.
 export function displaySpeed(
   unitsPerSec,
   planeType = 'seaplane',
@@ -65,7 +66,7 @@ export function displaySpeed(
 ) {
   const u = Math.max(0, unitsPerSec);
   if (planeType === 'buggy') {
-    const kph = (u * 220) / 240;
+    const kph = (u * 110) / 240;
     return Math.round(imperial ? kph / 1.609344 : kph);
   }
   if (u <= 40) return Math.round(u);
@@ -134,7 +135,7 @@ export const PLANE_HANDLING = {
     rollRate: 3,
   },
   // The buggy (buggy.js) drives rather than flies: only its top speed
-  // forward is used (240 units/s, shown as 220 KM/H), and it never stalls.
+  // forward is used (240 units/s, shown as 110 KM/H), and it never stalls.
   // In the pause menu its hop and hover give it a float rating.
   buggy: {
     topKts: 240,
