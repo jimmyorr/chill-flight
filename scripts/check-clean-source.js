@@ -5,6 +5,18 @@ const args = process.argv.slice(2);
 const modeArg = args.find((a) => a.startsWith('--mode='));
 const mode = modeArg ? modeArg.split('=')[1] : 'source';
 
+// Full releases (version bump + production build + mobile/web deploy) require macOS
+if (mode === 'all' && process.platform !== 'darwin') {
+  console.error(
+    `\n❌ Release blocked: releases can only be cut on macOS (found ${process.platform}).`
+  );
+  console.error(
+    'Cloud/Linux containers lack Xcode, Android SDK, and release credentials (Cloudflare, itch.io, Google Play, App Store Connect).'
+  );
+  console.error('Please cut the release from a local macOS session instead.\n');
+  process.exit(1);
+}
+
 function getGitStatus() {
   try {
     const output = execSync('git status --porcelain', {

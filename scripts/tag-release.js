@@ -13,6 +13,17 @@ const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const version = packageJson.version;
 const tagName = `v${version}`;
 
+if (process.platform !== 'darwin') {
+  console.error(
+    `\n❌ Release tagging/deployment blocked: can only run on macOS (found ${process.platform}).`
+  );
+  console.error(
+    'Cloud/Linux containers lack Xcode, Android SDK, and release credentials (Cloudflare, itch.io, Google Play, App Store Connect).'
+  );
+  console.error('Please run npm run release:tag from a local macOS session.\n');
+  process.exit(1);
+}
+
 const args = process.argv.slice(2);
 const skipMobile =
   args.includes('--skip-mobile') || args.includes('--web-only');
