@@ -16,8 +16,10 @@ import {
   VOLCANO_Z,
   WATER_SWELL_GLSL,
   getElevation,
+  WIND_DIR_GLSL,
   waterUniforms,
   watercraftChunks,
+  windUniforms,
 } from './terrain-geometry.js';
 import {
   sampleGroundColor,
@@ -66,7 +68,11 @@ const uniforms = {
   uDrag: {value: DRAG},
   uLight: {value: new THREE.Color(1, 1, 1)},
   uWaterTime: waterUniforms.uTime,
+  // How hard the wind blows (stronger when overcast), shared with the trees
+  uWindStrength: windUniforms.uWindStrength,
 };
+// The wind's speed (units/s) at strength 1: puffs drift downwind at it
+const WIND_SPEED = 9;
 
 const material = new THREE.ShaderMaterial({
   uniforms,
@@ -82,6 +88,7 @@ const material = new THREE.ShaderMaterial({
     uniform float uTime;
     uniform float uDrag;
     uniform float uWaterTime;
+    uniform float uWindStrength;
     varying vec2 vUv;
     varying vec4 vColor;
     varying float vGlow;
@@ -96,8 +103,16 @@ const material = new THREE.ShaderMaterial({
         vGlow = 0.0;
         return;
       }
-      vec3 p = aStart + aVel.xyz * (1.0 - exp(-uDrag * t)) / uDrag;
+      float carried = (1.0 - exp(-uDrag * t)) / uDrag;
+      vec3 p = aStart + aVel.xyz * carried;
       p.y += 0.5 * aVel.w * t * t;
+      if (aLife.z >= 0.0) {
+        // Drag pulls each puff's own speed toward the wind's, so it
+        // drifts downwind along with the trees, grass, clouds and rain
+        // (foam stays on the water's swell)
+        vec3 wind = ${WIND_DIR_GLSL} * (${WIND_SPEED.toFixed(1)} * uWindStrength);
+        p += wind * (t - carried);
+      }
       float grow = 1.0 - (1.0 - age) * (1.0 - age);
       float size = mix(abs(aLife.z), aLife.w, grow);
       if (aLife.z < 0.0) {

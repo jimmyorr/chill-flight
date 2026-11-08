@@ -3060,7 +3060,7 @@ export const animationUniforms = {uTime: {value: 0}};
 export const windUniforms = {uWindStrength: {value: 1}};
 // The direction the wind blows toward (WIND_DIR_X, WIND_DIR_Z in
 // terrain-gen.js, which also turns the windmills into it)
-const WIND_DIR_GLSL = `normalize(vec3(${WIND_DIR_X.toFixed(1)}, 0.0, ${WIND_DIR_Z.toFixed(1)}))`;
+export const WIND_DIR_GLSL = `normalize(vec3(${WIND_DIR_X.toFixed(1)}, 0.0, ${WIND_DIR_Z.toFixed(1)}))`;
 export {WINDMILL_ROT_Y};
 
 function addWindSway(material, {bendStart, bendPerUnit}) {
@@ -3143,9 +3143,10 @@ fireMat.onBeforeCompile = (shader) => {
 
 var smokeShaderInject = (shader, isChimney) => {
   shader.uniforms.uTime = animationUniforms.uTime;
+  shader.uniforms.uWindStrength = windUniforms.uWindStrength;
   shader.vertexShader = shader.vertexShader.replace(
     '#include <common>',
-    `#include <common>\nuniform float uTime;\nvarying float vFade;`
+    `#include <common>\nuniform float uTime;\nuniform float uWindStrength;\nvarying float vFade;`
   );
   shader.vertexShader = shader.vertexShader.replace(
     '#include <begin_vertex>',
@@ -3175,8 +3176,20 @@ var smokeShaderInject = (shader, isChimney) => {
         float swayZ = cos(uTime * 1.0 + particleIndex * 1.7 + phase * 1.3) * turbulence * 3.5;
         
         float rise = offsetTime * ${isChimney ? '45.0' : '60.0'};
-        float driftX = cos(particleAngle) * offsetTime * ${isChimney ? '12.0' : '15.0'} + swayX;
-        float driftZ = sin(particleAngle) * offsetTime * ${isChimney ? '12.0' : '15.0'} + swayZ;
+        // A little wander of its own, but mostly carried downwind, the
+        // same way as the trees lean and the clouds drift
+        float driftX = cos(particleAngle) * offsetTime * ${isChimney ? '4.0' : '5.0'} + swayX;
+        float driftZ = sin(particleAngle) * offsetTime * ${isChimney ? '4.0' : '5.0'} + swayZ;
+        #ifdef USE_INSTANCING
+          mat3 smokeBasis = mat3(instanceMatrix);
+        #else
+          mat3 smokeBasis = mat3(1.0);
+        #endif
+        vec3 smokeWind = transpose(smokeBasis) * (${WIND_DIR_GLSL} *
+          offsetTime * ${isChimney ? '13.0' : '15.0'} * uWindStrength) /
+          max(dot(smokeBasis[0], smokeBasis[0]), 1e-4);
+        driftX += smokeWind.x;
+        driftZ += smokeWind.z;
         
         float smokeScale = (${isChimney ? '0.8' : '1.0'} + particleIndex * ${isChimney ? '0.3' : '0.5'}) * (1.0 + offsetTime * ${isChimney ? '0.6' : '0.5'});
         
