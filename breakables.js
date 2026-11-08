@@ -28,6 +28,7 @@ import {
 import {
   animationUniforms,
   chunks,
+  CRYSTAL_SPIRES,
   getElevation,
   houseTintMat,
   icebergMat,
@@ -48,7 +49,7 @@ import {
 import {standaloneProps} from './airports.js';
 import {camera} from './sky.js';
 import {activePlaneType, planeGroup} from './airplane.js';
-import {playSmash} from './sfx-events.js';
+import {playShatter, playSmash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
 import {recordPropCrashStrain} from './crash.js';
 import {slowBuggy} from './buggy.js';
@@ -803,6 +804,122 @@ function hideChimneySmoke(group, x, z) {
 
 // Breaks prop i of a chunk, hit along (dx, dz) at kts. mine: the player hit
 // it (rather than a friend), so they feel it.
+// --- CRYSTALS ---
+
+// A crystal cluster shatters the moment it's hit: each spire bursts into
+// glowing shards (burstSpire) thrown out from the middle and along the way
+// it was hit (the tallest spire), leaving a glittering patch where the
+// cluster stood
+const SHARDS_PER_SPIRE = 5;
+const _spireAxis = new THREE.Vector3();
+const _spireOut = new THREE.Vector3();
+const _shardColor = new THREE.Color();
+const SHARD_WHITE = new THREE.Color(1, 1, 1);
+function shatterCrystal(group, part, base, dx, dz, kts) {
+  const m = copyMatrix(part);
+  const color = copyColor(part) || [1, 0.31, 0.85];
+  _m.fromArray(m);
+  const s = _s.setFromMatrixScale(_m).x;
+  const fwd = Math.min(FLING_MAX, kts * 0.1);
+  CRYSTAL_SPIRES.forEach(([h, r, lean, dir, off], k) => {
+    const piece = addPiece('crystalSpire' + k, m.slice(), color, group);
+    // Where the spire's middle is, and which way it leans out
+    _spireAxis.set(
+      Math.sin(lean) * Math.cos(dir),
+      Math.cos(lean),
+      -Math.sin(lean) * Math.sin(dir)
+    );
+    _p.set(Math.cos(dir) * off, 0, -Math.sin(dir) * off)
+      .addScaledVector(_spireAxis, h * 0.55)
+      .applyMatrix4(_m);
+    if (lean > 0) {
+      _spireOut
+        .set(Math.cos(dir), 0, -Math.sin(dir))
+        .transformDirection(_m)
+        .setY(0)
+        .normalize();
+    } else {
+      _spireOut.set(dx, 0, dz);
+    }
+    const out = rand(6, 11) * Math.sqrt(s);
+    const ground = Math.max(getElevation(_p.x, _p.z), WATER_LEVEL - 0.3);
+    fling(
+      piece,
+      _p.x,
+      _p.y,
+      _p.z,
+      _spireOut.x * out + dx * fwd * rand(0.3, 0.6),
+      rand(5, 10) * Math.sqrt(s / 2),
+      _spireOut.z * out + dz * fwd * rand(0.3, 0.6),
+      // Tipping outward, like petals opening
+      new THREE.Vector3(_spireOut.z, 0, -_spireOut.x),
+      rand(1.2, 2.2),
+      ground + r * s
+    );
+    piece.anim.t = 0;
+    piece.anim.burst = {
+      // (On its first step: the spire never shows apart from the cluster)
+      at: 0,
+      axis: _spireAxis.clone(),
+      h: h * s,
+      r: r * s,
+      color,
+    };
+  });
+}
+
+// A flying spire bursts into shards, which fall and lie glowing where they
+// land
+function burstSpire(piece) {
+  const anim = piece.anim;
+  const {axis, h, r, color} = anim.burst;
+  removePiece(piece);
+  const wreck = piece.wreck;
+  if (wreck) {
+    const k = wreck.pieces.indexOf(piece);
+    if (k >= 0) wreck.pieces.splice(k, 1);
+  }
+  _m.fromArray(piece.m);
+  // The spire's axis now, through its centre
+  _spireAxis.copy(axis).transformDirection(_m);
+  _shardColor.fromArray(color).lerp(SHARD_WHITE, 0.15);
+  const shardColor = _shardColor.toArray();
+  const n = Math.max(3, Math.min(12, Math.round(SHARDS_PER_SPIRE * (r / 2.5))));
+  for (let j = 0; j < n; j++) {
+    const along = (j / (n - 1) - 0.5) * h * 0.8;
+    const size = r * rand(0.4, 0.8);
+    const px = anim.x + _spireAxis.x * along + rand(-r, r);
+    const py = anim.y + _spireAxis.y * along + rand(0, r);
+    const pz = anim.z + _spireAxis.z * along + rand(-r, r);
+    _m.compose(
+      _p.set(px, py, pz),
+      _q.setFromEuler(new THREE.Euler(rand(0, 3), rand(0, 3), rand(0, 3))),
+      _s.set(size, size * rand(0.8, 1.5), size)
+    );
+    const shard = addPiece(
+      'crystalShard',
+      _m.toArray(new Float32Array(16)),
+      shardColor,
+      piece.group
+    );
+    wreck?.pieces.push(shard);
+    const ground = Math.max(getElevation(px, pz), WATER_LEVEL - 0.3);
+    fling(
+      shard,
+      px,
+      Math.max(py, ground + size),
+      pz,
+      anim.vx + rand(-6, 6),
+      anim.vy * 0.5 + rand(2, 9),
+      anim.vz + rand(-6, 6),
+      new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize(),
+      rand(3, 8),
+      // Lying on its side, half sunk in
+      ground + size * 0.3
+    );
+  }
+}
+
 function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   index.broken.add(i);
   group.userData.breakBroken = index.broken;
@@ -817,9 +934,12 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   const snowman = kind === BREAKABLE.SNOWMAN;
   const pier = parts[0].type.startsWith('pierDeck');
   const ice = ICE.test(parts[0].type);
+  const crystal = parts[0].type === 'crystal';
 
   fresh = [];
-  if (house || small) {
+  if (crystal) {
+    shatterCrystal(group, parts[0], base, dx, dz, kts);
+  } else if (house || small) {
     collapse(
       group,
       parts,
@@ -853,6 +973,8 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   if (hasChimney(parts)) hideChimneySmoke(group, x, z);
   propSpec(group.userData, i)?.onBreak?.(group);
   const wreck = {x, z, pieces: fresh};
+  // (A crystal's spires swap themselves for shards in it as they burst)
+  if (crystal) for (const piece of fresh) piece.wreck = wreck;
   fresh = null;
   const key = chunkKey(group.userData.chunkX, group.userData.chunkZ);
   if (!wrecks.has(key)) wrecks.set(key, new Map());
@@ -900,6 +1022,8 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     propPuffs(x, base, z, 3, 2, dust, 8, 4, 2);
   } else if (snowman) {
     propPuffs(x, base, z, 2, height, SNOW, 14, 3, 3);
+  } else if (crystal) {
+    propPuffs(x, base, z, 3, 2, dust, 6, 4, 2);
   } else {
     const leaves = parts.find((p) => typeInfo(p.type)?.useColor);
     if (leaves) {
@@ -949,13 +1073,17 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     recordPropCrashStrain(what, kts, buggy);
     state.impactShake = Math.max(state.impactShake || 0, SHAKE[what]);
     smashHaptic(house);
-    playSmashSound(house, 1, fallTime);
+    if (crystal) playShatter(1);
+    else playSmashSound(house, 1, fallTime);
     if (kind === BREAKABLE.TREE && parts.some((p) => TREE_PART.test(p.type))) {
       Achievements.unlock('timber');
     }
   } else {
     const d = camera.position.distanceTo(_v.set(x, base, z));
-    if (d < HEAR_RANGE) playSmashSound(house, 1 - d / HEAR_RANGE, fallTime);
+    if (d < HEAR_RANGE) {
+      if (crystal) playShatter(1 - d / HEAR_RANGE);
+      else playSmashSound(house, 1 - d / HEAR_RANGE, fallTime);
+    }
   }
 }
 
@@ -1695,6 +1823,11 @@ function animate(delta) {
       _m.multiply(_m0.fromArray(piece.m0));
       _m.toArray(piece.m);
       piece.object?.matrix.fromArray(piece.m);
+      if (anim.burst) {
+        anim.t += delta;
+        if (anim.done || anim.t > anim.burst.at) burstSpire(piece);
+        continue;
+      }
       if (anim.done) moving.delete(piece);
       continue;
     }

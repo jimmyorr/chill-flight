@@ -525,6 +525,34 @@ export function playSmash(
   }
 }
 
+// A crystal cluster shattering (breakables.js): a glassy crack, then the
+// spires bursting into a soft cascade of high, bell-like tinkles (a
+// pentatonic scale, so any run of them sounds pleasant). loud is 0..1.
+const SHATTER_NOTES = [1318.5, 1480, 1661.2, 1975.5, 2217.5, 2637];
+export function playShatter(loud = 1, force = false) {
+  if ((!force && !isSfxEventEnabled('smash')) || !ready()) return;
+  const g = THREE.MathUtils.clamp(loud, 0, 1);
+  if (g < 0.02) return;
+  const t = ctx.currentTime;
+  noiseBurst(t, {
+    type: 'highpass',
+    freq: 4200,
+    q: 0.7,
+    gain: 0.4 * g,
+    attack: 0.002,
+    decay: 0.18,
+  });
+  let at = t + 0.04;
+  for (let i = 0; i < 9; i++) {
+    const freq =
+      SHATTER_NOTES[Math.floor(Math.random() * SHATTER_NOTES.length)];
+    const gain = (0.07 - i * 0.005) * g * (0.7 + Math.random() * 0.6);
+    tone(at, {freq, gain, attack: 0.004, decay: 0.5 + Math.random() * 0.5});
+    tone(at, {freq: freq * 2.01, gain: gain * 0.3, attack: 0.004, decay: 0.3});
+    at += 0.04 + Math.random() * 0.11;
+  }
+}
+
 // Audition each one-shot from the debug menu and sound lab, even when it's
 // switched off
 export const SFX_EVENT_PLAYERS = {
@@ -541,6 +569,7 @@ export const SFX_EVENT_PLAYERS = {
   smash: () => {
     playSmash(false, 1, 0.9, true);
     setTimeout(() => playSmash(true, 1, 0, true), 1600);
+    setTimeout(() => playShatter(1, true), 3200);
   },
   bump: () => playBump(1, true),
   scrape: () => {

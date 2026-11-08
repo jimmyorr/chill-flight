@@ -133,6 +133,9 @@ import {
   mushroomStalkMat,
   crystalClusterGeo,
   crystalMat,
+  crystalShardGeo,
+  crystalShardMat,
+  crystalSpireGeos,
   oakGeos,
   orchardAppleGeos,
   palmGeos,
@@ -970,6 +973,16 @@ debrisType('streetlightPole', streetlightPoleGeo, streetlightPoleMat);
 debrisType('streetlightArm', streetlightArmGeo, streetlightPoleMat);
 debrisType('streetlightBulb', streetlightBulbGeo, streetlightBulbMat);
 debrisType('streetlightDecal', streetlightDecalGeo, streetlightDecalMat);
+// A crystal cluster shattering: its spires flying apart, and the glowing
+// shards they burst into, each in its cluster's colour
+crystalSpireGeos.forEach((geo, i) =>
+  debrisTypes.set('crystalSpire' + i, {geo, mat: crystalMat, useColor: true})
+);
+debrisTypes.set('crystalShard', {
+  geo: crystalShardGeo,
+  mat: crystalShardMat,
+  useColor: true,
+});
 // Boats sinking
 boatHullPalette.forEach((mat, i) =>
   debrisType('boatHull' + i, boatHullGeo, mat)

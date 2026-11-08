@@ -3741,29 +3741,31 @@ function mergeGeometries(geos) {
 
 // Crystal cluster (western alien land): six-sided prisms with pointed tips,
 // a tall one in the middle and shorter ones leaning out around it
+// The spires of a crystal cluster: [height, radius, lean (radians),
+// direction (radians), offset out from the middle]
+export const CRYSTAL_SPIRES = [
+  [20, 2.2, 0, 0, 0],
+  [13, 1.6, 0.45, 0.3, 2.2],
+  [10, 1.4, 0.55, 2.2, 2.0],
+  [15, 1.8, 0.35, 4.1, 2.4],
+  [7, 1.1, 0.7, 5.3, 2.6],
+];
+// One spire (prism and tip) where it stands in the cluster
+function createCrystalSpireGeometry([h, r, lean, dir, off]) {
+  const prism = new THREE.CylinderGeometry(r, r * 1.15, h, 6);
+  prism.translate(0, h / 2, 0);
+  const tip = new THREE.ConeGeometry(r, r * 2.4, 6);
+  tip.translate(0, h + r * 1.2, 0);
+  const g = mergeGeometries([prism, tip]);
+  g.rotateZ(-lean);
+  g.rotateY(dir);
+  g.translate(Math.cos(dir) * off, 0, -Math.sin(dir) * off);
+  return g;
+}
+// Each spire by itself, for a cluster shattering (breakables.js)
+export var crystalSpireGeos = CRYSTAL_SPIRES.map(createCrystalSpireGeometry);
 function createCrystalClusterGeometry() {
-  const crystals = [
-    // [height, radius, lean (radians), direction (radians), offset]
-    [20, 2.2, 0, 0, 0],
-    [13, 1.6, 0.45, 0.3, 2.2],
-    [10, 1.4, 0.55, 2.2, 2.0],
-    [15, 1.8, 0.35, 4.1, 2.4],
-    [7, 1.1, 0.7, 5.3, 2.6],
-  ];
-  const parts = [];
-  for (const [h, r, lean, dir, off] of crystals) {
-    const prism = new THREE.CylinderGeometry(r, r * 1.15, h, 6);
-    prism.translate(0, h / 2, 0);
-    const tip = new THREE.ConeGeometry(r, r * 2.4, 6);
-    tip.translate(0, h + r * 1.2, 0);
-    for (const g of [prism, tip]) {
-      g.rotateZ(-lean);
-      g.rotateY(dir);
-      g.translate(Math.cos(dir) * off, 0, -Math.sin(dir) * off);
-      parts.push(g);
-    }
-  }
-  return mergeGeometries(parts);
+  return mergeGeometries(crystalSpireGeos);
 }
 export var crystalClusterGeo = createCrystalClusterGeometry();
 // White, so each cluster's instance colour shows; a faint glow keeps the
@@ -3773,6 +3775,14 @@ export var crystalMat = createMaterial({
   emissive: 0x2a0a24,
   flatShading: true,
 });
+// A shard of a shattered crystal: a long thin diamond, unlit so it glows
+// its cluster's colour (instance colour), day or night
+export var crystalShardGeo = new THREE.OctahedronGeometry(1, 0).scale(
+  0.45,
+  1.4,
+  0.45
+);
+export var crystalShardMat = new THREE.MeshBasicMaterial({color: 0xffffff});
 
 // Pirate ships: Polyfork's ghost galleon, one geometry per look
 // (boat-models.js), indexed by a ship's bodyId, each with a
