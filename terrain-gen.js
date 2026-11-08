@@ -1752,11 +1752,11 @@ function landNear(x, z, elevParams) {
   return false;
 }
 
-// Water depth averaged over about +-4 grid cells (~200 units on the mid
+// Water depth averaged over about +-6 grid cells (~300 units on the mid
 // preset), for the water's color and transparency: they blend gradually
 // from the beach to open water instead of following the steep true depth.
 // Samples a few cells past the chunk edge so neighboring chunks match.
-const SOFT_DEPTH_PAD = 4;
+const SOFT_DEPTH_PAD = 6;
 function softenedWaterDepth(
   heightGrid,
   gridX1,
@@ -1785,8 +1785,8 @@ function softenedWaterDepth(
       a[iz * W + ix] = Math.max(-10, Math.min(10, elevParams.WATER_LEVEL - h));
     }
   }
-  // Two box-blur passes of radius 2 in each direction (a tent of radius 4).
-  const R = 2;
+  // Two box-blur passes of radius 3 in each direction (a tent of radius 6).
+  const R = 3;
   const clampI = (i) => (i < 0 ? 0 : i >= W ? W - 1 : i);
   for (let pass = 0; pass < 2; pass++) {
     for (let iz = 0; iz < W; iz++) {
