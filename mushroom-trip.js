@@ -78,9 +78,9 @@ export function updateTrip(delta) {
     clock += delta;
   }
   // A rainbow smoke trail from the tail while it's strong, running round
-  // the colour wheel about every 8 seconds
+  // the colour wheel about every 16 seconds
   if (tripAmount() > TRAIL_FROM) {
-    _trail.setHSL((clock * 0.12) % 1, 0.9, 0.62);
+    _trail.setHSL((clock * 0.06) % 1, 0.9, 0.62);
     setTripTrail(_trail);
   } else {
     setTripTrail(null);
