@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
 import {terrainUniforms} from './constants.js';
+import {setTripTrail} from './particles.js';
 import {dirLight, hemiLight, skyUniforms} from './sky.js';
 
 // How long a trip lasts (s): fading in, then out
@@ -26,6 +27,9 @@ const LIGHT_TINT = 0.35;
 // Extra saturation for the sky and fog at the peak
 const SATURATE = 0.25;
 
+// The rainbow trail shows while the trip is at least this strong
+const TRAIL_FROM = 0.2;
+const _trail = new THREE.Color();
 // ?trip=1 holds a full trip, for trying the look without finding a mushroom
 const FOREVER =
   typeof location !== 'undefined' &&
@@ -72,6 +76,14 @@ export function updateTrip(delta) {
   if (age < LENGTH) {
     age += delta;
     clock += delta;
+  }
+  // A rainbow smoke trail from the tail while it's strong, running round
+  // the colour wheel every couple of seconds
+  if (tripAmount() > TRAIL_FROM) {
+    _trail.setHSL((clock * 0.45) % 1, 0.9, 0.62);
+    setTripTrail(_trail);
+  } else {
+    setTripTrail(null);
   }
 }
 
