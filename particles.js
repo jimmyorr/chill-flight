@@ -30,6 +30,7 @@ import {
 import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {precipitation} from './weather-manager.js';
 
 // Room for four or more planes' smoke trails (~1,000 each), water spray, and
 // environment effects
@@ -302,6 +303,8 @@ const ASH_RATE = 2;
 const CRATER_DEPTH = 450;
 
 const WHITE = new THREE.Color(1, 1, 1);
+// Rain splashing on the vehicle, a touch blue so it shows on white wings
+const RAIN_SPLASH = new THREE.Color(0.82, 0.88, 0.96);
 const FOAM = new THREE.Color(0.93, 0.97, 1.0);
 const EXHAUST = new THREE.Color(0.45, 0.45, 0.45);
 const EMBER = new THREE.Color(1.0, 0.45, 0.12);
@@ -369,6 +372,94 @@ function isPaved(x, z) {
       (Math.abs(u) <= 85 && v >= half && v <= half + 51)
     );
   });
+}
+
+// --- RAIN ON THE VEHICLE ---
+// Splashes a second on the vehicle at full rain
+const RAIN_SPLASH_RATE = 120;
+// Spots on the vehicle's upper surfaces (model space), found once per model
+// by casting rays straight down onto it
+let rainSpotsModel = null;
+let rainSpots = [];
+let rainSpotsRetry = 0;
+const _ray = new THREE.Raycaster();
+const _down = new THREE.Vector3();
+const _box = new THREE.Box3();
+
+function findRainSpots(model) {
+  rainSpots = [];
+  model.updateMatrixWorld(true);
+  const props = state.propGroups || [];
+  const isProp = (o) => {
+    for (let p = o; p; p = p.parent) if (props.includes(p)) return true;
+    return false;
+  };
+  // The model's own box, in its space
+  _box.makeEmpty();
+  const inv = new THREE.Matrix4().copy(model.matrixWorld).invert();
+  model.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.visible) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    const b = o.geometry.boundingBox.clone();
+    b.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    _box.union(b);
+  });
+  if (_box.isEmpty()) return;
+  const N = 28;
+  const up = _box.max.y + 1;
+  _down.set(0, -1, 0).transformDirection(model.matrixWorld);
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      const x = THREE.MathUtils.lerp(_box.min.x, _box.max.x, (i + 0.5) / N);
+      const z = THREE.MathUtils.lerp(_box.min.z, _box.max.z, (j + 0.5) / N);
+      _p.set(x, up, z).applyMatrix4(model.matrixWorld);
+      _ray.set(_p, _down);
+      const hit = _ray
+        .intersectObject(model, true)
+        .find((h) => h.object.isMesh && h.object.visible && !isProp(h.object));
+      if (!hit) continue;
+      rainSpots.push(hit.point.clone().applyMatrix4(inv));
+    }
+  }
+  // A model still being set up can come up empty: try again later
+  if (rainSpots.length > 0) rainSpotsModel = model;
+}
+
+// Raindrops landing on the wings, body and buggy: tiny puffs that, in
+// flight, are swept back off the surfaces by the airflow
+function rainOnVehicle(delta) {
+  const rain = precipitation.rain;
+  const model = state.airplaneModel;
+  if (rain <= 0.02 || !model) return;
+  if (model !== rainSpotsModel) {
+    rainSpotsRetry -= delta;
+    if (rainSpotsRetry > 0) return;
+    rainSpotsRetry = 1;
+    findRainSpots(model);
+    if (model !== rainSpotsModel) return;
+  }
+  const count = Math.floor(delta * RAIN_SPLASH_RATE * rain + Math.random());
+  if (count === 0) return;
+  planeVelocity(_v);
+  for (let i = 0; i < count; i++) {
+    const spot = rainSpots[(Math.random() * rainSpots.length) | 0];
+    _p.copy(spot).applyMatrix4(model.matrixWorld);
+    _p.y += 0.15;
+    spawn(
+      _p,
+      {
+        x: _v.x * 0.9 + rand(-3, 3),
+        y: rand(3, 7),
+        z: _v.z * 0.9 + rand(-3, 3),
+      },
+      -30,
+      rand(0.3, 0.45),
+      rand(0.4, 0.6),
+      rand(1.6, 2.4),
+      RAIN_SPLASH,
+      rand(0.6, 0.8)
+    );
+  }
 }
 
 // A sheet of spray thrown up and out from both pontoons, and a low mist
@@ -1125,6 +1216,7 @@ export function updateParticles(delta) {
     }
     if (!wheels && !onWater) wingtipVapour(delta, speed);
     else vapour = 0;
+    rainOnVehicle(delta);
     const target = state.targetFlightSpeed || 0;
     if (lastTarget === 0 && target > 0 && speed < 0.05) engineStartPuff();
     lastTarget = target;
