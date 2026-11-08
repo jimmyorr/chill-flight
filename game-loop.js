@@ -153,6 +153,7 @@ import {updateGrass} from './grass.js';
 import {updateFireflies} from './fireflies.js';
 import {updateMultiplayer} from './multiplayer.js';
 import {updateBreakables} from './breakables.js';
+import {applyTrip, restoreTrip, updateTrip} from './mushroom-trip.js';
 import {applyBumps, updateBumps} from './bumps.js';
 import {updateWallScrape} from './wall-scrape.js';
 import {updateCrash} from './crash.js';
@@ -621,6 +622,7 @@ function performFrame(timestamp) {
   updateMultiplayer(delta);
   updateBumps(delta);
   updateBreakables(delta);
+  updateTrip(delta);
   updateParticles(delta);
   updateWhales(delta);
   updateDolphins(delta);
@@ -2710,7 +2712,10 @@ function updateWeatherAndRendering(delta) {
   renderer.shadowMap.needsUpdate = performanceMonitor.shouldUpdateShadows();
 
   updatePlaneShadow();
+  // (A knocked-over mushroom's trippy colours, only while drawing)
+  applyTrip();
   renderFrame(scene, camera);
+  restoreTrip();
 }
 
 function updateBenchmarking(delta, frameStartTime) {
