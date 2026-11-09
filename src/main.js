@@ -113,6 +113,7 @@ import '../wall-scrape-logic.js';
 import '../wall-scrape.js';
 import '../vr-manager.js';
 import '../promo-script.js';
+import '../debug-telemetry.js';
 import '../game-loop.js';
 import '../map-loader.js';
 import '../map-tiles.js';

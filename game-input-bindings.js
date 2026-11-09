@@ -87,11 +87,9 @@ if (ChillFlightLogic.START_HEADLIGHT) {
 }
 inputManager.onDebugToggle = () => {
   const debugMenu = document.getElementById('debug-menu');
-  const debugTelem = document.getElementById('debug-telemetry');
   if (!debugMenu) return;
   const isOpening = debugMenu.style.display !== 'block';
   debugMenu.style.display = isOpening ? 'block' : 'none';
-  if (debugTelem) debugTelem.style.display = isOpening ? 'block' : 'none';
 
   if (isOpening) hooks.resetSteering?.();
 

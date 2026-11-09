@@ -520,7 +520,6 @@ export const _moonPhaseX = new THREE.Vector3();
 export const _moonPhaseSunDir = new THREE.Vector3();
 export const _skyBottomCol = new THREE.Color();
 export const _warmHorizonColor = new THREE.Color();
-export const _debugCamEuler = new THREE.Euler();
 
 export var shootingStarStart = new THREE.Vector3();
 export var shootingStarEnd = new THREE.Vector3();

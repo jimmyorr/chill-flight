@@ -604,6 +604,7 @@ export function updateWeather(delta) {
       stormNoise: weather.stormNoise,
       latVal: weather.lat,
       zone: weather.zone,
+      skeleton: weather.skeleton,
     };
   }
 

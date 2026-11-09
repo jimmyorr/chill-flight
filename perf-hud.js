@@ -1,12 +1,13 @@
-// ?perf=1: a one-line performance readout that fits on a phone (the debug
-// panel doesn't). Twice a second: average FPS over the last 10 seconds (and
+// ?perf=1: a one-line performance readout, smaller than the debug panel's
+// Perf tab. Twice a second: average FPS over the last 10 seconds (and
 // the last half second, which bounces), the slowest frame in the last half
 // second, CPU time per frame (game update plus issuing the draws), draw calls
 // and triangles of the last render, and the render resolution.
 //
-// Tapping it shares (or copies) a perf report: those numbers over the last 10
-// seconds, the device and quality settings, and a link back to the same spot,
-// so a phone reading can be pasted into a chat and measured again elsewhere.
+// Tapping it (or the debug panel's Share perf report) shares (or copies) a
+// perf report: those numbers over the last 10 seconds, the device and quality
+// settings, and a link back to the same spot, so a phone reading can be pasted
+// into a chat and measured again elsewhere.
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {performanceMonitor} from './game-performance.js';
 import {state} from './state.js';
@@ -31,8 +32,9 @@ export function setPerfReportUrl(build) {
 }
 
 export function updatePerfHud(now, cpuMs, renderer) {
-  if (!ChillFlightLogic.PERF_HUD) return;
-  if (!el) {
+  // The numbers are kept without ?perf=1 too, for the debug panel's report
+  if (!windowStart) windowStart = now;
+  if (ChillFlightLogic.PERF_HUD && !el) {
     el = document.createElement('div');
     el.id = 'perf-hud';
     el.title = 'Tap to share a perf report';
@@ -43,9 +45,8 @@ export function updatePerfHud(now, cpuMs, renderer) {
       'font:11px/1.3 ui-monospace,Menlo,monospace;' +
       'color:#fff;background:rgba(0,0,0,0.55);padding:2px 6px;' +
       'border-radius:4px;white-space:pre';
-    el.addEventListener('click', shareReport);
+    el.addEventListener('click', sharePerfReport);
     document.body.appendChild(el);
-    windowStart = now;
   }
   if (lastFrameAt) worstMs = Math.max(worstMs, now - lastFrameAt);
   lastFrameAt = now;
@@ -73,7 +74,7 @@ export function updatePerfHud(now, cpuMs, renderer) {
     height: canvas.height,
     pixelRatio: renderer.getPixelRatio(),
   };
-  if (now >= flashUntil) {
+  if (el && now >= flashUntil) {
     el.textContent =
       `${Math.round((trailFrames * 1000) / trailMs)} fps (10s)` +
       ` · now ${Math.round((frames * 1000) / span)}` +
@@ -133,7 +134,9 @@ export function buildPerfReport() {
   return lines.join('\n');
 }
 
-async function shareReport() {
+// Shares the report (the share sheet on phones) or copies it; resolves to
+// what happened, for the button that asked
+export async function sharePerfReport() {
   const text = buildPerfReport();
   let done = 'Copied';
   try {
@@ -145,7 +148,7 @@ async function shareReport() {
     }
   } catch (err) {
     // Closing the share sheet throws AbortError: nothing to report
-    if (err && err.name === 'AbortError') return;
+    if (err && err.name === 'AbortError') return null;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -156,4 +159,5 @@ async function shareReport() {
     el.textContent = `${done} perf report`;
     flashUntil = performance.now() + 1500;
   }
+  return done;
 }

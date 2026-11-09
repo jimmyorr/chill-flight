@@ -574,18 +574,14 @@ export function initDebugUI() {
 
       // Show the debug menu/telemetry so isDebugMode evaluates to true and freecam doesn't auto-reset
       const debugMenu = document.getElementById('debug-menu');
-      const debugTelem = document.getElementById('debug-telemetry');
       if (debugMenu) debugMenu.style.display = 'block';
-      if (debugTelem) debugTelem.style.display = 'block';
     } else {
       placePlaneFromUrl();
     }
 
     if (ChillFlightLogic.START_DEBUG) {
       const debugMenu = document.getElementById('debug-menu');
-      const debugTelem = document.getElementById('debug-telemetry');
       if (debugMenu) debugMenu.style.display = 'block';
-      if (debugTelem) debugTelem.style.display = 'block';
     }
     document
       .getElementById('debug-free-cam-toggle')
@@ -837,20 +833,38 @@ export function initDebugUI() {
   // The ?perf=1 report links back to the plane's place, time and weather
   setPerfReportUrl(() => buildDebugUrl(false));
 
-  // Copies text and briefly shows "Copied!" on the button.
-  const copyWithFeedback = (btn, text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      const originalText = btn.textContent;
-      btn.textContent = 'Copied!';
-      btn.style.color = '#4caf50';
-      setTimeout(() => {
-        btn.textContent = originalText;
-        btn.style.color = 'white';
-      }, 2000);
-    });
+  // Shares the link (the share sheet on phones) or copies it, and briefly
+  // says which on the button
+  const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
+  const copyWithFeedback = async (btn, text) => {
+    let done = 'Copied!';
+    try {
+      if (canShare) {
+        await navigator.share({title: 'Chill Flight', url: text});
+        done = 'Shared!';
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        done = "Couldn't copy";
+      }
+    }
+    const originalText = btn.textContent;
+    btn.textContent = done;
+    btn.style.color = '#4caf50';
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.color = 'white';
+    }, 2000);
   };
 
   const copyCamUrlBtn = document.getElementById('debug-copy-cam-url');
+  if (copyCamUrlBtn && canShare)
+    copyCamUrlBtn.textContent = 'Share camera link';
   if (copyCamUrlBtn) {
     copyCamUrlBtn.addEventListener('click', () =>
       copyWithFeedback(copyCamUrlBtn, buildDebugUrl(true))
@@ -858,6 +872,8 @@ export function initDebugUI() {
   }
 
   const copyPlaneUrlBtn = document.getElementById('debug-copy-plane-url');
+  if (copyPlaneUrlBtn && canShare)
+    copyPlaneUrlBtn.textContent = 'Share plane link';
   if (copyPlaneUrlBtn) {
     copyPlaneUrlBtn.addEventListener('click', () =>
       copyWithFeedback(copyPlaneUrlBtn, buildDebugUrl(false))

@@ -17,7 +17,6 @@ import {
   _daySky,
   camera,
   clock,
-  currentPaletteSeed,
   dirLight,
   hemiLight,
   isCustomPalette,
@@ -39,13 +38,13 @@ import {newPropSpin, propSpinTarget, stepPropSpin} from './prop-spin-logic.js';
 import {updatePlaneShadow} from './plane-shadow.js';
 import {performanceMonitor} from './game-performance.js';
 import {updatePerfHud} from './perf-hud.js';
+import {updateDebugTelemetry} from './debug-telemetry.js';
 import {
   _cloudyColor,
   _currentGoldenSky,
   _currentLookTarget,
   _currentSunriseSky,
   _dayLightColor,
-  _debugCamEuler,
   _finalFogColor,
   _finalSkyColor,
   _goldenSky,
@@ -99,7 +98,6 @@ import {
   getCachedElement,
   moonlightUniforms,
   terrainUniforms,
-  updateDOM,
 } from './constants.js';
 import {
   activePlaneType,
@@ -127,7 +125,6 @@ import {updateFlightPhysics} from './flight-physics.js';
 import {updateBuggy} from './buggy.js';
 import {log} from './logger.js';
 import {
-  chunks,
   getElevation,
   houseWindowGlow,
   houseWindowMats,
@@ -139,9 +136,9 @@ import {
   windUniforms,
 } from './terrain-geometry.js';
 import {updateFlightCamera} from './flight-camera.js';
-import {trafficCount, updateTraffic} from './traffic.js';
+import {updateTraffic} from './traffic.js';
 import {updateBeacons} from './beacons.js';
-import {roadCarCount, updateRoadTraffic} from './road-traffic.js';
+import {updateRoadTraffic} from './road-traffic.js';
 import {updateParticles} from './particles.js';
 import {updateWhales} from './whales.js';
 import {updateDolphins} from './dolphins.js';
@@ -183,11 +180,6 @@ let _currentOvercast;
 const _meteorMoonDir = new THREE.Vector3();
 // How slowly the sky follows the weather map's cloud cover (seconds)
 const CLOUD_EASE_SECONDS = 12;
-let _lastFpsAggUpdate;
-let _telemetryCallsAccum;
-let _telemetryTrisAccum;
-let _telemetryRenderFrames;
-let _lastRenderInfoUpdate;
 let _debugVirtualClockNow;
 // Lingering mist after rain or snow, 0..1 (drives fog density).
 let fogAfterRain = 0;
@@ -640,402 +632,14 @@ function performFrame(timestamp) {
   updateWeatherAndRendering(delta);
   // --- BENCHMARKING LOGIC ---
   updateBenchmarking(delta, frameStartTime);
-  updateDebugTelemetry(delta, now, frameStartTime);
+  updateDebugTelemetry({
+    frameStartTime,
+    overcast: _currentOvercast,
+    cloudMood: _cloudMood,
+  });
   if (renderer) {
     const t = performance.now();
     updatePerfHud(t, t - frameStartTime, renderer);
-  }
-}
-
-function updateDebugTelemetry(delta, now, frameStartTime) {
-  const debugMenu = getCachedElement('debug-menu');
-  // Update Debug Telemetry (at the very end of frame)
-  if (debugMenu && debugMenu.style.display === 'block') {
-    const pullBackVal =
-      state.smoothedManeuverFactor *
-      20 *
-      Math.min(1, state.flightSpeedMultiplier / 2); // Re-calculate or pass from earlier
-    updateDOM('debug-fov', Math.round(camera.fov));
-    updateDOM('debug-pullback', Math.round(pullBackVal));
-    updateDOM(
-      'debug-pitch',
-      Math.round((planeGroup.rotation.x * 180) / Math.PI)
-    );
-    const isCustom = isCustomPalette;
-    const curSeed =
-      typeof currentPaletteSeed !== 'undefined'
-        ? currentPaletteSeed
-        : currentPaletteSeed;
-    const paletteStr = isCustom
-      ? 'Custom'
-      : curSeed !== undefined
-        ? `${selectedPalette.name} (#${curSeed})`
-        : selectedPalette.name;
-    updateDOM('debug-palette', paletteStr);
-    updateDOM('debug-speed-mult', state.flightSpeedMultiplier.toFixed(2));
-    updateDOM('debug-day-speed', state.daySpeedMultiplier.toFixed(1));
-
-    updateDOM('debug-target-speed', state.targetFlightSpeed.toFixed(2));
-    updateDOM('debug-maneuver', state.smoothedManeuverFactor.toFixed(2));
-    updateDOM('debug-world-x', Math.round(planeGroup.position.x));
-    updateDOM('debug-world-y', Math.round(planeGroup.position.y));
-    updateDOM('debug-world-z', Math.round(planeGroup.position.z));
-    updateDOM('debug-camera-x', Math.round(camera.position.x));
-    updateDOM('debug-camera-y', Math.round(camera.position.y));
-    updateDOM('debug-camera-z', Math.round(camera.position.z));
-    _debugCamEuler.setFromQuaternion(camera.quaternion, 'YXZ');
-    const camHeadingDegrees = THREE.MathUtils.radToDeg(_debugCamEuler.y);
-    const camPitchDegrees = THREE.MathUtils.radToDeg(_debugCamEuler.x);
-    updateDOM('debug-camera-heading', Math.round(camHeadingDegrees));
-    updateDOM('debug-camera-pitch', Math.round(camPitchDegrees));
-
-    // Weather Telemetry
-    const oc = _currentOvercast || 0;
-    updateDOM('debug-overcast', oc.toFixed(2));
-    updateDOM(
-      'debug-storm-noise',
-      state._weatherDebug ? state._weatherDebug.stormNoise.toFixed(2) : '-'
-    );
-    updateDOM(
-      'debug-precip',
-      Math.max(precipitation.snow, precipitation.rain).toFixed(2)
-    );
-    updateDOM(
-      'debug-climate-zone',
-      state._weatherDebug ? state._weatherDebug.zone : '-'
-    );
-    updateDOM(
-      'debug-snow-opacity',
-      snowParticles ? snowParticles.material.opacity.toFixed(2) : '-'
-    );
-    updateDOM(
-      'debug-rain-opacity',
-      rainParticles ? rainParticles.material.opacity.toFixed(2) : '-'
-    );
-    updateDOM('debug-fog-density', scene.fog.density.toFixed(5));
-    const _snowOp = snowParticles ? snowParticles.material.opacity : 0;
-    const _rainOp = rainParticles ? rainParticles.material.opacity : 0;
-    const _precipType =
-      _snowOp > 0.01 && _rainOp > 0.01
-        ? 'sleet'
-        : _snowOp > 0.01
-          ? 'snow'
-          : _rainOp > 0.01
-            ? 'rain'
-            : 'none';
-    updateDOM('debug-weather-mode', _precipType);
-    updateDOM('debug-weather-cloud-mood', _cloudMood ? _cloudMood.name : '-');
-
-    // Island archetype telemetry
-    const _activeIslandPos = state.isFreeCamera
-      ? camera.position
-      : planeGroup.position;
-    const _islandArchetype =
-      typeof ChillFlightLogic.getIslandArchetype === 'function'
-        ? ChillFlightLogic.getIslandArchetype(
-            _activeIslandPos.x,
-            _activeIslandPos.z,
-            simplex
-          )
-        : '-';
-    const _islandDisplay =
-      ChillFlightLogic.FORCE_ISLAND_TYPE &&
-      ChillFlightLogic.FORCE_ISLAND_TYPE !== 'auto'
-        ? `${_islandArchetype} (forced)`
-        : _islandArchetype;
-    updateDOM('debug-island-type', _islandDisplay);
-
-    // Aurora telemetry
-    const auroraVal =
-      skyUniforms !== undefined ? skyUniforms.uAuroraIntensity.value : 0;
-    if (auroraVal > state._auroraSessionMax)
-      state._auroraSessionMax = auroraVal;
-    const _auroraLabelFn = (v) =>
-      v < 0.01 ? 'None' : v < 0.03 ? 'Faint' : v < 0.06 ? 'Moderate' : 'Active';
-    updateDOM(
-      'debug-aurora',
-      `${_auroraLabelFn(auroraVal)} (${auroraVal.toFixed(3)})`
-    );
-
-    // Rainbow telemetry
-    updateDOM(
-      'debug-rainbow',
-      state.rainbowIntensity > 0
-        ? (state.rainbowIntensity * 100).toFixed(0) + '%'
-        : '-'
-    );
-    updateDOM(
-      'debug-aurora-peak',
-      `${_auroraLabelFn(state._auroraSessionMax)} (${state._auroraSessionMax.toFixed(3)})`
-    );
-    // Helper function for performance color coding
-    function getPerfColor(val, warnThresh, critThresh) {
-      if (val >= critThresh) return '#ff4444'; // Red
-      if (val >= warnThresh) return '#ffeb3b'; // Yellow
-      return ''; // Default (inherits from CSS)
-    }
-
-    // Performance Telemetry
-    const frameEndTime = performance.now();
-    const cpuMs = frameEndTime - frameStartTime;
-    const cpuMsEl = getCachedElement('debug-cpu-ms');
-    if (cpuMsEl) {
-      updateDOM(cpuMsEl, cpuMs.toFixed(1));
-      // Warn at 24ms, Critical at 32ms (stuttering on 30fps cap)
-      cpuMsEl.style.color = getPerfColor(cpuMs, 24, 32);
-    }
-
-    const fpsEl = getCachedElement('debug-fps');
-    if (fpsEl && delta > 0) {
-      const fps = Math.round(1 / delta);
-      updateDOM(fpsEl, fps);
-      fpsEl.style.color = getPerfColor(60 - fps, 30, 40);
-    }
-
-    const avgFpsEl = getCachedElement('debug-avg-fps');
-    const lowFpsEl = getCachedElement('debug-fps-low');
-    if ((avgFpsEl || lowFpsEl) && performanceMonitor) {
-      if (!_lastFpsAggUpdate || now - _lastFpsAggUpdate > 250) {
-        _lastFpsAggUpdate = now;
-        const avgFps = performanceMonitor.getAvgFPS();
-        const lowFps = performanceMonitor.get1PercentLowFPS();
-        if (avgFpsEl) {
-          updateDOM(avgFpsEl, avgFps);
-          avgFpsEl.style.color = getPerfColor(60 - avgFps, 30, 40);
-        }
-        if (lowFpsEl) {
-          updateDOM(lowFpsEl, lowFps);
-          lowFpsEl.style.color = getPerfColor(60 - lowFps, 30, 40);
-        }
-      }
-    }
-
-    const heapEl = getCachedElement('debug-heap');
-    if (heapEl) {
-      if (performance.memory) {
-        const heapMb = performance.memory.usedJSHeapSize / 1048576;
-        updateDOM(heapEl, heapMb.toFixed(1));
-
-        // --- GC DETECTION INLINE ---
-        if (heapEl._lastHeapMb !== undefined) {
-          const drop = heapEl._lastHeapMb - heapMb;
-          if (drop > 2.0) {
-            // If dropped by more than 2MB, GC likely happened
-            const lastGcEl = getCachedElement('debug-last-gc');
-            const lastGcVal = getCachedElement('debug-last-gc-val');
-            if (lastGcEl && lastGcVal) {
-              updateDOM(lastGcVal, `-${drop.toFixed(1)} MB`);
-
-              // Briefly flash the color to gold
-              lastGcEl.style.color = 'gold';
-              setTimeout(() => {
-                if (lastGcEl) lastGcEl.style.color = '';
-              }, 300);
-            }
-          }
-        }
-        heapEl._lastHeapMb = heapMb;
-
-        // Warn at 150MB, Critical at 250MB
-        heapEl.style.color = getPerfColor(heapMb, 150, 250);
-      } else {
-        updateDOM(heapEl, 'N/A');
-        heapEl.style.color = '';
-      }
-    }
-
-    if (renderer && renderer.info) {
-      const calls = renderer.info.render.calls;
-      const tris = renderer.info.render.triangles;
-      const geos = renderer.info.memory.geometries;
-      const texs = renderer.info.memory.textures;
-
-      _telemetryCallsAccum = (_telemetryCallsAccum || 0) + calls;
-      _telemetryTrisAccum = (_telemetryTrisAccum || 0) + tris;
-      _telemetryRenderFrames = (_telemetryRenderFrames || 0) + 1;
-
-      if (!_lastRenderInfoUpdate || now - _lastRenderInfoUpdate > 250) {
-        _lastRenderInfoUpdate = now;
-        const avgCalls = Math.round(
-          _telemetryCallsAccum / _telemetryRenderFrames
-        );
-        const avgTris = Math.round(
-          _telemetryTrisAccum / _telemetryRenderFrames
-        );
-        _telemetryCallsAccum = 0;
-        _telemetryTrisAccum = 0;
-        _telemetryRenderFrames = 0;
-
-        const drawCallsEl = getCachedElement('debug-draw-calls');
-        if (drawCallsEl) {
-          updateDOM(drawCallsEl, avgCalls);
-          drawCallsEl.style.color = getPerfColor(avgCalls, 800, 1200);
-        }
-
-        const trianglesEl = getCachedElement('debug-triangles');
-        if (trianglesEl) {
-          updateDOM(trianglesEl, avgTris);
-          trianglesEl.style.color = getPerfColor(avgTris, 2500000, 4000000);
-        }
-
-        const geometriesEl = getCachedElement('debug-geometries');
-        if (geometriesEl) {
-          updateDOM(geometriesEl, geos);
-          geometriesEl.style.color = getPerfColor(geos, 400, 600);
-        }
-
-        const texturesEl = getCachedElement('debug-textures');
-        if (texturesEl) {
-          updateDOM(texturesEl, texs);
-          texturesEl.style.color = getPerfColor(texs, 15, 30);
-        }
-      }
-    }
-
-    // Update Counters
-    let totalTreesPine = 0,
-      totalTreesDecid = 0,
-      totalTreesPalm = 0,
-      totalTreesDead = 0,
-      totalTreesAutumn = 0,
-      totalTreesCherry = 0,
-      totalTreesYellowCortez = 0;
-    let totalHouses = 0,
-      totalRocks = 0,
-      totalBushes = 0;
-    let totalSnowmen = 0,
-      totalCactus = 0,
-      totalLighthouses = 0,
-      totalCastles = 0,
-      totalChunks = 0;
-    let totalWindmills = 0,
-      totalCampfires = 0;
-    let totalBoats = 0,
-      totalPirateShips = 0,
-      totalLilyPads = 0,
-      totalPiers = 0,
-      totalBirds = 0;
-
-    let activeLODChunks = 0;
-    let activeHouses = 0,
-      activeBoats = 0,
-      activePirateShips = 0,
-      activePiers = 0,
-      activeCastles = 0,
-      activeWindmills = 0;
-
-    const camPos = state.isFreeCamera ? camera.position : planeGroup.position;
-    const maxPropLOD =
-      state.manualPropLOD !== undefined
-        ? state.manualPropLOD
-        : typeof state.PROP_LOD_DISTANCE !== 'undefined'
-          ? state.PROP_LOD_DISTANCE
-          : 4200;
-    const currentPropLOD =
-      state.manualPropLOD !== undefined
-        ? state.manualPropLOD
-        : Math.min(
-            state.RENDER_DISTANCE * CHUNK_SIZE - CHUNK_SIZE / 2,
-            maxPropLOD
-          );
-    const lodDistSq = currentPropLOD * currentPropLOD;
-
-    const objectsVisible = ChillFlightLogic.SHOW_OBJECTS;
-    chunks.forEach((cg) => {
-      if (cg.userData.counts) {
-        totalChunks += 1;
-        const checkPos = cg.userData.worldPosition || cg.position;
-        const isLODActive = checkPos.distanceToSquared(camPos) <= lodDistSq;
-        if (isLODActive) activeLODChunks += 1;
-
-        if (objectsVisible) {
-          totalTreesPine += cg.userData.counts.trees_pine || 0;
-          totalTreesDecid += cg.userData.counts.trees_decid || 0;
-          totalTreesPalm += cg.userData.counts.trees_palm || 0;
-          totalTreesDead += cg.userData.counts.trees_dead || 0;
-          totalTreesAutumn += cg.userData.counts.trees_autumn || 0;
-          totalTreesCherry += cg.userData.counts.trees_cherry || 0;
-          totalTreesYellowCortez += cg.userData.counts.trees_yellow_cortez || 0;
-          totalHouses += cg.userData.counts.houses || 0;
-          if (isLODActive) activeHouses += cg.userData.counts.houses || 0;
-
-          totalRocks += cg.userData.counts.rocks || 0;
-          totalBushes += cg.userData.counts.bushes || 0;
-          totalSnowmen += cg.userData.counts.snowmen || 0;
-          totalCactus += cg.userData.counts.cactus || 0;
-          totalLighthouses += cg.userData.counts.lighthouses || 0;
-          totalCastles += cg.userData.counts.castles || 0;
-          if (isLODActive) activeCastles += cg.userData.counts.castles || 0;
-
-          totalWindmills += cg.userData.counts.windmills || 0;
-          if (isLODActive) activeWindmills += cg.userData.counts.windmills || 0;
-
-          totalCampfires += cg.userData.counts.campfires || 0;
-          totalBoats += cg.userData.counts.boats || 0;
-          activeBoats += cg.userData.counts.boats || 0;
-
-          totalPirateShips += cg.userData.counts.pirateships || 0;
-          activePirateShips += cg.userData.counts.pirateships || 0;
-
-          totalLilyPads += cg.userData.counts.lily_pads || 0;
-          totalPiers += cg.userData.counts.piers || 0;
-          if (isLODActive) activePiers += cg.userData.counts.piers || 0;
-
-          totalBirds += cg.userData.counts.birds || 0;
-        }
-      }
-    });
-
-    const formatCount = (active, total) =>
-      total === 0 ? '0' : active === total ? `${total}` : `${active}/${total}`;
-
-    updateDOM('debug-prop-lod-base', Math.round(currentPropLOD));
-    updateDOM('debug-prop-lod', Math.round(currentPropLOD));
-    if (performanceMonitor) {
-      updateDOM(
-        'debug-avg-ms',
-        performanceMonitor.getSmoothedFrameTime().toFixed(2)
-      );
-      updateDOM(
-        'debug-drs-mult',
-        performanceMonitor.pixelRatioMultiplier.toFixed(2)
-      );
-      const cadence = performanceMonitor.shadowCadence;
-      updateDOM('debug-shadow-cadence', cadence === 0 ? 'off' : `1/${cadence}`);
-      updateDOM(
-        'debug-chunk-budget',
-        performanceMonitor.getChunkBudget().toFixed(1)
-      );
-    }
-    updateDOM('debug-lod-chunks', `${activeLODChunks}/${totalChunks}`);
-
-    updateDOM('debug-chunks', totalChunks);
-    updateDOM('debug-trees-pine', totalTreesPine);
-    updateDOM('debug-trees-decid', totalTreesDecid);
-    updateDOM('debug-trees-palm', totalTreesPalm);
-    updateDOM('debug-trees-dead', totalTreesDead);
-    updateDOM('debug-trees-autumn', totalTreesAutumn);
-    updateDOM('debug-trees-cherry', totalTreesCherry);
-    updateDOM('debug-trees-yellow-cortez', totalTreesYellowCortez);
-    updateDOM('debug-houses', formatCount(activeHouses, totalHouses));
-    updateDOM('debug-rocks', totalRocks);
-    updateDOM('debug-bushes', totalBushes);
-    updateDOM('debug-snowmen', totalSnowmen);
-    updateDOM('debug-cactus', totalCactus);
-    updateDOM('debug-lighthouses', totalLighthouses);
-    updateDOM('debug-castles', formatCount(activeCastles, totalCastles));
-    updateDOM('debug-windmills', formatCount(activeWindmills, totalWindmills));
-    updateDOM('debug-campfires', totalCampfires);
-    updateDOM('debug-boats', formatCount(activeBoats, totalBoats));
-    updateDOM(
-      'debug-pirateships',
-      formatCount(activePirateShips, totalPirateShips)
-    );
-    updateDOM('debug-lily-pads', totalLilyPads);
-    updateDOM('debug-piers', formatCount(activePiers, totalPiers));
-    updateDOM('debug-birds', totalBirds);
-    updateDOM('debug-traffic', String(trafficCount()));
-    updateDOM('debug-road-cars', String(roadCarCount()));
   }
 }
 

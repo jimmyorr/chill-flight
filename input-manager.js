@@ -555,7 +555,6 @@ export class InputManager {
         !e.target.closest('#loading-overlay') &&
         !e.target.closest('#cockpit-ui') &&
         !e.target.closest('#debug-menu') &&
-        !e.target.closest('#debug-telemetry') &&
         !e.target.closest('.title') &&
         !e.target.closest('#mobile-controls') &&
         !e.target.closest('#minimap-container')
@@ -575,8 +574,8 @@ export class InputManager {
   // Whether the pointer is over a menu, button or panel rather than the view
   isOverUI(target) {
     return !!target.closest?.(
-      '#loading-overlay, #cockpit-ui, #npc-dialog, #debug-menu, ' +
-        '#debug-telemetry, .title, #mobile-controls, #pause-overlay, ' +
+      '#loading-overlay, #cockpit-ui, #npc-dialog, #debug-menu, .title, ' +
+        '#mobile-controls, #pause-overlay, ' +
         '#achievements-overlay, #people-overlay, ' +
         '#fullscreen-map-overlay, #mobile-action-menu, #minimap-container, ' +
         '.mobile-btn, .sub-btn, button, input, select, a'
@@ -661,7 +660,6 @@ export class InputManager {
         target.closest('#fullscreen-map-overlay') ||
         target.closest('#loading-overlay') ||
         target.closest('#debug-menu') ||
-        target.closest('#debug-telemetry') ||
         target.closest('.title') ||
         target.closest('#mobile-controls') ||
         target.closest('#mobile-action-menu') ||
@@ -802,7 +800,6 @@ export class InputManager {
         target.closest('#fullscreen-map-overlay') ||
         target.closest('#loading-overlay') ||
         target.closest('#debug-menu') ||
-        target.closest('#debug-telemetry') ||
         target.closest('.title') ||
         target.closest('#mobile-controls') ||
         target.closest('#mobile-action-menu') ||
