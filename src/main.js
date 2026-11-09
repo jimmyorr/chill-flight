@@ -11,6 +11,7 @@ import '../logger.js';
 import '../network.js';
 import '../i18n.js';
 import '../chill-flight-logic.js';
+import '../lightning-logic.js';
 import '../art-style.js';
 import '../state.js';
 import '../hooks.js';

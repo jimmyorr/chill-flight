@@ -203,6 +203,7 @@ The values live in `FOG` in `chill-flight-logic.js`. The debug menu's clear-sky 
 ### Atmospheric phenomena
 
 - **Shooting stars**: Rare shooting stars streak across the clear night sky.
+- **Lightning**: In heavy rain, lightning flashes about every 13 seconds (the same at any frame rate). A flash plays out like the real thing (`lightning-logic.js`): a ground strike is one to four strokes 50 to 140 ms apart, each a sharp peak that fades in a few tens of milliseconds, and a flash inside the cloud is a softer train of pulses. It lights the land from its direction and the clouds and sky around it, and its thunder comes from that side. With the system's reduce motion setting a flash is one slow, dim pulse.
 - **Rainbows**: Dynamic rainbows can appear when the sun shines shortly after a rainstorm.
 
 ### Permanent weather

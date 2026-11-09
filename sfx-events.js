@@ -166,7 +166,10 @@ function setLoop(node, value, tc = 0.15) {
 }
 
 // A short burst of the noise buffer through a filter, for impacts
-function noiseBurst(t, {type, freq, freqEnd, q = 0.7, gain, attack, decay}) {
+function noiseBurst(
+  t,
+  {type, freq, freqEnd, q = 0.7, gain, attack, decay, out = bus}
+) {
   const src = ctx.createBufferSource();
   src.buffer = noise;
   const filter = ctx.createBiquadFilter();
@@ -182,7 +185,7 @@ function noiseBurst(t, {type, freq, freqEnd, q = 0.7, gain, attack, decay}) {
   g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
   src.connect(filter);
   filter.connect(g);
-  g.connect(bus);
+  g.connect(out);
   src.start(t, Math.random() * (noise.duration - 2));
   src.stop(t + attack + decay + 0.05);
 }
@@ -412,10 +415,18 @@ export function playScrape(loud = 1, hit = false, force = false) {
 const THUNDER_LEVEL = 1.6;
 
 // Thunder after a lightning flash. distance is 0..1 (overhead to far off):
-// farther strikes arrive later, quieter and duller, with less crack.
-export function playThunder(distance = 0.5, force = false) {
+// farther strikes arrive later, quieter and duller, with less crack. pan is
+// -1..1 (left to right of the camera), toward the flash.
+export function playThunder(distance = 0.5, force = false, pan = 0) {
   if ((!force && !isSfxEventEnabled('thunder')) || !ready()) return;
   const d = THREE.MathUtils.clamp(distance, 0, 1);
+  // Far thunder spreads out, so it's placed less sharply than a near crack
+  let out = bus;
+  if (pan && ctx.createStereoPanner) {
+    out = ctx.createStereoPanner();
+    out.pan.value = THREE.MathUtils.clamp(pan, -1, 1) * (0.8 - d * 0.4);
+    out.connect(bus);
+  }
   // Sound takes about 3 s per km; keep the wait short enough to tie it to
   // the flash
   const t = ctx.currentTime + 0.15 + d * 2.5;
@@ -430,6 +441,7 @@ export function playThunder(distance = 0.5, force = false) {
       gain: 0.9 * (1 - d / 0.6) * THUNDER_LEVEL,
       attack: 0.004,
       decay: 0.35,
+      out,
     });
   }
   // Rolling rumble: a few overlapping low swells that die away
@@ -445,6 +457,7 @@ export function playThunder(distance = 0.5, force = false) {
         loud * (0.9 - i * 0.15) * (0.8 + Math.random() * 0.4) * THUNDER_LEVEL,
       attack: 0.08 + Math.random() * 0.12,
       decay: 1.4 + i * 0.5 + Math.random() * 0.6,
+      out,
     });
     at += 0.3 + Math.random() * 0.5;
   }

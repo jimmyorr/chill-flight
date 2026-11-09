@@ -10,6 +10,7 @@
     uniform float uCloudHeight;
     uniform bool uShowClouds;
     uniform float uAuroraIntensity;
+    uniform vec4 uFlash;
     uniform vec3 uCameraPos;
     varying vec3 vWorldPosition;
     varying vec3 vDirection;
@@ -332,6 +333,15 @@
             }
         }
 #endif
+
+        // --- LIGHTNING ---
+        // A flash lights the sky and clouds around the strike, and the rest
+        // of the sky a little
+        if (uFlash.w > 0.001) {
+            float fa = max(dot(dir, uFlash.xyz), 0.0);
+            col += vec3(0.72, 0.78, 1.0) * uFlash.w
+                 * (pow(fa, 6.0) * 0.32 + pow(fa, 1.5) * 0.08 + 0.03);
+        }
 
         // --- AURORA BOREALIS ---
         // Only renders when uAuroraIntensity > 0 (night + high latitude).

@@ -10,9 +10,18 @@ import {state} from './state.js';
 import {WIND_DIR_X, WIND_DIR_Z} from './terrain-gen.js';
 import {playThunder} from './sfx-events.js';
 import {thunderHaptic} from './haptics.js';
+import {lightningBrightness, lightningTimeline} from './lightning-logic.js';
 
-let lightningLight;
-let lightningFlashIntensity;
+export let lightningLight;
+// The flash in progress: its timeline (lightning-logic.js), age in seconds,
+// peak light and where it is (a unit vector from the camera)
+let _flash = null;
+const _flashDir = new THREE.Vector3();
+const _camRight = new THREE.Vector3();
+const _reduceMotion =
+  typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)')
+    : null;
 let _wasRaining;
 
 export var manualCloudCover =
@@ -29,6 +38,32 @@ export var manualCloudSpeed =
     ? ChillFlightLogic.START_CLOUD_SPEED
     : 1.0;
 export var showCloudsEnabled = ChillFlightLogic.SHOW_CLOUDS;
+// Start a lightning flash: distance 0..1 (overhead to far off), angle its
+// compass direction in radians. Also handy from the console for testing.
+export function flashLightning(
+  distance = Math.random(),
+  angle = Math.random() * Math.PI * 2
+) {
+  if (!lightningLight) return;
+  // Near strikes light the sky from high up, far ones from low down
+  _flashDir
+    .set(Math.cos(angle), 0.9 - distance * 0.7, Math.sin(angle))
+    .normalize();
+  _flash = {
+    timeline: lightningTimeline(Math.random, !!_reduceMotion?.matches),
+    age: 0,
+    peak: (1.5 + Math.random()) * (1 - distance * 0.5),
+    sky: 1 - distance * 0.5,
+  };
+  lightningLight.position.copy(_flashDir);
+  lightningLight.color.setHSL(0.6, 0.2, 0.8 + Math.random() * 0.2); // Cool white/blue
+  skyUniforms.uFlash.value.set(_flashDir.x, _flashDir.y, _flashDir.z, 0);
+  // Thunder from the side the flash is on
+  _camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+  playThunder(distance, false, _camRight.dot(_flashDir));
+  thunderHaptic(distance);
+}
+
 // --- WEATHER SYSTEM ---
 export var weatherType = ChillFlightLogic.START_WEATHER
   ? ChillFlightLogic.START_WEATHER
@@ -533,34 +568,25 @@ export function updateWeather(delta) {
   if (!lightningLight) {
     lightningLight = new THREE.DirectionalLight(0xe0e0ff, 0);
     scene.add(lightningLight);
-    lightningFlashIntensity = 0;
   }
 
-  // Lightning logic
-  if (lightningFlashIntensity > 0) {
-    // Rapidly decay the flash
-    lightningFlashIntensity = Math.max(
-      0,
-      lightningFlashIntensity - delta * 4.0
-    );
-    if (lightningLight) {
-      // Randomly turn it off to create a flickering strobe effect
-      lightningLight.intensity =
-        Math.random() < 0.3 ? 0 : lightningFlashIntensity;
+  // Lightning: each flash plays a timeline of strokes (lightning-logic.js),
+  // the same at any frame rate. It lights the land from the strike's
+  // direction and the sky around it (uFlash in sky.frag.glsl).
+  if (_flash) {
+    _flash.age += delta;
+    const b = lightningBrightness(_flash.timeline, _flash.age, delta);
+    lightningLight.intensity = b * _flash.peak;
+    skyUniforms.uFlash.value.w = Math.min(b, 1.2) * _flash.sky;
+    if (_flash.age >= _flash.timeline.dur) {
+      _flash = null;
+      lightningLight.intensity = 0;
+      skyUniforms.uFlash.value.w = 0;
     }
-  } else if (_rainLevel > 0.2 && Math.random() < _rainLevel * 0.0025) {
-    // Trigger a new lightning strike during heavy rain
-    lightningFlashIntensity = 1.5 + Math.random() * 1.0;
-    if (lightningLight) {
-      // Set a random overhead angle for the strike
-      lightningLight.position
-        .set((Math.random() - 0.5) * 2, 1, (Math.random() - 0.5) * 2)
-        .normalize();
-      lightningLight.color.setHSL(0.6, 0.2, 0.8 + Math.random() * 0.2); // Cool white/blue
-    }
-    const distance = Math.random();
-    playThunder(distance);
-    thunderHaptic(distance);
+  } else if (_rainLevel > 0.2 && Math.random() < _rainLevel * 0.15 * delta) {
+    // A new strike during heavy rain (about one every 13 s in a downpour,
+    // at any frame rate), somewhere around the camera
+    flashLightning();
   }
 
   // Store unfaded opacities to drive cloud density even when above clouds

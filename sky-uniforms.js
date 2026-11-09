@@ -58,6 +58,8 @@ export const skyUniforms = {
   // Where storms bring snow rather than rain (set in game-loop.js)
   uSnowDeck: {value: 0},
   uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
+  // A lightning flash: xyz its direction, w its brightness (weather-manager.js)
+  uFlash: {value: new THREE.Vector4(0, 1, 0, 0)},
   uNoiseTex: {value: skyNoiseTexture},
   uCameraPos: {value: new THREE.Vector3()},
   uMoonDir: moonlightUniforms.uMoonDir,

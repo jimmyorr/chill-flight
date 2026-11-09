@@ -255,4 +255,31 @@ check('snow gets heavier farther north', deep > edge * 1.3);
   }
 }
 
+// Lightning (lightning-logic.js): strokes, not a random strobe
+{
+  const {lightningTimeline, lightningBrightness} =
+    await import('../lightning-logic.js');
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  let ok = true;
+  let missed = 0;
+  for (let i = 0; i < 200; i++) {
+    const tl = lightningTimeline(rnd);
+    if (tl.strokes.length < 1 || tl.strokes.length > 6) ok = false;
+    if (lightningBrightness(tl, tl.dur) > 0.05) ok = false;
+    // At 10 fps every stroke still shows at full strength in some frame
+    for (const st of tl.strokes) {
+      const frame = Math.ceil(st.t / 0.1) * 0.1;
+      if (lightningBrightness(tl, frame, 0.1) < st.peak - 1e-9) missed++;
+    }
+  }
+  check('lightning flashes are 1-6 strokes that fade out', ok);
+  check('no stroke is skipped at a low frame rate', missed === 0, missed);
+  const soft = lightningTimeline(rnd, true);
+  check(
+    'reduced motion gives one soft pulse',
+    soft.strokes.length === 1 && soft.strokes[0].peak <= 0.5
+  );
+}
+
 process.exit(failed ? 1 : 0);
