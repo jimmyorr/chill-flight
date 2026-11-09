@@ -2565,8 +2565,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       waterGeo.setAttribute(
         'flow',
         new THREE.BufferAttribute(
-          new Float32Array(waterGeo.attributes.position.count * 2),
-          2
+          new Float32Array(waterGeo.attributes.position.count * 3),
+          3
         )
       );
     }

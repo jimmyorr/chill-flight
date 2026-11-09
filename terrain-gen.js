@@ -491,6 +491,24 @@ function rotateY(x, z, angle) {
 }
 
 // The way a village's streets (and its fields) run, slowly varying
+// How swampy the water is at (x, z), 0 to 1: the swamp's own factor
+// averaged over a ring ~800 m out, so where clear water runs into the swamp
+// (the swamp's edge can ramp in a few hundred metres) its tea colour and
+// murk come in over a kilometre or two instead of a line
+const SWAMP_WATER_BLUR = 800;
+const SWAMP_WATER_RING = Array.from({length: 8}, (_, i) => [
+  Math.cos((i * Math.PI) / 4) * SWAMP_WATER_BLUR,
+  Math.sin((i * Math.PI) / 4) * SWAMP_WATER_BLUR,
+]);
+function swampWaterAt(x, z, simplex) {
+  // Clear of the swamp's bounds (swampFactorAt) by more than the blur
+  if (x < -22500 || x > 4500 || z < 3500 || z > 13500) return 0;
+  let sum = 2 * ChillFlightLogic.swampFactorAt(x, z, simplex);
+  for (const [dx, dz] of SWAMP_WATER_RING)
+    sum += ChillFlightLogic.swampFactorAt(x + dx, z + dz, simplex);
+  return sum / 10;
+}
+
 function villageAngleAt(x, z, simplex) {
   return (simplex.noise2D(x * 0.0004 - 13.1, z * 0.0004 + 5.9) + 1) * Math.PI;
 }
@@ -2489,13 +2507,13 @@ export function generateChunkData({
     waterColors = new Float32Array(wTotalVerts * 3);
     // Which way the rivers run at each vertex (getRiverFlow), for the water
     // shader's current
-    waterFlow = new Float32Array(wTotalVerts * 2);
+    waterFlow = new Float32Array(wTotalVerts * 3);
 
     const colorWater = new Color(0x40c4ff);
     const colorIcyWater = new Color(0x88ccff);
     const colorDesertWater = new Color(0x00ced1);
-    // Dark tea-brown; its very low blue also tells the water shader it's swamp
-    // water (opaque, no shore foam)
+    // Dark tea-brown. How swampy the water is also goes to the water shader
+    // (the flow attribute's third value): murkier, no shore foam
     const colorSwampWater = new Color(0x3a3320);
     const tempColor = new Color();
 
@@ -2525,17 +2543,13 @@ export function generateChunkData({
           Math.min(1, (southInfluence + tempNoise * 0.05 - 0.7) * 1.5)
         );
         const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
-        const swampWaterFactor = ChillFlightLogic.swampFactorAt(
-          worldX,
-          worldZ,
-          simplex
-        );
+        const swampWaterFactor = swampWaterAt(worldX, worldZ, simplex);
 
         tempColor.copy(colorWater);
         if (snowFactor > 0) tempColor.lerp(colorIcyWater, snowFactor);
         if (desertFactor > 0) tempColor.lerp(colorDesertWater, desertFactor);
-        if (swampWaterFactor > 0)
-          tempColor.lerp(colorSwampWater, Math.min(1, swampWaterFactor * 1.25));
+        const swampWater = Math.min(1, swampWaterFactor * 1.25);
+        if (swampWater > 0) tempColor.lerp(colorSwampWater, swampWater);
 
         const flow = ChillFlightLogic.getRiverFlow(worldX, worldZ, simplex);
 
@@ -2544,9 +2558,10 @@ export function generateChunkData({
         waterColors[wPosIdx + 2] = tempColor.b;
 
         if (flow) {
-          waterFlow[(wPosIdx / 3) * 2] = flow[0];
-          waterFlow[(wPosIdx / 3) * 2 + 1] = flow[1];
+          waterFlow[wPosIdx] = flow[0];
+          waterFlow[wPosIdx + 1] = flow[1];
         }
+        waterFlow[wPosIdx + 2] = swampWater;
 
         wPosIdx += 3;
       }

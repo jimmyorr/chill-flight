@@ -512,9 +512,11 @@ waterMaterial.onBeforeCompile = function (shader) {
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
         // Which way a river runs here, scaled by how much it's in the
-        // channel (getRiverFlow; zero on the sea and lakes)
-        attribute vec2 flow;
+        // channel (getRiverFlow; zero on the sea and lakes), then how swampy
+        // the water is, 0 to 1 (terrain-gen.js)
+        attribute vec3 flow;
         varying vec2 vFlow;
+        varying float vSwamp;
 
         ${WATER_SWELL_GLSL}
     ` +
@@ -552,7 +554,8 @@ waterMaterial.onBeforeCompile = function (shader) {
         transformed.y += swellN.x;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
-        vFlow = flow;
+        vFlow = flow.xy;
+        vSwamp = flow.z;
         #ifdef USE_FOG
           fogSkyVertex(vWorldPosition);
         #endif
@@ -563,6 +566,7 @@ waterMaterial.onBeforeCompile = function (shader) {
     `
         varying vec2 vDepthUV;
         varying vec2 vFlow;
+        varying float vSwamp;
         uniform sampler2D uDepthTex;
         uniform float uTime;
         uniform vec3 uSunDirection;
@@ -639,10 +643,10 @@ waterMaterial.onBeforeCompile = function (shader) {
         gl_FragColor.rgb = mix(waterLit, waterLit * vec3(0.24, 0.46, 0.82), deep * 0.7);
         gl_FragColor.rgb = mix(gl_FragColor.rgb, waterLit * vec3(0.55, 1.05, 0.9), shallow * 0.6);
         gl_FragColor.a = mix(gl_FragColor.a, 1.0, deep * 0.9);
-        // Swamp water (vertex color with less blue than green, the only water
-        // that has; terrain-gen.js) is still and murky: nearly opaque however
-        // shallow, and no shore foam
-        float swampWater = 1.0 - smoothstep(0.75, 0.92, vColor.b / max(vColor.g, 0.01));
+        // Swamp water is still and murky: nearly opaque however shallow, and
+        // no shore foam. Eased in over the same width as its tea colour, so
+        // clear water fades into the swamp rather than meeting it in a line
+        float swampWater = smoothstep(0.0, 1.0, vSwamp);
         gl_FragColor.rgb = mix(gl_FragColor.rgb, waterLit, swampWater);
         gl_FragColor.a = mix(gl_FragColor.a, 0.93, swampWater);
         // Coral reefs in the warm shallows (terrain-gen.js reefWeights): as
