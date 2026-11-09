@@ -196,6 +196,13 @@ function easeLock(lock, locked, ease) {
 }
 
 export function updateFlightCamera(delta, nowTime) {
+  // Faster than this (units/s) the chase camera takes a jump for a teleport
+  // and doesn't trail it; a crystal rush can take the jet well past the
+  // usual limit (follow-logic.js)
+  const followMax = Math.max(
+    2500,
+    BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60 * 1.5
+  );
   // --- CAMERA UPDATES ---
 
   if (state.isFreeCamera) {
@@ -284,7 +291,8 @@ export function updateFlightCamera(delta, nowTime) {
           0,
           1
         )
-      : (state.flightSpeedMultiplier - 0.5) / 9.5;
+      : // (a crystal rush can go past 10x: pulls back up to half as far again)
+        Math.min(1.5, (state.flightSpeedMultiplier - 0.5) / 9.5);
     const diveFactor = Math.max(0, -planeGroup.rotation.x / (Math.PI / 4)); // 1.0 at 45 degree dive
 
     // Pinched in or out (cameraZoom)
@@ -663,14 +671,16 @@ export function updateFlightCamera(delta, nowTime) {
           _idealCameraPos,
           _prevIdealCameraPos,
           delta,
-          FOLLOW_RATE
+          FOLLOW_RATE,
+          followMax
         );
         followStep(
           _virtualLookTarget,
           _idealLookTarget,
           _prevIdealLookTarget,
           delta,
-          FOLLOW_RATE
+          FOLLOW_RATE,
+          followMax
         );
       } else {
         const follow = 1 - Math.pow(1 - 0.25, delta * 60);
@@ -726,14 +736,16 @@ export function updateFlightCamera(delta, nowTime) {
           _idealCameraPos,
           _prevIdealCameraPos,
           delta,
-          FOLLOW_RATE
+          FOLLOW_RATE,
+          followMax
         );
         followStep(
           _currentLookTarget,
           _idealLookTarget,
           _prevIdealLookTarget,
           delta,
-          FOLLOW_RATE
+          FOLLOW_RATE,
+          followMax
         );
       } else {
         const follow = 1 - Math.pow(1 - 0.25, delta * 60);

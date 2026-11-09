@@ -13,9 +13,12 @@
  * `ideal` is where it should be now, `prevIdeal` where it was last frame,
  * `rate` how fast the gap closes (per second). A target that moved faster
  * than `maxSpeed` units a second (a teleport, a vehicle swap) keeps the
- * camera where it was relative to it.
+ * camera where it was relative to it. (Faster than any vehicle's throttle:
+ * the jet tops out at 1100 units/s, though a crystal rush takes it further
+ * and passes its own speed in; a teleport jumps 300+ units in a frame of at
+ * most 0.1 s.)
  */
-export function followStep(cur, ideal, prevIdeal, dt, rate, maxSpeed = 1500) {
+export function followStep(cur, ideal, prevIdeal, dt, rate, maxSpeed = 2500) {
   if (!(dt > 0)) return cur;
   const e = Math.exp(-rate * dt);
   const jx = ideal.x - prevIdeal.x;

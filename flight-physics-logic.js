@@ -98,15 +98,21 @@ export function pitchedTarget(
  */
 export function throttleSpeed(speed, target, handling, delta) {
   const diff = target - speed;
-  const maxRate =
+  let maxRate =
     (diff > 0 ? handling.accelKts : handling.decelKts) / KTS_PER_MULT;
+  // Past its top speed (a shattered crystal's rush, crystal-rush.js) the
+  // plane sheds the extra quickly once the rush lets go, about half of it
+  // a second, rather than coasting down at the throttle's rate
+  const top = handling.topKts / KTS_PER_MULT;
+  if (diff < 0 && speed > top) maxRate = Math.max(maxRate, (speed - top) * 0.6);
   const step = Math.min(Math.abs(diff) * FLIGHT.THROTTLE_EASE, maxRate) * delta;
   speed += Math.sign(diff) * Math.min(step, Math.abs(diff));
   // Easing never quite arrives, so settle once close (a plane stopping on
   // the water or the ground stops, rather than creeping and its prop
   // twitching)
   if (Math.abs(speed - target) < 0.01) speed = target;
-  return Math.max(0, Math.min(10, speed));
+  // (No faster than 10x, unless a rush is taking it there)
+  return Math.max(0, Math.min(Math.max(10, target), speed));
 }
 
 /** How far the plane has fallen out of the sky (0 to 1), eased over time. */

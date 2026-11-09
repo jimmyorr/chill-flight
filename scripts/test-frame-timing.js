@@ -77,6 +77,21 @@ const jumped = followStep(
   1 / 60,
   FOLLOW_RATE
 );
+// The jet at full speed in a crystal rush (1500 units/s, 1875 for a frame
+// on a kick) is still followed with its lag, not snapped onto like a
+// teleport (that zoomed the camera in and out)
+const fast = followStep(
+  {x: 0, y: 0, z: 0},
+  {x: 1875 / 60, y: 0, z: 0},
+  {x: 0, y: 0, z: 0},
+  1 / 60,
+  FOLLOW_RATE
+);
+check(
+  'the jet at rush speed is followed, not snapped onto',
+  fast.x < 1875 / 60 - 1,
+  `${fast.x.toFixed(1)}`
+);
 check(
   'a teleport carries the camera along, not swept across',
   Math.abs(jumped.x - 5000) < 1e-6,
