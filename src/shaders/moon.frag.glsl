@@ -7,6 +7,8 @@
     uniform float uCloudDensity;
     uniform vec3 uMoonSkyDir;
     uniform vec3 uCameraPos;
+    uniform sampler2D uMoonMap;
+    uniform float uHasMoonMap;
     #ifdef ANIME_TOWERS
     uniform bool uShowClouds;
     uniform float offset;
@@ -109,6 +111,13 @@
         vec3 baseCol = mix(nightTint, dayTint, dayFactor);
         vec3 darkCol = baseCol * 0.92;
         vec3 color = mix(darkCol, baseCol, smoothstep(0.3, 0.7, n));
+        // The real near side: its maria and bright highlands, Tycho's rays.
+        // Object space has z toward the camera and x to screen right, so
+        // longitude 0 faces us with east to the right, north up.
+        if (uHasMoonMap > 0.5) {
+            float albedo = texture2D(uMoonMap, objUv).r;
+            color = baseCol * mix(0.62, 1.12, smoothstep(0.08, 0.75, albedo));
+        }
 
         // Phase lighting in world space - softer terminator for natural look
         float illum = dot(worldNormal, normalize(uSunDirectionWorld));

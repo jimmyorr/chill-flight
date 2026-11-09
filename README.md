@@ -32,6 +32,8 @@ flight,simulator,chill,lofi,relaxing,procedural,exploration,ambient,casual,cozy,
 
 Some of the 3D models are from [Polyfork](https://polyfork.dev/) (free licence: games can ship them, no attribution needed, but the files themselves can't be redistributed as assets; sources kept unchanged in `third-party/polyfork/`).
 
+The moon map is from NASA / GSFC Scientific Visualization Studio, CGI Moon Kit (LRO LROC data), public domain.
+
 ## Music
 
 In-game radio features tracks by Purrple Cat (Used with permission/attribution).
@@ -202,6 +204,7 @@ The values live in `FOG` in `chill-flight-logic.js`. The debug menu's clear-sky 
 
 ### Atmospheric phenomena
 
+- **Moon**: The moon shows its real near side, north up, with the dark maria and bright highlands and Tycho's rays where they really are: NASA's Lunar Reconnaissance Orbiter albedo map (public domain, 512 by 256 pixels, `assets/moon-lroc-512.jpg`, via the Nightscape demo) shades it, and its phases follow a 29.5-game-day cycle (`moon.frag.glsl`). Until the map has loaded it is drawn procedurally.
 - **Stars**: Each star twinkles on its own, irregularly a few times a second, and more low down where its light crosses more air; low stars are also dimmer and warmer. Faint stars fade in the moon's glare. One steady reddish planet sits low in the sky (`starsMat` in `sky.js`, after the [Nightscape](https://github.com/WeebLabs/Nightscape) demo).
 - **Shooting stars**: About every 30 seconds on a clear night a meteor crosses the part of the sky in view: both ends of its path are on screen, clear of the moon and above the horizon, so the whole streak is seen. It lasts 0.3 to 2 seconds, with a hot blue-white head and a warmer trail fading behind it, and about one in twelve is a brighter, longer fireball (`updateShootingStar` in `sky.js`).
 - **Lightning**: In heavy rain, lightning flashes about every 13 seconds (the same at any frame rate). A flash plays out like the real thing (`lightning-logic.js`): a ground strike is one to four strokes 50 to 140 ms apart, each a sharp peak that fades in a few tens of milliseconds, and a flash inside the cloud is a softer train of pulses. It lights the land from its direction and the clouds and sky around it, and its thunder comes from that side. With the system's reduce motion setting a flash is one slow, dim pulse.

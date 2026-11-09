@@ -19,6 +19,7 @@ import sunMoonVertShader from './src/shaders/sunMoon.vert.glsl?raw';
 import moonFragShader from './src/shaders/moon.frag.glsl?raw';
 import rainbowVertShader from './src/shaders/rainbow.vert.glsl?raw';
 import rainbowFragShader from './src/shaders/rainbow.frag.glsl?raw';
+import moonMapUrl from './assets/moon-lroc-512.jpg';
 import {state} from './state.js';
 import {skyNoiseTexture, skyUniforms} from './sky-uniforms.js';
 import {t} from './i18n.js';
@@ -487,7 +488,18 @@ export const moonUniforms = {
   uSkyTime: skyUniforms.uTime,
   uTowerProfile: skyUniforms.uTowerProfile,
   uTowerHorizon: skyUniforms.uTowerHorizon,
+  // The real near side (NASA's LRO albedo map, public domain; via the
+  // Nightscape demo), once loaded: until then the moon is procedural
+  uMoonMap: {value: null},
+  uHasMoonMap: {value: 0},
 };
+// Bundled with the game, so it never waits on the network
+new THREE.TextureLoader().load(moonMapUrl, (tex) => {
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.wrapS = THREE.RepeatWrapping;
+  moonUniforms.uMoonMap.value = tex;
+  moonUniforms.uHasMoonMap.value = 1;
+});
 
 // Note: The physical sun mesh and glow plane geometries/materials have been removed
 // because the sky relies completely on the stunning volumetric shader bloom.
