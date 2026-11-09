@@ -16,6 +16,8 @@ export const MOUNTAIN_LEVEL = 180;
 // this grid's heights before they meet the ring (terrain-gen.js).
 export const FAR_CELL = 9000;
 export const FAR_SEGMENTS = 54;
+// The ring is drawn this much lower, so near terrain always draws over it
+export const FAR_SINK = 12;
 export const CLOUD_OPACITY = 0.55;
 
 // Lighthouse parameters

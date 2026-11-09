@@ -14,6 +14,7 @@ import {
   CHUNK_SIZE,
   FAR_CELL,
   FAR_SEGMENTS,
+  FAR_SINK,
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
@@ -28,7 +29,6 @@ import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {scene} from './scene.js';
 
 export const FAR_RADIUS = 27000; // fully faded into the sky by here
-const FAR_SINK = 12; // lowered so near terrain always draws over it
 const CELL_RANGE = Math.ceil(FAR_RADIUS / FAR_CELL); // cells each way
 
 const farUniforms = {

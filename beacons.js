@@ -10,10 +10,23 @@
 // short climb uphill), one cell per frame, and kept. A cell gets a mast if
 // that point is a real summit, high enough, and the cell's hash says so.
 // Not in the alien lands. Two draw calls: the masts and their lights.
+//
+// The drawn ground isn't the elevation noise: it's a grid of samples, coarser
+// toward the draw distance (the terrain shader eases it onto the distant
+// ring's grid) and the ring itself is coarser still and sunk a little. So a
+// mast stands on the highest grid point near its summit, and its foot follows
+// the same easing as the ground under it, or it would hang in the air.
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
-import {createMaterial} from './constants.js';
+import {
+  CHUNK_SIZE,
+  FAR_CELL,
+  FAR_SEGMENTS,
+  FAR_SINK,
+  createMaterial,
+  terrainUniforms,
+} from './constants.js';
 import {getElevation, MAST_HEIGHT, mastGeometry} from './terrain-geometry.js';
 import {camera, renderer} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -158,6 +171,61 @@ const lights = new THREE.Points(lightGeo, lightMat);
 lights.frustumCulled = false;
 scene.add(lights);
 
+// Height of the distant ring's grid at (x, z), split into triangles as the
+// ring's mesh is (see coarseGridHeights in terrain-gen.js)
+function farGroundAt(x, z) {
+  const step = FAR_CELL / FAR_SEGMENTS;
+  const u = (x + FAR_CELL / 2) / step;
+  const v = (z + FAR_CELL / 2) / step;
+  const gx = Math.floor(u);
+  const gz = Math.floor(v);
+  const fu = u - gx;
+  const fv = v - gz;
+  const x0 = gx * step - FAR_CELL / 2;
+  const z0 = gz * step - FAR_CELL / 2;
+  const h00 = getElevation(x0, z0);
+  const h10 = getElevation(x0 + step, z0);
+  const h01 = getElevation(x0, z0 + step);
+  const h11 = getElevation(x0 + step, z0 + step);
+  return fu + fv <= 1
+    ? h00 + fu * (h10 - h00) + fv * (h01 - h00)
+    : h11 + (1 - fu) * (h01 - h11) + (1 - fv) * (h10 - h11);
+}
+
+// Where a mast stands for the current terrain detail: the highest point of
+// the near ground's grid round its summit (the drawn top of the hill), and
+// the distant grid's height there. Kept on the cell's spot as m.ground.
+function groundFor(m) {
+  const segments = state.SEGMENTS;
+  if (m.ground?.segments === segments) return m.ground;
+  const step = CHUNK_SIZE / segments;
+  const half = CHUNK_SIZE / 2;
+  const ix = Math.floor((m.x + half) / step);
+  const iz = Math.floor((m.z + half) / step);
+  let gx = m.x;
+  let gz = m.z;
+  let near = -Infinity;
+  for (let i = ix - 1; i <= ix + 2; i++) {
+    for (let j = iz - 1; j <= iz + 2; j++) {
+      const x = i * step - half;
+      const z = j * step - half;
+      const y = getElevation(x, z);
+      if (y > near) [gx, gz, near] = [x, z, y];
+    }
+  }
+  m.ground = {segments, x: gx, z: gz, near, far: farGroundAt(gx, gz)};
+  return m.ground;
+}
+
+// The drawn ground's height under a mast `dist` from the camera, as the
+// terrain shader eases it (terrain-geometry.js) and, past the draw distance,
+// the sunk distant ring
+function groundY(g, dist, radius, ring) {
+  if (dist > radius) return ring > 0 ? g.far - FAR_SINK * ring : g.near;
+  const t = THREE.MathUtils.smoothstep(dist, radius * 0.55, radius * 0.9);
+  return THREE.MathUtils.lerp(g.near, g.far, t * ring);
+}
+
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const _s = new THREE.Vector3(1, 1, 1);
@@ -166,6 +234,9 @@ const _up = new THREE.Vector3(0, 1, 0);
 let lastKey = '';
 // The cell being searched: {key, it}
 let search = null;
+// The masts drawn, in order, and the heights they were last placed at
+const shown = [];
+const placedY = new Float32Array(MAX_MASTS);
 
 function rebuild(ccx, ccz) {
   let n = 0;
@@ -173,20 +244,40 @@ function rebuild(ccx, ccz) {
     for (let dz = -RANGE; dz <= RANGE && n < MAX_MASTS; dz++) {
       const m = cells.get(`${ccx + dx},${ccz + dz}`);
       if (!m) continue;
-      _q.setFromAxisAngle(_up, m.phase * 3);
-      _m.compose(_p.set(m.x, m.y, m.z), _q, _s);
-      masts.setMatrixAt(n, _m);
-      lightPos.set([m.x, m.y + MAST_HEIGHT - 2.5, m.z], n * 6);
-      lightPos.set([m.x, m.y + MAST_HEIGHT * 0.5, m.z], n * 6 + 3);
+      shown[n] = m;
+      placedY[n] = NaN;
       lightInfo.set([1, m.phase, 0, m.phase], n * 4);
       n++;
     }
   }
+  shown.length = n;
   masts.count = n;
-  masts.instanceMatrix.needsUpdate = true;
   lightGeo.setDrawRange(0, n * 2);
-  lightGeo.attributes.position.needsUpdate = true;
   lightGeo.attributes.info.needsUpdate = true;
+}
+
+// Stand each mast on the ground as drawn now; only the ones that moved
+function place(camX, camZ) {
+  const radius = terrainUniforms.uRenderRadius.value;
+  // 1 while the distant ring is there for the ground to ease onto
+  const ring = 1 - terrainUniforms.uNearEdgeFade.value;
+  let moved = false;
+  for (let n = 0; n < shown.length; n++) {
+    const g = groundFor(shown[n]);
+    const y = groundY(g, Math.hypot(g.x - camX, g.z - camZ), radius, ring);
+    if (Math.abs(y - placedY[n]) < 0.05) continue;
+    placedY[n] = y;
+    moved = true;
+    _q.setFromAxisAngle(_up, shown[n].phase * 3);
+    _m.compose(_p.set(g.x, y, g.z), _q, _s);
+    masts.setMatrixAt(n, _m);
+    lightPos.set([g.x, y + MAST_HEIGHT - 2.5, g.z], n * 6);
+    lightPos.set([g.x, y + MAST_HEIGHT * 0.5, g.z], n * 6 + 3);
+  }
+  if (moved) {
+    masts.instanceMatrix.needsUpdate = true;
+    lightGeo.attributes.position.needsUpdate = true;
+  }
 }
 
 // Every frame, from game-loop.js
@@ -229,6 +320,7 @@ export function updateBeacons() {
     lastKey = key;
     rebuild(ccx, ccz);
   }
+  place(_p.x, _p.z);
   lightUniforms.uTime.value = (performance.now() / 1000) % 1000;
   lightUniforms.uNight.value =
     1 - THREE.MathUtils.smoothstep(state.dayFactor, 0.3, 0.8);
