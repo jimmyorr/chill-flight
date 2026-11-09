@@ -719,7 +719,11 @@ waterMaterial.onBeforeCompile = function (shader) {
         vec3 reflNormal = normalize(mix(vec3(0.0, 1.0, 0.0), vSmoothNormal, 0.35) + rippleNormal * 0.5);
         vec3 reflDir = reflect(-viewDir, reflNormal);
         reflDir.y = abs(reflDir.y);
-        float cosTheta = max(dot(viewDir, n), 0.0);
+        // Ripples too small to see still tilt the surface toward the
+        // viewer at grazing angles, so the far sea never turns into a
+        // perfect mirror of the sky and the horizon line stays readable
+        // (after NeuralSpecOcean's roughness-limited Fresnel)
+        float cosTheta = max(dot(viewDir, n), 0.07);
         float skyFresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
         vec3 reflected = skyColorAt(reflDir, uTopColor, uBottomColor, uSunDirection, 0.0);
         // Only where the reflection is strong enough to show clouds
@@ -739,7 +743,11 @@ waterMaterial.onBeforeCompile = function (shader) {
         vec3 halfVector = normalize(uSpecularDir + viewDir);
         float cosT = clamp(dot(halfVector, n), 0.001, 1.0);
         float cosT2 = cosT * cosT;
-        const float slopeVar = 0.035; // mean squared wave slope
+        // Mean squared wave slope. Ripples faded out with distance (or too
+        // fine for the pixel) still roughen the surface, so their slope
+        // moves into the path's spread and the path keeps its width out to
+        // the horizon instead of thinning (NeuralSpecOcean does the same)
+        float slopeVar = 0.035 + 0.012 * (1.0 - nearFade * rippleAA);
         float beckmann = exp(-(1.0 - cosT2) / (cosT2 * slopeVar)) / (slopeVar * cosT2 * cosT2);
 
         // Glints: finer, faster ripples break the path into bright sparkles
