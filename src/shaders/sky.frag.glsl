@@ -402,5 +402,10 @@
             col = col + auroraContrib * (vec3(1.0) - col);
         }
 
+        // A faint fixed dither so dark night gradients don't band on 8-bit
+        // screens (interleaved gradient noise, about one step of 255)
+        float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+        col += (dither - 0.5) / 255.0;
+
         gl_FragColor = vec4(col, 1.0);
     }
