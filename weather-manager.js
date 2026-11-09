@@ -22,6 +22,10 @@ const _reduceMotion =
   typeof window !== 'undefined' && window.matchMedia
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
     : null;
+// A storm far past the horizon on a dry night (after the Nightscape demo):
+// it stays in one direction for a minute or two, flickering now and then
+// with no thunder, then another may build elsewhere
+const _farStorm = {on: false, angle: 0, until: 0, next: 0, flash: null};
 let _wasRaining;
 
 export var manualCloudCover =
@@ -62,6 +66,61 @@ export function flashLightning(
   _camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
   playThunder(distance, false, _camRight.dot(_flashDir));
   thunderHaptic(distance);
+}
+
+// Start a distant storm toward angle (radians, as flashLightning), flashing
+// right away; for testing from the console
+export function startFarStorm(angle = Math.random() * Math.PI * 2) {
+  const now = performance.now() / 1000;
+  Object.assign(_farStorm, {on: true, angle, until: now + 120, next: now});
+}
+
+// Distant storms: only at night, with no rain or snow here and the stars
+// mostly out. The glow is uFarStorm in sky.frag.glsl.
+function updateFarStorm(delta) {
+  const fs = _farStorm;
+  const u = skyUniforms.uFarStorm.value;
+  const now = performance.now() / 1000;
+  const allowed =
+    state.sunY < -0.15 &&
+    _rainLevel < 0.05 &&
+    _snowLevel < 0.05 &&
+    skyUniforms.uCloudDensity.value < 0.75;
+  if (!fs.on) {
+    u.w = 0;
+    // About one a minute of dry night, so on about half the nights (night
+    // lasts about a minute of the 6 minute day)
+    if (allowed && Math.random() < delta / 60) {
+      fs.on = true;
+      fs.angle = Math.random() * Math.PI * 2;
+      fs.until = now + 60 + Math.random() * 120;
+      fs.next = now + 1 + Math.random() * 3;
+      fs.flash = null;
+    }
+    return;
+  }
+  if (fs.flash) {
+    fs.flash.age += delta;
+    u.w =
+      Math.min(lightningBrightness(fs.flash.tl, fs.flash.age, delta), 1) *
+      fs.flash.peak;
+    if (fs.flash.age >= fs.flash.tl.dur) fs.flash = null;
+  } else {
+    u.w = 0;
+    if (!allowed || now > fs.until) {
+      fs.on = false;
+    } else if (now >= fs.next) {
+      // Each flash lights a slightly different part of the storm
+      const a = fs.angle + (Math.random() - 0.5) * 0.25;
+      u.set(Math.cos(a), 0.08 + Math.random() * 0.08, Math.sin(a), 0);
+      fs.flash = {
+        tl: lightningTimeline(Math.random, !!_reduceMotion?.matches, true),
+        age: 0,
+        peak: 0.5 + Math.random() * 0.7,
+      };
+      fs.next = now + 3 + Math.random() * 12;
+    }
+  }
 }
 
 // --- WEATHER SYSTEM ---
@@ -588,6 +647,8 @@ export function updateWeather(delta) {
     // at any frame rate), somewhere around the camera
     flashLightning();
   }
+
+  updateFarStorm(delta);
 
   // Store unfaded opacities to drive cloud density even when above clouds
   state._unfadedSnowOpacity = _snowLevel;

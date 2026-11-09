@@ -275,6 +275,12 @@ check('snow gets heavier farther north', deep > edge * 1.3);
   }
   check('lightning flashes are 1-6 strokes that fade out', ok);
   check('no stroke is skipped at a low frame rate', missed === 0, missed);
+  let farOk = true;
+  for (let i = 0; i < 100; i++) {
+    const tl = lightningTimeline(rnd, false, true);
+    if (tl.strokes.some((st) => st.peak > 0.7 || st.cc)) farOk = false;
+  }
+  check('a far storm only flashes softly inside its cloud', farOk);
   const soft = lightningTimeline(rnd, true);
   check(
     'reduced motion gives one soft pulse',

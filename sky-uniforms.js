@@ -60,6 +60,9 @@ export const skyUniforms = {
   uAuroraIntensity: {value: 0.0}, // 0 = off, 1 = full intensity; driven by latitude + night
   // A lightning flash: xyz its direction, w its brightness (weather-manager.js)
   uFlash: {value: new THREE.Vector4(0, 1, 0, 0)},
+  // A storm far past the horizon flickering: xz its direction, y the top of
+  // its glow (dir.y), w its brightness (weather-manager.js)
+  uFarStorm: {value: new THREE.Vector4(1, 0.08, 0, 0)},
   uNoiseTex: {value: skyNoiseTexture},
   uCameraPos: {value: new THREE.Vector3()},
   uMoonDir: moonlightUniforms.uMoonDir,

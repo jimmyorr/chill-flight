@@ -11,6 +11,7 @@
     uniform bool uShowClouds;
     uniform float uAuroraIntensity;
     uniform vec4 uFlash;
+    uniform vec4 uFarStorm;
     uniform vec3 uCameraPos;
     varying vec3 vWorldPosition;
     varying vec3 vDirection;
@@ -36,6 +37,14 @@
         col += vec3(0.5, 0.58, 0.75) * uMoonBright
              * (pow(moonAlign, 60.0) * 0.3 + pow(moonAlign, 8.0) * 0.06);
         
+        // A storm far past the horizon flickering: a soft glow low in the sky
+        // toward it, drawn before the clouds so they stand dark against it
+        if (uFarStorm.w > 0.001) {
+            float az = max(dot(normalize(dir.xz + vec2(1e-5)), uFarStorm.xz), 0.0);
+            float band = exp(-max(h, 0.0) / uFarStorm.y) * smoothstep(-0.05, 0.0, h);
+            col += vec3(0.72, 0.7, 0.95) * uFarStorm.w * pow(az, 24.0) * band * 0.7;
+        }
+
         // --- PROCEDURAL CLOUDS: cirrus, mackerel sky and cumulus layers ---
         float cloudHeight = uCloudHeight > 0.0 ? uCloudHeight : 3000.0;
         float distToPlane = cloudHeight - uCameraPos.y;

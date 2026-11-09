@@ -8,14 +8,15 @@
 
 // A flash's timeline: {strokes: [{t, peak, tau, cc, ccDur}], dur} in seconds.
 // rnd() returns 0..1. With reduceMotion (the player's system setting) a flash
-// is one slow, dim pulse with no flicker.
-export function lightningTimeline(rnd, reduceMotion = false) {
+// is one slow, dim pulse with no flicker. inCloud forces the softer kind (a
+// far storm's flashes are seen only as light in its cloud).
+export function lightningTimeline(rnd, reduceMotion = false, inCloud = false) {
   const strokes = [];
   if (reduceMotion) {
     strokes.push({t: 0, peak: 0.5, tau: 0.2, cc: 0, ccDur: 0});
     return {strokes, dur: 1.2};
   }
-  if (rnd() < 0.55) {
+  if (!inCloud && rnd() < 0.55) {
     // Ground strike
     const r = rnd();
     const n = r < 0.3 ? 1 : r < 0.6 ? 2 : r < 0.85 ? 3 : 4;
