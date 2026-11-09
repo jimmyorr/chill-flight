@@ -511,8 +511,6 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform vec3 uBottomColor;
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
-        // The swell's height here, for the whitecaps on its crests
-        varying float vSwellH;
         // Which way a river runs here, scaled by how much it's in the
         // channel (getRiverFlow; zero on the sea and lakes)
         attribute vec2 flow;
@@ -552,7 +550,6 @@ waterMaterial.onBeforeCompile = function (shader) {
         vec3 transformed = vec3(position);
         // (Same vertex as the normal above: reuse its swell)
         transformed.y += swellN.x;
-        vSwellH = swellN.x;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
         vFlow = flow;
@@ -573,7 +570,6 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform vec3 uSunColor;
         uniform float uGlitterWarm;
         uniform float uWhitecaps;
-        varying float vSwellH;
         uniform vec3 uTopColor;
         uniform vec3 uBottomColor;
         varying vec3 vWorldPosition;
@@ -788,20 +784,18 @@ waterMaterial.onBeforeCompile = function (shader) {
         // drifting, more and bigger the rougher it is. Faded out before
         // they'd shimmer in the distance.
         if (uWhitecaps > 0.01 && vDistanceXZ < 4500.0) {
-          // The foam pattern rides along with the main swell (at its phase
-          // speed, 1 / 0.018 units per unit of uTime along its direction in
-          // swell()), so a cap stays on its crest instead of flicking on and
-          // off as crests pass under a fixed pattern, and changes shape only
-          // slowly. (Wrapped every 100 km to keep the noise's float
-          // precision: the caps reshuffle about every 20 minutes.)
-          vec2 wp = vWorldPosition.xz - vec2(0.944, 0.33) * mod(uTime / 0.018, 100000.0);
-          // A wide band of the crest, so a cap fades slowly as the crest
-          // shrinks rather than blinking out
-          float crest = smoothstep(0.7 - uWhitecaps * 0.6, 1.4 - uWhitecaps * 0.4, vSwellH);
-          float capN = noise(wp * 0.03 + vec2(uTime * 0.02, 0.0)) * 0.55
-                     + noise(wp * 0.16 - vec2(0.0, uTime * 0.05)) * 0.45;
-          float capEdge = 0.7 - uWhitecaps * 0.13;
-          float cap = crest * smoothstep(capEdge, capEdge + 0.08, capN) * deep * (1.0 - swampWater)
+          // Each patch of foam stays where it broke, drifting slowly
+          // downwind, flares up in about a second and then shrinks away
+          // over several more, on its own clock (the start time varies
+          // smoothly across the sea, so neighbours break at different
+          // moments). Not tied to the swell's crests: they travel far too
+          // fast to carry foam that reads as foam.
+          vec2 wp = vWorldPosition.xz - vec2(0.944, 0.33) * (uTime * 2.0);
+          float capN = noise(wp * 0.05) * 0.45 + noise(wp * 0.2) * 0.55;
+          float life = fract(uTime / 12.0 + noise(wp * 0.008 + 17.3) * 3.0);
+          float bloom = smoothstep(0.0, 0.08, life) * (1.0 - smoothstep(0.2, 0.95, life));
+          float capEdge = 0.83 - uWhitecaps * 0.1 + (1.0 - bloom) * 0.1;
+          float cap = smoothstep(capEdge, capEdge + 0.06, capN) * bloom * deep * (1.0 - swampWater)
                     * (1.0 - smoothstep(1500.0, 4500.0, vDistanceXZ));
           float capLight = clamp(dot(waterLit, vec3(0.333)) / max(dot(vColor.rgb, vec3(0.333)), 0.05), 0.0, 1.2);
           gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.94, 0.97, 1.0) * capLight, cap * 0.75);
