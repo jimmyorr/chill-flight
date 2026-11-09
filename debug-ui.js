@@ -56,6 +56,7 @@ import {simplex} from './noise.js';
 import {state} from './state.js';
 import {performanceMonitor} from './game-performance.js';
 import {hooks} from './hooks.js';
+import {setPerfReportUrl} from './perf-hud.js';
 
 // Props as the page asked for them (?objects=none turns them off), before
 // any preset hides them
@@ -843,6 +844,9 @@ export function initDebugUI() {
     }
     return url.toString();
   };
+
+  // The ?perf=1 report links back to the plane's place, time and weather
+  setPerfReportUrl(() => buildDebugUrl(false));
 
   // Copies text and briefly shows "Copied!" on the button.
   const copyWithFeedback = (btn, text) => {

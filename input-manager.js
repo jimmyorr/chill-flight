@@ -667,6 +667,7 @@ export class InputManager {
         target.closest('#mobile-action-menu') ||
         target.closest('#minimap-container') ||
         target.closest('#npc-dialog') ||
+        target.closest('#perf-hud') ||
         target.closest('.color-swatch'));
 
     if (isUI) return;
