@@ -2,10 +2,13 @@
 // Usage:
 //   node scripts/shot.js out.jpg "x=0&y=413&z=0&heading=45&tod=0.61"
 //   node scripts/shot.js out.jpg "<query>" "<query 2>" ...  (out-1.jpg, ...)
+//   node scripts/shot.js out.jpg forest "swamp&preset=mid"  (named views from
+//     scripts/views.js; anything after & is added to the view)
 // Queries take the game's URL parameters (see README). freecam=true is added
 // so the camera stays where x/y/z/heading/pitch put it; timeSpeed=0 freezes
 // the time of day. Options (env): SIZE=1600x900, SCALE=1, SETTLE_MS=4000.
 import {launch, openGame} from './dev-browser.js';
+import {viewQuery} from './views.js';
 
 const [out, ...queries] = process.argv.slice(2);
 if (!out || queries.length === 0) {
@@ -19,7 +22,8 @@ const settleMs = Number(process.env.SETTLE_MS || 4000);
 const browser = await launch();
 let failed = false;
 for (const [i, query] of queries.entries()) {
-  const q = new URLSearchParams(query);
+  const [name, ...rest] = query.split('&');
+  const q = new URLSearchParams([viewQuery(name), ...rest].join('&'));
   if (!q.has('freecam')) q.set('freecam', 'true');
   if (!q.has('timeSpeed')) q.set('timeSpeed', '0');
   const page = await openGame(browser, q.toString(), {

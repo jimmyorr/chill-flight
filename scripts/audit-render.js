@@ -1,19 +1,9 @@
 // Per-category triangles and draw calls, main pass vs shadow pass.
-// Usage: node scripts/audit-render.js  env: PRESET=mid VIEWS=a,b W=844 H=390
+// Usage: npm run audit:render  env: PRESET=mid VIEWS=a,b W=844 H=390 QUERY=...
+// (views in scripts/views.js; GAME_URL points at another dev server)
 import {launch, openGame} from './dev-browser.js';
+import {VIEWS, auditQuery} from './views.js';
 
-const VIEWS = {
-  land: 'x=0&y=413&z=0&heading=45&pitch=-4&tod=0.614&clouds=0.2',
-  landHigh: 'x=0&y=2500&z=0&heading=45&pitch=-15&tod=0.614&clouds=0.2',
-  forest: 'x=-3000&y=330&z=-6000&heading=160&pitch=-8&tod=0.45&clouds=0.3',
-  forestHigh:
-    'x=-3000&y=2500&z=-6000&heading=160&pitch=-15&tod=0.45&clouds=0.3',
-  mtn: 'x=-2000&y=600&z=-2500&heading=20&pitch=-3&tod=0.5&clouds=0.3',
-  sunset: 'x=30000&y=420&z=3000&heading=-90&pitch=-3&tod=0.735&clouds=0.45',
-  swamp: 'x=-9000&y=250&z=8000&heading=0&pitch=-6&tod=0.5&clouds=0.2',
-  swampLow: 'x=-9000&y=60&z=8000&heading=90&pitch=-3&tod=0.5&clouds=0.2',
-  down: 'x=-3000&y=1200&z=-6000&heading=160&pitch=-89&tod=0.45&clouds=0.3',
-};
 const names = process.env.VIEWS
   ? process.env.VIEWS.split(',')
   : Object.keys(VIEWS);
@@ -26,7 +16,7 @@ const out = {};
 for (const name of names) {
   const page = await openGame(
     browser,
-    `freecam=true&seed=20260928&timeSpeed=0&weather=none&preset=${preset}&${VIEWS[name]}${process.env.QUERY ? '&' + process.env.QUERY : ''}`,
+    auditQuery(name, {preset, extra: process.env.QUERY || ''}),
     {width: W, height: H, scale: 1, settleMs: 6000}
   );
   out[name] = await page.evaluate(async () => {
