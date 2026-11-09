@@ -194,6 +194,9 @@ export const waterUniforms = {
   uSunColor: {value: new THREE.Color(0xffffff)},
   // 1 when the glitter path is the sun's (gold when it's low), 0 for the moon's
   uGlitterWarm: {value: 1},
+  // How whipped up the open sea is, 0 calm to 1 storm: whitecaps on the
+  // swell's crests (set from the weather in game-loop.js)
+  uWhitecaps: {value: 0},
 };
 
 var _initPresetForTerrain =
@@ -479,6 +482,7 @@ waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uMoonDir = moonlightUniforms.uMoonDir;
   shader.uniforms.uMoonBright = moonlightUniforms.uMoonBright;
   shader.uniforms.uGlitterWarm = waterUniforms.uGlitterWarm;
+  shader.uniforms.uWhitecaps = waterUniforms.uWhitecaps;
   const depth = this.userData.depthUniforms || waterUniforms;
   shader.uniforms.uDepthTex = depth.uDepthTex;
   shader.uniforms.uDepthGridSize = depth.uDepthGridSize;
@@ -507,6 +511,8 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform vec3 uBottomColor;
         varying vec3 vWorldPosition;
         varying vec3 vSmoothNormal;
+        // The swell's height here, for the whitecaps on its crests
+        varying float vSwellH;
         // Which way a river runs here, scaled by how much it's in the
         // channel (getRiverFlow; zero on the sea and lakes)
         attribute vec2 flow;
@@ -546,6 +552,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         vec3 transformed = vec3(position);
         // (Same vertex as the normal above: reuse its swell)
         transformed.y += swellN.x;
+        vSwellH = swellN.x;
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
         vFlow = flow;
@@ -565,6 +572,8 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform vec3 uSpecularDir;
         uniform vec3 uSunColor;
         uniform float uGlitterWarm;
+        uniform float uWhitecaps;
+        varying float vSwellH;
         uniform vec3 uTopColor;
         uniform vec3 uBottomColor;
         varying vec3 vWorldPosition;
@@ -764,6 +773,23 @@ waterMaterial.onBeforeCompile = function (shader) {
         float lowSun = (1.0 - smoothstep(0.04, 0.35, uSpecularDir.y)) * uGlitterWarm;
         vec3 glitterColor = uSunColor * mix(vec3(1.0), vec3(1.0, 0.72, 0.38), lowSun);
         gl_FragColor.rgb += glitterColor * min(glitter, 3.0);
+
+        // Whitecaps (after NeuralSpecOcean's offshore foam): when the
+        // weather whips the sea up, small patches of foam break on the
+        // swell's crests out on the open sea, broken up by noise and
+        // drifting, more and bigger the rougher it is. Faded out before
+        // they'd shimmer in the distance.
+        if (uWhitecaps > 0.01 && vDistanceXZ < 4500.0) {
+          vec2 wp = vWorldPosition.xz;
+          float crest = smoothstep(1.0 - uWhitecaps * 0.6, 1.4 - uWhitecaps * 0.4, vSwellH);
+          float capN = noise(wp * 0.03 + vec2(uTime * 0.1, 0.0)) * 0.55
+                     + noise(wp * 0.16 - vec2(0.0, uTime * 0.3)) * 0.45;
+          float capEdge = 0.7 - uWhitecaps * 0.13;
+          float cap = crest * smoothstep(capEdge, capEdge + 0.08, capN) * deep * (1.0 - swampWater)
+                    * (1.0 - smoothstep(1500.0, 4500.0, vDistanceXZ));
+          float capLight = clamp(dot(waterLit, vec3(0.333)) / max(dot(vColor.rgb, vec3(0.333)), 0.05), 0.0, 1.2);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.94, 0.97, 1.0) * capLight, cap * 0.75);
+        }
 
         // River current: flecks of foam drifting downstream, faded out
         // before they'd shimmer in the distance

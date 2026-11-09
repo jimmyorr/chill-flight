@@ -2527,6 +2527,17 @@ function updateEnvironmentLighting(delta, now) {
 
     // Wind in the trees: a breeze, gustier as the weather turns
     windUniforms.uWindStrength.value = 0.7 + overcast * 0.9;
+    // Whitecaps on the open sea: none on fair days, some as the clouds
+    // thicken, the most in rain (both already eased)
+    waterUniforms.uWhitecaps.value = THREE.MathUtils.clamp(
+      Math.max(
+        (overcast - 0.35) / 0.5,
+        precipitation.rain,
+        precipitation.snow * 0.6
+      ),
+      0,
+      1
+    );
 
     // Moonlight on the clouds and the halo around the moon
     moonlightUniforms.uMoonDir.value
