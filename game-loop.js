@@ -2188,6 +2188,7 @@ function updateEnvironmentLighting(delta, now) {
   let starFactor = Math.max(0, Math.min(1, (state.sunY + 0.2) / -0.3));
   starsMat.opacity = starFactor * (1.0 - overcast);
   starsMat.visible = starsMat.opacity > 0.001;
+  starsMat.uniforms.uTime.value = (performance.now() * 0.001) % 1000;
 
   // --- SHOOTING STARS ---
   if (

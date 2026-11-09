@@ -6,7 +6,12 @@ import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {log} from './logger.js';
 import {ART_POST} from './art-style.js';
-import {CLOUD_GLSL, SKY_COLOR_GLSL, TOWER_GLSL} from './constants.js';
+import {
+  CLOUD_GLSL,
+  moonlightUniforms,
+  SKY_COLOR_GLSL,
+  TOWER_GLSL,
+} from './constants.js';
 import {scene} from './scene.js';
 import skyVertexShader from './src/shaders/sky.vert.glsl?raw';
 import skyFragmentShader from './src/shaders/sky.frag.glsl?raw';
@@ -559,6 +564,22 @@ for (let i = 0; i < starsCount; i++) {
 
   starsPhases[i] = _starsRng() * Math.PI * 2.0;
 }
+// The last one is a planet like Mars: low in the sky, reddish and steady (a
+// negative phase stops it twinkling)
+{
+  const i3 = (starsCount - 1) * 3;
+  const theta = _starsRng() * 2.0 * Math.PI;
+  const elev = 0.12 + _starsRng() * 0.08;
+  const r = 21000;
+  starsPos[i3] = r * Math.cos(elev) * Math.cos(theta);
+  starsPos[i3 + 1] = r * Math.sin(elev);
+  starsPos[i3 + 2] = r * Math.cos(elev) * Math.sin(theta);
+  starsSizes[starsCount - 1] = 7.0;
+  starsColors[i3] = 1.0;
+  starsColors[i3 + 1] = 0.72;
+  starsColors[i3 + 2] = 0.55;
+  starsPhases[starsCount - 1] = -1;
+}
 starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
 starsGeo.setAttribute('color', new THREE.BufferAttribute(starsColors, 3));
 starsGeo.setAttribute('size', new THREE.BufferAttribute(starsSizes, 1));
@@ -567,17 +588,40 @@ starsGeo.setAttribute('phase', new THREE.BufferAttribute(starsPhases, 1));
 export const starsMat = new THREE.ShaderMaterial({
   uniforms: {
     uOpacity: {value: 1.0},
-    uTime: skyUniforms.uTime,
+    // Seconds, wrapped every 1000 s so the sines keep their precision (the
+    // jump is lost in the flicker); set in game-loop.js
+    uTime: {value: 0},
+    uMoonDir: moonlightUniforms.uMoonDir,
+    uMoonBright: moonlightUniforms.uMoonBright,
   },
   vertexShader: `
+    uniform float uTime;
+    uniform vec3 uMoonDir;
+    uniform float uMoonBright;
     attribute float size;
     attribute vec3 color;
     attribute float phase;
     varying vec3 vColor;
-    varying float vPhase;
     void main() {
-      vColor = color;
-      vPhase = phase;
+      vec3 d = normalize(position);
+      // Low stars shine through more air: dimmer, warmer and twinkling more
+      float air = 1.0 - smoothstep(0.0, 0.35, d.y);
+      vec3 c = color * mix(vec3(1.0), vec3(1.0, 0.72, 0.52), air * 0.6)
+             * (1.0 - air * 0.4);
+      // Twinkling: air turbulence flickers each star a few times a second,
+      // irregularly (three sines at the star's own rates), deeper low down.
+      // Planets (phase < 0) shine steadily.
+      if (phase >= 0.0) {
+        float s = phase;
+        float n = 0.5 * sin(uTime * (11.0 + 7.0 * fract(s * 1.37)) + s * 40.0)
+                + 0.3 * sin(uTime * (17.0 + 9.0 * fract(s * 2.11)) + s * 13.0)
+                + 0.2 * sin(uTime * (5.0 + 3.0 * fract(s * 3.70)) + s * 7.0);
+        c *= 1.0 - mix(0.22, 0.5, air) * (0.5 + 0.5 * n);
+      }
+      // The moon's glare hides the faint stars around it
+      float glare = smoothstep(0.94, 0.995, dot(d, uMoonDir)) * uMoonBright;
+      c *= 1.0 - min(glare * 1.2, 0.9);
+      vColor = c;
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       gl_PointSize = size;
       gl_Position = projectionMatrix * mvPosition;
@@ -585,18 +629,12 @@ export const starsMat = new THREE.ShaderMaterial({
   `,
   fragmentShader: `
     uniform float uOpacity;
-    uniform float uTime;
     varying vec3 vColor;
-    varying float vPhase;
     void main() {
       float dist = length(gl_PointCoord - vec2(0.5));
       if (dist > 0.5) discard;
       float alpha = pow((0.5 - dist) * 2.0, 1.5);
-      
-      // Twinkle effect (slow)
-      float twinkle = 0.85 + 0.15 * sin(uTime * 1.5 + vPhase);
-      
-      gl_FragColor = vec4(vColor, alpha * uOpacity * twinkle);
+      gl_FragColor = vec4(vColor, alpha * uOpacity);
     }
   `,
   transparent: true,
