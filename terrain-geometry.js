@@ -788,10 +788,18 @@ waterMaterial.onBeforeCompile = function (shader) {
         // drifting, more and bigger the rougher it is. Faded out before
         // they'd shimmer in the distance.
         if (uWhitecaps > 0.01 && vDistanceXZ < 4500.0) {
-          vec2 wp = vWorldPosition.xz;
-          float crest = smoothstep(1.0 - uWhitecaps * 0.6, 1.4 - uWhitecaps * 0.4, vSwellH);
-          float capN = noise(wp * 0.03 + vec2(uTime * 0.1, 0.0)) * 0.55
-                     + noise(wp * 0.16 - vec2(0.0, uTime * 0.3)) * 0.45;
+          // The foam pattern rides along with the main swell (at its phase
+          // speed, 1 / 0.018 units per unit of uTime along its direction in
+          // swell()), so a cap stays on its crest instead of flicking on and
+          // off as crests pass under a fixed pattern, and changes shape only
+          // slowly. (Wrapped every 100 km to keep the noise's float
+          // precision: the caps reshuffle about every 20 minutes.)
+          vec2 wp = vWorldPosition.xz - vec2(0.944, 0.33) * mod(uTime / 0.018, 100000.0);
+          // A wide band of the crest, so a cap fades slowly as the crest
+          // shrinks rather than blinking out
+          float crest = smoothstep(0.7 - uWhitecaps * 0.6, 1.4 - uWhitecaps * 0.4, vSwellH);
+          float capN = noise(wp * 0.03 + vec2(uTime * 0.02, 0.0)) * 0.55
+                     + noise(wp * 0.16 - vec2(0.0, uTime * 0.05)) * 0.45;
           float capEdge = 0.7 - uWhitecaps * 0.13;
           float cap = crest * smoothstep(capEdge, capEdge + 0.08, capN) * deep * (1.0 - swampWater)
                     * (1.0 - smoothstep(1500.0, 4500.0, vDistanceXZ));
