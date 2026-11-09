@@ -32,6 +32,7 @@ import {
   sunMesh,
   sunUniforms,
   updateSkyPalette,
+  updateShootingStar,
 } from './sky.js';
 import {renderFrame} from './outline-pass.js';
 import {newPropSpin, propSpinTarget, stepPropSpin} from './prop-spin-logic.js';
@@ -65,10 +66,6 @@ import {
   _shadowRight,
   _shadowSunDir,
   _shadowUp,
-  _shootingStarHeadPos,
-  _shootingStarLookDir,
-  _shootingStarStreakDir,
-  _shootingStarTailPos,
   _skyBottomCol,
   _stormColor,
   _sunNoonColor,
@@ -87,8 +84,6 @@ import {
   _warmHorizonColor,
   _waterMoonDirNorm,
   _worldUp,
-  shootingStarEnd,
-  shootingStarStart,
   targetPaletteBottom,
   targetPaletteTop,
 } from './game.js';
@@ -184,6 +179,7 @@ window.addEventListener('promo-script', (event) => {
 });
 
 let _currentOvercast;
+const _meteorMoonDir = new THREE.Vector3();
 // How slowly the sky follows the weather map's cloud cover (seconds)
 const CLOUD_EASE_SECONDS = 12;
 let _lastFpsAggUpdate;
@@ -2191,98 +2187,14 @@ function updateEnvironmentLighting(delta, now) {
   starsMat.uniforms.uTime.value = (performance.now() * 0.001) % 1000;
 
   // --- SHOOTING STARS ---
-  if (
-    (starFactor > 0.5 && overcast < 0.5) ||
-    state.isShootingStarActive ||
+  _meteorMoonDir.set(state.moonX, state.moonY, state.moonZ).normalize();
+  state.isShootingStarActive = updateShootingStar(
+    delta,
+    _meteorMoonDir,
+    overcast < 0.5 ? starFactor * (1 - overcast) : 0,
     state.forceShootingStar
-  ) {
-    if (!state.isShootingStarActive) {
-      if (state.forceShootingStar || Math.random() < delta / 30.0) {
-        state.forceShootingStar = false;
-        state.isShootingStarActive = true;
-        state.shootingStarProgress = 0;
-        state.shootingStarDuration = 0.8 + Math.random() * 0.4;
-
-        const lookDir = _shootingStarLookDir;
-        camera.getWorldDirection(lookDir);
-
-        lookDir.y += 0.3 + Math.random() * 0.4;
-        lookDir.x += (Math.random() - 0.5) * 1.5;
-        lookDir.z += (Math.random() - 0.5) * 1.5;
-        lookDir.normalize();
-
-        const distance = 15000;
-        shootingStarStart
-          .copy(camera.position)
-          .add(lookDir.multiplyScalar(distance));
-
-        const streakDir = _shootingStarStreakDir
-          .set(
-            (Math.random() - 0.5) * 0.5,
-            -0.2 - Math.random() * 0.3,
-            (Math.random() - 0.5) * 0.5
-          )
-          .normalize();
-
-        const streakLength = 4000 + Math.random() * 3000;
-        shootingStarEnd
-          .copy(shootingStarStart)
-          .add(streakDir.multiplyScalar(streakLength));
-
-        const starMesh = skyGroup.getObjectByName('shootingStar');
-        if (starMesh) starMesh.visible = true;
-      }
-    } else {
-      state.shootingStarProgress += delta / state.shootingStarDuration;
-      const starMesh = skyGroup.getObjectByName('shootingStar');
-
-      if (state.shootingStarProgress >= 1.0) {
-        state.isShootingStarActive = false;
-        if (starMesh) starMesh.visible = false;
-      } else if (starMesh) {
-        const headPos = _shootingStarHeadPos.lerpVectors(
-          shootingStarStart,
-          shootingStarEnd,
-          state.shootingStarProgress
-        );
-        const tailLength = 0.15;
-        const tailProgress = Math.max(
-          0,
-          state.shootingStarProgress - tailLength
-        );
-        const tailPos = _shootingStarTailPos.lerpVectors(
-          shootingStarStart,
-          shootingStarEnd,
-          tailProgress
-        );
-
-        const positions = starMesh.geometry.attributes.position.array;
-
-        headPos.sub(skyGroup.position);
-        tailPos.sub(skyGroup.position);
-
-        positions[0] = headPos.x;
-        positions[1] = headPos.y;
-        positions[2] = headPos.z;
-        positions[3] = tailPos.x;
-        positions[4] = tailPos.y;
-        positions[5] = tailPos.z;
-        starMesh.geometry.attributes.position.needsUpdate = true;
-
-        const fadeOut = 1.0 - Math.pow(state.shootingStarProgress, 4);
-        const alpha = Math.min(1.0, fadeOut) * (1.0 - overcast);
-
-        const colors = starMesh.geometry.attributes.color.array;
-        colors[0] = alpha;
-        colors[1] = alpha;
-        colors[2] = alpha;
-        colors[3] = 0;
-        colors[4] = 0;
-        colors[5] = 0;
-        starMesh.geometry.attributes.color.needsUpdate = true;
-      }
-    }
-  }
+  );
+  state.forceShootingStar = false;
 
   // --- RAINBOW ---
   const isDaytime = state.sunY > 0;

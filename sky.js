@@ -653,33 +653,176 @@ Object.defineProperty(starsMat, 'opacity', {
 const starsMesh = new THREE.Points(starsGeo, starsMat);
 skyGroup.add(starsMesh);
 
-// Shooting Star
+// Shooting stars (after the Nightscape demo, github.com/WeebLabs/Nightscape):
+// both ends of the path are picked on screen so the whole streak is seen,
+// clear of the moon and above the horizon. Speed and length vary (0.3-2 s),
+// and about one in twelve is a brighter, longer fireball. A hot blue-white
+// head draws a warmer trail that fades behind it. updateShootingStar() runs
+// it from game-loop.js.
+const METEOR_POINTS = 12;
+const METEOR_RADIUS = 15000;
+const meteorPos = new Float32Array(METEOR_POINTS * 3);
+const meteorColors = new Float32Array(METEOR_POINTS * 3);
 const shootingStarGeo = new THREE.BufferGeometry();
-const shootingStarPos = new Float32Array([0, 0, 0, 0, 0, 0]); // Start with a zero-length line
 shootingStarGeo.setAttribute(
   'position',
-  new THREE.BufferAttribute(shootingStarPos, 3)
+  new THREE.BufferAttribute(meteorPos, 3)
 );
-// Use vertex colors for the fading tail
-const shootingStarColors = new Float32Array([1, 1, 1, 1, 1, 1]);
 shootingStarGeo.setAttribute(
   'color',
-  new THREE.BufferAttribute(shootingStarColors, 3)
+  new THREE.BufferAttribute(meteorColors, 3)
 );
-
 const shootingStarMat = new THREE.LineBasicMaterial({
-  color: 0xe0ffff, // Light cyan/white
   vertexColors: true,
   transparent: true,
-  linewidth: 2, // Note: WebGL standard limits linewidth to 1 on most platforms, but it still works
+  blending: THREE.AdditiveBlending,
   fog: false,
   depthWrite: false,
 });
 const shootingStarMesh = new THREE.Line(shootingStarGeo, shootingStarMat);
 shootingStarMesh.name = 'shootingStar';
 shootingStarMesh.visible = false;
-shootingStarMesh.frustumCulled = false; // Prevent it from being culled since we update vertices dynamically
+shootingStarMesh.frustumCulled = false; // Vertices move every frame
 skyGroup.add(shootingStarMesh);
+// The glowing head
+const meteorHeadGeo = new THREE.BufferGeometry();
+meteorHeadGeo.setAttribute(
+  'position',
+  new THREE.BufferAttribute(new Float32Array(3), 3)
+);
+const meteorHeadMat = new THREE.ShaderMaterial({
+  uniforms: {uColor: {value: new THREE.Color()}, uSize: {value: 4}},
+  vertexShader: `
+    uniform float uSize;
+    void main() {
+      gl_PointSize = uSize;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 uColor;
+    void main() {
+      float d = length(gl_PointCoord - vec2(0.5)) * 2.0;
+      if (d > 1.0) discard;
+      gl_FragColor = vec4(uColor * pow(1.0 - d, 2.0), 1.0);
+    }
+  `,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  fog: false,
+});
+const meteorHead = new THREE.Points(meteorHeadGeo, meteorHeadMat);
+meteorHead.visible = false;
+meteorHead.frustumCulled = false;
+skyGroup.add(meteorHead);
+
+const meteor = {on: false, t: 0, dur: 1, L: 0.2, trail: 0.25, bright: 1};
+const _metA = new THREE.Vector3();
+const _metT = new THREE.Vector3();
+const _metP = new THREE.Vector3();
+const _metE = new THREE.Vector3();
+const _metU = new THREE.Vector3();
+const _metNdc = new THREE.Vector3();
+const _metCam = new THREE.Vector3();
+const _metHot = new THREE.Color(0.82, 0.9, 1.0);
+const _metWarm = new THREE.Color(1.0, 0.72, 0.42);
+const _metC = new THREE.Color();
+
+function onScreen(dir) {
+  _metNdc.copy(dir).add(_metCam).project(camera);
+  return (
+    _metNdc.z < 1 && Math.abs(_metNdc.x) < 0.92 && Math.abs(_metNdc.y) < 0.92
+  );
+}
+
+// The point on the path at fraction f (0 start, 1 end), as a unit vector
+function meteorAt(f, out) {
+  const a = meteor.L * f;
+  return out
+    .copy(_metA)
+    .multiplyScalar(Math.cos(a))
+    .addScaledVector(_metT, Math.sin(a));
+}
+
+// Try to launch a meteor across the view; false if too little sky shows
+function launchMeteor(moonDir, fireball) {
+  camera.getWorldPosition(_metCam);
+  for (let i = 0; i < 40; i++) {
+    _metNdc.set(Math.random() * 1.7 - 0.85, Math.random() * 1.7 - 0.85, 0.5);
+    _metA.copy(_metNdc).unproject(camera).sub(_metCam).normalize();
+    if (_metA.y < 0.1 || _metA.dot(moonDir) > Math.cos(0.25)) continue;
+    // Heading: always somewhat downward across the sky
+    _metE.set(_metA.z, 0, -_metA.x).normalize();
+    _metU.crossVectors(_metA, _metE);
+    const th = -Math.PI * (0.12 + Math.random() * 0.76);
+    _metT
+      .copy(_metE)
+      .multiplyScalar(Math.cos(th))
+      .addScaledVector(_metU, Math.sin(th));
+    meteor.L = (fireball ? 0.25 : 0.12) + Math.random() * 0.25;
+    meteorAt(1, _metP);
+    if (
+      _metP.y > 0.04 &&
+      _metP.dot(moonDir) < Math.cos(0.15) &&
+      onScreen(_metP)
+    ) {
+      meteor.dur = meteor.L * (2.5 + Math.random() * 3) * (fireball ? 1.5 : 1);
+      meteor.trail = fireball ? 0.35 : 0.2 + Math.random() * 0.1;
+      meteor.bright = fireball ? 1.6 : 0.55 + Math.random() * 0.45;
+      meteorHeadMat.uniforms.uSize.value =
+        (fireball ? 9 : 3 + Math.random() * 2) * renderer.getPixelRatio();
+      meteor.t = 0;
+      meteor.on = true;
+      return true;
+    }
+  }
+  return false;
+}
+
+// Called every frame: launches a meteor now and then (about every 30 s) while
+// the stars show (sky 0..1), or right away with force, and moves it along.
+// Returns whether one is in flight.
+export function updateShootingStar(delta, moonDir, sky, force = false) {
+  if (!meteor.on) {
+    if (force || (sky > 0.5 && Math.random() < delta / 30)) {
+      launchMeteor(moonDir, force === 'fireball' || Math.random() < 1 / 12);
+    }
+    if (!meteor.on) return false;
+  }
+  meteor.t += delta;
+  const p = meteor.t / meteor.dur;
+  if (p >= 1) {
+    meteor.on = false;
+    shootingStarMesh.visible = meteorHead.visible = false;
+    return false;
+  }
+  // Flares up quickly, burns out toward the end
+  const life =
+    Math.min(1, p / 0.08) * (1 - Math.pow(p, 3)) * meteor.bright * sky;
+  for (let i = 0; i < METEOR_POINTS; i++) {
+    const k = i / (METEOR_POINTS - 1); // 0 head .. 1 tail end
+    const f = Math.max(0, p - k * meteor.trail);
+    meteorAt(f, _metP).multiplyScalar(METEOR_RADIUS);
+    meteorPos[i * 3] = _metP.x;
+    meteorPos[i * 3 + 1] = _metP.y;
+    meteorPos[i * 3 + 2] = _metP.z;
+    _metC
+      .copy(_metHot)
+      .lerp(_metWarm, Math.min(1, k * 2))
+      .multiplyScalar(life * Math.pow(1 - k, 1.6));
+    meteorColors[i * 3] = _metC.r;
+    meteorColors[i * 3 + 1] = _metC.g;
+    meteorColors[i * 3 + 2] = _metC.b;
+  }
+  meteorHeadGeo.attributes.position.array.set(meteorPos.subarray(0, 3));
+  meteorHeadGeo.attributes.position.needsUpdate = true;
+  meteorHeadMat.uniforms.uColor.value.copy(_metHot).multiplyScalar(life);
+  shootingStarGeo.attributes.position.needsUpdate = true;
+  shootingStarGeo.attributes.color.needsUpdate = true;
+  shootingStarMesh.visible = meteorHead.visible = true;
+  return true;
+}
 
 // Rainbow
 
