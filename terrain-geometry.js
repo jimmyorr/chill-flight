@@ -1309,6 +1309,36 @@ export var sealGeo = (() => {
 })();
 export var sealMat = createMaterial({color: 0x878a8d, flatShading: true});
 
+// A radio mast on a summit (beacons.js): slim, tapering, in red and white
+// bands, its foot sunk a little into the rock
+export const MAST_HEIGHT = 70;
+export function mastGeometry() {
+  const bands = 7;
+  const geo = new THREE.CylinderGeometry(
+    0.35,
+    1.8,
+    MAST_HEIGHT,
+    3,
+    bands,
+    true
+  );
+  geo.translate(0, MAST_HEIGHT / 2 - 3, 0);
+  const g = geo.toNonIndexed();
+  const pos = g.attributes.position;
+  const col = new Float32Array(pos.count * 3);
+  // As written (not converted from sRGB; see sky.js colour management)
+  const red = new THREE.Color().setHex(0xc23a2e, THREE.LinearSRGBColorSpace);
+  const white = new THREE.Color().setHex(0xe8e4dc, THREE.LinearSRGBColorSpace);
+  for (let i = 0; i < pos.count; i += 3) {
+    const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3 + 3;
+    const c = Math.floor((y / MAST_HEIGHT) * bands) % 2 ? white : red;
+    for (let j = 0; j < 3; j++) c.toArray(col, (i + j) * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
 // Channel buoy: a round float riding low in the water and a tapering
 // lattice tower on it (tinted per buoy), with a dark lamp cap on top
 export var buoyGeos = (() => {

@@ -89,6 +89,7 @@ import {
   createDolphinModel,
   buoyGeos,
   buoyTopMat,
+  mastGeometry,
   sheepGeos,
   goatGeos,
   deerGeos,
@@ -728,6 +729,17 @@ function viewModel(type, e, colorSeed = 0) {
           previewGroup.add(body, top);
         });
         break;
+      case 'mast': {
+        // The radio mast on the peaks (beacons.js), drawn smaller
+        const mast = new THREE.Mesh(
+          mastGeometry(),
+          createMaterial({vertexColors: true, flatShading: true})
+        );
+        mast.material.side = THREE.DoubleSide;
+        mast.scale.setScalar(0.25);
+        previewGroup.add(mast);
+        break;
+      }
       case 'seal':
         previewGroup.add(new THREE.Mesh(sealGeo, sealMat));
         break;

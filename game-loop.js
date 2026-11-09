@@ -140,6 +140,7 @@ import {
 } from './terrain-geometry.js';
 import {updateFlightCamera} from './flight-camera.js';
 import {trafficCount, updateTraffic} from './traffic.js';
+import {updateBeacons} from './beacons.js';
 import {roadCarCount, updateRoadTraffic} from './road-traffic.js';
 import {updateParticles} from './particles.js';
 import {updateWhales} from './whales.js';
@@ -620,6 +621,7 @@ function performFrame(timestamp) {
   updateFlightCamera(delta, nowTime);
   updateTraffic(delta);
   updateRoadTraffic(delta);
+  updateBeacons();
   updateMultiplayer(delta);
   updateBumps(delta);
   updateBreakables(delta);
