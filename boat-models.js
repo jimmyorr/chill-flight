@@ -80,36 +80,6 @@ export function mergeAsset(
   return geo;
 }
 
-// The highest point painted in one of the model's colours: where its
-// bottom paint stops is its waterline
-function topOfColor(asset, hex) {
-  asset.updateMatrixWorld(true);
-  const want = new THREE.Color(hex).getHexString();
-  const c = new THREE.Color();
-  const v = new THREE.Vector3();
-  let top = 0;
-  asset.traverse((o) => {
-    if (!o.isMesh || !o.geometry.attributes.color) return;
-    const p = o.geometry.attributes.position;
-    const cc = o.geometry.attributes.color;
-    for (let i = 0; i < p.count; i++) {
-      if (c.fromBufferAttribute(cc, i).getHexString() !== want) continue;
-      top = Math.max(
-        top,
-        v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld).y
-      );
-    }
-  });
-  return top;
-}
-
-function islandBoatGeo(colorway) {
-  const asset = islandBoat.createAsset({colorway});
-  const bottom =
-    islandBoat.presets[colorway]?.bottom ?? islandBoat.params.bottom.default;
-  return mergeAsset(asset, topOfColor(asset, bottom));
-}
-
 // A ring of foam round a floating boat's hull where it meets the water, so
 // it sits in the water rather than seeming to hover over its shadow in clear
 // shallows. Flat, a hair above the surface (y = 0 after sinking), from just
@@ -127,13 +97,14 @@ export function foamRing(hx, z0, z1, y = FOAM_Y, width = FOAM_WIDTH) {
   const hz = (z1 - z0) / 2;
   const cz = (z0 + z1) / 2;
   const ring = (k, r) => {
-    const a = (k / FOAM_SEGMENTS) * Math.PI * 2;
+    const idx = k % FOAM_SEGMENTS;
+    const a = (idx / FOAM_SEGMENTS) * Math.PI * 2;
     // Ragged outer edge: a fixed wobble per segment
-    const w = r ? width * (0.7 + 0.6 * Math.abs(Math.sin(k * 2.7))) : 0;
+    const w = r ? width * (0.7 + 0.6 * Math.abs(Math.sin(idx * 2.7))) : 0;
     return [
-      Math.cos(a) * (hx * 0.9 + w),
+      Math.cos(a) * (hx * (r ? 0.9 : 0.5) + w),
       y,
-      cz + Math.sin(a) * (hz * 0.97 + w),
+      cz + Math.sin(a) * (hz * (r ? 0.97 : 0.8) + w),
     ];
   };
   const pos = [];
@@ -181,29 +152,54 @@ export function withFoam(geo, width = FOAM_WIDTH, y = FOAM_Y) {
   return out;
 }
 
+// The small fishing boat's floorboards sit below its 0.35 m waterline; lift
+// the low interior timber (`inner`) above the water and foam ring so the sea
+// plane doesn't flood the cockpit while the hull keeps its painted draft.
+function fishingBoatGeo(colorway) {
+  const asset = fishingBoat.createAsset({colorway, parked: false});
+  const inner = new THREE.Color(
+    fishingBoat.params.inner.default
+  ).getHexString();
+  const c = new THREE.Color();
+  asset.traverse((o) => {
+    if (!o.isMesh || !o.geometry.attributes.color) return;
+    const p = o.geometry.attributes.position;
+    const cc = o.geometry.attributes.color;
+    for (let i = 0; i < p.count; i++) {
+      if (
+        p.getY(i) < 0.5 &&
+        c.fromBufferAttribute(cc, i).getHexString() === inner
+      ) {
+        p.setY(i, 0.5 - (0.5 - p.getY(i)) * 0.36);
+      }
+    }
+  });
+  return mergeAsset(asset, 0.35);
+}
+
 // Each boat type (instanced by this name in terrain-chunks.js), built in one
 // paint scheme. Rowboats ride high (a hand's width of freeboard sunk); the
-// small fishing boat's painted waterline is 0.35 m up its keel.
+// fishing boats sit on their waterlines (0.35 m and 0.28 m up the keel).
 export function buildSmallBoatGeos() {
   const geos = {
     rowboatBody: mergeAsset(
       rowboat.createAsset({colorway: 'harbour-blue'}),
-      0.2
+      0.15
     ),
     woodenRowboatBody: mergeAsset(
       woodenRowboat.createAsset({colorway: 'weathered-oak'}),
-      0.22
+      0.12
     ),
-    fishingBoatBody: mergeAsset(
-      fishingBoat.createAsset({colorway: 'harbour-blue', parked: false}),
-      0.35
+    fishingBoatBody: fishingBoatGeo('harbour-blue'),
+    fishingBoat2Body: fishingBoatGeo('salmon'),
+    islandBoatBody: mergeAsset(
+      islandBoat.createAsset({colorway: 'red-and-yellow'}),
+      0.28
     ),
-    fishingBoat2Body: mergeAsset(
-      fishingBoat.createAsset({colorway: 'salmon', parked: false}),
-      0.35
+    islandBoat2Body: mergeAsset(
+      islandBoat.createAsset({colorway: 'turquoise-and-white'}),
+      0.28
     ),
-    islandBoatBody: islandBoatGeo('red-and-yellow'),
-    islandBoat2Body: islandBoatGeo('turquoise-and-white'),
   };
   // Foam at the waterline, but not round the rowboats: they lie pulled up
   // on the shore (terrain-gen.js smallBoatAt)
