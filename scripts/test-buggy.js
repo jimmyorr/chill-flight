@@ -1260,6 +1260,65 @@ check(
   );
 }
 
+// --- 13. FORZA-INSPIRED DRIVING CAMERA & PERIPHERAL MOTION BLUR ---
+{
+  const {buggyCameraVisuals} = ChillFlightLogic;
+  const rest = buggyCameraVisuals({speedFactor: 0, onGround: true});
+  const cruise = buggyCameraVisuals({speedFactor: 0.4, onGround: true});
+  const fast = buggyCameraVisuals({speedFactor: 0.75, onGround: true});
+  const top = buggyCameraVisuals({speedFactor: 1, onGround: true});
+  const topAir = buggyCameraVisuals({speedFactor: 1, onGround: false});
+  const topSeat = buggyCameraVisuals({
+    speedFactor: 1,
+    seatLock: 1,
+    onGround: true,
+  });
+  const topBird = buggyCameraVisuals({
+    speedFactor: 1,
+    topDown: 1,
+    onGround: true,
+  });
+  const driftLeft = buggyCameraVisuals({speedFactor: 0.8, slip: 0.4});
+  const driftRight = buggyCameraVisuals({speedFactor: 0.8, slip: -0.4});
+
+  check(
+    'Peripheral motion blur stays off at rest and gentle cruise, and ramps to 1 at top speed',
+    rest.peripheralBlur === 0 &&
+      cruise.peripheralBlur === 0 &&
+      fast.peripheralBlur > 0.4 &&
+      fast.peripheralBlur < 0.8 &&
+      Math.abs(top.peripheralBlur - 1) < 1e-9 &&
+      topBird.peripheralBlur === 0,
+    `rest=${rest.peripheralBlur}, cruise=${cruise.peripheralBlur}, fast=${fast.peripheralBlur.toFixed(2)}, top=${top.peripheralBlur}`
+  );
+  check(
+    'Chase camera stays low to the road and close behind as speed builds',
+    top.yBase < rest.yBase && top.zBase > rest.zBase && top.zBase <= 48,
+    `yBase ${rest.yBase} -> ${top.yBase}, zBase ${rest.zBase} -> ${top.zBase}`
+  );
+  check(
+    'Chase FOV widens past 75 deg up to top speed, while seat view stays put',
+    rest.fov === 60 && fast.fov > 78 && top.fov >= 85 && topSeat.fov === 60,
+    `rest=${rest.fov}, fast=${fast.fov.toFixed(1)}, top=${top.fov}, seat=${topSeat.fov}`
+  );
+  check(
+    'Drift camera angle swings toward the velocity path so the tail steps out',
+    driftLeft.slipYaw < -0.15 &&
+      driftRight.slipYaw > 0.15 &&
+      Math.abs(driftLeft.slipYaw + driftRight.slipYaw) < 1e-9 &&
+      topSeat.slipYaw === 0,
+    `left=${driftLeft.slipYaw.toFixed(3)}, right=${driftRight.slipYaw.toFixed(3)}`
+  );
+  check(
+    'High-speed road rumble turns on near top speed on the ground only',
+    rest.rumble === 0 &&
+      cruise.rumble === 0 &&
+      top.rumble > 0 &&
+      topAir.rumble === 0,
+    `cruise=${cruise.rumble}, top=${top.rumble}, air=${topAir.rumble}`
+  );
+}
+
 if (failed) {
   console.error('\nBuggy mechanics tests failed!');
   process.exit(1);

@@ -160,7 +160,9 @@ const CHASE_PITCH_FOLLOW = 0.6;
 const CHASE_PITCH_SECONDS = 0.35;
 const CHASE_PITCH_MAX = 0.5;
 let chasePitch = 0;
+let chaseSlip = 0;
 const _chasePitchQuat = new THREE.Quaternion();
+const _chaseSlipQuat = new THREE.Quaternion();
 const _chaseAnchorQuat = new THREE.Quaternion();
 const _xAxis = new THREE.Vector3(1, 0, 0);
 
@@ -206,6 +208,7 @@ export function updateFlightCamera(delta, nowTime) {
   // --- CAMERA UPDATES ---
 
   if (state.isFreeCamera) {
+    state.peripheralBlur = 0;
     // Free movement logic
     const moveSpeed = (keys.Shift ? 1000 : 250) * delta;
     const rotateSpeedDrag = 0.005;
@@ -282,6 +285,7 @@ export function updateFlightCamera(delta, nowTime) {
     // Closer behind something small (the buggy)
     const followScale =
       mobileCameraScale * (state.airplaneModel?.cameraScale ?? 1);
+    const chaseFrame = state.airplaneModel?.chaseFrame;
 
     // The buggy's whole speed range widens the view and pulls the camera
     // back, so its top speed feels fast
@@ -294,31 +298,6 @@ export function updateFlightCamera(delta, nowTime) {
       : // (a crystal rush can go past 10x: pulls back up to half as far again)
         Math.min(1.5, (state.flightSpeedMultiplier - 0.5) / 9.5);
     const diveFactor = Math.max(0, -planeGroup.rotation.x / (Math.PI / 4)); // 1.0 at 45 degree dive
-
-    // Pinched in or out (cameraZoom)
-    const followZoom = state.cameraZoom.follow;
-    const zOffset =
-      THREE.MathUtils.lerp(40 * followScale, 60 * followScale, speedFactor) *
-      followZoom;
-    // A vehicle can sit the camera higher over itself (chaseLift)
-    const yOffset =
-      THREE.MathUtils.lerp(12 * followScale, 20 * followScale, speedFactor) *
-      (state.airplaneModel?.chaseLift ?? 1) *
-      followZoom;
-
-    // FOV expands with speed AND dive/loop steepness, capped at 70 to avoid excessive distortion
-    // We use a smoothed factor to prevent "jumping" when entering loops
-    // Steep climbs and dives widen it too, but leave the camera's follow alone:
-    // locking it to the plane like a loop rolls the view by the whole bank (#98)
-    const maneuverFactor = Math.max(
-      diveFactor,
-      state.isLooping || state.isSteepPitch ? 3.0 : 0
-    );
-    state.smoothedManeuverFactor = THREE.MathUtils.lerp(
-      state.smoothedManeuverFactor,
-      maneuverFactor,
-      1 - Math.pow(1 - 0.05, delta * 60)
-    );
 
     // How far the camera is into the first-person view, 0 to 1 along the
     // same eased path as the transition to it. On the way the camera sheds
@@ -333,20 +312,76 @@ export function updateFlightCamera(delta, nowTime) {
     }
     const seatLock = state.airplaneModel?.firstPersonEye ? firstPerson : 0;
 
+    // Forza-inspired driving visuals for the buggy: stays low to the road
+    // as speed builds, opens FOV all the way to top speed, swings the chase
+    // angle partway along the drift path, and drives peripheral motion blur
+    const buggyVis = chaseFrame
+      ? ChillFlightLogic.buggyCameraVisuals({
+          speedFactor,
+          slip: state.buggySlip || 0,
+          seatLock,
+          mobile: mobileCameraScale > 1.0,
+          onGround: state.isOnGround,
+          topDown: easedT,
+        })
+      : null;
+    state.peripheralBlur =
+      buggyVis && state.cameraMode !== 'cinematic' && !state.isCrashed
+        ? Math.min(1.25, buggyVis.peripheralBlur + 0.25 * rushAmount())
+        : 0;
+
+    // Pinched in or out (cameraZoom)
+    const followZoom = state.cameraZoom.follow;
+    const zOffset =
+      (buggyVis
+        ? buggyVis.zBase * followScale
+        : THREE.MathUtils.lerp(
+            40 * followScale,
+            60 * followScale,
+            speedFactor
+          )) * followZoom;
+    // A vehicle can sit the camera higher over itself (chaseLift)
+    const yOffset =
+      (buggyVis
+        ? buggyVis.yBase * followScale
+        : THREE.MathUtils.lerp(
+            12 * followScale,
+            20 * followScale,
+            speedFactor
+          )) *
+      (state.airplaneModel?.chaseLift ?? 1) *
+      followZoom;
+
+    // FOV expands with speed AND dive/loop steepness, capped at 75 on planes
+    // to avoid excessive distortion, while the buggy widens across its whole
+    // speed range
+    const maneuverFactor = Math.max(
+      diveFactor,
+      state.isLooping || state.isSteepPitch ? 3.0 : 0
+    );
+    state.smoothedManeuverFactor = THREE.MathUtils.lerp(
+      state.smoothedManeuverFactor,
+      maneuverFactor,
+      1 - Math.pow(1 - 0.05, delta * 60)
+    );
+
     // Slightly wider base FOV for mobile to increase peripheral awareness
-    const baseFov =
-      THREE.MathUtils.lerp(60, 85, speedFactor * (1 - seatLock)) +
-      (mobileCameraScale > 1.0 ? 5 : 0);
+    const baseFov = buggyVis
+      ? buggyVis.fov
+      : THREE.MathUtils.lerp(60, 85, speedFactor * (1 - seatLock)) +
+        (mobileCameraScale > 1.0 ? 5 : 0);
     // (wider still during a shattered crystal's rush: crystal-rush.js)
     const rushFov = RUSH_FOV * rushAmount() * (1 - seatLock);
     const targetFov =
-      Math.min(
-        75,
-        baseFov +
-          state.smoothedManeuverFactor *
-            15 *
-            Math.min(1, state.flightSpeedMultiplier / 2)
-      ) + rushFov;
+      (buggyVis
+        ? baseFov
+        : Math.min(
+            75,
+            baseFov +
+              state.smoothedManeuverFactor *
+                15 *
+                Math.min(1, state.flightSpeedMultiplier / 2)
+          )) + rushFov;
 
     camera.fov = THREE.MathUtils.lerp(
       camera.fov,
@@ -362,12 +397,16 @@ export function updateFlightCamera(delta, nowTime) {
       Math.min(1, state.flightSpeedMultiplier / 2);
     _cameraOffset.set(0, yOffset, zOffset + pullBack);
 
-    // Add subtle camera vibration at high speeds/steep dives
+    // Add subtle camera vibration at high speeds/steep dives (or on the road
+    // near top speed in the buggy)
     if (state.flightSpeedMultiplier > 4.0 && diveFactor > 0.5) {
       const shakeIntensity =
         (state.flightSpeedMultiplier - 4.0) * 0.05 * diveFactor;
       _cameraOffset.x += (Math.random() - 0.5) * shakeIntensity;
       _cameraOffset.y += (Math.random() - 0.5) * shakeIntensity;
+    } else if (buggyVis && buggyVis.rumble > 0) {
+      _cameraOffset.x += (Math.random() - 0.5) * buggyVis.rumble;
+      _cameraOffset.y += (Math.random() - 0.5) * buggyVis.rumble;
     }
 
     // A jolt when knocking a tree or house over (breakables.js)
@@ -394,8 +433,13 @@ export function updateFlightCamera(delta, nowTime) {
       THREE.MathUtils.lerp(1 - Math.pow(1 - 0.15, delta * 60), 1, anchorLock)
     );
 
-    // A car's camera tips with the slope (see CHASE_PITCH_FOLLOW)
-    const chaseFrame = state.airplaneModel?.chaseFrame;
+    // A car's camera swings partway toward its drift path and tips with the
+    // slope (see CHASE_PITCH_FOLLOW)
+    const targetSlip = buggyVis ? buggyVis.slipYaw : 0;
+    chaseSlip +=
+      (targetSlip - chaseSlip) *
+      (1 - Math.exp(-delta / ChillFlightLogic.BUGGY_CAMERA.SLIP_EASE_SECONDS));
+    _chaseSlipQuat.setFromAxisAngle(_yAxis, chaseSlip);
     const slopePitch = chaseFrame
       ? THREE.MathUtils.clamp(
           (state.airplaneModel.rotation.x || 0) * CHASE_PITCH_FOLLOW,
@@ -406,7 +450,10 @@ export function updateFlightCamera(delta, nowTime) {
     chasePitch +=
       (slopePitch - chasePitch) * (1 - Math.exp(-delta / CHASE_PITCH_SECONDS));
     _chasePitchQuat.setFromAxisAngle(_xAxis, chasePitch);
-    _chaseAnchorQuat.copy(_cameraAnchorQuat).multiply(_chasePitchQuat);
+    _chaseAnchorQuat
+      .copy(_cameraAnchorQuat)
+      .multiply(_chaseSlipQuat)
+      .multiply(_chasePitchQuat);
     _cameraAnchorMatrix.makeRotationFromQuaternion(_chaseAnchorQuat);
     _cameraAnchorMatrix.setPosition(planeGroup.position);
 

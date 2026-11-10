@@ -339,7 +339,7 @@ Pick the buggy in the pause menu (or press **V** until it comes up) to drive ins
 - **Smooth highway ride**: critically damped suspension and continuous road deck sampling give a smooth, stable ride over roads and rolling terrain. Multi-level overpass and underpass junctions pass cleanly.
 - **Roads and off-road driving**: climb smoothly onto highway decks from adjacent ground along embankments up to 12 m high; high bridge edges retain guard rails. Ground steeper than about 50° is a wall.
 - Stop at an airport and that airport's people come over, as when landing.
-- The follow camera sits closer behind it, widening and pulling back as it speeds up, and the first-person view is from the driver's seat.
+- The follow camera sits low and close behind it: as it speeds up, the field of view widens all the way to top speed (`86°`, `91°` on phones) while the periphery streaks radially outward from the vanishing point (`outline-pass.js`; `?blur=0` turns it off), with subtle road rumble near top speed and the camera swinging partway along the path in a drift so the tail steps out in the frame. The first-person view is from the driver's seat.
 
 ## Knocking things over
 
@@ -522,7 +522,7 @@ How it's built:
 - **`art-style.js`** reads the choice (`ART_STYLE`; `ART_PAINTED` for anime's look; `ART_POST` for a style with the post pass; `ART_CLOUDS`) and, for anime, patches three.js's shared lighting shader chunks once at load, so every lit material picks up the light and color changes without per-material code. It also wires the Settings select.
 - **`createMaterial()`** (`constants.js`) turns off flat shading for the anime style; materials created with `foliage: true` get the leafy clumps (with their own shader cache key, since every `createMaterial()` hook shares one source text).
 - **`ANIME_SKY`** (prepended to `CLOUD_GLSL`) and **`ANIME_TOWERS`** (`TOWER_GLSL`, shared by the sky and the moon so both agree where the towers are) switch the sky shaders; **`ANIME_TERRAIN`** and **`ANIME_WATER`** are added to the terrain and water shaders.
-- **`renderFrame()`** (`outline-pass.js`) replaces the game loop's `renderer.render()`; it renders straight to the screen for the low-poly style and in VR. The pass's shader gets the style as a define (`ANIME`) for its own steps.
+- **`renderFrame()`** (`outline-pass.js`) replaces the game loop's `renderer.render()`; it renders straight to the screen for the low-poly style (except while driving fast enough for peripheral motion blur) and in VR. The pass's shader gets the style as a define (`ANIME`) for its own steps.
 
 ### Dynamic performance scaling
 
@@ -600,7 +600,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`style`**: `anime`, or `lowpoly` for the low-poly look (`low-poly` and `classic` also work), overriding the art style chosen in Settings (see [Art style](#art-style)).
 - **`outline`**: With the anime style, set to `0` to turn off the ink outlines.
 - **`brush`**, **`haze`**: With the anime style, set to `0` to turn off the brushstroke (Kuwahara) filter or the aerial-perspective haze, for comparing.
-- **`fxaa`**: With the anime style, `1` or `0` turns FXAA edge smoothing on or off whatever the graphics preset (by default it's on for high and ultra only).
+- **`blur`**: Set to `0` to turn off the peripheral motion blur when driving at speed (on by default at mid and up).
+- **`fxaa`**: With the anime style (or while peripheral motion blur is active), `1` or `0` turns FXAA edge smoothing on or off whatever the graphics preset (by default it's on for mid and up).
 - **`cloudStyle`**: With the anime style, set to `classic` to keep the low-poly look's clouds and sky (and no horizon towers) instead of the anime ones.
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
 - **`cloud`** (or **`clouds`**, **`cloudCover`**, **`overcast`**): Cloud cover density or mode (options: `auto` for procedural weather noise, `none` or `false` to disable clouds, `clear` for 0.0, `scattered` for 0.3, `broken` for 0.6, `overcast` for 1.0, or any float between `0.0` and `1.0`).

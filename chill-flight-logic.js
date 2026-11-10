@@ -7126,8 +7126,65 @@ export const ChillFlightLogic = {};
     return Math.hypot(nf, ns) < 1 || nf < 0 ? 0 : Math.atan2(ns, nf);
   }
 
+  // Forza-inspired driving camera and speed visuals (flight-camera.js,
+  // outline-pass.js): as the buggy speeds up, the chase camera stays low to
+  // the road and only pulls back a little while the field of view widens all
+  // the way to top speed, the periphery streaks radially outward from the
+  // vanishing point, and in a drift the camera swings partway toward the
+  // velocity path so the tail steps out in the frame.
+  const BUGGY_CAMERA = {
+    Z_START: 40,
+    Z_END: 46,
+    Y_START: 12,
+    Y_END: 10.5,
+    FOV_START: 60,
+    FOV_END: 86,
+    FOV_MOBILE_EXTRA: 5,
+    SLIP_FOLLOW: 0.55,
+    MAX_SLIP_YAW: 0.35,
+    SLIP_EASE_SECONDS: 0.18,
+    RUMBLE_START: 0.6,
+    MAX_RUMBLE: 0.07,
+    BLUR_START: 0.45,
+  };
+
+  function buggyCameraVisuals({
+    speedFactor = 0,
+    slip = 0,
+    seatLock = 0,
+    mobile = false,
+    onGround = false,
+    topDown = 0,
+  } = {}) {
+    const C = BUGGY_CAMERA;
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const smoothstep = (e0, e1, x) => {
+      const t = clamp((x - e0) / (e1 - e0), 0, 1);
+      return t * t * (3 - 2 * t);
+    };
+    const sf = clamp(speedFactor, 0, 1);
+    const seat = clamp(seatLock, 0, 1);
+    const chase = 1 - seat;
+    const view = 1 - clamp(topDown, 0, 1);
+    const zBase = C.Z_START + (C.Z_END - C.Z_START) * sf;
+    const yBase = C.Y_START + (C.Y_END - C.Y_START) * sf;
+    const fov =
+      C.FOV_START +
+      (C.FOV_END - C.FOV_START) * sf * chase +
+      (mobile ? C.FOV_MOBILE_EXTRA : 0);
+    const slipYaw =
+      clamp(-slip * C.SLIP_FOLLOW, -C.MAX_SLIP_YAW, C.MAX_SLIP_YAW) * chase;
+    const rumble = onGround
+      ? smoothstep(C.RUMBLE_START, 1, sf) * C.MAX_RUMBLE * (1 - 0.5 * seat)
+      : 0;
+    const peripheralBlur = smoothstep(C.BLUR_START, 1, sf) * view;
+    return {zBase, yBase, fov, slipYaw, rumble, peripheralBlur};
+  }
+
   exports.BUGGY_TURN = BUGGY_TURN;
   exports.stepBuggyHandling = stepBuggyHandling;
+  exports.BUGGY_CAMERA = BUGGY_CAMERA;
+  exports.buggyCameraVisuals = buggyCameraVisuals;
   exports.BUGGY_DRIVE = BUGGY_DRIVE;
   exports.BUGGY_MOVES = BUGGY_MOVES;
   exports.BUGGY_HOVER = BUGGY_HOVER;

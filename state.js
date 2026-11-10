@@ -73,6 +73,12 @@ export const state = {
   buggySlide: 0,
   // The same on water, for spray sounds (sfx-events.js)
   buggySpray: 0,
+  // The buggy's drift angle (radians, nose left of path > 0; buggy.js,
+  // flight-camera.js)
+  buggySlip: 0,
+  // Peripheral radial motion blur strength when driving fast, 0-1.25
+  // (flight-camera.js, outline-pass.js)
+  peripheralBlur: 0,
 
   // Next frame's yaw, computed in game-loop.js and applied by flight-physics.js
   _nextYaw: undefined,

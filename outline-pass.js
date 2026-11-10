@@ -25,8 +25,10 @@ import {state} from './state.js';
 
 const enabled = ART_POST;
 const params = ChillFlightLogic.urlParams;
-const outlines = params.get('outline') !== '0';
-const brush = params.get('brush') !== '0';
+const outlines = ART_POST && params.get('outline') !== '0';
+const brush = ART_POST && params.get('brush') !== '0';
+const haze = ART_POST && params.get('haze') !== '0';
+const motionBlur = params.get('blur') !== '0';
 const fxaaParam = params.get('fxaa');
 
 let target = null;
@@ -48,9 +50,10 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uFar: {value: 30000},
     uFogDensity: {value: 0},
     uPixelRatio: {value: 1},
+    uBlur: {value: 0},
     uOutline: {value: outlines},
     uKuwahara: {value: false},
-    uHaze: {value: params.get('haze') !== '0'},
+    uHaze: {value: haze},
     uHorizonColor: terrainUniforms.uBottomColor,
     uSunDirection: terrainUniforms.uSunDirection,
   },
@@ -76,6 +79,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uniform float uFar;
     uniform float uFogDensity;
     uniform float uPixelRatio;
+    uniform float uBlur;
     uniform bool uOutline;
     uniform bool uKuwahara;
     uniform bool uHaze;
@@ -147,6 +151,35 @@ const outlineMaterial = new THREE.ShaderMaterial({
       float brushAmt = smoothstep(600.0, 4000.0, dist) * 0.55;
       if (uKuwahara && brushAmt > 0.0) color = mix(color, kuwahara(uv), brushAmt);
     #endif
+      // Peripheral motion blur when driving at speed: streaks the outer road
+      // and nearby roadside radially away from the vanishing point ahead,
+      // leaving the buggy in the lower-middle, the road ahead and the sky
+      // sharp
+      float blurAmt = 0.0;
+      if (uBlur > 0.0 && !sky) {
+        vec2 p = (uv - vec2(0.5, 0.36)) * vec2(1.45, 0.95);
+        float periph = smoothstep(0.32, 0.72, length(p));
+        blurAmt = uBlur * periph
+                * smoothstep(8.0, 16.0, dist)
+                * (1.0 - smoothstep(280.0, 900.0, dist));
+        if (blurAmt > 0.005) {
+          vec2 dir = uv - vec2(0.5, 0.54);
+          float len = length(dir);
+          vec2 tapStep = (len > 1e-4 ? dir / len : vec2(0.0)) * uTexel * (4.0 * blurAmt);
+          vec3 acc = color;
+          float wSum = 1.0;
+          for (int i = 1; i <= 6; i++) {
+            vec2 tapUv = clamp(uv - tapStep * float(i), vec2(0.001), vec2(0.999));
+            float tapC = invDepth(tapUv);
+            // Keep the sky and close cockpit geometry from bleeding into the
+            // ground streak
+            float w = tapC > 1.0 / (uFar * 0.99) && tapC < 1.0 / 8.0 ? 1.0 : 0.0;
+            acc += texture2D(tColor, tapUv).rgb * w;
+            wSum += w;
+          }
+          color = acc / wSum;
+        }
+      }
       // (The sky has no edges to ink: skip its neighbor reads)
       if (uOutline && !sky) {
       // Close to the camera (the plane, nearby buildings) lines get a little
@@ -193,6 +226,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
         ink = mix(ink, landInk, landEdge);
         edge = max(edge, landEdge);
       }
+      edge *= 1.0 - 0.75 * blurAmt;
       color = mix(color, ink, edge);
       }
       // Aerial perspective: distant land fades into soft layers of the
@@ -261,10 +295,15 @@ function ensureFxaa() {
   }
 }
 
-// Renders one frame of the game, with outlines when the art style has them.
+// Renders one frame of the game, with outlines when the art style has them
+// and peripheral motion blur when driving at speed.
 export function renderFrame(scene, camera) {
   if (!renderer) return;
-  if (!enabled || renderer.xr.isPresenting) {
+  const blur =
+    motionBlur && state.graphicsPreset !== 'low'
+      ? state.peripheralBlur || 0
+      : 0;
+  if ((!enabled && blur <= 0.001) || renderer.xr.isPresenting) {
     renderer.render(scene, camera);
     return;
   }
@@ -279,6 +318,7 @@ export function renderFrame(scene, camera) {
   const px = renderer.getPixelRatio();
   u.uTexel.value.set(px / size.x, px / size.y);
   u.uPixelRatio.value = px;
+  u.uBlur.value = blur;
   // The brushstroke filter costs ~1.5 ms a frame on an M1 MacBook Air at mid;
   // the low preset (for slow devices) skips it
   u.uKuwahara.value =

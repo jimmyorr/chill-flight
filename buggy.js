@@ -351,6 +351,7 @@ function enter(fall) {
   car.lean = 0;
   car.slide = 0;
   slip = 0;
+  state.buggySlip = 0;
   hopping = false;
   hopTimer.buffer = 0;
   airborne = false;
@@ -854,6 +855,7 @@ function stepBuggy(dt) {
   // The same off water, for the spray thrown up by hard turns and stops
   state.buggySpray =
     !airborne && onWater && speed > 15 ? Math.max(braking, drifting) : 0;
+  state.buggySlip = airborne ? 0 : slip;
 
   // Achievements: a hop, a drift held a couple of seconds, hovering on water
   if (hop) Achievements.unlock('bunny_hop');
