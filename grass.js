@@ -306,12 +306,19 @@ function buildMesh(preset) {
       )
       .replace('#include <begin_vertex>', `vec3 transformed = bladePos;`);
     // Both faces of a blade take the ground's normal (three.js would flip
-    // it on the back face, turning it dark)
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <normal_fragment_begin>',
-      `#include <normal_fragment_begin>
+    // it on the back face, turning it dark); alpha 0 (after opaque_fragment
+    // sets it to 1) tells the anime outline pass to leave the blades uninked
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <normal_fragment_begin>',
+        `#include <normal_fragment_begin>
        normal = normalize(vNormal);`
-    );
+      )
+      .replace(
+        '#include <dithering_fragment>',
+        `#include <dithering_fragment>
+       gl_FragColor.a = 0.0;`
+      );
   };
   material.customProgramCacheKey = () => 'tallGrass';
 

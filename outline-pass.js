@@ -201,9 +201,11 @@ const outlineMaterial = new THREE.ShaderMaterial({
       float edge = smoothstep(mix(0.04, 0.03, near), mix(0.12, 0.08, near), bulge / c);
       // Lines thin out with distance so far terrain doesn't turn to scribble
       edge *= mix(1.0, 0.35, smoothstep(1500.0, 9000.0, dist));
-      // ...and fade out with the scene's fog, like the surfaces they ink
+      // ...and fade out with the scene's fog, like the surfaces they ink.
+      // Water and tall grass zero the target's alpha so their ripples and
+      // blades stay uninked.
       float fog = 1.0 - exp(-uFogDensity * uFogDensity * dist * dist);
-      edge *= (1.0 - fog) * (1.0 - fog);
+      edge *= (1.0 - fog) * (1.0 - fog) * base.a;
       // Ink: the surface's own color darkened, leaning toward indigo close up
       vec3 ink = mix(color * vec3(0.32, 0.27, 0.36), vec3(0.16, 0.13, 0.24), 0.4 * near);
       {
@@ -212,9 +214,8 @@ const outlineMaterial = new THREE.ShaderMaterial({
         // (the plane and things close by keep the lighter lines above), and
         // where the light or the paint changes sharply in the middle
         // distance (sunlit faces against shadowed ones, snow against rock).
-        // Not on water (which zeroes the target's alpha), or its glints turn
-        // to scribble.
-        float water = 1.0 - base.a;
+        // Not on water or tall grass (which zero the target's alpha), or
+        // their glints and blades turn to scribble.
         vec2 tx = vec2(uTexel.x, 0.0);
         vec2 ty = vec2(0.0, uTexel.y);
         float gx = luma(texture2D(tColor, uv + tx).rgb) - luma(texture2D(tColor, uv - tx).rgb);
@@ -224,7 +225,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
         // (thinning a little toward the horizon, where the ridges crowd)
         float ridge = smoothstep(0.02, 0.06, bulge / c) * (1.0 - fog)
                     * mix(1.0, 0.5, smoothstep(6000.0, 14000.0, dist));
-        float land = smoothstep(150.0, 400.0, dist) * (1.0 - water);
+        float land = smoothstep(150.0, 400.0, dist) * base.a;
         float landEdge = max(ridge, colorEdge * 0.7) * land;
         vec3 landInk = mix(vec3(0.13, 0.11, 0.19), color * vec3(0.3, 0.26, 0.36), 0.35);
         ink = mix(ink, landInk, landEdge);
