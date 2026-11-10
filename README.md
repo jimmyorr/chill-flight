@@ -339,7 +339,7 @@ Pick the buggy in the pause menu (or press **V** until it comes up) to drive ins
 - **Smooth highway ride**: critically damped suspension and continuous road deck sampling give a smooth, stable ride over roads and rolling terrain. Multi-level overpass and underpass junctions pass cleanly.
 - **Roads and off-road driving**: climb smoothly onto highway decks from adjacent ground along embankments up to 12 m high; high bridge edges retain guard rails. Ground steeper than about 50° is a wall.
 - Stop at an airport and that airport's people come over, as when landing.
-- The follow camera sits low and close behind it: as it speeds up, the field of view widens all the way to top speed (`86°`, `91°` on phones), with subtle road rumble near top speed, the camera swinging partway along the path in a drift so the tail steps out in the frame, and in the anime style (or with `?blur=1` in low poly) the periphery streaking radially outward from the vanishing point (`outline-pass.js`; `?blur=0` turns it off). The first-person view is from the driver's seat.
+- The follow camera sits closer behind it and lower in the frame than behind a plane, so more of the road ahead is in view, and the first-person view is from the driver's seat. With `?forza=1` (or individually `?speedCam=1`, `?driftCam=1`, `?rumble=1`, `?blur=1`), the camera stays low to the road as speed builds while the field of view widens all the way to top speed (`86°`, `91°` on phones), swings partway along the path in a drift, adds subtle road rumble near top speed, and streaks the periphery radially outward from the vanishing point.
 
 ## Knocking things over
 
@@ -600,7 +600,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`style`**: `anime`, or `lowpoly` for the low-poly look (`low-poly` and `classic` also work), overriding the art style chosen in Settings (see [Art style](#art-style)).
 - **`outline`**: With the anime style, set to `0` to turn off the ink outlines.
 - **`brush`**, **`haze`**: With the anime style, set to `0` to turn off the brushstroke (Kuwahara) filter or the aerial-perspective haze, for comparing.
-- **`blur`**: With the anime style, peripheral motion blur when driving at speed is on by default at mid and up (`0` turns it off); in the low-poly style it's off by default so low poly stays direct-to-screen (`1` turns it on).
+- **`forza`**: Set to `1` to enable all Forza-inspired buggy driving visuals (`blur`, `speedCam`, `driftCam`, and `rumble`; any individual parameter can still be set to `0` to turn it off).
+- **`blur`**, **`speedCam`**, **`driftCam`**, **`rumble`**: Individual opt-in flags (`1` on, `0` off) for the buggy's radial peripheral motion blur at speed, low-slung chase camera with uncapped `86°` FOV warp, drift slip camera angle, and high-speed road micro-vibration.
 - **`fxaa`**: With the anime style (or `blur=1` at speed), `1` or `0` turns FXAA edge smoothing on or off whatever the graphics preset (by default it's on for mid and up).
 - **`cloudStyle`**: With the anime style, set to `classic` to keep the low-poly look's clouds and sky (and no horizon towers) instead of the anime ones.
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).

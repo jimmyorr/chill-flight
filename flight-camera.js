@@ -150,6 +150,18 @@ let loopLock = 0;
 const _lastVehiclePos = new THREE.Vector3();
 const _seatCarry = new THREE.Vector3();
 
+const _forzaParams = ChillFlightLogic.urlParams;
+const _forzaAll =
+  _forzaParams?.get('forza') === '1' || _forzaParams?.get('forza') === 'true';
+function _forzaOptIn(name) {
+  const v = _forzaParams?.get(name);
+  return v ? v !== '0' && v !== 'false' : _forzaAll;
+}
+const FORZA_SPEED_CAM = _forzaOptIn('speedCam');
+const FORZA_DRIFT_CAM = _forzaOptIn('driftCam');
+const FORZA_RUMBLE = _forzaOptIn('rumble');
+const FORZA_BLUR = _forzaOptIn('blur');
+
 // A car's chase camera (chaseFrame) tips with the slope it's on: down a
 // steep hill it rises up behind and looks down the hill, up one it sinks
 // and looks up it, instead of staying level and burying itself in the
@@ -312,28 +324,32 @@ export function updateFlightCamera(delta, nowTime) {
     }
     const seatLock = state.airplaneModel?.firstPersonEye ? firstPerson : 0;
 
-    // Forza-inspired driving visuals for the buggy: stays low to the road
-    // as speed builds, opens FOV all the way to top speed, swings the chase
-    // angle partway along the drift path, and drives peripheral motion blur
-    const buggyVis = chaseFrame
-      ? ChillFlightLogic.buggyCameraVisuals({
-          speedFactor,
-          slip: state.buggySlip || 0,
-          seatLock,
-          mobile: mobileCameraScale > 1.0,
-          onGround: state.isOnGround,
-          topDown: easedT,
-        })
-      : null;
+    // Optional Forza-inspired driving visuals (?forza=1, or individually
+    // ?speedCam=1, ?driftCam=1, ?rumble=1, ?blur=1)
+    const buggyVis =
+      chaseFrame &&
+      (FORZA_SPEED_CAM || FORZA_DRIFT_CAM || FORZA_RUMBLE || FORZA_BLUR)
+        ? ChillFlightLogic.buggyCameraVisuals({
+            speedFactor,
+            slip: state.buggySlip || 0,
+            seatLock,
+            mobile: mobileCameraScale > 1.0,
+            onGround: state.isOnGround,
+            topDown: easedT,
+          })
+        : null;
     state.peripheralBlur =
-      buggyVis && state.cameraMode !== 'cinematic' && !state.isCrashed
+      FORZA_BLUR &&
+      buggyVis &&
+      state.cameraMode !== 'cinematic' &&
+      !state.isCrashed
         ? Math.min(1.25, buggyVis.peripheralBlur + 0.25 * rushAmount())
         : 0;
 
     // Pinched in or out (cameraZoom)
     const followZoom = state.cameraZoom.follow;
     const zOffset =
-      (buggyVis
+      (FORZA_SPEED_CAM && buggyVis
         ? buggyVis.zBase * followScale
         : THREE.MathUtils.lerp(
             40 * followScale,
@@ -342,7 +358,7 @@ export function updateFlightCamera(delta, nowTime) {
           )) * followZoom;
     // A vehicle can sit the camera higher over itself (chaseLift)
     const yOffset =
-      (buggyVis
+      (FORZA_SPEED_CAM && buggyVis
         ? buggyVis.yBase * followScale
         : THREE.MathUtils.lerp(
             12 * followScale,
@@ -352,9 +368,8 @@ export function updateFlightCamera(delta, nowTime) {
       (state.airplaneModel?.chaseLift ?? 1) *
       followZoom;
 
-    // FOV expands with speed AND dive/loop steepness, capped at 75 on planes
-    // to avoid excessive distortion, while the buggy widens across its whole
-    // speed range
+    // FOV expands with speed AND dive/loop steepness, capped at 75 by default
+    // to avoid excessive distortion (uncapped for the buggy with ?speedCam=1)
     const maneuverFactor = Math.max(
       diveFactor,
       state.isLooping || state.isSteepPitch ? 3.0 : 0
@@ -366,14 +381,15 @@ export function updateFlightCamera(delta, nowTime) {
     );
 
     // Slightly wider base FOV for mobile to increase peripheral awareness
-    const baseFov = buggyVis
-      ? buggyVis.fov
-      : THREE.MathUtils.lerp(60, 85, speedFactor * (1 - seatLock)) +
-        (mobileCameraScale > 1.0 ? 5 : 0);
+    const baseFov =
+      FORZA_SPEED_CAM && buggyVis
+        ? buggyVis.fov
+        : THREE.MathUtils.lerp(60, 85, speedFactor * (1 - seatLock)) +
+          (mobileCameraScale > 1.0 ? 5 : 0);
     // (wider still during a shattered crystal's rush: crystal-rush.js)
     const rushFov = RUSH_FOV * rushAmount() * (1 - seatLock);
     const targetFov =
-      (buggyVis
+      (FORZA_SPEED_CAM && buggyVis
         ? baseFov
         : Math.min(
             75,
@@ -398,13 +414,13 @@ export function updateFlightCamera(delta, nowTime) {
     _cameraOffset.set(0, yOffset, zOffset + pullBack);
 
     // Add subtle camera vibration at high speeds/steep dives (or on the road
-    // near top speed in the buggy)
+    // near top speed in the buggy with ?rumble=1)
     if (state.flightSpeedMultiplier > 4.0 && diveFactor > 0.5) {
       const shakeIntensity =
         (state.flightSpeedMultiplier - 4.0) * 0.05 * diveFactor;
       _cameraOffset.x += (Math.random() - 0.5) * shakeIntensity;
       _cameraOffset.y += (Math.random() - 0.5) * shakeIntensity;
-    } else if (buggyVis && buggyVis.rumble > 0) {
+    } else if (FORZA_RUMBLE && buggyVis && buggyVis.rumble > 0) {
       _cameraOffset.x += (Math.random() - 0.5) * buggyVis.rumble;
       _cameraOffset.y += (Math.random() - 0.5) * buggyVis.rumble;
     }
@@ -433,9 +449,9 @@ export function updateFlightCamera(delta, nowTime) {
       THREE.MathUtils.lerp(1 - Math.pow(1 - 0.15, delta * 60), 1, anchorLock)
     );
 
-    // A car's camera swings partway toward its drift path and tips with the
-    // slope (see CHASE_PITCH_FOLLOW)
-    const targetSlip = buggyVis ? buggyVis.slipYaw : 0;
+    // A car's camera swings partway toward its drift path (?driftCam=1) and
+    // tips with the slope (see CHASE_PITCH_FOLLOW)
+    const targetSlip = FORZA_DRIFT_CAM && buggyVis ? buggyVis.slipYaw : 0;
     chaseSlip +=
       (targetSlip - chaseSlip) *
       (1 - Math.exp(-delta / ChillFlightLogic.BUGGY_CAMERA.SLIP_EASE_SECONDS));
