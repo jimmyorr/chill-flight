@@ -184,7 +184,13 @@ async function uploadToYouTube(browser, mp4Path, meta, opts) {
     timeout: 60000,
   });
 
-  if (page.url().includes('accounts.google.com')) {
+  let isGoogleSignInHost = false;
+  try {
+    isGoogleSignInHost = new URL(page.url()).hostname === 'accounts.google.com';
+  } catch {
+    isGoogleSignInHost = false;
+  }
+  if (isGoogleSignInHost) {
     console.log(
       '  Not signed into YouTube Studio yet. Please sign in in the opened Chrome window...'
     );
