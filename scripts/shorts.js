@@ -5,9 +5,10 @@
 //   3. short-3-wing-cam.mp4          - 12s over-the-wing "window seat" sunset flight
 //   4. short-4-landmark-cut.mp4      - 12s swept-wing jet roll match-cut across 4 landmarks
 //   5. short-20261109-match-cut.mp4  - 12s gold twin-prop barrel-roll match-cut (seed 20261109)
+//   6. short-5-seaplane-cut.mp4      - 12s teal seaplane roll match-cut (seed 20261109)
 //
 // Usage:
-//   node scripts/shorts.js [match-cut | daily-match-cut | daily-postcard | wing-cam | landmark-cut | meta]
+//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | daily-postcard | wing-cam | landmark-cut | meta]
 
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -1031,6 +1032,154 @@ async function renderDailyMatchCutShort(browser, seed = 20261109) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 6: Teal Seaplane Match-Cut for Seed 20261109 (4 Arches & Peaks)
+// ---------------------------------------------------------------------------
+async function renderSeaplaneCutShort(browser, seed = 20261109) {
+  console.log(
+    `=== Rendering Seaplane Match-Cut (Seed ${seed}: Teal Seaplane) ===`
+  );
+  const frameDir = path.join(OUT, 'frames-short-5-seaplane-cut');
+  fs.rmSync(frameDir, {recursive: true, force: true});
+  fs.mkdirSync(frameDir, {recursive: true});
+
+  const speedMult = 1.18;
+  // Rear-right three-quarter chase camera looking forward past the teal
+  // seaplane's pontoons and struts toward each landmark ahead
+  const cam =
+    `plane=seaplane&livery=teal&smoke=1&speed=${speedMult}` +
+    '&camOffset=16,6,42&camLook=-3,0,-65';
+  // Unbroken 12s maneuver that loops seamlessly from frame 360 back to frame 0:
+  //   0..3s:  Carves right toward the sea arch, then pitches up into a left roll
+  //   3..6s:  Match-cuts mid-roll through the river gorge bridge (360° roll)
+  //   6..9s:  Match-cuts into a sweeping S-bank over the snowy dragon peaks
+  //   9..12s: Match-cuts into sunset over the alien basalt arch and settles to
+  //           level (roll=-360, pitch=0, constant yaw=-18 from 9.0s..12.0s)
+  const moves = [
+    [0, 0, 0, 0],
+    [1.2, 26, 3, -6],
+    [2.3, -14, 10, -12],
+    [3.0, -68, 14, -10],
+    [4.4, -245, -4, -12],
+    [5.5, -360, 2, -16],
+    [6.0, -384, 4, -18],
+    [7.3, -332, -2, -12],
+    [8.4, -374, 3, -18],
+    [9.0, -346, 2, -18],
+    [10.2, -368, 1, -18],
+    [11.3, -360, 0, -18],
+    [12.0, -360, 0, -18],
+  ];
+
+  const rawSegments = [
+    {
+      label: 'Turquoise Sea Arch · 0.8°N, 6.1°E',
+      tx: 30780,
+      ty: 225,
+      tz: -3820,
+      heading: 30,
+      extra: 'tod=0.30&cloudMood=fair',
+      startFrame: 0,
+      endFrame: 90,
+    },
+    {
+      label: 'Red-Rock Canyon · 3.5°S, 0.7°E',
+      tx: 3600,
+      ty: 225,
+      tz: 17500,
+      heading: 18,
+      extra: 'tod=0.56&cloudMood=mackerel',
+      startFrame: 90,
+      endFrame: 180,
+    },
+    {
+      label: 'Dragon Peaks · 3.9°N, 2.4°W',
+      tx: -11750,
+      ty: 260,
+      tz: -19100,
+      heading: 35,
+      extra: 'tod=0.42&weather=snow&cloudMood=high',
+      startFrame: 180,
+      endFrame: 270,
+    },
+    {
+      label: 'Alien Basalt Arch · 1.0°S, 17.4°E',
+      tx: 87150,
+      ty: 455,
+      tz: 4675,
+      heading: 129,
+      extra: 'tod=0.76&headlight=1&cloudMood=busy',
+      startFrame: 270,
+      endFrame: 360,
+    },
+  ];
+
+  for (const seg of rawSegments) {
+    const start = startCoordsForFrame(
+      seg.tx,
+      seg.ty,
+      seg.tz,
+      seg.heading,
+      speedMult,
+      moves,
+      seg.startFrame
+    );
+    const query =
+      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
+      `&heading=${seg.heading}&${seg.extra}&${cam}`;
+    const page = await openWorld(browser, query, PREROLL);
+    await addPostcardBadge(page, 'CHILL FLIGHT · chillflight.app', seg.label);
+    await page.evaluate((m) => {
+      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
+    }, moves);
+    for (let i = 0; i < seg.endFrame; i++) {
+      await step(page);
+      if (i >= seg.startFrame) {
+        const framePath = path.join(
+          frameDir,
+          `${String(i).padStart(5, '0')}.jpg`
+        );
+        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
+        if ((i - seg.startFrame) % FPS === 0) {
+          console.log(`  seaplane-cut [${seg.label}]: frame ${i}/360`);
+        }
+      }
+    }
+    await page.close();
+  }
+
+  const rawMp4 = path.join(OUT, 'short-5-seaplane-cut-raw.mp4');
+  const outMp4 = path.join(OUT, 'short-5-seaplane-cut.mp4');
+  ffmpeg([
+    '-framerate',
+    String(FPS),
+    '-i',
+    path.join(frameDir, '%05d.jpg'),
+    '-vf',
+    `scale=${PIXEL_W}:${PIXEL_H}`,
+    ...H264,
+    rawMp4,
+  ]);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+
+  const music = await downloadTrack('purrple-cat-calm-waters');
+  muxWithMusic(rawMp4, outMp4, music, 20, 12);
+  fs.rmSync(rawMp4, {force: true});
+  console.log(outMp4);
+  writeShortMetadata(outMp4, {
+    title: 'Seaplane roll across 4 landscapes ✈️ #shorts',
+    tiktokHook:
+      'Seaplane roll across 4 landscapes ✈️ Which biome is your favorite?',
+    stops: [
+      '0:00 Turquoise Sea Arch (0.8°N, 6.1°E)',
+      '0:03 Red-Rock Canyon (3.5°S, 0.7°E)',
+      '0:06 Dragon Peaks (3.9°N, 2.4°W)',
+      '0:09 Alien Basalt Arch (1.0°S, 17.4°E)',
+    ],
+    trackTitle: 'Calm Waters',
+  });
+}
+
 async function main() {
   fs.mkdirSync(OUT, {recursive: true});
   const filter = process.argv[2];
@@ -1087,6 +1236,18 @@ async function main() {
       ],
       trackTitle: 'Flourish',
     });
+    writeShortMetadata(path.join(OUT, 'short-5-seaplane-cut.mp4'), {
+      title: 'Seaplane roll across 4 landscapes ✈️ #shorts',
+      tiktokHook:
+        'Seaplane roll across 4 landscapes ✈️ Which biome is your favorite?',
+      stops: [
+        '0:00 Turquoise Sea Arch (0.8°N, 6.1°E)',
+        '0:03 Red-Rock Canyon (3.5°S, 0.7°E)',
+        '0:06 Dragon Peaks (3.9°N, 2.4°W)',
+        '0:09 Alien Basalt Arch (1.0°S, 17.4°E)',
+      ],
+      trackTitle: 'Calm Waters',
+    });
     return;
   }
   const browser = await puppeteer.launch({
@@ -1108,6 +1269,9 @@ async function main() {
     }
     if (!filter || filter === 'daily-match-cut') {
       await renderDailyMatchCutShort(browser, 20261109);
+    }
+    if (!filter || filter === 'seaplane-cut') {
+      await renderSeaplaneCutShort(browser, 20261109);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);

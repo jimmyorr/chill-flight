@@ -110,3 +110,21 @@ Verify in the strips:
 1. Every cut (`89 -> 90`, `179 -> 180`, `269 -> 270`) and the loop (`359 -> 0`) has the aircraft and smoke trail in the exact same screen position and attitude.
 2. Each landmark or biome is clearly visible in frame (not obscured by terrain or behind the camera), and the aircraft never crashes during `0 .. endFrame`.
 3. Remove `promo/strip-verify-*.jpg` once verified.
+
+### Step 4: Upload to YouTube Shorts and TikTok
+
+Use [scripts/post-short.js](../../../scripts/post-short.js) to upload a rendered `.mp4` and its companion `.txt` metadata sidecar to YouTube Studio and TikTok Studio using a persistent Chrome profile (`~/.chill-flight-social-profile`):
+
+```bash
+# One-time login to save YouTube Studio and TikTok Studio cookies:
+node scripts/post-short.js --login
+
+# Preview parsed metadata without opening Chrome:
+node scripts/post-short.js promo/short-20261109-match-cut.mp4 --dry-run
+
+# Upload and fill Title/Description/Caption, pausing on final Publish/Post button:
+node scripts/post-short.js promo/short-20261109-match-cut.mp4
+
+# Hands-free publish to both platforms (or --platform=youtube / --platform=tiktok):
+node scripts/post-short.js promo/short-20261109-match-cut.mp4 --publish
+```
