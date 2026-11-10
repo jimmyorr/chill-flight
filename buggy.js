@@ -114,10 +114,11 @@ const _surface = {
   normalZ: 0,
   halfWidth: 0,
   // The slope it's driving up for throwing it into the air (restOnWheels):
-  // the tyres' slope, but the middle's own while the tyres straddle a road's
-  // edge, whose step isn't a ramp
+  // the tyres' slope, but the road's own while the tyres straddle a road's
+  // edge or ride over a bank overlapping the deck, whose step isn't a ramp
   rampX: 0,
   rampZ: 0,
+  onBank: false,
 };
 const _road = {
   height: 0,
@@ -187,6 +188,9 @@ function sampleSurface(x, z, y) {
     _surface.height = _road.height;
     _surface.slopeX = _road.slopeX;
     _surface.slopeZ = _road.slopeZ;
+    _surface.rampX = _road.slopeX;
+    _surface.rampZ = _road.slopeZ;
+    _surface.onBank = false;
     _surface.kind = 'road';
     // Where the road runs in a cutting, the bank's drawn ground rises above
     // the deck's edge: the tyres ride on the bank there
@@ -196,6 +200,7 @@ function sampleSurface(x, z, y) {
         _surface.height = _ground.height;
         _surface.slopeX = _ground.slopeX;
         _surface.slopeZ = _ground.slopeZ;
+        _surface.onBank = true;
       }
     }
     _surface.rails = _road.rails;
@@ -206,6 +211,7 @@ function sampleSurface(x, z, y) {
     return _surface;
   }
   _surface.rails = false;
+  _surface.onBank = false;
   // On an arch's top, as on the deck (the canyon's bridges join its walls)
   const archY = archTop(arches, x, z);
   if (archY > -Infinity && y >= archY - ROAD_STEP_UP) {
@@ -215,6 +221,8 @@ function sampleSurface(x, z, y) {
       _surface.slopeX = 0;
       _surface.slopeZ = 0;
     }
+    _surface.rampX = _surface.slopeX;
+    _surface.rampZ = _surface.slopeZ;
     _surface.kind = 'ground';
     return _surface;
   }
@@ -245,6 +253,8 @@ function sampleSurface(x, z, y) {
     _surface.height = rocks;
     _surface.kind = 'ground';
   }
+  _surface.rampX = _surface.slopeX;
+  _surface.rampZ = _surface.slopeZ;
   return _surface;
 }
 
@@ -259,10 +269,8 @@ export function buggySurface(x, z, y) {
 // tyre over a bank, a crease in the terrain or a road's edge doesn't sink
 // into it. Over water it hovers flat as it was.
 function restOnWheels(surface, x, z, y, yaw) {
-  surface.rampX = surface.slopeX;
-  surface.rampZ = surface.slopeZ;
   if (surface.kind === 'water') return surface;
-  const {kind, height, rampX, rampZ} = surface;
+  const {kind, height, rampX, rampZ, onBank} = surface;
   const rails = surface.rails;
   const across = surface.across;
   const normalX = surface.normalX;
@@ -272,7 +280,7 @@ function restOnWheels(surface, x, z, y, yaw) {
   const fz = -Math.cos(yaw);
   const rx = Math.cos(yaw);
   const rz = -Math.sin(yaw);
-  let straddling = false;
+  let straddling = onBank;
   for (let i = 0; i < 4; i++) {
     const back = i < 2 ? BUGGY_AXLES.front : BUGGY_AXLES.rear;
     const side = (i % 2 ? 1 : -1) * BUGGY_AXLES.halfTrack;
@@ -284,7 +292,9 @@ function restOnWheels(surface, x, z, y, yaw) {
     // A tyre out over a drop (past the end of a road that stops short, or
     // a deck's edge) has nothing under it to lean on
     _wheelHeights[i] = Math.max(wheel.height, height - ROAD_STEP_UP);
-    if ((wheel.kind === 'road') !== (kind === 'road')) straddling = true;
+    if ((wheel.kind === 'road') !== (kind === 'road') || wheel.onBank) {
+      straddling = true;
+    }
   }
   ChillFlightLogic.buggyWheelContact(
     _wheelHeights,
@@ -298,6 +308,7 @@ function restOnWheels(surface, x, z, y, yaw) {
   _surface.normalX = normalX;
   _surface.normalZ = normalZ;
   _surface.halfWidth = halfWidth;
+  _surface.onBank = onBank;
   // How far the lowest tyre is into its ground, at the chassis's tilt now
   // (in the air the tilt follows its path, not the ground)
   const tanPitch = Math.tan(tiltPitch);
@@ -751,6 +762,7 @@ function stepBuggy(dt) {
     velY = 0;
   } else {
     const groundVelY = velX * surface.rampX + velZ * surface.rampZ;
+    const bumpStep = !airborne ? surface.height - (pos.y + groundVelY * dt) : 0;
     const res = ChillFlightLogic.stepBuggyVertical({
       y: pos.y,
       velY,
@@ -758,6 +770,7 @@ function stepBuggy(dt) {
       surfaceHeight: surface.height,
       groundVelY,
       onWater,
+      onRoad: surface.kind === 'road',
       hop,
       float,
       dt,
@@ -765,6 +778,9 @@ function stepBuggy(dt) {
     pos.y = res.y;
     velY = res.velY;
     airborne = res.airborne;
+    if (!airborne && bumpStep > 0.15) {
+      kick(Math.min(1.5, bumpStep * 0.6));
+    }
     if (res.impact > 2) kick(res.impact * 0.04);
     if (res.impact > 0) {
       const scrub = 1 - Math.min(0.15, res.impact * 0.002);

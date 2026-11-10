@@ -6493,6 +6493,10 @@ export const ChillFlightLogic = {};
     // most. Hitting a steep bank flat out otherwise fired it hundreds of
     // metres up.
     MAX_RAMP_VEL: 80,
+    // Maximum upward acceleration (units/s^2) the tyres and springs can
+    // impart to the chassis (4 G), giving the buggy weight so 1-2 frame
+    // bumps are absorbed by the suspension instead of launching it.
+    MAX_UP_ACCEL: 160,
   };
 
   /**
@@ -6505,6 +6509,7 @@ export const ChillFlightLogic = {};
    * @param {number} p.surfaceHeight - Ground / road elevation under vehicle
    * @param {number} p.groundVelY - Vertical rate of terrain change (velX * slopeX + velZ * slopeZ)
    * @param {boolean} p.onWater - Whether vehicle is on water
+   * @param {boolean} [p.onRoad] - Whether vehicle is on a continuous road deck
    * @param {boolean} [p.hop] - Double-tapped up: hop off the ground or water
    * @param {boolean} [p.float] - Holding up after a hop: lighter on the way up
    * @param {number} p.dt - Timestep in seconds
@@ -6517,6 +6522,7 @@ export const ChillFlightLogic = {};
     surfaceHeight,
     groundVelY,
     onWater,
+    onRoad = false,
     hop = false,
     float = false,
     dt,
@@ -6536,27 +6542,33 @@ export const ChillFlightLogic = {};
     const rampVelY = Math.min(groundVelY, BUGGY_AIR.MAX_RAMP_VEL);
     if (!airborne) {
       // While wheels are in contact with the ground:
-      // Terrain pushes upward when climbing
+      // Terrain pushes upward when climbing, bounded by chassis mass
+      // (MAX_UP_ACCEL) so short bumps don't impart instant launch velocity
       if (rampVelY > velY) {
-        velY = rampVelY;
+        if (velY < 0) velY = 0;
+        velY = Math.min(rampVelY, velY + BUGGY_AIR.MAX_UP_ACCEL * dt);
       } else {
         // Cresting or slope flattening: gravity pulls downward
         velY -= BUGGY_AIR.GRAVITY * dt;
       }
 
       const candidateY = y + velY * dt;
-      // Launch off crest when ballistic trajectory carries wheels above ground,
-      // or when driving off a sudden cliff / drop-off
-      if (
-        (candidateY - surfaceHeight > BUGGY_AIR.SEPARATION_RATE * dt &&
-          velY > BUGGY_AIR.MIN_LAUNCH_VEL) ||
-        y - surfaceHeight > BUGGY_AIR.LEDGE_DROP_RATE * dt
-      ) {
+      // Launch off crest when ballistic trajectory carries wheels above ground
+      // and the slope itself is dropping away faster than SEPARATION_RATE,
+      // or when driving off a sudden off-road cliff / drop-off
+      const crestLaunch =
+        candidateY - surfaceHeight > BUGGY_AIR.SEPARATION_RATE * dt &&
+        velY - rampVelY > BUGGY_AIR.SEPARATION_RATE &&
+        velY > BUGGY_AIR.MIN_LAUNCH_VEL;
+      const ledgeDrop =
+        !onRoad && y - surfaceHeight > BUGGY_AIR.LEDGE_DROP_RATE * dt;
+      if (crestLaunch || ledgeDrop) {
+        if (!crestLaunch && velY > 0) velY = 0;
         airborne = true;
-        y = candidateY;
+        y = y + velY * dt;
       } else {
         y = surfaceHeight;
-        velY = rampVelY;
+        if (rampVelY < velY) velY = rampVelY;
       }
     } else {
       // Free ballistic trajectory under gravity, lighter rising from a hop
@@ -6571,7 +6583,7 @@ export const ChillFlightLogic = {};
         airborne = false;
         impact = Math.max(0, groundVelY - velY);
         y = surfaceHeight;
-        velY = rampVelY;
+        velY = Math.min(0, rampVelY);
       }
     }
 

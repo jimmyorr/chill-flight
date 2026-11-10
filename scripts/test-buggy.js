@@ -505,6 +505,57 @@ check(
     splash.airborne && splash.y > 29,
     `y=${splash.y.toFixed(1)}`
   );
+
+  // 6h. Short 1-2 frame bumps at top speed are absorbed by chassis weight
+  // instead of launching the buggy into the air
+  let shortBump = {y: 0, velY: 0, airborne: false};
+  let shortBumpGround = 0;
+  let shortBumpLaunched = false;
+  for (let i = 0; i < 60; i++) {
+    const gVelY = i === 10 || i === 11 ? 65 : i === 12 || i === 13 ? -65 : 0;
+    shortBumpGround += gVelY / 60;
+    shortBump = ChillFlightLogic.stepBuggyVertical({
+      ...shortBump,
+      surfaceHeight: shortBumpGround,
+      groundVelY: gVelY,
+      onWater: false,
+      onRoad: true,
+      dt: 1 / 60,
+    });
+    if (shortBump.airborne) shortBumpLaunched = true;
+  }
+  check(
+    'Short 2-frame bump at top speed is absorbed with weight and does not launch',
+    !shortBumpLaunched && shortBump.velY < 10,
+    `airborne=${shortBumpLaunched}, velY=${shortBump.velY.toFixed(1)}`
+  );
+
+  // 6i. Ground bank overlapping an uphill road deck rises and subsides
+  // without triggering a false crest or ledge launch
+  let roadOverlap = {y: 100, velY: 38, airborne: false};
+  let roadDeck = 100;
+  let overlapLaunched = false;
+  for (let i = 0; i < 60; i++) {
+    const roadVelY = 38;
+    roadDeck += roadVelY / 60;
+    // Bank triangle overlaps road deck by up to 2.5 units over 6 frames, then drops back to deck
+    const bankBump =
+      i >= 15 && i <= 20 ? 2.5 * Math.sin(((i - 15) / 5) * Math.PI) : 0;
+    roadOverlap = ChillFlightLogic.stepBuggyVertical({
+      ...roadOverlap,
+      surfaceHeight: roadDeck + bankBump,
+      groundVelY: roadVelY,
+      onWater: false,
+      onRoad: true,
+      dt: 1 / 60,
+    });
+    if (roadOverlap.airborne) overlapLaunched = true;
+  }
+  check(
+    'Overlapping ground on an uphill road does not trigger a false launch',
+    !overlapLaunched,
+    `airborne=${overlapLaunched}`
+  );
 }
 
 // --- 7. HOVERCRAFT ON WATER ---
