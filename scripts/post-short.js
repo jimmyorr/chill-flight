@@ -188,7 +188,7 @@ async function uploadToYouTube(browser, mp4Path, meta, opts) {
   try {
     isGoogleSignInHost = new URL(page.url()).hostname === 'accounts.google.com';
   } catch {
-    isGoogleSignInHost = false;
+    // Ignore unparseable URL
   }
   if (isGoogleSignInHost) {
     console.log(
