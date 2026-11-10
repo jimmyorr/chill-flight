@@ -282,8 +282,8 @@ export function archGeometry(arch, groundAt, segments = state.SEGMENTS) {
   }
   // Caps at the two ends, fanned from their middles
   for (const [ring, flip] of [
-    [placed[0], false],
-    [placed[placed.length - 1], true],
+    [placed[0], true],
+    [placed[placed.length - 1], false],
   ]) {
     const mid = [0, 0, 0];
     for (const p of ring) for (let a = 0; a < 3; a++) mid[a] += p[a] / m;
