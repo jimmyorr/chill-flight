@@ -28,7 +28,8 @@ const params = ChillFlightLogic.urlParams;
 const outlines = ART_POST && params.get('outline') !== '0';
 const brush = ART_POST && params.get('brush') !== '0';
 const haze = ART_POST && params.get('haze') !== '0';
-const motionBlur = params.get('blur') !== '0';
+const blurParam = params.get('blur');
+const motionBlur = blurParam ? blurParam !== '0' : ART_POST;
 const fxaaParam = params.get('fxaa');
 
 let target = null;
