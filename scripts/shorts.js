@@ -1,12 +1,13 @@
 // Prototype YouTube Shorts generator (1080x1920 vertical, 30 fps).
-// Renders four daily Short templates (each with a companion .txt description):
-//   1. short-1-match-cut.mp4      - 12s biplane clover-loop match-cut across 4 landscapes
-//   2. short-2-daily-postcard.mp4 - 12s auto-scouted arch flight for seed 20261108
-//   3. short-3-wing-cam.mp4       - 12s over-the-wing "window seat" sunset flight
-//   4. short-4-landmark-cut.mp4   - 12s swept-wing jet roll match-cut across 4 landmarks
+// Renders daily Short templates (each with a companion .txt description):
+//   1. short-1-match-cut.mp4         - 12s biplane clover-loop match-cut across 4 landscapes
+//   2. short-2-daily-postcard.mp4    - 12s auto-scouted arch flight for a daily seed
+//   3. short-3-wing-cam.mp4          - 12s over-the-wing "window seat" sunset flight
+//   4. short-4-landmark-cut.mp4      - 12s swept-wing jet roll match-cut across 4 landmarks
+//   5. short-20261109-match-cut.mp4  - 12s gold twin-prop barrel-roll match-cut (seed 20261109)
 //
 // Usage:
-//   node scripts/shorts.js [match-cut | daily-postcard | wing-cam | landmark-cut]
+//   node scripts/shorts.js [match-cut | daily-match-cut | daily-postcard | wing-cam | landmark-cut | meta]
 
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -252,10 +253,12 @@ function muxWithMusic(rawMp4, outMp4, musicFile, startSec, durationSec) {
   ]);
 }
 
-function writeShortMetadata(outMp4, {title, stops, trackTitle}) {
+function writeShortMetadata(outMp4, {title, tiktokHook, stops, trackTitle}) {
   const txtPath = outMp4.replace(/\.mp4$/, '.txt');
   const stopBlock = stops.length ? ['', ...stops] : [];
+  const cleanTitle = title.replace(/\s*#shorts$/i, '');
   const body = [
+    '=== YouTube Shorts ===',
     'Title:',
     title,
     '',
@@ -272,6 +275,19 @@ function writeShortMetadata(outMp4, {title, stops, trackTitle}) {
     `Music by Purrple Cat ("${trackTitle}").`,
     '',
     'Have a chill flight.',
+    '',
+    '#chillflight #cozygames #indiegame #lofi #flightsimulator #shorts',
+    '',
+    '=== TikTok ===',
+    'Caption:',
+    tiktokHook || cleanTitle,
+    '',
+    'Play free in browser or on iOS at chillflight.app',
+    ...stopBlock,
+    '',
+    `Music: "${trackTitle}" by Purrple Cat`,
+    '',
+    '#chillflight #cozygames #indiegame #lofi #flightsim',
   ].join('\n');
   fs.writeFileSync(txtPath, `${body}\n`);
   console.log(txtPath);
@@ -442,6 +458,8 @@ async function renderMatchCutShort(browser) {
   console.log(outMp4);
   writeShortMetadata(outMp4, {
     title: 'One loop across 4 landscapes ✈️ #shorts',
+    tiktokHook:
+      'One loop across 4 landscapes ✈️ Which one would you fly in first?',
     stops: [
       '0:00 Sunrise Lakes (0.1°S, 1.3°W)',
       '0:03 Coral Islands (0.8°S, 1.8°E)',
@@ -641,6 +659,7 @@ async function renderDailyPostcardShort(browser, seed = 20261108) {
   console.log(outMp4);
   writeShortMetadata(outMp4, {
     title: 'Threading two natural rock arches ✈️ #shorts',
+    tiktokHook: 'Threading two natural rock arches ✈️ Gorge or sea arch?',
     stops: [
       `0:00 Mountain Gorge Bridge (${gorge.coordLabel})`,
       `0:06 Coral Sea Arch (${sea.coordLabel})`,
@@ -714,6 +733,7 @@ async function renderWingCamShort(browser) {
   console.log(outMp4);
   writeShortMetadata(outMp4, {
     title: 'Sunset window seat past the lighthouse ✈️ #shorts',
+    tiktokHook: 'Sunset window seat past the headland lighthouse ✈️',
     stops: ['Headland Lighthouse (0.6°S, 1.5°E)'],
     trackTitle: 'Sundae Sunset',
   });
@@ -852,6 +872,7 @@ async function renderLandmarkCutShort(browser) {
   console.log(outMp4);
   writeShortMetadata(outMp4, {
     title: 'One roll across 4 landmarks ✈️ #shorts',
+    tiktokHook: 'One roll across 4 landmarks ✈️ Which spot is your favorite?',
     stops: [
       '0:00 Twin Falls (0.9°N, 0.0°E)',
       '0:03 Red-Rock Canyon (2.9°S, 0.6°E)',
@@ -859,6 +880,154 @@ async function renderLandmarkCutShort(browser) {
       '0:09 Headland Lighthouse (0.6°S, 1.5°E)',
     ],
     trackTitle: 'Wish You Were Here',
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Prototype 5: Daily Match-Cut for Seed 20261109 (Gold Twin-Prop Barrel-Roll)
+// ---------------------------------------------------------------------------
+async function renderDailyMatchCutShort(browser, seed = 20261109) {
+  console.log(
+    `=== Rendering Daily Match-Cut (Seed ${seed}: Gold Twin-Prop) ===`
+  );
+  const frameDir = path.join(OUT, `frames-short-${seed}-match-cut`);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+  fs.mkdirSync(frameDir, {recursive: true});
+
+  const speedMult = 1.2;
+  // Front-left three-quarter angle (opposite side from short-1), looking back
+  // at the gold twin-prop and its smoke ribbon
+  const cam =
+    `plane=twin&livery=gold&smoke=1&speed=${speedMult}` +
+    '&camOffset=-22,6,-46&camLook=4,3,18';
+  // Unbroken 12s maneuver that loops seamlessly from frame 360 back to frame 0:
+  //   0..3s:  Carves into a left bank, then pitches up into a right roll
+  //   3..6s:  Match-cuts mid-roll into a full 360° corkscrew barrel roll
+  //   6..9s:  Match-cuts into a sweeping S-turn through the rainstorm
+  //   9..12s: Match-cuts into sunset and settles to level (roll=360, pitch=0,
+  //           constant yaw=-22 from 9.0s..12.0s) so frame 360 matches frame 0
+  const moves = [
+    [0, 0, 0, 0],
+    [1.2, -26, 4, 10],
+    [2.3, 18, 12, 16],
+    [3.0, 68, 18, 12],
+    [4.4, 240, -6, 2],
+    [5.5, 360, 2, -10],
+    [6.0, 382, 4, -14],
+    [7.3, 334, -3, -24],
+    [8.4, 376, 3, -20],
+    [9.0, 344, 2, -22],
+    [10.3, 368, 1, -22],
+    [11.3, 360, 0, -22],
+    [12.0, 360, 0, -22],
+  ];
+
+  const rawSegments = [
+    {
+      label: 'Twin Falls · 0.9°N, 0.0°E',
+      tx: 45,
+      ty: 290,
+      tz: -4220,
+      heading: 160,
+      extra: 'tod=0.29&cloudMood=fair',
+      startFrame: 0,
+      endFrame: 90,
+    },
+    {
+      label: 'Lake Cloverleaf · 0.7°S, 0.8°W',
+      tx: -3750,
+      ty: 1750,
+      tz: 3750,
+      heading: -155,
+      extra: 'tod=0.46&cloudMood=mackerel',
+      startFrame: 90,
+      endFrame: 180,
+    },
+    {
+      label: 'Stormy Lighthouse · 0.6°S, 1.5°E',
+      tx: 7220,
+      ty: 165,
+      tz: 2760,
+      heading: 25,
+      extra: 'tod=0.63&weather=rain&headlight=1&cloudMood=busy',
+      startFrame: 180,
+      endFrame: 270,
+    },
+    {
+      label: 'Desert Pyramids · 3.8°S, 2.1°W',
+      tx: -10150,
+      ty: 435,
+      tz: 19150,
+      heading: -45,
+      extra: 'tod=0.75&headlight=1&cloudMood=high',
+      startFrame: 270,
+      endFrame: 360,
+    },
+  ];
+
+  for (const seg of rawSegments) {
+    const start = startCoordsForFrame(
+      seg.tx,
+      seg.ty,
+      seg.tz,
+      seg.heading,
+      speedMult,
+      moves,
+      seg.startFrame
+    );
+    const query =
+      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
+      `&heading=${seg.heading}&${seg.extra}&${cam}`;
+    const page = await openWorld(browser, query, PREROLL);
+    await addPostcardBadge(page, 'CHILL FLIGHT · chillflight.app', seg.label);
+    await page.evaluate((m) => {
+      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
+    }, moves);
+    for (let i = 0; i < seg.endFrame; i++) {
+      await step(page);
+      if (i >= seg.startFrame) {
+        const framePath = path.join(
+          frameDir,
+          `${String(i).padStart(5, '0')}.jpg`
+        );
+        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
+        if ((i - seg.startFrame) % FPS === 0) {
+          console.log(`  daily-match-cut [${seg.label}]: frame ${i}/360`);
+        }
+      }
+    }
+    await page.close();
+  }
+
+  const rawMp4 = path.join(OUT, `short-${seed}-match-cut-raw.mp4`);
+  const outMp4 = path.join(OUT, `short-${seed}-match-cut.mp4`);
+  ffmpeg([
+    '-framerate',
+    String(FPS),
+    '-i',
+    path.join(frameDir, '%05d.jpg'),
+    '-vf',
+    `scale=${PIXEL_W}:${PIXEL_H}`,
+    ...H264,
+    rawMp4,
+  ]);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+
+  const music = await downloadTrack('purrple-cat-flourish');
+  muxWithMusic(rawMp4, outMp4, music, 18, 12);
+  fs.rmSync(rawMp4, {force: true});
+  console.log(outMp4);
+  writeShortMetadata(outMp4, {
+    title: 'One barrel roll across 4 landscapes ✈️ #shorts',
+    tiktokHook:
+      'One barrel roll across 4 landscapes ✈️ Which weather vibe is your favorite?',
+    stops: [
+      '0:00 Twin Falls (0.9°N, 0.0°E)',
+      '0:03 Lake Cloverleaf (0.7°S, 0.8°W)',
+      '0:06 Stormy Lighthouse (0.6°S, 1.5°E)',
+      '0:09 Desert Pyramids (3.8°S, 2.1°W)',
+    ],
+    trackTitle: 'Flourish',
   });
 }
 
@@ -870,6 +1039,8 @@ async function main() {
     const sea = scoutArchPass(20261108, 'sea', 1);
     writeShortMetadata(path.join(OUT, 'short-1-match-cut.mp4'), {
       title: 'One loop across 4 landscapes ✈️ #shorts',
+      tiktokHook:
+        'One loop across 4 landscapes ✈️ Which one would you fly in first?',
       stops: [
         '0:00 Sunrise Lakes (0.1°S, 1.3°W)',
         '0:03 Coral Islands (0.8°S, 1.8°E)',
@@ -880,6 +1051,7 @@ async function main() {
     });
     writeShortMetadata(path.join(OUT, 'short-2-daily-postcard.mp4'), {
       title: 'Threading two natural rock arches ✈️ #shorts',
+      tiktokHook: 'Threading two natural rock arches ✈️ Gorge or sea arch?',
       stops: [
         `0:00 Mountain Gorge Bridge (${gorge.coordLabel})`,
         `0:06 Coral Sea Arch (${sea.coordLabel})`,
@@ -888,11 +1060,13 @@ async function main() {
     });
     writeShortMetadata(path.join(OUT, 'short-3-wing-cam.mp4'), {
       title: 'Sunset window seat past the lighthouse ✈️ #shorts',
+      tiktokHook: 'Sunset window seat past the headland lighthouse ✈️',
       stops: ['Headland Lighthouse (0.6°S, 1.5°E)'],
       trackTitle: 'Sundae Sunset',
     });
     writeShortMetadata(path.join(OUT, 'short-4-landmark-cut.mp4'), {
       title: 'One roll across 4 landmarks ✈️ #shorts',
+      tiktokHook: 'One roll across 4 landmarks ✈️ Which spot is your favorite?',
       stops: [
         '0:00 Twin Falls (0.9°N, 0.0°E)',
         '0:03 Red-Rock Canyon (2.9°S, 0.6°E)',
@@ -900,6 +1074,18 @@ async function main() {
         '0:09 Headland Lighthouse (0.6°S, 1.5°E)',
       ],
       trackTitle: 'Wish You Were Here',
+    });
+    writeShortMetadata(path.join(OUT, 'short-20261109-match-cut.mp4'), {
+      title: 'One barrel roll across 4 landscapes ✈️ #shorts',
+      tiktokHook:
+        'One barrel roll across 4 landscapes ✈️ Which weather vibe is your favorite?',
+      stops: [
+        '0:00 Twin Falls (0.9°N, 0.0°E)',
+        '0:03 Lake Cloverleaf (0.7°S, 0.8°W)',
+        '0:06 Stormy Lighthouse (0.6°S, 1.5°E)',
+        '0:09 Desert Pyramids (3.8°S, 2.1°W)',
+      ],
+      trackTitle: 'Flourish',
     });
     return;
   }
@@ -919,6 +1105,9 @@ async function main() {
   try {
     if (!filter || filter === 'match-cut') {
       await renderMatchCutShort(browser);
+    }
+    if (!filter || filter === 'daily-match-cut') {
+      await renderDailyMatchCutShort(browser, 20261109);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);
