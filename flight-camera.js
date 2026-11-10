@@ -367,7 +367,7 @@ export function updateFlightCamera(delta, nowTime) {
       followZoom;
 
     // FOV expands with speed AND dive/loop steepness, capped at 75 by default
-    // to avoid excessive distortion (uncapped for the buggy with ?speedCam=1)
+    // to avoid excessive distortion (80 for the buggy with ?speedCam=1)
     const maneuverFactor = Math.max(
       diveFactor,
       state.isLooping || state.isSteepPitch ? 3.0 : 0
@@ -387,15 +387,15 @@ export function updateFlightCamera(delta, nowTime) {
     // (wider still during a shattered crystal's rush: crystal-rush.js)
     const rushFov = RUSH_FOV * rushAmount() * (1 - seatLock);
     const targetFov =
-      (FORZA_SPEED_CAM && buggyVis
-        ? baseFov
+      FORZA_SPEED_CAM && buggyVis
+        ? Math.min(ChillFlightLogic.BUGGY_CAMERA.MAX_FOV, baseFov + rushFov)
         : Math.min(
             75,
             baseFov +
               state.smoothedManeuverFactor *
                 15 *
                 Math.min(1, state.flightSpeedMultiplier / 2)
-          )) + rushFov;
+          ) + rushFov;
 
     camera.fov = THREE.MathUtils.lerp(
       camera.fov,

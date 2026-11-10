@@ -7150,8 +7150,11 @@ export const ChillFlightLogic = {};
     Y_START: 12,
     Y_END: 10.5,
     FOV_START: 60,
-    FOV_END: 86,
+    FOV_END: 80,
     FOV_MOBILE_EXTRA: 5,
+    // No wider than this, phones and a crystal's rush included: past it the
+    // edges of the view stretch
+    MAX_FOV: 80,
     SLIP_FOLLOW: 0.55,
     MAX_SLIP_YAW: 0.35,
     SLIP_EASE_SECONDS: 0.18,
@@ -7189,10 +7192,12 @@ export const ChillFlightLogic = {};
     const view = 1 - clamp(topDown, 0, 1);
     const zBase = C.Z_START + (C.Z_END - C.Z_START) * sf;
     const yBase = C.Y_START + (C.Y_END - C.Y_START) * sf;
-    const fov =
+    const fov = Math.min(
+      C.MAX_FOV,
       C.FOV_START +
-      (C.FOV_END - C.FOV_START) * sf * chase +
-      (mobile ? C.FOV_MOBILE_EXTRA : 0);
+        (C.FOV_END - C.FOV_START) * sf * chase +
+        (mobile ? C.FOV_MOBILE_EXTRA : 0)
+    );
     const slipYaw = buggySlipYaw(slip, seat);
     const peripheralBlur = smoothstep(C.BLUR_START, 1, sf) * view;
     return {zBase, yBase, fov, slipYaw, peripheralBlur};

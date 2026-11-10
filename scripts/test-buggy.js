@@ -1344,10 +1344,16 @@ check(
     top.yBase < rest.yBase && top.zBase > rest.zBase && top.zBase <= 48,
     `yBase ${rest.yBase} -> ${top.yBase}, zBase ${rest.zBase} -> ${top.zBase}`
   );
+  const topPhone = buggyCameraVisuals({speedFactor: 1, mobile: true});
   check(
-    'Chase FOV widens past 75 deg up to top speed, while seat view stays put',
-    rest.fov === 60 && fast.fov > 78 && top.fov >= 85 && topSeat.fov === 60,
-    `rest=${rest.fov}, fast=${fast.fov.toFixed(1)}, top=${top.fov}, seat=${topSeat.fov}`
+    'Chase FOV widens up to 80 deg at top speed and no further, while seat view stays put',
+    rest.fov === 60 &&
+      fast.fov > 72 &&
+      fast.fov < 80 &&
+      top.fov === 80 &&
+      topPhone.fov === 80 &&
+      topSeat.fov === 60,
+    `rest=${rest.fov}, fast=${fast.fov.toFixed(1)}, top=${top.fov}, phone=${topPhone.fov}, seat=${topSeat.fov}`
   );
   check(
     'Drift camera angle swings toward the velocity path so the tail steps out',
