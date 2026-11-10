@@ -159,7 +159,6 @@ function _forzaOptIn(name) {
 }
 const FORZA_SPEED_CAM = _forzaOptIn('speedCam');
 const FORZA_DRIFT_CAM = _forzaOptIn('driftCam');
-const FORZA_RUMBLE = _forzaOptIn('rumble');
 const FORZA_BLUR = _forzaOptIn('blur');
 
 // A car's chase camera (chaseFrame) tips with the slope it's on: down a
@@ -325,16 +324,14 @@ export function updateFlightCamera(delta, nowTime) {
     const seatLock = state.airplaneModel?.firstPersonEye ? firstPerson : 0;
 
     // Optional Forza-inspired driving visuals (?forza=1, or individually
-    // ?speedCam=1, ?driftCam=1, ?rumble=1, ?blur=1)
+    // ?speedCam=1, ?driftCam=1, ?blur=1)
     const buggyVis =
-      chaseFrame &&
-      (FORZA_SPEED_CAM || FORZA_DRIFT_CAM || FORZA_RUMBLE || FORZA_BLUR)
+      chaseFrame && (FORZA_SPEED_CAM || FORZA_DRIFT_CAM || FORZA_BLUR)
         ? ChillFlightLogic.buggyCameraVisuals({
             speedFactor,
             slip: state.buggySlip || 0,
             seatLock,
             mobile: mobileCameraScale > 1.0,
-            onGround: state.isOnGround,
             topDown: easedT,
           })
         : null;
@@ -413,16 +410,12 @@ export function updateFlightCamera(delta, nowTime) {
       Math.min(1, state.flightSpeedMultiplier / 2);
     _cameraOffset.set(0, yOffset, zOffset + pullBack);
 
-    // Add subtle camera vibration at high speeds/steep dives (or on the road
-    // near top speed in the buggy with ?rumble=1)
+    // Add subtle camera vibration at high speeds/steep dives
     if (state.flightSpeedMultiplier > 4.0 && diveFactor > 0.5) {
       const shakeIntensity =
         (state.flightSpeedMultiplier - 4.0) * 0.05 * diveFactor;
       _cameraOffset.x += (Math.random() - 0.5) * shakeIntensity;
       _cameraOffset.y += (Math.random() - 0.5) * shakeIntensity;
-    } else if (FORZA_RUMBLE && buggyVis && buggyVis.rumble > 0) {
-      _cameraOffset.x += (Math.random() - 0.5) * buggyVis.rumble;
-      _cameraOffset.y += (Math.random() - 0.5) * buggyVis.rumble;
     }
 
     // A jolt when knocking a tree or house over (breakables.js)

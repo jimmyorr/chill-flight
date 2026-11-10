@@ -1314,20 +1314,17 @@ check(
 // --- 13. FORZA-INSPIRED DRIVING CAMERA & PERIPHERAL MOTION BLUR ---
 {
   const {buggyCameraVisuals} = ChillFlightLogic;
-  const rest = buggyCameraVisuals({speedFactor: 0, onGround: true});
-  const cruise = buggyCameraVisuals({speedFactor: 0.4, onGround: true});
-  const fast = buggyCameraVisuals({speedFactor: 0.75, onGround: true});
-  const top = buggyCameraVisuals({speedFactor: 1, onGround: true});
-  const topAir = buggyCameraVisuals({speedFactor: 1, onGround: false});
+  const rest = buggyCameraVisuals({speedFactor: 0});
+  const cruise = buggyCameraVisuals({speedFactor: 0.4});
+  const fast = buggyCameraVisuals({speedFactor: 0.75});
+  const top = buggyCameraVisuals({speedFactor: 1});
   const topSeat = buggyCameraVisuals({
     speedFactor: 1,
     seatLock: 1,
-    onGround: true,
   });
   const topBird = buggyCameraVisuals({
     speedFactor: 1,
     topDown: 1,
-    onGround: true,
   });
   const driftLeft = buggyCameraVisuals({speedFactor: 0.8, slip: 0.4});
   const driftRight = buggyCameraVisuals({speedFactor: 0.8, slip: -0.4});
@@ -1359,14 +1356,6 @@ check(
       Math.abs(driftLeft.slipYaw + driftRight.slipYaw) < 1e-9 &&
       topSeat.slipYaw === 0,
     `left=${driftLeft.slipYaw.toFixed(3)}, right=${driftRight.slipYaw.toFixed(3)}`
-  );
-  check(
-    'High-speed road rumble turns on near top speed on the ground only',
-    rest.rumble === 0 &&
-      cruise.rumble === 0 &&
-      top.rumble > 0 &&
-      topAir.rumble === 0,
-    `cruise=${cruise.rumble}, top=${top.rumble}, air=${topAir.rumble}`
   );
 }
 

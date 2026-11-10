@@ -7155,8 +7155,6 @@ export const ChillFlightLogic = {};
     SLIP_FOLLOW: 0.55,
     MAX_SLIP_YAW: 0.35,
     SLIP_EASE_SECONDS: 0.18,
-    RUMBLE_START: 0.6,
-    MAX_RUMBLE: 0.07,
     BLUR_START: 0.45,
   };
 
@@ -7165,7 +7163,6 @@ export const ChillFlightLogic = {};
     slip = 0,
     seatLock = 0,
     mobile = false,
-    onGround = false,
     topDown = 0,
   } = {}) {
     const C = BUGGY_CAMERA;
@@ -7186,11 +7183,8 @@ export const ChillFlightLogic = {};
       (mobile ? C.FOV_MOBILE_EXTRA : 0);
     const slipYaw =
       clamp(-slip * C.SLIP_FOLLOW, -C.MAX_SLIP_YAW, C.MAX_SLIP_YAW) * chase;
-    const rumble = onGround
-      ? smoothstep(C.RUMBLE_START, 1, sf) * C.MAX_RUMBLE * (1 - 0.5 * seat)
-      : 0;
     const peripheralBlur = smoothstep(C.BLUR_START, 1, sf) * view;
-    return {zBase, yBase, fov, slipYaw, rumble, peripheralBlur};
+    return {zBase, yBase, fov, slipYaw, peripheralBlur};
   }
 
   exports.BUGGY_TURN = BUGGY_TURN;
