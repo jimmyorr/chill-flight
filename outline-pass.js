@@ -30,9 +30,10 @@ const brush = ART_POST && params.get('brush') !== '0';
 const haze = ART_POST && params.get('haze') !== '0';
 const forza = params.get('forza') === '1' || params.get('forza') === 'true';
 const blurParam = params.get('blur');
-const motionBlur = blurParam
-  ? blurParam !== '0' && blurParam !== 'false'
-  : forza;
+// Only in a style that already has the post pass (anime): in low poly it
+// would add a whole offscreen pass and FXAA, too costly on phones
+const motionBlur =
+  ART_POST && (blurParam ? blurParam !== '0' && blurParam !== 'false' : forza);
 const fxaaParam = params.get('fxaa');
 
 let target = null;
@@ -301,17 +302,17 @@ function ensureFxaa() {
 }
 
 // Renders one frame of the game, with outlines when the art style has them
-// and peripheral motion blur when driving at speed.
+// and (anime, ?blur=1) peripheral motion blur when driving at speed.
 export function renderFrame(scene, camera) {
   if (!renderer) return;
+  if (!enabled || renderer.xr.isPresenting) {
+    renderer.render(scene, camera);
+    return;
+  }
   const blur =
     motionBlur && state.graphicsPreset !== 'low'
       ? state.peripheralBlur || 0
       : 0;
-  if ((!enabled && blur <= 0.001) || renderer.xr.isPresenting) {
-    renderer.render(scene, camera);
-    return;
-  }
   ensureTarget();
   renderer.setRenderTarget(target);
   renderer.render(scene, camera);

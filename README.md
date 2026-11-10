@@ -522,7 +522,7 @@ How it's built:
 - **`art-style.js`** reads the choice (`ART_STYLE`; `ART_PAINTED` for anime's look; `ART_POST` for a style with the post pass; `ART_CLOUDS`) and, for anime, patches three.js's shared lighting shader chunks once at load, so every lit material picks up the light and color changes without per-material code. It also wires the Settings select.
 - **`createMaterial()`** (`constants.js`) turns off flat shading for the anime style; materials created with `foliage: true` get the leafy clumps (with their own shader cache key, since every `createMaterial()` hook shares one source text).
 - **`ANIME_SKY`** (prepended to `CLOUD_GLSL`) and **`ANIME_TOWERS`** (`TOWER_GLSL`, shared by the sky and the moon so both agree where the towers are) switch the sky shaders; **`ANIME_TERRAIN`** and **`ANIME_WATER`** are added to the terrain and water shaders.
-- **`renderFrame()`** (`outline-pass.js`) replaces the game loop's `renderer.render()`; it renders straight to the screen for the low-poly style (unless `?blur=1` opts into peripheral motion blur at speed) and in VR. The pass's shader gets the style as a define (`ANIME`) for its own steps.
+- **`renderFrame()`** (`outline-pass.js`) replaces the game loop's `renderer.render()`; it renders straight to the screen for the low-poly style and in VR. The pass's shader gets the style as a define (`ANIME`) for its own steps.
 
 ### Dynamic performance scaling
 
@@ -601,8 +601,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`outline`**: With the anime style, set to `0` to turn off the ink outlines.
 - **`brush`**, **`haze`**: With the anime style, set to `0` to turn off the brushstroke (Kuwahara) filter or the aerial-perspective haze, for comparing.
 - **`forza`**: Set to `1` to enable all Forza-inspired buggy driving visuals (`blur`, `speedCam`, `driftCam`, and `rumble`; any individual parameter can still be set to `0` to turn it off).
-- **`blur`**, **`speedCam`**, **`driftCam`**, **`rumble`**: Individual opt-in flags (`1` on, `0` off) for the buggy's radial peripheral motion blur at speed, low-slung chase camera with uncapped `86°` FOV warp, drift slip camera angle, and high-speed road micro-vibration.
-- **`fxaa`**: With the anime style (or `blur=1` at speed), `1` or `0` turns FXAA edge smoothing on or off whatever the graphics preset (by default it's on for mid and up).
+- **`blur`**, **`speedCam`**, **`driftCam`**, **`rumble`**: Individual opt-in flags (`1` on, `0` off) for the buggy's radial peripheral motion blur at speed (anime style only: low poly has no post pass to add it to), low-slung chase camera with uncapped `86°` FOV warp, drift slip camera angle, and high-speed road micro-vibration.
+- **`fxaa`**: With the anime style, `1` or `0` turns FXAA edge smoothing on or off whatever the graphics preset (by default it's on for mid and up).
 - **`cloudStyle`**: With the anime style, set to `classic` to keep the low-poly look's clouds and sky (and no horizon towers) instead of the anime ones.
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
 - **`cloud`** (or **`clouds`**, **`cloudCover`**, **`overcast`**): Cloud cover density or mode (options: `auto` for procedural weather noise, `none` or `false` to disable clouds, `clear` for 0.0, `scattered` for 0.3, `broken` for 0.6, `overcast` for 1.0, or any float between `0.0` and `1.0`).
