@@ -75,26 +75,6 @@ for (const f of modules) {
 
 // --- index.html ---
 function htmlKeys(html) {
-  html = html
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<script[\s\S]*?<\/script>/g, '')
-    .replace(/<style[\s\S]*?<\/style>/g, '')
-    .replace(/<head>[\s\S]*?<\/head>/, '');
-  // Whole elements marked data-no-translate (the debug panels, the
-  // splash's title, language names): from the opening tag to its match
-  for (;;) {
-    const open = html.match(/<(\w+)\b[^>]*\sdata-no-translate[^>]*>/);
-    if (!open) break;
-    const tag = new RegExp(`<(/?)${open[1]}\\b[^>]*>`, 'g');
-    tag.lastIndex = open.index;
-    let depth = 0;
-    let m;
-    while ((m = tag.exec(html))) {
-      depth += m[1] ? -1 : 1;
-      if (!depth) break;
-    }
-    html = html.slice(0, open.index) + html.slice(tag.lastIndex);
-  }
   const decode = (s) =>
     s
       .replace(/&bull;/g, '•')
@@ -102,16 +82,52 @@ function htmlKeys(html) {
       .replace(/&deg;/g, '°')
       .replace(/&amp;/g, '&');
   const out = [];
-  for (const part of html.split(/(<[^>]+>)/)) {
-    if (part.startsWith('<')) {
-      for (const [, , value] of part.matchAll(
+  let pos = html.indexOf('<body');
+  while (pos !== -1 && pos < html.length) {
+    if (html.startsWith('<!--', pos)) {
+      const end = html.indexOf('-->', pos + 4);
+      if (end === -1) break;
+      pos = end + 3;
+      continue;
+    }
+    if (html[pos] === '<') {
+      const end = html.indexOf('>', pos + 1);
+      if (end === -1) break;
+      const tag = html.slice(pos, end + 1);
+      const name = tag.match(/^<(\w+)/)?.[1]?.toLowerCase();
+      if (name === 'script' || name === 'style') {
+        const close = html.indexOf(`</${name}>`, end + 1);
+        if (close === -1) break;
+        pos = close + name.length + 3;
+        continue;
+      }
+      // Whole elements marked data-no-translate (the debug panels, the
+      // splash's title, language names): from the opening tag to its match
+      if (name && /\sdata-no-translate\b/.test(tag)) {
+        const re = new RegExp(`<(/?)${name}\\b[^>]*>`, 'g');
+        re.lastIndex = pos;
+        let depth = 0;
+        let m;
+        while ((m = re.exec(html))) {
+          depth += m[1] ? -1 : 1;
+          if (!depth) break;
+        }
+        pos = re.lastIndex;
+        continue;
+      }
+      for (const [, , value] of tag.matchAll(
         /\s(title|aria-label|placeholder)="([^"]*)"/g
       )) {
         out.push(decode(value));
       }
+      pos = end + 1;
     } else {
-      const text = decode(part).replace(/\s+/g, ' ').trim();
+      const next = html.indexOf('<', pos);
+      const raw = next === -1 ? html.slice(pos) : html.slice(pos, next);
+      const text = decode(raw).replace(/\s+/g, ' ').trim();
       if (text) out.push(text);
+      if (next === -1) break;
+      pos = next;
     }
   }
   return out;
