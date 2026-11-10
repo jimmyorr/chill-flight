@@ -556,6 +556,31 @@ check(
     !overlapLaunched,
     `airborne=${overlapLaunched}`
   );
+
+  // 6j. A short steep kicker (longer than a bump) still throws it high, at
+  // 30 and 60 fps
+  for (const fps of [30, 60]) {
+    let kicker = {y: 0, velY: 0, airborne: false};
+    let kickerGround = 0;
+    let kickerTop = 0;
+    for (let i = 0; i < fps * 4; i++) {
+      const gVelY = i < fps * 0.15 ? 80 : -20;
+      kickerGround += gVelY / fps;
+      kicker = ChillFlightLogic.stepBuggyVertical({
+        ...kicker,
+        surfaceHeight: kickerGround,
+        groundVelY: gVelY,
+        onWater: false,
+        dt: 1 / fps,
+      });
+      kickerTop = Math.max(kickerTop, kicker.y - kickerGround);
+    }
+    check(
+      `A short steep kicker still catches big air at ${fps} fps`,
+      kickerTop > 100,
+      `${kickerTop.toFixed(1)} units above the ground`
+    );
+  }
 }
 
 // --- 7. HOVERCRAFT ON WATER ---

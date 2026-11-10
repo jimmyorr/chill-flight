@@ -145,6 +145,8 @@ let yaw = 0;
 let yawRate = 0;
 let steer = 0;
 let airborne = false;
+// How long the ground has been climbing under it (stepBuggyVertical)
+let rampTime = 0;
 // The body on its springs, and the chassis's tilt
 let bounce = 0;
 let bounceVel = 0;
@@ -366,6 +368,7 @@ function enter(fall) {
   hopping = false;
   hopTimer.buffer = 0;
   airborne = false;
+  rampTime = 0;
   bounce = 0;
   bounceVel = 0;
   const pos = planeGroup.position;
@@ -773,11 +776,13 @@ function stepBuggy(dt) {
       onRoad: surface.kind === 'road',
       hop,
       float,
+      rampTime,
       dt,
     });
     pos.y = res.y;
     velY = res.velY;
     airborne = res.airborne;
+    rampTime = res.rampTime;
     if (!airborne && bumpStep > 0.15) {
       kick(Math.min(1.5, bumpStep * 0.6));
     }

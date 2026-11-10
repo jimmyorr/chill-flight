@@ -6497,6 +6497,10 @@ export const ChillFlightLogic = {};
     // impart to the chassis (4 G), giving the buggy weight so 1-2 frame
     // bumps are absorbed by the suspension instead of launching it.
     MAX_UP_ACCEL: 160,
+    // ...but only for a bump this short (seconds of the ground climbing):
+    // past it the climb is a ramp, and throws it at the ground's full rate,
+    // so kickers still send it into the air
+    BUMP_GRACE: 0.05,
   };
 
   /**
@@ -6512,8 +6516,11 @@ export const ChillFlightLogic = {};
    * @param {boolean} [p.onRoad] - Whether vehicle is on a continuous road deck
    * @param {boolean} [p.hop] - Double-tapped up: hop off the ground or water
    * @param {boolean} [p.float] - Holding up after a hop: lighter on the way up
+   * @param {number} [p.rampTime] - How long the ground has been climbing
+   *   under it (seconds; the last call's rampTime)
    * @param {number} p.dt - Timestep in seconds
-   * @returns {{y: number, velY: number, airborne: boolean, impact: number}}
+   * @returns {{y: number, velY: number, airborne: boolean, impact: number,
+   *   rampTime: number}}
    */
   function stepBuggyVertical({
     y,
@@ -6525,6 +6532,7 @@ export const ChillFlightLogic = {};
     onRoad = false,
     hop = false,
     float = false,
+    rampTime = 0,
     dt,
   }) {
     let impact = 0;
@@ -6532,21 +6540,34 @@ export const ChillFlightLogic = {};
       // A hop: up off the ground, as off a crest (or just after leaving it,
       // over a bump)
       velY = Math.max(velY, BUGGY_MOVES.HOP_VEL);
-      return {y: y + velY * dt, velY, airborne: true, impact: 0};
+      return {y: y + velY * dt, velY, airborne: true, impact: 0, rampTime: 0};
     }
     // Floating; jumping in from the bank falls the rest of the way below
     if (onWater && !airborne) {
-      return {y: surfaceHeight, velY: 0, airborne: false, impact: 0};
+      return {
+        y: surfaceHeight,
+        velY: 0,
+        airborne: false,
+        impact: 0,
+        rampTime: 0,
+      };
     }
 
     const rampVelY = Math.min(groundVelY, BUGGY_AIR.MAX_RAMP_VEL);
+    rampTime =
+      !airborne && rampVelY > BUGGY_AIR.MIN_LAUNCH_VEL ? rampTime + dt : 0;
     if (!airborne) {
       // While wheels are in contact with the ground:
-      // Terrain pushes upward when climbing, bounded by chassis mass
-      // (MAX_UP_ACCEL) so short bumps don't impart instant launch velocity
+      // Terrain pushes upward when climbing. Over a short bump that push is
+      // bounded by chassis mass (MAX_UP_ACCEL) so it doesn't launch the
+      // buggy; once the climb lasts past BUMP_GRACE it's a ramp, and pushes
+      // at its full rate
       if (rampVelY > velY) {
         if (velY < 0) velY = 0;
-        velY = Math.min(rampVelY, velY + BUGGY_AIR.MAX_UP_ACCEL * dt);
+        velY =
+          rampTime > BUGGY_AIR.BUMP_GRACE
+            ? rampVelY
+            : Math.min(rampVelY, velY + BUGGY_AIR.MAX_UP_ACCEL * dt);
       } else {
         // Cresting or slope flattening: gravity pulls downward
         velY -= BUGGY_AIR.GRAVITY * dt;
@@ -6587,7 +6608,7 @@ export const ChillFlightLogic = {};
       }
     }
 
-    return {y, velY, airborne, impact};
+    return {y, velY, airborne, impact, rampTime};
   }
 
   exports.BUGGY_AIR = BUGGY_AIR;
