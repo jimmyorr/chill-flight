@@ -158,7 +158,8 @@ function _forzaOptIn(name) {
   return v ? v !== '0' && v !== 'false' : _forzaAll;
 }
 const FORZA_SPEED_CAM = _forzaOptIn('speedCam');
-const FORZA_DRIFT_CAM = _forzaOptIn('driftCam');
+// The drift camera is on unless ?driftCam=0
+const DRIFT_CAM = !['0', 'false'].includes(_forzaParams?.get('driftCam'));
 const FORZA_BLUR = _forzaOptIn('blur');
 
 // A car's chase camera (chaseFrame) tips with the slope it's on: down a
@@ -324,9 +325,9 @@ export function updateFlightCamera(delta, nowTime) {
     const seatLock = state.airplaneModel?.firstPersonEye ? firstPerson : 0;
 
     // Optional Forza-inspired driving visuals (?forza=1, or individually
-    // ?speedCam=1, ?driftCam=1, ?blur=1)
+    // ?speedCam=1, ?blur=1)
     const buggyVis =
-      chaseFrame && (FORZA_SPEED_CAM || FORZA_DRIFT_CAM || FORZA_BLUR)
+      chaseFrame && (FORZA_SPEED_CAM || FORZA_BLUR)
         ? ChillFlightLogic.buggyCameraVisuals({
             speedFactor,
             slip: state.buggySlip || 0,
@@ -442,9 +443,12 @@ export function updateFlightCamera(delta, nowTime) {
       THREE.MathUtils.lerp(1 - Math.pow(1 - 0.15, delta * 60), 1, anchorLock)
     );
 
-    // A car's camera swings partway toward its drift path (?driftCam=1) and
-    // tips with the slope (see CHASE_PITCH_FOLLOW)
-    const targetSlip = FORZA_DRIFT_CAM && buggyVis ? buggyVis.slipYaw : 0;
+    // A car's camera swings partway toward its drift path (buggySlipYaw)
+    // and tips with the slope (see CHASE_PITCH_FOLLOW)
+    const targetSlip =
+      DRIFT_CAM && chaseFrame
+        ? ChillFlightLogic.buggySlipYaw(state.buggySlip || 0, seatLock)
+        : 0;
     chaseSlip +=
       (targetSlip - chaseSlip) *
       (1 - Math.exp(-delta / ChillFlightLogic.BUGGY_CAMERA.SLIP_EASE_SECONDS));

@@ -7138,12 +7138,12 @@ export const ChillFlightLogic = {};
     return Math.hypot(nf, ns) < 1 || nf < 0 ? 0 : Math.atan2(ns, nf);
   }
 
-  // Forza-inspired driving camera and speed visuals (flight-camera.js,
-  // outline-pass.js): as the buggy speeds up, the chase camera stays low to
-  // the road and only pulls back a little while the field of view widens all
-  // the way to top speed, the periphery streaks radially outward from the
-  // vanishing point, and in a drift the camera swings partway toward the
-  // velocity path so the tail steps out in the frame.
+  // The buggy's chase camera (flight-camera.js, outline-pass.js): in a drift
+  // it swings partway toward the velocity path so the tail steps out in the
+  // frame (on by default, ?driftCam=0 turns it off). Opt in with ?speedCam=1
+  // and the camera stays low to the road and only pulls back a little while
+  // the field of view widens up to top speed; with ?blur=1 (anime) the
+  // periphery streaks radially outward from the vanishing point.
   const BUGGY_CAMERA = {
     Z_START: 40,
     Z_END: 46,
@@ -7157,6 +7157,18 @@ export const ChillFlightLogic = {};
     SLIP_EASE_SECONDS: 0.18,
     BLUR_START: 0.45,
   };
+
+  // How far the chase camera swings toward the buggy's path in a drift
+  // (radians about the vertical, applied to its anchor): partway toward the
+  // velocity so the tail steps out in the frame, none from the driver's seat
+  function buggySlipYaw(slip, seatLock = 0) {
+    const C = BUGGY_CAMERA;
+    const yaw = Math.min(
+      C.MAX_SLIP_YAW,
+      Math.max(-C.MAX_SLIP_YAW, -slip * C.SLIP_FOLLOW)
+    );
+    return yaw * (1 - Math.min(1, Math.max(0, seatLock)));
+  }
 
   function buggyCameraVisuals({
     speedFactor = 0,
@@ -7181,8 +7193,7 @@ export const ChillFlightLogic = {};
       C.FOV_START +
       (C.FOV_END - C.FOV_START) * sf * chase +
       (mobile ? C.FOV_MOBILE_EXTRA : 0);
-    const slipYaw =
-      clamp(-slip * C.SLIP_FOLLOW, -C.MAX_SLIP_YAW, C.MAX_SLIP_YAW) * chase;
+    const slipYaw = buggySlipYaw(slip, seat);
     const peripheralBlur = smoothstep(C.BLUR_START, 1, sf) * view;
     return {zBase, yBase, fov, slipYaw, peripheralBlur};
   }
@@ -7191,6 +7202,7 @@ export const ChillFlightLogic = {};
   exports.stepBuggyHandling = stepBuggyHandling;
   exports.BUGGY_CAMERA = BUGGY_CAMERA;
   exports.buggyCameraVisuals = buggyCameraVisuals;
+  exports.buggySlipYaw = buggySlipYaw;
   exports.BUGGY_DRIVE = BUGGY_DRIVE;
   exports.BUGGY_MOVES = BUGGY_MOVES;
   exports.BUGGY_HOVER = BUGGY_HOVER;
