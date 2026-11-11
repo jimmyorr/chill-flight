@@ -858,5 +858,18 @@ if (ChillFlightLogic.DAY_COLOR) {
   }
 }
 
+const _lerpHslA = {h: 0, s: 0, l: 0};
+const _lerpHslB = {h: 0, s: 0, l: 0};
+// Blends color c toward target, keeping the saturation the two colors have
+// between them. A plain RGB blend from the day's blue to a sunset orange
+// passes through grey, which turned the whole sky a pale grey in golden light.
+export function lerpKeepSaturation(c, target, t) {
+  c.getHSL(_lerpHslA);
+  target.getHSL(_lerpHslB);
+  const s = _lerpHslA.s + (_lerpHslB.s - _lerpHslA.s) * t;
+  c.lerp(target, t).getHSL(_lerpHslA);
+  return c.setHSL(_lerpHslA.h, s, _lerpHslA.l);
+}
+
 // Frame timer for the game loop.
 export const clock = new THREE.Timer();

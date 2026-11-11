@@ -261,11 +261,15 @@ ${
   // the earth's shadow (a darker blue band) and the pink "belt of Venus"
   // just above it on the opposite side.
   float dusk = (1.0 - smoothstep(0.02, 0.3, abs(sunDir.y))) * smoothstep(-0.3, -0.02, sunDir.y);
+  // In civil/nautical twilight once the sun has dipped, the warm afterglow
+  // hugs a tighter rim near the horizon so deep blue hour fills the sky above.
+  float blueHourTighten = smoothstep(-0.01, -0.15, sunDir.y) * smoothstep(-0.36, -0.20, sunDir.y);
+  float baseGradPow = mix(0.6, 0.36, blueHourTighten);
   vec3 col;
   // dusk depends only on the sun, so every pixel takes the same branch; the
   // compass-dependent work is skipped for most of the day and night.
   if (dusk <= 0.0) {
-    col = h < 0.0 ? bottomCol : mix(bottomCol, topCol, pow(h, 0.6));
+    col = h < 0.0 ? bottomCol : mix(bottomCol, topCol, pow(h, baseGradPow));
   } else {
     vec2 sunH = length(sunDir.xz) > 0.001 ? normalize(sunDir.xz) : vec2(1.0, 0.0);
     vec2 dirH = length(d.xz) > 0.001 ? normalize(d.xz) : sunH;
@@ -276,8 +280,9 @@ ${
     vec3 warmSide = mix(bottomCol, vec3(1.0, 0.72, 0.42), 0.25) * 1.08;
     vec3 coolSide = mix(topCol, bottomCol, 0.3);
     vec3 horizonCol = mix(bottomCol, mix(coolSide, warmSide, smoothstep(0.1, 0.9, toward)), dusk);
-    // Warm colors climb higher on the sun's side; blue comes lower opposite.
-    float gradientPow = mix(0.6, mix(0.45, 1.0, toward), dusk);
+    // Warm colors climb higher on the sun's side; blue comes lower opposite,
+    // and tightens toward the horizon as twilight deepens.
+    float gradientPow = mix(baseGradPow, mix(0.45, 1.0, toward) * mix(1.0, 0.65, blueHourTighten), dusk);
     col = h < 0.0 ? horizonCol : mix(horizonCol, topCol, pow(h, gradientPow));
     // The earth's shadow and the belt of Venus only appear with the sun right
     // at the horizon (about 3 degrees above to 9 below), strongest just after
@@ -290,6 +295,25 @@ ${
     vec3 beltPink = mix(vec3(1.0, 0.72, 0.78), bottomCol, 0.35);
     col = mix(col, shadowBlue, shadowBand * away * 0.55);
     col = mix(col, beltPink, belt * away * 0.45);
+  }
+  // Stratospheric ozone (Chappuis band): when sunlight grazes the atmosphere
+  // at sunset and twilight, ozone absorbs yellow-green (~3x red, ~24x blue),
+  // clearing muddy taupe/teal mid-sky bands into rose-lavender and cobalt blue
+  // without pushing already-violet palettes into neon purple.
+  float ozoneSun = smoothstep(0.24, -0.02, sunDir.y) * smoothstep(-0.34, -0.14, sunDir.y);
+  if (ozoneSun > 0.0) {
+    float hc = max(h, 0.0);
+    float midShell = smoothstep(0.0, 0.08, hc) * (1.0 - smoothstep(0.28, 0.85, hc));
+    float domePath = smoothstep(0.03, 0.38, hc);
+    // Gate by available yellow-green energy so violet/indigo palettes aren't over-purpled.
+    float greenExcess = clamp((col.g - min(col.r, col.b) * 0.72) / max(col.g, 0.05), 0.0, 1.0);
+    float tau = ozoneSun * greenExcess * (0.34 * midShell + 0.24 * domePath);
+    float lumBefore = dot(col, vec3(0.299, 0.587, 0.114));
+    col *= exp(-tau * vec3(0.35, 1.0, 0.04));
+    // Upper-air Rayleigh scatter restores lost green luminance primarily in blue.
+    float lumLoss = max(0.0, lumBefore - dot(col, vec3(0.299, 0.587, 0.114)));
+    col += vec3(0.14, 0.06, 0.80) * (lumLoss * 1.35);
+    col = min(col, vec3(1.0));
   }
   return col;
 }

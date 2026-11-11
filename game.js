@@ -6,6 +6,7 @@ import {
   camera,
   currentPaletteSeed,
   isCustomPalette,
+  lerpKeepSaturation,
   nextSkyPalette,
   renderer,
   selectedPalette,
@@ -339,10 +340,15 @@ function updateSkyBaseColors(palette) {
   _sunriseSky.copy(top);
   _sunsetSky.copy(top);
 
-  // Golden hour adds a little warmth overhead: a touch brighter in the
-  // morning, a touch darker in the evening.
-  _goldenSky.copy(top).lerp(bottom, 0.25).lerp(new THREE.Color(0xffffff), 0.05);
-  _goldenSunsetSky.copy(top).lerp(bottom, 0.25).multiplyScalar(0.9);
+  // Golden hour adds a little warmth overhead without RGB-mixing orange into
+  // blue (which desaturates the zenith toward grey).
+  lerpKeepSaturation(_goldenSky.copy(top), bottom, 0.12).lerp(
+    new THREE.Color(0xffffff),
+    0.04
+  );
+  lerpKeepSaturation(_goldenSunsetSky.copy(top), bottom, 0.12).multiplyScalar(
+    0.92
+  );
 
   // Update Splash Screen Background
   const overlay = document.getElementById('loading-overlay');
@@ -463,7 +469,9 @@ window.addEventListener('paletteChanged', (e) => {
   }
 });
 
-export const _twilightSky = new THREE.Color(0x2c3e50);
+// Chappuis-band twilight zenith: ozone absorbs yellow-green along grazing paths,
+// shifting post-sunset blue hour from slate grey toward deep sapphire-cobalt.
+export const _twilightSky = new THREE.Color(0x163878);
 
 export const _currentSunriseSky = new THREE.Color();
 export const _currentGoldenSky = new THREE.Color();

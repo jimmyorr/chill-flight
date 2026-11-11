@@ -20,6 +20,7 @@ import {
   dirLight,
   hemiLight,
   isCustomPalette,
+  lerpKeepSaturation,
   moonLight,
   moonMesh,
   moonUniforms,
@@ -1690,19 +1691,9 @@ function updateShadowSnapping() {
 const _goldenSkyLight = new THREE.Color(0xffc98a);
 const _hslA = {h: 0, s: 0, l: 0};
 const _hslB = {h: 0, s: 0, l: 0};
-// Blends color c toward target, keeping the saturation the two colors have
-// between them. A plain RGB blend from the day's blue to a sunset orange
-// passes through grey, which turned the whole sky a pale grey in golden light.
-function lerpKeepSaturation(c, target, t) {
-  c.getHSL(_hslA);
-  target.getHSL(_hslB);
-  const s = _hslA.s + (_hslB.s - _hslA.s) * t;
-  c.lerp(target, t).getHSL(_hslA);
-  return c.setHSL(_hslA.h, s, _hslA.l);
-}
 // Warms the horizon color c (the day's blue) toward the sunset color target.
-// A blend that keeps saturation (above) swings the hue from blue through
-// indigo, magenta and red in a few game minutes, since blue and orange sit on
+// A saturation-preserving blend swings the hue from blue through indigo,
+// magenta and red in a few game minutes, since blue and orange sit on
 // opposite sides of the color wheel. Instead the blue fades to a pale haze
 // (brighter, like the glare of a low sun), and the warm color grows out of it,
 // golden at first and turning to the target's orange. hueShift (degrees)
@@ -1933,21 +1924,34 @@ function updateEnvironmentLighting(delta, now) {
       _currentGoldenSky.copy(_goldenSunsetSky);
     }
 
-    _uncloudedSkyColor.lerp(_twilightSky, state.dayFactor * 0.4);
+    // Chappuis blue hour builds from deep night into sapphire-cobalt twilight,
+    // then hands off to the day's palette at sunrise/sunset and _daySky above
+    // the horizon (avoiding a _daySky rebound when sunY < 0 after sunset).
+    const twilightBase = Math.min(1, state.dayFactor * 1.7) * 0.78;
+    lerpKeepSaturation(_uncloudedSkyColor, _twilightSky, twilightBase);
 
-    // Allow sunset colors in the main sky even when overcast (Issue #24)
-    lerpKeepSaturation(_uncloudedSkyColor, _currentSunriseSky, dawnDuskFactor);
+    // Allow sunset colors in the main sky even when overcast (Issue #24);
+    // once the sun sinks into deep twilight, yield the zenith back to blue hour.
+    const horizonPresence = THREE.MathUtils.smoothstep(state.sunY, -0.16, 0.02);
+    lerpKeepSaturation(
+      _uncloudedSkyColor,
+      _currentSunriseSky,
+      dawnDuskFactor * horizonPresence
+    );
 
     if (state.sunY > -0.1 && state.sunY < 0.15) {
       let goldT = 1.0 - Math.abs(state.sunY - 0.02) * 10;
-      _uncloudedSkyColor.lerp(_currentGoldenSky, Math.max(0, goldT) * 0.35);
+      lerpKeepSaturation(
+        _uncloudedSkyColor,
+        _currentGoldenSky,
+        Math.max(0, goldT) * 0.25
+      );
     }
 
-    lerpKeepSaturation(
-      _uncloudedSkyColor,
-      _daySky,
-      state.dayFactor * (1.0 - dawnDuskFactor)
-    );
+    const daylightSky =
+      THREE.MathUtils.smoothstep(state.sunY, -0.04, 0.35) *
+      (1.0 - dawnDuskFactor);
+    lerpKeepSaturation(_uncloudedSkyColor, _daySky, daylightSky);
 
     // Warm up the sunlight in golden light, from about 33 degrees up (higher
     // than the sky's warmth starts), and tint the sky light with it
@@ -2200,8 +2204,18 @@ function updateEnvironmentLighting(delta, now) {
             (state._unfadedRainOpacity || rainParticles.material.opacity);
 
         const overcastMuteFactor = isSnowing ? 0.3 : 0.6; // Snow only mutes by 30%, rain by 60%
+        // Fade the warm horizon rim faster after civil twilight (-9 deg) so
+        // deep blue hour isn't flooded pink all the way around the compass.
+        const deepTwilightFade = THREE.MathUtils.smoothstep(
+          state.sunY,
+          -0.22,
+          -0.08
+        );
         const actualDawnDusk =
-          dawnDuskFactor * 0.8 * (1.0 - overcast * overcastMuteFactor);
+          dawnDuskFactor *
+          (0.25 + 0.75 * deepTwilightFade) *
+          0.8 *
+          (1.0 - overcast * overcastMuteFactor);
         // Redder in the afterglow, the sun up to about 9 degrees down
         const afterglow = THREE.MathUtils.clamp(-state.sunY / 0.15, 0, 1);
         warmHorizon(
