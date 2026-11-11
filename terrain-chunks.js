@@ -87,6 +87,7 @@ import {
   cherryBlossomGeos,
   chunkQueueSet,
   chunks,
+  clearElevationCache,
   createRockArchGeometries,
   deadCottonwoodGeo,
   deadTreeGeo,
@@ -4797,6 +4798,109 @@ function enableChunkInstanceCulling(group) {
   });
 }
 
+function disposeChunkGroup(group, key, poolGeometries = true) {
+  const instancedMeshesToRelease = [];
+  group.traverse((child) => {
+    if (child.isInstancedMesh) {
+      instancedMeshesToRelease.push(child);
+    }
+    if (child.isMesh || child.isInstancedMesh) {
+      if (child.geometry && child.geometry.userData.unique) {
+        if (poolGeometries && child.geometry.userData.poolType === 'terrain') {
+          if (
+            _terrainGeometryPool.length < 25 &&
+            child.geometry.parameters &&
+            child.geometry.parameters.widthSegments === state.SEGMENTS
+          ) {
+            _terrainGeometryPool.push(child.geometry);
+          } else {
+            child.geometry.dispose();
+          }
+        } else if (
+          poolGeometries &&
+          child.geometry.userData.poolType === 'water'
+        ) {
+          const wSegments = Math.max(1, Math.floor(state.SEGMENTS / 4));
+          if (
+            _waterGeometryPool.length < 25 &&
+            child.geometry.parameters &&
+            child.geometry.parameters.widthSegments === wSegments
+          ) {
+            _waterGeometryPool.push(child.geometry);
+          } else {
+            child.geometry.dispose();
+          }
+        } else {
+          child.geometry.dispose();
+        }
+      }
+    }
+  });
+
+  while (group.children.length > 0) {
+    group.remove(group.children[0]);
+  }
+
+  for (let i = 0; i < instancedMeshesToRelease.length; i++) {
+    releaseInstancedMesh(instancedMeshesToRelease[i]);
+  }
+  group.userData.instanceData = null;
+  group.userData.breakables = null;
+  group.userData.breakwaters = null;
+  group.userData.meshProps = null;
+  group.userData.objectsGroup = null;
+  group.userData.watercraftGroup = null;
+  disposeWaterDepthTexture(group.userData.water);
+  group.userData.water = null;
+  group.userData.sailboatPositions = null;
+  group.userData.boatHulls = null;
+  group.userData.boatColorIndices = null;
+  group.userData.boatInstIndices = null;
+  group.userData.boatMasts = null;
+  group.userData.boatSails = null;
+  group.userData.boatRims = null;
+  group.userData.boatDecks = null;
+  group.userData.boatBooms = null;
+  group.userData.boatReflections = null;
+  group.userData.boatMooredReflections = null;
+  group.userData.pirateShipPositions = null;
+  group.userData.pirateShips = null;
+  group.userData.pirateReflections = null;
+  group.userData.birds = null;
+  group.userData.counts = null;
+  group.userData.rockArch = null;
+  group.userData.roadSegments = null;
+  if (group.userData.volcanoGlow) volcanoGlow.intensity = 0;
+
+  scene.remove(group);
+  chunks.delete(key);
+  watercraftChunks.delete(group);
+  waterfallFeet.delete(group);
+  birdChunks.delete(group);
+  headlandLighthouseChunks.delete(group);
+  workerChunkRequests.delete(key);
+  workerChunkResults.delete(key);
+  if (key === '5,2') {
+    if (persistentLighthouseLight) persistentLighthouseLight.intensity = 0;
+    if (persistentLighthouseBeam) persistentLighthouseBeam.visible = false;
+  }
+}
+
+export function clearAllChunks() {
+  for (const [key, group] of [...chunks.entries()]) {
+    disposeChunkGroup(group, key, false);
+  }
+  while (_terrainGeometryPool.length > 0) _terrainGeometryPool.pop().dispose();
+  while (_waterGeometryPool.length > 0) _waterGeometryPool.pop().dispose();
+  while (strayBirds.children.length > 0) {
+    strayBirds.remove(strayBirds.children[0]);
+  }
+  if (strayBirds.userData.birds) strayBirds.userData.birds.length = 0;
+  clearChunkQueue();
+  clearElevationCache();
+  globalInstancer.requestRebuild();
+}
+
 export function updateChunks() {
   const target =
     typeof window !== 'undefined' && state.isFreeCamera ? camera : planeGroup;
@@ -4916,86 +5020,7 @@ export function updateChunks() {
         }
       }
 
-      // Collect instanced meshes and pool/dispose unique geometries in a single traversal
-      const instancedMeshesToRelease = [];
-      group.traverse((child) => {
-        if (child.isInstancedMesh) {
-          instancedMeshesToRelease.push(child);
-        }
-        if (child.isMesh || child.isInstancedMesh) {
-          if (child.geometry && child.geometry.userData.unique) {
-            if (child.geometry.userData.poolType === 'terrain') {
-              if (
-                _terrainGeometryPool.length < 25 &&
-                child.geometry.parameters &&
-                child.geometry.parameters.widthSegments === state.SEGMENTS
-              ) {
-                _terrainGeometryPool.push(child.geometry);
-              } else {
-                child.geometry.dispose();
-              }
-            } else if (child.geometry.userData.poolType === 'water') {
-              const wSegments = Math.max(1, Math.floor(state.SEGMENTS / 4));
-              if (
-                _waterGeometryPool.length < 25 &&
-                child.geometry.parameters &&
-                child.geometry.parameters.widthSegments === wSegments
-              ) {
-                _waterGeometryPool.push(child.geometry);
-              } else {
-                child.geometry.dispose();
-              }
-            } else {
-              child.geometry.dispose();
-            }
-          }
-        }
-      });
-
-      // Detach all child objects and clear chunk references
-      while (group.children.length > 0) {
-        group.remove(group.children[0]);
-      }
-
-      for (let i = 0; i < instancedMeshesToRelease.length; i++) {
-        releaseInstancedMesh(instancedMeshesToRelease[i]);
-      }
-      group.userData.instanceData = null;
-      group.userData.breakables = null;
-      group.userData.breakwaters = null;
-      group.userData.meshProps = null;
-      group.userData.objectsGroup = null;
-      group.userData.watercraftGroup = null;
-      disposeWaterDepthTexture(group.userData.water);
-      group.userData.water = null;
-      group.userData.sailboatPositions = null;
-      group.userData.boatHulls = null;
-      group.userData.boatColorIndices = null;
-      group.userData.boatInstIndices = null;
-      group.userData.boatMasts = null;
-      group.userData.boatSails = null;
-      group.userData.boatRims = null;
-      group.userData.boatDecks = null;
-      group.userData.boatBooms = null;
-      group.userData.boatReflections = null;
-      group.userData.boatMooredReflections = null;
-      group.userData.pirateShipPositions = null;
-      group.userData.pirateShips = null;
-      group.userData.pirateReflections = null;
-      group.userData.birds = null;
-      group.userData.counts = null;
-      group.userData.rockArch = null;
-      group.userData.roadSegments = null;
-      if (group.userData.volcanoGlow) volcanoGlow.intensity = 0;
-
-      scene.remove(group);
-      chunks.delete(key);
-      watercraftChunks.delete(group);
-      waterfallFeet.delete(group);
-      birdChunks.delete(group);
-      headlandLighthouseChunks.delete(group);
-      workerChunkRequests.delete(key);
-      workerChunkResults.delete(key);
+      disposeChunkGroup(group, key, true);
       if (
         typeof window !== 'undefined' &&
         terrainWorkerManager &&
@@ -5004,10 +5029,6 @@ export function updateChunks() {
         terrainWorkerManager.cancelJob(cx, cz);
       }
       chunksEvicted = true;
-      if (key === '5,2') {
-        if (persistentLighthouseLight) persistentLighthouseLight.intensity = 0;
-        if (persistentLighthouseBeam) persistentLighthouseBeam.visible = false;
-      }
     }
   });
 
@@ -5071,9 +5092,10 @@ export function getChunkLoadingProgress() {
   if (totalChunks === 0) return 1.0;
   return chunks.size / totalChunks;
 }
-export function toggleProceduralObjects(enabled) {
+export function toggleProceduralObjects(enabled, syncUrl = true) {
   state._enableObjects = enabled;
   ChillFlightLogic.setShowObjects(enabled);
+  strayBirds.visible = enabled;
 
   // Update all existing chunks
   chunks.forEach((group) => {
@@ -5091,7 +5113,7 @@ export function toggleProceduralObjects(enabled) {
   const toggle = document.getElementById('debug-objects-toggle');
   if (toggle) toggle.checked = enabled;
 
-  if (typeof window !== 'undefined') {
+  if (syncUrl && typeof window !== 'undefined') {
     if (!enabled) {
       updateUrlParams({objects: 'none'});
     } else {

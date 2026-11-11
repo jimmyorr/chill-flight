@@ -395,6 +395,9 @@ function performFrame(timestamp) {
       if (typeof updateVRPauseInteraction === 'function') {
         updateVRPauseInteraction();
       }
+      if (dirLight.castShadow && !dirLight.shadow.map) {
+        renderer.shadowMap.needsUpdate = true;
+      }
       renderer.render(scene, camera);
     } else if (
       loadingOverlay &&
@@ -2242,7 +2245,11 @@ function updateWeatherAndRendering(delta) {
 
   // Shadow cadence: DynamicPerformanceMonitor throttles shadow updates under load
   // and disables them entirely at night when dirLight intensity is effectively zero.
-  renderer.shadowMap.needsUpdate = performanceMonitor.shouldUpdateShadows();
+  // Always run once if the shadow map hasn't been allocated yet (e.g. switching
+  // low -> mid before dawn), or WebGL2 rejects every lit draw on a null depth map.
+  renderer.shadowMap.needsUpdate =
+    performanceMonitor.shouldUpdateShadows() ||
+    (dirLight.castShadow && !dirLight.shadow.map);
 
   updatePlaneShadow();
   // (A knocked-over mushroom's trippy colours, only while drawing)

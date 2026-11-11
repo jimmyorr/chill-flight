@@ -6,10 +6,8 @@ import {
   WATER_LEVEL,
 } from './constants.js';
 import {log} from './logger.js';
-import {chunks, clearElevationCache} from './terrain-geometry.js';
-import {clearChunkQueue, updateChunks} from './terrain-chunks.js';
+import {clearAllChunks, updateChunks} from './terrain-chunks.js';
 import {terrainWorkerManager} from './terrain-worker-manager.js';
-import {scene} from './scene.js';
 import {planeGroup} from './airplane.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
@@ -52,40 +50,14 @@ import {state} from './state.js';
     };
 
     // Terrain workers generate from their own copy (Issue #79). Requests
-    // already sent were procedural, so drop them.
+    // already sent were procedural, so drop them and dispose previous chunks.
     terrainWorkerManager.setCustomMap(ChillFlightLogic.customMap);
-    clearChunkQueue();
+    clearAllChunks();
 
     log.info(`Custom heightmap loaded: ${canvas.width}x${canvas.height}`);
     log.info(
       `World size: ${ChillFlightLogic.customMap.worldWidth.toFixed(0)}x${ChillFlightLogic.customMap.worldHeight.toFixed(0)} units (MAP_WORLD_SIZE: ${MAP_WORLD_SIZE})`
     );
-
-    // Clear elevation cache so memoized heights do not persist from procedural terrain
-    if (clearElevationCache) {
-      clearElevationCache();
-    }
-
-    // Force terrain rebuild
-
-    // Dispose all previous procedural chunks manually
-    chunks.forEach((group, key) => {
-      group.traverse((child) => {
-        if (child.isMesh || child.isInstancedMesh) {
-          if (child.geometry && child.geometry.userData.unique) {
-            child.geometry.dispose();
-          }
-          // Water depth texture (see attachWaterDepthTexture in terrain-chunks.js)
-          if (child.userData.depthTex) {
-            child.userData.depthTex.dispose();
-            child.material.dispose();
-          }
-        }
-      });
-
-      scene.remove(group);
-    });
-    chunks.clear();
 
     // Reset plane position and state
 

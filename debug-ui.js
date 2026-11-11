@@ -27,13 +27,7 @@ import {
   showCloudsEnabled,
   weatherType,
 } from './weather-manager.js';
-import {
-  chunks,
-  clearElevationCache,
-  getElevation,
-  waterMaterial,
-  watercraftChunks,
-} from './terrain-geometry.js';
+import {chunks, getElevation, waterMaterial} from './terrain-geometry.js';
 import {scene} from './scene.js';
 import {
   activePlaneType,
@@ -47,10 +41,9 @@ import {
 } from './game-input-bindings.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
-  clearChunkQueue,
+  clearAllChunks,
   toggleProceduralObjects,
   updateChunks,
-  waterfallFeet,
 } from './terrain-chunks.js';
 import {refreshArchDetail} from './arches.js';
 import {simplex} from './noise.js';
@@ -127,7 +120,6 @@ export function applyGraphicsPreset(preset) {
   refreshArchDetail();
   state.RENDER_DISTANCE = dist;
   state.PROP_LOD_DISTANCE = propLod;
-  state.PROP_LOD_DISTANCE = propLod;
   if (typeof state.maxFPS !== 'undefined') {
     state.maxFPS = ChillFlightLogic.MAX_FPS ?? fps;
     state.frameMinDelay = state.maxFPS > 0 ? 1000 / state.maxFPS : 0;
@@ -158,12 +150,12 @@ export function applyGraphicsPreset(preset) {
     pixelRatio = Math.min(window.devicePixelRatio, 2.0); // Capped at 2.0 for Ultra
   }
 
-  const showObjects = URL_SHOWS_OBJECTS && preset !== 'low';
-  if (showObjects !== state._enableObjects)
-    toggleProceduralObjects(showObjects);
-
   // Store the preset's base pixel ratio so DRS can scale relative to it
   state._basePixelRatio = pixelRatio;
+
+  const showObjects = URL_SHOWS_OBJECTS && preset !== 'low';
+  if (showObjects !== state._enableObjects)
+    toggleProceduralObjects(showObjects, false);
 
   if (renderer) {
     renderer.setPixelRatio(pixelRatio);
@@ -191,52 +183,18 @@ export function applyGraphicsPreset(preset) {
   const enableShadows = segments > 20;
   if (dirLight.castShadow !== enableShadows) {
     dirLight.castShadow = enableShadows;
-
-    scene.traverse((child) => {
-      if (child.isMesh || child.isInstancedMesh) {
-        child.castShadow = enableShadows;
-        // Keep receiveShadow=false on the player plane to prevent
-        // self-shadowing strobe artifacts at low sun angles
-        if (!planeGroup || !planeGroup.getObjectById(child.id)) {
-          child.receiveShadow = enableShadows;
-        }
-        if (child.material) {
-          if (Array.isArray(child.material)) {
-            child.material.forEach((m) => (m.needsUpdate = true));
-          } else {
-            child.material.needsUpdate = true;
-          }
-        }
-      }
-    });
+    if (enableShadows && renderer) renderer.shadowMap.needsUpdate = true;
   }
 
   // Clear all existing chunks to force regeneration
-
-  chunks.forEach((group, key) => {
-    group.traverse((child) => {
-      if (child.isMesh || child.isInstancedMesh) {
-        if (child.geometry && child.geometry.userData.unique) {
-          child.geometry.dispose();
-        }
-        // Water depth texture (see attachWaterDepthTexture in terrain-chunks.js)
-        if (child.userData.depthTex) {
-          child.userData.depthTex.dispose();
-          child.material.dispose();
-        }
-      }
-    });
-    scene.remove(group);
-  });
-  chunks.clear();
-
-  watercraftChunks.clear();
-  waterfallFeet.clear();
-
-  if (clearChunkQueue) clearChunkQueue();
-  if (clearElevationCache) clearElevationCache();
-
-  _lastChunkUpdatePos.set(Infinity, Infinity, Infinity); // Force chunk rebuild
+  const hadChunks = chunks.size > 0 || state.chunkQueue.length > 0;
+  clearAllChunks();
+  _lastChunkUpdatePos.set(Infinity, Infinity, Infinity);
+  if (hadChunks) {
+    updateChunks();
+    const target = state.isFreeCamera ? camera : planeGroup;
+    _lastChunkUpdatePos.copy(target.position);
+  }
 }
 
 var showChunkBorders = false;
@@ -339,32 +297,8 @@ export function initDebugUI() {
         updateUrlParams({}, ['islandType', 'island']);
       }
       // Rebuild terrain chunks so change takes effect immediately
-
-      chunks.forEach((group) => {
-        group.traverse((child) => {
-          if (child.isMesh || child.isInstancedMesh) {
-            if (child.geometry && child.geometry.userData.unique) {
-              child.geometry.dispose();
-            }
-            // Water depth texture (see attachWaterDepthTexture in terrain-chunks.js)
-            if (child.userData.depthTex) {
-              child.userData.depthTex.dispose();
-              child.material.dispose();
-            }
-          }
-        });
-        scene.remove(group);
-      });
-      chunks.clear();
-
-      watercraftChunks.clear();
-      waterfallFeet.clear();
-
-      if (clearChunkQueue) clearChunkQueue();
-      if (clearElevationCache) clearElevationCache();
-
+      clearAllChunks();
       _lastChunkUpdatePos.set(Infinity, Infinity, Infinity);
-
       updateChunks();
 
       log.info(`Island type changed to: ${val}`);

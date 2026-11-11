@@ -30,6 +30,12 @@ const DEBUG_PAGE_MS = 3000;
 // The game gets a full flight; debug pages only need to load cleanly.
 const PAGES = [
   {path: '', fly: true},
+  // Switching low -> mid before dawn (while night shadow culling skips updates)
+  // must allocate the shadow map and rebuild chunks without WebGL errors.
+  {
+    path: '?preset=low&tod=0.23&timeSpeed=0&start=1&music=0',
+    presetSwitch: true,
+  },
   // Debug pages are dev-only (not in the production build).
   {path: 'debug/debug-models.html', devOnly: true},
   {path: 'debug/debug-faces.html', devOnly: true},
@@ -70,7 +76,7 @@ const failPage = (tag, msg) => errors.push(`[${tag}] ${msg}`);
 // world (pages that set their own seed keep it).
 const TEST_SEED = '20260101';
 
-async function checkPage(browser, {path, fly, blackhole}) {
+async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
   const pageUrl = new URL(path, BASE);
   if (!pageUrl.searchParams.has('seed')) {
     pageUrl.searchParams.set('seed', TEST_SEED);
@@ -202,6 +208,68 @@ async function checkPage(browser, {path, fly, blackhole}) {
     await closePage();
     console.log(
       `  black-hole network: painted ${painted ? 'ok' : 'NO'}, music ${fellBack ? 'fell back ok' : 'did NOT fall back'}`
+    );
+    return;
+  }
+
+  if (presetSwitch) {
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById('loading-overlay');
+        return el && getComputedStyle(el).display === 'none';
+      },
+      {timeout: 60000}
+    );
+    await new Promise((r) => setTimeout(r, 500));
+    const beforeSwitch = await page.evaluate(() => {
+      const gl = [...document.querySelectorAll('canvas')]
+        .map((c) => c.getContext('webgl2'))
+        .find(Boolean);
+      if (gl) {
+        while (gl.getError() !== 0) {
+          // Drain any prior GL error before testing the preset switch.
+        }
+      }
+      return {
+        workers: window.__smokeWorkerMessages,
+        search: window.location.search,
+      };
+    });
+    if (beforeSwitch.search.includes('objects=none')) {
+      failPage(tag, `low preset polluted URL (${beforeSwitch.search})`);
+    }
+    await page.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 300));
+    await page.click('.pause-tab[data-tab="settings"]');
+    await page.select('#graphics-preset-select', 'mid');
+    await new Promise((r) => setTimeout(r, 500));
+    await page.click('#resume-btn');
+    await new Promise((r) => setTimeout(r, 2500));
+    const afterSwitch = await page.evaluate(() => {
+      const gl = [...document.querySelectorAll('canvas')]
+        .map((c) => c.getContext('webgl2'))
+        .find(Boolean);
+      return {
+        glErr: gl ? gl.getError() : -1,
+        workers: window.__smokeWorkerMessages,
+        preset: localStorage.getItem('chill_flight_graphics_preset'),
+      };
+    });
+    if (afterSwitch.glErr !== 0) {
+      failPage(
+        tag,
+        `WebGL error ${afterSwitch.glErr} after switching low -> mid`
+      );
+    }
+    if (afterSwitch.preset !== 'mid') {
+      failPage(tag, `expected preset mid, got ${afterSwitch.preset}`);
+    }
+    if (!(afterSwitch.workers > beforeSwitch.workers)) {
+      failPage(tag, 'switching low -> mid did not rebuild terrain chunks');
+    }
+    await closePage();
+    console.log(
+      `  preset switch low -> mid: gl ok, rebuilt (${beforeSwitch.workers} -> ${afterSwitch.workers} worker replies)`
     );
     return;
   }
