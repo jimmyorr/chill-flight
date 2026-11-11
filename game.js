@@ -38,7 +38,7 @@ typeof state.daySpeedMultiplier !== 'undefined' ? state.daySpeedMultiplier : 1;
 
 // --- GAME LOOP, INPUT & CONTROLS ---
 // Dependencies: THREE, scene, camera, renderer, planeGroup, propGroup, skyGroup,
-//               sunMesh, moonMesh, dirLight, hemiLight, starsMat, timeOfDay, daySpeedMultiplier,
+//               moonMesh, dirLight, hemiLight, starsMat, timeOfDay, daySpeedMultiplier,
 //               houseWindowMats, chunks, updateChunks, getElevation,
 //               CHUNK_SIZE, WATER_LEVEL, BASE_FLIGHT_SPEED, TURN_SPEED, flightSpeedMultiplier,
 //               pontoonGroup, pontoonL, pontoonR, hingeLF, hingeLB, hingeRF, hingeRB,
@@ -500,15 +500,9 @@ export const _rockArchPos = new THREE.Vector3(
     : 0
 );
 export const _lighthouseBeamWorldPos = new THREE.Vector3();
-export const _shootingStarLookDir = new THREE.Vector3();
-export const _shootingStarStreakDir = new THREE.Vector3();
-export const _shootingStarHeadPos = new THREE.Vector3();
-export const _shootingStarTailPos = new THREE.Vector3();
 export const _rainbowSunDir = new THREE.Vector3();
 export const _rainbowAntiSunDir = new THREE.Vector3();
 export const _waterMoonDirNorm = new THREE.Vector3();
-export const _sunNoonColor = new THREE.Color(0xfffceb);
-export const _sunSunsetColor = new THREE.Color(0xffa542);
 export const _moonVMoonDir = new THREE.Vector3();
 export const _moonVZ = new THREE.Vector3();
 export const _moonVX = new THREE.Vector3();
@@ -520,8 +514,5 @@ export const _moonPhaseX = new THREE.Vector3();
 export const _moonPhaseSunDir = new THREE.Vector3();
 export const _skyBottomCol = new THREE.Color();
 export const _warmHorizonColor = new THREE.Color();
-
-export var shootingStarStart = new THREE.Vector3();
-export var shootingStarEnd = new THREE.Vector3();
 
 initDebugUI();

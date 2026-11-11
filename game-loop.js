@@ -28,8 +28,6 @@ import {
   skyGroup,
   skyUniforms,
   starsMat,
-  sunMesh,
-  sunUniforms,
   updateSkyPalette,
   updateShootingStar,
 } from './sky.js';
@@ -67,8 +65,6 @@ import {
   _shadowUp,
   _skyBottomCol,
   _stormColor,
-  _sunNoonColor,
-  _sunSunsetColor,
   _sunriseLightColor,
   _sunriseSky,
   _sunsetLightColor,
@@ -387,8 +383,6 @@ function performFrame(timestamp) {
         _currentLookTarget.copy(planeGroup.position);
         activeCamTarget.lookAt(_currentLookTarget);
       }
-
-      sunUniforms.uTime.value = now * 0.001;
 
       updateWeather(delta);
       // During loading screen, always update shadows (simple scene, minimal cost)
@@ -1884,14 +1878,6 @@ function updateEnvironmentLighting(delta, now) {
     );
   }
 
-  // Fix: Three.js requires needsUpdate to be true the first time transparency is enabled
-  if (sunMesh && sunMesh.material) {
-    if (!sunMesh.material.transparent) {
-      sunMesh.material.transparent = true;
-      sunMesh.material.needsUpdate = true;
-    }
-    sunMesh.material.opacity = 1.0 - overcast;
-  }
   // Fade moon opacity: fully visible at night, subtle silhouette during day
   const moonCycleFactor = THREE.MathUtils.lerp(1.0, 0.08, state.dayFactor);
   if (moonMesh && moonMesh.material) {
@@ -2150,21 +2136,6 @@ function updateEnvironmentLighting(delta, now) {
     moonlightUniforms.uMoonBright.value =
       moonFade * (0.3 + 0.7 * phaseIntensity) * (1.0 - 0.6 * overcast);
   }
-
-  sunUniforms.uTime.value = now * 0.001;
-  sunUniforms.overcast.value = overcast;
-  sunUniforms.dayFactor.value = state.dayFactor;
-
-  // Dynamic Sun Sizing (Moon Illusion)
-  const sunElevation = Math.max(0.0, state.sunY);
-  const sunScale = 1.0 + Math.pow(1.0 - sunElevation, 3.0) * 1.5;
-  sunMesh.scale.setScalar(sunScale);
-
-  // Dynamic Sun Color (Golden Hour)
-  const colorFactor = 1.0 - Math.pow(1.0 - sunElevation, 3.0);
-  sunUniforms.uSunColor.value
-    .copy(_sunSunsetColor)
-    .lerp(_sunNoonColor, colorFactor);
 
   moonUniforms.uTime.value = now * 0.001;
   moonUniforms.overcast.value = overcast;

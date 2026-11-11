@@ -2,9 +2,6 @@
     uniform vec3 bottomColor;
     uniform vec3 sunDirection;
     uniform float offset;
-    uniform float exponent;
-    uniform float glowPower;
-    uniform float mieFactor;
     uniform float uTime;
     uniform float uCloudDensity;
     uniform float uCloudHeight;
@@ -13,7 +10,6 @@
     uniform vec4 uFlash;
     uniform vec4 uFarStorm;
     uniform vec3 uCameraPos;
-    varying vec3 vWorldPosition;
     varying vec3 vDirection;
 
     void main() {

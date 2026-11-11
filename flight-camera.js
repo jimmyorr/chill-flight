@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {camera, clock, moonMesh, sunMesh} from './sky.js';
+import {camera, clock, moonMesh} from './sky.js';
 import {updateChunks} from './terrain-chunks.js';
 import {
   activePlaneType,
@@ -870,8 +870,7 @@ export function updateFlightCamera(delta, nowTime) {
   }
 
   // Celestial positions
-  const sunOrbitRadius = 8000;
-  const moonOrbitRadius = 7500; // Moon is closer so it renders in front of sun during overlaps
+  const moonOrbitRadius = 7500;
 
   // 1. Realistic Sun Path
   const latitude = state.currentLatRad;
@@ -1456,11 +1455,6 @@ export function updateFlightCamera(delta, nowTime) {
   updateDOM('cockpit-alt', altStr);
   updateDOM('cockpit-spd', spdStr);
 
-  sunMesh.position.set(
-    state.sunX * sunOrbitRadius,
-    state.sunY * sunOrbitRadius,
-    state.sunZ * sunOrbitRadius
-  );
   moonMesh.position.set(
     state.moonX * moonOrbitRadius,
     state.moonY * moonOrbitRadius,

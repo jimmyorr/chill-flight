@@ -15,7 +15,7 @@ import {
 import {scene} from './scene.js';
 import skyVertexShader from './src/shaders/sky.vert.glsl?raw';
 import skyFragmentShader from './src/shaders/sky.frag.glsl?raw';
-import sunMoonVertShader from './src/shaders/sunMoon.vert.glsl?raw';
+import moonVertShader from './src/shaders/moon.vert.glsl?raw';
 import moonFragShader from './src/shaders/moon.frag.glsl?raw';
 import rainbowVertShader from './src/shaders/rainbow.vert.glsl?raw';
 import rainbowFragShader from './src/shaders/rainbow.frag.glsl?raw';
@@ -464,14 +464,6 @@ skyGroup.add(skySphereMesh);
 
 // --- CELESTIAL SHADERS ---
 
-export const sunUniforms = {
-  uTime: {value: 0.0},
-  overcast: {value: 0.0},
-  dayFactor: {value: 1.0},
-  uSunColor: {value: new THREE.Color(0xffffff)},
-  uNoiseTex: {value: skyNoiseTexture},
-};
-
 export const moonUniforms = {
   uTime: {value: 0.0},
   overcast: {value: 0.0},
@@ -501,16 +493,10 @@ new THREE.TextureLoader().load(moonMapUrl, (tex) => {
   moonUniforms.uHasMoonMap.value = 1;
 });
 
-// Note: The physical sun mesh and glow plane geometries/materials have been removed
-// because the sky relies completely on the stunning volumetric shader bloom.
-// sunMesh is preserved as a dummy Group to maintain compatibility with animation references.
-export const sunMesh = new THREE.Group();
-skyGroup.add(sunMesh);
-
 // Moon
 const moonGeo = new THREE.SphereGeometry(120, 32, 32);
 const moonMat = new THREE.ShaderMaterial({
-  vertexShader: sunMoonVertShader,
+  vertexShader: moonVertShader,
   fragmentShader: TOWER_GLSL + moonFragShader,
   uniforms: moonUniforms,
   transparent: true,

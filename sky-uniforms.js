@@ -33,9 +33,6 @@ export const skyUniforms = {
   bottomColor: {value: new THREE.Color()},
   sunDirection: {value: new THREE.Vector3(0, 1, 0)},
   offset: {value: 33},
-  exponent: {value: 0.6},
-  glowPower: {value: 2.0}, // Higher = more concentrated sunset
-  mieFactor: {value: 0.9}, // Higher = more aggressive muting away from sun
   uTime: {value: 0.0},
   uCloudDensity: {value: 0.5},
   uCloudHeight: {
