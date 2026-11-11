@@ -31,7 +31,7 @@ Use [scripts/shorts.js](../../../scripts/shorts.js) to render vertical `1080x192
    - Hold `yaw` constant for the final `2.0s+` (`t = 9.6s .. 12.0s`) and ease `roll` and `pitch` back to multiples of `360` (`0`, `360`, or `-360`) by `t = 11.3s .. 12.0s`.
    - Holding `yaw` constant for the last 2+ seconds lets `state._cinematicStableHeading` (which eases at `0.05 * delta * 60` per frame in `flight-camera.js`) and the trailing smoke ribbon converge to straight-and-level, so frame `359` loops into frame `0` without a jump.
 4. **On-screen pill badge**:
-   - Always use `CHILL FLIGHT · chillflight.app` as the top line of `addPostcardBadge` and `<Place Name> · <lat>, <long>` as the second line.
+   - Always use `CHILL FLIGHT · Play free at chillflight.app` as the top line of `addPostcardBadge` and `<Place Name> · <lat>, <long>` as the second line.
    - Avoid calling biomes "worlds" (use "landscapes", "landmarks", or "places" instead, since the entire game takes place in one continuous world).
 
 ## Camera angles and landmark sightlines

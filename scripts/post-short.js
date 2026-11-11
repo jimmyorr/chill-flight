@@ -55,9 +55,13 @@ export function parseShortMetadataFile(txtPath) {
   const youtubeDescription = titleMatch[2].trim();
 
   const captionMatch = ttSection.match(/^Caption:\n([\s\S]*)$/m);
+  const cleanTitle = youtubeTitle
+    .replace(/\s*\(Play free:\s*chillflight\.app\)\s*/i, '')
+    .replace(/\s*#shorts$/i, '')
+    .trim();
   const tiktokCaption = captionMatch
     ? captionMatch[1].trim()
-    : `${youtubeTitle.replace(/\s*#shorts$/i, '')}\n\nPlay free in browser or on iOS at chillflight.app\n\n#chillflight #cozygames #indiegame #lofi #flightsim`;
+    : `${cleanTitle} Play free at chillflight.app (or "Chill Flight" on App Store)\n\n#chillflight #cozygames #indiegame #lofi #flightsim`;
 
   return {
     youtube: {

@@ -193,7 +193,7 @@ async function addPostcardBadge(page, topLine, subLine) {
         badge.id = 'short-postcard-badge';
         badge.style.cssText = `
           position: fixed;
-          top: 42px;
+          top: 68px;
           left: 50%;
           transform: translateX(-50%);
           z-index: 9999;
@@ -201,14 +201,14 @@ async function addPostcardBadge(page, topLine, subLine) {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 3px;
-          padding: 9px 18px 10px;
+          gap: 4px;
+          padding: 10px 20px 11px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.56);
+          background: rgba(15, 23, 42, 0.68);
           backdrop-filter: blur(10px);
           -webkit-backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.22);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+          border: 1px solid rgba(255, 255, 255, 0.28);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
           font-family: Inter, -apple-system, sans-serif;
           color: #fff;
           text-align: center;
@@ -217,7 +217,7 @@ async function addPostcardBadge(page, topLine, subLine) {
         document.body.appendChild(badge);
       }
       badge.innerHTML = `
-        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255, 255, 255, 0.75);">${topLine}</div>
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #7dd3fc;">${topLine}</div>
         <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: #fff;">${subLine}</div>
       `;
     },
@@ -254,24 +254,35 @@ function muxWithMusic(rawMp4, outMp4, musicFile, startSec, durationSec) {
   ]);
 }
 
-function writeShortMetadata(outMp4, {title, tiktokHook, stops, trackTitle}) {
+function writeShortMetadata(
+  outMp4,
+  {title, tiktokQuestion, stops, trackTitle}
+) {
   const txtPath = outMp4.replace(/\.mp4$/, '.txt');
   const stopBlock = stops.length ? ['', ...stops] : [];
-  const cleanTitle = title.replace(/\s*#shorts$/i, '');
+  const cleanTitle = title
+    .replace(/\s*\(Play free:\s*chillflight\.app\)\s*/i, '')
+    .replace(/\s*#shorts$/i, '')
+    .trim();
+  const youtubeTitle = `${cleanTitle} (Play free: chillflight.app)`;
+  const tiktokFirstLine = `${cleanTitle} Play free at chillflight.app (or "Chill Flight" on App Store)`;
+  const tiktokBlock = tiktokQuestion
+    ? [tiktokFirstLine, tiktokQuestion]
+    : [tiktokFirstLine];
   const body = [
     '=== YouTube Shorts ===',
     'Title:',
-    title,
+    youtubeTitle,
     '',
     'Description:',
-    'A casual flight simulator set in a vast, ever-changing world.',
+    'Play Chill Flight free in your browser at chillflight.app or search "Chill Flight" on the iOS App Store!',
     '',
-    'Play in browser: https://chillflight.app',
-    'iOS: https://apps.apple.com/us/app/chill-flight/id6779847377',
+    'Browser (free, no install): https://chillflight.app',
+    'iOS App Store: https://apps.apple.com/us/app/chill-flight/id6779847377',
     'Android (early access): https://chillflight.app/about',
     ...stopBlock,
     '',
-    'Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey.',
+    'Chill Flight is a casual flight simulator set in a vast, ever-changing world. Drift along to lofi beats as you explore diverse landscapes featuring dynamic weather, day-night cycles, and biomes that shift with each journey.',
     '',
     `Music by Purrple Cat ("${trackTitle}").`,
     '',
@@ -281,9 +292,7 @@ function writeShortMetadata(outMp4, {title, tiktokHook, stops, trackTitle}) {
     '',
     '=== TikTok ===',
     'Caption:',
-    tiktokHook || cleanTitle,
-    '',
-    'Play free in browser or on iOS at chillflight.app',
+    ...tiktokBlock,
     ...stopBlock,
     '',
     `Music: "${trackTitle}" by Purrple Cat`,
@@ -419,7 +428,11 @@ async function renderMatchCutShort(browser) {
       `seed=20260101&x=${start.x}&y=${start.y}&z=${start.z}` +
       `&heading=${seg.heading}&${seg.extra}&${cam}`;
     const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(page, 'CHILL FLIGHT · chillflight.app', seg.label);
+    await addPostcardBadge(
+      page,
+      'CHILL FLIGHT · Play free at chillflight.app',
+      seg.label
+    );
     await page.evaluate((m) => {
       window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
     }, moves);
@@ -458,9 +471,8 @@ async function renderMatchCutShort(browser) {
   fs.rmSync(rawMp4, {force: true});
   console.log(outMp4);
   writeShortMetadata(outMp4, {
-    title: 'One loop across 4 landscapes ✈️ #shorts',
-    tiktokHook:
-      'One loop across 4 landscapes ✈️ Which one would you fly in first?',
+    title: 'One loop across 4 landscapes ✈️',
+    tiktokQuestion: 'Which one would you fly in first?',
     stops: [
       '0:00 Sunrise Lakes (0.1°S, 1.3°W)',
       '0:03 Coral Islands (0.8°S, 1.8°E)',
@@ -569,7 +581,7 @@ async function renderDailyPostcardShort(browser, seed = 20261108) {
     {
       name: 'gorge',
       seconds: 6,
-      topLine: 'CHILL FLIGHT · chillflight.app',
+      topLine: 'CHILL FLIGHT · Play free at chillflight.app',
       subLine: `Mountain Gorge Bridge · ${gorge.coordLabel}`,
       query:
         `seed=${seed}&x=${gorge.sx}&y=${gorge.flyY}&z=${gorge.sz}` +
@@ -585,7 +597,7 @@ async function renderDailyPostcardShort(browser, seed = 20261108) {
     {
       name: 'sea',
       seconds: 6,
-      topLine: 'CHILL FLIGHT · chillflight.app',
+      topLine: 'CHILL FLIGHT · Play free at chillflight.app',
       subLine: `Coral Sea Arch · ${sea.coordLabel}`,
       query:
         `seed=${seed}&x=${sea.sx}&y=${sea.flyY}&z=${sea.sz}` +
@@ -659,8 +671,8 @@ async function renderDailyPostcardShort(browser, seed = 20261108) {
   fs.rmSync(rawMp4, {force: true});
   console.log(outMp4);
   writeShortMetadata(outMp4, {
-    title: 'Threading two natural rock arches ✈️ #shorts',
-    tiktokHook: 'Threading two natural rock arches ✈️ Gorge or sea arch?',
+    title: 'Threading two natural rock arches ✈️',
+    tiktokQuestion: 'Gorge or sea arch?',
     stops: [
       `0:00 Mountain Gorge Bridge (${gorge.coordLabel})`,
       `0:06 Coral Sea Arch (${sea.coordLabel})`,
@@ -696,7 +708,7 @@ async function renderWingCamShort(browser) {
   const page = await openWorld(browser, query, PREROLL);
   await addPostcardBadge(
     page,
-    'CHILL FLIGHT · chillflight.app',
+    'CHILL FLIGHT · Play free at chillflight.app',
     'Headland Lighthouse · 0.6°S, 1.5°E'
   );
   await page.evaluate((m) => {
@@ -733,8 +745,7 @@ async function renderWingCamShort(browser) {
   fs.rmSync(rawMp4, {force: true});
   console.log(outMp4);
   writeShortMetadata(outMp4, {
-    title: 'Sunset window seat past the lighthouse ✈️ #shorts',
-    tiktokHook: 'Sunset window seat past the headland lighthouse ✈️',
+    title: 'Sunset window seat past the lighthouse ✈️',
     stops: ['Headland Lighthouse (0.6°S, 1.5°E)'],
     trackTitle: 'Sundae Sunset',
   });
@@ -833,7 +844,11 @@ async function renderLandmarkCutShort(browser) {
       `seed=20260101&x=${start.x}&y=${start.y}&z=${start.z}` +
       `&heading=${seg.heading}&${seg.extra}&${cam}`;
     const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(page, 'CHILL FLIGHT · chillflight.app', seg.label);
+    await addPostcardBadge(
+      page,
+      'CHILL FLIGHT · Play free at chillflight.app',
+      seg.label
+    );
     await page.evaluate((m) => {
       window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
     }, moves);
@@ -872,8 +887,8 @@ async function renderLandmarkCutShort(browser) {
   fs.rmSync(rawMp4, {force: true});
   console.log(outMp4);
   writeShortMetadata(outMp4, {
-    title: 'One roll across 4 landmarks ✈️ #shorts',
-    tiktokHook: 'One roll across 4 landmarks ✈️ Which spot is your favorite?',
+    title: 'One roll across 4 landmarks ✈️',
+    tiktokQuestion: 'Which spot is your favorite?',
     stops: [
       '0:00 Twin Falls (0.9°N, 0.0°E)',
       '0:03 Red-Rock Canyon (2.9°S, 0.6°E)',
@@ -980,7 +995,11 @@ async function renderDailyMatchCutShort(browser, seed = 20261109) {
       `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
       `&heading=${seg.heading}&${seg.extra}&${cam}`;
     const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(page, 'CHILL FLIGHT · chillflight.app', seg.label);
+    await addPostcardBadge(
+      page,
+      'CHILL FLIGHT · Play free at chillflight.app',
+      seg.label
+    );
     await page.evaluate((m) => {
       window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
     }, moves);
@@ -1019,9 +1038,8 @@ async function renderDailyMatchCutShort(browser, seed = 20261109) {
   fs.rmSync(rawMp4, {force: true});
   console.log(outMp4);
   writeShortMetadata(outMp4, {
-    title: 'One barrel roll across 4 landscapes ✈️ #shorts',
-    tiktokHook:
-      'One barrel roll across 4 landscapes ✈️ Which weather vibe is your favorite?',
+    title: 'One barrel roll across 4 landscapes ✈️',
+    tiktokQuestion: 'Which weather vibe is your favorite?',
     stops: [
       '0:00 Twin Falls (0.9°N, 0.0°E)',
       '0:03 Lake Cloverleaf (0.7°S, 0.8°W)',
@@ -1128,7 +1146,11 @@ async function renderSeaplaneCutShort(browser, seed = 20261109) {
       `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
       `&heading=${seg.heading}&${seg.extra}&${cam}`;
     const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(page, 'CHILL FLIGHT · chillflight.app', seg.label);
+    await addPostcardBadge(
+      page,
+      'CHILL FLIGHT · Play free at chillflight.app',
+      seg.label
+    );
     await page.evaluate((m) => {
       window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
     }, moves);
@@ -1167,9 +1189,8 @@ async function renderSeaplaneCutShort(browser, seed = 20261109) {
   fs.rmSync(rawMp4, {force: true});
   console.log(outMp4);
   writeShortMetadata(outMp4, {
-    title: 'Seaplane roll across 4 landscapes ✈️ #shorts',
-    tiktokHook:
-      'Seaplane roll across 4 landscapes ✈️ Which biome is your favorite?',
+    title: 'Seaplane roll across 4 landscapes ✈️',
+    tiktokQuestion: 'Which biome is your favorite?',
     stops: [
       '0:00 Turquoise Sea Arch (0.8°N, 6.1°E)',
       '0:03 Red-Rock Canyon (3.5°S, 0.7°E)',
@@ -1187,9 +1208,8 @@ async function main() {
     const gorge = scoutArchPass(20261108, 'gorge', 1);
     const sea = scoutArchPass(20261108, 'sea', 1);
     writeShortMetadata(path.join(OUT, 'short-1-match-cut.mp4'), {
-      title: 'One loop across 4 landscapes ✈️ #shorts',
-      tiktokHook:
-        'One loop across 4 landscapes ✈️ Which one would you fly in first?',
+      title: 'One loop across 4 landscapes ✈️',
+      tiktokQuestion: 'Which one would you fly in first?',
       stops: [
         '0:00 Sunrise Lakes (0.1°S, 1.3°W)',
         '0:03 Coral Islands (0.8°S, 1.8°E)',
@@ -1199,8 +1219,8 @@ async function main() {
       trackTitle: 'Sky Lake',
     });
     writeShortMetadata(path.join(OUT, 'short-2-daily-postcard.mp4'), {
-      title: 'Threading two natural rock arches ✈️ #shorts',
-      tiktokHook: 'Threading two natural rock arches ✈️ Gorge or sea arch?',
+      title: 'Threading two natural rock arches ✈️',
+      tiktokQuestion: 'Gorge or sea arch?',
       stops: [
         `0:00 Mountain Gorge Bridge (${gorge.coordLabel})`,
         `0:06 Coral Sea Arch (${sea.coordLabel})`,
@@ -1208,14 +1228,13 @@ async function main() {
       trackTitle: 'Exploration',
     });
     writeShortMetadata(path.join(OUT, 'short-3-wing-cam.mp4'), {
-      title: 'Sunset window seat past the lighthouse ✈️ #shorts',
-      tiktokHook: 'Sunset window seat past the headland lighthouse ✈️',
+      title: 'Sunset window seat past the lighthouse ✈️',
       stops: ['Headland Lighthouse (0.6°S, 1.5°E)'],
       trackTitle: 'Sundae Sunset',
     });
     writeShortMetadata(path.join(OUT, 'short-4-landmark-cut.mp4'), {
-      title: 'One roll across 4 landmarks ✈️ #shorts',
-      tiktokHook: 'One roll across 4 landmarks ✈️ Which spot is your favorite?',
+      title: 'One roll across 4 landmarks ✈️',
+      tiktokQuestion: 'Which spot is your favorite?',
       stops: [
         '0:00 Twin Falls (0.9°N, 0.0°E)',
         '0:03 Red-Rock Canyon (2.9°S, 0.6°E)',
@@ -1225,9 +1244,8 @@ async function main() {
       trackTitle: 'Wish You Were Here',
     });
     writeShortMetadata(path.join(OUT, 'short-20261109-match-cut.mp4'), {
-      title: 'One barrel roll across 4 landscapes ✈️ #shorts',
-      tiktokHook:
-        'One barrel roll across 4 landscapes ✈️ Which weather vibe is your favorite?',
+      title: 'One barrel roll across 4 landscapes ✈️',
+      tiktokQuestion: 'Which weather vibe is your favorite?',
       stops: [
         '0:00 Twin Falls (0.9°N, 0.0°E)',
         '0:03 Lake Cloverleaf (0.7°S, 0.8°W)',
@@ -1237,9 +1255,8 @@ async function main() {
       trackTitle: 'Flourish',
     });
     writeShortMetadata(path.join(OUT, 'short-5-seaplane-cut.mp4'), {
-      title: 'Seaplane roll across 4 landscapes ✈️ #shorts',
-      tiktokHook:
-        'Seaplane roll across 4 landscapes ✈️ Which biome is your favorite?',
+      title: 'Seaplane roll across 4 landscapes ✈️',
+      tiktokQuestion: 'Which biome is your favorite?',
       stops: [
         '0:00 Turquoise Sea Arch (0.8°N, 6.1°E)',
         '0:03 Red-Rock Canyon (3.5°S, 0.7°E)',
