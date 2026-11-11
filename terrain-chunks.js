@@ -139,7 +139,6 @@ import {
   oakGeos,
   orchardAppleGeos,
   palmGeos,
-  palmSimpleLeavesGeo,
   persistentLighthouseBeam,
   persistentLighthouseLight,
   pierDeckGeo,
@@ -1771,13 +1770,50 @@ globalInstancer.setFarGeometry('houseChimney', null);
 globalInstancer.setFarGeometry('twoStoryChimney', null);
 
 // Rounded canopies and bushes cast shadows with the same fitted shapes. Palm
-// fronds cast with their own geometry (176 triangles), which keeps their
-// distinctive star-shaped shadow.
+// fronds cast with a flat 7-frond star (14 triangles, both faces), which keeps
+// their distinctive star-shaped shadow.
 globalInstancer.setShadowGeometry(
   'bush',
   globalInstancer.types.get('bush').farGeo
 );
-globalInstancer.setShadowGeometry('palmLeaves', palmSimpleLeavesGeo);
+{
+  palmGeos.leaves.computeBoundingBox();
+  palmGeos.trunk.computeBoundingBox();
+  const leavesBox = palmGeos.leaves.boundingBox;
+  const trunkTop = palmGeos.trunk.boundingBox.max.y;
+  const cx = (leavesBox.min.x + leavesBox.max.x) * 0.5;
+  const cz = (leavesBox.min.z + leavesBox.max.z) * 0.5;
+  const crownY = trunkTop + 1.8;
+  const tipY = crownY - 3.8;
+  const radius =
+    Math.max(
+      leavesBox.max.x - leavesBox.min.x,
+      leavesBox.max.z - leavesBox.min.z
+    ) * 0.5;
+  const halfBase = radius * 0.22;
+  const fronds = 7;
+  const pos = [];
+  for (let i = 0; i < fronds; i++) {
+    const a = Math.PI + (i / fronds) * Math.PI * 2;
+    const ux = Math.cos(a);
+    const uz = Math.sin(a);
+    const lx = cx - uz * halfBase;
+    const lz = cz + ux * halfBase;
+    const rx = cx + uz * halfBase;
+    const rz = cz - ux * halfBase;
+    const tx = cx + ux * radius;
+    const tz = cz + uz * radius;
+    pos.push(lx, crownY, lz, rx, crownY, rz, tx, tipY, tz);
+    pos.push(lx, crownY, lz, tx, tipY, tz, rx, crownY, rz);
+  }
+  const palmShadowGeo = new THREE.BufferGeometry();
+  palmShadowGeo.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(pos, 3)
+  );
+  palmShadowGeo.computeVertexNormals();
+  globalInstancer.setShadowGeometry('palmLeaves', palmShadowGeo);
+}
 // Palm trunks, Polyfork trunks and cacti cast with simpler models too (12
 // triangles instead of 114..391, and 80 instead of 424): a trunk's shadow is
 // 2-3 texels wide.
