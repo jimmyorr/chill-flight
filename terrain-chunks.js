@@ -1541,6 +1541,7 @@ const shareFarCanopy = (type, geo) => {
 };
 // `mat`: the trunk's material, for its colour when the model has no vertex
 // colours of its own (Joshua trees, mushroom stalks)
+const SMALL_PROP_FAR_RADIUS = 4;
 const shareFarTrunk = (type, geo, mat = null) => {
   const farGeo = farTrunk(geo);
   const h = geo.boundingBox.max.y * 0.75;
@@ -1550,6 +1551,7 @@ const shareFarTrunk = (type, geo, mat = null) => {
       : geometryAverageColor(geo);
   globalInstancer.setFarGeometry(type, farGeo, {
     screenSized: true,
+    farRadius: SMALL_PROP_FAR_RADIUS,
     farShare: {
       targetType: 'farTreeTrunk',
       sx: 1,
@@ -1595,6 +1597,7 @@ shareFarCanopy('palmLeaves', palmGeos.leaves);
   const [cr, cg, cb] = geometryAverageColor(palmGeos.trunk);
   globalInstancer.setFarGeometry('palmTrunk', palmFarTrunk, {
     screenSized: true,
+    farRadius: SMALL_PROP_FAR_RADIUS,
     farShare: {
       targetType: 'farTreeTrunk',
       sx: (size.x * 0.5) / 1.4,
@@ -1632,6 +1635,16 @@ globalInstancer.setFarGeometry('bush', farCanopy(bushGeo), {
   screenSized: true,
   farRadius: TREE_LOD_CHUNK_RADIUS,
 });
+for (const [type, geo] of [
+  ['rock', rockGeo],
+  ['snowRock', rockGeo],
+  ['desertRock', rockGeo],
+  ['lilypad', lilyPadGeo],
+]) {
+  globalInstancer.setFarGeometry(type, geo, {
+    farRadius: SMALL_PROP_FAR_RADIUS,
+  });
+}
 globalInstancer.setFarGeometry('snowmanBody', null);
 globalInstancer.setFarGeometry('hayBale', null);
 globalInstancer.setFarGeometry('fallenLog', null);
