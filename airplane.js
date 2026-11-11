@@ -15,7 +15,7 @@ import {
   updateUrlParams,
 } from './constants.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {createBiplaneModel} from './biplane.js';
+import {createBiplaneModel, mergeStaticMeshes} from './biplane.js';
 import {createTwinModel, setGearExtension} from './twin.js';
 import {createJetModel} from './jet.js';
 import {createBuggyModel} from './buggy-model.js';
@@ -108,6 +108,8 @@ function populatePontoon(group, sideSign) {
   strutDiag.position.set(-sideSign * 2.5, 2.0, 0);
   strutDiag.rotation.set(0.68, 0, sideSign * (Math.PI / 4));
   group.add(strutDiag);
+
+  mergeStaticMeshes(group);
 }
 
 export const pontoonL = new THREE.Group();
@@ -310,6 +312,7 @@ export function createSeaplaneModel(opts = {}) {
   blade2.rotation.z = Math.PI / 2;
   propGroup.add(blade1);
   propGroup.add(blade2);
+  mergeStaticMeshes(propGroup);
 
   model.propGroup = propGroup;
 
@@ -319,6 +322,7 @@ export function createSeaplaneModel(opts = {}) {
     model.pontoonGroup = pontoonGroup;
   }
 
+  mergeStaticMeshes(model, new Set([propGroup, pontoonGroup]));
   return model;
 }
 

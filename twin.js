@@ -12,6 +12,7 @@
 //   retractable (setGearExtension)
 import * as THREE from 'three';
 import {createMaterial} from './constants.js';
+import {mergeStaticMeshes} from './biplane.js';
 import {state} from './state.js';
 
 export function createTwinModel(opts = {}) {
@@ -466,6 +467,7 @@ export function createTwinModel(opts = {}) {
 
       pGroup.add(bladeHolder);
     }
+    mergeStaticMeshes(pGroup);
 
     // ------------------------------------------
     // Main Landing Gear (under nacelle)
@@ -508,6 +510,7 @@ export function createTwinModel(opts = {}) {
     const hubCap = new THREE.Mesh(hubCapGeo, metalMat);
     hubCap.position.set(0, -1.35, 0);
     mainGearGroup.add(hubCap);
+    mergeStaticMeshes(mainGearGroup);
 
     return nacelleGroup;
   };
@@ -550,6 +553,7 @@ export function createTwinModel(opts = {}) {
   const noseHub = new THREE.Mesh(noseHubGeo, metalMat);
   noseHub.position.set(0, -1.3, 0.12);
   noseGearGroup.add(noseHub);
+  mergeStaticMeshes(noseGearGroup);
 
   // ==========================================
   // 6. EMPENNAGE (TAIL ASSEMBLY)
@@ -643,6 +647,8 @@ export function createTwinModel(opts = {}) {
   const hStabMesh = new THREE.Mesh(hStabGeo, accentMat);
   hStabMesh.position.set(0, 0.75, 10.2);
   tailGroup.add(hStabMesh);
+
+  mergeStaticMeshes(root, new Set([...propGroups, ...gearGroups]));
 
   // ==========================================
   // SHADOW CASTING

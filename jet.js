@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {createMaterial} from './constants.js';
+import {mergeStaticMeshes} from './biplane.js';
 import {state} from './state.js';
 
 export function createJetModel(opts = {}) {
@@ -474,6 +475,7 @@ export function createJetModel(opts = {}) {
   gearGroups.push(mainGearL);
 
   root.gearGroups = gearGroups;
+  mergeStaticMeshes(root, new Set(gearGroups));
 
   return root;
 }

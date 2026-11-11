@@ -3,8 +3,90 @@
 // Vintage sport & aerobatic biplane with dual staggered wings, N-struts,
 // cabane struts, open cockpit with windscreen, and streamlined wheel pants.
 import * as THREE from 'three';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {createMaterial} from './constants.js';
 import {state} from './state.js';
+
+const _groupInv = new THREE.Matrix4();
+const _relMat = new THREE.Matrix4();
+
+function reverseWinding(geo) {
+  for (const attr of Object.values(geo.attributes)) {
+    const {array, itemSize} = attr;
+    for (let i = 0; i < attr.count; i += 3) {
+      for (let k = 0; k < itemSize; k++) {
+        const a = (i + 1) * itemSize + k;
+        const b = (i + 2) * itemSize + k;
+        const t = array[a];
+        array[a] = array[b];
+        array[b] = t;
+      }
+    }
+  }
+}
+
+function collectStaticMeshes(node, keepSet, byMaterial, toRemove) {
+  for (const child of node.children) {
+    if (keepSet && keepSet.has(child)) continue;
+    if (child.isMesh) {
+      _relMat.multiplyMatrices(_groupInv, child.matrixWorld);
+      const geo = child.geometry.index
+        ? child.geometry.toNonIndexed()
+        : child.geometry.clone();
+      geo.applyMatrix4(_relMat);
+      if (_relMat.determinant() < 0) reverseWinding(geo);
+      let entry = byMaterial.get(child.material);
+      if (!entry) {
+        entry = {
+          geos: [],
+          castShadow: child.castShadow,
+          receiveShadow: child.receiveShadow,
+        };
+        byMaterial.set(child.material, entry);
+      }
+      entry.geos.push(geo);
+      toRemove.push(child);
+    } else {
+      collectStaticMeshes(child, keepSet, byMaterial, toRemove);
+    }
+  }
+}
+
+function pruneEmptyGroups(node, keepSet) {
+  for (let i = node.children.length - 1; i >= 0; i--) {
+    const child = node.children[i];
+    if (keepSet && keepSet.has(child)) continue;
+    if (!child.isMesh) {
+      pruneEmptyGroups(child, keepSet);
+      if (child.children.length === 0) node.remove(child);
+    }
+  }
+}
+
+// Merges non-animating meshes under `group` into one mesh per material with
+// transforms baked relative to `group`, leaving subtrees in `keepSet` intact.
+export function mergeStaticMeshes(group, keepSet = null) {
+  group.updateMatrixWorld(true);
+  _groupInv.copy(group.matrixWorld).invert();
+  const byMaterial = new Map();
+  const toRemove = [];
+  collectStaticMeshes(group, keepSet, byMaterial, toRemove);
+  for (const mesh of toRemove) {
+    mesh.parent.remove(mesh);
+  }
+  pruneEmptyGroups(group, keepSet);
+  for (const [material, {geos, castShadow, receiveShadow}] of byMaterial) {
+    const merged = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
+    const mesh = new THREE.Mesh(merged, material);
+    mesh.castShadow = castShadow;
+    mesh.receiveShadow = receiveShadow;
+    group.add(mesh);
+    if (geos.length > 1) {
+      for (const geo of geos) geo.dispose();
+    }
+  }
+  return group;
+}
 
 export function createBiplaneModel(opts = {}) {
   const root = new THREE.Group();
@@ -496,6 +578,8 @@ export function createBiplaneModel(opts = {}) {
   const rudderMesh = new THREE.Mesh(rudderGeo, accentMat);
   rudderMesh.position.set(0, 0.8, 5.0);
   root.add(rudderMesh);
+
+  mergeStaticMeshes(root, new Set([propGroup]));
 
   root.traverse((child) => {
     if (child.isMesh) {
