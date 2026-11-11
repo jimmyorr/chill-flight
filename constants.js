@@ -228,6 +228,12 @@ float towerAlphaAt(float dist, float h, float overcast) {
 `
   : '';
 
+const _ozoneParam = ChillFlightLogic.urlParams?.get('ozone') ?? null;
+export const INITIAL_OZONE =
+  _ozoneParam !== null && _ozoneParam !== '' && isFinite(_ozoneParam)
+    ? Math.max(0, Math.min(4, Number(_ozoneParam)))
+    : 1;
+
 // Shared by every material's injected directional-fog shader code; the game
 // loop updates the values each frame.
 // GLSL: the sky's color looking in direction d (normalized): the palette's
@@ -236,6 +242,7 @@ float towerAlphaAt(float dist, float h, float overcast) {
 // reflections all use this, so distant terrain fades into exactly the sky
 // behind it and the water mirrors the same sky.
 export const SKY_COLOR_GLSL = `
+uniform float uOzone;
 // The sky's color along d is built from three parts, so that fog can compute
 // the smooth ones per vertex and only the sun's narrow hot core per pixel
 // (see FOG_SKY_VERTEX_GLSL): skyColorAt(d) = combineSky(skyBaseAt(d), skyGlowAt(d),
@@ -299,8 +306,9 @@ ${
   // Stratospheric ozone (Chappuis band): when sunlight grazes the atmosphere
   // at sunset and twilight, ozone absorbs yellow-green (~3x red, ~24x blue),
   // clearing muddy taupe/teal mid-sky bands into rose-lavender and cobalt blue
-  // without pushing already-violet palettes into neon purple.
-  float ozoneSun = smoothstep(0.24, -0.02, sunDir.y) * smoothstep(-0.34, -0.14, sunDir.y);
+  // without pushing already-violet palettes into neon purple. Scaled by uOzone
+  // (?ozone=0 turns it off; the debug menu slider adjusts it live).
+  float ozoneSun = smoothstep(0.24, -0.02, sunDir.y) * smoothstep(-0.34, -0.14, sunDir.y) * uOzone;
   if (ozoneSun > 0.0) {
     float hc = max(h, 0.0);
     float midShell = smoothstep(0.0, 0.08, hc) * (1.0 - smoothstep(0.28, 0.85, hc));
@@ -657,6 +665,8 @@ export const terrainUniforms = {
   // Dims near-white terrain (snow, ice) so full daylight doesn't clip it to
   // flat white; 1 when the light is weak enough (see game-loop.js).
   uSnowExposure: {value: new THREE.Vector3(1, 1, 1)},
+  // Chappuis ozone twilight absorption strength (1 = default, 0 = off).
+  uOzone: {value: INITIAL_OZONE},
 };
 
 export function createMaterial(params) {
@@ -713,6 +723,7 @@ export function createMaterial(params) {
     shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
     shader.uniforms.uTopColor = terrainUniforms.uTopColor;
     shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
+    shader.uniforms.uOzone = terrainUniforms.uOzone;
 
     shader.vertexShader =
       `

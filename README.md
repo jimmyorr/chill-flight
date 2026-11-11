@@ -609,6 +609,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`cloudHeight`** (or **`cloudAlt`**): Altitude in meters/units for the procedural cloud deck (default `3000`).
 - **`cloudSpeed`**: Speed multiplier for cloud drift animation (default `1.0`, set to `0` to freeze cloud movement).
 - **`flare`**: Lens flare strength when looking toward the sun (default `1`; `0` turns it off, `2` doubles it).
+- **`ozone`**: Chappuis ozone twilight absorption strength around sunrise and sunset (default `1`; `0` turns it off, higher values deepen the rose-lavender sunset transition and cobalt upper sky; also adjustable live in the debug menu).
 - **`trip`**: `1` holds the trippy look you get from knocking over an alien mushroom (see [Knocking things over](#knocking-things-over)), for trying it anywhere.
 - **`grass`**: `0` turns off the tall grass and wheat (`grass.js`): blades swaying in the wind round the camera when it's low on green ground and golden wheat on the villages' wheat and barley fields, parted by the buggy and flattened by a low plane's prop wash, plus a gust sheen rolling across the fields. On by default at mid and up.
 - **`weather`**: Force weather conditions (options: `auto`, `none` or `clear`, `snow`, `rain`).

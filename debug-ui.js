@@ -7,6 +7,7 @@ import {
   UNITS_TO_M,
   WATER_LEVEL,
   getCachedElement,
+  terrainUniforms,
   updateUrlParams,
 } from './constants.js';
 import {log} from './logger.js';
@@ -400,6 +401,29 @@ export function initDebugUI() {
     });
   }
 
+  // Ozone twilight absorption slider
+  const ozoneSlider = document.getElementById('debug-ozone-slider');
+  const ozoneVal = document.getElementById('debug-ozone-val');
+  if (ozoneSlider) {
+    const initOzone = terrainUniforms.uOzone.value;
+    ozoneSlider.value = initOzone;
+    if (ozoneVal) ozoneVal.textContent = `${initOzone.toFixed(1)}x`;
+    ozoneSlider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      terrainUniforms.uOzone.value = val;
+      if (ozoneVal) ozoneVal.textContent = `${val.toFixed(1)}x`;
+    });
+    ozoneSlider.addEventListener('change', (e) => {
+      const val = Number(parseFloat(e.target.value).toFixed(2));
+      terrainUniforms.uOzone.value = val;
+      if (val !== 1) {
+        updateUrlParams({ozone: val}, []);
+      } else {
+        updateUrlParams({}, ['ozone']);
+      }
+    });
+  }
+
   // Prop LOD slider
   const propLodSlider = document.getElementById('debug-prop-lod-slider');
   const propLodSliderVal = document.getElementById('debug-prop-lod-slider-val');
@@ -730,6 +754,13 @@ export function initDebugUI() {
       params.set('palette', `${topHex},${bottomHex}`);
     } else if (currentPaletteSeed !== undefined) {
       params.set('palette', currentPaletteSeed);
+    }
+
+    const ozoneSetting = Number(terrainUniforms.uOzone.value.toFixed(2));
+    if (ozoneSetting !== 1) {
+      params.set('ozone', ozoneSetting);
+    } else {
+      params.delete('ozone');
     }
 
     const activePreset = graphicsPresetSelect

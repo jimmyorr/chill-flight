@@ -4,7 +4,12 @@
 // renderer and canvas.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {moonlightUniforms, TOWER_SLICES, TOWER_THRESHOLD} from './constants.js';
+import {
+  moonlightUniforms,
+  terrainUniforms,
+  TOWER_SLICES,
+  TOWER_THRESHOLD,
+} from './constants.js';
 
 // --- NOISE TEXTURE GENERATOR ---
 // Seeded from the world seed, so a URL (seed, cloudTime, ...) gives the same
@@ -64,6 +69,7 @@ export const skyUniforms = {
   uCameraPos: {value: new THREE.Vector3()},
   uMoonDir: moonlightUniforms.uMoonDir,
   uMoonBright: moonlightUniforms.uMoonBright,
+  uOzone: terrainUniforms.uOzone,
 };
 
 // The sky noise texture as the shaders sample it (noise() in CLOUD_GLSL):
