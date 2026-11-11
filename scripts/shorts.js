@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import https from 'node:https';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import puppeteer from 'puppeteer-core';
+import {launch} from './dev-browser.js';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
 import {archSites} from '../arches-logic.js';
@@ -57,19 +57,6 @@ const H264 = [
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function findChrome() {
-  const candidates = [
-    process.env.CHROME_PATH,
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-  ];
-  const found = candidates.find((p) => p && fs.existsSync(p));
-  if (!found) throw new Error('Chrome not found; set CHROME_PATH');
-  return found;
-}
 
 function ffmpeg(args) {
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...args], {
@@ -1267,8 +1254,7 @@ async function main() {
     });
     return;
   }
-  const browser = await puppeteer.launch({
-    executablePath: findChrome(),
+  const browser = await launch({
     headless: 'new',
     args: [
       '--use-gl=angle',

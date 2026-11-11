@@ -3,14 +3,7 @@
 // Usage:
 //   npm run test:browser  - against the dev server (`npm run dev` on port 5173)
 //   npm run test:build    - builds to a temp dir (not docs/) and tests that
-import puppeteer from 'puppeteer-core';
-import {
-  CHROME,
-  GL_ARGS,
-  autoCloseOnExit,
-  killOrphanedChrome,
-  serveDir,
-} from './dev-browser.js';
+import {GL_ARGS, launch, serveDir} from './dev-browser.js';
 import {execSync} from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -595,11 +588,7 @@ async function exerciseControls(page, tag) {
   }
 }
 
-killOrphanedChrome();
-const browser = await puppeteer.launch({
-  executablePath: CHROME,
-  headless: true,
-  pipe: true,
+const browser = await launch({
   args: [
     ...GL_ARGS,
     // Let music start without a real user gesture.
@@ -607,10 +596,10 @@ const browser = await puppeteer.launch({
   ],
   // Fail instead of hanging if a page stops responding (e.g. a stuck loop).
   protocolTimeout: 60000,
-});
-autoCloseOnExit(browser, () => {
-  staticServer?.close();
-  if (outDir) fs.rmSync(outDir, {recursive: true, force: true});
+  onCleanup: () => {
+    staticServer?.close();
+    if (outDir) fs.rmSync(outDir, {recursive: true, force: true});
+  },
 });
 
 const PAGE_TIMEOUT_MS = 120000;

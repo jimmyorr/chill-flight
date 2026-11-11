@@ -8,6 +8,7 @@ import puppeteer from 'puppeteer-core';
 import {execFileSync} from 'child_process';
 import fs from 'fs';
 import http from 'http';
+import os from 'os';
 import path from 'path';
 
 export const BASE = process.env.GAME_URL || 'http://localhost:5173/';
@@ -137,17 +138,109 @@ export function killOrphanedChrome() {
     console.log(`Closed ${killed} leftover headless Chrome process(es)`);
 }
 
-export async function launch(opts = {}) {
+const DEFAULT_LOCK_FILE = path.join(os.tmpdir(), 'chill-flight-puppeteer.lock');
+const LOCK_TIMEOUT_MS = 10 * 60 * 1000;
+
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return err?.code === 'EPERM';
+  }
+}
+
+// Serialize headless Chrome launches across processes so overlapping scripts or
+// subagents cannot stack multiple WebGL + terrain-worker pools in RAM at once.
+export async function acquireBrowserLock(
+  lockFile = process.env.CHILL_FLIGHT_BROWSER_LOCK || DEFAULT_LOCK_FILE
+) {
+  const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const payload = `${process.pid} ${token}\n`;
+  const started = Date.now();
+  let loggedWait = false;
+
+  for (;;) {
+    try {
+      fs.writeFileSync(lockFile, payload, {flag: 'wx'});
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        try {
+          if (fs.readFileSync(lockFile, 'utf8') === payload) {
+            fs.unlinkSync(lockFile);
+          }
+        } catch {
+          // Lock file was already removed.
+        }
+      };
+    } catch (err) {
+      if (err?.code !== 'EEXIST') throw err;
+    }
+
+    let holderPid = 0;
+    let freshEmpty = false;
+    try {
+      const raw = fs.readFileSync(lockFile, 'utf8').trim();
+      if (raw) {
+        holderPid = Number(raw.split(/\s+/)[0]);
+      } else {
+        const stat = fs.statSync(lockFile);
+        freshEmpty = Date.now() - stat.mtimeMs < 1000;
+      }
+    } catch {
+      continue;
+    }
+
+    if (!freshEmpty && !isPidAlive(holderPid)) {
+      try {
+        fs.unlinkSync(lockFile);
+      } catch {
+        // Another waiter already cleared the stale lock.
+      }
+      continue;
+    }
+
+    if (Date.now() - started > LOCK_TIMEOUT_MS) {
+      throw new Error(
+        `Timed out waiting for headless Chrome lock (${lockFile}, held by PID ${holderPid})`
+      );
+    }
+
+    if (!loggedWait && holderPid) {
+      loggedWait = true;
+      console.log(
+        `Waiting for active headless Chrome run (PID ${holderPid}) to finish...`
+      );
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
+export async function launch({onCleanup, ...opts} = {}) {
+  const releaseLock = await acquireBrowserLock();
   killOrphanedChrome();
-  const browser = await puppeteer.launch({
-    executablePath: CHROME,
-    headless: true,
-    pipe: true,
-    protocolTimeout: 900000,
-    args: GL_ARGS,
-    ...opts,
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      executablePath: CHROME,
+      headless: true,
+      pipe: true,
+      protocolTimeout: 900000,
+      args: GL_ARGS,
+      ...opts,
+    });
+  } catch (err) {
+    releaseLock();
+    throw err;
+  }
+  browser.once('disconnected', releaseLock);
+  autoCloseOnExit(browser, () => {
+    releaseLock();
+    onCleanup?.();
   });
-  autoCloseOnExit(browser);
   return browser;
 }
 
@@ -238,5 +331,10 @@ export function serveDir(dir) {
     res.writeHead(200, {'Content-Type': type});
     fs.createReadStream(file).pipe(res);
   });
+  const rawClose = server.close.bind(server);
+  server.close = (cb) => {
+    server.closeAllConnections?.();
+    return rawClose(cb);
+  };
   return new Promise((resolve) => server.listen(0, () => resolve(server)));
 }
