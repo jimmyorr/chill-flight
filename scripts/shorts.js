@@ -6,9 +6,10 @@
 //   4. short-4-landmark-cut.mp4      - 12s swept-wing jet roll match-cut across 4 landmarks
 //   5. short-20261109-match-cut.mp4  - 12s gold twin-prop barrel-roll match-cut (seed 20261109)
 //   6. short-5-seaplane-cut.mp4      - 12s teal seaplane roll match-cut (seed 20261109)
+//   7. short-20261110-weather-cut.mp4 - 12s teal biplane weather-effects match-cut (seed 20261110)
 //
 // Usage:
-//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | daily-postcard | wing-cam | landmark-cut | meta]
+//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | daily-postcard | wing-cam | landmark-cut | meta]
 
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -1188,6 +1189,172 @@ async function renderSeaplaneCutShort(browser, seed = 20261109) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 7: Weather Effects Match-Cut for Seed 20261110 (Teal Biplane)
+// ---------------------------------------------------------------------------
+async function renderWeatherCutShort(browser, seed = 20261110) {
+  console.log(
+    `=== Rendering Weather Effects Match-Cut (Seed ${seed}: Teal Biplane) ===`
+  );
+  const frameDir = path.join(OUT, `frames-short-${seed}-weather-cut`);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+  fs.mkdirSync(frameDir, {recursive: true});
+
+  const speedMult = 1.18;
+  // Rear-left chase camera angled slightly up to showcase morning valley fog,
+  // the rainbow arch, lightning-lit storm clouds, and swirling blizzard snow
+  const cam =
+    `plane=biplane&livery=teal&smoke=1&speed=${speedMult}` +
+    '&camOffset=-15,5,44&camLook=3,2,-68';
+  // Unbroken 12s maneuver that loops seamlessly from frame 360 back to frame 0:
+  //   0..3s:  Carves through golden sunrise valley mist toward Twin Falls
+  //   3..6s:  Match-cuts mid-roll under a full rainbow over the sea arch
+  //   6..9s:  Match-cuts into a heavy thunderstorm & lightning flash past the lighthouse
+  //   9..12s: Match-cuts into an alpine blizzard over Dragon Peaks and settles
+  //           to level (roll=360, pitch=0, constant yaw=18 from 9.0s..12.0s)
+  const moves = [
+    [0, 0, 0, 0],
+    [1.2, -24, 4, 8],
+    [2.3, 16, 10, 14],
+    [3.0, 68, 14, 12],
+    [4.4, 245, -4, 14],
+    [5.5, 360, 2, 18],
+    [6.0, 384, 4, 20],
+    [7.3, 332, -2, 14],
+    [8.4, 374, 3, 18],
+    [9.0, 346, 2, 18],
+    [10.2, 368, 1, 18],
+    [11.3, 360, 0, 18],
+    [12.0, 360, 0, 18],
+  ];
+
+  const rawSegments = [
+    {
+      label: 'Sunrise Mist · 0.9°N, 0.0°E',
+      tx: 210,
+      ty: 195,
+      tz: -3350,
+      heading: 14,
+      extra: 'tod=0.272&cloudCover=0.25&cloudMood=fair',
+      startFrame: 0,
+      endFrame: 90,
+    },
+    {
+      label: 'Morning Rainbow · 1.6°S, 9.1°E',
+      tx: 45800,
+      ty: 245,
+      tz: 7950,
+      heading: 58,
+      extra: 'tod=0.39&weather=none&cloudCover=0.18&cloudMood=fair',
+      rainbow: true,
+      startFrame: 90,
+      endFrame: 180,
+    },
+    {
+      label: 'Lightning Storm · 0.6°S, 1.5°E',
+      tx: 7906,
+      ty: 175,
+      tz: 3109,
+      heading: 55,
+      extra: 'tod=0.68&weather=rain&cloudCover=0.92&headlight=1&cloudMood=busy',
+      lightningFrames: [190, 232],
+      startFrame: 180,
+      endFrame: 270,
+    },
+    {
+      label: 'Alpine Blizzard · 4.4°N, 1.7°W',
+      tx: -7876,
+      ty: 260,
+      tz: -21559,
+      heading: 45,
+      extra: 'tod=0.44&weather=snow&cloudCover=0.82&cloudMood=high',
+      startFrame: 270,
+      endFrame: 360,
+    },
+  ];
+
+  for (const seg of rawSegments) {
+    const start = startCoordsForFrame(
+      seg.tx,
+      seg.ty,
+      seg.tz,
+      seg.heading,
+      speedMult,
+      moves,
+      seg.startFrame
+    );
+    const query =
+      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
+      `&heading=${seg.heading}&${seg.extra}&${cam}`;
+    const page = await openWorld(browser, query, PREROLL);
+    await addPostcardBadge(
+      page,
+      'CHILL FLIGHT · Play free at chillflight.app',
+      seg.label
+    );
+    if (seg.rainbow) {
+      await page.evaluate(async () => {
+        const {state} = await import('/state.js');
+        state.forceRainbow = true;
+        state.rainbowIntensity = 1.0;
+      });
+    }
+    await page.evaluate((m) => {
+      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
+    }, moves);
+    for (let i = 0; i < seg.endFrame; i++) {
+      if (seg.lightningFrames && seg.lightningFrames.includes(i)) {
+        await page.evaluate(async () => {
+          const {flashLightning} = await import('/weather-manager.js');
+          flashLightning(0.05, -Math.PI * 0.78);
+        });
+      }
+      await step(page);
+      if (i >= seg.startFrame) {
+        const framePath = path.join(
+          frameDir,
+          `${String(i).padStart(5, '0')}.jpg`
+        );
+        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
+        if ((i - seg.startFrame) % FPS === 0) {
+          console.log(`  weather-cut [${seg.label}]: frame ${i}/360`);
+        }
+      }
+    }
+    await page.close();
+  }
+
+  const rawMp4 = path.join(OUT, `short-${seed}-weather-cut-raw.mp4`);
+  const outMp4 = path.join(OUT, `short-${seed}-weather-cut.mp4`);
+  ffmpeg([
+    '-framerate',
+    String(FPS),
+    '-i',
+    path.join(frameDir, '%05d.jpg'),
+    '-vf',
+    `scale=${PIXEL_W}:${PIXEL_H}`,
+    ...H264,
+    rawMp4,
+  ]);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+
+  const music = await downloadTrack('purrple-cat-crescent-moon');
+  muxWithMusic(rawMp4, outMp4, music, 22, 12);
+  fs.rmSync(rawMp4, {force: true});
+  console.log(outMp4);
+  writeShortMetadata(outMp4, {
+    title: 'One roll through 4 weather moods ✈️',
+    tiktokQuestion: 'Sunrise mist, rainbow, thunderstorm, or blizzard?',
+    stops: [
+      '0:00 Sunrise Mist (0.9°N, 0.0°E)',
+      '0:03 Morning Rainbow (1.6°S, 9.1°E)',
+      '0:06 Lightning Storm (0.6°S, 1.5°E)',
+      '0:09 Alpine Blizzard (4.4°N, 1.7°W)',
+    ],
+    trackTitle: 'Crescent Moon',
+  });
+}
+
 async function main() {
   fs.mkdirSync(OUT, {recursive: true});
   const filter = process.argv[2];
@@ -1252,6 +1419,17 @@ async function main() {
       ],
       trackTitle: 'Calm Waters',
     });
+    writeShortMetadata(path.join(OUT, 'short-20261110-weather-cut.mp4'), {
+      title: 'One roll through 4 weather moods ✈️',
+      tiktokQuestion: 'Sunrise mist, rainbow, thunderstorm, or blizzard?',
+      stops: [
+        '0:00 Sunrise Mist (0.9°N, 0.0°E)',
+        '0:03 Morning Rainbow (1.6°S, 9.1°E)',
+        '0:06 Lightning Storm (0.6°S, 1.5°E)',
+        '0:09 Alpine Blizzard (4.4°N, 1.7°W)',
+      ],
+      trackTitle: 'Crescent Moon',
+    });
     return;
   }
   const browser = await launch({
@@ -1275,6 +1453,9 @@ async function main() {
     }
     if (!filter || filter === 'seaplane-cut') {
       await renderSeaplaneCutShort(browser, 20261109);
+    }
+    if (!filter || filter === 'weather-cut') {
+      await renderWeatherCutShort(browser, 20261110);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);

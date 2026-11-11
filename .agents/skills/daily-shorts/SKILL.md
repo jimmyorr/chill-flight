@@ -111,20 +111,20 @@ Verify in the strips:
 2. Each landmark or biome is clearly visible in frame (not obscured by terrain or behind the camera), and the aircraft never crashes during `0 .. endFrame`.
 3. Remove `promo/strip-verify-*.jpg` once verified.
 
-### Step 4: Upload to YouTube Shorts and TikTok
+### Step 4: Upload to YouTube Shorts
 
-Use [scripts/post-short.js](../../../scripts/post-short.js) to upload a rendered `.mp4` and its companion `.txt` metadata sidecar to YouTube Studio and TikTok Studio using a persistent Chrome profile (`~/.chill-flight-social-profile`):
+Use [scripts/post-short.js](../../../scripts/post-short.js) to automatically upload and publish a rendered `.mp4` and its companion `.txt` metadata sidecar to YouTube Studio using a persistent Chrome profile (`~/.chill-flight-social-profile`):
 
 ```bash
-# One-time login to save YouTube Studio and TikTok Studio cookies:
+# One-time login to save YouTube Studio cookies:
 node scripts/post-short.js --login
 
 # Preview parsed metadata without opening Chrome:
-node scripts/post-short.js promo/short-20261109-match-cut.mp4 --dry-run
+node scripts/post-short.js promo/short-20261110-weather-cut.mp4 --dry-run
 
-# Upload and fill Title/Description/Caption, pausing on final Publish/Post button:
-node scripts/post-short.js promo/short-20261109-match-cut.mp4
+# Automatically upload, fill Title/Description, and publish to YouTube Shorts:
+node scripts/post-short.js promo/short-20261110-weather-cut.mp4
 
-# Hands-free publish to both platforms (or --platform=youtube / --platform=tiktok):
-node scripts/post-short.js promo/short-20261109-match-cut.mp4 --publish
+# Optional: pause on the final Visibility screen for manual review before clicking Publish:
+node scripts/post-short.js promo/short-20261110-weather-cut.mp4 --review
 ```

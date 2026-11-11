@@ -9,8 +9,8 @@
 //   --login                        Open Chrome to sign into YouTube & TikTok once
 //   --platform=all|youtube|tiktok  Which platform(s) to upload to (default: all)
 //   --visibility=public|unlisted|private  YouTube visibility (default: public)
-//   --publish                      Automatically click the final Publish/Post button
-//   --review                       Stop on the final Publish/Post button (default)
+//   --publish                      Automatically click the final Publish/Post button (default)
+//   --review                       Stop on the final Publish/Post button for manual review
 //   --dry-run                      Parse and print the .txt metadata without opening Chrome
 
 import fs from 'node:fs';
@@ -78,8 +78,8 @@ function parseArgs(argv) {
   const opts = {
     login: false,
     dryRun: false,
-    publish: false,
-    platform: 'all',
+    publish: true,
+    platform: 'youtube',
     visibility: 'public',
     videoPath: null,
   };
@@ -111,12 +111,12 @@ function printUsage() {
       '  node scripts/post-short.js <path/to/short.mp4> [options]',
       '',
       'Options:',
-      '  --login                        Open Chrome to sign into YouTube & TikTok once',
-      '  --platform=all|youtube|tiktok  Which platform(s) to upload to (default: all)',
+      '  --login                        Open Chrome to sign into YouTube Studio once',
+      '  --platform=youtube|tiktok|all  Which platform(s) to upload to (default: youtube)',
       '  --visibility=public|unlisted|private  YouTube visibility (default: public)',
-      '  --review                       Fill everything and pause on final Publish/Post button (default)',
-      '  --publish                      Automatically click the final Publish/Post button',
-      '  --dry-run                      Print parsed YouTube & TikTok metadata without launching Chrome',
+      '  --publish                      Automatically click the final Publish button (default)',
+      '  --review                       Fill everything and pause on final Publish button',
+      '  --dry-run                      Print parsed metadata without launching Chrome',
     ].join('\n')
   );
 }
@@ -208,32 +208,19 @@ async function uploadToYouTube(browser, mp4Path, meta, opts) {
   // Click "Create" -> "Upload videos" if input[type=file] isn't already on page
   let fileInput = await page.$('input[type="file"]');
   if (!fileInput) {
-    const createSelectors = [
-      'ytcp-button#create-icon',
-      '#create-icon',
-      '#upload-icon',
-      'button[aria-label="Create"]',
-      'button[aria-label="Upload videos"]',
-    ];
-    for (const sel of createSelectors) {
-      const btn = await page.$(sel);
-      if (btn) {
-        await btn.click();
-        await sleep(800);
-        break;
-      }
-    }
-    const uploadMenuSelectors = [
-      'tp-yt-paper-item#text-item-0',
-      'ytcp-ve #text-item-0',
-    ];
-    for (const sel of uploadMenuSelectors) {
-      const item = await page.$(sel);
-      if (item) {
-        await item.click();
-        await sleep(800);
-        break;
-      }
+    const createBtnSel =
+      'button[aria-label="Create"], button[aria-label="Upload videos"], #upload-icon';
+    const createBtn = await page.waitForSelector(createBtnSel, {
+      visible: true,
+      timeout: 30000,
+    });
+    await createBtn.click();
+    await sleep(800);
+
+    const uploadItem = await page.$('tp-yt-paper-item#text-item-0');
+    if (uploadItem) {
+      await uploadItem.click();
+      await sleep(800);
     }
     fileInput = await page.waitForSelector('input[type="file"]', {
       timeout: 60000,
@@ -316,11 +303,16 @@ async function uploadToTikTok(browser, mp4Path, meta, opts) {
   });
   await fileInput.uploadFile(mp4Path);
 
+  console.log('  Waiting for TikTok video file upload to reach 100%...');
+  await page.waitForFunction(() => /Uploaded/i.test(document.body.innerText), {
+    timeout: 120000,
+  });
+
   const captionSel =
     '.public-DraftEditor-content[contenteditable="true"], [contenteditable="true"][role="combobox"], .caption-editor [contenteditable="true"]';
   console.log('  Waiting for TikTok caption editor...');
   await page.waitForSelector(captionSel, {visible: true, timeout: 60000});
-  await sleep(1500);
+  await sleep(1000);
 
   // Clear default filename caption via DOM Range + Backspace, then paste via
   // ClipboardEvent so Draft.js parses multi-line blocks without crashing React
@@ -361,13 +353,38 @@ async function uploadToTikTok(browser, mp4Path, meta, opts) {
 
   const postBtnSel =
     'button[data-e2e="post_video_button"]:not([disabled]):not([aria-disabled="true"])';
-  console.log('  Waiting for TikTok video upload check to complete...');
+  console.log('  Waiting for TikTok Post button to become enabled...');
   await page.waitForSelector(postBtnSel, {timeout: 120000});
+  await page.evaluate((sel) => {
+    document.querySelector(sel)?.scrollIntoView({block: 'center'});
+  }, postBtnSel);
 
   if (opts.publish) {
     console.log('  Clicking Post on TikTok...');
+    await sleep(500);
     await page.click(postBtnSel);
-    await sleep(5000);
+
+    // Wait up to 30s for either redirect to /tiktokstudio/content or the
+    // "Continue to post? ... Post now" modal (must use a trusted Puppeteer
+    // ElementHandle.click() so TikTok fires /tiktok/web/project/post/v1/)
+    const started = Date.now();
+    while (Date.now() - started < 30000) {
+      if (page.url().includes('/content')) break;
+      const modalBtns = await page.$$(
+        '.TUXModal button, [role="dialog"] button'
+      );
+      for (const btn of modalBtns) {
+        const txt = await btn.evaluate((el) => el.innerText.trim());
+        if (/^post now$/i.test(txt)) {
+          console.log('  Confirming "Post now" modal on TikTok...');
+          await btn.click();
+          await sleep(2000);
+          break;
+        }
+      }
+      await sleep(1000);
+    }
+    await sleep(4000);
     console.log('  TikTok video posted!');
   } else {
     console.log(
