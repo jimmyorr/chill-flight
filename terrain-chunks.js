@@ -2022,12 +2022,26 @@ function meadowRoadStartY() {
 // be kilometres long, so neighbouring chunks share the walk
 const abutmentCache = new Map();
 const MAX_SPAN_SAMPLES = 400;
+const roadHeightCache = new Map();
+const MAX_ROAD_HEIGHT_CACHE = 8000;
+let roadHeightSeed = null;
 
 // Highway n's planned height and the terrain under it at world `along` wa
 // (its centre `across` at roadC)
-function roadHeightAt(n, wa, roadC = ChillFlightLogic.roadCenter(n, wa)) {
-  const {x, z} = ChillFlightLogic.roadPoint(n, wa, roadC);
-  return {
+function roadHeightAt(n, wa, roadC) {
+  if (roadHeightSeed !== ChillFlightLogic.WORLD_SEED) {
+    roadHeightCache.clear();
+    roadHeightSeed = ChillFlightLogic.WORLD_SEED;
+  }
+  const key = n * 1e8 + wa;
+  const cached = roadHeightCache.get(key);
+  if (cached !== undefined && (roadC === undefined || roadC === cached.roadC)) {
+    return cached;
+  }
+  const rc = roadC ?? ChillFlightLogic.roadCenter(n, wa);
+  if (cached !== undefined && rc === cached.roadC) return cached;
+  const {x, z} = ChillFlightLogic.roadPoint(n, wa, rc);
+  const sample = {
     rawY: ChillFlightLogic.highwayY(
       x,
       z,
@@ -2036,7 +2050,11 @@ function roadHeightAt(n, wa, roadC = ChillFlightLogic.roadCenter(n, wa)) {
       null
     ),
     actualTerrainH: getElevation(x, z),
+    roadC: rc,
   };
+  if (roadHeightCache.size >= MAX_ROAD_HEIGHT_CACHE) roadHeightCache.clear();
+  roadHeightCache.set(key, sample);
+  return sample;
 }
 
 // Is the deck there a bridge (well above the ground)?
