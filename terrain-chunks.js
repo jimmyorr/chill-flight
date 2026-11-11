@@ -1,5 +1,7 @@
 // --- GLOBAL INSTANCING ARCHITECTURE ---
 import * as THREE from 'three';
+import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import {joinColored} from './low-poly.js';
 import {breakwaterTopIn} from './breakwater-logic.js';
 import {createWaterfall} from './waterfalls.js';
 import {scene} from './scene.js';
@@ -440,6 +442,7 @@ class GlobalInstanceManager {
     this._planeChunkZ = NaN;
     this._nextChunkId = 0;
     this._configVersion = 0;
+    this._maxNearRadius = 0;
     this._maxFarRadius = 0;
     this._tileSigs = new Map();
     this._shadowSig = '';
@@ -501,6 +504,7 @@ class GlobalInstanceManager {
       shadowMesh,
       shadowShare: null,
       screenSized: false,
+      nearRadius: null,
       farRadius: Infinity,
       tiles: new Map(), // tile key (+ '|far') -> on-screen InstancedMesh
     });
@@ -521,14 +525,23 @@ class GlobalInstanceManager {
   setFarGeometry(
     type,
     farGeo,
-    {screenSized = false, farRadius = Infinity, farShare = null} = {}
+    {
+      screenSized = false,
+      nearRadius = null,
+      farRadius = Infinity,
+      farShare = null,
+    } = {}
   ) {
     Object.assign(this.types.get(type), {
       farGeo,
       screenSized,
+      nearRadius,
       farRadius,
       farShare,
     });
+    if (nearRadius !== null && nearRadius > this._maxNearRadius) {
+      this._maxNearRadius = nearRadius;
+    }
     if (Number.isFinite(farRadius) && farRadius > this._maxFarRadius) {
       this._maxFarRadius = farRadius;
     }
@@ -649,6 +662,7 @@ class GlobalInstanceManager {
     const maxLodRadius = Math.max(
       TREE_LOD_CHUNK_RADIUS,
       detailRadius,
+      this._maxNearRadius,
       this._maxFarRadius
     );
     const sigPrefix = `${this._configVersion}|${state._enableObjects ? 1 : 0}|${detailRadius}|`;
@@ -749,9 +763,9 @@ class GlobalInstanceManager {
           data._tileSlot = 0;
           syncDrawnAt(data);
           if (!data.count || chunkDistance > typeInfo.farRadius) continue;
-          const nearRadius = typeInfo.screenSized
-            ? detailRadius
-            : TREE_LOD_CHUNK_RADIUS;
+          const nearRadius =
+            typeInfo.nearRadius ??
+            (typeInfo.screenSized ? detailRadius : TREE_LOD_CHUNK_RADIUS);
           const useFar =
             chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
           if (useFar && typeInfo.farGeo === null) continue; // not drawn far away
@@ -1455,12 +1469,228 @@ const shadowGable = (geo) => {
   return fitToBounds(shape, geo);
 };
 
+const TOWER_FAR_CHUNK_RADIUS = 3;
+function geometryBandColor(geo, y0Frac, y1Frac) {
+  const pos = geo.attributes.position;
+  const col = geo.attributes.color;
+  if (!col) return [1, 1, 1];
+  geo.computeBoundingBox();
+  const {min, max} = geo.boundingBox;
+  const h = max.y - min.y || 1;
+  const y0 = min.y + h * y0Frac;
+  const y1 = min.y + h * y1Frac;
+  const index = geo.index;
+  const n = index ? index.count : pos.count;
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const tri = new THREE.Triangle();
+  let r = 0;
+  let g = 0;
+  let bl = 0;
+  let wSum = 0;
+  for (let i = 0; i < n; i += 3) {
+    const i0 = index ? index.getX(i) : i;
+    const i1 = index ? index.getX(i + 1) : i + 1;
+    const i2 = index ? index.getX(i + 2) : i + 2;
+    a.fromBufferAttribute(pos, i0);
+    b.fromBufferAttribute(pos, i1);
+    c.fromBufferAttribute(pos, i2);
+    const cy = (a.y + b.y + c.y) / 3;
+    if (cy < y0 || cy > y1) continue;
+    tri.set(a, b, c);
+    const area = tri.getArea();
+    if (area <= 0) continue;
+    wSum += area;
+    r += ((col.getX(i0) + col.getX(i1) + col.getX(i2)) / 3) * area;
+    g += ((col.getY(i0) + col.getY(i1) + col.getY(i2)) / 3) * area;
+    bl += ((col.getZ(i0) + col.getZ(i1) + col.getZ(i2)) / 3) * area;
+  }
+  if (wSum <= 0) return geometryAverageColor(geo);
+  return [r / wSum, g / wSum, bl / wSum];
+}
+function taperedBox(wxTop, wzTop, wxBot, wzBot, y0, y1) {
+  const g = new THREE.CylinderGeometry(1, 1, y1 - y0, 4, 1, true);
+  g.rotateY(Math.PI / 4);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const isTop = p.getY(i) > 0;
+    p.setX(i, p.getX(i) * Math.SQRT2 * (isTop ? wxTop : wxBot));
+    p.setZ(i, p.getZ(i) * Math.SQRT2 * (isTop ? wzTop : wzBot));
+  }
+  g.translate(0, (y0 + y1) * 0.5, 0);
+  return g;
+}
+function pyramidRoof(wxBot, wzBot, y0, y1) {
+  const g = new THREE.ConeGeometry(1, y1 - y0, 4, 1, false);
+  g.rotateY(Math.PI / 4);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    p.setX(i, p.getX(i) * Math.SQRT2 * wxBot);
+    p.setZ(i, p.getZ(i) * Math.SQRT2 * wzBot);
+  }
+  g.translate(0, (y0 + y1) * 0.5, 0);
+  return g;
+}
+function towerFarGeo(type, geo) {
+  geo.computeBoundingBox();
+  const {min, max} = geo.boundingBox;
+  const cx = (min.x + max.x) * 0.5;
+  const cz = (min.z + max.z) * 0.5;
+  const hx = (max.x - min.x) * 0.5;
+  const hz = (max.z - min.z) * 0.5;
+  const y0 = min.y;
+  const y1 = max.y;
+  const h = y1 - y0;
+  if (type === 'castleRuins') {
+    const t1 = new THREE.CylinderGeometry(5, 6.5, h, 6, 1, false).translate(
+      0,
+      y0 + h * 0.5,
+      0
+    );
+    const keepH = Math.min(22.5, h);
+    const keep = new THREE.BoxGeometry(16, keepH, 19).translate(
+      12,
+      y0 + keepH * 0.5,
+      -5.5
+    );
+    const t2H = Math.min(20, h);
+    const t2 = new THREE.CylinderGeometry(4.5, 6, t2H, 6, 1, false).translate(
+      24,
+      y0 + t2H * 0.5,
+      4
+    );
+    const out = mergeGeometries([t1, keep, t2]);
+    out.computeBoundingBox();
+    out.computeBoundingSphere();
+    return out;
+  }
+  if (type === 'fireLookout') {
+    const yCab0 = y0 + h * 0.72;
+    const yCab1 = y0 + h * 0.9;
+    const legs = taperedBox(
+      hx * 0.52,
+      hz * 0.52,
+      hx * 0.95,
+      hz * 0.95,
+      y0,
+      yCab0
+    ).translate(cx, 0, cz);
+    const cab = new THREE.BoxGeometry(
+      hx * 1.55,
+      yCab1 - yCab0,
+      hz * 1.55
+    ).translate(cx, (yCab0 + yCab1) * 0.5, cz);
+    const roof = pyramidRoof(hx * 0.92, hz * 0.92, yCab1, y1).translate(
+      cx,
+      0,
+      cz
+    );
+    return joinColored([
+      [legs, geometryBandColor(geo, 0, 0.72)],
+      [cab, geometryBandColor(geo, 0.72, 0.9)],
+      [roof, geometryBandColor(geo, 0.9, 1)],
+    ]);
+  }
+  if (type === 'waterTower') {
+    const r = Math.max(hx, hz);
+    const yTank0 = y0 + h * 0.56;
+    const yTank1 = y0 + h * 0.84;
+    const legs = new THREE.CylinderGeometry(
+      r * 0.48,
+      r * 0.95,
+      yTank0 - y0,
+      6,
+      1,
+      true
+    ).translate(cx, (y0 + yTank0) * 0.5, cz);
+    const tank = new THREE.CylinderGeometry(
+      r * 0.78,
+      r * 0.78,
+      yTank1 - yTank0,
+      6,
+      1,
+      false
+    ).translate(cx, (yTank0 + yTank1) * 0.5, cz);
+    const roof = new THREE.ConeGeometry(
+      r * 0.82,
+      y1 - yTank1,
+      6,
+      1,
+      true
+    ).translate(cx, (yTank1 + y1) * 0.5, cz);
+    return joinColored([
+      [legs, geometryBandColor(geo, 0, 0.56)],
+      [tank, geometryBandColor(geo, 0.56, 0.84)],
+      [roof, geometryBandColor(geo, 0.84, 1)],
+    ]);
+  }
+  if (type === 'windpump') {
+    const yHead = y0 + h * 0.79;
+    const legs = taperedBox(
+      hx * 0.25,
+      hz * 0.25,
+      hx * 0.9,
+      hz * 0.9,
+      y0,
+      yHead
+    ).translate(cx, 0, cz);
+    const wheelH = y1 - yHead;
+    const wheel = new THREE.BoxGeometry(hx * 1.65, wheelH, hz * 0.28).translate(
+      cx,
+      (yHead + y1) * 0.5,
+      cz
+    );
+    const vane = new THREE.BoxGeometry(
+      hx * 0.26,
+      wheelH * 0.62,
+      hz * 1.65
+    ).translate(cx, yHead + wheelH * 0.42, cz);
+    const headCol = geometryBandColor(geo, 0.79, 1);
+    return joinColored([
+      [legs, geometryBandColor(geo, 0, 0.79)],
+      [wheel, headCol],
+      [vane, headCol],
+    ]);
+  }
+  const r = Math.max(hx, hz);
+  const yCap0 = y0 + h * 0.68;
+  const yFin0 = y0 + h * 0.9;
+  const body = new THREE.CylinderGeometry(
+    r * 0.66,
+    r * 0.98,
+    yCap0 - y0,
+    6,
+    1,
+    true
+  ).translate(cx, (y0 + yCap0) * 0.5, cz);
+  const cap = new THREE.ConeGeometry(
+    r * 0.72,
+    yFin0 - yCap0,
+    6,
+    1,
+    false
+  ).translate(cx, (yCap0 + yFin0) * 0.5, cz);
+  const finial = new THREE.ConeGeometry(
+    r * 0.12,
+    y1 - yFin0,
+    4,
+    1,
+    true
+  ).translate(cx, (yFin0 + y1) * 0.5, cz);
+  return joinColored([
+    [body, geometryBandColor(geo, 0, 0.68)],
+    [cap, geometryBandColor(geo, 0.68, 0.9)],
+    [finial, geometryBandColor(geo, 0.9, 1)],
+  ]);
+}
+
 // Straw huts, barns, monasteries, castle ruins and windmills, one
 // material each (collectStructures in terrain-gen.js). Past
 // TREE_LOD_CHUNK_RADIUS the farm buildings, huts and chapels draw as the same
 // simple shapes they cast shadows with: a barn is a few pixels there. Castle
-// ruins and windmills keep their full models, as landmarks.
-const FULL_DETAIL_FAR = new Set(['castleRuins', 'windmillBase']);
+// ruins and windmills switch to custom skyline models past TOWER_FAR_CHUNK_RADIUS.
+const TOWER_FAR_TYPES = new Set(['castleRuins', 'windmillBase']);
 for (const [type, geo, mat, round] of [
   ['strawHutBody', strawHutBodyGeo, strawHutMat, true],
   ['strawHutRoof', strawHutRoofGeo, strawHutMat, true],
@@ -1488,7 +1718,11 @@ for (const [type, geo, mat, round] of [
         ? shadowGable(geo)
         : shadowBox(geo);
     globalInstancer.setShadowGeometry(type, proxy);
-    if (!FULL_DETAIL_FAR.has(type)) {
+    if (TOWER_FAR_TYPES.has(type)) {
+      globalInstancer.setFarGeometry(type, towerFarGeo(type, geo), {
+        nearRadius: TOWER_FAR_CHUNK_RADIUS,
+      });
+    } else {
       globalInstancer.setFarGeometry(type, proxy);
     }
   }
@@ -1515,6 +1749,9 @@ for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_TOWERS))) {
       type,
       type === 'fireLookout' ? shadowBox(geo) : shadowCylinder(geo)
     );
+    globalInstancer.setFarGeometry(type, towerFarGeo(type, geo), {
+      nearRadius: TOWER_FAR_CHUNK_RADIUS,
+    });
   }
 }
 // The campers' trailers: one part each, too small to see far off
@@ -1543,6 +1780,11 @@ globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =
 // single far canopy mesh and a single far trunk mesh per tile.
 const farCanopy = (geo) =>
   fitToBounds(new THREE.IcosahedronGeometry(1, 0), geo); // 20 triangles
+breakwaterRockGeos.forEach((geo, i) =>
+  globalInstancer.setFarGeometry('breakwaterRock' + i, farCanopy(geo), {
+    nearRadius: TOWER_FAR_CHUNK_RADIUS,
+  })
+);
 const farTrunk = (geo) => {
   geo.computeBoundingBox();
   const h = geo.boundingBox.max.y * 0.75;
