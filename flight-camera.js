@@ -134,6 +134,7 @@ const _furledSail = new THREE.Matrix4();
 const BIRD_STARTLE_RADIUS = 90;
 const BIRD_STARTLE_DISTANCE = 60;
 const BIRD_STARTLE_TIME = 4;
+const GOOSE_GROUND_INTERVAL = 0.25;
 const _birdAway = new THREE.Vector3();
 
 // How locked the follow camera is to the plane in aerobatics, 0 to 1. Rolls
@@ -1077,8 +1078,17 @@ export function updateFlightCamera(delta, nowTime) {
             bird.position.add(data.startleOffset);
           }
         } else if (data.type === 'goose') {
-          // Prevent geese from flying into the volcano or terrain
-          const groundY = getElevation(bird.position.x, bird.position.z);
+          // Prevent geese from flying into the volcano or terrain; refresh
+          // 4 times a second, staggered by each flock's heading
+          const phase = (((bird.rotation.y / (Math.PI * 2)) % 1) + 1) % 1;
+          const slot = Math.floor(
+            clock.getElapsed() / GOOSE_GROUND_INTERVAL + phase
+          );
+          if (slot !== data.groundSlot) {
+            data.groundSlot = slot;
+            data.groundY = getElevation(bird.position.x, bird.position.z);
+          }
+          const groundY = data.groundY;
           const minClearance = 250;
           if (bird.position.y < groundY + minClearance) {
             bird.position.y +=
