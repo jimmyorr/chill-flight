@@ -3,7 +3,9 @@
 // plane: its back breaks the water with a blow of mist, it rolls along for a
 // few seconds, then arches and dives, lifting its tail out of the water. One
 // whale at a time, one mesh, so it costs a single draw call while it's up.
+// Hidden when ?traffic=0 is set.
 import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
 import {scene} from './scene.js';
 import {state} from './state.js';
 import {WATER_LEVEL, createMaterial} from './constants.js';
@@ -154,6 +156,14 @@ const smooth = (t) => t * t * (3 - 2 * t);
 const ramp = (t, a, b) => smooth(Math.max(0, Math.min(1, (t - a) / (b - a))));
 
 export function updateWhales(delta) {
+  if (ChillFlightLogic.TRAFFIC_PARAM === false) {
+    if (whale.visible) {
+      age = -1;
+      whale.visible = false;
+      wait = WHALE_FIRST_WAIT;
+    }
+    return;
+  }
   if (state.isPaused || delta <= 0) return;
   const p = planeGroup.position;
   if (age < 0) {

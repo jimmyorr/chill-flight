@@ -2,7 +2,7 @@
 // Usage: npm run audit:render  env: PRESET=mid VIEWS=a,b W=844 H=390 QUERY=...
 // (views in scripts/views.js; GAME_URL points at another dev server)
 import {launch, openGame} from './dev-browser.js';
-import {VIEWS, auditQuery} from './views.js';
+import {VIEWS, auditQuery, settleAuditView} from './views.js';
 
 const names = process.env.VIEWS
   ? process.env.VIEWS.split(',')
@@ -17,8 +17,9 @@ for (const name of names) {
   const page = await openGame(
     browser,
     auditQuery(name, {preset, extra: process.env.QUERY || ''}),
-    {width: W, height: H, scale: 1, settleMs: 6000}
+    {width: W, height: H, scale: 1, settleMs: 2000}
   );
+  await settleAuditView(page);
   out[name] = await page.evaluate(async () => {
     const {state} = await window.gameModule('state.js');
     const {scene} = await window.gameModule('scene.js');

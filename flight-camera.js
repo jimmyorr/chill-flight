@@ -1205,27 +1205,32 @@ export function updateFlightCamera(delta, nowTime) {
     typeof state.daySpeedMultiplier !== 'undefined' &&
     state.daySpeedMultiplier === 0;
 
+  const boatElapsed = isTimePaused ? 0 : clock.getElapsed();
+
   if (typeof _frameCount === 'undefined') _frameCount = 0;
   _frameCount++;
 
   activeWatercraft.forEach((chunkGroup) => {
     if (isTimePaused && chunkGroup.userData.boatsInitialized) return;
-    chunkGroup.userData.boatsInitialized = true;
 
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
     const distSq = checkPos.distanceToSquared(camera.position);
 
-    // Completely cull animation updates beyond 6000 units
-    if (distSq > 36000000) return;
+    if (chunkGroup.userData.boatsInitialized) {
+      // Completely cull animation updates beyond 6000 units
+      if (distSq > 36000000) return;
 
-    // Throttle GPU updates for distant boats (between 2000 and 6000 units)
-    if (distSq > 4000000) {
-      const chunkHash =
-        Math.abs(chunkGroup.userData.chunkX + chunkGroup.userData.chunkZ) || 0;
-      if ((_frameCount + chunkHash) % 30 !== 0) {
-        return;
+      // Throttle GPU updates for distant boats (between 2000 and 6000 units)
+      if (distSq > 4000000) {
+        const chunkHash =
+          Math.abs(chunkGroup.userData.chunkX + chunkGroup.userData.chunkZ) ||
+          0;
+        if ((_frameCount + chunkHash) % 30 !== 0) {
+          return;
+        }
       }
     }
+    chunkGroup.userData.boatsInitialized = true;
 
     // Animate Sailboats (Drifting & Bobbing)
     if (
@@ -1257,10 +1262,10 @@ export function updateFlightCamera(delta, nowTime) {
 
         let dx = 0;
         let dz = 0;
-        let yawOffset = Math.sin(clock.getElapsed() * 0.4 + driftPhase) * 0.05; // Gentle sway
+        let yawOffset = Math.sin(boatElapsed * 0.4 + driftPhase) * 0.05; // Gentle sway
 
         if (driftRadius > 0) {
-          const t = clock.getElapsed() * driftSpeed + driftPhase;
+          const t = boatElapsed * driftSpeed + driftPhase;
           dx = Math.sin(t * 1.6) * driftRadius;
           dz = Math.cos(t * 1.0) * driftRadius;
 
@@ -1278,7 +1283,7 @@ export function updateFlightCamera(delta, nowTime) {
         pos.worldZ = checkPos.z + pos.z + dz;
 
         // Bobbing & Wave dynamics (Roll/Pitch)
-        const bobTime = clock.getElapsed() * 1.2 + driftPhase;
+        const bobTime = boatElapsed * 1.2 + driftPhase;
         const dy = Math.sin(bobTime) * 0.15;
         const roll = Math.sin(bobTime * 0.8) * 0.04;
         const pitch = Math.cos(bobTime * 1.1) * 0.03;
@@ -1384,7 +1389,7 @@ export function updateFlightCamera(delta, nowTime) {
         const patrolSpeed = 0.05 + _boatHash(index, 8) * 0.03;
         const patrolPhase = _boatHash(index, 9) * Math.PI * 2;
 
-        const t = clock.getElapsed() * patrolSpeed + patrolPhase;
+        const t = boatElapsed * patrolSpeed + patrolPhase;
         const dx = Math.cos(t) * patrolRadius;
         const dz = Math.sin(t) * patrolRadius;
 
@@ -1393,7 +1398,7 @@ export function updateFlightCamera(delta, nowTime) {
         pos.worldZ = checkPos.z + pos.z + dz;
 
         // Bobbing & Wave dynamics (Roll/Pitch)
-        const bobTime = clock.getElapsed() * 0.8 + patrolPhase;
+        const bobTime = boatElapsed * 0.8 + patrolPhase;
         const dy = Math.sin(bobTime) * 0.25;
         const roll = Math.sin(bobTime * 0.7) * 0.03;
         const pitch = Math.cos(bobTime * 0.9) * 0.02;

@@ -9,24 +9,13 @@
 // the versions you compare: results drift by ~0.5 ms over minutes.
 // Usage: npm run bench [-- label]   env: VIEWS=land,sunset  PRESET=mid  QUERY=a=1&b=2
 import {launch, openGame, requireGpu} from './dev-browser.js';
+import {auditQuery, settleAuditView} from './views.js';
 
 requireGpu('npm run bench');
 
 const label = process.argv[2] || 'bench';
-const VIEWS = {
-  // Grassland and hills from the start, midday
-  land: 'x=0&y=413&z=0&heading=45&pitch=-4&tod=0.614&clouds=0.2',
-  // Open sea into the setting sun (water and sky heavy)
-  sunset: 'x=30000&y=420&z=3000&heading=-90&pitch=-3&tod=0.735&clouds=0.45',
-  // Mountains toward the first northern range
-  mtn: 'x=-2000&y=600&z=-2500&heading=20&pitch=-3&tod=0.5&clouds=0.3',
-  // Low over a forest, looking south (the old spot, X -6000 Z 4000, ended up
-  // inside the volcano's slopes)
-  forest: 'x=-3000&y=330&z=-6000&heading=160&pitch=-8&tod=0.45&clouds=0.3',
-};
-const names = process.env.VIEWS
-  ? process.env.VIEWS.split(',')
-  : Object.keys(VIEWS);
+const DEFAULT_VIEWS = ['land', 'sunset', 'mtn', 'forest'];
+const names = process.env.VIEWS ? process.env.VIEWS.split(',') : DEFAULT_VIEWS;
 const preset = process.env.PRESET || 'mid';
 
 const browser = await launch();
@@ -34,9 +23,10 @@ const results = {};
 for (const name of names) {
   const page = await openGame(
     browser,
-    `freecam=true&seed=20260928&timeSpeed=0&weather=none&preset=${preset}&${VIEWS[name]}${process.env.QUERY ? `&${process.env.QUERY}` : ''}`,
-    {width: 1440, height: 900, scale: 2}
+    auditQuery(name, {preset, extra: process.env.QUERY || ''}),
+    {width: 1440, height: 900, scale: 2, settleMs: 2000}
   );
+  await settleAuditView(page);
   results[name] = await page.evaluate(async () => {
     const {state} = await window.gameModule('state.js');
     const {scene} = await window.gameModule('scene.js');

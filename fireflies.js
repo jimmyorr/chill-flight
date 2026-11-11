@@ -212,6 +212,10 @@ function amountNow() {
 }
 
 export function updateFireflies() {
+  if (ChillFlightLogic.TRAFFIC_PARAM === false) {
+    if (points) points.visible = false;
+    return;
+  }
   const preset = state.graphicsPreset;
   if (!points || points.userData.preset !== preset) {
     if (points) {

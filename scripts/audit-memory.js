@@ -3,7 +3,7 @@
 // Usage: npm run audit:memory  env: VIEWS=land,swamp PRESET=mid W=844 H=390
 // QUERY=... (views in scripts/views.js; GAME_URL points at another dev server)
 import {launch, openGame} from './dev-browser.js';
-import {auditQuery} from './views.js';
+import {auditQuery, settleAuditView} from './views.js';
 
 const names = (process.env.VIEWS || 'land').split(',');
 const preset = process.env.PRESET || 'mid';
@@ -16,8 +16,9 @@ for (const name of names) {
   const page = await openGame(
     browser,
     auditQuery(name, {preset, extra: process.env.QUERY || ''}),
-    {width: W, height: H, scale: 1, settleMs: 6000}
+    {width: W, height: H, scale: 1, settleMs: 2000}
   );
+  await settleAuditView(page);
   out[name] = await page.evaluate(async () => {
     const {scene} = await window.gameModule('scene.js');
     const tc = await window.gameModule('terrain-chunks.js');

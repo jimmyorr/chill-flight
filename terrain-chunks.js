@@ -4523,81 +4523,83 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     }
   }
 
-  workerData.chunkProps.birds.forEach((bData) => {
-    if (bData.type === 'seagull') {
-      const seagull = assembleSeagull(bData.scale);
-      seagull.position.set(bData.x, bData.y, bData.z);
+  if (ChillFlightLogic.TRAFFIC_PARAM !== false) {
+    workerData.chunkProps.birds.forEach((bData) => {
+      if (bData.type === 'seagull') {
+        const seagull = assembleSeagull(bData.scale);
+        seagull.position.set(bData.x, bData.y, bData.z);
 
-      seagull.userData.type = 'seagull';
-      seagull.userData.speed = 0.5;
-      seagull.userData.circleSpeed = bData.circleSpeed;
-      seagull.userData.circleRadius = bData.circleRadius;
-      seagull.userData.circleCenter = new THREE.Vector3(
-        bData.circleCenter.x,
-        bData.circleCenter.y,
-        bData.circleCenter.z
-      );
-      seagull.userData.angle = bData.angle;
-      seagull.userData.flapPhase = bData.flapPhase;
-      seagull.userData.flapSpeed = bData.flapSpeed;
-      seagull.userData.flapDuration = bData.flapDuration;
-      seagull.userData.soarDuration = bData.soarDuration;
-      seagull.userData.isDiving = false;
-      seagull.userData.diveTimer = bData.diveTimer;
-      seagull.userData.nextDiveWait = bData.nextDiveWait;
+        seagull.userData.type = 'seagull';
+        seagull.userData.speed = 0.5;
+        seagull.userData.circleSpeed = bData.circleSpeed;
+        seagull.userData.circleRadius = bData.circleRadius;
+        seagull.userData.circleCenter = new THREE.Vector3(
+          bData.circleCenter.x,
+          bData.circleCenter.y,
+          bData.circleCenter.z
+        );
+        seagull.userData.angle = bData.angle;
+        seagull.userData.flapPhase = bData.flapPhase;
+        seagull.userData.flapSpeed = bData.flapSpeed;
+        seagull.userData.flapDuration = bData.flapDuration;
+        seagull.userData.soarDuration = bData.soarDuration;
+        seagull.userData.isDiving = false;
+        seagull.userData.diveTimer = bData.diveTimer;
+        seagull.userData.nextDiveWait = bData.nextDiveWait;
 
-      objectsGroup.add(seagull);
-      group.userData.birds.push(seagull);
-    } else if (bData.type === 'hawk') {
-      const hawk = assembleHawk(bData.scale);
-      hawk.position.set(bData.x, bData.y, bData.z);
-      hawk.rotation.y = bData.rotY;
+        objectsGroup.add(seagull);
+        group.userData.birds.push(seagull);
+      } else if (bData.type === 'hawk') {
+        const hawk = assembleHawk(bData.scale);
+        hawk.position.set(bData.x, bData.y, bData.z);
+        hawk.rotation.y = bData.rotY;
 
-      hawk.userData.type = 'hawk';
-      hawk.userData.speed = 0.4;
-      hawk.userData.circleSpeed = bData.circleSpeed;
-      hawk.userData.circleRadius = bData.circleRadius;
-      hawk.userData.circleCenter = new THREE.Vector3(
-        bData.circleCenter.x,
-        bData.circleCenter.y,
-        bData.circleCenter.z
-      );
-      hawk.userData.angle = bData.angle;
-      hawk.userData.flapPhase = bData.flapPhase;
-      hawk.userData.flapSpeed = bData.flapSpeed;
-      hawk.userData.flapDuration = bData.flapDuration;
-      hawk.userData.soarDuration = bData.soarDuration;
-      hawk.userData.isDiving = false;
+        hawk.userData.type = 'hawk';
+        hawk.userData.speed = 0.4;
+        hawk.userData.circleSpeed = bData.circleSpeed;
+        hawk.userData.circleRadius = bData.circleRadius;
+        hawk.userData.circleCenter = new THREE.Vector3(
+          bData.circleCenter.x,
+          bData.circleCenter.y,
+          bData.circleCenter.z
+        );
+        hawk.userData.angle = bData.angle;
+        hawk.userData.flapPhase = bData.flapPhase;
+        hawk.userData.flapSpeed = bData.flapSpeed;
+        hawk.userData.flapDuration = bData.flapDuration;
+        hawk.userData.soarDuration = bData.soarDuration;
+        hawk.userData.isDiving = false;
 
-      objectsGroup.add(hawk);
-      group.userData.birds.push(hawk);
-    } else if (bData.type === 'goose') {
-      const goose = new THREE.Group();
-      const body = new THREE.Mesh(gooseStaticGeo, gooseStaticMat);
-      const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
-      const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
-      wingL.rotation.y = Math.PI;
-      goose.add(body, wingL, wingR);
-      goose.scale.set(3.5, 3.5, 3.5);
-      goose.userData.wings = [wingL, wingR];
+        objectsGroup.add(hawk);
+        group.userData.birds.push(hawk);
+      } else if (bData.type === 'goose') {
+        const goose = new THREE.Group();
+        const body = new THREE.Mesh(gooseStaticGeo, gooseStaticMat);
+        const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+        const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
+        wingL.rotation.y = Math.PI;
+        goose.add(body, wingL, wingR);
+        goose.scale.set(3.5, 3.5, 3.5);
+        goose.userData.wings = [wingL, wingR];
 
-      goose.position.set(bData.x, bData.y, bData.z);
-      goose.rotation.y = bData.rotY;
+        goose.position.set(bData.x, bData.y, bData.z);
+        goose.rotation.y = bData.rotY;
 
-      goose.userData.type = 'goose';
-      goose.userData.speed = bData.speed;
-      goose.userData.flapPhase = bData.flapPhase;
-      goose.userData.flapSpeed = bData.flapSpeed;
-      goose.userData.flapDuration = bData.flapDuration;
-      goose.userData.soarDuration = bData.soarDuration;
-      goose.userData.isDiving = false;
+        goose.userData.type = 'goose';
+        goose.userData.speed = bData.speed;
+        goose.userData.flapPhase = bData.flapPhase;
+        goose.userData.flapSpeed = bData.flapSpeed;
+        goose.userData.flapDuration = bData.flapDuration;
+        goose.userData.soarDuration = bData.soarDuration;
+        goose.userData.isDiving = false;
 
-      // Not with the chunk's props: those hide past the prop draw distance
-      // from the chunk, and a flock flies far from where it spawned
-      group.add(goose);
-      group.userData.birds.push(goose);
-    }
-  });
+        // Not with the chunk's props: those hide past the prop draw distance
+        // from the chunk, and a flock flies far from where it spawned
+        group.add(goose);
+        group.userData.birds.push(goose);
+      }
+    });
+  }
 
   if (group.userData.birds.length > 0) {
     birdChunks.add(group);

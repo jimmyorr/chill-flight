@@ -648,7 +648,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus and debug panels), for clean screenshots and recordings. The keyboard controls still work.
 - **`music`**: Set to `0` or `1` to turn music off or on for this visit, without changing the saved setting.
 - **`sfx`**: Set to `0` or `1` to turn sound effects off or on for this visit, without changing the saved setting.
-- **`traffic`**: Set to `0` or `1` to turn the other planes and the buggies on the highways off or on for this visit, whether or not zen is on. The promo renders use `0`, so their shots are the same every time.
+- **`traffic`**: Set to `0` or `1` to turn the other planes and the highway vehicles off or on for this visit, whether or not zen is on; `0` also turns off moving wildlife (whales, dolphins, flying birds and fireflies), while zen mode keeps the wildlife. Promo renders, screenshots and render audits use `0`, so their shots and counts are the same every time.
 - **`room`**: A room code to join on load (what an invite link carries, with `seed`). See [Flying together](#flying-together).
 - **`relay`**: Use another relay for flying together, e.g. `relay=ws://localhost:8787` for one running locally with `npm run relay:dev` (or `npx -y wrangler dev` in `relay/`).
 - **`analytics`**: Set to `1` (or include `?analytics` or `?test_analytics`) to force Google Analytics to initialize in local development or preview environments where it is otherwise disabled.
@@ -726,7 +726,7 @@ node scripts/shot.js out.jpg "x=0&y=413&z=0&heading=45&pitch=-4&tod=0.61"
 node scripts/shot.js out.jpg "<view 1>" "<view 2>"   # out-1.jpg, out-2.jpg
 ```
 
-Saves a screenshot of each view (the query takes the game's URL parameters; the free camera and a frozen time of day are the defaults). It prints any page errors and exits with an error if there were some, so it also catches shader compile errors. `SIZE=1600x900`, `SCALE=1` and `SETTLE_MS=4000` set the window size, pixel density and extra wait.
+Saves a screenshot of each view (the query takes the game's URL parameters; the free camera, a frozen time of day, `traffic=0` and `adaptive=0` are the defaults). It prints any page errors and exits with an error if there were some, so it also catches shader compile errors. `SIZE=1600x900`, `SCALE=1` and `SETTLE_MS=4000` set the window size, pixel density and extra wait.
 
 ```bash
 npm run bench [-- label]

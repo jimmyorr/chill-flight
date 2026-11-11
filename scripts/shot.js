@@ -6,7 +6,9 @@
 //     scripts/views.js; anything after & is added to the view)
 // Queries take the game's URL parameters (see README). freecam=true is added
 // so the camera stays where x/y/z/heading/pitch put it; timeSpeed=0 freezes
-// the time of day. Options (env): SIZE=1600x900, SCALE=1, SETTLE_MS=4000.
+// the time of day, traffic=0 hides planes, cars and moving wildlife, and
+// adaptive=0 holds full preset resolution. Options (env): SIZE=1600x900,
+// SCALE=1, SETTLE_MS=4000.
 import {launch, openGame} from './dev-browser.js';
 import {viewQuery} from './views.js';
 
@@ -26,6 +28,8 @@ for (const [i, query] of queries.entries()) {
   const q = new URLSearchParams([viewQuery(name), ...rest].join('&'));
   if (!q.has('freecam')) q.set('freecam', 'true');
   if (!q.has('timeSpeed')) q.set('timeSpeed', '0');
+  if (!q.has('traffic')) q.set('traffic', '0');
+  if (!q.has('adaptive')) q.set('adaptive', '0');
   const page = await openGame(browser, q.toString(), {
     width,
     height,

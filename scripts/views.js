@@ -27,14 +27,46 @@ export function viewQuery(nameOrQuery) {
   return VIEWS[nameOrQuery] ?? nameOrQuery;
 }
 
-// The query an audit opens: frozen time, no weather, the pinned seed, the
-// preset, the view, then any extra parameters (later ones win).
+// The query an audit opens: frozen time, no weather or traffic, full preset
+// quality (no adaptive scaling), the pinned seed, the preset, the view, then
+// any extra parameters (later ones win).
 export function auditQuery(view, {preset = 'mid', extra = ''} = {}) {
   const q = new URLSearchParams(
-    `freecam=true&seed=${AUDIT_SEED}&timeSpeed=0&weather=none&preset=${preset}`
+    `freecam=true&seed=${AUDIT_SEED}&timeSpeed=0&weather=none&traffic=0&adaptive=0&preset=${preset}`
   );
   for (const part of [viewQuery(view), extra]) {
     for (const [k, v] of new URLSearchParams(part)) q.set(k, v);
   }
   return q.toString();
+}
+
+// Moves the plane 30 units below the free camera (out of the shot, while
+// centering prop LOD and the far-terrain ring on the view) and waits until
+// chunks and the far-terrain ring finish loading.
+export async function settleAuditView(page, checkMs = 1000) {
+  await page.evaluate(async (ms) => {
+    const {state} = await window.gameModule('state.js');
+    const {planeGroup} = await window.gameModule('airplane.js');
+    const {camera} = await window.gameModule('sky.js');
+    const tg = await window.gameModule('terrain-geometry.js');
+    const t0 = performance.now();
+    let stable = 0;
+    let last = -1;
+    while (performance.now() - t0 < 300000) {
+      planeGroup.position.set(
+        camera.position.x,
+        camera.position.y - 30,
+        camera.position.z
+      );
+      await new Promise((r) => setTimeout(r, ms));
+      const n = tg.chunks.size;
+      const done =
+        state.chunkQueue.length === 0 &&
+        n === last &&
+        document.body.dataset.farReady === '1';
+      stable = done ? stable + 1 : 0;
+      last = n;
+      if (stable >= 4) break;
+    }
+  }, checkMs);
 }

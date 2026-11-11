@@ -6,7 +6,8 @@
 // random liveries, and show navigation lights at night. Zen mode hides them
 // (zen.js calls setTrafficEnabled), and ?traffic=0/1 sets them for one visit,
 // overriding zen. The buggies on the highways (road-traffic.js) follow the
-// same switch.
+// same switch; ?traffic=0 also hides moving wildlife (whales, dolphins, birds
+// and fireflies) for repeatable renders and benchmarks, while zen keeps them.
 import * as THREE from 'three';
 import {Achievements} from './achievements.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';

@@ -4,8 +4,9 @@
 // the way you are, and take turns leaping clear of the water with a splash.
 // The model is Polyfork's Dolphin (terrain-geometry.js createDolphinModel), a
 // skinned mesh whose spine bones beat the tail as it swims. A few meshes, one
-// draw call each, only while the pod is up.
+// draw call each, only while the pod is up. Hidden when ?traffic=0 is set.
 import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
 import {scene} from './scene.js';
 import {state} from './state.js';
 import {WATER_LEVEL} from './constants.js';
@@ -165,6 +166,13 @@ function swimPose(d, delta, rate) {
 }
 
 export function updateDolphins(delta) {
+  if (ChillFlightLogic.TRAFFIC_PARAM === false) {
+    if (age >= 0) {
+      hidePod();
+      wait = POD_FIRST_WAIT;
+    }
+    return;
+  }
   if (state.isPaused || delta <= 0) return;
   const p = planeGroup.position;
   if (age < 0) {
