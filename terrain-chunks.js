@@ -1768,6 +1768,10 @@ globalInstancer.registerType(
 globalInstancer.setFarGeometry('houseDoor', null);
 globalInstancer.setFarGeometry('houseChimney', null);
 globalInstancer.setFarGeometry('twoStoryChimney', null);
+globalInstancer.setFarGeometry(
+  'houseWindow',
+  new THREE.PlaneGeometry(2, 2.5).translate(0, 0, 0.25)
+);
 
 // Rounded canopies and bushes cast shadows with the same fitted shapes. Palm
 // fronds cast with a flat 7-frond star (14 triangles, both faces), which keeps

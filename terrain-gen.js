@@ -1353,7 +1353,7 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
     const cos = Math.cos(pos.rotY);
     const sin = Math.sin(pos.rotY);
     // A point on the house (lx along the ridge, ly up, lz toward the front)
-    const part = (type, lx, ly, lz, color = null) => {
+    const part = (type, lx, ly, lz, color = null, rotY = pos.rotY) => {
       composeMatrix(
         _matBuffer,
         0,
@@ -1364,7 +1364,7 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
         1,
         1,
         0,
-        pos.rotY,
+        rotY,
         0
       );
       collector.add(type, _matBuffer, color);
@@ -1396,7 +1396,20 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
 
     part('houseDoor', 0, 2.25, 5.1);
     for (const [wx, wy, wz] of windows) {
-      part('houseWindow', wx * sx, wy * sy, wz, _windowPools[pos.poolId]);
+      const winRotY =
+        wz < 0
+          ? pos.rotY + Math.PI
+          : wz > 0
+            ? pos.rotY
+            : pos.rotY + Math.sign(wx) * (Math.PI / 2);
+      part(
+        'houseWindow',
+        wx * sx,
+        wy * sy,
+        wz,
+        _windowPools[pos.poolId],
+        winRotY
+      );
     }
     collector.endProp();
   }
