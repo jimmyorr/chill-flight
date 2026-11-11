@@ -940,18 +940,31 @@ export const ChillFlightLogic = {};
   // one slow field: low values are plains, high ones plateaus (with a
   // steep, wandering edge, the escarpment)
   const PLAINS_FLOOR = 85;
-  const PLATEAU_RISE = 170;
-  function landformAt(x, z, simplex) {
-    const f = cylNoise(x, (nx, ny) =>
+  const PLATEAU_RISE = 300;
+  function landformAt(x, z, simplex, forRoad = false) {
+    const slow = cylNoise(x, (nx, ny) =>
       simplex.noise3D(nx * 0.00006 + 311, z * 0.00006 - 207, ny * 0.00006 + 311)
     );
+    const f = cylNoise(x, (nx, ny) =>
+      simplex.noise3D(nx * 0.0002 - 173, z * 0.0002 + 419, ny * 0.0002 - 173)
+    );
+    const b = cylNoise(x, (nx, ny) =>
+      simplex.noise3D(nx * 0.00018 + 523, z * 0.00018 - 389, ny * 0.00018 + 523)
+    );
+    const dip = smoothRamp(b, -0.18, 0.24);
+    if (forRoad) {
+      return {
+        plains: smoothRamp(-slow, 0.18, 0.38),
+        plateau: smoothRamp(f, -0.12, 0.24) * smoothRamp(b, -0.22, 0.3),
+      };
+    }
     const edge =
       cylNoise(x, (nx, ny) =>
         simplex.noise3D(nx * 0.0008 - 51, z * 0.0008 + 19, ny * 0.0008 - 51)
-      ) * 0.04;
+      ) * 0.055;
     return {
-      plains: smoothRamp(-f, 0.18, 0.38),
-      plateau: smoothRamp(f + edge, 0.3, 0.315),
+      plains: smoothRamp(-slow, 0.18, 0.38),
+      plateau: smoothRamp(f + edge, 0.04, 0.075) * dip,
     };
   }
 
@@ -2846,22 +2859,53 @@ export const ChillFlightLogic = {};
     n += offset;
 
     // --- LANDFORMS ---
-    // A slow field (tens of km across) gives the land broad character
-    // between the mountains: open plains, where the hills settle into
-    // gentle lowland, and plateaus, raised tablelands behind escarpments.
-    // Elsewhere it stays the rolling hills. Land only (not the sea).
-    const landform = landformAt(x, z, simplex);
+    // Cuesta ridges and open plains give the land varied character between
+    // the mountains: open plains, where the hills settle into gentle lowland,
+    // and plateaus behind steep, winding escarpments whose back slopes ease
+    // down into rolling upland. Kept clear of the spawn-to-Falls sightline,
+    // volcano, swamp, alien lands, and airfields. Land only (not the sea).
+    let plateauBoost = 0;
+    const landform = landformAt(x, z, simplex, options.forRoad);
     const onLand = smoothRamp(biome, -0.1, 0.05);
     if (onLand > 0 && (landform.plains > 0 || landform.plateau > 0)) {
       const plains = landform.plains * onLand;
-      const plateau = landform.plateau * onLand;
+      let plateau = landform.plateau * onLand;
+      if (plateau > 0) {
+        plateau *=
+          (1 - alienAt(origX, origZ, simplex)) *
+          (1 - swampFactorAt(origX, origZ, simplex)) *
+          smoothRamp(Math.hypot(x, z + 2400), 3400, 6800) *
+          smoothRamp(Math.hypot(x + 5000, z - 5000), 3000, 6200);
+        for (let i = 0; i < AIRPORTS.length && plateau > 0; i++) {
+          const a = AIRPORTS[i];
+          const adx = origX - a.x;
+          const adz = origZ - a.z;
+          if (Math.abs(adx) < 7200 && Math.abs(adz) < 7200) {
+            const rawD = Math.hypot(adx, adz);
+            if (rawD <= 2200) {
+              plateau = 0;
+            } else {
+              plateau *= smoothRamp(
+                Math.max(rawD, Math.hypot(x - a.x, z - a.z)),
+                2200,
+                6000
+              );
+            }
+          }
+        }
+      }
       let shaped = offset + (n - offset) * (1 - 0.75 * plains);
       shaped += plains * Math.max(0, PLAINS_FLOOR - offset);
-      shaped = _lerp(
-        shaped,
-        offset + PLATEAU_RISE + (shaped - offset) * 0.2,
-        plateau
-      );
+      if (plateau > 0) {
+        const beforePlateau = shaped;
+        const base = offset - Math.max(0, offset - 130) * 0.65;
+        const tableTop = Math.max(
+          shaped,
+          base + PLATEAU_RISE + (shaped - offset) * 0.3
+        );
+        shaped = _lerp(shaped, tableTop, plateau);
+        plateauBoost = shaped - beforePlateau;
+      }
       n = shaped;
     }
 
@@ -3559,7 +3603,13 @@ export const ChillFlightLogic = {};
             Math.min(1, Math.max(0, (totalContribution - 25) / 5))
           );
           if (protect > 0) {
-            n += totalContribution * valleyFactor * protect;
+            const mtnAdd = totalContribution * valleyFactor * protect;
+            if (plateauBoost > 0) {
+              const absorb = Math.min(plateauBoost, mtnAdd * 0.75);
+              n -= absorb;
+              plateauBoost -= absorb;
+            }
+            n += mtnAdd;
           }
         }
       }
@@ -6032,6 +6082,8 @@ export const ChillFlightLogic = {};
   exports.snowWobble = snowWobble;
   exports.desertShift = desertShift;
   exports.swampFactorAt = swampFactorAt;
+  exports.PLATEAU_RISE = PLATEAU_RISE;
+  exports.landformAt = landformAt;
   exports.SALT_PAN_RISE = SALT_PAN_RISE;
   exports.saltPanAt = saltPanAt;
   exports.LAKE_ICE_RISE = LAKE_ICE_RISE;

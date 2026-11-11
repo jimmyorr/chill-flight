@@ -928,5 +928,51 @@ console.log(
 }
 console.log('  Passed: Swamp biome basin and bayou props');
 
+// --- PLATEAU ESCARPMENTS ---
+// Cuesta plateaus rise 300 m behind steep escarpments across the mainland,
+// easing back down on their dip slopes while staying clear of the Falls view.
+{
+  const L = ChillFlightLogic;
+  if (L.PLATEAU_RISE !== 300) {
+    console.error(`FAIL: expected PLATEAU_RISE = 300, got ${L.PLATEAU_RISE}`);
+    process.exit(1);
+  }
+  for (const seed of [20260101, 20261111, 42]) {
+    useSeed(seed);
+    let steepScarps = 0;
+    for (let z = -18000; z <= 22000; z += 500) {
+      for (let x = -32000; x <= -3000; x += 500) {
+        if (L.getBiome(x, z, simplex) < 0.1) continue;
+        const p0 = L.landformAt(x, z, simplex).plateau;
+        const px = L.landformAt(x + 350, z, simplex).plateau;
+        const pz = L.landformAt(x, z + 350, simplex).plateau;
+        if (
+          Math.max(Math.abs(p0 - px), Math.abs(p0 - pz)) * L.PLATEAU_RISE >
+          180
+        ) {
+          steepScarps++;
+        }
+      }
+    }
+    if (steepScarps < 30) {
+      console.error(
+        `FAIL: seed ${seed} has too few steep plateau escarpments (${steepScarps})`
+      );
+      process.exit(1);
+    }
+    const midCorridor = L.getElevation(0, -2400, simplex, constants);
+    if (midCorridor > 260) {
+      console.error(
+        `FAIL: seed ${seed} blocks spawn-to-Falls sightline at (0, -2400) with elev=${midCorridor.toFixed(1)}`
+      );
+      process.exit(1);
+    }
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: 300 m cuesta escarpments recur across the mainland and stay clear of the Falls sightline'
+);
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);
