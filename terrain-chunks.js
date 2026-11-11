@@ -392,6 +392,39 @@ function syncDrawnAt(data) {
   if (data._shadowMesh) drawnAt.push(data._shadowMesh, data._shadowSlot);
 }
 
+function copyScaledMatrices(dstM, dstSlot, srcM, count, share) {
+  const {sx, sy, sz, tx, ty, tz} = share;
+  for (let i = 0; i < count; i++) {
+    const so = i * 16;
+    const doff = (dstSlot + i) * 16;
+    const m0 = srcM[so],
+      m1 = srcM[so + 1],
+      m2 = srcM[so + 2];
+    const m4 = srcM[so + 4],
+      m5 = srcM[so + 5],
+      m6 = srcM[so + 6];
+    const m8 = srcM[so + 8],
+      m9 = srcM[so + 9],
+      m10 = srcM[so + 10];
+    dstM[doff] = m0 * sx;
+    dstM[doff + 1] = m1 * sx;
+    dstM[doff + 2] = m2 * sx;
+    dstM[doff + 3] = 0;
+    dstM[doff + 4] = m4 * sy;
+    dstM[doff + 5] = m5 * sy;
+    dstM[doff + 6] = m6 * sy;
+    dstM[doff + 7] = 0;
+    dstM[doff + 8] = m8 * sz;
+    dstM[doff + 9] = m9 * sz;
+    dstM[doff + 10] = m10 * sz;
+    dstM[doff + 11] = 0;
+    dstM[doff + 12] = m0 * tx + m4 * ty + m8 * tz + srcM[so + 12];
+    dstM[doff + 13] = m1 * tx + m5 * ty + m9 * tz + srcM[so + 13];
+    dstM[doff + 14] = m2 * tx + m6 * ty + m10 * tz + srcM[so + 14];
+    dstM[doff + 15] = srcM[so + 15];
+  }
+}
+
 class GlobalInstanceManager {
   constructor() {
     this.types = new Map();
@@ -466,6 +499,7 @@ class GlobalInstanceManager {
       useColor,
       maxInstances,
       shadowMesh,
+      shadowShare: null,
       screenSized: false,
       farRadius: Infinity,
       tiles: new Map(), // tile key (+ '|far') -> on-screen InstancedMesh
@@ -506,7 +540,18 @@ class GlobalInstanceManager {
   // in 2,048 texels (2 units each), so a small prop's detail can't show in its
   // shadow; a simple shape casts nearly the same one for far fewer triangles.
   setShadowGeometry(type, shadowGeo) {
-    this.types.get(type).shadowMesh.geometry = shadowGeo;
+    const typeInfo = this.types.get(type);
+    if (shadowGeo._shadowShare) {
+      if (typeInfo.shadowMesh) {
+        this.shadowGroup.remove(typeInfo.shadowMesh);
+        typeInfo.shadowMesh.dispose();
+        typeInfo.shadowMesh = null;
+      }
+      typeInfo.shadowShare = shadowGeo._shadowShare;
+    } else {
+      typeInfo.shadowShare = null;
+      typeInfo.shadowMesh.geometry = shadowGeo;
+    }
   }
 
   // Tile mesh for `type` with room for `count` instances, reused if possible.
@@ -765,15 +810,17 @@ class GlobalInstanceManager {
         const instanceData = chunk.userData.instanceData;
         for (const type in instanceData) {
           const typeInfo = this.types.get(type);
-          if (!typeInfo?.shadowMesh) continue;
+          if (!typeInfo?.shadowMesh && !typeInfo?.shadowShare) continue;
           const data = instanceData[type];
           if (!data.count) continue;
-          let parts = shadowParts.get(type);
+          const share = typeInfo.shadowShare;
+          const bucketType = share ? share.targetType : type;
+          let parts = shadowParts.get(bucketType);
           if (!parts) {
             parts = [];
-            shadowParts.set(type, parts);
+            shadowParts.set(bucketType, parts);
           }
-          parts.push(data);
+          parts.push({data, share});
         }
       }
     }
@@ -817,40 +864,17 @@ class GlobalInstanceManager {
                   );
                 }
               } else {
-                const {sx, sy, sz, tx, ty, tz, cr, cg, cb} = share;
-                const srcM = data.matrices;
-                const dstM = mesh.instanceMatrix.array;
+                copyScaledMatrices(
+                  mesh.instanceMatrix.array,
+                  n,
+                  data.matrices,
+                  data.count,
+                  share
+                );
+                const {cr, cg, cb} = share;
                 const srcC = data.colors;
                 const dstC = mesh.instanceColor.array;
                 for (let i = 0; i < data.count; i++) {
-                  const so = i * 16;
-                  const doff = (n + i) * 16;
-                  const m0 = srcM[so],
-                    m1 = srcM[so + 1],
-                    m2 = srcM[so + 2];
-                  const m4 = srcM[so + 4],
-                    m5 = srcM[so + 5],
-                    m6 = srcM[so + 6];
-                  const m8 = srcM[so + 8],
-                    m9 = srcM[so + 9],
-                    m10 = srcM[so + 10];
-                  dstM[doff] = m0 * sx;
-                  dstM[doff + 1] = m1 * sx;
-                  dstM[doff + 2] = m2 * sx;
-                  dstM[doff + 3] = 0;
-                  dstM[doff + 4] = m4 * sy;
-                  dstM[doff + 5] = m5 * sy;
-                  dstM[doff + 6] = m6 * sy;
-                  dstM[doff + 7] = 0;
-                  dstM[doff + 8] = m8 * sz;
-                  dstM[doff + 9] = m9 * sz;
-                  dstM[doff + 10] = m10 * sz;
-                  dstM[doff + 11] = 0;
-                  dstM[doff + 12] = m0 * tx + m4 * ty + m8 * tz + srcM[so + 12];
-                  dstM[doff + 13] = m1 * tx + m5 * ty + m9 * tz + srcM[so + 13];
-                  dstM[doff + 14] =
-                    m2 * tx + m6 * ty + m10 * tz + srcM[so + 14];
-                  dstM[doff + 15] = srcM[so + 15];
                   const co = (n + i) * 3;
                   // Types drawn without instance colours (trunks) leave
                   // theirs at 0: those take the species colour alone
@@ -880,7 +904,7 @@ class GlobalInstanceManager {
       if (!shadowMesh) continue;
       const parts = shadowParts.get(type) || [];
       let total = 0;
-      for (const data of parts) total += data.count;
+      for (const {data} of parts) total += data.count;
       total = Math.min(total, typeInfo.maxInstances);
       if (shadowMesh.instanceMatrix.count < total) {
         const capacity = Math.min(
@@ -899,16 +923,26 @@ class GlobalInstanceManager {
         typeInfo.shadowMesh = shadowMesh = next;
       }
       let n = 0;
-      for (const data of parts) {
+      for (const {data, share} of parts) {
         const numToCopy = Math.min(data.count, typeInfo.maxInstances - n);
         if (numToCopy <= 0) break;
         data._shadowMesh = shadowMesh;
         data._shadowSlot = n;
         syncDrawnAt(data);
-        shadowMesh.instanceMatrix.array.set(
-          data.matrices.subarray(0, numToCopy * 16),
-          n * 16
-        );
+        if (!share) {
+          shadowMesh.instanceMatrix.array.set(
+            data.matrices.subarray(0, numToCopy * 16),
+            n * 16
+          );
+        } else {
+          copyScaledMatrices(
+            shadowMesh.instanceMatrix.array,
+            n,
+            data.matrices,
+            numToCopy,
+            share
+          );
+        }
         n += numToCopy;
       }
       shadowMesh.count = n;
@@ -1362,13 +1396,51 @@ globalInstancer.registerType(
   false
 );
 
-const shadowBox = (geo) => fitToBounds(new THREE.BoxGeometry(2, 2, 2), geo); // 12 triangles
+for (const [shadowType, unitGeo] of [
+  ['shadowBox', new THREE.BoxGeometry(2, 2, 2)],
+  ['shadowCylinder', new THREE.CylinderGeometry(1, 1, 2, 8, 1, true)],
+  ['shadowCone', new THREE.ConeGeometry(1, 2, 8, 1, false)],
+]) {
+  globalInstancer.registerType(shadowType, unitGeo, houseTintMat, 100000);
+  globalInstancer.setFarGeometry(shadowType, null);
+}
+const sharedShadow = (targetType, shape, geo) => {
+  const proxy = fitToBounds(shape, geo);
+  const box = geo.boundingBox;
+  const center = box.getCenter(new THREE.Vector3());
+  const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+  proxy._shadowShare = {
+    targetType,
+    sx: half.x,
+    sy: half.y,
+    sz: half.z,
+    tx: center.x,
+    ty: center.y,
+    tz: center.z,
+  };
+  return proxy;
+};
+const shadowBox = (geo) =>
+  sharedShadow('shadowBox', new THREE.BoxGeometry(2, 2, 2), geo); // 12 triangles
 const shadowCylinder = (geo) =>
-  fitToBounds(new THREE.CylinderGeometry(1, 1, 2, 8, 1, true), geo); // 16 triangles
+  sharedShadow(
+    'shadowCylinder',
+    new THREE.CylinderGeometry(1, 1, 2, 8, 1, true),
+    geo
+  ); // 16 triangles
 // A round roof (straw hut, silo dome): a cone, closed on top unlike the
 // open-ended cylinder, which looks hollow from above far away (16 triangles)
 const shadowCone = (geo) =>
-  fitToBounds(new THREE.ConeGeometry(1, 2, 8, 1, false), geo);
+  sharedShadow('shadowCone', new THREE.ConeGeometry(1, 2, 8, 1, false), geo);
+for (const [type, geo] of [
+  ['houseBody', houseBodyGeo],
+  ['houseChimney', houseChimneyGeo],
+  ['twoStoryBody', twoStoryBodyGeo],
+  ['twoStoryChimney', twoStoryChimneyGeo],
+  ['iceHutBody', iceHutGeos.body],
+]) {
+  globalInstancer.setShadowGeometry(type, shadowBox(geo));
+}
 // A gable roof: a box whose top edges meet along the longer side (8 triangles)
 const shadowGable = (geo) => {
   geo.computeBoundingBox();
