@@ -1939,13 +1939,12 @@ export const ChillFlightLogic = {};
   const CANYON_TIER_HEIGHT = (CANYON_PLATEAU - 40 - 14) / CANYON_TIERS;
 
   // --- THE FALLS (landmark, north of spawn) ---
-  // A table mountain standing in a lake, its sheer walls about 380 units
-  // tall. A stream runs south down a winding valley across the top, from a
-  // pond in a hollow, and falls from the back of a round bay cut into the
-  // south wall (facing spawn) into the lake, with room to fly between the
-  // falling water and the rock. terrain-gen.js draws the fall, stream and pond at these points.
-  // fallsAt returns [height, weight] for a point in unwarped world
-  // coordinates; weight 0 leaves the terrain as it was.
+  // An asymmetric cuesta headland rising to sheer south-southeast and east
+  // escarpments (~360 units above sea level) while tilting gently down a
+  // northern dip slope and tapering west-northwest into the 1N foothills.
+  // A stream winds south from a pond hollow and leaps from a cove-warped bay
+  // at (0, -4500) into a plunge tarn/bay, with room to fly behind the curtain.
+  // fallsAt returns the blended height for unwarped world coordinates.
   const FALLS_X = 0;
   const FALLS_Z = -4750;
   // The plane starts at spawn turned this far (radians) north-west, so the
@@ -1958,13 +1957,17 @@ export const ChillFlightLogic = {};
     );
     return placed ? 0 : SPAWN_YAW;
   }
-  const FALLS_RADIUS = 420; // to the top of the walls
-  const FALLS_LIP = 420; // height of the valley floor where it falls off
-  const FALLS_BAY = 200; // the bay's radius
+  const FALLS_RADIUS = 420; // to the south bay's rim from FALLS_Z
+  const FALLS_LIP = 396; // height of the valley floor where it falls off
+  const FALLS_BAY = 205; // the bay's radius
   const FALLS_BAY_DEPTH = 170; // how far it cuts into the wall
   const FALLS_LIP_Z = FALLS_Z + FALLS_RADIUS - FALLS_BAY_DEPTH;
   const FALLS_POND = 260; // how far north of the lip the pond is
   const FALLS_POND_RADIUS = 60;
+  const FALLS_TREND = (14 * Math.PI) / 180; // WNW cuesta trend toward 1N range
+  const FALLS_TREND_CA = Math.cos(FALLS_TREND);
+  const FALLS_TREND_SA = Math.sin(FALLS_TREND);
+  const FALLS_SPUR_LENGTH = 2950;
   // How far east of the lip the valley floor is, s units north of the lip:
   // an S-bend, back in line at the lip and at the pond, and running straight
   // out to the lip
@@ -1972,161 +1975,268 @@ export const ChillFlightLogic = {};
     const bend = Math.sin((Math.PI * Math.min(s, FALLS_POND)) / 130);
     return 40 * bend * Math.min(1, s / 60);
   }
-  // The crags on the top: rock outcrops standing up to about 40 units out
-  // of the grass, kept clear of the stream's valley and the pond. Sets
-  // _fallsTop (see fallsSiteAt).
-  const _fallsTop = {crag: 0, valley: 0};
-  const FALLS_CRAG = 42; // a crag's height
+  // Cuesta spine coordinates (u along the WNW ridge, v across it toward SSW)
+  const _fallsCoords = {u: 0, v: 0};
+  function fallsSpineCoords(x, z, simplex) {
+    const dx = x - FALLS_X;
+    const dz = z - FALLS_Z;
+    const u = -dx * FALLS_TREND_CA - dz * FALLS_TREND_SA;
+    const wander =
+      230 * simplex.noise2D(u * 0.00085 + 301, 17) * smoothRamp(u, 260, 980);
+    _fallsCoords.u = u;
+    _fallsCoords.v = -dx * FALLS_TREND_SA + dz * FALLS_TREND_CA - wander;
+    return _fallsCoords;
+  }
+  // The crown and dip-slope surface: near the lip and pond it holds the stream
+  // valley, pond hollow, and rocky crags; north-northwest across the backslope
+  // and west-northwest toward the 1N range it tapers naturally into wooded
+  // foothills (passing under 200 units across spawn's flight path). Sets _fallsTop.
+  const _fallsTop = {crag: 0, valley: 0, crown: 0};
+  const FALLS_CRAG = 26; // a crag's height
   function fallsTopShape(x, z, simplex) {
     const dx = x - FALLS_X;
     const s = FALLS_LIP_Z - z; // distance north of the lip
+    const {u, v} = fallsSpineCoords(x, z, simplex);
     const across = dx - fallsValleyX(s);
-    // The top: the valley floor climbs gently north from the lip, levelling
-    // off around the pond, and the ground rises gently away from it on
-    // either side
-    let top = FALLS_LIP + 0.1 * Math.min(s, 180);
-    top += 0.01 * Math.min(160, Math.max(0, s - 180));
-    top += 0.1 * Math.max(0, s - 340) + 0.04 * Math.abs(across);
-    // Low rolls away from the valley
-    const valley = Math.exp(-(across * across) / (2 * 90 * 90));
-    top +=
-      10 *
-      (simplex.noise2D(x * 0.006 + 13, z * 0.006 + 13) * 0.5 + 0.5) *
+
+    // Crown plateau around the stream, pond, and headland brink
+    const crownU = 1 - smoothRamp(u, 180, 640);
+    const crownNorth = 1 - smoothRamp(-v, 110, 480);
+    const crown = crownU * crownNorth;
+
+    let crownTop = FALLS_LIP + 0.08 * Math.min(Math.max(0, s), 200);
+    crownTop += 0.02 * Math.min(140, Math.max(0, s - 200));
+    crownTop += 0.025 * Math.min(260, Math.abs(across));
+    const valley =
+      Math.exp(-(across * across) / (2 * 90 * 90)) *
+      smoothRamp(s, -40, 20) *
+      (1 - smoothRamp(s, FALLS_POND + 50, FALLS_POND + 190));
+    crownTop +=
+      8 *
+      (simplex.noise2D(x * 0.005 + 13, z * 0.005 + 13) * 0.5 + 0.5) *
       (1 - valley);
-    // The pond's hollow
     const fromPond = Math.hypot(across, s - FALLS_POND) / FALLS_POND_RADIUS;
-    if (fromPond < 1) top -= 4 * (1 - fromPond * fromPond);
-    // Crags: steep-sided knobs where the noise is high, taller where a
-    // second, slower noise says so
+    if (fromPond < 1) crownTop -= 4.5 * (1 - fromPond * fromPond);
+
     const clear =
-      smoothRamp(Math.abs(across), 80, 140) * smoothRamp(fromPond, 1.5, 2.5);
-    const knob = simplex.noise2D(x * 0.0055 + 211, z * 0.0055 - 87);
+      smoothRamp(Math.abs(across), 85, 150) * smoothRamp(fromPond, 1.5, 2.5);
+    const knob =
+      simplex.noise2D(x * 0.0036 + 211, z * 0.0036 - 87) * 0.7 +
+      simplex.noise2D(x * 0.0075 - 41, z * 0.0075 + 53) * 0.3;
     const crag =
-      smoothRamp(knob, 0.15, 0.4) *
+      smoothRamp(knob, 0.18, 0.46) *
       clear *
-      (0.6 + 0.4 * simplex.noise2D(x * 0.002 - 5, z * 0.002 + 9));
+      crown *
+      (0.65 + 0.35 * simplex.noise2D(x * 0.0018 - 5, z * 0.0018 + 9));
+    crownTop += FALLS_CRAG * crag;
+
+    // Monotonic WNW cuesta taper: drops below 200 by u = 1150 (spawn's path)
+    // and fades gradually into rolling hills and the 1N range without a bulb
+    const westShoulder = smoothRamp(u, 160, 1100);
+    const westTail = smoothRamp(u, 1000, FALLS_SPUR_LENGTH);
+    const tailCrest =
+      136 * (1 - westTail) +
+      34 * (1 - smoothRamp(u, FALLS_SPUR_LENGTH - 500, FALLS_SPUR_LENGTH));
+    const ridgeNoise =
+      (simplex.noise2D(x * 0.0014 - 61, z * 0.0014 + 97) * 24 +
+        simplex.noise2D(x * 0.0034 + 19, z * 0.0034 - 43) * 11) *
+      (1 - crown * 0.85) *
+      (1 - westTail * 0.55);
+    const spineCrest = crownTop * (1 - westShoulder) + tailCrest * westShoulder;
+
+    // Northern dip slope: tilts gently down toward the northern lakes and
+    // valleys, broken by 2D foothill spurs instead of a vertical back cliff
+    const northPast = Math.max(0, -v - (115 - 65 * westShoulder));
+    const northSpan =
+      1120 -
+      540 * westShoulder +
+      220 * simplex.noise2D(x * 0.0013 + 141, z * 0.0013 - 83);
+    const northT = Math.min(1, northPast / Math.max(260, northSpan));
+    const northEase = 1 - northT * northT * (3 - 2 * northT);
+
+    const dipH = Math.max(0, spineCrest + ridgeNoise) * northEase;
     _fallsTop.crag = crag;
-    _fallsTop.valley = valley;
-    return top + FALLS_CRAG * crag;
+    _fallsTop.valley = valley * crown;
+    _fallsTop.crown = crown;
+    return crown > 0 ? dipH + (crownTop - dipH) * crown : dipH;
   }
-  // How far out from the mountain's walls (x, z) is (negative on the top),
-  // around the outside and into the bay, and how much of a shelf the wall
-  // has there (0 to 1, see fallsAt)
+  // Signed distance (world units) outside the south-southeast and east
+  // cuesta headland rim (negative on the plateau and northern dip slope), plus
+  // mid-wall shelf factor _fallsShelf (0 to 1, suppressed beside the bay)
   let _fallsShelf = 0;
   function fallsOut(x, z, simplex) {
     const dx = x - FALLS_X;
-    const dz = z - FALLS_Z;
-    const dist = Math.hypot(dx, dz);
-    // Wobble the outline, except on the south side where the fall is: a
-    // few broad lobes and a finer wobble
-    const ang = Math.atan2(dz, dx);
-    const south = Math.max(0, Math.sin(ang));
-    const keep = 1 - south * south * south * south;
-    const wobble =
-      (simplex.noise2D(Math.cos(ang) * 0.6 + 31, Math.sin(ang) * 0.6 + 31) *
-        0.12 +
-        simplex.noise2D(Math.cos(ang) * 2.2 + 43, Math.sin(ang) * 2.2 + 43) *
-          0.07) *
-      keep;
-    // Buttresses and gullies down the walls, but not beside the fall
-    const flutes =
-      simplex.noise2D(Math.cos(ang) * 14 + 57, Math.sin(ang) * 14 + 57) *
-      0.09 *
-      (1 - south * Math.exp(-(dx * dx) / (2 * 50 * 50)));
-    const d = dist / (FALLS_RADIUS * (1 + wobble + flutes));
-    // A shelf partway down the walls along about half the outline, never
-    // on the south side by the fall and its bay
+    const {u, v} = fallsSpineCoords(x, z, simplex);
+    const u0 = -90;
+    const vc = -150;
+    const R =
+      515 -
+      220 * smoothRamp(u, 160, 1300) -
+      120 * smoothRamp(u, 1300, FALLS_SPUR_LENGTH);
+
+    // Suppressed right at the waterfall lip so the stream lip stays exact
+    const nearLip =
+      Math.exp(-(dx * dx) / (2 * 95 * 95)) *
+      Math.exp(-((z - FALLS_LIP_Z) * (z - FALLS_LIP_Z)) / (2 * 95 * 95));
+    const edgeWarp =
+      (simplex.noise2D(x * 0.0014 + 31, z * 0.0014 - 47) * 105 +
+        simplex.noise2D(x * 0.0034 - 19, z * 0.0034 + 63) * 44 +
+        simplex.noise2D(x * 0.0072 + 83, z * 0.0072 - 29) * 15) *
+      (1 - nearLip * 0.92);
+
+    const du = Math.max(0, u0 - u);
+    const dv =
+      v >= vc ? v - vc : (vc - v) * (1 - 0.88 * smoothRamp(u, u0, 460));
+    const rimOut = Math.hypot(du, dv) - (R + edgeWarp);
+
+    // Asymmetric cove warp on the bay jaws while keeping the lip at (0, FALLS_LIP_Z) fixed
+    const jawWarp =
+      (simplex.noise2D(x * 0.0026 - 11, z * 0.0026 + 39) * 34 +
+        simplex.noise2D(x * 0.006 + 51, z * 0.006 - 23) * 14) *
+      (1 - nearLip);
+    const bayDist =
+      FALLS_BAY +
+      jawWarp -
+      Math.hypot(dx * 0.92, z - (FALLS_LIP_Z + FALLS_BAY));
+    const inBay = smoothRamp(bayDist, -140, -10);
     _fallsShelf =
       smoothRamp(
-        simplex.noise2D(Math.cos(ang) * 1.1 + 71, Math.sin(ang) * 1.1 + 71),
-        -0.1,
-        0.25
+        simplex.noise2D(x * 0.0019 + 71, z * 0.0019 - 113),
+        -0.08,
+        0.28
       ) *
-      (1 - south * south);
-    return Math.max(
-      (d - 1) * FALLS_RADIUS,
-      FALLS_BAY - Math.hypot(dx, z - (FALLS_LIP_Z + FALLS_BAY))
-    );
+      (1 - inBay) *
+      (1 - smoothRamp(u, 420, 900));
+    return Math.max(rimOut, bayDist);
   }
-  function fallsAt(x, z, simplex, waterLevel) {
-    const dist = Math.hypot(x - FALLS_X, z - FALLS_Z);
-    if (dist >= FALLS_RADIUS * 1.8) return [0, 0];
+  function fallsAt(x, z, simplex, waterLevel, baseElev) {
+    if (
+      x < FALLS_X - 3200 ||
+      x > FALLS_X + 1450 ||
+      z < FALLS_Z - 1900 ||
+      z > FALLS_Z + 1350
+    ) {
+      return baseElev;
+    }
     const top = fallsTopShape(x, z, simplex);
     const out = fallsOut(x, z, simplex);
     const shelf = _fallsShelf;
-    // The walls: sheer from the top down to near the water, then a short
-    // apron of rock into the lake, which eases back into the land around.
-    // Where the wall has a shelf, it steps out partway down onto a ledge
-    // (up to 100 units wide, tipping a little outward) and drops again.
-    const base = waterLevel + 30;
+    const {u} = _fallsCoords;
+
+    // Plunge tarn nestled solely along the south-southeast foot of the scarp,
+    // warped into an irregular natural cove without any landward moat
+    const lx = x - (FALLS_X + 45);
+    const lz = z - (FALLS_LIP_Z + 225);
+    const wx =
+      lx +
+      simplex.noise2D(x * 0.0017 - 91, z * 0.0017 + 53) * 145 +
+      simplex.noise2D(x * 0.0041 + 37, z * 0.0041 - 79) * 55;
+    const wz =
+      lz +
+      simplex.noise2D(x * 0.0019 + 67, z * 0.0019 - 29) * 95 +
+      simplex.noise2D(x * 0.0044 - 53, z * 0.0044 + 19) * 38;
+    const lakeD = Math.hypot(wx / 490, wz / 285);
+    const inTarn = 1 - smoothRamp(lakeD, 0.65, 1.08);
+
+    // Wall steepness softens westward as the cuesta lowers into the WNW ridge
+    const gentleWest = smoothRamp(u, 260, 1150);
+    const cliffSpan = 30 + 300 * gentleWest;
+    const apronSpan = 55 + 140 * gentleWest;
+
+    const base = waterLevel + 28;
     const floor = waterLevel - 15;
-    const ledge = base + (top - FALLS_CRAG * _fallsTop.crag - base) * 0.45;
-    const wide = 100 * shelf;
-    let h;
-    if (out < 0) h = top;
-    else if (out < 12) h = top + (ledge - top) * (out / 12);
-    else if (out < 12 + wide) h = ledge - 12 * ((out - 12) / 100);
-    else if (out < 30 + wide)
-      h =
-        ledge -
-        12 * shelf +
-        (base - ledge + 12 * shelf) * ((out - 12 - wide) / 18);
-    else if (out < 90 + wide)
-      h = base + (floor - base) * ((out - 30 - wide) / 60);
-    else h = floor;
-    const t = Math.min(1, Math.max(0, (1.8 - dist / FALLS_RADIUS) / 0.45));
-    return [h, t * t * (3 - 2 * t)];
+    // Dry inland bluffs meet hillsides at their natural height without carving
+    // a sand-level trench, while coastal cliffs plunge into the sea and the
+    // south bay plunges into the tarn.
+    const dryLand = smoothRamp(baseElev, waterLevel, waterLevel + 10);
+    const dryFoot =
+      baseElev + (Math.max(waterLevel + 14, baseElev) - baseElev) * dryLand;
+    const targetBase = Math.min(
+      top,
+      base + (Math.max(base, dryFoot) - base) * (1 - inTarn)
+    );
+    const targetFloor = Math.min(
+      targetBase,
+      dryFoot + (floor - dryFoot) * inTarn
+    );
+    const ledge =
+      targetBase +
+      Math.max(0, top - FALLS_CRAG * _fallsTop.crag - targetBase) * 0.45;
+    const wide =
+      95 * shelf * (1 - gentleWest) * smoothRamp(top - targetBase, 90, 180);
+
+    let scarpH;
+    if (out <= 0) {
+      scarpH = top;
+    } else if (wide > 1 && out < 12) {
+      scarpH = top + (ledge - top) * (out / 12);
+    } else if (wide > 1 && out < 12 + wide) {
+      scarpH = Math.max(targetBase, ledge - 12 * ((out - 12) / 95));
+    } else if (out < cliffSpan + wide) {
+      const dropStart = wide > 1 ? 12 + wide : 0;
+      const dropSpan = Math.max(18, cliffSpan + wide - dropStart);
+      const startH =
+        wide > 1
+          ? Math.max(targetBase, ledge - 12 * shelf * (1 - gentleWest))
+          : top;
+      scarpH = startH + (targetBase - startH) * ((out - dropStart) / dropSpan);
+    } else if (out < cliffSpan + apronSpan + wide) {
+      const tApron = (out - cliffSpan - wide) / apronSpan;
+      scarpH = targetBase + (targetFloor - targetBase) * tApron;
+    } else {
+      scarpH = targetFloor;
+    }
+
+    // Dip-slope and WNW cuesta ridge floor: merges organically into rolling
+    // hills and the 1N range while letting lakes and ponds keep crisp shores
+    let spurH = 0;
+    const spurSpan = 42 + 300 * gentleWest + wide;
+    if (out < spurSpan && top > 42) {
+      const tOut = out <= 0 ? 0 : out / spurSpan;
+      spurH = top * (1 - tOut * tOut * (3 - 2 * tOut));
+      if (baseElev < 58 && spurH < 155) {
+        const wetSpur = 35 + (spurH - 35) * smoothRamp(spurH, 95, 155);
+        spurH = wetSpur + (spurH - wetSpur) * smoothRamp(baseElev, 34, 58);
+      }
+    }
+    const spurBase = Math.max(baseElev, spurH);
+
+    // Authoritative on the high crown (valley, pond, crags) and down the sheer
+    // SSE/east scarp face; outside the cliff base, tarnW carves the plunge tarn
+    const insideCrown = _fallsTop.crown * (1 - smoothRamp(out, -5, 45));
+    const onScarpFace =
+      smoothRamp(out, -45, -10) *
+      (1 - smoothRamp(out, 45 + wide, 115 + wide)) *
+      (1 - smoothRamp(u, 260, 620)) *
+      smoothRamp(top, waterLevel + 40, waterLevel + 150);
+    const coreW = Math.max(insideCrown, onScarpFace);
+    const tarnW =
+      inTarn * smoothRamp(out, cliffSpan + 5, cliffSpan + apronSpan);
+
+    const afterLand = spurBase + (scarpH - spurBase) * coreW;
+    return afterLand + (floor - afterLand) * tarnW;
   }
-  // For terrain-gen.js's colours and props, near the mountain (unwarped
-  // world coordinates): how far out from the walls (x, z) is (negative on
-  // the top), and on the top, how much crag is there (0 to 1) and how
-  // close the stream's valley is (1 on the stream); null away from the
-  // mountain
+  // For terrain-gen.js's colours and props, near the mountain's high crown
+  // and sheer scarp walls (unwarped world coordinates)
   const _fallsSite = {out: 0, crag: 0, valley: 0};
   function fallsSiteAt(x, z, simplex) {
-    if (Math.hypot(x - FALLS_X, z - FALLS_Z) > FALLS_RADIUS * 1.6) return null;
-    _fallsSite.out = fallsOut(x, z, simplex);
-    fallsTopShape(x, z, simplex);
-    const onTop = _fallsSite.out < 0;
+    if (
+      x < FALLS_X - 1300 ||
+      x > FALLS_X + 900 ||
+      z < FALLS_Z - 950 ||
+      z > FALLS_Z + 800
+    ) {
+      return null;
+    }
+    const top = fallsTopShape(x, z, simplex);
+    const out = fallsOut(x, z, simplex);
+    if (out > 120 || (out < -20 && _fallsTop.crown < 0.25)) return null;
+    if (top < 140 && out < 0) return null;
+    _fallsSite.out = out;
+    const onTop = out < 0;
     _fallsSite.crag = onTop ? _fallsTop.crag : 0;
     _fallsSite.valley = onTop ? _fallsTop.valley : 0;
     return _fallsSite;
-  }
-  // The spur: a ridge running west-north-west from the mountain's shoulder
-  // toward where the first northern range begins, so the mountain reads as
-  // the end of a line of hills rather than a block dropped on the plain. It
-  // leaves the wall about halfway up, dips to a saddle and rises again
-  // before fading into the land, staying well below the plane's height at
-  // spawn (it crosses the plane's path about 1300 units west of the
-  // mountain). Its height at (x, z), unwarped; taken as a floor under the
-  // land (0 away from it).
-  const FALLS_SPUR_ANGLE = (12 * Math.PI) / 180; // north of west
-  const FALLS_SPUR_LENGTH = 2800;
-  function fallsSpurAt(x, z, simplex) {
-    const dx = x - FALLS_X;
-    const dz = z - FALLS_Z;
-    const ca = Math.cos(FALLS_SPUR_ANGLE);
-    const sa = Math.sin(FALLS_SPUR_ANGLE);
-    const u = -dx * ca - dz * sa;
-    if (u < 0 || u > FALLS_SPUR_LENGTH) return 0;
-    // Across the spur, from a crest line that wanders once clear of the wall
-    const v =
-      dx * sa -
-      dz * ca -
-      160 *
-        simplex.noise2D(u * 0.0011 + 301, 17) *
-        smoothRamp(u, FALLS_RADIUS, FALLS_RADIUS + 600);
-    if (Math.abs(v) > 600) return 0;
-    let crest =
-      150 +
-      130 * Math.exp(-((u - FALLS_RADIUS) ** 2) / (2 * 300 * 300)) +
-      70 * smoothRamp(u, 1500, 2300) +
-      40 * simplex.noise2D(u * 0.004 + 77, 3);
-    crest *= 1 - smoothRamp(u, FALLS_SPUR_LENGTH - 600, FALLS_SPUR_LENGTH);
-    // Rounded along the top, then sides of about 30 degrees, steeper and
-    // shallower in turn
-    const slope = 0.6 + 0.2 * simplex.noise2D(u * 0.003 - 41, v * 0.003);
-    return crest + 20 - slope * Math.hypot(v, 35);
   }
 
   // --- THE SWAMP / BAYOU LOWLAND ---
@@ -4146,10 +4256,8 @@ export const ChillFlightLogic = {};
     }
 
     // The falls: after the rivers and the island passes, so nothing cuts
-    // into the table mountain
-    const [fallsH, fallsW] = fallsAt(origX, origZ, simplex, WATER_LEVEL);
-    if (fallsW > 0) n = _lerp(n, fallsH, fallsW);
-    n = Math.max(n, fallsSpurAt(origX, origZ, simplex));
+    // into the cuesta headland
+    n = fallsAt(origX, origZ, simplex, WATER_LEVEL, n);
 
     // The pyramids on their plaza (after the rivers, so none run through)
     if (pyramidAt(origX, origZ, simplex, constants, _lerp)) {

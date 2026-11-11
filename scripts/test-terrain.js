@@ -974,5 +974,75 @@ console.log(
   '  Passed: 300 m cuesta escarpments recur across the mainland and stay clear of the Falls sightline'
 );
 
+// --- FALLS CUESTA HEADLAND ---
+// The Falls landmark rises as an asymmetric cuesta headland with a sheer SSE
+// bay and plunge tarn, an open northern dip slope without an inland moat, a
+// WNW ridge under 200 units across spawn's flight path, and a valid leaping
+// waterfall across coarse and fine chunk grids.
+{
+  const L = ChillFlightLogic;
+  const yaw = (15 * Math.PI) / 180;
+  for (const seed of [20260101, 20261111, 42]) {
+    useSeed(seed);
+    const lipH = L.getElevation(L.FALLS_X, L.FALLS_LIP_Z, simplex, constants);
+    const plungeH = L.getElevation(
+      L.FALLS_X,
+      L.FALLS_LIP_Z + 150,
+      simplex,
+      constants
+    );
+    if (lipH < 390 || plungeH >= 35) {
+      console.error(
+        `FAIL: seed ${seed} Falls lip/plunge invalid: lip=${lipH.toFixed(1)}, plunge=${plungeH.toFixed(1)}`
+      );
+      process.exit(1);
+    }
+    for (let t = 3500; t <= 5800; t += 50) {
+      const rh = L.getElevation(
+        -t * Math.sin(yaw),
+        -t * Math.cos(yaw),
+        simplex,
+        constants
+      );
+      if (rh >= 200) {
+        console.error(
+          `FAIL: seed ${seed} Falls WNW ridge exceeds 200 along spawn path at t=${t}: ${rh.toFixed(1)}`
+        );
+        process.exit(1);
+      }
+    }
+    for (const segments of [20, 40]) {
+      const {result} = generateChunkData({
+        chunkX: 0,
+        chunkZ: -3,
+        chunkSize: 1500,
+        segments,
+        elevParams: constants,
+        worldSeed: seed,
+        enableObjects: true,
+      });
+      const wf = result.chunkProps.waterfall;
+      if (!wf || !wf.leap || !wf.stream || wf.stream.length < 4) {
+        console.error(
+          `FAIL: seed ${seed} segments=${segments} missing leaping Falls waterfall`
+        );
+        process.exit(1);
+      }
+    }
+  }
+  useSeed(20260101);
+  const northDip = L.getElevation(0, -5350, simplex, constants);
+  const eastToe = L.getElevation(580, -4800, simplex, constants);
+  if (northDip <= 50 || eastToe <= 50) {
+    console.error(
+      `FAIL: inland seed 20260101 carved moat/ditch on north dip (${northDip.toFixed(1)}) or east toe (${eastToe.toFixed(1)})`
+    );
+    process.exit(1);
+  }
+}
+console.log(
+  '  Passed: Falls cuesta headland preserves waterfall leap, dry inland slopes, and spawn clearance'
+);
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);
