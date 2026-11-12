@@ -20,7 +20,6 @@ const IGNORED_DIRS = new Set([
   'node_modules',
   '.git',
   'dist',
-  '.superpowers',
   'android',
   'ios',
   'target',
@@ -63,7 +62,8 @@ function walk(dir) {
   });
   for (const entry of entries) {
     if (entry.name.startsWith('.') && dir === '') {
-      if (entry.name !== '.prettierignore') continue;
+      if (entry.name !== '.prettierignore' && entry.name !== '.agents')
+        continue;
     }
     if (entry.isDirectory()) {
       if (IGNORED_DIRS.has(entry.name)) continue;

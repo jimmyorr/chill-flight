@@ -50,7 +50,6 @@ ios/appstore.properties
 # !.agent/workflows/
 # !.agent/skills/
 # !.agent/rules/
-.superpowers/
 
 # --- Personal dev journal (not published) ---
 journal/
