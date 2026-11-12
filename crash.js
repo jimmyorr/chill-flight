@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import {state} from './state.js';
 import {scene} from './scene.js';
-import {camera} from './sky.js';
+import {getCameraWorldPosition} from './sky.js';
 import {WATER_LEVEL} from './constants.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
 import {activePlaneType, planeGroup} from './airplane.js';
@@ -213,7 +213,7 @@ export function triggerPeerCrash(model, group) {
     z: pos.z,
   };
   spawnModelWreck(model, group, wreckPos, heading);
-  const audible = camera.position.distanceTo(pos) < 1200;
+  const audible = getCameraWorldPosition().distanceTo(pos) < 1200;
   spawnCrashEffects(wreckPos, heading, overWater, audible);
 }
 
@@ -276,8 +276,9 @@ function triggerCrash() {
 
   // Start the orbit from the camera's current bearing around the wreck,
   // swinging whichever way the camera is already offset
-  const camDx = camera.position.x - wreckPos.x;
-  const camDz = camera.position.z - wreckPos.z;
+  const camPos = getCameraWorldPosition();
+  const camDx = camPos.x - wreckPos.x;
+  const camDz = camPos.z - wreckPos.z;
   const startAngle = Math.atan2(camDx, camDz);
   const cross = camDx * fz - camDz * fx;
   const dir = cross >= 0 ? 1 : -1;

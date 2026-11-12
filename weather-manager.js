@@ -5,7 +5,7 @@ import {log} from './logger.js';
 import {planeGroup} from './airplane.js';
 import {simplex} from './noise.js';
 import {roadSnowUniforms, updateUrlParams} from './constants.js';
-import {camera, skyUniforms} from './sky.js';
+import {camera, getCameraWorldPosition, skyUniforms} from './sky.js';
 import {state} from './state.js';
 import {WIND_DIR_X, WIND_DIR_Z} from './terrain-gen.js';
 import {playThunder} from './sfx-events.js';
@@ -186,6 +186,7 @@ const weatherUniforms = {
 const _lastCamPos = new THREE.Vector3();
 let _haveLastCamPos = false;
 const _camVelRaw = new THREE.Vector3();
+const _camWorldPos = new THREE.Vector3();
 const _bufferSize = new THREE.Vector2();
 const _windDir = new THREE.Vector2(WIND_DIR_X, WIND_DIR_Z).normalize();
 
@@ -664,14 +665,12 @@ export function updateWeather(delta) {
   // Fade out precipitation when flying above the cloud layer
   let rainShown = _rainLevel / RAIN_FULL;
   let snowShown = _snowLevel / SNOW_FULL;
+  const camPos = getCameraWorldPosition(_camWorldPos);
   const cloudCeiling =
     typeof manualCloudHeight === 'number' ? manualCloudHeight : 3000.0;
   const fadeStart = cloudCeiling - 100.0; // Start fading 100 units below the clouds
-  if (camera.position.y > fadeStart) {
-    const fadeFactor = Math.max(
-      0,
-      1.0 - (camera.position.y - fadeStart) / 100.0
-    );
+  if (camPos.y > fadeStart) {
+    const fadeFactor = Math.max(0, 1.0 - (camPos.y - fadeStart) / 100.0);
     rainShown *= fadeFactor;
     snowShown *= fadeFactor;
   }
@@ -705,7 +704,6 @@ export function updateWeather(delta) {
   if (!snowParticles.visible && !rainParticles.visible) return;
 
   // The camera's own motion, smoothed, so the streaks slant with it
-  const camPos = camera.position;
   weatherUniforms.cameraPos.value.copy(camPos);
   if (_haveLastCamPos && delta > 0) {
     _camVelRaw.subVectors(camPos, _lastCamPos).divideScalar(delta);

@@ -136,6 +136,7 @@ export function getInstancedMesh(geometry, material, count) {
     if (pool[i].instanceMatrix.count >= count) {
       const mesh = pool.splice(i, 1)[0];
       mesh.count = count;
+      mesh.visible = true;
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       return mesh;
@@ -167,6 +168,7 @@ export function releaseInstancedMesh(mesh) {
   }
 
   mesh.userData = {};
+  mesh.visible = true;
   if (mesh.parent) mesh.parent.remove(mesh);
 
   const pool = _instancedMeshPool.get(key);

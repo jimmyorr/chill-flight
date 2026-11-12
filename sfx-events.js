@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {WATER_LEVEL} from './constants.js';
 import {state} from './state.js';
-import {camera} from './sky.js';
+import {camera, getCameraWorldPosition} from './sky.js';
 import {waterfallFeet} from './terrain-chunks.js';
 import {activePlaneType, planeGroup, planeHandling} from './airplane.js';
 import {
@@ -646,7 +646,7 @@ function placeFalls(foot) {
 // The listener is the camera, so what's on screen is what you hear
 function placeListener() {
   const l = ctx.listener;
-  const p = camera.position;
+  const p = getCameraWorldPosition();
   l.positionX.value = p.x;
   l.positionY.value = p.y;
   l.positionZ.value = p.z;

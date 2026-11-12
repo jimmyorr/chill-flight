@@ -4092,10 +4092,16 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
           slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
           slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          slBulbInst.visible = state._enableObjects;
+          slDecalInst.visible = state._enableObjects;
           objectsGroup.add(slBaseInst);
           objectsGroup.add(slArmInst);
           group.add(slBulbInst);
           group.add(slDecalInst);
+          (group.userData.streetlightMeshes ??= []).push(
+            slBulbInst,
+            slDecalInst
+          );
         } else {
           for (const m of [slBaseInst, slArmInst, slBulbInst, slDecalInst]) {
             releaseInstancedMesh(m);
@@ -4850,6 +4856,7 @@ function disposeChunkGroup(group, key, poolGeometries = true) {
   group.userData.meshProps = null;
   group.userData.objectsGroup = null;
   group.userData.watercraftGroup = null;
+  group.userData.streetlightMeshes = null;
   disposeWaterDepthTexture(group.userData.water);
   group.userData.water = null;
   group.userData.sailboatPositions = null;
@@ -5104,6 +5111,9 @@ export function toggleProceduralObjects(enabled, syncUrl = true) {
     }
     if (group.userData.watercraftGroup) {
       group.userData.watercraftGroup.visible = enabled;
+    }
+    if (group.userData.streetlightMeshes) {
+      for (const m of group.userData.streetlightMeshes) m.visible = enabled;
     }
   });
 

@@ -290,6 +290,20 @@ export const camera = new THREE.PerspectiveCamera(
   30000
 );
 
+const _worldCamPos = new THREE.Vector3();
+
+// In WebXR, `camera` is parented to `cameraDolly` near local (0, 0, 0) while
+// the dolly moves through the world; resolve the world-space eye position.
+export function getCameraWorldPosition(target = _worldCamPos) {
+  if (camera && camera.parent) {
+    return camera.getWorldPosition(target);
+  }
+  if (camera) {
+    return target.copy(camera.position);
+  }
+  return target;
+}
+
 // Antialiasing is expensive; disable it on the 'Low' preset (SEGMENTS <= 20) to prioritize performance.
 // Since AA belongs to the WebGL context, this won't change until the next page load.
 const _initPreset =

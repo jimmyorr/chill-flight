@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {camera, clock, moonMesh} from './sky.js';
+import {camera, clock, getCameraWorldPosition, moonMesh} from './sky.js';
 import {updateChunks} from './terrain-chunks.js';
 import {
   activePlaneType,
@@ -136,6 +136,7 @@ const BIRD_STARTLE_DISTANCE = 60;
 const BIRD_STARTLE_TIME = 4;
 const GOOSE_GROUND_INTERVAL = 0.25;
 const _birdAway = new THREE.Vector3();
+const _camWorldPos = new THREE.Vector3();
 
 // How locked the follow camera is to the plane in aerobatics, 0 to 1. Rolls
 // and loops lock its turn to the plane's (lagging behind would swing the
@@ -932,6 +933,7 @@ export function updateFlightCamera(delta, nowTime) {
 
   // Animate Birds
   const activeBirds = birdChunks;
+  const camPos = getCameraWorldPosition(_camWorldPos);
   // Geese hide past the prop draw distance like the houses below them (each
   // is 9 meshes, and a dot that far off)
   const gooseDrawDistSq = performanceMonitor.getEffectiveLOD() ** 2;
@@ -942,7 +944,7 @@ export function updateFlightCamera(delta, nowTime) {
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
     const chunkIsFar =
       chunkGroup !== strayBirds &&
-      checkPos.distanceToSquared(camera.position) > 36000000;
+      checkPos.distanceToSquared(camPos) > 36000000;
 
     if (chunkGroup.userData.birds) {
       chunkGroup.userData.birds.forEach((bird) => {
@@ -957,7 +959,8 @@ export function updateFlightCamera(delta, nowTime) {
         // Still animated, so the flock is where it should be when it shows
         if (bird.userData.type === 'goose')
           bird.visible =
-            bird.position.distanceToSquared(camera.position) < gooseDrawDistSq;
+            state._enableObjects &&
+            bird.position.distanceToSquared(camPos) < gooseDrawDistSq;
 
         const data = bird.userData;
         const flapSpeed = data.flapSpeed || 2;
@@ -1114,7 +1117,7 @@ export function updateFlightCamera(delta, nowTime) {
   // on ultra, where a flock still shows as a V of dots)
   const strays = strayBirds.userData.birds;
   for (let i = strays.length - 1; i >= 0; i--) {
-    if (strays[i].position.distanceToSquared(camera.position) > 225000000) {
+    if (strays[i].position.distanceToSquared(camPos) > 225000000) {
       strayBirds.remove(strays[i]);
       strays.splice(i, 1);
     }
@@ -1214,7 +1217,7 @@ export function updateFlightCamera(delta, nowTime) {
     if (isTimePaused && chunkGroup.userData.boatsInitialized) return;
 
     const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
-    const distSq = checkPos.distanceToSquared(camera.position);
+    const distSq = checkPos.distanceToSquared(camPos);
 
     if (chunkGroup.userData.boatsInitialized) {
       // Completely cull animation updates beyond 6000 units

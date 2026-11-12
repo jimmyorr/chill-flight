@@ -47,7 +47,7 @@ import {
   sampleGroundColor,
 } from './terrain-chunks.js';
 import {standaloneProps} from './airports.js';
-import {camera} from './sky.js';
+import {getCameraWorldPosition} from './sky.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {playShatter, playSmash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
@@ -1091,7 +1091,7 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
       Achievements.unlock('timber');
     }
   } else {
-    const d = camera.position.distanceTo(_v.set(x, base, z));
+    const d = getCameraWorldPosition().distanceTo(_v.set(x, base, z));
     if (d < HEAR_RANGE) {
       if (crystal) playShatter(1 - d / HEAR_RANGE);
       else playSmashSound(house, 1 - d / HEAR_RANGE, fallTime);
@@ -1273,7 +1273,9 @@ function puntSheep(anim, hx, hz, kts, mine, buggy) {
     smashHaptic(false);
     playSmashSound(false, 0.8, 0.4);
   } else {
-    const d = camera.position.distanceTo(_v.set(anim.x, anim.y, anim.z));
+    const d = getCameraWorldPosition().distanceTo(
+      _v.set(anim.x, anim.y, anim.z)
+    );
     if (d < HEAR_RANGE) playSmashSound(false, (1 - d / HEAR_RANGE) * 0.8, 0.4);
   }
 }
@@ -1528,7 +1530,7 @@ function sinkBoat(group, kind, index, dx, dz, kts, mine, buggy) {
     smashHaptic(true);
     playSmashSound(true, 1, 0);
   } else {
-    const d = camera.position.distanceTo(_v.set(x, WATER_LEVEL, z));
+    const d = getCameraWorldPosition().distanceTo(_v.set(x, WATER_LEVEL, z));
     if (d < HEAR_RANGE) playSmashSound(true, 1 - d / HEAR_RANGE, 0);
   }
 }

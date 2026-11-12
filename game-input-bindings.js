@@ -1,7 +1,7 @@
 // --- INPUT ---
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {camera, renderer} from './sky.js';
+import {getCameraWorldPosition, renderer} from './sky.js';
 import {
   HEADLIGHT_GLOW_INTENSITY,
   HEADLIGHT_INTENSITY,
@@ -34,17 +34,7 @@ export function checkVRPresenting() {
 export var cameraDolly = new THREE.Group();
 cameraDolly.name = 'cameraDolly';
 cameraDolly.isCamera = true; // Crucial: Three.js lookAt() points +Z for generic Objects/Groups, but -Z for Cameras
-var _worldCamPos = new THREE.Vector3();
-
-export function getCameraWorldPosition(target = _worldCamPos) {
-  if (camera && camera.parent) {
-    return camera.getWorldPosition(target);
-  }
-  if (camera) {
-    return target.copy(camera.position);
-  }
-  return target;
-}
+export {getCameraWorldPosition};
 
 export var inputManager = new InputManager();
 export var keys = inputManager.state.keys;

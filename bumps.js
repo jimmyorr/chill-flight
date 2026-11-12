@@ -10,7 +10,7 @@
 // stick.
 import * as THREE from 'three';
 import {state} from './state.js';
-import {camera} from './sky.js';
+import {getCameraWorldPosition} from './sky.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {pushBuggy, slowBuggy} from './buggy.js';
 import {forEachTrafficPlane} from './traffic.js';
@@ -168,7 +168,7 @@ function bump(p, q) {
   }
   propPuffs(x, y - 2, z, 4, 4, PUFF, 8, 5, 2);
   const mine = p.key === 'me' || q.key === 'me';
-  const d = mine ? 0 : camera.position.distanceTo(_at.set(x, y, z));
+  const d = mine ? 0 : getCameraWorldPosition().distanceTo(_at.set(x, y, z));
   playBump(mine ? 1 : 0.6 * (1 - d / HEAR_RANGE));
 }
 

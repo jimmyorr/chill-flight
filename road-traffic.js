@@ -12,7 +12,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {MOUNTAIN_LEVEL, WATER_LEVEL} from './constants.js';
 import {state} from './state.js';
 import {scene} from './scene.js';
-import {camera} from './sky.js';
+import {camera, getCameraWorldPosition} from './sky.js';
 import {planeGroup, activePlaneType} from './airplane.js';
 import {simplex} from './noise.js';
 import {BUGGY_WHEEL_RADIUS} from './buggy-model.js';
@@ -320,6 +320,7 @@ export function roadCarCount() {
 }
 
 const _pos = new THREE.Vector3();
+const _camPos = new THREE.Vector3();
 
 // Called once per frame while flying (not while paused)
 export function updateRoadTraffic(delta) {
@@ -377,6 +378,7 @@ export function updateRoadTraffic(delta) {
   headMat.opacity = night;
   poolMat.opacity = night * POOL_OPACITY;
   headMat.visible = poolMat.visible = night > 0.001;
+  const camPos = getCameraWorldPosition(_camPos);
 
   for (let i = cars.length - 1; i >= 0; i--) {
     const car = cars[i];
@@ -392,7 +394,7 @@ export function updateRoadTraffic(delta) {
     g.rotation.set(car.pitch, car.heading, 0);
     g.visible = car.grounded;
     u.model.visible =
-      camera.position.distanceToSquared(_pos.set(car.x, car.y, car.z)) <
+      camPos.distanceToSquared(_pos.set(car.x, car.y, car.z)) <
       MODEL_RANGE * MODEL_RANGE;
     if (u.model.visible) {
       const roll = (car.speed * delta) / u.wheelRadius;
