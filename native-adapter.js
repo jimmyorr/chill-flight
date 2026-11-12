@@ -2,6 +2,7 @@
 // "The Sidecar Rule": Enhances the core game for Native without touching core files.
 import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 import {log} from './logger.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
 import {handleMusicVisibility} from './audio.js';
@@ -16,48 +17,44 @@ function isNative() {
 export async function detectGraphicsPreset() {
   const cores = navigator.hardwareConcurrency || 4;
   const memory = navigator.deviceMemory;
-  const isIOSWeb = !isNative() && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const ua = navigator.userAgent || '';
+  const isCoarsePointer =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(any-pointer: coarse)').matches;
 
-  let isLow = false;
-  let context = isNative() ? 'Native' : 'Web';
-
+  let nativePlatform = '';
+  let nativeModel = '';
   if (isNative()) {
     try {
       if (Capacitor.Plugins && Capacitor.Plugins.Device) {
         const info = await Capacitor.Plugins.Device.getInfo();
-        context = `Native ${info.platform || 'Device'}`;
-        if (info.platform === 'ios' && info.model) {
-          context += ` (${info.model})`;
-          isLow =
-            info.model.startsWith('iPhone9') || // iPhone 7/8/X
-            info.model.startsWith('iPhone10') || // iPhone 8/X
-            info.model.startsWith('iPhone11') || // iPhone XS/XR
-            info.model.startsWith('iPhone12') || // iPhone 11
-            (info.model.startsWith('iPad') && !info.model.includes('Pro'));
-        } else {
-          isLow = cores <= 4 || (memory && memory <= 4);
-        }
+        nativePlatform = info.platform || '';
+        nativeModel = info.model || '';
       }
     } catch {
-      console.warn(
+      log.warn(
         '[Graphics Auto-Detect] Device plugin failed; falling back to hardware heuristics.'
       );
-      isLow = cores <= 4 || (memory && memory <= 4);
     }
-  } else if (isIOSWeb) {
-    // iOS Safari clamps hardwareConcurrency to 2 for privacy; default modern iOS web to mid
-    isLow = false;
-    context = 'iOS Web';
-  } else {
-    isLow = cores <= 4 || (memory && memory <= 4);
-    context =
-      window.matchMedia('(any-pointer: coarse)').matches ||
-      /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        ? 'Mobile Web'
-        : 'Desktop Web';
   }
 
-  const preset = isLow ? 'low' : 'mid';
+  const {preset, context} = ChillFlightLogic.chooseAutoGraphicsPreset({
+    cores,
+    memory,
+    ua,
+    isCoarsePointer,
+    isNative: isNative(),
+    nativePlatform,
+    nativeModel,
+  });
+
+  try {
+    localStorage.setItem('chill_flight_graphics_autodetect_v', '2');
+  } catch {
+    /* ignore */
+  }
+
   log.info(
     `[Graphics Auto-Detect] ${context}. Cores: ${cores}, RAM: ${memory ? `~${memory}GB` : 'Unknown'}. Chose preset: ${preset}`
   );

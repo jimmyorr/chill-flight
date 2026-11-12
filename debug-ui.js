@@ -142,9 +142,9 @@ export function applyGraphicsPreset(preset) {
   // phone's frame) and spends that on mid's sharpness instead of half
   // resolution
   let pixelRatio;
-  if (segments <= 40) {
+  if (segments <= 30) {
     pixelRatio = Math.min(window.devicePixelRatio, 2) * 0.75;
-  } else if (segments <= 50) {
+  } else if (segments <= 40) {
     pixelRatio = Math.min(window.devicePixelRatio, 1.5);
   } else {
     pixelRatio = Math.min(window.devicePixelRatio, 2.0); // Capped at 2.0 for Ultra
@@ -239,6 +239,7 @@ export function initDebugUI() {
   );
   if (graphicsPresetSelect) {
     graphicsPresetSelect.addEventListener('change', (e) => {
+      localStorage.setItem('chill_flight_graphics_preset_manual', '1');
       applyGraphicsPreset(e.target.value);
       updateUrlParams({preset: e.target.value}, ['graphics']);
     });

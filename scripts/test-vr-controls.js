@@ -14,6 +14,7 @@ import {
   createVRButtonTracker,
   createVRPauseInputLatch,
   extractXRControllers,
+  getVRSessionInit,
   hitTestVRPauseMenuUV,
   readCombinedThumbstick,
   readXRTriggers,
@@ -368,6 +369,111 @@ function makeSession(leftOpts, rightOpts) {
       hitTestVRPauseMenuUV(0.5, 1 - 508 / 680) === 2 &&
       hitTestVRPauseMenuUV(0.5, 1 - 150 / 680) === -1 &&
       hitTestVRPauseMenuUV(0.05, 1 - 276 / 680) === -1
+  );
+}
+
+// 8. Stationary WebXR session init & VR headset user-agent preset detection
+{
+  const sessionInit = getVRSessionInit();
+  const opt = sessionInit?.optionalFeatures || [];
+  check(
+    'getVRSessionInit omits bounded-floor and local-floor so Quest defaults to stationary tracking',
+    Array.isArray(opt) &&
+      !opt.includes('bounded-floor') &&
+      !opt.includes('local-floor') &&
+      opt.includes('hand-tracking'),
+    JSON.stringify(sessionInit)
+  );
+
+  check(
+    'isVRHeadsetUserAgent detects Quest 2/3, Pico, Wolvic, and VR browsers without false positives on phones or desktops',
+    ChillFlightLogic.isVRHeadsetUserAgent(
+      'Mozilla/5.0 (X11; Linux x86_64; Quest 2) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/35.2.0.9.61 Chrome/128.0.6613.162 VR Safari/537.36'
+    ) &&
+      ChillFlightLogic.isVRHeadsetUserAgent(
+        'Mozilla/5.0 (Android 12; Mobile VR; rv:109.0) Gecko/113.0 Wolvic/1.4.1'
+      ) &&
+      ChillFlightLogic.isVRHeadsetUserAgent(
+        'Mozilla/5.0 (Linux; Android 10; Pico 4) AppleWebKit/537.36 Chrome/112.0.0.0 VR Safari/537.36'
+      ) &&
+      !ChillFlightLogic.isVRHeadsetUserAgent(
+        'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36'
+      ) &&
+      !ChillFlightLogic.isVRHeadsetUserAgent(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+      ) &&
+      !ChillFlightLogic.isVRHeadsetUserAgent(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+      )
+  );
+
+  check(
+    'chooseAutoGraphicsPreset defaults Quest 2, 4-6 GB Android, modern iPads/iPhones, iOS Safari, and 4-core desktops to mid while keeping true low-end devices on low',
+    ChillFlightLogic.chooseAutoGraphicsPreset({
+      cores: 4,
+      memory: 4,
+      ua: 'Mozilla/5.0 (X11; Linux x86_64; Quest 2) OculusBrowser/35.2 VR Safari/537.36',
+    }).preset === 'mid' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        cores: 8,
+        memory: 4,
+        ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 7a) Chrome/128.0 Mobile Safari/537.36',
+        isCoarsePointer: true,
+      }).preset === 'mid' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        cores: 8,
+        memory: 2,
+        ua: 'Mozilla/5.0 (Linux; Android 13; BudgetPhone) Chrome/128.0 Mobile Safari/537.36',
+        isCoarsePointer: true,
+      }).preset === 'low' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        cores: 4,
+        memory: 4,
+        ua: 'Mozilla/5.0 (Linux; Android 11; EntryPhone) Chrome/128.0 Mobile Safari/537.36',
+        isCoarsePointer: true,
+      }).preset === 'low' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        isNative: true,
+        nativePlatform: 'ios',
+        nativeModel: 'iPad13,4',
+      }).preset === 'mid' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        isNative: true,
+        nativePlatform: 'ios',
+        nativeModel: 'iPad16,3',
+      }).preset === 'mid' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        isNative: true,
+        nativePlatform: 'ios',
+        nativeModel: 'iPad7,5',
+      }).preset === 'low' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        isNative: true,
+        nativePlatform: 'ios',
+        nativeModel: 'iPhone12,1',
+      }).preset === 'low' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        isNative: true,
+        nativePlatform: 'ios',
+        nativeModel: 'iPhone13,2',
+      }).preset === 'mid' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        cores: 4,
+        memory: 4,
+        ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/128.0 Safari/537.36',
+        isCoarsePointer: false,
+      }).preset === 'mid' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        cores: 2,
+        memory: 4,
+        ua: 'Mozilla/5.0 (X11; CrOS x86_64) Chrome/128.0 Safari/537.36',
+        isCoarsePointer: false,
+      }).preset === 'low' &&
+      ChillFlightLogic.chooseAutoGraphicsPreset({
+        cores: 2,
+        ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Version/17.5 Mobile Safari/604.1',
+        isCoarsePointer: true,
+      }).preset === 'mid'
   );
 }
 

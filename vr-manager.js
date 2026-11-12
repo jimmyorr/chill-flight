@@ -17,6 +17,7 @@ import {t} from './i18n.js';
 import {
   createVRPauseInputLatch,
   extractXRControllers,
+  getVRSessionInit,
   hitTestVRPauseMenuUV,
 } from './vr-controls-logic.js';
 
@@ -158,12 +159,9 @@ async function enterVRSession() {
   if (!navigator.xr || renderer.xr.getSession()) return;
   try {
     ensureXRControllers();
-    const sessionInit = {
-      optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'],
-    };
     const session = await navigator.xr.requestSession(
       'immersive-vr',
-      sessionInit
+      getVRSessionInit()
     );
     await renderer.xr.setSession(session);
   } catch (err) {

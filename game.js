@@ -148,7 +148,7 @@ if (
       // phone VR), which this game doesn't support well; only offer VR in
       // headset browsers, whose user agents also say Android
       const ua = navigator.userAgent || '';
-      const isHeadset = /OculusBrowser|Quest|Pico|Wolvic|VR/i.test(ua);
+      const isHeadset = ChillFlightLogic.isVRHeadsetUserAgent(ua);
       const isPhone =
         navigator.userAgentData?.mobile === true ||
         /Android|iPhone|iPad|Mobi/i.test(ua);
@@ -264,7 +264,16 @@ const urlPreset =
     ? ChillFlightLogic.GRAPHICS_PRESET
     : null;
 
-const savedPreset = localStorage.getItem('chill_flight_graphics_preset');
+const isNativeApp =
+  typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+const savedPresetRaw = localStorage.getItem('chill_flight_graphics_preset');
+const savedPreset =
+  isNativeApp &&
+  savedPresetRaw === 'low' &&
+  !localStorage.getItem('chill_flight_graphics_preset_manual') &&
+  localStorage.getItem('chill_flight_graphics_autodetect_v') !== '2'
+    ? null
+    : savedPresetRaw;
 export var initialPreset = urlPreset || savedPreset;
 if (typeof window !== 'undefined') window.initialPreset = initialPreset;
 

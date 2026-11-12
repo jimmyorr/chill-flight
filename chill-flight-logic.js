@@ -417,6 +417,72 @@ export const ChillFlightLogic = {};
       ? _presetParam.toLowerCase()
       : null;
 
+  function isVRHeadsetUserAgent(ua) {
+    if (typeof ua !== 'string' || !ua) return false;
+    return /OculusBrowser|Quest|Pico|Wolvic|\bVR\b/i.test(ua);
+  }
+
+  function chooseAutoGraphicsPreset({
+    cores = 4,
+    memory = null,
+    ua = '',
+    isCoarsePointer = false,
+    isNative = false,
+    nativePlatform = '',
+    nativeModel = '',
+  } = {}) {
+    const safeCores = Number.isFinite(cores) && cores > 0 ? cores : 4;
+    const safeMemory = Number.isFinite(memory) && memory > 0 ? memory : null;
+    const safeUa = typeof ua === 'string' ? ua : '';
+    let isLow = false;
+    let context;
+
+    if (isNative) {
+      context = `Native ${nativePlatform || 'Device'}`;
+      if (nativePlatform === 'ios' && nativeModel) {
+        context += ` (${nativeModel})`;
+        const iphoneMatch = nativeModel.match(/^iPhone(\d+)/i);
+        const ipadMatch = nativeModel.match(/^iPad(\d+)/i);
+        if (iphoneMatch) {
+          // iPhone 11 and older (iPhone12,x and below) default to low;
+          // iPhone 12+ (iPhone13,x+) default to mid.
+          isLow = parseInt(iphoneMatch[1], 10) <= 12;
+        } else if (ipadMatch) {
+          // Older A8X/A9/A10 iPads (iPad5..iPad7) default to low;
+          // iPad8+ (A12/A12X and Apple Silicon M-series) default to mid.
+          isLow = parseInt(ipadMatch[1], 10) <= 7;
+        }
+      } else {
+        isLow = safeCores <= 4 || (safeMemory !== null && safeMemory <= 2);
+      }
+    } else if (/iPhone|iPad|iPod/i.test(safeUa)) {
+      // iOS Safari clamps hardwareConcurrency to 2 for privacy; default modern iOS web to mid.
+      isLow = false;
+      context = 'iOS Web';
+    } else if (isVRHeadsetUserAgent(safeUa)) {
+      // Quest 2 reports 4 usable CPU cores (OS reserves the rest) and buckets
+      // 6 GB RAM down to deviceMemory=4; default standalone VR headsets to mid.
+      isLow = false;
+      context = 'VR Headset';
+    } else {
+      const isMobileWeb =
+        Boolean(isCoarsePointer) ||
+        /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(safeUa);
+      context = isMobileWeb ? 'Mobile Web' : 'Desktop Web';
+      // W3C deviceMemory buckets are 0.25, 0.5, 1, 2, 4, 8 (6 GB devices report 4),
+      // so only <= 2 GB RAM triggers low. Only treat <= 4 cores as low on mobile,
+      // avoiding false positives on 4-core desktops or privacy-clamped browsers.
+      const lowMemory = safeMemory !== null && safeMemory <= 2;
+      const lowCores = isMobileWeb ? safeCores <= 4 : safeCores <= 2;
+      isLow = lowCores || lowMemory;
+    }
+
+    return {
+      preset: isLow ? 'low' : 'mid',
+      context,
+    };
+  }
+
   // Frame rate cap; 0 lifts it (null: the preset's)
   const _fpsParam = parseFloat(getParam('fps', ''));
   const MAX_FPS = _fpsParam >= 0 ? _fpsParam : null;
@@ -6311,6 +6377,8 @@ export const ChillFlightLogic = {};
   exports.ROOM_PARAM = ROOM_PARAM;
   exports.RELAY_PARAM = RELAY_PARAM;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
+  exports.isVRHeadsetUserAgent = isVRHeadsetUserAgent;
+  exports.chooseAutoGraphicsPreset = chooseAutoGraphicsPreset;
   exports.MAX_FPS = MAX_FPS;
   exports.ZENITH_COLOR = ZENITH_COLOR;
   exports.HORIZON_COLOR = HORIZON_COLOR;

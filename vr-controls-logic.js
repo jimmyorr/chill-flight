@@ -13,6 +13,19 @@ export const STICK_FLICK_DOMINANCE = 1.3;
 export const STICK_FLICK_WINDOW_MS = 450;
 
 /**
+ * Builds the WebXR `requestSession('immersive-vr', sessionInit)` options.
+ * Stationary `'local'` tracking is a built-in default feature of every
+ * `'immersive-vr'` session and matches `renderer.xr.setReferenceSpaceType('local')`
+ * in `sky.js`. Omitting `'bounded-floor'` and `'local-floor'` avoids triggering
+ * Meta Quest / Horizon OS Roomscale vs. Stationary Guardian boundary prompts.
+ */
+export function getVRSessionInit() {
+  return {
+    optionalFeatures: ['hand-tracking'],
+  };
+}
+
+/**
  * Maps a raw [-1..1] physical thumbstick axis to 0 inside `deadzone` and
  * linearly from `deadzone` to `maxOut` across the remaining travel so
  * `stickResponse` in game-loop.js starts smoothly from zero with no jump and

@@ -7,6 +7,36 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 let storedColor = null;
 try {
   storedColor = localStorage.getItem('chill_flight_color');
+  // Re-evaluate web browsers whose earlier v1 hardware auto-detect saved 'low'
+  // (Quest 2, 4-6 GB Android phones, 4-core desktops) before sky.js creates the
+  // WebGL context, unless the user manually chose a preset in Settings.
+  const isNativeApp =
+    typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+  if (
+    !isNativeApp &&
+    typeof navigator !== 'undefined' &&
+    !ChillFlightLogic.GRAPHICS_PRESET &&
+    localStorage.getItem('chill_flight_graphics_preset') === 'low' &&
+    !localStorage.getItem('chill_flight_graphics_preset_manual') &&
+    localStorage.getItem('chill_flight_graphics_autodetect_v') !== '2'
+  ) {
+    const isCoarsePointer =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(any-pointer: coarse)').matches;
+    const {preset} = ChillFlightLogic.chooseAutoGraphicsPreset({
+      cores: navigator.hardwareConcurrency,
+      memory: navigator.deviceMemory,
+      ua: navigator.userAgent,
+      isCoarsePointer,
+      isNative: false,
+    });
+    if (preset !== 'low') {
+      localStorage.setItem('chill_flight_graphics_preset', preset);
+      localStorage.setItem('chill_flight_quality', '30');
+    }
+    localStorage.setItem('chill_flight_graphics_autodetect_v', '2');
+  }
 } catch {
   // Storage unavailable or in Node environment
 }

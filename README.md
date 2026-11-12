@@ -464,7 +464,7 @@ Chill Flight supports immersive virtual reality on devices such as the Meta Ques
 - **Head tracking:** Full 6DoF head tracking allows you to look around freely from either the follow chase view or cockpit first-person view.
 - **Touch controllers:** Use either analog thumbstick for gentle cruise pitch and roll steering (and double- or triple-flick the stick to perform sharp turns, steep climbs and dives, barrel rolls, vertical loops, Immelmann turns, or buggy hops and drifts). Pull the right trigger to accelerate and the left trigger to decelerate. Press **A** to toggle between follow and first-person views, **B** to toggle the headlight, and **X** to switch vehicles; side grips and thumbstick clicks are left unset to prevent accidental presses while steering.
 - **In-game pause menu & map:** Press the left controller **Y** button to bring up the 3D in-world pause menu. Point with the laser reticle and pull the trigger to resume flight, open the 2D fullscreen map (which automatically returns to VR when you warp, set a waypoint, or click **Resume**), or exit VR, or press **A** / **Y** to resume and **B** to exit VR.
-- **Performance:** Automatically enables fixed foveated rendering and unlocks high display refresh rates (72 Hz / 90 Hz).
+- **Comfort & performance:** Requests a stationary (`local`) WebXR session so seated play does not require a roomscale boundary, defaults standalone headsets like Quest 2 to the **mid** graphics preset, enables fixed foveated rendering, and unlocks high display refresh rates (72 Hz / 90 Hz).
 
 ## Graphics & settings
 
@@ -475,7 +475,7 @@ The game features automatic graphics preset detection that evaluates your device
 
 | Preset    | Chunk radius | Active chunk grid          | Draw distance | Mesh density (`SEGMENTS`) | Triangles per chunk | Resolution scale          | Visual effects  |
 | :-------- | :----------- | :------------------------- | :------------ | :------------------------ | :------------------ | :------------------------ | :-------------- |
-| **Low**   | 4 chunks     | 9 × 9 (up to 81 chunks)    | 6,000 units   | 20                        | 800                 | Fixed 0.5×                | Off (optimized) |
+| **Low**   | 4 chunks     | 9 × 9 (up to 81 chunks)    | 6,000 units   | 20                        | 800                 | Up to 1.5× (`dpr × 0.75`) | Off (optimized) |
 | **Mid**   | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 30                        | 1,800               | Up to 1.5× (`dpr × 0.75`) | Full            |
 | **High**  | 7 chunks     | 15 × 15 (up to 225 chunks) | 10,500 units  | 40                        | 3,200               | Up to 1.5× (`dpr`)        | Full            |
 | **Ultra** | 8 chunks     | 17 × 17 (up to 289 chunks) | 12,000 units  | 50                        | 5,000               | Up to 2.0× (`dpr`)        | Full            |
@@ -602,7 +602,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`brush`**, **`haze`**: With the anime style, set to `0` to turn off the brushstroke (Kuwahara) filter or the aerial-perspective haze, for comparing.
 - **`forza`**: Set to `1` to enable all Forza-inspired buggy driving visuals (`blur` and `speedCam`; any individual parameter can still be set to `0` to turn it off).
 - **`blur`**, **`speedCam`**: Individual opt-in flags (`1` on, `0` off) for the buggy's radial peripheral motion blur at speed (anime style only: low poly has no post pass to add it to) and low-slung chase camera whose view widens to `80°`. `driftCam=0` turns off the drift camera, which is on by default.
-- **`fxaa`**: With the anime style, `1` or `0` turns FXAA edge smoothing on or off whatever the graphics preset (by default it's on for mid and up).
+- **`fxaa`**: With the anime style, `1` or `0` turns FXAA edge smoothing on or off whatever the graphics preset (by default it's on for high and ultra).
 - **`cloudStyle`**: With the anime style, set to `classic` to keep the low-poly look's clouds and sky (and no horizon towers) instead of the anime ones.
 - **`islandType`** or **`island`**: Force Eastern Islands geographic archetype (options: `auto`, `karst`, `caldera`, `atoll`).
 - **`cloud`** (or **`clouds`**, **`cloudCover`**, **`overcast`**): Cloud cover density or mode (options: `auto` for procedural weather noise, `none` or `false` to disable clouds, `clear` for 0.0, `scattered` for 0.3, `broken` for 0.6, `overcast` for 1.0, or any float between `0.0` and `1.0`).
