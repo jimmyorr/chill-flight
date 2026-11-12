@@ -1,6 +1,6 @@
 // --- LANDMARKS ---
 // The named places shown on the minimap and the map (minimap.js), and the
-// stops on the autopilot's sightseeing tour (autopilot.js). A tap on the map
+// stops on the buggy autopilot's sightseeing tour (autopilot.js). A tap on the map
 // near one picks it (nearestLandmark), and warping there arrives in view of
 // it (arrivalAt).
 import {ChillFlightLogic} from './chill-flight-logic.js';

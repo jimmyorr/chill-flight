@@ -51,6 +51,14 @@ export const AUTOPILOT = {
   // Height over the highest ground around the circle
   ORBIT_CLEARANCE: 120,
   ORBIT_SAMPLES: 12,
+  // With no waypoint, follow the sun across the day and the moon by night,
+  // easing from one to the other across twilight (sunY from TWILIGHT_LOW to
+  // TWILIGHT_HIGH) and nudging gently back toward the equator (z = 0) so the
+  // summer sun doesn't carry the plane off into the southern sea
+  TWILIGHT_LOW: -0.38,
+  TWILIGHT_HIGH: -0.02,
+  LAT_PULL: 0.00004,
+  MAX_LAT_PULL: 0.85,
 };
 
 const A = AUTOPILOT;
@@ -66,6 +74,32 @@ export function wrapAngle(a) {
 // 0 looks down -Z
 export function headingTo(x, z, tx, tz) {
   return Math.atan2(-(tx - x), -(tz - z));
+}
+
+/**
+ * The heading with no waypoint: toward the sun while it's up (and through the
+ * horizon glow), easing across twilight to the moon by night, with a gentle
+ * pull back toward z = 0 so it stays over the middle of the world instead of
+ * drifting south with the summer sun. Returns null before the sky has been
+ * placed on the first frame.
+ */
+export function skyHeading(z, sunX, sunY, sunZ, moonX, moonZ) {
+  if (sunX === 0 && sunY === 0 && sunZ === 0 && moonX === 0 && moonZ === 0) {
+    return null;
+  }
+  const sunH = headingTo(0, 0, sunX, sunZ);
+  const moonH = headingTo(0, 0, moonX, moonZ);
+  const u = clamp(
+    (sunY - A.TWILIGHT_LOW) / (A.TWILIGHT_HIGH - A.TWILIGHT_LOW),
+    0,
+    1
+  );
+  const w = u * u * (3 - 2 * u);
+  const skyH = moonH + wrapAngle(sunH - moonH) * w;
+  const dx = -Math.sin(skyH);
+  const dz =
+    -Math.cos(skyH) - clamp(z * A.LAT_PULL, -A.MAX_LAT_PULL, A.MAX_LAT_PULL);
+  return headingTo(0, 0, dx, dz);
 }
 
 /**
@@ -94,15 +128,6 @@ export class AutopilotCore {
       !this.orbit &&
       !!target &&
       Math.hypot(target.x - x, target.z - z) < A.ORBIT_RADIUS
-    );
-  }
-
-  /** Whether a circle that isn't loitering has gone all the way round. */
-  get lapDone() {
-    return (
-      !!this.orbit &&
-      !this.orbit.loiter &&
-      Math.abs(this.orbit.swept) >= Math.PI * 2
     );
   }
 
@@ -136,11 +161,8 @@ export class AutopilotCore {
     return needed;
   }
 
-  /**
-   * Starts circling `spot` from a plane at (x, z) heading `yaw`; `loiter`
-   * keeps circling, otherwise lapDone turns true after one lap.
-   */
-  startOrbit(spot, x, z, yaw, loiter) {
+  /** Starts circling `spot` from a plane at (x, z) heading `yaw`. */
+  startOrbit(spot, x, z, yaw) {
     // Turn the way that's closer to the current heading
     const out = headingTo(spot.x, spot.z, x, z);
     const dir =
@@ -165,7 +187,6 @@ export class AutopilotCore {
       z: spot.z,
       alt: top + A.ORBIT_CLEARANCE,
       dir,
-      loiter,
       swept: 0, // How far around it's flown (radians)
       lastOut: out,
     };
@@ -173,11 +194,12 @@ export class AutopilotCore {
 
   /**
    * One frame of flying, for a plane at {x, y, z} heading `yaw` at
-   * `speedKts` with the agility of its handling, toward `target` ({x, z},
-   * or null to fly straight on) unless circling. Returns the roll, pitch
-   * and speed (multiplier) to aim for.
+   * `speedKts` with the agility of its handling, toward `target` ({x, z}),
+   * along `course` (a heading, when `target` is null), or straight on
+   * unless circling. Returns the roll, pitch and speed (multiplier) to aim
+   * for.
    */
-  update({x, y, z, yaw, speedKts, agility, target, delta}) {
+  update({x, y, z, yaw, speedKts, agility, target, course = null, delta}) {
     // Heading, and the roll toward it plus a steady bank to hold a turn
     let heading = yaw;
     let roll = 0;
@@ -203,6 +225,9 @@ export class AutopilotCore {
       roll = steer(heading, bank);
     } else if (target) {
       heading = headingTo(x, z, target.x, target.z);
+      roll = steer(heading);
+    } else if (course !== null) {
+      heading = course;
       roll = steer(heading);
     }
 

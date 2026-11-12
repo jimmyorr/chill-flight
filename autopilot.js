@@ -1,17 +1,21 @@
 // --- AUTOPILOT ---
 // Flies to the waypoint (waypoint.js) and circles it on arrival until a new
-// one is set. With no waypoint it tours the landmarks (landmarks.js): it flies
-// to the nearest one it hasn't seen, circles it once, and moves on to the
-// next. Either way it keeps a safe height over the ground ahead, climbing
-// only as early as the terrain needs, and comes back down after. In the buggy
-// it drives to the waypoint and parks there, or with none tours the
-// landmarks the same way, driving a lap round each, and follows a road going
-// its way (updateDrivingAutopilot).
+// one is set. With no waypoint it follows the sun across the day and the moon
+// by night, nudged gently back toward the equator (z = 0) so it drifts around
+// the world without wandering off north or south. Either way it keeps a safe
+// height over the ground ahead, climbing only as early as the terrain needs,
+// and comes back down after. In the buggy it drives to the waypoint and parks
+// there, or with none tours the landmarks (landmarks.js), driving a lap round
+// each, and follows a road going its way (updateDrivingAutopilot).
 // game-loop.js calls updateAutopilot or updateDrivingAutopilot each frame
 // while it's engaged.
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {AutopilotCore, DrivingAutopilotCore} from './autopilot-logic.js';
+import {
+  AutopilotCore,
+  DrivingAutopilotCore,
+  skyHeading,
+} from './autopilot-logic.js';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {LANDMARKS} from './landmarks.js';
 import {getElevation} from './terrain-geometry.js';
@@ -27,7 +31,7 @@ import {state} from './state.js';
 // The world repeats every MAP_WIDTH units east to west
 const MAP_WIDTH = ChillFlightLogic.MAP_WIDTH;
 
-let tourStop = null; // {name, x, y, z}
+let tourStop = null; // {name, x, y, z}, for the buggy's landmark tour
 const visited = new Set();
 
 // The ground, the water or an arch's top (flying over arches, not into them)
@@ -49,7 +53,7 @@ const driver = new DrivingAutopilotCore(
 let wasDriving = false;
 
 // The nearest landmark not yet visited (the nearest copy east or west, as
-// the world repeats), starting over once all are
+// the world repeats), starting over once all are, for the buggy's tour
 function nextTourStop() {
   const px = planeGroup.position.x;
   const pz = planeGroup.position.z;
@@ -73,6 +77,15 @@ function nextTourStop() {
   return best;
 }
 
+// Forget the route when the autopilot is turned off
+export function resetAutopilot() {
+  pilot.reset();
+  driver.reset();
+  wasDriving = false;
+  tourStop = null;
+  setTourStop(null);
+}
+
 export function updateAutopilot(delta) {
   if (wasDriving) resetAutopilot();
   state.isDoingImmelmann = false;
@@ -80,25 +93,31 @@ export function updateAutopilot(delta) {
   const waypoint = getWaypoint();
 
   // A new waypoint ends any circling
-  if (pilot.orbit && waypoint) pilot.orbit = null;
-  if (waypoint) tourStop = null;
-  if (!pilot.orbit && !waypoint && !tourStop) {
-    tourStop = nextTourStop();
-  }
-  const target = waypoint || tourStop;
-
-  // Arrived: circle it. The waypoint's done; the tour moves on after a lap.
-  if (pilot.reached(x, z, target)) {
-    pilot.startOrbit(target, x, z, planeGroup.rotation.y, !!waypoint);
-    if (waypoint) {
-      if (!waypoint.stay) clearWaypoint();
-    } else visited.add(tourStop.name);
-  }
-  if (pilot.lapDone) {
+  if (
+    pilot.orbit &&
+    waypoint &&
+    (waypoint.x !== pilot.orbit.x || waypoint.z !== pilot.orbit.z)
+  ) {
     pilot.orbit = null;
-    tourStop = nextTourStop();
   }
-  setTourStop(pilot.orbit ? null : tourStop);
+  setTourStop(null);
+
+  // Arrived at the waypoint: circle it until a new one is set
+  if (pilot.reached(x, z, waypoint)) {
+    pilot.startOrbit(waypoint, x, z, planeGroup.rotation.y);
+    if (!waypoint.stay) clearWaypoint();
+  }
+
+  const course = waypoint
+    ? null
+    : skyHeading(
+        z,
+        state.sunX,
+        state.sunY,
+        state.sunZ,
+        state.moonX,
+        state.moonZ
+      );
 
   const {roll, pitch, speed} = pilot.update({
     x,
@@ -107,7 +126,8 @@ export function updateAutopilot(delta) {
     yaw: planeGroup.rotation.y,
     speedKts: BASE_FLIGHT_SPEED * state.flightSpeedMultiplier * 60,
     agility: planeHandling().agility,
-    target,
+    target: waypoint,
+    course,
     delta,
   });
   state.targetRoll = roll;
@@ -161,13 +181,4 @@ export function updateDrivingAutopilot(delta) {
   setTourStop(driver.tour?.lap ? null : tourStop);
   state.autopilotDrive = {steer, throttle};
   state.targetFlightSpeed = cruise / (BASE_FLIGHT_SPEED * 60);
-}
-
-// Forget the route when the autopilot is turned off
-export function resetAutopilot() {
-  pilot.reset();
-  driver.reset();
-  wasDriving = false;
-  tourStop = null;
-  setTourStop(null);
 }

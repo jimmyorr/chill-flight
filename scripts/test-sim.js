@@ -19,6 +19,7 @@ import {canLiftOff} from '../flight-physics-logic.js';
 import {arrivalAt} from '../landmarks.js';
 import {PEOPLE} from '../people.js';
 import {newProgress, land, accept, destination} from '../jobs-logic.js';
+import {skyHeading} from '../autopilot-logic.js';
 import {FlightSimulator, AUTOPILOT} from './flight-sim.js';
 
 console.log('Testing headless autopilot and flight simulation...');
@@ -287,7 +288,7 @@ function wrapAngle(a) {
     z: 1000,
     speed: 0.8,
   });
-  sim.startOrbit(center, true);
+  sim.startOrbit(center);
   // Place plane at orbit target altitude to test orbit holding stability
   sim.position.y = sim.orbit.alt;
 
@@ -440,6 +441,78 @@ function wrapAngle(a) {
   }
   console.log(
     '  Passed: Cross-country flight completes cross-world transit and transitions into orbit'
+  );
+}
+
+// 2f. No-waypoint sun/moon cruise stays centered near z = 0 across day-night cycles
+{
+  if (skyHeading(0, 0, 0, 0, 0, 0) !== null) {
+    console.error('FAIL: skyHeading should return null before sky is placed');
+    process.exit(1);
+  }
+  const moonX = Math.cos(-2.2) * Math.cos(0.18);
+  const moonZ = Math.sin(-2.2) * Math.cos(0.18);
+  const sunriseH = skyHeading(0, 0.92, 0.05, 0.4, moonX, moonZ);
+  const sunsetH = skyHeading(0, -0.92, 0.05, 0.4, moonX, moonZ);
+  const nightH = skyHeading(0, 0, -0.8, 0.4, moonX, moonZ);
+  if (
+    -Math.sin(sunriseH) < 0.7 ||
+    -Math.sin(sunsetH) > -0.7 ||
+    -Math.sin(nightH) > -0.4 ||
+    -Math.cos(nightH) > -0.5
+  ) {
+    console.error(
+      `FAIL: skyHeading directions wrong (sunrise=${sunriseH}, sunset=${sunsetH}, night=${nightH})`
+    );
+    process.exit(1);
+  }
+
+  ChillFlightLogic.WORLD_SEED = 20260101;
+  simplex.seed(20260101);
+  const startZ = 25000;
+  const sim = new FlightSimulator({
+    worldSeed: 20260101,
+    x: 0,
+    y: groundAt(0, startZ) + 250,
+    z: startZ,
+    speed: 1.0,
+  });
+
+  const dt = 1 / 20;
+  const dec = 0.409;
+  let maxFinalDayRoll = 0;
+  for (let t = 0; t < 360 * 3; t += dt) {
+    const lat = ((-sim.position.z / 5000) * Math.PI) / 180;
+    const ha =
+      ChillFlightLogic.computeTimeOfDay(t % 360) * Math.PI * 2 + Math.PI;
+    const sunY =
+      Math.sin(lat) * Math.sin(dec) +
+      Math.cos(lat) * Math.cos(dec) * Math.cos(ha);
+    const sunX = -Math.cos(dec) * Math.sin(ha);
+    const sunZ =
+      Math.cos(lat) * Math.sin(dec) -
+      Math.sin(lat) * Math.cos(dec) * Math.cos(ha);
+    sim.course = skyHeading(sim.position.z, sunX, sunY, sunZ, moonX, moonZ);
+    sim.step(dt);
+    if (t >= 360 * 2 && Math.abs(sim.rotation.roll) > maxFinalDayRoll) {
+      maxFinalDayRoll = Math.abs(sim.rotation.roll);
+    }
+  }
+
+  if (
+    sim.crashed ||
+    sim.minClearance < 50 ||
+    Math.abs(sim.position.z) > 9000 ||
+    sim.position.x > -20000 ||
+    maxFinalDayRoll > 0.25
+  ) {
+    console.error(
+      `FAIL: Sky-following cruise failed (crashed=${sim.crashed}, clearance=${sim.minClearance.toFixed(1)}, pos=(${sim.position.x.toFixed(0)}, ${sim.position.z.toFixed(0)}), maxFinalDayRoll=${maxFinalDayRoll.toFixed(2)})`
+    );
+    process.exit(1);
+  }
+  console.log(
+    '  Passed: No-waypoint autopilot follows sun and moon smoothly while staying centered near z = 0'
   );
 }
 

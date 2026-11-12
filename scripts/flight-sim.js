@@ -80,6 +80,7 @@ export class FlightSimulator {
     // Autopilot state: the game's own autopilot (autopilot-logic.js)
     this.autopilotEnabled = options.autopilot ?? true;
     this.waypoint = options.waypoint ? {...options.waypoint} : null;
+    this.course = options.course ?? null;
     this.pilot = new AutopilotCore((x, z) => this.groundAt(x, z));
     this.pilot.heldAlt = options.heldAlt ?? null;
 
@@ -108,16 +109,16 @@ export class FlightSimulator {
     this.waypoint = null;
   }
 
-  startOrbit(spot, loiter = true) {
+  startOrbit(spot) {
     const {x, z} = this.position;
-    this.pilot.startOrbit(spot, x, z, this.rotation.yaw, loiter);
+    this.pilot.startOrbit(spot, x, z, this.rotation.yaw);
   }
 
   updateAutopilot(dt) {
     const {x, y, z} = this.position;
     // Arrived at the waypoint: circle it
     if (this.pilot.reached(x, z, this.waypoint)) {
-      this.startOrbit(this.waypoint, true);
+      this.startOrbit(this.waypoint);
     }
     const {roll, pitch, speed} = this.pilot.update({
       x,
@@ -127,6 +128,7 @@ export class FlightSimulator {
       speedKts: BASE_FLIGHT_SPEED * this.speed * 60,
       agility: this.handling.agility,
       target: this.waypoint,
+      course: this.course,
       delta: dt,
     });
     this.targetRoll = roll;

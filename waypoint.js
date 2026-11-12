@@ -5,7 +5,7 @@
 // a landmark or airport). Cleared on arrival or from
 // the map, except one set to stay (a job's, which lasts until you land
 // there). Saved between visits. With no waypoint, the
-// marker shows the autopilot's next tour stop instead (autopilot.js).
+// marker shows the buggy autopilot's next tour stop instead (autopilot.js).
 import * as THREE from 'three';
 import {log} from './logger.js';
 import {planeGroup} from './airplane.js';
