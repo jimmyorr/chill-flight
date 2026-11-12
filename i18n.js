@@ -7,9 +7,9 @@
 // {name}-style placeholders are filled from `vars` after translating, so a
 // translation can move them: t('{n} of {total} unlocked', {n, total}).
 //
-// The language: ?lang= (en, en-US, ja, ko, zh, zh-TW, es, pt, de, fr), else the
-// Settings choice, else the browser's. Only the player's table loads (its
-// own chunk). Static text in index.html is translated once at load
+// The language: ?lang= (en, en-US, ja, ko, zh, zh-TW, es, pt, de, fr, it, uk),
+// else the Settings choice, else the browser's. Only the player's table loads
+// (its own chunk). Static text in index.html is translated once at load
 // (translateDom); text the game sets later goes through t() where it's set.
 import {log} from './logger.js';
 import {withTimeout} from './network.js';
@@ -27,6 +27,8 @@ const TABLES = {
   'pt-BR': () => import('./locales/pt-BR.js'),
   de: () => import('./locales/de.js'),
   fr: () => import('./locales/fr.js'),
+  it: () => import('./locales/it.js'),
+  uk: () => import('./locales/uk.js'),
 };
 export const LANGUAGES = ['en', 'en-US', ...Object.keys(TABLES)];
 
@@ -47,7 +49,9 @@ function known(code) {
     return /-(tw|hk|mo|hant)\b/.test(c) ? 'zh-TW' : 'zh-CN';
   }
   if (base === 'pt') return 'pt-BR';
-  if (['en', 'ja', 'ko', 'es', 'de', 'fr'].includes(base)) return base;
+  if (base === 'ua') return 'uk';
+  if (['en', 'ja', 'ko', 'es', 'de', 'fr', 'it', 'uk'].includes(base))
+    return base;
   return null;
 }
 

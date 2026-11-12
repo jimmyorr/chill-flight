@@ -524,7 +524,7 @@ input[type='number'].customization-input {
 
 /* Spaced translations like "R E P R E N D R E" / "C O N T I N U A R" need
    tighter tracking when sharing the row with the VR button */
-:is(:lang(es), :lang(fr), :lang(pt-BR))
+:is(:lang(es), :lang(fr), :lang(it), :lang(pt-BR), :lang(uk))
   .pause-primary-row:has(#vr-btn:not([style*='none']))
   .btn {
   padding: 0 8px;
