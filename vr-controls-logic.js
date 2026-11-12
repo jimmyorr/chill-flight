@@ -11,6 +11,8 @@ export const STICK_FLICK_ENTER = 0.78;
 export const STICK_FLICK_EXIT = 0.35;
 export const STICK_FLICK_DOMINANCE = 1.3;
 export const STICK_FLICK_WINDOW_MS = 450;
+export const GRIP_ROLL_ENTER = 0.65;
+export const GRIP_ROLL_EXIT = 0.4;
 
 /**
  * Builds the WebXR `requestSession('immersive-vr', sessionInit)` options.
@@ -316,20 +318,35 @@ export function createStickFlickTracker(flickWindowMs = STICK_FLICK_WINDOW_MS) {
   };
 }
 
+function isGripHeld(gp, wasHeld) {
+  const btn = gp?.buttons?.[1];
+  if (!btn) return false;
+  const val = buttonValue(btn);
+  return (
+    Boolean(btn.pressed) || val >= (wasHeld ? GRIP_ROLL_EXIT : GRIP_ROLL_ENTER)
+  );
+}
+
 /**
- * Edge-latched tracker for Quest Touch in-flight face buttons and pause button:
+ * Edge-latched tracker for Quest Touch in-flight face buttons, pause button,
+ * and continuous side-grip barrel rolls:
  * - Right A (4): Camera (follow <-> first-person)
  * - Right B (5): Headlight
  * - Left X (4): Switch vehicle
  * - Left Y (5): Pause / Resume
- * Side grips (1) and thumbstick clicks (3) are intentionally left unset to
- * avoid accidental inputs while bracing the controller or flicking sticks.
+ * - Left / Right side grips (1): Hold to barrel roll left (+1) or right (-1)
+ * Thumbstick clicks (3) are intentionally left unset to avoid accidental
+ * inputs while flicking sticks.
  */
 export function createVRButtonTracker() {
   let pauseHeld = false;
   let cameraHeld = false;
   let headlightHeld = false;
   let planeHeld = false;
+  let leftGripHeld = false;
+  let rightGripHeld = false;
+  let leftGripPauseLatch = false;
+  let rightGripPauseLatch = false;
 
   function readFlightStates({leftGp, rightGp}) {
     return {
@@ -354,14 +371,38 @@ export function createVRButtonTracker() {
       cameraHeld = next.camera;
       headlightHeld = next.headlight;
       planeHeld = next.plane;
+      leftGripPauseLatch = isGripHeld(
+        controllers?.leftGp,
+        leftGripHeld || leftGripPauseLatch
+      );
+      rightGripPauseLatch = isGripHeld(
+        controllers?.rightGp,
+        rightGripHeld || rightGripPauseLatch
+      );
+      leftGripHeld = false;
+      rightGripHeld = false;
     },
 
     pollFlightButtons(controllers) {
       const next = readFlightStates(controllers);
+      const rawLeftGrip = isGripHeld(
+        controllers?.leftGp,
+        leftGripHeld || leftGripPauseLatch
+      );
+      const rawRightGrip = isGripHeld(
+        controllers?.rightGp,
+        rightGripHeld || rightGripPauseLatch
+      );
+      if (!rawLeftGrip) leftGripPauseLatch = false;
+      if (!rawRightGrip) rightGripPauseLatch = false;
+      leftGripHeld = rawLeftGrip && !leftGripPauseLatch;
+      rightGripHeld = rawRightGrip && !rightGripPauseLatch;
+
       const events = {
         camera: next.camera && !cameraHeld,
         headlight: next.headlight && !headlightHeld,
         plane: next.plane && !planeHeld,
+        gripRoll: leftGripHeld === rightGripHeld ? 0 : leftGripHeld ? 1 : -1,
       };
       cameraHeld = next.camera;
       headlightHeld = next.headlight;
@@ -374,6 +415,10 @@ export function createVRButtonTracker() {
       cameraHeld = false;
       headlightHeld = false;
       planeHeld = false;
+      leftGripHeld = false;
+      rightGripHeld = false;
+      leftGripPauseLatch = false;
+      rightGripPauseLatch = false;
     },
   };
 }

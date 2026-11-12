@@ -196,7 +196,7 @@ function makeSession(leftOpts, rightOpts) {
   check('1-button hand-tracking input source never throws', safe);
 }
 
-// 4. Flight face buttons (A=Camera, B=Headlight, X=Switch vehicle; grips & stick clicks unset)
+// 4. Flight face buttons (A=Camera, B=Headlight, X=Switch vehicle), side-grip barrel rolls, & unset stick clicks
 {
   const btns = createVRButtonTracker();
   const c1 = extractXRControllers(
@@ -212,25 +212,68 @@ function makeSession(leftOpts, rightOpts) {
 
   const e1 = btns.pollFlightButtons(c1);
   check(
-    'Right A, Right B, and Left X fire camera, headlight, and plane once',
-    e1.camera && e1.headlight && e1.plane,
+    'Right A, Right B, and Left X fire camera, headlight, and plane once while both grips held cancel out',
+    e1.camera && e1.headlight && e1.plane && e1.gripRoll === 0,
     JSON.stringify(e1)
   );
 
   const e2 = btns.pollFlightButtons(c1);
   check(
     'held flight buttons stay edge-latched on subsequent frames',
-    !e2.camera && !e2.headlight && !e2.plane,
+    !e2.camera && !e2.headlight && !e2.plane && e2.gripRoll === 0,
     JSON.stringify(e2)
   );
 
-  const gripsOnly = extractXRControllers(makeSession({grip: 1.0}, {grip: 1.0}));
   btns.reset();
-  const e3 = btns.pollFlightButtons(gripsOnly);
+  const lightRest = extractXRControllers(
+    makeSession({grip: 0.35}, {grip: 0.2})
+  );
+  const eLight = btns.pollFlightButtons(lightRest);
   check(
-    'squeezing side grips does not fire any flight action',
-    !e3.camera && !e3.headlight && !e3.plane,
-    JSON.stringify(e3)
+    'light finger contact on side grips does not trigger barrel roll or face actions',
+    !eLight.camera &&
+      !eLight.headlight &&
+      !eLight.plane &&
+      eLight.gripRoll === 0,
+    JSON.stringify(eLight)
+  );
+
+  const leftGripSqueeze = extractXRControllers(
+    makeSession({grip: 0.75}, {grip: 0})
+  );
+  const leftGripEase = extractXRControllers(
+    makeSession({grip: 0.5}, {grip: 0})
+  );
+  const leftGripRelease = extractXRControllers(
+    makeSession({grip: 0.2}, {grip: 0})
+  );
+  const eLeft1 = btns.pollFlightButtons(leftGripSqueeze);
+  const eLeft2 = btns.pollFlightButtons(leftGripEase);
+  const eLeft3 = btns.pollFlightButtons(leftGripRelease);
+  check(
+    'left side grip holds +1 barrel roll continuously with hysteresis until released',
+    eLeft1.gripRoll === 1 &&
+      !eLeft1.camera &&
+      !eLeft1.headlight &&
+      !eLeft1.plane &&
+      eLeft2.gripRoll === 1 &&
+      eLeft3.gripRoll === 0,
+    JSON.stringify({eLeft1, eLeft2, eLeft3})
+  );
+
+  const rightGripSqueeze = extractXRControllers(
+    makeSession({grip: 0}, {grip: 0.9})
+  );
+  const bothGrips = extractXRControllers(makeSession({grip: 0.9}, {grip: 0.9}));
+  const eRight1 = btns.pollFlightButtons(rightGripSqueeze);
+  const eBoth = btns.pollFlightButtons(bothGrips);
+  const eRightAgain = btns.pollFlightButtons(rightGripSqueeze);
+  check(
+    'right side grip holds -1 barrel roll and squeezing both grips cancels to 0 cleanly',
+    eRight1.gripRoll === -1 &&
+      eBoth.gripRoll === 0 &&
+      eRightAgain.gripRoll === -1,
+    JSON.stringify({eRight1, eBoth, eRightAgain})
   );
 }
 
@@ -340,7 +383,7 @@ function makeSession(leftOpts, rightOpts) {
     pauseLatch.poll(offCardTrigger, 2) === 'exit'
   );
 
-  // Right B exits VR; Right A resumes without firing camera on next flight frame
+  // Right B exits VR; Right A + held Grip resumes without firing camera or barrel roll on next flight frame
   pauseLatch.poll(idle, -1);
   const pressRightB = extractXRControllers(makeSession({}, {secondary: true}));
   check(
@@ -350,13 +393,28 @@ function makeSession(leftOpts, rightOpts) {
   );
 
   pauseLatch.poll(idle, -1);
-  const pressRightA = extractXRControllers(makeSession({}, {primary: true}));
-  btns.syncFlightHeld(pressRightA); // synced while paused
-  const resumeAct = pauseLatch.poll(pressRightA, -1);
-  const resumedFlightEvents = btns.pollFlightButtons(pressRightA); // A still held on 1st resumed frame!
+  const pressRightAWithGrip = extractXRControllers(
+    makeSession({grip: 0.95}, {primary: true})
+  );
+  btns.syncFlightHeld(pressRightAWithGrip); // synced while paused
+  const resumeAct = pauseLatch.poll(pressRightAWithGrip, -1);
+  const resumedFlightEvents = btns.pollFlightButtons(pressRightAWithGrip); // A and Grip still held on 1st resumed frame!
+  const releasedAfterResume = btns.pollFlightButtons(idle);
+  const freshGripAfterResume = btns.pollFlightButtons(
+    extractXRControllers(makeSession({grip: 0.95}, {}))
+  );
   check(
-    'pressing Right A resumes flight and stays latched so camera does not toggle on resume frame',
-    resumeAct === 'resume' && !resumedFlightEvents.camera
+    'pressing Right A while gripping controller resumes flight without toggling camera or barrel-rolling until grip is re-squeezed',
+    resumeAct === 'resume' &&
+      !resumedFlightEvents.camera &&
+      resumedFlightEvents.gripRoll === 0 &&
+      releasedAfterResume.gripRoll === 0 &&
+      freshGripAfterResume.gripRoll === 1,
+    JSON.stringify({
+      resumedFlightEvents,
+      releasedAfterResume,
+      freshGripAfterResume,
+    })
   );
 }
 

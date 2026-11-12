@@ -1082,14 +1082,23 @@ function updatePhysicsAndControls(delta, nowTime) {
   const dtRight = doubleTap.ArrowRight && !state.isFreeCamera;
   const ttLeft = tripleTap.ArrowLeft && !state.isFreeCamera;
   const ttRight = tripleTap.ArrowRight && !state.isFreeCamera;
+  const inAirGripRoll =
+    !state.isFreeCamera && !state.isOnGround && !state.isOnWater
+      ? inputManager.state.gamepad.gripRoll || 0
+      : 0;
 
-  // Auto-disable autopilot on manual steering input: arrow keys, or the touch
-  // joystick, drag-steer or a gamepad stick pushed past the deadzone
-  // (deliberateSteer)
+  // Auto-disable autopilot on manual steering input: arrow keys, VR grip roll,
+  // or the touch joystick, drag-steer or a gamepad stick pushed past the
+  // deadzone (deliberateSteer)
   if (
     state.autopilotEnabled &&
     !keys.Shift &&
-    (isUp || isDown || isLeft || isRight || deliberateSteer())
+    (isUp ||
+      isDown ||
+      isLeft ||
+      isRight ||
+      inAirGripRoll !== 0 ||
+      deliberateSteer())
   ) {
     toggleAutopilot();
   }
@@ -1132,7 +1141,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     }
 
     let sharpHeld = 0;
-    if (!keys.Shift) {
+    if (!keys.Shift && !inAirGripRoll) {
       if (isLeft && dtLeft) sharpHeld = 1;
       else if (isRight && dtRight) sharpHeld = -1;
     }
@@ -1445,7 +1454,8 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     let rollHeld = 0;
     if (!state.isDoingImmelmann && !keys.Shift) {
-      if (isLeft && ttLeft) rollHeld = 1;
+      if (inAirGripRoll !== 0) rollHeld = inAirGripRoll;
+      else if (isLeft && ttLeft) rollHeld = 1;
       else if (isRight && ttRight) rollHeld = -1;
     }
     if (rollHeld !== barrelRollDir) {

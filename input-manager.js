@@ -84,6 +84,7 @@ export class InputManager {
         steeringActive: false,
         throttlingUp: false,
         throttlingDown: false,
+        gripRoll: 0,
       },
       controlScheme:
         localStorage.getItem('chill_flight_control_scheme') || 'joystick',
@@ -555,6 +556,7 @@ export class InputManager {
     this.state.gamepad.y = 0;
     this.state.gamepad.throttlingUp = false;
     this.state.gamepad.throttlingDown = false;
+    this.state.gamepad.gripRoll = 0;
     this._stickFlickTracker.reset();
     this.releaseTouchSteering();
     this._activeGestures = {};
@@ -1067,6 +1069,7 @@ export class InputManager {
         this.state.gamepad.y = 0;
         this.state.gamepad.throttlingUp = false;
         this.state.gamepad.throttlingDown = false;
+        this.state.gamepad.gripRoll = 0;
         return;
       }
 
@@ -1077,6 +1080,7 @@ export class InputManager {
         if (this._vrButtons.pollPause(controllers)) {
           this.releaseStickFlick();
           this._vrButtons.syncFlightHeld(controllers);
+          this.state.gamepad.gripRoll = 0;
           if (this.onPauseToggle) this.onPauseToggle();
           return;
         }
@@ -1091,6 +1095,7 @@ export class InputManager {
           this.state.gamepad.y = 0;
           this.state.gamepad.throttlingUp = false;
           this.state.gamepad.throttlingDown = false;
+          this.state.gamepad.gripRoll = 0;
           return;
         }
 
@@ -1124,9 +1129,11 @@ export class InputManager {
           if (lt > 0.1) this.onThrottleChange(-(0.2 + lt * 1.0) * delta);
         }
 
-        // 5. Quest Touch face buttons (grips and stick clicks left unset):
-        // Right A: cycle VR camera, Right B: headlight, Left X: switch vehicle.
+        // 5. Quest Touch face buttons and side grips (stick clicks left unset):
+        // Right A: cycle VR camera, Right B: headlight, Left X: switch vehicle,
+        // Left / Right side grips: hold to barrel roll.
         const events = this._vrButtons.pollFlightButtons(controllers);
+        this.state.gamepad.gripRoll = events.gripRoll;
         if (events.camera && this.onCameraToggle) this.onCameraToggle();
         if (events.headlight && this.onHeadlightToggle) {
           this.onHeadlightToggle();
@@ -1137,6 +1144,7 @@ export class InputManager {
     }
 
     // Standard non-XR W3C Gamepad path
+    this.state.gamepad.gripRoll = 0;
     let gp = null;
     for (let i = 0; i < gamepads.length; i++) {
       if (gamepads[i] && gamepads[i].connected) {
