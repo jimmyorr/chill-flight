@@ -7,9 +7,10 @@
 //   5. short-20261109-match-cut.mp4  - 12s gold twin-prop barrel-roll match-cut (seed 20261109)
 //   6. short-5-seaplane-cut.mp4      - 12s teal seaplane roll match-cut (seed 20261109)
 //   7. short-20261110-weather-cut.mp4 - 12s teal biplane weather-effects match-cut (seed 20261110)
+//   8. short-20261111-jet-cut.mp4    - 12s coral swept-wing jet landmark match-cut (seed 20261111)
 //
 // Usage:
-//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | daily-postcard | wing-cam | landmark-cut | meta]
+//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | daily-postcard | wing-cam | landmark-cut | meta]
 
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -1355,6 +1356,157 @@ async function renderWeatherCutShort(browser, seed = 20261110) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 8: Swept-Wing Jet Match-Cut for Seed 20261111 (Coral Jet)
+// ---------------------------------------------------------------------------
+async function renderJetWondersCutShort(browser, seed = 20261111) {
+  console.log(
+    `=== Rendering Jet Landmarks Match-Cut (Seed ${seed}: Coral Jet) ===`
+  );
+  const frameDir = path.join(OUT, `frames-short-${seed}-jet-cut`);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+  fs.mkdirSync(frameDir, {recursive: true});
+
+  const speedMult = 1.55;
+  // Elevated rear-left chase camera angled down past the swept-wing jet to
+  // frame the volcano caldera, coral sea arch, pyramids, and alien basalt arch
+  const cam =
+    `plane=jet&livery=coral&smoke=1&speed=${speedMult}` +
+    '&camOffset=-14,12,44&camLook=3,-7,-68';
+  // Unbroken 12s maneuver that loops seamlessly from frame 360 back to frame 0:
+  //   0..3s:  Carves across the smoking volcano caldera at dawn and rolls left
+  //   3..6s:  Match-cuts mid-roll over the red-stone sea arch & turquoise lagoon
+  //   6..9s:  Match-cuts banking right between the Great Pyramids at golden hour
+  //   9..12s: Match-cuts over the giant alien basalt arch & glowing flora at
+  //           twilight, settling to level (roll=-360, pitch=0, yaw=-18)
+  const moves = [
+    [0, 0, 0, 0],
+    [1.3, 28, 2, -6],
+    [2.3, -12, 6, -12],
+    [3.0, -58, 8, -10],
+    [4.4, -360, -2, -12],
+    [5.4, -342, 2, -16],
+    [6.0, -376, 3, -18],
+    [7.4, -334, -2, -12],
+    [8.4, -372, 2, -18],
+    [9.0, -346, 2, -18],
+    [10.2, -368, 1, -18],
+    [11.3, -360, 0, -18],
+    [12.0, -360, 0, -18],
+  ];
+
+  const rawSegments = [
+    {
+      label: 'Volcano Caldera · 1.0°S, 1.0°W',
+      tx: -4920,
+      ty: 1940,
+      tz: 4550,
+      heading: 174,
+      extra: 'tod=0.28&cloudMood=fair',
+      startFrame: 0,
+      endFrame: 90,
+    },
+    {
+      label: 'Coral Sea Arch · 3.3°S, 8.7°E',
+      tx: 44150,
+      ty: 235,
+      tz: 16544,
+      heading: 104,
+      extra: 'tod=0.50&cloudMood=fair',
+      startFrame: 90,
+      endFrame: 180,
+    },
+    {
+      label: 'Great Pyramids · 3.5°S, 2.0°W',
+      tx: -8850,
+      ty: 520,
+      tz: 18250,
+      heading: 42,
+      extra: 'tod=0.71&cloudMood=high',
+      startFrame: 180,
+      endFrame: 270,
+    },
+    {
+      label: 'Alien Basalt Arch · 3.5°S, 15.9°E',
+      tx: 79420,
+      ty: 740,
+      tz: 18580,
+      heading: 20,
+      extra: 'tod=0.775&headlight=1&cloudMood=mackerel',
+      startFrame: 270,
+      endFrame: 360,
+    },
+  ];
+
+  for (const seg of rawSegments) {
+    const start = startCoordsForFrame(
+      seg.tx,
+      seg.ty,
+      seg.tz,
+      seg.heading,
+      speedMult,
+      moves,
+      seg.startFrame
+    );
+    const query =
+      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
+      `&heading=${seg.heading}&${seg.extra}&${cam}`;
+    const page = await openWorld(browser, query, PREROLL);
+    await addPostcardBadge(
+      page,
+      'CHILL FLIGHT · Play free at chillflight.app',
+      seg.label
+    );
+    await page.evaluate((m) => {
+      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
+    }, moves);
+    for (let i = 0; i < seg.endFrame; i++) {
+      await step(page);
+      if (i >= seg.startFrame) {
+        const framePath = path.join(
+          frameDir,
+          `${String(i).padStart(5, '0')}.jpg`
+        );
+        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
+        if ((i - seg.startFrame) % FPS === 0) {
+          console.log(`  jet-cut [${seg.label}]: frame ${i}/360`);
+        }
+      }
+    }
+    await page.close();
+  }
+
+  const rawMp4 = path.join(OUT, `short-${seed}-jet-cut-raw.mp4`);
+  const outMp4 = path.join(OUT, `short-${seed}-jet-cut.mp4`);
+  ffmpeg([
+    '-framerate',
+    String(FPS),
+    '-i',
+    path.join(frameDir, '%05d.jpg'),
+    '-vf',
+    `scale=${PIXEL_W}:${PIXEL_H}`,
+    ...H264,
+    rawMp4,
+  ]);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+
+  const music = await downloadTrack('purrple-cat-discovery');
+  muxWithMusic(rawMp4, outMp4, music, 20, 12);
+  fs.rmSync(rawMp4, {force: true});
+  console.log(outMp4);
+  writeShortMetadata(outMp4, {
+    title: 'Jet roll across 4 landmarks ✈️',
+    tiktokQuestion: 'Volcano, sea arch, pyramids, or alien lands?',
+    stops: [
+      '0:00 Volcano Caldera (1.0°S, 1.0°W)',
+      '0:03 Coral Sea Arch (3.3°S, 8.7°E)',
+      '0:06 Great Pyramids (3.5°S, 2.0°W)',
+      '0:09 Alien Basalt Arch (3.5°S, 15.9°E)',
+    ],
+    trackTitle: 'Discovery',
+  });
+}
+
 async function main() {
   fs.mkdirSync(OUT, {recursive: true});
   const filter = process.argv[2];
@@ -1430,6 +1582,17 @@ async function main() {
       ],
       trackTitle: 'Crescent Moon',
     });
+    writeShortMetadata(path.join(OUT, 'short-20261111-jet-cut.mp4'), {
+      title: 'Jet roll across 4 landmarks ✈️',
+      tiktokQuestion: 'Volcano, sea arch, pyramids, or alien lands?',
+      stops: [
+        '0:00 Volcano Caldera (1.0°S, 1.0°W)',
+        '0:03 Coral Sea Arch (3.3°S, 8.7°E)',
+        '0:06 Great Pyramids (3.5°S, 2.0°W)',
+        '0:09 Alien Basalt Arch (3.5°S, 15.9°E)',
+      ],
+      trackTitle: 'Discovery',
+    });
     return;
   }
   const browser = await launch({
@@ -1456,6 +1619,9 @@ async function main() {
     }
     if (!filter || filter === 'weather-cut') {
       await renderWeatherCutShort(browser, 20261110);
+    }
+    if (!filter || filter === 'jet-cut') {
+      await renderJetWondersCutShort(browser, 20261111);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);

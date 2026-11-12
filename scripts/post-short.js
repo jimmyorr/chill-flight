@@ -150,34 +150,71 @@ async function launchPersistentBrowser() {
   });
 }
 
-async function setContentEditableText(page, selector, text) {
+async function clearAndSetTextbox(page, selector, text) {
   await page.waitForSelector(selector, {visible: true, timeout: 60000});
-  await page.click(selector);
-  await sleep(150);
-  await page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) return;
-    el.focus();
-    const selObj = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    selObj.removeAllRanges();
-    selObj.addRange(range);
-  }, selector);
-  await page.keyboard.press('Backspace');
-  await sleep(150);
-  // Insert text directly via execCommand so newlines and emojis stay intact
-  // without triggering hashtag autocomplete popups mid-word
-  await page.evaluate(
-    ({sel, value}) => {
+  const selectAllMod = process.platform === 'darwin' ? 'Meta' : 'Control';
+
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    await page.click(selector, {clickCount: 1});
+    await sleep(150);
+    // Select all via OS shortcut + execCommand so Polymer/Lit selection state updates
+    await page.keyboard.down(selectAllMod);
+    await page.keyboard.press('KeyA');
+    await page.keyboard.up(selectAllMod);
+    await sleep(80);
+    await page.keyboard.press('Backspace');
+    await sleep(120);
+
+    // Fallback DOM range clear if any residual default filename text survived
+    const remaining = await page.evaluate((sel) => {
       const el = document.querySelector(sel);
-      if (!el) return;
-      el.focus();
-      document.execCommand('insertText', false, value);
-      el.dispatchEvent(new Event('input', {bubbles: true}));
-    },
-    {sel: selector, value: text}
-  );
+      if (!el) return '';
+      if ((el.textContent || '').length > 0) {
+        el.focus();
+        document.execCommand('selectAll', false, null);
+        document.execCommand('delete', false, null);
+      }
+      return (el.textContent || '').trim();
+    }, selector);
+    if (remaining.length > 0) {
+      await page.keyboard.down(selectAllMod);
+      await page.keyboard.press('KeyA');
+      await page.keyboard.up(selectAllMod);
+      await page.keyboard.press('Backspace');
+      await sleep(120);
+    }
+
+    // Insert text via execCommand so newlines and emojis stay intact without
+    // triggering hashtag autocomplete popups mid-word
+    await page.evaluate(
+      ({sel, value}) => {
+        const el = document.querySelector(sel);
+        if (!el) return;
+        el.focus();
+        document.execCommand('insertText', false, value);
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+        el.dispatchEvent(new Event('change', {bubbles: true}));
+      },
+      {sel: selector, value: text}
+    );
+
+    // Wait briefly so any late YouTube filename hydration would reveal itself
+    await sleep(700);
+    const actual = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      return (el?.innerText ?? el?.textContent ?? '')
+        .replace(/\r\n/g, '\n')
+        .trim();
+    }, selector);
+
+    if (actual === text.trim()) {
+      return actual;
+    }
+    console.log(
+      `  Textbox mismatch on attempt ${attempt} (got "${actual.slice(0, 60)}"), retrying...`
+    );
+  }
+  throw new Error(`Failed to set textbox ${selector} to expected value`);
 }
 
 async function uploadToYouTube(browser, mp4Path, meta, opts) {
@@ -230,17 +267,40 @@ async function uploadToYouTube(browser, mp4Path, meta, opts) {
   console.log(`  Selecting file: ${path.basename(mp4Path)}`);
   await fileInput.uploadFile(mp4Path);
 
-  // Wait for Title & Description fields in the upload modal
+  // Wait for Title & Description fields in the upload modal, and wait until
+  // YouTube Studio finishes pre-filling the default filename into Title so its
+  // async hydration doesn't clobber our custom title a moment later
   const titleSel =
-    'ytcp-social-suggestions-textbox#title-textarea #textbox[contenteditable="true"], #title-textarea #textbox[contenteditable="true"]';
+    '#title-textarea #textbox[contenteditable="true"], #textbox[contenteditable="true"][aria-label*="title" i]';
   const descSel =
-    'ytcp-social-suggestions-textbox#description-textarea #textbox[contenteditable="true"], #description-textarea #textbox[contenteditable="true"]';
+    '#description-textarea #textbox[contenteditable="true"], #textbox[contenteditable="true"][aria-label*="tell viewers" i]';
+
+  await page.waitForSelector(titleSel, {visible: true, timeout: 60000});
+  await page
+    .waitForFunction(
+      (sel) =>
+        (document.querySelector(sel)?.textContent || '').trim().length > 0,
+      {timeout: 15000},
+      titleSel
+    )
+    .catch(() => {});
+  await sleep(800);
 
   console.log('  Filling YouTube Title and Description...');
-  await setContentEditableText(page, titleSel, meta.title);
-  await sleep(400);
-  await setContentEditableText(page, descSel, meta.description);
-  await sleep(400);
+  const verifiedTitle = await clearAndSetTextbox(page, titleSel, meta.title);
+  console.log(`  Verified YouTube Title: ${verifiedTitle}`);
+  await sleep(300);
+  await clearAndSetTextbox(page, descSel, meta.description);
+  await sleep(300);
+
+  // Re-verify Title right after Description in case focus change triggered hydration
+  const titleCheck = await page.evaluate(
+    (sel) => (document.querySelector(sel)?.textContent || '').trim(),
+    titleSel
+  );
+  if (titleCheck !== meta.title.trim()) {
+    await clearAndSetTextbox(page, titleSel, meta.title);
+  }
 
   // Select "No, it's not made for kids"
   const notForKidsSel =
@@ -270,8 +330,90 @@ async function uploadToYouTube(browser, mp4Path, meta, opts) {
       timeout: 120000,
     });
     await page.click('#done-button');
-    await sleep(5000);
-    console.log('  YouTube Short published!');
+
+    // Poll for up to 90s: if YouTube prompts "We're still checking your video"
+    // with a "Publish anyway" confirmation button, click it; then wait until
+    // the post-publish share/processing dialog confirms the video is published
+    const publishStart = Date.now();
+    let clickedPublishAnyway = false;
+    let publishedUrl = null;
+    while (Date.now() - publishStart < 90000) {
+      await sleep(800);
+
+      if (!clickedPublishAnyway) {
+        const dialogButtons = await page.$$(
+          'ytcp-confirmation-dialog ytcp-button, ' +
+            'ytcp-confirmation-dialog button, ' +
+            'tp-yt-paper-dialog[opened] ytcp-button, ' +
+            'tp-yt-paper-dialog[opened] button, ' +
+            '[role="dialog"] ytcp-button, ' +
+            '[role="dialog"] button'
+        );
+        for (const btn of dialogButtons) {
+          const info = await btn.evaluate((el) => {
+            const rect = el.getBoundingClientRect();
+            return {
+              text: (el.innerText || el.textContent || '').trim(),
+              aria: (el.getAttribute('aria-label') || '').trim(),
+              visible: rect.width > 0 && rect.height > 0,
+            };
+          });
+          if (
+            info.visible &&
+            (/publish anyway/i.test(info.text) ||
+              /publish anyway/i.test(info.aria))
+          ) {
+            console.log('  Confirming "Publish anyway" dialog on YouTube...');
+            await btn.click();
+            clickedPublishAnyway = true;
+            await sleep(1500);
+            break;
+          }
+        }
+      }
+
+      const shareState = await page.evaluate(() => {
+        const shareDialog = [
+          ...document.querySelectorAll(
+            'ytcp-video-share-dialog, ytcp-uploads-still-processing-dialog'
+          ),
+        ].find((d) => {
+          const rect = d.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+        if (!shareDialog) return null;
+        const link = shareDialog.querySelector(
+          'a[href*="youtube.com/shorts/"], a[href*="youtu.be/"]'
+        );
+        return {
+          text: (shareDialog.innerText || '').slice(0, 200),
+          href: link ? link.href : null,
+        };
+      });
+      if (shareState) {
+        publishedUrl = shareState.href;
+        const closeBtns = await page.$$(
+          'ytcp-video-share-dialog #close-button, ytcp-uploads-still-processing-dialog #close-button'
+        );
+        for (const closeBtn of closeBtns) {
+          const vis = await closeBtn.evaluate(
+            (el) => el.getBoundingClientRect().width > 0
+          );
+          if (vis) {
+            await closeBtn.click().catch(() => {});
+            break;
+          }
+        }
+        await sleep(2500);
+        break;
+      }
+    }
+
+    if (publishedUrl) {
+      console.log(`  YouTube Short published: ${publishedUrl}`);
+    } else {
+      console.log('  YouTube Short publish flow completed.');
+    }
   } else {
     console.log(
       '  YouTube Studio is ready on the final Visibility screen (click "Publish" in Chrome).'
