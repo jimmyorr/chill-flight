@@ -128,10 +128,15 @@ async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
     }
   });
   page.on('requestfailed', (req) => {
-    if (!closing && req.url().startsWith(origin)) {
-      errors.push(
-        `[${tag}] requestfailed: ${req.url()} (${req.failure()?.errorText})`
-      );
+    const err = req.failure()?.errorText;
+    // A paused <audio> element (e.g. ?music=0) aborts its range request with
+    // net::ERR_ABORTED once it has buffered enough metadata.
+    if (
+      !closing &&
+      req.url().startsWith(origin) &&
+      !(req.resourceType() === 'media' && err === 'net::ERR_ABORTED')
+    ) {
+      errors.push(`[${tag}] requestfailed: ${req.url()} (${err})`);
     }
   });
   page.on('workercreated', (worker) => {
@@ -388,8 +393,9 @@ async function exerciseControls(page, tag) {
 
   // Debug panel (Shift+D) exposes live flight values in the DOM.
   await shifted('D');
-  await wait(500);
-  const a = await readDebug();
+  const a = await readUntil(
+    (s) => Number.isFinite(s.x) && Number.isFinite(s.z)
+  );
   const b = await readUntil((s) => Math.hypot(s.x - a.x, s.z - a.z) > 1);
   if (!(Math.hypot(b.x - a.x, b.z - a.z) > 1)) {
     fail(`plane is not moving (${JSON.stringify(a)} -> ${JSON.stringify(b)})`);
