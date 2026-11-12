@@ -12,22 +12,24 @@ export const AUTOPILOT = {
   // over low country too
   CLEARANCE: 160,
   CRUISE_FLOOR: 330,
-  // Look this far ahead for high ground (units), every SCAN_STEP, closer
-  // together over the first NEAR_AHEAD so a sharp ridge isn't missed, and
-  // over the first NEAR_AHEAD also SIDE_OFFSET either side of the track, so
-  // a turn doesn't find a hill late (not further out, or it climbs over
-  // every peak it merely passes beside)
+  // Look this far ahead for high ground (units), every SCAN_STEP (locked to
+  // world distance along the track so samples stay on crests instead of
+  // stepping on and off them), and over the first NEAR_AHEAD also SIDE_OFFSET
+  // either side of the track (tapering out by SIDE_FADE_AHEAD) so a turn or
+  // flank shoulder eases in without climbing over far peaks beside the course
   LOOK_AHEAD: 9000,
-  SCAN_STEP: 300,
+  SCAN_STEP: 100,
   NEAR_AHEAD: 1500,
   NEAR_STEP: 150,
+  SIDE_FADE_AHEAD: 3000,
   SIDE_OFFSET: 250,
   // While turning onto the course, how far along the current heading to look
   TURN_LOOK_AHEAD: 2500,
   // Climb no steeper than this toward high ground ahead (rise per unit
   // flown, about 7 degrees): gentle, and started early thanks to LOOK_AHEAD
   CLIMB_SLOPE: 0.12,
-  // Rescan the ground this often (s): sampling the terrain isn't free
+  // Rescan the ground this often (s): sampling the terrain isn't free;
+  // between scans the distance to the limiting peak advances each frame
   SCAN_INTERVAL: 0.25,
   // Once past high ground, stay up until the held height is this much more
   // than needed (units), then come down no faster than DESCENT_RATE
@@ -35,9 +37,15 @@ export const AUTOPILOT = {
   // valley
   DESCENT_MARGIN: 100,
   DESCENT_RATE: 18,
+  // Critically-damped smoothing rate (rad/s) for the held height and its
+  // climb/descent rate, so climbs, crest round-outs and descents ease in
+  // and out smoothly instead of stepping the target pitch on each scan
+  ALT_SMOOTH_OMEGA: 1.2,
+  // A jump further than this in a frame is a warp (units)
+  WARP: 500,
   // Pitch toward the held height: so much per unit of height to go, less so
-  // much per unit/s already climbing or sinking, so it eases on rather than
-  // overshooting and bobbing
+  // much per unit/s faster or slower than the held climb rate, so it holds
+  // steady on ramps and eases onto level heights without bobbing
   PITCH_PER_UNIT: 0.006,
   PITCH_DAMPING: 0.012,
   MAX_CLIMB: Math.PI / 6,
@@ -115,7 +123,12 @@ export class AutopilotCore {
 
   // Forgets the route
   reset() {
-    this.heldAlt = null; // The height being flown to (y), eased down, not up
+    this.rawAlt = null; // Unsmoothed envelope height (bridges valleys, eases down)
+    this.heldAlt = null; // Smoothed height flown to (y), with continuous rate
+    this.heldRate = 0;
+    this.peak = null; // Limiting obstacle {x, z, top} tracked between scans
+    this.lastX = null;
+    this.lastZ = null;
     this.lastY = null; // For the vertical speed
     this.verticalSpeed = 0;
     this.scanTimer = 0;
@@ -131,34 +144,60 @@ export class AutopilotCore {
     );
   }
 
-  // The height needed now at (x, z) to clear the ground along a heading, at
-  // the climb slope: a peak far ahead needs less height now than one close by
-  heightAlong(x, z, heading, range = A.LOOK_AHEAD) {
+  // Effective climb-ramp distance for a point `d` ahead (`side` = true on the
+  // flank rays): full weight inside NEAR_AHEAD, tapering out smoothly by
+  // SIDE_FADE_AHEAD so a flank shoulder eases in instead of stepping at
+  // d = NEAR_AHEAD
+  effectiveDist(d, side) {
+    const posD = Math.max(0, d);
+    if (!side || posD <= A.NEAR_AHEAD) return posD;
+    const span = Math.max(1, A.SIDE_FADE_AHEAD - A.NEAR_AHEAD);
+    return posD + ((posD - A.NEAR_AHEAD) * (2 * A.NEAR_AHEAD)) / span;
+  }
+
+  // World-phase-locked scan along `heading`, returning {needed, peak}
+  scanAlong(x, z, heading, range = A.LOOK_AHEAD) {
     const fx = -Math.sin(heading);
     const fz = -Math.cos(heading);
     // Across the track (to the right)
     const sx = -fz;
     const sz = fx;
+    const along = x * fx + z * fz;
+    const centerPhase = ((along % A.SCAN_STEP) + A.SCAN_STEP) % A.SCAN_STEP;
+    const sidePhase = ((along % A.NEAR_STEP) + A.NEAR_STEP) % A.NEAR_STEP;
+
     let needed = A.CRUISE_FLOOR;
-    for (
-      let d = 0;
-      d <= range;
-      d += d < A.NEAR_AHEAD ? A.NEAR_STEP : A.SCAN_STEP
-    ) {
+    let peak = null;
+    const consider = (px, pz, d, side) => {
+      const top = this.groundAt(px, pz) + A.CLEARANCE;
+      const h = top - this.effectiveDist(d, side) * A.CLIMB_SLOPE;
+      if (h > needed) {
+        needed = h;
+        peak = {x: px, z: pz, top};
+      }
+    };
+
+    consider(x, z, 0, false);
+    consider(x + sx * A.SIDE_OFFSET, z + sz * A.SIDE_OFFSET, 0, true);
+    consider(x - sx * A.SIDE_OFFSET, z - sz * A.SIDE_OFFSET, 0, true);
+
+    for (let d = A.SCAN_STEP - centerPhase; d <= range; d += A.SCAN_STEP) {
+      consider(x + fx * d, z + fz * d, d, false);
+    }
+    const sideLimit = Math.min(range, A.SIDE_FADE_AHEAD);
+    for (let d = A.NEAR_STEP - sidePhase; d <= sideLimit; d += A.NEAR_STEP) {
       const cx = x + fx * d;
       const cz = z + fz * d;
-      const ground =
-        d <= A.NEAR_AHEAD
-          ? Math.max(
-              this.groundAt(cx, cz),
-              this.groundAt(cx + sx * A.SIDE_OFFSET, cz + sz * A.SIDE_OFFSET),
-              this.groundAt(cx - sx * A.SIDE_OFFSET, cz - sz * A.SIDE_OFFSET)
-            )
-          : this.groundAt(cx, cz);
-      const h = ground + A.CLEARANCE - d * A.CLIMB_SLOPE;
-      if (h > needed) needed = h;
+      consider(cx + sx * A.SIDE_OFFSET, cz + sz * A.SIDE_OFFSET, d, true);
+      consider(cx - sx * A.SIDE_OFFSET, cz - sz * A.SIDE_OFFSET, d, true);
     }
-    return needed;
+    return {needed, peak};
+  }
+
+  // The height needed now at (x, z) to clear the ground along a heading, at
+  // the climb slope: a peak far ahead needs less height now than one close by
+  heightAlong(x, z, heading, range = A.LOOK_AHEAD) {
+    return this.scanAlong(x, z, heading, range).needed;
   }
 
   /** Starts circling `spot` from a plane at (x, z) heading `yaw`. */
@@ -190,6 +229,7 @@ export class AutopilotCore {
       swept: 0, // How far around it's flown (radians)
       lastOut: out,
     };
+    this.peak = null;
   }
 
   /**
@@ -200,6 +240,15 @@ export class AutopilotCore {
    * for.
    */
   update({x, y, z, yaw, speedKts, agility, target, course = null, delta}) {
+    if (
+      this.lastX !== null &&
+      Math.hypot(x - this.lastX, z - this.lastZ) > A.WARP
+    ) {
+      this.reset();
+    }
+    this.lastX = x;
+    this.lastZ = z;
+
     // Heading, and the roll toward it plus a steady bank to hold a turn
     let heading = yaw;
     let roll = 0;
@@ -231,42 +280,90 @@ export class AutopilotCore {
       roll = steer(heading);
     }
 
+    // Advance distance to the remembered limiting peak every frame so the
+    // climb target rises continuously at 60+ fps instead of stepping on scans
+    const fx = -Math.sin(heading);
+    const fz = -Math.cos(heading);
+    const sx = -fz;
+    const sz = fx;
+    let peakNeeded = A.CRUISE_FLOOR;
+    if (!orbit && this.peak) {
+      const d = (this.peak.x - x) * fx + (this.peak.z - z) * fz;
+      const across = Math.abs((this.peak.x - x) * sx + (this.peak.z - z) * sz);
+      if (d >= -A.SCAN_STEP && across <= A.SIDE_OFFSET * 1.5) {
+        const effD = this.effectiveDist(d, across > A.SIDE_OFFSET * 0.5);
+        peakNeeded = Math.max(
+          A.CRUISE_FLOOR,
+          this.peak.top - effD * A.CLIMB_SLOPE
+        );
+      } else {
+        this.peak = null;
+      }
+    }
+
     // Height: over the ground ahead, or the circle's set height
     this.scanTimer -= delta;
     if (this.heldAlt === null || this.scanTimer <= 0) {
       this.scanTimer = A.SCAN_INTERVAL;
-      let needed;
       if (orbit) {
-        needed = orbit.alt;
+        this.peak = null;
       } else {
         // Far ahead along the course to the target, where it's going; along
         // the current heading only as far as it flies before turning onto
         // that course (a glance down a heading mid-turn would otherwise
         // climb over the volcano across the bay)
-        needed = this.heightAlong(x, z, heading);
+        let best = this.scanAlong(x, z, heading);
         if (Math.abs(wrapAngle(heading - yaw)) > 0.2) {
-          needed = Math.max(
-            needed,
-            this.heightAlong(x, z, yaw, A.TURN_LOOK_AHEAD)
-          );
+          const turnScan = this.scanAlong(x, z, yaw, A.TURN_LOOK_AHEAD);
+          if (turnScan.needed > best.needed) best = turnScan;
+        }
+        if (best.needed >= peakNeeded) {
+          this.peak = best.peak;
+          peakNeeded = best.needed;
         }
       }
-      // Climb as needed; come down only once well clear, and gradually
-      if (this.heldAlt === null || needed > this.heldAlt) {
-        this.heldAlt = needed;
-      } else if (this.heldAlt - needed > A.DESCENT_MARGIN) {
-        this.heldAlt -= A.DESCENT_RATE * A.SCAN_INTERVAL;
+    }
+    const needed = orbit ? orbit.alt : peakNeeded;
+
+    // Climb as needed; come down only once well clear, and gradually each
+    // frame, then filter (heldAlt, heldRate) critically damped so climbs,
+    // crest round-outs and descents never step the target pitch
+    if (this.heldAlt === null) {
+      this.rawAlt = needed;
+      this.heldAlt = needed;
+      this.heldRate = 0;
+    } else {
+      if (this.rawAlt === null) this.rawAlt = this.heldAlt;
+      if (needed > this.rawAlt) {
+        this.rawAlt = needed;
+      } else if (this.rawAlt - needed > A.DESCENT_MARGIN) {
+        this.rawAlt = Math.max(needed, this.rawAlt - A.DESCENT_RATE * delta);
+      }
+      if (delta > 0) {
+        const w = A.ALT_SMOOTH_OMEGA;
+        const e = Math.exp(-w * delta);
+        const err = this.heldAlt - this.rawAlt;
+        const c2 = this.heldRate + w * err;
+        this.heldAlt = this.rawAlt + (err + c2 * delta) * e;
+        this.heldRate = (this.heldRate - w * c2 * delta) * e;
       }
     }
+
     if (this.lastY !== null && delta > 0) {
       // Smoothed, so a frame's jitter doesn't twitch the pitch
-      const k = 1 - Math.exp(-delta * 4);
+      const k = 1 - Math.exp(-delta * 6);
       this.verticalSpeed += ((y - this.lastY) / delta - this.verticalSpeed) * k;
     }
     this.lastY = y;
+
+    const climbPitch =
+      speedKts > 1
+        ? Math.asin(clamp(this.heldRate / Math.max(speedKts, 60), -0.5, 0.5))
+        : 0;
     const pitch = clamp(
-      (this.heldAlt - y) * A.PITCH_PER_UNIT -
-        this.verticalSpeed * A.PITCH_DAMPING,
+      climbPitch +
+        (this.heldAlt - y) * A.PITCH_PER_UNIT -
+        (this.verticalSpeed - this.heldRate) * A.PITCH_DAMPING,
       -A.MAX_DESCENT,
       A.MAX_CLIMB
     );

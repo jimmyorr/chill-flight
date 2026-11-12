@@ -516,6 +516,103 @@ function wrapAngle(a) {
   );
 }
 
+// 2g. Smooth altitude holding across hills, narrow spires, descents, and warps
+{
+  const dt = 1 / 60;
+  for (const planeType of ['biplane', 'seaplane', 'twin', 'jet']) {
+    const sim = new FlightSimulator({
+      worldSeed: 20260101,
+      planeType,
+      x: 0,
+      y: AUTOPILOT.CRUISE_FLOOR,
+      z: 0,
+      yaw: Math.PI / 2,
+      course: Math.PI / 2,
+      speed: 1.0,
+    });
+    let prevPitch = sim.rotation.pitch;
+    let prevRate = 0;
+    let maxPitchAccel = 0;
+    let upwardKicks = 0;
+
+    for (let i = 0; i < 60 * 60; i++) {
+      sim.step(dt);
+      const rate = (((sim.rotation.pitch - prevPitch) / dt) * 180) / Math.PI;
+      const accel = (rate - prevRate) / dt;
+      if (i > 30) {
+        if (Math.abs(accel) > maxPitchAccel) maxPitchAccel = Math.abs(accel);
+        if (accel > 15 && prevRate <= 0.5) upwardKicks++;
+      }
+      prevPitch = sim.rotation.pitch;
+      prevRate = rate;
+    }
+
+    if (
+      sim.crashed ||
+      sim.minClearance < 110 ||
+      upwardKicks > 0 ||
+      maxPitchAccel > 35
+    ) {
+      console.error(
+        `FAIL: Autopilot pitch not smooth for ${planeType} (crashed=${sim.crashed}, minClearance=${sim.minClearance.toFixed(1)}, upwardKicks=${upwardKicks}, maxPitchAccel=${maxPitchAccel.toFixed(1)} deg/s^2)`
+      );
+      process.exit(1);
+    }
+  }
+
+  // Narrow spire crossing at (17600, 25000) in seed 20260101 + warp reset check
+  const spireSim = new FlightSimulator({
+    worldSeed: 20260101,
+    planeType: 'seaplane',
+    x: 25000,
+    y: 600,
+    z: 25000,
+    yaw: Math.PI / 2,
+    course: Math.PI / 2,
+    speed: 1.0,
+  });
+  let prevPitch = spireSim.rotation.pitch;
+  let prevRate = 0;
+  let spireMaxAccel = 0;
+  for (let i = 0; i < 60 * 60; i++) {
+    spireSim.step(dt);
+    const rate = (((spireSim.rotation.pitch - prevPitch) / dt) * 180) / Math.PI;
+    const accel = (rate - prevRate) / dt;
+    if (i > 30 && Math.abs(accel) > spireMaxAccel) {
+      spireMaxAccel = Math.abs(accel);
+    }
+    prevPitch = spireSim.rotation.pitch;
+    prevRate = rate;
+  }
+  if (
+    spireSim.crashed ||
+    spireSim.minClearance < 110 ||
+    spireMaxAccel > 40 ||
+    spireSim.pilot.heldAlt < 1000
+  ) {
+    console.error(
+      `FAIL: Spire crossing failed (crashed=${spireSim.crashed}, minClearance=${spireSim.minClearance.toFixed(1)}, maxAccel=${spireMaxAccel.toFixed(1)}, heldAlt=${spireSim.pilot.heldAlt?.toFixed(1)})`
+    );
+    process.exit(1);
+  }
+
+  // Warping to open water resets the held mountain height immediately
+  spireSim.position.x = 55000;
+  spireSim.position.z = 55000;
+  spireSim.position.y = AUTOPILOT.CRUISE_FLOOR;
+  spireSim.step(dt);
+  if (Math.abs(spireSim.pilot.heldAlt - AUTOPILOT.CRUISE_FLOOR) > 1) {
+    console.error(
+      `FAIL: Warp did not reset autopilot heldAlt (got ${spireSim.pilot.heldAlt})`
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    '  Passed: Autopilot climbs, holds minimum clearance, and descends smoothly without upward pitch kicks'
+  );
+}
+
 // ---------------------------------------------------------------------------
 // 3. JOB & PROGRESSION REACHABILITY VALIDATION
 // ---------------------------------------------------------------------------
