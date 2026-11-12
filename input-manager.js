@@ -2,6 +2,16 @@ import {renderer} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {hooks} from './hooks.js';
 import {state} from './state.js';
+import {
+  STICK_DEADZONE,
+  createStickFlickTracker,
+  createVRButtonTracker,
+  extractXRControllers,
+  readCombinedThumbstick,
+  readStandardStick,
+  readXRTriggers,
+  scaleThumbstickAxis,
+} from './vr-controls-logic.js';
 
 export class InputManager {
   constructor() {
@@ -131,14 +141,18 @@ export class InputManager {
     this._pinchDone = false;
     this.PINCH_START_MS = 250;
 
-    // Gamepad state latches
+    // Gamepad and WebXR controller state latches
     this._gamepadPauseLatched = false;
     this._lastGamepadButtons = [];
+    this._stickFlickTracker = createStickFlickTracker();
+    this._vrButtons = createVRButtonTracker();
 
     // Callbacks for high-level actions (hooked by game.js)
     this.onCameraToggle = null;
     this.onAutopilotToggle = null;
     this.onHeadlightToggle = null;
+    this.onSmokeToggle = null;
+    this.onPlaneToggle = null;
     this.onDebugToggle = null;
     this.onRainbowToggle = null;
     this.onShootingStarToggle = null;
@@ -536,8 +550,12 @@ export class InputManager {
     this.state.mouse.x = 0;
     this.state.mouse.y = 0;
     this.state.freeCam.dragging = false;
+    this.state.gamepad.steeringActive = false;
+    this.state.gamepad.x = 0;
+    this.state.gamepad.y = 0;
     this.state.gamepad.throttlingUp = false;
     this.state.gamepad.throttlingDown = false;
+    this._stickFlickTracker.reset();
     this.releaseTouchSteering();
     this._activeGestures = {};
     this._viewTouches = {};
@@ -976,6 +994,57 @@ export class InputManager {
     }
   }
 
+  releaseStickFlick() {
+    const released = this._stickFlickTracker.reset();
+    if (!released) return;
+    const act = released.action;
+    const now = performance.now();
+    const heldTime = now - (this.state.keyPressStartTime[act] || 0);
+    this.state.keys[act] = false;
+    this.state.doubleTap[act] = false;
+    this.state.tripleTap[act] = false;
+    this._lastKeyUpTime[act] = now;
+    if (this.onKeyRelease) {
+      this.onKeyRelease(act, heldTime);
+    }
+  }
+
+  applyStickFlick(rawX, rawY) {
+    const now = performance.now();
+    const flick = this._stickFlickTracker.update(rawX, rawY, now);
+
+    if (flick.released) {
+      const act = flick.released.action;
+      const heldTime = now - (this.state.keyPressStartTime[act] || 0);
+      this.state.keys[act] = false;
+      this.state.doubleTap[act] = false;
+      this.state.tripleTap[act] = false;
+      this._lastKeyUpTime[act] = now;
+      if (this.onKeyRelease) {
+        this.onKeyRelease(act, heldTime);
+      }
+    }
+
+    if (flick.started) {
+      const {action, count} = flick.started;
+      this.resetMouseSteering();
+      this.state.keys[action] = true;
+      if (action === 'ArrowDown') this.state.keys.ArrowUp = false;
+      this.state.keyPressStartTime[action] = now;
+
+      if (count === 2) {
+        this.state.doubleTap[action] = true;
+        this.state.tripleTap[action] = false;
+      } else if (count >= 3) {
+        this.state.doubleTap[action] = false;
+        this.state.tripleTap[action] = true;
+        if (this.onTripleTap) this.onTripleTap(action);
+      }
+    }
+
+    return flick;
+  }
+
   pollGamepad(delta = 1 / 60) {
     const gamepads = navigator.getGamepads
       ? navigator.getGamepads()
@@ -983,6 +1052,91 @@ export class InputManager {
         ? navigator.webkitGetGamepads()
         : [];
 
+    const isVR = Boolean(renderer && renderer.xr && renderer.xr.isPresenting);
+
+    if (isVR) {
+      const session = renderer.xr.getSession ? renderer.xr.getSession() : null;
+      const controllers = extractXRControllers(session, gamepads);
+
+      if (!controllers.hasXRGamepad && !controllers.standardGp) {
+        this.releaseStickFlick();
+        this._vrButtons.reset();
+        this._lastGamepadButtons = [];
+        this.state.gamepad.steeringActive = false;
+        this.state.gamepad.x = 0;
+        this.state.gamepad.y = 0;
+        this.state.gamepad.throttlingUp = false;
+        this.state.gamepad.throttlingDown = false;
+        return;
+      }
+
+      if (controllers.hasXRGamepad) {
+        // 1. Pause toggle (Left Y or fallback Start): sync flight latches and
+        // return immediately so pause/resume presses never bleed into flight
+        // actions on the transition frame.
+        if (this._vrButtons.pollPause(controllers)) {
+          this.releaseStickFlick();
+          this._vrButtons.syncFlightHeld(controllers);
+          if (this.onPauseToggle) this.onPauseToggle();
+          return;
+        }
+
+        // 2. While paused, vr-manager.js handles the 3D pause menu; keep
+        // flight latches synced so holding A across resume doesn't toggle cam.
+        if (this.state.isPaused || state.isPaused) {
+          this.releaseStickFlick();
+          this._vrButtons.syncFlightHeld(controllers);
+          this.state.gamepad.steeringActive = false;
+          this.state.gamepad.x = 0;
+          this.state.gamepad.y = 0;
+          this.state.gamepad.throttlingUp = false;
+          this.state.gamepad.throttlingDown = false;
+          return;
+        }
+
+        // 3. Either thumbstick steers (with +Y = stick forward/up) and
+        // supports double/triple-flick maneuvers.
+        const stick = readCombinedThumbstick(controllers, STICK_DEADZONE);
+        const flick = this.applyStickFlick(stick.rawX, stick.rawY);
+        const suppressHorizontal =
+          flick.activeCount === 3 &&
+          (flick.activeAction === 'ArrowLeft' ||
+            flick.activeAction === 'ArrowRight');
+        const effX = suppressHorizontal ? 0 : stick.x;
+        const effY = stick.y;
+
+        if (effX !== 0 || effY !== 0) {
+          this.state.gamepad.x = effX;
+          this.state.gamepad.y = effY;
+          this.state.gamepad.steeringActive = true;
+        } else if (this.state.gamepad.steeringActive) {
+          this.state.gamepad.x = 0;
+          this.state.gamepad.y = 0;
+          this.state.gamepad.steeringActive = false;
+        }
+
+        // 4. Analog triggers: Right trigger accelerates, Left trigger slows.
+        const {rt, lt} = readXRTriggers(controllers);
+        this.state.gamepad.throttlingUp = rt > 0.1;
+        this.state.gamepad.throttlingDown = lt > 0.1;
+        if (this.onThrottleChange) {
+          if (rt > 0.1) this.onThrottleChange((0.2 + rt * 1.0) * delta);
+          if (lt > 0.1) this.onThrottleChange(-(0.2 + lt * 1.0) * delta);
+        }
+
+        // 5. Quest Touch face buttons (grips and stick clicks left unset):
+        // Right A: cycle VR camera, Right B: headlight, Left X: switch vehicle.
+        const events = this._vrButtons.pollFlightButtons(controllers);
+        if (events.camera && this.onCameraToggle) this.onCameraToggle();
+        if (events.headlight && this.onHeadlightToggle) {
+          this.onHeadlightToggle();
+        }
+        if (events.plane && this.onPlaneToggle) this.onPlaneToggle();
+        return;
+      }
+    }
+
+    // Standard non-XR W3C Gamepad path
     let gp = null;
     for (let i = 0; i < gamepads.length; i++) {
       if (gamepads[i] && gamepads[i].connected) {
@@ -991,60 +1145,89 @@ export class InputManager {
       }
     }
 
-    // In WebXR, separate controllers exist for left and right hands
-    let leftGp = null;
-    let rightGp = null;
-    const isVR = renderer && renderer.xr && renderer.xr.isPresenting;
-
-    if (isVR) {
-      const session = renderer.xr.getSession();
-      if (session && session.inputSources) {
-        for (const source of session.inputSources) {
-          if (source.gamepad && source.gamepad.connected) {
-            if (source.handedness === 'left') {
-              leftGp = source.gamepad;
-            } else if (source.handedness === 'right') {
-              rightGp = source.gamepad;
-            } else if (!rightGp) {
-              rightGp = source.gamepad;
-            }
-          }
-        }
-      }
-      if (!gp) {
-        gp = rightGp || leftGp;
-      }
-    }
-
-    if (!gp && !leftGp && !rightGp) {
+    if (!gp) {
+      this.releaseStickFlick();
       this._lastGamepadButtons = [];
       this.state.gamepad.steeringActive = false;
+      this.state.gamepad.x = 0;
+      this.state.gamepad.y = 0;
       this.state.gamepad.throttlingUp = false;
       this.state.gamepad.throttlingDown = false;
       return;
     }
 
-    // 1. Flight Stick: Map Analog Stick to Pitch and Roll (supporting standard gamepads & WebXR Touch controllers)
-    const stickGp = isVR ? rightGp || leftGp || gp : gp;
-    let roll = 0;
-    let pitch = 0;
-    if (stickGp && stickGp.axes && stickGp.axes.length >= 2) {
-      roll =
-        stickGp.axes.length >= 4 &&
-        (stickGp.axes[2] !== 0 || stickGp.axes[3] !== 0)
-          ? stickGp.axes[2]
-          : stickGp.axes[0];
-      pitch =
-        stickGp.axes.length >= 4 &&
-        (stickGp.axes[2] !== 0 || stickGp.axes[3] !== 0)
-          ? stickGp.axes[3]
-          : stickGp.axes[1];
+    // Pause: Button 9 (Start/Menu)
+    const isPausePressed = Boolean(gp.buttons?.[9]?.pressed);
+    if (isPausePressed) {
+      if (!this._gamepadPauseLatched) {
+        this._gamepadPauseLatched = true;
+        this.releaseStickFlick();
+        if (this.onPauseToggle) this.onPauseToggle();
+        if (gp.buttons) {
+          for (let i = 0; i < gp.buttons.length; i++) {
+            this._lastGamepadButtons[i] = Boolean(gp.buttons[i]?.pressed);
+          }
+        }
+        return;
+      }
+    } else {
+      this._gamepadPauseLatched = false;
     }
-    const deadzone = 0.15;
-    if (Math.abs(roll) < deadzone) roll = 0;
-    if (Math.abs(pitch) < deadzone) pitch = 0;
 
-    if (Math.abs(roll) > deadzone || Math.abs(pitch) > deadzone) {
+    // Map Button 0 (A) to Enter for splash/menu selection
+    const aBtnPressed = Boolean(gp.buttons?.[0]?.pressed);
+    if (aBtnPressed && !this._lastGamepadButtons[0]) {
+      window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));
+    } else if (!aBtnPressed && this._lastGamepadButtons[0]) {
+      window.dispatchEvent(new KeyboardEvent('keyup', {key: 'Enter'}));
+    }
+
+    // D-Pad: Map to Arrow keys
+    const dpadMap = [
+      {btn: 12, key: 'ArrowUp'},
+      {btn: 13, key: 'ArrowDown'},
+      {btn: 14, key: 'ArrowLeft'},
+      {btn: 15, key: 'ArrowRight'},
+    ];
+
+    dpadMap.forEach((map) => {
+      const isPressed = Boolean(gp.buttons?.[map.btn]?.pressed);
+      const wasPressed = !!this._lastGamepadButtons[map.btn];
+      if (isPressed && !wasPressed) {
+        window.dispatchEvent(new KeyboardEvent('keydown', {key: map.key}));
+      } else if (!isPressed && wasPressed) {
+        window.dispatchEvent(new KeyboardEvent('keyup', {key: map.key}));
+      }
+    });
+
+    if (this.state.isPaused || state.isPaused) {
+      this.releaseStickFlick();
+      this.state.gamepad.steeringActive = false;
+      this.state.gamepad.x = 0;
+      this.state.gamepad.y = 0;
+      this.state.gamepad.throttlingUp = false;
+      this.state.gamepad.throttlingDown = false;
+      if (gp.buttons) {
+        for (let i = 0; i < gp.buttons.length; i++) {
+          this._lastGamepadButtons[i] = Boolean(gp.buttons[i]?.pressed);
+        }
+      }
+      return;
+    }
+
+    // 1. Flight Stick: Map either analog stick to Pitch and Roll (+Y = stick up)
+    const rawStick = readStandardStick(gp);
+    const flick = this.applyStickFlick(rawStick.x, rawStick.y);
+    const suppressHorizontal =
+      flick.activeCount === 3 &&
+      (flick.activeAction === 'ArrowLeft' ||
+        flick.activeAction === 'ArrowRight');
+    const roll = suppressHorizontal
+      ? 0
+      : scaleThumbstickAxis(rawStick.x, STICK_DEADZONE);
+    const pitch = scaleThumbstickAxis(rawStick.y, STICK_DEADZONE);
+
+    if (roll !== 0 || pitch !== 0) {
       this.state.gamepad.x = roll;
       this.state.gamepad.y = pitch;
       this.state.gamepad.steeringActive = true;
@@ -1054,48 +1237,12 @@ export class InputManager {
       this.state.gamepad.steeringActive = false;
     }
 
-    // 2. Throttle Triggers:
-    // In VR: Right trigger accelerates, Left trigger decelerates
-    // On Standard Gamepad: RT (button 7) accelerates, LT (button 6) decelerates
-    let rt = 0;
-    let lt = 0;
-
-    if (isVR && (leftGp || rightGp)) {
-      if (rightGp && rightGp.buttons && rightGp.buttons[0]) {
-        rt =
-          rightGp.buttons[0].value !== undefined
-            ? rightGp.buttons[0].value
-            : rightGp.buttons[0].pressed
-              ? 1
-              : 0;
-      }
-      if (leftGp && leftGp.buttons && leftGp.buttons[0]) {
-        lt =
-          leftGp.buttons[0].value !== undefined
-            ? leftGp.buttons[0].value
-            : leftGp.buttons[0].pressed
-              ? 1
-              : 0;
-      }
-    } else if (gp && gp.buttons) {
-      rt =
-        gp.buttons[7]?.value !== undefined
-          ? gp.buttons[7].value
-          : gp.buttons[0]?.value !== undefined
-            ? gp.buttons[0].value
-            : gp.buttons[7]?.pressed || gp.buttons[0]?.pressed
-              ? 1
-              : 0;
-      lt =
-        gp.buttons[6]?.value !== undefined
-          ? gp.buttons[6].value
-          : gp.buttons[1]?.value !== undefined
-            ? gp.buttons[1].value
-            : gp.buttons[6]?.pressed || gp.buttons[1]?.pressed
-              ? 1
-              : 0;
-    }
-
+    // 2. Throttle Triggers: RT (button 7) accelerates, LT (button 6) decelerates
+    const {rt, lt} = readXRTriggers({
+      leftGp: null,
+      rightGp: null,
+      standardGp: gp,
+    });
     this.state.gamepad.throttlingUp = rt > 0.1;
     this.state.gamepad.throttlingDown = lt > 0.1;
 
@@ -1108,43 +1255,14 @@ export class InputManager {
       }
     }
 
-    // 3. Pause:
-    // Standard gamepad: Button 9 (Start/Menu)
-    // WebXR on Quest: Left Controller Y (Button 5) OR Thumbstick Click (Button 3 on either controller)
-    const isPausePressed =
-      (gp && gp.buttons && gp.buttons[9]?.pressed) ||
-      (isVR &&
-        (leftGp?.buttons[5]?.pressed ||
-          leftGp?.buttons[3]?.pressed ||
-          rightGp?.buttons[3]?.pressed));
-
-    if (isPausePressed) {
-      if (!this._gamepadPauseLatched) {
-        if (this.onPauseToggle) this.onPauseToggle();
-        this._gamepadPauseLatched = true;
-      }
-    } else {
-      this._gamepadPauseLatched = false;
-    }
-
-    // Toggle Action Menu: Map 'Select' or 'Back' button (Button 8)
-    if (gp && gp.buttons && gp.buttons[8]?.pressed) {
+    // 3. Toggle Action Menu: Map 'Select' or 'Back' button (Button 8)
+    if (gp.buttons?.[8]?.pressed) {
       if (!this._gamepadSelectLatched) {
         if (this.onMenuToggle) this.onMenuToggle();
         this._gamepadSelectLatched = true;
       }
     } else {
       this._gamepadSelectLatched = false;
-    }
-
-    // Map Button 0 (A) to Enter for selection (Standard gamepad: 0, Quest Right: 4)
-    const aBtnPressed =
-      (rightGp && rightGp.buttons && rightGp.buttons[4]?.pressed) ||
-      (gp && gp.buttons && gp.buttons[0]?.pressed);
-    if (aBtnPressed && !this._lastGamepadButtons[0]) {
-      window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));
-    } else if (!aBtnPressed && this._lastGamepadButtons[0]) {
-      window.dispatchEvent(new KeyboardEvent('keyup', {key: 'Enter'}));
     }
 
     // 4. Bumpers: Map LB (4) and RB (5) to ArrowLeft/ArrowRight (with double-tap detection)
@@ -1154,7 +1272,7 @@ export class InputManager {
     ];
 
     bumperMap.forEach((map) => {
-      const isPressed = gp.buttons[map.btn].pressed;
+      const isPressed = Boolean(gp.buttons?.[map.btn]?.pressed);
       const wasPressed = !!this._lastGamepadButtons[map.btn];
 
       if (isPressed && !wasPressed) {
@@ -1189,28 +1307,12 @@ export class InputManager {
       }
     });
 
-    // 5. D-Pad: Map to Arrow keys
-    const dpadMap = [
-      {btn: 12, key: 'ArrowUp'},
-      {btn: 13, key: 'ArrowDown'},
-      {btn: 14, key: 'ArrowLeft'},
-      {btn: 15, key: 'ArrowRight'},
-    ];
-
-    dpadMap.forEach((map) => {
-      const isPressed = gp.buttons[map.btn]?.pressed;
-      const wasPressed = !!this._lastGamepadButtons[map.btn];
-      if (isPressed && !wasPressed) {
-        window.dispatchEvent(new KeyboardEvent('keydown', {key: map.key}));
-      } else if (!isPressed && wasPressed) {
-        window.dispatchEvent(new KeyboardEvent('keyup', {key: map.key}));
-      }
-    });
-
     // Update tracked buttons
-    gp.buttons.forEach((btn, idx) => {
-      this._lastGamepadButtons[idx] = btn.pressed;
-    });
+    if (gp.buttons) {
+      for (let i = 0; i < gp.buttons.length; i++) {
+        this._lastGamepadButtons[i] = Boolean(gp.buttons[i]?.pressed);
+      }
+    }
   }
 
   consumeDoubleTap(action) {

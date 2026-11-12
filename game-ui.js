@@ -53,6 +53,7 @@ const menuTrigger = document.getElementById('mobile-menu-trigger');
 const pauseTrigger = document.getElementById('mobile-pause-trigger');
 const camToggle = document.getElementById('mobile-cam-toggle');
 const mapBtn = document.getElementById('mobile-map-btn');
+const pauseMapBtn = document.getElementById('pause-map-btn');
 
 const autoToggle = document.getElementById('mobile-auto-toggle');
 
@@ -139,6 +140,14 @@ if (mapBtn) {
     e.preventDefault();
     e.stopPropagation();
     menuContainer.classList.remove('expanded');
+    hooks.fullscreenMap?.open();
+  });
+}
+
+if (pauseMapBtn) {
+  pauseMapBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     hooks.fullscreenMap?.open();
   });
 }

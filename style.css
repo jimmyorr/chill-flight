@@ -501,13 +501,72 @@ input[type='number'].customization-input {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  width: 100%;
+}
+
+.pause-primary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
 }
 
 .customization-footer .btn {
   margin-top: 0;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  padding: 0 14px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+/* Spaced translations like "R E P R E N D R E" / "C O N T I N U A R" need
+   tighter tracking when sharing the row with the VR button */
+:is(:lang(es), :lang(fr), :lang(pt-BR))
+  .pause-primary-row:has(#vr-btn:not([style*='none']))
+  .btn {
+  padding: 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.pause-vr-btn {
+  background: rgba(255, 215, 0, 0.14);
+  border: 1px solid rgba(255, 215, 0, 0.42);
+  color: #ffe57f;
+  height: 42px;
+  padding: 0 13px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family:
+    'Inter',
+    -apple-system,
+    sans-serif;
+  letter-spacing: 1px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pause-vr-btn:hover {
+  background: rgba(255, 215, 0, 0.24);
+  border-color: rgba(255, 215, 0, 0.65);
+  color: #fff;
+}
+
+.pause-vr-btn:active {
+  transform: scale(0.98);
 }
 
 #cockpit-ui {
@@ -2543,15 +2602,15 @@ input[type='number'].customization-input {
   align-items: center;
   gap: 8px;
   width: 100%;
-  margin-top: 6px;
+  margin-top: 0;
 }
 
 .pause-icon-btn,
 #achievements-btn {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.7);
-  padding: 0 16px;
+  color: rgba(255, 255, 255, 0.78);
+  padding: 0 10px;
   height: 36px;
   margin-top: 0;
   font-size: 12px;
@@ -2566,14 +2625,21 @@ input[type='number'].customization-input {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  letter-spacing: 1px;
+  gap: 5px;
+  letter-spacing: 0.5px;
   flex: 1;
   min-width: 0;
   width: auto;
+  white-space: nowrap;
   outline: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+
+.pause-map-btn {
+  flex: 0 0 46px;
+  padding: 0;
+  font-size: 14px;
 }
 
 .pause-icon-btn:hover,
@@ -2678,6 +2744,42 @@ input[type='number'].customization-input {
   font-size: 11px;
   color: #ffd700;
   letter-spacing: 0.5px;
+}
+
+.fullscreen-map-vr-btn {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  font-family:
+    'Inter',
+    -apple-system,
+    sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  outline: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.fullscreen-map-vr-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+}
+
+.fullscreen-map-vr-btn:active {
+  transform: scale(0.96);
 }
 
 /* Center on plane: bottom right above the resume bar, its right edge

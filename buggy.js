@@ -39,7 +39,8 @@ import {
   WATER_LEVEL,
 } from './constants.js';
 import {state} from './state.js';
-import {doubleTap, keys} from './game-input-bindings.js';
+import {doubleTap, inputManager, keys} from './game-input-bindings.js';
+import {unscaleThumbstickForBuggy} from './vr-controls-logic.js';
 import {setOnWheels} from './flight-physics.js';
 import {simplex} from './noise.js';
 import {hooks} from './hooks.js';
@@ -401,6 +402,12 @@ function stickLive() {
 
 function analogSteerAxis(value) {
   if (!stickLive()) return 0;
+  if (inputManager.state.gamepad.steeringActive) {
+    return ChillFlightLogic.buggySteerAxis(
+      unscaleThumbstickForBuggy(value, 0.12),
+      false
+    );
+  }
   return ChillFlightLogic.buggySteerAxis(
     value,
     state.currentControlScheme === 'joystick'
@@ -409,6 +416,12 @@ function analogSteerAxis(value) {
 
 function analogThrottleAxis(value) {
   if (!stickLive()) return 0;
+  if (inputManager.state.gamepad.steeringActive) {
+    return ChillFlightLogic.buggyThrottleAxis(
+      unscaleThumbstickForBuggy(value, 0.15),
+      false
+    );
+  }
   return ChillFlightLogic.buggyThrottleAxis(
     value,
     state.currentControlScheme === 'joystick'

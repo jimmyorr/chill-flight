@@ -221,4 +221,8 @@ export const state = {
 
   // Controls settings (game.js)
   invertYAxis: false,
+
+  // Set when popping out of VR via the 3D pause menu's Map button so closing
+  // or warping from the 2D map re-enters VR inside the click gesture
+  returnToVROnMapClose: false,
 };

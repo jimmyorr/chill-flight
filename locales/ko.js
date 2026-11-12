@@ -127,8 +127,9 @@ export default {
   PAUSED: '일시정지',
   'Take a breather or adjust your flight': '잠시 쉬거나 비행을 조정하세요',
   'Resume flight': '비행 계속',
-  'Trigger or Press A / Menu': '트리거 또는 A / 메뉴',
-  'Trigger or Press B / X': '트리거 또는 B / X',
+  'Trigger or press A / Y': '트리거 또는 A / Y',
+  'Warp or set a waypoint in 2D': '2D에서 순간이동 또는 경유지 설정',
+  'Trigger or press B': '트리거 또는 B',
   'Point controller & pull trigger to select':
     '컨트롤러로 가리키고 트리거로 선택',
   'Double-tap center to exit zen': '화면 가운데를 두 번 탭하면 젠 모드 종료',

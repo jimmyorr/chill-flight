@@ -134,8 +134,9 @@ export default {
   'Take a breather or adjust your flight':
     'Atme kurz durch oder pass deinen Flug an',
   'Resume flight': 'Weiterfliegen',
-  'Trigger or Press A / Menu': 'Abzug oder A / Menü drücken',
-  'Trigger or Press B / X': 'Abzug oder B / X drücken',
+  'Trigger or press A / Y': 'Abzug oder A / Y drücken',
+  'Warp or set a waypoint in 2D': 'Teleportieren oder Wegpunkt in 2D setzen',
+  'Trigger or press B': 'Abzug oder B drücken',
   'Point controller & pull trigger to select':
     'Controller ausrichten und Abzug ziehen zum Auswählen',
   'Double-tap center to exit zen':

@@ -131,8 +131,9 @@ export default {
   'Take a breather or adjust your flight':
     'ひと休みするか、フライトを調整しましょう',
   'Resume flight': 'フライトを再開',
-  'Trigger or Press A / Menu': 'トリガー または A / メニュー',
-  'Trigger or Press B / X': 'トリガー または B / X',
+  'Trigger or press A / Y': 'トリガー または A / Y',
+  'Warp or set a waypoint in 2D': '2D でワープ・目的地を設定',
+  'Trigger or press B': 'トリガー または B',
   'Point controller & pull trigger to select':
     'コントローラーを向けてトリガーで選択',
   'Double-tap center to exit zen': '画面中央をダブルタップで禅モード終了',

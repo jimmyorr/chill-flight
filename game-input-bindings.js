@@ -43,6 +43,12 @@ export var tripleTap = inputManager.state.tripleTap;
 export var STEER_HOLD_THRESHOLD = 100; // ms to wait before a tap becomes a hold for pitch/looping
 
 inputManager.onCameraToggle = () => {
+  if (checkVRPresenting()) {
+    state.cameraMode =
+      state.cameraMode === 'follow' ? 'first-person' : 'follow';
+    Achievements.unlock('directors_cut');
+    return;
+  }
   if (state.cameraMode === 'follow') state.cameraMode = 'first-person';
   else if (state.cameraMode === 'first-person') state.cameraMode = 'birds-eye';
   else if (state.cameraMode === 'birds-eye') {

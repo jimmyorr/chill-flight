@@ -1277,6 +1277,9 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       v.y += y - from.y;
       v.z = z - ox * sin + oz * cos;
     }
+    if (!state.isVRPresenting) {
+      camera.lookAt(_currentLookTarget);
+    }
     // The jump isn't distance flown
     if (state.previousPosition)
       state.previousPosition.copy(planeGroup.position);
@@ -1284,8 +1287,14 @@ import {IMPERIAL, joinList, t} from './i18n.js';
   }
   hooks.movePlane = movePlane;
 
-  function closeFullscreenMap() {
+  function closeFullscreenMap(options = {}) {
     if (!fsVisible) return;
+
+    const shouldEnterVR =
+      Boolean(options?.enterVR) ||
+      (Boolean(options?.reenterIfFromVR) &&
+        Boolean(state.returnToVROnMapClose));
+    state.returnToVROnMapClose = false;
 
     suppressPauseClick(500);
 
@@ -1330,6 +1339,10 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       'mapzoom',
       'zoom',
     ]);
+
+    if (shouldEnterVR) {
+      hooks.enterVR?.();
+    }
   }
 
   let fsInitialized = false;
@@ -1369,7 +1382,10 @@ import {IMPERIAL, joinList, t} from './i18n.js';
 
     attachButtonAction(
       document.getElementById('fullscreen-map-resume-btn'),
-      closeFullscreenMap
+      () => closeFullscreenMap({reenterIfFromVR: true})
+    );
+    attachButtonAction(document.getElementById('fullscreen-map-vr-btn'), () =>
+      closeFullscreenMap({enterVR: true})
     );
 
     attachButtonAction(
@@ -1377,8 +1393,8 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       () => {
         if (!warpPin || inGameMode()) return;
         warpTo(warpPin);
-        // Straight into flight at the new spot
-        closeFullscreenMap();
+        // Straight into flight at the new spot (and back into VR if opened from VR)
+        closeFullscreenMap({reenterIfFromVR: true});
       }
     );
     attachButtonAction(
@@ -1394,8 +1410,8 @@ import {IMPERIAL, joinList, t} from './i18n.js';
         }
         const {x, z, name} = warpPin;
         setWaypoint(x, groundAt(x, z), z, {name});
-        // Back to flight to head there
-        closeFullscreenMap();
+        // Back to flight to head there (and back into VR if opened from VR)
+        closeFullscreenMap({reenterIfFromVR: true});
       }
     );
     attachButtonAction(

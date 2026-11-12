@@ -4,6 +4,7 @@
 // check for it before use, e.g. `hooks.fullscreenMap?.isOpen()`.
 export const hooks = {
   togglePause: null, // game-state.js
+  enterVR: null, // vr-manager.js
   openVRPauseMenu: null, // vr-manager.js
   closeVRPauseMenu: null, // vr-manager.js
   resetSteering: null, // game-ui.js

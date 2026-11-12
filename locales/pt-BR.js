@@ -133,8 +133,9 @@ export default {
   PAUSED: 'PAUSADO',
   'Take a breather or adjust your flight': 'Respire um pouco ou ajuste seu voo',
   'Resume flight': 'Continuar voo',
-  'Trigger or Press A / Menu': 'Gatilho ou aperte A / Menu',
-  'Trigger or Press B / X': 'Gatilho ou aperte B / X',
+  'Trigger or press A / Y': 'Gatilho ou aperte A / Y',
+  'Warp or set a waypoint in 2D': 'Teleportar ou marcar destino em 2D',
+  'Trigger or press B': 'Gatilho ou aperte B',
   'Point controller & pull trigger to select':
     'Aponte o controle e puxe o gatilho para escolher',
   'Double-tap center to exit zen':

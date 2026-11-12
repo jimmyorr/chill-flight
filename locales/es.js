@@ -133,8 +133,9 @@ export default {
   'Take a breather or adjust your flight':
     'Tómate un respiro o ajusta tu vuelo',
   'Resume flight': 'Reanudar vuelo',
-  'Trigger or Press A / Menu': 'Gatillo o pulsa A / Menú',
-  'Trigger or Press B / X': 'Gatillo o pulsa B / X',
+  'Trigger or press A / Y': 'Gatillo o pulsa A / Y',
+  'Warp or set a waypoint in 2D': 'Teletransportarse o fijar ruta en 2D',
+  'Trigger or press B': 'Gatillo o pulsa B',
   'Point controller & pull trigger to select':
     'Apunta con el mando y aprieta el gatillo para elegir',
   'Double-tap center to exit zen':

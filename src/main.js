@@ -58,6 +58,7 @@ import '../haptics.js';
 import '../native-adapter.js';
 import '../analytics.js';
 import '../achievements.js';
+import '../vr-controls-logic.js';
 import '../input-manager.js';
 import '../game-audio-integration.js';
 import '../weather-manager.js';

@@ -636,6 +636,24 @@ async function exerciseControls(page, tag) {
   await wait(800);
   if (await isPaused()) fail('resume button did not unpause the game');
 
+  await page.keyboard.press('Escape');
+  await wait(300);
+  await clickAndCheck(
+    '#pause-map-btn',
+    '#fullscreen-map-overlay',
+    true,
+    'open map from pause menu'
+  );
+  await clickAndCheck(
+    '#fullscreen-map-resume-btn',
+    '#fullscreen-map-overlay',
+    false,
+    'resume from pause-opened map'
+  );
+  if (await isPaused()) {
+    fail("the pause-opened map's Resume did not unpause the game");
+  }
+
   // The quick menu opens the map (pausing), and its Resume goes back to flying
   await page
     .click('#mobile-menu-trigger')
