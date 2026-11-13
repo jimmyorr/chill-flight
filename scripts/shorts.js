@@ -11,14 +11,14 @@
 //   9. short-20261112-aerobatic-cut.mp4 - 12s rose biplane loop, climbing roll & dive across 4 biomes (seed 20261112)
 //
 // Usage:
-//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | aerobatic-cut | daily-postcard | wing-cam | landmark-cut | meta]
+//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | aerobatic-cut | daily-postcard | wing-cam | landmark-cut | meta] [--preview]
 
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import https from 'node:https';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {launch} from './dev-browser.js';
+import {launch, openPromoWorld, stepPromoFrame} from './dev-browser.js';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
 import {archSites} from '../arches-logic.js';
@@ -38,6 +38,7 @@ const BASE_URL = process.env.GAME_URL || 'http://localhost:5173/';
 const FPS = 30;
 const PREROLL = 1.5;
 const SETTLE_MS = 2000;
+const PREVIEW = process.argv.includes('--preview');
 const VIEWPORT = {width: 540, height: 960, scale: 2, mobile: true}; // 1080x1920
 const PIXEL_W = VIEWPORT.width * VIEWPORT.scale;
 const PIXEL_H = VIEWPORT.height * VIEWPORT.scale;
@@ -58,8 +59,6 @@ const H264 = [
   '-r',
   String(FPS),
 ];
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function ffmpeg(args) {
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...args], {
@@ -94,74 +93,40 @@ function downloadTrack(slug) {
   });
 }
 
-// Same virtual clock as scripts/promo.js: performance.now creeps by 1us per
-// call so time-budgeted chunk/arch loops complete while real setTimeout stays
-// intact for worker & arch scheduling during load.
-function installVirtualClock() {
-  const clock = {t: performance.now(), calls: 0, pending: []};
-  const dateOffset = Date.now() - clock.t;
-  performance.now = () => clock.t + clock.calls++ * 0.001;
-  Date.now = () => Math.round(dateOffset + clock.t);
-  window.requestAnimationFrame = (cb) => clock.pending.push(cb);
-  window.__promoStep = (dt) => {
-    clock.t += dt;
-    clock.calls = 0;
-    clock.pending.splice(0).forEach((cb) => cb(clock.t));
-  };
-}
+const step = (page, dt = 1000 / FPS) => stepPromoFrame(page, dt);
 
-const step = (page, dt = 1000 / FPS) =>
-  page.evaluate((d) => window.__promoStep(d), dt);
-
-async function openWorld(browser, query, preroll = PREROLL) {
-  const context = await browser.createBrowserContext();
-  const page = await context.newPage();
-  await page.evaluateOnNewDocument(installVirtualClock);
-
-  const loadShrink = 0.5;
-  await page.setViewport({
-    width: Math.round(VIEWPORT.width * loadShrink),
-    height: Math.round(VIEWPORT.height * loadShrink),
-    deviceScaleFactor: 1,
-    isMobile: VIEWPORT.mobile,
-    hasTouch: VIEWPORT.mobile,
-  });
-  await page.goto(`${BASE_URL}?${COMMON}&${query}`, {
-    waitUntil: 'load',
-    timeout: 120000,
-  });
-
-  // Settle on near-frozen frames (0.001ms) so terrain workers, far terrain, and
-  // arches finish building without moving the plane away from its start point
-  const started = Date.now();
-  let loadedAt = 0;
-  while (!loadedAt || Date.now() - loadedAt < SETTLE_MS) {
-    if (Date.now() - started > 120000) {
-      throw new Error('Timed out waiting for world to load');
-    }
-    await step(page, 0.001);
-    const ready = await page.evaluate(
-      () =>
-        getComputedStyle(document.getElementById('loading-overlay')).display ===
-          'none' && document.body.dataset.farReady === '1'
-    );
-    if (ready && !loadedAt) loadedAt = Date.now();
-    await sleep(20);
-  }
-
-  await page.setViewport({
+function openWorld(browser, query, preroll = PREROLL) {
+  return openPromoWorld(browser, `${BASE_URL}?${COMMON}&${query}`, {
     width: VIEWPORT.width,
     height: VIEWPORT.height,
-    deviceScaleFactor: VIEWPORT.scale,
-    isMobile: VIEWPORT.mobile,
-    hasTouch: VIEWPORT.mobile,
+    scale: PREVIEW ? 1 : VIEWPORT.scale,
+    mobile: VIEWPORT.mobile,
+    settleMs: PREVIEW ? 800 : SETTLE_MS,
+    prerollSec: preroll,
+    fps: FPS,
   });
-  const prerollFrames = Math.round(preroll * FPS);
-  for (let i = 0; i < prerollFrames; i++) {
-    await step(page, 1000 / FPS);
-  }
-  page.close = async () => context.close();
-  return page;
+}
+
+function writePreviewStrip(frameDir, outMp4, cols = 6, rows = 2) {
+  const baseName = path.basename(outMp4, '.mp4');
+  const previewPath = path.join(OUT, `preview-${baseName}.jpg`);
+  ffmpeg([
+    '-framerate',
+    '1',
+    '-i',
+    path.join(frameDir, '%05d.jpg'),
+    '-vf',
+    `scale=270:480,tile=${cols}x${rows}:padding=4:color=black`,
+    '-frames:v',
+    '1',
+    '-update',
+    '1',
+    '-q:v',
+    '3',
+    previewPath,
+  ]);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+  console.log(previewPath);
 }
 
 async function addPostcardBadge(page, topLine, subLine) {
@@ -334,81 +299,31 @@ function startCoordsForFrame(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Prototype 1: Biplane Clover-Loop Match-Cut (12s, 4 landscapes x 3s, loops to 0s)
-// ---------------------------------------------------------------------------
-async function renderMatchCutShort(browser) {
-  console.log('=== Rendering Prototype 1: Biplane Clover-Loop Match-Cut ===');
-  const frameDir = path.join(OUT, 'frames-short-match-cut');
+async function renderMatchCutClip(
+  browser,
+  {
+    id,
+    banner,
+    seed,
+    speedMult,
+    cam,
+    moves,
+    loopDip = false,
+    segments,
+    outBaseName,
+    trackSlug,
+    musicStart,
+    durationSec = 12,
+    meta,
+  }
+) {
+  console.log(`=== Rendering ${banner}${PREVIEW ? ' [PREVIEW]' : ''} ===`);
+  const frameDir = path.join(OUT, `frames-${outBaseName}`);
   fs.rmSync(frameDir, {recursive: true, force: true});
   fs.mkdirSync(frameDir, {recursive: true});
 
-  const speedMult = 1.15;
-  const cam =
-    `plane=biplane&livery=coral&smoke=1&speed=${speedMult}` +
-    '&camOffset=24,8,-48&camLook=-5,4,18';
-  // Starts at [0, 0, 0, 0] and settles back to level flight (roll=0, pitch=360,
-  // constant yaw=52 from 9.6s..12.0s) so frame 360 loops seamlessly into frame 0
-  const moves = [
-    [0, 0, 0, 0],
-    [1.1, 26, 3, -8],
-    [2.4, -24, 2, -16],
-    [3.0, -8, 6, -12],
-    [3.8, 18, null, -12],
-    [4.7, 52, null, 33],
-    [5.5, 0, null, 78],
-    [7.2, 0, 360, 78],
-    [8.3, 26, 362, 64],
-    [9.6, -20, 361, 52],
-    [11.0, 6, 360, 52],
-    [11.5, 0, 360, 52],
-    [12.0, 0, 360, 52],
-  ];
-
-  const rawSegments = [
-    {
-      label: 'Sunrise Lakes · 0.1°S, 1.3°W',
-      tx: -6500,
-      ty: 320,
-      tz: -500,
-      heading: -80,
-      extra: 'tod=0.265&cloudMood=busy',
-      startFrame: 0,
-      endFrame: 90,
-    },
-    {
-      label: 'Coral Islands · 0.8°S, 1.8°E',
-      tx: 9200,
-      ty: 320,
-      tz: 4200,
-      heading: 145,
-      extra: 'tod=0.55&cloudMood=fair',
-      startFrame: 90,
-      endFrame: 180,
-    },
-    {
-      label: 'Alpine Snowfall · 2.9°N, 0.3°W',
-      tx: -1360,
-      ty: 540,
-      tz: -14680,
-      heading: 198,
-      extra: 'tod=0.42&weather=snow&cloudMood=high',
-      startFrame: 180,
-      endFrame: 270,
-    },
-    {
-      label: 'Sunset Islands · 0.2°S, 2.4°E',
-      tx: 12000,
-      ty: 220,
-      tz: 1000,
-      heading: 45,
-      extra: 'tod=0.745&cloudMood=busy',
-      startFrame: 270,
-      endFrame: 360,
-    },
-  ];
-
-  for (const seg of rawSegments) {
+  let previewIdx = 0;
+  for (const seg of segments) {
     const start = startCoordsForFrame(
       seg.tx,
       seg.ty,
@@ -416,10 +331,11 @@ async function renderMatchCutShort(browser) {
       seg.heading,
       speedMult,
       moves,
-      seg.startFrame
+      seg.startFrame,
+      loopDip
     );
     const query =
-      `seed=20260101&x=${start.x}&y=${start.y}&z=${start.z}` +
+      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
       `&heading=${seg.heading}&${seg.extra}&${cam}`;
     const page = await openWorld(browser, query, PREROLL);
     await addPostcardBadge(
@@ -427,27 +343,59 @@ async function renderMatchCutShort(browser) {
       'CHILL FLIGHT · Play free at chillflight.app',
       seg.label
     );
+    if (seg.rainbow) {
+      await page.evaluate(async () => {
+        const {state} = await window.gameModule('state.js');
+        state.forceRainbow = true;
+        state.rainbowIntensity = 1.0;
+      });
+    }
     await page.evaluate((m) => {
       window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
     }, moves);
+
+    const midFrame = Math.floor((seg.startFrame + seg.endFrame) / 2);
+    const previewFrames = new Set([seg.startFrame, midFrame, seg.endFrame - 1]);
+
     for (let i = 0; i < seg.endFrame; i++) {
+      if (seg.lightningFrames && seg.lightningFrames.includes(i)) {
+        await page.evaluate(async () => {
+          const {flashLightning} =
+            await window.gameModule('weather-manager.js');
+          flashLightning(0.05, -Math.PI * 0.78);
+        });
+      }
       await step(page);
-      if (i >= seg.startFrame) {
+      if (PREVIEW) {
+        if (previewFrames.has(i)) {
+          const framePath = path.join(
+            frameDir,
+            `${String(previewIdx++).padStart(5, '0')}.jpg`
+          );
+          await page.screenshot({path: framePath, type: 'jpeg', quality: 85});
+          console.log(`  ${id} preview [${seg.label}]: frame ${i}/360`);
+        }
+      } else if (i >= seg.startFrame) {
         const framePath = path.join(
           frameDir,
           `${String(i).padStart(5, '0')}.jpg`
         );
         await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
         if ((i - seg.startFrame) % FPS === 0) {
-          console.log(`  match-cut [${seg.label}]: frame ${i}/360`);
+          console.log(`  ${id} [${seg.label}]: frame ${i}/360`);
         }
       }
     }
     await page.close();
   }
 
-  const rawMp4 = path.join(OUT, 'short-1-match-cut-raw.mp4');
-  const outMp4 = path.join(OUT, 'short-1-match-cut.mp4');
+  const outMp4 = path.join(OUT, `${outBaseName}.mp4`);
+  if (PREVIEW) {
+    writePreviewStrip(frameDir, outMp4, 6, 2);
+    return;
+  }
+
+  const rawMp4 = path.join(OUT, `${outBaseName}-raw.mp4`);
   ffmpeg([
     '-framerate',
     String(FPS),
@@ -460,20 +408,99 @@ async function renderMatchCutShort(browser) {
   ]);
   fs.rmSync(frameDir, {recursive: true, force: true});
 
-  const music = await downloadTrack('purrple-cat-sky-lake');
-  muxWithMusic(rawMp4, outMp4, music, 24, 12);
+  const music = await downloadTrack(trackSlug);
+  muxWithMusic(rawMp4, outMp4, music, musicStart, durationSec);
   fs.rmSync(rawMp4, {force: true});
   console.log(outMp4);
-  writeShortMetadata(outMp4, {
-    title: 'One loop across 4 landscapes ✈️',
-    tiktokQuestion: 'Which one would you fly in first?',
-    stops: [
-      '0:00 Sunrise Lakes (0.1°S, 1.3°W)',
-      '0:03 Coral Islands (0.8°S, 1.8°E)',
-      '0:06 Alpine Snowfall (2.9°N, 0.3°W)',
-      '0:09 Sunset Islands (0.2°S, 2.4°E)',
+  writeShortMetadata(outMp4, meta);
+}
+
+// ---------------------------------------------------------------------------
+// Prototype 1: Biplane Clover-Loop Match-Cut (12s, 4 landscapes x 3s, loops to 0s)
+// ---------------------------------------------------------------------------
+async function renderMatchCutShort(browser) {
+  const speedMult = 1.15;
+  await renderMatchCutClip(browser, {
+    id: 'match-cut',
+    banner: 'Prototype 1: Biplane Clover-Loop Match-Cut',
+    seed: 20260101,
+    speedMult,
+    cam:
+      `plane=biplane&livery=coral&smoke=1&speed=${speedMult}` +
+      '&camOffset=24,8,-48&camLook=-5,4,18',
+    // Starts at [0, 0, 0, 0] and settles back to level flight (roll=0, pitch=360,
+    // constant yaw=52 from 9.6s..12.0s) so frame 360 loops seamlessly into frame 0
+    moves: [
+      [0, 0, 0, 0],
+      [1.1, 26, 3, -8],
+      [2.4, -24, 2, -16],
+      [3.0, -8, 6, -12],
+      [3.8, 18, null, -12],
+      [4.7, 52, null, 33],
+      [5.5, 0, null, 78],
+      [7.2, 0, 360, 78],
+      [8.3, 26, 362, 64],
+      [9.6, -20, 361, 52],
+      [11.0, 6, 360, 52],
+      [11.5, 0, 360, 52],
+      [12.0, 0, 360, 52],
     ],
-    trackTitle: 'Sky Lake',
+    segments: [
+      {
+        label: 'Sunrise Lakes · 0.1°S, 1.3°W',
+        tx: -6500,
+        ty: 320,
+        tz: -500,
+        heading: -80,
+        extra: 'tod=0.265&cloudMood=busy',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Coral Islands · 0.8°S, 1.8°E',
+        tx: 9200,
+        ty: 320,
+        tz: 4200,
+        heading: 145,
+        extra: 'tod=0.55&cloudMood=fair',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Alpine Snowfall · 2.9°N, 0.3°W',
+        tx: -1360,
+        ty: 540,
+        tz: -14680,
+        heading: 198,
+        extra: 'tod=0.42&weather=snow&cloudMood=high',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Sunset Islands · 0.2°S, 2.4°E',
+        tx: 12000,
+        ty: 220,
+        tz: 1000,
+        heading: 45,
+        extra: 'tod=0.745&cloudMood=busy',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: 'short-1-match-cut',
+    trackSlug: 'purrple-cat-sky-lake',
+    musicStart: 24,
+    meta: {
+      title: 'One loop across 4 landscapes ✈️',
+      tiktokQuestion: 'Which one would you fly in first?',
+      stops: [
+        '0:00 Sunrise Lakes (0.1°S, 1.3°W)',
+        '0:03 Coral Islands (0.8°S, 1.8°E)',
+        '0:06 Alpine Snowfall (2.9°N, 0.3°W)',
+        '0:09 Sunset Islands (0.2°S, 2.4°E)',
+      ],
+      trackTitle: 'Sky Lake',
+    },
   });
 }
 
@@ -606,11 +633,21 @@ async function renderDailyPostcardShort(browser, seed = 20261108) {
     },
   ];
 
+  const outMp4 = path.join(OUT, 'short-2-daily-postcard.mp4');
+  const previewDir = path.join(OUT, 'frames-short-postcard-preview');
+  if (PREVIEW) {
+    fs.rmSync(previewDir, {recursive: true, force: true});
+    fs.mkdirSync(previewDir, {recursive: true});
+  }
+  let previewIdx = 0;
+
   const partMp4s = [];
   for (const s of shots) {
     const frameDir = path.join(OUT, `frames-short-postcard-${s.name}`);
-    fs.rmSync(frameDir, {recursive: true, force: true});
-    fs.mkdirSync(frameDir, {recursive: true});
+    if (!PREVIEW) {
+      fs.rmSync(frameDir, {recursive: true, force: true});
+      fs.mkdirSync(frameDir, {recursive: true});
+    }
     const page = await openWorld(browser, s.query, PREROLL);
     await addPostcardBadge(page, s.topLine, s.subLine);
     await page.evaluate((m) => {
@@ -619,33 +656,54 @@ async function renderDailyPostcardShort(browser, seed = 20261108) {
     const totalFrames = Math.round(s.seconds * FPS);
     for (let i = 0; i < totalFrames; i++) {
       await step(page);
-      const framePath = path.join(
-        frameDir,
-        `${String(i).padStart(5, '0')}.jpg`
-      );
-      await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
-      if (i % FPS === 0) {
-        console.log(`  daily-postcard [${s.name}]: ${i}/${totalFrames} frames`);
+      if (PREVIEW) {
+        if (i % FPS === 0) {
+          const framePath = path.join(
+            previewDir,
+            `${String(previewIdx++).padStart(5, '0')}.jpg`
+          );
+          await page.screenshot({path: framePath, type: 'jpeg', quality: 85});
+          console.log(
+            `  daily-postcard preview [${s.name}]: ${i}/${totalFrames}`
+          );
+        }
+      } else {
+        const framePath = path.join(
+          frameDir,
+          `${String(i).padStart(5, '0')}.jpg`
+        );
+        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
+        if (i % FPS === 0) {
+          console.log(
+            `  daily-postcard [${s.name}]: ${i}/${totalFrames} frames`
+          );
+        }
       }
     }
     await page.close();
-    const clipMp4 = path.join(OUT, `short-postcard-${s.name}.mp4`);
-    ffmpeg([
-      '-framerate',
-      String(FPS),
-      '-i',
-      path.join(frameDir, '%05d.jpg'),
-      '-vf',
-      `scale=${PIXEL_W}:${PIXEL_H}`,
-      ...H264,
-      clipMp4,
-    ]);
-    fs.rmSync(frameDir, {recursive: true, force: true});
-    partMp4s.push(clipMp4);
+    if (!PREVIEW) {
+      const clipMp4 = path.join(OUT, `short-postcard-${s.name}.mp4`);
+      ffmpeg([
+        '-framerate',
+        String(FPS),
+        '-i',
+        path.join(frameDir, '%05d.jpg'),
+        '-vf',
+        `scale=${PIXEL_W}:${PIXEL_H}`,
+        ...H264,
+        clipMp4,
+      ]);
+      fs.rmSync(frameDir, {recursive: true, force: true});
+      partMp4s.push(clipMp4);
+    }
+  }
+
+  if (PREVIEW) {
+    writePreviewStrip(previewDir, outMp4, 6, 2);
+    return;
   }
 
   const rawMp4 = path.join(OUT, 'short-2-daily-postcard-raw.mp4');
-  const outMp4 = path.join(OUT, 'short-2-daily-postcard.mp4');
   ffmpeg([
     '-i',
     partMp4s[0],
@@ -710,18 +768,38 @@ async function renderWingCamShort(browser) {
   }, moves);
 
   const totalFrames = 12 * FPS;
+  let previewIdx = 0;
   for (let i = 0; i < totalFrames; i++) {
     await step(page);
-    const framePath = path.join(frameDir, `${String(i).padStart(5, '0')}.jpg`);
-    await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
-    if (i % FPS === 0) {
-      console.log(`  wing-cam: ${i}/${totalFrames} frames`);
+    if (PREVIEW) {
+      if (i % FPS === 0) {
+        const framePath = path.join(
+          frameDir,
+          `${String(previewIdx++).padStart(5, '0')}.jpg`
+        );
+        await page.screenshot({path: framePath, type: 'jpeg', quality: 85});
+        console.log(`  wing-cam preview: ${i}/${totalFrames}`);
+      }
+    } else {
+      const framePath = path.join(
+        frameDir,
+        `${String(i).padStart(5, '0')}.jpg`
+      );
+      await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
+      if (i % FPS === 0) {
+        console.log(`  wing-cam: ${i}/${totalFrames} frames`);
+      }
     }
   }
   await page.close();
 
-  const rawMp4 = path.join(OUT, 'short-3-wing-cam-raw.mp4');
   const outMp4 = path.join(OUT, 'short-3-wing-cam.mp4');
+  if (PREVIEW) {
+    writePreviewStrip(frameDir, outMp4, 6, 2);
+    return;
+  }
+
+  const rawMp4 = path.join(OUT, 'short-3-wing-cam-raw.mp4');
   ffmpeg([
     '-framerate',
     String(FPS),
@@ -749,147 +827,85 @@ async function renderWingCamShort(browser) {
 // Prototype 4: Swept-Wing Jet Landmark Match-Cut (12s, 4 landmarks x 3s, same jet)
 // ---------------------------------------------------------------------------
 async function renderLandmarkCutShort(browser) {
-  console.log(
-    '=== Rendering Prototype 4: Swept-Wing Jet Landmark Match-Cut ==='
-  );
-  const frameDir = path.join(OUT, 'frames-short-landmark-cut');
-  fs.rmSync(frameDir, {recursive: true, force: true});
-  fs.mkdirSync(frameDir, {recursive: true});
-
   const speedMult = 1.6;
-  const cam =
-    `plane=jet&livery=coral&smoke=1&speed=${speedMult}` +
-    '&camOffset=-14,6,44&camLook=4,-1,-70';
-  // One continuous 12s maneuver with the same coral jet:
-  //   0..3s:  Carves past the waterfall and initiates a crisp right roll
-  //   3..6s:  Match-cuts mid-roll into the red-rock canyon and completes a 360° roll
-  //   6..9s:  Match-cuts banking past the Great Pyramids in golden-hour light
-  //   9..12s: Match-cuts past the dusk lighthouse and levels out at [11.4..12.0]
-  //           so frame 360 loops seamlessly back into frame 0
-  const moves = [
-    [0, 0, 0, 0],
-    [1.3, 24, 2, -6],
-    [2.3, 10, 3, -10],
-    [3.0, -45, 4, -10],
-    [4.4, -360, 2, -10],
-    [5.2, -338, 1, -16],
-    [6.0, -342, 2, -20],
-    [7.4, -382, 2, -14],
-    [9.0, -346, 2, -18],
-    [10.2, -368, 1, -18],
-    [11.3, -360, 0, -18],
-    [12.0, -360, 0, -18],
-  ];
-
-  const rawSegments = [
-    {
-      label: 'Twin Falls · 0.9°N, 0.0°E',
-      tx: 220,
-      ty: 235,
-      tz: -3550,
-      heading: 18,
-      extra: 'tod=0.30&cloudMood=fair',
-      startFrame: 0,
-      endFrame: 90,
-    },
-    {
-      label: 'Red-Rock Canyon · 2.9°S, 0.6°E',
-      tx: 3260,
-      ty: 145,
-      tz: 15550,
-      heading: 8,
-      extra: 'tod=0.67&cloudMood=high',
-      startFrame: 90,
-      endFrame: 180,
-    },
-    {
-      label: 'Great Pyramids · 4.2°S, 2.0°W',
-      tx: -7600,
-      ty: 490,
-      tz: 21900,
-      heading: 76,
-      extra: 'tod=0.71&cloudMood=high',
-      startFrame: 180,
-      endFrame: 270,
-    },
-    {
-      label: 'Headland Lighthouse · 0.6°S, 1.5°E',
-      tx: 7920,
-      ty: 125,
-      tz: 3280,
-      heading: 68,
-      extra: 'tod=0.78&headlight=1&cloudMood=mackerel',
-      startFrame: 270,
-      endFrame: 360,
-    },
-  ];
-
-  for (const seg of rawSegments) {
-    const start = startCoordsForFrame(
-      seg.tx,
-      seg.ty,
-      seg.tz,
-      seg.heading,
-      speedMult,
-      moves,
-      seg.startFrame
-    );
-    const query =
-      `seed=20260101&x=${start.x}&y=${start.y}&z=${start.z}` +
-      `&heading=${seg.heading}&${seg.extra}&${cam}`;
-    const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(
-      page,
-      'CHILL FLIGHT · Play free at chillflight.app',
-      seg.label
-    );
-    await page.evaluate((m) => {
-      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
-    }, moves);
-    for (let i = 0; i < seg.endFrame; i++) {
-      await step(page);
-      if (i >= seg.startFrame) {
-        const framePath = path.join(
-          frameDir,
-          `${String(i).padStart(5, '0')}.jpg`
-        );
-        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
-        if ((i - seg.startFrame) % FPS === 0) {
-          console.log(`  landmark-cut [${seg.label}]: frame ${i}/360`);
-        }
-      }
-    }
-    await page.close();
-  }
-
-  const rawMp4 = path.join(OUT, 'short-4-landmark-cut-raw.mp4');
-  const outMp4 = path.join(OUT, 'short-4-landmark-cut.mp4');
-  ffmpeg([
-    '-framerate',
-    String(FPS),
-    '-i',
-    path.join(frameDir, '%05d.jpg'),
-    '-vf',
-    `scale=${PIXEL_W}:${PIXEL_H}`,
-    ...H264,
-    rawMp4,
-  ]);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-
-  const music = await downloadTrack('purrple-cat-wish-you-were-here');
-  muxWithMusic(rawMp4, outMp4, music, 20, 12);
-  fs.rmSync(rawMp4, {force: true});
-  console.log(outMp4);
-  writeShortMetadata(outMp4, {
-    title: 'One roll across 4 landmarks ✈️',
-    tiktokQuestion: 'Which spot is your favorite?',
-    stops: [
-      '0:00 Twin Falls (0.9°N, 0.0°E)',
-      '0:03 Red-Rock Canyon (2.9°S, 0.6°E)',
-      '0:06 Great Pyramids (4.2°S, 2.0°W)',
-      '0:09 Headland Lighthouse (0.6°S, 1.5°E)',
+  await renderMatchCutClip(browser, {
+    id: 'landmark-cut',
+    banner: 'Prototype 4: Swept-Wing Jet Landmark Match-Cut',
+    seed: 20260101,
+    speedMult,
+    cam:
+      `plane=jet&livery=coral&smoke=1&speed=${speedMult}` +
+      '&camOffset=-14,6,44&camLook=4,-1,-70',
+    moves: [
+      [0, 0, 0, 0],
+      [1.3, 24, 2, -6],
+      [2.3, 10, 3, -10],
+      [3.0, -45, 4, -10],
+      [4.4, -360, 2, -10],
+      [5.2, -338, 1, -16],
+      [6.0, -342, 2, -20],
+      [7.4, -382, 2, -14],
+      [9.0, -346, 2, -18],
+      [10.2, -368, 1, -18],
+      [11.3, -360, 0, -18],
+      [12.0, -360, 0, -18],
     ],
-    trackTitle: 'Wish You Were Here',
+    segments: [
+      {
+        label: 'Twin Falls · 0.9°N, 0.0°E',
+        tx: 220,
+        ty: 235,
+        tz: -3550,
+        heading: 18,
+        extra: 'tod=0.30&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Red-Rock Canyon · 2.9°S, 0.6°E',
+        tx: 3260,
+        ty: 145,
+        tz: 15550,
+        heading: 8,
+        extra: 'tod=0.67&cloudMood=high',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Great Pyramids · 4.2°S, 2.0°W',
+        tx: -7600,
+        ty: 490,
+        tz: 21900,
+        heading: 76,
+        extra: 'tod=0.71&cloudMood=high',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Headland Lighthouse · 0.6°S, 1.5°E',
+        tx: 7920,
+        ty: 125,
+        tz: 3280,
+        heading: 68,
+        extra: 'tod=0.78&headlight=1&cloudMood=mackerel',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: 'short-4-landmark-cut',
+    trackSlug: 'purrple-cat-wish-you-were-here',
+    musicStart: 20,
+    meta: {
+      title: 'One roll across 4 landmarks ✈️',
+      tiktokQuestion: 'Which spot is your favorite?',
+      stops: [
+        '0:00 Twin Falls (0.9°N, 0.0°E)',
+        '0:03 Red-Rock Canyon (2.9°S, 0.6°E)',
+        '0:06 Great Pyramids (4.2°S, 2.0°W)',
+        '0:09 Headland Lighthouse (0.6°S, 1.5°E)',
+      ],
+      trackTitle: 'Wish You Were Here',
+    },
   });
 }
 
@@ -897,150 +913,86 @@ async function renderLandmarkCutShort(browser) {
 // Prototype 5: Daily Match-Cut for Seed 20261109 (Gold Twin-Prop Barrel-Roll)
 // ---------------------------------------------------------------------------
 async function renderDailyMatchCutShort(browser, seed = 20261109) {
-  console.log(
-    `=== Rendering Daily Match-Cut (Seed ${seed}: Gold Twin-Prop) ===`
-  );
-  const frameDir = path.join(OUT, `frames-short-${seed}-match-cut`);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-  fs.mkdirSync(frameDir, {recursive: true});
-
   const speedMult = 1.2;
-  // Front-left three-quarter angle (opposite side from short-1), looking back
-  // at the gold twin-prop and its smoke ribbon
-  const cam =
-    `plane=twin&livery=gold&smoke=1&speed=${speedMult}` +
-    '&camOffset=-22,6,-46&camLook=4,3,18';
-  // Unbroken 12s maneuver that loops seamlessly from frame 360 back to frame 0:
-  //   0..3s:  Carves into a left bank, then pitches up into a right roll
-  //   3..6s:  Match-cuts mid-roll into a full 360° corkscrew barrel roll
-  //   6..9s:  Match-cuts into a sweeping S-turn through the rainstorm
-  //   9..12s: Match-cuts into sunset and settles to level (roll=360, pitch=0,
-  //           constant yaw=-22 from 9.0s..12.0s) so frame 360 matches frame 0
-  const moves = [
-    [0, 0, 0, 0],
-    [1.2, -26, 4, 10],
-    [2.3, 18, 12, 16],
-    [3.0, 68, 18, 12],
-    [4.4, 240, -6, 2],
-    [5.5, 360, 2, -10],
-    [6.0, 382, 4, -14],
-    [7.3, 334, -3, -24],
-    [8.4, 376, 3, -20],
-    [9.0, 344, 2, -22],
-    [10.3, 368, 1, -22],
-    [11.3, 360, 0, -22],
-    [12.0, 360, 0, -22],
-  ];
-
-  const rawSegments = [
-    {
-      label: 'Twin Falls · 0.9°N, 0.0°E',
-      tx: 45,
-      ty: 290,
-      tz: -4220,
-      heading: 160,
-      extra: 'tod=0.29&cloudMood=fair',
-      startFrame: 0,
-      endFrame: 90,
-    },
-    {
-      label: 'Lake Cloverleaf · 0.7°S, 0.8°W',
-      tx: -3750,
-      ty: 1750,
-      tz: 3750,
-      heading: -155,
-      extra: 'tod=0.46&cloudMood=mackerel',
-      startFrame: 90,
-      endFrame: 180,
-    },
-    {
-      label: 'Stormy Lighthouse · 0.6°S, 1.5°E',
-      tx: 7220,
-      ty: 165,
-      tz: 2760,
-      heading: 25,
-      extra: 'tod=0.63&weather=rain&headlight=1&cloudMood=busy',
-      startFrame: 180,
-      endFrame: 270,
-    },
-    {
-      label: 'Desert Pyramids · 3.8°S, 2.1°W',
-      tx: -10150,
-      ty: 435,
-      tz: 19150,
-      heading: -45,
-      extra: 'tod=0.75&headlight=1&cloudMood=high',
-      startFrame: 270,
-      endFrame: 360,
-    },
-  ];
-
-  for (const seg of rawSegments) {
-    const start = startCoordsForFrame(
-      seg.tx,
-      seg.ty,
-      seg.tz,
-      seg.heading,
-      speedMult,
-      moves,
-      seg.startFrame
-    );
-    const query =
-      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
-      `&heading=${seg.heading}&${seg.extra}&${cam}`;
-    const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(
-      page,
-      'CHILL FLIGHT · Play free at chillflight.app',
-      seg.label
-    );
-    await page.evaluate((m) => {
-      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
-    }, moves);
-    for (let i = 0; i < seg.endFrame; i++) {
-      await step(page);
-      if (i >= seg.startFrame) {
-        const framePath = path.join(
-          frameDir,
-          `${String(i).padStart(5, '0')}.jpg`
-        );
-        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
-        if ((i - seg.startFrame) % FPS === 0) {
-          console.log(`  daily-match-cut [${seg.label}]: frame ${i}/360`);
-        }
-      }
-    }
-    await page.close();
-  }
-
-  const rawMp4 = path.join(OUT, `short-${seed}-match-cut-raw.mp4`);
-  const outMp4 = path.join(OUT, `short-${seed}-match-cut.mp4`);
-  ffmpeg([
-    '-framerate',
-    String(FPS),
-    '-i',
-    path.join(frameDir, '%05d.jpg'),
-    '-vf',
-    `scale=${PIXEL_W}:${PIXEL_H}`,
-    ...H264,
-    rawMp4,
-  ]);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-
-  const music = await downloadTrack('purrple-cat-flourish');
-  muxWithMusic(rawMp4, outMp4, music, 18, 12);
-  fs.rmSync(rawMp4, {force: true});
-  console.log(outMp4);
-  writeShortMetadata(outMp4, {
-    title: 'One barrel roll across 4 landscapes ✈️',
-    tiktokQuestion: 'Which weather vibe is your favorite?',
-    stops: [
-      '0:00 Twin Falls (0.9°N, 0.0°E)',
-      '0:03 Lake Cloverleaf (0.7°S, 0.8°W)',
-      '0:06 Stormy Lighthouse (0.6°S, 1.5°E)',
-      '0:09 Desert Pyramids (3.8°S, 2.1°W)',
+  await renderMatchCutClip(browser, {
+    id: 'daily-match-cut',
+    banner: `Daily Match-Cut (Seed ${seed}: Gold Twin-Prop)`,
+    seed,
+    speedMult,
+    cam:
+      `plane=twin&livery=gold&smoke=1&speed=${speedMult}` +
+      '&camOffset=-22,6,-46&camLook=4,3,18',
+    moves: [
+      [0, 0, 0, 0],
+      [1.2, -26, 4, 10],
+      [2.3, 18, 12, 16],
+      [3.0, 68, 18, 12],
+      [4.4, 240, -6, 2],
+      [5.5, 360, 2, -10],
+      [6.0, 382, 4, -14],
+      [7.3, 334, -3, -24],
+      [8.4, 376, 3, -20],
+      [9.0, 344, 2, -22],
+      [10.3, 368, 1, -22],
+      [11.3, 360, 0, -22],
+      [12.0, 360, 0, -22],
     ],
-    trackTitle: 'Flourish',
+    segments: [
+      {
+        label: 'Twin Falls · 0.9°N, 0.0°E',
+        tx: 45,
+        ty: 290,
+        tz: -4220,
+        heading: 160,
+        extra: 'tod=0.29&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Lake Cloverleaf · 0.7°S, 0.8°W',
+        tx: -3750,
+        ty: 1750,
+        tz: 3750,
+        heading: -155,
+        extra: 'tod=0.46&cloudMood=mackerel',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Stormy Lighthouse · 0.6°S, 1.5°E',
+        tx: 7220,
+        ty: 165,
+        tz: 2760,
+        heading: 25,
+        extra: 'tod=0.63&weather=rain&headlight=1&cloudMood=busy',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Desert Pyramids · 3.8°S, 2.1°W',
+        tx: -10150,
+        ty: 435,
+        tz: 19150,
+        heading: -45,
+        extra: 'tod=0.75&headlight=1&cloudMood=high',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-match-cut`,
+    trackSlug: 'purrple-cat-flourish',
+    musicStart: 18,
+    meta: {
+      title: 'One barrel roll across 4 landscapes ✈️',
+      tiktokQuestion: 'Which weather vibe is your favorite?',
+      stops: [
+        '0:00 Twin Falls (0.9°N, 0.0°E)',
+        '0:03 Lake Cloverleaf (0.7°S, 0.8°W)',
+        '0:06 Stormy Lighthouse (0.6°S, 1.5°E)',
+        '0:09 Desert Pyramids (3.8°S, 2.1°W)',
+      ],
+      trackTitle: 'Flourish',
+    },
   });
 }
 
@@ -1048,150 +1000,86 @@ async function renderDailyMatchCutShort(browser, seed = 20261109) {
 // Prototype 6: Teal Seaplane Match-Cut for Seed 20261109 (4 Arches & Peaks)
 // ---------------------------------------------------------------------------
 async function renderSeaplaneCutShort(browser, seed = 20261109) {
-  console.log(
-    `=== Rendering Seaplane Match-Cut (Seed ${seed}: Teal Seaplane) ===`
-  );
-  const frameDir = path.join(OUT, 'frames-short-5-seaplane-cut');
-  fs.rmSync(frameDir, {recursive: true, force: true});
-  fs.mkdirSync(frameDir, {recursive: true});
-
   const speedMult = 1.18;
-  // Rear-right three-quarter chase camera looking forward past the teal
-  // seaplane's pontoons and struts toward each landmark ahead
-  const cam =
-    `plane=seaplane&livery=teal&smoke=1&speed=${speedMult}` +
-    '&camOffset=16,6,42&camLook=-3,0,-65';
-  // Unbroken 12s maneuver that loops seamlessly from frame 360 back to frame 0:
-  //   0..3s:  Carves right toward the sea arch, then pitches up into a left roll
-  //   3..6s:  Match-cuts mid-roll through the river gorge bridge (360° roll)
-  //   6..9s:  Match-cuts into a sweeping S-bank over the snowy dragon peaks
-  //   9..12s: Match-cuts into sunset over the alien basalt arch and settles to
-  //           level (roll=-360, pitch=0, constant yaw=-18 from 9.0s..12.0s)
-  const moves = [
-    [0, 0, 0, 0],
-    [1.2, 26, 3, -6],
-    [2.3, -14, 10, -12],
-    [3.0, -68, 14, -10],
-    [4.4, -245, -4, -12],
-    [5.5, -360, 2, -16],
-    [6.0, -384, 4, -18],
-    [7.3, -332, -2, -12],
-    [8.4, -374, 3, -18],
-    [9.0, -346, 2, -18],
-    [10.2, -368, 1, -18],
-    [11.3, -360, 0, -18],
-    [12.0, -360, 0, -18],
-  ];
-
-  const rawSegments = [
-    {
-      label: 'Turquoise Sea Arch · 0.8°N, 6.1°E',
-      tx: 30780,
-      ty: 225,
-      tz: -3820,
-      heading: 30,
-      extra: 'tod=0.30&cloudMood=fair',
-      startFrame: 0,
-      endFrame: 90,
-    },
-    {
-      label: 'Red-Rock Canyon · 3.5°S, 0.7°E',
-      tx: 3600,
-      ty: 225,
-      tz: 17500,
-      heading: 18,
-      extra: 'tod=0.56&cloudMood=mackerel',
-      startFrame: 90,
-      endFrame: 180,
-    },
-    {
-      label: 'Dragon Peaks · 3.9°N, 2.4°W',
-      tx: -11750,
-      ty: 260,
-      tz: -19100,
-      heading: 35,
-      extra: 'tod=0.42&weather=snow&cloudMood=high',
-      startFrame: 180,
-      endFrame: 270,
-    },
-    {
-      label: 'Alien Basalt Arch · 1.0°S, 17.4°E',
-      tx: 87150,
-      ty: 455,
-      tz: 4675,
-      heading: 129,
-      extra: 'tod=0.76&headlight=1&cloudMood=busy',
-      startFrame: 270,
-      endFrame: 360,
-    },
-  ];
-
-  for (const seg of rawSegments) {
-    const start = startCoordsForFrame(
-      seg.tx,
-      seg.ty,
-      seg.tz,
-      seg.heading,
-      speedMult,
-      moves,
-      seg.startFrame
-    );
-    const query =
-      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
-      `&heading=${seg.heading}&${seg.extra}&${cam}`;
-    const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(
-      page,
-      'CHILL FLIGHT · Play free at chillflight.app',
-      seg.label
-    );
-    await page.evaluate((m) => {
-      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
-    }, moves);
-    for (let i = 0; i < seg.endFrame; i++) {
-      await step(page);
-      if (i >= seg.startFrame) {
-        const framePath = path.join(
-          frameDir,
-          `${String(i).padStart(5, '0')}.jpg`
-        );
-        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
-        if ((i - seg.startFrame) % FPS === 0) {
-          console.log(`  seaplane-cut [${seg.label}]: frame ${i}/360`);
-        }
-      }
-    }
-    await page.close();
-  }
-
-  const rawMp4 = path.join(OUT, 'short-5-seaplane-cut-raw.mp4');
-  const outMp4 = path.join(OUT, 'short-5-seaplane-cut.mp4');
-  ffmpeg([
-    '-framerate',
-    String(FPS),
-    '-i',
-    path.join(frameDir, '%05d.jpg'),
-    '-vf',
-    `scale=${PIXEL_W}:${PIXEL_H}`,
-    ...H264,
-    rawMp4,
-  ]);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-
-  const music = await downloadTrack('purrple-cat-calm-waters');
-  muxWithMusic(rawMp4, outMp4, music, 20, 12);
-  fs.rmSync(rawMp4, {force: true});
-  console.log(outMp4);
-  writeShortMetadata(outMp4, {
-    title: 'Seaplane roll across 4 landscapes ✈️',
-    tiktokQuestion: 'Which biome is your favorite?',
-    stops: [
-      '0:00 Turquoise Sea Arch (0.8°N, 6.1°E)',
-      '0:03 Red-Rock Canyon (3.5°S, 0.7°E)',
-      '0:06 Dragon Peaks (3.9°N, 2.4°W)',
-      '0:09 Alien Basalt Arch (1.0°S, 17.4°E)',
+  await renderMatchCutClip(browser, {
+    id: 'seaplane-cut',
+    banner: `Seaplane Match-Cut (Seed ${seed}: Teal Seaplane)`,
+    seed,
+    speedMult,
+    cam:
+      `plane=seaplane&livery=teal&smoke=1&speed=${speedMult}` +
+      '&camOffset=16,6,42&camLook=-3,0,-65',
+    moves: [
+      [0, 0, 0, 0],
+      [1.2, 26, 3, -6],
+      [2.3, -14, 10, -12],
+      [3.0, -68, 14, -10],
+      [4.4, -245, -4, -12],
+      [5.5, -360, 2, -16],
+      [6.0, -384, 4, -18],
+      [7.3, -332, -2, -12],
+      [8.4, -374, 3, -18],
+      [9.0, -346, 2, -18],
+      [10.2, -368, 1, -18],
+      [11.3, -360, 0, -18],
+      [12.0, -360, 0, -18],
     ],
-    trackTitle: 'Calm Waters',
+    segments: [
+      {
+        label: 'Turquoise Sea Arch · 0.8°N, 6.1°E',
+        tx: 30780,
+        ty: 225,
+        tz: -3820,
+        heading: 30,
+        extra: 'tod=0.30&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Red-Rock Canyon · 3.5°S, 0.7°E',
+        tx: 3600,
+        ty: 225,
+        tz: 17500,
+        heading: 18,
+        extra: 'tod=0.56&cloudMood=mackerel',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Dragon Peaks · 3.9°N, 2.4°W',
+        tx: -11750,
+        ty: 260,
+        tz: -19100,
+        heading: 35,
+        extra: 'tod=0.42&weather=snow&cloudMood=high',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Alien Basalt Arch · 1.0°S, 17.4°E',
+        tx: 87150,
+        ty: 455,
+        tz: 4675,
+        heading: 129,
+        extra: 'tod=0.76&headlight=1&cloudMood=busy',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: 'short-5-seaplane-cut',
+    trackSlug: 'purrple-cat-calm-waters',
+    musicStart: 20,
+    meta: {
+      title: 'Seaplane roll across 4 landscapes ✈️',
+      tiktokQuestion: 'Which biome is your favorite?',
+      stops: [
+        '0:00 Turquoise Sea Arch (0.8°N, 6.1°E)',
+        '0:03 Red-Rock Canyon (3.5°S, 0.7°E)',
+        '0:06 Dragon Peaks (3.9°N, 2.4°W)',
+        '0:09 Alien Basalt Arch (1.0°S, 17.4°E)',
+      ],
+      trackTitle: 'Calm Waters',
+    },
   });
 }
 
@@ -1199,165 +1087,89 @@ async function renderSeaplaneCutShort(browser, seed = 20261109) {
 // Prototype 7: Weather Effects Match-Cut for Seed 20261110 (Teal Biplane)
 // ---------------------------------------------------------------------------
 async function renderWeatherCutShort(browser, seed = 20261110) {
-  console.log(
-    `=== Rendering Weather Effects Match-Cut (Seed ${seed}: Teal Biplane) ===`
-  );
-  const frameDir = path.join(OUT, `frames-short-${seed}-weather-cut`);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-  fs.mkdirSync(frameDir, {recursive: true});
-
   const speedMult = 1.18;
-  // Rear-left chase camera angled slightly up to showcase morning valley fog,
-  // the rainbow arch, lightning-lit storm clouds, and swirling blizzard snow
-  const cam =
-    `plane=biplane&livery=teal&smoke=1&speed=${speedMult}` +
-    '&camOffset=-15,5,44&camLook=3,2,-68';
-  // Unbroken 12s maneuver that loops seamlessly from frame 360 back to frame 0:
-  //   0..3s:  Carves through golden sunrise valley mist toward Twin Falls
-  //   3..6s:  Match-cuts mid-roll under a full rainbow over the sea arch
-  //   6..9s:  Match-cuts into a heavy thunderstorm & lightning flash past the lighthouse
-  //   9..12s: Match-cuts into an alpine blizzard over Dragon Peaks and settles
-  //           to level (roll=360, pitch=0, constant yaw=18 from 9.0s..12.0s)
-  const moves = [
-    [0, 0, 0, 0],
-    [1.2, -24, 4, 8],
-    [2.3, 16, 10, 14],
-    [3.0, 68, 14, 12],
-    [4.4, 245, -4, 14],
-    [5.5, 360, 2, 18],
-    [6.0, 384, 4, 20],
-    [7.3, 332, -2, 14],
-    [8.4, 374, 3, 18],
-    [9.0, 346, 2, 18],
-    [10.2, 368, 1, 18],
-    [11.3, 360, 0, 18],
-    [12.0, 360, 0, 18],
-  ];
-
-  const rawSegments = [
-    {
-      label: 'Sunrise Mist · 0.9°N, 0.0°E',
-      tx: 210,
-      ty: 195,
-      tz: -3350,
-      heading: 14,
-      extra: 'tod=0.272&cloudCover=0.25&cloudMood=fair',
-      startFrame: 0,
-      endFrame: 90,
-    },
-    {
-      label: 'Morning Rainbow · 1.6°S, 9.1°E',
-      tx: 45800,
-      ty: 245,
-      tz: 7950,
-      heading: 58,
-      extra: 'tod=0.39&weather=none&cloudCover=0.18&cloudMood=fair',
-      rainbow: true,
-      startFrame: 90,
-      endFrame: 180,
-    },
-    {
-      label: 'Lightning Storm · 0.6°S, 1.5°E',
-      tx: 7906,
-      ty: 175,
-      tz: 3109,
-      heading: 55,
-      extra: 'tod=0.68&weather=rain&cloudCover=0.92&headlight=1&cloudMood=busy',
-      lightningFrames: [190, 232],
-      startFrame: 180,
-      endFrame: 270,
-    },
-    {
-      label: 'Alpine Blizzard · 4.4°N, 1.7°W',
-      tx: -7876,
-      ty: 260,
-      tz: -21559,
-      heading: 45,
-      extra: 'tod=0.44&weather=snow&cloudCover=0.82&cloudMood=high',
-      startFrame: 270,
-      endFrame: 360,
-    },
-  ];
-
-  for (const seg of rawSegments) {
-    const start = startCoordsForFrame(
-      seg.tx,
-      seg.ty,
-      seg.tz,
-      seg.heading,
-      speedMult,
-      moves,
-      seg.startFrame
-    );
-    const query =
-      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
-      `&heading=${seg.heading}&${seg.extra}&${cam}`;
-    const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(
-      page,
-      'CHILL FLIGHT · Play free at chillflight.app',
-      seg.label
-    );
-    if (seg.rainbow) {
-      await page.evaluate(async () => {
-        const {state} = await import('/state.js');
-        state.forceRainbow = true;
-        state.rainbowIntensity = 1.0;
-      });
-    }
-    await page.evaluate((m) => {
-      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
-    }, moves);
-    for (let i = 0; i < seg.endFrame; i++) {
-      if (seg.lightningFrames && seg.lightningFrames.includes(i)) {
-        await page.evaluate(async () => {
-          const {flashLightning} = await import('/weather-manager.js');
-          flashLightning(0.05, -Math.PI * 0.78);
-        });
-      }
-      await step(page);
-      if (i >= seg.startFrame) {
-        const framePath = path.join(
-          frameDir,
-          `${String(i).padStart(5, '0')}.jpg`
-        );
-        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
-        if ((i - seg.startFrame) % FPS === 0) {
-          console.log(`  weather-cut [${seg.label}]: frame ${i}/360`);
-        }
-      }
-    }
-    await page.close();
-  }
-
-  const rawMp4 = path.join(OUT, `short-${seed}-weather-cut-raw.mp4`);
-  const outMp4 = path.join(OUT, `short-${seed}-weather-cut.mp4`);
-  ffmpeg([
-    '-framerate',
-    String(FPS),
-    '-i',
-    path.join(frameDir, '%05d.jpg'),
-    '-vf',
-    `scale=${PIXEL_W}:${PIXEL_H}`,
-    ...H264,
-    rawMp4,
-  ]);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-
-  const music = await downloadTrack('purrple-cat-crescent-moon');
-  muxWithMusic(rawMp4, outMp4, music, 22, 12);
-  fs.rmSync(rawMp4, {force: true});
-  console.log(outMp4);
-  writeShortMetadata(outMp4, {
-    title: 'One roll through 4 weather moods ✈️',
-    tiktokQuestion: 'Sunrise mist, rainbow, thunderstorm, or blizzard?',
-    stops: [
-      '0:00 Sunrise Mist (0.9°N, 0.0°E)',
-      '0:03 Morning Rainbow (1.6°S, 9.1°E)',
-      '0:06 Lightning Storm (0.6°S, 1.5°E)',
-      '0:09 Alpine Blizzard (4.4°N, 1.7°W)',
+  await renderMatchCutClip(browser, {
+    id: 'weather-cut',
+    banner: `Weather Effects Match-Cut (Seed ${seed}: Teal Biplane)`,
+    seed,
+    speedMult,
+    cam:
+      `plane=biplane&livery=teal&smoke=1&speed=${speedMult}` +
+      '&camOffset=-15,5,44&camLook=3,2,-68',
+    moves: [
+      [0, 0, 0, 0],
+      [1.2, -24, 4, 8],
+      [2.3, 16, 10, 14],
+      [3.0, 68, 14, 12],
+      [4.4, 245, -4, 14],
+      [5.5, 360, 2, 18],
+      [6.0, 384, 4, 20],
+      [7.3, 332, -2, 14],
+      [8.4, 374, 3, 18],
+      [9.0, 346, 2, 18],
+      [10.2, 368, 1, 18],
+      [11.3, 360, 0, 18],
+      [12.0, 360, 0, 18],
     ],
-    trackTitle: 'Crescent Moon',
+    segments: [
+      {
+        label: 'Sunrise Mist · 0.9°N, 0.0°E',
+        tx: 210,
+        ty: 195,
+        tz: -3350,
+        heading: 14,
+        extra: 'tod=0.272&cloudCover=0.25&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Morning Rainbow · 1.6°S, 9.1°E',
+        tx: 45800,
+        ty: 245,
+        tz: 7950,
+        heading: 58,
+        extra: 'tod=0.39&weather=none&cloudCover=0.18&cloudMood=fair',
+        rainbow: true,
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Lightning Storm · 0.6°S, 1.5°E',
+        tx: 7906,
+        ty: 175,
+        tz: 3109,
+        heading: 55,
+        extra:
+          'tod=0.68&weather=rain&cloudCover=0.92&headlight=1&cloudMood=busy',
+        lightningFrames: [190, 232],
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Alpine Blizzard · 4.4°N, 1.7°W',
+        tx: -7876,
+        ty: 260,
+        tz: -21559,
+        heading: 45,
+        extra: 'tod=0.44&weather=snow&cloudCover=0.82&cloudMood=high',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-weather-cut`,
+    trackSlug: 'purrple-cat-crescent-moon',
+    musicStart: 22,
+    meta: {
+      title: 'One roll through 4 weather moods ✈️',
+      tiktokQuestion: 'Sunrise mist, rainbow, thunderstorm, or blizzard?',
+      stops: [
+        '0:00 Sunrise Mist (0.9°N, 0.0°E)',
+        '0:03 Morning Rainbow (1.6°S, 9.1°E)',
+        '0:06 Lightning Storm (0.6°S, 1.5°E)',
+        '0:09 Alpine Blizzard (4.4°N, 1.7°W)',
+      ],
+      trackTitle: 'Crescent Moon',
+    },
   });
 }
 
@@ -1365,150 +1177,86 @@ async function renderWeatherCutShort(browser, seed = 20261110) {
 // Prototype 8: Swept-Wing Jet Match-Cut for Seed 20261111 (Coral Jet)
 // ---------------------------------------------------------------------------
 async function renderJetWondersCutShort(browser, seed = 20261111) {
-  console.log(
-    `=== Rendering Jet Landmarks Match-Cut (Seed ${seed}: Coral Jet) ===`
-  );
-  const frameDir = path.join(OUT, `frames-short-${seed}-jet-cut`);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-  fs.mkdirSync(frameDir, {recursive: true});
-
   const speedMult = 1.55;
-  // Elevated rear-left chase camera angled down past the swept-wing jet to
-  // frame the volcano caldera, coral sea arch, pyramids, and alien basalt arch
-  const cam =
-    `plane=jet&livery=coral&smoke=1&speed=${speedMult}` +
-    '&camOffset=-14,12,44&camLook=3,-7,-68';
-  // Unbroken 12s maneuver that loops seamlessly from frame 360 back to frame 0:
-  //   0..3s:  Carves across the smoking volcano caldera at dawn and rolls left
-  //   3..6s:  Match-cuts mid-roll over the red-stone sea arch & turquoise lagoon
-  //   6..9s:  Match-cuts banking right between the Great Pyramids at golden hour
-  //   9..12s: Match-cuts over the giant alien basalt arch & glowing flora at
-  //           twilight, settling to level (roll=-360, pitch=0, yaw=-18)
-  const moves = [
-    [0, 0, 0, 0],
-    [1.3, 28, 2, -6],
-    [2.3, -12, 6, -12],
-    [3.0, -58, 8, -10],
-    [4.4, -360, -2, -12],
-    [5.4, -342, 2, -16],
-    [6.0, -376, 3, -18],
-    [7.4, -334, -2, -12],
-    [8.4, -372, 2, -18],
-    [9.0, -346, 2, -18],
-    [10.2, -368, 1, -18],
-    [11.3, -360, 0, -18],
-    [12.0, -360, 0, -18],
-  ];
-
-  const rawSegments = [
-    {
-      label: 'Volcano Caldera · 1.0°S, 1.0°W',
-      tx: -4920,
-      ty: 1940,
-      tz: 4550,
-      heading: 174,
-      extra: 'tod=0.28&cloudMood=fair',
-      startFrame: 0,
-      endFrame: 90,
-    },
-    {
-      label: 'Coral Sea Arch · 3.3°S, 8.7°E',
-      tx: 44150,
-      ty: 235,
-      tz: 16544,
-      heading: 104,
-      extra: 'tod=0.50&cloudMood=fair',
-      startFrame: 90,
-      endFrame: 180,
-    },
-    {
-      label: 'Great Pyramids · 3.5°S, 2.0°W',
-      tx: -8850,
-      ty: 520,
-      tz: 18250,
-      heading: 42,
-      extra: 'tod=0.71&cloudMood=high',
-      startFrame: 180,
-      endFrame: 270,
-    },
-    {
-      label: 'Alien Basalt Arch · 3.5°S, 15.9°E',
-      tx: 79420,
-      ty: 740,
-      tz: 18580,
-      heading: 20,
-      extra: 'tod=0.775&headlight=1&cloudMood=mackerel',
-      startFrame: 270,
-      endFrame: 360,
-    },
-  ];
-
-  for (const seg of rawSegments) {
-    const start = startCoordsForFrame(
-      seg.tx,
-      seg.ty,
-      seg.tz,
-      seg.heading,
-      speedMult,
-      moves,
-      seg.startFrame
-    );
-    const query =
-      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
-      `&heading=${seg.heading}&${seg.extra}&${cam}`;
-    const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(
-      page,
-      'CHILL FLIGHT · Play free at chillflight.app',
-      seg.label
-    );
-    await page.evaluate((m) => {
-      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
-    }, moves);
-    for (let i = 0; i < seg.endFrame; i++) {
-      await step(page);
-      if (i >= seg.startFrame) {
-        const framePath = path.join(
-          frameDir,
-          `${String(i).padStart(5, '0')}.jpg`
-        );
-        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
-        if ((i - seg.startFrame) % FPS === 0) {
-          console.log(`  jet-cut [${seg.label}]: frame ${i}/360`);
-        }
-      }
-    }
-    await page.close();
-  }
-
-  const rawMp4 = path.join(OUT, `short-${seed}-jet-cut-raw.mp4`);
-  const outMp4 = path.join(OUT, `short-${seed}-jet-cut.mp4`);
-  ffmpeg([
-    '-framerate',
-    String(FPS),
-    '-i',
-    path.join(frameDir, '%05d.jpg'),
-    '-vf',
-    `scale=${PIXEL_W}:${PIXEL_H}`,
-    ...H264,
-    rawMp4,
-  ]);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-
-  const music = await downloadTrack('purrple-cat-discovery');
-  muxWithMusic(rawMp4, outMp4, music, 20, 12);
-  fs.rmSync(rawMp4, {force: true});
-  console.log(outMp4);
-  writeShortMetadata(outMp4, {
-    title: 'Jet roll across 4 landmarks ✈️',
-    tiktokQuestion: 'Volcano, sea arch, pyramids, or alien lands?',
-    stops: [
-      '0:00 Volcano Caldera (1.0°S, 1.0°W)',
-      '0:03 Coral Sea Arch (3.3°S, 8.7°E)',
-      '0:06 Great Pyramids (3.5°S, 2.0°W)',
-      '0:09 Alien Basalt Arch (3.5°S, 15.9°E)',
+  await renderMatchCutClip(browser, {
+    id: 'jet-cut',
+    banner: `Jet Landmarks Match-Cut (Seed ${seed}: Coral Jet)`,
+    seed,
+    speedMult,
+    cam:
+      `plane=jet&livery=coral&smoke=1&speed=${speedMult}` +
+      '&camOffset=-14,12,44&camLook=3,-7,-68',
+    moves: [
+      [0, 0, 0, 0],
+      [1.3, 28, 2, -6],
+      [2.3, -12, 6, -12],
+      [3.0, -58, 8, -10],
+      [4.4, -360, -2, -12],
+      [5.4, -342, 2, -16],
+      [6.0, -376, 3, -18],
+      [7.4, -334, -2, -12],
+      [8.4, -372, 2, -18],
+      [9.0, -346, 2, -18],
+      [10.2, -368, 1, -18],
+      [11.3, -360, 0, -18],
+      [12.0, -360, 0, -18],
     ],
-    trackTitle: 'Discovery',
+    segments: [
+      {
+        label: 'Volcano Caldera · 1.0°S, 1.0°W',
+        tx: -4920,
+        ty: 1940,
+        tz: 4550,
+        heading: 174,
+        extra: 'tod=0.28&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Coral Sea Arch · 3.3°S, 8.7°E',
+        tx: 44150,
+        ty: 235,
+        tz: 16544,
+        heading: 104,
+        extra: 'tod=0.50&cloudMood=fair',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Great Pyramids · 3.5°S, 2.0°W',
+        tx: -8850,
+        ty: 520,
+        tz: 18250,
+        heading: 42,
+        extra: 'tod=0.71&cloudMood=high',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Alien Basalt Arch · 3.5°S, 15.9°E',
+        tx: 79420,
+        ty: 740,
+        tz: 18580,
+        heading: 20,
+        extra: 'tod=0.775&headlight=1&cloudMood=mackerel',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-jet-cut`,
+    trackSlug: 'purrple-cat-discovery',
+    musicStart: 20,
+    meta: {
+      title: 'Jet roll across 4 landmarks ✈️',
+      tiktokQuestion: 'Volcano, sea arch, pyramids, or alien lands?',
+      stops: [
+        '0:00 Volcano Caldera (1.0°S, 1.0°W)',
+        '0:03 Coral Sea Arch (3.3°S, 8.7°E)',
+        '0:06 Great Pyramids (3.5°S, 2.0°W)',
+        '0:09 Alien Basalt Arch (3.5°S, 15.9°E)',
+      ],
+      trackTitle: 'Discovery',
+    },
   });
 }
 
@@ -1516,158 +1264,93 @@ async function renderJetWondersCutShort(browser, seed = 20261111) {
 // Prototype 9: Aerobatic Loop + Climbing Roll + Dive Match-Cut (Seed 20261112)
 // ---------------------------------------------------------------------------
 async function renderAerobaticCutShort(browser, seed = 20261112) {
-  console.log(
-    `=== Rendering Aerobatic Biomes Match-Cut (Seed ${seed}: Rose Biplane) ===`
-  );
-  const frameDir = path.join(OUT, `frames-short-${seed}-aerobatic-cut`);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-  fs.mkdirSync(frameDir, {recursive: true});
-
   const speedMult = 1.18;
-  // Rear-right three-quarter chase camera so the inside loop, steep +45° climb
-  // with simultaneous barrel roll, level-out, and steep -48° dive read cleanly
-  const cam =
-    `plane=biplane&livery=rose&smoke=1&speed=${speedMult}` +
-    '&camOffset=20,6,44&camLook=-4,1,-58';
-  // Unbroken 12s aerobatic sequence looping seamlessly from frame 359 -> 0:
-  //   0..3s:  Starts level, then pulls into a full 360° vertical inside loop
-  //   3..6s:  Pulls out of the loop directly into a steep +45° climb (pitch=405°)
-  //           with a simultaneous 360° barrel roll while climbing
-  //   6..9s:  Finishes the climbing roll, levels out over alpine peaks, then
-  //           pitches nose-down into a steep -48° dive (pitch=312°)
-  //   9..12s: Dives toward the desert pyramids and pulls smoothly back to level
-  //           (roll=360, pitch=360, yaw=0 held from 11.15s..12.0s)
-  const moves = [
-    [0.0, 0, 0, 0],
-    [0.55, 0, 0, 0],
-    [3.65, 0, null, 0],
-    [3.8, null, 405, 0],
-    [6.5, 360, 405, 0],
-    [7.4, 360, 360, 0],
-    [7.8, 360, 360, 0],
-    [9.1, 360, 312, 0],
-    [9.6, 360, 312, 0],
-    [11.15, 360, 360, 0],
-    [12.0, 360, 360, 0],
-  ];
-
-  const rawSegments = [
-    {
-      label: 'Twin Falls Valley · 0.7°N, 0.0°E',
-      tx: 220,
-      ty: 205,
-      tz: -3420,
-      heading: 0,
-      extra: 'tod=0.29&cloudMood=fair',
-      startFrame: 0,
-      endFrame: 90,
-    },
-    {
-      label: 'Coral Sea Arch · 0.4°N, 6.7°E',
-      tx: 32720,
-      ty: 185,
-      tz: -1880,
-      heading: -88,
-      extra: 'tod=0.49&cloudMood=fair',
-      startFrame: 90,
-      endFrame: 180,
-    },
-    {
-      label: 'Snowy Dragon Peaks · 3.0°N, 2.6°W',
-      tx: -12980,
-      ty: 780,
-      tz: -14580,
-      heading: 10,
-      extra: 'tod=0.41&weather=snow&cloudMood=high',
-      startFrame: 180,
-      endFrame: 270,
-    },
-    {
-      label: 'Great Pyramids · 3.9°S, 2.0°W',
-      tx: -8720,
-      ty: 680,
-      tz: 20320,
-      heading: 38,
-      extra: 'tod=0.72&cloudMood=busy',
-      startFrame: 270,
-      endFrame: 360,
-    },
-  ];
-
-  for (const seg of rawSegments) {
-    const start = startCoordsForFrame(
-      seg.tx,
-      seg.ty,
-      seg.tz,
-      seg.heading,
-      speedMult,
-      moves,
-      seg.startFrame,
-      true
-    );
-    const query =
-      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
-      `&heading=${seg.heading}&${seg.extra}&${cam}`;
-    const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(
-      page,
-      'CHILL FLIGHT · Play free at chillflight.app',
-      seg.label
-    );
-    await page.evaluate((m) => {
-      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
-    }, moves);
-    for (let i = 0; i < seg.endFrame; i++) {
-      await step(page);
-      if (i >= seg.startFrame) {
-        const framePath = path.join(
-          frameDir,
-          `${String(i).padStart(5, '0')}.jpg`
-        );
-        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
-        if ((i - seg.startFrame) % FPS === 0) {
-          console.log(`  aerobatic-cut [${seg.label}]: frame ${i}/360`);
-        }
-      }
-    }
-    await page.close();
-  }
-
-  const rawMp4 = path.join(OUT, `short-${seed}-aerobatic-cut-raw.mp4`);
-  const outMp4 = path.join(OUT, `short-${seed}-aerobatic-cut.mp4`);
-  ffmpeg([
-    '-framerate',
-    String(FPS),
-    '-i',
-    path.join(frameDir, '%05d.jpg'),
-    '-vf',
-    `scale=${PIXEL_W}:${PIXEL_H}`,
-    ...H264,
-    rawMp4,
-  ]);
-  fs.rmSync(frameDir, {recursive: true, force: true});
-
-  const music = await downloadTrack('purrple-cat-beautiful-day');
-  muxWithMusic(rawMp4, outMp4, music, 18, 12);
-  fs.rmSync(rawMp4, {force: true});
-  console.log(outMp4);
-  writeShortMetadata(outMp4, {
-    title: 'Biplane loop, climb roll, and dive across 4 biomes ✈️',
-    tiktokQuestion:
-      'Forest valley, coral arch, snowy peaks, or desert pyramids?',
-    stops: [
-      '0:00 Twin Falls Valley (0.7°N, 0.0°E)',
-      '0:03 Coral Sea Arch (0.4°N, 6.7°E)',
-      '0:06 Snowy Dragon Peaks (3.0°N, 2.6°W)',
-      '0:09 Great Pyramids (3.9°S, 2.0°W)',
+  await renderMatchCutClip(browser, {
+    id: 'aerobatic-cut',
+    banner: `Aerobatic Biomes Match-Cut (Seed ${seed}: Rose Biplane)`,
+    seed,
+    speedMult,
+    cam:
+      `plane=biplane&livery=rose&smoke=1&speed=${speedMult}` +
+      '&camOffset=20,6,44&camLook=-4,1,-58',
+    loopDip: true,
+    moves: [
+      [0.0, 0, 0, 0],
+      [0.55, 0, 0, 0],
+      [3.65, 0, null, 0],
+      [3.8, null, 405, 0],
+      [6.5, 360, 405, 0],
+      [7.4, 360, 360, 0],
+      [7.8, 360, 360, 0],
+      [9.1, 360, 312, 0],
+      [9.6, 360, 312, 0],
+      [11.15, 360, 360, 0],
+      [12.0, 360, 360, 0],
     ],
-    trackTitle: 'Beautiful Day',
+    segments: [
+      {
+        label: 'Twin Falls Valley · 0.7°N, 0.0°E',
+        tx: 220,
+        ty: 205,
+        tz: -3420,
+        heading: 0,
+        extra: 'tod=0.29&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Coral Sea Arch · 0.4°N, 6.7°E',
+        tx: 32720,
+        ty: 185,
+        tz: -1880,
+        heading: -88,
+        extra: 'tod=0.49&cloudMood=fair',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Snowy Dragon Peaks · 3.0°N, 2.6°W',
+        tx: -12980,
+        ty: 780,
+        tz: -14580,
+        heading: 10,
+        extra: 'tod=0.41&weather=snow&cloudMood=high',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Great Pyramids · 3.9°S, 2.0°W',
+        tx: -8720,
+        ty: 680,
+        tz: 20320,
+        heading: 38,
+        extra: 'tod=0.72&cloudMood=busy',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-aerobatic-cut`,
+    trackSlug: 'purrple-cat-beautiful-day',
+    musicStart: 18,
+    meta: {
+      title: 'Biplane loop, climb roll, and dive across 4 biomes ✈️',
+      tiktokQuestion:
+        'Forest valley, coral arch, snowy peaks, or desert pyramids?',
+      stops: [
+        '0:00 Twin Falls Valley (0.7°N, 0.0°E)',
+        '0:03 Coral Sea Arch (0.4°N, 6.7°E)',
+        '0:06 Snowy Dragon Peaks (3.0°N, 2.6°W)',
+        '0:09 Great Pyramids (3.9°S, 2.0°W)',
+      ],
+      trackTitle: 'Beautiful Day',
+    },
   });
 }
 
 async function main() {
   fs.mkdirSync(OUT, {recursive: true});
-  const filter = process.argv[2];
+  const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+  const filter = cliArgs[0];
   if (filter === 'meta') {
     const gorge = scoutArchPass(20261108, 'gorge', 1);
     const sea = scoutArchPass(20261108, 'sea', 1);

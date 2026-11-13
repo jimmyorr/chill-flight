@@ -304,6 +304,111 @@ export async function openGame(
   return page;
 }
 
+// Installed before the game loads for deterministic frame-stepped renders
+// (scripts/promo.js, scripts/shorts.js). performance.now creeps by 1us per call
+// within a frame so time-budgeted chunk/arch loops still finish while loading.
+function installVirtualClock() {
+  const clock = {t: performance.now(), calls: 0, pending: []};
+  const dateOffset = Date.now() - clock.t;
+  performance.now = () => clock.t + clock.calls++ * 0.001;
+  Date.now = () => Math.round(dateOffset + clock.t);
+  window.requestAnimationFrame = (cb) => clock.pending.push(cb);
+  window.__promoStep = (dt) => {
+    clock.t += dt;
+    clock.calls = 0;
+    clock.pending.splice(0).forEach((cb) => cb(clock.t));
+  };
+}
+
+export const stepPromoFrame = (page, dt = 1000 / 30) =>
+  page.evaluate((d) => window.__promoStep(d), dt);
+
+// Opens a fresh browser context on a virtual clock, waits until both
+// #loading-overlay is hidden and far terrain is ready (with a mandatory
+// timeoutMs deadline so callers can never hang indefinitely), settles for
+// settleMs on near-frozen frames, then advances prerollSec of flight.
+export async function openPromoWorld(
+  browser,
+  url,
+  {
+    width = 540,
+    height = 960,
+    scale = 2,
+    mobile = true,
+    settleMs = 2000,
+    prerollSec = 1.5,
+    fps = 30,
+    timeoutMs = 120000,
+  } = {}
+) {
+  const context = await browser.createBrowserContext();
+  const page = await context.newPage();
+  page.errors = [];
+  page.on('pageerror', (e) => page.errors.push(e.message));
+  await page.evaluateOnNewDocument(installVirtualClock);
+  await page.evaluateOnNewDocument(() => {
+    window.gameModule = (name) =>
+      import(
+        performance
+          .getEntriesByType('resource')
+          .map((e) => e.name)
+          .find((u) => new URL(u).pathname === '/' + name) || '/' + name
+      );
+  });
+
+  const loadShrink = Math.min(1, 480 / Math.max(width, height));
+  await page.setViewport({
+    width: Math.round(width * loadShrink),
+    height: Math.round(height * loadShrink),
+    deviceScaleFactor: 1,
+    isMobile: mobile,
+    hasTouch: mobile,
+  });
+
+  try {
+    await page.goto(url, {waitUntil: 'load', timeout: timeoutMs});
+
+    const started = Date.now();
+    let loadedAt = 0;
+    while (!loadedAt || Date.now() - loadedAt < settleMs) {
+      if (Date.now() - started > timeoutMs) {
+        throw new Error(
+          `Timed out after ${timeoutMs}ms waiting for promo world (${url})`
+        );
+      }
+      await stepPromoFrame(page, 0.001);
+      const ready = await page.evaluate(() => {
+        const overlay = document.getElementById('loading-overlay');
+        return (
+          Boolean(overlay) &&
+          getComputedStyle(overlay).display === 'none' &&
+          document.body.dataset.farReady === '1'
+        );
+      });
+      if (ready && !loadedAt) loadedAt = Date.now();
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
+    await page.setViewport({
+      width,
+      height,
+      deviceScaleFactor: scale,
+      isMobile: mobile,
+      hasTouch: mobile,
+    });
+    const prerollFrames = Math.round(prerollSec * fps);
+    for (let i = 0; i < prerollFrames; i++) {
+      await stepPromoFrame(page, 1000 / fps);
+    }
+  } catch (err) {
+    await context.close().catch(() => {});
+    throw err;
+  }
+
+  page.close = async () => context.close();
+  return page;
+}
+
 // Minimal static file server for a production build in a temp dir (never
 // docs/); resolves to the listening server (port: server.address().port).
 export function serveDir(dir) {

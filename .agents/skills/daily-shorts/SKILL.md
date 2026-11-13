@@ -79,12 +79,22 @@ Fixed landmarks available on every seed:
 - **Headland Lighthouse**: `X = 7500, Z = 3000` (`0.6°S, 1.5°E`), base around `Y = 65`.
 - **Red-Rock Canyon**: `X = 3260, Z = 15550` (`2.9°S, 0.6°E`, straight north-south floor channel at `Y = 50..80`, bridge at `X = 3061, Z = 14413`).
 
-### Step 2: Render the short
+### Step 2: Preview framing & render the short
 
-Ensure the local Vite dev server is listening on `http://localhost:5173/`, then run `scripts/shorts.js`:
+Ensure the local Vite dev server is listening on `http://localhost:5173/`.
+
+- **Never write custom virtual-clock scratch scripts** to preview a Short (do not hand-roll `requestAnimationFrame` or DOM readiness loops, which can stall if a readiness selector changes or lacks a timeout). Instead, add the new Short to [scripts/shorts.js](../../../scripts/shorts.js) (which uses `openPromoWorld` from [scripts/dev-browser.js](../../../scripts/dev-browser.js) with a mandatory load deadline and `#loading-overlay` + `farReady` check) and run `--preview` first if you want a fast 12-tile framing check (~15s):
 
 ```bash
-node scripts/shorts.js daily-match-cut
+node scripts/shorts.js aerobatic-cut --preview
+```
+
+`--preview` captures 3 key frames per segment (`startFrame`, midpoint, and `endFrame - 1`) at `1x` scale into `promo/preview-<short-name>.jpg` so you can inspect framing and cut alignment before rendering all 360 frames (delete `promo/preview-*.jpg` once verified).
+
+- Render the full `1080x1920` 30 fps `.mp4` + `.txt` sidecar:
+
+```bash
+node scripts/shorts.js aerobatic-cut
 ```
 
 To regenerate only the `.txt` description sidecars without re-rendering video:
@@ -98,11 +108,11 @@ node scripts/shorts.js meta
 Always extract a 12-frame 1 fps contact strip and an 8-frame cut-boundary strip (`frames 0, 89, 90, 179, 180, 269, 270, 359`), inspect both images with `read_file`, and delete the temporary `.jpg` strips afterward:
 
 ```bash
-ffmpeg -y -loglevel error -i promo/short-20261109-match-cut.mp4 \
-  -vf "fps=1,scale=270:480,tile=12x1" promo/strip-verify-12.jpg
-ffmpeg -y -loglevel error -i promo/short-20261109-match-cut.mp4 \
-  -vf "select='eq(n,0)+eq(n,89)+eq(n,90)+eq(n,179)+eq(n,180)+eq(n,269)+eq(n,270)+eq(n,359)',scale=270:480,tile=8x1" \
-  -frames:v 1 promo/strip-verify-cuts.jpg
+ffmpeg -y -loglevel error -i promo/short-20261112-aerobatic-cut.mp4 \
+  -vf "fps=1,scale=270:480,tile=6x2" -frames:v 1 -update 1 -q:v 3 promo/strip-verify-12.jpg
+ffmpeg -y -loglevel error -i promo/short-20261112-aerobatic-cut.mp4 \
+  -vf "select='eq(n\,0)+eq(n\,89)+eq(n\,90)+eq(n\,179)+eq(n\,180)+eq(n\,269)+eq(n\,270)+eq(n\,359)',scale=270:480,tile=4x2" \
+  -fps_mode passthrough -frames:v 1 -update 1 -q:v 3 promo/strip-verify-cuts.jpg
 ```
 
 Verify in the strips:
