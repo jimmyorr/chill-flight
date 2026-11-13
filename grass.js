@@ -40,6 +40,7 @@ import {camera} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 import {forEachTownStreetNear} from './terrain-gen.js';
+import {ART_POST} from './art-style.js';
 
 // Field radius and blade spacing (world units, ~0.5 m) by preset; tufts of
 // three blades sit on a jittered square lattice
@@ -306,19 +307,24 @@ function buildMesh(preset) {
       )
       .replace('#include <begin_vertex>', `vec3 transformed = bladePos;`);
     // Both faces of a blade take the ground's normal (three.js would flip
-    // it on the back face, turning it dark); alpha 0 (after opaque_fragment
-    // sets it to 1) tells the anime outline pass to leave the blades uninked
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <normal_fragment_begin>',
-        `#include <normal_fragment_begin>
+    // it on the back face, turning it dark)
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <normal_fragment_begin>',
+      `#include <normal_fragment_begin>
        normal = normalize(vNormal);`
-      )
-      .replace(
+    );
+    // With the art style's post pass, alpha 0 (after opaque_fragment sets it
+    // to 1) tells the outline pass to leave the blades uninked. Only there:
+    // without the pass the blades draw straight to the canvas, and Chrome on
+    // macOS can composite its alpha even though the context has none, which
+    // showed the blades as the page's black background.
+    if (ART_POST) {
+      shader.fragmentShader = shader.fragmentShader.replace(
         '#include <dithering_fragment>',
         `#include <dithering_fragment>
        gl_FragColor.a = 0.0;`
       );
+    }
   };
   material.customProgramCacheKey = () => 'tallGrass';
 
