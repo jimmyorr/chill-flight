@@ -173,6 +173,20 @@ const settle = (promise) =>
   );
 }
 
+// 6b. Likewise the forced continent and the season (?xmas= or the date)
+{
+  const {factory, made} = makeFactory(['ok']);
+  const m = new TerrainWorkerManager(1, {createWorker: factory});
+  await m.requestChunk(0, 0, {
+    forceContinent: 'boot',
+    xmas: 'full',
+    xmasDay: 12,
+  });
+  const p = made[0].lastPayload;
+  check('the forced continent reaches the worker', p.forceContinent === 'boot');
+  check('the season reaches the worker', p.xmas === 'full' && p.xmasDay === 12);
+}
+
 // 7. Workers have their own ChillFlightLogic, so a custom map is sent to each,
 // including a replacement for a worker that died.
 {

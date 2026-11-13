@@ -67,6 +67,54 @@ export const ChillFlightLogic = {};
   const validAlt = parsedAlt !== null && !isNaN(parsedAlt) ? parsedAlt : null;
 
   const WORLD_SEED = parseInt(getParam('seed', getTodaySeed()), 10);
+
+  // --- SEASONS ---
+  // Christmas (specs/christmas-village.md) runs Nov 1 to Jan 6, read from
+  // the world seed (today's date, YYYYMMDD) rather than the clock, so a
+  // pinned seed always gets the same world. November is 'setup' (the village
+  // getting ready), December to Twelfth Night is 'full'. `day` is the day of
+  // the month; Jan 1 to 6 count as Dec 31, so everything stays fully lit.
+  // Seeds that aren't dates have no season.
+  function seasonOf(seed) {
+    const none = {xmas: null, day: 0};
+    if (!Number.isInteger(seed) || seed < 10000101 || seed > 99991231)
+      return none;
+    const month = Math.floor(seed / 100) % 100;
+    const day = seed % 100;
+    if (day < 1 || day > 31) return none;
+    if (month === 11) return {xmas: 'setup', day};
+    if (month === 12) return {xmas: 'full', day};
+    if (month === 1 && day <= 6) return {xmas: 'full', day: 31};
+    return none;
+  }
+  const XMAS_PHASES = ['setup', 'full'];
+  // The season in play: from the seed (byDate) in the browser, off in Node
+  // (so the tests pinned to 20260101 keep their world) and in workers until
+  // a chunk job brings the main thread's (terrain-gen.js generateChunkData).
+  // ?xmas= forces it: off, setup or full (on picks full); ?xmasDay= sets the
+  // day.
+  function resolveSeason(seed, xmasParam, dayParam, byDate) {
+    let season = byDate ? seasonOf(seed) : {xmas: null, day: 0};
+    if (xmasParam !== null && xmasParam !== '') {
+      const v = String(xmasParam).trim().toLowerCase();
+      if (XMAS_PHASES.includes(v)) {
+        season = {xmas: v, day: season.xmas === v ? season.day : 1};
+      } else if (v === 'on' || v === '1' || v === 'true') {
+        season = season.xmas ? season : {xmas: 'full', day: 1};
+      } else {
+        season = {xmas: null, day: 0};
+      }
+    }
+    const day = parseInt(dayParam, 10);
+    if (season.xmas && day >= 1 && day <= 31) season = {...season, day};
+    return season;
+  }
+  const SEASON = resolveSeason(
+    WORLD_SEED,
+    getParam('xmas', null),
+    getParam('xmasDay', null),
+    urlParams !== null
+  );
   const THEME = getParam('theme', 'standard');
 
   const rawCloudParam = getParam(
@@ -4408,6 +4456,13 @@ export const ChillFlightLogic = {};
   // --- EXPORTS ---
   exports.customMap = null;
   exports.WORLD_SEED = WORLD_SEED;
+  exports.seasonOf = seasonOf;
+  exports.resolveSeason = resolveSeason;
+  exports.XMAS_PHASES = XMAS_PHASES;
+  // 'setup', 'full' or null, and the day of the month for the Advent ramp.
+  // Workers get the main thread's with each chunk job.
+  exports.XMAS = SEASON.xmas;
+  exports.XMAS_DAY = SEASON.day;
   exports.PLANE_TYPES = PLANE_TYPES;
   exports.normalizePlaneType = normalizePlaneType;
   exports.mulberry32 = mulberry32;

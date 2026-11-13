@@ -594,6 +594,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`cloudTime`**: How far the clouds have drifted, in seconds. Together with `seed` (the cloud pattern), `clock` and `timeSpeed=0`, a URL gives the same sky on every load.
 - **`cloudMood`**: Force the day's cloud mood instead of the one `seed` and `clock` pick: `fair`, `mixed`, `mackerel`, `high` or `busy` (see the clouds description above).
 - **`seed`**: Integer world seed for procedural terrain generation.
+- **`xmas`**: Force the Christmas season instead of reading it from the world seed's date (Nov 1 to Jan 6; see [specs/christmas-village.md](specs/christmas-village.md)): `off`, `setup` (November's look), `full` (December to Twelfth Night) or `on` (today's look if it's the season, else `full`). Node scripts and tests leave it off unless they pass it.
+- **`xmasDay`**: With the season on, the day of the month it plays as (`1` to `31`), for the Advent lights that come on day by day in December.
 - **`continent`**: Force the continent's outline instead of letting the seed pick it: `leaning`, `taper`, `crescent`, `lobes` or `boot`.
 - **`theme`**: The visual theme to load (e.g., `standard`).
 - **`lang`**: `en`, `en-US` (English with imperial units), `zh` or `zh-CN` (Simplified Chinese), `zh-TW` (Traditional), `ja`, `ko`, `es`, `pt` or `pt-BR`, `de`, `fr`, `it`, or `uk` (`ua` also works), overriding the language chosen in Settings and the device's (see [Language](#language)).
@@ -697,7 +699,7 @@ The game is made of ES modules in the repository root. `src/main.js` is the entr
 npm test
 ```
 
-Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script reference checks, a check that no code reads a `window` property that nothing assigns, the module import-order check, and tests for the network timeout helpers, the fog model, the terrain worker pool (dead or failing workers, and custom maps reaching every worker), the day's cloud mood (`scripts/test-cloud-moods.js`), people and their jobs (`scripts/test-jobs.js`), flying together (`scripts/test-multiplayer.js`: the relay's rules, invite links and smoothing other planes through late, lost and bunched-up updates), and headless autopilot and flight simulation (`scripts/test-sim.js`: airport approach and departure clearance, runway touch-and-go rollout, ridge avoidance, orbit stability, stall recovery, and job reachability).
+Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script reference checks, a check that no code reads a `window` property that nothing assigns, the module import-order check, and tests for the network timeout helpers, the fog model, the terrain worker pool (dead or failing workers, and custom maps reaching every worker), the day's cloud mood (`scripts/test-cloud-moods.js`), the Christmas season's dates and overrides (`scripts/test-season.js`), people and their jobs (`scripts/test-jobs.js`), flying together (`scripts/test-multiplayer.js`: the relay's rules, invite links and smoothing other planes through late, lost and bunched-up updates), and headless autopilot and flight simulation (`scripts/test-sim.js`: airport approach and departure clearance, runway touch-and-go rollout, ridge avoidance, orbit stability, stall recovery, and job reachability).
 
 ```bash
 npm run test:browser

@@ -2261,6 +2261,8 @@ function chunkGenParams(chunkX, chunkZ) {
     worldSeed: ChillFlightLogic.WORLD_SEED,
     forceIslandType: ChillFlightLogic.FORCE_ISLAND_TYPE,
     forceContinent: ChillFlightLogic.CONTINENT,
+    xmas: ChillFlightLogic.XMAS,
+    xmasDay: ChillFlightLogic.XMAS_DAY,
     enableObjects: state._enableObjects,
     morphGrid: {cell: FAR_CELL, segments: FAR_SEGMENTS},
   };

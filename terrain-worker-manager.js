@@ -189,6 +189,9 @@ export class TerrainWorkerManager {
         },
         worldSeed: options.worldSeed || 1,
         forceIslandType: options.forceIslandType,
+        forceContinent: options.forceContinent,
+        xmas: options.xmas,
+        xmasDay: options.xmasDay,
         enableObjects: options.enableObjects !== false,
         morphGrid: options.morphGrid,
       };

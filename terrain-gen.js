@@ -2419,6 +2419,8 @@ export function generateChunkData({
   worldSeed,
   forceIslandType,
   forceContinent,
+  xmas,
+  xmasDay,
   enableObjects,
   morphGrid,
 }) {
@@ -2434,6 +2436,11 @@ export function generateChunkData({
   // Likewise a forced continent outline (?continent=)
   if (forceContinent !== undefined) {
     ChillFlightLogic.CONTINENT = forceContinent;
+  }
+  // And the season (?xmas=, or the date: chill-flight-logic.js seasonOf)
+  if (xmas !== undefined) {
+    ChillFlightLogic.XMAS = xmas;
+    ChillFlightLogic.XMAS_DAY = xmasDay || 0;
   }
   const _enableObjects = enableObjects !== false;
 
