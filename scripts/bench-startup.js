@@ -54,7 +54,7 @@ async function run() {
       }
     }).observe({type: 'longtask', buffered: true});
   });
-  const query = `seed=20260928&preset=${process.env.PRESET || 'mid'}${process.env.QUERY ? `&${process.env.QUERY}` : ''}`;
+  const query = `seed=20260928&xmas=off&preset=${process.env.PRESET || 'mid'}${process.env.QUERY ? `&${process.env.QUERY}` : ''}`;
   const t0 = Date.now();
   await page.goto(`${BASE}?${query}`, {waitUntil: 'load', timeout: 90000});
   await page.waitForSelector('#begin-btn', {visible: true, timeout: 120000});

@@ -6,9 +6,10 @@
 //     scripts/views.js; anything after & is added to the view)
 // Queries take the game's URL parameters (see README). freecam=true is added
 // so the camera stays where x/y/z/heading/pitch put it; timeSpeed=0 freezes
-// the time of day, traffic=0 hides planes, cars and moving wildlife, and
-// adaptive=0 holds full preset resolution. Options (env): SIZE=1600x900,
-// SCALE=1, SETTLE_MS=4000.
+// the time of day, traffic=0 hides planes, cars and moving wildlife,
+// adaptive=0 holds full preset resolution, and xmas=off (dev-browser.js
+// gameUrl) keeps Christmas out unless the query sets xmas. Options (env):
+// SIZE=1600x900, SCALE=1, SETTLE_MS=4000.
 import {launch, openGame} from './dev-browser.js';
 import {viewQuery} from './views.js';
 

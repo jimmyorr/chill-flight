@@ -252,6 +252,9 @@ export function gameUrl(query = '') {
     ['start', '1'],
     ['ui', '0'],
     ['music', '0'],
+    // Christmas off (pinned dated seeds can fall in Nov 1 to Jan 6), so
+    // shots and audits compare across the year; pass xmas=full to see it
+    ['xmas', 'off'],
   ]) {
     if (!params.has(k)) params.set(k, v);
   }

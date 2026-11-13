@@ -43,9 +43,12 @@ const VIEWPORT = {width: 540, height: 960, scale: 2, mobile: true}; // 1080x1920
 const PIXEL_W = VIEWPORT.width * VIEWPORT.scale;
 const PIXEL_H = VIEWPORT.height * VIEWPORT.scale;
 
+// Christmas off: flight paths are scouted in Node, where the season is
+// always off, so the browser must draw the same ground (a Short can add
+// xmas=full to its own query for a seasonal one)
 const COMMON =
   'start=1&ui=0&music=0&preset=ultra&timeSpeed=0' +
-  '&clock=1790000000000&cloudTime=500&fps=0&adaptive=0&traffic=0';
+  '&clock=1790000000000&cloudTime=500&fps=0&adaptive=0&traffic=0&xmas=off';
 
 const H264 = [
   '-c:v',

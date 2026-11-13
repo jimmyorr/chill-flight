@@ -81,6 +81,11 @@ async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
   if (!pageUrl.searchParams.has('seed')) {
     pageUrl.searchParams.set('seed', TEST_SEED);
   }
+  // 20260101 is Jan 1, inside the Christmas season: keep it off so the
+  // test sees the same world all year (specs/christmas-village.md)
+  if (!pageUrl.searchParams.has('xmas')) {
+    pageUrl.searchParams.set('xmas', 'off');
+  }
   const url = pageUrl.href;
   const tag = blackhole ? 'black-hole network' : path || 'index.html';
   const page = await browser.newPage();
