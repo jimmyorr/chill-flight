@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.9](https://v1-2-9.chill-flight.pages.dev)
+
+- **VR & controls:** Grip barrel rolls, stationary VR defaults, 1-click map round-trips, and improved Quest 2 controls and culling.
+- **Performance:** Merged plane meshes, shared shadow geometries, far-model LODs, and cached road elevation for higher frame rates.
+- **Sky, sea & languages:** Italian and Ukrainian, ozone twilight absorption, realistic lightning, ocean whitecaps, and summit radio masts.
+
 ## [1.2.8](https://v1-2-8.chill-flight.pages.dev)
 
 - **Alien lands:** Shatter crystals for a 2.5x speed rush, find giant crystals, and brush alien flora for glowing spores, rainbow trails, and color-shifting skies.
