@@ -8,9 +8,10 @@
 //   6. short-5-seaplane-cut.mp4      - 12s teal seaplane roll match-cut (seed 20261109)
 //   7. short-20261110-weather-cut.mp4 - 12s teal biplane weather-effects match-cut (seed 20261110)
 //   8. short-20261111-jet-cut.mp4    - 12s coral swept-wing jet landmark match-cut (seed 20261111)
+//   9. short-20261112-aerobatic-cut.mp4 - 12s rose biplane loop, climbing roll & dive across 4 biomes (seed 20261112)
 //
 // Usage:
-//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | daily-postcard | wing-cam | landmark-cut | meta]
+//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | aerobatic-cut | daily-postcard | wing-cam | landmark-cut | meta]
 
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -301,7 +302,8 @@ function startCoordsForFrame(
   headingDeg,
   speedMult,
   moves,
-  targetFrame
+  targetFrame,
+  loopDip = false
 ) {
   const dt = 1 / FPS;
   const stepDist = speedMult * 3.0 * (dt * 60);
@@ -318,9 +320,12 @@ function startCoordsForFrame(
     const att = attitudeAt(moves, ((i + 1) * 1000) / FPS / 1000);
     const yaw = baseYaw + att.yaw;
     const pitch = att.pitch;
-    dx += -Math.sin(yaw) * Math.cos(pitch) * stepDist;
-    dy += Math.sin(pitch) * stepDist;
-    dz += -Math.cos(yaw) * Math.cos(pitch) * stepDist;
+    const effStep = loopDip
+      ? stepDist * (1 - (0.15 * (1 - Math.cos(pitch))) / 2)
+      : stepDist;
+    dx += -Math.sin(yaw) * Math.cos(pitch) * effStep;
+    dy += Math.sin(pitch) * effStep;
+    dz += -Math.cos(yaw) * Math.cos(pitch) * effStep;
   }
   return {
     x: Math.round(tx - dx),
@@ -1507,6 +1512,159 @@ async function renderJetWondersCutShort(browser, seed = 20261111) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 9: Aerobatic Loop + Climbing Roll + Dive Match-Cut (Seed 20261112)
+// ---------------------------------------------------------------------------
+async function renderAerobaticCutShort(browser, seed = 20261112) {
+  console.log(
+    `=== Rendering Aerobatic Biomes Match-Cut (Seed ${seed}: Rose Biplane) ===`
+  );
+  const frameDir = path.join(OUT, `frames-short-${seed}-aerobatic-cut`);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+  fs.mkdirSync(frameDir, {recursive: true});
+
+  const speedMult = 1.18;
+  // Rear-right three-quarter chase camera so the inside loop, steep +45° climb
+  // with simultaneous barrel roll, level-out, and steep -48° dive read cleanly
+  const cam =
+    `plane=biplane&livery=rose&smoke=1&speed=${speedMult}` +
+    '&camOffset=20,6,44&camLook=-4,1,-58';
+  // Unbroken 12s aerobatic sequence looping seamlessly from frame 359 -> 0:
+  //   0..3s:  Starts level, then pulls into a full 360° vertical inside loop
+  //   3..6s:  Pulls out of the loop directly into a steep +45° climb (pitch=405°)
+  //           with a simultaneous 360° barrel roll while climbing
+  //   6..9s:  Finishes the climbing roll, levels out over alpine peaks, then
+  //           pitches nose-down into a steep -48° dive (pitch=312°)
+  //   9..12s: Dives toward the desert pyramids and pulls smoothly back to level
+  //           (roll=360, pitch=360, yaw=0 held from 11.15s..12.0s)
+  const moves = [
+    [0.0, 0, 0, 0],
+    [0.55, 0, 0, 0],
+    [3.65, 0, null, 0],
+    [3.8, null, 405, 0],
+    [6.5, 360, 405, 0],
+    [7.4, 360, 360, 0],
+    [7.8, 360, 360, 0],
+    [9.1, 360, 312, 0],
+    [9.6, 360, 312, 0],
+    [11.15, 360, 360, 0],
+    [12.0, 360, 360, 0],
+  ];
+
+  const rawSegments = [
+    {
+      label: 'Twin Falls Valley · 0.7°N, 0.0°E',
+      tx: 220,
+      ty: 205,
+      tz: -3420,
+      heading: 0,
+      extra: 'tod=0.29&cloudMood=fair',
+      startFrame: 0,
+      endFrame: 90,
+    },
+    {
+      label: 'Coral Sea Arch · 0.4°N, 6.7°E',
+      tx: 32720,
+      ty: 185,
+      tz: -1880,
+      heading: -88,
+      extra: 'tod=0.49&cloudMood=fair',
+      startFrame: 90,
+      endFrame: 180,
+    },
+    {
+      label: 'Snowy Dragon Peaks · 3.0°N, 2.6°W',
+      tx: -12980,
+      ty: 780,
+      tz: -14580,
+      heading: 10,
+      extra: 'tod=0.41&weather=snow&cloudMood=high',
+      startFrame: 180,
+      endFrame: 270,
+    },
+    {
+      label: 'Great Pyramids · 3.9°S, 2.0°W',
+      tx: -8720,
+      ty: 680,
+      tz: 20320,
+      heading: 38,
+      extra: 'tod=0.72&cloudMood=busy',
+      startFrame: 270,
+      endFrame: 360,
+    },
+  ];
+
+  for (const seg of rawSegments) {
+    const start = startCoordsForFrame(
+      seg.tx,
+      seg.ty,
+      seg.tz,
+      seg.heading,
+      speedMult,
+      moves,
+      seg.startFrame,
+      true
+    );
+    const query =
+      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
+      `&heading=${seg.heading}&${seg.extra}&${cam}`;
+    const page = await openWorld(browser, query, PREROLL);
+    await addPostcardBadge(
+      page,
+      'CHILL FLIGHT · Play free at chillflight.app',
+      seg.label
+    );
+    await page.evaluate((m) => {
+      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
+    }, moves);
+    for (let i = 0; i < seg.endFrame; i++) {
+      await step(page);
+      if (i >= seg.startFrame) {
+        const framePath = path.join(
+          frameDir,
+          `${String(i).padStart(5, '0')}.jpg`
+        );
+        await page.screenshot({path: framePath, type: 'jpeg', quality: 95});
+        if ((i - seg.startFrame) % FPS === 0) {
+          console.log(`  aerobatic-cut [${seg.label}]: frame ${i}/360`);
+        }
+      }
+    }
+    await page.close();
+  }
+
+  const rawMp4 = path.join(OUT, `short-${seed}-aerobatic-cut-raw.mp4`);
+  const outMp4 = path.join(OUT, `short-${seed}-aerobatic-cut.mp4`);
+  ffmpeg([
+    '-framerate',
+    String(FPS),
+    '-i',
+    path.join(frameDir, '%05d.jpg'),
+    '-vf',
+    `scale=${PIXEL_W}:${PIXEL_H}`,
+    ...H264,
+    rawMp4,
+  ]);
+  fs.rmSync(frameDir, {recursive: true, force: true});
+
+  const music = await downloadTrack('purrple-cat-beautiful-day');
+  muxWithMusic(rawMp4, outMp4, music, 18, 12);
+  fs.rmSync(rawMp4, {force: true});
+  console.log(outMp4);
+  writeShortMetadata(outMp4, {
+    title: 'Biplane loop, climb roll, and dive across 4 biomes ✈️',
+    tiktokQuestion:
+      'Forest valley, coral arch, snowy peaks, or desert pyramids?',
+    stops: [
+      '0:00 Twin Falls Valley (0.7°N, 0.0°E)',
+      '0:03 Coral Sea Arch (0.4°N, 6.7°E)',
+      '0:06 Snowy Dragon Peaks (3.0°N, 2.6°W)',
+      '0:09 Great Pyramids (3.9°S, 2.0°W)',
+    ],
+    trackTitle: 'Beautiful Day',
+  });
+}
+
 async function main() {
   fs.mkdirSync(OUT, {recursive: true});
   const filter = process.argv[2];
@@ -1593,6 +1751,18 @@ async function main() {
       ],
       trackTitle: 'Discovery',
     });
+    writeShortMetadata(path.join(OUT, 'short-20261112-aerobatic-cut.mp4'), {
+      title: 'Biplane loop, climb roll, and dive across 4 biomes ✈️',
+      tiktokQuestion:
+        'Forest valley, coral arch, snowy peaks, or desert pyramids?',
+      stops: [
+        '0:00 Twin Falls Valley (0.7°N, 0.0°E)',
+        '0:03 Coral Sea Arch (0.4°N, 6.7°E)',
+        '0:06 Snowy Dragon Peaks (3.0°N, 2.6°W)',
+        '0:09 Great Pyramids (3.9°S, 2.0°W)',
+      ],
+      trackTitle: 'Beautiful Day',
+    });
     return;
   }
   const browser = await launch({
@@ -1622,6 +1792,9 @@ async function main() {
     }
     if (!filter || filter === 'jet-cut') {
       await renderJetWondersCutShort(browser, 20261111);
+    }
+    if (!filter || filter === 'aerobatic-cut') {
+      await renderAerobaticCutShort(browser, 20261112);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);
