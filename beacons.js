@@ -24,6 +24,7 @@ import {
   FAR_CELL,
   FAR_SEGMENTS,
   FAR_SINK,
+  WATER_LEVEL,
   createMaterial,
   terrainUniforms,
 } from './constants.js';
@@ -43,6 +44,8 @@ const PROMINENCE_REACH = 400;
 const PROMINENCE_RISE = 50;
 const MAST_CHANCE = 0.7;
 const FLASH_PERIOD = 2.0;
+// Masts keep this far outside a pyramid's base
+const PYRAMID_CLEAR = 1100;
 // Terrain heights looked up a frame while searching a cell (each is a few
 // microseconds), so a cell takes a few frames and no frame stalls
 const SAMPLES_PER_FRAME = 32;
@@ -100,6 +103,17 @@ function* findMast(cx, cz) {
     }
   }
   if (by < PEAK_MIN) return null;
+  // Never on or beside the pyramids: a warning light doesn't belong there
+  const site = ChillFlightLogic.pyramidSite(simplex, {WATER_LEVEL});
+  if (site) {
+    for (const p of ChillFlightLogic.PYRAMIDS) {
+      const d = Math.max(
+        Math.abs(bx - site.x - p.dx),
+        Math.abs(bz - site.z - p.dz)
+      );
+      if (d < p.half + PYRAMID_CLEAR) return null;
+    }
+  }
   // A real summit, not a high plateau or a slope running out of the cell
   for (let k = 0; k < 6; k++) {
     const a = (k * Math.PI) / 3;
