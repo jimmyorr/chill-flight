@@ -15,6 +15,7 @@ import {ART_PAINTED, ART_POST} from './art-style.js';
 import * as polyforkLighthouse from './third-party/polyfork/old-lighthouse-48ca6c.mjs';
 import * as polyforkCottage from './third-party/polyfork/porch-front-cottage-620c29.mjs';
 import {createAsset as createPolyforkDolphin} from './third-party/polyfork/dolphin-base.mjs';
+import * as polyforkSnowman from './third-party/polyfork/snowman-18c02d.mjs';
 import {
   buildChapelGeos,
   buildPierGeo,
@@ -23,8 +24,10 @@ import {
 } from './building-models.js';
 import {
   PIRATE_SHIP_LOOKS,
+  POLYFORK_SCALE,
   buildPirateShipGeos,
   foamRing,
+  mergeAsset,
   withFoam,
 } from './boat-models.js';
 import {
@@ -1953,50 +1956,18 @@ export var bushBaseMat = createMaterial({
   foliage: true,
 }); // For instance coloring
 
-// Snowman geometries and materials
-function createSnowmanGeometry() {
-  const baseGeo = new THREE.SphereGeometry(3, 8, 8);
-  baseGeo.translate(0, 2.5, 0);
-  const midGeo = new THREE.SphereGeometry(2, 8, 8);
-  midGeo.translate(0, 6.5, 0);
-  const headGeo = new THREE.SphereGeometry(1.5, 8, 8);
-  headGeo.translate(0, 9.5, 0);
-
-  // Nose
-  const noseGeo = new THREE.ConeGeometry(0.3, 1.5, 4);
-  noseGeo.rotateX(Math.PI / 2);
-  noseGeo.translate(0, 9.5, 1.5);
-
-  const geometries = [baseGeo, midGeo, headGeo];
-  let pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-
-  // White body parts
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++) {
-      idx.push(g.index.array[i] + offset);
-    }
-    offset += g.attributes.position.count;
-  }
-
-  const bodyGeom = new THREE.BufferGeometry();
-  bodyGeom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  bodyGeom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  bodyGeom.setIndex(idx);
-
-  return {body: bodyGeom, nose: noseGeo};
-}
-export var snowmanGeos = createSnowmanGeometry();
-export var snowmanBodyMat = createMaterial({
-  color: 0xffffff,
-  flatShading: true,
-});
-export var snowmanNoseMat = createMaterial({
-  color: 0xff8c00,
+// Snowmen: Polyfork's Snowman (1.43 m, red scarf, stick arms raised, carrot
+// nose toward +z), merged into one vertex-coloured geometry and drawn at
+// twice the other Polyfork props' scale, about the 11 units tall of our old
+// three-ball snowman, so it reads from the air
+const SNOWMAN_SCALE = POLYFORK_SCALE * 2;
+export var snowmanGeo = mergeAsset(
+  polyforkSnowman.createAsset({colorway: 'classic-red'}),
+  0,
+  SNOWMAN_SCALE
+);
+export var snowmanMat = createMaterial({
+  vertexColors: true,
   flatShading: true,
 });
 

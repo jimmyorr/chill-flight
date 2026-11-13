@@ -176,9 +176,8 @@ import {
   smokeMat,
   snowRockMat,
   snowSpruceGeos,
-  snowmanBodyMat,
-  snowmanGeos,
-  snowmanNoseMat,
+  snowmanGeo,
+  snowmanMat,
   strawHutBodyGeo,
   timberBarnBodyGeo,
   timberBarnRoofGeo,
@@ -1334,16 +1333,7 @@ globalInstancer.registerType(
   30000,
   true
 );
-globalInstancer.registerType('snowmanBody', snowmanGeos.body, snowmanBodyMat);
-// The carrot nose is too small to cast a shadow worth drawing
-globalInstancer.registerType(
-  'snowmanNose',
-  snowmanGeos.nose,
-  snowmanNoseMat,
-  30000,
-  false,
-  false
-);
+globalInstancer.registerType('snowman', snowmanGeo, snowmanMat);
 globalInstancer.registerType('iceberg', icebergMainGeo, icebergMat);
 globalInstancer.registerType('iceFloe', iceFloeMainGeo, icebergMat);
 globalInstancer.registerType('penguin', penguinGeo, penguinMat);
@@ -1959,7 +1949,7 @@ for (const [type, geo] of [
     farRadius: SMALL_PROP_FAR_RADIUS,
   });
 }
-globalInstancer.setFarGeometry('snowmanBody', null);
+globalInstancer.setFarGeometry('snowman', null);
 globalInstancer.setFarGeometry('hayBale', null);
 globalInstancer.setFarGeometry('fallenLog', null);
 globalInstancer.setShadowGeometry('fallenLog', shadowBox(fallenLogGeo));
@@ -1969,10 +1959,7 @@ globalInstancer.setFarGeometry('penguin', null);
 // Small critters and snowmen (200-400 triangles) cast a fitted shape's shadow
 globalInstancer.setShadowGeometry('penguin', shadowCylinder(penguinGeo));
 globalInstancer.setShadowGeometry('seal', shadowBox(sealGeo));
-globalInstancer.setShadowGeometry(
-  'snowmanBody',
-  shadowCylinder(snowmanGeos.body)
-);
+globalInstancer.setShadowGeometry('snowman', shadowCylinder(snowmanGeo));
 globalInstancer.setFarGeometry('buoy', null);
 globalInstancer.setFarGeometry('buoyTop', null);
 globalInstancer.setFarGeometry('sheepWool', null);
@@ -2067,7 +2054,6 @@ globalInstancer.registerType(
 globalInstancer.setFarGeometry('swampLilyPads', null, {
   farRadius: SWAMP_SMALL_PROP_RADIUS,
 });
-globalInstancer.setFarGeometry('snowmanNose', null);
 // Town streets: flat, so they cast no shadow
 globalInstancer.registerType(
   'townStreet',

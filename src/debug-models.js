@@ -128,9 +128,8 @@ import {
   rockMat,
   sculptedPineGeos,
   snowSpruceGeos,
-  snowmanBodyMat,
-  snowmanGeos,
-  snowmanNoseMat,
+  snowmanGeo,
+  snowmanMat,
   tallDeciduousGeos,
   tentGeos,
   tentMat,
@@ -1023,8 +1022,7 @@ function viewModel(type, e, colorSeed = 0) {
         previewGroup.add(new THREE.Mesh(lilyPadGeo, lilyPadMat));
         break;
       case 'snowman':
-        previewGroup.add(new THREE.Mesh(snowmanGeos.body, snowmanBodyMat));
-        previewGroup.add(new THREE.Mesh(snowmanGeos.nose, snowmanNoseMat));
+        previewGroup.add(new THREE.Mesh(snowmanGeo, snowmanMat));
         break;
       case 'castle':
         previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));

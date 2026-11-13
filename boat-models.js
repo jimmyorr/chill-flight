@@ -11,6 +11,7 @@ import {createMaterial} from './constants.js';
 import * as rowboat from './third-party/polyfork/rowboat-c42d85.mjs';
 import * as woodenRowboat from './third-party/polyfork/wooden-rowboat-916981.mjs';
 import * as fishingBoat from './third-party/polyfork/small-fishing-boat-4ac0e3.mjs';
+import * as caique from './third-party/polyfork/caique-fishing-boat-262c24.mjs';
 import * as islandBoat from './third-party/polyfork/hanga-roa-fishing-boat-f09534.mjs';
 import * as sunkenBoat from './third-party/polyfork/sunken-fishing-boat-061c70.mjs';
 import * as pirateGalleon from './third-party/polyfork/pirate-galleon-2e9aea.mjs';
@@ -177,6 +178,13 @@ function fishingBoatGeo(colorway) {
   return mergeAsset(asset, 0.35);
 }
 
+// The caique: a bigger (7.3 m) wooden fishing boat with a wheelhouse and its
+// jib furled on the forestay, as it would be riding at anchor. It sits on its
+// waterline, 0.15 m up the keel band.
+function caiqueGeo(colorway) {
+  return mergeAsset(caique.createAsset({colorway, sail: 'furled'}), 0.15);
+}
+
 // Each boat type (instanced by this name in terrain-chunks.js), built in one
 // paint scheme. Rowboats ride high (a hand's width of freeboard sunk); the
 // fishing boats sit on their waterlines (0.35 m and 0.28 m up the keel).
@@ -192,6 +200,8 @@ export function buildSmallBoatGeos() {
     ),
     fishingBoatBody: fishingBoatGeo('harbour-blue'),
     fishingBoat2Body: fishingBoatGeo('salmon'),
+    caiqueBody: caiqueGeo('aegean-blue'),
+    caique2Body: caiqueGeo('harbour-red'),
     islandBoatBody: mergeAsset(
       islandBoat.createAsset({colorway: 'red-and-yellow'}),
       0.28

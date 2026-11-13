@@ -1626,6 +1626,8 @@ const SMALL_BOAT_CHANCE = 0.0012;
 const SMALL_BOAT_MIN_DEPTH = 2;
 const FISHING_BOAT_NEAR_LAND = 500;
 const SOUTH_BOATS_Z = 6000;
+// The share of the fishing boats north of SOUTH_BOATS_Z that are caiques
+const CAIQUE_SHARE = 1 / 3;
 // A sunken boat lies in water this shallow (its grid point's height below
 // sea level; the sea floor is drawn 5 lower) once in this many points
 const SUNKEN_BOAT_DEPTH = [3, 8];
@@ -1715,10 +1717,15 @@ function smallBoatAt(x, z, hash, elevParams, gridSpacing) {
   const flow = ChillFlightLogic.getRiverFlow(x, z, simplex);
   if (flow && Math.hypot(flow[0], flow[1]) > RIVER_BOAT_FLOW) return null;
   const rotY = hash(5) * Math.PI * 2;
-  // Two paint schemes of each fishing boat
+  // Two paint schemes of each fishing boat; north of the islands a third of
+  // them are the bigger caiques
+  const look = hash(13) < 0.5 ? 'Body' : '2Body';
   const fishing =
-    (z > SOUTH_BOATS_Z ? 'islandBoat' : 'fishingBoat') +
-    (hash(13) < 0.5 ? 'Body' : '2Body');
+    (z > SOUTH_BOATS_Z
+      ? 'islandBoat'
+      : hash(17) < CAIQUE_SHARE
+        ? 'caique'
+        : 'fishingBoat') + look;
   if (shelteredWater(x, z, elevParams)) {
     // Shut in on most sides: a lake or pond; open to the sea: an inlet
     let open = 0;
@@ -6483,8 +6490,7 @@ export function generateChunkData({
         0
       );
       collector.beginProp(BREAKABLE.SNOWMAN);
-      collector.add('snowmanBody', _matBuffer);
-      collector.add('snowmanNose', _matBuffer);
+      collector.add('snowman', _matBuffer);
       collector.endProp();
     });
   }
