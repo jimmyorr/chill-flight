@@ -2709,31 +2709,8 @@ export function generateChunkData({
 
   const gridSpacing = chunkSize / segments;
   const invGridSpacing = 1.0 / gridSpacing;
-  // Ground height at a chunk-local point between vertices, bilinear over the
-  // height grid (trees are nudged off the vertices so they don't line up)
-  const heightAtLocal = (lx, lz) => {
-    const fx = Math.min(
-      segments,
-      Math.max(0, (lx + halfSize) * invGridSpacing)
-    );
-    const fz = Math.min(
-      segments,
-      Math.max(0, (lz + halfSize) * invGridSpacing)
-    );
-    const ix0 = Math.min(segments - 1, fx | 0);
-    const iz0 = Math.min(segments - 1, fz | 0);
-    const tx = fx - ix0;
-    const tz = fz - iz0;
-    const i00 = iz0 * gridX1 + ix0;
-    const h0 = heightGrid[i00] + (heightGrid[i00 + 1] - heightGrid[i00]) * tx;
-    const h1 =
-      heightGrid[i00 + gridX1] +
-      (heightGrid[i00 + gridX1 + 1] - heightGrid[i00 + gridX1]) * tx;
-    return h0 + (h1 - h0) * tz;
-  };
-  // The height of the terrain mesh itself (each grid square is two flat
-  // triangles split along the (0, 1)-(1, 0) diagonal, as PlaneGeometry does),
-  // reading the grid's neighbours past the chunk's edge from getElevation
+  // The height of the terrain grid at (ix, iz), reading neighbours past the
+  // chunk's edge from getElevation when a prop steps across a chunk boundary
   const gridHeightAt = (ix, iz) =>
     ix >= 0 && ix <= segments && iz >= 0 && iz <= segments
       ? heightGrid[iz * gridX1 + ix]
@@ -2742,6 +2719,37 @@ export function generateChunkData({
           worldOffsetZ - halfSize + iz * gridSpacing,
           elevParams
         );
+  // Ground height at a chunk-local point between vertices, bilinear over the
+  // height grid (trees and village rows can step past the chunk's edge)
+  const heightAtLocal = (lx, lz) => {
+    const fx = (lx + halfSize) * invGridSpacing;
+    const fz = (lz + halfSize) * invGridSpacing;
+    if (fx >= 0 && fx <= segments && fz >= 0 && fz <= segments) {
+      const ix0 = Math.min(segments - 1, fx | 0);
+      const iz0 = Math.min(segments - 1, fz | 0);
+      const tx = fx - ix0;
+      const tz = fz - iz0;
+      const i00 = iz0 * gridX1 + ix0;
+      const h0 = heightGrid[i00] + (heightGrid[i00 + 1] - heightGrid[i00]) * tx;
+      const h1 =
+        heightGrid[i00 + gridX1] +
+        (heightGrid[i00 + gridX1 + 1] - heightGrid[i00 + gridX1]) * tx;
+      return h0 + (h1 - h0) * tz;
+    }
+    const ix0 = Math.floor(fx);
+    const iz0 = Math.floor(fz);
+    const tx = fx - ix0;
+    const tz = fz - iz0;
+    const h00 = gridHeightAt(ix0, iz0);
+    const h10 = gridHeightAt(ix0 + 1, iz0);
+    const h01 = gridHeightAt(ix0, iz0 + 1);
+    const h11 = gridHeightAt(ix0 + 1, iz0 + 1);
+    const h0 = h00 + (h10 - h00) * tx;
+    const h1 = h01 + (h11 - h01) * tx;
+    return h0 + (h1 - h0) * tz;
+  };
+  // The height of the terrain mesh itself (each grid square is two flat
+  // triangles split along the (0, 1)-(1, 0) diagonal, as PlaneGeometry does)
   const meshHeightAtLocal = (lx, lz) => {
     const fx = (lx + halfSize) * invGridSpacing;
     const fz = (lz + halfSize) * invGridSpacing;
@@ -4140,8 +4148,23 @@ export function generateChunkData({
                 const across = (rng() - 0.5) * 4;
                 const hx = localX + rowX * along - rowZ * across;
                 const hz = localZ + rowZ * along + rowX * across;
-                const hy = k === 0 ? height : heightAtLocal(hx, hz);
                 const houseRot = k === 0 ? rotY : houseRotY();
+                const hCos = Math.cos(houseRot);
+                const hSin = Math.sin(houseRot);
+                const hHalfW = 6 * sx;
+                let hy = meshHeightAtLocal(hx, hz);
+                for (const [a, b] of [
+                  [-1, -1],
+                  [-1, 1],
+                  [1, -1],
+                  [1, 1],
+                ]) {
+                  const cy = meshHeightAtLocal(
+                    hx + a * hHalfW * hCos + b * 5 * hSin,
+                    hz - a * hHalfW * hSin + b * 5 * hCos
+                  );
+                  if (cy < hy) hy = cy;
+                }
                 // Straw huts on the tropical islands; the desert's islands
                 // get its adobe houses
                 if (isIsland && houseStyle !== 'adobe') {
