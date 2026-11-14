@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 /**
- * scripts/test-two-thumbs.js
+ * scripts/test-advanced-stick.js
  *
- * Checks the "Two thumbs" flight model (two-thumb-logic.js): a held bank
- * stays, a knife edge flies straight, pulling on its side turns the plane,
+ * Checks the advanced joystick's flight model (advanced-stick-logic.js): a
+ * bank left alone stays, a knife edge flies straight, pulling on its side turns the plane,
  * the notches and the hands-off rescue settle, loops and rolls done by hand
  * come round and are counted, and it flies the same at any frame rate.
  */
 import {PLANE_HANDLING} from '../constants.js';
 import {
   attitudeOf,
-  newTwoThumbState,
+  newAdvancedStickState,
   quatFromAttitude,
-  stepTwoThumbAttitude,
-  thumbResponse,
-} from '../two-thumb-logic.js';
+  stepAdvancedStickAttitude,
+  axisResponse,
+} from '../advanced-stick-logic.js';
 
-console.log('Testing two-thumb flight...');
+console.log('Testing advanced joystick flight...');
 
 let failed = false;
 function check(name, ok, detail = '') {
@@ -36,7 +36,7 @@ const h = PLANE_HANDLING.seaplane;
 // Flies `steps` ([seconds, {roll, pull, rollHeld, pullHeld, ...}]) from an
 // attitude; returns the final attitude, state and counts
 function fly(steps, {fps = 60, start = [0, 0, 0], opts = {}} = {}) {
-  const s = newTwoThumbState();
+  const s = newAdvancedStickState();
   let quat = quatFromAttitude(...start);
   let rolls = 0;
   let loops = 0;
@@ -45,7 +45,7 @@ function fly(steps, {fps = 60, start = [0, 0, 0], opts = {}} = {}) {
   const dt = 1 / fps;
   for (const [seconds, thumbs] of steps) {
     for (let i = 0; i < Math.round(seconds * fps); i++) {
-      const out = stepTwoThumbAttitude(s, {
+      const out = stepAdvancedStickAttitude(s, {
         quat,
         roll: 0,
         pull: 0,
@@ -74,8 +74,8 @@ const PULL = {pull: 1, pullHeld: true};
 const NONE = {};
 
 check(
-  'a thumb inside the dead zone does nothing, and full travel is full rate',
-  thumbResponse(0.1) === 0 && thumbResponse(-1) === -1 && thumbResponse(1) === 1
+  'a stick inside the dead zone does nothing, and full travel is full rate',
+  axisResponse(0.1) === 0 && axisResponse(-1) === -1 && axisResponse(1) === 1
 );
 
 // Roll right about 60 degrees, lift, wait: the bank stays
@@ -85,7 +85,7 @@ check(
     [2, NONE],
   ]);
   check(
-    'lifting the roll thumb keeps the bank',
+    'letting the stick back to the middle keeps the bank',
     a.roll < rad(-30) && a.roll > rad(-80) && Math.abs(a.s.rollRate) < 0.01,
     deg(a.roll).toFixed(1)
   );
@@ -108,7 +108,7 @@ check(
     deg(a.roll).toFixed(1)
   );
   check(
-    'lifting the thumb near a knife edge settles onto it',
+    'letting the stick back near a knife edge settles onto it',
     Math.abs(deg(b.roll) + 90) < 0.5,
     deg(b.roll).toFixed(2)
   );
@@ -222,7 +222,7 @@ check(
 {
   const a = fly([[2.5, {levelTap: true}]], {start: [0, 0, rad(120)]});
   check(
-    'a tap of the roll thumb levels the wings',
+    'a tap of the stick levels the wings',
     Math.abs(deg(a.roll)) < 0.5,
     deg(a.roll).toFixed(1)
   );
@@ -241,7 +241,17 @@ check(
   );
 }
 
-// The spring-back roll: the bank follows the thumb and levels when it lifts
+// A finger resting on the stick in the middle holds off the rescue
+{
+  const a = fly([[9, {active: true}]], {start: [0, 0, rad(70)]});
+  check(
+    'a finger resting on the stick keeps the bank past 3 seconds',
+    Math.abs(deg(a.roll) - 70) < 0.5,
+    deg(a.roll).toFixed(1)
+  );
+}
+
+// The spring-back roll: the bank follows the stick and levels when let go
 {
   const held = fly([[1.5, ROLL_R]], {opts: {spring: true}});
   const let_go = fly(
@@ -252,7 +262,7 @@ check(
     {opts: {spring: true}}
   );
   check(
-    'spring back: full thumb is a knife edge, and lifting levels the wings',
+    'spring back: full stick is a knife edge, and letting go levels the wings',
     Math.abs(deg(held.roll) + 90) < 2 && Math.abs(deg(let_go.roll)) < 1,
     `${deg(held.roll).toFixed(1)} then ${deg(let_go.roll).toFixed(1)}`
   );
@@ -272,7 +282,7 @@ check(
 {
   const a = fly([[1, ROLL_R]], {opts: {grounded: true}});
   check(
-    'on the ground the roll thumb does not bank',
+    'on the ground the stick does not bank',
     Math.abs(deg(a.roll)) < 0.5,
     deg(a.roll).toFixed(1)
   );
@@ -288,7 +298,7 @@ check(
   const runs = [30, 60, 120].map((fps) => fly(steps, {fps}));
   const spread = (f) => Math.max(...runs.map(f)) - Math.min(...runs.map(f));
   check(
-    'the same thumbs fly the same at 30, 60 and 120 fps',
+    'the same stick flies the same at 30, 60 and 120 fps',
     deg(spread((r) => r.roll)) < 4 &&
       deg(spread((r) => r.turnedYaw)) < 6 &&
       deg(spread((r) => r.pitch)) < 4,
@@ -302,7 +312,7 @@ check(
 }
 
 if (failed) {
-  console.error('Two-thumb flight tests failed.');
+  console.error('Advanced joystick flight tests failed.');
   process.exit(1);
 }
-console.log('All two-thumb flight tests passed.');
+console.log('All advanced joystick flight tests passed.');

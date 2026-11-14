@@ -13,18 +13,6 @@ import {
   scaleThumbstickAxis,
 } from './vr-controls-logic.js';
 
-function newThumb() {
-  return {
-    active: false,
-    touchId: null,
-    startX: 0,
-    startY: 0,
-    startTime: 0,
-    moved: 0, // furthest it has been from where it landed (px)
-    value: 0,
-  };
-}
-
 export class InputManager {
   constructor() {
     this.state = {
@@ -83,14 +71,15 @@ export class InputManager {
       touch: {
         steeringId: null,
       },
-      // The "Two thumbs" scheme (two-thumbs.js): a thumb on the left half
-      // rolls the plane and one on the right half pulls its nose. Each
-      // works from where it landed; value is its travel, -1 to 1 (roll:
-      // right positive, pull: up positive)
-      twoThumbs: {
-        roll: newThumb(),
-        pull: newThumb(),
-        levelTap: false, // a quick tap of the roll thumb, until it's read
+      // The advanced joystick (advanced-stick.js): the same floating
+      // joystick, read as two separate axes, each -1 to 1: roll (right
+      // positive) and pull (up positive)
+      advancedStick: {
+        roll: 0,
+        pull: 0,
+        startTime: 0,
+        moved: 0, // furthest the stick has been from the middle (px)
+        levelTap: false, // a quick tap of the stick, until it's read
       },
       // How far two fingers (or a trackpad) have pinched since the camera
       // last read it (game-loop.js): their distance apart now over before,
@@ -121,11 +110,10 @@ export class InputManager {
       y: 0,
       active: false,
     };
-    this._twoThumbsResult = {
+    this._advancedStickResult = {
       roll: 0,
       pull: 0,
-      rollHeld: false,
-      pullHeld: false,
+      active: false,
     };
 
     // Internal timing for double-taps
@@ -168,11 +156,10 @@ export class InputManager {
     this._pinch = null;
     this._pinchDone = false;
     this.PINCH_START_MS = 250;
-    // Two thumbs: travel to a full roll or pull (px), and a touch shorter
-    // and stiller than this is a tap (ms, px)
-    this.THUMB_TRAVEL = 60;
-    this.THUMB_TAP_MS = 200;
-    this.THUMB_TAP_PX = 8;
+    // Advanced joystick: a touch shorter and stiller than this is a tap
+    // (ms, px)
+    this.STICK_TAP_MS = 200;
+    this.STICK_TAP_PX = 8;
 
     // Gamepad and WebXR controller state latches
     this._gamepadPauseLatched = false;
@@ -267,8 +254,8 @@ export class InputManager {
     this.state.joystick.active = false;
     this.state.joystick.touchId = null;
     this.state.touch.steeringId = null;
-    this.releaseThumb('roll');
-    this.releaseThumb('pull');
+    this.state.advancedStick.roll = 0;
+    this.state.advancedStick.pull = 0;
     this.resetMouseSteering();
     const joystickBase = document.getElementById('virtual-joystick-base');
     if (joystickBase) {
@@ -293,141 +280,50 @@ export class InputManager {
     this.releaseTouchSteering();
   }
 
-  // Whether the two-thumb scheme is steering: it flies the planes only (the
-  // buggy keeps the joystick)
-  twoThumbsOn() {
+  // Whether the advanced joystick is steering: it flies the planes only
+  // (the buggy keeps the joystick)
+  advancedStickOn() {
     return (
-      this.state.controlScheme === 'twothumbs' && !state.airplaneModel?.isBuggy
+      this.state.controlScheme === 'advanced' && !state.airplaneModel?.isBuggy
     );
   }
 
   // The scheme the touch handlers steer by
   touchScheme() {
     const scheme = this.state.controlScheme;
-    return scheme === 'twothumbs' ? 'joystick' : scheme;
-  }
-
-  releaseThumb(side) {
-    const thumb = this.state.twoThumbs[side];
-    thumb.active = false;
-    thumb.touchId = null;
-    thumb.value = 0;
-  }
-
-  // As releaseLostJoystick, for the two thumbs
-  releaseLostThumbs(e) {
-    for (const side of ['roll', 'pull']) {
-      const thumb = this.state.twoThumbs[side];
-      if (!thumb.active) continue;
-      let found = false;
-      for (let i = 0; i < e.touches.length; i++) {
-        if (e.touches[i].identifier === thumb.touchId) found = true;
-      }
-      if (!found) this.releaseThumb(side);
-    }
-  }
-
-  // A touch on the view in the two-thumb scheme: the left half's first
-  // finger is the roll thumb and the right half's the pull thumb. The tap
-  // zones are off (thumbs land in them all the time); a double tap at the
-  // top middle, out of the thumbs' way, is the free one (zen exit)
-  startThumb(touch, now) {
-    const x = touch.clientX / window.innerWidth;
-    const y = touch.clientY / window.innerHeight;
-    if (x > 0.33 && x < 0.66 && y < 0.15) {
-      if (now - this._lastCenterTap < this.DOUBLE_TAP_MS) {
-        this._lastCenterTap = 0;
-        if (this.onCenterDoubleTap) this.onCenterDoubleTap();
-      } else {
-        this._lastCenterTap = now;
-      }
-      return;
-    }
-    const thumb = this.state.twoThumbs[x < 0.5 ? 'roll' : 'pull'];
-    if (thumb.active) return;
-    thumb.active = true;
-    thumb.touchId = touch.identifier;
-    thumb.startX = touch.clientX;
-    thumb.startY = touch.clientY;
-    thumb.startTime = now;
-    thumb.moved = 0;
-    thumb.value = 0;
-  }
-
-  moveThumbs(e) {
-    this.releaseLostThumbs(e);
-    for (const side of ['roll', 'pull']) {
-      const thumb = this.state.twoThumbs[side];
-      if (!thumb.active) continue;
-      for (let i = 0; i < e.touches.length; i++) {
-        const touch = e.touches[i];
-        if (touch.identifier !== thumb.touchId) continue;
-        const dx = touch.clientX - thumb.startX;
-        const dy = touch.clientY - thumb.startY;
-        thumb.moved = Math.max(thumb.moved, Math.hypot(dx, dy));
-        // Each thumb reads one direction only: the roll side to side, the
-        // pull up and down
-        const travel = side === 'roll' ? dx : -dy;
-        thumb.value = Math.max(-1, Math.min(1, travel / this.THUMB_TRAVEL));
-      }
-    }
-  }
-
-  endThumbs(e, now) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const id = e.changedTouches[i].identifier;
-      for (const side of ['roll', 'pull']) {
-        const thumb = this.state.twoThumbs[side];
-        if (!thumb.active || thumb.touchId !== id) continue;
-        if (
-          side === 'roll' &&
-          now - thumb.startTime < this.THUMB_TAP_MS &&
-          thumb.moved < this.THUMB_TAP_PX
-        ) {
-          this.state.twoThumbs.levelTap = true;
-        }
-        this.releaseThumb(side);
-      }
-    }
-    if (e.touches.length === 0) {
-      this.releaseThumb('roll');
-      this.releaseThumb('pull');
-    }
+    return scheme === 'advanced' ? 'joystick' : scheme;
   }
 
   /**
-   * The two-thumb controls {roll, pull, rollHeld, pullHeld}: the thumbs, or
-   * without them the arrow keys (left and right roll, up and down pull), so
-   * the scheme can be flown from a keyboard too.
+   * The advanced joystick {roll, pull, active}: the stick's two axes, or
+   * without it the arrow keys (left and right roll, up and down pull), so
+   * it can be flown from a keyboard too.
    */
-  getTwoThumbs() {
-    const {roll, pull} = this.state.twoThumbs;
+  getAdvancedStick() {
+    const stick = this.state.advancedStick;
     const keys = this.state.keys;
-    const out = this._twoThumbsResult;
-    out.roll = roll.value;
-    out.rollHeld = roll.active;
-    out.pull = pull.value;
-    out.pullHeld = pull.active;
-    if (!roll.active && (keys.ArrowLeft || keys.ArrowRight)) {
+    const out = this._advancedStickResult;
+    out.active = this.state.joystick.active;
+    out.roll = out.active ? stick.roll : 0;
+    out.pull = out.active ? stick.pull : 0;
+    if (keys.ArrowLeft || keys.ArrowRight) {
       out.roll = keys.ArrowRight ? 1 : -1;
-      out.rollHeld = true;
+      out.active = true;
     }
-    if (!pull.active && !keys.Shift && (keys.ArrowUp || keys.ArrowDown)) {
+    if (!keys.Shift && (keys.ArrowUp || keys.ArrowDown)) {
       out.pull = keys.ArrowUp ? 1 : -1;
-      out.pullHeld = true;
+      out.active = true;
     }
     return out;
   }
 
   // Starts a pinch if this touch came down with another on the view: undoes
   // the other's tap (so pinching twice isn't a double tap) and the steering
-  startPinch(touch, now, sameHalf = false) {
-    const left = touch.clientX < window.innerWidth / 2;
+  startPinch(touch, now) {
     const other = Object.keys(this._viewTouches).find(
       (id) =>
         Number(id) !== touch.identifier &&
-        now - this._viewTouches[id].time < this.PINCH_START_MS &&
-        (!sameHalf || this._viewTouches[id].left === left)
+        now - this._viewTouches[id].time < this.PINCH_START_MS
     );
     if (other === undefined) return false;
     const otherAction = this._viewTouches[other].action;
@@ -872,22 +768,9 @@ export class InputManager {
       this._viewTouches[e.changedTouches[i].identifier] = {
         time: now,
         action: null,
-        left: e.changedTouches[i].clientX < window.innerWidth / 2,
       };
     }
     if (this._pinch || this._pinchDone) return;
-    if (this.twoThumbsOn()) {
-      // Both thumbs often land together, one on each half: only two fingers
-      // on the same half are a pinch
-      this.releaseLostThumbs(e);
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        if (this.startPinch(e.changedTouches[i], now, true)) return;
-      }
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        this.startThumb(e.changedTouches[i], now);
-      }
-      return;
-    }
     if (this.startPinch(touch, now)) return;
 
     // Gesture detection for screen zones (left/right/top/bottom third):
@@ -899,7 +782,10 @@ export class InputManager {
       ? ChillFlightLogic.BUGGY_TOUCH_ZONES
       : {UP_ABOVE: 0.33, DOWN_BELOW: 0.66};
     let action = null;
-    if (x < 0.33) action = 'ArrowLeft';
+    // (The advanced joystick has no tap moves: a thumb coming back down in
+    // a side third would set them off. Rolls and loops are flown by hand)
+    if (this.advancedStickOn()) action = null;
+    else if (x < 0.33) action = 'ArrowLeft';
     else if (x > 0.66) action = 'ArrowRight';
     else if (y < zones.UP_ABOVE) action = 'ArrowUp';
     else if (y > zones.DOWN_BELOW) action = 'ArrowDown';
@@ -950,6 +836,10 @@ export class InputManager {
         this.state.joystick.startX = touch.clientX;
         this.state.joystick.startY = touch.clientY;
         this.state.mouse.controlActive = true;
+        this.state.advancedStick.startTime = now;
+        this.state.advancedStick.moved = 0;
+        this.state.advancedStick.roll = 0;
+        this.state.advancedStick.pull = 0;
 
         const joystickBase = document.getElementById('virtual-joystick-base');
         if (joystickBase) {
@@ -1044,11 +934,6 @@ export class InputManager {
     }
     if (this._pinchDone) return;
 
-    if (this.twoThumbsOn()) {
-      this.moveThumbs(e);
-      return;
-    }
-
     if (this.state.controlScheme === 'gyro') return;
 
     if (this.touchScheme() === 'joystick') this.releaseLostJoystick(e);
@@ -1074,6 +959,13 @@ export class InputManager {
           this.state.mouse.y =
             -(stickY / this.JOYSTICK_MAX_RADIUS) * this.JOYSTICK_SENSITIVITY;
           this.state.mouse.controlActive = true;
+          // The advanced joystick reads each axis on its own, to the edge
+          // of a square, so full roll and full pull can go together
+          const adv = this.state.advancedStick;
+          const r = this.JOYSTICK_MAX_RADIUS;
+          adv.roll = Math.max(-1, Math.min(1, dx / r));
+          adv.pull = Math.max(-1, Math.min(1, -dy / r));
+          adv.moved = Math.max(adv.moved, dist);
           break;
         }
       }
@@ -1116,12 +1008,21 @@ export class InputManager {
     if (e.touches.length === 0) this._viewTouches = {};
     if (Object.keys(this._viewTouches).length === 0) this._pinchDone = false;
 
-    this.endThumbs(e, performance.now());
-
     // Joystick cleanup
     if (this.state.joystick.active) {
       for (let i = 0; i < e.changedTouches.length; i++) {
         if (e.changedTouches[i].identifier === this.state.joystick.touchId) {
+          // A quick still tap of the advanced joystick levels the wings
+          const adv = this.state.advancedStick;
+          if (
+            this.advancedStickOn() &&
+            performance.now() - adv.startTime < this.STICK_TAP_MS &&
+            adv.moved < this.STICK_TAP_PX
+          ) {
+            adv.levelTap = true;
+          }
+          adv.roll = 0;
+          adv.pull = 0;
           this.state.joystick.active = false;
           this.state.joystick.touchId = null;
           this.state.mouse.controlActive = false;
@@ -1520,8 +1421,6 @@ export class InputManager {
    */
   isDeliberateSteering() {
     return (
-      this.state.twoThumbs.roll.active ||
-      this.state.twoThumbs.pull.active ||
       this.state.gamepad.steeringActive ||
       this.state.joystick.active ||
       this.state.touch.steeringId !== null

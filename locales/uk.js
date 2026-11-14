@@ -173,11 +173,7 @@ export default {
   Touch: 'Дотик',
   Joystick: 'Джойстик',
   Gyro: 'Гіроскоп',
-  'Two thumbs': 'Два пальці',
-  Roll: 'Крен',
-  Pull: 'Тягни',
-  'Double-tap the top to exit zen':
-    'Двічі торкнися вгорі, щоб вийти з дзен-режиму',
+  Advanced: 'Розширений',
   'Invert y axis': 'Інвертувати вісь Y',
   'Push up to dive, like a flight stick':
     'Від себе для зниження, як зі штурвалом',

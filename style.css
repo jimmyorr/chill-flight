@@ -1728,67 +1728,8 @@ input[type='number'].customization-input {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* The two-thumb scheme (two-thumbs.js): a pill under each thumb, where it
-   landed, and the bank arc. Styled as the throttle's knob: dark, see-through,
-   with yellow figures */
-.thumb-pill {
-  position: fixed;
-  width: 164px;
-  height: 46px;
-  background: rgba(14, 22, 30, 0.45);
-  border: 2px solid rgba(255, 215, 0, 0.6);
-  border-radius: 23px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 1000;
-  opacity: 0;
-  transition: opacity 0.15s ease-out;
-}
-
-.thumb-pill-pull {
-  width: 46px;
-  height: 164px;
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-.thumb-pill.shown {
-  opacity: 1;
-}
-
-.thumb-pill.shown.hint {
-  opacity: 0.45;
-  transition: opacity 1s ease-out;
-}
-
-.thumb-pill-knob {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 38px;
-  height: 38px;
-  background: rgba(255, 255, 255, 0.55);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-.thumb-pill-label {
-  position: absolute;
-  left: 50%;
-  bottom: 100%;
-  transform: translate(-50%, -6px);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-  display: none;
-}
-
-.thumb-pill.hint .thumb-pill-label {
-  display: block;
-}
-
+/* The advanced joystick's bank arc (advanced-stick.js), in the throttle
+   knob's style: white ticks, yellow pointer and figures */
 #bank-arc {
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 96px);
@@ -1837,14 +1778,6 @@ input[type='number'].customization-input {
 body.zen #bank-arc,
 body.ui-hidden #bank-arc {
   visibility: hidden;
-}
-
-/* The throttle keeps to the middle, so the bottom corners are free for the
-   thumbs */
-@media (orientation: landscape) {
-  body.two-thumbs #mobile-controls {
-    max-width: 340px;
-  }
 }
 
 .joystick-hidden {

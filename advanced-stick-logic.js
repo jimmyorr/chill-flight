@@ -1,18 +1,19 @@
-// --- TWO-THUMB FLIGHT: LOGIC ---
-// The "Two thumbs" touch scheme's flight model (game-loop.js applies it to
-// the plane, input-manager.js reads the thumbs). One thumb rolls the plane
-// and the other pulls its nose toward its own top, so a bank can be held
-// (even on its side, knife edge) and a turn comes from pulling, as in a real
-// plane, rather than from the bank alone. No three.js or DOM, so
-// scripts/test-two-thumbs.js flies this same code in Node.
+// --- ADVANCED JOYSTICK: LOGIC ---
+// The "Advanced" joystick's flight model (game-loop.js applies it to the
+// plane, input-manager.js reads the stick). Sideways the stick rolls the
+// plane, and the bank stays where it is left, so it can be held (even on
+// its side, knife edge) or rolled right round; up and down it pulls the
+// nose toward the plane's own top, so a turn comes from pulling, as in a
+// real plane, rather than from the bank alone. No three.js or DOM, so
+// scripts/test-advanced-stick.js flies this same code in Node.
 //
 // Conventions (three.js, the plane's rotation order YXZ): the plane flies
 // along its -Z, its top is +Y and its right wing +X. Pitch is nose up, roll
 // is left wing down, yaw turns left.
 
-export const TWO_THUMBS = {
-  // Thumb travel inside which nothing happens (of full travel, 8 px of 60)
-  DEAD_ZONE: 8 / 60,
+export const ADVANCED_STICK = {
+  // Stick travel inside which nothing happens (of full travel, 7 px of 50)
+  DEAD_ZONE: 0.14,
   // Share of the response that's cubic (finer near the middle), as the
   // stick's (stickResponse in game-loop.js)
   CURVE: 0.45,
@@ -20,25 +21,25 @@ export const TWO_THUMBS = {
   // away from the plane's top reaches PUSH_SHARE of it
   PULL_RATE: 1.6,
   PUSH_SHARE: 0.5,
-  // How quickly the roll and pull rates follow the thumbs (seconds)
+  // How quickly the roll and pull rates follow the stick (seconds)
   ROLL_EASE_SECONDS: 0.12,
   PULL_EASE_SECONDS: 0.1,
-  // Lifting the roll thumb within NOTCH of level, a knife edge or upside
+  // Letting the stick back to the middle (sideways) within NOTCH of level, a knife edge or upside
   // down eases the bank onto it over about NOTCH_SECONDS
   NOTCH: (10 * Math.PI) / 180,
   NOTCH_SECONDS: 0.3,
-  // With the pull thumb up the nose eases back to the horizon (per second)
+  // With the stick back in the middle (up and down) the nose eases back to the horizon (per second)
   RELAX: 1.2,
   // A bank alone still turns the plane a little: this many radians a second
   // at 45 degrees, fading to none level and on its side
   BANK_TURN: 0.3,
-  // Both thumbs up this long (seconds) and the plane eases back to level,
+  // Hands off the stick this long (seconds) and the plane eases back to level,
   // coming on over RESCUE_EASE_SECONDS
   RESCUE_SECONDS: 3,
   RESCUE_EASE_SECONDS: 1.5,
   RESCUE_RATE: 1.5, // per second, of the bank left
-  // Spring-back roll (the other roll mode): full thumb travel is this bank,
-  // and the bank follows the thumb like a spring with no overshoot
+  // Spring-back roll (the other roll mode): full stick travel is this bank,
+  // and the bank follows the stick like a spring with no overshoot
   SPRING_BANK: Math.PI / 2,
   SPRING_OMEGA: 5,
   // Pulling the nose past LOOP_FROM is a loop (the camera follows the plane
@@ -63,17 +64,18 @@ function smoothstep(x, min, max) {
   return t * t * (3 - 2 * t);
 }
 
-// A thumb's travel (-1 to 1) as a share of the full rate: nothing inside the
+// A stick axis's travel (-1 to 1) as a share of the full rate: nothing inside the
 // dead zone, then rising from zero along a gentle curve
-export function thumbResponse(v) {
+export function axisResponse(v) {
   const a = Math.abs(v);
-  if (a < TWO_THUMBS.DEAD_ZONE) return 0;
+  if (a < ADVANCED_STICK.DEAD_ZONE) return 0;
   const u = Math.min(
     1,
-    (a - TWO_THUMBS.DEAD_ZONE) / (1 - TWO_THUMBS.DEAD_ZONE)
+    (a - ADVANCED_STICK.DEAD_ZONE) / (1 - ADVANCED_STICK.DEAD_ZONE)
   );
   return (
-    Math.sign(v) * ((1 - TWO_THUMBS.CURVE) * u + TWO_THUMBS.CURVE * u * u * u)
+    Math.sign(v) *
+    ((1 - ADVANCED_STICK.CURVE) * u + ADVANCED_STICK.CURVE * u * u * u)
   );
 }
 
@@ -126,11 +128,11 @@ export function quatFromAttitude(pitch, yaw, roll) {
 }
 
 // What carries over from frame to frame
-export function newTwoThumbState() {
+export function newAdvancedStickState() {
   return {
     rollRate: 0, // rad/s about the nose, left wing down positive
     pullRate: 0, // rad/s about the wings, nose toward the top positive
-    idle: 0, // seconds with both thumbs up
+    idle: 0, // seconds with no finger on the stick
     notch: null, // the bank the roll is easing onto, if any
     rollWasHeld: false,
     looping: false,
@@ -143,12 +145,14 @@ export function newTwoThumbState() {
 }
 
 /**
- * One frame of two-thumb flight. `s` (newTwoThumbState) is updated in place.
+ * One frame of advanced joystick flight. `s` (newAdvancedStickState) is
+ * updated in place.
  *   quat       the plane's attitude [x, y, z, w]
- *   roll       the roll thumb, -1 (left) to 1 (right)
- *   pull       the pull thumb, -1 (push) to 1 (pull)
- *   rollHeld, pullHeld  whether each thumb is down
- *   levelTap   a quick tap of the roll thumb: roll back to level
+ *   roll       the stick sideways, -1 (left) to 1 (right)
+ *   pull       the stick up and down, -1 (push) to 1 (pull)
+ *   rollHeld, pullHeld  whether the stick is out of the middle that way
+ *   active     whether a finger is on the stick at all (no hands-off rescue)
+ *   levelTap   a quick tap of the stick: roll back to level
  *   spring     the spring-back roll mode
  *   handling   the plane's PLANE_HANDLING entry
  *   kts        its speed
@@ -158,11 +162,12 @@ export function newTwoThumbState() {
  * Returns {quat, rolled, looped}: the new attitude, and whether a whole
  * roll or loop was just completed by hand.
  */
-export function stepTwoThumbAttitude(s, input) {
+export function stepAdvancedStickAttitude(s, input) {
   const {
     quat,
     rollHeld,
     pullHeld,
+    active = rollHeld || pullHeld,
     levelTap = false,
     spring = false,
     handling,
@@ -172,15 +177,15 @@ export function stepTwoThumbAttitude(s, input) {
     grounded = false,
     dt,
   } = input;
-  const T = TWO_THUMBS;
-  const roll = rollHeld && !grounded ? thumbResponse(input.roll) : 0;
-  const pull = pullHeld ? thumbResponse(input.pull) : 0;
+  const T = ADVANCED_STICK;
+  const roll = rollHeld && !grounded ? axisResponse(input.roll) : 0;
+  const pull = pullHeld ? axisResponse(input.pull) : 0;
   const att = attitudeOf(quat);
   const bank = att.roll;
   const steep = Math.abs(att.pitch) > T.LOOP_FROM;
 
   // --- Hands off: after a while, ease back to level ---
-  s.idle = rollHeld || pullHeld ? 0 : s.idle + dt;
+  s.idle = active || rollHeld || pullHeld ? 0 : s.idle + dt;
   const rescue = smoothstep(
     s.idle,
     T.RESCUE_SECONDS,
@@ -201,7 +206,7 @@ export function stepTwoThumbAttitude(s, input) {
   s.rollWasHeld = rollHeld;
 
   if (spring) {
-    // The bank follows the thumb, and springs level when it lifts
+    // The bank follows the stick, and springs level when it lets go
     const target = grounded ? 0 : -roll * T.SPRING_BANK;
     const step = Math.min(dt, 0.05);
     const w = T.SPRING_OMEGA * handling.agility;

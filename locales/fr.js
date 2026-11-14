@@ -175,11 +175,7 @@ export default {
   Touch: 'Tactile',
   Joystick: 'Joystick',
   Gyro: 'Gyro',
-  'Two thumbs': 'Deux pouces',
-  Roll: 'Roulis',
-  Pull: 'Tirer',
-  'Double-tap the top to exit zen':
-    'Touche deux fois le haut pour quitter le zen',
+  Advanced: 'Avancé',
   'Invert y axis': "Inverser l'axe Y",
   'Push up to dive, like a flight stick':
     'Pousse vers le haut pour piquer, comme un manche',

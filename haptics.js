@@ -94,7 +94,7 @@ export function thunderHaptic(distance = 0.5) {
   }
 }
 
-// A light tick, as the bank clicks onto a notch (two-thumbs.js)
+// A light tick, as the bank clicks onto a notch (advanced-stick.js)
 export function tickHaptic() {
   if (enabled && plugin()) pulse('LIGHT');
 }
