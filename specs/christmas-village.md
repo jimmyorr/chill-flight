@@ -119,12 +119,12 @@ Several kit parts export a `night` table (lamp panes, C9 bulbs, gingerbread suga
 
 The snowy villages up north (`snowFactor > 0.6`, roughly north of `Z = -12500` / `2.5 North`, wandering with `snowWobble`) get dressed for the season. That covers the grid villages, the hamlets and the road villages along the north highways. Everything is placed in `terrain-gen.js` alongside the houses, by a hash of the house (not `rng()`, so the props after them stay where they were), and shares the village's kit geometries and `xmasGlowMat`.
 
-| Touch                                                                              | Where                                                                                                   | November     | Dec 1 to Jan 6    |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------ | ----------------- |
-| Roofline string lights along the front eaves, warm white or multicolour by village | on a house's own eave line, so no clearing                                                              | 1 house in 8 | 1 house in 3      |
-| Front-yard fir (2.5 m, `decorations: baubles`, warm-white lights)                  | in the front garden, placed like the garden sheds (`GARDEN_SHED_*`): after the houses, cleared of trees | none         | 1 house in 4      |
-| Garland lamp post at the end of a village row                                      | where there's room, beside the lane                                                                     | none         | 1 per village row |
-| Wireframe reindeer or a giant ornament ball on a lawn                              | front garden                                                                                            | none         | 1 house in 12     |
+| Touch                                                                              | Where                                                                                                   | November     | Dec 1 to Jan 6 |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------ | -------------- |
+| Roofline string lights along the front eaves, warm white or multicolour by village | on a house's own eave line, so no clearing (at least 1 lit house guaranteed per snowy chunk)            | 1 house in 3 | 2 houses in 3  |
+| Front-yard fir (2.5 m, `decorations: baubles`, warm-white lights)                  | in the front garden, placed like the garden sheds (`GARDEN_SHED_*`): after the houses, cleared of trees | none         | 1 house in 2   |
+| Garland lamp post beside the village lane                                          | where there's room, beside the lane (at least 45 units apart)                                           | none         | 1 house in 4   |
+| Wireframe reindeer or a giant ornament ball on a lawn                              | front garden                                                                                            | none         | 1 house in 4   |
 
 - **Roofline lights** need the eave line of each house type: a length and offset per house shape, taken from `houseBodyGeo` and the gabled roof's overhang (`createHouseRoof`) and the Polyfork farmhouse, cottage and cabin roofs. The kit's run is a 4 m section, so a house gets 2 or 3 sections end to end (instanced, so the cost is per section).
 - **Lit at night only**, on the shared glow material, like the village. By day the bulbs and fir decorations still read as Christmas.

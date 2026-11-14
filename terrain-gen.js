@@ -5902,13 +5902,16 @@ export function generateChunkData({
 
     // Christmas in the northern snowy villages (specs/christmas-village.md
     // section 3): roofline string lights on some houses (1 in 8 in November,
-    // 1 in 3 from December, warm white or multicolour by village), and from
-    // December front-yard firs (1 in 4), lawn reindeer or ornament balls
-    // (1 in 12) and garland lamp posts beside village lanes, all from
+    // Northern villages celebrate Christmas too (specs/christmas-village.md §3):
+    // houses with snow cover > 0.6 get roofline lights (1 in 3 in November,
+    // 2 in 3 from December, warm white or multicolour by village, with at least
+    // one lit house guaranteed per snowy chunk), and from December front-yard
+    // firs (1 in 2), lawn reindeer or ornament balls (1 in 4) and garland lamp
+    // posts beside village lanes (1 in 4, >= 45 units apart), all from
     // fieldHash so downstream rng() rolls stay unchanged.
     if (ChillFlightLogic.XMAS) {
       const full = ChillFlightLogic.XMAS === 'full';
-      const lightChance = full ? 1 / 3 : 1 / 8;
+      const lightChance = full ? 2 / 3 : 1 / 3;
       const snowyAt = (wx, wz) =>
         ChillFlightLogic.snowFactorAt(
           wz,
@@ -5946,35 +5949,43 @@ export function generateChunkData({
         }
         return y;
       };
+      const tryPlaceYardFir = (h, wx, wz, firSide) => {
+        const at = rotateY(firSide * (4 * (h.sx || 1) + 2), 11, h.rotY);
+        const x = h.x + at.x;
+        const z = h.z + at.z;
+        const y = yardFit(h, x, z);
+        if (y === null) return false;
+        xmasYardPositions.push({
+          type: 'xmasYardFir',
+          glow: 'xmasYardFirGlow',
+          kind: BREAKABLE.TREE,
+          x,
+          y,
+          z,
+          rotY: fieldHash(wx, wz, 1909) * Math.PI * 2,
+          clear: true,
+        });
+        return true;
+      };
+      const snowyHouses = [];
+      let anyLit = false;
+      let anyFir = false;
       for (const h of houses) {
         if (h.style === 'adobe') continue;
         const wx = Math.round(worldOffsetX + h.x);
         const wz = Math.round(worldOffsetZ + h.z);
         if (!snowyAt(wx, wz)) continue;
+        const firSide = fieldHash(wx, wz, 1907) < 0.5 ? -1 : 1;
+        snowyHouses.push({h, wx, wz, firSide});
         if (fieldHash(wx, wz, 1903) < lightChance) {
           h.xmasLights = villageLightsAt(wx, wz);
+          anyLit = true;
         }
         if (!full) continue;
-        const firSide = fieldHash(wx, wz, 1907) < 0.5 ? -1 : 1;
-        if (fieldHash(wx, wz, 1905) < 0.25) {
-          const at = rotateY(firSide * (4 * (h.sx || 1) + 2), 11, h.rotY);
-          const x = h.x + at.x;
-          const z = h.z + at.z;
-          const y = yardFit(h, x, z);
-          if (y !== null) {
-            xmasYardPositions.push({
-              type: 'xmasYardFir',
-              glow: 'xmasYardFirGlow',
-              kind: BREAKABLE.TREE,
-              x,
-              y,
-              z,
-              rotY: fieldHash(wx, wz, 1909) * Math.PI * 2,
-              clear: true,
-            });
-          }
+        if (fieldHash(wx, wz, 1905) < 0.5) {
+          if (tryPlaceYardFir(h, wx, wz, firSide)) anyFir = true;
         }
-        if (fieldHash(wx, wz, 1911) < 1 / 12) {
+        if (fieldHash(wx, wz, 1911) < 0.25) {
           const at = rotateY(-firSide * (3.5 * (h.sx || 1) + 1.5), 10, h.rotY);
           const x = h.x + at.x;
           const z = h.z + at.z;
@@ -6002,7 +6013,7 @@ export function generateChunkData({
             });
           }
         }
-        if (fieldHash(wx, wz, 1917) < 0.1) {
+        if (fieldHash(wx, wz, 1917) < 0.25) {
           const at = rotateY(firSide * (6 * (h.sx || 1) + 4), 13, h.rotY);
           const x = h.x + at.x;
           const z = h.z + at.z;
@@ -6024,6 +6035,15 @@ export function generateChunkData({
               rotY: h.rotY,
             });
           }
+        }
+      }
+      if (!anyLit && snowyHouses.length > 0) {
+        const first = snowyHouses[0];
+        first.h.xmasLights = villageLightsAt(first.wx, first.wz);
+      }
+      if (full && !anyFir) {
+        for (const s of snowyHouses) {
+          if (tryPlaceYardFir(s.h, s.wx, s.wz, s.firSide)) break;
         }
       }
       for (const p of landmarkPositions) {
