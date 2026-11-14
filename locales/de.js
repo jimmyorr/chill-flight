@@ -827,4 +827,12 @@ export default {
     'Keine Tipps zu Tipp-Manövern beim Spielen',
   Help: 'Hilfe',
   Plane: 'Flugzeug',
+  'Drag the throttle right to drive':
+    'Gashebel nach rechts ziehen zum Losfahren',
+  'Drag the throttle right to take off':
+    'Gashebel nach rechts ziehen zum Abheben',
+  'Press Shift + ↑ or scroll to drive':
+    'Umschalt + ↑ oder scrollen zum Losfahren',
+  'Press Shift + ↑ or scroll to take off':
+    'Umschalt + ↑ oder scrollen zum Abheben',
 };

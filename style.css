@@ -3705,6 +3705,42 @@ body.zen-fading :is(#cockpit-ui, #waypoint-indicator, #friend-markers) {
     opacity: 0;
   }
 }
+.move-drag {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+/* After a stop: a finger dragging the throttle's knob to the right */
+.move-drag b {
+  position: absolute;
+  left: -13px;
+  top: -13px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  animation: move-drag 1.8s ease-in-out forwards;
+}
+@keyframes move-drag {
+  0% {
+    opacity: 0;
+    transform: none;
+  }
+  15% {
+    opacity: 0.9;
+    transform: none;
+  }
+  75% {
+    opacity: 0.9;
+    transform: translateX(var(--dx));
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(var(--dx));
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   #move-hint.show,
   #move-hint.practice.show {
@@ -3718,6 +3754,10 @@ body.zen-fading :is(#cockpit-ui, #waypoint-indicator, #friend-markers) {
   .move-ripple b {
     animation: none;
     opacity: 0.6;
+  }
+  .move-drag b {
+    animation: none;
+    opacity: 0.8;
   }
 }
 

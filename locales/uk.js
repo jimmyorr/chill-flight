@@ -821,4 +821,10 @@ export default {
   'No tap move tips while you play': 'Без підказок про трюки під час гри',
   Help: 'Довідка',
   Plane: 'Літак',
+  'Drag the throttle right to drive': 'Потягни газ праворуч, щоб рушити',
+  'Drag the throttle right to take off': 'Потягни газ праворуч, щоб злетіти',
+  'Press Shift + ↑ or scroll to drive':
+    'Натисни Shift + ↑ або прокрути, щоб рушити',
+  'Press Shift + ↑ or scroll to take off':
+    'Натисни Shift + ↑ або прокрути, щоб злетіти',
 };

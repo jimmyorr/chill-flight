@@ -826,4 +826,11 @@ export default {
     'Nessun suggerimento sulle manovre mentre giochi',
   Help: 'Aiuto',
   Plane: 'Aereo',
+  'Drag the throttle right to drive':
+    "Trascina l'acceleratore a destra per partire",
+  'Drag the throttle right to take off':
+    "Trascina l'acceleratore a destra per decollare",
+  'Press Shift + ↑ or scroll to drive': 'Premi Maiusc + ↑ o scorri per partire',
+  'Press Shift + ↑ or scroll to take off':
+    'Premi Maiusc + ↑ o scorri per decollare',
 };

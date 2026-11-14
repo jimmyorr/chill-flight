@@ -807,4 +807,8 @@ export default {
   'No tap move tips while you play': 'プレイ中にタップ技のヒントを出さない',
   Help: 'ヘルプ',
   Plane: '飛行機',
+  'Drag the throttle right to drive': 'スロットルを右にドラッグして発進',
+  'Drag the throttle right to take off': 'スロットルを右にドラッグして離陸',
+  'Press Shift + ↑ or scroll to drive': 'Shift + ↑ かスクロールで発進',
+  'Press Shift + ↑ or scroll to take off': 'Shift + ↑ かスクロールで離陸',
 };

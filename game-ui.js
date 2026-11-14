@@ -296,7 +296,8 @@ if (throttleEl) {
 
 // The knob warns of slow flight: red where the plane falls out of the sky
 // (from 5 knots under its stall speed), amber where it sinks (under its level
-// speed). Left alone for a while, the throttle fades back.
+// speed). Left alone for a while, the throttle fades back (unless it's at
+// zero).
 const THROTTLE_IDLE_MS = 4000;
 
 let lastThrottleTarget = -1;
@@ -331,7 +332,12 @@ export function updateThrottle(now) {
     max === lastThrottleMax &&
     activePlaneType === lastThrottlePlane
   ) {
-    if (!throttleIdle && now - throttleActiveAt > THROTTLE_IDLE_MS) {
+    // Never while it's at zero: stopped, it's how to get going again
+    if (
+      !throttleIdle &&
+      target > 0 &&
+      now - throttleActiveAt > THROTTLE_IDLE_MS
+    ) {
       throttleIdle = true;
       throttleEl.classList.add('idle');
     }

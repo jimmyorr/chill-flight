@@ -796,4 +796,8 @@ export default {
   'No tap move tips while you play': '플레이 중 탭 기술 팁 숨기기',
   Help: '도움말',
   Plane: '비행기',
+  'Drag the throttle right to drive': '스로틀을 오른쪽으로 끌어 출발',
+  'Drag the throttle right to take off': '스로틀을 오른쪽으로 끌어 이륙',
+  'Press Shift + ↑ or scroll to drive': 'Shift + ↑ 또는 스크롤로 출발',
+  'Press Shift + ↑ or scroll to take off': 'Shift + ↑ 또는 스크롤로 이륙',
 };

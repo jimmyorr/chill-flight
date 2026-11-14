@@ -822,4 +822,12 @@ export default {
     'Sin consejos de maniobras mientras juegas',
   Help: 'Ayuda',
   Plane: 'Avión',
+  'Drag the throttle right to drive':
+    'Arrastra el acelerador a la derecha para arrancar',
+  'Drag the throttle right to take off':
+    'Arrastra el acelerador a la derecha para despegar',
+  'Press Shift + ↑ or scroll to drive':
+    'Pulsa Mayús + ↑ o desplaza para arrancar',
+  'Press Shift + ↑ or scroll to take off':
+    'Pulsa Mayús + ↑ o desplaza para despegar',
 };

@@ -83,7 +83,7 @@ const vehicleNow = () =>
     : 'plane';
 
 // --- THE HINT AND ITS RIPPLES ---
-let current = null; // {move, practice, until}
+let current = null; // {move, practice} or {throttle: true}
 let hideTimer = null;
 let rippleTimer = null;
 
@@ -172,7 +172,7 @@ function showHint(move, practice) {
 
 // The move just happened: a hint for it goes, and a practice says well done
 onMove((id) => {
-  if (current?.move.id !== id) return;
+  if (current?.move?.id !== id) return;
   const practice = current.practice;
   stopHint();
   if (practice) {
@@ -244,6 +244,7 @@ setInterval(() => {
   if (current?.practice && state.isPaused) stopHint();
   if (state.isPaused || document.hidden) return;
   playSeconds += TICK_S;
+  if (checkStuck()) return;
   calmSeconds = calm() ? calmSeconds + TICK_S : 0;
   if (
     current ||
@@ -262,6 +263,139 @@ setInterval(() => {
   nextHintAt = playSeconds + HINT_GAP_S;
   showHint(move, false);
 }, TICK_S * 1000);
+
+// --- STARTING AGAIN AFTER A STOP ---
+// After landing the throttle eases back to idle, and a new player may not
+// know how to get going again: tapping the view, or tapping the throttle's
+// knob (which sets it to where the tap is: zero). Stopped a few seconds with
+// those signs, or a long while with nothing, a line above the throttle says
+// to drag it, with a dot sliding along it. Once the player has got going by
+// dragging it a couple of times, it stops for good.
+const THROTTLE_KEY = 'chill_flight_throttle_learned';
+const STUCK_SIGNS_S = 4;
+const STUCK_WAIT_S = 20;
+const THROTTLE_LEARNED_STARTS = 2;
+const THROTTLE_HINT_MS = 15000;
+
+const throttleEl = document.getElementById('throttle');
+let throttleStarts = Number(load(THROTTLE_KEY, 0)) || 0;
+let stoppedSeconds = 0;
+let stuckSigns = 0;
+let throttleHintedThisStop = false;
+
+const stopped = () =>
+  state.targetFlightSpeed === 0 && state.flightSpeedMultiplier < 0.02;
+
+// Sitting still with nothing else going on
+function stoppedCalmly() {
+  return (
+    stopped() &&
+    !state.isPaused &&
+    !document.hidden &&
+    !state.isIntroTransitionActive &&
+    !state.isFreeCamera &&
+    !state.isCrashed &&
+    !state.autopilotEnabled &&
+    !state.scriptedFlight &&
+    !hooks.isZen?.() &&
+    !hooks.fullscreenMap?.isOpen() &&
+    !(dialogEl && !dialogEl.hidden)
+  );
+}
+
+function playDrag() {
+  if (!ripplesEl || !throttleEl || !isTouch()) return;
+  ripplesEl.replaceChildren();
+  const rect = throttleEl.getBoundingClientRect();
+  if (!rect.width) return;
+  const style = getComputedStyle(throttleEl);
+  const knobW = parseFloat(style.getPropertyValue('--knob-w')) || 68;
+  const pad = parseFloat(style.getPropertyValue('--pad')) || 6;
+  const spot = document.createElement('div');
+  spot.className = 'move-drag';
+  spot.style.left = `${rect.left + pad + knobW / 2}px`;
+  spot.style.top = `${rect.top + rect.height / 2}px`;
+  spot.style.setProperty('--dx', `${rect.width - knobW - 2 * pad}px`);
+  spot.appendChild(document.createElement('b'));
+  ripplesEl.appendChild(spot);
+}
+
+function showThrottleHint() {
+  stopHint();
+  throttleHintedThisStop = true;
+  current = {throttle: true};
+  const buggy = vehicleNow() === 'buggy';
+  let line;
+  if (isTouch()) {
+    line = buggy
+      ? t('Drag the throttle right to drive')
+      : t('Drag the throttle right to take off');
+  } else {
+    line = buggy
+      ? t('Press Shift + ↑ or scroll to drive')
+      : t('Press Shift + ↑ or scroll to take off');
+  }
+  // (practice: it stays up rather than fading on its own)
+  showText([line], {practice: true, low: true});
+  playDrag();
+  rippleTimer = setInterval(playDrag, RIPPLE_REPEAT_MS);
+  hideTimer = setTimeout(stopHint, THROTTLE_HINT_MS);
+}
+
+// Each tick: true while the throttle hint has the stage
+function checkStuck() {
+  if (!stoppedCalmly()) {
+    stoppedSeconds = 0;
+    stuckSigns = 0;
+    throttleHintedThisStop = false;
+    if (current?.throttle) stopHint();
+    return false;
+  }
+  stoppedSeconds += TICK_S;
+  if (current?.throttle) return true;
+  if (
+    current ||
+    throttleHintedThisStop ||
+    !hintsAllowed() ||
+    throttleStarts >= THROTTLE_LEARNED_STARTS
+  ) {
+    return false;
+  }
+  if (
+    (stoppedSeconds >= STUCK_SIGNS_S && stuckSigns >= 2) ||
+    stoppedSeconds >= STUCK_WAIT_S
+  ) {
+    showThrottleHint();
+    return true;
+  }
+  return false;
+}
+
+// The signs: a tap on the view, an arrow key without Shift, or a tap on the
+// throttle that leaves it at zero (counts double)
+document.addEventListener('pointerdown', (e) => {
+  if (e.target?.tagName === 'CANVAS' && stopped()) stuckSigns++;
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key.startsWith('Arrow') && !e.shiftKey && stopped()) stuckSigns++;
+});
+let throttleDown = null; // {id, x, wasStopped}
+throttleEl?.addEventListener('pointerdown', (e) => {
+  throttleDown = {id: e.pointerId, x: e.clientX, wasStopped: stopped()};
+});
+window.addEventListener('pointerup', (e) => {
+  if (!throttleDown || e.pointerId !== throttleDown.id) return;
+  const {x, wasStopped} = throttleDown;
+  throttleDown = null;
+  if (!wasStopped) return;
+  if (state.targetFlightSpeed === 0) {
+    stuckSigns += 2;
+  } else if (Math.abs(e.clientX - x) > 12) {
+    // Got going by dragging it
+    throttleStarts++;
+    save(THROTTLE_KEY, throttleStarts);
+  }
+});
 
 // --- SETTING ---
 if (offInput) {

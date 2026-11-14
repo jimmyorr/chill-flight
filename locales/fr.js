@@ -828,4 +828,12 @@ export default {
   'No tap move tips while you play': "Pas d'astuces de figures pendant le jeu",
   Help: 'Aide',
   Plane: 'Avion',
+  'Drag the throttle right to drive':
+    'Glisse les gaz vers la droite pour rouler',
+  'Drag the throttle right to take off':
+    'Glisse les gaz vers la droite pour décoller',
+  'Press Shift + ↑ or scroll to drive':
+    'Appuie sur Maj + ↑ ou fais défiler pour rouler',
+  'Press Shift + ↑ or scroll to take off':
+    'Appuie sur Maj + ↑ ou fais défiler pour décoller',
 };

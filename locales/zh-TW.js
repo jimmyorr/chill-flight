@@ -774,4 +774,8 @@ export default {
   'No tap move tips while you play': '飛行時不顯示點擊動作提示',
   Help: '說明',
   Plane: '飛機',
+  'Drag the throttle right to drive': '向右拖曳油門開車',
+  'Drag the throttle right to take off': '向右拖曳油門起飛',
+  'Press Shift + ↑ or scroll to drive': '按 Shift + ↑ 或捲動滾輪開車',
+  'Press Shift + ↑ or scroll to take off': '按 Shift + ↑ 或捲動滾輪起飛',
 };
