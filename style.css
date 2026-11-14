@@ -4008,3 +4008,53 @@ body.ui-hidden > canvas {
     grid-row: 4;
   }
 }
+
+/* Phones on their side: Help puts the zone picture beside the move list
+   (the picture filled the screen and the Try buttons were below it), and
+   the dialog box gets a smaller face so it covers less of the view */
+@media (orientation: landscape) and (max-height: 500px) {
+  #help-overlay .achievements-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    justify-items: center;
+    gap: 12px 24px;
+    max-width: 780px;
+    padding: max(12px, env(safe-area-inset-top, 0px))
+      max(20px, env(safe-area-inset-right, 0px))
+      max(16px, env(safe-area-inset-bottom, 0px))
+      max(20px, env(safe-area-inset-left, 0px));
+  }
+
+  #help-overlay .achievements-header {
+    grid-column: 1 / -1;
+  }
+
+  #help-overlay .help-vehicle {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  #help-overlay .help-zones {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  #help-overlay .help-moves {
+    grid-column: 2;
+    grid-row: 2 / span 2;
+  }
+
+  #help-overlay .help-move {
+    padding: 7px 0;
+  }
+
+  #npc-portrait {
+    width: 64px;
+    height: 64px;
+  }
+
+  #npc-dialog {
+    padding: 10px 14px 14px;
+  }
+}
