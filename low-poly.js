@@ -5,6 +5,7 @@
 // faceted lumps that follow its shape and colours, its trunk as one tapered
 // prism, dead trees as a trunk and a few bare limbs.
 import * as THREE from 'three';
+import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 // Triangle centres of `geo` with their areas and colours
 function triangles(geo) {
@@ -59,6 +60,326 @@ export function joinColored(parts) {
   out.computeBoundingBox();
   out.computeBoundingSphere();
   return out;
+}
+
+export function geometryAverageColor(geo) {
+  const srcCol = geo.attributes.color;
+  if (!srcCol) return [1, 1, 1];
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (let i = 0; i < srcCol.count; i++) {
+    r += srcCol.getX(i);
+    g += srcCol.getY(i);
+    b += srcCol.getZ(i);
+  }
+  return [r / srcCol.count, g / srcCol.count, b / srcCol.count];
+}
+
+export function fillVertexColor(geo, r, g, b) {
+  const count = geo.attributes.position.count;
+  const col = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    col[i * 3] = r;
+    col[i * 3 + 1] = g;
+    col[i * 3 + 2] = b;
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// A simple shape (spanning -1..1) scaled and moved to fill `geo`'s bounds.
+export function fitToBounds(shape, geo) {
+  geo.computeBoundingBox();
+  const box = geo.boundingBox;
+  const center = box.getCenter(new THREE.Vector3());
+  const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+  shape.scale(half.x, half.y, half.z);
+  shape.translate(center.x, center.y, center.z);
+  if (geo.attributes.color) {
+    const [r, g, b] = geometryAverageColor(geo);
+    fillVertexColor(shape, r, g, b);
+  }
+  return shape;
+}
+
+export const farCanopy = (geo) =>
+  fitToBounds(new THREE.IcosahedronGeometry(1, 0), geo); // 20 triangles
+
+export const farTrunk = (geo) => {
+  geo.computeBoundingBox();
+  const h = geo.boundingBox.max.y * 0.75;
+  const shape = new THREE.CylinderGeometry(0.9, 1.4, h, 6, 1, true); // 12 triangles
+  shape.translate(0, h * 0.5, 0);
+  if (geo.attributes.color) {
+    const [r, g, b] = geometryAverageColor(geo);
+    fillVertexColor(shape, r, g, b);
+  }
+  return shape;
+};
+
+const sharedShadow = (targetType, shape, geo) => {
+  const proxy = fitToBounds(shape, geo);
+  const box = geo.boundingBox;
+  const center = box.getCenter(new THREE.Vector3());
+  const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+  proxy._shadowShare = {
+    targetType,
+    sx: half.x,
+    sy: half.y,
+    sz: half.z,
+    tx: center.x,
+    ty: center.y,
+    tz: center.z,
+  };
+  return proxy;
+};
+
+export const shadowBox = (geo) =>
+  sharedShadow('shadowBox', new THREE.BoxGeometry(2, 2, 2), geo); // 12 triangles
+
+export const shadowCylinder = (geo) =>
+  sharedShadow(
+    'shadowCylinder',
+    new THREE.CylinderGeometry(1, 1, 2, 8, 1, true),
+    geo
+  ); // 16 triangles
+
+// A round roof (straw hut, silo dome): a cone, closed on top unlike the
+// open-ended cylinder, which looks hollow from above far away (16 triangles)
+export const shadowCone = (geo) =>
+  sharedShadow('shadowCone', new THREE.ConeGeometry(1, 2, 8, 1, false), geo);
+
+// A gable roof: a box whose top edges meet along the longer side (8 triangles)
+export const shadowGable = (geo) => {
+  geo.computeBoundingBox();
+  const size = geo.boundingBox.getSize(new THREE.Vector3());
+  const shape = new THREE.BoxGeometry(2, 2, 2);
+  const pos = shape.attributes.position;
+  const across = size.x < size.z ? 0 : 2; // ridge runs along the other axis
+  for (let i = 0; i < pos.count; i++) {
+    if (pos.getY(i) > 0) pos.setComponent(i, across, 0);
+  }
+  shape.computeVertexNormals();
+  return fitToBounds(shape, geo);
+};
+
+function geometryBandColor(geo, y0Frac, y1Frac) {
+  const pos = geo.attributes.position;
+  const col = geo.attributes.color;
+  if (!col) return [1, 1, 1];
+  geo.computeBoundingBox();
+  const {min, max} = geo.boundingBox;
+  const h = max.y - min.y || 1;
+  const y0 = min.y + h * y0Frac;
+  const y1 = min.y + h * y1Frac;
+  const index = geo.index;
+  const n = index ? index.count : pos.count;
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const tri = new THREE.Triangle();
+  let r = 0;
+  let g = 0;
+  let bl = 0;
+  let wSum = 0;
+  for (let i = 0; i < n; i += 3) {
+    const i0 = index ? index.getX(i) : i;
+    const i1 = index ? index.getX(i + 1) : i + 1;
+    const i2 = index ? index.getX(i + 2) : i + 2;
+    a.fromBufferAttribute(pos, i0);
+    b.fromBufferAttribute(pos, i1);
+    c.fromBufferAttribute(pos, i2);
+    const cy = (a.y + b.y + c.y) / 3;
+    if (cy < y0 || cy > y1) continue;
+    tri.set(a, b, c);
+    const area = tri.getArea();
+    if (area <= 0) continue;
+    wSum += area;
+    r += ((col.getX(i0) + col.getX(i1) + col.getX(i2)) / 3) * area;
+    g += ((col.getY(i0) + col.getY(i1) + col.getY(i2)) / 3) * area;
+    bl += ((col.getZ(i0) + col.getZ(i1) + col.getZ(i2)) / 3) * area;
+  }
+  if (wSum <= 0) return geometryAverageColor(geo);
+  return [r / wSum, g / wSum, bl / wSum];
+}
+
+function taperedBox(wxTop, wzTop, wxBot, wzBot, y0, y1) {
+  const g = new THREE.CylinderGeometry(1, 1, y1 - y0, 4, 1, true);
+  g.rotateY(Math.PI / 4);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const isTop = p.getY(i) > 0;
+    p.setX(i, p.getX(i) * Math.SQRT2 * (isTop ? wxTop : wxBot));
+    p.setZ(i, p.getZ(i) * Math.SQRT2 * (isTop ? wzTop : wzBot));
+  }
+  g.translate(0, (y0 + y1) * 0.5, 0);
+  return g;
+}
+
+function pyramidRoof(wxBot, wzBot, y0, y1) {
+  const g = new THREE.ConeGeometry(1, y1 - y0, 4, 1, false);
+  g.rotateY(Math.PI / 4);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    p.setX(i, p.getX(i) * Math.SQRT2 * wxBot);
+    p.setZ(i, p.getZ(i) * Math.SQRT2 * wzBot);
+  }
+  g.translate(0, (y0 + y1) * 0.5, 0);
+  return g;
+}
+
+export function towerFarGeo(type, geo) {
+  geo.computeBoundingBox();
+  const {min, max} = geo.boundingBox;
+  const cx = (min.x + max.x) * 0.5;
+  const cz = (min.z + max.z) * 0.5;
+  const hx = (max.x - min.x) * 0.5;
+  const hz = (max.z - min.z) * 0.5;
+  const y0 = min.y;
+  const y1 = max.y;
+  const h = y1 - y0;
+  if (type === 'castleRuins') {
+    const t1 = new THREE.CylinderGeometry(5, 6.5, h, 6, 1, false).translate(
+      0,
+      y0 + h * 0.5,
+      0
+    );
+    const keepH = Math.min(22.5, h);
+    const keep = new THREE.BoxGeometry(16, keepH, 19).translate(
+      12,
+      y0 + keepH * 0.5,
+      -5.5
+    );
+    const t2H = Math.min(20, h);
+    const t2 = new THREE.CylinderGeometry(4.5, 6, t2H, 6, 1, false).translate(
+      24,
+      y0 + t2H * 0.5,
+      4
+    );
+    const out = mergeGeometries([t1, keep, t2]);
+    out.computeBoundingBox();
+    out.computeBoundingSphere();
+    return out;
+  }
+  if (type === 'fireLookout') {
+    const yCab0 = y0 + h * 0.72;
+    const yCab1 = y0 + h * 0.9;
+    const legs = taperedBox(
+      hx * 0.52,
+      hz * 0.52,
+      hx * 0.95,
+      hz * 0.95,
+      y0,
+      yCab0
+    ).translate(cx, 0, cz);
+    const cab = new THREE.BoxGeometry(
+      hx * 1.55,
+      yCab1 - yCab0,
+      hz * 1.55
+    ).translate(cx, (yCab0 + yCab1) * 0.5, cz);
+    const roof = pyramidRoof(hx * 0.92, hz * 0.92, yCab1, y1).translate(
+      cx,
+      0,
+      cz
+    );
+    return joinColored([
+      [legs, geometryBandColor(geo, 0, 0.72)],
+      [cab, geometryBandColor(geo, 0.72, 0.9)],
+      [roof, geometryBandColor(geo, 0.9, 1)],
+    ]);
+  }
+  if (type === 'waterTower') {
+    const r = Math.max(hx, hz);
+    const yTank0 = y0 + h * 0.56;
+    const yTank1 = y0 + h * 0.84;
+    const legs = new THREE.CylinderGeometry(
+      r * 0.48,
+      r * 0.95,
+      yTank0 - y0,
+      6,
+      1,
+      true
+    ).translate(cx, (y0 + yTank0) * 0.5, cz);
+    const tank = new THREE.CylinderGeometry(
+      r * 0.78,
+      r * 0.78,
+      yTank1 - yTank0,
+      6,
+      1,
+      false
+    ).translate(cx, (yTank0 + yTank1) * 0.5, cz);
+    const roof = new THREE.ConeGeometry(
+      r * 0.82,
+      y1 - yTank1,
+      6,
+      1,
+      true
+    ).translate(cx, (yTank1 + y1) * 0.5, cz);
+    return joinColored([
+      [legs, geometryBandColor(geo, 0, 0.56)],
+      [tank, geometryBandColor(geo, 0.56, 0.84)],
+      [roof, geometryBandColor(geo, 0.84, 1)],
+    ]);
+  }
+  if (type === 'windpump') {
+    const yHead = y0 + h * 0.79;
+    const legs = taperedBox(
+      hx * 0.25,
+      hz * 0.25,
+      hx * 0.9,
+      hz * 0.9,
+      y0,
+      yHead
+    ).translate(cx, 0, cz);
+    const wheelH = y1 - yHead;
+    const wheel = new THREE.BoxGeometry(hx * 1.65, wheelH, hz * 0.28).translate(
+      cx,
+      (yHead + y1) * 0.5,
+      cz
+    );
+    const vane = new THREE.BoxGeometry(
+      hx * 0.26,
+      wheelH * 0.62,
+      hz * 1.65
+    ).translate(cx, yHead + wheelH * 0.42, cz);
+    const headCol = geometryBandColor(geo, 0.79, 1);
+    return joinColored([
+      [legs, geometryBandColor(geo, 0, 0.79)],
+      [wheel, headCol],
+      [vane, headCol],
+    ]);
+  }
+  const r = Math.max(hx, hz);
+  const yCap0 = y0 + h * 0.68;
+  const yFin0 = y0 + h * 0.9;
+  const body = new THREE.CylinderGeometry(
+    r * 0.66,
+    r * 0.98,
+    yCap0 - y0,
+    6,
+    1,
+    true
+  ).translate(cx, (y0 + yCap0) * 0.5, cz);
+  const cap = new THREE.ConeGeometry(
+    r * 0.72,
+    yFin0 - yCap0,
+    6,
+    1,
+    false
+  ).translate(cx, (yCap0 + yFin0) * 0.5, cz);
+  const finial = new THREE.ConeGeometry(
+    r * 0.12,
+    y1 - yFin0,
+    4,
+    1,
+    true
+  ).translate(cx, (yFin0 + y1) * 0.5, cz);
+  return joinColored([
+    [body, geometryBandColor(geo, 0, 0.68)],
+    [cap, geometryBandColor(geo, 0.68, 0.9)],
+    [finial, geometryBandColor(geo, 0.9, 1)],
+  ]);
 }
 
 /**

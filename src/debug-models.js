@@ -10,11 +10,22 @@ import '../biplane.js';
 import '../twin.js';
 import '../buggy-model.js';
 import '../airplane.js';
+import '../low-poly.js';
 import '../tree-models.js';
 import '../terrain-geometry.js';
 
 import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
+import {
+  farCanopy,
+  farTrunk,
+  fitToBounds,
+  shadowBox,
+  shadowCone,
+  shadowCylinder,
+  shadowGable,
+  towerFarGeo,
+} from '../low-poly.js';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {destructibleTypes, startDestruction} from '../debug/destruction.js';
 import {createMaterial} from '../constants.js';
@@ -61,11 +72,24 @@ import {
 import {
   ModelAssembler,
   animationUniforms,
+  barnBodyGeo,
   barnMat,
+  barnRoofGeo,
+  barnSiloBodyGeo,
+  barnSiloRoofGeo,
   hayBarnBodyGeo,
   hayBarnRoofGeo,
+  houseChimneyGeo,
+  houseDoorGeo,
+  houseWindowGeo,
+  monasteryBodyGeo,
+  monasteryRoofGeo,
+  strawHutBodyGeo,
+  strawHutRoofGeo,
   timberBarnBodyGeo,
   timberBarnRoofGeo,
+  twoStoryChimneyGeo,
+  windmillBaseGeo,
   bridgeDeckGeo,
   bridgeDeckMat,
   bridgeGirderGeo,
@@ -233,6 +257,115 @@ function cycleColors() {
   }
 }
 
+// Models with 3 distance LOD bands (<0.5 km full Polyfork, 0.5-3 km low-poly,
+// >3 km shared far shapes) vs. 2 distance LOD bands (<3 km base, >3 km far)
+const THREE_BAND_LOD_TYPES = new Set([
+  'cherry_blossom',
+  'japanese_maple',
+  'sculpted_pine',
+  'birch',
+  'broadleaf_oak',
+  'oak',
+  'magnolia',
+  'snow_spruce',
+  'mountain_rowan',
+  'palm',
+  'fruit_trees',
+]);
+const TWO_BAND_LOD_TYPES = new Set([
+  'pine',
+  'deciduous',
+  'tall_deciduous',
+  'yellow_cortez',
+  'joshua_tree',
+  'mushroom',
+  'dead_tree',
+  'swamp_trees',
+  'bush',
+  'cactus',
+  'house',
+  'two_story_house',
+  'straw_hut',
+  'barn',
+  'north_barns',
+  'monastery',
+  'castle',
+  'windmill',
+  'landmark_towers',
+]);
+
+function lodModesFor(type) {
+  if (THREE_BAND_LOD_TYPES.has(type)) return ['near', 'mid', 'far', 'all'];
+  if (TWO_BAND_LOD_TYPES.has(type)) return ['near', 'far', 'all'];
+  return null;
+}
+
+window.currentLod = 'near';
+function cycleLod() {
+  const modes = lodModesFor(window.currentModelType);
+  if (!modes) return;
+  const cur = modes.includes(window.currentLod) ? window.currentLod : 'near';
+  window.currentLod = modes[(modes.indexOf(cur) + 1) % modes.length];
+  viewModel(window.currentModelType, null, window.currentColorSeed);
+}
+
+const farHouseWindowGeo = new THREE.PlaneGeometry(2, 2.5).translate(0, 0, 0.25);
+const pineFarLeavesGeo = fitToBounds(
+  new THREE.ConeGeometry(1, 2, 6, 1, true),
+  treeLeavesGeo
+);
+const palmFarTrunkGeo = fitToBounds(
+  new THREE.CylinderGeometry(0.6, 1, 2, 6, 1, true),
+  palmGeos.trunk
+);
+const cactusFarGeo = fitToBounds(new THREE.BoxGeometry(2, 2, 2), cactusGeo);
+const farGeoCache = new WeakMap();
+function cachedFar(fn, geo) {
+  let map = farGeoCache.get(fn);
+  if (!map) {
+    map = new WeakMap();
+    farGeoCache.set(fn, map);
+  }
+  if (!map.has(geo)) map.set(geo, fn(geo));
+  return map.get(geo);
+}
+
+function addStructureBand(group, structure, band, xOffset = 0) {
+  for (const part of structure) {
+    let geo = part.geo;
+    let mat = part.mat;
+    if (band === 'far') {
+      if (
+        geo === houseDoorGeo ||
+        geo === houseChimneyGeo ||
+        geo === twoStoryChimneyGeo
+      ) {
+        continue;
+      } else if (geo === houseWindowGeo) {
+        geo = farHouseWindowGeo;
+      } else if (geo === strawHutBodyGeo || geo === barnSiloBodyGeo) {
+        geo = cachedFar(shadowCylinder, geo);
+      } else if (geo === strawHutRoofGeo || geo === barnSiloRoofGeo) {
+        geo = cachedFar(shadowCone, geo);
+      } else if (geo === barnBodyGeo || geo === monasteryBodyGeo) {
+        geo = cachedFar(shadowBox, geo);
+      } else if (geo === barnRoofGeo || geo === monasteryRoofGeo) {
+        geo = cachedFar(shadowGable, geo);
+      } else if (geo === windmillBaseGeo) {
+        geo = towerFarGeo('windmillBase', geo);
+        mat = buildingMat;
+      }
+    }
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(part.pos[0] + xOffset, part.pos[1], part.pos[2]);
+    mesh.rotation.set(...part.rot);
+    if (part.order) mesh.rotation.order = part.order;
+    if (part.scale) mesh.scale.set(...part.scale);
+    mesh.userData.lodBand = band;
+    group.add(mesh);
+  }
+}
+
 function toggleDestruction() {
   const btn = document.getElementById('destroy-toggle');
   if (isDestroyed) {
@@ -284,6 +417,28 @@ function viewModel(type, e, colorSeed = 0) {
     'oak',
   ].includes(type);
 
+  const lodToggle = document.getElementById('lod-toggle');
+  const lodModes = lodModesFor(type);
+  const lod = lodModes
+    ? lodModes.includes(window.currentLod)
+      ? window.currentLod
+      : 'near'
+    : 'near';
+  if (lodToggle) {
+    lodToggle.style.display = lodModes ? 'block' : 'none';
+    if (lodModes) {
+      const labels = {
+        near: THREE_BAND_LOD_TYPES.has(type)
+          ? 'LOD: Near (<0.5 km)'
+          : 'LOD: Near (<3 km)',
+        mid: 'LOD: Mid (0.5-3 km)',
+        far: 'LOD: Far (>3 km)',
+        all: 'LOD: All bands',
+      };
+      lodToggle.textContent = labels[lod];
+    }
+  }
+
   const colorBtn = document.getElementById('cycle-colors-btn');
   if (colorBtn) colorBtn.style.display = supportsColors ? 'block' : 'none';
 
@@ -312,9 +467,12 @@ function viewModel(type, e, colorSeed = 0) {
     destroyToggle.textContent = 'Destroy';
   }
 
-  const visibleButtons = [colorBtn, gearToggle, destroyToggle].filter(
-    (btn) => btn && btn.style.display !== 'none'
-  );
+  const visibleButtons = [
+    lodToggle,
+    colorBtn,
+    gearToggle,
+    destroyToggle,
+  ].filter((btn) => btn && btn.style.display !== 'none');
   visibleButtons.forEach((btn, idx) => {
     btn.style.marginTop = idx === 0 ? '0' : '8px';
   });
@@ -356,14 +514,13 @@ function viewModel(type, e, colorSeed = 0) {
     : null;
 
   if (structure) {
-    structure.forEach((part) => {
-      const mesh = new THREE.Mesh(part.geo, part.mat);
-      mesh.position.set(...part.pos);
-      mesh.rotation.set(...part.rot);
-      if (part.order) mesh.rotation.order = part.order;
-      if (part.scale) mesh.scale.set(...part.scale);
-      previewGroup.add(mesh);
-    });
+    if (lod === 'all' && lodModes) {
+      const span = type === 'windmill' || type === 'barn' ? 18 : 12;
+      addStructureBand(previewGroup, structure, 'near', -span);
+      addStructureBand(previewGroup, structure, 'far', span);
+    } else {
+      addStructureBand(previewGroup, structure, lod, 0);
+    }
   } else {
     // 2. Fallback for simple or unique models
     switch (type) {
@@ -512,76 +669,71 @@ function viewModel(type, e, colorSeed = 0) {
       case 'snow_spruce':
       case 'mountain_rowan':
       case 'palm': {
-        const variations = [-15, 0, 15];
-        variations.forEach((xOffset, i) => {
-          let trunkGeo, leavesGeo, baseHex;
-          if (type === 'pine') {
-            trunkGeo = treeTrunkGeo;
-            leavesGeo = treeLeavesGeo;
-            baseHex = 0x1b5e20;
-          } else if (type === 'deciduous') {
-            trunkGeo = deciduousGeos.trunk;
-            leavesGeo = deciduousGeos.leaves;
-            baseHex = 0x1b5e20;
-          } else if (type === 'tall_deciduous') {
-            trunkGeo = tallDeciduousGeos.trunk;
-            leavesGeo = tallDeciduousGeos.leaves;
-            baseHex = 0x1a451d; // Slightly darker green
-          } else if (type === 'yellow_cortez') {
-            trunkGeo = deciduousGeos.trunk;
-            leavesGeo = deciduousGeos.leaves;
-            baseHex = 0xffeb3b;
-          } else if (type === 'cherry_blossom') {
-            trunkGeo = cherryBlossomGeos.trunk;
-            leavesGeo = cherryBlossomGeos.leaves;
-            baseHex = 0xf7c9d6;
-          } else if (type === 'japanese_maple') {
-            trunkGeo = japaneseMapleGeos.trunk;
-            leavesGeo = japaneseMapleGeos.leaves;
-            baseHex = 0xb5433a;
-          } else if (type === 'sculpted_pine') {
-            trunkGeo = sculptedPineGeos.trunk;
-            leavesGeo = sculptedPineGeos.leaves;
-            baseHex = 0x7fa95c;
-          } else if (type === 'birch') {
-            trunkGeo = birchGeos.trunk;
-            leavesGeo = birchGeos.leaves;
-            baseHex = colorSeed % 2 === 1 ? 0xf39c12 : 0xb3d47f;
-          } else if (type === 'broadleaf_oak') {
-            trunkGeo = broadleafOakGeos.trunk;
-            leavesGeo = broadleafOakGeos.leaves;
-            baseHex = colorSeed % 2 === 1 ? 0xd35400 : 0x77b258;
-          } else if (type === 'oak') {
-            trunkGeo = oakGeos.trunk;
-            leavesGeo = oakGeos.leaves;
-            baseHex = colorSeed % 2 === 1 ? 0xc0392b : 0x7d8a5a;
-          } else if (type === 'magnolia') {
-            trunkGeo = magnoliaGeos.trunk;
-            leavesGeo = magnoliaGeos.leaves;
-            baseHex = 0xf2f2f2;
-          } else if (type === 'snow_spruce') {
-            trunkGeo = snowSpruceGeos.trunk;
-            leavesGeo = snowSpruceGeos.leaves;
-            baseHex = 0xf2f2f2;
-          } else if (type === 'mountain_rowan') {
-            trunkGeo = mountainRowanGeos.trunk;
-            leavesGeo = mountainRowanGeos.leaves;
-            baseHex = 0xf2f2f2;
-          } else if (type === 'palm') {
-            trunkGeo = palmGeos.trunk;
-            leavesGeo = palmGeos.leaves;
-            baseHex = 0x8fbf5a;
-          }
-
+        const treeGeosMap = {
+          pine: {trunk: treeTrunkGeo, leaves: treeLeavesGeo, hex: 0x1b5e20},
+          deciduous: {...deciduousGeos, hex: 0x1b5e20},
+          tall_deciduous: {...tallDeciduousGeos, hex: 0x1a451d},
+          yellow_cortez: {...deciduousGeos, hex: 0xffeb3b},
+          cherry_blossom: {...cherryBlossomGeos, hex: 0xf7c9d6},
+          japanese_maple: {...japaneseMapleGeos, hex: 0xb5433a},
+          sculpted_pine: {...sculptedPineGeos, hex: 0x7fa95c},
+          birch: {
+            ...birchGeos,
+            hex: colorSeed % 2 === 1 ? 0xf39c12 : 0xb3d47f,
+          },
+          broadleaf_oak: {
+            ...broadleafOakGeos,
+            hex: colorSeed % 2 === 1 ? 0xd35400 : 0x77b258,
+          },
+          oak: {
+            ...oakGeos,
+            hex: colorSeed % 2 === 1 ? 0xc0392b : 0x7d8a5a,
+          },
+          magnolia: {...magnoliaGeos, hex: 0xf2f2f2},
+          snow_spruce: {...snowSpruceGeos, hex: 0xf2f2f2},
+          mountain_rowan: {...mountainRowanGeos, hex: 0xf2f2f2},
+          palm: {...palmGeos, hex: 0x8fbf5a},
+        };
+        const geos = treeGeosMap[type];
+        const bands =
+          lod === 'all'
+            ? THREE_BAND_LOD_TYPES.has(type)
+              ? [
+                  ['near', -16, 0],
+                  ['mid', 0, 0],
+                  ['far', 16, 0],
+                ]
+              : [
+                  ['near', -12, 0],
+                  ['far', 12, 0],
+                ]
+            : [
+                [lod, -15, -0.05],
+                [lod, 0, 0],
+                [lod, 15, 0.05],
+              ];
+        bands.forEach(([band, xOffset, v]) => {
+          const trunkGeo =
+            band === 'far'
+              ? type === 'palm'
+                ? palmFarTrunkGeo
+                : cachedFar(farTrunk, geos.trunk)
+              : band === 'near' && geos.fullTrunk
+                ? geos.fullTrunk
+                : geos.trunk;
+          const leavesGeo =
+            band === 'far'
+              ? type === 'pine'
+                ? pineFarLeavesGeo
+                : cachedFar(farCanopy, geos.leaves)
+              : band === 'near' && geos.fullLeaves
+                ? geos.fullLeaves
+                : geos.leaves;
           const trunk = new THREE.Mesh(trunkGeo, treeTrunkMat);
-
-          const colorObj = new THREE.Color(baseHex);
-          // Apply deterministic variations so they stay consistent
-          const v = (i - 1) * 0.05; // -0.05, 0, 0.05
+          const colorObj = new THREE.Color(geos.hex);
           colorObj.r = Math.max(0, Math.min(1, colorObj.r + v));
           colorObj.g = Math.max(0, Math.min(1, colorObj.g + v));
           colorObj.b = Math.max(0, Math.min(1, colorObj.b + v));
-
           const leaves = new THREE.Mesh(
             leavesGeo,
             createMaterial({
@@ -591,9 +743,10 @@ function viewModel(type, e, colorSeed = 0) {
               foliage: true,
             })
           );
-
           trunk.position.x = xOffset;
           leaves.position.x = xOffset;
+          trunk.userData.lodBand = band;
+          leaves.userData.lodBand = band;
           previewGroup.add(trunk, leaves);
         });
         break;
@@ -605,33 +758,70 @@ function viewModel(type, e, colorSeed = 0) {
           plumTreeGeos,
           fruitTreeGeos,
         ];
-        fruitVarieties.forEach((geos, i) => {
-          const xOffset = (i - (fruitVarieties.length - 1) / 2) * 14;
-          const trunk = new THREE.Mesh(geos.trunk, treeTrunkMat);
-          const leaves = new THREE.Mesh(
-            geos.leaves,
-            createMaterial({
-              color: 0xf2f2f2,
-              vertexColors: true,
-              flatShading: true,
-              foliage: true,
-            })
-          );
-          trunk.position.x = xOffset;
-          leaves.position.x = xOffset;
-          previewGroup.add(trunk, leaves);
+        const rows =
+          lod === 'all'
+            ? [
+                ['near', 14],
+                ['mid', 0],
+                ['far', -14],
+              ]
+            : [[lod, 0]];
+        rows.forEach(([band, zOffset]) => {
+          fruitVarieties.forEach((geos, i) => {
+            const xOffset = (i - (fruitVarieties.length - 1) / 2) * 14;
+            const trunkGeo =
+              band === 'far'
+                ? cachedFar(farTrunk, geos.trunk)
+                : band === 'near' && geos.fullTrunk
+                  ? geos.fullTrunk
+                  : geos.trunk;
+            const leavesGeo =
+              band === 'far'
+                ? cachedFar(farCanopy, geos.leaves)
+                : band === 'near' && geos.fullLeaves
+                  ? geos.fullLeaves
+                  : geos.leaves;
+            const trunk = new THREE.Mesh(trunkGeo, treeTrunkMat);
+            const leaves = new THREE.Mesh(
+              leavesGeo,
+              createMaterial({
+                color: 0xf2f2f2,
+                vertexColors: true,
+                flatShading: true,
+                foliage: true,
+              })
+            );
+            trunk.position.set(xOffset, 0, zOffset);
+            leaves.position.set(xOffset, 0, zOffset);
+            trunk.userData.lodBand = band;
+            leaves.userData.lodBand = band;
+            previewGroup.add(trunk, leaves);
+          });
         });
         break;
       }
       case 'dead_tree': {
-        [
-          [deadTreeGeo, deadTreeMat, -18],
-          [deadCottonwoodGeo, treeTrunkMat, 0],
-          [twistedDeadOakGeo, treeTrunkMat, 18],
-        ].forEach(([geo, mat, xOffset]) => {
-          const m = new THREE.Mesh(geo, mat);
-          m.position.x = xOffset;
-          previewGroup.add(m);
+        const rows =
+          lod === 'all'
+            ? [
+                ['near', 12],
+                ['far', -12],
+              ]
+            : [[lod, 0]];
+        rows.forEach(([band, zOffset]) => {
+          [
+            [deadTreeGeo, deadTreeMat, -18],
+            [deadCottonwoodGeo, treeTrunkMat, 0],
+            [twistedDeadOakGeo, treeTrunkMat, 18],
+          ].forEach(([geo, mat, xOffset]) => {
+            const m = new THREE.Mesh(
+              band === 'far' ? cachedFar(farTrunk, geo) : geo,
+              mat
+            );
+            m.position.set(xOffset, 0, zOffset);
+            m.userData.lodBand = band;
+            previewGroup.add(m);
+          });
         });
         break;
       }
@@ -649,10 +839,28 @@ function viewModel(type, e, colorSeed = 0) {
           'swampDeadOak',
           'swampSnag',
         ];
-        keys.forEach((key, i) => {
-          const m = new THREE.Mesh(geos[key], mat);
-          m.position.x = (i - (keys.length - 1) / 2) * 18;
-          previewGroup.add(m);
+        const rows =
+          lod === 'all'
+            ? [
+                ['near', 14],
+                ['far', -14],
+              ]
+            : [[lod, 0]];
+        rows.forEach(([band, zOffset]) => {
+          keys.forEach((key, i) => {
+            const base = geos[key];
+            const isDead = key === 'swampDeadOak' || key === 'swampSnag';
+            const geo =
+              band === 'far'
+                ? isDead
+                  ? cachedFar(farTrunk, base)
+                  : cachedFar(farCanopy, base)
+                : base;
+            const m = new THREE.Mesh(geo, mat);
+            m.position.set((i - (keys.length - 1) / 2) * 18, 0, zOffset);
+            m.userData.lodBand = band;
+            previewGroup.add(m);
+          });
         });
         break;
       }
@@ -677,9 +885,25 @@ function viewModel(type, e, colorSeed = 0) {
         });
         break;
       }
-      case 'cactus':
-        previewGroup.add(new THREE.Mesh(cactusGeo, cactusMat));
+      case 'cactus': {
+        const bands =
+          lod === 'all'
+            ? [
+                ['near', -6],
+                ['far', 6],
+              ]
+            : [[lod, 0]];
+        bands.forEach(([band, xOffset]) => {
+          const m = new THREE.Mesh(
+            band === 'far' ? cactusFarGeo : cactusGeo,
+            cactusMat
+          );
+          m.position.x = xOffset;
+          m.userData.lodBand = band;
+          previewGroup.add(m);
+        });
         break;
+      }
       case 'ice_hut':
         ICE_HUT_COLORS.forEach((color, i) => {
           const body = new THREE.Mesh(iceHutGeos.body, createMaterial({color}));
@@ -743,20 +967,33 @@ function viewModel(type, e, colorSeed = 0) {
       case 'seal':
         previewGroup.add(new THREE.Mesh(sealGeo, sealMat));
         break;
-      case 'north_barns':
+      case 'north_barns': {
         // The timber barn and the alpine hay barn, walls and roof
         // (farm-models.js)
-        [
-          [timberBarnBodyGeo, timberBarnRoofGeo, -11],
-          [hayBarnBodyGeo, hayBarnRoofGeo, 11],
-        ].forEach(([body, roof, x]) => {
-          for (const geo of [body, roof]) {
-            const m = new THREE.Mesh(geo, barnMat);
-            m.position.x = x;
-            previewGroup.add(m);
-          }
+        const rows =
+          lod === 'all'
+            ? [
+                ['near', 12],
+                ['far', -12],
+              ]
+            : [[lod, 0]];
+        rows.forEach(([band, zOffset]) => {
+          [
+            [timberBarnBodyGeo, timberBarnRoofGeo, -11],
+            [hayBarnBodyGeo, hayBarnRoofGeo, 11],
+          ].forEach(([body, roof, x]) => {
+            const bGeo = band === 'far' ? cachedFar(shadowBox, body) : body;
+            const rGeo = band === 'far' ? cachedFar(shadowGable, roof) : roof;
+            for (const geo of [bGeo, rGeo]) {
+              const m = new THREE.Mesh(geo, barnMat);
+              m.position.set(x, 0, zOffset);
+              m.userData.lodBand = band;
+              previewGroup.add(m);
+            }
+          });
         });
         break;
+      }
       case 'tractors': {
         // Each paint scheme, side by side at the game's scale
         // (farm-models.js)
@@ -771,13 +1008,26 @@ function viewModel(type, e, colorSeed = 0) {
       case 'landmark_towers': {
         // Fire lookout, water tower and windpump side by side at the
         // game's scale (building-models.js)
-        const geos = Object.values(
-          buildLandmarkGeos(['fireLookout', 'waterTower', 'windpump'])
-        );
-        geos.forEach((geo, i) => {
-          const m = new THREE.Mesh(geo, buildingMat);
-          m.position.x = (i - (geos.length - 1) / 2) * 20;
-          previewGroup.add(m);
+        const towerTypes = ['fireLookout', 'waterTower', 'windpump'];
+        const geos = buildLandmarkGeos(towerTypes);
+        const rows =
+          lod === 'all'
+            ? [
+                ['near', 16],
+                ['far', -16],
+              ]
+            : [[lod, 0]];
+        rows.forEach(([band, zOffset]) => {
+          towerTypes.forEach((t, i) => {
+            const base = geos[t];
+            const m = new THREE.Mesh(
+              band === 'far' ? towerFarGeo(t, base) : base,
+              buildingMat
+            );
+            m.position.set((i - (towerTypes.length - 1) / 2) * 20, 0, zOffset);
+            m.userData.lodBand = band;
+            previewGroup.add(m);
+          });
         });
         break;
       }
@@ -936,58 +1186,104 @@ function viewModel(type, e, colorSeed = 0) {
           previewGroup.add(m);
         }
         break;
-      case 'joshua_tree':
-        previewGroup.add(
-          new THREE.Mesh(joshuaGeos.trunk, joshuaTrunkMat),
-          new THREE.Mesh(
-            joshuaGeos.leaves,
+      case 'joshua_tree': {
+        const bands =
+          lod === 'all'
+            ? [
+                ['near', -9],
+                ['far', 9],
+              ]
+            : [[lod, 0]];
+        bands.forEach(([band, xOffset]) => {
+          const trunk = new THREE.Mesh(
+            band === 'far'
+              ? cachedFar(farTrunk, joshuaGeos.trunk)
+              : joshuaGeos.trunk,
+            joshuaTrunkMat
+          );
+          const leaves = new THREE.Mesh(
+            band === 'far'
+              ? cachedFar(farCanopy, joshuaGeos.leaves)
+              : joshuaGeos.leaves,
             createMaterial({color: JOSHUA_LEAF_COLOR})
-          )
-        );
+          );
+          trunk.position.x = xOffset;
+          leaves.position.x = xOffset;
+          trunk.userData.lodBand = band;
+          leaves.userData.lodBand = band;
+          previewGroup.add(trunk, leaves);
+        });
         break;
+      }
       case 'bush': {
-        const variations = [-10, 0, 10];
-        variations.forEach((xOffset, i) => {
+        const bands =
+          lod === 'all'
+            ? [
+                ['near', -7, 0],
+                ['far', 7, 0],
+              ]
+            : [
+                [lod, -10, -0.075],
+                [lod, 0, 0],
+                [lod, 10, 0.075],
+              ];
+        bands.forEach(([band, xOffset, v]) => {
           const colorObj = new THREE.Color(0x558b2f);
-          const v = (i - 1) * 0.075; // -0.075, 0, 0.075
           colorObj.r = Math.max(0, Math.min(1, colorObj.r + v));
           colorObj.g = Math.max(0, Math.min(1, colorObj.g + v));
           colorObj.b = Math.max(0, Math.min(1, colorObj.b + v));
-
           const bMesh = new THREE.Mesh(
-            bushGeo,
+            band === 'far' ? cachedFar(farCanopy, bushGeo) : bushGeo,
             createMaterial({color: colorObj.getHex()})
           );
           bMesh.position.x = xOffset;
+          bMesh.userData.lodBand = band;
           previewGroup.add(bMesh);
         });
         break;
       }
       case 'mushroom': {
-        const variations = [-15, 0, 15];
-        variations.forEach((xOffset, i) => {
-          const stalk = new THREE.Mesh(mushroomGeos.trunk, mushroomStalkMat);
+        const bands =
+          lod === 'all'
+            ? [
+                ['near', -10, 0, 1.2],
+                ['far', 10, 0, 1.2],
+              ]
+            : [
+                [lod, -15, -0.08, 0.8],
+                [lod, 0, 0, 1.2],
+                [lod, 15, 0.08, 1.8],
+              ];
+        bands.forEach(([band, xOffset, v, scale]) => {
+          const stalk = new THREE.Mesh(
+            band === 'far'
+              ? cachedFar(farTrunk, mushroomGeos.trunk)
+              : mushroomGeos.trunk,
+            mushroomStalkMat
+          );
           const capPalettes = [
             0x9c27b0, 0xab47bc, 0x7b1fa2, 0x00bcd4, 0x26a69a, 0xe91e63,
           ];
           const baseHex = capPalettes[colorSeed % capPalettes.length];
           const colorObj = new THREE.Color(baseHex);
-          const v = (i - 1) * 0.08;
           colorObj.r = Math.max(0, Math.min(1, colorObj.r + v));
           colorObj.g = Math.max(0, Math.min(1, colorObj.g + v));
           colorObj.b = Math.max(0, Math.min(1, colorObj.b + v));
 
           const cap = new THREE.Mesh(
-            mushroomGeos.leaves,
+            band === 'far'
+              ? cachedFar(farCanopy, mushroomGeos.leaves)
+              : mushroomGeos.leaves,
             createMaterial({color: colorObj.getHex()})
           );
 
-          const scale = [0.8, 1.2, 1.8][i];
           stalk.scale.set(scale, scale, scale);
           cap.scale.set(scale, scale, scale);
 
           stalk.position.x = xOffset;
           cap.position.x = xOffset;
+          stalk.userData.lodBand = band;
+          cap.userData.lodBand = band;
           previewGroup.add(stalk, cap);
         });
         break;
@@ -1053,9 +1349,27 @@ function viewModel(type, e, colorSeed = 0) {
       case 'snowman':
         previewGroup.add(new THREE.Mesh(snowmanGeo, snowmanMat));
         break;
-      case 'castle':
-        previewGroup.add(new THREE.Mesh(castleRuinsGeo, castleRuinsMat));
+      case 'castle': {
+        const bands =
+          lod === 'all'
+            ? [
+                ['near', -26],
+                ['far', 26],
+              ]
+            : [[lod, 0]];
+        bands.forEach(([band, xOffset]) => {
+          const m = new THREE.Mesh(
+            band === 'far'
+              ? towerFarGeo('castleRuins', castleRuinsGeo)
+              : castleRuinsGeo,
+            castleRuinsMat
+          );
+          m.position.x = xOffset;
+          m.userData.lodBand = band;
+          previewGroup.add(m);
+        });
         break;
+      }
       case 'dragon_skeleton': {
         const colorway = DRAGON_COLORWAYS[colorSeed % DRAGON_COLORWAYS.length];
         previewGroup.add(
@@ -1147,18 +1461,32 @@ function viewModel(type, e, colorSeed = 0) {
   // Update stats
   let vertices = 0;
   let triangles = 0;
+  const bandTris = {near: 0, mid: 0, far: 0};
   previewGroup.traverse((child) => {
     if (child.isMesh) {
       vertices += child.geometry.attributes.position.count;
-      if (child.geometry.index) {
-        triangles += child.geometry.index.count / 3;
-      } else {
-        triangles += child.geometry.attributes.position.count / 3;
+      const t = child.geometry.index
+        ? child.geometry.index.count / 3
+        : child.geometry.attributes.position.count / 3;
+      triangles += t;
+      if (child.userData.lodBand) {
+        bandTris[child.userData.lodBand] += t;
       }
     }
   });
-  document.getElementById('model-stats').innerText =
-    `${Math.round(vertices)} vertices | ${Math.round(triangles)} triangles`;
+  if (lod === 'all' && lodModes) {
+    const parts = [
+      `Near: ${Math.round(bandTris.near)} tris`,
+      ...(THREE_BAND_LOD_TYPES.has(type)
+        ? [`Mid: ${Math.round(bandTris.mid)} tris`]
+        : []),
+      `Far: ${Math.round(bandTris.far)} tris`,
+    ];
+    document.getElementById('model-stats').innerText = parts.join(' | ');
+  } else {
+    document.getElementById('model-stats').innerText =
+      `${Math.round(vertices)} vertices | ${Math.round(triangles)} triangles`;
+  }
 
   // Adjust camera to fit
   const finalBox = new THREE.Box3().setFromObject(previewGroup);
@@ -1232,6 +1560,7 @@ window.addEventListener('hashchange', () => {
 
 // Expose globally before initial load
 window.viewModel = viewModel;
+window.cycleLod = cycleLod;
 window.cycleColors = cycleColors;
 window.toggleGear = toggleGear;
 window.toggleDestruction = toggleDestruction;
