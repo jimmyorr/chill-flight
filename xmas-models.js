@@ -12,7 +12,6 @@ import * as THREE from 'three';
 import {createMaterial} from './constants.js';
 import {POLYFORK_SCALE as S} from './boat-models.js';
 import * as lampPost from './third-party/polyfork/garland-lamp-post-af02f0.mjs';
-import * as roofLights from './third-party/polyfork/roofline-string-light-run-fa1160.mjs';
 import * as yardFir from './third-party/polyfork/front-yard-fir-tree-0a278d.mjs';
 import * as signPost from './third-party/polyfork/north-pole-sign-post-a91f4d.mjs';
 import * as candyCanes from './third-party/polyfork/candy-cane-path-markers-2310e4.mjs';
@@ -177,18 +176,6 @@ function splitAsset(
 const PROPS = {
   xmasLampPost: [lampPost, {colorway: 'village-black'}, S],
   // Hung along a house's eave, its wire at y = 0 (multicolour or warm white)
-  xmasRoofLights: [
-    roofLights,
-    {colorway: 'fir-green', bulbs: 'multicolour'},
-    S,
-    {top: true},
-  ],
-  xmasRoofLightsWarm: [
-    roofLights,
-    {colorway: 'fir-green', bulbs: 'warm-white'},
-    S,
-    {top: true},
-  ],
   xmasFir: [
     yardFir,
     {size: '3.5m', decorations: 'full', lights: 'multicolour'},
@@ -238,6 +225,85 @@ const PROPS = {
     },
   ],
 };
+// The roofline string lights (on the village's lane houses and on most
+// northern village houses: hundreds in view), built here in low poly rather
+// than from the kit's 732-triangle run, which was a fifth of a northern
+// village's triangles. One 14-unit run (the kit's 4 m at S), its wire at
+// y = 0 sagging between three hooks, and 12 bulbs hanging below it: a
+// three-sided wire (72 triangles) and diamond bulbs ('...Glow', 96).
+const LIGHT_RUN = 4 * S;
+const LIGHT_BULBS = 12;
+const LIGHT_SAG = 0.45;
+const LIGHT_WIRE = 0.07;
+const LIGHT_COLORS = {
+  multicolour: ['#ff3b2f', '#2ee860', '#2f9bff', '#ffb300'],
+  warm: ['#ffefc2'],
+};
+function lightRunGeos(bulbs) {
+  const body = [[], []];
+  const glow = [[], []];
+  const tri = (zone, color, a, b, c) => {
+    zone[0].push(...a, ...b, ...c);
+    for (let i = 0; i < 3; i++) zone[1].push(color.r, color.g, color.b);
+  };
+  // The wire's height along the run: swags between hooks at the ends and
+  // a third of the way along
+  const wireY = (x) => {
+    const u = ((x / LIGHT_RUN + 0.5) * 3) % 1;
+    return -LIGHT_SAG * Math.sin(Math.PI * u);
+  };
+  const wire = new THREE.Color('#445121');
+  const steps = 12;
+  const ring = (x) => {
+    const y = wireY(x);
+    return [
+      [x, y, -LIGHT_WIRE],
+      [x, y, LIGHT_WIRE],
+      [x, y - LIGHT_WIRE * 1.7, 0],
+    ];
+  };
+  for (let s = 0; s < steps; s++) {
+    const a = ring(LIGHT_RUN * (s / steps - 0.5));
+    const b = ring(LIGHT_RUN * ((s + 1) / steps - 0.5));
+    for (let k = 0; k < 3; k++) {
+      const k2 = (k + 1) % 3;
+      tri(body, wire, a[k], a[k2], b[k2]);
+      tri(body, wire, a[k], b[k2], b[k]);
+    }
+  }
+  const colors = LIGHT_COLORS[bulbs].map((hex) => new THREE.Color(hex));
+  const r = 0.2;
+  const h = 0.32;
+  for (let i = 0; i < LIGHT_BULBS; i++) {
+    const x = LIGHT_RUN * ((i + 0.5) / LIGHT_BULBS - 0.5);
+    const y = wireY(x) - 0.12 - h;
+    const color = colors[i % colors.length];
+    const top = [x, y + h, 0];
+    const bottom = [x, y - h, 0];
+    const around = [
+      [x + r, y, 0],
+      [x, y, r],
+      [x - r, y, 0],
+      [x, y, -r],
+    ];
+    for (let k = 0; k < 4; k++) {
+      const p = around[k];
+      const q = around[(k + 1) % 4];
+      tri(glow, color, top, q, p);
+      tri(glow, color, bottom, p, q);
+    }
+  }
+  const geo = ([pos, color]) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
+    g.computeVertexNormals();
+    g.computeBoundingSphere();
+    return g;
+  };
+  return {body: geo(body), glow: geo(glow)};
+}
+
 // The types drawn far off too (the big tree and the gingerbread house, one
 // each and big enough to show from a distance), for terrain-chunks.js
 export const XMAS_FAR_TYPES = [
@@ -265,6 +331,14 @@ export function buildXmasGeos() {
       geos[type] = parts.body;
     }
     if (parts.glow) geos[name + 'Glow'] = parts.glow;
+  }
+  for (const [type, bulbs] of [
+    ['xmasRoofLights', 'multicolour'],
+    ['xmasRoofLightsWarm', 'warm'],
+  ]) {
+    const parts = lightRunGeos(bulbs);
+    geos[type] = parts.body;
+    geos[type + 'Glow'] = parts.glow;
   }
   return geos;
 }
