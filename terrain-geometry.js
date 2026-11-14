@@ -3453,9 +3453,9 @@ var smokeShaderInject = (shader, isChimney) => {
     '#include <begin_vertex>',
     `
         #include <begin_vertex>
-        #ifdef USE_INSTANCING_COLOR
-        float particleIndex = instanceColor.r * 10.0;
-        float phase = instanceColor.g * 10.0;
+        #ifdef USE_INSTANCING
+        float particleIndex = float(gl_InstanceID % ${isChimney ? 4 : 5});
+        float phase = mod(instanceMatrix[3][0] + instanceMatrix[3][2], 10.0);
         #else
         float particleIndex = 0.0;
         float phase = 0.0;

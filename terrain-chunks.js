@@ -3924,16 +3924,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       meshProps.push({kind: BREAKABLE.SMALL, parts: fire});
 
       // Smoke community
+      dummy.position.set(pos.x, pos.y + 5, pos.z);
+      dummy.scale.set(1, 1, 1);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
       for (let i = 0; i < 5; i++) {
-        dummy.position.set(pos.x, pos.y + 5, pos.z);
-        dummy.scale.set(1, 1, 1);
-        dummy.rotation.set(0, 0, 0);
-        dummy.updateMatrix();
-        const smokeIdx = index * 5 + i;
-        smokeInst.setMatrixAt(smokeIdx, dummy.matrix);
-
-        const phase = ((pos.x + pos.z) % 10.0) / 10.0;
-        smokeInst.setColorAt(smokeIdx, new THREE.Color(i / 10.0, phase, 0));
+        smokeInst.setMatrixAt(index * 5 + i, dummy.matrix);
       }
 
       // Tent community (kept off the side where a trailer is parked)
@@ -3992,19 +3988,12 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     );
 
     chimneySmokePositions.forEach((pos, index) => {
+      dummy.position.set(pos.x, pos.y, pos.z);
+      dummy.scale.set(1, 1, 1);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
       for (let i = 0; i < 4; i++) {
-        dummy.position.set(pos.x, pos.y, pos.z);
-        dummy.scale.set(1, 1, 1);
-        dummy.rotation.set(0, 0, 0);
-        dummy.updateMatrix();
-        const smokeIdx = index * 4 + i;
-        chimneySmokeInst.setMatrixAt(smokeIdx, dummy.matrix);
-
-        const phase = ((pos.x + pos.z) % 10.0) / 10.0;
-        chimneySmokeInst.setColorAt(
-          smokeIdx,
-          new THREE.Color(i / 10.0, phase, 0)
-        );
+        chimneySmokeInst.setMatrixAt(index * 4 + i, dummy.matrix);
       }
     });
 
