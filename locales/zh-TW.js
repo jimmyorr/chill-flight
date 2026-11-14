@@ -778,4 +778,6 @@ export default {
   'Drag the throttle right to take off': '向右拖曳油門起飛',
   'Press Shift + ↑ or scroll to drive': '按 Shift + ↑ 或捲動滾輪開車',
   'Press Shift + ↑ or scroll to take off': '按 Shift + ↑ 或捲動滾輪起飛',
+  'Triple-tap ← or → and hold': '連按三下 ← 或 → 並按住',
+  'Double-tap ← or → and hold': '雙擊 ← 或 → 並按住',
 };

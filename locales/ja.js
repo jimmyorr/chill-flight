@@ -811,4 +811,6 @@ export default {
   'Drag the throttle right to take off': 'スロットルを右にドラッグして離陸',
   'Press Shift + ↑ or scroll to drive': 'Shift + ↑ かスクロールで発進',
   'Press Shift + ↑ or scroll to take off': 'Shift + ↑ かスクロールで離陸',
+  'Triple-tap ← or → and hold': '← か → を3回タップして長押し',
+  'Double-tap ← or → and hold': '← か → をダブルタップして長押し',
 };

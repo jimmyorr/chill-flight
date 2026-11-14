@@ -833,4 +833,6 @@ export default {
   'Press Shift + ↑ or scroll to drive': 'Premi Maiusc + ↑ o scorri per partire',
   'Press Shift + ↑ or scroll to take off':
     'Premi Maiusc + ↑ o scorri per decollare',
+  'Triple-tap ← or → and hold': 'Tocca ← o → tre volte e tieni premuto',
+  'Double-tap ← or → and hold': 'Tocca ← o → due volte e tieni premuto',
 };

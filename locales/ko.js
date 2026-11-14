@@ -800,4 +800,6 @@ export default {
   'Drag the throttle right to take off': '스로틀을 오른쪽으로 끌어 이륙',
   'Press Shift + ↑ or scroll to drive': 'Shift + ↑ 또는 스크롤로 출발',
   'Press Shift + ↑ or scroll to take off': 'Shift + ↑ 또는 스크롤로 이륙',
+  'Triple-tap ← or → and hold': '← 또는 → 세 번 탭하고 누르기',
+  'Double-tap ← or → and hold': '← 또는 → 두 번 탭하고 누르기',
 };

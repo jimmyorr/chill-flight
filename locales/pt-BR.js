@@ -827,4 +827,6 @@ export default {
   'Press Shift + ↑ or scroll to drive': 'Aperte Shift + ↑ ou role para andar',
   'Press Shift + ↑ or scroll to take off':
     'Aperte Shift + ↑ ou role para decolar',
+  'Triple-tap ← or → and hold': 'Toque ← ou → três vezes e segure',
+  'Double-tap ← or → and hold': 'Toque ← ou → duas vezes e segure',
 };

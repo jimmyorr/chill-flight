@@ -827,4 +827,6 @@ export default {
     'Натисни Shift + ↑ або прокрути, щоб рушити',
   'Press Shift + ↑ or scroll to take off':
     'Натисни Shift + ↑ або прокрути, щоб злетіти',
+  'Triple-tap ← or → and hold': 'Тричі натисни ← або → і тримай',
+  'Double-tap ← or → and hold': 'Двічі натисни ← або → і тримай',
 };

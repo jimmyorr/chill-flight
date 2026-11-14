@@ -108,13 +108,18 @@ export function placeOf(move, invert) {
   return up !== flip ? 'top' : 'bottom';
 }
 
-const KEY = {top: '↑', bottom: '↓', side: '← →'};
+const KEY = {top: '↑', bottom: '↓'};
 
 // How to do it, in words: on a touch screen the screen edge, otherwise the
 // arrow key
 export function howTo(move, {touch, invert}) {
   const place = placeOf(move, invert);
   if (!touch) {
+    if (place === 'side') {
+      return move.taps === 3
+        ? t('Triple-tap ← or → and hold')
+        : t('Double-tap ← or → and hold');
+    }
     const key = KEY[place];
     if (move.taps === 3) {
       return move.hold

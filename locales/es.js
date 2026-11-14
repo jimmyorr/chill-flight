@@ -830,4 +830,6 @@ export default {
     'Pulsa Mayús + ↑ o desplaza para arrancar',
   'Press Shift + ↑ or scroll to take off':
     'Pulsa Mayús + ↑ o desplaza para despegar',
+  'Triple-tap ← or → and hold': 'Toca ← o → tres veces y mantén',
+  'Double-tap ← or → and hold': 'Toca ← o → dos veces y mantén',
 };

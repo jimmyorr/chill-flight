@@ -835,4 +835,6 @@ export default {
     'Umschalt + ↑ oder scrollen zum Losfahren',
   'Press Shift + ↑ or scroll to take off':
     'Umschalt + ↑ oder scrollen zum Abheben',
+  'Triple-tap ← or → and hold': '← oder → dreimal tippen und halten',
+  'Double-tap ← or → and hold': '← oder → doppelt tippen und halten',
 };

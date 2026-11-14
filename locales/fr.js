@@ -836,4 +836,6 @@ export default {
     'Appuie sur Maj + ↑ ou fais défiler pour rouler',
   'Press Shift + ↑ or scroll to take off':
     'Appuie sur Maj + ↑ ou fais défiler pour décoller',
+  'Triple-tap ← or → and hold': 'Touche ← ou → trois fois et maintiens',
+  'Double-tap ← or → and hold': 'Touche ← ou → deux fois et maintiens',
 };
