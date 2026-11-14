@@ -232,6 +232,7 @@ import {
   MAP_WORLD_SIZE,
   MOUNTAIN_LEVEL,
   WATER_LEVEL,
+  createMaterial,
   updateUrlParams,
 } from './constants.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
@@ -397,9 +398,33 @@ function copyScaledMatrices(dstM, dstSlot, srcM, count, share) {
   }
 }
 
+function createLodDebugMat(hex, emissiveHex) {
+  const mat = createMaterial({
+    color: hex,
+    emissive: emissiveHex,
+    roughness: 0.85,
+    metalness: 0.05,
+    flatShading: true,
+    vertexColors: false,
+  });
+  const baseCompile = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, r) => {
+    baseCompile(shader, r);
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      ''
+    );
+  };
+  return mat;
+}
+const lodNearMat = createLodDebugMat(0xff2a85, 0x330519);
+const lodMidMat = createLodDebugMat(0x00e5ff, 0x002933);
+const lodFarMat = createLodDebugMat(0x4b5be8, 0x0a0d2e);
+
 class GlobalInstanceManager {
   constructor() {
     this.types = new Map();
+    this.showLodColors = false;
     this.group = new THREE.Group();
     this.group.name = 'GlobalInstances';
     this.shadowGroup = new THREE.Group();
@@ -464,6 +489,7 @@ class GlobalInstanceManager {
     }
 
     this.types.set(type, {
+      type,
       geo,
       farGeo: geo, // see setFarGeometry
       farShare: null,
@@ -537,19 +563,33 @@ class GlobalInstanceManager {
     }
   }
 
+  _tileMat(typeInfo, tileKey) {
+    if (!this.showLodColors || typeInfo.type === 'townStreet') {
+      return typeInfo.mat;
+    }
+    if (tileKey.endsWith('|far')) return lodFarMat;
+    if (tileKey.endsWith('|close')) return lodNearMat;
+    return lodMidMat;
+  }
+
+  setShowLodColors(enabled) {
+    this.showLodColors = Boolean(enabled);
+    for (const typeInfo of this.types.values()) {
+      for (const [tileKey, mesh] of typeInfo.tiles) {
+        mesh.material = this._tileMat(typeInfo, tileKey);
+      }
+    }
+  }
+
   // Tile mesh for `type` with room for `count` instances, reused if possible.
   _tileMesh(typeInfo, tileKey, tileX, tileZ, count, geo) {
+    const mat = this._tileMat(typeInfo, tileKey);
     let mesh = typeInfo.tiles.get(tileKey);
     if (!mesh || mesh.instanceMatrix.count < count) {
       if (mesh) this.group.remove(mesh);
       // Round capacity up so tiles don't reallocate for every few trees.
       const capacity = Math.max(64, 2 ** Math.ceil(Math.log2(count)));
-      mesh = createTreeInstancedMesh(
-        geo,
-        typeInfo.mat,
-        capacity,
-        typeInfo.useColor
-      );
+      mesh = createTreeInstancedMesh(geo, mat, capacity, typeInfo.useColor);
       mesh.receiveShadow = true;
       mesh.castShadow = false;
       mesh.renderOrder = typeInfo.renderOrder || 0;
@@ -563,8 +603,9 @@ class GlobalInstanceManager {
       );
       typeInfo.tiles.set(tileKey, mesh);
       this.group.add(mesh);
-    } else if (mesh.geometry !== geo) {
-      mesh.geometry = geo;
+    } else {
+      if (mesh.geometry !== geo) mesh.geometry = geo;
+      if (mesh.material !== mat) mesh.material = mat;
     }
     return mesh;
   }
@@ -939,6 +980,10 @@ class GlobalInstanceManager {
 }
 
 export var globalInstancer = new GlobalInstanceManager();
+
+export function setShowLodColors(enabled) {
+  globalInstancer.setShowLodColors(enabled);
+}
 
 // Stops drawing instance `index` of a chunk's instance data (a prop knocked
 // over, breakables.js), now and in later rebuilds: its matrix is zeroed in

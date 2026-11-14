@@ -42,6 +42,7 @@ import {
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
   clearAllChunks,
+  setShowLodColors,
   toggleProceduralObjects,
   updateChunks,
 } from './terrain-chunks.js';
@@ -322,6 +323,20 @@ export function initDebugUI() {
     chunkBordersToggle.addEventListener('change', (e) => {
       showChunkBorders = e.target.checked;
       syncChunkBorders();
+    });
+  }
+
+  const lodColorsToggle = document.getElementById('debug-lod-colors-toggle');
+  const startLodColors =
+    typeof window !== 'undefined' &&
+    /^(1|true|on)$/i.test(
+      new URLSearchParams(window.location.search).get('lodColors') || ''
+    );
+  if (startLodColors) setShowLodColors(true);
+  if (lodColorsToggle) {
+    lodColorsToggle.checked = startLodColors;
+    lodColorsToggle.addEventListener('change', (e) => {
+      setShowLodColors(e.target.checked);
     });
   }
 
