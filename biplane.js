@@ -25,9 +25,18 @@ function reverseWinding(geo) {
   }
 }
 
-function collectStaticMeshes(node, keepSet, byMaterial, toRemove) {
+// `piece`: which of the merged group's own children this mesh was under (its
+// wreck piece in a crash, crash.js)
+function collectStaticMeshes(
+  node,
+  keepSet,
+  byMaterial,
+  toRemove,
+  piece = null
+) {
   for (const child of node.children) {
     if (keepSet && keepSet.has(child)) continue;
+    const childPiece = piece ?? pieceIdOf(child);
     if (child.isMesh) {
       _relMat.multiplyMatrices(_groupInv, child.matrixWorld);
       const geo = child.geometry.index
@@ -41,13 +50,15 @@ function collectStaticMeshes(node, keepSet, byMaterial, toRemove) {
           geos: [],
           castShadow: child.castShadow,
           receiveShadow: child.receiveShadow,
+          pieces: [],
         };
         byMaterial.set(child.material, entry);
       }
       entry.geos.push(geo);
+      entry.pieces.push(childPiece);
       toRemove.push(child);
     } else {
-      collectStaticMeshes(child, keepSet, byMaterial, toRemove);
+      collectStaticMeshes(child, keepSet, byMaterial, toRemove, childPiece);
     }
   }
 }
@@ -63,8 +74,19 @@ function pruneEmptyGroups(node, keepSet) {
   }
 }
 
+let _nextPieceId = 1;
+// A part's wreck piece id, given to each of the merged group's own children
+// before merging (a child that survives, holding a kept subtree such as a
+// twin's nacelle with its propeller, keeps it too)
+function pieceIdOf(child) {
+  return (child.userData.wreckPiece ??= _nextPieceId++);
+}
+
 // Merges non-animating meshes under `group` into one mesh per material with
 // transforms baked relative to `group`, leaving subtrees in `keepSet` intact.
+// Each merged mesh lists, in userData.wreckRanges, which run of its vertices
+// came from which of the group's children, so a crash can still break the
+// plane into its parts (crash.js).
 export function mergeStaticMeshes(group, keepSet = null) {
   group.updateMatrixWorld(true);
   _groupInv.copy(group.matrixWorld).invert();
@@ -75,11 +97,22 @@ export function mergeStaticMeshes(group, keepSet = null) {
     mesh.parent.remove(mesh);
   }
   pruneEmptyGroups(group, keepSet);
-  for (const [material, {geos, castShadow, receiveShadow}] of byMaterial) {
+  for (const [material, entry] of byMaterial) {
+    const {geos, castShadow, receiveShadow, pieces} = entry;
+    const wreckRanges = [];
+    let start = 0;
+    geos.forEach((geo, i) => {
+      const count = geo.attributes.position.count;
+      const last = wreckRanges[wreckRanges.length - 1];
+      if (last && last.piece === pieces[i]) last.count += count;
+      else wreckRanges.push({piece: pieces[i], start, count});
+      start += count;
+    });
     const merged = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
     const mesh = new THREE.Mesh(merged, material);
     mesh.castShadow = castShadow;
     mesh.receiveShadow = receiveShadow;
+    mesh.userData.wreckRanges = wreckRanges;
     group.add(mesh);
     if (geos.length > 1) {
       for (const geo of geos) geo.dispose();

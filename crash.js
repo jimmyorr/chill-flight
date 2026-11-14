@@ -75,10 +75,16 @@ const _shotChase = {
 let seq = null;
 const wreckPieces = [];
 
+// Removes a wreck piece, freeing the geometry cut for it (see wreckPieceGroups)
+function removeWreckPiece(piece) {
+  scene.remove(piece.mesh);
+  piece.mesh.traverse((o) => {
+    if (o.userData.wreckSlice) o.geometry.dispose();
+  });
+}
+
 function clearWreckPieces() {
-  for (const piece of wreckPieces) {
-    scene.remove(piece.mesh);
-  }
+  for (const piece of wreckPieces) removeWreckPiece(piece);
   wreckPieces.length = 0;
 }
 
@@ -99,23 +105,78 @@ function rand(lo, hi) {
   return lo + Math.random() * (hi - lo);
 }
 
-// Clones a plane model's visible parts at its current world pose into tumbling
-// wreck pieces that fly apart and bounce on the ground or water
+// The vertices `start` to `start + count` of a merged (non-indexed) geometry,
+// as a geometry of their own
+function sliceGeometry(geo, start, count) {
+  const out = new THREE.BufferGeometry();
+  for (const [name, attr] of Object.entries(geo.attributes)) {
+    const n = attr.itemSize;
+    out.setAttribute(
+      name,
+      new THREE.BufferAttribute(
+        attr.array.slice(start * n, (start + count) * n),
+        n,
+        attr.normalized
+      )
+    );
+  }
+  return out;
+}
+
+// A plane model's visible parts as wreck pieces, in the model's space. A plane
+// draws its fixed parts as one mesh per material (mergeStaticMeshes,
+// biplane.js), so those are cut back into the parts they were built from
+// (wing, strut, wheel...), each with whatever else of that part is still its
+// own object (a nacelle's propeller and gear).
+function wreckPieceGroups(model) {
+  const pieces = new Map();
+  const pieceFor = (id) => {
+    let piece = pieces.get(id);
+    if (!piece) {
+      piece = new THREE.Group();
+      pieces.set(id, piece);
+    }
+    return piece;
+  };
+  for (const child of model.children) {
+    if (!child.visible) continue;
+    const ranges = child.isMesh && child.userData.wreckRanges;
+    if (!ranges) {
+      pieceFor(child.userData.wreckPiece ?? child).add(child.clone());
+      continue;
+    }
+    for (const {piece, start, count} of ranges) {
+      const mesh = new THREE.Mesh(
+        sliceGeometry(child.geometry, start, count),
+        child.material
+      );
+      mesh.matrix.copy(child.matrix);
+      mesh.matrix.decompose(mesh.position, mesh.quaternion, mesh.scale);
+      mesh.castShadow = child.castShadow;
+      mesh.receiveShadow = child.receiveShadow;
+      mesh.userData.wreckSlice = true;
+      pieceFor(piece).add(mesh);
+    }
+  }
+  return [...pieces.values()];
+}
+
+// Breaks a plane model's visible parts, at its current world pose, into
+// tumbling wreck pieces that fly apart and bounce on the ground or water
 function spawnModelWreck(model, group, wreckPos, heading) {
   if (!model || !group) return;
   group.updateMatrixWorld(true);
   const fx = -Math.sin(heading);
   const fz = -Math.cos(heading);
 
-  for (const child of model.children) {
-    if (!child.visible) continue;
-    const clone = child.clone();
+  for (const clone of wreckPieceGroups(model)) {
     clone.matrixAutoUpdate = false;
-    const m0 = child.matrixWorld.toArray([]);
+    const m0 = model.matrixWorld.toArray([]);
     clone.matrix.fromArray(m0);
+    clone.updateMatrixWorld(true);
     scene.add(clone);
 
-    _box.setFromObject(child);
+    _box.setFromObject(clone);
     if (_box.isEmpty()) _center.copy(wreckPos);
     else _box.getCenter(_center);
 
@@ -168,7 +229,7 @@ function stepWreckPieces(dt) {
     const p = wreckPieces[i];
     p.ttl -= dt;
     if (p.ttl <= 0) {
-      scene.remove(p.mesh);
+      removeWreckPiece(p);
       wreckPieces.splice(i, 1);
       continue;
     }
