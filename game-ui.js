@@ -92,6 +92,11 @@ export function toggleAutopilot(forceState) {
       flightStatusEl.textContent = 'Chill-Flight';
       flightStatusEl.style.color = ''; // Reset to default CSS color
     }
+    // Phones on their side show the line only for AUTOPILOT (style.css)
+    flightStatusEl.parentElement?.classList.toggle(
+      'autopilot',
+      state.autopilotEnabled
+    );
   }
 
   const centerMsg =
