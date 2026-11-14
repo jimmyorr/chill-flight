@@ -178,6 +178,8 @@ inputManager.onTripleTap = (action) => {
   const downAction = state.invertYAxis ? 'ArrowUp' : 'ArrowDown';
   if (
     action === downAction &&
+    // (The two-thumb scheme has no tap moves; its keys roll and pull)
+    state.currentControlScheme !== 'twothumbs' &&
     !state.isDoingImmelmann &&
     !state.isLooping &&
     !state.isOnGround &&

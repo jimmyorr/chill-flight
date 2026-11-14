@@ -161,6 +161,14 @@ import {updateSfxEvents} from './sfx-events.js';
 import {updateHaptics} from './haptics.js';
 import {Achievements} from './achievements.js';
 import {scriptedFlight} from './promo-script.js';
+import {
+  resetTwoThumbFlight,
+  twoThumbInput,
+  twoThumbsFlying,
+  updateTwoThumbFlight,
+  updateTwoThumbHud,
+} from './two-thumbs.js';
+import {thumbResponse} from './two-thumb-logic.js';
 import {t} from './i18n.js';
 
 let scriptedStartYaw = 0;
@@ -365,6 +373,7 @@ function performFrame(timestamp) {
   updateSfxEvents(delta, precipitation.rain);
   updateHaptics(delta);
   updateThrottle(now);
+  updateTwoThumbHud(delta);
 
   if (state.isPaused) {
     const loadingOverlay = getCachedElement('loading-overlay');
@@ -1022,6 +1031,79 @@ function stickResponse(v) {
   return Math.sign(v) * ((1 - STICK_CURVE) * u + STICK_CURVE * u * u * u);
 }
 
+// Whether a thumb (or key) of the two-thumb scheme is steering on purpose
+function twoThumbSteer() {
+  if (!twoThumbsFlying() || state.isFreeCamera) return false;
+  const input = twoThumbInput();
+  return (
+    (input.rollHeld && thumbResponse(input.roll) !== 0) ||
+    (input.pullHeld && thumbResponse(input.pull) !== 0)
+  );
+}
+
+let twoThumbsWereFlying = false;
+
+// A frame of the two-thumb scheme, in place of the rest of
+// updatePhysicsAndControls
+function flyTwoThumbs(delta) {
+  if (!twoThumbsWereFlying) resetTwoThumbFlight();
+  twoThumbsWereFlying = true;
+  // The tap moves and the stick's own easing start afresh after it
+  sharpTurnRamp = 0;
+  sharpTurnAmount = 0;
+  state.sharpTurnAmount = 0;
+  state.manualPitch = 0;
+  barrelRollDir = 0;
+  barrelRollRate = 0;
+  manualPitchVel = 0;
+  manualPitchActive = false;
+  lastPitchMode = 0;
+  loopActive = false;
+  loopRecovering = false;
+  rollRate = 0;
+
+  const handling = planeHandling();
+  const kts = BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
+  // Taxiing, the roll thumb steers (as the stick does)
+  if (
+    (state.isOnGround || state.isOnWater) &&
+    state.flightSpeedMultiplier < 0.4
+  ) {
+    const input = twoThumbInput();
+    if (input.rollHeld) {
+      planeGroup.rotation.y -= thumbResponse(input.roll) * 1.5 * delta;
+    }
+  }
+  // The same climb limits as the stick's: easing to level near the top of
+  // the sky, and shallower when slow. At speed there is none, so the plane
+  // can be pulled right over in a loop
+  const maxClimb = Math.min(
+    MAX_CLIMB_ANGLE *
+      (1 -
+        THREE.MathUtils.smoothstep(
+          planeGroup.position.y,
+          MAX_FLIGHT_HEIGHT - CEILING_EASE,
+          MAX_FLIGHT_HEIGHT
+        )),
+    handling.stallKts > 0
+      ? THREE.MathUtils.lerp(
+          SLOW_CLIMB_ANGLE,
+          MAX_CLIMB_ANGLE,
+          THREE.MathUtils.smoothstep(kts, handling.stallKts, handling.levelKts)
+        )
+      : MAX_CLIMB_ANGLE
+  );
+  updateTwoThumbFlight(delta, {
+    kts,
+    climbLimit: maxClimb < MAX_CLIMB_ANGLE - 0.01 ? maxClimb : Infinity,
+    turnScale: THREE.MathUtils.lerp(
+      1,
+      TURN_FAST_SCALE,
+      THREE.MathUtils.smoothstep(kts, TURN_FADE_FROM_KTS, TURN_FADE_TO_KTS)
+    ),
+  });
+}
+
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller: the engine drives it while the plane moves or the
   // throttle is open, and with the engine off it coasts down, catches on
@@ -1098,7 +1180,8 @@ function updatePhysicsAndControls(delta, nowTime) {
       isLeft ||
       isRight ||
       inAirGripRoll !== 0 ||
-      deliberateSteer())
+      deliberateSteer() ||
+      twoThumbSteer())
   ) {
     toggleAutopilot();
   }
@@ -1185,6 +1268,22 @@ function updatePhysicsAndControls(delta, nowTime) {
   state.isDoingFullLoop = false;
 
   state.manualRollSpeed = planeHandling().rollRate;
+
+  // The two-thumb scheme flies the plane its own way (two-thumbs.js): the
+  // thumbs roll it and pull its nose, in place of the stick's bank and
+  // pitch and the tap moves below. A promo clip and the autopilot still
+  // take over as usual
+  if (
+    twoThumbsFlying() &&
+    !state.isFreeCamera &&
+    !state.scriptedFlight &&
+    !state.autopilotEnabled &&
+    !state.isDoingImmelmann
+  ) {
+    flyTwoThumbs(delta);
+    return;
+  }
+  twoThumbsWereFlying = false;
 
   // A promo clip's scripted attitude takes over from the controls, the
   // autopilot and the manual maneuvers below (see promo-script.js)

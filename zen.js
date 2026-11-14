@@ -26,8 +26,13 @@ let waiting = false;
 function showHint() {
   if (!hint) return;
   const isTouch = window.matchMedia('(any-pointer: coarse)').matches;
+  // (The two-thumb scheme keeps its double tap at the top, clear of thumbs)
+  const topTap =
+    state.currentControlScheme === 'twothumbs' && !state.airplaneModel?.isBuggy;
   hint.innerHTML = isTouch
-    ? t('Double-tap center to exit zen')
+    ? topTap
+      ? t('Double-tap the top to exit zen')
+      : t('Double-tap center to exit zen')
     : t('Press <b>Z</b> to exit zen');
   // Restart the animation
   hint.classList.remove('show');

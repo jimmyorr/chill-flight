@@ -175,6 +175,11 @@ export default {
   Touch: 'Tocco',
   Joystick: 'Joystick',
   Gyro: 'Giroscopio',
+  'Two thumbs': 'Due pollici',
+  Roll: 'Rollio',
+  Pull: 'Tira',
+  'Double-tap the top to exit zen':
+    'Tocca due volte in alto per uscire dalla modalità zen',
   'Invert y axis': 'Inverti asse Y',
   'Push up to dive, like a flight stick':
     'Spingi in su per picchiare, come una cloche',

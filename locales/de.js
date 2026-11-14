@@ -176,6 +176,10 @@ export default {
   Touch: 'Touch',
   Joystick: 'Joystick',
   Gyro: 'Gyro',
+  'Two thumbs': 'Zwei Daumen',
+  Roll: 'Rollen',
+  Pull: 'Ziehen',
+  'Double-tap the top to exit zen': 'Doppelt oben tippen, um Zen zu beenden',
   'Invert y axis': 'Y-Achse umkehren',
   'Push up to dive, like a flight stick':
     'Nach oben drücken zum Sinken, wie ein Steuerknüppel',
