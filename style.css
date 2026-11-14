@@ -3950,3 +3950,61 @@ body.ui-hidden > canvas {
     max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 110px);
   }
 }
+
+/* Phones on their side: the pause menu was taller than the screen (tabs and
+   the bottom buttons off the edges, nothing to scroll). Two columns instead:
+   the tabs over a panel that scrolls on the left, Resume and the buttons on
+   the right. */
+@media (orientation: landscape) and (max-height: 500px) {
+  #pause-overlay .customization-box {
+    display: grid;
+    grid-template-columns: 280px 210px;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    column-gap: 22px;
+    row-gap: 10px;
+    width: auto;
+    max-height: calc(
+      100dvh - 16px - env(safe-area-inset-top, 0px) -
+        env(safe-area-inset-bottom, 0px)
+    );
+    margin-bottom: 0;
+    padding: 14px 18px;
+    box-sizing: border-box;
+    /* Over the overlay's bottom fade */
+    position: relative;
+    z-index: 2;
+  }
+
+  #pause-overlay .pause-tabs {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  #pause-overlay .pause-panels {
+    grid-column: 1;
+    grid-row: 2 / span 3;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+  }
+
+  #pause-overlay .customization-footer {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  #pause-overlay .pause-credit {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  #pause-overlay .pause-footer {
+    grid-column: 2;
+    grid-row: 4;
+  }
+}
