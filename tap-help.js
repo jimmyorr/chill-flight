@@ -32,6 +32,8 @@ import {
 const FIRST_HINT_S = 150;
 const HINT_GAP_S = 300;
 const CALM_S = 15;
+// ...and after switching vehicle, before that vehicle's first hint
+const SWITCH_HINT_S = 120;
 const HINTS_PER_VISIT = 3;
 // A move hinted this many times without being done isn't hinted again
 const SHOWS_PER_MOVE = 3;
@@ -229,6 +231,7 @@ function nextMove() {
 
 let playSeconds = 0;
 let calmSeconds = 0;
+let lastVehicle = null;
 let nextHintAt = FIRST_HINT_S;
 const hintedThisVisit = new Set();
 let practiceWaiting = null;
@@ -242,8 +245,20 @@ setInterval(() => {
     return;
   }
   if (current?.practice && state.isPaused) stopHint();
-  if (state.isPaused || document.hidden) return;
+  // Calm has to be unbroken: a pause (to switch vehicle, say) starts it over
+  if (state.isPaused || document.hidden) {
+    calmSeconds = 0;
+    return;
+  }
   playSeconds += TICK_S;
+  // A vehicle just switched to gets a while to drive before its first hint,
+  // like the start of a visit
+  const vehicle = vehicleNow();
+  if (vehicle !== lastVehicle) {
+    if (lastVehicle)
+      nextHintAt = Math.max(nextHintAt, playSeconds + SWITCH_HINT_S);
+    lastVehicle = vehicle;
+  }
   if (checkStuck()) return;
   calmSeconds = calm() ? calmSeconds + TICK_S : 0;
   if (
