@@ -153,7 +153,9 @@ const VERTEX_MAIN = `
   float gOverR = groundCol.g / max(groundCol.r, 1e-3);
   float wheat = smoothstep(0.22, 0.32, min(groundCol.r, groundCol.g) - groundCol.b)
               * smoothstep(0.75, 0.82, gOverR) * smoothstep(1.16, 1.1, gOverR);
-  float grass = smoothstep(0.015, 0.06, groundCol.g - max(groundCol.r, groundCol.b)) * (1.0 - wheat);
+  float grass = smoothstep(0.015, 0.06, groundCol.g - max(groundCol.r, groundCol.b))
+              * smoothstep(0.08, 0.14, groundCol.g - groundCol.b)
+              * (1.0 - wheat);
   float density = 1.0;
   density *= step(${(WATER_LEVEL + 1.5).toFixed(1)}, ground.x);
   density *= smoothstep(0.62, 0.8, groundN.y);
@@ -523,7 +525,13 @@ export function updateGrass(delta) {
 
   const cam = camera.getWorldPosition(_cam);
   const camAgl = cam.y - Math.max(getElevation(cam.x, cam.z), WATER_LEVEL);
-  const fade = 1 - THREE.MathUtils.smoothstep(camAgl, FADE_LOW, FADE_HIGH);
+  const snow = ChillFlightLogic.snowFactorAt(
+    cam.z,
+    ChillFlightLogic.snowNoiseShift(cam.x, cam.z, simplex)
+  );
+  const fade =
+    (1 - THREE.MathUtils.smoothstep(camAgl, FADE_LOW, FADE_HIGH)) *
+    (1 - THREE.MathUtils.smoothstep(snow, 0.05, 0.25));
   uniforms.uGrassFade.value = fade;
   mesh.visible = fade > 0;
   if (!mesh.visible) {

@@ -127,8 +127,20 @@ function rand() {
 // or null.
 function groundAt(x, z) {
   if (!sampleGroundColor(x, z, _color)) return null;
+  if (
+    ChillFlightLogic.snowFactorAt(
+      z,
+      ChillFlightLogic.snowNoiseShift(x, z, simplex)
+    ) > 0.15
+  ) {
+    return null;
+  }
   const swamp = ChillFlightLogic.swampFactorAt(x, z, simplex);
-  if (swamp <= 0.25 && _color.g - Math.max(_color.r, _color.b) < 0.015) {
+  if (
+    swamp <= 0.25 &&
+    (_color.g - Math.max(_color.r, _color.b) < 0.015 ||
+      _color.g - _color.b < 0.08)
+  ) {
     return null;
   }
   const y = getElevation(x, z);
@@ -203,12 +215,17 @@ function build(preset) {
 }
 
 // How many are out: none by day, the most from dusk into the evening,
-// fewer in the small hours, none in rain or snow
-function amountNow() {
+// fewer in the small hours, none in rain or snow or over snowy ground
+function amountNow(x, z) {
   const night = THREE.MathUtils.clamp((0.5 - state.dayFactor) / 0.35, 0, 1);
   const late = 1 - 0.5 * THREE.MathUtils.smoothstep(-state.sunY, 0.55, 0.9);
   const dry = 1 - Math.min(1, (precipitation.rain + precipitation.snow) * 3);
-  return night * late * dry;
+  const snow = ChillFlightLogic.snowFactorAt(
+    z,
+    ChillFlightLogic.snowNoiseShift(x, z, simplex)
+  );
+  const warm = 1 - THREE.MathUtils.smoothstep(snow, 0.05, 0.25);
+  return night * late * dry * warm;
 }
 
 export function updateFireflies() {
@@ -228,7 +245,8 @@ export function updateFireflies() {
   camera.getWorldPosition(_cam);
   const camAgl = _cam.y - Math.max(getElevation(_cam.x, _cam.z), WATER_LEVEL);
   const amount =
-    amountNow() * (1 - THREE.MathUtils.smoothstep(camAgl, FADE_LOW, FADE_HIGH));
+    amountNow(_cam.x, _cam.z) *
+    (1 - THREE.MathUtils.smoothstep(camAgl, FADE_LOW, FADE_HIGH));
   uniforms.uAmount.value = amount;
   points.visible = amount > 0.01;
   if (!points.visible) return;
