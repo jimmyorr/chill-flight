@@ -486,12 +486,12 @@ function renderZones() {
   );
 }
 
-function renderList() {
+function renderList(vehicle = helpVehicle) {
   if (!listEl) return;
   const touch = isTouch();
-  const here = helpVehicle === vehicleNow();
+  const here = vehicle === vehicleNow();
   listEl.replaceChildren(
-    ...MOVES.filter((m) => m.vehicle === helpVehicle).map((move) => {
+    ...MOVES.filter((m) => m.vehicle === vehicle).map((move) => {
       const row = document.createElement('div');
       row.className = 'help-move';
       const text = document.createElement('div');
@@ -527,7 +527,19 @@ function render() {
     btn.classList.toggle('active', btn.dataset.vehicle === helpVehicle);
   }
   renderZones();
+  // The list keeps the height of the longest one (the plane's), so the
+  // dialog doesn't change size and move its buttons when switching vehicle
+  if (listEl) {
+    listEl.style.minHeight = '';
+    renderList(longestListVehicle());
+    listEl.style.minHeight = `${listEl.offsetHeight}px`;
+  }
   renderList();
+}
+
+function longestListVehicle() {
+  const count = (v) => MOVES.filter((m) => m.vehicle === v).length;
+  return count('plane') >= count('buggy') ? 'plane' : 'buggy';
 }
 
 function closeHelp() {
@@ -546,9 +558,10 @@ function practice(id) {
 
 openBtn?.addEventListener('click', () => {
   helpVehicle = vehicleNow();
+  // Shown first, so render() can measure the list
+  if (overlay) overlay.style.display = 'flex';
   render();
   trackScreen('help');
-  if (overlay) overlay.style.display = 'flex';
 });
 closeBtn?.addEventListener('click', closeHelp);
 overlay?.addEventListener('click', (e) => {
