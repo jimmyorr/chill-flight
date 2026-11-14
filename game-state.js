@@ -88,6 +88,10 @@ window.addEventListener(
       (typeof state.isFreeCamera !== 'undefined' && state.isFreeCamera)
     )
       return;
+    // Scrolling inside the debug panel shouldn't change throttle speed
+    if (e.target && typeof e.target.closest === 'function') {
+      if (e.target.closest('#debug-menu')) return;
+    }
     // A trackpad pinch zooms the camera instead (input-manager.js)
     if (e.ctrlKey) return;
 

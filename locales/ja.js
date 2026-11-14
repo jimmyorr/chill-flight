@@ -813,4 +813,8 @@ export default {
   'Press Shift + ↑ or scroll to take off': 'Shift + ↑ かスクロールで離陸',
   'Triple-tap ← or → and hold': '← か → を3回タップして長押し',
   'Double-tap ← or → and hold': '← か → をダブルタップして長押し',
+  'Music mode': '音楽モード',
+  'By album or how you fly': 'アルバム順か飛び方に合わせる',
+  'By album': 'アルバム順',
+  'Flight vibe': 'フライト連動',
 };

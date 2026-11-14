@@ -829,4 +829,8 @@ export default {
     'Натисни Shift + ↑ або прокрути, щоб злетіти',
   'Triple-tap ← or → and hold': 'Тричі натисни ← або → і тримай',
   'Double-tap ← or → and hold': 'Двічі натисни ← або → і тримай',
+  'Music mode': 'Режим музики',
+  'By album or how you fly': 'За альбомом або польотом',
+  'By album': 'За альбомом',
+  'Flight vibe': 'Ритм польоту',
 };

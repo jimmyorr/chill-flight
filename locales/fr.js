@@ -838,4 +838,8 @@ export default {
     'Appuie sur Maj + ↑ ou fais défiler pour décoller',
   'Triple-tap ← or → and hold': 'Touche ← ou → trois fois et maintiens',
   'Double-tap ← or → and hold': 'Touche ← ou → deux fois et maintiens',
+  'Music mode': 'Mode musical',
+  'By album or how you fly': 'Par album ou selon votre vol',
+  'By album': 'Par album',
+  'Flight vibe': 'Ambiance de vol',
 };

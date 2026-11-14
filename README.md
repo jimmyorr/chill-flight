@@ -36,7 +36,11 @@ The moon map is from NASA / GSFC Scientific Visualization Studio, CGI Moon Kit (
 
 ## Music
 
-In-game radio features tracks by Purrple Cat (Used with permission/attribution).
+In-game radio features 314 CC BY 4.0 tracks across 31 records by Purrple Cat (`freelofi.com` / `purr.to`, used with attribution).
+
+- **First play & offline fallback:** First-time players start on the bundled track (`Birds of a Feather` in `assets/purrple-cat-birds-of-a-feather.mp3`), which plays immediately with no network required and also serves as the fallback if a remote stream stalls or the device is offline.
+- **Album rotation (`By album`, default):** Returning players start on a featured album paired with that day's scenic spawn corridor (`Falls`, `Volcano`, `Lighthouse`, `Canyon`, `Pyramids`, `Skeleton`, `Swamp`, or `Rock Arch`) and rotated weekly across 4 albums per corridor (`dailyAlbumForSeed` in `music-logic.js`). Tracks play in album order, and your track progress per album is saved in `localStorage` (`chill_flight_album_progress`) so later sessions pick up on the next unplayed track and wrap back to track 1 after finishing the record.
+- **Adaptive flight energy (`Flight vibe`):** An optional mode in **Settings -> Music mode** (or `?musicMode=vibe`) that scores each next track against your smoothed flight energy and tempo (`computeFlightEnergy` and `nextTrackIndex` in `music-logic.js`, using track energy, BPM, and valence from `purr.to/sim.json`): calm, lower-BPM tracks when parked or gliding gently in the biplane, and higher-BPM, more energetic tracks when flying fast in the twin or jet, carving sharp turns, or performing aerobatics.
 
 Music plays at half volume, about where background music usually sits in a game (the tracks are mastered at streaming loudness), and drops lower while paused (`MUSIC_VOLUME` in `audio.js`). iOS ignores web audio volume, so on iPhone and iPad it plays at full volume.
 
@@ -659,6 +663,8 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`start`**: Set to `1` to skip the title screen and start flying as soon as the game loads.
 - **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus and debug panels), for clean screenshots and recordings. The keyboard controls still work.
 - **`music`**: Set to `0` or `1` to turn music off or on for this visit, without changing the saved setting.
+- **`musicMode`**: Set to `album` (play sequentially by album) or `vibe` (match next track energy and BPM to how you fly) for this visit.
+- **`album`**: Start on a specific Purrple Cat album by slug or name (e.g., `album=endless-forest`, `album=dino-land`, `album=cypress-manor`).
 - **`hints`**: Set to `0` to turn off the tap-move hints in the sky for this visit, whatever the Disable hints setting says (see [Tap help](#tap-help)). The smoke test, screenshot and promo scripts pass it, and `ui=0` turns them off too.
 - **`sfx`**: Set to `0` or `1` to turn sound effects off or on for this visit, without changing the saved setting.
 - **`traffic`**: Set to `0` or `1` to turn the other planes and the highway vehicles off or on for this visit, whether or not zen is on; `0` also turns off moving wildlife (whales, dolphins, flying birds and fireflies), while zen mode keeps the wildlife. Promo renders, screenshots and render audits use `0`, so their shots and counts are the same every time.

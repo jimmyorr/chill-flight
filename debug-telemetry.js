@@ -29,12 +29,13 @@ import {
 import {trafficCount} from './traffic.js';
 import {roadCarCount} from './road-traffic.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {updateDebugMusicTelemetry} from './game-audio-integration.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
 
 const REFRESH_MS = 250;
 const STORAGE_KEY = 'chill_flight_debug_panel';
-const TABS = ['live', 'perf', 'things', 'settings'];
+const TABS = ['live', 'perf', 'things', 'music', 'settings'];
 const TOP_DRAWN = 10;
 
 const panel =
@@ -88,6 +89,7 @@ function showPanelState() {
   panel.querySelectorAll('.dbg-body').forEach((body) => {
     body.classList.toggle('active', body.dataset.tab === activeTab);
   });
+  if (activeTab === 'music') updateDebugMusicTelemetry();
   lastRefresh = 0; // fill the newly shown tab straight away
 }
 
@@ -490,5 +492,6 @@ export function updateDebugTelemetry(frame) {
   if (activeTab === 'live') updateLive(frame);
   else if (activeTab === 'perf') updatePerf(avgCalls, avgTris, avgCpu);
   else if (activeTab === 'things') updateThings();
+  else if (activeTab === 'music') updateDebugMusicTelemetry();
   else updateSettings();
 }

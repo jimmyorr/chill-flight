@@ -232,6 +232,16 @@
                 <option value="zh-TW" data-no-translate>繁體中文</option>
               </select>
             </div>
+            <div class="pause-row">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Music mode</span>
+                <span class="pause-row-sub">By album or how you fly</span>
+              </span>
+              <select id="music-mode-select" class="customization-input">
+                <option value="album" selected>By album</option>
+                <option value="vibe">Flight vibe</option>
+              </select>
+            </div>
             <!-- Shown on touch devices (game-gyro.js) -->
             <div id="control-scheme-toggle" style="display: none">
               <span class="pause-row-text">
@@ -1051,6 +1061,9 @@
         <button type="button" role="tab" class="dbg-tab" data-tab="things">
           Things
         </button>
+        <button type="button" role="tab" class="dbg-tab" data-tab="music">
+          Music
+        </button>
         <button type="button" role="tab" class="dbg-tab" data-tab="settings">
           Settings
         </button>
@@ -1147,6 +1160,132 @@
         </dl>
         <div class="dbg-sec">Landmarks (in prop range / loaded)</div>
         <dl class="dbg-rows" id="debug-landmarks"></dl>
+      </div>
+      <div class="dbg-body" data-tab="music">
+        <div
+          style="
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 8px;
+          "
+        >
+          <img
+            id="debug-album-art"
+            width="64"
+            height="64"
+            loading="lazy"
+            alt="Album cover"
+            style="
+              width: 64px;
+              height: 64px;
+              border-radius: 6px;
+              object-fit: cover;
+              background: rgba(255, 255, 255, 0.08);
+              flex-shrink: 0;
+            "
+          />
+          <div style="flex: 1; min-width: 0">
+            <div
+              id="debug-track-title"
+              style="
+                font-size: 13px;
+                font-weight: 600;
+                color: #fff;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              "
+            >
+              -
+            </div>
+            <div
+              id="debug-album-subtitle"
+              style="
+                font-size: 11px;
+                color: #9aa6b4;
+                margin-top: 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              "
+            >
+              -
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 6px">
+              <button
+                type="button"
+                id="debug-track-prev"
+                class="customization-input"
+                title="Previous track"
+                style="
+                  width: auto;
+                  height: 24px;
+                  padding: 0 10px;
+                  font-size: 11px;
+                  cursor: pointer;
+                "
+              >
+                ◀ Prev
+              </button>
+              <button
+                type="button"
+                id="debug-track-next"
+                class="customization-input"
+                title="Next track"
+                style="
+                  width: auto;
+                  height: 24px;
+                  padding: 0 10px;
+                  font-size: 11px;
+                  cursor: pointer;
+                "
+              >
+                Next ▶
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="debug-section">
+          <div style="font-size: 11px; margin-bottom: 2px">Album:</div>
+          <select
+            id="debug-album-select"
+            class="customization-input"
+            style="
+              width: 100%;
+              height: 28px;
+              padding: 2px 26px 2px 8px;
+              font-size: 12px;
+              margin-bottom: 6px;
+            "
+          >
+            <option value="birds-of-a-feather">
+              Birds of a Feather (2021)
+            </option>
+          </select>
+          <div style="font-size: 11px; margin-bottom: 2px">Track:</div>
+          <select
+            id="debug-track-select"
+            class="customization-input"
+            style="
+              width: 100%;
+              height: 28px;
+              padding: 2px 26px 2px 8px;
+              font-size: 12px;
+            "
+          ></select>
+        </div>
+        <div class="dbg-sec">Telemetry</div>
+        <dl class="dbg-rows">
+          <dt>Mode</dt>
+          <dd id="debug-music-mode">-</dd>
+          <dt>Tempo</dt>
+          <dd id="debug-music-bpm">-</dd>
+          <dt>Track energy</dt>
+          <dd id="debug-music-energy">-</dd>
+          <dt>Flight energy</dt>
+          <dd id="debug-flight-energy">-</dd>
+        </dl>
       </div>
       <div class="dbg-body" data-tab="settings">
         <div class="debug-columns">
@@ -1534,23 +1673,6 @@
                 />
               </div>
             </div>
-
-            <!-- Force Weather -->
-            <div class="debug-section">
-              <div style="font-size: 11px; margin-bottom: 2px">
-                Force weather:
-              </div>
-              <select
-                id="weather-select"
-                class="customization-input"
-                style="width: 100%; padding: 2px 4px; font-size: 12px"
-              >
-                <option value="auto" selected>Auto (Default)</option>
-                <option value="none">None</option>
-                <option value="snow">Snow</option>
-                <option value="rain">Rain</option>
-              </select>
-            </div>
           </div>
 
           <!-- Right Column: World, Rendering & Camera -->
@@ -1598,12 +1720,30 @@
               <select
                 id="island-type-select"
                 class="customization-input"
-                style="width: 100%; padding: 2px 4px; font-size: 12px"
+                style="
+                  width: 100%;
+                  padding: 2px 4px;
+                  font-size: 12px;
+                  margin-bottom: 4px;
+                "
               >
                 <option value="auto" selected>Auto (procedural)</option>
                 <option value="karst">Karst (limestone towers)</option>
                 <option value="caldera">Caldera (volcano crater)</option>
                 <option value="atoll">Atoll (coral lagoon)</option>
+              </select>
+              <div style="font-size: 11px; margin-bottom: 2px">
+                Force weather:
+              </div>
+              <select
+                id="weather-select"
+                class="customization-input"
+                style="width: 100%; padding: 2px 4px; font-size: 12px"
+              >
+                <option value="auto" selected>Auto (Default)</option>
+                <option value="none">None</option>
+                <option value="snow">Snow</option>
+                <option value="rain">Rain</option>
               </select>
             </div>
 

@@ -232,6 +232,14 @@ export const ChillFlightLogic = {};
   const ROOM_PARAM = getParam('room', null);
   const RELAY_PARAM = getParam('relay', null);
   const MUSIC_PARAM = getSwitchParam('music');
+  const _musicModeRaw = getParam('musicMode', getParam('musicmode', null));
+  const MUSIC_MODE_PARAM =
+    _musicModeRaw &&
+    ['album', 'vibe'].includes(_musicModeRaw.trim().toLowerCase())
+      ? _musicModeRaw.trim().toLowerCase()
+      : null;
+  const _albumRaw = getParam('album', null);
+  const ALBUM_PARAM = _albumRaw ? _albumRaw.trim() : null;
   const SFX_PARAM = getSwitchParam('sfx');
   const _debugParam = getParam('debug', null);
   const START_DEBUG =
@@ -6802,6 +6810,8 @@ export const ChillFlightLogic = {};
   exports.SHOW_UI = SHOW_UI;
   exports.HINTS_PARAM = HINTS_PARAM;
   exports.MUSIC_PARAM = MUSIC_PARAM;
+  exports.MUSIC_MODE_PARAM = MUSIC_MODE_PARAM;
+  exports.ALBUM_PARAM = ALBUM_PARAM;
   exports.SFX_PARAM = SFX_PARAM;
   exports.START_ISLAND_TYPE = START_ISLAND_TYPE;
   exports.FORCE_ISLAND_TYPE = START_ISLAND_TYPE;

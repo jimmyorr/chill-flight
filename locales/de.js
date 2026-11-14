@@ -837,4 +837,8 @@ export default {
     'Umschalt + ↑ oder scrollen zum Abheben',
   'Triple-tap ← or → and hold': '← oder → dreimal tippen und halten',
   'Double-tap ← or → and hold': '← oder → doppelt tippen und halten',
+  'Music mode': 'Musikmodus',
+  'By album or how you fly': 'Nach Album oder Flugstil',
+  'By album': 'Nach Album',
+  'Flight vibe': 'Flugstimmung',
 };

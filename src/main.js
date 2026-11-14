@@ -53,6 +53,7 @@ import '../airports.js';
 import '../pyramids.js';
 import '../arches-logic.js';
 import '../arches.js';
+import '../music-logic.js';
 import '../audio.js';
 import '../sfx.js';
 import '../sfx-events.js';

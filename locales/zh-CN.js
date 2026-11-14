@@ -780,4 +780,8 @@ export default {
   'Press Shift + ↑ or scroll to take off': '按 Shift + ↑ 或滚动滚轮起飞',
   'Triple-tap ← or → and hold': '连按三下 ← 或 → 并按住',
   'Double-tap ← or → and hold': '双击 ← 或 → 并按住',
+  'Music mode': '音乐模式',
+  'By album or how you fly': '按专辑或随飞行变化',
+  'By album': '按专辑',
+  'Flight vibe': '飞行律动',
 };

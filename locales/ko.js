@@ -802,4 +802,8 @@ export default {
   'Press Shift + ↑ or scroll to take off': 'Shift + ↑ 또는 스크롤로 이륙',
   'Triple-tap ← or → and hold': '← 또는 → 세 번 탭하고 누르기',
   'Double-tap ← or → and hold': '← 또는 → 두 번 탭하고 누르기',
+  'Music mode': '음악 모드',
+  'By album or how you fly': '앨범별 또는 비행에 맞춤',
+  'By album': '앨범별',
+  'Flight vibe': '비행 바이브',
 };

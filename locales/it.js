@@ -835,4 +835,8 @@ export default {
     'Premi Maiusc + ↑ o scorri per decollare',
   'Triple-tap ← or → and hold': 'Tocca ← o → tre volte e tieni premuto',
   'Double-tap ← or → and hold': 'Tocca ← o → due volte e tieni premuto',
+  'Music mode': 'Modalità musica',
+  'By album or how you fly': 'Per album o in base al volo',
+  'By album': 'Per album',
+  'Flight vibe': 'Ritmo di volo',
 };

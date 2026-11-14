@@ -832,4 +832,8 @@ export default {
     'Pulsa Mayús + ↑ o desplaza para despegar',
   'Triple-tap ← or → and hold': 'Toca ← o → tres veces y mantén',
   'Double-tap ← or → and hold': 'Toca ← o → dos veces y mantén',
+  'Music mode': 'Modo de música',
+  'By album or how you fly': 'Por álbum o según tu vuelo',
+  'By album': 'Por álbum',
+  'Flight vibe': 'Ritmo de vuelo',
 };

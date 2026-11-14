@@ -829,4 +829,8 @@ export default {
     'Aperte Shift + ↑ ou role para decolar',
   'Triple-tap ← or → and hold': 'Toque ← ou → três vezes e segure',
   'Double-tap ← or → and hold': 'Toque ← ou → duas vezes e segure',
+  'Music mode': 'Modo de música',
+  'By album or how you fly': 'Por álbum ou conforme o voo',
+  'By album': 'Por álbum',
+  'Flight vibe': 'Clima do voo',
 };
