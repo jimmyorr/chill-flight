@@ -4125,7 +4125,7 @@ body.ui-hidden > canvas {
     max-width: calc(100% - 32px);
     min-height: 0;
     max-height: calc(100dvh - 24px);
-    padding: 36px 48px 52px;
+    padding: 32px 48px;
   }
 
   .loading-title {
@@ -4148,8 +4148,12 @@ body.ui-hidden > canvas {
     min-width: 180px;
   }
 
+  /* Under About rather than along the card's bottom edge (the HTML sets
+     its place inline) */
   #loading-music-attribution {
-    bottom: 18px !important;
+    position: static !important;
+    transform: none !important;
+    margin-top: 14px !important;
   }
 }
 
