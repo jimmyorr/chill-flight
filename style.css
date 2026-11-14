@@ -142,6 +142,37 @@ textarea {
   backdrop-filter: blur(5px);
 }
 
+/* Under Help, achievements or people: the menu steps aside, so the screen
+   on top dims the view itself rather than a blurred dark menu (dark on
+   dark) */
+body:has(
+    #achievements-overlay[style*='flex'],
+    #people-overlay[style*='flex'],
+    #help-overlay[style*='flex']
+  )
+  #pause-overlay {
+  background: none;
+  backdrop-filter: none;
+}
+body:has(
+    #achievements-overlay[style*='flex'],
+    #people-overlay[style*='flex'],
+    #help-overlay[style*='flex']
+  )
+  #pause-overlay
+  > * {
+  /* (Not visibility: the open tab sets its own) */
+  opacity: 0;
+}
+body:has(
+    #achievements-overlay[style*='flex'],
+    #people-overlay[style*='flex'],
+    #help-overlay[style*='flex']
+  )
+  #pause-overlay::after {
+  display: none;
+}
+
 /* Covered by the full map (minimap.js): no blur to redraw */
 #pause-overlay.under-map {
   backdrop-filter: none;
