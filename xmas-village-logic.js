@@ -165,11 +165,13 @@ export function xmasVillagePlacements(phase, day) {
       parts: [['xmasReindeerGrazingGlow', 0, 0, 0, 1]],
     });
     // Letters for Santa, and his sleigh parked behind the square, loaded up
+    // with Santa standing beside it facing the square (not breakable)
     put('xmasMailboxBody', -22, 2, Math.PI / 2, 'small');
     put('xmasSleighBody', -50, 82, 0.5, 'small', {
       parts: [['xmasSleighGlow', 0, 0, 0, 1]],
     });
     put('xmasToySackBody', -40, 72, 1.1, 'small');
+    put('xmasSanta', -42, 78, 2.5, null);
   }
   return out;
 }

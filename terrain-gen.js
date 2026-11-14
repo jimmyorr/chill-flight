@@ -1341,6 +1341,8 @@ const TWO_STORY_WINDOWS = [
 // Adds the walls, roof, door, chimney and windows of each house to the
 // collector, in world coordinates. Two-story houses have their own body, roof
 // and chimney types; the door and windows are shared.
+// Length of one Polyfork roofline string light run in world units (4 m * 3.5)
+const XMAS_LIGHT_RUN = 14;
 function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
   const prefix = twoStory ? 'twoStory' : 'house';
   // Where the gable's base sits, and the chimney's height above the walls'
@@ -1358,14 +1360,14 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
     const cos = Math.cos(pos.rotY);
     const sin = Math.sin(pos.rotY);
     // A point on the house (lx along the ridge, ly up, lz toward the front)
-    const part = (type, lx, ly, lz, color = null, rotY = pos.rotY) => {
+    const part = (type, lx, ly, lz, color = null, rotY = pos.rotY, pSx = 1) => {
       composeMatrix(
         _matBuffer,
         0,
         x + lx * cos + lz * sin,
         pos.y + ly,
         z - lx * sin + lz * cos,
-        1,
+        pSx,
         1,
         1,
         0,
@@ -1415,6 +1417,15 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
         _windowPools[pos.poolId],
         winRotY
       );
+    }
+    if (pos.xmasLights && !adobe) {
+      const runSx = (6 * sx) / XMAS_LIGHT_RUN;
+      const ly = (eaves - 0.2) * sy;
+      for (const side of [-1, 1]) {
+        const lx = side * 3 * sx;
+        part(pos.xmasLights, lx, ly, 5.25, null, pos.rotY, runSx);
+        part(pos.xmasLights + 'Glow', lx, ly, 5.25, null, pos.rotY, runSx);
+      }
     }
     collector.endProp();
   }
@@ -2451,7 +2462,8 @@ function addXmasVillage(collector, offsetX, offsetZ, chunkSize, elevParams) {
     const c = Math.cos(rotY);
     const sn = Math.sin(rotY);
     composeMatrix(_matBuffer, 0, x, site.base, z, 1, 1, 1, 0, rotY, 0);
-    collector.beginProp(XMAS_BREAKS[p.kind]);
+    const breakKind = XMAS_BREAKS[p.kind];
+    if (breakKind !== undefined) collector.beginProp(breakKind);
     if (p.kind === 'house') {
       collector.add(p.type + 'Body', _matBuffer);
       collector.add(p.type + 'Roof', _matBuffer);
@@ -2475,7 +2487,7 @@ function addXmasVillage(collector, offsetX, offsetZ, chunkSize, elevParams) {
       );
       collector.add(type, _matBuffer);
     }
-    collector.endProp();
+    if (breakKind !== undefined) collector.endProp();
   }
 }
 
@@ -2827,6 +2839,7 @@ export function generateChunkData({
   const swampReedPositions = [];
   const swampLilyPadPositions = [];
   const swampLogPositions = [];
+  const xmasYardPositions = [];
 
   const WATER_LEVEL = elevParams.WATER_LEVEL;
   const MOUNTAIN_LEVEL = elevParams.MOUNTAIN_LEVEL;
@@ -5886,6 +5899,145 @@ export function generateChunkData({
         }
       }
     }
+
+    // Christmas in the northern snowy villages (specs/christmas-village.md
+    // section 3): roofline string lights on some houses (1 in 8 in November,
+    // 1 in 3 from December, warm white or multicolour by village), and from
+    // December front-yard firs (1 in 4), lawn reindeer or ornament balls
+    // (1 in 12) and garland lamp posts beside village lanes, all from
+    // fieldHash so downstream rng() rolls stay unchanged.
+    if (ChillFlightLogic.XMAS) {
+      const full = ChillFlightLogic.XMAS === 'full';
+      const lightChance = full ? 1 / 3 : 1 / 8;
+      const snowyAt = (wx, wz) =>
+        ChillFlightLogic.snowFactorAt(
+          wz,
+          ChillFlightLogic.snowNoiseShift(wx, wz, simplex)
+        ) > 0.6 &&
+        ChillFlightLogic.xmasVillageDistance(wx, wz, simplex, elevParams) >=
+          XMAS_CLEAR;
+      const villageLightsAt = (wx, wz) =>
+        fieldHash(Math.floor(wx / 1200), Math.floor(wz / 1200), 1901) < 0.5
+          ? 'xmasRoofLightsWarm'
+          : 'xmasRoofLights';
+      const yardFit = (h, x, z) => {
+        if (Math.abs(x) >= halfSize || Math.abs(z) >= halfSize) return null;
+        if (
+          houses.some(
+            (o) => o !== h && Math.hypot(o.x - x, o.z - z) < 6 + 6 * (o.sx || 1)
+          ) ||
+          xmasYardPositions.some((o) => Math.hypot(o.x - x, o.z - z) < 10) ||
+          landmarkPositions.some((o) => Math.hypot(o.x - x, o.z - z) < 16)
+        ) {
+          return null;
+        }
+        const gx = worldOffsetX + x;
+        const gz = worldOffsetZ + z;
+        const y = heightAtLocal(x, z);
+        if (
+          y < WATER_LEVEL + 3 ||
+          Math.abs(y - h.y) > 3 ||
+          ChillFlightLogic.highwayDistance(gx, gz) <
+            ChillFlightLogic.ROAD_WIDTH + 8 ||
+          ChillFlightLogic.isOnAccessRoad(gx, gz, 8, simplex, elevParams) ||
+          ChillFlightLogic.isOnSlipRoad(gx, gz, 8, simplex, elevParams)
+        ) {
+          return null;
+        }
+        return y;
+      };
+      for (const h of houses) {
+        if (h.style === 'adobe') continue;
+        const wx = Math.round(worldOffsetX + h.x);
+        const wz = Math.round(worldOffsetZ + h.z);
+        if (!snowyAt(wx, wz)) continue;
+        if (fieldHash(wx, wz, 1903) < lightChance) {
+          h.xmasLights = villageLightsAt(wx, wz);
+        }
+        if (!full) continue;
+        const firSide = fieldHash(wx, wz, 1907) < 0.5 ? -1 : 1;
+        if (fieldHash(wx, wz, 1905) < 0.25) {
+          const at = rotateY(firSide * (4 * (h.sx || 1) + 2), 11, h.rotY);
+          const x = h.x + at.x;
+          const z = h.z + at.z;
+          const y = yardFit(h, x, z);
+          if (y !== null) {
+            xmasYardPositions.push({
+              type: 'xmasYardFir',
+              glow: 'xmasYardFirGlow',
+              kind: BREAKABLE.TREE,
+              x,
+              y,
+              z,
+              rotY: fieldHash(wx, wz, 1909) * Math.PI * 2,
+              clear: true,
+            });
+          }
+        }
+        if (fieldHash(wx, wz, 1911) < 1 / 12) {
+          const at = rotateY(-firSide * (3.5 * (h.sx || 1) + 1.5), 10, h.rotY);
+          const x = h.x + at.x;
+          const z = h.z + at.z;
+          const y = yardFit(h, x, z);
+          if (y !== null) {
+            const pick = Math.floor(fieldHash(wx, wz, 1913) * 4);
+            const [type, glow, kind] = [
+              ['xmasReindeer', 'xmasReindeerGlow', BREAKABLE.TREE],
+              [
+                'xmasReindeerGrazing',
+                'xmasReindeerGrazingGlow',
+                BREAKABLE.TREE,
+              ],
+              ['xmasOrnamentRedBody', null, BREAKABLE.SMALL],
+              ['xmasOrnamentGoldBody', null, BREAKABLE.SMALL],
+            ][pick];
+            xmasYardPositions.push({
+              type,
+              glow,
+              kind,
+              x,
+              y,
+              z,
+              rotY: h.rotY + (fieldHash(wx, wz, 1915) - 0.5) * 1.2,
+            });
+          }
+        }
+        if (fieldHash(wx, wz, 1917) < 0.1) {
+          const at = rotateY(firSide * (6 * (h.sx || 1) + 4), 13, h.rotY);
+          const x = h.x + at.x;
+          const z = h.z + at.z;
+          const y = yardFit(h, x, z);
+          if (
+            y !== null &&
+            !xmasYardPositions.some(
+              (o) =>
+                o.type === 'xmasLampPost' && Math.hypot(o.x - x, o.z - z) < 45
+            )
+          ) {
+            xmasYardPositions.push({
+              type: 'xmasLampPost',
+              glow: 'xmasLampPostGlow',
+              kind: BREAKABLE.TREE,
+              x,
+              y,
+              z,
+              rotY: h.rotY,
+            });
+          }
+        }
+      }
+      for (const p of landmarkPositions) {
+        if (p.rule !== 'farmhouse' && p.rule !== 'villageTavern') continue;
+        const wx = Math.round(worldOffsetX + p.x);
+        const wz = Math.round(worldOffsetZ + p.z);
+        if (!snowyAt(wx, wz)) continue;
+        if (fieldHash(wx, wz, 1919) < lightChance) {
+          p.xmasLights = villageLightsAt(wx, wz);
+        }
+      }
+      const firSpots = xmasYardPositions.filter((p) => p.clear);
+      if (firSpots.length > 0) clearAround(firSpots, 9);
+    }
   }
 
   // Keep the props clear of the roads, where they ended up. The check above
@@ -6083,6 +6235,7 @@ export function generateChunkData({
           monasteryPositions,
           castleRuinsPositions,
           pierPositions,
+          xmasYardPositions,
         ].forEach(clearLighthouse);
       }
     }
@@ -6147,6 +6300,7 @@ export function generateChunkData({
       rockArchPositions,
       rockArchGrassPositions,
       landmarkPositions,
+      xmasYardPositions,
     ].forEach(keepOffPyramids);
   }
 
@@ -6807,6 +6961,47 @@ export function generateChunkData({
   // Landmarks: towers stand on their own and topple whole; the rest are
   // houses, walls and roof
   for (const pos of landmarkPositions) {
+    const x = worldOffsetX + pos.x;
+    const z = worldOffsetZ + pos.z;
+    composeMatrix(_matBuffer, 0, x, pos.y, z, 1, 1, 1, 0, pos.rotY, 0);
+    if (LANDMARK_RULES[pos.rule].tower) {
+      collector.beginProp(BREAKABLE.TREE);
+      collector.add(pos.type, _matBuffer);
+    } else {
+      collector.beginProp(BREAKABLE.HOUSE);
+      collector.add(pos.type + 'Body', _matBuffer);
+      collector.add(pos.type + 'Roof', _matBuffer);
+      if (pos.xmasLights) {
+        const cos = Math.cos(pos.rotY);
+        const sin = Math.sin(pos.rotY);
+        const [len, ly, lz] =
+          pos.rule === 'villageTavern' ? [22, 8.8, 10.6] : [20.4, 8.4, 8.9];
+        const runSx = len / 2 / XMAS_LIGHT_RUN;
+        for (const side of [-1, 1]) {
+          const lx = (side * len) / 4;
+          composeMatrix(
+            _matBuffer,
+            0,
+            x + lx * cos + lz * sin,
+            pos.y + ly,
+            z - lx * sin + lz * cos,
+            runSx,
+            1,
+            1,
+            0,
+            pos.rotY,
+            0
+          );
+          collector.add(pos.xmasLights, _matBuffer);
+          collector.add(pos.xmasLights + 'Glow', _matBuffer);
+        }
+      }
+    }
+    collector.endProp();
+  }
+
+  // Northern villages' front-yard firs, lawn ornaments and garland lamp posts
+  for (const pos of xmasYardPositions) {
     composeMatrix(
       _matBuffer,
       0,
@@ -6820,14 +7015,9 @@ export function generateChunkData({
       pos.rotY,
       0
     );
-    if (LANDMARK_RULES[pos.rule].tower) {
-      collector.beginProp(BREAKABLE.TREE);
-      collector.add(pos.type, _matBuffer);
-    } else {
-      collector.beginProp(BREAKABLE.HOUSE);
-      collector.add(pos.type + 'Body', _matBuffer);
-      collector.add(pos.type + 'Roof', _matBuffer);
-    }
+    collector.beginProp(pos.kind);
+    collector.add(pos.type, _matBuffer);
+    if (pos.glow) collector.add(pos.glow, _matBuffer);
     collector.endProp();
   }
 

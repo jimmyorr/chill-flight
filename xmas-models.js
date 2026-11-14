@@ -29,6 +29,7 @@ import * as treeRack from './third-party/polyfork/a-frame-cut-tree-7bb743.mjs';
 import * as cutFir from './third-party/polyfork/cut-fir-in-a-21d18a.mjs';
 import * as sleigh from './third-party/polyfork/santa-s-sleigh-f1a047.mjs';
 import * as toySack from './third-party/polyfork/sack-of-toys-c53e9e.mjs';
+import * as santa from './third-party/polyfork/santa-0e0332.mjs';
 import * as gingerbread from './third-party/polyfork/gingerbread-house-8b9049.mjs';
 
 // The night parts' material: lit in their own (vertex) colours, brightness
@@ -54,14 +55,44 @@ export const xmasGlowMat = createMaterial({
 
 // The big tree in the square and the gingerbread house are drawn far bigger
 // than life (times real size), so they show from the air; the rest at the
-// other Polyfork models' scale
+// other Polyfork models' scale (Santa a little taller, and the northern
+// houses' yard firs at house height)
 const BIG_FIR_SCALE = 11;
+const YARD_FIR_SCALE = S * 1.25;
+const SANTA_SCALE = S * 1.4;
 const GINGERBREAD_SCALE = 90;
 // The gingerbread house's eave (metres as built, above its cake board): the
 // walls fold below it, the roof and gables are thrown off above it
 const GINGERBREAD_EAVE = 0.135;
 // Its cake board (left off: it would be a grey plaza at this size)
 const GINGERBREAD_BOARD = 0.021;
+
+// Poses a rigged Polyfork character (Santa): left arm in its `carryPose`
+// holding the sack of toys over his back, right arm raised in a wave
+function poseSanta(asset) {
+  const deg = Math.PI / 180;
+  const pose = asset.userData?.carryPose;
+  const bones = {};
+  asset.traverse((o) => {
+    if (o.isBone) bones[o.name] = o;
+  });
+  const turn = (name, [rx, ry, rz]) => {
+    if (bones[name]) bones[name].rotation.set(rx * deg, ry * deg, rz * deg);
+  };
+  if (pose) {
+    turn('LeftShoulder', pose.shoulder);
+    turn('LeftArm', pose.arm);
+    turn('LeftForeArm', pose.foreArm);
+    turn('LeftHand', pose.hand);
+  }
+  turn('RightArm', [0, 0, 52]);
+  turn('RightForeArm', [0, 72, 0]);
+  turn('RightHand', [0, 0, 12]);
+  asset.updateMatrixWorld(true);
+  asset.traverse((o) => {
+    if (o.isSkinnedMesh) o.skeleton.update();
+  });
+}
 
 // One asset's triangles sorted into {body, glow, roof} geometries: glow for
 // the colours in its `night` table and meshes with an emissive material (in
@@ -76,8 +107,9 @@ function splitAsset(
   module,
   asset,
   scale,
-  {eave = null, drop = null, lift = 0, top = false} = {}
+  {eave = null, drop = null, lift = 0, top = false, pose = null} = {}
 ) {
+  if (pose) pose(asset);
   asset.updateMatrixWorld(true);
   const nightHexes = new Set(
     Object.values(module.night || {}).map((n) =>
@@ -87,6 +119,11 @@ function splitAsset(
   let dy = lift;
   if (top) dy = -new THREE.Box3().setFromObject(asset).max.y;
   const out = {body: [[], []], glow: [[], []], roof: [[], []]};
+  const vertexAt = (o, p, i) => {
+    _v.fromBufferAttribute(p, i);
+    if (o.isSkinnedMesh) o.applyBoneTransform(i, _v);
+    return _v.applyMatrix4(o.matrixWorld);
+  };
   asset.traverse((o) => {
     if (!o.isMesh) return;
     const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
@@ -99,7 +136,7 @@ function splitAsset(
       let low = Infinity;
       let high = -Infinity;
       for (let i = t; i < t + 3; i++) {
-        const y = _v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld).y;
+        const y = vertexAt(o, p, i).y;
         low = Math.min(low, y);
         high = Math.max(high, y);
       }
@@ -112,7 +149,7 @@ function splitAsset(
           ? out.roof
           : out.body;
       for (let i = t; i < t + 3; i++) {
-        _v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+        vertexAt(o, p, i);
         zone[0].push(_v.x * scale, (_v.y + dy) * scale, _v.z * scale);
         if (tint) _e.copy(tint);
         else if (col) _e.fromBufferAttribute(col, i);
@@ -139,10 +176,16 @@ function splitAsset(
 // also gets '<type>Glow', and the gingerbread house '...Body' and '...Roof'.
 const PROPS = {
   xmasLampPost: [lampPost, {colorway: 'village-black'}, S],
-  // Hung along a farmhouse's eave, its wire at y = 0
+  // Hung along a house's eave, its wire at y = 0 (multicolour or warm white)
   xmasRoofLights: [
     roofLights,
     {colorway: 'fir-green', bulbs: 'multicolour'},
+    S,
+    {top: true},
+  ],
+  xmasRoofLightsWarm: [
+    roofLights,
+    {colorway: 'fir-green', bulbs: 'warm-white'},
     S,
     {top: true},
   ],
@@ -155,6 +198,12 @@ const PROPS = {
     yardFir,
     {size: '3.5m', decorations: 'none', lights: 'none'},
     BIG_FIR_SCALE,
+  ],
+  // In northern village front yards in December
+  xmasYardFir: [
+    yardFir,
+    {size: '2.5m', decorations: 'baubles', lights: 'warm-white'},
+    YARD_FIR_SCALE,
   ],
   xmasSign: [signPost, {colorway: 'candy-classic', words: 'village'}, S],
   xmasCandyCanesBody: [candyCanes, {colorway: 'classic', hooks: 'path'}, S],
@@ -177,6 +226,7 @@ const PROPS = {
   xmasCutFirBody: [cutFir, {colorway: 'lot-classic'}, S],
   xmasSleighBody: [sleigh, {colorway: 'classic-red', load: 'heaped'}, S],
   xmasToySackBody: [toySack, {colorway: 'santa-red'}, S],
+  xmasSanta: [santa, {}, SANTA_SCALE, {pose: poseSanta}],
   xmasGingerbread: [
     gingerbread,
     {colorway: 'classic', path: false},

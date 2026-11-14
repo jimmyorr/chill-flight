@@ -1758,7 +1758,7 @@ if (ChillFlightLogic.XMAS) {
       type,
       geo,
       glow ? xmasGlowMat : buildingMat,
-      64,
+      2000,
       false,
       !glow
     );
@@ -1768,7 +1768,7 @@ if (ChillFlightLogic.XMAS) {
     if (!glow) {
       globalInstancer.setShadowGeometry(
         type,
-        /Fir|LampPost/.test(type) ? shadowCylinder(geo) : shadowBox(geo)
+        /Fir|LampPost|Santa/.test(type) ? shadowCylinder(geo) : shadowBox(geo)
       );
     }
   }

@@ -151,19 +151,21 @@ const setupTypes = new Set(
 );
 const fullTypes = new Set(xmasVillagePlacements('full', 20).map((p) => p.type));
 check(
-  'November has the bare fir, tree lot and cocoa stand, and no sleigh or presents',
+  'November has the bare fir, tree lot and cocoa stand, and no sleigh, presents or Santa',
   setupTypes.has('xmasFirBare') &&
     setupTypes.has('xmasTreeRackBody') &&
     setupTypes.has('xmasCocoaStand') &&
     !setupTypes.has('xmasFir') &&
     !setupTypes.has('xmasSleighBody') &&
+    !setupTypes.has('xmasSanta') &&
     !setupTypes.has('xmasPresentsBody'),
   [...setupTypes].join(',')
 );
 check(
-  'December has the lit fir, sleigh, reindeer, presents, snow fort and gingerbread house',
+  'December has the lit fir, sleigh, Santa, reindeer, presents, snow fort and gingerbread house',
   fullTypes.has('xmasFir') &&
     fullTypes.has('xmasSleighBody') &&
+    fullTypes.has('xmasSanta') &&
     fullTypes.has('xmasReindeer') &&
     fullTypes.has('xmasPresentsBody') &&
     fullTypes.has('xmasSnowFortBody') &&
@@ -220,13 +222,37 @@ const fullChunk = generateChunkData({
   enableObjects: true,
 }).result;
 check(
-  'village chunk in December emits the fir, gingerbread house, houses and lamp posts',
+  'village chunk in December emits the fir, gingerbread house, Santa, houses and lamp posts, plus northern village yard firs and roofline lights',
   fullChunk.instanceData.xmasFir?.count === 1 &&
     fullChunk.instanceData.xmasGingerbreadBody?.count === 1 &&
+    fullChunk.instanceData.xmasSanta?.count === 1 &&
     fullChunk.instanceData.farmhouse0Body?.count === 2 &&
-    fullChunk.instanceData.xmasLampPost?.count === 10,
+    fullChunk.instanceData.xmasLampPost?.count >= 10 &&
+    fullChunk.instanceData.xmasYardFir?.count >= 1 &&
+    (fullChunk.instanceData.xmasRoofLights?.count >= 1 ||
+      fullChunk.instanceData.xmasRoofLightsWarm?.count >= 1),
   Object.keys(fullChunk.instanceData)
     .filter((k) => /^xmas|^farmhouse/.test(k))
+    .join(',')
+);
+const setupChunk = generateChunkData({
+  chunkX: vcx,
+  chunkZ: vcz,
+  chunkSize: 1500,
+  segments: 8,
+  elevParams,
+  worldSeed: 20261113,
+  xmas: 'setup',
+  xmasDay: 13,
+  enableObjects: true,
+}).result;
+check(
+  'in November (setup), northern houses have no yard firs and the village has no Santa',
+  !setupChunk.instanceData.xmasYardFir &&
+    !setupChunk.instanceData.xmasSanta &&
+    setupChunk.instanceData.xmasFirBare?.count === 1,
+  Object.keys(setupChunk.instanceData)
+    .filter((k) => k.startsWith('xmas'))
     .join(',')
 );
 const offChunk = generateChunkData({
