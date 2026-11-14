@@ -4058,3 +4058,45 @@ body.ui-hidden > canvas {
     padding: 10px 14px 14px;
   }
 }
+
+/* Phones on their side: the title card was taller than the screen, cut off
+   top and bottom. A short, wide card instead: the title on the left, START
+   and the rest on the right. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .loading-content {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-rows: auto auto;
+    align-content: center;
+    column-gap: 56px;
+    width: auto;
+    max-width: calc(100% - 32px);
+    min-height: 0;
+    max-height: calc(100dvh - 24px);
+    padding: 36px 48px 52px;
+  }
+
+  .loading-title {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+  }
+
+  .loading-content .version-tag {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+  }
+
+  #splash-interactive-area {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    margin-top: 0;
+    min-width: 180px;
+  }
+
+  #loading-music-attribution {
+    bottom: 18px !important;
+  }
+}
