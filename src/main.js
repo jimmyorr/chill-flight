@@ -72,8 +72,6 @@ import '../game.js';
 import '../crash-logic.js';
 import '../crystal-rush.js';
 import '../flight-physics-logic.js';
-import '../advanced-stick-logic.js';
-import '../advanced-stick.js';
 import '../follow-logic.js';
 import '../flight-physics.js';
 import '../particles.js';

@@ -175,7 +175,6 @@ export default {
   Touch: 'Táctil',
   Joystick: 'Joystick',
   Gyro: 'Giroscopio',
-  Advanced: 'Avanzado',
   'Invert y axis': 'Invertir eje Y',
   'Push up to dive, like a flight stick':
     'Empuja hacia arriba para bajar, como una palanca de vuelo',

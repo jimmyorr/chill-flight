@@ -176,7 +176,6 @@ export default {
   Touch: 'Touch',
   Joystick: 'Joystick',
   Gyro: 'Gyro',
-  Advanced: 'Erweitert',
   'Invert y axis': 'Y-Achse umkehren',
   'Push up to dive, like a flight stick':
     'Nach oben drücken zum Sinken, wie ein Steuerknüppel',

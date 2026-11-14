@@ -222,11 +222,6 @@ export const ChillFlightLogic = {};
   const TRAFFIC_PARAM = getSwitchParam('traffic');
   // ?weightedRoll=0/1: the weighted roll off or on (game-loop.js)
   const WEIGHTED_ROLL_PARAM = getSwitchParam('weightedRoll');
-  // ?controls=advanced: the advanced joystick for this visit, and
-  // ?roll=spring or ?roll=hold: its roll springing back level or keeping
-  // the bank (advanced-stick.js)
-  const CONTROLS_PARAM = getParam('controls', null);
-  const ROLL_PARAM = getParam('roll', null);
   // ?perf=1: one-line FPS / draw call readout (perf-hud.js)
   const PERF_HUD = getSwitchParam('perf') === true;
   // Flying together (multiplayer.js): ?room= a room code to join (an invite
@@ -6580,8 +6575,6 @@ export const ChillFlightLogic = {};
   exports.ADAPTIVE_QUALITY = ADAPTIVE_QUALITY;
   exports.TRAFFIC_PARAM = TRAFFIC_PARAM;
   exports.WEIGHTED_ROLL_PARAM = WEIGHTED_ROLL_PARAM;
-  exports.CONTROLS_PARAM = CONTROLS_PARAM;
-  exports.ROLL_PARAM = ROLL_PARAM;
   exports.PERF_HUD = PERF_HUD;
   exports.ROOM_PARAM = ROOM_PARAM;
   exports.RELAY_PARAM = RELAY_PARAM;

@@ -178,8 +178,6 @@ inputManager.onTripleTap = (action) => {
   const downAction = state.invertYAxis ? 'ArrowUp' : 'ArrowDown';
   if (
     action === downAction &&
-    // (The advanced joystick has no tap moves; its keys roll and pull)
-    state.currentControlScheme !== 'advanced' &&
     !state.isDoingImmelmann &&
     !state.isLooping &&
     !state.isOnGround &&
@@ -201,6 +199,13 @@ export var _lastChunkUpdatePos = new THREE.Vector3(
 // Control scheme state ('touch', 'joystick', or 'gyro')
 state.currentControlScheme =
   localStorage.getItem('chill_flight_control_scheme') || 'joystick';
+// A scheme the game no longer has (the advanced joystick, tried and taken
+// out in Nov 2026) is the joystick again
+if (!['touch', 'joystick', 'gyro'].includes(state.currentControlScheme)) {
+  state.currentControlScheme = 'joystick';
+  inputManager.state.controlScheme = 'joystick';
+  localStorage.setItem('chill_flight_control_scheme', 'joystick');
+}
 
 state.targetFlightSpeed = state.flightSpeedMultiplier; // Initialize based on current vehicle speed multiplier
 

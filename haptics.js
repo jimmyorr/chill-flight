@@ -94,11 +94,6 @@ export function thunderHaptic(distance = 0.5) {
   }
 }
 
-// A light tick, as the bank clicks onto a notch (advanced-stick.js)
-export function tickHaptic() {
-  if (enabled && plugin()) pulse('LIGHT');
-}
-
 // Knocking a tree (light) or a house (heavy) over, no more than a few a
 // second so plowing through a forest doesn't buzz nonstop
 let lastSmash = -Infinity;

@@ -410,8 +410,7 @@ function analogSteerAxis(value) {
   }
   return ChillFlightLogic.buggySteerAxis(
     value,
-    state.currentControlScheme === 'joystick' ||
-      state.currentControlScheme === 'advanced'
+    state.currentControlScheme === 'joystick'
   );
 }
 
@@ -425,8 +424,7 @@ function analogThrottleAxis(value) {
   }
   return ChillFlightLogic.buggyThrottleAxis(
     value,
-    state.currentControlScheme === 'joystick' ||
-      state.currentControlScheme === 'advanced'
+    state.currentControlScheme === 'joystick'
   );
 }
 

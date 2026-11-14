@@ -175,7 +175,6 @@ export default {
   Touch: 'Tocco',
   Joystick: 'Joystick',
   Gyro: 'Giroscopio',
-  Advanced: 'Avanzato',
   'Invert y axis': 'Inverti asse Y',
   'Push up to dive, like a flight stick':
     'Spingi in su per picchiare, come una cloche',

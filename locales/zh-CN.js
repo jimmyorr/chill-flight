@@ -166,7 +166,6 @@ export default {
   Touch: '触摸',
   Joystick: '摇杆',
   Gyro: '陀螺仪',
-  Advanced: '高级',
   'Invert y axis': '反转 Y 轴',
   'Push up to dive, like a flight stick': '向上推是俯冲，像飞行摇杆一样',
   Haptics: '触感反馈',

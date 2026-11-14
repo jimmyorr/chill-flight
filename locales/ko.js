@@ -168,7 +168,6 @@ export default {
   Touch: '터치',
   Joystick: '조이스틱',
   Gyro: '자이로',
-  Advanced: '고급',
   'Invert y axis': 'Y축 반전',
   'Push up to dive, like a flight stick': '위로 밀면 하강 (비행 조종간처럼)',
   Haptics: '진동',

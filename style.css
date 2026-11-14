@@ -1728,58 +1728,6 @@ input[type='number'].customization-input {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* The advanced joystick's bank arc (advanced-stick.js), in the throttle
-   knob's style: white ticks, yellow pointer and figures */
-#bank-arc {
-  position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 96px);
-  left: 50%;
-  width: 120px;
-  transform: translateX(-50%);
-  pointer-events: none;
-  z-index: 150;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  text-align: center;
-}
-
-#bank-arc.shown {
-  opacity: 1;
-}
-
-#bank-arc svg {
-  display: block;
-  width: 100%;
-  overflow: visible;
-}
-
-#bank-arc .bank-arc-line,
-#bank-arc .bank-arc-ticks {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.6);
-  stroke-width: 2;
-}
-
-#bank-arc .bank-arc-pointer {
-  fill: #ffd700;
-}
-
-#bank-arc b {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 4px;
-  color: #ffd700;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-}
-
-body.zen #bank-arc,
-body.ui-hidden #bank-arc {
-  visibility: hidden;
-}
-
 .joystick-hidden {
   opacity: 0;
 }

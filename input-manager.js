@@ -71,16 +71,6 @@ export class InputManager {
       touch: {
         steeringId: null,
       },
-      // The advanced joystick (advanced-stick.js): the same floating
-      // joystick, read as two separate axes, each -1 to 1: roll (right
-      // positive) and pull (up positive)
-      advancedStick: {
-        roll: 0,
-        pull: 0,
-        startTime: 0,
-        moved: 0, // furthest the stick has been from the middle (px)
-        levelTap: false, // a quick tap of the stick, until it's read
-      },
       // How far two fingers (or a trackpad) have pinched since the camera
       // last read it (game-loop.js): their distance apart now over before,
       // above 1 spreading them to zoom in
@@ -108,11 +98,6 @@ export class InputManager {
     this._steeringResult = {
       x: 0,
       y: 0,
-      active: false,
-    };
-    this._advancedStickResult = {
-      roll: 0,
-      pull: 0,
       active: false,
     };
 
@@ -156,10 +141,6 @@ export class InputManager {
     this._pinch = null;
     this._pinchDone = false;
     this.PINCH_START_MS = 250;
-    // Advanced joystick: a touch shorter and stiller than this is a tap
-    // (ms, px)
-    this.STICK_TAP_MS = 200;
-    this.STICK_TAP_PX = 8;
 
     // Gamepad and WebXR controller state latches
     this._gamepadPauseLatched = false;
@@ -254,8 +235,6 @@ export class InputManager {
     this.state.joystick.active = false;
     this.state.joystick.touchId = null;
     this.state.touch.steeringId = null;
-    this.state.advancedStick.roll = 0;
-    this.state.advancedStick.pull = 0;
     this.resetMouseSteering();
     const joystickBase = document.getElementById('virtual-joystick-base');
     if (joystickBase) {
@@ -278,43 +257,6 @@ export class InputManager {
       if (e.touches[i].identifier === id) return;
     }
     this.releaseTouchSteering();
-  }
-
-  // Whether the advanced joystick is steering: it flies the planes only
-  // (the buggy keeps the joystick)
-  advancedStickOn() {
-    return (
-      this.state.controlScheme === 'advanced' && !state.airplaneModel?.isBuggy
-    );
-  }
-
-  // The scheme the touch handlers steer by
-  touchScheme() {
-    const scheme = this.state.controlScheme;
-    return scheme === 'advanced' ? 'joystick' : scheme;
-  }
-
-  /**
-   * The advanced joystick {roll, pull, active}: the stick's two axes, or
-   * without it the arrow keys (left and right roll, up and down pull), so
-   * it can be flown from a keyboard too.
-   */
-  getAdvancedStick() {
-    const stick = this.state.advancedStick;
-    const keys = this.state.keys;
-    const out = this._advancedStickResult;
-    out.active = this.state.joystick.active;
-    out.roll = out.active ? stick.roll : 0;
-    out.pull = out.active ? stick.pull : 0;
-    if (keys.ArrowLeft || keys.ArrowRight) {
-      out.roll = keys.ArrowRight ? 1 : -1;
-      out.active = true;
-    }
-    if (!keys.Shift && (keys.ArrowUp || keys.ArrowDown)) {
-      out.pull = keys.ArrowUp ? 1 : -1;
-      out.active = true;
-    }
-    return out;
   }
 
   // Starts a pinch if this touch came down with another on the view: undoes
@@ -782,10 +724,7 @@ export class InputManager {
       ? ChillFlightLogic.BUGGY_TOUCH_ZONES
       : {UP_ABOVE: 0.33, DOWN_BELOW: 0.66};
     let action = null;
-    // (The advanced joystick has no tap moves: a thumb coming back down in
-    // a side third would set them off. Rolls and loops are flown by hand)
-    if (this.advancedStickOn()) action = null;
-    else if (x < 0.33) action = 'ArrowLeft';
+    if (x < 0.33) action = 'ArrowLeft';
     else if (x > 0.66) action = 'ArrowRight';
     else if (y < zones.UP_ABOVE) action = 'ArrowUp';
     else if (y > zones.DOWN_BELOW) action = 'ArrowDown';
@@ -828,7 +767,7 @@ export class InputManager {
       return;
     }
 
-    if (this.touchScheme() === 'joystick') {
+    if (this.state.controlScheme === 'joystick') {
       this.releaseLostJoystick(e);
       if (!this.state.joystick.active) {
         this.state.joystick.active = true;
@@ -836,10 +775,6 @@ export class InputManager {
         this.state.joystick.startX = touch.clientX;
         this.state.joystick.startY = touch.clientY;
         this.state.mouse.controlActive = true;
-        this.state.advancedStick.startTime = now;
-        this.state.advancedStick.moved = 0;
-        this.state.advancedStick.roll = 0;
-        this.state.advancedStick.pull = 0;
 
         const joystickBase = document.getElementById('virtual-joystick-base');
         if (joystickBase) {
@@ -936,8 +871,8 @@ export class InputManager {
 
     if (this.state.controlScheme === 'gyro') return;
 
-    if (this.touchScheme() === 'joystick') this.releaseLostJoystick(e);
-    if (this.touchScheme() === 'joystick' && this.state.joystick.active) {
+    if (this.state.controlScheme === 'joystick') this.releaseLostJoystick(e);
+    if (this.state.controlScheme === 'joystick' && this.state.joystick.active) {
       for (let i = 0; i < e.touches.length; i++) {
         if (e.touches[i].identifier === this.state.joystick.touchId) {
           const touch = e.touches[i];
@@ -959,17 +894,10 @@ export class InputManager {
           this.state.mouse.y =
             -(stickY / this.JOYSTICK_MAX_RADIUS) * this.JOYSTICK_SENSITIVITY;
           this.state.mouse.controlActive = true;
-          // The advanced joystick reads each axis on its own, to the edge
-          // of a square, so full roll and full pull can go together
-          const adv = this.state.advancedStick;
-          const r = this.JOYSTICK_MAX_RADIUS;
-          adv.roll = Math.max(-1, Math.min(1, dx / r));
-          adv.pull = Math.max(-1, Math.min(1, -dy / r));
-          adv.moved = Math.max(adv.moved, dist);
           break;
         }
       }
-    } else if (this.touchScheme() === 'touch') {
+    } else if (this.state.controlScheme === 'touch') {
       let steeringTouch = null;
       for (let i = 0; i < e.changedTouches.length; i++) {
         if (
@@ -1012,17 +940,6 @@ export class InputManager {
     if (this.state.joystick.active) {
       for (let i = 0; i < e.changedTouches.length; i++) {
         if (e.changedTouches[i].identifier === this.state.joystick.touchId) {
-          // A quick still tap of the advanced joystick levels the wings
-          const adv = this.state.advancedStick;
-          if (
-            this.advancedStickOn() &&
-            performance.now() - adv.startTime < this.STICK_TAP_MS &&
-            adv.moved < this.STICK_TAP_PX
-          ) {
-            adv.levelTap = true;
-          }
-          adv.roll = 0;
-          adv.pull = 0;
           this.state.joystick.active = false;
           this.state.joystick.touchId = null;
           this.state.mouse.controlActive = false;

@@ -173,7 +173,6 @@ export default {
   Touch: 'Дотик',
   Joystick: 'Джойстик',
   Gyro: 'Гіроскоп',
-  Advanced: 'Розширений',
   'Invert y axis': 'Інвертувати вісь Y',
   'Push up to dive, like a flight stick':
     'Від себе для зниження, як зі штурвалом',
