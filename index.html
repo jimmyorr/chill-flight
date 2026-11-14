@@ -80,6 +80,9 @@
     <div id="ui-layer"></div>
     <!-- How to leave zen, shown as it turns on (zen.js) -->
     <div id="zen-hint" aria-live="polite"></div>
+    <!-- A tap move to try, and where to tap (tap-help.js) -->
+    <div id="move-hint" aria-live="polite"></div>
+    <div id="move-ripples" aria-hidden="true"></div>
     <div id="pause-overlay">
       <div class="customization-box">
         <div class="pause-tabs" role="tablist">
@@ -273,6 +276,20 @@
               </span>
               <input type="checkbox" id="haptics-input" class="pause-switch" />
             </label>
+            <!-- Tap-move hints in the sky (tap-help.js) -->
+            <label class="pause-row" for="hints-off-input">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Disable hints</span>
+                <span class="pause-row-sub"
+                  >No tap move tips while you play</span
+                >
+              </span>
+              <input
+                type="checkbox"
+                id="hints-off-input"
+                class="pause-switch"
+              />
+            </label>
           </div>
 
           <!-- Flying with friends: invite, join with a code, who's here
@@ -416,6 +433,15 @@
             >
               🗺️
             </button>
+            <!-- The tap moves, and a Try for each (tap-help.js) -->
+            <button
+              id="help-btn"
+              class="pause-icon-btn pause-map-btn"
+              title="Help"
+              aria-label="Help"
+            >
+              ❔
+            </button>
           </div>
         </div>
 
@@ -482,6 +508,22 @@
         </div>
         <div id="people-progress" class="achievements-progress"></div>
         <div id="people-grid"></div>
+      </div>
+    </div>
+
+    <!-- How to do the tap moves, for the plane and the buggy (tap-help.js) -->
+    <div id="help-overlay">
+      <div class="achievements-content">
+        <div class="achievements-header">
+          <span class="achievements-title">Help</span>
+          <button id="help-close-btn" class="achievements-close-btn">✕</button>
+        </div>
+        <div id="help-vehicle" class="scheme-btn-group help-vehicle">
+          <button class="scheme-btn" data-vehicle="plane">Plane</button>
+          <button class="scheme-btn" data-vehicle="buggy">Buggy</button>
+        </div>
+        <div id="help-zones" class="help-zones"></div>
+        <div id="help-moves" class="help-moves"></div>
       </div>
     </div>
 

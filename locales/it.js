@@ -797,4 +797,33 @@ export default {
   'ACHIEVEMENT UNLOCKED': 'OBIETTIVO SBLOCCATO',
   Empty: 'Vuoto',
   '0.0° (Equator)': '0.0° (Equatore)',
+  // Tap help (tap-moves.js, tap-help.js)
+  'Nice!': 'Ottimo!',
+  Try: 'Prova',
+  'Barrel roll': 'Tonneau',
+  'Sharp turn': 'Virata stretta',
+  Loop: 'Looping',
+  Hop: 'Salto',
+  'Power slide': 'Derapata',
+  'Hard brake': 'Frenata secca',
+  'Triple-tap {key} and hold': 'Tocca {key} tre volte e tieni premuto',
+  'Triple-tap {key}': 'Tocca {key} tre volte',
+  'Double-tap {key} and hold': 'Tocca {key} due volte e tieni premuto',
+  'Double-tap {key}': 'Tocca {key} due volte',
+  'Triple-tap left or right and hold':
+    'Tocca a sinistra o a destra tre volte e tieni premuto',
+  'Triple-tap the top and hold': 'Tocca in alto tre volte e tieni premuto',
+  'Triple-tap the top': 'Tocca in alto tre volte',
+  'Triple-tap the bottom and hold': 'Tocca in basso tre volte e tieni premuto',
+  'Triple-tap the bottom': 'Tocca in basso tre volte',
+  'Double-tap left or right and hold':
+    'Tocca a sinistra o a destra due volte e tieni premuto',
+  'Double-tap the top and hold': 'Tocca in alto due volte e tieni premuto',
+  'Double-tap the top': 'Tocca in alto due volte',
+  'Double-tap the bottom and hold': 'Tocca in basso due volte e tieni premuto',
+  'Disable hints': 'Disattiva suggerimenti',
+  'No tap move tips while you play':
+    'Nessun suggerimento sulle manovre mentre giochi',
+  Help: 'Aiuto',
+  Plane: 'Aereo',
 };

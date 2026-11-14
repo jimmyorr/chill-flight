@@ -798,4 +798,33 @@ export default {
   'ACHIEVEMENT UNLOCKED': 'ERFOLG FREIGESCHALTET',
   Empty: 'Leer',
   '0.0° (Equator)': '0.0° (Äquator)',
+  // Tap help (tap-moves.js, tap-help.js)
+  'Nice!': 'Schön!',
+  Try: 'Probieren',
+  'Barrel roll': 'Fassrolle',
+  'Sharp turn': 'Scharfe Kurve',
+  Loop: 'Looping',
+  Hop: 'Sprung',
+  'Power slide': 'Powerslide',
+  'Hard brake': 'Vollbremsung',
+  'Triple-tap {key} and hold': '{key} dreimal tippen und halten',
+  'Triple-tap {key}': '{key} dreimal tippen',
+  'Double-tap {key} and hold': '{key} doppelt tippen und halten',
+  'Double-tap {key}': '{key} doppelt tippen',
+  'Triple-tap left or right and hold':
+    'Dreimal links oder rechts tippen und halten',
+  'Triple-tap the top and hold': 'Dreimal oben tippen und halten',
+  'Triple-tap the top': 'Dreimal oben tippen',
+  'Triple-tap the bottom and hold': 'Dreimal unten tippen und halten',
+  'Triple-tap the bottom': 'Dreimal unten tippen',
+  'Double-tap left or right and hold':
+    'Doppelt links oder rechts tippen und halten',
+  'Double-tap the top and hold': 'Doppelt oben tippen und halten',
+  'Double-tap the top': 'Doppelt oben tippen',
+  'Double-tap the bottom and hold': 'Doppelt unten tippen und halten',
+  'Disable hints': 'Tipps ausschalten',
+  'No tap move tips while you play':
+    'Keine Tipps zu Tipp-Manövern beim Spielen',
+  Help: 'Hilfe',
+  Plane: 'Flugzeug',
 };

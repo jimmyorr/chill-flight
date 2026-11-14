@@ -40,6 +40,7 @@ import {
 } from './constants.js';
 import {state} from './state.js';
 import {doubleTap, inputManager, keys} from './game-input-bindings.js';
+import {noteMove} from './tap-moves.js';
 import {unscaleThumbstickForBuggy} from './vr-controls-logic.js';
 import {setOnWheels} from './flight-physics.js';
 import {simplex} from './noise.js';
@@ -892,10 +893,15 @@ function stepBuggy(dt) {
   state.buggySlip = airborne ? 0 : slip;
 
   // Achievements: a hop, a drift held a couple of seconds, hovering on water
-  if (hop) Achievements.unlock('bunny_hop');
+  if (hop) {
+    Achievements.unlock('bunny_hop');
+    noteMove('hop');
+  }
   driftTime = state.buggySlide > 0 && drifting > 0.5 ? driftTime + dt : 0;
   if (driftTime > DRIFT_ACHIEVEMENT_SECONDS) {
     Achievements.unlock('tokyo_drift');
+    noteMove('slide');
   }
   if (state.isOnWater && speed > 15) Achievements.unlock('walk_on_water');
+  if (hardBrake && !airborne && speed > 15) noteMove('brake');
 }

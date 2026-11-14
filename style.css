@@ -1978,7 +1978,8 @@ input[type='number'].customization-input {
    ============================================================ */
 
 #achievements-overlay,
-#people-overlay {
+#people-overlay,
+#help-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -2541,6 +2542,13 @@ input[type='number'].customization-input {
 
 .achievement-card.locked .achievement-card-hint {
   display: none;
+}
+
+/* A move not done yet: how to do it (tap-moves.js) */
+.achievement-card-how {
+  font-size: 10px;
+  line-height: 1.3;
+  color: rgba(255, 215, 0, 0.6);
 }
 
 /* Lock icon indicator for locked cards */
@@ -3571,6 +3579,255 @@ body.zen-fading :is(#cockpit-ui, #waypoint-indicator, #friend-markers) {
       opacity: 1;
     }
   }
+}
+
+/* Tap help (tap-help.js): a move to try, in the sky like the zen hint, with
+   ripples on the screen zone to tap: a ring per tap, then a dot that stays
+   while the finger holds */
+#move-hint {
+  position: fixed;
+  top: 34%;
+  left: 0;
+  right: 0;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 150;
+  opacity: 0;
+  visibility: hidden;
+}
+#move-hint b {
+  font-size: 18px;
+  font-weight: 700;
+}
+/* About the top of the screen: below the vehicle, clear of its ripples */
+#move-hint.low {
+  top: auto;
+  bottom: 24%;
+}
+#move-hint.show {
+  visibility: visible;
+  animation: move-hint 7s ease both;
+}
+#move-hint.practice.show {
+  animation: move-hint-in 0.5s ease both;
+}
+@keyframes move-hint {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  8% {
+    opacity: 1;
+    transform: none;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes move-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+#move-ripples {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 150;
+}
+.move-ripple {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.move-ripple i,
+.move-ripple b {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0;
+}
+.move-ripple i {
+  left: -22px;
+  top: -22px;
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  box-sizing: border-box;
+  animation: move-ripple 0.7s ease-out forwards;
+}
+.move-ripple b {
+  left: -13px;
+  top: -13px;
+  width: 26px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.6);
+  animation: move-hold 1.6s ease forwards;
+}
+@keyframes move-ripple {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+@keyframes move-hold {
+  0% {
+    opacity: 0;
+  }
+  10%,
+  75% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #move-hint.show,
+  #move-hint.practice.show {
+    animation: none;
+    opacity: 1;
+  }
+  .move-ripple i {
+    animation: none;
+    opacity: 0.7;
+  }
+  .move-ripple b {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* The Help screen: the tap zones, then each move with a Try */
+.help-vehicle {
+  width: 100%;
+  max-width: 280px;
+  flex: none;
+}
+.help-zones {
+  /* tap-help.js sets the width and aspect ratio to the screen's shape */
+  width: 100%;
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.help-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.9);
+}
+.help-zone small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #ffd700;
+}
+.help-zone.left,
+.help-zone.right {
+  grid-row: 1 / 4;
+  background: rgba(255, 215, 0, 0.08);
+}
+.help-zone.left {
+  grid-column: 1;
+  border-right: 1px dashed rgba(255, 255, 255, 0.25);
+}
+.help-zone.right {
+  grid-column: 3;
+  border-left: 1px dashed rgba(255, 255, 255, 0.25);
+}
+.help-zone.top,
+.help-zone.bottom {
+  grid-column: 2;
+  background: rgba(120, 190, 255, 0.1);
+}
+.help-zone.top {
+  grid-row: 1;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.25);
+}
+.help-zone.middle {
+  grid-column: 2;
+  grid-row: 2;
+}
+.help-zone.bottom {
+  grid-row: 3;
+  border-top: 1px dashed rgba(255, 255, 255, 0.25);
+}
+.help-moves {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.help-move {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.help-move:last-child {
+  border-bottom: none;
+}
+.help-move-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.help-move-done {
+  margin-left: 8px;
+  color: #ffd700;
+}
+.help-move-how {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.help-try-btn {
+  flex: none;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.help-try-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ?ui=0: nothing on screen but the game view, for clean screenshots and

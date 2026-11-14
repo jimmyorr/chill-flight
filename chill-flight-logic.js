@@ -220,6 +220,9 @@ export const ChillFlightLogic = {};
   const ADAPTIVE_QUALITY = getSwitchParam('adaptive') !== false;
   // ?traffic=0/1: other planes off or on for this visit (traffic.js)
   const TRAFFIC_PARAM = getSwitchParam('traffic');
+  // ?hints=0: no tap-move hints in the sky this visit, whatever the setting
+  // (tap-help.js); scripted runs (smoke tests, promos) pass it
+  const HINTS_PARAM = getSwitchParam('hints');
   // ?weightedRoll=0/1: the weighted roll off or on (game-loop.js)
   const WEIGHTED_ROLL_PARAM = getSwitchParam('weightedRoll');
   // ?perf=1: one-line FPS / draw call readout (perf-hud.js)
@@ -6587,6 +6590,7 @@ export const ChillFlightLogic = {};
   exports.DAY_COLOR = DAY_COLOR;
   exports.START_NOW = START_NOW;
   exports.SHOW_UI = SHOW_UI;
+  exports.HINTS_PARAM = HINTS_PARAM;
   exports.MUSIC_PARAM = MUSIC_PARAM;
   exports.SFX_PARAM = SFX_PARAM;
   exports.START_ISLAND_TYPE = START_ISLAND_TYPE;

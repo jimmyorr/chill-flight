@@ -4,6 +4,8 @@
 import {log} from './logger.js';
 import {IMPERIAL, t} from './i18n.js';
 import {trackAchievement} from './analytics.js';
+import {state} from './state.js';
+import {howTo, isTouch, moveForAchievement} from './tap-moves.js';
 
 export const Achievements = (function () {
   // --- ACHIEVEMENT REGISTRY ---
@@ -428,6 +430,18 @@ export const Achievements = (function () {
         hintEl.className = 'achievement-card-hint';
         hintEl.textContent = t(achievement.hint);
         card.appendChild(hintEl);
+      } else {
+        // A move not done yet says how to do it (tap-moves.js)
+        const move = moveForAchievement(achievement.id);
+        if (move) {
+          const howEl = document.createElement('div');
+          howEl.className = 'achievement-card-how';
+          howEl.textContent = howTo(move, {
+            touch: isTouch(),
+            invert: state.invertYAxis,
+          });
+          card.appendChild(howEl);
+        }
       }
 
       grid.appendChild(card);

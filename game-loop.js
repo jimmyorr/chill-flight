@@ -38,6 +38,7 @@ import {updatePlaneShadow} from './plane-shadow.js';
 import {performanceMonitor} from './game-performance.js';
 import {updatePerfHud} from './perf-hud.js';
 import {updateDebugTelemetry} from './debug-telemetry.js';
+import {noteMove} from './tap-moves.js';
 import {
   _cloudyColor,
   _currentGoldenSky,
@@ -452,12 +453,15 @@ function performFrame(timestamp) {
     // 1. Maneuver completions
     if (state.wasDoingFullLoop && !state.isDoingFullLoop) {
       Achievements.unlock('froot_loops');
+      noteMove('loop');
     }
     if (state.wasDoingFullBarrelRoll && !state.isDoingFullBarrelRoll) {
       Achievements.unlock('barrel_roll');
+      noteMove('roll');
     }
     if (state.wasDoingImmelmann && !state.isDoingImmelmann) {
       Achievements.unlock('u_turn');
+      noteMove('immelmann');
     }
 
     // 2. Steep climb / steep dive: teaches double-tap and hold, so loops
@@ -469,8 +473,10 @@ function performFrame(timestamp) {
       stuntPitchGrace -= delta;
     } else if (planeGroup.rotation.x > Math.PI / 4) {
       Achievements.unlock('to_the_moon');
+      noteMove('climb');
     } else if (planeGroup.rotation.x < -Math.PI / 4) {
       Achievements.unlock('nose_dive');
+      noteMove('dive');
     }
 
     const currentKTS =
@@ -1157,6 +1163,8 @@ function updatePhysicsAndControls(delta, nowTime) {
     );
     sharpTurnAmount = THREE.MathUtils.smoothstep(sharpTurnRamp, 0, 1);
     state.sharpTurnAmount = sharpTurnAmount;
+    // (Tap help: a sharp turn well under way counts as done)
+    if (sharpHeld && sharpTurnAmount > 0.8) noteMove('sharp');
 
     if (sharpTurnAmount > 0) {
       // Analog sticks can trim the bank; keys and touch zones hold it steady

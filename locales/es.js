@@ -793,4 +793,33 @@ export default {
   'ACHIEVEMENT UNLOCKED': 'LOGRO DESBLOQUEADO',
   Empty: 'Vacío',
   '0.0° (Equator)': '0.0° (ecuador)',
+  // Tap help (tap-moves.js, tap-help.js)
+  'Nice!': '¡Bien hecho!',
+  Try: 'Probar',
+  'Barrel roll': 'Tonel',
+  'Sharp turn': 'Giro cerrado',
+  Loop: 'Rizo',
+  Hop: 'Salto',
+  'Power slide': 'Derrape',
+  'Hard brake': 'Frenazo',
+  'Triple-tap {key} and hold': 'Toca {key} tres veces y mantén',
+  'Triple-tap {key}': 'Toca {key} tres veces',
+  'Double-tap {key} and hold': 'Toca {key} dos veces y mantén',
+  'Double-tap {key}': 'Toca {key} dos veces',
+  'Triple-tap left or right and hold':
+    'Toca izquierda o derecha tres veces y mantén',
+  'Triple-tap the top and hold': 'Toca arriba tres veces y mantén',
+  'Triple-tap the top': 'Toca arriba tres veces',
+  'Triple-tap the bottom and hold': 'Toca abajo tres veces y mantén',
+  'Triple-tap the bottom': 'Toca abajo tres veces',
+  'Double-tap left or right and hold':
+    'Toca izquierda o derecha dos veces y mantén',
+  'Double-tap the top and hold': 'Toca arriba dos veces y mantén',
+  'Double-tap the top': 'Toca arriba dos veces',
+  'Double-tap the bottom and hold': 'Toca abajo dos veces y mantén',
+  'Disable hints': 'Desactivar consejos',
+  'No tap move tips while you play':
+    'Sin consejos de maniobras mientras juegas',
+  Help: 'Ayuda',
+  Plane: 'Avión',
 };
