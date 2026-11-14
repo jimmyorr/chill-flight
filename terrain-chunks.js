@@ -1476,8 +1476,12 @@ if (ChillFlightLogic.XMAS) {
       false,
       !glow
     );
+    // The rest are a few metres across and up to ~730 triangles each (a
+    // roofline light run), on most northern village houses in December:
+    // drawn only in the plane's chunk and the ring around it, like the swamp's
+    // small props (a 4 m light run is a pixel or two past 1.5 km on a phone)
     if (!XMAS_FAR_TYPES.includes(type)) {
-      globalInstancer.setFarGeometry(type, null);
+      globalInstancer.setFarGeometry(type, null, {farRadius: 1});
     }
     if (!glow) {
       globalInstancer.setShadowGeometry(
