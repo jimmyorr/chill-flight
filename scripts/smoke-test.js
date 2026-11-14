@@ -86,6 +86,10 @@ async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
   if (!pageUrl.searchParams.has('xmas')) {
     pageUrl.searchParams.set('xmas', 'off');
   }
+  // No tap-move hints in the sky over the flight (tap-help.js)
+  if (!pageUrl.searchParams.has('hints')) {
+    pageUrl.searchParams.set('hints', '0');
+  }
   const url = pageUrl.href;
   const tag = blackhole ? 'black-hole network' : path || 'index.html';
   const page = await browser.newPage();

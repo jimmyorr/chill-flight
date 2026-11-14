@@ -2,7 +2,7 @@
 // 5173) in headless Chrome: screenshots (scripts/shot.js) and render
 // benchmarks (scripts/bench-render.js).
 //
-// Pages open with ?start=1&ui=0&music=0 unless the query says otherwise: no
+// Pages open with ?start=1&ui=0&music=0&hints=0 unless the query says otherwise: no
 // Begin button, no HUD or panels over the view, and no music downloads.
 import puppeteer from 'puppeteer-core';
 import {execFileSync} from 'child_process';
@@ -252,6 +252,8 @@ export function gameUrl(query = '') {
     ['start', '1'],
     ['ui', '0'],
     ['music', '0'],
+    // No tap-move hints in the sky (tap-help.js)
+    ['hints', '0'],
     // Christmas off (pinned dated seeds can fall in Nov 1 to Jan 6), so
     // shots and audits compare across the year; pass xmas=full to see it
     ['xmas', 'off'],

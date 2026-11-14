@@ -47,7 +47,7 @@ const PIXEL_H = VIEWPORT.height * VIEWPORT.scale;
 // always off, so the browser must draw the same ground (a Short can add
 // xmas=full to its own query for a seasonal one)
 const COMMON =
-  'start=1&ui=0&music=0&preset=ultra&timeSpeed=0' +
+  'start=1&ui=0&music=0&hints=0&preset=ultra&timeSpeed=0' +
   '&clock=1790000000000&cloudTime=500&fps=0&adaptive=0&traffic=0&xmas=off';
 
 const H264 = [

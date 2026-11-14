@@ -11,7 +11,7 @@
 // shot sets its own cloudMood (fair, mixed, mackerel, high or busy), so the
 // set shows off the different skies.
 export const COMMON =
-  'start=1&ui=0&music=0&seed=20260101&preset=ultra&timeSpeed=0' +
+  'start=1&ui=0&music=0&hints=0&seed=20260101&preset=ultra&timeSpeed=0' +
   '&clock=1790000000000&cloudTime=500&fps=0&adaptive=0&traffic=0&xmas=off';
 
 // Title and end cards: the app icon and name, an optional tagline, and lines
