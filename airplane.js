@@ -24,12 +24,18 @@ import {state} from './state.js';
 import {hooks} from './hooks.js';
 import {softenAnimeLight} from './art-style.js';
 
+const initialSpawn = ChillFlightLogic.dailySpawn(simplex, {
+  WATER_LEVEL,
+  MAP_WORLD_SIZE,
+  MAP_HEIGHT_SCALE,
+});
+
 export const planeGroup = new THREE.Group();
-// Turned so the Falls aren't dead ahead (spawnYaw), unless heading specified in URL
+// Turned for today's scenic spawn (or the Falls on first play), unless heading specified in URL
 planeGroup.rotation.y =
   ChillFlightLogic.START_HEADING !== null
     ? THREE.MathUtils.degToRad(ChillFlightLogic.START_HEADING)
-    : ChillFlightLogic.spawnYaw();
+    : initialSpawn.yaw;
 if (ChillFlightLogic.START_PITCH !== null) {
   planeGroup.rotation.x = THREE.MathUtils.degToRad(
     ChillFlightLogic.START_PITCH
@@ -598,9 +604,9 @@ export function updateHeadlightBeam(driving) {
 }
 
 // Initial position
-let startX = 0;
-let startZ = 0;
-let startY = 445.5;
+let startX = initialSpawn.x;
+let startZ = initialSpawn.z;
+let startY = initialSpawn.y;
 
 const urlLatVal = ChillFlightLogic.parsedLat;
 const urlLonVal = ChillFlightLogic.parsedLon;

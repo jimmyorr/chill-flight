@@ -53,7 +53,7 @@ Procedural sound effects generated in real time with the Web Audio API provide a
 
 ## Biomes
 
-The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts.
+The world is organized around a central coordinate system (0,0) where latitude (Z) and longitude (X) determine the primary environmental shifts. First-time players always spawn at the heartland origin (`X = 0, Z = 0` / `0.0 North, 0.0 East`, `Y = 445.5`) turned 15° north-west so the Falls pass off the right wing. Returning players (once `chill_flight_played_before` is set in `localStorage`, and when no URL coordinates override the position) rotate through eight scenic starting corridors across the continent (`Falls`, `Volcano`, `Lighthouse`, `Canyon`, `Pyramids`, `Skeleton`, `Swamp`, and `Rock Arch`), advancing by one corridor each calendar day from `WORLD_SEED` (`dailySpawn` and `scenicSpawnAt` in `chill-flight-logic.js`).
 
 The land is a continent with sea on every side (`continentPast` in `chill-flight-logic.js`). Its outline is one of five hand-made shapes (`CONTINENTS`), which the world seed picks between, so each day's world may have a different one (about a fifth each); the `continent` URL parameter forces one. Each shape is a few overlapping, tilted ellipses for the main continent and one for the eastern land, blended where they meet and warped by smooth noise at the 1 to 3 degree scale, so the coasts lean, taper and hook rather than following the lines of latitude and longitude:
 

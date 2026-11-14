@@ -4660,6 +4660,216 @@ export const ChillFlightLogic = {};
   exports.computeTimeOfDay = computeTimeOfDay;
   exports.computeInputPosition = computeInputPosition;
   exports.computeHeadingDirection = computeHeadingDirection;
+
+  // --- DAILY SCENIC SPAWN ---
+  // First-time players always start at (0, 445.5, 0) in the heartland valley
+  // with the Falls off the right wing. Returning players (once
+  // chill_flight_played_before is set, and when no URL coordinates or custom
+  // island override the start) rotate through eight scenic corridors across
+  // the continent, one per calendar day from WORLD_SEED.
+  const SCENIC_SPAWNS = [
+    'Falls',
+    'Volcano',
+    'Lighthouse',
+    'Canyon',
+    'Pyramids',
+    'Skeleton',
+    'Swamp',
+    'Rock Arch',
+  ];
+
+  function dailySpawnIndex(seed, count = SCENIC_SPAWNS.length) {
+    if (Number.isInteger(seed) && seed >= 10000101 && seed <= 99991231) {
+      const y = Math.floor(seed / 10000);
+      const m = Math.floor(seed / 100) % 100;
+      const d = seed % 100;
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        const days = Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+        return ((days % count) + count) % count;
+      }
+    }
+    const n = Number.isFinite(seed) ? Math.trunc(seed) : 0;
+    return ((n % count) + count) % count;
+  }
+
+  function corridorAltitude(
+    x,
+    z,
+    yaw,
+    clearance,
+    minY,
+    simplex,
+    constants,
+    maxD = 4500
+  ) {
+    const water = (constants && constants.WATER_LEVEL) || 40;
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    let highest = water;
+    for (let d = -200; d <= maxD; d += 100) {
+      for (const side of [-120, 0, 120]) {
+        const px = x + fx * d - fz * side;
+        const pz = z + fz * d + fx * side;
+        const h = Math.max(water, getElevation(px, pz, simplex, constants));
+        if (h > highest) highest = h;
+      }
+    }
+    return Math.max(minY, Math.round(highest + clearance));
+  }
+
+  function scenicSpawnAt(nameOrIndex, simplex, constants = {}) {
+    const deg = (d) => (d * Math.PI) / 180;
+    const name =
+      typeof nameOrIndex === 'number'
+        ? SCENIC_SPAWNS[
+            ((Math.trunc(nameOrIndex) % SCENIC_SPAWNS.length) +
+              SCENIC_SPAWNS.length) %
+              SCENIC_SPAWNS.length
+          ]
+        : SCENIC_SPAWNS.includes(nameOrIndex)
+          ? nameOrIndex
+          : 'Falls';
+    if (name === 'Falls' || !simplex) {
+      return {name: 'Falls', x: 0, y: 445.5, z: 0, yaw: SPAWN_YAW};
+    }
+    let x = 0;
+    let z = 0;
+    let yaw = SPAWN_YAW;
+    let clearance = 180;
+    let minY = 320;
+    let maxD = 4500;
+    if (name === 'Volcano') {
+      x = -2200;
+      z = 2200;
+      yaw = Math.atan2(2800, -2800) + deg(24);
+      clearance = 220;
+      minY = 460;
+    } else if (name === 'Lighthouse') {
+      x = 8400;
+      z = 5200;
+      yaw = Math.atan2(900, 2200) - deg(10);
+      clearance = 180;
+      minY = 280;
+    } else if (name === 'Canyon') {
+      x = 3200;
+      z = 17500;
+      yaw = Math.atan2(1200, -4500);
+      clearance = 180;
+      minY = 420;
+    } else if (name === 'Pyramids') {
+      const pyr = pyramidSite(simplex, constants);
+      if (!pyr) return {name: 'Falls', x: 0, y: 445.5, z: 0, yaw: SPAWN_YAW};
+      x = pyr.x + 1800;
+      z = pyr.z + 2800;
+      yaw = Math.atan2(2450, 2070);
+      clearance = 180;
+      minY = 320;
+    } else if (name === 'Skeleton') {
+      const drg = dragonSite(simplex, constants);
+      if (!drg) return {name: 'Falls', x: 0, y: 445.5, z: 0, yaw: SPAWN_YAW};
+      let bestAngle = Math.PI * 0.25;
+      let bestOccluder = Infinity;
+      for (let i = 0; i < 16; i++) {
+        const a = (i * Math.PI * 2) / 16;
+        const dx = Math.cos(a);
+        const dz = Math.sin(a);
+        let maxBetween = -Infinity;
+        for (let r = 200; r <= 1100; r += 100) {
+          const h = getElevation(
+            drg.x + dx * r,
+            drg.z + dz * r,
+            simplex,
+            constants
+          );
+          if (h > maxBetween) maxBetween = h;
+        }
+        if (maxBetween < bestOccluder) {
+          bestOccluder = maxBetween;
+          bestAngle = a;
+        }
+      }
+      x = Math.round(drg.x + Math.cos(bestAngle) * 900);
+      z = Math.round(drg.z + Math.sin(bestAngle) * 900);
+      yaw = Math.atan2(x - drg.x, z - drg.z) + deg(15);
+      clearance = 125;
+      minY = 180;
+      maxD = 2200;
+    } else if (name === 'Swamp') {
+      const oak = giantSwampOak();
+      x = Math.round(oak.x + 1600);
+      z = Math.round(oak.z + 600);
+      yaw = Math.atan2(1600, 600) + deg(8);
+      clearance = 170;
+      minY = 240;
+    } else if (name === 'Rock Arch') {
+      const archZ = exports.WORLD_SEED
+        ? mulberry32(exports.WORLD_SEED)() * 10000 - 5000
+        : 0;
+      x = 2100;
+      z = Math.round(archZ + 2000);
+      yaw = Math.atan2(-900, 2000) - deg(12);
+      clearance = 180;
+      minY = 360;
+    }
+    const y = corridorAltitude(
+      x,
+      z,
+      yaw,
+      clearance,
+      minY,
+      simplex,
+      constants,
+      maxD
+    );
+    return {name, x, y, z, yaw};
+  }
+
+  function hasUrlPlacement() {
+    return (
+      START_FREE_CAM ||
+      HAS_CAM_PLACEMENT ||
+      (START_ISLAND_TYPE && START_ISLAND_TYPE !== 'auto') ||
+      (exports.FORCE_ISLAND_TYPE && exports.FORCE_ISLAND_TYPE !== 'auto') ||
+      Boolean(exports.customMap) ||
+      [
+        parsedLat,
+        parsedLon,
+        validAlt,
+        START_X,
+        START_Y,
+        START_Z,
+        START_HEADING,
+      ].some((v) => v !== null && v !== undefined && !Number.isNaN(v))
+    );
+  }
+
+  // Read before audio.js sets chill_flight_played_before on first load
+  let PLAYED_BEFORE = false;
+  try {
+    PLAYED_BEFORE =
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('chill_flight_played_before') === 'true';
+  } catch {
+    /* storage blocked */
+  }
+
+  function dailySpawn(
+    simplex,
+    constants = {},
+    {playedBefore = exports.PLAYED_BEFORE, seed = exports.WORLD_SEED} = {}
+  ) {
+    if (!playedBefore || hasUrlPlacement()) {
+      return {name: 'Falls', x: 0, y: 445.5, z: 0, yaw: spawnYaw()};
+    }
+    const idx = dailySpawnIndex(seed, SCENIC_SPAWNS.length);
+    return scenicSpawnAt(idx, simplex, constants);
+  }
+
+  exports.PLAYED_BEFORE = PLAYED_BEFORE;
+  exports.SCENIC_SPAWNS = SCENIC_SPAWNS;
+  exports.dailySpawnIndex = dailySpawnIndex;
+  exports.scenicSpawnAt = scenicSpawnAt;
+  exports.dailySpawn = dailySpawn;
   // --- RIVER CENTER ---
   // Returns the absolute Z coordinate of the center of the river at a given X.
   // Updated to take Z and return the center of the nearest river.

@@ -309,6 +309,85 @@ check(
   );
 }
 
+// Daily scenic spawns: first-time play always starts at (0, 445.5, 0) by the
+// Falls; returning players rotate through all eight scenic corridors on
+// consecutive days with safe clearance ahead.
+{
+  const {simplex} = await import('../noise.js');
+  const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 200};
+  const firstPlay = ChillFlightLogic.dailySpawn(simplex, constants, {
+    playedBefore: false,
+    seed: 20261114,
+  });
+  check(
+    'first-time play always spawns at (0, 445.5, 0) facing the Falls corridor',
+    firstPlay.name === 'Falls' &&
+      firstPlay.x === 0 &&
+      firstPlay.y === 445.5 &&
+      firstPlay.z === 0 &&
+      near(firstPlay.yaw, ChillFlightLogic.SPAWN_YAW)
+  );
+
+  const eightDays = [
+    20261127, 20261128, 20261129, 20261130, 20261201, 20261202, 20261203,
+    20261204,
+  ];
+  const seen = new Set();
+  let adjacentRepeat = false;
+  let prevName = null;
+  for (const seed of eightDays) {
+    ChillFlightLogic.WORLD_SEED = seed;
+    simplex.seed(seed);
+    const sp = ChillFlightLogic.dailySpawn(simplex, constants, {
+      playedBefore: true,
+      seed,
+    });
+    if (sp.name === prevName) adjacentRepeat = true;
+    prevName = sp.name;
+    seen.add(sp.name);
+  }
+  check(
+    'returning players cycle through all 8 scenic spawns across 8 consecutive days (including month rollover)',
+    seen.size === ChillFlightLogic.SCENIC_SPAWNS.length && !adjacentRepeat,
+    `seen=${[...seen].join(',')} repeat=${adjacentRepeat}`
+  );
+
+  const clearanceProblems = [];
+  for (const seed of [20260101, 20261114, 42]) {
+    ChillFlightLogic.WORLD_SEED = seed;
+    simplex.seed(seed);
+    for (const name of ChillFlightLogic.SCENIC_SPAWNS) {
+      const sp = ChillFlightLogic.scenicSpawnAt(name, simplex, constants);
+      const fx = -Math.sin(sp.yaw);
+      const fz = -Math.cos(sp.yaw);
+      for (let d = 0; d <= 2000; d += 100) {
+        const h = Math.max(
+          40,
+          ChillFlightLogic.getElevation(
+            sp.x + fx * d,
+            sp.z + fz * d,
+            simplex,
+            constants
+          )
+        );
+        if (sp.y - h < 120) {
+          clearanceProblems.push(
+            `${seed}/${name} d=${d}: y=${sp.y} ground=${h.toFixed(0)}`
+          );
+          break;
+        }
+      }
+    }
+  }
+  ChillFlightLogic.WORLD_SEED = 20260101;
+  simplex.seed(20260101);
+  check(
+    'every scenic spawn has safe vertical clearance along its flight corridor',
+    clearanceProblems.length === 0,
+    clearanceProblems.join('; ')
+  );
+}
+
 if (failed) {
   console.error('Map place tests failed.');
   process.exit(1);
