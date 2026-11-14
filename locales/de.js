@@ -796,6 +796,7 @@ export default {
   Canyon: 'Schlucht',
   Pyramids: 'Pyramiden',
   Skeleton: 'Skelett',
+  'Christmas village': 'Weihnachtsdorf',
   'If something comes up, just clear the waypoint on the map.':
     'Wenn etwas dazwischenkommt, lösch einfach den Wegpunkt auf der Karte.',
   'ACHIEVEMENT UNLOCKED': 'ERFOLG FREIGESCHALTET',

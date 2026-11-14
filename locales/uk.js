@@ -792,6 +792,7 @@ export default {
   Canyon: 'Каньйон',
   Pyramids: 'Піраміди',
   Skeleton: 'Скелет',
+  'Christmas village': 'Різдвяне селище',
   'If something comes up, just clear the waypoint on the map.':
     'Якщо зміняться плани, просто прибери точку маршруту на карті.',
   'ACHIEVEMENT UNLOCKED': 'ДОСЯГНЕННЯ ВІДКРИТО',

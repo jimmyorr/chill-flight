@@ -228,6 +228,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {boatMat, buildSmallBoatGeos} from './boat-models.js';
 import {buildTractorGeos} from './farm-models.js';
 import {buildSwampGeos, createSwampFarCanopy} from './swamp-models.js';
+import {XMAS_FAR_TYPES, buildXmasGeos, xmasGlowMat} from './xmas-models.js';
 import {
   buildLandmarkGeos,
   buildingMat,
@@ -608,8 +609,10 @@ class GlobalInstanceManager {
   }
 
   rebuildAll() {
-    const planeChunkX = Math.round(planeGroup.position.x / CHUNK_SIZE);
-    const planeChunkZ = Math.round(planeGroup.position.z / CHUNK_SIZE);
+    const target =
+      typeof window !== 'undefined' && state.isFreeCamera ? camera : planeGroup;
+    const planeChunkX = Math.round(target.position.x / CHUNK_SIZE);
+    const planeChunkZ = Math.round(target.position.z / CHUNK_SIZE);
     if (
       planeChunkX !== this._planeChunkX ||
       planeChunkZ !== this._planeChunkZ
@@ -619,8 +622,8 @@ class GlobalInstanceManager {
       this._dirty = true;
     }
     const closeMask = closeUpMask(
-      planeGroup.position.x,
-      planeGroup.position.z,
+      target.position.x,
+      target.position.z,
       planeChunkX,
       planeChunkZ
     );
@@ -1743,6 +1746,31 @@ for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_TOWERS))) {
     globalInstancer.setFarGeometry(type, towerFarGeo(type, geo), {
       nearRadius: TOWER_FAR_CHUNK_RADIUS,
     });
+  }
+}
+// The Christmas village (xmas-models.js, laid out by xmas-village-logic.js),
+// built only in the season: one of most things, so not drawn far off but
+// for the big tree and the gingerbread house. The lights cast no shadow.
+if (ChillFlightLogic.XMAS) {
+  for (const [type, geo] of Object.entries(buildXmasGeos())) {
+    const glow = type.endsWith('Glow');
+    globalInstancer.registerType(
+      type,
+      geo,
+      glow ? xmasGlowMat : buildingMat,
+      64,
+      false,
+      !glow
+    );
+    if (!XMAS_FAR_TYPES.includes(type)) {
+      globalInstancer.setFarGeometry(type, null);
+    }
+    if (!glow) {
+      globalInstancer.setShadowGeometry(
+        type,
+        /Fir|LampPost/.test(type) ? shadowCylinder(geo) : shadowBox(geo)
+      );
+    }
   }
 }
 // The campers' trailers: one part each, too small to see far off

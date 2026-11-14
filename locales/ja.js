@@ -777,6 +777,7 @@ export default {
   Canyon: '峡谷',
   Pyramids: 'ピラミッド',
   Skeleton: '骸骨',
+  'Christmas village': 'クリスマス村',
   'If something comes up, just clear the waypoint on the map.':
     '何か用事ができたら、マップでウェイポイントを消せば大丈夫。',
   'ACHIEVEMENT UNLOCKED': '実績解除',

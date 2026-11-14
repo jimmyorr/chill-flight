@@ -132,9 +132,10 @@ const TREE_PART =
   /Trunk|Leaves|^cactus|^swamp(Cypress|Tupelo|DeadOak|Snag|GiantOak)/;
 // Parts that don't count toward how wide a prop is (a streetlight's arm
 // reaches out over the road), and parts that just go out when it falls
-// (its pool of light, or a campfire's) and don't count toward its size at all
+// (its pool of light, a campfire's, or the Christmas village's bulbs and
+// lanterns, xmas-models.js) and don't count toward its size at all
 const OVERHANG = /^streetlight(Arm|Bulb|Decal)$/;
-const GOES_OUT = /^streetlightDecal$|^fireGlow$/;
+const GOES_OUT = /^streetlightDecal$|^fireGlow$|^xmas\w*Glow$/;
 // The sails turn in their shader at this rate (rad/s, terrain-geometry.js),
 // clockwise about their hub
 const SAIL_SPIN = 1.5;

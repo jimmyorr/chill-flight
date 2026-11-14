@@ -10,6 +10,12 @@
  * generateChunkData hands a chunk job's season to a worker's logic module.
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
+import {simplex} from '../noise.js';
+import {
+  xmasLitHouses,
+  xmasVillagePlacements,
+  xmasToWorld,
+} from '../xmas-village-logic.js';
 import {generateChunkData} from '../terrain-gen.js';
 
 console.log('Testing the Christmas season...');
@@ -126,6 +132,117 @@ job(null, 0);
 check(
   'a chunk job with the season off turns it off',
   ChillFlightLogic.XMAS === null && ChillFlightLogic.XMAS_DAY === 0
+);
+
+// 6. Advent ramp and village layout (xmas-village-logic.js)
+check(
+  'November lights 2 houses',
+  xmasLitHouses('setup', 15) === 2,
+  String(xmasLitHouses('setup', 15))
+);
+const litCounts = [1, 4, 8, 12, 16, 20].map((d) => xmasLitHouses('full', d));
+check(
+  'December lights 3, 3, 4, 5, 6, 6 houses through Dec 20',
+  JSON.stringify(litCounts) === JSON.stringify([3, 3, 4, 5, 6, 6]),
+  JSON.stringify(litCounts)
+);
+const setupTypes = new Set(
+  xmasVillagePlacements('setup', 1).map((p) => p.type)
+);
+const fullTypes = new Set(xmasVillagePlacements('full', 20).map((p) => p.type));
+check(
+  'November has the bare fir, tree lot and cocoa stand, and no sleigh or presents',
+  setupTypes.has('xmasFirBare') &&
+    setupTypes.has('xmasTreeRackBody') &&
+    setupTypes.has('xmasCocoaStand') &&
+    !setupTypes.has('xmasFir') &&
+    !setupTypes.has('xmasSleighBody') &&
+    !setupTypes.has('xmasPresentsBody'),
+  [...setupTypes].join(',')
+);
+check(
+  'December has the lit fir, sleigh, reindeer, presents, snow fort and gingerbread house',
+  fullTypes.has('xmasFir') &&
+    fullTypes.has('xmasSleighBody') &&
+    fullTypes.has('xmasReindeer') &&
+    fullTypes.has('xmasPresentsBody') &&
+    fullTypes.has('xmasSnowFortBody') &&
+    fullTypes.has('xmasGingerbread') &&
+    !fullTypes.has('xmasFirBare'),
+  [...fullTypes].join(',')
+);
+
+// 7. Site finder and chunk generation beside Pinewood Field
+const elevParams = {
+  WATER_LEVEL: 40,
+  MOUNTAIN_LEVEL: 180,
+  MAP_WORLD_SIZE: 10000,
+  MAP_HEIGHT_SCALE: 400,
+};
+for (const seed of [20261113, 20261215, 20261224]) {
+  ChillFlightLogic.WORLD_SEED = seed;
+  simplex.seed(seed);
+  ChillFlightLogic.XMAS = 'full';
+  ChillFlightLogic.XMAS_DAY = 20;
+  const site = ChillFlightLogic.xmasVillageSite(simplex, elevParams);
+  check(
+    `seed ${seed} finds a dry village site near Pinewood Field`,
+    site !== null &&
+      Math.hypot(site.x - -4000, site.z - -17200) < 1600 &&
+      site.base > elevParams.WATER_LEVEL + 5,
+    JSON.stringify(site)
+  );
+  const w = xmasToWorld(site, {x: 0, z: 30, rotY: 0});
+  check(
+    `seed ${seed} flattens the village bed at the square`,
+    Math.abs(
+      ChillFlightLogic.getElevation(w.x, w.z, simplex, elevParams) - site.base
+    ) < 0.01
+  );
+}
+
+// 8. Chunk generation over the village on seed 20261113
+ChillFlightLogic.WORLD_SEED = 20261113;
+simplex.seed(20261113);
+ChillFlightLogic.XMAS = 'full';
+const site = ChillFlightLogic.xmasVillageSite(simplex, elevParams);
+const vcx = Math.round(site.x / 1500);
+const vcz = Math.round(site.z / 1500);
+const fullChunk = generateChunkData({
+  chunkX: vcx,
+  chunkZ: vcz,
+  chunkSize: 1500,
+  segments: 8,
+  elevParams,
+  worldSeed: 20261113,
+  xmas: 'full',
+  xmasDay: 20,
+  enableObjects: true,
+}).result;
+check(
+  'village chunk in December emits the fir, gingerbread house, houses and lamp posts',
+  fullChunk.instanceData.xmasFir?.count === 1 &&
+    fullChunk.instanceData.xmasGingerbreadBody?.count === 1 &&
+    fullChunk.instanceData.farmhouse0Body?.count === 2 &&
+    fullChunk.instanceData.xmasLampPost?.count === 10,
+  Object.keys(fullChunk.instanceData)
+    .filter((k) => /^xmas|^farmhouse/.test(k))
+    .join(',')
+);
+const offChunk = generateChunkData({
+  chunkX: vcx,
+  chunkZ: vcz,
+  chunkSize: 1500,
+  segments: 8,
+  elevParams,
+  worldSeed: 20261113,
+  xmas: null,
+  xmasDay: 0,
+  enableObjects: true,
+}).result;
+check(
+  'with the season off, the same chunk emits no xmas props',
+  !Object.keys(offChunk.instanceData).some((k) => k.startsWith('xmas'))
 );
 
 if (failed) {

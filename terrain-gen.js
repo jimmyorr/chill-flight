@@ -6,6 +6,11 @@
 
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
+import {
+  XMAS_VILLAGE_RADIUS,
+  xmasToWorld,
+  xmasVillagePlacements,
+} from './xmas-village-logic.js';
 
 function hue2rgb(p, q, t) {
   let tempT = t;
@@ -2408,6 +2413,70 @@ function findBreakwater(
     return out;
   }
   return null;
+}
+
+// The Christmas village (xmas-village-logic.js; its spot and level ground
+// from chill-flight-logic.js): props are cleared this far round its middle
+// (units), and its placements are worked out once per phase and day
+const XMAS_CLEAR = XMAS_VILLAGE_RADIUS + 20;
+const XMAS_BREAKS = {
+  house: BREAKABLE.HOUSE,
+  tower: BREAKABLE.TREE,
+  small: BREAKABLE.SMALL,
+  snowman: BREAKABLE.SNOWMAN,
+};
+let _xmasPlan = {key: null, placements: []};
+function addXmasVillage(collector, offsetX, offsetZ, chunkSize, elevParams) {
+  const site = ChillFlightLogic.xmasVillageSite(simplex, elevParams);
+  if (!site) return;
+  const half = chunkSize / 2;
+  // Nowhere near this chunk
+  const reach = half + XMAS_VILLAGE_RADIUS;
+  if (Math.abs(site.x - offsetX) > reach || Math.abs(site.z - offsetZ) > reach)
+    return;
+  const key = `${ChillFlightLogic.XMAS}:${ChillFlightLogic.XMAS_DAY}`;
+  if (_xmasPlan.key !== key) {
+    _xmasPlan = {
+      key,
+      placements: xmasVillagePlacements(
+        ChillFlightLogic.XMAS,
+        ChillFlightLogic.XMAS_DAY
+      ),
+    };
+  }
+  for (const p of _xmasPlan.placements) {
+    const {x, z, rotY} = xmasToWorld(site, p);
+    if (x < offsetX - half || x >= offsetX + half) continue;
+    if (z < offsetZ - half || z >= offsetZ + half) continue;
+    const c = Math.cos(rotY);
+    const sn = Math.sin(rotY);
+    composeMatrix(_matBuffer, 0, x, site.base, z, 1, 1, 1, 0, rotY, 0);
+    collector.beginProp(XMAS_BREAKS[p.kind]);
+    if (p.kind === 'house') {
+      collector.add(p.type + 'Body', _matBuffer);
+      collector.add(p.type + 'Roof', _matBuffer);
+    } else {
+      collector.add(p.type, _matBuffer);
+    }
+    // Its lights, each where it hangs in its frame
+    for (const [type, dx, dy, dz, sx] of p.parts || []) {
+      composeMatrix(
+        _matBuffer,
+        0,
+        x + dx * c + dz * sn,
+        site.base + dy,
+        z - dx * sn + dz * c,
+        sx,
+        1,
+        1,
+        0,
+        rotY,
+        0
+      );
+      collector.add(type, _matBuffer);
+    }
+    collector.endProp();
+  }
 }
 
 export function generateChunkData({
@@ -6018,7 +6087,8 @@ export function generateChunkData({
       }
     }
 
-    // Nothing grows or stands on the pyramids or the dragon skeleton
+    // Nothing grows or stands on the pyramids, the dragon skeleton or (in
+    // the season) the Christmas village's ground
     const keepOffPyramids = (arr) => {
       let kept = 0;
       for (const p of arr) {
@@ -6028,7 +6098,9 @@ export function generateChunkData({
           ChillFlightLogic.pyramidFootAt(wx, wz, simplex, elevParams) >=
             PYRAMID_PROP_CLEAR &&
           ChillFlightLogic.dragonFootAt(wx, wz, simplex, elevParams) >=
-            PYRAMID_PROP_CLEAR
+            PYRAMID_PROP_CLEAR &&
+          ChillFlightLogic.xmasVillageDistance(wx, wz, simplex, elevParams) >=
+            XMAS_CLEAR
         ) {
           arr[kept++] = p;
         }
@@ -6757,6 +6829,18 @@ export function generateChunkData({
       collector.add(pos.type + 'Roof', _matBuffer);
     }
     collector.endProp();
+  }
+
+  // The Christmas village, in the season: whatever of it stands in this
+  // chunk
+  if (_enableObjects && ChillFlightLogic.XMAS) {
+    addXmasVillage(
+      collector,
+      worldOffsetX,
+      worldOffsetZ,
+      chunkSize,
+      elevParams
+    );
   }
 
   // Ice fishing huts (no rolls here either)

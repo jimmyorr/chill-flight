@@ -2880,6 +2880,142 @@ export const ChillFlightLogic = {};
     return true;
   }
 
+  // --- THE CHRISTMAS VILLAGE ---
+  // In the Christmas season (exports.XMAS, seasonOf), a little village stands
+  // in the snow beside Pinewood Field (specs/christmas-village.md; layout in
+  // xmas-village-logic.js, drawn by terrain-gen.js). Its ground is eased flat
+  // out to XMAS_BED, blending back into the land by XMAS_BED_EDGE. The spot
+  // is the first in XMAS_SITES (nearest the runway first, on the side away
+  // from the tower and its road) that's dry, clear of the highways and level
+  // enough; the village's entrance faces the airport.
+  const XMAS_AIRPORT = 'Pinewood Field';
+  const XMAS_BED = 170;
+  const XMAS_BED_EDGE = 300;
+  const XMAS_PROBES = [[0, 0]];
+  for (let k = 0; k < 8; k++) {
+    const a = (k * Math.PI) / 4;
+    XMAS_PROBES.push([Math.cos(a) * XMAS_BED, Math.sin(a) * XMAS_BED]);
+  }
+  // Candidate spots in the airport's frame (u along the runway, v across it,
+  // the tower at +v), nearest the airfield first and the side away from the
+  // tower before the rest: far enough off the airfield (its falloff plus
+  // the bed's) that the two don't fight over the ground, and not on the
+  // tower's side toward its access road (-u)
+  const XMAS_OFF_FIELD = 680;
+  // A spot whose ground rises and falls no more than this (units) across the
+  // bed is taken at once
+  const XMAS_LEVEL = 25;
+  const XMAS_SITES = [];
+  for (let v = -1500; v <= 1500; v += 150) {
+    if (Math.abs(v) < 550) continue;
+    for (let u = -1650; u <= 1650; u += 150) {
+      const du = Math.max(0, Math.abs(u) - AIRFIELD_HALF_LENGTH);
+      const dv = Math.max(0, Math.abs(v) - AIRFIELD_HALF_WIDTH);
+      const off = Math.hypot(du, dv);
+      if (off < XMAS_OFF_FIELD || (v > 0 && u < 0)) continue;
+      XMAS_SITES.push([u, v, off + (v > 0 ? 400 : 0)]);
+    }
+  }
+  XMAS_SITES.sort((a, b) => a[2] - b[2]);
+  const _xmasSites = new WeakMap();
+  let _findingXmas = false;
+  // The village's spot for this world: {x, z, base, yaw} (yaw as three.js
+  // turns things, so its -z faces the airport), or null if there's nowhere
+  // fit for it. Whether it's the season doesn't matter here.
+  function xmasVillageSite(simplex, constants, lerp) {
+    const signature = `${exports.CONTINENT}:${simplex.noise2D(0.123, 0.456)}`;
+    const cached = _xmasSites.get(simplex);
+    if (cached && cached.signature === signature) return cached.site;
+    const water = constants.WATER_LEVEL || 40;
+    const a = AIRPORTS.find((p) => p.name === XMAS_AIRPORT);
+    const c = Math.cos(a.angle);
+    const sn = Math.sin(a.angle);
+    _findingXmas = true;
+    coastRoadsOff++;
+    let site = null;
+    let bestSpread = Infinity;
+    try {
+      for (const [u, v] of XMAS_SITES) {
+        const cx = a.x + u * c - v * sn;
+        const cz = a.z + u * sn + v * c;
+        // Off the highways first (cheap), then dry and level
+        if (XMAS_PROBES.some(([dx, dz]) => roadClear(cx + dx, cz + dz) < 1))
+          continue;
+        let sum = 0;
+        let minH = Infinity;
+        let maxH = -Infinity;
+        let ok = true;
+        for (const [dx, dz] of XMAS_PROBES) {
+          const x = cx + dx;
+          const z = cz + dz;
+          const h = getElevation(x, z, simplex, constants, lerp, {
+            ignoreRoads: true,
+            ignoreAirports: true,
+          });
+          if (h < water + 4) {
+            ok = false;
+            break;
+          }
+          sum += h;
+          minH = Math.min(minH, h);
+          maxH = Math.max(maxH, h);
+          if (maxH - minH > bestSpread) {
+            ok = false;
+            break;
+          }
+        }
+        if (!ok) continue;
+        const spread = maxH - minH;
+        if (spread < bestSpread) {
+          bestSpread = spread;
+          site = {
+            x: cx,
+            z: cz,
+            base: sum / XMAS_PROBES.length,
+            yaw: Math.atan2(-(a.x - cx), -(a.z - cz)),
+          };
+          if (spread <= XMAS_LEVEL) break;
+        }
+      }
+    } finally {
+      _findingXmas = false;
+      coastRoadsOff--;
+    }
+    _xmasSites.set(simplex, {signature, site});
+    return site;
+  }
+  const XMAS_NEAR = (() => {
+    const a = AIRPORTS.find((p) => p.name === XMAS_AIRPORT);
+    return {x: a.x, z: a.z, reach: 1600 + XMAS_BED_EDGE};
+  })();
+  const _xmas = {bed: 0, base: 0, r: Infinity};
+  // Whether (x, z) is on the village's ground this season, filling in _xmas
+  // (bed: how flat, 0 to 1; base: its height; r: how far from its middle)
+  function xmasAt(x, z, simplex, constants, lerp) {
+    _xmas.bed = 0;
+    _xmas.r = Infinity;
+    if (!exports.XMAS || _findingXmas) return false;
+    if (
+      Math.abs(x - XMAS_NEAR.x) > XMAS_NEAR.reach ||
+      Math.abs(z - XMAS_NEAR.z) > XMAS_NEAR.reach
+    ) {
+      return false;
+    }
+    const site = xmasVillageSite(simplex, constants || {}, lerp);
+    if (!site) return false;
+    const dx = x - site.x;
+    const dz = z - site.z;
+    if (Math.abs(dx) > XMAS_BED_EDGE || Math.abs(dz) > XMAS_BED_EDGE) {
+      return false;
+    }
+    const r = Math.hypot(dx, dz);
+    if (r >= XMAS_BED_EDGE) return false;
+    _xmas.bed = 1 - smoothRamp(r, XMAS_BED, XMAS_BED_EDGE);
+    _xmas.base = site.base;
+    _xmas.r = r;
+    return true;
+  }
+
   function getElevation(x, z, simplex, constants, lerp, options = {}) {
     const WATER_LEVEL = constants.WATER_LEVEL || 40;
 
@@ -4455,6 +4591,11 @@ export const ChillFlightLogic = {};
       }
     }
 
+    // The Christmas village's level ground beside Pinewood Field, in the season
+    if (xmasAt(origX, origZ, simplex, constants, _lerp)) {
+      n = _lerp(n, _xmas.base, _xmas.bed);
+    }
+
     return n;
   }
 
@@ -4494,6 +4635,12 @@ export const ChillFlightLogic = {};
     return pyramidFootDistance(x - site.x, z - site.z);
   };
   exports.dragonSite = dragonSite;
+  exports.xmasVillageSite = xmasVillageSite;
+  exports.XMAS_BED = XMAS_BED;
+  // How far (x, z) is from the Christmas village's middle, this season
+  // (Infinity out of season, or beyond its ground)
+  exports.xmasVillageDistance = (x, z, simplex, constants) =>
+    xmasAt(x, z, simplex, constants) ? _xmas.r : Infinity;
   exports.dragonBedAt = (x, z, simplex, constants) =>
     dragonAt(x, z, simplex, constants) ? _dragon.bed : 0;
   exports.dragonFootAt = (x, z, simplex, constants) => {

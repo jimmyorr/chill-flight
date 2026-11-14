@@ -35,6 +35,7 @@ import {
 import {basaltGate, canyonBridge, seaArch} from '../arches-logic.js';
 import {archGeometry} from '../arches.js';
 import {boatMat, buildSmallBoatGeos} from '../boat-models.js';
+import {buildXmasGeos, xmasGlowMat} from '../xmas-models.js';
 import {buildTractorGeos} from '../farm-models.js';
 import {buildSwampGeos} from '../swamp-models.js';
 import {
@@ -868,6 +869,34 @@ function viewModel(type, e, colorSeed = 0) {
           m.position.x = (i - (geos.length - 1) / 2) * 8;
           previewGroup.add(m);
         });
+        break;
+      }
+      case 'christmas_village': {
+        // The Christmas village's props (xmas-models.js) in rows at the
+        // game's scale, each with its roof and lights, the lights lit
+        const geos = buildXmasGeos();
+        const props = new Map();
+        for (const [type, geo] of Object.entries(geos)) {
+          const name = type.replace(/(Body|Roof|Glow)$/, '');
+          if (!props.has(name)) props.set(name, []);
+          props.get(name).push([type, geo]);
+        }
+        xmasGlowMat.emissiveIntensity = 1;
+        const perRow = 6;
+        let i = 0;
+        for (const parts of props.values()) {
+          const x = ((i % perRow) - (perRow - 1) / 2) * 50;
+          const z = Math.floor(i / perRow) * 50;
+          for (const [type, geo] of parts) {
+            const m = new THREE.Mesh(
+              geo,
+              type.endsWith('Glow') ? xmasGlowMat : buildingMat
+            );
+            m.position.set(x, 0, z);
+            previewGroup.add(m);
+          }
+          i++;
+        }
         break;
       }
       case 'road_vehicles':

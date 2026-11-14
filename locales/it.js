@@ -796,6 +796,7 @@ export default {
   Canyon: 'Canyon',
   Pyramids: 'Piramidi',
   Skeleton: 'Scheletro',
+  'Christmas village': 'Villaggio di Natale',
   'If something comes up, just clear the waypoint on the map.':
     'Se hai un imprevisto, ti basta rimuovere la tappa sulla mappa.',
   'ACHIEVEMENT UNLOCKED': 'OBIETTIVO SBLOCCATO',

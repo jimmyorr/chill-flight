@@ -746,6 +746,7 @@ export default {
   Canyon: '峽谷',
   Pyramids: '金字塔',
   Skeleton: '骸骨',
+  'Christmas village': '聖誕村',
   'If something comes up, just clear the waypoint on the map.':
     '如果有事，在地圖上清除航點就行。',
   'ACHIEVEMENT UNLOCKED': '成就解鎖',

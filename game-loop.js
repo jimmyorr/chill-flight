@@ -170,6 +170,7 @@ import {
 } from './two-thumbs.js';
 import {thumbResponse} from './two-thumb-logic.js';
 import {t} from './i18n.js';
+import {xmasGlowMat} from './xmas-models.js';
 
 let scriptedStartYaw = 0;
 let scriptedStartSpeed = 1;
@@ -884,6 +885,8 @@ function updateDayNightCycle(delta) {
   streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
   // The lighthouse lantern comes on at dusk, like its beam
   lighthouseLampMat.emissiveIntensity = Math.min(1.0, slNightValue);
+  // The Christmas village's lights come on with the streetlights
+  xmasGlowMat.emissiveIntensity = Math.min(1.6, slNightValue * 1.6);
 
   streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
   fireGlowMat.opacity = Math.min(1.0, slNightValue);

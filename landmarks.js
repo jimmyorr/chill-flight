@@ -6,10 +6,14 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 
-// The pyramids' and dragon skeleton's places depend on the world
-// (chill-flight-logic.js)
+// The pyramids', dragon skeleton's and Christmas village's places depend on
+// the world (chill-flight-logic.js)
 const pyramids = ChillFlightLogic.pyramidSite(simplex, {WATER_LEVEL: 40});
 const dragon = ChillFlightLogic.dragonSite(simplex, {WATER_LEVEL: 40});
+// The Christmas village beside Pinewood Field, only in the season
+const xmasVillage = ChillFlightLogic.XMAS
+  ? ChillFlightLogic.xmasVillageSite(simplex, {WATER_LEVEL: 40})
+  : null;
 
 // Map pin colours: orange for sightseeing landmarks, aviation blue for
 // airports, leaving gold (#ffd700) for the player arrow and waypoint
@@ -77,6 +81,17 @@ export const LANDMARKS = [
           z: dragon.z,
           color: LANDMARK_COLOR,
           symbol: 'Ψ',
+        },
+      ]
+    : []),
+  ...(xmasVillage
+    ? [
+        {
+          name: 'Christmas village',
+          x: xmasVillage.x,
+          z: xmasVillage.z,
+          color: LANDMARK_COLOR,
+          symbol: '✦',
         },
       ]
     : []),
@@ -193,6 +208,7 @@ export const BUGGY_VIEW = {
   Volcano: 2000,
   Pyramids: 900,
   Skeleton: 450,
+  'Christmas village': 260,
   Lighthouse: 200,
   'Rock Arch': 300,
   Falls: 800,
