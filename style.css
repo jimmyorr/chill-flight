@@ -3967,6 +3967,9 @@ body.ui-hidden > canvas {
       100dvh - 16px - env(safe-area-inset-top, 0px) -
         env(safe-area-inset-bottom, 0px)
     );
+    /* The tallest tab's height or the screen's, so switching tabs doesn't
+       change it */
+    height: 340px;
     margin-bottom: 0;
     padding: 14px 18px;
     box-sizing: border-box;
@@ -3987,6 +3990,15 @@ body.ui-hidden > canvas {
     overflow-y: auto;
     overscroll-behavior: contain;
     padding-right: 4px;
+    /* Fades out at the bottom so a cut-off row reads as more to scroll;
+       the padding lets the last row scroll clear of the fade */
+    padding-bottom: 20px;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - 28px),
+      transparent
+    );
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
   }
 
   #pause-overlay .customization-footer {
@@ -4098,5 +4110,19 @@ body.ui-hidden > canvas {
 
   #loading-music-attribution {
     bottom: 18px !important;
+  }
+}
+
+/* Phones on their side, pause menu */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Out of a room the Together tab stacks its groups instead of spreading
+     them over the tallest tab's height, and each tab scrolls on its own */
+  #pause-overlay .pause-panel:not(.active) {
+    display: none;
+  }
+
+  #pause-overlay #fly-solo {
+    justify-content: flex-start;
+    gap: 10px;
   }
 }
