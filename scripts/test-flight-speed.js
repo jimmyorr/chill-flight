@@ -5,7 +5,8 @@
  * Checks how climbs and dives move the planes' speed (pitchedTarget and
  * throttleSpeed in flight-physics-logic.js): a dive speeds the plane up and a
  * climb slows it, by the same amount at any frame rate, a climb never slows
- * it toward a stall, and it settles back to the throttle once level.
+ * it toward a stall, and it settles back to the throttle once level. Also
+ * the thin air at the top of the sky (CEILING).
  */
 import {
   PLANE_HANDLING,
@@ -15,7 +16,15 @@ import {
   displaySpeed,
   speedUnit,
 } from '../constants.js';
-import {pitchedTarget, throttleSpeed} from '../flight-physics-logic.js';
+import {
+  CEILING,
+  ceilingClimbLimit,
+  flightCeiling,
+  pitchedTarget,
+  sagClimbCap,
+  thinAirAt,
+  throttleSpeed,
+} from '../flight-physics-logic.js';
 
 console.log('Testing climb and dive speeds...');
 
@@ -136,6 +145,46 @@ check(
     speedUnit('buggy', true) === 'MPH' &&
     speedUnit('seaplane', true) === 'KTS'
 );
+
+// The top of the sky (#176)
+{
+  const top = flightCeiling(3000);
+  const climb = (75 * Math.PI) / 180;
+  check(
+    'ceiling sits 100 under the clouds and follows them',
+    top === 2900 &&
+      flightCeiling(5000) === 4900 &&
+      flightCeiling(300) === CEILING.MIN
+  );
+  check(
+    'thin air: full climb well below, level just under the top, a sag at it',
+    ceilingClimbLimit(top - CEILING.THIN_AIR - 1, top, climb) === climb &&
+      ceilingClimbLimit(top - 300, top, climb) < climb * 0.6 &&
+      ceilingClimbLimit(top - 300, top, climb) > climb * 0.4 &&
+      Math.abs(ceilingClimbLimit(top - 20, top, climb)) < 0.03 &&
+      ceilingClimbLimit(top, top, climb) < 0
+  );
+  const later = sagClimbCap(1, 0, 150, 0.1);
+  check(
+    'the nose follows a falling limit late, the same distance at any speed, and a rising one at once',
+    later < 1 &&
+      later > 0.9 &&
+      Math.abs(sagClimbCap(1, 0, 300, 0.05) - later) < 1e-9 &&
+      sagClimbCap(0, 0.5, 150, 0.1) === 0.5 &&
+      sagClimbCap(null, 0.2, 150, 0.1) === 0.2
+  );
+  const h = PLANE_HANDLING.seaplane;
+  const cruise = h.topKts / (BASE_FLIGHT_SPEED * 60);
+  const pitch = (20 * Math.PI) / 180;
+  const low = pitchedTarget(cruise, pitch, h, 0, false, thinAirAt(1000, top));
+  const high = pitchedTarget(cruise, pitch, h, 0, false, thinAirAt(top, top));
+  const floor = (h.levelKts + 20) / (BASE_FLIGHT_SPEED * 60);
+  check(
+    'a climb in thin air costs more speed, never below the climb floor',
+    high < low && high >= Math.min(cruise, floor) - 1e-9,
+    `(${low.toFixed(3)} low, ${high.toFixed(3)} high)`
+  );
+}
 
 if (failed) {
   console.log('Climb and dive speed tests FAILED.');
