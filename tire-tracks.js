@@ -146,6 +146,103 @@ mesh.renderOrder = 1;
 mesh.visible = false;
 scene.add(mesh);
 
+// --- FLATTENED GRASS ---
+// The tall grass (grass.js) would hide the ruts under its blades, so the
+// tracks are also drawn from above into a small map round the grass field,
+// which the grass reads to lie flat and low along them, standing back up as
+// the tracks fade.
+const TRAMPLE_SIZE = 128;
+export const trample = {
+  target: new THREE.WebGLRenderTarget(TRAMPLE_SIZE, TRAMPLE_SIZE, {
+    depthBuffer: false,
+  }),
+  // The map's centre (x, z) and how far it spans (units)
+  center: new THREE.Vector2(),
+  span: 0,
+  // Whether there's anything in it
+  live: false,
+};
+const trampleMaterial = new THREE.ShaderMaterial({
+  uniforms,
+  depthTest: false,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+  blending: THREE.CustomBlending,
+  blendEquation: THREE.MaxEquation,
+  blendSrc: THREE.OneFactor,
+  blendDst: THREE.OneFactor,
+  vertexShader: /* glsl */ `
+    attribute vec4 aInfo;
+    uniform float uTime;
+    varying float vSide;
+    varying float vStrength;
+    void main() {
+      float age = (uTime - aInfo.x) / aInfo.y;
+      if (aInfo.y <= 0.0 || age > 1.0) {
+        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+        vStrength = 0.0;
+        return;
+      }
+      // Off the paving only (grass doesn't grow there): ruts, not rubber
+      vStrength = min(1.0, aInfo.z * 2.4) * (1.0 - age * age);
+      vSide = aInfo.w;
+      gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: /* glsl */ `
+    varying float vSide;
+    varying float vStrength;
+    void main() {
+      float edge = 1.0 - smoothstep(0.7, 1.0, abs(vSide));
+      gl_FragColor = vec4(vStrength * edge, 0.0, 0.0, 1.0);
+    }
+  `,
+});
+const trampleScene = new THREE.Scene();
+const trampleMesh = new THREE.Mesh(geometry, trampleMaterial);
+trampleMesh.frustumCulled = false;
+trampleScene.add(trampleMesh);
+// Looking straight down: x to the right and -z up the map
+const trampleCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 20000);
+trampleCamera.rotation.x = -Math.PI / 2;
+const _clear = new THREE.Color();
+
+/**
+ * Draws the tracks into the trample map round (x, z), `span` units across
+ * (for the grass, grass.js). Clears it once when nothing's left.
+ */
+export function drawTrample(renderer, x, z, span) {
+  const live = mesh.visible && ChillFlightLogic.TIRE_TRACKS;
+  if (!live && !trample.live) return;
+  // Snapped to the map's texels so the flattened lanes don't shimmer
+  const texel = span / TRAMPLE_SIZE;
+  x = Math.round(x / texel) * texel;
+  z = Math.round(z / texel) * texel;
+  trample.center.set(x, z);
+  trample.span = span;
+  trample.live = live;
+  const h = span / 2;
+  trampleCamera.left = -h;
+  trampleCamera.right = h;
+  trampleCamera.top = h;
+  trampleCamera.bottom = -h;
+  trampleCamera.position.set(x, 10000, z);
+  trampleCamera.updateProjectionMatrix();
+  trampleCamera.updateMatrixWorld();
+  const target = renderer.getRenderTarget();
+  const clearAlpha = renderer.getClearAlpha();
+  renderer.getClearColor(_clear);
+  const xr = renderer.xr.enabled;
+  renderer.xr.enabled = false;
+  renderer.setRenderTarget(trample.target);
+  renderer.setClearColor(0x000000, 1);
+  renderer.clear(true, false, false);
+  if (live) renderer.render(trampleScene, trampleCamera);
+  renderer.setRenderTarget(target);
+  renderer.setClearColor(_clear, clearAlpha);
+  renderer.xr.enabled = xr;
+}
+
 let cursor = 0;
 let writtenFrom = -1;
 let writtenCount = 0;

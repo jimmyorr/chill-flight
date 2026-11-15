@@ -36,11 +36,12 @@ import {
 } from './terrain-geometry.js';
 import {sampleGroundColor} from './terrain-chunks.js';
 import {activePlaneType, planeGroup} from './airplane.js';
-import {camera} from './sky.js';
+import {camera, renderer} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 import {forEachTownStreetNear} from './terrain-gen.js';
 import {ART_POST} from './art-style.js';
+import {drawTrample, trample} from './tire-tracks.js';
 
 // Field radius and blade spacing (world units, ~0.5 m) by preset; tufts of
 // three blades sit on a jittered square lattice
@@ -84,6 +85,11 @@ const uniforms = {
   uAirport: {value: new THREE.Vector4(0, 0, 1, 0)},
   uAirportOn: {value: 0},
   uPush: {value: Array.from({length: MAX_PUSH}, () => new THREE.Vector4())},
+  // Where tyre tracks have flattened it (tire-tracks.js): the map, its
+  // centre and span (0: none)
+  uTrample: {value: trample.target.texture},
+  uTrampleCenter: {value: trample.center},
+  uTrampleSpan: {value: 0},
 };
 
 const VERTEX_PARS = `
@@ -102,6 +108,9 @@ const VERTEX_PARS = `
   uniform vec4 uAirport;
   uniform float uAirportOn;
   uniform vec4 uPush[${MAX_PUSH}];
+  uniform sampler2D uTrample;
+  uniform vec2 uTrampleCenter;
+  uniform float uTrampleSpan;
   ${GRASS_WAVE_GLSL}
   float grassSegDist(vec2 p, vec4 s) {
     vec2 a = s.xy, ab = s.zw - s.xy;
@@ -180,6 +189,14 @@ const VERTEX_MAIN = `
   // Wheat stands about chest high on the buggy, grass about half that
   float fullH = mix(1.4 + 1.4 * r2, 3.0 + 0.8 * r2, isWheat);
   float bladeH = keep * uGrassFade * fullH * mix(0.35, 1.0, edge);
+  // Lying low along tyre tracks, so the ruts show through
+  float trampled = 0.0;
+  if (uTrampleSpan > 0.0) {
+    vec2 tuv = (wxz - uTrampleCenter) / uTrampleSpan;
+    tuv = vec2(tuv.x + 0.5, 0.5 - tuv.y);
+    trampled = textureLod(uTrample, tuv, 0.0).r;
+    bladeH *= 1.0 - 0.9 * trampled;
+  }
 
   // Bend: the wind's gusts, a little flutter, the blade's own lean, and
   // anything pushing it aside
@@ -204,6 +221,7 @@ const VERTEX_MAIN = `
   float bendLen = length(bend);
   vec2 bendDir = bend / max(bendLen, 1e-4);
   float bendAngle = min(bendLen, 1.45);
+  bendAngle = mix(bendAngle, 1.35, trampled);
 
   // The blade: position.x across (-0.5..0.5), position.y up (0..1). A wheat
   // stalk is thin, with its middle vertices raised to make an ear at the top
@@ -549,5 +567,8 @@ export function updateGrass(delta) {
   const cx = cam.x + _fwd.x * field.radius * 0.45;
   const cz = cam.z + _fwd.z * field.radius * 0.45;
   uniforms.uGrassCenter.value.set(cx, cz);
+  // Tyre tracks flattening it, in a map just wider than the field
+  drawTrample(renderer, cx, cz, field.radius * 2 + 16);
+  uniforms.uTrampleSpan.value = trample.live ? trample.span : 0;
   if (updateGround(cx, cz)) updateRoads(cx, cz);
 }
