@@ -806,4 +806,100 @@ export default {
   'By album or how you fly': '앨범별 또는 비행에 맞춤',
   'By album': '앨범별',
   'Flight vibe': '비행 바이브',
+  'SIGHT SEEN': '구경 완료',
+  'Thermos of coffee': '커피 보온병',
+  "I've never had coffee with a view. Well, a view that isn't the roaster.":
+    '경치 보면서 커피 마셔 본 적이 없어. 로스터 말고 다른 경치 말이야.',
+  "Could you fly me out past {to}? I'll bring the thermos!":
+    '{to} 옆으로 날아 줄래? 보온병은 내가 챙길게!',
+  'Rumor is coffee tastes 30% better next to {to}. I need to test that, buddy.':
+    '{to} 옆에서는 커피가 30% 더 맛있대. 이건 확인해 봐야지, 친구.',
+  'Want to fly me over for a look and bring me back?':
+    '구경시켜 주고 다시 데려다줄래?',
+  "Best cup I've ever had! The view did all the work.":
+    '인생 최고의 한 잔! 경치가 다 했어.',
+  "Coffee with a view! That's {done} for me, buddy. Same time tomorrow?":
+    '경치 맛집 커피! 이걸로 {done}째야, 친구. 내일 같은 시간 어때?',
+  'Karaoke mic': '노래방 마이크',
+  'I need to hear my high note bounce off {to}.':
+    '내 고음이 {to}에 울리는 걸 들어야 해.',
+  'Could you fly me past it with the window down?':
+    '창문 열고 그 옆으로 날아 줄래?',
+  'My voice teacher says I need more natural reverb.':
+    '보컬 선생님이 자연스러운 리버브가 더 필요하대.',
+  'Want to fly me out to {to} and back so I can find some?':
+    '{to}까지 갔다 와 줄래? 좀 찾아보게.',
+  'The echo sang back! Honestly, it hit the harmony better than me.':
+    '메아리가 노래로 대답했어! 솔직히 화음은 나보다 잘했어.',
+  "Natural reverb achieved! That's {done} for me. Encore!":
+    '자연 리버브 획득! 이걸로 {done}째야. 앙코르!',
+  Crystals: '크리스털',
+  'The energy around {to} is off the charts today. My crystals need a top-up.':
+    '오늘 {to} 주변 에너지가 장난 아니야. 크리스털 충전 좀 해 줘야겠어.',
+  'Could you fly us past it and bring us home?':
+    '그 옆으로 날아서 집까지 데려다줄래?',
+  'I want to hold my crystals up to {to} and hear what they say.':
+    '크리스털을 {to} 쪽으로 들어 올리고 뭐라고 하는지 듣고 싶어.',
+  'Fly me over for a look?': '구경시켜 줄래?',
+  "They're humming! I can feel it in my earrings.":
+    '웅웅거려! 귀걸이로 느껴져.',
+  "Fully charged! That's {done} for me, friend. The vibes thank you.":
+    '완전 충전! 이걸로 {done}째야. 좋은 기운이 고맙대.',
+  'Sample kit': '채집 키트',
+  'For science, I need an air sample from right over {to}.':
+    '과학을 위해 {to} 바로 위의 공기 샘플이 필요해.',
+  'Could you fly me past it and back to the lab?':
+    '그 옆으로 날아서 연구실로 데려다줄래?',
+  "I've only ever seen {to} in photos. I want to see the real thing.":
+    '{to}은(는) 사진으로만 봤어. 진짜를 보고 싶어.',
+  'Mind flying me out there and back?': '갔다가 다시 데려다줄 수 있어?',
+  'Samples sealed and labeled! Peer reviewers, eat your hearts out.':
+    '샘플 밀봉하고 라벨까지 붙였어! 심사위원들 부러워하겠지.',
+  "Data collected! That's {done} for me. Cookie?":
+    '데이터 수집 완료! 이걸로 {done}째야. 쿠키 먹을래?',
+  'I want to chip a ball through {to}. Well, I want to look at it and imagine it.':
+    '{to} 사이로 공을 띄워 보내고 싶어. 아니, 보면서 상상만 하고 싶어.',
+  'Could you fly me past for a look and bring me back?':
+    '구경하게 옆으로 날았다가 다시 데려다줄래?',
+  "I'm planning the longest par 5 in the world, and {to} is the hole.":
+    '세상에서 제일 긴 파5를 설계 중인데, {to}이(가) 홀이야.',
+  'Mind flying me out to scout it?': '답사 좀 데려가 줄래?',
+  "Scouted! I'm calling it the hardest hole in golf.":
+    '답사 완료! 골프 역사상 제일 어려운 홀이라고 부를 거야.',
+  "What a view! That's {done} for me. Fore-ever grateful!":
+    '경치 끝내준다! 이걸로 {done}째야. 평생 고마워!',
+  "I'm reading a book set at {to}, and I want to see it before the last chapter.":
+    '{to}이(가) 배경인 책을 읽고 있는데, 마지막 장 전에 직접 보고 싶어.',
+  'Could you fly me past it and back?': '그 옆으로 날았다가 돌아와 줄래?',
+  'I want to read a chapter with {to} out the window.':
+    '창밖으로 {to}을(를) 보면서 한 장 읽고 싶어.',
+  "Would you fly me over? I'll bring the tea.": '데려다줄래? 차는 내가 챙길게.',
+  "It was even better than the book said. Don't tell the author.":
+    '책에 나온 것보다 훨씬 좋았어. 작가한테는 비밀이야.',
+  "What a view to read by. That's {done} for me. Thank you!":
+    '책 읽기 딱 좋은 경치야. 이걸로 {done}째야. 고마워!',
+  'Tape measure': '줄자',
+  "I'm knitting a scarf big enough for {to}. Don't ask why.":
+    '{to}에 맞는 목도리를 뜨고 있어. 이유는 묻지 마.',
+  'Could you fly me past it so I can measure by eye?':
+    '눈대중으로 재게 그 옆으로 날아 줄래?',
+  "Lauren bet me I couldn't knit a cozy for {to}. Challenge accepted.":
+    '내가 {to} 덮개를 못 뜰 거라고 로렌이 내기를 걸었어. 도전 수락.',
+  'Mind flying me out for a look?': '구경시켜 줄래?',
+  "Measured! I'll need about nine more balls of yarn. Possibly ninety.":
+    '쟀어! 털실이 아홉 뭉치쯤 더 필요해. 어쩌면 아흔 뭉치.',
+  "Got it! That's {done} for me. Lauren is going to laugh so hard.":
+    '됐다! 이걸로 {done}째야. 로렌이 엄청 웃겠다.',
+  'Damp yarn': '축축한 털실',
+  'My yarn got snowed on and smells like a wet sheep. Which, to be fair, it was.':
+    '털실에 눈이 쌓여서 젖은 양 냄새가 나. 뭐, 원래 양이긴 했지.',
+  "Could you fly it past {to}? It's warm there.":
+    '{to} 옆으로 날아 줄래? 거긴 따뜻하거든.',
+  'I want to see {to} in person. Also, my socks are cold.':
+    '{to}을(를) 직접 보고 싶어. 그리고 양말이 차가워.',
+  'Mind flying me out and back?': '갔다가 다시 데려다줄래?',
+  'Toasty and fluffy! It smells like adventure now.':
+    '따끈하고 폭신해! 이제 모험 냄새가 나.',
+  "Warm yarn, warm heart. That's {done} for me!":
+    '따뜻한 털실, 따뜻한 마음. 이걸로 {done}째야!',
 };

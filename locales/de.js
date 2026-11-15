@@ -841,4 +841,103 @@ export default {
   'By album or how you fly': 'Nach Album oder Flugstil',
   'By album': 'Nach Album',
   'Flight vibe': 'Flugstimmung',
+  'SIGHT SEEN': 'GESEHEN',
+  'Thermos of coffee': 'Thermoskanne Kaffee',
+  "I've never had coffee with a view. Well, a view that isn't the roaster.":
+    'Ich hatte noch nie Kaffee mit Aussicht. Also, mit einer Aussicht, die nicht der Röster ist.',
+  "Could you fly me out past {to}? I'll bring the thermos!":
+    'Fliegst du mich an {to} vorbei? Ich bringe die Thermoskanne mit!',
+  'Rumor is coffee tastes 30% better next to {to}. I need to test that, buddy.':
+    'Man munkelt, Kaffee schmeckt neben {to} 30 % besser. Das muss ich testen, Kumpel.',
+  'Want to fly me over for a look and bring me back?':
+    'Fliegst du mich hin, damit ich gucken kann, und wieder zurück?',
+  "Best cup I've ever had! The view did all the work.":
+    'Bester Kaffee aller Zeiten! Die Aussicht hat die ganze Arbeit gemacht.',
+  "Coffee with a view! That's {done} for me, buddy. Same time tomorrow?":
+    'Kaffee mit Aussicht! Das sind {done} für mich, Kumpel. Morgen gleiche Zeit?',
+  'Karaoke mic': 'Karaoke-Mikro',
+  'I need to hear my high note bounce off {to}.':
+    'Ich muss hören, wie mein hoher Ton von {to} zurückhallt.',
+  'Could you fly me past it with the window down?':
+    'Fliegst du mich mit offenem Fenster daran vorbei?',
+  'My voice teacher says I need more natural reverb.':
+    'Meine Gesangslehrerin sagt, ich brauche mehr natürlichen Hall.',
+  'Want to fly me out to {to} and back so I can find some?':
+    'Fliegst du mich zu {to} und zurück, damit ich welchen finde?',
+  'The echo sang back! Honestly, it hit the harmony better than me.':
+    'Das Echo hat zurückgesungen! Ehrlich, es traf die Harmonie besser als ich.',
+  "Natural reverb achieved! That's {done} for me. Encore!":
+    'Natürlicher Hall erreicht! Das sind {done} für mich. Zugabe!',
+  Crystals: 'Kristalle',
+  'The energy around {to} is off the charts today. My crystals need a top-up.':
+    'Die Energie rund um {to} ist heute der Wahnsinn. Meine Kristalle müssen auftanken.',
+  'Could you fly us past it and bring us home?':
+    'Fliegst du uns daran vorbei und bringst uns heim?',
+  'I want to hold my crystals up to {to} and hear what they say.':
+    'Ich will meine Kristalle zu {to} hochhalten und hören, was sie sagen.',
+  'Fly me over for a look?': 'Fliegst du mich hin, damit ich gucken kann?',
+  "They're humming! I can feel it in my earrings.":
+    'Sie summen! Ich spüre es in meinen Ohrringen.',
+  "Fully charged! That's {done} for me, friend. The vibes thank you.":
+    'Voll aufgeladen! Das sind {done} für mich, du Liebe. Die Vibes danken dir.',
+  'Sample kit': 'Probenset',
+  'For science, I need an air sample from right over {to}.':
+    'Für die Wissenschaft brauche ich eine Luftprobe direkt über {to}.',
+  'Could you fly me past it and back to the lab?':
+    'Fliegst du mich daran vorbei und zurück ins Labor?',
+  "I've only ever seen {to} in photos. I want to see the real thing.":
+    'Ich kenne {to} nur von Fotos. Ich will das Original sehen.',
+  'Mind flying me out there and back?': 'Fliegst du mich hin und zurück?',
+  'Samples sealed and labeled! Peer reviewers, eat your hearts out.':
+    'Proben versiegelt und beschriftet! Da staunen die Gutachter.',
+  "Data collected! That's {done} for me. Cookie?":
+    'Daten gesammelt! Das sind {done} für mich. Keks?',
+  'I want to chip a ball through {to}. Well, I want to look at it and imagine it.':
+    'Ich will einen Ball durch {to} chippen. Na gut, ich will es mir ansehen und es mir vorstellen.',
+  'Could you fly me past for a look and bring me back?':
+    'Fliegst du mich zum Gucken daran vorbei und wieder zurück?',
+  "I'm planning the longest par 5 in the world, and {to} is the hole.":
+    'Ich plane das längste Par 5 der Welt, und {to} ist das Loch.',
+  'Mind flying me out to scout it?':
+    'Fliegst du mich hin, damit ich es auskundschaften kann?',
+  "Scouted! I'm calling it the hardest hole in golf.":
+    'Ausgekundschaftet! Ich nenne es das schwerste Loch im Golf.',
+  "What a view! That's {done} for me. Fore-ever grateful!":
+    'Was für eine Aussicht! Das sind {done} für mich. Ewig dankbar, Fore-ever!',
+  "I'm reading a book set at {to}, and I want to see it before the last chapter.":
+    'Ich lese ein Buch, das bei {to} spielt, und ich will es vor dem letzten Kapitel sehen.',
+  'Could you fly me past it and back?':
+    'Fliegst du mich daran vorbei und zurück?',
+  'I want to read a chapter with {to} out the window.':
+    'Ich will ein Kapitel lesen, mit {to} vor dem Fenster.',
+  "Would you fly me over? I'll bring the tea.":
+    'Fliegst du mich hin? Ich bringe den Tee mit.',
+  "It was even better than the book said. Don't tell the author.":
+    'Es war sogar schöner als im Buch. Sag es nicht der Autorin.',
+  "What a view to read by. That's {done} for me. Thank you!":
+    'Was für eine Aussicht zum Lesen. Das sind {done} für mich. Danke!',
+  'Tape measure': 'Maßband',
+  "I'm knitting a scarf big enough for {to}. Don't ask why.":
+    'Ich stricke einen Schal, der groß genug für {to} ist. Frag nicht, warum.',
+  'Could you fly me past it so I can measure by eye?':
+    'Fliegst du mich daran vorbei, damit ich nach Augenmaß messen kann?',
+  "Lauren bet me I couldn't knit a cozy for {to}. Challenge accepted.":
+    'Lauren wettet, dass ich keinen Wärmer für {to} stricken kann. Herausforderung angenommen.',
+  'Mind flying me out for a look?': 'Fliegst du mich zum Gucken hin?',
+  "Measured! I'll need about nine more balls of yarn. Possibly ninety.":
+    'Gemessen! Ich brauche ungefähr neun Knäuel mehr. Vielleicht neunzig.',
+  "Got it! That's {done} for me. Lauren is going to laugh so hard.":
+    "Hab's! Das sind {done} für mich. Lauren wird sich kaputtlachen.",
+  'Damp yarn': 'Feuchte Wolle',
+  'My yarn got snowed on and smells like a wet sheep. Which, to be fair, it was.':
+    'Meine Wolle wurde eingeschneit und riecht nach nassem Schaf. Was sie, fairerweise, auch war.',
+  "Could you fly it past {to}? It's warm there.":
+    'Fliegst du sie an {to} vorbei? Da ist es warm.',
+  'I want to see {to} in person. Also, my socks are cold.':
+    'Ich will {to} mal mit eigenen Augen sehen. Außerdem sind meine Socken kalt.',
+  'Mind flying me out and back?': 'Fliegst du mich hin und zurück?',
+  'Toasty and fluffy! It smells like adventure now.':
+    'Mollig und flauschig! Sie riecht jetzt nach Abenteuer.',
+  "Warm yarn, warm heart. That's {done} for me!":
+    'Warme Wolle, warmes Herz. Das sind {done} für mich!',
 };

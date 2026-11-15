@@ -833,4 +833,101 @@ export default {
   'By album or how you fly': 'Por álbum ou conforme o voo',
   'By album': 'Por álbum',
   'Flight vibe': 'Clima do voo',
+  'SIGHT SEEN': 'VISTO',
+  'Thermos of coffee': 'Garrafa térmica de café',
+  "I've never had coffee with a view. Well, a view that isn't the roaster.":
+    'Nunca tomei café com vista. Bom, com uma vista que não seja o torrador.',
+  "Could you fly me out past {to}? I'll bring the thermos!":
+    'Pode me levar voando perto de {to}? Eu levo a garrafa térmica!',
+  'Rumor is coffee tastes 30% better next to {to}. I need to test that, buddy.':
+    'Dizem que o café fica 30% mais gostoso perto de {to}. Preciso testar isso, parceiro.',
+  'Want to fly me over for a look and bring me back?':
+    'Me leva para dar uma olhada e me traz de volta?',
+  "Best cup I've ever had! The view did all the work.":
+    'Melhor café da minha vida! A vista fez todo o trabalho.',
+  "Coffee with a view! That's {done} for me, buddy. Same time tomorrow?":
+    'Café com vista! Já são {done} para mim, parceiro. Amanhã no mesmo horário?',
+  'Karaoke mic': 'Microfone de karaokê',
+  'I need to hear my high note bounce off {to}.':
+    'Preciso ouvir minha nota aguda ecoar em {to}.',
+  'Could you fly me past it with the window down?':
+    'Pode me levar voando ali na frente com a janela aberta?',
+  'My voice teacher says I need more natural reverb.':
+    'Minha professora de canto diz que preciso de mais reverberação natural.',
+  'Want to fly me out to {to} and back so I can find some?':
+    'Me leva até {to} e de volta para eu achar um pouco?',
+  'The echo sang back! Honestly, it hit the harmony better than me.':
+    'O eco cantou de volta! Sinceramente, fez a harmonia melhor que eu.',
+  "Natural reverb achieved! That's {done} for me. Encore!":
+    'Reverberação natural conquistada! Já são {done} para mim. Bis!',
+  Crystals: 'Cristais',
+  'The energy around {to} is off the charts today. My crystals need a top-up.':
+    'A energia em volta de {to} está nas alturas hoje. Meus cristais precisam de uma recarga.',
+  'Could you fly us past it and bring us home?':
+    'Pode nos levar voando ali na frente e nos trazer para casa?',
+  'I want to hold my crystals up to {to} and hear what they say.':
+    'Quero erguer meus cristais na direção de {to} e ouvir o que eles dizem.',
+  'Fly me over for a look?': 'Me leva para dar uma olhada?',
+  "They're humming! I can feel it in my earrings.":
+    'Estão vibrando! Sinto nos meus brincos.',
+  "Fully charged! That's {done} for me, friend. The vibes thank you.":
+    'Carga completa! Já são {done} para mim. As boas vibrações agradecem.',
+  'Sample kit': 'Kit de amostras',
+  'For science, I need an air sample from right over {to}.':
+    'Pela ciência, preciso de uma amostra de ar bem em cima de {to}.',
+  'Could you fly me past it and back to the lab?':
+    'Pode me levar voando ali na frente e de volta ao laboratório?',
+  "I've only ever seen {to} in photos. I want to see the real thing.":
+    'Só vi {to} em fotos. Quero ver de verdade.',
+  'Mind flying me out there and back?': 'Pode me levar e me trazer de volta?',
+  'Samples sealed and labeled! Peer reviewers, eat your hearts out.':
+    'Amostras lacradas e etiquetadas! Revisores, morram de inveja.',
+  "Data collected! That's {done} for me. Cookie?":
+    'Dados coletados! Já são {done} para mim. Biscoito?',
+  'I want to chip a ball through {to}. Well, I want to look at it and imagine it.':
+    'Quero mandar uma bola por {to}. Tá, quero olhar e imaginar.',
+  'Could you fly me past for a look and bring me back?':
+    'Pode me levar para dar uma olhada e me trazer de volta?',
+  "I'm planning the longest par 5 in the world, and {to} is the hole.":
+    'Estou planejando o par 5 mais longo do mundo, e {to} é o buraco.',
+  'Mind flying me out to scout it?': 'Me leva para fazer um reconhecimento?',
+  "Scouted! I'm calling it the hardest hole in golf.":
+    'Reconhecido! Vou chamar de buraco mais difícil do golfe.',
+  "What a view! That's {done} for me. Fore-ever grateful!":
+    'Que vista! Já são {done} para mim. Eternamente grato!',
+  "I'm reading a book set at {to}, and I want to see it before the last chapter.":
+    'Estou lendo um livro que se passa em {to} e quero ver antes do último capítulo.',
+  'Could you fly me past it and back?':
+    'Pode me levar voando ali na frente e de volta?',
+  'I want to read a chapter with {to} out the window.':
+    'Quero ler um capítulo com {to} na janela.',
+  "Would you fly me over? I'll bring the tea.": 'Me leva lá? Eu levo o chá.',
+  "It was even better than the book said. Don't tell the author.":
+    'Foi ainda melhor do que o livro dizia. Não conte para a autora.',
+  "What a view to read by. That's {done} for me. Thank you!":
+    'Que vista para ler. Já são {done} para mim. Obrigada!',
+  'Tape measure': 'Fita métrica',
+  "I'm knitting a scarf big enough for {to}. Don't ask why.":
+    'Estou tricotando um cachecol grande o bastante para {to}. Não pergunte por quê.',
+  'Could you fly me past it so I can measure by eye?':
+    'Pode me levar voando ali na frente para eu medir no olho?',
+  "Lauren bet me I couldn't knit a cozy for {to}. Challenge accepted.":
+    'A Lauren apostou que eu não conseguiria tricotar uma capinha para {to}. Desafio aceito.',
+  'Mind flying me out for a look?': 'Me leva para dar uma olhada?',
+  "Measured! I'll need about nine more balls of yarn. Possibly ninety.":
+    'Medido! Vou precisar de uns nove novelos a mais. Talvez noventa.',
+  "Got it! That's {done} for me. Lauren is going to laugh so hard.":
+    'Pronto! Já são {done} para mim. A Lauren vai morrer de rir.',
+  'Damp yarn': 'Lã úmida',
+  'My yarn got snowed on and smells like a wet sheep. Which, to be fair, it was.':
+    'Minha lã pegou neve e está com cheiro de ovelha molhada. O que, para ser justa, ela era.',
+  "Could you fly it past {to}? It's warm there.":
+    'Pode passar com ela voando perto de {to}? Lá é quentinho.',
+  'I want to see {to} in person. Also, my socks are cold.':
+    'Quero ver {to} pessoalmente. Além disso, minhas meias estão frias.',
+  'Mind flying me out and back?': 'Me leva e me traz de volta?',
+  'Toasty and fluffy! It smells like adventure now.':
+    'Quentinha e fofinha! Agora tem cheiro de aventura.',
+  "Warm yarn, warm heart. That's {done} for me!":
+    'Lã quentinha, coração quentinho. Já são {done} para mim!',
 };

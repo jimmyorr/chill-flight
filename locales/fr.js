@@ -842,4 +842,102 @@ export default {
   'By album or how you fly': 'Par album ou selon votre vol',
   'By album': 'Par album',
   'Flight vibe': 'Ambiance de vol',
+  'SIGHT SEEN': 'VU',
+  'Thermos of coffee': 'Thermos de café',
+  "I've never had coffee with a view. Well, a view that isn't the roaster.":
+    "Je n'ai jamais bu un café avec vue. Enfin, une vue autre que le torréfacteur.",
+  "Could you fly me out past {to}? I'll bring the thermos!":
+    "Tu m'emmènes survoler {to} ? J'apporte le thermos !",
+  'Rumor is coffee tastes 30% better next to {to}. I need to test that, buddy.':
+    'Il paraît que le café est 30 % meilleur à côté de {to}. Je dois vérifier ça, mon pote.',
+  'Want to fly me over for a look and bring me back?':
+    "Tu m'y emmènes jeter un œil et tu me ramènes ?",
+  "Best cup I've ever had! The view did all the work.":
+    'Le meilleur café de ma vie ! La vue a fait tout le boulot.',
+  "Coffee with a view! That's {done} for me, buddy. Same time tomorrow?":
+    'Café avec vue ! Ça fait {done} pour moi, mon pote. Même heure demain ?',
+  'Karaoke mic': 'Micro de karaoké',
+  'I need to hear my high note bounce off {to}.':
+    'Je dois entendre ma note aiguë rebondir sur {to}.',
+  'Could you fly me past it with the window down?':
+    'Tu me fais passer devant, fenêtre ouverte ?',
+  'My voice teacher says I need more natural reverb.':
+    "Ma prof de chant dit qu'il me faut plus de réverbération naturelle.",
+  'Want to fly me out to {to} and back so I can find some?':
+    "Tu m'emmènes à {to} et retour pour en trouver ?",
+  'The echo sang back! Honestly, it hit the harmony better than me.':
+    "L'écho m'a répondu en chantant ! Franchement, il a fait l'harmonie mieux que moi.",
+  "Natural reverb achieved! That's {done} for me. Encore!":
+    'Réverbération naturelle obtenue ! Ça fait {done} pour moi. Bis !',
+  Crystals: 'Cristaux',
+  'The energy around {to} is off the charts today. My crystals need a top-up.':
+    "L'énergie autour de {to} crève le plafond aujourd'hui. Mes cristaux ont besoin d'une recharge.",
+  'Could you fly us past it and bring us home?':
+    'Tu nous fais passer devant et tu nous ramènes ?',
+  'I want to hold my crystals up to {to} and hear what they say.':
+    "Je veux tendre mes cristaux vers {to} et écouter ce qu'ils disent.",
+  'Fly me over for a look?': "Tu m'y emmènes jeter un œil ?",
+  "They're humming! I can feel it in my earrings.":
+    "Ils vibrent ! Je le sens dans mes boucles d'oreilles.",
+  "Fully charged! That's {done} for me, friend. The vibes thank you.":
+    'Rechargés à bloc ! Ça fait {done} pour moi. Les bonnes ondes te remercient.',
+  'Sample kit': 'Kit de prélèvement',
+  'For science, I need an air sample from right over {to}.':
+    "Pour la science, il me faut un échantillon d'air juste au-dessus de {to}.",
+  'Could you fly me past it and back to the lab?':
+    'Tu me fais passer devant et tu me ramènes au labo ?',
+  "I've only ever seen {to} in photos. I want to see the real thing.":
+    "Je n'ai jamais vu {to} qu'en photo. Je veux voir le vrai.",
+  'Mind flying me out there and back?':
+    "Tu veux bien m'y emmener et me ramener ?",
+  'Samples sealed and labeled! Peer reviewers, eat your hearts out.':
+    "Échantillons scellés et étiquetés ! Les relecteurs vont en baver d'envie.",
+  "Data collected! That's {done} for me. Cookie?":
+    'Données récoltées ! Ça fait {done} pour moi. Un cookie ?',
+  'I want to chip a ball through {to}. Well, I want to look at it and imagine it.':
+    "Je veux envoyer une balle à travers {to}. Bon, je veux le regarder et l'imaginer.",
+  'Could you fly me past for a look and bring me back?':
+    'Tu me fais passer devant pour voir et tu me ramènes ?',
+  "I'm planning the longest par 5 in the world, and {to} is the hole.":
+    'Je dessine le plus long par 5 du monde, et {to} sera le trou.',
+  'Mind flying me out to scout it?': "Tu m'emmènes faire un repérage ?",
+  "Scouted! I'm calling it the hardest hole in golf.":
+    "Repéré ! Je l'appelle le trou le plus dur du golf.",
+  "What a view! That's {done} for me. Fore-ever grateful!":
+    'Quelle vue ! Ça fait {done} pour moi. Reconnaissant pour toujours !',
+  "I'm reading a book set at {to}, and I want to see it before the last chapter.":
+    'Je lis un livre qui se passe à {to}, et je veux le voir avant le dernier chapitre.',
+  'Could you fly me past it and back?': 'Tu me fais passer devant et retour ?',
+  'I want to read a chapter with {to} out the window.':
+    'Je veux lire un chapitre avec {to} par le hublot.',
+  "Would you fly me over? I'll bring the tea.":
+    "Tu m'y emmènes ? J'apporte le thé.",
+  "It was even better than the book said. Don't tell the author.":
+    "C'était encore plus beau que dans le livre. Ne le dis pas à l'autrice.",
+  "What a view to read by. That's {done} for me. Thank you!":
+    'Quelle vue pour lire. Ça fait {done} pour moi. Merci !',
+  'Tape measure': 'Mètre ruban',
+  "I'm knitting a scarf big enough for {to}. Don't ask why.":
+    'Je tricote une écharpe assez grande pour {to}. Ne demande pas pourquoi.',
+  'Could you fly me past it so I can measure by eye?':
+    "Tu me fais passer devant pour que je mesure à l'œil ?",
+  "Lauren bet me I couldn't knit a cozy for {to}. Challenge accepted.":
+    'Lauren a parié que je ne pourrais pas tricoter un couvre-{to}. Défi relevé.',
+  'Mind flying me out for a look?': "Tu m'y emmènes jeter un œil ?",
+  "Measured! I'll need about nine more balls of yarn. Possibly ninety.":
+    'Mesuré ! Il me faudra environ neuf pelotes de plus. Peut-être quatre-vingt-dix.',
+  "Got it! That's {done} for me. Lauren is going to laugh so hard.":
+    "C'est noté ! Ça fait {done} pour moi. Lauren va mourir de rire.",
+  'Damp yarn': 'Laine humide',
+  'My yarn got snowed on and smells like a wet sheep. Which, to be fair, it was.':
+    "Ma laine a pris la neige et sent le mouton mouillé. Ce qu'elle était, pour être honnête.",
+  "Could you fly it past {to}? It's warm there.":
+    'Tu peux la faire passer près de {to} ? Il y fait chaud.',
+  'I want to see {to} in person. Also, my socks are cold.':
+    "Je veux voir {to} de mes yeux. Et puis, j'ai froid aux pieds.",
+  'Mind flying me out and back?': "Tu m'y emmènes et tu me ramènes ?",
+  'Toasty and fluffy! It smells like adventure now.':
+    "Toute chaude et toute douce ! Elle sent l'aventure maintenant.",
+  "Warm yarn, warm heart. That's {done} for me!":
+    'Laine chaude, cœur chaud. Ça fait {done} pour moi !',
 };

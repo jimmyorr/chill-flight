@@ -3,14 +3,32 @@
 // plays it). Land at an airport with no job on and someone there offers one,
 // which you take or turn down. A round trip sends you to an airport to pick
 // something up and back to them; a one-way job ends when you land where it
-// sends you. Landing anywhere else on the way does nothing. Dropping a job
+// sends you. A sightseeing job sends you past a landmark (a sight) and back
+// to them: flying (or driving) within its pass zone counts, no landing.
+// Landing anywhere else on the way does nothing. Dropping a job
 // (clearing its waypoint) cancels it. Progress is who you've met, how many
 // jobs you've done for each and the job you're on.
 // No DOM or three.js, so scripts/test-jobs.js can run it in Node.
 import {PEOPLE} from './people.js';
 import {t} from './i18n.js';
 
-export const KINDS = ['round trip', 'one way'];
+export const KINDS = ['round trip', 'one way', 'sightseeing'];
+
+// How close (world units, across the ground) counts as passing a sight,
+// by its name in landmarks.js: wider for the big ones
+export const SIGHT_RADIUS = {
+  Volcano: 1300,
+  Canyon: 1100,
+  Pyramids: 800,
+  Skeleton: 700,
+  Falls: 700,
+  'Rock Arch': 550,
+  Lighthouse: 500,
+};
+const DEFAULT_SIGHT_RADIUS = 600;
+export function sightRadius(name) {
+  return SIGHT_RADIUS[name] || DEFAULT_SIGHT_RADIUS;
+}
 
 // Said after the first job you ever take, so dropping one is easy to find
 const FIRST_JOB_TIP =
@@ -75,7 +93,27 @@ export function cargoLabel(progress, people = PEOPLE) {
   if (!job) return null;
   const spec = jobOf(personNamed(job.person, people), job.id);
   if (spec?.kind === 'round trip' && job.step !== 'back') return null;
+  // (a sightseeing job's cargo rides along both ways)
   return spec?.cargo || null;
+}
+
+// The sight a sightseeing job is heading for, while it's on the way out:
+// otherwise null
+export function sightAhead(progress, people = PEOPLE) {
+  const job = progress.job;
+  if (!job || job.step === 'back') return null;
+  const spec = jobOf(personNamed(job.person, people), job.id);
+  return spec?.kind === 'sightseeing' ? job.to : null;
+}
+
+// Where a job can send you from `field`: never there, and for sightseeing
+// only sights this world has (sights: their names, or null for any)
+function places(job, field, sights) {
+  return job.to.filter(
+    (a) =>
+      a !== field &&
+      (job.kind !== 'sightseeing' || !sights || sights.includes(a))
+  );
 }
 
 // The person at `field` who asks first: the one you've helped least
@@ -93,7 +131,14 @@ function asker(progress, field, people, rng) {
 // it, who's talking (person, or null), what they say (dialog, or null), a
 // job they offer (offer: answer it with accept or decline), the outfit they
 // wear for that job (or null) and a note for a toast (or null).
-export function land(progress, field, rng = Math.random, people = PEOPLE) {
+// sights: the sights this world has (null for any), for sightseeing jobs.
+export function land(
+  progress,
+  field,
+  rng = Math.random,
+  people = PEOPLE,
+  sights = null
+) {
   const none = {
     progress,
     person: null,
@@ -107,12 +152,10 @@ export function land(progress, field, rng = Math.random, people = PEOPLE) {
   if (!progress.job) {
     const person = asker(progress, field, people, rng);
     if (!person) return none;
-    const job = pick(person.jobs, rng);
-    const to = pick(
-      job.to.filter((a) => a !== field),
-      rng
-    );
-    if (!to) return none;
+    const open = person.jobs.filter((j) => places(j, field, sights).length);
+    if (!open.length) return none;
+    const job = pick(open, rng);
+    const to = pick(places(job, field, sights), rng);
     const greeting = progress.met[person.name] ? person.hello : person.intro;
     return {
       progress,
@@ -168,6 +211,17 @@ export function land(progress, field, rng = Math.random, people = PEOPLE) {
   };
 }
 
+// Flew (or drove) past `sight` (within sightRadius of it). On a sightseeing
+// job headed there, it's seen: back to them. Returns the progress after it
+// and a note for a toast, or null when it isn't the job's sight.
+export function passSight(progress, sight, people = PEOPLE) {
+  if (!sight || sightAhead(progress, people) !== sight) return null;
+  return {
+    progress: {...progress, job: {...progress.job, step: 'back'}},
+    toast: {label: t('SIGHT SEEN'), title: t(sight)},
+  };
+}
+
 // Yes to the job land() offered
 export function accept(progress, offer, rng = Math.random, people = PEOPLE) {
   const person = personNamed(offer.person, people);
@@ -216,8 +270,9 @@ const isCounts = (o) =>
   o && typeof o === 'object' && Object.values(o).every(Number.isFinite);
 
 // Saved progress, if it's whole: otherwise null. A job whose person or job
-// is gone from people.js is dropped.
-export function validProgress(saved, people = PEOPLE) {
+// is gone from people.js, or whose sight this world doesn't have (sights:
+// their names, or null for any), is dropped.
+export function validProgress(saved, people = PEOPLE, sights = null) {
   if (!saved || typeof saved !== 'object') return null;
   if (!isCounts(saved.done) || !saved.met || typeof saved.met !== 'object') {
     return null;
@@ -226,7 +281,10 @@ export function validProgress(saved, people = PEOPLE) {
   if (job) {
     const spec = jobOf(personNamed(job.person, people), job.id);
     const ok =
-      spec && spec.to.includes(job.to) && ['out', 'back'].includes(job.step);
+      spec &&
+      spec.to.includes(job.to) &&
+      ['out', 'back'].includes(job.step) &&
+      (spec.kind !== 'sightseeing' || !sights || sights.includes(job.to));
     if (!ok) job = null;
   }
   return {tipped: false, ...saved, job};
@@ -245,7 +303,8 @@ export function fromCoffeeRun(saved) {
 }
 
 // Problems with people.js, for scripts/test-jobs.js: [] when it's all good
-export function checkPeople(people, airports) {
+// (sights: the landmark names a sightseeing job can send you past)
+export function checkPeople(people, airports, sights = []) {
   const problems = [];
   const names = new Set();
   const lineSets = (field) =>
@@ -288,9 +347,9 @@ export function checkPeople(people, airports) {
         problems.push(`${job}: unknown kind ${j.kind}`);
       const to = (j.to || []).filter((a) => a !== p.airport);
       if (!to.length) problems.push(`${job}: nowhere to go`);
+      const known = j.kind === 'sightseeing' ? sights : airports;
       for (const a of j.to || []) {
-        if (!airports.includes(a))
-          problems.push(`${job}: unknown airport ${a}`);
+        if (!known.includes(a)) problems.push(`${job}: unknown place ${a}`);
       }
       checkLines(job, 'offer', j.offer, true);
       checkLines(job, 'thanks', j.thanks, true);

@@ -17,7 +17,11 @@
 //   id        A short name, unique for this person (saved with progress).
 //   kind      'round trip': fly to one of `to`, pick up, and come back.
 //             'one way': fly to one of `to`, drop off, done.
-//   to        The airports it can send you to (never their own).
+//             'sightseeing': fly (or drive) past one of `to`, a landmark
+//             (LANDMARKS in landmarks.js, within SIGHT_RADIUS in
+//             jobs-logic.js), and come back. No landing at the sight.
+//   to        The airports it can send you to (never their own), or for
+//             sightseeing the landmarks.
 //   cargo     What you carry, for the HUD: on the way back for a round
 //             trip, the whole way for one way.
 //   offer     How they ask (the last line is the question).
@@ -118,6 +122,28 @@ export const PEOPLE = [
           ["They loved the roast! You're an honorary barista now, buddy."],
         ],
       },
+      {
+        id: 'coffee-view',
+        kind: 'sightseeing',
+        to: ['Falls', 'Rock Arch'],
+        cargo: 'Thermos of coffee',
+        offer: [
+          [
+            "I've never had coffee with a view. Well, a view that isn't the roaster.",
+            "Could you fly me out past {to}? I'll bring the thermos!",
+          ],
+          [
+            'Rumor is coffee tastes 30% better next to {to}. I need to test that, buddy.',
+            'Want to fly me over for a look and bring me back?',
+          ],
+        ],
+        thanks: [
+          ["Best cup I've ever had! The view did all the work."],
+          [
+            "Coffee with a view! That's {done} for me, buddy. Same time tomorrow?",
+          ],
+        ],
+      },
     ],
   },
   {
@@ -199,6 +225,26 @@ export const PEOPLE = [
             'Five stars from {to}! Not a single fry survived more than thirty seconds.',
           ],
           ["They loved them! That's {done} for me now."],
+        ],
+      },
+      {
+        id: 'echo-check',
+        kind: 'sightseeing',
+        to: ['Canyon', 'Rock Arch'],
+        cargo: 'Karaoke mic',
+        offer: [
+          [
+            'I need to hear my high note bounce off {to}.',
+            'Could you fly me past it with the window down?',
+          ],
+          [
+            'My voice teacher says I need more natural reverb.',
+            'Want to fly me out to {to} and back so I can find some?',
+          ],
+        ],
+        thanks: [
+          ['The echo sang back! Honestly, it hit the harmony better than me.'],
+          ["Natural reverb achieved! That's {done} for me. Encore!"],
         ],
       },
     ],
@@ -293,6 +339,26 @@ export const PEOPLE = [
           ['Another happy soul. Thanks for the lift, friend!'],
         ],
       },
+      {
+        id: 'charge-crystals',
+        kind: 'sightseeing',
+        to: ['Pyramids', 'Volcano', 'Skeleton'],
+        cargo: 'Crystals',
+        offer: [
+          [
+            'The energy around {to} is off the charts today. My crystals need a top-up.',
+            'Could you fly us past it and bring us home?',
+          ],
+          [
+            'I want to hold my crystals up to {to} and hear what they say.',
+            'Fly me over for a look?',
+          ],
+        ],
+        thanks: [
+          ["They're humming! I can feel it in my earrings."],
+          ["Fully charged! That's {done} for me, friend. The vibes thank you."],
+        ],
+      },
     ],
   },
   {
@@ -382,6 +448,26 @@ export const PEOPLE = [
           ['Another tin delivered, another happy friend. Thanks!'],
         ],
       },
+      {
+        id: 'field-samples',
+        kind: 'sightseeing',
+        to: ['Volcano', 'Falls'],
+        cargo: 'Sample kit',
+        offer: [
+          [
+            'For science, I need an air sample from right over {to}.',
+            'Could you fly me past it and back to the lab?',
+          ],
+          [
+            "I've only ever seen {to} in photos. I want to see the real thing.",
+            'Mind flying me out there and back?',
+          ],
+        ],
+        thanks: [
+          ['Samples sealed and labeled! Peer reviewers, eat your hearts out.'],
+          ["Data collected! That's {done} for me. Cookie?"],
+        ],
+      },
     ],
   },
   {
@@ -461,6 +547,26 @@ export const PEOPLE = [
           ["Perfect, I'll have time to warm up. Thanks a million!"],
           ["Great flight! Now let's see if my slice behaves. Thanks!"],
           ["Another course checked off the bucket list! That's {done} for me."],
+        ],
+      },
+      {
+        id: 'scout-hole',
+        kind: 'sightseeing',
+        to: ['Rock Arch', 'Lighthouse'],
+        cargo: 'Golf clubs',
+        offer: [
+          [
+            'I want to chip a ball through {to}. Well, I want to look at it and imagine it.',
+            'Could you fly me past for a look and bring me back?',
+          ],
+          [
+            "I'm planning the longest par 5 in the world, and {to} is the hole.",
+            'Mind flying me out to scout it?',
+          ],
+        ],
+        thanks: [
+          ["Scouted! I'm calling it the hardest hole in golf."],
+          ["What a view! That's {done} for me. Fore-ever grateful!"],
         ],
       },
     ],
@@ -585,6 +691,26 @@ export const PEOPLE = [
           ["Book delivered. That's {done} for me. Thank you!"],
         ],
       },
+      {
+        id: 'book-view',
+        kind: 'sightseeing',
+        to: ['Lighthouse', 'Falls'],
+        cargo: 'A good book',
+        offer: [
+          [
+            "I'm reading a book set at {to}, and I want to see it before the last chapter.",
+            'Could you fly me past it and back?',
+          ],
+          [
+            'I want to read a chapter with {to} out the window.',
+            "Would you fly me over? I'll bring the tea.",
+          ],
+        ],
+        thanks: [
+          ["It was even better than the book said. Don't tell the author."],
+          ["What a view to read by. That's {done} for me. Thank you!"],
+        ],
+      },
     ],
   },
   {
@@ -681,6 +807,28 @@ export const PEOPLE = [
           ['Cozy heads all around. That makes {done} for me!'],
         ],
       },
+      {
+        id: 'big-scarf',
+        kind: 'sightseeing',
+        to: ['Skeleton', 'Volcano', 'Pyramids'],
+        cargo: 'Tape measure',
+        offer: [
+          [
+            "I'm knitting a scarf big enough for {to}. Don't ask why.",
+            'Could you fly me past it so I can measure by eye?',
+          ],
+          [
+            "Lauren bet me I couldn't knit a cozy for {to}. Challenge accepted.",
+            'Mind flying me out for a look?',
+          ],
+        ],
+        thanks: [
+          [
+            "Measured! I'll need about nine more balls of yarn. Possibly ninety.",
+          ],
+          ["Got it! That's {done} for me. Lauren is going to laugh so hard."],
+        ],
+      },
     ],
   },
   {
@@ -769,6 +917,26 @@ export const PEOPLE = [
           ["They're already swinging at everything! Even the clouds."],
           ["Tennis has spread to {to}! That's {done} for me. Thank you!"],
           ['Perfect landing! The racquets thank you. So do I!'],
+        ],
+      },
+      {
+        id: 'warm-yarn',
+        kind: 'sightseeing',
+        to: ['Volcano', 'Pyramids'],
+        cargo: 'Damp yarn',
+        offer: [
+          [
+            'My yarn got snowed on and smells like a wet sheep. Which, to be fair, it was.',
+            "Could you fly it past {to}? It's warm there.",
+          ],
+          [
+            'I want to see {to} in person. Also, my socks are cold.',
+            'Mind flying me out and back?',
+          ],
+        ],
+        thanks: [
+          ['Toasty and fluffy! It smells like adventure now.'],
+          ["Warm yarn, warm heart. That's {done} for me!"],
         ],
       },
     ],

@@ -833,4 +833,100 @@ export default {
   'By album or how you fly': 'За альбомом або польотом',
   'By album': 'За альбомом',
   'Flight vibe': 'Ритм польоту',
+  'SIGHT SEEN': 'ПОБАЧЕНО',
+  'Thermos of coffee': 'Термос кави',
+  "I've never had coffee with a view. Well, a view that isn't the roaster.":
+    'Я ще ніколи не пив каву з краєвидом. Ну, з краєвидом, що не є обсмажувачем.',
+  "Could you fly me out past {to}? I'll bring the thermos!":
+    'Пролетиш зі мною повз «{to}»? Термос беру я!',
+  'Rumor is coffee tastes 30% better next to {to}. I need to test that, buddy.':
+    'Кажуть, біля «{to}» кава на 30 % смачніша. Мушу перевірити, друже.',
+  'Want to fly me over for a look and bring me back?':
+    'Звозиш мене подивитися й назад?',
+  "Best cup I've ever had! The view did all the work.":
+    'Найкраща кава в моєму житті! Усю роботу зробив краєвид.',
+  "Coffee with a view! That's {done} for me, buddy. Same time tomorrow?":
+    'Кава з краєвидом! Для мене це вже {done}, друже. Завтра о тій самій порі?',
+  'Karaoke mic': 'Мікрофон для караоке',
+  'I need to hear my high note bounce off {to}.':
+    'Мені треба почути, як моя висока нота відлунює від «{to}».',
+  'Could you fly me past it with the window down?':
+    'Пролетиш зі мною повз із відчиненим вікном?',
+  'My voice teacher says I need more natural reverb.':
+    'Моя вчителька вокалу каже, що мені бракує природної реверберації.',
+  'Want to fly me out to {to} and back so I can find some?':
+    'Звозиш мене до «{to}» і назад, щоб я її знайшов?',
+  'The echo sang back! Honestly, it hit the harmony better than me.':
+    'Луна заспівала у відповідь! Чесно, вона взяла гармонію краще за мене.',
+  "Natural reverb achieved! That's {done} for me. Encore!":
+    'Природну реверберацію знайдено! Для мене це вже {done}. На біс!',
+  Crystals: 'Кристали',
+  'The energy around {to} is off the charts today. My crystals need a top-up.':
+    'Енергія довкола «{to}» сьогодні просто зашкалює. Моїм кристалам треба підзарядитися.',
+  'Could you fly us past it and bring us home?':
+    'Пролетиш із нами повз і відвезеш додому?',
+  'I want to hold my crystals up to {to} and hear what they say.':
+    'Хочу підняти кристали до «{to}» й послухати, що вони скажуть.',
+  'Fly me over for a look?': 'Звозиш мене подивитися?',
+  "They're humming! I can feel it in my earrings.":
+    'Вони гудуть! Я відчуваю це сережками.',
+  "Fully charged! That's {done} for me, friend. The vibes thank you.":
+    'Повністю заряджено! Для мене це вже {done}. Гарні вібрації тобі дякують.',
+  'Sample kit': 'Набір для проб',
+  'For science, I need an air sample from right over {to}.':
+    'Для науки мені потрібна проба повітря просто над «{to}».',
+  'Could you fly me past it and back to the lab?':
+    'Пролетиш зі мною повз і назад до лабораторії?',
+  "I've only ever seen {to} in photos. I want to see the real thing.":
+    'Я бачила «{to}» лише на фото. Хочу побачити наживо.',
+  'Mind flying me out there and back?': 'Звозиш мене туди й назад?',
+  'Samples sealed and labeled! Peer reviewers, eat your hearts out.':
+    'Проби запечатано й підписано! Рецензенти, заздріть.',
+  "Data collected! That's {done} for me. Cookie?":
+    'Дані зібрано! Для мене це вже {done}. Печиво?',
+  'I want to chip a ball through {to}. Well, I want to look at it and imagine it.':
+    "Хочу закинути м'яч крізь «{to}». Гаразд, хочу подивитися й уявити це.",
+  'Could you fly me past for a look and bring me back?':
+    'Пролетиш зі мною повз, щоб глянути, і назад?',
+  "I'm planning the longest par 5 in the world, and {to} is the hole.":
+    'Я планую найдовший пар 5 у світі, і «{to}» буде лункою.',
+  'Mind flying me out to scout it?': 'Звозиш мене на розвідку?',
+  "Scouted! I'm calling it the hardest hole in golf.":
+    'Розвідано! Називатиму це найважчою лункою в гольфі.',
+  "What a view! That's {done} for me. Fore-ever grateful!":
+    'Який краєвид! Для мене це вже {done}. Вдячний навіки!',
+  "I'm reading a book set at {to}, and I want to see it before the last chapter.":
+    'Я читаю книжку, дія якої відбувається біля «{to}», і хочу це побачити до останнього розділу.',
+  'Could you fly me past it and back?': 'Пролетиш зі мною повз і назад?',
+  'I want to read a chapter with {to} out the window.':
+    'Хочу прочитати розділ, коли за вікном «{to}».',
+  "Would you fly me over? I'll bring the tea.": 'Звозиш мене? Чай беру я.',
+  "It was even better than the book said. Don't tell the author.":
+    'Це навіть краще, ніж у книжці. Тільки не кажи авторці.',
+  "What a view to read by. That's {done} for me. Thank you!":
+    'Який краєвид для читання. Для мене це вже {done}. Дякую!',
+  'Tape measure': 'Сантиметрова стрічка',
+  "I'm knitting a scarf big enough for {to}. Don't ask why.":
+    "Я в'яжу шарф, достатньо великий для «{to}». Не питай чому.",
+  'Could you fly me past it so I can measure by eye?':
+    'Пролетиш зі мною повз, щоб я виміряла на око?',
+  "Lauren bet me I couldn't knit a cozy for {to}. Challenge accepted.":
+    "Лорен побилася зі мною об заклад, що я не зв'яжу чохол для «{to}». Виклик прийнято.",
+  'Mind flying me out for a look?': 'Звозиш мене подивитися?',
+  "Measured! I'll need about nine more balls of yarn. Possibly ninety.":
+    "Виміряно! Мені знадобиться ще клубків дев'ять. Можливо, дев'яносто.",
+  "Got it! That's {done} for me. Lauren is going to laugh so hard.":
+    'Є! Для мене це вже {done}. Лорен сміятиметься до сліз.',
+  'Damp yarn': 'Волога пряжа',
+  'My yarn got snowed on and smells like a wet sheep. Which, to be fair, it was.':
+    'Мою пряжу засипало снігом, і вона пахне мокрою вівцею. Якою, чесно кажучи, і була.',
+  "Could you fly it past {to}? It's warm there.":
+    'Пролетиш із нею повз «{to}»? Там тепло.',
+  'I want to see {to} in person. Also, my socks are cold.':
+    'Хочу побачити «{to}» на власні очі. А ще в мене холодні шкарпетки.',
+  'Mind flying me out and back?': 'Звозиш мене туди й назад?',
+  'Toasty and fluffy! It smells like adventure now.':
+    'Тепла й пухнаста! Тепер вона пахне пригодами.',
+  "Warm yarn, warm heart. That's {done} for me!":
+    'Тепла пряжа, тепле серце. Для мене це вже {done}!',
 };

@@ -4,8 +4,8 @@
 // there offers a job, which you take or turn down. That's once a visit:
 // stopping again before you leave the airport says nothing, and leaving
 // mid-conversation ends it (an offer left unanswered comes up next time).
-// On a job, the waypoint points to the next airport and stays until you
-// land there, and the HUD
+// On a job, the waypoint points to the next airport (or, sightseeing, the
+// sight to pass) and stays until you land there (or pass it), and the HUD
 // shows who it's for, what you're carrying and where to. Clearing the
 // waypoint on the map drops the job (minimap.js calls cancelJob); another
 // waypoint is a detour, and once it's reached or cleared the job's comes
@@ -23,6 +23,7 @@ import {openDialog, closeDialog, changeOutfit} from './dialog.js';
 import {playChime} from './sfx-events.js';
 import {hooks} from './hooks.js';
 import {PEOPLE} from './people.js';
+import {AIRPORT_COLOR, LANDMARKS} from './landmarks.js';
 import {
   accept,
   cancel,
@@ -32,6 +33,9 @@ import {
   fromCoffeeRun,
   land,
   newProgress,
+  passSight,
+  sightAhead,
+  sightRadius,
   validProgress,
   visit,
 } from './jobs-logic.js';
@@ -50,6 +54,11 @@ const hudAuto = document.getElementById('job-hud-auto');
 // The cockpit's CHILL-FLIGHT / AUTOPILOT line, which the job row replaces
 const statusPanel = document.getElementById('cockpit-status-panel');
 
+// The landmarks (not airports) this world has, which sightseeing jobs can
+// send you past
+const SIGHTS = LANDMARKS.filter((lm) => lm.color !== AIRPORT_COLOR);
+const SIGHT_NAMES = SIGHTS.map((lm) => lm.name);
+
 export let progress = newProgress();
 // The airport you're visiting (see visit in jobs-logic.js), so a visit
 // gets one greeting
@@ -66,7 +75,7 @@ function load(key) {
 // ?jobs=reset starts over, as if you'd never met anyone (for testing lines)
 if (ChillFlightLogic.urlParams?.get('jobs') !== 'reset') {
   progress =
-    validProgress(load(PROGRESS_KEY)) ||
+    validProgress(load(PROGRESS_KEY), PEOPLE, SIGHT_NAMES) ||
     fromCoffeeRun(load(OLD_COFFEE_KEY)) ||
     progress;
 }
@@ -80,12 +89,16 @@ function save() {
 }
 
 // --- HUD AND WAYPOINT ---
-function airportByName(name) {
-  return ChillFlightLogic.AIRPORTS.find((a) => a.name === name);
+// An airport, or a sight
+function placeByName(name) {
+  return (
+    ChillFlightLogic.AIRPORTS.find((a) => a.name === name) ||
+    SIGHTS.find((lm) => lm.name === name)
+  );
 }
 
 function pointToDestination() {
-  const a = airportByName(destination(progress));
+  const a = placeByName(destination(progress));
   if (a) {
     setWaypoint(a.x, getElevation(a.x, a.z), a.z, {stay: true, name: a.name});
   }
@@ -94,7 +107,7 @@ function pointToDestination() {
 // Whether the waypoint is the job's (not a detour)
 function onJobWaypoint() {
   const w = getWaypoint();
-  const a = airportByName(destination(progress));
+  const a = placeByName(destination(progress));
   return !!(w && a && w.x === a.x && w.z === a.z);
 }
 
@@ -162,7 +175,7 @@ function airportAt(x, z) {
 }
 
 function landedAt(a) {
-  const result = land(progress, a.name);
+  const result = land(progress, a.name, Math.random, PEOPLE, SIGHT_NAMES);
   if (result.person) changeOutfit(result.person.name, result.outfit);
   if (result.toast) {
     Achievements.toast({emoji: '📦', ...result.toast});
@@ -191,6 +204,21 @@ function landedAt(a) {
   log.info(`[Jobs] Landed at ${a.name}, next: ${destination(progress)}`);
 }
 
+// Passed the sightseeing job's sight: on to home
+function checkSight(x, z) {
+  const name = sightAhead(progress);
+  const sight = name && placeByName(name);
+  if (!sight) return;
+  if (Math.hypot(sight.x - x, sight.z - z) > sightRadius(name)) return;
+  const result = passSight(progress, name);
+  if (!result) return;
+  setProgress(result.progress);
+  pointToDestination();
+  Achievements.toast({emoji: '📸', ...result.toast});
+  playChime();
+  log.info(`[Jobs] Passed ${name}, next: ${destination(progress)}`);
+}
+
 function update() {
   requestAnimationFrame(update);
   if (!planeGroup || state.isPaused) return;
@@ -201,6 +229,7 @@ function update() {
   // A detour's waypoint was reached or cleared: back to the job
   if (destination(progress) && !getWaypoint()) pointToDestination();
   const {x, z} = planeGroup.position;
+  checkSight(x, z);
   const kts = BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
   const stopped = isOnWheels() && kts <= STOPPED_KTS;
   const away = visiting

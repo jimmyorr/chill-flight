@@ -16,9 +16,16 @@ import {
   PLANE_HANDLING,
 } from '../constants.js';
 import {canLiftOff} from '../flight-physics-logic.js';
-import {arrivalAt} from '../landmarks.js';
+import {arrivalAt, LANDMARKS} from '../landmarks.js';
 import {PEOPLE} from '../people.js';
-import {newProgress, land, accept, destination} from '../jobs-logic.js';
+import {
+  newProgress,
+  land,
+  accept,
+  destination,
+  passSight,
+  sightAhead,
+} from '../jobs-logic.js';
 import {skyHeading} from '../autopilot-logic.js';
 import {FlightSimulator, AUTOPILOT} from './flight-sim.js';
 
@@ -628,6 +635,11 @@ function wrapAngle(a) {
 
   const AIRPORTS = ChillFlightLogic.AIRPORTS;
   const airportMap = new Map(AIRPORTS.map((a) => [a.name, a]));
+  // Sightseeing jobs head for a landmark instead
+  const placeMap = new Map([
+    ...LANDMARKS.map((l) => [l.name, l]),
+    ...airportMap,
+  ]);
   const residentAirports = [...new Set(PEOPLE.map((p) => p.airport))];
 
   function nearestResidentAirport(fromName) {
@@ -649,6 +661,7 @@ function wrapAngle(a) {
   const airportVisits = new Map(AIRPORTS.map((a) => [a.name, 0]));
   let roundTrips = 0;
   let oneWays = 0;
+  let sightseeing = 0;
 
   for (let seed = 1; seed <= 10; seed++) {
     const r = rng(seed * 997);
@@ -667,18 +680,22 @@ function wrapAngle(a) {
       }
 
       const origin = airportMap.get(currentAirport);
-      const dest = airportMap.get(offer.to);
+      const dest = placeMap.get(offer.to);
       const d = Math.hypot(origin.x - dest.x, origin.z - dest.z);
       distances.push(d);
 
       const person = PEOPLE.find((person) => person.name === offer.person);
       const spec = person.jobs.find((job) => job.id === offer.id);
       if (spec.kind === 'round trip') roundTrips++;
+      else if (spec.kind === 'sightseeing') sightseeing++;
       else oneWays++;
 
       p = accept(p, offer, r).progress;
 
-      // Leg 1: out to destination
+      // Sightseeing: past the sight (no landing), then home
+      if (sightAhead(p)) p = passSight(p, sightAhead(p)).progress;
+
+      // Leg 1: out to destination (home, after a sight)
       const nextApt = destination(p);
       airportVisits.set(nextApt, (airportVisits.get(nextApt) || 0) + 1);
       currentAirport = nextApt;
@@ -715,7 +732,13 @@ function wrapAngle(a) {
     process.exit(1);
   }
 
-  if (minDist < 1000 || maxDist > 60000 || roundTrips === 0 || oneWays === 0) {
+  if (
+    minDist < 1000 ||
+    maxDist > 60000 ||
+    roundTrips === 0 ||
+    oneWays === 0 ||
+    sightseeing === 0
+  ) {
     console.error(
       `FAIL: Job distance distribution invalid (min: ${minDist}, max: ${maxDist})`
     );

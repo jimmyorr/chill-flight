@@ -26,6 +26,9 @@ import {
   fromCoffeeRun,
   land,
   newProgress,
+  passSight,
+  sightAhead,
+  sightRadius,
   validProgress,
   visit,
   LEAVE_MARGIN,
@@ -53,9 +56,19 @@ function rng(seed) {
 }
 
 const AIRPORTS = ChillFlightLogic.AIRPORTS.map((a) => a.name);
+// The landmarks sightseeing jobs can send you past (landmarks.js)
+const SIGHTS = [
+  'Volcano',
+  'Lighthouse',
+  'Rock Arch',
+  'Falls',
+  'Canyon',
+  'Pyramids',
+  'Skeleton',
+];
 const unfilled = (dialog) => dialog?.some((line) => line.includes('{'));
 
-const problems = checkPeople(PEOPLE, AIRPORTS);
+const problems = checkPeople(PEOPLE, AIRPORTS, SIGHTS);
 check('people.js is all filled in', !problems.length, problems.join('; '));
 const faceProblems = checkFaces(PEOPLE.map((p) => p.name));
 check(
@@ -238,13 +251,96 @@ check(
     const {offer} = land(p, 'Meadow Field', r);
     p = accept(p, offer, r).progress;
     for (let leg = 0; leg < 2 && p.job; leg++) {
-      p = land(p, destination(p), r).progress;
+      if (sightAhead(p)) p = passSight(p, sightAhead(p)).progress;
+      else p = land(p, destination(p), r).progress;
     }
     if (!p.job) done++;
   }
   check(
     "Meadow Field's jobs play through",
     done === 6 && doneFor(p, 'Ray') === 6
+  );
+}
+
+// Sightseeing: out past a sight (no landing), then home
+{
+  const tour = {
+    name: 'Guide',
+    airport: 'Meadow Field',
+    intro: line,
+    hello: line,
+    accept: line,
+    decline: line,
+    jobs: [
+      {
+        id: 'look',
+        kind: 'sightseeing',
+        to: ['Falls', 'Skeleton'],
+        cargo: 'Camera',
+        offer: ['See {to}?'],
+        thanks: ['Seen {to}.'],
+      },
+    ],
+  };
+  const people = [tour];
+  const r = rng(11);
+  check(
+    'a sightseeing job checks out, but not with an unknown sight',
+    !checkPeople(people, AIRPORTS, SIGHTS).length &&
+      checkPeople(people, AIRPORTS, ['Falls']).length === 1
+  );
+  const offered = land(newProgress(), 'Meadow Field', r, people, ['Falls']);
+  check(
+    'it only sends you to sights this world has',
+    offered.offer?.to === 'Falls'
+  );
+  check(
+    "with none of its sights here, it isn't offered",
+    !land(newProgress(), 'Meadow Field', r, people, ['Volcano']).offer
+  );
+  const p = accept(newProgress(), offered.offer, r, people).progress;
+  check(
+    'it heads for the sight with the cargo aboard',
+    destination(p, people) === 'Falls' &&
+      sightAhead(p, people) === 'Falls' &&
+      cargoLabel(p, people) === 'Camera'
+  );
+  check(
+    'landing back home before seeing it does nothing',
+    land(p, 'Meadow Field', r, people).progress === p
+  );
+  check(
+    'passing another sight does nothing',
+    !passSight(p, 'Skeleton', people)
+  );
+  const seen = passSight(p, 'Falls', people);
+  check(
+    'passing it turns you for home, with a toast',
+    seen?.progress.job.step === 'back' &&
+      destination(seen.progress, people) === 'Meadow Field' &&
+      !sightAhead(seen.progress, people) &&
+      cargoLabel(seen.progress, people) === 'Camera' &&
+      seen.toast?.title === 'Falls'
+  );
+  check(
+    'passing it again does nothing',
+    !passSight(seen.progress, 'Falls', people)
+  );
+  const home = land(seen.progress, 'Meadow Field', r, people);
+  check(
+    'landing home finishes it with thanks',
+    !home.progress.job &&
+      doneFor(home.progress, 'Guide') === 1 &&
+      home.dialog?.[0] === 'Seen Falls.'
+  );
+  check(
+    "a saved trip to a sight this world doesn't have is dropped",
+    validProgress(p, people, ['Falls'])?.job &&
+      validProgress(p, people, ['Volcano'])?.job === null
+  );
+  check(
+    'every sight has a pass zone of at least 500 m',
+    SIGHTS.every((s) => sightRadius(s) >= 500)
   );
 }
 

@@ -839,4 +839,101 @@ export default {
   'By album or how you fly': 'Per album o in base al volo',
   'By album': 'Per album',
   'Flight vibe': 'Ritmo di volo',
+  'SIGHT SEEN': 'VISTO',
+  'Thermos of coffee': 'Thermos di caffè',
+  "I've never had coffee with a view. Well, a view that isn't the roaster.":
+    'Non ho mai bevuto un caffè con vista. Beh, una vista che non sia la tostatrice.',
+  "Could you fly me out past {to}? I'll bring the thermos!":
+    'Mi porti in volo vicino a {to}? Porto io il thermos!',
+  'Rumor is coffee tastes 30% better next to {to}. I need to test that, buddy.':
+    'Si dice che il caffè sia buono il 30% in più vicino a {to}. Devo verificare, amico.',
+  'Want to fly me over for a look and bring me back?':
+    "Mi porti a dare un'occhiata e poi mi riporti qui?",
+  "Best cup I've ever had! The view did all the work.":
+    'Il miglior caffè della mia vita! Il panorama ha fatto tutto il lavoro.',
+  "Coffee with a view! That's {done} for me, buddy. Same time tomorrow?":
+    'Caffè con vista! Fanno {done} per me, amico. Domani alla stessa ora?',
+  'Karaoke mic': 'Microfono da karaoke',
+  'I need to hear my high note bounce off {to}.':
+    'Devo sentire la mia nota acuta rimbalzare su {to}.',
+  'Could you fly me past it with the window down?':
+    'Mi porti in volo lì davanti col finestrino abbassato?',
+  'My voice teacher says I need more natural reverb.':
+    'La mia insegnante di canto dice che mi serve più riverbero naturale.',
+  'Want to fly me out to {to} and back so I can find some?':
+    "Mi porti a {to} e ritorno, così ne trovo un po'?",
+  'The echo sang back! Honestly, it hit the harmony better than me.':
+    "L'eco mi ha risposto cantando! Onestamente, ha fatto l'armonia meglio di me.",
+  "Natural reverb achieved! That's {done} for me. Encore!":
+    'Riverbero naturale raggiunto! Fanno {done} per me. Bis!',
+  Crystals: 'Cristalli',
+  'The energy around {to} is off the charts today. My crystals need a top-up.':
+    "L'energia intorno a {to} oggi è alle stelle. I miei cristalli hanno bisogno di una ricarica.",
+  'Could you fly us past it and bring us home?':
+    'Ci porti in volo lì davanti e poi a casa?',
+  'I want to hold my crystals up to {to} and hear what they say.':
+    'Voglio alzare i miei cristalli verso {to} e sentire cosa dicono.',
+  'Fly me over for a look?': "Mi porti a dare un'occhiata?",
+  "They're humming! I can feel it in my earrings.":
+    'Stanno vibrando! Lo sento negli orecchini.',
+  "Fully charged! That's {done} for me, friend. The vibes thank you.":
+    'Carica completa! Fanno {done} per me. Le buone vibrazioni ti ringraziano.',
+  'Sample kit': 'Kit per campioni',
+  'For science, I need an air sample from right over {to}.':
+    "Per la scienza, mi serve un campione d'aria proprio sopra {to}.",
+  'Could you fly me past it and back to the lab?':
+    'Mi porti in volo lì davanti e poi al laboratorio?',
+  "I've only ever seen {to} in photos. I want to see the real thing.":
+    'Ho visto {to} solo in foto. Voglio vedere quello vero.',
+  'Mind flying me out there and back?': 'Ti va di portarmi lì e ritorno?',
+  'Samples sealed and labeled! Peer reviewers, eat your hearts out.':
+    "Campioni sigillati ed etichettati! Revisori, morite d'invidia.",
+  "Data collected! That's {done} for me. Cookie?":
+    'Dati raccolti! Fanno {done} per me. Un biscotto?',
+  'I want to chip a ball through {to}. Well, I want to look at it and imagine it.':
+    'Voglio mandare una pallina attraverso {to}. Va bene, voglio guardarlo e immaginarlo.',
+  'Could you fly me past for a look and bring me back?':
+    "Mi porti a dare un'occhiata e poi mi riporti qui?",
+  "I'm planning the longest par 5 in the world, and {to} is the hole.":
+    'Sto progettando il par 5 più lungo del mondo, e {to} è la buca.',
+  'Mind flying me out to scout it?': 'Mi porti a fare un sopralluogo?',
+  "Scouted! I'm calling it the hardest hole in golf.":
+    'Sopralluogo fatto! La chiamerò la buca più difficile del golf.',
+  "What a view! That's {done} for me. Fore-ever grateful!":
+    'Che panorama! Fanno {done} per me. Grato per sempre!',
+  "I'm reading a book set at {to}, and I want to see it before the last chapter.":
+    "Sto leggendo un libro ambientato a {to}, e voglio vederlo prima dell'ultimo capitolo.",
+  'Could you fly me past it and back?':
+    'Mi porti in volo lì davanti e ritorno?',
+  'I want to read a chapter with {to} out the window.':
+    'Voglio leggere un capitolo con {to} fuori dal finestrino.',
+  "Would you fly me over? I'll bring the tea.": 'Mi porti lì? Porto io il tè.',
+  "It was even better than the book said. Don't tell the author.":
+    "Era ancora meglio di come lo descriveva il libro. Non dirlo all'autrice.",
+  "What a view to read by. That's {done} for me. Thank you!":
+    'Che panorama per leggere. Fanno {done} per me. Grazie!',
+  'Tape measure': 'Metro a nastro',
+  "I'm knitting a scarf big enough for {to}. Don't ask why.":
+    'Sto lavorando a maglia una sciarpa grande abbastanza per {to}. Non chiedere perché.',
+  'Could you fly me past it so I can measure by eye?':
+    'Mi porti in volo lì davanti così lo misuro a occhio?',
+  "Lauren bet me I couldn't knit a cozy for {to}. Challenge accepted.":
+    'Lauren ha scommesso che non riesco a fare un copri-{to} a maglia. Sfida accettata.',
+  'Mind flying me out for a look?': "Mi porti a dare un'occhiata?",
+  "Measured! I'll need about nine more balls of yarn. Possibly ninety.":
+    'Misurato! Mi serviranno circa nove gomitoli in più. Forse novanta.',
+  "Got it! That's {done} for me. Lauren is going to laugh so hard.":
+    'Fatto! Fanno {done} per me. Lauren riderà a crepapelle.',
+  'Damp yarn': 'Lana umida',
+  'My yarn got snowed on and smells like a wet sheep. Which, to be fair, it was.':
+    'La mia lana ha preso la neve e puzza di pecora bagnata. Che, a dirla tutta, era.',
+  "Could you fly it past {to}? It's warm there.":
+    'Puoi farla passare in volo vicino a {to}? Lì fa caldo.',
+  'I want to see {to} in person. Also, my socks are cold.':
+    'Voglio vedere {to} di persona. E poi ho i calzini freddi.',
+  'Mind flying me out and back?': 'Mi porti lì e ritorno?',
+  'Toasty and fluffy! It smells like adventure now.':
+    "Calda e soffice! Adesso profuma d'avventura.",
+  "Warm yarn, warm heart. That's {done} for me!":
+    'Lana calda, cuore caldo. Fanno {done} per me!',
 };

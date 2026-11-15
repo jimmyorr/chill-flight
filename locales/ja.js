@@ -817,4 +817,101 @@ export default {
   'By album or how you fly': 'アルバム順か飛び方に合わせる',
   'By album': 'アルバム順',
   'Flight vibe': 'フライト連動',
+  'SIGHT SEEN': '見物完了',
+  'Thermos of coffee': 'コーヒーの魔法瓶',
+  "I've never had coffee with a view. Well, a view that isn't the roaster.":
+    '景色を眺めながらコーヒーを飲んだことがないんだ。焙煎機以外の景色ってことね。',
+  "Could you fly me out past {to}? I'll bring the thermos!":
+    '{to}のそばを飛んでくれない？魔法瓶はこっちで持ってくよ！',
+  'Rumor is coffee tastes 30% better next to {to}. I need to test that, buddy.':
+    '{to}の隣だとコーヒーが30%おいしくなるって噂なんだ。確かめなきゃ、相棒。',
+  'Want to fly me over for a look and bring me back?':
+    '見物に連れてって、帰りも乗せてくれる？',
+  "Best cup I've ever had! The view did all the work.":
+    '人生最高の一杯！景色が全部やってくれたよ。',
+  "Coffee with a view! That's {done} for me, buddy. Same time tomorrow?":
+    '景色つきコーヒー！これで{done}だね、相棒。明日も同じ時間にどう？',
+  'Karaoke mic': 'カラオケマイク',
+  'I need to hear my high note bounce off {to}.':
+    '僕の高音が{to}に反響するのを聞かなきゃいけないんだ。',
+  'Could you fly me past it with the window down?':
+    '窓を開けて、そのそばを飛んでくれない？',
+  'My voice teacher says I need more natural reverb.':
+    'ボイトレの先生が、もっと自然なリバーブが必要だって言うんだ。',
+  'Want to fly me out to {to} and back so I can find some?':
+    '{to}まで往復して、探しに行かせてくれない？',
+  'The echo sang back! Honestly, it hit the harmony better than me.':
+    'こだまが歌い返してきた！正直、ハモりは僕よりうまかったよ。',
+  "Natural reverb achieved! That's {done} for me. Encore!":
+    '自然なリバーブ、ゲット！これで{done}だね。アンコール！',
+  Crystals: 'クリスタル',
+  'The energy around {to} is off the charts today. My crystals need a top-up.':
+    '今日は{to}のまわりのエネルギーがすごいの。クリスタルを充電してあげなきゃ。',
+  'Could you fly us past it and bring us home?':
+    'そのそばを飛んで、家まで連れて帰ってくれる？',
+  'I want to hold my crystals up to {to} and hear what they say.':
+    'クリスタルを{to}にかざして、何て言うか聞いてみたいの。',
+  'Fly me over for a look?': '見物に連れてってくれる？',
+  "They're humming! I can feel it in my earrings.":
+    'ハミングしてる！イヤリングで感じるわ。',
+  "Fully charged! That's {done} for me, friend. The vibes thank you.":
+    'フル充電！これで{done}ね。いいバイブスがありがとうって。',
+  'Sample kit': '採取キット',
+  'For science, I need an air sample from right over {to}.':
+    '科学のために、{to}の真上の空気サンプルが必要なの。',
+  'Could you fly me past it and back to the lab?':
+    'そのそばを飛んで、研究室まで戻ってくれる？',
+  "I've only ever seen {to} in photos. I want to see the real thing.":
+    '{to}は写真でしか見たことがないの。本物が見たい。',
+  'Mind flying me out there and back?': '往復で連れてってもらえる？',
+  'Samples sealed and labeled! Peer reviewers, eat your hearts out.':
+    'サンプルを密封してラベルも貼った！査読者たち、うらやましがりなさい。',
+  "Data collected! That's {done} for me. Cookie?":
+    'データ収集完了！これで{done}ね。クッキーどう？',
+  'I want to chip a ball through {to}. Well, I want to look at it and imagine it.':
+    '{to}にボールを通したいんだ。まあ、眺めて想像したいだけなんだけど。',
+  'Could you fly me past for a look and bring me back?':
+    '見物にそばを飛んで、帰りも乗せてくれる？',
+  "I'm planning the longest par 5 in the world, and {to} is the hole.":
+    '世界一長いパー5を設計中で、{to}がカップなんだ。',
+  'Mind flying me out to scout it?': '下見に連れてってくれない？',
+  "Scouted! I'm calling it the hardest hole in golf.":
+    '下見完了！ゴルフ史上いちばん難しいホールって呼ぶよ。',
+  "What a view! That's {done} for me. Fore-ever grateful!":
+    '最高の景色！これで{done}だね。一生感謝！',
+  "I'm reading a book set at {to}, and I want to see it before the last chapter.":
+    '{to}が舞台の本を読んでいて、最終章の前に実物を見ておきたいの。',
+  'Could you fly me past it and back?': 'そのそばを飛んで、戻ってきてくれる？',
+  'I want to read a chapter with {to} out the window.':
+    '{to}を窓の外に見ながら一章読みたいの。',
+  "Would you fly me over? I'll bring the tea.":
+    '連れてってくれる？お茶は私が持っていくわ。',
+  "It was even better than the book said. Don't tell the author.":
+    '本に書いてあったよりずっと素敵だった。作者には内緒ね。',
+  "What a view to read by. That's {done} for me. Thank you!":
+    '読書にぴったりの景色。これで{done}ね。ありがとう！',
+  'Tape measure': 'メジャー',
+  "I'm knitting a scarf big enough for {to}. Don't ask why.":
+    '{to}にぴったりのマフラーを編んでるの。理由は聞かないで。',
+  'Could you fly me past it so I can measure by eye?':
+    '目測できるように、そのそばを飛んでくれない？',
+  "Lauren bet me I couldn't knit a cozy for {to}. Challenge accepted.":
+    '{to}のカバーなんて編めないってローレンに賭けられたの。受けて立つわ。',
+  'Mind flying me out for a look?': '見物に連れてってくれない？',
+  "Measured! I'll need about nine more balls of yarn. Possibly ninety.":
+    '測れた！毛糸があと9玉くらい必要。もしかしたら90玉。',
+  "Got it! That's {done} for me. Lauren is going to laugh so hard.":
+    '了解！これで{done}ね。ローレン、大笑いするだろうな。',
+  'Damp yarn': '湿った毛糸',
+  'My yarn got snowed on and smells like a wet sheep. Which, to be fair, it was.':
+    '毛糸に雪が積もって、濡れた羊のにおいがするの。まあ、実際そうだったんだけど。',
+  "Could you fly it past {to}? It's warm there.":
+    '{to}のそばを飛んでくれない？あそこは暖かいから。',
+  'I want to see {to} in person. Also, my socks are cold.':
+    '{to}をこの目で見てみたいの。それに靴下が冷たくて。',
+  'Mind flying me out and back?': '往復で連れてってくれない？',
+  'Toasty and fluffy! It smells like adventure now.':
+    'ぽかぽかふわふわ！冒険のにおいがするようになった。',
+  "Warm yarn, warm heart. That's {done} for me!":
+    'あったかい毛糸に、あったかい心。これで{done}ね！',
 };

@@ -784,4 +784,100 @@ export default {
   'By album or how you fly': '依專輯或隨飛行變化',
   'By album': '依專輯',
   'Flight vibe': '飛行律動',
+  'SIGHT SEEN': '觀光完成',
+  'Thermos of coffee': '一壺咖啡',
+  "I've never had coffee with a view. Well, a view that isn't the roaster.":
+    '我還從沒邊看風景邊喝過咖啡。我是說，除了烘豆機以外的風景。',
+  "Could you fly me out past {to}? I'll bring the thermos!":
+    '能帶我從{to}旁邊飛過去嗎？保溫壺我來帶！',
+  'Rumor is coffee tastes 30% better next to {to}. I need to test that, buddy.':
+    '聽說在{to}旁邊喝咖啡會好喝30%。我得親自驗證一下，夥計。',
+  'Want to fly me over for a look and bring me back?':
+    '帶我去看看，再把我送回來？',
+  "Best cup I've ever had! The view did all the work.":
+    '這輩子最好喝的一杯！全靠風景加分。',
+  "Coffee with a view! That's {done} for me, buddy. Same time tomorrow?":
+    '配風景的咖啡！你已經幫我跑了 {done}了，夥計。明天老時間？',
+  'Karaoke mic': '卡拉OK麥克風',
+  'I need to hear my high note bounce off {to}.':
+    '我得聽聽我的高音在{to}間迴盪是什麼效果。',
+  'Could you fly me past it with the window down?':
+    '能開著窗帶我從旁邊飛過去嗎？',
+  'My voice teacher says I need more natural reverb.':
+    '我的聲樂老師說我需要更多天然混響。',
+  'Want to fly me out to {to} and back so I can find some?':
+    '能帶我去{to}再回來，讓我找點混響嗎？',
+  'The echo sang back! Honestly, it hit the harmony better than me.':
+    '回聲唱回來了！說實話，它的和聲比我還準。',
+  "Natural reverb achieved! That's {done} for me. Encore!":
+    '天然混響到手！你已經幫我跑了 {done}了。安可！',
+  Crystals: '水晶',
+  'The energy around {to} is off the charts today. My crystals need a top-up.':
+    '今天{to}周圍的能量爆表了。我的水晶需要充充電。',
+  'Could you fly us past it and bring us home?':
+    '能帶我們從旁邊飛過去，再送我們回家嗎？',
+  'I want to hold my crystals up to {to} and hear what they say.':
+    '我想把水晶舉向{to}，聽聽它們怎麼說。',
+  'Fly me over for a look?': '帶我去看看？',
+  "They're humming! I can feel it in my earrings.":
+    '它們在嗡嗡作響！我的耳環都感覺到了。',
+  "Fully charged! That's {done} for me, friend. The vibes thank you.":
+    '充滿啦！你已經幫我跑了 {done}了。好能量謝謝你。',
+  'Sample kit': '採樣工具包',
+  'For science, I need an air sample from right over {to}.':
+    '為了科學，我需要{to}正上方的空氣樣本。',
+  'Could you fly me past it and back to the lab?':
+    '能帶我從旁邊飛過去，再回實驗室嗎？',
+  "I've only ever seen {to} in photos. I want to see the real thing.":
+    '我只在照片裡見過{to}。我想看看真的。',
+  'Mind flying me out there and back?': '能帶我去再回來嗎？',
+  'Samples sealed and labeled! Peer reviewers, eat your hearts out.':
+    '樣本密封貼好標籤了！審稿人們，羨慕去吧。',
+  "Data collected! That's {done} for me. Cookie?":
+    '數據到手！你已經幫我跑了 {done}了。來塊餅乾？',
+  'I want to chip a ball through {to}. Well, I want to look at it and imagine it.':
+    '我想把球打過{to}。好吧，我只是想看看，然後想像一下。',
+  'Could you fly me past for a look and bring me back?':
+    '能帶我從旁邊飛過去看看，再送我回來嗎？',
+  "I'm planning the longest par 5 in the world, and {to} is the hole.":
+    '我在設計世界上最長的五桿洞，{to}就是球洞。',
+  'Mind flying me out to scout it?': '能帶我去實地考察嗎？',
+  "Scouted! I'm calling it the hardest hole in golf.":
+    '考察完畢！我要叫它高爾夫史上最難的洞。',
+  "What a view! That's {done} for me. Fore-ever grateful!":
+    '風景太棒了！你已經幫我跑了 {done}了。永遠感激！',
+  "I'm reading a book set at {to}, and I want to see it before the last chapter.":
+    '我在讀一本以{to}為背景的書，想在最後一章前親眼看看。',
+  'Could you fly me past it and back?': '能帶我從旁邊飛過去再回來嗎？',
+  'I want to read a chapter with {to} out the window.':
+    '我想窗外是{to}，邊看邊讀一章。',
+  "Would you fly me over? I'll bring the tea.": '能帶我去嗎？茶我來帶。',
+  "It was even better than the book said. Don't tell the author.":
+    '比書裡寫的還美。別告訴作者。',
+  "What a view to read by. That's {done} for me. Thank you!":
+    '多適合讀書的風景。你已經幫我跑了 {done}了。謝謝你！',
+  'Tape measure': '捲尺',
+  "I'm knitting a scarf big enough for {to}. Don't ask why.":
+    '我在織一條大到能給{to}戴的圍巾。別問為什麼。',
+  'Could you fly me past it so I can measure by eye?':
+    '能帶我從旁邊飛過去，讓我目測一下嗎？',
+  "Lauren bet me I couldn't knit a cozy for {to}. Challenge accepted.":
+    '勞倫跟我打賭說我織不出{to}的套子。挑戰接受。',
+  'Mind flying me out for a look?': '帶我去看看？',
+  "Measured! I'll need about nine more balls of yarn. Possibly ninety.":
+    '量好了！我還需要大概九團毛線。也可能九十團。',
+  "Got it! That's {done} for me. Lauren is going to laugh so hard.":
+    '搞定！你已經幫我跑了 {done}了。勞倫肯定要笑瘋了。',
+  'Damp yarn': '潮濕的毛線',
+  'My yarn got snowed on and smells like a wet sheep. Which, to be fair, it was.':
+    '我的毛線被雪埋了，聞起來像隻濕漉漉的羊。說實話，它本來就是。',
+  "Could you fly it past {to}? It's warm there.":
+    '能帶著它從{to}旁邊飛過去嗎？那裡很暖和。',
+  'I want to see {to} in person. Also, my socks are cold.':
+    '我想親眼看看{to}。而且我的襪子好冷。',
+  'Mind flying me out and back?': '能帶我去再回來嗎？',
+  'Toasty and fluffy! It smells like adventure now.':
+    '暖烘烘、軟乎乎！現在聞起來像冒險的味道。',
+  "Warm yarn, warm heart. That's {done} for me!":
+    '暖暖的毛線，暖暖的心。你已經幫我跑了 {done}了！',
 };
