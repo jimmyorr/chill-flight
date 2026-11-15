@@ -10,7 +10,11 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
-import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
+import {
+  BASE_FLIGHT_SPEED,
+  CONTRAILS_BELOW_CEILING,
+  WATER_LEVEL,
+} from './constants.js';
 import {
   VOLCANO_X,
   VOLCANO_Z,
@@ -30,7 +34,8 @@ import {
 import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {precipitation} from './weather-manager.js';
+import {manualCloudHeight, precipitation} from './weather-manager.js';
+import {flightCeiling} from './flight-physics-logic.js';
 import {rushTrail} from './crystal-rush.js';
 
 // Room for four or more planes' smoke trails (~1,000 each), water spray, and
@@ -289,6 +294,27 @@ const EXHAUSTS = {
   ],
 };
 
+// Contrails: thin white streaks from the engines high up (in the band
+// CONTRAILS_BELOW_CEILING in constants.js sets, under the top of the sky), or faint vapour in the
+// deep cold of the north (snow above COLD_START). Jets and the twin leave long
+// crisp trails; the piston planes' are short wisps. Each puff fades in over
+// its first moments, which leaves the gap behind the engine of a real one.
+const CONTRAILS = {
+  jet: {life: 9, size0: 1.4, size1: 8, alpha: 0.45},
+  twin: {life: 7, size0: 1.4, size1: 7, alpha: 0.4},
+  wisp: {life: 2.2, size0: 1.2, size1: 4, alpha: 0.35},
+};
+const COLD_START = 0.6;
+const COLD_FULL = 0.9;
+// Cold air alone gives this much of a trail
+const COLD_STRENGTH = 0.6;
+// Puffs this far apart, but no more than CONTRAIL_RATE a second per engine
+// (so ~1,600 of the pool at most, for the jet's two)
+const CONTRAIL_SPACING = 1.5;
+const CONTRAIL_RATE = 90;
+// Snow is checked this often (seconds)
+const COLD_CHECK = 0.5;
+
 // --- THE WORLD'S EFFECTS ---
 // Boats, waterfalls and the volcano only spawn this near the plane (units)
 const WORLD_RANGE = 3000;
@@ -338,6 +364,10 @@ let smokeOn =
 let vapour = 0;
 const vapourLast = [new THREE.Vector3(), new THREE.Vector3()];
 let lastTarget = null;
+let contrail = 0;
+let coldAir = 0;
+let coldCheckTimer = 0;
+const contrailLast = [new THREE.Vector3(), new THREE.Vector3()];
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -897,6 +927,69 @@ function wingtipVapour(delta, speed) {
   });
 }
 
+// How much of a contrail the air gives here, 0 to 1
+function contrailAir(delta) {
+  coldCheckTimer -= delta;
+  if (coldCheckTimer <= 0) {
+    coldCheckTimer = COLD_CHECK;
+    coldAir = THREE.MathUtils.smoothstep(
+      ChillFlightLogic.snowFactorAt(planeGroup.position.z, 0),
+      COLD_START,
+      COLD_FULL
+    );
+  }
+  const top = flightCeiling(manualCloudHeight);
+  const high = THREE.MathUtils.smoothstep(
+    planeGroup.position.y,
+    top - CONTRAILS_BELOW_CEILING.START,
+    top - CONTRAILS_BELOW_CEILING.FULL
+  );
+  return Math.max(high, coldAir * COLD_STRENGTH);
+}
+
+// Contrails from each exhaust, laid along the flight path like the smoke,
+// fading in and out with the air and the throttle
+function contrails(delta) {
+  const exhausts =
+    activePlaneType === 'buggy' ? null : EXHAUSTS[activePlaneType];
+  const engineOn = (state.targetFlightSpeed || 0) > 0;
+  const target = exhausts && engineOn ? contrailAir(delta) : 0;
+  contrail += (target - contrail) * Math.min(1, delta * 1.5);
+  if (!exhausts || contrail < 0.03) {
+    for (const last of contrailLast) last.valid = false;
+    return;
+  }
+  const look = CONTRAILS[activePlaneType] ?? CONTRAILS.wisp;
+  exhausts.forEach(([x, y, z], i) => {
+    const pipe = planeGroup.localToWorld(_p.set(x, y, z));
+    const last = contrailLast[i];
+    if (!last.valid || last.distanceTo(pipe) > 300) {
+      last.copy(pipe);
+      last.valid = true;
+      return;
+    }
+    const dist = last.distanceTo(pipe);
+    const spacing = Math.max(CONTRAIL_SPACING, dist / (CONTRAIL_RATE * delta));
+    const steps = Math.floor(dist / spacing);
+    // Wider puffs when they're further apart, so the line stays unbroken
+    const size0 = Math.max(look.size0, spacing * 1.3);
+    for (let k = 1; k <= steps; k++) {
+      _q.lerpVectors(last, pipe, k / steps);
+      spawn(
+        _q,
+        {x: rand(-0.3, 0.3), y: rand(-0.3, 0.3), z: rand(-0.3, 0.3)},
+        0,
+        look.life * (0.5 + 0.5 * contrail) * rand(0.9, 1),
+        size0,
+        Math.max(look.size1, size0 * 1.5),
+        WHITE,
+        look.alpha * contrail
+      );
+    }
+    if (steps > 0) last.copy(pipe);
+  });
+}
+
 // A cough of grey smoke from the exhausts as the engine starts
 function engineStartPuff() {
   for (const [x, y, z] of EXHAUSTS[activePlaneType] ?? []) {
@@ -1237,6 +1330,7 @@ export function updateParticles(delta) {
   // Ignore the spawn and teleports settling
   settleTime += delta;
   if (!state.isFreeCamera && !state.isCrashed) {
+    const trail = isSmokeOn() || rushTrail() || tripTrail;
     if (isSmokeOn()) {
       smokeTrail(planeGroup, smokeLast, speed, tinted ? smokeTint : SMOKE);
     } else if (rushTrail() || tripTrail) {
@@ -1244,6 +1338,13 @@ export function updateParticles(delta) {
       smokeTrail(planeGroup, smokeLast, speed, rushTrail() || tripTrail);
     } else {
       smokeLast.valid = false;
+    }
+    // Contrails only when no smoke trail is laying (keeps the pool bounded)
+    if (!trail && !wheels && !onWater) {
+      contrails(delta);
+    } else {
+      contrail = 0;
+      for (const last of contrailLast) last.valid = false;
     }
     if (!wheels && !onWater) wingtipVapour(delta, speed);
     else vapour = 0;
@@ -1267,6 +1368,8 @@ export function updateParticles(delta) {
     lastTarget = target;
   } else if (state.isCrashed) {
     smokeLast.valid = false;
+    contrail = 0;
+    for (const last of contrailLast) last.valid = false;
     skimLast.valid = false;
     vapour = 0;
   }
