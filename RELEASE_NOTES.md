@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.10](https://v1-2-10.chill-flight.pages.dev)
+
+- **Holiday season:** Christmas village near Pinewood Field with festive lights, Santa in the town square, and seasonal winter themes.
+- **Music & radio:** Expanded Purrple Cat catalog to 31 full albums with saved progress and flight vibe playlist mode.
+- **UI & landscape:** Landscape phone layouts for HUD, menus, and Help; contextual sky hints; and daily scenic spawn corridors.
+
 ## [1.2.9](https://v1-2-9.chill-flight.pages.dev)
 
 - **VR & controls:** Grip barrel rolls, stationary VR defaults, 1-click map round-trips, and improved Quest 2 controls and culling.

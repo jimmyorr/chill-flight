@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "1.2.9";
-window.__COMMIT_HASH__ = "083917a";
+    <script>window.__APP_VERSION__ = "1.2.10";
+window.__COMMIT_HASH__ = "a140621";
 window.__IS_DIRTY__ = false;</script>
 
     <meta charset="UTF-8" />
@@ -76,16 +76,19 @@ window.__IS_DIRTY__ = false;</script>
       }
     </script>
     <!-- sync-end:description -->
-    <script type="module" crossorigin src="./assets/main-CieiRhe9.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/three-COotSIJ2.js">
+    <script type="module" crossorigin src="./assets/main-8H7ZlN4y.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/three-B-vTpZCg.js">
     <link rel="modulepreload" crossorigin href="./assets/definitions-DzrWiD94.js">
-    <link rel="stylesheet" crossorigin href="./assets/main-B9UpcyN8.css">
+    <link rel="stylesheet" crossorigin href="./assets/main-0jebPJFC.css">
   </head>
 
   <body>
     <div id="ui-layer"></div>
     <!-- How to leave zen, shown as it turns on (zen.js) -->
     <div id="zen-hint" aria-live="polite"></div>
+    <!-- A tap move to try, and where to tap (tap-help.js) -->
+    <div id="move-hint" aria-live="polite"></div>
+    <div id="move-ripples" aria-hidden="true"></div>
     <div id="pause-overlay">
       <div class="customization-box">
         <div class="pause-tabs" role="tablist">
@@ -235,6 +238,16 @@ window.__IS_DIRTY__ = false;</script>
                 <option value="zh-TW" data-no-translate>繁體中文</option>
               </select>
             </div>
+            <div class="pause-row">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Music mode</span>
+                <span class="pause-row-sub">By album or how you fly</span>
+              </span>
+              <select id="music-mode-select" class="customization-input">
+                <option value="album" selected>By album</option>
+                <option value="vibe">Flight vibe</option>
+              </select>
+            </div>
             <!-- Shown on touch devices (game-gyro.js) -->
             <div id="control-scheme-toggle" style="display: none">
               <span class="pause-row-text">
@@ -278,6 +291,20 @@ window.__IS_DIRTY__ = false;</script>
                 >
               </span>
               <input type="checkbox" id="haptics-input" class="pause-switch" />
+            </label>
+            <!-- Tap-move hints in the sky (tap-help.js) -->
+            <label class="pause-row" for="hints-off-input">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Disable hints</span>
+                <span class="pause-row-sub"
+                  >No tap move tips while you play</span
+                >
+              </span>
+              <input
+                type="checkbox"
+                id="hints-off-input"
+                class="pause-switch"
+              />
             </label>
           </div>
 
@@ -399,6 +426,15 @@ window.__IS_DIRTY__ = false;</script>
             </button>
           </div>
           <div class="pause-actions-row">
+            <!-- The tap moves, and a Try for each (tap-help.js) -->
+            <button
+              id="help-btn"
+              class="pause-icon-btn pause-map-btn"
+              title="Help"
+              aria-label="Help"
+            >
+              ❔
+            </button>
             <button
               id="achievements-btn"
               title="Achievements"
@@ -488,6 +524,22 @@ window.__IS_DIRTY__ = false;</script>
         </div>
         <div id="people-progress" class="achievements-progress"></div>
         <div id="people-grid"></div>
+      </div>
+    </div>
+
+    <!-- How to do the tap moves, for the plane and the buggy (tap-help.js) -->
+    <div id="help-overlay">
+      <div class="achievements-content">
+        <div class="achievements-header">
+          <span class="achievements-title">Help</span>
+          <button id="help-close-btn" class="achievements-close-btn">✕</button>
+        </div>
+        <div id="help-vehicle" class="scheme-btn-group help-vehicle">
+          <button class="scheme-btn" data-vehicle="plane">Plane</button>
+          <button class="scheme-btn" data-vehicle="buggy">Buggy</button>
+        </div>
+        <div id="help-zones" class="help-zones"></div>
+        <div id="help-moves" class="help-moves"></div>
       </div>
     </div>
 
@@ -1015,6 +1067,9 @@ window.__IS_DIRTY__ = false;</script>
         <button type="button" role="tab" class="dbg-tab" data-tab="things">
           Things
         </button>
+        <button type="button" role="tab" class="dbg-tab" data-tab="music">
+          Music
+        </button>
         <button type="button" role="tab" class="dbg-tab" data-tab="settings">
           Settings
         </button>
@@ -1112,6 +1167,132 @@ window.__IS_DIRTY__ = false;</script>
         <div class="dbg-sec">Landmarks (in prop range / loaded)</div>
         <dl class="dbg-rows" id="debug-landmarks"></dl>
       </div>
+      <div class="dbg-body" data-tab="music">
+        <div
+          style="
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 8px;
+          "
+        >
+          <img
+            id="debug-album-art"
+            width="64"
+            height="64"
+            loading="lazy"
+            alt="Album cover"
+            style="
+              width: 64px;
+              height: 64px;
+              border-radius: 6px;
+              object-fit: cover;
+              background: rgba(255, 255, 255, 0.08);
+              flex-shrink: 0;
+            "
+          />
+          <div style="flex: 1; min-width: 0">
+            <div
+              id="debug-track-title"
+              style="
+                font-size: 13px;
+                font-weight: 600;
+                color: #fff;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              "
+            >
+              -
+            </div>
+            <div
+              id="debug-album-subtitle"
+              style="
+                font-size: 11px;
+                color: #9aa6b4;
+                margin-top: 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              "
+            >
+              -
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 6px">
+              <button
+                type="button"
+                id="debug-track-prev"
+                class="customization-input"
+                title="Previous track"
+                style="
+                  width: auto;
+                  height: 24px;
+                  padding: 0 10px;
+                  font-size: 11px;
+                  cursor: pointer;
+                "
+              >
+                ◀ Prev
+              </button>
+              <button
+                type="button"
+                id="debug-track-next"
+                class="customization-input"
+                title="Next track"
+                style="
+                  width: auto;
+                  height: 24px;
+                  padding: 0 10px;
+                  font-size: 11px;
+                  cursor: pointer;
+                "
+              >
+                Next ▶
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="debug-section">
+          <div style="font-size: 11px; margin-bottom: 2px">Album:</div>
+          <select
+            id="debug-album-select"
+            class="customization-input"
+            style="
+              width: 100%;
+              height: 28px;
+              padding: 2px 26px 2px 8px;
+              font-size: 12px;
+              margin-bottom: 6px;
+            "
+          >
+            <option value="birds-of-a-feather">
+              Birds of a Feather (2021)
+            </option>
+          </select>
+          <div style="font-size: 11px; margin-bottom: 2px">Track:</div>
+          <select
+            id="debug-track-select"
+            class="customization-input"
+            style="
+              width: 100%;
+              height: 28px;
+              padding: 2px 26px 2px 8px;
+              font-size: 12px;
+            "
+          ></select>
+        </div>
+        <div class="dbg-sec">Telemetry</div>
+        <dl class="dbg-rows">
+          <dt>Mode</dt>
+          <dd id="debug-music-mode">-</dd>
+          <dt>Tempo</dt>
+          <dd id="debug-music-bpm">-</dd>
+          <dt>Track energy</dt>
+          <dd id="debug-music-energy">-</dd>
+          <dt>Flight energy</dt>
+          <dd id="debug-flight-energy">-</dd>
+        </dl>
+      </div>
       <div class="dbg-body" data-tab="settings">
         <div class="debug-columns">
           <!-- Left Column: Environment, Sky & Weather -->
@@ -1145,10 +1326,10 @@ window.__IS_DIRTY__ = false;</script>
                 </button>
                 <button
                   class="speed-btn"
-                  data-speed="100"
-                  title="100x time speed"
+                  data-speed="50"
+                  title="50x time speed"
                 >
-                  100x
+                  50x
                 </button>
               </div>
               <div style="margin-top: 5px">
@@ -1498,23 +1679,6 @@ window.__IS_DIRTY__ = false;</script>
                 />
               </div>
             </div>
-
-            <!-- Force Weather -->
-            <div class="debug-section">
-              <div style="font-size: 11px; margin-bottom: 2px">
-                Force weather:
-              </div>
-              <select
-                id="weather-select"
-                class="customization-input"
-                style="width: 100%; padding: 2px 4px; font-size: 12px"
-              >
-                <option value="auto" selected>Auto (Default)</option>
-                <option value="none">None</option>
-                <option value="snow">Snow</option>
-                <option value="rain">Rain</option>
-              </select>
-            </div>
           </div>
 
           <!-- Right Column: World, Rendering & Camera -->
@@ -1562,12 +1726,30 @@ window.__IS_DIRTY__ = false;</script>
               <select
                 id="island-type-select"
                 class="customization-input"
-                style="width: 100%; padding: 2px 4px; font-size: 12px"
+                style="
+                  width: 100%;
+                  padding: 2px 4px;
+                  font-size: 12px;
+                  margin-bottom: 4px;
+                "
               >
                 <option value="auto" selected>Auto (procedural)</option>
                 <option value="karst">Karst (limestone towers)</option>
                 <option value="caldera">Caldera (volcano crater)</option>
                 <option value="atoll">Atoll (coral lagoon)</option>
+              </select>
+              <div style="font-size: 11px; margin-bottom: 2px">
+                Force weather:
+              </div>
+              <select
+                id="weather-select"
+                class="customization-input"
+                style="width: 100%; padding: 2px 4px; font-size: 12px"
+              >
+                <option value="auto" selected>Auto (Default)</option>
+                <option value="none">None</option>
+                <option value="snow">Snow</option>
+                <option value="rain">Rain</option>
               </select>
             </div>
 
@@ -1664,6 +1846,39 @@ window.__IS_DIRTY__ = false;</script>
                 <input
                   type="checkbox"
                   id="debug-chunk-borders-toggle"
+                  style="width: 13px; height: 13px; cursor: pointer"
+                />
+              </label>
+              <label
+                for="debug-lod-colors-toggle"
+                title="Magenta: Close (high-poly) | Cyan: Mid / Standard | Indigo: Far (low-poly)"
+                style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  cursor: pointer;
+                  margin-bottom: 3px;
+                "
+              >
+                <div style="font-size: 11px">
+                  Show LOD colors:
+                  <span
+                    style="color: #ff2a85; font-size: 9px"
+                    title="Close (high-poly)"
+                    >&#9679;</span
+                  ><span
+                    style="color: #00e5ff; font-size: 9px"
+                    title="Mid / Standard"
+                    >&#9679;</span
+                  ><span
+                    style="color: #4b5be8; font-size: 9px"
+                    title="Far (low-poly)"
+                    >&#9679;</span
+                  >
+                </div>
+                <input
+                  type="checkbox"
+                  id="debug-lod-colors-toggle"
                   style="width: 13px; height: 13px; cursor: pointer"
                 />
               </label>
