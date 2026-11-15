@@ -856,9 +856,15 @@ export function updateSfx() {
     1 +
     0.18 * Math.sin(2 * Math.PI * 0.071 * frameNow) +
     0.12 * Math.sin(2 * Math.PI * 0.173 * frameNow + 1.3);
-  // Up to twice as loud (+6 dB) and a little brighter in a steep dive
-  const windMove = gust * (1 + windSwell);
-  const windBright = 1 + 0.3 * windSwell;
+  // Up to twice as loud (+6 dB) and a little brighter in a steep dive. Up
+  // in the thin air at the top of the sky the wind thins, and in the cloud
+  // base's mist it's muffled (#176)
+  const windMove =
+    gust *
+    (1 + windSwell) *
+    (1 - 0.15 * state.thinAir) *
+    (1 - 0.3 * state.cloudBaseMist);
+  const windBright = (1 + 0.3 * windSwell) * (1 - 0.35 * state.cloudBaseMist);
 
   // Stopped ambient soundscapes (crickets at night/dusk, meadow breeze by day, and frogs in the swamp)
   let targetCricketGain = 0;

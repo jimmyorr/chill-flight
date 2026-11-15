@@ -13,9 +13,11 @@ import {syncChunkBorders} from './debug-ui.js';
 import {arches} from './arches.js';
 import {archCeiling} from './arches-logic.js';
 import {
+  CEILING,
   ceilingClimbLimit,
   flightCeiling,
   sagClimbCap,
+  thinAirAt,
 } from './flight-physics-logic.js';
 import {LANDMARKS} from './landmarks.js';
 import {
@@ -1628,6 +1630,29 @@ function updatePhysicsAndControls(delta, nowTime) {
   }
 }
 
+// The cloud base's mist (updateEnvironmentLighting): the fog's density at
+// the top of the sky under full cloud, thick enough to fade the ground
+// without hiding it (twice this was a whiteout), and the daylit cloud colour
+// it leans to
+const CLOUD_BASE_FOG = 0.0003;
+const _mistLit = new THREE.Color(0xdde3ea);
+const _mistColor = new THREE.Color();
+const _mistCamPos = new THREE.Vector3();
+
+// How much cumulus deck is overhead (0..1), as the sky draws it
+// (cloudsAlong in constants.js): the weather's overcast thickens the deck
+// and the day's mood adds its own cover
+function cloudBaseCover(overcast) {
+  return (
+    skyUniforms.uCloudTypes.value.x *
+    THREE.MathUtils.smoothstep(
+      (overcast - 0.5) * 0.6 + skyUniforms.uCloudCover.value,
+      -0.1,
+      0.25
+    )
+  );
+}
+
 const SNOW_MAX_BRIGHTNESS = 0.95;
 const SNOW_COOL_TINT = new THREE.Vector3(0.94, 0.99, 1.07);
 const SHADOW_LOOK_AHEAD = 1400;
@@ -2007,6 +2032,21 @@ function updateEnvironmentLighting(delta, now) {
   _finalSkyColor.copy(_uncloudedSkyColor).lerp(_cloudyColor, overcast);
   _finalFogColor.copy(_uncloudedFogColor).lerp(_cloudyColor, overcast);
 
+  // The cloud base (#176): under cloud, the last CEILING.THIN_AIR / 2
+  // below the top of the sky fill with mist the colour of the clouds'
+  // underside, so climbing to the top is skimming into the cloud deck. Clear
+  // skies keep only the thin air (flight-physics-logic.js)
+  const top = flightCeiling(manualCloudHeight);
+  const camY = getCameraWorldPosition(_mistCamPos).y;
+  state.thinAir = thinAirAt(planeGroup.position.y, top);
+  state.cloudBaseMist =
+    THREE.MathUtils.smoothstep(camY, top - CEILING.THIN_AIR / 2, top + 20) *
+    cloudBaseCover(overcast);
+  _mistColor
+    .copy(_finalFogColor)
+    .lerp(_cloudyColor, 0.5)
+    .lerp(_mistLit, 0.35 * state.dayFactor);
+  _finalFogColor.lerp(_mistColor, state.cloudBaseMist);
   scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
 
   // Fog density follows the conditions: clear skies, morning fog, clouds,
@@ -2043,7 +2083,8 @@ function updateEnvironmentLighting(delta, now) {
     );
   const effectiveFogDensity = Math.max(
     targetFogDensity,
-    baseFogDensity + swampMist * 0.000085
+    baseFogDensity + swampMist * 0.000085,
+    THREE.MathUtils.lerp(targetFogDensity, CLOUD_BASE_FOG, state.cloudBaseMist)
   );
   scene.fog.density = THREE.MathUtils.lerp(
     scene.fog.density,
