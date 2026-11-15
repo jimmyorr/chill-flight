@@ -531,10 +531,13 @@ waterMaterial.onBeforeCompile = function (shader) {
     FOG_SKY_VERTEX_GLSL +
     shader.vertexShader;
 
-  // Inject analytical normal calculation (replaces computeVertexNormals)
-  shader.vertexShader = shader.vertexShader.replace(
-    `#include <beginnormal_vertex>`,
-    `
+  // Compute swell at the start of main() so MeshBasicMaterial (?theme=basic,
+  // ?theme=wireframe), which guards <beginnormal_vertex> behind USE_ENVMAP,
+  // still defines swellN and vDepthUV before <begin_vertex>.
+  shader.vertexShader = shader.vertexShader
+    .replace(
+      'void main() {',
+      `void main() {
         // Get world position for seamless tiling across chunks
         vec4 worldPosN = modelMatrix * vec4(position, 1.0);
 
@@ -547,10 +550,13 @@ waterMaterial.onBeforeCompile = function (shader) {
 
         // Analytical normal from the swell's slope, for correct lighting
         vec3 swellN = swell(worldPosN.xz, uTime) * swellCalm;
-        vec3 objectNormal = normalize(vec3(-swellN.y, 1.0, -swellN.z));
-        vSmoothNormal = normalize(mat3(modelMatrix) * objectNormal);
-        `
-  );
+        vec3 swellObjNormal = normalize(vec3(-swellN.y, 1.0, -swellN.z));
+        vSmoothNormal = normalize(mat3(modelMatrix) * swellObjNormal);`
+    )
+    .replace(
+      `#include <beginnormal_vertex>`,
+      `vec3 objectNormal = swellObjNormal;`
+    );
 
   // Inject wave height displacement (replaces the CPU position array modification)
   shader.vertexShader = shader.vertexShader.replace(
@@ -3447,7 +3453,7 @@ var smokeShaderInject = (shader, isChimney) => {
   shader.uniforms.uWindStrength = windUniforms.uWindStrength;
   shader.vertexShader = shader.vertexShader.replace(
     '#include <common>',
-    `#include <common>\nuniform float uTime;\nuniform float uWindStrength;\nvarying float vFade;`
+    `#include <common>\nuniform float uTime;\nuniform float uWindStrength;\nvarying float vFade;\nvarying vec3 vSmokeViewPos;`
   );
   shader.vertexShader = shader.vertexShader.replace(
     '#include <begin_vertex>',
@@ -3510,14 +3516,20 @@ var smokeShaderInject = (shader, isChimney) => {
         vFade = fadeIn * fadeOut;
     `
   );
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <project_vertex>',
+    `#include <project_vertex>\nvSmokeViewPos = -mvPosition.xyz;`
+  );
 
-  shader.fragmentShader = `varying float vFade;\n` + shader.fragmentShader;
+  shader.fragmentShader =
+    `varying float vFade;\nvarying vec3 vSmokeViewPos;\n` +
+    shader.fragmentShader;
   shader.fragmentShader = shader.fragmentShader.replace(
     '#include <color_fragment>',
     // Puffs fade out right by the camera: flying or looking through one
     // would otherwise fill the screen with a flat see-through box
     `#include <color_fragment>
-    diffuseColor.a *= vFade * smoothstep(6.0, 30.0, length(vViewPosition));`
+    diffuseColor.a *= vFade * smoothstep(6.0, 30.0, length(vSmokeViewPos));`
   );
 };
 

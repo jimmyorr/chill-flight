@@ -1075,7 +1075,9 @@ function rockArchProp(pos, meshes, blocks, grass = true) {
       y + by,
       z - bx * s + bz * c,
       size,
-      isGrass ? rockArchGrassMat.color.toArray() : rockMat.color.toArray(),
+      (isGrass ? rockArchGrassMat : rockMat).color?.toArray() ?? [
+        0.5, 0.5, 0.5,
+      ],
     ]);
   return {
     kind: BREAKABLE.HOUSE,
@@ -1628,7 +1630,7 @@ const shareFarTrunk = (type, geo, mat = null) => {
   const farGeo = farTrunk(geo);
   const h = geo.boundingBox.max.y * 0.75;
   const [cr, cg, cb] =
-    mat && !geo.attributes.color
+    mat?.color && !geo.attributes.color
       ? [mat.color.r, mat.color.g, mat.color.b]
       : geometryAverageColor(geo);
   globalInstancer.setFarGeometry(type, farGeo, {

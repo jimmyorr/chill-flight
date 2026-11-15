@@ -205,8 +205,8 @@ if (colorOptionsInit && typeof state.planeColor !== 'undefined') {
     if (target) {
       state.planeColor = parseInt(target.getAttribute('data-color'));
       localStorage.setItem('chill_flight_color', state.planeColor.toString());
-      if (planeMat) planeMat.color.setHex(state.planeColor);
-      if (planeWhiteMat) {
+      if (planeMat?.color) planeMat.color.setHex(state.planeColor);
+      if (planeWhiteMat?.color) {
         planeWhiteMat.color.setHex(
           state.planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff
         );

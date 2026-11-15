@@ -36,6 +36,12 @@ const PAGES = [
     path: '?preset=low&tod=0.23&timeSpeed=0&start=1&music=0',
     presetSwitch: true,
   },
+  // Non-standard material views: MeshNormalMaterial lacks .color and
+  // <color_vertex> (CHILL-FLIGHT-4R), and MeshBasicMaterial omits vViewPosition
+  // and guards <beginnormal_vertex> behind USE_ENVMAP. Ground-level buggy spawn
+  // compiles tallGrass alongside water, smoke, and far tree trunks.
+  {path: '?theme=normal&plane=buggy&start=1&music=0', waitForLoad: true},
+  {path: '?theme=basic&plane=buggy&start=1&music=0', waitForLoad: true},
   // Debug pages are dev-only (not in the production build).
   {path: 'debug/debug-models.html', devOnly: true},
   {path: 'debug/debug-faces.html', devOnly: true},
@@ -76,7 +82,10 @@ const failPage = (tag, msg) => errors.push(`[${tag}] ${msg}`);
 // world (pages that set their own seed keep it).
 const TEST_SEED = '20260101';
 
-async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
+async function checkPage(
+  browser,
+  {path, fly, blackhole, presetSwitch, waitForLoad}
+) {
   const pageUrl = new URL(path, BASE);
   if (!pageUrl.searchParams.has('seed')) {
     pageUrl.searchParams.set('seed', TEST_SEED);
@@ -297,6 +306,15 @@ async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
   }
 
   if (!fly) {
+    if (waitForLoad) {
+      await page.waitForFunction(
+        () => {
+          const el = document.getElementById('loading-overlay');
+          return el && getComputedStyle(el).display === 'none';
+        },
+        {timeout: 60000}
+      );
+    }
     await new Promise((r) => setTimeout(r, DEBUG_PAGE_MS));
     if (path === 'debug/debug-models.html') {
       const check = await page.evaluate(() => ({

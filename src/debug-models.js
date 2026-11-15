@@ -533,9 +533,9 @@ function viewModel(type, e, colorSeed = 0) {
           const colors = ChillFlightLogic.PLANE_COLORS;
           const newColor = colors[colorSeed % colors.length];
           const newAccentMat = planeMat.clone();
-          newAccentMat.color.setHex(newColor);
+          newAccentMat.color?.setHex(newColor);
           const newBodyMat = planeWhiteMat.clone();
-          newBodyMat.color.setHex(newColor === 0xe8c382 ? 0x1c3144 : 0xffffff);
+          newBodyMat.color?.setHex(newColor === 0xe8c382 ? 0x1c3144 : 0xffffff);
 
           ap.traverse((child) => {
             if (child.isMesh && child.material) {
@@ -1292,7 +1292,7 @@ function viewModel(type, e, colorSeed = 0) {
         const palette = [0xff4fd8, 0xff7a3d, 0xffb8ec, 0xc04dff, 0xff2e7e];
         [-30, 0, 30].forEach((xOffset, i) => {
           const mat = crystalMat.clone();
-          mat.color.setHex(palette[(colorSeed + i) % palette.length]);
+          mat.color?.setHex(palette[(colorSeed + i) % palette.length]);
           const cluster = new THREE.Mesh(crystalClusterGeo, mat);
           const scale = [0.8, 1.4, 2.2][i];
           cluster.scale.set(scale, scale, scale);

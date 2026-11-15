@@ -315,6 +315,7 @@ function buildMesh(preset) {
     Object.assign(shader.uniforms, uniforms);
     shader.uniforms.uTime = animationUniforms.uTime;
     shader.uniforms.uWindStrength = windUniforms.uWindStrength;
+    const hasColor = shader.vertexShader.includes('#include <color_vertex>');
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>\n${VERTEX_PARS}`)
       .replace(
@@ -323,7 +324,7 @@ function buildMesh(preset) {
       )
       .replace(
         '#include <beginnormal_vertex>',
-        `vec3 objectNormal = bladeNormal;`
+        `${hasColor ? '' : VERTEX_MAIN}\nvec3 objectNormal = bladeNormal;`
       )
       .replace('#include <begin_vertex>', `vec3 transformed = bladePos;`);
     // Both faces of a blade take the ground's normal (three.js would flip
