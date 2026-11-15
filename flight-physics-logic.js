@@ -52,11 +52,14 @@ export const CEILING = {
 };
 
 // The highest the plane can fly, under clouds at `cloudHeight`
-// PROTOTYPE (?aboveClouds=fog or sheet): fly through and above the deck
+// Flying through and above the cloud deck (?aboveClouds=1 while it's
+// tried out on phones; cloud-deck.js draws the deck from above): the top of
+// the sky is then ABOVE_CLOUDS_ROOM over the deck rather than just under it
 export const ABOVE_CLOUDS =
-  (typeof location !== 'undefined' &&
-    new URLSearchParams(location.search).get('aboveClouds')) ||
-  null;
+  typeof location !== 'undefined' &&
+  ['1', 'true', 'sheet'].includes(
+    new URLSearchParams(location.search).get('aboveClouds')
+  );
 export const ABOVE_CLOUDS_ROOM = 1500;
 export function flightCeiling(cloudHeight) {
   if (ABOVE_CLOUDS) return cloudHeight + ABOVE_CLOUDS_ROOM;

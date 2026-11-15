@@ -1,8 +1,9 @@
-// PROTOTYPE (?aboveClouds=sheet): the cloud deck seen from above. The sky
-// paints the clouds only looking up, so above the deck they vanish; this is
-// one big flat sheet at the deck's height, under the camera, drawing the same
-// cumulus pattern the sky does (CLOUD_GLSL's cloudsAlong), lit from above and
-// fading into the horizon far off.
+// The cloud deck seen from above (?aboveClouds, ABOVE_CLOUDS in
+// flight-physics-logic.js). The sky paints its clouds looking up, so above
+// the deck they'd vanish; this is one big flat sheet at the deck's height
+// under the camera, drawing the same cumulus the sky shows from below (so
+// the gaps match), lit from above: sunny sides bright, shadow sides soft
+// and sky-tinted, fading into the horizon far off. Only drawn above the deck.
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {skyUniforms} from './sky-uniforms.js';
@@ -51,18 +52,43 @@ const material = new THREE.ShaderMaterial({
     uniform float uDeckLight;
     uniform vec2 uDeckCenter;
     varying vec3 vWorld;
+
+    // The sky's cumulus noise (cloudsAlong in CLOUD_GLSL) at deck
+    // position uv, with the fine detail on: the cloud's thickness
+    float cumulusNoise(vec2 uv) {
+      vec2 q;
+      return cumulusShape((uv + CLOUD_WIND * uTime * 0.034) * 2.0, 1.0, q);
+    }
+
     void main() {
-      // The cloud straight above a point just under the deck: the same
-      // pattern the sky shows from below
-      vec4 c = cloudsAlong(vec3(vWorld.x, uDeckHeight - 1.0, vWorld.z),
-                           vec3(0.0, 1.0, 0.0), uDeckHeight, uCloudDensity,
-                           uTime, sunDirection, topColor, bottomColor);
-      // Sunlit tops: brighter and whiter than the undersides
-      vec3 col = mix(c.rgb, vec3(1.0, 0.99, 0.97), 0.75) * uDeckLight;
       float far = length(vWorld.xz - uDeckCenter) / ${RADIUS.toFixed(1)};
+      float edge = 0.42 - (uCloudDensity - 0.5) * 0.6 - uCloudCover;
+      vec2 uv = vWorld.xz / uDeckHeight;
+      float n = cumulusNoise(uv);
+      float here = smoothstep(edge, edge + 0.16, n) * 0.92 * uCloudTypes.x;
+      if (here < 0.004) discard;
+      // The noise as the height of the tops, well past where the cloud
+      // turns solid: a slope down toward the sun faces it, one up toward it
+      // is in shadow, so billows show all across the deck, not just at
+      // its edges; the hollows between billows are darker too
+      vec2 sun2D = length(sunDirection.xz) > 0.001
+        ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
+      float towardSun = cumulusNoise(uv + sun2D * 0.008);
+      float lit = clamp(0.6 + (n - towardSun) * 14.0, 0.0, 1.0);
+      float hollow = smoothstep(edge, edge + 0.45, n);
+      // Low sun: longer shadows and a warm light
+      float lowSun = 1.0 - smoothstep(0.05, 0.5, sunDirection.y);
+      lit = mix(lit, lit * lit, lowSun * 0.3);
+      vec3 sunlit = mix(vec3(1.0, 0.99, 0.97), bottomColor * 1.6, lowSun * 0.35);
+      vec3 shade = mix(vec3(0.74, 0.77, 0.84), topColor, 0.25);
+      vec3 col = mix(shade, sunlit, lit);
+      // Thin edges and hollows are greyer (from above, even a storm deck's
+      // top is in the sun)
+      col *= mix(0.84, 1.0, hollow);
+      col *= uDeckLight;
       col = mix(col, bottomColor, smoothstep(0.25, 0.95, far));
       // Solid where the sky would show thick cloud, so no ground shows through
-      float a = smoothstep(0.0, 0.7, c.a) * (1.0 - smoothstep(0.85, 1.0, far));
+      float a = smoothstep(0.0, 0.7, here) * (1.0 - smoothstep(0.85, 1.0, far));
       gl_FragColor = vec4(col, a);
     }
   `,
@@ -78,10 +104,10 @@ const deck = new THREE.Mesh(geometry, material);
 deck.frustumCulled = false;
 deck.visible = false;
 deck.renderOrder = 1;
-if (ABOVE_CLOUDS === 'sheet') scene.add(deck);
+if (ABOVE_CLOUDS) scene.add(deck);
 
 export function updateCloudDeck(camPos) {
-  if (ABOVE_CLOUDS !== 'sheet') return;
+  if (!ABOVE_CLOUDS) return;
   const h = skyUniforms.uCloudHeight.value;
   deck.visible = skyUniforms.uShowClouds.value && camPos.y > h + 5;
   if (!deck.visible) return;

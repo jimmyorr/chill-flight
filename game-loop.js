@@ -1640,10 +1640,8 @@ const CLOUD_BASE_FOG = 0.0003;
 const _mistLit = new THREE.Color(0xdde3ea);
 const _mistColor = new THREE.Color();
 const _mistCamPos = new THREE.Vector3();
-// PROTOTYPE above-clouds fog
+// Inside the deck (flying through it, ABOVE_CLOUDS): the fog's density
 const IN_CLOUD_FOG = 0.003;
-const CLOUD_FLOOR_FOG = 0.0007;
-const _cloudTop = new THREE.Color();
 
 // How much cumulus deck is overhead (0..1), as the sky draws it
 // (cloudsAlong in constants.js): the weather's overcast thickens the deck
@@ -2035,7 +2033,8 @@ function updateEnvironmentLighting(delta, now) {
 
   _cloudyColor.setHex(0x0a0c10).lerp(_stormColor, state.dayFactor);
 
-  // PROTOTYPE: above the deck the sky is clear whatever the weather below
+  // Above the deck (ABOVE_CLOUDS) the sky is clear whatever the weather
+  // below
   const aboveDeck = ABOVE_CLOUDS
     ? THREE.MathUtils.smoothstep(
         getCameraWorldPosition(_mistCamPos).y,
@@ -2063,27 +2062,20 @@ function updateEnvironmentLighting(delta, now) {
       deckY - CEILING.BELOW_CLOUDS - CEILING.THIN_AIR / 2,
       deckY - CEILING.BELOW_CLOUDS + 20
     ) * cover;
-  // PROTOTYPE: inside the deck a whiteout, and above it (fog mode) the
-  // fog is the cloud tops, hiding the ground
+  // Flying through the deck (ABOVE_CLOUDS): a whiteout inside it (the fog
+  // here, the veil over the sky in cloud-deck.js), which above it takes the
+  // place of the cloud base's mist
   state.inCloud = 0;
-  state.cloudFloor = 0;
   if (ABOVE_CLOUDS) {
     state.inCloud =
       (1 - THREE.MathUtils.smoothstep(Math.abs(camY - deckY), 40, 220)) * cover;
-    if (camY > deckY) {
-      state.cloudBaseMist = state.inCloud;
-      if (ABOVE_CLOUDS === 'fog') state.cloudFloor = cover;
-    }
+    if (camY > deckY) state.cloudBaseMist = state.inCloud;
   }
   _mistColor
     .copy(_finalFogColor)
     .lerp(_cloudyColor, 0.5)
     .lerp(_mistLit, 0.35 * state.dayFactor);
   _finalFogColor.lerp(_mistColor, Math.max(state.cloudBaseMist, state.inCloud));
-  if (state.cloudFloor > 0) {
-    _cloudTop.copy(_mistLit).multiplyScalar(0.25 + 0.8 * state.dayFactor);
-    _finalFogColor.lerp(_cloudTop, state.cloudFloor * (1 - state.inCloud));
-  }
   scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
 
   // Fog density follows the conditions: clear skies, morning fog, clouds,
@@ -2122,8 +2114,7 @@ function updateEnvironmentLighting(delta, now) {
     targetFogDensity,
     baseFogDensity + swampMist * 0.000085,
     THREE.MathUtils.lerp(targetFogDensity, CLOUD_BASE_FOG, state.cloudBaseMist),
-    THREE.MathUtils.lerp(targetFogDensity, IN_CLOUD_FOG, state.inCloud),
-    THREE.MathUtils.lerp(targetFogDensity, CLOUD_FLOOR_FOG, state.cloudFloor)
+    THREE.MathUtils.lerp(targetFogDensity, IN_CLOUD_FOG, state.inCloud)
   );
   scene.fog.density = THREE.MathUtils.lerp(
     scene.fog.density,
