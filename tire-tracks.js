@@ -18,6 +18,7 @@ import {sampleGroundColor} from './terrain-chunks.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {isPaved} from './particles.js';
+import {BUGGY_AXLES} from './buggy-model.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
 // Quads in the ring: both tyres' tracks for TRACK_LIFE at top speed
@@ -44,16 +45,27 @@ const FADE_NEAR = 220;
 const FADE_FAR = 480;
 
 // Tyre width (units) and how far each wheel is to the side and behind the
-// vehicle's middle. The buggy draws its rear tyres; the planes their main
-// wheels (or the seaplane's pontoons).
+// vehicle's middle. The buggy draws its rear tyres, and its front ones too
+// while it slides (`front`, how far behind the middle they are); the planes
+// draw their main wheels (or the seaplane's pontoons).
 const WHEELS = {
-  buggy: {width: 1.4, half: 2.5, back: 0},
+  buggy: {
+    width: 1.4,
+    half: BUGGY_AXLES.halfTrack,
+    back: BUGGY_AXLES.rear,
+    front: BUGGY_AXLES.front,
+  },
   seaplane: {width: 1.6, half: 5, back: 0},
   twin: {width: 0.9, half: 5.8, back: 0},
   jet: {width: 0.7, half: 2.4, back: 0},
   biplane: {width: 0.6, half: 1.8, back: 0},
 };
 const DEFAULT_WHEELS = {width: 0.8, half: 2, back: 0};
+// How long a tyre's patch on the ground is (units): sliding sideways, it
+// scuffs a swath that wide rather than its own width
+const PATCH_LENGTH = 1.6;
+// Sliding less than this, the buggy's front tyres leave nothing
+const FRONT_SLIDE = 0.15;
 
 // What each mark multiplies the ground by at full strength
 const DIRT_TINT = new THREE.Color(0.6, 0.55, 0.48);
@@ -260,7 +272,8 @@ function newRibbon() {
     life: TRACK_LIFE,
   };
 }
-const ribbons = [newRibbon(), newRibbon()];
+// Rear (or only) left and right, then the buggy's front left and right
+const ribbons = [newRibbon(), newRibbon(), newRibbon(), newRibbon()];
 
 function writeVertex(v, p, side, birth, life, strength, tint) {
   positions[v * 3] = p.x;
@@ -299,8 +312,14 @@ function laySegment(r, left, right, m) {
   r.life = life;
 }
 
-// Lifts p to just over the ground as drawn, if it's under it
 const _groundAt = {height: 0, slopeX: 0, slopeZ: 0};
+// Sets p just over the ground as drawn
+function onGround(p) {
+  sampleGround(p.x, p.z, _groundAt);
+  p.y = _groundAt.height + LIFT;
+}
+
+// Lifts p to just over the ground as drawn, if it's under it
 function aboveGround(p) {
   sampleGround(p.x, p.z, _groundAt);
   p.y = Math.max(p.y, _groundAt.height + LIFT);
@@ -376,12 +395,15 @@ const _contact = new THREE.Vector3();
 const _left = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _pieceLeft = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+const _swap = new THREE.Vector3();
+const noMark = {strength: 0, tint: _tint, life: TRACK_LIFE};
 const _pieceRight = new THREE.Vector3();
 
 // Where the tyre on `side` touches the ground, in the world, `across`
 // units out from its middle (so a tyre's edges follow a bank's tilt)
-function tyreContact(model, wheels, side, across, out) {
-  out.set(side * wheels.half + across, -(model.wheelDepth ?? 0), wheels.back);
+function tyreContact(model, wheels, side, across, back, out) {
+  out.set(side * wheels.half + across, -(model.wheelDepth ?? 0), back);
   model.localToWorld(out);
   out.y += LIFT;
   return out;
@@ -414,7 +436,7 @@ export function updateTireTracks(delta) {
   } else {
     const spec = WHEELS[activePlaneType] ?? DEFAULT_WHEELS;
     const {x, z} = planeGroup.position;
-    const m = markNow(x, z, sinceTouchdown);
+    markNow(x, z, sinceTouchdown);
     const w = spec.width / 2;
     const speed =
       Math.abs(state.flightSpeedMultiplier || 0) * BASE_FLIGHT_SPEED * 60;
@@ -423,12 +445,50 @@ export function updateTireTracks(delta) {
       SPACING,
       MAX_PIECE
     );
+    const h = planeGroup.rotation.y;
+    const fx = -Math.sin(h);
+    const fz = -Math.cos(h);
+    const sliding = activePlaneType === 'buggy' ? state.buggySlide || 0 : 0;
     ribbons.forEach((r, i) => {
-      const side = i ? 1 : -1;
-      const p = tyreContact(model, spec, side, 0, _contact);
-      tyreContact(model, spec, side, -w, _left);
-      tyreContact(model, spec, side, w, _right);
+      const front = i >= 2;
+      if (front && spec.front === undefined) return;
+      const back = front ? spec.front : spec.back;
+      const side = i % 2 ? 1 : -1;
+      const p = tyreContact(model, spec, side, 0, back, _contact);
       const far = r.valid ? r.point.distanceTo(p) : Infinity;
+      // Rolling straight, the mark is the tyre's width across its own
+      // axle (following a bank's tilt); sliding, it's square to the way the
+      // tyre is really going and widens to the swath it scuffs sideways
+      let travel = 0;
+      if (r.valid && far <= BREAK_DISTANCE) {
+        _dir.set(p.x - r.point.x, 0, p.z - r.point.z);
+        travel = _dir.length();
+      }
+      const slip =
+        travel > 0.5 ? Math.abs(_dir.x * fz - _dir.z * fx) / travel : 0;
+      if (slip > 0.05) {
+        const grip = Math.sqrt(1 - slip * slip);
+        const half = (spec.width * grip + PATCH_LENGTH * slip) / 2;
+        _dir.divideScalar(travel);
+        _left.set(p.x - _dir.z * half, p.y, p.z + _dir.x * half);
+        _right.set(p.x + _dir.z * half, p.y, p.z - _dir.x * half);
+        // (which side is left flips going backwards: keep the ribbon's own)
+        if (
+          _left.distanceToSquared(r.left) > _right.distanceToSquared(r.left)
+        ) {
+          _swap.copy(_left);
+          _left.copy(_right);
+          _right.copy(_swap);
+        }
+        if (!surface.paved) {
+          onGround(_left);
+          onGround(_right);
+        }
+      } else {
+        tyreContact(model, spec, side, -w, back, _left);
+        tyreContact(model, spec, side, w, back, _right);
+      }
+      const m = front && sliding < FRONT_SLIDE ? noMark : mark;
       if (far > BREAK_DISTANCE || (m.strength <= 0 && r.strength <= 0)) {
         // Start a ribbon here, fading in from nothing
         r.valid = true;
