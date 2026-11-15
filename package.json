@@ -76,6 +76,8 @@
     "promo:urls": "node scripts/promo.js urls",
     "promo:artwork": "node scripts/promo.js artwork",
     "promo:view": "node scripts/promo.js view",
+    "promo:evolution": "node scripts/evolution.js video",
+    "promo:evolution:sheet": "node scripts/evolution.js sheet",
     "test:season": "node scripts/test-season.js"
   },
   "dependencies": {
