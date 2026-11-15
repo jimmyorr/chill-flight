@@ -2168,7 +2168,7 @@ function updateEnvironmentLighting(delta, now) {
   const _camWorld = getCameraWorldPosition();
   skyUniforms.uCameraPos.value.copy(_camWorld);
   updateCloudDeck(_camWorld);
-  updateCloudVeil(scene.fog.color);
+  updateCloudVeil(scene.fog.color, _camWorld);
   // The anime towers stand on the far edge of the land and sea
   if (ART_CLOUDS) {
     const above = Math.max(0, _camWorld.y);

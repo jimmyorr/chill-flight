@@ -121,16 +121,46 @@ export function updateCloudDeck(camPos) {
 }
 
 // Inside the deck: a whiteout over the whole view (the fog alone doesn't
-// reach the sky), in the fog's colour, as thick as state.inCloud
+// reach the sky), as thick as the cloud the camera is in. The sky's own
+// cumulus at the camera says whether that's a cloud or a gap, so climbing
+// through a gap stays clear and through a cloud goes white. Only drawn
+// within the deck's band (uBand), so the noise costs nothing elsewhere.
 const veilMaterial = new THREE.ShaderMaterial({
-  uniforms: {uColor: {value: new THREE.Color()}, uAmount: {value: 0}},
+  uniforms: {
+    uColor: {value: new THREE.Color()},
+    uBand: {value: 0},
+    uCamXZ: {value: new THREE.Vector2()},
+    uDeckHeight: deckUniforms.uDeckHeight,
+    uCloudDensity: skyUniforms.uCloudDensity,
+    uTime: skyUniforms.uTime,
+    uNoiseTex: skyUniforms.uNoiseTex,
+    uMoonDir: skyUniforms.uMoonDir,
+    uMoonBright: skyUniforms.uMoonBright,
+    uCloudCover: skyUniforms.uCloudCover,
+    uSnowDeck: skyUniforms.uSnowDeck,
+    uCloudTypes: deckUniforms.uCloudTypes,
+  },
   vertexShader: /* glsl */ `
     void main() { gl_Position = vec4(position.xy * 2.0, 0.0, 1.0); }
   `,
-  fragmentShader: /* glsl */ `
+  fragmentShader:
+    CLOUD_GLSL +
+    /* glsl */ `
     uniform vec3 uColor;
-    uniform float uAmount;
-    void main() { gl_FragColor = vec4(uColor, uAmount); }
+    uniform float uBand;
+    uniform vec2 uCamXZ;
+    uniform float uDeckHeight;
+    uniform float uCloudDensity;
+    uniform float uTime;
+    void main() {
+      vec2 q;
+      float n = cumulusShape(
+        (uCamXZ / uDeckHeight + CLOUD_WIND * uTime * 0.034) * 2.0, 0.0, q);
+      float edge = 0.42 - (uCloudDensity - 0.5) * 0.6 - uCloudCover;
+      // Thicker toward the middle of a cloud, so the white builds and clears
+      float inside = smoothstep(edge, edge + 0.12, n) * uCloudTypes.x;
+      gl_FragColor = vec4(uColor, min(0.95, uBand * inside * 1.15));
+    }
   `,
   transparent: true,
   depthTest: false,
@@ -156,10 +186,22 @@ if (ART_POST) {
   }
 }
 
-export function updateCloudVeil(fogColor) {
+const _white = new THREE.Color(0xf2f4f7);
+export function updateCloudVeil(fogColor, camPos) {
   if (!ABOVE_CLOUDS) return;
-  const amount = Math.min(0.92, (state.inCloud || 0) * 1.1);
-  veil.visible = amount > 0.01;
-  veilMaterial.uniforms.uAmount.value = amount;
-  veilMaterial.uniforms.uColor.value.copy(fogColor);
+  const h = skyUniforms.uCloudHeight.value;
+  const band = skyUniforms.uShowClouds.value
+    ? 1 - THREE.MathUtils.smoothstep(Math.abs(camPos.y - h), 60, 260)
+    : 0;
+  veil.visible = band > 0.01;
+  if (!veil.visible) return;
+  const u = veilMaterial.uniforms;
+  u.uBand.value = band;
+  u.uCamXZ.value.set(camPos.x, camPos.z);
+  u.uDeckHeight.value = h;
+  deckUniforms.uCloudTypes.value.set(skyUniforms.uCloudTypes.value.x, 0, 0);
+  // Cloud white in daylight, the dark fog's colour at night
+  u.uColor.value
+    .copy(fogColor)
+    .lerp(_white, 0.6 * Math.min(1, state.dayFactor));
 }
