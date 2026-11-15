@@ -29,6 +29,47 @@ export const FLIGHT = {
 
 const KTS_PER_MULT = BASE_FLIGHT_SPEED * 60;
 
+// The top of the sky (#176) sits just under the cloud deck (whose flat layer
+// would give itself away from above) and moves with it (?cloudHeight=).
+// Climbing up to it is "thin air": over the last THIN_AIR units the steepest
+// climb fades to level and climbs cost more speed, and over the last
+// MUSH_BAND the wings run out of air and the nose sags MUSH_DEG under level,
+// so the plane floats along just under the top rather than meeting a lid.
+// Under cloud, the cloud base's mist (game-loop.js) fills the same band.
+export const CEILING = {
+  BELOW_CLOUDS: 100,
+  MIN: 600, // a very low ?cloudHeight still leaves room to fly
+  THIN_AIR: 600,
+  MUSH_BAND: 40,
+  MUSH_DEG: 3,
+  // A climb up there costs up to this much more speed (pitchedTarget)
+  CLIMB_COST: 1,
+  // The nose follows the falling limit this late (seconds, at 150 kts;
+  // sooner when faster, so every plane floats up about as far): a steep
+  // climb floats up past level, the nose sags under it, and the plane
+  // settles just under the top (sagClimbCap)
+  SAG_SECONDS: 1.5,
+};
+
+// The highest the plane can fly, under clouds at `cloudHeight`
+export function flightCeiling(cloudHeight) {
+  return Math.max(CEILING.MIN, cloudHeight - CEILING.BELOW_CLOUDS);
+}
+
+// How thin the air is at height y: 0 well below the ceiling, 1 at it
+export function thinAirAt(y, ceiling) {
+  return smoothstep(y, ceiling - CEILING.THIN_AIR, ceiling);
+}
+
+// The steepest climb (radians) allowed at height y, for a plane that can
+// climb at `maxClimb` lower down; under level right at the top (the sag)
+export function ceilingClimbLimit(y, ceiling, maxClimb) {
+  const mush =
+    smoothstep(y, ceiling - CEILING.MUSH_BAND, ceiling) *
+    ((CEILING.MUSH_DEG * Math.PI) / 180);
+  return maxClimb * (1 - thinAirAt(y, ceiling)) - mush;
+}
+
 function smoothstep(x, min, max) {
   if (x <= min) return 0;
   if (x >= max) return 1;
@@ -61,6 +102,15 @@ export function canLiftOff(kts, pitch, handling) {
   );
 }
 
+// The steepest climb the nose is held to after `delta` seconds at `kts`:
+// following ceilingClimbLimit's `limit` down a moment late
+// (CEILING.SAG_SECONDS), and back up at once
+export function sagClimbCap(cap, limit, kts, delta) {
+  if (cap === null || limit >= cap) return limit;
+  const seconds = CEILING.SAG_SECONDS * Math.min(1, 150 / Math.max(kts, 1));
+  return cap + (limit - cap) * (1 - Math.exp(-delta / seconds));
+}
+
 /**
  * The speed (multiplier) the plane heads for at the throttle's `target` with
  * its nose at `pitch` (radians, negative nose down): a dive speeds it up and
@@ -70,7 +120,8 @@ export function canLiftOff(kts, pitch, handling) {
  * level speed plus CLIMB_FLOOR_KTS, so climbing alone never stalls it. A lot
  * less while skimming the ground (`avoidingGround`) and none while falling
  * (a nose the tumble tipped down would win back speed and pop the plane out
- * of the fall). Moving the target rather than the speed keeps it the same at
+ * of the fall). Near the top of the sky, `thinAir` (thinAirAt) makes a climb
+ * cost more. Moving the target rather than the speed keeps it the same at
  * any frame rate.
  */
 export function pitchedTarget(
@@ -78,14 +129,17 @@ export function pitchedTarget(
   pitch,
   handling,
   fallAmount,
-  avoidingGround
+  avoidingGround,
+  thinAir = 0
 ) {
   const share =
     handling.diveGain *
     (avoidingGround ? FLIGHT.SKIM_SHARE : 1) *
     (1 - fallAmount);
-  const change = (-Math.sin(pitch) * share * handling.topKts) / KTS_PER_MULT;
+  let change = (-Math.sin(pitch) * share * handling.topKts) / KTS_PER_MULT;
   if (change >= 0) return target + change;
+  // Climbing in thin air costs more speed (CEILING.CLIMB_COST)
+  change *= 1 + thinAir * CEILING.CLIMB_COST;
   const floor = (handling.levelKts + FLIGHT.CLIMB_FLOOR_KTS) / KTS_PER_MULT;
   return Math.max(Math.min(target, floor), target + change);
 }

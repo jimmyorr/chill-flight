@@ -42,13 +42,8 @@ export const UNITS_TO_M = 1;
 export const M_TO_FT = 3.28084;
 export const M_TO_MI = 1 / 1609.344;
 export const TURN_SPEED = 0.03;
-// The top of the sky (units; about 2,854 m on the altitude readout), just
-// under the cloud deck at 3,000 (cloudHeight), whose flat layer gives itself
-// away from above. Over the last CEILING_EASE units (300 m) below it
-// the steepest climb allowed eases to level, so the plane rounds out under
-// the clouds instead of sliding along the top
-export const MAX_FLIGHT_HEIGHT = 2900;
-export const CEILING_EASE = 300;
+// The top of the sky follows the cloud deck: see CEILING in
+// flight-physics-logic.js
 
 // Sea-level speed of sound in knots (displayed HUD KTS)
 export const MACH_1_KTS = 661;

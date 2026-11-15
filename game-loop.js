@@ -12,6 +12,11 @@ import {
 import {syncChunkBorders} from './debug-ui.js';
 import {arches} from './arches.js';
 import {archCeiling} from './arches-logic.js';
+import {
+  ceilingClimbLimit,
+  flightCeiling,
+  sagClimbCap,
+} from './flight-physics-logic.js';
 import {LANDMARKS} from './landmarks.js';
 import {
   _daySky,
@@ -86,10 +91,8 @@ import {
 } from './game.js';
 import {
   BASE_FLIGHT_SPEED,
-  CEILING_EASE,
   CHUNK_SIZE,
   MACH_1_KTS,
-  MAX_FLIGHT_HEIGHT,
   TURN_SPEED,
   WATER_LEVEL,
   displaySpeed,
@@ -929,6 +932,9 @@ const STEEP_CLIMB_ANGLE = (60 * Math.PI) / 180;
 const STEEP_DIVE_ANGLE = -(70 * Math.PI) / 180;
 const MAX_DIVE_ANGLE = -(75 * Math.PI) / 180;
 const MAX_CLIMB_ANGLE = (75 * Math.PI) / 180;
+// The steepest climb the thin air near the top of the sky holds the nose to
+// (sagClimbCap), or null before the first frame
+let ceilingCap = null;
 const SLOW_CLIMB_ANGLE = (20 * Math.PI) / 180; // steepest climb at stall speed
 // Weighted roll (state.weightedRoll): its spring's stiffness against the
 // usual roll's rate, matched so both reach 90% of a new bank together
@@ -1555,20 +1561,25 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     planeGroup.rotation.x = flightRot.pitch;
     if (!state.isLooping && !state.isDoingImmelmann) {
-      // Near the top of the sky the steepest climb eases to level
-      // (CEILING_EASE), so the plane rounds out instead of sliding along it;
-      // and slow, it can't climb as steeply: from any climb at its level
-      // speed down to SLOW_CLIMB_ANGLE at its stall speed, still enough to
-      // lift off there
+      // Near the top of the sky the thin air eases the steepest climb to
+      // level and then a little under (ceilingClimbLimit), a moment late
+      // (sagClimbCap), so a climb floats up, the nose sags and the plane
+      // settles just under the clouds; and slow, it can't climb as steeply:
+      // from any climb at its level speed down to SLOW_CLIMB_ANGLE at its
+      // stall speed, still enough to lift off there
       const {stallKts, levelKts} = planeHandling();
+      ceilingCap = sagClimbCap(
+        ceilingCap,
+        ceilingClimbLimit(
+          planeGroup.position.y,
+          flightCeiling(manualCloudHeight),
+          MAX_CLIMB_ANGLE
+        ),
+        kts,
+        delta
+      );
       const maxClimb = Math.min(
-        MAX_CLIMB_ANGLE *
-          (1 -
-            THREE.MathUtils.smoothstep(
-              planeGroup.position.y,
-              MAX_FLIGHT_HEIGHT - CEILING_EASE,
-              MAX_FLIGHT_HEIGHT
-            )),
+        ceilingCap,
         stallKts > 0
           ? THREE.MathUtils.lerp(
               SLOW_CLIMB_ANGLE,
