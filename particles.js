@@ -36,7 +36,7 @@ import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 import {manualCloudHeight, precipitation} from './weather-manager.js';
-import {CEILING} from './flight-physics-logic.js';
+import {underCloudsCeiling} from './flight-physics-logic.js';
 import {rushTrail} from './crystal-rush.js';
 
 // Room for four or more planes' smoke trails (~1,000 each), water spray, and
@@ -997,7 +997,7 @@ function contrailAir(delta) {
       COLD_FULL
     );
   }
-  const top = Math.max(CEILING.MIN, manualCloudHeight - CEILING.BELOW_CLOUDS);
+  const top = underCloudsCeiling(manualCloudHeight);
   const high = THREE.MathUtils.smoothstep(
     planeGroup.position.y,
     top - CONTRAILS_BELOW_CEILING.START,

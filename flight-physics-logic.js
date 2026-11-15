@@ -61,9 +61,14 @@ export const ABOVE_CLOUDS =
     new URLSearchParams(location.search).get('aboveClouds')
   );
 export const ABOVE_CLOUDS_ROOM = 1500;
+// Just under the cloud deck: the top of the sky, unless ABOVE_CLOUDS lets
+// planes on up through it (contrails keep to this height either way)
+export function underCloudsCeiling(cloudHeight) {
+  return Math.max(CEILING.MIN, cloudHeight - CEILING.BELOW_CLOUDS);
+}
 export function flightCeiling(cloudHeight) {
   if (ABOVE_CLOUDS) return cloudHeight + ABOVE_CLOUDS_ROOM;
-  return Math.max(CEILING.MIN, cloudHeight - CEILING.BELOW_CLOUDS);
+  return underCloudsCeiling(cloudHeight);
 }
 
 // How thin the air is at height y: 0 well below the ceiling, 1 at it

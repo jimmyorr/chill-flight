@@ -45,7 +45,8 @@ export const TURN_SPEED = 0.03;
 // The top of the sky follows the cloud deck: see CEILING in
 // flight-physics-logic.js
 // Engine contrails (particles.js) ease in over this band below the top of
-// the sky (units under flightCeiling): none until START under it, full by
+// the sky (units under underCloudsCeiling in flight-physics-logic.js, the top
+// of the sky without ?aboveClouds): none until START under it, full by
 // FULL under it, so with the usual 3,000 m clouds (top at 2,900) they start
 // at 1,800 m and are full at 2,200 m, before the thin air
 export const CONTRAILS_BELOW_CEILING = {START: 1100, FULL: 700};
