@@ -1703,6 +1703,8 @@ export const ChillFlightLogic = {};
   // Tall grass and wheat round the camera when it's low (grass.js); ?grass=0
   // turns it off
   exports.GRASS = getParam('grass', '1') !== '0';
+  // Tyre tracks and skid marks (tire-tracks.js), on unless ?tracks=0
+  exports.TIRE_TRACKS = getParam('tracks', '1') !== '0';
   let continentSeed = null;
   let continentForced = null;
   // Sets `continent` for the current seed (and forced name), when they change

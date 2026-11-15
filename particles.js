@@ -361,8 +361,9 @@ function planeVelocity(out) {
   return out.set(-Math.sin(h) * speed, 0, -Math.cos(h) * speed);
 }
 
-// Whether (x, z) is paved: a runway, an apron or a road
-function isPaved(x, z) {
+// Whether (x, z) is paved: a runway, an apron or a road (also for the tyre
+// marks, tire-tracks.js)
+export function isPaved(x, z) {
   // Highways worn to dirt out in the desert throw up dust like the ground
   if (sampleRoad(x, z, _road)) return !_road.dirt;
   const L = ChillFlightLogic;

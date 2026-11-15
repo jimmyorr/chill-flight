@@ -77,6 +77,7 @@ import '../flight-physics-logic.js';
 import '../follow-logic.js';
 import '../flight-physics.js';
 import '../particles.js';
+import '../tire-tracks.js';
 import '../whales.js';
 import '../dolphins.js';
 import '../grass.js';

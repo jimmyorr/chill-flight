@@ -138,6 +138,7 @@ import {updateTraffic} from './traffic.js';
 import {updateBeacons} from './beacons.js';
 import {updateRoadTraffic} from './road-traffic.js';
 import {updateParticles} from './particles.js';
+import {updateTireTracks} from './tire-tracks.js';
 import {updateWhales} from './whales.js';
 import {updateDolphins} from './dolphins.js';
 import {updateGrass} from './grass.js';
@@ -625,6 +626,7 @@ function performFrame(timestamp) {
   updateTrip(delta);
   updateRush(delta);
   updateParticles(delta);
+  updateTireTracks(delta);
   updateWhales(delta);
   updateDolphins(delta);
   updateGrass(delta);
