@@ -148,6 +148,7 @@ import {updateTireTracks} from './tire-tracks.js';
 import {updateWhales} from './whales.js';
 import {updateDolphins} from './dolphins.js';
 import {updateGrass} from './grass.js';
+import {updateTreeWash} from './tree-wash.js';
 import {updateFireflies} from './fireflies.js';
 import {updateMultiplayer} from './multiplayer.js';
 import {updateBreakables} from './breakables.js';
@@ -637,6 +638,7 @@ function performFrame(timestamp) {
   updateWhales(delta);
   updateDolphins(delta);
   updateGrass(delta);
+  updateTreeWash(delta);
   updateFireflies();
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping();
